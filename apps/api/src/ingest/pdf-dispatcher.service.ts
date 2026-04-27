@@ -61,8 +61,14 @@ export class PdfDispatcherService {
    * batch — we want one bad PDF to not poison the queue.
    */
   async processPendingForRepo(repoId: string, actor: ActorCtx): Promise<DispatchResult> {
+    // Pick up both untouched files and previously failed ones so a manual
+    // re-process can recover from transient pdf-worker outages without
+    // forcing the operator to delete and re-sync the whole repo.
     const pending = await this.prisma.sourceFile.findMany({
-      where: { repoId, processStatus: ProcessStatus.pending },
+      where: {
+        repoId,
+        processStatus: { in: [ProcessStatus.pending, ProcessStatus.failed] },
+      },
       orderBy: { ingestedAt: 'asc' },
     });
     return this.processFiles(pending, actor);
