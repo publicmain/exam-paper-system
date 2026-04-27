@@ -2,6 +2,9 @@ import { BadRequestException, ForbiddenException, Injectable, Logger, NotFoundEx
 import { PrismaService } from '../common/prisma.service';
 import { AuditService } from '../audit/audit.service';
 import { ComplianceService } from '../compliance/compliance.service';
+import { PdfDispatcherService, DispatchResult } from './pdf-dispatcher.service';
+import { QuestionSplitterService, SplitResult } from './question-splitter.service';
+import { MarkSchemeLinkerService } from './mark-scheme-linker.service';
 import { ComplianceStatus, ProcessStatus, SyncStatus } from '@prisma/client';
 import { parseFilename } from './filename-parser';
 import { spawn } from 'node:child_process';
@@ -23,7 +26,12 @@ export interface SyncResult {
   scanned: number;
   newFiles: number;
   duplicates: number;
+  skippedByAllowlist: number;
+  skippedByYear: number;
   errors: string[];
+  dispatch?: DispatchResult;
+  split?: { totalItems: number; files: number };
+  msLink?: { matched: number; pairs: number };
 }
 
 const MAX_CLONE_BYTES = 2 * 1024 * 1024 * 1024; // 2 GB safety cap per sync
@@ -37,7 +45,18 @@ export class IngestService {
     private readonly prisma: PrismaService,
     private readonly audit: AuditService,
     private readonly compliance: ComplianceService,
+    private readonly dispatcher: PdfDispatcherService,
+    private readonly splitter: QuestionSplitterService,
+    private readonly msLinker: MarkSchemeLinkerService,
   ) {}
+
+  /** Manually re-process all pending/failed files for a repo. */
+  async processPending(repoId: string, actor: ActorCtx) {
+    const dispatch = await this.dispatcher.processPendingForRepo(repoId, actor);
+    const splits = await this.splitter.splitForRepo(repoId);
+    const links = await this.msLinker.linkForRepo(repoId);
+    return { dispatch, splits, links };
+  }
 
   /**
    * Synchronise one source repository. The worker will refuse to clone any
@@ -81,8 +100,12 @@ export class IngestService {
       scanned: 0,
       newFiles: 0,
       duplicates: 0,
+      skippedByAllowlist: 0,
+      skippedByYear: 0,
       errors: [],
     };
+    const allowlist = new Set<string>(repo.syllabusAllowlist ?? []);
+    const yearAllowlist = new Set<number>(repo.yearAllowlist ?? []);
 
     let cloneDir: string | null = null;
     try {
@@ -92,13 +115,32 @@ export class IngestService {
 
       await fs.mkdir(RAW_STORE, { recursive: true });
 
-      const pdfFiles = await this.walkForPdfs(cloneDir);
+      const pdfFiles = await this.walkForPdfs(cloneDir, allowlist);
       result.scanned = pdfFiles.length;
 
       let totalBytesIngested = 0;
 
       for (const absPath of pdfFiles) {
         try {
+          const rawName = path.basename(absPath);
+          const parsed = parseFilename(rawName);
+
+          // Allowlist gate: when set, only keep PDFs whose parsed
+          // syllabusCode is whitelisted. Unparseable filenames are dropped
+          // since we cannot prove they are in scope.
+          if (allowlist.size > 0) {
+            if (!parsed.syllabusCode || !allowlist.has(parsed.syllabusCode)) {
+              result.skippedByAllowlist++;
+              continue;
+            }
+          }
+          if (yearAllowlist.size > 0) {
+            if (!parsed.examYear || !yearAllowlist.has(parsed.examYear)) {
+              result.skippedByYear++;
+              continue;
+            }
+          }
+
           const stat = await fs.stat(absPath);
           if (totalBytesIngested + stat.size > MAX_CLONE_BYTES) {
             result.errors.push(`Aborted at ${absPath}: 2GB cap reached.`);
@@ -114,8 +156,6 @@ export class IngestService {
             continue;
           }
 
-          const rawName = path.basename(absPath);
-          const parsed = parseFilename(rawName);
           const dest = path.join(RAW_STORE, `${sha256}.pdf`);
           await fs.writeFile(dest, buf);
 
@@ -162,6 +202,38 @@ export class IngestService {
         metadata: result,
         ip: actor.ip ?? null,
       });
+
+      // Hand off newly-ingested files to the pdf-worker. We do this inline
+      // so the operator who clicked "Sync now" gets one report covering
+      // both clone and processing. Errors per-file do not abort the batch.
+      try {
+        result.dispatch = await this.dispatcher.processPendingForRepo(repoId, actor);
+      } catch (dispatchErr: any) {
+        this.logger.warn(`dispatch after sync failed: ${dispatchErr?.message ?? dispatchErr}`);
+        result.errors.push(`dispatch: ${dispatchErr?.message ?? dispatchErr}`);
+      }
+
+      // Split processed PDFs into QuestionItems for the review queue.
+      try {
+        const splits = await this.splitter.splitForRepo(repoId);
+        const totalItems = splits.reduce((s, x) => s + x.splits, 0);
+        result.split = { files: splits.length, totalItems };
+      } catch (splitErr: any) {
+        this.logger.warn(`splitter after dispatch failed: ${splitErr?.message ?? splitErr}`);
+        result.errors.push(`split: ${splitErr?.message ?? splitErr}`);
+      }
+
+      // Pair QPs with their MSs and attach per-question mark scheme rows.
+      try {
+        const links = await this.msLinker.linkForRepo(repoId);
+        result.msLink = {
+          pairs: links.filter((l) => l.msFileId).length,
+          matched: links.reduce((s, x) => s + x.matched, 0),
+        };
+      } catch (linkErr: any) {
+        this.logger.warn(`ms link after split failed: ${linkErr?.message ?? linkErr}`);
+        result.errors.push(`mslink: ${linkErr?.message ?? linkErr}`);
+      }
     } catch (e: any) {
       const msg = String(e?.message ?? e);
       await this.prisma.sourceRepository.update({
@@ -213,11 +285,17 @@ export class IngestService {
     });
   }
 
-  private async walkForPdfs(dir: string): Promise<string[]> {
+  /**
+   * Walk for PDFs. When `allowlist` is non-empty, prune subdirectories whose
+   * name does not contain an allowed syllabus code (e.g. for the
+   * OpenPastPapers layout `A-Level-physics-9702/`). The root dir is always
+   * descended; pruning happens one level deep where syllabus folders live.
+   */
+  private async walkForPdfs(dir: string, allowlist: Set<string>): Promise<string[]> {
     const out: string[] = [];
-    const stack: string[] = [dir];
+    const stack: { path: string; depth: number }[] = [{ path: dir, depth: 0 }];
     while (stack.length) {
-      const cur = stack.pop()!;
+      const { path: cur, depth } = stack.pop()!;
       let entries: fsSync.Dirent[];
       try {
         entries = await fs.readdir(cur, { withFileTypes: true });
@@ -227,10 +305,21 @@ export class IngestService {
       for (const ent of entries) {
         if (ent.name === '.git' || ent.name === 'node_modules') continue;
         const full = path.join(cur, ent.name);
-        if (ent.isDirectory()) stack.push(full);
-        else if (ent.isFile() && ent.name.toLowerCase().endsWith('.pdf')) out.push(full);
+        if (ent.isDirectory()) {
+          if (depth === 0 && allowlist.size > 0 && !this.dirNameContainsAllowedCode(ent.name, allowlist)) {
+            continue;
+          }
+          stack.push({ path: full, depth: depth + 1 });
+        } else if (ent.isFile() && ent.name.toLowerCase().endsWith('.pdf')) {
+          out.push(full);
+        }
       }
     }
     return out;
+  }
+
+  private dirNameContainsAllowedCode(name: string, allowlist: Set<string>): boolean {
+    const matches = name.match(/\d{4}/g) ?? [];
+    return matches.some((code) => allowlist.has(code));
   }
 }

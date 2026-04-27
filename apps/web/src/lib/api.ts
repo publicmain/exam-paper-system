@@ -75,6 +75,19 @@ export const api = {
   updateSourceCompliance: (id: string, data: any) => request('PUT', `/sources/${id}/compliance`, data),
   blockSource: (id: string, reason: string) => request('POST', `/sources/${id}/block`, { reason }),
   syncSource: (id: string) => request('POST', `/sources/${id}/sync`),
+  processSource: (id: string) => request('POST', `/sources/${id}/process`),
+  tagSource: (id: string, limit?: number) =>
+    request('POST', `/sources/${id}/tag${limit ? `?limit=${limit}` : ''}`),
+
+  // review queue (admin / head_teacher)
+  listReviewItems: (params: any = {}) => request('GET', `/review/items${qs(params)}`),
+  getReviewItem: (id: string) => request('GET', `/review/items/${id}`),
+  updateReviewItem: (id: string, data: any) => request('PATCH', `/review/items/${id}`, data),
+  approveReviewItem: (id: string) => request('POST', `/review/items/${id}/approve`),
+  rejectReviewItem: (id: string, reason?: string) =>
+    request('POST', `/review/items/${id}/reject`, { reason }),
+  pageImageUrl: (sourceFileId: string, pageNo: number) =>
+    `${BASE}/api/source-files/${sourceFileId}/pages/${pageNo}.png`,
 };
 
 function qs(obj: Record<string, any>) {

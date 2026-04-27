@@ -78,6 +78,48 @@ export default function SourcesPage() {
     }
   }
 
+  async function process(id: string) {
+    setBusy(id);
+    setError(null);
+    try {
+      const res = await api.processSource(id);
+      const d = res.dispatch;
+      const total = (res.splits ?? []).reduce((s: number, x: any) => s + (x.splits ?? 0), 0);
+      const linked = (res.links ?? []).reduce((s: number, x: any) => s + (x.matched ?? 0), 0);
+      alert(
+        `Re-process complete\n` +
+          `pdf-worker: attempted ${d?.attempted ?? 0}, ok ${d?.succeeded ?? 0}, failed ${d?.failed ?? 0}\n` +
+          `splits: ${total}\n` +
+          `mark-scheme links: ${linked}`,
+      );
+      await refresh();
+    } catch (e: any) {
+      setError(e.message);
+    } finally {
+      setBusy(null);
+    }
+  }
+
+  async function tag(id: string) {
+    setBusy(id);
+    setError(null);
+    try {
+      const res = await api.tagSource(id);
+      alert(
+        `AI tag complete\n` +
+          `Attempted: ${res.attempted}\n` +
+          `Tagged: ${res.tagged}\n` +
+          `Skipped: ${res.skipped}\n` +
+          `Errors: ${res.errors?.length ?? 0}`,
+      );
+      await refresh();
+    } catch (e: any) {
+      setError(e.message);
+    } finally {
+      setBusy(null);
+    }
+  }
+
   async function block(id: string) {
     const reason = prompt('Block reason (e.g. "takedown notice from CIE"):');
     if (!reason) return;
@@ -98,12 +140,24 @@ export default function SourcesPage() {
     setError(null);
     try {
       const res = await api.syncSource(id);
+      const d = res.dispatch;
+      const s = res.split;
       alert(
         `Sync complete\n` +
           `Scanned: ${res.scanned}\n` +
           `New files: ${res.newFiles}\n` +
           `Duplicates: ${res.duplicates}\n` +
-          `Errors: ${res.errors?.length ?? 0}`,
+          `Skipped (syllabus): ${res.skippedByAllowlist ?? 0}\n` +
+          `Skipped (year): ${res.skippedByYear ?? 0}\n` +
+          `Errors: ${res.errors?.length ?? 0}\n` +
+          (d
+            ? `\nProcessed by pdf-worker:\n` +
+              `  Attempted: ${d.attempted}\n` +
+              `  Succeeded: ${d.succeeded}\n` +
+              `  Failed: ${d.failed}\n` +
+              `  Skipped (kind): ${d.skippedKind}`
+            : '') +
+          (s ? `\nQuestion splits: ${s.totalItems} items across ${s.files} files` : ''),
       );
       await refresh();
     } catch (e: any) {
@@ -191,6 +245,12 @@ export default function SourcesPage() {
                       <button className="btn" disabled={busy === r.id} onClick={() => sync(r.id)}>
                         {busy === r.id ? 'Syncing…' : 'Sync now'}
                       </button>
+                      <button className="btn" disabled={busy === r.id} onClick={() => process(r.id)}>
+                        Re-process pending
+                      </button>
+                      <button className="btn" disabled={busy === r.id} onClick={() => tag(r.id)}>
+                        AI tag
+                      </button>
                       <button className="btn btn-danger" disabled={busy === r.id} onClick={() => block(r.id)}>
                         Block
                       </button>
@@ -216,6 +276,8 @@ function AddSourceForm({ onClose, onSaved }: { onClose: () => void; onSaved: () 
     examBoardHint: '',
     copyrightOwner: '',
     notesForTeachers: '',
+    syllabusAllowlist: '9709, 9702',
+    yearAllowlist: '',
   });
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -228,6 +290,18 @@ function AddSourceForm({ onClose, onSaved }: { onClose: () => void; onSaved: () 
       if (form.examBoardHint) payload.examBoardHint = form.examBoardHint;
       if (form.copyrightOwner) payload.copyrightOwner = form.copyrightOwner;
       if (form.notesForTeachers) payload.notesForTeachers = form.notesForTeachers;
+      const codes = String(form.syllabusAllowlist ?? '')
+        .split(/[\s,]+/)
+        .map((c: string) => c.trim())
+        .filter((c: string) => /^\d{4}$/.test(c));
+      if (codes.length > 0) payload.syllabusAllowlist = codes;
+      const years = String(form.yearAllowlist ?? '')
+        .split(/[\s,]+/)
+        .map((c: string) => c.trim())
+        .filter((c: string) => /^\d{4}$/.test(c))
+        .map((c: string) => Number(c))
+        .filter((n: number) => n >= 1990 && n <= 2100);
+      if (years.length > 0) payload.yearAllowlist = years;
       await api.createSource(payload);
       onSaved();
       onClose();
@@ -283,6 +357,32 @@ function AddSourceForm({ onClose, onSaved }: { onClose: () => void; onSaved: () 
             value={form.copyrightOwner}
             onChange={(e) => setForm({ ...form, copyrightOwner: e.target.value })}
           />
+        </div>
+      </div>
+      <div className="grid grid-cols-2 gap-3">
+        <div>
+          <label className="text-xs text-gray-600">Syllabus allowlist</label>
+          <input
+            className="input"
+            placeholder="9709, 9702"
+            value={form.syllabusAllowlist}
+            onChange={(e) => setForm({ ...form, syllabusAllowlist: e.target.value })}
+          />
+          <div className="text-[11px] text-gray-500 mt-0.5">
+            Comma separated CIE codes. Empty = no syllabus gate.
+          </div>
+        </div>
+        <div>
+          <label className="text-xs text-gray-600">Year allowlist</label>
+          <input
+            className="input"
+            placeholder="2019, 2020"
+            value={form.yearAllowlist}
+            onChange={(e) => setForm({ ...form, yearAllowlist: e.target.value })}
+          />
+          <div className="text-[11px] text-gray-500 mt-0.5">
+            Comma separated 4-digit years. Empty = all years.
+          </div>
         </div>
       </div>
       <div>

@@ -14,6 +14,8 @@ export const CreateSourceRepoSchema = z.object({
   examBoardHint: z.string().optional(),
   copyrightOwner: z.string().optional(),
   notesForTeachers: z.string().optional(),
+  syllabusAllowlist: z.array(z.string().regex(/^\d{4}$/)).optional(),
+  yearAllowlist: z.array(z.number().int().min(1990).max(2100)).optional(),
 });
 export type CreateSourceRepoDto = z.infer<typeof CreateSourceRepoSchema>;
 

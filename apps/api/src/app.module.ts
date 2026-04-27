@@ -16,6 +16,8 @@ import { AuditModule } from './audit/audit.module';
 import { ComplianceModule } from './compliance/compliance.module';
 import { IngestModule } from './ingest/ingest.module';
 import { SourcesModule } from './sources/sources.module';
+import { InternalModule } from './internal/internal.module';
+import { ReviewModule } from './review/review.module';
 import { HealthController } from './health.controller';
 
 @Module({
@@ -38,6 +40,8 @@ import { HealthController } from './health.controller';
     PdfModule,
     IngestModule,
     SourcesModule,
+    InternalModule,
+    ReviewModule,
   ],
   controllers: [HealthController],
   providers: [

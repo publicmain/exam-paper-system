@@ -18,22 +18,22 @@ enum UserRole {
 }
 
 model User {
-  id           String   @id @default(cuid())
-  email        String   @unique
+  id           String    @id @default(cuid())
+  email        String    @unique
   name         String
   passwordHash String
-  role         UserRole @default(teacher)
-  createdAt    DateTime @default(now())
+  role         UserRole  @default(teacher)
+  createdAt    DateTime  @default(now())
   lastLogin    DateTime?
 
-  questionsCreated   Question[]         @relation("QuestionCreator")
-  templatesOwned     PaperTemplate[]
-  papersOwned        Paper[]
-  versionsAuthored   PaperVersion[]
-  questionVersions   QuestionVersion[]
-  reposAdded         SourceRepository[] @relation("RepoAddedBy")
-  questionItemReviewed QuestionItem[]   @relation("QuestionItemReviewer")
-  teacherReviews     TeacherReview[]    @relation("ReviewActor")
+  questionsCreated     Question[]         @relation("QuestionCreator")
+  templatesOwned       PaperTemplate[]
+  papersOwned          Paper[]
+  versionsAuthored     PaperVersion[]
+  questionVersions     QuestionVersion[]
+  reposAdded           SourceRepository[] @relation("RepoAddedBy")
+  questionItemReviewed QuestionItem[]     @relation("QuestionItemReviewer")
+  teacherReviews       TeacherReview[]    @relation("ReviewActor")
 }
 
 // ============================================================
@@ -47,12 +47,12 @@ model ExamBoard {
 }
 
 model Subject {
-  id          String   @id @default(cuid())
+  id          String              @id @default(cuid())
   examBoardId String
-  examBoard   ExamBoard @relation(fields: [examBoardId], references: [id], onDelete: Cascade)
-  code        String   // 9709, 9702
-  name        String   // Mathematics, Physics
-  level       String   // A_LEVEL, AS_LEVEL, IGCSE, O_LEVEL
+  examBoard   ExamBoard           @relation(fields: [examBoardId], references: [id], onDelete: Cascade)
+  code        String // 9709, 9702
+  name        String // Mathematics, Physics
+  level       String // A_LEVEL, AS_LEVEL, IGCSE, O_LEVEL
   components  SyllabusComponent[]
   questions   Question[]
   papers      Paper[]
@@ -62,10 +62,10 @@ model Subject {
 }
 
 model SyllabusComponent {
-  id        String  @id @default(cuid())
+  id        String          @id @default(cuid())
   subjectId String
-  subject   Subject @relation(fields: [subjectId], references: [id], onDelete: Cascade)
-  code      String  // P1, P3, Paper2
+  subject   Subject         @relation(fields: [subjectId], references: [id], onDelete: Cascade)
+  code      String // P1, P3, Paper2
   name      String
   topics    Topic[]
   questions Question[]
@@ -76,19 +76,19 @@ model SyllabusComponent {
 }
 
 model Topic {
-  id            String  @id @default(cuid())
+  id            String            @id @default(cuid())
   componentId   String
   component     SyllabusComponent @relation(fields: [componentId], references: [id], onDelete: Cascade)
   parentTopicId String?
-  parent        Topic?  @relation("TopicHierarchy", fields: [parentTopicId], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  children      Topic[] @relation("TopicHierarchy")
+  parent        Topic?            @relation("TopicHierarchy", fields: [parentTopicId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  children      Topic[]           @relation("TopicHierarchy")
   code          String
   name          String
-  sortOrder     Int     @default(0)
+  sortOrder     Int               @default(0)
 
-  primaryForQuestions Question[]            @relation("QuestionPrimaryTopic")
+  primaryForQuestions Question[]          @relation("QuestionPrimaryTopic")
   questionLinks       QuestionTopic[]
-  questionItemLinks   QuestionItemTopic[]   @relation("ItemTopics")
+  questionItemLinks   QuestionItemTopic[] @relation("ItemTopics")
 
   @@unique([componentId, code])
 }
@@ -117,29 +117,29 @@ enum SourceType {
 }
 
 model Question {
-  id               String         @id @default(cuid())
-  subjectId        String
-  subject          Subject        @relation(fields: [subjectId], references: [id])
-  componentId      String?
-  component        SyllabusComponent? @relation(fields: [componentId], references: [id])
-  primaryTopicId   String?
-  primaryTopic     Topic?         @relation("QuestionPrimaryTopic", fields: [primaryTopicId], references: [id])
+  id             String             @id @default(cuid())
+  subjectId      String
+  subject        Subject            @relation(fields: [subjectId], references: [id])
+  componentId    String?
+  component      SyllabusComponent? @relation(fields: [componentId], references: [id])
+  primaryTopicId String?
+  primaryTopic   Topic?             @relation("QuestionPrimaryTopic", fields: [primaryTopicId], references: [id])
 
   questionType     QuestionType
   marks            Int
-  estimatedTimeMin Float          // default = marks * subject.timePerMark
-  difficulty       Int            // 1-5
-  sourceType       SourceType     @default(original_school)
-  sourceRef        String?        // e.g. "9702/22/M/J/19/Q3" — metadata only
+  estimatedTimeMin Float // default = marks * subject.timePerMark
+  difficulty       Int // 1-5
+  sourceType       SourceType   @default(original_school)
+  sourceRef        String? // e.g. "9702/22/M/J/19/Q3" — metadata only
 
   // Content as JSON (markdown + LaTeX), supports parts for structured
   // Shape: { stem: string, parts?: [{ label, content, marks, answer }] }
-  content          Json
-  answerContent    Json           // { text, parts?: [{ label, answer }] }
-  options          Json?          // MCQ only: [{ key:'A', text, correct }]
-  markScheme       Json?          // [{ point, marks }]
+  content       Json
+  answerContent Json // { text, parts?: [{ label, answer }] }
+  options       Json? // MCQ only: [{ key:'A', text, correct }]
+  markScheme    Json? // [{ point, marks }]
 
-  status           QuestionStatus @default(draft)
+  status           QuestionStatus   @default(draft)
   // Compliance gates — questions whose source is restricted past papers must
   // be filtered out of generation by default unless the request explicitly
   // opts in (e.g. school is licensed). New rows default to safe values so
@@ -147,17 +147,17 @@ model Question {
   complianceStatus ComplianceStatus @default(approved_internal)
   allowedUsage     AllowedUsage     @default(free_use)
 
-  createdById      String
-  createdBy        User           @relation("QuestionCreator", fields: [createdById], references: [id])
-  createdAt        DateTime       @default(now())
-  updatedAt        DateTime       @updatedAt
+  createdById String
+  createdBy   User     @relation("QuestionCreator", fields: [createdById], references: [id])
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
 
-  topics           QuestionTopic[]
-  assets           QuestionAsset[]
-  versions         QuestionVersion[]
-  paperQuestions   PaperQuestion[]
-  usageLogs        QuestionUsageLog[]
-  ingestedItem     QuestionItem?  @relation("QuestionItemMirror")
+  topics         QuestionTopic[]
+  assets         QuestionAsset[]
+  versions       QuestionVersion[]
+  paperQuestions PaperQuestion[]
+  usageLogs      QuestionUsageLog[]
+  ingestedItem   QuestionItem?      @relation("QuestionItemMirror")
 
   @@index([subjectId, componentId, status])
   @@index([primaryTopicId])
@@ -177,7 +177,7 @@ model QuestionAsset {
   id         String   @id @default(cuid())
   questionId String
   question   Question @relation(fields: [questionId], references: [id], onDelete: Cascade)
-  assetType  String   // image | svg
+  assetType  String // image | svg
   storageUrl String
   altText    String?
   sortOrder  Int      @default(0)
@@ -202,20 +202,20 @@ model QuestionVersion {
 // Paper Templates
 // ============================================================
 model PaperTemplate {
-  id              String   @id @default(cuid())
+  id              String             @id @default(cuid())
   ownerId         String
-  owner           User     @relation(fields: [ownerId], references: [id])
+  owner           User               @relation(fields: [ownerId], references: [id])
   name            String
   subjectId       String
-  subject         Subject  @relation(fields: [subjectId], references: [id])
+  subject         Subject            @relation(fields: [subjectId], references: [id])
   componentId     String?
   component       SyllabusComponent? @relation(fields: [componentId], references: [id])
   durationMin     Int
   totalMarks      Int
-  config          Json     // { questionMix, difficultyDist, topicFilter, excludeRecentDays }
-  isSchoolDefault Boolean  @default(false)
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
+  config          Json // { questionMix, difficultyDist, topicFilter, excludeRecentDays }
+  isSchoolDefault Boolean            @default(false)
+  createdAt       DateTime           @default(now())
+  updatedAt       DateTime           @updatedAt
   papers          Paper[]
 }
 
@@ -229,45 +229,45 @@ enum PaperStatus {
 }
 
 model Paper {
-  id                String   @id @default(cuid())
-  ownerId           String
-  owner             User     @relation(fields: [ownerId], references: [id])
-  templateId        String?
-  template          PaperTemplate? @relation(fields: [templateId], references: [id])
-  name              String
-  classLabel        String?
-  subjectId         String
-  subject           Subject  @relation(fields: [subjectId], references: [id])
-  componentId       String?
-  component         SyllabusComponent? @relation(fields: [componentId], references: [id])
-  examDate          DateTime?
-  durationMin       Int
-  totalMarksTarget  Int
-  totalMarksActual  Int
-  status            PaperStatus @default(draft)
-  generatedSeed     Int
-  config            Json     // snapshot of generation config
-  createdAt         DateTime @default(now())
-  updatedAt         DateTime @updatedAt
+  id               String             @id @default(cuid())
+  ownerId          String
+  owner            User               @relation(fields: [ownerId], references: [id])
+  templateId       String?
+  template         PaperTemplate?     @relation(fields: [templateId], references: [id])
+  name             String
+  classLabel       String?
+  subjectId        String
+  subject          Subject            @relation(fields: [subjectId], references: [id])
+  componentId      String?
+  component        SyllabusComponent? @relation(fields: [componentId], references: [id])
+  examDate         DateTime?
+  durationMin      Int
+  totalMarksTarget Int
+  totalMarksActual Int
+  status           PaperStatus        @default(draft)
+  generatedSeed    Int
+  config           Json // snapshot of generation config
+  createdAt        DateTime           @default(now())
+  updatedAt        DateTime           @updatedAt
 
-  questions         PaperQuestion[]
-  versions          PaperVersion[]
-  usageLogs         QuestionUsageLog[]
+  questions PaperQuestion[]
+  versions  PaperVersion[]
+  usageLogs QuestionUsageLog[]
 }
 
 model PaperQuestion {
-  id               String   @id @default(cuid())
-  paperId          String
-  paper            Paper    @relation(fields: [paperId], references: [id], onDelete: Cascade)
-  questionId       String
-  question         Question @relation(fields: [questionId], references: [id])
-  sortOrder        Int
-  snapshotContent  Json     // taken at generation time
-  snapshotAnswer   Json
-  snapshotOptions  Json?
-  overrideContent  Json?    // teacher edits within this paper, doesn't touch master
-  overrideAnswer   Json?
-  marks            Int
+  id              String   @id @default(cuid())
+  paperId         String
+  paper           Paper    @relation(fields: [paperId], references: [id], onDelete: Cascade)
+  questionId      String
+  question        Question @relation(fields: [questionId], references: [id])
+  sortOrder       Int
+  snapshotContent Json // taken at generation time
+  snapshotAnswer  Json
+  snapshotOptions Json?
+  overrideContent Json? // teacher edits within this paper, doesn't touch master
+  overrideAnswer  Json?
+  marks           Int
 
   @@index([paperId, sortOrder])
 }
@@ -323,13 +323,13 @@ model AuditLog {
 // ============================================================
 
 enum RepoType {
-  with_pdfs            // GitHub repos that contain raw PDFs
-  notes_only           // study notes / markdown — usually skipped
-  downloader_script    // scripts that scrape exam-board CDNs — never used directly
-  topic_page           // github.com/topics/* — discovery only
-  official             // exam-board source via school's licensed account
-  school_upload        // teacher / admin manual upload
-  ai_generator         // AI-produced original questions
+  with_pdfs // GitHub repos that contain raw PDFs
+  notes_only // study notes / markdown — usually skipped
+  downloader_script // scripts that scrape exam-board CDNs — never used directly
+  topic_page // github.com/topics/* — discovery only
+  official // exam-board source via school's licensed account
+  school_upload // teacher / admin manual upload
+  ai_generator // AI-produced original questions
 }
 
 enum SyncStatus {
@@ -340,18 +340,18 @@ enum SyncStatus {
 }
 
 enum ComplianceStatus {
-  pending_review        // default for new sources / files / items
-  approved_internal     // school-authored, AI-generated, or licensed
-  restricted_internal   // licensed past papers — internal-only, audit required
-  blocked               // takedown / unlicensed — DB-level filter excludes
-  expired               // licence lapsed — same effect as blocked
+  pending_review // default for new sources / files / items
+  approved_internal // school-authored, AI-generated, or licensed
+  restricted_internal // licensed past papers — internal-only, audit required
+  blocked // takedown / unlicensed — DB-level filter excludes
+  expired // licence lapsed — same effect as blocked
 }
 
 enum AllowedUsage {
-  free_use                   // school owns / created
-  internal_classroom_only    // licensed past papers, internal only
-  metadata_reference_only    // never render full content, only the source ref
-  none                       // not yet cleared
+  free_use // school owns / created
+  internal_classroom_only // licensed past papers, internal only
+  metadata_reference_only // never render full content, only the source ref
+  none // not yet cleared
 }
 
 enum RetentionPolicy {
@@ -375,6 +375,7 @@ enum ProcessStatus {
   processing
   processed
   failed
+  skipped
 }
 
 enum ReviewStatus {
@@ -403,58 +404,67 @@ enum TagSource {
 }
 
 model SourceRepository {
-  id                 String   @id @default(cuid())
-  url                String   @unique
-  repoType           RepoType
-  licenseDetected    String?
-  licenseTextUrl     String?
-  examBoardHint      String?
-  lastSyncedAt       DateTime?
-  syncStatus         SyncStatus @default(idle)
-  syncError          String?
+  id                String           @id @default(cuid())
+  url               String           @unique
+  repoType          RepoType
+  licenseDetected   String?
+  licenseTextUrl    String?
+  examBoardHint     String?
+  lastSyncedAt      DateTime?
+  syncStatus        SyncStatus       @default(idle)
+  syncError         String?
   // Default deny: a new repo is parked in pending_review until an admin
   // explicitly upgrades its compliance_status. The sync worker will refuse
   // to clone repos that are still pending or blocked.
-  complianceStatus   ComplianceStatus @default(pending_review)
-  copyrightOwner     String?
-  allowedUsage       AllowedUsage    @default(none)
-  retentionPolicy    RetentionPolicy @default(delete_when_blocked)
-  notesForTeachers   String?
-  addedById          String
-  addedBy            User     @relation("RepoAddedBy", fields: [addedById], references: [id])
-  addedAt            DateTime @default(now())
-  blockedReason      String?
-  blockedAt          DateTime?
-  files              SourceFile[]
+  complianceStatus  ComplianceStatus @default(pending_review)
+  // Whitelist of CIE syllabus codes (e.g. ["9709","9702"]) the sync worker
+  // will keep when ingesting PDFs from this repo. Empty = accept everything
+  // the filename-parser can identify. Files with no parseable syllabusCode
+  // are skipped when the list is non-empty.
+  syllabusAllowlist String[]         @default([])
+  // Whitelist of exam years (e.g. [2019, 2020]). Same default-empty rule
+  // as syllabusAllowlist — empty list = no year gate. Files whose
+  // filename-parsed examYear isn't in the list are skipped.
+  yearAllowlist     Int[]            @default([])
+  copyrightOwner    String?
+  allowedUsage      AllowedUsage     @default(none)
+  retentionPolicy   RetentionPolicy  @default(delete_when_blocked)
+  notesForTeachers  String?
+  addedById         String
+  addedBy           User             @relation("RepoAddedBy", fields: [addedById], references: [id])
+  addedAt           DateTime         @default(now())
+  blockedReason     String?
+  blockedAt         DateTime?
+  files             SourceFile[]
 
   @@index([complianceStatus])
   @@index([syncStatus])
 }
 
 model SourceFile {
-  id                 String   @id @default(cuid())
-  repoId             String
-  repo               SourceRepository @relation(fields: [repoId], references: [id], onDelete: Cascade)
-  rawFilename        String
-  storagePath        String   // s3://... or local path
-  sha256             String   @unique
-  fileSizeBytes      Int
-  fileKind           FileKind @default(other)
-  syllabusCode       String?  // e.g. 9702
-  examYear           Int?
-  examSeason         String?  // m / s / w
-  paperVariant       String?  // 22
-  paperNumber        String?  // qp / ms / er / in
-  parsedFromName     Json?
-  ingestedAt         DateTime @default(now())
-  processStatus      ProcessStatus @default(pending)
-  processError       String?
+  id               String           @id @default(cuid())
+  repoId           String
+  repo             SourceRepository @relation(fields: [repoId], references: [id], onDelete: Cascade)
+  rawFilename      String
+  storagePath      String // s3://... or local path
+  sha256           String           @unique
+  fileSizeBytes    Int
+  fileKind         FileKind         @default(other)
+  syllabusCode     String? // e.g. 9702
+  examYear         Int?
+  examSeason       String? // m / s / w
+  paperVariant     String? // 22
+  paperNumber      String? // qp / ms / er / in
+  parsedFromName   Json?
+  ingestedAt       DateTime         @default(now())
+  processStatus    ProcessStatus    @default(pending)
+  processError     String?
   // Inherits from repo by default but stays mutable so individual files
   // can be blocked without blocking the whole source.
-  complianceStatus   ComplianceStatus @default(pending_review)
+  complianceStatus ComplianceStatus @default(pending_review)
 
-  pages              PdfPage[]
-  questionItems      QuestionItem[]
+  pages         PdfPage[]
+  questionItems QuestionItem[]
 
   @@index([repoId, fileKind])
   @@index([syllabusCode, examYear, examSeason])
@@ -462,35 +472,35 @@ model SourceFile {
 }
 
 model PdfPage {
-  id              String   @id @default(cuid())
-  sourceFileId    String
-  sourceFile      SourceFile @relation(fields: [sourceFileId], references: [id], onDelete: Cascade)
-  pageNo          Int
-  rawText         String?
-  layoutJson      Json?
-  imageUrl        String?
-  ocrUsed         Boolean  @default(false)
-  ocrConfidence   Float?
+  id            String     @id @default(cuid())
+  sourceFileId  String
+  sourceFile    SourceFile @relation(fields: [sourceFileId], references: [id], onDelete: Cascade)
+  pageNo        Int
+  rawText       String?
+  layoutJson    Json?
+  imageUrl      String?
+  ocrUsed       Boolean    @default(false)
+  ocrConfidence Float?
 
   @@unique([sourceFileId, pageNo])
 }
 
 model QuestionItem {
-  id                String   @id @default(cuid())
-  sourceFileId      String?
-  sourceFile        SourceFile? @relation(fields: [sourceFileId], references: [id])
+  id           String      @id @default(cuid())
+  sourceFileId String?
+  sourceFile   SourceFile? @relation(fields: [sourceFileId], references: [id])
   // Once approved, a mirrored Question row is created and linked here.
   // Until then, generators cannot see this item (Question is the consumer).
-  questionId        String?  @unique
-  question          Question? @relation("QuestionItemMirror", fields: [questionId], references: [id])
+  questionId   String?     @unique
+  question     Question?   @relation("QuestionItemMirror", fields: [questionId], references: [id])
 
-  pageStart         Int?
-  pageEnd           Int?
-  cropBboxJson      Json?
-  cropImageUrl      String?
-  rawExtractedText  String?
-  extractedLatex    String?
-  questionNumber    String?
+  pageStart        Int?
+  pageEnd          Int?
+  cropBboxJson     Json?
+  cropImageUrl     String?
+  rawExtractedText String?
+  extractedLatex   String?
+  questionNumber   String?
 
   // AI-suggested metadata — never auto-applied; teachers confirm.
   suggestedSubjectCode String?
@@ -500,96 +510,96 @@ model QuestionItem {
   suggestedDifficulty  Int?
   suggestedMetadata    Json?
 
-  confidenceSplit   Float?
-  confidenceMarks   Float?
-  confidenceMs      Float?
-  confidenceTopic   Float?
+  confidenceSplit Float?
+  confidenceMarks Float?
+  confidenceMs    Float?
+  confidenceTopic Float?
 
-  reviewStatus      ReviewStatus @default(pending_review)
-  reviewedById      String?
-  reviewedBy        User?    @relation("QuestionItemReviewer", fields: [reviewedById], references: [id])
-  reviewedAt        DateTime?
-  reviewNotes       String?
+  reviewStatus ReviewStatus @default(pending_review)
+  reviewedById String?
+  reviewedBy   User?        @relation("QuestionItemReviewer", fields: [reviewedById], references: [id])
+  reviewedAt   DateTime?
+  reviewNotes  String?
 
-  complianceStatus  ComplianceStatus @default(pending_review)
+  complianceStatus ComplianceStatus @default(pending_review)
 
-  parts             QuestionPart[]
-  ingestedAssets    IngestedAsset[]
-  markSchemeItems   MarkSchemeItem[]
-  topicMap          QuestionItemTopic[]
-  reviews           TeacherReview[]
+  parts           QuestionPart[]
+  ingestedAssets  IngestedAsset[]
+  markSchemeItems MarkSchemeItem[]
+  topicMap        QuestionItemTopic[]
+  reviews         TeacherReview[]
 
-  createdAt         DateTime @default(now())
-  updatedAt         DateTime @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@index([reviewStatus, complianceStatus])
   @@index([sourceFileId])
 }
 
 model QuestionPart {
-  id              String @id @default(cuid())
-  questionItemId  String
-  questionItem    QuestionItem @relation(fields: [questionItemId], references: [id], onDelete: Cascade)
-  partLabel       String
-  parentPartId    String?
-  parentPart      QuestionPart? @relation("PartChild", fields: [parentPartId], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  children        QuestionPart[] @relation("PartChild")
-  marks           Int
-  text            String
-  latexText       String?
-  cropBboxJson    Json?
-  cropImageUrl    String?
-  sortOrder       Int @default(0)
+  id             String         @id @default(cuid())
+  questionItemId String
+  questionItem   QuestionItem   @relation(fields: [questionItemId], references: [id], onDelete: Cascade)
+  partLabel      String
+  parentPartId   String?
+  parentPart     QuestionPart?  @relation("PartChild", fields: [parentPartId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  children       QuestionPart[] @relation("PartChild")
+  marks          Int
+  text           String
+  latexText      String?
+  cropBboxJson   Json?
+  cropImageUrl   String?
+  sortOrder      Int            @default(0)
 }
 
 model IngestedAsset {
-  id              String @id @default(cuid())
-  questionItemId  String
-  questionItem    QuestionItem @relation(fields: [questionItemId], references: [id], onDelete: Cascade)
-  kind            AssetKind
-  imageUrl        String
-  pageNo          Int?
-  bboxJson        Json?
-  altText         String?
-  ocrText         String?
-  sortOrder       Int @default(0)
+  id             String       @id @default(cuid())
+  questionItemId String
+  questionItem   QuestionItem @relation(fields: [questionItemId], references: [id], onDelete: Cascade)
+  kind           AssetKind
+  imageUrl       String
+  pageNo         Int?
+  bboxJson       Json?
+  altText        String?
+  ocrText        String?
+  sortOrder      Int          @default(0)
 }
 
 model MarkSchemeItem {
-  id                String @id @default(cuid())
-  questionItemId    String
-  questionItem      QuestionItem @relation(fields: [questionItemId], references: [id], onDelete: Cascade)
-  partLabel         String?
-  pointText         String
-  marks             Int
-  notesForExaminer  String?
-  cropImageUrl      String?
-  matchConfidence   Float?
-  sortOrder         Int @default(0)
+  id               String       @id @default(cuid())
+  questionItemId   String
+  questionItem     QuestionItem @relation(fields: [questionItemId], references: [id], onDelete: Cascade)
+  partLabel        String?
+  pointText        String
+  marks            Int
+  notesForExaminer String?
+  cropImageUrl     String?
+  matchConfidence  Float?
+  sortOrder        Int          @default(0)
 }
 
 model QuestionItemTopic {
-  questionItemId  String
-  questionItem    QuestionItem @relation(fields: [questionItemId], references: [id], onDelete: Cascade)
-  topicId         String
-  topic           Topic @relation("ItemTopics", fields: [topicId], references: [id], onDelete: Cascade)
-  confidence      Float
-  taggedBy        TagSource @default(ai)
+  questionItemId String
+  questionItem   QuestionItem @relation(fields: [questionItemId], references: [id], onDelete: Cascade)
+  topicId        String
+  topic          Topic        @relation("ItemTopics", fields: [topicId], references: [id], onDelete: Cascade)
+  confidence     Float
+  taggedBy       TagSource    @default(ai)
 
   @@id([questionItemId, topicId])
 }
 
 model TeacherReview {
-  id              String @id @default(cuid())
-  questionItemId  String
-  questionItem    QuestionItem @relation(fields: [questionItemId], references: [id], onDelete: Cascade)
-  reviewerId      String
-  reviewer        User @relation("ReviewActor", fields: [reviewerId], references: [id])
-  action          String   // approve | reject | edit_metadata | flag_copyright | link_mark_scheme | remap_topic
-  reasonCode      String?
-  notes           String?
-  metadataDiff    Json?
-  createdAt       DateTime @default(now())
+  id             String       @id @default(cuid())
+  questionItemId String
+  questionItem   QuestionItem @relation(fields: [questionItemId], references: [id], onDelete: Cascade)
+  reviewerId     String
+  reviewer       User         @relation("ReviewActor", fields: [reviewerId], references: [id])
+  action         String // approve | reject | edit_metadata | flag_copyright | link_mark_scheme | remap_topic
+  reasonCode     String?
+  notes          String?
+  metadataDiff   Json?
+  createdAt      DateTime     @default(now())
 
   @@index([questionItemId, createdAt])
 }

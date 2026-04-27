@@ -10,6 +10,7 @@ import PaperWizardPage from './pages/PaperWizard';
 import PaperEditPage from './pages/PaperEdit';
 import TemplatesPage from './pages/Templates';
 import SourcesPage from './pages/Sources';
+import ReviewPage from './pages/Review';
 
 export default function App() {
   const { user, loading, init, logout } = useAuth();
@@ -41,6 +42,9 @@ export default function App() {
               <NavLink to="/papers" label="Papers" />
               <NavLink to="/questions" label="Questions" />
               <NavLink to="/templates" label="Templates" />
+              {(user.role === 'admin' || user.role === 'head_teacher') && (
+                <NavLink to="/review" label="Review" />
+              )}
               {user.role === 'admin' && <NavLink to="/sources" label="Sources" />}
             </nav>
           </div>
@@ -61,6 +65,16 @@ export default function App() {
           <Route path="/questions/:id" element={<QuestionEditPage />} />
           <Route path="/templates" element={<TemplatesPage />} />
           <Route path="/sources" element={user.role === 'admin' ? <SourcesPage /> : <Navigate to="/" replace />} />
+          <Route
+            path="/review"
+            element={
+              user.role === 'admin' || user.role === 'head_teacher' ? (
+                <ReviewPage />
+              ) : (
+                <Navigate to="/" replace />
+              )
+            }
+          />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </main>

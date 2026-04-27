@@ -50,6 +50,8 @@ export class SourcesService {
           examBoardHint: dto.examBoardHint,
           copyrightOwner: dto.copyrightOwner,
           notesForTeachers: dto.notesForTeachers,
+          syllabusAllowlist: dto.syllabusAllowlist ?? [],
+          yearAllowlist: dto.yearAllowlist ?? [],
           addedById: actor.id,
           // Default-deny: every new source starts pending until an admin
           // upgrades it. The sync worker refuses to clone pending repos.

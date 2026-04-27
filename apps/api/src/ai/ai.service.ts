@@ -16,6 +16,13 @@ export interface SuggestLabelOutput {
   notes: string;
 }
 
+export interface TagBatchResult {
+  attempted: number;
+  tagged: number;
+  skipped: number;
+  errors: { itemId: string; error: string }[];
+}
+
 @Injectable()
 export class AiService {
   private readonly logger = new Logger('AiService');
@@ -55,7 +62,7 @@ export class AiService {
     }
 
     const topicList = topics.map(t => `- [${t.code}] ${t.name}`).join('\n');
-    const prompt = `You are a syllabus tagger for an exam paper system.
+    const systemHeader = `You are a syllabus tagger for an exam paper system.
 Given a question, identify which syllabus topics it tests.
 Respond ONLY with valid JSON matching this schema:
 {
@@ -64,22 +71,28 @@ Respond ONLY with valid JSON matching this schema:
   "suggestedQuestionType": "mcq" | "short_answer" | "structured" | "essay",
   "notes": "..."
 }
-
-Available topics:
-${topicList}
-
-Question stem (LaTeX may be present in $...$):
-${input.questionStem}
-
-${input.marks != null ? `Marks: ${input.marks}` : ''}
-
 Return at most 3 topic candidates ordered by confidence.`;
 
+    const userMsg = `Question stem (LaTeX may be present in $...$):
+${input.questionStem}
+
+${input.marks != null ? `Marks: ${input.marks}` : ''}`;
+
     try {
+      // Cache the syllabus topic tree on the system block so a batch over
+      // many questions in the same subject pays for it once.
       const resp = await this.client.messages.create({
         model: this.model,
         max_tokens: 800,
-        messages: [{ role: 'user', content: prompt }],
+        system: [
+          { type: 'text', text: systemHeader },
+          {
+            type: 'text',
+            text: `Available topics for this subject:\n${topicList}`,
+            cache_control: { type: 'ephemeral' },
+          },
+        ] as any,
+        messages: [{ role: 'user', content: userMsg }],
       });
       const text = resp.content
         .map(c => (c.type === 'text' ? c.text : ''))
@@ -120,5 +133,79 @@ Return at most 3 topic candidates ordered by confidence.`;
         notes: `AI call failed: ${err.message}`,
       };
     }
+  }
+
+  /**
+   * Batch-tag pending QuestionItems for a repo. We resolve subject and
+   * component from each item's SourceFile (syllabusCode + paperVariant)
+   * and call suggestLabels for each. Items are sorted by subject so the
+   * cached syllabus tree on the system block hits across the batch.
+   *
+   * Suggestions never auto-apply — they only fill suggested* fields. A
+   * teacher must still approve via the review queue. This is the
+   * "AI-assist, human-confirm" guarantee from the design doc.
+   */
+  async tagPendingForRepo(repoId: string, opts: { limit?: number } = {}): Promise<TagBatchResult> {
+    const limit = Math.max(1, Math.min(opts.limit ?? 200, 500));
+    const items = await this.prisma.questionItem.findMany({
+      where: {
+        reviewStatus: 'pending_review',
+        sourceFile: { repoId },
+      },
+      include: { sourceFile: true },
+      take: limit,
+    });
+    // Sort by syllabusCode so the cached system message is reused.
+    items.sort((a, b) => {
+      const sa = a.sourceFile?.syllabusCode ?? '';
+      const sb = b.sourceFile?.syllabusCode ?? '';
+      if (sa !== sb) return sa.localeCompare(sb);
+      return (a.sourceFile?.paperVariant ?? '').localeCompare(b.sourceFile?.paperVariant ?? '');
+    });
+
+    const result: TagBatchResult = { attempted: 0, tagged: 0, skipped: 0, errors: [] };
+    for (const item of items) {
+      const sf = item.sourceFile;
+      if (!sf?.syllabusCode || !item.rawExtractedText) {
+        result.skipped++;
+        continue;
+      }
+      const subject = await this.prisma.subject.findFirst({ where: { code: sf.syllabusCode } });
+      if (!subject) {
+        result.skipped++;
+        continue;
+      }
+      const component = sf.paperVariant
+        ? await this.prisma.syllabusComponent.findFirst({
+            where: { subjectId: subject.id, code: `P${sf.paperVariant.charAt(0)}` },
+          })
+        : null;
+
+      result.attempted++;
+      try {
+        const out = await this.suggestLabels({
+          subjectId: subject.id,
+          componentId: component?.id,
+          questionStem: item.rawExtractedText.slice(0, 4000),
+          marks: item.suggestedMarks ?? undefined,
+        });
+        const top = out.topicCandidates[0];
+        await this.prisma.questionItem.update({
+          where: { id: item.id },
+          data: {
+            suggestedSubjectCode: sf.syllabusCode,
+            suggestedTopicCode: top?.topicCode ?? null,
+            suggestedDifficulty: out.suggestedDifficulty,
+            suggestedType: out.suggestedQuestionType as any,
+            suggestedMetadata: out as any,
+            confidenceTopic: top?.confidence ?? null,
+          },
+        });
+        result.tagged++;
+      } catch (e: any) {
+        result.errors.push({ itemId: item.id, error: String(e?.message ?? e).slice(0, 500) });
+      }
+    }
+    return result;
   }
 }

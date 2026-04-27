@@ -1,10 +1,11 @@
-import { BadRequestException, Body, Controller, Get, Param, Post, Put, Req } from '@nestjs/common';
+import { BadRequestException, Body, Controller, Get, Param, Post, Put, Query, Req } from '@nestjs/common';
 import { Request } from 'express';
 import { Roles } from '../common/auth.guard';
 import { CurrentUser } from '../common/current-user.decorator';
 import { SourcesService } from './sources.service';
 import { BlockSourceSchema, CreateSourceRepoSchema, UpdateComplianceSchema } from './dto';
 import { IngestService } from '../ingest/ingest.service';
+import { AiService } from '../ai/ai.service';
 
 @Controller('sources')
 @Roles('admin')
@@ -12,6 +13,7 @@ export class SourcesController {
   constructor(
     private readonly sources: SourcesService,
     private readonly ingest: IngestService,
+    private readonly ai: AiService,
   ) {}
 
   @Get()
@@ -66,5 +68,21 @@ export class SourcesController {
     @Req() req: Request,
   ) {
     return this.ingest.syncRepository(id, { id: user.id, role: user.role, ip: req.ip ?? null });
+  }
+
+  /** Re-process pending / failed files for a repo without re-cloning. */
+  @Post(':id/process')
+  async process(
+    @Param('id') id: string,
+    @CurrentUser() user: any,
+    @Req() req: Request,
+  ) {
+    return this.ingest.processPending(id, { id: user.id, role: user.role, ip: req.ip ?? null });
+  }
+
+  /** Run the AI tagger over pending QuestionItems for this repo. */
+  @Post(':id/tag')
+  async tag(@Param('id') id: string, @Query('limit') limit?: string) {
+    return this.ai.tagPendingForRepo(id, { limit: limit ? Number(limit) : undefined });
   }
 }
