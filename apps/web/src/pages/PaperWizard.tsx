@@ -37,6 +37,7 @@ export default function PaperWizardPage() {
     ],
     difficultyDist: { easy: 0.4, medium: 0.4, hard: 0.2 },
     excludeRecentDays: 60,
+    includeRestricted: false,
   });
 
   const [busy, setBusy] = useState(false);
@@ -99,6 +100,7 @@ export default function PaperWizardPage() {
           questionMix: form.questionMix,
           difficultyDist: form.difficultyDist,
           excludeRecentDays: form.excludeRecentDays,
+          includeRestricted: form.includeRestricted,
         },
       });
       if (res.warnings?.length) {
@@ -277,6 +279,29 @@ export default function PaperWizardPage() {
                 </Field>
               ))}
             </div>
+          </div>
+
+          <div className="card" style={{ background: '#fef9c3', borderColor: '#fde68a' }}>
+            <label className="flex items-start gap-2 cursor-pointer">
+              <input
+                type="checkbox"
+                className="mt-1"
+                checked={form.includeRestricted}
+                onChange={e => setForm({ ...form, includeRestricted: e.target.checked })}
+              />
+              <div>
+                <div className="font-semibold text-amber-800">
+                  Include licensed past-paper questions (restricted_internal)
+                </div>
+                <div className="text-xs text-amber-700">
+                  By default the generator only picks school-authored questions
+                  (compliance status <code>approved_internal</code>). Tick this
+                  to also include past-paper-derived questions imported from a
+                  source with a Teacher Resource License. Use only for internal
+                  classroom assessments.
+                </div>
+              </div>
+            </label>
           </div>
 
           {conflicts.length > 0 && (

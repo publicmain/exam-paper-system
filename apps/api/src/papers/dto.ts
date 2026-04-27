@@ -1,4 +1,4 @@
-import { IsArray, IsInt, IsObject, IsOptional, IsString, Min } from 'class-validator';
+import { IsArray, IsBoolean, IsInt, IsObject, IsOptional, IsString, Min } from 'class-validator';
 
 export class GenerationConfigDto {
   @IsString() subjectId: string;
@@ -11,6 +11,10 @@ export class GenerationConfigDto {
   @IsOptional() @IsInt() excludeRecentDays?: number;
   @IsOptional() @IsArray() excludeQuestionIds?: string[];
   @IsOptional() @IsInt() seed?: number;
+  /** Opt-in to questions whose source is licensed past papers (compliance
+   *  status restricted_internal). Default off so school-authored content
+   *  is the safe path. */
+  @IsOptional() @IsBoolean() includeRestricted?: boolean;
 }
 
 export class GeneratePaperDto {
