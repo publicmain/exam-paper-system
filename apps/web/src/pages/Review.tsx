@@ -354,7 +354,10 @@ function ReviewDetail({ id, onChanged }: { id: string; onChanged: () => void }) 
 /**
  * Image that fetches with the JWT and renders as a blob URL. The
  * /api/source-files/:id/pages/:n route requires auth, which native
- * <img> tags cannot supply via headers.
+ * <img> tags cannot supply via headers. We also prepend VITE_API_URL
+ * because PdfPage.imageUrl is stored as a relative path on the API
+ * (the API doesn't know the public host); without the prefix the
+ * browser resolves against the WEB origin and gets a 404.
  */
 function AuthImage({ src, alt }: { src: string; alt: string }) {
   const [url, setUrl] = useState<string | null>(null);
@@ -364,7 +367,9 @@ function AuthImage({ src, alt }: { src: string; alt: string }) {
     let cancelled = false;
     let blobUrl: string | null = null;
     const token = localStorage.getItem('auth_token');
-    fetch(src, { headers: token ? { Authorization: `Bearer ${token}` } : {} })
+    const base = (import.meta as any).env?.VITE_API_URL || '';
+    const fullSrc = src.startsWith('http') ? src : `${base}${src}`;
+    fetch(fullSrc, { headers: token ? { Authorization: `Bearer ${token}` } : {} })
       .then(async (r) => {
         if (!r.ok) throw new Error(`${r.status}`);
         const blob = await r.blob();
