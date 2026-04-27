@@ -141,21 +141,25 @@ export class QuestionSplitterService {
    * (and the "[Turn over" trailer when present), so the splitter doesn't
    * mistake the page-number for a question number.
    */
+  /**
+   * CIE 9702 QP layout (verified for 2019):
+   *   page 1     cover sheet (READ THESE INSTRUCTIONS FIRST)
+   *   page 2     candidate-number boxes / blank
+   *   page 3     Data + Formulae sheets
+   *   page 4+    questions
+   * We always drop pages 1–3. Per remaining page we strip the standard
+   * header so a leading page-number doesn't get parsed as a question.
+   */
   private contentPages(pages: { pageNo: number; rawText: string | null }[]) {
     const cleaned: { pageNo: number; rawText: string | null }[] = [];
     for (const p of pages) {
-      if (p.pageNo === 1) continue;
+      if (p.pageNo <= 3) continue;
       const raw = p.rawText ?? '';
-      // Strip CIE page header: optional pageNo, copyright, and exam ref.
-      let text = raw
+      const text = raw
         .replace(/^\s*\d{1,2}\s*\n/, '') // leading page number on its own line
         .replace(/©\s*UCLES\s*\d{4}\s*\n/g, '') // copyright line
         .replace(/\d{4}\/\d{1,2}\/[A-Za-z]\/[A-Za-z]\/\d{2}\s*\n/g, '') // 9702/12/M/J/19
-        .replace(/\[\s*Turn\s+over\s*\n?/gi, '') // [Turn over
-        .replace(/\bFormulae\b[\s\S]*$/, (m) => (p.pageNo <= 3 ? '' : m)); // chop formula sheet on early pages only
-      // Skip whole page if after cleaning it's mostly the formula sheet.
-      const englishWords = (text.match(/[A-Za-z]{4,}/g) ?? []).length;
-      if (p.pageNo <= 3 && englishWords < 8) continue;
+        .replace(/\[\s*Turn\s+over\s*\n?/gi, ''); // [Turn over
       cleaned.push({ pageNo: p.pageNo, rawText: text });
     }
     return cleaned;
@@ -200,20 +204,16 @@ export class QuestionSplitterService {
    * option labels, drops dupes by question number, and bails out at the
    * next standalone-number-on-its-own-line.
    */
+  /**
+   * MCQ splitter — runs the question regex page-by-page so a question
+   * boundary never bleeds across pages. CIE Paper-1 lays each MCQ to
+   * fit fully on one page (typically 2 per page), so per-page scanning
+   * does not lose questions and avoids matching a "number" on one page
+   * with ABCD options that belong to a different question on the next.
+   */
   private splitMcq(pages: { pageNo: number; rawText: string | null }[]): RawSplit[] {
     const items: RawSplit[] = [];
     const seen = new Set<number>();
-    const lineToPage: number[] = [];
-    let combined = '';
-    for (const page of this.contentPages(pages)) {
-      const text = (page.rawText ?? '').replace(/\r/g, '');
-      const lines = text.split('\n');
-      for (const line of lines) {
-        lineToPage.push(page.pageNo);
-        combined += line + '\n';
-      }
-    }
-
     const re = new RegExp(
       [
         '(?:^|\\n)\\s*(\\d{1,2})\\s*\\n', // 1: question number alone on its line
@@ -227,32 +227,28 @@ export class QuestionSplitterService {
       'g',
     );
 
-    let m: RegExpExecArray | null;
-    while ((m = re.exec(combined)) !== null) {
-      const n = parseInt(m[1], 10);
-      if (!Number.isFinite(n) || n < 1 || n > MAX_MCQ_NUMBER) continue;
-      if (seen.has(n)) continue;
-      seen.add(n);
+    for (const page of this.contentPages(pages)) {
+      const text = (page.rawText ?? '').replace(/\r/g, '');
+      re.lastIndex = 0;
+      let m: RegExpExecArray | null;
+      while ((m = re.exec(text)) !== null) {
+        const n = parseInt(m[1], 10);
+        if (!Number.isFinite(n) || n < 1 || n > MAX_MCQ_NUMBER) continue;
+        if (seen.has(n)) continue;
 
-      const stem = (m[2] ?? '').trim();
-      if (stem.length < 6) continue;
+        const stem = (m[2] ?? '').trim();
+        if (stem.length < 6) continue;
 
-      const fullText = m[0].trim();
-      const startOffset = m.index;
-      const lineIdx = combined.slice(0, startOffset).split('\n').length - 1;
-      const pageStart = lineToPage[lineIdx] ?? 1;
-      const endOffset = re.lastIndex;
-      const endLineIdx = combined.slice(0, endOffset).split('\n').length - 1;
-      const pageEnd = lineToPage[Math.min(endLineIdx, lineToPage.length - 1)] ?? pageStart;
-
-      items.push({
-        questionNumber: String(n),
-        pageStart,
-        pageEnd,
-        text: fullText,
-        detectedType: QuestionType.mcq,
-        detectedMarks: 1,
-      });
+        seen.add(n);
+        items.push({
+          questionNumber: String(n),
+          pageStart: page.pageNo,
+          pageEnd: page.pageNo,
+          text: m[0].trim(),
+          detectedType: QuestionType.mcq,
+          detectedMarks: 1,
+        });
+      }
     }
     return items;
   }
