@@ -129,13 +129,36 @@ export class QuestionSplitterService {
   }
 
   /**
-   * Skip the first page of question_paper PDFs since CIE always uses it
-   * as a cover sheet ("READ THESE INSTRUCTIONS FIRST", duration, additional
-   * materials, candidate-number boxes). Front matter starters like
-   * "1 hour 15 minutes" used to pollute the splitter as a fake Q1.
+   * Pages we feed to the splitter. CIE always reserves page 1 for the
+   * cover sheet (READ THESE INSTRUCTIONS FIRST, duration, additional
+   * materials, candidate-number boxes). For Paper-1 multiple choice it
+   * also reserves pages 2–3 for the formula sheet (rendered by PyMuPDF
+   * as a long string of equations with no English narrative). Pages
+   * containing the phrase "Formulae" near the top are skipped too.
+   *
+   * Per page, we also strip the standard CIE page header
+   *   "<pageNo>\n© UCLES <year>\n<syllabus>/<variant>/<season>/<yy>\n"
+   * (and the "[Turn over" trailer when present), so the splitter doesn't
+   * mistake the page-number for a question number.
    */
   private contentPages(pages: { pageNo: number; rawText: string | null }[]) {
-    return pages.filter((p) => p.pageNo >= 2);
+    const cleaned: { pageNo: number; rawText: string | null }[] = [];
+    for (const p of pages) {
+      if (p.pageNo === 1) continue;
+      const raw = p.rawText ?? '';
+      // Strip CIE page header: optional pageNo, copyright, and exam ref.
+      let text = raw
+        .replace(/^\s*\d{1,2}\s*\n/, '') // leading page number on its own line
+        .replace(/©\s*UCLES\s*\d{4}\s*\n/g, '') // copyright line
+        .replace(/\d{4}\/\d{1,2}\/[A-Za-z]\/[A-Za-z]\/\d{2}\s*\n/g, '') // 9702/12/M/J/19
+        .replace(/\[\s*Turn\s+over\s*\n?/gi, '') // [Turn over
+        .replace(/\bFormulae\b[\s\S]*$/, (m) => (p.pageNo <= 3 ? '' : m)); // chop formula sheet on early pages only
+      // Skip whole page if after cleaning it's mostly the formula sheet.
+      const englishWords = (text.match(/[A-Za-z]{4,}/g) ?? []).length;
+      if (p.pageNo <= 3 && englishWords < 8) continue;
+      cleaned.push({ pageNo: p.pageNo, rawText: text });
+    }
+    return cleaned;
   }
 
   /**
@@ -152,8 +175,34 @@ export class QuestionSplitterService {
    * dropped, which kills both front-matter false-Q1 and unit-suffix
    * false-positives.
    */
+  /**
+   * MCQ splitter — handles the actual PyMuPDF output for CIE MCQ papers.
+   *
+   * The text PyMuPDF extracts puts each MCQ in this shape (note: option
+   * labels stand alone on their own line, with the option text on the
+   * line(s) that follow):
+   *
+   *   1
+   *   What is equivalent to 2000 microvolts?
+   *   A
+   *   2 µJ C-1
+   *   B
+   *   2 mV
+   *   C
+   *   2 pV
+   *   D
+   *   2000 mV
+   *
+   *   2
+   *   ...
+   *
+   * The regex below matches that exact shape. It enforces all four
+   * option labels, drops dupes by question number, and bails out at the
+   * next standalone-number-on-its-own-line.
+   */
   private splitMcq(pages: { pageNo: number; rawText: string | null }[]): RawSplit[] {
     const items: RawSplit[] = [];
+    const seen = new Set<number>();
     const lineToPage: number[] = [];
     let combined = '';
     for (const page of this.contentPages(pages)) {
@@ -165,43 +214,30 @@ export class QuestionSplitterService {
       }
     }
 
-    // Anchored multi-line regex. Each capture group:
-    //  1 = number (1..40)
-    //  2 = stem (everything up to the A option line)
-    //  3-6 = options A/B/C/D bodies
-    // Boundary: lookahead for next "(\n)<num> " or end-of-string.
     const re = new RegExp(
       [
-        '(?:^|\\n)\\s*(\\d{1,2})\\s+', // 1: question number at line start
-        '([\\s\\S]*?)',                // 2: stem (lazy)
-        '\\n\\s*A\\s+([\\s\\S]*?)',    // 3: option A
-        '\\n\\s*B\\s+([\\s\\S]*?)',    // 4: option B
-        '\\n\\s*C\\s+([\\s\\S]*?)',    // 5: option C
-        '\\n\\s*D\\s+([\\s\\S]*?)',    // 6: option D
-        '(?=\\n\\s*\\d{1,2}\\s+\\S|\\s*$)', // boundary
+        '(?:^|\\n)\\s*(\\d{1,2})\\s*\\n', // 1: question number alone on its line
+        '([\\s\\S]*?)',                    // 2: stem
+        '\\n\\s*A\\s*\\n([\\s\\S]*?)',     // 3: option A body
+        '\\n\\s*B\\s*\\n([\\s\\S]*?)',     // 4: option B body
+        '\\n\\s*C\\s*\\n([\\s\\S]*?)',     // 5: option C body
+        '\\n\\s*D\\s*\\n([\\s\\S]*?)',     // 6: option D body
+        '(?=\\n\\s*\\d{1,2}\\s*\\n|\\s*$)', // boundary: next Q-num or EOF
       ].join(''),
       'g',
     );
 
     let m: RegExpExecArray | null;
-    let last = 0;
     while ((m = re.exec(combined)) !== null) {
       const n = parseInt(m[1], 10);
       if (!Number.isFinite(n) || n < 1 || n > MAX_MCQ_NUMBER) continue;
-      // Reject the same number twice (regex sometimes loops).
-      if (n <= last) continue;
-      last = n;
+      if (seen.has(n)) continue;
+      seen.add(n);
 
       const stem = (m[2] ?? '').trim();
-      // A real MCQ stem is at least a sentence — one-token "ns" or "mV"
-      // suffixes have stems of length < 8 chars.
-      if (stem.length < 8) continue;
-      // Reject stems that look like the tail of a previous option list
-      // (line containing "A ... B ... C ... D ...").
-      if (/(?:^|\s)A\s+\S+\s+B\s+/.test(stem)) continue;
+      if (stem.length < 6) continue;
 
       const fullText = m[0].trim();
-      // Map start offset to page number via accumulated newlines.
       const startOffset = m.index;
       const lineIdx = combined.slice(0, startOffset).split('\n').length - 1;
       const pageStart = lineToPage[lineIdx] ?? 1;
