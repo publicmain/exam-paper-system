@@ -135,6 +135,37 @@ export default function SourcesPage() {
     }
   }
 
+  async function remove(id: string, url: string) {
+    if (!confirm(`Hard-delete this repository?\n\n${url}\n\nThis wipes all SourceFile + PdfPage rows and un-approved QuestionItems, plus on-disk PDFs and rendered pages. Approved Questions in the bank are kept.`)) return;
+    setBusy(id);
+    setError(null);
+    try {
+      let res;
+      try {
+        res = await api.deleteSource(id, false);
+      } catch (e: any) {
+        if (String(e.message).includes('Refusing') && confirm('Some QuestionItems are already approved. Force delete (mirrored Questions stay)?')) {
+          res = await api.deleteSource(id, true);
+        } else {
+          throw e;
+        }
+      }
+      alert(
+        `Deleted.\n` +
+          `Files: ${res.filesDeleted}\n` +
+          `Items: ${res.itemsDeleted}\n` +
+          `Approved items dropped: ${res.approvedItemsDropped}\n` +
+          `Disk PDFs cleaned: ${res.diskFilesDeleted}\n` +
+          `Render dirs cleaned: ${res.diskDirsDeleted}`,
+      );
+      await refresh();
+    } catch (e: any) {
+      setError(e.message);
+    } finally {
+      setBusy(null);
+    }
+  }
+
   async function sync(id: string) {
     setBusy(id);
     setError(null);
@@ -254,10 +285,23 @@ export default function SourcesPage() {
                       <button className="btn btn-danger" disabled={busy === r.id} onClick={() => block(r.id)}>
                         Block
                       </button>
+                      <button className="btn btn-danger" disabled={busy === r.id} onClick={() => remove(r.id, r.url)}>
+                        Delete
+                      </button>
                     </>
                   )}
                   {r.complianceStatus === 'blocked' && (
-                    <span className="text-xs text-red-600">All derived files / questions are excluded.</span>
+                    <>
+                      <span className="text-xs text-red-600">All derived files / questions are excluded.</span>
+                      <button className="btn btn-danger" disabled={busy === r.id} onClick={() => remove(r.id, r.url)}>
+                        Delete
+                      </button>
+                    </>
+                  )}
+                  {r.complianceStatus === 'pending_review' && (
+                    <button className="btn btn-danger" disabled={busy === r.id} onClick={() => remove(r.id, r.url)}>
+                      Delete
+                    </button>
                   )}
                 </div>
               </div>

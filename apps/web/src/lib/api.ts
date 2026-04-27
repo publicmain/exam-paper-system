@@ -74,6 +74,8 @@ export const api = {
   createSource: (data: any) => request('POST', '/sources', data),
   updateSourceCompliance: (id: string, data: any) => request('PUT', `/sources/${id}/compliance`, data),
   blockSource: (id: string, reason: string) => request('POST', `/sources/${id}/block`, { reason }),
+  deleteSource: (id: string, force: boolean = false) =>
+    request('DELETE', `/sources/${id}${force ? '?force=true' : ''}`),
   syncSource: (id: string) => request('POST', `/sources/${id}/sync`),
   processSource: (id: string) => request('POST', `/sources/${id}/process`),
   tagSource: (id: string, limit?: number) =>

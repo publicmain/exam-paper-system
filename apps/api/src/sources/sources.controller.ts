@@ -1,4 +1,4 @@
-import { BadRequestException, Body, Controller, Get, Param, Post, Put, Query, Req } from '@nestjs/common';
+import { BadRequestException, Body, Controller, Delete, Get, Param, Post, Put, Query, Req } from '@nestjs/common';
 import { Request } from 'express';
 import { Roles } from '../common/auth.guard';
 import { CurrentUser } from '../common/current-user.decorator';
@@ -84,5 +84,16 @@ export class SourcesController {
   @Post(':id/tag')
   async tag(@Param('id') id: string, @Query('limit') limit?: string) {
     return this.ai.tagPendingForRepo(id, { limit: limit ? Number(limit) : undefined });
+  }
+
+  /** Hard-delete the repo + cascading files / pages / un-approved items. */
+  @Delete(':id')
+  async remove(
+    @Param('id') id: string,
+    @Query('force') force: string | undefined,
+    @CurrentUser() user: any,
+    @Req() req: Request,
+  ) {
+    return this.sources.delete(id, force === 'true', { id: user.id, role: user.role, ip: req.ip ?? null });
   }
 }
