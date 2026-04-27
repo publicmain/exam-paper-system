@@ -128,61 +128,119 @@ export class QuestionSplitterService {
     return false;
   }
 
+  /**
+   * Skip the first page of question_paper PDFs since CIE always uses it
+   * as a cover sheet ("READ THESE INSTRUCTIONS FIRST", duration, additional
+   * materials, candidate-number boxes). Front matter starters like
+   * "1 hour 15 minutes" used to pollute the splitter as a fake Q1.
+   */
+  private contentPages(pages: { pageNo: number; rawText: string | null }[]) {
+    return pages.filter((p) => p.pageNo >= 2);
+  }
+
+  /**
+   * MCQ splitter — regex-based with full ABCD enforcement.
+   *
+   * CIE PyMuPDF text often flattens multi-line content within a question
+   * (the question number, stem, and four options end up on multiple lines
+   * but boundaries aren't reliable). A pure line-by-line `^\d+\s+` scan
+   * picks up false positives like "2 ns" or "3 m s–1" inside option text.
+   *
+   * Instead, we scan the whole concatenated text for the canonical CIE
+   * MCQ shape: number → stem → 4 distinct options A/B/C/D → next number
+   * (or end). Anything that doesn't fit the four-option pattern is
+   * dropped, which kills both front-matter false-Q1 and unit-suffix
+   * false-positives.
+   */
   private splitMcq(pages: { pageNo: number; rawText: string | null }[]): RawSplit[] {
     const items: RawSplit[] = [];
-    let current: RawSplit | null = null;
-    let lastNumber = 0;
-    const starter = /^\s*(\d{1,2})\s+(?=\S)/;
-
-    for (const page of pages) {
-      const text = page.rawText ?? '';
-      for (const line of text.split('\n')) {
-        const m = line.match(starter);
-        if (m) {
-          const n = parseInt(m[1], 10);
-          // Accept only monotonically increasing numbers within MCQ range.
-          if (n === lastNumber + 1 && n <= MAX_MCQ_NUMBER) {
-            if (current) items.push(current);
-            current = {
-              questionNumber: String(n),
-              pageStart: page.pageNo,
-              pageEnd: page.pageNo,
-              text: line,
-              detectedType: QuestionType.mcq,
-              detectedMarks: 1,
-            };
-            lastNumber = n;
-            continue;
-          }
-        }
-        if (current) {
-          current.text += '\n' + line;
-          current.pageEnd = page.pageNo;
-        }
+    const lineToPage: number[] = [];
+    let combined = '';
+    for (const page of this.contentPages(pages)) {
+      const text = (page.rawText ?? '').replace(/\r/g, '');
+      const lines = text.split('\n');
+      for (const line of lines) {
+        lineToPage.push(page.pageNo);
+        combined += line + '\n';
       }
     }
-    if (current) items.push(current);
-    return items.filter((q) => this.looksLikeMcq(q.text));
-  }
 
-  private looksLikeMcq(body: string): boolean {
-    // A real CIE MCQ has 4 option lines starting with A B C D.
-    const opts = ['A', 'B', 'C', 'D'].filter((k) =>
-      new RegExp(`(?:^|\\n)\\s*${k}\\s+\\S`).test(body),
+    // Anchored multi-line regex. Each capture group:
+    //  1 = number (1..40)
+    //  2 = stem (everything up to the A option line)
+    //  3-6 = options A/B/C/D bodies
+    // Boundary: lookahead for next "(\n)<num> " or end-of-string.
+    const re = new RegExp(
+      [
+        '(?:^|\\n)\\s*(\\d{1,2})\\s+', // 1: question number at line start
+        '([\\s\\S]*?)',                // 2: stem (lazy)
+        '\\n\\s*A\\s+([\\s\\S]*?)',    // 3: option A
+        '\\n\\s*B\\s+([\\s\\S]*?)',    // 4: option B
+        '\\n\\s*C\\s+([\\s\\S]*?)',    // 5: option C
+        '\\n\\s*D\\s+([\\s\\S]*?)',    // 6: option D
+        '(?=\\n\\s*\\d{1,2}\\s+\\S|\\s*$)', // boundary
+      ].join(''),
+      'g',
     );
-    return opts.length >= 3;
+
+    let m: RegExpExecArray | null;
+    let last = 0;
+    while ((m = re.exec(combined)) !== null) {
+      const n = parseInt(m[1], 10);
+      if (!Number.isFinite(n) || n < 1 || n > MAX_MCQ_NUMBER) continue;
+      // Reject the same number twice (regex sometimes loops).
+      if (n <= last) continue;
+      last = n;
+
+      const stem = (m[2] ?? '').trim();
+      // A real MCQ stem is at least a sentence — one-token "ns" or "mV"
+      // suffixes have stems of length < 8 chars.
+      if (stem.length < 8) continue;
+      // Reject stems that look like the tail of a previous option list
+      // (line containing "A ... B ... C ... D ...").
+      if (/(?:^|\s)A\s+\S+\s+B\s+/.test(stem)) continue;
+
+      const fullText = m[0].trim();
+      // Map start offset to page number via accumulated newlines.
+      const startOffset = m.index;
+      const lineIdx = combined.slice(0, startOffset).split('\n').length - 1;
+      const pageStart = lineToPage[lineIdx] ?? 1;
+      const endOffset = re.lastIndex;
+      const endLineIdx = combined.slice(0, endOffset).split('\n').length - 1;
+      const pageEnd = lineToPage[Math.min(endLineIdx, lineToPage.length - 1)] ?? pageStart;
+
+      items.push({
+        questionNumber: String(n),
+        pageStart,
+        pageEnd,
+        text: fullText,
+        detectedType: QuestionType.mcq,
+        detectedMarks: 1,
+      });
+    }
+    return items;
   }
 
+  /**
+   * Structured splitter. CIE structured papers number their main questions
+   * 1, 2, 3 … at the left margin. Sub-parts use lowercase letters in
+   * parentheses ("(a)", "(b)") which we deliberately do not split on —
+   * they live inside the parent QuestionItem.
+   *
+   * We skip page 1 (cover sheet); some papers also have a formula sheet
+   * page 2 (Paper 4/5). To avoid catching the formula reference page as
+   * "Q1" we additionally require that the first 200 chars after the
+   * starter contain at least one alphabetic word ≥ 4 chars long, which
+   * filters numeric-symbol formula dumps.
+   */
   private splitStructured(pages: { pageNo: number; rawText: string | null }[]): RawSplit[] {
     const items: RawSplit[] = [];
     let current: RawSplit | null = null;
     let lastNumber = 0;
-    // A structured question typically begins at the left margin with the
-    // number, sometimes followed by " ." or whitespace and the prompt.
     const starter = /^\s*(\d{1,2})\s*[.)]?\s+(?=\S)/;
     const totalMarks = /\[(?:total[:\s]*)?\s*(\d{1,2})\s*\]/i;
 
-    for (const page of pages) {
+    for (const page of this.contentPages(pages)) {
       const text = page.rawText ?? '';
       for (const line of text.split('\n')) {
         const m = line.match(starter);
@@ -191,7 +249,7 @@ export class QuestionSplitterService {
           if (n === lastNumber + 1 && n <= MAX_STRUCTURED_NUMBER) {
             if (current) {
               current.detectedMarks = this.guessMarks(current.text, totalMarks);
-              items.push(current);
+              if (this.looksLikeRealStructured(current.text)) items.push(current);
             }
             current = {
               questionNumber: String(n),
@@ -212,9 +270,17 @@ export class QuestionSplitterService {
     }
     if (current) {
       current.detectedMarks = this.guessMarks(current.text, totalMarks);
-      items.push(current);
+      if (this.looksLikeRealStructured(current.text)) items.push(current);
     }
-    return items.filter((q) => q.text.length > 30);
+    return items;
+  }
+
+  private looksLikeRealStructured(body: string): boolean {
+    if (body.length < 60) return false;
+    // Must contain at least one substantive English word (kills pages
+    // that are pure formulas / Greek symbols / equations only).
+    if (!/[A-Za-z]{4,}/.test(body)) return false;
+    return true;
   }
 
   private guessMarks(body: string, pattern: RegExp): number | undefined {
