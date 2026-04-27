@@ -327,9 +327,16 @@ function ReviewDetail({ id, onChanged }: { id: string; onChanged: () => void }) 
           </div>
           {item.markSchemeItems?.length > 0 && (
             <div>
-              <div className="text-xs text-gray-600 font-semibold mt-3">Linked mark scheme</div>
+              <div className="text-xs text-gray-600 font-semibold mt-3">
+                Linked mark scheme ({item.markSchemeItems.length} part{item.markSchemeItems.length > 1 ? 's' : ''})
+              </div>
               {item.markSchemeItems.map((m: any) => (
                 <div key={m.id} className="text-xs bg-gray-50 p-2 rounded my-1 whitespace-pre-wrap">
+                  {m.partLabel && (
+                    <span className="inline-block font-mono font-semibold text-blue-700 mr-2">
+                      {m.partLabel}
+                    </span>
+                  )}
                   <span className="font-mono mr-2">[{m.marks}]</span>
                   {m.pointText}
                 </div>
