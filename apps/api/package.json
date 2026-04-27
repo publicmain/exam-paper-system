@@ -13,8 +13,7 @@
     "prisma:reset": "prisma migrate reset --force",
     "prisma:seed": "ts-node prisma/seed.ts",
     "test": "vitest run",
-    "test:watch": "vitest",
-    "postinstall": "prisma generate"
+    "test:watch": "vitest"
   },
   "prisma": {
     "seed": "ts-node prisma/seed.ts"

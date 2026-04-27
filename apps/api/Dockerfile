@@ -9,7 +9,7 @@ ENV PUPPETEER_SKIP_DOWNLOAD=true
 
 COPY package.json package-lock.json* ./
 COPY apps/api/package.json apps/api/
-RUN npm install --workspace @app/api --include=dev
+RUN npm install --workspace @app/api --include=dev --ignore-scripts
 
 COPY apps/api ./apps/api
 RUN npx --workspace @app/api prisma generate
