@@ -1,7 +1,7 @@
 import { Injectable, BadRequestException } from '@nestjs/common';
 import { PrismaService } from '../common/prisma.service';
 import { GenerationConfigDto } from './dto';
-import { Question, QuestionStatus, QuestionType } from '@prisma/client';
+import { Question, QuestionStatus, QuestionType, ComplianceStatus, AllowedUsage } from '@prisma/client';
 
 // Deterministic seeded RNG so same seed → same paper
 function mulberry32(seed: number) {
@@ -90,10 +90,20 @@ export class GenerationService {
       for (const r of recent) excludeIds.add(r.questionId);
     }
 
-    // Pull candidate pool once: subject + component + topic + status active
+    // Pull candidate pool once: subject + component + topic + status active.
+    // Compliance gate: only approved_internal questions are eligible by default.
+    // restricted_internal (licensed past papers) requires explicit opt-in via
+    // config.includeRestricted — this is the system-level safety net so
+    // blocked / pending / expired content can never leak into a paper.
+    const allowedCompliance: ComplianceStatus[] = [ComplianceStatus.approved_internal];
+    if ((config as any).includeRestricted) {
+      allowedCompliance.push(ComplianceStatus.restricted_internal);
+    }
     const where: any = {
       subjectId: config.subjectId,
       status: QuestionStatus.active,
+      complianceStatus: { in: allowedCompliance },
+      allowedUsage: { in: [AllowedUsage.free_use, AllowedUsage.internal_classroom_only] },
       ...(config.componentId && { componentId: config.componentId }),
       ...(expandedTopicIds.length > 0 && {
         OR: [

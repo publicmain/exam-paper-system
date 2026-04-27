@@ -9,6 +9,7 @@ import PapersPage from './pages/Papers';
 import PaperWizardPage from './pages/PaperWizard';
 import PaperEditPage from './pages/PaperEdit';
 import TemplatesPage from './pages/Templates';
+import SourcesPage from './pages/Sources';
 
 export default function App() {
   const { user, loading, init, logout } = useAuth();
@@ -40,6 +41,7 @@ export default function App() {
               <NavLink to="/papers" label="Papers" />
               <NavLink to="/questions" label="Questions" />
               <NavLink to="/templates" label="Templates" />
+              {user.role === 'admin' && <NavLink to="/sources" label="Sources" />}
             </nav>
           </div>
           <div className="flex items-center gap-3 text-sm">
@@ -58,6 +60,7 @@ export default function App() {
           <Route path="/questions/new" element={<QuestionEditPage />} />
           <Route path="/questions/:id" element={<QuestionEditPage />} />
           <Route path="/templates" element={<TemplatesPage />} />
+          <Route path="/sources" element={user.role === 'admin' ? <SourcesPage /> : <Navigate to="/" replace />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </main>

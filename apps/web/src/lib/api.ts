@@ -67,6 +67,14 @@ export const api = {
 
   // ai
   suggestLabels: (data: any) => request('POST', '/ai/suggest-labels', data),
+
+  // sources (admin only)
+  listSources: () => request('GET', '/sources'),
+  getSource: (id: string) => request('GET', `/sources/${id}`),
+  createSource: (data: any) => request('POST', '/sources', data),
+  updateSourceCompliance: (id: string, data: any) => request('PUT', `/sources/${id}/compliance`, data),
+  blockSource: (id: string, reason: string) => request('POST', `/sources/${id}/block`, { reason }),
+  syncSource: (id: string) => request('POST', `/sources/${id}/sync`),
 };
 
 function qs(obj: Record<string, any>) {

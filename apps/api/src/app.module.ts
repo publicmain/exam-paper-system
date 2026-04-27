@@ -12,6 +12,10 @@ import { PapersModule } from './papers/papers.module';
 import { AiModule } from './ai/ai.module';
 import { PdfModule } from './pdf/pdf.module';
 import { UsersModule } from './users/users.module';
+import { AuditModule } from './audit/audit.module';
+import { ComplianceModule } from './compliance/compliance.module';
+import { IngestModule } from './ingest/ingest.module';
+import { SourcesModule } from './sources/sources.module';
 import { HealthController } from './health.controller';
 
 @Module({
@@ -22,6 +26,8 @@ import { HealthController } from './health.controller';
       secret: process.env.JWT_SECRET || 'dev-secret',
       signOptions: { expiresIn: process.env.JWT_EXPIRES_IN || '7d' },
     }),
+    AuditModule,
+    ComplianceModule,
     AuthModule,
     UsersModule,
     ReferenceModule,
@@ -30,6 +36,8 @@ import { HealthController } from './health.controller';
     PapersModule,
     AiModule,
     PdfModule,
+    IngestModule,
+    SourcesModule,
   ],
   controllers: [HealthController],
   providers: [

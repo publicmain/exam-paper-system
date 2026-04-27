@@ -26,11 +26,14 @@ model User {
   createdAt    DateTime @default(now())
   lastLogin    DateTime?
 
-  questionsCreated  Question[]        @relation("QuestionCreator")
-  templatesOwned    PaperTemplate[]
-  papersOwned       Paper[]
-  versionsAuthored  PaperVersion[]
-  questionVersions  QuestionVersion[]
+  questionsCreated   Question[]         @relation("QuestionCreator")
+  templatesOwned     PaperTemplate[]
+  papersOwned        Paper[]
+  versionsAuthored   PaperVersion[]
+  questionVersions   QuestionVersion[]
+  reposAdded         SourceRepository[] @relation("RepoAddedBy")
+  questionItemReviewed QuestionItem[]   @relation("QuestionItemReviewer")
+  teacherReviews     TeacherReview[]    @relation("ReviewActor")
 }
 
 // ============================================================
@@ -83,8 +86,9 @@ model Topic {
   name          String
   sortOrder     Int     @default(0)
 
-  primaryForQuestions Question[]      @relation("QuestionPrimaryTopic")
+  primaryForQuestions Question[]            @relation("QuestionPrimaryTopic")
   questionLinks       QuestionTopic[]
+  questionItemLinks   QuestionItemTopic[]   @relation("ItemTopics")
 
   @@unique([componentId, code])
 }
@@ -136,6 +140,13 @@ model Question {
   markScheme       Json?          // [{ point, marks }]
 
   status           QuestionStatus @default(draft)
+  // Compliance gates — questions whose source is restricted past papers must
+  // be filtered out of generation by default unless the request explicitly
+  // opts in (e.g. school is licensed). New rows default to safe values so
+  // existing school-authored / AI-generated content keeps working.
+  complianceStatus ComplianceStatus @default(approved_internal)
+  allowedUsage     AllowedUsage     @default(free_use)
+
   createdById      String
   createdBy        User           @relation("QuestionCreator", fields: [createdById], references: [id])
   createdAt        DateTime       @default(now())
@@ -146,9 +157,11 @@ model Question {
   versions         QuestionVersion[]
   paperQuestions   PaperQuestion[]
   usageLogs        QuestionUsageLog[]
+  ingestedItem     QuestionItem?  @relation("QuestionItemMirror")
 
   @@index([subjectId, componentId, status])
   @@index([primaryTopicId])
+  @@index([complianceStatus, status])
 }
 
 model QuestionTopic {
@@ -290,12 +303,293 @@ model QuestionUsageLog {
 
 model AuditLog {
   id         String   @id @default(cuid())
-  actorId    String
+  actorId    String?
+  actorRole  String?
   action     String
   entityType String
   entityId   String
   diff       Json?
+  metadata   Json?
+  ip         String?
   createdAt  DateTime @default(now())
 
   @@index([entityType, entityId])
+  @@index([actorId, createdAt])
+  @@index([action, createdAt])
+}
+
+// ============================================================
+// Phase 2 — Ingestion + Compliance
+// ============================================================
+
+enum RepoType {
+  with_pdfs            // GitHub repos that contain raw PDFs
+  notes_only           // study notes / markdown — usually skipped
+  downloader_script    // scripts that scrape exam-board CDNs — never used directly
+  topic_page           // github.com/topics/* — discovery only
+  official             // exam-board source via school's licensed account
+  school_upload        // teacher / admin manual upload
+  ai_generator         // AI-produced original questions
+}
+
+enum SyncStatus {
+  idle
+  running
+  ok
+  failed
+}
+
+enum ComplianceStatus {
+  pending_review        // default for new sources / files / items
+  approved_internal     // school-authored, AI-generated, or licensed
+  restricted_internal   // licensed past papers — internal-only, audit required
+  blocked               // takedown / unlicensed — DB-level filter excludes
+  expired               // licence lapsed — same effect as blocked
+}
+
+enum AllowedUsage {
+  free_use                   // school owns / created
+  internal_classroom_only    // licensed past papers, internal only
+  metadata_reference_only    // never render full content, only the source ref
+  none                       // not yet cleared
+}
+
+enum RetentionPolicy {
+  keep_indefinite
+  delete_after_review
+  delete_when_blocked
+  school_license_term
+}
+
+enum FileKind {
+  question_paper
+  mark_scheme
+  examiner_report
+  insert
+  syllabus_doc
+  other
+}
+
+enum ProcessStatus {
+  pending
+  processing
+  processed
+  failed
+}
+
+enum ReviewStatus {
+  pending_review
+  needs_human_review
+  approved
+  rejected
+  on_hold
+}
+
+enum AssetKind {
+  figure
+  diagram
+  graph
+  chemical_structure
+  equation_image
+  table
+  other
+}
+
+enum TagSource {
+  ai
+  filename
+  heuristic
+  teacher
+}
+
+model SourceRepository {
+  id                 String   @id @default(cuid())
+  url                String   @unique
+  repoType           RepoType
+  licenseDetected    String?
+  licenseTextUrl     String?
+  examBoardHint      String?
+  lastSyncedAt       DateTime?
+  syncStatus         SyncStatus @default(idle)
+  syncError          String?
+  // Default deny: a new repo is parked in pending_review until an admin
+  // explicitly upgrades its compliance_status. The sync worker will refuse
+  // to clone repos that are still pending or blocked.
+  complianceStatus   ComplianceStatus @default(pending_review)
+  copyrightOwner     String?
+  allowedUsage       AllowedUsage    @default(none)
+  retentionPolicy    RetentionPolicy @default(delete_when_blocked)
+  notesForTeachers   String?
+  addedById          String
+  addedBy            User     @relation("RepoAddedBy", fields: [addedById], references: [id])
+  addedAt            DateTime @default(now())
+  blockedReason      String?
+  blockedAt          DateTime?
+  files              SourceFile[]
+
+  @@index([complianceStatus])
+  @@index([syncStatus])
+}
+
+model SourceFile {
+  id                 String   @id @default(cuid())
+  repoId             String
+  repo               SourceRepository @relation(fields: [repoId], references: [id], onDelete: Cascade)
+  rawFilename        String
+  storagePath        String   // s3://... or local path
+  sha256             String   @unique
+  fileSizeBytes      Int
+  fileKind           FileKind @default(other)
+  syllabusCode       String?  // e.g. 9702
+  examYear           Int?
+  examSeason         String?  // m / s / w
+  paperVariant       String?  // 22
+  paperNumber        String?  // qp / ms / er / in
+  parsedFromName     Json?
+  ingestedAt         DateTime @default(now())
+  processStatus      ProcessStatus @default(pending)
+  processError       String?
+  // Inherits from repo by default but stays mutable so individual files
+  // can be blocked without blocking the whole source.
+  complianceStatus   ComplianceStatus @default(pending_review)
+
+  pages              PdfPage[]
+  questionItems      QuestionItem[]
+
+  @@index([repoId, fileKind])
+  @@index([syllabusCode, examYear, examSeason])
+  @@index([complianceStatus, processStatus])
+}
+
+model PdfPage {
+  id              String   @id @default(cuid())
+  sourceFileId    String
+  sourceFile      SourceFile @relation(fields: [sourceFileId], references: [id], onDelete: Cascade)
+  pageNo          Int
+  rawText         String?
+  layoutJson      Json?
+  imageUrl        String?
+  ocrUsed         Boolean  @default(false)
+  ocrConfidence   Float?
+
+  @@unique([sourceFileId, pageNo])
+}
+
+model QuestionItem {
+  id                String   @id @default(cuid())
+  sourceFileId      String?
+  sourceFile        SourceFile? @relation(fields: [sourceFileId], references: [id])
+  // Once approved, a mirrored Question row is created and linked here.
+  // Until then, generators cannot see this item (Question is the consumer).
+  questionId        String?  @unique
+  question          Question? @relation("QuestionItemMirror", fields: [questionId], references: [id])
+
+  pageStart         Int?
+  pageEnd           Int?
+  cropBboxJson      Json?
+  cropImageUrl      String?
+  rawExtractedText  String?
+  extractedLatex    String?
+  questionNumber    String?
+
+  // AI-suggested metadata — never auto-applied; teachers confirm.
+  suggestedSubjectCode String?
+  suggestedTopicCode   String?
+  suggestedType        QuestionType?
+  suggestedMarks       Int?
+  suggestedDifficulty  Int?
+  suggestedMetadata    Json?
+
+  confidenceSplit   Float?
+  confidenceMarks   Float?
+  confidenceMs      Float?
+  confidenceTopic   Float?
+
+  reviewStatus      ReviewStatus @default(pending_review)
+  reviewedById      String?
+  reviewedBy        User?    @relation("QuestionItemReviewer", fields: [reviewedById], references: [id])
+  reviewedAt        DateTime?
+  reviewNotes       String?
+
+  complianceStatus  ComplianceStatus @default(pending_review)
+
+  parts             QuestionPart[]
+  ingestedAssets    IngestedAsset[]
+  markSchemeItems   MarkSchemeItem[]
+  topicMap          QuestionItemTopic[]
+  reviews           TeacherReview[]
+
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  @@index([reviewStatus, complianceStatus])
+  @@index([sourceFileId])
+}
+
+model QuestionPart {
+  id              String @id @default(cuid())
+  questionItemId  String
+  questionItem    QuestionItem @relation(fields: [questionItemId], references: [id], onDelete: Cascade)
+  partLabel       String
+  parentPartId    String?
+  parentPart      QuestionPart? @relation("PartChild", fields: [parentPartId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  children        QuestionPart[] @relation("PartChild")
+  marks           Int
+  text            String
+  latexText       String?
+  cropBboxJson    Json?
+  cropImageUrl    String?
+  sortOrder       Int @default(0)
+}
+
+model IngestedAsset {
+  id              String @id @default(cuid())
+  questionItemId  String
+  questionItem    QuestionItem @relation(fields: [questionItemId], references: [id], onDelete: Cascade)
+  kind            AssetKind
+  imageUrl        String
+  pageNo          Int?
+  bboxJson        Json?
+  altText         String?
+  ocrText         String?
+  sortOrder       Int @default(0)
+}
+
+model MarkSchemeItem {
+  id                String @id @default(cuid())
+  questionItemId    String
+  questionItem      QuestionItem @relation(fields: [questionItemId], references: [id], onDelete: Cascade)
+  partLabel         String?
+  pointText         String
+  marks             Int
+  notesForExaminer  String?
+  cropImageUrl      String?
+  matchConfidence   Float?
+  sortOrder         Int @default(0)
+}
+
+model QuestionItemTopic {
+  questionItemId  String
+  questionItem    QuestionItem @relation(fields: [questionItemId], references: [id], onDelete: Cascade)
+  topicId         String
+  topic           Topic @relation("ItemTopics", fields: [topicId], references: [id], onDelete: Cascade)
+  confidence      Float
+  taggedBy        TagSource @default(ai)
+
+  @@id([questionItemId, topicId])
+}
+
+model TeacherReview {
+  id              String @id @default(cuid())
+  questionItemId  String
+  questionItem    QuestionItem @relation(fields: [questionItemId], references: [id], onDelete: Cascade)
+  reviewerId      String
+  reviewer        User @relation("ReviewActor", fields: [reviewerId], references: [id])
+  action          String   // approve | reject | edit_metadata | flag_copyright | link_mark_scheme | remap_topic
+  reasonCode      String?
+  notes           String?
+  metadataDiff    Json?
+  createdAt       DateTime @default(now())
+
+  @@index([questionItemId, createdAt])
 }
