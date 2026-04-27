@@ -111,26 +111,42 @@ export class MarkSchemeLinkerService {
   }
 
   /**
-   * MCQ mark schemes are tabular: number + letter + (sometimes) marks.
-   * Lines look like "1 D 1" or "1   D" with 1 mark implied. MCQs have
-   * no sub-parts so partLabel stays null.
+   * MCQ mark schemes are tabular. PyMuPDF can emit them in two shapes:
+   *   "1 D"               (number and letter on the same line)
+   *   "1\nD"              (number then letter on separate lines)
+   * We scan with a regex that allows whitespace OR a newline between the
+   * two, then walk a monotonic 1, 2, 3… chain so "letter B" inside an
+   * option text doesn't pollute the chain. MCQs have no sub-parts so
+   * partLabel stays null.
    */
   private parseMcqMs(text: string): MsRow[] {
     const rows: MsRow[] = [];
-    const seen = new Set<string>();
-    for (const line of text.split('\n')) {
-      const m = line.match(/^\s*(\d{1,2})\s+([A-D])(?:\s+(\d))?\s*$/);
-      if (!m) continue;
-      const n = m[1];
-      if (seen.has(n)) continue;
-      seen.add(n);
+    const seen = new Set<number>();
+    const re = /(?:^|\n)\s*(\d{1,2})\s*[\s\n]+([A-D])\b/g;
+    type Hit = { n: number; letter: string };
+    const hits: Hit[] = [];
+    let m: RegExpExecArray | null;
+    while ((m = re.exec(text)) !== null) {
+      const n = parseInt(m[1], 10);
+      if (n < 1 || n > 45) continue;
+      hits.push({ n, letter: m[2] });
+    }
+    // Greedy monotonic chain so we accept the FIRST occurrence of each
+    // number in sequence; later "1"/"2" inside option bodies are skipped.
+    let want = 1;
+    for (const h of hits) {
+      if (h.n !== want) continue;
+      if (seen.has(h.n)) continue;
+      seen.add(h.n);
       rows.push({
-        number: n,
+        number: String(h.n),
         partLabel: null,
-        text: m[2],
-        marks: m[3] ? parseInt(m[3], 10) : 1,
+        text: h.letter,
+        marks: 1,
         sortOrder: 0,
       });
+      want = h.n + 1;
+      if (want > 45) break;
     }
     return rows;
   }
