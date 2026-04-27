@@ -55,6 +55,18 @@ export default function PaperWizardPage() {
     setForm({ ...form, durationMin: p.durationMin, totalMarks: p.totalMarks, questionMix: structuredClone(p.questionMix) });
   }
 
+  // Per-slot subtotal (exact for fixed mode, approximate for target mode)
+  function slotSubtotal(m: any): { value: number; approx: boolean } {
+    if (m.count != null && m.marksEach != null) return { value: m.count * m.marksEach, approx: false };
+    if (m.targetMarks != null) return { value: m.targetMarks, approx: true };
+    return { value: 0, approx: false };
+  }
+
+  const mixTotal = useMemo(
+    () => form.questionMix.reduce((s: number, m: any) => s + slotSubtotal(m).value, 0),
+    [form.questionMix],
+  );
+
   // Live conflict detection
   const conflicts = useMemo(() => {
     const list: string[] = [];
@@ -63,18 +75,13 @@ export default function PaperWizardPage() {
     if (form.durationMin <= 0) list.push('Duration must be positive.');
     if (form.questionMix.length === 0) list.push('At least one question type is required.');
 
-    let mixMarks = 0;
-    for (const m of form.questionMix) {
-      if (m.count != null && m.marksEach != null) mixMarks += m.count * m.marksEach;
-      else if (m.targetMarks != null) mixMarks += m.targetMarks;
-    }
-    if (mixMarks > 0 && Math.abs(mixMarks - form.totalMarks) / form.totalMarks > 0.2) {
-      list.push(`Mix targets ${mixMarks} marks but total is ${form.totalMarks} (>20% diff).`);
+    if (mixTotal > 0 && Math.abs(mixTotal - form.totalMarks) / form.totalMarks > 0.2) {
+      list.push(`Mix targets ${mixTotal} marks but total is ${form.totalMarks} (>20% diff).`);
     }
     const ratio = form.durationMin / form.totalMarks;
     if (ratio < 0.5) list.push(`Duration may be too short for ${form.totalMarks} marks.`);
     return list;
-  }, [form]);
+  }, [form, mixTotal]);
 
   async function generate() {
     setBusy(true); setWarnings([]);
@@ -178,33 +185,85 @@ export default function PaperWizardPage() {
 
           <div>
             <div className="text-xs text-gray-600 mb-1">Question mix</div>
-            <div className="space-y-2">
-              {form.questionMix.map((m: any, i: number) => (
-                <div key={i} className="grid grid-cols-12 gap-2 items-end">
-                  <div className="col-span-3">
-                    <select className="select" value={m.type} onChange={e => updateMix(i, { ...m, type: e.target.value })}>
-                      <option value="mcq">MCQ</option>
-                      <option value="short_answer">Short answer</option>
-                      <option value="structured">Structured</option>
-                      <option value="essay">Essay</option>
-                    </select>
+            <div className="text-xs text-gray-500 mb-2">
+              Each slot uses one of two modes — pick <b>Fixed count</b> (e.g. 15 MCQ × 1 mark) or <b>Fill to total</b> (auto-pick questions to reach a target mark count).
+            </div>
+            <div className="space-y-3">
+              {form.questionMix.map((m: any, i: number) => {
+                const mode: 'fixed' | 'target' =
+                  m.targetMarks != null && (m.count == null || m.marksEach == null) ? 'target' : 'fixed';
+                const sub = slotSubtotal(m);
+                return (
+                  <div key={i} className="grid grid-cols-12 gap-2 items-end pb-2 border-b border-gray-100">
+                    <div className="col-span-3">
+                      <label className="text-xs text-gray-500">Type</label>
+                      <select className="select" value={m.type} onChange={e => updateMix(i, { ...m, type: e.target.value })}>
+                        <option value="mcq">MCQ</option>
+                        <option value="short_answer">Short answer</option>
+                        <option value="structured">Structured</option>
+                        <option value="essay">Essay</option>
+                      </select>
+                    </div>
+                    <div className="col-span-2">
+                      <label className="text-xs text-gray-500">Mode</label>
+                      <select
+                        className="select"
+                        value={mode}
+                        onChange={e => {
+                          const next = e.target.value as 'fixed' | 'target';
+                          if (next === 'fixed') {
+                            updateMix(i, { type: m.type, count: m.count ?? 5, marksEach: m.marksEach ?? 1 });
+                          } else {
+                            updateMix(i, { type: m.type, targetMarks: m.targetMarks ?? 10 });
+                          }
+                        }}
+                      >
+                        <option value="fixed">Fixed count</option>
+                        <option value="target">Fill to total</option>
+                      </select>
+                    </div>
+                    {mode === 'fixed' ? (
+                      <>
+                        <div className="col-span-2">
+                          <label className="text-xs text-gray-500">Count</label>
+                          <input className="input" type="number" min={1} value={m.count ?? ''}
+                            onChange={e => updateMix(i, { ...m, count: e.target.value === '' ? undefined : Number(e.target.value) })} />
+                        </div>
+                        <div className="col-span-2">
+                          <label className="text-xs text-gray-500">Marks each</label>
+                          <input className="input" type="number" min={1} value={m.marksEach ?? ''}
+                            onChange={e => updateMix(i, { ...m, marksEach: e.target.value === '' ? undefined : Number(e.target.value) })} />
+                        </div>
+                      </>
+                    ) : (
+                      <div className="col-span-4">
+                        <label className="text-xs text-gray-500">Target marks (auto-pick)</label>
+                        <input className="input" type="number" min={1} value={m.targetMarks ?? ''}
+                          onChange={e => updateMix(i, { ...m, targetMarks: e.target.value === '' ? undefined : Number(e.target.value) })} />
+                      </div>
+                    )}
+                    <div className="col-span-2 text-right text-sm pb-2 whitespace-nowrap">
+                      <span className="text-gray-400">{sub.approx ? '≈ ' : '= '}</span>
+                      <span className="font-semibold">{sub.value}</span>
+                      <span className="text-gray-500"> marks</span>
+                    </div>
+                    <button className="col-span-1 btn btn-danger" onClick={() => removeMix(i)}>×</button>
                   </div>
-                  <div className="col-span-3">
-                    <label className="text-xs text-gray-500">Count (optional)</label>
-                    <input className="input" type="number" value={m.count ?? ''} onChange={e => updateMix(i, { ...m, count: e.target.value === '' ? undefined : Number(e.target.value) })} />
-                  </div>
-                  <div className="col-span-2">
-                    <label className="text-xs text-gray-500">Marks each</label>
-                    <input className="input" type="number" value={m.marksEach ?? ''} onChange={e => updateMix(i, { ...m, marksEach: e.target.value === '' ? undefined : Number(e.target.value) })} />
-                  </div>
-                  <div className="col-span-3">
-                    <label className="text-xs text-gray-500">Target total marks (alt.)</label>
-                    <input className="input" type="number" value={m.targetMarks ?? ''} onChange={e => updateMix(i, { ...m, targetMarks: e.target.value === '' ? undefined : Number(e.target.value) })} />
-                  </div>
-                  <button className="col-span-1 btn btn-danger" onClick={() => removeMix(i)}>×</button>
+                );
+              })}
+              <div className="flex justify-between items-center pt-1">
+                <button className="btn" onClick={() => setForm({ ...form, questionMix: [...form.questionMix, { type: 'short_answer', targetMarks: 10 }] })}>+ Add slot</button>
+                <div className="text-sm">
+                  <span className="text-gray-500">Mix total: </span>
+                  <span className="font-semibold">{mixTotal}</span>
+                  <span className="text-gray-500"> / target {form.totalMarks} marks </span>
+                  {form.totalMarks > 0 && mixTotal > 0 && (
+                    <span className={Math.abs(mixTotal - form.totalMarks) / form.totalMarks > 0.2 ? 'text-amber-600 font-semibold' : 'text-green-600 font-semibold'}>
+                      ({mixTotal === form.totalMarks ? 'match' : `${mixTotal > form.totalMarks ? '+' : ''}${mixTotal - form.totalMarks}`})
+                    </span>
+                  )}
                 </div>
-              ))}
-              <button className="btn" onClick={() => setForm({ ...form, questionMix: [...form.questionMix, { type: 'short_answer', targetMarks: 10 }] })}>+ Add slot</button>
+              </div>
             </div>
           </div>
 
