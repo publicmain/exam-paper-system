@@ -1,0 +1,29 @@
+{
+  "name": "exam-paper-system",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Exam paper generation system for CIE / Edexcel A-Level / O-Level / IGCSE",
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "dev": "concurrently -n api,web -c blue,green \"npm run dev -w @app/api\" \"npm run dev -w @app/web\"",
+    "dev:api": "npm run dev -w @app/api",
+    "dev:web": "npm run dev -w @app/web",
+    "build": "npm run build -w @app/api && npm run build -w @app/web",
+    "build:api": "npm run build -w @app/api",
+    "build:web": "npm run build -w @app/web",
+    "db:migrate": "npm run prisma:migrate -w @app/api",
+    "db:seed": "npm run prisma:seed -w @app/api",
+    "db:reset": "npm run prisma:reset -w @app/api",
+    "test": "npm run test -w @app/api",
+    "start": "npm run start -w @app/api"
+  },
+  "devDependencies": {
+    "concurrently": "^8.2.2"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}

@@ -1,0 +1,41 @@
+import { Module } from '@nestjs/common';
+import { APP_GUARD } from '@nestjs/core';
+import { ConfigModule } from '@nestjs/config';
+import { JwtModule } from '@nestjs/jwt';
+import { PrismaService } from './common/prisma.service';
+import { AuthGuard } from './common/auth.guard';
+import { AuthModule } from './auth/auth.module';
+import { ReferenceModule } from './reference/reference.module';
+import { QuestionsModule } from './questions/questions.module';
+import { TemplatesModule } from './templates/templates.module';
+import { PapersModule } from './papers/papers.module';
+import { AiModule } from './ai/ai.module';
+import { PdfModule } from './pdf/pdf.module';
+import { UsersModule } from './users/users.module';
+import { HealthController } from './health.controller';
+
+@Module({
+  imports: [
+    ConfigModule.forRoot({ isGlobal: true }),
+    JwtModule.register({
+      global: true,
+      secret: process.env.JWT_SECRET || 'dev-secret',
+      signOptions: { expiresIn: process.env.JWT_EXPIRES_IN || '7d' },
+    }),
+    AuthModule,
+    UsersModule,
+    ReferenceModule,
+    QuestionsModule,
+    TemplatesModule,
+    PapersModule,
+    AiModule,
+    PdfModule,
+  ],
+  controllers: [HealthController],
+  providers: [
+    PrismaService,
+    { provide: APP_GUARD, useClass: AuthGuard },
+  ],
+  exports: [PrismaService],
+})
+export class AppModule {}

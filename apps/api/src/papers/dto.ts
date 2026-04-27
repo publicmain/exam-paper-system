@@ -1,0 +1,30 @@
+import { IsArray, IsInt, IsObject, IsOptional, IsString, Min } from 'class-validator';
+
+export class GenerationConfigDto {
+  @IsString() subjectId: string;
+  @IsOptional() @IsString() componentId?: string;
+  @IsOptional() @IsArray() topicFilter?: string[];
+  @IsInt() @Min(5) durationMin: number;
+  @IsInt() @Min(1) totalMarks: number;
+  @IsArray() questionMix: Array<{ type: 'mcq' | 'short_answer' | 'structured' | 'essay'; count?: number; targetMarks?: number; marksEach?: number }>;
+  @IsOptional() @IsObject() difficultyDist?: { easy?: number; medium?: number; hard?: number };
+  @IsOptional() @IsInt() excludeRecentDays?: number;
+  @IsOptional() @IsArray() excludeQuestionIds?: string[];
+  @IsOptional() @IsInt() seed?: number;
+}
+
+export class GeneratePaperDto {
+  @IsOptional() @IsString() templateId?: string;
+  @IsString() name: string;
+  @IsOptional() @IsString() classLabel?: string;
+  @IsOptional() examDate?: string;
+  @IsOptional() config?: GenerationConfigDto;
+}
+
+export class UpdatePaperQuestionDto {
+  @IsString() action: 'reorder' | 'delete' | 'edit' | 'replace';
+  @IsOptional() @IsInt() newSortOrder?: number;
+  @IsOptional() overrideContent?: any;
+  @IsOptional() overrideAnswer?: any;
+  @IsOptional() @IsString() replacementQuestionId?: string;
+}

@@ -1,0 +1,300 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ============================================================
+// Users & Auth
+// ============================================================
+enum UserRole {
+  teacher
+  head_teacher
+  admin
+}
+
+model User {
+  id           String   @id @default(cuid())
+  email        String   @unique
+  name         String
+  passwordHash String
+  role         UserRole @default(teacher)
+  createdAt    DateTime @default(now())
+  lastLogin    DateTime?
+
+  questionsCreated  Question[]        @relation("QuestionCreator")
+  templatesOwned    PaperTemplate[]
+  papersOwned       Paper[]
+  versionsAuthored  PaperVersion[]
+  questionVersions  QuestionVersion[]
+}
+
+// ============================================================
+// Reference: Boards / Subjects / Components / Topics
+// ============================================================
+model ExamBoard {
+  id       String    @id @default(cuid())
+  code     String    @unique // CIE, EDEXCEL, AQA, OCR
+  name     String
+  subjects Subject[]
+}
+
+model Subject {
+  id          String   @id @default(cuid())
+  examBoardId String
+  examBoard   ExamBoard @relation(fields: [examBoardId], references: [id], onDelete: Cascade)
+  code        String   // 9709, 9702
+  name        String   // Mathematics, Physics
+  level       String   // A_LEVEL, AS_LEVEL, IGCSE, O_LEVEL
+  components  SyllabusComponent[]
+  questions   Question[]
+  papers      Paper[]
+  templates   PaperTemplate[]
+
+  @@unique([examBoardId, code, level])
+}
+
+model SyllabusComponent {
+  id        String  @id @default(cuid())
+  subjectId String
+  subject   Subject @relation(fields: [subjectId], references: [id], onDelete: Cascade)
+  code      String  // P1, P3, Paper2
+  name      String
+  topics    Topic[]
+  questions Question[]
+  papers    Paper[]
+  templates PaperTemplate[]
+
+  @@unique([subjectId, code])
+}
+
+model Topic {
+  id            String  @id @default(cuid())
+  componentId   String
+  component     SyllabusComponent @relation(fields: [componentId], references: [id], onDelete: Cascade)
+  parentTopicId String?
+  parent        Topic?  @relation("TopicHierarchy", fields: [parentTopicId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  children      Topic[] @relation("TopicHierarchy")
+  code          String
+  name          String
+  sortOrder     Int     @default(0)
+
+  primaryForQuestions Question[]      @relation("QuestionPrimaryTopic")
+  questionLinks       QuestionTopic[]
+
+  @@unique([componentId, code])
+}
+
+// ============================================================
+// Question Bank
+// ============================================================
+enum QuestionType {
+  mcq
+  short_answer
+  structured
+  essay
+}
+
+enum QuestionStatus {
+  draft
+  active
+  retired
+}
+
+enum SourceType {
+  original_school
+  ai_generated
+  past_paper_reference
+  textbook
+}
+
+model Question {
+  id               String         @id @default(cuid())
+  subjectId        String
+  subject          Subject        @relation(fields: [subjectId], references: [id])
+  componentId      String?
+  component        SyllabusComponent? @relation(fields: [componentId], references: [id])
+  primaryTopicId   String?
+  primaryTopic     Topic?         @relation("QuestionPrimaryTopic", fields: [primaryTopicId], references: [id])
+
+  questionType     QuestionType
+  marks            Int
+  estimatedTimeMin Float          // default = marks * subject.timePerMark
+  difficulty       Int            // 1-5
+  sourceType       SourceType     @default(original_school)
+  sourceRef        String?        // e.g. "9702/22/M/J/19/Q3" — metadata only
+
+  // Content as JSON (markdown + LaTeX), supports parts for structured
+  // Shape: { stem: string, parts?: [{ label, content, marks, answer }] }
+  content          Json
+  answerContent    Json           // { text, parts?: [{ label, answer }] }
+  options          Json?          // MCQ only: [{ key:'A', text, correct }]
+  markScheme       Json?          // [{ point, marks }]
+
+  status           QuestionStatus @default(draft)
+  createdById      String
+  createdBy        User           @relation("QuestionCreator", fields: [createdById], references: [id])
+  createdAt        DateTime       @default(now())
+  updatedAt        DateTime       @updatedAt
+
+  topics           QuestionTopic[]
+  assets           QuestionAsset[]
+  versions         QuestionVersion[]
+  paperQuestions   PaperQuestion[]
+  usageLogs        QuestionUsageLog[]
+
+  @@index([subjectId, componentId, status])
+  @@index([primaryTopicId])
+}
+
+model QuestionTopic {
+  questionId String
+  topicId    String
+  question   Question @relation(fields: [questionId], references: [id], onDelete: Cascade)
+  topic      Topic    @relation(fields: [topicId], references: [id], onDelete: Cascade)
+
+  @@id([questionId, topicId])
+}
+
+model QuestionAsset {
+  id         String   @id @default(cuid())
+  questionId String
+  question   Question @relation(fields: [questionId], references: [id], onDelete: Cascade)
+  assetType  String   // image | svg
+  storageUrl String
+  altText    String?
+  sortOrder  Int      @default(0)
+  createdAt  DateTime @default(now())
+}
+
+model QuestionVersion {
+  id            String   @id @default(cuid())
+  questionId    String
+  question      Question @relation(fields: [questionId], references: [id], onDelete: Cascade)
+  versionNumber Int
+  snapshot      Json
+  changedById   String
+  changedBy     User     @relation(fields: [changedById], references: [id])
+  changedAt     DateTime @default(now())
+  changeNote    String?
+
+  @@unique([questionId, versionNumber])
+}
+
+// ============================================================
+// Paper Templates
+// ============================================================
+model PaperTemplate {
+  id              String   @id @default(cuid())
+  ownerId         String
+  owner           User     @relation(fields: [ownerId], references: [id])
+  name            String
+  subjectId       String
+  subject         Subject  @relation(fields: [subjectId], references: [id])
+  componentId     String?
+  component       SyllabusComponent? @relation(fields: [componentId], references: [id])
+  durationMin     Int
+  totalMarks      Int
+  config          Json     // { questionMix, difficultyDist, topicFilter, excludeRecentDays }
+  isSchoolDefault Boolean  @default(false)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  papers          Paper[]
+}
+
+// ============================================================
+// Generated Papers
+// ============================================================
+enum PaperStatus {
+  draft
+  published
+  archived
+}
+
+model Paper {
+  id                String   @id @default(cuid())
+  ownerId           String
+  owner             User     @relation(fields: [ownerId], references: [id])
+  templateId        String?
+  template          PaperTemplate? @relation(fields: [templateId], references: [id])
+  name              String
+  classLabel        String?
+  subjectId         String
+  subject           Subject  @relation(fields: [subjectId], references: [id])
+  componentId       String?
+  component         SyllabusComponent? @relation(fields: [componentId], references: [id])
+  examDate          DateTime?
+  durationMin       Int
+  totalMarksTarget  Int
+  totalMarksActual  Int
+  status            PaperStatus @default(draft)
+  generatedSeed     Int
+  config            Json     // snapshot of generation config
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  questions         PaperQuestion[]
+  versions          PaperVersion[]
+  usageLogs         QuestionUsageLog[]
+}
+
+model PaperQuestion {
+  id               String   @id @default(cuid())
+  paperId          String
+  paper            Paper    @relation(fields: [paperId], references: [id], onDelete: Cascade)
+  questionId       String
+  question         Question @relation(fields: [questionId], references: [id])
+  sortOrder        Int
+  snapshotContent  Json     // taken at generation time
+  snapshotAnswer   Json
+  snapshotOptions  Json?
+  overrideContent  Json?    // teacher edits within this paper, doesn't touch master
+  overrideAnswer   Json?
+  marks            Int
+
+  @@index([paperId, sortOrder])
+}
+
+model PaperVersion {
+  id            String   @id @default(cuid())
+  paperId       String
+  paper         Paper    @relation(fields: [paperId], references: [id], onDelete: Cascade)
+  versionNumber Int
+  snapshot      Json
+  changedById   String
+  changedBy     User     @relation(fields: [changedById], references: [id])
+  changedAt     DateTime @default(now())
+  changeNote    String?
+
+  @@unique([paperId, versionNumber])
+}
+
+// ============================================================
+// Audit / Usage
+// ============================================================
+model QuestionUsageLog {
+  id         String   @id @default(cuid())
+  questionId String
+  question   Question @relation(fields: [questionId], references: [id], onDelete: Cascade)
+  paperId    String
+  paper      Paper    @relation(fields: [paperId], references: [id], onDelete: Cascade)
+  classLabel String?
+  usedAt     DateTime @default(now())
+
+  @@index([questionId, usedAt])
+}
+
+model AuditLog {
+  id         String   @id @default(cuid())
+  actorId    String
+  action     String
+  entityType String
+  entityId   String
+  diff       Json?
+  createdAt  DateTime @default(now())
+
+  @@index([entityType, entityId])
+}
