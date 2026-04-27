@@ -4,8 +4,10 @@ import { FileKind, ProcessStatus, SourceFile } from '@prisma/client';
 
 interface MsRow {
   number: string;
+  partLabel: string | null;
   text: string;
   marks: number;
+  sortOrder: number;
 }
 
 export interface LinkResult {
@@ -84,18 +86,24 @@ export class MarkSchemeLinkerService {
 
     let matched = 0;
     for (const item of items) {
-      const row = rows.find((r) => r.number === item.questionNumber);
-      if (!row) continue;
+      const matching = rows.filter((r) => r.number === item.questionNumber);
+      if (matching.length === 0) continue;
       // Replace prior MS items so re-runs are idempotent.
       await this.prisma.markSchemeItem.deleteMany({ where: { questionItemId: item.id } });
-      await this.prisma.markSchemeItem.create({
-        data: {
-          questionItemId: item.id,
-          pointText: row.text.slice(0, 4000),
-          marks: row.marks,
-          matchConfidence: 0.7,
-        },
-      });
+      // Persist one row per sub-part (a/b/c…). For MCQs there's only one
+      // row with no partLabel.
+      for (const row of matching) {
+        await this.prisma.markSchemeItem.create({
+          data: {
+            questionItemId: item.id,
+            partLabel: row.partLabel,
+            pointText: row.text.slice(0, 4000),
+            marks: row.marks,
+            sortOrder: row.sortOrder,
+            matchConfidence: 0.8,
+          },
+        });
+      }
       matched++;
     }
 
@@ -104,7 +112,8 @@ export class MarkSchemeLinkerService {
 
   /**
    * MCQ mark schemes are tabular: number + letter + (sometimes) marks.
-   * Lines look like "1 D 1" or "1   D" with 1 mark implied.
+   * Lines look like "1 D 1" or "1   D" with 1 mark implied. MCQs have
+   * no sub-parts so partLabel stays null.
    */
   private parseMcqMs(text: string): MsRow[] {
     const rows: MsRow[] = [];
@@ -115,47 +124,109 @@ export class MarkSchemeLinkerService {
       const n = m[1];
       if (seen.has(n)) continue;
       seen.add(n);
-      rows.push({ number: n, text: m[2], marks: m[3] ? parseInt(m[3], 10) : 1 });
+      rows.push({
+        number: n,
+        partLabel: null,
+        text: m[2],
+        marks: m[3] ? parseInt(m[3], 10) : 1,
+        sortOrder: 0,
+      });
     }
     return rows;
   }
 
   /**
-   * Structured mark schemes are messy. We do a line-pass split by question
-   * number similar to QuestionSplitter; the entire body becomes one
-   * MarkSchemeItem and a reviewer cleans up granular per-part rows later.
+   * Structured mark schemes follow a strict CIE table layout that
+   * PyMuPDF flattens into:
+   *
+   *   Question
+   *   Answer
+   *   Marks
+   *   1(a)
+   *   kilogram / kg
+   *   B1
+   *
+   *   kelvin / K
+   *   B1
+   *   1(b)
+   *   units for v: m s-1 ...
+   *   C1
+   *   ...
+   *   2(a)(i)
+   *   distance in a specified ...
+   *   B1
+   *
+   * We scan for "part label" lines like "1(a)", "2(b)(i)", "3" and slice
+   * the text between consecutive labels. Within each slice we sum mark
+   * tokens like B1/A1/C2/M1 — these are the Cambridge mark-scheme codes.
+   * One row per sub-part so the review UI shows the granular table.
    */
   private parseStructuredMs(text: string): MsRow[] {
     const rows: MsRow[] = [];
-    const lines = text.split('\n');
-    let cur: { number: string; buf: string[] } | null = null;
-    let last = 0;
-    for (const line of lines) {
-      const m = line.match(/^\s*(\d{1,2})\s*[.)]?\s+/);
-      if (m) {
-        const n = parseInt(m[1], 10);
-        if (n === last + 1 && n <= 15) {
-          if (cur) rows.push(this.finalizeStructuredRow(cur));
-          cur = { number: String(n), buf: [line] };
-          last = n;
-          continue;
-        }
-      }
-      if (cur) cur.buf.push(line);
-    }
-    if (cur) rows.push(this.finalizeStructuredRow(cur));
-    return rows;
-  }
+    // Match a line that consists ONLY of a part label, e.g.
+    //   "1"       (whole-question label)
+    //   "1(a)"    (part)
+    //   "2(b)(i)" (sub-sub-part)
+    // The /m flag anchors ^ and $ to line boundaries.
+    const labelRe = /^\s*(\d{1,2})((?:\([a-z]\))?(?:\([ivx]+\))?)\s*$/gm;
 
-  private finalizeStructuredRow(cur: { number: string; buf: string[] }): MsRow {
-    const text = cur.buf.join('\n');
-    const totalMatch = text.match(/\[\s*total[:\s]*\s*(\d{1,2})\s*\]/i);
-    let marks = totalMatch ? parseInt(totalMatch[1], 10) : 0;
-    if (!marks) {
-      const re = /\[\s*(\d{1,2})\s*\]/g;
-      let m: RegExpExecArray | null;
-      while ((m = re.exec(text)) !== null) marks += parseInt(m[1], 10);
+    type Hit = { number: string; partLabel: string; offset: number; endOfLabel: number };
+    const hits: Hit[] = [];
+    let m: RegExpExecArray | null;
+    while ((m = labelRe.exec(text)) !== null) {
+      const n = parseInt(m[1], 10);
+      if (n < 1 || n > 15) continue;
+      hits.push({
+        number: String(n),
+        partLabel: m[2] || '',
+        offset: m.index,
+        endOfLabel: labelRe.lastIndex,
+      });
     }
-    return { number: cur.number, text, marks: marks || 1 };
+
+    // Walk the hits and slice the body for each. Skip duplicates that
+    // hit twice in a row (rare PyMuPDF artefact).
+    const partsSeen = new Set<string>();
+    const orderByQ: Record<string, number> = {};
+    for (let i = 0; i < hits.length; i++) {
+      const cur = hits[i];
+      const next = hits[i + 1];
+      const key = `${cur.number}/${cur.partLabel}`;
+      if (partsSeen.has(key)) continue;
+      partsSeen.add(key);
+
+      const sliceEnd = next ? next.offset : text.length;
+      const body = text.slice(cur.endOfLabel, sliceEnd).trim();
+      if (body.length === 0) continue;
+      // Drop the table-header noise that appears between question groups.
+      const cleaned = body
+        .replace(/\b(?:Question|Answer|Marks)\b/g, '')
+        .replace(/©\s*UCLES\s*\d{4}.*$/gm, '')
+        .replace(/9702\/\d{1,2}.*$/gm, '')
+        .replace(/Cambridge International.*$/gm, '')
+        .replace(/PUBLISHED.*$/gm, '')
+        .replace(/Page \d+ of \d+.*$/gm, '')
+        .replace(/\n{3,}/g, '\n\n')
+        .trim();
+      if (cleaned.length < 2) continue;
+
+      // Sum CIE mark codes: B1, B2, M1, A1, A2, C1, C2... The digit
+      // immediately after the letter is the mark count for that point.
+      let marks = 0;
+      const markRe = /\b([ABCM])(\d)\b/g;
+      let mm: RegExpExecArray | null;
+      while ((mm = markRe.exec(cleaned)) !== null) marks += parseInt(mm[2], 10);
+
+      const sortOrder = orderByQ[cur.number] ?? 0;
+      orderByQ[cur.number] = sortOrder + 1;
+      rows.push({
+        number: cur.number,
+        partLabel: cur.partLabel || null,
+        text: cleaned,
+        marks: marks || 1,
+        sortOrder,
+      });
+    }
+    return rows;
   }
 }
