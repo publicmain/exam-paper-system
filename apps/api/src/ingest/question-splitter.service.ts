@@ -214,15 +214,23 @@ export class QuestionSplitterService {
   private splitMcq(pages: { pageNo: number; rawText: string | null }[]): RawSplit[] {
     const items: RawSplit[] = [];
     const seen = new Set<number>();
+    // PyMuPDF emits CIE MCQs in two layouts depending on page format:
+    //   1. number on its own line, stem on next line(s)
+    //         "1\nWhat is equivalent to ...\nA\n2 µJ C-1\nB\n..."
+    //   2. number + space + stem on the same line
+    //         "11 Two bar magnets P and Q ...\nA\nDuring the ...\nB\n..."
+    // Using \s+ (matches space OR newline) for the separators handles both.
+    // Stem must start with a non-whitespace char so a pure "11\n12\n13"
+    // page-number column doesn't match.
     const re = new RegExp(
       [
-        '(?:^|\\n)\\s*(\\d{1,2})\\s*\\n', // 1: question number alone on its line
-        '([\\s\\S]*?)',                    // 2: stem
-        '\\n\\s*A\\s*\\n([\\s\\S]*?)',     // 3: option A body
-        '\\n\\s*B\\s*\\n([\\s\\S]*?)',     // 4: option B body
-        '\\n\\s*C\\s*\\n([\\s\\S]*?)',     // 5: option C body
-        '\\n\\s*D\\s*\\n([\\s\\S]*?)',     // 6: option D body
-        '(?=\\n\\s*\\d{1,2}\\s*\\n|\\s*$)', // boundary: next Q-num or EOF
+        '(?:^|\\n)\\s*(\\d{1,2})\\s+',     // 1: question number
+        '(\\S[\\s\\S]*?)',                  // 2: stem
+        '\\n\\s*A\\s+([\\s\\S]*?)',        // 3: option A body
+        '\\n\\s*B\\s+([\\s\\S]*?)',        // 4: option B body
+        '\\n\\s*C\\s+([\\s\\S]*?)',        // 5: option C body
+        '\\n\\s*D\\s+([\\s\\S]*?)',        // 6: option D body
+        '(?=\\n\\s*\\d{1,2}\\s+\\S|\\s*$)', // boundary: next Q-num+stem or EOF
       ].join(''),
       'g',
     );
