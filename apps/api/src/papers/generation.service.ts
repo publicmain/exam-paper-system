@@ -111,6 +111,15 @@ export class GenerationService {
       throw new BadRequestException('No questions match the given subject / component / topic filter.');
     }
 
+    // Per-type counts in the resolved scope, used for actionable error messages.
+    const typeCounts: Record<string, number> = {};
+    for (const q of pool) {
+      typeCounts[q.questionType] = (typeCounts[q.questionType] || 0) + 1;
+    }
+    const availableSummary = Object.entries(typeCounts)
+      .map(([t, n]) => `${t}=${n}`)
+      .join(', ') || 'none';
+
     const dist: DifficultyBuckets = {
       easy: config.difficultyDist?.easy ?? 0.4,
       medium: config.difficultyDist?.medium ?? 0.4,
@@ -123,7 +132,9 @@ export class GenerationService {
     for (const slot of config.questionMix) {
       const filtered = pool.filter(q => q.questionType === (slot.type as QuestionType) && !usedIds.has(q.id));
       if (filtered.length === 0) {
-        warnings.push(`No ${slot.type} questions available in the selected scope.`);
+        warnings.push(
+          `No ${slot.type} questions in the selected scope. Available types here: ${availableSummary}.`,
+        );
         continue;
       }
 
@@ -177,7 +188,11 @@ export class GenerationService {
     }
 
     if (selected.length === 0) {
-      throw new BadRequestException('Generation produced 0 questions; broaden filters.');
+      const requested = config.questionMix.map(s => s.type).join(', ');
+      throw new BadRequestException(
+        `Generation produced 0 questions. Requested types [${requested}], but the selected scope only contains [${availableSummary}]. ` +
+          `Try removing the topic / chapter filter, switching question types, or seeding more questions.`,
+      );
     }
 
     const totalMarks = selected.reduce((s, q) => s + q.marks, 0);
