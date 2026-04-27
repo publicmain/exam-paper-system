@@ -262,65 +262,86 @@ export class QuestionSplitterService {
   }
 
   /**
-   * Structured splitter. CIE structured papers number their main questions
-   * 1, 2, 3 … at the left margin. Sub-parts use lowercase letters in
-   * parentheses ("(a)", "(b)") which we deliberately do not split on —
-   * they live inside the parent QuestionItem.
+   * Structured splitter — operates on the concatenated content text so a
+   * question that spans pages is captured as one item.
    *
-   * We skip page 1 (cover sheet); some papers also have a formula sheet
-   * page 2 (Paper 4/5). To avoid catching the formula reference page as
-   * "Q1" we additionally require that the first 200 chars after the
-   * starter contain at least one alphabetic word ≥ 4 chars long, which
-   * filters numeric-symbol formula dumps.
+   * CIE structured papers (Papers 2/3/4/5) number main questions 1, 2, 3…
+   * at the left margin, then use "(a)", "(b)", "(i)" for sub-parts which
+   * we deliberately do not split — they live inside the parent.
+   *
+   * The previous line-based scan missed any question whose number sat
+   * alone on its line (PyMuPDF often emits "1 \n(a) ..." that way), so
+   * most papers got only 0–2 hits out of ~5–8 questions.
+   *
+   * Heuristic for a real Q starter: a 1–2 digit integer that is monotonic
+   * (n = lastNumber + 1) and is followed by a sub-part marker or a
+   * substantive English stem within the next ~300 chars. Boundary is the
+   * next monotonic-N starter or the "© UCLES" footer / blank page.
    */
   private splitStructured(pages: { pageNo: number; rawText: string | null }[]): RawSplit[] {
-    const items: RawSplit[] = [];
-    let current: RawSplit | null = null;
-    let lastNumber = 0;
-    const starter = /^\s*(\d{1,2})\s*[.)]?\s+(?=\S)/;
-    const totalMarks = /\[(?:total[:\s]*)?\s*(\d{1,2})\s*\]/i;
+    const cps = this.contentPages(pages);
+    if (cps.length === 0) return [];
 
-    for (const page of this.contentPages(pages)) {
-      const text = page.rawText ?? '';
-      for (const line of text.split('\n')) {
-        const m = line.match(starter);
-        if (m) {
-          const n = parseInt(m[1], 10);
-          if (n === lastNumber + 1 && n <= MAX_STRUCTURED_NUMBER) {
-            if (current) {
-              current.detectedMarks = this.guessMarks(current.text, totalMarks);
-              if (this.looksLikeRealStructured(current.text)) items.push(current);
-            }
-            current = {
-              questionNumber: String(n),
-              pageStart: page.pageNo,
-              pageEnd: page.pageNo,
-              text: line,
-              detectedType: QuestionType.structured,
-            };
-            lastNumber = n;
-            continue;
-          }
-        }
-        if (current) {
-          current.text += '\n' + line;
-          current.pageEnd = page.pageNo;
-        }
+    // Build concatenated text + line-to-page index so we can attribute
+    // each match back to its source page range.
+    const lineToPage: number[] = [];
+    let combined = '';
+    for (const page of cps) {
+      const lines = (page.rawText ?? '').split('\n');
+      for (const line of lines) {
+        lineToPage.push(page.pageNo);
+        combined += line + '\n';
       }
     }
-    if (current) {
-      current.detectedMarks = this.guessMarks(current.text, totalMarks);
-      if (this.looksLikeRealStructured(current.text)) items.push(current);
+
+    // Find all candidate Q starters: digit(s) followed by whitespace and
+    // either a "(" sub-part marker, or any word character (stem) on the
+    // next non-empty line within a small window.
+    const starterRe = /(?:^|\n)\s*(\d{1,2})\s*\n/g;
+    type Hit = { n: number; offset: number };
+    const hits: Hit[] = [];
+    let sm: RegExpExecArray | null;
+    while ((sm = starterRe.exec(combined)) !== null) {
+      const n = parseInt(sm[1], 10);
+      if (n < 1 || n > MAX_STRUCTURED_NUMBER) continue;
+      // Look ahead 250 chars for a sub-part marker or English stem.
+      const window = combined.slice(sm.index, sm.index + 250);
+      if (!/\(\s*[a-z]\s*\)|[A-Za-z]{4,}/.test(window)) continue;
+      hits.push({ n, offset: sm.index });
+    }
+
+    // Greedy monotonic chain: pick hits 1, 2, 3, … to build the question
+    // sequence, ignoring spurious mid-text numbers that aren't sequential.
+    const chain: Hit[] = [];
+    for (const h of hits) {
+      const want = chain.length === 0 ? 1 : chain[chain.length - 1].n + 1;
+      if (h.n === want) chain.push(h);
+    }
+
+    const items: RawSplit[] = [];
+    const totalMarks = /\[(?:total[:\s]*)?\s*(\d{1,2})\s*\]/i;
+    for (let i = 0; i < chain.length; i++) {
+      const start = chain[i].offset;
+      const end = i + 1 < chain.length ? chain[i + 1].offset : combined.length;
+      const body = combined.slice(start, end).trim();
+      if (body.length < 60) continue;
+      if (!/[A-Za-z]{4,}/.test(body)) continue;
+
+      const startLine = combined.slice(0, start).split('\n').length - 1;
+      const endLine = combined.slice(0, end).split('\n').length - 1;
+      const pageStart = lineToPage[startLine] ?? cps[0].pageNo;
+      const pageEnd = lineToPage[Math.min(endLine, lineToPage.length - 1)] ?? pageStart;
+
+      items.push({
+        questionNumber: String(chain[i].n),
+        pageStart,
+        pageEnd,
+        text: body,
+        detectedType: QuestionType.structured,
+        detectedMarks: this.guessMarks(body, totalMarks),
+      });
     }
     return items;
-  }
-
-  private looksLikeRealStructured(body: string): boolean {
-    if (body.length < 60) return false;
-    // Must contain at least one substantive English word (kills pages
-    // that are pure formulas / Greek symbols / equations only).
-    if (!/[A-Za-z]{4,}/.test(body)) return false;
-    return true;
   }
 
   private guessMarks(body: string, pattern: RegExp): number | undefined {
