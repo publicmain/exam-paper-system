@@ -1,16 +1,19 @@
+# Self-contained build (Railway uses apps/web as build context)
 FROM node:20-bookworm-slim AS builder
 WORKDIR /app
-COPY package.json package-lock.json* ./
-COPY apps/web/package.json apps/web/
-RUN npm install --workspace @app/web --include=dev
-COPY apps/web ./apps/web
+
+COPY package.json ./
+RUN npm install --include=dev
+
+COPY . ./
 ARG VITE_API_URL=
 ENV VITE_API_URL=$VITE_API_URL
-RUN npm run build -w @app/web
+RUN npm run build
 
-# Serve with nginx
 FROM nginx:alpine
-COPY --from=builder /app/apps/web/dist /usr/share/nginx/html
-COPY apps/web/nginx.conf /etc/nginx/conf.d/default.conf
-EXPOSE 80
+COPY --from=builder /app/dist /usr/share/nginx/html
+# Template is processed by envsubst at container start (built-in nginx:alpine feature)
+COPY nginx.conf /etc/nginx/templates/default.conf.template
+ENV PORT=8080
+EXPOSE 8080
 CMD ["nginx", "-g", "daemon off;"]
