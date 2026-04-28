@@ -67,6 +67,10 @@ export const api = {
 
   // ai
   suggestLabels: (data: any) => request('POST', '/ai/suggest-labels', data),
+  generateDiagram: (data: any) => request('POST', '/ai/generate-diagram', data),
+  imageBudget: () => request('GET', '/ai/image-budget'),
+  questionAssetUrl: (rel: string) =>
+    rel.startsWith('http') ? rel : `${BASE}${rel}`,
 
   // sources (admin only)
   listSources: () => request('GET', '/sources'),
