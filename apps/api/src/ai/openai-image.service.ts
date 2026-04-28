@@ -139,7 +139,6 @@ export class OpenAiImageService {
         size,
         quality,
         n: 1,
-        response_format: 'b64_json',
       }),
     });
     const elapsedMs = Date.now() - t0;
