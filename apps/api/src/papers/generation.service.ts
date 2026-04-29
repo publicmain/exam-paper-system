@@ -157,7 +157,11 @@ export class GenerationService {
       shuffleInPlace(medium, rng);
       shuffleInPlace(hard, rng);
 
-      if (slot.count != null && slot.marksEach != null) {
+      if (slot.count != null) {
+        // marksEach is no longer required to take the count path. The body
+        // never used it and demanding both fields silently dropped slots
+        // that only specified count, falling through to the misleading
+        // "neither count nor targetMarks" warning.
         const counts = this.splitByDist(slot.count, dist);
         for (const [bucket, cnt] of Object.entries(counts) as Array<[keyof DifficultyBuckets, number]>) {
           const src = bucket === 'easy' ? easy : bucket === 'medium' ? medium : hard;

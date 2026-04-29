@@ -229,15 +229,23 @@ export class ReviewService {
         `cannot approve: no Subject seeded for syllabus '${subjectCode}'`,
       );
     }
-    const component = await this.resolveComponent(subject.id, paperVariant);
+    let component = await this.resolveComponent(subject.id, paperVariant);
     const topic = item.suggestedTopicCode
       ? await this.prisma.topic.findFirst({
           where: {
             ...(component?.id ? { componentId: component.id } : { component: { subjectId: subject.id } }),
             code: item.suggestedTopicCode,
           },
+          include: { component: true },
         })
       : null;
+    // AI items have no paperVariant, so resolveComponent returned null. Fall
+    // back to the topic's owning component so paper-generation filters that
+    // require componentId (very common — Subject + Component is the default
+    // teacher scope) actually match the approved Question.
+    if (!component && topic?.component) {
+      component = topic.component;
+    }
 
     const stem = item.rawExtractedText ?? '';
     const partsContent =
