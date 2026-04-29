@@ -22,7 +22,13 @@ export type DiagramType =
   | 'waveform'
   | 'graph'
   | 'free_body'
-  | 'molecular';
+  | 'molecular'
+  | 'ray'
+  | 'mechanics'
+  | 'geometry'
+  | 'statistical'
+  | 'energy_level'
+  | 'organic_skeletal';
 
 export interface GenerateDiagramInput {
   questionId: string;
@@ -293,6 +299,67 @@ Conventions:
 - Bond angles approximately to scale.
 - Lone pairs as two small filled dots above the atom.
 - Electrons in dot-and-cross diagrams: dots for one atom, crosses for the other, evenly distributed around the atom.`,
+    ray: `Diagram type: RAY DIAGRAM (geometric optics, CIE 9702 / 0625 standard).
+Conventions:
+- Light rays = solid black lines with a single arrowhead pointing in the direction of travel. Place the arrowhead near the middle of each ray segment, not at the endpoint.
+- Construction lines (normals, virtual ray extensions) = thin dashed lines, no arrowhead.
+- The principal axis = a horizontal solid line through the centre of the optical element.
+- Lenses: convex = vertical line with two small outward arrows at top and bottom; concave = vertical line with two small inward arrows. Mark the principal focus F on the axis with a small filled dot.
+- Plane mirror = a solid line with right-angle hatching on the back side (5 short diagonal strokes, 45 degrees).
+- Curved mirror = a solid arc with hatching on the convex side.
+- Object = an upright black arrow standing on the axis. Image = a black arrow drawn at the determined position; if virtual, draw with a dashed outline.
+- Angles of incidence/reflection/refraction marked with a small arc and angle label measured from the normal.
+- Refraction at a boundary: bend the ray at the interface; show the normal as a thin dashed line perpendicular to the surface.`,
+    mechanics: `Diagram type: MECHANICS schematic (kinematics / dynamics setup, CIE 9702).
+Conventions:
+- The body is drawn as a simple geometric shape (block, sphere, trolley) — solid black outline, white fill.
+- Inclined surfaces are solid lines with hatching beneath to indicate solid ground; angle to horizontal marked with a small arc and label.
+- Strings / ropes = thin solid lines; pulleys = small open circles with the rope passing over them.
+- Springs = a series of small triangular zigzags drawn horizontally or vertically as appropriate.
+- Forces shown as black arrows originating from the centre or relevant point of the body, length proportional to magnitude, label at arrowhead.
+- Distances and dimensions: thin double-headed arrows with the value (e.g. "2.0 m") placed alongside in upright text.
+- Velocity arrows are labelled with the symbol v (italic) and may carry a numeric value (e.g. "v = 5 m s⁻¹").
+- The ground / wall reference surface is drawn with hatching (parallel diagonal strokes).`,
+    geometry: `Diagram type: GEOMETRIC figure (pure geometry, CIE 9709 Math).
+Conventions:
+- All construction lines are solid black; auxiliary or extended lines are thin dashed.
+- Vertices labelled with capital letters (A, B, C, …) placed just outside the figure, never overlapping the line.
+- Side lengths and angles labelled directly: lengths in upright text along the side (e.g. "4 cm"), angles in upright text inside the angle (e.g. "60°").
+- Right angles indicated with a small square at the vertex (not an arc).
+- Equal sides marked with single tick marks; pairs of equal sides marked with double ticks. Equal angles marked with single or double arcs accordingly.
+- Parallel lines marked with single or double arrowheads at midpoint.
+- For circles: centre marked with a small filled dot labelled O; radius drawn as a solid line; chords as solid lines; tangents touch the circle at exactly one point with no gap.
+- Coordinate geometry: axes drawn as black arrows with arrowheads, origin labelled O, scale tick marks at unit intervals.`,
+    statistical: `Diagram type: STATISTICAL chart (CIE 9709 / 0580 statistics).
+Conventions:
+- Both axes are solid black lines with arrowheads at the far end. Axis labels placed at the arrow tip in upright text including units in / parentheses (e.g. "frequency density / cm⁻¹").
+- Tick marks on the inside of the axis only, evenly spaced, with numeric labels below the x-axis and to the left of the y-axis.
+- HISTOGRAM: rectangles with solid black borders, no fill or with light grey fill ONLY if requested; bars are adjacent (no gap); class boundaries on the x-axis.
+- BOX-AND-WHISKER PLOT: a horizontal box drawn with solid black lines, vertical line for the median inside the box, whiskers as horizontal lines extending to min/max with short vertical caps. Outliers as small open circles beyond the whiskers.
+- BAR CHART: rectangles with gaps between bars; categorical labels on the x-axis.
+- CUMULATIVE FREQUENCY CURVE: a single smooth black curve through plotted points; points marked with small filled circles; values plotted at upper class boundaries.
+- SCATTER PLOT: small filled black circles for each data point; line of best fit (if requested) drawn as a thin solid line.
+- The origin is marked with "0" at the intersection of the axes.`,
+    energy_level: `Diagram type: ENERGY LEVEL diagram (atomic / quantum, CIE 9702 photons & atoms).
+Conventions:
+- Horizontal solid black lines representing each energy level, drawn at vertical positions roughly proportional to energy magnitude.
+- Each level labelled on the right with its energy value (e.g. "−0.85 eV") and on the left with the principal quantum number or label (e.g. "n = 4", "ground state").
+- The lowest level (ground state) is drawn near the bottom; energy increases upward.
+- Transitions shown as vertical arrows between levels: downward arrow for emission, upward arrow for absorption. Arrowhead at the destination level. Place transition labels (wavelength or photon energy) alongside the arrow.
+- The "ionisation" or zero level is drawn as a solid line at the top labelled "n = ∞" or "ionisation".
+- A thin vertical reference line on the left can carry tick marks for the energy scale, but is optional.
+- Do NOT use colour to distinguish transitions; use solid vs dashed line styles only if multiple transitions overlap.`,
+    organic_skeletal: `Diagram type: ORGANIC SKELETAL formula (CIE 9701 chemistry).
+Conventions:
+- Carbon atoms are NOT drawn as letters — each vertex and line endpoint is an implicit C.
+- Hydrogen atoms on carbons are NOT drawn (implicit). Hydrogens on heteroatoms (N, O, S) ARE drawn explicitly as "H" with a bond.
+- Heteroatoms (O, N, S, halogens, etc.) are drawn as the element letter at the vertex, no circle around them.
+- Bonds: single bond = one line; double bond = two parallel lines very close together; triple bond = three parallel lines.
+- Bond angles drawn at approximately 120° for sp² centres and zigzag for sp³ chains; do not draw straight horizontal chains.
+- Functional groups follow standard convention: carboxylic acid drawn as -C(=O)-OH with the OH explicit; ester as -C(=O)-O-; aldehyde as -CHO with the H explicit; ketone as a vertex with =O branching off.
+- Ring structures (benzene) drawn as a regular hexagon with three internal double bonds OR a hexagon with an inner circle (use double-bond convention by default unless circle is requested).
+- Stereochemistry: solid wedge (filled triangle) for bond coming out of page; dashed wedge (parallel dashed lines forming a triangle) for bond going behind.
+- Charges drawn next to the atom they belong to, e.g. "O⁻", "N⁺".`,
   };
 
   /** Layer 4: hard output constraints. */

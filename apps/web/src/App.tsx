@@ -11,6 +11,7 @@ import PaperEditPage from './pages/PaperEdit';
 import TemplatesPage from './pages/Templates';
 import SourcesPage from './pages/Sources';
 import ReviewPage from './pages/Review';
+import AiGeneratePage from './pages/AiGenerate';
 
 export default function App() {
   const { user, loading, init, logout } = useAuth();
@@ -45,6 +46,9 @@ export default function App() {
               {(user.role === 'admin' || user.role === 'head_teacher') && (
                 <NavLink to="/review" label="Review" />
               )}
+              {(user.role === 'admin' || user.role === 'head_teacher') && (
+                <NavLink to="/ai-generate" label="AI Generate" />
+              )}
               {user.role === 'admin' && <NavLink to="/sources" label="Sources" />}
             </nav>
           </div>
@@ -70,6 +74,16 @@ export default function App() {
             element={
               user.role === 'admin' || user.role === 'head_teacher' ? (
                 <ReviewPage />
+              ) : (
+                <Navigate to="/" replace />
+              )
+            }
+          />
+          <Route
+            path="/ai-generate"
+            element={
+              user.role === 'admin' || user.role === 'head_teacher' ? (
+                <AiGeneratePage />
               ) : (
                 <Navigate to="/" replace />
               )

@@ -26,6 +26,7 @@ export class ReviewController {
     @Query('repoId') repoId?: string,
     @Query('syllabusCode') syllabusCode?: string,
     @Query('status') status?: string,
+    @Query('source') source?: string,
     @Query('page') page?: string,
     @Query('pageSize') pageSize?: string,
   ) {
@@ -33,6 +34,7 @@ export class ReviewController {
       repoId,
       syllabusCode,
       status,
+      source,
       page: page ? Number(page) : undefined,
       pageSize: pageSize ? Number(pageSize) : undefined,
     });

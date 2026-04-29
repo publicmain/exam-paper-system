@@ -12,6 +12,12 @@ const DIAGRAM_TYPES: { value: string; label: string; hint: string }[] = [
   { value: 'graph', label: 'Graph', hint: 'Cartesian xy graph with axes + curve' },
   { value: 'free_body', label: 'Free body', hint: 'Body with force arrows' },
   { value: 'molecular', label: 'Molecular', hint: 'Atomic / dot-and-cross structure' },
+  { value: 'ray', label: 'Ray diagram', hint: 'Geometric optics: rays, lenses, mirrors' },
+  { value: 'mechanics', label: 'Mechanics', hint: 'Inclined plane / pulley / spring setup' },
+  { value: 'geometry', label: 'Geometry', hint: 'Pure geometric figure with vertex labels' },
+  { value: 'statistical', label: 'Statistics', hint: 'Histogram / box plot / scatter / cum freq' },
+  { value: 'energy_level', label: 'Energy levels', hint: 'Atomic energy levels + transitions' },
+  { value: 'organic_skeletal', label: 'Organic skeletal', hint: 'Skeletal formula with implicit C/H' },
 ];
 
 const SIZE_OPTIONS = ['1024x1024', '1024x1536', '1536x1024'] as const;

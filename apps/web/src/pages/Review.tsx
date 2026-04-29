@@ -9,14 +9,27 @@ const STATUS_OPTIONS = [
   { value: 'on_hold', label: 'On hold' },
 ];
 
+const SOURCE_OPTIONS = [
+  { value: '', label: 'All sources' },
+  { value: 'past_paper', label: 'Past paper' },
+  { value: 'ai_generated', label: 'AI generated' },
+  { value: 'manual', label: 'Manual' },
+];
+
 export default function ReviewPage() {
   const [items, setItems] = useState<any[]>([]);
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [filter, setFilter] = useState<{ syllabusCode?: string; status?: string; page: number }>({
+  const [filter, setFilter] = useState<{
+    syllabusCode?: string;
+    status?: string;
+    source?: string;
+    page: number;
+  }>({
     syllabusCode: '',
     status: 'pending_review',
+    source: '',
     page: 1,
   });
   const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -28,6 +41,7 @@ export default function ReviewPage() {
       const res = await api.listReviewItems({
         syllabusCode: filter.syllabusCode || undefined,
         status: filter.status,
+        source: filter.source || undefined,
         page: filter.page,
         pageSize: 25,
       });
@@ -43,7 +57,7 @@ export default function ReviewPage() {
 
   useEffect(() => {
     refresh();
-  }, [filter.syllabusCode, filter.status, filter.page]);
+  }, [filter.syllabusCode, filter.status, filter.source, filter.page]);
 
   return (
     <div className="space-y-3">
@@ -62,6 +76,18 @@ export default function ReviewPage() {
             onChange={(e) => setFilter({ ...filter, syllabusCode: e.target.value, page: 1 })}
             style={{ width: 160 }}
           />
+          <select
+            className="select"
+            value={filter.source}
+            onChange={(e) => setFilter({ ...filter, source: e.target.value, page: 1 })}
+            style={{ width: 160 }}
+          >
+            {SOURCE_OPTIONS.map((s) => (
+              <option key={s.value} value={s.value}>
+                {s.label}
+              </option>
+            ))}
+          </select>
           <select
             className="select"
             value={filter.status}
@@ -95,10 +121,23 @@ export default function ReviewPage() {
                   selectedId === it.id ? 'bg-blue-50' : ''
                 }`}
               >
-                <div className="font-mono text-xs text-gray-500">
-                  {it.sourceFile?.syllabusCode}/{it.sourceFile?.paperVariant} ·{' '}
-                  {it.sourceFile?.examSeason}
-                  {String(it.sourceFile?.examYear ?? '').slice(-2)}
+                <div className="font-mono text-xs text-gray-500 flex items-center gap-1">
+                  {it.source === 'ai_generated' ? (
+                    <>
+                      <span className="badge bg-purple-100 text-purple-700">AI</span>
+                      <span>{it.suggestedSubjectCode ?? '?'}</span>
+                      {it.suggestedTopicCode && <span>· {it.suggestedTopicCode}</span>}
+                    </>
+                  ) : (
+                    <>
+                      <span className="badge bg-blue-100 text-blue-700">PP</span>
+                      <span>
+                        {it.sourceFile?.syllabusCode}/{it.sourceFile?.paperVariant} ·{' '}
+                        {it.sourceFile?.examSeason}
+                        {String(it.sourceFile?.examYear ?? '').slice(-2)}
+                      </span>
+                    </>
+                  )}
                 </div>
                 <div className="font-medium">
                   Q{it.questionNumber ?? '?'}
@@ -228,6 +267,7 @@ function ReviewDetail({ id, onChanged }: { id: string; onChanged: () => void }) 
 
   if (!item) return <div className="card text-gray-500">Loading…</div>;
 
+  const isAi = item.source === 'ai_generated';
   const sf = item.sourceFile;
   const pages = (sf?.pages ?? []).filter(
     (p: any) =>
@@ -240,7 +280,14 @@ function ReviewDetail({ id, onChanged }: { id: string; onChanged: () => void }) 
       <div className="flex items-start justify-between">
         <div>
           <div className="font-mono text-xs text-gray-500">
-            {sf?.rawFilename} · pages {item.pageStart ?? '?'}–{item.pageEnd ?? '?'}
+            {isAi ? (
+              <>
+                <span className="badge bg-purple-100 text-purple-700 mr-2">AI generated</span>
+                {item.aiModel} · ${item.aiCostUsd?.toFixed(4) ?? '?'}
+              </>
+            ) : (
+              <>{sf?.rawFilename} · pages {item.pageStart ?? '?'}–{item.pageEnd ?? '?'}</>
+            )}
           </div>
           <div className="text-lg font-bold">
             Q{item.questionNumber ?? '?'} ·{' '}
@@ -345,13 +392,32 @@ function ReviewDetail({ id, onChanged }: { id: string; onChanged: () => void }) 
           )}
         </div>
         <div className="space-y-2 overflow-auto" style={{ maxHeight: '70vh' }}>
-          <label className="text-xs text-gray-600">Source page(s)</label>
-          {pages.length === 0 && (
-            <div className="text-sm text-gray-500">No rendered pages for this range.</div>
+          {isAi ? (
+            <>
+              <label className="text-xs text-gray-600">AI prompt (full text sent to Claude)</label>
+              <pre className="text-[10px] bg-gray-50 p-2 rounded whitespace-pre-wrap border">
+                {item.aiPrompt ?? '(prompt not stored)'}
+              </pre>
+              {item.suggestedMetadata?.aiNotes && (
+                <>
+                  <label className="text-xs text-gray-600 mt-2 block">AI notes for reviewer</label>
+                  <div className="text-xs italic bg-yellow-50 p-2 rounded border">
+                    {item.suggestedMetadata.aiNotes}
+                  </div>
+                </>
+              )}
+            </>
+          ) : (
+            <>
+              <label className="text-xs text-gray-600">Source page(s)</label>
+              {pages.length === 0 && (
+                <div className="text-sm text-gray-500">No rendered pages for this range.</div>
+              )}
+              {pages.map((p: any) => (
+                <AuthImage key={p.pageNo} src={p.imageUrl} alt={`page ${p.pageNo}`} />
+              ))}
+            </>
           )}
-          {pages.map((p: any) => (
-            <AuthImage key={p.pageNo} src={p.imageUrl} alt={`page ${p.pageNo}`} />
-          ))}
         </div>
       </div>
     </div>

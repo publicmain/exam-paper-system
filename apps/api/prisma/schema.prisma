@@ -413,6 +413,12 @@ enum TagSource {
   teacher
 }
 
+enum QuestionItemSource {
+  past_paper
+  ai_generated
+  manual
+}
+
 model SourceRepository {
   id                String           @id @default(cuid())
   url               String           @unique
@@ -496,13 +502,20 @@ model PdfPage {
 }
 
 model QuestionItem {
-  id           String      @id @default(cuid())
+  id           String             @id @default(cuid())
+  source       QuestionItemSource @default(past_paper)
   sourceFileId String?
-  sourceFile   SourceFile? @relation(fields: [sourceFileId], references: [id])
+  sourceFile   SourceFile?        @relation(fields: [sourceFileId], references: [id])
   // Once approved, a mirrored Question row is created and linked here.
   // Until then, generators cannot see this item (Question is the consumer).
-  questionId   String?     @unique
-  question     Question?   @relation("QuestionItemMirror", fields: [questionId], references: [id])
+  questionId   String?            @unique
+  question     Question?          @relation("QuestionItemMirror", fields: [questionId], references: [id])
+
+  // AI-generation provenance — populated only when source = ai_generated.
+  aiModel       String?
+  aiPrompt      String?
+  aiCostUsd     Float?
+  aiCreatedById String?
 
   pageStart        Int?
   pageEnd          Int?

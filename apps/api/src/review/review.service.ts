@@ -3,6 +3,7 @@ import { PrismaService } from '../common/prisma.service';
 import { AuditService } from '../audit/audit.service';
 import {
   Prisma,
+  QuestionItemSource,
   QuestionStatus,
   QuestionType,
   ReviewStatus,
@@ -19,6 +20,7 @@ export interface ListReviewQuery {
   repoId?: string;
   syllabusCode?: string;
   status?: string;
+  source?: string;
   page?: number;
   pageSize?: number;
 }
@@ -51,11 +53,18 @@ export class ReviewService {
 
     const where: Prisma.QuestionItemWhereInput = {
       ...(q.status ? { reviewStatus: q.status as ReviewStatus } : { reviewStatus: ReviewStatus.pending_review }),
-      ...(q.repoId && { sourceFile: { repoId: q.repoId } }),
-      ...(q.syllabusCode && { sourceFile: { syllabusCode: q.syllabusCode } }),
+      ...(q.source && { source: q.source as QuestionItemSource }),
     };
-    if (q.repoId && q.syllabusCode) {
-      where.sourceFile = { repoId: q.repoId, syllabusCode: q.syllabusCode };
+    // Past-paper filters route through SourceFile; AI items don't have one.
+    const isAiOnly = q.source === 'ai_generated';
+    if (!isAiOnly && (q.repoId || q.syllabusCode)) {
+      where.sourceFile = {
+        ...(q.repoId ? { repoId: q.repoId } : {}),
+        ...(q.syllabusCode ? { syllabusCode: q.syllabusCode } : {}),
+      };
+    }
+    if (isAiOnly && q.syllabusCode) {
+      where.suggestedSubjectCode = q.syllabusCode;
     }
 
     const [total, items] = await Promise.all([
@@ -168,6 +177,11 @@ export class ReviewService {
    * can pick. The QuestionItem stays as the audit / re-review handle and
    * its questionId points at the new row. Approval is the only path from
    * pending_review → live question bank.
+   *
+   * Past-paper items: subject/component/topic resolved from the SourceFile
+   * (syllabusCode + paperVariant). AI-generated items have no SourceFile —
+   * subject/component/topic come from suggestedSubjectCode + suggestedTopicCode
+   * set by the generator.
    */
   async approve(id: string, actor: ActorCtx) {
     const item = await this.prisma.questionItem.findUnique({
@@ -175,11 +189,11 @@ export class ReviewService {
       include: {
         sourceFile: true,
         markSchemeItems: true,
+        parts: { orderBy: { sortOrder: 'asc' } },
       },
     });
     if (!item) throw new NotFoundException('review item not found');
     if (item.questionId) throw new BadRequestException('already approved');
-    if (!item.sourceFile) throw new BadRequestException('item missing sourceFile');
     if (!item.suggestedType) {
       throw new BadRequestException('cannot approve: question type unset');
     }
@@ -187,22 +201,53 @@ export class ReviewService {
       throw new BadRequestException('cannot approve: marks unset');
     }
 
-    const sf = item.sourceFile;
-    const subject = await this.resolveSubject(sf.syllabusCode);
+    const isAi = item.source === QuestionItemSource.ai_generated;
+    if (!isAi && !item.sourceFile) {
+      throw new BadRequestException('item missing sourceFile');
+    }
+
+    let subjectCode: string | null;
+    let paperVariant: string | null;
+    let sourceRef: string;
+    let sourceType: SourceType;
+    if (isAi) {
+      subjectCode = item.suggestedSubjectCode ?? null;
+      paperVariant = null;
+      sourceRef = `AI/${item.aiModel ?? 'claude'}/${item.id.slice(-6)}`;
+      sourceType = SourceType.ai_generated;
+    } else {
+      const sf = item.sourceFile!;
+      subjectCode = sf.syllabusCode;
+      paperVariant = sf.paperVariant;
+      sourceRef = this.buildSourceRef(sf, item.questionNumber);
+      sourceType = SourceType.past_paper_reference;
+    }
+
+    const subject = await this.resolveSubject(subjectCode);
     if (!subject) {
       throw new BadRequestException(
-        `cannot approve: no Subject seeded for syllabus '${sf.syllabusCode}'`,
+        `cannot approve: no Subject seeded for syllabus '${subjectCode}'`,
       );
     }
-    const component = await this.resolveComponent(subject.id, sf.paperVariant);
+    const component = await this.resolveComponent(subject.id, paperVariant);
     const topic = item.suggestedTopicCode
       ? await this.prisma.topic.findFirst({
-          where: { componentId: component?.id ?? undefined, code: item.suggestedTopicCode },
+          where: {
+            ...(component?.id ? { componentId: component.id } : { component: { subjectId: subject.id } }),
+            code: item.suggestedTopicCode,
+          },
         })
       : null;
 
-    const sourceRef = this.buildSourceRef(sf, item.questionNumber);
     const stem = item.rawExtractedText ?? '';
+    const partsContent =
+      item.parts.length > 0
+        ? item.parts.map((p) => ({
+            label: p.partLabel,
+            content: p.text,
+            marks: p.marks,
+          }))
+        : null;
     const markScheme =
       item.markSchemeItems.length > 0
         ? item.markSchemeItems.map((m) => ({
@@ -222,9 +267,9 @@ export class ReviewService {
           marks: item.suggestedMarks!,
           estimatedTimeMin: item.suggestedMarks! * 1.0,
           difficulty: item.suggestedDifficulty ?? 3,
-          sourceType: SourceType.past_paper_reference,
+          sourceType,
           sourceRef,
-          content: { stem } as any,
+          content: { stem, ...(partsContent ? { parts: partsContent } : {}) } as any,
           answerContent: { text: '' } as any,
           options: null as any,
           markScheme: markScheme as any,
