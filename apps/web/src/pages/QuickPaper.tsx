@@ -64,6 +64,8 @@ export default function QuickPaperPage() {
   const [progress, setProgress] = useState<{ step: string; result?: any; error?: string } | null>(null);
   const [withDiagrams, setWithDiagrams] = useState(true);
   const [count, setCount] = useState(5);
+  // Custom mix: { 'CS.1': 1, 'CS.3': 2, ... }
+  const [mix, setMix] = useState<Record<string, number>>({});
 
   const nav = useNavigate();
 
@@ -95,7 +97,30 @@ export default function QuickPaperPage() {
     } else {
       setTopics([]);
     }
+    // Switching component invalidates the per-topic mix selection.
+    setMix({});
   }, [componentId]);
+
+  const mixEntries = useMemo(
+    () => Object.entries(mix).filter(([, n]) => n > 0),
+    [mix],
+  );
+  const mixTotalQuestions = mixEntries.reduce((s, [, n]) => s + n, 0);
+  const mixDurationEstimate = Math.max(15, mixTotalQuestions * 8); // rough
+
+  function bumpMix(code: string, delta: number) {
+    setMix((m) => {
+      const next = { ...m };
+      const cur = next[code] ?? 0;
+      const newVal = Math.max(0, Math.min(10, cur + delta));
+      if (newVal === 0) delete next[code];
+      else next[code] = newVal;
+      return next;
+    });
+  }
+  function clearMix() {
+    setMix({});
+  }
 
   const topLevelTopics = useMemo(() => topics.map((t) => ({ ...t })), [topics]);
 
@@ -178,6 +203,25 @@ export default function QuickPaperPage() {
       singleTopic: { code: t.code, name: t.name },
       paperName: `Quick Paper · ${subjectCode} ${t.code} ${t.name}`,
       busyTag: `topic-${t.code}`,
+    });
+  }
+
+  function runCustomMix() {
+    if (mixEntries.length === 0) return;
+    const topicsArg = mixEntries.map(([code, count]) => ({ code, count }));
+    const label = `Custom Mix · ${mixEntries.length} sections, ${mixTotalQuestions}q`;
+    runQuickPaper({
+      label,
+      topicsArg,
+      durationMin: mixDurationEstimate,
+      paperName: `Custom Mix · ${subjectCode} (${mixEntries.length} sections, ${mixTotalQuestions}q)`,
+      busyTag: 'custom-mix',
+    }).then(() => {
+      // Clear the selection on success so the next mix starts fresh.
+      // (runQuickPaper sets `progress` regardless of outcome; we clear
+      // optimistically — user can also regenerate the same selection
+      // by re-clicking the "+" buttons if they want.)
+      clearMix();
     });
   }
 
@@ -287,8 +331,15 @@ export default function QuickPaperPage() {
 
       {/* Single-topic cards */}
       <div>
-        <div className="text-xs uppercase text-gray-500 font-semibold mb-2 tracking-wide">
-          Single-topic — focus on one section
+        <div className="flex items-baseline justify-between mb-2">
+          <div className="text-xs uppercase text-gray-500 font-semibold tracking-wide">
+            Sections — click card for single-topic, click <span className="text-emerald-700">+</span> to add to mix
+          </div>
+          {mixEntries.length === 0 && (
+            <div className="text-xs text-gray-400">
+              Tip: click the green + on multiple sections to build a custom mix.
+            </div>
+          )}
         </div>
         {topLevelTopics.length === 0 && (
           <div className="card text-gray-500 text-sm">
@@ -298,32 +349,124 @@ export default function QuickPaperPage() {
           </div>
         )}
         <div className="grid grid-cols-2 gap-3">
-          {topLevelTopics.map((t, i) => (
-            <button
-              key={t.id}
-              disabled={!!busy}
-              onClick={() => runSingleTopic(t)}
-              className={`card text-left transition hover:shadow-md ${
-                busy === `topic-${t.code}` ? 'ring-2 ring-blue-500' : ''
-              } ${busy && busy !== `topic-${t.code}` ? 'opacity-40' : ''}`}
-            >
-              <div className="flex items-start gap-3">
-                <div
-                  className="w-12 h-12 rounded-lg flex items-center justify-center text-white font-bold text-lg shrink-0"
-                  style={{ background: 'linear-gradient(135deg,#7c3aed,#3b82f6)' }}
+          {topLevelTopics.map((t, i) => {
+            const inMix = (mix[t.code] ?? 0) > 0;
+            return (
+              <div
+                key={t.id}
+                className={`card text-left transition hover:shadow-md relative ${
+                  busy === `topic-${t.code}` ? 'ring-2 ring-blue-500' : ''
+                } ${inMix ? 'ring-2 ring-emerald-400' : ''} ${
+                  busy && busy !== `topic-${t.code}` ? 'opacity-40 pointer-events-none' : ''
+                }`}
+              >
+                <button
+                  className="w-full text-left disabled:cursor-not-allowed"
+                  disabled={!!busy}
+                  onClick={() => runSingleTopic(t)}
                 >
-                  {i + 1}
+                  <div className="flex items-start gap-3 pr-24">
+                    <div
+                      className="w-12 h-12 rounded-lg flex items-center justify-center text-white font-bold text-lg shrink-0"
+                      style={{ background: 'linear-gradient(135deg,#7c3aed,#3b82f6)' }}
+                    >
+                      {i + 1}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="font-semibold">{t.name}</div>
+                      <div className="text-xs text-gray-500 font-mono">{t.code}</div>
+                    </div>
+                  </div>
+                </button>
+                {/* Mix +/- controls in the right corner. */}
+                <div
+                  className="absolute right-3 top-1/2 -translate-y-1/2 flex items-center gap-1 text-sm"
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  {inMix && (
+                    <>
+                      <button
+                        className="w-7 h-7 rounded-full bg-gray-100 hover:bg-gray-200 disabled:opacity-40 font-bold"
+                        disabled={!!busy}
+                        title="Remove one"
+                        onClick={() => bumpMix(t.code, -1)}
+                      >
+                        −
+                      </button>
+                      <span className="font-mono w-7 text-center font-bold text-emerald-700">
+                        ×{mix[t.code]}
+                      </span>
+                    </>
+                  )}
+                  <button
+                    className={`w-7 h-7 rounded-full disabled:opacity-40 font-bold ${
+                      inMix
+                        ? 'bg-emerald-500 text-white hover:bg-emerald-600'
+                        : 'bg-gray-100 hover:bg-emerald-100 hover:text-emerald-700'
+                    }`}
+                    disabled={!!busy || (mix[t.code] ?? 0) >= 10}
+                    title={inMix ? 'Add one more to mix' : 'Add to mix'}
+                    onClick={() => bumpMix(t.code, +1)}
+                  >
+                    +
+                  </button>
                 </div>
-                <div className="flex-1 min-w-0">
-                  <div className="font-semibold">{t.name}</div>
-                  <div className="text-xs text-gray-500 font-mono">{t.code}</div>
-                </div>
-                <div className="text-2xl text-gray-400">›</div>
               </div>
-            </button>
-          ))}
+            );
+          })}
         </div>
       </div>
+
+      {/* Bottom padding so the floating bar doesn't cover the last card. */}
+      {mixEntries.length > 0 && <div style={{ height: 90 }} />}
+
+      {/* Floating Custom Mix selection bar */}
+      {mixEntries.length > 0 && (
+        <div
+          className="fixed left-0 right-0 bottom-0 border-t bg-white shadow-2xl z-40"
+          style={{ borderColor: '#e5e7eb' }}
+        >
+          <div className="max-w-7xl mx-auto px-6 py-3 flex items-center gap-3 flex-wrap">
+            <div className="text-sm">
+              <strong className="text-emerald-700">{mixEntries.length}</strong> sections ·{' '}
+              <strong className="text-emerald-700">{mixTotalQuestions}</strong> questions · ~
+              {mixDurationEstimate} min
+            </div>
+            <div className="flex-1 flex flex-wrap gap-1 min-w-0">
+              {mixEntries.map(([code, n]) => (
+                <span
+                  key={code}
+                  className="inline-flex items-center gap-1 bg-emerald-50 border border-emerald-200 rounded-full px-2 py-0.5 text-xs"
+                >
+                  <span className="font-mono">{code}</span>
+                  <span className="font-bold text-emerald-700">×{n}</span>
+                  <button
+                    className="ml-1 text-gray-500 hover:text-red-600"
+                    title="Remove"
+                    onClick={() => bumpMix(code, -n)}
+                  >
+                    ✕
+                  </button>
+                </span>
+              ))}
+            </div>
+            <button
+              className="btn"
+              disabled={!!busy}
+              onClick={clearMix}
+            >
+              Clear
+            </button>
+            <button
+              className="btn btn-primary"
+              disabled={!!busy || mixEntries.length === 0}
+              onClick={runCustomMix}
+            >
+              {busy === 'custom-mix' ? 'Generating ...' : `Generate mixed paper →`}
+            </button>
+          </div>
+        </div>
+      )}
 
       {progress && (
         <ProgressOverlay
