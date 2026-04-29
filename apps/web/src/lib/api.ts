@@ -41,6 +41,8 @@ export const api = {
   createQuestion: (data: any) => request('POST', '/questions', data),
   updateQuestion: (id: string, data: any) => request('PATCH', `/questions/${id}`, data),
   deleteQuestion: (id: string) => request('DELETE', `/questions/${id}`),
+  deleteQuestionAsset: (questionId: string, assetId: string) =>
+    request('DELETE', `/questions/${questionId}/assets/${assetId}`),
 
   // templates
   listTemplates: () => request('GET', '/templates'),

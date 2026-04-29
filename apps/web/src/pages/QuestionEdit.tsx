@@ -280,7 +280,7 @@ export default function QuestionEditPage() {
           <h3 className="font-semibold mb-2">Attached diagrams</h3>
           <div className="grid grid-cols-2 gap-3">
             {assets.map((a) => (
-              <AssetCard key={a.id} asset={a} />
+              <AssetCard key={a.id} asset={a} questionId={id!} onDeleted={refreshAssets} />
             ))}
           </div>
         </div>
@@ -307,8 +307,21 @@ export default function QuestionEditPage() {
   );
 }
 
-function AssetCard({ asset }: { asset: any }) {
+function AssetCard({ asset, questionId, onDeleted }: { asset: any; questionId: string; onDeleted: () => void }) {
   const [open, setOpen] = useState(false);
+  const [busy, setBusy] = useState(false);
+  async function del() {
+    if (!confirm('Delete this diagram? The asset and underlying file will be removed.')) return;
+    setBusy(true);
+    try {
+      await api.deleteQuestionAsset(questionId, asset.id);
+      await onDeleted();
+    } catch (e: any) {
+      alert('Delete failed: ' + e.message);
+    } finally {
+      setBusy(false);
+    }
+  }
   return (
     <div className="card text-xs">
       <AuthAssetImage src={api.questionAssetUrl(asset.storageUrl)} alt={asset.altText || ''} />
@@ -323,6 +336,9 @@ function AssetCard({ asset }: { asset: any }) {
             {open ? 'Hide prompt' : 'Show prompt'}
           </button>
         )}
+        <button className="text-red-600 underline ml-auto" disabled={busy} onClick={del}>
+          {busy ? '…' : 'Delete'}
+        </button>
       </div>
       {open && asset.aiPrompt && (
         <pre className="text-[10px] mt-2 bg-gray-50 p-2 rounded overflow-auto max-h-48 whitespace-pre-wrap">

@@ -32,4 +32,9 @@ export class QuestionsController {
   addAsset(@Param('id') id: string, @Body() asset: { assetType: string; storageUrl: string; altText?: string }) {
     return this.service.addAsset(id, asset);
   }
+
+  @Delete(':id/assets/:assetId')
+  deleteAsset(@Param('id') id: string, @Param('assetId') assetId: string) {
+    return this.service.deleteAsset(id, assetId);
+  }
 }

@@ -167,4 +167,29 @@ export class QuestionsService {
       data: { questionId, ...asset },
     });
   }
+
+  /**
+   * Detach an asset from a question. Removes the QuestionAsset row and
+   * best-effort unlinks the underlying PNG from disk so storage doesn't
+   * leak when teachers regenerate a diagram. Missing files are ignored —
+   * the row is the source of truth.
+   */
+  async deleteAsset(questionId: string, assetId: string) {
+    const asset = await this.prisma.questionAsset.findUnique({ where: { id: assetId } });
+    if (!asset || asset.questionId !== questionId) {
+      throw new Error('asset not found for this question');
+    }
+    const m = asset.storageUrl.match(/by-question\/([^/]+)\/([^/?]+)/);
+    if (m) {
+      const path = await import('node:path');
+      const fs = await import('node:fs/promises');
+      const os = await import('node:os');
+      const store = process.env.AI_IMAGE_STORAGE_PATH
+        || path.join(process.env.RENDER_STORAGE_PATH || os.tmpdir(), 'ai-images');
+      const abs = path.join(store, m[1], m[2]);
+      await fs.unlink(abs).catch(() => {});
+    }
+    await this.prisma.questionAsset.delete({ where: { id: assetId } });
+    return { ok: true };
+  }
 }
