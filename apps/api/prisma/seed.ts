@@ -2,6 +2,7 @@ import { PrismaClient, UserRole, QuestionType, QuestionStatus, SourceType } from
 import * as bcrypt from 'bcryptjs';
 import { SYLLABUS_9709 } from './seed-data/topics-9709';
 import { SYLLABUS_9702 } from './seed-data/topics-9702';
+import { SYLLABUS_9608 } from '../src/reference/syllabi/topics-9608';
 import { DEMO_QUESTIONS_9709, DEMO_QUESTIONS_9702, DemoQuestion } from './seed-data/demo-questions';
 
 const prisma = new PrismaClient();
@@ -129,6 +130,7 @@ async function main() {
   // Syllabuses
   const math = await seedSyllabus(SYLLABUS_9709);
   const phys = await seedSyllabus(SYLLABUS_9702);
+  await seedSyllabus(SYLLABUS_9608);
   console.log('  syllabus ok');
 
   const mathComponents = await prisma.syllabusComponent.findMany({ where: { subjectId: math.subject.id } });

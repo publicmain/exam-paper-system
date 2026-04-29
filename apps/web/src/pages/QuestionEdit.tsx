@@ -18,6 +18,10 @@ const DIAGRAM_TYPES: { value: string; label: string; hint: string }[] = [
   { value: 'statistical', label: 'Statistics', hint: 'Histogram / box plot / scatter / cum freq' },
   { value: 'energy_level', label: 'Energy levels', hint: 'Atomic energy levels + transitions' },
   { value: 'organic_skeletal', label: 'Organic skeletal', hint: 'Skeletal formula with implicit C/H' },
+  { value: 'logic_gate', label: 'Logic gates', hint: 'AND/OR/NOT/NAND networks (CIE 9608)' },
+  { value: 'flowchart', label: 'Flowchart', hint: 'Algorithm flow with diamond decisions' },
+  { value: 'data_structure', label: 'Data structure', hint: 'Array / linked list / stack / queue / tree' },
+  { value: 'network_topology', label: 'Network', hint: 'Star/bus/ring/mesh topology + devices' },
 ];
 
 const SIZE_OPTIONS = ['1024x1024', '1024x1536', '1536x1024'] as const;

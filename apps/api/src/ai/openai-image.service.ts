@@ -28,7 +28,11 @@ export type DiagramType =
   | 'geometry'
   | 'statistical'
   | 'energy_level'
-  | 'organic_skeletal';
+  | 'organic_skeletal'
+  | 'logic_gate'
+  | 'flowchart'
+  | 'data_structure'
+  | 'network_topology';
 
 export interface GenerateDiagramInput {
   questionId: string;
@@ -349,6 +353,46 @@ Conventions:
 - The "ionisation" or zero level is drawn as a solid line at the top labelled "n = ∞" or "ionisation".
 - A thin vertical reference line on the left can carry tick marks for the energy scale, but is optional.
 - Do NOT use colour to distinguish transitions; use solid vs dashed line styles only if multiple transitions overlap.`,
+    logic_gate: `Diagram type: LOGIC GATE / DIGITAL CIRCUIT (CIE 9608 Computer Science).
+Conventions:
+- Use BS / IEC standard symbols by default:
+  - AND gate = D-shape with flat back, two inputs on the left, one output on the right.
+  - OR gate = curved-back shield, two inputs on the left, one output on the right.
+  - NOT gate (inverter) = small triangle with a circle (bubble) on the output.
+  - NAND = AND followed by an output bubble. NOR = OR followed by an output bubble. XOR = OR with an extra curved line on the input side.
+- All wires are orthogonal (right angles only); junctions marked with a small filled black dot.
+- Inputs labelled at the LEFT of the gate(s) with capital letters (A, B, C, ...) close to the input pin. Final output labelled at the RIGHT with a capital letter (X, Y, Q, ...) or the Boolean expression in italics.
+- Multi-gate networks: route wires to avoid overlap; use a small "hop" arc only if a crossing is unavoidable.
+- For TRUTH TABLES drawn alongside, render as a grid with thin black borders, header row in bold, 0/1 cells centred.
+- Do not add a title, "Fig. 1", or stray annotations — only the gates, wires, labels and (if requested) the truth table.`,
+    flowchart: `Diagram type: FLOWCHART (CIE 9608 algorithm representation).
+Conventions:
+- BS-standard shapes: rectangle = process; parallelogram = input/output; diamond = decision; rounded rectangle (stadium) = start / end; small circle = on-page connector.
+- Each shape contains a single short line of text describing the action; pseudocode is OK (e.g. "n ← n + 1", "READ x", "PRINT total").
+- Arrows are solid black with a single arrowhead, wires orthogonal, never diagonal. Decision branches labelled with "Yes" / "No" (or "TRUE" / "FALSE") next to the arrow, not inside the diamond.
+- Loop-back arrows route around the side of the chart, never through other shapes.
+- Top-to-bottom flow by default; entry from the top, exit at the bottom.
+- Do not add colour, drop shadows, or 3D effects.`,
+    data_structure: `Diagram type: DATA STRUCTURE diagram (CIE 9608 — array, linked list, stack, queue, tree).
+Conventions:
+- ARRAY: a row of equal-width rectangles sharing borders, indices written above or beside (start at 0 unless stated). Cell contents centred inside.
+- LINKED LIST: each node is a 2-cell rectangle (data | next pointer). The "next" half contains a small filled black dot with an arrow to the following node. Last node's next field shows "NULL" or a single forward slash.
+- STACK: vertical column of rectangles labelled bottom-to-top, with a "TOP" arrow pointing to the most recently added item.
+- QUEUE: horizontal row labelled with "FRONT" arrow on the left and "REAR" arrow on the right.
+- TREE: each node is a small circle or rectangle with the value inside; edges are straight black lines downward; left child branches down-left, right child down-right; binary trees should be roughly balanced visually unless otherwise specified. Mark the root with a "root" label or arrow.
+- Use plain black lines on white. Highlight a specific node only with a slightly thicker border, never with colour.`,
+    network_topology: `Diagram type: NETWORK TOPOLOGY / packet-switching diagram (CIE 9608).
+Conventions:
+- Devices drawn as labelled icons made of simple geometric primitives:
+  - Computer / client = a small rectangle on top of a trapezoid (monitor + base).
+  - Server = a tall narrow rectangle with two horizontal divider lines.
+  - Router = a horizontal cylinder (capsule) with the letter "R" inside.
+  - Switch = a horizontal rectangle with the letter "S" inside.
+  - Cloud / internet = a hand-drawn-looking cloud outline labelled "Internet".
+- Connections drawn as solid black lines; wireless links as a dashed line.
+- Topologies (BUS / RING / STAR / MESH / TREE) drawn with clear geometric structure: BUS = devices hanging off a horizontal trunk; RING = devices arranged in a circle; STAR = central hub with spokes; MESH = every node connected; TREE = hierarchical layers.
+- Label each device with a short identifier (PC1, PC2, Router_A, Web Server, ...) placed close to the icon.
+- Keep the canvas uncluttered; align icons on a virtual grid for readability.`,
     organic_skeletal: `Diagram type: ORGANIC SKELETAL formula (CIE 9701 chemistry).
 Conventions:
 - Carbon atoms are NOT drawn as letters — each vertex and line endpoint is an implicit C.

@@ -30,6 +30,7 @@ export interface GeneratedQuestionItemSummary {
   marks: number;
   suggestedDifficulty: number;
   partCount: number;
+  diagram?: DiagramHint;
 }
 
 export interface GenerateQuestionsResult {
@@ -43,13 +44,24 @@ export interface GenerateQuestionsResult {
   errors: string[];
 }
 
-interface ParsedQuestion {
+export type DiagramHint = {
+  needed: true;
+  type:
+    | 'apparatus' | 'circuit' | 'waveform' | 'graph' | 'free_body' | 'molecular'
+    | 'ray' | 'mechanics' | 'geometry' | 'statistical' | 'energy_level' | 'organic_skeletal'
+    | 'logic_gate' | 'flowchart' | 'data_structure' | 'network_topology';
+  scene: string;
+  labels: string[];
+} | { needed: false };
+
+export interface ParsedQuestion {
   stem: string;
   parts?: { label: string; text: string; marks: number }[];
   totalMarks: number;
   suggestedDifficulty: number;
   questionType: QuestionType;
   notes?: string;
+  diagram?: DiagramHint;
 }
 
 // Claude Sonnet 4.6 pricing (USD per 1M tokens)
@@ -225,7 +237,10 @@ export class AiQuestionGeneratorService {
               suggestedType: q.questionType,
               suggestedMarks: q.totalMarks,
               suggestedDifficulty: q.suggestedDifficulty,
-              suggestedMetadata: { aiNotes: q.notes ?? null } as any,
+              suggestedMetadata: {
+                aiNotes: q.notes ?? null,
+                diagram: q.diagram ?? null,
+              } as any,
               reviewStatus: ReviewStatus.pending_review,
               complianceStatus: ComplianceStatus.approved_internal,
               aiModel: this.model,
@@ -256,6 +271,7 @@ export class AiQuestionGeneratorService {
           marks: q.totalMarks,
           suggestedDifficulty: q.suggestedDifficulty,
           partCount: q.parts?.length ?? 0,
+          diagram: q.diagram,
         });
       } catch (e: any) {
         errors.push(`Q${i + 1}: ${String(e?.message ?? e).slice(0, 200)}`);
@@ -310,33 +326,65 @@ export class AiQuestionGeneratorService {
   // ---------- prompt assembly ----------
 
   /**
-   * Layer 1: role + style. Cached so a batch over the same syllabus
-   * pays the input-token cost for these blocks once.
+   * Layer 1a: shared examiner role (cached across all subjects).
    */
-  private readonly LAYER_ROLE = `You are a senior CIE A-Level examiner authoring original exam questions for an internal school question bank. Your output is reviewed by a teacher before reaching students, so quality and pedagogical correctness matter more than novelty.
+  private readonly LAYER_ROLE_COMMON = `You are a senior CIE A-Level examiner authoring original exam questions for an internal school question bank. Your output is reviewed by a teacher before reaching students, so quality and pedagogical correctness matter more than novelty.
 
 Authoring principles:
 - Each question must be self-contained: a student should be able to answer it from the stem alone (plus the standard CIE formula booklet).
-- Use SI units throughout. Numerical values must be physically plausible (e.g. a "force on a falling apple" of 50 000 N is wrong).
-- Avoid trick wording. The mark scheme should be unambiguous.
+- Avoid trick wording. The mark scheme should be unambiguous and have a single defensible answer.
 - The number of marks must match the cognitive load: 1 mark = a short recall or a single calculation step; 5 marks = a multi-step derivation; 6+ marks = an extended analysis with several distinct ideas.
-- Time-per-mark calibration: roughly 1.25 minutes per mark for physics.
 - For multi-part questions, parts (a)/(b)/(c) should build on each other or test related sub-skills, not be unrelated.
-- LaTeX inside $...$ for inline math, $$...$$ for display math. Render numerical answers with appropriate significant figures. Use proper unit syntax: $\\text{m s}^{-1}$ not $m/s$.`;
+- LaTeX inside $...$ for inline math, $$...$$ for display math. Numerical answers should use appropriate significant figures.`;
 
-  /** Layer 4: hard output schema. */
-  private readonly LAYER_OUTPUT = `Output STRICT JSON, no commentary, no markdown fencing. The top level must be a JSON array of question objects. Schema:
+  /**
+   * Layer 1b: per-subject conventions. Picked by syllabus code.
+   */
+  private subjectModule(syllabusCode: string): string {
+    if (syllabusCode === '9608') {
+      return `Subject: CIE 9608 Computer Science.
+- Pseudocode follows the CIE pseudocode reference: \`IF ... THEN ... ENDIF\`, \`WHILE ... ENDWHILE\`, \`FOR i ← 1 TO n ... NEXT i\`, \`PROCEDURE name(...) ... ENDPROCEDURE\`, \`OUTPUT ...\`, \`INPUT ...\`. Use the assignment arrow \`←\` (or \`<-\` if Unicode is a problem). Indent inner blocks by two spaces.
+- Wrap any pseudocode, code, SQL, or trace tables in fenced code blocks: triple backticks on their own line before and after. Place this inside the \`text\` field of the relevant part. Avoid LaTeX inside code fences.
+- Logic / Boolean expressions: \`AND\`, \`OR\`, \`NOT\`, \`XOR\` in capitals; truth tables rendered as fenced markdown tables.
+- For complexity: use Big-O notation \`O(n log n)\` in code spans, not LaTeX.
+- Time-per-mark calibration: roughly 1.0 minute per mark.
+- Diagram suggestions are HIGH VALUE for: logic gate networks, flowcharts, linked lists, trees, network topology drawings. Diagrams are LOW value for: tracing tables, SQL queries, ethics essays.`;
+    }
+    if (syllabusCode === '9702') {
+      return `Subject: CIE 9702 Physics.
+- Use SI units throughout. Numerical values must be physically plausible (e.g. a "force on a falling apple" of 50 000 N is wrong).
+- Time-per-mark calibration: roughly 1.25 minutes per mark.
+- Use proper unit syntax: \`$\\text{m s}^{-1}$\` not \`$m/s$\`. Constants like \`g = 9.81 m s⁻²\` should be stated explicitly when needed.
+- Diagram suggestions are HIGH VALUE for: apparatus setups, circuits, free-body force diagrams, ray diagrams, waveforms. LOW value for: pure-formula derivations, definition recall, multiple choice on conceptual facts.`;
+    }
+    if (syllabusCode === '9709') {
+      return `Subject: CIE 9709 Mathematics.
+- Use exact values where appropriate (\`$\\sqrt{2}$\`, \`$\\frac{\\pi}{3}$\`); decimal approximations only when explicitly required.
+- Time-per-mark calibration: roughly 1.0 minute per mark.
+- Diagram suggestions are HIGH VALUE for: geometric figures, coordinate-axes plots, statistical charts. LOW value for: algebraic manipulation, calculus computations, pure-trig identities.`;
+    }
+    return `Subject: CIE ${syllabusCode}. Follow standard CIE conventions for this subject.`;
+  }
+
+  /** Layer 4: hard output schema, including optional diagram metadata. */
+  private readonly LAYER_OUTPUT = `Output STRICT JSON, no commentary, no markdown fencing around the JSON itself. The top level must be a JSON array of question objects. Schema:
 
 [
   {
-    "stem": "string (LaTeX in $...$)",
+    "stem": "string (LaTeX in $...$, code in fenced blocks)",
     "parts": [
-      { "label": "a", "text": "string (LaTeX OK)", "marks": 3 }
+      { "label": "a", "text": "string", "marks": 3 }
     ],
     "totalMarks": 5,
     "suggestedDifficulty": 1 | 2 | 3 | 4 | 5,
     "questionType": "mcq" | "short_answer" | "structured" | "essay",
-    "notes": "optional string for the reviewing teacher"
+    "notes": "optional string for the reviewing teacher",
+    "diagram": {
+      "needed": true,
+      "type": "apparatus" | "circuit" | "waveform" | "graph" | "free_body" | "molecular" | "ray" | "mechanics" | "geometry" | "statistical" | "energy_level" | "organic_skeletal" | "logic_gate" | "flowchart" | "data_structure" | "network_topology",
+      "scene": "concrete description of what the diagram shows, 30-150 words, drawn from the wording of the question",
+      "labels": ["label 1 (exact text to place on the diagram)", "label 2", "..."]
+    }
   }
 ]
 
@@ -345,7 +393,13 @@ Rules:
 - "totalMarks" MUST equal the sum of part marks when parts are present.
 - For "mcq" questions, place the four options inside the stem as "(A) ..., (B) ..., (C) ..., (D) ...". MCQ is always 1 mark, no parts.
 - Difficulty: 1=trivial recall, 2=routine, 3=standard exam, 4=challenging, 5=extension/Olympiad-tier.
-- Return EXACTLY the requested number of questions in the array.`;
+- Return EXACTLY the requested number of questions in the array.
+
+Diagram rules (HARD):
+- Output \`"diagram": {"needed": false}\` for purely textual / formula-only questions. DO NOT invent a diagram just because the question is structured.
+- Across the whole batch, NO MORE THAN 50% of questions should have \`needed: true\`. Pick the ones where a figure genuinely aids comprehension.
+- The "scene" must reference exact named entities and quantities from the question stem (e.g. "a metal sphere of radius 3.2 cm", not "a sphere"). Avoid colour, shading, 3D perspective.
+- "labels" are placed verbatim on the diagram. Include units. Keep each label under 40 characters.`;
 
   private buildPrompt(args: {
     syllabus: string;
@@ -403,11 +457,12 @@ Rules:
     const userText = [intentBlock, fewShotBlock, this.LAYER_OUTPUT].join('\n\n');
 
     // System block: role text is cached so subsequent calls within the
-    // 5-minute window pay only for the user message.
+    // 5-minute window pay only for the user message. Subject module is
+    // appended so each subject gets its own conventions block.
     const systemBlocks = [
       {
         type: 'text',
-        text: this.LAYER_ROLE,
+        text: `${this.LAYER_ROLE_COMMON}\n\n${this.subjectModule(args.syllabus)}`,
         cache_control: { type: 'ephemeral' },
       },
     ];
@@ -466,6 +521,7 @@ Rules:
         'essay',
       ] as any;
       const questionType: QuestionType = allowedTypes.includes(qt) ? qt : ('short_answer' as any);
+      const diagram = this.parseDiagramHint(q?.diagram);
       return {
         stem,
         parts: parts && parts.length > 0 ? parts : undefined,
@@ -473,7 +529,27 @@ Rules:
         suggestedDifficulty,
         questionType,
         notes: q?.notes ? String(q.notes).slice(0, 500) : undefined,
+        diagram,
       };
     });
+  }
+
+  private parseDiagramHint(d: any): DiagramHint | undefined {
+    if (!d || typeof d !== 'object') return undefined;
+    if (d.needed === false) return { needed: false };
+    if (d.needed !== true) return undefined;
+    const allowedTypes: ReadonlyArray<string> = [
+      'apparatus', 'circuit', 'waveform', 'graph', 'free_body', 'molecular',
+      'ray', 'mechanics', 'geometry', 'statistical', 'energy_level', 'organic_skeletal',
+      'logic_gate', 'flowchart', 'data_structure', 'network_topology',
+    ];
+    const type = String(d.type ?? '').trim();
+    if (!allowedTypes.includes(type)) return { needed: false };
+    const scene = String(d.scene ?? '').trim();
+    if (scene.length < 10) return { needed: false };
+    const labels = Array.isArray(d.labels)
+      ? d.labels.map((s: any) => String(s ?? '').trim()).filter((s: string) => s.length > 0).slice(0, 12)
+      : [];
+    return { needed: true, type: type as any, scene: scene.slice(0, 1500), labels };
   }
 }

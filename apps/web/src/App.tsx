@@ -12,6 +12,7 @@ import TemplatesPage from './pages/Templates';
 import SourcesPage from './pages/Sources';
 import ReviewPage from './pages/Review';
 import AiGeneratePage from './pages/AiGenerate';
+import QuickPaperPage from './pages/QuickPaper';
 
 export default function App() {
   const { user, loading, init, logout } = useAuth();
@@ -45,6 +46,9 @@ export default function App() {
               <NavLink to="/templates" label="Templates" />
               {(user.role === 'admin' || user.role === 'head_teacher') && (
                 <NavLink to="/review" label="Review" />
+              )}
+              {(user.role === 'admin' || user.role === 'head_teacher') && (
+                <NavLink to="/quick-paper" label="⚡ Quick Paper" />
               )}
               {(user.role === 'admin' || user.role === 'head_teacher') && (
                 <NavLink to="/ai-generate" label="AI Generate" />
@@ -84,6 +88,16 @@ export default function App() {
             element={
               user.role === 'admin' || user.role === 'head_teacher' ? (
                 <AiGeneratePage />
+              ) : (
+                <Navigate to="/" replace />
+              )
+            }
+          />
+          <Route
+            path="/quick-paper"
+            element={
+              user.role === 'admin' || user.role === 'head_teacher' ? (
+                <QuickPaperPage />
               ) : (
                 <Navigate to="/" replace />
               )

@@ -24,6 +24,7 @@ import {
 import { AiService } from './ai.service';
 import { OpenAiImageService, DiagramType } from './openai-image.service';
 import { AiQuestionGeneratorService } from './ai-question-generator.service';
+import { QuickPaperService } from './quick-paper.service';
 import { AuthGuard } from '../common/auth.guard';
 import { CurrentUser } from '../common/current-user.decorator';
 
@@ -49,6 +50,10 @@ class GenerateDiagramDto {
     'statistical',
     'energy_level',
     'organic_skeletal',
+    'logic_gate',
+    'flowchart',
+    'data_structure',
+    'network_topology',
   ])
   diagramType: DiagramType;
   @IsOptional() @IsString() syllabus?: string;
@@ -70,6 +75,18 @@ class GenerateQuestionsDto {
   @IsOptional() @IsBoolean() multiPart?: boolean;
 }
 
+class QuickPaperDto {
+  @IsString() @MinLength(2) @MaxLength(20) syllabusCode: string;
+  @IsString() @MinLength(2) @MaxLength(20) topicCode: string;
+  @IsOptional() @IsInt() @Min(1) @Max(10) count?: number;
+  @IsOptional() @IsInt() @Min(5) @Max(180) durationMin?: number;
+  @IsOptional() @IsBoolean() includeDiagrams?: boolean;
+  @IsOptional() @IsInt() @Min(1) @Max(5) difficulty?: 1 | 2 | 3 | 4 | 5;
+  @IsOptional() @IsBoolean() multiPart?: boolean;
+  @IsOptional() @IsString() @MaxLength(120) paperName?: string;
+  @IsOptional() @IsString() @MaxLength(60) classLabel?: string;
+}
+
 @Controller('ai')
 @UseGuards(AuthGuard)
 export class AiController {
@@ -77,6 +94,7 @@ export class AiController {
     private readonly ai: AiService,
     private readonly openaiImage: OpenAiImageService,
     private readonly aiQuestions: AiQuestionGeneratorService,
+    private readonly quickPaper: QuickPaperService,
   ) {}
 
   @Post('suggest-labels')
@@ -137,5 +155,30 @@ export class AiController {
   @Get('question-budget')
   async questionBudget() {
     return this.aiQuestions.budgetStatus();
+  }
+
+  /**
+   * One-click "AI generates a complete paper". Chains AI question
+   * generation → auto-approval into the bank → optional gpt-image-2
+   * diagrams (parallel) → paper assembly. Returns paperId so the UI
+   * can immediately link to the paper detail / PDF export.
+   *
+   * Admin or head_teacher only — every call burns Claude + OpenAI
+   * tokens. Default 5 questions + diagrams ≈ $0.20 / 70-90 seconds.
+   */
+  @Post('quick-paper')
+  async quickPaperGenerate(
+    @Body() dto: QuickPaperDto,
+    @CurrentUser() user: any,
+    @Req() req: Request,
+  ) {
+    if (!['admin', 'head_teacher'].includes(user?.role)) {
+      throw new ForbiddenException('admin or head_teacher role required');
+    }
+    return this.quickPaper.generate(dto, {
+      id: user.id,
+      role: user.role,
+      ip: req.ip ?? null,
+    });
   }
 }
