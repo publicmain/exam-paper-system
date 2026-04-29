@@ -10,6 +10,7 @@ import {
 } from '@nestjs/common';
 import { Request } from 'express';
 import {
+  ArrayMaxSize,
   IsArray,
   IsBoolean,
   IsIn,
@@ -20,7 +21,9 @@ import {
   MaxLength,
   Min,
   MinLength,
+  ValidateNested,
 } from 'class-validator';
+import { Type } from 'class-transformer';
 import { AiService } from './ai.service';
 import { OpenAiImageService, DiagramType } from './openai-image.service';
 import { AiQuestionGeneratorService } from './ai-question-generator.service';
@@ -75,10 +78,20 @@ class GenerateQuestionsDto {
   @IsOptional() @IsBoolean() multiPart?: boolean;
 }
 
+class QuickPaperTopicDto {
+  @IsString() @MinLength(2) @MaxLength(20) code: string;
+  @IsInt() @Min(1) @Max(10) count: number;
+}
+
 class QuickPaperDto {
   @IsString() @MinLength(2) @MaxLength(20) syllabusCode: string;
-  @IsString() @MinLength(2) @MaxLength(20) topicCode: string;
+  // Either supply a single topic (legacy) ...
+  @IsOptional() @IsString() @MinLength(2) @MaxLength(20) topicCode?: string;
   @IsOptional() @IsInt() @Min(1) @Max(10) count?: number;
+  // ...or a list of topics for a mock-exam style mixed paper.
+  @IsOptional() @IsArray() @ArrayMaxSize(20) @ValidateNested({ each: true })
+  @Type(() => QuickPaperTopicDto)
+  topics?: QuickPaperTopicDto[];
   @IsOptional() @IsInt() @Min(5) @Max(180) durationMin?: number;
   @IsOptional() @IsBoolean() includeDiagrams?: boolean;
   @IsOptional() @IsInt() @Min(1) @Max(5) difficulty?: 1 | 2 | 3 | 4 | 5;

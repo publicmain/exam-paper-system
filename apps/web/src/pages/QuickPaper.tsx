@@ -8,13 +8,59 @@ const SUBJECT_PRESETS = [
   { code: '9709', name: 'Mathematics', emoji: '∑' },
 ];
 
+interface PaperPreset {
+  id: 'morning' | 'weekly' | 'mock';
+  emoji: string;
+  label: string;
+  blurb: string;
+  durationMin: number;
+  pickTopics: (allTopics: any[]) => Array<{ code: string; count: number }>;
+}
+
+const PRESETS: PaperPreset[] = [
+  {
+    id: 'morning',
+    emoji: '☕',
+    label: 'Morning Quick Test',
+    blurb: '3 topics · 1 q each · ~15 min',
+    durationMin: 15,
+    pickTopics: (all) => sampleN(all, 3).map((t) => ({ code: t.code, count: 1 })),
+  },
+  {
+    id: 'weekly',
+    emoji: '📝',
+    label: 'Weekly Test',
+    blurb: '5 topics · 2 q each · ~45 min',
+    durationMin: 45,
+    pickTopics: (all) => sampleN(all, 5).map((t) => ({ code: t.code, count: 2 })),
+  },
+  {
+    id: 'mock',
+    emoji: '🏆',
+    label: 'Mock Exam',
+    blurb: 'All sections · 1 q each · ~90 min',
+    durationMin: 90,
+    pickTopics: (all) => all.map((t) => ({ code: t.code, count: 1 })),
+  },
+];
+
+function sampleN<T>(arr: T[], n: number): T[] {
+  if (n >= arr.length) return [...arr];
+  const copy = [...arr];
+  for (let i = copy.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [copy[i], copy[j]] = [copy[j], copy[i]];
+  }
+  return copy.slice(0, n);
+}
+
 export default function QuickPaperPage() {
   const [subjectCode, setSubjectCode] = useState('9608');
   const [subjects, setSubjects] = useState<any[]>([]);
   const [components, setComponents] = useState<any[]>([]);
   const [componentId, setComponentId] = useState<string>('');
   const [topics, setTopics] = useState<any[]>([]);
-  const [busyTopicCode, setBusyTopicCode] = useState<string | null>(null);
+  const [busy, setBusy] = useState<string | null>(null);
   const [progress, setProgress] = useState<{ step: string; result?: any; error?: string } | null>(null);
   const [withDiagrams, setWithDiagrams] = useState(true);
   const [count, setCount] = useState(5);
@@ -38,7 +84,6 @@ export default function QuickPaperPage() {
     }
     api.components(subject.id).then((cs: any[]) => {
       setComponents(cs);
-      // Default to first component (AS for 9608/9702)
       const def = cs.find((c) => c.code === 'AS') || cs[0];
       setComponentId(def?.id ?? '');
     });
@@ -52,61 +97,88 @@ export default function QuickPaperPage() {
     }
   }, [componentId]);
 
-  const flatTopics = useMemo(() => {
-    const out: any[] = [];
-    function walk(tree: any[], depth = 0) {
-      for (const t of tree) {
-        out.push({ ...t, _depth: depth });
-        if (t.children?.length) walk(t.children, depth + 1);
+  const topLevelTopics = useMemo(() => topics.map((t) => ({ ...t })), [topics]);
+
+  async function runQuickPaper(args: {
+    label: string;
+    topicsArg?: { code: string; count: number }[];
+    singleTopic?: { code: string; name: string };
+    durationMin?: number;
+    paperName: string;
+    busyTag: string;
+  }) {
+    if (busy) return;
+    setBusy(args.busyTag);
+    setProgress({
+      step: args.singleTopic
+        ? `Drafting ${count} questions for ${args.singleTopic.code} ${args.singleTopic.name} ...`
+        : `Drafting questions across ${args.topicsArg?.length ?? 0} topics in parallel ...`,
+    });
+    const tickerSteps = withDiagrams
+      ? [
+          'Drafting with Claude (parallel per topic) · ~30s',
+          'Auto-approving drafts into the question bank',
+          'Generating diagrams with gpt-image-2 · parallel',
+          'Assembling paper',
+        ]
+      : [
+          'Drafting with Claude (parallel per topic) · ~30s',
+          'Auto-approving drafts into the question bank',
+          'Assembling paper',
+        ];
+    let stepIdx = 0;
+    const ticker = setInterval(() => {
+      if (stepIdx < tickerSteps.length - 1) {
+        stepIdx++;
+        setProgress((p) => (p && !p.result ? { ...p, step: tickerSteps[stepIdx] } : p));
       }
-    }
-    walk(topics);
-    return out;
-  }, [topics]);
+    }, withDiagrams ? 22000 : 10000);
 
-  const topLevelOnly = flatTopics.filter((t) => t._depth === 0);
-
-  async function generateForTopic(t: any) {
-    if (busyTopicCode) return;
-    setBusyTopicCode(t.code);
-    setProgress({ step: `Drafting ${count} questions for ${t.code} ${t.name} ...` });
     try {
-      // Cute progressive status updates
-      const tickerSteps = withDiagrams
-        ? [
-            'Drafting questions with Claude · ~30s',
-            'Auto-approving drafts into the question bank',
-            'Generating diagrams with gpt-image-2 · ~25s each (parallel)',
-            'Assembling paper',
-          ]
-        : [
-            'Drafting questions with Claude · ~30s',
-            'Auto-approving drafts into the question bank',
-            'Assembling paper',
-          ];
-      let stepIdx = 0;
-      const ticker = setInterval(() => {
-        if (stepIdx < tickerSteps.length - 1) {
-          stepIdx++;
-          setProgress((p) => p && !p.result ? { ...p, step: tickerSteps[stepIdx] } : p);
-        }
-      }, withDiagrams ? 25000 : 12000);
-
-      const result = await api.quickPaper({
+      const body: any = {
         syllabusCode: subjectCode,
-        topicCode: t.code,
-        count,
         includeDiagrams: withDiagrams,
         multiPart: true,
-        paperName: `Quick Paper · ${subjectCode} ${t.code} ${t.name}`,
-      });
+        paperName: args.paperName,
+      };
+      if (args.singleTopic) {
+        body.topicCode = args.singleTopic.code;
+        body.count = count;
+      } else {
+        body.topics = args.topicsArg;
+        if (args.durationMin) body.durationMin = args.durationMin;
+      }
+      const result = await api.quickPaper(body);
       clearInterval(ticker);
       setProgress({ step: 'Done', result });
     } catch (e: any) {
+      clearInterval(ticker);
       setProgress({ step: 'Failed', error: e.message });
     } finally {
-      setBusyTopicCode(null);
+      setBusy(null);
     }
+  }
+
+  function runPreset(preset: PaperPreset) {
+    if (topLevelTopics.length === 0) return;
+    const picked = preset.pickTopics(topLevelTopics);
+    if (picked.length === 0) return;
+    runQuickPaper({
+      label: preset.label,
+      topicsArg: picked,
+      durationMin: preset.durationMin,
+      paperName: `${preset.label} · ${subjectCode} (${picked.length} sections)`,
+      busyTag: `preset-${preset.id}`,
+    });
+  }
+
+  function runSingleTopic(t: any) {
+    runQuickPaper({
+      label: `${t.code} ${t.name}`,
+      singleTopic: { code: t.code, name: t.name },
+      paperName: `Quick Paper · ${subjectCode} ${t.code} ${t.name}`,
+      busyTag: `topic-${t.code}`,
+    });
   }
 
   return (
@@ -115,7 +187,8 @@ export default function QuickPaperPage() {
         <h1 className="text-2xl font-bold">⚡ Quick Paper</h1>
         <p className="text-sm text-gray-600">
           One click → AI authors fresh questions, decides which need diagrams, generates them,
-          and assembles a printable paper. ~70–90s per click, ~$0.20 per paper.
+          and assembles a printable paper. Single-topic ~70-90s ($0.10-0.20). Mixed papers
+          (Mock Exam) parallelise per topic, ~45s ($0.30-0.80).
         </p>
       </div>
 
@@ -147,7 +220,7 @@ export default function QuickPaperPage() {
           </select>
         </div>
         <div className="flex items-center gap-2 text-sm">
-          <label>Questions:</label>
+          <label>Q per topic (single-topic mode):</label>
           <input
             type="number"
             min={1}
@@ -168,39 +241,88 @@ export default function QuickPaperPage() {
         </label>
       </div>
 
-      {topLevelOnly.length === 0 && (
-        <div className="card text-gray-500 text-sm">
-          {subjectCode === '9608'
-            ? 'CS topics will appear here once the API restarts and seeds the 9608 syllabus.'
-            : 'Loading topics ...'}
+      {/* Preset buttons */}
+      <div>
+        <div className="text-xs uppercase text-gray-500 font-semibold mb-2 tracking-wide">
+          Mixed-topic presets
         </div>
-      )}
+        <div className="grid grid-cols-3 gap-3">
+          {PRESETS.map((p) => (
+            <button
+              key={p.id}
+              disabled={!!busy || topLevelTopics.length === 0}
+              onClick={() => runPreset(p)}
+              className={`card text-left transition hover:shadow-lg ${
+                busy === `preset-${p.id}` ? 'ring-2 ring-blue-500' : ''
+              } ${busy && busy !== `preset-${p.id}` ? 'opacity-40' : ''}`}
+              style={{
+                background: busy === `preset-${p.id}`
+                  ? 'linear-gradient(135deg,#7c3aed18,#3b82f618)'
+                  : 'linear-gradient(135deg,#fafaff,#fff)',
+              }}
+            >
+              <div className="flex items-center gap-3">
+                <div
+                  className="w-14 h-14 rounded-lg flex items-center justify-center text-3xl shrink-0"
+                  style={{
+                    background:
+                      p.id === 'mock'
+                        ? 'linear-gradient(135deg,#f59e0b,#ef4444)'
+                        : p.id === 'weekly'
+                        ? 'linear-gradient(135deg,#10b981,#3b82f6)'
+                        : 'linear-gradient(135deg,#a78bfa,#3b82f6)',
+                  }}
+                >
+                  {p.emoji}
+                </div>
+                <div>
+                  <div className="font-bold">{p.label}</div>
+                  <div className="text-xs text-gray-600">{p.blurb}</div>
+                </div>
+              </div>
+            </button>
+          ))}
+        </div>
+      </div>
 
-      <div className="grid grid-cols-2 gap-3">
-        {topLevelOnly.map((t, i) => (
-          <button
-            key={t.id}
-            disabled={!!busyTopicCode}
-            onClick={() => generateForTopic(t)}
-            className={`card text-left transition hover:shadow-md ${
-              busyTopicCode === t.code ? 'ring-2 ring-blue-500' : ''
-            } ${busyTopicCode && busyTopicCode !== t.code ? 'opacity-40' : ''}`}
-          >
-            <div className="flex items-start gap-3">
-              <div
-                className="w-12 h-12 rounded-lg flex items-center justify-center text-white font-bold text-lg shrink-0"
-                style={{ background: 'linear-gradient(135deg,#7c3aed,#3b82f6)' }}
-              >
-                {i + 1}
+      {/* Single-topic cards */}
+      <div>
+        <div className="text-xs uppercase text-gray-500 font-semibold mb-2 tracking-wide">
+          Single-topic — focus on one section
+        </div>
+        {topLevelTopics.length === 0 && (
+          <div className="card text-gray-500 text-sm">
+            {subjectCode === '9608'
+              ? 'CS topics will appear here once the API restarts and seeds the 9608 syllabus.'
+              : 'Loading topics ...'}
+          </div>
+        )}
+        <div className="grid grid-cols-2 gap-3">
+          {topLevelTopics.map((t, i) => (
+            <button
+              key={t.id}
+              disabled={!!busy}
+              onClick={() => runSingleTopic(t)}
+              className={`card text-left transition hover:shadow-md ${
+                busy === `topic-${t.code}` ? 'ring-2 ring-blue-500' : ''
+              } ${busy && busy !== `topic-${t.code}` ? 'opacity-40' : ''}`}
+            >
+              <div className="flex items-start gap-3">
+                <div
+                  className="w-12 h-12 rounded-lg flex items-center justify-center text-white font-bold text-lg shrink-0"
+                  style={{ background: 'linear-gradient(135deg,#7c3aed,#3b82f6)' }}
+                >
+                  {i + 1}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="font-semibold">{t.name}</div>
+                  <div className="text-xs text-gray-500 font-mono">{t.code}</div>
+                </div>
+                <div className="text-2xl text-gray-400">›</div>
               </div>
-              <div className="flex-1 min-w-0">
-                <div className="font-semibold">{t.name}</div>
-                <div className="text-xs text-gray-500 font-mono">{t.code}</div>
-              </div>
-              <div className="text-2xl text-gray-400">›</div>
-            </div>
-          </button>
-        ))}
+            </button>
+          ))}
+        </div>
       </div>
 
       {progress && (
@@ -245,8 +367,8 @@ function ProgressOverlay({
               <div className="h-full bg-blue-500 animate-pulse" style={{ width: '60%' }} />
             </div>
             <div className="text-xs text-gray-500">
-              Don't close this tab — the API call is running on the server. ~70–90s with diagrams,
-              ~30s without.
+              Don't close this tab — the API call is running on the server. Mock exam (12 topics)
+              ~45s with diagrams; single topic ~70-90s.
             </div>
           </div>
         )}
@@ -260,8 +382,9 @@ function ProgressOverlay({
             <div className="bg-green-50 p-3 rounded text-sm">
               <div className="font-semibold">{progress.result.paperName}</div>
               <div className="text-gray-700 mt-1">
-                {progress.result.questionCount} questions · {progress.result.totalMarks} marks ·{' '}
-                {progress.result.durationMin} min
+                {progress.result.questionCount} questions across {progress.result.topicCount}{' '}
+                topic{progress.result.topicCount > 1 ? 's' : ''} · {progress.result.totalMarks}{' '}
+                marks · {progress.result.durationMin} min
               </div>
               <div className="text-gray-700 mt-1">
                 Diagrams: {progress.result.diagramsGenerated} of {progress.result.diagramsRequested}{' '}
