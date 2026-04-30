@@ -118,22 +118,20 @@ const baseStyles = `
     body { font-family: 'Times New Roman', Georgia, serif; font-size: 11pt; line-height: 1.5; color: #111; }
 
     /* ---------- Cover page (first sheet) ----------
-       Force single A4 page. Body sits inside @page margins (18mm top/bottom,
-       16mm left/right), so the usable area is 178×261mm. The cover fills
-       that exactly and clips any overflow so it never spills onto a second
-       sheet. font-family falls through to "serif" because the chromium
-       runtime in our Docker image only ships fonts-liberation; Liberation
-       Serif is what actually renders. */
+       Kept in plain block flow — flexbox + bottom-pinned marker table
+       was getting split across pages by Puppeteer because the table
+       sat right on the 261mm content-area edge. Now content stacks
+       naturally from the top with measured margins; the marker table
+       has page-break-inside: avoid so it always renders intact. font-
+       family falls through to Liberation since the chromium runtime
+       in our Docker image only ships fonts-liberation. */
     .cover {
       width: 100%;
-      height: 261mm;
       box-sizing: border-box;
       page-break-after: always;
-      overflow: hidden;
+      page-break-inside: avoid;
       font-family: "Liberation Serif", Cambria, Georgia, "Times New Roman", serif;
       color: #000;
-      display: flex;
-      flex-direction: column;
     }
     .cover .logo {
       display: block; margin: 0 auto 5mm;
@@ -145,13 +143,16 @@ const baseStyles = `
     .cover .exam-name    { text-align: center; font-size: 17pt; font-weight: bold; margin: 0 0 6mm; line-height: 1.25; }
     .cover .instructions { font-size: 12pt; line-height: 1.4; }
     .cover .instructions p { margin: 0 0 3mm; }
-    .cover .class-line   { font-family: "Liberation Sans", Arial, Helvetica, sans-serif; font-size: 13pt; font-weight: bold; margin: 6mm 0 3mm; }
+    .cover .class-line   { font-family: "Liberation Sans", Arial, Helvetica, sans-serif; font-size: 13pt; font-weight: bold; margin: 8mm 0 3mm; }
     .cover .student-name { font-size: 13pt; margin: 0 0 5mm; }
-    .cover .filler { flex: 1; min-height: 0; }
     .cover .marker-table {
-      margin-left: auto; margin-top: 4mm; border-collapse: collapse;
+      margin-left: auto; margin-top: 12mm; margin-right: 0;
+      border-collapse: collapse;
+      page-break-inside: avoid;
       font-family: "Liberation Sans", Arial, Helvetica, sans-serif; font-size: 11pt;
     }
+    .cover .marker-table tr,
+    .cover .marker-table td { page-break-inside: avoid; }
     .cover .marker-table td {
       border: 1px solid #000; width: 16mm; height: 13mm;
       text-align: center; vertical-align: middle; font-weight: bold;
@@ -275,7 +276,6 @@ function renderCoverPage(data: PaperData): string {
     </div>
     <div class="class-line">${classLine}</div>
     <div class="student-name">Student Name: ____________________</div>
-    <div class="filler"></div>
     <table class="marker-table">
       <tr>
         <td colspan="2">Marker</td>
