@@ -73,7 +73,32 @@ export interface GraphvizMathSpec {
   engine?: 'dot' | 'neato' | 'circo' | 'fdp' | 'sfdp' | 'twopi';
 }
 
-export type DiagramSpec = CoordinateMathSpec | GraphvizMathSpec;
+/** Free-body diagram spec for type=free_body. */
+export interface FreeBodyMathSpec {
+  kind: 'free_body';
+  body: { shape: 'block' | 'sphere' | 'dot'; label?: string };
+  forces: Array<{
+    magnitude: number;
+    angle: number;             // degrees, 0 = +x axis (right), 90 = +y (up)
+    label: string;
+    style?: 'solid' | 'dashed';
+  }>;
+}
+
+/** Energy-level diagram spec for type=energy_level. */
+export interface EnergyLevelMathSpec {
+  kind: 'energy_level';
+  levels: Array<{ energy: number; label: string }>;
+  transitions?: Array<{
+    fromIndex: number;
+    toIndex: number;
+    label?: string;
+    kind?: 'absorption' | 'emission';
+  }>;
+}
+
+export type DiagramSpec = CoordinateMathSpec | GraphvizMathSpec
+                        | FreeBodyMathSpec | EnergyLevelMathSpec;
 
 export type DiagramHint = {
   needed: true;
@@ -543,7 +568,50 @@ CRITICAL when emitting graphviz_dot:
 - Keep the diagram readable: <= 20 nodes, <= 30 edges. Larger is allowed but
   the layout gets cramped.
 - Do NOT include HTML-like labels (\`<<TABLE...>>\`); use plain string labels
-  or record syntax.`;
+  or record syntax.
+
+Free-body diagrams (REQUIRED structured spec for type "free_body"):
+
+{
+  "kind": "free_body",
+  "body": { "shape": "block" | "sphere" | "dot", "label": "optional label inside body" },
+  "forces": [
+    { "magnitude": 50, "angle": 90, "label": "W = 50 N", "style": "solid" }
+  ]
+}
+
+CRITICAL:
+- "angle" is measured in degrees from the +x axis, counter-clockwise positive.
+  Right = 0, Up = 90, Left = 180, Down = 270 (or −90). Tension up-and-right
+  at 30° above horizontal = 30. Weight always down = 270 (or −90). Normal
+  force on flat ground = 90.
+- "magnitude" is RELATIVE: arrows render with length proportional to
+  magnitude (longest = ~90px). Use the actual numbers from the question;
+  the renderer scales automatically.
+- Labels appear at the arrow tips; include units ("T = 25 N", "W = mg").
+
+Energy-level diagrams (REQUIRED structured spec for type "energy_level"):
+
+{
+  "kind": "energy_level",
+  "levels": [
+    { "energy": 0,    "label": "n=1 (ground state)" },
+    { "energy": 10.2, "label": "n=2" },
+    { "energy": 12.1, "label": "n=3" }
+  ],
+  "transitions": [
+    { "fromIndex": 0, "toIndex": 1, "label": "10.2 eV", "kind": "absorption" }
+  ]
+}
+
+CRITICAL:
+- Levels are listed in any order; the renderer stacks them vertically by
+  energy value (lower energies at the bottom).
+- "fromIndex" / "toIndex" are 0-based indices into the levels array.
+- "absorption" renders an upward dashed arrow; "emission" renders a downward
+  solid arrow. If kind is omitted, the renderer picks based on direction.
+- Include the photon energy or wavelength in the transition label
+  ("10.2 eV", "656 nm").`;
 
   private buildPrompt(args: {
     syllabus: string;
@@ -696,19 +764,83 @@ CRITICAL when emitting graphviz_dot:
       : [];
     const hint: DiagramHint = { needed: true, type: type as any, scene: scene.slice(0, 1500), labels };
     if (d.spec && typeof d.spec === 'object') {
-      // Math types use coordinate_plane; CS-style graph types use graphviz_dot.
-      const isMath = (type === 'geometry' || type === 'graph');
+      // Each diagram type has its own permitted spec.kind. Mismatches drop
+      // the spec and we fall back to gpt-image-2.
+      const isMath = (type === 'geometry' || type === 'graph' || type === 'waveform');
       const isGraph = (type === 'flowchart' || type === 'data_structure'
                     || type === 'network_topology' || type === 'logic_gate');
+      const isFreeBody = (type === 'free_body');
+      const isEnergyLevel = (type === 'energy_level');
       if (isMath && d.spec.kind === 'coordinate_plane') {
         const spec = this.parseCoordinateSpec(d.spec);
         if (spec) (hint as any).spec = spec;
       } else if (isGraph && d.spec.kind === 'graphviz_dot') {
         const spec = this.parseGraphvizSpec(d.spec);
         if (spec) (hint as any).spec = spec;
+      } else if (isFreeBody && d.spec.kind === 'free_body') {
+        const spec = this.parseFreeBodySpec(d.spec);
+        if (spec) (hint as any).spec = spec;
+      } else if (isEnergyLevel && d.spec.kind === 'energy_level') {
+        const spec = this.parseEnergyLevelSpec(d.spec);
+        if (spec) (hint as any).spec = spec;
       }
     }
     return hint;
+  }
+
+  private parseFreeBodySpec(s: any): FreeBodyMathSpec | null {
+    if (!s || s.kind !== 'free_body') return null;
+    const shape = ['block', 'sphere', 'dot'].includes(s.body?.shape) ? s.body.shape : 'block';
+    const bodyLabel = typeof s.body?.label === 'string' ? s.body.label.slice(0, 40) : undefined;
+    const forces = Array.isArray(s.forces)
+      ? s.forces.flatMap((f: any) => {
+          const mag = Number(f?.magnitude);
+          const ang = Number(f?.angle);
+          const lab = typeof f?.label === 'string' ? f.label.trim() : '';
+          if (!Number.isFinite(mag) || mag <= 0) return [];
+          if (!Number.isFinite(ang)) return [];
+          if (!lab) return [];
+          return [{
+            magnitude: mag,
+            angle: ang,
+            label: lab.slice(0, 60),
+            style: f?.style === 'dashed' ? 'dashed' : 'solid' as const,
+          }];
+        }).slice(0, 8)
+      : [];
+    if (forces.length === 0) return null;
+    return { kind: 'free_body', body: { shape, label: bodyLabel }, forces };
+  }
+
+  private parseEnergyLevelSpec(s: any): EnergyLevelMathSpec | null {
+    if (!s || s.kind !== 'energy_level') return null;
+    const levels = Array.isArray(s.levels)
+      ? s.levels.flatMap((l: any) => {
+          const e = Number(l?.energy);
+          const lab = typeof l?.label === 'string' ? l.label.trim() : '';
+          if (!Number.isFinite(e)) return [];
+          if (!lab) return [];
+          return [{ energy: e, label: lab.slice(0, 60) }];
+        }).slice(0, 12)
+      : [];
+    if (levels.length === 0) return null;
+    const transitions = Array.isArray(s.transitions)
+      ? s.transitions.flatMap((t: any) => {
+          const f = Number(t?.fromIndex);
+          const o = Number(t?.toIndex);
+          if (!Number.isInteger(f) || !Number.isInteger(o)) return [];
+          if (f < 0 || f >= levels.length || o < 0 || o >= levels.length) return [];
+          return [{
+            fromIndex: f,
+            toIndex: o,
+            label: typeof t?.label === 'string' ? t.label.slice(0, 40) : undefined,
+            kind: t?.kind === 'absorption' ? 'absorption' as const
+                : t?.kind === 'emission' ? 'emission' as const
+                : undefined,
+          }];
+        }).slice(0, 10)
+      : [];
+    return { kind: 'energy_level', levels, transitions };
   }
 
   /** Validate the AI's Graphviz DOT spec. Strips obvious junk; the SVG

@@ -52,6 +52,17 @@ export interface CoordinatePlaneSpec {
     label?: string;
     style?: 'solid' | 'dashed';
   }>;
+  /** Sine/cosine waveforms for waveform-type diagrams. y = amplitude *
+   *  sin(frequency * x + phase) + vertOffset. Two cycles or so worth in
+   *  the visible xRange usually reads best. */
+  sineCurves?: Array<{
+    amplitude: number;
+    frequency: number;
+    phase?: number;
+    vertOffset?: number;
+    label?: string;
+    style?: 'solid' | 'dashed';
+  }>;
 }
 
 /**
@@ -69,7 +80,37 @@ export interface GraphvizDotSpec {
   engine?: 'dot' | 'neato' | 'circo' | 'fdp' | 'sfdp' | 'twopi';
 }
 
-export type AnyDiagramSpec = CoordinatePlaneSpec | GraphvizDotSpec;
+/** Free-body diagram: a body at the centre with named force arrows
+ *  radiating out at exact angles (measured from +x axis, counter-clockwise
+ *  positive). Arrow lengths are proportional to magnitude. */
+export interface FreeBodySpec {
+  kind: 'free_body';
+  /** Body shape. block = square, sphere = circle, dot = small filled circle. */
+  body: { shape: 'block' | 'sphere' | 'dot'; label?: string };
+  forces: Array<{
+    magnitude: number;
+    angle: number;            // degrees, 0 = right, 90 = up
+    label: string;
+    style?: 'solid' | 'dashed';
+  }>;
+}
+
+/** Atomic / molecular energy-level diagram: horizontal lines stacked by
+ *  energy with vertical arrows for transitions between levels. */
+export interface EnergyLevelSpec {
+  kind: 'energy_level';
+  levels: Array<{ energy: number; label: string }>;
+  transitions?: Array<{
+    fromIndex: number;
+    toIndex: number;
+    label?: string;
+    /** 'absorption' (upward, dashed) or 'emission' (downward, solid). */
+    kind?: 'absorption' | 'emission';
+  }>;
+}
+
+export type AnyDiagramSpec = CoordinatePlaneSpec | GraphvizDotSpec
+                           | FreeBodySpec | EnergyLevelSpec;
 
 export interface SvgGenerateInput {
   questionId: string;
@@ -156,7 +197,122 @@ export class SvgDiagramService {
   async renderSpec(spec: AnyDiagramSpec): Promise<string> {
     if (spec.kind === 'coordinate_plane') return this.renderCoordinatePlane(spec);
     if (spec.kind === 'graphviz_dot') return this.renderGraphvizDot(spec);
+    if (spec.kind === 'free_body') return this.renderFreeBody(spec);
+    if (spec.kind === 'energy_level') return this.renderEnergyLevel(spec);
     throw new BadRequestException(`unsupported diagram kind: ${(spec as any).kind}`);
+  }
+
+  /** Free-body diagram: body in centre, force arrows radiating at exact
+   *  angles. Arrow length scales with magnitude (longest force = 80px,
+   *  others proportional). Labels at arrow tips. */
+  private renderFreeBody(spec: FreeBodySpec): string {
+    const W = 360, H = 280, cx = W / 2, cy = H / 2;
+    const maxMag = Math.max(...spec.forces.map(f => Math.abs(f.magnitude)), 1);
+    const baseLen = 90; // longest arrow length, px
+
+    const parts: string[] = [];
+    parts.push(`<rect width="${W}" height="${H}" fill="white"/>`);
+
+    // Body
+    if (spec.body.shape === 'block') {
+      parts.push(`<rect x="${cx - 20}" y="${cy - 20}" width="40" height="40" fill="white" stroke="black" stroke-width="1.5"/>`);
+    } else if (spec.body.shape === 'sphere') {
+      parts.push(`<circle cx="${cx}" cy="${cy}" r="20" fill="white" stroke="black" stroke-width="1.5"/>`);
+    } else {
+      parts.push(`<circle cx="${cx}" cy="${cy}" r="3.5" fill="black"/>`);
+    }
+    if (spec.body.label) {
+      parts.push(`<text x="${cx}" y="${cy + 4}" text-anchor="middle" font-size="11" font-family="Arial">${esc(spec.body.label)}</text>`);
+    }
+
+    // Arrowhead marker (single, reused per arrow)
+    parts.push(`<defs><marker id="fbarr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M 0 0 L 10 5 L 0 10 z" fill="black"/></marker></defs>`);
+
+    for (const f of spec.forces) {
+      const len = baseLen * (Math.abs(f.magnitude) / maxMag);
+      const rad = (f.angle * Math.PI) / 180;
+      // Start arrow from body edge (not centre) to keep it clean.
+      const bodyR = spec.body.shape === 'dot' ? 4 : 22;
+      const x1 = cx + bodyR * Math.cos(rad);
+      const y1 = cy - bodyR * Math.sin(rad);
+      const x2 = cx + (bodyR + len) * Math.cos(rad);
+      const y2 = cy - (bodyR + len) * Math.sin(rad);
+      const dash = f.style === 'dashed' ? ' stroke-dasharray="5,4"' : '';
+      parts.push(`<line x1="${x1.toFixed(1)}" y1="${y1.toFixed(1)}" x2="${x2.toFixed(1)}" y2="${y2.toFixed(1)}" stroke="black" stroke-width="1.6" marker-end="url(#fbarr)"${dash}/>`);
+      // Label at tip, offset outward
+      const lx = cx + (bodyR + len + 12) * Math.cos(rad);
+      const ly = cy - (bodyR + len + 12) * Math.sin(rad);
+      const anchor = Math.cos(rad) > 0.3 ? 'start' : Math.cos(rad) < -0.3 ? 'end' : 'middle';
+      parts.push(`<text x="${lx.toFixed(1)}" y="${(ly + 4).toFixed(1)}" text-anchor="${anchor}" font-size="11" font-family="Arial" font-style="italic">${esc(f.label)}</text>`);
+    }
+
+    return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${W} ${H}" width="${W}" height="${H}">${parts.join('')}</svg>`;
+  }
+
+  /** Energy-level diagram: horizontal lines stacked by energy. Optional
+   *  vertical arrows for transitions (absorption upward dashed, emission
+   *  downward solid). Used for atomic shells, photon transitions, etc. */
+  private renderEnergyLevel(spec: EnergyLevelSpec): string {
+    const W = 420, H = 320;
+    const margin = 40;
+    const labelGap = 60; // space on right for level labels
+    const xLeft = margin;
+    const xRight = W - margin - labelGap;
+
+    if (spec.levels.length === 0) {
+      throw new BadRequestException('energy_level needs at least one level');
+    }
+    const energies = spec.levels.map(l => l.energy);
+    const eMin = Math.min(...energies);
+    const eMax = Math.max(...energies);
+    const eRange = eMax - eMin || 1;
+
+    const yFor = (e: number) =>
+      (H - margin) - ((e - eMin) / eRange) * (H - 2 * margin);
+
+    const parts: string[] = [];
+    parts.push(`<rect width="${W}" height="${H}" fill="white"/>`);
+
+    // y-axis label
+    parts.push(`<text x="${margin - 24}" y="${margin - 10}" font-size="11" font-family="Arial" font-style="italic">Energy</text>`);
+    parts.push(`<line x1="${margin}" y1="${margin - 6}" x2="${margin}" y2="${H - margin + 6}" stroke="black" stroke-width="1"/>`);
+    parts.push(`<polygon points="${margin - 4},${margin - 4} ${margin + 4},${margin - 4} ${margin},${margin - 12}" fill="black"/>`);
+
+    // Levels
+    for (let i = 0; i < spec.levels.length; i++) {
+      const lv = spec.levels[i];
+      const y = yFor(lv.energy);
+      parts.push(`<line x1="${xLeft}" y1="${y.toFixed(1)}" x2="${xRight}" y2="${y.toFixed(1)}" stroke="black" stroke-width="1.4"/>`);
+      parts.push(`<text x="${xRight + 8}" y="${(y + 4).toFixed(1)}" font-size="11" font-family="Arial">${esc(lv.label)}</text>`);
+    }
+
+    // Arrowhead
+    parts.push(`<defs>
+      <marker id="elup" viewBox="0 0 10 10" refX="5" refY="0" markerWidth="6" markerHeight="6" orient="auto"><path d="M 0 10 L 5 0 L 10 10 z" fill="black"/></marker>
+      <marker id="eldn" viewBox="0 0 10 10" refX="5" refY="10" markerWidth="6" markerHeight="6" orient="auto"><path d="M 0 0 L 5 10 L 10 0 z" fill="black"/></marker>
+    </defs>`);
+
+    // Transitions
+    const N = spec.levels.length;
+    let trCount = 0;
+    for (const tr of spec.transitions ?? []) {
+      if (tr.fromIndex < 0 || tr.fromIndex >= N) continue;
+      if (tr.toIndex < 0 || tr.toIndex >= N) continue;
+      const yF = yFor(spec.levels[tr.fromIndex].energy);
+      const yT = yFor(spec.levels[tr.toIndex].energy);
+      const x = xLeft + ((trCount + 1) * (xRight - xLeft)) / (((spec.transitions ?? []).length) + 1);
+      const isAbsorption = tr.kind === 'absorption' || (tr.kind === undefined && yF > yT);
+      const dash = isAbsorption ? ' stroke-dasharray="5,4"' : '';
+      const marker = yT < yF ? 'elup' : 'eldn';
+      parts.push(`<line x1="${x.toFixed(1)}" y1="${yF.toFixed(1)}" x2="${x.toFixed(1)}" y2="${yT.toFixed(1)}" stroke="black" stroke-width="1.4" marker-end="url(#${marker})"${dash}/>`);
+      if (tr.label) {
+        const ym = (yF + yT) / 2;
+        parts.push(`<text x="${(x + 6).toFixed(1)}" y="${(ym + 4).toFixed(1)}" font-size="10" font-family="Arial" font-style="italic">${esc(tr.label)}</text>`);
+      }
+      trCount++;
+    }
+
+    return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${W} ${H}" width="${W}" height="${H}">${parts.join('')}</svg>`;
   }
 
   /**
@@ -316,6 +472,44 @@ export class SvgDiagramService {
           const yL = p.a * xL * xL + p.b * xL + p.c;
           if (yL >= yMin && yL <= yMax) {
             parts.push(`<text x="${px(xL)}" y="${py(yL) - 8}" font-size="11" font-family="Arial" font-style="italic">${esc(p.label)}</text>`);
+          }
+        }
+      }
+    }
+
+    // Sine / cosine waveforms — y = A * sin(B*x + C) + D
+    for (const c of spec.sineCurves || []) {
+      const dash = c.style === 'dashed' ? ' stroke-dasharray="5,4"' : '';
+      const A = c.amplitude;
+      const B = c.frequency;
+      const phi = c.phase ?? 0;
+      const D = c.vertOffset ?? 0;
+      const N = 200;
+      const pts: string[] = [];
+      let started = false;
+      for (let i = 0; i <= N; i++) {
+        const x = xMin + (xRange * i) / N;
+        const y = A * Math.sin(B * x + phi) + D;
+        if (y < yMin - 0.5 || y > yMax + 0.5) {
+          if (started && pts[pts.length - 1] !== 'M') pts.push('M');
+          continue;
+        }
+        if (!started || pts[pts.length - 1] === 'M') {
+          pts.push(`M ${px(x)} ${py(y)}`);
+          started = true;
+        } else {
+          pts.push(`L ${px(x)} ${py(y)}`);
+        }
+      }
+      const d = pts.filter(s => s !== 'M').join(' ');
+      if (d) {
+        parts.push(`<path d="${d}" stroke="black" stroke-width="1.4" fill="none"${dash}/>`);
+        if (c.label) {
+          // Place near end of curve
+          const xL = xMax - xRange * 0.05;
+          const yL = A * Math.sin(B * xL + phi) + D;
+          if (yL >= yMin && yL <= yMax) {
+            parts.push(`<text x="${px(xL)}" y="${py(yL) - 8}" text-anchor="end" font-size="11" font-family="Arial" font-style="italic">${esc(c.label)}</text>`);
           }
         }
       }
