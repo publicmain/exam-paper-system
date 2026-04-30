@@ -110,6 +110,33 @@ export interface CircuitSchemdrawMathSpec {
   }>;
 }
 
+/** Statistical chart specs for type=statistical. AI picks one of three
+ *  chart kinds based on what the question asks for. */
+export interface StatHistogramMathSpec {
+  kind: 'stat_histogram';
+  bins: Array<{ lo: number; hi: number; freq: number }>;
+  xLabel?: string;
+  yLabel?: string;
+  frequencyDensity?: boolean;
+}
+export interface StatBoxPlotMathSpec {
+  kind: 'stat_box_plot';
+  series: Array<{
+    label: string;
+    min: number; q1: number; median: number; q3: number; max: number;
+    outliers?: number[];
+  }>;
+  xLabel?: string;
+  range?: [number, number];
+}
+export interface StatCumFreqMathSpec {
+  kind: 'stat_cum_freq';
+  points: Array<{ x: number; cumFreq: number }>;
+  xLabel?: string;
+  yLabel?: string;
+  markers?: Array<{ y: number; label?: string }>;
+}
+
 /** Chemistry structure spec rendered via RDKit on the Python pdf-worker.
  *  AI emits a SMILES string; we send it across, get SVG back. */
 export interface MoleculeRdkitMathSpec {
@@ -148,7 +175,8 @@ export interface RayMathSpec {
 export type DiagramSpec = CoordinateMathSpec | GraphvizMathSpec
                         | FreeBodyMathSpec | EnergyLevelMathSpec
                         | CircuitSchemdrawMathSpec | RayMathSpec
-                        | MoleculeRdkitMathSpec;
+                        | MoleculeRdkitMathSpec
+                        | StatHistogramMathSpec | StatBoxPlotMathSpec | StatCumFreqMathSpec;
 
 export type DiagramHint = {
   needed: true;
@@ -777,7 +805,63 @@ CRITICAL when emitting molecule_smiles:
   uppercase for aliphatic (CCCC = butane).
 - Stereochemistry is optional but supported: "[C@H](N)(C)C(=O)O" for
   L-alanine. Omit unless the question asks about chirality.
-- Keep <= 30 heavy atoms; A-Level / IGCSE syllabus rarely needs more.`;
+- Keep <= 30 heavy atoms; A-Level / IGCSE syllabus rarely needs more.
+
+Statistical charts (REQUIRED structured spec for type "statistical"):
+Pick the chart kind that matches the question. Three options:
+
+1) Histogram — kind "stat_histogram":
+{
+  "kind": "stat_histogram",
+  "bins": [
+    { "lo": 0, "hi": 5,  "freq": 8 },
+    { "lo": 5, "hi": 10, "freq": 14 },
+    { "lo": 10,"hi": 20, "freq": 12 }
+  ],
+  "frequencyDensity": false,
+  "xLabel": "Time (hours)",
+  "yLabel": "Frequency"
+}
+- Bins must be contiguous (each lo equals previous hi); CIE convention
+  is bars touch.
+- When class widths are UNEQUAL the y-axis must show frequency density,
+  not raw frequency. Set frequencyDensity=true and supply density
+  values (frequency ÷ class width).
+
+2) Box-and-whisker plot — kind "stat_box_plot":
+{
+  "kind": "stat_box_plot",
+  "series": [
+    { "label": "Class A", "min": 12, "q1": 18, "median": 22, "q3": 28, "max": 35,
+      "outliers": [42] }
+  ],
+  "xLabel": "Marks"
+}
+- Multiple series stack vertically; useful for comparing distributions.
+- Include outliers only if the question identifies them.
+
+3) Cumulative frequency curve — kind "stat_cum_freq":
+{
+  "kind": "stat_cum_freq",
+  "points": [
+    { "x": 0, "cumFreq": 0 },
+    { "x": 5, "cumFreq": 8 },
+    { "x": 10,"cumFreq": 22 },
+    { "x": 20,"cumFreq": 34 }
+  ],
+  "xLabel": "Time (hours)",
+  "yLabel": "Cumulative frequency",
+  "markers": [
+    { "y": 17, "label": "median (n/2 = 17)" }
+  ]
+}
+- Points are typically (upper class boundary, cumulative frequency).
+- Always start at (lower bound, 0) so the curve grounds at the x-axis.
+- Optional dashed marker lines for median / quartiles help students
+  read off values; include only if the question asks about them.
+
+Scatter plot? Use kind "coordinate_plane" with just points[]; the
+existing math renderer handles scatter via points + axes.`;
 
   private buildPrompt(args: {
     syllabus: string;
@@ -940,6 +1024,7 @@ CRITICAL when emitting molecule_smiles:
       const isCircuit = (type === 'circuit');
       const isRay = (type === 'ray');
       const isMolecule = (type === 'molecular' || type === 'organic_skeletal');
+      const isStatistical = (type === 'statistical');
       if (isMath && d.spec.kind === 'coordinate_plane') {
         const spec = this.parseCoordinateSpec(d.spec);
         if (spec) (hint as any).spec = spec;
@@ -961,9 +1046,96 @@ CRITICAL when emitting molecule_smiles:
       } else if (isMolecule && d.spec.kind === 'molecule_smiles') {
         const spec = this.parseMoleculeSpec(d.spec);
         if (spec) (hint as any).spec = spec;
+      } else if (isStatistical && d.spec.kind === 'coordinate_plane') {
+        // Scatter plots reuse the math coordinate-plane renderer.
+        const spec = this.parseCoordinateSpec(d.spec);
+        if (spec) (hint as any).spec = spec;
+      } else if (isStatistical && d.spec.kind === 'stat_histogram') {
+        const spec = this.parseStatHistogramSpec(d.spec);
+        if (spec) (hint as any).spec = spec;
+      } else if (isStatistical && d.spec.kind === 'stat_box_plot') {
+        const spec = this.parseStatBoxPlotSpec(d.spec);
+        if (spec) (hint as any).spec = spec;
+      } else if (isStatistical && d.spec.kind === 'stat_cum_freq') {
+        const spec = this.parseStatCumFreqSpec(d.spec);
+        if (spec) (hint as any).spec = spec;
       }
     }
     return hint;
+  }
+
+  private parseStatHistogramSpec(s: any): StatHistogramMathSpec | null {
+    if (!s || s.kind !== 'stat_histogram') return null;
+    const num = (v: any) => (typeof v === 'number' && Number.isFinite(v) ? v : null);
+    const bins = Array.isArray(s.bins)
+      ? s.bins.flatMap((b: any) => {
+          const lo = num(b?.lo); const hi = num(b?.hi); const freq = num(b?.freq);
+          if (lo === null || hi === null || freq === null) return [];
+          if (hi <= lo || freq < 0) return [];
+          return [{ lo, hi, freq }];
+        }).slice(0, 30)
+      : [];
+    if (bins.length === 0) return null;
+    return {
+      kind: 'stat_histogram',
+      bins,
+      frequencyDensity: s.frequencyDensity === true,
+      xLabel: typeof s.xLabel === 'string' ? s.xLabel.slice(0, 60) : undefined,
+      yLabel: typeof s.yLabel === 'string' ? s.yLabel.slice(0, 60) : undefined,
+    };
+  }
+
+  private parseStatBoxPlotSpec(s: any): StatBoxPlotMathSpec | null {
+    if (!s || s.kind !== 'stat_box_plot') return null;
+    const num = (v: any) => (typeof v === 'number' && Number.isFinite(v) ? v : null);
+    const series = Array.isArray(s.series)
+      ? s.series.flatMap((sr: any) => {
+          const min = num(sr?.min); const q1 = num(sr?.q1);
+          const median = num(sr?.median); const q3 = num(sr?.q3); const max = num(sr?.max);
+          const label = typeof sr?.label === 'string' ? sr.label.trim() : '';
+          if (!label || min === null || q1 === null || median === null || q3 === null || max === null) return [];
+          if (!(min <= q1 && q1 <= median && median <= q3 && q3 <= max)) return [];
+          const outliers = Array.isArray(sr.outliers)
+            ? sr.outliers.flatMap((o: any) => { const v = num(o); return v === null ? [] : [v]; }).slice(0, 6)
+            : undefined;
+          return [{ label: label.slice(0, 40), min, q1, median, q3, max, outliers }];
+        }).slice(0, 6)
+      : [];
+    if (series.length === 0) return null;
+    let range: [number, number] | undefined;
+    if (Array.isArray(s.range) && s.range.length === 2) {
+      const a = num(s.range[0]); const b = num(s.range[1]);
+      if (a !== null && b !== null && a < b) range = [a, b];
+    }
+    return {
+      kind: 'stat_box_plot', series, range,
+      xLabel: typeof s.xLabel === 'string' ? s.xLabel.slice(0, 60) : undefined,
+    };
+  }
+
+  private parseStatCumFreqSpec(s: any): StatCumFreqMathSpec | null {
+    if (!s || s.kind !== 'stat_cum_freq') return null;
+    const num = (v: any) => (typeof v === 'number' && Number.isFinite(v) ? v : null);
+    const points = Array.isArray(s.points)
+      ? s.points.flatMap((p: any) => {
+          const x = num(p?.x); const cf = num(p?.cumFreq);
+          if (x === null || cf === null || cf < 0) return [];
+          return [{ x, cumFreq: cf }];
+        }).slice(0, 30)
+      : [];
+    if (points.length < 2) return null;
+    const markers = Array.isArray(s.markers)
+      ? s.markers.flatMap((m: any) => {
+          const y = num(m?.y);
+          if (y === null) return [];
+          return [{ y, label: typeof m?.label === 'string' ? m.label.slice(0, 40) : undefined }];
+        }).slice(0, 5)
+      : undefined;
+    return {
+      kind: 'stat_cum_freq', points, markers,
+      xLabel: typeof s.xLabel === 'string' ? s.xLabel.slice(0, 60) : undefined,
+      yLabel: typeof s.yLabel === 'string' ? s.yLabel.slice(0, 60) : undefined,
+    };
   }
 
   private parseMoleculeSpec(s: any): MoleculeRdkitMathSpec | null {

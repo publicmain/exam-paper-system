@@ -126,6 +126,46 @@ export interface CircuitSchemdrawSpec {
   }>;
 }
 
+/** Histogram for type=statistical. Bins can have unequal widths; AI
+ *  should set frequencyDensity=true and supply density values when the
+ *  widths are unequal (CIE convention). Bars touch at boundaries. */
+export interface StatHistogramSpec {
+  kind: 'stat_histogram';
+  bins: Array<{ lo: number; hi: number; freq: number }>;
+  xLabel?: string;
+  yLabel?: string;
+  frequencyDensity?: boolean;
+}
+
+/** Box-and-whisker plot. Supports multiple series stacked vertically. */
+export interface StatBoxPlotSpec {
+  kind: 'stat_box_plot';
+  series: Array<{
+    label: string;
+    min: number;
+    q1: number;
+    median: number;
+    q3: number;
+    max: number;
+    outliers?: number[];
+  }>;
+  xLabel?: string;
+  /** Range to display along the value axis. Defaults to data extent + 5%. */
+  range?: [number, number];
+}
+
+/** Cumulative frequency curve. Points are typically (upper class
+ *  boundary, cumulative frequency); renderer draws a smooth-ish polyline
+ *  through them with axes. */
+export interface StatCumFreqSpec {
+  kind: 'stat_cum_freq';
+  points: Array<{ x: number; cumFreq: number }>;
+  xLabel?: string;
+  yLabel?: string;
+  /** Optional median / quartile marker lines (drawn as dashed). */
+  markers?: Array<{ y: number; label?: string }>;
+}
+
 /** Chemistry structure spec rendered server-side via RDKit on the pdf-
  *  worker. AI emits a SMILES string; RDKit computes 2D coordinates and
  *  renders SVG. Used to replace gpt-image-2 for type=molecular and
@@ -181,7 +221,8 @@ export interface RayDiagramSpec {
 export type AnyDiagramSpec = CoordinatePlaneSpec | GraphvizDotSpec
                            | FreeBodySpec | EnergyLevelSpec
                            | CircuitSchemdrawSpec | RayDiagramSpec
-                           | MoleculeRdkitSpec;
+                           | MoleculeRdkitSpec
+                           | StatHistogramSpec | StatBoxPlotSpec | StatCumFreqSpec;
 
 export interface SvgGenerateInput {
   questionId: string;
@@ -277,7 +318,210 @@ export class SvgDiagramService {
     if (spec.kind === 'molecule_smiles') return this.remoteRender.renderMolecule({
       smiles: spec.smiles, kekulize: spec.kekulize, width: spec.width, height: spec.height,
     });
+    if (spec.kind === 'stat_histogram') return this.renderHistogram(spec);
+    if (spec.kind === 'stat_box_plot') return this.renderBoxPlot(spec);
+    if (spec.kind === 'stat_cum_freq') return this.renderCumulativeFrequency(spec);
     throw new BadRequestException(`unsupported diagram kind: ${(spec as any).kind}`);
+  }
+
+  /** Histogram with possibly unequal-width bars; CIE convention is bars
+   *  touch (no gap). Heights are frequency or frequency density. */
+  private renderHistogram(spec: StatHistogramSpec): string {
+    if (!spec.bins?.length) {
+      throw new BadRequestException('stat_histogram needs at least one bin');
+    }
+    const bins = spec.bins.slice().sort((a, b) => a.lo - b.lo);
+    const xMin = bins[0].lo;
+    const xMax = bins[bins.length - 1].hi;
+    if (!(xMax > xMin)) throw new BadRequestException('histogram x-range invalid');
+    const heights = bins.map(b => spec.frequencyDensity
+      ? b.freq
+      : b.freq / Math.max(1e-9, b.hi - b.lo));
+    // Always plot height = freq directly when not density, else density.
+    const drawHeights = spec.frequencyDensity ? bins.map(b => b.freq) : bins.map(b => b.freq);
+    const yMax = Math.max(...drawHeights, 1) * 1.1;
+    void heights;
+
+    const W = 600, H = 360, padL = 50, padR = 20, padT = 24, padB = 50;
+    const sx = (W - padL - padR) / (xMax - xMin);
+    const sy = (H - padT - padB) / yMax;
+    const px = (x: number) => padL + (x - xMin) * sx;
+    const py = (y: number) => H - padB - y * sy;
+
+    const parts: string[] = [];
+    parts.push(`<rect width="${W}" height="${H}" fill="white"/>`);
+
+    // Grid lines (horizontal at integer y values)
+    const yStep = niceStep(yMax, 6);
+    for (let y = 0; y <= yMax + 1e-9; y += yStep) {
+      parts.push(`<line x1="${padL}" y1="${py(y)}" x2="${W - padR}" y2="${py(y)}" stroke="#e5e5e5" stroke-width="0.5"/>`);
+    }
+
+    // Bars
+    for (let i = 0; i < bins.length; i++) {
+      const b = bins[i];
+      const h = drawHeights[i];
+      parts.push(`<rect x="${px(b.lo)}" y="${py(h)}" width="${(b.hi - b.lo) * sx}" height="${h * sy}" fill="white" stroke="black" stroke-width="1"/>`);
+    }
+
+    // Axes
+    parts.push(`<line x1="${padL}" y1="${py(0)}" x2="${W - padR}" y2="${py(0)}" stroke="black" stroke-width="1"/>`);
+    parts.push(`<line x1="${padL}" y1="${py(0)}" x2="${padL}" y2="${padT}" stroke="black" stroke-width="1"/>`);
+
+    // X-axis ticks at every bin boundary
+    const xBoundaries = Array.from(new Set([xMin, ...bins.map(b => b.hi)])).sort((a, b) => a - b);
+    for (const x of xBoundaries) {
+      parts.push(`<line x1="${px(x)}" y1="${py(0)}" x2="${px(x)}" y2="${py(0) + 4}" stroke="black" stroke-width="1"/>`);
+      parts.push(`<text x="${px(x)}" y="${py(0) + 16}" text-anchor="middle" font-size="10" font-family="Arial">${formatNum(x)}</text>`);
+    }
+    // Y-axis ticks
+    for (let y = 0; y <= yMax + 1e-9; y += yStep) {
+      parts.push(`<line x1="${padL - 4}" y1="${py(y)}" x2="${padL}" y2="${py(y)}" stroke="black" stroke-width="1"/>`);
+      parts.push(`<text x="${padL - 6}" y="${py(y) + 3}" text-anchor="end" font-size="10" font-family="Arial">${formatNum(y)}</text>`);
+    }
+
+    // Axis labels
+    if (spec.xLabel) {
+      parts.push(`<text x="${(padL + W - padR) / 2}" y="${H - 12}" text-anchor="middle" font-size="11" font-family="Arial">${esc(spec.xLabel)}</text>`);
+    }
+    if (spec.yLabel) {
+      parts.push(`<text transform="translate(14, ${(padT + H - padB) / 2}) rotate(-90)" text-anchor="middle" font-size="11" font-family="Arial">${esc(spec.yLabel)}</text>`);
+    }
+
+    return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${W} ${H}" width="${W}" height="${H}">${parts.join('')}</svg>`;
+  }
+
+  /** Box-and-whisker plot (horizontal). Multiple series stack vertically. */
+  private renderBoxPlot(spec: StatBoxPlotSpec): string {
+    if (!spec.series?.length) {
+      throw new BadRequestException('stat_box_plot needs at least one series');
+    }
+    const W = 600, padL = 80, padR = 30, padT = 24, padB = 50;
+    const rowH = 60;
+    const H = padT + padB + rowH * spec.series.length;
+
+    // Determine value range
+    const allVals: number[] = [];
+    for (const s of spec.series) {
+      allVals.push(s.min, s.q1, s.median, s.q3, s.max, ...(s.outliers ?? []));
+    }
+    let [vMin, vMax] = spec.range ?? [Math.min(...allVals), Math.max(...allVals)];
+    if (!(vMax > vMin)) { vMin -= 1; vMax += 1; }
+    const pad = (vMax - vMin) * 0.05;
+    vMin -= pad; vMax += pad;
+    const sx = (W - padL - padR) / (vMax - vMin);
+    const px = (v: number) => padL + (v - vMin) * sx;
+
+    const parts: string[] = [];
+    parts.push(`<rect width="${W}" height="${H}" fill="white"/>`);
+
+    // Axis (bottom)
+    const yAxis = H - padB;
+    parts.push(`<line x1="${padL}" y1="${yAxis}" x2="${W - padR}" y2="${yAxis}" stroke="black" stroke-width="1"/>`);
+    const step = niceStep(vMax - vMin, 8);
+    for (let v = Math.ceil(vMin / step) * step; v <= vMax + 1e-9; v += step) {
+      parts.push(`<line x1="${px(v)}" y1="${yAxis}" x2="${px(v)}" y2="${yAxis + 4}" stroke="black" stroke-width="1"/>`);
+      parts.push(`<text x="${px(v)}" y="${yAxis + 16}" text-anchor="middle" font-size="10" font-family="Arial">${formatNum(v)}</text>`);
+    }
+    if (spec.xLabel) {
+      parts.push(`<text x="${(padL + W - padR) / 2}" y="${H - 12}" text-anchor="middle" font-size="11" font-family="Arial">${esc(spec.xLabel)}</text>`);
+    }
+
+    // Series — each on its own row, vertically centered
+    for (let i = 0; i < spec.series.length; i++) {
+      const s = spec.series[i];
+      const yC = padT + rowH * (i + 0.5);
+      const boxH = 24;
+      // Whiskers (min..q1, q3..max)
+      parts.push(`<line x1="${px(s.min)}" y1="${yC}" x2="${px(s.q1)}" y2="${yC}" stroke="black" stroke-width="1"/>`);
+      parts.push(`<line x1="${px(s.q3)}" y1="${yC}" x2="${px(s.max)}" y2="${yC}" stroke="black" stroke-width="1"/>`);
+      // Cap on whiskers
+      parts.push(`<line x1="${px(s.min)}" y1="${yC - 6}" x2="${px(s.min)}" y2="${yC + 6}" stroke="black" stroke-width="1"/>`);
+      parts.push(`<line x1="${px(s.max)}" y1="${yC - 6}" x2="${px(s.max)}" y2="${yC + 6}" stroke="black" stroke-width="1"/>`);
+      // Box
+      parts.push(`<rect x="${px(s.q1)}" y="${yC - boxH / 2}" width="${(s.q3 - s.q1) * sx}" height="${boxH}" fill="white" stroke="black" stroke-width="1"/>`);
+      // Median
+      parts.push(`<line x1="${px(s.median)}" y1="${yC - boxH / 2}" x2="${px(s.median)}" y2="${yC + boxH / 2}" stroke="black" stroke-width="1.5"/>`);
+      // Outliers as small open circles
+      for (const o of s.outliers ?? []) {
+        parts.push(`<circle cx="${px(o)}" cy="${yC}" r="3" fill="white" stroke="black" stroke-width="1"/>`);
+      }
+      // Series label on the left
+      parts.push(`<text x="${padL - 8}" y="${yC + 4}" text-anchor="end" font-size="11" font-family="Arial">${esc(s.label)}</text>`);
+    }
+
+    return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${W} ${H}" width="${W}" height="${H}">${parts.join('')}</svg>`;
+  }
+
+  /** Cumulative frequency curve. Points sorted by x; polyline through them
+   *  with axes and optional horizontal marker lines for median / quartiles. */
+  private renderCumulativeFrequency(spec: StatCumFreqSpec): string {
+    if (!spec.points?.length) {
+      throw new BadRequestException('stat_cum_freq needs at least one point');
+    }
+    const pts = spec.points.slice().sort((a, b) => a.x - b.x);
+    const xMin = pts[0].x;
+    const xMax = pts[pts.length - 1].x;
+    const yMax = Math.max(...pts.map(p => p.cumFreq), 1) * 1.05;
+    if (!(xMax > xMin)) throw new BadRequestException('cum_freq x-range invalid');
+
+    const W = 600, H = 380, padL = 50, padR = 20, padT = 24, padB = 50;
+    const sx = (W - padL - padR) / (xMax - xMin);
+    const sy = (H - padT - padB) / yMax;
+    const px = (x: number) => padL + (x - xMin) * sx;
+    const py = (y: number) => H - padB - y * sy;
+
+    const parts: string[] = [];
+    parts.push(`<rect width="${W}" height="${H}" fill="white"/>`);
+
+    // Grid
+    const yStep = niceStep(yMax, 6);
+    const xStep = niceStep(xMax - xMin, 8);
+    for (let y = 0; y <= yMax + 1e-9; y += yStep) {
+      parts.push(`<line x1="${padL}" y1="${py(y)}" x2="${W - padR}" y2="${py(y)}" stroke="#e5e5e5" stroke-width="0.5"/>`);
+    }
+    for (let x = Math.ceil(xMin / xStep) * xStep; x <= xMax + 1e-9; x += xStep) {
+      parts.push(`<line x1="${px(x)}" y1="${padT}" x2="${px(x)}" y2="${py(0)}" stroke="#e5e5e5" stroke-width="0.5"/>`);
+    }
+
+    // Markers (e.g. median at y=N/2)
+    for (const m of spec.markers ?? []) {
+      parts.push(`<line x1="${padL}" y1="${py(m.y)}" x2="${W - padR}" y2="${py(m.y)}" stroke="#888" stroke-width="0.8" stroke-dasharray="4,3"/>`);
+      if (m.label) {
+        parts.push(`<text x="${W - padR - 4}" y="${py(m.y) - 4}" text-anchor="end" font-size="10" font-family="Arial">${esc(m.label)}</text>`);
+      }
+    }
+
+    // Curve — polyline through the points
+    const d = pts.map((p, i) => `${i === 0 ? 'M' : 'L'} ${px(p.x).toFixed(1)} ${py(p.cumFreq).toFixed(1)}`).join(' ');
+    parts.push(`<path d="${d}" stroke="black" stroke-width="1.4" fill="none"/>`);
+    // Plot points themselves
+    for (const p of pts) {
+      parts.push(`<circle cx="${px(p.x)}" cy="${py(p.cumFreq)}" r="2.5" fill="black"/>`);
+    }
+
+    // Axes
+    parts.push(`<line x1="${padL}" y1="${py(0)}" x2="${W - padR}" y2="${py(0)}" stroke="black" stroke-width="1"/>`);
+    parts.push(`<line x1="${padL}" y1="${py(0)}" x2="${padL}" y2="${padT}" stroke="black" stroke-width="1"/>`);
+
+    // Ticks
+    for (let x = Math.ceil(xMin / xStep) * xStep; x <= xMax + 1e-9; x += xStep) {
+      parts.push(`<line x1="${px(x)}" y1="${py(0)}" x2="${px(x)}" y2="${py(0) + 4}" stroke="black" stroke-width="1"/>`);
+      parts.push(`<text x="${px(x)}" y="${py(0) + 16}" text-anchor="middle" font-size="10" font-family="Arial">${formatNum(x)}</text>`);
+    }
+    for (let y = 0; y <= yMax + 1e-9; y += yStep) {
+      parts.push(`<line x1="${padL - 4}" y1="${py(y)}" x2="${padL}" y2="${py(y)}" stroke="black" stroke-width="1"/>`);
+      parts.push(`<text x="${padL - 6}" y="${py(y) + 3}" text-anchor="end" font-size="10" font-family="Arial">${formatNum(y)}</text>`);
+    }
+
+    if (spec.xLabel) {
+      parts.push(`<text x="${(padL + W - padR) / 2}" y="${H - 12}" text-anchor="middle" font-size="11" font-family="Arial">${esc(spec.xLabel)}</text>`);
+    }
+    if (spec.yLabel) {
+      parts.push(`<text transform="translate(14, ${(padT + H - padB) / 2}) rotate(-90)" text-anchor="middle" font-size="11" font-family="Arial">${esc(spec.yLabel)}</text>`);
+    }
+
+    return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${W} ${H}" width="${W}" height="${H}">${parts.join('')}</svg>`;
   }
 
   /** Ray-diagram renderer. Optical element drawn per CIE conventions:
@@ -782,6 +1026,30 @@ export class SvgDiagramService {
 
 function esc(s: string): string {
   return s.replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]!));
+}
+
+/** Pick a "nice" round step that yields ~targetTicks divisions across `range`.
+ *  Result is one of 1, 2, 5 × 10^k so axis labels read cleanly. */
+function niceStep(range: number, targetTicks: number): number {
+  if (range <= 0) return 1;
+  const raw = range / targetTicks;
+  const mag = Math.pow(10, Math.floor(Math.log10(raw)));
+  const norm = raw / mag;
+  let step: number;
+  if (norm < 1.5) step = 1;
+  else if (norm < 3) step = 2;
+  else if (norm < 7) step = 5;
+  else step = 10;
+  return step * mag;
+}
+
+/** Format a number for axis labels: integer when whole, else 2-3 sig figs. */
+function formatNum(v: number): string {
+  if (!Number.isFinite(v)) return String(v);
+  if (Math.abs(v - Math.round(v)) < 1e-9) return String(Math.round(v));
+  if (Math.abs(v) >= 100) return v.toFixed(0);
+  if (Math.abs(v) >= 10) return v.toFixed(1);
+  return v.toFixed(2);
 }
 
 /** Liang-Barsky parametric line clipping against an axis-aligned rect. */

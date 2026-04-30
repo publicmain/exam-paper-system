@@ -265,6 +265,7 @@ export class QuickPaperService {
               'circuit',
               'ray',
               'molecular', 'organic_skeletal',
+              'statistical',
             ];
             if (svgEligibleTypes.includes(d.type) && spec) {
               const out = await this.svgDiagram.generate(
