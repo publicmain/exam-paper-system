@@ -44,10 +44,9 @@ export interface GenerateQuestionsResult {
   errors: string[];
 }
 
-/** Structured math-diagram spec, only emitted by the AI for type=geometry/graph.
- *  When present we render via the deterministic SVG service instead of asking
- *  gpt-image-2 to draw geometry it cannot compute. Mirror of CoordinatePlaneSpec
- *  in svg-diagram.service.ts; defined here so the parser can validate. */
+/** Structured math-diagram spec for type=geometry/graph. AI emits exact
+ *  geometry; SVG renderer draws it precisely (image models can't compute
+ *  slopes / midpoints / intersections). */
 export interface CoordinateMathSpec {
   kind: 'coordinate_plane';
   xRange: [number, number];
@@ -65,6 +64,17 @@ export interface CoordinateMathSpec {
   parabolas?: Array<{ a: number; b: number; c: number; label?: string; style?: 'solid' | 'dashed' }>;
 }
 
+/** Graphviz DOT-syntax spec for type=flowchart/data_structure/network_topology/
+ *  logic_gate. AI emits a complete DOT digraph; the SVG service runs it
+ *  through @hpcc-js/wasm-graphviz to lay out and render. Free + deterministic. */
+export interface GraphvizMathSpec {
+  kind: 'graphviz_dot';
+  dot: string;
+  engine?: 'dot' | 'neato' | 'circo' | 'fdp' | 'sfdp' | 'twopi';
+}
+
+export type DiagramSpec = CoordinateMathSpec | GraphvizMathSpec;
+
 export type DiagramHint = {
   needed: true;
   type:
@@ -73,10 +83,19 @@ export type DiagramHint = {
     | 'logic_gate' | 'flowchart' | 'data_structure' | 'network_topology';
   scene: string;
   labels: string[];
-  /** For type=geometry|graph the AI may also output a structured spec. When
-   *  present, the renderer uses SVG (free, geometrically exact). When absent,
-   *  the diagram falls back to gpt-image-2 driven by scene/labels. */
-  spec?: CoordinateMathSpec;
+  /** Optional structured spec. When present, the diagram is rendered via
+   *  the deterministic SVG service (free, geometrically exact for math;
+   *  professional layout for graph-style CS diagrams via Graphviz). When
+   *  absent, falls back to gpt-image-2 driven by scene/labels.
+   *
+   *  Used for these types:
+   *    geometry / graph       → kind=coordinate_plane
+   *    flowchart              → kind=graphviz_dot (AI emits dot syntax)
+   *    data_structure         → kind=graphviz_dot
+   *    network_topology       → kind=graphviz_dot
+   *    logic_gate             → kind=graphviz_dot
+   *  Other types continue to use gpt-image-2. */
+  spec?: DiagramSpec;
 } | { needed: false };
 
 export interface ParsedQuestion {
@@ -490,7 +509,41 @@ CRITICAL when emitting spec:
   a 1-2 unit margin on each side.
 - Use "labelPos" to keep point labels from colliding with line labels.
 - "scene" can stay short and natural-language; the rendered figure comes from
-  the spec.`;
+  the spec.
+
+CS-style graph diagrams (REQUIRED structured spec via Graphviz):
+For type "flowchart", "data_structure", "network_topology", or "logic_gate"
+you MUST emit a "spec" object containing a Graphviz DOT-syntax description.
+The SVG service runs it through Graphviz to lay out and render. Schema:
+
+{
+  "kind": "graphviz_dot",
+  "dot": "digraph G { rankdir=TB; node [shape=box, style=rounded]; \\n A -> B; B -> C; }",
+  "engine": "dot"   /* dot | neato | circo | fdp | sfdp — usually "dot" */
+}
+
+Per-type DOT conventions:
+- flowchart: rankdir=TB, node [shape=box, style=rounded] for steps,
+  shape=diamond for decisions, shape=oval for start/end. Edges labeled with
+  conditions ("Yes" / "No" / "i++").
+- data_structure (trees / linked lists): rankdir=TB for trees (root at top),
+  rankdir=LR for linked lists. node [shape=record] for cells with multiple
+  fields. Use record syntax: "<f0>data | <f1>next" and edges between specific
+  fields like A:f1 -> B:f0.
+- network_topology: rankdir=LR. node [shape=box] for routers/switches,
+  shape=circle for hosts. edge [arrowhead=none] for non-directional links.
+- logic_gate: rankdir=LR, node [shape=box]. Label boxes "AND", "OR", "NOT",
+  "NAND", "NOR", "XOR", "XNOR" plus an output expression. Inputs as plain
+  rectangles labelled A/B/C; final output as a labelled rectangle.
+
+CRITICAL when emitting graphviz_dot:
+- DOT must be a complete graph: \`digraph G { ... }\` or \`graph G { ... }\`.
+- Quote node IDs and labels with double quotes when they contain spaces
+  ("step 1" not step 1).
+- Keep the diagram readable: <= 20 nodes, <= 30 edges. Larger is allowed but
+  the layout gets cramped.
+- Do NOT include HTML-like labels (\`<<TABLE...>>\`); use plain string labels
+  or record syntax.`;
 
   private buildPrompt(args: {
     syllabus: string;
@@ -642,11 +695,33 @@ CRITICAL when emitting spec:
       ? d.labels.map((s: any) => String(s ?? '').trim()).filter((s: string) => s.length > 0).slice(0, 12)
       : [];
     const hint: DiagramHint = { needed: true, type: type as any, scene: scene.slice(0, 1500), labels };
-    if ((type === 'geometry' || type === 'graph') && d.spec) {
-      const spec = this.parseCoordinateSpec(d.spec);
-      if (spec) (hint as any).spec = spec;
+    if (d.spec && typeof d.spec === 'object') {
+      // Math types use coordinate_plane; CS-style graph types use graphviz_dot.
+      const isMath = (type === 'geometry' || type === 'graph');
+      const isGraph = (type === 'flowchart' || type === 'data_structure'
+                    || type === 'network_topology' || type === 'logic_gate');
+      if (isMath && d.spec.kind === 'coordinate_plane') {
+        const spec = this.parseCoordinateSpec(d.spec);
+        if (spec) (hint as any).spec = spec;
+      } else if (isGraph && d.spec.kind === 'graphviz_dot') {
+        const spec = this.parseGraphvizSpec(d.spec);
+        if (spec) (hint as any).spec = spec;
+      }
     }
     return hint;
+  }
+
+  /** Validate the AI's Graphviz DOT spec. Strips obvious junk; the SVG
+   *  service does its own length / safety checks. */
+  private parseGraphvizSpec(s: any): GraphvizMathSpec | null {
+    if (!s || typeof s !== 'object') return null;
+    if (s.kind !== 'graphviz_dot') return null;
+    const dot = typeof s.dot === 'string' ? s.dot.trim() : '';
+    if (dot.length < 10 || dot.length > 32_000) return null;
+    if (!/(di)?graph\s+\w*\s*\{/.test(dot)) return null;
+    const enginesAllowed = ['dot', 'neato', 'circo', 'fdp', 'sfdp', 'twopi'];
+    const engine = enginesAllowed.includes(s.engine) ? s.engine : 'dot';
+    return { kind: 'graphviz_dot', dot, engine };
   }
 
   /** Validate the structured math spec emitted by the AI. Drops the spec

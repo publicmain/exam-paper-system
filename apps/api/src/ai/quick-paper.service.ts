@@ -251,14 +251,18 @@ export class QuickPaperService {
             return { ok: false as const, error: 'no diagram hint' };
           }
           try {
-            // Route math diagrams (geometry / coordinate-graph) through the
-            // SVG renderer when the AI gave us a structured spec — image
-            // models cannot compute slopes / midpoints / intersections
-            // accurately, so the spec → SVG path is geometrically exact and
-            // free. Fall back to gpt-image-2 for everything else and for
-            // math diagrams missing a spec.
+            // Route through the SVG renderer when the AI gave us a
+            // structured spec — image models can't compute geometry or
+            // produce professional graph layouts. Math types (geometry/
+            // graph) get coordinate_plane; CS graph types (flowchart,
+            // data_structure, network_topology, logic_gate) get
+            // graphviz_dot. Everything else falls back to gpt-image-2.
             const spec = (d as any).spec;
-            if ((d.type === 'geometry' || d.type === 'graph') && spec) {
+            const svgEligibleTypes = [
+              'geometry', 'graph',
+              'flowchart', 'data_structure', 'network_topology', 'logic_gate',
+            ];
+            if (svgEligibleTypes.includes(d.type) && spec) {
               const out = await this.svgDiagram.generate(
                 {
                   questionId: a.questionId,

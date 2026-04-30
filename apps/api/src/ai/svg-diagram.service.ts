@@ -5,6 +5,7 @@ import * as fs from 'node:fs/promises';
 import * as path from 'node:path';
 import * as os from 'node:os';
 import { randomUUID } from 'node:crypto';
+import { Graphviz } from '@hpcc-js/wasm-graphviz';
 
 const ASSET_STORE = process.env.AI_IMAGE_STORAGE_PATH
   || path.join(process.env.RENDER_STORAGE_PATH || os.tmpdir(), 'ai-images');
@@ -53,9 +54,26 @@ export interface CoordinatePlaneSpec {
   }>;
 }
 
+/**
+ * Graphviz DOT-syntax spec used for CS-style network diagrams (flowcharts,
+ * data structures, network topology, logic-gate networks). AI emits the dot
+ * string directly; we hand it to @hpcc-js/wasm-graphviz which lays out and
+ * renders SVG. Free, deterministic, professional-looking.
+ */
+export interface GraphvizDotSpec {
+  kind: 'graphviz_dot';
+  /** Full DOT syntax including the `digraph G { ... }` wrapper. */
+  dot: string;
+  /** Layout engine. dot = top-down hierarchical (default). neato = force.
+   *  circo = circular. fdp = also force. sfdp = scalable force. */
+  engine?: 'dot' | 'neato' | 'circo' | 'fdp' | 'sfdp' | 'twopi';
+}
+
+export type AnyDiagramSpec = CoordinatePlaneSpec | GraphvizDotSpec;
+
 export interface SvgGenerateInput {
   questionId: string;
-  spec: CoordinatePlaneSpec;
+  spec: AnyDiagramSpec;
   syllabus?: string;
   topicCode?: string;
   altText?: string;
@@ -76,6 +94,8 @@ export interface SvgGenerateResult {
 @Injectable()
 export class SvgDiagramService {
   private readonly logger = new Logger('SvgDiagram');
+  // Lazy-init the wasm Graphviz instance; first call costs ~50ms, subsequent are cached.
+  private graphvizPromise: Promise<Graphviz> | null = null;
 
   constructor(
     private readonly prisma: PrismaService,
@@ -92,7 +112,7 @@ export class SvgDiagramService {
     });
     if (!question) throw new BadRequestException('question not found');
 
-    const svg = this.renderCoordinatePlane(input.spec);
+    const svg = await this.renderSpec(input.spec);
 
     const dir = path.join(ASSET_STORE, input.questionId);
     await fs.mkdir(dir, { recursive: true });
@@ -107,7 +127,7 @@ export class SvgDiagramService {
         storageUrl: `/api/question-assets/by-question/${input.questionId}/${filename}`,
         altText: (input.altText ?? '').slice(0, 200) || null,
         aiGenerated: true,
-        aiModel: 'svg-renderer-v1',
+        aiModel: input.spec.kind === 'graphviz_dot' ? 'graphviz-wasm-v1' : 'svg-renderer-v1',
         aiPrompt: JSON.stringify(input.spec).slice(0, 8000),
         aiCostUsd: 0,
         aiCreatedBy: actor.id,
@@ -124,15 +144,55 @@ export class SvgDiagramService {
         kind: input.spec.kind,
         syllabus: input.syllabus,
         topicCode: input.topicCode,
-        pointsCount: input.spec.points?.length ?? 0,
-        segmentsCount: input.spec.segments?.length ?? 0,
-        linesCount: input.spec.lines?.length ?? 0,
       },
       ip: actor.ip ?? null,
     });
 
     this.logger.log(`svg ok q=${input.questionId} kind=${input.spec.kind}`);
     return { assetId: asset.id, storageUrl: asset.storageUrl, costUsd: 0 };
+  }
+
+  /** Top-level dispatch by spec.kind. Async because Graphviz uses wasm. */
+  async renderSpec(spec: AnyDiagramSpec): Promise<string> {
+    if (spec.kind === 'coordinate_plane') return this.renderCoordinatePlane(spec);
+    if (spec.kind === 'graphviz_dot') return this.renderGraphvizDot(spec);
+    throw new BadRequestException(`unsupported diagram kind: ${(spec as any).kind}`);
+  }
+
+  /**
+   * Render a Graphviz DOT-syntax graph as SVG. Used for flowcharts, data
+   * structures (trees / linked lists), network topology, and logic-gate
+   * networks. The AI hands us the full DOT string; @hpcc-js/wasm-graphviz
+   * does the layout. SVG output is sanitised (script/foreignObject stripped)
+   * because Puppeteer will inline this into the PDF.
+   */
+  private async renderGraphvizDot(spec: GraphvizDotSpec): Promise<string> {
+    if (!spec.dot || typeof spec.dot !== 'string' || spec.dot.length < 10) {
+      throw new BadRequestException('graphviz dot string is empty or invalid');
+    }
+    if (spec.dot.length > 32_000) {
+      throw new BadRequestException('graphviz dot string too long (max 32k)');
+    }
+    const gv = await this.getGraphviz();
+    const engine = spec.engine ?? 'dot';
+    let svg: string;
+    try {
+      svg = gv.layout(spec.dot, 'svg', engine);
+    } catch (e: any) {
+      throw new BadRequestException(`graphviz layout failed: ${(e?.message ?? e).toString().slice(0, 300)}`);
+    }
+    // Sanitise: drop script tags and foreignObject (CSP defence in depth).
+    svg = svg.replace(/<script[\s\S]*?<\/script>/gi, '');
+    svg = svg.replace(/<foreignObject[\s\S]*?<\/foreignObject>/gi, '');
+    // Drop the XML declaration so the file works as both standalone SVG and
+    // when inlined into HTML via data URI.
+    svg = svg.replace(/<\?xml[^?]*\?>\s*/, '').replace(/<!DOCTYPE[^>]*>\s*/, '');
+    return svg;
+  }
+
+  private async getGraphviz(): Promise<Graphviz> {
+    if (!this.graphvizPromise) this.graphvizPromise = Graphviz.load();
+    return this.graphvizPromise;
   }
 
   /** Pure renderer — exposed for tests. Returns a self-contained SVG string. */
