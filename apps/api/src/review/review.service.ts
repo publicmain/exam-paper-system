@@ -333,16 +333,34 @@ export class ReviewService {
    * Map a CIE paperVariant (e.g. "22") to a SyllabusComponent code.
    * Convention used in seeds: first digit identifies the component group.
    *   1x → P1   2x → P2   3x → P3   4x → P4   5x → P5   6x → P6
-   * Falls back to null when the seeded component table doesn't have it.
+   *
+   * 9709 A-Level Math uses semantic component names rather than P-numbers
+   * (M1 for the mechanics paper at 4x, S1 for the stats paper at 6x), so
+   * we try the literal P{digit} first and then fall back to a per-board
+   * mapping. Returns null when nothing matches.
    */
   private async resolveComponent(subjectId: string, paperVariant: string | null) {
     if (!paperVariant) return null;
     const m = paperVariant.match(/^(\d)/);
     if (!m) return null;
-    const code = `P${m[1]}`;
-    return this.prisma.syllabusComponent.findFirst({
-      where: { subjectId, code },
+    const firstDigit = m[1];
+
+    const literalCode = `P${firstDigit}`;
+    const literal = await this.prisma.syllabusComponent.findFirst({
+      where: { subjectId, code: literalCode },
     });
+    if (literal) return literal;
+
+    // Fallback: 9709 uses semantic component codes. The seed has
+    // P1, P3, M1, S1 — variant 4x → mechanics, 6x → stats.
+    const semantic: Record<string, string> = { '4': 'M1', '5': 'M2', '6': 'S1', '7': 'S2' };
+    const fallback = semantic[firstDigit];
+    if (fallback) {
+      return this.prisma.syllabusComponent.findFirst({
+        where: { subjectId, code: fallback },
+      });
+    }
+    return null;
   }
 
   private buildSourceRef(
