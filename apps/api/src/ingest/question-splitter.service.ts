@@ -142,19 +142,35 @@ export class QuestionSplitterService {
    * mistake the page-number for a question number.
    */
   /**
-   * CIE 9702 QP layout (verified for 2019):
-   *   page 1     cover sheet (READ THESE INSTRUCTIONS FIRST)
-   *   page 2     candidate-number boxes / blank
-   *   page 3     Data + Formulae sheets
-   *   page 4+    questions
-   * We always drop pages 1–3. Per remaining page we strip the standard
-   * header so a leading page-number doesn't get parsed as a question.
+   * Identify content pages by detecting non-question pages by their text,
+   * not by hardcoded page numbers. CIE 9702 Physics MCQ has cover (1),
+   * candidate-info (2), formula sheet (3), then questions on 4+. But
+   * 9709 P1 has cover (1), blank (2), Q1 on page 3; 9709 P3 has cover
+   * (1), Q1 on page 2 (no blank); each paper variant differs. The
+   * previous "always drop pages 1–3" rule lost Q1 on most 9709 papers,
+   * which broke the chain logic and produced 0 questions.
+   *
+   * Per remaining page we strip the standard CIE header so a leading
+   * page number doesn't get parsed as a question number.
    */
   private contentPages(pages: { pageNo: number; rawText: string | null }[]) {
     const cleaned: { pageNo: number; rawText: string | null }[] = [];
     for (const p of pages) {
-      if (p.pageNo <= 3) continue;
       const raw = p.rawText ?? '';
+
+      // Cover sheet — has the standard "READ THESE INSTRUCTIONS FIRST"
+      // banner. Always page 1; skip.
+      if (/READ\s+THESE\s+INSTRUCTIONS\s+FIRST/i.test(raw)) continue;
+
+      // Blank page (just page header + maybe "BLANK PAGE" marker).
+      // Stripped of whitespace it's under ~50 chars.
+      if (raw.replace(/\s+/g, '').length < 50) continue;
+
+      // Standalone formula sheet — contains "List of Formulae" and is
+      // dominated by equations. Practically: short page (< 2000 chars)
+      // with the formulae header.
+      if (/List\s+of\s+Formulae/i.test(raw) && raw.length < 2000) continue;
+
       const text = raw
         .replace(/^\s*\d{1,2}\s*\n/, '') // leading page number on its own line
         .replace(/©\s*UCLES\s*\d{4}\s*\n/g, '') // copyright line
@@ -310,13 +326,29 @@ export class QuestionSplitterService {
       hits.push({ n, offset: sm.index });
     }
 
-    // Greedy monotonic chain: pick hits 1, 2, 3, … to build the question
-    // sequence, ignoring spurious mid-text numbers that aren't sequential.
-    const chain: Hit[] = [];
-    for (const h of hits) {
-      const want = chain.length === 0 ? 1 : chain[chain.length - 1].n + 1;
-      if (h.n === want) chain.push(h);
+    // Find the longest monotonic-by-1 chain anywhere in the hit list,
+    // not necessarily starting at 1. The previous splitter required
+    // n=1 as the first chain element, which lost the entire paper if
+    // Q1 happened to be on a page that contentPages skipped (the
+    // 9709 P1 case where Q1 lives on page 3 and the old code skipped
+    // pages ≤ 3 unconditionally). Allowing any starting number keeps
+    // partially-extracted papers usable. False-positive isolated
+    // numbers from math fragments (e.g. "tan ! = 12\n5 and tan 1 = 4\n3")
+    // can't form long sequential chains, so the longest-chain rule
+    // naturally rejects them.
+    let best: Hit[] = [];
+    for (let i = 0; i < hits.length; i++) {
+      const chain: Hit[] = [hits[i]];
+      let want = hits[i].n + 1;
+      for (let j = i + 1; j < hits.length; j++) {
+        if (hits[j].n === want) {
+          chain.push(hits[j]);
+          want++;
+        }
+      }
+      if (chain.length > best.length) best = chain;
     }
+    const chain = best;
 
     const items: RawSplit[] = [];
     const totalMarks = /\[(?:total[:\s]*)?\s*(\d{1,2})\s*\]/i;
@@ -326,6 +358,12 @@ export class QuestionSplitterService {
       const body = combined.slice(start, end).trim();
       if (body.length < 60) continue;
       if (!/[A-Za-z]{4,}/.test(body)) continue;
+      // Quality gate: every CIE structured question carries at least
+      // one "[N]" mark indicator. A candidate body without one is
+      // almost certainly a math fragment that the regex picked up by
+      // accident (a stray digit on its own line). Drop it instead of
+      // creating a junk QuestionItem the reviewer would have to reject.
+      if (!/\[\s*\d{1,2}\s*\]/.test(body)) continue;
 
       const startLine = combined.slice(0, start).split('\n').length - 1;
       const endLine = combined.slice(0, end).split('\n').length - 1;
