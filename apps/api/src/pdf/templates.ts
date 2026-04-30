@@ -105,7 +105,11 @@ interface PaperData {
   paperName: string;
   subjectName: string;
   examBoardName: string;
+  examBoardCode?: string; // 'CIE', 'Edexcel', etc — used for the cover course line
+  syllabusCode?: string;  // '9709', '4024', '4MA1' — used for the cover paper line
+  subjectLevel?: string;  // 'A_LEVEL' | 'AS_LEVEL' | 'IGCSE' | 'O_LEVEL'
   componentName?: string;
+  componentCode?: string; // 'P1', 'M1', 'OL', 'H'
   classLabel?: string;
   examDate?: string;
   durationMin: number;
@@ -166,20 +170,22 @@ const baseStyles = `
     .student-info { display: flex; gap: 16px; margin-top: 12px; font-size: 10pt; }
     .student-info > div { flex: 1; border-bottom: 1px solid #000; padding-bottom: 2px; }
     .instructions { background: #f8f8f8; border-left: 3px solid #888; padding: 8px 12px; font-size: 10pt; margin: 12px 0 18px; }
-    /* Question spacing — bumped up so questions don't run into each other.
-       Per-question card gets a clear bottom margin and a thin top divider. */
-    .question { margin-bottom: 28px; padding-top: 12px; border-top: 1px solid #e2e2e2; page-break-inside: avoid; }
-    .question:first-of-type { border-top: none; padding-top: 0; }
+    /* Question spacing — generous bottom margin so questions don't run
+       into each other. No dividers between questions per request. */
+    .question { margin-bottom: 24px; page-break-inside: avoid; }
     .q-head { font-weight: bold; }
     .q-marks { float: right; }
     .q-stem { margin: 8px 0; }
     .q-options { list-style: upper-alpha; margin: 6px 0 6px 28px; }
     .q-options li { margin-bottom: 3px; }
     .q-parts { margin-left: 18px; margin-top: 10px; }
-    /* Sub-part spacing — was 8px which compressed multi-part questions. */
-    .q-part { margin-bottom: 16px; }
+    .q-part { margin-bottom: 6mm; }
     .q-part-label { font-weight: bold; }
-    .answer-space { border-bottom: 1px dotted #888; height: 1.2em; margin: 6px 0; }
+    /* Answer area: blank empty box, no horizontal rule lines. Height scales
+       with marks so a 1-mark item gets ~14mm and a 10-mark sub-part gets a
+       full half-page worth of writing room. Used in distributable papers
+       only; answer-key PDFs replace this with the answer-block. */
+    .answer-area { background: white; }
     .answer-block { background: #fafafa; border: 1px solid #ddd; padding: 8px 10px; margin-top: 6px; }
     .q-assets { margin: 8px 0; text-align: center; }
     .q-assets img { display: block; margin: 6px auto; max-width: 75%; max-height: 280px; page-break-inside: avoid; }
@@ -206,22 +212,56 @@ const baseStyles = `
 `;
 
 /**
- * Render the school cover page. Pulls Paper metadata into the official
- * internal cover layout (course / subject / paper / exam name / instructions /
- * class / student name / marker table). Logo is the school crest committed
- * with the api source.
+ * Map (examBoardCode, subjectLevel) to the school's official course-line
+ * text. The school is a Singapore-Cambridge / Pearson-Edexcel prep
+ * centre; these strings come from the Cover Page Builder COURSES list.
+ */
+function deriveCourseLine(boardCode: string | undefined, level: string | undefined): string {
+  const b = (boardCode || '').toLowerCase();
+  const lv = (level || '').toUpperCase();
+  if (b === 'edexcel') {
+    return 'Preparatory Course for Pearson Edexcel International Advanced Level';
+  }
+  if (lv === 'O_LEVEL') {
+    return 'Preparatory Course for Singapore-Cambridge General Certificate of Education (Ordinary Level) (Intensive)';
+  }
+  if (lv === 'IGCSE') {
+    return 'Preparatory Course for Cambridge International Advanced Subsidiary and Advanced Level';
+  }
+  // A_LEVEL / AS_LEVEL / fallback
+  return 'Preparatory Course for Cambridge International Advanced Subsidiary and Advanced Level';
+}
+
+/**
+ * Render the school's internal cover page. Layout mirrors the school's
+ * Cover Page Builder: logo → full course name → subject → paper code →
+ * exam name (Type · Month Year) → instructions → class → student-name →
+ * filler → marker/moderator table.
  */
 function renderCoverPage(data: PaperData): string {
   const logo = getSchoolLogo();
   const logoHtml = logo ? `<img class="logo" src="${logo}" alt="School logo" />` : '';
-  // Course = exam board + level family. We synthesise it from the available
-  // PaperData fields. Subject is the syllabus subject name.
-  const courseLine = data.examBoardName + ' International Examinations';
-  const paperLine = data.componentName ? `Paper · ${data.componentName}` : 'Internal Mock Paper';
-  // Exam name like "Internal Mock Exam — 2026" (no fine-grained month yet).
-  const year = (data.examDate || new Date().toISOString().slice(0, 10)).slice(0, 4);
-  const examName = `Internal Mock Exam — ${year}`;
-  const classLabel = data.classLabel
+
+  const courseLine = deriveCourseLine(data.examBoardCode, data.subjectLevel);
+
+  // Paper line — always show the syllabus code; append component code or
+  // name when available. e.g. "Paper 9709 · M1" / "Paper 4MA1 · Higher Tier".
+  const paperParts: string[] = [];
+  if (data.syllabusCode) paperParts.push(`Paper ${data.syllabusCode}`);
+  if (data.componentCode) paperParts.push(data.componentCode);
+  else if (data.componentName) paperParts.push(data.componentName);
+  const paperLine = paperParts.join(' · ') || 'Internal Mock Paper';
+
+  // Exam name "[Type] · [Month] [Year]" mirrors the builder. We don't store
+  // exam-type as a field yet; default to "Mock Exam" for AI-generated papers.
+  const dateStr = data.examDate || new Date().toISOString().slice(0, 10);
+  const year = dateStr.slice(0, 4);
+  const monthIdx = parseInt(dateStr.slice(5, 7), 10) - 1;
+  const monthName = ['January','February','March','April','May','June',
+                     'July','August','September','October','November','December'][monthIdx] || '';
+  const examName = monthName ? `Mock Exam · ${monthName} ${year}` : `Mock Exam · ${year}`;
+
+  const classLine = data.classLabel
     ? `Class: ${escapeHtml(data.classLabel)}`
     : 'Class: ____________________';
 
@@ -233,11 +273,11 @@ function renderCoverPage(data: PaperData): string {
     <h2 class="exam-name">${escapeHtml(examName)}</h2>
     <div class="instructions">
       <p>Instructions:</p>
-      <p>1. You may circle the correct answer or write your answer on the question paper provided.</p>
-      <p>2. Calculator is allowed.</p>
-      <p>3. The total marks are <strong>${data.totalMarks}</strong>; time allowed: <strong>${data.durationMin} minutes</strong>.</p>
+      <p>1. You may circle the correct answer or write your answer on the question paper/question sheet provided</p>
+      <p>2. Calculator is allowed</p>
+      <p>3. The total marks are <strong>${data.totalMarks}</strong></p>
     </div>
-    <div class="class-line">${classLabel}</div>
+    <div class="class-line">${classLine}</div>
     <div class="student-name">Student Name: ____________________</div>
     <div class="filler"></div>
     <table class="marker-table">
@@ -289,13 +329,18 @@ export function renderPaperHtml(data: PaperData, isAnswerKey: boolean): string {
       }</ol>`;
     }
 
+    // ~12mm per mark of writing room, with a 14mm floor so 0/1-mark items
+    // still get a usable answer box. Capped at 140mm so a single sub-part
+    // doesn't push the next question off the page.
+    const answerMm = (marks: number) => Math.min(140, Math.max(14, Math.round((marks || 1) * 12)));
+
     let partsHtml = '';
     if (q.content?.parts && q.content.parts.length > 0) {
       partsHtml = `<div class="q-parts">${
         q.content.parts.map(p => {
           const partAnswer = isAnswerKey && p.answer
             ? `<div class="answer-block"><span class="answer-label">Answer:</span> ${renderInline(p.answer)}</div>`
-            : (isAnswerKey ? '' : `<div class="answer-space"></div><div class="answer-space"></div>`);
+            : (isAnswerKey ? '' : `<div class="answer-area" style="height:${answerMm(p.marks)}mm"></div>`);
           return `<div class="q-part">
             <span class="q-part-label">(${escapeHtml(p.label)})</span> ${renderInline(p.content)}
             <span class="q-marks">[${p.marks}]</span>
@@ -304,14 +349,14 @@ export function renderPaperHtml(data: PaperData, isAnswerKey: boolean): string {
         }).join('')
       }</div>`;
     } else if (!q.options) {
-      // structured/short answer with no parts: provide answer space or final answer
+      // Structured/short answer with no parts: blank answer area sized by marks.
       if (isAnswerKey) {
         const ans = q.answer?.text;
         partsHtml = ans
           ? `<div class="answer-block"><span class="answer-label">Answer:</span> ${renderInline(ans)}</div>`
           : '';
       } else {
-        partsHtml = '<div class="answer-space"></div><div class="answer-space"></div><div class="answer-space"></div>';
+        partsHtml = `<div class="answer-area" style="height:${answerMm(q.marks)}mm"></div>`;
       }
     }
 
