@@ -15,6 +15,12 @@ export class GenerationConfigDto {
    *  status restricted_internal). Default off so school-authored content
    *  is the safe path. */
   @IsOptional() @IsBoolean() includeRestricted?: boolean;
+  /** Opt-in to AI Quick Paper output that has not been promoted to the
+   *  general bank. These questions are tagged provenanceTag='ai_quick_paper'
+   *  by Quick Paper's auto-approve flow and excluded from regular paper
+   *  generation by default to keep un-curated AI output out of other
+   *  teachers' papers. */
+  @IsOptional() @IsBoolean() includeAiQuickPaper?: boolean;
 }
 
 export class GeneratePaperDto {

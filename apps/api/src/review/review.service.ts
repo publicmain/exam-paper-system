@@ -183,7 +183,11 @@ export class ReviewService {
    * subject/component/topic come from suggestedSubjectCode + suggestedTopicCode
    * set by the generator.
    */
-  async approve(id: string, actor: ActorCtx) {
+  async approve(
+    id: string,
+    actor: ActorCtx,
+    opts: { provenanceTag?: string | null } = {},
+  ) {
     const item = await this.prisma.questionItem.findUnique({
       where: { id },
       include: {
@@ -284,6 +288,7 @@ export class ReviewService {
           status: QuestionStatus.active,
           complianceStatus: item.complianceStatus,
           allowedUsage: 'internal_classroom_only' as any,
+          provenanceTag: opts.provenanceTag ?? null,
           createdById: actor.id,
         },
       });

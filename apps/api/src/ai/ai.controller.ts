@@ -126,6 +126,13 @@ export class AiController {
     @CurrentUser() user: any,
     @Req() req: Request,
   ) {
+    // Restrict to roles that can author questions. Without this, any
+    // authenticated user (including future read-only roles) could burn
+    // through the OpenAI monthly cap. Teachers stay allowed because the
+    // QuestionEdit page uses this from the diagram generator panel.
+    if (!['admin', 'head_teacher', 'teacher'].includes(user?.role)) {
+      throw new ForbiddenException('teacher, head_teacher, or admin role required');
+    }
     if (!dto || typeof dto.scene !== 'string') {
       throw new BadRequestException('scene is required');
     }

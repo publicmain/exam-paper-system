@@ -111,6 +111,14 @@ export class GenerationService {
           { topics: { some: { topicId: { in: expandedTopicIds } } } },
         ],
       }),
+      // Default-deny AI Quick Paper output unless explicitly opted in.
+      // These questions were auto-approved into the bank only so that
+      // Quick Paper's own paper assembly could reference them; they have
+      // not been individually reviewed by a teacher and should not leak
+      // into other teachers' generated papers.
+      ...((config as any).includeAiQuickPaper
+        ? {}
+        : { provenanceTag: { not: 'ai_quick_paper' } }),
     };
     let pool = await this.prisma.question.findMany({
       where, include: { topics: true, primaryTopic: true, component: true, assets: true },

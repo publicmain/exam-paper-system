@@ -43,6 +43,15 @@ export interface QuickPaperResult {
   diagramsRequested: number;
   diagramsGenerated: number;
   diagramErrors: string[];
+  /** True when a sub-step partially failed (some topics, approvals, or
+   *  diagrams did not succeed). UI should surface this as "partial" /
+   *  "needs review" rather than the usual green "Done" state, so the
+   *  teacher knows the paper may be missing diagrams or have fewer
+   *  questions than requested. */
+  partial: boolean;
+  /** Human-readable lines describing each sub-step shortfall. Empty
+   *  array when the run was complete. */
+  warnings: string[];
   cost: {
     questionsUsd: number;
     diagramsUsd: number;
@@ -73,6 +82,7 @@ interface ApprovedItem {
 }
 
 const PARALLEL_TOPIC_LIMIT = 4;
+const PARALLEL_DIAGRAM_LIMIT = 4;
 
 /**
  * One-click orchestrator. Two modes:
@@ -82,9 +92,10 @@ const PARALLEL_TOPIC_LIMIT = 4;
  *            and fan out parallel Claude calls per topic; useful for
  *            mock-exam style papers that span Sections 1-12.
  *
- * Topic-level parallelism is capped at PARALLEL_TOPIC_LIMIT so we don't
- * trip Anthropic per-org rate limits when a teacher clicks "Mock Exam".
- * Diagrams are still fanned out across the full approved-question set.
+ * Topic-level parallelism is capped at PARALLEL_TOPIC_LIMIT and diagram
+ * parallelism at PARALLEL_DIAGRAM_LIMIT so we don't trip Anthropic /
+ * OpenAI per-org rate limits when a teacher clicks "Mock Exam" on a
+ * 30-question paper.
  */
 @Injectable()
 export class QuickPaperService {
@@ -178,7 +189,13 @@ export class QuickPaperService {
     const approveErrors: string[] = [];
     for (const { topicCode, item } of flatItems) {
       try {
-        const result = await this.review.approve(item.questionItemId, actor);
+        // Tag these as quick-paper output so they're excluded from the
+        // default question pool used by the regular paper-generation flow.
+        // Other teachers won't get un-curated AI questions in their papers
+        // unless they explicitly opt in via includeAiQuickPaper.
+        const result = await this.review.approve(item.questionItemId, actor, {
+          provenanceTag: 'ai_quick_paper',
+        });
         approved.push({
           summary: item,
           topicCode,
@@ -211,7 +228,7 @@ export class QuickPaperService {
       );
     }
 
-    // ---- Step 3: Generate diagrams in parallel (best-effort) ----
+    // ---- Step 3: Generate diagrams in parallel (best-effort, capped) ----
     const tD0 = Date.now();
     let diagramsRequested = 0;
     let diagramsGenerated = 0;
@@ -220,10 +237,17 @@ export class QuickPaperService {
     if (includeDiagrams) {
       const targets = approved.filter((a) => a.summary.diagram?.needed === true);
       diagramsRequested = targets.length;
-      const results = await Promise.all(
-        targets.map(async (a) => {
-          const d = a.summary.diagram!;
-          if (d.needed !== true) return null;
+      const results = await this.runWithLimit(
+        targets,
+        PARALLEL_DIAGRAM_LIMIT,
+        async (a) => {
+          const d = a.summary.diagram;
+          // The pre-filter above guarantees d.needed === true, but
+          // narrow it here so the discriminated union picks the
+          // populated branch and we can read d.type/scene/labels.
+          if (!d || d.needed !== true) {
+            return { ok: false as const, error: 'no diagram hint' };
+          }
           try {
             const out = await this.openaiImage.generateDiagram(
               {
@@ -242,10 +266,9 @@ export class QuickPaperService {
           } catch (e: any) {
             return { ok: false as const, error: String(e?.message ?? e).slice(0, 200) };
           }
-        }),
+        },
       );
       for (const r of results) {
-        if (!r) continue;
         if (r.ok) {
           diagramsGenerated++;
           diagramsCostUsd += r.cost;
@@ -277,58 +300,83 @@ export class QuickPaperService {
     });
     const byId = new Map(questionRows.map((q) => [q.id, q]));
 
-    const paper = await this.prisma.paper.create({
-      data: {
-        ownerId: actor.id,
-        name: paperName,
-        classLabel: input.classLabel ?? null,
-        subjectId,
-        componentId,
-        durationMin,
-        totalMarksTarget: totalMarks,
-        totalMarksActual: totalMarks,
-        status: PaperStatus.draft,
-        generatedSeed: 0,
-        config: {
-          quickPaper: true,
-          syllabusCode: input.syllabusCode,
-          topics,
-          includeDiagrams,
-          difficulty: input.difficulty ?? null,
-        } as any,
-        questions: {
-          create: approved.map((a, idx) => {
-            const q = byId.get(a.questionId);
-            return {
-              questionId: a.questionId,
-              sortOrder: idx,
-              snapshotContent: (q?.content as any) ?? null,
-              snapshotAnswer: (q?.answerContent as any) ?? null,
-              snapshotOptions: (q?.options as any) ?? null,
-              marks: a.marks,
-            };
-          }),
+    // Wrap paper + usage logs + version row in a single transaction so a
+    // mid-step failure rolls back instead of leaving an orphaned paper
+    // with no usage tracking or version history.
+    const paper = await this.prisma.$transaction(async (tx) => {
+      const created = await tx.paper.create({
+        data: {
+          ownerId: actor.id,
+          name: paperName,
+          classLabel: input.classLabel ?? null,
+          subjectId,
+          componentId,
+          durationMin,
+          totalMarksTarget: totalMarks,
+          totalMarksActual: totalMarks,
+          status: PaperStatus.draft,
+          generatedSeed: 0,
+          config: {
+            quickPaper: true,
+            syllabusCode: input.syllabusCode,
+            topics,
+            includeDiagrams,
+            difficulty: input.difficulty ?? null,
+          } as any,
+          questions: {
+            create: approved.map((a, idx) => {
+              const q = byId.get(a.questionId);
+              return {
+                questionId: a.questionId,
+                sortOrder: idx,
+                snapshotContent: (q?.content as any) ?? null,
+                snapshotAnswer: (q?.answerContent as any) ?? null,
+                snapshotOptions: (q?.options as any) ?? null,
+                marks: a.marks,
+              };
+            }),
+          },
         },
-      },
-    });
-
-    await this.prisma.questionUsageLog.createMany({
-      data: approved.map((a) => ({
-        questionId: a.questionId,
-        paperId: paper.id,
-        classLabel: input.classLabel ?? null,
-      })),
-    });
-    await this.prisma.paperVersion.create({
-      data: {
-        paperId: paper.id,
-        versionNumber: 1,
-        snapshot: paper as any,
-        changedById: actor.id,
-        changeNote: 'quick-paper generated',
-      },
+      });
+      await tx.questionUsageLog.createMany({
+        data: approved.map((a) => ({
+          questionId: a.questionId,
+          paperId: created.id,
+          classLabel: input.classLabel ?? null,
+        })),
+      });
+      await tx.paperVersion.create({
+        data: {
+          paperId: created.id,
+          versionNumber: 1,
+          snapshot: created as any,
+          changedById: actor.id,
+          changeNote: 'quick-paper generated',
+        },
+      });
+      return created;
     });
     const tP = Date.now() - tP0;
+
+    // ---- Build the warnings list so the UI can show "partial" instead
+    //      of a misleading "Done" when sub-steps did not all succeed. ----
+    const failedTopics = perTopicResults.filter((r) => !r.ok);
+    const warnings: string[] = [];
+    for (const f of failedTopics) {
+      if (!f.ok) warnings.push(`Topic ${f.topic.code} produced no questions: ${f.error}`);
+    }
+    if (approveErrors.length > 0) {
+      warnings.push(
+        `${approveErrors.length} draft question(s) could not be approved into the bank.`,
+      );
+    }
+    if (diagramsRequested > 0 && diagramsGenerated < diagramsRequested) {
+      warnings.push(
+        `Only ${diagramsGenerated} of ${diagramsRequested} diagrams generated; ` +
+          `the rest can be re-generated from each question's edit page.`,
+      );
+    }
+    const partial = warnings.length > 0;
 
     const total = Date.now() - t0;
 
@@ -347,6 +395,8 @@ export class QuickPaperService {
         diagramsRequested,
         diagramsGenerated,
         diagramErrors,
+        partial,
+        warnings,
         questionsCostUsd: Math.round(questionsCostUsd * 10000) / 10000,
         diagramsCostUsd: Math.round(diagramsCostUsd * 10000) / 10000,
         elapsedMs: { total, questions: tQ, approval: tA, diagrams: tD, paper: tP },
@@ -355,8 +405,9 @@ export class QuickPaperService {
     });
 
     this.logger.log(
-      `quick-paper ok ${input.syllabusCode} topics=${topics.length} ` +
-        `q=${approved.length} dia=${diagramsGenerated}/${diagramsRequested} ` +
+      `quick-paper ${partial ? 'partial' : 'ok'} ${input.syllabusCode} ` +
+        `topics=${topics.length} q=${approved.length} ` +
+        `dia=${diagramsGenerated}/${diagramsRequested} ` +
         `$${(questionsCostUsd + diagramsCostUsd).toFixed(4)} ${total}ms`,
     );
 
@@ -370,6 +421,8 @@ export class QuickPaperService {
       diagramsRequested,
       diagramsGenerated,
       diagramErrors,
+      partial,
+      warnings,
       cost: {
         questionsUsd: Math.round(questionsCostUsd * 10000) / 10000,
         diagramsUsd: Math.round(diagramsCostUsd * 10000) / 10000,

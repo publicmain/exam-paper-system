@@ -494,7 +494,13 @@ function ProgressOverlay({
       <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full p-6 space-y-4">
         <div className="flex items-center justify-between">
           <h2 className="text-xl font-bold">
-            {progress.error ? '❌ Failed' : done ? '✅ Paper ready' : '⚙️ Generating ...'}
+            {progress.error
+              ? '❌ Failed'
+              : done && progress.result?.partial
+                ? '⚠️ Paper ready (partial)'
+                : done
+                  ? '✅ Paper ready'
+                  : '⚙️ Generating ...'}
           </h2>
           {done && (
             <button className="btn btn-ghost text-sm" onClick={onClose}>
@@ -522,7 +528,11 @@ function ProgressOverlay({
 
         {progress.result && (
           <div className="space-y-3">
-            <div className="bg-green-50 p-3 rounded text-sm">
+            <div
+              className={`p-3 rounded text-sm ${
+                progress.result.partial ? 'bg-amber-50' : 'bg-green-50'
+              }`}
+            >
               <div className="font-semibold">{progress.result.paperName}</div>
               <div className="text-gray-700 mt-1">
                 {progress.result.questionCount} questions across {progress.result.topicCount}{' '}
@@ -558,6 +568,13 @@ function ProgressOverlay({
                   {Math.round(progress.result.elapsedMs.diagrams / 1000)}s)
                 </span>
               </div>
+              {progress.result.warnings && progress.result.warnings.length > 0 && (
+                <ul className="mt-2 text-amber-800 list-disc pl-5 space-y-0.5">
+                  {progress.result.warnings.map((w: string, i: number) => (
+                    <li key={i}>{w}</li>
+                  ))}
+                </ul>
+              )}
             </div>
             <div className="flex gap-2 justify-end">
               <button className="btn btn-ghost" onClick={onClose}>

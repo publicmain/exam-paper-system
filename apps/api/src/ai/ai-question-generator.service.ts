@@ -75,6 +75,13 @@ export class AiQuestionGeneratorService {
   private readonly model: string;
   private readonly capUsd: number | null;
 
+  // Tracks USD reserved by in-flight generate() calls in this process. Same
+  // pattern as OpenAiImageService.pendingUsd: prevents two concurrent
+  // requests from both passing the cap gate before either's AuditLog
+  // row is written. Single-process atomicity only — multi-instance
+  // deployments would need a DB-backed reservation table.
+  private pendingUsd = 0;
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly audit: AuditService,
@@ -175,17 +182,25 @@ export class AiQuestionGeneratorService {
       },
     });
 
-    // Pre-flight cap check (rough: assume max budget per question)
+    // Pre-flight cap check + reservation. The check + pendingUsd
+    // increment runs synchronously after the awaited monthToDateUsd, so
+    // two concurrent requests can't both pass the gate before either's
+    // AuditLog row is written.
     const monthToDate = await this.monthToDateUsd();
     const roughEstPerQ = 0.025; // conservative upper bound for a 4-part Q
-    if (this.capUsd !== null && monthToDate + roughEstPerQ * count > this.capUsd) {
+    const estimatedSpend = roughEstPerQ * count;
+    if (
+      this.capUsd !== null &&
+      monthToDate + this.pendingUsd + estimatedSpend > this.capUsd
+    ) {
       throw new ServiceUnavailableException(
         `Monthly Anthropic cap of $${this.capUsd} would be exceeded ` +
-          `(month-to-date $${monthToDate.toFixed(2)} + estimated $${(roughEstPerQ * count).toFixed(
-            2,
-          )}).`,
+          `(month-to-date $${monthToDate.toFixed(2)} + ` +
+          `in-flight $${this.pendingUsd.toFixed(2)} + ` +
+          `estimated $${estimatedSpend.toFixed(2)}).`,
       );
     }
+    this.pendingUsd += estimatedSpend;
 
     const prompt = this.buildPrompt({
       syllabus: input.syllabusCode,
@@ -199,24 +214,34 @@ export class AiQuestionGeneratorService {
       fewShot: fewShotPool,
     });
 
-    const t0 = Date.now();
-    const resp = await this.client.messages.create({
-      model: this.model,
-      max_tokens: 4000,
-      system: prompt.systemBlocks as any,
-      messages: [{ role: 'user', content: prompt.userText }],
-    });
-    const elapsedMs = Date.now() - t0;
-
-    const text = resp.content
-      .map((c) => (c.type === 'text' ? c.text : ''))
-      .join('')
-      .trim();
-    const inputTokens = resp.usage.input_tokens ?? 0;
-    const outputTokens = resp.usage.output_tokens ?? 0;
-    const costUsd =
-      (inputTokens * PRICE_INPUT_PER_M + outputTokens * PRICE_OUTPUT_PER_M) /
-      1_000_000;
+    let elapsedMs = 0;
+    let inputTokens = 0;
+    let outputTokens = 0;
+    let costUsd = 0;
+    let text = '';
+    try {
+      const t0 = Date.now();
+      const resp = await this.client.messages.create({
+        model: this.model,
+        max_tokens: 4000,
+        system: prompt.systemBlocks as any,
+        messages: [{ role: 'user', content: prompt.userText }],
+      });
+      elapsedMs = Date.now() - t0;
+      text = resp.content
+        .map((c) => (c.type === 'text' ? c.text : ''))
+        .join('')
+        .trim();
+      inputTokens = resp.usage.input_tokens ?? 0;
+      outputTokens = resp.usage.output_tokens ?? 0;
+      costUsd =
+        (inputTokens * PRICE_INPUT_PER_M + outputTokens * PRICE_OUTPUT_PER_M) /
+        1_000_000;
+    } finally {
+      // Release the reservation. On success the AuditLog write below
+      // captures the actual spend; on failure no AuditLog is written.
+      this.pendingUsd = Math.max(0, this.pendingUsd - estimatedSpend);
+    }
 
     const parsed = this.parseResponse(text);
     const errors: string[] = [];
