@@ -126,9 +126,49 @@ export interface CircuitSchemdrawSpec {
   }>;
 }
 
+/** Ray-diagram spec for type=ray. AI emits the geometry exactly: optical
+ *  element + object + image + rays as point sequences. We render each ray
+ *  as a polyline with an arrowhead mid-segment per CIE convention.
+ *  Critical: the AI is responsible for computing ray paths correctly using
+ *  the laws of reflection / refraction; the renderer just draws what it's
+ *  told. */
+export interface RayDiagramSpec {
+  kind: 'ray_diagram';
+  /** World coordinate range. Same logic as coordinate_plane but no grid. */
+  xRange: [number, number];
+  yRange: [number, number];
+  /** Y of principal axis. Defaults to (yMin + yMax) / 2. */
+  axisY?: number;
+  element: {
+    type: 'plane_mirror' | 'concave_mirror' | 'convex_mirror'
+        | 'thin_lens_convex' | 'thin_lens_concave';
+    x: number;
+    /** Vertical extent of the element symbol in world units. Default
+     *  is roughly 60% of yRange. */
+    height?: number;
+    /** Used to mark focal points as dots if provided. Distance in
+     *  world units. */
+    focalLength?: number;
+  };
+  /** Object as an upright/inverted arrow standing on the axis. */
+  object?: { x: number; height: number; label?: string };
+  /** Image as an arrow. virtual=true draws a dashed outline. */
+  image?: { x: number; height: number; virtual?: boolean; label?: string };
+  /** Rays as ordered point sequences. solid for real ray paths, dashed
+   *  for virtual extensions / construction lines. */
+  rays?: Array<{
+    points: Array<[number, number]>;
+    style?: 'solid' | 'dashed';
+    /** mid (default per CIE convention) | end | none. */
+    arrow?: 'mid' | 'end' | 'none';
+    label?: string;
+  }>;
+  showFocalPoints?: boolean;
+}
+
 export type AnyDiagramSpec = CoordinatePlaneSpec | GraphvizDotSpec
                            | FreeBodySpec | EnergyLevelSpec
-                           | CircuitSchemdrawSpec;
+                           | CircuitSchemdrawSpec | RayDiagramSpec;
 
 export interface SvgGenerateInput {
   questionId: string;
@@ -220,7 +260,160 @@ export class SvgDiagramService {
     if (spec.kind === 'free_body') return this.renderFreeBody(spec);
     if (spec.kind === 'energy_level') return this.renderEnergyLevel(spec);
     if (spec.kind === 'circuit_schemdraw') return this.remoteRender.renderCircuit(spec.elements);
+    if (spec.kind === 'ray_diagram') return this.renderRayDiagram(spec);
     throw new BadRequestException(`unsupported diagram kind: ${(spec as any).kind}`);
+  }
+
+  /** Ray-diagram renderer. Optical element drawn per CIE conventions:
+   *  plane_mirror = vertical line + back-side hatching; concave_mirror =
+   *  arc opening towards positive x with hatching behind; convex_mirror
+   *  the mirror image of that; thin convex lens = vertical line with
+   *  outward arrowheads top and bottom; thin concave lens = inward
+   *  arrowheads. AI computes ray paths and supplies them as point
+   *  sequences; we draw polylines with mid-segment arrowheads. */
+  private renderRayDiagram(spec: RayDiagramSpec): string {
+    const [xMin, xMax] = spec.xRange;
+    const [yMin, yMax] = spec.yRange;
+    if (!(xMax > xMin) || !(yMax > yMin)) {
+      throw new BadRequestException('ray_diagram: xRange / yRange invalid');
+    }
+    const axisY = spec.axisY ?? (yMin + yMax) / 2;
+    const xRange = xMax - xMin;
+    const yRange = yMax - yMin;
+    const padding = 24;
+    const widthPx = 600;
+    const heightPx = Math.round((widthPx - 2 * padding) * (yRange / xRange) + 2 * padding);
+    const sx = (widthPx - 2 * padding) / xRange;
+    const sy = (heightPx - 2 * padding) / yRange;
+    const px = (x: number) => padding + (x - xMin) * sx;
+    const py = (y: number) => heightPx - padding - (y - yMin) * sy;
+
+    const parts: string[] = [];
+    parts.push(`<rect width="${widthPx}" height="${heightPx}" fill="white"/>`);
+
+    // Arrow markers — small filled triangle at mid-segment (CIE convention).
+    parts.push(`<defs>
+      <marker id="raymid" viewBox="0 0 10 10" refX="5" refY="5" markerWidth="6" markerHeight="6" orient="auto"><path d="M 0 0 L 10 5 L 0 10 z" fill="black"/></marker>
+      <marker id="rayend" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M 0 0 L 10 5 L 0 10 z" fill="black"/></marker>
+    </defs>`);
+
+    // Principal axis — horizontal line through axisY
+    parts.push(`<line x1="${px(xMin)}" y1="${py(axisY)}" x2="${px(xMax)}" y2="${py(axisY)}" stroke="black" stroke-width="0.8"/>`);
+
+    // Optical element
+    const e = spec.element;
+    const elemHeight = e.height ?? yRange * 0.6;
+    const eyTop = axisY + elemHeight / 2;
+    const eyBot = axisY - elemHeight / 2;
+    const ex = e.x;
+
+    if (e.type === 'plane_mirror') {
+      parts.push(`<line x1="${px(ex)}" y1="${py(eyTop)}" x2="${px(ex)}" y2="${py(eyBot)}" stroke="black" stroke-width="1.6"/>`);
+      // Back-side hatching: 5 short diagonal strokes at 45°
+      for (let i = 0; i < 5; i++) {
+        const yy = eyBot + (elemHeight * (i + 0.5)) / 5;
+        parts.push(`<line x1="${px(ex) + 8}" y1="${py(yy) - 4}" x2="${px(ex) + 2}" y2="${py(yy) + 4}" stroke="black" stroke-width="0.7"/>`);
+      }
+    } else if (e.type === 'concave_mirror' || e.type === 'convex_mirror') {
+      // Arc: concave opens to the right (object side typically left), convex
+      // opens left. Use SVG path arc; sagitta ≈ elemHeight/8 for visual.
+      const sag = elemHeight / 6;
+      const flip = e.type === 'convex_mirror' ? -1 : 1;
+      const xL = ex - flip * sag;
+      // Path uses end-angle arc spec; we just draw a half-ellipse-ish arc.
+      const r = elemHeight; // radius approx
+      const x1 = px(ex), y1 = py(eyTop);
+      const x2 = px(ex), y2 = py(eyBot);
+      const sweep = flip > 0 ? 0 : 1;
+      parts.push(`<path d="M ${x1} ${y1} A ${r * sx / Math.max(1, sx)} ${elemHeight * sy / 2} 0 0 ${sweep} ${x2} ${y2}" stroke="black" stroke-width="1.6" fill="none"/>`);
+      // Hatching behind the arc on the convex side
+      for (let i = 0; i < 5; i++) {
+        const yy = eyBot + (elemHeight * (i + 0.5)) / 5;
+        const dx = flip > 0 ? -10 : 4;
+        parts.push(`<line x1="${px(ex) + dx}" y1="${py(yy) - 4}" x2="${px(ex) + dx + 6}" y2="${py(yy) + 4}" stroke="black" stroke-width="0.7"/>`);
+      }
+    } else if (e.type === 'thin_lens_convex') {
+      // Vertical line with outward arrowheads at top & bottom
+      parts.push(`<line x1="${px(ex)}" y1="${py(eyTop)}" x2="${px(ex)}" y2="${py(eyBot)}" stroke="black" stroke-width="1.6"/>`);
+      const ah = 6;
+      parts.push(`<polygon points="${px(ex) - ah},${py(eyTop) + ah} ${px(ex) + ah},${py(eyTop) + ah} ${px(ex)},${py(eyTop)}" fill="black"/>`);
+      parts.push(`<polygon points="${px(ex) - ah},${py(eyBot) - ah} ${px(ex) + ah},${py(eyBot) - ah} ${px(ex)},${py(eyBot)}" fill="black"/>`);
+    } else if (e.type === 'thin_lens_concave') {
+      // Vertical line with inward arrowheads at top & bottom
+      parts.push(`<line x1="${px(ex)}" y1="${py(eyTop)}" x2="${px(ex)}" y2="${py(eyBot)}" stroke="black" stroke-width="1.6"/>`);
+      const ah = 6;
+      parts.push(`<polygon points="${px(ex) - ah},${py(eyTop)} ${px(ex) + ah},${py(eyTop)} ${px(ex)},${py(eyTop) + ah}" fill="black"/>`);
+      parts.push(`<polygon points="${px(ex) - ah},${py(eyBot)} ${px(ex) + ah},${py(eyBot)} ${px(ex)},${py(eyBot) - ah}" fill="black"/>`);
+    }
+
+    // Focal points — marked as filled black dots on the axis at ±f
+    if ((spec.showFocalPoints ?? true) && typeof e.focalLength === 'number') {
+      const f = Math.abs(e.focalLength);
+      for (const sign of [1, -1]) {
+        const fx = ex + sign * f;
+        if (fx >= xMin && fx <= xMax) {
+          parts.push(`<circle cx="${px(fx)}" cy="${py(axisY)}" r="2.6" fill="black"/>`);
+          parts.push(`<text x="${px(fx)}" y="${py(axisY) + 14}" text-anchor="middle" font-size="10" font-family="Arial" font-style="italic">F</text>`);
+        }
+      }
+    }
+
+    // Object — upright (or inverted) arrow on axis
+    if (spec.object) {
+      const o = spec.object;
+      const x1 = px(o.x), y1 = py(axisY);
+      const y2 = py(axisY + o.height);
+      parts.push(`<line x1="${x1}" y1="${y1}" x2="${x1}" y2="${y2}" stroke="black" stroke-width="1.4" marker-end="url(#rayend)"/>`);
+      if (o.label) {
+        parts.push(`<text x="${x1}" y="${(y2) - 6}" text-anchor="middle" font-size="11" font-family="Arial" font-style="italic">${esc(o.label)}</text>`);
+      }
+    }
+
+    // Image — same shape; dashed outline if virtual
+    if (spec.image) {
+      const im = spec.image;
+      const x1 = px(im.x), y1 = py(axisY);
+      const y2 = py(axisY + im.height);
+      const dash = im.virtual ? ' stroke-dasharray="4,3"' : '';
+      parts.push(`<line x1="${x1}" y1="${y1}" x2="${x1}" y2="${y2}" stroke="black" stroke-width="1.4" marker-end="url(#rayend)"${dash}/>`);
+      if (im.label) {
+        parts.push(`<text x="${x1}" y="${y2 - 6}" text-anchor="middle" font-size="11" font-family="Arial" font-style="italic">${esc(im.label)}</text>`);
+      }
+    }
+
+    // Rays — polylines with optional mid-segment arrowhead
+    for (const ray of spec.rays || []) {
+      const pts = ray.points;
+      if (!pts || pts.length < 2) continue;
+      const dash = ray.style === 'dashed' ? ' stroke-dasharray="4,3"' : '';
+      const arrow = ray.arrow ?? 'mid';
+      const arrowAttr = arrow === 'end'
+        ? ' marker-end="url(#rayend)"'
+        : '';
+      const d = pts.map((p, i) => `${i === 0 ? 'M' : 'L'} ${px(p[0]).toFixed(1)} ${py(p[1]).toFixed(1)}`).join(' ');
+      parts.push(`<path d="${d}" stroke="black" stroke-width="1.3" fill="none"${dash}${arrowAttr}/>`);
+      // Mid-segment arrow: place a separate triangle at the midpoint of the
+      // longest segment (so ray direction is clear without cluttering joins).
+      if (arrow === 'mid' && pts.length >= 2) {
+        let bestI = 0, bestLen = 0;
+        for (let i = 0; i < pts.length - 1; i++) {
+          const dx = pts[i + 1][0] - pts[i][0];
+          const dy = pts[i + 1][1] - pts[i][1];
+          const len = Math.hypot(dx, dy);
+          if (len > bestLen) { bestLen = len; bestI = i; }
+        }
+        const a = pts[bestI], b = pts[bestI + 1];
+        const mx = (a[0] + b[0]) / 2, my = (a[1] + b[1]) / 2;
+        const angle = (Math.atan2(py(b[1]) - py(a[1]), px(b[0]) - px(a[0])) * 180) / Math.PI;
+        parts.push(`<polygon points="-5,-3 5,0 -5,3" transform="translate(${px(mx)},${py(my)}) rotate(${angle.toFixed(1)})" fill="black"/>`);
+      }
+      if (ray.label) {
+        const last = pts[pts.length - 1];
+        parts.push(`<text x="${px(last[0]) + 6}" y="${py(last[1]) - 4}" font-size="10" font-family="Arial" font-style="italic">${esc(ray.label)}</text>`);
+      }
+    }
+
+    return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${widthPx} ${heightPx}" width="${widthPx}" height="${heightPx}">${parts.join('')}</svg>`;
   }
 
   /** Free-body diagram: body in centre, force arrows radiating at exact

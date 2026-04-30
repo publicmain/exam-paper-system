@@ -110,9 +110,34 @@ export interface CircuitSchemdrawMathSpec {
   }>;
 }
 
+/** Ray-diagram spec for type=ray. AI computes ray paths itself; the SVG
+ *  renderer just draws the polylines. */
+export interface RayMathSpec {
+  kind: 'ray_diagram';
+  xRange: [number, number];
+  yRange: [number, number];
+  axisY?: number;
+  element: {
+    type: 'plane_mirror' | 'concave_mirror' | 'convex_mirror'
+        | 'thin_lens_convex' | 'thin_lens_concave';
+    x: number;
+    height?: number;
+    focalLength?: number;
+  };
+  object?: { x: number; height: number; label?: string };
+  image?: { x: number; height: number; virtual?: boolean; label?: string };
+  rays?: Array<{
+    points: Array<[number, number]>;
+    style?: 'solid' | 'dashed';
+    arrow?: 'mid' | 'end' | 'none';
+    label?: string;
+  }>;
+  showFocalPoints?: boolean;
+}
+
 export type DiagramSpec = CoordinateMathSpec | GraphvizMathSpec
                         | FreeBodyMathSpec | EnergyLevelMathSpec
-                        | CircuitSchemdrawMathSpec;
+                        | CircuitSchemdrawMathSpec | RayMathSpec;
 
 export type DiagramHint = {
   needed: true;
@@ -656,7 +681,58 @@ CRITICAL when emitting circuit_schemdraw:
 - Labels are CIE-style component values: "1 kΩ", "10 μF", "9 V", "100 mH".
 - Keep <= 12 elements per circuit so the figure stays readable.
 - For parallel branches use additional Line/Dot elements to mark the
-  junctions; full nodal analysis is too complex for AI emission.`;
+  junctions; full nodal analysis is too complex for AI emission.
+
+Ray diagrams (REQUIRED structured spec for type "ray"):
+You compute the ray paths yourself using mirror / lens formulas; the
+renderer just draws the polylines you supply. World units are typically
+cm but any unit works as long as you're consistent.
+
+{
+  "kind": "ray_diagram",
+  "xRange": [-2, 32],
+  "yRange": [-6, 6],
+  "axisY": 0,
+  "element": {
+    "type": "thin_lens_convex",
+    "x": 16,
+    "height": 8,
+    "focalLength": 8
+  },
+  "object": { "x": 4, "height": 3, "label": "O" },
+  "image":  { "x": 24, "height": -2, "label": "I" },
+  "rays": [
+    { "points": [[4, 3], [16, 3], [24, -2]], "label": "ray 1" },
+    { "points": [[4, 3], [16, 0], [24, -2]] },
+    { "points": [[4, 3], [8, 0], [16, -1.5], [24, -2]] }
+  ],
+  "showFocalPoints": true
+}
+
+Element types and CIE conventions:
+  plane_mirror   — vertical line + back-side hatching at 45°
+  concave_mirror — arc opening to the right (towards object), focal length F
+  convex_mirror  — arc opening to the left, focal length F (virtual focus)
+  thin_lens_convex  — vertical line with outward arrowheads at top/bottom
+  thin_lens_concave — vertical line with inward arrowheads
+
+Compute the rays correctly per the lens / mirror laws:
+  Convex lens: ray parallel to axis refracts through F on the far side; ray
+    through optical centre passes straight through; ray through near F
+    emerges parallel.
+  Concave lens: ray parallel to axis refracts as if from far F.
+  Concave mirror: ray parallel reflects through F; ray through C reflects
+    back; ray through F reflects parallel.
+  Plane mirror: angle of incidence = angle of reflection; image is virtual,
+    same distance behind, on dashed extension lines.
+
+Style conventions:
+  - Real ray paths: solid black, mid-segment arrowhead pointing in the
+    direction of light travel.
+  - Virtual extensions / construction lines: dashed.
+  - Virtual images: marker_end arrow on the image arrow, dashed outline.
+  - Mark F on the principal axis with a filled black dot (showFocalPoints).
+  - Object always on the left of the element; light travels left-to-right.`;
 
   private buildPrompt(args: {
     syllabus: string;
@@ -817,6 +893,7 @@ CRITICAL when emitting circuit_schemdraw:
       const isFreeBody = (type === 'free_body');
       const isEnergyLevel = (type === 'energy_level');
       const isCircuit = (type === 'circuit');
+      const isRay = (type === 'ray');
       if (isMath && d.spec.kind === 'coordinate_plane') {
         const spec = this.parseCoordinateSpec(d.spec);
         if (spec) (hint as any).spec = spec;
@@ -832,9 +909,78 @@ CRITICAL when emitting circuit_schemdraw:
       } else if (isCircuit && d.spec.kind === 'circuit_schemdraw') {
         const spec = this.parseCircuitSpec(d.spec);
         if (spec) (hint as any).spec = spec;
+      } else if (isRay && d.spec.kind === 'ray_diagram') {
+        const spec = this.parseRaySpec(d.spec);
+        if (spec) (hint as any).spec = spec;
       }
     }
     return hint;
+  }
+
+  private parseRaySpec(s: any): RayMathSpec | null {
+    if (!s || s.kind !== 'ray_diagram') return null;
+    const xRange = this.parseRange(s.xRange);
+    const yRange = this.parseRange(s.yRange);
+    if (!xRange || !yRange) return null;
+    const allowedElements = new Set([
+      'plane_mirror', 'concave_mirror', 'convex_mirror',
+      'thin_lens_convex', 'thin_lens_concave',
+    ]);
+    if (!s.element || !allowedElements.has(s.element.type)) return null;
+    const ex = Number(s.element.x);
+    if (!Number.isFinite(ex)) return null;
+    const element: RayMathSpec['element'] = { type: s.element.type, x: ex };
+    if (typeof s.element.height === 'number' && Number.isFinite(s.element.height)) element.height = s.element.height;
+    if (typeof s.element.focalLength === 'number' && Number.isFinite(s.element.focalLength)) element.focalLength = s.element.focalLength;
+
+    const num = (v: any) => (typeof v === 'number' && Number.isFinite(v) ? v : null);
+    const parsePt = (p: any): [number, number] | null => {
+      if (!Array.isArray(p) || p.length !== 2) return null;
+      const a = Number(p[0]); const b = Number(p[1]);
+      if (!Number.isFinite(a) || !Number.isFinite(b)) return null;
+      return [a, b];
+    };
+
+    const object = s.object && typeof s.object === 'object' && num(s.object.x) !== null && num(s.object.height) !== null
+      ? { x: Number(s.object.x), height: Number(s.object.height),
+          label: typeof s.object.label === 'string' ? s.object.label.slice(0, 20) : undefined }
+      : undefined;
+
+    const image = s.image && typeof s.image === 'object' && num(s.image.x) !== null && num(s.image.height) !== null
+      ? { x: Number(s.image.x), height: Number(s.image.height),
+          virtual: s.image.virtual === true,
+          label: typeof s.image.label === 'string' ? s.image.label.slice(0, 20) : undefined }
+      : undefined;
+
+    const rays = Array.isArray(s.rays)
+      ? s.rays.flatMap((r: any) => {
+          if (!Array.isArray(r?.points) || r.points.length < 2) return [];
+          const pts: Array<[number, number]> = [];
+          for (const p of r.points) {
+            const xy = parsePt(p);
+            if (!xy) return [];
+            pts.push(xy);
+          }
+          if (pts.length < 2) return [];
+          return [{
+            points: pts,
+            style: r?.style === 'dashed' ? 'dashed' as const : 'solid' as const,
+            arrow: r?.arrow === 'end' ? 'end' as const
+                  : r?.arrow === 'none' ? 'none' as const
+                  : 'mid' as const,
+            label: typeof r?.label === 'string' ? r.label.slice(0, 30) : undefined,
+          }];
+        }).slice(0, 8)
+      : [];
+
+    return {
+      kind: 'ray_diagram',
+      xRange, yRange,
+      axisY: typeof s.axisY === 'number' ? s.axisY : undefined,
+      element,
+      object, image, rays,
+      showFocalPoints: s.showFocalPoints !== false,
+    };
   }
 
   private parseCircuitSpec(s: any): CircuitSchemdrawMathSpec | null {
