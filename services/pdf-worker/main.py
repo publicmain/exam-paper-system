@@ -123,3 +123,117 @@ def process_pdf(req: ProcessPdfRequest) -> ProcessPdfResponse:
         pages=pages,
         sha256=sha,
     )
+
+
+# -----------------------------------------------------------------------
+# Circuit diagram rendering via schemdraw (Phase 8)
+# -----------------------------------------------------------------------
+#
+# The Nest API hands us a structured JSON spec describing electrical
+# components and their connections; we drive schemdraw imperatively and
+# return the rendered SVG. Used to replace gpt-image-2 for type=circuit
+# in the AI question generator.
+
+import io
+import re
+
+import schemdraw
+import schemdraw.elements as elm
+
+# Whitelist of schemdraw element classes we'll instantiate. AI gives us
+# an element type as a string; this avoids arbitrary-attribute access.
+_ALLOWED_ELEMENTS = {
+    'Resistor': elm.Resistor,
+    'ResistorIEC': elm.ResistorIEC,
+    'Capacitor': elm.Capacitor,
+    'CapacitorVar': elm.CapacitorVar,
+    'Inductor': elm.Inductor,
+    'Inductor2': elm.Inductor2,
+    'Battery': elm.Battery,
+    'Cell': elm.Cell,
+    'Diode': elm.Diode,
+    'LED': elm.LED,
+    'Photodiode': elm.Photodiode,
+    'Switch': elm.Switch,
+    'SwitchSpdt': elm.SwitchSpdt,
+    'Lamp': elm.Lamp,
+    'Speaker': elm.Speaker,
+    'Ground': elm.Ground,
+    'Vss': elm.Vss,
+    'Vdd': elm.Vdd,
+    'Line': elm.Line,
+    'Dot': elm.Dot,
+    'Arrow': elm.Arrow,
+    'SourceV': elm.SourceV,
+    'SourceI': elm.SourceI,
+    'Meter': elm.Meter,
+    'MeterV': elm.MeterV,
+    'MeterA': elm.MeterA,
+    'MeterOhm': elm.MeterOhm,
+    'Transformer': elm.Transformer,
+    'Fuse': elm.Fuse,
+    'Potentiometer': elm.Potentiometer,
+    'Crystal': elm.Crystal,
+    'Memristor': elm.Memristor,
+}
+
+_ALLOWED_DIRECTIONS = {'right', 'left', 'up', 'down'}
+
+
+class CircuitElement(BaseModel):
+    type: str
+    label: str | None = None
+    direction: str | None = None  # 'right' | 'left' | 'up' | 'down'
+    length: float | None = None   # multiplier of default unit
+    flip: bool = False
+    reverse: bool = False
+
+
+class CircuitRequest(BaseModel):
+    elements: list[CircuitElement]
+
+
+class CircuitResponse(BaseModel):
+    svg: str
+
+
+@app.post("/render_circuit", response_model=CircuitResponse)
+def render_circuit(req: CircuitRequest) -> CircuitResponse:
+    if not req.elements:
+        raise HTTPException(400, "elements list is empty")
+    if len(req.elements) > 30:
+        raise HTTPException(400, "circuit has too many elements (max 30)")
+
+    d = schemdraw.Drawing(show=False)
+    try:
+        for spec in req.elements:
+            cls = _ALLOWED_ELEMENTS.get(spec.type)
+            if not cls:
+                raise HTTPException(400, f"unknown element type: {spec.type}")
+            el = cls()
+            if spec.direction and spec.direction in _ALLOWED_DIRECTIONS:
+                el = getattr(el, spec.direction)()
+            if spec.length is not None and 0.5 <= spec.length <= 5:
+                el = el.length(spec.length)
+            if spec.flip:
+                el = el.flip()
+            if spec.reverse:
+                el = el.reverse()
+            if spec.label:
+                el = el.label(spec.label[:40])
+            d += el
+        svg_bytes = d.get_imagedata('svg')
+    except HTTPException:
+        raise
+    except Exception as e:
+        log.warning("schemdraw failed: %s", e)
+        raise HTTPException(500, f"schemdraw render failed: {e}") from e
+
+    svg = svg_bytes.decode('utf-8') if isinstance(svg_bytes, bytes) else str(svg_bytes)
+    # Sanitise: strip script/foreignObject + the XML declaration so the SVG
+    # works inline as a data URI.
+    svg = re.sub(r'<\?xml[^?]*\?>\s*', '', svg)
+    svg = re.sub(r'<!DOCTYPE[^>]*>\s*', '', svg)
+    svg = re.sub(r'<script[\s\S]*?</script>', '', svg, flags=re.IGNORECASE)
+    svg = re.sub(r'<foreignObject[\s\S]*?</foreignObject>', '', svg, flags=re.IGNORECASE)
+    return CircuitResponse(svg=svg)

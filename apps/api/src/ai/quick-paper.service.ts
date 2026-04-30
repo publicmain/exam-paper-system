@@ -262,6 +262,7 @@ export class QuickPaperService {
               'geometry', 'graph',
               'flowchart', 'data_structure', 'network_topology', 'logic_gate',
               'free_body', 'energy_level', 'waveform',
+              'circuit',
             ];
             if (svgEligibleTypes.includes(d.type) && spec) {
               const out = await this.svgDiagram.generate(

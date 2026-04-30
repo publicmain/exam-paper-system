@@ -3,3 +3,5 @@ uvicorn[standard]==0.32.0
 PyMuPDF==1.24.13
 pydantic==2.9.2
 httpx==0.27.2
+schemdraw==0.19
+matplotlib==3.9.2

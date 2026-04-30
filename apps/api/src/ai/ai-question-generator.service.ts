@@ -97,8 +97,22 @@ export interface EnergyLevelMathSpec {
   }>;
 }
 
+/** Circuit spec rendered via schemdraw on the Python pdf-worker. */
+export interface CircuitSchemdrawMathSpec {
+  kind: 'circuit_schemdraw';
+  elements: Array<{
+    type: string;
+    label?: string;
+    direction?: 'right' | 'left' | 'up' | 'down';
+    length?: number;
+    flip?: boolean;
+    reverse?: boolean;
+  }>;
+}
+
 export type DiagramSpec = CoordinateMathSpec | GraphvizMathSpec
-                        | FreeBodyMathSpec | EnergyLevelMathSpec;
+                        | FreeBodyMathSpec | EnergyLevelMathSpec
+                        | CircuitSchemdrawMathSpec;
 
 export type DiagramHint = {
   needed: true;
@@ -611,7 +625,38 @@ CRITICAL:
 - "absorption" renders an upward dashed arrow; "emission" renders a downward
   solid arrow. If kind is omitted, the renderer picks based on direction.
 - Include the photon energy or wavelength in the transition label
-  ("10.2 eV", "656 nm").`;
+  ("10.2 eV", "656 nm").
+
+Circuit diagrams (REQUIRED structured spec for type "circuit"):
+The diagram is rendered server-side by schemdraw, an electrical-engineering
+schematics library. Emit an ordered list of components — schemdraw places
+each one starting from where the previous left off, so direction matters.
+
+{
+  "kind": "circuit_schemdraw",
+  "elements": [
+    { "type": "Battery",  "label": "9 V", "direction": "right" },
+    { "type": "Resistor", "label": "1 kΩ", "direction": "right" },
+    { "type": "Capacitor","label": "10 μF", "direction": "down" },
+    { "type": "Line",     "direction": "left" },
+    { "type": "Line",     "direction": "up" }
+  ]
+}
+
+Allowed element types (use exact case): Resistor, ResistorIEC, Capacitor,
+CapacitorVar, Inductor, Inductor2, Battery, Cell, Diode, LED, Photodiode,
+Switch, SwitchSpdt, Lamp, Speaker, Ground, Vss, Vdd, Line, Dot, Arrow,
+SourceV, SourceI, Meter, MeterV, MeterA, MeterOhm, Transformer, Fuse,
+Potentiometer, Crystal, Memristor.
+
+CRITICAL when emitting circuit_schemdraw:
+- Each element flows from where the previous one ended; close the loop
+  with Line elements at right angles to return to the starting node.
+- Default direction is "right". Use "down" / "left" / "up" to turn corners.
+- Labels are CIE-style component values: "1 kΩ", "10 μF", "9 V", "100 mH".
+- Keep <= 12 elements per circuit so the figure stays readable.
+- For parallel branches use additional Line/Dot elements to mark the
+  junctions; full nodal analysis is too complex for AI emission.`;
 
   private buildPrompt(args: {
     syllabus: string;
@@ -771,6 +816,7 @@ CRITICAL:
                     || type === 'network_topology' || type === 'logic_gate');
       const isFreeBody = (type === 'free_body');
       const isEnergyLevel = (type === 'energy_level');
+      const isCircuit = (type === 'circuit');
       if (isMath && d.spec.kind === 'coordinate_plane') {
         const spec = this.parseCoordinateSpec(d.spec);
         if (spec) (hint as any).spec = spec;
@@ -783,9 +829,38 @@ CRITICAL:
       } else if (isEnergyLevel && d.spec.kind === 'energy_level') {
         const spec = this.parseEnergyLevelSpec(d.spec);
         if (spec) (hint as any).spec = spec;
+      } else if (isCircuit && d.spec.kind === 'circuit_schemdraw') {
+        const spec = this.parseCircuitSpec(d.spec);
+        if (spec) (hint as any).spec = spec;
       }
     }
     return hint;
+  }
+
+  private parseCircuitSpec(s: any): CircuitSchemdrawMathSpec | null {
+    if (!s || s.kind !== 'circuit_schemdraw') return null;
+    const allowedTypes = new Set([
+      'Resistor','ResistorIEC','Capacitor','CapacitorVar','Inductor','Inductor2',
+      'Battery','Cell','Diode','LED','Photodiode','Switch','SwitchSpdt',
+      'Lamp','Speaker','Ground','Vss','Vdd','Line','Dot','Arrow',
+      'SourceV','SourceI','Meter','MeterV','MeterA','MeterOhm','Transformer',
+      'Fuse','Potentiometer','Crystal','Memristor',
+    ]);
+    const allowedDirs = new Set(['right', 'left', 'up', 'down']);
+    const elements = Array.isArray(s.elements)
+      ? s.elements.flatMap((e: any) => {
+          if (!allowedTypes.has(e?.type)) return [];
+          const elt: any = { type: e.type };
+          if (typeof e.label === 'string') elt.label = e.label.slice(0, 40);
+          if (allowedDirs.has(e.direction)) elt.direction = e.direction;
+          if (typeof e.length === 'number' && e.length >= 0.5 && e.length <= 5) elt.length = e.length;
+          if (e.flip === true) elt.flip = true;
+          if (e.reverse === true) elt.reverse = true;
+          return [elt];
+        }).slice(0, 12)
+      : [];
+    if (elements.length === 0) return null;
+    return { kind: 'circuit_schemdraw', elements };
   }
 
   private parseFreeBodySpec(s: any): FreeBodyMathSpec | null {

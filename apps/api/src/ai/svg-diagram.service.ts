@@ -1,6 +1,7 @@
 import { BadRequestException, Injectable, Logger } from '@nestjs/common';
 import { PrismaService } from '../common/prisma.service';
 import { AuditService } from '../audit/audit.service';
+import { RemoteRenderService } from './remote-render.service';
 import * as fs from 'node:fs/promises';
 import * as path from 'node:path';
 import * as os from 'node:os';
@@ -109,8 +110,25 @@ export interface EnergyLevelSpec {
   }>;
 }
 
+/** Circuit-diagram spec rendered server-side via the Python pdf-worker
+ *  (schemdraw library). AI emits a list of imperative element descriptions;
+ *  the worker walks them through schemdraw's `Drawing()` API and returns
+ *  SVG. Used to replace gpt-image-2 for type=circuit. */
+export interface CircuitSchemdrawSpec {
+  kind: 'circuit_schemdraw';
+  elements: Array<{
+    type: string;            // schemdraw element class name (Resistor, Capacitor, ...)
+    label?: string;
+    direction?: 'right' | 'left' | 'up' | 'down';
+    length?: number;
+    flip?: boolean;
+    reverse?: boolean;
+  }>;
+}
+
 export type AnyDiagramSpec = CoordinatePlaneSpec | GraphvizDotSpec
-                           | FreeBodySpec | EnergyLevelSpec;
+                           | FreeBodySpec | EnergyLevelSpec
+                           | CircuitSchemdrawSpec;
 
 export interface SvgGenerateInput {
   questionId: string;
@@ -141,6 +159,7 @@ export class SvgDiagramService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly audit: AuditService,
+    private readonly remoteRender: RemoteRenderService,
   ) {}
 
   async generate(
@@ -193,12 +212,14 @@ export class SvgDiagramService {
     return { assetId: asset.id, storageUrl: asset.storageUrl, costUsd: 0 };
   }
 
-  /** Top-level dispatch by spec.kind. Async because Graphviz uses wasm. */
+  /** Top-level dispatch by spec.kind. Async because Graphviz uses wasm
+   *  and circuit rendering hits the pdf-worker over HTTP. */
   async renderSpec(spec: AnyDiagramSpec): Promise<string> {
     if (spec.kind === 'coordinate_plane') return this.renderCoordinatePlane(spec);
     if (spec.kind === 'graphviz_dot') return this.renderGraphvizDot(spec);
     if (spec.kind === 'free_body') return this.renderFreeBody(spec);
     if (spec.kind === 'energy_level') return this.renderEnergyLevel(spec);
+    if (spec.kind === 'circuit_schemdraw') return this.remoteRender.renderCircuit(spec.elements);
     throw new BadRequestException(`unsupported diagram kind: ${(spec as any).kind}`);
   }
 
