@@ -2,6 +2,7 @@ import { useEffect, useState, useCallback } from 'react';
 import { useParams } from 'react-router-dom';
 import { api, downloadPdf } from '../lib/api';
 import { MathHtml } from '../components/MathHtml';
+import { AuthImage } from '../components/AuthImage';
 
 export default function PaperEditPage() {
   const { id } = useParams<{ id: string }>();
@@ -159,6 +160,21 @@ export default function PaperEditPage() {
                   <div className="q-stem text-sm">
                     <MathHtml source={content?.stem || ''} />
                   </div>
+                  {pq.question.assets && pq.question.assets.length > 0 && (
+                    <div className="mt-2 space-y-2">
+                      {pq.question.assets.map((a: any) => (
+                        <div key={a.id}>
+                          <AuthImage src={a.storageUrl} alt={a.altText || ''} />
+                          {a.aiGenerated && (
+                            <div className="text-xs text-gray-500 mt-0.5">
+                              AI · {a.aiModel}
+                              {typeof a.aiCostUsd === 'number' && ` · $${a.aiCostUsd.toFixed(3)}`}
+                            </div>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  )}
                   {opts && Array.isArray(opts) && (
                     <ol className="list-[upper-alpha] ml-6 mt-2 text-sm space-y-0.5">
                       {opts.map((o: any) => (
