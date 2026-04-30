@@ -54,14 +54,19 @@ export class PdfService implements OnModuleDestroy {
           (pq.question.assets ?? []).map(async (a) => {
             // storageUrl: /api/question-assets/by-question/<qid>/<filename>
             // Puppeteer cannot fetch the JWT-protected route, so embed the
-            // PNG bytes as a base64 data URI read straight from disk.
+            // bytes as a base64 data URI read straight from disk. Mime
+            // is dispatched by extension: .svg → image/svg+xml, else PNG.
             const m = a.storageUrl.match(/by-question\/([^/]+)\/([^/?]+)/);
             if (!m) return null;
             try {
-              const abs = path.join(AI_IMAGE_STORE, m[1], m[2]);
+              const filename = m[2];
+              const abs = path.join(AI_IMAGE_STORE, m[1], filename);
               const buf = await fs.readFile(abs);
+              const mime = filename.toLowerCase().endsWith('.svg')
+                ? 'image/svg+xml'
+                : 'image/png';
               return {
-                dataUri: `data:image/png;base64,${buf.toString('base64')}`,
+                dataUri: `data:${mime};base64,${buf.toString('base64')}`,
                 alt: a.altText ?? '',
               };
             } catch (e) {

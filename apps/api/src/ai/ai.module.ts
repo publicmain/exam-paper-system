@@ -3,6 +3,7 @@ import { AiController } from './ai.controller';
 import { QuestionAssetController } from './question-asset.controller';
 import { AiService } from './ai.service';
 import { OpenAiImageService } from './openai-image.service';
+import { SvgDiagramService } from './svg-diagram.service';
 import { AiQuestionGeneratorService } from './ai-question-generator.service';
 import { QuickPaperService } from './quick-paper.service';
 import { PrismaService } from '../common/prisma.service';
@@ -14,10 +15,11 @@ import { ReviewModule } from '../review/review.module';
   providers: [
     AiService,
     OpenAiImageService,
+    SvgDiagramService,
     AiQuestionGeneratorService,
     QuickPaperService,
     PrismaService,
   ],
-  exports: [AiService, OpenAiImageService, AiQuestionGeneratorService],
+  exports: [AiService, OpenAiImageService, SvgDiagramService, AiQuestionGeneratorService],
 })
 export class AiModule {}

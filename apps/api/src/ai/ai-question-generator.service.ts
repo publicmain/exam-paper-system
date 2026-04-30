@@ -44,6 +44,27 @@ export interface GenerateQuestionsResult {
   errors: string[];
 }
 
+/** Structured math-diagram spec, only emitted by the AI for type=geometry/graph.
+ *  When present we render via the deterministic SVG service instead of asking
+ *  gpt-image-2 to draw geometry it cannot compute. Mirror of CoordinatePlaneSpec
+ *  in svg-diagram.service.ts; defined here so the parser can validate. */
+export interface CoordinateMathSpec {
+  kind: 'coordinate_plane';
+  xRange: [number, number];
+  yRange: [number, number];
+  gridStep?: number;
+  points?: Array<{ x: number; y: number; label?: string; labelPos?: string }>;
+  segments?: Array<{ from: [number, number]; to: [number, number]; label?: string; style?: 'solid' | 'dashed' }>;
+  lines?: Array<{
+    point?: [number, number];
+    slope?: number;
+    verticalX?: number;
+    label?: string;
+    style?: 'solid' | 'dashed';
+  }>;
+  parabolas?: Array<{ a: number; b: number; c: number; label?: string; style?: 'solid' | 'dashed' }>;
+}
+
 export type DiagramHint = {
   needed: true;
   type:
@@ -52,6 +73,10 @@ export type DiagramHint = {
     | 'logic_gate' | 'flowchart' | 'data_structure' | 'network_topology';
   scene: string;
   labels: string[];
+  /** For type=geometry|graph the AI may also output a structured spec. When
+   *  present, the renderer uses SVG (free, geometrically exact). When absent,
+   *  the diagram falls back to gpt-image-2 driven by scene/labels. */
+  spec?: CoordinateMathSpec;
 } | { needed: false };
 
 export interface ParsedQuestion {
@@ -408,7 +433,8 @@ Authoring principles:
       "needed": true,
       "type": "apparatus" | "circuit" | "waveform" | "graph" | "free_body" | "molecular" | "ray" | "mechanics" | "geometry" | "statistical" | "energy_level" | "organic_skeletal" | "logic_gate" | "flowchart" | "data_structure" | "network_topology",
       "scene": "concrete description of what the diagram shows, 30-150 words, drawn from the wording of the question",
-      "labels": ["label 1 (exact text to place on the diagram)", "label 2", "..."]
+      "labels": ["label 1 (exact text to place on the diagram)", "label 2", "..."],
+      "spec": { /* optional structured spec — REQUIRED when type is geometry or graph */ }
     }
   }
 ]
@@ -424,7 +450,47 @@ Diagram rules (HARD):
 - Output \`"diagram": {"needed": false}\` for purely textual / formula-only questions. DO NOT invent a diagram just because the question is structured.
 - Across the whole batch, NO MORE THAN 50% of questions should have \`needed: true\`. Pick the ones where a figure genuinely aids comprehension.
 - The "scene" must reference exact named entities and quantities from the question stem (e.g. "a metal sphere of radius 3.2 cm", not "a sphere"). Avoid colour, shading, 3D perspective.
-- "labels" are placed verbatim on the diagram. Include units. Keep each label under 40 characters.`;
+- "labels" are placed verbatim on the diagram. Include units. Keep each label under 40 characters.
+
+Geometry / coordinate-graph diagrams (REQUIRED structured spec):
+For type "geometry" or "graph", in addition to scene/labels you MUST emit a "spec"
+object so the renderer can produce a geometrically EXACT figure. Image-generation
+models cannot compute slopes / midpoints / intersections correctly, so we render
+SVG from your spec instead. Schema for spec:
+
+{
+  "kind": "coordinate_plane",
+  "xRange": [xMin, xMax],          // numbers, xMin < xMax, leave 1-2 units padding
+  "yRange": [yMin, yMax],          // same
+  "gridStep": 1,                    // optional grid unit, default 1
+  "points": [
+    { "x": 2, "y": 7, "label": "A(2, 7)", "labelPos": "top-right" }
+  ],
+  "segments": [
+    { "from": [2, 7], "to": [6, -1], "label": "AB", "style": "solid" }
+  ],
+  "lines": [
+    /* infinite lines: either point+slope OR verticalX */
+    { "point": [4, 3], "slope": 0.5, "label": "l", "style": "solid" },
+    { "verticalX": 4, "label": "x = 4", "style": "dashed" }
+  ],
+  "parabolas": [
+    /* y = a x^2 + b x + c */
+    { "a": 1, "b": 0, "c": -3, "label": "y = x² − 3" }
+  ]
+}
+
+CRITICAL when emitting spec:
+- COMPUTE the geometry yourself. If the question says "perpendicular bisector
+  of A(2,7) and B(6,-1)", the slope is +1/2 (negative reciprocal of −2), passing
+  through midpoint (4,3). Emit \`{"point":[4,3],"slope":0.5}\`. NEVER emit a
+  vertical line unless the perpendicular bisector is genuinely vertical
+  (horizontal AB).
+- Pick xRange/yRange to comfortably contain every point and line label with
+  a 1-2 unit margin on each side.
+- Use "labelPos" to keep point labels from colliding with line labels.
+- "scene" can stay short and natural-language; the rendered figure comes from
+  the spec.`;
 
   private buildPrompt(args: {
     syllabus: string;
@@ -575,6 +641,85 @@ Diagram rules (HARD):
     const labels = Array.isArray(d.labels)
       ? d.labels.map((s: any) => String(s ?? '').trim()).filter((s: string) => s.length > 0).slice(0, 12)
       : [];
-    return { needed: true, type: type as any, scene: scene.slice(0, 1500), labels };
+    const hint: DiagramHint = { needed: true, type: type as any, scene: scene.slice(0, 1500), labels };
+    if ((type === 'geometry' || type === 'graph') && d.spec) {
+      const spec = this.parseCoordinateSpec(d.spec);
+      if (spec) (hint as any).spec = spec;
+    }
+    return hint;
+  }
+
+  /** Validate the structured math spec emitted by the AI. Drops the spec
+   *  entirely if anything looks malformed; the caller falls back to scene-
+   *  driven gpt-image-2 in that case. */
+  private parseCoordinateSpec(s: any): CoordinateMathSpec | null {
+    if (!s || typeof s !== 'object') return null;
+    if (s.kind !== 'coordinate_plane') return null;
+    const xRange = this.parseRange(s.xRange);
+    const yRange = this.parseRange(s.yRange);
+    if (!xRange || !yRange) return null;
+    const num = (v: any) => (typeof v === 'number' && Number.isFinite(v) ? v : null);
+    const points = Array.isArray(s.points)
+      ? s.points.flatMap((p: any) => {
+          const x = num(p?.x); const y = num(p?.y);
+          if (x === null || y === null) return [];
+          return [{ x, y, label: p?.label ? String(p.label).slice(0, 60) : undefined,
+                    labelPos: p?.labelPos ? String(p.labelPos) : undefined }];
+        }).slice(0, 20)
+      : [];
+    const segments = Array.isArray(s.segments)
+      ? s.segments.flatMap((g: any) => {
+          const f = this.parseXY(g?.from); const t = this.parseXY(g?.to);
+          if (!f || !t) return [];
+          return [{ from: f, to: t, label: g?.label ? String(g.label).slice(0, 60) : undefined,
+                    style: g?.style === 'dashed' ? 'dashed' : 'solid' as const }];
+        }).slice(0, 20)
+      : [];
+    const lines = Array.isArray(s.lines)
+      ? s.lines.flatMap((l: any) => {
+          const vX = num(l?.verticalX);
+          const slope = num(l?.slope);
+          const point = this.parseXY(l?.point);
+          if (vX === null && (slope === null || !point)) return [];
+          return [{
+            point: point ?? undefined,
+            slope: slope ?? undefined,
+            verticalX: vX ?? undefined,
+            label: l?.label ? String(l.label).slice(0, 60) : undefined,
+            style: l?.style === 'dashed' ? 'dashed' : 'solid' as const,
+          }];
+        }).slice(0, 10)
+      : [];
+    const parabolas = Array.isArray(s.parabolas)
+      ? s.parabolas.flatMap((p: any) => {
+          const a = num(p?.a); const b = num(p?.b); const c = num(p?.c);
+          if (a === null || b === null || c === null) return [];
+          return [{ a, b, c, label: p?.label ? String(p.label).slice(0, 60) : undefined,
+                    style: p?.style === 'dashed' ? 'dashed' : 'solid' as const }];
+        }).slice(0, 5)
+      : [];
+    if (points.length === 0 && segments.length === 0 && lines.length === 0 && parabolas.length === 0) {
+      return null;
+    }
+    return {
+      kind: 'coordinate_plane',
+      xRange, yRange,
+      gridStep: typeof s.gridStep === 'number' && s.gridStep > 0 ? s.gridStep : 1,
+      points, segments, lines, parabolas,
+    };
+  }
+
+  private parseRange(r: any): [number, number] | null {
+    if (!Array.isArray(r) || r.length !== 2) return null;
+    const a = Number(r[0]); const b = Number(r[1]);
+    if (!Number.isFinite(a) || !Number.isFinite(b) || a >= b) return null;
+    return [a, b];
+  }
+
+  private parseXY(p: any): [number, number] | null {
+    if (!Array.isArray(p) || p.length !== 2) return null;
+    const a = Number(p[0]); const b = Number(p[1]);
+    if (!Number.isFinite(a) || !Number.isFinite(b)) return null;
+    return [a, b];
   }
 }

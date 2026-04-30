@@ -12,6 +12,7 @@ import {
   GeneratedQuestionItemSummary,
 } from './ai-question-generator.service';
 import { OpenAiImageService } from './openai-image.service';
+import { SvgDiagramService } from './svg-diagram.service';
 import { PaperStatus } from '@prisma/client';
 
 export interface QuickPaperTopic {
@@ -106,6 +107,7 @@ export class QuickPaperService {
     private readonly audit: AuditService,
     private readonly aiQuestions: AiQuestionGeneratorService,
     private readonly openaiImage: OpenAiImageService,
+    private readonly svgDiagram: SvgDiagramService,
     private readonly review: ReviewService,
   ) {}
 
@@ -249,6 +251,26 @@ export class QuickPaperService {
             return { ok: false as const, error: 'no diagram hint' };
           }
           try {
+            // Route math diagrams (geometry / coordinate-graph) through the
+            // SVG renderer when the AI gave us a structured spec — image
+            // models cannot compute slopes / midpoints / intersections
+            // accurately, so the spec → SVG path is geometrically exact and
+            // free. Fall back to gpt-image-2 for everything else and for
+            // math diagrams missing a spec.
+            const spec = (d as any).spec;
+            if ((d.type === 'geometry' || d.type === 'graph') && spec) {
+              const out = await this.svgDiagram.generate(
+                {
+                  questionId: a.questionId,
+                  spec,
+                  syllabus: input.syllabusCode,
+                  topicCode: a.topicCode,
+                  altText: d.scene,
+                },
+                actor,
+              );
+              return { ok: true as const, cost: out.costUsd };
+            }
             const out = await this.openaiImage.generateDiagram(
               {
                 questionId: a.questionId,

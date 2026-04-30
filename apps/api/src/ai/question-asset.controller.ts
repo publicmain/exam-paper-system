@@ -15,12 +15,13 @@ const AI_IMAGE_STORE = process.env.AI_IMAGE_STORAGE_PATH
 export class QuestionAssetController {
   @Get('by-question/:qid/:filename')
   serve(@Param('qid') qid: string, @Param('filename') filename: string, @Res() res: Response) {
-    if (!/^[a-z0-9-]+$/i.test(qid) || !/^[a-z0-9-]+\.png$/i.test(filename)) {
+    if (!/^[a-z0-9-]+$/i.test(qid) || !/^[a-z0-9-]+\.(png|svg)$/i.test(filename)) {
       throw new NotFoundException('invalid path');
     }
     const abs = path.join(AI_IMAGE_STORE, qid, filename);
     if (!fs.existsSync(abs)) throw new NotFoundException('asset not found');
-    res.setHeader('Content-Type', 'image/png');
+    const mime = filename.toLowerCase().endsWith('.svg') ? 'image/svg+xml' : 'image/png';
+    res.setHeader('Content-Type', mime);
     res.setHeader('Cache-Control', 'private, max-age=3600');
     fs.createReadStream(abs).pipe(res);
   }
