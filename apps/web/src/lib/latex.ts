@@ -26,8 +26,11 @@ export function renderInline(text: string): string {
     return pushSlot(html);
   });
 
-  // 2. Inline math $..$
-  working = working.replace(/\$([^$\n]+?)\$/g, (_m, expr) => {
+  // 2. Inline math $..$ — allow \$ (escaped literal dollar) inside content
+  //    so currency notation like $\$285\,000$ stays as one math block instead
+  //    of leaking the dollar mid-expression and turning the rest of the
+  //    sentence into italic-merged math.
+  working = working.replace(/\$((?:\\\$|[^$\n])+?)\$/g, (_m, expr) => {
     let html: string;
     try { html = katex.renderToString(expr, { displayMode: false, throwOnError: false, output: 'html' }); }
     catch { html = `<code>${escape(expr)}</code>`; }
