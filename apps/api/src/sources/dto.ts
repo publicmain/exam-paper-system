@@ -43,3 +43,12 @@ export const BlockSourceSchema = z.object({
   reason: z.string().min(3),
 });
 export type BlockSourceDto = z.infer<typeof BlockSourceSchema>;
+
+export const UpdateAllowlistSchema = z.object({
+  // Re-uses the same 4-digit syllabus regex as create. To extend an
+  // existing repo's allowlist, send the FULL desired list (additive
+  // semantics on the client side); the server replaces the column.
+  syllabusAllowlist: z.array(z.string().regex(/^\d{4}$/)),
+  yearAllowlist: z.array(z.number().int().min(1990).max(2100)).optional(),
+});
+export type UpdateAllowlistDto = z.infer<typeof UpdateAllowlistSchema>;

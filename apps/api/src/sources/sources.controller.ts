@@ -3,7 +3,12 @@ import { Request } from 'express';
 import { Roles } from '../common/auth.guard';
 import { CurrentUser } from '../common/current-user.decorator';
 import { SourcesService } from './sources.service';
-import { BlockSourceSchema, CreateSourceRepoSchema, UpdateComplianceSchema } from './dto';
+import {
+  BlockSourceSchema,
+  CreateSourceRepoSchema,
+  UpdateAllowlistSchema,
+  UpdateComplianceSchema,
+} from './dto';
 import { IngestService } from '../ingest/ingest.service';
 import { AiService } from '../ai/ai.service';
 
@@ -47,6 +52,22 @@ export class SourcesController {
     const parsed = UpdateComplianceSchema.safeParse(body);
     if (!parsed.success) throw new BadRequestException(parsed.error.flatten());
     return this.sources.updateCompliance(id, parsed.data, { id: user.id, role: user.role, ip: req.ip ?? null });
+  }
+
+  @Put(':id/allowlist')
+  async updateAllowlist(
+    @Param('id') id: string,
+    @Body() body: unknown,
+    @CurrentUser() user: any,
+    @Req() req: Request,
+  ) {
+    const parsed = UpdateAllowlistSchema.safeParse(body);
+    if (!parsed.success) throw new BadRequestException(parsed.error.flatten());
+    return this.sources.updateAllowlist(id, parsed.data, {
+      id: user.id,
+      role: user.role,
+      ip: req.ip ?? null,
+    });
   }
 
   @Post(':id/block')

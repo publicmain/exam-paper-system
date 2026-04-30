@@ -2,7 +2,7 @@ import { BadRequestException, ConflictException, Injectable, Logger, NotFoundExc
 import { PrismaService } from '../common/prisma.service';
 import { AuditService } from '../audit/audit.service';
 import { ComplianceStatus, RepoType, AllowedUsage } from '@prisma/client';
-import { CreateSourceRepoDto, UpdateComplianceDto } from './dto';
+import { CreateSourceRepoDto, UpdateComplianceDto, UpdateAllowlistDto } from './dto';
 import * as fs from 'node:fs/promises';
 import * as path from 'node:path';
 import * as os from 'node:os';
@@ -118,6 +118,44 @@ export class SourcesService {
         },
       },
       metadata: { reason: dto.reason ?? null },
+      ip: actor.ip ?? null,
+    });
+
+    return updated;
+  }
+
+  async updateAllowlist(
+    id: string,
+    dto: UpdateAllowlistDto,
+    actor: { id: string; role: string; ip?: string | null },
+  ) {
+    const existing = await this.prisma.sourceRepository.findUnique({ where: { id } });
+    if (!existing) throw new NotFoundException('Source repository not found');
+
+    const updated = await this.prisma.sourceRepository.update({
+      where: { id },
+      data: {
+        syllabusAllowlist: dto.syllabusAllowlist,
+        ...(dto.yearAllowlist !== undefined ? { yearAllowlist: dto.yearAllowlist } : {}),
+      },
+    });
+
+    await this.audit.log({
+      actorId: actor.id,
+      actorRole: actor.role,
+      action: 'source.allowlist.update',
+      entityType: 'source_repository',
+      entityId: id,
+      diff: {
+        before: {
+          syllabusAllowlist: existing.syllabusAllowlist,
+          yearAllowlist: existing.yearAllowlist,
+        },
+        after: {
+          syllabusAllowlist: updated.syllabusAllowlist,
+          yearAllowlist: updated.yearAllowlist,
+        },
+      },
       ip: actor.ip ?? null,
     });
 
