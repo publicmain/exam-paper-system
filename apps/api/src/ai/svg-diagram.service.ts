@@ -126,6 +126,18 @@ export interface CircuitSchemdrawSpec {
   }>;
 }
 
+/** Chemistry structure spec rendered server-side via RDKit on the pdf-
+ *  worker. AI emits a SMILES string; RDKit computes 2D coordinates and
+ *  renders SVG. Used to replace gpt-image-2 for type=molecular and
+ *  type=organic_skeletal. */
+export interface MoleculeRdkitSpec {
+  kind: 'molecule_smiles';
+  smiles: string;
+  kekulize?: boolean;
+  width?: number;
+  height?: number;
+}
+
 /** Ray-diagram spec for type=ray. AI emits the geometry exactly: optical
  *  element + object + image + rays as point sequences. We render each ray
  *  as a polyline with an arrowhead mid-segment per CIE convention.
@@ -168,7 +180,8 @@ export interface RayDiagramSpec {
 
 export type AnyDiagramSpec = CoordinatePlaneSpec | GraphvizDotSpec
                            | FreeBodySpec | EnergyLevelSpec
-                           | CircuitSchemdrawSpec | RayDiagramSpec;
+                           | CircuitSchemdrawSpec | RayDiagramSpec
+                           | MoleculeRdkitSpec;
 
 export interface SvgGenerateInput {
   questionId: string;
@@ -261,6 +274,9 @@ export class SvgDiagramService {
     if (spec.kind === 'energy_level') return this.renderEnergyLevel(spec);
     if (spec.kind === 'circuit_schemdraw') return this.remoteRender.renderCircuit(spec.elements);
     if (spec.kind === 'ray_diagram') return this.renderRayDiagram(spec);
+    if (spec.kind === 'molecule_smiles') return this.remoteRender.renderMolecule({
+      smiles: spec.smiles, kekulize: spec.kekulize, width: spec.width, height: spec.height,
+    });
     throw new BadRequestException(`unsupported diagram kind: ${(spec as any).kind}`);
   }
 

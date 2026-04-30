@@ -52,4 +52,41 @@ export class RemoteRenderService {
     }
     return body.svg;
   }
+
+  /** Render a chemistry structure from SMILES via RDKit on the pdf-worker. */
+  async renderMolecule(opts: { smiles: string; kekulize?: boolean; width?: number; height?: number }): Promise<string> {
+    if (!PDF_WORKER_URL) {
+      throw new ServiceUnavailableException('PDF_WORKER_URL not configured');
+    }
+    if (!opts.smiles?.trim()) {
+      throw new BadRequestException('smiles is required');
+    }
+    const url = `${PDF_WORKER_URL.replace(/\/$/, '')}/render_molecule`;
+    let resp: Response;
+    try {
+      resp = await fetch(url, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          smiles: opts.smiles.trim(),
+          kekulize: opts.kekulize !== false,
+          width: opts.width ?? 400,
+          height: opts.height ?? 280,
+        }),
+      });
+    } catch (e: any) {
+      throw new ServiceUnavailableException(`pdf-worker network error: ${String(e?.message ?? e).slice(0, 200)}`);
+    }
+    if (!resp.ok) {
+      const text = await resp.text().catch(() => '');
+      throw new ServiceUnavailableException(
+        `pdf-worker /render_molecule ${resp.status}: ${text.slice(0, 300)}`,
+      );
+    }
+    const body = await resp.json() as { svg?: string };
+    if (!body.svg) {
+      throw new ServiceUnavailableException('pdf-worker returned no svg');
+    }
+    return body.svg;
+  }
 }

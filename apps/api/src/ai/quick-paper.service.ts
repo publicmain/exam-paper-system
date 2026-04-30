@@ -264,6 +264,7 @@ export class QuickPaperService {
               'free_body', 'energy_level', 'waveform',
               'circuit',
               'ray',
+              'molecular', 'organic_skeletal',
             ];
             if (svgEligibleTypes.includes(d.type) && spec) {
               const out = await this.svgDiagram.generate(

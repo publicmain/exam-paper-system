@@ -237,3 +237,61 @@ def render_circuit(req: CircuitRequest) -> CircuitResponse:
     svg = re.sub(r'<script[\s\S]*?</script>', '', svg, flags=re.IGNORECASE)
     svg = re.sub(r'<foreignObject[\s\S]*?</foreignObject>', '', svg, flags=re.IGNORECASE)
     return CircuitResponse(svg=svg)
+
+
+# -----------------------------------------------------------------------
+# Chemistry rendering via RDKit (Phase 10)
+# -----------------------------------------------------------------------
+#
+# AI emits a SMILES string (e.g. "CCO" for ethanol, "c1ccccc1" for benzene,
+# "CC(=O)O" for acetic acid). RDKit parses it, computes 2D coordinates,
+# and renders SVG via rdMolDraw2D. Used to replace gpt-image-2 for
+# type=molecular and type=organic_skeletal.
+
+from rdkit import Chem
+from rdkit.Chem import AllChem
+from rdkit.Chem.Draw import rdMolDraw2D
+
+
+class MoleculeRequest(BaseModel):
+    smiles: str
+    kekulize: bool = True
+    width: int = 400
+    height: int = 280
+
+
+class MoleculeResponse(BaseModel):
+    svg: str
+
+
+@app.post("/render_molecule", response_model=MoleculeResponse)
+def render_molecule(req: MoleculeRequest) -> MoleculeResponse:
+    smiles = (req.smiles or "").strip()
+    if not smiles or len(smiles) > 500:
+        raise HTTPException(400, "smiles must be 1..500 chars")
+
+    mol = Chem.MolFromSmiles(smiles)
+    if mol is None:
+        raise HTTPException(400, f"invalid SMILES: {smiles[:80]}")
+
+    # Compute 2D coords if missing
+    AllChem.Compute2DCoords(mol)
+
+    # Clamp draw canvas to safe range
+    w = max(120, min(req.width, 800))
+    h = max(120, min(req.height, 600))
+
+    drawer = rdMolDraw2D.MolDraw2DSVG(w, h)
+    opts = drawer.drawOptions()
+    opts.addStereoAnnotation = True
+    opts.bondLineWidth = 2
+    drawer.DrawMolecule(mol, kekulize=req.kekulize)
+    drawer.FinishDrawing()
+    svg = drawer.GetDrawingText()
+
+    # Sanitise (RDKit's SVG is already clean but defence in depth)
+    svg = re.sub(r'<\?xml[^?]*\?>\s*', '', svg)
+    svg = re.sub(r'<!DOCTYPE[^>]*>\s*', '', svg)
+    svg = re.sub(r'<script[\s\S]*?</script>', '', svg, flags=re.IGNORECASE)
+    svg = re.sub(r'<foreignObject[\s\S]*?</foreignObject>', '', svg, flags=re.IGNORECASE)
+    return MoleculeResponse(svg=svg)

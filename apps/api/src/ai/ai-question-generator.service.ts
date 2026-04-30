@@ -110,6 +110,16 @@ export interface CircuitSchemdrawMathSpec {
   }>;
 }
 
+/** Chemistry structure spec rendered via RDKit on the Python pdf-worker.
+ *  AI emits a SMILES string; we send it across, get SVG back. */
+export interface MoleculeRdkitMathSpec {
+  kind: 'molecule_smiles';
+  smiles: string;
+  kekulize?: boolean;
+  width?: number;
+  height?: number;
+}
+
 /** Ray-diagram spec for type=ray. AI computes ray paths itself; the SVG
  *  renderer just draws the polylines. */
 export interface RayMathSpec {
@@ -137,7 +147,8 @@ export interface RayMathSpec {
 
 export type DiagramSpec = CoordinateMathSpec | GraphvizMathSpec
                         | FreeBodyMathSpec | EnergyLevelMathSpec
-                        | CircuitSchemdrawMathSpec | RayMathSpec;
+                        | CircuitSchemdrawMathSpec | RayMathSpec
+                        | MoleculeRdkitMathSpec;
 
 export type DiagramHint = {
   needed: true;
@@ -732,7 +743,41 @@ Style conventions:
   - Virtual extensions / construction lines: dashed.
   - Virtual images: marker_end arrow on the image arrow, dashed outline.
   - Mark F on the principal axis with a filled black dot (showFocalPoints).
-  - Object always on the left of the element; light travels left-to-right.`;
+  - Object always on the left of the element; light travels left-to-right.
+
+Chemistry structures (REQUIRED structured spec for type "molecular" or
+"organic_skeletal"):
+The diagram is rendered server-side by RDKit from a SMILES string. RDKit
+computes 2D coordinates and lays out the structure with standard organic-
+chemistry conventions (skeletal structure, kekulé bonds, stereochemistry).
+
+{
+  "kind": "molecule_smiles",
+  "smiles": "CC(=O)O",         // SMILES — see common examples below
+  "kekulize": true,            // default true; renders aromatic rings as kekulé
+  "width": 400, "height": 280  // canvas in px (defaults shown)
+}
+
+Common examples (CIE / Edexcel chem-syllabus level):
+  Water           "O"
+  Ethanol         "CCO"
+  Acetic acid     "CC(=O)O"
+  Methane         "C"
+  Ethene          "C=C"
+  Benzene         "c1ccccc1"
+  Glucose         "OCC1OC(O)C(O)C(O)C1O"
+  Aspirin         "CC(=O)Oc1ccccc1C(=O)O"
+  Caffeine        "CN1C=NC2=C1C(=O)N(C)C(=O)N2C"
+  Amino acid (alanine)  "CC(C(=O)O)N"
+
+CRITICAL when emitting molecule_smiles:
+- SMILES must be SYNTACTICALLY VALID. RDKit rejects malformed strings;
+  the renderer falls back to gpt-image-2 if so.
+- Use lowercase letters for aromatic atoms (c1ccccc1 = benzene) and
+  uppercase for aliphatic (CCCC = butane).
+- Stereochemistry is optional but supported: "[C@H](N)(C)C(=O)O" for
+  L-alanine. Omit unless the question asks about chirality.
+- Keep <= 30 heavy atoms; A-Level / IGCSE syllabus rarely needs more.`;
 
   private buildPrompt(args: {
     syllabus: string;
@@ -894,6 +939,7 @@ Style conventions:
       const isEnergyLevel = (type === 'energy_level');
       const isCircuit = (type === 'circuit');
       const isRay = (type === 'ray');
+      const isMolecule = (type === 'molecular' || type === 'organic_skeletal');
       if (isMath && d.spec.kind === 'coordinate_plane') {
         const spec = this.parseCoordinateSpec(d.spec);
         if (spec) (hint as any).spec = spec;
@@ -912,9 +958,28 @@ Style conventions:
       } else if (isRay && d.spec.kind === 'ray_diagram') {
         const spec = this.parseRaySpec(d.spec);
         if (spec) (hint as any).spec = spec;
+      } else if (isMolecule && d.spec.kind === 'molecule_smiles') {
+        const spec = this.parseMoleculeSpec(d.spec);
+        if (spec) (hint as any).spec = spec;
       }
     }
     return hint;
+  }
+
+  private parseMoleculeSpec(s: any): MoleculeRdkitMathSpec | null {
+    if (!s || s.kind !== 'molecule_smiles') return null;
+    const smiles = typeof s.smiles === 'string' ? s.smiles.trim() : '';
+    if (smiles.length < 1 || smiles.length > 500) return null;
+    // Conservative SMILES character allowlist (atoms, bonds, ring digits,
+    // brackets, charges, stereo, dots). Server-side RDKit does the real parse.
+    if (!/^[A-Za-z0-9@+\-=\[\]\(\)\.\\\/#%*]+$/.test(smiles)) return null;
+    return {
+      kind: 'molecule_smiles',
+      smiles,
+      kekulize: s.kekulize !== false,
+      width: typeof s.width === 'number' && s.width >= 120 && s.width <= 800 ? s.width : undefined,
+      height: typeof s.height === 'number' && s.height >= 120 && s.height <= 600 ? s.height : undefined,
+    };
   }
 
   private parseRaySpec(s: any): RayMathSpec | null {
