@@ -6,6 +6,8 @@ const SUBJECT_PRESETS = [
   { code: '9608', name: 'Computer Science', emoji: '💻' },
   { code: '9702', name: 'Physics', emoji: '⚛️' },
   { code: '9709', name: 'Mathematics', emoji: '∑' },
+  { code: '4024', name: 'O-Level Math', emoji: '📐' },
+  { code: '4MA1', name: 'IGCSE Math A', emoji: '📊' },
 ];
 
 interface PaperPreset {

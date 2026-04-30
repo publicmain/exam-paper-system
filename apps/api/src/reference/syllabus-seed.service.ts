@@ -1,6 +1,8 @@
 import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
 import { PrismaService } from '../common/prisma.service';
 import { SYLLABUS_9608 } from './syllabi/topics-9608';
+import { SYLLABUS_4024 } from './syllabi/topics-4024';
+import { SYLLABUS_4MA1 } from './syllabi/topics-4ma1';
 
 interface SyllabusSeed {
   examBoardCode: string;
@@ -18,7 +20,7 @@ interface SyllabusSeed {
   }>;
 }
 
-const SYLLABI: SyllabusSeed[] = [SYLLABUS_9608];
+const SYLLABI: SyllabusSeed[] = [SYLLABUS_9608, SYLLABUS_4024, SYLLABUS_4MA1];
 
 /**
  * Idempotent runtime syllabus seeder. Production runs `prisma db push` on
