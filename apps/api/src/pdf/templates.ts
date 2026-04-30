@@ -2,23 +2,9 @@
 // HTML+CSS so no JS is required at PDF time. Cover page comes first with a
 // page break, then the question pages.
 import katex from 'katex';
-import * as fs from 'node:fs';
-import * as path from 'node:path';
+import { SCHOOL_LOGO_DATA_URI } from './school-logo';
 
 const KATEX_CSS_URL = 'https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css';
-
-// School logo as a data URI baked at build time. Sourced from the school's
-// internal cover-page builder (committed to apps/api/src/pdf/school-logo.b64.txt).
-let SCHOOL_LOGO_DATA_URI: string | null = null;
-function getSchoolLogo(): string {
-  if (SCHOOL_LOGO_DATA_URI !== null) return SCHOOL_LOGO_DATA_URI;
-  try {
-    SCHOOL_LOGO_DATA_URI = fs.readFileSync(path.join(__dirname, 'school-logo.b64.txt'), 'utf-8').trim();
-  } catch {
-    SCHOOL_LOGO_DATA_URI = '';
-  }
-  return SCHOOL_LOGO_DATA_URI;
-}
 
 // Slot placeholder uses U+E000 (Private Use Area) so the marker can never
 // collide with legitimate question content like "K0 = 100".
@@ -131,30 +117,40 @@ const baseStyles = `
     @page { size: A4; margin: 18mm 16mm 18mm 16mm; }
     body { font-family: 'Times New Roman', Georgia, serif; font-size: 11pt; line-height: 1.5; color: #111; }
 
-    /* ---------- Cover page (first sheet) ---------- */
+    /* ---------- Cover page (first sheet) ----------
+       Force single A4 page. Body sits inside @page margins (18mm top/bottom,
+       16mm left/right), so the usable area is 178×261mm. The cover fills
+       that exactly and clips any overflow so it never spills onto a second
+       sheet. font-family falls through to "serif" because the chromium
+       runtime in our Docker image only ships fonts-liberation; Liberation
+       Serif is what actually renders. */
     .cover {
       width: 100%;
-      min-height: 261mm;
+      height: 261mm;
       box-sizing: border-box;
       page-break-after: always;
-      font-family: Cambria, Georgia, "Times New Roman", "Songti SC", serif;
+      overflow: hidden;
+      font-family: "Liberation Serif", Cambria, Georgia, "Times New Roman", serif;
       color: #000;
       display: flex;
       flex-direction: column;
     }
-    .cover .logo { display: block; margin: 0 auto 5mm; width: 60mm; height: auto; }
-    .cover .course-line  { text-align: center; font-size: 18pt; font-weight: bold; margin: 0 0 3mm; line-height: 1.25; }
+    .cover .logo {
+      display: block; margin: 0 auto 5mm;
+      width: 50mm; height: auto;
+    }
+    .cover .course-line  { text-align: center; font-size: 16pt; font-weight: bold; margin: 0 0 3mm; line-height: 1.3; }
     .cover .subject-line { text-align: center; font-size: 18pt; font-weight: bold; margin: 0 0 2.5mm; }
-    .cover .paper-line   { text-align: center; font-size: 15pt; font-weight: bold; margin: 0 0 6mm; letter-spacing: 0.04em; }
-    .cover .exam-name    { text-align: center; font-size: 19pt; font-weight: bold; margin: 0 0 7mm; line-height: 1.25; }
-    .cover .instructions { font-size: 14pt; line-height: 1.4; }
+    .cover .paper-line   { text-align: center; font-size: 14pt; font-weight: bold; margin: 0 0 5mm; letter-spacing: 0.04em; }
+    .cover .exam-name    { text-align: center; font-size: 17pt; font-weight: bold; margin: 0 0 6mm; line-height: 1.25; }
+    .cover .instructions { font-size: 12pt; line-height: 1.4; }
     .cover .instructions p { margin: 0 0 3mm; }
-    .cover .class-line   { font-family: Arial, Helvetica, "Microsoft YaHei", sans-serif; font-size: 14pt; font-weight: bold; margin: 6mm 0 4mm; }
-    .cover .student-name { font-size: 14pt; margin: 0 0 5mm; }
-    .cover .filler { flex: 1; }
+    .cover .class-line   { font-family: "Liberation Sans", Arial, Helvetica, sans-serif; font-size: 13pt; font-weight: bold; margin: 6mm 0 3mm; }
+    .cover .student-name { font-size: 13pt; margin: 0 0 5mm; }
+    .cover .filler { flex: 1; min-height: 0; }
     .cover .marker-table {
-      margin-left: auto; margin-top: 12mm; border-collapse: collapse;
-      font-family: Arial, Helvetica, "Microsoft YaHei", sans-serif; font-size: 11pt;
+      margin-left: auto; margin-top: 4mm; border-collapse: collapse;
+      font-family: "Liberation Sans", Arial, Helvetica, sans-serif; font-size: 11pt;
     }
     .cover .marker-table td {
       border: 1px solid #000; width: 16mm; height: 13mm;
@@ -239,7 +235,7 @@ function deriveCourseLine(boardCode: string | undefined, level: string | undefin
  * filler → marker/moderator table.
  */
 function renderCoverPage(data: PaperData): string {
-  const logo = getSchoolLogo();
+  const logo = SCHOOL_LOGO_DATA_URI;
   const logoHtml = logo ? `<img class="logo" src="${logo}" alt="School logo" />` : '';
 
   const courseLine = deriveCourseLine(data.examBoardCode, data.subjectLevel);
