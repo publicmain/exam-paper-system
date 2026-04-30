@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { api } from '../lib/api';
 import { MathHtml } from '../components/MathHtml';
+import { AuthImage } from '../components/AuthImage';
 
 const TYPES = ['mcq', 'short_answer', 'structured', 'essay'];
 
@@ -328,7 +329,7 @@ function AssetCard({ asset, questionId, onDeleted }: { asset: any; questionId: s
   }
   return (
     <div className="card text-xs">
-      <AuthAssetImage src={api.questionAssetUrl(asset.storageUrl)} alt={asset.altText || ''} />
+      <AuthImage src={asset.storageUrl} alt={asset.altText || ''} className="border rounded w-full" />
       <div className="mt-2 flex flex-wrap gap-2 items-center">
         {asset.aiGenerated && <span className="badge bg-purple-100 text-purple-700">AI</span>}
         {asset.aiModel && <span className="text-gray-500">{asset.aiModel}</span>}
@@ -351,22 +352,6 @@ function AssetCard({ asset, questionId, onDeleted }: { asset: any; questionId: s
       )}
     </div>
   );
-}
-
-function AuthAssetImage({ src, alt }: { src: string; alt: string }) {
-  const [url, setUrl] = useState<string | null>(null);
-  useEffect(() => {
-    let cancelled = false;
-    let blobUrl: string | null = null;
-    const t = localStorage.getItem('auth_token');
-    fetch(src, { headers: t ? { Authorization: `Bearer ${t}` } : {} })
-      .then(r => r.blob())
-      .then(b => { if (cancelled) return; blobUrl = URL.createObjectURL(b); setUrl(blobUrl); })
-      .catch(() => {});
-    return () => { cancelled = true; if (blobUrl) URL.revokeObjectURL(blobUrl); };
-  }, [src]);
-  if (!url) return <div className="text-xs text-gray-400">loading…</div>;
-  return <img src={url} alt={alt} className="border rounded w-full" />;
 }
 
 function DiagramModal({
@@ -508,7 +493,7 @@ function DiagramModal({
 
           {result && (
             <div className="card">
-              <AuthAssetImage src={api.questionAssetUrl(result.storageUrl)} alt="generated" />
+              <AuthImage src={result.storageUrl} alt="generated" className="border rounded w-full" />
               <div className="text-xs mt-2 text-gray-600">
                 Cost: ${result.costUsd.toFixed(3)} · Month-to-date: ${result.monthToDateUsd.toFixed(3)}
                 {result.remainingUsd != null && <> · Remaining: ${result.remainingUsd.toFixed(2)}</>}

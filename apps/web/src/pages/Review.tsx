@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { api } from '../lib/api';
+import { AuthImage } from '../components/AuthImage';
 
 const STATUS_OPTIONS = [
   { value: 'pending_review', label: 'Pending review' },
@@ -414,7 +415,7 @@ function ReviewDetail({ id, onChanged }: { id: string; onChanged: () => void }) 
                 <div className="text-sm text-gray-500">No rendered pages for this range.</div>
               )}
               {pages.map((p: any) => (
-                <AuthImage key={p.pageNo} src={p.imageUrl} alt={`page ${p.pageNo}`} />
+                <AuthImage key={p.pageNo} src={p.imageUrl} alt={`page ${p.pageNo}`} className="border rounded w-full" />
               ))}
             </>
           )}
@@ -424,40 +425,3 @@ function ReviewDetail({ id, onChanged }: { id: string; onChanged: () => void }) 
   );
 }
 
-/**
- * Image that fetches with the JWT and renders as a blob URL. The
- * /api/source-files/:id/pages/:n route requires auth, which native
- * <img> tags cannot supply via headers. We also prepend VITE_API_URL
- * because PdfPage.imageUrl is stored as a relative path on the API
- * (the API doesn't know the public host); without the prefix the
- * browser resolves against the WEB origin and gets a 404.
- */
-function AuthImage({ src, alt }: { src: string; alt: string }) {
-  const [url, setUrl] = useState<string | null>(null);
-  const [err, setErr] = useState<string | null>(null);
-
-  useEffect(() => {
-    let cancelled = false;
-    let blobUrl: string | null = null;
-    const token = localStorage.getItem('auth_token');
-    const base = (import.meta as any).env?.VITE_API_URL || '';
-    const fullSrc = src.startsWith('http') ? src : `${base}${src}`;
-    fetch(fullSrc, { headers: token ? { Authorization: `Bearer ${token}` } : {} })
-      .then(async (r) => {
-        if (!r.ok) throw new Error(`${r.status}`);
-        const blob = await r.blob();
-        if (cancelled) return;
-        blobUrl = URL.createObjectURL(blob);
-        setUrl(blobUrl);
-      })
-      .catch((e) => !cancelled && setErr(String(e)));
-    return () => {
-      cancelled = true;
-      if (blobUrl) URL.revokeObjectURL(blobUrl);
-    };
-  }, [src]);
-
-  if (err) return <div className="text-xs text-red-600">image: {err}</div>;
-  if (!url) return <div className="text-xs text-gray-400">loading image…</div>;
-  return <img src={url} alt={alt} className="border rounded w-full" />;
-}

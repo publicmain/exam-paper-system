@@ -74,8 +74,6 @@ export const api = {
   generateAiQuestions: (data: any) => request('POST', '/ai/generate-questions', data),
   questionBudget: () => request('GET', '/ai/question-budget'),
   quickPaper: (data: any) => request('POST', '/ai/quick-paper', data),
-  questionAssetUrl: (rel: string) =>
-    rel.startsWith('http') ? rel : `${BASE}${rel}`,
 
   // sources (admin only)
   listSources: () => request('GET', '/sources'),
