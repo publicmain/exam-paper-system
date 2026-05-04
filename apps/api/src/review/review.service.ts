@@ -447,6 +447,87 @@ export class ReviewService {
     return null;
   }
 
+  /**
+   * Backfill `componentId` on already-approved Question rows whose
+   * component came out null (typically because they were approved before
+   * the semantic 9709 component mapping landed in commit 62db09c). Walks
+   * every active Question with `componentId IS NULL`, parses the paper
+   * variant out of `sourceRef` (format like "9709/41/M/J/19/Q3"), runs
+   * the same `resolveComponent` logic the approve flow uses, and
+   * updates the row. Idempotent — runs that find nothing change nothing.
+   */
+  async backfillApprovedComponents(
+    args: { syllabusCode?: string; limit?: number; dryRun?: boolean },
+    actor: ActorCtx,
+  ) {
+    const limit = Math.max(1, Math.min(args.limit ?? 1000, 5000));
+    const candidates = await this.prisma.question.findMany({
+      where: {
+        componentId: null,
+        status: QuestionStatus.active,
+        ...(args.syllabusCode
+          ? { subject: { code: args.syllabusCode } }
+          : {}),
+        sourceRef: { not: null },
+      },
+      take: limit,
+      include: { subject: true },
+      orderBy: { createdAt: 'asc' },
+    });
+
+    const updated: Array<{ questionId: string; variant: string; componentCode: string }> = [];
+    const skipped: Array<{ questionId: string; reason: string }> = [];
+
+    for (const q of candidates) {
+      // sourceRef pattern: "<syllabus>/<variant>/<season>/<region>/<year>/Q<n>"
+      const m = (q.sourceRef ?? '').match(/^[^/]+\/(\d+)\//);
+      if (!m) {
+        skipped.push({ questionId: q.id, reason: 'sourceRef has no variant prefix' });
+        continue;
+      }
+      const variant = m[1];
+      const component = await this.resolveComponent(q.subjectId, variant);
+      if (!component) {
+        skipped.push({ questionId: q.id, reason: `no component matches variant ${variant}` });
+        continue;
+      }
+      updated.push({ questionId: q.id, variant, componentCode: component.code });
+      if (!args.dryRun) {
+        await this.prisma.question.update({
+          where: { id: q.id },
+          data: { componentId: component.id },
+        });
+      }
+    }
+
+    await this.audit.log({
+      actorId: actor.id,
+      actorRole: actor.role,
+      action: args.dryRun ? 'review.component_backfill.dry_run' : 'review.component_backfill',
+      entityType: 'question',
+      entityId: 'batch',
+      metadata: {
+        syllabusCode: args.syllabusCode,
+        scanned: candidates.length,
+        updatedCount: updated.length,
+        skippedCount: skipped.length,
+      },
+      ip: actor.ip ?? null,
+    });
+
+    this.logger.log(
+      `component-backfill ${args.dryRun ? '[dry] ' : ''}` +
+        `scanned=${candidates.length} updated=${updated.length} skipped=${skipped.length}`,
+    );
+
+    return {
+      dryRun: !!args.dryRun,
+      scanned: candidates.length,
+      updated,
+      skipped,
+    };
+  }
+
   private async resolveSubject(syllabusCode: string | null) {
     if (!syllabusCode) return null;
     return this.prisma.subject.findFirst({ where: { code: syllabusCode } });

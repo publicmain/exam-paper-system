@@ -33,6 +33,12 @@ const BulkApproveSchema = z.object({
   limit: z.number().int().min(1).max(1000).default(500),
 });
 
+const BackfillComponentsSchema = z.object({
+  syllabusCode: z.string().regex(/^[\w-]+$/).optional(),
+  limit: z.number().int().min(1).max(5000).default(1000),
+  dryRun: z.boolean().default(false),
+});
+
 @Controller('review/items')
 @Roles('admin', 'head_teacher')
 export class ReviewController {
@@ -93,5 +99,16 @@ export class ReviewController {
     const parsed = BulkApproveSchema.safeParse(body ?? {});
     if (!parsed.success) throw new BadRequestException(parsed.error.flatten());
     return this.review.bulkApprove(parsed.data, { id: user.id, role: user.role, ip: req.ip ?? null });
+  }
+
+  /** One-shot backfill of `componentId` on already-approved Questions
+   *  whose component came out null (typically because the original
+   *  approve flow predated the semantic 9709 mapping in 62db09c).
+   *  Idempotent: re-running on a clean DB updates nothing. */
+  @Post('backfill-components')
+  backfillComponents(@Body() body: unknown, @CurrentUser() user: any, @Req() req: Request) {
+    const parsed = BackfillComponentsSchema.safeParse(body ?? {});
+    if (!parsed.success) throw new BadRequestException(parsed.error.flatten());
+    return this.review.backfillApprovedComponents(parsed.data, { id: user.id, role: user.role, ip: req.ip ?? null });
   }
 }

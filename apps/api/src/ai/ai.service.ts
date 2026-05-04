@@ -145,12 +145,20 @@ ${input.marks != null ? `Marks: ${input.marks}` : ''}`;
    * teacher must still approve via the review queue. This is the
    * "AI-assist, human-confirm" guarantee from the design doc.
    */
-  async tagPendingForRepo(repoId: string, opts: { limit?: number } = {}): Promise<TagBatchResult> {
+  async tagPendingForRepo(repoId: string, opts: { limit?: number; syllabusCode?: string } = {}): Promise<TagBatchResult> {
     const limit = Math.max(1, Math.min(opts.limit ?? 200, 500));
     const items = await this.prisma.questionItem.findMany({
       where: {
         reviewStatus: 'pending_review',
-        sourceFile: { repoId },
+        // Optional syllabus narrowing so the operator can tag just one
+        // syllabus from a multi-syllabus repo (vascodegraaff hosts
+        // 9702/9709/9608). Without this, a stale 9702 backlog can
+        // monopolise the per-call timeout before the new syllabus's
+        // items get a turn.
+        sourceFile: {
+          repoId,
+          ...(opts.syllabusCode ? { syllabusCode: opts.syllabusCode } : {}),
+        },
       },
       include: { sourceFile: true },
       take: limit,

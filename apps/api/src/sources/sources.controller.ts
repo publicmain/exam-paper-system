@@ -101,10 +101,20 @@ export class SourcesController {
     return this.ingest.processPending(id, { id: user.id, role: user.role, ip: req.ip ?? null });
   }
 
-  /** Run the AI tagger over pending QuestionItems for this repo. */
+  /** Run the AI tagger over pending QuestionItems for this repo. Optional
+   *  ?syllabusCode= scopes the run to one syllabus when the repo holds
+   *  several (e.g. vascodegraaff has 9702 / 9709 / 9608) so a stale
+   *  backlog from one syllabus can't crowd out new items from another. */
   @Post(':id/tag')
-  async tag(@Param('id') id: string, @Query('limit') limit?: string) {
-    return this.ai.tagPendingForRepo(id, { limit: limit ? Number(limit) : undefined });
+  async tag(
+    @Param('id') id: string,
+    @Query('limit') limit?: string,
+    @Query('syllabusCode') syllabusCode?: string,
+  ) {
+    return this.ai.tagPendingForRepo(id, {
+      limit: limit ? Number(limit) : undefined,
+      syllabusCode: syllabusCode || undefined,
+    });
   }
 
   /** Hard-delete the repo + cascading files / pages / un-approved items. */
