@@ -13,6 +13,8 @@ import SourcesPage from './pages/Sources';
 import ReviewPage from './pages/Review';
 import AiGeneratePage from './pages/AiGenerate';
 import QuickPaperPage from './pages/QuickPaper';
+import StudentHomePage from './pages/StudentHome';
+import StudentTakePage from './pages/StudentTake';
 
 export default function App() {
   const { user, loading, init, logout } = useAuth();
@@ -30,6 +32,30 @@ export default function App() {
         <Route path="/login" element={<LoginPage />} />
         <Route path="*" element={<Navigate to="/login" replace />} />
       </Routes>
+    );
+  }
+
+  // Students get a dedicated minimal layout — no teacher nav, no Dashboard.
+  if (user.role === 'student') {
+    return (
+      <div className="min-h-screen flex flex-col bg-gray-50">
+        <header className="bg-white border-b">
+          <div className="max-w-4xl mx-auto px-6 py-3 flex items-center justify-between">
+            <Link to="/student" className="font-bold text-lg">📝 My Papers</Link>
+            <div className="flex items-center gap-3 text-sm">
+              <span className="text-gray-600">{user.name} <span className="badge">student</span></span>
+              <button className="btn btn-ghost" onClick={() => { logout(); navigate('/login'); }}>Logout</button>
+            </div>
+          </div>
+        </header>
+        <main className="flex-1 max-w-4xl mx-auto w-full px-6 py-6">
+          <Routes>
+            <Route path="/student" element={<StudentHomePage />} />
+            <Route path="/student/take/:assignmentId" element={<StudentTakePage />} />
+            <Route path="*" element={<Navigate to="/student" replace />} />
+          </Routes>
+        </main>
+      </div>
     );
   }
 

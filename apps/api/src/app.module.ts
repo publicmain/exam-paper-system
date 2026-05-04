@@ -18,6 +18,8 @@ import { IngestModule } from './ingest/ingest.module';
 import { SourcesModule } from './sources/sources.module';
 import { InternalModule } from './internal/internal.module';
 import { ReviewModule } from './review/review.module';
+import { ClassesModule } from './classes/classes.module';
+import { StudentModule } from './student/student.module';
 import { HealthController } from './health.controller';
 
 @Module({
@@ -42,6 +44,8 @@ import { HealthController } from './health.controller';
     SourcesModule,
     InternalModule,
     ReviewModule,
+    ClassesModule,
+    StudentModule,
   ],
   controllers: [HealthController],
   providers: [

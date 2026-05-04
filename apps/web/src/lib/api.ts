@@ -88,6 +88,25 @@ export const api = {
   tagSource: (id: string, limit?: number) =>
     request('POST', `/sources/${id}/tag${limit ? `?limit=${limit}` : ''}`),
 
+  // classes (teachers + admin)
+  listClasses: () => request('GET', '/classes'),
+  getClass: (id: string) => request('GET', `/classes/${id}`),
+  createClass: (data: any) => request('POST', '/classes', data),
+  enrollClass: (id: string, data: any) => request('POST', `/classes/${id}/enrollments`, data),
+  rosterClass: (id: string, students: any[]) => request('POST', `/classes/${id}/roster`, { students }),
+  unenrollClass: (id: string, userId: string) => request('DELETE', `/classes/${id}/enrollments/${userId}`),
+
+  // student
+  studentAssignments: () => request('GET', '/student/assignments'),
+  openStudentSubmission: (assignmentId: string) =>
+    request('POST', '/student/submissions', { assignmentId }),
+  saveStudentScript: (submissionId: string, data: any) =>
+    request('PATCH', `/student/submissions/${submissionId}/scripts`, data),
+  finalSubmitStudent: (submissionId: string) =>
+    request('POST', `/student/submissions/${submissionId}/submit`),
+  getStudentSubmission: (id: string) => request('GET', `/student/submissions/${id}`),
+  assignPaperToClass: (paperId: string, data: any) => request('POST', `/papers/${paperId}/assign`, data),
+
   // review queue (admin / head_teacher)
   listReviewItems: (params: any = {}) => request('GET', `/review/items${qs(params)}`),
   getReviewItem: (id: string) => request('GET', `/review/items/${id}`),

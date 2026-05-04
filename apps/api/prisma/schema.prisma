@@ -15,6 +15,7 @@ enum UserRole {
   teacher
   head_teacher
   admin
+  student
 }
 
 model User {
@@ -34,6 +35,107 @@ model User {
   reposAdded           SourceRepository[] @relation("RepoAddedBy")
   questionItemReviewed QuestionItem[]     @relation("QuestionItemReviewer")
   teacherReviews       TeacherReview[]    @relation("ReviewActor")
+  classEnrollments     ClassEnrollment[]
+  paperAssignmentsMade PaperAssignment[]  @relation("PaperAssignedBy")
+  submissions          StudentSubmission[]
+}
+
+// ============================================================
+// Block 1: Student-side — classes, assignments, submissions
+// ============================================================
+model Class {
+  id          String   @id @default(cuid())
+  name        String   // "Form 5B", "IAL26S1"
+  classCode   String   @unique // short join code, e.g. "FORM5B"
+  level       String?  // "O-Level", "A-Level", optional
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  enrollments ClassEnrollment[]
+  assignments PaperAssignment[]
+}
+
+model ClassEnrollment {
+  id        String   @id @default(cuid())
+  classId   String
+  class     Class    @relation(fields: [classId], references: [id], onDelete: Cascade)
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  // 'student' | 'class_teacher' (homeroom) | 'subject_teacher'.
+  // String not enum to allow per-school customisation later.
+  role      String   @default("student")
+  joinedAt  DateTime @default(now())
+
+  @@unique([classId, userId])
+  @@index([userId])
+}
+
+model PaperAssignment {
+  id           String   @id @default(cuid())
+  paperId      String
+  paper        Paper    @relation(fields: [paperId], references: [id], onDelete: Cascade)
+  classId      String
+  class        Class    @relation(fields: [classId], references: [id], onDelete: Cascade)
+  assignedById String
+  assignedBy   User     @relation("PaperAssignedBy", fields: [assignedById], references: [id])
+  assignedAt   DateTime @default(now())
+  startAt      DateTime?
+  dueAt        DateTime?
+  durationMin  Int?
+  // 'scheduled' (before startAt) | 'open' (between start and due) | 'closed' (past due)
+  status       String   @default("scheduled")
+
+  submissions  StudentSubmission[]
+
+  @@unique([paperId, classId])
+  @@index([classId])
+}
+
+model StudentSubmission {
+  id            String   @id @default(cuid())
+  assignmentId  String
+  assignment    PaperAssignment @relation(fields: [assignmentId], references: [id], onDelete: Cascade)
+  studentId     String
+  student       User     @relation(fields: [studentId], references: [id])
+  startedAt     DateTime @default(now())
+  submittedAt   DateTime?
+  // in_progress | submitted | marked | returned
+  status        String   @default("in_progress")
+  // Auto-graded portion (MCQ items) computed on submit
+  autoScore     Float?
+  // Manually-marked portion (structured items) summed across scripts
+  manualScore   Float?
+  // autoScore + manualScore, surfaced in the dashboard
+  totalScore    Float?
+  // Snapshot of paper.totalMarksActual at submission time
+  maxScore      Int
+
+  scripts       AnswerScript[]
+
+  @@unique([assignmentId, studentId])
+  @@index([studentId])
+}
+
+model AnswerScript {
+  id              String   @id @default(cuid())
+  submissionId    String
+  submission      StudentSubmission @relation(fields: [submissionId], references: [id], onDelete: Cascade)
+  paperQuestionId String
+  paperQuestion   PaperQuestion @relation(fields: [paperQuestionId], references: [id])
+  // MCQ: option key 'A'/'B'/'C'/'D'. Structured: textAnswer carries body.
+  selectedOption  String?
+  textAnswer      String?
+  // Marker fills these for structured items; auto-fill for MCQ.
+  awardedMarks    Float?
+  markerComment   String?
+  markedById      String?
+  markedAt        DateTime?
+  // Auto-grade verdict for MCQ; null for structured.
+  autoCorrect     Boolean?
+  updatedAt       DateTime @updatedAt
+
+  @@unique([submissionId, paperQuestionId])
+  @@index([submissionId])
 }
 
 // ============================================================
@@ -270,9 +372,10 @@ model Paper {
   createdAt        DateTime           @default(now())
   updatedAt        DateTime           @updatedAt
 
-  questions PaperQuestion[]
-  versions  PaperVersion[]
-  usageLogs QuestionUsageLog[]
+  questions   PaperQuestion[]
+  versions    PaperVersion[]
+  usageLogs   QuestionUsageLog[]
+  assignments PaperAssignment[]
 }
 
 model PaperQuestion {
@@ -288,6 +391,8 @@ model PaperQuestion {
   overrideContent Json? // teacher edits within this paper, doesn't touch master
   overrideAnswer  Json?
   marks           Int
+
+  scripts AnswerScript[]
 
   @@index([paperId, sortOrder])
 }
