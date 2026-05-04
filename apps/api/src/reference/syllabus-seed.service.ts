@@ -3,6 +3,7 @@ import { PrismaService } from '../common/prisma.service';
 import { SYLLABUS_9608 } from './syllabi/topics-9608';
 import { SYLLABUS_4024 } from './syllabi/topics-4024';
 import { SYLLABUS_4MA1 } from './syllabi/topics-4ma1';
+import { SYLLABUS_9709 } from './syllabi/topics-9709';
 
 interface SyllabusSeed {
   examBoardCode: string;
@@ -20,7 +21,7 @@ interface SyllabusSeed {
   }>;
 }
 
-const SYLLABI: SyllabusSeed[] = [SYLLABUS_9608, SYLLABUS_4024, SYLLABUS_4MA1];
+const SYLLABI: SyllabusSeed[] = [SYLLABUS_9608, SYLLABUS_4024, SYLLABUS_4MA1, SYLLABUS_9709];
 
 /**
  * Idempotent runtime syllabus seeder. Production runs `prisma db push` on
