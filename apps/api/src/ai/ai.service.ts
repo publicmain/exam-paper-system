@@ -200,9 +200,16 @@ ${input.marks != null ? `Marks: ${input.marks}` : ''}`;
         continue;
       }
       try {
+        // Don't constrain by componentId here. The variant→component
+        // mapping is coarse (CIE 9709 P5 / Paper 5 Math papers actually
+        // contain a mix of M1 and M2 topics, not pure M2), so passing
+        // componentId narrows the topic candidates so much that AI
+        // returns empty when the true topic lives in a sibling
+        // component. Searching the full subject's topic tree is
+        // more accurate. componentId still gets corrected post-tag
+        // by reading topic.componentId.
         const out = await this.suggestLabels({
           subjectId: q.subjectId,
-          componentId: q.componentId ?? undefined,
           questionStem: stem.slice(0, 4000),
           marks: q.marks,
         });
