@@ -535,6 +535,14 @@ Authoring principles:
 - Time-per-mark calibration: roughly 1.0 minute per mark.
 - Diagram suggestions are HIGH VALUE for: geometric figures, coordinate-axes plots, statistical charts. LOW value for: algebraic manipulation, calculus computations, pure-trig identities.`;
     }
+    if (syllabusCode === '9701') {
+      return `Subject: CIE 9701 Chemistry.
+- Use balanced equations with state symbols (s) (l) (g) (aq). Always include conditions (heat / catalyst / solvent) where relevant.
+- Use SI units; numerical answers to 3 sig fig unless stated. mol dm⁻³ for concentration, kJ mol⁻¹ for energy.
+- Time-per-mark calibration: roughly 1.25 minute per mark.
+- Diagram suggestions are HIGH VALUE for: molecular structures (emit SMILES via type "molecular"), organic skeletal structures (type "organic_skeletal"), Hess / Born-Haber cycles (type "energy_level"), apparatus setups for titration / distillation / reflux (type "apparatus"), reaction-rate / equilibrium graphs (type "graph"). LOW value for: pure stoichiometry calculations, definition recall, simple oxidation-number questions.
+- For mechanism questions emit a structured stem with curly-arrow descriptions in text; the diagram architecture does not yet auto-render mechanism arrows.`;
+    }
     return `Subject: CIE ${syllabusCode}. Follow standard CIE conventions for this subject.`;
   }
 

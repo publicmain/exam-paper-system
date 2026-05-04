@@ -83,6 +83,14 @@ class QuickPaperTopicDto {
   @IsInt() @Min(1) @Max(10) count: number;
 }
 
+class BackfillTopicsDto {
+  @IsOptional() @IsString() @MinLength(2) @MaxLength(20) syllabusCode?: string;
+  @IsOptional() @IsString() componentId?: string;
+  @IsOptional() @IsInt() @Min(1) @Max(500) limit?: number;
+  @IsOptional() minConfidence?: number;
+  @IsOptional() @IsBoolean() dryRun?: boolean;
+}
+
 class QuickPaperDto {
   @IsString() @MinLength(2) @MaxLength(20) syllabusCode: string;
   // Either supply a single topic (legacy) ...
@@ -175,6 +183,26 @@ export class AiController {
   @Get('question-budget')
   async questionBudget() {
     return this.aiQuestions.budgetStatus();
+  }
+
+  /**
+   * Backfill primaryTopicId on already-approved Questions whose tagger
+   * never ran. Costs real Anthropic money (~$0.012 per question), so
+   * confirm dryRun first to see what would be touched.
+   * Admin / head_teacher only.
+   */
+  @Post('backfill-topics')
+  async backfillTopics(@Body() dto: BackfillTopicsDto, @CurrentUser() user: any) {
+    if (!['admin', 'head_teacher'].includes(user?.role)) {
+      throw new ForbiddenException('admin or head_teacher role required');
+    }
+    return this.ai.backfillApprovedTopics({
+      syllabusCode: dto.syllabusCode,
+      componentId: dto.componentId,
+      limit: dto.limit,
+      minConfidence: typeof dto.minConfidence === 'number' ? dto.minConfidence : undefined,
+      dryRun: dto.dryRun === true,
+    });
   }
 
   /**

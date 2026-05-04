@@ -145,6 +145,111 @@ ${input.marks != null ? `Marks: ${input.marks}` : ''}`;
    * teacher must still approve via the review queue. This is the
    * "AI-assist, human-confirm" guarantee from the design doc.
    */
+  /**
+   * Backfill `primaryTopicId` (and optionally `componentId`) on already-
+   * approved Question rows that came out null because the AI tagger never
+   * ran on the underlying QuestionItem (typical for the bulk-approve
+   * path, where items go straight into the bank without a /tag pass).
+   *
+   * Walks active Questions matching the filter, calls suggestLabels on
+   * the stem, picks the highest-confidence topic above minConfidence,
+   * sets `primaryTopicId` (and `componentId` from the topic if missing).
+   * Each call hits Anthropic, so this costs real money — a 200-question
+   * batch is ~$2-5 at current Sonnet pricing.
+   */
+  async backfillApprovedTopics(
+    args: {
+      syllabusCode?: string;
+      componentId?: string;
+      limit?: number;
+      minConfidence?: number;
+      dryRun?: boolean;
+    },
+  ): Promise<{
+    dryRun: boolean;
+    scanned: number;
+    updated: Array<{ questionId: string; topicCode: string; confidence: number }>;
+    skipped: Array<{ questionId: string; reason: string }>;
+    errors: Array<{ questionId: string; error: string }>;
+    costUsdEstimate: number;
+  }> {
+    const limit = Math.max(1, Math.min(args.limit ?? 100, 500));
+    const minConfidence = args.minConfidence ?? 0.4;
+    const candidates = await this.prisma.question.findMany({
+      where: {
+        primaryTopicId: null,
+        status: 'active',
+        ...(args.syllabusCode ? { subject: { code: args.syllabusCode } } : {}),
+        ...(args.componentId ? { componentId: args.componentId } : {}),
+      },
+      take: limit,
+      orderBy: { createdAt: 'asc' },
+      select: {
+        id: true, content: true, subjectId: true, componentId: true, marks: true,
+      },
+    });
+
+    const updated: Array<{ questionId: string; topicCode: string; confidence: number }> = [];
+    const skipped: Array<{ questionId: string; reason: string }> = [];
+    const errors: Array<{ questionId: string; error: string }> = [];
+
+    for (const q of candidates) {
+      const stem = (q.content as any)?.stem ?? '';
+      if (!stem || typeof stem !== 'string' || stem.length < 30) {
+        skipped.push({ questionId: q.id, reason: 'stem too short' });
+        continue;
+      }
+      try {
+        const out = await this.suggestLabels({
+          subjectId: q.subjectId,
+          componentId: q.componentId ?? undefined,
+          questionStem: stem.slice(0, 4000),
+          marks: q.marks,
+        });
+        const top = out.topicCandidates[0];
+        if (!top || top.confidence < minConfidence) {
+          skipped.push({ questionId: q.id, reason: `low confidence ${top?.confidence ?? 0}` });
+          continue;
+        }
+        updated.push({ questionId: q.id, topicCode: top.topicCode, confidence: top.confidence });
+        if (!args.dryRun) {
+          // If componentId is null, derive from the topic's component.
+          const topic = await this.prisma.topic.findUnique({
+            where: { id: top.topicId },
+            select: { id: true, componentId: true },
+          });
+          await this.prisma.question.update({
+            where: { id: q.id },
+            data: {
+              primaryTopicId: topic?.id ?? top.topicId,
+              ...(q.componentId == null && topic?.componentId ? { componentId: topic.componentId } : {}),
+            },
+          });
+        }
+      } catch (e: any) {
+        errors.push({ questionId: q.id, error: String(e?.message ?? e).slice(0, 200) });
+      }
+    }
+
+    // Rough cost estimate: ~3000 input tokens per call (system prompt +
+    // topics) × 95% cache hit + ~200 output. With Sonnet pricing this is
+    // ~$0.005 per cached call, ~$0.025 per uncached call.
+    const costUsdEstimate = candidates.length * 0.012;
+
+    this.logger.log(
+      `topic-backfill ${args.dryRun ? '[dry] ' : ''}` +
+        `scanned=${candidates.length} updated=${updated.length} ` +
+        `skipped=${skipped.length} errors=${errors.length} ~$${costUsdEstimate.toFixed(2)}`,
+    );
+
+    return {
+      dryRun: !!args.dryRun,
+      scanned: candidates.length,
+      updated, skipped, errors,
+      costUsdEstimate,
+    };
+  }
+
   async tagPendingForRepo(repoId: string, opts: { limit?: number; syllabusCode?: string } = {}): Promise<TagBatchResult> {
     const limit = Math.max(1, Math.min(opts.limit ?? 200, 500));
     const items = await this.prisma.questionItem.findMany({
