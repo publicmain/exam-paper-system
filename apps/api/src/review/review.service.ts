@@ -324,6 +324,129 @@ export class ReviewService {
     return result;
   }
 
+  /**
+   * Bulk-approve pending_review QuestionItems matching a filter, gated by
+   * a deterministic quality check. Failures (gate or approve()) don't
+   * abort the batch — each item gets its own row in the result so the
+   * operator can review what fell out.
+   *
+   * Quality gate is purely mechanical (mark range, stem length, has [N],
+   * letter count) so the AI is not making subjective decisions about
+   * what's bank-worthy. Items that don't pass land in `skipped`; nothing
+   * is silently dropped.
+   */
+  async bulkApprove(
+    args: {
+      filter: { repoId?: string; syllabusCode?: string; source?: string };
+      qualityGate: {
+        minMarks: number;
+        maxMarks: number;
+        minStemLength: number;
+        minLetterCount: number;
+        requireMarkIndicator: boolean;
+        requireType: boolean;
+      };
+      dryRun: boolean;
+      limit: number;
+    },
+    actor: ActorCtx,
+  ) {
+    const { filter, qualityGate: g, dryRun, limit } = args;
+    const where: Prisma.QuestionItemWhereInput = {
+      reviewStatus: ReviewStatus.pending_review,
+      questionId: null,
+      ...(filter.source && { source: filter.source as QuestionItemSource }),
+      ...(filter.repoId && { sourceFile: { repoId: filter.repoId } }),
+      ...(filter.syllabusCode && { sourceFile: { syllabusCode: filter.syllabusCode } }),
+    };
+    const items = await this.prisma.questionItem.findMany({
+      where,
+      include: { sourceFile: true },
+      take: limit,
+      orderBy: { createdAt: 'asc' },
+    });
+
+    const skipped: { itemId: string; reason: string }[] = [];
+    const approved: { itemId: string; questionId: string }[] = [];
+    const errors: { itemId: string; error: string }[] = [];
+
+    for (const item of items) {
+      const stem = (item.rawExtractedText ?? '').trim();
+      const reason = this.qualityCheck(item, stem, g);
+      if (reason) {
+        skipped.push({ itemId: item.id, reason });
+        continue;
+      }
+      if (dryRun) {
+        approved.push({ itemId: item.id, questionId: '(dry-run)' });
+        continue;
+      }
+      try {
+        const r = await this.approve(item.id, actor);
+        approved.push({ itemId: item.id, questionId: r.question.id });
+      } catch (e: any) {
+        errors.push({ itemId: item.id, error: String(e?.message ?? e).slice(0, 200) });
+      }
+    }
+
+    await this.audit.log({
+      actorId: actor.id,
+      actorRole: actor.role,
+      action: dryRun ? 'review.bulk_approve.dry_run' : 'review.bulk_approve',
+      entityType: 'question_item',
+      entityId: 'batch',
+      metadata: {
+        filter,
+        qualityGate: g,
+        scanned: items.length,
+        approvedCount: approved.length,
+        skippedCount: skipped.length,
+        errorCount: errors.length,
+      },
+      ip: actor.ip ?? null,
+    });
+
+    this.logger.log(
+      `bulk-approve ${dryRun ? '[dry] ' : ''}filter=${JSON.stringify(filter)} ` +
+        `scanned=${items.length} approved=${approved.length} ` +
+        `skipped=${skipped.length} errors=${errors.length}`,
+    );
+
+    return {
+      dryRun,
+      scanned: items.length,
+      limited: items.length === limit,
+      approved,
+      skipped,
+      errors,
+    };
+  }
+
+  /** Mechanical quality gate. Returns a short reason string when the
+   *  candidate fails, or null when it passes. */
+  private qualityCheck(
+    item: { suggestedType: QuestionType | null; suggestedMarks: number | null },
+    stem: string,
+    g: {
+      minMarks: number;
+      maxMarks: number;
+      minStemLength: number;
+      minLetterCount: number;
+      requireMarkIndicator: boolean;
+      requireType: boolean;
+    },
+  ): string | null {
+    if (g.requireType && !item.suggestedType) return 'no suggestedType';
+    const marks = item.suggestedMarks ?? 0;
+    if (marks < g.minMarks) return `marks ${marks} < ${g.minMarks}`;
+    if (marks > g.maxMarks) return `marks ${marks} > ${g.maxMarks}`;
+    if (stem.length < g.minStemLength) return `stem too short (${stem.length} < ${g.minStemLength})`;
+    const letters = (stem.match(/[A-Za-z]/g) ?? []).length;
+    if (letters < g.minLetterCount) return `too few letters (${letters} < ${g.minLetterCount})`;
+    if (g.requireMarkIndicator && !/\[\s*\d{1,2}\s*\]/.test(stem)) return 'no [N] mark indicator';
+    return null;
+  }
+
   private async resolveSubject(syllabusCode: string | null) {
     if (!syllabusCode) return null;
     return this.prisma.subject.findFirst({ where: { code: syllabusCode } });
