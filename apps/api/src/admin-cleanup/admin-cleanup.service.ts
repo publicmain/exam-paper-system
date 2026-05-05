@@ -85,9 +85,12 @@ export class AdminCleanupService {
   async purgeTestData(opts: { dryRun?: boolean } = {}) {
     const dryRun = opts.dryRun !== false; // default true for safety
 
-    // Find candidate users + classes + papers first.
+    // Find candidate users — students only, with test-suite email prefixes.
+    // Filtering by role='student' avoids accidentally nuking the admin
+    // accounts even if their email somehow matched a prefix.
     const candidateUsers = await this.prisma.user.findMany({
       where: {
+        role: 'student',
         OR: [
           { email: { startsWith: 't1-' } },
           { email: { startsWith: 't2-' } },
@@ -108,6 +111,19 @@ export class AdminCleanupService {
       },
       select: { id: true, email: true },
     });
+    // Also pick up B6 test head_teacher / teacher fixtures (they were
+    // created by the b6 RBAC test and aren't tagged as students).
+    const candidateB6Staff = await this.prisma.user.findMany({
+      where: {
+        role: { in: ['head_teacher', 'teacher'] },
+        OR: [
+          { email: { startsWith: 'b6-victim-' } },
+          { email: { startsWith: 'b6-teacher-' } },
+        ],
+      },
+      select: { id: true, email: true },
+    });
+    candidateUsers.push(...candidateB6Staff);
     const candidateClasses = await this.prisma.class.findMany({
       where: {
         OR: [
@@ -176,21 +192,46 @@ export class AdminCleanupService {
     const paperIds = candidatePapers.map((p) => p.id);
     const boardIds = testBoards.map((b) => b.id);
 
-    await this.prisma.$transaction(async (tx) => {
-      // Test papers cascade through PaperQuestion / PaperAssignment / etc.
-      if (paperIds.length) {
-        await tx.paper.deleteMany({ where: { id: { in: paperIds } } });
-      }
-      if (classIds.length) {
-        await tx.class.deleteMany({ where: { id: { in: classIds } } });
-      }
-      if (userIds.length) {
-        await tx.user.deleteMany({ where: { id: { in: userIds } } });
-      }
-      if (boardIds.length) {
-        await tx.examBoard.deleteMany({ where: { id: { in: boardIds } } });
-      }
-    });
+    await this.prisma.$transaction(
+      async (tx) => {
+        // Order matters because several Path-B FKs are non-cascading
+        // (Restrict by default). We have to manually delete user-bound
+        // rows before deleting the user.
+        const tx2: any = tx; // Path-B model accessors live on Prisma client
+
+        if (userIds.length) {
+          // Tutor: messages cascade from session, but session.studentId
+          // is Restrict — delete sessions first, messages cascade.
+          await tx2.tutorSession.deleteMany({ where: { studentId: { in: userIds } } });
+          // Watermark tokens — onDelete is the default Restrict.
+          await tx2.watermarkToken.deleteMany({ where: { studentId: { in: userIds } } });
+          // Marker claims — onDelete: Cascade on submission, but markerId
+          // FK is Restrict; delete by markerId too in case any active claim
+          // is held by a test marker.
+          await tx2.markerAssignment.deleteMany({ where: { markerId: { in: userIds } } });
+          // Paper variants — studentId is Restrict.
+          await tx2.paperVariantAssignment.deleteMany({
+            where: { studentId: { in: userIds } },
+          });
+          // Quality signals (recordedById is a string, not FK, so safe — skip).
+        }
+
+        // Test papers cascade through PaperQuestion / PaperAssignment / etc.
+        if (paperIds.length) {
+          await tx.paper.deleteMany({ where: { id: { in: paperIds } } });
+        }
+        if (classIds.length) {
+          await tx.class.deleteMany({ where: { id: { in: classIds } } });
+        }
+        if (userIds.length) {
+          await tx.user.deleteMany({ where: { id: { in: userIds } } });
+        }
+        if (boardIds.length) {
+          await tx.examBoard.deleteMany({ where: { id: { in: boardIds } } });
+        }
+      },
+      { timeout: 30000 },
+    );
 
     this.logger.warn(`purgeTestData (live): deleted ${JSON.stringify(summary)}`);
     return { dryRun: false, summary };
