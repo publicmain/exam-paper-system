@@ -213,7 +213,14 @@ export class AdminCleanupService {
           await tx2.paperVariantAssignment.deleteMany({
             where: { studentId: { in: userIds } },
           });
-          // Quality signals (recordedById is a string, not FK, so safe — skip).
+          // StudentSubmissions where the test user submitted to a NON-test
+          // paper (e.g. blackbox tests assigned an existing real paper to
+          // a t5-class). These don't get cleaned by paper.deleteMany
+          // because the paper itself is real. Cascade-deletes AnswerScript
+          // rows automatically. Marker claims on these subs cascade too.
+          await tx.studentSubmission.deleteMany({ where: { studentId: { in: userIds } } });
+          // Code submission results don't reference user directly
+          // (only AnswerScript, which cascades from submission).
         }
 
         // Test papers cascade through PaperQuestion / PaperAssignment / etc.
