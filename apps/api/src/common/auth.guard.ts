@@ -12,7 +12,7 @@ export const Roles = (...roles: string[]) => SetMetadata(ROLES_KEY, roles);
 export interface AuthUser {
   id: string;
   email: string;
-  role: 'teacher' | 'head_teacher' | 'admin';
+  role: 'teacher' | 'head_teacher' | 'admin' | 'student';
   name: string;
 }
 

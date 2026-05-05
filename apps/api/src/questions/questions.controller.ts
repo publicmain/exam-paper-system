@@ -1,11 +1,17 @@
-import { Body, Controller, Delete, Get, Param, Patch, Post, Query, UseGuards } from '@nestjs/common';
+import { Body, Controller, Delete, Get, NotFoundException, Param, Patch, Post, Query, UseGuards } from '@nestjs/common';
 import { QuestionsService } from './questions.service';
 import { CreateQuestionDto, ListQuestionsQuery, UpdateQuestionDto } from './dto';
-import { AuthGuard } from '../common/auth.guard';
+import { AuthGuard, Roles } from '../common/auth.guard';
 import { CurrentUser } from '../common/current-user.decorator';
 
+/**
+ * Whole controller is teacher/admin only. Students must NEVER read /questions
+ * directly — that would leak markScheme, answerContent, and the correct-option
+ * flag for every MCQ in the bank. Cheating would be a one-line fetch.
+ */
 @Controller('questions')
 @UseGuards(AuthGuard)
+@Roles('admin', 'head_teacher', 'teacher')
 export class QuestionsController {
   constructor(private readonly service: QuestionsService) {}
 

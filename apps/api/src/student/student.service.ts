@@ -15,6 +15,11 @@ interface ActorCtx { id: string; role: string; ip?: string | null }
  *   5. Student POSTs /api/student/submissions/:id/submit — final submit.
  *      MCQ answers auto-graded immediately; structured items wait for marker.
  *   6. Marker workflow lives in a separate Block 2 epic (spawned task).
+ *
+ * Security note: student responses never include `markScheme`, `answerContent`,
+ * or the `correct` flag on options. PapersController and QuestionsController
+ * are teacher-only, so the only path students can reach is via this service —
+ * which redacts on the way out (see `redactForStudent`).
  */
 @Injectable()
 export class StudentService {
@@ -90,18 +95,34 @@ export class StudentService {
     });
   }
 
-  /** Save / overwrite a single AnswerScript for a (submission, paperQuestion) pair. */
+  /** Save / overwrite a single AnswerScript for a (submission, paperQuestion) pair.
+   *
+   *  Validates that the paperQuestionId actually belongs to the assignment's paper.
+   *  Without this check, a student who guesses a valid pq id from a DIFFERENT
+   *  paper could write a row bound to that foreign question, polluting their
+   *  submission and (worse) leaking the existence / structure of other papers.
+   *  Also turns the prior Prisma FK-violation 500 (on a totally bogus id) into
+   *  a clean 404. */
   async saveScript(
     submissionId: string,
     body: { paperQuestionId: string; selectedOption?: string | null; textAnswer?: string | null },
     student: ActorCtx,
   ) {
-    const sub = await this.prisma.studentSubmission.findUnique({ where: { id: submissionId } });
+    const sub = await this.prisma.studentSubmission.findUnique({
+      where: { id: submissionId },
+      include: { assignment: { select: { paperId: true } } },
+    });
     if (!sub) throw new NotFoundException('submission not found');
     if (sub.studentId !== student.id) throw new ForbiddenException('not your submission');
     if (sub.status !== 'in_progress') {
       throw new BadRequestException(`submission is ${sub.status}; cannot edit`);
     }
+    const pq = await this.prisma.paperQuestion.findFirst({
+      where: { id: body.paperQuestionId, paperId: sub.assignment.paperId },
+      select: { id: true },
+    });
+    if (!pq) throw new NotFoundException('paperQuestion does not belong to this submission\'s paper');
+
     return this.prisma.answerScript.upsert({
       where: { submissionId_paperQuestionId: { submissionId, paperQuestionId: body.paperQuestionId } },
       create: {
@@ -118,7 +139,14 @@ export class StudentService {
   }
 
   /** Final submit: locks the submission, auto-grades MCQ, leaves structured
-   *  questions for the marker. */
+   *  questions for the marker.
+   *
+   *  Race-safe: uses a conditional `updateMany` with `status='in_progress'` in
+   *  the WHERE clause as the row-level lock. If two concurrent requests hit
+   *  this endpoint, exactly one's updateMany sees count===1 (winner) and the
+   *  other sees count===0 (loser, gets 400). Without this guard, both
+   *  requests' read-then-update windows overlap and both write 'submitted'
+   *  with slightly different `submittedAt` timestamps (T5-1). */
   async finalSubmit(submissionId: string, student: ActorCtx) {
     const sub = await this.prisma.studentSubmission.findUnique({
       where: { id: submissionId },
@@ -133,6 +161,7 @@ export class StudentService {
     }
 
     let autoScore = 0;
+    const scriptUpdates: Array<{ id: string; autoCorrect: boolean; awardedMarks: number }> = [];
     for (const script of sub.scripts) {
       const q = script.paperQuestion.question;
       if (q.questionType !== 'mcq') continue;
@@ -142,14 +171,13 @@ export class StudentService {
       const isCorrect = correctOpt?.key === script.selectedOption;
       const awarded = isCorrect ? script.paperQuestion.marks : 0;
       autoScore += awarded;
-      await this.prisma.answerScript.update({
-        where: { id: script.id },
-        data: { autoCorrect: isCorrect, awardedMarks: awarded },
-      });
+      scriptUpdates.push({ id: script.id, autoCorrect: isCorrect, awardedMarks: awarded });
     }
 
-    return this.prisma.studentSubmission.update({
-      where: { id: submissionId },
+    // Atomic: only flip in_progress -> submitted. Concurrent calls race here
+    // and the loser's count is 0.
+    const claim = await this.prisma.studentSubmission.updateMany({
+      where: { id: submissionId, status: 'in_progress' },
       data: {
         submittedAt: new Date(),
         status: 'submitted',
@@ -157,19 +185,91 @@ export class StudentService {
         // manualScore + totalScore stay null until marker fills structured items.
       },
     });
+    if (claim.count === 0) {
+      // Lost the race or the row is already submitted/closed — surface a clean
+      // error rather than overwriting with a second grading pass.
+      throw new BadRequestException('submission already submitted');
+    }
+
+    // Only the winner persists per-script auto-grade flags (race loser threw
+    // above so this loop runs exactly once).
+    for (const u of scriptUpdates) {
+      await this.prisma.answerScript.update({
+        where: { id: u.id },
+        data: { autoCorrect: u.autoCorrect, awardedMarks: u.awardedMarks },
+      });
+    }
+
+    return this.prisma.studentSubmission.findUnique({ where: { id: submissionId } });
   }
 
-  /** Student fetches their own submission to review answers / marks (when returned). */
+  /** Student fetches their own submission. Returned shape includes the FULL
+   *  paper structure (so the take-paper UI doesn't need to call the
+   *  teacher-only /api/papers/:id endpoint), but all answer-key data is
+   *  redacted out: no `markScheme`, no `answerContent`, no `correct` flag on
+   *  options or snapshotOptions. */
   async getOwnSubmission(submissionId: string, student: ActorCtx) {
     const sub = await this.prisma.studentSubmission.findUnique({
       where: { id: submissionId },
       include: {
-        assignment: { include: { paper: true, class: true } },
-        scripts: { include: { paperQuestion: { include: { question: true } } } },
+        assignment: {
+          include: {
+            class: { select: { id: true, name: true, classCode: true } },
+            paper: {
+              include: {
+                questions: {
+                  orderBy: { sortOrder: 'asc' },
+                  include: { question: { include: { assets: true } } },
+                },
+              },
+            },
+          },
+        },
+        scripts: { include: { paperQuestion: { include: { question: { include: { assets: true } } } } } },
       },
     });
     if (!sub) throw new NotFoundException('submission not found');
     if (sub.studentId !== student.id) throw new ForbiddenException('not your submission');
-    return sub;
+    return this.redactForStudent(sub);
+  }
+
+  /** Strip every answer-key field off questions / options / snapshotOptions
+   *  before sending to a student. Keeps stem, assets, marks, displayIndex,
+   *  and option text/keys — i.e. exactly what's needed to render the paper. */
+  private redactForStudent(sub: any) {
+    const stripOptions = (opts: any) => {
+      if (!Array.isArray(opts)) return opts;
+      return opts.map((o: any) => ({ key: o?.key, text: o?.text }));
+    };
+    const stripQuestion = (q: any) => {
+      if (!q) return q;
+      const { markScheme, answerContent, options, ...rest } = q;
+      return { ...rest, options: stripOptions(options) };
+    };
+    const stripPq = (pq: any) => {
+      if (!pq) return pq;
+      const { snapshotOptions, snapshotContent, ...rest } = pq;
+      // snapshotContent may itself contain a markScheme / answer field; we
+      // pass it through but blank known answer-key fields just in case.
+      const safeSnapshot = snapshotContent && typeof snapshotContent === 'object'
+        ? { ...snapshotContent, markScheme: undefined, answerContent: undefined }
+        : snapshotContent;
+      return {
+        ...rest,
+        snapshotContent: safeSnapshot,
+        snapshotOptions: stripOptions(snapshotOptions),
+        question: stripQuestion(rest.question),
+      };
+    };
+    const paper = sub.assignment?.paper;
+    const safePaper = paper ? {
+      ...paper,
+      questions: (paper.questions ?? []).map(stripPq),
+    } : paper;
+    return {
+      ...sub,
+      assignment: sub.assignment ? { ...sub.assignment, paper: safePaper } : sub.assignment,
+      scripts: (sub.scripts ?? []).map((s: any) => ({ ...s, paperQuestion: stripPq(s.paperQuestion) })),
+    };
   }
 }

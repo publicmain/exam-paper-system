@@ -23,15 +23,12 @@ export default function StudentTakePage() {
     try {
       const sub = await api.openStudentSubmission(assignmentId);
       setSubmission(sub);
+      // /api/student/submissions/:id now returns the full paper structure
+      // with answer-key fields (markScheme, answerContent, options.correct)
+      // redacted server-side. /api/papers/:id is teacher-only and would 401
+      // for student tokens — never call it from here.
       const subFull = await api.getStudentSubmission(sub.id);
-      const p = subFull.assignment?.paper;
-      // Re-fetch paper detail for full questions; the submission detail has
-      // PaperQuestions inside scripts but they may be sparse. Use the
-      // dedicated paper endpoint via the same auth.
-      if (p?.id) {
-        const fullPaper = await api.getPaper(p.id);
-        setPaper(fullPaper);
-      }
+      setPaper(subFull.assignment?.paper ?? null);
       const ans: Record<string, any> = {};
       for (const s of subFull.scripts ?? []) {
         ans[s.paperQuestionId] = { selectedOption: s.selectedOption ?? undefined, textAnswer: s.textAnswer ?? undefined };

@@ -5,12 +5,19 @@ import { Response } from 'express';
 import { PapersService } from './papers.service';
 import { ValidationService } from './validation.service';
 import { GeneratePaperDto, UpdatePaperQuestionDto } from './dto';
-import { AuthGuard } from '../common/auth.guard';
+import { AuthGuard, Roles } from '../common/auth.guard';
 import { CurrentUser } from '../common/current-user.decorator';
 import { PdfService } from '../pdf/pdf.service';
 
+/**
+ * Whole controller is teacher/admin only. Students must NEVER read /papers
+ * directly — they could pull mark schemes, answer-key PDFs, or paper detail
+ * including correct-option flags. The student-take UI gets a redacted paper
+ * via GET /api/student/submissions/:id (see StudentService.getOwnSubmission).
+ */
 @Controller('papers')
 @UseGuards(AuthGuard)
+@Roles('admin', 'head_teacher', 'teacher')
 export class PapersController {
   constructor(
     private readonly service: PapersService,

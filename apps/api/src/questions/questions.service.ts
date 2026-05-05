@@ -156,6 +156,10 @@ export class QuestionsService {
   }
 
   async delete(id: string) {
+    // Soft-delete via status retire. Prisma `update` raises P2025 on missing
+    // row, which would surface as a 500. Pre-check so callers get a clean 404.
+    const exists = await this.prisma.question.findUnique({ where: { id }, select: { id: true } });
+    if (!exists) throw new NotFoundException('question not found');
     return this.prisma.question.update({
       where: { id },
       data: { status: QuestionStatus.retired },
