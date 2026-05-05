@@ -290,6 +290,143 @@ export class AdminSyllabusService {
     }
   }
 
+  // ---------- Update / delete ExamBoard / Subject / Component (Fix #15) ----------
+  async updateExamBoard(id: string, dto: { code?: string; name?: string }, actor: Actor) {
+    const existing = await this.prisma.examBoard.findUnique({ where: { id } });
+    if (!existing) throw new NotFoundException('exam board not found');
+    try {
+      const board = await this.prisma.examBoard.update({ where: { id }, data: dto });
+      await this.audit.log({
+        actorId: actor.id, actorRole: actor.role,
+        action: 'admin_syllabus.exam_board.update',
+        entityType: 'ExamBoard', entityId: id,
+        diff: { before: existing, after: board },
+        ip: actor.ip,
+      });
+      return board;
+    } catch (e) {
+      if (isPrismaUnique(e)) throw new ConflictException(`exam board with code "${dto.code}" already exists`);
+      throw e;
+    }
+  }
+
+  async deleteExamBoard(id: string, actor: Actor) {
+    const existing = await this.prisma.examBoard.findUnique({ where: { id } });
+    if (!existing) throw new NotFoundException('exam board not found');
+    const subjectCount = await this.prisma.subject.count({ where: { examBoardId: id } });
+    if (subjectCount > 0) {
+      throw new ConflictException({
+        message: 'cannot delete exam board: subjects still attached — delete them first',
+        subjects: subjectCount,
+      });
+    }
+    await this.prisma.examBoard.delete({ where: { id } });
+    await this.audit.log({
+      actorId: actor.id, actorRole: actor.role,
+      action: 'admin_syllabus.exam_board.delete',
+      entityType: 'ExamBoard', entityId: id,
+      diff: { before: existing },
+      ip: actor.ip,
+    });
+    return { ok: true };
+  }
+
+  async updateSubject(id: string, dto: { code?: string; name?: string; level?: any }, actor: Actor) {
+    const existing = await this.prisma.subject.findUnique({ where: { id } });
+    if (!existing) throw new NotFoundException('subject not found');
+    try {
+      const subject = await this.prisma.subject.update({ where: { id }, data: dto });
+      await this.audit.log({
+        actorId: actor.id, actorRole: actor.role,
+        action: 'admin_syllabus.subject.update',
+        entityType: 'Subject', entityId: id,
+        diff: { before: existing, after: subject },
+        ip: actor.ip,
+      });
+      return subject;
+    } catch (e) {
+      if (isPrismaUnique(e)) throw new ConflictException('subject with that code already exists for this board');
+      throw e;
+    }
+  }
+
+  async deleteSubject(id: string, actor: Actor) {
+    const existing = await this.prisma.subject.findUnique({ where: { id } });
+    if (!existing) throw new NotFoundException('subject not found');
+    const [componentCount, questionCount, paperCount, templateCount] = await Promise.all([
+      this.prisma.syllabusComponent.count({ where: { subjectId: id } }),
+      this.prisma.question.count({ where: { subjectId: id } }),
+      this.prisma.paper.count({ where: { subjectId: id } }),
+      this.prisma.paperTemplate.count({ where: { subjectId: id } }),
+    ]);
+    if (componentCount + questionCount + paperCount + templateCount > 0) {
+      throw new ConflictException({
+        message: 'cannot delete subject: data still referencing it',
+        components: componentCount,
+        questions: questionCount,
+        papers: paperCount,
+        templates: templateCount,
+      });
+    }
+    await this.prisma.subject.delete({ where: { id } });
+    await this.audit.log({
+      actorId: actor.id, actorRole: actor.role,
+      action: 'admin_syllabus.subject.delete',
+      entityType: 'Subject', entityId: id,
+      diff: { before: existing },
+      ip: actor.ip,
+    });
+    return { ok: true };
+  }
+
+  async updateComponent(id: string, dto: { code?: string; name?: string }, actor: Actor) {
+    const existing = await this.prisma.syllabusComponent.findUnique({ where: { id } });
+    if (!existing) throw new NotFoundException('component not found');
+    try {
+      const component = await this.prisma.syllabusComponent.update({ where: { id }, data: dto });
+      await this.audit.log({
+        actorId: actor.id, actorRole: actor.role,
+        action: 'admin_syllabus.component.update',
+        entityType: 'SyllabusComponent', entityId: id,
+        diff: { before: existing, after: component },
+        ip: actor.ip,
+      });
+      return component;
+    } catch (e) {
+      if (isPrismaUnique(e)) throw new ConflictException('component with that code already exists for this subject');
+      throw e;
+    }
+  }
+
+  async deleteComponent(id: string, actor: Actor) {
+    const existing = await this.prisma.syllabusComponent.findUnique({ where: { id } });
+    if (!existing) throw new NotFoundException('component not found');
+    const [topicCount, questionCount, paperCount, templateCount] = await Promise.all([
+      this.prisma.topic.count({ where: { componentId: id } }),
+      this.prisma.question.count({ where: { componentId: id } }),
+      this.prisma.paper.count({ where: { componentId: id } }),
+      this.prisma.paperTemplate.count({ where: { componentId: id } }),
+    ]);
+    if (topicCount + questionCount + paperCount + templateCount > 0) {
+      throw new ConflictException({
+        message: 'cannot delete component: data still referencing it',
+        topics: topicCount,
+        questions: questionCount,
+        papers: paperCount,
+        templates: templateCount,
+      });
+    }
+    await this.prisma.syllabusComponent.delete({ where: { id } });
+    await this.audit.log({
+      actorId: actor.id, actorRole: actor.role,
+      action: 'admin_syllabus.component.delete',
+      entityType: 'SyllabusComponent', entityId: id,
+      diff: { before: existing },
+      ip: actor.ip,
+    });
+    return { ok: true };
+  }
+
   // ---------- Bulk import ----------
   async importSyllabus(dto: ImportSyllabusDto, actor: Actor) {
     const result = await this.prisma.$transaction(async (tx) => {

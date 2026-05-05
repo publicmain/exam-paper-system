@@ -11,6 +11,8 @@ export default function PaperEditPage() {
   const [editingPq, setEditingPq] = useState<any>(null);
   const [replacing, setReplacing] = useState<{ pqId: string; candidates: any[] } | null>(null);
   const [busy, setBusy] = useState(false);
+  // Fix #14: paper-to-class assign modal.
+  const [assigning, setAssigning] = useState(false);
 
   const reload = useCallback(async () => {
     if (!id) return;
@@ -102,6 +104,8 @@ export default function PaperEditPage() {
         <div className="flex gap-2">
           <button className="btn" onClick={() => exportPdf('paper')}>Export PDF</button>
           <button className="btn" onClick={() => exportPdf('answer_key')}>Answer Key PDF</button>
+          {/* Fix #14: previously this critical action lived only in the API */}
+          <button className="btn" onClick={() => setAssigning(true)}>Assign to class…</button>
           {paper.status !== 'published' && <button className="btn btn-primary" onClick={publish}>Publish</button>}
         </div>
       </div>
@@ -249,7 +253,103 @@ export default function PaperEditPage() {
           </div>
         </Modal>
       )}
+
+      {assigning && id && (
+        <AssignModal paperId={id} onClose={() => setAssigning(false)} />
+      )}
     </div>
+  );
+}
+
+function AssignModal({ paperId, onClose }: { paperId: string; onClose: () => void }) {
+  const [classes, setClasses] = useState<any[]>([]);
+  const [classId, setClassId] = useState('');
+  const [startAt, setStartAt] = useState('');
+  const [dueAt, setDueAt] = useState('');
+  const [durationMin, setDurationMin] = useState<number | ''>('');
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
+  const [done, setDone] = useState(false);
+
+  useEffect(() => {
+    api.listClasses().then(setClasses).catch((e) => setErr(String(e?.message ?? e)));
+  }, []);
+
+  async function save() {
+    if (!classId) {
+      setErr('Pick a class.');
+      return;
+    }
+    setBusy(true);
+    setErr(null);
+    try {
+      // ISO datetime if provided. Empty => null on the server.
+      const body: any = { classId };
+      if (startAt) body.startAt = new Date(startAt).toISOString();
+      if (dueAt) body.dueAt = new Date(dueAt).toISOString();
+      if (durationMin !== '' && Number(durationMin) > 0) body.durationMin = Number(durationMin);
+      await api.assignPaperToClass(paperId, body);
+      setDone(true);
+    } catch (e: any) {
+      setErr(String(e?.message ?? e));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <Modal onClose={onClose} title="Assign paper to class">
+      {done ? (
+        <div className="space-y-3">
+          <div className="text-sm text-green-700">Assigned. Students will see this in their My Papers list.</div>
+          <div className="flex justify-end">
+            <button className="btn btn-primary" onClick={onClose}>Close</button>
+          </div>
+        </div>
+      ) : (
+        <div className="space-y-3">
+          <label className="block text-sm">
+            <span className="text-xs text-gray-500">Class</span>
+            <select value={classId} onChange={(e) => setClassId(e.target.value)} className="border rounded px-2 py-1 w-full">
+              <option value="">— pick —</option>
+              {classes.map((c: any) => (
+                <option key={c.id} value={c.id}>
+                  {c.name} ({c.classCode}) · {c._count?.enrollments ?? 0} students
+                </option>
+              ))}
+            </select>
+          </label>
+          <div className="grid grid-cols-2 gap-3">
+            <label className="block text-sm">
+              <span className="text-xs text-gray-500">Open at (optional)</span>
+              <input type="datetime-local" value={startAt} onChange={(e) => setStartAt(e.target.value)} className="border rounded px-2 py-1 w-full" />
+            </label>
+            <label className="block text-sm">
+              <span className="text-xs text-gray-500">Due at (optional)</span>
+              <input type="datetime-local" value={dueAt} onChange={(e) => setDueAt(e.target.value)} className="border rounded px-2 py-1 w-full" />
+            </label>
+          </div>
+          <label className="block text-sm">
+            <span className="text-xs text-gray-500">Time limit (minutes, optional)</span>
+            <input
+              type="number"
+              value={durationMin}
+              onChange={(e) => setDurationMin(e.target.value === '' ? '' : Number(e.target.value))}
+              className="border rounded px-2 py-1 w-full"
+              min={5}
+              max={360}
+            />
+          </label>
+          {err && <div className="text-sm text-red-700">{err}</div>}
+          <div className="flex justify-end gap-2 pt-1">
+            <button className="btn" onClick={onClose} disabled={busy}>Cancel</button>
+            <button className="btn btn-primary" onClick={save} disabled={busy}>
+              {busy ? 'Assigning…' : 'Assign'}
+            </button>
+          </div>
+        </div>
+      )}
+    </Modal>
   );
 }
 

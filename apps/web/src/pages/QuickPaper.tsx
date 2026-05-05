@@ -261,7 +261,11 @@ export default function QuickPaperPage() {
           >
             {components.map((c: any) => (
               <option key={c.id} value={c.id}>
-                {c.code} {c.name}
+                {/* Fix #11: when name already starts with code (e.g. "AS Computer Science")
+                    we'd otherwise render "AS AS Computer Science". Strip the leading code. */}
+                {c.code === c.name || c.name?.startsWith(c.code + ' ')
+                  ? c.name
+                  : `${c.code} ${c.name}`}
               </option>
             ))}
           </select>

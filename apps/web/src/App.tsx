@@ -16,6 +16,7 @@ import QuickPaperPage from './pages/QuickPaper';
 import StudentHomePage from './pages/StudentHome';
 import StudentTakePage from './pages/StudentTake';
 // Path-B pages
+import ClassesPage from './pages/Classes';
 import MarkerQueuePage from './pages/MarkerQueue';
 import MarkerScriptPage from './pages/MarkerScript';
 import ClassStatsPage from './pages/ClassStats';
@@ -75,11 +76,17 @@ export default function App() {
 
   return (
     <div className="min-h-screen flex flex-col">
+      {/* Fix #1: header was wrapping the logo to 3 lines and most of the
+          nav items to 2 lines because the flex container had no min-width
+          guard and gap-1 left no horizontal slack. Setting whitespace-nowrap
+          on every nav-link + min-w-0 + overflow-x-auto on the nav strip keeps
+          everything on one row and lets it scroll horizontally on narrow
+          viewports rather than stack. */}
       <header className="bg-white border-b">
-        <div className="max-w-7xl mx-auto px-6 py-3 flex items-center justify-between">
-          <div className="flex items-center gap-6">
-            <Link to="/" className="font-bold text-lg">📄 Exam Paper System</Link>
-            <nav className="flex gap-1 text-sm">
+        <div className="max-w-7xl mx-auto px-6 py-3 flex items-center justify-between gap-4">
+          <div className="flex items-center gap-6 min-w-0 flex-1">
+            <Link to="/" className="font-bold text-lg whitespace-nowrap shrink-0">📄 Exam Paper System</Link>
+            <nav className="flex gap-1 text-sm overflow-x-auto min-w-0">
               <NavLink to="/" label="Dashboard" />
               <NavLink to="/papers" label="Papers" />
               <NavLink to="/questions" label="Questions" />
@@ -92,6 +99,10 @@ export default function App() {
               )}
               {(user.role === 'admin' || user.role === 'head_teacher') && (
                 <NavLink to="/ai-generate" label="AI Generate" />
+              )}
+              {/* Fix #14: classes management nav */}
+              {(user.role === 'admin' || user.role === 'head_teacher' || user.role === 'teacher') && (
+                <NavLink to="/classes" label="Classes" />
               )}
               {(user.role === 'admin' || user.role === 'head_teacher' || user.role === 'teacher') && (
                 <NavLink to="/marker" label="Marker" />
@@ -159,8 +170,11 @@ export default function App() {
             }
           />
           {/* Path-B routes */}
+          <Route path="/classes" element={<ClassesPage />} />
           <Route path="/marker" element={<MarkerQueuePage />} />
-          <Route path="/marker/submission/:id" element={<MarkerScriptPage />} />
+          {/* Fix #16: param name must match useParams<{ submissionId }> in MarkerScript.tsx,
+              otherwise the page guard early-returns and gets stuck at "Loading…". */}
+          <Route path="/marker/submission/:submissionId" element={<MarkerScriptPage />} />
           <Route path="/stats" element={<ClassStatsPage />} />
           <Route path="/stats/wrong-answers" element={<WrongAnswerDashboardPage />} />
           <Route
@@ -204,7 +218,7 @@ function NavLink({ to, label }: { to: string; label: string }) {
   return (
     <Link
       to={to}
-      className={`px-3 py-1.5 rounded-md ${active ? 'bg-gray-100 font-medium' : 'hover:bg-gray-50'}`}
+      className={`px-3 py-1.5 rounded-md whitespace-nowrap shrink-0 ${active ? 'bg-gray-100 font-medium' : 'hover:bg-gray-50'}`}
     >
       {label}
     </Link>

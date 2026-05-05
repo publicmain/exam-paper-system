@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { api as baseApi } from '../lib/api';
+import { formatSubjectLabel } from '../lib/labels';
 
 // Cast to `any` because the four B3 endpoints
 // (qualityLogSignal / qualityQuestionScore / qualityTopicLeaderboard /
@@ -174,7 +175,8 @@ export default function QualityFeedbackPage() {
             <option value="">— pick subject —</option>
             {subjects.map((s) => (
               <option key={s.id} value={s.id}>
-                {s.code} {s.name} ({s.level})
+                {/* Fix #9: unify subject label across pages */}
+                {formatSubjectLabel(s)}
               </option>
             ))}
           </select>
@@ -268,12 +270,32 @@ export default function QualityFeedbackPage() {
         </div>
       )}
 
-      {topicId && leaderboard && (
-        <div className="grid gap-3" style={{ gridTemplateColumns: '1fr 1fr' }}>
-          <Leaderboard title="Top questions" entries={leaderboard.top} tone="green" />
-          <Leaderboard title="Bottom questions" entries={leaderboard.bottom} tone="red" />
-        </div>
-      )}
+      {topicId && leaderboard && (() => {
+        // Fix #10: when no signals have been logged yet for this topic, every
+        // question's aggregate score is 0.00, so sort-asc and sort-desc both
+        // return the same list — rendering identical "Top" and "Bottom"
+        // columns is confusing. Detect that case and collapse to a single
+        // unsorted list with a clarifying note.
+        const allEqual = stats != null && stats.totalSignals === 0;
+        if (allEqual) {
+          return (
+            <div className="card">
+              <div className="font-semibold mb-1">Questions in this topic</div>
+              <div className="text-xs text-gray-500 mb-3">
+                No quality signals logged yet — there is no top / bottom split until
+                students answer or teachers approve / reject these questions.
+              </div>
+              <Leaderboard title="" entries={leaderboard.top} tone="gray" />
+            </div>
+          );
+        }
+        return (
+          <div className="grid gap-3" style={{ gridTemplateColumns: '1fr 1fr' }}>
+            <Leaderboard title="Top questions" entries={leaderboard.top} tone="green" />
+            <Leaderboard title="Bottom questions" entries={leaderboard.bottom} tone="red" />
+          </div>
+        );
+      })()}
     </div>
   );
 }
@@ -310,11 +332,14 @@ function Leaderboard({
 }: {
   title: string;
   entries: LeaderboardEntry[];
-  tone: 'green' | 'red';
+  tone: 'green' | 'red' | 'gray';
 }) {
+  // tone="gray" used in the no-signals collapse path (Fix #10).
+  const scoreColor =
+    tone === 'green' ? 'text-green-700' : tone === 'red' ? 'text-red-700' : 'text-gray-500';
   return (
     <div className="card p-0 overflow-hidden">
-      <div className="px-3 py-2 border-b text-sm font-semibold">{title}</div>
+      {title && <div className="px-3 py-2 border-b text-sm font-semibold">{title}</div>}
       {entries.length === 0 ? (
         <div className="px-3 py-4 text-sm text-gray-600">No questions on this topic yet.</div>
       ) : (
@@ -323,7 +348,7 @@ function Leaderboard({
             <div key={e.questionId} className="px-3 py-2 text-sm">
               <div className="flex justify-between items-baseline">
                 <span className="font-mono text-xs text-gray-500">{e.questionId.slice(-8)}</span>
-                <span className={`font-semibold ${tone === 'green' ? 'text-green-700' : 'text-red-700'}`}>
+                <span className={`font-semibold ${scoreColor}`}>
                   {e.score >= 0 ? '+' : ''}
                   {e.score.toFixed(2)}
                 </span>

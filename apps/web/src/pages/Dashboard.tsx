@@ -43,7 +43,16 @@ export default function DashboardPage() {
             <Link key={p.id} to={`/papers/${p.id}`} className="flex items-center justify-between py-3 hover:bg-gray-50 -mx-4 px-4">
               <div>
                 <div className="font-medium">{p.name}</div>
-                <div className="text-xs text-gray-500">{p.subject?.name} · {p.component?.name} · {p.durationMin}min · {p.totalMarksActual}/{p.totalMarksTarget} marks</div>
+                {/* Fix #4: filter null/undefined parts before joining so a missing
+                    component doesn't render as " ·  · " (double middle dot). */}
+                <div className="text-xs text-gray-500">
+                  {[
+                    p.subject?.name,
+                    p.component?.name,
+                    p.durationMin ? `${p.durationMin}min` : null,
+                    `${p.totalMarksActual}/${p.totalMarksTarget} marks`,
+                  ].filter(Boolean).join(' · ')}
+                </div>
               </div>
               <span className={`badge ${p.status === 'published' ? 'badge-success' : ''}`}>{p.status}</span>
             </Link>

@@ -146,10 +146,18 @@ export default function ClassStatsPage() {
           <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
             <StatCard label="Students" value={overview.studentCount} />
             <StatCard label="Papers assigned" value={overview.paperCount} />
+            {/* Fix #6: include in-progress in the hint so the math reads
+                consistently. Before: "1 / 57 ... 55 missing" left readers
+                wondering where the 57th student went (the one who started
+                but didn't submit). */}
             <StatCard
               label="Submitted"
               value={`${overview.totals.submitted} / ${overview.totals.expectedSubmissions}`}
-              hint={`${overview.totals.missing} missing`}
+              hint={
+                overview.totals.inProgress > 0
+                  ? `${overview.totals.inProgress} in progress · ${overview.totals.missing} missing`
+                  : `${overview.totals.missing} missing`
+              }
             />
             <StatCard
               label="Mean auto-score"

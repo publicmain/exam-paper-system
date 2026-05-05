@@ -111,7 +111,7 @@ export default function MarkerQueuePage() {
             </div>
             <div className="flex flex-col gap-2 items-end">
               {claimedByMe ? (
-                <Link to={`/marker/${it.id}`} className="btn btn-primary">
+                <Link to={`/marker/submission/${it.id}`} className="btn btn-primary">
                   Continue marking
                 </Link>
               ) : claimedByOther ? (

@@ -33,6 +33,7 @@ import { WechatNotifyModule } from './wechat-notify/wechat-notify.module';
 import { CodegraderModule } from './codegrader/codegrader.module';
 import { AiTutorModule } from './ai-tutor/ai-tutor.module';
 import { WatermarkModule } from './watermark/watermark.module';
+import { AdminCleanupModule } from './admin-cleanup/admin-cleanup.module';
 import { HealthController } from './health.controller';
 
 @Module({
@@ -72,6 +73,7 @@ import { HealthController } from './health.controller';
     CodegraderModule,
     AiTutorModule,
     WatermarkModule,
+    AdminCleanupModule,
   ],
   controllers: [HealthController],
   providers: [

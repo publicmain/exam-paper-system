@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { api } from '../lib/api';
+import { formatSubjectLabel } from '../lib/labels';
 
 const QUESTION_TYPES = [
   { value: '', label: '— let AI decide —' },
@@ -95,7 +96,12 @@ export default function AiGeneratePage() {
       {budget && (
         <div className="card text-xs text-gray-700 flex items-center justify-between">
           <div>
-            Anthropic month-to-date: <strong>${budget.monthToDateUsd.toFixed(4)}</strong>
+            {/* Fix #8: clarify scope. This counter resets every calendar
+                month and only counts question-generation; the AI Cost
+                dashboard aggregates ALL AI spend (image, quick-paper, svg)
+                across whatever date range you pick. Linking the two pages
+                so admins can reconcile the difference. */}
+            Anthropic this month (question gen): <strong>${budget.monthToDateUsd.toFixed(4)}</strong>
             {budget.capUsd !== null && (
               <>
                 {' · '}Cap: ${budget.capUsd}
@@ -107,6 +113,10 @@ export default function AiGeneratePage() {
                 (no cap set — set ANTHROPIC_MONTHLY_USD_CAP env var to limit spending)
               </span>
             )}
+            <span className="ml-2 text-gray-500">
+              (full AI spend across image / quick-paper / svg lives in the{' '}
+              <Link to="/admin/cost" className="underline">AI Cost dashboard</Link>)
+            </span>
           </div>
         </div>
       )}
@@ -122,7 +132,8 @@ export default function AiGeneratePage() {
               <option value="">— select —</option>
               {subjects.map((s: any) => (
                 <option key={s.id} value={s.id}>
-                  {s.examBoard.code} {s.code} {s.name}
+                  {/* Fix #9: unify subject label across pages */}
+                  {formatSubjectLabel(s)}
                 </option>
               ))}
             </select>

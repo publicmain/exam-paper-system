@@ -36,8 +36,18 @@ async function apiFetch<T = any>(method: string, path: string, body?: any): Prom
     body: body !== undefined ? JSON.stringify(body) : undefined,
   });
   if (!res.ok) {
+    // Fix #7: Nest serialises errors as `{"message":"...","error":"...","statusCode":N}`
+    // — surfacing that raw JSON to the user is ugly. Parse and pull just `.message`.
     const text = await res.text();
-    throw new Error(text || `${method} ${path} ${res.status}`);
+    let friendly = text;
+    try {
+      const parsed = JSON.parse(text);
+      if (parsed && typeof parsed.message === 'string') friendly = parsed.message;
+      else if (Array.isArray(parsed?.message)) friendly = parsed.message.join('; ');
+    } catch {
+      /* not JSON, fall through to raw text */
+    }
+    throw new Error(friendly || `${method} ${path} ${res.status}`);
   }
   if (res.status === 204) return undefined as T;
   const ct = res.headers.get('content-type') || '';

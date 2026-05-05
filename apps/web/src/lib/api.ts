@@ -14,8 +14,19 @@ async function request<T = any>(method: string, path: string, body?: any): Promi
     body: body !== undefined ? JSON.stringify(body) : undefined,
   });
   if (!res.ok) {
+    // Fix #7 (global): Nest returns
+    //   {"message": "...", "error": "...", "statusCode": N}
+    // — show just the human message to callers, never the raw JSON.
     const text = await res.text();
-    throw new Error(text || `${method} ${path} failed: ${res.status}`);
+    let friendly = text;
+    try {
+      const parsed = JSON.parse(text);
+      if (parsed && typeof parsed.message === 'string') friendly = parsed.message;
+      else if (Array.isArray(parsed?.message)) friendly = parsed.message.join('; ');
+    } catch {
+      /* not JSON, fall through to raw text */
+    }
+    throw new Error(friendly || `${method} ${path} failed: ${res.status}`);
   }
   if (res.status === 204) return undefined as T;
   const ct = res.headers.get('content-type') || '';
@@ -163,6 +174,17 @@ export const api = {
   adminUpdateTopic: (id: string, data: any) => request('PATCH', `/admin-syllabus/topics/${id}`, data),
   adminDeleteTopic: (id: string) => request('DELETE', `/admin-syllabus/topics/${id}`),
   adminImportSyllabus: (data: any) => request('POST', '/admin-syllabus/import', data),
+  // Fix #15: full CRUD for board / subject / component
+  adminUpdateExamBoard: (id: string, data: any) => request('PATCH', `/admin-syllabus/exam-boards/${id}`, data),
+  adminDeleteExamBoard: (id: string) => request('DELETE', `/admin-syllabus/exam-boards/${id}`),
+  adminUpdateSubject: (id: string, data: any) => request('PATCH', `/admin-syllabus/subjects/${id}`, data),
+  adminDeleteSubject: (id: string) => request('DELETE', `/admin-syllabus/subjects/${id}`),
+  adminUpdateComponent: (id: string, data: any) => request('PATCH', `/admin-syllabus/components/${id}`, data),
+  adminDeleteComponent: (id: string) => request('DELETE', `/admin-syllabus/components/${id}`),
+
+  // admin cleanup (admin only) — Fix #2 + #5
+  adminFixReplacementChars: () => request('POST', '/admin-cleanup/fix-replacement-chars'),
+  adminPurgeTestData: (dryRun: boolean) => request('POST', '/admin-cleanup/purge-test-data', { dryRun }),
 
   // admin cost dashboard (admin only)
   costSummary: (from?: string, to?: string) => request('GET', `/admin-cost/summary${qs({ from, to })}`),

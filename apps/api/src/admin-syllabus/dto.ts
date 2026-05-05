@@ -44,6 +44,32 @@ export const UpdateTopicSchema = z
   .refine((v) => Object.keys(v).length > 0, { message: 'no fields to update' });
 export type UpdateTopicDto = z.infer<typeof UpdateTopicSchema>;
 
+// Fix #15: PATCH/DELETE for boards / subjects / components.
+export const UpdateExamBoardSchema = z
+  .object({
+    code: z.string().min(2).max(20).regex(/^[A-Z0-9_-]+$/).optional(),
+    name: z.string().min(2).max(120).optional(),
+  })
+  .refine((v) => Object.keys(v).length > 0, { message: 'no fields to update' });
+export type UpdateExamBoardDto = z.infer<typeof UpdateExamBoardSchema>;
+
+export const UpdateSubjectSchema = z
+  .object({
+    code: z.string().min(1).max(40).optional(),
+    name: z.string().min(1).max(120).optional(),
+    level: z.enum(LEVEL_VALUES).optional(),
+  })
+  .refine((v) => Object.keys(v).length > 0, { message: 'no fields to update' });
+export type UpdateSubjectDto = z.infer<typeof UpdateSubjectSchema>;
+
+export const UpdateComponentSchema = z
+  .object({
+    code: z.string().min(1).max(40).optional(),
+    name: z.string().min(1).max(120).optional(),
+  })
+  .refine((v) => Object.keys(v).length > 0, { message: 'no fields to update' });
+export type UpdateComponentDto = z.infer<typeof UpdateComponentSchema>;
+
 // Bulk-import schema — mirrors the runtime shape of syllabi/topics-9709.ts so a
 // migration from code-defined to DB-defined is a literal JSON paste.
 const TopicNodeSchema: z.ZodType<TopicNode> = z.lazy(() =>

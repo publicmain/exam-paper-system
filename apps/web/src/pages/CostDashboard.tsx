@@ -104,6 +104,13 @@ export default function CostDashboardPage() {
   const [error, setError] = useState<string | null>(null);
 
   async function refresh() {
+    // Fix #17: refuse a reversed range. The backend currently silently
+    // returns the full window in this case which is misleading — explicit
+    // error in the UI is better than wrong-looking numbers.
+    if (from && to && from > to) {
+      setError(`Invalid range: From (${from}) is after To (${to}).`);
+      return;
+    }
     setLoading(true);
     setError(null);
     try {

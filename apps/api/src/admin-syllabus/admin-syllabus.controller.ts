@@ -18,6 +18,9 @@ import {
   CreateComponentSchema,
   CreateTopicSchema,
   UpdateTopicSchema,
+  UpdateExamBoardSchema,
+  UpdateSubjectSchema,
+  UpdateComponentSchema,
   ImportSyllabusSchema,
 } from './dto';
 
@@ -103,6 +106,59 @@ export class AdminSyllabusController {
       role: user.role,
       ip: req.ip ?? null,
     });
+  }
+
+  // Fix #15: PATCH/DELETE for board / subject / component (was topic-only).
+
+  @Patch('exam-boards/:id')
+  updateExamBoard(
+    @Param('id') id: string,
+    @Body() body: unknown,
+    @CurrentUser() user: any,
+    @Req() req: Request,
+  ) {
+    const parsed = UpdateExamBoardSchema.safeParse(body);
+    if (!parsed.success) throw new BadRequestException(parsed.error.flatten());
+    return this.svc.updateExamBoard(id, parsed.data, { id: user.id, role: user.role, ip: req.ip ?? null });
+  }
+
+  @Delete('exam-boards/:id')
+  deleteExamBoard(@Param('id') id: string, @CurrentUser() user: any, @Req() req: Request) {
+    return this.svc.deleteExamBoard(id, { id: user.id, role: user.role, ip: req.ip ?? null });
+  }
+
+  @Patch('subjects/:id')
+  updateSubject(
+    @Param('id') id: string,
+    @Body() body: unknown,
+    @CurrentUser() user: any,
+    @Req() req: Request,
+  ) {
+    const parsed = UpdateSubjectSchema.safeParse(body);
+    if (!parsed.success) throw new BadRequestException(parsed.error.flatten());
+    return this.svc.updateSubject(id, parsed.data, { id: user.id, role: user.role, ip: req.ip ?? null });
+  }
+
+  @Delete('subjects/:id')
+  deleteSubject(@Param('id') id: string, @CurrentUser() user: any, @Req() req: Request) {
+    return this.svc.deleteSubject(id, { id: user.id, role: user.role, ip: req.ip ?? null });
+  }
+
+  @Patch('components/:id')
+  updateComponent(
+    @Param('id') id: string,
+    @Body() body: unknown,
+    @CurrentUser() user: any,
+    @Req() req: Request,
+  ) {
+    const parsed = UpdateComponentSchema.safeParse(body);
+    if (!parsed.success) throw new BadRequestException(parsed.error.flatten());
+    return this.svc.updateComponent(id, parsed.data, { id: user.id, role: user.role, ip: req.ip ?? null });
+  }
+
+  @Delete('components/:id')
+  deleteComponent(@Param('id') id: string, @CurrentUser() user: any, @Req() req: Request) {
+    return this.svc.deleteComponent(id, { id: user.id, role: user.role, ip: req.ip ?? null });
   }
 
   @Post('import')
