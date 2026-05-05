@@ -263,7 +263,27 @@ export class AdminCleanupService {
       await step('class', () => this.prisma.class.deleteMany({ where: { id: { in: classIds } } }));
     }
     if (userIds.length) {
-      await step('user', () => this.prisma.user.deleteMany({ where: { id: { in: userIds } } }));
+      // Per-user delete with isolated try/catch so one stuck user (Restrict
+      // FK we haven't covered) doesn't block the whole batch. Logs the
+      // first 5 distinct failure shapes to stepFailed for debugging.
+      let userOk = 0;
+      const userErrors: Map<string, string[]> = new Map();
+      for (const uid of userIds) {
+        try {
+          await this.prisma.user.delete({ where: { id: uid } });
+          userOk += 1;
+        } catch (e: any) {
+          const m = e?.message?.match(/foreign key constraint[^"]*"([^"]+)"/i)?.[1] ?? 'unknown-FK';
+          if (!userErrors.has(m)) userErrors.set(m, []);
+          if (userErrors.get(m)!.length < 5) userErrors.get(m)!.push(uid);
+        }
+      }
+      stepCounts['user'] = userOk;
+      if (userErrors.size > 0) {
+        for (const [fk, sample] of userErrors) {
+          stepFailed.push(`user FK=${fk} count=${sample.length}+ sample=${sample.slice(0, 3).join(',')}`);
+        }
+      }
     }
     if (boardIds.length) {
       await step('examBoard', () =>
