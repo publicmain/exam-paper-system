@@ -1,0 +1,11 @@
+// B2 — Class statistics + wrong-answer dashboard.
+//
+// This feature is read-only over existing tables (Class, ClassEnrollment,
+// PaperAssignment, StudentSubmission, AnswerScript, PaperQuestion,
+// Question, Topic). No schema changes are required.
+//
+// If we later want to materialise per-class snapshots (for performance on
+// very large rosters, or for time-series "mastery improving over weeks"
+// charts), this is where to add e.g. a ClassPerformanceSnapshot table.
+// For Phase 1 MVP, computing live from primary tables is fast enough and
+// keeps the data fresh.

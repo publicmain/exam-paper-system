@@ -1,0 +1,120 @@
+// ============================================================
+// Block B7 — Multi-version paper variants + WeChat notifications
+// (PATH-B FRAGMENT, NOT YET MERGED)
+// ============================================================
+//
+// This file lives outside `schema.prisma` because B1..B10 are being built
+// in parallel. Each path-B agent writes its additions here so the
+// integrator can concatenate them into the main schema in one controlled
+// merge.
+//
+// SCOPE FOR B7:
+//   1. PaperVariantAssignment — anti-cheat. One row per (assignment,
+//      student). Stores a deterministic shuffle seed plus the resolved
+//      `questionOrder` and `optionShuffles` so a student who refreshes
+//      mid-exam sees the same form. Adjacent students get different
+//      seeds so their forms differ.
+//   2. NotificationConfig — admin-managed wiring of an event (paper
+//      assigned / marked / low-score) to a channel (wechat_work /
+//      dingtalk / email). `target` is JSON because each channel needs
+//      different shape (webhook URL, mailing list, etc.).
+//   3. NotificationLog — append-only audit of every fired notification.
+//      Stores payload + httpStatus + error so admins can debug a
+//      misconfigured webhook without re-firing.
+//
+// NOTE — back-relations we'd LIKE on existing models but cannot add
+// here (the integrator will add them when concatenating into
+// schema.prisma):
+//   - PaperAssignment needs `variantAssignments PaperVariantAssignment[]`
+//     so Prisma compiles the FK on PaperVariantAssignment.assignment.
+//   - User needs `paperVariants PaperVariantAssignment[]` (named
+//     relation "PaperVariantStudent") so Prisma compiles the FK on
+//     PaperVariantAssignment.student.
+//   - Neither NotificationConfig nor NotificationLog references any
+//     existing model, so no other back-relations are required.
+//
+// See `apps/api/src/paper-variants/MERGE_INSTRUCTIONS.md` for the full
+// merge plan and the two AppModule registration lines.
+
+enum NotificationEvent {
+  paper_assigned
+  paper_marked
+  low_score
+}
+
+enum NotificationChannel {
+  wechat_work
+  dingtalk
+  email
+}
+
+model PaperVariantAssignment {
+  id             String   @id @default(cuid())
+  // FK to PaperAssignment. Cascade-delete: if the underlying assignment
+  // is dropped (e.g. test harness wipe) we don't want orphan variant
+  // rows pointing at a missing assignment.
+  assignmentId   String
+  assignment     PaperAssignment @relation(fields: [assignmentId], references: [id], onDelete: Cascade)
+  // FK to User (the student). Not cascading to keep the audit trail if
+  // a student row is ever soft-deleted; in practice we use restrict.
+  studentId      String
+  student        User     @relation("PaperVariantStudent", fields: [studentId], references: [id])
+  // Deterministic shuffle seed. Same (assignmentId, studentId) → same
+  // seed → same shuffle even after a refresh / reconnect.
+  seed           Int
+  // Resolved display order: array of paperQuestionId strings in the
+  // order this student should see them. Stored rather than recomputed
+  // on each request so the take-paper UI doesn't need to know the
+  // shuffle algorithm.
+  questionOrder  Json
+  // Per-paperQuestion option-letter mapping. Shape:
+  //   { "<paperQuestionId>": { "A": "C", "B": "A", "C": "D", "D": "B" } }
+  // Read as: original option key A is shown to this student under
+  // letter C. The take-paper UI relabels options at render time.
+  // Empty {} when mode is 'shuffle_questions' only.
+  optionShuffles Json
+  generatedAt    DateTime @default(now())
+
+  // One variant row per (assignment, student). Re-running the
+  // generate-for-class endpoint is idempotent because of this.
+  @@unique([assignmentId, studentId])
+  @@index([assignmentId])
+}
+
+model NotificationConfig {
+  id        String              @id @default(cuid())
+  event     NotificationEvent
+  channel   NotificationChannel
+  // Channel-specific routing. For wechat_work / dingtalk this holds
+  //   { "webhookUrl": "https://..." }
+  // For email this holds { "to": ["a@b.com", ...], "subjectPrefix": "..." }
+  // Use JSON so we can evolve the shape without a migration each time.
+  // STUB BEHAVIOUR: if webhookUrl starts with "noop://" the dispatcher
+  // logs to NotificationLog without making an HTTP call. This lets
+  // admins create configs before the real webhook URL is provisioned.
+  target    Json
+  enabled   Boolean             @default(true)
+  createdAt DateTime            @default(now())
+  updatedAt DateTime            @updatedAt
+
+  @@index([event, channel, enabled])
+}
+
+model NotificationLog {
+  id         String              @id @default(cuid())
+  // Logged on every send attempt — even when the matching config is
+  // disabled (then we record a synthetic httpStatus 0 + error
+  // "config disabled" so the operator can see why nothing fired).
+  configId   String?
+  event      NotificationEvent
+  channel    NotificationChannel
+  payload    Json
+  // 0 for noop:// stubs, 200..599 for real HTTP responses, 0 for
+  // network errors (error column carries the message).
+  httpStatus Int
+  error      String?
+  sentAt     DateTime            @default(now())
+
+  @@index([event, sentAt])
+  @@index([configId, sentAt])
+}

@@ -1,0 +1,95 @@
+// ============================================================
+// Block B8 — Code Grader (PATH-B FRAGMENT, NOT YET MERGED)
+// ============================================================
+//
+// This file lives outside `schema.prisma` because B1..B10 are being built in
+// parallel. Each path-B agent writes its additions here so the integrator can
+// concatenate them into the main schema in one controlled merge.
+//
+// SCOPE FOR B8:
+//   - Add `CodeQuestionTestCase` — test cases attached to a Question of
+//     questionType='structured' (or a future 'code' type) for CS coding
+//     items (Cambridge 9608/9618 etc.). Each test case feeds judge0 with
+//     `stdin`, expects `expectedStdout`, and is worth `marksPerCase` if
+//     it passes. `hidden=true` test cases are not shown to students before
+//     submission (only revealed after final submit, matching most online
+//     judges).
+//   - Add `CodeSubmissionResult` — one row per AnswerScript that was
+//     code-judged. Stores last run aggregate so the marker / dashboard
+//     doesn't re-run judge0. `awardedMarks` here is fed back into
+//     AnswerScript.awardedMarks at submit time so the existing scoring
+//     pipeline stays single-source-of-truth.
+//
+// NOTE — fields we'd LIKE to add but cannot, because they live on models
+// owned by other parts of the schema. These are documented in
+// `apps/api/src/codegrader/MERGE_INSTRUCTIONS.md` for the integrator:
+//   - Question needs a back-relation `codeTestCases CodeQuestionTestCase[]`
+//     so Prisma compiles the FK below.
+//   - AnswerScript needs a back-relation `codeResult CodeSubmissionResult?`
+//     so the @unique-on-answerScriptId one-to-one relation compiles.
+
+model CodeQuestionTestCase {
+  id             String   @id @default(cuid())
+  questionId     String
+  // Cascade so deleting a question wipes its test cases — they're useless
+  // without the parent question and we don't want orphan rows polluting
+  // the bank.
+  question       Question @relation(fields: [questionId], references: [id], onDelete: Cascade)
+  // Free-form stdin fed to the student's program. Empty string is fine
+  // for "no input" cases (e.g. print-a-constant programs).
+  stdin          String   @default("")
+  // Expected stdout — string-equality match after trimming trailing
+  // whitespace (judge runner normalises). Multi-line is supported.
+  expectedStdout String
+  // Marks awarded if the case passes. Sum across cases = the codeable
+  // portion of the question's marks. Service layer validates that the
+  // sum doesn't exceed Question.marks at the time of test-case create.
+  marksPerCase   Int      @default(1)
+  // If true, students don't see this case before submitting (sample vs
+  // hidden split, classic online-judge style). Teachers always see all.
+  hidden         Boolean  @default(false)
+  // Optional human label so the teacher UI can show "edge case: empty
+  // input" etc.
+  label          String?
+  sortOrder      Int      @default(0)
+  createdAt      DateTime @default(now())
+
+  @@index([questionId, sortOrder])
+}
+
+model CodeSubmissionResult {
+  id             String   @id @default(cuid())
+  // One result per AnswerScript — re-judging upserts in place so we
+  // never drift from the script.awardedMarks figure shown to students.
+  answerScriptId String   @unique
+  answerScript   AnswerScript @relation(fields: [answerScriptId], references: [id], onDelete: Cascade)
+  // Source language slug used to pick the judge0 language id at run
+  // time. We keep it as String (not enum) so adding python/c++/java
+  // doesn't need a migration.
+  language       String
+  // Last source code we judged — useful for the marker UI to show what
+  // was actually run (the AnswerScript.textAnswer is what the student
+  // saved; codegrader copies it here at judge time so a re-judge after
+  // the student keeps editing still tells you what *this* run saw).
+  sourceCode     String
+  // Aggregate stdout/stderr from the LAST test case (or a join across
+  // all cases, runner's choice). Truncated to 8KB by service to keep
+  // the row small.
+  stdout         String?
+  stderr         String?
+  // Total runtime across all cases in milliseconds (sum, not max).
+  runtimeMs      Int      @default(0)
+  passedCases    Int      @default(0)
+  totalCases     Int      @default(0)
+  // Sum of marksPerCase × passed. Float because partial credit / future
+  // weighting could push it off integers. Mirrored to AnswerScript
+  // .awardedMarks at the same time (single source of truth lives on
+  // AnswerScript so the marker queue can ignore this table).
+  awardedMarks   Float    @default(0)
+  // Free-form metadata: { stub: true } when running without a real
+  // judge0, judge0 token list when real, error info when run failed.
+  meta           Json?
+  judgedAt       DateTime @default(now()) @updatedAt
+
+  @@index([judgedAt])
+}

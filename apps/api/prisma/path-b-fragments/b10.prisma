@@ -1,0 +1,68 @@
+// ============================================================
+// Block B10 — Per-student PDF watermark tokens (PATH-B FRAGMENT, NOT YET MERGED)
+// ============================================================
+//
+// This file lives outside `schema.prisma` because B1..B10 are being built in
+// parallel. Each path-B agent writes its additions here so the integrator can
+// concatenate them into the main schema in one controlled merge.
+//
+// SCOPE FOR B10:
+//   - Add a `WatermarkToken` model that uniquely identifies one (paper,
+//     student) pair — used to overlay an opaque, traceable mark on a PDF
+//     copy of a paper that's downloaded for that specific student.
+//   - If a watermarked paper later appears online, the visible token in the
+//     overlay can be looked up via /watermark/lookup to identify which
+//     student's copy leaked.
+//
+// Properties of the token:
+//   - `token` is an 8-char base32 string (Crockford alphabet) generated in
+//     the service layer. Short enough to be readable on a printed page,
+//     long enough to be effectively non-guessable for the small population
+//     of students per school (32^8 ≈ 1.1e12).
+//   - `@unique` so a leaked token resolves to exactly one record.
+//   - `revokedAt` lets an admin invalidate a leaked download URL (future
+//     downloads via that URL return 410). The token row itself is NEVER
+//     deleted — we want to keep the forensic trail.
+//   - `assignmentId` is OPTIONAL because watermarking can be requested
+//     for a paper the student isn't yet assigned (e.g. preview print
+//     for a teacher-led mock). When present we prefer it for context.
+//
+// NOTES on cross-model relations we'd LIKE to add but cannot from a fragment:
+//   - Paper needs a back-relation `watermarkTokens WatermarkToken[]` so this
+//     FK compiles. The integrator must add it to the Paper model in
+//     `schema.prisma` (see MERGE_INSTRUCTIONS).
+//   - User needs a back-relation `watermarkTokens WatermarkToken[]` (named
+//     relation "WatermarkTokenStudent") so the student-FK compiles.
+//   - PaperAssignment needs an OPTIONAL back-relation
+//     `watermarkTokens WatermarkToken[]` for the assignment FK.
+//   - We deliberately do NOT cascade delete from Paper/User: if a student
+//     is removed we still want to keep the WatermarkToken row for forensic
+//     replay. Set the FK with onDelete: SetNull-style guarantees at the
+//     application layer instead (see watermark.service.ts).
+
+model WatermarkToken {
+  id           String   @id @default(cuid())
+  paperId      String
+  paper        Paper    @relation(fields: [paperId], references: [id])
+  studentId    String
+  student      User     @relation("WatermarkTokenStudent", fields: [studentId], references: [id])
+  // Optional — present when the watermark was issued in the context of a
+  // specific PaperAssignment (so we can scope leaks to a class). Null when
+  // the token was minted ad-hoc (e.g. teacher print preview).
+  assignmentId String?
+  assignment   PaperAssignment? @relation(fields: [assignmentId], references: [id])
+
+  // 8-char Crockford-base32 string — the visible mark. Globally unique so a
+  // single leaked token resolves to exactly one (paper, student) pair.
+  token        String   @unique
+
+  createdAt    DateTime @default(now())
+  // Set when an admin revokes the token — future GET /watermark/download?token=X
+  // returns 410 Gone. The row itself is never deleted (forensic trail).
+  revokedAt    DateTime?
+
+  // Lookup helpers — get-or-create by (paperId, studentId) is the hot path
+  // when we mint the URL, and a lookup by token is the forensic path.
+  @@unique([paperId, studentId])
+  @@index([studentId])
+}

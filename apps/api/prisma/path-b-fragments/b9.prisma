@@ -1,0 +1,89 @@
+// ============================================================
+// Block B9 — AI tutor chat for students (PATH-B FRAGMENT, NOT YET MERGED)
+// ============================================================
+//
+// SCOPE FOR B9:
+//   After a student submits a paper, they can open a tutor chat about a
+//   specific paperQuestion they got wrong. The tutor (Claude) is given the
+//   question stem + the student's submitted answer + the markScheme as a
+//   SYSTEM-ONLY context (the markScheme MUST never appear verbatim in the
+//   reply that goes back to the student — see ai-tutor.service.ts).
+//
+//   We track every assistant message's cost in USD on TutorMessage.costUsd
+//   and roll it up to TutorSession.totalCostUsd. A per-student daily cap is
+//   enforced in the service layer (TUTOR_DAILY_USD_PER_STUDENT_CAP, default
+//   $0.50) so a single student can never burn unbounded API spend.
+//
+// NOTES on cross-model relations the integrator must add:
+//   - User needs a back-relation `tutorSessions TutorSession[]` so the FK
+//     `TutorSession.studentId -> User.id` compiles. See MERGE_INSTRUCTIONS.
+//   - StudentSubmission needs an OPTIONAL back-relation
+//     `tutorSessions TutorSession[]` so the optional FK
+//     `TutorSession.submissionId -> StudentSubmission.id` compiles.
+//   - PaperQuestion needs an OPTIONAL back-relation
+//     `tutorSessions TutorSession[]` so the optional FK
+//     `TutorSession.paperQuestionId -> PaperQuestion.id` compiles.
+//
+//   We deliberately keep submissionId / paperQuestionId OPTIONAL: a student
+//   may want to chat about a topic without binding to a specific submission
+//   row, and we don't want to lose the session if the underlying submission
+//   gets deleted. (The chat history is the durable record.)
+//
+//   Both FKs use `onDelete: SetNull` so deleting a submission / paperQuestion
+//   doesn't cascade-wipe the chat audit trail (cost-audit data must persist).
+
+model TutorSession {
+  id              String   @id @default(cuid())
+  // The student who owns this session. Required: every session is bound to
+  // exactly one student so the per-student daily cap can be summed.
+  studentId       String
+  student         User     @relation(fields: [studentId], references: [id])
+
+  // Optional: the submission this chat is "about". Nullable so the chat
+  // outlives a deleted submission.
+  submissionId    String?
+  submission      StudentSubmission? @relation(fields: [submissionId], references: [id], onDelete: SetNull)
+
+  // Optional: the specific paperQuestion the student wants to discuss. The
+  // tutor uses this to fetch question stem + markScheme server-side.
+  paperQuestionId String?
+  paperQuestion   PaperQuestion? @relation(fields: [paperQuestionId], references: [id], onDelete: SetNull)
+
+  startedAt       DateTime @default(now())
+  endedAt         DateTime?
+
+  // Sum of TutorMessage.costUsd across this session's assistant messages.
+  // Updated atomically by the service after each Claude call.
+  totalCostUsd    Float    @default(0)
+
+  messages        TutorMessage[]
+
+  @@index([studentId, startedAt])
+  @@index([submissionId])
+  @@index([paperQuestionId])
+}
+
+enum TutorRole {
+  student
+  assistant
+}
+
+model TutorMessage {
+  id         String       @id @default(cuid())
+  sessionId  String
+  session    TutorSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  role       TutorRole
+  // Free-form chat content. For 'student' rows this is exactly what the
+  // student typed; for 'assistant' rows this is what Claude returned (and
+  // MUST NOT contain the markScheme verbatim — service-layer prompt
+  // forbids it and the response is not post-processed to add answer-key
+  // fields).
+  content    String
+  createdAt  DateTime     @default(now())
+  // Set only on assistant messages. Computed from the Anthropic
+  // resp.usage.input_tokens / output_tokens at the Sonnet rates declared
+  // in ai-tutor.service.ts. NULL for student rows.
+  costUsd    Float?
+
+  @@index([sessionId, createdAt])
+}

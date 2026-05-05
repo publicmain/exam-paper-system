@@ -15,6 +15,19 @@ import AiGeneratePage from './pages/AiGenerate';
 import QuickPaperPage from './pages/QuickPaper';
 import StudentHomePage from './pages/StudentHome';
 import StudentTakePage from './pages/StudentTake';
+// Path-B pages
+import MarkerQueuePage from './pages/MarkerQueue';
+import MarkerScriptPage from './pages/MarkerScript';
+import ClassStatsPage from './pages/ClassStats';
+import WrongAnswerDashboardPage from './pages/WrongAnswerDashboard';
+import QualityFeedbackPage from './pages/QualityFeedback';
+import AiGenWithPerfPage from './pages/AiGenWithPerf';
+import SyllabusAdminPage from './pages/SyllabusAdmin';
+import CostDashboardPage from './pages/CostDashboard';
+import UserAdminPage from './pages/UserAdmin';
+import VariantPreviewPage from './pages/VariantPreview';
+import CodegraderTestPage from './pages/CodegraderTest';
+import StudentTutorPage from './pages/StudentTutor';
 
 export default function App() {
   const { user, loading, init, logout } = useAuth();
@@ -52,6 +65,7 @@ export default function App() {
           <Routes>
             <Route path="/student" element={<StudentHomePage />} />
             <Route path="/student/take/:assignmentId" element={<StudentTakePage />} />
+            <Route path="/student/tutor" element={<StudentTutorPage />} />
             <Route path="*" element={<Navigate to="/student" replace />} />
           </Routes>
         </main>
@@ -79,6 +93,21 @@ export default function App() {
               {(user.role === 'admin' || user.role === 'head_teacher') && (
                 <NavLink to="/ai-generate" label="AI Generate" />
               )}
+              {(user.role === 'admin' || user.role === 'head_teacher' || user.role === 'teacher') && (
+                <NavLink to="/marker" label="Marker" />
+              )}
+              {(user.role === 'admin' || user.role === 'head_teacher' || user.role === 'teacher') && (
+                <NavLink to="/stats" label="Stats" />
+              )}
+              {(user.role === 'admin' || user.role === 'head_teacher') && (
+                <NavLink to="/quality" label="Quality" />
+              )}
+              {(user.role === 'admin' || user.role === 'head_teacher' || user.role === 'teacher') && (
+                <NavLink to="/codegrader-test" label="Code Grader" />
+              )}
+              {user.role === 'admin' && <NavLink to="/syllabus" label="Syllabus" />}
+              {user.role === 'admin' && <NavLink to="/admin/cost" label="AI Cost" />}
+              {user.role === 'admin' && <NavLink to="/admin/users" label="Users" />}
               {user.role === 'admin' && <NavLink to="/sources" label="Sources" />}
             </nav>
           </div>
@@ -129,6 +158,36 @@ export default function App() {
               )
             }
           />
+          {/* Path-B routes */}
+          <Route path="/marker" element={<MarkerQueuePage />} />
+          <Route path="/marker/submission/:id" element={<MarkerScriptPage />} />
+          <Route path="/stats" element={<ClassStatsPage />} />
+          <Route path="/stats/wrong-answers" element={<WrongAnswerDashboardPage />} />
+          <Route
+            path="/quality"
+            element={
+              user.role === 'admin' || user.role === 'head_teacher' ? (
+                <QualityFeedbackPage />
+              ) : (
+                <Navigate to="/" replace />
+              )
+            }
+          />
+          <Route
+            path="/ai-generate-with-perf"
+            element={
+              user.role === 'admin' || user.role === 'head_teacher' ? (
+                <AiGenWithPerfPage />
+              ) : (
+                <Navigate to="/" replace />
+              )
+            }
+          />
+          <Route path="/syllabus" element={user.role === 'admin' ? <SyllabusAdminPage /> : <Navigate to="/" replace />} />
+          <Route path="/admin/cost" element={user.role === 'admin' ? <CostDashboardPage /> : <Navigate to="/" replace />} />
+          <Route path="/admin/users" element={user.role === 'admin' ? <UserAdminPage /> : <Navigate to="/" replace />} />
+          <Route path="/variants" element={<VariantPreviewPage />} />
+          <Route path="/codegrader-test" element={<CodegraderTestPage />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </main>

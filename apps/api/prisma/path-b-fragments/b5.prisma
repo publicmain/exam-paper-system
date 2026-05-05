@@ -1,0 +1,22 @@
+// ============================================================
+// Block B5 — Admin Syllabus CRUD UI (PATH-B FRAGMENT)
+// ============================================================
+//
+// SCOPE FOR B5:
+//   - Admin-only CRUD endpoints + admin UI to onboard a new
+//     ExamBoard / Subject / SyllabusComponent / Topic via the web
+//     instead of editing apps/api/src/reference/syllabi/topics-*.ts
+//     and re-deploying.
+//
+// SCHEMA CHANGES: NONE.
+//
+// All four tables already live in schema.prisma:
+//   ExamBoard           — line ~144
+//   Subject             — line ~151 (unique [examBoardId, code, level])
+//   SyllabusComponent   — line ~166 (unique [subjectId, code])
+//   Topic               — line ~180 (unique [componentId, code]; self-relation
+//                         "TopicHierarchy" with onDelete: NoAction so we must
+//                         block deletes that would dangle questions / children)
+//
+// The integrator can leave this file empty during the merge — B5 has no
+// schema additions, only application-layer code.

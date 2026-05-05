@@ -20,6 +20,19 @@ import { InternalModule } from './internal/internal.module';
 import { ReviewModule } from './review/review.module';
 import { ClassesModule } from './classes/classes.module';
 import { StudentModule } from './student/student.module';
+// Path-B modules
+import { MarkerModule } from './marker/marker.module';
+import { AnalyticsModule } from './analytics/analytics.module';
+import { QualityFeedbackModule } from './quality-feedback/quality-feedback.module';
+import { PerfRoutingModule } from './perf-routing/perf-routing.module';
+import { AdminSyllabusModule } from './admin-syllabus/admin-syllabus.module';
+import { AdminCostModule } from './admin-cost/admin-cost.module';
+import { AdminRbacModule } from './admin-rbac/admin-rbac.module';
+import { PaperVariantsModule } from './paper-variants/paper-variants.module';
+import { WechatNotifyModule } from './wechat-notify/wechat-notify.module';
+import { CodegraderModule } from './codegrader/codegrader.module';
+import { AiTutorModule } from './ai-tutor/ai-tutor.module';
+import { WatermarkModule } from './watermark/watermark.module';
 import { HealthController } from './health.controller';
 
 @Module({
@@ -46,6 +59,19 @@ import { HealthController } from './health.controller';
     ReviewModule,
     ClassesModule,
     StudentModule,
+    // Path-B
+    MarkerModule,
+    AnalyticsModule,
+    QualityFeedbackModule,
+    PerfRoutingModule,
+    AdminSyllabusModule,
+    AdminCostModule,
+    AdminRbacModule,
+    PaperVariantsModule,
+    WechatNotifyModule,
+    CodegraderModule,
+    AiTutorModule,
+    WatermarkModule,
   ],
   controllers: [HealthController],
   providers: [

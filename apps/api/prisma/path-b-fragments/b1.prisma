@@ -1,0 +1,44 @@
+// ============================================================
+// Block B1 — Marker workflow (PATH-B FRAGMENT, NOT YET MERGED)
+// ============================================================
+//
+// This file lives outside `schema.prisma` because B1..B10 are being built in
+// parallel. Each path-B agent writes its additions here so the integrator can
+// concatenate them into the main schema in one controlled merge.
+//
+// SCOPE FOR B1:
+//   - Add a `MarkerAssignment` model representing a marker's *claim* on a
+//     submitted StudentSubmission. The claim is the row-level lock that
+//     prevents two markers from grading the same submission concurrently.
+//
+// NOTE — fields we'd LIKE to add but cannot, because they live on models
+// owned by other parts of the schema. These are documented in
+// `apps/api/src/marker/MERGE_INSTRUCTIONS.md` for the integrator:
+//   - StudentSubmission needs a back-relation `markerAssignments
+//     MarkerAssignment[]` so Prisma compiles the FK below.
+//   - User needs a back-relation `markerAssignments MarkerAssignment[]`
+//     (named relation "MarkerAssignmentMarker") so the marker-FK below
+//     compiles. The MarkerAssignment.marker side names the relation.
+//
+// AnswerScript already carries everything we need for the per-script
+// score (`awardedMarks`, `markerComment`, `markedById`, `markedAt`), so
+// no schema changes are required for the score itself.
+
+model MarkerAssignment {
+  id            String   @id @default(cuid())
+  submissionId  String   @unique // one active claim per submission
+  // Cascade so deleting a submission also drops its claim row. We don't
+  // expect submissions to be deleted in practice but in the test harness
+  // we wipe rosters between runs and want a clean teardown.
+  submission    StudentSubmission @relation(fields: [submissionId], references: [id], onDelete: Cascade)
+  markerId      String
+  marker        User     @relation("MarkerAssignmentMarker", fields: [markerId], references: [id])
+  claimedAt     DateTime @default(now())
+  releasedAt    DateTime?
+  // 'active' while marker is grading; 'released' after they hand it back
+  // (we keep the row for an audit trail, then upsert on next claim).
+  status        String   @default("active")
+
+  @@index([markerId, status])
+  @@index([submissionId, status])
+}

@@ -24,104 +24,119 @@ model User {
   name         String
   passwordHash String
   role         UserRole  @default(teacher)
+  // B6 — admin can deactivate a user without deleting the row. AuthService
+  // login should reject when isActive=false (returns the same generic 401
+  // as a wrong password to avoid user-enumeration).
+  isActive     Boolean   @default(true)
   createdAt    DateTime  @default(now())
   lastLogin    DateTime?
 
-  questionsCreated     Question[]         @relation("QuestionCreator")
+  questionsCreated     Question[]               @relation("QuestionCreator")
   templatesOwned       PaperTemplate[]
   papersOwned          Paper[]
   versionsAuthored     PaperVersion[]
   questionVersions     QuestionVersion[]
-  reposAdded           SourceRepository[] @relation("RepoAddedBy")
-  questionItemReviewed QuestionItem[]     @relation("QuestionItemReviewer")
-  teacherReviews       TeacherReview[]    @relation("ReviewActor")
+  reposAdded           SourceRepository[]       @relation("RepoAddedBy")
+  questionItemReviewed QuestionItem[]           @relation("QuestionItemReviewer")
+  teacherReviews       TeacherReview[]          @relation("ReviewActor")
   classEnrollments     ClassEnrollment[]
-  paperAssignmentsMade PaperAssignment[]  @relation("PaperAssignedBy")
+  paperAssignmentsMade PaperAssignment[]        @relation("PaperAssignedBy")
   submissions          StudentSubmission[]
+  // Path-B back-relations
+  markerAssignments    MarkerAssignment[]       @relation("MarkerAssignmentMarker")
+  paperVariants        PaperVariantAssignment[] @relation("PaperVariantStudent")
+  tutorSessions        TutorSession[]
+  watermarkTokens      WatermarkToken[]         @relation("WatermarkTokenStudent")
 }
 
 // ============================================================
 // Block 1: Student-side — classes, assignments, submissions
 // ============================================================
 model Class {
-  id          String   @id @default(cuid())
-  name        String   // "Form 5B", "IAL26S1"
-  classCode   String   @unique // short join code, e.g. "FORM5B"
-  level       String?  // "O-Level", "A-Level", optional
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  id        String   @id @default(cuid())
+  name      String // "Form 5B", "IAL26S1"
+  classCode String   @unique // short join code, e.g. "FORM5B"
+  level     String? // "O-Level", "A-Level", optional
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   enrollments ClassEnrollment[]
   assignments PaperAssignment[]
 }
 
 model ClassEnrollment {
-  id        String   @id @default(cuid())
-  classId   String
-  class     Class    @relation(fields: [classId], references: [id], onDelete: Cascade)
-  userId    String
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  id       String   @id @default(cuid())
+  classId  String
+  class    Class    @relation(fields: [classId], references: [id], onDelete: Cascade)
+  userId   String
+  user     User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   // 'student' | 'class_teacher' (homeroom) | 'subject_teacher'.
   // String not enum to allow per-school customisation later.
-  role      String   @default("student")
-  joinedAt  DateTime @default(now())
+  role     String   @default("student")
+  joinedAt DateTime @default(now())
 
   @@unique([classId, userId])
   @@index([userId])
 }
 
 model PaperAssignment {
-  id           String   @id @default(cuid())
+  id           String    @id @default(cuid())
   paperId      String
-  paper        Paper    @relation(fields: [paperId], references: [id], onDelete: Cascade)
+  paper        Paper     @relation(fields: [paperId], references: [id], onDelete: Cascade)
   classId      String
-  class        Class    @relation(fields: [classId], references: [id], onDelete: Cascade)
+  class        Class     @relation(fields: [classId], references: [id], onDelete: Cascade)
   assignedById String
-  assignedBy   User     @relation("PaperAssignedBy", fields: [assignedById], references: [id])
-  assignedAt   DateTime @default(now())
+  assignedBy   User      @relation("PaperAssignedBy", fields: [assignedById], references: [id])
+  assignedAt   DateTime  @default(now())
   startAt      DateTime?
   dueAt        DateTime?
   durationMin  Int?
   // 'scheduled' (before startAt) | 'open' (between start and due) | 'closed' (past due)
-  status       String   @default("scheduled")
+  status       String    @default("scheduled")
 
-  submissions  StudentSubmission[]
+  submissions        StudentSubmission[]
+  // Path-B back-relations
+  variantAssignments PaperVariantAssignment[]
+  watermarkTokens    WatermarkToken[]
 
   @@unique([paperId, classId])
   @@index([classId])
 }
 
 model StudentSubmission {
-  id            String   @id @default(cuid())
-  assignmentId  String
-  assignment    PaperAssignment @relation(fields: [assignmentId], references: [id], onDelete: Cascade)
-  studentId     String
-  student       User     @relation(fields: [studentId], references: [id])
-  startedAt     DateTime @default(now())
-  submittedAt   DateTime?
+  id           String          @id @default(cuid())
+  assignmentId String
+  assignment   PaperAssignment @relation(fields: [assignmentId], references: [id], onDelete: Cascade)
+  studentId    String
+  student      User            @relation(fields: [studentId], references: [id])
+  startedAt    DateTime        @default(now())
+  submittedAt  DateTime?
   // in_progress | submitted | marked | returned
-  status        String   @default("in_progress")
+  status       String          @default("in_progress")
   // Auto-graded portion (MCQ items) computed on submit
-  autoScore     Float?
+  autoScore    Float?
   // Manually-marked portion (structured items) summed across scripts
-  manualScore   Float?
+  manualScore  Float?
   // autoScore + manualScore, surfaced in the dashboard
-  totalScore    Float?
+  totalScore   Float?
   // Snapshot of paper.totalMarksActual at submission time
-  maxScore      Int
+  maxScore     Int
 
-  scripts       AnswerScript[]
+  scripts           AnswerScript[]
+  // Path-B back-relations
+  markerAssignments MarkerAssignment[]
+  tutorSessions     TutorSession[]
 
   @@unique([assignmentId, studentId])
   @@index([studentId])
 }
 
 model AnswerScript {
-  id              String   @id @default(cuid())
+  id              String                @id @default(cuid())
   submissionId    String
-  submission      StudentSubmission @relation(fields: [submissionId], references: [id], onDelete: Cascade)
+  submission      StudentSubmission     @relation(fields: [submissionId], references: [id], onDelete: Cascade)
   paperQuestionId String
-  paperQuestion   PaperQuestion @relation(fields: [paperQuestionId], references: [id])
+  paperQuestion   PaperQuestion         @relation(fields: [paperQuestionId], references: [id])
   // MCQ: option key 'A'/'B'/'C'/'D'. Structured: textAnswer carries body.
   selectedOption  String?
   textAnswer      String?
@@ -132,7 +147,9 @@ model AnswerScript {
   markedAt        DateTime?
   // Auto-grade verdict for MCQ; null for structured.
   autoCorrect     Boolean?
-  updatedAt       DateTime @updatedAt
+  updatedAt       DateTime              @updatedAt
+  // Path-B back-relations
+  codeResult      CodeSubmissionResult?
 
   @@unique([submissionId, paperQuestionId])
   @@index([submissionId])
@@ -256,19 +273,22 @@ model Question {
   // protects other teachers' papers from being filled with un-curated AI
   // questions while still letting the requester use them in their own
   // generated paper.
-  provenanceTag    String?
+  provenanceTag String?
 
   createdById String
   createdBy   User     @relation("QuestionCreator", fields: [createdById], references: [id])
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
-  topics         QuestionTopic[]
-  assets         QuestionAsset[]
-  versions       QuestionVersion[]
-  paperQuestions PaperQuestion[]
-  usageLogs      QuestionUsageLog[]
-  ingestedItem   QuestionItem?      @relation("QuestionItemMirror")
+  topics                 QuestionTopic[]
+  assets                 QuestionAsset[]
+  versions               QuestionVersion[]
+  paperQuestions         PaperQuestion[]
+  usageLogs              QuestionUsageLog[]
+  ingestedItem           QuestionItem?           @relation("QuestionItemMirror")
+  // Path-B back-relations
+  qualityFeedbackSignals QuestionQualitySignal[]
+  codeTestCases          CodeQuestionTestCase[]
 
   @@index([subjectId, componentId, status])
   @@index([primaryTopicId])
@@ -372,10 +392,12 @@ model Paper {
   createdAt        DateTime           @default(now())
   updatedAt        DateTime           @updatedAt
 
-  questions   PaperQuestion[]
-  versions    PaperVersion[]
-  usageLogs   QuestionUsageLog[]
-  assignments PaperAssignment[]
+  questions       PaperQuestion[]
+  versions        PaperVersion[]
+  usageLogs       QuestionUsageLog[]
+  assignments     PaperAssignment[]
+  // Path-B back-relations
+  watermarkTokens WatermarkToken[]
 }
 
 model PaperQuestion {
@@ -392,7 +414,9 @@ model PaperQuestion {
   overrideAnswer  Json?
   marks           Int
 
-  scripts AnswerScript[]
+  scripts       AnswerScript[]
+  // Path-B back-relations
+  tutorSessions TutorSession[]
 
   @@index([paperId, sortOrder])
 }
@@ -740,4 +764,485 @@ model TeacherReview {
   createdAt      DateTime     @default(now())
 
   @@index([questionItemId, createdAt])
+}
+
+// ============================================================
+// Block B1 — Marker workflow (PATH-B FRAGMENT, NOT YET MERGED)
+// ============================================================
+//
+// This file lives outside `schema.prisma` because B1..B10 are being built in
+// parallel. Each path-B agent writes its additions here so the integrator can
+// concatenate them into the main schema in one controlled merge.
+//
+// SCOPE FOR B1:
+//   - Add a `MarkerAssignment` model representing a marker's *claim* on a
+//     submitted StudentSubmission. The claim is the row-level lock that
+//     prevents two markers from grading the same submission concurrently.
+//
+// NOTE — fields we'd LIKE to add but cannot, because they live on models
+// owned by other parts of the schema. These are documented in
+// `apps/api/src/marker/MERGE_INSTRUCTIONS.md` for the integrator:
+//   - StudentSubmission needs a back-relation `markerAssignments
+//     MarkerAssignment[]` so Prisma compiles the FK below.
+//   - User needs a back-relation `markerAssignments MarkerAssignment[]`
+//     (named relation "MarkerAssignmentMarker") so the marker-FK below
+//     compiles. The MarkerAssignment.marker side names the relation.
+//
+// AnswerScript already carries everything we need for the per-script
+// score (`awardedMarks`, `markerComment`, `markedById`, `markedAt`), so
+// no schema changes are required for the score itself.
+
+model MarkerAssignment {
+  id           String            @id @default(cuid())
+  submissionId String            @unique // one active claim per submission
+  // Cascade so deleting a submission also drops its claim row. We don't
+  // expect submissions to be deleted in practice but in the test harness
+  // we wipe rosters between runs and want a clean teardown.
+  submission   StudentSubmission @relation(fields: [submissionId], references: [id], onDelete: Cascade)
+  markerId     String
+  marker       User              @relation("MarkerAssignmentMarker", fields: [markerId], references: [id])
+  claimedAt    DateTime          @default(now())
+  releasedAt   DateTime?
+  // 'active' while marker is grading; 'released' after they hand it back
+  // (we keep the row for an audit trail, then upsert on next claim).
+  status       String            @default("active")
+
+  @@index([markerId, status])
+  @@index([submissionId, status])
+}
+
+// ============================================================
+// Block B3 — AI question quality feedback loop (PATH-B FRAGMENT, NOT YET MERGED)
+// ============================================================
+//
+// SCOPE FOR B3:
+//   Capture quality signals about AI-generated (and human-curated) questions
+//   so future AI generation prompts can be weighted by what teachers and
+//   students actually do with the output. Two signal sources:
+//     - Teacher review actions (approve / reject / post-approval edit)
+//     - Student answer outcomes (correct / wrong / skipped)
+//   Aggregated into a per-question score and a per-topic leaderboard so the
+//   AI generator can fold "topic X needs harder questions" hints into the
+//   next prompt.
+//
+// NOTES on cross-model relations we'd LIKE to add but cannot from a fragment:
+//   - Question needs a back-relation `qualityFeedbackSignals
+//     QuestionQualitySignal[]` so this FK compiles. The integrator must add
+//     it to the Question model in `schema.prisma` (see MERGE_INSTRUCTIONS).
+//   - We deliberately do NOT add a User FK on `recordedById`. Recording the
+//     user as a free-form String keeps the model decoupled from auth and
+//     lets us insert system-emitted signals (auto-grade) without a User row.
+
+enum QuestionQualitySignalType {
+  approved // teacher hit "approve" on a review item / AI-gen output
+  rejected // teacher hit "reject"
+  edited // teacher edited content/marks/answer AFTER approval
+  answered_correct // student got the question right (MCQ auto, or marker awarded full marks)
+  answered_wrong // student got it wrong (MCQ auto, or marker awarded < 50% of full marks)
+  skipped // student left it blank in a final-submitted submission
+}
+
+model QuestionQualitySignal {
+  id           String                    @id @default(cuid())
+  questionId   String
+  // No back-relation declared from this side until the integrator adds the
+  // matching `qualityFeedbackSignals QuestionQualitySignal[]` array on
+  // Question. Until then the FK is enforced by Prisma alone.
+  question     Question                  @relation(fields: [questionId], references: [id], onDelete: Cascade)
+  signalType   QuestionQualitySignalType
+  // Per-signal weight. Defaults are applied in the service layer
+  //   approved          => +1.0
+  //   rejected          => -2.0   (reject is a stronger signal than approve)
+  //   edited            => -0.5   (edit means the AI got close but not right)
+  //   answered_correct  => +0.2   (one student datapoint = small weight)
+  //   answered_wrong    => -0.2
+  //   skipped           => -0.1
+  // Stored on the row so we can re-weight historical signals later without
+  // having to encode a "version" of the weighting function.
+  weight       Float                     @default(0)
+  // Free-form context: { subtopicCode?, awardedMarks?, marks?, reason?, editedFields? }
+  meta         Json?
+  // Optional actor — stored as a plain string so system-emitted rows
+  // (auto-grade, marker finalize) don't need a real User row.
+  recordedById String?
+  recordedAt   DateTime                  @default(now())
+
+  @@index([questionId, recordedAt])
+  @@index([signalType, recordedAt])
+}
+
+// ============================================================
+// Block B7 — Multi-version paper variants + WeChat notifications
+// (PATH-B FRAGMENT, NOT YET MERGED)
+// ============================================================
+//
+// This file lives outside `schema.prisma` because B1..B10 are being built
+// in parallel. Each path-B agent writes its additions here so the
+// integrator can concatenate them into the main schema in one controlled
+// merge.
+//
+// SCOPE FOR B7:
+//   1. PaperVariantAssignment — anti-cheat. One row per (assignment,
+//      student). Stores a deterministic shuffle seed plus the resolved
+//      `questionOrder` and `optionShuffles` so a student who refreshes
+//      mid-exam sees the same form. Adjacent students get different
+//      seeds so their forms differ.
+//   2. NotificationConfig — admin-managed wiring of an event (paper
+//      assigned / marked / low-score) to a channel (wechat_work /
+//      dingtalk / email). `target` is JSON because each channel needs
+//      different shape (webhook URL, mailing list, etc.).
+//   3. NotificationLog — append-only audit of every fired notification.
+//      Stores payload + httpStatus + error so admins can debug a
+//      misconfigured webhook without re-firing.
+//
+// NOTE — back-relations we'd LIKE on existing models but cannot add
+// here (the integrator will add them when concatenating into
+// schema.prisma):
+//   - PaperAssignment needs `variantAssignments PaperVariantAssignment[]`
+//     so Prisma compiles the FK on PaperVariantAssignment.assignment.
+//   - User needs `paperVariants PaperVariantAssignment[]` (named
+//     relation "PaperVariantStudent") so Prisma compiles the FK on
+//     PaperVariantAssignment.student.
+//   - Neither NotificationConfig nor NotificationLog references any
+//     existing model, so no other back-relations are required.
+//
+// See `apps/api/src/paper-variants/MERGE_INSTRUCTIONS.md` for the full
+// merge plan and the two AppModule registration lines.
+
+enum NotificationEvent {
+  paper_assigned
+  paper_marked
+  low_score
+}
+
+enum NotificationChannel {
+  wechat_work
+  dingtalk
+  email
+}
+
+model PaperVariantAssignment {
+  id             String          @id @default(cuid())
+  // FK to PaperAssignment. Cascade-delete: if the underlying assignment
+  // is dropped (e.g. test harness wipe) we don't want orphan variant
+  // rows pointing at a missing assignment.
+  assignmentId   String
+  assignment     PaperAssignment @relation(fields: [assignmentId], references: [id], onDelete: Cascade)
+  // FK to User (the student). Not cascading to keep the audit trail if
+  // a student row is ever soft-deleted; in practice we use restrict.
+  studentId      String
+  student        User            @relation("PaperVariantStudent", fields: [studentId], references: [id])
+  // Deterministic shuffle seed. Same (assignmentId, studentId) → same
+  // seed → same shuffle even after a refresh / reconnect.
+  seed           Int
+  // Resolved display order: array of paperQuestionId strings in the
+  // order this student should see them. Stored rather than recomputed
+  // on each request so the take-paper UI doesn't need to know the
+  // shuffle algorithm.
+  questionOrder  Json
+  // Per-paperQuestion option-letter mapping. Shape:
+  //   { "<paperQuestionId>": { "A": "C", "B": "A", "C": "D", "D": "B" } }
+  // Read as: original option key A is shown to this student under
+  // letter C. The take-paper UI relabels options at render time.
+  // Empty {} when mode is 'shuffle_questions' only.
+  optionShuffles Json
+  generatedAt    DateTime        @default(now())
+
+  // One variant row per (assignment, student). Re-running the
+  // generate-for-class endpoint is idempotent because of this.
+  @@unique([assignmentId, studentId])
+  @@index([assignmentId])
+}
+
+model NotificationConfig {
+  id        String              @id @default(cuid())
+  event     NotificationEvent
+  channel   NotificationChannel
+  // Channel-specific routing. For wechat_work / dingtalk this holds
+  //   { "webhookUrl": "https://..." }
+  // For email this holds { "to": ["a@b.com", ...], "subjectPrefix": "..." }
+  // Use JSON so we can evolve the shape without a migration each time.
+  // STUB BEHAVIOUR: if webhookUrl starts with "noop://" the dispatcher
+  // logs to NotificationLog without making an HTTP call. This lets
+  // admins create configs before the real webhook URL is provisioned.
+  target    Json
+  enabled   Boolean             @default(true)
+  createdAt DateTime            @default(now())
+  updatedAt DateTime            @updatedAt
+
+  @@index([event, channel, enabled])
+}
+
+model NotificationLog {
+  id         String              @id @default(cuid())
+  // Logged on every send attempt — even when the matching config is
+  // disabled (then we record a synthetic httpStatus 0 + error
+  // "config disabled" so the operator can see why nothing fired).
+  configId   String?
+  event      NotificationEvent
+  channel    NotificationChannel
+  payload    Json
+  // 0 for noop:// stubs, 200..599 for real HTTP responses, 0 for
+  // network errors (error column carries the message).
+  httpStatus Int
+  error      String?
+  sentAt     DateTime            @default(now())
+
+  @@index([event, sentAt])
+  @@index([configId, sentAt])
+}
+
+// ============================================================
+// Block B8 — Code Grader (PATH-B FRAGMENT, NOT YET MERGED)
+// ============================================================
+//
+// This file lives outside `schema.prisma` because B1..B10 are being built in
+// parallel. Each path-B agent writes its additions here so the integrator can
+// concatenate them into the main schema in one controlled merge.
+//
+// SCOPE FOR B8:
+//   - Add `CodeQuestionTestCase` — test cases attached to a Question of
+//     questionType='structured' (or a future 'code' type) for CS coding
+//     items (Cambridge 9608/9618 etc.). Each test case feeds judge0 with
+//     `stdin`, expects `expectedStdout`, and is worth `marksPerCase` if
+//     it passes. `hidden=true` test cases are not shown to students before
+//     submission (only revealed after final submit, matching most online
+//     judges).
+//   - Add `CodeSubmissionResult` — one row per AnswerScript that was
+//     code-judged. Stores last run aggregate so the marker / dashboard
+//     doesn't re-run judge0. `awardedMarks` here is fed back into
+//     AnswerScript.awardedMarks at submit time so the existing scoring
+//     pipeline stays single-source-of-truth.
+//
+// NOTE — fields we'd LIKE to add but cannot, because they live on models
+// owned by other parts of the schema. These are documented in
+// `apps/api/src/codegrader/MERGE_INSTRUCTIONS.md` for the integrator:
+//   - Question needs a back-relation `codeTestCases CodeQuestionTestCase[]`
+//     so Prisma compiles the FK below.
+//   - AnswerScript needs a back-relation `codeResult CodeSubmissionResult?`
+//     so the @unique-on-answerScriptId one-to-one relation compiles.
+
+model CodeQuestionTestCase {
+  id             String   @id @default(cuid())
+  questionId     String
+  // Cascade so deleting a question wipes its test cases — they're useless
+  // without the parent question and we don't want orphan rows polluting
+  // the bank.
+  question       Question @relation(fields: [questionId], references: [id], onDelete: Cascade)
+  // Free-form stdin fed to the student's program. Empty string is fine
+  // for "no input" cases (e.g. print-a-constant programs).
+  stdin          String   @default("")
+  // Expected stdout — string-equality match after trimming trailing
+  // whitespace (judge runner normalises). Multi-line is supported.
+  expectedStdout String
+  // Marks awarded if the case passes. Sum across cases = the codeable
+  // portion of the question's marks. Service layer validates that the
+  // sum doesn't exceed Question.marks at the time of test-case create.
+  marksPerCase   Int      @default(1)
+  // If true, students don't see this case before submitting (sample vs
+  // hidden split, classic online-judge style). Teachers always see all.
+  hidden         Boolean  @default(false)
+  // Optional human label so the teacher UI can show "edge case: empty
+  // input" etc.
+  label          String?
+  sortOrder      Int      @default(0)
+  createdAt      DateTime @default(now())
+
+  @@index([questionId, sortOrder])
+}
+
+model CodeSubmissionResult {
+  id             String       @id @default(cuid())
+  // One result per AnswerScript — re-judging upserts in place so we
+  // never drift from the script.awardedMarks figure shown to students.
+  answerScriptId String       @unique
+  answerScript   AnswerScript @relation(fields: [answerScriptId], references: [id], onDelete: Cascade)
+  // Source language slug used to pick the judge0 language id at run
+  // time. We keep it as String (not enum) so adding python/c++/java
+  // doesn't need a migration.
+  language       String
+  // Last source code we judged — useful for the marker UI to show what
+  // was actually run (the AnswerScript.textAnswer is what the student
+  // saved; codegrader copies it here at judge time so a re-judge after
+  // the student keeps editing still tells you what *this* run saw).
+  sourceCode     String
+  // Aggregate stdout/stderr from the LAST test case (or a join across
+  // all cases, runner's choice). Truncated to 8KB by service to keep
+  // the row small.
+  stdout         String?
+  stderr         String?
+  // Total runtime across all cases in milliseconds (sum, not max).
+  runtimeMs      Int          @default(0)
+  passedCases    Int          @default(0)
+  totalCases     Int          @default(0)
+  // Sum of marksPerCase × passed. Float because partial credit / future
+  // weighting could push it off integers. Mirrored to AnswerScript
+  // .awardedMarks at the same time (single source of truth lives on
+  // AnswerScript so the marker queue can ignore this table).
+  awardedMarks   Float        @default(0)
+  // Free-form metadata: { stub: true } when running without a real
+  // judge0, judge0 token list when real, error info when run failed.
+  meta           Json?
+  judgedAt       DateTime     @default(now()) @updatedAt
+
+  @@index([judgedAt])
+}
+
+// ============================================================
+// Block B9 — AI tutor chat for students (PATH-B FRAGMENT, NOT YET MERGED)
+// ============================================================
+//
+// SCOPE FOR B9:
+//   After a student submits a paper, they can open a tutor chat about a
+//   specific paperQuestion they got wrong. The tutor (Claude) is given the
+//   question stem + the student's submitted answer + the markScheme as a
+//   SYSTEM-ONLY context (the markScheme MUST never appear verbatim in the
+//   reply that goes back to the student — see ai-tutor.service.ts).
+//
+//   We track every assistant message's cost in USD on TutorMessage.costUsd
+//   and roll it up to TutorSession.totalCostUsd. A per-student daily cap is
+//   enforced in the service layer (TUTOR_DAILY_USD_PER_STUDENT_CAP, default
+//   $0.50) so a single student can never burn unbounded API spend.
+//
+// NOTES on cross-model relations the integrator must add:
+//   - User needs a back-relation `tutorSessions TutorSession[]` so the FK
+//     `TutorSession.studentId -> User.id` compiles. See MERGE_INSTRUCTIONS.
+//   - StudentSubmission needs an OPTIONAL back-relation
+//     `tutorSessions TutorSession[]` so the optional FK
+//     `TutorSession.submissionId -> StudentSubmission.id` compiles.
+//   - PaperQuestion needs an OPTIONAL back-relation
+//     `tutorSessions TutorSession[]` so the optional FK
+//     `TutorSession.paperQuestionId -> PaperQuestion.id` compiles.
+//
+//   We deliberately keep submissionId / paperQuestionId OPTIONAL: a student
+//   may want to chat about a topic without binding to a specific submission
+//   row, and we don't want to lose the session if the underlying submission
+//   gets deleted. (The chat history is the durable record.)
+//
+//   Both FKs use `onDelete: SetNull` so deleting a submission / paperQuestion
+//   doesn't cascade-wipe the chat audit trail (cost-audit data must persist).
+
+model TutorSession {
+  id        String @id @default(cuid())
+  // The student who owns this session. Required: every session is bound to
+  // exactly one student so the per-student daily cap can be summed.
+  studentId String
+  student   User   @relation(fields: [studentId], references: [id])
+
+  // Optional: the submission this chat is "about". Nullable so the chat
+  // outlives a deleted submission.
+  submissionId String?
+  submission   StudentSubmission? @relation(fields: [submissionId], references: [id], onDelete: SetNull)
+
+  // Optional: the specific paperQuestion the student wants to discuss. The
+  // tutor uses this to fetch question stem + markScheme server-side.
+  paperQuestionId String?
+  paperQuestion   PaperQuestion? @relation(fields: [paperQuestionId], references: [id], onDelete: SetNull)
+
+  startedAt DateTime  @default(now())
+  endedAt   DateTime?
+
+  // Sum of TutorMessage.costUsd across this session's assistant messages.
+  // Updated atomically by the service after each Claude call.
+  totalCostUsd Float @default(0)
+
+  messages TutorMessage[]
+
+  @@index([studentId, startedAt])
+  @@index([submissionId])
+  @@index([paperQuestionId])
+}
+
+enum TutorRole {
+  student
+  assistant
+}
+
+model TutorMessage {
+  id        String       @id @default(cuid())
+  sessionId String
+  session   TutorSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  role      TutorRole
+  // Free-form chat content. For 'student' rows this is exactly what the
+  // student typed; for 'assistant' rows this is what Claude returned (and
+  // MUST NOT contain the markScheme verbatim — service-layer prompt
+  // forbids it and the response is not post-processed to add answer-key
+  // fields).
+  content   String
+  createdAt DateTime     @default(now())
+  // Set only on assistant messages. Computed from the Anthropic
+  // resp.usage.input_tokens / output_tokens at the Sonnet rates declared
+  // in ai-tutor.service.ts. NULL for student rows.
+  costUsd   Float?
+
+  @@index([sessionId, createdAt])
+}
+
+// ============================================================
+// Block B10 — Per-student PDF watermark tokens (PATH-B FRAGMENT, NOT YET MERGED)
+// ============================================================
+//
+// This file lives outside `schema.prisma` because B1..B10 are being built in
+// parallel. Each path-B agent writes its additions here so the integrator can
+// concatenate them into the main schema in one controlled merge.
+//
+// SCOPE FOR B10:
+//   - Add a `WatermarkToken` model that uniquely identifies one (paper,
+//     student) pair — used to overlay an opaque, traceable mark on a PDF
+//     copy of a paper that's downloaded for that specific student.
+//   - If a watermarked paper later appears online, the visible token in the
+//     overlay can be looked up via /watermark/lookup to identify which
+//     student's copy leaked.
+//
+// Properties of the token:
+//   - `token` is an 8-char base32 string (Crockford alphabet) generated in
+//     the service layer. Short enough to be readable on a printed page,
+//     long enough to be effectively non-guessable for the small population
+//     of students per school (32^8 ≈ 1.1e12).
+//   - `@unique` so a leaked token resolves to exactly one record.
+//   - `revokedAt` lets an admin invalidate a leaked download URL (future
+//     downloads via that URL return 410). The token row itself is NEVER
+//     deleted — we want to keep the forensic trail.
+//   - `assignmentId` is OPTIONAL because watermarking can be requested
+//     for a paper the student isn't yet assigned (e.g. preview print
+//     for a teacher-led mock). When present we prefer it for context.
+//
+// NOTES on cross-model relations we'd LIKE to add but cannot from a fragment:
+//   - Paper needs a back-relation `watermarkTokens WatermarkToken[]` so this
+//     FK compiles. The integrator must add it to the Paper model in
+//     `schema.prisma` (see MERGE_INSTRUCTIONS).
+//   - User needs a back-relation `watermarkTokens WatermarkToken[]` (named
+//     relation "WatermarkTokenStudent") so the student-FK compiles.
+//   - PaperAssignment needs an OPTIONAL back-relation
+//     `watermarkTokens WatermarkToken[]` for the assignment FK.
+//   - We deliberately do NOT cascade delete from Paper/User: if a student
+//     is removed we still want to keep the WatermarkToken row for forensic
+//     replay. Set the FK with onDelete: SetNull-style guarantees at the
+//     application layer instead (see watermark.service.ts).
+
+model WatermarkToken {
+  id           String           @id @default(cuid())
+  paperId      String
+  paper        Paper            @relation(fields: [paperId], references: [id])
+  studentId    String
+  student      User             @relation("WatermarkTokenStudent", fields: [studentId], references: [id])
+  // Optional — present when the watermark was issued in the context of a
+  // specific PaperAssignment (so we can scope leaks to a class). Null when
+  // the token was minted ad-hoc (e.g. teacher print preview).
+  assignmentId String?
+  assignment   PaperAssignment? @relation(fields: [assignmentId], references: [id])
+
+  // 8-char Crockford-base32 string — the visible mark. Globally unique so a
+  // single leaked token resolves to exactly one (paper, student) pair.
+  token String @unique
+
+  createdAt DateTime  @default(now())
+  // Set when an admin revokes the token — future GET /watermark/download?token=X
+  // returns 410 Gone. The row itself is never deleted (forensic trail).
+  revokedAt DateTime?
+
+  // Lookup helpers — get-or-create by (paperId, studentId) is the hot path
+  // when we mint the URL, and a lookup by token is the forensic path.
+  @@unique([paperId, studentId])
+  @@index([studentId])
 }

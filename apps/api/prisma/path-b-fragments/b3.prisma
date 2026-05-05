@@ -1,0 +1,59 @@
+// ============================================================
+// Block B3 — AI question quality feedback loop (PATH-B FRAGMENT, NOT YET MERGED)
+// ============================================================
+//
+// SCOPE FOR B3:
+//   Capture quality signals about AI-generated (and human-curated) questions
+//   so future AI generation prompts can be weighted by what teachers and
+//   students actually do with the output. Two signal sources:
+//     - Teacher review actions (approve / reject / post-approval edit)
+//     - Student answer outcomes (correct / wrong / skipped)
+//   Aggregated into a per-question score and a per-topic leaderboard so the
+//   AI generator can fold "topic X needs harder questions" hints into the
+//   next prompt.
+//
+// NOTES on cross-model relations we'd LIKE to add but cannot from a fragment:
+//   - Question needs a back-relation `qualityFeedbackSignals
+//     QuestionQualitySignal[]` so this FK compiles. The integrator must add
+//     it to the Question model in `schema.prisma` (see MERGE_INSTRUCTIONS).
+//   - We deliberately do NOT add a User FK on `recordedById`. Recording the
+//     user as a free-form String keeps the model decoupled from auth and
+//     lets us insert system-emitted signals (auto-grade) without a User row.
+
+enum QuestionQualitySignalType {
+  approved          // teacher hit "approve" on a review item / AI-gen output
+  rejected          // teacher hit "reject"
+  edited            // teacher edited content/marks/answer AFTER approval
+  answered_correct  // student got the question right (MCQ auto, or marker awarded full marks)
+  answered_wrong    // student got it wrong (MCQ auto, or marker awarded < 50% of full marks)
+  skipped           // student left it blank in a final-submitted submission
+}
+
+model QuestionQualitySignal {
+  id           String                    @id @default(cuid())
+  questionId   String
+  // No back-relation declared from this side until the integrator adds the
+  // matching `qualityFeedbackSignals QuestionQualitySignal[]` array on
+  // Question. Until then the FK is enforced by Prisma alone.
+  question     Question                  @relation(fields: [questionId], references: [id], onDelete: Cascade)
+  signalType   QuestionQualitySignalType
+  // Per-signal weight. Defaults are applied in the service layer
+  //   approved          => +1.0
+  //   rejected          => -2.0   (reject is a stronger signal than approve)
+  //   edited            => -0.5   (edit means the AI got close but not right)
+  //   answered_correct  => +0.2   (one student datapoint = small weight)
+  //   answered_wrong    => -0.2
+  //   skipped           => -0.1
+  // Stored on the row so we can re-weight historical signals later without
+  // having to encode a "version" of the weighting function.
+  weight       Float                     @default(0)
+  // Free-form context: { subtopicCode?, awardedMarks?, marks?, reason?, editedFields? }
+  meta         Json?
+  // Optional actor — stored as a plain string so system-emitted rows
+  // (auto-grade, marker finalize) don't need a real User row.
+  recordedById String?
+  recordedAt   DateTime                  @default(now())
+
+  @@index([questionId, recordedAt])
+  @@index([signalType, recordedAt])
+}

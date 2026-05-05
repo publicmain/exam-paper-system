@@ -1,0 +1,40 @@
+// ============================================================
+// Block B4 — Performance routing (PATH-B FRAGMENT)
+// ============================================================
+//
+// SCOPE FOR B4:
+//   - Per-class topic-mastery routing for the AI generator: when a teacher
+//     asks the AI to generate a paper for class X, prefer topics where
+//     class X is historically weak.
+//
+// SCHEMA CHANGES: NONE.
+//
+// Mastery is computed *on the fly* from existing fields the schema
+// already provides:
+//
+//   AnswerScript.autoCorrect       — boolean, set by the auto-grader
+//                                    on submit for MCQ items.
+//   AnswerScript.awardedMarks      — float, set by markers for
+//                                    structured items (depends on B1
+//                                    workflow; not yet used here).
+//   PaperQuestion.question.primaryTopicId
+//                                  — the topic this script's question
+//                                    is tagged to.
+//   ClassEnrollment.role='student' — the rows we filter by to know who
+//                                    "the class" is.
+//
+// Because all the inputs already exist, B4 is a *service-only* fragment
+// — there is no new Prisma model, no migration, and no path-b
+// concatenation required for this block. The integrator can leave this
+// file empty; it exists so the path-b-fragments directory has a slot
+// for B4 in case a future iteration adds a materialised mastery table
+// (e.g. for performance reasons at scale).
+//
+// FUTURE CONSIDERATIONS (not implemented now):
+//   - A `ClassTopicMastery` materialised view, refreshed on submission
+//     finalisation, would let us serve weakTopics in O(1). Today we
+//     scan AnswerScript per-request, which is fine for class-sized
+//     samples (<10k rows).
+//   - Once B1 marker workflow lands, switch the mastery formula from
+//     `mean(autoCorrect)` to `sum(awardedMarks) / sum(paperQuestion.marks)`
+//     so structured items count too.

@@ -116,6 +116,105 @@ export const api = {
     request('POST', `/review/items/${id}/reject`, { reason }),
   pageImageUrl: (sourceFileId: string, pageNo: number) =>
     `${BASE}/api/source-files/${sourceFileId}/pages/${pageNo}.png`,
+
+  // ============================================================
+  // Path-B endpoints
+  // ============================================================
+
+  // marker workflow (admin / head_teacher / teacher)
+  markerQueue: (params: any = {}) => request('GET', `/marker/queue${qs(params)}`),
+  markerSubmission: (id: string) => request('GET', `/marker/submissions/${id}`),
+  markerClaim: (submissionId: string) => request('POST', '/marker/claim', { submissionId }),
+  markerRelease: (submissionId: string) => request('POST', '/marker/release', { submissionId }),
+  markerScoreScript: (scriptId: string, data: { awardedMarks: number; markerComment?: string | null }) =>
+    request('PATCH', `/marker/scripts/${scriptId}`, data),
+  markerFinalize: (submissionId: string) => request('POST', `/marker/finalize/${submissionId}`),
+
+  // analytics (teacher / admin)
+  classOverview: (classId: string) => request('GET', `/analytics/class/${classId}/overview`),
+  paperWrongAnswers: (paperId: string) => request('GET', `/analytics/paper/${paperId}/wrong-answers`),
+  classTopicMastery: (classId: string, paperId?: string) =>
+    request('GET', `/analytics/class/${classId}/topic-mastery${paperId ? `?paperId=${encodeURIComponent(paperId)}` : ''}`),
+  studentHistory: (studentId: string) => request('GET', `/analytics/student/${studentId}/history`),
+
+  // quality feedback (admin / teacher)
+  qualityLogSignal: (questionId: string, data: { signalType: string; meta?: any }) =>
+    request('POST', `/quality/question/${questionId}/signal`, data),
+  qualityQuestionScore: (questionId: string) => request('GET', `/quality/question/${questionId}/score`),
+  qualityTopicLeaderboard: (topicId: string, limit?: number) =>
+    request('GET', `/quality/topic/${topicId}/leaderboard${limit ? `?limit=${limit}` : ''}`),
+  qualityAiPromptSuggestions: (topicId: string) =>
+    request('GET', `/quality/ai-prompt-suggestions?topicId=${encodeURIComponent(topicId)}`),
+
+  // perf-routing (teacher / admin)
+  perfWeakTopics: (classId: string, subjectId?: string, limit?: number) =>
+    request('GET', `/perf-routing/class/${classId}/weak-topics${qs({ subjectId, limit })}`),
+  perfPreviewPrompt: (data: { classId: string; subjectId?: string; basePrompt: string; limit?: number }) =>
+    request('POST', '/perf-routing/preview-prompt', data),
+
+  // admin syllabus (admin only)
+  adminCreateExamBoard: (data: { code: string; name: string }) =>
+    request('POST', '/admin-syllabus/exam-boards', data),
+  adminCreateSubject: (data: { examBoardId: string; code: string; name: string; level: string }) =>
+    request('POST', '/admin-syllabus/subjects', data),
+  adminCreateComponent: (data: { subjectId: string; code: string; name: string }) =>
+    request('POST', '/admin-syllabus/components', data),
+  adminCreateTopic: (data: any) => request('POST', '/admin-syllabus/topics', data),
+  adminUpdateTopic: (id: string, data: any) => request('PATCH', `/admin-syllabus/topics/${id}`, data),
+  adminDeleteTopic: (id: string) => request('DELETE', `/admin-syllabus/topics/${id}`),
+  adminImportSyllabus: (data: any) => request('POST', '/admin-syllabus/import', data),
+
+  // admin cost dashboard (admin only)
+  costSummary: (from?: string, to?: string) => request('GET', `/admin-cost/summary${qs({ from, to })}`),
+  costByUser: (from?: string, to?: string) => request('GET', `/admin-cost/by-user${qs({ from, to })}`),
+  costByDay: (days?: number) => request('GET', `/admin-cost/by-day${qs({ days })}`),
+
+  // admin RBAC (admin only)
+  listAdminUsers: (params: any = {}) => request('GET', `/admin-rbac/users${qs(params)}`),
+  updateAdminUser: (id: string, data: any) => request('PATCH', `/admin-rbac/users/${id}`, data),
+  resetUserPassword: (id: string, newPassword: string) =>
+    request('POST', `/admin-rbac/users/${id}/reset-password`, { newPassword }),
+
+  // paper variants
+  generatePaperVariants: (data: { assignmentId: string; mode: 'shuffle_options' | 'shuffle_questions' | 'both' }) =>
+    request('POST', '/paper-variants/generate-for-class', data),
+  listPaperVariantsForAssignment: (assignmentId: string) =>
+    request('GET', `/paper-variants/assignment/${assignmentId}`),
+  getPaperVariantForStudent: (studentId: string, assignmentId: string) =>
+    request('GET', `/paper-variants/student/${studentId}/assignment/${assignmentId}`),
+
+  // wechat-notify (admin only)
+  listNotifyConfigs: () => request('GET', '/wechat-notify/configs'),
+  createNotifyConfig: (data: any) => request('POST', '/wechat-notify/configs', data),
+  updateNotifyConfig: (id: string, data: any) => request('PATCH', `/wechat-notify/configs/${id}`, data),
+  testNotifyConfig: (configId: string) => request('POST', `/wechat-notify/test/${configId}`),
+  listNotifyLogs: (params: { event?: string; since?: string; limit?: number } = {}) =>
+    request('GET', `/wechat-notify/logs${qs(params)}`),
+
+  // codegrader
+  listCodeTestCases: (questionId: string) => request('GET', `/codegrader/questions/${questionId}/test-cases`),
+  addCodeTestCase: (questionId: string, data: any) =>
+    request('POST', `/codegrader/questions/${questionId}/test-cases`, data),
+  deleteCodeTestCase: (id: string) => request('DELETE', `/codegrader/test-cases/${id}`),
+  submitCode: (data: { paperQuestionId: string; language: string; sourceCode: string }) =>
+    request('POST', '/codegrader/submit', data),
+  getCodeResult: (scriptId: string) => request('GET', `/codegrader/result/${scriptId}`),
+
+  // ai tutor (B9 — student/admin)
+  createTutorSession: (data: { submissionId?: string; paperQuestionId?: string }) =>
+    request('POST', '/ai-tutor/sessions', data),
+  getTutorSession: (id: string) => request('GET', `/ai-tutor/sessions/${id}`),
+  sendTutorMessage: (sessionId: string, content: string) =>
+    request('POST', `/ai-tutor/sessions/${sessionId}/messages`, { content }),
+  tutorUsage: (params: { from?: string; to?: string } = {}) =>
+    request('GET', `/ai-tutor/usage${qs(params)}`),
+
+  // watermark (teacher to issue + download; admin to lookup/revoke)
+  watermarkIssue: (paperId: string, studentId: string) =>
+    request('POST', `/watermark/papers/${paperId}/student/${studentId}/token`),
+  watermarkLookup: (token: string) => request('GET', `/watermark/lookup?token=${encodeURIComponent(token)}`),
+  watermarkRevoke: (tokenId: string) => request('POST', `/watermark/tokens/${tokenId}/revoke`),
+  watermarkDownloadUrl: (token: string) => `${BASE}/api/watermark/download?token=${encodeURIComponent(token)}`,
 };
 
 function qs(obj: Record<string, any>) {

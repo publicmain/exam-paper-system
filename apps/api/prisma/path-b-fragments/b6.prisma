@@ -1,0 +1,40 @@
+// ============================================================
+// Block B6 — Admin: AI cost dashboard + RBAC user management
+// (PATH-B FRAGMENT, NOT YET MERGED)
+// ============================================================
+//
+// SCOPE FOR B6:
+//   The cost dashboard reads from the existing AuditLog rows that the AI
+//   services already write — `ai.question.generate`, `openai.image.generate`,
+//   `ai.quick_paper.generate`, `svg.diagram.generate` — and aggregates on
+//   the fly. No new tables are required for cost tracking.
+//
+//   The RBAC controller manages the existing `User` model. To support the
+//   "deactivate user" feature we need a single new boolean column on User.
+//
+// REQUIRED CHANGES on the existing User model in `schema.prisma`
+// (the integrator must add these — B6 cannot touch schema.prisma):
+//
+//     model User {
+//       …existing fields…
+//       isActive     Boolean   @default(true)   // <-- ADD THIS
+//     }
+//
+//   Once that column exists:
+//   - AuthService.login should reject a login when user.isActive === false
+//     (returns the same generic 401 to avoid user-enumeration leak).
+//     This is documented in MERGE_INSTRUCTIONS.md and is a follow-up task
+//     for the auth owner — B6 cannot edit auth/.
+//   - AdminRbacService.update writes to this column.
+//
+// NOTE — B6 does NOT add new tables. The dashboard endpoints aggregate
+// AuditLog (`metadata.costUsd`) at request time. If aggregation cost
+// becomes a problem at scale, a future block can introduce a daily-rollup
+// materialised table; the API surface is the same so the FE doesn't need
+// to change.
+//
+// Until the schema migration lands, the deactivate path falls back to a
+// soft "deactivation" by setting passwordHash to an unusable sentinel
+// (`!DEACTIVATED!:<originalHash>`) so logins fail. This is implemented
+// in AdminRbacService.update behind a feature flag detected at runtime
+// (a Prisma error means the column doesn't exist yet) — see service code.
