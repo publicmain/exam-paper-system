@@ -111,9 +111,16 @@ export class AdminCleanupService {
       },
       select: { id: true, email: true },
     });
-    // Also pick up B6 test head_teacher / teacher fixtures (they were
-    // created by the b6 RBAC test and aren't tagged as students).
-    const candidateB6Staff = await this.prisma.user.findMany({
+    // Note: B6 test fixtures (b6-victim head_teacher, b6-teacher teacher)
+    // are intentionally NOT included here. Those non-student accounts can
+    // own Questions / Papers / Templates / PaperVersions / SourceRepository
+    // rows whose FKs are RESTRICT, so deleting the user without first
+    // re-parenting that content fails with PG 23001. There are only ever
+    // 1-2 of each in practice — small enough that an admin can clean
+    // them up by hand via /admin-rbac, or we can add a re-parent step
+    // in a follow-up PR. Surface them in `summary.skippedStaff` so the
+    // operator knows they were left behind on purpose.
+    const skippedStaff = await this.prisma.user.findMany({
       where: {
         role: { in: ['head_teacher', 'teacher'] },
         OR: [
@@ -121,9 +128,8 @@ export class AdminCleanupService {
           { email: { startsWith: 'b6-teacher-' } },
         ],
       },
-      select: { id: true, email: true },
+      select: { id: true, email: true, role: true },
     });
-    candidateUsers.push(...candidateB6Staff);
     const candidateClasses = await this.prisma.class.findMany({
       where: {
         OR: [
@@ -174,6 +180,9 @@ export class AdminCleanupService {
       classes: realTestClasses.length,
       papers: candidatePapers.length,
       examBoards: testBoards.length,
+      // Test staff fixtures we deliberately leave behind because they own
+      // content (Question / Paper / Template) and FKs are RESTRICT.
+      skippedStaff: skippedStaff.map((s) => `${s.email} (${s.role})`),
     };
 
     if (dryRun) {
