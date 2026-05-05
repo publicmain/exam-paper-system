@@ -29,6 +29,7 @@ import UserAdminPage from './pages/UserAdmin';
 import VariantPreviewPage from './pages/VariantPreview';
 import CodegraderTestPage from './pages/CodegraderTest';
 import StudentTutorPage from './pages/StudentTutor';
+import PracticePage from './pages/Practice';
 
 export default function App() {
   const { user, loading, init, logout } = useAuth();
@@ -55,7 +56,10 @@ export default function App() {
       <div className="min-h-screen flex flex-col bg-gray-50">
         <header className="bg-white border-b">
           <div className="max-w-4xl mx-auto px-6 py-3 flex items-center justify-between">
-            <Link to="/student" className="font-bold text-lg">📝 My Papers</Link>
+            <div className="flex items-center gap-5 text-sm">
+              <Link to="/student" className="font-bold text-lg">📝 My Papers</Link>
+              <Link to="/practice" className="text-blue-600 hover:underline">Past-Paper Practice</Link>
+            </div>
             <div className="flex items-center gap-3 text-sm">
               <span className="text-gray-600">{user.name} <span className="badge">student</span></span>
               <button className="btn btn-ghost" onClick={() => { logout(); navigate('/login'); }}>Logout</button>
@@ -67,6 +71,7 @@ export default function App() {
             <Route path="/student" element={<StudentHomePage />} />
             <Route path="/student/take/:assignmentId" element={<StudentTakePage />} />
             <Route path="/student/tutor" element={<StudentTutorPage />} />
+            <Route path="/practice" element={<PracticePage />} />
             <Route path="*" element={<Navigate to="/student" replace />} />
           </Routes>
         </main>
@@ -88,6 +93,7 @@ export default function App() {
             <Link to="/" className="font-bold text-lg whitespace-nowrap shrink-0">📄 Exam Paper System</Link>
             <nav className="flex gap-1 text-sm overflow-x-auto min-w-0">
               <NavLink to="/" label="Dashboard" />
+              <NavLink to="/practice" label="📝 Practice" />
               <NavLink to="/papers" label="Papers" />
               <NavLink to="/questions" label="Questions" />
               <NavLink to="/templates" label="Templates" />
@@ -131,6 +137,7 @@ export default function App() {
       <main className="flex-1 max-w-7xl mx-auto w-full px-6 py-6">
         <Routes>
           <Route path="/" element={<DashboardPage />} />
+          <Route path="/practice" element={<PracticePage />} />
           <Route path="/papers" element={<PapersPage />} />
           <Route path="/papers/new" element={<PaperWizardPage />} />
           <Route path="/papers/:id" element={<PaperEditPage />} />

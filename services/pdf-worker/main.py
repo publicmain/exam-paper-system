@@ -91,31 +91,32 @@ def process_pdf(req: ProcessPdfRequest) -> ProcessPdfResponse:
     log.info("processing %s (%s bytes, sha=%s)", req.source_file_id, len(pdf_bytes), sha[:12])
 
     pages: list[PageOut] = []
-    with tempfile.NamedTemporaryFile(suffix=".pdf") as tmp:
-        tmp.write(pdf_bytes)
-        tmp.flush()
-        with fitz.open(tmp.name) as doc:
-            for page_no, page in enumerate(doc, start=1):
-                text = page.get_text("text") or ""
-                char_count = len(text.strip())
+    # Open from bytes rather than a NamedTemporaryFile — Windows holds an
+    # exclusive lock on tempfiles for the lifetime of the context manager,
+    # so PyMuPDF cannot reopen the same path. Streaming bytes avoids the
+    # double-handle issue and works the same on POSIX.
+    with fitz.open(stream=pdf_bytes, filetype="pdf") as doc:
+        for page_no, page in enumerate(doc, start=1):
+            text = page.get_text("text") or ""
+            char_count = len(text.strip())
 
-                pix = page.get_pixmap(dpi=RENDER_DPI)
-                png_bytes = pix.tobytes("png")
-                b64 = base64.b64encode(png_bytes).decode("ascii")
+            pix = page.get_pixmap(dpi=RENDER_DPI)
+            png_bytes = pix.tobytes("png")
+            b64 = base64.b64encode(png_bytes).decode("ascii")
 
-                used_ocr = False
-                if char_count < 40:
-                    log.info("page %d looks scanned (%d chars) — OCR pending", page_no, char_count)
+            used_ocr = False
+            if char_count < 40:
+                log.info("page %d looks scanned (%d chars) — OCR pending", page_no, char_count)
 
-                pages.append(
-                    PageOut(
-                        page_no=page_no,
-                        text=text,
-                        char_count=char_count,
-                        used_ocr=used_ocr,
-                        image_b64=b64,
-                    )
+            pages.append(
+                PageOut(
+                    page_no=page_no,
+                    text=text,
+                    char_count=char_count,
+                    used_ocr=used_ocr,
+                    image_b64=b64,
                 )
+            )
 
     return ProcessPdfResponse(
         source_file_id=req.source_file_id,
@@ -137,12 +138,23 @@ def process_pdf(req: ProcessPdfRequest) -> ProcessPdfResponse:
 import io
 import re
 
-import schemdraw
-import schemdraw.elements as elm
+# schemdraw / rdkit are only used by the optional /render_circuit and
+# /render_molecule endpoints. Make them optional so the worker boots in
+# environments where their build deps (matplotlib, rdkit C++) are missing
+# — past-paper ingest only needs PyMuPDF.
+try:
+    import schemdraw
+    import schemdraw.elements as elm
+    _SCHEMDRAW_OK = True
+except ImportError as _schemdraw_err:
+    schemdraw = None  # type: ignore[assignment]
+    elm = None  # type: ignore[assignment]
+    _SCHEMDRAW_OK = False
+    log.warning("schemdraw not available; /render_circuit disabled (%s)", _schemdraw_err)
 
 # Whitelist of schemdraw element classes we'll instantiate. AI gives us
 # an element type as a string; this avoids arbitrary-attribute access.
-_ALLOWED_ELEMENTS = {
+_ALLOWED_ELEMENTS = {} if not _SCHEMDRAW_OK else {
     'Resistor': elm.Resistor,
     'ResistorIEC': elm.ResistorIEC,
     'Capacitor': elm.Capacitor,
@@ -199,6 +211,8 @@ class CircuitResponse(BaseModel):
 
 @app.post("/render_circuit", response_model=CircuitResponse)
 def render_circuit(req: CircuitRequest) -> CircuitResponse:
+    if not _SCHEMDRAW_OK:
+        raise HTTPException(503, "schemdraw not installed in this worker")
     if not req.elements:
         raise HTTPException(400, "elements list is empty")
     if len(req.elements) > 30:
@@ -248,9 +262,17 @@ def render_circuit(req: CircuitRequest) -> CircuitResponse:
 # and renders SVG via rdMolDraw2D. Used to replace gpt-image-2 for
 # type=molecular and type=organic_skeletal.
 
-from rdkit import Chem
-from rdkit.Chem import AllChem
-from rdkit.Chem.Draw import rdMolDraw2D
+try:
+    from rdkit import Chem
+    from rdkit.Chem import AllChem
+    from rdkit.Chem.Draw import rdMolDraw2D
+    _RDKIT_OK = True
+except ImportError as _rdkit_err:
+    Chem = None  # type: ignore[assignment]
+    AllChem = None  # type: ignore[assignment]
+    rdMolDraw2D = None  # type: ignore[assignment]
+    _RDKIT_OK = False
+    log.warning("rdkit not available; /render_molecule disabled (%s)", _rdkit_err)
 
 
 class MoleculeRequest(BaseModel):
@@ -266,6 +288,8 @@ class MoleculeResponse(BaseModel):
 
 @app.post("/render_molecule", response_model=MoleculeResponse)
 def render_molecule(req: MoleculeRequest) -> MoleculeResponse:
+    if not _RDKIT_OK:
+        raise HTTPException(503, "rdkit not installed in this worker")
     smiles = (req.smiles or "").strip()
     if not smiles or len(smiles) > 500:
         raise HTTPException(400, "smiles must be 1..500 chars")

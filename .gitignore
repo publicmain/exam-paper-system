@@ -44,3 +44,16 @@ uploads/
 
 # Puppeteer cache
 .cache/
+
+# Claude Code / agent tooling (per-machine, not project source)
+.claude/
+.agents/
+skills/
+skills-lock.json
+
+# Python bytecode
+__pycache__/
+*.pyc
+
+# TypeScript incremental build cache
+tsconfig.tsbuildinfo

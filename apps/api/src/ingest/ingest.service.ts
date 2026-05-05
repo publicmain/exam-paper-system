@@ -264,6 +264,211 @@ export class IngestService {
   }
 
   /**
+   * Ingest PDFs from a directory the operator already has on disk, skipping
+   * the git-clone step of {@link syncRepository}. Used when a teacher
+   * uploads a folder of past papers via the school-upload flow rather than
+   * publishing to a git remote. The repo itself is still tracked normally
+   * (compliance, allowlists, audit) — we just substitute "clone dir" with
+   * the supplied path. The path is NOT mutated or removed; it is treated
+   * as the operator's own data.
+   */
+  async ingestFromLocalPath(
+    repoId: string,
+    localPath: string,
+    actor: ActorCtx,
+  ): Promise<SyncResult> {
+    const repo = await this.prisma.sourceRepository.findUnique({ where: { id: repoId } });
+    if (!repo) throw new NotFoundException('Source repository not found');
+
+    if (!this.compliance.canSyncRepo(repo.complianceStatus)) {
+      throw new ForbiddenException(
+        `Repo ${repo.id} is in compliance state '${repo.complianceStatus}'. ` +
+          `Only approved_internal or restricted_internal repos may sync.`,
+      );
+    }
+    if (repo.repoType === 'topic_page' || repo.repoType === 'downloader_script') {
+      throw new BadRequestException(
+        `Repo type '${repo.repoType}' is for discovery / tooling reference only and is never synced.`,
+      );
+    }
+
+    const stat = await fs.stat(localPath).catch(() => null);
+    if (!stat) throw new BadRequestException(`localPath not found: ${localPath}`);
+
+    // Allow callers to pass either a directory or a single PDF (handy for
+    // smoke-testing one paper through the full pipeline).
+    let scanRoot = localPath;
+    let cleanupTemp: string | null = null;
+    if (stat.isFile()) {
+      if (!localPath.toLowerCase().endsWith('.pdf')) {
+        throw new BadRequestException('localPath file must be a .pdf');
+      }
+      cleanupTemp = await fs.mkdtemp(path.join(os.tmpdir(), 'eps-single-'));
+      await fs.copyFile(localPath, path.join(cleanupTemp, path.basename(localPath)));
+      scanRoot = cleanupTemp;
+    } else if (!stat.isDirectory()) {
+      throw new BadRequestException(`localPath is neither file nor directory: ${localPath}`);
+    }
+
+    await this.prisma.sourceRepository.update({
+      where: { id: repoId },
+      data: { syncStatus: SyncStatus.running, syncError: null },
+    });
+    await this.audit.log({
+      actorId: actor.id,
+      actorRole: actor.role,
+      action: 'source.local_ingest.start',
+      entityType: 'source_repository',
+      entityId: repoId,
+      metadata: { localPath },
+      ip: actor.ip ?? null,
+    });
+
+    const result: SyncResult = {
+      repoId,
+      cloned: false,
+      scanned: 0,
+      newFiles: 0,
+      duplicates: 0,
+      skippedByAllowlist: 0,
+      skippedByYear: 0,
+      errors: [],
+    };
+    const allowlist = new Set<string>(repo.syllabusAllowlist ?? []);
+    const yearAllowlist = new Set<number>(repo.yearAllowlist ?? []);
+
+    try {
+      await fs.mkdir(RAW_STORE, { recursive: true });
+      const pdfFiles = await this.walkForPdfs(scanRoot, allowlist);
+      result.scanned = pdfFiles.length;
+
+      let totalBytesIngested = 0;
+      for (const absPath of pdfFiles) {
+        try {
+          const rawName = path.basename(absPath);
+          const parsed = parseFilename(rawName);
+          if (allowlist.size > 0) {
+            if (!parsed.syllabusCode || !allowlist.has(parsed.syllabusCode)) {
+              result.skippedByAllowlist++;
+              continue;
+            }
+          }
+          if (yearAllowlist.size > 0) {
+            if (!parsed.examYear || !yearAllowlist.has(parsed.examYear)) {
+              result.skippedByYear++;
+              continue;
+            }
+          }
+          const fStat = await fs.stat(absPath);
+          if (totalBytesIngested + fStat.size > MAX_CLONE_BYTES) {
+            result.errors.push(`Aborted at ${absPath}: 2GB cap reached.`);
+            break;
+          }
+          const buf = await fs.readFile(absPath);
+          const sha256 = createHash('sha256').update(buf).digest('hex');
+          const existing = await this.prisma.sourceFile.findUnique({ where: { sha256 } });
+          if (existing) {
+            result.duplicates++;
+            continue;
+          }
+          const dest = path.join(RAW_STORE, `${sha256}.pdf`);
+          await fs.writeFile(dest, buf);
+          await this.prisma.sourceFile.create({
+            data: {
+              repoId: repo.id,
+              rawFilename: rawName,
+              storagePath: dest,
+              sha256,
+              fileSizeBytes: fStat.size,
+              fileKind: parsed.fileKind,
+              syllabusCode: parsed.syllabusCode,
+              examYear: parsed.examYear,
+              examSeason: parsed.examSeason,
+              paperVariant: parsed.paperVariant,
+              paperNumber: parsed.paperNumber,
+              parsedFromName: parsed as any,
+              processStatus: ProcessStatus.pending,
+              complianceStatus: repo.complianceStatus,
+            },
+          });
+          totalBytesIngested += fStat.size;
+          result.newFiles++;
+        } catch (e: any) {
+          result.errors.push(`${absPath}: ${e.message ?? e}`);
+        }
+      }
+
+      await this.prisma.sourceRepository.update({
+        where: { id: repoId },
+        data: { syncStatus: SyncStatus.ok, lastSyncedAt: new Date(), syncError: null },
+      });
+      await this.audit.log({
+        actorId: actor.id,
+        actorRole: actor.role,
+        action: 'source.local_ingest.ok',
+        entityType: 'source_repository',
+        entityId: repoId,
+        metadata: result,
+        ip: actor.ip ?? null,
+      });
+
+      // Same post-ingest pipeline as syncRepository: render, split, link MS.
+      try {
+        result.dispatch = await this.dispatcher.processPendingForRepo(repoId, actor);
+      } catch (dispatchErr: any) {
+        this.logger.warn(`dispatch after local-ingest failed: ${dispatchErr?.message ?? dispatchErr}`);
+        result.errors.push(`dispatch: ${dispatchErr?.message ?? dispatchErr}`);
+      }
+      try {
+        const splits = await this.splitter.splitForRepo(repoId);
+        result.split = {
+          files: splits.length,
+          totalItems: splits.reduce((s, x) => s + x.splits, 0),
+        };
+      } catch (splitErr: any) {
+        this.logger.warn(`splitter after local-ingest failed: ${splitErr?.message ?? splitErr}`);
+        result.errors.push(`split: ${splitErr?.message ?? splitErr}`);
+      }
+      try {
+        const links = await this.msLinker.linkForRepo(repoId);
+        result.msLink = {
+          pairs: links.filter((l) => l.msFileId).length,
+          matched: links.reduce((s, x) => s + x.matched, 0),
+        };
+      } catch (linkErr: any) {
+        this.logger.warn(`ms link after local-ingest failed: ${linkErr?.message ?? linkErr}`);
+        result.errors.push(`mslink: ${linkErr?.message ?? linkErr}`);
+      }
+    } catch (e: any) {
+      const msg = String(e?.message ?? e);
+      await this.prisma.sourceRepository.update({
+        where: { id: repoId },
+        data: { syncStatus: SyncStatus.failed, syncError: msg },
+      });
+      await this.audit.log({
+        actorId: actor.id,
+        actorRole: actor.role,
+        action: 'source.local_ingest.fail',
+        entityType: 'source_repository',
+        entityId: repoId,
+        metadata: { error: msg, partial: result, localPath },
+        ip: actor.ip ?? null,
+      });
+      throw e;
+    } finally {
+      if (cleanupTemp) {
+        try {
+          await fs.rm(cleanupTemp, { recursive: true, force: true });
+        } catch (cleanupErr) {
+          this.logger.warn(`Failed to clean temp dir ${cleanupTemp}: ${cleanupErr}`);
+        }
+      }
+    }
+
+    return result;
+  }
+
+  /**
    * Shallow clone via the git CLI. Streams stderr so very large repos
    * surface failures quickly. We deliberately avoid simple-git because
    * spawning the system git binary keeps the dependency footprint flat.

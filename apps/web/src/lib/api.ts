@@ -237,6 +237,15 @@ export const api = {
   watermarkLookup: (token: string) => request('GET', `/watermark/lookup?token=${encodeURIComponent(token)}`),
   watermarkRevoke: (tokenId: string) => request('POST', `/watermark/tokens/${tokenId}/revoke`),
   watermarkDownloadUrl: (token: string) => `${BASE}/api/watermark/download?token=${encodeURIComponent(token)}`,
+
+  // practice browser (past-paper drill page)
+  practiceTopics: (syllabusCode = '9618') =>
+    request('GET', `/practice/topics?syllabusCode=${syllabusCode}`),
+  practiceQuestions: (params: any = {}) => request('GET', `/practice/questions${qs(params)}`),
+  practiceUpdateTopic: (id: string, topicCode: string | null) =>
+    request('PATCH', `/practice/questions/${id}/topic`, { topicCode }),
+  sourcePageImageUrl: (sourceFileId: string, pageNo: number) =>
+    `${BASE}/api/source-files/${sourceFileId}/pages/${pageNo}.png`,
 };
 
 function qs(obj: Record<string, any>) {
