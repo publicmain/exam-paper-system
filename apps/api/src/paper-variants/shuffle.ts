@@ -75,6 +75,12 @@ export function deriveSeed(assignmentId: string, studentId: string): number {
     h ^= s.charCodeAt(i);
     h = Math.imul(h, 0x01000193);
   }
-  // Force unsigned 32-bit
-  return h >>> 0;
+  // Coerce to SIGNED 32-bit so Prisma's Int column accepts it. The
+  // original `>>> 0` returned an unsigned 32-bit value up to 4.29e9
+  // which overflowed Prisma `Int` (max 2.14e9) ~half the time and
+  // surfaced as 500 from generateForClass. The PRNG (mulberry32)
+  // immediately re-uses `seed >>> 0` internally, so the bit pattern
+  // is identical to the previous behaviour — only the SQL persistence
+  // path differs.
+  return h | 0;
 }
