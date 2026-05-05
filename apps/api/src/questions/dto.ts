@@ -1,4 +1,5 @@
 import { IsArray, IsEnum, IsInt, IsOptional, IsString, IsObject, Max, Min, IsBoolean } from 'class-validator';
+import { Transform } from 'class-transformer';
 import { QuestionType, QuestionStatus, SourceType } from '@prisma/client';
 
 export class CreateQuestionDto {
@@ -51,5 +52,18 @@ export class ListQuestionsQuery {
   @IsOptional() @IsString() search?: string;
   @IsOptional() page?: number;
   @IsOptional() pageSize?: number;
-  @IsOptional() @IsBoolean() includeDraft?: boolean;
+  // Bug #21: this DTO is hit via GET so query params arrive as strings.
+  // class-validator's @IsBoolean() rejects "true"/"false", which broke
+  // the entire Questions page (frontend defaults includeDraft=true and
+  // got 400 → 0 questions visible despite 395 in the bank). Coerce
+  // string-or-boolean → boolean before validating.
+  @IsOptional()
+  @Transform(({ value }) => {
+    if (typeof value === 'boolean') return value;
+    if (value === 'true' || value === '1') return true;
+    if (value === 'false' || value === '0') return false;
+    return value;
+  })
+  @IsBoolean()
+  includeDraft?: boolean;
 }
