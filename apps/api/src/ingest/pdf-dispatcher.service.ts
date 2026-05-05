@@ -198,6 +198,12 @@ export class PdfDispatcherService {
           pageNo: p.page_no,
           rawText: cleanText,
           imageUrl,
+          // Persist the rendered PNG inside the row too — see schema
+          // comment on PdfPage.imageBytes for why this matters on
+          // ephemeral container hosts. Disk write above is kept so
+          // the route can serve from disk without a DB round-trip on
+          // hot paths; DB column is the durable copy.
+          imageBytes: buf,
           ocrUsed: p.used_ocr,
         },
       });

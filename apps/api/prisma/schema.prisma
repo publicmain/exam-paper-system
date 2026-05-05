@@ -634,6 +634,13 @@ model PdfPage {
   rawText       String?
   layoutJson    Json?
   imageUrl      String?
+  // Inline PNG bytes so the rendered page survives across container
+  // restarts and can be replicated via pg_dump. Without this, the API
+  // could only serve from RENDER_STORAGE_PATH on the local filesystem,
+  // which is ephemeral on most container hosts. The page-image controller
+  // serves these bytes when present and falls back to the disk PNG when
+  // the column is null (so legacy rows keep working until backfilled).
+  imageBytes    Bytes?
   ocrUsed       Boolean    @default(false)
   ocrConfidence Float?
 

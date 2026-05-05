@@ -13,6 +13,7 @@
     "prisma:reset": "prisma migrate reset --force",
     "prisma:seed": "ts-node prisma/seed.ts",
     "ingest:local": "ts-node scripts/ingest-local.ts",
+    "backfill:page-bytes": "ts-node scripts/backfill-page-bytes.ts",
     "test": "vitest run",
     "test:watch": "vitest"
   },

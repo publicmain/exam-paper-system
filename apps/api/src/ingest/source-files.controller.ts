@@ -36,12 +36,24 @@ export class SourceFilesController {
 
     const fname = `page-${String(pageNum).padStart(4, '0')}.png`;
     const abs = path.join(RENDER_STORE, id, fname);
-    if (!fs.existsSync(abs)) {
-      throw new NotFoundException('page image not rendered');
-    }
     res.setHeader('Content-Type', 'image/png');
     res.setHeader('Cache-Control', 'private, max-age=600');
-    fs.createReadStream(abs).pipe(res);
+    if (fs.existsSync(abs)) {
+      fs.createReadStream(abs).pipe(res);
+      return;
+    }
+    // Filesystem missed (typical on ephemeral container hosts where the
+    // disk PNG was lost on restart). Fall back to the DB-embedded copy
+    // populated by the dispatcher. This is the column that pg_dump
+    // carries when migrating between environments.
+    const row = await this.prisma.pdfPage.findUnique({
+      where: { sourceFileId_pageNo: { sourceFileId: id, pageNo: pageNum } },
+      select: { imageBytes: true },
+    });
+    if (!row?.imageBytes) {
+      throw new NotFoundException('page image not rendered');
+    }
+    res.end(Buffer.from(row.imageBytes));
   }
 
   /**
