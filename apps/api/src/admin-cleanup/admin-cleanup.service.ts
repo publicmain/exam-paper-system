@@ -192,55 +192,80 @@ export class AdminCleanupService {
     const paperIds = candidatePapers.map((p) => p.id);
     const boardIds = testBoards.map((b) => b.id);
 
-    await this.prisma.$transaction(
-      async (tx) => {
-        // Order matters because several Path-B FKs are non-cascading
-        // (Restrict by default). We have to manually delete user-bound
-        // rows before deleting the user.
-        const tx2: any = tx; // Path-B model accessors live on Prisma client
+    // Run each step OUTSIDE a transaction so a failure on one step
+    // gives a precise error message instead of a black-box rollback.
+    // The cleanup is idempotent by design — re-running is safe even if
+    // a partial succeeds.
+    const stepCounts: Record<string, number> = {};
+    const stepFailed: string[] = [];
+    async function step(name: string, fn: () => Promise<{ count: number } | { count: number }[]>) {
+      try {
+        const r = await fn();
+        const count = Array.isArray(r) ? r.reduce((a, b) => a + (b.count ?? 0), 0) : r.count ?? 0;
+        stepCounts[name] = count;
+      } catch (e: any) {
+        stepFailed.push(`${name}: ${e?.message?.slice(0, 200) ?? String(e)}`);
+      }
+    }
+    const tx2: any = this.prisma; // Path-B accessors
 
-        if (userIds.length) {
-          // Tutor: messages cascade from session, but session.studentId
-          // is Restrict — delete sessions first, messages cascade.
-          await tx2.tutorSession.deleteMany({ where: { studentId: { in: userIds } } });
-          // Watermark tokens — onDelete is the default Restrict.
-          await tx2.watermarkToken.deleteMany({ where: { studentId: { in: userIds } } });
-          // Marker claims — onDelete: Cascade on submission, but markerId
-          // FK is Restrict; delete by markerId too in case any active claim
-          // is held by a test marker.
-          await tx2.markerAssignment.deleteMany({ where: { markerId: { in: userIds } } });
-          // Paper variants — studentId is Restrict.
-          await tx2.paperVariantAssignment.deleteMany({
-            where: { studentId: { in: userIds } },
-          });
-          // StudentSubmissions where the test user submitted to a NON-test
-          // paper (e.g. blackbox tests assigned an existing real paper to
-          // a t5-class). These don't get cleaned by paper.deleteMany
-          // because the paper itself is real. Cascade-deletes AnswerScript
-          // rows automatically. Marker claims on these subs cascade too.
-          await tx.studentSubmission.deleteMany({ where: { studentId: { in: userIds } } });
-          // Code submission results don't reference user directly
-          // (only AnswerScript, which cascades from submission).
-        }
-
-        // Test papers cascade through PaperQuestion / PaperAssignment / etc.
-        if (paperIds.length) {
-          await tx.paper.deleteMany({ where: { id: { in: paperIds } } });
-        }
-        if (classIds.length) {
-          await tx.class.deleteMany({ where: { id: { in: classIds } } });
-        }
-        if (userIds.length) {
-          await tx.user.deleteMany({ where: { id: { in: userIds } } });
-        }
-        if (boardIds.length) {
-          await tx.examBoard.deleteMany({ where: { id: { in: boardIds } } });
-        }
-      },
-      { timeout: 30000 },
-    );
+    if (userIds.length) {
+      await step('tutorSession', () =>
+        tx2.tutorSession.deleteMany({ where: { studentId: { in: userIds } } }),
+      );
+      await step('watermarkToken', () =>
+        tx2.watermarkToken.deleteMany({ where: { studentId: { in: userIds } } }),
+      );
+      await step('markerAssignment', () =>
+        tx2.markerAssignment.deleteMany({ where: { markerId: { in: userIds } } }),
+      );
+      await step('paperVariantAssignment', () =>
+        tx2.paperVariantAssignment.deleteMany({ where: { studentId: { in: userIds } } }),
+      );
+      await step('codeSubmissionResult', () =>
+        tx2.codeSubmissionResult.deleteMany({
+          where: { answerScript: { submission: { studentId: { in: userIds } } } },
+        }),
+      );
+      await step('studentSubmission', () =>
+        this.prisma.studentSubmission.deleteMany({ where: { studentId: { in: userIds } } }),
+      );
+      // PaperAssignment rows where a test student created the assignment
+      // (rare, but b6 head_teacher fixtures may have).
+      await step('paperAssignment', () =>
+        this.prisma.paperAssignment.deleteMany({ where: { assignedById: { in: userIds } } }),
+      );
+      // QuestionItem.reviewedById Restrict — null it out instead of delete.
+      await step('questionItemReviewedNull', () =>
+        this.prisma.questionItem.updateMany({
+          where: { reviewedById: { in: userIds } },
+          data: { reviewedById: null },
+        }),
+      );
+      // TeacherReview Restrict — wipe rows by reviewerId.
+      await step('teacherReview', () =>
+        this.prisma.teacherReview.deleteMany({ where: { reviewerId: { in: userIds } } }),
+      );
+    }
+    if (paperIds.length) {
+      await step('paper', () => this.prisma.paper.deleteMany({ where: { id: { in: paperIds } } }));
+    }
+    if (classIds.length) {
+      await step('class', () => this.prisma.class.deleteMany({ where: { id: { in: classIds } } }));
+    }
+    if (userIds.length) {
+      await step('user', () => this.prisma.user.deleteMany({ where: { id: { in: userIds } } }));
+    }
+    if (boardIds.length) {
+      await step('examBoard', () =>
+        this.prisma.examBoard.deleteMany({ where: { id: { in: boardIds } } }),
+      );
+    }
+    if (stepFailed.length) {
+      this.logger.warn(`purgeTestData partial failure: ${stepFailed.join(' | ')}`);
+    }
 
     this.logger.warn(`purgeTestData (live): deleted ${JSON.stringify(summary)}`);
-    return { dryRun: false, summary };
+    return { dryRun: false, summary, stepCounts, stepFailed };
   }
 }
