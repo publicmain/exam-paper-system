@@ -1,56 +1,11 @@
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../common/prisma.service';
+import { cleanCieQuestionText } from '../common/cie-text-cleanup';
 
-// Heuristics for stripping CIE-paper boilerplate that PyMuPDF leaves in
-// the extracted text. Margin watermarks, page barcodes, and the vertical
-// "DO NOT WRITE IN THIS MARGIN" rail show up as repeating strings or as
-// garbled mojibake when fonts can't be decoded. None of it is content;
-// we keep it out of the student-facing display text but leave it in
-// rawExtractedText for the admin debug view.
-const DROP_LINE_PATTERNS: RegExp[] = [
-  /DO\s*NOT\s*WRITE\s*IN\s*THIS\s*MARGIN/i,
-  /^\s*\*\s*\d{10,}\s*\*\s*$/,                 // page barcode tokens
-  /^\s*[\s,.\-]+\s*$/,                          // pure punctuation/whitespace
-  /^\s*DFD\s*$/i,                               // page corner code
-  /^\s*©\s*UCLES\s+\d{4}\s*$/i,            // copyright footer
-  /^\s*9618\/\d{2}\/[A-Z]\/[A-Z]\/\d{2}\s*$/i, // CIE paper ref code
-  /^\s*\[?Turn\s*over\]?\s*$/i,
-  /^\s*\d+\s*$/,                                // bare page numbers
-];
-
-// Lines that are mostly non-ASCII (mojibake from font-stripped strokes).
-// We tolerate up to a third weird chars before discarding.
-function looksLikeMojibake(line: string): boolean {
-  if (!line) return false;
-  const total = line.length;
-  if (total < 4) return false;
-  let weird = 0;
-  for (const ch of line) {
-    const c = ch.codePointAt(0)!;
-    if (c > 0x7e && (c < 0x2010 || c > 0x2122)) weird++;
-  }
-  return weird / total > 0.35;
-}
-
-export function cleanExtractedText(raw: string): string {
-  if (!raw) return '';
-  const lines = raw.split(/\r?\n/);
-  const out: string[] = [];
-  let blanks = 0;
-  for (const line of lines) {
-    const trimmed = line.replace(/\s+$/, '');
-    if (DROP_LINE_PATTERNS.some((re) => re.test(trimmed))) continue;
-    if (looksLikeMojibake(trimmed)) continue;
-    if (trimmed === '') {
-      // Collapse runs of blank lines so cleaned text doesn't look stretched.
-      if (blanks++ < 1) out.push('');
-      continue;
-    }
-    blanks = 0;
-    out.push(trimmed);
-  }
-  return out.join('\n').trim();
-}
+// Practice-side display cleanup is just the shared scrubber. It survives
+// across data refreshes so any QuestionItem ingested before the splitter
+// itself learned to trim still renders cleanly to students.
+export const cleanExtractedText = cleanCieQuestionText;
 
 export interface PracticeQuery {
   syllabusCode?: string;
@@ -131,7 +86,7 @@ export class PracticeService {
     // untouched in DB so admins can still see what PyMuPDF gave us.
     const cleaned = items.map((it) => ({
       ...it,
-      rawExtractedText: cleanExtractedText(it.rawExtractedText ?? ''),
+      rawExtractedText: cleanCieQuestionText(it.rawExtractedText ?? ''),
     }));
 
     return { total, items: cleaned };

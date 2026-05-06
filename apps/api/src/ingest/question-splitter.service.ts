@@ -1,6 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { PrismaService } from '../common/prisma.service';
 import { FileKind, ProcessStatus, QuestionType, ReviewStatus, SourceFile } from '@prisma/client';
+import { cleanCieQuestionText } from '../common/cie-text-cleanup';
 
 interface RawSplit {
   questionNumber: string;
@@ -310,10 +311,16 @@ export class QuestionSplitterService {
       }
     }
 
-    // Find all candidate Q starters: digit(s) followed by whitespace and
-    // either a "(" sub-part marker, or any word character (stem) on the
-    // next non-empty line within a small window.
-    const starterRe = /(?:^|\n)\s*(\d{1,2})\s*\n/g;
+    // Find all candidate Q starters. Two shapes are accepted:
+    //   (1) digits alone on a line followed by stem text on the next
+    //       line — the most common PyMuPDF layout for Q1..Q9
+    //   (2) digits followed by inline whitespace then a capital letter
+    //       or "(" — covers CIE 9618 papers where two-digit question
+    //       numbers (10, 11, ...) are output on the same line as the
+    //       stem, e.g. "10 An architect needs..." Without case (2) the
+    //       whole back-half of any paper with double-digit question
+    //       counts gets glued onto Q9 along with the legal footer.
+    const starterRe = /(?:^|\n)\s*(\d{1,2})(?:\s*\n|\s+(?=[A-Z(\[]))/g;
     type Hit = { n: number; offset: number };
     const hits: Hit[] = [];
     let sm: RegExpExecArray | null;
@@ -355,7 +362,12 @@ export class QuestionSplitterService {
     for (let i = 0; i < chain.length; i++) {
       const start = chain[i].offset;
       const end = i + 1 < chain.length ? chain[i + 1].offset : combined.length;
-      const body = combined.slice(start, end).trim();
+      // Cap the body at the legal footer so the LAST question in the
+      // paper (which has no chain[i+1] to act as a stop) doesn't
+      // swallow "Permission to reproduce... UCLES... BLANK PAGE...".
+      // cleanCieQuestionText also drops margin watermarks and ASCII
+      // mojibake lines that the page renderer leaves embedded.
+      const body = cleanCieQuestionText(combined.slice(start, end)).trim();
       if (body.length < 60) continue;
       if (!/[A-Za-z]{4,}/.test(body)) continue;
       // Quality gate: every CIE structured question carries at least

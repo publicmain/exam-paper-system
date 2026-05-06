@@ -1,5 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { PrismaService } from '../common/prisma.service';
+import { cleanCieQuestionText } from '../common/cie-text-cleanup';
 import { classifyText } from './rules-9618';
 
 export interface ClassifyBatchResult {
@@ -51,7 +52,13 @@ export class RuleClassifierService {
 
     for (const item of items) {
       try {
-        const text = item.rawExtractedText ?? '';
+        // Score against scrubbed text — without this, the legal footer
+        // CIE appends to every paper ("Permission to reproduce... Copyright
+        // Acknowledgements... UCLES...") feeds 'copyright/license' tokens
+        // into the CS.7 Ethics rule and creates dozens of false positives
+        // for whatever question happened to be the last one to slurp the
+        // footer up before splitter boundaries fire.
+        const text = cleanCieQuestionText(item.rawExtractedText ?? '');
         if (!text) {
           result.unmatched++;
           continue;
