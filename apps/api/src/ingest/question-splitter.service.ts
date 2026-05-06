@@ -457,54 +457,92 @@ export class QuestionSplitterService {
     // Per-question, find the bbox of the block whose first non-whitespace
     // token equals the question number. Restrict to blocks in the leftmost
     // ~120 px so we don't catch a "1" mid-sentence elsewhere on the page.
-    const findStarterBox = (n: string, page: { layoutJson?: any }) => {
-      const blocks = (page.layoutJson?.blocks ?? []) as Array<{
-        bbox: [number, number, number, number];
-        text: string;
-      }>;
-      const candidates = blocks.filter((b) => {
-        if (b.bbox[0] > 120) return false; // not in left margin
-        const first = b.text.trim().split(/\s+/)[0];
-        return first === n;
-      });
-      // Of the candidates, prefer the topmost (smallest y).
-      candidates.sort((a, b) => a.bbox[1] - b.bbox[1]);
-      return candidates[0]?.bbox;
+    // Scan EVERY page for the starter block instead of trusting the
+    // text-based pageStart (which can be off when page-text concat
+    // includes margin / footer chunks). Returns the first {pageNo, bbox}
+    // hit for question number `n` across all pages, sorted by (pageNo, y).
+    const findStarterAcrossPages = (
+      n: string,
+    ): { pageNo: number; bbox: [number, number, number, number] } | undefined => {
+      const hits: Array<{ pageNo: number; bbox: [number, number, number, number] }> = [];
+      for (const page of pages) {
+        const layout: any = (page as any).layoutJson;
+        const blocks = (layout?.blocks ?? []) as Array<{
+          bbox: [number, number, number, number];
+          text: string;
+        }>;
+        // CIE puts the question number flush against the left margin
+        // (x ~= 124 px at 180 DPI). The number usually shares its block
+        // with the first line of the stem ("1  (a) (i) ..."). We allow
+        // up to ~12% of the page width as the left-margin gutter.
+        const blockMaxX = Math.max(160, (layout?.width ?? 1489) * 0.12);
+        for (const b of blocks) {
+          if (b.bbox[0] > blockMaxX) continue;
+          const t = b.text.replace(/^\s+/, '');
+          if (!t.startsWith(n)) continue;
+          const rest = t.slice(n.length);
+          // The character that follows the number must look like a CIE
+          // question header — either a sub-part marker "(a/b/...)" or
+          // double-spaced indentation introducing the stem. This rules
+          // out cover-sheet noise like "1 hour 30 minutes" or "1 mark"
+          // where the number happens to lead a line in the left margin.
+          if (!/^\s{2,}\(?[a-z]\)?\s|^\s{2,}[A-Z]/.test(rest)) continue;
+          hits.push({ pageNo: page.pageNo, bbox: b.bbox });
+        }
+      }
+      hits.sort((a, b) => a.pageNo - b.pageNo || a.bbox[1] - b.bbox[1]);
+      return hits[0];
     };
+
+    // First pass: locate every chain question's starter block across the
+    // entire document. We rely on this alone, ignoring the text-based
+    // pageStart which can be a page off when contentPages dropped the
+    // wrong cover / blank.
+    const startersByQ = new Map<
+      string,
+      { pageNo: number; bbox: [number, number, number, number] }
+    >();
+    for (const s of splits) {
+      const hit = findStarterAcrossPages(s.questionNumber);
+      if (hit) startersByQ.set(s.questionNumber, hit);
+    }
+
+    const pageDims = (page: any) => ({
+      w: page.layoutJson?.width ?? 0,
+      h: page.layoutJson?.height ?? 0,
+    });
 
     for (let i = 0; i < splits.length; i++) {
       const cur = splits[i];
       const next = splits[i + 1];
-      const startPage = pageByNo.get(cur.pageStart);
-      if (!startPage?.layoutJson) continue;
+      const start = startersByQ.get(cur.questionNumber);
+      if (!start) continue;
 
-      const startBox = findStarterBox(cur.questionNumber, startPage);
-      if (!startBox) continue;
-      const startY = Math.max(0, startBox[1] - 4); // small padding above
+      // Use the bbox-derived page as the authoritative pageStart even
+      // if it disagrees with the text splitter — this is what the
+      // student actually sees on the rendered PDF page.
+      const realPageStart = start.pageNo;
+      const realPageEnd = next ? Math.max(realPageStart, (startersByQ.get(next.questionNumber)?.pageNo ?? cur.pageEnd)) : cur.pageEnd;
 
+      const startY = Math.max(0, start.bbox[1] - 4); // small padding above
       const cropBoxes: NonNullable<RawSplit['cropBoxes']> = [];
-      const pageDims = (page: any) => ({
-        w: page.layoutJson?.width ?? 0,
-        h: page.layoutJson?.height ?? 0,
-      });
 
-      // Walk every page from pageStart..pageEnd. The first page crops
-      // from startY down; intermediate pages take the whole page; the
-      // last page crops down to the next question's starter (if it
-      // begins on this same page) or the bottom otherwise.
-      for (let pn = cur.pageStart; pn <= cur.pageEnd; pn++) {
+      for (let pn = realPageStart; pn <= realPageEnd; pn++) {
         const page = pageByNo.get(pn);
         if (!page) continue;
         const dims = pageDims(page);
         if (!dims.w || !dims.h) continue;
 
-        let yTop = pn === cur.pageStart ? startY : 0;
+        const yTop = pn === realPageStart ? startY : 0;
         let yBot = dims.h;
 
-        if (next && next.pageStart === pn) {
-          const nb = findStarterBox(next.questionNumber, page);
-          if (nb) yBot = Math.max(yTop + 20, nb[1] - 4);
+        // If the next question starts on this same page, stop just
+        // above its starter; else use page bottom.
+        const nextStart = next ? startersByQ.get(next.questionNumber) : undefined;
+        if (nextStart && nextStart.pageNo === pn) {
+          yBot = Math.max(yTop + 20, nextStart.bbox[1] - 4);
         }
+
         cropBoxes.push({
           pageNo: pn,
           x: 0,
@@ -516,7 +554,13 @@ export class QuestionSplitterService {
         });
       }
 
-      if (cropBoxes.length) cur.cropBoxes = cropBoxes;
+      if (cropBoxes.length) {
+        cur.cropBoxes = cropBoxes;
+        // Also write back the corrected page range so other consumers
+        // (UI showing "pages 4-6") agree with the cropped region.
+        cur.pageStart = realPageStart;
+        cur.pageEnd = realPageEnd;
+      }
     }
   }
 }
