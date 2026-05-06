@@ -150,15 +150,27 @@ export const RULES_9618: ClassifierRule[] = [
     keywords: [
       w('database'), w('DBMS'),
       w('primary key'), w('foreign key'), w('candidate key'),
-      r('\\bSELECT\\b\\s'), r('\\bFROM\\b\\s'), r('\\bWHERE\\b\\s'),
-      w('INSERT INTO'), w('UPDATE'), w('DELETE FROM'), w('JOIN'),
+      // SQL keywords are dangerous on their own — bare `JOIN` matched
+      // the English word "join" in "join a professional ethical body"
+      // and stole 50+ ethics questions to CS.8. Anchor every SQL token
+      // to another SQL token so context confirms it. The two-keyword
+      // forms are still common in any real SQL question.
+      r('SELECT\\s+[^\\n]{1,80}\\s+FROM\\b'),
+      r('INSERT\\s+INTO\\b'),
+      r('DELETE\\s+FROM\\b'),
+      r('UPDATE\\s+\\w+\\s+SET\\b'),
+      r('INNER\\s+JOIN|LEFT\\s+JOIN|RIGHT\\s+JOIN|OUTER\\s+JOIN'),
+      r('JOIN\\s+\\w+\\s+ON\\b'),
+      r('GROUP\\s+BY|ORDER\\s+BY'),
       w('CREATE TABLE'), w('ALTER TABLE'),
       w('normalisation'), w('normalization'),
       w('1NF'), w('2NF'), w('3NF'),
       w('DDL'), w('DML'),
-      w('transaction'),
     ],
-    hints: [w('table'), w('record'), w('field'), w('SQL')],
+    // 'transaction' and standalone SQL keywords moved to hints — they
+    // appear frequently in non-DB contexts ("commit a transaction" in
+    // version control questions, "select" in everyday English).
+    hints: [w('table'), w('record'), w('field'), w('SQL'), w('transaction')],
   },
 
   // ---------- P2 — Algorithm design ----------
