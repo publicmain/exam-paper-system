@@ -47,14 +47,19 @@ const DROP_LINE_PATTERNS: RegExp[] = [
   /^\s*9618\/\d{2}\/[A-Z]\/[A-Z]\/\d{2}\s*$/i,  // CIE paper ref code
   /^\s*\[?Turn\s*over\]?\s*$/i,
   /^\s*\d+\s*$/,                                // bare page numbers
-  // ASCII mojibake the font-stripper leaves behind: lines made of
-  // commas, spaces, and runs of zeros. Q9 of 9618_w25_qp_11 carried
-  // ",0000  00000000," as its tail — none of that is content.
-  /^\s*,?\s*0{2,}(?:\s+0{2,})*\s*,?\s*$/,
-  /^\s*0{2,}(?:\s+0{2,}){2,}\s*$/,
+  // The "comma-bracketed control sequence" lines that PyMuPDF emits when
+  // it can't decode CIE's page-marker glyphs — actual bytes look like
+  //   ',\x01\x01\x01\x01\t\x01\x01\x01\x01\x01\x01\x01\x03,'
+  // and render in browsers as a row of empty boxes that students mistake
+  // for "zeros". Drop any line that's just commas / control chars /
+  // whitespace with no printable content.
+  // eslint-disable-next-line no-control-regex
+  /^[\s,]*[\x00-\x1f]+[\s,]*$/,
 ];
 
-// Lines that are mostly non-ASCII (mojibake from font-stripped strokes).
+// Lines that are mostly non-printable junk — mojibake from font-stripped
+// strokes (high-bit chars) or undecoded glyphs that came out as control
+// codes. We tolerate up to a third weird chars before discarding.
 function looksLikeMojibake(line: string): boolean {
   if (!line) return false;
   const total = line.length;
@@ -62,7 +67,11 @@ function looksLikeMojibake(line: string): boolean {
   let weird = 0;
   for (const ch of line) {
     const c = ch.codePointAt(0)!;
-    if (c > 0x7e && (c < 0x2010 || c > 0x2122)) weird++;
+    // Control chars below space (except real tab/CR/LF) are always weird.
+    if (c < 0x20 && c !== 0x09) weird++;
+    // High-bit chars are weird unless they're standard punctuation we
+    // expect in CIE papers (em-dash, ellipsis, tick marks, ©, etc.).
+    else if (c > 0x7e && (c < 0x2010 || c > 0x2122)) weird++;
   }
   return weird / total > 0.35;
 }
