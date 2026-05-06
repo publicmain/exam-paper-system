@@ -4,7 +4,7 @@ import * as fs from 'node:fs';
 import * as path from 'node:path';
 import * as os from 'node:os';
 import { PrismaService } from '../common/prisma.service';
-import { Roles } from '../common/auth.guard';
+import { Public, Roles } from '../common/auth.guard';
 
 const RENDER_STORE = process.env.RENDER_STORAGE_PATH || path.join(os.tmpdir(), 'exam-rendered');
 
@@ -17,6 +17,12 @@ const RENDER_STORE = process.env.RENDER_STORAGE_PATH || path.join(os.tmpdir(), '
 export class SourceFilesController {
   constructor(private readonly prisma: PrismaService) {}
 
+  // Page image is opened via <img src=...> which can't carry the JWT
+  // Authorization header. Mark it @Public so browsers can fetch it from
+  // the /practice page; the route itself only serves rendered PNGs of
+  // already-approved past papers, so opening it up doesn't expose any
+  // pending-review or restricted content.
+  @Public()
   @Get(':id/pages/:page')
   async pageImage(
     @Param('id') id: string,
