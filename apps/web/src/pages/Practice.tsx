@@ -384,19 +384,18 @@ export default function PracticePage() {
                       ))}
                     </div>
                   ) : showImage && q.pageStart ? (
+                    // Fallback when the splitter couldn't compute a precise
+                    // crop bbox (e.g. Q-number formatting outside the
+                    // canonical "N  (a)" / "N <Capital>" mould). We only
+                    // show the question's first page here — eagerly
+                    // rendering pageStart+1 used to drag the paper's
+                    // legal-trailer page in for last-question fallbacks.
                     <div className="bg-gray-50 p-2 rounded">
                       <img
                         src={api.sourcePageImageUrl(sf.id, q.pageStart)}
                         alt={`${sf.rawFilename} page ${q.pageStart}`}
                         className="w-full max-h-[800px] object-contain"
                       />
-                      {q.pageEnd && q.pageEnd > q.pageStart && (
-                        <img
-                          src={api.sourcePageImageUrl(sf.id, q.pageStart + 1)}
-                          alt={`${sf.rawFilename} page ${q.pageStart + 1}`}
-                          className="w-full max-h-[800px] object-contain mt-2"
-                        />
-                      )}
                     </div>
                   ) : (
                     <pre className="whitespace-pre-wrap font-sans text-sm leading-relaxed">{text}</pre>

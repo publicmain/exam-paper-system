@@ -482,11 +482,12 @@ export class QuestionSplitterService {
           if (!t.startsWith(n)) continue;
           const rest = t.slice(n.length);
           // The character that follows the number must look like a CIE
-          // question header — either a sub-part marker "(a/b/...)" or
-          // double-spaced indentation introducing the stem. This rules
-          // out cover-sheet noise like "1 hour 30 minutes" or "1 mark"
-          // where the number happens to lead a line in the left margin.
-          if (!/^\s{2,}\(?[a-z]\)?\s|^\s{2,}[A-Z]/.test(rest)) continue;
+          // question header — either a sub-part marker "(a)" or one-or-
+          // more whitespace chars followed by a capital letter (start of
+          // a sentence). This rules out cover-sheet noise like
+          // "1 hour 30 minutes" / "1 mark" where the number happens to
+          // lead a line in the left margin but is followed by lowercase.
+          if (!/^\s+(?:\([a-z]\)|[A-Z])/.test(rest)) continue;
           hits.push({ pageNo: page.pageNo, bbox: b.bbox });
         }
       }
