@@ -53,7 +53,7 @@ export const RULES_9618: ClassifierRule[] = [
     ],
     hints: [w('network'), w('internet'), w('packet'), w('frame')],
   },
-  // ---------- P1 — Hardware: logic gates ----------
+  // ---------- P1 — Hardware: logic gates + embedded / control systems ----------
   {
     topicCode: 'CS.3',
     paperHint: ['1'],
@@ -63,8 +63,21 @@ export const RULES_9618: ClassifierRule[] = [
       w('truth table'),
       w('logic circuit'),
       w('fetch.execute cycle'),
+      // Hardware-application questions that didn't match the gate
+      // vocabulary live here too: embedded systems, monitoring/control
+      // loops, 3D printers, sensors / actuators, memory buffers.
+      w('embedded system'),
+      w('control system'),
+      w('monitoring system'),
+      r('3.?D\\s+print'),
+      w('actuator'),
+      w('sensor'),
+      r('\\bDRAM\\b'),
+      r('\\bSRAM\\b'),
+      r('\\bROM\\b'),
+      w('memory buffer'),
     ],
-    hints: [w('gate'), w('Boolean')],
+    hints: [w('gate'), w('Boolean'), w('feedback'), w('hardware'), w('device')],
   },
   // ---------- P1 / P4 — Processor fundamentals ----------
   {
@@ -122,9 +135,11 @@ export const RULES_9618: ClassifierRule[] = [
     paperHint: ['1'],
     keywords: [
       w('ethic'), w('ethical'),
-      w('copyright'), w('intellectual property'), w('license'),
+      w('copyright'), w('intellectual property'),
+      w('licence'), w('license'),  // British + American spellings
       w('GDPR'), w('data protection'),
       w('whistleblow'),
+      r('software\\s+licen[cs]e'),
     ],
     hints: [w('privacy'), w('professional')],
   },
@@ -157,6 +172,8 @@ export const RULES_9618: ClassifierRule[] = [
       w('bubble sort'), w('insertion sort'),
       w('decomposition'),
       w('algorithm'),
+      r('state.transition\\s+diagram'),
+      r('state.transition\\s+table'),
     ],
     hints: [w('search'), w('sort'), w('iterate')],
   },
@@ -209,6 +226,8 @@ export const RULES_9618: ClassifierRule[] = [
       w('indexed sequential'),
       w('hashing function'), w('hash function'),
       w('user.defined data type'), w('composite type'),
+      w('composite data type'), w('non.composite data type'),
+      w('enumerated type'),
       w('pointer'),
     ],
     hints: [w('precision'), w('range')],
@@ -236,8 +255,15 @@ export const RULES_9618: ClassifierRule[] = [
       w('half adder'), w('full adder'),
       w('flip.flop'), r('\\bSR\\s+flip'),
       w('Boolean algebra'),
+      // CIE 9618 Paper 3 hardware questions consistently ask about
+      // RISC/CISC and Flynn's taxonomy (SISD/SIMD/MISD/MIMD). Without
+      // these the questions fell straight to "uncategorised".
+      r('\\bRISC\\b'), r('\\bCISC\\b'),
+      r('\\bSISD\\b'), r('\\bSIMD\\b'), r('\\bMISD\\b'), r('\\bMIMD\\b'),
+      w('massively parallel'),
+      r('Flynn.{0,3}taxonomy'),
     ],
-    hints: [w('parallelism'), w('logic')],
+    hints: [w('parallelism'), w('logic'), w('processor architecture')],
   },
   // ---------- P3 — System software advanced ----------
   {
