@@ -10,6 +10,21 @@ interface RawSplit {
   text: string;
   detectedType: QuestionType;
   detectedMarks?: number;
+  // Per-page crop boxes (pixel coords matching the rendered PNG) so the
+  // frontend can show the actual question region instead of fighting with
+  // imperfect text extraction. Computed by walking the layoutJson blocks
+  // around the question's starter and the next question's starter.
+  // pageW/pageH are the rendered PNG dimensions for the page so the
+  // frontend doesn't need a JS onLoad callback to compute the CSS crop.
+  cropBoxes?: Array<{
+    pageNo: number;
+    x: number;
+    y: number;
+    w: number;
+    h: number;
+    pageW: number;
+    pageH: number;
+  }>;
 }
 
 export interface SplitResult {
@@ -61,7 +76,7 @@ export class QuestionSplitterService {
   }
 
   async splitOne(
-    file: SourceFile & { pages: { pageNo: number; rawText: string | null }[] },
+    file: SourceFile & { pages: { pageNo: number; rawText: string | null; layoutJson?: any }[] },
   ): Promise<SplitResult> {
     const notes: string[] = [];
     if (!file.pages || file.pages.length === 0) {
@@ -73,6 +88,13 @@ export class QuestionSplitterService {
 
     const splits = isMcq ? this.splitMcq(file.pages) : this.splitStructured(file.pages);
     notes.push(`raw splits: ${splits.length}`);
+
+    // Enrich each split with per-page crop boxes computed from the
+    // layoutJson blocks the worker produced. Without these the frontend
+    // shows the full page (which often has the previous/next question's
+    // stem hanging on); with them, the question card displays exactly
+    // the region of the PDF the question lives in.
+    if (!isMcq) this.attachCropBoxes(splits, file.pages);
 
     // Idempotent rewrite. Drop QuestionItems that have not yet been
     // mirrored into Question (questionId IS NULL); approved ones are
@@ -91,6 +113,10 @@ export class QuestionSplitterService {
           questionNumber: s.questionNumber,
           suggestedType: s.detectedType,
           suggestedMarks: s.detectedMarks ?? null,
+          // Crop boxes are stored as the question's image-display bounds:
+          // a list of {pageNo, x, y, w, h} per page the question spans.
+          // Frontend uses these to render the original PDF region.
+          cropBboxJson: s.cropBoxes ? (s.cropBoxes as any) : undefined,
           // Inherit from source — admins can tighten per-item later.
           complianceStatus: file.complianceStatus,
           reviewStatus: ReviewStatus.pending_review,
@@ -404,5 +430,93 @@ export class QuestionSplitterService {
     let m: RegExpExecArray | null;
     while ((m = re.exec(body)) !== null) sum += parseInt(m[1], 10);
     return sum > 0 ? sum : undefined;
+  }
+
+  /**
+   * Compute per-page bounding boxes for each question by walking the
+   * layoutJson blocks the worker produced. CIE Q numbers live in the
+   * left margin (small x0). For each question chain item we find the
+   * left-margin block whose first token is the question number, then
+   * crop from that block's top edge to the next question's top edge
+   * (or the page bottom on intermediate pages).
+   *
+   * Falls back gracefully — when blocks are missing or numbers can't
+   * be matched the question simply has no cropBoxes set, and the
+   * frontend renders the full pageStart..pageEnd range as before.
+   */
+  private attachCropBoxes(
+    splits: RawSplit[],
+    pages: Array<{ pageNo: number; layoutJson?: any }>,
+  ): void {
+    if (splits.length === 0) return;
+
+    // Build a quick page index by pageNo.
+    const pageByNo = new Map<number, { pageNo: number; layoutJson?: any }>();
+    for (const p of pages) pageByNo.set(p.pageNo, p);
+
+    // Per-question, find the bbox of the block whose first non-whitespace
+    // token equals the question number. Restrict to blocks in the leftmost
+    // ~120 px so we don't catch a "1" mid-sentence elsewhere on the page.
+    const findStarterBox = (n: string, page: { layoutJson?: any }) => {
+      const blocks = (page.layoutJson?.blocks ?? []) as Array<{
+        bbox: [number, number, number, number];
+        text: string;
+      }>;
+      const candidates = blocks.filter((b) => {
+        if (b.bbox[0] > 120) return false; // not in left margin
+        const first = b.text.trim().split(/\s+/)[0];
+        return first === n;
+      });
+      // Of the candidates, prefer the topmost (smallest y).
+      candidates.sort((a, b) => a.bbox[1] - b.bbox[1]);
+      return candidates[0]?.bbox;
+    };
+
+    for (let i = 0; i < splits.length; i++) {
+      const cur = splits[i];
+      const next = splits[i + 1];
+      const startPage = pageByNo.get(cur.pageStart);
+      if (!startPage?.layoutJson) continue;
+
+      const startBox = findStarterBox(cur.questionNumber, startPage);
+      if (!startBox) continue;
+      const startY = Math.max(0, startBox[1] - 4); // small padding above
+
+      const cropBoxes: NonNullable<RawSplit['cropBoxes']> = [];
+      const pageDims = (page: any) => ({
+        w: page.layoutJson?.width ?? 0,
+        h: page.layoutJson?.height ?? 0,
+      });
+
+      // Walk every page from pageStart..pageEnd. The first page crops
+      // from startY down; intermediate pages take the whole page; the
+      // last page crops down to the next question's starter (if it
+      // begins on this same page) or the bottom otherwise.
+      for (let pn = cur.pageStart; pn <= cur.pageEnd; pn++) {
+        const page = pageByNo.get(pn);
+        if (!page) continue;
+        const dims = pageDims(page);
+        if (!dims.w || !dims.h) continue;
+
+        let yTop = pn === cur.pageStart ? startY : 0;
+        let yBot = dims.h;
+
+        if (next && next.pageStart === pn) {
+          const nb = findStarterBox(next.questionNumber, page);
+          if (nb) yBot = Math.max(yTop + 20, nb[1] - 4);
+        }
+        cropBoxes.push({
+          pageNo: pn,
+          x: 0,
+          y: Math.round(yTop),
+          w: Math.round(dims.w),
+          h: Math.round(Math.max(20, yBot - yTop)),
+          pageW: Math.round(dims.w),
+          pageH: Math.round(dims.h),
+        });
+      }
+
+      if (cropBoxes.length) cur.cropBoxes = cropBoxes;
+    }
   }
 }

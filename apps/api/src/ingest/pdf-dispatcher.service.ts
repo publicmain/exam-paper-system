@@ -12,6 +12,11 @@ interface ActorCtx {
   ip?: string | null;
 }
 
+interface TextBlock {
+  bbox: [number, number, number, number]; // pixel coordinates of the rendered PNG
+  text: string;
+}
+
 interface PageOut {
   page_no: number;
   text: string;
@@ -19,6 +24,9 @@ interface PageOut {
   used_ocr: boolean;
   image_b64: string;
   image_mime?: string;
+  width?: number;
+  height?: number;
+  blocks?: TextBlock[];
 }
 
 interface ProcessPdfResponse {
@@ -204,6 +212,15 @@ export class PdfDispatcherService {
           // the route can serve from disk without a DB round-trip on
           // hot paths; DB column is the durable copy.
           imageBytes: buf,
+          // Persist the per-page layout (text blocks with pixel bboxes,
+          // plus the rendered image dimensions) so the question splitter
+          // can find Q-number gutters spatially and so the frontend can
+          // crop the PNG to the question region without re-running PyMuPDF.
+          layoutJson: {
+            width: p.width ?? null,
+            height: p.height ?? null,
+            blocks: p.blocks ?? [],
+          } as any,
           ocrUsed: p.used_ocr,
         },
       });

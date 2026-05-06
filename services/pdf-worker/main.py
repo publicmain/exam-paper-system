@@ -46,6 +46,13 @@ class ProcessPdfRequest(BaseModel):
     expected_sha256: str | None = None
 
 
+class TextBlock(BaseModel):
+    # Pixel-space coordinates (matching the rendered PNG at RENDER_DPI),
+    # so the splitter and frontend can crop without an inverse transform.
+    bbox: list[float]   # [x0, y0, x1, y1]
+    text: str
+
+
 class PageOut(BaseModel):
     page_no: int
     text: str
@@ -53,6 +60,9 @@ class PageOut(BaseModel):
     used_ocr: bool
     image_b64: str
     image_mime: str = "image/png"
+    width: int = 0
+    height: int = 0
+    blocks: list[TextBlock] = []
 
 
 class ProcessPdfResponse(BaseModel):
@@ -108,6 +118,34 @@ def process_pdf(req: ProcessPdfRequest) -> ProcessPdfResponse:
             if char_count < 40:
                 log.info("page %d looks scanned (%d chars) — OCR pending", page_no, char_count)
 
+            # Text blocks with pixel-space bboxes so the splitter can find
+            # question-number columns and the frontend can crop the PNG to
+            # exactly the question region. PyMuPDF reports bboxes in PDF
+            # points; convert to pixels using the same DPI as the render.
+            scale = RENDER_DPI / 72.0
+            blocks: list[TextBlock] = []
+            try:
+                raw_dict = page.get_text("dict")
+                for blk in raw_dict.get("blocks", []):
+                    if blk.get("type", 0) != 0:
+                        continue  # type 1 = image block, skip
+                    btext_parts: list[str] = []
+                    for line in blk.get("lines", []):
+                        for span in line.get("spans", []):
+                            t = span.get("text", "")
+                            if t:
+                                btext_parts.append(t)
+                    btext = " ".join(btext_parts).strip()
+                    if not btext:
+                        continue
+                    bb = blk.get("bbox", [0, 0, 0, 0])
+                    blocks.append(TextBlock(
+                        bbox=[bb[0] * scale, bb[1] * scale, bb[2] * scale, bb[3] * scale],
+                        text=btext,
+                    ))
+            except Exception as e:
+                log.warning("layout extraction failed on page %d: %s", page_no, e)
+
             pages.append(
                 PageOut(
                     page_no=page_no,
@@ -115,6 +153,9 @@ def process_pdf(req: ProcessPdfRequest) -> ProcessPdfResponse:
                     char_count=char_count,
                     used_ocr=used_ocr,
                     image_b64=b64,
+                    width=pix.width,
+                    height=pix.height,
+                    blocks=blocks,
                 )
             )
 

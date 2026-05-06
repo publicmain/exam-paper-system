@@ -26,6 +26,59 @@ interface Component {
   name: string;
   topics: Topic[];
 }
+interface CropBox {
+  pageNo: number;
+  x: number;
+  y: number;
+  w: number;
+  h: number;
+  pageW: number;
+  pageH: number;
+}
+
+/**
+ * Crop a rendered PDF page image to a question-specific bounding box.
+ *
+ * The container holds an aspect-ratio box matching the crop region. The
+ * underlying image is positioned absolutely at full page width inside it,
+ * scaled so the crop's width fills the container, and translated up so
+ * the crop's top edge lines up with the container's top edge. CSS
+ * percentages are normalised against the page dimensions stored on the
+ * crop box (pageW, pageH) so we don't need an onLoad measurement.
+ */
+function CropImage({ sourceFileId, box }: { sourceFileId: string; box: CropBox }) {
+  // The image is sized so the page's full width fits the container width;
+  // since every crop is full-width (x=0, w=pageW), this is a 1:1 scale.
+  // The page's full rendered height in container units is pageH/pageW × containerW.
+  // We translate the image up by box.y/pageW × containerW to land box.y at top:0.
+  const aspectRatio = box.h / box.w;       // container height / width
+  const yPctOfPageH = (box.y / box.pageH) * 100; // translate up by % of full image height
+  return (
+    <div
+      style={{
+        position: 'relative',
+        width: '100%',
+        paddingBottom: `${aspectRatio * 100}%`,
+        overflow: 'hidden',
+        background: '#fff',
+      }}
+    >
+      <img
+        src={api.sourcePageImageUrl(sourceFileId, box.pageNo)}
+        alt={`page ${box.pageNo} crop`}
+        style={{
+          position: 'absolute',
+          width: '100%',
+          top: 0,
+          left: 0,
+          // translateY percentage is of the image's own rendered height,
+          // which is the full page scaled to container width.
+          transform: `translateY(-${yPctOfPageH}%)`,
+        }}
+      />
+    </div>
+  );
+}
 interface Question {
   id: string;
   questionNumber: string | null;
@@ -33,6 +86,7 @@ interface Question {
   pageEnd: number | null;
   rawExtractedText: string | null;
   cropImageUrl: string | null;
+  cropBboxJson: CropBox[] | null;
   suggestedMarks: number | null;
   suggestedTopicCode: string | null;
   confidenceTopic: number | null;
@@ -318,8 +372,18 @@ export default function PracticePage() {
                     </div>
                   </div>
 
-                  {/* Body: text or image */}
-                  {showImage && q.pageStart ? (
+                  {/* Body: text or image. Prefer per-question crop boxes
+                      (computed by the splitter from the worker's text-block
+                      bboxes) over a full-page image, so the question card
+                      shows exactly the question region — not the previous /
+                      next questions or the legal footer. */}
+                  {showImage && q.cropBboxJson && q.cropBboxJson.length > 0 ? (
+                    <div className="bg-gray-50 p-2 rounded space-y-2">
+                      {q.cropBboxJson.map((box) => (
+                        <CropImage key={`${q.id}-${box.pageNo}`} sourceFileId={sf.id} box={box} />
+                      ))}
+                    </div>
+                  ) : showImage && q.pageStart ? (
                     <div className="bg-gray-50 p-2 rounded">
                       <img
                         src={api.sourcePageImageUrl(sf.id, q.pageStart)}
