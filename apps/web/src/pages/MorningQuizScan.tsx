@@ -1,16 +1,12 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { api } from '../lib/api';
 
-interface RosterStudent {
-  id: string;
-  name: string;
-}
-interface RosterResponse {
+interface RosterMeta {
   sessionId: string;
   sessionStatus: string;
   className: string;
-  students: RosterStudent[];
+  studentCount: number;
 }
 interface ScanResult {
   attendance: { id: string; status: 'on_time' | 'late' | 'absent'; scanTime: string | null };
@@ -22,24 +18,21 @@ interface ScanResult {
 
 /**
  * Landing page after a student scans the big-screen QR. URL pattern is
- * `/scan/:token`. The flow is now LOGIN-FREE — instead of bouncing through
- * /login, the page fetches the session's class roster (a public endpoint
- * gated by school WiFi + a valid QR token) and lets the student tap their
- * own name. The server returns a short-lived "scan token" which we drop
- * into auth_token so subsequent /morning-quiz/* calls authenticate as that
- * student via the existing AuthGuard. Token expires at session.quizEnd, so
- * it's useless after 9:00.
+ * `/scan/:token`. The flow is LOGIN-FREE — student types their full real
+ * name, server matches it against the session's class roster, and on a hit
+ * mints a short-lived "scan token" the frontend stores as auth_token. The
+ * token expires at session.quizEnd, so it's useless after 9:00.
+ *
+ * Design choice: typing > picking from a dropdown. Picking is faster but
+ * makes 代签 (one phone clicking 30 names in 30s) trivial; typing forces a
+ * minimum knowledge bar and slows attempts to a crawl. Combined with the
+ * deviceUuid block (one device → one student per session) and in-room
+ * invigilation, this is the strongest no-password defence we can deploy.
  */
-/** Get-or-create a stable per-device UUID in localStorage. The server uses
- *  this to block the same physical device from signing in as multiple
- *  students within one session. Tampering (clearing storage, opening
- *  incognito) is possible but defeats only the most casual cheating; the
- *  in-room invigilator + audit log close the loop. */
 function getDeviceUuid(): string {
   const KEY = 'morningQuizDeviceUuid';
   let id = localStorage.getItem(KEY);
   if (!id) {
-    // crypto.randomUUID is in all evergreen browsers + iOS Safari 15.4+
     id =
       typeof crypto !== 'undefined' && 'randomUUID' in crypto
         ? crypto.randomUUID()
@@ -51,12 +44,14 @@ function getDeviceUuid(): string {
 
 export default function MorningQuizScan() {
   const { token } = useParams<{ token: string }>();
-  const [roster, setRoster] = useState<RosterResponse | null>(null);
+  const [meta, setMeta] = useState<RosterMeta | null>(null);
   const [error, setError] = useState<{ code: string; message: string } | null>(null);
-  const [search, setSearch] = useState('');
-  const [submittingId, setSubmittingId] = useState<string | null>(null);
+  const [name, setName] = useState('');
+  const [submitting, setSubmitting] = useState(false);
 
-  // Fetch the class roster on mount.
+  // Fetch the class meta on mount. We still hit /scan-roster (which is
+  // gated by school WiFi + valid QR) but only display the class name +
+  // count, never the names themselves — avoids leaking the roster.
   useEffect(() => {
     if (!token) {
       setError({ code: 'no_token', message: '扫码链接缺少 token,请重新扫一次大屏二维码。' });
@@ -65,9 +60,14 @@ export default function MorningQuizScan() {
     let cancelled = false;
     api
       .attendanceScanRoster(token)
-      .then((r: RosterResponse) => {
+      .then((r: any) => {
         if (cancelled) return;
-        setRoster(r);
+        setMeta({
+          sessionId: r.sessionId,
+          sessionStatus: r.sessionStatus,
+          className: r.className,
+          studentCount: r.students?.length ?? 0,
+        });
       })
       .catch((e: any) => {
         if (cancelled) return;
@@ -80,40 +80,31 @@ export default function MorningQuizScan() {
     };
   }, [token]);
 
-  async function handlePick(student: RosterStudent) {
-    if (submittingId || !token) return;
-    setSubmittingId(student.id);
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    if (submitting || !token) return;
+    const trimmed = name.trim();
+    if (!trimmed) {
+      setError({ code: 'empty_name', message: '请输入你的姓名' });
+      return;
+    }
+    setSubmitting(true);
     setError(null);
     try {
-      const r: ScanResult = await api.attendanceScan(token, student.id, getDeviceUuid());
-      // Replace whatever auth_token is in storage (admin/teacher session, or
-      // none) with the freshly minted scan token.
+      const r: ScanResult = await api.attendanceScan(token, trimmed, getDeviceUuid());
       localStorage.setItem('auth_token', r.scanToken);
-      // Full page reload to the quiz URL. We chose window.location over
-      // react-router's navigate() because the SPA-internal route change
-      // races with zustand's auth-state update + React's re-render of
-      // App.tsx's auth-gated routes; in some browsers the navigate() call
-      // ended up as a no-op while the route table swapped underneath it.
-      // A full reload sidesteps the race entirely — the take page boots
-      // cleanly with the new auth_token already in place.
+      // Full reload sidesteps the SPA route-table swap race; take page
+      // boots cleanly with the new auth_token already in place.
       window.location.replace(r.quizUrl);
     } catch (e: any) {
       const raw = e?.message ?? String(e);
       const code = extractCode(raw) ?? (raw.includes('Forbidden') ? 'not_on_school_wifi' : 'unknown');
       setError({ code, message: friendlyMessage(code, raw) });
-      setSubmittingId(null);
+      setSubmitting(false);
     }
   }
 
-  // Filter roster by search input. Matches by name substring.
-  const filtered = useMemo(() => {
-    if (!roster) return [];
-    const q = search.trim();
-    if (!q) return roster.students;
-    return roster.students.filter((s) => s.name.includes(q));
-  }, [roster, search]);
-
-  if (error) {
+  if (error && !meta) {
     return (
       <Centered>
         <div className="text-7xl mb-6">⛔</div>
@@ -123,55 +114,55 @@ export default function MorningQuizScan() {
     );
   }
 
-  if (!roster) {
+  if (!meta) {
     return (
       <Centered>
-        <div className="text-2xl text-gray-500">加载班级名单中…</div>
+        <div className="text-2xl text-gray-500">正在准备签到…</div>
       </Centered>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 px-4 py-6">
-      <div className="max-w-2xl mx-auto">
-        <header className="mb-4">
-          <h1 className="text-2xl font-bold">{roster.className}</h1>
-          <p className="text-sm text-gray-500">点你的名字签到 · {roster.students.length} 人</p>
+    <div className="min-h-screen bg-gray-50 flex flex-col px-4 py-8">
+      <div className="max-w-md mx-auto w-full">
+        <header className="mb-8 text-center">
+          <h1 className="text-3xl font-bold">{meta.className}</h1>
+          <p className="text-sm text-gray-500 mt-1">早测签到 · 共 {meta.studentCount} 人</p>
         </header>
-        <div className="sticky top-2 z-10 bg-gray-50 pb-3">
-          <input
-            type="text"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            placeholder="🔍 搜索你的名字"
-            className="w-full px-4 py-3 text-lg border-2 border-gray-200 focus:border-blue-500 rounded-lg outline-none"
-            autoFocus
-          />
-        </div>
-        {filtered.length === 0 ? (
-          <div className="text-center text-gray-400 mt-12">没找到匹配的名字</div>
-        ) : (
-          <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 mt-3">
-            {filtered.map((s) => (
-              <button
-                key={s.id}
-                onClick={() => handlePick(s)}
-                disabled={submittingId !== null}
-                className={`px-4 py-4 text-lg font-medium rounded-lg border-2 transition-colors ${
-                  submittingId === s.id
-                    ? 'bg-blue-600 text-white border-blue-600'
-                    : submittingId !== null
-                      ? 'bg-gray-100 text-gray-400 border-gray-200 cursor-not-allowed'
-                      : 'bg-white border-gray-200 hover:border-blue-500 hover:bg-blue-50 active:bg-blue-100'
-                }`}
-              >
-                {submittingId === s.id ? '签到中…' : s.name}
-              </button>
-            ))}
+        <form onSubmit={handleSubmit} className="space-y-5">
+          <div>
+            <label className="block text-base text-gray-700 mb-2 font-medium">
+              请输入你的姓名(完整真名)
+            </label>
+            <input
+              type="text"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              placeholder="例如:牟歌"
+              autoFocus
+              autoComplete="off"
+              autoCorrect="off"
+              autoCapitalize="off"
+              spellCheck={false}
+              disabled={submitting}
+              className="w-full px-4 py-4 text-2xl text-center border-2 border-gray-200 focus:border-blue-500 rounded-lg outline-none disabled:bg-gray-100"
+            />
           </div>
-        )}
-        <footer className="mt-6 text-center text-xs text-gray-400">
-          Morning Quiz · ESIC · 找不到自己的名字?请联系老师
+          {error && (
+            <div className="px-4 py-3 bg-rose-50 border border-rose-200 text-rose-700 rounded text-sm text-center">
+              {error.message}
+            </div>
+          )}
+          <button
+            type="submit"
+            disabled={submitting || !name.trim()}
+            className="w-full px-4 py-4 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-300 text-white text-lg font-semibold rounded-lg transition-colors"
+          >
+            {submitting ? '签到中…' : '签到 · Sign In'}
+          </button>
+        </form>
+        <footer className="mt-8 text-center text-xs text-gray-400">
+          Morning Quiz · ESIC · 名字打错或不在名单?请联系老师
         </footer>
       </div>
     </div>
@@ -214,12 +205,13 @@ function friendlyMessage(code: string, raw: string): string {
       return '今天没有早测安排,请联系老师。';
     case 'session_not_active':
       return '早测窗口尚未开启或已结束。';
-    case 'invalid_student':
-      return '学生身份校验失败。请联系老师。';
+    case 'student_not_found':
+      return '名单里没有这个名字,请检查拼写后重试(全名,不加空格)。';
+    case 'multiple_students_with_same_name':
+      return '本班有多名同学同名,请联系老师手工补登。';
     case 'not_enrolled':
       return '你不在该班级名单中。请确认你扫的是自己班的二维码。';
     case 'device_already_used': {
-      // Try to surface the conflicting student name from the server message.
       const m = raw.match(/conflictStudent["']?\s*[:=]\s*["']([^"']+)["']/);
       const other = m ? m[1] : '另一位同学';
       return `本设备已被 ${other} 用于签到。如果是你借的手机给同学,请联系老师手工补登。`;
@@ -228,6 +220,8 @@ function friendlyMessage(code: string, raw: string): string {
       return '考勤窗口未开放,请等待大屏倒计时。';
     case 'attendance_window_closed':
       return '考勤窗口已关闭(>8:50)。请联系班主任手工补登。';
+    case 'empty_name':
+      return '请输入你的姓名';
     default:
       return raw.length < 200 ? raw : '签到失败,请联系老师。';
   }

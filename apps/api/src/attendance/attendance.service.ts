@@ -87,7 +87,7 @@ export class AttendanceService {
    */
   async scanQr(
     qrToken: string,
-    studentId: string,
+    studentName: string,
     sourceIp: string | null,
     deviceUuid: string | null,
     userAgent: string | null,
@@ -105,24 +105,31 @@ export class AttendanceService {
       throw new GoneException({ code: 'session_not_active', status: session.status });
     }
 
-    // Resolve student record. We require role='student' so that anyone
-    // submitting a teacher/admin id (which would never appear in the
-    // scan-roster response anyway) still gets rejected at this layer.
-    const student = await this.prisma.user.findUnique({
-      where: { id: studentId },
-      select: { id: true, email: true, name: true, role: true },
+    // Gate 4 — resolve student by typed name within the session's class.
+    // Roster lookup + enrollment check are folded into a single query: we
+    // pull every ClassEnrollment for this session's class where the linked
+    // user is a student matching the trimmed input. Exact match — no
+    // partial / case fuzz so the student must type their full real name.
+    const trimmedName = studentName.trim();
+    const matches = await this.prisma.classEnrollment.findMany({
+      where: {
+        classId: session.classId,
+        role: 'student',
+        user: { name: trimmedName, role: 'student' },
+      },
+      include: { user: { select: { id: true, email: true, name: true, role: true } } },
     });
-    if (!student || student.role !== 'student') {
-      throw new ForbiddenException({ code: 'invalid_student' });
+    if (matches.length === 0) {
+      throw new NotFoundException({ code: 'student_not_found', typed: trimmedName });
     }
-
-    // Gate 4 — student enrolled in this class
-    const enrollment = await this.prisma.classEnrollment.findUnique({
-      where: { classId_userId: { classId: session.classId, userId: studentId } },
-    });
-    if (!enrollment || enrollment.role !== 'student') {
-      throw new ForbiddenException({ code: 'not_enrolled', classId: session.classId });
+    if (matches.length > 1) {
+      // Two students in the same class share an exact name — rare but
+      // possible. Bail out and ask admin to disambiguate via the manual-
+      // correction path; resolving it client-side would expose the dupe.
+      throw new ForbiddenException({ code: 'multiple_students_with_same_name' });
     }
+    const student = matches[0].user;
+    const studentId = student.id;
 
     // Gate 5 — time window: on_time | late | absent
     const now = new Date();
