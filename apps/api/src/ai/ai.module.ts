@@ -22,6 +22,6 @@ import { ReviewModule } from '../review/review.module';
     QuickPaperService,
     PrismaService,
   ],
-  exports: [AiService, OpenAiImageService, SvgDiagramService, RemoteRenderService, AiQuestionGeneratorService],
+  exports: [AiService, OpenAiImageService, SvgDiagramService, RemoteRenderService, AiQuestionGeneratorService, QuickPaperService],
 })
 export class AiModule {}
