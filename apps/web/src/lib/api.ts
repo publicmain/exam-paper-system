@@ -253,8 +253,8 @@ export const api = {
   /** Public roster fetch — gated by school WiFi + valid QR token. */
   attendanceScanRoster: (qrToken: string) =>
     request('GET', `/attendance/scan-roster?qrToken=${encodeURIComponent(qrToken)}`),
-  attendanceScan: (qrToken: string, studentId: string) =>
-    request('POST', '/attendance/scan', { qrToken, studentId }),
+  attendanceScan: (qrToken: string, studentId: string, deviceUuid?: string) =>
+    request('POST', '/attendance/scan', { qrToken, studentId, deviceUuid }),
   attendanceCorrect: (body: {
     sessionId: string;
     studentId: string;

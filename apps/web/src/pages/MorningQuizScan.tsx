@@ -30,6 +30,25 @@ interface ScanResult {
  * student via the existing AuthGuard. Token expires at session.quizEnd, so
  * it's useless after 9:00.
  */
+/** Get-or-create a stable per-device UUID in localStorage. The server uses
+ *  this to block the same physical device from signing in as multiple
+ *  students within one session. Tampering (clearing storage, opening
+ *  incognito) is possible but defeats only the most casual cheating; the
+ *  in-room invigilator + audit log close the loop. */
+function getDeviceUuid(): string {
+  const KEY = 'morningQuizDeviceUuid';
+  let id = localStorage.getItem(KEY);
+  if (!id) {
+    // crypto.randomUUID is in all evergreen browsers + iOS Safari 15.4+
+    id =
+      typeof crypto !== 'undefined' && 'randomUUID' in crypto
+        ? crypto.randomUUID()
+        : 'fallback-' + Math.random().toString(36).slice(2) + Date.now().toString(36);
+    localStorage.setItem(KEY, id);
+  }
+  return id;
+}
+
 export default function MorningQuizScan() {
   const { token } = useParams<{ token: string }>();
   const [roster, setRoster] = useState<RosterResponse | null>(null);
@@ -66,7 +85,7 @@ export default function MorningQuizScan() {
     setSubmittingId(student.id);
     setError(null);
     try {
-      const r: ScanResult = await api.attendanceScan(token, student.id);
+      const r: ScanResult = await api.attendanceScan(token, student.id, getDeviceUuid());
       // Replace whatever auth_token is in storage (admin/teacher session, or
       // none) with the freshly minted scan token.
       localStorage.setItem('auth_token', r.scanToken);
@@ -199,6 +218,12 @@ function friendlyMessage(code: string, raw: string): string {
       return '学生身份校验失败。请联系老师。';
     case 'not_enrolled':
       return '你不在该班级名单中。请确认你扫的是自己班的二维码。';
+    case 'device_already_used': {
+      // Try to surface the conflicting student name from the server message.
+      const m = raw.match(/conflictStudent["']?\s*[:=]\s*["']([^"']+)["']/);
+      const other = m ? m[1] : '另一位同学';
+      return `本设备已被 ${other} 用于签到。如果是你借的手机给同学,请联系老师手工补登。`;
+    }
     case 'attendance_window_not_open':
       return '考勤窗口未开放,请等待大屏倒计时。';
     case 'attendance_window_closed':

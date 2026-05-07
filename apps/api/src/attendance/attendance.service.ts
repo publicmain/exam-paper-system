@@ -1,5 +1,6 @@
 import {
   BadRequestException,
+  ConflictException,
   ForbiddenException,
   GoneException,
   Injectable,
@@ -84,7 +85,13 @@ export class AttendanceService {
    * frontend can drop it into auth_token and let the existing AuthGuard
    * authenticate the take/answer/submit calls.
    */
-  async scanQr(qrToken: string, studentId: string, sourceIp: string | null): Promise<ScanResult> {
+  async scanQr(
+    qrToken: string,
+    studentId: string,
+    sourceIp: string | null,
+    deviceUuid: string | null,
+    userAgent: string | null,
+  ): Promise<ScanResult> {
     // Gate 2 — QR validity
     const decoded = await this.qr.verify(qrToken);
 
@@ -138,11 +145,36 @@ export class AttendanceService {
             status: AttendanceStatus.absent,
             scanTime: now,
             sourceIp,
+            deviceUuid,
+            userAgent,
             source: AttendanceSource.qr_scan,
           },
         });
       }
       throw new GoneException({ code: 'attendance_window_closed' });
+    }
+
+    // Anti-fraud: same physical device must not sign in as multiple
+    // students in the same session. We compare the localStorage UUID the
+    // frontend sent. If the same uuid was already used by a *different*
+    // student in this session, reject hard. The legitimate edge case
+    // (student A lent their phone to student B because B's phone died)
+    // is handled by the existing manual_correction flow.
+    if (deviceUuid) {
+      const conflict = await this.prisma.attendance.findFirst({
+        where: {
+          sessionId: session.id,
+          deviceUuid,
+          studentId: { not: studentId },
+        },
+        include: { student: { select: { name: true } } },
+      });
+      if (conflict) {
+        throw new ConflictException({
+          code: 'device_already_used',
+          conflictStudent: conflict.student.name,
+        });
+      }
     }
 
     const attendance = await this.prisma.attendance.upsert({
@@ -153,11 +185,17 @@ export class AttendanceService {
         status: attendanceStatus,
         scanTime: now,
         sourceIp,
+        deviceUuid,
+        userAgent,
         source: AttendanceSource.qr_scan,
       },
       update: {
         sourceIp,
         scanTime: now,
+        // Re-scans by the same student update fingerprint fields too
+        // so the latest device info is what auditors see.
+        deviceUuid: deviceUuid ?? undefined,
+        userAgent: userAgent ?? undefined,
       },
     });
 

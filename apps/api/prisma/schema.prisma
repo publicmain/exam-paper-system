@@ -1330,6 +1330,14 @@ model Attendance {
   status        AttendanceStatus
   scanTime      DateTime?
   sourceIp      String?
+  // localStorage UUID minted by the scanning device on first visit, sent
+  // with every subsequent scan. Used to block same-device-multi-student
+  // attendance fraud (one phone signing in as 30 students by re-picking
+  // names). Null when source=manual_correction.
+  deviceUuid    String?
+  // Browser User-Agent at scan time, retained for forensics if a deviceUuid
+  // conflict is disputed. Not used for enforcement.
+  userAgent     String?
   source        AttendanceSource
   correctedById String?
   correctedBy   User?              @relation("AttendanceCorrectedBy", fields: [correctedById], references: [id])
@@ -1341,6 +1349,7 @@ model Attendance {
 
   @@unique([sessionId, studentId])
   @@index([studentId, status])
+  @@index([sessionId, deviceUuid])
 }
 
 model ClassEnglishLevel {

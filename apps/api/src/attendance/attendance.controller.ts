@@ -18,6 +18,11 @@ import { AttendanceService } from './attendance.service';
 const ScanSchema = z.object({
   qrToken: z.string().min(8).max(256),
   studentId: z.string().min(1),
+  // Frontend mints this on first visit and persists in localStorage.
+  // Server uses it to detect "one phone signing in as many students" —
+  // any attempt to scan with a deviceUuid already used by a different
+  // student in the same session is rejected.
+  deviceUuid: z.string().min(8).max(64).optional(),
 });
 
 const CorrectSchema = z.object({
@@ -67,7 +72,13 @@ export class AttendanceController {
   scan(@Body() body: unknown, @Req() req: Request) {
     const parsed = ScanSchema.safeParse(body);
     if (!parsed.success) throw new BadRequestException(parsed.error.flatten());
-    return this.svc.scanQr(parsed.data.qrToken, parsed.data.studentId, req.ip ?? null);
+    return this.svc.scanQr(
+      parsed.data.qrToken,
+      parsed.data.studentId,
+      req.ip ?? null,
+      parsed.data.deviceUuid ?? null,
+      (req.headers['user-agent'] as string | undefined) ?? null,
+    );
   }
 
   /**
