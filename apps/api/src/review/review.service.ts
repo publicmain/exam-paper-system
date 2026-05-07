@@ -241,6 +241,12 @@ export class ReviewService {
             code: item.suggestedTopicCode,
           },
           include: { component: true },
+          // Deterministic component selection — IELTS seeds IR.* topics under
+          // both AUTH and HARD; without ordering the picker bounces between
+          // them and a single batch's questions span components, which
+          // QuickPaper then rejects. AUTH < HARD alphabetically, and AUTH
+          // is the component carrying the imported Cambridge bank.
+          orderBy: { component: { code: 'asc' } },
         })
       : null;
     // AI items have no paperVariant, so resolveComponent returned null. Fall
