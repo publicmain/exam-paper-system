@@ -1,6 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
-import { useAuth } from '../lib/auth';
+import { useParams } from 'react-router-dom';
 import { api } from '../lib/api';
 
 interface RosterStudent {
@@ -33,8 +32,6 @@ interface ScanResult {
  */
 export default function MorningQuizScan() {
   const { token } = useParams<{ token: string }>();
-  const { init } = useAuth();
-  const navigate = useNavigate();
   const [roster, setRoster] = useState<RosterResponse | null>(null);
   const [error, setError] = useState<{ code: string; message: string } | null>(null);
   const [search, setSearch] = useState('');
@@ -71,11 +68,16 @@ export default function MorningQuizScan() {
     try {
       const r: ScanResult = await api.attendanceScan(token, student.id);
       // Replace whatever auth_token is in storage (admin/teacher session, or
-      // none) with the freshly minted scan token. Re-init auth state so the
-      // SPA picks up the new identity, then forward to the quiz.
+      // none) with the freshly minted scan token.
       localStorage.setItem('auth_token', r.scanToken);
-      await init();
-      navigate(r.quizUrl, { replace: true });
+      // Full page reload to the quiz URL. We chose window.location over
+      // react-router's navigate() because the SPA-internal route change
+      // races with zustand's auth-state update + React's re-render of
+      // App.tsx's auth-gated routes; in some browsers the navigate() call
+      // ended up as a no-op while the route table swapped underneath it.
+      // A full reload sidesteps the race entirely — the take page boots
+      // cleanly with the new auth_token already in place.
+      window.location.replace(r.quizUrl);
     } catch (e: any) {
       const raw = e?.message ?? String(e);
       const code = extractCode(raw) ?? (raw.includes('Forbidden') ? 'not_on_school_wifi' : 'unknown');
