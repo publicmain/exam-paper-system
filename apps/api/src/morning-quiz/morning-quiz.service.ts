@@ -531,6 +531,42 @@ export class MorningQuizService {
     return upserted;
   }
 
+  /**
+   * DEBUG ONLY — gated behind MORNING_QUIZ_DEBUG=true. Fast-forwards a
+   * session into "currently active" state by overwriting time windows to
+   * NOW + standard offsets and flipping status to active. Used for off-hours
+   * end-to-end smoke testing of the scan flow. Audit-logged.
+   */
+  async debugActivateNow(sessionId: string, actor: ActorCtx) {
+    const before = await this.prisma.morningQuizSession.findUnique({ where: { id: sessionId } });
+    if (!before) throw new NotFoundException({ code: 'session_not_found' });
+    const now = new Date();
+    const after = await this.prisma.morningQuizSession.update({
+      where: { id: sessionId },
+      data: {
+        attendanceStart: new Date(now.getTime() - 30_000),
+        attendanceEnd: new Date(now.getTime() + 2 * 60_000),
+        lateCutoff: new Date(now.getTime() + 20 * 60_000),
+        quizStart: new Date(now.getTime() - 30_000),
+        quizEnd: new Date(now.getTime() + 30 * 60_000),
+        status: MorningQuizStatus.active,
+      },
+    });
+    await this.audit.log({
+      actorId: actor.id,
+      actorRole: actor.role,
+      action: 'morning_quiz.debug_activate',
+      entityType: 'MorningQuizSession',
+      entityId: sessionId,
+      ip: actor.ip,
+      diff: {
+        before: { status: before.status, attendanceStart: before.attendanceStart },
+        after: { status: after.status, attendanceStart: after.attendanceStart },
+      },
+    });
+    return after;
+  }
+
   /** Find the StudentSubmission tied to (session, student) — used by the
    *  controller's submit endpoint to delegate to the canonical
    *  student.service.finalSubmit. */

@@ -4,6 +4,7 @@ import {
   Controller,
   ForbiddenException,
   Get,
+  NotFoundException,
   Param,
   Patch,
   Post,
@@ -97,6 +98,24 @@ export class MorningQuizController {
   scheduled(@Query('weekStart') weekStart: string) {
     if (!weekStart) throw new BadRequestException('weekStart required (YYYY-MM-DD)');
     return this.svc.listScheduled(new Date(weekStart));
+  }
+
+  /**
+   * DEBUG-ONLY admin endpoint to fast-forward a session into the
+   * currently-active state without waiting for the 8:30 cron. Required for
+   * end-to-end smoke testing of the scan flow off-hours. Gated behind
+   * `MORNING_QUIZ_DEBUG=true` env var — without it, returns 404 to keep
+   * the surface area invisible in normal production.
+   */
+  @Patch('sessions/:id/debug-activate')
+  debugActivate(@Param('id') id: string, @CurrentUser() user: any, @Req() req: Request) {
+    if (process.env.MORNING_QUIZ_DEBUG !== 'true') {
+      throw new NotFoundException();
+    }
+    if (user.role !== 'admin') {
+      throw new ForbiddenException({ code: 'admin_required' });
+    }
+    return this.svc.debugActivateNow(id, { id: user.id, role: user.role, ip: req.ip ?? null });
   }
 
   @Patch('sessions/:id/cancel')
