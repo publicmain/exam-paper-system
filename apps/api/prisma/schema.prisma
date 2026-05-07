@@ -47,6 +47,11 @@ model User {
   paperVariants        PaperVariantAssignment[] @relation("PaperVariantStudent")
   tutorSessions        TutorSession[]
   watermarkTokens      WatermarkToken[]         @relation("WatermarkTokenStudent")
+  // Morning quiz back-relations
+  morningQuizSessionsScheduled MorningQuizSession[] @relation("MorningQuizScheduledBy")
+  attendances                  Attendance[]         @relation("AttendanceStudent")
+  attendancesCorrected         Attendance[]         @relation("AttendanceCorrectedBy")
+  shuffleMaps                  QuestionShuffleMap[] @relation("ShuffleMapStudent")
 }
 
 // ============================================================
@@ -62,6 +67,9 @@ model Class {
 
   enrollments ClassEnrollment[]
   assignments PaperAssignment[]
+  // Morning quiz back-relations
+  morningQuizSessions MorningQuizSession[]
+  englishLevel        ClassEnglishLevel?
 }
 
 model ClassEnrollment {
@@ -98,6 +106,8 @@ model PaperAssignment {
   // Path-B back-relations
   variantAssignments PaperVariantAssignment[]
   watermarkTokens    WatermarkToken[]
+  // Morning quiz back-relation (1:1 optional)
+  morningQuizSession MorningQuizSession?
 
   @@unique([paperId, classId])
   @@index([classId])
@@ -126,6 +136,8 @@ model StudentSubmission {
   // Path-B back-relations
   markerAssignments MarkerAssignment[]
   tutorSessions     TutorSession[]
+  // Morning quiz back-relation (1:1 optional)
+  attendance        Attendance?
 
   @@unique([assignmentId, studentId])
   @@index([studentId])
@@ -398,6 +410,8 @@ model Paper {
   assignments     PaperAssignment[]
   // Path-B back-relations
   watermarkTokens WatermarkToken[]
+  // Morning quiz back-relations
+  shuffleMaps     QuestionShuffleMap[]
 }
 
 model PaperQuestion {
@@ -1252,4 +1266,105 @@ model WatermarkToken {
   // when we mint the URL, and a lookup by token is the forensic path.
   @@unique([paperId, studentId])
   @@index([studentId])
+}
+
+// ============================================================
+// Morning Attendance + Quiz (feature/morning-attendance-quiz)
+// See DESIGN-MORNING-QUIZ.md for full design
+// ============================================================
+enum MorningQuizStatus {
+  scheduled
+  active
+  locked
+  cancelled
+}
+
+enum AttendanceStatus {
+  on_time
+  late
+  absent
+}
+
+enum AttendanceSource {
+  qr_scan
+  manual_correction
+}
+
+enum EnglishLevel {
+  ielts_authentic
+  ielts_hard
+  olevel
+}
+
+model MorningQuizSession {
+  id                String            @id @default(cuid())
+  date              DateTime          @db.Date
+  classId           String
+  class             Class             @relation(fields: [classId], references: [id], onDelete: Cascade)
+  paperAssignmentId String            @unique
+  paperAssignment   PaperAssignment   @relation(fields: [paperAssignmentId], references: [id], onDelete: Cascade)
+  attendanceStart   DateTime
+  attendanceEnd     DateTime
+  lateCutoff        DateTime
+  quizStart         DateTime
+  quizEnd           DateTime
+  qrSecret          String
+  qrRotationSeconds Int               @default(15)
+  status            MorningQuizStatus @default(scheduled)
+  scheduledById     String
+  scheduledBy       User              @relation("MorningQuizScheduledBy", fields: [scheduledById], references: [id])
+  createdAt         DateTime          @default(now())
+
+  attendances Attendance[]
+
+  @@unique([date, classId])
+  @@index([date, status])
+}
+
+model Attendance {
+  id            String             @id @default(cuid())
+  sessionId     String
+  session       MorningQuizSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  studentId     String
+  student       User               @relation("AttendanceStudent", fields: [studentId], references: [id])
+  status        AttendanceStatus
+  scanTime      DateTime?
+  sourceIp      String?
+  source        AttendanceSource
+  correctedById String?
+  correctedBy   User?              @relation("AttendanceCorrectedBy", fields: [correctedById], references: [id])
+  correctedNote String?
+  submissionId  String?            @unique
+  submission    StudentSubmission? @relation(fields: [submissionId], references: [id])
+  createdAt     DateTime           @default(now())
+  updatedAt     DateTime           @updatedAt
+
+  @@unique([sessionId, studentId])
+  @@index([studentId, status])
+}
+
+model ClassEnglishLevel {
+  id            String       @id @default(cuid())
+  classId       String       @unique
+  class         Class        @relation(fields: [classId], references: [id], onDelete: Cascade)
+  level         EnglishLevel
+  effectiveFrom DateTime
+  createdAt     DateTime     @default(now())
+}
+
+model QuestionShuffleMap {
+  id            String   @id @default(cuid())
+  studentId     String
+  student       User     @relation("ShuffleMapStudent", fields: [studentId], references: [id])
+  paperId       String
+  paper         Paper    @relation(fields: [paperId], references: [id], onDelete: Cascade)
+  seed          String
+  // Permutation array: index = display position, value = original question index.
+  questionOrder Int[]
+  // Map keyed by question id → array permutation of option indices [0..3].
+  optionOrders  Json
+  createdAt     DateTime @default(now())
+
+  @@unique([studentId, paperId])
+  @@index([paperId])
 }

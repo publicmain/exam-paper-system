@@ -2,6 +2,7 @@ import { Module } from '@nestjs/common';
 import { APP_GUARD } from '@nestjs/core';
 import { ConfigModule } from '@nestjs/config';
 import { JwtModule } from '@nestjs/jwt';
+import { ScheduleModule } from '@nestjs/schedule';
 import { PrismaService } from './common/prisma.service';
 import { AuthGuard } from './common/auth.guard';
 import { AuthModule } from './auth/auth.module';
@@ -36,6 +37,12 @@ import { WatermarkModule } from './watermark/watermark.module';
 import { AdminCleanupModule } from './admin-cleanup/admin-cleanup.module';
 import { ClassifierModule } from './classifier/classifier.module';
 import { PracticeModule } from './practice/practice.module';
+// Morning attendance + quiz (feature/morning-attendance-quiz)
+import { ShuffleModule } from './shuffle/shuffle.module';
+import { WifiGateModule } from './wifi-gate/wifi-gate.module';
+import { QrModule } from './qr/qr.module';
+import { AttendanceModule } from './attendance/attendance.module';
+import { MorningQuizModule } from './morning-quiz/morning-quiz.module';
 import { HealthController } from './health.controller';
 
 @Module({
@@ -46,6 +53,7 @@ import { HealthController } from './health.controller';
       secret: process.env.JWT_SECRET || 'dev-secret',
       signOptions: { expiresIn: process.env.JWT_EXPIRES_IN || '7d' },
     }),
+    ScheduleModule.forRoot(),
     AuditModule,
     ComplianceModule,
     AuthModule,
@@ -78,6 +86,12 @@ import { HealthController } from './health.controller';
     AdminCleanupModule,
     ClassifierModule,
     PracticeModule,
+    // Morning attendance + quiz
+    ShuffleModule,
+    WifiGateModule,
+    QrModule,
+    AttendanceModule,
+    MorningQuizModule,
   ],
   controllers: [HealthController],
   providers: [
