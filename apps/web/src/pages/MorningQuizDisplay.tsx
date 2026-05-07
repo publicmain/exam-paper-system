@@ -67,10 +67,24 @@ export default function MorningQuizDisplay() {
 
       {error ? (
         <div className="max-w-xl text-center text-rose-600 text-2xl">
-          <div className="text-7xl mb-6">⚠️</div>
-          {error.includes('no_session_today') || error.includes('not_found')
-            ? '今天没有早测安排 / No morning quiz scheduled today.'
-            : error}
+          <div className="text-7xl mb-6">{isWifiError(error) ? '📡' : '⚠️'}</div>
+          {isWifiError(error) ? (
+            <>
+              <div className="font-bold mb-3">需要连接学校 WiFi</div>
+              <div className="text-lg text-gray-700 leading-relaxed">
+                这个页面只能在学校网络内打开。
+                <br />
+                请检查电脑/手机的 WiFi 是否已切换到校园网。
+              </div>
+              <div className="mt-6 text-sm text-gray-400 font-mono">
+                School-network only display
+              </div>
+            </>
+          ) : error.includes('no_session_today') || error.includes('not_found') ? (
+            <>今天没有早测安排 / No morning quiz scheduled today.</>
+          ) : (
+            error
+          )}
         </div>
       ) : !scanUrl ? (
         <div className="text-3xl text-gray-400">Loading…</div>
@@ -91,5 +105,17 @@ export default function MorningQuizDisplay() {
         </>
       )}
     </div>
+  );
+}
+
+/** Detect the IpAllowlistGuard rejection by inspecting the error string;
+ *  the API returns a structured message mentioning either the literal
+ *  "not_on_school_wifi" code or the "allowlist_unconfigured" fallback. */
+function isWifiError(msg: string): boolean {
+  const m = msg.toLowerCase();
+  return (
+    m.includes('not_on_school_wifi') ||
+    m.includes('allowlist_unconfigured') ||
+    m.includes('forbidden')
   );
 }

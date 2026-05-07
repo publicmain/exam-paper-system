@@ -51,9 +51,11 @@ export default function MorningQuizScan() {
       .attendanceScan(token)
       .then((r: ScanResult) => {
         if (cancelled) return;
-        setState({ kind: 'success', result: r });
-        // Brief confirmation flash, then forward to quiz.
-        setTimeout(() => navigate(r.quizUrl, { replace: true }), 1200);
+        // Skip the confirmation flash entirely — student goes straight from
+        // login (or scan) into the quiz. Late-arrival status is visible on
+        // the take page via the countdown remainingMinutes anyway, so the
+        // flash was pure friction.
+        navigate(r.quizUrl, { replace: true });
       })
       .catch((e: any) => {
         if (cancelled) return;
@@ -68,22 +70,10 @@ export default function MorningQuizScan() {
     };
   }, [token, user, loading, navigate]);
 
-  if (state.kind === 'loading') {
+  if (state.kind === 'loading' || state.kind === 'success') {
     return (
       <Centered>
         <div className="text-2xl text-gray-500">正在签到…</div>
-      </Centered>
-    );
-  }
-  if (state.kind === 'success') {
-    const s = state.result;
-    return (
-      <Centered>
-        <div className="text-7xl mb-6">{s.attendance.status === 'on_time' ? '✅' : '⏱️'}</div>
-        <div className="text-3xl font-semibold mb-2">
-          {s.attendance.status === 'on_time' ? '签到成功' : '签到成功(迟到)'}
-        </div>
-        <div className="text-gray-500">即将进入早测,剩余 {s.remainingMinutes} 分钟</div>
       </Centered>
     );
   }
