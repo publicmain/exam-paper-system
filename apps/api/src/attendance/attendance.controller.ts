@@ -10,11 +10,15 @@ import {
 } from '@nestjs/common';
 import { Request } from 'express';
 import { z } from 'zod';
+import { Public } from '../common/auth.guard';
 import { CurrentUser } from '../common/current-user.decorator';
 import { IpAllowlistGuard } from '../wifi-gate/ip-allowlist.guard';
 import { AttendanceService } from './attendance.service';
 
-const ScanSchema = z.object({ qrToken: z.string().min(8).max(256) });
+const ScanSchema = z.object({
+  qrToken: z.string().min(8).max(256),
+  studentId: z.string().min(1),
+});
 
 const CorrectSchema = z.object({
   sessionId: z.string(),
@@ -28,19 +32,42 @@ export class AttendanceController {
   constructor(private readonly svc: AttendanceService) {}
 
   /**
-   * Student scans the big-screen QR. IpAllowlistGuard runs first (gate 1 —
-   * must be on school WiFi). Remaining four gates run inside the service.
+   * Roster lookup for the scan page. Public (no JWT) but gated by school
+   * WiFi + a valid QR token, both of which prove the requester is at the
+   * venue. Returns the {id, name} list of students enrolled in the QR's
+   * session class so the scan page can render a name picker. The list
+   * itself is mildly sensitive (real student names), but the QR-token gate
+   * limits exposure to the brief active window of an in-progress session.
    */
+  @Public()
+  @UseGuards(IpAllowlistGuard)
+  @Get('scan-roster')
+  scanRoster(@Query('qrToken') qrToken?: string) {
+    if (!qrToken) throw new BadRequestException('qrToken required');
+    return this.svc.fetchRoster(qrToken);
+  }
+
+  /**
+   * Student picks their name in the scan page and POSTs here. This route
+   * is @Public() — no login required — because the school chose name-pick
+   * over per-student passwords for usability. Identity proof comes from:
+   *   1. School WiFi (IpAllowlistGuard)
+   *   2. Live QR token (verified inside service)
+   *   3. studentId being in the session's class enrollment (verified inside
+   *      service)
+   *   4. In-room invigilation (out of band)
+   * On success the service mints a short-lived "scan token" (a JWT scoped
+   * to this session, expiring at quizEnd) which the frontend stores as
+   * auth_token so subsequent /morning-quiz/* calls authenticate as this
+   * student via the existing AuthGuard.
+   */
+  @Public()
   @UseGuards(IpAllowlistGuard)
   @Post('scan')
-  scan(@Body() body: unknown, @CurrentUser() user: any, @Req() req: Request) {
+  scan(@Body() body: unknown, @Req() req: Request) {
     const parsed = ScanSchema.safeParse(body);
     if (!parsed.success) throw new BadRequestException(parsed.error.flatten());
-    return this.svc.scanQr(parsed.data.qrToken, {
-      id: user.id,
-      role: user.role,
-      ip: req.ip ?? null,
-    });
+    return this.svc.scanQr(parsed.data.qrToken, parsed.data.studentId, req.ip ?? null);
   }
 
   /**

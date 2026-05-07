@@ -5,6 +5,7 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
+import { JwtService } from '@nestjs/jwt';
 import { AttendanceSource, AttendanceStatus, MorningQuizStatus } from '@prisma/client';
 import { AuditService } from '../audit/audit.service';
 import { PrismaService } from '../common/prisma.service';
@@ -23,6 +24,11 @@ export interface ScanResult {
     status: AttendanceStatus;
     scanTime: Date | null;
   };
+  student: { id: string; name: string };
+  /** Short-lived JWT scoped to this session — frontend stores it as
+   *  auth_token so /morning-quiz/* calls authenticate via the existing
+   *  AuthGuard with role='student'. Expires at session.quizEnd. */
+  scanToken: string;
   quizUrl: string;
   remainingMinutes: number;
 }
@@ -34,27 +40,55 @@ export class AttendanceService {
     private readonly qr: QrService,
     private readonly shuffle: ShuffleService,
     private readonly audit: AuditService,
+    private readonly jwt: JwtService,
   ) {}
 
   /**
-   * Five-gate scan. Caller MUST have already passed IpAllowlistGuard (gate 1).
-   * Remaining gates run inside this method:
-   *   2. QR token verify (HMAC + freshness)
-   *   3. Session is today and `status=active`
-   *   4. Student is enrolled in the session's class
-   *   5. Current time is within attendance window (on_time | late | absent)
-   * On success: upserts Attendance + StudentSubmission + ShuffleMap, returns
-   * the URL to the quiz page.
+   * Public roster lookup for the scan page. Caller has already passed
+   * IpAllowlistGuard (gate 1: school WiFi). We re-verify the QR token to
+   * limit exposure of the student-name list to the brief active session
+   * window, then return enrolled students sorted by name.
    */
-  async scanQr(token: string, student: ActorCtx): Promise<ScanResult> {
-    if (student.role !== 'student') {
-      throw new ForbiddenException({ code: 'student_role_required' });
-    }
+  async fetchRoster(qrToken: string) {
+    const decoded = await this.qr.verify(qrToken);
+    const session = await this.prisma.morningQuizSession.findUnique({
+      where: { id: decoded.sessionId },
+      select: { id: true, classId: true, status: true, class: { select: { name: true } } },
+    });
+    if (!session) throw new NotFoundException({ code: 'session_not_found' });
+    const enrollments = await this.prisma.classEnrollment.findMany({
+      where: { classId: session.classId, role: 'student' },
+      include: { user: { select: { id: true, name: true } } },
+    });
+    const students = enrollments
+      .map((e) => ({ id: e.user.id, name: e.user.name }))
+      .sort((a, b) => a.name.localeCompare(b.name, 'zh-Hans-CN'));
+    return {
+      sessionId: session.id,
+      sessionStatus: session.status,
+      className: session.class.name,
+      students,
+    };
+  }
 
+  /**
+   * Public five-gate scan. Caller has passed IpAllowlistGuard (gate 1) at
+   * the controller. Remaining gates run here:
+   *   2. QR token verify (HMAC + freshness)
+   *   3. Session is `status=active`
+   *   4. studentId belongs to a real student enrolled in the session's class
+   *   5. Current time is within the attendance window (on_time | late | absent)
+   *
+   * On success: upserts Attendance + StudentSubmission + ShuffleMap and
+   * mints a short-lived "scan token" JWT carrying role='student' so the
+   * frontend can drop it into auth_token and let the existing AuthGuard
+   * authenticate the take/answer/submit calls.
+   */
+  async scanQr(qrToken: string, studentId: string, sourceIp: string | null): Promise<ScanResult> {
     // Gate 2 — QR validity
-    const decoded = await this.qr.verify(token);
+    const decoded = await this.qr.verify(qrToken);
 
-    // Gate 3 — session is today + active
+    // Gate 3 — session active
     const session = await this.prisma.morningQuizSession.findUnique({
       where: { id: decoded.sessionId },
       include: { paperAssignment: { select: { id: true, paperId: true } } },
@@ -64,9 +98,20 @@ export class AttendanceService {
       throw new GoneException({ code: 'session_not_active', status: session.status });
     }
 
+    // Resolve student record. We require role='student' so that anyone
+    // submitting a teacher/admin id (which would never appear in the
+    // scan-roster response anyway) still gets rejected at this layer.
+    const student = await this.prisma.user.findUnique({
+      where: { id: studentId },
+      select: { id: true, email: true, name: true, role: true },
+    });
+    if (!student || student.role !== 'student') {
+      throw new ForbiddenException({ code: 'invalid_student' });
+    }
+
     // Gate 4 — student enrolled in this class
     const enrollment = await this.prisma.classEnrollment.findUnique({
-      where: { classId_userId: { classId: session.classId, userId: student.id } },
+      where: { classId_userId: { classId: session.classId, userId: studentId } },
     });
     if (!enrollment || enrollment.role !== 'student') {
       throw new ForbiddenException({ code: 'not_enrolled', classId: session.classId });
@@ -76,27 +121,23 @@ export class AttendanceService {
     const now = new Date();
     let attendanceStatus: AttendanceStatus;
     if (now < session.attendanceStart) {
-      // QR was generated but window not yet open. Cron should have prevented
-      // this by leaving status=scheduled, but be defensive.
       throw new GoneException({ code: 'attendance_window_not_open' });
     } else if (now <= session.attendanceEnd) {
       attendanceStatus = AttendanceStatus.on_time;
     } else if (now <= session.lateCutoff) {
       attendanceStatus = AttendanceStatus.late;
     } else {
-      // Past lateCutoff — record absent so future dashboard sees a row, but
-      // no submission is opened.
       const existing = await this.prisma.attendance.findUnique({
-        where: { sessionId_studentId: { sessionId: session.id, studentId: student.id } },
+        where: { sessionId_studentId: { sessionId: session.id, studentId } },
       });
       if (!existing) {
         await this.prisma.attendance.create({
           data: {
             sessionId: session.id,
-            studentId: student.id,
+            studentId,
             status: AttendanceStatus.absent,
             scanTime: now,
-            sourceIp: student.ip,
+            sourceIp,
             source: AttendanceSource.qr_scan,
           },
         });
@@ -104,43 +145,38 @@ export class AttendanceService {
       throw new GoneException({ code: 'attendance_window_closed' });
     }
 
-    // All five gates passed — upsert attendance idempotently.
     const attendance = await this.prisma.attendance.upsert({
-      where: { sessionId_studentId: { sessionId: session.id, studentId: student.id } },
+      where: { sessionId_studentId: { sessionId: session.id, studentId } },
       create: {
         sessionId: session.id,
-        studentId: student.id,
+        studentId,
         status: attendanceStatus,
         scanTime: now,
-        sourceIp: student.ip,
+        sourceIp,
         source: AttendanceSource.qr_scan,
       },
       update: {
-        // Re-scans don't change a recorded on_time to late, but they do update
-        // sourceIp + scanTime (most recent wins) for forensics.
-        sourceIp: student.ip,
+        sourceIp,
         scanTime: now,
       },
     });
 
-    // Open / resume the StudentSubmission for this paper.
     const paperId = session.paperAssignment.paperId;
     const submission = await this.prisma.studentSubmission.upsert({
       where: {
         assignmentId_studentId: {
           assignmentId: session.paperAssignmentId,
-          studentId: student.id,
+          studentId,
         },
       },
       create: {
         assignmentId: session.paperAssignmentId,
-        studentId: student.id,
-        maxScore: 0, // backfilled by morning-quiz controller after first fetch
+        studentId,
+        maxScore: 0,
       },
       update: {},
     });
 
-    // Link Attendance ↔ Submission so dashboards can join.
     if (attendance.submissionId !== submission.id) {
       await this.prisma.attendance.update({
         where: { id: attendance.id },
@@ -148,23 +184,37 @@ export class AttendanceService {
       });
     }
 
-    // Pre-warm the shuffle map so student sees stable order on first load.
-    await this.shuffle.getOrCreate(student.id, paperId);
+    await this.shuffle.getOrCreate(studentId, paperId);
 
-    // Audit
+    // Mint scan token — same shape as the login JWT (so existing AuthGuard
+    // accepts it without changes), but expiry tied to the session's quizEnd
+    // so the token is useless after 9:00.
+    const expSeconds = Math.max(60, Math.floor((session.quizEnd.getTime() - Date.now()) / 1000));
+    const scanToken = await this.jwt.signAsync(
+      {
+        id: student.id,
+        email: student.email,
+        role: 'student',
+        name: student.name,
+      },
+      { expiresIn: expSeconds },
+    );
+
     await this.audit.log({
-      actorId: student.id,
-      actorRole: student.role,
+      actorId: studentId,
+      actorRole: 'student',
       action: 'attendance.scan',
       entityType: 'MorningQuizSession',
       entityId: session.id,
-      ip: student.ip,
-      metadata: { attendanceStatus, paperId },
+      ip: sourceIp,
+      metadata: { attendanceStatus, paperId, source: 'roster_pick' },
     });
 
     const remainingMs = session.quizEnd.getTime() - now.getTime();
     return {
       attendance: { id: attendance.id, status: attendanceStatus, scanTime: now },
+      student: { id: student.id, name: student.name },
+      scanToken,
       quizUrl: `/morning-quiz/${session.id}`,
       remainingMinutes: Math.max(0, Math.floor(remainingMs / 60_000)),
     };

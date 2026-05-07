@@ -250,8 +250,11 @@ export const api = {
   // ── Morning attendance + quiz ──
   qrCurrent: (params: { classId?: string; sessionId?: string }) =>
     request('GET', `/qr/current${qs(params)}`),
-  attendanceScan: (qrToken: string) =>
-    request('POST', '/attendance/scan', { qrToken }),
+  /** Public roster fetch — gated by school WiFi + valid QR token. */
+  attendanceScanRoster: (qrToken: string) =>
+    request('GET', `/attendance/scan-roster?qrToken=${encodeURIComponent(qrToken)}`),
+  attendanceScan: (qrToken: string, studentId: string) =>
+    request('POST', '/attendance/scan', { qrToken, studentId }),
   attendanceCorrect: (body: {
     sessionId: string;
     studentId: string;
