@@ -298,12 +298,21 @@ export class AiQuestionGeneratorService {
     if (!subject) {
       throw new BadRequestException(`subject '${input.syllabusCode}' not seeded`);
     }
+    // Some subjects (e.g. IELTS) seed the same topic codes under multiple
+    // components — IELTS has IR.1-IR.7 under both AUTH and HARD.
+    // findFirst without ordering returns rows non-deterministically, so
+    // generation runs land questions in different components for the same
+    // logical topic, which then trips QuickPaper's "topics span components"
+    // rejection. Order by component.code ascending so the first lexical
+    // component (AUTH < HARD) is always picked, keeping a single batch's
+    // questions inside one component.
     const topic = await this.prisma.topic.findFirst({
       where: {
         code: input.topicCode,
         component: { subjectId: subject.id },
       },
       include: { component: true },
+      orderBy: { component: { code: 'asc' } },
     });
     if (!topic) {
       throw new BadRequestException(
