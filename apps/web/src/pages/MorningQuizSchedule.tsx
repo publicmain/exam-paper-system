@@ -100,6 +100,35 @@ export default function MorningQuizSchedule() {
     }
   }
 
+  /** Open the public big-screen page in a new tab. Caller is the venue
+   *  laptop hooked to the projector — they keep this tab full-screen. */
+  function openDisplay(sessionId: string) {
+    window.open(`/display?sessionId=${encodeURIComponent(sessionId)}`, '_blank', 'noopener,noreferrer');
+  }
+
+  /** DEV ONLY: fast-forward a session into "now-active" so we can test the
+   *  scan flow off-hours. Server gates on MORNING_QUIZ_DEBUG=true env var
+   *  and returns 404 when the flag is unset, so this button is harmless in
+   *  production. After successful activation, immediately opens the display
+   *  page so the user has a visible QR to scan. */
+  async function handleDebugActivate(sessionId: string) {
+    setError(null);
+    try {
+      await api.morningQuizDebugActivate(sessionId);
+      await refresh();
+      openDisplay(sessionId);
+    } catch (e: any) {
+      const msg = e.message ?? String(e);
+      if (msg.includes('Not Found') || msg.includes('404')) {
+        setError(
+          '立即激活仅在 dev 模式下开放。如需上线前测试,请联系管理员把 MORNING_QUIZ_DEBUG=true 加到 Railway env。',
+        );
+      } else {
+        setError(msg);
+      }
+    }
+  }
+
   return (
     <div>
       <div className="flex items-center justify-between mb-4">
@@ -247,10 +276,24 @@ export default function MorningQuizSchedule() {
                       {s.status}
                     </span>
                   </td>
-                  <td className="text-right">
+                  <td className="text-right whitespace-nowrap">
+                    <button
+                      onClick={() => openDisplay(s.id)}
+                      className="text-xs px-2 py-1 rounded bg-blue-50 hover:bg-blue-100 text-blue-700 mr-1"
+                      title="新标签页打开大屏 QR(投影用)"
+                    >
+                      🖥️ 大屏 QR
+                    </button>
+                    <button
+                      onClick={() => handleDebugActivate(s.id)}
+                      className="text-xs px-2 py-1 rounded bg-amber-50 hover:bg-amber-100 text-amber-700 mr-1"
+                      title="DEV ONLY: 强制把 session 切到 active(测试用,生产开下线)"
+                    >
+                      ⚡ 立即激活
+                    </button>
                     <Link
                       to={`/morning-quiz/dashboard/${s.id}`}
-                      className="text-blue-600 hover:underline text-xs"
+                      className="text-blue-600 hover:underline text-xs ml-1"
                     >
                       Dashboard →
                     </Link>

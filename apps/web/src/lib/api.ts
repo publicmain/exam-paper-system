@@ -276,6 +276,12 @@ export const api = {
     request('POST', '/morning-quiz/sessions', body),
   morningQuizCancelSession: (sessionId: string, reason?: string) =>
     request('PATCH', `/morning-quiz/sessions/${sessionId}/cancel`, { reason }),
+  /** DEV ONLY: requires MORNING_QUIZ_DEBUG=true on server. Forces a session
+   *  into currently-active state for off-hours testing. Returns 404 when
+   *  the env flag is unset, so the frontend button can stay visible without
+   *  exposing a real attack surface in production. */
+  morningQuizDebugActivate: (sessionId: string) =>
+    request('PATCH', `/morning-quiz/sessions/${sessionId}/debug-activate`),
   morningQuizBatchSchedule: (items: Array<{ date: string; classId: string; paperId: string }>) =>
     request('POST', '/morning-quiz/batch', { items }),
   morningQuizBatchGenerate: (body: {
