@@ -246,6 +246,47 @@ export const api = {
     request('PATCH', `/practice/questions/${id}/topic`, { topicCode }),
   sourcePageImageUrl: (sourceFileId: string, pageNo: number) =>
     `${BASE}/api/source-files/${sourceFileId}/pages/${pageNo}.png`,
+
+  // ── Morning attendance + quiz ──
+  qrCurrent: (params: { classId?: string; sessionId?: string }) =>
+    request('GET', `/qr/current${qs(params)}`),
+  attendanceScan: (qrToken: string) =>
+    request('POST', '/attendance/scan', { qrToken }),
+  attendanceCorrect: (body: {
+    sessionId: string;
+    studentId: string;
+    status: 'on_time' | 'late' | 'absent';
+    note?: string;
+  }) => request('POST', '/attendance/correct', body),
+  attendanceHistory: (params: { classId: string; from?: string; to?: string }) =>
+    request('GET', `/attendance/history${qs(params)}`),
+  morningQuizSession: (sessionId: string) =>
+    request('GET', `/morning-quiz/sessions/${sessionId}`),
+  morningQuizSaveAnswer: (
+    sessionId: string,
+    body: { paperQuestionId: string; selectedOption?: string | null; textAnswer?: string | null },
+  ) => request('PATCH', `/morning-quiz/sessions/${sessionId}/answer`, body),
+  morningQuizSubmit: (sessionId: string) =>
+    request('POST', `/morning-quiz/sessions/${sessionId}/submit`),
+  morningQuizDashboard: (sessionId: string) =>
+    request('GET', `/morning-quiz/sessions/${sessionId}/dashboard`),
+  morningQuizScheduled: (weekStart: string) =>
+    request('GET', `/morning-quiz/scheduled?weekStart=${encodeURIComponent(weekStart)}`),
+  morningQuizCreateSession: (body: { date: string; classId: string; paperId: string }) =>
+    request('POST', '/morning-quiz/sessions', body),
+  morningQuizCancelSession: (sessionId: string, reason?: string) =>
+    request('PATCH', `/morning-quiz/sessions/${sessionId}/cancel`, { reason }),
+  morningQuizBatchSchedule: (items: Array<{ date: string; classId: string; paperId: string }>) =>
+    request('POST', '/morning-quiz/batch', { items }),
+  morningQuizBatchGenerate: (body: {
+    weekStart: string;
+    classIds: string[];
+    questionsPerPaper?: number;
+  }) => request('POST', '/morning-quiz/batch-generate', body),
+  setClassEnglishLevel: (
+    classId: string,
+    level: 'ielts_authentic' | 'ielts_hard' | 'olevel',
+  ) => request('PATCH', `/morning-quiz/classes/${classId}/english-level`, { level }),
 };
 
 function qs(obj: Record<string, any>) {

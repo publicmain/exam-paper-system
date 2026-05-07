@@ -41,6 +41,27 @@ const KIND_MAP: Record<string, FileKind> = {
 
 const CIE_RE = /^(\d{4})_([msw])(\d{2})_(qp|ms|er|in|gt|sf|pre)(?:_?(\d{1,2}))?\.pdf$/i;
 
+/**
+ * Permissive IELTS filename matcher. Cambridge IELTS books 1–19 ship as
+ * "Cambridge IELTS N — Test M — <Section>". Pirated mirrors on GitHub use
+ * many naming variants; this regex captures the common ones:
+ *
+ *   cambridge_ielts_18_test_2_reading.pdf
+ *   ielts18_t2_reading.pdf
+ *   Cambridge IELTS 18 - Test 2 Reading.pdf  (whitespace + dashes)
+ *   ielts_18_2_reading_passages.pdf
+ *
+ * We extract: book (1-19), test (1-4), section (reading/listening/writing).
+ * The morning-quiz pipeline currently only ingests reading + listening
+ * sections; writing is out of scope (essay → manual marking).
+ */
+// Note on the missing trailing \b: `_` is a word character in JavaScript
+// regex, so \b right after "reading" in "..._reading_answer_key.pdf" would
+// fail (g→_ is word→word, no boundary). We anchor the optional section
+// match implicitly via the longest greedy match instead.
+const IELTS_RE =
+  /(?:^|[^a-z])(?:cambridge[_\- ]?)?ielts[_\- ]?(\d{1,2})(?:[_\- ]?(?:test|t)?[_\- ]?(\d))?(?:[_\- ]?(reading|listening|writing|speaking))?/i;
+
 export function parseFilename(name: string): ParsedFilename {
   const lower = name.toLowerCase();
   const m = CIE_RE.exec(lower);
@@ -55,6 +76,31 @@ export function parseFilename(name: string): ParsedFilename {
       paperVariant: m[5] ?? undefined,
       paperNumber: m[4],
       fileKind: kind,
+      raw: name,
+      matched: true,
+    };
+  }
+
+  // IELTS path — recognise Cambridge IELTS books before falling back to
+  // generic kind sniffing. Reading + listening become question papers; the
+  // book number maps to paperVariant for downstream "Cambridge IELTS 18,
+  // Test 2" lookups.
+  const ie = IELTS_RE.exec(lower);
+  if (ie) {
+    const book = parseInt(ie[1], 10);
+    const test = ie[2] ? parseInt(ie[2], 10) : undefined;
+    const section = ie[3] as 'reading' | 'listening' | 'writing' | 'speaking' | undefined;
+    const isMs = /[_\- ](?:ms|answer[_\- ]?key|key)\b/.test(lower);
+    let ieKind: FileKind = FileKind.question_paper;
+    if (isMs) ieKind = FileKind.mark_scheme;
+    else if (section === 'speaking' || section === 'writing') ieKind = FileKind.other;
+    return {
+      syllabusCode: 'IELTS',
+      examYear: undefined,
+      examSeason: undefined,
+      paperVariant: test !== undefined ? `${book}.${test}` : `${book}`,
+      paperNumber: section ?? 'unknown',
+      fileKind: ieKind,
       raw: name,
       matched: true,
     };

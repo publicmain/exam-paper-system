@@ -15,6 +15,12 @@ import AiGeneratePage from './pages/AiGenerate';
 import QuickPaperPage from './pages/QuickPaper';
 import StudentHomePage from './pages/StudentHome';
 import StudentTakePage from './pages/StudentTake';
+// Morning quiz feature
+import MorningQuizDisplayPage from './pages/MorningQuizDisplay';
+import MorningQuizScanPage from './pages/MorningQuizScan';
+import MorningQuizTakePage from './pages/MorningQuizTake';
+import MorningQuizSchedulePage from './pages/MorningQuizSchedule';
+import AttendanceAdminPage from './pages/AttendanceAdmin';
 // Path-B pages
 import ClassesPage from './pages/Classes';
 import MarkerQueuePage from './pages/MarkerQueue';
@@ -40,11 +46,28 @@ export default function App() {
 
   if (loading) return <div className="p-8 text-gray-500">Loading…</div>;
 
+  // Public route: big-screen QR display. No login required so the venue
+  // laptop can stay on it without an auth-token. Sits above the user-required
+  // gate below.
+  if (location.pathname === '/display' || location.pathname.startsWith('/display/')) {
+    return (
+      <Routes>
+        <Route path="/display" element={<MorningQuizDisplayPage />} />
+        <Route path="/display/:sessionId" element={<MorningQuizDisplayPage />} />
+      </Routes>
+    );
+  }
+
   if (!user) {
-    if (location.pathname !== '/login') return <Navigate to="/login" replace />;
+    // Allow /scan/:token to bounce through login with a `next` param so
+    // returning students land back on the scan flow.
+    const isPublicLogin = location.pathname === '/login';
+    const isScan = location.pathname.startsWith('/scan/');
+    if (!isPublicLogin && !isScan) return <Navigate to="/login" replace />;
     return (
       <Routes>
         <Route path="/login" element={<LoginPage />} />
+        <Route path="/scan/:token" element={<MorningQuizScanPage />} />
         <Route path="*" element={<Navigate to="/login" replace />} />
       </Routes>
     );
@@ -72,6 +95,8 @@ export default function App() {
             <Route path="/student/take/:assignmentId" element={<StudentTakePage />} />
             <Route path="/student/tutor" element={<StudentTutorPage />} />
             <Route path="/practice" element={<PracticePage />} />
+            <Route path="/scan/:token" element={<MorningQuizScanPage />} />
+            <Route path="/morning-quiz/:sessionId" element={<MorningQuizTakePage />} />
             <Route path="*" element={<Navigate to="/student" replace />} />
           </Routes>
         </main>
@@ -115,6 +140,9 @@ export default function App() {
               )}
               {(user.role === 'admin' || user.role === 'head_teacher' || user.role === 'teacher') && (
                 <NavLink to="/stats" label="Stats" />
+              )}
+              {(user.role === 'admin' || user.role === 'head_teacher' || user.role === 'teacher') && (
+                <NavLink to="/morning-quiz/schedule" label="🌅 Morning Quiz" />
               )}
               {(user.role === 'admin' || user.role === 'head_teacher') && (
                 <NavLink to="/quality" label="Quality" />
@@ -209,6 +237,27 @@ export default function App() {
           <Route path="/admin/users" element={user.role === 'admin' ? <UserAdminPage /> : <Navigate to="/" replace />} />
           <Route path="/variants" element={<VariantPreviewPage />} />
           <Route path="/codegrader-test" element={<CodegraderTestPage />} />
+          {/* Morning quiz */}
+          <Route
+            path="/morning-quiz/schedule"
+            element={
+              user.role === 'admin' || user.role === 'head_teacher' || user.role === 'teacher' ? (
+                <MorningQuizSchedulePage />
+              ) : (
+                <Navigate to="/" replace />
+              )
+            }
+          />
+          <Route
+            path="/admin/attendance"
+            element={
+              user.role === 'admin' || user.role === 'head_teacher' || user.role === 'teacher' ? (
+                <AttendanceAdminPage />
+              ) : (
+                <Navigate to="/" replace />
+              )
+            }
+          />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </main>

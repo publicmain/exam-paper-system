@@ -14,6 +14,7 @@ import {
 } from '@prisma/client';
 import { randomBytes } from 'crypto';
 import { AuditService } from '../audit/audit.service';
+import { QuickPaperInput, QuickPaperService } from '../ai/quick-paper.service';
 import { PrismaService } from '../common/prisma.service';
 import { ShuffleService } from '../shuffle/shuffle.service';
 
@@ -62,6 +63,7 @@ export class MorningQuizService {
     private readonly prisma: PrismaService,
     private readonly audit: AuditService,
     private readonly shuffle: ShuffleService,
+    private readonly quickPaper: QuickPaperService,
   ) {}
 
   async createSession(input: CreateSessionInput, actor: ActorCtx) {
@@ -189,6 +191,147 @@ export class MorningQuizService {
     });
 
     return { results };
+  }
+
+  /**
+   * AI batch — Sunday-night-style. For each weekday × class, look up the
+   * class's English level, call QuickPaperService to author a fresh paper,
+   * then create a MorningQuizSession bound to it. Each tuple runs in its
+   * own try/catch so a single Anthropic timeout doesn't kill the week.
+   */
+  async batchGenerateForWeek(
+    input: { weekStart: string; classIds: string[]; questionsPerPaper?: number },
+    actor: ActorCtx,
+  ) {
+    if (!['teacher', 'head_teacher', 'admin'].includes(actor.role)) {
+      throw new ForbiddenException({ code: 'teacher_required' });
+    }
+    const monday = new Date(input.weekStart);
+    if (Number.isNaN(monday.getTime())) {
+      throw new BadRequestException({ code: 'bad_week_start' });
+    }
+    const targetCount = input.questionsPerPaper ?? 18;
+
+    const dates: string[] = [];
+    for (let i = 0; i < 5; i++) {
+      const d = new Date(monday.getTime() + i * 86_400_000);
+      dates.push(d.toISOString().slice(0, 10));
+    }
+
+    type Outcome =
+      | { ok: true; date: string; classId: string; sessionId: string; paperId: string }
+      | { ok: false; date: string; classId: string; code: string; detail?: string };
+    const outcomes: Outcome[] = [];
+
+    for (const dateIso of dates) {
+      for (const classId of input.classIds) {
+        try {
+          // Idempotent — skip if a session already exists for (date, class).
+          const existingSession = await this.prisma.morningQuizSession.findUnique({
+            where: { date_classId: { date: new Date(dateIso), classId } },
+          });
+          if (existingSession) {
+            outcomes.push({
+              ok: false,
+              date: dateIso,
+              classId,
+              code: 'session_already_exists',
+              detail: existingSession.id,
+            });
+            continue;
+          }
+
+          const levelRow = await this.prisma.classEnglishLevel.findUnique({
+            where: { classId },
+          });
+          if (!levelRow) {
+            outcomes.push({ ok: false, date: dateIso, classId, code: 'class_level_not_set' });
+            continue;
+          }
+
+          const qpInput = this.levelToQuickPaperInput(levelRow.level, dateIso, targetCount);
+          const generated = await this.quickPaper.generate(qpInput, actor);
+
+          const session = await this.createSession(
+            { date: new Date(dateIso), classId, paperId: generated.paperId },
+            actor,
+          );
+          outcomes.push({
+            ok: true,
+            date: dateIso,
+            classId,
+            sessionId: session.id,
+            paperId: generated.paperId,
+          });
+        } catch (e: any) {
+          const code = (e?.response?.code as string) ?? e?.message ?? 'unknown_error';
+          outcomes.push({ ok: false, date: dateIso, classId, code: String(code).slice(0, 100) });
+        }
+      }
+    }
+
+    await this.audit.log({
+      actorId: actor.id,
+      actorRole: actor.role,
+      action: 'morning_quiz.batch_generate',
+      entityType: 'MorningQuizSession',
+      entityId: '(batch)',
+      ip: actor.ip,
+      metadata: {
+        weekStart: input.weekStart,
+        classCount: input.classIds.length,
+        ok: outcomes.filter((o) => o.ok).length,
+        fail: outcomes.filter((o) => !o.ok).length,
+      },
+    });
+    return { outcomes };
+  }
+
+  private levelToQuickPaperInput(
+    level: EnglishLevel,
+    dateIso: string,
+    targetCount: number,
+  ): QuickPaperInput {
+    // Distribute targetCount across the topic mix per level. Keep MVP simple —
+    // even split with rounding adjustments. 18 default → ~4 topics × 4-5 each.
+    const split = (codes: string[]): Array<{ code: string; count: number }> => {
+      const base = Math.floor(targetCount / codes.length);
+      const rem = targetCount - base * codes.length;
+      return codes.map((c, i) => ({ code: c, count: base + (i < rem ? 1 : 0) }));
+    };
+
+    if (level === 'ielts_authentic') {
+      return {
+        syllabusCode: 'IELTS',
+        topics: split(['IR.1', 'IR.2', 'IR.4', 'IR.6']),
+        difficulty: 3,
+        durationMin: 30,
+        includeDiagrams: false,
+        paperName: `Morning Quiz IELTS-Auth ${dateIso}`,
+        multiPart: false,
+      };
+    }
+    if (level === 'ielts_hard') {
+      return {
+        syllabusCode: 'IELTS',
+        topics: split(['IR.2', 'IR.3', 'IR.4', 'IR.5', 'IR.7']),
+        difficulty: 5,
+        durationMin: 30,
+        includeDiagrams: false,
+        paperName: `Morning Quiz IELTS-Hard ${dateIso}`,
+        multiPart: false,
+      };
+    }
+    // olevel
+    return {
+      syllabusCode: '1123',
+      topics: split(['EL.1', 'EL.2', 'EL.4', 'EL.5']),
+      difficulty: 2,
+      durationMin: 30,
+      includeDiagrams: false,
+      paperName: `Morning Quiz O-Level ${dateIso}`,
+      multiPart: false,
+    };
   }
 
   /** Look at a week's worth of scheduled sessions for the calendar UI. */

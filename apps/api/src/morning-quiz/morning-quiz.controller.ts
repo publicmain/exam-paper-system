@@ -35,6 +35,12 @@ const BatchScheduleSchema = z.object({
     .max(100),
 });
 
+const BatchGenerateSchema = z.object({
+  weekStart: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+  classIds: z.array(z.string()).min(1).max(20),
+  questionsPerPaper: z.number().int().min(8).max(30).optional(),
+});
+
 const SaveAnswerSchema = z.object({
   paperQuestionId: z.string(),
   selectedOption: z.string().max(2).nullable().optional(),
@@ -71,6 +77,20 @@ export class MorningQuizController {
     const parsed = BatchScheduleSchema.safeParse(body);
     if (!parsed.success) throw new BadRequestException(parsed.error.flatten());
     return this.svc.batchSchedule(parsed.data, { id: user.id, role: user.role, ip: req.ip ?? null });
+  }
+
+  /** AI batch — generates 5 days × N classes worth of fresh papers via the
+   *  Quick Paper service, then schedules each. Each (date, class) tuple
+   *  failure is recorded but doesn't stop the rest. */
+  @Post('batch-generate')
+  batchGenerate(@Body() body: unknown, @CurrentUser() user: any, @Req() req: Request) {
+    const parsed = BatchGenerateSchema.safeParse(body);
+    if (!parsed.success) throw new BadRequestException(parsed.error.flatten());
+    return this.svc.batchGenerateForWeek(parsed.data, {
+      id: user.id,
+      role: user.role,
+      ip: req.ip ?? null,
+    });
   }
 
   @Get('scheduled')
