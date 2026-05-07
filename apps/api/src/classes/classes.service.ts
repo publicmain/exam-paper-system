@@ -10,7 +10,13 @@ export class ClassesService {
   async list() {
     return this.prisma.class.findMany({
       orderBy: { name: 'asc' },
-      include: { _count: { select: { enrollments: true, assignments: true } } },
+      // englishLevel is the per-class morning-quiz mapping; the schedule page
+      // needs `c.englishLevel?.level` to gate the "select for batch-generate"
+      // checkbox, so include it here rather than make a second round-trip.
+      include: {
+        _count: { select: { enrollments: true, assignments: true } },
+        englishLevel: { select: { level: true } },
+      },
     });
   }
 
