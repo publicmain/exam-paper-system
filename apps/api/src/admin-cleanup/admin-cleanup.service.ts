@@ -368,7 +368,15 @@ export class AdminCleanupService {
         const r = await fn();
         stepCounts[name] = r.count ?? 0;
       } catch (e: any) {
-        stepFailed.push(`${name}: ${(e?.message ?? String(e)).slice(0, 200)}`);
+        // Keep the FK name visible — Postgres surfaces it inside the body
+        // with a constraint string we need to actually see, so widen the
+        // slice to fit the constraint identifier.
+        const msg = e?.message ?? String(e);
+        const fk = msg.match(/foreign key constraint[^"]*"([^"]+)"/i)?.[1];
+        const detail = msg.match(/Key \(([^)]+)\)=\(([^)]+)\)[^.]*\./)?.[0];
+        stepFailed.push(
+          `${name}: fk=${fk ?? 'n/a'} detail=${detail ?? 'n/a'} msg=${msg.slice(0, 400)}`,
+        );
       }
     }
 
