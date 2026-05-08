@@ -40,9 +40,14 @@ interface TaskGroup {
   taskType: TaskType | '_other';
   /** Instruction shared across the group's sub-questions (deduped). */
   instruction: string;
-  /** Bank of letter→text options for matching_features (and similar). Same
-   *  list shows up on every sibling question; we render it once per group. */
+  /** Bank of letter→text options shown once per group. Three task types
+   *  carry shared banks: matching_features (`snapshotOptions`),
+   *  matching_headings (`content.headingsBank`), summary_completion
+   *  (`content.wordBank`). */
   bank: Option[] | null;
+  /** Label for the bank header — varies by source so the student knows
+   *  whether they're picking a heading number or a word from a word list. */
+  bankLabel: string;
   questions: Array<PaperQuestion & { itemText: string; localIdx: number }>;
 }
 
@@ -67,6 +72,28 @@ const TASK_TITLES: Record<string, string> = {
 function clean(s: string | null | undefined): string {
   if (!s) return '';
   return s.replace(/�/g, '–');
+}
+
+/** Reflow a passage extracted from a column-based PDF. PyMuPDF's text
+ *  extraction puts a newline at every visual line break, leaving the body
+ *  with a hard wrap every ~10 words. We coalesce single newlines into
+ *  spaces, preserve double-newlines as paragraph breaks, and bump
+ *  paragraph-letter markers (`\nA `, `\nB ` …) onto their own line so the
+ *  passage reads like prose instead of a poem. Highlight char-offsets are
+ *  computed against the same cleaned/reflowed string so they stay aligned. */
+function reflowPassage(s: string): string {
+  if (!s) return '';
+  // Normalise CRLF, then split on intentional blank lines.
+  const blocks = s.replace(/\r\n/g, '\n').split(/\n\s*\n/);
+  const out = blocks
+    .map((b) => b.replace(/\n+/g, ' ').replace(/\s{2,}/g, ' ').trim())
+    .filter(Boolean)
+    .join('\n\n');
+  // Force a paragraph break before single-letter paragraph markers
+  // ("A The Babylonians…", "B Before the introduction…", up to "Z").
+  // Doing this after the join means we catch markers that the PDF
+  // extractor placed mid-paragraph.
+  return out.replace(/(^|[^\n])\s+([A-Z])\s+(?=[A-Z][a-z])/g, '$1\n\n$2 ');
 }
 
 /** Split the stem into (instruction, item). Cambridge IELTS PDFs put the
@@ -98,16 +125,29 @@ function groupQuestions(qs: PaperQuestion[]): TaskGroup[] {
     const sameAsCurrent =
       cur && cur.taskType === tt && cur.instruction === instruction;
     if (!sameAsCurrent) {
-      // matching_features stores the shared bank as `options` on every sibling.
+      // The shared bank can come from three places depending on task type:
+      //   - matching_features: stored as `options` on every sibling Q (the
+      //     options list IS the bank, with .correct flagging the right one).
+      //   - matching_headings: bank is `content.headingsBank` (a separate
+      //     field), populated by the IELTS repair pass after ingestion.
+      //   - summary_completion: bank is `content.wordBank`, same source.
       // For yes_no / mcq the option list is per-question, so no shared bank.
-      const sharedBank =
-        tt === 'matching_features' && pq.snapshotOptions && pq.snapshotOptions.length > 4
-          ? pq.snapshotOptions
-          : null;
+      let sharedBank: Option[] | null = null;
+      let bankLabel = '选项库 · Bank';
+      if (tt === 'matching_features' && pq.snapshotOptions && pq.snapshotOptions.length > 2) {
+        sharedBank = pq.snapshotOptions;
+      } else if (tt === 'matching_headings' && Array.isArray(c.headingsBank) && c.headingsBank.length > 0) {
+        sharedBank = c.headingsBank;
+        bankLabel = '标题列表 · List of Headings';
+      } else if (tt === 'summary_completion' && Array.isArray(c.wordBank) && c.wordBank.length > 0) {
+        sharedBank = c.wordBank;
+        bankLabel = '词库 · Word Bank';
+      }
       cur = {
         taskType: tt,
         instruction,
         bank: sharedBank,
+        bankLabel,
         questions: [],
       };
       groups.push(cur);
@@ -247,7 +287,7 @@ export default function MorningQuizTake() {
 
   const passageContent = view.paperQuestions[0]?.snapshotContent ?? {};
   const passageTitle = clean(passageContent.passageTitle ?? 'Reading Passage');
-  const passageBody = clean(passageContent.passage ?? '');
+  const passageBody = reflowPassage(clean(passageContent.passage ?? ''));
   const groups = groupQuestions(view.paperQuestions);
 
   const mm = String(Math.floor(remainingMs / 60_000)).padStart(2, '0');
@@ -555,7 +595,7 @@ function TaskGroupView({
 
       {group.bank && (
         <div className="px-4 py-3 bg-amber-50 border-b border-amber-100">
-          <div className="text-xs text-amber-900 font-medium mb-1">选项库 · Bank</div>
+          <div className="text-xs text-amber-900 font-medium mb-1">{group.bankLabel}</div>
           <ul className="text-sm space-y-0.5 columns-1 sm:columns-2">
             {group.bank.map((b) => (
               <li key={b.key} className="break-inside-avoid">

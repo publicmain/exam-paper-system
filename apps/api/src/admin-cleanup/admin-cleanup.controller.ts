@@ -1,6 +1,7 @@
 import { Body, Controller, Post, UseGuards } from '@nestjs/common';
 import { AuthGuard, Roles } from '../common/auth.guard';
 import { AdminCleanupService } from './admin-cleanup.service';
+import { IeltsRepairService } from './ielts-repair.service';
 
 /**
  * Admin-only data hygiene endpoints (Bugs #2 + #5).
@@ -16,7 +17,10 @@ import { AdminCleanupService } from './admin-cleanup.service';
 @UseGuards(AuthGuard)
 @Roles('admin')
 export class AdminCleanupController {
-  constructor(private readonly cleanup: AdminCleanupService) {}
+  constructor(
+    private readonly cleanup: AdminCleanupService,
+    private readonly ieltsRepair: IeltsRepairService,
+  ) {}
 
   @Post('fix-replacement-chars')
   fix() {
@@ -46,6 +50,24 @@ export class AdminCleanupController {
     return this.cleanup.purgeMorningQuizData({
       dryRun: body?.dryRun,
       scope: body?.scope ?? 'sessions-only',
+    });
+  }
+
+  /**
+   * One-off Claude-driven IELTS data repair.
+   *   - regenerates the missing matching_headings list-of-headings
+   *   - regenerates the missing summary_completion word bank
+   *   - cleans OCR artifacts and reflows column-broken passages
+   * Idempotent: questions already marked passageCleaned / with bank are
+   * skipped on re-runs. Default dryRun=true.
+   */
+  @Post('repair-ielts')
+  repairIelts(
+    @Body() body: { dryRun?: boolean; provenancePrefix?: string } = {},
+  ) {
+    return this.ieltsRepair.repair({
+      dryRun: body?.dryRun,
+      provenancePrefix: body?.provenancePrefix,
     });
   }
 }
