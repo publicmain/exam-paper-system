@@ -27,4 +27,17 @@ export class AdminCleanupController {
   purge(@Body() body: { dryRun?: boolean } = {}) {
     return this.cleanup.purgeTestData({ dryRun: body?.dryRun });
   }
+
+  /**
+   * Clear morning-quiz fixtures: every MorningQuizSession + its
+   * Attendance / Submission / shuffle map, the paired AI-generated
+   * Papers (provenanceTag='ai_quick_paper'), the demo class TEST_MQ
+   * and the s001–s035 + student-test users. Keeps the imported
+   * Cambridge IELTS 8 question bank (provenanceTag='cambridge_ielts_8').
+   * Pass {"dryRun": true} to preview.
+   */
+  @Post('purge-morning-quiz')
+  purgeMorningQuiz(@Body() body: { dryRun?: boolean } = {}) {
+    return this.cleanup.purgeMorningQuizData({ dryRun: body?.dryRun });
+  }
 }

@@ -297,4 +297,126 @@ export class AdminCleanupService {
     this.logger.warn(`purgeTestData (live): deleted ${JSON.stringify(summary)}`);
     return { dryRun: false, summary, stepCounts, stepFailed };
   }
+
+  /**
+   * Wipe every morning-quiz fixture. Targets:
+   *   - MorningQuizSession rows (cascades to Attendance via FK)
+   *   - The associated PaperAssignment rows (cascade-deletes the
+   *     1:1 MorningQuizSession back-relation, plus the StudentSubmissions
+   *     which cascade to AnswerScripts)
+   *   - The Papers themselves (those carrying provenanceTag='ai_quick_paper'
+   *     i.e. the AI-generated batch papers; the question bank's
+   *     provenanceTag='cambridge_ielts_8' is left intact)
+   *   - QuestionShuffleMap rows for those papers
+   *   - ClassEnglishLevel + ClassEnrollment for the demo TEST_MQ class
+   *   - The TEST_MQ class itself
+   *   - The 35 s001–s035 students plus the bootstrap student-test user
+   *
+   * Default dryRun=true; pass {"dryRun": false} to actually delete.
+   */
+  async purgeMorningQuizData(opts: { dryRun?: boolean } = {}) {
+    const dryRun = opts.dryRun !== false;
+
+    const sessions = await this.prisma.morningQuizSession.findMany({
+      select: { id: true, paperAssignmentId: true, classId: true },
+    });
+    const paperAssignmentIds = sessions.map((s) => s.paperAssignmentId);
+    const assignments = paperAssignmentIds.length
+      ? await this.prisma.paperAssignment.findMany({
+          where: { id: { in: paperAssignmentIds } },
+          select: { paperId: true },
+        })
+      : [];
+    const aiPaperIds = assignments.map((a) => a.paperId);
+
+    const testStudents = await this.prisma.user.findMany({
+      where: {
+        role: 'student',
+        OR: [
+          { email: { endsWith: '@esic.local' } },
+          { email: 'student-test@school.local' },
+        ],
+      },
+      select: { id: true, email: true },
+    });
+
+    const testClasses = await this.prisma.class.findMany({
+      where: { classCode: 'TEST_MQ' },
+      select: { id: true, classCode: true },
+    });
+
+    const summary = {
+      sessions: sessions.length,
+      paperAssignments: paperAssignmentIds.length,
+      aiPapers: aiPaperIds.length,
+      students: testStudents.length,
+      classes: testClasses.length,
+    };
+
+    if (dryRun) {
+      this.logger.log(`purgeMorningQuizData (dry-run): ${JSON.stringify(summary)}`);
+      return { dryRun: true, summary };
+    }
+
+    const stepCounts: Record<string, number> = {};
+    const stepFailed: string[] = [];
+    async function step(name: string, fn: () => Promise<{ count: number }>) {
+      try {
+        const r = await fn();
+        stepCounts[name] = r.count ?? 0;
+      } catch (e: any) {
+        stepFailed.push(`${name}: ${(e?.message ?? String(e)).slice(0, 200)}`);
+      }
+    }
+
+    // QuestionShuffleMap has no cascade from Paper — wipe explicitly.
+    if (aiPaperIds.length) {
+      await step('shuffleMap', () =>
+        this.prisma.questionShuffleMap.deleteMany({
+          where: { paperId: { in: aiPaperIds } },
+        }),
+      );
+    }
+    // Paper delete cascades: PaperAssignment → MorningQuizSession (1:1) → Attendance,
+    // PaperAssignment → StudentSubmission → AnswerScript, plus PaperQuestion +
+    // PaperVersion + QuestionUsageLog under Paper itself. One call wipes a lot.
+    if (aiPaperIds.length) {
+      await step('paper', () =>
+        this.prisma.paper.deleteMany({ where: { id: { in: aiPaperIds } } }),
+      );
+    }
+    // ClassEnglishLevel + ClassEnrollment cascade from Class delete.
+    if (testClasses.length) {
+      await step('class', () =>
+        this.prisma.class.deleteMany({
+          where: { id: { in: testClasses.map((c) => c.id) } },
+        }),
+      );
+    }
+    // Users last — they may own audit rows (actorId) which is just String?,
+    // not a FK, so deletion is safe. Iterate to surface FK errors per-user.
+    let userOk = 0;
+    const userErrors: Map<string, string[]> = new Map();
+    for (const u of testStudents) {
+      try {
+        await this.prisma.user.delete({ where: { id: u.id } });
+        userOk += 1;
+      } catch (e: any) {
+        const fk =
+          e?.message?.match(/foreign key constraint[^"]*"([^"]+)"/i)?.[1] ??
+          'unknown-FK';
+        if (!userErrors.has(fk)) userErrors.set(fk, []);
+        if (userErrors.get(fk)!.length < 5) userErrors.get(fk)!.push(u.email);
+      }
+    }
+    stepCounts['user'] = userOk;
+    if (userErrors.size > 0) {
+      for (const [fk, sample] of userErrors) {
+        stepFailed.push(`user FK=${fk} count=${sample.length}+ sample=${sample.slice(0, 3).join(',')}`);
+      }
+    }
+
+    this.logger.warn(`purgeMorningQuizData (live): ${JSON.stringify({ summary, stepCounts, stepFailed })}`);
+    return { dryRun: false, summary, stepCounts, stepFailed };
+  }
 }
