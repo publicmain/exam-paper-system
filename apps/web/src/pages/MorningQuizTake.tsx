@@ -301,30 +301,37 @@ export default function MorningQuizTake() {
   const noteStorageKey = `mq:nt:${sessionId}`;
 
   return (
-    <div className="min-h-screen bg-gray-50 pb-24">
-      {/* Top header bar */}
+    <div className="min-h-screen bg-gray-50 pb-28" style={{ minHeight: '100dvh' }}>
+      {/* Top header bar.  iPad has a chunkier top edge so we bump padding;
+          the passage-toggle button needs to be a real tap target (≥44px)
+          for iPad portrait + phone, hidden on lg: where the passage is
+          permanently visible side-by-side. */}
       <div
-        className={`sticky top-0 z-20 px-4 py-2 backdrop-blur bg-white/90 border-b flex items-center justify-between gap-2 ${danger ? 'text-rose-600' : 'text-gray-700'}`}
+        className={`sticky top-0 z-20 px-4 py-2.5 lg:py-3 backdrop-blur bg-white/90 border-b flex items-center justify-between gap-2 ${danger ? 'text-rose-600' : 'text-gray-700'}`}
+        style={{ paddingTop: 'max(0.625rem, env(safe-area-inset-top))' }}
       >
-        <div className="font-semibold text-sm md:text-base">早测 · Morning Quiz</div>
-        <div className="text-xs text-gray-500 hidden md:block">
+        <div className="font-semibold text-base lg:text-lg">早测 · Morning Quiz</div>
+        <div className="text-sm text-gray-500 hidden lg:block">
           {answeredCount} / {total} 已答
         </div>
-        <div className="font-mono tabular-nums text-xl md:text-2xl">
+        <div className="font-mono tabular-nums text-2xl lg:text-3xl">
           {mm}:{ss}
         </div>
         <button
-          className="md:hidden text-sm text-blue-600 underline"
+          className="lg:hidden text-sm text-blue-600 underline px-3 py-2 -my-2 rounded touch-manipulation"
           onClick={() => setShowPassageMobile((v) => !v)}
         >
           {showPassageMobile ? '回到题目' : '看原文'}
         </button>
       </div>
 
-      <div className="md:flex md:gap-4 md:max-w-7xl md:mx-auto md:px-4 md:py-4">
-        {/* Passage panel */}
+      <div className="lg:flex lg:gap-6 lg:max-w-7xl lg:mx-auto lg:px-6 lg:py-4">
+        {/* Passage panel.  Side-by-side at lg: (≥1024px, iPad landscape
+            and bigger). Below that — including iPad portrait at 768-1023px
+            — the panel is full-width and toggled via the header button so
+            the questions side stays at a comfortable reading width. */}
         <aside
-          className={`${showPassageMobile ? 'block' : 'hidden'} md:block md:w-1/2 md:sticky md:top-14 md:self-start md:max-h-[calc(100vh-4rem)] md:overflow-auto bg-white md:rounded-lg md:border md:shadow-sm`}
+          className={`${showPassageMobile ? 'block' : 'hidden'} lg:block lg:w-1/2 lg:sticky lg:top-16 lg:self-start lg:max-h-[calc(100dvh-5rem)] lg:overflow-auto bg-white lg:rounded-lg lg:border lg:shadow-sm`}
         >
           <PassagePanel
             title={passageTitle}
@@ -335,7 +342,7 @@ export default function MorningQuizTake() {
         </aside>
 
         {/* Tasks panel */}
-        <div className={`${showPassageMobile ? 'hidden' : 'block'} md:block md:w-1/2 space-y-6 px-3 md:px-0 py-3 md:py-0`}>
+        <div className={`${showPassageMobile ? 'hidden' : 'block'} lg:block lg:w-1/2 space-y-6 px-4 lg:px-0 py-4 lg:py-0`}>
           {groups.map((g, gi) => (
             <TaskGroupView
               key={gi}
@@ -350,8 +357,13 @@ export default function MorningQuizTake() {
         </div>
       </div>
 
-      {/* Sticky submit bar */}
-      <div className="fixed bottom-0 inset-x-0 bg-white border-t shadow-lg z-20">
+      {/* Sticky submit bar.  iPad keyboard hides 1/3 of the screen on
+          focus, so we keep the bar above the bottom safe-area inset and
+          give the button real heft (44px+ tap target). */}
+      <div
+        className="fixed bottom-0 inset-x-0 bg-white border-t shadow-lg z-20"
+        style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}
+      >
         <div className="max-w-7xl mx-auto px-4 py-3 flex justify-between items-center gap-3">
           <div className="text-sm text-gray-500">
             {answeredCount} / {total} 已答
@@ -359,7 +371,7 @@ export default function MorningQuizTake() {
           <button
             disabled={submitted}
             onClick={handleSubmit}
-            className="px-6 py-2.5 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-300 text-white rounded-md font-medium"
+            className="px-7 py-3 lg:py-3 bg-blue-600 hover:bg-blue-700 active:bg-blue-800 disabled:bg-gray-300 text-white rounded-lg font-semibold text-base touch-manipulation min-h-[48px]"
           >
             {submitted ? '提交中…' : '交卷 · Submit'}
           </button>
@@ -442,11 +454,11 @@ function PassagePanel({
   }
 
   return (
-    <div className="px-4 py-4" ref={containerRef}>
-      <div className="flex items-baseline justify-between gap-2 mb-2">
-        <h2 className="font-semibold text-lg">{title}</h2>
+    <div className="px-5 py-5 lg:px-6 lg:py-6" ref={containerRef}>
+      <div className="flex items-center justify-between gap-2 mb-2">
+        <h2 className="font-semibold text-xl lg:text-2xl">{title}</h2>
         <button
-          className="text-xs text-blue-600 underline"
+          className="text-sm text-blue-600 px-3 py-2 rounded-lg border border-blue-200 active:bg-blue-50 touch-manipulation min-h-[40px] font-medium"
           onClick={addNote}
           title="加便笺"
         >
@@ -454,23 +466,28 @@ function PassagePanel({
         </button>
       </div>
       <div className="text-xs text-gray-400 mb-3">
-        提示:用鼠标选中文字会自动黄色高亮 · 点击高亮可移除
+        提示:长按或拖选文字 → 自动黄色高亮;点击高亮可移除
       </div>
       <div
         data-passage-body
         onMouseUp={handleMouseUp}
-        className="prose prose-sm max-w-none text-gray-800 leading-relaxed select-text whitespace-pre-wrap"
+        onTouchEnd={handleMouseUp}
+        // text-base + leading-relaxed + serif font produces a comfortable
+        // reading experience on iPad — students sit with the panel for
+        // ~10 minutes, so legibility matters more than density here.
+        className="max-w-none text-[1.0625rem] lg:text-lg text-gray-800 leading-[1.75] select-text whitespace-pre-wrap font-serif"
+        style={{ WebkitUserSelect: 'text', userSelect: 'text' }}
       >
         {renderHighlighted(body, highlights, removeHighlight)}
       </div>
       {notes.length > 0 && (
-        <div className="mt-4 border-t pt-3">
+        <div className="mt-5 border-t pt-4">
           <div className="text-xs text-gray-500 mb-2 font-medium">便笺</div>
-          <ul className="space-y-1.5">
+          <ul className="space-y-2">
             {notes.map((n) => (
               <li
                 key={n.id}
-                className="text-sm bg-yellow-50 border border-yellow-200 rounded px-3 py-1.5 cursor-pointer hover:bg-yellow-100"
+                className="text-base bg-yellow-50 border border-yellow-200 rounded-lg px-3 py-2.5 cursor-pointer active:bg-yellow-100 hover:bg-yellow-100 touch-manipulation"
                 onClick={() => editNote(n.id)}
                 title="点击编辑/删除"
               >
@@ -577,29 +594,29 @@ function TaskGroupView({
   const taskTitle = TASK_TITLES[group.taskType] ?? 'Question';
 
   return (
-    <section className="bg-white rounded-lg border shadow-sm overflow-hidden">
-      <header className="bg-gray-50 px-4 py-3 border-b">
-        <div className="flex items-center gap-2">
-          <span className="text-xs text-gray-400 font-mono">Task {gi + 1}</span>
-          <span className="text-xs px-2 py-0.5 rounded bg-blue-100 text-blue-800 font-medium">
+    <section className="bg-white rounded-xl border shadow-sm overflow-hidden">
+      <header className="bg-gray-50 px-4 lg:px-5 py-3.5 border-b">
+        <div className="flex items-center gap-2 flex-wrap">
+          <span className="text-sm text-gray-400 font-mono">Task {gi + 1}</span>
+          <span className="text-sm px-2.5 py-1 rounded-md bg-blue-100 text-blue-800 font-semibold">
             {taskTitle}
           </span>
-          <span className="text-xs text-gray-500">· {range}</span>
+          <span className="text-sm text-gray-500">· {range}</span>
         </div>
         {group.instruction && (
-          <p className="mt-2 text-sm text-gray-700 whitespace-pre-wrap leading-snug">
+          <p className="mt-2.5 text-base text-gray-700 whitespace-pre-wrap leading-relaxed">
             {clean(group.instruction)}
           </p>
         )}
       </header>
 
       {group.bank && (
-        <div className="px-4 py-3 bg-amber-50 border-b border-amber-100">
-          <div className="text-xs text-amber-900 font-medium mb-1">{group.bankLabel}</div>
-          <ul className="text-sm space-y-0.5 columns-1 sm:columns-2">
+        <div className="px-4 lg:px-5 py-3.5 bg-amber-50 border-b border-amber-100">
+          <div className="text-sm text-amber-900 font-semibold mb-2">{group.bankLabel}</div>
+          <ul className="text-base space-y-1 sm:columns-2 sm:gap-x-6">
             {group.bank.map((b) => (
-              <li key={b.key} className="break-inside-avoid">
-                <span className="font-mono text-gray-500 mr-2">{b.key}.</span>
+              <li key={b.key} className="break-inside-avoid leading-snug">
+                <span className="font-mono text-gray-500 mr-2 font-semibold">{b.key}.</span>
                 <span>{clean(b.text)}</span>
               </li>
             ))}
@@ -609,9 +626,9 @@ function TaskGroupView({
 
       <ol className="divide-y">
         {group.questions.map((q) => (
-          <li key={q.id} className="px-4 py-3">
-            <div className="flex items-baseline gap-2 mb-1.5">
-              <span className="text-sm font-mono text-gray-400">Q{q.localIdx}</span>
+          <li key={q.id} className="px-4 lg:px-5 py-4">
+            <div className="flex items-baseline gap-2 mb-2">
+              <span className="text-base font-mono text-gray-400 font-semibold">Q{q.localIdx}</span>
               <span className="text-xs text-gray-400">[{q.marks}m]</span>
               {savingId === q.id && (
                 <span className="text-xs text-blue-500 ml-auto">saving…</span>
@@ -663,7 +680,7 @@ function QuestionItem({
     case 'matching_features':
       return (
         <>
-          <div className="text-sm text-gray-800 mb-2 whitespace-pre-wrap">{itemNode}</div>
+          <div className="text-base text-gray-800 mb-2.5 whitespace-pre-wrap leading-snug">{itemNode}</div>
           <RadioGroup
             options={q.snapshotOptions ?? []}
             value={answer?.selectedOption}
@@ -676,7 +693,7 @@ function QuestionItem({
     case 'matching_information':
       return (
         <>
-          <div className="text-sm text-gray-800 mb-2 whitespace-pre-wrap">{itemNode}</div>
+          <div className="text-base text-gray-800 mb-2.5 whitespace-pre-wrap leading-snug">{itemNode}</div>
           <LetterInput
             placeholder="A–H"
             value={answer?.textAnswer ?? ''}
@@ -688,7 +705,7 @@ function QuestionItem({
     case 'matching_headings':
       return (
         <>
-          <div className="text-sm text-gray-800 mb-2 whitespace-pre-wrap">{itemNode}</div>
+          <div className="text-base text-gray-800 mb-2.5 whitespace-pre-wrap leading-snug">{itemNode}</div>
           <LetterInput
             placeholder="i, ii, iii…"
             value={answer?.textAnswer ?? ''}
@@ -717,7 +734,7 @@ function QuestionItem({
       // Unknown type — fallback to text area + plain item rendering.
       return (
         <>
-          <div className="text-sm text-gray-800 mb-2 whitespace-pre-wrap">{itemNode}</div>
+          <div className="text-base text-gray-800 mb-2.5 whitespace-pre-wrap leading-snug">{itemNode}</div>
           <DebouncedTextarea
             value={answer?.textAnswer ?? ''}
             onChange={(v) => onChange({ textAnswer: v })}
@@ -745,40 +762,44 @@ function RadioGroup({
   compact?: boolean;
 }) {
   return (
-    <div className={compact ? 'flex flex-wrap gap-2' : 'space-y-1.5'}>
+    <div className={compact ? 'flex flex-wrap gap-2' : 'space-y-2'}>
       {options.map((opt) => {
         const checked = value === opt.key;
         if (compact) {
+          // Compact A-F buttons under a shared bank — 44×44 minimum so
+          // an iPad finger doesn't have to aim for a 24px target.
           return (
             <button
               key={opt.key}
               type="button"
               onClick={() => onChange(opt.key)}
-              className={`px-3 py-1.5 rounded border text-sm font-medium transition-colors ${
+              className={`min-w-[44px] min-h-[44px] px-4 py-2 rounded-lg border text-base font-semibold transition-colors touch-manipulation ${
                 checked
-                  ? 'border-blue-500 bg-blue-50 text-blue-700'
-                  : 'border-gray-300 text-gray-700 hover:bg-gray-50'
+                  ? 'border-blue-500 bg-blue-50 text-blue-700 shadow-sm'
+                  : 'border-gray-300 text-gray-700 active:bg-blue-50 hover:bg-gray-50'
               }`}
             >
               {opt.key}
             </button>
           );
         }
+        // Full radios (TRUE/FALSE/NG, multiple-choice, etc.) — larger row
+        // padding and bigger circle so the whole label is a comfortable tap.
         return (
           <label
             key={opt.key}
-            className={`flex gap-3 items-start p-2 rounded border cursor-pointer transition-colors ${
-              checked ? 'border-blue-500 bg-blue-50' : 'border-gray-200 hover:bg-gray-50'
+            className={`flex gap-3 items-start p-3 rounded-lg border cursor-pointer transition-colors touch-manipulation min-h-[48px] ${
+              checked ? 'border-blue-500 bg-blue-50' : 'border-gray-200 active:bg-blue-50 hover:bg-gray-50'
             }`}
           >
             <input
               type="radio"
               checked={checked}
               onChange={() => onChange(opt.key)}
-              className="mt-1"
+              className="mt-1 w-5 h-5"
             />
-            <span className="font-mono text-gray-500 text-sm w-5">{opt.key}.</span>
-            <span className="flex-1 text-sm">{clean(opt.text)}</span>
+            <span className="font-mono text-gray-500 text-base w-6">{opt.key}.</span>
+            <span className="flex-1 text-base leading-snug">{clean(opt.text)}</span>
           </label>
         );
       })}
@@ -811,10 +832,11 @@ function LetterInput({
         if (local !== value) onChange(local);
       }}
       placeholder={placeholder}
-      className={`border rounded px-3 py-1.5 text-sm font-mono uppercase tracking-wider ${wider ? 'w-32' : 'w-20'}`}
+      className={`border rounded-lg px-4 py-3 text-lg font-mono uppercase tracking-wider min-h-[48px] focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-200 ${wider ? 'w-40' : 'w-28'}`}
       autoCapitalize="characters"
       autoCorrect="off"
       spellCheck={false}
+      inputMode="text"
     />
   );
 }
@@ -838,7 +860,7 @@ function DebouncedTextarea({
         if (local !== value) onChange(local);
       }}
       placeholder="Your answer…"
-      className="w-full border rounded px-3 py-2 text-sm min-h-[60px]"
+      className="w-full border rounded-lg px-4 py-3 text-base min-h-[80px] focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-200"
     />
   );
 }
@@ -865,11 +887,11 @@ function BlankAwareInput({
   }, [value]);
   return (
     <>
-      <div className="text-sm text-gray-800 mb-2 whitespace-pre-wrap leading-relaxed">
+      <div className="text-base text-gray-800 mb-2.5 whitespace-pre-wrap leading-relaxed">
         {hasBlank
           ? cleaned.split(/(\[BLANK\])/i).map((part, i) =>
               /\[BLANK\]/i.test(part) ? (
-                <span key={i} className="inline-block px-2 mx-0.5 bg-amber-100 border border-amber-200 rounded text-amber-800 text-xs font-medium">
+                <span key={i} className="inline-block px-2.5 mx-0.5 bg-amber-100 border border-amber-200 rounded text-amber-800 text-sm font-medium">
                   ___
                 </span>
               ) : (
@@ -886,7 +908,7 @@ function BlankAwareInput({
           if (local !== value) onChange(local);
         }}
         placeholder="Your answer…"
-        className="border rounded px-3 py-1.5 text-sm w-full max-w-md"
+        className="border rounded-lg px-4 py-3 text-base w-full max-w-md min-h-[48px] focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-200"
       />
     </>
   );
