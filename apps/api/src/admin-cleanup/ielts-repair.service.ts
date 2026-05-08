@@ -45,9 +45,16 @@ export class IeltsRepairService {
     this.client = apiKey ? new Anthropic({ apiKey }) : null;
   }
 
-  async repair(opts: { dryRun?: boolean; provenancePrefix?: string }) {
+  async repair(opts: {
+    dryRun?: boolean;
+    provenancePrefix?: string;
+    sourceRefPrefix?: string;
+  }) {
     const dryRun = opts.dryRun !== false;
-    const prefix = opts.provenancePrefix ?? 'cambridge_ielts_';
+    const provenancePrefix = opts.provenancePrefix;
+    // Default to anything ingested under the IELTS hierarchy. Prod data
+    // currently has provenanceTag=NULL so we have to filter on sourceRef.
+    const sourceRefPrefix = opts.sourceRefPrefix ?? 'IELTS/';
 
     if (!this.client) {
       return {
@@ -59,8 +66,13 @@ export class IeltsRepairService {
     // Pull every IELTS bank question. We need them grouped by passage so we
     // can do one Claude call per passage and one per task-group, not per
     // question (would be 160 calls vs ~30).
+    const where: any = {
+      sourceRef: { startsWith: sourceRefPrefix },
+      sourceType: 'past_paper_reference',
+    };
+    if (provenancePrefix) where.provenanceTag = { startsWith: provenancePrefix };
     const questions = await this.prisma.question.findMany({
-      where: { provenanceTag: { startsWith: prefix } },
+      where,
       orderBy: { sourceRef: 'asc' },
     });
 

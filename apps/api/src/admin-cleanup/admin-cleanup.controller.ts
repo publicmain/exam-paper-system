@@ -63,11 +63,17 @@ export class AdminCleanupController {
    */
   @Post('repair-ielts')
   repairIelts(
-    @Body() body: { dryRun?: boolean; provenancePrefix?: string } = {},
+    @Body()
+    body: {
+      dryRun?: boolean;
+      provenancePrefix?: string;
+      sourceRefPrefix?: string;
+    } = {},
   ) {
     return this.ieltsRepair.repair({
       dryRun: body?.dryRun,
       provenancePrefix: body?.provenancePrefix,
+      sourceRefPrefix: body?.sourceRefPrefix,
     });
   }
 }
