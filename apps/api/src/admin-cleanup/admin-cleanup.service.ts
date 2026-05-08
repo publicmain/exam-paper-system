@@ -380,6 +380,17 @@ export class AdminCleanupService {
         }),
       );
     }
+    // WatermarkToken.paperId is RESTRICT (kept un-cascaded by design for
+    // forensic replay). For test cleanup the forensic trail is meaningless,
+    // so wipe explicitly before paper.deleteMany or PG raises 23001.
+    const tx3: any = this.prisma;
+    if (aiPaperIds.length) {
+      await step('watermarkToken', () =>
+        tx3.watermarkToken.deleteMany({
+          where: { paperId: { in: aiPaperIds } },
+        }),
+      );
+    }
     // Paper delete cascades: PaperAssignment → MorningQuizSession (1:1) → Attendance,
     // PaperAssignment → StudentSubmission → AnswerScript, plus PaperQuestion +
     // PaperVersion + QuestionUsageLog under Paper itself. One call wipes a lot.
