@@ -249,11 +249,28 @@ export class MorningQuizService {
             continue;
           }
 
-          const qpInput = this.levelToQuickPaperInput(levelRow.level, dateIso, targetCount);
-          const generated = await this.quickPaper.generate(qpInput, actor);
+          // Fork by level. ielts_authentic uses passage-pick mode — IELTS
+          // Reading is fundamentally passage-grouped (one ~800-word passage
+          // with 13 sub-questions), and AI question-by-question generation
+          // produces 13 unrelated mini-passages. We pull a real Cambridge
+          // passage from the bank and use ALL its questions verbatim.
+          let paperId: string;
+          if (levelRow.level === 'ielts_authentic') {
+            paperId = await this.pickPassageAndCreatePaper(
+              'IELTS',
+              'AUTH',
+              classId,
+              dateIso,
+              actor,
+            );
+          } else {
+            const qpInput = this.levelToQuickPaperInput(levelRow.level, dateIso, targetCount);
+            const generated = await this.quickPaper.generate(qpInput, actor);
+            paperId = generated.paperId;
+          }
 
           const session = await this.createSession(
-            { date: new Date(dateIso), classId, paperId: generated.paperId },
+            { date: new Date(dateIso), classId, paperId },
             actor,
           );
           outcomes.push({
@@ -261,7 +278,7 @@ export class MorningQuizService {
             date: dateIso,
             classId,
             sessionId: session.id,
-            paperId: generated.paperId,
+            paperId,
           });
         } catch (e: any) {
           const code = (e?.response?.code as string) ?? e?.message ?? 'unknown_error';
@@ -285,6 +302,145 @@ export class MorningQuizService {
       },
     });
     return { outcomes };
+  }
+
+  /**
+   * Build a Paper from one whole passage in the bank instead of generating
+   * unrelated questions via AI. Logic:
+   *   1. Find every Question under (subjectCode, componentCode) with
+   *      sourceType='past_paper_reference' (i.e. real exam content).
+   *   2. Group by passage prefix parsed from sourceRef. We use the
+   *      pattern `IELTS/<book>/Test<N>/P<M>` for Cambridge IELTS — an
+   *      example sourceRef like `IELTS/8/Test1/P1/Q3` collapses to
+   *      `IELTS/8/Test1/P1` as the passage key.
+   *   3. Skip passages already used by this class within the last 30
+   *      days (we stash the passageRef in Paper.config so the next call
+   *      can find it without joining through PaperAssignment back-relations).
+   *   4. Pick a remaining passage at random; if every passage has been
+   *      used in the window, fall through to least-recent.
+   *   5. Spin up a Paper + PaperQuestion rows snapshotting the questions'
+   *      content / answer / options, just like the AI-gen path does.
+   */
+  private async pickPassageAndCreatePaper(
+    subjectCode: string,
+    componentCode: string,
+    classId: string,
+    dateIso: string,
+    actor: ActorCtx,
+  ): Promise<string> {
+    const subject = await this.prisma.subject.findFirst({
+      where: { code: subjectCode },
+      include: { components: { where: { code: componentCode } } },
+    });
+    if (!subject || subject.components.length === 0) {
+      throw new BadRequestException({
+        code: 'subject_or_component_not_found',
+        subjectCode,
+        componentCode,
+      });
+    }
+    const component = subject.components[0];
+
+    const bank = await this.prisma.question.findMany({
+      where: {
+        subjectId: subject.id,
+        componentId: component.id,
+        status: 'active',
+        sourceType: 'past_paper_reference',
+      },
+      orderBy: { sourceRef: 'asc' },
+    });
+
+    // Group by passage prefix. e.g. "IELTS/8/Test1/P1/Q3" → "IELTS/8/Test1/P1"
+    const byPassage = new Map<string, typeof bank>();
+    for (const q of bank) {
+      const ref = q.sourceRef ?? '';
+      const m = ref.match(/^([^/]+\/[^/]+\/Test\d+\/P\d+)\//);
+      if (!m) continue;
+      const key = m[1];
+      if (!byPassage.has(key)) byPassage.set(key, []);
+      byPassage.get(key)!.push(q);
+    }
+    if (byPassage.size === 0) {
+      throw new BadRequestException({
+        code: 'no_passages_in_bank',
+        hint: `No real-question bank under ${subjectCode}/${componentCode}. Ingest past-paper PDFs first.`,
+      });
+    }
+
+    // Filter out passages used by this class in the last 30 days.
+    const cutoff = new Date(Date.now() - 30 * 86_400_000);
+    const recentPapers = await this.prisma.paper.findMany({
+      where: {
+        assignments: { some: { classId } },
+        createdAt: { gte: cutoff },
+      },
+      select: { config: true },
+    });
+    const usedPassageRefs = new Set<string>();
+    for (const p of recentPapers) {
+      const cfg = p.config as { passageRef?: string } | null;
+      if (cfg?.passageRef) usedPassageRefs.add(cfg.passageRef);
+    }
+    const candidates = Array.from(byPassage.keys()).filter(
+      (k) => !usedPassageRefs.has(k),
+    );
+    const pick =
+      candidates.length > 0
+        ? candidates[Math.floor(Math.random() * candidates.length)]
+        : Array.from(byPassage.keys())[0]; // all used recently — recycle anyway
+    const passageQuestions = byPassage.get(pick)!;
+
+    const totalMarks = passageQuestions.reduce((s, q) => s + q.marks, 0);
+    const paper = await this.prisma.paper.create({
+      data: {
+        name: `Morning Quiz ${pick} (${dateIso})`,
+        ownerId: actor.id,
+        subjectId: subject.id,
+        componentId: component.id,
+        durationMin: 30,
+        totalMarksTarget: totalMarks,
+        totalMarksActual: totalMarks,
+        status: 'draft',
+        generatedSeed: Math.floor(Math.random() * 1e9),
+        config: {
+          mode: 'passage_pick',
+          passageRef: pick,
+          questionCount: passageQuestions.length,
+          dateIso,
+        },
+      },
+    });
+    for (let i = 0; i < passageQuestions.length; i++) {
+      const q = passageQuestions[i];
+      await this.prisma.paperQuestion.create({
+        data: {
+          paperId: paper.id,
+          questionId: q.id,
+          sortOrder: i + 1,
+          snapshotContent: q.content as any,
+          snapshotAnswer: q.answerContent as any,
+          snapshotOptions: q.options as any,
+          marks: q.marks,
+        },
+      });
+    }
+
+    await this.audit.log({
+      actorId: actor.id,
+      actorRole: actor.role,
+      action: 'morning_quiz.passage_pick',
+      entityType: 'Paper',
+      entityId: paper.id,
+      ip: actor.ip,
+      metadata: {
+        passageRef: pick,
+        classId,
+        dateIso,
+        questionCount: passageQuestions.length,
+      },
+    });
+    return paper.id;
   }
 
   private levelToQuickPaperInput(

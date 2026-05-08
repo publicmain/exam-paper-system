@@ -29,15 +29,23 @@ export class AdminCleanupController {
   }
 
   /**
-   * Clear morning-quiz fixtures: every MorningQuizSession + its
-   * Attendance / Submission / shuffle map, the paired AI-generated
-   * Papers (provenanceTag='ai_quick_paper'), the demo class TEST_MQ
-   * and the s001–s035 + student-test users. Keeps the imported
-   * Cambridge IELTS 8 question bank (provenanceTag='cambridge_ielts_8').
-   * Pass {"dryRun": true} to preview.
+   * Clear morning-quiz fixtures with selectable scope:
+   *   scope='sessions-only' (default) — wipes sessions / attendance /
+   *     submissions / shuffle maps and the AI-generated Papers, but
+   *     KEEPS the class + students so a follow-up batch-generate can
+   *     rebuild the schedule without re-rostering 30 students.
+   *   scope='all' — also deletes TEST_MQ class + s001-s035 students
+   *     for a full reset.
+   * Always keeps the imported Cambridge IELTS 8 question bank
+   * (provenanceTag='cambridge_ielts_8').
    */
   @Post('purge-morning-quiz')
-  purgeMorningQuiz(@Body() body: { dryRun?: boolean } = {}) {
-    return this.cleanup.purgeMorningQuizData({ dryRun: body?.dryRun });
+  purgeMorningQuiz(
+    @Body() body: { dryRun?: boolean; scope?: 'sessions-only' | 'all' } = {},
+  ) {
+    return this.cleanup.purgeMorningQuizData({
+      dryRun: body?.dryRun,
+      scope: body?.scope ?? 'sessions-only',
+    });
   }
 }

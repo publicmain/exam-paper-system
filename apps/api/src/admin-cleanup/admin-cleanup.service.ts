@@ -314,8 +314,11 @@ export class AdminCleanupService {
    *
    * Default dryRun=true; pass {"dryRun": false} to actually delete.
    */
-  async purgeMorningQuizData(opts: { dryRun?: boolean } = {}) {
+  async purgeMorningQuizData(
+    opts: { dryRun?: boolean; scope?: 'sessions-only' | 'all' } = {},
+  ) {
     const dryRun = opts.dryRun !== false;
+    const scope = opts.scope ?? 'sessions-only';
 
     const sessions = await this.prisma.morningQuizSession.findMany({
       select: { id: true, paperAssignmentId: true, classId: true },
@@ -385,35 +388,41 @@ export class AdminCleanupService {
         this.prisma.paper.deleteMany({ where: { id: { in: aiPaperIds } } }),
       );
     }
-    // ClassEnglishLevel + ClassEnrollment cascade from Class delete.
-    if (testClasses.length) {
-      await step('class', () =>
-        this.prisma.class.deleteMany({
-          where: { id: { in: testClasses.map((c) => c.id) } },
-        }),
-      );
-    }
-    // Users last — they may own audit rows (actorId) which is just String?,
-    // not a FK, so deletion is safe. Iterate to surface FK errors per-user.
-    let userOk = 0;
-    const userErrors: Map<string, string[]> = new Map();
-    for (const u of testStudents) {
-      try {
-        await this.prisma.user.delete({ where: { id: u.id } });
-        userOk += 1;
-      } catch (e: any) {
-        const fk =
-          e?.message?.match(/foreign key constraint[^"]*"([^"]+)"/i)?.[1] ??
-          'unknown-FK';
-        if (!userErrors.has(fk)) userErrors.set(fk, []);
-        if (userErrors.get(fk)!.length < 5) userErrors.get(fk)!.push(u.email);
+    // Class + Users only deleted under scope='all'. The default
+    // 'sessions-only' keeps them so a follow-up batch-generate can
+    // rebuild the schedule without re-creating 30 student accounts.
+    if (scope === 'all') {
+      // ClassEnglishLevel + ClassEnrollment cascade from Class delete.
+      if (testClasses.length) {
+        await step('class', () =>
+          this.prisma.class.deleteMany({
+            where: { id: { in: testClasses.map((c) => c.id) } },
+          }),
+        );
       }
-    }
-    stepCounts['user'] = userOk;
-    if (userErrors.size > 0) {
-      for (const [fk, sample] of userErrors) {
-        stepFailed.push(`user FK=${fk} count=${sample.length}+ sample=${sample.slice(0, 3).join(',')}`);
+      let userOk = 0;
+      const userErrors: Map<string, string[]> = new Map();
+      for (const u of testStudents) {
+        try {
+          await this.prisma.user.delete({ where: { id: u.id } });
+          userOk += 1;
+        } catch (e: any) {
+          const fk =
+            e?.message?.match(/foreign key constraint[^"]*"([^"]+)"/i)?.[1] ??
+            'unknown-FK';
+          if (!userErrors.has(fk)) userErrors.set(fk, []);
+          if (userErrors.get(fk)!.length < 5) userErrors.get(fk)!.push(u.email);
+        }
       }
+      stepCounts['user'] = userOk;
+      if (userErrors.size > 0) {
+        for (const [fk, sample] of userErrors) {
+          stepFailed.push(`user FK=${fk} count=${sample.length}+ sample=${sample.slice(0, 3).join(',')}`);
+        }
+      }
+    } else {
+      stepCounts['classKept'] = testClasses.length;
+      stepCounts['studentsKept'] = testStudents.length;
     }
 
     this.logger.warn(`purgeMorningQuizData (live): ${JSON.stringify({ summary, stepCounts, stepFailed })}`);
