@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { api } from '../lib/api';
 
@@ -216,6 +216,45 @@ export default function MorningQuizTake() {
   const [now, setNow] = useState(Date.now());
   const [submitted, setSubmitted] = useState(false);
   const [showPassageMobile, setShowPassageMobile] = useState(false);
+  // Examplify-style review flag — students mark questions to revisit later;
+  // the bottom palette shows them with an orange ring. Persist per session
+  // in localStorage so a refresh doesn't drop them.
+  const flagKey = sessionId ? `mq:flags:${sessionId}` : '';
+  const [flaggedIds, setFlaggedIds] = useState<Set<string>>(() => {
+    if (!flagKey) return new Set();
+    try {
+      const raw = localStorage.getItem(flagKey);
+      if (raw) return new Set(JSON.parse(raw) as string[]);
+    } catch { /* ignore */ }
+    return new Set();
+  });
+  const [paletteOpen, setPaletteOpen] = useState(false);
+  const questionRefs = useRef<Record<string, HTMLLIElement | null>>({});
+
+  const toggleFlag = useCallback((pqId: string) => {
+    setFlaggedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(pqId)) next.delete(pqId);
+      else next.add(pqId);
+      if (flagKey) localStorage.setItem(flagKey, JSON.stringify([...next]));
+      return next;
+    });
+  }, [flagKey]);
+
+  const scrollToQuestion = useCallback((pqId: string) => {
+    const el = questionRefs.current[pqId];
+    if (!el) return;
+    // Account for the sticky header by scrolling slightly past the target.
+    const rect = el.getBoundingClientRect();
+    const top = window.scrollY + rect.top - 80;
+    window.scrollTo({ top, behavior: 'smooth' });
+    setPaletteOpen(false);
+    // Make sure the user isn't stuck on the passage panel in mobile/portrait.
+    setShowPassageMobile(false);
+    // Brief flash so the student sees which row they jumped to.
+    el.classList.add('mq-jump-flash');
+    setTimeout(() => el.classList.remove('mq-jump-flash'), 1100);
+  }, []);
 
   useEffect(() => {
     if (!sessionId) return;
@@ -302,6 +341,13 @@ export default function MorningQuizTake() {
 
   return (
     <div className="min-h-screen bg-gray-50 pb-28" style={{ minHeight: '100dvh' }}>
+      <style>{`
+        @keyframes mq-flash {
+          0% { background-color: rgb(254 240 138 / 0.7); }
+          100% { background-color: transparent; }
+        }
+        .mq-jump-flash { animation: mq-flash 1.1s ease-out; }
+      `}</style>
       {/* Top header bar.  iPad has a chunkier top edge so we bump padding;
           the passage-toggle button needs to be a real tap target (≥44px)
           for iPad portrait + phone, hidden on lg: where the passage is
@@ -342,7 +388,7 @@ export default function MorningQuizTake() {
         </aside>
 
         {/* Tasks panel */}
-        <div className={`${showPassageMobile ? 'hidden' : 'block'} lg:block lg:w-1/2 space-y-6 px-4 lg:px-0 py-4 lg:py-0`}>
+        <div className={`${showPassageMobile ? 'hidden' : 'block'} lg:block lg:w-1/2 space-y-5 px-4 lg:px-0 py-4 lg:py-0`}>
           {groups.map((g, gi) => (
             <TaskGroupView
               key={gi}
@@ -352,28 +398,68 @@ export default function MorningQuizTake() {
               setAnswers={setAnswers}
               saveAnswer={saveAnswer}
               savingId={savingId}
+              flaggedIds={flaggedIds}
+              toggleFlag={toggleFlag}
+              questionRefs={questionRefs}
             />
           ))}
         </div>
       </div>
 
-      {/* Sticky submit bar.  iPad keyboard hides 1/3 of the screen on
-          focus, so we keep the bar above the bottom safe-area inset and
-          give the button real heft (44px+ tap target). */}
+      {/* Examplify-style question palette: 4-column grid of every Q with
+          colour-coded status (answered / unanswered / flagged).  Tapping a
+          number scrolls that question into view and closes the overlay. */}
+      {paletteOpen && (
+        <QuestionPalette
+          questions={view.paperQuestions}
+          answers={answers}
+          flaggedIds={flaggedIds}
+          onSelect={scrollToQuestion}
+          onClose={() => setPaletteOpen(false)}
+        />
+      )}
+
+      {/* Bottom toolbar.  Examplify-style: palette + flag tally on the
+          left, submit on the right. iPad keyboard hides 1/3 of the screen
+          on focus, so we sit above the bottom safe-area inset and give
+          every control a 44 px+ tap target. */}
       <div
         className="fixed bottom-0 inset-x-0 bg-white border-t shadow-lg z-20"
         style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}
       >
-        <div className="max-w-7xl mx-auto px-4 py-3 flex justify-between items-center gap-3">
-          <div className="text-sm text-gray-500">
-            {answeredCount} / {total} 已答
-          </div>
+        <div className="max-w-7xl mx-auto px-3 lg:px-5 py-2.5 lg:py-3 flex items-center gap-2">
+          <button
+            type="button"
+            onClick={() => setPaletteOpen(true)}
+            className="flex items-center gap-2 px-3.5 py-2.5 rounded-lg border border-gray-300 active:bg-gray-100 hover:bg-gray-50 touch-manipulation min-h-[48px] font-medium text-sm"
+            title="题号面板"
+          >
+            <svg className="w-5 h-5" viewBox="0 0 20 20" fill="currentColor" aria-hidden>
+              <rect x="2.5" y="2.5" width="5" height="5" rx="1" />
+              <rect x="12.5" y="2.5" width="5" height="5" rx="1" />
+              <rect x="2.5" y="12.5" width="5" height="5" rx="1" />
+              <rect x="12.5" y="12.5" width="5" height="5" rx="1" />
+            </svg>
+            <span>题号</span>
+            <span className="text-xs tabular-nums text-gray-500">
+              {answeredCount}/{total}
+            </span>
+          </button>
+          {flaggedIds.size > 0 && (
+            <span className="hidden sm:inline-flex items-center gap-1.5 text-sm text-orange-700 px-2 py-1.5 bg-orange-50 border border-orange-200 rounded-md">
+              <svg className="w-4 h-4" viewBox="0 0 20 20" fill="currentColor" aria-hidden>
+                <path d="M4 3a1 1 0 011-1h11l-2 4 2 4H5v8H3V3a0 0 0 011 0z" />
+              </svg>
+              {flaggedIds.size} 已标记
+            </span>
+          )}
+          <div className="flex-1" />
           <button
             disabled={submitted}
             onClick={handleSubmit}
-            className="px-7 py-3 lg:py-3 bg-blue-600 hover:bg-blue-700 active:bg-blue-800 disabled:bg-gray-300 text-white rounded-lg font-semibold text-base touch-manipulation min-h-[48px]"
+            className="px-6 lg:px-7 py-3 bg-blue-600 hover:bg-blue-700 active:bg-blue-800 disabled:bg-gray-300 text-white rounded-lg font-semibold text-base touch-manipulation min-h-[48px]"
           >
-            {submitted ? '提交中…' : '交卷 · Submit'}
+            {submitted ? '提交中…' : '交卷'}
           </button>
         </div>
       </div>
@@ -575,6 +661,9 @@ function TaskGroupView({
   setAnswers,
   saveAnswer,
   savingId,
+  flaggedIds,
+  toggleFlag,
+  questionRefs,
 }: {
   group: TaskGroup;
   gi: number;
@@ -587,33 +676,42 @@ function TaskGroupView({
     body: { selectedOption?: string | null; textAnswer?: string | null },
   ) => Promise<void>;
   savingId: string | null;
+  flaggedIds: Set<string>;
+  toggleFlag: (pqId: string) => void;
+  questionRefs: React.MutableRefObject<Record<string, HTMLLIElement | null>>;
 }) {
   const firstNum = group.questions[0].localIdx;
   const lastNum = group.questions[group.questions.length - 1].localIdx;
-  const range = firstNum === lastNum ? `Q${firstNum}` : `Q${firstNum}–${lastNum}`;
+  const range = firstNum === lastNum ? `${firstNum}` : `${firstNum}–${lastNum}`;
   const taskTitle = TASK_TITLES[group.taskType] ?? 'Question';
 
   return (
-    <section className="bg-white rounded-xl border shadow-sm overflow-hidden">
-      <header className="bg-gray-50 px-4 lg:px-5 py-3.5 border-b">
-        <div className="flex items-center gap-2 flex-wrap">
-          <span className="text-sm text-gray-400 font-mono">Task {gi + 1}</span>
-          <span className="text-sm px-2.5 py-1 rounded-md bg-blue-100 text-blue-800 font-semibold">
-            {taskTitle}
-          </span>
-          <span className="text-sm text-gray-500">· {range}</span>
+    <section className="bg-white rounded-md border border-gray-200 overflow-hidden">
+      {/* Examplify keeps the section header minimal — task type as a label,
+          not a colourful pill. The whole header sits in a thin grey strip
+          above the items so the page reads top-down without competing
+          coloured blocks. */}
+      <header className="bg-gray-50 border-b border-gray-200 px-4 lg:px-5 py-3">
+        <div className="flex items-baseline gap-2 flex-wrap text-sm">
+          <span className="text-gray-500">Section {gi + 1}</span>
+          <span className="text-gray-300">·</span>
+          <span className="font-semibold text-gray-900">{taskTitle}</span>
+          <span className="text-gray-300">·</span>
+          <span className="font-mono text-gray-500">Q{range}</span>
         </div>
         {group.instruction && (
-          <p className="mt-2.5 text-base text-gray-700 whitespace-pre-wrap leading-relaxed">
+          <p className="mt-2 text-[15px] text-gray-700 whitespace-pre-wrap leading-relaxed">
             {clean(group.instruction)}
           </p>
         )}
       </header>
 
       {group.bank && (
-        <div className="px-4 lg:px-5 py-3.5 bg-amber-50 border-b border-amber-100">
-          <div className="text-sm text-amber-900 font-semibold mb-2">{group.bankLabel}</div>
-          <ul className="text-base space-y-1 sm:columns-2 sm:gap-x-6">
+        <div className="px-4 lg:px-5 py-3 bg-amber-50/60 border-b border-amber-100">
+          <div className="text-xs text-amber-900 font-semibold tracking-wide uppercase mb-2">
+            {group.bankLabel}
+          </div>
+          <ul className="text-[15px] space-y-1 sm:columns-2 sm:gap-x-6">
             {group.bank.map((b) => (
               <li key={b.key} className="break-inside-avoid leading-snug">
                 <span className="font-mono text-gray-500 mr-2 font-semibold">{b.key}.</span>
@@ -624,33 +722,146 @@ function TaskGroupView({
         </div>
       )}
 
-      <ol className="divide-y">
-        {group.questions.map((q) => (
-          <li key={q.id} className="px-4 lg:px-5 py-4">
-            <div className="flex items-baseline gap-2 mb-2">
-              <span className="text-base font-mono text-gray-400 font-semibold">Q{q.localIdx}</span>
-              <span className="text-xs text-gray-400">[{q.marks}m]</span>
-              {savingId === q.id && (
-                <span className="text-xs text-blue-500 ml-auto">saving…</span>
-              )}
-            </div>
-            <QuestionItem
-              q={q}
-              taskType={group.taskType}
-              hasBank={!!group.bank}
-              answer={answers[q.id]}
-              onChange={(a) => {
-                setAnswers((p) => ({ ...p, [q.id]: a }));
-                saveAnswer(q.id, {
-                  selectedOption: a.selectedOption ?? null,
-                  textAnswer: a.textAnswer ?? null,
-                });
-              }}
-            />
-          </li>
-        ))}
+      <ol className="divide-y divide-gray-100">
+        {group.questions.map((q) => {
+          const flagged = flaggedIds.has(q.id);
+          return (
+            <li
+              key={q.id}
+              ref={(el) => { questionRefs.current[q.id] = el; }}
+              className={`px-4 lg:px-5 py-4 transition-colors ${flagged ? 'bg-orange-50/40' : ''}`}
+            >
+              <div className="flex items-center gap-3 mb-2">
+                {/* Numbered Q badge — Examplify renders Q numbers as a
+                    fixed-width pill so the eye lines them up on scroll. */}
+                <span className="inline-flex items-center justify-center min-w-[28px] h-7 px-2 rounded-md bg-gray-100 text-gray-700 font-mono text-sm font-semibold tabular-nums">
+                  {q.localIdx}
+                </span>
+                <span className="text-xs text-gray-400">{q.marks}m</span>
+                {savingId === q.id && (
+                  <span className="text-xs text-blue-500">saving…</span>
+                )}
+                <div className="flex-1" />
+                {/* Flag for review.  Toggle bookmark; the bottom palette
+                    shows it with an orange ring. */}
+                <button
+                  type="button"
+                  onClick={() => toggleFlag(q.id)}
+                  className={`inline-flex items-center gap-1 px-2.5 py-1.5 rounded-md text-xs font-medium border transition-colors touch-manipulation min-h-[36px] ${
+                    flagged
+                      ? 'bg-orange-100 border-orange-300 text-orange-800'
+                      : 'border-gray-200 text-gray-500 active:bg-gray-100 hover:bg-gray-50'
+                  }`}
+                  title={flagged ? '取消标记' : '标记待复查'}
+                  aria-pressed={flagged}
+                >
+                  <svg className="w-4 h-4" viewBox="0 0 20 20" fill="currentColor" aria-hidden>
+                    <path d="M4 3a1 1 0 011-1h11l-2 4 2 4H5v8H3V3a0 0 0 011 0z" />
+                  </svg>
+                  {flagged ? '已标记' : '标记'}
+                </button>
+              </div>
+              <QuestionItem
+                q={q}
+                taskType={group.taskType}
+                hasBank={!!group.bank}
+                answer={answers[q.id]}
+                onChange={(a) => {
+                  setAnswers((p) => ({ ...p, [q.id]: a }));
+                  saveAnswer(q.id, {
+                    selectedOption: a.selectedOption ?? null,
+                    textAnswer: a.textAnswer ?? null,
+                  });
+                }}
+              />
+            </li>
+          );
+        })}
       </ol>
     </section>
+  );
+}
+
+/** Examplify-style question palette: 4-column grid of Q numbers, colour-
+ *  coded by status. Tapping a number scrolls that question into view and
+ *  closes the overlay. Fixed-position modal with a backdrop so the student
+ *  always lands back where they were when the overlay closes. */
+function QuestionPalette({
+  questions,
+  answers,
+  flaggedIds,
+  onSelect,
+  onClose,
+}: {
+  questions: PaperQuestion[];
+  answers: Record<string, { selectedOption?: string; textAnswer?: string }>;
+  flaggedIds: Set<string>;
+  onSelect: (pqId: string) => void;
+  onClose: () => void;
+}) {
+  return (
+    <div
+      className="fixed inset-0 z-30 bg-slate-900/50 backdrop-blur-sm flex items-end lg:items-center justify-center p-4"
+      onClick={onClose}
+    >
+      <div
+        className="bg-white rounded-2xl w-full max-w-md shadow-2xl"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <header className="px-5 py-4 border-b border-gray-100 flex items-center justify-between">
+          <div>
+            <div className="font-semibold text-base">题号导航</div>
+            <div className="text-xs text-gray-500 mt-0.5">点击数字跳到对应题目</div>
+          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            className="w-10 h-10 rounded-full active:bg-gray-100 hover:bg-gray-50 flex items-center justify-center text-gray-500 touch-manipulation"
+            aria-label="关闭"
+          >
+            <svg className="w-5 h-5" viewBox="0 0 20 20" fill="currentColor" aria-hidden>
+              <path d="M5 5l10 10M15 5L5 15" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+            </svg>
+          </button>
+        </header>
+        <div className="px-5 py-4">
+          <div className="grid grid-cols-5 gap-2">
+            {questions.map((q, i) => {
+              const ans = answers[q.id];
+              const answered = !!(ans?.selectedOption || (ans?.textAnswer && ans.textAnswer.trim()));
+              const flagged = flaggedIds.has(q.id);
+              return (
+                <button
+                  key={q.id}
+                  type="button"
+                  onClick={() => onSelect(q.id)}
+                  className={`relative h-12 rounded-md font-mono font-semibold text-sm transition-colors touch-manipulation
+                    ${answered ? 'bg-blue-600 text-white border border-blue-700' : 'bg-gray-100 text-gray-700 border border-gray-200 active:bg-gray-200 hover:bg-gray-50'}
+                    ${flagged ? 'ring-2 ring-orange-400 ring-offset-1' : ''}`}
+                  aria-label={`Question ${i + 1} ${answered ? '已答' : '未答'}${flagged ? ' 已标记' : ''}`}
+                >
+                  {i + 1}
+                  {flagged && (
+                    <span className="absolute top-0.5 right-0.5 text-[10px] text-orange-500">●</span>
+                  )}
+                </button>
+              );
+            })}
+          </div>
+          <div className="mt-4 flex items-center gap-3 text-xs text-gray-500 flex-wrap">
+            <span className="inline-flex items-center gap-1.5">
+              <span className="w-3 h-3 rounded-sm bg-blue-600" /> 已答
+            </span>
+            <span className="inline-flex items-center gap-1.5">
+              <span className="w-3 h-3 rounded-sm bg-gray-100 border border-gray-200" /> 未答
+            </span>
+            <span className="inline-flex items-center gap-1.5">
+              <span className="w-3 h-3 rounded-sm border-2 border-orange-400" /> 待复查
+            </span>
+          </div>
+        </div>
+      </div>
+    </div>
   );
 }
 
