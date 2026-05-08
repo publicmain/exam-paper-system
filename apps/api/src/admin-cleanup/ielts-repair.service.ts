@@ -264,11 +264,17 @@ Your job: return a CLEANED version that:
 - Does NOT paraphrase, summarise, translate, or rephrase. Word choice and meaning must match the original.
 - Does NOT add or remove sentences.
 
-Return strict JSON:
-{
-  "title": "<corrected title>",
-  "passage": "<full cleaned passage with paragraph markers preserved, paragraphs separated by blank lines>"
-}
+Output format — plain text, NOT JSON, in two tagged blocks. Newlines inside
+the PASSAGE block are preserved verbatim, paragraphs separated by blank
+lines. Do NOT include any other commentary.
+
+<TITLE>
+<corrected title here, single line>
+</TITLE>
+
+<PASSAGE>
+<full cleaned passage here>
+</PASSAGE>
 
 Title (raw): ${JSON.stringify(title)}
 
@@ -277,10 +283,20 @@ Passage (raw):
 ${passage}
 >>>`;
 
-    const j = await this.callJson(prompt, 8000);
+    if (!this.client) throw new Error('Anthropic client not configured');
+    const resp = await this.client.messages.create({
+      model: this.model,
+      max_tokens: 8000,
+      messages: [{ role: 'user', content: prompt }],
+    });
+    const block = resp.content.find((b) => b.type === 'text');
+    if (!block || block.type !== 'text') throw new Error('no text block');
+    const txt = block.text;
+    const titleMatch = txt.match(/<TITLE>\s*([\s\S]*?)\s*<\/TITLE>/);
+    const passageMatch = txt.match(/<PASSAGE>\s*([\s\S]*?)\s*<\/PASSAGE>/);
     return {
-      passage: j.passage ?? passage,
-      title: j.title ?? title,
+      passage: passageMatch?.[1]?.trim() ?? passage,
+      title: titleMatch?.[1]?.trim() ?? title,
     };
   }
 
