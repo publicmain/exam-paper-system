@@ -148,7 +148,7 @@ model AnswerScript {
   submissionId    String
   submission      StudentSubmission     @relation(fields: [submissionId], references: [id], onDelete: Cascade)
   paperQuestionId String
-  paperQuestion   PaperQuestion         @relation(fields: [paperQuestionId], references: [id])
+  paperQuestion   PaperQuestion         @relation(fields: [paperQuestionId], references: [id], onDelete: Cascade)
   // MCQ: option key 'A'/'B'/'C'/'D'. Structured: textAnswer carries body.
   selectedOption  String?
   textAnswer      String?

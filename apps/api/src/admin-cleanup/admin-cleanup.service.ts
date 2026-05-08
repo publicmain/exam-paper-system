@@ -399,6 +399,24 @@ export class AdminCleanupService {
         }),
       );
     }
+    // AnswerScript.paperQuestionId is RESTRICT in legacy DBs (the schema
+    // was patched to Cascade but DBs that pre-date the patch still carry
+    // the old FK). When Paper cascades to PaperQuestion, those legacy
+    // RESTRICT FKs raise 23001. Wipe AnswerScripts (and their child
+    // CodeSubmissionResult / MarkerAssignment) for the affected papers
+    // explicitly so the cascade can complete on either schema generation.
+    if (aiPaperIds.length) {
+      await step('codeSubmissionResultByPaper', () =>
+        tx3.codeSubmissionResult.deleteMany({
+          where: { answerScript: { paperQuestion: { paperId: { in: aiPaperIds } } } },
+        }),
+      );
+      await step('answerScriptByPaper', () =>
+        this.prisma.answerScript.deleteMany({
+          where: { paperQuestion: { paperId: { in: aiPaperIds } } },
+        }),
+      );
+    }
     // Paper delete cascades: PaperAssignment → MorningQuizSession (1:1) → Attendance,
     // PaperAssignment → StudentSubmission → AnswerScript, plus PaperQuestion +
     // PaperVersion + QuestionUsageLog under Paper itself. One call wipes a lot.
