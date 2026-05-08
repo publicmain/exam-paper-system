@@ -389,7 +389,14 @@ export class MorningQuizService {
       candidates.length > 0
         ? candidates[Math.floor(Math.random() * candidates.length)]
         : Array.from(byPassage.keys())[0]; // all used recently — recycle anyway
-    const passageQuestions = byPassage.get(pick)!;
+    // Sort questions inside the passage NUMERICALLY by Q-number — string
+    // sort puts Q10..Q13 before Q2..Q9, which scrambles the test ordering.
+    // We extract the trailing /Q<n> from sourceRef and sort by the integer.
+    const passageQuestions = byPassage.get(pick)!.slice().sort((a, b) => {
+      const an = parseInt(a.sourceRef?.match(/\/Q(\d+)$/)?.[1] ?? '0', 10);
+      const bn = parseInt(b.sourceRef?.match(/\/Q(\d+)$/)?.[1] ?? '0', 10);
+      return an - bn;
+    });
 
     const totalMarks = passageQuestions.reduce((s, q) => s + q.marks, 0);
     const paper = await this.prisma.paper.create({
@@ -555,6 +562,10 @@ export class MorningQuizService {
     }
 
     const paperId = session.paperAssignment.paperId;
+    const paper = await this.prisma.paper.findUnique({
+      where: { id: paperId },
+      select: { config: true },
+    });
     const paperQuestions = await this.prisma.paperQuestion.findMany({
       where: { paperId },
       orderBy: { sortOrder: 'asc' },
@@ -563,14 +574,28 @@ export class MorningQuizService {
       },
     });
 
-    const map = await this.shuffle.getOrCreate(studentId, paperId);
-    const ordered = this.shuffle.applyToPaper(paperQuestions, map);
+    // Skip question-order shuffle on passage-pick papers — IELTS Reading
+    // groups questions into tasks (Q1-4 matching headings, Q5-9 T/F/NG, etc.)
+    // and shuffling tears those groups apart. Option-shuffle inside MCQ
+    // questions is still applied per-question by the relabel below.
+    const isPassagePick =
+      ((paper?.config as { mode?: string } | null)?.mode ?? null) === 'passage_pick';
+    let ordered: typeof paperQuestions;
+    if (isPassagePick) {
+      ordered = paperQuestions;
+    } else {
+      const map = await this.shuffle.getOrCreate(studentId, paperId);
+      ordered = this.shuffle.applyToPaper(paperQuestions, map);
+    }
 
     // Relabel option keys A/B/C/D so the student's choices map cleanly to
     // displayed letters; the original `key` values are preserved separately
-    // in the shuffle map for reverse-mapping at save time.
+    // in the shuffle map for reverse-mapping at save time. (For passage-pick
+    // we skip the relabel because keys carry semantic meaning — A=Babylonians
+    // in matching_features must stay A.)
     const delivered = ordered.map((pq) => {
       if (pq.question.questionType !== 'mcq') return pq;
+      if (isPassagePick) return pq;
       const opts = (pq.snapshotOptions as Array<{ key: string; text: string }> | null) ?? [];
       const relabeled = opts.map((opt, i) => ({
         ...opt,
@@ -633,15 +658,25 @@ export class MorningQuizService {
 
     let selectedOption = body.selectedOption ?? null;
     if (pq.question.questionType === 'mcq' && selectedOption) {
-      const map = await this.shuffle.getOrCreate(studentId, session.paperAssignment.paperId);
-      const displayedIdx = selectedOption.charCodeAt(0) - 65;
-      const originalIdx = this.shuffle.unmapOptionIndex(map, pq.id, displayedIdx);
-      if (originalIdx === null) {
-        // No shuffle for this question — store as-is. (Unusual edge case.)
-      } else {
-        const opts = (pq.snapshotOptions as Array<{ key: string }> | null) ?? [];
-        if (originalIdx < opts.length) {
-          selectedOption = opts[originalIdx].key;
+      const paper = await this.prisma.paper.findUnique({
+        where: { id: session.paperAssignment.paperId },
+        select: { config: true },
+      });
+      const isPassagePick =
+        ((paper?.config as { mode?: string } | null)?.mode ?? null) === 'passage_pick';
+      // Passage-pick papers display option keys verbatim (matching_features
+      // letters carry semantic meaning), so no reverse-map is needed.
+      if (!isPassagePick) {
+        const map = await this.shuffle.getOrCreate(studentId, session.paperAssignment.paperId);
+        const displayedIdx = selectedOption.charCodeAt(0) - 65;
+        const originalIdx = this.shuffle.unmapOptionIndex(map, pq.id, displayedIdx);
+        if (originalIdx === null) {
+          // No shuffle for this question — store as-is. (Unusual edge case.)
+        } else {
+          const opts = (pq.snapshotOptions as Array<{ key: string }> | null) ?? [];
+          if (originalIdx < opts.length) {
+            selectedOption = opts[originalIdx].key;
+          }
         }
       }
     }
@@ -707,6 +742,13 @@ export class MorningQuizService {
         quizEnd: new Date(now.getTime() + 30 * 60_000),
         status: MorningQuizStatus.active,
       },
+    });
+    // Clear any absent attendance rows the cron may have inserted before
+    // we re-activated. Without this, a pre-existing absent row poisons
+    // the upsert in scanQr (which doesn't update status on the update
+    // branch), so the test student stays "absent" even after a clean scan.
+    await this.prisma.attendance.deleteMany({
+      where: { sessionId, status: AttendanceStatus.absent, scanTime: null },
     });
     await this.audit.log({
       actorId: actor.id,

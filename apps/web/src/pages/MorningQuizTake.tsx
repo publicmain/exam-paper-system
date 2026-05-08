@@ -1,6 +1,8 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { api } from '../lib/api';
+
+type Option = { key: string; text: string };
 
 interface PaperQuestion {
   id: string;
@@ -8,7 +10,7 @@ interface PaperQuestion {
   marks: number;
   questionType: 'mcq' | 'short_answer' | 'structured' | 'essay';
   snapshotContent: any;
-  snapshotOptions: Array<{ key: string; text: string }> | null;
+  snapshotOptions: Option[] | null;
 }
 
 interface SessionView {
@@ -19,23 +21,161 @@ interface SessionView {
   paperQuestions: PaperQuestion[];
 }
 
-/**
- * Student morning-quiz page. Fetches the shuffle-applied paper, renders
- * questions in their (already-shuffled) order, and autosaves each answer
- * onBlur. The countdown and the submit button work off `quizEnd` from the
- * server response — that's the single source of truth, so client clock
- * drift can't extend the window. When time hits zero we auto-submit (the
- * server-side cron also force-submits at the same moment as a backstop).
- */
+type TaskType =
+  | 'matching_information'
+  | 'matching_headings'
+  | 'matching_features'
+  | 'multiple_choice'
+  | 'true_false_not_given'
+  | 'yes_no_not_given'
+  | 'sentence_completion'
+  | 'summary_completion'
+  | 'note_completion'
+  | 'table_completion'
+  | 'flow_chart_completion'
+  | 'diagram_label_completion'
+  | 'short_answer';
+
+interface TaskGroup {
+  taskType: TaskType | '_other';
+  /** Instruction shared across the group's sub-questions (deduped). */
+  instruction: string;
+  /** Bank of letter→text options for matching_features (and similar). Same
+   *  list shows up on every sibling question; we render it once per group. */
+  bank: Option[] | null;
+  questions: Array<PaperQuestion & { itemText: string; localIdx: number }>;
+}
+
+const TASK_TITLES: Record<string, string> = {
+  matching_information: 'Matching Information',
+  matching_headings: 'Matching Headings',
+  matching_features: 'Matching Features',
+  multiple_choice: 'Multiple Choice',
+  true_false_not_given: 'True / False / Not Given',
+  yes_no_not_given: 'Yes / No / Not Given',
+  sentence_completion: 'Sentence Completion',
+  summary_completion: 'Summary Completion',
+  note_completion: 'Note Completion',
+  table_completion: 'Table Completion',
+  flow_chart_completion: 'Flow-chart Completion',
+  diagram_label_completion: 'Diagram Labelling',
+  short_answer: 'Short Answer',
+  _other: 'Question',
+};
+
+/** Strip the ingestion mojibake — past-paper PDFs lose en-dashes to U+FFFD. */
+function clean(s: string | null | undefined): string {
+  if (!s) return '';
+  return s.replace(/�/g, '–');
+}
+
+/** Split the stem into (instruction, item). Cambridge IELTS PDFs put the
+ *  shared instruction (and any task-level resource like a list-of-headings)
+ *  first, then a blank line, then the per-question item. We split on the
+ *  LAST blank line so a multi-paragraph instruction (instruction + heading
+ *  bank) groups together as the deduped instruction. */
+function splitStem(stem: string): { instruction: string; item: string } {
+  const trimmed = stem.trim();
+  const matches = [...trimmed.matchAll(/\n\s*\n/g)];
+  if (matches.length === 0) return { instruction: '', item: trimmed };
+  const last = matches[matches.length - 1];
+  const splitAt = last.index ?? 0;
+  return {
+    instruction: trimmed.slice(0, splitAt).trim(),
+    item: trimmed.slice(splitAt + last[0].length).trim(),
+  };
+}
+
+/** Group consecutive questions by (taskType + instruction). Each group is one
+ *  IELTS task — a shared header, optional bank, then the items. */
+function groupQuestions(qs: PaperQuestion[]): TaskGroup[] {
+  const groups: TaskGroup[] = [];
+  let cur: TaskGroup | null = null;
+  qs.forEach((pq, idx) => {
+    const c = pq.snapshotContent || {};
+    const tt = (c.taskType as TaskType) ?? '_other';
+    const { instruction, item } = splitStem(c.stem ?? '');
+    const sameAsCurrent =
+      cur && cur.taskType === tt && cur.instruction === instruction;
+    if (!sameAsCurrent) {
+      // matching_features stores the shared bank as `options` on every sibling.
+      // For yes_no / mcq the option list is per-question, so no shared bank.
+      const sharedBank =
+        tt === 'matching_features' && pq.snapshotOptions && pq.snapshotOptions.length > 4
+          ? pq.snapshotOptions
+          : null;
+      cur = {
+        taskType: tt,
+        instruction,
+        bank: sharedBank,
+        questions: [],
+      };
+      groups.push(cur);
+    }
+    cur!.questions.push({ ...pq, itemText: item, localIdx: idx + 1 });
+  });
+  return groups;
+}
+
+/* ============================================================
+ * Highlights — text selection in the passage panel persists to
+ * localStorage keyed by (paperId, studentMaskId). Stored as
+ * { start, end } character offsets into the cleaned passage
+ * string. We render by splicing <mark> spans on read.
+ * ============================================================ */
+
+interface Highlight {
+  id: string;
+  start: number;
+  end: number;
+  text: string;
+}
+
+function loadHighlights(key: string): Highlight[] {
+  try {
+    return JSON.parse(localStorage.getItem(key) ?? '[]');
+  } catch {
+    return [];
+  }
+}
+function saveHighlights(key: string, hs: Highlight[]) {
+  localStorage.setItem(key, JSON.stringify(hs));
+}
+
+interface Note {
+  id: string;
+  /** Anchor offset into the passage. */
+  offset: number;
+  text: string;
+}
+
+function loadNotes(key: string): Note[] {
+  try {
+    return JSON.parse(localStorage.getItem(key) ?? '[]');
+  } catch {
+    return [];
+  }
+}
+function saveNotes(key: string, ns: Note[]) {
+  localStorage.setItem(key, JSON.stringify(ns));
+}
+
+/* ============================================================
+ * Main page
+ * ============================================================ */
+
 export default function MorningQuizTake() {
   const { sessionId } = useParams<{ sessionId: string }>();
   const navigate = useNavigate();
   const [view, setView] = useState<SessionView | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [answers, setAnswers] = useState<Record<string, { selectedOption?: string; textAnswer?: string }>>({});
+  const [answers, setAnswers] = useState<
+    Record<string, { selectedOption?: string; textAnswer?: string }>
+  >({});
   const [savingId, setSavingId] = useState<string | null>(null);
   const [now, setNow] = useState(Date.now());
   const [submitted, setSubmitted] = useState(false);
+  const [showPassageMobile, setShowPassageMobile] = useState(false);
 
   useEffect(() => {
     if (!sessionId) return;
@@ -55,7 +195,7 @@ export default function MorningQuizTake() {
     return Math.max(0, new Date(view.quizEnd).getTime() - now);
   }, [view, now]);
 
-  // Auto-submit when remaining hits zero. Keep idempotent.
+  // Auto-submit when time is up.
   useEffect(() => {
     if (!view || submitted) return;
     if (remainingMs > 0) return;
@@ -63,7 +203,10 @@ export default function MorningQuizTake() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [remainingMs, view, submitted]);
 
-  async function saveAnswer(pqId: string, body: { selectedOption?: string | null; textAnswer?: string | null }) {
+  async function saveAnswer(
+    pqId: string,
+    body: { selectedOption?: string | null; textAnswer?: string | null },
+  ) {
     if (!sessionId) return;
     setSavingId(pqId);
     try {
@@ -91,7 +234,10 @@ export default function MorningQuizTake() {
     return (
       <div className="max-w-2xl mx-auto p-6 text-center">
         <div className="text-rose-600 text-lg mb-4">⚠️ {error}</div>
-        <button className="text-sm text-blue-600 underline" onClick={() => navigate('/student')}>
+        <button
+          className="text-sm text-blue-600 underline"
+          onClick={() => navigate('/student')}
+        >
           返回首页
         </button>
       </div>
@@ -99,72 +245,76 @@ export default function MorningQuizTake() {
   }
   if (!view) return <div className="p-6 text-gray-500">Loading…</div>;
 
+  const passageContent = view.paperQuestions[0]?.snapshotContent ?? {};
+  const passageTitle = clean(passageContent.passageTitle ?? 'Reading Passage');
+  const passageBody = clean(passageContent.passage ?? '');
+  const groups = groupQuestions(view.paperQuestions);
+
   const mm = String(Math.floor(remainingMs / 60_000)).padStart(2, '0');
   const ss = String(Math.floor((remainingMs % 60_000) / 1000)).padStart(2, '0');
   const danger = remainingMs < 5 * 60_000;
+  const answeredCount = Object.values(answers).filter(
+    (a) => a && (a.selectedOption || (a.textAnswer && a.textAnswer.trim())),
+  ).length;
+  const total = view.paperQuestions.length;
+  const localStorageKey = `mq:hl:${sessionId}`;
+  const noteStorageKey = `mq:nt:${sessionId}`;
 
   return (
-    <div className="max-w-3xl mx-auto px-4 pb-32">
+    <div className="min-h-screen bg-gray-50 pb-24">
+      {/* Top header bar */}
       <div
-        className={`sticky top-0 z-10 -mx-4 px-4 py-3 mb-6 backdrop-blur bg-white/80 border-b flex items-center justify-between ${danger ? 'text-rose-600' : 'text-gray-700'}`}
+        className={`sticky top-0 z-20 px-4 py-2 backdrop-blur bg-white/90 border-b flex items-center justify-between gap-2 ${danger ? 'text-rose-600' : 'text-gray-700'}`}
       >
-        <div className="font-semibold">Morning Quiz · 早测</div>
-        <div className="font-mono tabular-nums text-2xl">
+        <div className="font-semibold text-sm md:text-base">早测 · Morning Quiz</div>
+        <div className="text-xs text-gray-500 hidden md:block">
+          {answeredCount} / {total} 已答
+        </div>
+        <div className="font-mono tabular-nums text-xl md:text-2xl">
           {mm}:{ss}
+        </div>
+        <button
+          className="md:hidden text-sm text-blue-600 underline"
+          onClick={() => setShowPassageMobile((v) => !v)}
+        >
+          {showPassageMobile ? '回到题目' : '看原文'}
+        </button>
+      </div>
+
+      <div className="md:flex md:gap-4 md:max-w-7xl md:mx-auto md:px-4 md:py-4">
+        {/* Passage panel */}
+        <aside
+          className={`${showPassageMobile ? 'block' : 'hidden'} md:block md:w-1/2 md:sticky md:top-14 md:self-start md:max-h-[calc(100vh-4rem)] md:overflow-auto bg-white md:rounded-lg md:border md:shadow-sm`}
+        >
+          <PassagePanel
+            title={passageTitle}
+            body={passageBody}
+            highlightKey={localStorageKey}
+            noteKey={noteStorageKey}
+          />
+        </aside>
+
+        {/* Tasks panel */}
+        <div className={`${showPassageMobile ? 'hidden' : 'block'} md:block md:w-1/2 space-y-6 px-3 md:px-0 py-3 md:py-0`}>
+          {groups.map((g, gi) => (
+            <TaskGroupView
+              key={gi}
+              group={g}
+              gi={gi}
+              answers={answers}
+              setAnswers={setAnswers}
+              saveAnswer={saveAnswer}
+              savingId={savingId}
+            />
+          ))}
         </div>
       </div>
 
-      <ol className="space-y-8">
-        {view.paperQuestions.map((pq, idx) => (
-          <li key={pq.id} className="bg-white rounded-lg border p-5 shadow-sm">
-            <div className="flex items-baseline gap-2 mb-3">
-              <span className="text-sm font-mono text-gray-400">Q{idx + 1}</span>
-              <span className="text-xs text-gray-500">[{pq.marks} mark{pq.marks > 1 ? 's' : ''}]</span>
-              {savingId === pq.id && <span className="text-xs text-blue-500 ml-auto">saving…</span>}
-            </div>
-            <div className="prose prose-sm max-w-none mb-4">
-              <RenderContent content={pq.snapshotContent} />
-            </div>
-            {pq.questionType === 'mcq' && pq.snapshotOptions ? (
-              <div className="space-y-2">
-                {pq.snapshotOptions.map((opt) => (
-                  <label
-                    key={opt.key}
-                    className={`flex gap-3 items-start p-3 rounded border cursor-pointer transition-colors ${answers[pq.id]?.selectedOption === opt.key ? 'border-blue-500 bg-blue-50' : 'hover:bg-gray-50'}`}
-                  >
-                    <input
-                      type="radio"
-                      name={`q-${pq.id}`}
-                      value={opt.key}
-                      checked={answers[pq.id]?.selectedOption === opt.key}
-                      onChange={() => {
-                        setAnswers((prev) => ({ ...prev, [pq.id]: { selectedOption: opt.key } }));
-                        saveAnswer(pq.id, { selectedOption: opt.key, textAnswer: null });
-                      }}
-                      className="mt-1"
-                    />
-                    <span className="font-mono text-gray-500 text-sm">{opt.key}.</span>
-                    <span className="flex-1 text-sm">{opt.text}</span>
-                  </label>
-                ))}
-              </div>
-            ) : (
-              <textarea
-                value={answers[pq.id]?.textAnswer ?? ''}
-                onChange={(e) => setAnswers((p) => ({ ...p, [pq.id]: { textAnswer: e.target.value } }))}
-                onBlur={(e) => saveAnswer(pq.id, { selectedOption: null, textAnswer: e.target.value })}
-                placeholder="Your answer…"
-                className="w-full border rounded px-3 py-2 text-sm min-h-[80px]"
-              />
-            )}
-          </li>
-        ))}
-      </ol>
-
-      <div className="fixed bottom-0 inset-x-0 bg-white border-t shadow-lg">
-        <div className="max-w-3xl mx-auto px-4 py-4 flex justify-between items-center">
+      {/* Sticky submit bar */}
+      <div className="fixed bottom-0 inset-x-0 bg-white border-t shadow-lg z-20">
+        <div className="max-w-7xl mx-auto px-4 py-3 flex justify-between items-center gap-3">
           <div className="text-sm text-gray-500">
-            {Object.keys(answers).length} / {view.paperQuestions.length} answered
+            {answeredCount} / {total} 已答
           </div>
           <button
             disabled={submitted}
@@ -179,12 +329,525 @@ export default function MorningQuizTake() {
   );
 }
 
-function RenderContent({ content }: { content: any }) {
-  if (!content) return null;
-  if (typeof content === 'string') return <p>{content}</p>;
-  // The existing question-bank schema stores { stem, parts? }. For the morning
-  // quiz MVP we render only stem; parts (structured) aren't auto-graded in
-  // this scope.
-  if (content.stem) return <p style={{ whiteSpace: 'pre-wrap' }}>{content.stem}</p>;
-  return <pre className="text-xs bg-gray-50 p-2 overflow-x-auto">{JSON.stringify(content, null, 2)}</pre>;
+/* ============================================================
+ * Passage panel
+ * ============================================================ */
+
+function PassagePanel({
+  title,
+  body,
+  highlightKey,
+  noteKey,
+}: {
+  title: string;
+  body: string;
+  highlightKey: string;
+  noteKey: string;
+}) {
+  const containerRef = useRef<HTMLDivElement | null>(null);
+  const [highlights, setHighlights] = useState<Highlight[]>(() => loadHighlights(highlightKey));
+  const [notes, setNotes] = useState<Note[]>(() => loadNotes(noteKey));
+  const [openNoteId, setOpenNoteId] = useState<string | null>(null);
+
+  // Capture text selection. Compute character offsets into the passage body,
+  // record the highlight, persist, and clear the selection.
+  function handleMouseUp() {
+    const sel = window.getSelection();
+    if (!sel || sel.isCollapsed) return;
+    const root = containerRef.current?.querySelector('[data-passage-body]');
+    if (!root) return;
+    const range = sel.getRangeAt(0);
+    if (!root.contains(range.startContainer) || !root.contains(range.endContainer)) return;
+    const start = textOffset(root as HTMLElement, range.startContainer, range.startOffset);
+    const end = textOffset(root as HTMLElement, range.endContainer, range.endOffset);
+    if (start === end) return;
+    const lo = Math.min(start, end);
+    const hi = Math.max(start, end);
+    const text = body.slice(lo, hi);
+    const h: Highlight = { id: cuid(), start: lo, end: hi, text };
+    const next = mergeHighlight(highlights, h);
+    setHighlights(next);
+    saveHighlights(highlightKey, next);
+    sel.removeAllRanges();
+  }
+
+  function removeHighlight(id: string) {
+    const next = highlights.filter((h) => h.id !== id);
+    setHighlights(next);
+    saveHighlights(highlightKey, next);
+  }
+
+  function addNote() {
+    const text = prompt('便笺内容?');
+    if (!text || !text.trim()) return;
+    const n: Note = { id: cuid(), offset: body.length, text: text.trim() };
+    const next = [...notes, n];
+    setNotes(next);
+    saveNotes(noteKey, next);
+  }
+
+  function editNote(id: string) {
+    const cur = notes.find((n) => n.id === id);
+    const text = prompt('编辑便笺', cur?.text ?? '');
+    if (text === null) return;
+    if (!text.trim()) {
+      const next = notes.filter((n) => n.id !== id);
+      setNotes(next);
+      saveNotes(noteKey, next);
+      return;
+    }
+    const next = notes.map((n) => (n.id === id ? { ...n, text: text.trim() } : n));
+    setNotes(next);
+    saveNotes(noteKey, next);
+  }
+
+  return (
+    <div className="px-4 py-4" ref={containerRef}>
+      <div className="flex items-baseline justify-between gap-2 mb-2">
+        <h2 className="font-semibold text-lg">{title}</h2>
+        <button
+          className="text-xs text-blue-600 underline"
+          onClick={addNote}
+          title="加便笺"
+        >
+          + 便笺
+        </button>
+      </div>
+      <div className="text-xs text-gray-400 mb-3">
+        提示:用鼠标选中文字会自动黄色高亮 · 点击高亮可移除
+      </div>
+      <div
+        data-passage-body
+        onMouseUp={handleMouseUp}
+        className="prose prose-sm max-w-none text-gray-800 leading-relaxed select-text whitespace-pre-wrap"
+      >
+        {renderHighlighted(body, highlights, removeHighlight)}
+      </div>
+      {notes.length > 0 && (
+        <div className="mt-4 border-t pt-3">
+          <div className="text-xs text-gray-500 mb-2 font-medium">便笺</div>
+          <ul className="space-y-1.5">
+            {notes.map((n) => (
+              <li
+                key={n.id}
+                className="text-sm bg-yellow-50 border border-yellow-200 rounded px-3 py-1.5 cursor-pointer hover:bg-yellow-100"
+                onClick={() => editNote(n.id)}
+                title="点击编辑/删除"
+              >
+                {n.text}
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function textOffset(root: HTMLElement, node: Node, offset: number): number {
+  // Walk text nodes in document order, summing lengths until we reach `node`.
+  let total = 0;
+  const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
+  let cur: Node | null;
+  while ((cur = walker.nextNode())) {
+    if (cur === node) return total + offset;
+    total += (cur.textContent ?? '').length;
+  }
+  return total;
+}
+
+/** Merge a new highlight into the list, deduping/coalescing overlaps. */
+function mergeHighlight(existing: Highlight[], add: Highlight): Highlight[] {
+  const out: Highlight[] = [];
+  let merged: Highlight = { ...add };
+  for (const h of existing) {
+    if (h.end < merged.start || h.start > merged.end) {
+      out.push(h);
+    } else {
+      merged = {
+        id: merged.id,
+        start: Math.min(merged.start, h.start),
+        end: Math.max(merged.end, h.end),
+        text: '', // recomputed below
+      };
+    }
+  }
+  out.push(merged);
+  return out;
+}
+
+function renderHighlighted(
+  body: string,
+  highlights: Highlight[],
+  onRemove: (id: string) => void,
+): React.ReactNode {
+  if (highlights.length === 0) return body;
+  const sorted = [...highlights].sort((a, b) => a.start - b.start);
+  const parts: React.ReactNode[] = [];
+  let cursor = 0;
+  for (const h of sorted) {
+    if (h.start > cursor) parts.push(body.slice(cursor, h.start));
+    parts.push(
+      <mark
+        key={h.id}
+        className="bg-yellow-200 cursor-pointer"
+        onClick={() => onRemove(h.id)}
+        title="点击移除高亮"
+      >
+        {body.slice(h.start, h.end)}
+      </mark>,
+    );
+    cursor = h.end;
+  }
+  if (cursor < body.length) parts.push(body.slice(cursor));
+  return parts;
+}
+
+function cuid(): string {
+  return Math.random().toString(36).slice(2, 10);
+}
+
+/* ============================================================
+ * Task group view
+ * ============================================================ */
+
+function TaskGroupView({
+  group,
+  gi,
+  answers,
+  setAnswers,
+  saveAnswer,
+  savingId,
+}: {
+  group: TaskGroup;
+  gi: number;
+  answers: Record<string, { selectedOption?: string; textAnswer?: string }>;
+  setAnswers: React.Dispatch<
+    React.SetStateAction<Record<string, { selectedOption?: string; textAnswer?: string }>>
+  >;
+  saveAnswer: (
+    pqId: string,
+    body: { selectedOption?: string | null; textAnswer?: string | null },
+  ) => Promise<void>;
+  savingId: string | null;
+}) {
+  const firstNum = group.questions[0].localIdx;
+  const lastNum = group.questions[group.questions.length - 1].localIdx;
+  const range = firstNum === lastNum ? `Q${firstNum}` : `Q${firstNum}–${lastNum}`;
+  const taskTitle = TASK_TITLES[group.taskType] ?? 'Question';
+
+  return (
+    <section className="bg-white rounded-lg border shadow-sm overflow-hidden">
+      <header className="bg-gray-50 px-4 py-3 border-b">
+        <div className="flex items-center gap-2">
+          <span className="text-xs text-gray-400 font-mono">Task {gi + 1}</span>
+          <span className="text-xs px-2 py-0.5 rounded bg-blue-100 text-blue-800 font-medium">
+            {taskTitle}
+          </span>
+          <span className="text-xs text-gray-500">· {range}</span>
+        </div>
+        {group.instruction && (
+          <p className="mt-2 text-sm text-gray-700 whitespace-pre-wrap leading-snug">
+            {clean(group.instruction)}
+          </p>
+        )}
+      </header>
+
+      {group.bank && (
+        <div className="px-4 py-3 bg-amber-50 border-b border-amber-100">
+          <div className="text-xs text-amber-900 font-medium mb-1">选项库 · Bank</div>
+          <ul className="text-sm space-y-0.5 columns-1 sm:columns-2">
+            {group.bank.map((b) => (
+              <li key={b.key} className="break-inside-avoid">
+                <span className="font-mono text-gray-500 mr-2">{b.key}.</span>
+                <span>{clean(b.text)}</span>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+
+      <ol className="divide-y">
+        {group.questions.map((q) => (
+          <li key={q.id} className="px-4 py-3">
+            <div className="flex items-baseline gap-2 mb-1.5">
+              <span className="text-sm font-mono text-gray-400">Q{q.localIdx}</span>
+              <span className="text-xs text-gray-400">[{q.marks}m]</span>
+              {savingId === q.id && (
+                <span className="text-xs text-blue-500 ml-auto">saving…</span>
+              )}
+            </div>
+            <QuestionItem
+              q={q}
+              taskType={group.taskType}
+              hasBank={!!group.bank}
+              answer={answers[q.id]}
+              onChange={(a) => {
+                setAnswers((p) => ({ ...p, [q.id]: a }));
+                saveAnswer(q.id, {
+                  selectedOption: a.selectedOption ?? null,
+                  textAnswer: a.textAnswer ?? null,
+                });
+              }}
+            />
+          </li>
+        ))}
+      </ol>
+    </section>
+  );
+}
+
+/* ============================================================
+ * Per-question rendering by taskType
+ * ============================================================ */
+
+function QuestionItem({
+  q,
+  taskType,
+  hasBank,
+  answer,
+  onChange,
+}: {
+  q: PaperQuestion & { itemText: string };
+  taskType: TaskType | '_other';
+  hasBank: boolean;
+  answer: { selectedOption?: string; textAnswer?: string } | undefined;
+  onChange: (a: { selectedOption?: string; textAnswer?: string }) => void;
+}) {
+  const itemNode = renderItemText(q.itemText);
+
+  switch (taskType) {
+    case 'yes_no_not_given':
+    case 'true_false_not_given':
+    case 'multiple_choice':
+    case 'matching_features':
+      return (
+        <>
+          <div className="text-sm text-gray-800 mb-2 whitespace-pre-wrap">{itemNode}</div>
+          <RadioGroup
+            options={q.snapshotOptions ?? []}
+            value={answer?.selectedOption}
+            onChange={(opt) => onChange({ selectedOption: opt })}
+            compact={hasBank}
+          />
+        </>
+      );
+
+    case 'matching_information':
+      return (
+        <>
+          <div className="text-sm text-gray-800 mb-2 whitespace-pre-wrap">{itemNode}</div>
+          <LetterInput
+            placeholder="A–H"
+            value={answer?.textAnswer ?? ''}
+            onChange={(v) => onChange({ textAnswer: v })}
+          />
+        </>
+      );
+
+    case 'matching_headings':
+      return (
+        <>
+          <div className="text-sm text-gray-800 mb-2 whitespace-pre-wrap">{itemNode}</div>
+          <LetterInput
+            placeholder="i, ii, iii…"
+            value={answer?.textAnswer ?? ''}
+            onChange={(v) => onChange({ textAnswer: v })}
+            wider
+          />
+        </>
+      );
+
+    case 'sentence_completion':
+    case 'summary_completion':
+    case 'note_completion':
+    case 'table_completion':
+    case 'flow_chart_completion':
+    case 'diagram_label_completion':
+    case 'short_answer':
+      return (
+        <BlankAwareInput
+          item={q.itemText}
+          value={answer?.textAnswer ?? ''}
+          onChange={(v) => onChange({ textAnswer: v })}
+        />
+      );
+
+    default:
+      // Unknown type — fallback to text area + plain item rendering.
+      return (
+        <>
+          <div className="text-sm text-gray-800 mb-2 whitespace-pre-wrap">{itemNode}</div>
+          <DebouncedTextarea
+            value={answer?.textAnswer ?? ''}
+            onChange={(v) => onChange({ textAnswer: v })}
+          />
+        </>
+      );
+  }
+}
+
+/** Item text from the source PDF often contains "[BLANK]" placeholders or
+ *  repeated long instructions. We just render with the placeholder visible. */
+function renderItemText(s: string): React.ReactNode {
+  return clean(s);
+}
+
+function RadioGroup({
+  options,
+  value,
+  onChange,
+  compact = false,
+}: {
+  options: Option[];
+  value: string | undefined;
+  onChange: (key: string) => void;
+  compact?: boolean;
+}) {
+  return (
+    <div className={compact ? 'flex flex-wrap gap-2' : 'space-y-1.5'}>
+      {options.map((opt) => {
+        const checked = value === opt.key;
+        if (compact) {
+          return (
+            <button
+              key={opt.key}
+              type="button"
+              onClick={() => onChange(opt.key)}
+              className={`px-3 py-1.5 rounded border text-sm font-medium transition-colors ${
+                checked
+                  ? 'border-blue-500 bg-blue-50 text-blue-700'
+                  : 'border-gray-300 text-gray-700 hover:bg-gray-50'
+              }`}
+            >
+              {opt.key}
+            </button>
+          );
+        }
+        return (
+          <label
+            key={opt.key}
+            className={`flex gap-3 items-start p-2 rounded border cursor-pointer transition-colors ${
+              checked ? 'border-blue-500 bg-blue-50' : 'border-gray-200 hover:bg-gray-50'
+            }`}
+          >
+            <input
+              type="radio"
+              checked={checked}
+              onChange={() => onChange(opt.key)}
+              className="mt-1"
+            />
+            <span className="font-mono text-gray-500 text-sm w-5">{opt.key}.</span>
+            <span className="flex-1 text-sm">{clean(opt.text)}</span>
+          </label>
+        );
+      })}
+    </div>
+  );
+}
+
+function LetterInput({
+  value,
+  onChange,
+  placeholder,
+  wider = false,
+}: {
+  value: string;
+  onChange: (v: string) => void;
+  placeholder: string;
+  wider?: boolean;
+}) {
+  const [local, setLocal] = useState(value);
+  // Sync down when the parent's value changes (e.g. on initial fetch).
+  useEffect(() => {
+    setLocal(value);
+  }, [value]);
+  return (
+    <input
+      type="text"
+      value={local}
+      onChange={(e) => setLocal(e.target.value)}
+      onBlur={() => {
+        if (local !== value) onChange(local);
+      }}
+      placeholder={placeholder}
+      className={`border rounded px-3 py-1.5 text-sm font-mono uppercase tracking-wider ${wider ? 'w-32' : 'w-20'}`}
+      autoCapitalize="characters"
+      autoCorrect="off"
+      spellCheck={false}
+    />
+  );
+}
+
+function DebouncedTextarea({
+  value,
+  onChange,
+}: {
+  value: string;
+  onChange: (v: string) => void;
+}) {
+  const [local, setLocal] = useState(value);
+  useEffect(() => {
+    setLocal(value);
+  }, [value]);
+  return (
+    <textarea
+      value={local}
+      onChange={(e) => setLocal(e.target.value)}
+      onBlur={() => {
+        if (local !== value) onChange(local);
+      }}
+      placeholder="Your answer…"
+      className="w-full border rounded px-3 py-2 text-sm min-h-[60px]"
+    />
+  );
+}
+
+/** Inputs for completion tasks. The PDF stem typically has [BLANK] inline; we
+ *  show the stem with the blank highlighted and a single text input below.
+ *  We hold the value locally and only fire the parent's onChange (which
+ *  triggers a network save) when the input loses focus, so a user typing
+ *  fast doesn't get characters dropped while a previous save round-trips. */
+function BlankAwareInput({
+  item,
+  value,
+  onChange,
+}: {
+  item: string;
+  value: string;
+  onChange: (v: string) => void;
+}) {
+  const cleaned = clean(item);
+  const hasBlank = /\[BLANK\]/i.test(cleaned);
+  const [local, setLocal] = useState(value);
+  useEffect(() => {
+    setLocal(value);
+  }, [value]);
+  return (
+    <>
+      <div className="text-sm text-gray-800 mb-2 whitespace-pre-wrap leading-relaxed">
+        {hasBlank
+          ? cleaned.split(/(\[BLANK\])/i).map((part, i) =>
+              /\[BLANK\]/i.test(part) ? (
+                <span key={i} className="inline-block px-2 mx-0.5 bg-amber-100 border border-amber-200 rounded text-amber-800 text-xs font-medium">
+                  ___
+                </span>
+              ) : (
+                <span key={i}>{part}</span>
+              ),
+            )
+          : cleaned}
+      </div>
+      <input
+        type="text"
+        value={local}
+        onChange={(e) => setLocal(e.target.value)}
+        onBlur={() => {
+          if (local !== value) onChange(local);
+        }}
+        placeholder="Your answer…"
+        className="border rounded px-3 py-1.5 text-sm w-full max-w-md"
+      />
+    </>
+  );
 }

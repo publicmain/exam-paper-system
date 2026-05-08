@@ -197,6 +197,11 @@ export class AttendanceService {
         source: AttendanceSource.qr_scan,
       },
       update: {
+        // Promote absent → on_time/late if a pre-existing roster row exists
+        // (e.g. lockPastSessions created an absent row before the session
+        // was re-activated). For a normal re-scan within the same session,
+        // status was already on_time/late and stays that way.
+        status: attendanceStatus,
         sourceIp,
         scanTime: now,
         // Re-scans by the same student update fingerprint fields too
