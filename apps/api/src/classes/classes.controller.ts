@@ -1,4 +1,4 @@
-import { BadRequestException, Body, Controller, Delete, ForbiddenException, Get, Param, Post, Req } from '@nestjs/common';
+import { BadRequestException, Body, Controller, Delete, ForbiddenException, Get, Param, Patch, Post, Req } from '@nestjs/common';
 import { Request } from 'express';
 import { z } from 'zod';
 import { CurrentUser } from '../common/current-user.decorator';
@@ -7,7 +7,12 @@ import { ClassesService } from './classes.service';
 const CreateClassSchema = z.object({
   name: z.string().min(1).max(120),
   classCode: z.string().min(2).max(40).regex(/^[A-Z0-9_-]+$/i),
-  level: z.string().min(1).max(40).optional(),
+  // B3-H4 removed: legacy `level` field. Use ClassEnglishLevel for the
+  // morning-quiz proficiency mapping.
+});
+
+const UpdateClassSchema = z.object({
+  weeklyFocus: z.string().max(2000).nullable().optional(),
 });
 
 const EnrollSchema = z.object({
@@ -81,5 +86,18 @@ export class ClassesController {
       throw new ForbiddenException('teacher / head_teacher / admin only');
     }
     return this.classes.removeEnrollment(id, userId);
+  }
+
+  /** F5 — set or clear the per-class weeklyFocus string the AI quick-paper
+   *  generator includes in its prompt to bias output toward this week's
+   *  teacher-stated emphasis areas. Pass {weeklyFocus: null} to clear. */
+  @Patch(':id')
+  update(@Param('id') id: string, @Body() body: unknown, @CurrentUser() user: any) {
+    if (!ROLES_TEACHER.has(user.role)) {
+      throw new ForbiddenException('teacher / head_teacher / admin only');
+    }
+    const parsed = UpdateClassSchema.safeParse(body);
+    if (!parsed.success) throw new BadRequestException(parsed.error.flatten());
+    return this.classes.update(id, parsed.data);
   }
 }

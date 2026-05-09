@@ -68,7 +68,7 @@ export default function ClassesPage() {
             <div>
               <div className="font-medium">{c.name}</div>
               <div className="text-xs text-gray-500 mt-0.5">
-                {[c.classCode, c.level, `${c._count?.enrollments ?? 0} students`]
+                {[c.classCode, c.englishLevel?.level, `${c._count?.enrollments ?? 0} students`]
                   .filter(Boolean)
                   .join(' · ')}
               </div>
@@ -101,7 +101,6 @@ export default function ClassesPage() {
 function CreateClassModal({ onClose, onSaved }: { onClose: () => void; onSaved: () => void }) {
   const [name, setName] = useState('');
   const [classCode, setClassCode] = useState('');
-  const [level, setLevel] = useState('');
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
 
@@ -113,7 +112,9 @@ function CreateClassModal({ onClose, onSaved }: { onClose: () => void; onSaved: 
     setBusy(true);
     setErr(null);
     try {
-      await api.createClass({ name: name.trim(), classCode: classCode.trim(), level: level || undefined });
+      // B3-H4: removed `level` field. Use the English-level mapping
+      // (admin-syllabus → ClassEnglishLevel) for the morning-quiz program.
+      await api.createClass({ name: name.trim(), classCode: classCode.trim() });
       onSaved();
     } catch (e: any) {
       setErr(String(e?.message ?? e));
@@ -135,15 +136,10 @@ function CreateClassModal({ onClose, onSaved }: { onClose: () => void; onSaved: 
           placeholder="FORM5B"
         />
       </Field>
-      <Field label="Level (optional)">
-        <select value={level} onChange={(e) => setLevel(e.target.value)} className="border rounded px-2 py-1 w-full">
-          <option value="">— pick —</option>
-          <option value="O-Level">O-Level</option>
-          <option value="IGCSE">IGCSE</option>
-          <option value="AS-Level">AS-Level</option>
-          <option value="A-Level">A-Level</option>
-        </select>
-      </Field>
+      <p className="text-xs text-gray-500 leading-relaxed">
+        Set the English proficiency mapping (IELTS / O-Level) on the
+        Admin → Syllabus → Class English Levels page after creating.
+      </p>
       {err && <div className="text-sm text-red-700">{err}</div>}
       <ModalFooter onClose={onClose} onSave={save} busy={busy} saveLabel="Create" />
     </ModalShell>
@@ -230,7 +226,7 @@ function ClassDetailModal({
       {cls && (
         <>
           <div className="text-xs text-gray-500">
-            {cls.enrollments?.length ?? 0} enrolled · level: {cls.level ?? '—'}
+            {cls.enrollments?.length ?? 0} enrolled · level: {cls.englishLevel?.level ?? '—'}
           </div>
           <div className="border rounded divide-y max-h-64 overflow-auto text-sm">
             {(cls.enrollments ?? []).length === 0 && (

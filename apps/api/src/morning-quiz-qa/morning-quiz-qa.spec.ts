@@ -402,8 +402,7 @@ describe('MorningQuizQaService', () => {
   it('B2 calibration — system prompt mentions matching task strict-but-correct rules', async () => {
     const fs = await import('fs');
     const path = await import('path');
-    const url = await import('url');
-    const here = path.dirname(url.fileURLToPath(import.meta.url));
+    const here = path.join(process.cwd(), 'src/morning-quiz-qa');
     const src = fs.readFileSync(path.join(here, 'morning-quiz-qa.service.ts'), 'utf8');
     expect(src).toContain('Matching task 校准');
     expect(src).toContain('难度梯度');
@@ -413,12 +412,10 @@ describe('MorningQuizQaService', () => {
   it('B1 prompt contract — system prompt forbids summary-only detail', async () => {
     const fs = await import('fs');
     const path = await import('path');
-    const url = await import('url');
-    const here = path.dirname(url.fileURLToPath(import.meta.url));
+    const here = path.join(process.cwd(), 'src/morning-quiz-qa');
     const src = fs.readFileSync(path.join(here, 'morning-quiz-qa.service.ts'), 'utf8');
     expect(src).toContain('禁止');
     expect(src).toContain('issues[]');
-    // The contract sentence specifically.
     expect(src).toMatch(/summary.*detail.*issues|issues.*必须.*包含|具体题号/);
   });
 

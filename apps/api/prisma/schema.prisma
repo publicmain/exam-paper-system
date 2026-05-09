@@ -61,9 +61,20 @@ model Class {
   id        String   @id @default(cuid())
   name      String // "Form 5B", "IAL26S1"
   classCode String   @unique // short join code, e.g. "FORM5B"
-  level     String? // "O-Level", "A-Level", optional
+  // B3-H4 removed: the previous `level String?` field collided with
+  // ClassEnglishLevel.level (the actually-load-bearing morning-quiz
+  // enum) and was never read by any logic. ClassEnglishLevel is the
+  // single source of truth for class proficiency. If a future feature
+  // needs a non-English course-level, add it as a separate field.
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+
+  // F5: per-class teacher-supplied "weekly focus" string. The AI quick-
+  // paper prompt picks this up so generated questions emphasise the
+  // teacher-stated areas (e.g. "本周重点 matching headings + collocation").
+  // null when the teacher hasn't set anything; the prompt then falls
+  // back to the syllabus-default mix.
+  weeklyFocus String?
 
   enrollments ClassEnrollment[]
   assignments PaperAssignment[]
@@ -94,7 +105,8 @@ model PaperAssignment {
   classId      String
   class        Class     @relation(fields: [classId], references: [id], onDelete: Cascade)
   assignedById String
-  assignedBy   User      @relation("PaperAssignedBy", fields: [assignedById], references: [id])
+  // B4: Restrict — assigning teacher is part of the audit trail.
+  assignedBy   User      @relation("PaperAssignedBy", fields: [assignedById], references: [id], onDelete: Restrict)
   assignedAt   DateTime  @default(now())
   startAt      DateTime?
   dueAt        DateTime?
@@ -118,7 +130,9 @@ model StudentSubmission {
   assignmentId String
   assignment   PaperAssignment @relation(fields: [assignmentId], references: [id], onDelete: Cascade)
   studentId    String
-  student      User            @relation(fields: [studentId], references: [id])
+  // B4: Restrict so deleting a student doesn't drop their submission
+  // history (grade audit trail must survive account churn).
+  student      User            @relation(fields: [studentId], references: [id], onDelete: Restrict)
   startedAt    DateTime        @default(now())
   submittedAt  DateTime?
   // in_progress | submitted | marked | returned
@@ -250,11 +264,15 @@ enum SourceType {
 model Question {
   id             String             @id @default(cuid())
   subjectId      String
-  subject        Subject            @relation(fields: [subjectId], references: [id])
+  // B4: Restrict — Subject deletion must not silently nuke its question
+  // bank; admin has to explicitly re-tag or delete each Question first.
+  subject        Subject            @relation(fields: [subjectId], references: [id], onDelete: Restrict)
   componentId    String?
-  component      SyllabusComponent? @relation(fields: [componentId], references: [id])
+  // B4: SetNull — a deleted SyllabusComponent leaves its Questions
+  // orphaned at the subject level (still findable, just no component).
+  component      SyllabusComponent? @relation(fields: [componentId], references: [id], onDelete: SetNull)
   primaryTopicId String?
-  primaryTopic   Topic?             @relation("QuestionPrimaryTopic", fields: [primaryTopicId], references: [id])
+  primaryTopic   Topic?             @relation("QuestionPrimaryTopic", fields: [primaryTopicId], references: [id], onDelete: SetNull)
 
   questionType     QuestionType
   marks            Int
@@ -287,8 +305,17 @@ model Question {
   // generated paper.
   provenanceTag String?
 
+  // F4 — knowledge-area tags used to compute per-student weakness profiles.
+  // Seeded by the AI generator and back-fillable on legacy rows via the
+  // scripts/backfill-question-tags.ts pass. Free-form strings, but
+  // typical values are: 'reading_detail', 'vocab', 'grammar', 'inference',
+  // 'matching', 'cloze', 'tfng', 'collocation'. Empty array means
+  // un-tagged (legacy + un-classified).
+  tags          String[]   @default([])
+
   createdById String
-  createdBy   User     @relation("QuestionCreator", fields: [createdById], references: [id])
+  // B4: Restrict — keeps Question authorship audit trail intact.
+  createdBy   User     @relation("QuestionCreator", fields: [createdById], references: [id], onDelete: Restrict)
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
@@ -306,6 +333,12 @@ model Question {
   @@index([primaryTopicId])
   @@index([complianceStatus, status])
   @@index([provenanceTag])
+  // Note: tags is String[] — a btree index won't help array-overlap queries
+  // (`tags && ARRAY[...]`). The weakness-profile aggregator runs in
+  // application code over a class roster's wrong-answer rows, so the
+  // hot path is Question rows JOINed via AnswerScript → PaperQuestion
+  // and not a tag-by-tag scan. Add a GIN extension index later if the
+  // bank grows past ~50k Questions and the join becomes slow.
 }
 
 model QuestionTopic {
@@ -345,7 +378,8 @@ model QuestionVersion {
   versionNumber Int
   snapshot      Json
   changedById   String
-  changedBy     User     @relation(fields: [changedById], references: [id])
+  // B4: Restrict — version-history actor stays referenceable.
+  changedBy     User     @relation(fields: [changedById], references: [id], onDelete: Restrict)
   changedAt     DateTime @default(now())
   changeNote    String?
 
@@ -358,12 +392,13 @@ model QuestionVersion {
 model PaperTemplate {
   id              String             @id @default(cuid())
   ownerId         String
-  owner           User               @relation(fields: [ownerId], references: [id])
+  // B4: Restrict — template authorship audited; admin must reassign first.
+  owner           User               @relation(fields: [ownerId], references: [id], onDelete: Restrict)
   name            String
   subjectId       String
-  subject         Subject            @relation(fields: [subjectId], references: [id])
+  subject         Subject            @relation(fields: [subjectId], references: [id], onDelete: Restrict)
   componentId     String?
-  component       SyllabusComponent? @relation(fields: [componentId], references: [id])
+  component       SyllabusComponent? @relation(fields: [componentId], references: [id], onDelete: SetNull)
   durationMin     Int
   totalMarks      Int
   config          Json // { questionMix, difficultyDist, topicFilter, excludeRecentDays }
@@ -385,15 +420,17 @@ enum PaperStatus {
 model Paper {
   id               String             @id @default(cuid())
   ownerId          String
-  owner            User               @relation(fields: [ownerId], references: [id])
+  // B4: Restrict — owner audit; deleting a teacher must not orphan papers.
+  owner            User               @relation(fields: [ownerId], references: [id], onDelete: Restrict)
   templateId       String?
-  template         PaperTemplate?     @relation(fields: [templateId], references: [id])
+  // B4: SetNull — template can be deleted independently; paper keeps going.
+  template         PaperTemplate?     @relation(fields: [templateId], references: [id], onDelete: SetNull)
   name             String
   classLabel       String?
   subjectId        String
-  subject          Subject            @relation(fields: [subjectId], references: [id])
+  subject          Subject            @relation(fields: [subjectId], references: [id], onDelete: Restrict)
   componentId      String?
-  component        SyllabusComponent? @relation(fields: [componentId], references: [id])
+  component        SyllabusComponent? @relation(fields: [componentId], references: [id], onDelete: SetNull)
   examDate         DateTime?
   durationMin      Int
   totalMarksTarget Int
@@ -442,7 +479,11 @@ model PaperQuestion {
   paperId         String
   paper           Paper    @relation(fields: [paperId], references: [id], onDelete: Cascade)
   questionId      String
-  question        Question @relation(fields: [questionId], references: [id])
+  // B4: Restrict — a Question that's referenced by a Paper cannot be
+  // dropped silently; deleting a Question requires the admin to first
+  // detach it from every Paper using it (snapshotContent is preserved
+  // on PaperQuestion already, so the paper survives the detach).
+  question        Question @relation(fields: [questionId], references: [id], onDelete: Restrict)
   sortOrder       Int
   snapshotContent Json // taken at generation time
   snapshotAnswer  Json
@@ -465,7 +506,8 @@ model PaperVersion {
   versionNumber Int
   snapshot      Json
   changedById   String
-  changedBy     User     @relation(fields: [changedById], references: [id])
+  // B4: Restrict — paper-version author audit.
+  changedBy     User     @relation(fields: [changedById], references: [id], onDelete: Restrict)
   changedAt     DateTime @default(now())
   changeNote    String?
 
@@ -688,7 +730,10 @@ model QuestionItem {
   id           String             @id @default(cuid())
   source       QuestionItemSource @default(past_paper)
   sourceFileId String?
-  sourceFile   SourceFile?        @relation(fields: [sourceFileId], references: [id])
+  // B4: SetNull — when a SourceFile is dropped, the QuestionItem mirror
+  // can keep its extracted text + AI metadata (the paper trail of where
+  // it came from is in audit log); avoids orphan-cascade nuking review work.
+  sourceFile   SourceFile?        @relation(fields: [sourceFileId], references: [id], onDelete: SetNull)
   // Once approved, a mirrored Question row is created and linked here.
   // Until then, generators cannot see this item (Question is the consumer).
   questionId   String?            @unique
@@ -723,7 +768,9 @@ model QuestionItem {
 
   reviewStatus ReviewStatus @default(pending_review)
   reviewedById String?
-  reviewedBy   User?        @relation("QuestionItemReviewer", fields: [reviewedById], references: [id])
+  // B4: SetNull — reviewer can be deactivated; review still attributable
+  // by audit log + reviewedAt timestamp.
+  reviewedBy   User?        @relation("QuestionItemReviewer", fields: [reviewedById], references: [id], onDelete: SetNull)
   reviewedAt   DateTime?
   reviewNotes  String?
 

@@ -35,11 +35,24 @@ export class ClassesService {
     return cls;
   }
 
-  async create(data: { name: string; classCode: string; level?: string }) {
+  async create(data: { name: string; classCode: string }) {
     if (!/^[A-Z0-9_-]{2,40}$/i.test(data.classCode)) {
       throw new BadRequestException('classCode must be 2-40 alphanumeric / dash / underscore');
     }
     return this.prisma.class.create({ data });
+  }
+
+  /** F5 — partial update. Today only weeklyFocus is mutable here; other
+   *  attributes still flow through the create + roster endpoints. */
+  async update(classId: string, data: { weeklyFocus?: string | null }) {
+    const cls = await this.prisma.class.findUnique({ where: { id: classId } });
+    if (!cls) throw new NotFoundException('class not found');
+    return this.prisma.class.update({
+      where: { id: classId },
+      data: {
+        ...(data.weeklyFocus !== undefined ? { weeklyFocus: data.weeklyFocus } : {}),
+      },
+    });
   }
 
   async addEnrollment(classId: string, opts: { userId: string; role?: string }) {

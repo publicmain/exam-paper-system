@@ -599,7 +599,7 @@ export class MorningQuizQaService {
         properties: {
           issues: {
             type: 'array',
-            items: REVIEW_TOOL.input_schema.properties!.issues.items,
+            items: (REVIEW_TOOL.input_schema.properties as any).issues.items,
           },
         },
       },
