@@ -246,6 +246,182 @@ describe('MorningQuizQaService', () => {
     expect(out).toContain('passage_pick');
   });
 
+  it('B1 fallback — verdict=reject + issues=[] triggers second-pass extraction', async () => {
+    const prisma = fakePrisma();
+    const svc = new MorningQuizQaService(prisma, fakeAuditService());
+    // First Anthropic call: stuff detail in summary, leave issues empty.
+    // Second Anthropic call (fallback): return one synthesised issue.
+    const create = vi.fn()
+      .mockResolvedValueOnce({
+        content: [
+          {
+            type: 'tool_use',
+            name: 'submit_review',
+            input: {
+              overall_verdict: 'reject',
+              summary: 'Q1 答案错误:文中说桥 1894 年开放,但答案标 1972',
+              issues: [],
+            },
+          },
+        ],
+        usage: { input_tokens: 2400, output_tokens: 900 },
+      })
+      .mockResolvedValueOnce({
+        content: [
+          {
+            type: 'tool_use',
+            name: 'submit_issues',
+            input: {
+              issues: [
+                {
+                  type: 'answer_wrong',
+                  severity: 'critical',
+                  questionRef: 'Q1',
+                  description: '答案标 1972 与原文 1894 不符',
+                  evidence: 'officially opened on 30 June 1894',
+                  suggestedFix: '把答案改成 1894',
+                },
+              ],
+            },
+          },
+        ],
+        usage: { input_tokens: 320, output_tokens: 110 },
+      });
+    (svc as any).client = { messages: { create } };
+
+    const result = await svc.reviewPaper('paper-1', { id: 'u1', role: 'admin', ip: null });
+    expect(create).toHaveBeenCalledTimes(2);
+    expect(result.verdict).toBe('reject'); // verdict preserved (not flipped by fallback)
+    expect(result.issues).toHaveLength(1);
+    expect(result.issues[0].severity).toBe('critical');
+    expect(result.issues[0].questionRef).toBe('Q1');
+    expect(result.issues[0].evidence).toContain('1894');
+    // Tokens accumulated across both calls.
+    expect(result.inputTokens).toBe(2400 + 320);
+    expect(result.outputTokens).toBe(900 + 110);
+  });
+
+  it('B1 fallback — needs_review with empty issues also triggers second pass', async () => {
+    const prisma = fakePrisma();
+    const svc = new MorningQuizQaService(prisma, fakeAuditService());
+    const create = vi.fn()
+      .mockResolvedValueOnce({
+        content: [
+          {
+            type: 'tool_use',
+            name: 'submit_review',
+            input: {
+              overall_verdict: 'needs_review',
+              summary: 'Q3 题干歧义需要老师确认',
+              issues: [],
+            },
+          },
+        ],
+        usage: { input_tokens: 1500, output_tokens: 200 },
+      })
+      .mockResolvedValueOnce({
+        content: [
+          {
+            type: 'tool_use',
+            name: 'submit_issues',
+            input: {
+              issues: [
+                {
+                  type: 'question_ambiguous',
+                  severity: 'high',
+                  questionRef: 'Q3',
+                  description: '题干没有限定时间范围',
+                  evidence: 'Who designed the bridge?',
+                  suggestedFix: '加上 "originally"',
+                },
+              ],
+            },
+          },
+        ],
+        usage: { input_tokens: 280, output_tokens: 90 },
+      });
+    (svc as any).client = { messages: { create } };
+
+    const result = await svc.reviewPaper('paper-1', { id: 'u1', role: 'admin', ip: null });
+    expect(create).toHaveBeenCalledTimes(2);
+    expect(result.verdict).toBe('needs_review');
+    expect(result.issues).toHaveLength(1);
+    expect(result.issues[0].severity).toBe('high');
+  });
+
+  it('B1 fallback — verdict=pass with empty issues does NOT trigger fallback', async () => {
+    const prisma = fakePrisma();
+    const svc = new MorningQuizQaService(prisma, fakeAuditService());
+    const create = vi.fn().mockResolvedValueOnce({
+      content: [
+        {
+          type: 'tool_use',
+          name: 'submit_review',
+          input: { overall_verdict: 'pass', summary: '未发现问题', issues: [] },
+        },
+      ],
+      usage: { input_tokens: 1234, output_tokens: 240 },
+    });
+    (svc as any).client = { messages: { create } };
+
+    const result = await svc.reviewPaper('paper-1', { id: 'u1', role: 'admin', ip: null });
+    expect(create).toHaveBeenCalledTimes(1); // only the original call
+    expect(result.verdict).toBe('pass');
+    expect(result.issues).toHaveLength(0);
+  });
+
+  it('B1 fallback — graceful when fallback call itself fails', async () => {
+    const prisma = fakePrisma();
+    const svc = new MorningQuizQaService(prisma, fakeAuditService());
+    const create = vi.fn()
+      .mockResolvedValueOnce({
+        content: [
+          {
+            type: 'tool_use',
+            name: 'submit_review',
+            input: {
+              overall_verdict: 'reject',
+              summary: 'Q1 broken',
+              issues: [],
+            },
+          },
+        ],
+        usage: { input_tokens: 1000, output_tokens: 100 },
+      })
+      .mockRejectedValueOnce(new Error('API timeout'));
+    (svc as any).client = { messages: { create } };
+
+    const result = await svc.reviewPaper('paper-1', { id: 'u1', role: 'admin', ip: null });
+    expect(create).toHaveBeenCalledTimes(2);
+    // Verdict + summary preserved; issues stays empty (no exception thrown).
+    expect(result.verdict).toBe('reject');
+    expect(result.issues).toHaveLength(0);
+    expect(result.summary).toBe('Q1 broken');
+  });
+
+  it('B2 calibration — system prompt mentions matching task strict-but-correct rules', async () => {
+    const fs = await import('fs');
+    const path = await import('path');
+    const url = await import('url');
+    const here = path.dirname(url.fileURLToPath(import.meta.url));
+    const src = fs.readFileSync(path.join(here, 'morning-quiz-qa.service.ts'), 'utf8');
+    expect(src).toContain('Matching task 校准');
+    expect(src).toContain('难度梯度');
+    expect(src).toContain('summary 与 issues 的关系');
+  });
+
+  it('B1 prompt contract — system prompt forbids summary-only detail', async () => {
+    const fs = await import('fs');
+    const path = await import('path');
+    const url = await import('url');
+    const here = path.dirname(url.fileURLToPath(import.meta.url));
+    const src = fs.readFileSync(path.join(here, 'morning-quiz-qa.service.ts'), 'utf8');
+    expect(src).toContain('禁止');
+    expect(src).toContain('issues[]');
+    // The contract sentence specifically.
+    expect(src).toMatch(/summary.*detail.*issues|issues.*必须.*包含|具体题号/);
+  });
+
   it('parseToolInput sanitizes bad enum values without throwing', () => {
     process.env.ANTHROPIC_API_KEY = 'sk-ant-test-fake-key-1234567890';
     const svc = new MorningQuizQaService(fakePrisma(), fakeAuditService());
