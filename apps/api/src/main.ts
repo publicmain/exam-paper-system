@@ -19,10 +19,14 @@ function resolveCorsOrigin(): true | string[] {
     process.env.CORS_ORIGINS ?? process.env.ALLOWED_ORIGINS ?? '';
   const trimmed = raw.trim();
   if (!trimmed || trimmed === '*') {
+    // Fail loud in prod: a permissive CORS in production lets any third-
+    // party origin make authenticated requests with the user's cookie /
+    // bearer token. Refuse to start instead of degrading silently.
     if (process.env.NODE_ENV === 'production') {
-      bootstrapLogger.warn(
-        'CORS_ORIGINS unset in production — falling back to allow-all. Set CORS_ORIGINS=https://your.domain in env.',
+      bootstrapLogger.error(
+        'CORS_ORIGINS (or ALLOWED_ORIGINS) must be set to an explicit origin list in production. Refusing to start.',
       );
+      process.exit(1);
     }
     return true;
   }

@@ -32,3 +32,27 @@ export function isTeacherOrAbove(role: string | undefined | null): boolean {
 export function isAdminOrHead(role: string | undefined | null): boolean {
   return !!role && ROLES_ADMIN_OR_HEAD.has(role);
 }
+
+/**
+ * Class-ownership check for teacher actions. admin / head_teacher have
+ * school-wide access; a regular teacher must be enrolled in the target
+ * class with role !== 'student'. Throws nothing — returns boolean so the
+ * caller can pick the error code.
+ *
+ * Usage:
+ *   if (!(await canActOnClass(prisma, user, classId)))
+ *     throw new ForbiddenException({ code: 'not_your_class' });
+ */
+export async function canActOnClass(
+  prisma: { classEnrollment: { findUnique: Function } },
+  actor: { id: string; role: string },
+  classId: string,
+): Promise<boolean> {
+  if (isAdminOrHead(actor.role)) return true;
+  if (actor.role !== ROLE_TEACHER) return false;
+  const enrollment = await prisma.classEnrollment.findUnique({
+    where: { classId_userId: { classId, userId: actor.id } },
+    select: { role: true },
+  });
+  return !!enrollment && enrollment.role !== ROLE_STUDENT;
+}

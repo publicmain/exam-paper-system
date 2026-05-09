@@ -253,7 +253,11 @@ export const api = {
   /** Public roster fetch — gated by school WiFi + valid QR token. */
   attendanceScanRoster: (qrToken: string) =>
     request('GET', `/attendance/scan-roster?qrToken=${encodeURIComponent(qrToken)}`),
-  attendanceScan: (qrToken: string, studentName: string, deviceUuid?: string) =>
+  // deviceUuid is required by the backend schema (Round 1 critical fix —
+  // without it a single device can sign in 30 students). Type signature
+  // tightened so a future caller can't silently drop the field and fail
+  // at runtime with a 400.
+  attendanceScan: (qrToken: string, studentName: string, deviceUuid: string) =>
     request('POST', '/attendance/scan', { qrToken, studentName, deviceUuid }),
   attendanceCorrect: (body: {
     sessionId: string;

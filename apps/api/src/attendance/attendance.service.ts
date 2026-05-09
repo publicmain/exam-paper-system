@@ -10,6 +10,7 @@ import { JwtService } from '@nestjs/jwt';
 import { AttendanceSource, AttendanceStatus, MorningQuizStatus } from '@prisma/client';
 import { AuditService } from '../audit/audit.service';
 import { PrismaService } from '../common/prisma.service';
+import { canActOnClass } from '../common/roles';
 import { QrService } from '../qr/qr.service';
 import { ShuffleService } from '../shuffle/shuffle.service';
 
@@ -297,6 +298,14 @@ export class AttendanceService {
     });
     if (!session) throw new NotFoundException({ code: 'session_not_found' });
 
+    // Round 2 IDOR fix — a regular teacher must teach the target session's
+    // class. Without this a teacher of any class could mutate any other
+    // class's attendance by guessing sessionIds. Admin / head_teacher
+    // are school-wide and always pass.
+    if (!(await canActOnClass(this.prisma, actor, session.classId))) {
+      throw new ForbiddenException({ code: 'not_your_class' });
+    }
+
     const enrollment = await this.prisma.classEnrollment.findUnique({
       where: { classId_userId: { classId: session.classId, userId: body.studentId } },
     });
@@ -365,7 +374,12 @@ export class AttendanceService {
     return after;
   }
 
-  async historyForClass(classId: string, from?: Date, to?: Date) {
+  async historyForClass(actor: ActorCtx, classId: string, from?: Date, to?: Date) {
+    // Round 2 IDOR fix — gate by class ownership. Without this a teacher
+    // of class A could enumerate every attendance row of class B.
+    if (!(await canActOnClass(this.prisma, actor, classId))) {
+      throw new ForbiddenException({ code: 'not_your_class' });
+    }
     return this.prisma.attendance.findMany({
       where: {
         session: {

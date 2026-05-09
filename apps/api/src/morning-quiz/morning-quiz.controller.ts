@@ -133,9 +133,9 @@ export class MorningQuizController {
   }
 
   @Get('sessions/:id/dashboard')
-  dashboard(@Param('id') id: string, @CurrentUser() user: any) {
+  dashboard(@Param('id') id: string, @CurrentUser() user: any, @Req() req: Request) {
     if (!TEACHER_ROLES.has(user.role)) throw new ForbiddenException('teacher_required');
-    return this.svc.getDashboard(id);
+    return this.svc.getDashboard(id, { id: user.id, role: user.role, ip: req.ip ?? null });
   }
 
   // ─────────────────── Student endpoints ───────────────────

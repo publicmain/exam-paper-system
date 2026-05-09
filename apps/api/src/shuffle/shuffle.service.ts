@@ -42,17 +42,6 @@ export class ShuffleService {
   constructor(private readonly prisma: PrismaService) {}
 
   async getOrCreate(studentId: string, paperId: string): Promise<ShuffleMap> {
-    const existing = await this.prisma.questionShuffleMap.findUnique({
-      where: { studentId_paperId: { studentId, paperId } },
-    });
-    if (existing) {
-      return {
-        seed: existing.seed,
-        questionOrder: existing.questionOrder,
-        optionOrders: existing.optionOrders as Record<string, number[]>,
-      };
-    }
-
     const paperQuestions = await this.prisma.paperQuestion.findMany({
       where: { paperId },
       orderBy: { sortOrder: 'asc' },
@@ -60,6 +49,40 @@ export class ShuffleService {
     });
     if (paperQuestions.length === 0) {
       return { seed: '', questionOrder: [], optionOrders: {} };
+    }
+
+    const existing = await this.prisma.questionShuffleMap.findUnique({
+      where: { studentId_paperId: { studentId, paperId } },
+    });
+    if (existing) {
+      // If the paper has been edited (questions added / removed) since the
+      // shuffle map was minted, the cached questionOrder / optionOrders are
+      // stale: applyToPaper would throw on length mismatch and any MCQ
+      // whose pq.id is missing from optionOrders silently skips shuffle.
+      // We regenerate from scratch in that case rather than serving a
+      // stale half-permutation that could surface the wrong question to
+      // the student.
+      const cached = existing.optionOrders as Record<string, number[]>;
+      const stillValid =
+        existing.questionOrder.length === paperQuestions.length &&
+        paperQuestions.every((pq) => {
+          if (pq.question.questionType !== 'mcq') return true;
+          const order = cached[pq.id];
+          if (!order) return true; // non-shuffled MCQ is fine — see line 78
+          const opts = Array.isArray(pq.snapshotOptions) ? pq.snapshotOptions : [];
+          return order.length === opts.length;
+        });
+      if (stillValid) {
+        return {
+          seed: existing.seed,
+          questionOrder: existing.questionOrder,
+          optionOrders: cached,
+        };
+      }
+      // Drop the stale row before falling through to the regenerate path.
+      await this.prisma.questionShuffleMap.delete({
+        where: { studentId_paperId: { studentId, paperId } },
+      });
     }
 
     const seedHex = createHash('sha256')

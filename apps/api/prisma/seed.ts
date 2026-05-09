@@ -121,6 +121,17 @@ async function seedDemoQuestions(
 }
 
 async function main() {
+  // Hard refusal: this seed creates demo accounts with well-known weak
+  // passwords (admin123, teacher123). Running it against a production DB
+  // would create a bypass anyone can log in to. Set ALLOW_PROD_SEED=true
+  // only on a fresh install where the demo accounts are intentional.
+  if (process.env.NODE_ENV === 'production' && process.env.ALLOW_PROD_SEED !== 'true') {
+    console.error(
+      'Refusing to seed in NODE_ENV=production without ALLOW_PROD_SEED=true. ' +
+      'The demo accounts use known weak passwords; create real accounts via the Admin UI.',
+    );
+    process.exit(1);
+  }
   console.log('Seeding database…');
 
   // Users

@@ -128,6 +128,7 @@ export class AttendanceController {
     }
     if (!classId) throw new BadRequestException('classId required');
     return this.svc.historyForClass(
+      { id: user.id, role: user.role, ip: null },
       classId,
       from ? new Date(from) : undefined,
       to ? new Date(to) : undefined,

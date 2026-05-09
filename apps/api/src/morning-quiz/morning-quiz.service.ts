@@ -16,6 +16,7 @@ import { randomBytes } from 'crypto';
 import { AuditService } from '../audit/audit.service';
 import { QuickPaperInput, QuickPaperService } from '../ai/quick-paper.service';
 import { PrismaService } from '../common/prisma.service';
+import { canActOnClass } from '../common/roles';
 import { ShuffleService } from '../shuffle/shuffle.service';
 
 interface ActorCtx {
@@ -77,6 +78,22 @@ export class MorningQuizService {
     const attendanceEnd = combineLocal(dateIso, ATTENDANCE_END_LOCAL, tzOff);
     const lateCutoff = combineLocal(dateIso, LATE_CUTOFF_LOCAL, tzOff);
     const quizEnd = combineLocal(dateIso, QUIZ_END_LOCAL, tzOff);
+
+    // Invariant: window times must be strictly ordered. Without this, a
+    // misconfigured MORNING_QUIZ_TZ_OFFSET_MIN or a bad set of LOCAL
+    // constants would silently produce a session where every scan falls
+    // into the absent branch, or where lateCutoff <= attendanceEnd makes
+    // 'late' status unreachable.
+    if (
+      !(attendanceStart < attendanceEnd) ||
+      !(attendanceEnd < lateCutoff) ||
+      !(lateCutoff < quizEnd)
+    ) {
+      throw new BadRequestException({
+        code: 'invalid_session_time_window',
+        windows: { attendanceStart, attendanceEnd, lateCutoff, quizEnd },
+      });
+    }
 
     const cls = await this.prisma.class.findUnique({
       where: { id: input.classId },
@@ -798,7 +815,7 @@ export class MorningQuizService {
     });
   }
 
-  async getDashboard(sessionId: string) {
+  async getDashboard(sessionId: string, actor: ActorCtx) {
     const session = await this.prisma.morningQuizSession.findUnique({
       where: { id: sessionId },
       include: {
@@ -813,6 +830,14 @@ export class MorningQuizService {
       },
     });
     if (!session) throw new NotFoundException({ code: 'session_not_found' });
+
+    // Round 2 IDOR fix — admin/head_teacher pass through; a regular
+    // teacher must teach this session's class. Otherwise an English
+    // teacher could pull the dashboard for the maths class by guessing
+    // sessionIds.
+    if (!(await canActOnClass(this.prisma, actor, session.classId))) {
+      throw new ForbiddenException({ code: 'not_your_class' });
+    }
 
     const counts = { on_time: 0, late: 0, absent: 0 };
     for (const a of session.attendances) counts[a.status]++;
