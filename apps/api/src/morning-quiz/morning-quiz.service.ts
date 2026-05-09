@@ -562,7 +562,7 @@ export class MorningQuizService {
   async getStudentView(sessionId: string, studentId: string) {
     const session = await this.prisma.morningQuizSession.findUnique({
       where: { id: sessionId },
-      include: { paperAssignment: { select: { paperId: true, id: true } } },
+      include: { paperAssignment: { select: { paperId: true, id: true, classId: true } } },
     });
     if (!session) throw new NotFoundException({ code: 'session_not_found' });
     if (session.status === MorningQuizStatus.cancelled) {
@@ -583,6 +583,18 @@ export class MorningQuizService {
       where: { id: paperId },
       select: { config: true },
     });
+    // The student client uses `level` to pick the exam shell (IELTS split-pane
+    // vs O-Level paged) and `paperMode` to decide whether option-shuffle is
+    // safe. Looking the level up here keeps the client one-shot — no extra
+    // round trip just to know which UI to render. The class might not have a
+    // ClassEnglishLevel row (older sessions / non-English subjects), in which
+    // case we fall back to a heuristic on paper.config.
+    const classLevel = session.paperAssignment.classId
+      ? await this.prisma.classEnglishLevel.findUnique({
+          where: { classId: session.paperAssignment.classId },
+          select: { level: true },
+        })
+      : null;
     const paperQuestions = await this.prisma.paperQuestion.findMany({
       where: { paperId },
       orderBy: { sortOrder: 'asc' },
@@ -635,11 +647,21 @@ export class MorningQuizService {
       return rest;
     };
 
+    // Derive the quiz UI mode for the client. `level` comes from
+    // ClassEnglishLevel; if absent (no row yet) we fall back to:
+    //   - 'ielts_authentic' when paper.config.mode === 'passage_pick'
+    //   - 'olevel' otherwise
+    // The client uses this to switch between the IELTS split-pane and the
+    // O-Level paged shells.
+    const paperMode = (paper?.config as { mode?: string } | null)?.mode ?? null;
+    const level = classLevel?.level ?? (paperMode === 'passage_pick' ? 'ielts_authentic' : 'olevel');
     return {
       sessionId: session.id,
       attendanceId: att.id,
       submissionId: att.submissionId,
       quizEnd: session.quizEnd,
+      level,
+      paperMode,
       paperQuestions: delivered.map((pq) => ({
         id: pq.id,
         sortOrder: pq.sortOrder,
