@@ -2,6 +2,60 @@ import { BadRequestException, Injectable, Logger, NotFoundException } from '@nes
 import { PrismaService } from '../common/prisma.service';
 import { CreateConfigDto, UpdateConfigDto } from './dto';
 
+/**
+ * Default allowlist of host suffixes acceptable for a webhook URL. Override
+ * via WECHAT_NOTIFY_HOSTS=host1,host2 (matches host suffix) for on-prem.
+ * Round-7 H38.
+ */
+const DEFAULT_WEBHOOK_HOST_SUFFIXES = [
+  'qyapi.weixin.qq.com', // WeChat Work
+  'oapi.dingtalk.com',   // DingTalk
+];
+
+/** Returns null if safe to fetch; otherwise a short rejection reason. */
+export function checkSsrfSafe(url: string): string | null {
+  let parsed: URL;
+  try {
+    parsed = new URL(url);
+  } catch {
+    return 'invalid url';
+  }
+  if (parsed.protocol !== 'https:' && parsed.protocol !== 'http:') {
+    return `disallowed protocol ${parsed.protocol}`;
+  }
+  const host = parsed.hostname.toLowerCase();
+  // Block localhost / private / link-local / metadata-service IPs by
+  // pattern. We don't fully resolve DNS here (which would still leave a
+  // TOCTOU race against a rebinding domain) — the allowlist below is the
+  // load-bearing defence. The IP-pattern check is a belt-and-suspenders
+  // catch for the bare-IP case.
+  if (
+    host === 'localhost' ||
+    host === '127.0.0.1' ||
+    host === '0.0.0.0' ||
+    host === '::1' ||
+    /^10\./.test(host) ||
+    /^192\.168\./.test(host) ||
+    /^172\.(1[6-9]|2\d|3[01])\./.test(host) ||
+    /^169\.254\./.test(host) || // link-local incl. AWS metadata 169.254.169.254
+    /^fc[0-9a-f]{2}:/i.test(host) ||
+    /^fe80:/i.test(host)
+  ) {
+    return `private/loopback host ${host}`;
+  }
+  const envOverride = process.env.WECHAT_NOTIFY_HOSTS;
+  const allowlist = envOverride
+    ? envOverride.split(',').map((s) => s.trim()).filter(Boolean)
+    : DEFAULT_WEBHOOK_HOST_SUFFIXES;
+  const allowed = allowlist.some(
+    (suffix) => host === suffix || host.endsWith('.' + suffix),
+  );
+  if (!allowed) {
+    return `host not in allowlist: ${host}`;
+  }
+  return null;
+}
+
 type EventName =
   | 'paper_assigned'
   | 'paper_marked'
@@ -171,6 +225,28 @@ export class WechatNotifyService {
     }
 
     // ---- real HTTP branch ----
+    // SSRF guard. webhookUrl is admin-controllable but we still want a
+    // safety net — admins make typos, and a leaked admin token shouldn't
+    // turn the API into an internal port-scanner. Round-7 H38 (agent-9
+    // SEC-02). Allowlist the public webhook hosts we care about; localhost
+    // / private IP ranges / link-local / file: / etc. are rejected up
+    // front. The allowlist is overridable via WECHAT_NOTIFY_HOSTS env so
+    // an on-prem deploy can target a self-hosted bot endpoint.
+    const ssrfError = checkSsrfSafe(url);
+    if (ssrfError) {
+      this.logger.warn(`[notify ${cfg.event}/${cfg.channel}] ssrf rejected: ${ssrfError}`);
+      return prisma.notificationLog.create({
+        data: {
+          configId: cfg.id,
+          event: cfg.event,
+          channel: cfg.channel,
+          payload,
+          httpStatus: 0,
+          error: `ssrf_rejected: ${ssrfError}`,
+        },
+      });
+    }
+
     // We use the global fetch (Node 18+; the API runs on 20). 5s
     // timeout is deliberately tight: notification sends must NOT
     // delay user-visible work like paper-assignment.

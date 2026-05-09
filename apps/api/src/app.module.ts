@@ -1,10 +1,11 @@
 import { Module } from '@nestjs/common';
-import { APP_GUARD } from '@nestjs/core';
+import { APP_FILTER, APP_GUARD } from '@nestjs/core';
 import { ConfigModule } from '@nestjs/config';
 import { JwtModule } from '@nestjs/jwt';
 import { ScheduleModule } from '@nestjs/schedule';
 import { PrismaService } from './common/prisma.service';
 import { AuthGuard } from './common/auth.guard';
+import { GlobalExceptionFilter } from './common/global-exception.filter';
 import { RateLimitGuard } from './common/rate-limit.guard';
 import { AuthModule } from './auth/auth.module';
 import { ReferenceModule } from './reference/reference.module';
@@ -107,6 +108,7 @@ import { HealthController } from './health.controller';
     // a route in.
     { provide: APP_GUARD, useClass: RateLimitGuard },
     { provide: APP_GUARD, useClass: AuthGuard },
+    { provide: APP_FILTER, useClass: GlobalExceptionFilter },
     RateLimitGuard,
   ],
   exports: [PrismaService],

@@ -92,8 +92,24 @@ async function bootstrap() {
 
   const app = await NestFactory.create(AppModule, {
     cors: { origin: resolveCorsOrigin(), credentials: true },
+    // Round-7 H39: body size cap.  NestJS defaults to express's 100KB
+    // built-in.  Bump explicitly to 2MB so paper authoring (long passages,
+    // 30+ MCQ options, large overrideContent JSON) works, but cap so a
+    // single attacker can't memory-bomb the API by streaming a 1GB body.
+    bodyParser: true,
+    rawBody: false,
   });
   app.setGlobalPrefix('api');
+  // Round-7 H39: explicit json/urlencoded limits. Without these the
+  // express defaults apply (~100KB), which is enough for most APIs but
+  // too small for the paper authoring UI's overrideContent payloads
+  // and too large for an attacker who wants to memory-bomb the worker.
+  // 2MB is a working middle ground.
+  const expressApp = app.getHttpAdapter().getInstance() as any;
+  // eslint-disable-next-line @typescript-eslint/no-var-requires
+  const express = require('express');
+  expressApp.use(express.json({ limit: '2mb' }));
+  expressApp.use(express.urlencoded({ limit: '2mb', extended: true }));
   // Trust proxy so req.ip reads X-Forwarded-For when fronted by Railway /
   // Cloudflare. Required by IpAllowlistGuard to detect the real school egress
   // IP rather than the proxy's loopback. Trust exactly ONE hop — the

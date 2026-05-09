@@ -765,23 +765,30 @@ export class MorningQuizQaService {
       throw new ForbiddenException({ code: 'teacher_required' });
     }
     await this.assertCanActOnPaper(paperId, actor);
-    const updated = await this.prisma.paper.update({
-      where: { id: paperId },
-      data: {
-        qaTeacherAction: 'approved',
-        qaTeacherActionAt: new Date(),
-        qaTeacherActionBy: actor.id,
-      },
+    // Round-7 H13: wrap the paper.update + audit.log in a single tx so
+    // we never end up with an approved paper without an audit row.
+    return this.prisma.$transaction(async (tx) => {
+      const updated = await tx.paper.update({
+        where: { id: paperId },
+        data: {
+          qaTeacherAction: 'approved',
+          qaTeacherActionAt: new Date(),
+          qaTeacherActionBy: actor.id,
+        },
+      });
+      await this.audit.log(
+        {
+          actorId: actor.id,
+          actorRole: actor.role,
+          action: 'morning_quiz.qa_review.approve',
+          entityType: 'Paper',
+          entityId: paperId,
+          ip: actor.ip ?? null,
+        },
+        tx,
+      );
+      return updated;
     });
-    await this.audit.log({
-      actorId: actor.id,
-      actorRole: actor.role,
-      action: 'morning_quiz.qa_review.approve',
-      entityType: 'Paper',
-      entityId: paperId,
-      ip: actor.ip ?? null,
-    });
-    return updated;
   }
 
   async rejectByTeacher(paperId: string, actor: ActorCtx, reason?: string) {
@@ -789,24 +796,30 @@ export class MorningQuizQaService {
       throw new ForbiddenException({ code: 'teacher_required' });
     }
     await this.assertCanActOnPaper(paperId, actor);
-    const updated = await this.prisma.paper.update({
-      where: { id: paperId },
-      data: {
-        qaTeacherAction: 'rejected',
-        qaTeacherActionAt: new Date(),
-        qaTeacherActionBy: actor.id,
-        status: 'archived',
-      },
+    // Round-7 H13: tx-wrapped paper.update + audit.log.
+    return this.prisma.$transaction(async (tx) => {
+      const updated = await tx.paper.update({
+        where: { id: paperId },
+        data: {
+          qaTeacherAction: 'rejected',
+          qaTeacherActionAt: new Date(),
+          qaTeacherActionBy: actor.id,
+          status: 'archived',
+        },
+      });
+      await this.audit.log(
+        {
+          actorId: actor.id,
+          actorRole: actor.role,
+          action: 'morning_quiz.qa_review.reject',
+          entityType: 'Paper',
+          entityId: paperId,
+          ip: actor.ip ?? null,
+          metadata: { reason: reason ?? null },
+        },
+        tx,
+      );
+      return updated;
     });
-    await this.audit.log({
-      actorId: actor.id,
-      actorRole: actor.role,
-      action: 'morning_quiz.qa_review.reject',
-      entityType: 'Paper',
-      entityId: paperId,
-      ip: actor.ip ?? null,
-      metadata: { reason: reason ?? null },
-    });
-    return updated;
   }
 }
