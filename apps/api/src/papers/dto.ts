@@ -1,4 +1,30 @@
-import { IsArray, IsBoolean, IsInt, IsObject, IsOptional, IsString, Min } from 'class-validator';
+import { Type } from 'class-transformer';
+import {
+  ArrayMaxSize,
+  IsArray,
+  IsBoolean,
+  IsIn,
+  IsInt,
+  IsObject,
+  IsOptional,
+  IsString,
+  Max,
+  Min,
+  ValidateNested,
+} from 'class-validator';
+
+/** One slot in GenerationConfigDto.questionMix. Validated nested so
+ *  malformed shapes (e.g. count=99999, type='nonsense', extra eval JSON)
+ *  fail at the controller boundary instead of inside the generator.
+ *  Round-7 agent-2 H-6. */
+export class QuestionMixSlotDto {
+  @IsIn(['mcq', 'short_answer', 'structured', 'essay'])
+  type: 'mcq' | 'short_answer' | 'structured' | 'essay';
+
+  @IsOptional() @IsInt() @Min(1) @Max(100) count?: number;
+  @IsOptional() @IsInt() @Min(1) @Max(1000) targetMarks?: number;
+  @IsOptional() @IsInt() @Min(1) @Max(100) marksEach?: number;
+}
 
 export class GenerationConfigDto {
   @IsString() subjectId: string;
@@ -6,7 +32,11 @@ export class GenerationConfigDto {
   @IsOptional() @IsArray() topicFilter?: string[];
   @IsInt() @Min(5) durationMin: number;
   @IsInt() @Min(1) totalMarks: number;
-  @IsArray() questionMix: Array<{ type: 'mcq' | 'short_answer' | 'structured' | 'essay'; count?: number; targetMarks?: number; marksEach?: number }>;
+  @IsArray()
+  @ArrayMaxSize(50)
+  @ValidateNested({ each: true })
+  @Type(() => QuestionMixSlotDto)
+  questionMix: QuestionMixSlotDto[];
   @IsOptional() @IsObject() difficultyDist?: { easy?: number; medium?: number; hard?: number };
   @IsOptional() @IsInt() excludeRecentDays?: number;
   @IsOptional() @IsArray() excludeQuestionIds?: string[];
@@ -32,9 +62,16 @@ export class GeneratePaperDto {
 }
 
 export class UpdatePaperQuestionDto {
-  @IsString() action: 'reorder' | 'delete' | 'edit' | 'replace';
-  @IsOptional() @IsInt() newSortOrder?: number;
-  @IsOptional() overrideContent?: any;
-  @IsOptional() overrideAnswer?: any;
+  @IsIn(['reorder', 'delete', 'edit', 'replace'])
+  action: 'reorder' | 'delete' | 'edit' | 'replace';
+
+  @IsOptional() @IsInt() @Min(0) @Max(10_000) newSortOrder?: number;
+
+  // overrideContent / overrideAnswer used to be typed `any`. Now constrained
+  // to plain JSON-able objects (no arrays, no scalars) and capped in size by
+  // the global body limit. Round-7 agent-2 H-5.
+  @IsOptional() @IsObject() overrideContent?: Record<string, unknown>;
+  @IsOptional() @IsObject() overrideAnswer?: Record<string, unknown>;
+
   @IsOptional() @IsString() replacementQuestionId?: string;
 }

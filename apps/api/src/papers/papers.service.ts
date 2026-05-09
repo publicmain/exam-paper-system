@@ -129,8 +129,11 @@ export class PapersService {
       await this.prisma.paperQuestion.update({
         where: { id: pqId },
         data: {
-          overrideContent: dto.overrideContent ?? pq.overrideContent ?? undefined,
-          overrideAnswer: dto.overrideAnswer ?? pq.overrideAnswer ?? undefined,
+          // class-validator @IsObject is stricter than Prisma's JsonValue.
+          // Cast through any at the boundary so the runtime check still
+          // applies but Prisma is happy with the JSON column write.
+          overrideContent: (dto.overrideContent ?? pq.overrideContent ?? undefined) as any,
+          overrideAnswer: (dto.overrideAnswer ?? pq.overrideAnswer ?? undefined) as any,
         },
       });
     } else if (dto.action === 'replace' && dto.replacementQuestionId) {

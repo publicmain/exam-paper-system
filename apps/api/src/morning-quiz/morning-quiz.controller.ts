@@ -146,7 +146,13 @@ export class MorningQuizController {
       { from, to, classId },
       { id: user.id, role: user.role, ip: req.ip ?? null },
     );
-    const filename = `morning-quiz-${from}-to-${to}${classId ? '-' + classId : ''}.xlsx`;
+    // Sanitise classId before splicing into the Content-Disposition filename:
+    // Q-string is attacker-controllable (the user pastes ?classId=…), and
+    // CR/LF in the header is response-splitting; double quote breaks the
+    // header itself. Strip everything that isn't a safe identifier char.
+    // Round-7 agent-2 H-4.
+    const safeClassId = classId ? classId.replace(/[^A-Za-z0-9_-]/g, '').slice(0, 40) : '';
+    const filename = `morning-quiz-${from}-to-${to}${safeClassId ? '-' + safeClassId : ''}.xlsx`;
     res.setHeader(
       'Content-Type',
       'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',

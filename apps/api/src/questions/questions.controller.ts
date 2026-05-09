@@ -8,9 +8,28 @@ import { CurrentUser } from '../common/current-user.decorator';
 // Asset attachments are images/diagrams referenced from the question stem.
 // Without validation a malicious teacher could pass a javascript: URL or an
 // arbitrarily long altText payload that breaks rendering downstream.
+//
+// zod's `.url()` accepts ANY URL with a scheme — including `javascript:`,
+// `data:`, `vbscript:`, `file:`, etc. Round-7 agent-2 H-7. Constrain to
+// http(s) explicitly so a malicious authoring attempt to embed
+// `javascript:alert(1)` as an "image" URL fails validation.
 const AddAssetSchema = z.object({
   assetType: z.enum(['image', 'diagram', 'audio']),
-  storageUrl: z.string().url().max(2048),
+  storageUrl: z
+    .string()
+    .url()
+    .max(2048)
+    .refine(
+      (u) => {
+        try {
+          const parsed = new URL(u);
+          return parsed.protocol === 'http:' || parsed.protocol === 'https:';
+        } catch {
+          return false;
+        }
+      },
+      { message: 'storageUrl must be an http(s) URL (no javascript:, data:, file:, etc.)' },
+    ),
   altText: z.string().max(500).optional(),
 });
 
