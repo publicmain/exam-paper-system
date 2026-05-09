@@ -1,8 +1,18 @@
-import { Body, Controller, Delete, Get, NotFoundException, Param, Patch, Post, Query, UseGuards } from '@nestjs/common';
+import { BadRequestException, Body, Controller, Delete, Get, NotFoundException, Param, Patch, Post, Query, UseGuards } from '@nestjs/common';
+import { z } from 'zod';
 import { QuestionsService } from './questions.service';
 import { CreateQuestionDto, ListQuestionsQuery, UpdateQuestionDto } from './dto';
 import { AuthGuard, Roles } from '../common/auth.guard';
 import { CurrentUser } from '../common/current-user.decorator';
+
+// Asset attachments are images/diagrams referenced from the question stem.
+// Without validation a malicious teacher could pass a javascript: URL or an
+// arbitrarily long altText payload that breaks rendering downstream.
+const AddAssetSchema = z.object({
+  assetType: z.enum(['image', 'diagram', 'audio']),
+  storageUrl: z.string().url().max(2048),
+  altText: z.string().max(500).optional(),
+});
 
 /**
  * Whole controller is teacher/admin only. Students must NEVER read /questions
@@ -35,8 +45,10 @@ export class QuestionsController {
   delete(@Param('id') id: string) { return this.service.delete(id); }
 
   @Post(':id/assets')
-  addAsset(@Param('id') id: string, @Body() asset: { assetType: string; storageUrl: string; altText?: string }) {
-    return this.service.addAsset(id, asset);
+  addAsset(@Param('id') id: string, @Body() body: unknown) {
+    const parsed = AddAssetSchema.safeParse(body);
+    if (!parsed.success) throw new BadRequestException(parsed.error.flatten());
+    return this.service.addAsset(id, parsed.data);
   }
 
   @Delete(':id/assets/:assetId')
