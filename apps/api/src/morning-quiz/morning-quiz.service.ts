@@ -18,6 +18,7 @@ import { QuickPaperInput, QuickPaperService } from '../ai/quick-paper.service';
 import { PrismaService } from '../common/prisma.service';
 import { canActOnClass } from '../common/roles';
 import { ShuffleService } from '../shuffle/shuffle.service';
+import { MorningQuizQaService } from '../morning-quiz-qa/morning-quiz-qa.service';
 
 interface ActorCtx {
   id: string;
@@ -132,7 +133,76 @@ export class MorningQuizService {
     private readonly audit: AuditService,
     private readonly shuffle: ShuffleService,
     private readonly quickPaper: QuickPaperService,
+    private readonly qaReview: MorningQuizQaService,
   ) {}
+
+  /**
+   * Wraps a paper generator with the AI QA review loop.
+   *
+   * 1. Caller passes a fresh-paper-builder closure (passage_pick or AI gen).
+   * 2. We run it, run review, and decide:
+   *    - verdict=pass         → return paperId (live)
+   *    - verdict=needs_review → return paperId (live but flagged for teacher)
+   *    - verdict=reject       → archive the paper, bump retries, re-run the
+   *      generator from step 1. Cap at 2 retries (3 total tries) before
+   *      surfacing the last reject paper for manual triage.
+   *
+   * Retries upgrade to the strict (Opus) model so we don't get the same
+   * subtle miss twice.
+   */
+  private async generateWithQaLoop(
+    builder: () => Promise<string>,
+    actor: ActorCtx,
+    contextLabel: string,
+  ): Promise<string> {
+    const MAX_RETRIES = 2;
+    let lastPaperId = '';
+    for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
+      const paperId = await builder();
+      lastPaperId = paperId;
+      try {
+        const review = await this.qaReview.reviewPaper(paperId, actor, {
+          strict: attempt > 0,
+        });
+        await this.prisma.paper.update({
+          where: { id: paperId },
+          data: { qaReviewRetries: attempt },
+        });
+        if (review.verdict === 'reject' && attempt < MAX_RETRIES) {
+          this.logger.warn(
+            `qa-review reject (attempt ${attempt + 1}/${MAX_RETRIES + 1}) ` +
+              `paper=${paperId} ${contextLabel} — archiving + regenerating. ` +
+              `summary="${review.summary.slice(0, 120)}"`,
+          );
+          await this.prisma.paper.update({
+            where: { id: paperId },
+            data: { status: 'archived' },
+          });
+          continue;
+        }
+        return paperId;
+      } catch (e: any) {
+        // Review itself failed (Anthropic outage, parse error). Don't loop —
+        // just surface the paper as-is with verdict=pending so a teacher can
+        // either re-run review or push it through manually.
+        this.logger.error(
+          `qa-review error paper=${paperId} ${contextLabel}: ${String(e?.message ?? e).slice(0, 200)}`,
+        );
+        return paperId;
+      }
+    }
+    // Hit the retry cap. Audit it and return the last paper for triage.
+    await this.audit.log({
+      actorId: actor.id,
+      actorRole: actor.role,
+      action: 'morning_quiz.qa_review.retry_exhausted',
+      entityType: 'Paper',
+      entityId: lastPaperId,
+      ip: actor.ip,
+      metadata: { contextLabel, attempts: MAX_RETRIES + 1 },
+    });
+    return lastPaperId;
+  }
 
   async createSession(input: CreateSessionInput, actor: ActorCtx) {
     if (!['teacher', 'head_teacher', 'admin'].includes(actor.role)) {
@@ -338,20 +408,30 @@ export class MorningQuizService {
           // with 13 sub-questions), and AI question-by-question generation
           // produces 13 unrelated mini-passages. We pull a real Cambridge
           // passage from the bank and use ALL its questions verbatim.
-          let paperId: string;
-          if (levelRow.level === 'ielts_authentic') {
-            paperId = await this.pickPassageAndCreatePaper(
-              'IELTS',
-              'AUTH',
-              classId,
-              dateIso,
-              actor,
-            );
-          } else {
-            const qpInput = this.levelToQuickPaperInput(levelRow.level, dateIso, targetCount);
-            const generated = await this.quickPaper.generate(qpInput, actor);
-            paperId = generated.paperId;
-          }
+          //
+          // Every fresh paper goes through the AI QA loop before we surface
+          // its id back to the caller — verdict=reject triggers an automatic
+          // regenerate (different passage / different AI call) with up to
+          // 2 retries before we hand the paper to the teacher for manual
+          // triage. See generateWithQaLoop for the full state machine.
+          const builder =
+            levelRow.level === 'ielts_authentic'
+              ? () =>
+                  this.pickPassageAndCreatePaper('IELTS', 'AUTH', classId, dateIso, actor)
+              : async () => {
+                  const qpInput = this.levelToQuickPaperInput(
+                    levelRow.level,
+                    dateIso,
+                    targetCount,
+                  );
+                  const generated = await this.quickPaper.generate(qpInput, actor);
+                  return generated.paperId;
+                };
+          const paperId = await this.generateWithQaLoop(
+            builder,
+            actor,
+            `level=${levelRow.level} class=${classId} date=${dateIso}`,
+          );
 
           const session = await this.createSession(
             { date: new Date(dateIso), classId, paperId },

@@ -5,6 +5,7 @@ import { PrismaService } from '../common/prisma.service';
 import { ShuffleModule } from '../shuffle/shuffle.module';
 import { StudentModule } from '../student/student.module';
 import { WechatNotifyModule } from '../wechat-notify/wechat-notify.module';
+import { MorningQuizQaModule } from '../morning-quiz-qa/morning-quiz-qa.module';
 import { MorningQuizController } from './morning-quiz.controller';
 import { MorningQuizCron } from './morning-quiz.cron';
 import { MorningQuizExportService } from './morning-quiz-export.service';
@@ -15,7 +16,14 @@ import { AbsenceAlertService } from './absence-alert.service';
 import { AbsenceAlertCron } from './absence-alert.cron';
 
 @Module({
-  imports: [ShuffleModule, StudentModule, AiModule, AuditModule, WechatNotifyModule],
+  imports: [
+    ShuffleModule,
+    StudentModule,
+    AiModule,
+    AuditModule,
+    WechatNotifyModule,
+    MorningQuizQaModule,
+  ],
   controllers: [MorningQuizController],
   providers: [
     PrismaService,
