@@ -7,6 +7,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { PrismaService } from '../common/prisma.service';
+import { canActOnClass, isAdminOrHead } from '../common/roles';
 import { ClaimDto, QueueQueryDto, ScoreScriptDto } from './dto';
 
 interface ActorCtx {
@@ -48,7 +49,7 @@ export class MarkerService {
    * List submissions with at least one ungraded structured script.
    * Filters by classId / paperId via assignment join.
    */
-  async listQueue(query: QueueQueryDto) {
+  async listQueue(query: QueueQueryDto, marker?: ActorCtx) {
     const page = query.page ?? 1;
     const pageSize = query.pageSize ?? 20;
     const skip = (page - 1) * pageSize;
@@ -76,6 +77,16 @@ export class MarkerService {
     }
     if (query.paperId) {
       where.assignment = { ...(where.assignment ?? {}), paperId: query.paperId };
+    }
+    // IDOR gate: regular teachers see only submissions in classes they teach.
+    // admin / head_teacher always see the full queue.
+    if (marker && !isAdminOrHead(marker.role)) {
+      where.assignment = {
+        ...(where.assignment ?? {}),
+        class: {
+          enrollments: { some: { userId: marker.id, role: { not: 'student' } } },
+        },
+      };
     }
 
     const [total, rows] = await Promise.all([
@@ -164,12 +175,17 @@ export class MarkerService {
     // Validate target submission exists and is in the right state.
     const sub = await this.prisma.studentSubmission.findUnique({
       where: { id: body.submissionId },
+      include: { assignment: { select: { classId: true } } },
     });
     if (!sub) throw new NotFoundException('submission not found');
     if (sub.status !== 'submitted') {
       throw new BadRequestException(
         `submission status=${sub.status}; can only claim submitted submissions`,
       );
+    }
+    // IDOR: regular teachers must be enrolled in the submission's class.
+    if (!(await canActOnClass(this.prisma, marker, sub.assignment.classId))) {
+      throw new ForbiddenException({ code: 'not_your_class' });
     }
 
     try {
@@ -386,6 +402,15 @@ export class MarkerService {
    * variant, this one is NOT redacted: markers need the mark scheme.
    */
   async getSubmissionForMarker(submissionId: string, marker: ActorCtx) {
+    // Pre-check class ownership before pulling the (large) submission graph.
+    const subPre = await this.prisma.studentSubmission.findUnique({
+      where: { id: submissionId },
+      select: { assignment: { select: { classId: true } } },
+    });
+    if (!subPre) throw new NotFoundException('submission not found');
+    if (!(await canActOnClass(this.prisma, marker, subPre.assignment.classId))) {
+      throw new ForbiddenException({ code: 'not_your_class' });
+    }
     const sub = await this.prisma.studentSubmission.findUnique({
       where: { id: submissionId },
       include: {

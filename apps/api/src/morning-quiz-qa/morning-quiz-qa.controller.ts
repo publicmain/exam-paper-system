@@ -28,16 +28,16 @@ export class MorningQuizQaController {
 
   /** List papers awaiting teacher action (verdict needs_review or reject). */
   @Get('pending')
-  pending(@CurrentUser() user: any) {
+  pending(@CurrentUser() user: any, @Req() req: Request) {
     if (!TEACHER_ROLES.has(user.role)) throw new ForbiddenException('teacher_required');
-    return this.svc.listPending();
+    return this.svc.listPending({ id: user.id, role: user.role, ip: req.ip ?? null });
   }
 
   /** Drilldown: passage + questions + AI verdict + every issue. */
   @Get('papers/:id')
-  detail(@Param('id') id: string, @CurrentUser() user: any) {
+  detail(@Param('id') id: string, @CurrentUser() user: any, @Req() req: Request) {
     if (!TEACHER_ROLES.has(user.role)) throw new ForbiddenException('teacher_required');
-    return this.svc.getReview(id);
+    return this.svc.getReview(id, { id: user.id, role: user.role, ip: req.ip ?? null });
   }
 
   /** Force a re-run of the AI review (e.g. after a manual edit). Optional

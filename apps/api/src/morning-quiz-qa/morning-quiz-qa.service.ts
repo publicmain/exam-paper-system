@@ -8,6 +8,7 @@ import {
 import Anthropic from '@anthropic-ai/sdk';
 import { AuditService } from '../audit/audit.service';
 import { PrismaService } from '../common/prisma.service';
+import { canActOnClass, isAdminOrHead } from '../common/roles';
 
 // Sonnet 4.6 list price (USD per 1M tokens). Matches AiQuestionGeneratorService.
 const PRICE_INPUT_PER_M = 3;
@@ -661,21 +662,60 @@ export class MorningQuizQaService {
    * List every paper whose verdict is `needs_review` or `reject` and that
    * a teacher hasn't yet acted on. Used by the schedule UI's "待复核" panel.
    */
-  async listPending() {
+  /**
+   * IDOR check: a regular teacher may only act on a paper they own (paper.ownerId)
+   * OR a paper assigned to a class they're enrolled in (non-student role).
+   * admin / head_teacher always pass.
+   */
+  private async assertCanActOnPaper(paperId: string, actor: ActorCtx) {
+    if (isAdminOrHead(actor.role)) return;
+    const paper = await this.prisma.paper.findUnique({
+      where: { id: paperId },
+      select: {
+        ownerId: true,
+        assignments: { select: { classId: true } },
+      },
+    });
+    if (!paper) throw new NotFoundException({ code: 'paper_not_found' });
+    if (paper.ownerId === actor.id) return;
+    for (const a of paper.assignments) {
+      if (await canActOnClass(this.prisma, actor, a.classId)) return;
+    }
+    throw new ForbiddenException({ code: 'not_your_paper' });
+  }
+
+  async listPending(actor?: ActorCtx) {
     // Round-7 C-F4 — also surface verdict=pending. The QA loop catches
     // its own errors and leaves verdict at the schema default ('pending')
     // so the paper isn't a black hole; that paper still needs a teacher to
     // either re-run review or push it through manually. Without this row in
     // the filter the teacher dashboard never showed those papers.
+    const where: any = {
+      qaReviewVerdict: { in: ['needs_review', 'reject', 'pending'] },
+      qaTeacherAction: null,
+      // Skip archived papers — those have either been teacher-rejected
+      // already or thrown away by the retry loop. They are not the
+      // teacher's problem any more.
+      status: { not: 'archived' },
+    };
+    // IDOR gate: regular teachers see only papers they own or that are
+    // assigned to a class they're enrolled in. admin / head_teacher see all.
+    if (actor && !isAdminOrHead(actor.role)) {
+      where.OR = [
+        { ownerId: actor.id },
+        {
+          assignments: {
+            some: {
+              class: {
+                enrollments: { some: { userId: actor.id, role: { not: 'student' } } },
+              },
+            },
+          },
+        },
+      ];
+    }
     return this.prisma.paper.findMany({
-      where: {
-        qaReviewVerdict: { in: ['needs_review', 'reject', 'pending'] },
-        qaTeacherAction: null,
-        // Skip archived papers — those have either been teacher-rejected
-        // already or thrown away by the retry loop. They are not the
-        // teacher's problem any more.
-        status: { not: 'archived' },
-      },
+      where,
       orderBy: { qaReviewedAt: 'desc' },
       select: {
         id: true,
@@ -694,7 +734,8 @@ export class MorningQuizQaService {
   }
 
   /** Fetch full review for the dashboard drilldown (passage + question rows). */
-  async getReview(paperId: string) {
+  async getReview(paperId: string, actor?: ActorCtx) {
+    if (actor) await this.assertCanActOnPaper(paperId, actor);
     const reviewable = await this.loadReviewable(paperId);
     const paper = await this.prisma.paper.findUnique({
       where: { id: paperId },
@@ -720,6 +761,7 @@ export class MorningQuizQaService {
     if (!['teacher', 'head_teacher', 'admin'].includes(actor.role)) {
       throw new ForbiddenException({ code: 'teacher_required' });
     }
+    await this.assertCanActOnPaper(paperId, actor);
     const updated = await this.prisma.paper.update({
       where: { id: paperId },
       data: {
@@ -743,6 +785,7 @@ export class MorningQuizQaService {
     if (!['teacher', 'head_teacher', 'admin'].includes(actor.role)) {
       throw new ForbiddenException({ code: 'teacher_required' });
     }
+    await this.assertCanActOnPaper(paperId, actor);
     const updated = await this.prisma.paper.update({
       where: { id: paperId },
       data: {

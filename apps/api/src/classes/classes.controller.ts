@@ -2,6 +2,8 @@ import { BadRequestException, Body, Controller, Delete, ForbiddenException, Get,
 import { Request } from 'express';
 import { z } from 'zod';
 import { CurrentUser } from '../common/current-user.decorator';
+import { PrismaService } from '../common/prisma.service';
+import { canActOnClass } from '../common/roles';
 import { ClassesService } from './classes.service';
 
 const CreateClassSchema = z.object({
@@ -32,7 +34,18 @@ const ROLES_TEACHER = new Set(['admin', 'head_teacher', 'teacher']);
 
 @Controller('classes')
 export class ClassesController {
-  constructor(private readonly classes: ClassesService) {}
+  constructor(
+    private readonly classes: ClassesService,
+    private readonly prisma: PrismaService,
+  ) {}
+
+  /** IDOR gate: a regular teacher must be enrolled in classId (non-student
+   *  role). admin / head_teacher always pass. Use this BEFORE any read/write
+   *  scoped to a single class. */
+  private async assertClassAccess(user: { id: string; role: string }, classId: string) {
+    const ok = await canActOnClass(this.prisma, user, classId);
+    if (!ok) throw new ForbiddenException({ code: 'not_your_class' });
+  }
 
   /** Teachers + students see classes they belong to. Admins / heads
    *  see all. */
@@ -45,7 +58,18 @@ export class ClassesController {
   }
 
   @Get(':id')
-  get(@Param('id') id: string) {
+  async get(@Param('id') id: string, @CurrentUser() user: any) {
+    // Students may read their own class (roster + assignments — they're in it).
+    // Teacher / head / admin go through canActOnClass.
+    if (user.role === 'student') {
+      const enrollment = await this.prisma.classEnrollment.findUnique({
+        where: { classId_userId: { classId: id, userId: user.id } },
+        select: { role: true },
+      });
+      if (!enrollment) throw new ForbiddenException({ code: 'not_your_class' });
+    } else {
+      await this.assertClassAccess(user, id);
+    }
     return this.classes.get(id);
   }
 
@@ -60,20 +84,22 @@ export class ClassesController {
   }
 
   @Post(':id/enrollments')
-  enroll(@Param('id') id: string, @Body() body: unknown, @CurrentUser() user: any) {
+  async enroll(@Param('id') id: string, @Body() body: unknown, @CurrentUser() user: any) {
     if (!ROLES_TEACHER.has(user.role)) {
       throw new ForbiddenException('teacher / head_teacher / admin only');
     }
+    await this.assertClassAccess(user, id);
     const parsed = EnrollSchema.safeParse(body);
     if (!parsed.success) throw new BadRequestException(parsed.error.flatten());
     return this.classes.addEnrollment(id, parsed.data);
   }
 
   @Post(':id/roster')
-  roster(@Param('id') id: string, @Body() body: unknown, @CurrentUser() user: any, @Req() req: Request) {
+  async roster(@Param('id') id: string, @Body() body: unknown, @CurrentUser() user: any, @Req() req: Request) {
     if (!ROLES_TEACHER.has(user.role)) {
       throw new ForbiddenException('teacher / head_teacher / admin only');
     }
+    await this.assertClassAccess(user, id);
     const parsed = RosterSchema.safeParse(body);
     if (!parsed.success) throw new BadRequestException(parsed.error.flatten());
     return this.classes.bulkRoster(id, parsed.data.students,
@@ -81,10 +107,11 @@ export class ClassesController {
   }
 
   @Delete(':id/enrollments/:userId')
-  unenroll(@Param('id') id: string, @Param('userId') userId: string, @CurrentUser() user: any) {
+  async unenroll(@Param('id') id: string, @Param('userId') userId: string, @CurrentUser() user: any) {
     if (!ROLES_TEACHER.has(user.role)) {
       throw new ForbiddenException('teacher / head_teacher / admin only');
     }
+    await this.assertClassAccess(user, id);
     return this.classes.removeEnrollment(id, userId);
   }
 
@@ -92,10 +119,11 @@ export class ClassesController {
    *  generator includes in its prompt to bias output toward this week's
    *  teacher-stated emphasis areas. Pass {weeklyFocus: null} to clear. */
   @Patch(':id')
-  update(@Param('id') id: string, @Body() body: unknown, @CurrentUser() user: any) {
+  async update(@Param('id') id: string, @Body() body: unknown, @CurrentUser() user: any) {
     if (!ROLES_TEACHER.has(user.role)) {
       throw new ForbiddenException('teacher / head_teacher / admin only');
     }
+    await this.assertClassAccess(user, id);
     const parsed = UpdateClassSchema.safeParse(body);
     if (!parsed.success) throw new BadRequestException(parsed.error.flatten());
     return this.classes.update(id, parsed.data);

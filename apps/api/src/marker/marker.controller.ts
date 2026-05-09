@@ -38,10 +38,14 @@ export class MarkerController {
 
   /** Queue: submissions awaiting marker grading. */
   @Get('queue')
-  queue(@Query() query: unknown) {
+  queue(@Query() query: unknown, @CurrentUser() user: any, @Req() req: Request) {
     const parsed = QueueQuerySchema.safeParse(query);
     if (!parsed.success) throw new BadRequestException(parsed.error.flatten());
-    return this.marker.listQueue(parsed.data);
+    return this.marker.listQueue(parsed.data, {
+      id: user.id,
+      role: user.role,
+      ip: req.ip ?? null,
+    });
   }
 
   /** Per-submission detail (for the marker UI). */

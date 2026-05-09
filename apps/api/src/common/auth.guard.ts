@@ -1,4 +1,11 @@
-import { CanActivate, ExecutionContext, Injectable, UnauthorizedException, SetMetadata } from '@nestjs/common';
+import {
+  CanActivate,
+  ExecutionContext,
+  ForbiddenException,
+  Injectable,
+  SetMetadata,
+  UnauthorizedException,
+} from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
 import { JwtService } from '@nestjs/jwt';
 import { Request } from 'express';
@@ -44,7 +51,11 @@ export class AuthGuard implements CanActivate {
 
     const requiredRoles = this.reflector.getAllAndOverride<string[]>(ROLES_KEY, [ctx.getHandler(), ctx.getClass()]);
     if (requiredRoles && requiredRoles.length > 0 && req.user && !requiredRoles.includes(req.user.role)) {
-      throw new UnauthorizedException('Insufficient role');
+      // Role mismatch is an authorization failure (403), not authentication
+      // (401).  The user proved who they are with a valid JWT but doesn't have
+      // the required role for this resource.  Returning 401 here would
+      // confuse clients into thinking the token expired and trying to refresh.
+      throw new ForbiddenException('Insufficient role');
     }
     return true;
   }

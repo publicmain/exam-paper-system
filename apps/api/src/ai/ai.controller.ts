@@ -118,8 +118,16 @@ export class AiController {
     private readonly quickPaper: QuickPaperService,
   ) {}
 
+  /**
+   * Burns Anthropic tokens (~$0.001 per call but trivially scriptable).
+   * Restrict to authoring roles so a logged-in student can't burn the
+   * monthly cap by hammering the endpoint from the browser console.
+   */
   @Post('suggest-labels')
-  suggestLabels(@Body() dto: SuggestLabelsDto) {
+  suggestLabels(@Body() dto: SuggestLabelsDto, @CurrentUser() user: any) {
+    if (!['admin', 'head_teacher', 'teacher'].includes(user?.role)) {
+      throw new ForbiddenException('teacher, head_teacher, or admin role required');
+    }
     return this.ai.suggestLabels(dto);
   }
 
