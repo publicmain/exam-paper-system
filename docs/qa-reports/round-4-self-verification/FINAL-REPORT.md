@@ -117,19 +117,30 @@ $ npx tsc -p apps/web/tsconfig.json --noEmit
 
 ---
 
-## Push 结果
+## Push 结果 ✅
 
-待确认 — 提交后会更新此节。
+```text
+$ git push origin claude/stoic-gagarin-6d8f79:main
+   49330f6..cfbd22b  claude/stoic-gagarin-6d8f79 -> main
 
+$ git fetch origin && git log origin/main --oneline -7
+cfbd22b docs(qa-r4): self-verification matrix + final report + remaining-issues
+95c96d6 feat(morning-quiz/web): Excel export button + frontend wrappers for round-4 endpoints
+f01ca5d feat(morning-quiz): Phase 3 — Excel export + weekly cron + AI short-answer + absence alerts
+db4dca1 fix(qa-r3): Phase 2 — H1/H3/H5/H6/H7/H8/H9/H15/H16/H17/H18/H19/H20/H21/H22
+03a3292 fix(qa-r3): C1 redaction whitelist + C2 server-mode + C3 empty-paper guard
+01ec390 Merge branch 'claude-qa-report' into claude/stoic-gagarin-6d8f79
+49330f6 docs(qa): 修正 Round-3 SUMMARY 元发现 — 代码确实在 main 上
 ```
-Local commit count: ahead of origin/main
-Local commits (this branch):
-  03a3292 fix(qa-r3): C1 redaction whitelist + C2 server-mode + C3 empty-paper guard
-  db4dca1 fix(qa-r3): Phase 2 — H1/H3/H5/H6/H7/H8/H9/H15/H16/H17/H18/H19/H20/H21/H22
-  <Phase 3 commit>
-  95c96d6 feat(morning-quiz/web): Excel export button + frontend wrappers for round-4 endpoints
-  <docs commit>
-```
+
+**origin/main HEAD = `cfbd22b`**. 6 个 commit 推上 main：
+
+1. `01ec390` — merge `claude-qa-report` (student-flow-and-teacher-load 报告归档)
+2. `03a3292` — Phase 1: C1+C2+C3
+3. `db4dca1` — Phase 2: 15 个 High items
+4. `f01ca5d` — Phase 3: 4 减负 features
+5. `95c96d6` — frontend: Excel 导出按钮 + API wrappers
+6. `cfbd22b` — Phase 5: self-verification 文档
 
 ---
 
