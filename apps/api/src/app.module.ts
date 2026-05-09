@@ -43,6 +43,7 @@ import { WifiGateModule } from './wifi-gate/wifi-gate.module';
 import { QrModule } from './qr/qr.module';
 import { AttendanceModule } from './attendance/attendance.module';
 import { MorningQuizModule } from './morning-quiz/morning-quiz.module';
+import { MorningQuizQaModule } from './morning-quiz-qa/morning-quiz-qa.module';
 import { HealthController } from './health.controller';
 
 @Module({
@@ -92,6 +93,7 @@ import { HealthController } from './health.controller';
     QrModule,
     AttendanceModule,
     MorningQuizModule,
+    MorningQuizQaModule,
   ],
   controllers: [HealthController],
   providers: [

@@ -401,6 +401,29 @@ model Paper {
   status           PaperStatus        @default(draft)
   generatedSeed    Int
   config           Json // snapshot of generation config
+
+  // ── AI QA review (morning-quiz IELTS papers) ──────────────────────
+  // Set by MorningQuizQaService after every passage_pick / quick-paper
+  // generation. verdict gates whether students see the paper:
+  //   pass         → goes live untouched
+  //   needs_review → live but flagged for teacher (yellow badge in UI)
+  //   reject       → blocked, automatic regenerate kicks in (max 2 retries)
+  //   pending      → review still in flight (or never ran)
+  // Issues/summary preserved for teacher dashboard drilldown.
+  qaReviewVerdict  String?            @default("pending")
+  qaReviewSummary  String?
+  qaReviewIssues   Json?
+  qaReviewedAt     DateTime?
+  qaReviewModel    String?
+  qaReviewTokens   Int?
+  qaReviewCostUsd  Float?
+  qaReviewRetries  Int                @default(0)
+  // Teacher decision once a 'needs_review' paper has been triaged:
+  //   approved | rejected | edited (with manual edits) | null=untouched
+  qaTeacherAction  String?
+  qaTeacherActionAt DateTime?
+  qaTeacherActionBy String?
+
   createdAt        DateTime           @default(now())
   updatedAt        DateTime           @updatedAt
 
