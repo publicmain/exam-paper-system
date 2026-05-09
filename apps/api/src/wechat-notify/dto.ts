@@ -1,6 +1,12 @@
 import { z } from 'zod';
 
-const EventEnum = z.enum(['paper_assigned', 'paper_marked', 'low_score']);
+const EventEnum = z.enum([
+  'paper_assigned',
+  'paper_marked',
+  'low_score',
+  'morning_quiz_cron_failed',
+  'consecutive_absent',
+]);
 const ChannelEnum = z.enum(['wechat_work', 'dingtalk', 'email']);
 
 /**

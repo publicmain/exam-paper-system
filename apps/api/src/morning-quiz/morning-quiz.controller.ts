@@ -4,18 +4,24 @@ import {
   Controller,
   ForbiddenException,
   Get,
+  Header,
   NotFoundException,
   Param,
   Patch,
   Post,
   Query,
   Req,
+  Res,
 } from '@nestjs/common';
-import { Request } from 'express';
+import { Request, Response } from 'express';
 import { z } from 'zod';
 import { CurrentUser } from '../common/current-user.decorator';
 import { StudentService } from '../student/student.service';
+import { AbsenceAlertService } from './absence-alert.service';
+import { MorningQuizExportService } from './morning-quiz-export.service';
+import { MorningQuizWeeklyCron } from './morning-quiz-weekly-cron';
 import { MorningQuizService } from './morning-quiz.service';
+import { ShortAnswerEvaluatorService } from './short-answer-evaluator.service';
 
 const CreateSessionSchema = z.object({
   date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
@@ -59,7 +65,96 @@ export class MorningQuizController {
   constructor(
     private readonly svc: MorningQuizService,
     private readonly student: StudentService,
+    private readonly exportSvc: MorningQuizExportService,
+    private readonly weeklyCron: MorningQuizWeeklyCron,
+    private readonly absence: AbsenceAlertService,
+    private readonly shortAnswer: ShortAnswerEvaluatorService,
   ) {}
+
+  /** Admin trigger for the Sunday auto-generate cron — useful so admins
+   *  can dry-run before flipping `MORNING_QUIZ_AUTO_GENERATE=true`. */
+  @Post('weekly-generate/run-now')
+  async weeklyGenerateNow(@CurrentUser() user: any) {
+    if (user.role !== 'admin') throw new ForbiddenException({ code: 'admin_required' });
+    return this.weeklyCron.runOnce();
+  }
+
+  /** Teacher dashboard — current consecutive-absence streaks. Populates
+   *  the red badge on the dashboard. */
+  @Get('absence-alerts/current')
+  async absenceAlertsCurrent(@CurrentUser() user: any) {
+    if (!TEACHER_ROLES.has(user.role)) {
+      throw new ForbiddenException({ code: 'teacher_required' });
+    }
+    const streaks = await this.absence.findCurrentStreaks();
+    return { streaks };
+  }
+
+  /** Teacher dashboard — manually fire the daily absence-alert pass.
+   *  Useful when the cron is disabled or the teacher just wants a fresh
+   *  pull before lunch. */
+  @Post('absence-alerts/run-now')
+  async absenceAlertsRunNow(@CurrentUser() user: any) {
+    if (!TEACHER_ROLES.has(user.role)) {
+      throw new ForbiddenException({ code: 'teacher_required' });
+    }
+    return this.absence.runOnce();
+  }
+
+  /** AI-suggest scoring for a single short_answer item. Teacher-only.
+   *  Body: { stem, studentAnswer, markScheme, maxMarks }. */
+  @Post('ai-grade/short-answer')
+  async aiGradeShortAnswer(
+    @Body() body: unknown,
+    @CurrentUser() user: any,
+  ) {
+    if (!TEACHER_ROLES.has(user.role)) {
+      throw new ForbiddenException({ code: 'teacher_required' });
+    }
+    const schema = z.object({
+      stem: z.string().min(1).max(5000),
+      studentAnswer: z.string().max(20000),
+      markScheme: z.string().min(1).max(5000),
+      maxMarks: z.number().int().min(1).max(20),
+    });
+    const parsed = schema.safeParse(body);
+    if (!parsed.success) throw new BadRequestException(parsed.error.flatten());
+    const out = await this.shortAnswer.evaluate(parsed.data);
+    return out ?? { awardedMarks: null, reasoning: 'AI unavailable — manual review required', confident: false };
+  }
+
+  /** Excel attendance + score export. Streams a binary .xlsx workbook
+   *  with three sheets (attendance / scores / absence summary). Filters:
+   *  from / to (YYYY-MM-DD inclusive), optional classId. Restricted to
+   *  teacher / head_teacher / admin. Audit-logged. */
+  @Get('export/attendance')
+  async exportAttendance(
+    @Query('from') from: string,
+    @Query('to') to: string,
+    @Query('classId') classId: string | undefined,
+    @CurrentUser() user: any,
+    @Req() req: Request,
+    @Res() res: Response,
+  ) {
+    if (!TEACHER_ROLES.has(user.role)) {
+      throw new ForbiddenException({ code: 'teacher_required' });
+    }
+    if (!from || !to || !/^\d{4}-\d{2}-\d{2}$/.test(from) || !/^\d{4}-\d{2}-\d{2}$/.test(to)) {
+      throw new BadRequestException({ code: 'invalid_date_range' });
+    }
+    const buf = await this.exportSvc.generateAttendanceWorkbook(
+      { from, to, classId },
+      { id: user.id, role: user.role, ip: req.ip ?? null },
+    );
+    const filename = `morning-quiz-${from}-to-${to}${classId ? '-' + classId : ''}.xlsx`;
+    res.setHeader(
+      'Content-Type',
+      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    );
+    res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+    res.setHeader('Content-Length', buf.length.toString());
+    res.end(buf);
+  }
 
   // ─────────────────── Teacher / admin endpoints ───────────────────
 

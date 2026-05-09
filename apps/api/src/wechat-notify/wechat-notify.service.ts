@@ -2,7 +2,13 @@ import { BadRequestException, Injectable, Logger, NotFoundException } from '@nes
 import { PrismaService } from '../common/prisma.service';
 import { CreateConfigDto, UpdateConfigDto } from './dto';
 
-type EventName = 'paper_assigned' | 'paper_marked' | 'low_score';
+type EventName =
+  | 'paper_assigned'
+  | 'paper_marked'
+  | 'low_score'
+  // Round-4 morning-quiz add-ons
+  | 'morning_quiz_cron_failed'
+  | 'consecutive_absent';
 
 /**
  * Notification dispatch surface.

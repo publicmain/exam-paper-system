@@ -565,3 +565,412 @@ describe('AttendanceController.ScanSchema — deviceUuid required + regex', () =
     expect(ScanSchema.safeParse({ ...validBody, deviceUuid: 'abcd' }).success).toBe(false);
   });
 });
+
+// ───────── Round-4: Excel export workbook generation ─────────────────
+import { MorningQuizExportService } from '../src/morning-quiz/morning-quiz-export.service';
+import * as ExcelJS from 'exceljs';
+
+describe('MorningQuizExportService.generateAttendanceWorkbook', () => {
+  function makePrismaStub() {
+    const sessions = [
+      {
+        id: 's1',
+        date: new Date('2026-05-04T00:00:00Z'),
+        classId: 'c1',
+        class: { id: 'c1', name: 'P5A' },
+        paperAssignment: { paperId: 'paper-1' },
+      },
+      {
+        id: 's2',
+        date: new Date('2026-05-05T00:00:00Z'),
+        classId: 'c1',
+        class: { id: 'c1', name: 'P5A' },
+        paperAssignment: { paperId: 'paper-1' },
+      },
+    ];
+    const attendances = [
+      {
+        id: 'a1',
+        sessionId: 's1',
+        studentId: 'stu-1',
+        student: { id: 'stu-1', name: 'Alice' },
+        status: 'on_time',
+        scanTime: new Date('2026-05-04T00:30:00Z'),
+        submissionId: 'sub-1',
+      },
+      {
+        id: 'a2',
+        sessionId: 's2',
+        studentId: 'stu-1',
+        student: { id: 'stu-1', name: 'Alice' },
+        status: 'absent',
+        scanTime: null,
+        submissionId: null,
+      },
+      {
+        id: 'a3',
+        sessionId: 's1',
+        studentId: 'stu-2',
+        student: { id: 'stu-2', name: 'Bob' },
+        status: 'late',
+        scanTime: new Date('2026-05-04T00:35:00Z'),
+        submissionId: 'sub-2',
+      },
+    ];
+    const submissions = [
+      {
+        id: 'sub-1',
+        submittedAt: new Date('2026-05-04T01:00:00Z'),
+        scripts: [
+          { paperQuestionId: 'pq-1', selectedOption: 'A', autoCorrect: true, awardedMarks: 1 },
+          { paperQuestionId: 'pq-2', selectedOption: 'B', autoCorrect: false, awardedMarks: 0 },
+        ],
+      },
+      {
+        id: 'sub-2',
+        submittedAt: null,
+        scripts: [
+          { paperQuestionId: 'pq-1', selectedOption: 'A', autoCorrect: true, awardedMarks: 1 },
+        ],
+      },
+    ];
+    return {
+      morningQuizSession: { findMany: vi.fn().mockResolvedValue(sessions) },
+      attendance: { findMany: vi.fn().mockResolvedValue(attendances) },
+      studentSubmission: { findMany: vi.fn().mockResolvedValue(submissions) },
+    };
+  }
+
+  it('produces an .xlsx with three named sheets and the expected row counts', async () => {
+    const audit = { log: vi.fn().mockResolvedValue(undefined) } as any;
+    const svc = new MorningQuizExportService(makePrismaStub() as any, audit);
+    const buf = await svc.generateAttendanceWorkbook(
+      { from: '2026-05-04', to: '2026-05-08' },
+      { id: 'admin-1', role: 'admin', ip: null },
+    );
+    expect(buf).toBeInstanceOf(Buffer);
+    expect(buf.length).toBeGreaterThan(2000); // workbook bytes
+    const wb = new ExcelJS.Workbook();
+    await wb.xlsx.load(buf as any);
+    const names = wb.worksheets.map((w) => w.name);
+    expect(names).toEqual(
+      expect.arrayContaining([
+        '考勤明细 Attendance',
+        '成绩明细 Scores',
+        '缺勤汇总 Absences',
+      ]),
+    );
+    const att = wb.getWorksheet('考勤明细 Attendance')!;
+    // 1 header + 3 attendance rows
+    expect(att.rowCount).toBe(4);
+    const scores = wb.getWorksheet('成绩明细 Scores')!;
+    // 1 header + 2 submitted rows (a1 and a3, not a2 which has no submission)
+    expect(scores.rowCount).toBe(3);
+    const summary = wb.getWorksheet('缺勤汇总 Absences')!;
+    // 1 header + 2 distinct students
+    expect(summary.rowCount).toBe(3);
+    expect(audit.log).toHaveBeenCalled();
+  });
+
+  it('refuses non-teacher roles', async () => {
+    const audit = { log: vi.fn() } as any;
+    const svc = new MorningQuizExportService({} as any, audit);
+    await expect(
+      svc.generateAttendanceWorkbook(
+        { from: '2026-05-04', to: '2026-05-08' },
+        { id: 'stu-1', role: 'student', ip: null },
+      ),
+    ).rejects.toThrow();
+  });
+});
+
+// ───────── Round-4: AbsenceAlertService streak detection ─────────────
+import { AbsenceAlertService } from '../src/morning-quiz/absence-alert.service';
+import { AttendanceStatus } from '@prisma/client';
+
+describe('AbsenceAlertService.findCurrentStreaks', () => {
+  function makePrismaWith(records: Array<{ studentId: string; date: string; status: AttendanceStatus; className?: string }>) {
+    // Group records into sessions by date+class.
+    const byDateClass = new Map<string, any>();
+    for (const r of records) {
+      const cls = r.className ?? 'C1';
+      const key = `${cls}::${r.date}`;
+      const sess = byDateClass.get(key) ?? {
+        id: `sess-${key}`,
+        date: new Date(`${r.date}T00:00:00Z`),
+        classId: cls,
+        class: { id: cls, name: cls },
+        attendances: [] as any[],
+      };
+      sess.attendances.push({
+        studentId: r.studentId,
+        status: r.status,
+        student: { id: r.studentId, name: r.studentId },
+      });
+      byDateClass.set(key, sess);
+    }
+    const sessions = Array.from(byDateClass.values());
+    return {
+      morningQuizSession: { findMany: vi.fn().mockResolvedValue(sessions) },
+    };
+  }
+
+  it('flags a student with 3 consecutive absent days', async () => {
+    const records: Array<{ studentId: string; date: string; status: AttendanceStatus }> = [
+      { studentId: 'alice', date: '2026-05-05', status: AttendanceStatus.absent },
+      { studentId: 'alice', date: '2026-05-06', status: AttendanceStatus.absent },
+      { studentId: 'alice', date: '2026-05-07', status: AttendanceStatus.absent },
+    ];
+    const svc = new AbsenceAlertService(
+      makePrismaWith(records) as any,
+      { fire: vi.fn() } as any,
+      { log: vi.fn() } as any,
+    );
+    const streaks = await svc.findCurrentStreaks(3, new Date('2026-05-07T12:00:00Z'));
+    expect(streaks).toHaveLength(1);
+    expect(streaks[0].studentId).toBe('alice');
+    expect(streaks[0].consecutiveDays).toBe(3);
+  });
+
+  it('does NOT flag a student who returned (absent run was broken)', async () => {
+    const records: Array<{ studentId: string; date: string; status: AttendanceStatus }> = [
+      { studentId: 'alice', date: '2026-05-04', status: AttendanceStatus.absent },
+      { studentId: 'alice', date: '2026-05-05', status: AttendanceStatus.absent },
+      { studentId: 'alice', date: '2026-05-06', status: AttendanceStatus.absent },
+      { studentId: 'alice', date: '2026-05-07', status: AttendanceStatus.on_time },
+    ];
+    const svc = new AbsenceAlertService(
+      makePrismaWith(records) as any,
+      { fire: vi.fn() } as any,
+      { log: vi.fn() } as any,
+    );
+    const streaks = await svc.findCurrentStreaks(3, new Date('2026-05-07T12:00:00Z'));
+    expect(streaks).toHaveLength(0);
+  });
+
+  it('flags only the longer streak when threshold is crossed', async () => {
+    const records: Array<{ studentId: string; date: string; status: AttendanceStatus }> = [
+      // alice: streak of 4 ending today
+      { studentId: 'alice', date: '2026-05-04', status: AttendanceStatus.absent },
+      { studentId: 'alice', date: '2026-05-05', status: AttendanceStatus.absent },
+      { studentId: 'alice', date: '2026-05-06', status: AttendanceStatus.absent },
+      { studentId: 'alice', date: '2026-05-07', status: AttendanceStatus.absent },
+      // bob: 1 absent only
+      { studentId: 'bob', date: '2026-05-07', status: AttendanceStatus.absent },
+    ];
+    const svc = new AbsenceAlertService(
+      makePrismaWith(records) as any,
+      { fire: vi.fn() } as any,
+      { log: vi.fn() } as any,
+    );
+    const streaks = await svc.findCurrentStreaks(3, new Date('2026-05-07T12:00:00Z'));
+    expect(streaks).toHaveLength(1);
+    expect(streaks[0].studentId).toBe('alice');
+    expect(streaks[0].consecutiveDays).toBe(4);
+  });
+});
+
+describe('AbsenceAlertService.runOnce dedup', () => {
+  it('does not re-fire when the same student already alerted within 7 days at the same streak', async () => {
+    const records = [
+      { studentId: 'alice', date: '2026-05-05', status: AttendanceStatus.absent },
+      { studentId: 'alice', date: '2026-05-06', status: AttendanceStatus.absent },
+      { studentId: 'alice', date: '2026-05-07', status: AttendanceStatus.absent },
+    ];
+    const byDateClass = new Map<string, any>();
+    for (const r of records) {
+      const key = `C1::${r.date}`;
+      const sess = byDateClass.get(key) ?? {
+        id: `sess-${key}`,
+        date: new Date(`${r.date}T00:00:00Z`),
+        classId: 'C1',
+        class: { id: 'C1', name: 'C1' },
+        attendances: [],
+      };
+      sess.attendances.push({
+        studentId: r.studentId,
+        status: r.status,
+        student: { id: r.studentId, name: r.studentId },
+      });
+      byDateClass.set(key, sess);
+    }
+    const sessions = Array.from(byDateClass.values());
+    const fire = vi.fn();
+    const auditLog = vi.fn();
+    const prisma = {
+      morningQuizSession: { findMany: vi.fn().mockResolvedValue(sessions) },
+      auditLog: {
+        findFirst: vi.fn().mockResolvedValue({
+          id: 'al-1',
+          action: 'absence_alert.fired',
+          entityId: 'alice',
+          metadata: { consecutiveDays: 3 },
+          createdAt: new Date(Date.now() - 1 * 24 * 3600_000),
+        }),
+      },
+    } as any;
+    const svc = new AbsenceAlertService(prisma, { fire } as any, { log: auditLog } as any);
+    const result = await svc.runOnce();
+    expect(result.fired).toBe(0);
+    expect(result.skippedDedup).toBe(1);
+    expect(fire).not.toHaveBeenCalled();
+  });
+
+  it('DOES re-fire when streak got longer since last alert', async () => {
+    const records = [
+      { studentId: 'alice', date: '2026-05-04', status: AttendanceStatus.absent },
+      { studentId: 'alice', date: '2026-05-05', status: AttendanceStatus.absent },
+      { studentId: 'alice', date: '2026-05-06', status: AttendanceStatus.absent },
+      { studentId: 'alice', date: '2026-05-07', status: AttendanceStatus.absent },
+    ];
+    const byDateClass = new Map<string, any>();
+    for (const r of records) {
+      const key = `C1::${r.date}`;
+      const sess = byDateClass.get(key) ?? {
+        id: `sess-${key}`,
+        date: new Date(`${r.date}T00:00:00Z`),
+        classId: 'C1',
+        class: { id: 'C1', name: 'C1' },
+        attendances: [],
+      };
+      sess.attendances.push({
+        studentId: r.studentId,
+        status: r.status,
+        student: { id: r.studentId, name: r.studentId },
+      });
+      byDateClass.set(key, sess);
+    }
+    const sessions = Array.from(byDateClass.values());
+    const fire = vi.fn().mockResolvedValue([{}]);
+    const auditLog = vi.fn().mockResolvedValue(undefined);
+    const prisma = {
+      morningQuizSession: { findMany: vi.fn().mockResolvedValue(sessions) },
+      auditLog: {
+        findFirst: vi.fn().mockResolvedValue({
+          id: 'al-1',
+          action: 'absence_alert.fired',
+          entityId: 'alice',
+          metadata: { consecutiveDays: 3 }, // last alert was at 3, now we're at 4
+          createdAt: new Date(Date.now() - 1 * 24 * 3600_000),
+        }),
+      },
+    } as any;
+    const svc = new AbsenceAlertService(prisma, { fire } as any, { log: auditLog } as any);
+    const result = await svc.runOnce();
+    expect(result.fired).toBe(1);
+    expect(fire).toHaveBeenCalledWith(
+      'consecutive_absent',
+      expect.objectContaining({ studentId: 'alice', consecutiveDays: 4 }),
+    );
+  });
+});
+
+// ───────── Round-4: ShortAnswerEvaluatorService ─────────
+import { ShortAnswerEvaluatorService } from '../src/morning-quiz/short-answer-evaluator.service';
+
+describe('ShortAnswerEvaluatorService', () => {
+  it('returns null when ANTHROPIC_API_KEY is not configured (stub mode)', async () => {
+    const prev = process.env.ANTHROPIC_API_KEY;
+    process.env.ANTHROPIC_API_KEY = '';
+    try {
+      const svc = new ShortAnswerEvaluatorService();
+      const out = await svc.evaluate({
+        stem: 'Define photosynthesis.',
+        studentAnswer: 'Plants make food from sunlight.',
+        markScheme: '1 mark for "convert sunlight" or equivalent.',
+        maxMarks: 2,
+      });
+      expect(out).toBeNull();
+    } finally {
+      process.env.ANTHROPIC_API_KEY = prev ?? '';
+    }
+  });
+
+  it('shortcuts a blank answer to 0 with high confidence (no API call)', async () => {
+    const prev = process.env.ANTHROPIC_API_KEY;
+    process.env.ANTHROPIC_API_KEY = 'sk-ant-fake-but-not-stub';
+    try {
+      const svc = new ShortAnswerEvaluatorService();
+      const out = await svc.evaluate({
+        stem: 'Define photosynthesis.',
+        studentAnswer: '',
+        markScheme: 'X',
+        maxMarks: 2,
+      });
+      expect(out?.awardedMarks).toBe(0);
+      expect(out?.confident).toBe(true);
+    } finally {
+      process.env.ANTHROPIC_API_KEY = prev ?? '';
+    }
+  });
+
+  it('returns null when no markScheme is provided', async () => {
+    const prev = process.env.ANTHROPIC_API_KEY;
+    process.env.ANTHROPIC_API_KEY = 'sk-ant-fake';
+    try {
+      const svc = new ShortAnswerEvaluatorService();
+      const out = await svc.evaluate({
+        stem: 'X',
+        studentAnswer: 'Y',
+        markScheme: '',
+        maxMarks: 1,
+      });
+      expect(out).toBeNull();
+    } finally {
+      process.env.ANTHROPIC_API_KEY = prev ?? '';
+    }
+  });
+});
+
+// ───────── Round-4: MorningQuizWeeklyCron weekStart calc ─────────
+import { MorningQuizWeeklyCron } from '../src/morning-quiz/morning-quiz-weekly-cron';
+
+describe('MorningQuizWeeklyCron.runOnce', () => {
+  it('skips work when no class has an English level', async () => {
+    const cron = new MorningQuizWeeklyCron(
+      { classEnglishLevel: { findMany: vi.fn().mockResolvedValue([]) } } as any,
+      { batchGenerateForWeek: vi.fn() } as any,
+      { fire: vi.fn() } as any,
+    );
+    const out = await cron.runOnce();
+    expect(out.classesAttempted).toBe(0);
+  });
+
+  it('calls batchGenerateForWeek with the upcoming Monday', async () => {
+    const findMany = vi
+      .fn()
+      .mockResolvedValue([{ classId: 'C1' }, { classId: 'C2' }]);
+    const batchGenerate = vi.fn().mockResolvedValue({ items: [{}, {}] });
+    const fire = vi.fn();
+    const cron = new MorningQuizWeeklyCron(
+      { classEnglishLevel: { findMany } } as any,
+      { batchGenerateForWeek: batchGenerate } as any,
+      { fire } as any,
+    );
+    await cron.runOnce();
+    expect(batchGenerate).toHaveBeenCalledTimes(1);
+    const call = batchGenerate.mock.calls[0][0];
+    // weekStart should match YYYY-MM-DD
+    expect(call.weekStart).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+    expect(call.classIds).toEqual(['C1', 'C2']);
+    expect(fire).not.toHaveBeenCalled(); // no errors → no notify
+  });
+
+  it('fires notify when batch errors are returned', async () => {
+    const findMany = vi.fn().mockResolvedValue([{ classId: 'C1' }]);
+    const batchGenerate = vi
+      .fn()
+      .mockResolvedValue({ items: [{ classId: 'C1', error: 'AI timeout' }] });
+    const fire = vi.fn().mockResolvedValue(undefined);
+    const cron = new MorningQuizWeeklyCron(
+      { classEnglishLevel: { findMany } } as any,
+      { batchGenerateForWeek: batchGenerate } as any,
+      { fire } as any,
+    );
+    await cron.runOnce();
+    expect(fire).toHaveBeenCalledWith(
+      'morning_quiz_cron_failed',
+      expect.objectContaining({ failed: 1 }),
+    );
+  });
+});
