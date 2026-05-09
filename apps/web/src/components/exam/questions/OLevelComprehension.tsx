@@ -26,8 +26,15 @@ import { QuestionFlag } from '../shared/QuestionFlag';
 export function OLevelComprehension({ paper }: { paper: ExamPaper }) {
   const { fontScale } = useExam();
   const [idx, setIdx] = useState(0);
-  const total = paper.questions.length;
-  const q = paper.questions[idx];
+  const total = paper?.questions?.length ?? 0;
+  if (!total) {
+    return (
+      <div className="max-w-xl mx-auto py-12 px-6 text-center text-amber-800">
+        该卷尚未出题，请联系老师。
+      </div>
+    );
+  }
+  const q = paper.questions[Math.min(idx, total - 1)];
   const passageContent = paper.questions[0]?.snapshotContent ?? {};
   const passageTitle = clean(passageContent.passageTitle ?? 'Passage');
   const passageBody = useMemo(

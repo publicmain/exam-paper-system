@@ -42,6 +42,73 @@ const LATE_CUTOFF_LOCAL = '08:50:00';
 const QUIZ_END_LOCAL = '09:00:00';
 
 /**
+ * Whitelist of `snapshotContent` fields that are safe to send to a student
+ * during an active quiz. ANY field not on this list is dropped, including
+ * fields that don't exist today but may be added by a future PR
+ * (correctXxx, exampleAnswer, explanation, markScheme, answerContent …).
+ * The deny-by-default posture means redaction is correct-by-construction
+ * — see round-3 SUMMARY C1 for why the previous omit-list was unsafe.
+ *
+ * If a new safe field is needed by the UI, add it here AND update
+ * docs/UI-QUESTION-TYPES.md so the contract stays in sync.
+ */
+const SAFE_SNAPSHOT_SCALAR_FIELDS = new Set([
+  // Common stem / instruction text
+  'stem',
+  'prompt',
+  'instruction',
+  // Reading-comprehension shared context
+  'passage',
+  'passageTitle',
+  // IELTS reading task discriminator
+  'taskType',
+  // Vocab in context
+  'contextSentence',
+  'targetWord',
+  // Sentence transformation
+  'original',
+  'starter',
+  'maxWords',
+  // Cloze
+  // (passage already listed; per-blank correctAnswer is INTENTIONALLY omitted)
+  // Renderer hint set by the AI generator (cloze / vocab / transformation)
+  'uiKind',
+]);
+
+/**
+ * Per-question option-bank fields nested inside snapshotContent (separate
+ * from the top-level snapshotOptions). Values are arrays of {key, text};
+ * we re-strip each entry to drop any "correct" flag the bank may carry.
+ */
+const SAFE_SNAPSHOT_BANK_FIELDS = new Set(['headingsBank', 'wordBank']);
+
+/**
+ * Redact a `snapshotContent` JSON for delivery to a student.
+ * Whitelist-based: only known-safe fields pass; everything else (incl.
+ * answer-key fields like `correctOption`, `correctAnswer`, `explanation`,
+ * `exampleAnswer`, `markScheme`, `answerContent`, `solution`, etc.) is
+ * silently dropped.
+ */
+export function redactSnapshotForStudent(sc: unknown): unknown {
+  if (sc == null) return sc;
+  if (typeof sc !== 'object' || Array.isArray(sc)) return sc;
+  const src = sc as Record<string, unknown>;
+  const out: Record<string, unknown> = {};
+  for (const k of Object.keys(src)) {
+    if (SAFE_SNAPSHOT_SCALAR_FIELDS.has(k)) {
+      out[k] = src[k];
+    } else if (SAFE_SNAPSHOT_BANK_FIELDS.has(k) && Array.isArray(src[k])) {
+      out[k] = (src[k] as unknown[]).map((b: any) => ({
+        key: b?.key,
+        text: b?.text,
+      }));
+    }
+    // anything else: dropped (deny by default)
+  }
+  return out;
+}
+
+/**
  * Combine a y-m-d and a hh:mm:ss string in school local time (assumed
  * Asia/Singapore = UTC+8) into a UTC Date. We avoid pulling a tz library
  * for this single use; the offset is hard-coded but adjustable via the
@@ -637,15 +704,16 @@ export class MorningQuizService {
     // snapshotOptions[].correct + snapshotContent.markScheme / answerContent
     // would otherwise be readable in F12 and let the student aim for full
     // marks. Mirrors student.service.redactForStudent's contract.
+    //
+    // The redaction is an EXPLICIT WHITELIST — anything not on the list is
+    // dropped. This avoids the omit-list trap where a future field
+    // (correctOption, exampleAnswer, explanation, …) silently flows to the
+    // student because nobody updated the deny list. See round-3 SUMMARY C1.
     const stripOptions = (opts: unknown) => {
       if (!Array.isArray(opts)) return opts;
       return opts.map((o: any) => ({ key: o?.key, text: o?.text }));
     };
-    const stripSnapshotContent = (sc: unknown) => {
-      if (!sc || typeof sc !== 'object' || Array.isArray(sc)) return sc;
-      const { markScheme, answerContent, ...rest } = sc as Record<string, unknown>;
-      return rest;
-    };
+    const stripSnapshotContent = redactSnapshotForStudent;
 
     // Derive the quiz UI mode for the client. `level` comes from
     // ClassEnglishLevel; if absent (no row yet) we fall back to:
@@ -662,6 +730,11 @@ export class MorningQuizService {
       quizEnd: session.quizEnd,
       level,
       paperMode,
+      // Authoritative quiz mode for the client. Morning quizzes are always
+      // 'test' — the server never returns answer-key data through this
+      // endpoint, so a client-side `?mode=practice` URL trick can't unlock
+      // it. (Practice review of a *submitted* quiz uses POST /check.)
+      mode: 'test' as const,
       paperQuestions: delivered.map((pq) => ({
         id: pq.id,
         sortOrder: pq.sortOrder,
@@ -670,6 +743,96 @@ export class MorningQuizService {
         snapshotOptions: stripOptions(pq.snapshotOptions),
         questionType: pq.question.questionType,
       })),
+    };
+  }
+
+  /**
+   * Server-authoritative practice-mode check. Only callable AFTER the
+   * student has submitted (or the session window has closed): until then,
+   * answers stay locked. Returns whether the guess matches the canonical
+   * key, plus the canonical key + explanation if the student got it wrong.
+   *
+   * For MCQ on a non-passage-pick paper we reverse-map the displayed key
+   * (A/B/C/D after relabel) back to the original key before comparing —
+   * mirroring saveAnswer.
+   */
+  async checkAnswer(
+    sessionId: string,
+    body: { paperQuestionId: string; selectedOption?: string | null; textAnswer?: string | null },
+    studentId: string,
+  ) {
+    const session = await this.prisma.morningQuizSession.findUnique({
+      where: { id: sessionId },
+      include: { paperAssignment: { select: { id: true, paperId: true } } },
+    });
+    if (!session) throw new NotFoundException({ code: 'session_not_found' });
+    const submission = await this.prisma.studentSubmission.findUnique({
+      where: {
+        assignmentId_studentId: {
+          assignmentId: session.paperAssignmentId,
+          studentId,
+        },
+      },
+      select: { status: true },
+    });
+    const now = new Date();
+    const windowClosed = now > session.quizEnd;
+    const submitted =
+      submission?.status === 'submitted' || submission?.status === 'graded';
+    if (!windowClosed && !submitted) {
+      // Block during the live window — preserves test integrity.
+      throw new ForbiddenException({ code: 'check_blocked_until_submit' });
+    }
+
+    const pq = await this.prisma.paperQuestion.findFirst({
+      where: { id: body.paperQuestionId, paperId: session.paperAssignment.paperId },
+      include: { question: { select: { questionType: true } } },
+    });
+    if (!pq) throw new NotFoundException({ code: 'paper_question_mismatch' });
+
+    const sc = (pq.snapshotContent ?? {}) as Record<string, unknown>;
+    const correctKey =
+      typeof sc.correctOption === 'string'
+        ? (sc.correctOption as string)
+        : typeof sc.correctAnswer === 'string'
+        ? (sc.correctAnswer as string)
+        : null;
+    const explanation =
+      typeof sc.explanation === 'string' ? (sc.explanation as string) : null;
+    const exampleAnswer =
+      typeof sc.exampleAnswer === 'string' ? (sc.exampleAnswer as string) : null;
+
+    let studentChoice = body.selectedOption ?? null;
+    if (pq.question.questionType === 'mcq' && studentChoice) {
+      const paper = await this.prisma.paper.findUnique({
+        where: { id: session.paperAssignment.paperId },
+        select: { config: true },
+      });
+      const isPassagePick =
+        ((paper?.config as { mode?: string } | null)?.mode ?? null) === 'passage_pick';
+      if (!isPassagePick) {
+        const map = await this.shuffle.getOrCreate(studentId, session.paperAssignment.paperId);
+        const displayedIdx = studentChoice.charCodeAt(0) - 65;
+        const originalIdx = this.shuffle.unmapOptionIndex(map, pq.id, displayedIdx);
+        if (originalIdx !== null) {
+          const opts = (pq.snapshotOptions as Array<{ key: string }> | null) ?? [];
+          if (originalIdx < opts.length) {
+            studentChoice = opts[originalIdx].key;
+          }
+        }
+      }
+    }
+
+    let correct: boolean | null = null;
+    if (correctKey) {
+      const guess = (studentChoice ?? body.textAnswer ?? '').toString().trim().toLowerCase();
+      correct = guess.length > 0 && guess === correctKey.toString().trim().toLowerCase();
+    }
+    return {
+      correct,
+      correctKey: correctKey ?? null,
+      explanation,
+      exampleAnswer,
     };
   }
 

@@ -279,40 +279,24 @@ describe('filename-parser (IELTS)', () => {
 // refactor accidentally re-introducing the leak fails this test loudly.
 
 import { autoGradeScripts } from '../src/student/student.service';
+import { redactSnapshotForStudent } from '../src/morning-quiz/morning-quiz.service';
 
-describe('MorningQuizService — student view redaction (Round 1 critical)', () => {
-  // Mirror the helper in getStudentView. If the service helper changes
-  // shape, update both here AND in the service.
-  function redactSnapshotForStudent(pq: {
-    snapshotContent: any;
-    snapshotOptions: any;
-  }) {
-    const stripOptions = (opts: unknown) => {
-      if (!Array.isArray(opts)) return opts;
-      return opts.map((o: any) => ({ key: o?.key, text: o?.text }));
-    };
-    const stripSnapshotContent = (sc: unknown) => {
-      if (!sc || typeof sc !== 'object' || Array.isArray(sc)) return sc;
-      const { markScheme, answerContent, ...rest } = sc as Record<string, unknown>;
-      return rest;
-    };
-    return {
-      snapshotContent: stripSnapshotContent(pq.snapshotContent),
-      snapshotOptions: stripOptions(pq.snapshotOptions),
-    };
+describe('MorningQuizService — student view redaction (Round 1 critical + Round 3 C1)', () => {
+  // Round 3 C1: redaction is now an explicit WHITELIST, not an omit-list.
+  // Anything not on SAFE_SNAPSHOT_SCALAR_FIELDS or SAFE_SNAPSHOT_BANK_FIELDS
+  // is dropped — including any future answer-key field.
+  function stripOptions(opts: unknown) {
+    if (!Array.isArray(opts)) return opts;
+    return opts.map((o: any) => ({ key: o?.key, text: o?.text }));
   }
 
   it('strips correct flag from snapshotOptions', () => {
-    const pq = {
-      snapshotOptions: [
-        { key: 'A', text: '24', correct: false },
-        { key: 'B', text: '42', correct: true },
-        { key: 'C', text: '7', correct: false },
-      ],
-      snapshotContent: { stem: 'What is 6 × 7?' },
-    };
-    const out = redactSnapshotForStudent(pq);
-    for (const opt of out.snapshotOptions as any[]) {
+    const opts = [
+      { key: 'A', text: '24', correct: false },
+      { key: 'B', text: '42', correct: true },
+      { key: 'C', text: '7', correct: false },
+    ];
+    for (const opt of stripOptions(opts) as any[]) {
       expect(opt).not.toHaveProperty('correct');
       expect(opt).toHaveProperty('key');
       expect(opt).toHaveProperty('text');
@@ -320,27 +304,147 @@ describe('MorningQuizService — student view redaction (Round 1 critical)', () 
   });
 
   it('strips markScheme + answerContent from snapshotContent', () => {
-    const pq = {
-      snapshotOptions: null,
-      snapshotContent: {
-        stem: 'Explain photosynthesis.',
-        markScheme: '6CO2 + 6H2O -> C6H12O6 + 6O2 (3 marks)',
-        answerContent: { text: 'plants use sunlight…' },
-        passage: 'visible legitimate field',
-      },
+    const sc = {
+      stem: 'Explain photosynthesis.',
+      markScheme: '6CO2 + 6H2O -> C6H12O6 + 6O2 (3 marks)',
+      answerContent: { text: 'plants use sunlight…' },
+      passage: 'visible legitimate field',
     };
-    const out = redactSnapshotForStudent(pq) as any;
-    expect(out.snapshotContent).not.toHaveProperty('markScheme');
-    expect(out.snapshotContent).not.toHaveProperty('answerContent');
-    expect(out.snapshotContent.passage).toBe('visible legitimate field');
-    expect(out.snapshotContent.stem).toBeDefined();
+    const out = redactSnapshotForStudent(sc) as any;
+    expect(out).not.toHaveProperty('markScheme');
+    expect(out).not.toHaveProperty('answerContent');
+    expect(out.passage).toBe('visible legitimate field');
+    expect(out.stem).toBeDefined();
   });
 
   it('passes through null/non-object snapshotContent unchanged', () => {
-    expect(redactSnapshotForStudent({ snapshotOptions: [], snapshotContent: null })
-      .snapshotContent).toBeNull();
-    expect(redactSnapshotForStudent({ snapshotOptions: [], snapshotContent: 'plain string' })
-      .snapshotContent).toBe('plain string');
+    expect(redactSnapshotForStudent(null)).toBeNull();
+    expect(redactSnapshotForStudent('plain string')).toBe('plain string');
+    expect(redactSnapshotForStudent(undefined)).toBeUndefined();
+  });
+
+  // ─────── Round 3 C1: whitelist-vs-blacklist regression guards ───────
+
+  it('drops correctOption / correctAnswer / exampleAnswer / explanation', () => {
+    const sc = {
+      stem: 'Sample stem',
+      passage: 'Some passage text',
+      correctOption: 'B',
+      correctAnswer: 'photosynthesis',
+      exampleAnswer: 'A model answer',
+      explanation: 'Because…',
+    };
+    const out = redactSnapshotForStudent(sc) as any;
+    expect(out).not.toHaveProperty('correctOption');
+    expect(out).not.toHaveProperty('correctAnswer');
+    expect(out).not.toHaveProperty('exampleAnswer');
+    expect(out).not.toHaveProperty('explanation');
+    expect(out.stem).toBe('Sample stem');
+    expect(out.passage).toBe('Some passage text');
+  });
+
+  it('whitelist allows the documented UI fields', () => {
+    const sc = {
+      stem: 's',
+      prompt: 'p',
+      instruction: 'i',
+      passage: 'pa',
+      passageTitle: 'pt',
+      taskType: 'true_false_not_given',
+      contextSentence: 'cs',
+      targetWord: 'tw',
+      original: 'o',
+      starter: 'st',
+      maxWords: 12,
+      uiKind: 'cloze',
+    };
+    const out = redactSnapshotForStudent(sc) as any;
+    for (const k of Object.keys(sc)) {
+      expect(out[k]).toBe((sc as any)[k]);
+    }
+  });
+
+  it('strips correct flag inside headingsBank / wordBank entries', () => {
+    const sc = {
+      stem: 'Match the headings',
+      taskType: 'matching_headings',
+      headingsBank: [
+        { key: 'i', text: 'A title', correct: true, internalNote: 'leak' },
+        { key: 'ii', text: 'Another title', correct: false },
+      ],
+      wordBank: [
+        { key: 'A', text: 'energy', correct: true },
+      ],
+    };
+    const out = redactSnapshotForStudent(sc) as any;
+    for (const h of out.headingsBank) {
+      expect(h).not.toHaveProperty('correct');
+      expect(h).not.toHaveProperty('internalNote');
+      expect(h).toHaveProperty('key');
+      expect(h).toHaveProperty('text');
+    }
+    for (const w of out.wordBank) {
+      expect(w).not.toHaveProperty('correct');
+    }
+  });
+
+  // FUZZ: random unknown keys must always be dropped. This is the
+  // structural guarantee — any future answer-key field added to the
+  // generator will be redacted automatically.
+  it('fuzz: drops every unknown field, regardless of name or value type', () => {
+    const SAFE_SCALAR = new Set([
+      'stem', 'prompt', 'instruction', 'passage', 'passageTitle', 'taskType',
+      'contextSentence', 'targetWord', 'original', 'starter', 'maxWords', 'uiKind',
+    ]);
+    const SAFE_BANK = new Set(['headingsBank', 'wordBank']);
+    const RNG = (() => {
+      let s = 1234567;
+      return () => { s = (s * 1103515245 + 12345) & 0x7fffffff; return s / 0x7fffffff; };
+    })();
+    const randomKey = () => {
+      const seeds = [
+        'correctXxx', 'answerXxx', 'solution', 'rubric', 'modelAnswer',
+        'expectedOutput', 'mark', 'totalMarks', 'gradingNotes',
+        'teacherOnly', 'private', 'secret', 'leak',
+        'correct_option_v2', '__answer__', 'foo', 'bar',
+      ];
+      return seeds[Math.floor(RNG() * seeds.length)];
+    };
+    const randomValue = () => {
+      const v = RNG();
+      if (v < 0.2) return 'a string';
+      if (v < 0.4) return 42;
+      if (v < 0.6) return { nested: 'object', correct: 'C' };
+      if (v < 0.8) return ['list', 'of', 'things'];
+      return null;
+    };
+    for (let trial = 0; trial < 200; trial++) {
+      const sc: Record<string, unknown> = {
+        stem: 'test stem',
+        passage: 'test passage',
+      };
+      // Sprinkle 1-5 unknown fields with random names + values.
+      const n = 1 + Math.floor(RNG() * 5);
+      const planted: string[] = [];
+      for (let i = 0; i < n; i++) {
+        const k = randomKey() + (i > 0 ? `_${i}` : '');
+        sc[k] = randomValue();
+        planted.push(k);
+      }
+      const out = redactSnapshotForStudent(sc) as Record<string, unknown>;
+      for (const k of Object.keys(out)) {
+        if (!SAFE_SCALAR.has(k) && !SAFE_BANK.has(k)) {
+          throw new Error(`fuzz failure: redaction leaked unknown key "${k}" (trial ${trial})`);
+        }
+      }
+      // safe fields preserved
+      expect(out.stem).toBe('test stem');
+      expect(out.passage).toBe('test passage');
+      // every planted field gone
+      for (const k of planted) {
+        expect(out).not.toHaveProperty(k);
+      }
+    }
   });
 });
 

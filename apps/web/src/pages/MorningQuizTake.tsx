@@ -30,6 +30,10 @@ interface SessionView {
   quizEnd: string;
   level: EnglishLevel;
   paperMode: 'passage_pick' | 'standard' | null;
+  /** Authoritative quiz mode from the server. Always 'test' for morning
+   *  quizzes — the front-end ignores any `?mode=practice` URL trick.
+   *  See round-3 SUMMARY C2. */
+  mode?: 'test' | 'practice';
   paperQuestions: Array<{
     id: string;
     sortOrder: number;
@@ -44,7 +48,12 @@ export default function MorningQuizTake() {
   const { sessionId } = useParams<{ sessionId: string }>();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
-  const mode = searchParams.get('mode') === 'practice' ? 'practice' : 'test';
+  // The URL hint is still read for backwards compatibility, but the
+  // SERVER's `mode` field is authoritative — it's pinned to 'test' for
+  // morning quizzes, so a `?mode=practice` URL trick can't unlock answers
+  // even if a future bug re-introduces correctness data into the payload.
+  // See round-3 SUMMARY C2 for the leak path this closes.
+  const urlMode = searchParams.get('mode') === 'practice' ? 'practice' : 'test';
 
   const [view, setView] = useState<SessionView | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -94,30 +103,59 @@ export default function MorningQuizTake() {
   }
   if (!view) return <div className="p-6 text-gray-500">Loading…</div>;
 
-  const paper: ExamPaper = {
-    sessionId: view.sessionId,
-    quizEnd: view.quizEnd,
-    level: view.level ?? 'olevel',
-    paperMode: view.paperMode ?? null,
-    questions: view.paperQuestions.map((pq) => ({
-      id: pq.id,
-      sortOrder: pq.sortOrder,
-      marks: pq.marks,
-      questionType: pq.questionType,
-      snapshotContent: pq.snapshotContent,
-      snapshotOptions: pq.snapshotOptions,
-    })),
-  };
+  // Server is the source of truth for mode. Falls back to URL only if the
+  // server payload is from an older API that doesn't yet send `mode` (this
+  // shouldn't happen with the same deploy, but stays graceful).
+  const mode: 'practice' | 'test' = view.mode ?? urlMode;
 
   return (
     <ExamProvider sessionId={view.sessionId} mode={mode} onPersistAnswer={persistAnswer}>
-      <ExamShellChrome
-        paper={paper}
-        mode={mode}
-        submitted={submitted}
-        onSubmit={handleSubmit}
-      />
+      <PaperHost view={view} mode={mode} submitted={submitted} onSubmit={handleSubmit} />
     </ExamProvider>
+  );
+}
+
+/** Wraps `view → ExamPaper` in a useMemo so the rebuilt paper isn't a
+ *  fresh reference on every host re-render. Without it, every `setAnswer`
+ *  cascades a Provider re-render that hands every memoised renderer a new
+ *  `paper` instance, defeating their useMemo guards (round-3 SUMMARY H14
+ *  — flagged as the highest-ROI fix). */
+function PaperHost({
+  view,
+  mode,
+  submitted,
+  onSubmit,
+}: {
+  view: SessionView;
+  mode: 'practice' | 'test';
+  submitted: boolean;
+  onSubmit: () => void;
+}) {
+  const paper: ExamPaper = useMemo(
+    () => ({
+      sessionId: view.sessionId,
+      quizEnd: view.quizEnd,
+      level: view.level ?? 'olevel',
+      paperMode: view.paperMode ?? null,
+      questions: view.paperQuestions.map((pq) => ({
+        id: pq.id,
+        sortOrder: pq.sortOrder,
+        marks: pq.marks,
+        questionType: pq.questionType,
+        snapshotContent: pq.snapshotContent,
+        snapshotOptions: pq.snapshotOptions,
+      })),
+    }),
+    [
+      view.sessionId,
+      view.quizEnd,
+      view.level,
+      view.paperMode,
+      view.paperQuestions,
+    ],
+  );
+  return (
+    <ExamShellChrome paper={paper} mode={mode} submitted={submitted} onSubmit={onSubmit} />
   );
 }
 

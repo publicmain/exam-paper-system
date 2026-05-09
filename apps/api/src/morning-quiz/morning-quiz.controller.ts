@@ -156,6 +156,19 @@ export class MorningQuizController {
     return this.svc.saveAnswer(id, parsed.data, user.id);
   }
 
+  /** Server-authoritative practice-mode check. Returns correctness for a
+   *  single answer ONLY if the student has already submitted (or the quiz
+   *  window has closed). Used by the practice-review UI; never accessible
+   *  during the live test, so a client-side `?mode=practice` URL trick
+   *  can't unlock answers. */
+  @Post('sessions/:id/check')
+  check(@Param('id') id: string, @Body() body: unknown, @CurrentUser() user: any) {
+    if (user.role !== 'student') throw new ForbiddenException('student_only');
+    const parsed = SaveAnswerSchema.safeParse(body);
+    if (!parsed.success) throw new BadRequestException(parsed.error.flatten());
+    return this.svc.checkAnswer(id, parsed.data, user.id);
+  }
+
   /** Final submit — delegates to existing student.service so auto-grading +
    *  race-safety logic stays in one place. */
   @Post('sessions/:id/submit')

@@ -7,6 +7,7 @@ import { OLevelCloze } from '../questions/OLevelCloze';
 import { OLevelVocabInContext } from '../questions/OLevelVocabInContext';
 import { OLevelSentenceTransformation } from '../questions/OLevelSentenceTransformation';
 import { OLevelMcqList } from '../questions/OLevelMcqList';
+import { EmptyPaperCard } from '../QuestionTypeRegistry';
 
 function paper(over: Partial<ExamPaper>): ExamPaper {
   return {
@@ -91,7 +92,14 @@ describe('pickRenderer', () => {
     expect(pickRenderer(p)).toBe(OLevelMcqList);
   });
 
-  it('does not crash on empty paper', () => {
-    expect(pickRenderer(paper({ questions: [] }))).toBe(OLevelMcqList);
+  it('routes empty paper to EmptyPaperCard, not a question renderer (round-3 C3)', () => {
+    expect(pickRenderer(paper({ questions: [] }))).toBe(EmptyPaperCard);
+  });
+
+  it('routes nullish/undefined questions to EmptyPaperCard without crashing', () => {
+    // Defensive — pickRenderer must not throw if a future caller hands us
+    // a half-loaded paper with `questions` missing.
+    expect(pickRenderer({ ...paper({ questions: [] }), questions: undefined as any })).toBe(EmptyPaperCard);
+    expect(pickRenderer(undefined as any)).toBe(EmptyPaperCard);
   });
 });

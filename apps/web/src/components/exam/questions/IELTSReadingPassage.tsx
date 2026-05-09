@@ -97,6 +97,13 @@ export function IELTSReadingPassage({ paper }: { paper: ExamPaper }) {
   // since that's where they'll spend most of their time.
   const [mobileSide, setMobileSide] = useState<'left' | 'right'>('right');
 
+  if (!paper?.questions?.length) {
+    return (
+      <div className="max-w-xl mx-auto py-12 px-6 text-center text-amber-800">
+        该卷尚未出题，请联系老师。
+      </div>
+    );
+  }
   const passageContent = paper.questions[0]?.snapshotContent ?? {};
   const passageTitle = clean(passageContent.passageTitle ?? 'Reading Passage');
   const passageBody = useMemo(() => reflowPassage(clean(passageContent.passage ?? '')), [passageContent.passage]);

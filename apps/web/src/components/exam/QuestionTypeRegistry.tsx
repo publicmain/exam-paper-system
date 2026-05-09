@@ -7,6 +7,29 @@ import { OLevelSentenceTransformation } from './questions/OLevelSentenceTransfor
 import { OLevelMcqList } from './questions/OLevelMcqList';
 
 /**
+ * Empty-paper safety net. The DB schema doesn't strictly forbid a paper
+ * with zero PaperQuestion rows (admin mid-edit, AI-generation half-failed,
+ * cleanup race), and earlier renderers indexed `questions[0]` directly.
+ * Now we surface an explicit "no questions yet" card; the bottom palette
+ * still works (empty grid). See round-3 SUMMARY C3.
+ */
+function EmptyPaperCard() {
+  return (
+    <div className="max-w-xl mx-auto py-12 px-6 text-center">
+      <div className="bg-amber-50 border border-amber-200 rounded-xl p-8 shadow-sm">
+        <div className="text-3xl mb-3">📄</div>
+        <h2 className="text-lg font-semibold text-amber-900 mb-2">
+          该卷尚未出题 · No questions yet
+        </h2>
+        <p className="text-sm text-amber-800 leading-relaxed">
+          这份卷子目前没有题目。请联系老师或刷新页面重试；若仍空白，请反馈给管理员。
+        </p>
+      </div>
+    </div>
+  );
+}
+
+/**
  * Pick the renderer for a paper.
  *
  * Priority of detection (the first match wins):
@@ -28,8 +51,8 @@ import { OLevelMcqList } from './questions/OLevelMcqList';
  */
 
 export function pickRenderer(paper: ExamPaper) {
-  const first = paper.questions[0];
-  if (!first) return OLevelMcqList;
+  const first = paper?.questions?.[0];
+  if (!first) return EmptyPaperCard;
 
   const c = first.snapshotContent ?? {};
   const tt: string = c.taskType ?? '';
@@ -73,5 +96,11 @@ export function pickRenderer(paper: ExamPaper) {
 
 export function ExamRenderer({ paper }: { paper: ExamPaper }) {
   const Renderer = pickRenderer(paper);
+  // Defensive: even if a renderer is reached with empty questions (e.g.
+  // a future router branch forgot to guard), surface the empty card
+  // instead of letting `questions[0]` crash inside the renderer.
+  if (!paper?.questions?.length) return <EmptyPaperCard />;
   return <Renderer paper={paper} />;
 }
+
+export { EmptyPaperCard };
