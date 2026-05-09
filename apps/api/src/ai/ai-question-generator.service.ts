@@ -201,12 +201,35 @@ export type DiagramHint = {
   spec?: DiagramSpec;
 } | { needed: false };
 
+/**
+ * UI renderer hint emitted by the AI for English/IELTS papers (1123 / IELTS).
+ * Picked up by the frontend QuestionTypeRegistry to choose between
+ * OLevelCloze / OLevelVocabInContext / OLevelSentenceTransformation /
+ * IELTSReadingPassage / generic OLevelMcqList.
+ *
+ * For non-English subjects (Physics 9702, Chem 9701, Math 9709, CS 9608)
+ * uiKind is undefined — those papers render via the existing question-type
+ * dispatch and don't need a renderer hint.
+ */
+export type UiKind =
+  | 'multiple_choice'
+  | 'cloze'
+  | 'vocab_in_context'
+  | 'sentence_transformation'
+  | 'reading_passage';
+
 export interface ParsedQuestion {
   stem: string;
   parts?: { label: string; text: string; marks: number }[];
   totalMarks: number;
   suggestedDifficulty: number;
   questionType: QuestionType;
+  /** Frontend renderer hint — REQUIRED for IELTS / 1123 papers. */
+  uiKind?: UiKind;
+  /** Cloze passage with [BLANK] markers (one per question in the paper).
+   *  Only present when uiKind === 'cloze'. The N-th [BLANK] corresponds
+   *  to the N-th question's expected answer. */
+  passage?: string;
   notes?: string;
   diagram?: DiagramHint;
 }
@@ -400,6 +423,11 @@ export class AiQuestionGeneratorService {
     }
 
     const parsed = this.parseResponse(text);
+    // B5/B6 contract gate — English/IELTS/1123 must carry uiKind on
+    // every question and the cloze [BLANK] count must match question
+    // count. Failure throws ServiceUnavailable; the QuickPaper caller
+    // surfaces it as a partial run for that topic.
+    this.validateEnglishContract(input.syllabusCode, parsed);
     const errors: string[] = [];
     const created: GeneratedQuestionItemSummary[] = [];
 
@@ -567,6 +595,8 @@ Authoring principles:
     "totalMarks": 5,
     "suggestedDifficulty": 1 | 2 | 3 | 4 | 5,
     "questionType": "mcq" | "short_answer" | "structured" | "essay",
+    "uiKind": "multiple_choice" | "cloze" | "vocab_in_context" | "sentence_transformation" | "reading_passage",
+    "passage": "(REQUIRED when uiKind='cloze') article body with [BLANK] markers — see contract below",
     "notes": "optional string for the reviewing teacher",
     "diagram": {
       "needed": true,
@@ -584,6 +614,36 @@ Rules:
 - For "mcq" questions, place the four options inside the stem as "(A) ..., (B) ..., (C) ..., (D) ...". MCQ is always 1 mark, no parts.
 - Difficulty: 1=trivial recall, 2=routine, 3=standard exam, 4=challenging, 5=extension/Olympiad-tier.
 - Return EXACTLY the requested number of questions in the array.
+
+UI renderer hint (REQUIRED for English / IELTS / 1123 papers):
+- "uiKind" MUST be one of: "multiple_choice", "cloze", "vocab_in_context",
+  "sentence_transformation", "reading_passage". Pick the one that matches
+  what the question is testing. For non-English subjects (Physics 9702,
+  Chem 9701, Math 9709, CS 9608) you may omit uiKind.
+- "multiple_choice" → standalone MCQ (grammar, vocab MCQ, etc.).
+- "vocab_in_context" → one sentence + 4 options for the meaning of one word.
+- "sentence_transformation" → "Rewrite this sentence starting with…".
+- "reading_passage" → matching / TFNG / passage-MCQ for an IELTS-style block.
+- "cloze" → fill-in-blank passage; see cloze contract below.
+
+Cloze paper contract (HARD — violations will be rejected):
+When you choose uiKind="cloze" the entire batch must be a coherent cloze
+exercise on one passage:
+- EVERY question in the batch MUST have uiKind="cloze". Mixing cloze with
+  other uiKind values in the same batch is REJECTED.
+- The FIRST question's "passage" field MUST contain the full article body
+  with literal [BLANK] markers — exactly one [BLANK] per question, in
+  natural reading order. The N-th [BLANK] in the passage is the gap whose
+  answer corresponds to the N-th question (1-indexed).
+- The number of [BLANK] markers MUST equal the number of questions you
+  generate. Mismatch is REJECTED.
+- Each [BLANK] must be inserted at a grammatically defensible gap (where
+  the missing word's part-of-speech is unambiguous from immediate context).
+- DO NOT nest [BLANK] markers (no [[BLANK]something[BLANK]] etc.).
+- Subsequent questions may carry only the question stem (e.g. "(3) the
+  ___ which") without the passage; only Q1 needs the full passage body.
+- Each question's "stem" should reference the [BLANK] number in the
+  passage (e.g. "Blank 3:") so the marker-review UI can place the input.
 
 Diagram rules (HARD):
 - Output \`"diagram": {"needed": false}\` for purely textual / formula-only questions. DO NOT invent a diagram just because the question is structured.
@@ -1001,16 +1061,96 @@ existing math renderer handles scatter via points + axes.`;
       ] as any;
       const questionType: QuestionType = allowedTypes.includes(qt) ? qt : ('short_answer' as any);
       const diagram = this.parseDiagramHint(q?.diagram);
+      const uiKind = this.parseUiKind(q?.uiKind);
+      const passage = typeof q?.passage === 'string' && q.passage.trim().length > 0
+        ? String(q.passage).slice(0, 8000)
+        : undefined;
       return {
         stem,
         parts: parts && parts.length > 0 ? parts : undefined,
         totalMarks,
         suggestedDifficulty,
         questionType,
+        uiKind,
+        passage,
         notes: q?.notes ? String(q.notes).slice(0, 500) : undefined,
         diagram,
       };
     });
+  }
+
+  /** B5 — normalize uiKind to one of the allowed renderer hints, or
+   *  undefined if absent / invalid. Non-English subjects are allowed to
+   *  omit it; the caller decides whether absence is fatal. */
+  private parseUiKind(v: any): UiKind | undefined {
+    const allowed: UiKind[] = [
+      'multiple_choice',
+      'cloze',
+      'vocab_in_context',
+      'sentence_transformation',
+      'reading_passage',
+    ];
+    const s = String(v ?? '').trim();
+    return (allowed as string[]).includes(s) ? (s as UiKind) : undefined;
+  }
+
+  /** B5/B6 — for English/IELTS subjects we REQUIRE every parsed question
+   *  to carry a uiKind, and when uiKind is 'cloze' we REQUIRE the first
+   *  question to carry a `passage` field whose [BLANK] count matches the
+   *  number of parsed questions in the batch. Throws ServiceUnavailable
+   *  if the contract is violated, so the caller (QuickPaperService) can
+   *  surface the failure instead of producing a malformed paper.
+   *
+   *  Non-English subjects (Physics, Chem, Math, CS) skip this check and
+   *  return without throwing. */
+  validateEnglishContract(
+    syllabusCode: string,
+    parsed: ParsedQuestion[],
+  ): void {
+    const isEnglish =
+      syllabusCode === 'IELTS' || syllabusCode === '1123' || syllabusCode === 'EL';
+    if (!isEnglish) return;
+    for (let i = 0; i < parsed.length; i++) {
+      const q = parsed[i];
+      if (!q.uiKind) {
+        throw new ServiceUnavailableException(
+          `English paper question Q${i + 1} is missing uiKind. ` +
+            `Each question must declare uiKind (multiple_choice/cloze/vocab_in_context/sentence_transformation/reading_passage).`,
+        );
+      }
+    }
+    // Cloze contract: when ANY question is uiKind=cloze, all questions
+    // in the batch must be cloze, share one passage on Q1, and the
+    // [BLANK] count must equal the question count.
+    const clozeCount = parsed.filter((q) => q.uiKind === 'cloze').length;
+    if (clozeCount > 0) {
+      if (clozeCount !== parsed.length) {
+        throw new ServiceUnavailableException(
+          'cloze paper contract: every question in the batch must be uiKind=cloze ' +
+            `(found ${clozeCount}/${parsed.length}).`,
+        );
+      }
+      const passage = parsed[0].passage ?? '';
+      if (!passage) {
+        throw new ServiceUnavailableException(
+          'cloze paper contract: the first question must carry a `passage` field with [BLANK] markers.',
+        );
+      }
+      // Count occurrences of [BLANK] (case-insensitive). Reject nested
+      // markers like [[BLANK]BLANK] by also rejecting the literal "[[BLANK".
+      if (/\[\[BLANK/i.test(passage)) {
+        throw new ServiceUnavailableException(
+          'cloze paper contract: nested [BLANK] markers are not allowed in the passage.',
+        );
+      }
+      const blanks = (passage.match(/\[BLANK\]/gi) ?? []).length;
+      if (blanks !== parsed.length) {
+        throw new ServiceUnavailableException(
+          `cloze paper contract: passage has ${blanks} [BLANK] markers but ` +
+            `${parsed.length} questions were generated — they must match.`,
+        );
+      }
+    }
   }
 
   private parseDiagramHint(d: any): DiagramHint | undefined {
