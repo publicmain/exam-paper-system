@@ -166,6 +166,55 @@ export function ExamProvider({
     };
   }, []);
 
+  // Round-7: navigator.onLine returns true on captive-portal WiFi (the
+  // device IS connected to a network — just not the internet) and stays
+  // true if the API itself is down. Both produce the same UX failure:
+  // the student doesn't know their answers aren't reaching the server.
+  // Heartbeat every 60s to /api/health; flip isOffline=true after two
+  // consecutive failures and back to false on the next success.
+  useEffect(() => {
+    let cancelled = false;
+    let consecutiveFailures = 0;
+    async function probe() {
+      if (cancelled) return;
+      try {
+        const ctl = new AbortController();
+        const t = setTimeout(() => ctl.abort(), 5000);
+        const res = await fetch('/api/health', {
+          method: 'GET',
+          cache: 'no-store',
+          signal: ctl.signal,
+        });
+        clearTimeout(t);
+        if (cancelled) return;
+        if (res.ok) {
+          consecutiveFailures = 0;
+          // Heartbeat success — only flip to online if navigator agrees
+          // (avoids fighting the OS-level event when the laptop suspends).
+          if (typeof navigator !== 'undefined' && navigator.onLine) {
+            setIsOffline(false);
+          }
+        } else {
+          consecutiveFailures += 1;
+          if (consecutiveFailures >= 2) setIsOffline(true);
+        }
+      } catch {
+        if (cancelled) return;
+        consecutiveFailures += 1;
+        if (consecutiveFailures >= 2) setIsOffline(true);
+      }
+    }
+    // First probe runs after 30s so we don't add an extra request to the
+    // initial paint; thereafter every 60s.
+    const initial = setTimeout(probe, 30_000);
+    const interval = setInterval(probe, 60_000);
+    return () => {
+      cancelled = true;
+      clearTimeout(initial);
+      clearInterval(interval);
+    };
+  }, []);
+
   /** Persist ONE answer immediately, mark dirty cleared on success.
    *  Errors propagate so flushPendingSaves can collect a final status. */
   const persistOne = useCallback(
