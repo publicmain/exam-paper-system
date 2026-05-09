@@ -163,7 +163,20 @@ export function IELTSReadingPassage({ paper }: { paper: ExamPaper }) {
         right={
           <div className="lg:max-h-full lg:overflow-auto space-y-5 px-4 lg:px-4 py-4 lg:py-4">
             {groups.map((g, gi) => (
-              <TaskGroupView key={gi} group={g} gi={gi} />
+              // B3-H12/H13 perf — `content-visibility: auto` lets the
+              // browser skip layout / paint for off-screen task groups
+              // (each ~3-13 questions). `contain-intrinsic-size` reserves
+              // a placeholder height so the scrollbar doesn't jump as
+              // groups become visible. iPad Safari respects both.
+              <div
+                key={gi}
+                style={{
+                  contentVisibility: 'auto' as any,
+                  containIntrinsicSize: '600px',
+                }}
+              >
+                <TaskGroupView group={g} gi={gi} />
+              </div>
             ))}
           </div>
         }

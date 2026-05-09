@@ -56,3 +56,38 @@ export type QuestionRenderKind =
   | 'olevel_vocab'            // single sentence MCQ — vocab in context
   | 'olevel_transformation'   // rewrite this sentence starting with…
   | 'olevel_mcq';             // generic MCQ fallback (grammar / vocab MCQ)
+
+/**
+ * B3-H2 — TYPE-AUTHORITY contract
+ *
+ * Three fields participate in renderer dispatch. Their roles are NOT
+ * redundant; documenting the priority here so future code stops
+ * reaching for the wrong one:
+ *
+ *   1. `questionType` (Prisma enum on Question/PaperQuestion):
+ *        mcq | short_answer | structured | essay
+ *      — answer-grading shape only. Tells the auto-grader whether the
+ *      script is text vs option-key. Never alone enough to pick a
+ *      renderer.
+ *
+ *   2. `snapshotContent.taskType` (string — AUTHORITATIVE for renderer):
+ *        matching_headings | matching_features | true_false_not_given |
+ *        sentence_completion | summary_completion | … | cloze | vocab |
+ *        transformation
+ *      — the pedagogical task type. THIS is what the registry should
+ *      prefer when picking a renderer.
+ *
+ *   3. `snapshotContent.uiKind` (string — DEPRECATED legacy hint):
+ *        multiple_choice | cloze | vocab_in_context |
+ *        sentence_transformation | reading_passage
+ *      — kept readable for back-compat with rows generated before
+ *      taskType became universal. The registry falls back to uiKind
+ *      ONLY when taskType is absent. New AI-generated rows MUST emit
+ *      taskType (and may emit uiKind too — they should agree).
+ *
+ * Codemod plan: when historical Question rows are batch-touched (next
+ * tag-backfill pass), copy the legacy uiKind → taskType so the
+ * fallback path can be retired later. See
+ * apps/api/scripts/backfill-question-tags.ts (which now also reads
+ * uiKind and writes taskType when the latter is missing).
+ */

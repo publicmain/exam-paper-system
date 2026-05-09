@@ -124,11 +124,42 @@ export function Highlighter({
     if (e.button !== 0) return;
     captureSelection();
   }
-  // H10/iOS — Safari fires touchend BEFORE the OS finalises the selection,
-  // so window.getSelection() is still empty / collapsed. A single rAF
-  // tick gives the OS time to commit the selection range.
+  // B3-H10/iOS — Safari fires touchend BEFORE the OS finalises the selection,
+  // so window.getSelection() is still empty / collapsed at that moment.
+  // The previous single rAF tick was unreliable on slower devices and on
+  // selection edges that drag past a popover.
+  //
+  // Hardened approach:
+  //   1. Listen for the next `selectionchange` event after touchend — the
+  //      OS fires this once the range commits. Capture there.
+  //   2. Fall back to a 250ms timeout if no selectionchange arrives (e.g.
+  //      tap without selection); the timeout no-ops via captureSelection's
+  //      isCollapsed early-return.
+  //   3. Always tear down the listener so we don't leak across remounts.
   function onTouchEndGuarded() {
-    requestAnimationFrame(captureSelection);
+    let captured = false;
+    const onChange = () => {
+      const sel = window.getSelection();
+      if (!sel || sel.isCollapsed) return; // wait for next event
+      // Selection has settled — pull it on the next animation frame so
+      // any internal Range bookkeeping has flushed first (some iOS builds
+      // momentarily expose a stale anchor/focus).
+      if (captured) return;
+      captured = true;
+      requestAnimationFrame(() => {
+        captureSelection();
+        document.removeEventListener('selectionchange', onChange);
+      });
+    };
+    document.addEventListener('selectionchange', onChange);
+    // Hard cleanup: if the user tapped without selecting, OR if no
+    // selectionchange ever fires, drop the listener after 250ms.
+    setTimeout(() => {
+      if (captured) return;
+      document.removeEventListener('selectionchange', onChange);
+      // Defensive: still try to capture in case iOS skipped the event.
+      captureSelection();
+    }, 250);
   }
 
   return (

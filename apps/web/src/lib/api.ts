@@ -357,6 +357,14 @@ export const api = {
     request('POST', `/morning-quiz-qa/papers/${paperId}/approve`),
   qaReviewTeacherReject: (paperId: string, reason?: string) =>
     request('POST', `/morning-quiz-qa/papers/${paperId}/teacher-reject`, { reason }),
+  // U6 — batch action across multiple papers in one transaction.
+  qaReviewBatch: (
+    action: 'approve' | 'reject' | 'rerun',
+    paperIds: string[],
+    reason?: string,
+    strict?: boolean,
+  ) =>
+    request('POST', '/morning-quiz-qa/batch', { action, paperIds, reason, strict }),
 };
 
 function qs(obj: Record<string, any>) {

@@ -9,8 +9,16 @@ import {
   Req,
 } from '@nestjs/common';
 import { Request } from 'express';
+import { z } from 'zod';
 import { CurrentUser } from '../common/current-user.decorator';
 import { MorningQuizQaService } from './morning-quiz-qa.service';
+
+const BatchSchema = z.object({
+  action: z.enum(['approve', 'reject', 'rerun']),
+  paperIds: z.array(z.string().min(1)).min(1).max(50),
+  reason: z.string().max(600).optional(),
+  strict: z.boolean().optional(),
+});
 
 const TEACHER_ROLES = new Set(['teacher', 'head_teacher', 'admin']);
 
@@ -71,5 +79,44 @@ export class MorningQuizQaController {
       { id: user.id, role: user.role, ip: req.ip ?? null },
       body?.reason,
     );
+  }
+
+  /** U6 — batch operation across selected papers. Each paper is processed
+   *  independently within the same request; per-id failures are returned
+   *  as { id, ok:false, error }, never abort the rest. The controller
+   *  rejects the whole request if zod validation fails (no malformed
+   *  array gets through). */
+  @Post('batch')
+  async batch(
+    @Body() body: unknown,
+    @CurrentUser() user: any,
+    @Req() req: Request,
+  ) {
+    if (!TEACHER_ROLES.has(user.role)) throw new ForbiddenException('teacher_required');
+    const parsed = BatchSchema.safeParse(body);
+    if (!parsed.success) throw new BadRequestException(parsed.error.flatten());
+    const actor = { id: user.id, role: user.role, ip: req.ip ?? null };
+    const results: Array<{ id: string; ok: boolean; error?: string }> = [];
+    for (const id of parsed.data.paperIds) {
+      try {
+        if (parsed.data.action === 'approve') {
+          await this.svc.approve(id, actor);
+        } else if (parsed.data.action === 'reject') {
+          await this.svc.rejectByTeacher(id, actor, parsed.data.reason);
+        } else {
+          await this.svc.reviewPaper(id, actor, { strict: !!parsed.data.strict });
+        }
+        results.push({ id, ok: true });
+      } catch (e: any) {
+        results.push({ id, ok: false, error: String(e?.message ?? e).slice(0, 200) });
+      }
+    }
+    return {
+      action: parsed.data.action,
+      total: parsed.data.paperIds.length,
+      ok: results.filter((r) => r.ok).length,
+      failed: results.filter((r) => !r.ok).length,
+      results,
+    };
   }
 }

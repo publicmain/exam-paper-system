@@ -1,0 +1,51 @@
+/*
+ * U7 — brand placeholder.
+ *
+ * Centralised :root CSS variables for the school's eventual brand palette.
+ * Today these mostly mirror Tailwind's default blue/slate so existing
+ * pages keep looking identical, but consolidating them here means one
+ * future change ripples everywhere instead of hunting through 33 pages.
+ *
+ * SKIPPED until business provides logo / brand colors / type-pair —
+ * documented in docs/qa-reports/round-6-fix-everything/FINAL-REPORT.md.
+ *
+ * Usage in components:
+ *   color: var(--brand-primary);
+ *   background: var(--brand-surface);
+ * (Or via Tailwind arbitrary values: bg-[var(--brand-surface)])
+ */
+
+:root {
+  /* Primary — used for CTAs, links, focused inputs. */
+  --brand-primary: #2563eb; /* blue-600 */
+  --brand-primary-hover: #1d4ed8; /* blue-700 */
+  --brand-primary-text: #ffffff;
+
+  /* Accent — secondary CTAs, badges. */
+  --brand-accent: #f59e0b; /* amber-500 */
+  --brand-accent-text: #78350f; /* amber-900 */
+
+  /* Status colours — already used inconsistently across the codebase;
+   * the goal of this file is to make them swappable in one place. */
+  --brand-success: #16a34a; /* green-600 */
+  --brand-warning: #d97706; /* amber-600 */
+  --brand-danger: #dc2626; /* rose-600 */
+
+  /* Surface / typography — neutral defaults; swap when a designer hands
+   * over a real palette. */
+  --brand-surface: #ffffff;
+  --brand-surface-soft: #f9fafb; /* gray-50 */
+  --brand-text: #111827; /* gray-900 */
+  --brand-text-muted: #6b7280; /* gray-500 */
+  --brand-border: #e5e7eb; /* gray-200 */
+
+  /* Type — kept generic until a font-pair is signed off. */
+  --brand-font-sans: ui-sans-serif, system-ui, -apple-system,
+    'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  --brand-font-serif: 'Source Serif Pro', Georgia, 'Times New Roman', serif;
+
+  /* Spacing tokens — placeholder; will inherit from a design system later. */
+  --brand-radius-sm: 0.25rem;
+  --brand-radius-md: 0.5rem;
+  --brand-radius-lg: 0.75rem;
+}

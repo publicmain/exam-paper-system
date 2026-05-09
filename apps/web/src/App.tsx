@@ -16,6 +16,7 @@ import QuickPaperPage from './pages/QuickPaper';
 import StudentHomePage from './pages/StudentHome';
 import StudentTakePage from './pages/StudentTake';
 import StudentResultPage from './pages/StudentResult';
+import { ErrorBoundary } from './components/ErrorBoundary';
 // Morning quiz feature
 import MorningQuizDisplayPage from './pages/MorningQuizDisplay';
 import MorningQuizScanPage from './pages/MorningQuizScan';
@@ -92,16 +93,18 @@ export default function App() {
           </div>
         </header>
         <main className="flex-1 max-w-4xl mx-auto w-full px-6 py-6">
-          <Routes>
-            <Route path="/student" element={<StudentHomePage />} />
-            <Route path="/student/take/:assignmentId" element={<StudentTakePage />} />
-            <Route path="/student/result/:sessionId" element={<StudentResultPage />} />
-            <Route path="/student/tutor" element={<StudentTutorPage />} />
-            <Route path="/practice" element={<PracticePage />} />
-            <Route path="/scan/:token" element={<MorningQuizScanPage />} />
-            <Route path="/morning-quiz/:sessionId" element={<MorningQuizTakePage />} />
-            <Route path="*" element={<Navigate to="/student" replace />} />
-          </Routes>
+          <ErrorBoundary>
+            <Routes>
+              <Route path="/student" element={<StudentHomePage />} />
+              <Route path="/student/take/:assignmentId" element={<StudentTakePage />} />
+              <Route path="/student/result/:sessionId" element={<StudentResultPage />} />
+              <Route path="/student/tutor" element={<StudentTutorPage />} />
+              <Route path="/practice" element={<PracticePage />} />
+              <Route path="/scan/:token" element={<MorningQuizScanPage />} />
+              <Route path="/morning-quiz/:sessionId" element={<MorningQuizTakePage />} />
+              <Route path="*" element={<Navigate to="/student" replace />} />
+            </Routes>
+          </ErrorBoundary>
         </main>
       </div>
     );
@@ -166,6 +169,7 @@ export default function App() {
         </div>
       </header>
       <main className="flex-1 max-w-7xl mx-auto w-full px-6 py-6">
+        <ErrorBoundary>
         <Routes>
           <Route path="/" element={<DashboardPage />} />
           <Route path="/practice" element={<PracticePage />} />
@@ -273,6 +277,7 @@ export default function App() {
           />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
+        </ErrorBoundary>
       </main>
       <footer className="text-center text-xs text-gray-500 py-4">
         © School internal use only · MVP v0.1

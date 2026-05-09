@@ -86,6 +86,41 @@ export default function MorningQuizQaReview() {
   const [detail, setDetail] = useState<DetailReview | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // U6 — multi-select state for batch operations.
+  const [checked, setChecked] = useState<Set<string>>(new Set());
+
+  function toggleCheck(id: string) {
+    const next = new Set(checked);
+    next.has(id) ? next.delete(id) : next.add(id);
+    setChecked(next);
+  }
+  function toggleAll() {
+    if (checked.size === rows.length) {
+      setChecked(new Set());
+    } else {
+      setChecked(new Set(rows.map((r) => r.id)));
+    }
+  }
+  async function batchAction(action: 'approve' | 'reject' | 'rerun') {
+    if (checked.size === 0) return;
+    if (action === 'reject' && !confirm(`确认驳回 ${checked.size} 份卷子？`)) return;
+    setBusy(true);
+    setError(null);
+    try {
+      const r = (await api.qaReviewBatch(action, Array.from(checked))) as any;
+      if (r.failed > 0) {
+        setError(
+          `批量${action === 'approve' ? '批准' : action === 'reject' ? '驳回' : '重审'}：成功 ${r.ok} 份，失败 ${r.failed} 份`,
+        );
+      }
+      setChecked(new Set());
+      await refresh();
+    } catch (e: any) {
+      setError(e.message ?? String(e));
+    } finally {
+      setBusy(false);
+    }
+  }
 
   async function refresh() {
     setError(null);
@@ -175,9 +210,50 @@ export default function MorningQuizQaReview() {
       <div className="grid grid-cols-3 gap-4">
         {/* Left column: pending list */}
         <div className="col-span-1 bg-white border rounded-lg p-4 max-h-[80vh] overflow-y-auto">
-          <h2 className="font-semibold mb-3">
-            待复核 ({rows.length})
-          </h2>
+          <div className="flex items-center justify-between mb-3">
+            <h2 className="font-semibold">
+              待复核 ({rows.length})
+            </h2>
+            {rows.length > 0 && (
+              <button
+                type="button"
+                onClick={toggleAll}
+                className="text-xs text-blue-600 hover:underline"
+              >
+                {checked.size === rows.length ? '取消全选' : '全选'}
+              </button>
+            )}
+          </div>
+          {/* U6 — batch action toolbar; appears once at least 1 paper is checked. */}
+          {checked.size > 0 && (
+            <div className="mb-3 p-2 bg-blue-50 border border-blue-200 rounded text-xs flex flex-wrap items-center gap-2">
+              <span className="font-medium">已选 {checked.size}：</span>
+              <button
+                type="button"
+                disabled={busy}
+                onClick={() => batchAction('approve')}
+                className="px-2 py-1 rounded bg-emerald-600 hover:bg-emerald-700 text-white disabled:opacity-50"
+              >
+                批准选中
+              </button>
+              <button
+                type="button"
+                disabled={busy}
+                onClick={() => batchAction('reject')}
+                className="px-2 py-1 rounded bg-rose-600 hover:bg-rose-700 text-white disabled:opacity-50"
+              >
+                驳回选中
+              </button>
+              <button
+                type="button"
+                disabled={busy}
+                onClick={() => batchAction('rerun')}
+                className="px-2 py-1 rounded bg-amber-600 hover:bg-amber-700 text-white disabled:opacity-50"
+              >
+                重新审核
+              </button>
+            </div>
+          )}
           {rows.length === 0 ? (
             <div className="text-gray-500 text-sm">所有卷子都已通过 AI 审核 ✨</div>
           ) : (
@@ -191,11 +267,22 @@ export default function MorningQuizQaReview() {
                   onClick={() => loadDetail(r.id)}
                 >
                   <div className="flex items-center justify-between gap-2">
-                    <span
-                      className={`text-xs px-2 py-0.5 rounded ${VERDICT_BADGE[r.qaReviewVerdict]}`}
+                    <label
+                      className="flex items-center gap-1.5"
+                      onClick={(e) => e.stopPropagation()}
                     >
-                      {VERDICT_LABEL[r.qaReviewVerdict]}
-                    </span>
+                      <input
+                        type="checkbox"
+                        checked={checked.has(r.id)}
+                        onChange={() => toggleCheck(r.id)}
+                        aria-label={`选择 ${r.name}`}
+                      />
+                      <span
+                        className={`text-xs px-2 py-0.5 rounded ${VERDICT_BADGE[r.qaReviewVerdict]}`}
+                      >
+                        {VERDICT_LABEL[r.qaReviewVerdict]}
+                      </span>
+                    </label>
                     {r.qaReviewRetries > 0 && (
                       <span className="text-xs text-gray-500">
                         重试 {r.qaReviewRetries}×

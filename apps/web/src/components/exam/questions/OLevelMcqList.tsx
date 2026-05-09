@@ -50,7 +50,7 @@ export function OLevelMcqList({ paper }: { paper: ExamPaper }) {
                 return (
                   <li key={opt.key}>
                     <label
-                      className={`flex gap-3 items-center p-3 rounded-lg border cursor-pointer transition-colors touch-manipulation min-h-[48px] ${
+                      className={`flex gap-3 items-center p-3 rounded-lg border cursor-pointer transition-all duration-100 ease-out touch-manipulation min-h-[48px] hover:shadow-sm active:scale-[0.99] ${
                         isThisCorrect
                           ? 'border-green-500 bg-green-50'
                           : isThisWrong
@@ -66,9 +66,22 @@ export function OLevelMcqList({ paper }: { paper: ExamPaper }) {
                         checked={checked}
                         onChange={() => setAnswer(q.id, { selectedOption: opt.key })}
                         className="w-5 h-5"
+                        data-testid={`mcq-${q.id}-${opt.key}`}
                       />
                       <span className="font-mono text-gray-500 text-base w-6">{opt.key}.</span>
                       <span className="flex-1 text-base">{clean(opt.text)}</span>
+                      {/* U9 — quiet correctness icon (practice review only).
+                          No sound, no explosion — exam-room appropriate. */}
+                      {isThisCorrect && (
+                        <span aria-label="correct" className="text-green-700 text-lg" role="img">
+                          ✓
+                        </span>
+                      )}
+                      {isThisWrong && (
+                        <span aria-label="incorrect" className="text-rose-700 text-lg" role="img">
+                          ✗
+                        </span>
+                      )}
                     </label>
                   </li>
                 );
