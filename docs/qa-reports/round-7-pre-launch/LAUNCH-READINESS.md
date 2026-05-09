@@ -9,7 +9,15 @@
 
 ## Executive Summary
 
-**当前判定：CONDITIONAL GO（Railway 已恢复 200，4 端点实测通过）**
+**当前判定：GO（round-8 已清空所有 deferred High，详见 [round-8-no-tail/FINAL.md](../round-8-no-tail/FINAL.md))**
+
+> 2026-05-09 update: Round-8 在原 worktree 之上加了 9 个 commit (`4dda947..5fc10dc`)，把这里列在"v8 PR"和"未在本轮修的 High"两部分的工作全部完成。API vitest 112/112、web 35/35、tsc 双端 clean。证据矩阵见 round-8 EVIDENCE-MATRIX.md。
+
+**原始 round-7 报告（CONDITIONAL GO）保留如下，便于审计追溯：**
+
+---
+
+**当前判定（round-7 时点）：CONDITIONAL GO（Railway 已恢复 200，4 端点实测通过）**
 
 10 维度审查共发现原 21 条 Critical / ~38 条 High。事实核对后，**真正的 Critical 是 13 条**（其余被 agent 过度分类）。Wave 1-4 修了所有 13 条真 Critical 的代码层修复，外加 ~10 条 High 的随手清理。
 
