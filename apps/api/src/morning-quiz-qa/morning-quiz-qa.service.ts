@@ -208,7 +208,10 @@ export class MorningQuizQaService {
       );
       this.client = null;
     } else {
-      this.client = new Anthropic({ apiKey });
+      // Round-7 H35: explicit retry budget. QA loop is most exposed to
+      // 529 jitter because it fires every batch-generate; without a
+      // retry budget a single overload nukes the entire batch.
+      this.client = new Anthropic({ apiKey, maxRetries: 3 });
     }
   }
 

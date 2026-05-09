@@ -2,6 +2,16 @@ import { BadRequestException, Injectable, Logger, ServiceUnavailableException } 
 
 const PDF_WORKER_URL = process.env.PDF_WORKER_URL || '';
 
+/** Stamp every outbound call with the same shared token the worker
+ *  /process_pdf flow uses, so /render_circuit and /render_molecule can
+ *  refuse anonymous requests. Round-7. */
+function internalHeaders(): Record<string, string> {
+  const token = process.env.INTERNAL_API_TOKEN;
+  return token
+    ? { 'content-type': 'application/json', 'x-internal-token': token }
+    : { 'content-type': 'application/json' };
+}
+
 /**
  * HTTP client for diagram-rendering endpoints exposed by the Python
  * pdf-worker microservice. Used for diagram types whose libraries only
@@ -34,7 +44,7 @@ export class RemoteRenderService {
     try {
       resp = await fetch(url, {
         method: 'POST',
-        headers: { 'content-type': 'application/json' },
+        headers: internalHeaders(),
         body: JSON.stringify({ elements }),
       });
     } catch (e: any) {
@@ -66,7 +76,7 @@ export class RemoteRenderService {
     try {
       resp = await fetch(url, {
         method: 'POST',
-        headers: { 'content-type': 'application/json' },
+        headers: internalHeaders(),
         body: JSON.stringify({
           smiles: opts.smiles.trim(),
           kekulize: opts.kekulize !== false,

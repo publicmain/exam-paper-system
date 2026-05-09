@@ -52,7 +52,8 @@ export class AiTutorService {
       );
       this.client = null;
     } else {
-      this.client = new Anthropic({ apiKey });
+      // Round-7 H35: explicit retry budget.
+      this.client = new Anthropic({ apiKey, maxRetries: 3 });
     }
   }
 

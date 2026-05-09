@@ -543,27 +543,56 @@ export class MorningQuizService {
       });
     }
 
-    // Filter out passages used by this class in the last 30 days.
+    // Filter out passages used by this class in the last 30 days. Round-7
+    // hardening:
+    //   - constrain the recent-papers query to (this subject + passage_pick
+    //     mode) so an unrelated passage_pick from another subject (we only
+    //     have IELTS today, but defensive) can't skew the bucket;
+    //   - track lastUsedAt per passage so the fallback can pick the LEAST
+    //     recently used instead of the deterministic [0]; that's what
+    //     turned a depleted bank into a "silent loop" — the same passage
+    //     came up every Monday;
+    //   - emit a loud warn() when the bank is depleted so ops can act.
     const cutoff = new Date(Date.now() - 30 * 86_400_000);
     const recentPapers = await this.prisma.paper.findMany({
       where: {
+        subjectId: subject.id,
         assignments: { some: { classId } },
         createdAt: { gte: cutoff },
       },
-      select: { config: true },
+      select: { config: true, createdAt: true },
+      orderBy: { createdAt: 'desc' },
     });
     const usedPassageRefs = new Set<string>();
+    const lastUsedAt = new Map<string, number>();
     for (const p of recentPapers) {
-      const cfg = p.config as { passageRef?: string } | null;
-      if (cfg?.passageRef) usedPassageRefs.add(cfg.passageRef);
+      const cfg = p.config as { mode?: string; passageRef?: string } | null;
+      if (cfg?.mode !== 'passage_pick' || !cfg?.passageRef) continue;
+      usedPassageRefs.add(cfg.passageRef);
+      const t = p.createdAt.getTime();
+      if ((lastUsedAt.get(cfg.passageRef) ?? 0) < t) {
+        lastUsedAt.set(cfg.passageRef, t);
+      }
     }
     const candidates = Array.from(byPassage.keys()).filter(
       (k) => !usedPassageRefs.has(k),
     );
-    const pick =
-      candidates.length > 0
-        ? candidates[Math.floor(Math.random() * candidates.length)]
-        : Array.from(byPassage.keys())[0]; // all used recently — recycle anyway
+    let pick: string;
+    if (candidates.length > 0) {
+      pick = candidates[Math.floor(Math.random() * candidates.length)];
+    } else {
+      // Bank depleted — pick the least recently used to avoid a silent
+      // weekly loop. Loud-log so the ops dashboard surfaces this and
+      // someone ingests more passages.
+      const sorted = Array.from(byPassage.keys()).sort(
+        (a, b) => (lastUsedAt.get(a) ?? 0) - (lastUsedAt.get(b) ?? 0),
+      );
+      pick = sorted[0];
+      this.logger.warn(
+        `passage_pick bank depleted for class=${classId} subject=${subjectCode} — recycling LRU passage=${pick} ` +
+          `(bank=${byPassage.size}, used in last 30d=${usedPassageRefs.size}). Ingest more past papers.`,
+      );
+    }
     // Sort questions inside the passage NUMERICALLY by Q-number — string
     // sort puts Q10..Q13 before Q2..Q9, which scrambles the test ordering.
     // We extract the trailing /Q<n> from sourceRef and sort by the integer.

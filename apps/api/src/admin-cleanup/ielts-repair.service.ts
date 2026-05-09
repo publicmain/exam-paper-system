@@ -42,7 +42,8 @@ export class IeltsRepairService {
   constructor(private readonly prisma: PrismaService) {
     const apiKey = process.env.ANTHROPIC_API_KEY;
     this.model = process.env.ANTHROPIC_MODEL || 'claude-sonnet-4-6';
-    this.client = apiKey ? new Anthropic({ apiKey }) : null;
+    // Round-7 H35: explicit retry budget for transient 529s.
+    this.client = apiKey ? new Anthropic({ apiKey, maxRetries: 3 }) : null;
   }
 
   async repair(opts: {

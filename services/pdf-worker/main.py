@@ -27,7 +27,7 @@ from typing import Any
 
 import fitz  # PyMuPDF
 import httpx
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, Header, HTTPException
 from pydantic import BaseModel
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s :: %(message)s")
@@ -38,6 +38,21 @@ FETCH_TIMEOUT_SEC = float(os.environ.get("FETCH_TIMEOUT_SEC", "60"))
 INTERNAL_TOKEN = os.environ.get("INTERNAL_API_TOKEN", "")
 
 app = FastAPI(title="exam-paper-system pdf-worker", version="0.2.0")
+
+
+def _check_internal_token(token_header: str | None) -> None:
+    """Round-7 H: /render_circuit and /render_molecule were previously
+    open. Pdf-worker has a public Railway URL by default, so any internet
+    user could DoS the worker with complex SMILES / 30-element circuits.
+    Now ALL endpoints (except /health) require the same X-Internal-Token
+    that /process_pdf already used for callbacks. The Nest API stamps
+    every outbound call with this header (see RemoteRenderService)."""
+    if not INTERNAL_TOKEN:
+        # Worker mis-configured: refuse rather than serve open. The
+        # process_pdf path also bails on this.
+        raise HTTPException(500, "INTERNAL_API_TOKEN not configured on worker")
+    if not token_header or token_header != INTERNAL_TOKEN:
+        raise HTTPException(401, "missing or invalid X-Internal-Token")
 
 
 class ProcessPdfRequest(BaseModel):
@@ -78,9 +93,11 @@ def health() -> dict[str, str]:
 
 
 @app.post("/process_pdf", response_model=ProcessPdfResponse)
-def process_pdf(req: ProcessPdfRequest) -> ProcessPdfResponse:
-    if not INTERNAL_TOKEN:
-        raise HTTPException(500, "INTERNAL_API_TOKEN not configured on worker")
+def process_pdf(
+    req: ProcessPdfRequest,
+    x_internal_token: str | None = Header(default=None, alias="X-Internal-Token"),
+) -> ProcessPdfResponse:
+    _check_internal_token(x_internal_token)
 
     # Fetch the raw PDF from the API. We authenticate as an internal caller
     # via the shared token; the API enforces this on the matching route.
@@ -251,7 +268,11 @@ class CircuitResponse(BaseModel):
 
 
 @app.post("/render_circuit", response_model=CircuitResponse)
-def render_circuit(req: CircuitRequest) -> CircuitResponse:
+def render_circuit(
+    req: CircuitRequest,
+    x_internal_token: str | None = Header(default=None, alias="X-Internal-Token"),
+) -> CircuitResponse:
+    _check_internal_token(x_internal_token)
     if not _SCHEMDRAW_OK:
         raise HTTPException(503, "schemdraw not installed in this worker")
     if not req.elements:
@@ -328,7 +349,11 @@ class MoleculeResponse(BaseModel):
 
 
 @app.post("/render_molecule", response_model=MoleculeResponse)
-def render_molecule(req: MoleculeRequest) -> MoleculeResponse:
+def render_molecule(
+    req: MoleculeRequest,
+    x_internal_token: str | None = Header(default=None, alias="X-Internal-Token"),
+) -> MoleculeResponse:
+    _check_internal_token(x_internal_token)
     if not _RDKIT_OK:
         raise HTTPException(503, "rdkit not installed in this worker")
     smiles = (req.smiles or "").strip()

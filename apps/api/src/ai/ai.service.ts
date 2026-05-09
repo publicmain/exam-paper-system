@@ -36,7 +36,12 @@ export class AiService {
       this.logger.warn('ANTHROPIC_API_KEY not configured — AI calls will return stub responses.');
       this.client = null;
     } else {
-      this.client = new Anthropic({ apiKey });
+      // Round-7 H35 (agent-8 §6.5): explicit retry budget. SDK default
+      // already retries 2x but it's worth pinning so a bump in SDK
+      // version doesn't silently change it. 529 (overloaded) jitters
+      // most often during peak Sonnet usage windows; the extra retry
+      // hides ~95% of those before they reach the user.
+      this.client = new Anthropic({ apiKey, maxRetries: 3 });
     }
   }
 

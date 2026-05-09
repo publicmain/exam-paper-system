@@ -270,7 +270,8 @@ export class AiQuestionGeneratorService {
       );
       this.client = null;
     } else {
-      this.client = new Anthropic({ apiKey });
+      // Round-7 H35: maxRetries pinned, see ai.service.ts.
+      this.client = new Anthropic({ apiKey, maxRetries: 3 });
     }
   }
 
