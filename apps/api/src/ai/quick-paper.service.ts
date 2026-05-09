@@ -144,26 +144,48 @@ export class QuickPaperService {
 
     // ---- Step 1: Author questions via Claude (parallel by topic, capped) ----
     const tQ0 = Date.now();
+    // Round-7 H32: a single Claude blip used to nuke that whole topic's
+    // questions, leaving an 18-target paper with only 3 questions. Retry
+    // once on transient errors before giving up. Budget-cap (4xx-style
+    // ServiceUnavailableException carrying 'cap_exceeded') and zod-style
+    // validation errors are NOT retried — bouncing the same call would
+    // just burn more cap.
+    const isTransient = (msg: string) => {
+      const s = msg.toLowerCase();
+      if (s.includes('cap_exceeded') || s.includes('cap exceeded')) return false;
+      if (s.includes('invalid')) return false;
+      if (s.includes('not found')) return false;
+      return true; // network, 5xx, parse errors are all transient.
+    };
     const perTopicResults = await this.runWithLimit(
       topics,
       PARALLEL_TOPIC_LIMIT,
       async (t) => {
-        try {
-          const r = await this.aiQuestions.generate(
-            {
-              syllabusCode: input.syllabusCode,
-              topicCode: t.code,
-              count: t.count,
-              difficulty: input.difficulty,
-              multiPart: input.multiPart ?? true,
-              weeklyFocus: input.weeklyFocus ?? null,
-            },
-            actor,
-          );
-          return { topic: t, ok: true as const, result: r };
-        } catch (e: any) {
-          return { topic: t, ok: false as const, error: String(e?.message ?? e).slice(0, 200) };
+        const args = {
+          syllabusCode: input.syllabusCode,
+          topicCode: t.code,
+          count: t.count,
+          difficulty: input.difficulty,
+          multiPart: input.multiPart ?? true,
+          weeklyFocus: input.weeklyFocus ?? null,
+        };
+        let lastErr: string | null = null;
+        for (let attempt = 0; attempt < 2; attempt++) {
+          try {
+            const r = await this.aiQuestions.generate(args, actor);
+            return { topic: t, ok: true as const, result: r, retries: attempt };
+          } catch (e: any) {
+            lastErr = String(e?.message ?? e).slice(0, 200);
+            if (attempt === 0 && isTransient(lastErr)) {
+              this.logger?.warn?.(
+                `quick-paper retry topic=${t.code} after transient error: ${lastErr}`,
+              );
+              continue;
+            }
+            break;
+          }
         }
+        return { topic: t, ok: false as const, error: lastErr ?? 'unknown' };
       },
     );
     const tQ = Date.now() - tQ0;

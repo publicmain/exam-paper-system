@@ -155,6 +155,12 @@ model StudentSubmission {
 
   @@unique([assignmentId, studentId])
   @@index([studentId])
+  // Round-7 H17 (agent-3 D9): MarkerService.listQueue filters by
+  // `status='submitted'` AND has-ungraded-script. Without (assignmentId,
+  // status) the planner falls back to the unique on (assignmentId,
+  // studentId), then filters in memory. With this composite the queue
+  // browse stays fast as submissions accumulate.
+  @@index([assignmentId, status])
 }
 
 model AnswerScript {
@@ -311,7 +317,7 @@ model Question {
   // typical values are: 'reading_detail', 'vocab', 'grammar', 'inference',
   // 'matching', 'cloze', 'tfng', 'collocation'. Empty array means
   // un-tagged (legacy + un-classified).
-  tags          String[]   @default([])
+  tags String[] @default([])
 
   createdById String
   // B4: Restrict — keeps Question authorship audit trail intact.
@@ -328,17 +334,17 @@ model Question {
   // Path-B back-relations
   qualityFeedbackSignals QuestionQualitySignal[]
   codeTestCases          CodeQuestionTestCase[]
-
-  @@index([subjectId, componentId, status])
-  @@index([primaryTopicId])
-  @@index([complianceStatus, status])
-  @@index([provenanceTag])
   // Note: tags is String[] — a btree index won't help array-overlap queries
   // (`tags && ARRAY[...]`). The weakness-profile aggregator runs in
   // application code over a class roster's wrong-answer rows, so the
   // hot path is Question rows JOINed via AnswerScript → PaperQuestion
   // and not a tag-by-tag scan. Add a GIN extension index later if the
   // bank grows past ~50k Questions and the join becomes slow.
+
+  @@index([subjectId, componentId, status])
+  @@index([primaryTopicId])
+  @@index([complianceStatus, status])
+  @@index([provenanceTag])
 }
 
 model QuestionTopic {
@@ -1404,6 +1410,11 @@ model MorningQuizSession {
 
   @@unique([date, classId])
   @@index([date, status])
+  // Round-7 H15 (agent-3 D7): MorningQuiz schedule reads use
+  // `WHERE classId = ? AND date >= ?` to find a class's upcoming
+  // sessions; planner needs a (classId, date) index since the unique
+  // is keyed (date, classId) — wrong column order for that filter.
+  @@index([classId, date])
 }
 
 model Attendance {
