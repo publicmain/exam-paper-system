@@ -12,6 +12,7 @@ import {
 import { Request } from 'express';
 import { AuthGuard, Roles } from '../common/auth.guard';
 import { CurrentUser } from '../common/current-user.decorator';
+import { RateLimit } from '../common/rate-limit.guard';
 import { CodegraderService } from './codegrader.service';
 import { CreateTestCaseSchema, SubmitCodeSchema } from './dto';
 
@@ -89,8 +90,12 @@ export class CodegraderController {
   // Submission — student
   // ----------------------------------------------------------------
 
+  /** Per-student: 30 submissions / minute. The grader spins up a sandbox
+   *  per submission; ddos'ing it from one logged-in account would otherwise
+   *  pin Railway CPU. H9 / agent-9 SEC-11. */
   @Post('submit')
   @Roles('student')
+  @RateLimit({ limit: 30, windowSec: 60, scope: 'user' })
   submit(@Body() body: unknown, @CurrentUser() user: any, @Req() req: Request) {
     const parsed = SubmitCodeSchema.safeParse(body);
     if (!parsed.success) throw new BadRequestException(parsed.error.flatten());

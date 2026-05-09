@@ -5,6 +5,7 @@ import { JwtModule } from '@nestjs/jwt';
 import { ScheduleModule } from '@nestjs/schedule';
 import { PrismaService } from './common/prisma.service';
 import { AuthGuard } from './common/auth.guard';
+import { RateLimitGuard } from './common/rate-limit.guard';
 import { AuthModule } from './auth/auth.module';
 import { ReferenceModule } from './reference/reference.module';
 import { QuestionsModule } from './questions/questions.module';
@@ -100,7 +101,13 @@ import { HealthController } from './health.controller';
   controllers: [HealthController],
   providers: [
     PrismaService,
+    // RateLimitGuard runs before AuthGuard so anonymous brute-force on
+    // /auth/login is blocked even when the AuthGuard would let unauthenticated
+    // requests through (Public routes). Both are global; @RateLimit() opts
+    // a route in.
+    { provide: APP_GUARD, useClass: RateLimitGuard },
     { provide: APP_GUARD, useClass: AuthGuard },
+    RateLimitGuard,
   ],
   exports: [PrismaService],
 })

@@ -12,6 +12,7 @@ import {
 import { Request } from 'express';
 import { z } from 'zod';
 import { Public } from '../common/auth.guard';
+import { RateLimit } from '../common/rate-limit.guard';
 import { CurrentUser } from '../common/current-user.decorator';
 import { isTeacherOrAbove } from '../common/roles';
 import { IpAllowlistGuard } from '../wifi-gate/ip-allowlist.guard';
@@ -77,8 +78,13 @@ export class AttendanceController {
    * auth_token so subsequent /morning-quiz/* calls authenticate as this
    * student via the existing AuthGuard.
    */
+  /** 30 scan attempts / minute / IP. The whole class shares one school
+   *  egress IP, so this caps a curl-loop trying to spam scans without
+   *  hurting the legitimate flood at 8:30am (peaks around 5/sec for ~30
+   *  students). H9. */
   @Public()
   @UseGuards(IpAllowlistGuard)
+  @RateLimit({ limit: 30, windowSec: 60, scope: 'ip' })
   @Post('scan')
   scan(@Body() body: unknown, @Req() req: Request) {
     const parsed = ScanSchema.safeParse(body);

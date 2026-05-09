@@ -96,9 +96,12 @@ async function bootstrap() {
   app.setGlobalPrefix('api');
   // Trust proxy so req.ip reads X-Forwarded-For when fronted by Railway /
   // Cloudflare. Required by IpAllowlistGuard to detect the real school egress
-  // IP rather than the proxy's loopback. Trust all hops — the upstream proxy
-  // is well-known and terminates TLS in front of us.
-  (app.getHttpAdapter().getInstance() as any).set('trust proxy', true);
+  // IP rather than the proxy's loopback. Trust exactly ONE hop — the
+  // single Railway/Cloudflare layer in front of us. `trust proxy=true` would
+  // happily honour any number of fake X-Forwarded-For headers, letting a
+  // malicious client claim any source IP for the rate limiter / IP
+  // allowlist. Round-7 agent-2 H-10.
+  (app.getHttpAdapter().getInstance() as any).set('trust proxy', 1);
   app.useGlobalPipes(
     new ValidationPipe({
       whitelist: true,

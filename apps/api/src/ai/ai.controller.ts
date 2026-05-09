@@ -29,6 +29,7 @@ import { OpenAiImageService, DiagramType } from './openai-image.service';
 import { AiQuestionGeneratorService } from './ai-question-generator.service';
 import { QuickPaperService } from './quick-paper.service';
 import { AuthGuard } from '../common/auth.guard';
+import { RateLimit } from '../common/rate-limit.guard';
 import { CurrentUser } from '../common/current-user.decorator';
 
 class SuggestLabelsDto {
@@ -124,6 +125,7 @@ export class AiController {
    * monthly cap by hammering the endpoint from the browser console.
    */
   @Post('suggest-labels')
+  @RateLimit({ limit: 30, windowSec: 60, scope: 'user' })
   suggestLabels(@Body() dto: SuggestLabelsDto, @CurrentUser() user: any) {
     if (!['admin', 'head_teacher', 'teacher'].includes(user?.role)) {
       throw new ForbiddenException('teacher, head_teacher, or admin role required');
@@ -137,6 +139,7 @@ export class AiController {
    * so a runaway client cannot blow the budget.
    */
   @Post('generate-diagram')
+  @RateLimit({ limit: 10, windowSec: 60, scope: 'user' })
   async generateDiagram(
     @Body() dto: GenerateDiagramDto,
     @CurrentUser() user: any,
@@ -172,6 +175,7 @@ export class AiController {
    * Admin / head_teacher only — teachers should not burn budget.
    */
   @Post('generate-questions')
+  @RateLimit({ limit: 20, windowSec: 60, scope: 'user' })
   async generateQuestions(
     @Body() dto: GenerateQuestionsDto,
     @CurrentUser() user: any,
@@ -223,6 +227,7 @@ export class AiController {
    * tokens. Default 5 questions + diagrams ≈ $0.20 / 70-90 seconds.
    */
   @Post('quick-paper')
+  @RateLimit({ limit: 5, windowSec: 60, scope: 'user' })
   async quickPaperGenerate(
     @Body() dto: QuickPaperDto,
     @CurrentUser() user: any,
