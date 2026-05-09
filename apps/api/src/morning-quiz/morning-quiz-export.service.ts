@@ -63,7 +63,14 @@ export class MorningQuizExportService {
       },
       include: {
         class: { select: { id: true, name: true } },
-        paperAssignment: { select: { paperId: true } },
+        // Include paper.name so Sheet 2's "Paper" column shows a readable
+        // label instead of the raw cuid. Round-7 H37+ user-feedback.
+        paperAssignment: {
+          select: {
+            paperId: true,
+            paper: { select: { name: true } },
+          },
+        },
       },
       orderBy: [{ date: 'asc' }, { classId: 'asc' }],
     });
@@ -100,6 +107,27 @@ export class MorningQuizExportService {
     const wb = new ExcelJS.Workbook();
     wb.creator = `morning-quiz-export by ${actor.role}`;
     wb.created = new Date();
+
+    // Round-7 H37: empty date range used to silently produce a workbook
+    // with three header-only sheets. Now we add a "READ ME" sheet that
+    // makes the no-data state explicit so a teacher who downloaded the
+    // wrong week sees why their workbook is empty.
+    if (sessions.length === 0) {
+      const empty = wb.addWorksheet('⚠️ 无数据 No Data');
+      empty.columns = [{ header: '说明 / Note', key: 'note', width: 80 }];
+      this.styleHeader(empty.getRow(1));
+      empty.addRow({
+        note:
+          `导出范围: ${filter.from} → ${filter.to}` +
+          (filter.classId ? `, 班级=${filter.classId}` : ''),
+      });
+      empty.addRow({ note: '该范围内没有任何 morning-quiz session 记录。' });
+      empty.addRow({
+        note: 'Possible causes: weekend-only range / class never scheduled / classId typo.',
+      });
+      const buf = (await wb.xlsx.writeBuffer()) as ArrayBuffer;
+      return Buffer.from(buf);
+    }
 
     // Index lookups
     const sessionById = new Map(sessions.map((s) => [s.id, s]));
@@ -144,7 +172,8 @@ export class MorningQuizExportService {
       { header: '学生 Student', key: 'student', width: 18 },
       { header: '班级 Class', key: 'className', width: 14 },
       { header: '日期 Date', key: 'date', width: 12 },
-      { header: '卷子 Paper', key: 'paperId', width: 14 },
+      // Round-7: was paperId (cuid). Now paper name — humans look at this.
+      { header: '卷子 Paper', key: 'paperName', width: 32 },
       { header: 'MCQ 分 Score', key: 'mcqScore', width: 12 },
       { header: 'MCQ 总题数', key: 'mcqTotal', width: 12 },
       { header: '正确率 %', key: 'mcqPct', width: 10 },
@@ -158,21 +187,30 @@ export class MorningQuizExportService {
       if (!att.submissionId) continue;
       const sub = submissionById.get(att.submissionId);
       if (!sub) continue;
+      // Round-7: skip absent attendances. The score sheet should only
+      // contain rows where a student actually attempted the quiz, otherwise
+      // every absent student gets a fake "0/0 → F" row that misrepresents
+      // them as having failed. Sheet 3 (Absences) covers this case.
+      if (att.status === AttendanceStatus.absent) continue;
       const sess = sessionById.get(att.sessionId);
       const mcqAnswered = sub.scripts.filter((s) => s.autoCorrect !== null);
       const mcqCorrect = mcqAnswered.filter((s) => s.autoCorrect === true).length;
       const totalMarks = sub.scripts.reduce((acc, s) => acc + (s.awardedMarks ?? 0), 0);
       const pct = mcqAnswered.length > 0 ? Math.round((mcqCorrect / mcqAnswered.length) * 100) : 0;
+      // For students who DID attend but answered nothing before time-up,
+      // show '—' instead of an F grade. F is reserved for actual scoring.
+      const grade = mcqAnswered.length === 0 && totalMarks === 0 ? '—' : this.gradeBucket(pct);
+      const paperName = sess?.paperAssignment?.paper?.name ?? sess?.paperAssignment?.paperId ?? '—';
       s2.addRow({
         student: att.student.name,
         className: sess?.class.name ?? '—',
         date: sess?.date ? this.formatDate(sess.date) : '—',
-        paperId: sess?.paperAssignment.paperId ?? '—',
+        paperName,
         mcqScore: mcqCorrect,
         mcqTotal: mcqAnswered.length,
         mcqPct: pct,
         totalMarks: Math.round(totalMarks * 10) / 10,
-        grade: this.gradeBucket(pct),
+        grade,
       });
       if (scoreRowIndex % 2 === 0) {
         this.applyZebraRow(s2.getRow(scoreRowIndex));
