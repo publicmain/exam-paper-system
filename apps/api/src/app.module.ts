@@ -44,6 +44,7 @@ import { QrModule } from './qr/qr.module';
 import { AttendanceModule } from './attendance/attendance.module';
 import { MorningQuizModule } from './morning-quiz/morning-quiz.module';
 import { MorningQuizQaModule } from './morning-quiz-qa/morning-quiz-qa.module';
+import { TeacherTodoModule } from './teacher-todo/teacher-todo.module';
 import { HealthController } from './health.controller';
 
 @Module({
@@ -94,6 +95,7 @@ import { HealthController } from './health.controller';
     AttendanceModule,
     MorningQuizModule,
     MorningQuizQaModule,
+    TeacherTodoModule,
   ],
   controllers: [HealthController],
   providers: [

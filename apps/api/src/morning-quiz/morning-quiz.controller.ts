@@ -278,6 +278,16 @@ export class MorningQuizController {
     });
   }
 
+  /** F3 — student post-submit result page payload.
+   *  Returns score breakdown + per-question student answer + correct
+   *  answer + explanation. Server enforces the "submitted-or-window-
+   *  closed" gate; pre-submit calls return 403 result_locked_until_submit. */
+  @Get('student-result/:sessionId')
+  studentResult(@Param('sessionId') sessionId: string, @CurrentUser() user: any) {
+    if (user.role !== 'student') throw new ForbiddenException('student_only');
+    return this.svc.getStudentResult(sessionId, user.id);
+  }
+
   // ─────────────────── Class English level (admin) ───────────────────
 
   @Patch('classes/:classId/english-level')

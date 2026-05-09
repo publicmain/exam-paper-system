@@ -15,6 +15,7 @@ import AiGeneratePage from './pages/AiGenerate';
 import QuickPaperPage from './pages/QuickPaper';
 import StudentHomePage from './pages/StudentHome';
 import StudentTakePage from './pages/StudentTake';
+import StudentResultPage from './pages/StudentResult';
 // Morning quiz feature
 import MorningQuizDisplayPage from './pages/MorningQuizDisplay';
 import MorningQuizScanPage from './pages/MorningQuizScan';
@@ -94,6 +95,7 @@ export default function App() {
           <Routes>
             <Route path="/student" element={<StudentHomePage />} />
             <Route path="/student/take/:assignmentId" element={<StudentTakePage />} />
+            <Route path="/student/result/:sessionId" element={<StudentResultPage />} />
             <Route path="/student/tutor" element={<StudentTutorPage />} />
             <Route path="/practice" element={<PracticePage />} />
             <Route path="/scan/:token" element={<MorningQuizScanPage />} />

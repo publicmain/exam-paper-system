@@ -275,6 +275,19 @@ export const api = {
   ) => request('PATCH', `/morning-quiz/sessions/${sessionId}/answer`, body),
   morningQuizSubmit: (sessionId: string) =>
     request('POST', `/morning-quiz/sessions/${sessionId}/submit`),
+  // F3 — student result page payload. Server enforces "submitted-or-window-
+  // closed" gate; pre-submit calls return 403 result_locked_until_submit.
+  morningQuizStudentResult: (sessionId: string) =>
+    request('GET', `/morning-quiz/student-result/${sessionId}`),
+  // F1 — teacher today/digest payload.
+  teacherTodoToday: (format?: 'json' | 'digest') =>
+    request('GET', `/teacher/todo/today${format === 'digest' ? '?format=digest' : ''}`),
+  // F4 — per-student weakness profile (last 30 days, by Question.tag).
+  studentWeaknessProfile: (studentId: string) =>
+    request('GET', `/students/${studentId}/weakness-profile`),
+  // F5 — set or clear per-class weeklyFocus.
+  classUpdate: (id: string, body: { weeklyFocus?: string | null }) =>
+    request('PATCH', `/classes/${id}`, body),
   morningQuizDashboard: (sessionId: string) =>
     request('GET', `/morning-quiz/sessions/${sessionId}/dashboard`),
   morningQuizScheduled: (weekStart: string) =>

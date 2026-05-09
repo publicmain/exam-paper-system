@@ -84,7 +84,10 @@ export default function MorningQuizTake() {
     try {
       localStorage.removeItem(`mq:answers:${sessionId}`);
     } catch { /* ignore */ }
-    navigate('/student', { replace: true });
+    // F3 — go to per-session result page instead of dropping back to the
+    // student home. The result page surfaces score + per-question
+    // correct/wrong + brief explanation.
+    navigate(`/student/result/${sessionId}`, { replace: true });
   }, [sessionId, navigate]);
 
   async function handleSubmit() {

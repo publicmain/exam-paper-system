@@ -1004,6 +1004,15 @@ enum NotificationEvent {
   paper_assigned
   paper_marked
   low_score
+  // Round-4 morning-quiz add-ons (already used by absence-alert + cron)
+  morning_quiz_cron_failed
+  consecutive_absent
+  // F1: twice-daily teacher digest (08:30 + 18:30 server-local)
+  teacher_daily_digest
+  // F2: Sunday-night batch-generation review-gate notification (22:00)
+  morning_quiz_review_gate
+  // F2: paper auto-released past Monday 06:30 because teacher didn't act
+  morning_quiz_auto_released
 }
 
 enum NotificationChannel {

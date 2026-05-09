@@ -22,6 +22,9 @@ export interface GenerateQuestionsInput {
   difficulty?: 1 | 2 | 3 | 4 | 5;
   questionType?: QuestionType;
   multiPart?: boolean;        // hint: prefer multi-part if true
+  /** F5 — teacher-supplied weekly focus string, surfaced in the AI
+   *  prompt so generated questions emphasise the stated areas. */
+  weeklyFocus?: string | null;
 }
 
 export interface GeneratedQuestionItemSummary {
@@ -391,6 +394,7 @@ export class AiQuestionGeneratorService {
       questionType: input.questionType,
       multiPart: input.multiPart ?? false,
       fewShot: fewShotPool,
+      weeklyFocus: input.weeklyFocus ?? null,
     });
 
     let elapsedMs = 0;
@@ -956,6 +960,7 @@ existing math renderer handles scatter via points + axes.`;
       sourceRef: string | null;
       content: any;
     }>;
+    weeklyFocus?: string | null;
   }) {
     // Layer 2: per-request topic + intent context (NOT cached).
     const intentLines: string[] = [
@@ -970,6 +975,17 @@ existing math renderer handles scatter via points + axes.`;
       intentLines.push(`Question type required: ${args.questionType}`);
     if (args.multiPart)
       intentLines.push(`Prefer multi-part questions with 2-4 parts (a)/(b)/(c)/(d).`);
+    // F5: per-class teacher-supplied "weekly focus" string. Cap length so a
+    // typo'd 5,000-word note can't blow out the token budget; reasonable
+    // teacher input is 30-300 chars (e.g. 本周重点 matching headings + collocation).
+    if (args.weeklyFocus && args.weeklyFocus.trim().length > 0) {
+      intentLines.push(
+        `Teacher's weekly focus for this class: ${args.weeklyFocus.trim().slice(0, 600)}`,
+      );
+      intentLines.push(
+        'Bias questions to exercise the focus areas above; do NOT ignore the topic constraints — the weekly focus is a *flavour* not a replacement.',
+      );
+    }
     const intentBlock = intentLines.join('\n');
 
     // Layer 3: few-shot from approved questions in same topic.

@@ -215,3 +215,56 @@ describe('AiQuestionGeneratorService — prompt schema documents new fields', ()
     expect(out).toContain('Cloze paper contract');
   });
 });
+
+describe('AiQuestionGeneratorService — F5 weeklyFocus injection', () => {
+  it('buildPrompt includes weeklyFocus when supplied', () => {
+    const svc = makeService();
+    const { userText } = (svc as any).buildPrompt({
+      syllabus: '1123',
+      topicCode: 'EL.1',
+      topicName: 'English Grammar',
+      componentCode: null,
+      count: 4,
+      multiPart: false,
+      fewShot: [],
+      weeklyFocus: '本周重点 matching headings + collocation',
+    });
+    expect(userText).toContain('matching headings');
+    expect(userText).toContain('Bias questions to exercise the focus areas');
+    expect(userText).toContain("Teacher's weekly focus");
+  });
+
+  it('buildPrompt omits weeklyFocus block when null/empty', () => {
+    const svc = makeService();
+    const { userText } = (svc as any).buildPrompt({
+      syllabus: '1123',
+      topicCode: 'EL.1',
+      topicName: 'English Grammar',
+      componentCode: null,
+      count: 4,
+      multiPart: false,
+      fewShot: [],
+      weeklyFocus: null,
+    });
+    expect(userText).not.toContain("Teacher's weekly focus");
+  });
+
+  it('buildPrompt caps weeklyFocus at 600 chars', () => {
+    const svc = makeService();
+    const huge = 'a'.repeat(2000);
+    const { userText } = (svc as any).buildPrompt({
+      syllabus: '1123',
+      topicCode: 'EL.1',
+      topicName: 'English Grammar',
+      componentCode: null,
+      count: 4,
+      multiPart: false,
+      fewShot: [],
+      weeklyFocus: huge,
+    });
+    // The 'a'-block in the prompt is the only one with that pattern; count
+    // its length and ensure ≤ 600.
+    const m = userText.match(/a{600,}/);
+    if (m) expect(m[0].length).toBe(600);
+  });
+});

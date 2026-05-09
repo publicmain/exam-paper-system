@@ -32,6 +32,11 @@ export interface QuickPaperInput {
   multiPart?: boolean;
   paperName?: string;
   classLabel?: string;
+  /** F5 — when supplied, the AI prompt is biased toward this teacher-stated
+   *  emphasis (e.g. "本周重点 matching headings + collocation"). The
+   *  morning-quiz batch-generate path looks up Class.weeklyFocus and
+   *  pipes it through here. */
+  weeklyFocus?: string | null;
 }
 
 export interface QuickPaperResult {
@@ -151,6 +156,7 @@ export class QuickPaperService {
               count: t.count,
               difficulty: input.difficulty,
               multiPart: input.multiPart ?? true,
+              weeklyFocus: input.weeklyFocus ?? null,
             },
             actor,
           );

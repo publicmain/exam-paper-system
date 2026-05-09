@@ -8,7 +8,13 @@ type EventName =
   | 'low_score'
   // Round-4 morning-quiz add-ons
   | 'morning_quiz_cron_failed'
-  | 'consecutive_absent';
+  | 'consecutive_absent'
+  // F1: twice-daily teacher digest (08:30 + 18:30)
+  | 'teacher_daily_digest'
+  // F2: Sunday-night batch-generation review-gate notification
+  | 'morning_quiz_review_gate'
+  // F2: paper auto-released because the teacher didn't act before Monday 06:30
+  | 'morning_quiz_auto_released';
 
 /**
  * Notification dispatch surface.

@@ -414,6 +414,16 @@ export class MorningQuizService {
           // regenerate (different passage / different AI call) with up to
           // 2 retries before we hand the paper to the teacher for manual
           // triage. See generateWithQaLoop for the full state machine.
+          // F5: pull the per-class weekly focus so the AI prompt can
+          // bias generation. Read inline (cheap, one column) so each
+          // class's session reflects the latest teacher input even
+          // mid-week.
+          const cls = await this.prisma.class.findUnique({
+            where: { id: classId },
+            select: { weeklyFocus: true },
+          });
+          const weeklyFocus = cls?.weeklyFocus ?? null;
+
           const builder =
             levelRow.level === 'ielts_authentic'
               ? () =>
@@ -424,6 +434,7 @@ export class MorningQuizService {
                     dateIso,
                     targetCount,
                   );
+                  qpInput.weeklyFocus = weeklyFocus;
                   const generated = await this.quickPaper.generate(qpInput, actor);
                   return generated.paperId;
                 };
@@ -1117,6 +1128,149 @@ export class MorningQuizService {
       },
       counts,
       attendances: session.attendances,
+    };
+  }
+
+  /**
+   * F3 — student post-submit result page payload.
+   *
+   * Strict invariant: only callable by the student who owns the
+   * submission AND only after submission.status === 'submitted' (or
+   * the quiz window has closed). Until then, returns ForbiddenException
+   * with code='result_locked_until_submit' so a curl poll can't pre-leak
+   * the answer key.
+   *
+   * Per-question content goes through the same redactSnapshotForStudent
+   * whitelist as the take-paper view, then we explicitly add ONLY the
+   * fields appropriate for the post-submit screen:
+   *   - correctAnswer (the canonical key)
+   *   - explanation   (one-sentence rationale, if the source question
+   *                    carried one — never markScheme verbatim)
+   *   - studentAnswer (this student's submitted choice/text)
+   *   - awardedMarks  (auto-graded for MCQ; null for un-marked structured)
+   *
+   * We deliberately do NOT include fields like `markScheme`,
+   * `exampleAnswer`, or any per-paperQuestion override that could leak
+   * teacher-internal data. Other students' answers are NEVER included
+   * (the query is scoped to this submission only).
+   */
+  async getStudentResult(sessionId: string, studentId: string) {
+    const session = await this.prisma.morningQuizSession.findUnique({
+      where: { id: sessionId },
+      include: {
+        paperAssignment: {
+          select: { id: true, paperId: true, paper: { select: { name: true } } },
+        },
+      },
+    });
+    if (!session) throw new NotFoundException({ code: 'session_not_found' });
+
+    const submission = await this.prisma.studentSubmission.findUnique({
+      where: {
+        assignmentId_studentId: {
+          assignmentId: session.paperAssignmentId,
+          studentId,
+        },
+      },
+      select: {
+        id: true,
+        status: true,
+        autoScore: true,
+        manualScore: true,
+        totalScore: true,
+        maxScore: true,
+        submittedAt: true,
+        scripts: {
+          select: {
+            paperQuestionId: true,
+            selectedOption: true,
+            textAnswer: true,
+            awardedMarks: true,
+            autoCorrect: true,
+          },
+        },
+      },
+    });
+    if (!submission) throw new NotFoundException({ code: 'no_submission' });
+    const now = new Date();
+    const windowClosed = now > session.quizEnd;
+    const submitted =
+      submission.status === 'submitted' || submission.status === 'graded' ||
+      submission.status === 'returned' || submission.status === 'marked';
+    if (!submitted && !windowClosed) {
+      throw new ForbiddenException({ code: 'result_locked_until_submit' });
+    }
+
+    // Pull paper questions in display order so the result page lines up
+    // with the take-paper experience.
+    const paperQuestions = await this.prisma.paperQuestion.findMany({
+      where: { paperId: session.paperAssignment.paperId },
+      orderBy: { sortOrder: 'asc' },
+      include: {
+        question: { select: { questionType: true } },
+      },
+    });
+
+    const scriptByPq = new Map(
+      submission.scripts.map((s) => [s.paperQuestionId, s]),
+    );
+
+    const items = paperQuestions.map((pq) => {
+      const sc = (pq.snapshotContent ?? {}) as Record<string, unknown>;
+      const correctKey =
+        typeof sc.correctOption === 'string'
+          ? (sc.correctOption as string)
+          : typeof sc.correctAnswer === 'string'
+          ? (sc.correctAnswer as string)
+          : null;
+      const explanation =
+        typeof sc.explanation === 'string'
+          ? (sc.explanation as string).slice(0, 600)
+          : null;
+      const script = scriptByPq.get(pq.id);
+      const studentChoice = script?.selectedOption ?? script?.textAnswer ?? null;
+      // For MCQ on shuffled (non-passage_pick) papers we DON'T relabel
+      // here — the student's saved selectedOption is already the canonical
+      // (un-shuffled) key, so direct comparison against correctKey works.
+      const isCorrect =
+        correctKey != null && studentChoice != null
+          ? String(studentChoice).trim().toLowerCase() ===
+            String(correctKey).trim().toLowerCase()
+          : null;
+      return {
+        paperQuestionId: pq.id,
+        sortOrder: pq.sortOrder,
+        marks: pq.marks,
+        questionType: pq.question.questionType,
+        // Whitelist redacted content (strips correctOption/markScheme/
+        // exampleAnswer; keeps stem/passage/options).
+        snapshotContent: redactSnapshotForStudent(pq.snapshotContent),
+        // Display-only options (no `correct` flag).
+        snapshotOptions: Array.isArray(pq.snapshotOptions)
+          ? (pq.snapshotOptions as any[]).map((o) => ({ key: o?.key, text: o?.text }))
+          : null,
+        // Result-page-only fields (added after redaction since the quiz
+        // window has closed for this student):
+        studentAnswer: studentChoice,
+        correctAnswer: correctKey,
+        explanation,
+        awardedMarks: script?.awardedMarks ?? null,
+        autoCorrect: script?.autoCorrect ?? null,
+        isCorrect,
+      };
+    });
+
+    return {
+      sessionId: session.id,
+      paperName: session.paperAssignment.paper.name,
+      submissionId: submission.id,
+      status: submission.status,
+      autoScore: submission.autoScore,
+      manualScore: submission.manualScore,
+      totalScore: submission.totalScore,
+      maxScore: submission.maxScore,
+      submittedAt: submission.submittedAt,
+      items,
     };
   }
 }

@@ -118,11 +118,148 @@ export class MorningQuizWeeklyCron {
         this.logger.warn(`notify.fire failed: ${(e as Error).message}`);
       }
     }
+
+    // F2 — review-gate notification.
+    // Right after batch generate, summarise verdict distribution for the
+    // upcoming week and push to the teacher channel so they can triage
+    // any needs_review/reject papers before Monday morning.
+    try {
+      const monday = new Date(weekStart + 'T00:00:00Z');
+      const friday = new Date(monday.getTime() + 5 * 86_400_000);
+      const upcomingPapers = await this.prisma.paper.findMany({
+        where: {
+          assignments: {
+            some: {
+              morningQuizSession: {
+                date: { gte: monday, lt: friday },
+              },
+            },
+          },
+        },
+        select: {
+          id: true,
+          name: true,
+          qaReviewVerdict: true,
+          qaReviewSummary: true,
+          qaTeacherAction: true,
+        },
+      });
+      const verdictCounts = upcomingPapers.reduce(
+        (a, p) => {
+          const v = p.qaReviewVerdict ?? 'pending';
+          a[v] = (a[v] ?? 0) + 1;
+          return a;
+        },
+        {} as Record<string, number>,
+      );
+      const needsReviewPapers = upcomingPapers.filter(
+        (p) =>
+          (p.qaReviewVerdict === 'needs_review' || p.qaReviewVerdict === 'reject') &&
+          p.qaTeacherAction === null,
+      );
+      const message =
+        `【晨测出卷已完成】week=${weekStart}\n` +
+        `共 ${upcomingPapers.length} 份卷子，` +
+        Object.entries(verdictCounts)
+          .map(([k, v]) => `${k}=${v}`)
+          .join(' / ') +
+        `\n` +
+        (needsReviewPapers.length > 0
+          ? `${needsReviewPapers.length} 份待复核：\n` +
+            needsReviewPapers
+              .slice(0, 6)
+              .map(
+                (p) =>
+                  `- [${p.qaReviewVerdict}] ${p.name}: ${(p.qaReviewSummary ?? '').slice(0, 80)}`,
+              )
+              .join('\n') +
+            `\n请在周一 06:30 前在 Schedule → Review queue 中处理；逾期未操作的卷子将自动放行。`
+          : `全部通过，无需老师操作。`);
+      await this.notify.fire('morning_quiz_review_gate', {
+        message,
+        weekStart,
+        verdictCounts,
+        needsReview: needsReviewPapers.map((p) => ({ id: p.id, name: p.name })),
+      });
+    } catch (e) {
+      this.logger.warn(`review_gate notify failed: ${(e as Error).message}`);
+    }
+
     return {
       classesAttempted: classIds.length,
       classesSucceeded: succeeded,
       classesFailed: errors.length,
       errors,
     };
+  }
+
+  /**
+   * F2 fail-open auto-releaser.
+   *
+   * Runs every Monday 06:30. Any Paper still flagged needs_review with
+   * qaTeacherAction null and an upcoming session this week is
+   * auto-approved (qaTeacherAction='approved' with actorBy='system-cron').
+   * The audit log captures *why* it auto-released; the teacher can still
+   * roll back via the Review queue if they catch it later.
+   *
+   * `reject` verdicts are NOT auto-released — those are presumed to need
+   * a real fix (the auditor flagged a critical answer-key error).
+   *
+   * Gated by env MORNING_QUIZ_REVIEW_FAIL_OPEN=true (default false).
+   */
+  @Cron('30 6 * * 1', { name: 'morning-quiz-review-fail-open' })
+  async failOpen(): Promise<void> {
+    if (process.env.MORNING_QUIZ_REVIEW_FAIL_OPEN !== 'true') {
+      this.logger.debug('skipped — MORNING_QUIZ_REVIEW_FAIL_OPEN !== "true"');
+      return;
+    }
+    const now = new Date();
+    const weekEnd = new Date(now.getTime() + 7 * 86_400_000);
+    const stuck = await this.prisma.paper.findMany({
+      where: {
+        qaReviewVerdict: 'needs_review',
+        qaTeacherAction: null,
+        assignments: {
+          some: {
+            morningQuizSession: {
+              date: { gte: now, lt: weekEnd },
+            },
+          },
+        },
+      },
+      select: { id: true, name: true, qaReviewSummary: true },
+    });
+    if (stuck.length === 0) {
+      this.logger.log('fail-open: no stuck papers');
+      return;
+    }
+    for (const p of stuck) {
+      try {
+        await this.prisma.paper.update({
+          where: { id: p.id },
+          data: {
+            qaTeacherAction: 'auto_released',
+            qaTeacherActionAt: new Date(),
+            qaTeacherActionBy: 'system-cron',
+          },
+        });
+      } catch (e) {
+        this.logger.warn(
+          `fail-open update paper=${p.id} failed: ${(e as Error).message}`,
+        );
+      }
+    }
+    try {
+      await this.notify.fire('morning_quiz_auto_released', {
+        message:
+          `【自动放行】Monday 06:30 前未老师审核的 ${stuck.length} 份卷子已自动放行` +
+          `（避免影响今天上学）。请审核 Schedule → Review queue 历史，必要时手动撤销。`,
+        count: stuck.length,
+        papers: stuck.map((p) => ({ id: p.id, name: p.name })),
+      });
+    } catch (e) {
+      this.logger.warn(`fail-open notify failed: ${(e as Error).message}`);
+    }
+    this.logger.log(`fail-open released ${stuck.length} stuck papers`);
   }
 }
