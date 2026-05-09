@@ -28,6 +28,22 @@ export function InlineGapInput({
   useEffect(() => { setLocal(value); }, [value]);
   useEffect(() => { if (autoFocus) ref.current?.focus(); }, [autoFocus]);
 
+  // Round-3 H20 — onChange now also commits (debounced by ExamProvider).
+  // Previously only onBlur fired the commit, so a student who left a
+  // question via Timer-auto-submit OR the QuestionPalette without
+  // tabbing/clicking out would lose the latest characters.
+  const commitTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  function scheduleCommit(next: string) {
+    if (commitTimer.current) clearTimeout(commitTimer.current);
+    commitTimer.current = setTimeout(() => {
+      commitTimer.current = null;
+      if (next !== value) onCommit(next);
+    }, 200);
+  }
+  useEffect(() => {
+    return () => { if (commitTimer.current) clearTimeout(commitTimer.current); };
+  }, []);
+
   const ring =
     practiceFeedback === 'correct'
       ? 'ring-2 ring-green-400 bg-green-50 border-green-500'
@@ -41,15 +57,28 @@ export function InlineGapInput({
         ref={ref}
         type="text"
         value={local}
-        onChange={(e) => setLocal(e.target.value)}
-        onBlur={() => { if (local !== value) onCommit(local); }}
+        onChange={(e) => {
+          const v = e.target.value;
+          setLocal(v);
+          scheduleCommit(v);
+        }}
+        onBlur={() => {
+          // Clear any scheduled commit and flush immediately.
+          if (commitTimer.current) {
+            clearTimeout(commitTimer.current);
+            commitTimer.current = null;
+          }
+          if (local !== value) onCommit(local);
+        }}
         onKeyDown={(e) => {
           if (e.key === 'Enter') (e.target as HTMLInputElement).blur();
         }}
         aria-label={ariaLabel ?? `Blank ${index}`}
         autoCorrect="off"
         spellCheck={false}
-        className={`inline-block px-2 py-0.5 mx-0.5 border-0 border-b-2 bg-transparent text-base font-medium text-gray-900 focus:outline-none ${ring}`}
+        // H16 — increase touch height (min-h-[44px]) and font-size to give
+        // a real touch target on iPad while keeping the inline look.
+        className={`inline-block px-2 min-h-[44px] py-1 mx-0.5 border-0 border-b-2 bg-transparent text-base font-medium text-gray-900 focus:outline-none touch-manipulation ${ring}`}
         style={{ width, minWidth: '4rem' }}
       />
     </span>

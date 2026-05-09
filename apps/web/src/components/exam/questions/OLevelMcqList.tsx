@@ -29,7 +29,7 @@ export function OLevelMcqList({ paper }: { paper: ExamPaper }) {
   const isCorrect = showFeedback && ans.selectedOption === correctKey;
 
   return (
-    <div className="max-w-2xl mx-auto py-3" style={{ fontSize: `${fontScale}rem` }}>
+    <div className="max-w-2xl mx-auto py-3" style={{ zoom: fontScale }}>
       <article id={`q-${q.id}`} className="bg-white border border-gray-200 rounded-xl shadow-sm">
         <header className="px-5 py-3 border-b flex items-center gap-3">
           <span className="font-mono text-sm text-gray-500 tabular-nums">Q{idx + 1} / {total}</span>

@@ -115,7 +115,7 @@ export function IELTSReadingPassage({ paper }: { paper: ExamPaper }) {
   const [notes, addNote, editNote, removeNote] = useStoredNotes(noteKey);
 
   return (
-    <div className="lg:h-[calc(100dvh-9rem)]" style={{ fontSize: `${fontScale}rem` }}>
+    <div className="lg:h-[calc(100dvh-9rem)]" style={{ zoom: fontScale }}>
       {/* Mobile pane switch — only visible below lg.  On lg+ the split
           renders both panes side-by-side. */}
       <div className="lg:hidden flex justify-center gap-1 px-3 py-2 border-b bg-white sticky top-14 z-10">

@@ -75,16 +75,28 @@ export default function MorningQuizTake() {
     [sessionId],
   );
 
+  // Submit handler also needs to flush in-flight autosaves first (round-3
+  // H6) — the actual flush call lives inside PaperHost where useExam is
+  // accessible. We pass this raw submit hook down; PaperHost wraps it.
+  const submitToServer = useCallback(async () => {
+    if (!sessionId) return;
+    await api.morningQuizSubmit(sessionId);
+    try {
+      localStorage.removeItem(`mq:answers:${sessionId}`);
+    } catch { /* ignore */ }
+    navigate('/student', { replace: true });
+  }, [sessionId, navigate]);
+
   async function handleSubmit() {
+    // Compatibility shim — the real flush + submit happens inside
+    // PaperHost via SubmitButton. Kept here so the existing Timer's
+    // `onTimeUp={onSubmit}` path still works for time-up auto-submit
+    // (which can't await flush, but the local cache + reconnect replay
+    // covers the remaining loss window).
     if (!sessionId || submitted) return;
     setSubmitted(true);
     try {
-      await api.morningQuizSubmit(sessionId);
-      // Clear local cache so a re-take starts clean.
-      try {
-        localStorage.removeItem(`mq:answers:${sessionId}`);
-      } catch { /* ignore */ }
-      navigate('/student', { replace: true });
+      await submitToServer();
     } catch (e: any) {
       setError(e.message ?? String(e));
       setSubmitted(false);
@@ -175,7 +187,41 @@ function ExamShellChrome({
   onSubmit: () => void;
 }) {
   const [paletteOpen, setPaletteOpen] = useState(false);
-  const { answers, flaggedCount, isFlagged } = useExam();
+  const { answers, flaggedCount, isFlagged, flushPendingSaves, saveError, hasPendingSaves } = useExam();
+
+  // Round-3 H6 — wrap submit so it flushes every pending autosave before
+  // calling the server's submit endpoint. Without this, the last 600 ms
+  // of typing can land *after* the server has flipped the submission to
+  // `submitted`, causing the autosave to error with `submission_locked`
+  // and the answer to vanish silently.
+  const onSubmitClick = useCallback(async () => {
+    try {
+      await flushPendingSaves();
+    } catch { /* surfaced via saveError, still proceed */ }
+    onSubmit();
+  }, [flushPendingSaves, onSubmit]);
+
+  // Round-3 H17 — when the iOS soft keyboard pops up, fixed-bottom UI
+  // (palette button + Submit) gets covered. visualViewport lets us see
+  // how much vertical space remains and offset the footer accordingly.
+  // Falls back to safe-area when visualViewport is unsupported.
+  const [keyboardOffset, setKeyboardOffset] = useState(0);
+  useEffect(() => {
+    if (typeof window === 'undefined' || !window.visualViewport) return;
+    const vv = window.visualViewport;
+    function onChange() {
+      // window.innerHeight includes keyboard area; visualViewport.height
+      // is just what's visible above the keyboard. Diff = keyboard height.
+      const diff = window.innerHeight - vv.height - vv.offsetTop;
+      setKeyboardOffset(diff > 50 ? diff : 0);
+    }
+    vv.addEventListener('resize', onChange);
+    vv.addEventListener('scroll', onChange);
+    return () => {
+      vv.removeEventListener('resize', onChange);
+      vv.removeEventListener('scroll', onChange);
+    };
+  }, []);
 
   const total = paper.questions.length;
   const answeredCount = useMemo(
@@ -202,10 +248,18 @@ function ExamShellChrome({
 
   return (
     <div
-      className={`min-h-screen pb-24 ${mode === 'practice' ? 'bg-emerald-50/40' : 'bg-gray-50'}`}
-      style={{ minHeight: '100dvh' }}
+      className={`min-h-screen pb-24 ${mode === 'practice' ? 'bg-emerald-50/40' : 'bg-gray-50'} mq-shell-root`}
     >
       <style>{`
+        /* H19 — '100dvh' is unsupported by iOS Safari < 15.4. Tailwind's
+         * min-h-screen already gives us 100vh as a base; we layer 100dvh
+         * on top for newer browsers via @supports so the keyboard-aware
+         * height is used when available without breaking the older
+         * iPads in deployment. */
+        .mq-shell-root { min-height: 100vh; }
+        @supports (min-height: 100dvh) {
+          .mq-shell-root { min-height: 100dvh; }
+        }
         @keyframes mq-flash {
           0% { background-color: rgb(254 240 138 / 0.7); }
           100% { background-color: transparent; }
@@ -214,6 +268,17 @@ function ExamShellChrome({
       `}</style>
 
       <OfflineBadge />
+      {saveError && (
+        // Round-3 H22: surfacing autosave errors instead of swallowing
+        // them silently. Auto-dismisses on the next successful save.
+        <div
+          role="alert"
+          className="bg-rose-50 border-b border-rose-200 text-rose-800 text-sm px-4 py-2 text-center"
+        >
+          ⚠️ 保存失败 / Save failed: {saveError}.{' '}
+          {hasPendingSaves ? '系统将自动重试 / will retry on reconnect.' : ''}
+        </div>
+      )}
 
       <div
         className="sticky top-0 z-20 px-3 lg:px-5 py-2 backdrop-blur bg-white/95 border-b flex items-center gap-3"
@@ -281,8 +346,12 @@ function ExamShellChrome({
       )}
 
       <div
-        className="fixed bottom-0 inset-x-0 bg-white border-t shadow-lg z-20"
-        style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}
+        className="fixed bottom-0 inset-x-0 bg-white border-t shadow-lg z-20 transition-transform"
+        style={{
+          paddingBottom: 'env(safe-area-inset-bottom)',
+          // H17 — lift footer above iOS soft keyboard when it's visible.
+          transform: keyboardOffset > 0 ? `translateY(-${keyboardOffset}px)` : undefined,
+        }}
       >
         <div className="max-w-7xl mx-auto px-3 lg:px-5 py-2.5 lg:py-3 flex items-center gap-2">
           <button
@@ -317,7 +386,7 @@ function ExamShellChrome({
           )}
           <button
             disabled={submitted}
-            onClick={onSubmit}
+            onClick={onSubmitClick}
             className={`px-6 lg:px-7 py-3 text-white rounded-lg font-semibold text-base touch-manipulation min-h-[48px] ${
               submitted
                 ? 'bg-gray-300'

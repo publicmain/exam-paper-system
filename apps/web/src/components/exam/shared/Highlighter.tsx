@@ -116,11 +116,26 @@ export function Highlighter({
     onChange(highlights.filter((h) => h.id !== id));
   }
 
+  // Round-3 H21: only left-click should grab a selection (right-click on
+  // desktop and long-press on iOS often pop the system context menu, which
+  // collapses the selection just before mouseup fires; we don't want to
+  // capture an empty range and quietly do nothing).
+  function onMouseUpGuarded(e: React.MouseEvent<HTMLDivElement>) {
+    if (e.button !== 0) return;
+    captureSelection();
+  }
+  // H10/iOS — Safari fires touchend BEFORE the OS finalises the selection,
+  // so window.getSelection() is still empty / collapsed. A single rAF
+  // tick gives the OS time to commit the selection range.
+  function onTouchEndGuarded() {
+    requestAnimationFrame(captureSelection);
+  }
+
   return (
     <div
       ref={containerRef}
-      onMouseUp={captureSelection}
-      onTouchEnd={captureSelection}
+      onMouseUp={onMouseUpGuarded}
+      onTouchEnd={onTouchEndGuarded}
       className={`select-text whitespace-pre-wrap ${className}`}
       style={{ WebkitUserSelect: 'text', userSelect: 'text', ...style }}
     >

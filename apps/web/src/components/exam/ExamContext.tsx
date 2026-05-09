@@ -1,5 +1,5 @@
-import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
-import type { ExamMode } from './types';
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
+import type { ExamAnswer, ExamMode } from './types';
 
 /**
  * Top-level context for an in-progress exam attempt.
@@ -16,11 +16,8 @@ import type { ExamMode } from './types';
  * recovery logic.
  */
 
-interface ExamAnswer {
-  selectedOption?: string;
-  textAnswer?: string;
-}
-
+// ExamAnswer now comes from ./types so the shape stays single-sourced
+// (round-3 H1 — eliminates the schema-drift risk of two parallel decls).
 interface ExamContextValue {
   mode: ExamMode;
   fontScale: number;          // 0.85 .. 1.4, default 1.0
@@ -37,6 +34,21 @@ interface ExamContextValue {
 
   // Save / submit hooks supplied by the host page.
   savingId: string | null;
+
+  /** Round-3 H6 — Flush every pending debounce timer + replay every dirty
+   *  answer that hasn't yet round-tripped to the server. Returns a promise
+   *  that resolves when ALL pending saves have settled (success or
+   *  failure). Call this before final-submit so a 600 ms unflushed write
+   *  doesn't get silently dropped under the `submission_locked` race. */
+  flushPendingSaves: () => Promise<void>;
+
+  /** Round-3 H22 — Last save error surface. Cleared when a subsequent
+   *  save succeeds. Host pages should render this to the student so they
+   *  know their answer didn't reach the server (vs the legacy silent
+   *  `// ignore` that hid every failure). */
+  saveError: string | null;
+  /** True iff at least one answer hasn't been confirmed by the server. */
+  hasPendingSaves: boolean;
 
   // Connectivity surface.
   isOffline: boolean;
@@ -116,11 +128,35 @@ export function ExamProvider({
     try { localStorage.setItem(FONT_KEY, String(clamped)); } catch { /* ignore */ }
   }, []);
 
+  // Round-3 H22 — surface save errors (used by SaveErrorBadge / the
+  // OfflineBadge twin). Reset to null on the next successful save.
+  const [saveError, setSaveError] = useState<string | null>(null);
+
+  // Round-3 H3 — timers + dirty set live in refs (NOT useMemo([])): a
+  // future re-run of the callback dependency array would otherwise drop
+  // the in-flight Map and lose every queued save.
+  const timersRef = useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map());
+  // Round-3 H5 — questions whose latest write hasn't been confirmed by the
+  // server yet. We replay this on reconnect AND on flushPendingSaves().
+  const dirtyRef = useRef<Set<string>>(new Set());
+  // Latest answer values keyed by qid — used by replay after a delay or
+  // a reconnect, since the closure-captured `ans` in the timer may be
+  // stale by the time we actually fire (especially on submit-flush).
+  const latestAnswerRef = useRef<Record<string, ExamAnswer>>({});
+
   // Track online / offline. The toolbar surfaces this so a student
   // doesn't lose confidence when WiFi flickers — local cache still has
   // their answers and we'll flush on reconnect.
   useEffect(() => {
-    function on() { setIsOffline(false); }
+    function on() {
+      setIsOffline(false);
+      // Round-3 H5 — reconnect replay. Fire-and-forget; failures will be
+      // surfaced via saveError + the dirty answer stays dirty for the
+      // next attempt.
+      if (dirtyRef.current.size > 0) {
+        flushPendingSavesRef.current?.().catch(() => { /* surfaced via saveError */ });
+      }
+    }
     function off() { setIsOffline(true); }
     window.addEventListener('online', on);
     window.addEventListener('offline', off);
@@ -130,8 +166,29 @@ export function ExamProvider({
     };
   }, []);
 
-  // Debounce per-question. Map<qid, timer>.
-  const timersRef = useMemo(() => new Map<string, ReturnType<typeof setTimeout>>(), []);
+  /** Persist ONE answer immediately, mark dirty cleared on success.
+   *  Errors propagate so flushPendingSaves can collect a final status. */
+  const persistOne = useCallback(
+    async (qid: string, ans: ExamAnswer) => {
+      setSavingId(qid);
+      try {
+        await onPersistAnswer(qid, {
+          selectedOption: ans.selectedOption ?? null,
+          textAnswer: ans.textAnswer ?? null,
+        });
+        dirtyRef.current.delete(qid);
+        setSaveError(null);
+      } catch (e: any) {
+        // dirty stays; will be retried on reconnect or on submit flush
+        const msg = e?.message ?? String(e ?? 'save_failed');
+        setSaveError(msg);
+        throw e;
+      } finally {
+        setSavingId((cur) => (cur === qid ? null : cur));
+      }
+    },
+    [onPersistAnswer],
+  );
 
   const setAnswer = useCallback((qid: string, ans: ExamAnswer) => {
     setAnswers((prev) => {
@@ -141,26 +198,54 @@ export function ExamProvider({
       } catch { /* quota — ignore */ }
       return next;
     });
+    latestAnswerRef.current[qid] = ans;
+    dirtyRef.current.add(qid);
     // Reset the timer; fire when input pauses.
-    const existing = timersRef.get(qid);
+    const existing = timersRef.current.get(qid);
     if (existing) clearTimeout(existing);
-    const t = setTimeout(async () => {
-      timersRef.delete(qid);
-      setSavingId(qid);
-      try {
-        await onPersistAnswer(qid, {
-          selectedOption: ans.selectedOption ?? null,
-          textAnswer: ans.textAnswer ?? null,
-        });
-      } catch {
-        // The local cache still holds it; setIsOffline will flip when the
-        // browser fires its own offline event.
-      } finally {
-        setSavingId(null);
-      }
+    const t = setTimeout(() => {
+      timersRef.current.delete(qid);
+      // Use the LATEST answer at fire time, not the closure-captured one
+      // — critical when the timer races with another setAnswer call.
+      const latest = latestAnswerRef.current[qid] ?? ans;
+      persistOne(qid, latest).catch(() => { /* dirty stays; saveError set */ });
     }, SAVE_DEBOUNCE_MS);
-    timersRef.set(qid, t);
-  }, [sessionId, timersRef, onPersistAnswer]);
+    timersRef.current.set(qid, t);
+  }, [sessionId, persistOne]);
+
+  // Round-3 H6 — flush every queued / dirty save right now, return a
+  // promise that resolves after each settles. Used by the submit handler
+  // so a 600 ms-debounce write doesn't drop on the floor under the
+  // `submission_locked` race.
+  const flushPendingSaves = useCallback(async () => {
+    // 1. Cancel debounce timers — anything waiting will be flushed now.
+    for (const [qid, timer] of timersRef.current.entries()) {
+      clearTimeout(timer);
+      timersRef.current.delete(qid);
+    }
+    // 2. Persist every dirty answer's latest value, in parallel.
+    const todo = Array.from(dirtyRef.current);
+    if (todo.length === 0) return;
+    await Promise.allSettled(
+      todo.map((qid) => {
+        const ans = latestAnswerRef.current[qid];
+        if (!ans) return Promise.resolve();
+        return persistOne(qid, ans);
+      }),
+    );
+  }, [persistOne]);
+
+  const flushPendingSavesRef = useRef<typeof flushPendingSaves | null>(null);
+  flushPendingSavesRef.current = flushPendingSaves;
+
+  // Cleanup: clearTimeout every still-pending timer when the provider
+  // unmounts so a stale fire doesn't run after navigation.
+  useEffect(() => {
+    return () => {
+      for (const t of timersRef.current.values()) clearTimeout(t);
+      timersRef.current.clear();
+    };
+  }, []);
 
   const toggleFlag = useCallback((qid: string) => {
     setFlagged((prev) => {
@@ -176,6 +261,8 @@ export function ExamProvider({
 
   const isFlagged = useCallback((qid: string) => flagged.has(qid), [flagged]);
 
+  const hasPendingSaves = !!savingId || timersRef.current.size > 0 || dirtyRef.current.size > 0;
+
   const value = useMemo<ExamContextValue>(() => ({
     mode,
     fontScale,
@@ -187,7 +274,10 @@ export function ExamProvider({
     setAnswer,
     savingId,
     isOffline,
-  }), [mode, fontScale, setFontScale, isFlagged, toggleFlag, flagged.size, answers, setAnswer, savingId, isOffline]);
+    flushPendingSaves,
+    saveError,
+    hasPendingSaves,
+  }), [mode, fontScale, setFontScale, isFlagged, toggleFlag, flagged.size, answers, setAnswer, savingId, isOffline, flushPendingSaves, saveError, hasPendingSaves]);
 
   return <ExamContext.Provider value={value}>{children}</ExamContext.Provider>;
 }

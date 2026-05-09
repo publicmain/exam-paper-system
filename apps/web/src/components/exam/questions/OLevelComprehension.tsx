@@ -43,7 +43,7 @@ export function OLevelComprehension({ paper }: { paper: ExamPaper }) {
   );
 
   return (
-    <div className="lg:flex lg:gap-4 lg:max-w-7xl lg:mx-auto lg:py-3" style={{ fontSize: `${fontScale}rem` }}>
+    <div className="lg:flex lg:gap-4 lg:max-w-7xl lg:mx-auto lg:py-3" style={{ zoom: fontScale }}>
       <aside className="lg:w-1/2 bg-white lg:rounded-lg lg:border lg:shadow-sm lg:max-h-[calc(100dvh-9rem)] lg:overflow-auto">
         <div className="px-5 py-5 lg:px-6 lg:py-6">
           <h2 className="font-semibold text-xl lg:text-2xl mb-2">{passageTitle}</h2>

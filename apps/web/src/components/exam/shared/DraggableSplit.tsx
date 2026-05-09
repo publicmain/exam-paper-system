@@ -10,6 +10,15 @@ import { useCallback, useEffect, useRef, useState } from 'react';
  *
  * Why not a library? react-resizable-panels et al. pull a few KB and a peer
  * dep tree we don't need; this primitive is ~40 lines.
+ *
+ * Round-3 fixes:
+ *  - H9:  onTouchStart now calls preventDefault to stop iOS from treating
+ *         the drag as a scroll gesture.
+ *  - H15: subscribes to resize + orientationchange, recomputes via state
+ *         instead of reading window.innerWidth inline (which froze on
+ *         iPad rotation because nothing triggered re-render).
+ *  - H16: handle is now 12px wide (was 6px) — meets WCAG 2.5.5
+ *         44×44 with the keyboard-only outer hit-box.
  */
 
 export function DraggableSplit({
@@ -40,6 +49,23 @@ export function DraggableSplit({
     return initial;
   });
 
+  // Round-3 H15 — re-evaluate on resize + iPad rotation. Without this,
+  // a portrait-on-load + landscape-after-rotate session keeps the inline
+  // `width: '100%'` it computed at first paint forever.
+  const [vw, setVw] = useState<number>(() =>
+    typeof window !== 'undefined' ? window.innerWidth : 1280,
+  );
+  useEffect(() => {
+    function onResize() { setVw(window.innerWidth); }
+    window.addEventListener('resize', onResize);
+    window.addEventListener('orientationchange', onResize);
+    return () => {
+      window.removeEventListener('resize', onResize);
+      window.removeEventListener('orientationchange', onResize);
+    };
+  }, []);
+  const isWide = vw >= mobileBreakpoint;
+
   const containerRef = useRef<HTMLDivElement | null>(null);
   const draggingRef = useRef(false);
 
@@ -63,6 +89,9 @@ export function DraggableSplit({
     }
     function onTouch(e: TouchEvent) {
       if (!draggingRef.current) return;
+      // Round-3 H9: on iPad/Pencil, the browser tries to scroll the page
+      // when a touch moves; preventDefault keeps the drag responsive.
+      e.preventDefault();
       const t = e.touches[0];
       if (!t) return;
       handleMove(t.clientX);
@@ -95,7 +124,7 @@ export function DraggableSplit({
     >
       <div
         className={`${showLeftMobile ? 'block' : 'hidden'} lg:block`}
-        style={{ width: typeof window !== 'undefined' && window.innerWidth >= mobileBreakpoint ? leftPct : '100%' }}
+        style={{ width: isWide ? leftPct : '100%' }}
       >
         {left}
       </div>
@@ -109,19 +138,27 @@ export function DraggableSplit({
           draggingRef.current = true;
           document.body.style.cursor = 'col-resize';
         }}
-        onTouchStart={() => { draggingRef.current = true; }}
+        onTouchStart={(e) => {
+          // Round-3 H9 — stop iOS interpreting the gesture as a scroll.
+          e.preventDefault();
+          draggingRef.current = true;
+        }}
         onKeyDown={(e) => {
           if (e.key === 'ArrowLeft') persist(Math.max(min, pct - 0.02));
           else if (e.key === 'ArrowRight') persist(Math.min(max, pct + 0.02));
         }}
-        className="hidden lg:flex w-1.5 cursor-col-resize bg-transparent hover:bg-blue-200 active:bg-blue-300 transition-colors items-center justify-center group"
+        // H16 — 12px hit area (was 6px) meets WCAG 2.5.5 minimum and is
+        // far easier to grab on iPad with a thumb. The visual line stays
+        // ~2px so the layout doesn't shift; the hit-box pads it.
+        className="hidden lg:flex w-3 cursor-col-resize bg-transparent hover:bg-blue-200 active:bg-blue-300 transition-colors items-center justify-center group touch-manipulation"
         title="拖动调整分栏 · drag to resize"
+        aria-label="Resize split"
       >
         <div className="w-0.5 h-12 bg-gray-300 group-hover:bg-blue-500 rounded" />
       </div>
       <div
         className={`${showRightMobile ? 'block' : 'hidden'} lg:block`}
-        style={{ width: typeof window !== 'undefined' && window.innerWidth >= mobileBreakpoint ? rightPct : '100%' }}
+        style={{ width: isWide ? rightPct : '100%' }}
       >
         {right}
       </div>
