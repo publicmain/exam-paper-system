@@ -135,6 +135,9 @@ export default function MorningQuizSchedule() {
         <h1 className="text-2xl font-bold">Morning Quiz · 周排课</h1>
         <div className="flex items-center gap-3">
           <ExportAttendanceButton weekStart={weekStart} />
+          <Link to="/morning-quiz/qa-review" className="text-sm text-amber-700 hover:underline">
+            🤖 AI 审核待复核 →
+          </Link>
           <Link to="/admin/attendance" className="text-sm text-blue-600 hover:underline">
             考勤记录 →
           </Link>

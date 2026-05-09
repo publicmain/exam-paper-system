@@ -20,6 +20,7 @@ import MorningQuizDisplayPage from './pages/MorningQuizDisplay';
 import MorningQuizScanPage from './pages/MorningQuizScan';
 import MorningQuizTakePage from './pages/MorningQuizTake';
 import MorningQuizSchedulePage from './pages/MorningQuizSchedule';
+import MorningQuizQaReviewPage from './pages/MorningQuizQaReview';
 import AttendanceAdminPage from './pages/AttendanceAdmin';
 // Path-B pages
 import ClassesPage from './pages/Classes';
@@ -243,6 +244,16 @@ export default function App() {
             element={
               user.role === 'admin' || user.role === 'head_teacher' || user.role === 'teacher' ? (
                 <MorningQuizSchedulePage />
+              ) : (
+                <Navigate to="/" replace />
+              )
+            }
+          />
+          <Route
+            path="/morning-quiz/qa-review"
+            element={
+              user.role === 'admin' || user.role === 'head_teacher' || user.role === 'teacher' ? (
+                <MorningQuizQaReviewPage />
               ) : (
                 <Navigate to="/" replace />
               )

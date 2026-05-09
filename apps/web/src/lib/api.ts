@@ -333,6 +333,17 @@ export const api = {
     markScheme: string;
     maxMarks: number;
   }) => request('POST', '/morning-quiz/ai-grade/short-answer', body),
+
+  // ── AI QA review (morning-quiz IELTS papers) ──────────────────────
+  qaReviewPending: () => request('GET', '/morning-quiz-qa/pending'),
+  qaReviewDetail: (paperId: string) =>
+    request('GET', `/morning-quiz-qa/papers/${paperId}`),
+  qaReviewRerun: (paperId: string, strict = false) =>
+    request('POST', `/morning-quiz-qa/papers/${paperId}/review`, { strict }),
+  qaReviewApprove: (paperId: string) =>
+    request('POST', `/morning-quiz-qa/papers/${paperId}/approve`),
+  qaReviewTeacherReject: (paperId: string, reason?: string) =>
+    request('POST', `/morning-quiz-qa/papers/${paperId}/teacher-reject`, { reason }),
 };
 
 function qs(obj: Record<string, any>) {
