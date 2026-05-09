@@ -47,23 +47,35 @@ async function bootstrap() {
     process.exit(1);
   }
 
-  // Refuse to boot prod with dev-only escape hatches still enabled. A single
-  // misset env in Railway would otherwise turn off the entire auth/IP layer.
+  // Detect dev-only escape hatches in production. The truly dangerous ones
+  // (MOCK_AUTH, SCHOOL_IP_BYPASS) hard-fail; the lower-risk ones
+  // (MORNING_QUIZ_DEBUG, ALLOW_PROD_SEED) are loud-logged but allowed,
+  // since they are also gated at the endpoint / seed-script level. This
+  // keeps prod bootable for the off-hours smoke-test workflow that
+  // legitimately uses MORNING_QUIZ_DEBUG=true.
   if (process.env.NODE_ENV === 'production') {
-    const dangerous: Array<{ name: string; value: string | undefined }> = [
+    const fatal: Array<{ name: string; value: string | undefined }> = [
       { name: 'MOCK_AUTH', value: process.env.MOCK_AUTH },
       { name: 'SCHOOL_IP_BYPASS', value: process.env.SCHOOL_IP_BYPASS },
-      { name: 'MORNING_QUIZ_DEBUG', value: process.env.MORNING_QUIZ_DEBUG },
-      { name: 'ALLOW_PROD_SEED', value: process.env.ALLOW_PROD_SEED },
     ];
-    const enabled = dangerous.filter((d) => d.value === 'true' || d.value === '1');
-    if (enabled.length > 0) {
+    const tripped = fatal.filter((d) => d.value === 'true' || d.value === '1');
+    if (tripped.length > 0) {
       bootstrapLogger.error(
-        `Refusing to start: dev escape hatches enabled in production: ${enabled
+        `Refusing to start: dev escape hatches enabled in production: ${tripped
           .map((d) => `${d.name}=${d.value}`)
           .join(', ')}`,
       );
       process.exit(1);
+    }
+    const audit: Array<{ name: string; value: string | undefined }> = [
+      { name: 'MORNING_QUIZ_DEBUG', value: process.env.MORNING_QUIZ_DEBUG },
+      { name: 'ALLOW_PROD_SEED', value: process.env.ALLOW_PROD_SEED },
+    ];
+    const noisy = audit.filter((d) => d.value === 'true' || d.value === '1');
+    for (const f of noisy) {
+      bootstrapLogger.warn(
+        `Dev escape hatch enabled in production: ${f.name}=${f.value} — endpoint-level gate must hold.`,
+      );
     }
   }
 
