@@ -9,19 +9,20 @@
 
 ## 元发现（必须先看）
 
-**这 7 个 commit 不在当前 worktree 的 HEAD 分支上。**
+**事实更正**：审查中部分 agent（4 / 5 / 9 / 10）独立报告了"代码在 `_audit_review/exam/` 不在 `apps/web/src/components/exam/`"的路径错位，最初汇总也据此写了"未合并到 main"的元发现。
 
-- 当前分支：`claude/intelligent-snyder-70adcc`，HEAD = `81c55b5`
-- 这 7 个 commit (`a3398dc..5bb3a04`) 实际在分支 `claude/youthful-volhard-f60797`
-- 当前分支 `apps/web/src/components/exam/` 目录**不存在**
-- 被审代码以副本形式落在 `_audit_review/exam/`（git-untracked）和 `_audit_review/pages/MorningQuizTake.tsx`
-- 当前分支真正在跑的是 `apps/web/src/pages/MorningQuizTake.tsx`（1127 行单文件，跟 _audit_review 副本不同步）
+**复核后真相**（`git ls-tree origin/main apps/web/src/components/exam/` 确认）：
+
+- `origin/main` HEAD = `5bb3a04`，**这 7 个 commit 确实已在 main 上**，`apps/web/src/components/exam/` 在 main 上完整存在
+- 当前 worktree HEAD = `81c55b5` + 本审查 commit，是 main 的**祖先**——`5bb3a04` 是 `81c55b5` 的线性后代（不是分叉），merge-base 是 `81c55b5`
+- `_audit_review/` 是这个 worktree 本地 git-untracked 的副本（被预先 ckpt 下来供审查），不在远程
+- agent 看不到 `apps/web/src/components/exam/` 是因为本 worktree 只是**未 fetch**到 origin/main 的最新状态
 
 **含义**：
-1. 用户的"刚 push 到 main"叙述与仓库状态不符——这批改动实际**未合并到 main**。
-2. Agent 4 / 5 / 9 / 10 都独立发现了路径错位，每条 finding 都按 `_audit_review/...` 路径标注。
-3. 审查内容仍然成立——`git diff a3398dc^..5bb3a04` 是有效的 diff 源；只是部署位置需要在合并前敲定。
-4. **下一步动作**：先决定 `_audit_review/` 是合并进 `apps/web/src/components/exam/`，还是删除回退；再修下面的 Critical / High。
+1. 用户的"刚 push 到 main"叙述**正确**，代码确实在 main 上跑。
+2. Agent finding 全部仍然成立——它们读的 diff (`a3398dc^..5bb3a04`) 是有效源；路径只是 `apps/web/src/components/exam/` 而非 `_audit_review/exam/`，请按报告里给出的相对路径再加 `apps/web/src/components/` 前缀映射。
+3. 这 4 个 Critical 和 22 个 High **是已上线代码的实际风险**，不是合并前预警。
+4. **下一步动作**：尽快修 C1（redaction 白名单）+ C2（practice mode 前端可绕）+ C3（空数组 crash）+ C4（测试基础设施虚构），这是 main 上当下的状态。
 
 ---
 
@@ -158,13 +159,13 @@
 
 ### 这批代码当前状态
 
-1. **没在 main 上跑**——元发现已确认。所谓"刚 push 到 main 的代码需不需要立即修"这个问题前提就有偏差。
-2. **代码本身有可救价值**——架构合理（题型注册表 + 薄壳 + ExamContext），重写比 1126 行单文件清爽很多；多个 agent 独立认为"小修后可合并"。
-3. **但绝对不能现状合并**——4 个 Critical 中，C1 和 C2 是设计层安全漏洞，必须在合并前修。
+1. **已在 main 上跑**（origin/main HEAD = `5bb3a04`）——元发现复核后确认。
+2. **代码本身有可救价值**——架构合理（题型注册表 + 薄壳 + ExamContext），重写比 1126 行单文件清爽很多。
+3. **但 4 个 Critical 是已上线的真实风险**——C1 和 C2 是设计层安全漏洞，应当立即开 hotfix 分支修。
 
 ### 建议路径
 
-**Tier 1（合并前必修，估计半天到 1 天）**：
+**Tier 1（hotfix，立即修，估计半天到 1 天）**：
 
 - C1：redaction 改白名单 + 加 fuzz 测试 — 后端工作
 - C2：把 practice mode 即时判分搬到服务端 endpoint，前端不持 correctness — 全栈工作
@@ -174,13 +175,13 @@
 - H8：`grid-cols-13` 替成合法 class
 - H7：FontSizeAdjuster 真正传递 fontScale（CSS variable / context-based 字号）
 
-**Tier 2（合并前强烈建议，估计 1-2 天）**：
+**Tier 2（强烈建议本周内修，估计 1-2 天）**：
 
 - H4 / H5 / H6：autosave 三件套（版本号、reconnect flush、submit-flush-pending）
 - H9 / H15 / H16 / H17 / H18：iPad 实考 5 件套（先在 iPad 9.7 + Pro 11 实测一次再说）
 - H22：错误冒泡到学生可见
 
-**Tier 3（合并后跟进，可拆 ticket）**：
+**Tier 3（跟进项，可拆 ticket）**：
 
 - H1 / H2 / H3：类型层精修
 - H10 - H13 / H19 - H21：性能 + 交互细节
@@ -188,8 +189,8 @@
 
 ### 一句话总结
 
-> **这批改动不是"已上线需要救火"，而是"合并前的最后一关"。**
-> 路径错位（_audit_review vs apps/web）必须先决定，4 个 Critical 必须先修，其余按 Tier 推。当前若直接合并到 main，最大风险是 C1/C2 安全设计漏洞会在下一个写答案的 PR 触发线上事故。
+> **这批改动已在 main 上跑，4 个 Critical 是真实在线风险。**
+> 优先级：C1/C2 是安全设计漏洞，下一个往 `snapshotContent` 写答案字段的 PR 即触发线上事故；C3 是数据状态崩溃；C4 是测试诚信问题。建议立即开 hotfix 分支修 Tier 1（4 个 Critical + 3 个高 ROI High），其余按 Tier 推。
 
 ---
 
