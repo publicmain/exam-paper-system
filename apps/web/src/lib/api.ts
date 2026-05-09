@@ -300,6 +300,39 @@ export const api = {
     classId: string,
     level: 'ielts_authentic' | 'ielts_hard' | 'olevel',
   ) => request('PATCH', `/morning-quiz/classes/${classId}/english-level`, { level }),
+  /** Round-4 attendance Excel export. Returns a Blob the caller saves
+   *  via URL.createObjectURL. */
+  morningQuizExportAttendance: async (params: {
+    from: string;
+    to: string;
+    classId?: string;
+  }) => {
+    const url = `/api/morning-quiz/export/attendance${qs(params)}`;
+    const resp = await fetch(url, {
+      method: 'GET',
+      credentials: 'include',
+      headers: token() ? { Authorization: `Bearer ${token()}` } : {},
+    });
+    if (!resp.ok) {
+      const txt = await resp.text();
+      throw new Error(`export failed (${resp.status}): ${txt.slice(0, 200)}`);
+    }
+    return resp.blob();
+  },
+  /** Round-4 server-authoritative practice-mode check — only resolves
+   *  with correctness data once the submission is locked. */
+  morningQuizCheck: (
+    sessionId: string,
+    body: { paperQuestionId: string; selectedOption?: string | null; textAnswer?: string | null },
+  ) => request('POST', `/morning-quiz/sessions/${sessionId}/check`, body),
+  morningQuizAbsenceAlertsCurrent: () =>
+    request('GET', '/morning-quiz/absence-alerts/current'),
+  morningQuizAiGradeShortAnswer: (body: {
+    stem: string;
+    studentAnswer: string;
+    markScheme: string;
+    maxMarks: number;
+  }) => request('POST', '/morning-quiz/ai-grade/short-answer', body),
 };
 
 function qs(obj: Record<string, any>) {

@@ -133,9 +133,12 @@ export default function MorningQuizSchedule() {
     <div>
       <div className="flex items-center justify-between mb-4">
         <h1 className="text-2xl font-bold">Morning Quiz · 周排课</h1>
-        <Link to="/admin/attendance" className="text-sm text-blue-600 hover:underline">
-          考勤记录 →
-        </Link>
+        <div className="flex items-center gap-3">
+          <ExportAttendanceButton weekStart={weekStart} />
+          <Link to="/admin/attendance" className="text-sm text-blue-600 hover:underline">
+            考勤记录 →
+          </Link>
+        </div>
       </div>
 
       {error && (
@@ -320,4 +323,43 @@ function addDays(iso: string, n: number): string {
   const d = new Date(iso);
   d.setDate(d.getDate() + n);
   return d.toISOString().slice(0, 10);
+}
+
+/** Export-attendance button used in the page header. Lazy-instantiates
+ *  a hidden anchor so we can name the .xlsx file without a navigation
+ *  trip — the API streams a Blob which we hand to URL.createObjectURL. */
+function ExportAttendanceButton({ weekStart }: { weekStart: string }) {
+  const [busy, setBusy] = useState(false);
+  const from = weekStart;
+  const to = addDays(weekStart, 4);
+  async function download() {
+    if (busy) return;
+    setBusy(true);
+    try {
+      const blob = await api.morningQuizExportAttendance({ from, to });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `morning-quiz-${from}-to-${to}.xlsx`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    } catch (e: any) {
+      alert(`导出失败: ${e?.message ?? e}`);
+    } finally {
+      setBusy(false);
+    }
+  }
+  return (
+    <button
+      type="button"
+      onClick={download}
+      disabled={busy}
+      className="text-sm px-3 py-1.5 rounded-md border border-emerald-300 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 disabled:opacity-60 touch-manipulation"
+      title={`导出 ${from} ~ ${to} 的考勤+成绩+缺勤汇总 Excel`}
+    >
+      📥 {busy ? '生成中…' : '导出 Excel'}
+    </button>
+  );
 }
