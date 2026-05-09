@@ -6,6 +6,7 @@ import {
   MorningQuizStatus,
 } from '@prisma/client';
 import { PrismaService } from '../common/prisma.service';
+import { autoGradeScripts } from '../student/student.service';
 
 /**
  * Morning quiz lifecycle cron. Runs every minute and acts on three transitions:
@@ -72,96 +73,79 @@ export class MorningQuizCron {
     }
   }
 
+  /**
+   * Lock + force-submit + mark no-shows. Wrapped in a single transaction so
+   * a partial failure (e.g. the answerScript update step throwing on row N)
+   * cannot leave a session flagged `locked` while half its submissions are
+   * still `in_progress`. Either every state transition lands or none do.
+   *
+   * Auto-grading uses the shared `autoGradeScripts` helper so this branch
+   * and the on-time `student.service.finalSubmit` path apply byte-identical
+   * grading rules — no chance of "force-submit at 9:00 ≠ self-submit at 8:59".
+   */
   private async lockOne(sessionId: string, paperAssignmentId: string, classId: string) {
-    // Flip status — idempotent; subsequent ticks see status=locked and skip.
-    await this.prisma.morningQuizSession.update({
-      where: { id: sessionId },
-      data: { status: MorningQuizStatus.locked },
-    });
+    const result = await this.prisma.$transaction(async (tx) => {
+      // Flip status — idempotent; subsequent ticks see status=locked and skip.
+      await tx.morningQuizSession.update({
+        where: { id: sessionId },
+        data: { status: MorningQuizStatus.locked },
+      });
 
-    // Force-submit any in-progress submissions for this assignment.
-    const inProgress = await this.prisma.studentSubmission.findMany({
-      where: {
-        assignmentId: paperAssignmentId,
-        status: 'in_progress',
-      },
-      include: {
-        scripts: {
-          include: {
-            paperQuestion: {
-              include: {
-                question: { select: { questionType: true, options: true } },
+      const inProgress = await tx.studentSubmission.findMany({
+        where: { assignmentId: paperAssignmentId, status: 'in_progress' },
+        include: {
+          scripts: {
+            include: {
+              paperQuestion: {
+                include: { question: { select: { questionType: true, options: true } } },
               },
             },
           },
         },
-      },
-    });
-
-    for (const sub of inProgress) {
-      let autoScore = 0;
-      const scriptUpdates: Array<{ id: string; autoCorrect: boolean; awardedMarks: number }> = [];
-      for (const script of sub.scripts) {
-        const q = script.paperQuestion.question;
-        if (q.questionType !== 'mcq' && q.questionType !== 'short_answer') continue;
-        if (q.questionType === 'mcq') {
-          const opts = (script.paperQuestion.snapshotOptions ?? q.options ?? []) as Array<{
-            key: string;
-            correct: boolean;
-          }>;
-          const correctOpt = Array.isArray(opts) ? opts.find((o) => o.correct) : null;
-          const isCorrect = correctOpt?.key === script.selectedOption;
-          const awarded = isCorrect ? script.paperQuestion.marks : 0;
-          autoScore += awarded;
-          scriptUpdates.push({ id: script.id, autoCorrect: isCorrect, awardedMarks: awarded });
-        }
-        // short_answer auto-grading deferred (Phase 2) — leave awardedMarks null
-        // for the marker workflow.
-      }
-
-      const claim = await this.prisma.studentSubmission.updateMany({
-        where: { id: sub.id, status: 'in_progress' },
-        data: {
-          submittedAt: new Date(),
-          status: 'submitted',
-          autoScore,
-        },
       });
-      if (claim.count === 1 && scriptUpdates.length > 0) {
-        for (const u of scriptUpdates) {
-          await this.prisma.answerScript.update({
-            where: { id: u.id },
-            data: { autoCorrect: u.autoCorrect, awardedMarks: u.awardedMarks },
-          });
+
+      for (const sub of inProgress) {
+        const { autoScore, scriptUpdates } = autoGradeScripts(sub.scripts);
+        const claim = await tx.studentSubmission.updateMany({
+          where: { id: sub.id, status: 'in_progress' },
+          data: { submittedAt: new Date(), status: 'submitted', autoScore },
+        });
+        if (claim.count === 1 && scriptUpdates.length > 0) {
+          for (const u of scriptUpdates) {
+            await tx.answerScript.update({
+              where: { id: u.id },
+              data: { autoCorrect: u.autoCorrect, awardedMarks: u.awardedMarks },
+            });
+          }
         }
       }
-    }
 
-    // Mark roster no-shows as absent.
-    const enrollments = await this.prisma.classEnrollment.findMany({
-      where: { classId, role: 'student' },
-      select: { userId: true },
-    });
-    for (const e of enrollments) {
-      const exists = await this.prisma.attendance.findUnique({
-        where: { sessionId_studentId: { sessionId, studentId: e.userId } },
+      // Mark roster no-shows as absent. createMany + skipDuplicates leans on
+      // the (sessionId, studentId) unique constraint to ignore students who
+      // already scanned, instead of N round-trips.
+      const enrollments = await tx.classEnrollment.findMany({
+        where: { classId, role: 'student' },
+        select: { userId: true },
       });
-      if (!exists) {
-        await this.prisma.attendance.create({
-          data: {
+      if (enrollments.length > 0) {
+        await tx.attendance.createMany({
+          data: enrollments.map((e) => ({
             sessionId,
             studentId: e.userId,
             status: AttendanceStatus.absent,
             scanTime: null,
             source: AttendanceSource.qr_scan,
             sourceIp: null,
-          },
+          })),
+          skipDuplicates: true,
         });
       }
-    }
+
+      return inProgress.length;
+    });
 
     this.logger.log(
-      `locked session ${sessionId}: force-submitted ${inProgress.length} in-progress, marked roster no-shows absent`,
+      `locked session ${sessionId}: force-submitted ${result} in-progress, marked roster no-shows absent`,
     );
   }
 }

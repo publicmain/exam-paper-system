@@ -57,8 +57,17 @@ export class AttendanceService {
       select: { id: true, classId: true, status: true, class: { select: { name: true } } },
     });
     if (!session) throw new NotFoundException({ code: 'session_not_found' });
+    // Gate: only roster-leak the names while the session is *active*. School
+    // WiFi alone + a stale QR is not enough — without this, anyone in the
+    // building during off-hours could harvest the class roster by replaying
+    // yesterday's QR.
+    if (session.status !== MorningQuizStatus.active) {
+      throw new GoneException({ code: 'session_not_active', status: session.status });
+    }
     const enrollments = await this.prisma.classEnrollment.findMany({
-      where: { classId: session.classId, role: 'student' },
+      // isActive=false users (deactivated by admin) must not appear in the
+      // roster — otherwise an old account could be picked and signed in as.
+      where: { classId: session.classId, role: 'student', user: { isActive: true } },
       include: { user: { select: { id: true, name: true } } },
     });
     const students = enrollments
@@ -89,7 +98,7 @@ export class AttendanceService {
     qrToken: string,
     studentName: string,
     sourceIp: string | null,
-    deviceUuid: string | null,
+    deviceUuid: string,
     userAgent: string | null,
   ): Promise<ScanResult> {
     // Gate 2 — QR validity
@@ -115,7 +124,9 @@ export class AttendanceService {
       where: {
         classId: session.classId,
         role: 'student',
-        user: { name: trimmedName, role: 'student' },
+        // isActive=false users are admin-deactivated; they must not be able
+        // to sign in or be impersonated even if their name still matches.
+        user: { name: trimmedName, role: 'student', isActive: true },
       },
       include: { user: { select: { id: true, email: true, name: true, role: true } } },
     });
@@ -162,26 +173,24 @@ export class AttendanceService {
     }
 
     // Anti-fraud: same physical device must not sign in as multiple
-    // students in the same session. We compare the localStorage UUID the
-    // frontend sent. If the same uuid was already used by a *different*
-    // student in this session, reject hard. The legitimate edge case
-    // (student A lent their phone to student B because B's phone died)
-    // is handled by the existing manual_correction flow.
-    if (deviceUuid) {
-      const conflict = await this.prisma.attendance.findFirst({
-        where: {
-          sessionId: session.id,
-          deviceUuid,
-          studentId: { not: studentId },
-        },
-        include: { student: { select: { name: true } } },
+    // students in the same session. deviceUuid is required by the controller
+    // schema so we always have a value here. If the same uuid was already
+    // used by a *different* student in this session, reject hard. The
+    // legitimate edge case (student A lent their phone to student B because
+    // B's phone died) is handled by the existing manual_correction flow.
+    const conflict = await this.prisma.attendance.findFirst({
+      where: {
+        sessionId: session.id,
+        deviceUuid,
+        studentId: { not: studentId },
+      },
+      include: { student: { select: { name: true } } },
+    });
+    if (conflict) {
+      throw new ConflictException({
+        code: 'device_already_used',
+        conflictStudent: conflict.student.name,
       });
-      if (conflict) {
-        throw new ConflictException({
-          code: 'device_already_used',
-          conflictStudent: conflict.student.name,
-        });
-      }
     }
 
     const attendance = await this.prisma.attendance.upsert({

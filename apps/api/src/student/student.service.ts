@@ -4,6 +4,45 @@ import { PrismaService } from '../common/prisma.service';
 interface ActorCtx { id: string; role: string; ip?: string | null }
 
 /**
+ * Pure helper extracted from finalSubmit so the morning-quiz cron's
+ * lockPastSessions branch can reuse the exact same MCQ grading rule. Treats
+ * snapshotOptions as the source of truth (per-paper snapshot was taken at
+ * paper creation), falling back to the question's live `options` only when
+ * the snapshot is null. A short_answer is left to the marker (Phase 2 plan).
+ */
+export function autoGradeScripts(
+  scripts: Array<{
+    id: string;
+    selectedOption: string | null;
+    paperQuestion: {
+      marks: number;
+      snapshotOptions: any;
+      question: { questionType: string; options: any };
+    };
+  }>,
+): {
+  autoScore: number;
+  scriptUpdates: Array<{ id: string; autoCorrect: boolean; awardedMarks: number }>;
+} {
+  let autoScore = 0;
+  const scriptUpdates: Array<{ id: string; autoCorrect: boolean; awardedMarks: number }> = [];
+  for (const script of scripts) {
+    const q = script.paperQuestion.question;
+    if (q.questionType !== 'mcq') continue;
+    const opts = (script.paperQuestion.snapshotOptions ?? q.options ?? []) as Array<{
+      key: string;
+      correct: boolean;
+    }>;
+    const correctOpt = Array.isArray(opts) ? opts.find((o) => o.correct) : null;
+    const isCorrect = correctOpt?.key === script.selectedOption;
+    const awarded = isCorrect ? script.paperQuestion.marks : 0;
+    autoScore += awarded;
+    scriptUpdates.push({ id: script.id, autoCorrect: isCorrect, awardedMarks: awarded });
+  }
+  return { autoScore, scriptUpdates };
+}
+
+/**
  * Student-side workflow:
  *   1. Teacher calls POST /api/papers/:paperId/assign with { classId, dueAt? }.
  *      Creates a PaperAssignment.
@@ -160,19 +199,7 @@ export class StudentService {
       throw new BadRequestException(`submission already ${sub.status}`);
     }
 
-    let autoScore = 0;
-    const scriptUpdates: Array<{ id: string; autoCorrect: boolean; awardedMarks: number }> = [];
-    for (const script of sub.scripts) {
-      const q = script.paperQuestion.question;
-      if (q.questionType !== 'mcq') continue;
-      // Auto-grade MCQ: snapshotOptions on PaperQuestion has correct flag
-      const opts = (script.paperQuestion.snapshotOptions ?? q.options ?? []) as Array<{ key: string; correct: boolean }>;
-      const correctOpt = Array.isArray(opts) ? opts.find(o => o.correct) : null;
-      const isCorrect = correctOpt?.key === script.selectedOption;
-      const awarded = isCorrect ? script.paperQuestion.marks : 0;
-      autoScore += awarded;
-      scriptUpdates.push({ id: script.id, autoCorrect: isCorrect, awardedMarks: awarded });
-    }
+    const { autoScore, scriptUpdates } = autoGradeScripts(sub.scripts);
 
     // Atomic: only flip in_progress -> submitted. Concurrent calls race here
     // and the loser's count is 0.

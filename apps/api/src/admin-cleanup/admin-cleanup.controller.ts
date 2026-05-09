@@ -1,7 +1,22 @@
-import { Body, Controller, Post, UseGuards } from '@nestjs/common';
+import { BadRequestException, Body, Controller, Post, UseGuards } from '@nestjs/common';
+import { z } from 'zod';
 import { AuthGuard, Roles } from '../common/auth.guard';
 import { AdminCleanupService } from './admin-cleanup.service';
 import { IeltsRepairService } from './ielts-repair.service';
+
+const PurgeSchema = z.object({ dryRun: z.boolean().optional() });
+const PurgeMorningQuizSchema = z.object({
+  dryRun: z.boolean().optional(),
+  // Locked enum — without this an unknown string falls through to the
+  // service which only branches on === 'all', so 'drop_everything' would
+  // silently be treated as 'sessions-only'. We bail fast instead.
+  scope: z.enum(['sessions-only', 'all']).optional(),
+});
+const RepairIeltsSchema = z.object({
+  dryRun: z.boolean().optional(),
+  provenancePrefix: z.string().min(1).max(120).optional(),
+  sourceRefPrefix: z.string().min(1).max(120).optional(),
+});
 
 /**
  * Admin-only data hygiene endpoints (Bugs #2 + #5).
@@ -28,8 +43,10 @@ export class AdminCleanupController {
   }
 
   @Post('purge-test-data')
-  purge(@Body() body: { dryRun?: boolean } = {}) {
-    return this.cleanup.purgeTestData({ dryRun: body?.dryRun });
+  purge(@Body() body: unknown) {
+    const parsed = PurgeSchema.safeParse(body ?? {});
+    if (!parsed.success) throw new BadRequestException(parsed.error.flatten());
+    return this.cleanup.purgeTestData({ dryRun: parsed.data.dryRun });
   }
 
   /**
@@ -44,12 +61,12 @@ export class AdminCleanupController {
    * (provenanceTag='cambridge_ielts_8').
    */
   @Post('purge-morning-quiz')
-  purgeMorningQuiz(
-    @Body() body: { dryRun?: boolean; scope?: 'sessions-only' | 'all' } = {},
-  ) {
+  purgeMorningQuiz(@Body() body: unknown) {
+    const parsed = PurgeMorningQuizSchema.safeParse(body ?? {});
+    if (!parsed.success) throw new BadRequestException(parsed.error.flatten());
     return this.cleanup.purgeMorningQuizData({
-      dryRun: body?.dryRun,
-      scope: body?.scope ?? 'sessions-only',
+      dryRun: parsed.data.dryRun,
+      scope: parsed.data.scope ?? 'sessions-only',
     });
   }
 
@@ -62,18 +79,13 @@ export class AdminCleanupController {
    * skipped on re-runs. Default dryRun=true.
    */
   @Post('repair-ielts')
-  repairIelts(
-    @Body()
-    body: {
-      dryRun?: boolean;
-      provenancePrefix?: string;
-      sourceRefPrefix?: string;
-    } = {},
-  ) {
+  repairIelts(@Body() body: unknown) {
+    const parsed = RepairIeltsSchema.safeParse(body ?? {});
+    if (!parsed.success) throw new BadRequestException(parsed.error.flatten());
     return this.ieltsRepair.repair({
-      dryRun: body?.dryRun,
-      provenancePrefix: body?.provenancePrefix,
-      sourceRefPrefix: body?.sourceRefPrefix,
+      dryRun: parsed.data.dryRun,
+      provenancePrefix: parsed.data.provenancePrefix,
+      sourceRefPrefix: parsed.data.sourceRefPrefix,
     });
   }
 }

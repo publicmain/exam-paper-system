@@ -2,6 +2,7 @@ import {
   BadRequestException,
   Body,
   Controller,
+  ForbiddenException,
   Get,
   Post,
   Query,
@@ -12,6 +13,7 @@ import { Request } from 'express';
 import { z } from 'zod';
 import { Public } from '../common/auth.guard';
 import { CurrentUser } from '../common/current-user.decorator';
+import { isTeacherOrAbove } from '../common/roles';
 import { IpAllowlistGuard } from '../wifi-gate/ip-allowlist.guard';
 import { AttendanceService } from './attendance.service';
 
@@ -23,10 +25,15 @@ const ScanSchema = z.object({
   // auto-corrected; the rejection error tells the student to re-check.
   studentName: z.string().trim().min(1).max(50),
   // Frontend mints this on first visit and persists in localStorage.
-  // Server uses it to detect "one phone signing in as many students" —
-  // any attempt to scan with a deviceUuid already used by a different
-  // student in the same session is rejected.
-  deviceUuid: z.string().min(8).max(64).optional(),
+  // REQUIRED: without this gate one curl loop with the same valid QR token
+  // could sign in 30 students (no per-student password). Charset locked
+  // down to UUID v4 + the documented "fallback-…" form so a proxy can't
+  // synthesise unique-looking strings to defeat the duplicate-device check.
+  deviceUuid: z
+    .string()
+    .min(8)
+    .max(64)
+    .regex(/^([0-9a-fA-F-]{8,64}|fallback-[0-9a-z]{8,64})$/),
 });
 
 const CorrectSchema = z.object({
@@ -80,7 +87,7 @@ export class AttendanceController {
       parsed.data.qrToken,
       parsed.data.studentName,
       req.ip ?? null,
-      parsed.data.deviceUuid ?? null,
+      parsed.data.deviceUuid,
       (req.headers['user-agent'] as string | undefined) ?? null,
     );
   }
@@ -88,16 +95,37 @@ export class AttendanceController {
   /**
    * Admin / class teacher manual override for forgot-phone / dead-battery /
    * past-cutoff edge cases. Audit-logged.
+   *
+   * AuthZ: teacher-or-above (admin / head_teacher / teacher). Service-layer
+   * already verifies the same allowlist — this controller-level check is a
+   * defence-in-depth guard so a future contributor can't accidentally leave
+   * the surface open by skipping the service call.
    */
   @Post('correct')
   correct(@Body() body: unknown, @CurrentUser() user: any, @Req() req: Request) {
+    if (!isTeacherOrAbove(user?.role)) {
+      throw new ForbiddenException({ code: 'teacher_required' });
+    }
     const parsed = CorrectSchema.safeParse(body);
     if (!parsed.success) throw new BadRequestException(parsed.error.flatten());
     return this.svc.correct(parsed.data, { id: user.id, role: user.role, ip: req.ip ?? null });
   }
 
+  /**
+   * Attendance history for a class. Teacher-or-above only — without this,
+   * any logged-in student could enumerate the historical attendance of every
+   * class in the school by guessing classIds.
+   */
   @Get('history')
-  history(@Query('classId') classId: string, @Query('from') from?: string, @Query('to') to?: string) {
+  history(
+    @Query('classId') classId: string,
+    @CurrentUser() user: any,
+    @Query('from') from?: string,
+    @Query('to') to?: string,
+  ) {
+    if (!isTeacherOrAbove(user?.role)) {
+      throw new ForbiddenException({ code: 'teacher_required' });
+    }
     if (!classId) throw new BadRequestException('classId required');
     return this.svc.historyForClass(
       classId,

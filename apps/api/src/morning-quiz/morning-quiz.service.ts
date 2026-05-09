@@ -604,6 +604,20 @@ export class MorningQuizService {
       return { ...pq, snapshotOptions: relabeled };
     });
 
+    // SECURITY: strip every answer-key field before sending to a student.
+    // snapshotOptions[].correct + snapshotContent.markScheme / answerContent
+    // would otherwise be readable in F12 and let the student aim for full
+    // marks. Mirrors student.service.redactForStudent's contract.
+    const stripOptions = (opts: unknown) => {
+      if (!Array.isArray(opts)) return opts;
+      return opts.map((o: any) => ({ key: o?.key, text: o?.text }));
+    };
+    const stripSnapshotContent = (sc: unknown) => {
+      if (!sc || typeof sc !== 'object' || Array.isArray(sc)) return sc;
+      const { markScheme, answerContent, ...rest } = sc as Record<string, unknown>;
+      return rest;
+    };
+
     return {
       sessionId: session.id,
       attendanceId: att.id,
@@ -613,8 +627,8 @@ export class MorningQuizService {
         id: pq.id,
         sortOrder: pq.sortOrder,
         marks: pq.marks,
-        snapshotContent: pq.snapshotContent,
-        snapshotOptions: pq.snapshotOptions,
+        snapshotContent: stripSnapshotContent(pq.snapshotContent),
+        snapshotOptions: stripOptions(pq.snapshotOptions),
         questionType: pq.question.questionType,
       })),
     };
