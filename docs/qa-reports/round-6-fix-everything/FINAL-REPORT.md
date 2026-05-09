@@ -176,14 +176,29 @@ The first 4 commits were already fast-forwarded into `main` mid-session
 (push at `f2668ef`). The 5th commit (`4d54d4f`) is being pushed as
 part of this report.
 
-Railway health check (post-deploy):
+Railway health check (post-deploy of all 5 round-6 commits, after
+Railway built and rolled out the batch endpoint):
 ```
 $ curl -sS -m 30 -o /dev/null -w "HTTP=%{http_code} time=%{time_total}s\n" \
     https://exam-paper-system-production.up.railway.app/api/health
-HTTP=200 time=0.447630s
+HTTP=200 time=0.600108s
 $ curl -sS https://exam-paper-system-production.up.railway.app/api/health
-{"ok":true,"ts":"2026-05-09T13:44:30.272Z"}
+{"ok":true,"ts":"2026-05-09T13:50:39.930Z"}
 ```
+
+**All 5 new endpoints are reachable (HTTP 401 = exists, awaiting JWT)**:
+
+```
+POST /api/morning-quiz-qa/batch              → HTTP 401
+GET  /api/teacher/todo/today                 → HTTP 401
+GET  /api/morning-quiz/student-result/test   → HTTP 401
+GET  /api/students/test/weakness-profile     → HTTP 401
+PATCH /api/classes/test                      → HTTP 401
+```
+
+(Earlier in the session `morning-quiz-qa/batch` returned 404 while
+Railway was still building; we polled until it returned 401, confirming
+the new commit `2c1804f` is live.)
 
 ---
 
