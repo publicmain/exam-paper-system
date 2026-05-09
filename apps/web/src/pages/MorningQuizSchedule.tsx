@@ -58,7 +58,24 @@ export default function MorningQuizSchedule() {
   }
 
   useEffect(() => {
-    refresh();
+    // Round-7 H21 unmount guard. weekStart toggles fire fresh fetches
+    // while the previous one is still in flight; without the cancel
+    // flag the slower response can clobber the user's newer selection.
+    let cancelled = false;
+    (async () => {
+      try {
+        const [cls, sched] = await Promise.all([
+          api.listClasses(),
+          api.morningQuizScheduled(weekStart),
+        ]);
+        if (cancelled) return;
+        setClasses(cls);
+        setScheduled(sched);
+      } catch (e: any) {
+        if (!cancelled) setError(e.message ?? String(e));
+      }
+    })();
+    return () => { cancelled = true; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [weekStart]);
 
@@ -297,11 +314,18 @@ export default function MorningQuizSchedule() {
                     >
                       ⚡ 立即激活
                     </button>
+                    {/* Round-7 H22: previous link pointed at
+                        /morning-quiz/dashboard/:id which has never been
+                        registered as a route — clicking always landed on
+                        the home redirect. No per-session dashboard page
+                        exists yet (planned v9). Until then route to the
+                        attendance admin which surfaces this session's
+                        attendance + submission roll-up. */}
                     <Link
-                      to={`/morning-quiz/dashboard/${s.id}`}
+                      to={`/admin/attendance?sessionId=${s.id}`}
                       className="text-blue-600 hover:underline text-xs ml-1"
                     >
-                      Dashboard →
+                      考勤 →
                     </Link>
                   </td>
                 </tr>

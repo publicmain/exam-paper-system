@@ -144,7 +144,17 @@ export default function MorningQuizQaReview() {
   }
 
   useEffect(() => {
-    refresh();
+    // Round-7 H21 unmount guard.
+    let cancelled = false;
+    (async () => {
+      try {
+        const r = await api.qaReviewPending();
+        if (!cancelled) setRows(r);
+      } catch (e: any) {
+        if (!cancelled) setError(e.message ?? String(e));
+      }
+    })();
+    return () => { cancelled = true; };
   }, []);
 
   async function approve(paperId: string) {

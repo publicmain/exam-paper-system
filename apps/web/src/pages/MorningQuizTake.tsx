@@ -67,10 +67,17 @@ export default function MorningQuizTake() {
 
   useEffect(() => {
     if (!sessionId) return;
+    // Round-7 H21 (agent-5 P1-7): if the student navigates away mid-fetch
+    // (toggling visibility on iPad triggers route changes in some shells)
+    // the .then setState used to fire on the unmounted component, leaking
+    // state and occasionally surfacing a "can't update an unmounted
+    // component" warning. The cancelled flag drops the result on unmount.
+    let cancelled = false;
     api
       .morningQuizSession(sessionId)
-      .then((v: SessionView) => setView(v))
-      .catch((e: any) => setError(e.message ?? String(e)));
+      .then((v: SessionView) => { if (!cancelled) setView(v); })
+      .catch((e: any) => { if (!cancelled) setError(e.message ?? String(e)); });
+    return () => { cancelled = true; };
   }, [sessionId]);
 
   const persistAnswer = useCallback(

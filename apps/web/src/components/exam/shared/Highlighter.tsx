@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 
 /**
  * Selection-driven yellow-highlight overlay over a body of plain text.
@@ -175,7 +175,16 @@ export function Highlighter({
   );
 }
 
-/** Convenience hook that backs a Highlighter with localStorage. */
+/** Convenience hook that backs a Highlighter with localStorage.
+ *
+ *  Two non-obvious things:
+ *  1. The setter is wrapped with useCallback so its identity is stable —
+ *     any consumer that puts it in a useEffect/useMemo deps array won't
+ *     re-fire on every parent re-render. (Round-7 agent-5 P1)
+ *  2. When `storageKey` changes (e.g. the user navigates from one paper's
+ *     passage to another's, the hook is the same instance), we re-hydrate
+ *     from the new key so we don't accidentally write old highlights into
+ *     the new bucket. */
 export function useStoredHighlights(storageKey: string): [
   Highlight[],
   (next: Highlight[]) => void,
@@ -187,9 +196,24 @@ export function useStoredHighlights(storageKey: string): [
       return [];
     }
   });
-  const set = (next: Highlight[]) => {
-    setHs(next);
-    try { localStorage.setItem(storageKey, JSON.stringify(next)); } catch { /* ignore */ }
-  };
+  // Re-hydrate when the storageKey changes.
+  useEffect(() => {
+    try {
+      setHs(JSON.parse(localStorage.getItem(storageKey) ?? '[]'));
+    } catch {
+      setHs([]);
+    }
+  }, [storageKey]);
+  const set = useCallback(
+    (next: Highlight[]) => {
+      setHs(next);
+      try {
+        localStorage.setItem(storageKey, JSON.stringify(next));
+      } catch {
+        /* localStorage full / disabled */
+      }
+    },
+    [storageKey],
+  );
   return [hs, set];
 }

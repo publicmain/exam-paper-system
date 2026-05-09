@@ -134,7 +134,12 @@ export default function PracticePage() {
   const PAGE = 20;
 
   useEffect(() => {
-    api.practiceTopics('9618').then((r: any) => setComponents(r.components || []));
+    // Round-7 H21 unmount guard.
+    let cancelled = false;
+    api.practiceTopics('9618').then((r: any) => {
+      if (!cancelled) setComponents(r.components || []);
+    });
+    return () => { cancelled = true; };
   }, []);
 
   // Debounce search 350ms.
@@ -145,6 +150,7 @@ export default function PracticePage() {
 
   // Fetch questions whenever filters change.
   useEffect(() => {
+    let cancelled = false;
     setLoading(true);
     setOffset(0);
     api
@@ -158,10 +164,12 @@ export default function PracticePage() {
         offset: 0,
       })
       .then((r: any) => {
+        if (cancelled) return;
         setQuestions(r.items);
         setTotal(r.total);
       })
-      .finally(() => setLoading(false));
+      .finally(() => { if (!cancelled) setLoading(false); });
+    return () => { cancelled = true; };
   }, [paperVariants, topicCodes, years, debouncedSearch]);
 
   const loadMore = () => {

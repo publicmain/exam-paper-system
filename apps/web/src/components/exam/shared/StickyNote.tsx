@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 
 /** A sticky note attached to the passage panel. We deliberately don't
  *  anchor each note to a specific paragraph (the IELTS CD app keeps notes
@@ -26,19 +26,42 @@ export function useStoredNotes(key: string): [
   const [notes, setNotes] = useState<Note[]>(() => {
     try { return JSON.parse(localStorage.getItem(key) ?? '[]'); } catch { return []; }
   });
-  const persist = (next: Note[]) => {
-    setNotes(next);
-    try { localStorage.setItem(key, JSON.stringify(next)); } catch { /* ignore */ }
-  };
-  const add = (text: string) => {
+  // Re-hydrate when key changes — same reasoning as useStoredHighlights.
+  // Round-7 agent-5 P1.
+  useEffect(() => {
+    try { setNotes(JSON.parse(localStorage.getItem(key) ?? '[]')); }
+    catch { setNotes([]); }
+  }, [key]);
+
+  // The setters all read the latest `notes` via setState's updater form so
+  // they don't need `notes` in their deps array — that would re-create the
+  // setter on every state change and defeat the useCallback identity.
+  const persist = useCallback((updater: (prev: Note[]) => Note[]) => {
+    setNotes((prev) => {
+      const next = updater(prev);
+      try { localStorage.setItem(key, JSON.stringify(next)); }
+      catch { /* localStorage full / disabled */ }
+      return next;
+    });
+  }, [key]);
+
+  const add = useCallback((text: string) => {
     if (!text.trim()) return;
-    persist([...notes, { id: uid(), text: text.trim(), createdAt: Date.now() }]);
-  };
-  const edit = (id: string, text: string) => {
-    if (!text.trim()) return persist(notes.filter((n) => n.id !== id));
-    persist(notes.map((n) => (n.id === id ? { ...n, text: text.trim() } : n)));
-  };
-  const remove = (id: string) => persist(notes.filter((n) => n.id !== id));
+    persist((prev) => [...prev, { id: uid(), text: text.trim(), createdAt: Date.now() }]);
+  }, [persist]);
+
+  const edit = useCallback((id: string, text: string) => {
+    if (!text.trim()) {
+      persist((prev) => prev.filter((n) => n.id !== id));
+      return;
+    }
+    persist((prev) => prev.map((n) => (n.id === id ? { ...n, text: text.trim() } : n)));
+  }, [persist]);
+
+  const remove = useCallback((id: string) => {
+    persist((prev) => prev.filter((n) => n.id !== id));
+  }, [persist]);
+
   return [notes, add, edit, remove];
 }
 

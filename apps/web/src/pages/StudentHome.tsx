@@ -12,7 +12,13 @@ export default function StudentHomePage() {
   const [err, setErr] = useState<string | null>(null);
 
   useEffect(() => {
-    api.studentAssignments().then(setAssignments).catch((e) => setErr(String(e)));
+    // Round-7 H21 unmount guard.
+    let cancelled = false;
+    api
+      .studentAssignments()
+      .then((a) => { if (!cancelled) setAssignments(a); })
+      .catch((e) => { if (!cancelled) setErr(String(e)); });
+    return () => { cancelled = true; };
   }, []);
 
   if (err) return <div className="card text-red-700">{err}</div>;
