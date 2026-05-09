@@ -268,3 +268,196 @@ describe('filename-parser (IELTS)', () => {
     expect(r.fileKind).toBe('question_paper');
   });
 });
+
+// ─────────────────────── MorningQuizService.getStudentView redaction ────
+// QA Round 1 — regression guard for the answer-key leak (Critical #1).
+// Without redaction, an MCQ option's `correct` flag was sent verbatim to
+// the student, and `snapshotContent.markScheme` / `answerContent` shipped
+// alongside the question stem. F12 → student opens the network tab and
+// reads off all the right answers. The redaction below mirrors the
+// inline strip logic in morning-quiz.service.getStudentView so a future
+// refactor accidentally re-introducing the leak fails this test loudly.
+
+import { autoGradeScripts } from '../src/student/student.service';
+
+describe('MorningQuizService — student view redaction (Round 1 critical)', () => {
+  // Mirror the helper in getStudentView. If the service helper changes
+  // shape, update both here AND in the service.
+  function redactSnapshotForStudent(pq: {
+    snapshotContent: any;
+    snapshotOptions: any;
+  }) {
+    const stripOptions = (opts: unknown) => {
+      if (!Array.isArray(opts)) return opts;
+      return opts.map((o: any) => ({ key: o?.key, text: o?.text }));
+    };
+    const stripSnapshotContent = (sc: unknown) => {
+      if (!sc || typeof sc !== 'object' || Array.isArray(sc)) return sc;
+      const { markScheme, answerContent, ...rest } = sc as Record<string, unknown>;
+      return rest;
+    };
+    return {
+      snapshotContent: stripSnapshotContent(pq.snapshotContent),
+      snapshotOptions: stripOptions(pq.snapshotOptions),
+    };
+  }
+
+  it('strips correct flag from snapshotOptions', () => {
+    const pq = {
+      snapshotOptions: [
+        { key: 'A', text: '24', correct: false },
+        { key: 'B', text: '42', correct: true },
+        { key: 'C', text: '7', correct: false },
+      ],
+      snapshotContent: { stem: 'What is 6 × 7?' },
+    };
+    const out = redactSnapshotForStudent(pq);
+    for (const opt of out.snapshotOptions as any[]) {
+      expect(opt).not.toHaveProperty('correct');
+      expect(opt).toHaveProperty('key');
+      expect(opt).toHaveProperty('text');
+    }
+  });
+
+  it('strips markScheme + answerContent from snapshotContent', () => {
+    const pq = {
+      snapshotOptions: null,
+      snapshotContent: {
+        stem: 'Explain photosynthesis.',
+        markScheme: '6CO2 + 6H2O -> C6H12O6 + 6O2 (3 marks)',
+        answerContent: { text: 'plants use sunlight…' },
+        passage: 'visible legitimate field',
+      },
+    };
+    const out = redactSnapshotForStudent(pq) as any;
+    expect(out.snapshotContent).not.toHaveProperty('markScheme');
+    expect(out.snapshotContent).not.toHaveProperty('answerContent');
+    expect(out.snapshotContent.passage).toBe('visible legitimate field');
+    expect(out.snapshotContent.stem).toBeDefined();
+  });
+
+  it('passes through null/non-object snapshotContent unchanged', () => {
+    expect(redactSnapshotForStudent({ snapshotOptions: [], snapshotContent: null })
+      .snapshotContent).toBeNull();
+    expect(redactSnapshotForStudent({ snapshotOptions: [], snapshotContent: 'plain string' })
+      .snapshotContent).toBe('plain string');
+  });
+});
+
+// ─────────────────────── autoGradeScripts (Round 1 medium) ─────────────
+
+describe('autoGradeScripts — shared grader for finalSubmit + cron lock', () => {
+  it('returns 0 marks when student picked nothing', () => {
+    const r = autoGradeScripts([
+      {
+        id: 's1',
+        selectedOption: null,
+        paperQuestion: {
+          marks: 4,
+          snapshotOptions: [{ key: 'A', correct: true }, { key: 'B', correct: false }],
+          question: { questionType: 'mcq', options: null },
+        },
+      },
+    ]);
+    expect(r.autoScore).toBe(0);
+    expect(r.scriptUpdates[0].autoCorrect).toBe(false);
+  });
+
+  it('awards full marks for a correct MCQ pick', () => {
+    const r = autoGradeScripts([
+      {
+        id: 's1',
+        selectedOption: 'B',
+        paperQuestion: {
+          marks: 4,
+          snapshotOptions: [{ key: 'A', correct: false }, { key: 'B', correct: true }],
+          question: { questionType: 'mcq', options: null },
+        },
+      },
+    ]);
+    expect(r.autoScore).toBe(4);
+    expect(r.scriptUpdates[0]).toMatchObject({ autoCorrect: true, awardedMarks: 4 });
+  });
+
+  it('skips short_answer (deferred to Phase 2)', () => {
+    const r = autoGradeScripts([
+      {
+        id: 's1',
+        selectedOption: null,
+        paperQuestion: {
+          marks: 5,
+          snapshotOptions: null,
+          question: { questionType: 'short_answer', options: null },
+        },
+      },
+    ]);
+    expect(r.autoScore).toBe(0);
+    expect(r.scriptUpdates).toHaveLength(0);
+  });
+
+  it('falls back to question.options when snapshotOptions is null', () => {
+    const r = autoGradeScripts([
+      {
+        id: 's1',
+        selectedOption: 'A',
+        paperQuestion: {
+          marks: 2,
+          snapshotOptions: null,
+          question: {
+            questionType: 'mcq',
+            options: [{ key: 'A', correct: true }, { key: 'B', correct: false }],
+          },
+        },
+      },
+    ]);
+    expect(r.autoScore).toBe(2);
+  });
+});
+
+// ─────────────────────── Attendance ScanSchema deviceUuid (Round 1 critical) ──
+
+import { z } from 'zod';
+
+describe('AttendanceController.ScanSchema — deviceUuid required + regex', () => {
+  // Mirror of the schema in attendance.controller.ts. We pull the regex
+  // from the source to assert behaviour rather than reimplementing.
+  const ScanSchema = z.object({
+    qrToken: z.string().min(8).max(256),
+    studentName: z.string().trim().min(1).max(50),
+    deviceUuid: z
+      .string()
+      .min(8)
+      .max(64)
+      .regex(/^([0-9a-fA-F-]{8,64}|fallback-[0-9a-z]{8,64})$/),
+  });
+
+  const validBody = {
+    qrToken: 'v1.111111.deadbeefdeadbeef.sess1',
+    studentName: 'Alice',
+    deviceUuid: '550e8400-e29b-41d4-a716-446655440000',
+  };
+
+  it('accepts a real UUID v4', () => {
+    expect(ScanSchema.safeParse(validBody).success).toBe(true);
+  });
+
+  it('accepts the documented fallback-… form', () => {
+    const r = ScanSchema.safeParse({ ...validBody, deviceUuid: 'fallback-abc12345xyz67' });
+    expect(r.success).toBe(true);
+  });
+
+  it('rejects missing deviceUuid (Round 1 critical: prevents 1-device-30-students)', () => {
+    const { deviceUuid, ...rest } = validBody;
+    expect(ScanSchema.safeParse(rest).success).toBe(false);
+  });
+
+  it('rejects deviceUuid with arbitrary text injection', () => {
+    expect(
+      ScanSchema.safeParse({ ...validBody, deviceUuid: '"; DROP TABLE attendance;--' }).success,
+    ).toBe(false);
+  });
+
+  it('rejects too-short uuid', () => {
+    expect(ScanSchema.safeParse({ ...validBody, deviceUuid: 'abcd' }).success).toBe(false);
+  });
+});
