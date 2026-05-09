@@ -31,27 +31,27 @@ model User {
   createdAt    DateTime  @default(now())
   lastLogin    DateTime?
 
-  questionsCreated     Question[]               @relation("QuestionCreator")
-  templatesOwned       PaperTemplate[]
-  papersOwned          Paper[]
-  versionsAuthored     PaperVersion[]
-  questionVersions     QuestionVersion[]
-  reposAdded           SourceRepository[]       @relation("RepoAddedBy")
-  questionItemReviewed QuestionItem[]           @relation("QuestionItemReviewer")
-  teacherReviews       TeacherReview[]          @relation("ReviewActor")
-  classEnrollments     ClassEnrollment[]
-  paperAssignmentsMade PaperAssignment[]        @relation("PaperAssignedBy")
-  submissions          StudentSubmission[]
+  questionsCreated             Question[]               @relation("QuestionCreator")
+  templatesOwned               PaperTemplate[]
+  papersOwned                  Paper[]
+  versionsAuthored             PaperVersion[]
+  questionVersions             QuestionVersion[]
+  reposAdded                   SourceRepository[]       @relation("RepoAddedBy")
+  questionItemReviewed         QuestionItem[]           @relation("QuestionItemReviewer")
+  teacherReviews               TeacherReview[]          @relation("ReviewActor")
+  classEnrollments             ClassEnrollment[]
+  paperAssignmentsMade         PaperAssignment[]        @relation("PaperAssignedBy")
+  submissions                  StudentSubmission[]
   // Path-B back-relations
-  markerAssignments    MarkerAssignment[]       @relation("MarkerAssignmentMarker")
-  paperVariants        PaperVariantAssignment[] @relation("PaperVariantStudent")
-  tutorSessions        TutorSession[]
-  watermarkTokens      WatermarkToken[]         @relation("WatermarkTokenStudent")
+  markerAssignments            MarkerAssignment[]       @relation("MarkerAssignmentMarker")
+  paperVariants                PaperVariantAssignment[] @relation("PaperVariantStudent")
+  tutorSessions                TutorSession[]
+  watermarkTokens              WatermarkToken[]         @relation("WatermarkTokenStudent")
   // Morning quiz back-relations
-  morningQuizSessionsScheduled MorningQuizSession[] @relation("MorningQuizScheduledBy")
-  attendances                  Attendance[]         @relation("AttendanceStudent")
-  attendancesCorrected         Attendance[]         @relation("AttendanceCorrectedBy")
-  shuffleMaps                  QuestionShuffleMap[] @relation("ShuffleMapStudent")
+  morningQuizSessionsScheduled MorningQuizSession[]     @relation("MorningQuizScheduledBy")
+  attendances                  Attendance[]             @relation("AttendanceStudent")
+  attendancesCorrected         Attendance[]             @relation("AttendanceCorrectedBy")
+  shuffleMaps                  QuestionShuffleMap[]     @relation("ShuffleMapStudent")
 }
 
 // ============================================================
@@ -76,8 +76,8 @@ model Class {
   // back to the syllabus-default mix.
   weeklyFocus String?
 
-  enrollments ClassEnrollment[]
-  assignments PaperAssignment[]
+  enrollments         ClassEnrollment[]
+  assignments         PaperAssignment[]
   // Morning quiz back-relations
   morningQuizSessions MorningQuizSession[]
   englishLevel        ClassEnglishLevel?
@@ -447,22 +447,22 @@ model Paper {
   //   reject       → blocked, automatic regenerate kicks in (max 2 retries)
   //   pending      → review still in flight (or never ran)
   // Issues/summary preserved for teacher dashboard drilldown.
-  qaReviewVerdict  String?            @default("pending")
-  qaReviewSummary  String?
-  qaReviewIssues   Json?
-  qaReviewedAt     DateTime?
-  qaReviewModel    String?
-  qaReviewTokens   Int?
-  qaReviewCostUsd  Float?
-  qaReviewRetries  Int                @default(0)
+  qaReviewVerdict   String?   @default("pending")
+  qaReviewSummary   String?
+  qaReviewIssues    Json?
+  qaReviewedAt      DateTime?
+  qaReviewModel     String?
+  qaReviewTokens    Int?
+  qaReviewCostUsd   Float?
+  qaReviewRetries   Int       @default(0)
   // Teacher decision once a 'needs_review' paper has been triaged:
   //   approved | rejected | edited (with manual edits) | null=untouched
-  qaTeacherAction  String?
+  qaTeacherAction   String?
   qaTeacherActionAt DateTime?
   qaTeacherActionBy String?
 
-  createdAt        DateTime           @default(now())
-  updatedAt        DateTime           @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   questions       PaperQuestion[]
   versions        PaperVersion[]
@@ -472,6 +472,12 @@ model Paper {
   watermarkTokens WatermarkToken[]
   // Morning quiz back-relations
   shuffleMaps     QuestionShuffleMap[]
+
+  // Indexes added round-7 D3 — teacher QA-review queue scans by verdict
+  // (`needs_review` / `reject` filter) and the cron picks `status=archived`
+  // candidates by ownerId. Neither query had an index until now.
+  @@index([qaReviewVerdict, qaTeacherAction])
+  @@index([ownerId, status])
 }
 
 model PaperQuestion {

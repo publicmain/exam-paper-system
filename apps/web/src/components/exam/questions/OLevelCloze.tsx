@@ -28,15 +28,11 @@ import { QuestionFlag } from '../shared/QuestionFlag';
  */
 
 export function OLevelCloze({ paper }: { paper: ExamPaper }) {
+  // All hooks must run on every render — round-7 C-E1. The empty-paper
+  // early return previously sat between useExam and useMemo, so the
+  // first non-empty render after a refetch reordered hooks.
   const { fontScale, answers, setAnswer, mode } = useExam();
-  if (!paper?.questions?.length) {
-    return (
-      <div className="max-w-xl mx-auto py-12 px-6 text-center text-amber-800">
-        该卷尚未出题，请联系老师。
-      </div>
-    );
-  }
-  const passageContent = paper.questions[0]?.snapshotContent ?? {};
+  const passageContent = paper?.questions?.[0]?.snapshotContent ?? {};
   const passage = clean(passageContent.passage ?? '');
 
   // The cloze passage uses [BLANK] markers for each gap; split on them and
@@ -45,6 +41,14 @@ export function OLevelCloze({ paper }: { paper: ExamPaper }) {
     if (!passage) return null;
     return passage.split(/\[BLANK\]/i);
   }, [passage]);
+
+  if (!paper?.questions?.length) {
+    return (
+      <div className="max-w-xl mx-auto py-12 px-6 text-center text-amber-800">
+        该卷尚未出题，请联系老师。
+      </div>
+    );
+  }
 
   if (segments && segments.length - 1 === paper.questions.length) {
     return (

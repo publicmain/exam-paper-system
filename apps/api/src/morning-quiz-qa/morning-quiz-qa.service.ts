@@ -662,10 +662,19 @@ export class MorningQuizQaService {
    * a teacher hasn't yet acted on. Used by the schedule UI's "待复核" panel.
    */
   async listPending() {
+    // Round-7 C-F4 — also surface verdict=pending. The QA loop catches
+    // its own errors and leaves verdict at the schema default ('pending')
+    // so the paper isn't a black hole; that paper still needs a teacher to
+    // either re-run review or push it through manually. Without this row in
+    // the filter the teacher dashboard never showed those papers.
     return this.prisma.paper.findMany({
       where: {
-        qaReviewVerdict: { in: ['needs_review', 'reject'] },
+        qaReviewVerdict: { in: ['needs_review', 'reject', 'pending'] },
         qaTeacherAction: null,
+        // Skip archived papers — those have either been teacher-rejected
+        // already or thrown away by the retry loop. They are not the
+        // teacher's problem any more.
+        status: { not: 'archived' },
       },
       orderBy: { qaReviewedAt: 'desc' },
       select: {

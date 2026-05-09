@@ -24,9 +24,19 @@ import { QuestionFlag } from '../shared/QuestionFlag';
  */
 
 export function OLevelComprehension({ paper }: { paper: ExamPaper }) {
+  // All hooks must run on every render — round-7 C-E1. Previously the
+  // empty-paper early return sat between useState and useMemo, so the
+  // first non-empty render after a refetch produced a different hook
+  // count and React threw "Rules of Hooks" violations.
   const { fontScale } = useExam();
   const [idx, setIdx] = useState(0);
   const total = paper?.questions?.length ?? 0;
+  const passageContent = paper?.questions?.[0]?.snapshotContent ?? {};
+  const passageTitle = clean(passageContent.passageTitle ?? 'Passage');
+  const passageBody = useMemo(
+    () => reflowPassage(clean(passageContent.passage ?? '')),
+    [passageContent.passage],
+  );
   if (!total) {
     return (
       <div className="max-w-xl mx-auto py-12 px-6 text-center text-amber-800">
@@ -35,12 +45,6 @@ export function OLevelComprehension({ paper }: { paper: ExamPaper }) {
     );
   }
   const q = paper.questions[Math.min(idx, total - 1)];
-  const passageContent = paper.questions[0]?.snapshotContent ?? {};
-  const passageTitle = clean(passageContent.passageTitle ?? 'Passage');
-  const passageBody = useMemo(
-    () => reflowPassage(clean(passageContent.passage ?? '')),
-    [passageContent.passage],
-  );
 
   return (
     <div className="lg:flex lg:gap-4 lg:max-w-7xl lg:mx-auto lg:py-3" style={{ zoom: fontScale }}>

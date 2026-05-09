@@ -60,6 +60,7 @@ export class MorningQuizQaController {
   /** Teacher approves a needs_review paper for student delivery. */
   @Post('papers/:id/approve')
   approve(@Param('id') id: string, @CurrentUser() user: any, @Req() req: Request) {
+    if (!TEACHER_ROLES.has(user.role)) throw new ForbiddenException('teacher_required');
     return this.svc.approve(id, { id: user.id, role: user.role, ip: req.ip ?? null });
   }
 
@@ -71,6 +72,7 @@ export class MorningQuizQaController {
     @CurrentUser() user: any,
     @Req() req: Request,
   ) {
+    if (!TEACHER_ROLES.has(user.role)) throw new ForbiddenException('teacher_required');
     if (typeof body?.reason !== 'undefined' && typeof body.reason !== 'string') {
       throw new BadRequestException('reason must be a string');
     }

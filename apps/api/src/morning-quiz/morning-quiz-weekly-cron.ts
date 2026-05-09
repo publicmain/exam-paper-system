@@ -91,13 +91,25 @@ export class MorningQuizWeeklyCron {
         { weekStart, classIds, questionsPerPaper: 12 },
         { id: 'system-cron', role: 'admin', ip: null },
       );
-      // batchGenerateForWeek returns per-tuple outcomes; count successes.
-      const items: any[] = (result as any)?.items ?? (result as any)?.results ?? [];
-      for (const item of items) {
-        if (item?.error) {
-          errors.push({ classId: item.classId ?? 'unknown', error: String(item.error) });
-        } else {
+      // Round-7 C-F5 / agent-1 F-1: batchGenerateForWeek returns
+      // { outcomes: Outcome[] } where each Outcome is either
+      //   { ok: true, date, classId, sessionId, paperId }
+      // or { ok: false, date, classId, code, detail? }.
+      // Previously we read `items` / `result.error`, neither of which
+      // existed — the cron always reported 0 succeeded / 0 failed and
+      // never raised the wechat alarm even when every generation failed.
+      const outcomes: Array<
+        | { ok: true; date: string; classId: string; sessionId: string; paperId: string }
+        | { ok: false; date: string; classId: string; code: string; detail?: string }
+      > = (result as any)?.outcomes ?? [];
+      for (const o of outcomes) {
+        if (o?.ok === true) {
           succeeded++;
+        } else if (o && o.ok === false) {
+          errors.push({
+            classId: o.classId ?? 'unknown',
+            error: o.code + (o.detail ? `: ${o.detail}` : ''),
+          });
         }
       }
     } catch (e: any) {

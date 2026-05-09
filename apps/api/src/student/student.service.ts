@@ -1,5 +1,6 @@
 import { BadRequestException, ForbiddenException, Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../common/prisma.service';
+import { redactSnapshotForStudent } from '../morning-quiz/morning-quiz.service';
 
 interface ActorCtx { id: string; role: string; ip?: string | null }
 
@@ -201,33 +202,32 @@ export class StudentService {
 
     const { autoScore, scriptUpdates } = autoGradeScripts(sub.scripts);
 
-    // Atomic: only flip in_progress -> submitted. Concurrent calls race here
-    // and the loser's count is 0.
-    const claim = await this.prisma.studentSubmission.updateMany({
-      where: { id: submissionId, status: 'in_progress' },
-      data: {
-        submittedAt: new Date(),
-        status: 'submitted',
-        autoScore,
-        // manualScore + totalScore stay null until marker fills structured items.
-      },
-    });
-    if (claim.count === 0) {
-      // Lost the race or the row is already submitted/closed — surface a clean
-      // error rather than overwriting with a second grading pass.
-      throw new BadRequestException('submission already submitted');
-    }
-
-    // Only the winner persists per-script auto-grade flags (race loser threw
-    // above so this loop runs exactly once).
-    for (const u of scriptUpdates) {
-      await this.prisma.answerScript.update({
-        where: { id: u.id },
-        data: { autoCorrect: u.autoCorrect, awardedMarks: u.awardedMarks },
+    // Wrap the conditional flip + per-script writes in a single transaction
+    // so a crash mid-loop can't leave the submission in `submitted` status
+    // while half the scripts still have null autoCorrect / awardedMarks
+    // (round-7 D2 / A3). The conditional updateMany still acts as the
+    // row-level lock — losing racers see claim.count===0 and we throw
+    // before any script write fires.
+    return this.prisma.$transaction(async (tx) => {
+      const claim = await tx.studentSubmission.updateMany({
+        where: { id: submissionId, status: 'in_progress' },
+        data: {
+          submittedAt: new Date(),
+          status: 'submitted',
+          autoScore,
+        },
       });
-    }
-
-    return this.prisma.studentSubmission.findUnique({ where: { id: submissionId } });
+      if (claim.count === 0) {
+        throw new BadRequestException('submission already submitted');
+      }
+      for (const u of scriptUpdates) {
+        await tx.answerScript.update({
+          where: { id: u.id },
+          data: { autoCorrect: u.autoCorrect, awardedMarks: u.awardedMarks },
+        });
+      }
+      return tx.studentSubmission.findUnique({ where: { id: submissionId } });
+    });
   }
 
   /** Student fetches their own submission. Returned shape includes the FULL
@@ -276,11 +276,12 @@ export class StudentService {
     const stripPq = (pq: any) => {
       if (!pq) return pq;
       const { snapshotOptions, snapshotContent, ...rest } = pq;
-      // snapshotContent may itself contain a markScheme / answer field; we
-      // pass it through but blank known answer-key fields just in case.
-      const safeSnapshot = snapshotContent && typeof snapshotContent === 'object'
-        ? { ...snapshotContent, markScheme: undefined, answerContent: undefined }
-        : snapshotContent;
+      // Use the morning-quiz whitelist redactor so any new answer-key field
+      // ever added to snapshotContent (correctOption / correctAnswer /
+      // exampleAnswer / explanation / solution / …) is dropped by default.
+      // The previous omit-list only stripped markScheme + answerContent and
+      // leaked round-3 C1 here on the post-submit replay path.
+      const safeSnapshot = redactSnapshotForStudent(snapshotContent);
       return {
         ...rest,
         snapshotContent: safeSnapshot,

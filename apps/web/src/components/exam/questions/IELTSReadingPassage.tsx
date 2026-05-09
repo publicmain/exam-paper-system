@@ -91,11 +91,24 @@ function groupQuestions(qs: ExamQuestion[]): TaskGroup[] {
 }
 
 export function IELTSReadingPassage({ paper }: { paper: ExamPaper }) {
+  // All hooks run on every render — round-7 C-E2. The empty-paper early
+  // return previously sat between useState and useMemo / useStoredX hooks,
+  // so the first non-empty render after a refetch reordered them and
+  // React threw the "Rules of Hooks" violation.
   const { fontScale } = useExam();
   // Mobile pane toggle — the split collapses to a stack on iPad portrait
   // and phones; the user picks which side to look at. Default to questions
   // since that's where they'll spend most of their time.
   const [mobileSide, setMobileSide] = useState<'left' | 'right'>('right');
+  const passageContent = paper?.questions?.[0]?.snapshotContent ?? {};
+  const passageTitle = clean(passageContent.passageTitle ?? 'Reading Passage');
+  const passageBody = useMemo(() => reflowPassage(clean(passageContent.passage ?? '')), [passageContent.passage]);
+  const groups = useMemo(() => groupQuestions(paper?.questions ?? []), [paper?.questions]);
+
+  const hlKey = `mq:hl:${paper?.sessionId ?? ''}`;
+  const noteKey = `mq:nt:${paper?.sessionId ?? ''}`;
+  const [highlights, setHighlights] = useStoredHighlights(hlKey);
+  const [notes, addNote, editNote, removeNote] = useStoredNotes(noteKey);
 
   if (!paper?.questions?.length) {
     return (
@@ -104,15 +117,6 @@ export function IELTSReadingPassage({ paper }: { paper: ExamPaper }) {
       </div>
     );
   }
-  const passageContent = paper.questions[0]?.snapshotContent ?? {};
-  const passageTitle = clean(passageContent.passageTitle ?? 'Reading Passage');
-  const passageBody = useMemo(() => reflowPassage(clean(passageContent.passage ?? '')), [passageContent.passage]);
-  const groups = useMemo(() => groupQuestions(paper.questions), [paper.questions]);
-
-  const hlKey = `mq:hl:${paper.sessionId}`;
-  const noteKey = `mq:nt:${paper.sessionId}`;
-  const [highlights, setHighlights] = useStoredHighlights(hlKey);
-  const [notes, addNote, editNote, removeNote] = useStoredNotes(noteKey);
 
   return (
     <div className="lg:h-[calc(100dvh-9rem)]" style={{ zoom: fontScale }}>

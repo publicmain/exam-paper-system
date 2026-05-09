@@ -2,9 +2,60 @@
 // HTML+CSS so no JS is required at PDF time. Cover page comes first with a
 // page break, then the question pages.
 import katex from 'katex';
+import * as fs from 'node:fs';
+import * as path from 'node:path';
+import { createRequire } from 'node:module';
 import { SCHOOL_LOGO_DATA_URI } from './school-logo';
 
-const KATEX_CSS_URL = 'https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css';
+/**
+ * Round-7 C-G2 — KaTeX CSS + woff2 fonts inlined as data: URIs at module
+ * load. Previously we linked `https://cdn.jsdelivr.net/npm/katex@.../katex.min.css`
+ * and used `waitUntil: 'networkidle0'`, so a CDN hiccup (common from
+ * Singapore school networks reaching out via Railway egress) blocked the
+ * render until the 30s PDF timeout fired and bubbled a 5xx to the teacher.
+ *
+ * The cost is a one-time ~200ms read of the woff2 files on first call;
+ * the resulting `<style>` block is ~300KB but it's only built into the
+ * single PDF render's HTML, never sent to a student client.
+ */
+const requireFromHere = createRequire(__filename);
+function buildKatexInlineCss(): string {
+  try {
+    const cssPath = requireFromHere.resolve('katex/dist/katex.min.css');
+    let css = fs.readFileSync(cssPath, 'utf8');
+    const fontsDir = path.join(path.dirname(cssPath), 'fonts');
+    // Drop ttf/woff @font-face entries — Chromium supports woff2 and we'd
+    // otherwise embed three copies of every font. Then rewrite woff2
+    // url(fonts/X.woff2) refs to data: URIs.
+    css = css.replace(
+      /@font-face\{[^}]*src:url\(fonts\/[^)]+\.ttf\)[^}]*\}/g,
+      '',
+    );
+    css = css.replace(
+      /,?\s*url\(fonts\/[^)]+\.woff\)[^,)]*?(?=,|\))/g,
+      '',
+    );
+    css = css.replace(/url\(fonts\/([^)]+\.woff2)\)/g, (_m, fname) => {
+      try {
+        const buf = fs.readFileSync(path.join(fontsDir, fname));
+        return `url(data:font/woff2;base64,${buf.toString('base64')})`;
+      } catch {
+        // If a referenced woff2 went missing, leave it as a relative URL
+        // — Chromium will fail to load that single font but won't block
+        // the whole render. PDF math still renders structurally.
+        return `url(fonts/${fname})`;
+      }
+    });
+    return `<style>${css}</style>`;
+  } catch (err) {
+    // Module not installed (shouldn't happen — katex is a runtime dep).
+    // Fall back to the CDN, but with a warning logged once at startup.
+    // eslint-disable-next-line no-console
+    console.error('[pdf] katex inline css failed, falling back to CDN:', err);
+    return '<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css">';
+  }
+}
+const KATEX_INLINE_CSS = buildKatexInlineCss();
 
 // Slot placeholder uses U+E000 (Private Use Area) so the marker can never
 // collide with legitimate question content like "K0 = 100".
@@ -112,7 +163,7 @@ interface PaperData {
 }
 
 const baseStyles = `
-  <link rel="stylesheet" href="${KATEX_CSS_URL}">
+  ${KATEX_INLINE_CSS}
   <style>
     @page { size: A4; margin: 18mm 16mm 18mm 16mm; }
     body { font-family: 'Times New Roman', Georgia, serif; font-size: 11pt; line-height: 1.5; color: #111; }

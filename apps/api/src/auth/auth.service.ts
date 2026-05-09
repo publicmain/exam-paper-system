@@ -15,6 +15,12 @@ export class AuthService {
     if (!ok && process.env.MOCK_AUTH !== 'true') {
       throw new UnauthorizedException('Invalid credentials');
     }
+    // Schema-documented intent (User.isActive comment): a deactivated user
+    // (graduated student, departed teacher) must not be able to log in even
+    // with valid credentials. Same generic 401 to avoid account enumeration.
+    if (!user.isActive) {
+      throw new UnauthorizedException('Invalid credentials');
+    }
     await this.prisma.user.update({ where: { id: user.id }, data: { lastLogin: new Date() } });
 
     const payload = { id: user.id, email: user.email, role: user.role, name: user.name };

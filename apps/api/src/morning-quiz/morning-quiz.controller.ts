@@ -220,6 +220,7 @@ export class MorningQuizController {
     @CurrentUser() user: any,
     @Req() req: Request,
   ) {
+    if (!TEACHER_ROLES.has(user.role)) throw new ForbiddenException('teacher_required');
     return this.svc.cancelSession(
       id,
       { id: user.id, role: user.role, ip: req.ip ?? null },
@@ -297,6 +298,9 @@ export class MorningQuizController {
     @CurrentUser() user: any,
     @Req() req: Request,
   ) {
+    if (!['admin', 'head_teacher'].includes(user.role)) {
+      throw new ForbiddenException({ code: 'admin_required' });
+    }
     const parsed = SetLevelSchema.safeParse(body);
     if (!parsed.success) throw new BadRequestException(parsed.error.flatten());
     return this.svc.setClassEnglishLevel(classId, parsed.data.level, {

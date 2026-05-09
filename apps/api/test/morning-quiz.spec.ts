@@ -936,38 +936,51 @@ describe('MorningQuizWeeklyCron.runOnce', () => {
     expect(out.classesAttempted).toBe(0);
   });
 
-  it('calls batchGenerateForWeek with the upcoming Monday', async () => {
+  it('calls batchGenerateForWeek with the upcoming Monday and counts ok=true outcomes as succeeded', async () => {
     const findMany = vi
       .fn()
       .mockResolvedValue([{ classId: 'C1' }, { classId: 'C2' }]);
-    const batchGenerate = vi.fn().mockResolvedValue({ items: [{}, {}] });
+    // Real batchGenerateForWeek returns { outcomes: Outcome[] } where each
+    // outcome has ok:true | ok:false. The cron previously read `items` and
+    // a non-existent `error` field, so this test now pins the real shape.
+    const batchGenerate = vi.fn().mockResolvedValue({
+      outcomes: [
+        { ok: true, date: '2026-05-11', classId: 'C1', sessionId: 's1', paperId: 'p1' },
+        { ok: true, date: '2026-05-11', classId: 'C2', sessionId: 's2', paperId: 'p2' },
+      ],
+    });
     const fire = vi.fn();
     const cron = new MorningQuizWeeklyCron(
       { classEnglishLevel: { findMany } } as any,
       { batchGenerateForWeek: batchGenerate } as any,
       { fire } as any,
     );
-    await cron.runOnce();
+    const out = await cron.runOnce();
     expect(batchGenerate).toHaveBeenCalledTimes(1);
     const call = batchGenerate.mock.calls[0][0];
-    // weekStart should match YYYY-MM-DD
     expect(call.weekStart).toMatch(/^\d{4}-\d{2}-\d{2}$/);
     expect(call.classIds).toEqual(['C1', 'C2']);
-    expect(fire).not.toHaveBeenCalled(); // no errors → no notify
+    expect(out.classesSucceeded).toBe(2);
+    expect(out.classesFailed).toBe(0);
+    expect(fire).not.toHaveBeenCalled();
   });
 
-  it('fires notify when batch errors are returned', async () => {
+  it('fires notify when batch errors are returned (ok:false outcomes)', async () => {
     const findMany = vi.fn().mockResolvedValue([{ classId: 'C1' }]);
-    const batchGenerate = vi
-      .fn()
-      .mockResolvedValue({ items: [{ classId: 'C1', error: 'AI timeout' }] });
+    const batchGenerate = vi.fn().mockResolvedValue({
+      outcomes: [
+        { ok: false, date: '2026-05-11', classId: 'C1', code: 'AI_TIMEOUT', detail: 'Anthropic 529' },
+      ],
+    });
     const fire = vi.fn().mockResolvedValue(undefined);
     const cron = new MorningQuizWeeklyCron(
       { classEnglishLevel: { findMany } } as any,
       { batchGenerateForWeek: batchGenerate } as any,
       { fire } as any,
     );
-    await cron.runOnce();
+    const out = await cron.runOnce();
+    expect(out.classesSucceeded).toBe(0);
+    expect(out.classesFailed).toBe(1);
     expect(fire).toHaveBeenCalledWith(
       'morning_quiz_cron_failed',
       expect.objectContaining({ failed: 1 }),

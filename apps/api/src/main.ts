@@ -47,6 +47,26 @@ async function bootstrap() {
     process.exit(1);
   }
 
+  // Refuse to boot prod with dev-only escape hatches still enabled. A single
+  // misset env in Railway would otherwise turn off the entire auth/IP layer.
+  if (process.env.NODE_ENV === 'production') {
+    const dangerous: Array<{ name: string; value: string | undefined }> = [
+      { name: 'MOCK_AUTH', value: process.env.MOCK_AUTH },
+      { name: 'SCHOOL_IP_BYPASS', value: process.env.SCHOOL_IP_BYPASS },
+      { name: 'MORNING_QUIZ_DEBUG', value: process.env.MORNING_QUIZ_DEBUG },
+      { name: 'ALLOW_PROD_SEED', value: process.env.ALLOW_PROD_SEED },
+    ];
+    const enabled = dangerous.filter((d) => d.value === 'true' || d.value === '1');
+    if (enabled.length > 0) {
+      bootstrapLogger.error(
+        `Refusing to start: dev escape hatches enabled in production: ${enabled
+          .map((d) => `${d.name}=${d.value}`)
+          .join(', ')}`,
+      );
+      process.exit(1);
+    }
+  }
+
   // Catch-all for stray async errors — without this, an unhandled rejection
   // from a fire-and-forget Promise (audit log, wechat webhook, cleanup cron)
   // can crash the worker silently. We log loudly and let the process keep

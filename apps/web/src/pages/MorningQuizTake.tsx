@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { api } from '../lib/api';
 import { ExamProvider, useExam } from '../components/exam/ExamContext';
@@ -58,6 +58,12 @@ export default function MorningQuizTake() {
   const [view, setView] = useState<SessionView | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [submitted, setSubmitted] = useState(false);
+  // Synchronous in-flight guard — round-7 C-E3. The `submitted` state
+  // doesn't flip until React schedules the next render, but the second
+  // click of a double-tap can fire its `await flushPendingSaves()` before
+  // that render lands. A ref is set the moment we enter handleSubmit, so
+  // any concurrent click bails out before reaching submitToServer.
+  const submitInflightRef = useRef(false);
 
   useEffect(() => {
     if (!sessionId) return;
@@ -93,16 +99,17 @@ export default function MorningQuizTake() {
   async function handleSubmit() {
     // Compatibility shim — the real flush + submit happens inside
     // PaperHost via SubmitButton. Kept here so the existing Timer's
-    // `onTimeUp={onSubmit}` path still works for time-up auto-submit
-    // (which can't await flush, but the local cache + reconnect replay
-    // covers the remaining loss window).
+    // `onTimeUp={onSubmit}` path still works for time-up auto-submit.
     if (!sessionId || submitted) return;
+    if (submitInflightRef.current) return;
+    submitInflightRef.current = true;
     setSubmitted(true);
     try {
       await submitToServer();
     } catch (e: any) {
       setError(e.message ?? String(e));
       setSubmitted(false);
+      submitInflightRef.current = false;
     }
   }
 
@@ -300,7 +307,11 @@ function ExamShellChrome({
         </div>
         <div className="flex-1" />
         <FontSizeAdjuster />
-        <Timer endsAt={paper.quizEnd} onTimeUp={onSubmit} />
+        {/* Time-up auto-submit must also flush pending autosaves —
+            round-7 C-E3 / agent-7 F6. Without this, the last 600ms of
+            student input never reaches the server before the row is
+            flipped to `submitted`. */}
+        <Timer endsAt={paper.quizEnd} onTimeUp={onSubmitClick} />
       </div>
 
       <main>

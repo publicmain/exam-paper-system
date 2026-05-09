@@ -739,8 +739,14 @@ export class MorningQuizService {
     const paperId = session.paperAssignment.paperId;
     const paper = await this.prisma.paper.findUnique({
       where: { id: paperId },
-      select: { config: true },
+      select: { config: true, status: true, qaTeacherAction: true },
     });
+    // Round-7 C-F3 — a teacher-rejected paper has status=archived but the
+    // MorningQuizSession's PaperAssignment still points at it. Without
+    // this guard a student would still receive the rejected paper.
+    if (paper?.status === 'archived' || paper?.qaTeacherAction === 'rejected') {
+      throw new BadRequestException({ code: 'paper_archived' });
+    }
     // The student client uses `level` to pick the exam shell (IELTS split-pane
     // vs O-Level paged) and `paperMode` to decide whether option-shuffle is
     // safe. Looking the level up here keeps the client one-shot — no extra
