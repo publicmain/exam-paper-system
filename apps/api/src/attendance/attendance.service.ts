@@ -132,7 +132,36 @@ export class AttendanceService {
       include: { user: { select: { id: true, email: true, name: true, role: true } } },
     });
     if (matches.length === 0) {
-      throw new NotFoundException({ code: 'student_not_found', typed: trimmedName });
+      // R10 demo bypass — when MORNING_QUIZ_DEMO=true, auto-create the
+      // student + enroll into the session's class instead of 404. Only
+      // intended for in-house testing where the operator wants to scan
+      // with arbitrary names without pre-seeding the roster. Production
+      // bootstrap (main.ts) hard-fails when this is set with NODE_ENV=
+      // production unless an explicit ALLOW_DEMO env is also set.
+      if (process.env.MORNING_QUIZ_DEMO === 'true') {
+        const bcrypt = await import('bcryptjs');
+        const slug = trimmedName.replace(/[^a-zA-Z0-9一-龥]/g, '').slice(0, 16) || 'demo';
+        const email = `demo-${slug}-${Date.now().toString(36)}@demo.local`;
+        const passwordHash = await bcrypt.hash('demo-no-password', 4);
+        const user = await this.prisma.user.create({
+          data: { email, name: trimmedName, role: 'student', passwordHash, isActive: true },
+        });
+        await this.prisma.classEnrollment.create({
+          data: { classId: session.classId, userId: user.id, role: 'student' },
+        });
+        // Re-issue the match so downstream code is unchanged.
+        matches.push({
+          id: 'demo',
+          classId: session.classId,
+          userId: user.id,
+          role: 'student' as any,
+          createdAt: new Date(),
+          updatedAt: new Date(),
+          user: { id: user.id, email: user.email, name: user.name, role: user.role },
+        } as any);
+      } else {
+        throw new NotFoundException({ code: 'student_not_found', typed: trimmedName });
+      }
     }
     if (matches.length > 1) {
       // Two students in the same class share an exact name — rare but
