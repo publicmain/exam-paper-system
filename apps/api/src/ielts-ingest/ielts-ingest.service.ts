@@ -4,6 +4,10 @@ import { PrismaService } from '../common/prisma.service';
 
 export interface PassageIngestInput {
   bookCode: string;
+  // R10 — when set, overrides the default `${bookCode}_authentic`
+  // provenance tag. Use 'claude_simplified' for the simplified-IELTS
+  // pool the morning-quiz dispatcher reads under level=ielts_simplified.
+  provenanceTag?: string;
   testNumber: number;
   passageNumber: number;
   passage: { title: string; body: string };
@@ -73,7 +77,7 @@ export class IeltsIngestService {
     // slash-separated segments before the question id. Same convention
     // as the existing seed-local-mq.ts ("IELTS/SEED/Test1/P1/Q1").
     const sourceRefPrefix = `IELTS/${input.bookCode}/Test${input.testNumber}/P${input.passageNumber}`;
-    const provenanceTag = `${input.bookCode}_authentic`;
+    const provenanceTag = input.provenanceTag ?? `${input.bookCode}_authentic`;
 
     // Lazily create the IELTS subject + AUTH component if missing. This
     // is the same shape seed-local-mq.ts uses; we don't re-create the

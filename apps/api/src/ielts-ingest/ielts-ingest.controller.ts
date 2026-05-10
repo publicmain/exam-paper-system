@@ -90,6 +90,13 @@ const PassageIngestSchema = z.object({
     .min(2)
     .max(60)
     .regex(/^[a-z0-9_]+$/i, 'bookCode must be alphanumeric / underscore'),
+  // R10 — provenanceTag override. Defaults to `${bookCode}_authentic` (the
+  // Cambridge/authentic flow). Pass 'claude_simplified' when the
+  // operator (Claude in a chat session) is writing simplified-IELTS
+  // passages with OLEVEL-vocabulary level. The level dispatcher in
+  // morning-quiz uses this tag to keep the two pools separate even
+  // though both share the IELTS/AUTH subject+component.
+  provenanceTag: z.string().min(2).max(60).regex(/^[a-z0-9_]+$/i).optional(),
   testNumber: z.number().int().min(1).max(20),
   passageNumber: z.number().int().min(1).max(10),
   passage: z.object({

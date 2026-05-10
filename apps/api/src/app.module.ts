@@ -48,6 +48,7 @@ import { MorningQuizModule } from './morning-quiz/morning-quiz.module';
 import { MorningQuizQaModule } from './morning-quiz-qa/morning-quiz-qa.module';
 import { TeacherTodoModule } from './teacher-todo/teacher-todo.module';
 import { IeltsIngestModule } from './ielts-ingest/ielts-ingest.module';
+import { OlevelIngestModule } from './olevel-ingest/olevel-ingest.module';
 import { HealthController } from './health.controller';
 
 @Module({
@@ -100,6 +101,7 @@ import { HealthController } from './health.controller';
     MorningQuizQaModule,
     TeacherTodoModule,
     IeltsIngestModule,
+    OlevelIngestModule,
   ],
   controllers: [HealthController],
   providers: [

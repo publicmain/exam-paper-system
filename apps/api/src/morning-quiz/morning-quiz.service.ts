@@ -448,29 +448,41 @@ export class MorningQuizService {
               continue;
             }
 
-            // Fork by level. ielts_authentic uses passage-pick mode —
-            // pulls a Cambridge passage verbatim from the bank.
-            // ielts_simplified / olevel run the AI quick-paper generator
-            // through the QA review loop.
-            const builder =
-              levelRow.level === 'ielts_authentic'
-                ? () =>
-                    this.pickPassageAndCreatePaper('IELTS', 'AUTH', classId, dateIso, actor)
-                : async () => {
-                    const qpInput = this.levelToQuickPaperInput(
-                      levelRow.level,
-                      dateIso,
-                      targetCount,
-                    );
-                    qpInput.weeklyFocus = weeklyFocus;
-                    const generated = await this.quickPaper.generate(qpInput, actor);
-                    return generated.paperId;
-                  };
-            const paperId = await this.generateWithQaLoop(
-              builder,
-              actor,
-              `level=${levelRow.level} class=${classId} date=${dateIso}`,
-            );
+            // R10 — every level now picks pre-curated content from a
+            // human-vetted bank instead of calling the AI inline:
+            //   ielts_authentic   → Cambridge passages I (Claude) ingested
+            //   ielts_simplified  → Claude-authored simplified passages
+            //                       (same IELTS task types but OLEVEL
+            //                       vocab, ~400-word passages)
+            //   olevel            → Claude-authored OLEVEL papers
+            //                       (cloze + vocab + transformation mix)
+            //
+            // The QA review loop (generateWithQaLoop) is bypassed: the
+            // bank items have already passed L1–L5 review at ingest
+            // time, and re-reviewing them with AI would just burn
+            // Anthropic credit + risk false-positive rejects on perfect
+            // Cambridge content.
+            //
+            // weeklyFocus is preserved as a field on the paper config
+            // for future use (e.g. teacher post-hoc filtering); it's no
+            // longer threaded into a runtime AI prompt.
+            void weeklyFocus;
+            void targetCount;
+            let paperId: string;
+            if (levelRow.level === 'ielts_authentic') {
+              paperId = await this.pickPassageAndCreatePaper(
+                'IELTS', 'AUTH', classId, dateIso, actor,
+                { provenanceFilter: 'authentic' },
+              );
+            } else if (levelRow.level === 'ielts_simplified') {
+              paperId = await this.pickPassageAndCreatePaper(
+                'IELTS', 'AUTH', classId, dateIso, actor,
+                { provenanceFilter: 'simplified' },
+              );
+            } else {
+              // olevel: pick a curated paper from the OLEVEL ingest bank.
+              paperId = await this.pickOlevelPaperAndCreatePaper(classId, dateIso, actor);
+            }
 
             const session = await this.createSession(
               { date: new Date(dateIso), classId, paperId, level: levelRow.level },
@@ -538,6 +550,7 @@ export class MorningQuizService {
     classId: string,
     dateIso: string,
     actor: ActorCtx,
+    opts: { provenanceFilter?: 'authentic' | 'simplified' } = {},
   ): Promise<string> {
     const subject = await this.prisma.subject.findFirst({
       where: { code: subjectCode },
@@ -552,12 +565,29 @@ export class MorningQuizService {
     }
     const component = subject.components[0];
 
+    // R10 — provenanceTag filter so a `ielts_authentic` session only
+    // pulls Cambridge-authentic passages and `ielts_simplified` only
+    // pulls Claude-authored simplified ones, even though both share
+    // the same Subject/Component (IELTS/AUTH).
+    //   authentic  → provenanceTag matches `<book>_authentic`
+    //                (Cambridge IELTS bank ingested via /api/ielts-ingest)
+    //   simplified → provenanceTag = 'claude_simplified'
+    //                (passages I write with OLEVEL vocab + IELTS task
+    //                 types; ingested via the same /api/ielts-ingest
+    //                 with provenanceTag override)
+    const filter = opts.provenanceFilter ?? 'authentic';
+    const provenanceCondition =
+      filter === 'simplified'
+        ? { provenanceTag: 'claude_simplified' }
+        : { NOT: { provenanceTag: 'claude_simplified' } };
+
     const bank = await this.prisma.question.findMany({
       where: {
         subjectId: subject.id,
         componentId: component.id,
         status: 'active',
         sourceType: 'past_paper_reference',
+        ...provenanceCondition,
       },
       orderBy: { sourceRef: 'asc' },
     });
@@ -686,6 +716,136 @@ export class MorningQuizService {
         dateIso,
         questionCount: passageQuestions.length,
       },
+    });
+    return paper.id;
+  }
+
+  /**
+   * R10 — OLEVEL paper picker. Mirrors pickPassageAndCreatePaper but
+   * for the OLEVEL bank (sourceRef prefix `OLEVEL/<setCode>/PaperN`).
+   * Each "set" is a complete pre-curated paper Claude wrote and POSTed
+   * via /api/olevel-ingest/paper, with mixed question types (cloze /
+   * vocab / transformation). Picks the least-recently-used paper for
+   * this class + 30-day window — same de-dup rule as IELTS.
+   */
+  private async pickOlevelPaperAndCreatePaper(
+    classId: string,
+    dateIso: string,
+    actor: ActorCtx,
+  ): Promise<string> {
+    const subject = await this.prisma.subject.findFirst({
+      where: { code: '1123' },
+      include: { components: true },
+    });
+    if (!subject || subject.components.length === 0) {
+      throw new BadRequestException({
+        code: 'subject_not_seeded',
+        hint: 'OLEVEL 1123 syllabus not seeded; run prisma seed.',
+      });
+    }
+    // The OLEVEL ingest API stamps Question.sourceRef =
+    // `OLEVEL/<setCode>/Paper<n>/Q<m>`. Group by the prefix up to /Q.
+    const bank = await this.prisma.question.findMany({
+      where: {
+        subjectId: subject.id,
+        status: 'active',
+        sourceType: 'past_paper_reference',
+        sourceRef: { startsWith: 'OLEVEL/' },
+      },
+      orderBy: { sourceRef: 'asc' },
+    });
+    const byPaperKey = new Map<string, typeof bank>();
+    for (const q of bank) {
+      const m = q.sourceRef?.match(/^(OLEVEL\/[^/]+\/Paper\d+)\//);
+      if (!m) continue;
+      const key = m[1];
+      if (!byPaperKey.has(key)) byPaperKey.set(key, []);
+      byPaperKey.get(key)!.push(q);
+    }
+    if (byPaperKey.size === 0) {
+      throw new BadRequestException({
+        code: 'no_olevel_papers_in_bank',
+        hint: 'POST OLEVEL papers via /api/olevel-ingest/paper first.',
+      });
+    }
+
+    // 30-day de-dup against this class's recent OLEVEL picks.
+    const cutoff = new Date(Date.now() - 30 * 86_400_000);
+    const recent = await this.prisma.paper.findMany({
+      where: {
+        subjectId: subject.id,
+        assignments: { some: { classId } },
+        createdAt: { gte: cutoff },
+      },
+      select: { config: true, createdAt: true },
+      orderBy: { createdAt: 'desc' },
+    });
+    const usedKeys = new Set<string>();
+    const lastUsedAt = new Map<string, number>();
+    for (const p of recent) {
+      const cfg = p.config as { mode?: string; paperKey?: string } | null;
+      if (cfg?.mode !== 'olevel_curated' || !cfg?.paperKey) continue;
+      usedKeys.add(cfg.paperKey);
+      const t = p.createdAt.getTime();
+      if ((lastUsedAt.get(cfg.paperKey) ?? 0) < t) lastUsedAt.set(cfg.paperKey, t);
+    }
+    const candidates = Array.from(byPaperKey.keys()).filter((k) => !usedKeys.has(k));
+    let pick: string;
+    if (candidates.length > 0) {
+      pick = candidates[Math.floor(Math.random() * candidates.length)];
+    } else {
+      const sorted = Array.from(byPaperKey.keys()).sort(
+        (a, b) => (lastUsedAt.get(a) ?? 0) - (lastUsedAt.get(b) ?? 0),
+      );
+      pick = sorted[0];
+      this.logger.warn(
+        `olevel pick bank depleted for class=${classId} — recycling LRU paper=${pick}`,
+      );
+    }
+    // Sort by trailing Q-number numerically (same trick as IELTS).
+    const items = byPaperKey.get(pick)!.slice().sort((a, b) => {
+      const an = parseInt(a.sourceRef?.match(/\/Q(\d+)$/)?.[1] ?? '0', 10);
+      const bn = parseInt(b.sourceRef?.match(/\/Q(\d+)$/)?.[1] ?? '0', 10);
+      return an - bn;
+    });
+    const totalMarks = items.reduce((s, q) => s + q.marks, 0);
+    const component = subject.components[0];
+    const paper = await this.prisma.paper.create({
+      data: {
+        name: `Morning Quiz ${pick} (${dateIso})`,
+        ownerId: actor.id,
+        subjectId: subject.id,
+        componentId: component.id,
+        durationMin: 30,
+        totalMarksTarget: totalMarks,
+        totalMarksActual: totalMarks,
+        status: 'draft',
+        generatedSeed: Math.floor(Math.random() * 1e9),
+        config: { mode: 'olevel_curated', paperKey: pick, dateIso, questionCount: items.length },
+      },
+    });
+    for (let i = 0; i < items.length; i++) {
+      const q = items[i];
+      await this.prisma.paperQuestion.create({
+        data: {
+          paperId: paper.id,
+          questionId: q.id,
+          sortOrder: i + 1,
+          snapshotContent: q.content as any,
+          snapshotAnswer: q.answerContent as any,
+          snapshotOptions: q.options as any,
+          marks: q.marks,
+        },
+      });
+    }
+    await this.audit.log({
+      actorId: actor.id,
+      actorRole: actor.role,
+      action: 'morning_quiz.olevel_pick',
+      entityType: 'Paper',
+      entityId: paper.id,
+      ip: actor.ip,
+      metadata: { paperKey: pick, classId, dateIso, questionCount: items.length },
     });
     return paper.id;
   }
