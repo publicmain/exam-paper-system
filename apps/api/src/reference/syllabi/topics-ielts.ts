@@ -83,11 +83,19 @@ const IELTS_TOPICS = [
   },
 ];
 
+// R10 fix — was examBoardCode='CAE', subjectName=…, level='PROFICIENCY'.
+// That created a SECOND "IELTS" subject (under exam board CAE) parallel
+// to the one seed-local-mq.ts creates under exam board IELTS, and
+// `findFirst({code:'IELTS'})` in quick-paper non-deterministically picked
+// either — half the time it picked the empty CAE subject and AI generation
+// failed with "topic IR.1 not found". Re-seed under the canonical IELTS/CEFR
+// subject so there is exactly one IELTS subject row, with both the topic
+// taxonomy and the question bank attached.
 export const SYLLABUS_IELTS = {
-  examBoardCode: 'CAE',
+  examBoardCode: 'IELTS',
   subjectCode: 'IELTS',
   subjectName: 'IELTS Academic Reading',
-  level: 'PROFICIENCY',
+  level: 'CEFR',
   components: [
     {
       code: 'AUTH',
