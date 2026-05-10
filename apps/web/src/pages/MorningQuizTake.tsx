@@ -206,17 +206,22 @@ function ExamShellChrome({
   const [paletteOpen, setPaletteOpen] = useState(false);
   const { answers, flaggedCount, isFlagged, flushPendingSaves, saveError, hasPendingSaves } = useExam();
 
-  // Round-3 H6 — wrap submit so it flushes every pending autosave before
-  // calling the server's submit endpoint. Without this, the last 600 ms
-  // of typing can land *after* the server has flipped the submission to
-  // `submitted`, causing the autosave to error with `submission_locked`
-  // and the answer to vanish silently.
-  const onSubmitClick = useCallback(async () => {
+  // R10 — explicit confirm dialog before submit. Round-3 H6 still applies:
+  // every confirmed-submit path flushes autosaves first so the last 600ms
+  // of input never gets dropped on the server-side `submission_locked`
+  // race. Time-up auto-submit bypasses the confirm (the student is out
+  // of time and we don't want a modal blocking the lock).
+  const [confirmOpen, setConfirmOpen] = useState(false);
+  const doSubmit = useCallback(async () => {
     try {
       await flushPendingSaves();
     } catch { /* surfaced via saveError, still proceed */ }
     onSubmit();
   }, [flushPendingSaves, onSubmit]);
+  const onSubmitClick = useCallback(() => {
+    setConfirmOpen(true);
+  }, []);
+  const onTimeUpSubmit = doSubmit; // bypass confirm
 
   // Round-3 H17 — when the iOS soft keyboard pops up, fixed-bottom UI
   // (palette button + Submit) gets covered. visualViewport lets us see
@@ -318,7 +323,7 @@ function ExamShellChrome({
             round-7 C-E3 / agent-7 F6. Without this, the last 600ms of
             student input never reaches the server before the row is
             flipped to `submitted`. */}
-        <Timer endsAt={paper.quizEnd} onTimeUp={onSubmitClick} />
+        <Timer endsAt={paper.quizEnd} onTimeUp={onTimeUpSubmit} />
       </div>
 
       <main>
@@ -408,6 +413,7 @@ function ExamShellChrome({
           <button
             disabled={submitted}
             onClick={onSubmitClick}
+            data-testid="submit-button"
             className={`px-6 lg:px-7 py-3 text-white rounded-lg font-semibold text-base touch-manipulation min-h-[48px] ${
               submitted
                 ? 'bg-gray-300'
@@ -417,6 +423,138 @@ function ExamShellChrome({
             }`}
           >
             {submitted ? '提交中…' : mode === 'practice' ? '完成 · Done' : '交卷 · Submit'}
+          </button>
+        </div>
+      </div>
+
+      {/* R10 — pre-submit confirmation dialog. Required because tapping
+          "交卷" on a touch device is too easy to do by accident, and the
+          system has no un-submit path (the autoGrade fires immediately).
+          Shows answered/total + the un-answered question numbers, plus a
+          jump-to-question affordance for each missed question. ESC and
+          backdrop-click close (cancel). */}
+      {confirmOpen && !submitted && (
+        <SubmitConfirmDialog
+          paper={paper}
+          answers={answers}
+          onCancel={() => setConfirmOpen(false)}
+          onConfirm={() => { setConfirmOpen(false); doSubmit(); }}
+          onJumpTo={(qid) => { setConfirmOpen(false); handleJump(qid, 0); }}
+        />
+      )}
+    </div>
+  );
+}
+
+/** R10 — submit confirmation. Lists un-answered questions by their
+ *  paper sortOrder so the student can choose to go back and finish them
+ *  before locking in the submission. */
+function SubmitConfirmDialog({
+  paper,
+  answers,
+  onCancel,
+  onConfirm,
+  onJumpTo,
+}: {
+  paper: ExamPaper;
+  answers: Record<string, { selectedOption?: string; textAnswer?: string }>;
+  onCancel: () => void;
+  onConfirm: () => void;
+  onJumpTo: (questionId: string) => void;
+}) {
+  // ESC to cancel.
+  useEffect(() => {
+    function onKey(e: KeyboardEvent) {
+      if (e.key === 'Escape') onCancel();
+    }
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [onCancel]);
+
+  const total = paper.questions.length;
+  const unanswered = paper.questions
+    .map((q, idx) => {
+      const a = answers[q.id];
+      const has = !!(a?.selectedOption || (a?.textAnswer && a.textAnswer.trim()));
+      return has ? null : { id: q.id, n: idx + 1 };
+    })
+    .filter((x): x is { id: string; n: number } => x !== null);
+  const answered = total - unanswered.length;
+  const allAnswered = unanswered.length === 0;
+
+  return (
+    <div
+      className="fixed inset-0 bg-black/50 z-50 flex items-end sm:items-center justify-center p-4"
+      onClick={onCancel}
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="submit-confirm-title"
+      data-testid="submit-confirm-dialog"
+    >
+      <div
+        className="bg-white rounded-xl shadow-xl w-full max-w-md p-5 space-y-4 max-h-[80vh] overflow-y-auto"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="space-y-1">
+          <h2 id="submit-confirm-title" className="text-lg font-bold text-gray-900">
+            确认交卷？
+          </h2>
+          <p className={`text-sm ${allAnswered ? 'text-emerald-700' : 'text-amber-700'}`}>
+            {allAnswered
+              ? `已答完 ${answered} / ${total} 题`
+              : `已答 ${answered} / ${total} 题,还有 ${unanswered.length} 题未答`}
+          </p>
+        </div>
+
+        {!allAnswered && (
+          <div className="space-y-2">
+            <div className="text-xs uppercase tracking-wide text-gray-500">未答题号</div>
+            <div className="flex flex-wrap gap-2" data-testid="unanswered-list">
+              {unanswered.map((u) => (
+                <button
+                  key={u.id}
+                  type="button"
+                  onClick={() => onJumpTo(u.id)}
+                  data-testid={`unanswered-${u.n}`}
+                  className="px-3 py-1.5 text-sm bg-amber-50 hover:bg-amber-100 border border-amber-200 text-amber-800 rounded font-mono"
+                  title="点击跳转到该题"
+                >
+                  Q{u.n}
+                </button>
+              ))}
+            </div>
+            <p className="text-xs text-gray-500">
+              点击题号回去补答,或继续按"确定交卷"提交。一旦交卷将立即批改,无法撤销。
+            </p>
+          </div>
+        )}
+
+        {allAnswered && (
+          <p className="text-sm text-gray-600">
+            确认后立即批改,无法撤销。
+          </p>
+        )}
+
+        <div className="flex gap-2 justify-end pt-2">
+          <button
+            type="button"
+            onClick={onCancel}
+            data-testid="submit-cancel"
+            className="px-4 py-2 text-sm bg-gray-100 hover:bg-gray-200 text-gray-800 rounded-lg font-medium"
+          >
+            {allAnswered ? '再检查' : '继续答题'}
+          </button>
+          <button
+            type="button"
+            onClick={onConfirm}
+            data-testid="submit-confirm"
+            className={`px-4 py-2 text-sm text-white rounded-lg font-semibold ${
+              allAnswered
+                ? 'bg-blue-600 hover:bg-blue-700'
+                : 'bg-amber-600 hover:bg-amber-700'
+            }`}
+          >
+            确定交卷 · Submit
           </button>
         </div>
       </div>
