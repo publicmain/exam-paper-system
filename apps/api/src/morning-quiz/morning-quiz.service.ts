@@ -1252,26 +1252,40 @@ export class MorningQuizService {
 
     const items = paperQuestions.map((pq) => {
       const sc = (pq.snapshotContent ?? {}) as Record<string, unknown>;
-      const correctKey =
+      // R10-fix: snapshotContent often omits correctOption / correctAnswer
+      // (IELTS passage-pick papers store the answer key on snapshotOptions
+      // as `{key, correct: true}`, leaving snapshotContent with only stem +
+      // passage). Fall back to the snapshotOptions array so the result page
+      // can show the correct letter.
+      let correctKey: string | null =
         typeof sc.correctOption === 'string'
           ? (sc.correctOption as string)
           : typeof sc.correctAnswer === 'string'
           ? (sc.correctAnswer as string)
           : null;
+      if (!correctKey && Array.isArray(pq.snapshotOptions)) {
+        const correctOpt = (pq.snapshotOptions as any[]).find((o) => o?.correct === true);
+        if (correctOpt?.key) correctKey = String(correctOpt.key);
+      }
       const explanation =
         typeof sc.explanation === 'string'
           ? (sc.explanation as string).slice(0, 600)
           : null;
       const script = scriptByPq.get(pq.id);
       const studentChoice = script?.selectedOption ?? script?.textAnswer ?? null;
-      // For MCQ on shuffled (non-passage_pick) papers we DON'T relabel
-      // here — the student's saved selectedOption is already the canonical
-      // (un-shuffled) key, so direct comparison against correctKey works.
-      const isCorrect =
-        correctKey != null && studentChoice != null
-          ? String(studentChoice).trim().toLowerCase() ===
-            String(correctKey).trim().toLowerCase()
-          : null;
+      // R10-fix: prefer the persisted autoCorrect that finalSubmit's
+      // autoGradeScripts already wrote — it's authoritative and survives
+      // the snapshotContent missing-correct-key case above. Recompute from
+      // correctKey only as a defensive fallback for older submissions
+      // (where the script row predates the autoGrade writeback).
+      let isCorrect: boolean | null = null;
+      if (typeof script?.autoCorrect === 'boolean') {
+        isCorrect = script.autoCorrect;
+      } else if (correctKey != null && studentChoice != null) {
+        isCorrect =
+          String(studentChoice).trim().toLowerCase() ===
+          String(correctKey).trim().toLowerCase();
+      }
       return {
         paperQuestionId: pq.id,
         sortOrder: pq.sortOrder,

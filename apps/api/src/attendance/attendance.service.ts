@@ -251,6 +251,13 @@ export class AttendanceService {
     });
 
     const paperId = session.paperAssignment.paperId;
+    // R10-fix: pull paper.totalMarksActual so maxScore is correct from the
+    // start. Was hard-coded to 0, then never updated by finalSubmit, so the
+    // result page rendered "3 / 1" (front-end ||1 fallback over a 0 max).
+    const paperForMax = await this.prisma.paper.findUnique({
+      where: { id: paperId },
+      select: { totalMarksActual: true },
+    });
     const submission = await this.prisma.studentSubmission.upsert({
       where: {
         assignmentId_studentId: {
@@ -261,7 +268,7 @@ export class AttendanceService {
       create: {
         assignmentId: session.paperAssignmentId,
         studentId,
-        maxScore: 0,
+        maxScore: paperForMax?.totalMarksActual ?? 0,
       },
       update: {},
     });
@@ -369,6 +376,14 @@ export class AttendanceService {
     // If the override marks the student present (on_time | late) and they have
     // no submission yet, open one so they can still take the quiz.
     if (after.status !== AttendanceStatus.absent && !after.submissionId) {
+      // R10-fix: pull paper.totalMarksActual so the result page denominator
+      // is right when this manually-corrected student eventually submits.
+      const paperForMax = await this.prisma.paper.findUnique({
+        where: { id: (await this.prisma.paperAssignment.findUnique({
+          where: { id: session.paperAssignmentId }, select: { paperId: true },
+        }))?.paperId ?? '' },
+        select: { totalMarksActual: true },
+      });
       const submission = await this.prisma.studentSubmission.upsert({
         where: {
           assignmentId_studentId: {
@@ -379,7 +394,7 @@ export class AttendanceService {
         create: {
           assignmentId: session.paperAssignmentId,
           studentId: body.studentId,
-          maxScore: 0,
+          maxScore: paperForMax?.totalMarksActual ?? 0,
         },
         update: {},
       });

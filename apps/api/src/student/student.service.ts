@@ -191,6 +191,7 @@ export class StudentService {
     const sub = await this.prisma.studentSubmission.findUnique({
       where: { id: submissionId },
       include: {
+        assignment: { select: { paper: { select: { totalMarksActual: true } } } },
         scripts: { include: { paperQuestion: { include: { question: { select: { questionType: true, options: true } } } } } },
       },
     });
@@ -201,6 +202,12 @@ export class StudentService {
     }
 
     const { autoScore, scriptUpdates } = autoGradeScripts(sub.scripts);
+    // R10-fix: back-fill maxScore on submit too. Older submissions created by
+    // attendance.scanQr before the maxScore-from-paper fix landed had
+    // maxScore=0, which surfaced as "3 / 1 = 300%" on the result page (the
+    // front-end falls back to 1 when max is 0). Authoritative answer is the
+    // paper.totalMarksActual at submit time.
+    const correctMax = sub.assignment?.paper?.totalMarksActual ?? sub.maxScore;
 
     // Wrap the conditional flip + per-script writes in a single transaction
     // so a crash mid-loop can't leave the submission in `submitted` status
@@ -215,6 +222,7 @@ export class StudentService {
           submittedAt: new Date(),
           status: 'submitted',
           autoScore,
+          maxScore: correctMax,
         },
       });
       if (claim.count === 0) {
