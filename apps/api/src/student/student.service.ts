@@ -51,6 +51,16 @@ export interface AiShortAnswerGrader {
     studentAnswer: string;
     markScheme: string;
     maxMarks: number;
+    /**
+     * R10 follow-up — the reading passage the question is grounded on.
+     * Optional because non-passage items (vocab, transformation) don't
+     * have one. When present, the evaluator includes a truncated version
+     * in the AI prompt so the grader can do real semantic matching for
+     * tasks like matching_information ("which paragraph mentions X?")
+     * and 0510 comprehension paraphrases. Without this context the AI
+     * can only do shallow string-overlap checking on the answer key.
+     */
+    passage?: string;
   }): Promise<{ awardedMarks: number; reasoning: string; confident: boolean } | null>;
 }
 
@@ -140,16 +150,24 @@ export async function autoGradeScripts(
       }
       // Path 3: string mismatch + non-empty answer → ask Claude.
       if (aiGrader) {
-        const stem =
-          typeof q.content === 'object' && q.content !== null && typeof (q.content as any).stem === 'string'
-            ? (q.content as any).stem
-            : '';
+        const content =
+          typeof q.content === 'object' && q.content !== null
+            ? (q.content as Record<string, unknown>)
+            : null;
+        const stem = typeof content?.stem === 'string' ? (content.stem as string) : '';
+        // Surface the reading passage to the AI so it can actually do
+        // semantic matching for matching_information / paragraph-id
+        // tasks (the answer is a single letter referring to a passage
+        // paragraph — without the passage the AI is just guessing
+        // whether the student wrote that letter).
+        const passage = typeof content?.passage === 'string' ? (content.passage as string) : undefined;
         try {
           const verdict = await aiGrader.evaluate({
             stem,
             studentAnswer: script.textAnswer ?? '',
             markScheme: expected,
             maxMarks: script.paperQuestion.marks,
+            passage,
           });
           if (verdict) {
             const awarded = Math.max(0, Math.min(script.paperQuestion.marks, verdict.awardedMarks));

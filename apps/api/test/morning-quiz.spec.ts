@@ -689,6 +689,65 @@ describe('autoGradeScripts — shared grader for finalSubmit + cron lock', () =>
     expect(r.scriptUpdates[0].autoCorrect).toBe(true);
     expect(called).toBe(0);
   });
+
+  it('R10 AI grader receives the reading passage so paragraph-letter tasks can be semantically graded', async () => {
+    const captured: any[] = [];
+    const aiGrader = {
+      evaluate: async (i: any) => {
+        captured.push(i);
+        return { awardedMarks: 1, reasoning: 'Foxton is the bag in paragraph C.', confident: true };
+      },
+    };
+    const passage = 'A The Flyer B3...\nB The Lightglide...\nC The Foxton is easy to control across most surfaces. However, the zips don\'t always run smoothly...';
+    const r = await autoGradeScripts([
+      {
+        id: 's1', selectedOption: null, textAnswer: 'Foxton',
+        paperQuestion: {
+          marks: 1, snapshotOptions: null,
+          question: {
+            questionType: 'short_answer', options: null,
+            answerContent: { text: 'C' },
+            content: {
+              stem: 'The zips on this cabin bag may be difficult to use.',
+              passage,
+              taskType: 'matching_information',
+            },
+          },
+        },
+      },
+    ], aiGrader);
+    expect(captured).toHaveLength(1);
+    expect(captured[0].passage).toBe(passage);
+    expect(captured[0].markScheme).toBe('C');
+    expect(captured[0].studentAnswer).toBe('Foxton');
+    expect(r.autoScore).toBe(1);
+    expect(r.scriptUpdates[0]).toMatchObject({ autoCorrect: true, awardedMarks: 1 });
+  });
+
+  it('R10 AI grader receives undefined passage when content has no passage field', async () => {
+    const captured: any[] = [];
+    const aiGrader = {
+      evaluate: async (i: any) => {
+        captured.push(i);
+        return { awardedMarks: 1, reasoning: 'paraphrase ok', confident: true };
+      },
+    };
+    const r = await autoGradeScripts([
+      {
+        id: 's1', selectedOption: null, textAnswer: 'the fat beneath the shell',
+        paperQuestion: {
+          marks: 1, snapshotOptions: null,
+          question: {
+            questionType: 'short_answer', options: null,
+            answerContent: { text: 'fat beneath shell' },
+            content: { stem: 'Where does the green turtle get its name from?' },
+          },
+        },
+      },
+    ], aiGrader);
+    expect(captured[0].passage).toBeUndefined();
+    expect(r.autoScore).toBe(1);
+  });
 });
 
 // ─────────────────────── Attendance ScanSchema deviceUuid (Round 1 critical) ──

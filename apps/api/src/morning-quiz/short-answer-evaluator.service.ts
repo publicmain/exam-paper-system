@@ -28,7 +28,25 @@ export interface ShortAnswerInput {
   studentAnswer: string;
   markScheme: string;
   maxMarks: number;
+  /**
+   * Optional reading passage. When provided, included in the AI prompt
+   * (truncated to ~6k chars) so the grader can verify paragraph-letter
+   * answers and paraphrase comprehension answers against the source
+   * text. Critical for IELTS GT matching_information items where the
+   * mark scheme is a single letter — without the passage the AI has
+   * nothing to anchor "is this answer correct?" to.
+   */
+  passage?: string;
 }
+
+/**
+ * Cap injected into the AI prompt. Cambridge IELTS GT Section 1 passages
+ * land around 2.5–3.5k chars, the longest 0510 comprehension passages
+ * around 4k. 6000 covers the headroom without blowing input tokens —
+ * Sonnet at $3/MTok input × ~1.5k tokens for the passage = ~$0.005/call,
+ * which matches the per-call budget assumed in autoGradeScripts comments.
+ */
+const PASSAGE_PROMPT_CHAR_CAP = 6000;
 
 export interface ShortAnswerSuggestion {
   awardedMarks: number;
@@ -90,9 +108,20 @@ Rules:
 - Spelling errors that don't change meaning: do not deduct on a 1-mark item; deduct 0.5 on a 2+ mark item.
 - If the answer is partially correct, award partial marks proportional to mark scheme bullets covered.
 - If the answer is irrelevant or off-topic, awardedMarks = 0.
+- When a Reading passage is provided, treat the mark scheme as the canonical answer (e.g. "C" = paragraph C). The student answer is correct if it identifies the same paragraph / fact, EVEN IF they wrote the descriptive content of that paragraph instead of the letter, OR a paraphrase of the canonical answer that matches the passage.
 - Set "confident": false ONLY when the mark scheme is ambiguous, the student's intent is unclear, or the answer is creative-but-unconventional.`;
 
-    const user = `Question stem:
+    // Truncate the passage if huge so the prompt stays within budget.
+    // Mark the truncation explicitly so the model doesn't try to grade
+    // against a half-paragraph it thinks is complete.
+    const passageBlock = (() => {
+      const p = input.passage?.trim();
+      if (!p) return '';
+      if (p.length <= PASSAGE_PROMPT_CHAR_CAP) return `Reading passage:\n${p}\n\n`;
+      return `Reading passage (truncated to first ${PASSAGE_PROMPT_CHAR_CAP} chars):\n${p.slice(0, PASSAGE_PROMPT_CHAR_CAP)}\n…[truncated]\n\n`;
+    })();
+
+    const user = `${passageBlock}Question stem:
 ${input.stem}
 
 Mark scheme (max ${input.maxMarks} marks):
