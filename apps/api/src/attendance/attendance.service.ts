@@ -55,7 +55,7 @@ export class AttendanceService {
     const decoded = await this.qr.verify(qrToken);
     const session = await this.prisma.morningQuizSession.findUnique({
       where: { id: decoded.sessionId },
-      select: { id: true, classId: true, status: true, class: { select: { name: true } } },
+      select: { id: true, classId: true, date: true, level: true, status: true, class: { select: { name: true } } },
     });
     if (!session) throw new NotFoundException({ code: 'session_not_found' });
     // Gate: only roster-leak the names while the session is *active*. School
@@ -74,10 +74,27 @@ export class AttendanceService {
     const students = enrollments
       .map((e) => ({ id: e.user.id, name: e.user.name }))
       .sort((a, b) => a.name.localeCompare(b.name, 'zh-Hans-CN'));
+    // R10 multi-level — when a class is running multiple difficulty bands
+    // on the same day, every (classId, date, level) tuple has its own
+    // session. The scan page uses this to render a level-picker before
+    // the name input, so the operator only has to project ONE QR and
+    // students self-select their band. Always includes the QR's own
+    // session in the list so single-band classes still see one entry.
+    const siblings = await this.prisma.morningQuizSession.findMany({
+      where: {
+        classId: session.classId,
+        date: session.date,
+        status: MorningQuizStatus.active,
+      },
+      select: { id: true, level: true },
+      orderBy: { level: 'asc' },
+    });
     return {
       sessionId: session.id,
       sessionStatus: session.status,
       className: session.class.name,
+      level: session.level,
+      siblingSessions: siblings.map((s) => ({ sessionId: s.id, level: s.level })),
       students,
     };
   }
@@ -101,13 +118,46 @@ export class AttendanceService {
     sourceIp: string | null,
     deviceUuid: string,
     userAgent: string | null,
+    sessionIdOverride: string | null = null,
   ): Promise<ScanResult> {
     // Gate 2 — QR validity
     const decoded = await this.qr.verify(qrToken);
 
+    // R10 multi-level — when the operator projects ONE QR per (class,day)
+    // and the student picks their difficulty band on the scan page, the
+    // chosen sessionId comes in as `sessionIdOverride`. The QR is still
+    // the proof of "right place, right time" (HMAC + freshness via
+    // qr.verify), but the sessionId we actually attach the attendance
+    // row to may be a sibling of the QR's encoded session. We validate
+    // the override is in the SAME (classId, date) family so a student
+    // can't drop their attendance into another class.
+    let resolvedSessionId = decoded.sessionId;
+    if (sessionIdOverride && sessionIdOverride !== decoded.sessionId) {
+      const qrSession = await this.prisma.morningQuizSession.findUnique({
+        where: { id: decoded.sessionId },
+        select: { classId: true, date: true },
+      });
+      if (!qrSession) throw new NotFoundException({ code: 'session_not_found' });
+      const overrideSession = await this.prisma.morningQuizSession.findUnique({
+        where: { id: sessionIdOverride },
+        select: { classId: true, date: true, status: true },
+      });
+      if (!overrideSession) {
+        throw new NotFoundException({ code: 'override_session_not_found' });
+      }
+      const sameClass = overrideSession.classId === qrSession.classId;
+      const sameDay =
+        overrideSession.date.toISOString().slice(0, 10) ===
+        qrSession.date.toISOString().slice(0, 10);
+      if (!sameClass || !sameDay) {
+        throw new ForbiddenException({ code: 'override_class_or_date_mismatch' });
+      }
+      resolvedSessionId = sessionIdOverride;
+    }
+
     // Gate 3 — session active
     const session = await this.prisma.morningQuizSession.findUnique({
-      where: { id: decoded.sessionId },
+      where: { id: resolvedSessionId },
       include: { paperAssignment: { select: { id: true, paperId: true } } },
     });
     if (!session) throw new NotFoundException({ code: 'session_not_found' });

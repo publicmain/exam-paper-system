@@ -41,9 +41,20 @@ export interface BatchScheduleInput {
   items: Array<{ date: string; classId: string; paperId: string }>;
 }
 
+// R10 — attendance window per spec:
+//   8:30:00 – 8:35:00     → on_time
+//   8:35:00 – 8:59:59.999 → late
+//   9:00:00+              → absent (an absent attendance row gets created
+//                            on attempted scan after this point so the
+//                            roster shows them as no-show)
+//   9:00:00               → quiz auto-locks; in-progress submissions
+//                            flip to submitted by the cron tick
+//
+// lateCutoff is set at 08:59:59 (NOT 09:00:00) so the strict `<` invariant
+// `lateCutoff < quizEnd` still holds and the boundary-second is unambiguous.
 const ATTENDANCE_START_LOCAL = '08:30:00';
-const ATTENDANCE_END_LOCAL = '08:32:00';
-const LATE_CUTOFF_LOCAL = '08:50:00';
+const ATTENDANCE_END_LOCAL = '08:35:00';
+const LATE_CUTOFF_LOCAL = '08:59:59';
 const QUIZ_END_LOCAL = '09:00:00';
 
 /**

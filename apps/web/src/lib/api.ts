@@ -258,8 +258,22 @@ export const api = {
   // without it a single device can sign in 30 students). Type signature
   // tightened so a future caller can't silently drop the field and fail
   // at runtime with a 400.
-  attendanceScan: (qrToken: string, studentName: string, deviceUuid: string) =>
-    request('POST', '/attendance/scan', { qrToken, studentName, deviceUuid }),
+  // R10 multi-level: optional `sessionIdOverride` lets the scan page
+  // pick which (class+day+level) sibling session the student wants when
+  // the projector shows ONE QR for the whole class. Server validates
+  // the override is in the same (classId, date) family before honouring.
+  attendanceScan: (
+    qrToken: string,
+    studentName: string,
+    deviceUuid: string,
+    sessionIdOverride?: string,
+  ) =>
+    request('POST', '/attendance/scan', {
+      qrToken,
+      studentName,
+      deviceUuid,
+      ...(sessionIdOverride ? { sessionIdOverride } : {}),
+    }),
   attendanceCorrect: (body: {
     sessionId: string;
     studentId: string;

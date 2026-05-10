@@ -35,6 +35,13 @@ const ScanSchema = z.object({
     .min(8)
     .max(64)
     .regex(/^([0-9a-fA-F-]{8,64}|fallback-[0-9a-z]{8,64})$/),
+  // R10 multi-level — when the QR is shared across difficulty bands
+  // (one QR per class+day, students pick their own band), the scan
+  // page sends the picked sessionId here. The server validates the
+  // override belongs to the SAME (classId, date) as the QR's session,
+  // so a student can't tamper into another class's quiz. When unset,
+  // the QR's own sessionId is used (single-band fallback).
+  sessionIdOverride: z.string().min(8).max(80).optional(),
 });
 
 const CorrectSchema = z.object({
@@ -95,6 +102,7 @@ export class AttendanceController {
       req.ip ?? null,
       parsed.data.deviceUuid,
       (req.headers['user-agent'] as string | undefined) ?? null,
+      parsed.data.sessionIdOverride ?? null,
     );
   }
 

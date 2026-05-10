@@ -2,10 +2,36 @@ import { useEffect, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { api } from '../lib/api';
 
+type Level = 'ielts_authentic' | 'ielts_simplified' | 'olevel';
+const LEVEL_LABEL: Record<Level, { zh: string; en: string; tint: string }> = {
+  ielts_authentic: {
+    zh: '雅思真题',
+    en: 'IELTS Authentic',
+    tint: 'bg-purple-50 border-purple-200 hover:bg-purple-100',
+  },
+  ielts_simplified: {
+    zh: '轻难度雅思',
+    en: 'Simplified IELTS',
+    tint: 'bg-blue-50 border-blue-200 hover:bg-blue-100',
+  },
+  olevel: {
+    zh: 'O-Level 英语',
+    en: 'OLevel English',
+    tint: 'bg-emerald-50 border-emerald-200 hover:bg-emerald-100',
+  },
+};
+
 interface RosterMeta {
   sessionId: string;
   sessionStatus: string;
   className: string;
+  level: Level | null;
+  // R10 multi-level: when a class is running multiple bands on the same
+  // day, the projector shows ONE QR and we present a level-picker here
+  // so the student selects their own difficulty before typing their name.
+  // The list always includes the QR's own session, so single-band
+  // classes get exactly one entry and the picker is auto-skipped.
+  siblingSessions: Array<{ sessionId: string; level: Level }>;
   studentCount: number;
 }
 interface ScanResult {
@@ -48,6 +74,11 @@ export default function MorningQuizScan() {
   const [error, setError] = useState<{ code: string; message: string } | null>(null);
   const [name, setName] = useState('');
   const [submitting, setSubmitting] = useState(false);
+  // R10 multi-level: which (class+day+level) sibling session the student
+  // wants. null means "not yet picked" — the picker UI is shown when
+  // meta.siblingSessions.length > 1; auto-set to the only entry when
+  // there's just one (single-band class).
+  const [chosenSessionId, setChosenSessionId] = useState<string | null>(null);
 
   // Fetch the class meta on mount. We still hit /scan-roster (which is
   // gated by school WiFi + valid QR) but only display the class name +
@@ -62,12 +93,21 @@ export default function MorningQuizScan() {
       .attendanceScanRoster(token)
       .then((r: any) => {
         if (cancelled) return;
+        const siblings: Array<{ sessionId: string; level: Level }> =
+          Array.isArray(r.siblingSessions) ? r.siblingSessions : [];
         setMeta({
           sessionId: r.sessionId,
           sessionStatus: r.sessionStatus,
           className: r.className,
+          level: r.level ?? null,
+          siblingSessions: siblings,
           studentCount: r.students?.length ?? 0,
         });
+        // Auto-pick when there's only one band (or when scan-roster
+        // didn't return siblings — pre-multi-level fallback).
+        if (siblings.length <= 1) {
+          setChosenSessionId(siblings[0]?.sessionId ?? r.sessionId);
+        }
       })
       .catch((e: any) => {
         if (cancelled) return;
@@ -91,7 +131,17 @@ export default function MorningQuizScan() {
     setSubmitting(true);
     setError(null);
     try {
-      const r: ScanResult = await api.attendanceScan(token, trimmed, getDeviceUuid());
+      const r: ScanResult = await api.attendanceScan(
+        token,
+        trimmed,
+        getDeviceUuid(),
+        // Pass the chosen sessionId only when it's different from the
+        // QR's encoded one (server tolerates both, but keeping the
+        // payload small avoids confusing future readers).
+        chosenSessionId && chosenSessionId !== meta?.sessionId
+          ? chosenSessionId
+          : undefined,
+      );
       localStorage.setItem('auth_token', r.scanToken);
       // Full reload sidesteps the SPA route-table swap race; take page
       // boots cleanly with the new auth_token already in place.
@@ -122,12 +172,70 @@ export default function MorningQuizScan() {
     );
   }
 
+  // R10 multi-level — when more than one band is active for this
+  // (class, day) and the student hasn't picked yet, gate the name input
+  // behind a level-picker. Single-band classes auto-skip to the form.
+  if (meta.siblingSessions.length > 1 && !chosenSessionId) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex flex-col px-4 py-8">
+        <div className="max-w-md mx-auto w-full">
+          <header className="mb-8 text-center">
+            <h1 className="text-3xl font-bold">{meta.className}</h1>
+            <p className="text-sm text-gray-500 mt-1">请先选择难度</p>
+          </header>
+          <div className="space-y-3">
+            {meta.siblingSessions.map((s) => {
+              const lab = LEVEL_LABEL[s.level];
+              return (
+                <button
+                  key={s.sessionId}
+                  type="button"
+                  onClick={() => setChosenSessionId(s.sessionId)}
+                  className={`w-full px-4 py-5 text-left border-2 rounded-lg transition-colors ${lab.tint}`}
+                  data-testid={`level-pick-${s.level}`}
+                >
+                  <div className="text-lg font-semibold text-gray-900">{lab.zh}</div>
+                  <div className="text-xs text-gray-500 mt-0.5">{lab.en}</div>
+                </button>
+              );
+            })}
+          </div>
+          <p className="mt-6 text-center text-xs text-gray-500">
+            难度按你目前的英语水平选择;不确定问老师。选错可以联系老师重置。
+          </p>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col px-4 py-8">
       <div className="max-w-md mx-auto w-full">
         <header className="mb-8 text-center">
           <h1 className="text-3xl font-bold">{meta.className}</h1>
-          <p className="text-sm text-gray-500 mt-1">早测签到 · 共 {meta.studentCount} 人</p>
+          <p className="text-sm text-gray-500 mt-1">
+            早测签到 · 共 {meta.studentCount} 人
+            {chosenSessionId && (() => {
+              const sib = meta.siblingSessions.find((s) => s.sessionId === chosenSessionId);
+              return sib ? (
+                <>
+                  {' · '}
+                  <span className="text-blue-700 font-medium">
+                    {LEVEL_LABEL[sib.level].zh}
+                  </span>
+                  {meta.siblingSessions.length > 1 && (
+                    <button
+                      type="button"
+                      onClick={() => setChosenSessionId(null)}
+                      className="ml-2 text-xs text-blue-600 underline"
+                    >
+                      换难度
+                    </button>
+                  )}
+                </>
+              ) : null;
+            })()}
+          </p>
         </header>
         <form onSubmit={handleSubmit} className="space-y-5">
           <div>
@@ -219,7 +327,10 @@ function friendlyMessage(code: string, raw: string): string {
     case 'attendance_window_not_open':
       return '考勤窗口未开放,请等待大屏倒计时。';
     case 'attendance_window_closed':
-      return '考勤窗口已关闭(>8:50)。请联系班主任手工补登。';
+      return '考勤窗口已关闭(9:00 之后)。请联系班主任手工补登。';
+    case 'override_session_not_found':
+    case 'override_class_or_date_mismatch':
+      return '难度选择无效,请刷新页面重新选择。';
     case 'empty_name':
       return '请输入你的姓名';
     default:
