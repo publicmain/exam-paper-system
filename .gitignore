@@ -57,3 +57,7 @@ __pycache__/
 
 # TypeScript incremental build cache
 tsconfig.tsbuildinfo
+
+# IELTS test fixtures (PDFs are heavy + may be copyrighted)
+apps/api/test-fixtures/*.pdf
+apps/api/test-fixtures/*.json
