@@ -86,10 +86,26 @@ export class MorningQuizWeeklyCron {
     );
     const errors: Array<{ classId: string; error: string }> = [];
     let succeeded = 0;
+    // R10 follow-up — paper.create needs a real ownerId (FK to User). The
+    // previous hard-coded 'system-cron' actor blew up with a Prisma FK
+    // violation on every paper.create call, surfacing as 45/45 failed
+    // outcomes any time someone called /weekly-generate/run-now. Fall back
+    // to the first admin in the DB; this matches what an admin-triggered
+    // batch generate would do anyway. If no admin row exists, fail loudly
+    // (the system is unbootstrapped).
+    const adminUser = await this.prisma.user.findFirst({
+      where: { role: 'admin' },
+      orderBy: { createdAt: 'asc' },
+      select: { id: true },
+    });
+    if (!adminUser) {
+      this.logger.error('weekly-generate: no admin user in DB; cannot own generated papers');
+      return { classesAttempted: classIds.length, classesSucceeded: 0, classesFailed: classIds.length, errors: [{ classId: '*', error: 'no_admin_user' }] };
+    }
     try {
       const result = await this.mq.batchGenerateForWeek(
         { weekStart, classIds, questionsPerPaper: 12 },
-        { id: 'system-cron', role: 'admin', ip: null },
+        { id: adminUser.id, role: 'admin', ip: null },
       );
       // Round-7 C-F5 / agent-1 F-1: batchGenerateForWeek returns
       // { outcomes: Outcome[] } where each Outcome is either

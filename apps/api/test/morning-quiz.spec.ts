@@ -1208,7 +1208,13 @@ describe('MorningQuizWeeklyCron.runOnce', () => {
     });
     const fire = vi.fn();
     const cron = new MorningQuizWeeklyCron(
-      { classEnglishLevel: { findMany } } as any,
+      {
+        classEnglishLevel: { findMany },
+        // R10 follow-up — runOnce now looks up an admin User to use as
+        // ownerId on generated papers (so paper.create's FK to User
+        // resolves). Stub a fixed admin row.
+        user: { findFirst: vi.fn().mockResolvedValue({ id: 'admin-1' }) },
+      } as any,
       { batchGenerateForWeek: batchGenerate } as any,
       { fire } as any,
     );
@@ -1231,7 +1237,13 @@ describe('MorningQuizWeeklyCron.runOnce', () => {
     });
     const fire = vi.fn().mockResolvedValue(undefined);
     const cron = new MorningQuizWeeklyCron(
-      { classEnglishLevel: { findMany } } as any,
+      {
+        classEnglishLevel: { findMany },
+        // R10 follow-up — runOnce now looks up an admin User to use as
+        // ownerId on generated papers (so paper.create's FK to User
+        // resolves). Stub a fixed admin row.
+        user: { findFirst: vi.fn().mockResolvedValue({ id: 'admin-1' }) },
+      } as any,
       { batchGenerateForWeek: batchGenerate } as any,
       { fire } as any,
     );
