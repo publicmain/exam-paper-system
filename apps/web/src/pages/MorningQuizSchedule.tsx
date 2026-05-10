@@ -363,76 +363,108 @@ export default function MorningQuizSchedule() {
         {scheduled.length === 0 ? (
           <div className="text-gray-500 text-sm">本周还没有排课</div>
         ) : (
+          // R10 multi-level UX fix: collapse rows by (date, classId) so
+          // the teacher sees ONE QR per (day, class) regardless of how
+          // many difficulty bands are running. The student-side picker
+          // fans out to siblings; the teacher should only think in
+          // terms of "which class on which day", not per-band QRs.
           <table className="w-full text-sm">
             <thead className="text-left text-gray-500 border-b">
               <tr>
                 <th className="py-2">日期</th>
                 <th>班级</th>
                 <th>等级</th>
-                <th>试卷</th>
                 <th>状态</th>
                 <th></th>
               </tr>
             </thead>
             <tbody>
-              {scheduled.map((s) => (
-                <tr key={s.id} className="border-b last:border-0">
-                  <td className="py-2 font-mono">{s.date.slice(0, 10)}</td>
-                  <td>{s.class.name}</td>
-                  <td>
-                    {/* R10 multi-level: each session row carries its band
-                        so admin can identify which QR belongs to which
-                        difficulty when there are 3 sessions per (class,
-                        day). */}
-                    <span
-                      className={`badge text-xs px-2 py-0.5 rounded ${
-                        s.level === 'ielts_authentic'
-                          ? 'bg-purple-100 text-purple-800'
-                          : s.level === 'ielts_simplified'
-                          ? 'bg-blue-100 text-blue-800'
-                          : 'bg-emerald-100 text-emerald-800'
-                      }`}
-                    >
-                      {s.level ? LEVEL_LABEL[s.level] : '—'}
-                    </span>
-                  </td>
-                  <td>{s.paperAssignment.paper.name}</td>
-                  <td>
-                    <span className="badge text-xs px-2 py-0.5 rounded bg-gray-100">
-                      {s.status}
-                    </span>
-                  </td>
-                  <td className="text-right whitespace-nowrap">
-                    <button
-                      onClick={() => openDisplay(s.id)}
-                      className="text-xs px-2 py-1 rounded bg-blue-50 hover:bg-blue-100 text-blue-700 mr-1"
-                      title="新标签页打开大屏 QR(投影用)"
-                    >
-                      🖥️ 大屏 QR
-                    </button>
-                    <button
-                      onClick={() => handleDebugActivate(s.id)}
-                      className="text-xs px-2 py-1 rounded bg-amber-50 hover:bg-amber-100 text-amber-700 mr-1"
-                      title="DEV ONLY: 强制把 session 切到 active(测试用,生产开下线)"
-                    >
-                      ⚡ 立即激活
-                    </button>
-                    {/* Round-7 H22: previous link pointed at
-                        /morning-quiz/dashboard/:id which has never been
-                        registered as a route — clicking always landed on
-                        the home redirect. No per-session dashboard page
-                        exists yet (planned v9). Until then route to the
-                        attendance admin which surfaces this session's
-                        attendance + submission roll-up. */}
-                    <Link
-                      to={`/admin/attendance?sessionId=${s.id}`}
-                      className="text-blue-600 hover:underline text-xs ml-1"
-                    >
-                      考勤 →
-                    </Link>
-                  </td>
-                </tr>
-              ))}
+              {(() => {
+                // Group sessions by (date.slice(0,10), classId).
+                const groups = new Map<string, typeof scheduled>();
+                for (const s of scheduled) {
+                  const key = `${s.date.slice(0, 10)}::${s.class.id}`;
+                  if (!groups.has(key)) groups.set(key, []);
+                  groups.get(key)!.push(s);
+                }
+                // Stable order: the upstream listScheduled already sorts
+                // by date asc + class asc; preserving Map insertion gives
+                // us the same order with bands collapsed.
+                return Array.from(groups.entries()).map(([key, group]) => {
+                  // Pick the "primary" session for action buttons —
+                  // any active one, else the first in the group.
+                  const primary =
+                    group.find((s) => s.status === 'active') ?? group[0];
+                  const allStatuses = Array.from(new Set(group.map((g) => g.status)));
+                  const aggregateStatus =
+                    allStatuses.length === 1 ? allStatuses[0] : `${allStatuses.length} 状态`;
+                  return (
+                    <tr key={key} className="border-b last:border-0 align-top">
+                      <td className="py-2 font-mono">{primary.date.slice(0, 10)}</td>
+                      <td>{primary.class.name}</td>
+                      <td>
+                        {/* One chip per band registered for this
+                            (day, class). All siblings share one QR;
+                            students pick their band on the scan page. */}
+                        <div className="flex flex-wrap gap-1.5">
+                          {group.map((s) => (
+                            <span
+                              key={s.id}
+                              className={`text-xs px-2 py-0.5 rounded ${
+                                s.level === 'ielts_authentic'
+                                  ? 'bg-purple-100 text-purple-800'
+                                  : s.level === 'ielts_simplified'
+                                  ? 'bg-blue-100 text-blue-800'
+                                  : 'bg-emerald-100 text-emerald-800'
+                              }`}
+                              title={`${s.paperAssignment.paper.name} · ${s.status}`}
+                            >
+                              {s.level ? LEVEL_LABEL[s.level] : '—'}
+                              {group.length > 1 && (
+                                <span className="ml-1 text-[10px] opacity-60">
+                                  · {s.status}
+                                </span>
+                              )}
+                            </span>
+                          ))}
+                        </div>
+                      </td>
+                      <td>
+                        <span className="badge text-xs px-2 py-0.5 rounded bg-gray-100">
+                          {aggregateStatus}
+                        </span>
+                      </td>
+                      <td className="text-right whitespace-nowrap">
+                        <button
+                          onClick={() => openDisplay(primary.id)}
+                          className="text-xs px-2 py-1 rounded bg-blue-50 hover:bg-blue-100 text-blue-700 mr-1"
+                          title="一个 QR 给本班所有等级共用,学生扫码后自己选难度"
+                        >
+                          🖥️ 大屏 QR
+                        </button>
+                        <button
+                          onClick={async () => {
+                            // Activate every band in the group (safe to
+                            // call on already-active sessions; the
+                            // backend just refreshes the time window).
+                            for (const s of group) await handleDebugActivate(s.id);
+                          }}
+                          className="text-xs px-2 py-1 rounded bg-amber-50 hover:bg-amber-100 text-amber-700 mr-1"
+                          title="DEV ONLY: 一键激活本班所有等级的 session"
+                        >
+                          ⚡ 立即激活{group.length > 1 ? ` (${group.length})` : ''}
+                        </button>
+                        <Link
+                          to={`/admin/attendance?sessionId=${primary.id}`}
+                          className="text-blue-600 hover:underline text-xs ml-1"
+                        >
+                          考勤 →
+                        </Link>
+                      </td>
+                    </tr>
+                  );
+                });
+              })()}
             </tbody>
           </table>
         )}
