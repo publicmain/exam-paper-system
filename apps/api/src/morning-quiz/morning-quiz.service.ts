@@ -566,20 +566,20 @@ export class MorningQuizService {
     const component = subject.components[0];
 
     // R10 — provenanceTag filter so a `ielts_authentic` session only
-    // pulls Cambridge-authentic passages and `ielts_simplified` only
-    // pulls Claude-authored simplified ones, even though both share
-    // the same Subject/Component (IELTS/AUTH).
-    //   authentic  → provenanceTag matches `<book>_authentic`
-    //                (Cambridge IELTS bank ingested via /api/ielts-ingest)
-    //   simplified → provenanceTag = 'claude_simplified'
-    //                (passages I write with OLEVEL vocab + IELTS task
-    //                 types; ingested via the same /api/ielts-ingest
-    //                 with provenanceTag override)
+    // pulls Cambridge IELTS Academic passages and `ielts_simplified`
+    // only pulls Cambridge IELTS General Training passages. Both
+    // share the same Subject/Component (IELTS/AUTH); the band is
+    // disambiguated entirely by provenanceTag:
+    //   authentic  → tag like `cambridge_ielts_<n>_authentic` (Academic)
+    //   simplified → tag = `cambridge_ielts_gt` (General Training)
+    // Filter implemented as inclusion (simplified) vs exclusion
+    // (authentic = anything that isn't GT) so a future band rename
+    // doesn't accidentally drop authentic content.
     const filter = opts.provenanceFilter ?? 'authentic';
     const provenanceCondition =
       filter === 'simplified'
-        ? { provenanceTag: 'claude_simplified' }
-        : { NOT: { provenanceTag: 'claude_simplified' } };
+        ? { provenanceTag: 'cambridge_ielts_gt' }
+        : { NOT: { provenanceTag: 'cambridge_ielts_gt' } };
 
     const bank = await this.prisma.question.findMany({
       where: {

@@ -451,8 +451,8 @@ describe('MorningQuizService — student view redaction (Round 1 critical + Roun
 // ─────────────────────── autoGradeScripts (Round 1 medium) ─────────────
 
 describe('autoGradeScripts — shared grader for finalSubmit + cron lock', () => {
-  it('returns 0 marks when student picked nothing', () => {
-    const r = autoGradeScripts([
+  it('returns 0 marks when student picked nothing', async () => {
+    const r = await autoGradeScripts([
       {
         id: 's1',
         selectedOption: null,
@@ -468,8 +468,8 @@ describe('autoGradeScripts — shared grader for finalSubmit + cron lock', () =>
     expect(r.scriptUpdates[0].autoCorrect).toBe(false);
   });
 
-  it('awards full marks for a correct MCQ pick', () => {
-    const r = autoGradeScripts([
+  it('awards full marks for a correct MCQ pick', async () => {
+    const r = await autoGradeScripts([
       {
         id: 's1',
         selectedOption: 'B',
@@ -485,8 +485,8 @@ describe('autoGradeScripts — shared grader for finalSubmit + cron lock', () =>
     expect(r.scriptUpdates[0]).toMatchObject({ autoCorrect: true, awardedMarks: 4 });
   });
 
-  it('falls back to question.options when snapshotOptions is null', () => {
-    const r = autoGradeScripts([
+  it('falls back to question.options when snapshotOptions is null', async () => {
+    const r = await autoGradeScripts([
       {
         id: 's1',
         selectedOption: 'A',
@@ -507,8 +507,8 @@ describe('autoGradeScripts — shared grader for finalSubmit + cron lock', () =>
 
   // ─────── R10: short_answer auto-grading ────────
 
-  it('R10 grades short_answer matching headings (roman numerals) — case insensitive', () => {
-    const r = autoGradeScripts([
+  it('R10 grades short_answer matching headings (roman numerals) — case insensitive', async () => {
+    const r = await autoGradeScripts([
       {
         id: 's1', selectedOption: null, textAnswer: 'II',
         paperQuestion: {
@@ -521,8 +521,8 @@ describe('autoGradeScripts — shared grader for finalSubmit + cron lock', () =>
     expect(r.scriptUpdates[0]).toMatchObject({ autoCorrect: true, awardedMarks: 1 });
   });
 
-  it('R10 grades short_answer matching paragraphs (single letter) — strips trailing punctuation', () => {
-    const r = autoGradeScripts([
+  it('R10 grades short_answer matching paragraphs (single letter) — strips trailing punctuation', async () => {
+    const r = await autoGradeScripts([
       {
         id: 's1', selectedOption: null, textAnswer: 'D.',
         paperQuestion: {
@@ -535,8 +535,8 @@ describe('autoGradeScripts — shared grader for finalSubmit + cron lock', () =>
     expect(r.scriptUpdates[0].autoCorrect).toBe(true);
   });
 
-  it('R10 grades short_answer multi-word labels — collapses internal whitespace', () => {
-    const r = autoGradeScripts([
+  it('R10 grades short_answer multi-word labels — collapses internal whitespace', async () => {
+    const r = await autoGradeScripts([
       {
         id: 's1', selectedOption: null, textAnswer: 'Pendulum  Clock ',
         paperQuestion: {
@@ -549,8 +549,9 @@ describe('autoGradeScripts — shared grader for finalSubmit + cron lock', () =>
     expect(r.scriptUpdates[0].autoCorrect).toBe(true);
   });
 
-  it('R10 marks short_answer wrong on misspelling — no fuzzy', () => {
-    const r = autoGradeScripts([
+  it('R10 marks short_answer wrong on misspelling — no fuzzy match without aiGrader', async () => {
+    // Without an AI grader, string mismatch falls through to wrong.
+    const r = await autoGradeScripts([
       {
         id: 's1', selectedOption: null, textAnswer: 'pendalum clock',
         paperQuestion: {
@@ -563,8 +564,12 @@ describe('autoGradeScripts — shared grader for finalSubmit + cron lock', () =>
     expect(r.scriptUpdates[0]).toMatchObject({ autoCorrect: false, awardedMarks: 0 });
   });
 
-  it('R10 marks short_answer wrong when student left it blank', () => {
-    const r = autoGradeScripts([
+  it('R10 marks short_answer wrong when student left it blank — never calls AI', async () => {
+    const calls: any[] = [];
+    const aiGrader = {
+      evaluate: async (i: any) => { calls.push(i); return null; },
+    };
+    const r = await autoGradeScripts([
       {
         id: 's1', selectedOption: null, textAnswer: '',
         paperQuestion: {
@@ -572,14 +577,15 @@ describe('autoGradeScripts — shared grader for finalSubmit + cron lock', () =>
           question: { questionType: 'short_answer', options: null, answerContent: { text: 'D' } },
         },
       },
-    ]);
+    ], aiGrader);
     expect(r.autoScore).toBe(0);
     expect(r.scriptUpdates[0].autoCorrect).toBe(false);
+    expect(calls).toHaveLength(0);
   });
 
-  it('R10 still defers long free-form short_answer to the marker (>80 char canonical)', () => {
+  it('R10 still defers long free-form short_answer to the marker (>80 char canonical)', async () => {
     const longCanonical = 'a'.repeat(120);
-    const r = autoGradeScripts([
+    const r = await autoGradeScripts([
       {
         id: 's1', selectedOption: null, textAnswer: longCanonical,
         paperQuestion: {
@@ -592,8 +598,8 @@ describe('autoGradeScripts — shared grader for finalSubmit + cron lock', () =>
     expect(r.scriptUpdates).toHaveLength(0); // marker queue
   });
 
-  it('R10 defers short_answer with no canonical answer (still uncategorised)', () => {
-    const r = autoGradeScripts([
+  it('R10 defers short_answer with no canonical answer (still uncategorised)', async () => {
+    const r = await autoGradeScripts([
       {
         id: 's1', selectedOption: null, textAnswer: 'something',
         paperQuestion: {
@@ -603,6 +609,85 @@ describe('autoGradeScripts — shared grader for finalSubmit + cron lock', () =>
       },
     ]);
     expect(r.scriptUpdates).toHaveLength(0);
+  });
+
+  // ─────── R10: AI grader fallback for paraphrase / typo ────────
+
+  it('R10 AI grader credits paraphrase that string match would reject', async () => {
+    const aiGrader = {
+      evaluate: async (i: any) => ({
+        awardedMarks: 1,
+        reasoning: '"the fat beneath the shell" is the same as the canonical "fat beneath shell" with optional articles.',
+        confident: true,
+      }),
+    };
+    const r = await autoGradeScripts([
+      {
+        id: 's1', selectedOption: null, textAnswer: 'the fat beneath the shell',
+        paperQuestion: {
+          marks: 1, snapshotOptions: null,
+          question: {
+            questionType: 'short_answer', options: null,
+            answerContent: { text: 'fat beneath shell' },
+            content: { stem: 'Where does the green turtle get its name from?' },
+          },
+        },
+      },
+    ], aiGrader);
+    expect(r.autoScore).toBe(1);
+    expect(r.scriptUpdates[0]).toMatchObject({ autoCorrect: true, awardedMarks: 1 });
+    expect(r.scriptUpdates[0].aiReason).toMatch(/canonical/);
+  });
+
+  it('R10 AI grader rejects clearly wrong answer', async () => {
+    const aiGrader = {
+      evaluate: async () => ({ awardedMarks: 0, reasoning: 'Off-topic.', confident: true }),
+    };
+    const r = await autoGradeScripts([
+      {
+        id: 's1', selectedOption: null, textAnswer: 'because they are green',
+        paperQuestion: {
+          marks: 1, snapshotOptions: null,
+          question: {
+            questionType: 'short_answer', options: null,
+            answerContent: { text: 'fat beneath shell' },
+          },
+        },
+      },
+    ], aiGrader);
+    expect(r.autoScore).toBe(0);
+    expect(r.scriptUpdates[0].autoCorrect).toBe(false);
+  });
+
+  it('R10 AI grader returning null is treated as wrong (no over-credit)', async () => {
+    const aiGrader = { evaluate: async () => null };
+    const r = await autoGradeScripts([
+      {
+        id: 's1', selectedOption: null, textAnswer: 'something',
+        paperQuestion: {
+          marks: 1, snapshotOptions: null,
+          question: { questionType: 'short_answer', options: null, answerContent: { text: 'D' } },
+        },
+      },
+    ], aiGrader);
+    expect(r.autoScore).toBe(0);
+    expect(r.scriptUpdates[0].autoCorrect).toBe(false);
+  });
+
+  it('R10 AI grader is NOT called when string match already passes — saves cost', async () => {
+    let called = 0;
+    const aiGrader = { evaluate: async () => { called++; return null; } };
+    const r = await autoGradeScripts([
+      {
+        id: 's1', selectedOption: null, textAnswer: 'D.',
+        paperQuestion: {
+          marks: 1, snapshotOptions: null,
+          question: { questionType: 'short_answer', options: null, answerContent: { text: 'D' } },
+        },
+      },
+    ], aiGrader);
+    expect(r.scriptUpdates[0].autoCorrect).toBe(true);
+    expect(called).toBe(0);
   });
 });
 

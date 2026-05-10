@@ -3,66 +3,58 @@ import { QuestionStatus, QuestionType } from '@prisma/client';
 import { PrismaService } from '../common/prisma.service';
 
 /**
- * R10 — OLEVEL English (CIE 1123) paper ingest. See
- * olevel-ingest.controller.ts for the API shape and rationale.
+ * R10 — IGCSE 0510 Paper 1 R&W Extended ingest. See
+ * olevel-ingest.controller.ts for the API shape.
  *
- * Mapping to Question rows (one Question per question.n in payload):
+ * Per question we write:
  *   sourceRef     = `OLEVEL/<setCode>/Paper<n>/Q<m>`
- *                   (matches the `OLEVEL/<set>/Paper<n>` prefix
- *                    pickOlevelPaperAndCreatePaper groups on)
- *   sourceType    = past_paper_reference
- *   provenanceTag = `${setCode}_olevel`
- *   subjectId     = Subject {code:'1123'}
- *   componentId   = Subject's first component (OL)
- *   content / answerContent / options shape:
- *     - cloze:           { uiKind:'cloze',   passage, blankIndex, stem,
- *                          taskType:'cloze' }
- *                        answerContent.text = answer word
- *                        questionType = short_answer
- *     - vocab:           { uiKind:'vocab',   contextSentence, targetWord,
- *                          stem, taskType:'vocab' }
- *                        options + correct flag
- *                        questionType = mcq
- *     - transformation:  { uiKind:'transformation', original, starter,
- *                          stem, taskType:'transformation', maxWords?,
- *                          exampleAnswer }
- *                        answerContent.text = canonical rewrite
- *                        questionType = short_answer
- *     - comprehension:   { passage, stem, taskType:'multiple_choice',
- *                          uiKind:'comprehension' }
- *                        options + correct
- *                        questionType = mcq
- *
- * Idempotent on (sourceRef): re-POSTing the same paper skips rows
- * already present and never overwrites curated content.
+ *   provenanceTag = `cambridge_0510`
+ *   subjectId     = Subject {code:'1123'} (we keep the existing 1123
+ *                   subject as the OLEVEL container; the renderer
+ *                   doesn't care which CIE syllabus row backs the
+ *                   paper, only the per-question content shape)
+ *   questionType  = mcq for Exercise 2, short_answer for the others
+ *   content       = { uiKind, taskType, passage, passageTitle?, stem,
+ *                     instruction }
+ *                   uiKind values used:
+ *                     'olevel_short_answer'   (Ex 1, 4)
+ *                     'olevel_multi_match'    (Ex 2)
+ *                     'olevel_notes'          (Ex 3 — uses cloze-like
+ *                       renderer)
+ *   answerContent = { text: <canonical answer> }
+ *   options       = MCQ options for Ex 2; null otherwise
  */
 
-type ClozeQ = { n: number; blankIndex: number; answer: string };
-type VocabQ = {
-  n: number;
-  contextSentence: string;
-  targetWord: string;
-  options: Array<{ key: string; text: string; correct: boolean }>;
-  answer: string;
-};
-type TransformQ = {
-  n: number;
-  original: string;
-  starter?: string;
-  answer: string;
-  maxWords?: number;
-};
-type CompQ = {
+type ShortAnswerQ = { n: number; stem: string; answer: string };
+type MultiMatchQ = {
   n: number;
   stem: string;
   options: Array<{ key: string; text: string; correct: boolean }>;
   answer: string;
 };
+type NotesQ = { n: number; stem: string; answer: string };
+
 type Section =
-  | { uiKind: 'cloze'; instruction: string; passage: string; questions: ClozeQ[] }
-  | { uiKind: 'vocab'; instruction: string; questions: VocabQ[] }
-  | { uiKind: 'transformation'; instruction: string; questions: TransformQ[] }
-  | { uiKind: 'comprehension'; instruction: string; passage: string; questions: CompQ[] };
+  | {
+      exercise: 1 | 4;
+      instruction: string;
+      passageTitle: string;
+      passage: string;
+      questions: ShortAnswerQ[];
+    }
+  | {
+      exercise: 2;
+      instruction: string;
+      passage: string;
+      questions: MultiMatchQ[];
+    }
+  | {
+      exercise: 3;
+      instruction: string;
+      passageTitle: string;
+      passage: string;
+      questions: NotesQ[];
+    };
 
 export interface OlevelPaperIngestInput {
   setCode: string;
@@ -89,7 +81,7 @@ export class OlevelIngestService {
     actor: { id: string },
   ): Promise<OlevelPaperIngestResult> {
     const sourceRefPrefix = `OLEVEL/${input.setCode}/Paper${input.paperNumber}`;
-    const provenanceTag = `${input.setCode}_olevel`;
+    const provenanceTag = 'cambridge_0510';
 
     const subject = await this.ensureOlevelSubject();
     const component = await this.ensureOlComponent(subject.id);
@@ -133,7 +125,7 @@ export class OlevelIngestService {
     }
 
     this.logger.log(
-      `ingest olevel paper ${sourceRefPrefix}: created=${created.length} skipped=${skipped}`,
+      `ingest 0510 paper ${sourceRefPrefix}: created=${created.length} skipped=${skipped}`,
     );
     return {
       sourceRefPrefix,
@@ -159,7 +151,7 @@ export class OlevelIngestService {
       });
     }
     this.logger.log(
-      `approve olevel paper ${sourceRefPrefix}: promoted=${drafts.length} alreadyActive=${matches.length - drafts.length}`,
+      `approve 0510 paper ${sourceRefPrefix}: promoted=${drafts.length} alreadyActive=${matches.length - drafts.length}`,
     );
     return {
       sourceRefPrefix,
@@ -168,75 +160,57 @@ export class OlevelIngestService {
     };
   }
 
-  /** Build content/answerContent/options/questionType per uiKind. */
   private buildQuestionData(
     section: Section,
-    q: ClozeQ | VocabQ | TransformQ | CompQ,
+    q: ShortAnswerQ | MultiMatchQ | NotesQ,
   ): {
     questionType: QuestionType;
     content: any;
     answerContent: any;
     options: any | null;
   } {
-    if (section.uiKind === 'cloze') {
-      const cq = q as ClozeQ;
-      return {
-        questionType: QuestionType.short_answer,
-        content: {
-          uiKind: 'cloze',
-          taskType: 'cloze',
-          passage: section.passage,
-          blankIndex: cq.blankIndex,
-          stem: `${section.instruction}\n\nFill blank ${cq.blankIndex}.`,
-        },
-        answerContent: { text: cq.answer },
-        options: null,
-      };
-    }
-    if (section.uiKind === 'vocab') {
-      const vq = q as VocabQ;
+    if (section.exercise === 2) {
+      const mq = q as MultiMatchQ;
       return {
         questionType: QuestionType.mcq,
         content: {
-          uiKind: 'vocab',
-          taskType: 'vocab',
-          contextSentence: vq.contextSentence,
-          targetWord: vq.targetWord,
-          stem: `${section.instruction}\n\n${vq.contextSentence}\n\nWhat does "${vq.targetWord}" mean here?`,
+          uiKind: 'olevel_multi_match',
+          taskType: 'multi_match',
+          passage: section.passage,
+          stem: `${section.instruction}\n\n${mq.stem}`,
         },
-        answerContent: { text: vq.answer },
-        options: vq.options,
+        answerContent: { text: mq.answer },
+        options: mq.options,
       };
     }
-    if (section.uiKind === 'transformation') {
-      const tq = q as TransformQ;
+    if (section.exercise === 3) {
+      const nq = q as NotesQ;
       return {
         questionType: QuestionType.short_answer,
         content: {
-          uiKind: 'transformation',
-          taskType: 'transformation',
-          original: tq.original,
-          starter: tq.starter ?? null,
-          maxWords: tq.maxWords ?? null,
-          exampleAnswer: tq.answer,
-          stem: `${section.instruction}\n\nOriginal: ${tq.original}${tq.starter ? `\n\nStart with: ${tq.starter}` : ''}`,
+          uiKind: 'olevel_notes',
+          taskType: 'note_completion',
+          passage: section.passage,
+          passageTitle: section.passageTitle,
+          stem: `${section.instruction}\n\n${nq.stem}`,
         },
-        answerContent: { text: tq.answer },
+        answerContent: { text: nq.answer },
         options: null,
       };
     }
-    // comprehension
-    const cp = q as CompQ;
+    // Exercises 1 and 4 share the short-answer comprehension shape.
+    const sq = q as ShortAnswerQ;
     return {
-      questionType: QuestionType.mcq,
+      questionType: QuestionType.short_answer,
       content: {
-        uiKind: 'comprehension',
-        taskType: 'multiple_choice',
+        uiKind: 'olevel_short_answer',
+        taskType: 'short_answer',
         passage: section.passage,
-        stem: `${section.instruction}\n\n${cp.stem}`,
+        passageTitle: section.passageTitle,
+        stem: `${section.instruction}\n\n${sq.stem}`,
       },
-      answerContent: { text: cp.answer },
-      options: cp.options,
+      answerContent: { text: sq.answer },
+      options: null,
     };
   }
 
@@ -253,7 +227,7 @@ export class OlevelIngestService {
     return this.prisma.subject.create({
       data: {
         code: '1123',
-        name: 'CIE 1123 English Language',
+        name: 'CIE 1123 / 0510 English',
         level: 'O_LEVEL',
         examBoardId: board.id,
       },

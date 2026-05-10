@@ -7,6 +7,7 @@ import {
 } from '@prisma/client';
 import { PrismaService } from '../common/prisma.service';
 import { autoGradeScripts } from '../student/student.service';
+import { ShortAnswerEvaluatorService } from './short-answer-evaluator.service';
 
 /**
  * Morning quiz lifecycle cron. Runs every minute and acts on three transitions:
@@ -27,7 +28,13 @@ import { autoGradeScripts } from '../student/student.service';
 export class MorningQuizCron {
   private readonly logger = new Logger('MorningQuizCron');
 
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    // R10 — used so the 9:00 lockPastSessions auto-submit also runs the
+    // Claude fallback for unsubmitted short_answer items, matching the
+    // manual finalSubmit code path.
+    private readonly evaluator: ShortAnswerEvaluatorService,
+  ) {}
 
   @Cron(CronExpression.EVERY_MINUTE)
   async tick() {
@@ -108,7 +115,7 @@ export class MorningQuizCron {
               paperQuestion: {
                 // R10: include answerContent so autoGradeScripts can grade
                 // short_answer items against the canonical text answer.
-                include: { question: { select: { questionType: true, options: true, answerContent: true } } },
+                include: { question: { select: { questionType: true, options: true, answerContent: true, content: true } } },
               },
             },
           },
@@ -116,7 +123,7 @@ export class MorningQuizCron {
       });
 
       for (const sub of inProgress) {
-        const { autoScore, scriptUpdates } = autoGradeScripts(sub.scripts);
+        const { autoScore, scriptUpdates } = await autoGradeScripts(sub.scripts, this.evaluator);
         const claim = await tx.studentSubmission.updateMany({
           where: { id: sub.id, status: 'in_progress' },
           data: { submittedAt: new Date(), status: 'submitted', autoScore, maxScore: correctMax },
@@ -125,7 +132,11 @@ export class MorningQuizCron {
           for (const u of scriptUpdates) {
             await tx.answerScript.update({
               where: { id: u.id },
-              data: { autoCorrect: u.autoCorrect, awardedMarks: u.awardedMarks },
+              data: {
+                autoCorrect: u.autoCorrect,
+                awardedMarks: u.awardedMarks,
+                ...(u.aiReason ? { markerComment: `[ai-grade] ${u.aiReason}` } : {}),
+              },
             });
           }
         }

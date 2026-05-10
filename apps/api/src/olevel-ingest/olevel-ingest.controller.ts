@@ -10,43 +10,53 @@ import { CurrentUser } from '../common/current-user.decorator';
 import { OlevelIngestService } from './olevel-ingest.service';
 
 /**
- * R10 — admin-only ingest API for OLEVEL English (CIE 1123) papers.
+ * R10 — admin-only ingest API for Cambridge IGCSE 0510/0511
+ * (English as a Second Language, Reading & Writing Extended).
  *
- * Sister to /api/ielts-ingest/passage. The OLEVEL paper structure is
- * fundamentally different from IELTS Reading — there is no single long
- * passage; one paper is a mix of:
- *   * cloze         (a short passage with N numbered blanks)
- *   * vocab         (independent vocab-in-context MCQs)
- *   * transformation (rewrite the sentence keeping meaning)
- *   * comprehension (short passage + MCQs)
+ * Maps to the actual 0510 Paper 1 R&W exercise structure as published
+ * in the official mark schemes:
  *
- * The morning-quiz exam shell already has a renderer per uiKind, so the
- * ingest payload is grouped by section. A "set" is one whole paper
- * (sourceRef = `OLEVEL/<setCode>/Paper<n>/Q<m>`); the morning-quiz
- * dispatcher's pickOlevelPaperAndCreatePaper picks one set per
- * (date, class, level=olevel) per day, with 30-day per-class de-dup.
+ *   Exercise 1: passage + ~6 short-answer comprehension questions
+ *               (1 mark each; mark scheme gives a literal answer or
+ *               accepted-paraphrase list)
+ *   Exercise 2: 4-text multiple-matching, ~9 sub-questions, A/B/C/D
+ *   Exercise 3: passage + notes completion (one or two words from
+ *               the text per blank, 4–8 marks)
+ *   Exercise 4: passage + ~6 short-answer comprehension questions
+ *               (similar to Exercise 1)
  *
- * Workflow with Claude as the author:
- *   1. Operator asks Claude to write an OLEVEL paper (typically
- *      18 questions: 6 cloze + 6 vocab + 6 transformation).
- *   2. Claude POSTs the structured JSON here (admin token).
- *   3. Idempotent on per-question sourceRef — re-POSTing the same
- *      setCode + paperNumber + n is a skip, not a duplicate.
+ * Exercises 5 (summary writing) and 6 (composition) are deliberately
+ * NOT in scope: their answers are open-ended human-graded compositions
+ * and don't fit the auto-grade pipeline. The morning-quiz product is
+ * "100% auto-graded" by design, so we drop them.
+ *
+ * Provenance:
+ *   sourceRef     = `OLEVEL/<setCode>/Paper<n>/Q<m>`
+ *   provenanceTag = `cambridge_0510` (filterable by morning-quiz)
+ *
+ * Call this once per real PDF (e.g. setCode = 'cambridge_0510_s24'
+ * paperNumber = 12 for the May/June 2024 variant 12).
  */
 
-const ClozeQuestionSchema = z.object({
+const ShortAnswerQ = z.object({
   n: z.number().int().min(1).max(80),
-  blankIndex: z.number().int().min(1).max(20),
-  // Canonical answer string (1–3 words). autoGradeScripts normalises
-  // case + whitespace + trailing punctuation, so "his" / " His " / "his."
-  // all match.
-  answer: z.string().min(1).max(80),
+  // Question stem (the actual question prompt). The passage lives on
+  // the section, not the question, so the renderer can show it once
+  // and ask many questions about it.
+  stem: z.string().min(1).max(2000),
+  // Canonical answer. autoGradeScripts normalises whitespace + case +
+  // trailing punctuation, so "fat beneath shell" and "fat beneath the
+  // shell" both match if either is the canonical. Use the shortest
+  // mark-scheme phrasing that's still unambiguous.
+  answer: z.string().min(1).max(120),
 });
 
-const VocabQuestionSchema = z.object({
+const MultiMatchQ = z.object({
   n: z.number().int().min(1).max(80),
-  contextSentence: z.string().min(5).max(500),
-  targetWord: z.string().min(1).max(60),
+  stem: z.string().min(1).max(800),
+  // For Ex2 the options are A/B/C/D → labelling each text's nickname;
+  // we encode them as MCQ options with one `correct: true` so the
+  // existing autoGradeScripts MCQ branch grades it.
   options: z
     .array(
       z.object({
@@ -56,85 +66,70 @@ const VocabQuestionSchema = z.object({
       }),
     )
     .min(2)
-    .max(6),
+    .max(8),
   answer: z.string().min(1).max(8),
 });
 
-const TransformationQuestionSchema = z.object({
+const NotesQ = z.object({
   n: z.number().int().min(1).max(80),
-  original: z.string().min(5).max(400),
-  starter: z.string().min(0).max(200).optional(),
-  // Acceptable rewrite. autoGradeScripts will only short-circuit auto-
-  // grade if the canonical text is ≤ 80 chars (otherwise routed to
-  // marker queue). For longer "exemplar" rewrites, set
-  // shouldAutoGrade=false explicitly to keep the marker workflow.
-  answer: z.string().min(1).max(400),
-  maxWords: z.number().int().min(3).max(40).optional(),
+  stem: z.string().min(1).max(800),
+  answer: z.string().min(1).max(120),
 });
 
-const ComprehensionQuestionSchema = z.object({
-  n: z.number().int().min(1).max(80),
-  // Standalone stem (the passage is shared at the section level so
-  // the renderer can show it once).
-  stem: z.string().min(5).max(800),
-  options: z
-    .array(
-      z.object({
-        key: z.string().min(1).max(8),
-        text: z.string().min(1).max(300),
-        correct: z.boolean(),
-      }),
-    )
-    .min(2)
-    .max(6),
-  answer: z.string().min(1).max(8),
-});
-
-const SectionSchema = z.discriminatedUnion('uiKind', [
+const SectionSchema = z.discriminatedUnion('exercise', [
   z.object({
-    uiKind: z.literal('cloze'),
-    instruction: z.string().min(5).max(800),
-    passage: z.string().min(20).max(8000),
-    questions: z.array(ClozeQuestionSchema).min(1).max(20),
+    exercise: z.literal(1),
+    instruction: z.string().min(5).max(2000),
+    passageTitle: z.string().min(1).max(300),
+    passage: z.string().min(50).max(20_000),
+    questions: z.array(ShortAnswerQ).min(1).max(20),
   }),
   z.object({
-    uiKind: z.literal('vocab'),
-    instruction: z.string().min(5).max(800),
-    questions: z.array(VocabQuestionSchema).min(1).max(20),
+    exercise: z.literal(2),
+    instruction: z.string().min(5).max(2000),
+    // For Exercise 2, the four texts are stitched together into one
+    // passage block separated by blank lines, with each text headed
+    // "Text A:", "Text B:" etc. The renderer treats it as a single
+    // passage with internal sections.
+    passage: z.string().min(50).max(20_000),
+    questions: z.array(MultiMatchQ).min(1).max(20),
   }),
   z.object({
-    uiKind: z.literal('transformation'),
-    instruction: z.string().min(5).max(800),
-    questions: z.array(TransformationQuestionSchema).min(1).max(20),
+    exercise: z.literal(3),
+    instruction: z.string().min(5).max(2000),
+    passageTitle: z.string().min(1).max(300),
+    passage: z.string().min(50).max(20_000),
+    // Notes-completion shape: each question is a stem like "Cause: ___"
+    // and the answer is one or two words from the passage. The
+    // renderer reuses the cloze layout (passage above, blanks below).
+    questions: z.array(NotesQ).min(1).max(20),
   }),
   z.object({
-    uiKind: z.literal('comprehension'),
-    instruction: z.string().min(5).max(800),
-    passage: z.string().min(20).max(8000),
-    questions: z.array(ComprehensionQuestionSchema).min(1).max(20),
+    exercise: z.literal(4),
+    instruction: z.string().min(5).max(2000),
+    passageTitle: z.string().min(1).max(300),
+    passage: z.string().min(50).max(20_000),
+    questions: z.array(ShortAnswerQ).min(1).max(20),
   }),
 ]);
 
 const OlevelPaperSchema = z.object({
-  // Set = a Claude-curation cohort, e.g. "claude_olevel_v1" or
-  // "youthtech_2026_w1". Drives the Question.sourceRef prefix:
-  // sourceRef = `OLEVEL/<setCode>/Paper<n>/Q<m>`.
   setCode: z
     .string()
     .min(2)
     .max(60)
     .regex(/^[a-z0-9_]+$/i, 'setCode must be alphanumeric / underscore'),
-  paperNumber: z.number().int().min(1).max(50),
+  paperNumber: z.number().int().min(1).max(99),
   paperTitle: z.string().min(1).max(200).optional(),
-  sections: z.array(SectionSchema).min(1).max(8),
+  sections: z.array(SectionSchema).min(1).max(6),
 });
 
 @Controller('olevel-ingest')
 export class OlevelIngestController {
   constructor(private readonly svc: OlevelIngestService) {}
 
-  /** Ingest one OLEVEL paper (sections × questions). Lands all rows
-   *  as `status: draft`; flip to active with /approve below. */
+  /** Ingest one 0510 paper. Lands rows as `status: draft`; promote
+   *  with /approve once you've spot-checked them. */
   @Post('paper')
   async ingestPaper(@Body() body: unknown, @CurrentUser() user: any) {
     if (user.role !== 'admin') {
@@ -147,8 +142,6 @@ export class OlevelIngestController {
     return this.svc.ingestPaper(parsed.data, { id: user.id });
   }
 
-  /** Promote a paper's draft questions to active. Body:
-   *  { sourceRefPrefix: "OLEVEL/<setCode>/Paper<n>" } */
   @Post('approve')
   async approve(@Body() body: unknown, @CurrentUser() user: any) {
     if (user.role !== 'admin') {

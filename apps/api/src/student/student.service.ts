@@ -27,26 +27,52 @@ function normalizeShortAnswer(s: string | null | undefined): string {
 }
 
 /**
+ * R10 — Claude-graded fallback for short-answer items.
+ *
+ * Hybrid strategy: try the cheap, deterministic string-normalize match
+ * FIRST. Only when the student's answer doesn't match the canonical
+ * (likely a paraphrase, an extra article, a typo, or otherwise
+ * semantically-equivalent-but-textually-different), call Claude with
+ * a strict JSON-output rubric to decide. Caller injects the AI grader
+ * so this file stays pure / testable; the morning-quiz pipeline wires
+ * up ShortAnswerEvaluatorService.
+ *
+ * Cost / latency notes:
+ *   - 0510 Q1 "Where does the green turtle get its name from?" ought to
+ *     accept "fat beneath shell" / "fat beneath the shell" / "the fat
+ *     beneath the shell" / "from the fat under its shell". The string
+ *     match passes for the first; the rest fall through to Claude.
+ *   - Per paper, expect ~3 AI calls × 6 students ≈ ~$0.10 / session,
+ *     so a 5-day class run lands well under $1/week. Acceptable.
+ */
+export interface AiShortAnswerGrader {
+  evaluate(input: {
+    stem: string;
+    studentAnswer: string;
+    markScheme: string;
+    maxMarks: number;
+  }): Promise<{ awardedMarks: number; reasoning: string; confident: boolean } | null>;
+}
+
+/**
  * Pure helper extracted from finalSubmit so the morning-quiz cron's
- * lockPastSessions branch can reuse the exact same grading rule. Two
+ * lockPastSessions branch can reuse the exact same grading rule. Three
  * supported question types:
  *
- *   1. mcq — grade against snapshotOptions[].correct (per-paper snapshot,
- *      falls back to live question.options if the snapshot is null).
- *      Compares snapshotOption.key === script.selectedOption.
+ *   1. mcq — grade against snapshotOptions[].correct.
  *
- *   2. short_answer (R10) — grade against question.answerContent.text
- *      using a normalize-then-string-compare rule. Designed for IELTS
- *      reading where every short_answer has a deterministic 1–3 word
- *      key (matching headings, summary completion, diagram labels).
- *      Skipped if answerContent.text is missing or longer than 80 chars
- *      (long free-form answers aren't safe to auto-grade and still go
- *      to the marker queue).
+ *   2. short_answer (R10) — try normalize-then-string-compare first;
+ *      on miss, optionally fall back to AI semantic match via
+ *      `aiGrader`.
  *
- * Anything that doesn't fit those two paths produces no scriptUpdate
- * entry and the script keeps autoCorrect=null → marker queue.
+ *   3. anything else — leave to the marker queue.
+ *
+ * `aiGrader` is optional. When omitted, this function behaves exactly
+ * as before (string-only); existing tests pass unchanged. When
+ * provided, short_answer items that fail the string match get a
+ * second pass through Claude.
  */
-export function autoGradeScripts(
+export async function autoGradeScripts(
   scripts: Array<{
     id: string;
     selectedOption: string | null;
@@ -54,15 +80,28 @@ export function autoGradeScripts(
     paperQuestion: {
       marks: number;
       snapshotOptions: any;
-      question: { questionType: string; options: any; answerContent: any };
+      question: {
+        questionType: string;
+        options: any;
+        answerContent: any;
+        // content optional; used only to surface the question stem to
+        // the AI grader so it can grade in context.
+        content?: any;
+      };
     };
   }>,
-): {
+  aiGrader?: AiShortAnswerGrader,
+): Promise<{
   autoScore: number;
-  scriptUpdates: Array<{ id: string; autoCorrect: boolean; awardedMarks: number }>;
-} {
+  scriptUpdates: Array<{ id: string; autoCorrect: boolean; awardedMarks: number; aiReason?: string }>;
+}> {
   let autoScore = 0;
-  const scriptUpdates: Array<{ id: string; autoCorrect: boolean; awardedMarks: number }> = [];
+  const scriptUpdates: Array<{
+    id: string;
+    autoCorrect: boolean;
+    awardedMarks: number;
+    aiReason?: string;
+  }> = [];
   for (const script of scripts) {
     const q = script.paperQuestion.question;
     if (q.questionType === 'mcq') {
@@ -78,22 +117,60 @@ export function autoGradeScripts(
       continue;
     }
     if (q.questionType === 'short_answer') {
-      // R10: extend auto-grading to IELTS short_answer. The canonical
-      // answer lives on Question.answerContent.text — never on snapshot
-      // (snapshot redaction strips correct keys for student fetches).
       const ac = q.answerContent as { text?: unknown } | null;
       const expected = typeof ac?.text === 'string' ? ac.text : null;
-      // Skip long / free-form answers — those are essay-shaped and the
-      // marker should still see them. The IELTS bank we operate on uses
-      // 1–3 word answers (≤ 30 chars in practice); 80 is a generous cap.
       if (!expected || expected.length > 80) continue;
       const expectedN = normalizeShortAnswer(expected);
       const actualN = normalizeShortAnswer(script.textAnswer);
       if (!expectedN) continue;
-      const isCorrect = expectedN === actualN && actualN !== '';
-      const awarded = isCorrect ? script.paperQuestion.marks : 0;
-      autoScore += awarded;
-      scriptUpdates.push({ id: script.id, autoCorrect: isCorrect, awardedMarks: awarded });
+      // Path 1: cheap deterministic string match.
+      if (actualN !== '' && expectedN === actualN) {
+        autoScore += script.paperQuestion.marks;
+        scriptUpdates.push({
+          id: script.id,
+          autoCorrect: true,
+          awardedMarks: script.paperQuestion.marks,
+        });
+        continue;
+      }
+      // Path 2: blank answer is unambiguously 0 — skip the AI call.
+      if (actualN === '') {
+        scriptUpdates.push({ id: script.id, autoCorrect: false, awardedMarks: 0 });
+        continue;
+      }
+      // Path 3: string mismatch + non-empty answer → ask Claude.
+      if (aiGrader) {
+        const stem =
+          typeof q.content === 'object' && q.content !== null && typeof (q.content as any).stem === 'string'
+            ? (q.content as any).stem
+            : '';
+        try {
+          const verdict = await aiGrader.evaluate({
+            stem,
+            studentAnswer: script.textAnswer ?? '',
+            markScheme: expected,
+            maxMarks: script.paperQuestion.marks,
+          });
+          if (verdict) {
+            const awarded = Math.max(0, Math.min(script.paperQuestion.marks, verdict.awardedMarks));
+            autoScore += awarded;
+            scriptUpdates.push({
+              id: script.id,
+              autoCorrect: awarded >= script.paperQuestion.marks * 0.5,
+              awardedMarks: awarded,
+              aiReason: verdict.reasoning,
+            });
+            continue;
+          }
+        } catch {
+          // AI grader unavailable or threw — fall through to wrong.
+        }
+      }
+      // No AI grader available, or AI declined / errored → string mismatch
+      // counts as wrong. Better to under-credit than over-credit for an
+      // exam system; the post-submit "appeal" path stays open via teacher
+      // manual override.
+      scriptUpdates.push({ id: script.id, autoCorrect: false, awardedMarks: 0 });
       continue;
     }
     // structured / unknown: leave to marker.
@@ -122,7 +199,14 @@ export function autoGradeScripts(
 @Injectable()
 export class StudentService {
   private readonly logger = new Logger('StudentService');
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    // R10 — optional Claude grader for short_answer fallback.
+    // Provided when StudentModule imports MorningQuizModule's
+    // ShortAnswerEvaluatorService; absent in test contexts that don't
+    // wire it up, in which case autoGradeScripts stays string-only.
+    private readonly aiGrader?: AiShortAnswerGrader,
+  ) {}
 
   /** Teacher creates a PaperAssignment binding a paper to a class. */
   async assignPaperToClass(
@@ -256,7 +340,7 @@ export class StudentService {
           include: {
             paperQuestion: {
               include: {
-                question: { select: { questionType: true, options: true, answerContent: true } },
+                question: { select: { questionType: true, options: true, answerContent: true, content: true } },
               },
             },
           },
@@ -269,7 +353,7 @@ export class StudentService {
       throw new BadRequestException(`submission already ${sub.status}`);
     }
 
-    const { autoScore, scriptUpdates } = autoGradeScripts(sub.scripts);
+    const { autoScore, scriptUpdates } = await autoGradeScripts(sub.scripts, this.aiGrader);
     // R10-fix: back-fill maxScore on submit too. Older submissions created by
     // attendance.scanQr before the maxScore-from-paper fix landed had
     // maxScore=0, which surfaced as "3 / 1 = 300%" on the result page (the
@@ -299,7 +383,16 @@ export class StudentService {
       for (const u of scriptUpdates) {
         await tx.answerScript.update({
           where: { id: u.id },
-          data: { autoCorrect: u.autoCorrect, awardedMarks: u.awardedMarks },
+          data: {
+            autoCorrect: u.autoCorrect,
+            awardedMarks: u.awardedMarks,
+            // R10 — when Claude graded the answer (string match missed),
+            // surface the rationale on markerComment with a stable
+            // [ai-grade] prefix so the result page can show it and an
+            // admin can audit the AI's call. Comment is only set when
+            // the AI actually weighed in.
+            ...(u.aiReason ? { markerComment: `[ai-grade] ${u.aiReason}` } : {}),
+          },
         });
       }
       return tx.studentSubmission.findUnique({ where: { id: submissionId } });
