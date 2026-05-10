@@ -91,13 +91,24 @@ export class MorningQuizCron {
         data: { status: MorningQuizStatus.locked },
       });
 
+      // Pull paper.totalMarksActual once for the maxScore back-fill on the
+      // updateMany below. Same fix as student.finalSubmit — pre-R10 scanQr
+      // wrote maxScore=0 and lockPastSessions never corrected it.
+      const paperRow = await tx.paperAssignment.findUnique({
+        where: { id: paperAssignmentId },
+        select: { paper: { select: { totalMarksActual: true } } },
+      });
+      const correctMax = paperRow?.paper?.totalMarksActual ?? 0;
+
       const inProgress = await tx.studentSubmission.findMany({
         where: { assignmentId: paperAssignmentId, status: 'in_progress' },
         include: {
           scripts: {
             include: {
               paperQuestion: {
-                include: { question: { select: { questionType: true, options: true } } },
+                // R10: include answerContent so autoGradeScripts can grade
+                // short_answer items against the canonical text answer.
+                include: { question: { select: { questionType: true, options: true, answerContent: true } } },
               },
             },
           },
@@ -108,7 +119,7 @@ export class MorningQuizCron {
         const { autoScore, scriptUpdates } = autoGradeScripts(sub.scripts);
         const claim = await tx.studentSubmission.updateMany({
           where: { id: sub.id, status: 'in_progress' },
-          data: { submittedAt: new Date(), status: 'submitted', autoScore },
+          data: { submittedAt: new Date(), status: 'submitted', autoScore, maxScore: correctMax },
         });
         if (claim.count === 1 && scriptUpdates.length > 0) {
           for (const u of scriptUpdates) {

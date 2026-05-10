@@ -1242,7 +1242,11 @@ export class MorningQuizService {
       where: { paperId: session.paperAssignment.paperId },
       orderBy: { sortOrder: 'asc' },
       include: {
-        question: { select: { questionType: true } },
+        // R10: also pull answerContent so the result page can display the
+        // canonical short_answer text answer ("ii", "pendulum clock") even
+        // when snapshotContent / snapshotOptions don't carry it. This is
+        // server-side only; the take-paper getStudentView still strips it.
+        question: { select: { questionType: true, answerContent: true } },
       },
     });
 
@@ -1266,6 +1270,16 @@ export class MorningQuizService {
       if (!correctKey && Array.isArray(pq.snapshotOptions)) {
         const correctOpt = (pq.snapshotOptions as any[]).find((o) => o?.correct === true);
         if (correctOpt?.key) correctKey = String(correctOpt.key);
+      }
+      // R10: final fallback — Question.answerContent.text. This is where
+      // IELTS short_answer (matching headings, summary completion, diagram
+      // labels) keeps the canonical answer. Server-side only; never sent
+      // during the live take-paper flow (getStudentView redacts).
+      if (!correctKey) {
+        const ac = (pq.question as any)?.answerContent as { text?: unknown } | null;
+        if (typeof ac?.text === 'string' && ac.text.length <= 80) {
+          correctKey = ac.text;
+        }
       }
       const explanation =
         typeof sc.explanation === 'string'

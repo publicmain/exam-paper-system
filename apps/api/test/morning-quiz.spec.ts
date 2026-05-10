@@ -456,10 +456,11 @@ describe('autoGradeScripts — shared grader for finalSubmit + cron lock', () =>
       {
         id: 's1',
         selectedOption: null,
+        textAnswer: null,
         paperQuestion: {
           marks: 4,
           snapshotOptions: [{ key: 'A', correct: true }, { key: 'B', correct: false }],
-          question: { questionType: 'mcq', options: null },
+          question: { questionType: 'mcq', options: null, answerContent: null },
         },
       },
     ]);
@@ -472,10 +473,11 @@ describe('autoGradeScripts — shared grader for finalSubmit + cron lock', () =>
       {
         id: 's1',
         selectedOption: 'B',
+        textAnswer: null,
         paperQuestion: {
           marks: 4,
           snapshotOptions: [{ key: 'A', correct: false }, { key: 'B', correct: true }],
-          question: { questionType: 'mcq', options: null },
+          question: { questionType: 'mcq', options: null, answerContent: null },
         },
       },
     ]);
@@ -483,38 +485,124 @@ describe('autoGradeScripts — shared grader for finalSubmit + cron lock', () =>
     expect(r.scriptUpdates[0]).toMatchObject({ autoCorrect: true, awardedMarks: 4 });
   });
 
-  it('skips short_answer (deferred to Phase 2)', () => {
-    const r = autoGradeScripts([
-      {
-        id: 's1',
-        selectedOption: null,
-        paperQuestion: {
-          marks: 5,
-          snapshotOptions: null,
-          question: { questionType: 'short_answer', options: null },
-        },
-      },
-    ]);
-    expect(r.autoScore).toBe(0);
-    expect(r.scriptUpdates).toHaveLength(0);
-  });
-
   it('falls back to question.options when snapshotOptions is null', () => {
     const r = autoGradeScripts([
       {
         id: 's1',
         selectedOption: 'A',
+        textAnswer: null,
         paperQuestion: {
           marks: 2,
           snapshotOptions: null,
           question: {
             questionType: 'mcq',
             options: [{ key: 'A', correct: true }, { key: 'B', correct: false }],
+            answerContent: null,
           },
         },
       },
     ]);
     expect(r.autoScore).toBe(2);
+  });
+
+  // ─────── R10: short_answer auto-grading ────────
+
+  it('R10 grades short_answer matching headings (roman numerals) — case insensitive', () => {
+    const r = autoGradeScripts([
+      {
+        id: 's1', selectedOption: null, textAnswer: 'II',
+        paperQuestion: {
+          marks: 1, snapshotOptions: null,
+          question: { questionType: 'short_answer', options: null, answerContent: { text: 'ii' } },
+        },
+      },
+    ]);
+    expect(r.autoScore).toBe(1);
+    expect(r.scriptUpdates[0]).toMatchObject({ autoCorrect: true, awardedMarks: 1 });
+  });
+
+  it('R10 grades short_answer matching paragraphs (single letter) — strips trailing punctuation', () => {
+    const r = autoGradeScripts([
+      {
+        id: 's1', selectedOption: null, textAnswer: 'D.',
+        paperQuestion: {
+          marks: 1, snapshotOptions: null,
+          question: { questionType: 'short_answer', options: null, answerContent: { text: 'D' } },
+        },
+      },
+    ]);
+    expect(r.autoScore).toBe(1);
+    expect(r.scriptUpdates[0].autoCorrect).toBe(true);
+  });
+
+  it('R10 grades short_answer multi-word labels — collapses internal whitespace', () => {
+    const r = autoGradeScripts([
+      {
+        id: 's1', selectedOption: null, textAnswer: 'Pendulum  Clock ',
+        paperQuestion: {
+          marks: 1, snapshotOptions: null,
+          question: { questionType: 'short_answer', options: null, answerContent: { text: 'pendulum clock' } },
+        },
+      },
+    ]);
+    expect(r.autoScore).toBe(1);
+    expect(r.scriptUpdates[0].autoCorrect).toBe(true);
+  });
+
+  it('R10 marks short_answer wrong on misspelling — no fuzzy', () => {
+    const r = autoGradeScripts([
+      {
+        id: 's1', selectedOption: null, textAnswer: 'pendalum clock',
+        paperQuestion: {
+          marks: 1, snapshotOptions: null,
+          question: { questionType: 'short_answer', options: null, answerContent: { text: 'pendulum clock' } },
+        },
+      },
+    ]);
+    expect(r.autoScore).toBe(0);
+    expect(r.scriptUpdates[0]).toMatchObject({ autoCorrect: false, awardedMarks: 0 });
+  });
+
+  it('R10 marks short_answer wrong when student left it blank', () => {
+    const r = autoGradeScripts([
+      {
+        id: 's1', selectedOption: null, textAnswer: '',
+        paperQuestion: {
+          marks: 1, snapshotOptions: null,
+          question: { questionType: 'short_answer', options: null, answerContent: { text: 'D' } },
+        },
+      },
+    ]);
+    expect(r.autoScore).toBe(0);
+    expect(r.scriptUpdates[0].autoCorrect).toBe(false);
+  });
+
+  it('R10 still defers long free-form short_answer to the marker (>80 char canonical)', () => {
+    const longCanonical = 'a'.repeat(120);
+    const r = autoGradeScripts([
+      {
+        id: 's1', selectedOption: null, textAnswer: longCanonical,
+        paperQuestion: {
+          marks: 5, snapshotOptions: null,
+          question: { questionType: 'short_answer', options: null, answerContent: { text: longCanonical } },
+        },
+      },
+    ]);
+    expect(r.autoScore).toBe(0);
+    expect(r.scriptUpdates).toHaveLength(0); // marker queue
+  });
+
+  it('R10 defers short_answer with no canonical answer (still uncategorised)', () => {
+    const r = autoGradeScripts([
+      {
+        id: 's1', selectedOption: null, textAnswer: 'something',
+        paperQuestion: {
+          marks: 1, snapshotOptions: null,
+          question: { questionType: 'short_answer', options: null, answerContent: null },
+        },
+      },
+    ]);
+    expect(r.scriptUpdates).toHaveLength(0);
   });
 });
 

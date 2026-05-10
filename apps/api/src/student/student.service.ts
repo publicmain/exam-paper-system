@@ -5,20 +5,56 @@ import { redactSnapshotForStudent } from '../morning-quiz/morning-quiz.service';
 interface ActorCtx { id: string; role: string; ip?: string | null }
 
 /**
+ * Normalize a free-text answer for case/whitespace/punctuation-insensitive
+ * comparison. Used by autoGradeScripts to grade IELTS-style short_answer
+ * questions where the canonical answer is a 1–3 word string (matching
+ * headings "ii", matching paragraphs "D", sentence completion "pendulum
+ * clock", diagram labels "escape wheel"). Conservative — doesn't strip
+ * articles or do fuzzy matching, so a misspelling is still wrong.
+ */
+function normalizeShortAnswer(s: string | null | undefined): string {
+  if (s == null) return '';
+  return String(s)
+    .trim()
+    .toLowerCase()
+    // collapse internal whitespace runs to a single space so "pendulum  clock"
+    // and "pendulum clock" compare equal
+    .replace(/\s+/g, ' ')
+    // strip surrounding punctuation people sometimes type (e.g. "D." or "(d)"
+    // or "ii)") — only at the boundaries, never inside the answer
+    .replace(/^[.,;:!?()[\]{}"'`、，。；：（）「」]+/, '')
+    .replace(/[.,;:!?()[\]{}"'`、，。；：（）「」]+$/, '');
+}
+
+/**
  * Pure helper extracted from finalSubmit so the morning-quiz cron's
- * lockPastSessions branch can reuse the exact same MCQ grading rule. Treats
- * snapshotOptions as the source of truth (per-paper snapshot was taken at
- * paper creation), falling back to the question's live `options` only when
- * the snapshot is null. A short_answer is left to the marker (Phase 2 plan).
+ * lockPastSessions branch can reuse the exact same grading rule. Two
+ * supported question types:
+ *
+ *   1. mcq — grade against snapshotOptions[].correct (per-paper snapshot,
+ *      falls back to live question.options if the snapshot is null).
+ *      Compares snapshotOption.key === script.selectedOption.
+ *
+ *   2. short_answer (R10) — grade against question.answerContent.text
+ *      using a normalize-then-string-compare rule. Designed for IELTS
+ *      reading where every short_answer has a deterministic 1–3 word
+ *      key (matching headings, summary completion, diagram labels).
+ *      Skipped if answerContent.text is missing or longer than 80 chars
+ *      (long free-form answers aren't safe to auto-grade and still go
+ *      to the marker queue).
+ *
+ * Anything that doesn't fit those two paths produces no scriptUpdate
+ * entry and the script keeps autoCorrect=null → marker queue.
  */
 export function autoGradeScripts(
   scripts: Array<{
     id: string;
     selectedOption: string | null;
+    textAnswer: string | null;
     paperQuestion: {
       marks: number;
       snapshotOptions: any;
-      question: { questionType: string; options: any };
+      question: { questionType: string; options: any; answerContent: any };
     };
   }>,
 ): {
@@ -29,16 +65,38 @@ export function autoGradeScripts(
   const scriptUpdates: Array<{ id: string; autoCorrect: boolean; awardedMarks: number }> = [];
   for (const script of scripts) {
     const q = script.paperQuestion.question;
-    if (q.questionType !== 'mcq') continue;
-    const opts = (script.paperQuestion.snapshotOptions ?? q.options ?? []) as Array<{
-      key: string;
-      correct: boolean;
-    }>;
-    const correctOpt = Array.isArray(opts) ? opts.find((o) => o.correct) : null;
-    const isCorrect = correctOpt?.key === script.selectedOption;
-    const awarded = isCorrect ? script.paperQuestion.marks : 0;
-    autoScore += awarded;
-    scriptUpdates.push({ id: script.id, autoCorrect: isCorrect, awardedMarks: awarded });
+    if (q.questionType === 'mcq') {
+      const opts = (script.paperQuestion.snapshotOptions ?? q.options ?? []) as Array<{
+        key: string;
+        correct: boolean;
+      }>;
+      const correctOpt = Array.isArray(opts) ? opts.find((o) => o.correct) : null;
+      const isCorrect = correctOpt?.key === script.selectedOption;
+      const awarded = isCorrect ? script.paperQuestion.marks : 0;
+      autoScore += awarded;
+      scriptUpdates.push({ id: script.id, autoCorrect: isCorrect, awardedMarks: awarded });
+      continue;
+    }
+    if (q.questionType === 'short_answer') {
+      // R10: extend auto-grading to IELTS short_answer. The canonical
+      // answer lives on Question.answerContent.text — never on snapshot
+      // (snapshot redaction strips correct keys for student fetches).
+      const ac = q.answerContent as { text?: unknown } | null;
+      const expected = typeof ac?.text === 'string' ? ac.text : null;
+      // Skip long / free-form answers — those are essay-shaped and the
+      // marker should still see them. The IELTS bank we operate on uses
+      // 1–3 word answers (≤ 30 chars in practice); 80 is a generous cap.
+      if (!expected || expected.length > 80) continue;
+      const expectedN = normalizeShortAnswer(expected);
+      const actualN = normalizeShortAnswer(script.textAnswer);
+      if (!expectedN) continue;
+      const isCorrect = expectedN === actualN && actualN !== '';
+      const awarded = isCorrect ? script.paperQuestion.marks : 0;
+      autoScore += awarded;
+      scriptUpdates.push({ id: script.id, autoCorrect: isCorrect, awardedMarks: awarded });
+      continue;
+    }
+    // structured / unknown: leave to marker.
   }
   return { autoScore, scriptUpdates };
 }
@@ -192,7 +250,17 @@ export class StudentService {
       where: { id: submissionId },
       include: {
         assignment: { select: { paper: { select: { totalMarksActual: true } } } },
-        scripts: { include: { paperQuestion: { include: { question: { select: { questionType: true, options: true } } } } } },
+        // R10: pull question.answerContent so autoGradeScripts can grade
+        // short_answer items against the canonical text answer.
+        scripts: {
+          include: {
+            paperQuestion: {
+              include: {
+                question: { select: { questionType: true, options: true, answerContent: true } },
+              },
+            },
+          },
+        },
       },
     });
     if (!sub) throw new NotFoundException('submission not found');
