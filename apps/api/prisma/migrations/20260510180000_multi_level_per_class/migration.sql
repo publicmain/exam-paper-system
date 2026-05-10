@@ -29,9 +29,14 @@ ALTER TABLE "MorningQuizSession"
   ALTER COLUMN "level" SET NOT NULL,
   ALTER COLUMN "level" SET DEFAULT 'ielts_authentic';
 
--- 4. flip the unique constraint
+-- 4. flip the unique constraint. Like ClassEnglishLevel below, Prisma's
+--    original `@@unique` was created as `CREATE UNIQUE INDEX` (not
+--    `ADD CONSTRAINT`), so DROP CONSTRAINT is a no-op and the unique
+--    INDEX with the same name survives, blocking a second session per
+--    (date, classId). Drop the index explicitly too.
 ALTER TABLE "MorningQuizSession"
   DROP CONSTRAINT IF EXISTS "MorningQuizSession_date_classId_key";
+DROP INDEX IF EXISTS "MorningQuizSession_date_classId_key";
 ALTER TABLE "MorningQuizSession"
   ADD CONSTRAINT "MorningQuizSession_date_classId_level_key"
   UNIQUE ("date", "classId", "level");
