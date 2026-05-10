@@ -101,7 +101,9 @@ describe('IeltsIngestService.ingestPassage', () => {
     expect(q1.sourceRef).toMatch(/^([^/]+\/[^/]+\/Test\d+\/P\d+)\//);
     expect(q1.sourceType).toBe('past_paper_reference');
     expect(q1.provenanceTag).toBe('cambridge_ielts_8_authentic');
-    expect(q1.status).toBe('active');
+    // R10 L5: ingest defaults to draft so a typo can never reach a
+    // student before admin sign-off.
+    expect(q1.status).toBe('draft');
     expect(q1.questionType).toBe('short_answer');
 
     // content has passage + passageTitle + taskType + stem
@@ -158,5 +160,61 @@ describe('IeltsIngestService.ingestPassage', () => {
     expect(r.created).toBe(1);
     expect(r.skipped).toBe(1);
     expect(prisma.question.create).toHaveBeenCalledTimes(1);
+  });
+
+  // ───────── R10 L5: approve gate ─────────
+
+  it('approveBySourceRefPrefix promotes draft rows to active', async () => {
+    const updateMany = vi.fn().mockResolvedValue({ count: 2 });
+    const prisma: any = {
+      question: {
+        findMany: vi.fn().mockResolvedValue([
+          { id: 'q1', status: 'draft' },
+          { id: 'q2', status: 'draft' },
+          { id: 'q3', status: 'active' }, // already approved earlier
+        ]),
+        updateMany,
+      },
+    };
+    const svc = new IeltsIngestService(prisma);
+    const r = await svc.approveBySourceRefPrefix(
+      'IELTS/cambridge_ielts_8/Test1/P1',
+    );
+    expect(r.promoted).toBe(2);
+    expect(r.alreadyActive).toBe(1);
+    expect(updateMany).toHaveBeenCalledWith({
+      where: { id: { in: ['q1', 'q2'] } },
+      data: { status: 'active' },
+    });
+  });
+
+  it('approveBySourceRefPrefix is a no-op when all rows already active', async () => {
+    const updateMany = vi.fn();
+    const prisma: any = {
+      question: {
+        findMany: vi.fn().mockResolvedValue([
+          { id: 'q1', status: 'active' },
+          { id: 'q2', status: 'active' },
+        ]),
+        updateMany,
+      },
+    };
+    const svc = new IeltsIngestService(prisma);
+    const r = await svc.approveBySourceRefPrefix(
+      'IELTS/cambridge_ielts_8/Test1/P1',
+    );
+    expect(r.promoted).toBe(0);
+    expect(r.alreadyActive).toBe(2);
+    expect(updateMany).not.toHaveBeenCalled();
+  });
+
+  it('approveBySourceRefPrefix rejects malformed prefix', async () => {
+    const svc = new IeltsIngestService({} as any);
+    await expect(
+      svc.approveBySourceRefPrefix('cambridge_ielts_8/Test1/P1'), // missing IELTS/
+    ).rejects.toThrow(/bad sourceRefPrefix/);
+    await expect(
+      svc.approveBySourceRefPrefix('IELTS/cambridge_ielts_8/Test1/P1/Q1'), // too deep
+    ).rejects.toThrow(/bad sourceRefPrefix/);
   });
 });

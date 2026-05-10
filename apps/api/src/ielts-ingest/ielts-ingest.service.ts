@@ -131,7 +131,12 @@ export class IeltsIngestService {
           // For MCQ pass through; for short_answer Prisma wants undefined
           // not null when the column is JSON-nullable but unset.
           options: q.options && q.options.length > 0 ? q.options : undefined,
-          status: QuestionStatus.active,
+          // R10 L5 review gate: ingest lands rows as `draft` so a typo
+          // in stem / answer can never reach a student before an admin
+          // sign-off. Promote with POST /ielts-ingest/approve.
+          // pickPassageAndCreatePaper filters on status='active' so
+          // draft rows are invisible to morning-quiz scheduling.
+          status: QuestionStatus.draft,
           createdById: actor.id,
           provenanceTag,
         },
@@ -151,29 +156,74 @@ export class IeltsIngestService {
     };
   }
 
+  /**
+   * R10 L5 — admin promotes a passage's worth of draft rows to active.
+   * Idempotent: re-running with all rows already active is a no-op.
+   * Strict prefix match so an admin can't accidentally approve "/Test1/P1"
+   * thinking it'll only hit Q1 — the prefix has to match the passage
+   * boundary exactly, not the question id.
+   */
+  async approveBySourceRefPrefix(sourceRefPrefix: string): Promise<{
+    sourceRefPrefix: string;
+    promoted: number;
+    alreadyActive: number;
+  }> {
+    // Validate the prefix matches the passage shape we mint in
+    // ingestPassage so we can't be tricked into approving something
+    // weird (e.g. an O-Level paper).
+    if (!/^IELTS\/[a-z0-9_]+\/Test\d+\/P\d+$/i.test(sourceRefPrefix)) {
+      throw new Error(
+        `bad sourceRefPrefix: ${sourceRefPrefix}. Expected IELTS/<book>/Test<n>/P<n>.`,
+      );
+    }
+    // Use startsWith to grab Q1..Q13 (and any future Q14+) under the
+    // passage. A passage's Q rows share this prefix exactly + "/Q\d+".
+    const matches = await this.prisma.question.findMany({
+      where: { sourceRef: { startsWith: `${sourceRefPrefix}/Q` } },
+      select: { id: true, status: true },
+    });
+    const drafts = matches.filter((m) => m.status === QuestionStatus.draft);
+    if (drafts.length > 0) {
+      await this.prisma.question.updateMany({
+        where: { id: { in: drafts.map((d) => d.id) } },
+        data: { status: QuestionStatus.active },
+      });
+    }
+    this.logger.log(
+      `approve passage ${sourceRefPrefix}: promoted=${drafts.length} alreadyActive=${matches.length - drafts.length}`,
+    );
+    return {
+      sourceRefPrefix,
+      promoted: drafts.length,
+      alreadyActive: matches.length - drafts.length,
+    };
+  }
+
   private async ensureIeltsSubject() {
     const board = await this.prisma.examBoard.upsert({
       where: { code: 'IELTS' },
       create: { code: 'IELTS', name: 'IELTS' },
       update: {},
     });
-    // Schema declares @@unique([examBoardId, code, level]) on Subject,
-    // so the Prisma compound key is `examBoardId_code_level`.
-    return this.prisma.subject.upsert({
-      where: {
-        examBoardId_code_level: {
-          examBoardId: board.id,
-          code: 'IELTS',
-          level: 'IELTS',
-        },
-      },
-      create: {
+    // R10 fix: any subject with code 'IELTS' under the IELTS exam board
+    // is acceptable — `level` differs between the seed-local-mq.ts row
+    // ('CEFR') and what ingest would create ('IELTS'), but
+    // pickPassageAndCreatePaper does findFirst({where:{code:'IELTS'}})
+    // so ingest must reuse whatever level value already exists.
+    // Otherwise we end up with two IELTS subjects, ingest writes to one,
+    // morning-quiz reads from the other, and the question pool looks
+    // empty even though we just imported 40 questions.
+    const existing = await this.prisma.subject.findFirst({
+      where: { code: 'IELTS', examBoardId: board.id },
+    });
+    if (existing) return existing;
+    return this.prisma.subject.create({
+      data: {
         code: 'IELTS',
         name: 'IELTS Academic Reading',
         level: 'IELTS',
         examBoardId: board.id,
       },
-      update: {},
     });
   }
 

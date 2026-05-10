@@ -75,6 +75,12 @@ const QuestionShape = z.object({
   answer: z.string().min(1).max(80),
 });
 
+const ApproveSchema = z.object({
+  sourceRefPrefix: z
+    .string()
+    .regex(/^IELTS\/[a-z0-9_]+\/Test\d+\/P\d+$/i),
+});
+
 const PassageIngestSchema = z.object({
   // Used as both the Source identifier and as the sourceRef prefix on
   // every Question. Lower-snake recommended ("cambridge_ielts_8") so the
@@ -98,9 +104,9 @@ export class IeltsIngestController {
   constructor(private readonly svc: IeltsIngestService) {}
 
   /** Ingest one passage (passage + 13ish questions + answers) into the
-   *  Question bank. Idempotent on (bookCode, testNumber, passageNumber, n).
-   *  Admin-only — this writes to the master question bank and there is no
-   *  per-row review gate. */
+   *  Question bank as DRAFT rows. Idempotent on (bookCode, testNumber,
+   *  passageNumber, n). Drafts are invisible to morning-quiz scheduling
+   *  until POST /approve flips them active. */
   @Post('passage')
   async ingestPassage(@Body() body: unknown, @CurrentUser() user: any) {
     if (user.role !== 'admin') {
@@ -111,5 +117,19 @@ export class IeltsIngestController {
       throw new BadRequestException(parsed.error.flatten());
     }
     return this.svc.ingestPassage(parsed.data, { id: user.id });
+  }
+
+  /** R10 L5 review gate — promote a passage's draft rows to active.
+   *  Body: { sourceRefPrefix: "IELTS/<book>/Test<n>/P<n>" } */
+  @Post('approve')
+  async approve(@Body() body: unknown, @CurrentUser() user: any) {
+    if (user.role !== 'admin') {
+      throw new ForbiddenException({ code: 'admin_only' });
+    }
+    const parsed = ApproveSchema.safeParse(body);
+    if (!parsed.success) {
+      throw new BadRequestException(parsed.error.flatten());
+    }
+    return this.svc.approveBySourceRefPrefix(parsed.data.sourceRefPrefix);
   }
 }
