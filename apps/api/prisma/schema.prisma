@@ -1382,9 +1382,9 @@ enum AttendanceSource {
 }
 
 enum EnglishLevel {
-  ielts_authentic
-  ielts_hard
-  olevel
+  ielts_authentic   // Cambridge IELTS authentic past papers (passage_pick)
+  ielts_simplified  // simplified-IELTS for OLEVEL+ students (AI-generated, lower-vocab)
+  olevel            // CIE 1123 OLEVEL English (AI-generated)
 }
 
 model MorningQuizSession {

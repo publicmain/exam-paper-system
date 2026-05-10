@@ -7,7 +7,7 @@
  * re-deriving fields like "is this a passage paper".
  */
 
-export type EnglishLevel = 'ielts_authentic' | 'ielts_hard' | 'olevel';
+export type EnglishLevel = 'ielts_authentic' | 'ielts_simplified' | 'olevel';
 
 /** UI flavour. `practice` is friendly — instant correctness feedback,
  *  unlimited retries, soft visuals; `test` is the strict morning-quiz

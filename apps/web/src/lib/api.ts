@@ -312,7 +312,7 @@ export const api = {
   }) => request('POST', '/morning-quiz/batch-generate', body),
   setClassEnglishLevel: (
     classId: string,
-    level: 'ielts_authentic' | 'ielts_hard' | 'olevel',
+    level: 'ielts_authentic' | 'ielts_simplified' | 'olevel',
   ) => request('PATCH', `/morning-quiz/classes/${classId}/english-level`, { level }),
   /** Round-4 attendance Excel export. Returns a Blob the caller saves
    *  via URL.createObjectURL. */

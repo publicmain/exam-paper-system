@@ -678,14 +678,21 @@ export class MorningQuizService {
         multiPart: false,
       };
     }
-    if (level === 'ielts_hard') {
+    if (level === 'ielts_simplified') {
+      // R10: this is the MIDDLE band — strong O-Level students stretching
+      // toward IELTS. IELTS task types (TFNG, matching, summary completion)
+      // but with O-Level-grade vocabulary and shorter passages. Keep
+      // difficulty low (2) and pick the easier IELTS topic codes
+      // (IR.1 = main idea, IR.2 = detail, IR.4 = factual matching) —
+      // skip the harder inference / opinion / vocabulary tasks
+      // (IR.3, IR.5, IR.7) used for authentic-band drills.
       return {
         syllabusCode: 'IELTS',
-        topics: split(['IR.2', 'IR.3', 'IR.4', 'IR.5', 'IR.7']),
-        difficulty: 5,
+        topics: split(['IR.1', 'IR.2', 'IR.4']),
+        difficulty: 2,
         durationMin: 30,
         includeDiagrams: false,
-        paperName: `Morning Quiz IELTS-Hard ${dateIso}`,
+        paperName: `Morning Quiz IELTS-Simplified ${dateIso}`,
         multiPart: false,
       };
     }

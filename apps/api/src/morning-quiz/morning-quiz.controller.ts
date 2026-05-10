@@ -55,7 +55,7 @@ const SaveAnswerSchema = z.object({
 });
 
 const SetLevelSchema = z.object({
-  level: z.enum(['ielts_authentic', 'ielts_hard', 'olevel']),
+  level: z.enum(['ielts_authentic', 'ielts_simplified', 'olevel']),
 });
 
 const TEACHER_ROLES = new Set(['teacher', 'head_teacher', 'admin']);

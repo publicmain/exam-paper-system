@@ -9,7 +9,7 @@
 //   HARD  — AI-generated IELTS-style items targeting Band 7+ difficulty,
 //           produced by AiQuestionGeneratorService with the prompt template
 //           in ai-question-generator.service.ts (system message tagged
-//           ielts_hard).
+//           ielts_simplified).
 //
 // The exam board "CAE" (Cambridge Assessment English) is the legitimate
 // publisher of IELTS in partnership with British Council and IDP; we

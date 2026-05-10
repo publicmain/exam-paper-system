@@ -18,6 +18,11 @@ function fakePrisma(over: { existingSourceRefs?: Set<string> } = {}): any {
       upsert: vi.fn(async ({ create }: any) => ({ id: 'board1', ...create })),
     },
     subject: {
+      // R10 dedupe: ensureIeltsSubject now does findFirst then conditional
+      // create instead of upsert. Mock both paths so tests cover the
+      // "first-time ingest creates a fresh subject" branch.
+      findFirst: vi.fn(async () => null),
+      create: vi.fn(async ({ data }: any) => ({ id: 'subj1', ...data })),
       upsert: vi.fn(async ({ create }: any) => ({ id: 'subj1', ...create })),
     },
     syllabusComponent: {
@@ -85,7 +90,10 @@ describe('IeltsIngestService.ingestPassage', () => {
     expect(r.skipped).toBe(0);
     expect(r.sourceRefPrefix).toBe('IELTS/cambridge_ielts_8/Test1/P1');
     expect(prisma.examBoard.upsert).toHaveBeenCalledTimes(1);
-    expect(prisma.subject.upsert).toHaveBeenCalledTimes(1);
+    // R10: subject is now findFirst + create (instead of upsert) so we
+    // never end up with two IELTS subjects diverging on `level`.
+    expect(prisma.subject.findFirst).toHaveBeenCalledTimes(1);
+    expect(prisma.subject.create).toHaveBeenCalledTimes(1);
     expect(prisma.syllabusComponent.upsert).toHaveBeenCalledTimes(1);
     expect(prisma.question.create).toHaveBeenCalledTimes(2);
   });

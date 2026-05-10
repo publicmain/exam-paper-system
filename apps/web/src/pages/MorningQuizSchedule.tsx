@@ -2,11 +2,15 @@ import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { api } from '../lib/api';
 
-type Level = 'ielts_authentic' | 'ielts_hard' | 'olevel';
+type Level = 'ielts_authentic' | 'ielts_simplified' | 'olevel';
+// R10 — three ascending difficulty bands. ielts_simplified replaces the
+// misnamed ielts_hard: it is the MIDDLE band (easier than authentic IELTS,
+// harder than O-Level), targeting strong O-Level students stretching toward
+// IELTS while keeping vocabulary in their reach.
 const LEVEL_LABEL: Record<Level, string> = {
-  ielts_authentic: 'IELTS · Authentic',
-  ielts_hard: 'IELTS · Hard',
-  olevel: 'O-Level · 1123',
+  ielts_authentic: '雅思真题 · IELTS Authentic',
+  ielts_simplified: '轻难度雅思 · Simplified IELTS',
+  olevel: 'O-Level 英语 · 1123',
 };
 
 interface ClassRow {
@@ -245,9 +249,9 @@ export default function MorningQuizSchedule() {
                     <option value="" disabled>
                       Set level
                     </option>
-                    <option value="ielts_authentic">IELTS Authentic</option>
-                    <option value="ielts_hard">IELTS Hard</option>
-                    <option value="olevel">O-Level 1123</option>
+                    <option value="ielts_authentic">雅思真题 · IELTS Authentic</option>
+                    <option value="ielts_simplified">轻难度雅思 · Simplified IELTS</option>
+                    <option value="olevel">O-Level 英语 · 1123</option>
                   </select>
                 </td>
               </tr>

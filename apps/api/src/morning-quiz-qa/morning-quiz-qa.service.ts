@@ -52,7 +52,7 @@ export interface QaReviewResult {
 export interface ReviewablePaper {
   paperId: string;
   paperName: string;
-  level: string; // 'ielts_authentic' | 'ielts_hard' | 'olevel'
+  level: string; // 'ielts_authentic' | 'ielts_simplified' | 'olevel'
   mode: string; // 'passage_pick' | 'ai_quickpaper' | 'unknown'
   passageRef?: string | null;
   passageText: string | null;
