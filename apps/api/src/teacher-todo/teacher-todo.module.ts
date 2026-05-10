@@ -4,6 +4,13 @@ import { TeacherTodoService } from './teacher-todo.service';
 import { TeacherTodoCron } from './teacher-todo.cron';
 import { PrismaService } from '../common/prisma.service';
 import { WechatNotifyModule } from '../wechat-notify/wechat-notify.module';
+// R10-Track2: import the canonical absence streak detector so the
+// teacher dashboard's "consecutive absent" count uses the SAME logic
+// as the alert service. Round-9 found teacher-todo had its own
+// re-implementation that lacked the "current streak only" semantics
+// → it counted long-stale absences as live, producing 35 when the
+// alert service produced 0.
+import { MorningQuizModule } from '../morning-quiz/morning-quiz.module';
 
 /**
  * F1 — Teacher's "today" dashboard module.
@@ -26,7 +33,7 @@ import { WechatNotifyModule } from '../wechat-notify/wechat-notify.module';
  *     `teacher_daily_digest`). Gated by env TEACHER_DAILY_DIGEST=true.
  */
 @Module({
-  imports: [WechatNotifyModule],
+  imports: [WechatNotifyModule, MorningQuizModule],
   controllers: [TeacherTodoController],
   providers: [TeacherTodoService, TeacherTodoCron, PrismaService],
   exports: [TeacherTodoService],

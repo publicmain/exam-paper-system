@@ -1,5 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { PrismaService } from '../common/prisma.service';
+import { AbsenceAlertService } from '../morning-quiz/absence-alert.service';
 
 export interface TeacherTodoTodayPayload {
   generatedAt: string;
@@ -45,7 +46,10 @@ const ABSENCE_ALERT_THRESHOLD = 3;
 export class TeacherTodoService {
   private readonly logger = new Logger('TeacherTodoService');
 
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly absence: AbsenceAlertService,
+  ) {}
 
   /**
    * Aggregate the four signal streams into one payload. Designed to run
@@ -246,44 +250,33 @@ export class TeacherTodoService {
     return { studentId, windowDays: 30, perTag };
   }
 
+  /**
+   * R10-Track2 fix — was a bespoke implementation that:
+   *   1. Pulled the *last 14* attendance rows per student with NO date
+   *      window. Stale absences from months ago counted as "current".
+   *   2. Did not require the streak to extend to the most recent
+   *      session for the student's class — i.e. a student absent 3x in
+   *      Sept then present every day since would still be flagged.
+   *   3. Drifted from AbsenceAlertService.findCurrentStreaks (the
+   *      function the WeChat alert + /absence-alerts/current API use).
+   *
+   * Symptom in production (round-9 LIVE-E2E):
+   *   - GET /api/teacher/todo/today → consecutiveAbsentStudents: 35
+   *   - GET /api/morning-quiz/absence-alerts/current → streaks: []
+   *
+   * Fix: delegate to AbsenceAlertService.findCurrentStreaks so both
+   * surfaces report the same number. Single source of truth.
+   */
   private async findConsecutiveAbsents(): Promise<
     TeacherTodoTodayPayload['consecutiveAbsentStudents']
   > {
-    const students = await this.prisma.user.findMany({
-      where: { role: 'student' as any, isActive: true },
-      select: { id: true, name: true },
-    });
-    const out: TeacherTodoTodayPayload['consecutiveAbsentStudents'] = [];
-    for (const s of students) {
-      const recent = await this.prisma.attendance.findMany({
-        where: { studentId: s.id },
-        orderBy: { session: { date: 'desc' } },
-        take: 14,
-        select: {
-          status: true,
-          session: { select: { date: true } },
-        },
-      });
-      let streak = 0;
-      let lastAbsent: Date | null = null;
-      for (const r of recent) {
-        if (r.status === 'absent') {
-          streak += 1;
-          lastAbsent = lastAbsent ?? r.session.date;
-        } else {
-          break;
-        }
-      }
-      if (streak >= ABSENCE_ALERT_THRESHOLD) {
-        out.push({
-          studentId: s.id,
-          studentName: s.name,
-          streakDays: streak,
-          lastAbsentDate: lastAbsent?.toISOString().slice(0, 10) ?? '',
-        });
-      }
-    }
-    return out;
+    const streaks = await this.absence.findCurrentStreaks(ABSENCE_ALERT_THRESHOLD);
+    return streaks.map((s) => ({
+      studentId: s.studentId,
+      studentName: s.studentName,
+      streakDays: s.consecutiveDays,
+      lastAbsentDate: s.lastAbsentDate,
+    }));
   }
 
   /** Format the today payload as a Markdown digest for WeChat Work text-bot.
