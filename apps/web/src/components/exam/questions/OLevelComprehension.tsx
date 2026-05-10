@@ -47,11 +47,17 @@ export function OLevelComprehension({ paper }: { paper: ExamPaper }) {
   const q = paper.questions[Math.min(idx, total - 1)];
 
   return (
-    <div className="lg:flex lg:gap-4 lg:max-w-7xl lg:mx-auto lg:py-3" style={{ zoom: fontScale }}>
+    <div
+      className="lg:flex lg:gap-4 lg:max-w-7xl lg:mx-auto lg:py-3"
+      style={{ ['--mq-fs' as any]: String(fontScale) }}
+    >
       <aside className="lg:w-1/2 bg-white lg:rounded-lg lg:border lg:shadow-sm lg:max-h-[calc(100dvh-9rem)] lg:overflow-auto">
         <div className="px-5 py-5 lg:px-6 lg:py-6">
           <h2 className="font-semibold text-xl lg:text-2xl mb-2">{passageTitle}</h2>
-          <div className="text-[1.0625rem] lg:text-lg text-gray-800 leading-[1.75] font-serif whitespace-pre-wrap select-text">
+          <div
+            className="text-gray-800 leading-[1.75] font-serif whitespace-pre-wrap select-text"
+            style={{ fontSize: `calc(1.125rem * var(--mq-fs, 1))` }}
+          >
             {passageBody}
           </div>
         </div>
@@ -113,7 +119,10 @@ function ComprehensionQuestionCard({
         <QuestionFlag qid={q.id} />
       </header>
       <div className="px-5 py-5">
-        <p className="text-base lg:text-lg text-gray-900 leading-relaxed mb-4 whitespace-pre-wrap">
+        <p
+          className="text-gray-900 leading-relaxed mb-4 whitespace-pre-wrap"
+          style={{ fontSize: `calc(1.125rem * var(--mq-fs, 1))` }}
+        >
           {stem}
         </p>
         {q.snapshotOptions && q.snapshotOptions.length > 0 ? (
@@ -134,6 +143,7 @@ function ComprehensionQuestionCard({
                         ? 'border-blue-500 bg-blue-50'
                         : 'border-gray-200 hover:bg-gray-50 active:bg-blue-50'
                     }`}
+                    style={{ fontSize: `calc(1rem * var(--mq-fs, 1))` }}
                   >
                     <input
                       type="radio"
@@ -142,8 +152,8 @@ function ComprehensionQuestionCard({
                       onChange={() => setAnswer(q.id, { selectedOption: opt.key })}
                       className="mt-1 w-5 h-5"
                     />
-                    <span className="font-mono text-gray-500 text-base w-6">{opt.key}.</span>
-                    <span className="flex-1 text-base leading-snug">{clean(opt.text)}</span>
+                    <span className="font-mono text-gray-500 w-6">{opt.key}.</span>
+                    <span className="flex-1 leading-snug">{clean(opt.text)}</span>
                   </label>
                 </li>
               );

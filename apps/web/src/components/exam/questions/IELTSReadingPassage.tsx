@@ -127,8 +127,18 @@ export function IELTSReadingPassage({ paper }: { paper: ExamPaper }) {
     );
   }
 
+  // R10 follow-up — `zoom` was unreliable: Firefox doesn't support it
+  // and Chrome's behaviour with nested overflow:auto + dvh height
+  // calculations is glitchy enough that students reported the passage
+  // panel ignoring A+/A−. Switch to a CSS variable that descendants
+  // reference via explicit inline-style font-size; works the same in
+  // every browser and means the passage Highlighter, question stems
+  // and option labels all scale together.
   return (
-    <div className="lg:h-[calc(100dvh-9rem)]" style={{ zoom: fontScale }}>
+    <div
+      className="lg:h-[calc(100dvh-9rem)]"
+      style={{ ['--mq-fs' as any]: String(fontScale) }}
+    >
       {/* Mobile pane switch — only visible below lg.  On lg+ the split
           renders both panes side-by-side. */}
       <div className="lg:hidden flex justify-center gap-1 px-3 py-2 border-b bg-white sticky top-14 z-10">
@@ -162,7 +172,11 @@ export function IELTSReadingPassage({ paper }: { paper: ExamPaper }) {
                 body={passageBody}
                 highlights={highlights}
                 onChange={setHighlights}
-                className="text-[1.0625rem] lg:text-lg text-gray-800 leading-[1.75] font-serif"
+                className="text-gray-800 leading-[1.75] font-serif"
+                // Apply the user-controlled font scale via inline style
+                // (overrides any inherited text-* class). 1.125rem is the
+                // baseline that text-lg used at fontScale=1.
+                style={{ fontSize: `calc(1.125rem * var(--mq-fs, 1))` }}
               />
               <StickyNoteRail
                 notes={notes}
@@ -214,7 +228,10 @@ function TaskGroupView({ group, gi }: { group: TaskGroup; gi: number }) {
           <span className="font-mono text-gray-500">Q{range}</span>
         </div>
         {group.instruction && (
-          <p className="mt-2 text-[15px] text-gray-700 whitespace-pre-wrap leading-relaxed">
+          <p
+            className="mt-2 text-gray-700 whitespace-pre-wrap leading-relaxed"
+            style={{ fontSize: `calc(0.9375rem * var(--mq-fs, 1))` }}
+          >
             {clean(group.instruction)}
           </p>
         )}
@@ -224,7 +241,10 @@ function TaskGroupView({ group, gi }: { group: TaskGroup; gi: number }) {
           <div className="text-xs text-amber-900 font-semibold tracking-wide uppercase mb-2">
             {group.bankLabel}
           </div>
-          <ul className="text-[15px] space-y-1 sm:columns-2 sm:gap-x-6">
+          <ul
+            className="space-y-1 sm:columns-2 sm:gap-x-6"
+            style={{ fontSize: `calc(0.9375rem * var(--mq-fs, 1))` }}
+          >
             {group.bank.map((b) => (
               <li key={b.key} className="break-inside-avoid leading-snug">
                 <span className="font-mono text-gray-500 mr-2 font-semibold">{b.key}.</span>
@@ -320,7 +340,12 @@ function QuestionItem({
     case 'matching_features':
       return (
         <>
-          <div className="text-base text-gray-800 mb-2.5 whitespace-pre-wrap leading-snug">{itemNode}</div>
+          <div
+            className="text-gray-800 mb-2.5 whitespace-pre-wrap leading-snug"
+            style={{ fontSize: `calc(1rem * var(--mq-fs, 1))` }}
+          >
+            {itemNode}
+          </div>
           <RadioGroup
             options={q.snapshotOptions ?? []}
             value={answer?.selectedOption}
@@ -332,7 +357,12 @@ function QuestionItem({
     case 'matching_information':
       return (
         <>
-          <div className="text-base text-gray-800 mb-2.5 whitespace-pre-wrap leading-snug">{itemNode}</div>
+          <div
+            className="text-gray-800 mb-2.5 whitespace-pre-wrap leading-snug"
+            style={{ fontSize: `calc(1rem * var(--mq-fs, 1))` }}
+          >
+            {itemNode}
+          </div>
           <LetterInput
             placeholder="A–H"
             value={answer?.textAnswer ?? ''}
@@ -343,7 +373,12 @@ function QuestionItem({
     case 'matching_headings':
       return (
         <>
-          <div className="text-base text-gray-800 mb-2.5 whitespace-pre-wrap leading-snug">{itemNode}</div>
+          <div
+            className="text-gray-800 mb-2.5 whitespace-pre-wrap leading-snug"
+            style={{ fontSize: `calc(1rem * var(--mq-fs, 1))` }}
+          >
+            {itemNode}
+          </div>
           <LetterInput
             placeholder="i, ii, iii…"
             value={answer?.textAnswer ?? ''}
@@ -369,7 +404,12 @@ function QuestionItem({
     default:
       return (
         <>
-          <div className="text-base text-gray-800 mb-2.5 whitespace-pre-wrap leading-snug">{itemNode}</div>
+          <div
+            className="text-gray-800 mb-2.5 whitespace-pre-wrap leading-snug"
+            style={{ fontSize: `calc(1rem * var(--mq-fs, 1))` }}
+          >
+            {itemNode}
+          </div>
           <DebouncedTextarea
             value={answer?.textAnswer ?? ''}
             onChange={(v) => setAnswer(q.id, { textAnswer: v })}
@@ -390,6 +430,10 @@ function RadioGroup({
   onChange: (key: string) => void;
   compact?: boolean;
 }) {
+  // R10 follow-up — option text scales with the user's A+/A− setting via
+  // the same `--mq-fs` CSS variable used elsewhere on this page. Default
+  // 1rem is what `text-base` resolved to before; the calc() multiplies it.
+  const optStyle = { fontSize: `calc(1rem * var(--mq-fs, 1))` } as const;
   return (
     <div className={compact ? 'flex flex-wrap gap-2' : 'space-y-2'}>
       {options.map((opt) => {
@@ -400,11 +444,12 @@ function RadioGroup({
               key={opt.key}
               type="button"
               onClick={() => onChange(opt.key)}
-              className={`min-w-[44px] min-h-[44px] px-4 py-2 rounded-lg border text-base font-semibold transition-colors touch-manipulation ${
+              className={`min-w-[44px] min-h-[44px] px-4 py-2 rounded-lg border font-semibold transition-colors touch-manipulation ${
                 checked
                   ? 'border-blue-500 bg-blue-50 text-blue-700 shadow-sm'
                   : 'border-gray-300 text-gray-700 hover:bg-gray-50 active:bg-blue-50'
               }`}
+              style={optStyle}
             >
               {opt.key}
             </button>
@@ -416,6 +461,7 @@ function RadioGroup({
             className={`flex gap-3 items-start p-3 rounded-lg border cursor-pointer transition-colors touch-manipulation min-h-[48px] ${
               checked ? 'border-blue-500 bg-blue-50' : 'border-gray-200 hover:bg-gray-50 active:bg-blue-50'
             }`}
+            style={optStyle}
           >
             <input
               type="radio"
@@ -423,8 +469,8 @@ function RadioGroup({
               onChange={() => onChange(opt.key)}
               className="mt-1 w-5 h-5"
             />
-            <span className="font-mono text-gray-500 text-base w-6">{opt.key}.</span>
-            <span className="flex-1 text-base leading-snug">{clean(opt.text)}</span>
+            <span className="font-mono text-gray-500 w-6">{opt.key}.</span>
+            <span className="flex-1 leading-snug">{clean(opt.text)}</span>
           </label>
         );
       })}

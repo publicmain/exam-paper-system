@@ -52,7 +52,7 @@ export function OLevelCloze({ paper }: { paper: ExamPaper }) {
 
   if (segments && segments.length - 1 === paper.questions.length) {
     return (
-      <article className="max-w-3xl mx-auto bg-white border border-gray-200 rounded-lg shadow-sm" style={{ zoom: fontScale }}>
+      <article className="max-w-3xl mx-auto bg-white border border-gray-200 rounded-lg shadow-sm" style={{ ['--mq-fs' as any]: String(fontScale) }}>
         <header className="px-5 lg:px-6 py-4 border-b">
           <h2 className="font-semibold text-xl lg:text-2xl">{clean(passageContent.passageTitle ?? 'Cloze Passage')}</h2>
           <p className="text-xs text-gray-500 mt-1">
@@ -111,7 +111,7 @@ export function OLevelCloze({ paper }: { paper: ExamPaper }) {
 
   // Fallback — list per item.
   return (
-    <ol className="space-y-3 max-w-3xl mx-auto" style={{ zoom: fontScale }}>
+    <ol className="space-y-3 max-w-3xl mx-auto" style={{ ['--mq-fs' as any]: String(fontScale) }}>
       {paper.questions.map((q, i) => (
         <ClozeRowFallback key={q.id} q={q} idx={i + 1} />
       ))}

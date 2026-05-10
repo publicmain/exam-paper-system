@@ -33,7 +33,7 @@ export function OLevelVocabInContext({ paper }: { paper: ExamPaper }) {
   const q = paper.questions[Math.min(idx, total - 1)];
 
   return (
-    <div className="max-w-2xl mx-auto py-3" style={{ zoom: fontScale }}>
+    <div className="max-w-2xl mx-auto py-3" style={{ ['--mq-fs' as any]: String(fontScale) }}>
       <VocabCard q={q} idx={idx} total={total} />
       <div className="flex items-center justify-between mt-4 px-1">
         <button

@@ -80,22 +80,33 @@ export default function App() {
 
   // Students get a dedicated minimal layout — no teacher nav, no Dashboard.
   if (user.role === 'student') {
+    // R10 follow-up — when a student is mid-quiz the chrome (nav links,
+    // name badge, Logout button) becomes a hazard: one accidental tap on
+    // "Past-Paper Practice", "My Papers", or "Logout" navigates them away
+    // and dumps in-flight answers. Hide the entire header on the
+    // take-quiz routes so the only way out is the official Submit
+    // button. The result page + home keep the header for navigation.
+    const isQuizTaking =
+      location.pathname.startsWith('/morning-quiz/') ||
+      /^\/student\/take\//.test(location.pathname);
     return (
       <div className="min-h-screen flex flex-col bg-gray-50">
         <CommandPalette role="student" />
-        <header className="bg-white border-b">
-          <div className="max-w-4xl mx-auto px-6 py-3 flex items-center justify-between">
-            <div className="flex items-center gap-5 text-sm">
-              <Link to="/student" className="font-bold text-lg">📝 My Papers</Link>
-              <Link to="/practice" className="text-blue-600 hover:underline">Past-Paper Practice</Link>
+        {!isQuizTaking && (
+          <header className="bg-white border-b">
+            <div className="max-w-4xl mx-auto px-6 py-3 flex items-center justify-between">
+              <div className="flex items-center gap-5 text-sm">
+                <Link to="/student" className="font-bold text-lg">📝 My Papers</Link>
+                <Link to="/practice" className="text-blue-600 hover:underline">Past-Paper Practice</Link>
+              </div>
+              <div className="flex items-center gap-3 text-sm">
+                <span className="text-gray-600">{user.name} <span className="badge">student</span></span>
+                <button className="btn btn-ghost" onClick={() => { logout(); navigate('/login'); }}>Logout</button>
+              </div>
             </div>
-            <div className="flex items-center gap-3 text-sm">
-              <span className="text-gray-600">{user.name} <span className="badge">student</span></span>
-              <button className="btn btn-ghost" onClick={() => { logout(); navigate('/login'); }}>Logout</button>
-            </div>
-          </div>
-        </header>
-        <main className="flex-1 max-w-4xl mx-auto w-full px-6 py-6">
+          </header>
+        )}
+        <main className={`flex-1 w-full ${isQuizTaking ? '' : 'max-w-4xl mx-auto px-6 py-6'}`}>
           <ErrorBoundary>
             <Routes>
               <Route path="/student" element={<StudentHomePage />} />
