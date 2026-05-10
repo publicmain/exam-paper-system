@@ -138,7 +138,7 @@ export default function MorningQuizScan() {
               type="text"
               value={name}
               onChange={(e) => setName(e.target.value)}
-              placeholder="例如:牟歌"
+              placeholder=""
               autoFocus
               autoComplete="off"
               autoCorrect="off"

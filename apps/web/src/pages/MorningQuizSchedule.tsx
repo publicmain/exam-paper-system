@@ -100,13 +100,33 @@ export default function MorningQuizSchedule() {
         classIds: Array.from(selected),
       });
       setOutcomes(r.outcomes);
-      await refresh();
     } catch (e: any) {
+      // R10-Bug5: previously the catch branch did NOT refresh — so when
+      // batch-generate partially succeeded (e.g. 3 of 5 papers committed
+      // before an AI rate-limit error aborted the rest), the user saw
+      // the error but the schedule list still showed empty. They had to
+      // hit F5 to discover the partial completion. Move refresh() to
+      // the finally block so the list always reflects DB state.
       setError(e.message ?? String(e));
     } finally {
+      // Always pull the latest schedule, even on partial failure, so any
+      // papers that DID commit are immediately visible.
+      try { await refresh(); } catch (e: any) { /* refresh error already shown via setError */ void e; }
       setBusy(false);
     }
   }
+
+  // R10-Bug5: progressive auto-refresh while a batch is in flight.
+  // Each paper takes 60–90s to generate (AI + QA review loop); for a
+  // 5-day × N-class batch that's 5–8 minutes total. Without polling,
+  // the user sees a spinner the whole time and no per-paper progress.
+  // Refreshing scheduled[] every 15s surfaces papers as they commit.
+  useEffect(() => {
+    if (!busy) return;
+    const t = setInterval(() => { refresh(); }, 15_000);
+    return () => clearInterval(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [busy, weekStart]);
 
   async function handleSetLevel(classId: string, level: Level) {
     try {
@@ -274,7 +294,20 @@ export default function MorningQuizSchedule() {
       )}
 
       <div className="bg-white border rounded-lg p-5">
-        <h2 className="font-semibold mb-3">本周已排课表</h2>
+        <div className="flex items-center justify-between mb-3">
+          <h2 className="font-semibold">本周已排课表 ({scheduled.length})</h2>
+          {/* R10-Bug5: explicit refresh — for the case where the user
+              wants to check progress mid-batch or after closing+reopening
+              this tab, without re-mounting the whole page. */}
+          <button
+            type="button"
+            onClick={() => refresh()}
+            className="text-xs text-blue-600 hover:underline"
+            title="重新拉取本周排课列表"
+          >
+            ↻ 刷新
+          </button>
+        </div>
         {scheduled.length === 0 ? (
           <div className="text-gray-500 text-sm">本周还没有排课</div>
         ) : (
