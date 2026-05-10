@@ -17,12 +17,14 @@ import StudentHomePage from './pages/StudentHome';
 import StudentTakePage from './pages/StudentTake';
 import StudentResultPage from './pages/StudentResult';
 import { ErrorBoundary } from './components/ErrorBoundary';
+import { CommandPalette } from './components/CommandPalette';
 // Morning quiz feature
 import MorningQuizDisplayPage from './pages/MorningQuizDisplay';
 import MorningQuizScanPage from './pages/MorningQuizScan';
 import MorningQuizTakePage from './pages/MorningQuizTake';
 import MorningQuizSchedulePage from './pages/MorningQuizSchedule';
 import MorningQuizQaReviewPage from './pages/MorningQuizQaReview';
+import MorningQuizSessionDashboard from './pages/MorningQuizSessionDashboard';
 import AttendanceAdminPage from './pages/AttendanceAdmin';
 // Path-B pages
 import ClassesPage from './pages/Classes';
@@ -80,6 +82,7 @@ export default function App() {
   if (user.role === 'student') {
     return (
       <div className="min-h-screen flex flex-col bg-gray-50">
+        <CommandPalette role="student" />
         <header className="bg-white border-b">
           <div className="max-w-4xl mx-auto px-6 py-3 flex items-center justify-between">
             <div className="flex items-center gap-5 text-sm">
@@ -112,6 +115,7 @@ export default function App() {
 
   return (
     <div className="min-h-screen flex flex-col">
+      <CommandPalette role={user.role as any} />
       {/* Fix #1: header was wrapping the logo to 3 lines and most of the
           nav items to 2 lines because the flex container had no min-width
           guard and gap-1 left no horizontal slack. Setting whitespace-nowrap
@@ -260,6 +264,18 @@ export default function App() {
             element={
               user.role === 'admin' || user.role === 'head_teacher' || user.role === 'teacher' ? (
                 <MorningQuizQaReviewPage />
+              ) : (
+                <Navigate to="/" replace />
+              )
+            }
+          />
+          {/* R10-Bug2: live per-session dashboard. API existed; UI didn't.
+              Round-9 found this URL fell through to "/" wildcard. */}
+          <Route
+            path="/morning-quiz/sessions/:sessionId/dashboard"
+            element={
+              user.role === 'admin' || user.role === 'head_teacher' || user.role === 'teacher' ? (
+                <MorningQuizSessionDashboard />
               ) : (
                 <Navigate to="/" replace />
               )
