@@ -23,7 +23,11 @@ export class ClassesService {
   async get(id: string) {
     const cls = await this.prisma.class.findUnique({
       where: { id },
+      // R10-Bug1: include englishLevel so the detail modal header doesn't
+      // render "level: —" while the parent list-card already shows the
+      // level (round-9 LIVE-E2E inconsistency finding).
       include: {
+        englishLevel: { select: { level: true } },
         enrollments: { include: { user: { select: { id: true, name: true, email: true, role: true } } } },
         assignments: {
           include: { paper: { select: { id: true, name: true, subjectId: true } } },

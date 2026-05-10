@@ -159,12 +159,19 @@ function ClassDetailModal({
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
   const [rosterText, setRosterText] = useState('');
+  // R10-Bug1: weeklyFocus textarea — schema + PATCH already exist server-
+  // side; round-9 found UI never wired it. Local draft state mirrors the
+  // class.weeklyFocus once loaded; "Save focus" persists.
+  const [focusDraft, setFocusDraft] = useState('');
+  const [savingFocus, setSavingFocus] = useState(false);
+  const [focusSaved, setFocusSaved] = useState(false);
 
   async function reload() {
     setErr(null);
     try {
       const c = await api.getClass(classId);
       setCls(c);
+      setFocusDraft(typeof c.weeklyFocus === 'string' ? c.weeklyFocus : '');
     } catch (e: any) {
       setErr(String(e?.message ?? e));
     }
@@ -203,6 +210,23 @@ function ClassDetailModal({
       setErr(String(e?.message ?? e));
     } finally {
       setBusy(false);
+    }
+  }
+
+  async function saveFocus() {
+    setSavingFocus(true);
+    setErr(null);
+    setFocusSaved(false);
+    try {
+      const trimmed = focusDraft.trim();
+      await api.updateClass(classId, { weeklyFocus: trimmed.length ? trimmed : null });
+      setFocusSaved(true);
+      onChanged();
+      await reload();
+    } catch (e: any) {
+      setErr(String(e?.message ?? e));
+    } finally {
+      setSavingFocus(false);
     }
   }
 
@@ -254,6 +278,35 @@ function ClassDetailModal({
             ))}
           </div>
 
+          {/* R10-Bug1: weeklyFocus textarea — flows into ai/quick-paper
+              prompt builder so AI-generated weekly papers bias toward what
+              the teacher wants emphasized this week. */}
+          <Field label="本周重点 (Weekly focus — 用于 AI 生成卷子时的提示，可空)">
+            <div className="space-y-1">
+              <textarea
+                value={focusDraft}
+                onChange={(e) => { setFocusDraft(e.target.value); setFocusSaved(false); }}
+                className="border rounded px-2 py-1 w-full text-sm"
+                rows={3}
+                placeholder="例：相对从句 / 倒装句 / 雅思阅读 matching headings"
+                maxLength={2000}
+                aria-label="weekly focus textarea"
+              />
+              <div className="flex justify-between items-center">
+                <span className="text-xs text-gray-500">
+                  {focusDraft.length}/2000{focusSaved ? ' · 已保存' : ''}
+                </span>
+                <button
+                  className="btn btn-ghost text-xs"
+                  onClick={saveFocus}
+                  disabled={savingFocus || focusDraft === (cls.weeklyFocus ?? '')}
+                >
+                  {savingFocus ? '保存中…' : '保存本周重点'}
+                </button>
+              </div>
+            </div>
+          </Field>
+
           <Field label="Bulk add students (one per line: email or email,Full Name)">
             <textarea
               value={rosterText}
@@ -289,15 +342,31 @@ function ModalShell({
   children: React.ReactNode;
   wide?: boolean;
 }) {
+  // R10-Bug1: ESC must close the modal — round-9 found ESC was inert.
+  // WCAG 2.1.2 (no-keyboard-trap) + general UX. Listen on window so the
+  // event fires regardless of focus location.
+  useEffect(() => {
+    function onKey(e: KeyboardEvent) {
+      if (e.key === 'Escape') onClose();
+    }
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [onClose]);
   return (
-    <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50" onClick={onClose}>
+    <div
+      className="fixed inset-0 bg-black/40 flex items-center justify-center z-50"
+      onClick={onClose}
+      role="dialog"
+      aria-modal="true"
+      aria-label={title}
+    >
       <div
-        className={`bg-white rounded-lg shadow-lg ${wide ? 'w-[640px]' : 'w-[480px]'} max-w-full p-5 space-y-3`}
+        className={`bg-white rounded-lg shadow-lg ${wide ? 'w-[640px]' : 'w-[480px]'} max-w-full p-5 space-y-3 max-h-[90vh] overflow-y-auto`}
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-center justify-between">
           <h2 className="font-bold text-lg">{title}</h2>
-          <button className="btn btn-ghost text-xl" onClick={onClose}>
+          <button className="btn btn-ghost text-xl" onClick={onClose} aria-label="close modal">
             ×
           </button>
         </div>

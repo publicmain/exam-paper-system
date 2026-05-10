@@ -106,6 +106,7 @@ export const api = {
   enrollClass: (id: string, data: any) => request('POST', `/classes/${id}/enrollments`, data),
   rosterClass: (id: string, students: any[]) => request('POST', `/classes/${id}/roster`, { students }),
   unenrollClass: (id: string, userId: string) => request('DELETE', `/classes/${id}/enrollments/${userId}`),
+  updateClass: (id: string, data: { weeklyFocus?: string | null }) => request('PATCH', `/classes/${id}`, data),
 
   // student
   studentAssignments: () => request('GET', '/student/assignments'),
