@@ -30,6 +30,10 @@ export interface CreateSessionInput {
   date: Date; // y-m-d in school timezone — service derives the windows
   classId: string;
   paperId: string;
+  // R10 multi-level: every session belongs to a difficulty band so a
+  // class can run several sessions on the same day. Defaults to
+  // ielts_authentic for callers that pre-date the multi-level work.
+  level?: EnglishLevel;
 }
 
 export interface BatchScheduleInput {
@@ -261,9 +265,19 @@ export class MorningQuizService {
       },
     });
 
-    // Conflict detection: same (date, class) already has a session?
+    // R10 multi-level: a session is keyed on (date, class, level), so a
+    // single class can run sessions across all 3 difficulty bands on the
+    // same day without colliding. Default to ielts_authentic when the
+    // caller didn't supply one (pre-multi-level callers).
+    const sessionLevel: EnglishLevel = input.level ?? 'ielts_authentic';
     const existing = await this.prisma.morningQuizSession.findUnique({
-      where: { date_classId: { date: attendanceStart, classId: input.classId } },
+      where: {
+        date_classId_level: {
+          date: attendanceStart,
+          classId: input.classId,
+          level: sessionLevel,
+        },
+      },
     });
     if (existing) {
       throw new ConflictException({
@@ -276,6 +290,7 @@ export class MorningQuizService {
       data: {
         date: attendanceStart,
         classId: input.classId,
+        level: sessionLevel,
         paperAssignmentId: assignment.id,
         attendanceStart,
         attendanceEnd,
@@ -373,91 +388,101 @@ export class MorningQuizService {
     }
 
     type Outcome =
-      | { ok: true; date: string; classId: string; sessionId: string; paperId: string }
-      | { ok: false; date: string; classId: string; code: string; detail?: string };
+      | { ok: true; date: string; classId: string; level: string; sessionId: string; paperId: string }
+      | { ok: false; date: string; classId: string; level?: string; code: string; detail?: string };
     const outcomes: Outcome[] = [];
 
     for (const dateIso of dates) {
       for (const classId of input.classIds) {
-        try {
-          // Idempotent — skip if a session already exists for (date, class).
-          const existingSession = await this.prisma.morningQuizSession.findUnique({
-            where: { date_classId: { date: new Date(dateIso), classId } },
-          });
-          if (existingSession) {
+        // R10 multi-level: a class can register N difficulty bands at
+        // once. Fan out to one (date, classId, level) session per band.
+        const levelRows = await this.prisma.classEnglishLevel.findMany({
+          where: { classId },
+          orderBy: { level: 'asc' },
+        });
+        if (levelRows.length === 0) {
+          outcomes.push({ ok: false, date: dateIso, classId, code: 'class_level_not_set' });
+          continue;
+        }
+
+        const cls = await this.prisma.class.findUnique({
+          where: { id: classId },
+          select: { weeklyFocus: true },
+        });
+        const weeklyFocus = cls?.weeklyFocus ?? null;
+
+        for (const levelRow of levelRows) {
+          try {
+            // Idempotent — skip if a session already exists for
+            // (date, class, level). Multi-level adds the level dimension
+            // so different bands on the same day no longer collide.
+            const existingSession = await this.prisma.morningQuizSession.findUnique({
+              where: {
+                date_classId_level: {
+                  date: new Date(dateIso),
+                  classId,
+                  level: levelRow.level,
+                },
+              },
+            });
+            if (existingSession) {
+              outcomes.push({
+                ok: false,
+                date: dateIso,
+                classId,
+                level: levelRow.level,
+                code: 'session_already_exists',
+                detail: existingSession.id,
+              });
+              continue;
+            }
+
+            // Fork by level. ielts_authentic uses passage-pick mode —
+            // pulls a Cambridge passage verbatim from the bank.
+            // ielts_simplified / olevel run the AI quick-paper generator
+            // through the QA review loop.
+            const builder =
+              levelRow.level === 'ielts_authentic'
+                ? () =>
+                    this.pickPassageAndCreatePaper('IELTS', 'AUTH', classId, dateIso, actor)
+                : async () => {
+                    const qpInput = this.levelToQuickPaperInput(
+                      levelRow.level,
+                      dateIso,
+                      targetCount,
+                    );
+                    qpInput.weeklyFocus = weeklyFocus;
+                    const generated = await this.quickPaper.generate(qpInput, actor);
+                    return generated.paperId;
+                  };
+            const paperId = await this.generateWithQaLoop(
+              builder,
+              actor,
+              `level=${levelRow.level} class=${classId} date=${dateIso}`,
+            );
+
+            const session = await this.createSession(
+              { date: new Date(dateIso), classId, paperId, level: levelRow.level },
+              actor,
+            );
+            outcomes.push({
+              ok: true,
+              date: dateIso,
+              classId,
+              level: levelRow.level,
+              sessionId: session.id,
+              paperId,
+            });
+          } catch (e: any) {
+            const code = (e?.response?.code as string) ?? e?.message ?? 'unknown_error';
             outcomes.push({
               ok: false,
               date: dateIso,
               classId,
-              code: 'session_already_exists',
-              detail: existingSession.id,
+              level: levelRow.level,
+              code: String(code).slice(0, 100),
             });
-            continue;
           }
-
-          const levelRow = await this.prisma.classEnglishLevel.findUnique({
-            where: { classId },
-          });
-          if (!levelRow) {
-            outcomes.push({ ok: false, date: dateIso, classId, code: 'class_level_not_set' });
-            continue;
-          }
-
-          // Fork by level. ielts_authentic uses passage-pick mode — IELTS
-          // Reading is fundamentally passage-grouped (one ~800-word passage
-          // with 13 sub-questions), and AI question-by-question generation
-          // produces 13 unrelated mini-passages. We pull a real Cambridge
-          // passage from the bank and use ALL its questions verbatim.
-          //
-          // Every fresh paper goes through the AI QA loop before we surface
-          // its id back to the caller — verdict=reject triggers an automatic
-          // regenerate (different passage / different AI call) with up to
-          // 2 retries before we hand the paper to the teacher for manual
-          // triage. See generateWithQaLoop for the full state machine.
-          // F5: pull the per-class weekly focus so the AI prompt can
-          // bias generation. Read inline (cheap, one column) so each
-          // class's session reflects the latest teacher input even
-          // mid-week.
-          const cls = await this.prisma.class.findUnique({
-            where: { id: classId },
-            select: { weeklyFocus: true },
-          });
-          const weeklyFocus = cls?.weeklyFocus ?? null;
-
-          const builder =
-            levelRow.level === 'ielts_authentic'
-              ? () =>
-                  this.pickPassageAndCreatePaper('IELTS', 'AUTH', classId, dateIso, actor)
-              : async () => {
-                  const qpInput = this.levelToQuickPaperInput(
-                    levelRow.level,
-                    dateIso,
-                    targetCount,
-                  );
-                  qpInput.weeklyFocus = weeklyFocus;
-                  const generated = await this.quickPaper.generate(qpInput, actor);
-                  return generated.paperId;
-                };
-          const paperId = await this.generateWithQaLoop(
-            builder,
-            actor,
-            `level=${levelRow.level} class=${classId} date=${dateIso}`,
-          );
-
-          const session = await this.createSession(
-            { date: new Date(dateIso), classId, paperId },
-            actor,
-          );
-          outcomes.push({
-            ok: true,
-            date: dateIso,
-            classId,
-            sessionId: session.id,
-            paperId,
-          });
-        } catch (e: any) {
-          const code = (e?.response?.code as string) ?? e?.message ?? 'unknown_error';
-          outcomes.push({ ok: false, date: dateIso, classId, code: String(code).slice(0, 100) });
         }
       }
     }
@@ -783,18 +808,11 @@ export class MorningQuizService {
     if (paper?.status === 'archived' || paper?.qaTeacherAction === 'rejected') {
       throw new BadRequestException({ code: 'paper_archived' });
     }
-    // The student client uses `level` to pick the exam shell (IELTS split-pane
-    // vs O-Level paged) and `paperMode` to decide whether option-shuffle is
-    // safe. Looking the level up here keeps the client one-shot — no extra
-    // round trip just to know which UI to render. The class might not have a
-    // ClassEnglishLevel row (older sessions / non-English subjects), in which
-    // case we fall back to a heuristic on paper.config.
-    const classLevel = session.paperAssignment.classId
-      ? await this.prisma.classEnglishLevel.findUnique({
-          where: { classId: session.paperAssignment.classId },
-          select: { level: true },
-        })
-      : null;
+    // R10 multi-level: every session now carries its own `level` column
+    // (one of ielts_authentic / ielts_simplified / olevel) so we don't
+    // need to round-trip through ClassEnglishLevel anymore. Pre-multi-
+    // level sessions were back-filled by the migration to ielts_authentic.
+    const sessionLevel: EnglishLevel | null = session.level ?? null;
     const paperQuestions = await this.prisma.paperQuestion.findMany({
       where: { paperId },
       orderBy: { sortOrder: 'asc' },
@@ -848,14 +866,12 @@ export class MorningQuizService {
     };
     const stripSnapshotContent = redactSnapshotForStudent;
 
-    // Derive the quiz UI mode for the client. `level` comes from
-    // ClassEnglishLevel; if absent (no row yet) we fall back to:
-    //   - 'ielts_authentic' when paper.config.mode === 'passage_pick'
-    //   - 'olevel' otherwise
-    // The client uses this to switch between the IELTS split-pane and the
-    // O-Level paged shells.
+    // Derive the quiz UI mode for the client. `level` comes straight
+    // from the session row (R10 multi-level); fallback to a paper.config
+    // heuristic for any pre-migration session that somehow has level
+    // null (defensive).
     const paperMode = (paper?.config as { mode?: string } | null)?.mode ?? null;
-    const level = classLevel?.level ?? (paperMode === 'passage_pick' ? 'ielts_authentic' : 'olevel');
+    const level = sessionLevel ?? (paperMode === 'passage_pick' ? 'ielts_authentic' : 'olevel');
     return {
       sessionId: session.id,
       attendanceId: att.id,
@@ -1050,25 +1066,52 @@ export class MorningQuizService {
     });
   }
 
+  /** R10 — was an upsert that REPLACED the class's single bound level
+   *  (back when ClassEnglishLevel.classId was unique). With multi-level,
+   *  this is now an "add this band" call. Idempotent: re-adding an
+   *  already-registered band is a no-op. Use removeClassEnglishLevel to
+   *  drop a band. */
   async setClassEnglishLevel(classId: string, level: EnglishLevel, actor: ActorCtx) {
     if (!['admin', 'head_teacher'].includes(actor.role)) {
       throw new ForbiddenException({ code: 'admin_required' });
     }
     const upserted = await this.prisma.classEnglishLevel.upsert({
-      where: { classId },
+      where: { classId_level: { classId, level } },
       create: { classId, level, effectiveFrom: new Date() },
-      update: { level, effectiveFrom: new Date() },
+      update: { effectiveFrom: new Date() },
     });
     await this.audit.log({
       actorId: actor.id,
       actorRole: actor.role,
-      action: 'morning_quiz.class_level.set',
+      action: 'morning_quiz.class_level.add',
       entityType: 'ClassEnglishLevel',
       entityId: upserted.id,
       ip: actor.ip,
       metadata: { classId, level },
     });
     return upserted;
+  }
+
+  /** R10 multi-level — drop one band from a class. The class's existing
+   *  sessions for that band are left in place (so historical data
+   *  survives), but no new sessions will be generated for it. */
+  async removeClassEnglishLevel(classId: string, level: EnglishLevel, actor: ActorCtx) {
+    if (!['admin', 'head_teacher'].includes(actor.role)) {
+      throw new ForbiddenException({ code: 'admin_required' });
+    }
+    const r = await this.prisma.classEnglishLevel.deleteMany({
+      where: { classId, level },
+    });
+    await this.audit.log({
+      actorId: actor.id,
+      actorRole: actor.role,
+      action: 'morning_quiz.class_level.remove',
+      entityType: 'ClassEnglishLevel',
+      entityId: `${classId}:${level}`,
+      ip: actor.ip,
+      metadata: { classId, level, removed: r.count },
+    });
+    return { classId, level, removed: r.count };
   }
 
   /**

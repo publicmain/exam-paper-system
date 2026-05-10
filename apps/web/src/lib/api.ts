@@ -314,6 +314,13 @@ export const api = {
     classId: string,
     level: 'ielts_authentic' | 'ielts_simplified' | 'olevel',
   ) => request('PATCH', `/morning-quiz/classes/${classId}/english-level`, { level }),
+  // R10 multi-level: drop a band from a class. Existing sessions for
+  // that band are NOT deleted (history preserved); only future
+  // batch-generate runs stop creating new ones.
+  removeClassEnglishLevel: (
+    classId: string,
+    level: 'ielts_authentic' | 'ielts_simplified' | 'olevel',
+  ) => request('DELETE', `/morning-quiz/classes/${classId}/english-level/${level}`),
   /** Round-4 attendance Excel export. Returns a Blob the caller saves
    *  via URL.createObjectURL. */
   morningQuizExportAttendance: async (params: {

@@ -10,12 +10,12 @@ export class ClassesService {
   async list() {
     return this.prisma.class.findMany({
       orderBy: { name: 'asc' },
-      // englishLevel is the per-class morning-quiz mapping; the schedule page
-      // needs `c.englishLevel?.level` to gate the "select for batch-generate"
-      // checkbox, so include it here rather than make a second round-trip.
+      // R10 multi-level: englishLevel was 1:1; now englishLevels is N:1 (a
+      // class can register multiple bands at once). The schedule UI needs
+      // the full list to render one row per (class, level) pair.
       include: {
         _count: { select: { enrollments: true, assignments: true } },
-        englishLevel: { select: { level: true } },
+        englishLevels: { select: { level: true }, orderBy: { level: 'asc' } },
       },
     });
   }
@@ -23,11 +23,10 @@ export class ClassesService {
   async get(id: string) {
     const cls = await this.prisma.class.findUnique({
       where: { id },
-      // R10-Bug1: include englishLevel so the detail modal header doesn't
-      // render "level: —" while the parent list-card already shows the
-      // level (round-9 LIVE-E2E inconsistency finding).
+      // R10-Bug1 + R10 multi-level: detail modal renders the full set
+      // of registered bands so admin can add / remove a band per class.
       include: {
-        englishLevel: { select: { level: true } },
+        englishLevels: { select: { id: true, level: true }, orderBy: { level: 'asc' } },
         enrollments: { include: { user: { select: { id: true, name: true, email: true, role: true } } } },
         assignments: {
           include: { paper: { select: { id: true, name: true, subjectId: true } } },

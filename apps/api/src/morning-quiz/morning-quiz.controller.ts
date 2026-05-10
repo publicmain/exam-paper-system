@@ -2,6 +2,7 @@ import {
   BadRequestException,
   Body,
   Controller,
+  Delete,
   ForbiddenException,
   Get,
   Header,
@@ -310,6 +311,28 @@ export class MorningQuizController {
     const parsed = SetLevelSchema.safeParse(body);
     if (!parsed.success) throw new BadRequestException(parsed.error.flatten());
     return this.svc.setClassEnglishLevel(classId, parsed.data.level, {
+      id: user.id,
+      role: user.role,
+      ip: req.ip ?? null,
+    });
+  }
+
+  /** R10 multi-level — drop a band from a class. Pre-multi-level there
+   *  was no remove path because the upsert overwrote the single bound
+   *  level. */
+  @Delete('classes/:classId/english-level/:level')
+  removeLevel(
+    @Param('classId') classId: string,
+    @Param('level') level: string,
+    @CurrentUser() user: any,
+    @Req() req: Request,
+  ) {
+    if (!['admin', 'head_teacher'].includes(user.role)) {
+      throw new ForbiddenException({ code: 'admin_required' });
+    }
+    const parsed = SetLevelSchema.safeParse({ level });
+    if (!parsed.success) throw new BadRequestException(parsed.error.flatten());
+    return this.svc.removeClassEnglishLevel(classId, parsed.data.level, {
       id: user.id,
       role: user.role,
       ip: req.ip ?? null,

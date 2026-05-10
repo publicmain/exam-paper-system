@@ -80,7 +80,9 @@ model Class {
   assignments         PaperAssignment[]
   // Morning quiz back-relations
   morningQuizSessions MorningQuizSession[]
-  englishLevel        ClassEnglishLevel?
+  // R10 — multi-level: was englishLevel ClassEnglishLevel? (1:1).
+  // A class can now register multiple difficulty bands at once.
+  englishLevels       ClassEnglishLevel[]
 }
 
 model ClassEnrollment {
@@ -1406,9 +1408,15 @@ model MorningQuizSession {
   scheduledBy       User              @relation("MorningQuizScheduledBy", fields: [scheduledById], references: [id])
   createdAt         DateTime          @default(now())
 
+  // R10 — multi-level: a class can run sessions in several difficulty
+  // bands per day. The session's level is denormalised here so cron /
+  // scheduling don't have to walk through paperAssignment + ClassEnglishLevel
+  // to figure out which band an in-flight session belongs to.
+  level             EnglishLevel      @default(ielts_authentic)
+
   attendances Attendance[]
 
-  @@unique([date, classId])
+  @@unique([date, classId, level])
   @@index([date, status])
   // Round-7 H15 (agent-3 D7): MorningQuiz schedule reads use
   // `WHERE classId = ? AND date >= ?` to find a class's upcoming
@@ -1448,13 +1456,20 @@ model Attendance {
   @@index([sessionId, deviceUuid])
 }
 
+// R10 — class-level enrolment in difficulty bands. Was 1:1 (one class
+// → one level), now 1:N: a class can run morning quizzes in multiple
+// bands the same day. Each (class, level) pair shows up as its own
+// row; batch-generate iterates over them.
 model ClassEnglishLevel {
   id            String       @id @default(cuid())
-  classId       String       @unique
+  classId       String
   class         Class        @relation(fields: [classId], references: [id], onDelete: Cascade)
   level         EnglishLevel
   effectiveFrom DateTime
   createdAt     DateTime     @default(now())
+
+  @@unique([classId, level])
+  @@index([classId])
 }
 
 model QuestionShuffleMap {

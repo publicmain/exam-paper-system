@@ -17,14 +17,17 @@ interface ClassRow {
   id: string;
   name: string;
   classCode: string;
-  level?: string | null;
-  englishLevel?: { level: Level } | null;
+  // R10 multi-level: a class registers N difficulty bands; each shows up
+  // as its own row in englishLevels. The schedule UI renders one chip
+  // per band per class.
+  englishLevels?: Array<{ level: Level }>;
 }
 
 interface ScheduledSession {
   id: string;
   date: string;
   status: string;
+  level: Level;
   class: { id: string; name: string };
   paperAssignment: { paper: { id: string; name: string; totalMarksActual: number } };
 }
@@ -134,7 +137,21 @@ export default function MorningQuizSchedule() {
 
   async function handleSetLevel(classId: string, level: Level) {
     try {
+      // R10 multi-level: setClassEnglishLevel is now ADD-not-replace.
+      // The class can carry several bands at once.
       await api.setClassEnglishLevel(classId, level);
+      await refresh();
+    } catch (e: any) {
+      setError(e.message ?? String(e));
+    }
+  }
+
+  async function handleRemoveLevel(classId: string, level: Level) {
+    if (!confirm(`移除该等级? 之前已生成的 ${LEVEL_LABEL[level]} 卷子保留, 之后不再生成。`)) {
+      return;
+    }
+    try {
+      await api.removeClassEnglishLevel(classId, level);
       await refresh();
     } catch (e: any) {
       setError(e.message ?? String(e));
@@ -216,62 +233,93 @@ export default function MorningQuizSchedule() {
             </tr>
           </thead>
           <tbody>
-            {classes.map((c) => (
+            {classes.map((c) => {
+              const levels: Level[] = (c.englishLevels ?? []).map((e) => e.level);
+              return (
               <tr key={c.id} className="border-b last:border-0">
                 <td className="py-2">
                   <input
                     type="checkbox"
                     checked={selected.has(c.id)}
                     onChange={() => toggle(c.id)}
-                    disabled={!c.englishLevel}
-                    title={c.englishLevel ? '' : '请先配置等级'}
+                    disabled={levels.length === 0}
+                    title={levels.length > 0 ? '' : '请先添加至少一个等级'}
                   />
                 </td>
                 <td>
                   <span className="font-medium">{c.name}</span>
                   <span className="text-gray-400 ml-2 font-mono">{c.classCode}</span>
                 </td>
+                {/* R10 multi-level: render one chip per registered band.
+                    Click chip × to remove. Empty = "未配置". */}
                 <td>
-                  {c.englishLevel ? (
-                    <span className="badge bg-blue-100 text-blue-700 px-2 py-0.5 rounded text-xs">
-                      {LEVEL_LABEL[c.englishLevel.level]}
-                    </span>
-                  ) : (
-                    <span className="text-gray-400 italic">未配置</span>
-                  )}
+                  <div className="flex flex-wrap gap-1.5">
+                    {levels.length === 0 && (
+                      <span className="text-gray-400 italic text-xs">未配置</span>
+                    )}
+                    {levels.map((l) => (
+                      <span
+                        key={l}
+                        className="inline-flex items-center gap-1 bg-blue-50 border border-blue-200 text-blue-800 px-2 py-0.5 rounded text-xs"
+                      >
+                        {LEVEL_LABEL[l]}
+                        <button
+                          type="button"
+                          onClick={() => handleRemoveLevel(c.id, l)}
+                          className="text-blue-600 hover:text-rose-700 leading-none"
+                          title="移除该等级"
+                        >
+                          ×
+                        </button>
+                      </span>
+                    ))}
+                  </div>
                 </td>
                 <td className="py-2">
                   <select
-                    value={c.englishLevel?.level ?? ''}
-                    onChange={(e) => handleSetLevel(c.id, e.target.value as Level)}
+                    value=""
+                    onChange={(e) => {
+                      const v = e.target.value as Level;
+                      if (v) handleSetLevel(c.id, v);
+                    }}
                     className="border rounded px-2 py-1 text-sm"
                   >
-                    <option value="" disabled>
-                      Set level
-                    </option>
-                    <option value="ielts_authentic">雅思真题 · IELTS Authentic</option>
-                    <option value="ielts_simplified">轻难度雅思 · Simplified IELTS</option>
-                    <option value="olevel">O-Level 英语 · 1123</option>
+                    <option value="">+ 添加等级</option>
+                    {(['ielts_authentic', 'ielts_simplified', 'olevel'] as Level[])
+                      .filter((l) => !levels.includes(l))
+                      .map((l) => (
+                        <option key={l} value={l}>
+                          {LEVEL_LABEL[l]}
+                        </option>
+                      ))}
                   </select>
                 </td>
               </tr>
-            ))}
+              );
+            })}
           </tbody>
         </table>
       </div>
 
       <div className="bg-white border rounded-lg p-5 mb-6">
-        <h2 className="font-semibold mb-3">3. 一键生成下周 5 套早测</h2>
+        <h2 className="font-semibold mb-3">3. 一键生成下周早测</h2>
         <div className="flex items-center gap-4">
           <button
             onClick={handleGenerate}
             disabled={busy || selected.size === 0}
             className="px-5 py-2 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-300 text-white rounded font-medium"
           >
-            {busy ? '生成中…(可能需要 1-2 分钟)' : `生成 ${selected.size} 个班 × 5 天`}
+            {busy
+              ? '生成中…(每张约 1-2 分钟)'
+              : (() => {
+                  const totalLevels = classes
+                    .filter((c) => selected.has(c.id))
+                    .reduce((s, c) => s + (c.englishLevels?.length ?? 0), 0);
+                  return `生成 ${selected.size} 个班 × ${totalLevels} 等级 × 5 天 = ${totalLevels * 5} 张`;
+                })()}
           </button>
           <span className="text-sm text-gray-500">
-            将调用 AI 题目生成器,每张 paper ~18 题
+            每个等级一张 QR;雅思真题走 passage_pick,其他走 AI 生成
           </span>
         </div>
       </div>
@@ -320,6 +368,7 @@ export default function MorningQuizSchedule() {
               <tr>
                 <th className="py-2">日期</th>
                 <th>班级</th>
+                <th>等级</th>
                 <th>试卷</th>
                 <th>状态</th>
                 <th></th>
@@ -330,6 +379,23 @@ export default function MorningQuizSchedule() {
                 <tr key={s.id} className="border-b last:border-0">
                   <td className="py-2 font-mono">{s.date.slice(0, 10)}</td>
                   <td>{s.class.name}</td>
+                  <td>
+                    {/* R10 multi-level: each session row carries its band
+                        so admin can identify which QR belongs to which
+                        difficulty when there are 3 sessions per (class,
+                        day). */}
+                    <span
+                      className={`badge text-xs px-2 py-0.5 rounded ${
+                        s.level === 'ielts_authentic'
+                          ? 'bg-purple-100 text-purple-800'
+                          : s.level === 'ielts_simplified'
+                          ? 'bg-blue-100 text-blue-800'
+                          : 'bg-emerald-100 text-emerald-800'
+                      }`}
+                    >
+                      {s.level ? LEVEL_LABEL[s.level] : '—'}
+                    </span>
+                  </td>
                   <td>{s.paperAssignment.paper.name}</td>
                   <td>
                     <span className="badge text-xs px-2 py-0.5 rounded bg-gray-100">

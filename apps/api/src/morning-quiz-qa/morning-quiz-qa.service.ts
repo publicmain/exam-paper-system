@@ -406,7 +406,7 @@ export class MorningQuizQaService {
         subject: { select: { code: true } },
         assignments: {
           select: {
-            class: { select: { englishLevel: { select: { level: true } } } },
+            class: { select: { englishLevels: { select: { level: true }, take: 1 } } },
           },
           take: 1,
         },
@@ -421,7 +421,10 @@ export class MorningQuizQaService {
     const cfg = (paper.config as Record<string, any> | null) ?? {};
     const passageRef: string | null = cfg.passageRef ?? null;
     const mode: string = cfg.mode ?? (cfg.quickPaper ? 'ai_quickpaper' : 'unknown');
-    const englishLevel = paper.assignments[0]?.class?.englishLevel?.level ?? 'unknown';
+    // R10 multi-level: a class can have multiple bands; for the QA review
+    // payload we just expose the first one as a hint label. The session
+    // itself carries the authoritative band on its own.
+    const englishLevel = paper.assignments[0]?.class?.englishLevels?.[0]?.level ?? 'unknown';
 
     // For passage_pick mode, the passage text is duplicated across every
     // question's snapshotContent.passage (every IELTS Reading question
