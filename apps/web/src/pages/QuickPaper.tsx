@@ -297,7 +297,10 @@ export default function QuickPaperPage() {
         <div className="text-xs uppercase text-gray-500 font-semibold mb-2 tracking-wide">
           Mixed-topic presets
         </div>
-        <div className="grid grid-cols-3 gap-3">
+        {/* R10-Bug4: 3 columns at 320px wraps each preset card to one
+            tiny line; stack 1-up on mobile, 2-up on iPad portrait, 3-up
+            on iPad landscape and up. */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
           {PRESETS.map((p) => (
             <button
               key={p.id}
@@ -355,7 +358,8 @@ export default function QuickPaperPage() {
               : 'Loading topics ...'}
           </div>
         )}
-        <div className="grid grid-cols-2 gap-3">
+        {/* R10-Bug4: stack 1-up on mobile, 2-up on iPad+, 3-up on xl. */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-3">
           {topLevelTopics.map((t, i) => {
             const inMix = (mix[t.code] ?? 0) > 0;
             return (

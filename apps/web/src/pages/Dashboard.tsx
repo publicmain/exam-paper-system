@@ -50,7 +50,11 @@ export default function DashboardPage() {
           >
             <span aria-hidden>⏰</span> 今日待办
           </h2>
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 text-sm">
+          {/* R10-Bug4: was grid-cols-2 lg:grid-cols-4. iPad portrait
+              (768) and landscape (1024) both fell into the 2-col branch
+              with cards too wide. Add md (768) → 4-col so iPad lands on
+              the 4-up layout teachers expect, and xl bumps gap. */}
+          <div className="grid grid-cols-2 md:grid-cols-4 xl:grid-cols-4 gap-3 md:gap-4 xl:gap-5 text-sm">
             <TodoStat label="待复核卷子" value={todo.summary.pendingReviewPapers} href="/morning-quiz/qa-review" />
             <TodoStat label="待批改答题" value={todo.summary.pendingMarkScripts} href="/marker" />
             <TodoStat label="连续缺勤" value={todo.summary.consecutiveAbsentStudents} href="/attendance/admin" />
@@ -59,8 +63,9 @@ export default function DashboardPage() {
         </section>
       )}
 
-      {/* U2 — was grid-cols-3 fixed; now stacks 2-up on small, 3-up on sm+. */}
-      <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 lg:gap-4">
+      {/* R10-Bug4: stretch the breakpoint ladder — sm 3-up still good but
+          add xl gap bump so wide monitors don't look cramped between cards. */}
+      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-3 xl:grid-cols-3 gap-3 md:gap-4 xl:gap-5">
         <div className="card">
           <div className="text-xs text-gray-500 uppercase tracking-wide">Papers</div>
           <div className="text-3xl font-bold mt-1">{papers.length}</div>

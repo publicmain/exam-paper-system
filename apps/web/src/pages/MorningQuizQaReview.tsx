@@ -217,9 +217,11 @@ export default function MorningQuizQaReview() {
         </div>
       )}
 
-      <div className="grid grid-cols-3 gap-4">
+      {/* R10-Bug4: stacked single column on phones, two on iPad portrait
+          (list above, detail below), 3-col split on iPad landscape and up. */}
+      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
         {/* Left column: pending list */}
-        <div className="col-span-1 bg-white border rounded-lg p-4 max-h-[80vh] overflow-y-auto">
+        <div className="md:col-span-1 xl:col-span-1 bg-white border rounded-lg p-4 max-h-[80vh] overflow-y-auto">
           <div className="flex items-center justify-between mb-3">
             <h2 className="font-semibold">
               待复核 ({rows.length})
@@ -318,7 +320,7 @@ export default function MorningQuizQaReview() {
         </div>
 
         {/* Right column: detail */}
-        <div className="col-span-2 bg-white border rounded-lg p-5 max-h-[80vh] overflow-y-auto">
+        <div className="md:col-span-1 xl:col-span-2 bg-white border rounded-lg p-5 max-h-[80vh] overflow-y-auto">
           {!selected && (
             <div className="text-gray-500 text-sm">从左侧选一份卷子查看详细审核结果</div>
           )}
