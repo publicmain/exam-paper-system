@@ -690,6 +690,31 @@ describe('autoGradeScripts — shared grader for finalSubmit + cron lock', () =>
     expect(called).toBe(0);
   });
 
+  it('R10 followup — blank MCQ (selectedOption=null) grades as wrong/0, never pending', async () => {
+    // Repro for the e2e finding: when the student never clicks any radio,
+    // finalSubmit's backfill creates an AnswerScript with selectedOption=null.
+    // autoGradeScripts must mark it as autoCorrect=false / awardedMarks=0
+    // (NOT leave it ungraded — that would surface as "○ 待批改" on the
+    // result page and pile up in the teacher's manual queue).
+    const r = await autoGradeScripts([
+      {
+        id: 's1', selectedOption: null, textAnswer: null,
+        paperQuestion: {
+          marks: 1,
+          snapshotOptions: [
+            { key: 'A', correct: false },
+            { key: 'B', correct: true },
+            { key: 'C', correct: false },
+          ],
+          question: { questionType: 'mcq', options: null, answerContent: null },
+        },
+      },
+    ]);
+    expect(r.autoScore).toBe(0);
+    expect(r.scriptUpdates).toHaveLength(1);
+    expect(r.scriptUpdates[0]).toMatchObject({ autoCorrect: false, awardedMarks: 0 });
+  });
+
   it('R10 AI grader receives the reading passage so paragraph-letter tasks can be semantically graded', async () => {
     const captured: any[] = [];
     const aiGrader = {

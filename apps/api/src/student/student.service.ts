@@ -351,7 +351,12 @@ export class StudentService {
     const sub = await this.prisma.studentSubmission.findUnique({
       where: { id: submissionId },
       include: {
-        assignment: { select: { paper: { select: { totalMarksActual: true } } } },
+        assignment: {
+          select: {
+            paperId: true,
+            paper: { select: { totalMarksActual: true } },
+          },
+        },
         // R10: pull question.answerContent so autoGradeScripts can grade
         // short_answer items against the canonical text answer.
         scripts: {
@@ -369,6 +374,53 @@ export class StudentService {
     if (sub.studentId !== student.id) throw new ForbiddenException('not your submission');
     if (sub.status !== 'in_progress') {
       throw new BadRequestException(`submission already ${sub.status}`);
+    }
+
+    // R10 follow-up — backfill blank AnswerScripts before grading. When a
+    // student doesn't interact with a paperQuestion at all, no AnswerScript
+    // row exists, and the result page renders that question as "○ 待批改"
+    // (pending teacher review) instead of "✗ 答错 / 0 marks". That defeats
+    // the morning-quiz feature's "near-zero teacher load" goal — every
+    // unanswered MCQ across the class would hit the manual-review queue.
+    //
+    // Insert an empty placeholder AnswerScript for any paperQuestion the
+    // student left untouched, with selectedOption=null + textAnswer=null.
+    // autoGradeScripts grades these as autoCorrect=false / awardedMarks=0
+    // via the same paths that handle blank answers (mcq missed key,
+    // short_answer empty string).
+    const allPaperQuestions = await this.prisma.paperQuestion.findMany({
+      where: { paperId: sub.assignment.paperId },
+      include: {
+        question: { select: { questionType: true, options: true, answerContent: true, content: true } },
+      },
+    });
+    const seen = new Set(sub.scripts.map((s) => s.paperQuestionId));
+    const newBlanks = allPaperQuestions.filter((pq) => !seen.has(pq.id));
+    if (newBlanks.length > 0) {
+      // createMany then re-fetch so we have ids to grade against. Skip
+      // duplicates as a belt-and-braces guard against a concurrent autosave
+      // racing this insert (the unique (submissionId, paperQuestionId)
+      // constraint would otherwise throw).
+      await this.prisma.answerScript.createMany({
+        data: newBlanks.map((pq) => ({
+          submissionId,
+          paperQuestionId: pq.id,
+          selectedOption: null,
+          textAnswer: null,
+        })),
+        skipDuplicates: true,
+      });
+      const fresh = await this.prisma.answerScript.findMany({
+        where: { submissionId, paperQuestionId: { in: newBlanks.map((pq) => pq.id) } },
+        include: {
+          paperQuestion: {
+            include: {
+              question: { select: { questionType: true, options: true, answerContent: true, content: true } },
+            },
+          },
+        },
+      });
+      sub.scripts.push(...(fresh as typeof sub.scripts));
     }
 
     const { autoScore, scriptUpdates } = await autoGradeScripts(sub.scripts, this.aiGrader);

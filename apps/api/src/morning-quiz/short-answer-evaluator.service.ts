@@ -136,6 +136,13 @@ Respond with the JSON object now.`;
       const resp = await this.client.messages.create({
         model: this.model,
         max_tokens: 400,
+        // R10 follow-up — lock to temperature 0. Live testing showed the
+        // same input ("Foxton" vs mark scheme "C", with passage in
+        // context) sometimes scored 0 and sometimes 1 across calls, which
+        // is unacceptable for a grading system. With temperature 0 the
+        // model emits the same JSON for the same prompt, so two students
+        // with identical answers get identical marks.
+        temperature: 0,
         system,
         messages: [{ role: 'user', content: user }],
       });

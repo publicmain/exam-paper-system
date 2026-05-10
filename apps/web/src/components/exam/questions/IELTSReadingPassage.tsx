@@ -51,6 +51,15 @@ const TASK_TITLES: Record<string, string> = {
   flow_chart_completion: 'Flow-chart Completion',
   diagram_label_completion: 'Diagram Labelling',
   short_answer: 'Short Answer',
+  // R10 follow-up — OLEVEL Cambridge IGCSE 0510 Exercise 2 sets four
+  // mini-reviews (texts A–D) and asks "which writer says…"; ingest tags
+  // these as taskType=multi_match. Without an entry here the shell fell
+  // back to "_other" → "Question", which read like a placeholder. Same
+  // pattern for Ex 3 note-completion (we keep that under note_completion
+  // already). Add the OLEVEL families explicitly.
+  multi_match: 'Multi-text Matching',
+  olevel_short_answer: 'Short Answer',
+  olevel_comprehension: 'Comprehension',
   _other: 'Question',
 };
 
