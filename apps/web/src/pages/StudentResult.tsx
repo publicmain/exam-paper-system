@@ -27,6 +27,10 @@ interface ResultItem {
   awardedMarks: number | null;
   autoCorrect: boolean | null;
   isCorrect: boolean | null;
+  // R10 follow-up — Claude AI grader's rationale for short_answer items
+  // that hit the AI fallback (paraphrase / typo / non-letter input).
+  // Server already stripped the `[ai-grade]` prefix before returning.
+  markerComment: string | null;
 }
 
 interface ResultPayload {
@@ -222,6 +226,16 @@ function ResultRow({ item }: { item: ResultItem }) {
       {item.explanation && (
         <div className="ml-11 mt-3 p-3 bg-gray-50 rounded text-sm text-gray-700 italic leading-relaxed">
           {item.explanation}
+        </div>
+      )}
+
+      {item.markerComment && (
+        <div
+          className="ml-11 mt-3 p-3 bg-blue-50 border border-blue-100 rounded text-sm text-blue-900 leading-relaxed"
+          data-testid={`ai-rationale-${item.sortOrder}`}
+        >
+          <span className="text-xs font-semibold text-blue-700 mr-2">AI 判分理由</span>
+          {item.markerComment}
         </div>
       )}
     </article>

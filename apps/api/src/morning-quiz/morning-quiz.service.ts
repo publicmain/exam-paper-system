@@ -1443,6 +1443,12 @@ export class MorningQuizService {
             textAnswer: true,
             awardedMarks: true,
             autoCorrect: true,
+            // R10 follow-up — surface the AI grader's rationale to students
+            // so when the AI credits a paraphrase or denies a sounds-right
+            // wrong answer they can see why. finalSubmit writes
+            // `[ai-grade] <reason>` to markerComment when Claude
+            // intervened; this select pulls it through to the result page.
+            markerComment: true,
           },
         },
       },
@@ -1541,6 +1547,13 @@ export class MorningQuizService {
         awardedMarks: script?.awardedMarks ?? null,
         autoCorrect: script?.autoCorrect ?? null,
         isCorrect,
+        // Strip the internal `[ai-grade] ` prefix before showing students;
+        // they don't need the marker tag, only the rationale itself.
+        // Teacher-side dashboards keep the raw markerComment with the prefix.
+        markerComment:
+          typeof script?.markerComment === 'string'
+            ? script.markerComment.replace(/^\[ai-grade\]\s*/, '')
+            : null,
       };
     });
 
