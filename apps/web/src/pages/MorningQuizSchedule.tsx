@@ -538,8 +538,9 @@ export default function MorningQuizSchedule() {
                           ⚡ 立即激活{group.length > 1 ? ` (${group.length})` : ''}
                         </button>
                         <Link
-                          to={`/admin/attendance?sessionId=${primary.id}`}
+                          to={`/morning-quiz/sessions/${primary.id}/dashboard`}
                           className="text-blue-600 hover:underline text-xs ml-1"
+                          title="进入本场 session 的实时考勤+答卷面板(含「清除测试数据」按钮)"
                         >
                           考勤 →
                         </Link>
