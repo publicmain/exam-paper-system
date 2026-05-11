@@ -248,6 +248,26 @@ export default function MorningQuizSchedule() {
     }
   }
 
+  /** Inverse of handleDebugActivate — restore a dry-run session back to
+   *  scheduled status with canonical 08:30 timestamps. Use this after a
+   *  dry-run so tomorrow's actual cron-activation works normally. */
+  async function handleRevertSession(sessionId: string) {
+    setError(null);
+    try {
+      await api.morningQuizRevertToScheduled(sessionId);
+      await refresh();
+    } catch (e: any) {
+      const msg = e.message ?? String(e);
+      if (msg.includes('Not Found') || msg.includes('404')) {
+        setError(
+          '撤销激活仅在 dev 模式下开放。MORNING_QUIZ_DEBUG=true 要打开。',
+        );
+      } else {
+        setError(msg);
+      }
+    }
+  }
+
   return (
     <div>
       <div className="flex items-center justify-between mb-4">
@@ -536,6 +556,26 @@ export default function MorningQuizSchedule() {
                           title="DEV ONLY: 一键激活本班所有等级的 session(测试用,生产 MORNING_QUIZ_DEBUG=true 才可用)"
                         >
                           ⚡ 立即激活{group.length > 1 ? ` (${group.length})` : ''}
+                        </button>
+                        <button
+                          onClick={async () => {
+                            // Revert every band in the group back to
+                            // scheduled with canonical 08:30 windows.
+                            // Used after a dry-run to restore tomorrow's
+                            // sessions so the real cron-activation flow
+                            // takes over normally.
+                            const confirmed = confirm(
+                              `撤销激活本班 ${group.length} 个 level 的 session？\n\n` +
+                                `会把状态从 active 改回 scheduled, 时间窗口重算回 08:30 / 09:00。\n` +
+                                `不会删除考勤或答卷记录(那些用 dashboard 里的 🗑️ 按钮单独清)。`,
+                            );
+                            if (!confirmed) return;
+                            for (const s of group) await handleRevertSession(s.id);
+                          }}
+                          className="text-xs px-2 py-1 rounded bg-stone-50 hover:bg-stone-100 text-stone-700 mr-1"
+                          title="DEV ONLY: 撤销本班所有等级的「立即激活」(把时间窗口和状态改回 scheduled, 不删数据)"
+                        >
+                          ↩️ 撤销激活{group.length > 1 ? ` (${group.length})` : ''}
                         </button>
                         {/* One aggregated dashboard link per (class,
                             date). The dashboard merges all 1–3 level

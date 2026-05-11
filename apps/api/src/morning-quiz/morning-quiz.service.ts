@@ -1582,6 +1582,57 @@ export class MorningQuizService {
    * NOW + standard offsets and flipping status to active. Used for off-hours
    * end-to-end smoke testing of the scan flow. Audit-logged.
    */
+  /**
+   * Inverse of debugActivateNow — restore a session that was force-activated
+   * by debugActivateNow (for a dry-run) back to its canonical pre-dry-run
+   * state: recompute attendanceStart / attendanceEnd / lateCutoff / quizStart
+   * / quizEnd from session.date using the standard 08:30 / 08:35 / 08:59:59
+   * / 09:00 SGT constants, and flip status back to `scheduled`. Does NOT
+   * touch Attendance / StudentSubmission / AnswerScript rows — those are
+   * handled by clearStudentTestData. Audit-logged.
+   *
+   * Gated the same way as debugActivateNow: MORNING_QUIZ_DEBUG=true AND
+   * admin role. The controller does the env-flag check; this service
+   * method only does the canActOnClass test.
+   */
+  async revertSessionToScheduled(sessionId: string, actor: ActorCtx) {
+    const before = await this.prisma.morningQuizSession.findUnique({ where: { id: sessionId } });
+    if (!before) throw new NotFoundException({ code: 'session_not_found' });
+    if (!(await canActOnClass(this.prisma, actor, before.classId))) {
+      throw new ForbiddenException({ code: 'not_your_class' });
+    }
+    const tzOff = Number(process.env.MORNING_QUIZ_TZ_OFFSET_MIN ?? 8 * 60);
+    const dateIso = before.date.toISOString().slice(0, 10);
+    const attendanceStart = combineLocal(dateIso, ATTENDANCE_START_LOCAL, tzOff);
+    const attendanceEnd = combineLocal(dateIso, ATTENDANCE_END_LOCAL, tzOff);
+    const lateCutoff = combineLocal(dateIso, LATE_CUTOFF_LOCAL, tzOff);
+    const quizEnd = combineLocal(dateIso, QUIZ_END_LOCAL, tzOff);
+    const after = await this.prisma.morningQuizSession.update({
+      where: { id: sessionId },
+      data: {
+        attendanceStart,
+        attendanceEnd,
+        lateCutoff,
+        quizStart: attendanceStart,
+        quizEnd,
+        status: MorningQuizStatus.scheduled,
+      },
+    });
+    await this.audit.log({
+      actorId: actor.id,
+      actorRole: actor.role,
+      action: 'morning_quiz.revert_to_scheduled',
+      entityType: 'MorningQuizSession',
+      entityId: sessionId,
+      ip: actor.ip,
+      diff: {
+        before: { status: before.status, attendanceStart: before.attendanceStart },
+        after: { status: after.status, attendanceStart: after.attendanceStart },
+      },
+    });
+    return after;
+  }
+
   async debugActivateNow(sessionId: string, actor: ActorCtx) {
     const before = await this.prisma.morningQuizSession.findUnique({ where: { id: sessionId } });
     if (!before) throw new NotFoundException({ code: 'session_not_found' });

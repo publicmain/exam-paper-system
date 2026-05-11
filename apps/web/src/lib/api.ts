@@ -328,6 +328,10 @@ export const api = {
    *  exposing a real attack surface in production. */
   morningQuizDebugActivate: (sessionId: string) =>
     request('PATCH', `/morning-quiz/sessions/${sessionId}/debug-activate`),
+  /** Inverse of debug-activate — recompute 08:30 windows + status →
+   *  scheduled. Used to undo a dry-run before the real morning. */
+  morningQuizRevertToScheduled: (sessionId: string) =>
+    request('PATCH', `/morning-quiz/sessions/${sessionId}/revert-to-scheduled`),
   /** Wipe one student's attendance + submission + scripts on one session.
    *  Used after a teacher-led dry-run with a single test student. */
   morningQuizClearStudentTestData: (sessionId: string, studentId: string) =>

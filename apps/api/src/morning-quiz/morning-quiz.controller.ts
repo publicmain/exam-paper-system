@@ -250,6 +250,27 @@ export class MorningQuizController {
     return this.svc.debugActivateNow(id, { id: user.id, role: user.role, ip: req.ip ?? null });
   }
 
+  /**
+   * Inverse of debug-activate — recompute the standard 08:30 windows
+   * from session.date and flip status back to `scheduled`. Used to undo
+   * a dry-run before the real morning. Same gating as debug-activate
+   * (MORNING_QUIZ_DEBUG=true + admin role).
+   */
+  @Patch('sessions/:id/revert-to-scheduled')
+  revertToScheduled(@Param('id') id: string, @CurrentUser() user: any, @Req() req: Request) {
+    if (process.env.MORNING_QUIZ_DEBUG !== 'true') {
+      throw new NotFoundException();
+    }
+    if (user.role !== 'admin') {
+      throw new ForbiddenException({ code: 'admin_required' });
+    }
+    return this.svc.revertSessionToScheduled(id, {
+      id: user.id,
+      role: user.role,
+      ip: req.ip ?? null,
+    });
+  }
+
   @Patch('sessions/:id/cancel')
   cancel(
     @Param('id') id: string,
