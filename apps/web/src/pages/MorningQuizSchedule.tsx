@@ -55,6 +55,13 @@ export default function MorningQuizSchedule() {
   const [busy, setBusy] = useState(false);
   const [outcomes, setOutcomes] = useState<any[] | null>(null);
   const [error, setError] = useState<string | null>(null);
+  // 题库健康度: classId -> level -> {totalBank, usedRecent, remaining, depleted}.
+  // Loaded once per classes refresh. Used to render "(剩 X/Y 篇)" on each
+  // level chip in section 2, so the operator sees depletion BEFORE clicking
+  // generate.
+  const [bankStats, setBankStats] = useState<
+    Record<string, Record<string, { totalBank: number; usedRecent: number; remaining: number; depleted: boolean }>>
+  >({});
 
   async function refresh() {
     try {
@@ -64,9 +71,32 @@ export default function MorningQuizSchedule() {
       ]);
       setClasses(cls);
       setScheduled(sched);
+      await loadBankStats(cls);
     } catch (e: any) {
       setError(e.message ?? String(e));
     }
+  }
+
+  /** Fetch bank-health for every class that has at least one level
+   *  registered. Soft-fails (logs to error state) so a stats hiccup
+   *  doesn't break the whole schedule page. */
+  async function loadBankStats(cls: ClassRow[]) {
+    const next: typeof bankStats = {};
+    await Promise.all(
+      cls
+        .filter((c) => (c.englishLevels?.length ?? 0) > 0)
+        .map(async (c) => {
+          try {
+            const r = await api.morningQuizBankStats(c.id);
+            const byLevel: Record<string, any> = {};
+            for (const s of r.stats) byLevel[s.level] = s;
+            next[c.id] = byLevel;
+          } catch {
+            /* per-class failure is non-fatal; chip just won't show count */
+          }
+        }),
+    );
+    setBankStats(next);
   }
 
   useEffect(() => {
@@ -83,6 +113,7 @@ export default function MorningQuizSchedule() {
         if (cancelled) return;
         setClasses(cls);
         setScheduled(sched);
+        await loadBankStats(cls);
       } catch (e: any) {
         if (!cancelled) setError(e.message ?? String(e));
       }
@@ -243,22 +274,52 @@ export default function MorningQuizSchedule() {
                     {levels.length === 0 && (
                       <span className="text-gray-400 italic text-xs">未配置</span>
                     )}
-                    {levels.map((l) => (
-                      <span
-                        key={l}
-                        className="inline-flex items-center gap-1 bg-blue-50 border border-blue-200 text-blue-800 px-2 py-0.5 rounded text-xs"
-                      >
-                        {LEVEL_LABEL[l]}
-                        <button
-                          type="button"
-                          onClick={() => handleRemoveLevel(c.id, l)}
-                          className="text-blue-600 hover:text-rose-700 leading-none"
-                          title="移除该等级"
+                    {levels.map((l) => {
+                      const stat = bankStats[c.id]?.[l];
+                      // Color the chip by health: ≥4 remaining = blue (normal),
+                      // 1-3 remaining = amber (warning), 0 = red (will recycle).
+                      const tone = !stat
+                        ? 'bg-blue-50 border-blue-200 text-blue-800'
+                        : stat.remaining === 0
+                          ? 'bg-rose-50 border-rose-300 text-rose-800'
+                          : stat.remaining <= 3
+                            ? 'bg-amber-50 border-amber-300 text-amber-800'
+                            : 'bg-blue-50 border-blue-200 text-blue-800';
+                      const closeBtnTone = !stat
+                        ? 'text-blue-600 hover:text-rose-700'
+                        : stat.remaining === 0
+                          ? 'text-rose-600 hover:text-rose-900'
+                          : stat.remaining <= 3
+                            ? 'text-amber-700 hover:text-rose-700'
+                            : 'text-blue-600 hover:text-rose-700';
+                      return (
+                        <span
+                          key={l}
+                          className={`inline-flex items-center gap-1 border px-2 py-0.5 rounded text-xs ${tone}`}
+                          title={
+                            stat
+                              ? `题库总数 ${stat.totalBank} · 本班 30 天内已用 ${stat.usedRecent} · 剩 ${stat.remaining}${stat.depleted ? ' (将开始重复)' : ''}`
+                              : ''
+                          }
                         >
-                          ×
-                        </button>
-                      </span>
-                    ))}
+                          {LEVEL_LABEL[l]}
+                          {stat && (
+                            <span className="opacity-70 font-mono">
+                              · 剩 {stat.remaining}/{stat.totalBank}
+                              {stat.depleted && ' ⚠'}
+                            </span>
+                          )}
+                          <button
+                            type="button"
+                            onClick={() => handleRemoveLevel(c.id, l)}
+                            className={`leading-none ${closeBtnTone}`}
+                            title="移除该等级"
+                          >
+                            ×
+                          </button>
+                        </span>
+                      );
+                    })}
                   </div>
                 </td>
                 <td className="py-2">

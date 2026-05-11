@@ -334,6 +334,18 @@ export const api = {
     classId: string,
     level: 'ielts_authentic' | 'ielts_simplified' | 'olevel',
   ) => request('PATCH', `/morning-quiz/classes/${classId}/english-level`, { level }),
+  // 题库健康度 — per-(class, level) totalBank/usedRecent/remaining counts,
+  // used by the schedule UI to flag depletion before generation.
+  morningQuizBankStats: (classId: string): Promise<{
+    classId: string;
+    stats: Array<{
+      level: 'ielts_authentic' | 'ielts_simplified' | 'olevel';
+      totalBank: number;
+      usedRecent: number;
+      remaining: number;
+      depleted: boolean;
+    }>;
+  }> => request('GET', `/morning-quiz/bank-stats?classId=${encodeURIComponent(classId)}`),
   // R10 multi-level: drop a band from a class. Existing sessions for
   // that band are NOT deleted (history preserved); only future
   // batch-generate runs stop creating new ones.

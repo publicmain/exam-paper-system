@@ -856,6 +856,153 @@ export class MorningQuizService {
     return paper.id;
   }
 
+  /**
+   * Read-only mirror of the pick* logic: for each registered level on a
+   * class, count how many unique passages/papers the bank has and how
+   * many this class has already burned through in the last 30 days.
+   * Used by the schedule UI to flag depletion BEFORE the operator hits
+   * "generate" and silently lands on an LRU recycle.
+   *
+   * The 30-day window matches the dedup window in pickPassageAndCreatePaper
+   * and pickOlevelPaperAndCreatePaper — if you widen one you must widen
+   * the other or this counter lies.
+   */
+  async bankStatsForClass(classId: string): Promise<
+    Array<{
+      level: EnglishLevel;
+      totalBank: number;
+      usedRecent: number;
+      remaining: number;
+      depleted: boolean;
+    }>
+  > {
+    const levelRows = await this.prisma.classEnglishLevel.findMany({
+      where: { classId },
+      orderBy: { level: 'asc' },
+    });
+    if (levelRows.length === 0) return [];
+
+    const cutoff = new Date(Date.now() - 30 * 86_400_000);
+
+    // Helper: count unique passage prefixes in the IELTS bank under one
+    // provenance filter. Mirrors pickPassageAndCreatePaper's bucketing.
+    const countIeltsBank = async (
+      provenanceFilter: 'authentic' | 'simplified',
+    ): Promise<number> => {
+      const subject = await this.prisma.subject.findFirst({
+        where: { code: 'IELTS' },
+        orderBy: { id: 'asc' },
+        include: { components: { where: { code: 'AUTH' } } },
+      });
+      if (!subject || subject.components.length === 0) return 0;
+      const provenanceCondition =
+        provenanceFilter === 'simplified'
+          ? { provenanceTag: 'cambridge_ielts_gt' }
+          : { NOT: { provenanceTag: 'cambridge_ielts_gt' } };
+      const bank = await this.prisma.question.findMany({
+        where: {
+          subjectId: subject.id,
+          componentId: subject.components[0].id,
+          status: 'active',
+          sourceType: 'past_paper_reference',
+          ...provenanceCondition,
+        },
+        select: { sourceRef: true },
+      });
+      const passages = new Set<string>();
+      for (const q of bank) {
+        const m = (q.sourceRef ?? '').match(/^([^/]+\/[^/]+\/Test\d+\/P\d+)\//);
+        if (m) passages.add(m[1]);
+      }
+      return passages.size;
+    };
+
+    const countOlevelBank = async (): Promise<number> => {
+      const subject = await this.prisma.subject.findFirst({
+        where: { code: '1123' },
+        select: { id: true },
+      });
+      if (!subject) return 0;
+      const bank = await this.prisma.question.findMany({
+        where: {
+          subjectId: subject.id,
+          status: 'active',
+          sourceType: 'past_paper_reference',
+          sourceRef: { startsWith: 'OLEVEL/' },
+        },
+        select: { sourceRef: true },
+      });
+      const paperKeys = new Set<string>();
+      for (const q of bank) {
+        const m = q.sourceRef?.match(/^(OLEVEL\/[^/]+\/Paper\d+)\//);
+        if (m) paperKeys.add(m[1]);
+      }
+      return paperKeys.size;
+    };
+
+    // Per-class recent picks, scoped to mode so we don't accidentally
+    // count cross-level papers against each other.
+    const recent = await this.prisma.paper.findMany({
+      where: {
+        assignments: { some: { classId } },
+        createdAt: { gte: cutoff },
+      },
+      select: { config: true },
+    });
+    const usedByMode = {
+      passage_pick_authentic: new Set<string>(),
+      passage_pick_simplified: new Set<string>(),
+      olevel_curated: new Set<string>(),
+    };
+    for (const p of recent) {
+      const cfg = p.config as
+        | { mode?: string; passageRef?: string; paperKey?: string; provenanceFilter?: string }
+        | null;
+      if (!cfg) continue;
+      if (cfg.mode === 'passage_pick' && cfg.passageRef) {
+        // Distinguish authentic vs simplified via the stored filter, with
+        // a fallback to inspecting the passageRef (IELTS GT vs not).
+        const isSimplified =
+          cfg.provenanceFilter === 'simplified' || /\/GT\//i.test(cfg.passageRef);
+        if (isSimplified) usedByMode.passage_pick_simplified.add(cfg.passageRef);
+        else usedByMode.passage_pick_authentic.add(cfg.passageRef);
+      } else if (cfg.mode === 'olevel_curated' && cfg.paperKey) {
+        usedByMode.olevel_curated.add(cfg.paperKey);
+      }
+    }
+
+    const out: Array<{
+      level: EnglishLevel;
+      totalBank: number;
+      usedRecent: number;
+      remaining: number;
+      depleted: boolean;
+    }> = [];
+    for (const lr of levelRows) {
+      let totalBank = 0;
+      let usedRecent = 0;
+      if (lr.level === 'ielts_authentic') {
+        totalBank = await countIeltsBank('authentic');
+        usedRecent = usedByMode.passage_pick_authentic.size;
+      } else if (lr.level === 'ielts_simplified') {
+        totalBank = await countIeltsBank('simplified');
+        usedRecent = usedByMode.passage_pick_simplified.size;
+      } else {
+        totalBank = await countOlevelBank();
+        usedRecent = usedByMode.olevel_curated.size;
+      }
+      const remaining = Math.max(0, totalBank - usedRecent);
+      out.push({
+        level: lr.level,
+        totalBank,
+        usedRecent,
+        remaining,
+        depleted: remaining === 0,
+      });
+    }
+    return out;
+  }
+
   private levelToQuickPaperInput(
     level: EnglishLevel,
     dateIso: string,

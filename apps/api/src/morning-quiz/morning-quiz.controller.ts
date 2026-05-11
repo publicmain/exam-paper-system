@@ -208,6 +208,19 @@ export class MorningQuizController {
   }
 
   /**
+   * Per-class bank-health snapshot used by the schedule UI to flag
+   * "this class is about to run out of unique passages". Returns the
+   * registered levels for the class with totalBank / usedRecent (30d) /
+   * remaining counts. Public to authenticated teachers/admins; no
+   * student PII surfaced.
+   */
+  @Get('bank-stats')
+  async bankStats(@Query('classId') classId: string) {
+    if (!classId) throw new BadRequestException({ code: 'classId_required' });
+    return { classId, stats: await this.svc.bankStatsForClass(classId) };
+  }
+
+  /**
    * DEBUG-ONLY admin endpoint to fast-forward a session into the
    * currently-active state without waiting for the 8:30 cron. Required for
    * end-to-end smoke testing of the scan flow off-hours. Gated behind
