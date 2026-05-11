@@ -145,18 +145,34 @@ export class ContentBootstrapService implements OnApplicationBootstrap {
         // Real-PDF papers (Singapore secondary school prelims, OCR'd)
         { label: '1128 Admiralty 2021 SA2 §B narrative',     payload: loadFixture('singapore-olevel-1128/admiralty-2021-sa2.json') },
         { label: '1128 Bedok View 2021 SA2 §B narrative',    payload: loadFixture('singapore-olevel-1128/bedokview-2021-sa2.json') },
-        // AI-authored standard tier (basic band)
+        // AI-authored standard tier (basic band) — 15 papers
         { label: 'AI 01 Smith Street (kueh shop closing)',   payload: loadFixture('singapore-olevel-1128/ai-authored-01-smith-street.json') },
         { label: 'AI 03 Empty Seat (reunion dinner)',        payload: loadFixture('singapore-olevel-1128/ai-authored-03-empty-seat.json') },
         { label: 'AI 04 Test Result (results day alone)',    payload: loadFixture('singapore-olevel-1128/ai-authored-04-test-result.json') },
         { label: 'AI 07 Last Lap (4x100m anchor leg)',       payload: loadFixture('singapore-olevel-1128/ai-authored-07-last-lap.json') },
         { label: 'AI 08 Window (moving day farewell)',       payload: loadFixture('singapore-olevel-1128/ai-authored-08-window-seat.json') },
-        // AI-authored simplified tier (middle band)
+        { label: 'AI 11 NDP Orchid (Ah Ma\'s 23rd plant)',   payload: loadFixture('singapore-olevel-1128/ai-authored-11-ndp-orchid.json') },
+        { label: 'AI 12 Senior Sister (netball captaincy)',  payload: loadFixture('singapore-olevel-1128/ai-authored-12-senior-sister.json') },
+        { label: 'AI 15 The Tutor (Mr Ng grieving)',         payload: loadFixture('singapore-olevel-1128/ai-authored-15-the-tutor.json') },
+        { label: 'AI 16 Tekka Fish (Sunday for Ah Ma)',      payload: loadFixture('singapore-olevel-1128/ai-authored-16-tekka-fish.json') },
+        { label: 'AI 19 Pulau Ubin (low-ropes course)',      payload: loadFixture('singapore-olevel-1128/ai-authored-19-pulau-ubin.json') },
+        { label: 'AI 20 Unsent Letter (sealed 1989)',        payload: loadFixture('singapore-olevel-1128/ai-authored-20-unsent-letter.json') },
+        { label: 'AI 23 Friday Soup (Wai Yan from Yangon)',  payload: loadFixture('singapore-olevel-1128/ai-authored-23-friday-soup.json') },
+        { label: 'AI 24 MRT Photograph (vanished kampung)',  payload: loadFixture('singapore-olevel-1128/ai-authored-24-mrt-photograph.json') },
+        // AI-authored simplified tier (middle band) — 13 papers
         { label: 'AI 02 Forgotten Promise (cat-sitting)',    payload: loadFixture('singapore-olevel-1128/ai-authored-02-forgotten-promise-simplified.json') },
         { label: 'AI 05 Lost Wallet (hawker centre)',        payload: loadFixture('singapore-olevel-1128/ai-authored-05-lost-wallet-simplified.json') },
         { label: 'AI 06 First Bus Ride (Sec 1 alone)',       payload: loadFixture('singapore-olevel-1128/ai-authored-06-bus-ride-simplified.json') },
         { label: 'AI 09 Birthday Cake (crash on bike)',      payload: loadFixture('singapore-olevel-1128/ai-authored-09-birthday-cake-simplified.json') },
         { label: 'AI 10 Umbrella (stranger in the rain)',    payload: loadFixture('singapore-olevel-1128/ai-authored-10-umbrella-simplified.json') },
+        { label: 'AI 13 Spelling Bee (fastidious)',          payload: loadFixture('singapore-olevel-1128/ai-authored-13-spelling-bee-simplified.json') },
+        { label: 'AI 14 Snowy (hamster escape)',             payload: loadFixture('singapore-olevel-1128/ai-authored-14-hamster-simplified.json') },
+        { label: 'AI 17 Last Runner (relay reluctant)',      payload: loadFixture('singapore-olevel-1128/ai-authored-17-relay-simplified.json') },
+        { label: 'AI 18 Library Card (Tampines interchange)',payload: loadFixture('singapore-olevel-1128/ai-authored-18-library-card-simplified.json') },
+        { label: 'AI 21 Drawing on the Wall (wrong label)',  payload: loadFixture('singapore-olevel-1128/ai-authored-21-drawing-simplified.json') },
+        { label: 'AI 22 MacRitchie Frog (let it go)',        payload: loadFixture('singapore-olevel-1128/ai-authored-22-macritchie-frog-simplified.json') },
+        { label: 'AI 25 Auntie Lim Bee Hoon (moving away)',  payload: loadFixture('singapore-olevel-1128/ai-authored-25-hawker-auntie-simplified.json') },
+        { label: 'AI 26 Phone on Bus 80 (kind driver)',      payload: loadFixture('singapore-olevel-1128/ai-authored-26-phone-bus80-simplified.json') },
       ];
 
       // Before ingesting the new 1128 fixtures, retire the legacy

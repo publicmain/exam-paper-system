@@ -1,0 +1,143 @@
+{
+  "setCode": "ai_authored_olevel_15_the_tutor_v1",
+  "paperNumber": 2,
+  "paperTitle": "Singapore-Cambridge GCE O-Level 1128 English Language — AI-authored Practice Paper 15: The Tutor (Paper 2 §B style)",
+  "provenanceTag": "ai_authored_olevel_1128",
+  "sections": [
+    {
+      "exercise": 1,
+      "instruction": "Read the narrative text below about a Sec 4 boy who notices that his weekly maths tutor has been quietly grieving, and answer the questions that follow. Section B [14 marks] — AI-authored practice paper modelled on the Singapore-Cambridge 1128/02 Section B format. Original passage written for the morning quiz bank; not from a past exam paper. 10 short-answer items (Q1–Q10) on language use and inference, plus a 4-item flowchart MCQ (Q11) on the narrator's emotion arc, are included.",
+      "passageTitle": "Thursday Afternoons with Mr Ng",
+      "passage": "Paragraph 1\nMr Ng had been coming to our HDB flat in Toa Payoh every Thursday afternoon for two years. From four o'clock until six, he walked me through whatever the school had thrown at me — quadratic equations, trigonometry, and, more recently, vectors. He always wore the same grey shirt, ironed flat, and carried the same worn leather briefcase. He had never been late, not even once.\n\nParagraph 2\nThat Thursday, he was three minutes early. I noticed because Ah Ma had been watching the clock from the kitchen, where she was steaming a tray of ang ku kueh for him. 'Eh, your Mr Ng very punctual one,' she had said, and then the doorbell rang, and her words turned out to be a small lie that she did not know she was telling.\n\nParagraph 3\nFor the first hour, everything was as it always was. He wrote a clean heading at the top of a fresh sheet of foolscap and explained the dot product the way he always did — patiently, building from the simplest case, never rushing me. Halfway through, I told myself I must have been imagining things. He looked the same. He sounded the same.\n\nParagraph 4\nIt was only when he reached for his cup of water that I saw what I had missed. He had taken off his wedding ring. The pale band of skin where it had sat for thirty-something years stood out like a small white scar. I dropped my eyes back to the question. Two weeks earlier, my mother had told me, in a low voice in the kitchen, that Mrs Ng had passed away after a long illness. Mr Ng had not mentioned it. He had simply turned up the following Thursday, ironed shirt and all.\n\nParagraph 5\nIn the second hour, we moved on to a question about position vectors. Mr Ng wrote out the working, line by line, in his small neat handwriting. I followed each line carefully — and then I saw it. On the third line, where he had subtracted vector OA from vector OB, he had written a plus sign instead of a minus. It was an uncharacteristic mistake. In two years, I had never seen him make one.\n\nParagraph 6\nFor half a second I almost pointed at it. Then I did not. Instead, I asked him, as politely as I could, if he could walk me through the working again, slowly, because I thought I had missed something. He looked at me with a small surprised expression, then picked up his pen and began again from line one. On the third line, his pen paused. He did not look up. He simply drew a careful line through the plus sign, wrote a minus above it, and continued without comment.\n\nParagraph 7\nAt six o'clock, exactly, he closed the foolscap pad and slid it into his briefcase. Ah Ma came out carrying a small plastic bag of warm ang ku kueh. Mr Ng accepted it with both hands and bowed slightly. At the door, he turned to me. 'Next Thursday, same time,' he said. His voice was the same as it had been at four o'clock — calm, even, careful. Then he was gone.\n\nParagraph 8\nIn the kitchen, my mother was rinsing rice. She did not turn around when she spoke. 'You did the right thing,' she said quietly. I stood in the doorway and realised, with a small flush of embarrassment, that she had been listening the whole time. I had thought I was being so careful. It turned out that being kind, even quietly, was not as invisible as I had imagined.\n\n(AI-authored original narrative for O-Level 1128 §B style practice; not from a past examination paper. HDB: Singapore public housing flats; ang ku kueh: a red glutinous-rice cake; foolscap: lined working paper used in Singapore schools.)",
+      "questions": [
+        {
+          "n": 1,
+          "stem": "Q1. In Paragraph 1, what details suggest that Mr Ng is a punctual and disciplined person? [1]",
+          "answer": "he comes every Thursday for two years, always wears the same grey shirt ironed flat, carries the same worn leather briefcase, and has never been late, not even once"
+        },
+        {
+          "n": 2,
+          "stem": "Q2. What is meant by the phrase 'a small lie that she did not know she was telling' in Paragraph 2? [1]",
+          "answer": "Ah Ma said Mr Ng was very punctual, but on this day he was actually three minutes early, not exactly on time — so her statement turned out to be inaccurate, although she had no way of knowing it at that moment"
+        },
+        {
+          "n": 3,
+          "stem": "Q3(a). In Paragraph 3, why did the narrator briefly think that he must have been imagining things? [1]",
+          "answer": "Mr Ng looked the same and sounded the same as on every other Thursday — he set down his briefcase, wrote a clean heading, and explained the dot product patiently, so on the surface nothing seemed different"
+        },
+        {
+          "n": 4,
+          "stem": "Q3(b). Which single word in Paragraph 3 emphasises how unhurried Mr Ng's teaching style was? [1]",
+          "answer": "patiently"
+        },
+        {
+          "n": 5,
+          "stem": "Q4. What is the effect of describing the pale band of skin on Mr Ng's finger as 'a small white scar' (Paragraph 4)? [1]",
+          "answer": "the word 'scar' suggests a wound or lasting hurt, hinting that the removal of the wedding ring is connected to a deep emotional injury — the loss of his wife — rather than just a physical mark"
+        },
+        {
+          "n": 6,
+          "stem": "Q5. Why did Mr Ng not mention his wife's death to the narrator (Paragraph 4)? [1]",
+          "answer": "he was choosing to carry on with his routine quietly and privately, turning up the following Thursday as if nothing had happened, rather than burdening his student with his grief"
+        },
+        {
+          "n": 7,
+          "stem": "Q6. In Paragraph 5, why does the narrator describe the plus sign as an 'uncharacteristic mistake'? [1]",
+          "answer": "in two years Mr Ng had never made such an error before, so a wrong sign on a vector question is completely out of character for him and suggests his mind is elsewhere"
+        },
+        {
+          "n": 8,
+          "stem": "Q7. In Paragraph 6, why did the narrator ask Mr Ng to walk him through the working again instead of pointing out the mistake directly? [1]",
+          "answer": "he wanted to give Mr Ng a chance to notice and correct his own error without being publicly shown up — it was a tactful way to protect Mr Ng's dignity while still getting the mistake fixed"
+        },
+        {
+          "n": 9,
+          "stem": "Q8. What does Mr Ng's action of drawing a line through the plus sign 'without comment' (Paragraph 6) suggest about him? [1]",
+          "answer": "he understood what the narrator had quietly done for him and accepted the kindness in the same quiet way, by silently correcting the error and continuing the lesson rather than acknowledging it aloud"
+        },
+        {
+          "n": 10,
+          "stem": "Q9. What does the word 'calm' (Paragraph 7) suggest about how Mr Ng is coping at the end of the lesson? [1]",
+          "answer": "despite the grief he is carrying, he is keeping himself composed and steady on the outside — his voice at six o'clock is the same as at four o'clock, showing that he is determined to hold himself together"
+        },
+        {
+          "n": 11,
+          "stem": "Q10(a). Why did the narrator feel 'a small flush of embarrassment' in Paragraph 8? [1]",
+          "answer": "he realised that his mother had been listening from the kitchen the whole time, so the quiet kindness he thought he was performing in private had actually been witnessed"
+        },
+        {
+          "n": 12,
+          "stem": "Q10(b). What does the narrator mean by 'being kind, even quietly, was not as invisible as I had imagined' (Paragraph 8)? [1]",
+          "answer": "small private acts of kindness are noticed by others even when we try to keep them hidden — the narrator has learned that thoughtful behaviour does not go unseen, however discreetly it is done"
+        }
+      ]
+    },
+    {
+      "exercise": 2,
+      "instruction": "Q11. The narrator's dominant feeling changes as the Thursday lesson unfolds. For each part of the passage, choose ONE word from the bank that best summarises his dominant feeling at that moment. There are some extra words in the bank you do not need to use. Word bank: confused / bored / realising / suspicious / tactful / cheerful / understood / annoyed. The original task carries 4 marks; each blank is split into its own MCQ here so each sub-part can be auto-graded independently.",
+      "passage": "Refer to the same 'Thursday Afternoons with Mr Ng' narrative in Exercise 1 above. The narrator's feelings shift over the course of the lesson — from puzzlement at sensing that something is off about Mr Ng, to a quiet realisation when he sees the pale band of skin where the wedding ring used to be, to a tactful choice not to point out the mistake on the vector question, ending in the gentle embarrassment of being understood by his mother. Pick the single best word from the bank for each section.",
+      "questions": [
+        {
+          "n": 13,
+          "stem": "Q11(i). What best describes the narrator's dominant feeling at the end of Paragraph 3, when he tells himself he must have been imagining things because Mr Ng looks and sounds the same as always? [1]",
+          "options": [
+            {"key": "A", "text": "confused", "correct": true},
+            {"key": "B", "text": "bored", "correct": false},
+            {"key": "C", "text": "realising", "correct": false},
+            {"key": "D", "text": "suspicious", "correct": false},
+            {"key": "E", "text": "tactful", "correct": false},
+            {"key": "F", "text": "cheerful", "correct": false},
+            {"key": "G", "text": "understood", "correct": false},
+            {"key": "H", "text": "annoyed", "correct": false}
+          ],
+          "answer": "A"
+        },
+        {
+          "n": 14,
+          "stem": "Q11(ii). What best describes the narrator's dominant feeling in Paragraph 4 as he notices the pale band of skin where Mr Ng's wedding ring used to be and connects it to what his mother had told him two weeks earlier? [1]",
+          "options": [
+            {"key": "A", "text": "confused", "correct": false},
+            {"key": "B", "text": "bored", "correct": false},
+            {"key": "C", "text": "realising", "correct": true},
+            {"key": "D", "text": "suspicious", "correct": false},
+            {"key": "E", "text": "tactful", "correct": false},
+            {"key": "F", "text": "cheerful", "correct": false},
+            {"key": "G", "text": "understood", "correct": false},
+            {"key": "H", "text": "annoyed", "correct": false}
+          ],
+          "answer": "C"
+        },
+        {
+          "n": 15,
+          "stem": "Q11(iii). What best describes the narrator's dominant feeling in Paragraph 6, as he chooses not to point out the wrong plus sign and instead politely asks Mr Ng to walk him through the working again? [1]",
+          "options": [
+            {"key": "A", "text": "confused", "correct": false},
+            {"key": "B", "text": "bored", "correct": false},
+            {"key": "C", "text": "realising", "correct": false},
+            {"key": "D", "text": "suspicious", "correct": false},
+            {"key": "E", "text": "tactful", "correct": true},
+            {"key": "F", "text": "cheerful", "correct": false},
+            {"key": "G", "text": "understood", "correct": false},
+            {"key": "H", "text": "annoyed", "correct": false}
+          ],
+          "answer": "E"
+        },
+        {
+          "n": 16,
+          "stem": "Q11(iv). What best describes the narrator's dominant feeling at the end of Paragraph 8, after his mother quietly says 'you did the right thing' and he realises she had been listening from the kitchen the whole time? [1]",
+          "options": [
+            {"key": "A", "text": "confused", "correct": false},
+            {"key": "B", "text": "bored", "correct": false},
+            {"key": "C", "text": "realising", "correct": false},
+            {"key": "D", "text": "suspicious", "correct": false},
+            {"key": "E", "text": "tactful", "correct": false},
+            {"key": "F", "text": "cheerful", "correct": false},
+            {"key": "G", "text": "understood", "correct": true},
+            {"key": "H", "text": "annoyed", "correct": false}
+          ],
+          "answer": "G"
+        }
+      ]
+    }
+  ]
+}
