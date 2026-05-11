@@ -139,6 +139,50 @@ export class ContentBootstrapService implements OnApplicationBootstrap {
         this.logger.warn(`could not retire legacy 0510 rows: ${e.message ?? e}`);
       }
 
+      // R10 followup pilot — DELETE stale singapore_olevel_1128
+      // rows whose sourceRef doesn't match the *current* fixture
+      // version (we use setCode versioning, e.g. `_admiralty_2021_v2`,
+      // so a content bump = a new prefix). This makes fixture edits
+      // idempotently take effect on the next boot. Once the pilot is
+      // stabilised we'll switch to upsert-by-sourceRef; for now the
+      // ingest service still does findFirst+skip, hence the explicit
+      // wipe step. Only active questions get deleted; if any have
+      // been answered by students (FK to AnswerScript), the delete
+      // throws and we fall through silently — the orphan rows will
+      // be retired by a later admin pass.
+      const CURRENT_OLEVEL_PREFIXES = [
+        'OLEVEL/singapore_olevel_1128_admiralty_2021_v2/',
+      ];
+      try {
+        // Pull all olevel-1128 rows then filter by JS — Prisma doesn't
+        // express "startsWith ANY of these prefixes" cleanly.
+        const all = await this.prisma.question.findMany({
+          where: { provenanceTag: 'singapore_olevel_1128' },
+          select: { id: true, sourceRef: true },
+        });
+        const stale = all.filter(
+          (q) => !CURRENT_OLEVEL_PREFIXES.some((p) => q.sourceRef?.startsWith(p)),
+        );
+        if (stale.length > 0) {
+          // Best-effort delete; PaperQuestion FK + AnswerScript FK can block.
+          // Wrap each in try/catch so one bad row doesn't kill the batch.
+          let deleted = 0;
+          for (const s of stale) {
+            try {
+              await this.prisma.question.delete({ where: { id: s.id } });
+              deleted++;
+            } catch { /* row referenced by a paper or scripted; leave it */ }
+          }
+          if (deleted > 0) {
+            this.logger.log(`pruned ${deleted}/${stale.length} stale singapore_olevel_1128 row(s) from outdated fixture versions`);
+          } else if (stale.length > 0) {
+            this.logger.log(`${stale.length} stale singapore_olevel_1128 row(s) referenced by other tables — left in place (will be retired by next admin cleanup pass)`);
+          }
+        }
+      } catch (e: any) {
+        this.logger.warn(`could not prune stale singapore_olevel_1128 rows: ${e.message ?? e}`);
+      }
+
       let olCreated = 0;
       let olApproved = 0;
       for (const p of olevelPapers) {
