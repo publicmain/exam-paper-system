@@ -97,6 +97,7 @@ export class ContentBootstrapService implements OnApplicationBootstrap {
         { label: 'IELTS 8 Test2/P3', payload: loadFixture('cambridge-ielts-8/test2-passage3.json') },
         { label: 'IELTS 8 Test3/P1', payload: loadFixture('cambridge-ielts-8/test3-passage1.json') },
         { label: 'IELTS 8 Test3/P2', payload: loadFixture('cambridge-ielts-8/test3-passage2.json') },
+        { label: 'IELTS 8 Test3/P3', payload: loadFixture('cambridge-ielts-8/test3-passage3.json') },
       ];
 
       let ieltsCreated = 0;

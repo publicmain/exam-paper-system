@@ -1,0 +1,153 @@
+{
+  "bookCode": "cambridge_ielts_8",
+  "testNumber": 3,
+  "passageNumber": 3,
+  "passage": {
+    "title": "How does the biological clock tick?",
+    "body": "A Our life span is restricted. Everyone accepts this as 'biologically' obvious. 'Nothing lives for ever!' However, in this statement we think of artificially produced, technical objects, products which are subjected to natural wear and tear during use. This leads to the result that at some time or other the object stops working and is unusable ('death' in the biological sense). But are the wear and tear and loss of function of technical objects and the death of living organisms really similar or comparable?\n\nB Our 'dead' products are 'static', closed systems. It is always the basic material which constitutes the object and which, in the natural course of things, is worn down and becomes 'older'. Ageing in this case must occur according to the laws of physical chemistry and of thermodynamics. Although the same law holds for a living organism, the result of this law is not inexorable in the same way. At least as long as a biological system has the ability to renew itself it could actually become older without ageing; an organism is an open, dynamic system through which new material continuously flows. Destruction of old material and formation of new material are thus in permanent dynamic equilibrium. The material of which the organism is formed changes continuously. Thus our bodies continuously exchange old substance for new, just like a spring which more or less maintains its form and movement, but in which the water molecules are always different.\n\nC Thus ageing and death should not be seen as inevitable, particularly as the organism possesses many mechanisms for repair. It is not, in principle, necessary for a biological system to age and die. Nevertheless, a restricted life span, ageing, and then death are basic characteristics of life. The reason for this is easy to recognise: in nature, the existent organisms either adapt or are regularly replaced by new types. Because of changes in the genetic material (mutations) these have new characteristics and in the course of their individual lives they are tested for optimal or better adaptation to the environmental conditions. Immortality would disturb this system — it needs room for new and better life. This is the basic problem of evolution.\n\nD Every organism has a life span which is highly characteristic. There are striking differences in life span between different species, but within one species the parameter is relatively constant. For example, the average duration of human life has hardly changed in thousands of years. Although more and more people attain an advanced age as a result of developments in medical care and better nutrition, the characteristic upper limit for most remains 80 years. A further argument against the simple wear and tear theory is the observation that the time within which organisms age lies between a few days (even a few hours for unicellular organisms) and several thousand years, as with mammoth trees.\n\nE If a life span is a genetically determined biological characteristic, it is logically necessary to propose the existence of an internal clock, which in some way measures and controls the ageing process and which finally determines death as the last step in a fixed programme. Like the life span, the metabolic rate has for different organisms a fixed mathematical relationship to the body mass. In comparison to the life span this relationship is 'inverted': the larger the organism the lower its metabolic rate. Again this relationship is valid not only for birds, but also, similarly on average within the systematic unit, for all other organisms (plants, animals, unicellular organisms).\n\nF Animals which behave 'frugally' with energy become particularly old, for example, crocodiles and tortoises. Parrots and birds of prey are often held chained up. Thus they are not able to 'experience life' and so they attain a high life span in captivity. Animals which save energy by hibernation or lethargy (e.g. bats or hedgehogs) live much longer than those which are always active. The metabolic rate of mice can be reduced by a very low consumption of food (hunger diet). They then may live twice as long as their well fed comrades. Women become distinctly (about 10 per cent) older than men. If you examine the metabolic rates of the two sexes you establish that the higher male metabolic rate roughly accounts for the lower male life span. That means that they live life 'energetically' — more intensively, but not for as long.\n\nG It follows from the above that sparing use of energy reserves should tend to extend life. Extreme high performance sports may lead to optimal cardiovascular performance, but they quite certainly do not prolong life. Relaxation lowers metabolic rate, as does adequate sleep and in general an equable and balanced personality. Each of us can develop his or her own 'energy saving programme' with a little self-observation, critical self-control and, above all, logical consistency. Experience will show that to live in this way not only increases the life span but is also very healthy. This final aspect should not be forgotten."
+  },
+  "questions": [
+    {
+      "n": 27,
+      "questionType": "short_answer",
+      "taskType": "matching_headings",
+      "instruction": "Reading Passage 3 has seven paragraphs, A-G. Choose the correct heading for paragraphs B-G from the list of headings below (Paragraph A is example v). Write the correct number, i-x.\n\nList of Headings:\ni The biological clock\nii Why dying is beneficial\niii The ageing process of men and women\niv Prolonging your life\nv Limitations of life span\nvi Modes of development of different species\nvii A stable life span despite improvements\nviii Energy consumption\nix Fundamental differences in ageing of objects and organisms\nx Repair of genetic material",
+      "stem": "Q27 — Paragraph B",
+      "options": null,
+      "answer": "ix"
+    },
+    {
+      "n": 28,
+      "questionType": "short_answer",
+      "taskType": "matching_headings",
+      "instruction": "Reading Passage 3 has seven paragraphs, A-G. Choose the correct heading from i-x.",
+      "stem": "Q28 — Paragraph C",
+      "options": null,
+      "answer": "ii"
+    },
+    {
+      "n": 29,
+      "questionType": "short_answer",
+      "taskType": "matching_headings",
+      "instruction": "Reading Passage 3 has seven paragraphs, A-G. Choose the correct heading from i-x.",
+      "stem": "Q29 — Paragraph D",
+      "options": null,
+      "answer": "vii"
+    },
+    {
+      "n": 30,
+      "questionType": "short_answer",
+      "taskType": "matching_headings",
+      "instruction": "Reading Passage 3 has seven paragraphs, A-G. Choose the correct heading from i-x.",
+      "stem": "Q30 — Paragraph E",
+      "options": null,
+      "answer": "i"
+    },
+    {
+      "n": 31,
+      "questionType": "short_answer",
+      "taskType": "matching_headings",
+      "instruction": "Reading Passage 3 has seven paragraphs, A-G. Choose the correct heading from i-x.",
+      "stem": "Q31 — Paragraph F",
+      "options": null,
+      "answer": "viii"
+    },
+    {
+      "n": 32,
+      "questionType": "short_answer",
+      "taskType": "matching_headings",
+      "instruction": "Reading Passage 3 has seven paragraphs, A-G. Choose the correct heading from i-x.",
+      "stem": "Q32 — Paragraph G",
+      "options": null,
+      "answer": "iv"
+    },
+    {
+      "n": 33,
+      "questionType": "short_answer",
+      "taskType": "note_completion",
+      "instruction": "Complete the notes below. Choose NO MORE THAN TWO WORDS from the passage for each answer.\n\nNotes:\n• Objects age in accordance with principles of 33 ___ and of 34 ___.\n• Through mutations, organisms can 35 ___ better to the environment.\n• 36 ___ would pose a serious problem for the theory of evolution.\n\n(Q33 & Q34 may be given in either order; both 'physical chemistry' and 'thermodynamics' are accepted.)",
+      "stem": "Q33 — first principle by which objects age (Q33 & Q34 in either order — accepts 'physical chemistry' or 'thermodynamics')",
+      "options": null,
+      "answer": "physical chemistry"
+    },
+    {
+      "n": 34,
+      "questionType": "short_answer",
+      "taskType": "note_completion",
+      "instruction": "Complete the notes below. Choose NO MORE THAN TWO WORDS from the passage for each answer.",
+      "stem": "Q34 — second principle by which objects age (Q33 & Q34 in either order — accepts 'physical chemistry' or 'thermodynamics')",
+      "options": null,
+      "answer": "thermodynamics"
+    },
+    {
+      "n": 35,
+      "questionType": "short_answer",
+      "taskType": "note_completion",
+      "instruction": "Complete the notes below. Choose NO MORE THAN TWO WORDS from the passage for each answer.",
+      "stem": "Q35 — Through mutations, organisms can ___ better to the environment.",
+      "options": null,
+      "answer": "adapt"
+    },
+    {
+      "n": 36,
+      "questionType": "short_answer",
+      "taskType": "note_completion",
+      "instruction": "Complete the notes below. Choose NO MORE THAN TWO WORDS from the passage for each answer.",
+      "stem": "Q36 — ___ would pose a serious problem for the theory of evolution.",
+      "options": null,
+      "answer": "immortality"
+    },
+    {
+      "n": 37,
+      "questionType": "mcq",
+      "taskType": "yes_no_not_given",
+      "instruction": "Do the following statements agree with the views of the writer in Reading Passage 3? Choose:\nA  YES  if the statement agrees with the views of the writer\nB  NO  if the statement contradicts the views of the writer\nC  NOT GIVEN  if it is impossible to say what the writer thinks about this",
+      "stem": "Q37 — The wear and tear theory applies to both artificial objects and biological systems.",
+      "options": [
+        { "key": "A", "text": "YES", "correct": false },
+        { "key": "B", "text": "NO", "correct": true },
+        { "key": "C", "text": "NOT GIVEN", "correct": false }
+      ],
+      "answer": "B"
+    },
+    {
+      "n": 38,
+      "questionType": "mcq",
+      "taskType": "yes_no_not_given",
+      "instruction": "Do the following statements agree with the views of the writer? Choose YES (A), NO (B), or NOT GIVEN (C).",
+      "stem": "Q38 — In principle, it is possible for a biological system to become older without ageing.",
+      "options": [
+        { "key": "A", "text": "YES", "correct": true },
+        { "key": "B", "text": "NO", "correct": false },
+        { "key": "C", "text": "NOT GIVEN", "correct": false }
+      ],
+      "answer": "A"
+    },
+    {
+      "n": 39,
+      "questionType": "mcq",
+      "taskType": "yes_no_not_given",
+      "instruction": "Do the following statements agree with the views of the writer? Choose YES (A), NO (B), or NOT GIVEN (C).",
+      "stem": "Q39 — Within seven years, about 90 per cent of a human body is replaced as new.",
+      "options": [
+        { "key": "A", "text": "YES", "correct": false },
+        { "key": "B", "text": "NO", "correct": false },
+        { "key": "C", "text": "NOT GIVEN", "correct": true }
+      ],
+      "answer": "C"
+    },
+    {
+      "n": 40,
+      "questionType": "mcq",
+      "taskType": "yes_no_not_given",
+      "instruction": "Do the following statements agree with the views of the writer? Choose YES (A), NO (B), or NOT GIVEN (C).",
+      "stem": "Q40 — Conserving energy may help to extend a human's life.",
+      "options": [
+        { "key": "A", "text": "YES", "correct": true },
+        { "key": "B", "text": "NO", "correct": false },
+        { "key": "C", "text": "NOT GIVEN", "correct": false }
+      ],
+      "answer": "A"
+    }
+  ]
+}
