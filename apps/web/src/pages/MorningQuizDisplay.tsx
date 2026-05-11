@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { useSearchParams } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { QRCodeSVG } from 'qrcode.react';
 import { api } from '../lib/api';
 
@@ -15,12 +15,20 @@ import { api } from '../lib/api';
  *   ?sessionId=<id>   pin to a specific session (multi-class venues)
  */
 export default function MorningQuizDisplay() {
+  const navigate = useNavigate();
   const [params] = useSearchParams();
   const classId = params.get('classId') ?? undefined;
   const sessionId = params.get('sessionId') ?? undefined;
   const [token, setToken] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [now, setNow] = useState(new Date());
+
+  // Back button: prefer history pop (returns to the schedule/dashboard the
+  // operator came from), fall back to "/" if this was opened in a fresh tab.
+  function goBack() {
+    if (window.history.length > 1) navigate(-1);
+    else navigate('/');
+  }
 
   // Poll the rolling token every 5s.
   useEffect(() => {
@@ -61,8 +69,17 @@ export default function MorningQuizDisplay() {
       <div className="absolute top-6 right-8 text-2xl font-mono tabular-nums">
         {now.toLocaleTimeString('en-GB')}
       </div>
-      <div className="absolute top-6 left-8 text-lg font-medium text-gray-600">
-        Morning Quiz · ESIC
+      <div className="absolute top-6 left-8 flex items-center gap-4">
+        <button
+          type="button"
+          onClick={goBack}
+          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-gray-300 bg-white text-gray-700 hover:bg-gray-100 active:bg-gray-200 text-sm font-medium shadow-sm transition-colors"
+          aria-label="返回 · Back"
+        >
+          <span aria-hidden="true">←</span>
+          <span>返回 · Back</span>
+        </button>
+        <span className="text-lg font-medium text-gray-600">Morning Quiz · ESIC</span>
       </div>
 
       {error ? (
