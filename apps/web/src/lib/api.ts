@@ -107,6 +107,9 @@ export const api = {
   rosterClass: (id: string, students: any[]) => request('POST', `/classes/${id}/roster`, { students }),
   unenrollClass: (id: string, userId: string) => request('DELETE', `/classes/${id}/enrollments/${userId}`),
   updateClass: (id: string, data: { weeklyFocus?: string | null }) => request('PATCH', `/classes/${id}`, data),
+  // Permanent class delete. Cascades to enrollments, paper assignments,
+  // morning-quiz sessions, english-level row. Admin/head-only on backend.
+  deleteClass: (id: string) => request('DELETE', `/classes/${id}`),
   // R10 followup — rename a student in-place from the Classes UI.
   updateUser: (id: string, data: { name?: string; email?: string }) =>
     request('PATCH', `/admin/users/${id}`, data),

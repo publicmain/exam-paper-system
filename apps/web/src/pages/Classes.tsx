@@ -60,21 +60,56 @@ export default function ClassesPage() {
           </div>
         )}
         {classes.map((c: any) => (
-          <button
+          // Row is a flex container, not a single <button>, so we can
+          // host two distinct interactive areas: the click-to-open
+          // detail area on the left and a delete affordance on the
+          // right. (Nested <button> is invalid HTML.)
+          <div
             key={c.id}
-            onClick={() => setSelectedId(c.id)}
-            className="flex items-center justify-between py-3 -mx-4 px-4 hover:bg-gray-50 w-full text-left"
+            className="flex items-center justify-between py-3 -mx-4 px-4 hover:bg-gray-50"
           >
-            <div>
+            <button
+              onClick={() => setSelectedId(c.id)}
+              className="flex-1 text-left"
+            >
               <div className="font-medium">{c.name}</div>
               <div className="text-xs text-gray-500 mt-0.5">
                 {[c.classCode, c.englishLevel?.level, `${c._count?.enrollments ?? 0} students`]
                   .filter(Boolean)
                   .join(' · ')}
               </div>
+            </button>
+            <div className="flex items-center gap-3 shrink-0 ml-3">
+              <button
+                onClick={async () => {
+                  // Two-step confirm because delete cascades to
+                  // attendance/submissions, which is irreversible.
+                  const c1 = window.confirm(
+                    `永久删除「${c.name}」?\n这会一并删除该班所有学生注册、卷子分配、早测 session 及考勤记录,且不可恢复。`,
+                  );
+                  if (!c1) return;
+                  const typed = window.prompt(
+                    `请再次输入班级代码「${c.classCode}」以确认删除:`,
+                  );
+                  if (typed?.trim() !== c.classCode) {
+                    if (typed != null) alert('班级代码不匹配,已取消');
+                    return;
+                  }
+                  try {
+                    await api.deleteClass(c.id);
+                    await reload();
+                  } catch (e: any) {
+                    alert('删除失败: ' + (e?.message ?? String(e)));
+                  }
+                }}
+                className="text-xs text-rose-600 hover:text-rose-800 hover:underline"
+                title="永久删除该班级及其所有关联数据"
+              >
+                删除
+              </button>
+              <span className="text-xs text-gray-400">→</span>
             </div>
-            <span className="text-xs text-gray-400">→</span>
-          </button>
+          </div>
         ))}
       </div>
 

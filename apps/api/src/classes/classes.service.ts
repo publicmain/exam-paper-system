@@ -114,6 +114,17 @@ export class ClassesService {
     return { createdUsers: created.length, enrolled: enrolled.length, alreadyIn: skipped.length };
   }
 
+  /** Permanent delete. All FK references to Class (enrollments, paper
+   *  assignments, morning-quiz sessions, english-level row) cascade per
+   *  the baseline migration. Use with care: also wipes the class's
+   *  attendance/submission history. */
+  async remove(classId: string) {
+    const cls = await this.prisma.class.findUnique({ where: { id: classId } });
+    if (!cls) throw new NotFoundException('class not found');
+    await this.prisma.class.delete({ where: { id: classId } });
+    return { deleted: classId, name: cls.name };
+  }
+
   /** List classes the current user belongs to (any role). */
   async myClasses(userId: string) {
     return this.prisma.class.findMany({

@@ -128,4 +128,15 @@ export class ClassesController {
     if (!parsed.success) throw new BadRequestException(parsed.error.flatten());
     return this.classes.update(id, parsed.data);
   }
+
+  /** Delete a class and (via FK ON DELETE CASCADE) all its enrollments,
+   *  paper assignments, morning-quiz sessions, and english-level row.
+   *  Admin/head-only — irreversible and wipes attendance history. */
+  @Delete(':id')
+  async remove(@Param('id') id: string, @CurrentUser() user: any) {
+    if (user.role !== 'admin' && user.role !== 'head_teacher') {
+      throw new ForbiddenException({ code: 'admin_only' });
+    }
+    return this.classes.remove(id);
+  }
 }
