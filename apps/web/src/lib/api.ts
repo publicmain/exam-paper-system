@@ -338,7 +338,8 @@ export const api = {
     classId: string,
     level: 'ielts_authentic' | 'ielts_simplified' | 'olevel',
   ) => request('PATCH', `/morning-quiz/classes/${classId}/english-level`, { level }),
-  // 题库健康度 — per-(class, level) totalBank/usedRecent/remaining counts,
+  // 题库健康度 — per-(class, level) totalBank / usedRecent (累计已用, kept name
+  // for API back-compat) / remaining counts,
   // used by the schedule UI to flag depletion before generation.
   morningQuizBankStats: (classId: string): Promise<{
     classId: string;

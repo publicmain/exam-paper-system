@@ -307,7 +307,7 @@ export default function MorningQuizSchedule() {
                           className={`inline-flex items-center gap-1 border px-2 py-0.5 rounded text-xs ${tone}`}
                           title={
                             stat
-                              ? `题库总数 ${stat.totalBank} · 本班 30 天内已用 ${stat.usedRecent} · 剩 ${stat.remaining}${stat.depleted ? ' (将开始重复)' : ''}`
+                              ? `题库总数 ${stat.totalBank} · 本班累计已用 ${stat.usedRecent} · 剩 ${stat.remaining}${stat.depleted ? ' (题库耗尽, 下次会重复最久未出的)' : ''}`
                               : ''
                           }
                         >

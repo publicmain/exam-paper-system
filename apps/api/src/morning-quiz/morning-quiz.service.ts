@@ -385,12 +385,13 @@ export class MorningQuizService {
       classIds?: string[];
       questionsPerPaper?: number;
       /**
-       * Wipe existing sessions+papers in the window before generating. Used
-       * when a fresh content bank has just been ingested and the operator
-       * wants the week's quizzes regenerated against the new bank rather
-       * than waiting for the dedup window to age out. Destructive: any
-       * student submissions or answer scripts in the window are deleted
-       * along with the papers via the FK cascade.
+       * Wipe existing sessions+papers in the window before generating.
+       * Used when a fresh content bank has just been ingested and the
+       * operator wants the week's quizzes regenerated against the new
+       * bank rather than waiting for LRU rotation to organically reach
+       * the new picks. Destructive: any student submissions or answer
+       * scripts in the window are deleted along with the papers via FK
+       * cascade.
        */
       force?: boolean;
     },
@@ -688,22 +689,26 @@ export class MorningQuizService {
       });
     }
 
-    // Filter out passages used by this class in the last 30 days. Round-7
-    // hardening:
-    //   - constrain the recent-papers query to (this subject + passage_pick
-    //     mode) so an unrelated passage_pick from another subject (we only
-    //     have IELTS today, but defensive) can't skew the bucket;
-    //   - track lastUsedAt per passage so the fallback can pick the LEAST
-    //     recently used instead of the deterministic [0]; that's what
-    //     turned a depleted bank into a "silent loop" — the same passage
-    //     came up every Monday;
+    // Filter out passages this class has EVER been served (no time window).
+    // User decision: a passage that's been used once is retired from the
+    // candidate pool permanently — repeats only happen when the entire
+    // bank is exhausted (LRU fallback below), at which point ops sees a
+    // loud warn() and ingests more content. When a Paper row is deleted
+    // (e.g. via force-regenerate), its passageRef silently rejoins the
+    // candidate pool — no extra bookkeeping needed because we read the
+    // ever-used set live from Paper rows.
+    //
+    // Round-7 hardening retained:
+    //   - scope to (this subject + passage_pick mode) so unrelated picks
+    //     can't skew the bucket;
+    //   - track lastUsedAt per passage so the LRU fallback picks the
+    //     oldest, not the deterministic [0] (which used to silent-loop
+    //     "every Monday same passage");
     //   - emit a loud warn() when the bank is depleted so ops can act.
-    const cutoff = new Date(Date.now() - 30 * 86_400_000);
     const recentPapers = await this.prisma.paper.findMany({
       where: {
         subjectId: subject.id,
         assignments: { some: { classId } },
-        createdAt: { gte: cutoff },
       },
       select: { config: true, createdAt: true },
       orderBy: { createdAt: 'desc' },
@@ -734,8 +739,8 @@ export class MorningQuizService {
       );
       pick = sorted[0];
       this.logger.warn(
-        `passage_pick bank depleted for class=${classId} subject=${subjectCode} — recycling LRU passage=${pick} ` +
-          `(bank=${byPassage.size}, used in last 30d=${usedPassageRefs.size}). Ingest more past papers.`,
+        `passage_pick bank exhausted (lifetime) for class=${classId} subject=${subjectCode} — recycling LRU passage=${pick} ` +
+          `(bank=${byPassage.size}, ever served=${usedPassageRefs.size}). Ingest more past papers.`,
       );
     }
     // Sort questions inside the passage NUMERICALLY by Q-number — string
@@ -809,7 +814,7 @@ export class MorningQuizService {
    * Each "set" is a complete pre-curated paper Claude wrote and POSTed
    * via /api/olevel-ingest/paper, with mixed question types (cloze /
    * vocab / transformation). Picks the least-recently-used paper for
-   * this class + 30-day window — same de-dup rule as IELTS.
+   * this class with lifetime de-dup — same as IELTS picker.
    */
   private async pickOlevelPaperAndCreatePaper(
     classId: string,
@@ -874,15 +879,17 @@ export class MorningQuizService {
       });
     }
 
-    // 30-day de-dup against this class's recent OLEVEL picks, SCOPED TO
-    // THIS TIER. Cross-tier picks shouldn't dedup each other — the basic
-    // and middle bands run on different days for different students.
-    const cutoff = new Date(Date.now() - 30 * 86_400_000);
+    // Lifetime de-dup against this class's OLEVEL picks (no time window),
+    // SCOPED TO THIS TIER. A paper that's been served once is retired
+    // from the candidate pool permanently; repeats only happen when the
+    // entire tier is exhausted (LRU fallback below). Cross-tier picks
+    // don't dedup each other — the basic and middle bands run on
+    // different days for different students. When a Paper row is deleted
+    // (e.g. force-regenerate), its paperKey silently rejoins this pool.
     const recent = await this.prisma.paper.findMany({
       where: {
         subjectId: subject.id,
         assignments: { some: { classId } },
-        createdAt: { gte: cutoff },
       },
       select: { config: true, createdAt: true },
       orderBy: { createdAt: 'desc' },
@@ -911,7 +918,8 @@ export class MorningQuizService {
       );
       pick = sorted[0];
       this.logger.warn(
-        `olevel pick bank depleted for class=${classId} — recycling LRU paper=${pick}`,
+        `olevel pick bank exhausted (lifetime, tier=${filter}) for class=${classId} — recycling LRU paper=${pick} ` +
+          `(bank=${byPaperKey.size}, ever served=${usedKeys.size}). Ingest more papers.`,
       );
     }
     // Sort by trailing Q-number numerically (same trick as IELTS).
@@ -971,13 +979,15 @@ export class MorningQuizService {
   /**
    * Read-only mirror of the pick* logic: for each registered level on a
    * class, count how many unique passages/papers the bank has and how
-   * many this class has already burned through in the last 30 days.
-   * Used by the schedule UI to flag depletion BEFORE the operator hits
-   * "generate" and silently lands on an LRU recycle.
+   * many this class has EVER been served. Used by the schedule UI to
+   * flag depletion BEFORE the operator hits "generate" and silently
+   * lands on an LRU recycle.
    *
-   * The 30-day window matches the dedup window in pickPassageAndCreatePaper
-   * and pickOlevelPaperAndCreatePaper — if you widen one you must widen
-   * the other or this counter lies.
+   * Lifetime dedup matches the dedup policy in pickPassageAndCreatePaper
+   * and pickOlevelPaperAndCreatePaper — if you change one you must change
+   * the other or this counter lies. Field name `usedRecent` is kept for
+   * API backward-compat (UI clients still read it); semantically it now
+   * means "ever served" not "in last 30 days".
    */
   async bankStatsForClass(classId: string): Promise<
     Array<{
@@ -993,8 +1003,6 @@ export class MorningQuizService {
       orderBy: { level: 'asc' },
     });
     if (levelRows.length === 0) return [];
-
-    const cutoff = new Date(Date.now() - 30 * 86_400_000);
 
     // Helper: count unique passage prefixes in the IELTS bank under one
     // provenance filter. Mirrors pickPassageAndCreatePaper's bucketing.
@@ -1063,12 +1071,13 @@ export class MorningQuizService {
       return paperKeys.size;
     };
 
-    // Per-class recent picks, scoped to mode so we don't accidentally
-    // count cross-level papers against each other.
+    // Per-class lifetime picks (no time window), scoped to mode so we
+    // don't accidentally count cross-level papers against each other.
+    // Mirrors the lifetime dedup in pickPassageAndCreatePaper /
+    // pickOlevelPaperAndCreatePaper.
     const recent = await this.prisma.paper.findMany({
       where: {
         assignments: { some: { classId } },
-        createdAt: { gte: cutoff },
       },
       select: { config: true },
     });
@@ -1084,10 +1093,11 @@ export class MorningQuizService {
         | null;
       if (!cfg) continue;
       if (cfg.mode === 'passage_pick' && cfg.passageRef) {
-        // Legacy bucket — passage_pick (IELTS GT) used to back the middle
-        // band. Kept here so historical 30-day picks are still counted
-        // against the authentic bucket (the only remaining passage_pick
-        // path). Middle-band picks now land under olevel_curated_simplified.
+        // passage_pick is now the IELTS authentic path only — the middle
+        // band was re-routed to olevel_curated_simplified. Any historical
+        // passage_pick picks (including pre-rework GT picks) count against
+        // the authentic bucket for accounting purposes; they are also
+        // already dedup'd at the picker level via passageRef lifetime set.
         usedByMode.passage_pick_authentic.add(cfg.passageRef);
       } else if (cfg.mode === 'olevel_curated' && cfg.paperKey) {
         // provenanceFilter landed with the simplified-tier split; legacy

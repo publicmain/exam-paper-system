@@ -57,9 +57,10 @@ const BatchGenerateSchema = z.object({
   // If true, BEFORE generating, wipe any existing MorningQuizSession (and
   // cascade-wipe Paper + PaperAssignment + PaperQuestion + StudentSubmission +
   // AnswerScript) that already lives in the (weekStart..weekStart+5d) window.
-  // Used when a fresh bank has been ingested and you want to regenerate the
-  // week against the new content rather than waiting for the dedup window
-  // to age out. Destructive — also drops any student submissions in that
+  // Used when a fresh bank has been ingested and you want to regenerate
+  // the week against the new content rather than waiting for LRU rotation
+  // to organically work through the new picks. Destructive — also drops
+  // any student submissions in that
   // window, so coordinate before invoking on a live week.
   force: z.boolean().optional(),
 });
@@ -221,9 +222,9 @@ export class MorningQuizController {
   /**
    * Per-class bank-health snapshot used by the schedule UI to flag
    * "this class is about to run out of unique passages". Returns the
-   * registered levels for the class with totalBank / usedRecent (30d) /
-   * remaining counts. Public to authenticated teachers/admins; no
-   * student PII surfaced.
+   * registered levels for the class with totalBank / usedRecent
+   * (lifetime — kept that field name for API back-compat) / remaining
+   * counts. Public to authenticated teachers/admins; no student PII.
    */
   @Get('bank-stats')
   async bankStats(@Query('classId') classId: string) {
