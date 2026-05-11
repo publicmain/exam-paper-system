@@ -88,6 +88,11 @@ export class ContentBootstrapService implements OnApplicationBootstrap {
         { label: 'IELTS 8 Test1/P1', payload: loadFixture('cambridge-ielts-8/test1-passage1.json') },
         { label: 'IELTS 8 Test1/P2', payload: loadFixture('cambridge-ielts-8/test1-passage2.json') },
         { label: 'IELTS 8 Test1/P3', payload: loadFixture('cambridge-ielts-8/test1-passage3.json') },
+        // R10 follow-up — extending the ielts_authentic pool. Bank-stats
+        // showed `剩 0/3 ⚠` after one school week because the pool only
+        // had Test 1's 3 passages. Each Test 2/3/4 passage we add buys
+        // the picker one more day of unique content before LRU recycle.
+        { label: 'IELTS 8 Test2/P1', payload: loadFixture('cambridge-ielts-8/test2-passage1.json') },
       ];
 
       let ieltsCreated = 0;

@@ -1,0 +1,148 @@
+{
+  "bookCode": "cambridge_ielts_8",
+  "testNumber": 2,
+  "passageNumber": 1,
+  "passage": {
+    "title": "Sheet glass manufacture: the float process",
+    "body": "Glass, which has been made since the time of the Mesopotamians and Egyptians, is little more than a mixture of sand, soda ash and lime. When heated to about 1500 degrees Celsius (°C) this becomes a molten mass that hardens when slowly cooled. The first successful method for making clear, flat glass involved spinning. This method was very effective as the glass had not touched any surfaces between being soft and becoming hard, so it stayed perfectly unblemished, with a 'fire finish'. However, the process took a long time and was labour intensive.\n\nNevertheless, demand for flat glass was very high and glassmakers across the world were looking for a method of making it continuously. The first continuous ribbon process involved squeezing molten glass through two hot rollers, similar to an old mangle. This allowed glass of virtually any thickness to be made non-stop, but the rollers would leave both sides of the glass marked, and these would then need to be ground and polished. This part of the process rubbed away around 20 per cent of the glass, and the machines were very expensive.\n\nThe float process for making flat glass was invented by Alistair Pilkington. This process allows the manufacture of clear, tinted and coated glass for buildings, and clear and tinted glass for vehicles. Pilkington had been experimenting with improving the melting process, and in 1952 he had the idea of using a bed of molten metal to form the flat glass, eliminating altogether the need for rollers within the float bath. The metal had to melt at a temperature less than the hardening point of glass (about 600°C), but could not boil at a temperature below the temperature of the molten glass (about 1500°C). The best metal for the job was tin.\n\nThe rest of the concept relied on gravity, which guaranteed that the surface of the molten metal was perfectly flat and horizontal. Consequently, when pouring molten glass onto the molten tin, the underside of the glass would also be perfectly flat. If the glass were kept hot enough, it would flow over the molten tin until the top surface was also flat, horizontal and perfectly parallel to the bottom surface. Once the glass cooled to 604°C or less it was too hard to mark and could be transported out of the cooling zone by rollers. The glass settled to a thickness of six millimetres because of surface tension interactions between the glass and the tin. By fortunate coincidence, 60 per cent of the flat glass market at that time was for six-millimetre glass.\n\nPilkington built a pilot plant in 1953 and by 1955 he had convinced his company to build a full-scale plant. However, it took 14 months of non-stop production, costing the company £100,000 a month, before the plant produced any usable glass. Furthermore, once they succeeded in making marketable flat glass, the machine was turned off for a service to prepare it for years of continuous production. When it started up again it took another four months to get the process right again. They finally succeeded in 1959 and there are now float plants all over the world, with each able to produce around 1000 tons of glass every day, non-stop for around 15 years.\n\nFloat plants today make glass of near optical quality. Several processes — melting, refining, homogenising — take place simultaneously in the 2000 tonnes of molten glass in the furnace. They occur in separate zones in a complex glass flow driven by high temperatures. It adds up to a continuous melting process, lasting as long as 50 hours, that delivers glass smoothly and continuously to the float bath, and from there to a coating zone and finally a heat treatment zone, where stresses formed during cooling are relieved.\n\nThe principle of float glass is unchanged since the 1950s. However, the product has changed dramatically, from a single thickness of 6.8 mm to a range from sub-millimetre to 25 mm, from a ribbon frequently marred by inclusions and bubbles to almost optical perfection. To ensure the highest quality, inspection takes place at every stage. Occasionally, a bubble is not removed during refining, a sand grain refuses to melt, a tremor in the tin puts ripples into the glass ribbon. Automated on-line inspection does two things. Firstly, it reveals process faults upstream that can be corrected. Inspection technology allows more than 100 million measurements a second to be made across the ribbon, locating flaws the unaided eye would be unable to see. Secondly, it enables computers downstream to steer cutters around flaws. Float glass is sold by the square metre, and at the final stage computers translate customer requirements into patterns of cuts designed to minimise waste."
+  },
+  "questions": [
+    {
+      "n": 1,
+      "questionType": "short_answer",
+      "taskType": "table_completion",
+      "instruction": "Complete the table and diagram below.\nChoose NO MORE THAN TWO WORDS from the passage for each answer.\nWrite your answers in boxes 1-8 on your answer sheet.\n\nEarly methods of producing flat glass — Method row 1:",
+      "stem": "Q1 — Method: '___' (Advantages: Glass remained ___; Disadvantages: Slow, ___)",
+      "options": null,
+      "answer": "spinning"
+    },
+    {
+      "n": 2,
+      "questionType": "short_answer",
+      "taskType": "table_completion",
+      "instruction": "Complete the table and diagram below.\nChoose NO MORE THAN TWO WORDS from the passage for each answer.",
+      "stem": "Q2 — Method 'spinning' / Advantages: 'Glass remained ___'",
+      "options": null,
+      "answer": "unblemished"
+    },
+    {
+      "n": 3,
+      "questionType": "short_answer",
+      "taskType": "table_completion",
+      "instruction": "Complete the table and diagram below.\nChoose NO MORE THAN TWO WORDS from the passage for each answer.",
+      "stem": "Q3 — Method 'spinning' / Disadvantages: 'Slow' and '___'",
+      "options": null,
+      "answer": "labour intensive"
+    },
+    {
+      "n": 4,
+      "questionType": "short_answer",
+      "taskType": "table_completion",
+      "instruction": "Complete the table and diagram below.\nChoose NO MORE THAN TWO WORDS from the passage for each answer.",
+      "stem": "Q4 — Method 'Ribbon' / Advantages: 'Could produce glass sheets of varying ___'",
+      "options": null,
+      "answer": "thickness"
+    },
+    {
+      "n": 5,
+      "questionType": "short_answer",
+      "taskType": "table_completion",
+      "instruction": "Complete the table and diagram below.\nChoose NO MORE THAN TWO WORDS from the passage for each answer.",
+      "stem": "Q5 — Method 'Ribbon' / Disadvantages: 'Glass was ___'",
+      "options": null,
+      "answer": "marked"
+    },
+    {
+      "n": 6,
+      "questionType": "short_answer",
+      "taskType": "diagram_completion",
+      "instruction": "Label the diagram of Pilkington's float process below.\nChoose NO MORE THAN TWO WORDS from the passage for each answer.",
+      "stem": "Q6 — the material poured in on the left, above the melting zone",
+      "options": null,
+      "answer": "molten glass"
+    },
+    {
+      "n": 7,
+      "questionType": "short_answer",
+      "taskType": "diagram_completion",
+      "instruction": "Label the diagram of Pilkington's float process below.\nChoose NO MORE THAN TWO WORDS from the passage for each answer.",
+      "stem": "Q7 — the bed of molten metal under the glass ribbon",
+      "options": null,
+      "answer": "molten tin"
+    },
+    {
+      "n": 8,
+      "questionType": "short_answer",
+      "taskType": "diagram_completion",
+      "instruction": "Label the diagram of Pilkington's float process below.\nChoose NO MORE THAN TWO WORDS from the passage for each answer.",
+      "stem": "Q8 — what transports the cooled glass out at the right-hand end",
+      "options": null,
+      "answer": "rollers"
+    },
+    {
+      "n": 9,
+      "questionType": "mcq",
+      "taskType": "true_false_not_given",
+      "instruction": "Do the following statements agree with the information given in Reading Passage 1? Choose:\nA  TRUE  if the statement agrees with the information\nB  FALSE  if the statement contradicts the information\nC  NOT GIVEN  if there is no information on this",
+      "stem": "The metal used in the float process had to have specific properties.",
+      "options": [
+        { "key": "A", "text": "TRUE", "correct": true },
+        { "key": "B", "text": "FALSE", "correct": false },
+        { "key": "C", "text": "NOT GIVEN", "correct": false }
+      ],
+      "answer": "A"
+    },
+    {
+      "n": 10,
+      "questionType": "mcq",
+      "taskType": "true_false_not_given",
+      "instruction": "Do the following statements agree with the information given in Reading Passage 1? Choose:\nA  TRUE  if the statement agrees with the information\nB  FALSE  if the statement contradicts the information\nC  NOT GIVEN  if there is no information on this",
+      "stem": "Pilkington invested some of his own money in his float plant.",
+      "options": [
+        { "key": "A", "text": "TRUE", "correct": false },
+        { "key": "B", "text": "FALSE", "correct": false },
+        { "key": "C", "text": "NOT GIVEN", "correct": true }
+      ],
+      "answer": "C"
+    },
+    {
+      "n": 11,
+      "questionType": "mcq",
+      "taskType": "true_false_not_given",
+      "instruction": "Do the following statements agree with the information given in Reading Passage 1? Choose:\nA  TRUE  if the statement agrees with the information\nB  FALSE  if the statement contradicts the information\nC  NOT GIVEN  if there is no information on this",
+      "stem": "Pilkington's first full-scale plant was an instant commercial success.",
+      "options": [
+        { "key": "A", "text": "TRUE", "correct": false },
+        { "key": "B", "text": "FALSE", "correct": true },
+        { "key": "C", "text": "NOT GIVEN", "correct": false }
+      ],
+      "answer": "B"
+    },
+    {
+      "n": 12,
+      "questionType": "mcq",
+      "taskType": "true_false_not_given",
+      "instruction": "Do the following statements agree with the information given in Reading Passage 1? Choose:\nA  TRUE  if the statement agrees with the information\nB  FALSE  if the statement contradicts the information\nC  NOT GIVEN  if there is no information on this",
+      "stem": "The process invented by Pilkington has now been improved.",
+      "options": [
+        { "key": "A", "text": "TRUE", "correct": true },
+        { "key": "B", "text": "FALSE", "correct": false },
+        { "key": "C", "text": "NOT GIVEN", "correct": false }
+      ],
+      "answer": "A"
+    },
+    {
+      "n": 13,
+      "questionType": "mcq",
+      "taskType": "true_false_not_given",
+      "instruction": "Do the following statements agree with the information given in Reading Passage 1? Choose:\nA  TRUE  if the statement agrees with the information\nB  FALSE  if the statement contradicts the information\nC  NOT GIVEN  if there is no information on this",
+      "stem": "Computers are better than humans at detecting faults in glass.",
+      "options": [
+        { "key": "A", "text": "TRUE", "correct": true },
+        { "key": "B", "text": "FALSE", "correct": false },
+        { "key": "C", "text": "NOT GIVEN", "correct": false }
+      ],
+      "answer": "A"
+    }
+  ]
+}
