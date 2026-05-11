@@ -203,10 +203,25 @@ export default function MorningQuizSchedule() {
     }
   }
 
-  /** Open the public big-screen page in a new tab. Caller is the venue
-   *  laptop hooked to the projector — they keep this tab full-screen. */
+  /** Open the public big-screen page in a new tab pinned to a specific
+   *  session. Caller is the venue laptop hooked to the projector — they
+   *  keep this tab full-screen. */
   function openDisplay(sessionId: string) {
     window.open(`/display?sessionId=${encodeURIComponent(sessionId)}`, '_blank', 'noopener,noreferrer');
+  }
+
+  /** Open the display page in "auto-resolve" mode — pinned to the class,
+   *  not a specific session. The /qr/current endpoint will return today's
+   *  session if it's still scheduled/active, else automatically fall
+   *  through to tomorrow's. Used for the "leave the page open overnight
+   *  on the projector" workflow: open this tab Mon evening, walk away,
+   *  Tue morning at 8:30 the QR is already there and active. */
+  function openDisplayOvernight(classIdToShow: string) {
+    window.open(
+      `/display?classId=${encodeURIComponent(classIdToShow)}`,
+      '_blank',
+      'noopener,noreferrer',
+    );
   }
 
   /** DEV ONLY: fast-forward a session into "now-active" so we can test
@@ -502,6 +517,13 @@ export default function MorningQuizSchedule() {
                           title="一个 QR 给本班所有等级共用,学生扫码后自己选难度"
                         >
                           🖥️ 大屏 QR
+                        </button>
+                        <button
+                          onClick={() => openDisplayOvernight(primary.class.id)}
+                          className="text-xs px-2 py-1 rounded bg-indigo-50 hover:bg-indigo-100 text-indigo-700 mr-1"
+                          title="开了就走 · 自动跟随班级当日 / 次日的 session。前一晚打开, 第二天 8:30 二维码自动激活"
+                        >
+                          🌙 留到明早
                         </button>
                         <button
                           onClick={async () => {

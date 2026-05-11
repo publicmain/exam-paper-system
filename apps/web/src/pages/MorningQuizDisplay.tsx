@@ -22,6 +22,10 @@ export default function MorningQuizDisplay() {
   const [token, setToken] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [now, setNow] = useState(new Date());
+  // Session lifecycle metadata so the page can render "等待激活" overlay
+  // overnight instead of a bare QR. Both fields land via /qr/current.
+  const [sessionStatus, setSessionStatus] = useState<string | null>(null);
+  const [attendanceStart, setAttendanceStart] = useState<Date | null>(null);
 
   // Back button: prefer history pop (returns to the schedule/dashboard the
   // operator came from), fall back to "/" if this was opened in a fresh tab.
@@ -38,6 +42,8 @@ export default function MorningQuizDisplay() {
         const r = await api.qrCurrent({ classId, sessionId });
         if (!cancelled) {
           setToken(r.token);
+          setSessionStatus(r.sessionStatus ?? null);
+          setAttendanceStart(r.attendanceStart ? new Date(r.attendanceStart) : null);
           setError(null);
         }
       } catch (e: any) {
@@ -63,6 +69,35 @@ export default function MorningQuizDisplay() {
     const origin = window.location.origin;
     return `${origin}/scan/${token}`;
   }, [token]);
+
+  // When this is true, the QR is rendered but the session hasn't been
+  // flipped to `active` yet by the 8:25 cron — typically the "left the
+  // laptop running overnight" scenario. We render a soft countdown
+  // overlay so the room knows it's intentional, not broken.
+  const waitingForActivation = sessionStatus === 'scheduled' && !!attendanceStart;
+  const countdownText = useMemo(() => {
+    if (!waitingForActivation || !attendanceStart) return null;
+    const diffMs = attendanceStart.getTime() - now.getTime();
+    if (diffMs <= 0) return null; // about to flip; cron will catch up next tick
+    const totalMin = Math.floor(diffMs / 60_000);
+    const h = Math.floor(totalMin / 60);
+    const m = totalMin % 60;
+    if (h > 0) return `${h} 小时 ${m} 分钟后激活`;
+    return `${m} 分钟后激活`;
+  }, [waitingForActivation, attendanceStart, now]);
+
+  // Pretty-print attendance start "tomorrow 08:30" / "today 08:30" / "Tue 08:30"
+  const startTimeText = useMemo(() => {
+    if (!attendanceStart) return null;
+    const sameDay = attendanceStart.toDateString() === now.toDateString();
+    const tomorrow = new Date(now);
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    const isTomorrow = attendanceStart.toDateString() === tomorrow.toDateString();
+    const hhmm = attendanceStart.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
+    if (sameDay) return `今天 ${hhmm}`;
+    if (isTomorrow) return `明早 ${hhmm}`;
+    return `${attendanceStart.toLocaleDateString('zh-CN', { month: 'numeric', day: 'numeric', weekday: 'short' })} ${hhmm}`;
+  }, [attendanceStart, now]);
 
   return (
     <div className="fixed inset-0 bg-white flex flex-col items-center justify-center text-gray-800 select-none">
@@ -97,6 +132,8 @@ export default function MorningQuizDisplay() {
                 School-network only display
               </div>
             </>
+          ) : error.includes('no_session_today_or_tomorrow') ? (
+            <>今天和明天都没有早测安排 / No morning quiz scheduled today or tomorrow.</>
           ) : error.includes('no_session_today') || error.includes('not_found') ? (
             <>今天没有早测安排 / No morning quiz scheduled today.</>
           ) : (
@@ -105,6 +142,32 @@ export default function MorningQuizDisplay() {
         </div>
       ) : !scanUrl ? (
         <div className="text-3xl text-gray-400">Loading…</div>
+      ) : waitingForActivation ? (
+        // Overnight "leave it open" state — QR is rendered but with a
+        // friendly overlay so the room understands it's intentionally
+        // waiting, not broken or stuck on yesterday's session.
+        <>
+          <div className="relative bg-white p-6 rounded-2xl shadow-xl border border-gray-200">
+            <QRCodeSVG value={scanUrl} size={420} level="M" includeMargin={false} />
+            <div className="absolute inset-0 flex items-center justify-center rounded-2xl bg-white/70 backdrop-blur-sm">
+              <div className="text-7xl">🌙</div>
+            </div>
+          </div>
+          <div className="mt-8 text-3xl font-semibold tracking-tight text-indigo-700">
+            等待 {startTimeText} 自动激活
+          </div>
+          <div className="mt-2 text-xl text-gray-500">
+            QR will go live at {startTimeText}. Leave this tab open.
+          </div>
+          {countdownText && (
+            <div className="mt-6 text-2xl text-gray-600 font-mono tabular-nums">
+              ⏳ {countdownText}
+            </div>
+          )}
+          <div className="mt-4 text-base text-gray-400 font-mono">
+            Display stays on; QR auto-refreshes every 15s after activation.
+          </div>
+        </>
       ) : (
         <>
           <div className="bg-white p-6 rounded-2xl shadow-xl border border-gray-200">

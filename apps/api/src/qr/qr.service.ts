@@ -22,10 +22,27 @@ export class QrService {
    * any window's token is also accepted up to TOLERANCE_MS after its end so
    * a student scanning at the boundary still gets through.
    */
-  async currentToken(sessionId: string): Promise<{ token: string; expiresAt: number }> {
+  async currentToken(sessionId: string): Promise<{
+    token: string;
+    expiresAt: number;
+    /** Session lifecycle state — `scheduled` means the QR is shown but
+     *  attendance won't be accepted until the cron flips it to `active`
+     *  (T-30s before attendanceStart). Used by the display page to show
+     *  a "waiting for tomorrow" overlay instead of a bare QR overnight. */
+    sessionStatus: string;
+    /** ISO timestamp of when attendance scan becomes valid. Lets the
+     *  display page render a live countdown for the overnight workflow. */
+    attendanceStart: string;
+  }> {
     const session = await this.prisma.morningQuizSession.findUnique({
       where: { id: sessionId },
-      select: { id: true, qrSecret: true, qrRotationSeconds: true, status: true },
+      select: {
+        id: true,
+        qrSecret: true,
+        qrRotationSeconds: true,
+        status: true,
+        attendanceStart: true,
+      },
     });
     if (!session) throw new NotFoundException('session_not_found');
 
@@ -37,7 +54,12 @@ export class QrService {
       .digest('hex')
       .slice(0, SIG_LEN);
     const token = `${TOKEN_VERSION}.${windowStart}.${sig}.${session.id}`;
-    return { token, expiresAt: windowStart + rotateMs + TOLERANCE_MS };
+    return {
+      token,
+      expiresAt: windowStart + rotateMs + TOLERANCE_MS,
+      sessionStatus: session.status,
+      attendanceStart: session.attendanceStart.toISOString(),
+    };
   }
 
   /**

@@ -41,13 +41,26 @@ export class QrController {
     }
     if (!classId) throw new BadRequestException('classId or sessionId required');
 
+    // Look ahead 48h: pick today's session if still serviceable
+    // (status active or scheduled), otherwise auto-fall-through to
+    // tomorrow's. Lets a venue laptop be left running overnight pointed
+    // at /display?classId=X — the QR for tomorrow morning's quiz appears
+    // as soon as today's session locks (or right away after the previous
+    // day's session is done), no re-opening required.
+    //
+    // Order by date asc so today wins if it's still scheduled/active;
+    // only fall through to tomorrow when today is past (locked).
     const today = startOfTodayUtc();
-    const tomorrow = new Date(today.getTime() + 86_400_000);
+    const dayAfterTomorrow = new Date(today.getTime() + 2 * 86_400_000);
     const session = await this.prisma.morningQuizSession.findFirst({
-      where: { classId, date: { gte: today, lt: tomorrow }, status: { in: ['active', 'scheduled'] } },
-      orderBy: { date: 'desc' },
+      where: {
+        classId,
+        date: { gte: today, lt: dayAfterTomorrow },
+        status: { in: ['active', 'scheduled'] },
+      },
+      orderBy: { date: 'asc' },
     });
-    if (!session) throw new NotFoundException('no_session_today');
+    if (!session) throw new NotFoundException('no_session_today_or_tomorrow');
     return this.qr.currentToken(session.id);
   }
 }
