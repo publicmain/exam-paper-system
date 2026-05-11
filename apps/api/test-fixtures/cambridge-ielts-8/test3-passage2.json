@@ -1,0 +1,220 @@
+{
+  "bookCode": "cambridge_ielts_8",
+  "testNumber": 3,
+  "passageNumber": 2,
+  "passage": {
+    "title": "The Nature of Genius",
+    "body": "There has always been an interest in geniuses and prodigies. The word 'genius', from the Latin gens (= family) and the term 'genius', meaning 'begetter', comes from the early Roman cult of a divinity as the head of the family. In its earliest form, genius was concerned with the ability of the head of the family, the paterfamilias, to perpetuate himself. Gradually, genius came to represent a person's characteristics and thence an individual's highest attributes derived from his 'genius' or guiding spirit. Today, people still look to stars or genes, astrology or genetics, in the hope of finding the source of exceptional abilities or personal characteristics.\n\nThe concept of genius and of gifts has become part of our folk culture, and attitudes are ambivalent towards them. We envy the gifted and mistrust them. In the mythology of giftedness, it is popularly believed that if people are talented in one area, they must be defective in another, that intellectuals are impractical, that prodigies burn too brightly too soon and burn out, that gifted people are eccentric, that they are physical weaklings, that there's a thin line between genius and madness, that genius runs in families, that the gifted are so clever they don't need special help, that giftedness is the same as having a high IQ, that some races are more intelligent or musical or mathematical than others, that genius goes unrecognised and unrewarded, that adversity makes men wise or that people with gifts have a responsibility to use them. Language has been enriched with such terms as 'highbrow', 'egghead', 'blue-stocking', 'wiseacre', 'know-all', 'boffin' and, for many, 'intellectual' is a term of denigration.\n\nThe nineteenth century saw considerable interest in the nature of genius, and produced not a few studies of famous prodigies. Perhaps for us today, two of the most significant aspects of most of these studies of genius are the frequency with which early encouragement and teaching by parents and tutors had beneficial effects on the intellectual, artistic or musical development of the children but caused great difficulties of adjustment later in their lives, and the frequency with which abilities went unrecognised by teachers and schools. However, the difficulty with the evidence produced by these studies, fascinating as they are in collecting together anecdotes and apparent similarities and exceptions, is that they are not what we would today call norm-referenced. In other words, when, for instance, information is collated about early illnesses, methods of upbringing, schooling, etc., we must also take into account information from other historical sources about how common or exceptional these were at the time. For instance, infant mortality was high and life expectancy much shorter than today, home tutoring was common in the families of the nobility and wealthy, bullying and corporal punishment were common at the best independent schools and, for the most part, the cases studied were members of the privileged classes. It was only with the growth of paediatrics and psychology in the twentieth century that studies could be carried out on a more objective, if still not always very scientific, basis.\n\nGeniuses, however they are defined, are but the peaks which stand out through the mist of history and are visible to the particular observer from his or her particular vantage point. Change the observers and the vantage points, clear away some of the mist, and a different lot of peaks appear. Genius is a term we apply to those whom we recognise for their outstanding achievements and who stand near the end of the continuum of human abilities which reaches back through the mundane and mediocre to the incapable. There is still much truth in Dr Samuel Johnson's observation, 'The true genius is a mind of large general powers, accidentally determined to some particular direction'. We may disagree with the 'general', for we doubt if all musicians of genius could have become scientists of genius or vice versa, but there is no doubting the accidental determination which nurtured or triggered their gifts into those channels into which they have poured their powers so successfully. Along the continuum of abilities are hundreds of thousands of gifted men and women, boys and girls.\n\nWhat we appreciate, enjoy or marvel at in the works of genius or the achievements of prodigies are the manifestations of skills or abilities which are similar to, but so much superior to, our own. But that their minds are not different from our own is demonstrated by the fact that the hard-won discoveries of scientists like Kepler or Einstein become the commonplace knowledge of schoolchildren and the once outrageous shapes and colours of an artist like Paul Klee so soon appear on the fabrics we wear. This does not minimise the supremacy of their achievements, which outstrip our own as the sub-four-minute milers outstrip our jogging.\n\nTo think of geniuses and the gifted as having uniquely different brains is only reasonable if we accept that each human brain is uniquely different. The purpose of instruction is to make us even more different from one another, and in the process of being educated we can learn from the achievements of those more gifted than ourselves. But before we try to emulate geniuses or encourage our children to do so we should note that some of the things we learn from them may prove unpalatable. We may envy their achievements and fame, but we should also recognise the price they may have paid in terms of perseverance, single-mindedness, dedication, restrictions on their personal lives, the demands upon their energies and time, and how often they had to display great courage to preserve their integrity or to make their way to the top.\n\nGenius and giftedness are relative descriptive terms of no real substance. We may, at best, give them some precision by defining them and placing them in a context but, whatever we do, we should never delude ourselves into believing that gifted children or geniuses are different from the rest of humanity, save in the degree to which they have developed the performance of their abilities."
+  },
+  "questions": [
+    {
+      "n": 14,
+      "questionType": "mcq",
+      "taskType": "multi_select",
+      "instruction": "Choose FIVE letters, A-K. Below are listed some popular beliefs about genius and giftedness. Which FIVE of these beliefs are reported by the writer of the text? Your answers may be given in any order.",
+      "stem": "Q14 — One of the FIVE beliefs reported by the writer (Q14-Q18 in any order; correct set = {B, C, F, H, J})",
+      "options": [
+        { "key": "A", "text": "Truly gifted people are talented in all areas.", "correct": false },
+        { "key": "B", "text": "The talents of geniuses are soon exhausted.", "correct": true },
+        { "key": "C", "text": "Gifted people should use their gifts.", "correct": true },
+        { "key": "D", "text": "A genius appears once in every generation.", "correct": false },
+        { "key": "E", "text": "Genius can be easily destroyed by discouragement.", "correct": false },
+        { "key": "F", "text": "Genius is inherited.", "correct": true },
+        { "key": "G", "text": "Gifted people are very hard to live with.", "correct": false },
+        { "key": "H", "text": "People never appreciate true genius.", "correct": true },
+        { "key": "I", "text": "Geniuses are natural leaders.", "correct": false },
+        { "key": "J", "text": "Gifted people develop their greatness through difficulties.", "correct": true },
+        { "key": "K", "text": "Genius will always reveal itself.", "correct": false }
+      ],
+      "answer": "B"
+    },
+    {
+      "n": 15,
+      "questionType": "mcq",
+      "taskType": "multi_select",
+      "instruction": "Choose one of the remaining correct letters from {B, C, F, H, J}.",
+      "stem": "Q15 — Second of the FIVE beliefs reported by the writer (any of B/C/F/H/J accepted)",
+      "options": [
+        { "key": "A", "text": "Truly gifted people are talented in all areas.", "correct": false },
+        { "key": "B", "text": "The talents of geniuses are soon exhausted.", "correct": true },
+        { "key": "C", "text": "Gifted people should use their gifts.", "correct": true },
+        { "key": "D", "text": "A genius appears once in every generation.", "correct": false },
+        { "key": "E", "text": "Genius can be easily destroyed by discouragement.", "correct": false },
+        { "key": "F", "text": "Genius is inherited.", "correct": true },
+        { "key": "G", "text": "Gifted people are very hard to live with.", "correct": false },
+        { "key": "H", "text": "People never appreciate true genius.", "correct": true },
+        { "key": "I", "text": "Geniuses are natural leaders.", "correct": false },
+        { "key": "J", "text": "Gifted people develop their greatness through difficulties.", "correct": true },
+        { "key": "K", "text": "Genius will always reveal itself.", "correct": false }
+      ],
+      "answer": "C"
+    },
+    {
+      "n": 16,
+      "questionType": "mcq",
+      "taskType": "multi_select",
+      "instruction": "Choose one of the remaining correct letters from {B, C, F, H, J}.",
+      "stem": "Q16 — Third of the FIVE beliefs reported by the writer",
+      "options": [
+        { "key": "A", "text": "Truly gifted people are talented in all areas.", "correct": false },
+        { "key": "B", "text": "The talents of geniuses are soon exhausted.", "correct": true },
+        { "key": "C", "text": "Gifted people should use their gifts.", "correct": true },
+        { "key": "D", "text": "A genius appears once in every generation.", "correct": false },
+        { "key": "E", "text": "Genius can be easily destroyed by discouragement.", "correct": false },
+        { "key": "F", "text": "Genius is inherited.", "correct": true },
+        { "key": "G", "text": "Gifted people are very hard to live with.", "correct": false },
+        { "key": "H", "text": "People never appreciate true genius.", "correct": true },
+        { "key": "I", "text": "Geniuses are natural leaders.", "correct": false },
+        { "key": "J", "text": "Gifted people develop their greatness through difficulties.", "correct": true },
+        { "key": "K", "text": "Genius will always reveal itself.", "correct": false }
+      ],
+      "answer": "F"
+    },
+    {
+      "n": 17,
+      "questionType": "mcq",
+      "taskType": "multi_select",
+      "instruction": "Choose one of the remaining correct letters from {B, C, F, H, J}.",
+      "stem": "Q17 — Fourth of the FIVE beliefs reported by the writer",
+      "options": [
+        { "key": "A", "text": "Truly gifted people are talented in all areas.", "correct": false },
+        { "key": "B", "text": "The talents of geniuses are soon exhausted.", "correct": true },
+        { "key": "C", "text": "Gifted people should use their gifts.", "correct": true },
+        { "key": "D", "text": "A genius appears once in every generation.", "correct": false },
+        { "key": "E", "text": "Genius can be easily destroyed by discouragement.", "correct": false },
+        { "key": "F", "text": "Genius is inherited.", "correct": true },
+        { "key": "G", "text": "Gifted people are very hard to live with.", "correct": false },
+        { "key": "H", "text": "People never appreciate true genius.", "correct": true },
+        { "key": "I", "text": "Geniuses are natural leaders.", "correct": false },
+        { "key": "J", "text": "Gifted people develop their greatness through difficulties.", "correct": true },
+        { "key": "K", "text": "Genius will always reveal itself.", "correct": false }
+      ],
+      "answer": "H"
+    },
+    {
+      "n": 18,
+      "questionType": "mcq",
+      "taskType": "multi_select",
+      "instruction": "Choose one of the remaining correct letters from {B, C, F, H, J}.",
+      "stem": "Q18 — Fifth of the FIVE beliefs reported by the writer",
+      "options": [
+        { "key": "A", "text": "Truly gifted people are talented in all areas.", "correct": false },
+        { "key": "B", "text": "The talents of geniuses are soon exhausted.", "correct": true },
+        { "key": "C", "text": "Gifted people should use their gifts.", "correct": true },
+        { "key": "D", "text": "A genius appears once in every generation.", "correct": false },
+        { "key": "E", "text": "Genius can be easily destroyed by discouragement.", "correct": false },
+        { "key": "F", "text": "Genius is inherited.", "correct": true },
+        { "key": "G", "text": "Gifted people are very hard to live with.", "correct": false },
+        { "key": "H", "text": "People never appreciate true genius.", "correct": true },
+        { "key": "I", "text": "Geniuses are natural leaders.", "correct": false },
+        { "key": "J", "text": "Gifted people develop their greatness through difficulties.", "correct": true },
+        { "key": "K", "text": "Genius will always reveal itself.", "correct": false }
+      ],
+      "answer": "J"
+    },
+    {
+      "n": 19,
+      "questionType": "mcq",
+      "taskType": "true_false_not_given",
+      "instruction": "Do the following statements agree with the information given in Reading Passage 2? Choose:\nA  TRUE  if the statement agrees with the information\nB  FALSE  if the statement contradicts the information\nC  NOT GIVEN  if there is no information on this",
+      "stem": "Q19 — Nineteenth-century studies of the nature of genius failed to take into account the uniqueness of the person's upbringing.",
+      "options": [
+        { "key": "A", "text": "TRUE", "correct": true },
+        { "key": "B", "text": "FALSE", "correct": false },
+        { "key": "C", "text": "NOT GIVEN", "correct": false }
+      ],
+      "answer": "A"
+    },
+    {
+      "n": 20,
+      "questionType": "mcq",
+      "taskType": "true_false_not_given",
+      "instruction": "Do the following statements agree with the information? Choose TRUE (A), FALSE (B), or NOT GIVEN (C).",
+      "stem": "Q20 — Nineteenth-century studies of genius lacked both objectivity and a proper scientific approach.",
+      "options": [
+        { "key": "A", "text": "TRUE", "correct": true },
+        { "key": "B", "text": "FALSE", "correct": false },
+        { "key": "C", "text": "NOT GIVEN", "correct": false }
+      ],
+      "answer": "A"
+    },
+    {
+      "n": 21,
+      "questionType": "mcq",
+      "taskType": "true_false_not_given",
+      "instruction": "Do the following statements agree with the information? Choose TRUE (A), FALSE (B), or NOT GIVEN (C).",
+      "stem": "Q21 — A true genius has general powers capable of excellence in any area.",
+      "options": [
+        { "key": "A", "text": "TRUE", "correct": false },
+        { "key": "B", "text": "FALSE", "correct": true },
+        { "key": "C", "text": "NOT GIVEN", "correct": false }
+      ],
+      "answer": "B"
+    },
+    {
+      "n": 22,
+      "questionType": "mcq",
+      "taskType": "true_false_not_given",
+      "instruction": "Do the following statements agree with the information? Choose TRUE (A), FALSE (B), or NOT GIVEN (C).",
+      "stem": "Q22 — The skills of ordinary individuals are in essence the same as the skills of prodigies.",
+      "options": [
+        { "key": "A", "text": "TRUE", "correct": true },
+        { "key": "B", "text": "FALSE", "correct": false },
+        { "key": "C", "text": "NOT GIVEN", "correct": false }
+      ],
+      "answer": "A"
+    },
+    {
+      "n": 23,
+      "questionType": "mcq",
+      "taskType": "true_false_not_given",
+      "instruction": "Do the following statements agree with the information? Choose TRUE (A), FALSE (B), or NOT GIVEN (C).",
+      "stem": "Q23 — The ease with which truly great ideas are accepted and taken for granted fails to lessen their significance.",
+      "options": [
+        { "key": "A", "text": "TRUE", "correct": true },
+        { "key": "B", "text": "FALSE", "correct": false },
+        { "key": "C", "text": "NOT GIVEN", "correct": false }
+      ],
+      "answer": "A"
+    },
+    {
+      "n": 24,
+      "questionType": "mcq",
+      "taskType": "true_false_not_given",
+      "instruction": "Do the following statements agree with the information? Choose TRUE (A), FALSE (B), or NOT GIVEN (C).",
+      "stem": "Q24 — Giftedness and genius deserve proper scientific research into their true nature so that all talent may be retained for the human race.",
+      "options": [
+        { "key": "A", "text": "TRUE", "correct": false },
+        { "key": "B", "text": "FALSE", "correct": false },
+        { "key": "C", "text": "NOT GIVEN", "correct": true }
+      ],
+      "answer": "C"
+    },
+    {
+      "n": 25,
+      "questionType": "mcq",
+      "taskType": "true_false_not_given",
+      "instruction": "Do the following statements agree with the information? Choose TRUE (A), FALSE (B), or NOT GIVEN (C).",
+      "stem": "Q25 — Geniuses often pay a high price to achieve greatness.",
+      "options": [
+        { "key": "A", "text": "TRUE", "correct": true },
+        { "key": "B", "text": "FALSE", "correct": false },
+        { "key": "C", "text": "NOT GIVEN", "correct": false }
+      ],
+      "answer": "A"
+    },
+    {
+      "n": 26,
+      "questionType": "mcq",
+      "taskType": "true_false_not_given",
+      "instruction": "Do the following statements agree with the information? Choose TRUE (A), FALSE (B), or NOT GIVEN (C).",
+      "stem": "Q26 — To be a genius is worth the high personal cost.",
+      "options": [
+        { "key": "A", "text": "TRUE", "correct": false },
+        { "key": "B", "text": "FALSE", "correct": false },
+        { "key": "C", "text": "NOT GIVEN", "correct": true }
+      ],
+      "answer": "C"
+    }
+  ]
+}
