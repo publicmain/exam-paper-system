@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { BASE } from '../lib/api';
 
 /**
  * Student-self-service history page. Type your name → see every
@@ -61,7 +62,11 @@ export default function MyHistory() {
     setError(null);
     setData(null);
     try {
-      const r = await fetch(`/api/morning-quiz/history-by-name?name=${encodeURIComponent(trimmed)}`);
+      // IMPORTANT: must hit the API host (VITE_API_URL), not the SPA host.
+      // Both apps are deployed as separate Railway services on different
+      // subdomains; a bare /api path goes to the SPA and hits the 404
+      // fallback (returns index.html, which fails to parse as JSON).
+      const r = await fetch(`${BASE}/api/morning-quiz/history-by-name?name=${encodeURIComponent(trimmed)}`);
       if (!r.ok) {
         const body = await r.json().catch(() => null);
         if (r.status === 404) {

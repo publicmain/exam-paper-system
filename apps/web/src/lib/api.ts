@@ -1,4 +1,4 @@
-const BASE = (import.meta as any).env?.VITE_API_URL || '';
+export const BASE = (import.meta as any).env?.VITE_API_URL || '';
 
 function token(): string | null {
   return localStorage.getItem('auth_token');
