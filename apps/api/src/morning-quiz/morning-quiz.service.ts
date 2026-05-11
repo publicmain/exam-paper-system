@@ -689,6 +689,10 @@ export class MorningQuizService {
         config: {
           mode: 'passage_pick',
           passageRef: pick,
+          // Store the provenance filter so bankStatsForClass can bucket
+          // authentic vs simplified picks correctly without resorting to
+          // path-suffix heuristics on the passageRef.
+          provenanceFilter: filter,
           questionCount: passageQuestions.length,
           dateIso,
         },
@@ -960,10 +964,14 @@ export class MorningQuizService {
         | null;
       if (!cfg) continue;
       if (cfg.mode === 'passage_pick' && cfg.passageRef) {
-        // Distinguish authentic vs simplified via the stored filter, with
-        // a fallback to inspecting the passageRef (IELTS GT vs not).
+        // Distinguish authentic vs simplified. Prefer the stored filter
+        // (written on new papers); for legacy rows without it, match the
+        // GT marker as it actually appears in passageRefs — they look
+        // like `IELTS/cambridge_ielts_14_gt/Test1/P1`, so the previous
+        // `/\/GT\//i` literal slash variant never matched and every GT
+        // paper got mis-bucketed as authentic.
         const isSimplified =
-          cfg.provenanceFilter === 'simplified' || /\/GT\//i.test(cfg.passageRef);
+          cfg.provenanceFilter === 'simplified' || /_gt(?:\/|$)/i.test(cfg.passageRef);
         if (isSimplified) usedByMode.passage_pick_simplified.add(cfg.passageRef);
         else usedByMode.passage_pick_authentic.add(cfg.passageRef);
       } else if (cfg.mode === 'olevel_curated' && cfg.paperKey) {
