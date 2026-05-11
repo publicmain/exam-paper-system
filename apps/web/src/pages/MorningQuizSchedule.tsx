@@ -169,28 +169,9 @@ export default function MorningQuizSchedule() {
     window.open(`/display?sessionId=${encodeURIComponent(sessionId)}`, '_blank', 'noopener,noreferrer');
   }
 
-  /** DEV ONLY: fast-forward a session into "now-active" so we can test the
-   *  scan flow off-hours. Server gates on MORNING_QUIZ_DEBUG=true env var
-   *  and returns 404 when the flag is unset, so this button is harmless in
-   *  production. After successful activation, immediately opens the display
-   *  page so the user has a visible QR to scan. */
-  async function handleDebugActivate(sessionId: string) {
-    setError(null);
-    try {
-      await api.morningQuizDebugActivate(sessionId);
-      await refresh();
-      openDisplay(sessionId);
-    } catch (e: any) {
-      const msg = e.message ?? String(e);
-      if (msg.includes('Not Found') || msg.includes('404')) {
-        setError(
-          '立即激活仅在 dev 模式下开放。如需上线前测试,请联系管理员把 MORNING_QUIZ_DEBUG=true 加到 Railway env。',
-        );
-      } else {
-        setError(msg);
-      }
-    }
-  }
+  // (Was: handleDebugActivate — dev-only "instant activate" button. Removed
+  //  from the schedule table to declutter; the backend endpoint still
+  //  exists for direct API calls when MORNING_QUIZ_DEBUG=true.)
 
   return (
     <div>
@@ -410,7 +391,9 @@ export default function MorningQuizSchedule() {
                       <td>
                         {/* One chip per band registered for this
                             (day, class). All siblings share one QR;
-                            students pick their band on the scan page. */}
+                            students pick their band on the scan page.
+                            Per-chip status pill removed — the row-level
+                            status column already shows it. */}
                         <div className="flex flex-wrap gap-1.5">
                           {group.map((s) => (
                             <span
@@ -425,11 +408,6 @@ export default function MorningQuizSchedule() {
                               title={`${s.paperAssignment.paper.name} · ${s.status}`}
                             >
                               {s.level ? LEVEL_LABEL[s.level] : '—'}
-                              {group.length > 1 && (
-                                <span className="ml-1 text-[10px] opacity-60">
-                                  · {s.status}
-                                </span>
-                              )}
                             </span>
                           ))}
                         </div>
@@ -446,18 +424,6 @@ export default function MorningQuizSchedule() {
                           title="一个 QR 给本班所有等级共用,学生扫码后自己选难度"
                         >
                           🖥️ 大屏 QR
-                        </button>
-                        <button
-                          onClick={async () => {
-                            // Activate every band in the group (safe to
-                            // call on already-active sessions; the
-                            // backend just refreshes the time window).
-                            for (const s of group) await handleDebugActivate(s.id);
-                          }}
-                          className="text-xs px-2 py-1 rounded bg-amber-50 hover:bg-amber-100 text-amber-700 mr-1"
-                          title="DEV ONLY: 一键激活本班所有等级的 session"
-                        >
-                          ⚡ 立即激活{group.length > 1 ? ` (${group.length})` : ''}
                         </button>
                         <Link
                           to={`/admin/attendance?sessionId=${primary.id}`}
