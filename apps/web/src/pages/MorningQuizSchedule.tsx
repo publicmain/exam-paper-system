@@ -537,30 +537,23 @@ export default function MorningQuizSchedule() {
                         >
                           ⚡ 立即激活{group.length > 1 ? ` (${group.length})` : ''}
                         </button>
-                        {/* One 考勤 link per level — a (date, class)
-                            group may carry 1–3 sessions (one per
-                            registered EnglishLevel), each with its
-                            own attendance roster. A single "考勤 →"
-                            link would only land on the primary
-                            session and hide the other levels'
-                            scans. Render one per level so the
-                            teacher can drill into the right band. */}
-                        {group.map((s) => (
-                          <Link
-                            key={`att-${s.id}`}
-                            to={`/morning-quiz/sessions/${s.id}/dashboard`}
-                            className="text-blue-600 hover:underline text-xs ml-1"
-                            title={`本场 ${s.level ? LEVEL_LABEL[s.level] : '—'} session 的实时考勤+答卷面板(含「清除测试数据」按钮)`}
-                          >
-                            考勤·{s.level === 'ielts_authentic'
-                              ? '强'
-                              : s.level === 'ielts_simplified'
-                                ? '中'
-                                : s.level === 'olevel'
-                                  ? '基'
-                                  : '?'} →
-                          </Link>
-                        ))}
+                        {/* One aggregated dashboard link per (class,
+                            date). The dashboard merges all 1–3 level
+                            sessions into a single roster — safe to
+                            collapse because a student picks exactly
+                            ONE level on the scan page, so a student
+                            appears in at most one of the day's
+                            sessions. Each row in the merged table
+                            still carries its source sessionId + level,
+                            so the per-student delete still targets
+                            the right session. */}
+                        <Link
+                          to={`/morning-quiz/classes/${primary.class.id}/date/${primary.date.slice(0, 10)}/dashboard`}
+                          className="text-blue-600 hover:underline text-xs ml-1"
+                          title="进入本班当日合并考勤+答卷面板(含「清除测试数据」按钮)"
+                        >
+                          考勤 →
+                        </Link>
                       </td>
                     </tr>
                   );

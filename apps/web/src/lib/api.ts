@@ -311,6 +311,11 @@ export const api = {
     request('PATCH', `/classes/${id}`, body),
   morningQuizDashboard: (sessionId: string) =>
     request('GET', `/morning-quiz/sessions/${sessionId}/dashboard`),
+  /** Aggregated (classId, date) dashboard — merges 1–N level sessions
+   *  into a single roster. Each row carries its source sessionId + level
+   *  so per-student delete still targets the correct session. */
+  morningQuizClassDayDashboard: (classId: string, date: string) =>
+    request('GET', `/morning-quiz/classes/${classId}/date/${date}/dashboard`),
   morningQuizScheduled: (weekStart: string) =>
     request('GET', `/morning-quiz/scheduled?weekStart=${encodeURIComponent(weekStart)}`),
   morningQuizCreateSession: (body: { date: string; classId: string; paperId: string }) =>

@@ -25,6 +25,7 @@ import MorningQuizTakePage from './pages/MorningQuizTake';
 import MorningQuizSchedulePage from './pages/MorningQuizSchedule';
 import MorningQuizQaReviewPage from './pages/MorningQuizQaReview';
 import MorningQuizSessionDashboard from './pages/MorningQuizSessionDashboard';
+import MorningQuizClassDayDashboard from './pages/MorningQuizClassDayDashboard';
 import AttendanceAdminPage from './pages/AttendanceAdmin';
 // Path-B pages
 import ClassesPage from './pages/Classes';
@@ -303,6 +304,19 @@ export default function App() {
             element={
               user.role === 'admin' || user.role === 'head_teacher' || user.role === 'teacher' ? (
                 <MorningQuizSessionDashboard />
+              ) : (
+                <Navigate to="/" replace />
+              )
+            }
+          />
+          {/* Aggregated dashboard for one (class, date) — merges the 1–3
+              level sessions into a single roster. Used by the schedule
+              page's per-row "考勤 →" link. */}
+          <Route
+            path="/morning-quiz/classes/:classId/date/:date/dashboard"
+            element={
+              user.role === 'admin' || user.role === 'head_teacher' || user.role === 'teacher' ? (
+                <MorningQuizClassDayDashboard />
               ) : (
                 <Navigate to="/" replace />
               )

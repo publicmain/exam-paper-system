@@ -295,6 +295,27 @@ export class MorningQuizController {
     return this.svc.getDashboard(id, { id: user.id, role: user.role, ip: req.ip ?? null });
   }
 
+  /**
+   * Aggregated dashboard for one (classId, date) — merges all 1–N
+   * sessions (one per registered EnglishLevel) into a single roster.
+   * Used by the schedule page's per-row "考勤 →" link. The per-session
+   * dashboard endpoint above stays for direct linking / future drill-in.
+   */
+  @Get('classes/:classId/date/:date/dashboard')
+  classDayDashboard(
+    @Param('classId') classId: string,
+    @Param('date') date: string,
+    @CurrentUser() user: any,
+    @Req() req: Request,
+  ) {
+    if (!TEACHER_ROLES.has(user.role)) throw new ForbiddenException('teacher_required');
+    return this.svc.getClassDayDashboard(classId, date, {
+      id: user.id,
+      role: user.role,
+      ip: req.ip ?? null,
+    });
+  }
+
   // ─────────────────── Student endpoints ───────────────────
 
   /** Student fetches the day's questions (shuffle applied). */

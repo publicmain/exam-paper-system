@@ -1721,6 +1721,91 @@ export class MorningQuizService {
     });
   }
 
+  /**
+   * Aggregated dashboard for one (classId, date): merges the 1–N sessions
+   * (one per registered EnglishLevel) into a single roster + counts view.
+   *
+   * Why this exists — each student picks exactly ONE level on the
+   * /scan/<token> page, so a student appears in at most one of the (date,
+   * class) sessions. The per-session dashboard splits the roster across
+   * level pages, which makes the teacher hop between 1–3 dashboards just
+   * to see "who scanned today". This merges them: each row carries its
+   * source sessionId + level so the per-student 「清除测试数据」 button still
+   * targets the right session, but the teacher sees one unified table.
+   */
+  async getClassDayDashboard(
+    classId: string,
+    dateIso: string,
+    actor: ActorCtx,
+  ) {
+    if (!(await canActOnClass(this.prisma, actor, classId))) {
+      throw new ForbiddenException({ code: 'not_your_class' });
+    }
+    // Date column in MorningQuizSession is @db.Date — Prisma represents it
+    // as a Date at the start of that UTC day. Build the [day, nextDay)
+    // range so the filter matches regardless of how the caller phrased
+    // the date string.
+    const day = new Date(`${dateIso}T00:00:00.000Z`);
+    if (Number.isNaN(day.getTime())) {
+      throw new BadRequestException({ code: 'bad_date', hint: 'expect YYYY-MM-DD' });
+    }
+    const nextDay = new Date(day.getTime() + 86_400_000);
+
+    const sessions = await this.prisma.morningQuizSession.findMany({
+      where: { classId, date: { gte: day, lt: nextDay } },
+      include: {
+        class: { select: { id: true, name: true } },
+        paperAssignment: { include: { paper: { select: { id: true, name: true, totalMarksActual: true } } } },
+        attendances: {
+          include: {
+            student: { select: { id: true, name: true } },
+            submission: { select: { id: true, autoScore: true, totalScore: true, submittedAt: true } },
+          },
+        },
+      },
+      orderBy: { level: 'asc' },
+    });
+    if (sessions.length === 0) {
+      throw new NotFoundException({ code: 'no_sessions_for_class_day' });
+    }
+
+    // Sum counts across all sessions; merge attendance rows, tagging each
+    // with its source sessionId + level so the row-level 🗑️ clear button
+    // can still target the correct session.
+    const counts = { on_time: 0, late: 0, absent: 0 };
+    const attendances: Array<any> = [];
+    for (const s of sessions) {
+      for (const a of s.attendances) {
+        counts[a.status]++;
+        attendances.push({
+          ...a,
+          sessionId: s.id,
+          level: s.level,
+        });
+      }
+    }
+    // Sort by student name for a stable display ordering.
+    attendances.sort((a, b) => {
+      const an = a.student?.name ?? '';
+      const bn = b.student?.name ?? '';
+      return an.localeCompare(bn, 'zh-CN');
+    });
+
+    return {
+      classId,
+      date: dateIso,
+      className: sessions[0].class.name,
+      sessions: sessions.map((s) => ({
+        id: s.id,
+        level: s.level,
+        status: s.status,
+        paper: s.paperAssignment.paper,
+      })),
+      counts,
+      attendances,
+    };
+  }
+
   async getDashboard(sessionId: string, actor: ActorCtx) {
     const session = await this.prisma.morningQuizSession.findUnique({
       where: { id: sessionId },
