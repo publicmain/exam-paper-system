@@ -1,26 +1,27 @@
 import { Module } from '@nestjs/common';
 import { ContentBootstrapService } from './content-bootstrap.service';
+import { DemoSessionBootstrapService } from './demo-session-bootstrap.service';
 import { IeltsIngestModule } from '../ielts-ingest/ielts-ingest.module';
 import { OlevelIngestModule } from '../olevel-ingest/olevel-ingest.module';
 import { PrismaService } from '../common/prisma.service';
 
 /**
- * Auto-seed the morning-quiz content bank on application start.
+ * Two onApplicationBootstrap hooks fire on every API start:
  *
- * Wired into AppModule so that on every API boot (e.g. each Railway
- * redeploy of a clean prod DB), the GT 14 simplified passages,
- * Cambridge IELTS 8 academic passages, and Cambridge IGCSE 0510 olevel
- * papers are ingested.
+ *  1. ContentBootstrapService — seeds the morning-quiz question bank
+ *     (Cambridge IELTS GT/Academic + IGCSE 0510 fixtures). Idempotent
+ *     via sourceRef de-dup.
  *
- * Every ingest call is idempotent — the ielts/olevel ingest services
- * skip rows whose sourceRef already exists. So this is safe to run on
- * every boot: first deploy seeds the bank, every subsequent deploy is
- * a no-op finishing in well under a second.
+ *  2. DemoSessionBootstrapService — provisions the morning-assembly
+ *     demo session for "today or next weekday morning", with a stable
+ *     classId so the projector URL `/display?classId=<demo>` works
+ *     across days without re-pasting per-session ids.
  *
- * See content-bootstrap.service.ts for the actual logic.
+ * Disable individually with BOOTSTRAP_CONTENT_DISABLED=true or
+ * BOOTSTRAP_DEMO_DISABLED=true.
  */
 @Module({
   imports: [IeltsIngestModule, OlevelIngestModule],
-  providers: [ContentBootstrapService, PrismaService],
+  providers: [ContentBootstrapService, DemoSessionBootstrapService, PrismaService],
 })
 export class ContentBootstrapModule {}
