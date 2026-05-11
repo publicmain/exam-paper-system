@@ -110,11 +110,34 @@ export class ContentBootstrapService implements OnApplicationBootstrap {
       }
       this.logger.log(`ielts pool: created=${ieltsCreated} approved=${ieltsApproved}`);
 
+      // R10 followup — switch OLEVEL bank from Cambridge IGCSE 0510
+      // (English as a Second Language, wrong syllabus for our cohort)
+      // to Singapore-Cambridge GCE O-Level 1128 / 1184 English Language
+      // (actual exam they sit). Source PDFs are 2021 SA2 prelim papers
+      // from Singapore secondary schools (Admiralty, Bedok View, Boon
+      // Lay, Clementi Town, Hua Yi). Pilot ships one (Admiralty) — the
+      // rest land in subsequent commits as I OCR each PDF.
       const olevelPapers: Array<{ label: string; payload: any }> = [
-        { label: '0510 s24/Paper12', payload: loadFixture('cie-0510/paper-s24-12.json') },
-        { label: '0510 s23/Paper12', payload: loadFixture('cie-0510/paper-s23-12.json') },
-        { label: '0510 w24/Paper12', payload: loadFixture('cie-0510/paper-w24-12.json') },
+        { label: '1128 Admiralty 2021 SA2 P2 §B narrative', payload: loadFixture('singapore-olevel-1128/admiralty-2021-sa2.json') },
       ];
+
+      // Before ingesting the new 1128 fixtures, retire the legacy
+      // Cambridge IGCSE 0510 questions so the morning-quiz picker
+      // (filters by status='active') doesn't accidentally serve
+      // them again. QuestionStatus enum is {draft, active, retired};
+      // retired = inactive but kept for audit trail. Idempotent: if
+      // there are zero active 0510 rows this is a no-op.
+      try {
+        const retired = await this.prisma.question.updateMany({
+          where: { provenanceTag: 'cambridge_0510', status: 'active' },
+          data: { status: 'retired' },
+        });
+        if (retired.count > 0) {
+          this.logger.log(`retired ${retired.count} legacy 0510 question(s) — replaced by 1128 / 1184 content`);
+        }
+      } catch (e: any) {
+        this.logger.warn(`could not retire legacy 0510 rows: ${e.message ?? e}`);
+      }
 
       let olCreated = 0;
       let olApproved = 0;

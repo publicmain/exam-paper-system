@@ -121,6 +121,11 @@ const OlevelPaperSchema = z.object({
     .regex(/^[a-z0-9_]+$/i, 'setCode must be alphanumeric / underscore'),
   paperNumber: z.number().int().min(1).max(99),
   paperTitle: z.string().min(1).max(200).optional(),
+  // R10 follow-up — let bootstrap fixtures carry their own provenance
+  // tag so we can keep Singapore-Cambridge 1128/1184 papers separate
+  // from the original Cambridge IGCSE 0510 in analytics, even though
+  // the picker queries both bands via subject+component.
+  provenanceTag: z.string().min(2).max(60).optional(),
   sections: z.array(SectionSchema).min(1).max(6),
 });
 

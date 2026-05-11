@@ -1,0 +1,107 @@
+{
+  "setCode": "singapore_olevel_1128_2021_admiralty",
+  "paperNumber": 2,
+  "paperTitle": "Singapore-Cambridge GCE O-Level 1128 English Language — Admiralty Secondary School Preliminary 2021 SA2 Paper 2",
+  "provenanceTag": "singapore_olevel_1128",
+  "sections": [
+    {
+      "exercise": 1,
+      "instruction": "Read the narrative text about Jamie's journey to the diamond fields and then answer the questions. Section B [20 marks] from Admiralty Secondary School Preliminary Examination 2021 Paper 1128/02.",
+      "passageTitle": "Jamie's journey to Klipdrift (Master of the Game by Sidney Sheldon)",
+      "passage": "1  The three men, with Jamie in the middle, squeezed into the seat, crowded against each other, their knees cramped, their backs pressing against the wooden back of the driver's seat. There was no room to move or breathe, but Jamie didn't care. He was on his way to the diamond fields at Klipdrift.\n\n2  By bullock wagon, the journey was relatively comfortable. They were large and roomy, with tent covers to ward off the blazing winter sun. Each wagon accommodated a dozen passengers and was drawn by teams of horses. Refreshments were provided at regular stations. The cart he was in was different.\n\n3  It never stopped, except to change drivers and horses. The pace was a full gallop, over rough roads and fields and rutted trails. There were no springs on the cart and each bounce was like the blow of a horse's hoof to one's chest. Jamie gritted his teeth and thought — I can stand it until we stop for the night. I'll eat and get some sleep and in the morning I will be fine. But when night time came, there was a halt just for a change of driver and horses, and then they were off again, racing through the sands.\n\n4  'When do we stop to eat?' Jamie asked. Someone laughed. 'We don't,' the driver grunted. Jamie stared at him.\n\n5  They rode through the long night, travelling over dusty, bumpy roads by moonlight. The little cart bouncing up the rises, plunging down the valleys. Every nerve of Jamie's body shrieked. He was exhausted, but it was impossible to sleep. Every time he started to doze, he was jarred awake. His body was cramped and aching and there was no room to stretch. It was a six-hundred-mile journey and he was not sure if he was going to live through it. Neither was he sure that he wanted to.\n\n6  When the next dawn came, the real wilderness began. Stretching to infinity, the monotonous desert lay flat and intimidating under the pitiless sun. The passengers were smothered in heat, dust and flies.\n\n7  'I'm going to make it. I'm going to make it.' The words drummed in his head with the rhythm of the wheels. There was no way he was going to give up now, after all he had endured to get this far.\n\n8  True enough, he saw that first glint in the sands. A diamond — shining, beckoning, promising him everything he had ever wanted.\n\n(Adapted from Master of the Game by Sidney Sheldon)",
+      "questions": [
+        {
+          "n": 5,
+          "stem": "Paragraph 1 mentioned that 'There was no room to move or breathe' (lines 3-4). Identify a sentence in the same paragraph that suggests the same idea.",
+          "answer": "three men, with Jamie in the middle, squeezed into the seat, crowded against each other"
+        },
+        {
+          "n": 7,
+          "stem": "(a) What does the word 'racing' (line 5) suggest about the cart?",
+          "answer": "moving very fast"
+        },
+        {
+          "n": 8,
+          "stem": "(a) Identify a phrase from Paragraph 3 that conveys the same meaning as 'racing'.",
+          "answer": "the pace was a full gallop"
+        },
+        {
+          "n": 9,
+          "stem": "What does the phrase 'like the blow of a horse's hoof to one's chest' (lines 15-16) suggest about 'each bounce' (line 15)?",
+          "answer": "it has great impact"
+        },
+        {
+          "n": 10,
+          "stem": "What does the word 'halt' (line 18) suggest about the interval?",
+          "answer": "very short"
+        },
+        {
+          "n": 11,
+          "stem": "From Paragraph 4, why did Jamie stare at the driver?",
+          "answer": "he was shocked"
+        },
+        {
+          "n": 13,
+          "stem": "From paragraph 5, 'It was a six-hundred-mile journey and he was not sure if he was going to live through it. Neither was he sure that he wanted to' (lines 27-29). How did Jamie feel?",
+          "answer": "desperate for the journey to end"
+        },
+        {
+          "n": 15,
+          "stem": "From paragraph 7, how does the writer show Jamie's determination?",
+          "answer": "the author uses repetition"
+        },
+        {
+          "n": 16,
+          "stem": "From paragraph 8, what was the 'glint' (line 34)?",
+          "answer": "a diamond"
+        }
+      ]
+    },
+    {
+      "exercise": 2,
+      "instruction": "The narrative reflects the author's emotions across different paragraphs. For each question below, choose the emotion that best describes how the author feels in that part of the text. Choose from: Optimistic / Dread / Melancholic / Excited / Shocked / Miserable.",
+      "passage": "Refer to the same Jamie's journey narrative in Exercise 1. The emotions across the text shift as Jamie's experience changes — from anticipation at the start, to disbelief mid-journey, to despair in the desert, before the final glimpse of hope.\n\nFor each paragraph, identify the dominant emotion the author conveys.",
+      "questions": [
+        {
+          "n": 17,
+          "stem": "What emotion best describes the author's feeling in Paragraph 1 (Jamie squeezed into the cart, on his way to the diamond fields)?",
+          "options": [
+            {"key": "A", "text": "Optimistic", "correct": true},
+            {"key": "B", "text": "Dread", "correct": false},
+            {"key": "C", "text": "Melancholic", "correct": false},
+            {"key": "D", "text": "Excited", "correct": false},
+            {"key": "E", "text": "Shocked", "correct": false},
+            {"key": "F", "text": "Miserable", "correct": false}
+          ],
+          "answer": "A"
+        },
+        {
+          "n": 18,
+          "stem": "What emotion best describes the author's feeling in Paragraphs 3-4 (the cart never stopped, Jamie asked when they would eat)?",
+          "options": [
+            {"key": "A", "text": "Optimistic", "correct": false},
+            {"key": "B", "text": "Dread", "correct": false},
+            {"key": "C", "text": "Melancholic", "correct": false},
+            {"key": "D", "text": "Excited", "correct": false},
+            {"key": "E", "text": "Shocked", "correct": true},
+            {"key": "F", "text": "Miserable", "correct": false}
+          ],
+          "answer": "E"
+        },
+        {
+          "n": 19,
+          "stem": "What emotion best describes the author's feeling in Paragraphs 5-6 (riding through the long night, the desert under the pitiless sun)?",
+          "options": [
+            {"key": "A", "text": "Optimistic", "correct": false},
+            {"key": "B", "text": "Dread", "correct": false},
+            {"key": "C", "text": "Melancholic", "correct": false},
+            {"key": "D", "text": "Excited", "correct": false},
+            {"key": "E", "text": "Shocked", "correct": false},
+            {"key": "F", "text": "Miserable", "correct": true}
+          ],
+          "answer": "F"
+        }
+      ]
+    }
+  ]
+}

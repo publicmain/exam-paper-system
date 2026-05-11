@@ -60,6 +60,15 @@ export interface OlevelPaperIngestInput {
   setCode: string;
   paperNumber: number;
   paperTitle?: string;
+  /**
+   * Override the default provenanceTag. Cambridge IGCSE 0510 papers
+   * (the original olevel content) use `cambridge_0510`; Singapore-
+   * Cambridge 1128/1184 papers use `singapore_olevel_1128`. The
+   * morning-quiz picker reads BOTH by joining on subject+component
+   * instead of provenance, so this field is mostly informational
+   * but lets us split the bank by syllabus for analytics.
+   */
+  provenanceTag?: string;
   sections: Section[];
 }
 
@@ -81,7 +90,7 @@ export class OlevelIngestService {
     actor: { id: string },
   ): Promise<OlevelPaperIngestResult> {
     const sourceRefPrefix = `OLEVEL/${input.setCode}/Paper${input.paperNumber}`;
-    const provenanceTag = 'cambridge_0510';
+    const provenanceTag = input.provenanceTag ?? 'cambridge_0510';
 
     const subject = await this.ensureOlevelSubject();
     const component = await this.ensureOlComponent(subject.id);
