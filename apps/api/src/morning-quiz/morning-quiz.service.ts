@@ -380,7 +380,20 @@ export class MorningQuizService {
    * own try/catch so a single Anthropic timeout doesn't kill the week.
    */
   async batchGenerateForWeek(
-    input: { weekStart: string; classIds: string[]; questionsPerPaper?: number },
+    input: {
+      weekStart: string;
+      classIds?: string[];
+      questionsPerPaper?: number;
+      /**
+       * Wipe existing sessions+papers in the window before generating. Used
+       * when a fresh content bank has just been ingested and the operator
+       * wants the week's quizzes regenerated against the new bank rather
+       * than waiting for the dedup window to age out. Destructive: any
+       * student submissions or answer scripts in the window are deleted
+       * along with the papers via the FK cascade.
+       */
+      force?: boolean;
+    },
     actor: ActorCtx,
   ) {
     if (!['teacher', 'head_teacher', 'admin'].includes(actor.role)) {
@@ -398,13 +411,62 @@ export class MorningQuizService {
       dates.push(d.toISOString().slice(0, 10));
     }
 
+    // If caller omitted classIds, default to every class that has at least
+    // one ClassEnglishLevel row — i.e. every class scheduled for morning
+    // quiz. Lets school-wide regen go through with one POST instead of the
+    // operator enumerating class IDs by hand.
+    let classIds = input.classIds ?? [];
+    if (classIds.length === 0) {
+      const rows = await this.prisma.classEnglishLevel.findMany({
+        distinct: ['classId'],
+        select: { classId: true },
+      });
+      classIds = rows.map((r) => r.classId);
+      if (classIds.length === 0) {
+        throw new BadRequestException({
+          code: 'no_classes_with_levels',
+          hint: 'No class has a ClassEnglishLevel registered; nothing to generate.',
+        });
+      }
+    }
+
     type Outcome =
       | { ok: true; date: string; classId: string; level: string; sessionId: string; paperId: string }
       | { ok: false; date: string; classId: string; level?: string; code: string; detail?: string };
     const outcomes: Outcome[] = [];
 
+    // force: pre-wipe existing sessions + papers (and their FK-cascaded
+    // assignments / questions / submissions / scripts) for the window.
+    // We delete Paper rows by id; PaperAssignment → Cascade,
+    // PaperQuestion → Cascade, MorningQuizSession → Cascade (via
+    // PaperAssignment), StudentSubmission → Cascade (via PaperAssignment),
+    // AnswerScript → Cascade (via StudentSubmission). One deleteMany call
+    // unwinds the whole dependent tree.
+    let wiped = 0;
+    if (input.force) {
+      const sessions = await this.prisma.morningQuizSession.findMany({
+        where: {
+          classId: { in: classIds },
+          date: { in: dates.map((d) => new Date(d)) },
+        },
+        select: { id: true, paperAssignment: { select: { paperId: true } } },
+      });
+      const paperIds = sessions
+        .map((s) => s.paperAssignment?.paperId)
+        .filter((id): id is string => !!id);
+      if (paperIds.length > 0) {
+        const r = await this.prisma.paper.deleteMany({
+          where: { id: { in: paperIds } },
+        });
+        wiped = r.count;
+        this.logger.log(
+          `batch-regenerate force-wiped ${wiped} paper(s) (${sessions.length} session row(s)) in [${dates[0]}..${dates[dates.length - 1]}]`,
+        );
+      }
+    }
+
     for (const dateIso of dates) {
-      for (const classId of input.classIds) {
+      for (const classId of classIds) {
         // R10 multi-level: a class can register N difficulty bands at
         // once. Fan out to one (date, classId, level) session per band.
         const levelRows = await this.prisma.classEnglishLevel.findMany({
@@ -529,12 +591,13 @@ export class MorningQuizService {
       ip: actor.ip,
       metadata: {
         weekStart: input.weekStart,
-        classCount: input.classIds.length,
+        classCount: classIds.length,
+        forceWiped: wiped,
         ok: outcomes.filter((o) => o.ok).length,
         fail: outcomes.filter((o) => !o.ok).length,
       },
     });
-    return { outcomes };
+    return { wiped, outcomes };
   }
 
   /**

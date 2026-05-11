@@ -49,8 +49,19 @@ const BatchScheduleSchema = z.object({
 
 const BatchGenerateSchema = z.object({
   weekStart: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
-  classIds: z.array(z.string()).min(1).max(20),
+  // classIds optional: if omitted or empty, defaults to all classes with at
+  // least one ClassEnglishLevel registered. Cap at 20 to keep the request
+  // bounded; school-wide regen of >20 classes should batch in two calls.
+  classIds: z.array(z.string()).max(20).optional(),
   questionsPerPaper: z.number().int().min(8).max(30).optional(),
+  // If true, BEFORE generating, wipe any existing MorningQuizSession (and
+  // cascade-wipe Paper + PaperAssignment + PaperQuestion + StudentSubmission +
+  // AnswerScript) that already lives in the (weekStart..weekStart+5d) window.
+  // Used when a fresh bank has been ingested and you want to regenerate the
+  // week against the new content rather than waiting for the dedup window
+  // to age out. Destructive — also drops any student submissions in that
+  // window, so coordinate before invoking on a live week.
+  force: z.boolean().optional(),
 });
 
 const SaveAnswerSchema = z.object({

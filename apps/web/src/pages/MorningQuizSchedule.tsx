@@ -129,10 +129,18 @@ export default function MorningQuizSchedule() {
     setSelected(next);
   }
 
-  async function handleGenerate() {
+  async function handleGenerate(opts: { force?: boolean } = {}) {
     if (selected.size === 0) {
       setError('请至少选择一个班级');
       return;
+    }
+    if (opts.force) {
+      const confirmed = confirm(
+        `强制重新生成 ${weekStart} 这周 ${selected.size} 个班级的所有早测卷？\n\n` +
+          `会删除本周已存在的卷子（含学生答卷数据），然后按当前题库重新抽取一份不重复的内容。` +
+          `通常在新题库刚 ingest 完想立刻让本周生效时使用。`,
+      );
+      if (!confirmed) return;
     }
     setBusy(true);
     setError(null);
@@ -141,6 +149,7 @@ export default function MorningQuizSchedule() {
       const r = await api.morningQuizBatchGenerate({
         weekStart,
         classIds: Array.from(selected),
+        force: opts.force,
       });
       setOutcomes(r.outcomes);
     } catch (e: any) {
@@ -350,9 +359,9 @@ export default function MorningQuizSchedule() {
 
       <div className="bg-white border rounded-lg p-5 mb-6">
         <h2 className="font-semibold mb-3">3. 一键生成下周早测</h2>
-        <div className="flex items-center gap-4">
+        <div className="flex items-center gap-4 flex-wrap">
           <button
-            onClick={handleGenerate}
+            onClick={() => handleGenerate()}
             disabled={busy || selected.size === 0}
             className="px-5 py-2 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-300 text-white rounded font-medium"
           >
@@ -364,6 +373,14 @@ export default function MorningQuizSchedule() {
                     .reduce((s, c) => s + (c.englishLevels?.length ?? 0), 0);
                   return `生成 ${selected.size} 个班 × ${totalLevels} 等级 × 5 天 = ${totalLevels * 5} 张`;
                 })()}
+          </button>
+          <button
+            onClick={() => handleGenerate({ force: true })}
+            disabled={busy || selected.size === 0}
+            className="px-5 py-2 bg-red-600 hover:bg-red-700 disabled:bg-gray-300 text-white rounded font-medium"
+            title="先删本周已有卷子（含学生答卷），再按当前题库重新抽。新题库 ingest 后用这个。"
+          >
+            强制重新生成本周
           </button>
           <span className="text-sm text-gray-500">
             每个等级一张 QR;雅思真题走 passage_pick,其他走 AI 生成

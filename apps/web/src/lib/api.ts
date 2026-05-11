@@ -327,8 +327,12 @@ export const api = {
     request('POST', '/morning-quiz/batch', { items }),
   morningQuizBatchGenerate: (body: {
     weekStart: string;
-    classIds: string[];
+    classIds?: string[];
     questionsPerPaper?: number;
+    // When true, API wipes existing sessions+papers in (weekStart..+5d) before
+    // regenerating. Used after content-bank update; destructive (student
+    // submissions in the window are deleted via FK cascade).
+    force?: boolean;
   }) => request('POST', '/morning-quiz/batch-generate', body),
   setClassEnglishLevel: (
     classId: string,
