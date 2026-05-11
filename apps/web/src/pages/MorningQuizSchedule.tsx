@@ -359,23 +359,22 @@ export default function MorningQuizSchedule() {
               <tr>
                 <th className="py-2">日期</th>
                 <th>班级</th>
-                <th>等级</th>
                 <th>状态</th>
                 <th></th>
               </tr>
             </thead>
             <tbody>
               {(() => {
-                // Group sessions by (date.slice(0,10), classId).
+                // Group sessions by (date.slice(0,10), classId). The level
+                // breakdown is hidden from the table — students pick their
+                // band on the scan page anyway, so the teacher just needs
+                // "which class on which day, and is it ready?".
                 const groups = new Map<string, typeof scheduled>();
                 for (const s of scheduled) {
                   const key = `${s.date.slice(0, 10)}::${s.class.id}`;
                   if (!groups.has(key)) groups.set(key, []);
                   groups.get(key)!.push(s);
                 }
-                // Stable order: the upstream listScheduled already sorts
-                // by date asc + class asc; preserving Map insertion gives
-                // us the same order with bands collapsed.
                 return Array.from(groups.entries()).map(([key, group]) => {
                   // Pick the "primary" session for action buttons —
                   // any active one, else the first in the group.
@@ -384,34 +383,15 @@ export default function MorningQuizSchedule() {
                   const allStatuses = Array.from(new Set(group.map((g) => g.status)));
                   const aggregateStatus =
                     allStatuses.length === 1 ? allStatuses[0] : `${allStatuses.length} 状态`;
+                  // Stash level names in the row's title so they're still
+                  // discoverable on hover without taking real estate.
+                  const levelsTitle = group
+                    .map((s) => (s.level ? LEVEL_LABEL[s.level] : '—'))
+                    .join(' · ');
                   return (
-                    <tr key={key} className="border-b last:border-0 align-top">
+                    <tr key={key} className="border-b last:border-0 align-top" title={levelsTitle}>
                       <td className="py-2 font-mono">{primary.date.slice(0, 10)}</td>
                       <td>{primary.class.name}</td>
-                      <td>
-                        {/* One chip per band registered for this
-                            (day, class). All siblings share one QR;
-                            students pick their band on the scan page.
-                            Per-chip status pill removed — the row-level
-                            status column already shows it. */}
-                        <div className="flex flex-wrap gap-1.5">
-                          {group.map((s) => (
-                            <span
-                              key={s.id}
-                              className={`text-xs px-2 py-0.5 rounded ${
-                                s.level === 'ielts_authentic'
-                                  ? 'bg-purple-100 text-purple-800'
-                                  : s.level === 'ielts_simplified'
-                                  ? 'bg-blue-100 text-blue-800'
-                                  : 'bg-emerald-100 text-emerald-800'
-                              }`}
-                              title={`${s.paperAssignment.paper.name} · ${s.status}`}
-                            >
-                              {s.level ? LEVEL_LABEL[s.level] : '—'}
-                            </span>
-                          ))}
-                        </div>
-                      </td>
                       <td>
                         <span className="badge text-xs px-2 py-0.5 rounded bg-gray-100">
                           {aggregateStatus}
