@@ -70,6 +70,17 @@ export class ContentBootstrapService implements OnApplicationBootstrap {
       this.logger.log(`content-seed starting (owner=${owner.role} ${owner.email})`);
       const actor = { id: owner.id };
 
+      // R10 follow-up — consolidate duplicate IELTS subjects so
+      // ingest + picker land on the same row. A legacy seed created
+      // an IELTS subject under the CAE exam board; the newer ingest
+      // creates one under IELTS exam board. With both rows present,
+      // findFirst({code:'IELTS'}) returns whichever Postgres orders
+      // first, ingest may write to one and picker may read the
+      // other → no_passages_in_bank even though the bank is full.
+      // This consolidation is idempotent: if 0 or 1 IELTS subjects
+      // exist it does nothing.
+      await this.consolidateIeltsSubjects();
+
       const ieltsPassages: Array<{ label: string; payload: any }> = [
         { label: 'GT 14 Test1/P1', payload: loadFixture('cambridge-ielts-gt-14/test1-section1.json') },
         { label: 'GT 14 Test1/P2', payload: loadFixture('cambridge-ielts-gt-14/test1-section2.json') },
@@ -125,6 +136,92 @@ export class ContentBootstrapService implements OnApplicationBootstrap {
     } catch (e: any) {
       // Never block app startup on a seed problem — log and continue.
       this.logger.error(`bootstrap failed (continuing): ${e.message ?? e}`);
+    }
+  }
+
+  /**
+   * Merge duplicate IELTS subject rows into the oldest one (canonical).
+   * The picker uses `findFirst({code:'IELTS'}, orderBy:{createdAt asc})`
+   * — match the same order so ingest writes to the canonical row.
+   *
+   * Migration steps for each non-canonical subject:
+   *   1. For every component on it, upsert the same code on the
+   *      canonical subject; remember the (old → new) component id map.
+   *   2. UPDATE Question SET componentId = newComponentId WHERE
+   *      componentId = oldComponentId AND subjectId = oldSubjectId.
+   *   3. UPDATE Question SET subjectId = canonicalId WHERE
+   *      subjectId = oldSubjectId.
+   *   4. UPDATE Paper SET subjectId = canonicalId WHERE
+   *      subjectId = oldSubjectId (and componentId likewise).
+   *   5. Delete the now-empty old components, then the old subject.
+   *
+   * Skips silently if 0 or 1 IELTS subjects exist (the common case).
+   */
+  private async consolidateIeltsSubjects(): Promise<void> {
+    const subjects = await this.prisma.subject.findMany({
+      where: { code: 'IELTS' },
+      orderBy: { id: 'asc' }, // cuid lexicographic ≈ creation order
+      include: { components: true },
+    });
+    if (subjects.length <= 1) return;
+    const [canonical, ...others] = subjects;
+    this.logger.warn(
+      `consolidating ${others.length} duplicate IELTS subject(s) into canonical=${canonical.id}`,
+    );
+    for (const other of others) {
+      try {
+        // 1. Upsert each component on canonical, build remap.
+        const remap = new Map<string, string>();
+        for (const oldComp of other.components) {
+          const newComp = await this.prisma.syllabusComponent.upsert({
+            where: { subjectId_code: { subjectId: canonical.id, code: oldComp.code } },
+            create: { subjectId: canonical.id, code: oldComp.code, name: oldComp.name },
+            update: {},
+          });
+          remap.set(oldComp.id, newComp.id);
+        }
+        // 2 & 3. Move questions. Have to iterate per-component because
+        // Question.componentId points to a SyllabusComponent FK.
+        for (const [oldCid, newCid] of remap) {
+          await this.prisma.question.updateMany({
+            where: { componentId: oldCid },
+            data: { componentId: newCid },
+          });
+        }
+        const movedQ = await this.prisma.question.updateMany({
+          where: { subjectId: other.id },
+          data: { subjectId: canonical.id },
+        });
+        // 4. Move papers similarly. Paper.componentId is nullable.
+        for (const [oldCid, newCid] of remap) {
+          await this.prisma.paper.updateMany({
+            where: { componentId: oldCid },
+            data: { componentId: newCid },
+          });
+        }
+        const movedP = await this.prisma.paper.updateMany({
+          where: { subjectId: other.id },
+          data: { subjectId: canonical.id },
+        });
+        // 5. Drop now-empty components + the orphan subject. If anything
+        // still references it (a SyllabusTopic, etc.) the FK throws —
+        // we catch and leave the row in place rather than crashing.
+        for (const oldCid of remap.keys()) {
+          try {
+            await this.prisma.syllabusComponent.delete({ where: { id: oldCid } });
+          } catch (e: any) {
+            this.logger.warn(`  could not drop component ${oldCid}: ${e.message?.slice(0, 100)}`);
+          }
+        }
+        try {
+          await this.prisma.subject.delete({ where: { id: other.id } });
+        } catch (e: any) {
+          this.logger.warn(`  could not drop subject ${other.id}: ${e.message?.slice(0, 100)}`);
+        }
+        this.logger.log(`  merged subject=${other.id}: ${movedQ.count} question(s), ${movedP.count} paper(s)`);
+      } catch (e: any) {
+        this.logger.warn(`  consolidation failed for ${other.id}: ${e.message?.slice(0, 200)}`);
+      }
     }
   }
 }

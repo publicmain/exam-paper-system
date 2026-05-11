@@ -554,6 +554,12 @@ export class MorningQuizService {
   ): Promise<string> {
     const subject = await this.prisma.subject.findFirst({
       where: { code: subjectCode },
+      // R10 follow-up — Subject has no createdAt; cuid is itself
+      // timestamp-prefixed (lexicographic order ≈ creation order),
+      // so `orderBy id asc` reliably picks the OLDEST IELTS subject.
+      // Both ielts-ingest and content-bootstrap use the same order
+      // so ingest + picker always agree on which row to read/write.
+      orderBy: { id: 'asc' },
       include: { components: { where: { code: componentCode } } },
     });
     if (!subject || subject.components.length === 0) {

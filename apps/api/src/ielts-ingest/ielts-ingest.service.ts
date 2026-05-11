@@ -204,21 +204,29 @@ export class IeltsIngestService {
   }
 
   private async ensureIeltsSubject() {
+    // R10 follow-up — pickPassageAndCreatePaper does
+    //   findFirst({where: {code: 'IELTS'}})
+    // (no examBoard filter). On any DB that has multiple IELTS
+    // subjects (a common legacy is one CAE-board IELTS from an old
+    // seed + one IELTS-board IELTS from a newer one), the picker
+    // returns whichever findFirst lands on, deterministic per Postgres
+    // disk order. If ingest writes to a DIFFERENT subject row than
+    // the picker reads, every batch-generate fails with
+    // no_passages_in_bank even though the bank is full.
+    //
+    // Therefore: use the EXACT same lookup the picker uses. If a
+    // subject row already exists under any board, reuse it; only
+    // create a fresh IELTS-board subject when the table is empty
+    // for this code. Either way, ensure the IELTS exam board exists
+    // for any future create.
     const board = await this.prisma.examBoard.upsert({
       where: { code: 'IELTS' },
       create: { code: 'IELTS', name: 'IELTS' },
       update: {},
     });
-    // R10 fix: any subject with code 'IELTS' under the IELTS exam board
-    // is acceptable — `level` differs between the seed-local-mq.ts row
-    // ('CEFR') and what ingest would create ('IELTS'), but
-    // pickPassageAndCreatePaper does findFirst({where:{code:'IELTS'}})
-    // so ingest must reuse whatever level value already exists.
-    // Otherwise we end up with two IELTS subjects, ingest writes to one,
-    // morning-quiz reads from the other, and the question pool looks
-    // empty even though we just imported 40 questions.
     const existing = await this.prisma.subject.findFirst({
-      where: { code: 'IELTS', examBoardId: board.id },
+      where: { code: 'IELTS' },
+      orderBy: { id: 'asc' }, // cuid is timestamp-prefixed → oldest first; matches picker
     });
     if (existing) return existing;
     return this.prisma.subject.create({
