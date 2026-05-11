@@ -107,6 +107,9 @@ export const api = {
   rosterClass: (id: string, students: any[]) => request('POST', `/classes/${id}/roster`, { students }),
   unenrollClass: (id: string, userId: string) => request('DELETE', `/classes/${id}/enrollments/${userId}`),
   updateClass: (id: string, data: { weeklyFocus?: string | null }) => request('PATCH', `/classes/${id}`, data),
+  // R10 followup — rename a student in-place from the Classes UI.
+  updateUser: (id: string, data: { name?: string; email?: string }) =>
+    request('PATCH', `/admin/users/${id}`, data),
 
   // student
   studentAssignments: () => request('GET', '/student/assignments'),

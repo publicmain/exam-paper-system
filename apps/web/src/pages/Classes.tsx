@@ -182,20 +182,36 @@ function ClassDetailModal({
   }, [classId]);
 
   async function bulkAdd() {
-    // Parse "email,name" or "email name" lines.
+    // R10 followup — accept three line shapes so Chinese-name rosters
+    // can be pasted directly without forcing teachers to invent emails:
+    //   1. "name only"               → auto-generate <classCode>-<idx>@school.local
+    //   2. "email,Name"              → explicit
+    //   3. "email Name"  (space-sep) → explicit
+    //
+    // For shape 1 we generate a synthetic email scoped to this class so
+    // re-pasting the same student doesn't collide with a different
+    // class's auto-emails.
     const lines = rosterText
       .split(/\r?\n/)
       .map((l) => l.trim())
       .filter(Boolean);
     const students: { email: string; name: string }[] = [];
+    let autoIdx = 1;
     for (const line of lines) {
-      const [first, ...rest] = line.split(/[,\s]+/);
-      if (!first || !first.includes('@')) continue;
-      const name = rest.length ? rest.join(' ') : first.split('@')[0];
-      students.push({ email: first, name });
+      // explicit forms first
+      if (line.includes('@')) {
+        const [first, ...rest] = line.split(/[,\s]+/);
+        const name = rest.length ? rest.join(' ') : first.split('@')[0];
+        students.push({ email: first, name });
+      } else {
+        // shape 1 — pure name. Auto-mint a deterministic-ish email.
+        const epoch = Date.now().toString(36).slice(-4);
+        const slug = `${(cls?.classCode || 'cls').toLowerCase().replace(/[^a-z0-9]/g, '')}-${epoch}-${autoIdx++}`;
+        students.push({ email: `${slug}@school.local`, name: line });
+      }
     }
     if (!students.length) {
-      setErr('No valid emails found. Format: one per line, "email" or "email,Name".');
+      setErr('No valid lines found. Paste one per line — either a pure name (中文/English) or "email,Name".');
       return;
     }
     setBusy(true);
@@ -206,6 +222,22 @@ function ClassDetailModal({
       onChanged();
       await reload();
       alert(`Created ${r.createdUsers} new accounts, enrolled ${r.enrolled}, ${r.alreadyIn} already in.`);
+    } catch (e: any) {
+      setErr(String(e?.message ?? e));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function renameStudent(userId: string, newName: string) {
+    const trimmed = newName.trim();
+    if (!trimmed) return;
+    setBusy(true);
+    setErr(null);
+    try {
+      await api.updateUser(userId, { name: trimmed });
+      onChanged();
+      await reload();
     } catch (e: any) {
       setErr(String(e?.message ?? e));
     } finally {
@@ -257,24 +289,13 @@ function ClassDetailModal({
               <div className="py-3 text-center text-gray-500">No students yet.</div>
             )}
             {(cls.enrollments ?? []).map((e: any) => (
-              <div key={e.id} className="flex items-center justify-between px-3 py-2">
-                <div>
-                  <div>{e.user?.name}</div>
-                  <div className="text-xs text-gray-500">{e.user?.email}</div>
-                </div>
-                <span className="flex gap-2 items-center">
-                  <span className="text-xs text-gray-400">{e.role}</span>
-                  {e.role === 'student' && (
-                    <button
-                      className="btn btn-ghost text-xs text-red-700"
-                      disabled={busy}
-                      onClick={() => unenroll(e.userId)}
-                    >
-                      Remove
-                    </button>
-                  )}
-                </span>
-              </div>
+              <EnrollmentRow
+                key={e.id}
+                enrollment={e}
+                busy={busy}
+                onRename={(newName) => renameStudent(e.userId, newName)}
+                onRemove={() => unenroll(e.userId)}
+              />
             ))}
           </div>
 
@@ -307,14 +328,17 @@ function ClassDetailModal({
             </div>
           </Field>
 
-          <Field label="Bulk add students (one per line: email or email,Full Name)">
+          <Field label="批量加学生 · Bulk add students (one per line — 仅姓名 / email / email,姓名 三种格式都行)">
             <textarea
               value={rosterText}
               onChange={(e) => setRosterText(e.target.value)}
               className="border rounded px-2 py-1 w-full font-mono text-xs"
               rows={6}
-              placeholder={`alice@school.local,Alice Wong\nbob@school.local`}
+              placeholder={`于琳晶\n胡鑫瑜\n罗翾瑶\nalice@school.local,Alice Wong\nbob@school.local`}
             />
+            <div className="text-xs text-gray-500 mt-1">
+              中文 / English 姓名都可。无 @ 的行按"纯姓名"处理，自动生成账号邮箱。
+            </div>
           </Field>
         </>
       )}
@@ -329,6 +353,115 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
       <span className="text-xs text-gray-500">{label}</span>
       {children}
     </label>
+  );
+}
+
+/**
+ * Single enrollment row with inline ✎ rename. Click the pencil to flip
+ * the row into edit mode, change the name, press Enter or click ✓ to
+ * save. ESC to cancel. Avoids a separate "edit user" modal — the
+ * common case is fixing a typo in a 中文 name copied from a paper
+ * roster, which should be 2 clicks max.
+ */
+function EnrollmentRow({
+  enrollment,
+  busy,
+  onRename,
+  onRemove,
+}: {
+  enrollment: any;
+  busy: boolean;
+  onRename: (newName: string) => void;
+  onRemove: () => void;
+}) {
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState(enrollment.user?.name ?? '');
+  const isStudent = enrollment.role === 'student';
+  useEffect(() => { setDraft(enrollment.user?.name ?? ''); }, [enrollment.user?.name]);
+
+  function save() {
+    const trimmed = draft.trim();
+    if (!trimmed || trimmed === enrollment.user?.name) {
+      setEditing(false);
+      return;
+    }
+    onRename(trimmed);
+    setEditing(false);
+  }
+  function cancel() {
+    setDraft(enrollment.user?.name ?? '');
+    setEditing(false);
+  }
+
+  return (
+    <div className="flex items-center justify-between px-3 py-2 gap-2">
+      <div className="flex-1 min-w-0">
+        {editing ? (
+          <input
+            type="text"
+            value={draft}
+            onChange={(e) => setDraft(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') save();
+              if (e.key === 'Escape') cancel();
+            }}
+            autoFocus
+            className="border rounded px-2 py-1 w-full text-sm"
+            aria-label="edit student name"
+          />
+        ) : (
+          <div className="truncate">{enrollment.user?.name}</div>
+        )}
+        <div className="text-xs text-gray-500 truncate">{enrollment.user?.email}</div>
+      </div>
+      <span className="flex gap-1 items-center shrink-0">
+        <span className="text-xs text-gray-400 mr-1">{enrollment.role}</span>
+        {isStudent && !editing && (
+          <button
+            className="btn btn-ghost text-xs text-blue-700"
+            disabled={busy}
+            onClick={() => setEditing(true)}
+            aria-label="rename"
+            title="改名 · Rename"
+          >
+            ✎
+          </button>
+        )}
+        {editing && (
+          <>
+            <button
+              className="btn btn-ghost text-xs text-emerald-700"
+              disabled={busy}
+              onClick={save}
+              aria-label="save"
+              title="保存 · Save (Enter)"
+            >
+              ✓
+            </button>
+            <button
+              className="btn btn-ghost text-xs text-gray-500"
+              disabled={busy}
+              onClick={cancel}
+              aria-label="cancel"
+              title="取消 · Cancel (Esc)"
+            >
+              ✕
+            </button>
+          </>
+        )}
+        {isStudent && !editing && (
+          <button
+            className="btn btn-ghost text-xs text-red-700"
+            disabled={busy}
+            onClick={onRemove}
+            aria-label="remove"
+            title="移除 · Remove"
+          >
+            🗑
+          </button>
+        )}
+      </span>
+    </div>
   );
 }
 function ModalShell({
