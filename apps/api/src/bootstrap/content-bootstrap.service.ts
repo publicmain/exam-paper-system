@@ -93,6 +93,8 @@ export class ContentBootstrapService implements OnApplicationBootstrap {
         // had Test 1's 3 passages. Each Test 2/3/4 passage we add buys
         // the picker one more day of unique content before LRU recycle.
         { label: 'IELTS 8 Test2/P1', payload: loadFixture('cambridge-ielts-8/test2-passage1.json') },
+        { label: 'IELTS 8 Test2/P2', payload: loadFixture('cambridge-ielts-8/test2-passage2.json') },
+        { label: 'IELTS 8 Test2/P3', payload: loadFixture('cambridge-ielts-8/test2-passage3.json') },
       ];
 
       let ieltsCreated = 0;

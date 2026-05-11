@@ -1,0 +1,194 @@
+{
+  "bookCode": "cambridge_ielts_8",
+  "testNumber": 2,
+  "passageNumber": 2,
+  "passage": {
+    "title": "The Little Ice Age",
+    "body": "A This book will provide a detailed examination of the Little Ice Age and other climatic shifts, but, before I embark on that, let me provide a historical context. We tend to think of climate — as opposed to weather — as something unchanging, yet humanity has been at the mercy of climate change for its entire existence, with at least eight glacial episodes in the past 730,000 years. Our ancestors adapted to the universal but irregular global warming since the end of the last great Ice Age, around 10,000 years ago, with dazzling opportunism. They developed strategies for surviving harsh drought cycles, decades of heavy rainfall or unaccustomed cold; adopted agriculture and stock-raising, which revolutionised human life; and founded the world's first pre-industrial civilisations in Egypt, Mesopotamia and the Americas. But the price of sudden climate change, in famine, disease and suffering, was often high.\n\nB The Little Ice Age lasted from roughly 1300 until the middle of the nineteenth century. Only two centuries ago, Europe experienced a cycle of bitterly cold winters; mountain glaciers in the Swiss Alps were the lowest in recorded memory, and pack ice surrounded Iceland for much of the year. The climatic events of the Little Ice Age did more than help shape the modern world. They are the deeply important context for the current unprecedented global warming. The Little Ice Age was far from a deep freeze, however; rather an irregular seesaw of rapid climatic shifts, few lasting more than a quarter-century, driven by complex and still little understood interactions between the atmosphere and the ocean. The seesaw brought cycles of intensely cold winters and easterly winds, then switched abruptly to years of heavy spring and early summer rains, mild winters, and frequent Atlantic storms, or to periods of droughts, light northeasterly winds, and summer heat waves.\n\nC Reconstructing the climate changes of the past is extremely difficult, because systematic weather observations began only a few centuries ago, in Europe and North America. Records from India and tropical Africa are even more recent. For the time before records began, we have only 'proxy records' reconstructed largely from tree rings and ice cores, supplemented by a few incomplete written accounts. We now have hundreds of tree-ring records from throughout the northern hemisphere, and many from south of the equator, too, amplified with a growing body of temperature data from ice cores drilled in Antarctica, Greenland, the Peruvian Andes, and other locations. We are close to a knowledge of annual summer and winter temperature variations over much of the northern hemisphere going back 600 years.\n\nD This book is a narrative history of climatic shifts during the past ten centuries, and some of the ways in which people in Europe adapted to them. Part One describes the Medieval Warm Period, roughly 900 to 1200. During these three centuries, Norse voyagers from Northern Europe explored northern seas, settled Greenland, and visited North America. It was not a time of uniform warmth, for then, as always since the Great Ice Age, there were constant shifts in rainfall and temperature. Mean European temperatures were about the same as today, perhaps slightly cooler.\n\nE It is known that the Little Ice Age cooling began in Greenland and the Arctic in about 1200. As the Arctic ice pack spread southward, Norse voyages to the west were rerouted into the open Atlantic, then ended altogether. Storminess increased in the North Atlantic and North Sea. Colder, much wetter weather descended on Europe between 1315 and 1319, when thousands perished in a continent-wide famine. By 1400, the weather had become decidedly more unpredictable and stormier, with sudden shifts and lower temperatures that culminated in the cold decades of the late sixteenth century. Fish were a vital commodity in growing towns and cities, where food supplies were a constant concern. Dried cod and herring were already the staples of the European fish trade, but changes in water temperatures forced fishing fleets to work further offshore. The Basques, Dutch, and English developed the first offshore fishing boats adapted to a colder and stormier Atlantic. A gradual agricultural revolution in northern Europe stemmed from concerns over food supplies at a time of rising populations. The revolution involved intensive commercial farming and the growing of animal fodder on land not previously used for crops. The increased productivity from farmland made some countries self-sufficient in grain and livestock and offered effective protection against famine.\n\nF Global temperatures began to rise slowly after 1850, with the beginning of the Modern Warm Period. There was a vast migration from Europe by land-hungry farmers and others, to which the famine caused by the Irish potato blight contributed, to North America, Australia, New Zealand, and southern Africa. Millions of hectares of forest and woodland fell before the newcomers' axes between 1850 and 1890, as intensive European farming methods expanded across the world. The unprecedented land clearance released vast quantities of carbon dioxide into the atmosphere, triggering for the first time humanly caused global warming. Temperatures climbed more rapidly in the twentieth century as the use of fossil fuels proliferated and greenhouse gas levels continued to soar. The rise has been even steeper since the early 1980s. The Little Ice Age has given way to a new climatic regime, marked by prolonged and steady warming. At the same time, extreme weather events like Category 5 hurricanes are becoming more frequent."
+  },
+  "questions": [
+    {
+      "n": 14,
+      "questionType": "short_answer",
+      "taskType": "matching_headings",
+      "instruction": "Reading Passage 2 has six paragraphs, A-F. Choose the correct heading for paragraphs B and D-F from the list of headings below (Paragraph A is example viii, Paragraph C is example v). Write the correct number, i-ix.\n\nList of Headings:\ni Predicting climatic changes\nii The relevance of the Little Ice Age today\niii How cities contribute to climate change\niv Human impact on the climate\nv How past climatic conditions can be determined\nvi A growing need for weather records\nvii A study covering a thousand years\nviii People have always responded to climate change\nix Enough food at last",
+      "stem": "Q14 — Paragraph B",
+      "options": null,
+      "answer": "ii"
+    },
+    {
+      "n": 15,
+      "questionType": "short_answer",
+      "taskType": "matching_headings",
+      "instruction": "Reading Passage 2 has six paragraphs, A-F. Choose the correct heading from i-ix.",
+      "stem": "Q15 — Paragraph D",
+      "options": null,
+      "answer": "vii"
+    },
+    {
+      "n": 16,
+      "questionType": "short_answer",
+      "taskType": "matching_headings",
+      "instruction": "Reading Passage 2 has six paragraphs, A-F. Choose the correct heading from i-ix.",
+      "stem": "Q16 — Paragraph E",
+      "options": null,
+      "answer": "vi"
+    },
+    {
+      "n": 17,
+      "questionType": "short_answer",
+      "taskType": "matching_headings",
+      "instruction": "Reading Passage 2 has six paragraphs, A-F. Choose the correct heading from i-ix.",
+      "stem": "Q17 — Paragraph F",
+      "options": null,
+      "answer": "iv"
+    },
+    {
+      "n": 18,
+      "questionType": "mcq",
+      "taskType": "matching_features",
+      "instruction": "Complete the summary using the list of words, A-I, below. Write the correct letter, A-I.\n\nWord bank:\nA climatic shifts\nB ice cores\nC tree rings\nD glaciers\nE interactions\nF weather observations\nG heat waves\nH storms\nI written accounts\n\nSummary — Weather during the Little Ice Age:\nDocumentation of past weather conditions is limited: our main sources of knowledge of conditions in the distant past are 18 ___ and 19 ___. We can deduce that the Little Ice Age was a time of 20 ___, rather than of consistent freezing. Within it there were some periods of very cold winters, others of 21 ___ and heavy rain, and yet others that saw 22 ___ with no rain at all.",
+      "stem": "Q18 — first of the two main sources of knowledge of distant-past weather conditions (Q18 & Q19 in either order; accepts B or C)",
+      "options": [
+        { "key": "A", "text": "climatic shifts", "correct": false },
+        { "key": "B", "text": "ice cores", "correct": true },
+        { "key": "C", "text": "tree rings", "correct": true },
+        { "key": "D", "text": "glaciers", "correct": false },
+        { "key": "E", "text": "interactions", "correct": false },
+        { "key": "F", "text": "weather observations", "correct": false },
+        { "key": "G", "text": "heat waves", "correct": false },
+        { "key": "H", "text": "storms", "correct": false },
+        { "key": "I", "text": "written accounts", "correct": false }
+      ],
+      "answer": "C"
+    },
+    {
+      "n": 19,
+      "questionType": "mcq",
+      "taskType": "matching_features",
+      "instruction": "Complete the summary using the list of words A-I.",
+      "stem": "Q19 — second of the two main sources of knowledge of distant-past weather conditions (Q18 & Q19 in either order; accepts B or C)",
+      "options": [
+        { "key": "A", "text": "climatic shifts", "correct": false },
+        { "key": "B", "text": "ice cores", "correct": true },
+        { "key": "C", "text": "tree rings", "correct": true },
+        { "key": "D", "text": "glaciers", "correct": false },
+        { "key": "E", "text": "interactions", "correct": false },
+        { "key": "F", "text": "weather observations", "correct": false },
+        { "key": "G", "text": "heat waves", "correct": false },
+        { "key": "H", "text": "storms", "correct": false },
+        { "key": "I", "text": "written accounts", "correct": false }
+      ],
+      "answer": "B"
+    },
+    {
+      "n": 20,
+      "questionType": "mcq",
+      "taskType": "matching_features",
+      "instruction": "Complete the summary using the list of words A-I.",
+      "stem": "Q20 — the Little Ice Age was a time of ___, rather than consistent freezing",
+      "options": [
+        { "key": "A", "text": "climatic shifts", "correct": true },
+        { "key": "B", "text": "ice cores", "correct": false },
+        { "key": "C", "text": "tree rings", "correct": false },
+        { "key": "D", "text": "glaciers", "correct": false },
+        { "key": "E", "text": "interactions", "correct": false },
+        { "key": "F", "text": "weather observations", "correct": false },
+        { "key": "G", "text": "heat waves", "correct": false },
+        { "key": "H", "text": "storms", "correct": false },
+        { "key": "I", "text": "written accounts", "correct": false }
+      ],
+      "answer": "A"
+    },
+    {
+      "n": 21,
+      "questionType": "mcq",
+      "taskType": "matching_features",
+      "instruction": "Complete the summary using the list of words A-I.",
+      "stem": "Q21 — what accompanied heavy rain in some periods",
+      "options": [
+        { "key": "A", "text": "climatic shifts", "correct": false },
+        { "key": "B", "text": "ice cores", "correct": false },
+        { "key": "C", "text": "tree rings", "correct": false },
+        { "key": "D", "text": "glaciers", "correct": false },
+        { "key": "E", "text": "interactions", "correct": false },
+        { "key": "F", "text": "weather observations", "correct": false },
+        { "key": "G", "text": "heat waves", "correct": false },
+        { "key": "H", "text": "storms", "correct": true },
+        { "key": "I", "text": "written accounts", "correct": false }
+      ],
+      "answer": "H"
+    },
+    {
+      "n": 22,
+      "questionType": "mcq",
+      "taskType": "matching_features",
+      "instruction": "Complete the summary using the list of words A-I.",
+      "stem": "Q22 — what came with no rain at all",
+      "options": [
+        { "key": "A", "text": "climatic shifts", "correct": false },
+        { "key": "B", "text": "ice cores", "correct": false },
+        { "key": "C", "text": "tree rings", "correct": false },
+        { "key": "D", "text": "glaciers", "correct": false },
+        { "key": "E", "text": "interactions", "correct": false },
+        { "key": "F", "text": "weather observations", "correct": false },
+        { "key": "G", "text": "heat waves", "correct": true },
+        { "key": "H", "text": "storms", "correct": false },
+        { "key": "I", "text": "written accounts", "correct": false }
+      ],
+      "answer": "G"
+    },
+    {
+      "n": 23,
+      "questionType": "mcq",
+      "taskType": "classification",
+      "instruction": "Classify the following events as occurring during the:\nA Medieval Warm Period\nB Little Ice Age\nC Modern Warm Period\n\nWrite the correct letter, A, B or C.",
+      "stem": "Q23 — Many Europeans started farming abroad.",
+      "options": [
+        { "key": "A", "text": "Medieval Warm Period", "correct": false },
+        { "key": "B", "text": "Little Ice Age", "correct": false },
+        { "key": "C", "text": "Modern Warm Period", "correct": true }
+      ],
+      "answer": "C"
+    },
+    {
+      "n": 24,
+      "questionType": "mcq",
+      "taskType": "classification",
+      "instruction": "Classify the following events as occurring during the Medieval Warm Period (A), Little Ice Age (B), or Modern Warm Period (C).",
+      "stem": "Q24 — The cutting down of trees began to affect the climate.",
+      "options": [
+        { "key": "A", "text": "Medieval Warm Period", "correct": false },
+        { "key": "B", "text": "Little Ice Age", "correct": false },
+        { "key": "C", "text": "Modern Warm Period", "correct": true }
+      ],
+      "answer": "C"
+    },
+    {
+      "n": 25,
+      "questionType": "mcq",
+      "taskType": "classification",
+      "instruction": "Classify the following events as occurring during the Medieval Warm Period (A), Little Ice Age (B), or Modern Warm Period (C).",
+      "stem": "Q25 — Europeans discovered other lands.",
+      "options": [
+        { "key": "A", "text": "Medieval Warm Period", "correct": true },
+        { "key": "B", "text": "Little Ice Age", "correct": false },
+        { "key": "C", "text": "Modern Warm Period", "correct": false }
+      ],
+      "answer": "A"
+    },
+    {
+      "n": 26,
+      "questionType": "mcq",
+      "taskType": "classification",
+      "instruction": "Classify the following events as occurring during the Medieval Warm Period (A), Little Ice Age (B), or Modern Warm Period (C).",
+      "stem": "Q26 — Changes took place in fishing patterns.",
+      "options": [
+        { "key": "A", "text": "Medieval Warm Period", "correct": false },
+        { "key": "B", "text": "Little Ice Age", "correct": true },
+        { "key": "C", "text": "Modern Warm Period", "correct": false }
+      ],
+      "answer": "B"
+    }
+  ]
+}
