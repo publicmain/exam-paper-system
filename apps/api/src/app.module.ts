@@ -49,6 +49,7 @@ import { MorningQuizQaModule } from './morning-quiz-qa/morning-quiz-qa.module';
 import { TeacherTodoModule } from './teacher-todo/teacher-todo.module';
 import { IeltsIngestModule } from './ielts-ingest/ielts-ingest.module';
 import { OlevelIngestModule } from './olevel-ingest/olevel-ingest.module';
+import { ContentBootstrapModule } from './bootstrap/content-bootstrap.module';
 import { HealthController } from './health.controller';
 
 @Module({
@@ -102,6 +103,13 @@ import { HealthController } from './health.controller';
     TeacherTodoModule,
     IeltsIngestModule,
     OlevelIngestModule,
+    // ContentBootstrapModule MUST come after IeltsIngestModule and
+    // OlevelIngestModule — its provider injects their services. On
+    // every API start it idempotently seeds the morning-quiz bank
+    // from the shipped Cambridge fixtures (GT 14, IELTS 8, 0510)
+    // so a fresh prod DB has content before the first weekly-generate
+    // runs. Disable via BOOTSTRAP_CONTENT_DISABLED=true.
+    ContentBootstrapModule,
   ],
   controllers: [HealthController],
   providers: [

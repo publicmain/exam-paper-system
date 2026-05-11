@@ -1,0 +1,156 @@
+{
+  "bookCode": "cambridge_ielts_8",
+  "testNumber": 1,
+  "passageNumber": 2,
+  "passage": {
+    "title": "Air Traffic Control in the USA",
+    "body": "A An accident that occurred in the skies over the Grand Canyon in 1956 resulted in the establishment of the Federal Aviation Administration (FAA) to regulate and oversee the operation of aircraft in the skies over the United States, which were becoming quite congested. The resulting structure of air traffic control has greatly increased the safety of flight in the United States, and similar air traffic control procedures are also in place over much of the rest of the world.\n\nB Rudimentary air traffic control (ATC) existed well before the Grand Canyon disaster. As early as the 1920s, the earliest air traffic controllers manually guided aircraft in the vicinity of the airports, using lights and flags, while beacons and flashing lights were placed along cross-country routes to establish the earliest airways. However, this purely visual system was useless in bad weather, and, by the 1930s, radio communication was coming into use for ATC. The first region to have something approximating today's ATC was New York City, with other major metropolitan areas following soon after.\n\nC In the 1940s, ATC centres could and did take advantage of the newly developed radar and improved radio communication brought about by the Second World War, but the system remained rudimentary. It was only after the creation of the FAA that full-scale regulation of America's airspace took place, and this was fortuitous, for the advent of the jet engine suddenly resulted in a large number of very fast planes, reducing pilots' margin of error and practically demanding some set of rules to keep everyone well separated and operating safely in the air.\n\nD Many people think that ATC consists of a row of controllers sitting in front of their radar screens at the nation's airports, telling arriving and departing traffic what to do. This is a very incomplete part of the picture. The FAA realised that the airspace over the United States would at any time have many different kinds of planes, flying for many different purposes, in a variety of weather conditions, and the same kind of structure was needed to accommodate all of them.\n\nE To meet this challenge, the following elements were put into effect. First, ATC extends over virtually the entire United States. In general, from 365m above the ground and higher, the entire country is blanketed by controlled airspace. In certain areas, mainly near airports, controlled airspace extends down to 215m above the ground, and, in the immediate vicinity of an airport, all the way down to the surface. Controlled airspace is that airspace in which FAA regulations apply. Elsewhere, in uncontrolled airspace, pilots are bound by fewer regulations. In this way, the recreational pilot who simply wishes to go flying for a while without all the restrictions imposed by the FAA has only to stay in uncontrolled airspace, below 365m, while the pilot who does want the protection afforded by ATC can easily enter the controlled airspace.\n\nF The FAA then recognised two types of operating environments. In good meteorological conditions, flying would be permitted under Visual Flight Rules (VFR), which suggests a strong reliance on visual cues to maintain an acceptable level of safety. Poor visibility necessitated a set of Instrumental Flight Rules (IFR), under which the pilot relied on altitude and navigational information provided by the plane's instrument panel to fly safely. On a clear day, a pilot in controlled airspace can choose a VFR or IFR flight plan, and the FAA regulations were devised in a way which accommodates both VFR and IFR operations in the same airspace. However, a pilot can only choose to fly IFR if they possess an instrument rating which is above and beyond the basic pilot's license that must also be held.\n\nG Controlled airspace is divided into several different types, designated by letters of the alphabet. Uncontrolled airspace is designated Class F, while controlled airspace below 5,490m above sea level and not in the vicinity of an airport is Class E. All airspace above 5,490m is designated Class A. The reason for the division of Class E and Class A airspace stems from the type of planes operating in them. Generally, Class E airspace is where one finds general aviation aircraft (few of which can climb above 5,490m anyway), and commercial turboprop aircraft. Above 5,490m is the realm of the heavy jets, since jet engines operate more efficiently at higher altitudes. The difference between Class E and A airspace is that in Class A, all operations are IFR, and pilots must be instrument-rated, that is, skilled and licensed in aircraft instrumentation. This is because ATC control of the entire space is essential. Three other types of airspace, Classes D, C and B, govern the vicinity of airports. These correspond roughly to small municipal, medium-sized metropolitan and major metropolitan airports respectively, and encompass an increasingly rigorous set of regulations. For example, all a VFR pilot has to do to enter Class C airspace is establish two-way radio contact with ATC. No explicit permission from ATC to enter is needed, although the pilot must continue to obey all regulations governing VFR flight. To enter Class B airspace, such as on approach to a major metropolitan airport, an explicit ATC clearance is required. The private pilot who cruises without permission into this airspace risks losing their license."
+  },
+  "questions": [
+    {
+      "n": 14,
+      "questionType": "short_answer",
+      "taskType": "matching_headings",
+      "instruction": "Reading Passage 2 has seven paragraphs, A-G. Choose the correct heading for paragraphs A and C-G from the list below. Write the correct number, i-x, in boxes 14-19 on your answer sheet.\n\nList of Headings:\ni  Disobeying FAA regulations\nii  Aviation disaster prompts action\niii  Two coincidental developments\niv  Setting altitude zones\nv  An oversimplified view\nvi  Controlling pilots' licences\nvii  Defining airspace categories\nviii  Setting rules to weather conditions\nix  Taking off safely\nx  First steps towards ATC\n\n(Example: Paragraph B = x)",
+      "stem": "Paragraph A",
+      "options": null,
+      "answer": "ii"
+    },
+    {
+      "n": 15,
+      "questionType": "short_answer",
+      "taskType": "matching_headings",
+      "instruction": "Choose the correct heading for paragraphs A and C-G from the list of headings (i-x).",
+      "stem": "Paragraph C",
+      "options": null,
+      "answer": "iii"
+    },
+    {
+      "n": 16,
+      "questionType": "short_answer",
+      "taskType": "matching_headings",
+      "instruction": "Choose the correct heading for paragraphs A and C-G from the list of headings (i-x).",
+      "stem": "Paragraph D",
+      "options": null,
+      "answer": "v"
+    },
+    {
+      "n": 17,
+      "questionType": "short_answer",
+      "taskType": "matching_headings",
+      "instruction": "Choose the correct heading for paragraphs A and C-G from the list of headings (i-x).",
+      "stem": "Paragraph E",
+      "options": null,
+      "answer": "iv"
+    },
+    {
+      "n": 18,
+      "questionType": "short_answer",
+      "taskType": "matching_headings",
+      "instruction": "Choose the correct heading for paragraphs A and C-G from the list of headings (i-x).",
+      "stem": "Paragraph F",
+      "options": null,
+      "answer": "viii"
+    },
+    {
+      "n": 19,
+      "questionType": "short_answer",
+      "taskType": "matching_headings",
+      "instruction": "Choose the correct heading for paragraphs A and C-G from the list of headings (i-x).",
+      "stem": "Paragraph G",
+      "options": null,
+      "answer": "vii"
+    },
+    {
+      "n": 20,
+      "questionType": "mcq",
+      "taskType": "true_false_not_given",
+      "instruction": "Do the following statements agree with the information given in Reading Passage 2? Choose:\nA  TRUE  if the statement agrees with the information\nB  FALSE  if the statement contradicts the information\nC  NOT GIVEN  if there is no information on this",
+      "stem": "The FAA was created as a result of the introduction of the jet engine.",
+      "options": [
+        {"key":"A","text":"TRUE","correct":false},
+        {"key":"B","text":"FALSE","correct":true},
+        {"key":"C","text":"NOT GIVEN","correct":false}
+      ],
+      "answer": "B"
+    },
+    {
+      "n": 21,
+      "questionType": "mcq",
+      "taskType": "true_false_not_given",
+      "instruction": "TRUE / FALSE / NOT GIVEN — does the statement agree with the passage?",
+      "stem": "Air Traffic Control started after the Grand Canyon crash in 1956.",
+      "options": [
+        {"key":"A","text":"TRUE","correct":false},
+        {"key":"B","text":"FALSE","correct":true},
+        {"key":"C","text":"NOT GIVEN","correct":false}
+      ],
+      "answer": "B"
+    },
+    {
+      "n": 22,
+      "questionType": "mcq",
+      "taskType": "true_false_not_given",
+      "instruction": "TRUE / FALSE / NOT GIVEN — does the statement agree with the passage?",
+      "stem": "Beacons and flashing lights are still used by ATC today.",
+      "options": [
+        {"key":"A","text":"TRUE","correct":false},
+        {"key":"B","text":"FALSE","correct":false},
+        {"key":"C","text":"NOT GIVEN","correct":true}
+      ],
+      "answer": "C"
+    },
+    {
+      "n": 23,
+      "questionType": "mcq",
+      "taskType": "true_false_not_given",
+      "instruction": "TRUE / FALSE / NOT GIVEN — does the statement agree with the passage?",
+      "stem": "Some improvements were made in radio communication during World War II.",
+      "options": [
+        {"key":"A","text":"TRUE","correct":true},
+        {"key":"B","text":"FALSE","correct":false},
+        {"key":"C","text":"NOT GIVEN","correct":false}
+      ],
+      "answer": "A"
+    },
+    {
+      "n": 24,
+      "questionType": "mcq",
+      "taskType": "true_false_not_given",
+      "instruction": "TRUE / FALSE / NOT GIVEN — does the statement agree with the passage?",
+      "stem": "Class F airspace is airspace which is below 365m and not near airports.",
+      "options": [
+        {"key":"A","text":"TRUE","correct":true},
+        {"key":"B","text":"FALSE","correct":false},
+        {"key":"C","text":"NOT GIVEN","correct":false}
+      ],
+      "answer": "A"
+    },
+    {
+      "n": 25,
+      "questionType": "mcq",
+      "taskType": "true_false_not_given",
+      "instruction": "TRUE / FALSE / NOT GIVEN — does the statement agree with the passage?",
+      "stem": "All aircraft in Class E airspace must use IFR.",
+      "options": [
+        {"key":"A","text":"TRUE","correct":false},
+        {"key":"B","text":"FALSE","correct":true},
+        {"key":"C","text":"NOT GIVEN","correct":false}
+      ],
+      "answer": "B"
+    },
+    {
+      "n": 26,
+      "questionType": "mcq",
+      "taskType": "true_false_not_given",
+      "instruction": "TRUE / FALSE / NOT GIVEN — does the statement agree with the passage?",
+      "stem": "A pilot entering Class C airspace is flying over an average-sized city.",
+      "options": [
+        {"key":"A","text":"TRUE","correct":true},
+        {"key":"B","text":"FALSE","correct":false},
+        {"key":"C","text":"NOT GIVEN","correct":false}
+      ],
+      "answer": "A"
+    }
+  ]
+}

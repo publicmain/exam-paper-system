@@ -36,6 +36,10 @@ RUN npm install --workspace @app/api --omit=dev --ignore-scripts
 
 COPY --from=builder /app/apps/api/dist ./apps/api/dist
 COPY --from=builder /app/apps/api/prisma ./apps/api/prisma
+# ContentBootstrapService reads test-fixtures/*.json at runtime to seed
+# the morning-quiz bank on first boot (idempotent on re-deploys).
+# See apps/api/src/bootstrap/content-bootstrap.service.ts.
+COPY --from=builder /app/apps/api/test-fixtures ./apps/api/test-fixtures
 # npm workspaces hoists @prisma to root node_modules
 COPY --from=builder /app/node_modules/.prisma ./node_modules/.prisma
 COPY --from=builder /app/node_modules/@prisma ./node_modules/@prisma

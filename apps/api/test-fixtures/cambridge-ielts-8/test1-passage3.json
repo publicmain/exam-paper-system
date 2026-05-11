@@ -1,0 +1,169 @@
+{
+  "bookCode": "cambridge_ielts_8",
+  "testNumber": 1,
+  "passageNumber": 3,
+  "passage": {
+    "title": "Telepathy",
+    "body": "Can human beings communicate by thought alone? For more than a century the issue of telepathy has divided the scientific community, and even today it still sparks bitter controversy among top academics.\n\nSince the 1970s, parapsychologists at leading universities and research institutes around the world have risked the derision of sceptical colleagues by putting the various claims for telepathy to the test in dozens of rigorous scientific studies. The results and their implications are dividing even the researchers who uncovered them.\n\nSome researchers say the results constitute compelling evidence that telepathy is genuine. Other parapsychologists believe the field is on the brink of collapse, having tried to produce definitive scientific proof and failed. Sceptics and advocates alike do concur on one issue, however: that the most impressive evidence so far has come from the so-called 'ganzfeld' experiments, a German term that means 'whole field'. Reports of telepathic experiences had by people during meditation led parapsychologists to suspect that telepathy might involve 'signals' passing between people that were so faint that they were usually swamped by normal brain activity. In this case, such signals might be more easily detected by those experiencing meditation-like tranquillity in a relaxing 'whole field' of light, sound and warmth.\n\nThe ganzfeld experiment tries to recreate these conditions with participants sitting in soft reclining chairs in a sealed room, listening to relaxing sounds while their eyes are covered with special filters letting in only soft pink light. In early ganzfeld experiments, the telepathy test involved identification of a picture chosen from a random selection of four taken from a large image bank. The idea was that a person acting as a 'sender' would attempt to beam the image over to the 'receiver' relaxing in the sealed room. Once the session was over, this person was asked to identify which of the four images had been used. Random guessing would give a hit-rate of 25 per cent; if telepathy is real, however, the hit-rate would be higher. In 1982, the results from the first ganzfeld studies were analysed by one of its pioneers, the American parapsychologist Charles Honorton. They pointed to typical hit-rates of better than 30 per cent — a small effect, but one which statistical tests suggested could not be put down to chance.\n\nThe implication was that the ganzfeld method had revealed real evidence for telepathy. But there was a crucial flaw in this argument — one routinely overlooked in more conventional areas of science. Just because chance had been ruled out as an explanation did not prove telepathy must exist; there were many other ways of getting positive results. These ranged from 'sensory leakage' — where clues about the pictures accidentally reach the receiver — to outright fraud. In response, the researchers issued a review of all the ganzfeld studies done up to 1985 to show that 80 per cent had found statistically significant evidence. However, they also agreed that there were still too many problems in the experiments which could lead to positive results, and they drew up a list demanding new standards for future research.\n\nAfter this, many researchers switched to autoganzfeld tests — an automated variant of the technique which used computers to perform many of the key tasks such as the random selection of images. By minimising human involvement, the idea was to minimise the risk of flawed results. In 1987, results from hundreds of autoganzfeld tests were studied by Honorton in a 'meta-analysis', a statistical technique for finding the overall results from a set of studies. Though less compelling than before, the outcome was still impressive.\n\nYet some parapsychologists remain disturbed by the lack of consistency between individual ganzfeld studies. Defenders of telepathy point out that demanding impressive evidence from every study ignores one basic statistical fact: it takes large samples to detect small effects. If, as current results suggest, telepathy produces hit-rates only marginally above the 25 per cent expected by chance, it's unlikely to be detected by a typical ganzfeld study involving around 40 people: the group is just not big enough. Only when many studies are combined in a meta-analysis will the faint signal of telepathy really become apparent. And that is what researchers do seem to be finding.\n\nWhat they are certainly not finding, however, is any change in attitude of mainstream scientists: most still totally reject the very idea of telepathy. The problem stems at least in part from the lack of any plausible mechanism for telepathy.\n\nVarious theories have been put forward, many focusing on esoteric ideas from theoretical physics. They include 'quantum entanglement', in which events affecting one group of atoms instantly affect another group, no matter how far apart they may be. While physicists have demonstrated entanglement with specially prepared atoms, no-one knows if it also exists between atoms making up human minds. Answering such questions would transform parapsychology. This has prompted some researchers to argue that the future lies not in collecting more evidence for telepathy, but in probing possible mechanisms. Some work has begun already, with researchers trying to identify people who are particularly successful in autoganzfeld trials. Early results show that creative and artistic people do much better than average: in one study at the University of Edinburgh, musicians achieved a hit-rate of 56 per cent. Perhaps more tests like these will eventually give the researchers the evidence they are seeking and strengthen the case for the existence of telepathy."
+  },
+  "questions": [
+    {
+      "n": 27,
+      "questionType": "mcq",
+      "taskType": "matching_features",
+      "instruction": "Complete each sentence with the correct ending, A-G, below. Write the correct letter, A-G, in boxes 27-30 on your answer sheet.\n\nA  the discovery of a mechanism for telepathy.\nB  the need to create a suitable environment for telepathy.\nC  their claims of a high success rate.\nD  a solution to the problem posed by random guessing.\nE  the significance of the ganzfeld experiments.\nF  a more careful selection of subjects.\nG  a need to keep altering conditions.",
+      "stem": "Researchers with differing attitudes towards telepathy agree on …",
+      "options": [
+        {"key":"A","text":"the discovery of a mechanism for telepathy.","correct":false},
+        {"key":"B","text":"the need to create a suitable environment for telepathy.","correct":false},
+        {"key":"C","text":"their claims of a high success rate.","correct":false},
+        {"key":"D","text":"a solution to the problem posed by random guessing.","correct":false},
+        {"key":"E","text":"the significance of the ganzfeld experiments.","correct":true},
+        {"key":"F","text":"a more careful selection of subjects.","correct":false},
+        {"key":"G","text":"a need to keep altering conditions.","correct":false}
+      ],
+      "answer": "E"
+    },
+    {
+      "n": 28,
+      "questionType": "mcq",
+      "taskType": "matching_features",
+      "instruction": "Complete each sentence with the correct ending, A-G, below.",
+      "stem": "Reports of experiences during meditation indicated …",
+      "options": [
+        {"key":"A","text":"the discovery of a mechanism for telepathy.","correct":false},
+        {"key":"B","text":"the need to create a suitable environment for telepathy.","correct":true},
+        {"key":"C","text":"their claims of a high success rate.","correct":false},
+        {"key":"D","text":"a solution to the problem posed by random guessing.","correct":false},
+        {"key":"E","text":"the significance of the ganzfeld experiments.","correct":false},
+        {"key":"F","text":"a more careful selection of subjects.","correct":false},
+        {"key":"G","text":"a need to keep altering conditions.","correct":false}
+      ],
+      "answer": "B"
+    },
+    {
+      "n": 29,
+      "questionType": "mcq",
+      "taskType": "matching_features",
+      "instruction": "Complete each sentence with the correct ending, A-G, below.",
+      "stem": "Attitudes to parapsychology would alter drastically with …",
+      "options": [
+        {"key":"A","text":"the discovery of a mechanism for telepathy.","correct":true},
+        {"key":"B","text":"the need to create a suitable environment for telepathy.","correct":false},
+        {"key":"C","text":"their claims of a high success rate.","correct":false},
+        {"key":"D","text":"a solution to the problem posed by random guessing.","correct":false},
+        {"key":"E","text":"the significance of the ganzfeld experiments.","correct":false},
+        {"key":"F","text":"a more careful selection of subjects.","correct":false},
+        {"key":"G","text":"a need to keep altering conditions.","correct":false}
+      ],
+      "answer": "A"
+    },
+    {
+      "n": 30,
+      "questionType": "mcq",
+      "taskType": "matching_features",
+      "instruction": "Complete each sentence with the correct ending, A-G, below.",
+      "stem": "Recent autoganzfeld trials suggest that success rates will improve with …",
+      "options": [
+        {"key":"A","text":"the discovery of a mechanism for telepathy.","correct":false},
+        {"key":"B","text":"the need to create a suitable environment for telepathy.","correct":false},
+        {"key":"C","text":"their claims of a high success rate.","correct":false},
+        {"key":"D","text":"a solution to the problem posed by random guessing.","correct":false},
+        {"key":"E","text":"the significance of the ganzfeld experiments.","correct":false},
+        {"key":"F","text":"a more careful selection of subjects.","correct":true},
+        {"key":"G","text":"a need to keep altering conditions.","correct":false}
+      ],
+      "answer": "F"
+    },
+    {
+      "n": 31,
+      "questionType": "short_answer",
+      "taskType": "table_completion",
+      "instruction": "Complete the table below. Choose NO MORE THAN THREE WORDS from the passage for each answer.\n\nGanzfeld studies (1982): involved a person acting as a [31], who picked out one [32] from a random selection of four, and a [33], who then tried to identify it.",
+      "stem": "Q31 — 'a person acting as a …'",
+      "options": null,
+      "answer": "sender"
+    },
+    {
+      "n": 32,
+      "questionType": "short_answer",
+      "taskType": "table_completion",
+      "instruction": "Choose NO MORE THAN THREE WORDS from the passage. (See Q31 instruction.)",
+      "stem": "Q32 — 'who picked out one … from a random selection of four'",
+      "options": null,
+      "answer": "picture"
+    },
+    {
+      "n": 33,
+      "questionType": "short_answer",
+      "taskType": "table_completion",
+      "instruction": "Choose NO MORE THAN THREE WORDS from the passage.",
+      "stem": "Q33 — 'and a …, who then tried to identify it.'",
+      "options": null,
+      "answer": "receiver"
+    },
+    {
+      "n": 34,
+      "questionType": "short_answer",
+      "taskType": "table_completion",
+      "instruction": "Choose NO MORE THAN THREE WORDS from the passage.\n\nFlaw of Ganzfeld studies: positive results could be produced by factors such as [34] or [35]. (Note: Q34 / Q35 IN EITHER ORDER per official key.)",
+      "stem": "Q34 — first of the two flaws",
+      "options": null,
+      "answer": "sensory leakage"
+    },
+    {
+      "n": 35,
+      "questionType": "short_answer",
+      "taskType": "table_completion",
+      "instruction": "Choose NO MORE THAN THREE WORDS from the passage.",
+      "stem": "Q35 — second of the two flaws",
+      "options": null,
+      "answer": "fraud"
+    },
+    {
+      "n": 36,
+      "questionType": "short_answer",
+      "taskType": "table_completion",
+      "instruction": "Choose NO MORE THAN THREE WORDS from the passage.\n\nAutoganzfeld studies (1987): [36] were used for key tasks to limit the amount of [37] in carrying out the tests. The results were then subjected to a [38].",
+      "stem": "Q36 — what was used for key tasks",
+      "options": null,
+      "answer": "computers"
+    },
+    {
+      "n": 37,
+      "questionType": "short_answer",
+      "taskType": "table_completion",
+      "instruction": "Choose NO MORE THAN THREE WORDS from the passage.",
+      "stem": "Q37 — what was limited (in carrying out the tests)",
+      "options": null,
+      "answer": "human involvement"
+    },
+    {
+      "n": 38,
+      "questionType": "short_answer",
+      "taskType": "table_completion",
+      "instruction": "Choose NO MORE THAN THREE WORDS from the passage.",
+      "stem": "Q38 — the statistical technique applied to the results",
+      "options": null,
+      "answer": "meta-analysis"
+    },
+    {
+      "n": 39,
+      "questionType": "short_answer",
+      "taskType": "table_completion",
+      "instruction": "Choose NO MORE THAN THREE WORDS from the passage.\n\nFlaw of Autoganzfeld: the [39] between different test results was put down to the fact that sample groups were not [40].",
+      "stem": "Q39 — the issue between different test results",
+      "options": null,
+      "answer": "lack of consistency"
+    },
+    {
+      "n": 40,
+      "questionType": "short_answer",
+      "taskType": "table_completion",
+      "instruction": "Choose NO MORE THAN THREE WORDS from the passage.",
+      "stem": "Q40 — the property the sample groups lacked",
+      "options": null,
+      "answer": "big enough"
+    }
+  ]
+}
