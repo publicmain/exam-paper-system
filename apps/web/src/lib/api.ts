@@ -323,6 +323,10 @@ export const api = {
    *  exposing a real attack surface in production. */
   morningQuizDebugActivate: (sessionId: string) =>
     request('PATCH', `/morning-quiz/sessions/${sessionId}/debug-activate`),
+  /** Wipe one student's attendance + submission + scripts on one session.
+   *  Used after a teacher-led dry-run with a single test student. */
+  morningQuizClearStudentTestData: (sessionId: string, studentId: string) =>
+    request('DELETE', `/morning-quiz/sessions/${sessionId}/student/${studentId}/test-data`),
   morningQuizBatchSchedule: (items: Array<{ date: string; classId: string; paperId: string }>) =>
     request('POST', '/morning-quiz/batch', { items }),
   morningQuizBatchGenerate: (body: {

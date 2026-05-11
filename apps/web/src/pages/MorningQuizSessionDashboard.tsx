@@ -14,6 +14,7 @@ export default function MorningQuizSessionDashboard() {
   const [data, setData] = useState<any | null>(null);
   const [err, setErr] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  const [clearingStudent, setClearingStudent] = useState<string | null>(null);
 
   async function reload() {
     if (!sessionId) return;
@@ -25,6 +26,37 @@ export default function MorningQuizSessionDashboard() {
       setErr(String(e?.message ?? e));
     } finally {
       setLoading(false);
+    }
+  }
+
+  /** Wipe one student's attendance + submission + scripts on this session.
+   *  Used after a teacher-led dry-run (e.g. "I tested with 刘思璇 — clean
+   *  her test data so tomorrow's real morning dashboard starts clean"). */
+  async function handleClearStudent(studentId: string, studentName: string) {
+    if (!sessionId) return;
+    const confirmed = confirm(
+      `清除 ${studentName} 在本场 session 的测试数据？\n\n` +
+        `会删除:\n` +
+        `  · 考勤记录(attendance)\n` +
+        `  · 答卷提交记录(submission)\n` +
+        `  · 所有答题记录(answer scripts)\n\n` +
+        `不会影响这场 session 本身或其他学生的数据。不可撤销。`,
+    );
+    if (!confirmed) return;
+    setClearingStudent(studentId);
+    try {
+      const r = await api.morningQuizClearStudentTestData(sessionId, studentId);
+      alert(
+        `已清除 ${studentName}:\n` +
+          `  · attendance: ${r.attendanceDeleted}\n` +
+          `  · submission: ${r.submissionDeleted}\n` +
+          `  · answer scripts: ${r.scriptDeleted}`,
+      );
+      await reload();
+    } catch (e: any) {
+      setErr(String(e?.message ?? e));
+    } finally {
+      setClearingStudent(null);
     }
   }
 
@@ -81,23 +113,39 @@ export default function MorningQuizSessionDashboard() {
                 <th className="py-2 pr-2">已交卷</th>
                 <th className="py-2 pr-2">分数 (auto)</th>
                 <th className="py-2 pr-2">提交时间</th>
+                <th className="py-2 pr-2 text-right"></th>
               </tr>
             </thead>
             <tbody className="divide-y">
               {(attendances ?? []).length === 0 && (
-                <tr><td colSpan={5} className="py-4 text-center text-gray-500">还没有学生扫码</td></tr>
+                <tr><td colSpan={6} className="py-4 text-center text-gray-500">还没有学生扫码</td></tr>
               )}
-              {(attendances ?? []).map((a: any) => (
-                <tr key={a.id ?? a.studentId}>
-                  <td className="py-2 pr-2">{a.student?.name ?? a.studentId}</td>
-                  <td className="py-2 pr-2"><StatusBadge status={a.status} /></td>
-                  <td className="py-2 pr-2">{a.submission?.submittedAt ? '✓' : '—'}</td>
-                  <td className="py-2 pr-2">{a.submission?.totalScore ?? a.submission?.autoScore ?? '—'}</td>
-                  <td className="py-2 pr-2 text-xs text-gray-500">
-                    {a.submission?.submittedAt ? new Date(a.submission.submittedAt).toLocaleTimeString() : '—'}
-                  </td>
-                </tr>
-              ))}
+              {(attendances ?? []).map((a: any) => {
+                const sid = a.studentId ?? a.student?.id;
+                const sname = a.student?.name ?? sid;
+                const isClearing = clearingStudent === sid;
+                return (
+                  <tr key={a.id ?? sid}>
+                    <td className="py-2 pr-2">{sname}</td>
+                    <td className="py-2 pr-2"><StatusBadge status={a.status} /></td>
+                    <td className="py-2 pr-2">{a.submission?.submittedAt ? '✓' : '—'}</td>
+                    <td className="py-2 pr-2">{a.submission?.totalScore ?? a.submission?.autoScore ?? '—'}</td>
+                    <td className="py-2 pr-2 text-xs text-gray-500">
+                      {a.submission?.submittedAt ? new Date(a.submission.submittedAt).toLocaleTimeString() : '—'}
+                    </td>
+                    <td className="py-2 pr-2 text-right">
+                      <button
+                        onClick={() => handleClearStudent(sid, sname)}
+                        disabled={isClearing}
+                        className="text-xs px-2 py-1 rounded text-rose-600 hover:bg-rose-50 disabled:opacity-50"
+                        title="清除该学生在本场 session 的测试数据(考勤+答卷, 不影响 session 本身)"
+                      >
+                        {isClearing ? '清除中…' : '🗑️ 清除测试数据'}
+                      </button>
+                    </td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         </div>

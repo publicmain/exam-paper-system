@@ -126,14 +126,9 @@ export default function StudentResult() {
         ))}
       </section>
 
-      <div className="pt-4 text-center">
-        <button
-          className="text-sm text-blue-600 hover:underline"
-          onClick={() => navigate('/student')}
-        >
-          返回首页
-        </button>
-      </div>
+      {/* Intentionally NO 返回首页 button. The result page is the final
+          screen on a shared classroom laptop; an exit button is a footgun
+          that lets one student navigate into another student's view. */}
     </div>
   );
 }

@@ -1619,6 +1619,89 @@ export class MorningQuizService {
     return after;
   }
 
+  /**
+   * Admin-only — wipe one student's data on one session. Used to clean up
+   * after dry-runs (teacher tested scan flow with student X; now wants X's
+   * attendance + submission + answer scripts gone so the morning's real
+   * dashboard isn't polluted). Idempotent — if there's nothing to delete
+   * the call still succeeds and returns zero counts.
+   *
+   * Deletes:
+   *   - Attendance(sessionId, studentId)                (1 row or 0)
+   *   - StudentSubmission(assignmentId, studentId)      (1 row or 0)
+   *   - AnswerScript(submission)                        (cascade from above)
+   *
+   * Does NOT delete the Paper/PaperAssignment/MorningQuizSession themselves
+   * — those belong to the whole class and must stay intact for other
+   * students. Compare with force-regenerate (batchGenerateForWeek with
+   * force=true) which wipes the entire session and recreates it; use that
+   * instead when you want to throw away ALL student data on a session.
+   */
+  async clearStudentTestData(
+    sessionId: string,
+    studentId: string,
+    actor: ActorCtx,
+  ): Promise<{ attendanceDeleted: number; submissionDeleted: number; scriptDeleted: number }> {
+    if (!['teacher', 'head_teacher', 'admin'].includes(actor.role)) {
+      throw new ForbiddenException({ code: 'teacher_required' });
+    }
+    const session = await this.prisma.morningQuizSession.findUnique({
+      where: { id: sessionId },
+      select: { paperAssignmentId: true },
+    });
+    if (!session) throw new NotFoundException({ code: 'session_not_found' });
+
+    // Count scripts BEFORE deleting the submission so the audit log carries
+    // an accurate number — once StudentSubmission is gone the cascade has
+    // already taken AnswerScript with it.
+    const scriptCount = await this.prisma.answerScript.count({
+      where: {
+        submission: {
+          assignmentId: session.paperAssignmentId,
+          studentId,
+        },
+      },
+    });
+
+    const result = await this.prisma.$transaction(async (tx) => {
+      // Submission first (AnswerScript cascades), then attendance. Order
+      // doesn't really matter since both have unique constraints; doing
+      // submission first keeps the script delete inside the same tx.
+      const subDel = await tx.studentSubmission.deleteMany({
+        where: {
+          assignmentId: session.paperAssignmentId,
+          studentId,
+        },
+      });
+      const attDel = await tx.attendance.deleteMany({
+        where: { sessionId, studentId },
+      });
+      return { submissionDeleted: subDel.count, attendanceDeleted: attDel.count };
+    });
+
+    await this.audit.log({
+      actorId: actor.id,
+      actorRole: actor.role,
+      action: 'morning_quiz.clear_student_test_data',
+      entityType: 'MorningQuizSession',
+      entityId: sessionId,
+      ip: actor.ip,
+      metadata: {
+        sessionId,
+        studentId,
+        attendanceDeleted: result.attendanceDeleted,
+        submissionDeleted: result.submissionDeleted,
+        scriptDeleted: scriptCount,
+      },
+    });
+
+    return {
+      attendanceDeleted: result.attendanceDeleted,
+      submissionDeleted: result.submissionDeleted,
+      scriptDeleted: scriptCount,
+    };
+  }
+
   /** Find the StudentSubmission tied to (session, student) — used by the
    *  controller's submit endpoint to delegate to the canonical
    *  student.service.finalSubmit. */

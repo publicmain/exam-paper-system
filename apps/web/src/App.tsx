@@ -96,12 +96,15 @@ export default function App() {
     // R10 follow-up — when a student is mid-quiz the chrome (nav links,
     // name badge, Logout button) becomes a hazard: one accidental tap on
     // "Past-Paper Practice", "My Papers", or "Logout" navigates them away
-    // and dumps in-flight answers. Hide the entire header on the
-    // take-quiz routes so the only way out is the official Submit
-    // button. The result page + home keep the header for navigation.
+    // and dumps in-flight answers. Hide the entire header on:
+    //   - take-quiz routes (so the only way out is the official Submit)
+    //   - result page (after submit, the laptop is shared between students;
+    //     showing Logout is a footgun that lets the previous student log
+    //     out the next person, or click their way to other students' data)
     const isQuizTaking =
       location.pathname.startsWith('/morning-quiz/') ||
-      /^\/student\/take\//.test(location.pathname);
+      /^\/student\/take\//.test(location.pathname) ||
+      /^\/student\/result\//.test(location.pathname);
     return (
       <div className="min-h-screen flex flex-col bg-gray-50">
         <CommandPalette role="student" />

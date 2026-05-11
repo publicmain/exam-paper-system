@@ -265,6 +265,30 @@ export class MorningQuizController {
     );
   }
 
+  /**
+   * Wipe one student's test-run data on one session — attendance row +
+   * student submission + answer scripts. Used to clean up after dry-runs
+   * (teacher tested scan flow with student X off-hours; wants the morning's
+   * real dashboard to start clean). The Paper / PaperAssignment / session
+   * themselves stay intact so the rest of the class is unaffected.
+   *
+   * Teacher-role or above only. Audit-logged with deleted-row counts.
+   */
+  @Delete('sessions/:sessionId/student/:studentId/test-data')
+  clearStudentTestData(
+    @Param('sessionId') sessionId: string,
+    @Param('studentId') studentId: string,
+    @CurrentUser() user: any,
+    @Req() req: Request,
+  ) {
+    if (!TEACHER_ROLES.has(user.role)) throw new ForbiddenException('teacher_required');
+    return this.svc.clearStudentTestData(sessionId, studentId, {
+      id: user.id,
+      role: user.role,
+      ip: req.ip ?? null,
+    });
+  }
+
   @Get('sessions/:id/dashboard')
   dashboard(@Param('id') id: string, @CurrentUser() user: any, @Req() req: Request) {
     if (!TEACHER_ROLES.has(user.role)) throw new ForbiddenException('teacher_required');
