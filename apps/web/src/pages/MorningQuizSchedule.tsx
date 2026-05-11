@@ -537,13 +537,30 @@ export default function MorningQuizSchedule() {
                         >
                           ⚡ 立即激活{group.length > 1 ? ` (${group.length})` : ''}
                         </button>
-                        <Link
-                          to={`/morning-quiz/sessions/${primary.id}/dashboard`}
-                          className="text-blue-600 hover:underline text-xs ml-1"
-                          title="进入本场 session 的实时考勤+答卷面板(含「清除测试数据」按钮)"
-                        >
-                          考勤 →
-                        </Link>
+                        {/* One 考勤 link per level — a (date, class)
+                            group may carry 1–3 sessions (one per
+                            registered EnglishLevel), each with its
+                            own attendance roster. A single "考勤 →"
+                            link would only land on the primary
+                            session and hide the other levels'
+                            scans. Render one per level so the
+                            teacher can drill into the right band. */}
+                        {group.map((s) => (
+                          <Link
+                            key={`att-${s.id}`}
+                            to={`/morning-quiz/sessions/${s.id}/dashboard`}
+                            className="text-blue-600 hover:underline text-xs ml-1"
+                            title={`本场 ${s.level ? LEVEL_LABEL[s.level] : '—'} session 的实时考勤+答卷面板(含「清除测试数据」按钮)`}
+                          >
+                            考勤·{s.level === 'ielts_authentic'
+                              ? '强'
+                              : s.level === 'ielts_simplified'
+                                ? '中'
+                                : s.level === 'olevel'
+                                  ? '基'
+                                  : '?'} →
+                          </Link>
+                        ))}
                       </td>
                     </tr>
                   );
