@@ -41,6 +41,7 @@ import VariantPreviewPage from './pages/VariantPreview';
 import CodegraderTestPage from './pages/CodegraderTest';
 import StudentTutorPage from './pages/StudentTutor';
 import PracticePage from './pages/Practice';
+import MyHistoryPage from './pages/MyHistory';
 
 export default function App() {
   const { user, loading, init, logout } = useAuth();
@@ -59,6 +60,18 @@ export default function App() {
       <Routes>
         <Route path="/display" element={<MorningQuizDisplayPage />} />
         <Route path="/display/:sessionId" element={<MorningQuizDisplayPage />} />
+      </Routes>
+    );
+  }
+
+  // Public route: student-self-service exam history lookup by name.
+  // No JWT (scan tokens expire daily so a student wanting to check
+  // yesterday's score wouldn't have one); backend route is IP-gated
+  // to school WiFi so it's not world-readable.
+  if (location.pathname === '/my-history') {
+    return (
+      <Routes>
+        <Route path="/my-history" element={<MyHistoryPage />} />
       </Routes>
     );
   }
