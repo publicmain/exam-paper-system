@@ -1,0 +1,113 @@
+{
+  "setCode": "ai_authored_olevel_simplified_10_umbrella_v1",
+  "paperNumber": 2,
+  "paperTitle": "Singapore-Cambridge GCE O-Level 1128 English Language — AI-authored Simplified Practice 10: The Umbrella (§B style, simplified band)",
+  "provenanceTag": "ai_authored_olevel_1128_simplified",
+  "sections": [
+    {
+      "exercise": 1,
+      "instruction": "Read the narrative text below about a teenage girl caught in a heavy downpour outside an MRT station after tuition, and a stranger who shares his umbrella with her, and answer the questions that follow. Section B [10 marks] — AI-authored simplified practice paper modelled on the Singapore-Cambridge 1128/02 Section B format, pitched at students stretching from middle secondary toward the full O-Level standard. Original passage written for the morning quiz bank; not from a past exam paper. 6 short-answer items (Q1–Q6) and a 4-item flowchart MCQ (Q7) are included.",
+      "passageTitle": "The Umbrella",
+      "passage": "Paragraph 1\nIt was already raining heavily when I came out of tuition. I stood under the shop awning near the MRT station and checked my bag twice. There was no umbrella. My mother had reminded me to bring one that morning. I had not listened.\n\nParagraph 2\nThe drains by the road were overflowing. People were running past me into the MRT station — some with umbrellas, some without, all of them in a hurry. The rain showed no sign of stopping. My school uniform would be soaked through before I even reached the platform.\n\nParagraph 3\nAn uncle in a white office shirt and dark trousers, carrying a black briefcase, stopped beside me under the awning. He had one umbrella, half-folded against his side. He looked at me, then at my empty hands, then at the rain.\n\nParagraph 4\n'Eh, girl, you walking to MRT? I share with you, can?' His voice was matter-of-fact, as though he were asking the time. He was not making a fuss about it.\n\nParagraph 5\nWe walked the eighty metres to the MRT side by side. The umbrella was small for two people. He held it tilted slightly toward me, so that my schoolbag and the front of my uniform stayed dry. His right shoulder grew dark with rain. He did not say anything about it.\n\nParagraph 6\nAt the MRT entrance he tilted the umbrella back toward himself. 'I still got one block to go,' he said. 'But you stay dry on the train, can?'\n\nParagraph 7\nI wanted to say many things. Thank you. Why are you so kind. Should I have walked with you to your block. But all I managed was, 'Thank you, Uncle.' He nodded once, shifted his briefcase to his other hand, and walked away into the rain.\n\nParagraph 8\nI watched him until the rain blurred out his white shirt and then his outline. On the train I sat by the window with my dry uniform and thought, for the first time, about the kindness of strangers — and about whether I could be that uncle, one day, for someone else standing under an awning.\n\n(AI-authored original narrative for O-Level 1128 §B style practice, simplified-band difficulty; not from a past examination paper. MRT: Mass Rapid Transit, Singapore's subway system; tuition: private after-school lessons.)",
+      "questions": [
+        {
+          "n": 1,
+          "stem": "Q1. In Paragraph 1, why did the narrator have no umbrella that afternoon? [1]",
+          "answer": "her mother had reminded her to bring one that morning but she had not listened"
+        },
+        {
+          "n": 2,
+          "stem": "Q2. What is the effect of the detail 'all of them in a hurry' describing the people running past (Paragraph 2)? [1]",
+          "answer": "it emphasises how alone the narrator is — everyone around her is moving with their own purpose and not noticing her — which makes the uncle's later attention to her stand out even more"
+        },
+        {
+          "n": 3,
+          "stem": "Q3. In Paragraph 4, why does the narrator point out that the uncle's offer was 'matter-of-fact, as though he were asking the time'? [1]",
+          "answer": "the uncle did not treat his kindness as a big favour — to him it was a normal thing to do, which made his offer feel both more genuine and easier for the narrator to accept"
+        },
+        {
+          "n": 4,
+          "stem": "Q4. In Paragraph 5, why did the uncle not say anything about his right shoulder getting wet? [1]",
+          "answer": "he did not want to make the narrator feel bad about it — drawing attention to his discomfort would have turned his kindness into something she owed him"
+        },
+        {
+          "n": 5,
+          "stem": "Q5. At the MRT entrance in Paragraph 6, why did the uncle tilt the umbrella back toward himself? [1]",
+          "answer": "he still had a block to walk in the rain on his own — he needed the umbrella for himself now, and he also did not want her to feel obliged to walk further with him"
+        },
+        {
+          "n": 6,
+          "stem": "Q6. What is the effect of 'all I managed was, Thank you, Uncle' (Paragraph 7)? [1]",
+          "answer": "it shows how overwhelmed the narrator was by the uncle's kindness — she had many things she wanted to say, but in the moment, only the simplest phrase came out. It also captures her age and her shyness"
+        }
+      ]
+    },
+    {
+      "exercise": 2,
+      "instruction": "Q7. The narrator's main feeling shifts during and after the rain. For each part of the passage, choose ONE word from the bank that best describes her dominant feeling at that moment. There are some extra words in the bank you do not need to use. Word bank: regretful / stuck / touched / grateful / awkward / resolute / casual / impatient. The original task carries 4 marks; each blank is split into its own MCQ so each sub-part can be auto-graded independently.",
+      "passage": "Refer to the same 'Umbrella' narrative in Exercise 1 above. The narrator's feelings shift across the rainy evening — from regretful as she checks her bag and remembers her mother's morning reminder, to stuck as she watches everyone hurry past in their own purpose, to touched as she walks under the shared umbrella and notices his right shoulder darken with rain, ending resolute as she rides the train home thinking about whether she could be that uncle for someone else one day. Pick the single best word from the bank for each moment.",
+      "questions": [
+        {
+          "n": 7,
+          "stem": "Q7(i). What best describes the narrator's dominant feeling in Paragraph 1, checking her bag twice under the shop awning and remembering that her mother had reminded her about an umbrella that morning? [1]",
+          "options": [
+            {"key": "A", "text": "regretful", "correct": true},
+            {"key": "B", "text": "stuck", "correct": false},
+            {"key": "C", "text": "touched", "correct": false},
+            {"key": "D", "text": "grateful", "correct": false},
+            {"key": "E", "text": "awkward", "correct": false},
+            {"key": "F", "text": "resolute", "correct": false},
+            {"key": "G", "text": "casual", "correct": false},
+            {"key": "H", "text": "impatient", "correct": false}
+          ],
+          "answer": "A"
+        },
+        {
+          "n": 8,
+          "stem": "Q7(ii). What best describes the narrator's dominant feeling in Paragraph 2, watching the overflowing drains and everyone hurrying past her into the MRT while the rain shows no sign of stopping? [1]",
+          "options": [
+            {"key": "A", "text": "regretful", "correct": false},
+            {"key": "B", "text": "stuck", "correct": true},
+            {"key": "C", "text": "touched", "correct": false},
+            {"key": "D", "text": "grateful", "correct": false},
+            {"key": "E", "text": "awkward", "correct": false},
+            {"key": "F", "text": "resolute", "correct": false},
+            {"key": "G", "text": "casual", "correct": false},
+            {"key": "H", "text": "impatient", "correct": false}
+          ],
+          "answer": "B"
+        },
+        {
+          "n": 9,
+          "stem": "Q7(iii). What best describes the narrator's dominant feeling in Paragraph 5, walking under the small shared umbrella with her uniform staying dry while she notices the uncle's right shoulder growing dark with rain and that he is saying nothing about it? [1]",
+          "options": [
+            {"key": "A", "text": "regretful", "correct": false},
+            {"key": "B", "text": "stuck", "correct": false},
+            {"key": "C", "text": "touched", "correct": true},
+            {"key": "D", "text": "grateful", "correct": false},
+            {"key": "E", "text": "awkward", "correct": false},
+            {"key": "F", "text": "resolute", "correct": false},
+            {"key": "G", "text": "casual", "correct": false},
+            {"key": "H", "text": "impatient", "correct": false}
+          ],
+          "answer": "C"
+        },
+        {
+          "n": 10,
+          "stem": "Q7(iv). What best describes the narrator's dominant feeling in Paragraph 8, sitting by the train window with her dry uniform and thinking about whether she could be that uncle for someone else one day? [1]",
+          "options": [
+            {"key": "A", "text": "regretful", "correct": false},
+            {"key": "B", "text": "stuck", "correct": false},
+            {"key": "C", "text": "touched", "correct": false},
+            {"key": "D", "text": "grateful", "correct": false},
+            {"key": "E", "text": "awkward", "correct": false},
+            {"key": "F", "text": "resolute", "correct": true},
+            {"key": "G", "text": "casual", "correct": false},
+            {"key": "H", "text": "impatient", "correct": false}
+          ],
+          "answer": "F"
+        }
+      ]
+    }
+  ]
+}

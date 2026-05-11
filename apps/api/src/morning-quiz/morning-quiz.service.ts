@@ -450,18 +450,24 @@ export class MorningQuizService {
 
             // R10 — every level now picks pre-curated content from a
             // human-vetted bank instead of calling the AI inline:
-            //   ielts_authentic   → Cambridge passages I (Claude) ingested
-            //   ielts_simplified  → Claude-authored simplified passages
-            //                       (same IELTS task types but OLEVEL
-            //                       vocab, ~400-word passages)
-            //   olevel            → Claude-authored OLEVEL papers
-            //                       (cloze + vocab + transformation mix)
+            //   ielts_authentic   → Cambridge IELTS Academic passages
+            //                       (Cambridge IELTS 8, all 12; later
+            //                       books to be ingested)
+            //   ielts_simplified  → Singapore O-Level 1128 §B-style
+            //                       short narratives (Claude-authored,
+            //                       ~350-500 words, easier vocabulary).
+            //                       Used to read IELTS GT 14 but was
+            //                       re-routed to O-Level syllabus for
+            //                       cohort fit — the "middle band" is
+            //                       now O-Level at a stretch difficulty,
+            //                       not IELTS GT.
+            //   olevel            → Singapore O-Level 1128 §B narratives
+            //                       (real-PDF Singapore prelims + Claude-
+            //                       authored full-difficulty originals)
             //
             // The QA review loop (generateWithQaLoop) is bypassed: the
-            // bank items have already passed L1–L5 review at ingest
-            // time, and re-reviewing them with AI would just burn
-            // Anthropic credit + risk false-positive rejects on perfect
-            // Cambridge content.
+            // bank items have already passed audit at ingest time and
+            // re-reviewing them with AI would just burn Anthropic credit.
             //
             // weeklyFocus is preserved as a field on the paper config
             // for future use (e.g. teacher post-hoc filtering); it's no
@@ -475,13 +481,17 @@ export class MorningQuizService {
                 { provenanceFilter: 'authentic' },
               );
             } else if (levelRow.level === 'ielts_simplified') {
-              paperId = await this.pickPassageAndCreatePaper(
-                'IELTS', 'AUTH', classId, dateIso, actor,
+              // Middle band: pull from OLEVEL simplified tier, not IELTS GT.
+              paperId = await this.pickOlevelPaperAndCreatePaper(
+                classId, dateIso, actor,
                 { provenanceFilter: 'simplified' },
               );
             } else {
-              // olevel: pick a curated paper from the OLEVEL ingest bank.
-              paperId = await this.pickOlevelPaperAndCreatePaper(classId, dateIso, actor);
+              // olevel basic band: pull from OLEVEL standard tier.
+              paperId = await this.pickOlevelPaperAndCreatePaper(
+                classId, dateIso, actor,
+                { provenanceFilter: 'standard' },
+              );
             }
 
             const session = await this.createSession(
@@ -742,6 +752,7 @@ export class MorningQuizService {
     classId: string,
     dateIso: string,
     actor: ActorCtx,
+    opts: { provenanceFilter?: 'standard' | 'simplified' } = {},
   ): Promise<string> {
     const subject = await this.prisma.subject.findFirst({
       where: { code: '1123' },
@@ -755,12 +766,33 @@ export class MorningQuizService {
     }
     // The OLEVEL ingest API stamps Question.sourceRef =
     // `OLEVEL/<setCode>/Paper<n>/Q<m>`. Group by the prefix up to /Q.
+    //
+    // R10 follow-up — the OLEVEL bank is now bucketed into two tiers by
+    // provenanceTag:
+    //   standard  → real-PDF prelims (singapore_olevel_1128) + AI-authored
+    //               full-difficulty (ai_authored_olevel_1128). Serves the
+    //               `olevel` basic band.
+    //   simplified → AI-authored shorter/easier narratives
+    //               (ai_authored_olevel_1128_simplified). Serves the
+    //               `ielts_simplified` middle band, which used to read
+    //               IELTS GT but now reads O-Level §B at a stretch-toward-
+    //               O-Level difficulty.
+    // The filter is implemented as inclusion (simplified) vs exclusion
+    // (standard = anything that is NOT the simplified tag) so any future
+    // standard-tier provenance tag we add (e.g. for Boon Lay, Hua Yi) is
+    // picked up automatically without code changes.
+    const filter = opts.provenanceFilter ?? 'standard';
+    const tierCondition =
+      filter === 'simplified'
+        ? { provenanceTag: 'ai_authored_olevel_1128_simplified' }
+        : { NOT: { provenanceTag: 'ai_authored_olevel_1128_simplified' } };
     const bank = await this.prisma.question.findMany({
       where: {
         subjectId: subject.id,
         status: 'active',
         sourceType: 'past_paper_reference',
         sourceRef: { startsWith: 'OLEVEL/' },
+        ...tierCondition,
       },
       orderBy: { sourceRef: 'asc' },
     });
@@ -779,7 +811,9 @@ export class MorningQuizService {
       });
     }
 
-    // 30-day de-dup against this class's recent OLEVEL picks.
+    // 30-day de-dup against this class's recent OLEVEL picks, SCOPED TO
+    // THIS TIER. Cross-tier picks shouldn't dedup each other — the basic
+    // and middle bands run on different days for different students.
     const cutoff = new Date(Date.now() - 30 * 86_400_000);
     const recent = await this.prisma.paper.findMany({
       where: {
@@ -793,8 +827,13 @@ export class MorningQuizService {
     const usedKeys = new Set<string>();
     const lastUsedAt = new Map<string, number>();
     for (const p of recent) {
-      const cfg = p.config as { mode?: string; paperKey?: string } | null;
+      const cfg = p.config as { mode?: string; paperKey?: string; provenanceFilter?: string } | null;
       if (cfg?.mode !== 'olevel_curated' || !cfg?.paperKey) continue;
+      // Only count picks from the same tier. Legacy rows without
+      // provenanceFilter were all standard-tier (this field landed with
+      // the simplified-tier split), so default to 'standard' for those.
+      const pickTier = cfg.provenanceFilter ?? 'standard';
+      if (pickTier !== filter) continue;
       usedKeys.add(cfg.paperKey);
       const t = p.createdAt.getTime();
       if ((lastUsedAt.get(cfg.paperKey) ?? 0) < t) lastUsedAt.set(cfg.paperKey, t);
@@ -831,7 +870,13 @@ export class MorningQuizService {
         totalMarksActual: totalMarks,
         status: 'draft',
         generatedSeed: Math.floor(Math.random() * 1e9),
-        config: { mode: 'olevel_curated', paperKey: pick, dateIso, questionCount: items.length },
+        config: {
+          mode: 'olevel_curated',
+          paperKey: pick,
+          provenanceFilter: filter,
+          dateIso,
+          questionCount: items.length,
+        },
       },
     });
     for (let i = 0; i < items.length; i++) {
@@ -921,18 +966,29 @@ export class MorningQuizService {
       return passages.size;
     };
 
-    const countOlevelBank = async (): Promise<number> => {
+    // Helper: count unique OLEVEL paper prefixes in a given tier. Mirrors
+    // pickOlevelPaperAndCreatePaper's bucketing — simplified =
+    // ai_authored_olevel_1128_simplified only; standard = everything else
+    // under OLEVEL/* (real-PDF prelims + AI-authored full-difficulty).
+    const countOlevelBank = async (
+      tier: 'standard' | 'simplified',
+    ): Promise<number> => {
       const subject = await this.prisma.subject.findFirst({
         where: { code: '1123' },
         select: { id: true },
       });
       if (!subject) return 0;
+      const tierCondition =
+        tier === 'simplified'
+          ? { provenanceTag: 'ai_authored_olevel_1128_simplified' }
+          : { NOT: { provenanceTag: 'ai_authored_olevel_1128_simplified' } };
       const bank = await this.prisma.question.findMany({
         where: {
           subjectId: subject.id,
           status: 'active',
           sourceType: 'past_paper_reference',
           sourceRef: { startsWith: 'OLEVEL/' },
+          ...tierCondition,
         },
         select: { sourceRef: true },
       });
@@ -956,7 +1012,8 @@ export class MorningQuizService {
     const usedByMode = {
       passage_pick_authentic: new Set<string>(),
       passage_pick_simplified: new Set<string>(),
-      olevel_curated: new Set<string>(),
+      olevel_curated_standard: new Set<string>(),
+      olevel_curated_simplified: new Set<string>(),
     };
     for (const p of recent) {
       const cfg = p.config as
@@ -964,18 +1021,17 @@ export class MorningQuizService {
         | null;
       if (!cfg) continue;
       if (cfg.mode === 'passage_pick' && cfg.passageRef) {
-        // Distinguish authentic vs simplified. Prefer the stored filter
-        // (written on new papers); for legacy rows without it, match the
-        // GT marker as it actually appears in passageRefs — they look
-        // like `IELTS/cambridge_ielts_14_gt/Test1/P1`, so the previous
-        // `/\/GT\//i` literal slash variant never matched and every GT
-        // paper got mis-bucketed as authentic.
-        const isSimplified =
-          cfg.provenanceFilter === 'simplified' || /_gt(?:\/|$)/i.test(cfg.passageRef);
-        if (isSimplified) usedByMode.passage_pick_simplified.add(cfg.passageRef);
-        else usedByMode.passage_pick_authentic.add(cfg.passageRef);
+        // Legacy bucket — passage_pick (IELTS GT) used to back the middle
+        // band. Kept here so historical 30-day picks are still counted
+        // against the authentic bucket (the only remaining passage_pick
+        // path). Middle-band picks now land under olevel_curated_simplified.
+        usedByMode.passage_pick_authentic.add(cfg.passageRef);
       } else if (cfg.mode === 'olevel_curated' && cfg.paperKey) {
-        usedByMode.olevel_curated.add(cfg.paperKey);
+        // provenanceFilter landed with the simplified-tier split; legacy
+        // rows without it were all standard-tier.
+        const tier = cfg.provenanceFilter === 'simplified' ? 'simplified' : 'standard';
+        if (tier === 'simplified') usedByMode.olevel_curated_simplified.add(cfg.paperKey);
+        else usedByMode.olevel_curated_standard.add(cfg.paperKey);
       }
     }
 
@@ -993,11 +1049,12 @@ export class MorningQuizService {
         totalBank = await countIeltsBank('authentic');
         usedRecent = usedByMode.passage_pick_authentic.size;
       } else if (lr.level === 'ielts_simplified') {
-        totalBank = await countIeltsBank('simplified');
-        usedRecent = usedByMode.passage_pick_simplified.size;
+        // Middle band now pulls from OLEVEL simplified tier, not IELTS GT.
+        totalBank = await countOlevelBank('simplified');
+        usedRecent = usedByMode.olevel_curated_simplified.size;
       } else {
-        totalBank = await countOlevelBank();
-        usedRecent = usedByMode.olevel_curated.size;
+        totalBank = await countOlevelBank('standard');
+        usedRecent = usedByMode.olevel_curated_standard.size;
       }
       const remaining = Math.max(0, totalBank - usedRecent);
       out.push({

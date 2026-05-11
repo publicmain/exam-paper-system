@@ -126,12 +126,37 @@ export class ContentBootstrapService implements OnApplicationBootstrap {
       // R10 followup — switch OLEVEL bank from Cambridge IGCSE 0510
       // (English as a Second Language, wrong syllabus for our cohort)
       // to Singapore-Cambridge GCE O-Level 1128 / 1184 English Language
-      // (actual exam they sit). Source PDFs are 2021 SA2 prelim papers
-      // from Singapore secondary schools (Admiralty, Bedok View, Boon
-      // Lay, Clementi Town, Hua Yi). Pilot ships one (Admiralty) — the
-      // rest land in subsequent commits as I OCR each PDF.
+      // (actual exam they sit). The bank now has two tiers, both styled
+      // as 1128/02 §B comprehension (narrative passage + short-answer +
+      // 4-blank emotion flowchart MCQ):
+      //
+      //   STANDARD tier — provenanceTag 'singapore_olevel_1128' (OCR'd
+      //   real prelim PDFs from Singapore secondary schools, ~600-800
+      //   word passage, 9-11 SA + 3-4 MCQ) AND provenanceTag
+      //   'ai_authored_olevel_1128' (Claude-authored original narratives
+      //   at the same difficulty). Both serve the `olevel` band.
+      //
+      //   SIMPLIFIED tier — provenanceTag 'ai_authored_olevel_1128_simplified'
+      //   (Claude-authored shorter narratives, ~350-500 word passage,
+      //   6 SA + 4 MCQ, easier vocabulary). Serves the `ielts_simplified`
+      //   middle band, which used to read IELTS GT but is now O-Level
+      //   syllabus at a stretch-toward-O-Level difficulty.
       const olevelPapers: Array<{ label: string; payload: any }> = [
-        { label: '1128 Admiralty 2021 SA2 P2 §B narrative', payload: loadFixture('singapore-olevel-1128/admiralty-2021-sa2.json') },
+        // Real-PDF papers (Singapore secondary school prelims, OCR'd)
+        { label: '1128 Admiralty 2021 SA2 §B narrative',     payload: loadFixture('singapore-olevel-1128/admiralty-2021-sa2.json') },
+        { label: '1128 Bedok View 2021 SA2 §B narrative',    payload: loadFixture('singapore-olevel-1128/bedokview-2021-sa2.json') },
+        // AI-authored standard tier (basic band)
+        { label: 'AI 01 Smith Street (kueh shop closing)',   payload: loadFixture('singapore-olevel-1128/ai-authored-01-smith-street.json') },
+        { label: 'AI 03 Empty Seat (reunion dinner)',        payload: loadFixture('singapore-olevel-1128/ai-authored-03-empty-seat.json') },
+        { label: 'AI 04 Test Result (results day alone)',    payload: loadFixture('singapore-olevel-1128/ai-authored-04-test-result.json') },
+        { label: 'AI 07 Last Lap (4x100m anchor leg)',       payload: loadFixture('singapore-olevel-1128/ai-authored-07-last-lap.json') },
+        { label: 'AI 08 Window (moving day farewell)',       payload: loadFixture('singapore-olevel-1128/ai-authored-08-window-seat.json') },
+        // AI-authored simplified tier (middle band)
+        { label: 'AI 02 Forgotten Promise (cat-sitting)',    payload: loadFixture('singapore-olevel-1128/ai-authored-02-forgotten-promise-simplified.json') },
+        { label: 'AI 05 Lost Wallet (hawker centre)',        payload: loadFixture('singapore-olevel-1128/ai-authored-05-lost-wallet-simplified.json') },
+        { label: 'AI 06 First Bus Ride (Sec 1 alone)',       payload: loadFixture('singapore-olevel-1128/ai-authored-06-bus-ride-simplified.json') },
+        { label: 'AI 09 Birthday Cake (crash on bike)',      payload: loadFixture('singapore-olevel-1128/ai-authored-09-birthday-cake-simplified.json') },
+        { label: 'AI 10 Umbrella (stranger in the rain)',    payload: loadFixture('singapore-olevel-1128/ai-authored-10-umbrella-simplified.json') },
       ];
 
       // Before ingesting the new 1128 fixtures, retire the legacy
@@ -165,6 +190,7 @@ export class ContentBootstrapService implements OnApplicationBootstrap {
       // be retired by a later admin pass.
       const CURRENT_OLEVEL_PREFIXES = [
         'OLEVEL/singapore_olevel_1128_admiralty_2021_v2/',
+        'OLEVEL/singapore_olevel_1128_bedokview_2021_v2/',
       ];
       try {
         // Pull all olevel-1128 rows then filter by JS — Prisma doesn't

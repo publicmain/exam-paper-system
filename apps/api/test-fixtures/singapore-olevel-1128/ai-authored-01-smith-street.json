@@ -1,0 +1,143 @@
+{
+  "setCode": "ai_authored_olevel_01_smith_street_v1",
+  "paperNumber": 2,
+  "paperTitle": "Singapore-Cambridge GCE O-Level 1128 English Language — AI-authored Practice Paper 01: The Last Trip Down Smith Street (Paper 2 §B style)",
+  "provenanceTag": "ai_authored_olevel_1128",
+  "sections": [
+    {
+      "exercise": 1,
+      "instruction": "Read the narrative text below about a teenage girl helping her grandmother close down the family kueh shop in Chinatown after forty years of trading, and answer the questions that follow. Section B [14 marks] — AI-authored practice paper modelled on the Singapore-Cambridge 1128/02 Section B format. Original passage written for the morning quiz bank; not from a past exam paper. 10 short-answer items (Q1–Q10) on language use and inference, plus a 4-item flowchart MCQ (Q11) on the narrator's emotion arc, are included.",
+      "passageTitle": "The Last Trip Down Smith Street",
+      "passage": "Paragraph 1\nWe had walked down Smith Street a thousand times before, but never like this. Today, Ah Ma's shop bore a yellow TO LET sign on the door. Forty years of customers, of bamboo trays heavy with kueh lapis and ang ku kueh, were about to fit into seven cardboard boxes. The morning sun lit up the dust we had stirred. The air still smelled of pandan, though no kueh had been steamed for two days.\n\nParagraph 2\n'Don't drop that one,' Ah Ma said, pointing at the brass weighing scale. Her voice was firm, but quieter than I remembered. I pretended not to hear, because the scale had belonged to her father, and I knew that if she started speaking of him, she would not stop. I lifted it with both hands and placed it gently into the box marked KEEP.\n\nParagraph 3\nFrom a drawer beneath the counter she pulled out a photograph yellowed at the corners. In it, a young woman in a samfu stood beside a steaming stall — the same stall I had grown up watching. 'That was the first day,' she murmured. Her hands trembled — not from age, I realised, but from something I did not yet understand. She held the photograph against her chest for a long moment before sliding it into the breast pocket of her blouse.\n\nParagraph 4\nA bell jingled. An old man, bent and grey, stepped inside. He looked around the bare shelves and his eyes filled with tears. 'I came on the first day too,' he said. 'My wife and I — we always bought two ang ku kueh after the doctor's appointment.' He did not buy anything. He could not. There was nothing left to sell. He bowed slightly to Ah Ma and walked back into the street. I watched him from the window until he disappeared around the corner of Pagoda Street.\n\nParagraph 5\nAh Ma had always been fastidious about her kueh — the right rice flour, the precise amount of coconut milk, the exact heat of the steamer. Once she had thrown out an entire tray because the pandan leaves had been picked too late in the day. Customers said she was difficult. The same customers said she was the best. The two facts, I now understood, were the same fact.\n\nParagraph 6\nBy noon we had filled six boxes. The seventh sat empty in the middle of the floor. Ah Ma stood beside it and looked at the bare wooden counter, weighed down with forty years of grease and memory. 'Pass me the cloth,' she said. I handed it to her, expecting her to wipe the counter one last time. Instead, she folded the cloth in half, then in half again, and placed it inside the seventh box. Then she closed the lid.\n\nParagraph 7\nWe walked out together. Ah Ma did not look back. I wanted to look back for her, but I did not, because her hand was on my shoulder, and her hand was telling me that the looking back had already been done — weeks and months ago, in small private moments I had not been there to see. I had only come for the boxes.\n\nParagraph 8\nAs we turned into Chinatown MRT station, a tour group passed us, taking photographs of the old shophouses. One of them lifted her camera at the yellow sign on Ah Ma's door. Ah Ma squeezed my shoulder once, and we walked on. The pandan smell, I realised, was still on my shirt.\n\n(AI-authored original narrative for O-Level 1128 §B style practice; not from a past examination paper. samfu: a two-piece traditional Chinese outfit; ang ku kueh and kueh lapis: traditional Peranakan/Chinese steamed cakes.)",
+      "questions": [
+        {
+          "n": 1,
+          "stem": "Q1. What is suggested by the phrase 'never like this' (Paragraph 1)? [1]",
+          "answer": "this particular walk down Smith Street is different from all the previous ones because the shop is closing for good"
+        },
+        {
+          "n": 2,
+          "stem": "Q2(a). In Paragraph 2, why did the narrator pretend not to hear Ah Ma's instruction? [1]",
+          "answer": "she did not want Ah Ma to start speaking about her late father because Ah Ma would not be able to stop once she started"
+        },
+        {
+          "n": 3,
+          "stem": "Q2(b). Which word in Paragraph 2 suggests that Ah Ma was holding back her emotions? [1]",
+          "answer": "quieter"
+        },
+        {
+          "n": 4,
+          "stem": "Q3. In Paragraph 3, why did Ah Ma's hands tremble? [1]",
+          "answer": "she was overcome with emotion at seeing the photograph of her first day running the shop, not because of old age"
+        },
+        {
+          "n": 5,
+          "stem": "Q4. What is effective about the phrase 'weighed down with forty years of grease and memory' (Paragraph 6)? [1]",
+          "answer": "it links the physical grease built up on the counter with the emotional weight of forty years of memories, suggesting the counter literally and figuratively carries the history of the shop"
+        },
+        {
+          "n": 6,
+          "stem": "Q5. Why did the old man's eyes fill with tears when he stepped inside the shop (Paragraph 4)? [1]",
+          "answer": "the empty shelves reminded him of his late wife and the years they had spent visiting the shop together"
+        },
+        {
+          "n": 7,
+          "stem": "Q6(a). What does the word 'fastidious' mean in Paragraph 5? [1]",
+          "answer": "very particular about details / extremely careful and demanding about quality"
+        },
+        {
+          "n": 8,
+          "stem": "Q6(b). Explain what the narrator has come to understand about Ah Ma when she says 'The two facts, I now understood, were the same fact' (Paragraph 5). [1]",
+          "answer": "she has realised that being difficult and being the best are two sides of the same trait — Ah Ma's insistence on the highest standards is the very reason her kueh is the best"
+        },
+        {
+          "n": 9,
+          "stem": "Q7. In Paragraph 6, why did Ah Ma fold the cloth and place it in the box instead of wiping the counter with it? [1]",
+          "answer": "she had decided not to clean the counter one last time — leaving it as it is preserves the shop the way it was, and packing the cloth is her final act of closing it down"
+        },
+        {
+          "n": 10,
+          "stem": "Q8. In Paragraph 7, what does the narrator mean by 'the looking back had already been done, weeks and months ago, in small private moments I had not been there to see'? [1]",
+          "answer": "Ah Ma had already said her goodbyes to the shop privately in the weeks and months before the actual closing day, so she did not need to look back when she finally walked out"
+        },
+        {
+          "n": 11,
+          "stem": "Q9. What is ironic about the tour group photographing the shophouses in Paragraph 8? [1]",
+          "answer": "the tourists see the shophouses only as picturesque heritage to photograph, unaware that a real human story of loss is happening at one of those very doors"
+        },
+        {
+          "n": 12,
+          "stem": "Q10. What is the effect of ending the passage with 'The pandan smell, I realised, was still on my shirt' (Paragraph 8)? [1]",
+          "answer": "it suggests that even though the physical shop is closed, its memory and essence continue with the narrator — the smell cannot be packed away or left behind"
+        }
+      ]
+    },
+    {
+      "exercise": 2,
+      "instruction": "Q11. The narrator's dominant feeling changes as the morning unfolds at the shop. For each part of the passage, choose ONE word from the bank that best summarises her dominant feeling at that moment. There are some extra words in the bank you do not need to use. Word bank: reverent / indifferent / wistful / startled / moved / understanding / bittersweet / triumphant. The original task carries 4 marks; each blank is split into its own MCQ here so each sub-part can be auto-graded independently.",
+      "passage": "Refer to the same 'Last Trip Down Smith Street' narrative in Exercise 1 above. The narrator's feelings shift over the course of the morning — from quiet respect as she handles her great-grandfather's brass scale, to being deeply moved by the silent farewell of the old customer, to a wordless understanding as she walks out beside Ah Ma, ending in a complex blend of sadness and acceptance as they leave Smith Street behind. Pick the single best word from the bank for each section.",
+      "questions": [
+        {
+          "n": 13,
+          "stem": "Q11(i). What best describes the narrator's dominant feeling in Paragraph 2 as she carefully places the brass weighing scale into the box that had belonged to Ah Ma's father? [1]",
+          "options": [
+            {"key": "A", "text": "reverent", "correct": true},
+            {"key": "B", "text": "indifferent", "correct": false},
+            {"key": "C", "text": "wistful", "correct": false},
+            {"key": "D", "text": "startled", "correct": false},
+            {"key": "E", "text": "moved", "correct": false},
+            {"key": "F", "text": "understanding", "correct": false},
+            {"key": "G", "text": "bittersweet", "correct": false},
+            {"key": "H", "text": "triumphant", "correct": false}
+          ],
+          "answer": "A"
+        },
+        {
+          "n": 14,
+          "stem": "Q11(ii). What best describes the narrator's dominant feeling in Paragraph 4 as she watches the old man walk away without being able to buy anything and disappear around the corner of Pagoda Street? [1]",
+          "options": [
+            {"key": "A", "text": "reverent", "correct": false},
+            {"key": "B", "text": "indifferent", "correct": false},
+            {"key": "C", "text": "wistful", "correct": false},
+            {"key": "D", "text": "startled", "correct": false},
+            {"key": "E", "text": "moved", "correct": true},
+            {"key": "F", "text": "understanding", "correct": false},
+            {"key": "G", "text": "bittersweet", "correct": false},
+            {"key": "H", "text": "triumphant", "correct": false}
+          ],
+          "answer": "E"
+        },
+        {
+          "n": 15,
+          "stem": "Q11(iii). What best describes the narrator's dominant feeling in Paragraph 7 as she walks out beside Ah Ma, deciding not to look back because Ah Ma's hand on her shoulder is silently telling her the looking back had already been done in private weeks ago? [1]",
+          "options": [
+            {"key": "A", "text": "reverent", "correct": false},
+            {"key": "B", "text": "indifferent", "correct": false},
+            {"key": "C", "text": "wistful", "correct": false},
+            {"key": "D", "text": "startled", "correct": false},
+            {"key": "E", "text": "moved", "correct": false},
+            {"key": "F", "text": "understanding", "correct": true},
+            {"key": "G", "text": "bittersweet", "correct": false},
+            {"key": "H", "text": "triumphant", "correct": false}
+          ],
+          "answer": "F"
+        },
+        {
+          "n": 16,
+          "stem": "Q11(iv). What best describes the narrator's dominant feeling in Paragraph 8 as they leave Smith Street behind, with the tour group photographing the shophouses oblivious to the closure, while the pandan smell still lingers on her shirt? [1]",
+          "options": [
+            {"key": "A", "text": "reverent", "correct": false},
+            {"key": "B", "text": "indifferent", "correct": false},
+            {"key": "C", "text": "wistful", "correct": false},
+            {"key": "D", "text": "startled", "correct": false},
+            {"key": "E", "text": "moved", "correct": false},
+            {"key": "F", "text": "understanding", "correct": false},
+            {"key": "G", "text": "bittersweet", "correct": true},
+            {"key": "H", "text": "triumphant", "correct": false}
+          ],
+          "answer": "G"
+        }
+      ]
+    }
+  ]
+}

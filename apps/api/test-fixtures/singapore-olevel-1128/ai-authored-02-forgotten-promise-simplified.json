@@ -1,0 +1,113 @@
+{
+  "setCode": "ai_authored_olevel_simplified_02_forgotten_promise_v1",
+  "paperNumber": 2,
+  "paperTitle": "Singapore-Cambridge GCE O-Level 1128 English Language — AI-authored Simplified Practice 02: The Forgotten Promise (§B style, simplified band)",
+  "provenanceTag": "ai_authored_olevel_1128_simplified",
+  "sections": [
+    {
+      "exercise": 1,
+      "instruction": "Read the narrative text below about a teenage girl who is asked to feed her neighbour's cat over a long weekend, and answer the questions that follow. Section B [10 marks] — AI-authored simplified practice paper modelled on the Singapore-Cambridge 1128/02 Section B format, pitched at students stretching from middle secondary toward the full O-Level standard. Original passage written for the morning quiz bank; not from a past exam paper. 6 short-answer items (Q1–Q6) and a 4-item flowchart MCQ (Q7) are included.",
+      "passageTitle": "The Forgotten Promise",
+      "passage": "Paragraph 1\nAuntie Lim from the flat below had asked me to feed her cat, Tabby, while she was away in Penang for the long weekend. 'Twice a day,' she said. 'Just open the can, fill the water bowl. The spare key is under the doormat.' I nodded confidently. It was Friday afternoon, and the weekend was an empty road stretching ahead of me.\n\nParagraph 2\nOn Saturday morning, I fed Tabby. The cat ignored me and ate slowly. On Saturday evening, I fed Tabby again. I felt very grown up. I was being responsible.\n\nParagraph 3\nOn Sunday morning, my cousin came over for breakfast, and we spent the day at East Coast Park. We cycled, ate ice kacang, took a long bus ride home, and watched two episodes of a Korean drama. By the time my mother called us for dinner, it was already eight o'clock. I sat down to eat, then I froze. The fork stayed in mid-air. I had forgotten Tabby.\n\nParagraph 4\nI ran out of the flat without explaining, took the stairs two at a time, and knocked on Auntie Lim's door. There was no answer. There would not be — she was in Penang. I lifted the doormat with trembling fingers and found the key. My heart pounded as I unlocked the door.\n\nParagraph 5\nTabby was sitting on the kitchen counter, looking at me with calm yellow eyes. The food bowl was empty. The water bowl was empty. The cat blinked at me, slowly, as if to say: 'You forgot.' I poured the water first, then opened the can with shaking hands. Tabby walked over and began to eat — not hungrily, but politely, as if she were doing me a favour.\n\nParagraph 6\nI sat on Auntie Lim's kitchen floor and watched her cat eat. Outside the window, the lights of the next block were coming on, one by one. I thought about the cycle ride and the ice kacang and how much fun I had had. None of that had been wrong. But none of that had been the point either. The point had been the cat, and I had let her down.\n\nParagraph 7\nWhen Auntie Lim came back on Monday evening, I told her what had happened. I expected her to be angry. Instead, she put down her suitcase and said, 'Did you come the moment you remembered?' I nodded. 'Then you did the right thing,' she said. 'The first time is the hardest. The second time, you won't forget.' I have fed her cat three times since then. I have not forgotten once.\n\n(AI-authored original narrative for O-Level 1128 §B style practice, simplified-band difficulty; not from a past examination paper. ice kacang: a Singaporean shaved-ice dessert with red beans, jelly and syrup.)",
+      "questions": [
+        {
+          "n": 1,
+          "stem": "Q1. In Paragraph 1, what did Auntie Lim ask the narrator to do while she was away? [1]",
+          "answer": "to feed her cat Tabby twice a day and fill the water bowl"
+        },
+        {
+          "n": 2,
+          "stem": "Q2. What does the phrase 'an empty road stretching ahead of me' (Paragraph 1) suggest about how the narrator felt about the weekend? [1]",
+          "answer": "she felt the weekend was free and full of time / open with no obligations in the way"
+        },
+        {
+          "n": 3,
+          "stem": "Q3. In Paragraph 2, why did the narrator feel 'very grown up'? [1]",
+          "answer": "she was carrying out the responsibility Auntie Lim had given her on her own without needing to be reminded"
+        },
+        {
+          "n": 4,
+          "stem": "Q4. In Paragraph 3, why did the narrator freeze with her fork in mid-air at dinner? [1]",
+          "answer": "she suddenly realised that she had forgotten to feed Tabby that day"
+        },
+        {
+          "n": 5,
+          "stem": "Q5. Explain what the narrator means when she says 'None of that had been wrong. But none of that had been the point either' (Paragraph 6). [1]",
+          "answer": "enjoying her day out with her cousin was not wrong in itself, but having fun was not what she had promised to do — the responsibility of feeding the cat was the real point, and that was what she had failed"
+        },
+        {
+          "n": 6,
+          "stem": "Q6. Why did Auntie Lim say 'Then you did the right thing' instead of being angry with the narrator (Paragraph 7)? [1]",
+          "answer": "because the narrator owned up to her mistake and came to fix it the moment she remembered, which Auntie Lim values more than the fact of having forgotten in the first place"
+        }
+      ]
+    },
+    {
+      "exercise": 2,
+      "instruction": "Q7. The narrator's main feeling changes over the course of the long weekend. For each part of the passage, choose ONE word from the bank that best describes her dominant feeling at that point. There are some extra words in the bank you do not need to use. Word bank: confident / panicked / ashamed / forgiven / proud / sleepy / impatient / annoyed. The original task carries 4 marks; each blank is split into its own MCQ so each sub-part can be auto-graded independently.",
+      "passage": "Refer to the same 'Forgotten Promise' narrative in Exercise 1 above. The narrator's feelings shift across the weekend — from easy confidence when she first accepts the responsibility, to sudden panic at the dinner table, to deep shame as she watches Tabby finally eat, and finally to relief when Auntie Lim recognises that she has done the right thing. Pick the single best word from the bank for each moment.",
+      "questions": [
+        {
+          "n": 7,
+          "stem": "Q7(i). What best describes the narrator's dominant feeling in Paragraph 1, when Auntie Lim hands her the spare key and explains the simple feeding instructions? [1]",
+          "options": [
+            {"key": "A", "text": "confident", "correct": true},
+            {"key": "B", "text": "panicked", "correct": false},
+            {"key": "C", "text": "ashamed", "correct": false},
+            {"key": "D", "text": "forgiven", "correct": false},
+            {"key": "E", "text": "proud", "correct": false},
+            {"key": "F", "text": "sleepy", "correct": false},
+            {"key": "G", "text": "impatient", "correct": false},
+            {"key": "H", "text": "annoyed", "correct": false}
+          ],
+          "answer": "A"
+        },
+        {
+          "n": 8,
+          "stem": "Q7(ii). What best describes the narrator's dominant feeling in Paragraph 3, when she freezes with her fork in mid-air at the dinner table after suddenly realising she has forgotten Tabby for the whole day? [1]",
+          "options": [
+            {"key": "A", "text": "confident", "correct": false},
+            {"key": "B", "text": "panicked", "correct": true},
+            {"key": "C", "text": "ashamed", "correct": false},
+            {"key": "D", "text": "forgiven", "correct": false},
+            {"key": "E", "text": "proud", "correct": false},
+            {"key": "F", "text": "sleepy", "correct": false},
+            {"key": "G", "text": "impatient", "correct": false},
+            {"key": "H", "text": "annoyed", "correct": false}
+          ],
+          "answer": "B"
+        },
+        {
+          "n": 9,
+          "stem": "Q7(iii). What best describes the narrator's dominant feeling in Paragraph 6, sitting on Auntie Lim's kitchen floor and watching Tabby eat politely while reflecting on her day of fun and how she had let the cat down? [1]",
+          "options": [
+            {"key": "A", "text": "confident", "correct": false},
+            {"key": "B", "text": "panicked", "correct": false},
+            {"key": "C", "text": "ashamed", "correct": true},
+            {"key": "D", "text": "forgiven", "correct": false},
+            {"key": "E", "text": "proud", "correct": false},
+            {"key": "F", "text": "sleepy", "correct": false},
+            {"key": "G", "text": "impatient", "correct": false},
+            {"key": "H", "text": "annoyed", "correct": false}
+          ],
+          "answer": "C"
+        },
+        {
+          "n": 10,
+          "stem": "Q7(iv). What best describes the narrator's dominant feeling in Paragraph 7, after Auntie Lim listens to her confession, refuses to be angry, and tells her 'Then you did the right thing'? [1]",
+          "options": [
+            {"key": "A", "text": "confident", "correct": false},
+            {"key": "B", "text": "panicked", "correct": false},
+            {"key": "C", "text": "ashamed", "correct": false},
+            {"key": "D", "text": "forgiven", "correct": true},
+            {"key": "E", "text": "proud", "correct": false},
+            {"key": "F", "text": "sleepy", "correct": false},
+            {"key": "G", "text": "impatient", "correct": false},
+            {"key": "H", "text": "annoyed", "correct": false}
+          ],
+          "answer": "D"
+        }
+      ]
+    }
+  ]
+}
