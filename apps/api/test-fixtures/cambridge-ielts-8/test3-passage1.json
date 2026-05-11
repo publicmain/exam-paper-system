@@ -1,0 +1,195 @@
+{
+  "bookCode": "cambridge_ielts_8",
+  "testNumber": 3,
+  "passageNumber": 1,
+  "passage": {
+    "title": "Striking Back at Lightning With Lasers",
+    "body": "Seldom is the weather more dramatic than when thunderstorms strike. Their electrical fury inflicts death or serious injury on around 500 people each year in the United States alone. As the clouds roll in, a leisurely round of golf can become a terrifying dice with death — out in the open, a lone golfer may be a lightning bolt's most inviting target. And there is damage to property too. Lightning damage costs American power companies more than $100 million a year.\n\nBut researchers in the United States and Japan are planning to hit back. Already in laboratory trials they have tested strategies for neutralising the power of thunderstorms, and this winter they will brave real storms, equipped with an armoury of lasers that they will be pointing towards the heavens to discharge thunderclouds before lightning can strike.\n\nThe idea of forcing storm clouds to discharge their lightning on command is not new. In the early 1960s, researchers tried firing rockets trailing wires into thunderclouds to set up an easy discharge path for the huge electric charges that these clouds generate. The technique survives to this day at a test site in Florida run by the University of Florida, with support from the Electrical Power Research Institute (EPRI), based in California. EPRI, which is funded by power companies, is looking at ways to protect the United States' power grid from lightning strikes. 'We can cause the lightning to strike where we want it to using rockets,' says Ralph Bernstein, manager of lightning projects at EPRI. The rocket site is providing precise measurements of lightning voltages and allowing engineers to check how electrical equipment bears up.\n\nBad behaviour\nBut while rockets are fine for research, they cannot provide the protection from lightning strikes that everyone is looking for. The rockets cost around $1,200 each, can only be fired at a limited frequency and their failure rate is about 40 per cent. And even when they do trigger lightning, things still do not always go according to plan. 'Lightning is not perfectly well behaved,' says Bernstein. 'Occasionally, it will take a branch and go someplace it wasn't supposed to go.'\n\nAnd anyway, who would want to fire streams of rockets in a populated area? 'What goes up must come down,' points out Jean-Claude Diels of the University of New Mexico. Diels is leading a project, which is backed by EPRI, to try to use lasers to discharge lightning safely — and safety is a basic requirement since no one wants to put themselves or their expensive equipment at risk. With around $500,000 invested so far, a promising system is just emerging from the laboratory.\n\nThe idea began some 20 years ago, when high-powered lasers were revealing their ability to extract electrons out of atoms and create ions. If a laser could generate a line of ionisation in the air all the way up to a storm cloud, this conducting path could be used to guide lightning to Earth, before the electric field becomes strong enough to break down the air in an uncontrollable surge. To stop the laser itself being struck, it would not be pointed straight at the clouds. Instead it would be directed at a mirror, and from there into the sky. The mirror would be protected by placing lightning conductors close by. Ideally, the cloud-zapper (gun) would be cheap enough to be installed around all key power installations, and portable enough to be taken to international sporting events to beam up at brewing storm clouds.\n\nA stumbling block\nHowever, there is still a big stumbling block. The laser is no nifty portable: it's a monster that takes up a whole room. Diels is trying to cut down the size and says that a laser around the size of a small table is in the offing. He plans to test this more manageable system on live thunderclouds next summer.\n\nBernstein says that Diels's system is attracting lots of interest from the power companies. But they have not yet come up with the $5 million that EPRI says will be needed to develop a commercial system, by making the lasers yet smaller and cheaper. 'I cannot say I have money yet, but I'm working on it,' says Bernstein. He reckons that the forthcoming field tests will be the turning point — and he's hoping for good news. Bernstein predicts 'an avalanche of interest and support' if all goes well. He expects to see cloud-zappers eventually costing $50,000 to $100,000 each.\n\nOther scientists could also benefit. With a lightning 'switch' at their fingertips, materials scientists could find out what happens when mighty currents meet matter. Diels also hopes to see the birth of 'interactive meteorology' — not just forecasting the weather but controlling it. 'If we could discharge clouds, we might affect the weather,' he says.\n\nAnd perhaps, says Diels, we'll be able to confront some other meteorological menaces. 'We think we could prevent hail by inducing lightning,' he says. Thunder, the shock wave that comes from a lightning flash, is thought to be the trigger for the torrential rain that is typical of storms. A laser thunder factory could shake the moisture out of clouds, perhaps preventing the formation of the giant hailstones that threaten crops. With luck, as the storm clouds gather this winter, laser-toting researchers could, for the first time, strike back."
+  },
+  "questions": [
+    {
+      "n": 1,
+      "questionType": "mcq",
+      "taskType": "multiple_choice",
+      "instruction": "Choose the correct letter, A, B, C or D.",
+      "stem": "Q1 — The main topic discussed in the text is",
+      "options": [
+        { "key": "A", "text": "the damage caused to US golf courses and golf players by lightning strikes.", "correct": false },
+        { "key": "B", "text": "the effect of lightning on power supplies in the US and in Japan.", "correct": false },
+        { "key": "C", "text": "a variety of methods used in trying to control lightning strikes.", "correct": false },
+        { "key": "D", "text": "a laser technique used in trying to control lightning strikes.", "correct": true }
+      ],
+      "answer": "D"
+    },
+    {
+      "n": 2,
+      "questionType": "mcq",
+      "taskType": "multiple_choice",
+      "instruction": "Choose the correct letter, A, B, C or D.",
+      "stem": "Q2 — According to the text, every year lightning",
+      "options": [
+        { "key": "A", "text": "does considerable damage to buildings during thunderstorms.", "correct": true },
+        { "key": "B", "text": "kills or injures mainly golfers in the United States.", "correct": false },
+        { "key": "C", "text": "kills or injures around 500 people throughout the world.", "correct": false },
+        { "key": "D", "text": "damages more than 100 American power companies.", "correct": false }
+      ],
+      "answer": "A"
+    },
+    {
+      "n": 3,
+      "questionType": "mcq",
+      "taskType": "multiple_choice",
+      "instruction": "Choose the correct letter, A, B, C or D.",
+      "stem": "Q3 — Researchers at the University of Florida and at the University of New Mexico",
+      "options": [
+        { "key": "A", "text": "receive funds from the same source.", "correct": true },
+        { "key": "B", "text": "are using the same techniques.", "correct": false },
+        { "key": "C", "text": "are employed by commercial companies.", "correct": false },
+        { "key": "D", "text": "are in opposition to each other.", "correct": false }
+      ],
+      "answer": "A"
+    },
+    {
+      "n": 4,
+      "questionType": "short_answer",
+      "taskType": "sentence_completion",
+      "instruction": "Complete the sentences below. Choose NO MORE THAN TWO WORDS from the passage for each answer.",
+      "stem": "Q4 — EPRI receives financial support from ___.",
+      "options": null,
+      "answer": "power companies"
+    },
+    {
+      "n": 5,
+      "questionType": "short_answer",
+      "taskType": "sentence_completion",
+      "instruction": "Complete the sentences below. Choose NO MORE THAN TWO WORDS from the passage for each answer.",
+      "stem": "Q5 — The advantage of the technique being developed by Diels is that it can be used ___.",
+      "options": null,
+      "answer": "safely"
+    },
+    {
+      "n": 6,
+      "questionType": "short_answer",
+      "taskType": "sentence_completion",
+      "instruction": "Complete the sentences below. Choose NO MORE THAN TWO WORDS from the passage for each answer.",
+      "stem": "Q6 — The main difficulty associated with using the laser equipment is related to its ___.",
+      "options": null,
+      "answer": "size"
+    },
+    {
+      "n": 7,
+      "questionType": "mcq",
+      "taskType": "matching_features",
+      "instruction": "Complete the summary using the list of words, A-I, below.\n\nWord bank:\nA cloud-zappers\nB atoms\nC storm clouds\nD mirrors\nE technique\nF ions\nG rockets\nH conductors\nI thunder\n\nSummary: In this method, a laser is used to create a line of ionisation by removing electrons from 7 ___. This laser is then directed at 8 ___ in order to control electrical charges, a method which is less dangerous than using 9 ___. As a protection for the lasers, the beams are aimed firstly at 10 ___.",
+      "stem": "Q7 — what the laser removes electrons from",
+      "options": [
+        { "key": "A", "text": "cloud-zappers", "correct": false },
+        { "key": "B", "text": "atoms", "correct": true },
+        { "key": "C", "text": "storm clouds", "correct": false },
+        { "key": "D", "text": "mirrors", "correct": false },
+        { "key": "E", "text": "technique", "correct": false },
+        { "key": "F", "text": "ions", "correct": false },
+        { "key": "G", "text": "rockets", "correct": false },
+        { "key": "H", "text": "conductors", "correct": false },
+        { "key": "I", "text": "thunder", "correct": false }
+      ],
+      "answer": "B"
+    },
+    {
+      "n": 8,
+      "questionType": "mcq",
+      "taskType": "matching_features",
+      "instruction": "Complete the summary using the list of words A-I.",
+      "stem": "Q8 — where the laser is directed in order to control electrical charges",
+      "options": [
+        { "key": "A", "text": "cloud-zappers", "correct": false },
+        { "key": "B", "text": "atoms", "correct": false },
+        { "key": "C", "text": "storm clouds", "correct": true },
+        { "key": "D", "text": "mirrors", "correct": false },
+        { "key": "E", "text": "technique", "correct": false },
+        { "key": "F", "text": "ions", "correct": false },
+        { "key": "G", "text": "rockets", "correct": false },
+        { "key": "H", "text": "conductors", "correct": false },
+        { "key": "I", "text": "thunder", "correct": false }
+      ],
+      "answer": "C"
+    },
+    {
+      "n": 9,
+      "questionType": "mcq",
+      "taskType": "matching_features",
+      "instruction": "Complete the summary using the list of words A-I.",
+      "stem": "Q9 — the more dangerous alternative method (less safe than lasers)",
+      "options": [
+        { "key": "A", "text": "cloud-zappers", "correct": false },
+        { "key": "B", "text": "atoms", "correct": false },
+        { "key": "C", "text": "storm clouds", "correct": false },
+        { "key": "D", "text": "mirrors", "correct": false },
+        { "key": "E", "text": "technique", "correct": false },
+        { "key": "F", "text": "ions", "correct": false },
+        { "key": "G", "text": "rockets", "correct": true },
+        { "key": "H", "text": "conductors", "correct": false },
+        { "key": "I", "text": "thunder", "correct": false }
+      ],
+      "answer": "G"
+    },
+    {
+      "n": 10,
+      "questionType": "mcq",
+      "taskType": "matching_features",
+      "instruction": "Complete the summary using the list of words A-I.",
+      "stem": "Q10 — what the laser beams are aimed at first, as protection for the lasers",
+      "options": [
+        { "key": "A", "text": "cloud-zappers", "correct": false },
+        { "key": "B", "text": "atoms", "correct": false },
+        { "key": "C", "text": "storm clouds", "correct": false },
+        { "key": "D", "text": "mirrors", "correct": true },
+        { "key": "E", "text": "technique", "correct": false },
+        { "key": "F", "text": "ions", "correct": false },
+        { "key": "G", "text": "rockets", "correct": false },
+        { "key": "H", "text": "conductors", "correct": false },
+        { "key": "I", "text": "thunder", "correct": false }
+      ],
+      "answer": "D"
+    },
+    {
+      "n": 11,
+      "questionType": "mcq",
+      "taskType": "yes_no_not_given",
+      "instruction": "Do the following statements agree with the information given in Reading Passage 1? Choose:\nA  YES  if the statement agrees with the claims of the writer\nB  NO  if the statement contradicts the claims of the writer\nC  NOT GIVEN  if it is impossible to say what the writer thinks about this",
+      "stem": "Q11 — Power companies have given Diels enough money to develop his laser.",
+      "options": [
+        { "key": "A", "text": "YES", "correct": false },
+        { "key": "B", "text": "NO", "correct": true },
+        { "key": "C", "text": "NOT GIVEN", "correct": false }
+      ],
+      "answer": "B"
+    },
+    {
+      "n": 12,
+      "questionType": "mcq",
+      "taskType": "yes_no_not_given",
+      "instruction": "Do the following statements agree with the claims of the writer? Choose YES (A), NO (B), or NOT GIVEN (C).",
+      "stem": "Q12 — Obtaining money to improve the lasers will depend on tests in real storms.",
+      "options": [
+        { "key": "A", "text": "YES", "correct": true },
+        { "key": "B", "text": "NO", "correct": false },
+        { "key": "C", "text": "NOT GIVEN", "correct": false }
+      ],
+      "answer": "A"
+    },
+    {
+      "n": 13,
+      "questionType": "mcq",
+      "taskType": "yes_no_not_given",
+      "instruction": "Do the following statements agree with the claims of the writer? Choose YES (A), NO (B), or NOT GIVEN (C).",
+      "stem": "Q13 — Weather forecasters are intensely interested in Diels's system.",
+      "options": [
+        { "key": "A", "text": "YES", "correct": false },
+        { "key": "B", "text": "NO", "correct": false },
+        { "key": "C", "text": "NOT GIVEN", "correct": true }
+      ],
+      "answer": "C"
+    }
+  ]
+}
