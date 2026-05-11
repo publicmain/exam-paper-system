@@ -45,7 +45,12 @@ interface ScheduledSession {
 export default function MorningQuizSchedule() {
   const [classes, setClasses] = useState<ClassRow[]>([]);
   const [selected, setSelected] = useState<Set<string>>(new Set());
-  const [weekStart, setWeekStart] = useState<string>(() => nextMondayIso());
+  // Default to the CURRENT week so teachers landing here on a school day
+  // immediately see today's + the rest of the week's already-scheduled
+  // sessions. Used to default to next Monday, which hid the current week
+  // unless the user changed the date — confusing when staff just wanted to
+  // double-check today's QR is live.
+  const [weekStart, setWeekStart] = useState<string>(() => currentMondayIso());
   const [scheduled, setScheduled] = useState<ScheduledSession[]>([]);
   const [busy, setBusy] = useState(false);
   const [outcomes, setOutcomes] = useState<any[] | null>(null);
@@ -473,11 +478,12 @@ export default function MorningQuizSchedule() {
   );
 }
 
-function nextMondayIso(): string {
+/** Monday of the calendar week containing today (Sun→prev Mon, Mon→same day). */
+function currentMondayIso(): string {
   const d = new Date();
   const dow = d.getDay(); // Sun=0, Mon=1
-  const daysUntilNextMon = (8 - dow) % 7 || 7;
-  d.setDate(d.getDate() + daysUntilNextMon);
+  const daysSinceMon = dow === 0 ? 6 : dow - 1;
+  d.setDate(d.getDate() - daysSinceMon);
   return d.toISOString().slice(0, 10);
 }
 
