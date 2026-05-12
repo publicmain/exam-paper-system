@@ -1782,6 +1782,7 @@ export class MorningQuizService {
     submissionsRegraded: number;
     scriptsUpdated: number;
     autoScoreDelta: number;
+    errors: Array<{ submissionId: string; error: string }>;
   }> {
     const session = await this.prisma.morningQuizSession.findUnique({
       where: { id: sessionId },
@@ -1792,59 +1793,77 @@ export class MorningQuizService {
       throw new ForbiddenException({ code: 'not_your_class' });
     }
 
-    const result = await this.prisma.$transaction(async (tx) => {
-      const submissions = await tx.studentSubmission.findMany({
-        where: {
-          assignmentId: session.paperAssignmentId,
-          // Only submissions that actually carry student work; in_progress
-          // is left to the cron's lockOne so we don't race the lock flow.
-          status: { in: ['submitted', 'locked'] },
-        },
-        include: {
-          scripts: {
-            include: {
-              paperQuestion: {
-                include: {
-                  question: {
-                    select: { questionType: true, options: true, answerContent: true, content: true },
-                  },
+    // Critical: DO NOT wrap the AI calls in a single big $transaction. Each
+    // Claude API call is 2–3s; 19 submissions × ~10 short-answer items =
+    // ~500 seconds of AI calls. The default Prisma transaction timeout is
+    // ~5 s, so the whole regrade returned "Transaction timed out / already
+    // closed" the moment AI grading exceeded it. Fix: load the submissions
+    // upfront (no tx needed for reads), call autoGradeScripts per submission
+    // OUTSIDE any tx, then commit each submission's writes in a small
+    // dedicated tx. Failures on one submission don't roll back others.
+    const submissions = await this.prisma.studentSubmission.findMany({
+      where: {
+        assignmentId: session.paperAssignmentId,
+        // Only submissions that actually carry student work; in_progress
+        // is left to the cron's lockOne so we don't race the lock flow.
+        status: { in: ['submitted', 'locked'] },
+      },
+      include: {
+        scripts: {
+          include: {
+            paperQuestion: {
+              include: {
+                question: {
+                  select: { questionType: true, options: true, answerContent: true, content: true },
                 },
               },
             },
           },
         },
-      });
+      },
+    });
 
-      let submissionsRegraded = 0;
-      let scriptsUpdated = 0;
-      let autoScoreDelta = 0;
+    let submissionsRegraded = 0;
+    let scriptsUpdated = 0;
+    let autoScoreDelta = 0;
+    const errors: Array<{ submissionId: string; error: string }> = [];
 
-      for (const sub of submissions) {
+    for (const sub of submissions) {
+      try {
+        // AI calls happen here, outside any tx. Slow but doesn't hold a
+        // db transaction open.
         const { autoScore, scriptUpdates } = await autoGradeScripts(sub.scripts, this.evaluator);
         const before = sub.autoScore ?? 0;
-        autoScoreDelta += autoScore - before;
 
-        await tx.studentSubmission.update({
-          where: { id: sub.id },
-          data: { autoScore },
-        });
-
-        for (const u of scriptUpdates) {
-          await tx.answerScript.update({
-            where: { id: u.id },
-            data: {
-              autoCorrect: u.autoCorrect,
-              awardedMarks: u.awardedMarks,
-              ...(u.aiReason ? { markerComment: `[ai-grade] ${u.aiReason}` } : {}),
-            },
+        // Tiny atomic write per submission. If one fails (e.g. another
+        // tx is updating the same script row), we log + move on instead
+        // of nuking everyone else's regrade.
+        await this.prisma.$transaction(async (tx) => {
+          await tx.studentSubmission.update({
+            where: { id: sub.id },
+            data: { autoScore },
           });
-          scriptsUpdated++;
-        }
+          for (const u of scriptUpdates) {
+            await tx.answerScript.update({
+              where: { id: u.id },
+              data: {
+                autoCorrect: u.autoCorrect,
+                awardedMarks: u.awardedMarks,
+                ...(u.aiReason ? { markerComment: `[ai-grade] ${u.aiReason}` } : {}),
+              },
+            });
+          }
+        });
+        scriptsUpdated += scriptUpdates.length;
+        autoScoreDelta += autoScore - before;
         submissionsRegraded++;
+      } catch (e: any) {
+        this.logger.error(`regrade submission ${sub.id} failed: ${e?.message ?? e}`);
+        errors.push({ submissionId: sub.id, error: String(e?.message ?? e).slice(0, 200) });
       }
+    }
 
-      return { submissionsRegraded, scriptsUpdated, autoScoreDelta };
-    });
+    const result = { submissionsRegraded, scriptsUpdated, autoScoreDelta, errors };
 
     await this.audit.log({
       actorId: actor.id,
