@@ -316,6 +316,10 @@ export const api = {
    *  scripts updated and net autoScore delta. */
   morningQuizRegradeSession: (sessionId: string) =>
     request('POST', `/morning-quiz/sessions/${sessionId}/regrade`),
+  /** Admin: delete all sessions/papers based on retired content banks
+   *  (cambridge_0510). Cleans up old test-period pollution. */
+  morningQuizCleanupRetired: () =>
+    request('POST', '/morning-quiz/admin/cleanup-retired-content'),
   /** Aggregated (classId, date) dashboard — merges 1–N level sessions
    *  into a single roster. Each row carries its source sessionId + level
    *  so per-student delete still targets the correct session. */

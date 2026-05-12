@@ -1883,6 +1883,74 @@ export class MorningQuizService {
     return { sessionId, ...result };
   }
 
+  /**
+   * Admin-only — wipe ALL Papers whose questions were generated from a
+   * retired provenance bank (currently: cambridge_0510, which we
+   * switched away from in commit be96aa6 when the OLEVEL bank moved to
+   * Singapore-Cambridge 1128 / 1184).
+   *
+   * Why this exists — even after `cambridge_0510` Questions were marked
+   * status='retired' (so the picker stops choosing them), Papers /
+   * MorningQuizSessions / Attendances / Submissions / AnswerScripts
+   * generated BEFORE that switch still exist and pollute student-facing
+   * views. e.g. 牟歌's portal shows a 5/18 attendance row that's
+   * actually a 5/11 test-activate scan on a retired 0510 paper.
+   *
+   * Strategy — find Papers where ANY PaperQuestion → Question carries
+   * the cambridge_0510 provenance tag, then `paper.deleteMany`. FK
+   * cascade pulls down PaperQuestion + PaperAssignment +
+   * MorningQuizSession + StudentSubmission + Attendance + AnswerScript
+   * (see schema.prisma — every dependent FK on this tree is
+   * onDelete: Cascade).
+   *
+   * Audit-logged with count of papers deleted.
+   */
+  async cleanupRetiredContent(actor: ActorCtx): Promise<{
+    papersDeleted: number;
+    provenanceTagsCovered: string[];
+  }> {
+    if (actor.role !== 'admin') {
+      throw new ForbiddenException({ code: 'admin_required' });
+    }
+    const RETIRED_TAGS = ['cambridge_0510'];
+    const oldPapers = await this.prisma.paper.findMany({
+      where: {
+        questions: {
+          some: { question: { provenanceTag: { in: RETIRED_TAGS } } },
+        },
+      },
+      select: { id: true, name: true },
+    });
+    const ids = oldPapers.map((p) => p.id);
+    let deleted = 0;
+    if (ids.length > 0) {
+      // Best-effort delete; if some FK is unexpectedly Restrict we log
+      // and continue to the next one rather than failing the whole batch.
+      for (const id of ids) {
+        try {
+          await this.prisma.paper.delete({ where: { id } });
+          deleted++;
+        } catch (e: any) {
+          this.logger.warn(`could not delete retired paper ${id}: ${e?.message ?? e}`);
+        }
+      }
+    }
+    await this.audit.log({
+      actorId: actor.id,
+      actorRole: actor.role,
+      action: 'morning_quiz.cleanup_retired_content',
+      entityType: 'Paper',
+      entityId: '(batch)',
+      ip: actor.ip,
+      metadata: {
+        provenanceTags: RETIRED_TAGS,
+        candidates: ids.length,
+        deleted,
+      },
+    });
+    return { papersDeleted: deleted, provenanceTagsCovered: RETIRED_TAGS };
+  }
+
   /** Find the StudentSubmission tied to (session, student) — used by the
    *  controller's submit endpoint to delegate to the canonical
    *  student.service.finalSubmit. */

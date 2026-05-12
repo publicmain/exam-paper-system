@@ -317,6 +317,25 @@ export class MorningQuizController {
   }
 
   /**
+   * Admin-only — delete every Paper (cascade: PaperAssignment +
+   * MorningQuizSession + Attendance + StudentSubmission + AnswerScript)
+   * whose questions came from a retired content bank. Currently scoped
+   * to provenanceTag='cambridge_0510'.
+   *
+   * Used to clean dev-period test data that pollutes student portals
+   * (e.g. attendance row dated 5/18 on a cambridge_0510 session from
+   * before the May 11 switch to Singapore 1128). Irreversible — students'
+   * historical scans for these papers are gone after this runs.
+   */
+  @Post('admin/cleanup-retired-content')
+  cleanupRetired(@CurrentUser() user: any, @Req() req: Request) {
+    if (user.role !== 'admin') throw new ForbiddenException({ code: 'admin_required' });
+    return this.svc.cleanupRetiredContent({
+      id: user.id, role: user.role, ip: req.ip ?? null,
+    });
+  }
+
+  /**
    * Re-run auto-grading on every submitted submission in a session.
    * Used to recover scoring when the cron locked submissions before a
    * grader bug was fixed (e.g. the >80-char mark scheme skip bug), or

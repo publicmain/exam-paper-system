@@ -268,6 +268,39 @@ export default function MorningQuizSchedule() {
     }
   }
 
+  /** One-shot: nuke every Paper / Session / Attendance / Submission
+   *  derived from a retired content bank (currently: cambridge_0510 —
+   *  the old OLEVEL 0510 papers that the picker stopped using after
+   *  commit be96aa6's switch to Singapore 1128). Cleans student-portal
+   *  noise (5/18 future-dated attendance rows from dev testing, etc.).
+   *
+   *  Irreversible — but it's only deleting data that hasn't been picked
+   *  by the post-be96aa6 picker, so no real morning quiz is affected.
+   */
+  async function handleCleanupRetired() {
+    const confirmed = confirm(
+      `清理所有「已退役内容」(cambridge_0510) 关联的 Paper / Session /\n` +
+        `考勤 / 答卷 / 答题记录?\n\n` +
+        `这是 5/11 切到 Singapore 1128 之前留下的旧测试数据, 现在还污染着\n` +
+        `学生 portal 的考勤记录(例如未来日期 5/18 的考勤行)。\n\n` +
+        `不可撤销, 但只删 picker 已经不用的数据, 不会影响真实早测。`,
+    );
+    if (!confirmed) return;
+    setError(null);
+    try {
+      const r = await api.morningQuizCleanupRetired();
+      alert(
+        `清理完成:\n` +
+          `  · 删除 papers: ${r.papersDeleted}\n` +
+          `  · 覆盖的 provenance tag: ${r.provenanceTagsCovered.join(', ')}\n\n` +
+          `attendance / submission / answer scripts 通过 FK cascade 同步删除。`,
+      );
+      await refresh();
+    } catch (e: any) {
+      setError(e.message ?? String(e));
+    }
+  }
+
   return (
     <div>
       <div className="flex items-center justify-between mb-4">
@@ -280,6 +313,14 @@ export default function MorningQuizSchedule() {
           <Link to="/admin/attendance" className="text-sm text-blue-600 hover:underline">
             考勤记录 →
           </Link>
+          <button
+            type="button"
+            onClick={handleCleanupRetired}
+            className="text-sm px-2 py-1 rounded text-rose-700 hover:bg-rose-50"
+            title="一次性清掉所有 cambridge_0510 (已退役内容) 的 Paper/Session/考勤/答卷, 用于消除学生 portal 上的旧测试残留"
+          >
+            🧹 清理旧测试数据
+          </button>
         </div>
       </div>
 
