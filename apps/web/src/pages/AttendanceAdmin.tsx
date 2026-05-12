@@ -39,8 +39,24 @@ export default function AttendanceAdmin() {
   // redirect to the new merged class-day dashboard which actually drives
   // off the session. Without this redirect the page silently ignored the
   // sessionId and just showed the last-7-days range — confusing.
+  //
+  // CRITICAL: all hooks must run on EVERY render or React errors with
+  // "Rendered fewer hooks than expected." So we declare all state/effect
+  // hooks first, then conditionally return the <Navigate /> at the end.
   const sessionIdParam = params.get('sessionId');
   const [redirectTo, setRedirectTo] = useState<string | null>(null);
+  const [classes, setClasses] = useState<ClassRow[]>([]);
+  const [classId, setClassId] = useState<string>('');
+  const [from, setFrom] = useState<string>(() => {
+    const d = new Date();
+    d.setDate(d.getDate() - 7);
+    return d.toISOString().slice(0, 10);
+  });
+  const [to, setTo] = useState<string>(() => new Date().toISOString().slice(0, 10));
+  const [rows, setRows] = useState<AttendanceRow[]>([]);
+  const [error, setError] = useState<string | null>(null);
+  const [editing, setEditing] = useState<{ row: AttendanceRow; status: Status; note: string } | null>(null);
+
   useEffect(() => {
     if (!sessionIdParam) return;
     // Look up the session's classId + date via the dashboard endpoint
@@ -56,19 +72,6 @@ export default function AttendanceAdmin() {
       })
       .catch(() => {/* fall through to range view */});
   }, [sessionIdParam]);
-  if (redirectTo) return <Navigate to={redirectTo} replace />;
-
-  const [classes, setClasses] = useState<ClassRow[]>([]);
-  const [classId, setClassId] = useState<string>('');
-  const [from, setFrom] = useState<string>(() => {
-    const d = new Date();
-    d.setDate(d.getDate() - 7);
-    return d.toISOString().slice(0, 10);
-  });
-  const [to, setTo] = useState<string>(() => new Date().toISOString().slice(0, 10));
-  const [rows, setRows] = useState<AttendanceRow[]>([]);
-  const [error, setError] = useState<string | null>(null);
-  const [editing, setEditing] = useState<{ row: AttendanceRow; status: Status; note: string } | null>(null);
 
   useEffect(() => {
     api
@@ -123,6 +126,10 @@ export default function AttendanceAdmin() {
     },
     {} as Record<Status, number>,
   );
+
+  // Conditional render AFTER all hooks have run, to preserve hook order
+  // across renders (Bug 10 redirect flow).
+  if (redirectTo) return <Navigate to={redirectTo} replace />;
 
   return (
     <div>
