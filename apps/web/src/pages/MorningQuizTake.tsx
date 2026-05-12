@@ -85,6 +85,43 @@ export default function MorningQuizTake() {
     return () => { cancelled = true; };
   }, [sessionId]);
 
+  // Block accidental "browser back" while mid-quiz. The take-quiz route
+  // is the destination of a window.location.replace from the scan page,
+  // so the browser's back stack still contains /scan/:token — a single
+  // tap on the back button drops the student out of the quiz onto a now-
+  // expired QR landing page, losing their unsaved answers.
+  //
+  // Strategy: push a dummy history entry on mount. On popstate, if the
+  // student hasn't submitted yet, push the dummy back so the URL never
+  // actually leaves /morning-quiz/:id. Combined with the chrome-hidden
+  // layout, the only way out of the take page is the Submit button or
+  // closing the tab entirely.
+  useEffect(() => {
+    if (!sessionId) return;
+    window.history.pushState({ mqGuard: true }, '', window.location.href);
+    const onPop = (e: PopStateEvent) => {
+      if (submitted) return; // submit completed → allow normal nav
+      void e;
+      // Re-push our guard so the URL doesn't change.
+      window.history.pushState({ mqGuard: true }, '', window.location.href);
+    };
+    window.addEventListener('popstate', onPop);
+    return () => window.removeEventListener('popstate', onPop);
+  }, [sessionId, submitted]);
+
+  // Also warn on tab close / refresh while mid-quiz. Browsers ignore the
+  // returnValue text but still show a generic confirm dialog, which is
+  // enough to stop accidental close mid-answer.
+  useEffect(() => {
+    const handler = (e: BeforeUnloadEvent) => {
+      if (submitted) return;
+      e.preventDefault();
+      e.returnValue = '';
+    };
+    window.addEventListener('beforeunload', handler);
+    return () => window.removeEventListener('beforeunload', handler);
+  }, [submitted]);
+
   const persistAnswer = useCallback(
     async (qid: string, body: { selectedOption?: string | null; textAnswer?: string | null }) => {
       if (!sessionId) return;

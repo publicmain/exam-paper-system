@@ -9,7 +9,20 @@ export interface DecodedQrToken {
 
 const TOKEN_VERSION = 'v1';
 const SIG_LEN = 16;
-const TOLERANCE_MS = 30_000;
+// Tolerance window after a QR token's rotation window ends, during which
+// the server still accepts the token. The display rotates every
+// qrRotationSeconds (default 15s), but a student takes some seconds to
+// (a) lift their phone, (b) trigger the scan, (c) tap into the page,
+// (d) type their name + level. Real-world latency between "QR shown" and
+// "scan API call" is commonly 30–60s on a busy morning. The original
+// 30s tolerance + 15s window = 45s total acceptance, which was clipping
+// legit scans and surfacing as "二维码失效" to students.
+//
+// 60s + 15s = 75s total acceptance — still tight enough to reject any
+// QR screenshot saved from the previous day, but forgiving enough to let
+// a slow first-time user (or one fumbling with the level picker) finish
+// scanning before the token expires.
+const TOLERANCE_MS = 60_000;
 
 @Injectable()
 export class QrService {

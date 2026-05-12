@@ -85,6 +85,17 @@ export default function App() {
     // returning students land back on the scan flow.
     const isPublicLogin = location.pathname === '/login';
     const isScan = location.pathname.startsWith('/scan/');
+    // If a student loses their scanToken auth mid-quiz (refresh after
+    // session.quizEnd, browser back from /morning-quiz/:id, etc.) the old
+    // behaviour was to bounce to /login — but students don't have
+    // passwords. Dropping them on the password form is a dead-end that
+    // confuses everyone. Send them to /my-history (public, IP-gated,
+    // name-typed) instead, which is the canonical "what's my situation"
+    // landing page for unauthenticated students.
+    const isStudentFlow =
+      location.pathname.startsWith('/morning-quiz/') ||
+      location.pathname.startsWith('/student/');
+    if (isStudentFlow) return <Navigate to="/my-history" replace />;
     if (!isPublicLogin && !isScan) return <Navigate to="/login" replace />;
     return (
       <Routes>
