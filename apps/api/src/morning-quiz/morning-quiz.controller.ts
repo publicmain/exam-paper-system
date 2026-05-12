@@ -317,6 +317,19 @@ export class MorningQuizController {
   }
 
   /**
+   * Re-run auto-grading on every submitted submission in a session.
+   * Used to recover scoring when the cron locked submissions before a
+   * grader bug was fixed (e.g. the >80-char mark scheme skip bug), or
+   * when ANTHROPIC_API_KEY was missing at lock time but is now set.
+   * Teacher / head_teacher / admin only. Audit-logged.
+   */
+  @Post('sessions/:id/regrade')
+  regradeSession(@Param('id') id: string, @CurrentUser() user: any, @Req() req: Request) {
+    if (!TEACHER_ROLES.has(user.role)) throw new ForbiddenException('teacher_required');
+    return this.svc.regradeSession(id, { id: user.id, role: user.role, ip: req.ip ?? null });
+  }
+
+  /**
    * Aggregated dashboard for one (classId, date) — merges all 1–N
    * sessions (one per registered EnglishLevel) into a single roster.
    * Used by the schedule page's per-row "考勤 →" link. The per-session

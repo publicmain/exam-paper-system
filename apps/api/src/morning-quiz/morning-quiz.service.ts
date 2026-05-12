@@ -19,6 +19,8 @@ import { PrismaService } from '../common/prisma.service';
 import { canActOnClass } from '../common/roles';
 import { ShuffleService } from '../shuffle/shuffle.service';
 import { MorningQuizQaService } from '../morning-quiz-qa/morning-quiz-qa.service';
+import { ShortAnswerEvaluatorService } from './short-answer-evaluator.service';
+import { autoGradeScripts } from '../student/student.service';
 
 interface ActorCtx {
   id: string;
@@ -149,6 +151,10 @@ export class MorningQuizService {
     private readonly shuffle: ShuffleService,
     private readonly quickPaper: QuickPaperService,
     private readonly qaReview: MorningQuizQaService,
+    // Optional Claude-backed short-answer grader. Wired in the module so
+    // the re-grade endpoint here applies byte-identical rules to the
+    // cron's lockOne path (which uses the same evaluator).
+    private readonly evaluator?: ShortAnswerEvaluatorService,
   ) {}
 
   /**
@@ -1751,6 +1757,111 @@ export class MorningQuizService {
       submissionDeleted: result.submissionDeleted,
       scriptDeleted: scriptCount,
     };
+  }
+
+  /**
+   * Re-run autoGradeScripts on every submitted submission in a session.
+   * Used to recover scoring on already-locked submissions when:
+   *   - The auto-grader code has changed since last grading
+   *   - The ANTHROPIC_API_KEY was missing at lock time but is now set
+   *   - A bug in autoGradeScripts caused scripts to be skipped (e.g. the
+   *     pre-fix length>80 path that left long-mark-scheme answers
+   *     un-graded, awarded marks = null)
+   *
+   * Re-grades in a single transaction, updates submission.autoScore +
+   * each answerScript.{autoCorrect, awardedMarks, markerComment}.
+   * Does NOT touch manualScore (teacher overrides preserved) or
+   * submission.status (still 'submitted' / 'locked' / etc.). Audit-logged
+   * with per-submission delta counts.
+   */
+  async regradeSession(
+    sessionId: string,
+    actor: ActorCtx,
+  ): Promise<{
+    sessionId: string;
+    submissionsRegraded: number;
+    scriptsUpdated: number;
+    autoScoreDelta: number;
+  }> {
+    const session = await this.prisma.morningQuizSession.findUnique({
+      where: { id: sessionId },
+      select: { id: true, classId: true, paperAssignmentId: true },
+    });
+    if (!session) throw new NotFoundException({ code: 'session_not_found' });
+    if (!(await canActOnClass(this.prisma, actor, session.classId))) {
+      throw new ForbiddenException({ code: 'not_your_class' });
+    }
+
+    const result = await this.prisma.$transaction(async (tx) => {
+      const submissions = await tx.studentSubmission.findMany({
+        where: {
+          assignmentId: session.paperAssignmentId,
+          // Only submissions that actually carry student work; in_progress
+          // is left to the cron's lockOne so we don't race the lock flow.
+          status: { in: ['submitted', 'locked'] },
+        },
+        include: {
+          scripts: {
+            include: {
+              paperQuestion: {
+                include: {
+                  question: {
+                    select: { questionType: true, options: true, answerContent: true, content: true },
+                  },
+                },
+              },
+            },
+          },
+        },
+      });
+
+      let submissionsRegraded = 0;
+      let scriptsUpdated = 0;
+      let autoScoreDelta = 0;
+
+      for (const sub of submissions) {
+        const { autoScore, scriptUpdates } = await autoGradeScripts(sub.scripts, this.evaluator);
+        const before = sub.autoScore ?? 0;
+        autoScoreDelta += autoScore - before;
+
+        await tx.studentSubmission.update({
+          where: { id: sub.id },
+          data: { autoScore },
+        });
+
+        for (const u of scriptUpdates) {
+          await tx.answerScript.update({
+            where: { id: u.id },
+            data: {
+              autoCorrect: u.autoCorrect,
+              awardedMarks: u.awardedMarks,
+              ...(u.aiReason ? { markerComment: `[ai-grade] ${u.aiReason}` } : {}),
+            },
+          });
+          scriptsUpdated++;
+        }
+        submissionsRegraded++;
+      }
+
+      return { submissionsRegraded, scriptsUpdated, autoScoreDelta };
+    });
+
+    await this.audit.log({
+      actorId: actor.id,
+      actorRole: actor.role,
+      action: 'morning_quiz.regrade_session',
+      entityType: 'MorningQuizSession',
+      entityId: sessionId,
+      ip: actor.ip,
+      metadata: {
+        sessionId,
+        submissionsRegraded: result.submissionsRegraded,
+        scriptsUpdated: result.scriptsUpdated,
+        autoScoreDelta: result.autoScoreDelta,
+      },
+    });
+
+    return { sessionId, ...result };
   }
 
   /** Find the StudentSubmission tied to (session, student) — used by the

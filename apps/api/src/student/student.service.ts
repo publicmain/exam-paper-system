@@ -129,12 +129,24 @@ export async function autoGradeScripts(
     if (q.questionType === 'short_answer') {
       const ac = q.answerContent as { text?: unknown } | null;
       const expected = typeof ac?.text === 'string' ? ac.text : null;
-      if (!expected || expected.length > 80) continue;
+      if (!expected) continue;
       const expectedN = normalizeShortAnswer(expected);
       const actualN = normalizeShortAnswer(script.textAnswer);
       if (!expectedN) continue;
-      // Path 1: cheap deterministic string match.
-      if (actualN !== '' && expectedN === actualN) {
+      // Path 1: cheap deterministic string match — only meaningful for
+      // SHORT canonical answers (IELTS 1-3 words: "ii", "pendulum clock",
+      // a single letter). For longer mark schemes (OLEVEL §B prose
+      // answers, 100+ chars) string match will essentially never hit,
+      // and trying anyway is just wasted compute. Gate this path on
+      // expected.length <= 80.
+      //
+      // Bug history: the gate used to be `if (expected.length > 80) continue`
+      // which SKIPPED THE ENTIRE FUNCTION for long mark schemes — neither
+      // the blank→0 path nor the AI path ran. Result: every student answer
+      // on every long-mark-scheme question stayed un-graded (Marks UI
+      // showed empty, awardedMarks=null). Fixed by gating only Path 1 on
+      // length and letting Paths 2+3 run regardless of mark scheme length.
+      if (expected.length <= 80 && actualN !== '' && expectedN === actualN) {
         autoScore += script.paperQuestion.marks;
         scriptUpdates.push({
           id: script.id,
@@ -148,7 +160,9 @@ export async function autoGradeScripts(
         scriptUpdates.push({ id: script.id, autoCorrect: false, awardedMarks: 0 });
         continue;
       }
-      // Path 3: string mismatch + non-empty answer → ask Claude.
+      // Path 3: string mismatch (or long mark scheme) + non-empty answer
+      // → ask Claude. Long mark schemes are exactly where AI shines, so
+      // routing them here is the whole point of the AI fallback.
       if (aiGrader) {
         const content =
           typeof q.content === 'object' && q.content !== null

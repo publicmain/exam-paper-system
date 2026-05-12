@@ -33,6 +33,7 @@ export default function MorningQuizClassDayDashboard() {
   const [err, setErr] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [clearing, setClearing] = useState<string | null>(null);
+  const [regrading, setRegrading] = useState(false);
 
   async function reload() {
     if (!classId || !date) return;
@@ -54,6 +55,47 @@ export default function MorningQuizClassDayDashboard() {
     return () => clearInterval(t);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [classId, date]);
+
+  /** Re-run auto-grading on every session in this (classId, date) group.
+   *  Used when the cron locked submissions before a grader fix landed
+   *  (e.g. the >80-char skip bug that left long-mark-scheme answers
+   *  un-scored). The endpoint is idempotent — running it again on an
+   *  already-correctly-graded session is a no-op. */
+  async function handleRegrade() {
+    if (!data || regrading) return;
+    const confirmed = confirm(
+      `重新对本班 ${data.sessions.length} 个 level (${data.attendances.filter((a: any) => a.submission?.id).length} 份已交卷) 跑一次自动评分？\n\n` +
+        `· MCQ 题: 直接重算\n` +
+        `· short_answer 题: 先按字符串匹配, 不中走 Claude AI 评分\n` +
+        `· 老师手改的分数(manualScore)不动\n` +
+        `· 答题记录(textAnswer)不动\n\n` +
+        `适用场景: 前端发现 Marks 框是空的、AI 没评分等。`,
+    );
+    if (!confirmed) return;
+    setRegrading(true);
+    let totalSubs = 0;
+    let totalScripts = 0;
+    let totalDelta = 0;
+    try {
+      for (const s of data.sessions) {
+        const r = await api.morningQuizRegradeSession(s.id);
+        totalSubs += r.submissionsRegraded ?? 0;
+        totalScripts += r.scriptsUpdated ?? 0;
+        totalDelta += r.autoScoreDelta ?? 0;
+      }
+      alert(
+        `重新评分完成:\n` +
+          `  · 提交记录处理: ${totalSubs}\n` +
+          `  · 答题记录更新: ${totalScripts}\n` +
+          `  · auto-score 总分变化: ${totalDelta >= 0 ? '+' : ''}${totalDelta}`,
+      );
+      await reload();
+    } catch (e: any) {
+      setErr(String(e?.message ?? e));
+    } finally {
+      setRegrading(false);
+    }
+  }
 
   /** Wipe one student's data on the session where they actually
    *  scanned (carried in the row as sessionId). */
@@ -123,9 +165,19 @@ export default function MorningQuizClassDayDashboard() {
             ))}
           </div>
         </div>
-        <button className="btn btn-ghost text-xs" onClick={reload}>
-          ↻ 刷新
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={handleRegrade}
+            disabled={regrading}
+            className="text-xs px-3 py-1.5 rounded bg-indigo-50 hover:bg-indigo-100 text-indigo-700 disabled:opacity-50"
+            title="重新跑自动评分(MCQ 重算 + short_answer 走 Claude AI), 用于救回因 grader bug 没评上的答卷"
+          >
+            {regrading ? '评分中…' : '🔄 重新评分'}
+          </button>
+          <button className="btn btn-ghost text-xs" onClick={reload}>
+            ↻ 刷新
+          </button>
+        </div>
       </div>
 
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">

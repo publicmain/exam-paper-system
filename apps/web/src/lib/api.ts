@@ -311,6 +311,11 @@ export const api = {
     request('PATCH', `/classes/${id}`, body),
   morningQuizDashboard: (sessionId: string) =>
     request('GET', `/morning-quiz/sessions/${sessionId}/dashboard`),
+  /** Re-run auto-grading on a session — used to recover scores when the
+   *  grader was broken at lock time. Returns counts of submissions /
+   *  scripts updated and net autoScore delta. */
+  morningQuizRegradeSession: (sessionId: string) =>
+    request('POST', `/morning-quiz/sessions/${sessionId}/regrade`),
   /** Aggregated (classId, date) dashboard — merges 1–N level sessions
    *  into a single roster. Each row carries its source sessionId + level
    *  so per-student delete still targets the correct session. */
