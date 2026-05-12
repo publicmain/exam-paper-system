@@ -1820,27 +1820,55 @@ export class MorningQuizService {
       throw new NotFoundException({ code: 'no_sessions_for_class_day' });
     }
 
-    // Sum counts across all sessions; merge attendance rows, tagging each
-    // with its source sessionId + level so the row-level 🗑️ clear button
-    // can still target the correct session.
-    const counts = { on_time: 0, late: 0, absent: 0 };
-    const attendances: Array<any> = [];
+    // Merge attendance rows from all N sessions, tagging each with its
+    // source sessionId + level so the row-level 🗑️ clear button still
+    // targets the correct session.
+    //
+    // Then DEDUPE by studentId — the cron's lockOne creates an `absent`
+    // row for every enrolled student on every session, so a student
+    // enrolled in 3 levels who scans only one will produce 3 attendance
+    // rows (1 real + 2 spurious absent). Naïve concatenation gave the UI
+    // 3 rows per student and a 3× inflated absent count. Keep only the
+    // highest-priority row per student: on_time > late > absent. The
+    // kept row's level/sessionId reflects where the student ACTUALLY
+    // scanned (or arbitrary level if they truly didn't show on any).
+    const raw: Array<any> = [];
     for (const s of sessions) {
       for (const a of s.attendances) {
-        counts[a.status]++;
-        attendances.push({
+        raw.push({
           ...a,
           sessionId: s.id,
           level: s.level,
         });
       }
     }
-    // Sort by student name for a stable display ordering.
-    attendances.sort((a, b) => {
+    const PRIORITY: Record<string, number> = { on_time: 3, late: 2, absent: 1 };
+    const byStudent = new Map<string, (typeof raw)[number]>();
+    for (const a of raw) {
+      const sid = a.studentId;
+      const existing = byStudent.get(sid);
+      if (!existing) {
+        byStudent.set(sid, a);
+        continue;
+      }
+      const newP = PRIORITY[a.status] ?? 0;
+      const oldP = PRIORITY[existing.status] ?? 0;
+      // If equal priority (e.g. two absent rows for the same student),
+      // prefer the row that has a submission attached — keeps any quiz
+      // data visible even if status ended up tied.
+      if (newP > oldP || (newP === oldP && a.submission && !existing.submission)) {
+        byStudent.set(sid, a);
+      }
+    }
+    const attendances = Array.from(byStudent.values()).sort((a, b) => {
       const an = a.student?.name ?? '';
       const bn = b.student?.name ?? '';
       return an.localeCompare(bn, 'zh-CN');
     });
+    // Recompute counts on the deduped set — one tally per student, not
+    // per attendance row.
+    const counts = { on_time: 0, late: 0, absent: 0 };
+    for (const a of attendances) counts[a.status]++;
 
     return {
       classId,
