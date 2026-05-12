@@ -213,6 +213,24 @@ export class MorningQuizController {
     });
   }
 
+  /**
+   * Bug 2 — preview the destructive impact of force-regenerate-week.
+   * Used by the UI to display concrete delete counts in confirm() so
+   * the operator can't accidentally wipe today's real student data.
+   * Read-only; teacher+ role.
+   */
+  @Get('batch-generate/impact')
+  batchGenerateImpact(
+    @Query('weekStart') weekStart: string,
+    @Query('classIds') classIdsCsv: string | undefined,
+    @CurrentUser() user: any,
+  ) {
+    if (!TEACHER_ROLES.has(user.role)) throw new ForbiddenException('teacher_required');
+    if (!weekStart) throw new BadRequestException({ code: 'weekStart_required' });
+    const classIds = classIdsCsv ? classIdsCsv.split(',').filter(Boolean) : undefined;
+    return this.svc.previewRegenerateImpact({ weekStart, classIds });
+  }
+
   @Get('scheduled')
   scheduled(@Query('weekStart') weekStart: string) {
     if (!weekStart) throw new BadRequestException('weekStart required (YYYY-MM-DD)');
@@ -455,23 +473,47 @@ export class MorningQuizController {
   @Public()
   @UseGuards(IpAllowlistGuard)
   @Get('history-by-name')
-  async historyByName(@Query('name') rawName?: string) {
+  async historyByName(
+    @Query('name') rawName?: string,
+    @Query('studentId') studentIdFilter?: string,
+  ) {
     const name = (rawName ?? '').trim();
     if (!name) throw new BadRequestException({ code: 'name_required' });
     if (name.length > 50) throw new BadRequestException({ code: 'name_too_long' });
-    const candidates = await this.prisma.user.findMany({
+    const allCandidates = await this.prisma.user.findMany({
       where: { name: name, role: 'student' },
       select: {
         id: true,
         name: true,
         classEnrollments: {
           where: { role: 'student' },
-          select: { class: { select: { id: true, name: true } } },
+          select: { class: { select: { id: true, name: true, classCode: true } } },
         },
       },
     });
-    if (candidates.length === 0) {
+    if (allCandidates.length === 0) {
       throw new NotFoundException({ code: 'student_not_found', typed: name });
+    }
+    // Bug 5 — same-name disambiguation. If the lookup matches multiple
+    // students AND the caller didn't specify which one (via ?studentId=),
+    // return a 200 with `needDisambiguation: true` and the list of
+    // candidates so the UI can prompt the student to pick. Once they
+    // pick, the page re-fetches with studentId locked in.
+    const candidates =
+      studentIdFilter && allCandidates.some((c) => c.id === studentIdFilter)
+        ? allCandidates.filter((c) => c.id === studentIdFilter)
+        : allCandidates;
+    if (allCandidates.length > 1 && !studentIdFilter) {
+      return {
+        needDisambiguation: true,
+        candidates: allCandidates.map((c) => ({
+          studentId: c.id,
+          name: c.name,
+          classes: c.classEnrollments.map((e) => ({
+            id: e.class.id, name: e.class.name, classCode: e.class.classCode,
+          })),
+        })),
+      };
     }
     const studentIds = candidates.map((c) => c.id);
     // Submissions (exam history)

@@ -317,7 +317,23 @@ function ClassDetailModal({
       {cls && (
         <>
           <div className="text-xs text-gray-500">
-            {cls.enrollments?.length ?? 0} enrolled · level: {cls.englishLevel?.level ?? '—'}
+            {cls.enrollments?.length ?? 0} enrolled · levels:{' '}
+            {(() => {
+              // R10 multi-level: a class can carry N (1–3) English-level
+              // bands at once. The legacy `englishLevel` (singular) field
+              // has been replaced by `englishLevels` (plural array of
+              // ClassEnglishLevel). The old "level: —" rendering used the
+              // dead singular field and always showed dash — fixed by
+              // joining the multi-level chips.
+              const labels: Record<string, string> = {
+                ielts_authentic: '强(IELTS Auth)',
+                ielts_simplified: '中(Simplified)',
+                olevel: '基(O-Level)',
+              };
+              const levels: Array<{ level: string }> = cls.englishLevels ?? [];
+              if (levels.length === 0) return '— (未注册)';
+              return levels.map((l) => labels[l.level] ?? l.level).join(' · ');
+            })()}
           </div>
           <div className="border rounded divide-y max-h-64 overflow-auto text-sm">
             {(cls.enrollments ?? []).length === 0 && (

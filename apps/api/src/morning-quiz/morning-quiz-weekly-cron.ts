@@ -222,6 +222,99 @@ export class MorningQuizWeeklyCron {
   }
 
   /**
+   * Bug 4 — daily safety-net cron. Runs every Tue–Fri at 06:30 (well
+   * before the 08:30 attendanceStart). If TODAY is a school day AND
+   * no MorningQuizSession exists for any morning-quiz-enabled class
+   * on this date, kick off `batchGenerateForWeek` for the current week.
+   * This recovers from the case where Sunday's weekly cron didn't run
+   * (env not set, deploy crashed, etc.) so admins don't wake up to a
+   * blank schedule on Tuesday morning.
+   *
+   * Gated by env MORNING_QUIZ_DAILY_FALLBACK=true (default false) so
+   * production opt-in is explicit. No-op when:
+   *   - sessions already exist for today
+   *   - no class has a ClassEnglishLevel row
+   *   - the flag isn't set
+   */
+  @Cron('30 6 * * 2-5', { name: 'morning-quiz-daily-fallback' })
+  async dailyFallback(): Promise<void> {
+    if (process.env.MORNING_QUIZ_DAILY_FALLBACK !== 'true') {
+      this.logger.debug('skipped — MORNING_QUIZ_DAILY_FALLBACK !== "true"');
+      return;
+    }
+    const now = new Date();
+    const dayOfWeek = now.getDay(); // 0=Sun, 1=Mon, …
+    if (dayOfWeek < 2 || dayOfWeek > 5) {
+      // Belt-and-suspenders — the cron expr already restricts to Tue-Fri,
+      // but make the day check explicit so a future cron-syntax tweak
+      // can't accidentally fire on the weekend.
+      this.logger.debug(`skipped — today is weekday ${dayOfWeek} (not Tue-Fri)`);
+      return;
+    }
+    // Compute Monday of THIS week (Mon=1, so subtract dayOfWeek-1 days).
+    const monday = new Date(now);
+    monday.setDate(now.getDate() - (dayOfWeek - 1));
+    monday.setHours(0, 0, 0, 0);
+    const weekStart = monday.toISOString().slice(0, 10);
+
+    // Today's UTC date — match the @db.Date column shape.
+    const today = new Date(now);
+    today.setHours(0, 0, 0, 0);
+    const tomorrow = new Date(today.getTime() + 86_400_000);
+
+    const enabledClasses = await this.prisma.classEnglishLevel.findMany({
+      select: { classId: true },
+      distinct: ['classId'],
+    });
+    const classIds = enabledClasses.map((c) => c.classId);
+    if (classIds.length === 0) {
+      this.logger.log('daily-fallback: no morning-quiz classes; no-op');
+      return;
+    }
+    // For each enabled class: is there a session for today?
+    const todaySessions = await this.prisma.morningQuizSession.findMany({
+      where: { classId: { in: classIds }, date: { gte: today, lt: tomorrow } },
+      select: { classId: true },
+    });
+    const haveTodayBy = new Set(todaySessions.map((s) => s.classId));
+    const missing = classIds.filter((cid) => !haveTodayBy.has(cid));
+    if (missing.length === 0) {
+      this.logger.log(`daily-fallback: all ${classIds.length} classes already have today's session`);
+      return;
+    }
+    this.logger.warn(
+      `daily-fallback: ${missing.length}/${classIds.length} classes missing today's session — auto-generating week=${weekStart}`,
+    );
+    const adminUser = await this.prisma.user.findFirst({
+      where: { role: 'admin' }, orderBy: { createdAt: 'asc' }, select: { id: true },
+    });
+    if (!adminUser) {
+      this.logger.error('daily-fallback: no admin user in DB; cannot own generated papers');
+      return;
+    }
+    try {
+      const result = await this.mq.batchGenerateForWeek(
+        { weekStart, classIds: missing, questionsPerPaper: 12 },
+        { id: adminUser.id, role: 'admin', ip: null },
+      );
+      const outcomes: any[] = (result as any)?.outcomes ?? [];
+      const ok = outcomes.filter((o) => o?.ok === true).length;
+      const fail = outcomes.length - ok;
+      this.logger.log(`daily-fallback done: ok=${ok} fail=${fail}`);
+      try {
+        await this.notify.fire('morning_quiz_daily_fallback', {
+          message:
+            `【今晨自动补单】${missing.length} 个班级今早缺 session, ` +
+            `daily-fallback cron 已自动生成。ok=${ok} fail=${fail}.`,
+          weekStart, missingClasses: missing.length, ok, fail,
+        });
+      } catch {/* notify failure non-fatal */}
+    } catch (e: any) {
+      this.logger.error(`daily-fallback batchGenerateForWeek threw: ${e?.message ?? e}`);
+    }
+  }
+
+  /**
    * F2 fail-open auto-releaser.
    *
    * Runs every Monday 06:30. Any Paper still flagged needs_review with

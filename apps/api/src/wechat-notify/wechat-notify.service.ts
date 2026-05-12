@@ -68,7 +68,9 @@ type EventName =
   // F2: Sunday-night batch-generation review-gate notification
   | 'morning_quiz_review_gate'
   // F2: paper auto-released because the teacher didn't act before Monday 06:30
-  | 'morning_quiz_auto_released';
+  | 'morning_quiz_auto_released'
+  // Bug 4: daily safety-net cron generated today's missing sessions
+  | 'morning_quiz_daily_fallback';
 
 /**
  * Notification dispatch surface.

@@ -1787,6 +1787,65 @@ export class MorningQuizService {
    * submission.status (still 'submitted' / 'locked' / etc.). Audit-logged
    * with per-submission delta counts.
    */
+  /**
+   * Bug 2 — preview what batchGenerateForWeek({force:true}) would
+   * destroy. Returns counts of sessions / attendances / submissions /
+   * answer scripts in the (weekStart..+5d) window for the given classes
+   * (defaults to all classes with at least one ClassEnglishLevel).
+   *
+   * The UI calls this BEFORE confirm() so the operator sees concrete
+   * numbers ("会删除 19 份提交、247 条答题") rather than an abstract
+   * warning. Read-only — no audit log, no DB mutation.
+   */
+  async previewRegenerateImpact(
+    input: { weekStart: string; classIds?: string[] },
+  ): Promise<{
+    sessions: number;
+    submissions: number;
+    attendances: number;
+    answerScripts: number;
+  }> {
+    const monday = new Date(input.weekStart);
+    if (Number.isNaN(monday.getTime())) {
+      throw new BadRequestException({ code: 'bad_week_start' });
+    }
+    const dates: Date[] = [];
+    for (let i = 0; i < 7; i++) dates.push(new Date(monday.getTime() + i * 86_400_000));
+    let classIds = input.classIds ?? [];
+    if (classIds.length === 0) {
+      const rows = await this.prisma.classEnglishLevel.findMany({
+        distinct: ['classId'], select: { classId: true },
+      });
+      classIds = rows.map((r) => r.classId);
+    }
+    const sessions = await this.prisma.morningQuizSession.findMany({
+      where: { classId: { in: classIds }, date: { in: dates } },
+      select: { id: true, paperAssignment: { select: { paperId: true } } },
+    });
+    if (sessions.length === 0) {
+      return { sessions: 0, submissions: 0, attendances: 0, answerScripts: 0 };
+    }
+    const sessionIds = sessions.map((s) => s.id);
+    const paperIds = sessions
+      .map((s) => s.paperAssignment?.paperId)
+      .filter((p): p is string => !!p);
+    const [attendances, submissions, answerScripts] = await Promise.all([
+      this.prisma.attendance.count({ where: { sessionId: { in: sessionIds } } }),
+      this.prisma.studentSubmission.count({
+        where: { assignment: { paperId: { in: paperIds } } },
+      }),
+      this.prisma.answerScript.count({
+        where: { submission: { assignment: { paperId: { in: paperIds } } } },
+      }),
+    ]);
+    return {
+      sessions: sessions.length,
+      submissions,
+      attendances,
+      answerScripts,
+    };
+  }
+
   async regradeSession(
     sessionId: string,
     actor: ActorCtx,

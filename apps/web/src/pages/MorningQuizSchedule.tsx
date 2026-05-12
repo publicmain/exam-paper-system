@@ -135,10 +135,29 @@ export default function MorningQuizSchedule() {
       return;
     }
     if (opts.force) {
+      // Bug 2 — fetch concrete delete counts BEFORE the confirm so the
+      // operator sees what they're about to nuke. Without this, the
+      // generic warning let people accidentally wipe today's real
+      // morning quiz (19 student submissions, ~250 answer scripts).
+      let impactText = '';
+      try {
+        const impact = await api.morningQuizBatchGenerateImpact({
+          weekStart,
+          classIds: Array.from(selected),
+        });
+        impactText =
+          `\n\n本周将被删除的数据:\n` +
+          `  · ${impact.sessions} 个 sessions\n` +
+          `  · ${impact.attendances} 条考勤\n` +
+          `  · ${impact.submissions} 份学生提交\n` +
+          `  · ${impact.answerScripts} 条答题记录\n`;
+      } catch {
+        impactText = '\n\n(无法预读删除数量, 请谨慎确认)';
+      }
       const confirmed = confirm(
-        `强制重新生成 ${weekStart} 这周 ${selected.size} 个班级的所有早测卷？\n\n` +
-          `会删除本周已存在的卷子（含学生答卷数据），然后按当前题库重新抽取一份不重复的内容。` +
-          `通常在新题库刚 ingest 完想立刻让本周生效时使用。`,
+        `⚠️ 强制重新生成 ${weekStart} 这周 ${selected.size} 个班级的所有早测卷？\n` +
+          impactText +
+          `\n不可撤销。仅在新题库刚 ingest 完想立刻让本周生效, 且接受清空已交卷数据时使用。`,
       );
       if (!confirmed) return;
     }
@@ -230,8 +249,25 @@ export default function MorningQuizSchedule() {
    *  harmless in production (button click surfaces a clear message).
    *  After successful activation, immediately opens the display page so
    *  the user has a visible QR to scan. */
-  async function handleDebugActivate(sessionId: string) {
+  async function handleDebugActivate(sessionId: string, opts: { sessionStatus?: string; alreadyConfirmed?: boolean } = {}) {
     setError(null);
+    // Strong warning when activating an ALREADY-LOCKED session (i.e.
+    // the morning quiz already ran today). Re-activating it will:
+    //   - overwrite the canonical 08:30 timestamps to "now"-based values
+    //   - re-open scan window → students could scan again and overwrite
+    //     today's real attendance/submission rows
+    // Block this with an extra confirm so test clicks don't nuke real data.
+    if (opts.sessionStatus === 'locked' && !opts.alreadyConfirmed) {
+      const confirmed = confirm(
+        `⚠️ 这场 session 已经 locked (今早 quiz 已结束)\n\n` +
+          `再次「立即激活」会:\n` +
+          `  · 把时间窗口改成「现在」(覆盖原 08:30 的 attendanceStart)\n` +
+          `  · 把 status 改回 active, 学生可以重新扫码 → 覆盖今早真实数据\n` +
+          `  · 今早学生的考勤+答卷会被新一轮扫码覆盖\n\n` +
+          `确定要继续? (一般只在测试环境点)`,
+      );
+      if (!confirmed) return;
+    }
     try {
       await api.morningQuizDebugActivate(sessionId);
       await refresh();
@@ -340,8 +376,12 @@ export default function MorningQuizSchedule() {
           <Link to="/morning-quiz/qa-review" className="text-sm text-amber-700 hover:underline">
             🤖 AI 审核待复核 →
           </Link>
-          <Link to="/admin/attendance" className="text-sm text-blue-600 hover:underline">
-            考勤记录 →
+          {/* Bug 9: the old /admin/attendance page is a date-range
+              history view (separate from the new per-(class, date)
+              merged dashboard). Keep both entries, but make this one
+              clearly say "history" so users know the difference. */}
+          <Link to="/admin/attendance" className="text-sm text-blue-600 hover:underline" title="按日期范围跨多场 session 查考勤历史">
+            历史考勤 →
           </Link>
           <button
             type="button"
@@ -626,10 +666,33 @@ export default function MorningQuizSchedule() {
                         </button>
                         <button
                           onClick={async () => {
-                            // Activate every band in the group; the
-                            // backend is idempotent on already-active
-                            // sessions (just refreshes the window).
-                            for (const s of group) await handleDebugActivate(s.id);
+                            // Bug 8 fix: if any session in this group is
+                            // locked (real morning quiz already ran),
+                            // require an EXTRA confirm before reactivating
+                            // — see handleDebugActivate strong-warning path.
+                            const anyLocked = group.some((s) => s.status === 'locked');
+                            if (anyLocked) {
+                              const ok = confirm(
+                                `⚠️ 本班 ${group.length} 场 session 中至少有 1 场已 locked.\n\n` +
+                                  `再次「立即激活」会**覆盖今早真实数据**(timestamps + status), ` +
+                                  `学生可重新扫码污染原成绩。\n\n` +
+                                  `测试 / 演示场景才点。生产请用「撤销激活」恢复 08:30 窗口。\n\n` +
+                                  `确认要全部激活?`,
+                              );
+                              if (!ok) return;
+                              // Pass alreadyConfirmed=true so the inner
+                              // per-session loop doesn't re-prompt.
+                              for (const s of group) {
+                                await handleDebugActivate(s.id, {
+                                  sessionStatus: s.status,
+                                  alreadyConfirmed: true,
+                                });
+                              }
+                            } else {
+                              for (const s of group) {
+                                await handleDebugActivate(s.id, { sessionStatus: s.status });
+                              }
+                            }
                           }}
                           className="text-xs px-2 py-1 rounded bg-amber-50 hover:bg-amber-100 text-amber-700 mr-1"
                           title="DEV ONLY: 一键激活本班所有等级的 session(测试用,生产 MORNING_QUIZ_DEBUG=true 才可用)"

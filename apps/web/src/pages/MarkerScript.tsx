@@ -98,6 +98,24 @@ export default function MarkerScriptPage() {
     }
   }
 
+  /** Bug 11: surface a "Claim this submission" entry point on the
+   *  marker page when the current user doesn't hold the claim. Previously
+   *  the marker had to first navigate to /marker (queue page) and click
+   *  claim there — discoverability was poor and users hit the "scoring
+   *  is read-only" banner without knowing what to do. */
+  async function claim() {
+    if (!submissionId) return;
+    setBusy('claim');
+    try {
+      await api.markerClaim(submissionId);
+      await load();
+    } catch (ex: any) {
+      alert(`Claim failed: ${String(ex?.message ?? ex)}`);
+    } finally {
+      setBusy(null);
+    }
+  }
+
   async function release() {
     if (!confirm('Release the claim on this submission? Another marker can pick it up.')) return;
     setBusy('release');
@@ -177,8 +195,16 @@ export default function MarkerScriptPage() {
           </div>
         </div>
         {!myClaim && status === 'submitted' && (
-          <div className="mt-2 text-amber-700 text-sm">
-            ⚠ You don't hold the marker claim on this submission. Scoring is read-only.
+          <div className="mt-2 text-amber-700 text-sm flex items-center justify-between gap-2">
+            <span>⚠ You don't hold the marker claim on this submission. Scoring is read-only.</span>
+            <button
+              className="btn btn-primary text-xs"
+              onClick={claim}
+              disabled={busy === 'claim'}
+              title="把这份卷子领下来, 之后才能改分"
+            >
+              {busy === 'claim' ? '认领中…' : '🖐 认领这份 / Claim'}
+            </button>
           </div>
         )}
       </div>

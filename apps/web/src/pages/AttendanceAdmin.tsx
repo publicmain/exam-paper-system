@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { useSearchParams, Navigate } from 'react-router-dom';
 import { api } from '../lib/api';
 
 type Status = 'on_time' | 'late' | 'absent';
@@ -33,6 +34,30 @@ const STATUS_BADGE: Record<Status, string> = {
  * mandatory note) — every change goes to AuditLog.
  */
 export default function AttendanceAdmin() {
+  const [params] = useSearchParams();
+  // Bug 10: when external callers pass ?sessionId=... (e.g. older links),
+  // redirect to the new merged class-day dashboard which actually drives
+  // off the session. Without this redirect the page silently ignored the
+  // sessionId and just showed the last-7-days range — confusing.
+  const sessionIdParam = params.get('sessionId');
+  const [redirectTo, setRedirectTo] = useState<string | null>(null);
+  useEffect(() => {
+    if (!sessionIdParam) return;
+    // Look up the session's classId + date via the dashboard endpoint
+    // and bounce. If the session isn't found, stay on this page (legacy
+    // history view is still useful as a fallback).
+    api.morningQuizDashboard(sessionIdParam)
+      .then((d: any) => {
+        const cid = d?.session?.class?.id;
+        const dateStr = d?.session?.date ? String(d.session.date).slice(0, 10) : null;
+        if (cid && dateStr) {
+          setRedirectTo(`/morning-quiz/classes/${cid}/date/${dateStr}/dashboard`);
+        }
+      })
+      .catch(() => {/* fall through to range view */});
+  }, [sessionIdParam]);
+  if (redirectTo) return <Navigate to={redirectTo} replace />;
+
   const [classes, setClasses] = useState<ClassRow[]>([]);
   const [classId, setClassId] = useState<string>('');
   const [from, setFrom] = useState<string>(() => {

@@ -367,6 +367,17 @@ export const api = {
     // submissions in the window are deleted via FK cascade).
     force?: boolean;
   }) => request('POST', '/morning-quiz/batch-generate', body),
+  /** Bug 2 — preview destructive impact of force-regenerate before
+   *  showing the confirm() so the operator sees actual counts. */
+  morningQuizBatchGenerateImpact: (params: { weekStart: string; classIds?: string[] }) =>
+    request(
+      'GET',
+      `/morning-quiz/batch-generate/impact?weekStart=${encodeURIComponent(params.weekStart)}${
+        params.classIds && params.classIds.length > 0
+          ? '&classIds=' + encodeURIComponent(params.classIds.join(','))
+          : ''
+      }`,
+    ),
   setClassEnglishLevel: (
     classId: string,
     level: 'ielts_authentic' | 'ielts_simplified' | 'olevel',

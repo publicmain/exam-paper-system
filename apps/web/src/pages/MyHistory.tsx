@@ -46,6 +46,19 @@ interface HistoryResponse {
   attendances: AttendanceRow[];
 }
 
+interface DisambigCandidate {
+  studentId: string;
+  name: string;
+  classes: Array<{ id: string; name: string; classCode: string }>;
+}
+
+interface DisambigResponse {
+  needDisambiguation: true;
+  candidates: DisambigCandidate[];
+}
+
+type LookupResponse = HistoryResponse | DisambigResponse;
+
 const LEVEL_LABEL: Record<string, string> = {
   ielts_authentic: '雅思真题 · IELTS Authentic',
   ielts_simplified: '轻难度雅思 · Simplified IELTS',
@@ -79,10 +92,11 @@ export default function MyHistory() {
   });
   const [submitted, setSubmitted] = useState(false);
   const [data, setData] = useState<HistoryResponse | null>(null);
+  const [disambig, setDisambig] = useState<DisambigCandidate[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
-  async function lookup(searchName: string) {
+  async function lookup(searchName: string, studentId?: string) {
     const trimmed = searchName.trim();
     if (!trimmed) {
       setError('请输入姓名 · Please type your name.');
@@ -91,8 +105,12 @@ export default function MyHistory() {
     setLoading(true);
     setError(null);
     setData(null);
+    setDisambig(null);
     try {
-      const r = await fetch(`${BASE}/api/morning-quiz/history-by-name?name=${encodeURIComponent(trimmed)}`);
+      const url = new URL(`${BASE}/api/morning-quiz/history-by-name`);
+      url.searchParams.set('name', trimmed);
+      if (studentId) url.searchParams.set('studentId', studentId);
+      const r = await fetch(url.toString());
       if (!r.ok) {
         const body = await r.json().catch(() => null);
         if (r.status === 404) {
@@ -104,9 +122,19 @@ export default function MyHistory() {
         }
         return;
       }
-      const json: HistoryResponse = await r.json();
-      setData(json);
+      const json: LookupResponse = await r.json();
+      // Bug 5: 同名学生 — backend signals with needDisambiguation: true
+      // and returns the candidates. Show a picker; once student selects,
+      // we re-fetch with the chosen studentId locked in.
+      if ('needDisambiguation' in json && json.needDisambiguation) {
+        setDisambig(json.candidates);
+        return;
+      }
+      setData(json as HistoryResponse);
       try { localStorage.setItem('mq:history:name', trimmed); } catch {/* */}
+      if (studentId) {
+        try { localStorage.setItem('mq:history:studentId', studentId); } catch {/* */}
+      }
       // Keep URL in sync so a refresh keeps the same student loaded.
       if (params.get('name') !== trimmed) {
         params.set('name', trimmed);
@@ -135,11 +163,35 @@ export default function MyHistory() {
   return (
     <div className="min-h-screen bg-gray-50">
       <header className="bg-white border-b">
-        <div className="max-w-4xl mx-auto px-6 py-4">
-          <h1 className="text-xl font-bold text-gray-900">📊 我的早测记录 · My Morning Quiz Portal</h1>
-          <p className="text-xs text-gray-500 mt-1">
-            输入姓名即可查看本人考勤 + 答题历史 · Type your name to see your attendance & quiz history.
-          </p>
+        <div className="max-w-4xl mx-auto px-6 py-4 flex items-start justify-between gap-4">
+          <div>
+            <h1 className="text-xl font-bold text-gray-900">📊 我的早测记录 · My Morning Quiz Portal</h1>
+            <p className="text-xs text-gray-500 mt-1">
+              输入姓名即可查看本人考勤 + 答题历史 · Type your name to see your attendance & quiz history.
+            </p>
+          </div>
+          {/* Shared-laptop scenario: the previous student leaves the page
+              loaded with their name; the next student needs a clean
+              starting point. This button clears localStorage + the URL
+              query, then reloads. */}
+          {(name || data) && (
+            <button
+              type="button"
+              onClick={() => {
+                try { localStorage.removeItem('mq:history:name'); } catch {/* */}
+                setName('');
+                setData(null);
+                setSubmitted(false);
+                setError(null);
+                params.delete('name');
+                setParams(params, { replace: true });
+              }}
+              className="shrink-0 text-xs px-3 py-1.5 rounded-md border border-gray-300 bg-white hover:bg-gray-100 text-gray-700"
+              title="清空记住的姓名, 让下一位学生查自己的"
+            >
+              ↺ 换学生 · Switch
+            </button>
+          )}
         </div>
       </header>
 
@@ -172,6 +224,37 @@ export default function MyHistory() {
         {error && (
           <div className="bg-rose-50 border border-rose-200 rounded-lg p-4 text-rose-800 text-sm">
             ⚠️ {error}
+          </div>
+        )}
+
+        {/* Bug 5: 同名学生 picker. Backend returns candidates when
+            multiple students match the typed name; show a list and let
+            the student tap the matching class entry. We use the chosen
+            studentId to scope all subsequent lookups (and the URL keeps
+            ?name=... so a refresh shows the picker again rather than
+            silently merging strangers' records). */}
+        {disambig && disambig.length > 0 && (
+          <div className="bg-white border border-amber-200 rounded-xl shadow-sm p-5 space-y-3">
+            <div className="text-sm">
+              校内有 <b>{disambig.length}</b> 个名叫「{name.trim()}」的学生，请选你所在的班级:
+            </div>
+            <div className="grid gap-2">
+              {disambig.map((c) => (
+                <button
+                  key={c.studentId}
+                  type="button"
+                  onClick={() => lookup(name, c.studentId)}
+                  className="w-full text-left border border-gray-200 hover:border-blue-400 bg-gray-50 hover:bg-blue-50 rounded-lg px-4 py-3 transition-colors"
+                >
+                  <div className="text-base font-semibold text-gray-900">{c.name}</div>
+                  <div className="text-xs text-gray-500 mt-0.5">
+                    {c.classes.length === 0
+                      ? '(未注册任何班级)'
+                      : c.classes.map((cls) => `${cls.name} (${cls.classCode})`).join(' · ')}
+                  </div>
+                </button>
+              ))}
+            </div>
           </div>
         )}
 
