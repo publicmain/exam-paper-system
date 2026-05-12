@@ -187,7 +187,16 @@ export default function MorningQuizClassDayDashboard() {
                         ? new Date(a.submission.submittedAt).toLocaleTimeString()
                         : '—'}
                     </td>
-                    <td className="py-2 pr-2 text-right">
+                    <td className="py-2 pr-2 text-right whitespace-nowrap">
+                      {a.submission?.id && (
+                        <Link
+                          to={`/marker/submission/${a.submission.id}`}
+                          className="text-xs px-2 py-1 rounded text-blue-600 hover:bg-blue-50 mr-1"
+                          title="逐题查看该学生的答案 / 自动评分 / AI 评语, 也可手动改分"
+                        >
+                          📝 查看答题
+                        </Link>
+                      )}
                       <button
                         onClick={() => handleClearStudent(a.sessionId, sid, sname)}
                         disabled={isClearing}
