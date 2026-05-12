@@ -490,8 +490,20 @@ export class MorningQuizController {
     // can have an attendance row (scan or absent) without ever submitting,
     // and conversely a "late scan + no answer" still appears on the
     // attendance side. Pull all attendances for these student IDs.
+    // Filter to attendances on past-or-today sessions only. A student
+    // portal is a record of what HAPPENED, not what's coming up. Future-
+    // dated absent rows are inevitable noise: dev "batch-generate the
+    // next week" + 「立即激活」 testing populates Attendance rows on
+    // session.date=next-Monday even though the actual quiz hasn't
+    // happened yet, and dedupe-by-date can't filter them because
+    // session.date IS in the future. Cut them off at "today's end".
+    const todayEnd = new Date();
+    todayEnd.setUTCHours(23, 59, 59, 999);
     const rawAttendances = await this.prisma.attendance.findMany({
-      where: { studentId: { in: studentIds } },
+      where: {
+        studentId: { in: studentIds },
+        session: { date: { lte: todayEnd } },
+      },
       orderBy: { scanTime: 'desc' },
       select: {
         id: true, status: true, scanTime: true, source: true,
