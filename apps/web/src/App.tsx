@@ -43,6 +43,7 @@ import CodegraderTestPage from './pages/CodegraderTest';
 import StudentTutorPage from './pages/StudentTutor';
 import PracticePage from './pages/Practice';
 import MyHistoryPage from './pages/MyHistory';
+import MyHistoryDetailPage from './pages/MyHistoryDetail';
 
 export default function App() {
   const { user, loading, init, logout } = useAuth();
@@ -65,14 +66,16 @@ export default function App() {
     );
   }
 
-  // Public route: student-self-service exam history lookup by name.
+  // Public routes: student-self-service portal (typed-name lookup).
   // No JWT (scan tokens expire daily so a student wanting to check
-  // yesterday's score wouldn't have one); backend route is IP-gated
-  // to school WiFi so it's not world-readable.
-  if (location.pathname === '/my-history') {
+  // yesterday's score wouldn't have one); backend routes are IP-gated
+  // to school WiFi + name-matched server-side so /my-history/submission/:id
+  // can't be enumerated by curious onlookers.
+  if (location.pathname === '/my-history' || location.pathname.startsWith('/my-history/submission/')) {
     return (
       <Routes>
         <Route path="/my-history" element={<MyHistoryPage />} />
+        <Route path="/my-history/submission/:submissionId" element={<MyHistoryDetailPage />} />
       </Routes>
     );
   }

@@ -34,6 +34,7 @@ export default function MorningQuizClassDayDashboard() {
   const [loading, setLoading] = useState(true);
   const [clearing, setClearing] = useState<string | null>(null);
   const [regrading, setRegrading] = useState(false);
+  const [editingAttendance, setEditingAttendance] = useState<string | null>(null);
 
   async function reload() {
     if (!classId || !date) return;
@@ -94,6 +95,70 @@ export default function MorningQuizClassDayDashboard() {
       setErr(String(e?.message ?? e));
     } finally {
       setRegrading(false);
+    }
+  }
+
+  /** Admin override of a single student's attendance status on the
+   *  session they're tied to (or NO session if they were absent — then
+   *  the dashboard still shows them under their best-fit session via
+   *  the merged-roster dedupe). Writes manual_correction source + a
+   *  mandatory note via /api/attendance/correct (audit-logged). */
+  async function handleEditAttendance(
+    sessionId: string,
+    studentId: string,
+    studentName: string,
+    currentStatus: 'on_time' | 'late' | 'absent',
+  ) {
+    const STATUS_LABEL: Record<string, string> = {
+      on_time: '按时',
+      late: '迟到',
+      absent: '缺勤',
+    };
+    const choice = prompt(
+      `修改 ${studentName} 的考勤状态\n\n` +
+        `当前: ${STATUS_LABEL[currentStatus]}\n\n` +
+        `输入新状态:\n` +
+        `  1 = 按时\n` +
+        `  2 = 迟到\n` +
+        `  3 = 缺勤\n\n` +
+        `(直接关闭/取消则不改)`,
+    );
+    if (!choice) return;
+    const map: Record<string, 'on_time' | 'late' | 'absent'> = {
+      '1': 'on_time',
+      '2': 'late',
+      '3': 'absent',
+      'on_time': 'on_time',
+      'late': 'late',
+      'absent': 'absent',
+    };
+    const newStatus = map[choice.trim()];
+    if (!newStatus) {
+      alert(`无效输入: ${choice}。请输入 1/2/3 或 on_time/late/absent。`);
+      return;
+    }
+    if (newStatus === currentStatus) return;
+    const note = prompt(
+      `修改原因(必填):\n例如「学生迟到但已到校」「医生证明缺勤」「补充签到」`,
+      '',
+    );
+    if (!note || !note.trim()) {
+      alert('原因必填, 操作已取消');
+      return;
+    }
+    setEditingAttendance(studentId);
+    try {
+      await api.attendanceCorrect({
+        sessionId,
+        studentId,
+        status: newStatus,
+        note: note.trim(),
+      });
+      await reload();
+    } catch (e: any) {
+      setErr(String(e?.message ?? e));
+    } finally {
+      setEditingAttendance(null);
     }
   }
 
@@ -228,7 +293,15 @@ export default function MorningQuizClassDayDashboard() {
                       </span>
                     </td>
                     <td className="py-2 pr-2">
-                      <StatusBadge status={a.status} />
+                      <button
+                        type="button"
+                        onClick={() => handleEditAttendance(a.sessionId, sid, sname, a.status)}
+                        disabled={editingAttendance === sid}
+                        className="hover:ring-2 hover:ring-blue-300 rounded transition-shadow disabled:opacity-50"
+                        title="点击修改考勤状态(管理员)"
+                      >
+                        <StatusBadge status={a.status} />
+                      </button>
                     </td>
                     <td className="py-2 pr-2">{a.submission?.submittedAt ? '✓' : '—'}</td>
                     <td className="py-2 pr-2">

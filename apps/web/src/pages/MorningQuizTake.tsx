@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { api } from '../lib/api';
+import { useAuth } from '../lib/auth';
 import { ExamProvider, useExam } from '../components/exam/ExamContext';
 import { ExamRenderer } from '../components/exam/QuestionTypeRegistry';
 import { Timer } from '../components/exam/shared/Timer';
@@ -48,6 +49,10 @@ export default function MorningQuizTake() {
   const { sessionId } = useParams<{ sessionId: string }>();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
+  // Student's display name — used to redirect them to their portal
+  // (/my-history) after submit. Same name string is what they typed on
+  // the /scan page, so it round-trips cleanly through the lookup API.
+  const studentName = useAuth((s) => s.user?.name) ?? '';
   // The URL hint is still read for backwards compatibility, but the
   // SERVER's `mode` field is authoritative — it's pinned to 'test' for
   // morning quizzes, so a `?mode=practice` URL trick can't unlock answers
@@ -97,11 +102,20 @@ export default function MorningQuizTake() {
     try {
       localStorage.removeItem(`mq:answers:${sessionId}`);
     } catch { /* ignore */ }
-    // F3 — go to per-session result page instead of dropping back to the
-    // student home. The result page surfaces score + per-question
-    // correct/wrong + brief explanation.
-    navigate(`/student/result/${sessionId}`, { replace: true });
-  }, [sessionId, navigate]);
+    // After submit, drop the student onto their portal (attendance +
+    // history in one view). This replaces the older /student/result/:id
+    // dead-end page — students kept asking "how do I check yesterday's
+    // score?" because /student/result is bound to a single session +
+    // requires login. /my-history is the single durable entry point.
+    if (studentName) {
+      navigate(`/my-history?name=${encodeURIComponent(studentName)}`, { replace: true });
+    } else {
+      // Fallback for edge cases where useAuth.user is somehow empty —
+      // the portal page also reads localStorage 'mq:history:name', so
+      // the student can still see their history if they typed it once.
+      navigate('/my-history', { replace: true });
+    }
+  }, [sessionId, navigate, studentName]);
 
   async function handleSubmit() {
     // Compatibility shim — the real flush + submit happens inside

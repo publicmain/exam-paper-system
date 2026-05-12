@@ -424,22 +424,22 @@ export class MorningQuizController {
     const name = (rawName ?? '').trim();
     if (!name) throw new BadRequestException({ code: 'name_required' });
     if (name.length > 50) throw new BadRequestException({ code: 'name_too_long' });
-    // Exact match to mirror the scan flow's name-pick semantics. If
-    // future demand emerges for "show me all candidates for fuzzy
-    // matches", we'd surface those here too; for now this is consistent
-    // with how the QR scan finds the student.
     const candidates = await this.prisma.user.findMany({
       where: { name: name, role: 'student' },
-      select: { id: true, name: true },
+      select: {
+        id: true,
+        name: true,
+        classEnrollments: {
+          where: { role: 'student' },
+          select: { class: { select: { id: true, name: true } } },
+        },
+      },
     });
     if (candidates.length === 0) {
       throw new NotFoundException({ code: 'student_not_found', typed: name });
     }
-    // If there are multiple students with the same exact name, we
-    // aggregate all their submissions. (In a school of 40 morning-
-    // quiz students, this is rare; the result page just shows
-    // submissions from every matching user.)
     const studentIds = candidates.map((c) => c.id);
+    // Submissions (exam history)
     const submissions = await this.prisma.studentSubmission.findMany({
       where: {
         studentId: { in: studentIds },
@@ -447,13 +447,8 @@ export class MorningQuizController {
       },
       orderBy: { submittedAt: 'desc' },
       select: {
-        id: true,
-        autoScore: true,
-        manualScore: true,
-        totalScore: true,
-        maxScore: true,
-        submittedAt: true,
-        status: true,
+        id: true, autoScore: true, manualScore: true, totalScore: true,
+        maxScore: true, submittedAt: true, status: true,
         assignment: {
           select: {
             id: true,
@@ -463,22 +458,42 @@ export class MorningQuizController {
         },
       },
     });
-    // Need to join each submission back to its MorningQuizSession to
-    // surface date + level. Submission only knows assignmentId — there
-    // may be 1+ sessions per assignment (cancel/recreate). Use the
-    // assignment's first non-cancelled session.
     const assignmentIds = submissions.map((s) => s.assignment.id);
-    const sessions = await this.prisma.morningQuizSession.findMany({
+    const sessionsByAsgmt = await this.prisma.morningQuizSession.findMany({
       where: { paperAssignmentId: { in: assignmentIds }, status: { not: 'cancelled' } },
       select: { id: true, paperAssignmentId: true, date: true, level: true },
     });
     const sessByAssignment = new Map<string, any>();
-    for (const s of sessions) {
-      // Keep the first; assignment-to-session is usually 1:1.
+    for (const s of sessionsByAsgmt) {
       if (!sessByAssignment.has(s.paperAssignmentId)) sessByAssignment.set(s.paperAssignmentId, s);
     }
+    // Attendance history — separate from submissions because a student
+    // can have an attendance row (scan or absent) without ever submitting,
+    // and conversely a "late scan + no answer" still appears on the
+    // attendance side. Pull all attendances for these student IDs.
+    const attendances = await this.prisma.attendance.findMany({
+      where: { studentId: { in: studentIds } },
+      orderBy: { scanTime: 'desc' },
+      select: {
+        id: true, status: true, scanTime: true, source: true,
+        correctedNote: true,
+        session: {
+          select: {
+            id: true, date: true, level: true,
+            class: { select: { id: true, name: true } },
+            paperAssignment: { select: { paper: { select: { name: true } } } },
+          },
+        },
+      },
+    });
     return {
-      student: { name, matchedCount: candidates.length },
+      student: {
+        name,
+        matchedCount: candidates.length,
+        classes: Array.from(
+          new Set(candidates.flatMap((c) => c.classEnrollments.map((e) => e.class.name))),
+        ),
+      },
       submissions: submissions.map((s) => {
         const sess = sessByAssignment.get(s.assignment.id);
         return {
@@ -495,7 +510,67 @@ export class MorningQuizController {
           status: s.status,
         };
       }),
+      attendances: attendances.map((a) => ({
+        id: a.id,
+        sessionId: a.session.id,
+        date: a.session.date,
+        level: a.session.level,
+        className: a.session.class.name,
+        paperName: a.session.paperAssignment.paper.name,
+        status: a.status,
+        scanTime: a.scanTime,
+        source: a.source,
+        correctedNote: a.correctedNote,
+      })),
     };
+  }
+
+  /**
+   * Per-submission per-question detail for a student — public route,
+   * IP-gated, name-matched. Lets students re-open their morning-quiz
+   * result from /my-history without needing to be logged in (the scan
+   * flow's session token expires, so the existing /student/result/:id
+   * page is useless for "check last week's answers").
+   *
+   * Security:
+   *   - IpAllowlistGuard: must be on school WiFi
+   *   - Name match: the typed name MUST exactly equal the submission's
+   *     student.name. Otherwise a curious student on school WiFi could
+   *     enumerate submissionIds and read other students' answers.
+   *   - No identifying info beyond the submission (no roster, no other
+   *     students' data).
+   */
+  @Public()
+  @UseGuards(IpAllowlistGuard)
+  @Get('history-detail')
+  async historyDetail(
+    @Query('submissionId') submissionId?: string,
+    @Query('name') rawName?: string,
+  ) {
+    const name = (rawName ?? '').trim();
+    if (!submissionId) throw new BadRequestException({ code: 'submission_id_required' });
+    if (!name) throw new BadRequestException({ code: 'name_required' });
+    const sub = await this.prisma.studentSubmission.findUnique({
+      where: { id: submissionId },
+      select: {
+        studentId: true,
+        assignmentId: true,
+        student: { select: { name: true } },
+      },
+    });
+    if (!sub) throw new NotFoundException({ code: 'submission_not_found' });
+    if (sub.student.name !== name) {
+      // Vague message — don't leak whether the submission exists.
+      throw new ForbiddenException({ code: 'name_mismatch' });
+    }
+    // Find the matching MorningQuizSession (1:1 with PaperAssignment in
+    // normal flow; pick the first non-cancelled if multiple exist).
+    const session = await this.prisma.morningQuizSession.findFirst({
+      where: { paperAssignmentId: sub.assignmentId, status: { not: 'cancelled' } },
+      select: { id: true },
+    });
+    if (!session) throw new NotFoundException({ code: 'no_session_for_submission' });
+    return this.svc.getStudentResult(session.id, sub.studentId);
   }
 
   // ─────────────────── Class English level (admin) ───────────────────

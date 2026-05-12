@@ -341,6 +341,13 @@ export const api = {
    *  Used after a teacher-led dry-run with a single test student. */
   morningQuizClearStudentTestData: (sessionId: string, studentId: string) =>
     request('DELETE', `/morning-quiz/sessions/${sessionId}/student/${studentId}/test-data`),
+  /** Per-submission detail for /my-history drill-in. Public, IP-gated,
+   *  name-matched. */
+  morningQuizHistoryDetail: (params: { submissionId: string; name: string }) =>
+    request(
+      'GET',
+      `/morning-quiz/history-detail?submissionId=${encodeURIComponent(params.submissionId)}&name=${encodeURIComponent(params.name)}`,
+    ),
   morningQuizBatchSchedule: (items: Array<{ date: string; classId: string; paperId: string }>) =>
     request('POST', '/morning-quiz/batch', { items }),
   morningQuizBatchGenerate: (body: {
