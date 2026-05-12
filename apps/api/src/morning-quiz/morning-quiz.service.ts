@@ -412,9 +412,22 @@ export class MorningQuizService {
     }
     const targetCount = input.questionsPerPaper ?? 18;
 
+    // Generate one entry per non-skipped weekday in the week starting at
+    // `monday` (caller passes a Monday but we don't assume — we iterate
+    // 7 calendar days and filter by weekday). School schedule: no morning
+    // quiz on Mondays (assembly day) or weekends, so the active week is
+    // Tue / Wed / Thu / Fri = 4 sessions per class per level. If the
+    // school's no-quiz-day policy ever changes, update SKIP_WEEKDAYS.
+    //
+    // Using getUTCDay() (not getDay()) because the underlying Date columns
+    // are stored as @db.Date at UTC midnight and we want the comparison
+    // to match how the DB sees the day — avoids "server is in Pacific
+    // tz and thinks UTC-midnight 5/12 is still 5/11" type bugs.
+    const SKIP_WEEKDAYS = new Set([0, 1, 6]); // 0=Sun, 1=Mon, 6=Sat
     const dates: string[] = [];
-    for (let i = 0; i < 5; i++) {
+    for (let i = 0; i < 7; i++) {
       const d = new Date(monday.getTime() + i * 86_400_000);
+      if (SKIP_WEEKDAYS.has(d.getUTCDay())) continue;
       dates.push(d.toISOString().slice(0, 10));
     }
 
@@ -1949,6 +1962,75 @@ export class MorningQuizService {
       },
     });
     return { papersDeleted: deleted, provenanceTagsCovered: RETIRED_TAGS };
+  }
+
+  /**
+   * Admin-only — delete every MorningQuizSession (and its Paper, via FK
+   * cascade) scheduled for a weekday the school doesn't run morning
+   * quiz on. Currently: Mondays (assembly day) and weekends (Sat/Sun).
+   *
+   * Why this exists — the old batchGenerateForWeek emitted Mon-Fri
+   * (5 days), so up to today we've been creating Monday sessions that
+   * never get used in practice and just pollute student portals as
+   * "absent" rows. After updating the generator to skip Mondays
+   * (this same commit), we still need to clean up historical Monday
+   * sessions sitting in the DB.
+   *
+   * Strategy — iterate all MorningQuizSession rows, filter to weekdays
+   * in SKIP set, delete their backing Paper. FK cascade handles the
+   * rest. We don't try to be clever with a SQL WHERE on weekday because
+   * neither Postgres nor Prisma exposes "DATE_PART('dow', date)" through
+   * Prisma's typed query API without raw SQL — JS filter is simple and
+   * the table is small.
+   */
+  async cleanupNonSchoolDaySessions(actor: ActorCtx): Promise<{
+    sessionsConsidered: number;
+    papersDeleted: number;
+    skipDays: string[];
+  }> {
+    if (actor.role !== 'admin') {
+      throw new ForbiddenException({ code: 'admin_required' });
+    }
+    const SKIP_WEEKDAYS = new Set([0, 1, 6]); // 0=Sun, 1=Mon, 6=Sat
+    const all = await this.prisma.morningQuizSession.findMany({
+      select: { id: true, date: true, paperAssignmentId: true },
+    });
+    const offending = all.filter((s) => SKIP_WEEKDAYS.has(new Date(s.date).getUTCDay()));
+    const assignmentIds = offending.map((s) => s.paperAssignmentId);
+    const assignments = assignmentIds.length > 0
+      ? await this.prisma.paperAssignment.findMany({
+          where: { id: { in: assignmentIds } },
+          select: { paperId: true },
+        })
+      : [];
+    const paperIds = Array.from(new Set(assignments.map((a) => a.paperId)));
+    let papersDeleted = 0;
+    for (const id of paperIds) {
+      try {
+        await this.prisma.paper.delete({ where: { id } });
+        papersDeleted++;
+      } catch (e: any) {
+        this.logger.warn(`could not delete non-school-day paper ${id}: ${e?.message ?? e}`);
+      }
+    }
+    await this.audit.log({
+      actorId: actor.id,
+      actorRole: actor.role,
+      action: 'morning_quiz.cleanup_non_school_days',
+      entityType: 'Paper',
+      entityId: '(batch)',
+      ip: actor.ip,
+      metadata: {
+        skipWeekdays: ['Sun', 'Mon', 'Sat'],
+        sessionsConsidered: offending.length,
+        papersDeleted,
+      },
+    });
+    return {
+      sessionsConsidered: offending.length,
+      papersDeleted,
+      skipDays: ['Sun', 'Mon', 'Sat'],
+    };
   }
 
   /** Find the StudentSubmission tied to (session, student) — used by the

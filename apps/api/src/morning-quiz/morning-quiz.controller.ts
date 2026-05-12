@@ -336,6 +336,22 @@ export class MorningQuizController {
   }
 
   /**
+   * Admin-only — wipe sessions scheduled for non-school days
+   * (currently: Mon, Sat, Sun). Used after updating the generator to
+   * skip Mondays — historical Mon sessions are still in the DB and
+   * pollute student portals with absent rows on a day the school
+   * doesn't run morning quiz. Irreversible (cascade deletes attendance,
+   * submission, scripts).
+   */
+  @Post('admin/cleanup-non-school-days')
+  cleanupNonSchoolDays(@CurrentUser() user: any, @Req() req: Request) {
+    if (user.role !== 'admin') throw new ForbiddenException({ code: 'admin_required' });
+    return this.svc.cleanupNonSchoolDaySessions({
+      id: user.id, role: user.role, ip: req.ip ?? null,
+    });
+  }
+
+  /**
    * Re-run auto-grading on every submitted submission in a session.
    * Used to recover scoring when the cron locked submissions before a
    * grader bug was fixed (e.g. the >80-char mark scheme skip bug), or

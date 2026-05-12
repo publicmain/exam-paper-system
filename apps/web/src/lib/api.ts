@@ -320,6 +320,10 @@ export const api = {
    *  (cambridge_0510). Cleans up old test-period pollution. */
   morningQuizCleanupRetired: () =>
     request('POST', '/morning-quiz/admin/cleanup-retired-content'),
+  /** Admin: delete sessions scheduled on non-school days (Mon/Sat/Sun).
+   *  Use after updating the generator to skip these weekdays. */
+  morningQuizCleanupNonSchoolDays: () =>
+    request('POST', '/morning-quiz/admin/cleanup-non-school-days'),
   /** Aggregated (classId, date) dashboard — merges 1–N level sessions
    *  into a single roster. Each row carries its source sessionId + level
    *  so per-student delete still targets the correct session. */

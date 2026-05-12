@@ -301,6 +301,36 @@ export default function MorningQuizSchedule() {
     }
   }
 
+  /** One-shot: delete all sessions scheduled for non-school days
+   *  (Mon/Sat/Sun). Use after updating batchGenerateForWeek to skip
+   *  these weekdays — historical Mon sessions still sit in DB and
+   *  pollute student portals. */
+  async function handleCleanupNonSchoolDays() {
+    const confirmed = confirm(
+      `删除所有「学校无早测日」(周一、周六、周日) 的 sessions？\n\n` +
+        `校历规则:周一全校无早测, 周末更没有。已存在的周一 sessions 是\n` +
+        `旧逻辑「Mon-Fri 5 天」遗留的, 学生 portal 上会显示成「周一缺勤」\n` +
+        `误导。\n\n` +
+        `修完后, 周排程器会自动只生成 周二-周五 共 4 天。\n\n` +
+        `不可撤销 (cascade 删除考勤+答卷+答题)。`,
+    );
+    if (!confirmed) return;
+    setError(null);
+    try {
+      const r = await api.morningQuizCleanupNonSchoolDays();
+      alert(
+        `清理完成:\n` +
+          `  · 扫描非校历日 sessions: ${r.sessionsConsidered}\n` +
+          `  · 删除 papers: ${r.papersDeleted}\n` +
+          `  · 跳过的星期: ${r.skipDays.join(', ')}\n\n` +
+          `attendance / submission / answer scripts 通过 FK cascade 同步删除。`,
+      );
+      await refresh();
+    } catch (e: any) {
+      setError(e.message ?? String(e));
+    }
+  }
+
   return (
     <div>
       <div className="flex items-center justify-between mb-4">
@@ -321,6 +351,14 @@ export default function MorningQuizSchedule() {
           >
             🧹 清理旧测试数据
           </button>
+          <button
+            type="button"
+            onClick={handleCleanupNonSchoolDays}
+            className="text-sm px-2 py-1 rounded text-rose-700 hover:bg-rose-50"
+            title="清掉所有周一/周末的 sessions (校历无早测日), 学生 portal 不再误显示周一缺勤"
+          >
+            🗓️ 清掉周一 sessions
+          </button>
         </div>
       </div>
 
@@ -339,7 +377,7 @@ export default function MorningQuizSchedule() {
           className="border rounded px-3 py-1.5"
         />
         <span className="text-sm text-gray-500 ml-3">
-          Mon-Fri {weekStart} ~ {addDays(weekStart, 4)}
+          Tue-Fri {addDays(weekStart, 1)} ~ {addDays(weekStart, 4)} (周一无早测, 跳过)
         </span>
       </div>
 
@@ -467,7 +505,7 @@ export default function MorningQuizSchedule() {
                   const totalLevels = classes
                     .filter((c) => selected.has(c.id))
                     .reduce((s, c) => s + (c.englishLevels?.length ?? 0), 0);
-                  return `生成 ${selected.size} 个班 × ${totalLevels} 等级 × 5 天 = ${totalLevels * 5} 张`;
+                  return `生成 ${selected.size} 个班 × ${totalLevels} 等级 × 4 天(Tue-Fri) = ${totalLevels * 4} 张`;
                 })()}
           </button>
           <button
