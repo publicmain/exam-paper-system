@@ -1,6 +1,7 @@
-import { BadRequestException, ForbiddenException, Injectable, Logger, NotFoundException } from '@nestjs/common';
+import { BadRequestException, ForbiddenException, Injectable, Logger, NotFoundException, Optional } from '@nestjs/common';
 import { PrismaService } from '../common/prisma.service';
 import { redactSnapshotForStudent } from '../morning-quiz/morning-quiz.service';
+import { WechatNotifyService } from '../wechat-notify/wechat-notify.service';
 
 interface ActorCtx { id: string; role: string; ip?: string | null }
 
@@ -238,6 +239,15 @@ export class StudentService {
     // ShortAnswerEvaluatorService; absent in test contexts that don't
     // wire it up, in which case autoGradeScripts stays string-only.
     private readonly aiGrader?: AiShortAnswerGrader,
+    // F3 — optional WeChat notifier. When wired (via StudentModule
+    // factory), finalSubmit fires `score_ready` after the autoScore tx
+    // commits. Left optional so existing test fixtures that build a
+    // StudentService directly (without a notifier) keep working, and
+    // because the same module factory is also imported by other teams
+    // in parallel — they'll add the 3rd inject arg as part of their
+    // wiring. Until then, score_ready still fires from
+    // morning-quiz.cron.lockOne (which DOES inject the notifier).
+    @Optional() private readonly notify?: WechatNotifyService,
   ) {}
 
   /** Teacher creates a PaperAssignment binding a paper to a class. */
@@ -295,8 +305,16 @@ export class StudentService {
     if (assignment.dueAt && assignment.dueAt < new Date()) {
       throw new ForbiddenException('assignment is closed');
     }
-    const existing = await this.prisma.studentSubmission.findUnique({
-      where: { assignmentId_studentId: { assignmentId, studentId: student.id } },
+    // R14 — the (assignmentId, studentId) @@unique was dropped to let
+    // practice mode coexist with the real submission. Switch to findFirst
+    // filtering out 'practice' rows; non-practice uniqueness is enforced
+    // by always-resume-or-create semantics here.
+    const existing = await this.prisma.studentSubmission.findFirst({
+      where: {
+        assignmentId,
+        studentId: student.id,
+        status: { not: 'practice' },
+      },
     });
     if (existing) return existing;
     const paper = await this.prisma.paper.findUnique({ where: { id: assignment.paperId } });
@@ -368,9 +386,13 @@ export class StudentService {
         assignment: {
           select: {
             paperId: true,
-            paper: { select: { totalMarksActual: true } },
+            paper: { select: { totalMarksActual: true, name: true } },
           },
         },
+        // F3: pull the student's display name so the score_ready payload
+        // can deep-link `/my-history?name=<encodeURIComponent(name)>` and
+        // render a useful WeChat card body.
+        student: { select: { name: true } },
         // R10: pull question.answerContent so autoGradeScripts can grade
         // short_answer items against the canonical text answer.
         scripts: {
@@ -451,7 +473,7 @@ export class StudentService {
     // (round-7 D2 / A3). The conditional updateMany still acts as the
     // row-level lock — losing racers see claim.count===0 and we throw
     // before any script write fires.
-    return this.prisma.$transaction(async (tx) => {
+    const result = await this.prisma.$transaction(async (tx) => {
       const claim = await tx.studentSubmission.updateMany({
         where: { id: submissionId, status: 'in_progress' },
         data: {
@@ -481,6 +503,42 @@ export class StudentService {
       }
       return tx.studentSubmission.findUnique({ where: { id: submissionId } });
     });
+
+    // F3 — fire `score_ready` AFTER the tx commits (so a notification
+    // never lands while the row is still mid-flight). Dedup: if the cron
+    // already auto-submitted this submission earlier today and emitted
+    // score_ready, don't fire a second copy when a teacher manually
+    // regrades. Lookup is per-submissionId on the JSON payload.
+    if (this.notify) {
+      try {
+        const studentName = sub.student?.name ?? '';
+        const paperName = sub.assignment?.paper?.name ?? '';
+        const prismaAny = this.prisma as any;
+        const already = await prismaAny.notificationLog.findFirst({
+          where: {
+            event: 'score_ready',
+            payload: { path: ['submissionId'], equals: submissionId },
+          },
+          select: { id: true },
+        });
+        if (!already) {
+          await this.notify.fire('score_ready', {
+            submissionId,
+            studentId: student.id,
+            studentName,
+            paperName,
+            autoScore: result?.autoScore ?? null,
+            maxScore: correctMax,
+            submittedAt: (result?.submittedAt ?? new Date()).toISOString(),
+            resultUrl: `/my-history?name=${encodeURIComponent(studentName)}`,
+          });
+        }
+      } catch (e: any) {
+        this.logger.warn(`score_ready notify failed: ${e?.message ?? e}`);
+      }
+    }
+
+    return result;
   }
 
   /** Student fetches their own submission. Returned shape includes the FULL

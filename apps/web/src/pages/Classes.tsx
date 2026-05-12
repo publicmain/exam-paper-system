@@ -1,5 +1,7 @@
 import { useEffect, useState } from 'react';
+import { Link } from 'react-router-dom';
 import { api } from '../lib/api';
+import TransferStudentModal from '../components/TransferStudentModal';
 
 /**
  * Class management page (Fix #14).
@@ -45,9 +47,15 @@ export default function ClassesPage() {
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold">Classes</h1>
-        <button className="btn btn-primary" onClick={() => setCreating(true)}>
-          + New Class
-        </button>
+        <div className="flex items-center gap-3">
+          {/* ROUND 14 — Feature 6: link to archived (soft-deleted) restore page */}
+          <Link to="/admin/archived-classes" className="text-sm text-gray-600 hover:underline">
+            🗑️ 已归档
+          </Link>
+          <button className="btn btn-primary" onClick={() => setCreating(true)}>
+            + New Class
+          </button>
+        </div>
       </div>
 
       {err && <div className="card text-sm text-red-700">{err}</div>}
@@ -82,28 +90,51 @@ export default function ClassesPage() {
             <div className="flex items-center gap-3 shrink-0 ml-3">
               <button
                 onClick={async () => {
-                  // Two-step confirm because delete cascades to
-                  // attendance/submissions, which is irreversible.
-                  const c1 = window.confirm(
-                    `永久删除「${c.name}」?\n这会一并删除该班所有学生注册、卷子分配、早测 session 及考勤记录,且不可恢复。`,
+                  // ROUND 14 — Feature 6: default to soft-delete, opt-in
+                  // hard-delete via a separate confirm. API-Cross has
+                  // already switched the backend delete endpoint to
+                  // soft-delete; archived classes show up on
+                  // /admin/archived-classes for 30 days.
+                  const softOk = window.confirm(
+                    `确定要软删除班级「${c.name}」?\n\n30 天内可在「🗑️ 已归档」页恢复。`,
                   );
-                  if (!c1) return;
-                  const typed = window.prompt(
-                    `请再次输入班级代码「${c.classCode}」以确认删除:`,
+                  if (!softOk) return;
+                  const hardOk = window.confirm(
+                    `⚠️ 永久删除? 勾选「确定」会绕过回收站, 一并删除该班所有学生注册、` +
+                      `卷子分配、早测 session 及考勤记录, 不可恢复。\n\n` +
+                      `如只想软删 (默认 30 天恢复期), 点「取消」。`,
                   );
-                  if (typed?.trim() !== c.classCode) {
-                    if (typed != null) alert('班级代码不匹配,已取消');
-                    return;
+                  if (hardOk) {
+                    const typed = window.prompt(
+                      `请输入班级代码「${c.classCode}」以确认永久删除:`,
+                    );
+                    if (typed?.trim() !== c.classCode) {
+                      if (typed != null) alert('班级代码不匹配,已取消');
+                      return;
+                    }
                   }
                   try {
-                    await api.deleteClass(c.id);
+                    // Backend delete endpoint is now soft-delete by default;
+                    // pass ?hard=true for the permanent path.
+                    if (hardOk) {
+                      await fetch(`/api/classes/${c.id}?hard=true`, {
+                        method: 'DELETE',
+                        headers: {
+                          Authorization: `Bearer ${localStorage.getItem('auth_token')}`,
+                        },
+                      }).then(async (r) => {
+                        if (!r.ok) throw new Error(await r.text());
+                      });
+                    } else {
+                      await api.deleteClass(c.id);
+                    }
                     await reload();
                   } catch (e: any) {
                     alert('删除失败: ' + (e?.message ?? String(e)));
                   }
                 }}
                 className="text-xs text-rose-600 hover:text-rose-800 hover:underline"
-                title="永久删除该班级及其所有关联数据"
+                title="软删除 (默认 30 天可恢复) / 可选永久删除"
               >
                 删除
               </button>
@@ -200,6 +231,12 @@ function ClassDetailModal({
   const [focusDraft, setFocusDraft] = useState('');
   const [savingFocus, setSavingFocus] = useState(false);
   const [focusSaved, setFocusSaved] = useState(false);
+  // ROUND 14 — Feature 13: roster search. Debounced 300ms; empty input
+  // falls back to the full enrollments list from the class object.
+  const [searchInput, setSearchInput] = useState('');
+  const [searchResults, setSearchResults] = useState<any[] | null>(null);
+  // ROUND 14 — Feature 12: transfer-student modal
+  const [transferring, setTransferring] = useState<{ userId: string; userName: string } | null>(null);
 
   async function reload() {
     setErr(null);
@@ -215,6 +252,43 @@ function ClassDetailModal({
     reload();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [classId]);
+
+  // ROUND 14 — Feature 13: debounced roster search.
+  useEffect(() => {
+    const q = searchInput.trim();
+    if (!q) {
+      setSearchResults(null);
+      return;
+    }
+    const t = setTimeout(() => {
+      api
+        .classEnrollmentsSearch(classId, q)
+        .then((r: any[]) => setSearchResults(Array.isArray(r) ? r : []))
+        .catch(() => setSearchResults([]));
+    }, 300);
+    return () => clearTimeout(t);
+  }, [searchInput, classId]);
+
+  async function archiveStudent(userId: string, userName: string) {
+    const reason = window.prompt(
+      `归档学生「${userName}」?\n该用户从所有班级移除,登录被禁,但历史记录保留。\n\n填写原因 (必填,写入审计日志):`,
+    );
+    if (!reason || !reason.trim()) {
+      if (reason !== null) alert('原因必填, 操作已取消');
+      return;
+    }
+    setBusy(true);
+    setErr(null);
+    try {
+      await api.userArchive(userId, { reason: reason.trim() });
+      onChanged();
+      await reload();
+    } catch (e: any) {
+      setErr(String(e?.message ?? e));
+    } finally {
+      setBusy(false);
+    }
+  }
 
   async function bulkAdd() {
     // R10 followup — accept three line shapes so Chinese-name rosters
@@ -335,20 +409,57 @@ function ClassDetailModal({
               return levels.map((l) => labels[l.level] ?? l.level).join(' · ');
             })()}
           </div>
+          {/* ROUND 14 — Feature 13: roster search.
+              Empty input = full enrollment list; non-empty = debounced
+              server-side search via api.classEnrollmentsSearch. */}
+          <input
+            type="search"
+            value={searchInput}
+            onChange={(e) => setSearchInput(e.target.value)}
+            placeholder="🔍 搜学生 (姓名 / email)"
+            className="border rounded px-2 py-1 w-full text-sm"
+            aria-label="搜索学生"
+          />
+
           <div className="border rounded divide-y max-h-64 overflow-auto text-sm">
-            {(cls.enrollments ?? []).length === 0 && (
-              <div className="py-3 text-center text-gray-500">No students yet.</div>
-            )}
-            {(cls.enrollments ?? []).map((e: any) => (
-              <EnrollmentRow
-                key={e.id}
-                enrollment={e}
-                busy={busy}
-                onRename={(newName) => renameStudent(e.userId, newName)}
-                onRemove={() => unenroll(e.userId)}
-              />
-            ))}
+            {(() => {
+              const list = searchResults !== null ? searchResults : (cls.enrollments ?? []);
+              if (list.length === 0) {
+                return (
+                  <div className="py-3 text-center text-gray-500">
+                    {searchResults !== null ? '没有匹配的学生' : 'No students yet.'}
+                  </div>
+                );
+              }
+              return list.map((e: any) => (
+                <EnrollmentRow
+                  key={e.id ?? e.userId}
+                  enrollment={e}
+                  busy={busy}
+                  onRename={(newName) => renameStudent(e.userId, newName)}
+                  onRemove={() => unenroll(e.userId)}
+                  onTransfer={() =>
+                    setTransferring({ userId: e.userId, userName: e.user?.name ?? '' })
+                  }
+                  onArchive={() => archiveStudent(e.userId, e.user?.name ?? e.user?.email ?? '')}
+                />
+              ));
+            })()}
           </div>
+
+          {transferring && (
+            <TransferStudentModal
+              userId={transferring.userId}
+              userName={transferring.userName}
+              fromClassId={classId}
+              fromClassName={cls.name}
+              onClose={() => setTransferring(null)}
+              onTransferred={() => {
+                onChanged();
+                reload();
+              }}
+            />
+          )}
 
           {/* R10-Bug1: weeklyFocus textarea — flows into ai/quick-paper
               prompt builder so AI-generated weekly papers bias toward what
@@ -419,11 +530,15 @@ function EnrollmentRow({
   busy,
   onRename,
   onRemove,
+  onTransfer,
+  onArchive,
 }: {
   enrollment: any;
   busy: boolean;
   onRename: (newName: string) => void;
   onRemove: () => void;
+  onTransfer?: () => void;
+  onArchive?: () => void;
 }) {
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState(enrollment.user?.name ?? '');
@@ -499,6 +614,28 @@ function EnrollmentRow({
               ✕
             </button>
           </>
+        )}
+        {isStudent && !editing && onTransfer && (
+          <button
+            className="btn btn-ghost text-xs text-indigo-700"
+            disabled={busy}
+            onClick={onTransfer}
+            aria-label="transfer"
+            title="转班 · Transfer to another class"
+          >
+            ↔️ 转班
+          </button>
+        )}
+        {isStudent && !editing && onArchive && (
+          <button
+            className="btn btn-ghost text-xs text-amber-700"
+            disabled={busy}
+            onClick={onArchive}
+            aria-label="archive"
+            title="归档学生 · Archive user (移出班级 + 禁登录, 保留历史)"
+          >
+            📥 归档
+          </button>
         )}
         {isStudent && !editing && (
           <button

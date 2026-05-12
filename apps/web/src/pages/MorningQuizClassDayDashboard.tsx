@@ -35,6 +35,13 @@ export default function MorningQuizClassDayDashboard() {
   const [clearing, setClearing] = useState<string | null>(null);
   const [regrading, setRegrading] = useState(false);
   const [editingAttendance, setEditingAttendance] = useState<string | null>(null);
+  // ROUND 14 — Feature 9: cancel today's quiz (all level sessions in the
+  // group). Set during the call, used to disable the button + show toast.
+  const [cancelling, setCancelling] = useState(false);
+  // ROUND 14 — Feature 18: wrong-rate expandable section.
+  const [wrongRateOpen, setWrongRateOpen] = useState(false);
+  const [wrongRate, setWrongRate] = useState<Record<string, any[]> | null>(null);
+  const [wrongRateLoading, setWrongRateLoading] = useState(false);
 
   async function reload() {
     if (!classId || !date) return;
@@ -56,6 +63,58 @@ export default function MorningQuizClassDayDashboard() {
     return () => clearInterval(t);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [classId, date]);
+
+  /** ROUND 14 — Feature 9: cancel every level-session in this (classId,
+   *  date) group. Used when the test has to be called off (weather,
+   *  power cut, system outage). Cancels are reversible only by manual
+   *  status edit on the schedule page, so we double-confirm. */
+  async function handleCancelDay() {
+    if (!data) return;
+    const reason = window.prompt(
+      `取消本班 ${data.sessions.length} 场早测?\n\n填写原因 (必填,广播给学生并写入审计日志):`,
+    );
+    if (!reason || !reason.trim()) {
+      if (reason !== null) alert('原因必填, 操作已取消');
+      return;
+    }
+    setCancelling(true);
+    let ok = 0;
+    let bad = 0;
+    for (const s of data.sessions) {
+      try {
+        await api.cancelMorningQuizSession(s.id, reason.trim());
+        ok += 1;
+      } catch (e) {
+        bad += 1;
+      }
+    }
+    alert(`取消完成:成功 ${ok} 个 · 失败 ${bad} 个`);
+    setCancelling(false);
+    await reload();
+  }
+
+  /** ROUND 14 — Feature 18: lazy-load wrong-rate stats keyed by paperId
+   *  (one paper per session in this group). Toggling the panel open
+   *  triggers parallel fetches. */
+  async function loadWrongRate() {
+    if (!data || wrongRate) return;
+    setWrongRateLoading(true);
+    const next: Record<string, any[]> = {};
+    await Promise.all(
+      (data.sessions ?? []).map(async (s: any) => {
+        const paperId = s.paperAssignment?.paper?.id ?? s.paper?.id ?? s.paperId;
+        if (!paperId) return;
+        try {
+          const r = await api.paperWrongRate(paperId);
+          next[paperId] = r.items ?? [];
+        } catch {
+          /* per-session failure tolerated */
+        }
+      }),
+    );
+    setWrongRate(next);
+    setWrongRateLoading(false);
+  }
 
   /** Re-run auto-grading on every session in this (classId, date) group.
    *  Used when the cron locked submissions before a grader fix landed
@@ -239,11 +298,28 @@ export default function MorningQuizClassDayDashboard() {
           >
             {regrading ? '评分中…' : '🔄 重新评分'}
           </button>
+          {/* ROUND 14 — Feature 9: cancel today's quiz */}
+          <button
+            onClick={handleCancelDay}
+            disabled={cancelling}
+            className="text-xs px-3 py-1.5 rounded bg-rose-50 hover:bg-rose-100 text-rose-700 disabled:opacity-50"
+            title="取消本班今日所有 level 的早测 (写入审计日志, 学生 portal 显示「已取消」)"
+          >
+            {cancelling ? '取消中…' : '🚫 取消今日测验'}
+          </button>
           <button className="btn btn-ghost text-xs" onClick={reload}>
             ↻ 刷新
           </button>
         </div>
       </div>
+
+      {/* ROUND 14 — Feature 9: banner when every session in this group
+          is cancelled. Lets the teacher confirm the cancel landed. */}
+      {(sessions ?? []).length > 0 && (sessions ?? []).every((s: any) => s.status === 'cancelled') && (
+        <div className="px-4 py-2 bg-amber-50 border border-amber-300 text-amber-900 rounded text-sm">
+          ⚠️ 本班 {sessions.length} 场早测均已取消。学生 portal 现在显示「已取消」。
+        </div>
+      )}
 
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
         <Stat label="按时" value={counts?.on_time ?? 0} tint="green" />
@@ -337,6 +413,77 @@ export default function MorningQuizClassDayDashboard() {
             </tbody>
           </table>
         </div>
+      </div>
+
+      {/* ROUND 14 — Feature 18: wrong-rate expandable panel. Sits under
+          the "重新评分" button per spec. Lets the teacher spot questions
+          where >50% got it wrong — usually points at a bad mark scheme. */}
+      <div className="card">
+        <button
+          type="button"
+          onClick={() => {
+            const next = !wrongRateOpen;
+            setWrongRateOpen(next);
+            if (next) loadWrongRate();
+          }}
+          className="text-sm font-semibold flex items-center gap-2 hover:text-blue-700"
+          aria-expanded={wrongRateOpen}
+        >
+          <span>{wrongRateOpen ? '▼' : '▶'}</span>
+          📊 题目错误率
+          <span className="text-xs text-gray-500 font-normal">
+            (用于发现 mark scheme 问题)
+          </span>
+        </button>
+        {wrongRateOpen && (
+          <div className="mt-3 space-y-3">
+            {wrongRateLoading && <div className="text-sm text-gray-500">Loading…</div>}
+            {!wrongRateLoading && wrongRate && Object.keys(wrongRate).length === 0 && (
+              <div className="text-sm text-gray-500">暂无错误率数据</div>
+            )}
+            {!wrongRateLoading &&
+              wrongRate &&
+              Object.entries(wrongRate).map(([paperId, items]) => (
+                <div key={paperId}>
+                  <div className="text-xs text-gray-500 mb-1 font-mono">paper {paperId.slice(0, 8)}</div>
+                  <table className="w-full text-sm">
+                    <thead className="text-left text-gray-500 border-b">
+                      <tr>
+                        <th className="py-1 pr-2 w-12">#</th>
+                        <th className="py-1 pr-2">题目</th>
+                        <th className="py-1 pr-2 w-20">作答</th>
+                        <th className="py-1 pr-2 w-20">错</th>
+                        <th className="py-1 pr-2 w-20">错率</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {[...items]
+                        .sort((a, b) => b.wrongRate - a.wrongRate)
+                        .map((q) => {
+                          const high = q.wrongRate > 0.5;
+                          return (
+                            <tr
+                              key={q.paperQuestionId}
+                              className={`border-b last:border-0 ${high ? 'bg-rose-50' : ''}`}
+                            >
+                              <td className="py-1 pr-2 font-mono text-xs">Q{q.questionOrder}</td>
+                              <td className="py-1 pr-2 text-xs">{q.stemPreview}</td>
+                              <td className="py-1 pr-2 font-mono text-xs">{q.attempted}</td>
+                              <td className="py-1 pr-2 font-mono text-xs">{q.wrong}</td>
+                              <td
+                                className={`py-1 pr-2 font-mono text-xs ${high ? 'text-rose-700 font-semibold' : ''}`}
+                              >
+                                {(q.wrongRate * 100).toFixed(0)}%
+                              </td>
+                            </tr>
+                          );
+                        })}
+                    </tbody>
+                  </table>
+                </div>
+              ))}
+          </div>
+        )}
       </div>
 
       <div>

@@ -1363,6 +1363,46 @@ export class MorningQuizService {
     // null (defensive).
     const paperMode = (paper?.config as { mode?: string } | null)?.mode ?? null;
     const level = sessionLevel ?? (paperMode === 'passage_pick' ? 'ielts_authentic' : 'olevel');
+
+    // F1 — Resume-on-different-device support. If an in-progress
+    // submission already exists for this (assignment, student), pull
+    // every persisted AnswerScript so the client can repopulate the
+    // form on a fresh device. Returns an empty object if the student
+    // has not autosaved anything yet (or if the submission has already
+    // been locked / submitted — in which case existingAnswers is empty
+    // and the take-paper UI starts blank, matching pre-F1 behaviour).
+    const existingAnswers: Record<string, { content: any; flagged: boolean }> = {};
+    const inProgressSub = await this.prisma.studentSubmission.findFirst({
+      where: {
+        assignmentId: session.paperAssignment.id,
+        studentId,
+        status: { not: 'practice' },
+      },
+      select: { id: true, status: true },
+    });
+    if (inProgressSub && inProgressSub.status === 'in_progress') {
+      const scripts = await this.prisma.answerScript.findMany({
+        where: { submissionId: inProgressSub.id },
+        select: {
+          paperQuestionId: true,
+          selectedOption: true,
+          textAnswer: true,
+        },
+      });
+      for (const s of scripts) {
+        // `content` is either the MCQ key the student picked or the
+        // free-text body. `flagged` is reserved for a future "I'll come
+        // back to this one" toggle — wired through here so the API
+        // shape lands intact even before the column exists.
+        const content =
+          s.selectedOption != null ? s.selectedOption : s.textAnswer;
+        existingAnswers[s.paperQuestionId] = {
+          content,
+          flagged: false,
+        };
+      }
+    }
+
     return {
       sessionId: session.id,
       attendanceId: att.id,
@@ -1383,6 +1423,8 @@ export class MorningQuizService {
         snapshotOptions: stripOptions(pq.snapshotOptions),
         questionType: pq.question.questionType,
       })),
+      // F1 — keyed by paperQuestionId; empty object if nothing autosaved.
+      existingAnswers,
     };
   }
 
@@ -1406,12 +1448,11 @@ export class MorningQuizService {
       include: { paperAssignment: { select: { id: true, paperId: true } } },
     });
     if (!session) throw new NotFoundException({ code: 'session_not_found' });
-    const submission = await this.prisma.studentSubmission.findUnique({
+    const submission = await this.prisma.studentSubmission.findFirst({
       where: {
-        assignmentId_studentId: {
-          assignmentId: session.paperAssignmentId,
-          studentId,
-        },
+        assignmentId: session.paperAssignmentId,
+        studentId,
+        status: { not: 'practice' },
       },
       select: { status: true },
     });
@@ -1493,12 +1534,11 @@ export class MorningQuizService {
     const now = new Date();
     if (now > session.quizEnd) throw new BadRequestException({ code: 'quiz_window_closed' });
 
-    const submission = await this.prisma.studentSubmission.findUnique({
+    const submission = await this.prisma.studentSubmission.findFirst({
       where: {
-        assignmentId_studentId: {
-          assignmentId: session.paperAssignmentId,
-          studentId,
-        },
+        assignmentId: session.paperAssignmentId,
+        studentId,
+        status: { not: 'practice' },
       },
     });
     if (!submission) throw new NotFoundException({ code: 'no_submission' });
@@ -2119,12 +2159,11 @@ export class MorningQuizService {
       select: { paperAssignmentId: true },
     });
     if (!session) throw new NotFoundException({ code: 'session_not_found' });
-    return this.prisma.studentSubmission.findUnique({
+    return this.prisma.studentSubmission.findFirst({
       where: {
-        assignmentId_studentId: {
-          assignmentId: session.paperAssignmentId,
-          studentId,
-        },
+        assignmentId: session.paperAssignmentId,
+        studentId,
+        status: { not: 'practice' },
       },
     });
   }
@@ -2316,12 +2355,11 @@ export class MorningQuizService {
     });
     if (!session) throw new NotFoundException({ code: 'session_not_found' });
 
-    const submission = await this.prisma.studentSubmission.findUnique({
+    const submission = await this.prisma.studentSubmission.findFirst({
       where: {
-        assignmentId_studentId: {
-          assignmentId: session.paperAssignmentId,
-          studentId,
-        },
+        assignmentId: session.paperAssignmentId,
+        studentId,
+        status: { not: 'practice' },
       },
       select: {
         id: true,
@@ -2464,5 +2502,1100 @@ export class MorningQuizService {
       submittedAt: submission.submittedAt,
       items,
     };
+  }
+
+  // ─────────────────── Wave-2 private helpers ───────────────────
+
+  /**
+   * Resolve a (name, optional studentId) tuple to one student row, mirroring
+   * the disambiguation rules used by /history-by-name (Round-13 fix
+   * included: filter isActive=true and archivedAt=null so soft-deleted /
+   * withdrawn students don't appear). Returns either:
+   *   - { kind: 'one', student }     → unique match, caller proceeds
+   *   - { kind: 'disambig', list }   → multiple matches + no studentId
+   * Throws NotFoundException if no candidate matches at all.
+   */
+  private async resolveStudentByName(
+    rawName: string,
+    studentIdFilter?: string,
+  ): Promise<
+    | {
+        kind: 'one';
+        student: {
+          id: string;
+          name: string;
+          classes: Array<{ id: string; name: string; classCode: string }>;
+        };
+      }
+    | {
+        kind: 'disambig';
+        candidates: Array<{
+          studentId: string;
+          name: string;
+          classes: Array<{ id: string; name: string; classCode: string }>;
+        }>;
+      }
+  > {
+    const name = (rawName ?? '').trim();
+    if (!name) throw new BadRequestException({ code: 'name_required' });
+    if (name.length > 50) throw new BadRequestException({ code: 'name_too_long' });
+    const allCandidates = await this.prisma.user.findMany({
+      where: {
+        name,
+        role: 'student',
+        isActive: true,
+        archivedAt: null,
+      },
+      select: {
+        id: true,
+        name: true,
+        classEnrollments: {
+          where: { role: 'student' },
+          select: { class: { select: { id: true, name: true, classCode: true } } },
+        },
+      },
+    });
+    if (allCandidates.length === 0) {
+      throw new NotFoundException({ code: 'student_not_found', typed: name });
+    }
+    if (studentIdFilter) {
+      const matched = allCandidates.find((c) => c.id === studentIdFilter);
+      if (!matched) {
+        throw new NotFoundException({
+          code: 'student_not_found',
+          message: 'no candidate matches studentId for this name',
+        });
+      }
+      return {
+        kind: 'one',
+        student: {
+          id: matched.id,
+          name: matched.name,
+          classes: matched.classEnrollments.map((e) => e.class),
+        },
+      };
+    }
+    if (allCandidates.length > 1) {
+      return {
+        kind: 'disambig',
+        candidates: allCandidates.map((c) => ({
+          studentId: c.id,
+          name: c.name,
+          classes: c.classEnrollments.map((e) => e.class),
+        })),
+      };
+    }
+    const only = allCandidates[0];
+    return {
+      kind: 'one',
+      student: {
+        id: only.id,
+        name: only.name,
+        classes: only.classEnrollments.map((e) => e.class),
+      },
+    };
+  }
+
+  // ─────────────────── F2 — Upcoming today by name ───────────────────
+
+  /**
+   * Public, IP-gated, rate-limited. Reuses the name+studentId disambig
+   * shape from /history-by-name. Returns every non-cancelled session
+   * for any of the student's classes whose date == today (Asia/Shanghai)
+   * AND whose quizEnd >= now. "Today" is computed via the same
+   * UTC-noon-+8 trick used elsewhere in this module: the DB stores
+   * MorningQuizSession.date at UTC-00:00 of the school-local day, so
+   * we floor `now + tzOffset` to a UTC midnight to match.
+   */
+  async upcomingForName(rawName: string, studentIdFilter?: string) {
+    const resolved = await this.resolveStudentByName(rawName, studentIdFilter);
+    if (resolved.kind === 'disambig') {
+      return { needDisambiguation: true, candidates: resolved.candidates };
+    }
+    const student = resolved.student;
+    const classIds = student.classes.map((c) => c.id);
+    if (classIds.length === 0) {
+      return { student, upcoming: [] };
+    }
+    const tzOff = Number(process.env.MORNING_QUIZ_TZ_OFFSET_MIN ?? 8 * 60);
+    const now = new Date();
+    // Floor `now` to a UTC midnight that matches @db.Date storage for
+    // "today in school-local". E.g. 2026-05-12T03:00Z + 8h offset is
+    // 2026-05-12T11:00 local → school-local day = 2026-05-12 → DB stores
+    // 2026-05-12T00:00Z. Add tzOff, take UTC YMD, then rebuild the
+    // midnight Date.
+    const localMs = now.getTime() + tzOff * 60_000;
+    const localDay = new Date(localMs);
+    const dayIso = `${localDay.getUTCFullYear()}-${String(
+      localDay.getUTCMonth() + 1,
+    ).padStart(2, '0')}-${String(localDay.getUTCDate()).padStart(2, '0')}`;
+    const dayStart = new Date(`${dayIso}T00:00:00.000Z`);
+    const dayEnd = new Date(dayStart.getTime() + 86_400_000);
+    const sessions = await this.prisma.morningQuizSession.findMany({
+      where: {
+        classId: { in: classIds },
+        date: { gte: dayStart, lt: dayEnd },
+        status: { not: 'cancelled' },
+        quizEnd: { gte: now },
+      },
+      include: {
+        class: { select: { id: true, name: true } },
+        paperAssignment: { select: { paper: { select: { name: true } } } },
+      },
+      orderBy: { attendanceStart: 'asc' },
+    });
+    return {
+      student,
+      upcoming: sessions.map((s) => ({
+        sessionId: s.id,
+        classId: s.classId,
+        className: s.class.name,
+        level: s.level,
+        attendanceStart: s.attendanceStart,
+        quizStart: s.quizStart,
+        quizEnd: s.quizEnd,
+        paperName: s.paperAssignment.paper.name,
+        status: s.status,
+      })),
+    };
+  }
+
+  // ─────────────────── F10 — Grade appeals ───────────────────
+
+  /**
+   * Public (IP-gated, rate-limited) — student creates a grade-appeal row
+   * tied to a submitted submission. Name+studentId disambig matches
+   * /history-by-name. Validates that the submission belongs to the
+   * verified student (defeat scraping submissionIds with someone else's
+   * name).
+   */
+  async createAppeal(
+    input: {
+      submissionId: string;
+      paperQuestionId?: string;
+      message: string;
+      studentName: string;
+      studentId?: string;
+    },
+    ip: string | null,
+  ) {
+    const message = (input.message ?? '').trim();
+    if (!message) throw new BadRequestException({ code: 'message_required' });
+    if (message.length > 4000) throw new BadRequestException({ code: 'message_too_long' });
+    const resolved = await this.resolveStudentByName(input.studentName, input.studentId);
+    if (resolved.kind === 'disambig') {
+      return { needDisambiguation: true, candidates: resolved.candidates };
+    }
+    const sub = await this.prisma.studentSubmission.findUnique({
+      where: { id: input.submissionId },
+      select: { id: true, studentId: true, assignmentId: true, status: true },
+    });
+    if (!sub) throw new NotFoundException({ code: 'submission_not_found' });
+    if (sub.studentId !== resolved.student.id) {
+      throw new ForbiddenException({ code: 'submission_not_yours' });
+    }
+    if (input.paperQuestionId) {
+      // Verify the paperQuestionId is actually one of the paper's questions.
+      const asgmt = await this.prisma.paperAssignment.findUnique({
+        where: { id: sub.assignmentId },
+        select: { paperId: true },
+      });
+      if (asgmt) {
+        const pq = await this.prisma.paperQuestion.findFirst({
+          where: { id: input.paperQuestionId, paperId: asgmt.paperId },
+          select: { id: true },
+        });
+        if (!pq) throw new BadRequestException({ code: 'paper_question_mismatch' });
+      }
+    }
+    const appeal = await this.prisma.gradeAppeal.create({
+      data: {
+        submissionId: sub.id,
+        paperQuestionId: input.paperQuestionId ?? null,
+        studentMessage: message,
+        status: 'open',
+      },
+    });
+    await this.audit.log({
+      actorId: resolved.student.id,
+      actorRole: 'student',
+      action: 'morning_quiz.appeal.create',
+      entityType: 'GradeAppeal',
+      entityId: appeal.id,
+      ip,
+      metadata: {
+        submissionId: sub.id,
+        paperQuestionId: input.paperQuestionId ?? null,
+      },
+    });
+    return { appealId: appeal.id, status: appeal.status };
+  }
+
+  /**
+   * Teacher / head_teacher / admin — paginated list of appeals. Filterable
+   * by status (default 'open') and classId (admin sees everything; class-
+   * scoped teachers only see their own classes). Joins submission + paper
+   * + student for display.
+   */
+  async listAppeals(
+    actor: ActorCtx,
+    filters: { status?: string; classId?: string; page?: number; pageSize?: number },
+  ) {
+    if (!['teacher', 'head_teacher', 'admin'].includes(actor.role)) {
+      throw new ForbiddenException({ code: 'teacher_required' });
+    }
+    const page = Math.max(1, filters.page ?? 1);
+    const pageSize = Math.min(100, Math.max(1, filters.pageSize ?? 50));
+    const status = filters.status ?? 'open';
+    // Scope by classId if supplied AND caller can act on it.
+    let assignmentFilter: Prisma.GradeAppealWhereInput = {};
+    if (filters.classId) {
+      if (!(await canActOnClass(this.prisma, actor, filters.classId))) {
+        throw new ForbiddenException({ code: 'not_your_class' });
+      }
+      assignmentFilter = {
+        submission: { assignment: { classId: filters.classId } },
+      };
+    } else if (actor.role === 'teacher') {
+      // Teacher (non-head) gets scoped to the classes they teach.
+      const enrollments = await this.prisma.classEnrollment.findMany({
+        where: { userId: actor.id, role: { not: 'student' } },
+        select: { classId: true },
+      });
+      const allowedClassIds = enrollments.map((e) => e.classId);
+      assignmentFilter = {
+        submission: { assignment: { classId: { in: allowedClassIds } } },
+      };
+    }
+    const where: Prisma.GradeAppealWhereInput = {
+      status,
+      ...assignmentFilter,
+    };
+    const [items, total] = await Promise.all([
+      this.prisma.gradeAppeal.findMany({
+        where,
+        orderBy: { createdAt: 'desc' },
+        skip: (page - 1) * pageSize,
+        take: pageSize,
+        include: {
+          submission: {
+            select: {
+              id: true,
+              studentId: true,
+              autoScore: true,
+              maxScore: true,
+              student: { select: { id: true, name: true } },
+              assignment: {
+                select: {
+                  paper: { select: { id: true, name: true } },
+                  class: { select: { id: true, name: true } },
+                },
+              },
+            },
+          },
+          paperQuestion: {
+            select: { id: true, sortOrder: true, marks: true },
+          },
+          reviewer: { select: { id: true, name: true } },
+        },
+      }),
+      this.prisma.gradeAppeal.count({ where }),
+    ]);
+    return {
+      items,
+      total,
+      page,
+      pageSize,
+    };
+  }
+
+  /**
+   * Teacher / head_teacher / admin — accept or reject an appeal. When
+   * accepting WITH a scoreOverride + paperQuestionId, also rewrite the
+   * AnswerScript's awardedMarks and recompute the parent submission's
+   * autoScore. Audit-logged.
+   */
+  async resolveAppeal(
+    appealId: string,
+    actor: ActorCtx,
+    body: {
+      accept: boolean;
+      note?: string;
+      scoreOverride?: number | null;
+      paperQuestionId?: string;
+    },
+  ) {
+    if (!['teacher', 'head_teacher', 'admin'].includes(actor.role)) {
+      throw new ForbiddenException({ code: 'teacher_required' });
+    }
+    const appeal = await this.prisma.gradeAppeal.findUnique({
+      where: { id: appealId },
+      include: {
+        submission: {
+          select: {
+            id: true,
+            assignmentId: true,
+            assignment: { select: { classId: true } },
+          },
+        },
+      },
+    });
+    if (!appeal) throw new NotFoundException({ code: 'appeal_not_found' });
+    if (!(await canActOnClass(this.prisma, actor, appeal.submission.assignment.classId))) {
+      throw new ForbiddenException({ code: 'not_your_class' });
+    }
+    if (appeal.status !== 'open') {
+      throw new BadRequestException({ code: 'appeal_already_resolved', status: appeal.status });
+    }
+    const newStatus = body.accept ? 'accepted' : 'rejected';
+    const note = body.note ? String(body.note).slice(0, 4000) : null;
+    const targetPqId = body.paperQuestionId ?? appeal.paperQuestionId ?? null;
+
+    await this.prisma.$transaction(async (tx) => {
+      await tx.gradeAppeal.update({
+        where: { id: appealId },
+        data: {
+          status: newStatus,
+          reviewerId: actor.id,
+          reviewerNote: note,
+          reviewedAt: new Date(),
+        },
+      });
+      // If accepting AND there's a scoreOverride targeting a specific
+      // paperQuestion, rewrite the AnswerScript and recompute autoScore.
+      if (
+        body.accept &&
+        typeof body.scoreOverride === 'number' &&
+        targetPqId
+      ) {
+        const script = await tx.answerScript.findUnique({
+          where: {
+            submissionId_paperQuestionId: {
+              submissionId: appeal.submissionId,
+              paperQuestionId: targetPqId,
+            },
+          },
+          select: { id: true },
+        });
+        if (script) {
+          await tx.answerScript.update({
+            where: { id: script.id },
+            data: {
+              awardedMarks: body.scoreOverride,
+              autoCorrect: body.scoreOverride > 0,
+            },
+          });
+        }
+        // Recompute autoScore = sum of awardedMarks across this submission.
+        const updatedScripts = await tx.answerScript.findMany({
+          where: { submissionId: appeal.submissionId },
+          select: { awardedMarks: true },
+        });
+        const autoScore = updatedScripts.reduce(
+          (acc, s) => acc + (s.awardedMarks ?? 0),
+          0,
+        );
+        await tx.studentSubmission.update({
+          where: { id: appeal.submissionId },
+          data: { autoScore },
+        });
+      }
+    });
+    await this.audit.log({
+      actorId: actor.id,
+      actorRole: actor.role,
+      action: 'morning_quiz.appeal.resolve',
+      entityType: 'GradeAppeal',
+      entityId: appealId,
+      ip: actor.ip,
+      metadata: {
+        accept: body.accept,
+        scoreOverride: body.scoreOverride ?? null,
+        paperQuestionId: targetPqId,
+      },
+    });
+    return { id: appealId, status: newStatus };
+  }
+
+  // ─────────────────── F13 — Fuzzy student search ───────────────────
+
+  /**
+   * Teacher / head_teacher / admin — case-insensitive substring search
+   * on User.name + User.email scoped to a class's active enrollments.
+   * No real pinyin yet — when we wire opencc / pinyin-pro we'll
+   * normalise both sides; for now ASCII substring + zh literal hits
+   * cover the dashboard use case.
+   *
+   * Returns up to 50 results (cap); use a more specific query to drill in.
+   */
+  async searchStudentsInClass(classId: string, rawQuery: string, actor: ActorCtx) {
+    if (!(await canActOnClass(this.prisma, actor, classId))) {
+      throw new ForbiddenException({ code: 'not_your_class' });
+    }
+    const q = (rawQuery ?? '').trim();
+    if (!q) return { items: [] };
+    if (q.length > 50) throw new BadRequestException({ code: 'query_too_long' });
+    const enrollments = await this.prisma.classEnrollment.findMany({
+      where: {
+        classId,
+        role: 'student',
+        user: {
+          isActive: true,
+          archivedAt: null,
+          OR: [
+            { name: { contains: q, mode: 'insensitive' } },
+            { email: { contains: q, mode: 'insensitive' } },
+          ],
+        },
+      },
+      take: 50,
+      select: {
+        user: { select: { id: true, name: true, email: true } },
+      },
+    });
+    return {
+      items: enrollments.map((e) => e.user),
+    };
+  }
+
+  // ─────────────────── F15 — Question retraction ───────────────────
+
+  /**
+   * Teacher / head_teacher / admin — mark a paper question as retracted.
+   * Unique on paperQuestionId — second retract returns 409. If
+   * awardAllStudents=true, every existing StudentSubmission for this
+   * paper has its AnswerScript for this question rewritten to
+   * `autoCorrect=true, awardedMarks=pq.marks` and the parent submission's
+   * autoScore recomputed. Each affected submission gets an audit row
+   * with the before/after delta.
+   */
+  async retractQuestion(
+    paperId: string,
+    body: {
+      paperQuestionId: string;
+      reason: string;
+      awardAllStudents: boolean;
+    },
+    actor: ActorCtx,
+  ) {
+    if (!['teacher', 'head_teacher', 'admin'].includes(actor.role)) {
+      throw new ForbiddenException({ code: 'teacher_required' });
+    }
+    const reason = (body.reason ?? '').trim();
+    if (!reason) throw new BadRequestException({ code: 'reason_required' });
+    if (reason.length > 1000) throw new BadRequestException({ code: 'reason_too_long' });
+    // Verify the question is on this paper.
+    const pq = await this.prisma.paperQuestion.findFirst({
+      where: { id: body.paperQuestionId, paperId },
+      select: { id: true, marks: true },
+    });
+    if (!pq) throw new NotFoundException({ code: 'paper_question_not_found' });
+    // Per-class scoping — teachers must own at least one assignment of
+    // this paper. Admin / head_teacher pass through.
+    if (actor.role === 'teacher') {
+      const owned = await this.prisma.paperAssignment.findFirst({
+        where: { paperId },
+        select: { classId: true },
+      });
+      if (!owned || !(await canActOnClass(this.prisma, actor, owned.classId))) {
+        throw new ForbiddenException({ code: 'not_your_class' });
+      }
+    }
+    const existing = await this.prisma.questionRetraction.findUnique({
+      where: { paperQuestionId: body.paperQuestionId },
+      select: { id: true },
+    });
+    if (existing) {
+      throw new ConflictException({
+        code: 'already_retracted',
+        retractionId: existing.id,
+      });
+    }
+    const retraction = await this.prisma.questionRetraction.create({
+      data: {
+        paperQuestionId: body.paperQuestionId,
+        reason,
+        awardAllStudents: body.awardAllStudents,
+        actorId: actor.id,
+      },
+    });
+    await this.audit.log({
+      actorId: actor.id,
+      actorRole: actor.role,
+      action: 'morning_quiz.question.retract',
+      entityType: 'QuestionRetraction',
+      entityId: retraction.id,
+      ip: actor.ip,
+      metadata: {
+        paperId,
+        paperQuestionId: body.paperQuestionId,
+        awardAllStudents: body.awardAllStudents,
+      },
+    });
+    let submissionsRegraded = 0;
+    if (body.awardAllStudents) {
+      // Find every (non-practice) StudentSubmission for this paper. Walk
+      // each one, rewrite the script for the retracted question, recompute
+      // autoScore. Per-submission tx so a single failure doesn't roll the
+      // whole batch back.
+      const submissions = await this.prisma.studentSubmission.findMany({
+        where: {
+          assignment: { paperId },
+          status: { not: 'practice' },
+        },
+        select: {
+          id: true,
+          autoScore: true,
+          scripts: {
+            where: { paperQuestionId: body.paperQuestionId },
+            select: { id: true, awardedMarks: true },
+          },
+        },
+      });
+      for (const sub of submissions) {
+        try {
+          const oldMark = sub.scripts[0]?.awardedMarks ?? 0;
+          const newMark = pq.marks;
+          await this.prisma.$transaction(async (tx) => {
+            if (sub.scripts[0]) {
+              await tx.answerScript.update({
+                where: { id: sub.scripts[0].id },
+                data: { autoCorrect: true, awardedMarks: newMark },
+              });
+            } else {
+              // No script row for this question yet (student never opened
+              // it). Create one so the credit shows up. Empty content.
+              await tx.answerScript.create({
+                data: {
+                  submissionId: sub.id,
+                  paperQuestionId: body.paperQuestionId,
+                  autoCorrect: true,
+                  awardedMarks: newMark,
+                },
+              });
+            }
+            // Recompute autoScore as sum of awardedMarks. Cheaper to
+            // recount than diff-track when the underlying script set
+            // may have just grown by one.
+            const allScripts = await tx.answerScript.findMany({
+              where: { submissionId: sub.id },
+              select: { awardedMarks: true },
+            });
+            const autoScore = allScripts.reduce(
+              (acc, s) => acc + (s.awardedMarks ?? 0),
+              0,
+            );
+            await tx.studentSubmission.update({
+              where: { id: sub.id },
+              data: { autoScore },
+            });
+          });
+          await this.audit.log({
+            actorId: actor.id,
+            actorRole: actor.role,
+            action: 'morning_quiz.question.retract.regrade',
+            entityType: 'StudentSubmission',
+            entityId: sub.id,
+            ip: actor.ip,
+            metadata: {
+              retractionId: retraction.id,
+              paperQuestionId: body.paperQuestionId,
+              oldMark,
+              newMark,
+            },
+          });
+          submissionsRegraded++;
+        } catch (e: any) {
+          this.logger.error(
+            `retract regrade submission ${sub.id} failed: ${e?.message ?? e}`,
+          );
+        }
+      }
+    }
+    return {
+      retractionId: retraction.id,
+      paperQuestionId: body.paperQuestionId,
+      submissionsRegraded,
+    };
+  }
+
+  // ─────────────────── F16 — Practice mode ───────────────────
+
+  /**
+   * Public (IP-gated, rate-limited) — start a fresh practice attempt
+   * against an existing submission's paper. The caller MUST verify their
+   * identity via the standard name+studentId disambig flow. Practice
+   * submissions live as status='practice' rows with no sessionId binding,
+   * so the cron's lockOne (which filters by sessionId) ignores them and
+   * the stats endpoints exclude them via status filter.
+   *
+   * NOTE: StudentSubmission has @@unique([assignmentId, studentId]) so
+   * a second practice attempt against the same assignment will hit a
+   * P2002. Spec covers this in v1 as "punt — schema team owns dropping
+   * the unique to (assignmentId, studentId, status)". Catch + 409 for
+   * now so callers can degrade gracefully.
+   */
+  async startPractice(
+    submissionId: string,
+    body: { studentName: string; studentId?: string },
+    ip: string | null,
+  ) {
+    const resolved = await this.resolveStudentByName(body.studentName, body.studentId);
+    if (resolved.kind === 'disambig') {
+      return { needDisambiguation: true, candidates: resolved.candidates };
+    }
+    const sub = await this.prisma.studentSubmission.findUnique({
+      where: { id: submissionId },
+      select: {
+        id: true,
+        studentId: true,
+        assignmentId: true,
+        assignment: { select: { paperId: true } },
+      },
+    });
+    if (!sub) throw new NotFoundException({ code: 'submission_not_found' });
+    if (sub.studentId !== resolved.student.id) {
+      throw new ForbiddenException({ code: 'submission_not_yours' });
+    }
+    // maxScore mirrors the paper's totalMarksActual at the moment of
+    // creation, same as finalSubmit does for real submissions.
+    const paper = await this.prisma.paper.findUnique({
+      where: { id: sub.assignment.paperId },
+      select: { totalMarksActual: true },
+    });
+    if (!paper) throw new NotFoundException({ code: 'paper_not_found' });
+    let practice;
+    try {
+      practice = await this.prisma.studentSubmission.create({
+        data: {
+          assignmentId: sub.assignmentId,
+          studentId: sub.studentId,
+          status: 'practice',
+          maxScore: paper.totalMarksActual,
+        },
+      });
+    } catch (e: any) {
+      if (e?.code === 'P2002') {
+        // Schema-team punt — @@unique([assignmentId, studentId]) still
+        // present so we can't have both a real submission AND a practice
+        // submission. Surface a clear error instead of a 500.
+        throw new ConflictException({
+          code: 'practice_unique_blocked',
+          message: 'Schema migration pending: cannot create practice submission while real submission exists for this assignment.',
+        });
+      }
+      throw e;
+    }
+    // Pre-seed empty AnswerScript rows for every PaperQuestion so the
+    // take-quiz UI has rows to fill.
+    const paperQuestions = await this.prisma.paperQuestion.findMany({
+      where: { paperId: sub.assignment.paperId },
+      select: { id: true },
+    });
+    if (paperQuestions.length > 0) {
+      await this.prisma.answerScript.createMany({
+        data: paperQuestions.map((pq) => ({
+          submissionId: practice.id,
+          paperQuestionId: pq.id,
+        })),
+      });
+    }
+    await this.audit.log({
+      actorId: resolved.student.id,
+      actorRole: 'student',
+      action: 'morning_quiz.practice.start',
+      entityType: 'StudentSubmission',
+      entityId: practice.id,
+      ip,
+      metadata: { sourceSubmissionId: submissionId },
+    });
+    return {
+      practiceSubmissionId: practice.id,
+      paperId: sub.assignment.paperId,
+      sessionId: null,
+    };
+  }
+
+  /**
+   * Public (IP-gated, rate-limited) — fetch a practice paper for replay.
+   * Returns the paper questions (whitelist-redacted, same as
+   * getStudentView) plus the existing answers the student has saved on
+   * this practice run.
+   */
+  async getPractice(
+    practiceSubmissionId: string,
+    body: { studentName: string; studentId?: string },
+  ) {
+    const resolved = await this.resolveStudentByName(body.studentName, body.studentId);
+    if (resolved.kind === 'disambig') {
+      return { needDisambiguation: true, candidates: resolved.candidates };
+    }
+    const sub = await this.prisma.studentSubmission.findUnique({
+      where: { id: practiceSubmissionId },
+      select: {
+        id: true,
+        studentId: true,
+        status: true,
+        assignment: { select: { paperId: true } },
+      },
+    });
+    if (!sub) throw new NotFoundException({ code: 'submission_not_found' });
+    if (sub.status !== 'practice') {
+      throw new BadRequestException({ code: 'not_a_practice_submission' });
+    }
+    if (sub.studentId !== resolved.student.id) {
+      throw new ForbiddenException({ code: 'submission_not_yours' });
+    }
+    const paperQuestions = await this.prisma.paperQuestion.findMany({
+      where: { paperId: sub.assignment.paperId },
+      orderBy: { sortOrder: 'asc' },
+      include: { question: { select: { id: true, questionType: true } } },
+    });
+    const scripts = await this.prisma.answerScript.findMany({
+      where: { submissionId: sub.id },
+      select: {
+        paperQuestionId: true,
+        selectedOption: true,
+        textAnswer: true,
+      },
+    });
+    const existingAnswers: Record<string, { content: any; flagged: boolean }> = {};
+    for (const s of scripts) {
+      existingAnswers[s.paperQuestionId] = {
+        content: s.selectedOption != null ? s.selectedOption : s.textAnswer,
+        flagged: false,
+      };
+    }
+    const stripOptions = (opts: unknown) => {
+      if (!Array.isArray(opts)) return opts;
+      return opts.map((o: any) => ({ key: o?.key, text: o?.text }));
+    };
+    return {
+      practiceSubmissionId: sub.id,
+      paperId: sub.assignment.paperId,
+      paperQuestions: paperQuestions.map((pq) => ({
+        id: pq.id,
+        sortOrder: pq.sortOrder,
+        marks: pq.marks,
+        snapshotContent: redactSnapshotForStudent(pq.snapshotContent),
+        snapshotOptions: stripOptions(pq.snapshotOptions),
+        questionType: pq.question.questionType,
+      })),
+      existingAnswers,
+    };
+  }
+
+  /**
+   * Public (IP-gated, rate-limited) — submit a practice attempt. Runs
+   * autoGradeScripts so the student sees a score, but DOES NOT mark the
+   * submission as 'submitted' (status stays 'practice'). DOES NOT fire
+   * score_ready notifications. Stats / trend / wrong-rate endpoints
+   * filter out status='practice' so this never counts.
+   */
+  async submitPractice(
+    practiceSubmissionId: string,
+    body: {
+      studentName: string;
+      studentId?: string;
+      answers: Array<{
+        paperQuestionId: string;
+        selectedOption?: string | null;
+        textAnswer?: string | null;
+      }>;
+    },
+    ip: string | null,
+  ) {
+    const resolved = await this.resolveStudentByName(body.studentName, body.studentId);
+    if (resolved.kind === 'disambig') {
+      return { needDisambiguation: true, candidates: resolved.candidates };
+    }
+    const sub = await this.prisma.studentSubmission.findUnique({
+      where: { id: practiceSubmissionId },
+      select: {
+        id: true,
+        studentId: true,
+        status: true,
+        maxScore: true,
+        assignment: { select: { paperId: true } },
+      },
+    });
+    if (!sub) throw new NotFoundException({ code: 'submission_not_found' });
+    if (sub.status !== 'practice') {
+      throw new BadRequestException({ code: 'not_a_practice_submission' });
+    }
+    if (sub.studentId !== resolved.student.id) {
+      throw new ForbiddenException({ code: 'submission_not_yours' });
+    }
+    // Upsert all answers.
+    for (const a of body.answers ?? []) {
+      await this.prisma.answerScript.upsert({
+        where: {
+          submissionId_paperQuestionId: {
+            submissionId: sub.id,
+            paperQuestionId: a.paperQuestionId,
+          },
+        },
+        create: {
+          submissionId: sub.id,
+          paperQuestionId: a.paperQuestionId,
+          selectedOption: a.selectedOption ?? null,
+          textAnswer: a.textAnswer ?? null,
+        },
+        update: {
+          selectedOption: a.selectedOption ?? null,
+          textAnswer: a.textAnswer ?? null,
+        },
+      });
+    }
+    // Load + grade.
+    const scripts = await this.prisma.answerScript.findMany({
+      where: { submissionId: sub.id },
+      include: {
+        paperQuestion: {
+          include: {
+            question: {
+              select: {
+                questionType: true,
+                options: true,
+                answerContent: true,
+                content: true,
+              },
+            },
+          },
+        },
+      },
+    });
+    const { autoScore, scriptUpdates } = await autoGradeScripts(scripts, this.evaluator);
+    await this.prisma.$transaction(async (tx) => {
+      await tx.studentSubmission.update({
+        where: { id: sub.id },
+        data: { autoScore },
+      });
+      for (const u of scriptUpdates) {
+        await tx.answerScript.update({
+          where: { id: u.id },
+          data: {
+            autoCorrect: u.autoCorrect,
+            awardedMarks: u.awardedMarks,
+            ...(u.aiReason ? { markerComment: `[ai-grade] ${u.aiReason}` } : {}),
+          },
+        });
+      }
+    });
+    await this.audit.log({
+      actorId: resolved.student.id,
+      actorRole: 'student',
+      action: 'morning_quiz.practice.submit',
+      entityType: 'StudentSubmission',
+      entityId: sub.id,
+      ip,
+      metadata: { autoScore, maxScore: sub.maxScore },
+    });
+    return {
+      autoScore,
+      maxScore: sub.maxScore,
+      perQuestion: scriptUpdates.map((u) => ({
+        scriptId: u.id,
+        autoCorrect: u.autoCorrect,
+        awardedMarks: u.awardedMarks,
+        aiReason: u.aiReason ?? null,
+      })),
+    };
+  }
+
+  // ─────────────────── F17 — Score trend by week ───────────────────
+
+  /**
+   * Public (IP-gated, rate-limited) — last N weeks of (week × level)
+   * averages for one student. Week boundary is Monday in school-local
+   * time (UTC+8), same as the date storage convention used throughout
+   * this module. Excludes practice submissions and unsubmitted rows.
+   */
+  async historyTrendByName(
+    rawName: string,
+    studentIdFilter?: string,
+    rawWeeks?: number,
+  ) {
+    const resolved = await this.resolveStudentByName(rawName, studentIdFilter);
+    if (resolved.kind === 'disambig') {
+      return { needDisambiguation: true, candidates: resolved.candidates };
+    }
+    const weeks = Math.min(52, Math.max(1, rawWeeks ?? 12));
+    const tzOff = Number(process.env.MORNING_QUIZ_TZ_OFFSET_MIN ?? 8 * 60);
+    // Build the cutoff: Monday-00:00 of (this week - weeks weeks).
+    const now = new Date();
+    const localMs = now.getTime() + tzOff * 60_000;
+    const local = new Date(localMs);
+    const dow = local.getUTCDay(); // 0=Sun..6=Sat
+    // Distance back to Monday (Mon=1). If today is Sunday, that's 6 days
+    // back, not -1.
+    const daysBackToMonday = (dow + 6) % 7;
+    const monLocal = new Date(
+      Date.UTC(
+        local.getUTCFullYear(),
+        local.getUTCMonth(),
+        local.getUTCDate() - daysBackToMonday,
+      ),
+    );
+    // monLocal is UTC midnight of "this Monday in local". Subtract
+    // (weeks-1) weeks to get the earliest week we care about.
+    const earliestMonLocal = new Date(
+      monLocal.getTime() - (weeks - 1) * 7 * 86_400_000,
+    );
+    // Convert that back to UTC instant for the DB filter: localMidnight
+    // - tzOff = UTC instant.
+    const cutoffUtc = new Date(earliestMonLocal.getTime() - tzOff * 60_000);
+    const submissions = await this.prisma.studentSubmission.findMany({
+      where: {
+        studentId: resolved.student.id,
+        status: { in: ['submitted', 'graded', 'returned', 'marked'] },
+        submittedAt: { gte: cutoffUtc },
+      },
+      select: {
+        id: true,
+        autoScore: true,
+        totalScore: true,
+        maxScore: true,
+        submittedAt: true,
+        assignmentId: true,
+      },
+    });
+    if (submissions.length === 0) {
+      return { student: resolved.student, weeks: [] };
+    }
+    // Resolve level from MorningQuizSession (paperAssignmentId → session).
+    const assignmentIds = Array.from(new Set(submissions.map((s) => s.assignmentId)));
+    const sessions = await this.prisma.morningQuizSession.findMany({
+      where: { paperAssignmentId: { in: assignmentIds } },
+      select: { paperAssignmentId: true, level: true },
+    });
+    const levelByAsgmt = new Map<string, string>();
+    for (const s of sessions) {
+      if (!levelByAsgmt.has(s.paperAssignmentId)) {
+        levelByAsgmt.set(s.paperAssignmentId, s.level);
+      }
+    }
+    // Bucket by (weekStart-YMD, level).
+    type Bucket = { totalPct: number; count: number };
+    const buckets = new Map<string, Bucket>();
+    for (const sub of submissions) {
+      if (!sub.submittedAt) continue;
+      const level = levelByAsgmt.get(sub.assignmentId);
+      if (!level) continue;
+      const subLocalMs = sub.submittedAt.getTime() + tzOff * 60_000;
+      const subLocal = new Date(subLocalMs);
+      const subDow = subLocal.getUTCDay();
+      const subDaysBack = (subDow + 6) % 7;
+      const subMonLocal = new Date(
+        Date.UTC(
+          subLocal.getUTCFullYear(),
+          subLocal.getUTCMonth(),
+          subLocal.getUTCDate() - subDaysBack,
+        ),
+      );
+      const weekStart = `${subMonLocal.getUTCFullYear()}-${String(
+        subMonLocal.getUTCMonth() + 1,
+      ).padStart(2, '0')}-${String(subMonLocal.getUTCDate()).padStart(2, '0')}`;
+      const key = `${weekStart}|${level}`;
+      const max = sub.maxScore || 0;
+      const got = sub.totalScore ?? sub.autoScore ?? 0;
+      const pct = max > 0 ? (got / max) * 100 : 0;
+      const b = buckets.get(key) ?? { totalPct: 0, count: 0 };
+      b.totalPct += pct;
+      b.count += 1;
+      buckets.set(key, b);
+    }
+    const rows: Array<{
+      weekStart: string;
+      level: string;
+      avgPct: number;
+      submissionCount: number;
+    }> = [];
+    for (const [key, b] of buckets.entries()) {
+      const [weekStart, level] = key.split('|');
+      rows.push({
+        weekStart,
+        level,
+        avgPct: b.count > 0 ? b.totalPct / b.count : 0,
+        submissionCount: b.count,
+      });
+    }
+    rows.sort((a, b) =>
+      a.weekStart === b.weekStart
+        ? a.level.localeCompare(b.level)
+        : a.weekStart.localeCompare(b.weekStart),
+    );
+    return {
+      student: resolved.student,
+      weeks: rows,
+    };
+  }
+
+  // ─────────────────── F18 — Per-question wrong rate ───────────────────
+
+  /**
+   * Teacher / head_teacher / admin — per-question wrong rate for one
+   * paper. Excludes practice submissions. Wrong = autoCorrect === false;
+   * scripts without an autoCorrect (never auto-graded) are excluded from
+   * the denominator to keep "wrongRate" meaningful.
+   */
+  async paperWrongRate(paperId: string, actor: ActorCtx) {
+    if (!['teacher', 'head_teacher', 'admin'].includes(actor.role)) {
+      throw new ForbiddenException({ code: 'teacher_required' });
+    }
+    // Scope check for non-admins — at least one assignment of this paper
+    // must touch one of their classes.
+    if (actor.role === 'teacher') {
+      const anyAsgmt = await this.prisma.paperAssignment.findFirst({
+        where: { paperId },
+        select: { classId: true },
+      });
+      if (!anyAsgmt || !(await canActOnClass(this.prisma, actor, anyAsgmt.classId))) {
+        throw new ForbiddenException({ code: 'not_your_class' });
+      }
+    }
+    const pqs = await this.prisma.paperQuestion.findMany({
+      where: { paperId },
+      orderBy: { sortOrder: 'asc' },
+      include: { question: { select: { questionType: true, content: true } } },
+    });
+    if (pqs.length === 0) return { items: [] };
+    const pqIds = pqs.map((p) => p.id);
+    const scripts = await this.prisma.answerScript.findMany({
+      where: {
+        paperQuestionId: { in: pqIds },
+        submission: { status: { not: 'practice' } },
+      },
+      select: {
+        paperQuestionId: true,
+        autoCorrect: true,
+      },
+    });
+    type Counter = { totalAttempts: number; wrongCount: number };
+    const counters = new Map<string, Counter>();
+    for (const s of scripts) {
+      if (s.autoCorrect == null) continue; // not graded
+      const c = counters.get(s.paperQuestionId) ?? { totalAttempts: 0, wrongCount: 0 };
+      c.totalAttempts += 1;
+      if (s.autoCorrect === false) c.wrongCount += 1;
+      counters.set(s.paperQuestionId, c);
+    }
+    const items = pqs.map((pq, i) => {
+      const c = counters.get(pq.id) ?? { totalAttempts: 0, wrongCount: 0 };
+      // taskType lives on the question content blob for IELTS reading;
+      // surface it when present so the UI can group by task.
+      const content = (pq.question.content as Record<string, unknown> | null) ?? null;
+      const taskType =
+        typeof content?.taskType === 'string' ? (content.taskType as string) : null;
+      return {
+        paperQuestionId: pq.id,
+        n: i + 1,
+        taskType,
+        totalAttempts: c.totalAttempts,
+        wrongCount: c.wrongCount,
+        wrongRate: c.totalAttempts > 0 ? c.wrongCount / c.totalAttempts : 0,
+      };
+    });
+    return { items };
   }
 }

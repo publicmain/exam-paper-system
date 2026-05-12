@@ -270,6 +270,26 @@ Currently runs `vitest` against `apps/api/test/generation.spec.ts` (preflight ch
 
 ---
 
+## Backup & Recovery
+
+Database backup automation and the full disaster-recovery runbook live in [`docs/disaster-recovery.md`](docs/disaster-recovery.md). It covers RTO/RPO targets, daily cron setup, three off-site copy strategies (rsync, USB, `rclone`), and the step-by-step restore procedure with post-recovery validation queries.
+
+Quick commands:
+
+```bash
+# Take a backup (writes to ./backups/, rotates to keep 7 most recent)
+./scripts/backup.sh
+
+# Restore from a specific dump (interactive — requires typing "RESTORE")
+./scripts/restore.sh ./backups/exam-paper-system-YYYYMMDD-HHMMSS.dump
+```
+
+On Linux/macOS, make the scripts executable once: `chmod +x scripts/*.sh`. On Windows, run them inside WSL2 or Git Bash.
+
+**Warning:** the dev DB has **no automatic backup** out of the box — `backup.sh` only runs when an operator (or cron) invokes it. Production / Railway operators must install the cron entry documented in the runbook before relying on recovery.
+
+---
+
 ## License & Contributions
 
 Internal school project. Not for external distribution. Do not commit `.env` or any past-paper original content.

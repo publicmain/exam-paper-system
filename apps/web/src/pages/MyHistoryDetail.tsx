@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Link, useParams, useSearchParams } from 'react-router-dom';
 import { api } from '../lib/api';
+import AppealModal, { type AppealQuestionContext } from '../components/AppealModal';
 import { formatCNDateTime } from '../lib/dateCN';
 
 /**
@@ -44,8 +45,16 @@ export default function MyHistoryDetail() {
   const { submissionId } = useParams<{ submissionId: string }>();
   const [params] = useSearchParams();
   const name = params.get('name') ?? '';
+  const studentId = params.get('studentId') ?? '';
   const [data, setData] = useState<ResultPayload | null>(null);
   const [error, setError] = useState<string | null>(null);
+  // F10 — open AppealModal for either the whole paper (paperQuestionId
+  // undefined) or one specific question (full context inlined).
+  const [appealTarget, setAppealTarget] = useState<
+    | { kind: 'paper' }
+    | { kind: 'question'; paperQuestionId: string; ctx: AppealQuestionContext }
+    | null
+  >(null);
 
   useEffect(() => {
     if (!submissionId || !name) return;
@@ -95,10 +104,19 @@ export default function MyHistoryDetail() {
   return (
     <div className="min-h-screen bg-gray-50">
       <main className="max-w-3xl mx-auto px-6 py-6 space-y-4">
-        <div>
+        <div className="flex items-center justify-between gap-3 flex-wrap">
           <Link to={backToHistory} className="text-sm text-blue-600 hover:underline">
             ← 返回我的记录
           </Link>
+          {/* F10 — whole-paper appeal entry point. The modal handles
+              graceful 404 if the backend hasn't deployed /appeals yet. */}
+          <button
+            type="button"
+            onClick={() => setAppealTarget({ kind: 'paper' })}
+            className="text-xs px-3 py-1.5 rounded border border-rose-300 bg-rose-50 hover:bg-rose-100 text-rose-700 font-medium"
+          >
+            🚩 申诉整张卷 · Appeal whole paper
+          </button>
         </div>
 
         <header className="bg-white rounded-xl border shadow-sm p-5">
@@ -117,15 +135,46 @@ export default function MyHistoryDetail() {
         <section className="space-y-3">
           <h2 className="text-lg font-semibold text-gray-800 px-1">逐题回顾</h2>
           {data.items.map((it) => (
-            <ResultRow key={it.paperQuestionId} item={it} />
+            <ResultRow
+              key={it.paperQuestionId}
+              item={it}
+              onAppeal={(ctx) =>
+                setAppealTarget({
+                  kind: 'question',
+                  paperQuestionId: it.paperQuestionId,
+                  ctx,
+                })
+              }
+            />
           ))}
         </section>
+
+        {appealTarget && submissionId && (
+          <AppealModal
+            submissionId={submissionId}
+            paperQuestionId={
+              appealTarget.kind === 'question' ? appealTarget.paperQuestionId : undefined
+            }
+            studentName={name}
+            studentId={studentId || undefined}
+            questionContext={
+              appealTarget.kind === 'question' ? appealTarget.ctx : undefined
+            }
+            onClose={() => setAppealTarget(null)}
+          />
+        )}
       </main>
     </div>
   );
 }
 
-function ResultRow({ item }: { item: ResultItem }) {
+function ResultRow({
+  item,
+  onAppeal,
+}: {
+  item: ResultItem;
+  onAppeal: (ctx: AppealQuestionContext) => void;
+}) {
   const sc = item.snapshotContent ?? {};
   const stem: string =
     typeof sc.stem === 'string' ? sc.stem :
@@ -134,6 +183,13 @@ function ResultRow({ item }: { item: ResultItem }) {
   const isCorrect = item.isCorrect ?? item.autoCorrect;
   const awarded = item.awardedMarks;
   const showAwarded = awarded != null;
+  // F10 — appeal eligibility: any row where the auto-grader said wrong OR
+  // where the student scored less than full marks. Also enabled for null
+  // (manual-mark-pending) so students can still flag a misgraded short
+  // answer once it gets a score they disagree with.
+  const canAppeal =
+    item.autoCorrect === false ||
+    (awarded != null && awarded < item.marks);
   const correctTone =
     isCorrect === true ? 'border-emerald-300 bg-emerald-50' :
     isCorrect === false ? 'border-rose-300 bg-rose-50' :
@@ -200,6 +256,29 @@ function ResultRow({ item }: { item: ResultItem }) {
           )}
           {item.explanation && (
             <div className="mt-2 text-xs text-gray-600 italic">{item.explanation}</div>
+          )}
+          {/* F10 — per-question appeal. Shown only where the row was
+              marked wrong or partial; "submit" path goes through the
+              shared AppealModal, which gracefully degrades on 404. */}
+          {canAppeal && (
+            <div className="mt-3">
+              <button
+                type="button"
+                onClick={() =>
+                  onAppeal({
+                    sortOrder: item.sortOrder,
+                    stem,
+                    studentAnswer: item.studentAnswer,
+                    correctAnswer: item.correctAnswer,
+                    marks: item.marks,
+                    awardedMarks: item.awardedMarks,
+                  })
+                }
+                className="text-xs px-2 py-1 rounded border border-rose-300 bg-rose-50 hover:bg-rose-100 text-rose-700 font-medium"
+              >
+                🚩 申诉这题 · Appeal
+              </button>
+            </div>
           )}
         </div>
       </div>

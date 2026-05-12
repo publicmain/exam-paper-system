@@ -7,6 +7,7 @@ import {
 } from '@prisma/client';
 import { PrismaService } from '../common/prisma.service';
 import { autoGradeScripts } from '../student/student.service';
+import { WechatNotifyService } from '../wechat-notify/wechat-notify.service';
 import { ShortAnswerEvaluatorService } from './short-answer-evaluator.service';
 
 /**
@@ -34,6 +35,12 @@ export class MorningQuizCron {
     // Claude fallback for unsubmitted short_answer items, matching the
     // manual finalSubmit code path.
     private readonly evaluator: ShortAnswerEvaluatorService,
+    // F3 + F4 — WeChat notifier for `score_ready` (per-submission, after
+    // each AI-grade tx commits) and `mass_absence` (per-session, when
+    // >=90% of a >=5-student roster failed to scan in — projector likely
+    // died, alert teacher). Both fires are best-effort: try/catch so a
+    // notify outage cannot break the lock cron.
+    private readonly notify: WechatNotifyService,
   ) {}
 
   @Cron(CronExpression.EVERY_MINUTE)
@@ -72,11 +79,29 @@ export class MorningQuizCron {
         quizEnd: { lte: now },
       },
       include: {
-        paperAssignment: { select: { id: true, classId: true } },
+        // F4: include class.name + paper.name so lockOne can populate the
+        // mass_absence + score_ready payloads without an extra round-trip.
+        paperAssignment: {
+          select: {
+            id: true,
+            classId: true,
+            class: { select: { name: true } },
+            paper: { select: { name: true } },
+          },
+        },
       },
     });
     for (const session of expired) {
-      await this.lockOne(session.id, session.paperAssignmentId, session.paperAssignment.classId);
+      await this.lockOne(
+        session.id,
+        session.paperAssignmentId,
+        session.paperAssignment.classId,
+        {
+          dateIso: session.date.toISOString().slice(0, 10),
+          className: session.paperAssignment.class?.name ?? '',
+          paperName: session.paperAssignment.paper?.name ?? '',
+        },
+      );
     }
   }
 
@@ -101,13 +126,22 @@ export class MorningQuizCron {
    * branch and the on-time `student.service.finalSubmit` path apply
    * byte-identical grading rules.
    */
-  private async lockOne(sessionId: string, paperAssignmentId: string, classId: string) {
+  private async lockOne(
+    sessionId: string,
+    paperAssignmentId: string,
+    classId: string,
+    // F3 + F4 — display strings + the date used for the dashboard
+    // deep-link in mass_absence. Optional so the legacy test harness
+    // (which calls lockOne directly) keeps compiling; in production
+    // lockPastSessions always supplies them.
+    meta?: { dateIso: string; className: string; paperName: string },
+  ) {
     // ── Phase 1: fast lock-and-flip tx ────────────────────────────────
     // Idempotent; subsequent ticks see status=locked and skip.
     // We pre-flip in_progress submissions to `submitted` with autoScore=0
     // so the session is in a consistent state immediately. The AI-grade
     // pass below upgrades autoScore in-place per submission.
-    const { inProgressIds } = await this.prisma.$transaction(async (tx) => {
+    const { inProgressIds, totalRosterCount, claimedCount } = await this.prisma.$transaction(async (tx) => {
       await tx.morningQuizSession.update({
         where: { id: sessionId },
         data: { status: MorningQuizStatus.locked },
@@ -166,8 +200,48 @@ export class MorningQuizCron {
         });
       }
 
-      return { inProgressIds: claimed.map((s) => s.id) };
+      // F4 — measure the roster's claim ratio so the outer fn can decide
+      // whether to fire `mass_absence`. We count any attendance row whose
+      // status is NOT 'absent' as a "claim" (present / late / etc).
+      // skipDuplicates above means students who scanned earlier retain
+      // their non-absent status; only no-shows get freshly inserted as
+      // absent. So claimedCount === rows where status != absent.
+      const claimedCount = await tx.attendance.count({
+        where: { sessionId, status: { not: AttendanceStatus.absent } },
+      });
+
+      return {
+        inProgressIds: claimed.map((s) => s.id),
+        totalRosterCount: enrollments.length,
+        claimedCount,
+      };
     });
+
+    // F4 — projector-died guard. Fire BEFORE the (slow) AI-grade loop so
+    // the teacher sees the WeChat ping immediately. Threshold: roster of
+    // at least 5 and at least 90% of them no-shows. Try/catch isolates
+    // notify failure from the cron's hot path.
+    const absentCount = totalRosterCount - claimedCount;
+    const absentRatio = totalRosterCount > 0 ? absentCount / totalRosterCount : 0;
+    if (totalRosterCount >= 5 && absentRatio >= 0.9) {
+      try {
+        await this.notify.fire('mass_absence', {
+          sessionId,
+          classId,
+          className: meta?.className ?? '',
+          absentCount,
+          rosterCount: totalRosterCount,
+          paperName: meta?.paperName ?? '',
+          dashboardUrl: meta?.dateIso
+            ? `/morning-quiz/classes/${classId}/date/${meta.dateIso}/dashboard`
+            : `/morning-quiz/sessions/${sessionId}/dashboard`,
+        });
+      } catch (e: any) {
+        this.logger.warn(
+          `mass_absence notify failed for session ${sessionId}: ${e?.message ?? e}`,
+        );
+      }
+    }
 
     // ── Phase 2: AI-grade each claimed submission, NO outer tx ────────
     // Load scripts outside any tx (reads don't need one). Then per
@@ -181,6 +255,9 @@ export class MorningQuizCron {
         const sub = await this.prisma.studentSubmission.findUnique({
           where: { id: subId },
           include: {
+            // F3 — pull student name so the score_ready payload can build
+            // the `/my-history?name=...` deeplink without an extra query.
+            student: { select: { name: true } },
             scripts: {
               include: {
                 paperQuestion: {
@@ -214,6 +291,39 @@ export class MorningQuizCron {
           }
         });
         graded++;
+
+        // F3 — score_ready fires AFTER the per-submission tx commits so a
+        // notification can't beat the DB write. Dedup: a follow-up
+        // teacher-regrade would re-enter this loop on the same submission
+        // and we don't want the student to receive a second WeChat ping.
+        // Lookup is per-submissionId on the NotificationLog payload JSON.
+        try {
+          const prismaAny = this.prisma as any;
+          const already = await prismaAny.notificationLog.findFirst({
+            where: {
+              event: 'score_ready',
+              payload: { path: ['submissionId'], equals: sub.id },
+            },
+            select: { id: true },
+          });
+          if (!already) {
+            const studentName = sub.student?.name ?? '';
+            await this.notify.fire('score_ready', {
+              submissionId: sub.id,
+              studentId: sub.studentId,
+              studentName,
+              paperName: meta?.paperName ?? '',
+              autoScore,
+              maxScore: sub.maxScore,
+              submittedAt: (sub.submittedAt ?? new Date()).toISOString(),
+              resultUrl: `/my-history?name=${encodeURIComponent(studentName)}`,
+            });
+          }
+        } catch (e: any) {
+          this.logger.warn(
+            `score_ready notify failed for submission ${sub.id}: ${e?.message ?? e}`,
+          );
+        }
       } catch (e: any) {
         gradeFailed++;
         this.logger.error(

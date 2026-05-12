@@ -1,7 +1,7 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import { useSearchParams, Navigate } from 'react-router-dom';
 import { api } from '../lib/api';
-import { cnDateISO, formatCNTime } from '../lib/dateCN';
+import BulkAttendanceBar from '../components/BulkAttendanceBar';
 
 type Status = 'on_time' | 'late' | 'absent';
 
@@ -40,27 +40,8 @@ export default function AttendanceAdmin() {
   // redirect to the new merged class-day dashboard which actually drives
   // off the session. Without this redirect the page silently ignored the
   // sessionId and just showed the last-7-days range — confusing.
-  //
-  // CRITICAL: all hooks must run on EVERY render or React errors with
-  // "Rendered fewer hooks than expected." So we declare all state/effect
-  // hooks first, then conditionally return the <Navigate /> at the end.
   const sessionIdParam = params.get('sessionId');
   const [redirectTo, setRedirectTo] = useState<string | null>(null);
-  const [classes, setClasses] = useState<ClassRow[]>([]);
-  const [classId, setClassId] = useState<string>('');
-  const [from, setFrom] = useState<string>(() => {
-    // Bug 10: previously used .toISOString() which after 16:00 CN shifts to
-    // the next UTC day → range "today" returned no rows. cnDateISO reads
-    // the CN-local Y-M-D directly.
-    const d = new Date();
-    d.setDate(d.getDate() - 7);
-    return cnDateISO(d);
-  });
-  const [to, setTo] = useState<string>(() => cnDateISO());
-  const [rows, setRows] = useState<AttendanceRow[]>([]);
-  const [error, setError] = useState<string | null>(null);
-  const [editing, setEditing] = useState<{ row: AttendanceRow; status: Status; note: string } | null>(null);
-
   useEffect(() => {
     if (!sessionIdParam) return;
     // Look up the session's classId + date via the dashboard endpoint
@@ -76,6 +57,93 @@ export default function AttendanceAdmin() {
       })
       .catch(() => {/* fall through to range view */});
   }, [sessionIdParam]);
+  if (redirectTo) return <Navigate to={redirectTo} replace />;
+
+  const [classes, setClasses] = useState<ClassRow[]>([]);
+  const [classId, setClassId] = useState<string>('');
+  const [from, setFrom] = useState<string>(() => {
+    const d = new Date();
+    d.setDate(d.getDate() - 7);
+    return d.toISOString().slice(0, 10);
+  });
+  const [to, setTo] = useState<string>(() => new Date().toISOString().slice(0, 10));
+  const [rows, setRows] = useState<AttendanceRow[]>([]);
+  const [error, setError] = useState<string | null>(null);
+  const [editing, setEditing] = useState<{ row: AttendanceRow; status: Status; note: string } | null>(null);
+  // ROUND 14 — Feature 7: bulk attendance correction.
+  // Selection is keyed on `${sessionId}::${studentId}` so the same student
+  // appearing on two different days can be selected independently.
+  const [selectedKeys, setSelectedKeys] = useState<Set<string>>(new Set());
+  const [bulkBusy, setBulkBusy] = useState(false);
+
+  function rowKey(r: AttendanceRow): string {
+    return `${r.session.id}::${r.student.id}`;
+  }
+
+  function toggleSelected(r: AttendanceRow) {
+    const k = rowKey(r);
+    setSelectedKeys((prev) => {
+      const next = new Set(prev);
+      if (next.has(k)) next.delete(k);
+      else next.add(k);
+      return next;
+    });
+  }
+
+  function clearSelection() {
+    setSelectedKeys(new Set());
+  }
+
+  // Group selected rows by sessionId so we can run one
+  // attendanceCorrectBulk call per session — backend accepts a single
+  // sessionId per call.
+  async function applyBulk(status: Status, note: string) {
+    if (selectedKeys.size === 0) return;
+    setBulkBusy(true);
+    setError(null);
+    const bySession: Map<string, string[]> = new Map();
+    for (const r of rows) {
+      const k = rowKey(r);
+      if (!selectedKeys.has(k)) continue;
+      const arr = bySession.get(r.session.id) ?? [];
+      arr.push(r.student.id);
+      bySession.set(r.session.id, arr);
+    }
+    let corrected = 0;
+    const errors: string[] = [];
+    for (const [sessionId, studentIds] of bySession.entries()) {
+      try {
+        const r = await api.attendanceCorrectBulk({ sessionId, studentIds, status, note });
+        corrected += r.corrected ?? 0;
+        for (const e of r.errors ?? []) {
+          errors.push(`${e.studentId.slice(0, 8)}: ${e.reason}`);
+        }
+      } catch (e: any) {
+        errors.push(`session ${sessionId.slice(0, 8)}: ${e?.message ?? String(e)}`);
+      }
+    }
+    alert(
+      `批量补登完成:\n  · 成功 ${corrected} 条\n  · 失败 ${errors.length} 条` +
+        (errors.length ? `\n\n失败明细:\n${errors.slice(0, 10).join('\n')}` : ''),
+    );
+    clearSelection();
+    await refresh();
+    setBulkBusy(false);
+  }
+
+  const allSelected = useMemo(
+    () => rows.length > 0 && rows.every((r) => selectedKeys.has(rowKey(r))),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [rows, selectedKeys],
+  );
+
+  function toggleAll() {
+    if (allSelected) {
+      clearSelection();
+    } else {
+      setSelectedKeys(new Set(rows.map(rowKey)));
+    }
+  }
 
   useEffect(() => {
     api
@@ -131,10 +199,6 @@ export default function AttendanceAdmin() {
     {} as Record<Status, number>,
   );
 
-  // Conditional render AFTER all hooks have run, to preserve hook order
-  // across renders (Bug 10 redirect flow).
-  if (redirectTo) return <Navigate to={redirectTo} replace />;
-
   return (
     <div>
       <h1 className="text-2xl font-bold mb-4">考勤记录 · Attendance</h1>
@@ -185,9 +249,24 @@ export default function AttendanceAdmin() {
         </div>
       </div>
 
+      <BulkAttendanceBar
+        selectedCount={selectedKeys.size}
+        onApply={applyBulk}
+        onCancel={clearSelection}
+        busy={bulkBusy}
+      />
+
       <table className="w-full bg-white border rounded-lg text-sm">
         <thead className="text-left text-gray-500 border-b">
           <tr>
+            <th className="px-3 py-2 w-8">
+              <input
+                type="checkbox"
+                aria-label="select all"
+                checked={allSelected}
+                onChange={toggleAll}
+              />
+            </th>
             <th className="px-4 py-2">日期</th>
             <th>学生</th>
             <th>状态</th>
@@ -200,6 +279,14 @@ export default function AttendanceAdmin() {
         <tbody>
           {rows.map((r) => (
             <tr key={r.id} className="border-b last:border-0 hover:bg-gray-50">
+              <td className="px-3 py-2">
+                <input
+                  type="checkbox"
+                  aria-label={`select ${r.student.name}`}
+                  checked={selectedKeys.has(rowKey(r))}
+                  onChange={() => toggleSelected(r)}
+                />
+              </td>
               <td className="px-4 py-2 font-mono">{r.session.date.slice(0, 10)}</td>
               <td>{r.student.name}</td>
               <td>
@@ -208,7 +295,7 @@ export default function AttendanceAdmin() {
                 </span>
               </td>
               <td className="font-mono text-xs">
-                {r.scanTime ? formatCNTime(r.scanTime) : '—'}
+                {r.scanTime ? new Date(r.scanTime).toLocaleTimeString('en-GB') : '—'}
               </td>
               <td className="text-xs text-gray-500">
                 {r.source === 'qr_scan' ? `QR ${r.sourceIp ?? ''}` : '👤 手工'}
@@ -228,7 +315,7 @@ export default function AttendanceAdmin() {
           ))}
           {rows.length === 0 && (
             <tr>
-              <td colSpan={7} className="px-4 py-8 text-center text-gray-400">
+              <td colSpan={8} className="px-4 py-8 text-center text-gray-400">
                 所选范围内没有记录
               </td>
             </tr>

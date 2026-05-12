@@ -1,7 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { api } from '../lib/api';
-import { cnDateISO, cnMondayISO } from '../lib/dateCN';
 
 type Level = 'ielts_authentic' | 'ielts_simplified' | 'olevel';
 // R10 — three ascending difficulty bands. ielts_simplified replaces the
@@ -46,12 +45,14 @@ interface ScheduledSession {
 export default function MorningQuizSchedule() {
   const [classes, setClasses] = useState<ClassRow[]>([]);
   const [selected, setSelected] = useState<Set<string>>(new Set());
+  // ROUND 14 — Feature 9: one-off session creation modal toggle.
+  const [creatingOneOff, setCreatingOneOff] = useState(false);
   // Default to the CURRENT week so teachers landing here on a school day
   // immediately see today's + the rest of the week's already-scheduled
   // sessions. Used to default to next Monday, which hid the current week
   // unless the user changed the date — confusing when staff just wanted to
   // double-check today's QR is live.
-  const [weekStart, setWeekStart] = useState<string>(() => cnMondayISO());
+  const [weekStart, setWeekStart] = useState<string>(() => currentMondayIso());
   const [scheduled, setScheduled] = useState<ScheduledSession[]>([]);
   const [busy, setBusy] = useState(false);
   const [outcomes, setOutcomes] = useState<any[] | null>(null);
@@ -373,6 +374,15 @@ export default function MorningQuizSchedule() {
       <div className="flex items-center justify-between mb-4">
         <h1 className="text-2xl font-bold">Morning Quiz · 周排课</h1>
         <div className="flex items-center gap-3">
+          {/* ROUND 14 — Feature 9: one-off session creator */}
+          <button
+            type="button"
+            onClick={() => setCreatingOneOff(true)}
+            className="text-sm px-2 py-1 rounded text-emerald-700 hover:bg-emerald-50"
+            title="创建一次性 session (不进入周排程, 用于补测/特殊场次)"
+          >
+            + 一次性 session
+          </button>
           <ExportAttendanceButton weekStart={weekStart} />
           <Link to="/morning-quiz/qa-review" className="text-sm text-amber-700 hover:underline">
             🤖 AI 审核待复核 →
@@ -746,19 +756,172 @@ export default function MorningQuizSchedule() {
           </table>
         )}
       </div>
+
+      {creatingOneOff && (
+        <OneOffSessionModal
+          classes={classes}
+          onClose={() => setCreatingOneOff(false)}
+          onCreated={async () => {
+            setCreatingOneOff(false);
+            await refresh();
+          }}
+        />
+      )}
     </div>
   );
 }
 
-/** Add N days to a YYYY-MM-DD ISO date string and return YYYY-MM-DD in CN
- *  time. Built on cnDateISO so it never drifts off the CN calendar day
- *  near the UTC midnight boundary. */
+/** ROUND 14 — Feature 9: one-off session creator. Picks (class, date,
+ *  level, optional paperId) and calls createMorningQuizSession. Used
+ *  for补测 / 特殊场次 outside the weekly batch flow. */
+function OneOffSessionModal({
+  classes,
+  onClose,
+  onCreated,
+}: {
+  classes: ClassRow[];
+  onClose: () => void;
+  onCreated: () => void;
+}) {
+  const [classId, setClassId] = useState('');
+  const [date, setDate] = useState(() => new Date().toISOString().slice(0, 10));
+  const [level, setLevel] = useState<Level>('ielts_authentic');
+  const [paperId, setPaperId] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
+
+  useEffect(() => {
+    function onKey(e: KeyboardEvent) {
+      if (e.key === 'Escape') onClose();
+    }
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [onClose]);
+
+  async function handleCreate() {
+    if (!classId) {
+      setErr('请选择班级');
+      return;
+    }
+    if (!date) {
+      setErr('请选择日期');
+      return;
+    }
+    setBusy(true);
+    setErr(null);
+    try {
+      await api.createMorningQuizSession({
+        classId,
+        date,
+        level,
+        paperId: paperId.trim() || undefined,
+      });
+      onCreated();
+    } catch (e: any) {
+      setErr(String(e?.message ?? e));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <div
+      className="fixed inset-0 bg-black/40 flex items-center justify-center z-50"
+      onClick={onClose}
+      role="dialog"
+      aria-modal="true"
+    >
+      <div
+        className="bg-white rounded-lg shadow-xl p-5 max-w-md w-full space-y-3"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="flex items-center justify-between">
+          <h3 className="font-bold text-lg">+ 一次性 session</h3>
+          <button className="text-xl text-gray-500 hover:text-gray-700" onClick={onClose}>
+            ×
+          </button>
+        </div>
+
+        <label className="block text-sm">
+          <span className="text-xs text-gray-500">班级</span>
+          <select
+            value={classId}
+            onChange={(e) => setClassId(e.target.value)}
+            className="border rounded px-2 py-1 w-full mt-1"
+          >
+            <option value="">— 选择班级 —</option>
+            {classes.map((c) => (
+              <option key={c.id} value={c.id}>
+                {c.name} ({c.classCode})
+              </option>
+            ))}
+          </select>
+        </label>
+
+        <label className="block text-sm">
+          <span className="text-xs text-gray-500">日期</span>
+          <input
+            type="date"
+            value={date}
+            onChange={(e) => setDate(e.target.value)}
+            className="border rounded px-2 py-1 w-full mt-1"
+          />
+        </label>
+
+        <label className="block text-sm">
+          <span className="text-xs text-gray-500">难度等级</span>
+          <select
+            value={level}
+            onChange={(e) => setLevel(e.target.value as Level)}
+            className="border rounded px-2 py-1 w-full mt-1"
+          >
+            <option value="ielts_authentic">{LEVEL_LABEL.ielts_authentic}</option>
+            <option value="ielts_simplified">{LEVEL_LABEL.ielts_simplified}</option>
+            <option value="olevel">{LEVEL_LABEL.olevel}</option>
+          </select>
+        </label>
+
+        <label className="block text-sm">
+          <span className="text-xs text-gray-500">
+            paperId (可选 — 留空则用现有题库自动生成)
+          </span>
+          <input
+            type="text"
+            value={paperId}
+            onChange={(e) => setPaperId(e.target.value)}
+            className="border rounded px-2 py-1 w-full mt-1 font-mono text-xs"
+            placeholder="paper UUID"
+          />
+        </label>
+
+        {err && <div className="text-sm text-rose-700">{err}</div>}
+
+        <div className="flex justify-end gap-2 pt-2">
+          <button className="btn" onClick={onClose} disabled={busy}>
+            取消
+          </button>
+          <button className="btn btn-primary" onClick={handleCreate} disabled={busy}>
+            {busy ? '创建中…' : '创建 session'}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/** Monday of the calendar week containing today (Sun→prev Mon, Mon→same day). */
+function currentMondayIso(): string {
+  const d = new Date();
+  const dow = d.getDay(); // Sun=0, Mon=1
+  const daysSinceMon = dow === 0 ? 6 : dow - 1;
+  d.setDate(d.getDate() - daysSinceMon);
+  return d.toISOString().slice(0, 10);
+}
+
 function addDays(iso: string, n: number): string {
-  const [y, m, d] = iso.split('-').map(Number);
-  // Anchor at noon UTC to dodge DST / UTC-boundary edge cases.
-  const dt = new Date(Date.UTC(y, m - 1, d, 12, 0, 0));
-  dt.setUTCDate(dt.getUTCDate() + n);
-  return cnDateISO(dt);
+  const d = new Date(iso);
+  d.setDate(d.getDate() + n);
+  return d.toISOString().slice(0, 10);
 }
 
 /** Export-attendance button used in the page header. Lazy-instantiates

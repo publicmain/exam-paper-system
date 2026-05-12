@@ -70,7 +70,16 @@ type EventName =
   // F2: paper auto-released because the teacher didn't act before Monday 06:30
   | 'morning_quiz_auto_released'
   // Bug 4: daily safety-net cron generated today's missing sessions
-  | 'morning_quiz_daily_fallback';
+  | 'morning_quiz_daily_fallback'
+  // F3: student-facing "your score is out" — fires from both
+  // student.finalSubmit (synchronous grade path) and morning-quiz.cron
+  // lockOne (auto-submit-at-9:00 path). Deduped per-submission via a
+  // NotificationLog lookup on payload->>'submissionId'.
+  | 'score_ready'
+  // F4: projector-died / mass-absence guard — fires from morning-quiz.cron
+  // lockOne when a roster of >=5 has >=90% no-shows, so the teacher
+  // gets pinged instead of silently marking everyone absent.
+  | 'mass_absence';
 
 /**
  * Notification dispatch surface.

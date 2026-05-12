@@ -7,6 +7,48 @@ import { PrismaService } from '../common/prisma.service';
 export class AuthService {
   constructor(private readonly prisma: PrismaService, private readonly jwt: JwtService) {}
 
+  /**
+   * F14 — parent-token verify. Distinct from `login` — no password,
+   * no JWT. Caller passes the 32-char ParentLink.token and receives a
+   * { ok, studentId, parentLabel } envelope plus a refreshed
+   * lastAccessAt timestamp. Used by the parent-portal frontend to
+   * pre-check a stored token before hitting /parent/portal.
+   *
+   * On failure: throws UnauthorizedException with a structured code
+   * so the frontend can show a precise message ("link revoked",
+   * "link not found") rather than a generic 401.
+   */
+  async verifyParentToken(token: string) {
+    if (!token || token.length < 16 || token.length > 128) {
+      throw new UnauthorizedException({ code: 'invalid_parent_token' });
+    }
+    const prismaAny: any = this.prisma;
+    const link = await prismaAny.parentLink
+      .findUnique({
+        where: { token },
+        include: { student: { select: { id: true, name: true } } },
+      })
+      .catch(() => null);
+    if (!link) throw new UnauthorizedException({ code: 'invalid_parent_token' });
+    if (link.revokedAt) {
+      throw new UnauthorizedException({ code: 'parent_token_revoked' });
+    }
+    try {
+      await prismaAny.parentLink.update({
+        where: { id: link.id },
+        data: { lastAccessAt: new Date() },
+      });
+    } catch {
+      /* schema lag — ignore */
+    }
+    return {
+      ok: true,
+      studentId: link.studentId,
+      studentName: link.student?.name ?? null,
+      parentLabel: link.parentLabel ?? null,
+    };
+  }
+
   async login(email: string, password: string) {
     const user = await this.prisma.user.findUnique({ where: { email } });
     if (!user) throw new UnauthorizedException('Invalid credentials');

@@ -3,6 +3,7 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { api } from '../lib/api';
 import { MathHtml } from '../components/MathHtml';
 import { AuthImage } from '../components/AuthImage';
+import RetractQuestionModal from '../components/RetractQuestionModal';
 
 /**
  * Marker script page. Per-submission view: each structured Q with the
@@ -20,6 +21,11 @@ export default function MarkerScriptPage() {
   const [edits, setEdits] = useState<
     Record<string, { awardedMarks: string; markerComment: string }>
   >({});
+  // ROUND 14 — Feature 15: question retraction modal target + local
+  // optimistic "已作废" overlay keyed by paperQuestionId so the banner
+  // appears before a reload completes.
+  const [retracting, setRetracting] = useState<{ pqId: string; label: string } | null>(null);
+  const [localRetracted, setLocalRetracted] = useState<Record<string, string>>({});
 
   const fetchToken = () => localStorage.getItem('auth_token');
 
@@ -216,10 +222,16 @@ export default function MarkerScriptPage() {
         const content = pq.snapshotContent ?? {};
         const opts = pq.snapshotOptions ?? pq.question?.options;
         const v = script ? edits[script.id] ?? { awardedMarks: '', markerComment: '' } : null;
+        // ROUND 14 — Feature 15: question retraction state. Server-side
+        // `retractedAt` / `retractedReason` if present win; local optimistic
+        // state from this session also counts.
+        const retractedReason: string | null =
+          pq.retractedReason ?? localRetracted[pq.id] ?? null;
+        const isRetracted = !!retractedReason || !!pq.retractedAt;
 
         return (
           <div key={pq.id} className="card">
-            <div className="flex items-center gap-2 mb-2">
+            <div className="flex items-center gap-2 mb-2 flex-wrap">
               <span className="font-bold">Q{i + 1}.</span>
               <span className="badge">{qType}</span>
               <span className="badge">[{pq.marks} marks]</span>
@@ -231,7 +243,22 @@ export default function MarkerScriptPage() {
               {script?.awardedMarks != null && (
                 <span className="badge bg-blue-100">awarded: {script.awardedMarks}</span>
               )}
+              {!isRetracted && paper?.id && (
+                <button
+                  type="button"
+                  className="ml-auto text-xs text-rose-600 hover:text-rose-800 hover:underline"
+                  onClick={() => setRetracting({ pqId: pq.id, label: `Q${i + 1}` })}
+                  title="作废此题 — 给所有学生加满分或仅标记无效"
+                >
+                  🚫 作废此题
+                </button>
+              )}
             </div>
+            {isRetracted && (
+              <div className="mb-2 px-3 py-2 bg-rose-50 border border-rose-300 text-rose-800 rounded text-sm">
+                已作废: {retractedReason ?? '(无原因记录)'} · 该题不再计分
+              </div>
+            )}
             <div className="text-sm">
               <MathHtml source={content.stem ?? ''} />
             </div>
@@ -291,7 +318,7 @@ export default function MarkerScriptPage() {
                     step="0.5"
                     className="border rounded px-2 py-1 w-24 text-sm"
                     value={v?.awardedMarks ?? ''}
-                    disabled={!myClaim || status !== 'submitted'}
+                    disabled={!myClaim || status !== 'submitted' || isRetracted}
                     onChange={(e) =>
                       setEdits((prev) => ({
                         ...prev,
@@ -306,7 +333,7 @@ export default function MarkerScriptPage() {
                   placeholder="Marker comment (optional)"
                   rows={3}
                   value={v?.markerComment ?? ''}
-                  disabled={!myClaim || status !== 'submitted'}
+                  disabled={!myClaim || status !== 'submitted' || isRetracted}
                   onChange={(e) =>
                     setEdits((prev) => ({
                       ...prev,
@@ -317,7 +344,7 @@ export default function MarkerScriptPage() {
                 <div>
                   <button
                     className="btn btn-primary"
-                    disabled={!myClaim || status !== 'submitted' || busy === script.id}
+                    disabled={!myClaim || status !== 'submitted' || busy === script.id || isRetracted}
                     onClick={() => saveScript(script.id)}
                   >
                     {busy === script.id ? 'Saving…' : 'Save score'}
@@ -328,6 +355,22 @@ export default function MarkerScriptPage() {
           </div>
         );
       })}
+
+      {/* ROUND 14 — Feature 15: question retraction modal */}
+      {retracting && paper?.id && (
+        <RetractQuestionModal
+          paperId={paper.id}
+          paperQuestionId={retracting.pqId}
+          questionLabel={retracting.label}
+          onClose={() => setRetracting(null)}
+          onDone={(r) => {
+            setLocalRetracted((prev) => ({ ...prev, [retracting.pqId]: r.reason }));
+            // Reload async so server-side retractedReason replaces the
+            // optimistic local one once persisted.
+            load();
+          }}
+        />
+      )}
     </div>
   );
 }

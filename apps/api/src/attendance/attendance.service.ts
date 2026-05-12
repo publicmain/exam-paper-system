@@ -308,20 +308,25 @@ export class AttendanceService {
       where: { id: paperId },
       select: { totalMarksActual: true },
     });
-    const submission = await this.prisma.studentSubmission.upsert({
+    // R14 — upsert via findFirst+create/update since @@unique was dropped
+    // for practice-mode coexistence. Non-practice subs are uniquely keyed
+    // by (assignmentId, studentId, status!='practice') by service invariant.
+    let submission = await this.prisma.studentSubmission.findFirst({
       where: {
-        assignmentId_studentId: {
-          assignmentId: session.paperAssignmentId,
-          studentId,
-        },
-      },
-      create: {
         assignmentId: session.paperAssignmentId,
         studentId,
-        maxScore: paperForMax?.totalMarksActual ?? 0,
+        status: { not: 'practice' },
       },
-      update: {},
     });
+    if (!submission) {
+      submission = await this.prisma.studentSubmission.create({
+        data: {
+          assignmentId: session.paperAssignmentId,
+          studentId,
+          maxScore: paperForMax?.totalMarksActual ?? 0,
+        },
+      });
+    }
 
     if (attendance.submissionId !== submission.id) {
       await this.prisma.attendance.update({
@@ -434,20 +439,23 @@ export class AttendanceService {
         }))?.paperId ?? '' },
         select: { totalMarksActual: true },
       });
-      const submission = await this.prisma.studentSubmission.upsert({
+      // R14 — see attendance.service.ts:scanQr for the @@unique-drop note
+      let submission = await this.prisma.studentSubmission.findFirst({
         where: {
-          assignmentId_studentId: {
-            assignmentId: session.paperAssignmentId,
-            studentId: body.studentId,
-          },
-        },
-        create: {
           assignmentId: session.paperAssignmentId,
           studentId: body.studentId,
-          maxScore: paperForMax?.totalMarksActual ?? 0,
+          status: { not: 'practice' },
         },
-        update: {},
       });
+      if (!submission) {
+        submission = await this.prisma.studentSubmission.create({
+          data: {
+            assignmentId: session.paperAssignmentId,
+            studentId: body.studentId,
+            maxScore: paperForMax?.totalMarksActual ?? 0,
+          },
+        });
+      }
       await this.prisma.attendance.update({
         where: { id: after.id },
         data: { submissionId: submission.id },
@@ -466,6 +474,43 @@ export class AttendanceService {
     });
 
     return after;
+  }
+
+  /**
+   * F7 — bulk variant of `correct`. Iterates the same single-row logic
+   * sequentially (not Promise.all) so a partial failure leaves a
+   * deterministic prefix of successful rows and a per-row `errors[]`
+   * for the failed ones. Returns `{ corrected: number, errors: [...] }`.
+   * Each row reuses `correct()` (including its own audit log + class
+   * ownership check) — duplicating that logic would risk drift.
+   */
+  async correctBulk(
+    body: { sessionId: string; studentIds: string[]; status: AttendanceStatus; note: string },
+    actor: ActorCtx,
+  ) {
+    let corrected = 0;
+    const errors: Array<{ studentId: string; reason: string }> = [];
+    for (const studentId of body.studentIds) {
+      try {
+        await this.correct(
+          {
+            sessionId: body.sessionId,
+            studentId,
+            status: body.status,
+            note: body.note,
+          },
+          actor,
+        );
+        corrected += 1;
+      } catch (e: any) {
+        const reason =
+          typeof e?.response === 'object' && e?.response?.code
+            ? e.response.code
+            : e?.message ?? 'unknown_error';
+        errors.push({ studentId, reason });
+      }
+    }
+    return { corrected, errors };
   }
 
   async historyForClass(actor: ActorCtx, classId: string, from?: Date, to?: Date) {

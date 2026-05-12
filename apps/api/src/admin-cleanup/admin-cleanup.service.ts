@@ -1,4 +1,5 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, NotFoundException } from '@nestjs/common';
+import { AuditService } from '../audit/audit.service';
 import { PrismaService } from '../common/prisma.service';
 
 /**
@@ -19,7 +20,156 @@ import { PrismaService } from '../common/prisma.service';
 @Injectable()
 export class AdminCleanupService {
   private readonly logger = new Logger('AdminCleanupService');
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly audit: AuditService,
+  ) {}
+
+  /**
+   * F6 — soft-delete a Class. Sets `archivedAt = now()` on the class
+   * row; downstream consumers (enrollment listings, scan rosters)
+   * filter `archivedAt IS NULL` by default. Reversible via
+   * `restoreClass()`. This is what the admin "delete class" button now
+   * does — `hardDeleteClass()` is kept for the "I really want it gone"
+   * second-confirmation path.
+   *
+   * Class.archivedAt is a new column added by Wave-2 Schema team;
+   * accessed via `(this.prisma as any)` so this file typechecks even
+   * if the generated client hasn't been regenerated locally yet.
+   */
+  async softDeleteClass(classId: string, actor: { id: string; role: string; ip?: string | null }) {
+    const cls = await this.prisma.class.findUnique({ where: { id: classId } });
+    if (!cls) throw new NotFoundException({ code: 'class_not_found' });
+    const clsAny: any = cls;
+    if (clsAny.archivedAt) {
+      // Idempotent — re-archiving an already-archived class is a no-op.
+      return { ok: true, id: classId, alreadyArchived: true };
+    }
+    const updated = await (this.prisma.class as any).update({
+      where: { id: classId },
+      data: { archivedAt: new Date() },
+    });
+    await this.audit.log({
+      actorId: actor.id,
+      actorRole: actor.role,
+      action: 'class.archive',
+      entityType: 'Class',
+      entityId: classId,
+      ip: actor.ip ?? null,
+      metadata: { name: cls.name, classCode: cls.classCode },
+    });
+    return { ok: true, id: classId, archivedAt: updated.archivedAt };
+  }
+
+  /** F6 — soft-delete a Paper. See softDeleteClass for the rationale. */
+  async softDeletePaper(paperId: string, actor: { id: string; role: string; ip?: string | null }) {
+    const paper = await this.prisma.paper.findUnique({ where: { id: paperId } });
+    if (!paper) throw new NotFoundException({ code: 'paper_not_found' });
+    const paperAny: any = paper;
+    if (paperAny.archivedAt) {
+      return { ok: true, id: paperId, alreadyArchived: true };
+    }
+    const updated = await (this.prisma.paper as any).update({
+      where: { id: paperId },
+      data: { archivedAt: new Date() },
+    });
+    await this.audit.log({
+      actorId: actor.id,
+      actorRole: actor.role,
+      action: 'paper.archive',
+      entityType: 'Paper',
+      entityId: paperId,
+      ip: actor.ip ?? null,
+      metadata: { name: paper.name },
+    });
+    return { ok: true, id: paperId, archivedAt: updated.archivedAt };
+  }
+
+  /** F6 — restore a soft-archived Class. */
+  async restoreClass(classId: string, actor: { id: string; role: string; ip?: string | null }) {
+    const cls = await this.prisma.class.findUnique({ where: { id: classId } });
+    if (!cls) throw new NotFoundException({ code: 'class_not_found' });
+    const clsAny: any = cls;
+    if (!clsAny.archivedAt) {
+      return { ok: true, id: classId, notArchived: true };
+    }
+    await (this.prisma.class as any).update({
+      where: { id: classId },
+      data: { archivedAt: null },
+    });
+    await this.audit.log({
+      actorId: actor.id,
+      actorRole: actor.role,
+      action: 'class.restore',
+      entityType: 'Class',
+      entityId: classId,
+      ip: actor.ip ?? null,
+      metadata: { name: cls.name, previouslyArchivedAt: clsAny.archivedAt },
+    });
+    return { ok: true, id: classId };
+  }
+
+  /** F6 — restore a soft-archived Paper. */
+  async restorePaper(paperId: string, actor: { id: string; role: string; ip?: string | null }) {
+    const paper = await this.prisma.paper.findUnique({ where: { id: paperId } });
+    if (!paper) throw new NotFoundException({ code: 'paper_not_found' });
+    const paperAny: any = paper;
+    if (!paperAny.archivedAt) {
+      return { ok: true, id: paperId, notArchived: true };
+    }
+    await (this.prisma.paper as any).update({
+      where: { id: paperId },
+      data: { archivedAt: null },
+    });
+    await this.audit.log({
+      actorId: actor.id,
+      actorRole: actor.role,
+      action: 'paper.restore',
+      entityType: 'Paper',
+      entityId: paperId,
+      ip: actor.ip ?? null,
+      metadata: { name: paper.name, previouslyArchivedAt: paperAny.archivedAt },
+    });
+    return { ok: true, id: paperId };
+  }
+
+  /**
+   * F6 — hard-delete a single Class. Cascades per the baseline FK
+   * config (see `remove()` in ClassesService for the same behaviour).
+   * Behind a "second confirmation" UI button only.
+   */
+  async hardDeleteClass(classId: string, actor: { id: string; role: string; ip?: string | null }) {
+    const cls = await this.prisma.class.findUnique({ where: { id: classId } });
+    if (!cls) throw new NotFoundException({ code: 'class_not_found' });
+    await this.prisma.class.delete({ where: { id: classId } });
+    await this.audit.log({
+      actorId: actor.id,
+      actorRole: actor.role,
+      action: 'class.hard_delete',
+      entityType: 'Class',
+      entityId: classId,
+      ip: actor.ip ?? null,
+      metadata: { name: cls.name, classCode: cls.classCode },
+    });
+    return { ok: true, id: classId, deleted: true };
+  }
+
+  /** F6 — hard-delete a single Paper (Paper.archivedAt aside). */
+  async hardDeletePaper(paperId: string, actor: { id: string; role: string; ip?: string | null }) {
+    const paper = await this.prisma.paper.findUnique({ where: { id: paperId } });
+    if (!paper) throw new NotFoundException({ code: 'paper_not_found' });
+    await this.prisma.paper.delete({ where: { id: paperId } });
+    await this.audit.log({
+      actorId: actor.id,
+      actorRole: actor.role,
+      action: 'paper.hard_delete',
+      entityType: 'Paper',
+      entityId: paperId,
+      ip: actor.ip ?? null,
+      metadata: { name: paper.name },
+    });
+    return { ok: true, id: paperId, deleted: true };
+  }
 
   async fixReplacementChars() {
     // Postgres lets us match the U+FFFD code point with E'\\uFFFD'.

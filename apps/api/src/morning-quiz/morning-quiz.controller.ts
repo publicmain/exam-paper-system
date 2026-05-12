@@ -736,6 +736,246 @@ export class MorningQuizController {
     return this.svc.getStudentResult(session.id, sub.studentId);
   }
 
+  // ─────────────────── F2 — Today's upcoming quiz by name ───────────────────
+
+  /**
+   * Wave-2 F2 — public lookup of upcoming morning-quiz sessions for one
+   * named student. IP-gated + rate-limited, same shape as
+   * /history-by-name (incl. same-name disambig flow). Used by the
+   * student-portal landing page to show "your next quiz is in
+   * <class> at 08:30".
+   */
+  @Public()
+  @UseGuards(IpAllowlistGuard)
+  @RateLimit({ limit: HISTORY_RATE_LIMIT.limit, windowSec: HISTORY_RATE_LIMIT.windowSec, scope: 'ip' })
+  @Get('upcoming-for-name')
+  async upcomingForName(
+    @Query('name') rawName?: string,
+    @Query('studentId') studentId?: string,
+  ) {
+    return this.svc.upcomingForName(rawName ?? '', studentId);
+  }
+
+  // ─────────────────── F10 — AI-grade appeals ───────────────────
+
+  /** Public — student files an appeal against an AI-graded item.
+   *  IP-gated + rate-limited (5/60s). Name+studentId disambig matches
+   *  /history-by-name. */
+  @Public()
+  @UseGuards(IpAllowlistGuard)
+  @RateLimit({ limit: 5, windowSec: 60, scope: 'ip' })
+  @Post('appeals')
+  async createAppeal(@Body() body: unknown, @Req() req: Request) {
+    const schema = z.object({
+      submissionId: z.string().min(1),
+      paperQuestionId: z.string().optional(),
+      message: z.string().min(1).max(4000),
+      studentName: z.string().min(1).max(50),
+      studentId: z.string().optional(),
+    });
+    const parsed = schema.safeParse(body);
+    if (!parsed.success) throw new BadRequestException(parsed.error.flatten());
+    return this.svc.createAppeal(parsed.data, req.ip ?? null);
+  }
+
+  /** Teacher / head_teacher / admin — paginated appeal queue. */
+  @Get('appeals')
+  async listAppeals(
+    @Query('status') status: string | undefined,
+    @Query('classId') classId: string | undefined,
+    @Query('page') page: string | undefined,
+    @Query('pageSize') pageSize: string | undefined,
+    @CurrentUser() user: any,
+    @Req() req: Request,
+  ) {
+    return this.svc.listAppeals(
+      { id: user.id, role: user.role, ip: req.ip ?? null },
+      {
+        status,
+        classId,
+        page: page ? parseInt(page, 10) : undefined,
+        pageSize: pageSize ? parseInt(pageSize, 10) : undefined,
+      },
+    );
+  }
+
+  /** Teacher / head_teacher / admin — accept or reject an appeal. */
+  @Post('appeals/:id/resolve')
+  async resolveAppeal(
+    @Param('id') id: string,
+    @Body() body: unknown,
+    @CurrentUser() user: any,
+    @Req() req: Request,
+  ) {
+    const schema = z.object({
+      accept: z.boolean(),
+      note: z.string().max(4000).optional(),
+      scoreOverride: z.number().nullable().optional(),
+      paperQuestionId: z.string().optional(),
+    });
+    const parsed = schema.safeParse(body);
+    if (!parsed.success) throw new BadRequestException(parsed.error.flatten());
+    return this.svc.resolveAppeal(
+      id,
+      { id: user.id, role: user.role, ip: req.ip ?? null },
+      {
+        accept: parsed.data.accept,
+        note: parsed.data.note,
+        scoreOverride: parsed.data.scoreOverride ?? null,
+        paperQuestionId: parsed.data.paperQuestionId,
+      },
+    );
+  }
+
+  // ─────────────────── F13 — Fuzzy student search ───────────────────
+
+  /** Teacher / head_teacher / admin — case-insensitive substring match
+   *  on User.name + User.email within one class. ASCII for now; pinyin
+   *  via opencc / pinyin-pro is deferred to a follow-up. */
+  @Get('classes/:classId/students/search')
+  async searchStudents(
+    @Param('classId') classId: string,
+    @Query('q') q: string | undefined,
+    @CurrentUser() user: any,
+    @Req() req: Request,
+  ) {
+    return this.svc.searchStudentsInClass(classId, q ?? '', {
+      id: user.id,
+      role: user.role,
+      ip: req.ip ?? null,
+    });
+  }
+
+  // ─────────────────── F15 — Question retraction ───────────────────
+
+  /** Teacher / head_teacher / admin — mark a paper question retracted.
+   *  If awardAllStudents=true, also rewrite every existing submission's
+   *  script for this question to full marks and recompute autoScore. */
+  @Post('papers/:paperId/retract-question')
+  async retractQuestion(
+    @Param('paperId') paperId: string,
+    @Body() body: unknown,
+    @CurrentUser() user: any,
+    @Req() req: Request,
+  ) {
+    const schema = z.object({
+      paperQuestionId: z.string().min(1),
+      reason: z.string().min(1).max(1000),
+      awardAllStudents: z.boolean(),
+    });
+    const parsed = schema.safeParse(body);
+    if (!parsed.success) throw new BadRequestException(parsed.error.flatten());
+    return this.svc.retractQuestion(paperId, parsed.data, {
+      id: user.id,
+      role: user.role,
+      ip: req.ip ?? null,
+    });
+  }
+
+  // ─────────────────── F16 — Practice mode ───────────────────
+
+  /** Public — start a fresh practice attempt from an old submission.
+   *  IP-gated + rate-limited; name+studentId scoped. */
+  @Public()
+  @UseGuards(IpAllowlistGuard)
+  @RateLimit({ limit: HISTORY_RATE_LIMIT.limit, windowSec: HISTORY_RATE_LIMIT.windowSec, scope: 'ip' })
+  @Post('practice/:submissionId')
+  async startPractice(
+    @Param('submissionId') submissionId: string,
+    @Body() body: unknown,
+    @Req() req: Request,
+  ) {
+    const schema = z.object({
+      studentName: z.string().min(1).max(50),
+      studentId: z.string().optional(),
+    });
+    const parsed = schema.safeParse(body);
+    if (!parsed.success) throw new BadRequestException(parsed.error.flatten());
+    return this.svc.startPractice(submissionId, parsed.data, req.ip ?? null);
+  }
+
+  /** Public — fetch a practice paper for replay. IP-gated +
+   *  rate-limited; name+studentId scoped. Body via Query for GET. */
+  @Public()
+  @UseGuards(IpAllowlistGuard)
+  @RateLimit({ limit: HISTORY_RATE_LIMIT.limit, windowSec: HISTORY_RATE_LIMIT.windowSec, scope: 'ip' })
+  @Get('practice/:practiceSubmissionId')
+  async getPractice(
+    @Param('practiceSubmissionId') practiceSubmissionId: string,
+    @Query('name') name: string | undefined,
+    @Query('studentId') studentId: string | undefined,
+  ) {
+    if (!name) throw new BadRequestException({ code: 'name_required' });
+    return this.svc.getPractice(practiceSubmissionId, {
+      studentName: name,
+      studentId,
+    });
+  }
+
+  /** Public — submit a practice attempt. Saves answers + auto-grades
+   *  but DOES NOT mark the submission as 'submitted' or fire
+   *  score_ready. Stats endpoints exclude status='practice'. */
+  @Public()
+  @UseGuards(IpAllowlistGuard)
+  @RateLimit({ limit: HISTORY_RATE_LIMIT.limit, windowSec: HISTORY_RATE_LIMIT.windowSec, scope: 'ip' })
+  @Post('practice/:practiceSubmissionId/submit')
+  async submitPractice(
+    @Param('practiceSubmissionId') practiceSubmissionId: string,
+    @Body() body: unknown,
+    @Req() req: Request,
+  ) {
+    const schema = z.object({
+      studentName: z.string().min(1).max(50),
+      studentId: z.string().optional(),
+      answers: z
+        .array(
+          z.object({
+            paperQuestionId: z.string().min(1),
+            selectedOption: z.string().max(2).nullable().optional(),
+            textAnswer: z.string().max(20000).nullable().optional(),
+          }),
+        )
+        .max(200),
+    });
+    const parsed = schema.safeParse(body);
+    if (!parsed.success) throw new BadRequestException(parsed.error.flatten());
+    return this.svc.submitPractice(practiceSubmissionId, parsed.data, req.ip ?? null);
+  }
+
+  // ─────────────────── F17 — Score trend ───────────────────
+
+  /** Public — N-week trend of avg score per (week, level) for one student.
+   *  IP-gated + rate-limited; reuses /history-by-name disambig. */
+  @Public()
+  @UseGuards(IpAllowlistGuard)
+  @RateLimit({ limit: HISTORY_RATE_LIMIT.limit, windowSec: HISTORY_RATE_LIMIT.windowSec, scope: 'ip' })
+  @Get('history-by-name/trend')
+  async historyTrend(
+    @Query('name') name: string | undefined,
+    @Query('studentId') studentId: string | undefined,
+    @Query('weeks') weeks: string | undefined,
+  ) {
+    const w = weeks ? parseInt(weeks, 10) : undefined;
+    return this.svc.historyTrendByName(name ?? '', studentId, w);
+  }
+
+  // ─────────────────── F18 — Wrong-rate stats ───────────────────
+
+  /** Teacher / head_teacher / admin — per-question wrong rate for one
+   *  paper. Excludes practice submissions. */
+  @Get('papers/:paperId/wrong-rate')
+  async paperWrongRate(
+    @Param('paperId') paperId: string,
+    @CurrentUser() user: any,
+    @Req() req: Request,
+  ) {
+    return this.svc.paperWrongRate(paperId, {
+      id: user.id,
+      role: user.role,
+      ip: req.ip ?? null,
+    });
+  }
+
   // ─────────────────── Class English level (admin) ───────────────────
 
   @Patch('classes/:classId/english-level')

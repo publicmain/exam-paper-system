@@ -11,9 +11,14 @@ export class PapersService {
     private readonly generation: GenerationService,
   ) {}
 
-  list(userId: string) {
+  list(userId: string, opts: { archived?: boolean } = {}) {
+    // R14 F6 — archived=true returns the soft-delete bin; default false
+    // returns only active (archivedAt IS NULL) papers.
+    const archivedFilter = opts.archived
+      ? { archivedAt: { not: null } }
+      : { archivedAt: null };
     return this.prisma.paper.findMany({
-      where: { ownerId: userId },
+      where: { ownerId: userId, ...archivedFilter },
       include: { subject: true, component: true, _count: { select: { questions: true } } },
       orderBy: { updatedAt: 'desc' },
     });

@@ -43,6 +43,15 @@ interface SessionView {
     snapshotContent: any;
     snapshotOptions: Array<{ key: string; text: string }> | null;
   }>;
+  // F1 — resume-on-different-device. The server-side answer rows are now
+  // included in the session GET so a student who switched from phone to
+  // laptop mid-quiz (or refreshed and lost their localStorage cache) sees
+  // their work waiting. Optional because backend roll-out is staged — old
+  // payloads simply omit the field and we fall back to local cache only.
+  existingAnswers?: Record<
+    string,
+    { content?: string; selectedOption?: string; textAnswer?: string; flagged?: boolean }
+  >;
 }
 
 export default function MorningQuizTake() {
@@ -188,8 +197,39 @@ export default function MorningQuizTake() {
   // shouldn't happen with the same deploy, but stays graceful).
   const mode: 'practice' | 'test' = view.mode ?? urlMode;
 
+  // F1 — normalise backend's `existingAnswers` (keyed by paperQuestionId,
+  // value carries `content` for mcq/short_answer plus a `flagged` bool)
+  // into the {selectedOption, textAnswer} shape ExamProvider expects. The
+  // server might send `content` (legacy single-field) or already split
+  // {selectedOption, textAnswer}; handle both.
+  const initialAnswers: Record<string, { selectedOption?: string; textAnswer?: string }> = {};
+  if (view.existingAnswers) {
+    for (const [qid, raw] of Object.entries(view.existingAnswers)) {
+      if (!raw) continue;
+      const qMeta = view.paperQuestions.find((q) => q.id === qid);
+      if (raw.selectedOption || raw.textAnswer) {
+        initialAnswers[qid] = {
+          selectedOption: raw.selectedOption,
+          textAnswer: raw.textAnswer,
+        };
+      } else if (raw.content != null) {
+        // Single-field `content` — route by questionType.
+        if (qMeta?.questionType === 'mcq') {
+          initialAnswers[qid] = { selectedOption: String(raw.content) };
+        } else {
+          initialAnswers[qid] = { textAnswer: String(raw.content) };
+        }
+      }
+    }
+  }
+
   return (
-    <ExamProvider sessionId={view.sessionId} mode={mode} onPersistAnswer={persistAnswer}>
+    <ExamProvider
+      sessionId={view.sessionId}
+      mode={mode}
+      onPersistAnswer={persistAnswer}
+      initialAnswers={initialAnswers}
+    >
       <PaperHost view={view} mode={mode} submitted={submitted} onSubmit={handleSubmit} />
     </ExamProvider>
   );

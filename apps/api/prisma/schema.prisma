@@ -30,6 +30,10 @@ model User {
   isActive     Boolean   @default(true)
   createdAt    DateTime  @default(now())
   lastLogin    DateTime?
+  // R14 — Feature 12: soft-archive a student (or any user) without
+  // deleting the row. Login + roster queries filter `archivedAt IS NULL`
+  // by default; admin can un-archive by clearing the column.
+  archivedAt   DateTime?
 
   questionsCreated             Question[]               @relation("QuestionCreator")
   templatesOwned               PaperTemplate[]
@@ -52,22 +56,33 @@ model User {
   attendances                  Attendance[]             @relation("AttendanceStudent")
   attendancesCorrected         Attendance[]             @relation("AttendanceCorrectedBy")
   shuffleMaps                  QuestionShuffleMap[]     @relation("ShuffleMapStudent")
+  // R14 back-relations — Features 10, 12, 14, 15
+  appealsReviewed              GradeAppeal[]            @relation("AppealReviewer")
+  classTransfers               ClassTransferLog[]       @relation("TransferStudent")
+  classTransfersActed          ClassTransferLog[]       @relation("TransferActor")
+  parentLinks                  ParentLink[]             @relation("ParentLinkStudent")
+  parentLinksCreated           ParentLink[]             @relation("ParentLinkCreator")
+  questionRetractions          QuestionRetraction[]     @relation("RetractionActor")
 }
 
 // ============================================================
 // Block 1: Student-side — classes, assignments, submissions
 // ============================================================
 model Class {
-  id        String   @id @default(cuid())
-  name      String // "Form 5B", "IAL26S1"
-  classCode String   @unique // short join code, e.g. "FORM5B"
+  id         String    @id @default(cuid())
+  name       String // "Form 5B", "IAL26S1"
+  classCode  String    @unique // short join code, e.g. "FORM5B"
   // B3-H4 removed: the previous `level String?` field collided with
   // ClassEnglishLevel.level (the actually-load-bearing morning-quiz
   // enum) and was never read by any logic. ClassEnglishLevel is the
   // single source of truth for class proficiency. If a future feature
   // needs a non-English course-level, add it as a separate field.
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+  // R14 — Feature 6: class soft-delete. Listing endpoints filter
+  // `archivedAt IS NULL` by default so an archived class disappears
+  // from teacher rosters without breaking historical enrolments / papers.
+  archivedAt DateTime?
 
   // F5: per-class teacher-supplied "weekly focus" string. The AI quick-
   // paper prompt picks this up so generated questions emphasise the
@@ -83,6 +98,9 @@ model Class {
   // R10 — multi-level: was englishLevel ClassEnglishLevel? (1:1).
   // A class can now register multiple difficulty bands at once.
   englishLevels       ClassEnglishLevel[]
+  // R14 — Feature 12: class-transfer audit trail back-relations.
+  transfersFrom       ClassTransferLog[]   @relation("TransferFrom")
+  transfersTo         ClassTransferLog[]   @relation("TransferTo")
 }
 
 model ClassEnrollment {
@@ -154,8 +172,18 @@ model StudentSubmission {
   tutorSessions     TutorSession[]
   // Morning quiz back-relation (1:1 optional)
   attendance        Attendance?
+  // R14 — Feature 10: appeals filed against this submission.
+  appeals           GradeAppeal[]
 
-  @@unique([assignmentId, studentId])
+  // R14 — Feature 16 (practice mode): the original `@@unique([assignmentId,
+  // studentId])` blocked a student from having a `practice` submission
+  // alongside their real `submitted` submission for the same paper.
+  // Postgres unique indexes can't have a WHERE filter via Prisma schema,
+  // so we drop the constraint and enforce non-practice uniqueness at the
+  // service-layer (`student.service.finalSubmit` + the assign-paper flow
+  // already do `findFirst` before creating). Practice subs are written
+  // freely and are filtered out everywhere by `status != 'practice'`.
+  @@index([assignmentId, studentId])
   @@index([studentId])
   // Round-7 H17 (agent-3 D9): MarkerService.listQueue filters by
   // `status='submitted'` AND has-ungraded-script. Without (assignmentId,
@@ -469,8 +497,12 @@ model Paper {
   qaTeacherActionAt DateTime?
   qaTeacherActionBy String?
 
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+  // R14 — Feature 6: paper soft-delete. Listing endpoints filter
+  // `archivedAt IS NULL`; archived papers remain reachable for audit /
+  // re-issue but stop appearing in normal teacher browse views.
+  archivedAt DateTime?
 
   questions       PaperQuestion[]
   versions        PaperVersion[]
@@ -509,6 +541,10 @@ model PaperQuestion {
   scripts       AnswerScript[]
   // Path-B back-relations
   tutorSessions TutorSession[]
+  // R14 — Feature 10: per-question appeals.
+  appeals       GradeAppeal[]
+  // R14 — Feature 15: retraction (1:1 optional).
+  retraction    QuestionRetraction?
 
   @@index([paperId, sortOrder])
 }
@@ -1384,9 +1420,9 @@ enum AttendanceSource {
 }
 
 enum EnglishLevel {
-  ielts_authentic   // Cambridge IELTS authentic past papers (passage_pick)
-  ielts_simplified  // simplified-IELTS for OLEVEL+ students (AI-generated, lower-vocab)
-  olevel            // CIE 1123 OLEVEL English (AI-generated)
+  ielts_authentic // Cambridge IELTS authentic past papers (passage_pick)
+  ielts_simplified // simplified-IELTS for OLEVEL+ students (AI-generated, lower-vocab)
+  olevel // CIE 1123 OLEVEL English (AI-generated)
 }
 
 model MorningQuizSession {
@@ -1412,7 +1448,7 @@ model MorningQuizSession {
   // bands per day. The session's level is denormalised here so cron /
   // scheduling don't have to walk through paperAssignment + ClassEnglishLevel
   // to figure out which band an in-flight session belongs to.
-  level             EnglishLevel      @default(ielts_authentic)
+  level EnglishLevel @default(ielts_authentic)
 
   attendances Attendance[]
 
@@ -1487,4 +1523,83 @@ model QuestionShuffleMap {
 
   @@unique([studentId, paperId])
   @@index([paperId])
+}
+
+// ============================================================
+// Round-14 features (Feature 10, 12, 14, 15)
+// ============================================================
+
+// Feature 10 — student disputes an AI-graded result. paperQuestionId
+// null means the appeal targets the entire paper (e.g. "the AI
+// mis-totalled marks") rather than a single answer.
+model GradeAppeal {
+  id              String            @id @default(cuid())
+  submissionId    String
+  submission      StudentSubmission @relation(fields: [submissionId], references: [id], onDelete: Cascade)
+  paperQuestionId String? // null = appeal entire paper
+  paperQuestion   PaperQuestion?    @relation(fields: [paperQuestionId], references: [id], onDelete: SetNull)
+  studentMessage  String            @db.Text
+  status          String            @default("open") // open | accepted | rejected
+  reviewerId      String?
+  reviewer        User?             @relation("AppealReviewer", fields: [reviewerId], references: [id], onDelete: SetNull)
+  reviewerNote    String?           @db.Text
+  reviewedAt      DateTime?
+  createdAt       DateTime          @default(now())
+
+  @@index([submissionId])
+  @@index([status, createdAt])
+}
+
+// Feature 12 — class transfer audit. fromClassId / toClassId both
+// nullable so we can model "student joins for the first time" (no
+// fromClass) and "student leaves the school" (no toClass).
+model ClassTransferLog {
+  id          String   @id @default(cuid())
+  userId      String
+  user        User     @relation("TransferStudent", fields: [userId], references: [id], onDelete: Cascade)
+  fromClassId String?
+  fromClass   Class?   @relation("TransferFrom", fields: [fromClassId], references: [id], onDelete: SetNull)
+  toClassId   String?
+  toClass     Class?   @relation("TransferTo", fields: [toClassId], references: [id], onDelete: SetNull)
+  reason      String?
+  actorId     String
+  actor       User     @relation("TransferActor", fields: [actorId], references: [id])
+  createdAt   DateTime @default(now())
+
+  @@index([userId, createdAt])
+}
+
+// Feature 14 — parent portal access token. A teacher mints a link for
+// a parent (no parent user account exists in the system); the parent
+// uses the token-bearing URL to view their child's progress. revokedAt
+// lets a teacher kill a leaked link without nuking the audit trail.
+model ParentLink {
+  id           String    @id @default(cuid())
+  studentId    String
+  student      User      @relation("ParentLinkStudent", fields: [studentId], references: [id], onDelete: Cascade)
+  token        String    @unique // 32-char URL-safe random
+  parentLabel  String? // e.g. "妈妈" / "Mom"
+  createdAt    DateTime  @default(now())
+  createdById  String
+  createdBy    User      @relation("ParentLinkCreator", fields: [createdById], references: [id])
+  lastAccessAt DateTime?
+  revokedAt    DateTime?
+
+  @@index([studentId, revokedAt])
+  @@index([token])
+}
+
+// Feature 15 — teacher retracts a faulty question from a published
+// paper after students have already submitted. awardAllStudents toggles
+// between "give everyone the marks" (kindest, common for ambiguous
+// stem) and "drop from total" (rescale max marks downward).
+model QuestionRetraction {
+  id               String        @id @default(cuid())
+  paperQuestionId  String        @unique
+  paperQuestion    PaperQuestion @relation(fields: [paperQuestionId], references: [id], onDelete: Cascade)
+  reason           String        @db.Text
+  awardAllStudents Boolean       @default(true) // true: redistribute marks to all; false: drop from total
+  actorId          String
+  actor            User          @relation("RetractionActor", fields: [actorId], references: [id])
+  createdAt        DateTime      @default(now())
 }

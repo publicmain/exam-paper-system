@@ -50,6 +50,7 @@ import { TeacherTodoModule } from './teacher-todo/teacher-todo.module';
 import { IeltsIngestModule } from './ielts-ingest/ielts-ingest.module';
 import { OlevelIngestModule } from './olevel-ingest/olevel-ingest.module';
 import { ContentBootstrapModule } from './bootstrap/content-bootstrap.module';
+import { ParentPortalModule } from './parent-portal/parent-portal.module';
 import { HealthController } from './health.controller';
 
 @Module({
@@ -110,6 +111,11 @@ import { HealthController } from './health.controller';
     // so a fresh prod DB has content before the first weekly-generate
     // runs. Disable via BOOTSTRAP_CONTENT_DISABLED=true.
     ContentBootstrapModule,
+    // F14 — Parent portal. AdminParentLinksController is admin-only and
+    // goes through the global JWT AuthGuard. ParentPortalController is
+    // @Public + ParentAuthGuard, the only off-campus surface in the
+    // system (IpAllowlistGuard intentionally NOT applied).
+    ParentPortalModule,
   ],
   controllers: [HealthController],
   providers: [

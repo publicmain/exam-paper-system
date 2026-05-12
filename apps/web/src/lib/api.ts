@@ -454,6 +454,170 @@ export const api = {
     strict?: boolean,
   ) =>
     request('POST', '/morning-quiz-qa/batch', { action, paperIds, reason, strict }),
+
+  // ============================================================
+  // ROUND 14 — Feature 6, 7, 8, 9, 10, 12, 13, 15, 18 wrappers
+  // (admin/teacher/marker side) + student-side wrappers used by
+  // FE-Student's pages, imported from this same api.ts so both
+  // sub-teams share one client surface.
+  // ============================================================
+
+  // ROUND 14 — Feature 9 (cancel + one-off sessions) — keep aliases
+  // matching the contract names so admin pages can stay terse, while
+  // existing callers using `morningQuizCancelSession` / `morningQuizCreateSession`
+  // continue to work above.
+  cancelMorningQuizSession: (sessionId: string, reason?: string) =>
+    request('PATCH', `/morning-quiz/sessions/${sessionId}/cancel`, { reason }),
+  createMorningQuizSession: (body: {
+    classId: string;
+    date: string;
+    level?: 'ielts_authentic' | 'ielts_simplified' | 'olevel';
+    paperId?: string;
+  }) => request('POST', '/morning-quiz/sessions', body),
+
+  // ROUND 14 — Feature 6 (soft-delete restore)
+  restoreClass: (id: string) => request('POST', `/classes/${id}/restore`),
+  restorePaper: (id: string) => request('POST', `/papers/${id}/restore`),
+  listArchivedClasses: () => request('GET', '/classes?archived=true'),
+  listArchivedPapers: () => request('GET', '/papers?archived=true'),
+
+  // ROUND 14 — Feature 7 (bulk attendance correction)
+  attendanceCorrectBulk: (body: {
+    sessionId: string;
+    studentIds: string[];
+    status: 'on_time' | 'late' | 'absent';
+    note: string;
+  }): Promise<{ corrected: number; errors: Array<{ studentId: string; reason: string }> }> =>
+    request('POST', '/attendance/correct-bulk', body),
+
+  // ROUND 14 — Feature 8 (audit log viewer)
+  auditList: (params: {
+    action?: string;
+    actorId?: string;
+    entityType?: string;
+    entityId?: string;
+    from?: string;
+    to?: string;
+    limit?: number;
+    offset?: number;
+  } = {}): Promise<{ items: any[]; total: number; page: number; pageSize: number }> =>
+    request('GET', `/audit${qs(params)}`),
+
+  // ROUND 14 — Feature 10 (appeal review — marker side)
+  morningQuizListAppeals: (params: { status?: string; classId?: string } = {}) =>
+    request('GET', `/morning-quiz/appeals${qs(params)}`),
+  morningQuizResolveAppeal: (
+    appealId: string,
+    body: {
+      accept: boolean;
+      note?: string;
+      scoreOverride?: number;
+      paperQuestionId?: string;
+    },
+  ) => request('POST', `/morning-quiz/appeals/${appealId}/resolve`, body),
+
+  // ROUND 14 — Feature 10 (appeal submit — student side, used by FE-Student)
+  morningQuizSubmitAppeal: (body: {
+    submissionId: string;
+    paperQuestionId?: string;
+    message: string;
+    studentName: string;
+    studentId?: string;
+  }) => request('POST', '/morning-quiz/appeals', body),
+
+  // ROUND 14 — Feature 12 (transfer / archive students)
+  classTransferStudent: (body: {
+    userId: string;
+    fromClassId: string;
+    toClassId: string;
+    reason?: string;
+  }) => request('POST', '/classes/transfer-student', body),
+  userArchive: (userId: string, body: { reason: string }) =>
+    request('POST', `/admin/users/${userId}/archive`, body),
+  userUnarchive: (userId: string) =>
+    request('POST', `/admin/users/${userId}/unarchive`),
+
+  // ROUND 14 — Feature 13 (roster search). Calls the morning-quiz controller's
+  // student search which substring-matches name+email (case-insensitive)
+  // and filters out archived users. Unwraps {items} into a flat array.
+  classEnrollmentsSearch: async (classId: string, q: string): Promise<any[]> => {
+    const res: any = await request(
+      'GET',
+      `/morning-quiz/classes/${classId}/students/search?q=${encodeURIComponent(q)}`,
+    );
+    return Array.isArray(res?.items) ? res.items : Array.isArray(res) ? res : [];
+  },
+
+  // ROUND 14 — Feature 15 (question retraction)
+  paperRetractQuestion: (
+    paperId: string,
+    body: {
+      paperQuestionId: string;
+      reason: string;
+      awardAllStudents: boolean;
+    },
+  ) => request('POST', `/papers/${paperId}/retract-question`, body),
+
+  // ROUND 14 — Feature 18 (wrong-rate display)
+  paperWrongRate: (paperId: string): Promise<{
+    items: Array<{
+      paperQuestionId: string;
+      questionOrder: number;
+      stemPreview: string;
+      attempted: number;
+      wrong: number;
+      wrongRate: number;
+    }>;
+  }> => request('GET', `/papers/${paperId}/wrong-rate`),
+
+  // ROUND 14 — student-side wrappers consumed by FE-Student pages
+  morningQuizUpcomingForName: (params: {
+    name: string;
+    studentId?: string;
+  }): Promise<
+    | { student: any; upcoming: any[] }
+    | { needDisambiguation: true; candidates: any[] }
+  > => request('GET', `/morning-quiz/upcoming-for-name${qs(params)}`),
+  morningQuizPracticeClone: (
+    submissionId: string,
+    body: { studentName: string; studentId?: string },
+  ): Promise<{ practiceSubmissionId: string; paperId: string }> =>
+    request('POST', `/morning-quiz/practice/clone/${submissionId}`, body),
+  morningQuizGetPractice: (
+    practiceSubmissionId: string,
+    params: { studentName: string; studentId?: string },
+  ): Promise<{ paper: any; existingAnswers: any[] }> =>
+    request(
+      'GET',
+      `/morning-quiz/practice/${practiceSubmissionId}${qs(params)}`,
+    ),
+  morningQuizSubmitPractice: (
+    practiceSubmissionId: string,
+    body: {
+      studentName: string;
+      studentId?: string;
+      answers: Array<{
+        paperQuestionId: string;
+        selectedOption?: string | null;
+        textAnswer?: string | null;
+      }>;
+    },
+  ): Promise<{ autoScore: number; maxScore: number; perQuestion: any[] }> =>
+    request('POST', `/morning-quiz/practice/${practiceSubmissionId}/submit`, body),
+  morningQuizHistoryTrend: (params: {
+    name: string;
+    studentId?: string;
+    weeks: number;
+  }): Promise<{ weeks: any[] }> =>
+    request('GET', `/morning-quiz/history-trend${qs(params)}`),
+
+  // ROUND 14 — parent-link wrappers (admin creates link, parent visits URL)
+  parentLinkCreate: (body: { studentId: string; parentLabel?: string }) =>
+    request('POST', '/parent-links', body),
+  parentLinkList: (params: { studentId?: string; includeRevoked?: boolean } = {}) =>
+    request('GET', `/parent-links${qs(params)}`),
+  parentLinkRevoke: (id: string) =>
+    request('POST', `/parent-links/${id}/revoke`),
 };
 
 function qs(obj: Record<string, any>) {

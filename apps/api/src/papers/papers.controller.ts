@@ -45,7 +45,10 @@ export class PapersController {
     private readonly pdf: PdfService,
   ) {}
 
-  @Get() list(@CurrentUser() user: any) { return this.service.list(user.id); }
+  @Get() list(@CurrentUser() user: any, @Query('archived') archivedRaw?: string) {
+    const archived = archivedRaw === 'true' || archivedRaw === '1';
+    return this.service.list(user.id, { archived });
+  }
 
   @Get(':id') get(@Param('id') id: string) { return this.service.get(id); }
 

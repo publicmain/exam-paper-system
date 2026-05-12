@@ -1,6 +1,14 @@
 import { useEffect, useState } from 'react';
-import { Link, useSearchParams } from 'react-router-dom';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { BASE } from '../lib/api';
+import {
+  createPracticeClone,
+  fetchTrend,
+  fetchUpcomingForName,
+  type TrendResponse,
+  type UpcomingSession,
+} from '../lib/api-student';
+import ScoreTrendChart from '../components/ScoreTrendChart';
 import { formatCNDateTime, formatCNTime } from '../lib/dateCN';
 
 /**
@@ -84,6 +92,7 @@ const STATUS_LABEL: Record<AttendanceRow['status'], string> = {
 
 export default function MyHistory() {
   const [params, setParams] = useSearchParams();
+  const navigate = useNavigate();
   // Bug 2 — shared-laptop PII leak: previously, on mount we'd seed `name`
   // from localStorage and auto-fetch. Student B opening /my-history then
   // immediately saw student A's grades. New rule: ONLY auto-fetch when the
@@ -103,6 +112,17 @@ export default function MyHistory() {
   // Bug 2 — one-tap confirmation for the "Switch student" button. Mobile
   // thumb-taps on this button used to nuke session state immediately.
   const [confirmSwitch, setConfirmSwitch] = useState(false);
+  // F2 — upcoming (today's) morning-quiz sessions for this student.
+  // Hidden when the backend isn't deployed yet (null) or there's nothing
+  // scheduled (empty array).
+  const [upcoming, setUpcoming] = useState<UpcomingSession[] | null>(null);
+  const [chosenStudentId, setChosenStudentId] = useState<string | null>(null);
+  // F17 — weekly trend, fetched in parallel with the main lookup.
+  const [trend, setTrend] = useState<TrendResponse | null>(null);
+  // F16 — per-row "practice again" pending state.
+  const [practicePending, setPracticePending] = useState<string | null>(null);
+  // Countdown re-render tick — bumped every 30s so the T-minus label updates.
+  const [, setTick] = useState(0);
 
   async function lookup(searchName: string, studentId?: string) {
     const trimmed = searchName.trim();
@@ -142,6 +162,7 @@ export default function MyHistory() {
         return;
       }
       setData(json as HistoryResponse);
+      setChosenStudentId(studentId ?? null);
       try { localStorage.setItem('mq:history:name', trimmed); } catch {/* */}
       if (studentId) {
         try { localStorage.setItem('mq:history:studentId', studentId); } catch {/* */}
@@ -151,6 +172,24 @@ export default function MyHistory() {
         params.set('name', trimmed);
         setParams(params, { replace: true });
       }
+      // F2 + F17 — fire-and-forget side fetches. Both are non-critical;
+      // failures (incl. 404 = backend not deployed) silently hide the
+      // affordance via the null-on-404 pattern in api-student.
+      fetchUpcomingForName({ name: trimmed, studentId })
+        .then((r) => {
+          if (!r) { setUpcoming(null); return; }
+          if ('needDisambiguation' in r) {
+            // Trend/upcoming hit disambig — silently skip; the main
+            // history call would also have hit it and is handled above.
+            setUpcoming(null);
+            return;
+          }
+          setUpcoming(r.upcoming ?? []);
+        })
+        .catch(() => setUpcoming(null));
+      fetchTrend({ name: trimmed, studentId, weeks: 12 })
+        .then((r) => setTrend(r))
+        .catch(() => setTrend(null));
     } catch (e: any) {
       setError(String(e?.message ?? e));
     } finally {
@@ -169,6 +208,40 @@ export default function MyHistory() {
     if (urlName && !submitted) lookup(urlName);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // F2 — re-render every 30s so the countdown label stays fresh. Stops
+  // when there are no upcoming sessions to count down to.
+  useEffect(() => {
+    if (!upcoming || upcoming.length === 0) return;
+    const t = setInterval(() => setTick((n) => n + 1), 30_000);
+    return () => clearInterval(t);
+  }, [upcoming]);
+
+  // F16 — POST to /practice/:submissionId, then navigate to the new
+  // practice-mode page. Graceful 404 → toast in setError.
+  async function handlePracticeAgain(submissionId: string, studentNameForUrl: string) {
+    if (practicePending) return;
+    setPracticePending(submissionId);
+    setError(null);
+    try {
+      const r = await createPracticeClone(submissionId, {
+        studentName: studentNameForUrl,
+        studentId: chosenStudentId ?? undefined,
+      });
+      if (r === null) {
+        setError('练习模式暂未开放 · Practice mode not yet available.');
+        return;
+      }
+      const qs =
+        '?name=' + encodeURIComponent(studentNameForUrl) +
+        (chosenStudentId ? '&studentId=' + encodeURIComponent(chosenStudentId) : '');
+      navigate(`/practice/${r.practiceSubmissionId}${qs}`);
+    } catch (e: any) {
+      setError(String(e?.message ?? e));
+    } finally {
+      setPracticePending(null);
+    }
+  }
 
   const attCounts = (() => {
     const c = { on_time: 0, late: 0, absent: 0 };
@@ -296,6 +369,13 @@ export default function MyHistory() {
           </div>
         )}
 
+        {/* F2 — Today's upcoming morning quizzes. Hidden when the backend
+            hasn't deployed the endpoint (upcoming === null) or when
+            nothing is scheduled (empty array). */}
+        {data && upcoming && upcoming.length > 0 && (
+          <UpcomingTile sessions={upcoming} />
+        )}
+
         {data && (
           <>
             {/* Student summary card */}
@@ -366,6 +446,18 @@ export default function MyHistory() {
               )}
             </section>
 
+            {/* F17 — score trend chart. Hidden when we have <2 data
+                points (insufficient signal) or when backend hasn't
+                deployed the endpoint (trend === null). */}
+            {trend && trend.weeks && trend.weeks.length >= 2 && (
+              <section className="bg-white border border-gray-200 rounded-xl shadow-sm">
+                <div className="px-5 py-3 border-b font-semibold">📈 成绩趋势 · Trend</div>
+                <div className="p-4">
+                  <ScoreTrendChart data={trend} />
+                </div>
+              </section>
+            )}
+
             {/* History section */}
             <section className="bg-white border border-gray-200 rounded-xl shadow-sm">
               <div className="px-5 py-3 border-b font-semibold">📝 答题历史 · Quiz History</div>
@@ -384,35 +476,50 @@ export default function MyHistory() {
                       pct >= 60 ? 'text-blue-700' :
                       pct >= 40 ? 'text-amber-700' : 'text-rose-700';
                     return (
-                      <li key={s.submissionId}>
-                        <Link
-                          to={`/my-history/submission/${s.submissionId}?name=${encodeURIComponent(data.student.name)}`}
-                          className="block p-4 hover:bg-gray-50 transition-colors"
-                        >
-                          <div className="flex items-start gap-4">
-                            <div className="flex-1 min-w-0">
-                              <div className="text-sm font-semibold text-gray-900 truncate">{s.paperName}</div>
-                              <div className="text-xs text-gray-500 mt-0.5 flex flex-wrap gap-x-3 gap-y-0.5">
-                                {s.date && <span>日期 {String(s.date).slice(0, 10)}</span>}
-                                {s.level && <span>· {LEVEL_LABEL[s.level] ?? s.level}</span>}
-                                <span>· {s.className}</span>
-                              </div>
-                              {s.submittedAt && (
-                                <div className="text-[11px] text-gray-400 mt-1">
-                                  提交于 {formatCNDateTime(s.submittedAt)}
-                                </div>
-                              )}
+                      <li key={s.submissionId} className="p-4 hover:bg-gray-50 transition-colors">
+                        <div className="flex items-start gap-4">
+                          <Link
+                            to={`/my-history/submission/${s.submissionId}?name=${encodeURIComponent(data.student.name)}`}
+                            className="flex-1 min-w-0 block"
+                          >
+                            <div className="text-sm font-semibold text-gray-900 truncate">{s.paperName}</div>
+                            <div className="text-xs text-gray-500 mt-0.5 flex flex-wrap gap-x-3 gap-y-0.5">
+                              {s.date && <span>日期 {String(s.date).slice(0, 10)}</span>}
+                              {s.level && <span>· {LEVEL_LABEL[s.level] ?? s.level}</span>}
+                              <span>· {s.className}</span>
                             </div>
-                            <div className="text-right shrink-0">
+                            {s.submittedAt && (
+                              <div className="text-[11px] text-gray-400 mt-1">
+                                提交于 {formatCNDateTime(s.submittedAt)}
+                              </div>
+                            )}
+                          </Link>
+                          <div className="text-right shrink-0 flex flex-col items-end gap-2">
+                            <Link
+                              to={`/my-history/submission/${s.submissionId}?name=${encodeURIComponent(data.student.name)}`}
+                              className="block"
+                            >
                               <div className={`text-2xl font-bold ${pctColor}`}>
                                 {score}
                                 <span className="text-base text-gray-400 font-normal"> / {max}</span>
                               </div>
                               <div className={`text-xs ${pctColor}`}>{pct}%</div>
                               <div className="text-[11px] text-blue-600 mt-1">查看每题详情 →</div>
-                            </div>
+                            </Link>
+                            {/* F16 — clone this submission into a practice
+                                run. Hidden no-op when the endpoint isn't
+                                deployed: createPracticeClone returns null
+                                and handlePracticeAgain surfaces a toast. */}
+                            <button
+                              type="button"
+                              onClick={() => handlePracticeAgain(s.submissionId, data.student.name)}
+                              disabled={practicePending === s.submissionId}
+                              className="text-[11px] px-2 py-1 rounded border border-emerald-300 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 font-medium disabled:opacity-50"
+                            >
+                              {practicePending === s.submissionId ? '创建中…' : '🔄 重做 · Practice'}
+                            </button>
                           </div>
-                        </Link>
+                        </div>
                       </li>
                     );
                   })}
@@ -424,6 +531,56 @@ export default function MyHistory() {
       </main>
     </div>
   );
+}
+
+/** F2 — yellow "today's quiz(zes)" card. Per-session row shows time
+ *  range + paper name + class label + a live T-minus countdown. The
+ *  parent re-renders this every 30s so the label stays fresh. */
+function UpcomingTile({ sessions }: { sessions: UpcomingSession[] }) {
+  return (
+    <section className="bg-amber-50 border-2 border-amber-300 rounded-xl shadow-sm p-5">
+      <div className="font-semibold text-amber-900 mb-2">
+        📅 今天的早测 · Today
+      </div>
+      <ul className="space-y-2">
+        {sessions.map((s) => {
+          const countdown = formatCountdown(s.quizStart);
+          const levelLabel = s.level ? (LEVEL_LABEL[s.level] ?? s.level) : '';
+          return (
+            <li
+              key={s.sessionId}
+              className="bg-white border border-amber-200 rounded-lg px-3 py-2 text-sm"
+            >
+              <div className="flex flex-wrap items-baseline gap-x-2">
+                <span className="font-mono text-amber-900">{formatCNTime(s.quizStart).slice(0, 5)}</span>
+                <span className="text-gray-400">—</span>
+                <span className="font-semibold text-gray-900">{s.paperName}</span>
+              </div>
+              <div className="text-xs text-gray-500 mt-0.5 flex flex-wrap gap-x-2 gap-y-0.5">
+                <span>{s.className}</span>
+                {levelLabel && <span>· {levelLabel}</span>}
+                <span className="text-amber-700 font-medium">· {countdown}</span>
+              </div>
+            </li>
+          );
+        })}
+      </ul>
+    </section>
+  );
+}
+
+/** Returns a humanised T-minus label or "进行中" / "已结束". */
+function formatCountdown(target: string): string {
+  const t = new Date(target).getTime();
+  if (!Number.isFinite(t)) return '';
+  const diffMs = t - Date.now();
+  if (diffMs <= -60_000) return '已结束';
+  if (diffMs <= 60_000 && diffMs > -60_000) return '正在开始 · starting now';
+  const totalMin = Math.floor(diffMs / 60_000);
+  if (totalMin < 60) return `T-minus ${totalMin} minutes`;
+  const h = Math.floor(totalMin / 60);
+  const m = totalMin % 60;
+  return `T-minus ${h}h ${m}m`;
 }
 
 function Stat({

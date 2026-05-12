@@ -51,6 +51,17 @@ const CorrectSchema = z.object({
   note: z.string().max(500).optional(),
 });
 
+/**
+ * F7 — bulk attendance correction. One session, one status, N students.
+ * Bounded at 200 IDs so a stray request can't bulk-mutate a whole year.
+ */
+const CorrectBulkSchema = z.object({
+  sessionId: z.string(),
+  studentIds: z.array(z.string()).min(1).max(200),
+  status: z.enum(['on_time', 'late', 'absent']),
+  note: z.string().max(500),
+});
+
 @Controller('attendance')
 export class AttendanceController {
   constructor(private readonly svc: AttendanceService) {}
@@ -123,6 +134,26 @@ export class AttendanceController {
     const parsed = CorrectSchema.safeParse(body);
     if (!parsed.success) throw new BadRequestException(parsed.error.flatten());
     return this.svc.correct(parsed.data, { id: user.id, role: user.role, ip: req.ip ?? null });
+  }
+
+  /**
+   * F7 — bulk variant of `correct`. Iterates the same single-row logic
+   * sequentially (not Promise.all) so a partial failure leaves a
+   * predictable prefix corrected + a clean `errors[]` for the rest.
+   * Each row goes through manual_correction + its own audit event.
+   */
+  @Post('correct-bulk')
+  correctBulk(@Body() body: unknown, @CurrentUser() user: any, @Req() req: Request) {
+    if (!isTeacherOrAbove(user?.role)) {
+      throw new ForbiddenException({ code: 'teacher_required' });
+    }
+    const parsed = CorrectBulkSchema.safeParse(body);
+    if (!parsed.success) throw new BadRequestException(parsed.error.flatten());
+    return this.svc.correctBulk(parsed.data, {
+      id: user.id,
+      role: user.role,
+      ip: req.ip ?? null,
+    });
   }
 
   /**

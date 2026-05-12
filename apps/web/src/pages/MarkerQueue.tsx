@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { api } from '../lib/api';
+import AppealReviewModal from '../components/AppealReviewModal';
 
 /**
  * Marker queue page. Lists submitted submissions that still have ungraded
@@ -13,19 +14,27 @@ export default function MarkerQueuePage() {
   const [err, setErr] = useState<string | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
   const [me, setMe] = useState<any>(null);
+  // ROUND 14 — Feature 10: open-appeals state. `appeals` is a flat list
+  // of open appeals (status='open' or similar — backend filters); the
+  // count per submission is derived from there for the per-row badge,
+  // and the modal target picks one appeal to review.
+  const [appeals, setAppeals] = useState<any[]>([]);
+  const [activeAppeal, setActiveAppeal] = useState<any | null>(null);
 
   async function load() {
     try {
-      const [queue, who] = await Promise.all([
+      const [queue, who, ap] = await Promise.all([
         (api as any).markerQueue
           ? (api as any).markerQueue()
           : fetch('/api/marker/queue', {
               headers: { Authorization: `Bearer ${localStorage.getItem('auth_token')}` },
             }).then((r) => r.json()),
         api.me(),
+        api.morningQuizListAppeals({ status: 'open' }).catch(() => ({ items: [] as any[] })),
       ]);
       setData(queue);
       setMe(who);
+      setAppeals(ap?.items ?? []);
     } catch (e: any) {
       setErr(String(e));
     }
@@ -34,6 +43,16 @@ export default function MarkerQueuePage() {
   useEffect(() => {
     load();
   }, []);
+
+  // Map submissionId → open appeals (so each row can show its count
+  // and clicking the badge can pick the first open appeal to review).
+  const appealsBySubmission: Record<string, any[]> = {};
+  for (const a of appeals) {
+    const k = a.submissionId;
+    if (!k) continue;
+    (appealsBySubmission[k] ||= []).push(a);
+  }
+  const totalOpenAppeals = appeals.length;
 
   async function claim(submissionId: string) {
     setBusy(submissionId);
@@ -73,8 +92,19 @@ export default function MarkerQueuePage() {
 
   return (
     <div className="space-y-3">
-      <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold">Marker Queue</h1>
+      <div className="flex items-center justify-between flex-wrap gap-2">
+        <h1 className="text-2xl font-bold">
+          Marker Queue
+          {/* ROUND 14 — Feature 10: header badge showing open appeals count */}
+          {totalOpenAppeals > 0 && (
+            <span
+              className="ml-3 inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded bg-amber-100 text-amber-800 border border-amber-300"
+              title="待审申诉数量"
+            >
+              📢 我的待审申诉: {totalOpenAppeals}
+            </span>
+          )}
+        </h1>
         <div className="text-sm text-gray-500">
           {data.total} submission{data.total === 1 ? '' : 's'} awaiting marking
         </div>
@@ -84,6 +114,8 @@ export default function MarkerQueuePage() {
         const claim = it.claim;
         const claimedByMe = claim && claim.status === 'active' && me && claim.markerId === me.id;
         const claimedByOther = claim && claim.status === 'active' && me && claim.markerId !== me.id;
+        // ROUND 14 — Feature 10: per-row appeal badge.
+        const rowAppeals = appealsBySubmission[it.id] ?? [];
         return (
           <div key={it.id} className="card flex items-start justify-between gap-4">
             <div className="flex-1 min-w-0">
@@ -110,6 +142,16 @@ export default function MarkerQueuePage() {
               )}
             </div>
             <div className="flex flex-col gap-2 items-end">
+              {rowAppeals.length > 0 && (
+                <button
+                  type="button"
+                  onClick={() => setActiveAppeal(rowAppeals[0])}
+                  className="text-xs px-2 py-1 rounded bg-amber-100 text-amber-900 border border-amber-300 hover:bg-amber-200"
+                  title={`${rowAppeals.length} 条未处理申诉,点击查看`}
+                >
+                  📢 申诉 {rowAppeals.length}
+                </button>
+              )}
               {claimedByMe ? (
                 <Link to={`/marker/submission/${it.id}`} className="btn btn-primary">
                   Continue marking
@@ -131,6 +173,17 @@ export default function MarkerQueuePage() {
           </div>
         );
       })}
+
+      {activeAppeal && (
+        <AppealReviewModal
+          appeal={activeAppeal}
+          onClose={() => setActiveAppeal(null)}
+          onResolved={() => {
+            setActiveAppeal(null);
+            load();
+          }}
+        />
+      )}
     </div>
   );
 }
