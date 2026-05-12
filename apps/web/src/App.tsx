@@ -1,5 +1,5 @@
 import { useEffect } from 'react';
-import { Routes, Route, Navigate, Link, useLocation, useNavigate } from 'react-router-dom';
+import { Routes, Route, Navigate, Link, useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from './lib/auth';
 import LoginPage from './pages/Login';
 import DashboardPage from './pages/Dashboard';
@@ -390,7 +390,12 @@ export default function App() {
             path="/practice/:practiceSubmissionId"
             element={<PracticeModePage />}
           />
-          <Route path="*" element={<Navigate to="/" replace />} />
+          {/* R13 Bug 5: /scan?token=... (query form, used by some old
+              QR generators) → bounce to /scan/:token. */}
+          <Route path="/scan" element={<ScanQueryRedirect />} />
+          {/* R13 Bug 5: unknown URLs MUST NOT leak the admin dashboard.
+              Render a chrome-light NotFoundPage instead of bouncing to `/`. */}
+          <Route path="*" element={<NotFoundPage />} />
         </Routes>
         </ErrorBoundary>
       </main>
@@ -411,5 +416,52 @@ function NavLink({ to, label }: { to: string; label: string }) {
     >
       {label}
     </Link>
+  );
+}
+
+/**
+ * R13 Bug 5 — friendly 404 for unknown URLs. NEVER falls through to
+ * the admin dashboard (which would leak student counts / paper drafts
+ * to a curious student who scanned a bad QR or mistyped a link).
+ */
+function NotFoundPage() {
+  return (
+    <div className="max-w-md mx-auto mt-24 bg-white border rounded-lg p-8 text-center shadow-sm">
+      <div className="text-5xl font-bold text-gray-300 mb-2">404</div>
+      <div className="text-lg font-medium text-gray-800 mb-1">链接无效或已过期</div>
+      <div className="text-sm text-gray-500 mb-6">This link is invalid or has expired.</div>
+      <div className="flex flex-col gap-2">
+        <Link
+          to="/my-history"
+          className="bg-blue-600 text-white py-2 rounded-md hover:bg-blue-700"
+        >
+          回到我的考勤记录 →
+        </Link>
+        <Link
+          to="/scan"
+          className="border border-gray-300 text-gray-700 py-2 rounded-md hover:bg-gray-50"
+        >
+          扫码考勤 →
+        </Link>
+      </div>
+    </div>
+  );
+}
+
+/**
+ * R13 Bug 5 — old QR generators send `/scan?token=ABC` (query form);
+ * the take-flow expects `/scan/:token` (path form). Bounce silently.
+ */
+function ScanQueryRedirect() {
+  const [params] = useSearchParams();
+  const token = params.get('token');
+  if (token && /^[A-Za-z0-9_\-.]+$/.test(token)) {
+    return <Navigate to={`/scan/${encodeURIComponent(token)}`} replace />;
+  }
+  return (
+    <div className="max-w-md mx-auto mt-24 bg-white border rounded-lg p-8 text-center shadow-sm">
+      <div className="text-lg font-medium text-gray-800 mb-2">📱 请用手机相机扫描大屏二维码</div>
+      <div className="text-sm text-gray-500">Use your phone camera to scan the QR on the wall display.</div>
+    </div>
   );
 }
