@@ -1,0 +1,143 @@
+{
+  "bookCode": "ielts_authored_2026_v1",
+  "testNumber": 1,
+  "passageNumber": 2,
+  "passage": {
+    "title": "How submarine cables changed global communication",
+    "body": "A For most of recorded history, news travelled no faster than a horse, a sailing ship or, at best, a chain of signal fires lit on hilltops. A message sent from London to New York in 1840 might take three weeks to arrive by the fastest packet ship. By the end of the nineteenth century, a telegram could pass between the same two cities in only a few minutes. The change had been brought about by an ambitious and frequently disastrous engineering project: the laying of insulated copper cables along the floor of the world's oceans.\n\nB The technical foundation for submarine telegraphy was the discovery, in the 1840s, that gutta-percha, a natural latex obtained from trees native to South-East Asia, made an excellent insulator for electrical conductors in seawater. Unlike rubber, gutta-percha softened in hot water and could be moulded around copper wire to form a continuous, watertight sheath, yet it remained tough and stable once cool. Without this material, the early cable industry would not have been possible, and for half a century almost the entire commercial supply was shipped from plantations in the Malay peninsula to factories on the Thames.\n\nC The first lasting cross-Channel cable was laid between Dover and Calais in 1851. Encouraged by its success, a group of British and American investors, led by the American businessman Cyrus West Field, began planning a far more ambitious project: a cable across the North Atlantic. The first attempt, in 1858, succeeded in transmitting a famous greeting from Queen Victoria to President Buchanan, but the cable failed within weeks, partly because excessively high voltages applied by the chief electrician damaged the insulation. After the disruption of the American Civil War, a second and far more carefully engineered cable was laid in 1866 by the steamship Great Eastern, then the largest vessel in the world. This time the link held.\n\nD The economic consequences were immediate. Before 1866, a London merchant who wished to act on a price quoted in New York had to commit to a trade based on information that was already a fortnight old. Once the cable was open, prices in the two cities began to converge within hours, and a class of professional traders emerged whose business was the cross-Atlantic price gap. Cotton brokers in Liverpool, grain dealers in Chicago and tea merchants in Calcutta all came to depend on the new service, even though the cost of a transatlantic word, in the early years, was several shillings - the rough equivalent of an unskilled worker's daily wage.\n\nE The cables also reshaped diplomacy. Before the telegraph, an ambassador in a distant capital was, of necessity, given broad discretion: instructions from his foreign ministry might take months to arrive, by which time the situation on the ground would have changed. After the cable, ministers in London or Paris could attempt to direct negotiations in real time. Some historians argue that this tighter central control made diplomacy more cautious and predictable; others suggest that it sometimes had the opposite effect, encouraging governments to send curt instructions that subordinates in difficult situations found impossible to soften.\n\nF The colonial powers of the late nineteenth century treated submarine cables as strategic infrastructure. By 1900, the British government had financed or guaranteed a global network, sometimes referred to as the All Red Line, that linked London to every major part of the British Empire without passing through territory controlled by a rival power. During the First World War, one of Britain's first acts was to cut the German cables in the English Channel, forcing Germany to send its overseas messages by wireless, which could be intercepted. The decoded Zimmermann telegram, intercepted in this way in 1917, played an important part in bringing the United States into the war.\n\nG The decades that followed saw repeated waves of technical change. The introduction of polyethylene insulation in the 1930s and 1940s made cables lighter and more reliable. From 1956, the first transatlantic telephone cable carried not telegraphic clicks but human voices, although capacity was severely limited - the cable supported only thirty-six simultaneous calls. The real transformation came in the 1980s with the development of optical fibre, in which pulses of light, rather than electrical signals, travel along a glass core thinner than a human hair. A single modern fibre pair can carry tens of terabits per second, enough to transmit the entire text of the Encyclopaedia Britannica many times over in a single second.\n\nH It is sometimes claimed that satellites have made undersea cables obsolete, but the opposite is closer to the truth. Although satellites are essential for broadcasting and for reaching remote areas, the great majority of intercontinental internet traffic - by some estimates more than ninety-five per cent - still flows through cables lying on the ocean floor, many of them following routes pioneered in the age of gutta-percha. The cables themselves are now thinner than a garden hose, but, as in the nineteenth century, they remain vulnerable to fishing trawlers, anchors and undersea landslides, and a single break can disrupt financial markets and government communications across an entire region."
+  },
+  "questions": [
+    {
+      "n": 1,
+      "questionType": "short_answer",
+      "taskType": "matching_information",
+      "instruction": "Reading Passage 2 has eight paragraphs, A-H. Which paragraph contains the following information? Write the correct letter, A-H, in boxes 1-5 on your answer sheet. NB You may use any letter more than once.",
+      "stem": "a wartime action taken against an enemy's cable system",
+      "options": null,
+      "answer": "F"
+    },
+    {
+      "n": 2,
+      "questionType": "short_answer",
+      "taskType": "matching_information",
+      "instruction": "Reading Passage 2 has eight paragraphs, A-H. Which paragraph contains the following information? Write the correct letter, A-H, in boxes 1-5 on your answer sheet. NB You may use any letter more than once.",
+      "stem": "an explanation of why one early material was uniquely suited to insulating undersea wires",
+      "options": null,
+      "answer": "B"
+    },
+    {
+      "n": 3,
+      "questionType": "short_answer",
+      "taskType": "matching_information",
+      "instruction": "Reading Passage 2 has eight paragraphs, A-H. Which paragraph contains the following information? Write the correct letter, A-H, in boxes 1-5 on your answer sheet. NB You may use any letter more than once.",
+      "stem": "a description of how the price of information shaped the daily work of merchants",
+      "options": null,
+      "answer": "D"
+    },
+    {
+      "n": 4,
+      "questionType": "short_answer",
+      "taskType": "matching_information",
+      "instruction": "Reading Passage 2 has eight paragraphs, A-H. Which paragraph contains the following information? Write the correct letter, A-H, in boxes 1-5 on your answer sheet. NB You may use any letter more than once.",
+      "stem": "a comparison of cable and satellite capacity in the modern internet",
+      "options": null,
+      "answer": "H"
+    },
+    {
+      "n": 5,
+      "questionType": "short_answer",
+      "taskType": "matching_information",
+      "instruction": "Reading Passage 2 has eight paragraphs, A-H. Which paragraph contains the following information? Write the correct letter, A-H, in boxes 1-5 on your answer sheet. NB You may use any letter more than once.",
+      "stem": "differing scholarly views on the effect of fast communication on government decisions",
+      "options": null,
+      "answer": "E"
+    },
+    {
+      "n": 6,
+      "questionType": "mcq",
+      "taskType": "multiple_choice",
+      "instruction": "Choose the correct letter, A, B, C or D.",
+      "stem": "According to the passage, the 1858 transatlantic cable failed mainly because",
+      "options": [
+        {"key": "A", "text": "the steamship laying it was too small to complete the route.", "correct": false},
+        {"key": "B", "text": "the insulation was damaged by very high voltages applied to the line.", "correct": true},
+        {"key": "C", "text": "the outbreak of the American Civil War halted maintenance work.", "correct": false},
+        {"key": "D", "text": "the gutta-percha supply was interrupted by storms in South-East Asia.", "correct": false}
+      ],
+      "answer": "B"
+    },
+    {
+      "n": 7,
+      "questionType": "mcq",
+      "taskType": "multiple_choice",
+      "instruction": "Choose the correct letter, A, B, C or D.",
+      "stem": "The writer suggests that, in the years just after 1866, sending a single transatlantic word",
+      "options": [
+        {"key": "A", "text": "was free for registered merchants in London and New York.", "correct": false},
+        {"key": "B", "text": "could cost roughly as much as an unskilled worker earned in a day.", "correct": true},
+        {"key": "C", "text": "was reserved for messages of national importance.", "correct": false},
+        {"key": "D", "text": "took less than a second to be delivered.", "correct": false}
+      ],
+      "answer": "B"
+    },
+    {
+      "n": 8,
+      "questionType": "mcq",
+      "taskType": "multiple_choice",
+      "instruction": "Choose the correct letter, A, B, C or D.",
+      "stem": "In the passage, the writer's main point about satellites is that",
+      "options": [
+        {"key": "A", "text": "they have replaced submarine cables for intercontinental data traffic.", "correct": false},
+        {"key": "B", "text": "they carry only a small share of intercontinental internet traffic compared with cables.", "correct": true},
+        {"key": "C", "text": "they are no longer used for any form of long-distance communication.", "correct": false},
+        {"key": "D", "text": "they were invented before the first transatlantic telephone cable.", "correct": false}
+      ],
+      "answer": "B"
+    },
+    {
+      "n": 9,
+      "questionType": "short_answer",
+      "taskType": "summary_completion",
+      "instruction": "Complete the summary below. Choose NO MORE THAN THREE WORDS from the passage for each answer. Write your answers in boxes 9-13 on your answer sheet.\n\nThe first lasting cross-Channel cable was laid in 1851 between Dover and Calais. Encouraged by this, investors backed a larger project across the North Atlantic. Their first attempt, in 1858, sent a famous greeting from Queen Victoria to President Buchanan but soon failed. A second attempt in 1866, made by the steamship (9) ________, was successful. Once the cable was open, transatlantic prices began to (10) ________ within hours, and traders specialising in the cross-Atlantic price gap appeared. The same technology also altered diplomacy: before the cable, an (11) ________ in a distant capital had to act on instructions that might be months old. By 1900, Britain had financed a global network sometimes called the (12) ________, which avoided rival territory. The real transformation in capacity came with the development in the 1980s of (13) ________, in which signals travel as pulses of light along a thin glass core.",
+      "stem": "Question 9",
+      "options": null,
+      "answer": "Great Eastern"
+    },
+    {
+      "n": 10,
+      "questionType": "short_answer",
+      "taskType": "summary_completion",
+      "instruction": "Complete the summary below. Choose NO MORE THAN THREE WORDS from the passage for each answer. Write your answers in boxes 9-13 on your answer sheet.\n\nThe first lasting cross-Channel cable was laid in 1851 between Dover and Calais. Encouraged by this, investors backed a larger project across the North Atlantic. Their first attempt, in 1858, sent a famous greeting from Queen Victoria to President Buchanan but soon failed. A second attempt in 1866, made by the steamship (9) ________, was successful. Once the cable was open, transatlantic prices began to (10) ________ within hours, and traders specialising in the cross-Atlantic price gap appeared. The same technology also altered diplomacy: before the cable, an (11) ________ in a distant capital had to act on instructions that might be months old. By 1900, Britain had financed a global network sometimes called the (12) ________, which avoided rival territory. The real transformation in capacity came with the development in the 1980s of (13) ________, in which signals travel as pulses of light along a thin glass core.",
+      "stem": "Question 10",
+      "options": null,
+      "answer": "converge"
+    },
+    {
+      "n": 11,
+      "questionType": "short_answer",
+      "taskType": "summary_completion",
+      "instruction": "Complete the summary below. Choose NO MORE THAN THREE WORDS from the passage for each answer. Write your answers in boxes 9-13 on your answer sheet.\n\nThe first lasting cross-Channel cable was laid in 1851 between Dover and Calais. Encouraged by this, investors backed a larger project across the North Atlantic. Their first attempt, in 1858, sent a famous greeting from Queen Victoria to President Buchanan but soon failed. A second attempt in 1866, made by the steamship (9) ________, was successful. Once the cable was open, transatlantic prices began to (10) ________ within hours, and traders specialising in the cross-Atlantic price gap appeared. The same technology also altered diplomacy: before the cable, an (11) ________ in a distant capital had to act on instructions that might be months old. By 1900, Britain had financed a global network sometimes called the (12) ________, which avoided rival territory. The real transformation in capacity came with the development in the 1980s of (13) ________, in which signals travel as pulses of light along a thin glass core.",
+      "stem": "Question 11",
+      "options": null,
+      "answer": "ambassador"
+    },
+    {
+      "n": 12,
+      "questionType": "short_answer",
+      "taskType": "summary_completion",
+      "instruction": "Complete the summary below. Choose NO MORE THAN THREE WORDS from the passage for each answer. Write your answers in boxes 9-13 on your answer sheet.\n\nThe first lasting cross-Channel cable was laid in 1851 between Dover and Calais. Encouraged by this, investors backed a larger project across the North Atlantic. Their first attempt, in 1858, sent a famous greeting from Queen Victoria to President Buchanan but soon failed. A second attempt in 1866, made by the steamship (9) ________, was successful. Once the cable was open, transatlantic prices began to (10) ________ within hours, and traders specialising in the cross-Atlantic price gap appeared. The same technology also altered diplomacy: before the cable, an (11) ________ in a distant capital had to act on instructions that might be months old. By 1900, Britain had financed a global network sometimes called the (12) ________, which avoided rival territory. The real transformation in capacity came with the development in the 1980s of (13) ________, in which signals travel as pulses of light along a thin glass core.",
+      "stem": "Question 12",
+      "options": null,
+      "answer": "All Red Line"
+    },
+    {
+      "n": 13,
+      "questionType": "short_answer",
+      "taskType": "summary_completion",
+      "instruction": "Complete the summary below. Choose NO MORE THAN THREE WORDS from the passage for each answer. Write your answers in boxes 9-13 on your answer sheet.\n\nThe first lasting cross-Channel cable was laid in 1851 between Dover and Calais. Encouraged by this, investors backed a larger project across the North Atlantic. Their first attempt, in 1858, sent a famous greeting from Queen Victoria to President Buchanan but soon failed. A second attempt in 1866, made by the steamship (9) ________, was successful. Once the cable was open, transatlantic prices began to (10) ________ within hours, and traders specialising in the cross-Atlantic price gap appeared. The same technology also altered diplomacy: before the cable, an (11) ________ in a distant capital had to act on instructions that might be months old. By 1900, Britain had financed a global network sometimes called the (12) ________, which avoided rival territory. The real transformation in capacity came with the development in the 1980s of (13) ________, in which signals travel as pulses of light along a thin glass core.",
+      "stem": "Question 13",
+      "options": null,
+      "answer": "optical fibre"
+    }
+  ]
+}

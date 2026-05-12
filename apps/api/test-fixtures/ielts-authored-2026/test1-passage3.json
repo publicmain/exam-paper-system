@@ -1,0 +1,148 @@
+{
+  "bookCode": "ielts_authored_2026_v1",
+  "testNumber": 1,
+  "passageNumber": 3,
+  "passage": {
+    "title": "The forgotten craft of Japanese kintsugi",
+    "body": "A When a treasured ceramic bowl is dropped and shatters on a tiled floor, the most common response, in almost every culture, is to sweep up the fragments and discard them. The Japanese craft of kintsugi, which translates loosely as 'golden joinery', proposes a different course of action. The broken pieces are carefully collected, fitted back together with a slow-drying lacquer derived from the sap of the Toxicodendron vernicifluum tree, and the seams are then dusted with powdered gold, silver or platinum. The result is a vessel whose history of damage is not concealed but made luminous, the metal-traced cracks forming a record of how the object has lived.\n\nB Although kintsugi is often described as an ancient art, the precise origin of the technique is the subject of scholarly debate. The most frequently cited story concerns the fifteenth-century shogun Ashikaga Yoshimasa, who is said to have sent a damaged Chinese tea bowl to China for repair and been disappointed when it returned held together with unsightly metal staples. Local craftsmen, asked to devise something more pleasing, are said to have responded with the first lacquer-and-gold repair. Most modern historians treat this tale with caution. The earliest physical examples of kintsugi-style repairs that can be reliably dated belong to the late sixteenth or early seventeenth century, by which time the practice was already associated with the elaborate aesthetic culture of the Japanese tea ceremony.\n\nC The tea ceremony, or chanoyu, provided a powerful philosophical context for the craft. Tea masters of the Momoyama and early Edo periods, most famously Sen no Rikyu, championed an aesthetic known as wabi-sabi, which finds beauty in irregularity, modesty and the visible passage of time. A bowl that bore the marks of long use - a hairline crack, a glaze that had darkened with successive cups of tea - was considered more eloquent than a perfect, factory-fresh equivalent. Within this sensibility, kintsugi was not a way of disguising damage but a way of honouring it. A repaired bowl might be valued more highly than the unbroken original, particularly if the repair had been carried out with restraint and skill.\n\nD The technical demands of traditional kintsugi are considerable. The lacquer, called urushi, is harvested by making shallow incisions in the bark of the lacquer tree, a process that has changed little in two thousand years. Urushi cures only in warm, humid conditions, and the work must be carried out in a damp, dust-free room. A single repair typically requires between six and ten separate applications of lacquer, each of which must be left to harden for several days before being polished smooth. Powdered metal is sprinkled onto the final, still-tacky coat. Although gold is the most famous finish, silver and brass were historically used for less ceremonious pieces, and contemporary studios sometimes use coloured lacquers in place of metal entirely.\n\nE A small number of craftsmen now work full-time as kintsugi masters, often after long apprenticeships in the broader tradition of urushi-shi, or lacquer artists. One of the best-known contemporary practitioners, Showzi Tsukamoto, has restored bowls for the Tokyo National Museum and trained students from Europe and North America in week-long intensive courses. He is firm, however, about the limits of such instruction: a competent repair of a museum object, he argues, demands not only manual skill but a deep understanding of which fractures should be emphasised and which should be made to recede. Urushi is also acutely allergenic. Apprentices regularly develop severe rashes during their first months of training, and Tsukamoto has remarked that those who cannot tolerate the lacquer chemically rarely persist in the discipline.\n\nF Beyond Japan, kintsugi has attracted attention for reasons that go far beyond ceramics. Writers on psychotherapy have drawn on the image of the gold-traced crack as a metaphor for emotional recovery, arguing that experiences of loss and failure, properly acknowledged, can become a source of strength rather than something to be hidden. The American author Cheryl Strayed has cited kintsugi in interviews about resilience, and clinicians working with refugees and survivors of trauma have used kintsugi workshops as a therapeutic tool. Critics within Japan are sometimes uncomfortable with this borrowing. While they acknowledge the appeal of the metaphor, they argue that the craft is rooted in specific religious and aesthetic traditions that are easily flattened when the practice is reduced to a self-help slogan.\n\nG The market for kintsugi-repaired objects has also grown. Some dealers in Kyoto now commission deliberate, decorative breaks in newly fired bowls, repair them in gold and sell the result as a contemporary art object. Traditionalists object that this inverts the original logic of the craft, which assumed that breakage was an accident to be redeemed rather than an effect to be manufactured. Others reply that all living traditions evolve, and that the demand created by international collectors has helped to keep the underlying skills alive in an era when machine-made tableware would otherwise have driven hand-finished ceramics out of the market.\n\nH Whether kintsugi survives as a working craft, rather than as a much-cited metaphor, may depend less on philosophical debate than on the supply of trained hands. Lacquer harvesting in Japan has declined sharply since the mid-twentieth century, with most urushi now imported from China. Apprenticeships are long and poorly paid, and the number of young people willing to spend a decade learning to apply a difficult, allergenic resin in a humid room remains small. The image of the golden crack will doubtless continue to circulate; whether real bowls continue to be repaired in this way, in workshops that can trace their training back across generations, is a more uncertain question."
+  },
+  "questions": [
+    {
+      "n": 1,
+      "questionType": "mcq",
+      "taskType": "matching_features",
+      "instruction": "Look at the following statements (Questions 1-4) and the list of people below. Match each statement with the correct person, A-D. Write the correct letter, A-D, in boxes 1-4 on your answer sheet.\n\nList of People:\nA Ashikaga Yoshimasa\nB Sen no Rikyu\nC Showzi Tsukamoto\nD Cheryl Strayed",
+      "stem": "championed an aesthetic that valued the visible marks of long use on a tea bowl",
+      "options": [
+        {"key": "A", "text": "Ashikaga Yoshimasa", "correct": false},
+        {"key": "B", "text": "Sen no Rikyu", "correct": true},
+        {"key": "C", "text": "Showzi Tsukamoto", "correct": false},
+        {"key": "D", "text": "Cheryl Strayed", "correct": false}
+      ],
+      "answer": "B"
+    },
+    {
+      "n": 2,
+      "questionType": "mcq",
+      "taskType": "matching_features",
+      "instruction": "Look at the following statements (Questions 1-4) and the list of people below. Match each statement with the correct person, A-D. Write the correct letter, A-D, in boxes 1-4 on your answer sheet.\n\nList of People:\nA Ashikaga Yoshimasa\nB Sen no Rikyu\nC Showzi Tsukamoto\nD Cheryl Strayed",
+      "stem": "is said to have been displeased by a repair carried out with metal staples",
+      "options": [
+        {"key": "A", "text": "Ashikaga Yoshimasa", "correct": true},
+        {"key": "B", "text": "Sen no Rikyu", "correct": false},
+        {"key": "C", "text": "Showzi Tsukamoto", "correct": false},
+        {"key": "D", "text": "Cheryl Strayed", "correct": false}
+      ],
+      "answer": "A"
+    },
+    {
+      "n": 3,
+      "questionType": "mcq",
+      "taskType": "matching_features",
+      "instruction": "Look at the following statements (Questions 1-4) and the list of people below. Match each statement with the correct person, A-D. Write the correct letter, A-D, in boxes 1-4 on your answer sheet.\n\nList of People:\nA Ashikaga Yoshimasa\nB Sen no Rikyu\nC Showzi Tsukamoto\nD Cheryl Strayed",
+      "stem": "has referred to kintsugi in public discussions of personal resilience",
+      "options": [
+        {"key": "A", "text": "Ashikaga Yoshimasa", "correct": false},
+        {"key": "B", "text": "Sen no Rikyu", "correct": false},
+        {"key": "C", "text": "Showzi Tsukamoto", "correct": false},
+        {"key": "D", "text": "Cheryl Strayed", "correct": true}
+      ],
+      "answer": "D"
+    },
+    {
+      "n": 4,
+      "questionType": "mcq",
+      "taskType": "matching_features",
+      "instruction": "Look at the following statements (Questions 1-4) and the list of people below. Match each statement with the correct person, A-D. Write the correct letter, A-D, in boxes 1-4 on your answer sheet.\n\nList of People:\nA Ashikaga Yoshimasa\nB Sen no Rikyu\nC Showzi Tsukamoto\nD Cheryl Strayed",
+      "stem": "has trained overseas students in short, intensive courses",
+      "options": [
+        {"key": "A", "text": "Ashikaga Yoshimasa", "correct": false},
+        {"key": "B", "text": "Sen no Rikyu", "correct": false},
+        {"key": "C", "text": "Showzi Tsukamoto", "correct": true},
+        {"key": "D", "text": "Cheryl Strayed", "correct": false}
+      ],
+      "answer": "C"
+    },
+    {
+      "n": 5,
+      "questionType": "short_answer",
+      "taskType": "yes_no_not_given",
+      "instruction": "Do the following statements agree with the views of the writer in Reading Passage 3? In boxes 5-9 on your answer sheet, write\n\nYES if the statement agrees with the views of the writer\nNO if the statement contradicts the views of the writer\nNOT GIVEN if it is impossible to say what the writer thinks about this",
+      "stem": "The traditional story about the origin of kintsugi should be accepted without reservation as historical fact.",
+      "options": null,
+      "answer": "NO"
+    },
+    {
+      "n": 6,
+      "questionType": "short_answer",
+      "taskType": "yes_no_not_given",
+      "instruction": "Do the following statements agree with the views of the writer in Reading Passage 3? In boxes 5-9 on your answer sheet, write\n\nYES if the statement agrees with the views of the writer\nNO if the statement contradicts the views of the writer\nNOT GIVEN if it is impossible to say what the writer thinks about this",
+      "stem": "Some Japanese commentators have reservations about the way kintsugi is invoked in foreign discussions of recovery and resilience.",
+      "options": null,
+      "answer": "YES"
+    },
+    {
+      "n": 7,
+      "questionType": "short_answer",
+      "taskType": "yes_no_not_given",
+      "instruction": "Do the following statements agree with the views of the writer in Reading Passage 3? In boxes 5-9 on your answer sheet, write\n\nYES if the statement agrees with the views of the writer\nNO if the statement contradicts the views of the writer\nNOT GIVEN if it is impossible to say what the writer thinks about this",
+      "stem": "The future of kintsugi as a living craft is likely to depend mainly on the number of trained practitioners available.",
+      "options": null,
+      "answer": "YES"
+    },
+    {
+      "n": 8,
+      "questionType": "short_answer",
+      "taskType": "yes_no_not_given",
+      "instruction": "Do the following statements agree with the views of the writer in Reading Passage 3? In boxes 5-9 on your answer sheet, write\n\nYES if the statement agrees with the views of the writer\nNO if the statement contradicts the views of the writer\nNOT GIVEN if it is impossible to say what the writer thinks about this",
+      "stem": "Kintsugi-repaired bowls now sell for higher prices in Kyoto than at any time in their history.",
+      "options": null,
+      "answer": "NOT GIVEN"
+    },
+    {
+      "n": 9,
+      "questionType": "short_answer",
+      "taskType": "yes_no_not_given",
+      "instruction": "Do the following statements agree with the views of the writer in Reading Passage 3? In boxes 5-9 on your answer sheet, write\n\nYES if the statement agrees with the views of the writer\nNO if the statement contradicts the views of the writer\nNOT GIVEN if it is impossible to say what the writer thinks about this",
+      "stem": "Commissioning deliberate breaks in new bowls in order to repair them is fully consistent with the original logic of the craft.",
+      "options": null,
+      "answer": "NO"
+    },
+    {
+      "n": 10,
+      "questionType": "short_answer",
+      "taskType": "short_answer",
+      "instruction": "Answer the questions below. Choose NO MORE THAN THREE WORDS from the passage for each answer. Write your answers in boxes 10-13 on your answer sheet.",
+      "stem": "What is the name of the lacquer used in traditional kintsugi repairs?",
+      "options": null,
+      "answer": "urushi"
+    },
+    {
+      "n": 11,
+      "questionType": "short_answer",
+      "taskType": "short_answer",
+      "instruction": "Answer the questions below. Choose NO MORE THAN THREE WORDS from the passage for each answer. Write your answers in boxes 10-13 on your answer sheet.",
+      "stem": "Which Japanese tea-related practice provided the philosophical setting in which kintsugi flourished?",
+      "options": null,
+      "answer": "chanoyu"
+    },
+    {
+      "n": 12,
+      "questionType": "short_answer",
+      "taskType": "short_answer",
+      "instruction": "Answer the questions below. Choose NO MORE THAN THREE WORDS from the passage for each answer. Write your answers in boxes 10-13 on your answer sheet.",
+      "stem": "From which country is most of the lacquer used in Japan now imported?",
+      "options": null,
+      "answer": "China"
+    },
+    {
+      "n": 13,
+      "questionType": "short_answer",
+      "taskType": "short_answer",
+      "instruction": "Answer the questions below. Choose NO MORE THAN THREE WORDS from the passage for each answer. Write your answers in boxes 10-13 on your answer sheet.",
+      "stem": "Which Japanese museum has Showzi Tsukamoto restored bowls for?",
+      "options": null,
+      "answer": "Tokyo National Museum"
+    }
+  ]
+}

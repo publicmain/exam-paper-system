@@ -1,0 +1,128 @@
+{
+  "bookCode": "ielts_authored_2026_v1",
+  "testNumber": 2,
+  "passageNumber": 2,
+  "passage": {
+    "title": "The architecture of memory: how spaced repetition works",
+    "body": "A In 1885 the German psychologist Hermann Ebbinghaus published a slim monograph that would eventually transform how scientists understood remembering and forgetting. Working alone, and using himself as the sole experimental subject, Ebbinghaus memorised lists of nonsense syllables such as 'ZOF' or 'KAB' and then tested how many he could recall after intervals ranging from a few minutes to a month. The resulting curve, plotted on a graph, dropped sharply during the first hour, levelled off by the second day, and then continued to decline more gently. He named it the forgetting curve, and although the methodology has been refined many times since, the basic shape has been replicated in every subsequent study.\n\nB The implication of the forgetting curve is uncomfortable: most of what we learn vanishes almost immediately. A student who reviews a chapter on Wednesday evening and is tested on it on Friday morning has typically retained less than a third of what they read. Cramming, in other words, is fighting against a biological tide. Ebbinghaus, however, noticed something else. Each time he relearned a list that had partially decayed, the rate of subsequent forgetting slowed. The list became, in his phrase, more 'savings-rich' with every review. A small amount of practice, distributed across several days, produced more durable memory than a much larger amount of practice concentrated in a single evening. This counterintuitive finding is now known as the spacing effect.\n\nC For nearly a century, the spacing effect remained an academic curiosity. It returned to prominence in the 1960s, when an American psychologist, Cecil Mace, formulated a practical recommendation: review new material after one day, then after three days, then after a week, then a month, and so on, with each interval roughly twice as long as the last. Mace's intervals were estimates, but they captured the essential idea. The most efficient moment to review something is just before you would otherwise have forgotten it. Reviewing earlier wastes effort on material that is still fresh; reviewing later means relearning rather than refreshing.\n\nD The technology to schedule such reviews precisely arrived in the 1980s, when Polish researcher Piotr Wozniak built a program he called SuperMemo. The program asked the user to rate, on a five-point scale, how easily they had recalled each item, and then used a mathematical algorithm to decide when to show the item again. Items recalled with difficulty returned sooner; items recalled fluently were postponed. The algorithm has since been refined repeatedly, and variations of it underpin every contemporary spaced repetition application, from open-source projects favoured by medical students to commercial language-learning platforms with tens of millions of subscribers. The algorithm assumes that the difficulty of each item is roughly stable for any given learner, and that successful retrieval reliably extends the interval before the next review. In practice, both assumptions are approximations, and modern variants attempt to track changes in a learner's familiarity over time. What none of the algorithms can do is predict the moment at which a particular memory will fail, which is why the schedules they generate are always cautious, tending to underestimate intervals rather than risk losing a hard-won trace.\n\nE Why the spacing effect works is still debated. One hypothesis, called study-phase retrieval, holds that each review forces the brain to reconstruct a partially decayed memory, and that this active reconstruction strengthens the trace more than passive re-reading would. Another hypothesis, encoding variability, suggests that when reviews occur at different times and in different moods, the resulting memory is linked to a wider range of mental contexts and is therefore easier to retrieve later. A third proposal, deficient processing, argues that when items are repeated too closely together, the brain stops attending to them. The hypotheses are not mutually exclusive, and most researchers now accept that several mechanisms operate in parallel.\n\nF Spaced repetition is not, however, a universal remedy. It works best for the kind of material that can be reduced to discrete, well-defined pairs of cue and response: vocabulary items, anatomical structures, the symbols of the periodic table. It works less well for skills that require integration of many pieces of information at once, such as constructing a legal argument or composing a coherent paragraph in a foreign language. For these tasks, repeated practice is still required, but the practice itself must take a form that resembles the eventual performance. Reviewing isolated grammar rules will not make a speaker fluent; conversing will.\n\nG Educational systems have been slow to adopt these findings. Most school timetables are built around blocks of contact teaching, with revision concentrated immediately before examinations. The temporal structure that emerges is almost the opposite of the one Ebbinghaus's curve recommends. Some institutions are now experimenting with timetables that interleave subjects across the week, returning to each topic at increasing intervals rather than completing it in a single unit. Early results are encouraging, but the cultural shift required is substantial. Generations of students have been taught that learning means working harder; the evidence suggests, somewhat awkwardly, that it means working more patiently."
+  },
+  "questions": [
+    {
+      "n": 1,
+      "questionType": "short_answer",
+      "taskType": "matching_headings",
+      "instruction": "Reading Passage 2 has seven paragraphs, A-G. Choose the correct heading for each paragraph from the list of headings below. Write the correct number, i-x, in boxes 1-7 on your answer sheet.\n\nList of Headings:\ni  Competing explanations for a single effect\nii  Why classrooms have been slow to change\niii  A self-experiment that shaped a discipline\niv  The arrival of automated scheduling\nv  An impractical proposal for younger learners\nvi  The limits of the technique\nvii  An uncomfortable lesson about cramming\nviii  From academic curiosity to practical rule\nix  Cultural resistance among teachers\nx  Comparing schools across continents",
+      "stem": "Paragraph A",
+      "options": null,
+      "answer": "iii"
+    },
+    {
+      "n": 2,
+      "questionType": "short_answer",
+      "taskType": "matching_headings",
+      "instruction": "Choose the correct heading for Paragraph B from the list of headings i-x.",
+      "stem": "Paragraph B",
+      "options": null,
+      "answer": "vii"
+    },
+    {
+      "n": 3,
+      "questionType": "short_answer",
+      "taskType": "matching_headings",
+      "instruction": "Choose the correct heading for Paragraph C from the list of headings i-x.",
+      "stem": "Paragraph C",
+      "options": null,
+      "answer": "viii"
+    },
+    {
+      "n": 4,
+      "questionType": "short_answer",
+      "taskType": "matching_headings",
+      "instruction": "Choose the correct heading for Paragraph D from the list of headings i-x.",
+      "stem": "Paragraph D",
+      "options": null,
+      "answer": "iv"
+    },
+    {
+      "n": 5,
+      "questionType": "short_answer",
+      "taskType": "matching_headings",
+      "instruction": "Choose the correct heading for Paragraph E from the list of headings i-x.",
+      "stem": "Paragraph E",
+      "options": null,
+      "answer": "i"
+    },
+    {
+      "n": 6,
+      "questionType": "short_answer",
+      "taskType": "matching_headings",
+      "instruction": "Choose the correct heading for Paragraph F from the list of headings i-x.",
+      "stem": "Paragraph F",
+      "options": null,
+      "answer": "vi"
+    },
+    {
+      "n": 7,
+      "questionType": "short_answer",
+      "taskType": "matching_headings",
+      "instruction": "Choose the correct heading for Paragraph G from the list of headings i-x.",
+      "stem": "Paragraph G",
+      "options": null,
+      "answer": "ii"
+    },
+    {
+      "n": 8,
+      "questionType": "short_answer",
+      "taskType": "summary_completion",
+      "instruction": "Complete the summary below. Choose NO MORE THAN TWO WORDS from the passage for each answer. Write your answers in boxes 8-13 on your answer sheet.\n\nIn the 1880s, Ebbinghaus tested his own recall of meaningless syllables and produced a graph he called the (8)___. He observed that when a partially forgotten list was reviewed, the rate of later forgetting slowed; this pattern became known as the (9)___. In the 1960s, Cecil Mace proposed reviewing material at intervals, each roughly (10)___ as long as the previous one. The first computer program to schedule reviews automatically, called (11)___, was written in Poland in the 1980s. One theory, known as (12)___, claims that retrieving a fading memory makes the trace stronger. The technique works best on isolated cue-response items and less well on tasks requiring (13)___ of many pieces of information.",
+      "stem": "8",
+      "options": null,
+      "answer": "forgetting curve"
+    },
+    {
+      "n": 9,
+      "questionType": "short_answer",
+      "taskType": "summary_completion",
+      "instruction": "Complete the summary. Choose NO MORE THAN TWO WORDS from the passage for each answer.",
+      "stem": "9",
+      "options": null,
+      "answer": "spacing effect"
+    },
+    {
+      "n": 10,
+      "questionType": "short_answer",
+      "taskType": "summary_completion",
+      "instruction": "Complete the summary. Choose NO MORE THAN TWO WORDS from the passage for each answer.",
+      "stem": "10",
+      "options": null,
+      "answer": "twice"
+    },
+    {
+      "n": 11,
+      "questionType": "short_answer",
+      "taskType": "summary_completion",
+      "instruction": "Complete the summary. Choose NO MORE THAN TWO WORDS from the passage for each answer.",
+      "stem": "11",
+      "options": null,
+      "answer": "SuperMemo"
+    },
+    {
+      "n": 12,
+      "questionType": "short_answer",
+      "taskType": "summary_completion",
+      "instruction": "Complete the summary. Choose NO MORE THAN TWO WORDS from the passage for each answer.",
+      "stem": "12",
+      "options": null,
+      "answer": "study-phase retrieval"
+    },
+    {
+      "n": 13,
+      "questionType": "short_answer",
+      "taskType": "summary_completion",
+      "instruction": "Complete the summary. Choose NO MORE THAN TWO WORDS from the passage for each answer.",
+      "stem": "13",
+      "options": null,
+      "answer": "integration"
+    }
+  ]
+}

@@ -1,0 +1,143 @@
+{
+  "bookCode": "ielts_authored_2026_v1",
+  "testNumber": 2,
+  "passageNumber": 3,
+  "passage": {
+    "title": "Lighthouses: from oil lamps to GPS",
+    "body": "A For nearly three thousand years, the lighthouse has been the single most visible symbol of maritime safety. The ancient Lighthouse of Alexandria, raised on the island of Pharos around 280 BCE, was reported by classical writers to stand more than a hundred metres tall, with a wood fire burning in its upper chamber and a metal mirror, possibly bronze, directing the glow seaward. Whether the structure functioned reliably as a navigational aid or chiefly as a monument to Ptolemaic ambition is still disputed, but its silhouette became so iconic that for centuries 'pharos' served as a generic term for any coastal beacon.\n\nB The Romans built lighthouses along the coasts of their empire, but the technology stagnated after Rome's collapse and was not seriously advanced until the late seventeenth century. The Eddystone Rocks, fourteen miles off Plymouth in southwest England, posed a particularly stubborn problem: ships approaching the harbour foundered on the reef in such numbers that an engineer named Henry Winstanley undertook to build a tower directly on the rocks themselves. His first attempt, completed in 1698, was timber clad and elaborately decorated; it survived for five years before being swept away in a storm, taking Winstanley with it. Subsequent towers on the same spot, each better engineered than the last, established Eddystone as a continuous laboratory of lighthouse design.\n\nC The most important breakthroughs concerned the light itself. Until the late eighteenth century, beacons depended on open fires or rows of tallow candles, both of which produced a dim and erratic flame that was easily obscured by smoke. In 1782, the Swiss inventor Aimé Argand patented an oil lamp with a cylindrical wick and a glass chimney that drew air evenly across the flame. The Argand lamp produced light equivalent to roughly ten candles from a single wick, and its steady glow could be paired with a polished metal reflector to project a usable beam. For half a century the Argand lamp was the standard equipment in every lighthouse from Norway to New England.\n\nD A still greater leap came in 1822, when the French physicist Augustin-Jean Fresnel introduced a new kind of lens. Conventional lenses thick enough to bend the light from a lamp into a parallel beam would have been impossibly heavy; Fresnel realised that the same optical effect could be produced by a thin lens made up of concentric rings of glass, each ground at a slightly different angle. The Fresnel lens was lighter, transmitted far more of the lamp's output, and could be made in a range of sizes graded by 'order'. A first-order Fresnel lens, the largest, stood more than three metres tall and could throw a beam more than thirty kilometres across open water.\n\nE Fresnel's invention shifted the engineering problem from one of light to one of fuel and timing. To distinguish one lighthouse from another, designers introduced characteristic patterns of flashes, achieved by rotating the lens around a stationary lamp so that the beam swept across the sea like the spoke of a wheel. The rotation was originally driven by a clockwork mechanism wound by hand every few hours; the lamp itself burned successively whale oil, colza oil from rapeseed, kerosene, and eventually compressed gas. Each fuel change demanded modifications to the burner, and the keeper's daily routine was structured around the maintenance of a complex and somewhat temperamental machine.\n\nF Electrification began in the late nineteenth century, but it spread slowly because most lighthouses stood on rocks or islands with no connection to a power grid. The arrival of automatic acetylene gas, developed by the Swedish engineer Gustaf Dalén in the early 1900s, was therefore as significant as any electrical innovation. Dalén's apparatus combined a gas burner with a sun valve that lit the flame at dusk and extinguished it at dawn without human intervention, allowing lighthouses to operate unattended for months at a time. Dalén was awarded the Nobel Prize in Physics in 1912 for this work. By the middle of the twentieth century, most lighthouses had been converted to electric lamps powered by generators or undersea cables, and lighthouse keeping as a profession entered its long decline.\n\nG The final transformation has come from satellite navigation. Since the 1990s, global positioning systems have provided ships with continuous fixes accurate to within a few metres, and the strategic value of a flashing light has correspondingly diminished. Many small lighthouses have been decommissioned outright; others have been preserved as cultural monuments, with their original lamp rooms restored even though the working light is now a low-power LED housed in a modest box on the railing. A handful of nations, notably Ireland and Japan, have retained a significant network of operating lights as a backup against electronic failure, on the grounds that a sailor without power can still see a flash. Whether that remains a sufficient justification, in an age when even small craft carry redundant GPS receivers, is a question that maritime authorities have been increasingly reluctant to answer."
+  },
+  "questions": [
+    {
+      "n": 1,
+      "questionType": "short_answer",
+      "taskType": "yes_no_not_given",
+      "instruction": "Do the following statements agree with the views of the writer in Reading Passage 3? In boxes 1-5 on your answer sheet, write YES if the statement agrees with the views of the writer, NO if the statement contradicts the views of the writer, NOT GIVEN if it is impossible to say what the writer thinks about this.",
+      "stem": "It is clear that the Lighthouse of Alexandria was an effective aid to navigation.",
+      "options": null,
+      "answer": "NO"
+    },
+    {
+      "n": 2,
+      "questionType": "short_answer",
+      "taskType": "yes_no_not_given",
+      "instruction": "Do the following statements agree with the views of the writer in Reading Passage 3? Write YES, NO or NOT GIVEN.",
+      "stem": "The Eddystone Rocks proved a useful site for experimenting with lighthouse design.",
+      "options": null,
+      "answer": "YES"
+    },
+    {
+      "n": 3,
+      "questionType": "short_answer",
+      "taskType": "yes_no_not_given",
+      "instruction": "Do the following statements agree with the views of the writer in Reading Passage 3? Write YES, NO or NOT GIVEN.",
+      "stem": "Lighthouse keepers in the nineteenth century were poorly paid compared with other technical workers.",
+      "options": null,
+      "answer": "NOT GIVEN"
+    },
+    {
+      "n": 4,
+      "questionType": "short_answer",
+      "taskType": "yes_no_not_given",
+      "instruction": "Do the following statements agree with the views of the writer in Reading Passage 3? Write YES, NO or NOT GIVEN.",
+      "stem": "Dalén's invention was as important to the development of unattended lighthouses as electrification.",
+      "options": null,
+      "answer": "YES"
+    },
+    {
+      "n": 5,
+      "questionType": "short_answer",
+      "taskType": "yes_no_not_given",
+      "instruction": "Do the following statements agree with the views of the writer in Reading Passage 3? Write YES, NO or NOT GIVEN.",
+      "stem": "Maritime authorities have offered clear public reasons for keeping traditional lighthouses in service.",
+      "options": null,
+      "answer": "NO"
+    },
+    {
+      "n": 6,
+      "questionType": "mcq",
+      "taskType": "multiple_choice",
+      "instruction": "Choose the correct letter, A, B, C or D. Write the correct letter in box 6 on your answer sheet.",
+      "stem": "According to paragraph C, what was the chief advantage of Argand's lamp over earlier beacons?",
+      "options": [
+        {"key":"A","text":"It used a cheaper kind of fuel than tallow candles.","correct":false},
+        {"key":"B","text":"It could be mounted on a rotating mechanism for the first time.","correct":false},
+        {"key":"C","text":"It produced a much brighter and steadier flame.","correct":true},
+        {"key":"D","text":"It was small enough to be installed in any reflector.","correct":false}
+      ],
+      "answer": "C"
+    },
+    {
+      "n": 7,
+      "questionType": "mcq",
+      "taskType": "multiple_choice",
+      "instruction": "Choose the correct letter, A, B, C or D. Write the correct letter in box 7 on your answer sheet.",
+      "stem": "What does the writer suggest was distinctive about the Fresnel lens?",
+      "options": [
+        {"key":"A","text":"It was the first lens designed specifically for use at sea.","correct":false},
+        {"key":"B","text":"It achieved a strong beam without the weight of a solid lens.","correct":true},
+        {"key":"C","text":"It allowed lighthouses to operate without any kind of lamp.","correct":false},
+        {"key":"D","text":"It was manufactured in only one standard size.","correct":false}
+      ],
+      "answer": "B"
+    },
+    {
+      "n": 8,
+      "questionType": "mcq",
+      "taskType": "multiple_choice",
+      "instruction": "Choose the correct letter, A, B, C or D. Write the correct letter in box 8 on your answer sheet.",
+      "stem": "Why were rotating lenses introduced after Fresnel's invention?",
+      "options": [
+        {"key":"A","text":"to project light in two directions at once","correct":false},
+        {"key":"B","text":"to reduce the amount of fuel each lamp consumed","correct":false},
+        {"key":"C","text":"to give each lighthouse a recognisable pattern of flashes","correct":true},
+        {"key":"D","text":"to allow keepers to sleep during the night","correct":false}
+      ],
+      "answer": "C"
+    },
+    {
+      "n": 9,
+      "questionType": "short_answer",
+      "taskType": "sentence_completion",
+      "instruction": "Complete the sentences below. Choose NO MORE THAN THREE WORDS from the passage for each answer. Write your answers in boxes 9-13 on your answer sheet.",
+      "stem": "Henry Winstanley's first Eddystone tower, made largely of timber, was destroyed in a (9)___ in 1703.",
+      "options": null,
+      "answer": "storm"
+    },
+    {
+      "n": 10,
+      "questionType": "short_answer",
+      "taskType": "sentence_completion",
+      "instruction": "Complete the sentence. Choose NO MORE THAN THREE WORDS from the passage for each answer.",
+      "stem": "Argand's lamp produced a light equivalent to roughly (10)___ from a single wick.",
+      "options": null,
+      "answer": "ten candles"
+    },
+    {
+      "n": 11,
+      "questionType": "short_answer",
+      "taskType": "sentence_completion",
+      "instruction": "Complete the sentence. Choose NO MORE THAN THREE WORDS from the passage for each answer.",
+      "stem": "The biggest Fresnel lens, known as a (11)___ lens, was over three metres in height.",
+      "options": null,
+      "answer": "first-order Fresnel"
+    },
+    {
+      "n": 12,
+      "questionType": "short_answer",
+      "taskType": "sentence_completion",
+      "instruction": "Complete the sentence. Choose NO MORE THAN THREE WORDS from the passage for each answer.",
+      "stem": "Dalén's apparatus used a (12)___ to turn the flame on at dusk and off at dawn.",
+      "options": null,
+      "answer": "sun valve"
+    },
+    {
+      "n": 13,
+      "questionType": "short_answer",
+      "taskType": "sentence_completion",
+      "instruction": "Complete the sentence. Choose NO MORE THAN THREE WORDS from the passage for each answer.",
+      "stem": "In many preserved lighthouses, the working light is now a low-power (13)___ kept on the railing.",
+      "options": null,
+      "answer": "LED"
+    }
+  ]
+}

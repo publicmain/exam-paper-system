@@ -1,0 +1,143 @@
+{
+  "bookCode": "ielts_authored_2026_v1",
+  "testNumber": 2,
+  "passageNumber": 1,
+  "passage": {
+    "title": "Reviving native grasslands as carbon sinks",
+    "body": "A When the public imagines a landscape that stores carbon on a planetary scale, the picture that comes to mind is usually a tropical forest, dense with broadleaf canopy and dripping with rain. Grasslands, by contrast, are widely perceived as little more than empty space waiting for a more productive use. Yet ecologists who have measured carbon flows beneath the surface of temperate prairies argue that these unassuming ecosystems are among the most important, and most overlooked, carbon stores on the planet. Native grasslands sequester the bulk of their carbon underground, inside fibrous root networks that can plunge three or four metres into the soil, well below the depth at which most carbon inventories are conducted.\n\nB The chemistry of this process is unusual. Whereas forests lock up much of their captured carbon in standing wood, prairie grasses transfer carbon to the soil through a partnership with fungi and bacteria. Roots release sugars known as exudates that feed soil microbes, and in return the microbes deliver minerals to the plant. As microbial bodies die, their cell walls fuse with mineral particles to form stable aggregates that resist decomposition for decades, or even centuries. The result is a slow, steady accumulation of organic carbon that is far less vulnerable to fire than the carbon stored in trees. A grass fire blackens the surface but leaves the underground reservoir largely intact.\n\nC Despite this resilience, the world has lost most of its temperate grassland. In North America, less than four per cent of the original tallgrass prairie remains; in Eurasia, the great steppe belt has been ploughed for wheat or grazed past the point of recovery. The conversion of perennial grassland to annual cropland is, in carbon terms, a one-way transaction. Tillage breaks up the soil aggregates that protect organic carbon, exposing it to oxygen, and the carbon escapes into the atmosphere as carbon dioxide within a few seasons. Estimates suggest that the ploughing of the North American prairies in the late nineteenth century released as much carbon as a generation of industrial emissions.\n\nD Restoration projects are now attempting to reverse that loss, but the work is slow and unfashionable. Seeding a degraded paddock with a single fast-growing grass species is straightforward, yet such monocultures store comparatively little carbon, because shallow roots cannot reach the deeper horizons where stable storage occurs. Genuine restoration requires a diverse seed mix, typically thirty to sixty species, including deep-rooted forbs and legumes that fix nitrogen. Establishing such communities can take a decade, and during that decade the land produces no income for its owner. Without targeted public funding, most farmers cannot afford the wait.\n\nE The economics shift, however, when carbon markets are introduced. Several jurisdictions now allow landholders to sell credits for verified increases in soil carbon, and a number of pilot schemes have run in Australia, Canada and Kenya. Critics argue that measurement remains the weak point. Soil carbon is patchy, varying sharply over a few metres, and accurately quantifying changes requires expensive sampling at multiple depths. Newer techniques, including satellite-based spectral analysis and portable infrared probes, promise cheaper monitoring, but their accuracy has yet to satisfy regulators in most major markets.\n\nF A further difficulty is that grassland carbon, once restored, must remain in the ground. A field that is ploughed twenty years after restoration can lose decades of accumulated storage in a single season. For this reason, most credit schemes require permanence agreements that bind the land for a century or more, which many landowners find unpalatable. Indigenous communities in the southern plains of North America have suggested an alternative model in which carbon storage is treated as a public service, paid for collectively rather than traded privately, and tied to the broader ecological functions of healthy grassland, such as pollinator habitat and groundwater recharge.\n\nG The role of grazing animals adds a further layer of complexity. Wild bison, antelope and elk once moved across the North American prairies in vast herds, cropping the grass in short, intense bursts and then leaving an area undisturbed for months. Recent research at the Konza Prairie in Kansas suggests that this pattern of disturbance and recovery, rather than continuous light grazing, drove much of the carbon-storage benefit. When domestic cattle are managed to mimic that rhythm, by being moved frequently between small paddocks, soil carbon levels can begin to recover even on degraded land. Continuous heavy grazing, by contrast, depletes root systems and reduces the soil's capacity to hold carbon. Pastoral practice, in other words, matters as much as plant choice. The same field of native grass can be a net carbon sink under one management regime and a net source under another.\n\nH Whatever the framework, the underlying biology is clear. Where native grasses are reintroduced and grazing is managed to mimic the rhythms of wild herds, carbon accrual can reach roughly one tonne per hectare each year, sustained for several decades. That figure is modest compared with a young forest, but grassland carbon is more secure against the droughts and wildfires that are becoming more frequent. As the climate warms, the case for restoring these much-maligned ecosystems is no longer simply about biodiversity or the aesthetics of an open horizon. It is a calculation about where carbon can be kept safely, and for how long."
+  },
+  "questions": [
+    {
+      "n": 1,
+      "questionType": "short_answer",
+      "taskType": "matching_information",
+      "instruction": "Reading Passage 1 has eight paragraphs, A-H. Which paragraph contains the following information? Write the correct letter, A-H, in boxes 1-5 on your answer sheet. NB You may use any letter more than once.",
+      "stem": "a reference to the proportion of an original grassland that has survived",
+      "options": null,
+      "answer": "C"
+    },
+    {
+      "n": 2,
+      "questionType": "short_answer",
+      "taskType": "matching_information",
+      "instruction": "Reading Passage 1 has eight paragraphs, A-H. Which paragraph contains the following information? Write the correct letter, A-H, in boxes 1-5 on your answer sheet.",
+      "stem": "an explanation of how living organisms exchange resources beneath the soil",
+      "options": null,
+      "answer": "B"
+    },
+    {
+      "n": 3,
+      "questionType": "short_answer",
+      "taskType": "matching_information",
+      "instruction": "Reading Passage 1 has eight paragraphs, A-H. Which paragraph contains the following information? Write the correct letter, A-H, in boxes 1-5 on your answer sheet.",
+      "stem": "a community-led proposal that treats carbon storage as a shared good",
+      "options": null,
+      "answer": "F"
+    },
+    {
+      "n": 4,
+      "questionType": "short_answer",
+      "taskType": "matching_information",
+      "instruction": "Reading Passage 1 has eight paragraphs, A-H. Which paragraph contains the following information? Write the correct letter, A-H, in boxes 1-5 on your answer sheet.",
+      "stem": "a comparison between popular perceptions of forests and grasslands",
+      "options": null,
+      "answer": "A"
+    },
+    {
+      "n": 5,
+      "questionType": "short_answer",
+      "taskType": "matching_information",
+      "instruction": "Reading Passage 1 has eight paragraphs, A-H. Which paragraph contains the following information? Write the correct letter, A-H, in boxes 1-5 on your answer sheet.",
+      "stem": "details of the financial obstacles facing landowners who attempt restoration",
+      "options": null,
+      "answer": "D"
+    },
+    {
+      "n": 6,
+      "questionType": "short_answer",
+      "taskType": "true_false_not_given",
+      "instruction": "Do the following statements agree with the information given in Reading Passage 1? In boxes 6-10 on your answer sheet, write TRUE if the statement agrees with the information, FALSE if the statement contradicts the information, NOT GIVEN if there is no information on this.",
+      "stem": "Most carbon inventories measure soil down to the depth of grassland root systems.",
+      "options": null,
+      "answer": "FALSE"
+    },
+    {
+      "n": 7,
+      "questionType": "short_answer",
+      "taskType": "true_false_not_given",
+      "instruction": "Do the following statements agree with the information given in Reading Passage 1? Write TRUE, FALSE or NOT GIVEN.",
+      "stem": "Surface fires generally destroy most of the carbon stored beneath a native prairie.",
+      "options": null,
+      "answer": "FALSE"
+    },
+    {
+      "n": 8,
+      "questionType": "short_answer",
+      "taskType": "true_false_not_given",
+      "instruction": "Do the following statements agree with the information given in Reading Passage 1? Write TRUE, FALSE or NOT GIVEN.",
+      "stem": "Single-species replantings store as much carbon as diverse native communities.",
+      "options": null,
+      "answer": "FALSE"
+    },
+    {
+      "n": 9,
+      "questionType": "short_answer",
+      "taskType": "true_false_not_given",
+      "instruction": "Do the following statements agree with the information given in Reading Passage 1? Write TRUE, FALSE or NOT GIVEN.",
+      "stem": "Carbon trading pilots have been conducted in Australia, Canada and Kenya.",
+      "options": null,
+      "answer": "TRUE"
+    },
+    {
+      "n": 10,
+      "questionType": "short_answer",
+      "taskType": "true_false_not_given",
+      "instruction": "Do the following statements agree with the information given in Reading Passage 1? Write TRUE, FALSE or NOT GIVEN.",
+      "stem": "Satellite-based monitoring of soil carbon is now accepted by regulators in most major markets.",
+      "options": null,
+      "answer": "FALSE"
+    },
+    {
+      "n": 11,
+      "questionType": "mcq",
+      "taskType": "multiple_choice",
+      "instruction": "Choose the correct letter, A, B, C or D. Write the correct letter in box 11 on your answer sheet.",
+      "stem": "According to paragraph C, ploughing perennial grassland causes carbon loss mainly because",
+      "options": [
+        {"key":"A","text":"the new annual crops absorb less carbon dioxide than grasses.","correct":false},
+        {"key":"B","text":"protective soil aggregates are broken apart and exposed to air.","correct":true},
+        {"key":"C","text":"livestock are removed and stop returning manure to the field.","correct":false},
+        {"key":"D","text":"deep roots are buried too far below the surface to be effective.","correct":false}
+      ],
+      "answer": "B"
+    },
+    {
+      "n": 12,
+      "questionType": "mcq",
+      "taskType": "multiple_choice",
+      "instruction": "Choose the correct letter, A, B, C or D. Write the correct letter in box 12 on your answer sheet.",
+      "stem": "What does the writer suggest is the main weakness of current soil-carbon credit schemes?",
+      "options": [
+        {"key":"A","text":"Landowners find the long-term permanence requirements unattractive.","correct":true},
+        {"key":"B","text":"Carbon prices in most jurisdictions remain too low to be profitable.","correct":false},
+        {"key":"C","text":"Indigenous communities are excluded from participating in trading.","correct":false},
+        {"key":"D","text":"Restored grasslands accumulate carbon too slowly to be measurable.","correct":false}
+      ],
+      "answer": "A"
+    },
+    {
+      "n": 13,
+      "questionType": "mcq",
+      "taskType": "multiple_choice",
+      "instruction": "Choose the correct letter, A, B, C or D. Write the correct letter in box 13 on your answer sheet.",
+      "stem": "In the final paragraph, the writer concludes that the case for restoring grasslands rests primarily on",
+      "options": [
+        {"key":"A","text":"the recovery of pollinator populations and wildlife corridors.","correct":false},
+        {"key":"B","text":"the cultural significance of open horizons to local communities.","correct":false},
+        {"key":"C","text":"the security of the carbon held there as the climate warms.","correct":true},
+        {"key":"D","text":"the higher annual rate of carbon capture compared with forests.","correct":false}
+      ],
+      "answer": "C"
+    }
+  ]
+}

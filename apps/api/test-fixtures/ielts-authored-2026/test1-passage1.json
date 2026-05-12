@@ -1,0 +1,128 @@
+{
+  "bookCode": "ielts_authored_2026_v1",
+  "testNumber": 1,
+  "passageNumber": 1,
+  "passage": {
+    "title": "The rise of urban beekeeping",
+    "body": "A In the past two decades, beekeeping has moved out of the orchard and into the city. Rooftops in Paris, balconies in Berlin and disused industrial yards in London now host wooden hives that, only a generation ago, would have seemed entirely out of place in a built environment. Several factors have driven this shift. Public concern about the decline of pollinators has grown markedly since the late 1990s, when commercial keepers in North America began reporting unusually heavy winter losses. At roughly the same time, planning rules in many European cities were relaxed to permit small-scale hives on private property, and a generation of younger urban residents began searching for hands-on hobbies that connected them to the natural world. Urban beekeeping sits at the intersection of these trends.\n\nB Cities, perhaps surprisingly, can be hospitable places for honeybees. A single colony of Apis mellifera, the western honeybee, forages within a radius of roughly three kilometres of its hive, and within that radius a typical city contains an unusually diverse range of flowering plants. Parks, cemeteries, railway embankments, allotments and the linden trees that line many European avenues together provide a long and overlapping succession of nectar sources, often stretching from March until late September. By contrast, agricultural land planted with a single crop, such as oilseed rape or maize, may offer an intense but brief flow followed by long periods in which forage is scarce. Researchers at the French National Institute for Agricultural Research have reported that, in good years, urban hives in Paris produce noticeably more honey per colony than hives placed in nearby cereal-growing regions.\n\nC The case for urban beekeeping is not, however, simply a matter of honey yields. Advocates argue that visible hives in schools, hospitals and offices help to reframe pollinators as part of the everyday landscape rather than as a distant rural concern. The Bermondsey Street Bees project in south London, for example, runs short courses for office workers in which participants open a hive under supervision, identify the queen and learn to distinguish drone brood from worker brood. Organisers report that those who attend a single session are markedly more likely, in follow-up surveys, to plant pollinator-friendly flowers at home, to oppose the use of broad-spectrum garden insecticides and to support local rewilding initiatives.\n\nD Not everyone is persuaded that the rapid expansion of city hives is benign. A study published in 2020 by researchers at the Swiss Federal Institute of Technology in Lausanne tracked the density of registered honeybee colonies in Geneva and modelled the floral resources available within the city limits. The authors concluded that, in several districts, the number of managed colonies had risen above the level the local flora could sustainably support. Where this happens, honeybees may compete directly with wild bumblebees and solitary bees for a finite pool of nectar and pollen. Because honeybee colonies contain tens of thousands of individuals, while many solitary bee species are represented by only a few dozen females in any given garden, the competitive pressure can fall most heavily on precisely the species that conservationists most wish to protect.\n\nE A second concern is disease. Honeybee colonies kept in close proximity can transmit viruses and the parasitic mite Varroa destructor more readily than colonies dispersed across the countryside. The mite, which arrived in Europe from Asia in the late twentieth century, weakens adult bees and shortens their lives, and is widely regarded as the single most important threat to managed colonies worldwide. In dense urban beekeeping districts, an inexperienced keeper who fails to monitor mite levels can become an unwitting reservoir of infection for neighbouring hives. For this reason, several European cities have introduced compulsory training requirements and minimum spacing rules for new hives.\n\nF The skills required to keep bees responsibly in a city are not trivial. A new keeper must learn to recognise the signs that a colony is preparing to swarm, since a swarm settling on a busy street will alarm passers-by and may need to be removed by the fire service. They must also understand how to combine inspections with the rhythm of the surrounding neighbourhood, avoiding hot afternoons when bees are most defensive and ensuring that flight paths from the hive entrance do not cross popular walking routes. Many city associations now run mentoring schemes in which experienced keepers visit beginners at their hives during the first two seasons, a model that appears to reduce both colony losses and complaints from neighbours.\n\nG Looking ahead, the most thoughtful voices in the field argue that urban beekeeping should be understood as one strand of a broader pollinator strategy rather than as an end in itself. Planting native wildflowers on road verges, leaving small areas of bare earth for ground-nesting bees and reducing the use of pesticides in public parks all benefit a far wider range of species than honeybees alone. Treated as a gateway activity, urban beekeeping can foster the public support that such measures require. Treated as a fashion to be pursued without restraint, it risks becoming yet another pressure on the wild pollinators that cities most need."
+  },
+  "questions": [
+    {
+      "n": 1,
+      "questionType": "short_answer",
+      "taskType": "matching_headings",
+      "instruction": "Reading Passage 1 has seven paragraphs, A-G. Choose the correct heading for each paragraph from the list of headings below. Write the correct number, i-x, in boxes 1-6 on your answer sheet.\n\nList of Headings:\ni A warning against treating beekeeping as a passing trend\nii Why cities can offer good conditions for honeybees\niii The role of beekeeping courses in changing public attitudes\niv The economic value of urban honey exports\nv Concerns about competition with wild pollinators\nvi Practical demands placed on the urban keeper\nvii The arrival of a parasite that endangers managed colonies\nviii Forces behind the spread of hives into cities\nix Government subsidies for commercial beekeepers\nx The history of honeybee domestication in Europe",
+      "stem": "Paragraph A",
+      "options": null,
+      "answer": "viii"
+    },
+    {
+      "n": 2,
+      "questionType": "short_answer",
+      "taskType": "matching_headings",
+      "instruction": "Reading Passage 1 has seven paragraphs, A-G. Choose the correct heading for each paragraph from the list of headings below. Write the correct number, i-x, in boxes 1-6 on your answer sheet.\n\nList of Headings:\ni A warning against treating beekeeping as a passing trend\nii Why cities can offer good conditions for honeybees\niii The role of beekeeping courses in changing public attitudes\niv The economic value of urban honey exports\nv Concerns about competition with wild pollinators\nvi Practical demands placed on the urban keeper\nvii The arrival of a parasite that endangers managed colonies\nviii Forces behind the spread of hives into cities\nix Government subsidies for commercial beekeepers\nx The history of honeybee domestication in Europe",
+      "stem": "Paragraph B",
+      "options": null,
+      "answer": "ii"
+    },
+    {
+      "n": 3,
+      "questionType": "short_answer",
+      "taskType": "matching_headings",
+      "instruction": "Reading Passage 1 has seven paragraphs, A-G. Choose the correct heading for each paragraph from the list of headings below. Write the correct number, i-x, in boxes 1-6 on your answer sheet.\n\nList of Headings:\ni A warning against treating beekeeping as a passing trend\nii Why cities can offer good conditions for honeybees\niii The role of beekeeping courses in changing public attitudes\niv The economic value of urban honey exports\nv Concerns about competition with wild pollinators\nvi Practical demands placed on the urban keeper\nvii The arrival of a parasite that endangers managed colonies\nviii Forces behind the spread of hives into cities\nix Government subsidies for commercial beekeepers\nx The history of honeybee domestication in Europe",
+      "stem": "Paragraph C",
+      "options": null,
+      "answer": "iii"
+    },
+    {
+      "n": 4,
+      "questionType": "short_answer",
+      "taskType": "matching_headings",
+      "instruction": "Reading Passage 1 has seven paragraphs, A-G. Choose the correct heading for each paragraph from the list of headings below. Write the correct number, i-x, in boxes 1-6 on your answer sheet.\n\nList of Headings:\ni A warning against treating beekeeping as a passing trend\nii Why cities can offer good conditions for honeybees\niii The role of beekeeping courses in changing public attitudes\niv The economic value of urban honey exports\nv Concerns about competition with wild pollinators\nvi Practical demands placed on the urban keeper\nvii The arrival of a parasite that endangers managed colonies\nviii Forces behind the spread of hives into cities\nix Government subsidies for commercial beekeepers\nx The history of honeybee domestication in Europe",
+      "stem": "Paragraph D",
+      "options": null,
+      "answer": "v"
+    },
+    {
+      "n": 5,
+      "questionType": "short_answer",
+      "taskType": "matching_headings",
+      "instruction": "Reading Passage 1 has seven paragraphs, A-G. Choose the correct heading for each paragraph from the list of headings below. Write the correct number, i-x, in boxes 1-6 on your answer sheet.\n\nList of Headings:\ni A warning against treating beekeeping as a passing trend\nii Why cities can offer good conditions for honeybees\niii The role of beekeeping courses in changing public attitudes\niv The economic value of urban honey exports\nv Concerns about competition with wild pollinators\nvi Practical demands placed on the urban keeper\nvii The arrival of a parasite that endangers managed colonies\nviii Forces behind the spread of hives into cities\nix Government subsidies for commercial beekeepers\nx The history of honeybee domestication in Europe",
+      "stem": "Paragraph E",
+      "options": null,
+      "answer": "vii"
+    },
+    {
+      "n": 6,
+      "questionType": "short_answer",
+      "taskType": "matching_headings",
+      "instruction": "Reading Passage 1 has seven paragraphs, A-G. Choose the correct heading for each paragraph from the list of headings below. Write the correct number, i-x, in boxes 1-6 on your answer sheet.\n\nList of Headings:\ni A warning against treating beekeeping as a passing trend\nii Why cities can offer good conditions for honeybees\niii The role of beekeeping courses in changing public attitudes\niv The economic value of urban honey exports\nv Concerns about competition with wild pollinators\nvi Practical demands placed on the urban keeper\nvii The arrival of a parasite that endangers managed colonies\nviii Forces behind the spread of hives into cities\nix Government subsidies for commercial beekeepers\nx The history of honeybee domestication in Europe",
+      "stem": "Paragraph F",
+      "options": null,
+      "answer": "vi"
+    },
+    {
+      "n": 7,
+      "questionType": "short_answer",
+      "taskType": "true_false_not_given",
+      "instruction": "Do the following statements agree with the information given in Reading Passage 1? In boxes 7-10 on your answer sheet, write\n\nTRUE if the statement agrees with the information\nFALSE if the statement contradicts the information\nNOT GIVEN if there is no information on this",
+      "stem": "Honeybee colonies in cities forage over a larger area than colonies in the countryside.",
+      "options": null,
+      "answer": "NOT GIVEN"
+    },
+    {
+      "n": 8,
+      "questionType": "short_answer",
+      "taskType": "true_false_not_given",
+      "instruction": "Do the following statements agree with the information given in Reading Passage 1? In boxes 7-10 on your answer sheet, write\n\nTRUE if the statement agrees with the information\nFALSE if the statement contradicts the information\nNOT GIVEN if there is no information on this",
+      "stem": "In some years, Parisian hives have produced more honey per colony than hives in surrounding cereal-growing areas.",
+      "options": null,
+      "answer": "TRUE"
+    },
+    {
+      "n": 9,
+      "questionType": "short_answer",
+      "taskType": "true_false_not_given",
+      "instruction": "Do the following statements agree with the information given in Reading Passage 1? In boxes 7-10 on your answer sheet, write\n\nTRUE if the statement agrees with the information\nFALSE if the statement contradicts the information\nNOT GIVEN if there is no information on this",
+      "stem": "Participants in the Bermondsey Street Bees courses are taught to identify different types of brood.",
+      "options": null,
+      "answer": "TRUE"
+    },
+    {
+      "n": 10,
+      "questionType": "short_answer",
+      "taskType": "true_false_not_given",
+      "instruction": "Do the following statements agree with the information given in Reading Passage 1? In boxes 7-10 on your answer sheet, write\n\nTRUE if the statement agrees with the information\nFALSE if the statement contradicts the information\nNOT GIVEN if there is no information on this",
+      "stem": "Varroa destructor is considered a relatively minor problem for managed honeybee colonies.",
+      "options": null,
+      "answer": "FALSE"
+    },
+    {
+      "n": 11,
+      "questionType": "short_answer",
+      "taskType": "sentence_completion",
+      "instruction": "Complete the sentences below. Choose NO MORE THAN TWO WORDS from the passage for each answer. Write your answers in boxes 11-13 on your answer sheet.",
+      "stem": "A single honeybee colony typically forages within a radius of about ________ from its hive.",
+      "options": null,
+      "answer": "three kilometres"
+    },
+    {
+      "n": 12,
+      "questionType": "short_answer",
+      "taskType": "sentence_completion",
+      "instruction": "Complete the sentences below. Choose NO MORE THAN TWO WORDS from the passage for each answer. Write your answers in boxes 11-13 on your answer sheet.",
+      "stem": "Swarms that settle on busy streets may have to be removed by the ________.",
+      "options": null,
+      "answer": "fire service"
+    },
+    {
+      "n": 13,
+      "questionType": "short_answer",
+      "taskType": "sentence_completion",
+      "instruction": "Complete the sentences below. Choose NO MORE THAN TWO WORDS from the passage for each answer. Write your answers in boxes 11-13 on your answer sheet.",
+      "stem": "Many city associations now run ________ in which experienced keepers visit beginners during their first two seasons.",
+      "options": null,
+      "answer": "mentoring schemes"
+    }
+  ]
+}

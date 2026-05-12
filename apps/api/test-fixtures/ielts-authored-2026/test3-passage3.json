@@ -1,0 +1,169 @@
+{
+  "bookCode": "ielts_authored_2026_v1",
+  "testNumber": 3,
+  "passageNumber": 3,
+  "passage": {
+    "title": "The decipherment of Linear B",
+    "body": "A In 1900, the British archaeologist Arthur Evans began excavating the great Bronze Age palace at Knossos on the island of Crete. Among the painted walls and gypsum staircases, his workmen uncovered thousands of small clay tablets covered with neat, regular signs. Evans identified two distinct scripts. The older and more pictographic he called Linear A; the younger, used on tablets baked hard by the fire that destroyed the palace around 1400 BC, he called Linear B. He was confident that both recorded the language of the Minoans, a people he believed to have been distinct from the later Greeks of the mainland. He devoted much of the rest of his life to publishing the tablets, but he never solved the script, and he discouraged others from trying.\n\nB For nearly half a century, Linear B resisted every attempt at decipherment. Unlike the bilingual Rosetta Stone that had unlocked Egyptian hieroglyphs in the 1820s, no parallel text in a known language existed. Most scholars accepted Evans's view that the underlying language was non-Greek, and so dictionaries and grammars of Greek were of little help. Attempts to read it as Etruscan, Hittite or even a form of Basque all foundered. The tablets themselves were not on public display, and only a small fraction had been published. Without a substantial body of material to work on, even the most ingenious cryptographic methods could make little progress.\n\nC The first decisive change came from an American classicist, Alice Kober, who in the 1940s worked methodically through the few hundred tablets then available. She concentrated not on what the signs might mean, but on how they behaved. Cataloguing the script onto handmade index cards, often cut from old cigarette cartons during wartime paper shortages, she noticed that certain groups of signs appeared as the endings of words, and that these endings changed in predictable ways depending on context. This pattern, she argued, was the unmistakable fingerprint of an inflected language, in which nouns and verbs change their endings to mark grammatical function, much as Latin or Russian does. Her insight reframed the problem: the task was no longer to guess at meanings but to reconstruct the script's grid of consonants and vowels.\n\nD Kober died in 1950, before she could complete her work. The next major figure was Michael Ventris, an English architect with no formal training in classics or linguistics, but with an extraordinary memory for languages and a long-standing fascination with the tablets. From his teenage years he had corresponded with leading scholars, including Evans himself. After the war he refined Kober's tabular method into what he called a grid, in which the signs were arranged along two axes representing the consonant and the vowel each was thought to carry. By the early 1950s, Ventris had a working grid for many of the most common signs, although he still did not know what consonants or vowels they actually represented.\n\nE The breakthrough came in 1952. Ventris had assumed, like most scholars, that the underlying language was not Greek. To test this, he tried plugging in the values of three sign-groups that always appeared on tablets from particular sites. The first he provisionally read as 'Knossos', the city itself; the second as 'Amnisos', the harbour town; the third as 'Tylissos', another known Cretan place. When the consonants and vowels these readings implied were carried through to other words in his grid, the results looked, to his astonishment, like archaic Greek: 'po-me' came out as poimēn, 'shepherd'; 'ko-wo' as korwos, 'boy'. Ventris had assumed Greek was the wrong answer; he found that it was the right one.\n\nF Ventris was cautious. He prepared a long working note, which he circulated to a number of specialists, and he sought out the help of John Chadwick, a Cambridge philologist with expertise in early Greek dialects. Chadwick confirmed that the language emerging from the grid was a previously unknown form of Greek, several centuries older than that of Homer and written in a syllabic script ill-suited to its consonant clusters. Together the two men produced a joint paper in 1953 and, three years later, the influential book Documents in Mycenaean Greek, which set out the decipherment in detail. Within a decade, most specialists had accepted Ventris's solution, though a small minority continued to resist.\n\nG The content of the tablets, once readable, proved unexpectedly mundane. There was no literature, no royal proclamation, no religious narrative. Instead, the texts were palace inventories: lists of sheep, of bronze cauldrons, of chariot wheels missing certain components, of rations to be issued to named officials. From an archaeological point of view, however, this was a remarkable gain. The tablets revealed a tightly organised bureaucratic society on the Greek mainland and at Knossos in the late Bronze Age, with a vocabulary that included gods later worshipped in classical times. The Greek-speaking world, it turned out, was several hundred years older than scholars had supposed.\n\nH The story of Linear B is sometimes told as a lone hero's triumph. Ventris's tragic death in a car accident in 1956, only four years after the decipherment, reinforced this image. The fuller picture, however, is one of accumulation: Evans's careful excavation and cataloguing, Kober's patient analysis of word endings, Ventris's structural grid, Chadwick's philological judgement. Each step depended on the last. As a case study in how an unknown script can be cracked without a bilingual text, Linear B remains the model that later scholars, working on undeciphered systems such as the Indus script, still consult."
+  },
+  "questions": [
+    {
+      "n": 1,
+      "questionType": "mcq",
+      "taskType": "multiple_choice",
+      "instruction": "Choose the correct letter, A, B, C or D. Write the correct letter in boxes 1-5 on your answer sheet.",
+      "stem": "Arthur Evans believed that the language recorded on the Linear B tablets was",
+      "options": [
+        {"key":"A","text":"an early form of Greek.","correct":false},
+        {"key":"B","text":"the language of the Minoans, distinct from Greek.","correct":true},
+        {"key":"C","text":"a form of Etruscan.","correct":false},
+        {"key":"D","text":"related to Hittite.","correct":false}
+      ],
+      "answer": "B"
+    },
+    {
+      "n": 2,
+      "questionType": "mcq",
+      "taskType": "multiple_choice",
+      "instruction": "Choose the correct letter, A, B, C or D.",
+      "stem": "According to the passage, why was Linear B so difficult to decipher before the 1940s?",
+      "options": [
+        {"key":"A","text":"The tablets had been damaged by the fire at Knossos.","correct":false},
+        {"key":"B","text":"No bilingual text existed and only a few tablets had been published.","correct":true},
+        {"key":"C","text":"Scholars disagreed about whether the script was alphabetic.","correct":false},
+        {"key":"D","text":"The language was thought to be a dialect of Greek.","correct":false}
+      ],
+      "answer": "B"
+    },
+    {
+      "n": 3,
+      "questionType": "mcq",
+      "taskType": "multiple_choice",
+      "instruction": "Choose the correct letter, A, B, C or D.",
+      "stem": "Alice Kober's main contribution to the decipherment was to show that",
+      "options": [
+        {"key":"A","text":"the script was used to write archaic Greek.","correct":false},
+        {"key":"B","text":"the tablets were palace inventories.","correct":false},
+        {"key":"C","text":"the underlying language was inflected.","correct":true},
+        {"key":"D","text":"the signs represented consonant clusters.","correct":false}
+      ],
+      "answer": "C"
+    },
+    {
+      "n": 4,
+      "questionType": "mcq",
+      "taskType": "multiple_choice",
+      "instruction": "Choose the correct letter, A, B, C or D.",
+      "stem": "Ventris's crucial 1952 test of his grid involved",
+      "options": [
+        {"key":"A","text":"comparing Linear B with Linear A.","correct":false},
+        {"key":"B","text":"reading the names of three Cretan places.","correct":true},
+        {"key":"C","text":"matching signs to a known Homeric poem.","correct":false},
+        {"key":"D","text":"deciphering a bilingual tablet from Knossos.","correct":false}
+      ],
+      "answer": "B"
+    },
+    {
+      "n": 5,
+      "questionType": "mcq",
+      "taskType": "multiple_choice",
+      "instruction": "Choose the correct letter, A, B, C or D.",
+      "stem": "Once the tablets could be read, their content turned out to be mainly",
+      "options": [
+        {"key":"A","text":"religious hymns.","correct":false},
+        {"key":"B","text":"royal proclamations.","correct":false},
+        {"key":"C","text":"administrative records.","correct":true},
+        {"key":"D","text":"poetic narratives.","correct":false}
+      ],
+      "answer": "C"
+    },
+    {
+      "n": 6,
+      "questionType": "mcq",
+      "taskType": "yes_no_not_given",
+      "instruction": "Do the following statements agree with the views of the writer in Reading Passage 3? In boxes 6-9 on your answer sheet, write YES if the statement agrees with the views of the writer, NO if the statement contradicts the views of the writer, NOT GIVEN if it is impossible to say what the writer thinks about this.",
+      "stem": "Evans actively helped other scholars who wanted to work on Linear B.",
+      "options": [
+        {"key":"A","text":"YES","correct":false},
+        {"key":"B","text":"NO","correct":true},
+        {"key":"C","text":"NOT GIVEN","correct":false}
+      ],
+      "answer": "B"
+    },
+    {
+      "n": 7,
+      "questionType": "mcq",
+      "taskType": "yes_no_not_given",
+      "instruction": "Do the following statements agree with the views of the writer in Reading Passage 3?",
+      "stem": "The writer considers Linear B a useful model for tackling other undeciphered scripts.",
+      "options": [
+        {"key":"A","text":"YES","correct":true},
+        {"key":"B","text":"NO","correct":false},
+        {"key":"C","text":"NOT GIVEN","correct":false}
+      ],
+      "answer": "A"
+    },
+    {
+      "n": 8,
+      "questionType": "mcq",
+      "taskType": "yes_no_not_given",
+      "instruction": "Do the following statements agree with the views of the writer in Reading Passage 3?",
+      "stem": "The writer believes that Ventris alone deserves the credit for the decipherment.",
+      "options": [
+        {"key":"A","text":"YES","correct":false},
+        {"key":"B","text":"NO","correct":true},
+        {"key":"C","text":"NOT GIVEN","correct":false}
+      ],
+      "answer": "B"
+    },
+    {
+      "n": 9,
+      "questionType": "mcq",
+      "taskType": "yes_no_not_given",
+      "instruction": "Do the following statements agree with the views of the writer in Reading Passage 3?",
+      "stem": "The writer regards the content of the tablets as a disappointment for archaeology.",
+      "options": [
+        {"key":"A","text":"YES","correct":false},
+        {"key":"B","text":"NO","correct":true},
+        {"key":"C","text":"NOT GIVEN","correct":false}
+      ],
+      "answer": "B"
+    },
+    {
+      "n": 10,
+      "questionType": "short_answer",
+      "taskType": "sentence_completion",
+      "instruction": "Complete the sentences below. Choose NO MORE THAN TWO WORDS from the passage for each answer. Write your answers in boxes 10-13 on your answer sheet.",
+      "stem": "During the wartime paper shortage, Kober recorded the signs of the script on ........................ cut from old cigarette cartons.",
+      "options": null,
+      "answer": "index cards"
+    },
+    {
+      "n": 11,
+      "questionType": "short_answer",
+      "taskType": "sentence_completion",
+      "instruction": "Complete the sentences below. Choose NO MORE THAN TWO WORDS from the passage for each answer.",
+      "stem": "Ventris refined Kober's method into a structure he called a ........................ , organised by consonant and vowel.",
+      "options": null,
+      "answer": "grid"
+    },
+    {
+      "n": 12,
+      "questionType": "short_answer",
+      "taskType": "sentence_completion",
+      "instruction": "Complete the sentences below. Choose NO MORE THAN TWO WORDS from the passage for each answer.",
+      "stem": "Ventris worked with the Cambridge philologist John ........................ , who confirmed that the language was an early form of Greek.",
+      "options": null,
+      "answer": "Chadwick"
+    },
+    {
+      "n": 13,
+      "questionType": "short_answer",
+      "taskType": "sentence_completion",
+      "instruction": "Complete the sentences below. Choose NO MORE THAN TWO WORDS from the passage for each answer.",
+      "stem": "Most of the tablets turned out to be palace ........................ rather than literary texts.",
+      "options": null,
+      "answer": "inventories"
+    }
+  ]
+}

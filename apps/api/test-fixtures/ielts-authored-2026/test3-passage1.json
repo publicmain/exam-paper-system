@@ -1,0 +1,144 @@
+{
+  "bookCode": "ielts_authored_2026_v1",
+  "testNumber": 3,
+  "passageNumber": 1,
+  "passage": {
+    "title": "How sleep consolidates motor skills",
+    "body": "A When a pianist learns a difficult passage or a tennis player drills a new backhand, the practice itself is only the beginning of the learning process. Decades of behavioural research have shown that the speed and accuracy with which a motor sequence is performed continue to improve in the hours that follow training, even though no further practice has taken place. Crucially, much of this offline gain depends on sleep. Subjects who are allowed a normal night of sleep between a training session and a retest typically perform around twenty per cent faster than those tested the same evening, while volunteers kept awake for the same interval show little or no improvement.\n\nB The form of sleep that appears to matter most for motor learning is the lighter stage known as stage 2 non-REM sleep, which dominates the second half of the night. Recordings made with electrodes on the scalp reveal brief bursts of rhythmic activity at around 13 hertz, called sleep spindles, that are especially abundant during this stage. In laboratory studies, the number of spindles recorded over the motor cortex on the night after training correlates closely with the size of the overnight improvement on a finger-tapping task. Participants who produce few spindles tend to wake up no better than they went to bed.\n\nC Why should a brief electrical flicker, lasting less than a second, have such an effect on a skill practised hours earlier? The leading explanation involves the hippocampus, a structure buried deep in the temporal lobe that is best known for its role in remembering facts and events. During waking practice, the hippocampus appears to tag the cortical circuits that have been recruited by the new movement. During the spindles of subsequent sleep, those tagged circuits are replayed at high speed, sometimes more than twenty times per minute, and the connections between the neurons involved are gradually strengthened. By morning, the skill is represented more efficiently in the cortex and the hippocampus is no longer needed to support it.\n\nD Not every kind of motor task benefits equally. Studies by the neuroscientist Matthew Walker and his colleagues have shown that explicit sequence learning, in which volunteers consciously memorise an order such as 4-1-3-2-4, is highly sleep-dependent. By contrast, tasks that rely on smoothly adjusting a continuous movement, such as tracking a moving target with a joystick, improve mainly with additional practice and are far less sensitive to whether the learner has slept. This dissociation suggests that sleep is doing something specific: it is not a generic restorative tonic but a targeted process for binding discrete elements into a single, automatic routine.\n\nE The timing of sleep relative to practice also matters. A nap of as little as sixty minutes taken within a few hours of training can produce gains comparable to a full night's sleep, provided that the nap contains a sufficient proportion of stage 2 sleep. Conversely, if learners are kept awake for thirty hours after training and only then allowed to sleep, the eventual improvement is smaller and less stable. The implication is that the memory trace laid down by practice begins to decay or to be overwritten unless it is rehearsed by sleep relatively soon after it is formed.\n\nF These findings have begun to filter out of the laboratory. Several professional sports academies in Europe and North America now schedule their most demanding skill sessions in the late afternoon, on the grounds that the consolidation window will fall during the players' usual sleeping hours. Music conservatories have experimented with short post-rehearsal naps, and at least one orchestral training programme reports measurable gains in passage accuracy after the practice was introduced. In clinical settings, physiotherapists working with stroke patients are exploring whether timing rehabilitation exercises before a scheduled sleep period might accelerate the recovery of fine hand movements, although the evidence here is still preliminary.\n\nG Several puzzles remain. It is unclear, for example, why some healthy adults consolidate skills strongly across a night of sleep while others, with apparently similar sleep architecture, show only modest gains. Genetic differences in receptors that regulate spindle activity may play a part, but so may the level of skill the learner had before practice began: highly trained musicians, whose motor cortex is already richly organised, sometimes show smaller overnight improvements than novices on the same task. Age is another factor. Older adults produce fewer and weaker spindles than the young, and their overnight gains on motor tasks are correspondingly reduced, even when the amount of practice and the duration of sleep are matched.\n\nH For most learners, the practical lesson is straightforward. A new physical skill is not fully acquired at the moment practice ends; it continues to be shaped by the brain for many hours afterwards. Protecting that hidden phase, by sleeping adequately and at the right time, may turn out to be as important to mastery as the practice itself."
+  },
+  "questions": [
+    {
+      "n": 1,
+      "questionType": "short_answer",
+      "taskType": "matching_information",
+      "instruction": "Reading Passage 1 has eight paragraphs, A-H. Which paragraph contains the following information? Write the correct letter, A-H, in boxes 1-5 on your answer sheet. NB You may use any letter more than once.",
+      "stem": "a reference to applications of the research in helping people recover from illness",
+      "options": null,
+      "answer": "F"
+    },
+    {
+      "n": 2,
+      "questionType": "short_answer",
+      "taskType": "matching_information",
+      "instruction": "Reading Passage 1 has eight paragraphs, A-H. Which paragraph contains the following information? Write the correct letter, A-H, in boxes 1-5 on your answer sheet.",
+      "stem": "a comparison between learners who slept and learners who did not",
+      "options": null,
+      "answer": "A"
+    },
+    {
+      "n": 3,
+      "questionType": "short_answer",
+      "taskType": "matching_information",
+      "instruction": "Reading Passage 1 has eight paragraphs, A-H. Which paragraph contains the following information? Write the correct letter, A-H, in boxes 1-5 on your answer sheet.",
+      "stem": "evidence that the benefit of sleep depends on how soon after practice it occurs",
+      "options": null,
+      "answer": "E"
+    },
+    {
+      "n": 4,
+      "questionType": "short_answer",
+      "taskType": "matching_information",
+      "instruction": "Reading Passage 1 has eight paragraphs, A-H. Which paragraph contains the following information? Write the correct letter, A-H, in boxes 1-5 on your answer sheet.",
+      "stem": "a contrast between two kinds of motor task, only one of which benefits from sleep",
+      "options": null,
+      "answer": "D"
+    },
+    {
+      "n": 5,
+      "questionType": "short_answer",
+      "taskType": "matching_information",
+      "instruction": "Reading Passage 1 has eight paragraphs, A-H. Which paragraph contains the following information? Write the correct letter, A-H, in boxes 1-5 on your answer sheet.",
+      "stem": "a mention of how a learner's previous experience may reduce the size of overnight gains",
+      "options": null,
+      "answer": "G"
+    },
+    {
+      "n": 6,
+      "questionType": "short_answer",
+      "taskType": "sentence_completion",
+      "instruction": "Complete the sentences below. Choose NO MORE THAN TWO WORDS from the passage for each answer. Write your answers in boxes 6-9 on your answer sheet.",
+      "stem": "The brief rhythmic bursts of brain activity that are linked to overnight motor improvement are known as sleep ........................ .",
+      "options": null,
+      "answer": "spindles"
+    },
+    {
+      "n": 7,
+      "questionType": "short_answer",
+      "taskType": "sentence_completion",
+      "instruction": "Complete the sentences below. Choose NO MORE THAN TWO WORDS from the passage for each answer.",
+      "stem": "During sleep, circuits in the cortex that were tagged during practice are ........................ at high speed.",
+      "options": null,
+      "answer": "replayed"
+    },
+    {
+      "n": 8,
+      "questionType": "short_answer",
+      "taskType": "sentence_completion",
+      "instruction": "Complete the sentences below. Choose NO MORE THAN TWO WORDS from the passage for each answer.",
+      "stem": "A daytime ........................ of about an hour can produce gains comparable to a full night of sleep.",
+      "options": null,
+      "answer": "nap"
+    },
+    {
+      "n": 9,
+      "questionType": "short_answer",
+      "taskType": "sentence_completion",
+      "instruction": "Complete the sentences below. Choose NO MORE THAN TWO WORDS from the passage for each answer.",
+      "stem": "Differences between individuals in overnight gains may partly reflect genes that control ........................ activity.",
+      "options": null,
+      "answer": "spindle"
+    },
+    {
+      "n": 10,
+      "questionType": "mcq",
+      "taskType": "true_false_not_given",
+      "instruction": "Do the following statements agree with the information given in Reading Passage 1? In boxes 10-13 on your answer sheet, write TRUE if the statement agrees with the information, FALSE if the statement contradicts the information, NOT GIVEN if there is no information on this.",
+      "stem": "Subjects who sleep after motor practice typically perform about twenty per cent faster than those tested without sleep.",
+      "options": [
+        {"key":"A","text":"TRUE","correct":true},
+        {"key":"B","text":"FALSE","correct":false},
+        {"key":"C","text":"NOT GIVEN","correct":false}
+      ],
+      "answer": "A"
+    },
+    {
+      "n": 11,
+      "questionType": "mcq",
+      "taskType": "true_false_not_given",
+      "instruction": "Do the following statements agree with the information given in Reading Passage 1?",
+      "stem": "Sleep spindles are most abundant during the early hours of the night.",
+      "options": [
+        {"key":"A","text":"TRUE","correct":false},
+        {"key":"B","text":"FALSE","correct":true},
+        {"key":"C","text":"NOT GIVEN","correct":false}
+      ],
+      "answer": "B"
+    },
+    {
+      "n": 12,
+      "questionType": "mcq",
+      "taskType": "true_false_not_given",
+      "instruction": "Do the following statements agree with the information given in Reading Passage 1?",
+      "stem": "Tracking a moving target with a joystick improves more with sleep than with extra practice.",
+      "options": [
+        {"key":"A","text":"TRUE","correct":false},
+        {"key":"B","text":"FALSE","correct":true},
+        {"key":"C","text":"NOT GIVEN","correct":false}
+      ],
+      "answer": "B"
+    },
+    {
+      "n": 13,
+      "questionType": "mcq",
+      "taskType": "true_false_not_given",
+      "instruction": "Do the following statements agree with the information given in Reading Passage 1?",
+      "stem": "Stroke patients who exercise before sleep recover hand movement faster than those who exercise in the morning.",
+      "options": [
+        {"key":"A","text":"TRUE","correct":false},
+        {"key":"B","text":"FALSE","correct":false},
+        {"key":"C","text":"NOT GIVEN","correct":true}
+      ],
+      "answer": "C"
+    }
+  ]
+}

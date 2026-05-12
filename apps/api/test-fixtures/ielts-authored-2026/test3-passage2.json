@@ -1,0 +1,128 @@
+{
+  "bookCode": "ielts_authored_2026_v1",
+  "testNumber": 3,
+  "passageNumber": 2,
+  "passage": {
+    "title": "The economic logic of farmers' markets",
+    "body": "A In most industrialised countries, the great majority of food now travels through long, anonymous supply chains: a tomato grown in Spain may pass through a packing house, a logistics hub and two supermarkets before it reaches the kitchen of a household in Manchester or Munich. Against this background, the rapid growth of farmers' markets over the past three decades is striking. In the United States, the number of officially registered markets rose from about 1,750 in 1994 to more than 8,700 by 2019. Comparable expansions have been recorded in France, Australia and Japan. Yet the share of household food spending that passes through such markets remains small, rarely more than two or three per cent. Economists have therefore asked an obvious question: what, if anything, is the economic function of farmers' markets, and why do they persist in the face of cheaper supermarket alternatives?\n\nB One traditional answer, popular among consumers themselves, is that the markets simply offer fresher or tastier produce. The economic literature is more cautious. Surveys consistently find that the average price of fruit and vegetables at farmers' markets is broadly similar to that in supermarkets, and is sometimes higher for premium items such as organic berries. Differences in measured nutritional quality, where these have been studied, are usually small. What does differ is the variety of cultivars on offer: a farmers' market in Vermont in late summer may sell fifteen kinds of tomato, including older varieties that supermarkets do not stock because the fruit bruises during long-distance transport. From an economic point of view, then, the markets are not so much undercutting the supermarkets as occupying a different niche.\n\nC A more promising explanation focuses on what economists call asymmetric information. In a supermarket transaction, the shopper rarely knows who grew the produce, how it was grown or when it was harvested. The supermarket itself acts as an intermediary that, by selecting and labelling its suppliers, reduces the buyer's uncertainty in return for a margin. At a farmers' market the grower is normally present in person, often standing beside a sign that gives the address of the farm. This face-to-face exchange dramatically lowers the cost to the shopper of verifying claims about provenance, growing methods or freshness. For consumers who place particular weight on these attributes, the market is therefore an unusually efficient information channel rather than a quaint survival from an older age.\n\nD A second argument concerns the structure of the rural economy. Small and medium-sized farms typically struggle to meet the volume, uniformity and packaging requirements of large supermarket chains. Selling direct, by contrast, allows them to bypass the wholesaler entirely and to retain a much greater share of the final price. A study of vegetable growers in upstate New York found that direct-marketing farmers received, on average, around seventy cents on the dollar of retail value, compared with about thirty cents for growers supplying wholesalers. For farms operating on modest acreage, this difference is often the margin between viability and closure. Farmers' markets, on this view, are less a consumer preference than a piece of rural infrastructure that keeps small producers in business.\n\nE The benefits flow back to the surrounding economy in measurable ways. Researchers tracking spending around weekly markets in several European cities have found that customers visiting a market also tend to spend money in nearby cafes, bakeries and bookshops, producing a small but consistent boost to footfall in the streets concerned. Tax revenues from these adjacent businesses sometimes exceed the municipal cost of running the market itself. A study commissioned by the city of Portland, Oregon, estimated that every dollar of sales at its Saturday market generated approximately a further sixty cents of spending in the surrounding district. Such figures help explain why local governments, far from regarding farmers' markets as nostalgic indulgences, increasingly subsidise their operation.\n\nF The markets also have less obvious effects on the wider food system. By providing a relatively low-risk outlet for new or unusual products, they function as testing grounds. A grower who is uncertain whether a particular variety of squash will find buyers can try it at the market for a season before committing larger acreage. Several products now sold widely in supermarkets, from heritage potatoes to fermented hot sauces, can be traced to small operators who built reputation and demand at farmers' markets before scaling up. In this sense the markets serve a function analogous to that of a research-and-development department for the food economy, at no direct cost to the supermarkets that eventually benefit from the innovations.\n\nG Not all the news is positive. Studies in several countries have noted that farmers' market shoppers are, on average, wealthier and better educated than the population at large. Critics argue that public subsidies for such markets therefore amount to a transfer from general taxpayers to relatively prosperous households. Programmes that allow government food-assistance vouchers to be used at the markets have been introduced in response, with mixed results. There are also limits to how far direct marketing can substitute for the bulk efficiencies of the conventional system: most urban populations are simply too large to be fed primarily from weekly markets, and the time required to shop in this way is itself a form of cost that not all households can afford.\n\nH Even so, the economic case for farmers' markets is now reasonably clear. They are not a quaint anachronism, kept alive by sentiment alone, but a structure that addresses real failures in the dominant food system: information gaps, the squeezed margins of small farms and the under-provision of local consumer infrastructure. Whether they will continue to grow, plateau, or eventually shrink as supermarkets adopt some of their features, will depend less on nostalgia than on how successfully they keep solving these particular problems."
+  },
+  "questions": [
+    {
+      "n": 1,
+      "questionType": "short_answer",
+      "taskType": "matching_headings",
+      "instruction": "Reading Passage 2 has eight paragraphs, A-H. Choose the correct heading for paragraphs A-G from the list of headings below. Write the correct number, i-x, in boxes 1-7 on your answer sheet.\n\nList of Headings:\ni  A useful space for trying out new products\nii  Why consumers find the markets a good source of information\niii  Concerns about who actually benefits from the markets\niv  A rapid rise alongside a small market share\nv  Effects on neighbouring shops and on local tax revenue\nvi  Why the markets matter for small farms\nvii  Doubts about claims of cheaper or better produce\nviii  Government attempts to control market prices\nix  The decline of supermarkets in rural regions\nx  How shoppers prefer to pay at the markets",
+      "stem": "Paragraph A",
+      "options": null,
+      "answer": "iv"
+    },
+    {
+      "n": 2,
+      "questionType": "short_answer",
+      "taskType": "matching_headings",
+      "instruction": "Choose the correct heading for paragraph B from the list of headings i-x.",
+      "stem": "Paragraph B",
+      "options": null,
+      "answer": "vii"
+    },
+    {
+      "n": 3,
+      "questionType": "short_answer",
+      "taskType": "matching_headings",
+      "instruction": "Choose the correct heading for paragraph C from the list of headings i-x.",
+      "stem": "Paragraph C",
+      "options": null,
+      "answer": "ii"
+    },
+    {
+      "n": 4,
+      "questionType": "short_answer",
+      "taskType": "matching_headings",
+      "instruction": "Choose the correct heading for paragraph D from the list of headings i-x.",
+      "stem": "Paragraph D",
+      "options": null,
+      "answer": "vi"
+    },
+    {
+      "n": 5,
+      "questionType": "short_answer",
+      "taskType": "matching_headings",
+      "instruction": "Choose the correct heading for paragraph E from the list of headings i-x.",
+      "stem": "Paragraph E",
+      "options": null,
+      "answer": "v"
+    },
+    {
+      "n": 6,
+      "questionType": "short_answer",
+      "taskType": "matching_headings",
+      "instruction": "Choose the correct heading for paragraph F from the list of headings i-x.",
+      "stem": "Paragraph F",
+      "options": null,
+      "answer": "i"
+    },
+    {
+      "n": 7,
+      "questionType": "short_answer",
+      "taskType": "matching_headings",
+      "instruction": "Choose the correct heading for paragraph G from the list of headings i-x.",
+      "stem": "Paragraph G",
+      "options": null,
+      "answer": "iii"
+    },
+    {
+      "n": 8,
+      "questionType": "short_answer",
+      "taskType": "summary_completion",
+      "instruction": "Complete the summary using the list of words, A-J, below. Write the correct letter, A-J, in boxes 8-13 on your answer sheet.\n\nWhy farmers' markets persist\n\nAlthough farmers' markets account for only a small share of household food spending, their numbers have grown sharply since the 1990s. Economists argue that the markets succeed not because their prices are 8 ........................ , but because they reduce the buyer's 9 ........................ about who grew the food and how. They are also a vital channel for small farms, which can keep a larger 10 ........................ of the final price by selling direct rather than through wholesalers. The presence of a market typically increases 11 ........................ in surrounding streets, and the markets serve as low-risk testing grounds for unusual 12 ........................ . However, critics point out that shoppers tend to be unusually 13 ........................ , so public subsidies may benefit households that need them least.\n\nList of Words:\nA  cheaper       B  uncertainty       C  variety       D  wealthier\nE  footfall      F  margin            G  freshness     H  varieties\nI  share          J  taxes",
+      "stem": "8",
+      "options": null,
+      "answer": "A"
+    },
+    {
+      "n": 9,
+      "questionType": "short_answer",
+      "taskType": "summary_completion",
+      "instruction": "Complete the summary using the list of words, A-J, above.",
+      "stem": "9",
+      "options": null,
+      "answer": "B"
+    },
+    {
+      "n": 10,
+      "questionType": "short_answer",
+      "taskType": "summary_completion",
+      "instruction": "Complete the summary using the list of words, A-J, above.",
+      "stem": "10",
+      "options": null,
+      "answer": "I"
+    },
+    {
+      "n": 11,
+      "questionType": "short_answer",
+      "taskType": "summary_completion",
+      "instruction": "Complete the summary using the list of words, A-J, above.",
+      "stem": "11",
+      "options": null,
+      "answer": "E"
+    },
+    {
+      "n": 12,
+      "questionType": "short_answer",
+      "taskType": "summary_completion",
+      "instruction": "Complete the summary using the list of words, A-J, above.",
+      "stem": "12",
+      "options": null,
+      "answer": "H"
+    },
+    {
+      "n": 13,
+      "questionType": "short_answer",
+      "taskType": "summary_completion",
+      "instruction": "Complete the summary using the list of words, A-J, above.",
+      "stem": "13",
+      "options": null,
+      "answer": "D"
+    }
+  ]
+}
