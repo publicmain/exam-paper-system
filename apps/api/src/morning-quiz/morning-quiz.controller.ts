@@ -471,7 +471,7 @@ export class MorningQuizController {
     // can have an attendance row (scan or absent) without ever submitting,
     // and conversely a "late scan + no answer" still appears on the
     // attendance side. Pull all attendances for these student IDs.
-    const attendances = await this.prisma.attendance.findMany({
+    const rawAttendances = await this.prisma.attendance.findMany({
       where: { studentId: { in: studentIds } },
       orderBy: { scanTime: 'desc' },
       select: {
@@ -485,6 +485,41 @@ export class MorningQuizController {
           },
         },
       },
+    });
+    // Dedupe by date: the cron's lockOne inserts an `absent` row for
+    // every enrolled student × every session, so a student in a class
+    // with 3 levels who picks one level on a given day still ends up
+    // with 2 spurious absent rows (the levels they didn't pick) plus
+    // 1 real row. From the student's POV those absent rows are noise
+    // ("you missed 强 and 中" — but they were never expected to take
+    // both). Collapse to one row per date, keeping the highest-priority
+    // status (on_time > late > absent). Each kept row carries the level
+    // the student actually picked when there's a real scan; otherwise
+    // any of the spurious absent rows (they're equivalent for display).
+    const PRIORITY: Record<string, number> = { on_time: 3, late: 2, absent: 1 };
+    const byDate = new Map<string, (typeof rawAttendances)[number]>();
+    for (const a of rawAttendances) {
+      // Date column is @db.Date — JS Date at UTC midnight. Group by
+      // YYYY-MM-DD slice for stable bucketing regardless of tz shift.
+      const day = new Date(a.session.date).toISOString().slice(0, 10);
+      const existing = byDate.get(day);
+      if (!existing) {
+        byDate.set(day, a);
+        continue;
+      }
+      const newP = PRIORITY[a.status] ?? 0;
+      const oldP = PRIORITY[existing.status] ?? 0;
+      if (
+        newP > oldP ||
+        (newP === oldP && (a.scanTime?.getTime() ?? 0) > (existing.scanTime?.getTime() ?? 0))
+      ) {
+        byDate.set(day, a);
+      }
+    }
+    const attendances = Array.from(byDate.values()).sort((a, b) => {
+      const ad = new Date(a.session.date).getTime();
+      const bd = new Date(b.session.date).getTime();
+      return bd - ad; // newest first
     });
     return {
       student: {
