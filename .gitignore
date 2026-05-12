@@ -61,3 +61,8 @@ tsconfig.tsbuildinfo
 # IELTS test fixtures (PDFs are heavy + may be copyrighted)
 apps/api/test-fixtures/*.pdf
 apps/api/test-fixtures/*.json
+
+# Scratch / OCR working dirs (intermediate PNG / OCR text — too big for git)
+.tmp/
+apps/api/test.tmp
+*.tmp
