@@ -107,10 +107,13 @@ export default function MyHistory() {
     setData(null);
     setDisambig(null);
     try {
-      const url = new URL(`${BASE}/api/morning-quiz/history-by-name`);
-      url.searchParams.set('name', trimmed);
-      if (studentId) url.searchParams.set('studentId', studentId);
-      const r = await fetch(url.toString());
+      // BASE may be empty in local dev (relative path); URL constructor
+      // throws "Invalid URL" on bare paths, so build the query string by
+      // hand. encodeURIComponent on every param so 中文 names round-trip.
+      const qs =
+        '?name=' + encodeURIComponent(trimmed) +
+        (studentId ? '&studentId=' + encodeURIComponent(studentId) : '');
+      const r = await fetch(`${BASE}/api/morning-quiz/history-by-name${qs}`);
       if (!r.ok) {
         const body = await r.json().catch(() => null);
         if (r.status === 404) {
