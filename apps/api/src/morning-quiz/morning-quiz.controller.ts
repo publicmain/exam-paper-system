@@ -20,6 +20,7 @@ import { UseGuards } from '@nestjs/common';
 import { CurrentUser } from '../common/current-user.decorator';
 import { Public } from '../common/auth.guard';
 import { IpAllowlistGuard } from '../wifi-gate/ip-allowlist.guard';
+import { RateLimit } from '../common/rate-limit.guard';
 import { PrismaService } from '../common/prisma.service';
 import { StudentService } from '../student/student.service';
 import { AbsenceAlertService } from './absence-alert.service';
@@ -76,6 +77,25 @@ const SetLevelSchema = z.object({
 });
 
 const TEACHER_ROLES = new Set(['teacher', 'head_teacher', 'admin']);
+
+/**
+ * Parse `MQ_HISTORY_RATE_LIMIT` env (format `N/Ws`, default `10/60s`) into
+ * the shape RateLimit() expects. Evaluated at module load — the env can't
+ * change at runtime on Railway anyway, and decorators need a literal.
+ * Bug 4: history-by-name and history-detail are IP-gated to school WiFi
+ * but otherwise public, so a single bored student could scrape every
+ * classmate's grades. Throttle per-IP. */
+function parseHistoryRateLimit(): { limit: number; windowSec: number } {
+  const raw = process.env.MQ_HISTORY_RATE_LIMIT?.trim();
+  if (!raw) return { limit: 10, windowSec: 60 };
+  const m = /^(\d+)\/(\d+)s?$/.exec(raw);
+  if (!m) return { limit: 10, windowSec: 60 };
+  const limit = parseInt(m[1], 10);
+  const windowSec = parseInt(m[2], 10);
+  if (!limit || !windowSec) return { limit: 10, windowSec: 60 };
+  return { limit, windowSec };
+}
+const HISTORY_RATE_LIMIT = parseHistoryRateLimit();
 
 @Controller('morning-quiz')
 export class MorningQuizController {
@@ -472,6 +492,7 @@ export class MorningQuizController {
    */
   @Public()
   @UseGuards(IpAllowlistGuard)
+  @RateLimit({ limit: HISTORY_RATE_LIMIT.limit, windowSec: HISTORY_RATE_LIMIT.windowSec, scope: 'ip' })
   @Get('history-by-name')
   async historyByName(
     @Query('name') rawName?: string,
@@ -480,8 +501,10 @@ export class MorningQuizController {
     const name = (rawName ?? '').trim();
     if (!name) throw new BadRequestException({ code: 'name_required' });
     if (name.length > 50) throw new BadRequestException({ code: 'name_too_long' });
+    // Bug 9: filter out soft-deleted/withdrawn students. They should not
+    // appear in name lookups; the PII of a withdrawn student must not leak.
     const allCandidates = await this.prisma.user.findMany({
-      where: { name: name, role: 'student' },
+      where: { name: name, role: 'student', isActive: true },
       select: {
         id: true,
         name: true,
@@ -499,8 +522,23 @@ export class MorningQuizController {
     // return a 200 with `needDisambiguation: true` and the list of
     // candidates so the UI can prompt the student to pick. Once they
     // pick, the page re-fetches with studentId locked in.
+    // Bug 3: if studentIdFilter is set but doesn't match any candidate
+    // for this name, we MUST NOT silently fall back to the merged set
+    // of all same-name students — that would leak everyone's history.
+    // Throw 404 instead. (A bogus studentId from a curious user, or a
+    // stale bookmark after a student was renamed/withdrawn, are both
+    // expected sources.)
+    if (studentIdFilter) {
+      const matched = allCandidates.filter((c) => c.id === studentIdFilter);
+      if (matched.length === 0) {
+        throw new NotFoundException({
+          code: 'student_not_found',
+          message: 'no candidate matches studentId for this name',
+        });
+      }
+    }
     const candidates =
-      studentIdFilter && allCandidates.some((c) => c.id === studentIdFilter)
+      studentIdFilter
         ? allCandidates.filter((c) => c.id === studentIdFilter)
         : allCandidates;
     if (allCandidates.length > 1 && !studentIdFilter) {
@@ -666,6 +704,7 @@ export class MorningQuizController {
    */
   @Public()
   @UseGuards(IpAllowlistGuard)
+  @RateLimit({ limit: HISTORY_RATE_LIMIT.limit, windowSec: HISTORY_RATE_LIMIT.windowSec, scope: 'ip' })
   @Get('history-detail')
   async historyDetail(
     @Query('submissionId') submissionId?: string,

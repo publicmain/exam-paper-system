@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useSearchParams, Navigate } from 'react-router-dom';
 import { api } from '../lib/api';
+import { cnDateISO, formatCNTime } from '../lib/dateCN';
 
 type Status = 'on_time' | 'late' | 'absent';
 
@@ -48,11 +49,14 @@ export default function AttendanceAdmin() {
   const [classes, setClasses] = useState<ClassRow[]>([]);
   const [classId, setClassId] = useState<string>('');
   const [from, setFrom] = useState<string>(() => {
+    // Bug 10: previously used .toISOString() which after 16:00 CN shifts to
+    // the next UTC day → range "today" returned no rows. cnDateISO reads
+    // the CN-local Y-M-D directly.
     const d = new Date();
     d.setDate(d.getDate() - 7);
-    return d.toISOString().slice(0, 10);
+    return cnDateISO(d);
   });
-  const [to, setTo] = useState<string>(() => new Date().toISOString().slice(0, 10));
+  const [to, setTo] = useState<string>(() => cnDateISO());
   const [rows, setRows] = useState<AttendanceRow[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [editing, setEditing] = useState<{ row: AttendanceRow; status: Status; note: string } | null>(null);
@@ -204,7 +208,7 @@ export default function AttendanceAdmin() {
                 </span>
               </td>
               <td className="font-mono text-xs">
-                {r.scanTime ? new Date(r.scanTime).toLocaleTimeString('en-GB') : '—'}
+                {r.scanTime ? formatCNTime(r.scanTime) : '—'}
               </td>
               <td className="text-xs text-gray-500">
                 {r.source === 'qr_scan' ? `QR ${r.sourceIp ?? ''}` : '👤 手工'}

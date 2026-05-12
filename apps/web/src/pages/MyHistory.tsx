@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { BASE } from '../lib/api';
+import { formatCNDateTime, formatCNTime } from '../lib/dateCN';
 
 /**
  * Student self-service portal — typed-name lookup gives one page with
@@ -83,11 +84,15 @@ const STATUS_LABEL: Record<AttendanceRow['status'], string> = {
 
 export default function MyHistory() {
   const [params, setParams] = useSearchParams();
-  // URL ?name=... wins on first mount (used by post-submit redirect);
-  // otherwise fall back to remembered localStorage value.
+  // Bug 2 — shared-laptop PII leak: previously, on mount we'd seed `name`
+  // from localStorage and auto-fetch. Student B opening /my-history then
+  // immediately saw student A's grades. New rule: ONLY auto-fetch when the
+  // URL carries ?name=... (post-submit redirect or explicit link). The
+  // input field still seeds from localStorage for convenience after a
+  // refresh, but the fetch waits for an explicit "Look up" click.
+  const urlName = params.get('name') ?? '';
   const [name, setName] = useState<string>(() => {
-    const fromUrl = params.get('name');
-    if (fromUrl) return fromUrl;
+    if (urlName) return urlName;
     try { return localStorage.getItem('mq:history:name') ?? ''; } catch { return ''; }
   });
   const [submitted, setSubmitted] = useState(false);
@@ -95,6 +100,9 @@ export default function MyHistory() {
   const [disambig, setDisambig] = useState<DisambigCandidate[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  // Bug 2 — one-tap confirmation for the "Switch student" button. Mobile
+  // thumb-taps on this button used to nuke session state immediately.
+  const [confirmSwitch, setConfirmSwitch] = useState(false);
 
   async function lookup(searchName: string, studentId?: string) {
     const trimmed = searchName.trim();
@@ -151,9 +159,14 @@ export default function MyHistory() {
     }
   }
 
-  // Auto-look-up on first mount if name was remembered or in URL.
+  // Bug 2 — auto-look-up ONLY when ?name=... is in the URL (post-submit
+  // redirect or shared link). Never auto-fetch from a localStorage-seeded
+  // value — that's how student A's grades leaked to student B on the
+  // shared classroom laptop. The localStorage value still seeds the
+  // input for the same-user refresh convenience case, but loading data
+  // requires an explicit button click.
   useEffect(() => {
-    if (name && !submitted) lookup(name);
+    if (urlName && !submitted) lookup(urlName);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -175,25 +188,47 @@ export default function MyHistory() {
           </div>
           {/* Shared-laptop scenario: the previous student leaves the page
               loaded with their name; the next student needs a clean
-              starting point. This button clears localStorage + the URL
-              query, then reloads. */}
-          {(name || data) && (
+              starting point. Two-step confirm (Bug 2) — accidental thumb
+              taps on mobile used to nuke state immediately. Also clears
+              the dead mq:history:studentId key alongside mq:history:name. */}
+          {(name || data) && !confirmSwitch && (
             <button
               type="button"
-              onClick={() => {
-                try { localStorage.removeItem('mq:history:name'); } catch {/* */}
-                setName('');
-                setData(null);
-                setSubmitted(false);
-                setError(null);
-                params.delete('name');
-                setParams(params, { replace: true });
-              }}
-              className="shrink-0 text-xs px-3 py-1.5 rounded-md border border-gray-300 bg-white hover:bg-gray-100 text-gray-700"
+              onClick={() => setConfirmSwitch(true)}
+              className="shrink-0 text-sm px-4 py-2 rounded-md border border-gray-300 bg-white hover:bg-gray-100 active:bg-gray-200 text-gray-700 font-medium touch-manipulation"
               title="清空记住的姓名, 让下一位学生查自己的"
             >
               ↺ 换学生 · Switch
             </button>
+          )}
+          {confirmSwitch && (
+            <div className="shrink-0 flex items-center gap-2 text-sm">
+              <span className="text-gray-700">确认换学生?</span>
+              <button
+                type="button"
+                onClick={() => {
+                  try { localStorage.removeItem('mq:history:name'); } catch {/* */}
+                  try { localStorage.removeItem('mq:history:studentId'); } catch {/* */}
+                  setName('');
+                  setData(null);
+                  setSubmitted(false);
+                  setError(null);
+                  setConfirmSwitch(false);
+                  params.delete('name');
+                  setParams(params, { replace: true });
+                }}
+                className="px-3 py-1.5 rounded-md border border-rose-300 bg-rose-50 hover:bg-rose-100 text-rose-700 font-medium touch-manipulation"
+              >
+                是
+              </button>
+              <button
+                type="button"
+                onClick={() => setConfirmSwitch(false)}
+                className="px-3 py-1.5 rounded-md border border-gray-300 bg-white hover:bg-gray-100 text-gray-700 font-medium touch-manipulation"
+              >
+                否
+              </button>
+            </div>
           )}
         </div>
       </header>
@@ -320,7 +355,7 @@ export default function MyHistory() {
                             )}
                           </td>
                           <td className="py-2 px-4 text-xs text-gray-500">
-                            {a.scanTime ? new Date(a.scanTime).toLocaleTimeString() : '—'}
+                            {a.scanTime ? formatCNTime(a.scanTime) : '—'}
                           </td>
                           <td className="py-2 px-4 text-xs text-gray-500">{a.correctedNote ?? '—'}</td>
                         </tr>
@@ -364,7 +399,7 @@ export default function MyHistory() {
                               </div>
                               {s.submittedAt && (
                                 <div className="text-[11px] text-gray-400 mt-1">
-                                  提交于 {new Date(s.submittedAt).toLocaleString()}
+                                  提交于 {formatCNDateTime(s.submittedAt)}
                                 </div>
                               )}
                             </div>

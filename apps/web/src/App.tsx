@@ -1,5 +1,5 @@
 import { useEffect } from 'react';
-import { Routes, Route, Navigate, Link, useLocation, useNavigate } from 'react-router-dom';
+import { Routes, Route, Navigate, Link, useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from './lib/auth';
 import LoginPage from './pages/Login';
 import DashboardPage from './pages/Dashboard';
@@ -346,7 +346,17 @@ export default function App() {
               )
             }
           />
-          <Route path="*" element={<Navigate to="/" replace />} />
+          {/* Bug-5: pre-empt the query-form `/scan?token=<x>` QR variant
+              that some printed posters use — bounce it to the canonical
+              `/scan/:token` path so MorningQuizScanPage handles it. With
+              no token, render a polite "use the wall display" hint. */}
+          <Route path="/scan" element={<ScanQueryRedirect />} />
+          {/* Bug-5: wildcard previously did `<Navigate to="/" replace />`
+              which leaked the admin Dashboard (with class stats etc.) to
+              any student that opened a malformed QR while sharing a
+              teacher-logged-in laptop. Now: dedicated 404 with no chrome
+              and two student-safe action buttons. */}
+          <Route path="*" element={<NotFoundPage />} />
         </Routes>
         </ErrorBoundary>
       </main>
@@ -367,5 +377,62 @@ function NavLink({ to, label }: { to: string; label: string }) {
     >
       {label}
     </Link>
+  );
+}
+
+/** Bug-5: chrome-free 404 page. Rendered inside the admin layout's <main>
+ *  but deliberately renders no admin metrics so a student opening a
+ *  malformed link on a teacher-logged-in laptop doesn't see class stats.
+ *  Provides two student-safe escape hatches. */
+function NotFoundPage() {
+  return (
+    <div className="min-h-[60vh] flex flex-col items-center justify-center px-6">
+      <div className="w-full max-w-md text-center bg-white rounded-2xl shadow-sm border p-8">
+        <div className="text-5xl font-bold text-gray-300 mb-2">404</div>
+        <h1 className="text-xl font-semibold text-gray-800 mb-1">
+          链接无效或已过期
+        </h1>
+        <p className="text-sm text-gray-500 mb-6">
+          This link is invalid or has expired.
+        </p>
+        <div className="flex flex-col gap-3">
+          <Link
+            to="/my-history"
+            className="block w-full rounded-lg bg-blue-600 hover:bg-blue-700 text-white font-medium py-2.5 px-4"
+          >
+            回到我的考勤记录 →
+          </Link>
+          <Link
+            to="/scan"
+            className="block w-full rounded-lg bg-white hover:bg-gray-50 border border-gray-300 text-gray-700 font-medium py-2.5 px-4"
+          >
+            扫码考勤 →
+          </Link>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/** Bug-5: handles `/scan` (no path token). If a `?token=<x>` query is
+ *  present (legacy printed-QR variant) bounce to the canonical
+ *  `/scan/:token` path. Otherwise render a polite "scan the wall display"
+ *  notice — chrome-free, no admin data. */
+function ScanQueryRedirect() {
+  const [params] = useSearchParams();
+  const token = params.get('token');
+  if (token) return <Navigate to={`/scan/${encodeURIComponent(token)}`} replace />;
+  return (
+    <div className="min-h-[60vh] flex flex-col items-center justify-center px-6">
+      <div className="w-full max-w-md text-center bg-white rounded-2xl shadow-sm border p-8">
+        <div className="text-4xl mb-3">📷</div>
+        <h1 className="text-xl font-semibold text-gray-800 mb-1">
+          请用手机相机扫描大屏二维码
+        </h1>
+        <p className="text-sm text-gray-500">
+          Please scan the QR code on the projector with your phone camera.
+        </p>
+      </div>
+    </div>
   );
 }

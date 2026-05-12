@@ -101,6 +101,25 @@ export class ContentBootstrapService implements OnApplicationBootstrap {
         { label: 'IELTS 8 Test4/P1', payload: loadFixture('cambridge-ielts-8/test4-passage1.json') },
         { label: 'IELTS 8 Test4/P2', payload: loadFixture('cambridge-ielts-8/test4-passage2.json') },
         { label: 'IELTS 8 Test4/P3', payload: loadFixture('cambridge-ielts-8/test4-passage3.json') },
+        // BUG 8 — Register the 9 AI-authored 2026 IELTS Academic passages
+        // (bookCode `ielts_authored_2026_v1`, 3 tests × 3 passages). These
+        // fixtures live in apps/api/test-fixtures/ielts-authored-2026/ and
+        // were pre-audited (10-check AI audit per pdf_ingest_rules.md).
+        // Without this registration, a Railway redeploy / fresh DB ends up
+        // missing them and the ielts_authentic bank shrinks back to the
+        // Cambridge IELTS 8 set only. Idempotency comes for free — the
+        // ingest service does findFirst on (bookCode, testNumber,
+        // passageNumber, n) before insert, and approveBySourceRefPrefix
+        // is a no-op when every row is already `status:active`.
+        { label: 'IELTS Authored 2026 Test1/P1', payload: loadFixture('ielts-authored-2026/test1-passage1.json') },
+        { label: 'IELTS Authored 2026 Test1/P2', payload: loadFixture('ielts-authored-2026/test1-passage2.json') },
+        { label: 'IELTS Authored 2026 Test1/P3', payload: loadFixture('ielts-authored-2026/test1-passage3.json') },
+        { label: 'IELTS Authored 2026 Test2/P1', payload: loadFixture('ielts-authored-2026/test2-passage1.json') },
+        { label: 'IELTS Authored 2026 Test2/P2', payload: loadFixture('ielts-authored-2026/test2-passage2.json') },
+        { label: 'IELTS Authored 2026 Test2/P3', payload: loadFixture('ielts-authored-2026/test2-passage3.json') },
+        { label: 'IELTS Authored 2026 Test3/P1', payload: loadFixture('ielts-authored-2026/test3-passage1.json') },
+        { label: 'IELTS Authored 2026 Test3/P2', payload: loadFixture('ielts-authored-2026/test3-passage2.json') },
+        { label: 'IELTS Authored 2026 Test3/P3', payload: loadFixture('ielts-authored-2026/test3-passage3.json') },
       ];
 
       let ieltsCreated = 0;

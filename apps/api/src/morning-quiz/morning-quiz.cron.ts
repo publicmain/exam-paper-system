@@ -81,72 +81,75 @@ export class MorningQuizCron {
   }
 
   /**
-   * Lock + force-submit + mark no-shows. Wrapped in a single transaction so
-   * a partial failure (e.g. the answerScript update step throwing on row N)
-   * cannot leave a session flagged `locked` while half its submissions are
-   * still `in_progress`. Either every state transition lands or none do.
+   * Lock + force-submit + mark no-shows.
    *
-   * Auto-grading uses the shared `autoGradeScripts` helper so this branch
-   * and the on-time `student.service.finalSubmit` path apply byte-identical
-   * grading rules — no chance of "force-submit at 9:00 ≠ self-submit at 8:59".
+   * Structure (BUG 7 fix — mirrors `morning-quiz.service.regradeSession`):
+   *   1. ONE small fast tx: flip session→locked, flip in_progress→submitted
+   *      with autoScore=0 placeholder, insert roster `absent` rows.
+   *   2. Load each just-flipped submission's scripts OUTSIDE any tx.
+   *   3. Per-submission: run `autoGradeScripts` (slow Claude call,
+   *      no tx held), then a tiny per-submission tx to write the
+   *      autoScore + per-script awardedMarks. One failure logs + continues.
+   *
+   * Why — `autoGradeScripts` issues Claude API calls (~2-3s per short_answer
+   * item). 30 students × 10 SA items easily exceeds Prisma's 5s interactive-tx
+   * timeout, rolling back the entire lock and leaving sessions stuck `active`
+   * past their quizEnd. Splitting the AI loop out of the tx eliminates that
+   * failure mode.
+   *
+   * Auto-grading still uses the shared `autoGradeScripts` helper so this
+   * branch and the on-time `student.service.finalSubmit` path apply
+   * byte-identical grading rules.
    */
   private async lockOne(sessionId: string, paperAssignmentId: string, classId: string) {
-    const result = await this.prisma.$transaction(async (tx) => {
-      // Flip status — idempotent; subsequent ticks see status=locked and skip.
+    // ── Phase 1: fast lock-and-flip tx ────────────────────────────────
+    // Idempotent; subsequent ticks see status=locked and skip.
+    // We pre-flip in_progress submissions to `submitted` with autoScore=0
+    // so the session is in a consistent state immediately. The AI-grade
+    // pass below upgrades autoScore in-place per submission.
+    const { inProgressIds } = await this.prisma.$transaction(async (tx) => {
       await tx.morningQuizSession.update({
         where: { id: sessionId },
         data: { status: MorningQuizStatus.locked },
       });
 
-      // Pull paper.totalMarksActual once for the maxScore back-fill on the
-      // updateMany below. Same fix as student.finalSubmit — pre-R10 scanQr
-      // wrote maxScore=0 and lockPastSessions never corrected it.
+      // Pull paper.totalMarksActual once for the maxScore back-fill below.
+      // Same fix as student.finalSubmit — pre-R10 scanQr wrote maxScore=0
+      // and lockPastSessions never corrected it.
       const paperRow = await tx.paperAssignment.findUnique({
         where: { id: paperAssignmentId },
         select: { paper: { select: { totalMarksActual: true } } },
       });
       const correctMax = paperRow?.paper?.totalMarksActual ?? 0;
 
-      const inProgress = await tx.studentSubmission.findMany({
+      // Claim every still-in-progress submission atomically. We capture
+      // their ids before flipping so the AI loop below operates only on
+      // rows this cron actually transitioned (avoids racing with a
+      // student that finalSubmits at the very same tick).
+      const claimed = await tx.studentSubmission.findMany({
         where: { assignmentId: paperAssignmentId, status: 'in_progress' },
-        include: {
-          scripts: {
-            include: {
-              paperQuestion: {
-                // R10: include answerContent so autoGradeScripts can grade
-                // short_answer items against the canonical text answer.
-                include: { question: { select: { questionType: true, options: true, answerContent: true, content: true } } },
-              },
-            },
-          },
-        },
+        select: { id: true },
       });
-
-      for (const sub of inProgress) {
-        const { autoScore, scriptUpdates } = await autoGradeScripts(sub.scripts, this.evaluator);
-        const claim = await tx.studentSubmission.updateMany({
-          where: { id: sub.id, status: 'in_progress' },
-          data: { submittedAt: new Date(), status: 'submitted', autoScore, maxScore: correctMax },
+      if (claimed.length > 0) {
+        await tx.studentSubmission.updateMany({
+          where: { id: { in: claimed.map((s) => s.id) }, status: 'in_progress' },
+          data: {
+            submittedAt: new Date(),
+            status: 'submitted',
+            autoScore: 0,
+            maxScore: correctMax,
+          },
         });
-        if (claim.count === 1 && scriptUpdates.length > 0) {
-          for (const u of scriptUpdates) {
-            await tx.answerScript.update({
-              where: { id: u.id },
-              data: {
-                autoCorrect: u.autoCorrect,
-                awardedMarks: u.awardedMarks,
-                ...(u.aiReason ? { markerComment: `[ai-grade] ${u.aiReason}` } : {}),
-              },
-            });
-          }
-        }
       }
 
       // Mark roster no-shows as absent. createMany + skipDuplicates leans on
       // the (sessionId, studentId) unique constraint to ignore students who
       // already scanned, instead of N round-trips.
+      // BUG 9 fix — exclude isActive=false (withdrawn) students, matching
+      // attendance.service:71 so a deactivated account doesn't get a stale
+      // `absent` row inserted on every morning-cron lock pass.
       const enrollments = await tx.classEnrollment.findMany({
-        where: { classId, role: 'student' },
+        where: { classId, role: 'student', user: { isActive: true } },
         select: { userId: true },
       });
       if (enrollments.length > 0) {
@@ -163,11 +166,67 @@ export class MorningQuizCron {
         });
       }
 
-      return inProgress.length;
+      return { inProgressIds: claimed.map((s) => s.id) };
     });
 
+    // ── Phase 2: AI-grade each claimed submission, NO outer tx ────────
+    // Load scripts outside any tx (reads don't need one). Then per
+    // submission: AI call (slow, no tx) → small write tx. If one
+    // submission's AI call or write fails, log and continue — don't
+    // poison the rest of the cohort.
+    let graded = 0;
+    let gradeFailed = 0;
+    for (const subId of inProgressIds) {
+      try {
+        const sub = await this.prisma.studentSubmission.findUnique({
+          where: { id: subId },
+          include: {
+            scripts: {
+              include: {
+                paperQuestion: {
+                  // R10: include answerContent so autoGradeScripts can grade
+                  // short_answer items against the canonical text answer.
+                  include: { question: { select: { questionType: true, options: true, answerContent: true, content: true } } },
+                },
+              },
+            },
+          },
+        });
+        if (!sub) continue;
+
+        const { autoScore, scriptUpdates } = await autoGradeScripts(sub.scripts, this.evaluator);
+
+        // Tiny atomic write — well under 5s even with N=20 scripts.
+        await this.prisma.$transaction(async (tx) => {
+          await tx.studentSubmission.update({
+            where: { id: sub.id },
+            data: { autoScore },
+          });
+          for (const u of scriptUpdates) {
+            await tx.answerScript.update({
+              where: { id: u.id },
+              data: {
+                autoCorrect: u.autoCorrect,
+                awardedMarks: u.awardedMarks,
+                ...(u.aiReason ? { markerComment: `[ai-grade] ${u.aiReason}` } : {}),
+              },
+            });
+          }
+        });
+        graded++;
+      } catch (e: any) {
+        gradeFailed++;
+        this.logger.error(
+          `auto-grade failed for submission ${subId} in session ${sessionId}: ${e?.message ?? e}`,
+        );
+        // Continue — submission stays as 'submitted' with autoScore=0
+        // placeholder. An admin can regradeSession() to retry.
+      }
+    }
+
     this.logger.log(
-      `locked session ${sessionId}: force-submitted ${result} in-progress, marked roster no-shows absent`,
+      `locked session ${sessionId}: force-submitted ${inProgressIds.length} in-progress` +
+        ` (auto-graded ${graded}, grade-failed ${gradeFailed}), marked roster no-shows absent`,
     );
   }
 }

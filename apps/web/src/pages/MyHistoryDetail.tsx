@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Link, useParams, useSearchParams } from 'react-router-dom';
 import { api } from '../lib/api';
+import { formatCNDateTime } from '../lib/dateCN';
 
 /**
  * Public per-submission per-question detail page. Public, IP-gated
@@ -108,7 +109,7 @@ export default function MyHistoryDetail() {
           </div>
           {data.submittedAt && (
             <div className="text-xs text-gray-400 mt-2">
-              提交时间:{new Date(data.submittedAt).toLocaleString()}
+              提交时间:{formatCNDateTime(data.submittedAt)}
             </div>
           )}
         </header>

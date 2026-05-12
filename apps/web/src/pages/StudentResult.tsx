@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { api } from '../lib/api';
+import { formatCNDateTime } from '../lib/dateCN';
 
 /**
  * F3 — student post-submit result page.
@@ -113,7 +114,7 @@ export default function StudentResult() {
         </div>
         {data.submittedAt && (
           <div className="text-xs text-gray-400 mt-3">
-            提交时间：{new Date(data.submittedAt).toLocaleString()}
+            提交时间：{formatCNDateTime(data.submittedAt)}
           </div>
         )}
       </header>

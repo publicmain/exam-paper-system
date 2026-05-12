@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { api } from '../lib/api';
+import { formatCNDateTime } from '../lib/dateCN';
 
 /**
  * Student home — list assignments visible to the logged-in student.
@@ -58,7 +59,7 @@ export default function StudentHomePage() {
               </div>
               {a.dueAt && (
                 <div className="text-xs text-gray-500 mt-0.5">
-                  Due: {new Date(a.dueAt).toLocaleString()}
+                  Due: {formatCNDateTime(a.dueAt)}
                   {closed && <span className="ml-2 text-red-700">closed</span>}
                 </div>
               )}

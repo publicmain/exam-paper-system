@@ -464,10 +464,20 @@ export class MorningQuizService {
     // unwinds the whole dependent tree.
     let wiped = 0;
     if (input.force) {
+      // Bug 6 fix — match by half-open instant range, not by `date: { in: [UTC midnights] }`.
+      // `MorningQuizSession.date` is written from `attendanceStart` (a real
+      // instant), so `in: [UTC midnight, ...]` matched nothing and the wipe
+      // deleted 0 sessions — even when the preview (after its own fix)
+      // reported N>0. The range filter [Mon, next-Mon) is intentionally
+      // wider than `dates[]` (which already filters out Mon/Sat/Sun); since
+      // no session is generated on a skip-day anyway, the extra coverage is
+      // a no-op in practice and we get exact agreement with the preview.
+      const rangeStart = monday;                                       // inclusive
+      const rangeEnd = new Date(monday.getTime() + 7 * 86_400_000);    // exclusive
       const sessions = await this.prisma.morningQuizSession.findMany({
         where: {
           classId: { in: classIds },
-          date: { in: dates.map((d) => new Date(d)) },
+          date: { gte: rangeStart, lt: rangeEnd },
         },
         select: { id: true, paperAssignment: { select: { paperId: true } } },
       });
@@ -480,7 +490,7 @@ export class MorningQuizService {
         });
         wiped = r.count;
         this.logger.log(
-          `batch-regenerate force-wiped ${wiped} paper(s) (${sessions.length} session row(s)) in [${dates[0]}..${dates[dates.length - 1]}]`,
+          `batch-regenerate force-wiped ${wiped} paper(s) (${sessions.length} session row(s)) in [${rangeStart.toISOString().slice(0, 10)}..${rangeEnd.toISOString().slice(0, 10)})`,
         );
       }
     }
@@ -1809,8 +1819,16 @@ export class MorningQuizService {
     if (Number.isNaN(monday.getTime())) {
       throw new BadRequestException({ code: 'bad_week_start' });
     }
-    const dates: Date[] = [];
-    for (let i = 0; i < 7; i++) dates.push(new Date(monday.getTime() + i * 86_400_000));
+    // Bug 6 fix — use a half-open [Mon, next-Mon) range filter rather than
+    // a `date: { in: dates }` list of UTC midnights. `MorningQuizSession.date`
+    // is written from `attendanceStart` (a real instant like 00:30 UTC for
+    // SGT 08:30), not the UTC-midnight date, so `in` matched zero rows and
+    // the preview always reported 0. A range filter catches every session
+    // whose `date` instant lies inside the target week regardless of how
+    // the time-of-day component was set. The range MUST match exactly what
+    // the force-wipe block below uses so the preview count == wipe count.
+    const rangeStart = monday;                                       // inclusive
+    const rangeEnd = new Date(monday.getTime() + 7 * 86_400_000);    // exclusive
     let classIds = input.classIds ?? [];
     if (classIds.length === 0) {
       const rows = await this.prisma.classEnglishLevel.findMany({
@@ -1819,7 +1837,7 @@ export class MorningQuizService {
       classIds = rows.map((r) => r.classId);
     }
     const sessions = await this.prisma.morningQuizSession.findMany({
-      where: { classId: { in: classIds }, date: { in: dates } },
+      where: { classId: { in: classIds }, date: { gte: rangeStart, lt: rangeEnd } },
       select: { id: true, paperAssignment: { select: { paperId: true } } },
     });
     if (sessions.length === 0) {

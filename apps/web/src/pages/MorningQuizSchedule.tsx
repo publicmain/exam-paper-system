@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { api } from '../lib/api';
+import { cnDateISO, cnMondayISO } from '../lib/dateCN';
 
 type Level = 'ielts_authentic' | 'ielts_simplified' | 'olevel';
 // R10 — three ascending difficulty bands. ielts_simplified replaces the
@@ -50,7 +51,7 @@ export default function MorningQuizSchedule() {
   // sessions. Used to default to next Monday, which hid the current week
   // unless the user changed the date — confusing when staff just wanted to
   // double-check today's QR is live.
-  const [weekStart, setWeekStart] = useState<string>(() => currentMondayIso());
+  const [weekStart, setWeekStart] = useState<string>(() => cnMondayISO());
   const [scheduled, setScheduled] = useState<ScheduledSession[]>([]);
   const [busy, setBusy] = useState(false);
   const [outcomes, setOutcomes] = useState<any[] | null>(null);
@@ -749,19 +750,15 @@ export default function MorningQuizSchedule() {
   );
 }
 
-/** Monday of the calendar week containing today (Sun→prev Mon, Mon→same day). */
-function currentMondayIso(): string {
-  const d = new Date();
-  const dow = d.getDay(); // Sun=0, Mon=1
-  const daysSinceMon = dow === 0 ? 6 : dow - 1;
-  d.setDate(d.getDate() - daysSinceMon);
-  return d.toISOString().slice(0, 10);
-}
-
+/** Add N days to a YYYY-MM-DD ISO date string and return YYYY-MM-DD in CN
+ *  time. Built on cnDateISO so it never drifts off the CN calendar day
+ *  near the UTC midnight boundary. */
 function addDays(iso: string, n: number): string {
-  const d = new Date(iso);
-  d.setDate(d.getDate() + n);
-  return d.toISOString().slice(0, 10);
+  const [y, m, d] = iso.split('-').map(Number);
+  // Anchor at noon UTC to dodge DST / UTC-boundary edge cases.
+  const dt = new Date(Date.UTC(y, m - 1, d, 12, 0, 0));
+  dt.setUTCDate(dt.getUTCDate() + n);
+  return cnDateISO(dt);
 }
 
 /** Export-attendance button used in the page header. Lazy-instantiates
