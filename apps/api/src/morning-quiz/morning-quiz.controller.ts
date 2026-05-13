@@ -527,6 +527,11 @@ export class MorningQuizController {
       select: {
         id: true,
         name: true,
+        // R15-Audit#3 — same-name same-class candidates render visually
+        // identical rows. Include the school-assigned email local-part
+        // so the UI can show a disambiguator hint ("s003@…") that
+        // students can verify against their own school email.
+        email: true,
         classEnrollments: {
           where: { role: 'student', class: { archivedAt: null } },
           select: { class: { select: { id: true, name: true, classCode: true } } },
@@ -561,11 +566,23 @@ export class MorningQuizController {
         ? allCandidates.filter((c) => c.id === studentIdFilter)
         : allCandidates;
     if (allCandidates.length > 1 && !studentIdFilter) {
+      // R15-Audit#3 — when two same-name candidates also share their
+      // class (siblings, transfer-in collision, etc.), the picker rows
+      // are visually identical. Surface a short disambiguator derived
+      // from the email local-part (the school-assigned identifier
+      // students recognize: e.g. "s003"). Fall back to the last 4
+      // chars of studentId for non-school emails.
+      const localPart = (email: string | null | undefined): string => {
+        if (!email) return '';
+        const at = email.indexOf('@');
+        return at > 0 ? email.slice(0, at) : email;
+      };
       return {
         needDisambiguation: true,
         candidates: allCandidates.map((c) => ({
           studentId: c.id,
           name: c.name,
+          hint: localPart(c.email) || c.id.slice(-4),
           classes: c.classEnrollments.map((e) => ({
             id: e.class.id, name: e.class.name, classCode: e.class.classCode,
           })),

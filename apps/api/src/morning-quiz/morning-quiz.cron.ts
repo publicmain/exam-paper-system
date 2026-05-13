@@ -186,33 +186,100 @@ export class MorningQuizCron {
       // BUG 9 fix — exclude isActive=false (withdrawn) students, matching
       // attendance.service:71 so a deactivated account doesn't get a stale
       // `absent` row inserted on every morning-cron lock pass.
+      //
+      // R15-Audit#3 — a class with 3 levels (ielts_authentic, simplified,
+      // olevel) has 3 sessions per day. A student picks ONE level when
+      // scanning, so 1 student × 3 sessions = 1 scanned row + 2 absent
+      // rows from this cron, EVERY DAY. The 47-student class above
+      // produced 141 attendance rows/day and erroneously triggered
+      // `mass_absence` on the 2 sibling levels (claimedCount=0 in
+      // those sessions even though the student attended).
+      //
+      // Fix: only this-class-day's FIRST-to-lock session inserts absent
+      // rows for the no-show roster. Sibling sessions that lock later
+      // observe an already-locked sibling and skip the insert.
+      // Dashboard dedupes by studentId so the single absent row covers
+      // the whole day's no-show status correctly.
+      const sessionRow = await tx.morningQuizSession.findUnique({
+        where: { id: sessionId },
+        select: { date: true },
+      });
+      let siblingAlreadyLocked = false;
+      if (sessionRow) {
+        const otherLocked = await tx.morningQuizSession.count({
+          where: {
+            classId,
+            date: sessionRow.date,
+            id: { not: sessionId },
+            status: MorningQuizStatus.locked,
+          },
+        });
+        siblingAlreadyLocked = otherLocked > 0;
+      }
       const enrollments = await tx.classEnrollment.findMany({
         where: { classId, role: 'student', user: { isActive: true } },
         select: { userId: true },
       });
-      if (enrollments.length > 0) {
-        await tx.attendance.createMany({
-          data: enrollments.map((e) => ({
-            sessionId,
-            studentId: e.userId,
-            status: AttendanceStatus.absent,
-            scanTime: null,
-            source: AttendanceSource.qr_scan,
-            sourceIp: null,
-          })),
-          skipDuplicates: true,
+      if (enrollments.length > 0 && !siblingAlreadyLocked) {
+        // Also: skip absent insert for students who already have a
+        // non-absent attendance row TODAY in ANY of this class's
+        // sessions (covers the "I scanned into level X first, then
+        // the OTHER level's cron locked second" ordering).
+        const sessionsToday = sessionRow
+          ? await tx.morningQuizSession.findMany({
+              where: { classId, date: sessionRow.date },
+              select: { id: true },
+            })
+          : [{ id: sessionId }];
+        const scannedToday = await tx.attendance.findMany({
+          where: {
+            sessionId: { in: sessionsToday.map((s) => s.id) },
+            status: { not: AttendanceStatus.absent },
+          },
+          select: { studentId: true },
+          distinct: ['studentId'],
         });
+        const scannedSet = new Set(scannedToday.map((a) => a.studentId));
+        const noShowEnrollments = enrollments.filter(
+          (e) => !scannedSet.has(e.userId),
+        );
+        if (noShowEnrollments.length > 0) {
+          await tx.attendance.createMany({
+            data: noShowEnrollments.map((e) => ({
+              sessionId,
+              studentId: e.userId,
+              status: AttendanceStatus.absent,
+              scanTime: null,
+              source: AttendanceSource.qr_scan,
+              sourceIp: null,
+            })),
+            skipDuplicates: true,
+          });
+        }
       }
 
       // F4 — measure the roster's claim ratio so the outer fn can decide
-      // whether to fire `mass_absence`. We count any attendance row whose
-      // status is NOT 'absent' as a "claim" (present / late / etc).
-      // skipDuplicates above means students who scanned earlier retain
-      // their non-absent status; only no-shows get freshly inserted as
-      // absent. So claimedCount === rows where status != absent.
-      const claimedCount = await tx.attendance.count({
-        where: { sessionId, status: { not: AttendanceStatus.absent } },
-      });
+      // whether to fire `mass_absence`. R15-Audit#3: a multi-level
+      // class has 3 sessions per day; a student scanning into ONE
+      // level leaves the OTHER 2 sessions with claimedCount=0 →
+      // mass_absence fired erroneously on the sibling levels every
+      // morning. Count claims ACROSS the whole class-day, not just
+      // this session. The "everyone absent" alarm should fire only
+      // when NOBODY scanned anywhere today for this class.
+      const claimedCount = sessionRow
+        ? await tx.attendance.count({
+            where: {
+              session: { classId, date: sessionRow.date },
+              status: { not: AttendanceStatus.absent },
+            },
+            // distinct by studentId would be more accurate but Prisma
+            // doesn't support it in count(); the duplicate-scan
+            // protection in scanQr keeps this approximately equal to
+            // unique students.
+          })
+        : await tx.attendance.count({
+            where: { sessionId, status: { not: AttendanceStatus.absent } },
+          });
 
       return {
         inProgressIds: claimed.map((s) => s.id),

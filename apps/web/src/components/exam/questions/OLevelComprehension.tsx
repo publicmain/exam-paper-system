@@ -31,8 +31,33 @@ export function OLevelComprehension({ paper }: { paper: ExamPaper }) {
   const { fontScale } = useExam();
   const [idx, setIdx] = useState(0);
   const total = paper?.questions?.length ?? 0;
-  const passageContent = paper?.questions?.[0]?.snapshotContent ?? {};
-  const passageTitle = clean(passageContent.passageTitle ?? 'Passage');
+  // R15-Audit#3 — multi-passage OLEVEL papers (e.g.
+  // `cambridge_0510_s23/Paper12` has 2 passages: Q1-7 vs Q8-15)
+  // were rendering the Q1 passage for ALL questions. Students reading
+  // Q8-15 saw a totally unrelated article on the left pane and could
+  // not answer. Switch to the CURRENT question's passage; if that
+  // question's snapshotContent has no `passage` field, fall back to
+  // the most recent earlier question that did (the typical IELTS-
+  // style "shared passage" case still works — Q2+ inherit Q1's).
+  const currentQ = paper?.questions?.[Math.min(idx, total - 1)];
+  const passageSource = useMemo(() => {
+    const qs = paper?.questions ?? [];
+    if (qs.length === 0) return {};
+    // Walk backwards from the current question to find the most recent
+    // question that carries a passage; that's the one this question
+    // belongs to. Matches how OLEVEL papers chunk multi-passage runs.
+    const startIdx = Math.min(idx, qs.length - 1);
+    for (let i = startIdx; i >= 0; i--) {
+      const sc = qs[i]?.snapshotContent;
+      if (sc && typeof sc.passage === 'string' && sc.passage.length > 0) {
+        return sc;
+      }
+    }
+    // No passage anywhere — last-resort fall back to Q1's snapshot so
+    // the title still renders.
+    return qs[0]?.snapshotContent ?? {};
+  }, [paper?.questions, idx]);
+  const passageTitle = clean(passageSource.passageTitle ?? 'Passage');
   // R15-Bug A — production 2026-05-12: students saw only the first
   // paragraph of an OLEVEL comprehension passage. Root cause: the
   // passage was rendered as one big `whitespace-pre-wrap` block inside
@@ -44,12 +69,13 @@ export function OLevelComprehension({ paper }: { paper: ExamPaper }) {
   // location for the student).
   const passageParagraphs = useMemo(
     () =>
-      reflowPassage(clean(passageContent.passage ?? ''))
+      reflowPassage(clean(passageSource.passage ?? ''))
         .split(/\n\s*\n/)
         .map((p) => p.trim())
         .filter(Boolean),
-    [passageContent.passage],
+    [passageSource.passage],
   );
+  void currentQ; // kept above for the q-render path below; reuse `q` instead.
   if (!total) {
     return (
       <div className="max-w-xl mx-auto py-12 px-6 text-center text-amber-800">

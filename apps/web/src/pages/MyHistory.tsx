@@ -58,6 +58,10 @@ interface HistoryResponse {
 interface DisambigCandidate {
   studentId: string;
   name: string;
+  /** R15-Audit#3 — short disambiguator (school email local-part, e.g.
+   *  "s003", or fallback to studentId last-4-chars) so two same-name
+   *  same-class candidates aren't visually identical. */
+  hint?: string;
   classes: Array<{ id: string; name: string; classCode: string }>;
 }
 
@@ -378,7 +382,14 @@ export default function MyHistory() {
                     onClick={() => lookup(name, c.studentId)}
                     className="w-full text-left border border-gray-200 hover:border-blue-400 bg-gray-50 hover:bg-blue-50 rounded-lg px-4 py-3 transition-colors"
                   >
-                    <div className="text-base font-semibold text-gray-900">{c.name}</div>
+                    <div className="flex items-baseline gap-2">
+                      <span className="text-base font-semibold text-gray-900">{c.name}</span>
+                      {c.hint && (
+                        <span className="font-mono text-xs text-blue-700 bg-blue-50 border border-blue-200 rounded px-1.5 py-0.5">
+                          {c.hint}
+                        </span>
+                      )}
+                    </div>
                     <div className="text-xs text-gray-500 mt-0.5">
                       {c.classes.map((cls) => `${cls.name} (${cls.classCode})`).join(' · ')}
                     </div>

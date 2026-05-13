@@ -480,6 +480,14 @@ export class StudentService {
           submittedAt: new Date(),
           status: 'submitted',
           autoScore,
+          // R15-Audit#3 — totalScore was left NULL after autoGrade so
+          // the marker view (which reads totalScore directly) showed
+          // empty. Student-facing portal fell back to autoScore so
+          // students saw the right number, but marker + parent dashboards
+          // were degraded. Mirror finalSubmit's convention:
+          // totalScore = autoScore + (manualScore ?? 0). manualScore
+          // is null at first submit so it just equals autoScore.
+          totalScore: autoScore,
           maxScore: correctMax,
         },
       });

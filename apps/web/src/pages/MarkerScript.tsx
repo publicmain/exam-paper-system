@@ -4,6 +4,7 @@ import { api } from '../lib/api';
 import { MathHtml } from '../components/MathHtml';
 import { AuthImage } from '../components/AuthImage';
 import RetractQuestionModal from '../components/RetractQuestionModal';
+import { clean } from '../components/exam/shared/textUtils';
 
 /**
  * Marker script page. Per-submission view: each structured Q with the
@@ -258,6 +259,22 @@ export default function MarkerScriptPage() {
               <div className="mb-2 px-3 py-2 bg-rose-50 border border-rose-300 text-rose-800 rounded text-sm">
                 已作废: {retractedReason ?? '(无原因记录)'} · 该题不再计分
               </div>
+            )}
+            {/* R15-Audit#3 — markers couldn't judge short-answer
+                comprehension because the passage wasn't rendered here.
+                The student saw the passage in the take-paper UI but
+                the marker UI only showed the stem. Now we render the
+                passage in a collapsible card so markers can verify
+                the answer against the source text. */}
+            {typeof content.passage === 'string' && content.passage.length > 0 && (
+              <details className="mb-3 bg-gray-50 border border-gray-200 rounded">
+                <summary className="cursor-pointer px-3 py-2 text-xs uppercase tracking-wide text-gray-600 font-semibold select-none">
+                  📖 Passage · {clean(content.passageTitle ?? 'Source text')}
+                </summary>
+                <div className="px-4 py-3 text-sm text-gray-800 font-serif leading-[1.7] whitespace-pre-wrap border-t border-gray-200">
+                  {content.passage}
+                </div>
+              </details>
             )}
             <div className="text-sm">
               <MathHtml source={content.stem ?? ''} />
