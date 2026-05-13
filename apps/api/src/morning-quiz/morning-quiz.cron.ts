@@ -73,10 +73,14 @@ export class MorningQuizCron {
   }
 
   private async lockPastSessions(now: Date) {
+    // R15-Audit#2 Finding #3 — exclude sessions whose class has been
+    // archived. Otherwise the lock cron would still fire mass_absence
+    // notifications for a class admins already retired.
     const expired = await this.prisma.morningQuizSession.findMany({
       where: {
         status: { in: [MorningQuizStatus.active, MorningQuizStatus.scheduled] },
         quizEnd: { lte: now },
+        class: { archivedAt: null },
       },
       include: {
         // F4: include class.name + paper.name so lockOne can populate the

@@ -72,7 +72,10 @@ export class MorningQuizWeeklyCron {
     // Find every class with a ClassEnglishLevel row — that's our "this
     // class is in the morning-quiz program" signal today (the schema
     // doesn't have a separate enabled flag).
+    // R15-Audit#2 Finding #3 — skip archived classes so we don't
+    // generate / lock / notify-fire for a class admins already retired.
     const enabledClasses = await this.prisma.classEnglishLevel.findMany({
+      where: { class: { archivedAt: null } },
       select: { classId: true },
     });
     const classIds = enabledClasses.map((c) => c.classId);
@@ -262,7 +265,11 @@ export class MorningQuizWeeklyCron {
     today.setHours(0, 0, 0, 0);
     const tomorrow = new Date(today.getTime() + 86_400_000);
 
+    // R15-Audit#2 Finding #3 — same archived-class filter as the
+    // weekly cron above. An archived class must not trigger fallback
+    // generation or mass_absence WeChat alerts.
     const enabledClasses = await this.prisma.classEnglishLevel.findMany({
+      where: { class: { archivedAt: null } },
       select: { classId: true },
       distinct: ['classId'],
     });

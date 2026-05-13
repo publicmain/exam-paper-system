@@ -48,6 +48,13 @@ export class ParentAuthGuard implements CanActivate {
     if (link.revokedAt) {
       throw new UnauthorizedException({ code: 'parent_token_revoked' });
     }
+    // R15-Audit#2 Finding #5 — a student withdrawn / archived after the
+    // parent link was minted MUST stop revealing data through the
+    // existing token. Admins shouldn't have to remember to revoke
+    // every parent link when a student leaves the school.
+    if (link.student?.archivedAt) {
+      throw new UnauthorizedException({ code: 'student_archived' });
+    }
     // Touch lastAccessAt for the admin dashboard. Fire-and-forget but
     // awaited so reads are causally consistent with the audit story.
     try {

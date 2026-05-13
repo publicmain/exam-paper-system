@@ -518,13 +518,17 @@ export class MorningQuizController {
         name: name,
         role: 'student',
         isActive: true,
-        classEnrollments: { some: { role: 'student' } },
+        // R15-Audit#2: require an active (non-archived) class enrollment.
+        // Filters phantom ghosts AND archived-class-only students.
+        classEnrollments: {
+          some: { role: 'student', class: { archivedAt: null } },
+        },
       },
       select: {
         id: true,
         name: true,
         classEnrollments: {
-          where: { role: 'student' },
+          where: { role: 'student', class: { archivedAt: null } },
           select: { class: { select: { id: true, name: true, classCode: true } } },
         },
       },

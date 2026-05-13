@@ -1224,11 +1224,17 @@ export class MorningQuizService {
     };
   }
 
-  /** Look at a week's worth of scheduled sessions for the calendar UI. */
+  /** Look at a week's worth of scheduled sessions for the calendar UI.
+   *  R15-Audit#2 Finding #4: hide sessions whose class has been
+   *  archived — they'd otherwise pollute the schedule view with rows
+   *  the operator can't act on. */
   async listScheduled(weekStart: Date) {
     const weekEnd = new Date(weekStart.getTime() + 7 * 86_400_000);
     return this.prisma.morningQuizSession.findMany({
-      where: { date: { gte: weekStart, lt: weekEnd } },
+      where: {
+        date: { gte: weekStart, lt: weekEnd },
+        class: { archivedAt: null },
+      },
       include: {
         class: { select: { id: true, name: true } },
         paperAssignment: { include: { paper: { select: { id: true, name: true, totalMarksActual: true } } } },
@@ -2539,18 +2545,28 @@ export class MorningQuizService {
     const name = (rawName ?? '').trim();
     if (!name) throw new BadRequestException({ code: 'name_required' });
     if (name.length > 50) throw new BadRequestException({ code: 'name_too_long' });
+    // R15-Audit#2 Finding #1 — the controller-side historyByName fix
+    // (also requiring `classEnrollments: { some: { role: 'student' } }`)
+    // was incomplete: this shared helper feeds upcoming-for-name +
+    // trend + 4 other endpoints. The phantom 李永轩 would still show
+    // through any of them. Mirror the controller's predicate AND
+    // require the enrollment's class itself to be active (not
+    // archived).
     const allCandidates = await this.prisma.user.findMany({
       where: {
         name,
         role: 'student',
         isActive: true,
         archivedAt: null,
+        classEnrollments: {
+          some: { role: 'student', class: { archivedAt: null } },
+        },
       },
       select: {
         id: true,
         name: true,
         classEnrollments: {
-          where: { role: 'student' },
+          where: { role: 'student', class: { archivedAt: null } },
           select: { class: { select: { id: true, name: true, classCode: true } } },
         },
       },
@@ -2895,9 +2911,20 @@ export class MorningQuizService {
           (acc, s) => acc + (s.awardedMarks ?? 0),
           0,
         );
+        // R15-Audit#2 Finding #2 — also write totalScore. The student
+        // and parent dashboards read `totalScore`, not `autoScore`;
+        // previously the override silently had no visible effect on a
+        // `marked` submission. totalScore = autoScore + (manualScore ?? 0)
+        // matches the convention used by finalSubmit + regradeSession.
+        const sub = await tx.studentSubmission.findUnique({
+          where: { id: appeal.submissionId },
+          select: { manualScore: true },
+        });
+        const manualScore = sub?.manualScore ?? null;
+        const totalScore = autoScore + (manualScore ?? 0);
         await tx.studentSubmission.update({
           where: { id: appeal.submissionId },
-          data: { autoScore },
+          data: { autoScore, totalScore },
         });
       }
     });
