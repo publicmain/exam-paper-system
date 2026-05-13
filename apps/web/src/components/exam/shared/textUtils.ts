@@ -11,7 +11,20 @@ export function clean(s: string | null | undefined): string {
 /** Reflow a column-broken PDF passage. PyMuPDF places a newline at every
  *  visual line; we fold single newlines into spaces, preserve double
  *  newlines as paragraph breaks, then bump capital-letter paragraph
- *  markers ("A The Babylonians…") onto fresh lines. */
+ *  markers ("A The Babylonians…") onto fresh lines.
+ *
+ *  R15-Audit#1 — the old regex `(^|[^\n])\s+([A-Z])\s+(?=[A-Z][a-z])`
+ *  misfired on common English patterns: "the U S Senate", "J K Rowling",
+ *  "Mr P Smith", "a U S military base" — every "lone capital between
+ *  spaces followed by a Title-cased word" got split into a new
+ *  paragraph, silently corrupting OLEVEL passages with named initials.
+ *
+ *  The new pattern is conservative: only inject a paragraph break if
+ *  the lone capital appears at the START of a line (or right after a
+ *  sentence-ending punctuation `[.!?]`) — i.e. the structural cue that
+ *  a paragraph label would carry in a real IELTS PDF — AND the
+ *  following word is capitalised AND there's no other capital between
+ *  them. Initials in mid-sentence text no longer trigger. */
 export function reflowPassage(s: string): string {
   if (!s) return '';
   const blocks = s.replace(/\r\n/g, '\n').split(/\n\s*\n/);
@@ -19,7 +32,19 @@ export function reflowPassage(s: string): string {
     .map((b) => b.replace(/\n+/g, ' ').replace(/\s{2,}/g, ' ').trim())
     .filter(Boolean)
     .join('\n\n');
-  return out.replace(/(^|[^\n])\s+([A-Z])\s+(?=[A-Z][a-z])/g, '$1\n\n$2 ');
+  // Conservative re-injection of IELTS paragraph labels: ONLY when the
+  // lone capital is the first token of a block or immediately after a
+  // sentence-ending punctuation followed by a space. Initials in
+  // mid-sentence text ("the U S Senate") no longer get split.
+  return out
+    .replace(
+      /(^|[.!?]\s)([A-Z])\s+(?=[A-Z][a-z])/g,
+      (_, prefix, label) => `${prefix.trimEnd()}\n\n${label} `,
+    )
+    // The `^` alternation injects a leading `\n\n` at position 0 when
+    // the passage starts with a paragraph label ("A The Babylonians…").
+    // Strip it so the first paragraph isn't preceded by a blank line.
+    .replace(/^\n+/, '');
 }
 
 /** Split an IELTS task stem into a shared instruction (block above the

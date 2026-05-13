@@ -162,7 +162,13 @@ export function IELTSReadingPassage({ paper }: { paper: ExamPaper }) {
         storageKey={`mq:split:${paper.sessionId}`}
         mobileSide={mobileSide}
         left={
-          <aside className="bg-white lg:rounded-lg lg:border lg:shadow-sm lg:max-h-full lg:overflow-auto h-full">
+          // R15-Audit#2 — same hidden-scrollbar pattern as the OLEVEL bug.
+          // On iPad-landscape (1024×768 exactly at lg) the inner scrollbar
+          // is ~2px wide; students don't realize the passage continues.
+          // Keeping lg:max-h-full to respect the parent's calc-height
+          // container, but switching to overflow-y-auto + scrollbar-gutter:
+          // stable so the gutter is reserved (visible) at all breakpoints.
+          <aside className="bg-white lg:rounded-lg lg:border lg:shadow-sm lg:max-h-full lg:overflow-y-auto h-full [scrollbar-gutter:stable]">
             <div className="px-5 py-5 lg:px-6 lg:py-6">
               <h2 className="font-semibold text-xl lg:text-2xl mb-1">{passageTitle}</h2>
               <div className="text-xs text-gray-400 mb-3">
@@ -188,7 +194,7 @@ export function IELTSReadingPassage({ paper }: { paper: ExamPaper }) {
           </aside>
         }
         right={
-          <div className="lg:max-h-full lg:overflow-auto space-y-5 px-4 lg:px-4 py-4 lg:py-4">
+          <div className="lg:max-h-full lg:overflow-y-auto space-y-5 px-4 lg:px-4 py-4 lg:py-4 [scrollbar-gutter:stable]">
             {groups.map((g, gi) => (
               // B3-H12/H13 perf — `content-visibility: auto` lets the
               // browser skip layout / paint for off-screen task groups
