@@ -106,7 +106,10 @@ export function OLevelMcqList({ paper }: { paper: ExamPaper }) {
           )}
         </div>
       </article>
-      <div className="flex items-center justify-between mt-4 px-1">
+      {/* R15-followup-9 — see OLevelComprehension fix note. mb-20 keeps
+          this strip out of the sticky 题号/交卷 footer's overlap zone on
+          iPad-sized viewports. */}
+      <div className="flex items-center justify-between mt-4 mb-20 px-1">
         <button
           type="button"
           disabled={idx === 0}

@@ -35,7 +35,8 @@ export function OLevelVocabInContext({ paper }: { paper: ExamPaper }) {
   return (
     <div className="max-w-2xl mx-auto py-3" style={{ ['--mq-fs' as any]: String(fontScale) }}>
       <VocabCard q={q} idx={idx} total={total} />
-      <div className="flex items-center justify-between mt-4 px-1">
+      {/* R15-followup-9 — mb-20 keeps Prev/Next clear of the sticky footer on iPad viewports. */}
+      <div className="flex items-center justify-between mt-4 mb-20 px-1">
         <button
           type="button"
           disabled={idx === 0}

@@ -37,7 +37,8 @@ export function OLevelSentenceTransformation({ paper }: { paper: ExamPaper }) {
   return (
     <div className="max-w-3xl mx-auto py-3" style={{ ['--mq-fs' as any]: String(fontScale) }}>
       <TransformationCard q={q} idx={idx} total={total} />
-      <div className="flex items-center justify-between mt-4 px-1">
+      {/* R15-followup-9 — mb-20 keeps Prev/Next clear of the sticky 题号/交卷 footer on iPad viewports. */}
+      <div className="flex items-center justify-between mt-4 mb-20 px-1">
         <button
           type="button"
           disabled={idx === 0}

@@ -279,6 +279,61 @@ function PaperHost({
   );
 }
 
+/** R15-followup-9 — autosave error banner with submission_locked handling.
+ *  Before: any autosave failure dumped raw JSON to the student ("⚠️ 保存失败:
+ *  {"code":"submission_locked","status":"submitted"}.  系统将自动重试") with a
+ *  promise of retry that would never succeed. After: detect the locked code,
+ *  show a friendly message, clear beforeunload by reloading to /my-history
+ *  so the student lands on their own portal instead of pounding Submit on
+ *  a locked attempt. Non-locked errors keep the original retry banner. */
+function SaveErrorBanner({
+  saveError,
+  hasPendingSaves,
+}: {
+  saveError: string | null;
+  hasPendingSaves: boolean;
+}) {
+  const navigate = useNavigate();
+  const isLocked = !!saveError && /submission_locked|already submitted/i.test(saveError);
+  // Bounce to /my-history after a short delay so the student reads the
+  // explanation. Use replace so the back button doesn't drop them back
+  // on this locked quiz. Pull the name from useAuth — same source the
+  // submitToServer path uses.
+  const studentName = useAuth((s) => s.user?.name) ?? '';
+  useEffect(() => {
+    if (!isLocked) return;
+    // Clear React-tracked beforeunload guard by reloading the route.
+    const t = setTimeout(() => {
+      const target = studentName
+        ? `/my-history?name=${encodeURIComponent(studentName)}`
+        : '/my-history';
+      navigate(target, { replace: true });
+    }, 3000);
+    return () => clearTimeout(t);
+  }, [isLocked, navigate, studentName]);
+
+  if (!saveError) return null;
+  if (isLocked) {
+    return (
+      <div
+        role="alert"
+        className="bg-amber-50 border-b border-amber-200 text-amber-900 text-sm px-4 py-2 text-center"
+      >
+        ⚠️ 你已交过这次早测 / You have already submitted this quiz. 正在跳转到我的记录…
+      </div>
+    );
+  }
+  return (
+    <div
+      role="alert"
+      className="bg-rose-50 border-b border-rose-200 text-rose-800 text-sm px-4 py-2 text-center"
+    >
+      ⚠️ 保存失败 / Save failed: {saveError}.{' '}
+      {hasPendingSaves ? '系统将自动重试 / will retry on reconnect.' : ''}
+    </div>
+  );
+}
+
 /** The chrome (header, footer, palette overlay) lives inside the provider
  *  so it can read flagged + answered counts via useExam. Splitting this
  *  out from the page-level orchestrator keeps the data-fetching code
@@ -384,13 +439,13 @@ function ExamShellChrome({
       {saveError && (
         // Round-3 H22: surfacing autosave errors instead of swallowing
         // them silently. Auto-dismisses on the next successful save.
-        <div
-          role="alert"
-          className="bg-rose-50 border-b border-rose-200 text-rose-800 text-sm px-4 py-2 text-center"
-        >
-          ⚠️ 保存失败 / Save failed: {saveError}.{' '}
-          {hasPendingSaves ? '系统将自动重试 / will retry on reconnect.' : ''}
-        </div>
+        // R15-followup-9: when the error code is `submission_locked` the
+        // student has already submitted this quiz (often: they re-scanned
+        // the QR by accident). Don't show a misleading "will retry on
+        // reconnect" — it never will. Render a clear message + auto-bounce
+        // them to /my-history after 3s so they end up on their own portal
+        // instead of mashing Submit on a locked attempt.
+        <SaveErrorBanner saveError={saveError} hasPendingSaves={hasPendingSaves} />
       )}
 
       <div

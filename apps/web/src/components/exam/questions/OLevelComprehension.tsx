@@ -118,7 +118,15 @@ export function OLevelComprehension({ paper }: { paper: ExamPaper }) {
       </aside>
       <div className="lg:w-1/2 px-3 py-3 lg:px-0 lg:py-0">
         <ComprehensionQuestionCard q={q} idx={idx} total={total} />
-        <div className="flex items-center justify-between gap-2 mt-4">
+        {/* R15-followup-9 — on iPad-sized viewports the Prev/Next strip
+            below the textarea got tucked underneath the page's sticky
+            footer (题号 + 交卷). The host `pb-24` reserves 96 px of room
+            from the page bottom, but the sticky toolbar floats over that
+            zone — so a button sitting in the last ~40 px of the content
+            area renders behind it and is unclickable. mb-20 + min-h-screen
+            chrome together push these out of the footer's shadow on every
+            viewport including 1024×1366 iPads in portrait. */}
+        <div className="flex items-center justify-between gap-2 mt-4 mb-20">
           <button
             type="button"
             disabled={idx === 0}

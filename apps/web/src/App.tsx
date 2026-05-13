@@ -111,6 +111,20 @@ export default function App() {
     );
   }
 
+  // QR-scan gate. Lift it OUT of the !user branch so when staff are
+  // already logged in as admin/teacher on the same browser, scanning a
+  // student QR doesn't render the full admin header + "404 链接无效或已
+  // 过期" body when the token rotates. Hidden chrome matters because
+  // shared-device flows (one iPad shared between students) shouldn't
+  // leak the admin nav to whoever picks up the device.
+  if (location.pathname.startsWith('/scan/')) {
+    return (
+      <Routes>
+        <Route path="/scan/:token" element={<MorningQuizScanPage />} />
+      </Routes>
+    );
+  }
+
   if (!user) {
     // Allow /scan/:token to bounce through login with a `next` param so
     // returning students land back on the scan flow.

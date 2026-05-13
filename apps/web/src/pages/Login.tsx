@@ -2,9 +2,15 @@ import { useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../lib/auth';
 
+// Prefill convenience creds only in dev. In production the inputs start
+// empty AND we hide the demo hint at the bottom — these credentials are
+// real admin/teacher seeds and exposing them on a public /login page was
+// letting anyone walk in as admin.
+const IS_DEV = (import.meta as any).env?.DEV === true;
+
 export default function LoginPage() {
-  const [email, setEmail] = useState('teacher@school.local');
-  const [password, setPassword] = useState('teacher123');
+  const [email, setEmail] = useState(IS_DEV ? 'teacher@school.local' : '');
+  const [password, setPassword] = useState(IS_DEV ? 'teacher123' : '');
   const [err, setErr] = useState('');
   const [busy, setBusy] = useState(false);
   const { login } = useAuth();
@@ -54,9 +60,11 @@ export default function LoginPage() {
         <button className="btn btn-primary w-full" disabled={busy}>
           {busy ? 'Signing in…' : 'Sign in'}
         </button>
-        <div className="text-xs text-gray-500 text-center pt-2 border-t">
-          Demo: teacher@school.local / teacher123 · admin@school.local / admin123
-        </div>
+        {IS_DEV && (
+          <div className="text-xs text-gray-500 text-center pt-2 border-t">
+            Dev only · teacher@school.local / teacher123 · admin@school.local / admin123
+          </div>
+        )}
       </form>
     </div>
   );
