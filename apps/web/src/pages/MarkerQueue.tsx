@@ -82,10 +82,66 @@ export default function MarkerQueuePage() {
   if (err) return <div className="card text-red-700">{err}</div>;
   if (!data) return <div className="text-gray-500">Loading…</div>;
   if (!data.items || data.items.length === 0) {
+    // R15-followup-8 — even when the marker queue is empty, the teacher
+    // still has work to do if appeals are pending. The previous version
+    // returned ONLY the "✅ no submissions" card, hiding open appeals
+    // entirely; an appeal filed against an auto-graded paper (where the
+    // marker queue stays empty because there were no structured items)
+    // had no teacher entry point at all. Now surface the appeals strip
+    // here too, with the same AppealReviewModal integration as the
+    // populated-queue path.
     return (
-      <div className="card text-center py-12">
-        <div className="text-4xl mb-3">✅</div>
-        <div className="text-gray-700">No submissions awaiting marking.</div>
+      <div className="space-y-3">
+        {totalOpenAppeals > 0 && (
+          <div className="card border-amber-300 bg-amber-50">
+            <div className="flex items-center justify-between mb-2">
+              <h2 className="text-lg font-bold text-amber-900">
+                📢 待审申诉 · Open Appeals
+              </h2>
+              <span className="text-xs px-2 py-0.5 rounded bg-amber-200 text-amber-900 border border-amber-300 font-medium">
+                {totalOpenAppeals}
+              </span>
+            </div>
+            <ul className="divide-y divide-amber-200">
+              {appeals.map((a: any) => (
+                <li key={a.id} className="py-2 flex items-start justify-between gap-3">
+                  <div className="text-sm min-w-0 flex-1">
+                    <div className="text-gray-900 truncate">
+                      {a.student?.name ?? a.studentId ?? 'unknown'}
+                      {a.paperQuestionSortOrder != null && (
+                        <span className="text-gray-500"> · Q{a.paperQuestionSortOrder}</span>
+                      )}
+                    </div>
+                    <div className="text-xs text-gray-600 truncate mt-0.5">
+                      {a.message?.slice(0, 100) ?? ''}
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setActiveAppeal(a)}
+                    className="shrink-0 text-xs px-2 py-1 rounded bg-amber-200 hover:bg-amber-300 text-amber-900 border border-amber-300 font-medium"
+                  >
+                    查看 · Review
+                  </button>
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+        <div className="card text-center py-12">
+          <div className="text-4xl mb-3">✅</div>
+          <div className="text-gray-700">No submissions awaiting marking.</div>
+        </div>
+        {activeAppeal && (
+          <AppealReviewModal
+            appeal={activeAppeal}
+            onClose={() => setActiveAppeal(null)}
+            onResolved={() => {
+              setActiveAppeal(null);
+              load();
+            }}
+          />
+        )}
       </div>
     );
   }
