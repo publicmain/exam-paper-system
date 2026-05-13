@@ -33,8 +33,21 @@ export function OLevelComprehension({ paper }: { paper: ExamPaper }) {
   const total = paper?.questions?.length ?? 0;
   const passageContent = paper?.questions?.[0]?.snapshotContent ?? {};
   const passageTitle = clean(passageContent.passageTitle ?? 'Passage');
-  const passageBody = useMemo(
-    () => reflowPassage(clean(passageContent.passage ?? '')),
+  // R15-Bug A — production 2026-05-12: students saw only the first
+  // paragraph of an OLEVEL comprehension passage. Root cause: the
+  // passage was rendered as one big `whitespace-pre-wrap` block inside
+  // an `lg:max-h-[calc(100dvh-9rem)] lg:overflow-auto` aside. On iPad
+  // the inner scroll bar is too thin to notice — students thought the
+  // passage was truncated. Fix: split paragraphs on `\n\n` and render
+  // each as its own `<p>` with explicit margin, AND remove the inner
+  // overflow so the whole page scrolls (single source of scroll
+  // location for the student).
+  const passageParagraphs = useMemo(
+    () =>
+      reflowPassage(clean(passageContent.passage ?? ''))
+        .split(/\n\s*\n/)
+        .map((p) => p.trim())
+        .filter(Boolean),
     [passageContent.passage],
   );
   if (!total) {
@@ -51,18 +64,33 @@ export function OLevelComprehension({ paper }: { paper: ExamPaper }) {
       className="lg:flex lg:gap-4 lg:max-w-7xl lg:mx-auto lg:py-3"
       style={{ ['--mq-fs' as any]: String(fontScale) }}
     >
-      <aside className="lg:w-1/2 bg-white lg:rounded-lg lg:border lg:shadow-sm lg:max-h-[calc(100dvh-9rem)] lg:overflow-auto">
+      {/* R15-Bug A: removed lg:max-h + lg:overflow-auto on this aside.
+          The hidden inner scrollbar was making students think the
+          passage was truncated. Now the whole document scrolls. */}
+      <aside className="lg:w-1/2 bg-white lg:rounded-lg lg:border lg:shadow-sm">
         <div className="px-5 py-5 lg:px-6 lg:py-6">
-          <h2 className="font-semibold text-xl lg:text-2xl mb-2">{passageTitle}</h2>
+          <h2 className="font-semibold text-xl lg:text-2xl mb-4">{passageTitle}</h2>
           <div
-            className="text-gray-800 leading-[1.75] font-serif whitespace-pre-wrap select-text"
+            className="text-gray-800 font-serif select-text"
             style={{ fontSize: `calc(1.125rem * var(--mq-fs, 1))` }}
           >
-            {passageBody}
+            {passageParagraphs.map((para, i) => (
+              <p
+                key={i}
+                className="leading-[1.75] mb-4 last:mb-0 whitespace-pre-wrap"
+              >
+                {para}
+              </p>
+            ))}
+            {passageParagraphs.length === 0 && (
+              <p className="text-amber-700 italic">
+                (该卷未携带阅读段落，请联系老师重新生成此卷)
+              </p>
+            )}
           </div>
         </div>
       </aside>
-      <div className="lg:w-1/2 px-3 py-3 lg:px-0 lg:py-0 lg:max-h-[calc(100dvh-9rem)] lg:overflow-auto">
+      <div className="lg:w-1/2 px-3 py-3 lg:px-0 lg:py-0">
         <ComprehensionQuestionCard q={q} idx={idx} total={total} />
         <div className="flex items-center justify-between gap-2 mt-4">
           <button

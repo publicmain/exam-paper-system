@@ -350,21 +350,41 @@ export default function MyHistory() {
               校内有 <b>{disambig.length}</b> 个名叫「{name.trim()}」的学生，请选你所在的班级:
             </div>
             <div className="grid gap-2">
-              {disambig.map((c) => (
-                <button
-                  key={c.studentId}
-                  type="button"
-                  onClick={() => lookup(name, c.studentId)}
-                  className="w-full text-left border border-gray-200 hover:border-blue-400 bg-gray-50 hover:bg-blue-50 rounded-lg px-4 py-3 transition-colors"
-                >
-                  <div className="text-base font-semibold text-gray-900">{c.name}</div>
-                  <div className="text-xs text-gray-500 mt-0.5">
-                    {c.classes.length === 0
-                      ? '(未注册任何班级)'
-                      : c.classes.map((cls) => `${cls.name} (${cls.classCode})`).join(' · ')}
-                  </div>
-                </button>
-              ))}
+              {disambig.map((c) => {
+                // R15-Bug B: defensive — even though the backend now
+                // filters out 0-enrollment candidates, the network may
+                // race during a class transfer. If a ghost slips
+                // through, render it disabled so the student doesn't
+                // pick it and hit a 500 downstream.
+                const unregistered = c.classes.length === 0;
+                if (unregistered) {
+                  return (
+                    <div
+                      key={c.studentId}
+                      className="w-full text-left border border-rose-200 bg-rose-50 rounded-lg px-4 py-3 cursor-not-allowed opacity-70"
+                      aria-disabled="true"
+                    >
+                      <div className="text-base font-semibold text-gray-900">{c.name}</div>
+                      <div className="text-xs text-rose-700 mt-0.5">
+                        未注册任何班级 · 请联系老师
+                      </div>
+                    </div>
+                  );
+                }
+                return (
+                  <button
+                    key={c.studentId}
+                    type="button"
+                    onClick={() => lookup(name, c.studentId)}
+                    className="w-full text-left border border-gray-200 hover:border-blue-400 bg-gray-50 hover:bg-blue-50 rounded-lg px-4 py-3 transition-colors"
+                  >
+                    <div className="text-base font-semibold text-gray-900">{c.name}</div>
+                    <div className="text-xs text-gray-500 mt-0.5">
+                      {c.classes.map((cls) => `${cls.name} (${cls.classCode})`).join(' · ')}
+                    </div>
+                  </button>
+                );
+              })}
             </div>
           </div>
         )}

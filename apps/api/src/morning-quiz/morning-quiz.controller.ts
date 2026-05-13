@@ -503,8 +503,23 @@ export class MorningQuizController {
     if (name.length > 50) throw new BadRequestException({ code: 'name_too_long' });
     // Bug 9: filter out soft-deleted/withdrawn students. They should not
     // appear in name lookups; the PII of a withdrawn student must not leak.
+    // R15-Bug B (production 2026-05-12): also filter out PHANTOM students —
+    // role='student' rows that have ZERO class enrollments. These can leak
+    // in via (a) failed transfer where old enrollment was deleted but the
+    // new one never created, (b) leftover test fixtures, (c) admin
+    // imported a roster CSV but forgot to assign a class. Showing them
+    // in the disambig picker confused real students ("which 李永轩 am I?"
+    // — they're me but unregistered) and clicking the ghost row threw
+    // 500 from downstream history/dashboard queries that assume the
+    // student is in a class. The Prisma `some` predicate forces at
+    // least one student-role enrollment.
     const allCandidates = await this.prisma.user.findMany({
-      where: { name: name, role: 'student', isActive: true },
+      where: {
+        name: name,
+        role: 'student',
+        isActive: true,
+        classEnrollments: { some: { role: 'student' } },
+      },
       select: {
         id: true,
         name: true,
