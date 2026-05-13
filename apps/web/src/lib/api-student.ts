@@ -181,15 +181,36 @@ export interface PracticeSubmitResult {
   }>;
 }
 
+/**
+ * R15-followup — server expects:
+ *   { studentName, studentId?, answers: Array<{paperQuestionId, selectedOption?, textAnswer?}> }
+ *
+ * The old shape `{ answers: Record<qid, {…}> }` produced
+ * `400 {"answers":["Expected array, received object"], "studentName":["Required"]}`
+ * caught while doing the OLEVEL multi-passage E2E student walkthrough.
+ */
 export async function submitPractice(
   practiceSubmissionId: string,
-  body: { answers: Record<string, { selectedOption?: string | null; textAnswer?: string | null }> },
+  body: {
+    studentName: string;
+    studentId?: string;
+    answers: Record<string, { selectedOption?: string | null; textAnswer?: string | null }>;
+  },
 ): Promise<PracticeSubmitResult | null> {
+  const payload = {
+    studentName: body.studentName,
+    studentId: body.studentId,
+    answers: Object.entries(body.answers).map(([paperQuestionId, a]) => ({
+      paperQuestionId,
+      selectedOption: a.selectedOption ?? null,
+      textAnswer: a.textAnswer ?? null,
+    })),
+  };
   return publicFetch<PracticeSubmitResult>(
     `/api/morning-quiz/practice/${encodeURIComponent(practiceSubmissionId)}/submit`,
     {
       method: 'POST',
-      body: JSON.stringify(body),
+      body: JSON.stringify(payload),
     },
   );
 }

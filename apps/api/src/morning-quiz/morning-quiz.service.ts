@@ -3418,15 +3418,62 @@ export class MorningQuizService {
       ip,
       metadata: { autoScore, maxScore: sub.maxScore },
     });
+    // R15-followup — the FE result page expects per-question
+    // metadata (sortOrder, marks, studentAnswer, correctAnswer,
+    // explanation) so it can render "Q3 · 1/1 · ✓ · my answer: X /
+    // correct: Y". Without these, the result page renders every row
+    // as "Q? · 得分:0 · (空答)" even when answers were submitted.
+    const scriptById = new Map(scriptUpdates.map((u) => [u.id, u]));
     return {
       autoScore,
       maxScore: sub.maxScore,
-      perQuestion: scriptUpdates.map((u) => ({
-        scriptId: u.id,
-        autoCorrect: u.autoCorrect,
-        awardedMarks: u.awardedMarks,
-        aiReason: u.aiReason ?? null,
-      })),
+      perQuestion: scripts.map((s) => {
+        const u = scriptById.get(s.id);
+        const autoCorrect = u?.autoCorrect ?? s.autoCorrect ?? null;
+        const awardedMarks = u?.awardedMarks ?? s.awardedMarks ?? 0;
+        const sc = (s.paperQuestion.snapshotContent ?? {}) as any;
+        // Derive a canonical correctAnswer for the result view —
+        // mirror getStudentResult's logic. snapshotContent may carry
+        // correctOption (MCQ key) OR correctAnswer (short text);
+        // fall back to snapshotOptions array, then question.answerContent.
+        let correctKey: string | null =
+          typeof sc.correctOption === 'string'
+            ? sc.correctOption
+            : typeof sc.correctAnswer === 'string'
+            ? sc.correctAnswer
+            : null;
+        if (!correctKey && Array.isArray(s.paperQuestion.snapshotOptions)) {
+          const correctOpt = (s.paperQuestion.snapshotOptions as any[]).find(
+            (o) => o?.correct === true,
+          );
+          if (correctOpt?.key) correctKey = String(correctOpt.key);
+        }
+        if (!correctKey) {
+          const ac = (s.paperQuestion.question as any)?.answerContent as
+            | { text?: unknown }
+            | null;
+          if (typeof ac?.text === 'string' && ac.text.length <= 80) {
+            correctKey = ac.text;
+          }
+        }
+        const studentAnswer = s.selectedOption ?? s.textAnswer ?? null;
+        return {
+          scriptId: s.id,
+          paperQuestionId: s.paperQuestionId,
+          sortOrder: s.paperQuestion.sortOrder,
+          marks: s.paperQuestion.marks,
+          autoCorrect,
+          isCorrect: autoCorrect,
+          awardedMarks,
+          studentAnswer,
+          correctAnswer: correctKey,
+          explanation:
+            typeof sc.explanation === 'string'
+              ? sc.explanation.slice(0, 600)
+              : null,
+          aiReason: u?.aiReason ?? null,
+        };
+      }),
     };
   }
 

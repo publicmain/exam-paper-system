@@ -123,7 +123,12 @@ export default function PracticeMode() {
       submitInflightRef.current = true;
       setSubmitting(true);
       try {
+        // R15-followup — submitPractice now requires studentName for
+        // backend re-verification of submission ownership; wrapper
+        // converts the keyed Record into the array shape Zod expects.
         const body = {
+          studentName,
+          studentId: studentIdParam || undefined,
           answers: Object.fromEntries(
             Object.entries(answers).map(([qid, a]) => [
               qid,
@@ -150,7 +155,7 @@ export default function PracticeMode() {
         submitInflightRef.current = false;
       }
     },
-    [practiceSubmissionId],
+    [practiceSubmissionId, studentName, studentIdParam],
   );
 
   const handleTryAgain = useCallback(async () => {
