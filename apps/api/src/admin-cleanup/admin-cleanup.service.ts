@@ -615,4 +615,111 @@ export class AdminCleanupService {
     this.logger.warn(`purgeMorningQuizData (live): ${JSON.stringify({ summary, stepCounts, stepFailed })}`);
     return { dryRun: false, summary, stepCounts, stepFailed };
   }
+
+  /**
+   * R15-followup-9 — targeted submission purge for test-pollution cleanup.
+   *
+   * When QA / sanity-checks land a real student's name on production (e.g.
+   * teacher walks through the QR-scan flow as a real student), the resulting
+   * StudentSubmission rows pollute that student's /my-history. Wide cleanup
+   * tools delete too much; this endpoint takes a small list of submission
+   * IDs and removes exactly those rows + their cascading scripts + unhooks
+   * any Attendance row that points at them.
+   *
+   * Defaults to `dryRun: true` — pass `dryRun: false` to actually delete.
+   * Returns the affected counts so the caller can sanity-check before live
+   * mode.
+   */
+  async purgeSubmissionsById(
+    submissionIds: string[],
+    opts: { dryRun?: boolean; actor?: { id: string; role: string; ip?: string | null } } = {},
+  ) {
+    const dryRun = opts.dryRun ?? true;
+    if (submissionIds.length === 0) {
+      return { dryRun, found: 0, scripts: 0, attendanceUnhooked: 0, deleted: 0, missing: [] };
+    }
+    const subs = await this.prisma.studentSubmission.findMany({
+      where: { id: { in: submissionIds } },
+      select: {
+        id: true, studentId: true, assignmentId: true, status: true,
+        autoScore: true, totalScore: true, maxScore: true, submittedAt: true,
+      },
+    });
+    const foundIds = subs.map((s) => s.id);
+    const missing = submissionIds.filter((id) => !foundIds.includes(id));
+
+    // Count cascade-impact upfront for the dry-run preview.
+    const scriptCount = await this.prisma.answerScript.count({
+      where: { submissionId: { in: foundIds } },
+    });
+    const attendanceCount = await (this.prisma as any).attendance.count({
+      where: { submissionId: { in: foundIds } },
+    });
+
+    if (dryRun) {
+      this.logger.log(
+        `purgeSubmissionsById (dryRun): would delete ${foundIds.length} submission(s) + ${scriptCount} script(s); unhook ${attendanceCount} attendance row(s); missing=${missing.length}`,
+      );
+      return {
+        dryRun: true,
+        found: foundIds.length,
+        scripts: scriptCount,
+        attendanceUnhooked: attendanceCount,
+        deleted: 0,
+        missing,
+        wouldDelete: subs,
+      };
+    }
+
+    // Live mode — unhook Attendance.submissionId then delete the submissions
+    // inside a transaction so a partial failure rolls back cleanly.
+    const result = await this.prisma.$transaction(async (tx) => {
+      const unhooked = await (tx as any).attendance.updateMany({
+        where: { submissionId: { in: foundIds } },
+        data: { submissionId: null },
+      });
+      // AnswerScript onDelete: Cascade — gone automatically.
+      const deleted = await tx.studentSubmission.deleteMany({
+        where: { id: { in: foundIds } },
+      });
+      return { unhooked: unhooked.count, deleted: deleted.count };
+    });
+
+    if (opts.actor) {
+      // Audit-log each deletion so we have a forensic trail. The metadata
+      // captures who / when / what for legal-ish reasons even though these
+      // are test-pollution rows.
+      for (const s of subs) {
+        await this.audit.log({
+          actorId: opts.actor.id,
+          actorRole: opts.actor.role,
+          action: 'submission.purge',
+          entityType: 'StudentSubmission',
+          entityId: s.id,
+          ip: opts.actor.ip ?? null,
+          metadata: {
+            studentId: s.studentId,
+            assignmentId: s.assignmentId,
+            status: s.status,
+            autoScore: s.autoScore,
+            totalScore: s.totalScore,
+            maxScore: s.maxScore,
+            submittedAt: s.submittedAt?.toISOString() ?? null,
+          },
+        });
+      }
+    }
+
+    this.logger.warn(
+      `purgeSubmissionsById (live): deleted=${result.deleted} attendanceUnhooked=${result.unhooked} missing=${missing.length}`,
+    );
+    return {
+      dryRun: false,
+      found: foundIds.length,
+      scripts: scriptCount,
+      attendanceUnhooked: result.unhooked,
+      deleted: result.deleted,
+      missing,
+    };
+  }
 }

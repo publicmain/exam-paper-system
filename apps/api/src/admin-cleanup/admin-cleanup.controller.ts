@@ -1,4 +1,5 @@
-import { BadRequestException, Body, Controller, Post, UseGuards } from '@nestjs/common';
+import { BadRequestException, Body, Controller, Post, Req, UseGuards } from '@nestjs/common';
+import type { Request } from 'express';
 import { z } from 'zod';
 import { AuthGuard, Roles } from '../common/auth.guard';
 import { AdminCleanupService } from './admin-cleanup.service';
@@ -16,6 +17,15 @@ const RepairIeltsSchema = z.object({
   dryRun: z.boolean().optional(),
   provenancePrefix: z.string().min(1).max(120).optional(),
   sourceRefPrefix: z.string().min(1).max(120).optional(),
+});
+
+// R15-followup-9 — targeted submission purge for test-pollution cleanup.
+// Capped at 20 IDs per call so a copy-paste of a giant list can't blow
+// up a transaction. Defaults to dryRun=true so the first call always shows
+// the impact before anything is actually deleted.
+const PurgeSubmissionsSchema = z.object({
+  submissionIds: z.array(z.string().min(1).max(40)).min(1).max(20),
+  dryRun: z.boolean().optional(),
 });
 
 /**
@@ -78,6 +88,28 @@ export class AdminCleanupController {
    * Idempotent: questions already marked passageCleaned / with bank are
    * skipped on re-runs. Default dryRun=true.
    */
+  /**
+   * R15-followup-9 — delete specific StudentSubmission rows by ID, unhook
+   * any Attendance rows that reference them, and cascade-delete their
+   * AnswerScript children. Used to clean up after a QA walk-through that
+   * accidentally lands real-student names on production submissions.
+   *
+   *   POST /admin-cleanup/purge-submissions-by-id
+   *   { submissionIds: string[] (1-20), dryRun?: boolean (default true) }
+   */
+  @Post('purge-submissions-by-id')
+  purgeSubmissions(@Body() body: unknown, @Req() req: Request) {
+    const parsed = PurgeSubmissionsSchema.safeParse(body ?? {});
+    if (!parsed.success) throw new BadRequestException(parsed.error.flatten());
+    const actor = (req as any).user ?? null;
+    return this.cleanup.purgeSubmissionsById(parsed.data.submissionIds, {
+      dryRun: parsed.data.dryRun,
+      actor: actor
+        ? { id: actor.id ?? actor.userId, role: actor.role ?? 'admin', ip: req.ip ?? null }
+        : undefined,
+    });
+  }
+
   @Post('repair-ielts')
   repairIelts(@Body() body: unknown) {
     const parsed = RepairIeltsSchema.safeParse(body ?? {});
