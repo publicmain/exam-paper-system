@@ -501,7 +501,19 @@ function LetterInput({
     <input
       type="text"
       value={local}
-      onChange={(e) => setLocal(e.target.value)}
+      onChange={(e) => {
+        // R15-followup-6 — save IMMEDIATELY on every keystroke instead
+        // of waiting for blur. The blur-only save lost answers when a
+        // student tapped "Done" right after typing: the input lost
+        // focus AND the Submit handler fired in the same tick, racing
+        // React's state batching — the parent saw the old value and
+        // posted (空答) to the backend. Live save matches the rest of
+        // the renderer's behavior (LetterInput is short — "ii", "iii"
+        // — so per-keystroke debounce in ExamProvider isn't a hot path).
+        const v = e.target.value;
+        setLocal(v);
+        onChange(v);
+      }}
       onBlur={() => { if (local !== value) onChange(local); }}
       placeholder={placeholder}
       className={`border rounded-lg px-4 py-3 text-lg font-mono uppercase tracking-wider min-h-[48px] focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-200 ${wider ? 'w-40' : 'w-28'}`}
@@ -521,10 +533,17 @@ function DebouncedTextarea({
 }) {
   const [local, setLocal] = useState(value);
   useEffect(() => { setLocal(value); }, [value]);
+  // R15-followup-6 — save on every keystroke (same fix as LetterInput).
+  // The blur-only save raced the Done button and dropped answers; for
+  // 1-3 sentence short answers per-keystroke save is cheap.
   return (
     <textarea
       value={local}
-      onChange={(e) => setLocal(e.target.value)}
+      onChange={(e) => {
+        const v = e.target.value;
+        setLocal(v);
+        onChange(v);
+      }}
       onBlur={() => { if (local !== value) onChange(local); }}
       placeholder="Your answer…"
       className="w-full border rounded-lg px-4 py-3 text-base min-h-[80px] focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-200"
@@ -563,7 +582,12 @@ function BlankAwareInput({
       <input
         type="text"
         value={local}
-        onChange={(e) => setLocal(e.target.value)}
+        onChange={(e) => {
+          // R15-followup-6 — live save (see LetterInput comment).
+          const v = e.target.value;
+          setLocal(v);
+          onChange(v);
+        }}
         onBlur={() => { if (local !== value) onChange(local); }}
         placeholder="Your answer…"
         className="border rounded-lg px-4 py-3 text-base w-full max-w-md min-h-[48px] focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-200"

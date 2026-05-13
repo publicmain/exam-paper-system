@@ -81,7 +81,16 @@ export class ShortAnswerEvaluatorService {
    *  unparseable. Caller should treat null as "no suggestion — leave
    *  for manual review". */
   async evaluate(input: ShortAnswerInput): Promise<ShortAnswerSuggestion | null> {
-    if (!this.client) return null;
+    if (!this.client) {
+      // R15-followup-5: silent null on every grading call was a
+      // production-invisible failure mode. If the API key gets rotated
+      // or quota-exhausted, every short-answer student got 0/N with no
+      // log signal. Warn loudly on every miss so operations notices.
+      this.logger.warn(
+        '[ai_grade_skipped] no Anthropic client — student answer not auto-graded; check ANTHROPIC_API_KEY',
+      );
+      return null;
+    }
     if (!input.studentAnswer || !input.studentAnswer.trim()) {
       // Empty answers get 0 with high confidence — skip the API call.
       return {
