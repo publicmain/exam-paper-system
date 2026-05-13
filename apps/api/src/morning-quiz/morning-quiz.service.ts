@@ -3263,6 +3263,9 @@ export class MorningQuizService {
         id: true,
         studentId: true,
         status: true,
+        autoScore: true,
+        maxScore: true,
+        submittedAt: true,
         assignment: { select: { paperId: true } },
       },
     });
@@ -3276,14 +3279,18 @@ export class MorningQuizService {
     const paperQuestions = await this.prisma.paperQuestion.findMany({
       where: { paperId: sub.assignment.paperId },
       orderBy: { sortOrder: 'asc' },
-      include: { question: { select: { id: true, questionType: true } } },
+      include: { question: { select: { id: true, questionType: true, answerContent: true } } },
     });
     const scripts = await this.prisma.answerScript.findMany({
       where: { submissionId: sub.id },
       select: {
+        id: true,
         paperQuestionId: true,
         selectedOption: true,
         textAnswer: true,
+        autoCorrect: true,
+        awardedMarks: true,
+        markerComment: true,
       },
     });
     const existingAnswers: Record<string, { content: any; flagged: boolean }> = {};
@@ -3297,6 +3304,65 @@ export class MorningQuizService {
       if (!Array.isArray(opts)) return opts;
       return opts.map((o: any) => ({ key: o?.key, text: o?.text }));
     };
+    // R15-followup-7: when the student already submitted this practice
+    // attempt, return the same perQuestion grading payload that
+    // submitPractice returns so the FE can render PracticeResultView
+    // immediately. Without this, visiting /practice/:id of a finished
+    // attempt re-shows the editable form and the only entry point back
+    // to "what did I score" is to re-submit, which feels broken.
+    // Use autoScore (not submittedAt) as the "already graded" flag —
+    // legacy practice rows from before R15-followup-7 have
+    // submittedAt=null but a real autoScore; treating those as
+    // "unsubmitted" would re-show the form and make /my-history's
+    // 「查看练习卷」 confusing for any data created before this fix.
+    const alreadySubmitted = sub.autoScore != null;
+    let perQuestion: any[] | null = null;
+    if (alreadySubmitted) {
+      const scriptByPq = new Map(scripts.map((s) => [s.paperQuestionId, s]));
+      perQuestion = paperQuestions.map((pq) => {
+        const s = scriptByPq.get(pq.id);
+        const sc = (pq.snapshotContent ?? {}) as any;
+        let correctKey: string | null =
+          typeof sc.correctOption === 'string'
+            ? sc.correctOption
+            : typeof sc.correctAnswer === 'string'
+            ? sc.correctAnswer
+            : null;
+        if (!correctKey && Array.isArray(pq.snapshotOptions)) {
+          const correctOpt = (pq.snapshotOptions as any[]).find(
+            (o) => o?.correct === true,
+          );
+          if (correctOpt?.key) correctKey = String(correctOpt.key);
+        }
+        if (!correctKey) {
+          const ac = (pq.question as any)?.answerContent as { text?: unknown } | null;
+          if (typeof ac?.text === 'string' && ac.text.length <= 80) {
+            correctKey = ac.text;
+          }
+        }
+        const studentAnswer = s?.selectedOption ?? s?.textAnswer ?? null;
+        // markerComment is stored as `[ai-grade] <reason>`; strip the
+        // prefix so the FE displays just the reasoning.
+        const rawComment = s?.markerComment ?? null;
+        const aiReason = rawComment?.startsWith('[ai-grade] ')
+          ? rawComment.slice('[ai-grade] '.length)
+          : rawComment;
+        return {
+          scriptId: s?.id ?? null,
+          paperQuestionId: pq.id,
+          sortOrder: pq.sortOrder,
+          marks: pq.marks,
+          autoCorrect: s?.autoCorrect ?? null,
+          isCorrect: s?.autoCorrect ?? null,
+          awardedMarks: s?.awardedMarks ?? 0,
+          studentAnswer,
+          correctAnswer: correctKey,
+          explanation:
+            typeof sc.explanation === 'string' ? sc.explanation.slice(0, 600) : null,
+          aiReason,
+        };
+      });
+    }
     return {
       practiceSubmissionId: sub.id,
       paperId: sub.assignment.paperId,
@@ -3309,6 +3375,10 @@ export class MorningQuizService {
         questionType: pq.question.questionType,
       })),
       existingAnswers,
+      alreadySubmitted,
+      autoScore: sub.autoScore,
+      maxScore: sub.maxScore,
+      perQuestion,
     };
   }
 
@@ -3396,7 +3466,10 @@ export class MorningQuizService {
     await this.prisma.$transaction(async (tx) => {
       await tx.studentSubmission.update({
         where: { id: sub.id },
-        data: { autoScore },
+        // Stamp submittedAt so /my-history can sort practice rows by
+        // recency and the student can see "submitted just now" timing.
+        // status stays 'practice' so stats/trend/wrong-rate still skip it.
+        data: { autoScore, submittedAt: new Date() },
       });
       for (const u of scriptUpdates) {
         await tx.answerScript.update({

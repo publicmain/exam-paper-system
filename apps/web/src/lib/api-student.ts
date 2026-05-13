@@ -148,6 +148,13 @@ export interface PracticeSubmissionView {
     string,
     { content?: string; selectedOption?: string; textAnswer?: string; flagged?: boolean }
   >;
+  /** R15-followup-7: present when the student already submitted this
+   *  practice. The PracticeResultView is rendered directly so they can
+   *  review without re-submitting. */
+  alreadySubmitted?: boolean;
+  autoScore?: number | null;
+  maxScore?: number | null;
+  perQuestion?: PracticeSubmitResult['perQuestion'] | null;
 }
 
 export async function fetchPracticeSubmission(

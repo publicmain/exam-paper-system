@@ -62,7 +62,22 @@ export default function PracticeMode() {
       .then((v) => {
         if (cancelled) return;
         if (v === null) setUnavailable(true);
-        else setView(v);
+        else {
+          setView(v);
+          // R15-followup-7: revisit-after-submit shortcut. If the student
+          // already submitted this practice, the backend returns the
+          // grading payload up-front so we can render PracticeResultView
+          // immediately without making them re-submit. Without this,
+          // /my-history → 「查看练习卷」 dumps the student back into an
+          // editable form that LOOKS unsubmitted — confusing UX.
+          if (v.alreadySubmitted && v.perQuestion && v.maxScore != null) {
+            setResult({
+              autoScore: v.autoScore ?? 0,
+              maxScore: v.maxScore,
+              perQuestion: v.perQuestion,
+            });
+          }
+        }
       })
       .catch((e: any) => {
         if (cancelled) return;

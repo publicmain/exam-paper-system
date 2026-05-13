@@ -506,18 +506,36 @@ export default function MyHistory() {
                       pct >= 80 ? 'text-emerald-700' :
                       pct >= 60 ? 'text-blue-700' :
                       pct >= 40 ? 'text-amber-700' : 'text-rose-700';
+                    // R15-followup-7: practice rows are visually marked
+                    // and link to the practice REVIEW page (/practice/:id)
+                    // instead of the official submission detail. Without
+                    // this, students who came from the practice result
+                    // page got dumped to a 0/13 'original submission'
+                    // detail and had no entry point back to their 13/13.
+                    const isPractice = s.status === 'practice';
+                    const detailHref = isPractice
+                      ? `/practice/${s.submissionId}?name=${encodeURIComponent(data.student.name)}`
+                      : `/my-history/submission/${s.submissionId}?name=${encodeURIComponent(data.student.name)}`;
+                    const rowBg = isPractice
+                      ? 'bg-violet-50/40 hover:bg-violet-50'
+                      : 'hover:bg-gray-50';
                     return (
-                      <li key={s.submissionId} className="p-4 hover:bg-gray-50 transition-colors">
+                      <li key={s.submissionId} className={`p-4 ${rowBg} transition-colors`}>
                         <div className="flex items-start gap-4">
-                          <Link
-                            to={`/my-history/submission/${s.submissionId}?name=${encodeURIComponent(data.student.name)}`}
-                            className="flex-1 min-w-0 block"
-                          >
-                            <div className="text-sm font-semibold text-gray-900 truncate">{s.paperName}</div>
+                          <Link to={detailHref} className="flex-1 min-w-0 block">
+                            <div className="text-sm font-semibold text-gray-900 truncate flex items-center gap-2 flex-wrap">
+                              <span className="truncate">{s.paperName}</span>
+                              {isPractice && (
+                                <span className="shrink-0 text-[10px] font-semibold uppercase tracking-wide px-1.5 py-0.5 rounded bg-violet-100 text-violet-800 border border-violet-200">
+                                  练习 · Practice
+                                </span>
+                              )}
+                            </div>
                             <div className="text-xs text-gray-500 mt-0.5 flex flex-wrap gap-x-3 gap-y-0.5">
                               {s.date && <span>日期 {String(s.date).slice(0, 10)}</span>}
                               {s.level && <span>· {LEVEL_LABEL[s.level] ?? s.level}</span>}
                               <span>· {s.className}</span>
+                              {isPractice && <span className="text-violet-700">· 不计入成绩</span>}
                             </div>
                             {s.submittedAt && (
                               <div className="text-[11px] text-gray-400 mt-1">
@@ -526,29 +544,33 @@ export default function MyHistory() {
                             )}
                           </Link>
                           <div className="text-right shrink-0 flex flex-col items-end gap-2">
-                            <Link
-                              to={`/my-history/submission/${s.submissionId}?name=${encodeURIComponent(data.student.name)}`}
-                              className="block"
-                            >
+                            <Link to={detailHref} className="block">
                               <div className={`text-2xl font-bold ${pctColor}`}>
                                 {score}
                                 <span className="text-base text-gray-400 font-normal"> / {max}</span>
                               </div>
                               <div className={`text-xs ${pctColor}`}>{pct}%</div>
-                              <div className="text-[11px] text-blue-600 mt-1">查看每题详情 →</div>
+                              <div className="text-[11px] text-blue-600 mt-1">
+                                {isPractice ? '查看练习卷 →' : '查看每题详情 →'}
+                              </div>
                             </Link>
                             {/* F16 — clone this submission into a practice
-                                run. Hidden no-op when the endpoint isn't
-                                deployed: createPracticeClone returns null
-                                and handlePracticeAgain surfaces a toast. */}
-                            <button
-                              type="button"
-                              onClick={() => handlePracticeAgain(s.submissionId, data.student.name)}
-                              disabled={practicePending === s.submissionId}
-                              className="text-[11px] px-2 py-1 rounded border border-emerald-300 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 font-medium disabled:opacity-50"
-                            >
-                              {practicePending === s.submissionId ? '创建中…' : '🔄 重做 · Practice'}
-                            </button>
+                                run. Hidden on practice rows themselves —
+                                you can't make a clone of a clone (the
+                                schema's @@unique([assignmentId, studentId])
+                                would also block it; surfacing a button
+                                that 409s would be a worse UX than hiding
+                                the affordance). */}
+                            {!isPractice && (
+                              <button
+                                type="button"
+                                onClick={() => handlePracticeAgain(s.submissionId, data.student.name)}
+                                disabled={practicePending === s.submissionId}
+                                className="text-[11px] px-2 py-1 rounded border border-emerald-300 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 font-medium disabled:opacity-50"
+                              >
+                                {practicePending === s.submissionId ? '创建中…' : '🔄 重做 · Practice'}
+                              </button>
+                            )}
                           </div>
                         </div>
                       </li>

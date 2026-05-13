@@ -590,11 +590,28 @@ export class MorningQuizController {
       };
     }
     const studentIds = candidates.map((c) => c.id);
-    // Submissions (exam history)
+    // Submissions (exam history).
+    // Includes status='practice' so the student can revisit their practice
+    // attempts. Stats/trend/wrong-rate endpoints continue to filter
+    // practice OUT — this is the ONE place we want them visible because
+    // the student-portal flow is "did the practice, want to see the
+    // result again". Without this row, the student gets dumped on a
+    // history page that doesn't show what they just did, which is
+    // exactly the UX complaint we just fixed.
     const submissions = await this.prisma.studentSubmission.findMany({
       where: {
         studentId: { in: studentIds },
-        status: { in: ['submitted', 'graded', 'returned', 'marked'] },
+        OR: [
+          { status: { in: ['submitted', 'graded', 'returned', 'marked'] } },
+          // R15-followup-7: practice rows are "real history" once they've
+          // been graded (autoScore set). The submittedAt timestamp is the
+          // ideal flag for newly-created practice rows, but the legacy
+          // pre-fix data has autoScore set + submittedAt null — accept
+          // either signal so old practice attempts don't disappear after
+          // the migration. Fresh clones with no answers (autoScore=null)
+          // still get filtered.
+          { status: 'practice', autoScore: { not: null } },
+        ],
       },
       orderBy: { submittedAt: 'desc' },
       select: {
