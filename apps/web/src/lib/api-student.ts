@@ -154,8 +154,15 @@ export async function fetchPracticeSubmission(
   practiceSubmissionId: string,
   params: { studentName: string; studentId?: string },
 ): Promise<PracticeSubmissionView | null> {
+  // R15-followup — the GET practice endpoint reads `?name=` (matches
+  // history-by-name's param convention). Rename the FE query field so
+  // it lines up. Previously sent `?studentName=` → 400 name_required.
+  const queryParams: Record<string, string | undefined> = {
+    name: params.studentName,
+    studentId: params.studentId,
+  };
   return publicFetch<PracticeSubmissionView>(
-    `/api/morning-quiz/practice/${encodeURIComponent(practiceSubmissionId)}${qs(params)}`,
+    `/api/morning-quiz/practice/${encodeURIComponent(practiceSubmissionId)}${qs(queryParams)}`,
   );
 }
 

@@ -98,6 +98,19 @@ export default function App() {
     );
   }
 
+  // R15-followup — Practice mode (Feature 16). Public — no JWT (the
+  // student arrives via the "🔄 重做" button on /my-history). The
+  // backend validates studentName+studentId, IP-gates, and rate-limits.
+  // Without this block, /practice/:id bounced unauthenticated students
+  // through /login (where they have no password), trapping them.
+  if (location.pathname.startsWith('/practice/')) {
+    return (
+      <Routes>
+        <Route path="/practice/:practiceSubmissionId" element={<PracticeModePage />} />
+      </Routes>
+    );
+  }
+
   if (!user) {
     // Allow /scan/:token to bounce through login with a `next` param so
     // returning students land back on the scan flow.

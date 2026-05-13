@@ -75,6 +75,24 @@ export function pickRenderer(paper: ExamPaper) {
     'short_answer',
   ]);
   if (paper.paperMode === 'passage_pick' || ieltsTaskTypes.has(tt)) {
+    // R15-followup — multi-passage detection. OLEVEL Cambridge papers
+    // (e.g. cambridge_0510_s23/Paper12) carry TWO passages: Q1-7 share
+    // one, Q8-15 share another. IELTSReadingPassage hardcodes
+    // `questions[0].snapshotContent.passage` so the left pane is
+    // pinned to passage #1 forever — Q8-15 students saw an unrelated
+    // article and couldn't answer. The IELTS scrolling layout simply
+    // can't represent "passage changes mid-scroll" anyway, so the
+    // correct fallback is OLevelComprehension which is paged
+    // (one Q at a time) AND already walks back from the current Q
+    // to find its passage.
+    const uniquePassages = new Set(
+      (paper.questions ?? [])
+        .map((q) => q?.snapshotContent?.passage)
+        .filter((p) => typeof p === 'string' && p.length > 0),
+    );
+    if (uniquePassages.size > 1) {
+      return OLevelComprehension;
+    }
     return IELTSReadingPassage;
   }
 
