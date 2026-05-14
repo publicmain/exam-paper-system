@@ -234,15 +234,28 @@ function ComprehensionQuestionCard({
   const showFeedback = mode === 'practice' && ans?.selectedOption && correctKey;
   const isCorrect = showFeedback && ans.selectedOption === correctKey;
 
-  // R15-followup-11 — when the stem starts with a paper-native question
-  // label like "Q11(ii)." or "Q6(b).", pull that out and show it in the
-  // header. Before: students/teachers saw "Q13", "Q14", "Q15", "Q16"
-  // for the four flowchart sub-parts AND identical body text — couldn't
-  // tell which sub-part was which without reading the entire passage
-  // every time. Surfacing the original label removes that ambiguity.
-  const labelMatch = /^(Q\d+(?:\([a-z]+\))?)\.\s*/i.exec(stem);
-  const originalLabel = labelMatch ? labelMatch[1].toUpperCase() : null;
-  const stemWithoutLabel = labelMatch ? stem.slice(labelMatch[0].length) : stem;
+  // R15-followup-11 — surface the paper-native question label (Q9, Q11(ii),
+  // Q6(b)) in the header so students/teachers can distinguish identical-
+  // looking flowchart sub-parts. The label can appear ANYWHERE in the
+  // stem (the section intro at the top mentions "Q1-Q10" parenthetically,
+  // and the real question prefix follows after a newline). We pick the
+  // LAST occurrence of "Q<digits><optional (sub)>." followed by a space —
+  // that's the actual question prefix, not the parenthetical reference in
+  // the section intro.
+  const labelRe = /\bQ(\d+)(\([a-z]+\))?\.\s/gi;
+  let lastLabelMatch: RegExpExecArray | null = null;
+  for (let m: RegExpExecArray | null; (m = labelRe.exec(stem)); ) {
+    lastLabelMatch = m;
+  }
+  const originalLabel = lastLabelMatch
+    ? `Q${lastLabelMatch[1]}${lastLabelMatch[2] ? lastLabelMatch[2].toLowerCase() : ''}`
+    : null;
+  // Strip everything up to (and including) the label so the body only
+  // shows the actual question text — drops the section-intro preamble
+  // that today renders identically on every question.
+  const stemWithoutLabel = lastLabelMatch
+    ? stem.slice((lastLabelMatch.index ?? 0) + lastLabelMatch[0].length).trim()
+    : stem;
 
   return (
     <article id={`q-${q.id}`} className="bg-white border border-gray-200 rounded-lg shadow-sm">
