@@ -632,11 +632,20 @@ export class AdminCleanupService {
    */
   async purgeSubmissionsById(
     submissionIds: string[],
-    opts: { dryRun?: boolean; actor?: { id: string; role: string; ip?: string | null } } = {},
+    opts: {
+      dryRun?: boolean;
+      actor?: { id: string; role: string; ip?: string | null };
+      // R15-followup-11: also delete the linked Attendance row. Needed
+      // when cleaning up a QA walkthrough — leaving the Attendance row
+      // around marks the (real) student as 'late' on the test day, and
+      // the new "preserve scanTime on already-present rows" guard means
+      // their real next-day scan won't fix the status.
+      deleteAttendance?: boolean;
+    } = {},
   ) {
     const dryRun = opts.dryRun ?? true;
     if (submissionIds.length === 0) {
-      return { dryRun, found: 0, scripts: 0, attendanceUnhooked: 0, deleted: 0, missing: [] };
+      return { dryRun, found: 0, scripts: 0, attendanceUnhooked: 0, attendanceDeleted: 0, deleted: 0, missing: [] };
     }
     const subs = await this.prisma.studentSubmission.findMany({
       where: { id: { in: submissionIds } },
@@ -658,31 +667,43 @@ export class AdminCleanupService {
 
     if (dryRun) {
       this.logger.log(
-        `purgeSubmissionsById (dryRun): would delete ${foundIds.length} submission(s) + ${scriptCount} script(s); unhook ${attendanceCount} attendance row(s); missing=${missing.length}`,
+        `purgeSubmissionsById (dryRun): would delete ${foundIds.length} submission(s) + ${scriptCount} script(s); ${opts.deleteAttendance ? 'delete' : 'unhook'} ${attendanceCount} attendance row(s); missing=${missing.length}`,
       );
       return {
         dryRun: true,
         found: foundIds.length,
         scripts: scriptCount,
-        attendanceUnhooked: attendanceCount,
+        attendanceUnhooked: opts.deleteAttendance ? 0 : attendanceCount,
+        attendanceDeleted: opts.deleteAttendance ? attendanceCount : 0,
         deleted: 0,
         missing,
         wouldDelete: subs,
       };
     }
 
-    // Live mode — unhook Attendance.submissionId then delete the submissions
-    // inside a transaction so a partial failure rolls back cleanly.
+    // Live mode — unhook (or delete) Attendance.submissionId then delete
+    // the submissions inside a transaction so a partial failure rolls
+    // back cleanly.
     const result = await this.prisma.$transaction(async (tx) => {
-      const unhooked = await (tx as any).attendance.updateMany({
-        where: { submissionId: { in: foundIds } },
-        data: { submissionId: null },
-      });
+      let unhooked = 0;
+      let attendanceDeleted = 0;
+      if (opts.deleteAttendance) {
+        const del = await (tx as any).attendance.deleteMany({
+          where: { submissionId: { in: foundIds } },
+        });
+        attendanceDeleted = del.count;
+      } else {
+        const u = await (tx as any).attendance.updateMany({
+          where: { submissionId: { in: foundIds } },
+          data: { submissionId: null },
+        });
+        unhooked = u.count;
+      }
       // AnswerScript onDelete: Cascade — gone automatically.
       const deleted = await tx.studentSubmission.deleteMany({
         where: { id: { in: foundIds } },
       });
-      return { unhooked: unhooked.count, deleted: deleted.count };
+      return { unhooked, attendanceDeleted, deleted: deleted.count };
     });
 
     if (opts.actor) {
@@ -711,13 +732,14 @@ export class AdminCleanupService {
     }
 
     this.logger.warn(
-      `purgeSubmissionsById (live): deleted=${result.deleted} attendanceUnhooked=${result.unhooked} missing=${missing.length}`,
+      `purgeSubmissionsById (live): deleted=${result.deleted} attendanceUnhooked=${result.unhooked} attendanceDeleted=${result.attendanceDeleted} missing=${missing.length}`,
     );
     return {
       dryRun: false,
       found: foundIds.length,
       scripts: scriptCount,
       attendanceUnhooked: result.unhooked,
+      attendanceDeleted: result.attendanceDeleted,
       deleted: result.deleted,
       missing,
     };

@@ -26,6 +26,9 @@ const RepairIeltsSchema = z.object({
 const PurgeSubmissionsSchema = z.object({
   submissionIds: z.array(z.string().min(1).max(40)).min(1).max(20),
   dryRun: z.boolean().optional(),
+  // R15-followup-11: also delete the linked Attendance row when true.
+  // Default false (matches previous behaviour: unhook only).
+  deleteAttendance: z.boolean().optional(),
 });
 
 // R15-followup-11 — backfill `acceptedKeys` on IELTS either-order MCQ
@@ -112,6 +115,7 @@ export class AdminCleanupController {
     const actor = (req as any).user ?? null;
     return this.cleanup.purgeSubmissionsById(parsed.data.submissionIds, {
       dryRun: parsed.data.dryRun,
+      deleteAttendance: parsed.data.deleteAttendance,
       actor: actor
         ? { id: actor.id ?? actor.userId, role: actor.role ?? 'admin', ip: req.ip ?? null }
         : undefined,
