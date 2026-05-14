@@ -28,6 +28,14 @@ const PurgeSubmissionsSchema = z.object({
   dryRun: z.boolean().optional(),
 });
 
+// R15-followup-11 — backfill `acceptedKeys` on IELTS either-order MCQ
+// pairs. Defaults to dryRun=true so the first call returns the detection
+// list for review before mutation.
+const BackfillEitherOrderSchema = z.object({
+  dryRun: z.boolean().optional(),
+  paperQuestionIds: z.array(z.string().min(1).max(40)).max(2000).optional(),
+});
+
 /**
  * Admin-only data hygiene endpoints (Bugs #2 + #5).
  *
@@ -107,6 +115,23 @@ export class AdminCleanupController {
       actor: actor
         ? { id: actor.id ?? actor.userId, role: actor.role ?? 'admin', ip: req.ip ?? null }
         : undefined,
+    });
+  }
+
+  /**
+   * R15-followup-11 — backfill snapshotContent.acceptedKeys on IELTS-style
+   * "either order" MCQ pairs. Default dryRun=true returns the detection list.
+   *
+   *   POST /admin-cleanup/backfill-either-order
+   *   { dryRun?: boolean, paperQuestionIds?: string[] }
+   */
+  @Post('backfill-either-order')
+  backfillEitherOrder(@Body() body: unknown) {
+    const parsed = BackfillEitherOrderSchema.safeParse(body ?? {});
+    if (!parsed.success) throw new BadRequestException(parsed.error.flatten());
+    return this.cleanup.backfillEitherOrderAcceptedKeys({
+      dryRun: parsed.data.dryRun,
+      paperQuestionIds: parsed.data.paperQuestionIds,
     });
   }
 

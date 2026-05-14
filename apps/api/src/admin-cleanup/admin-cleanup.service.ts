@@ -722,4 +722,114 @@ export class AdminCleanupService {
       missing,
     };
   }
+
+  /**
+   * R15-followup-11 — backfill `snapshotContent.acceptedKeys` on IELTS-style
+   * MCQ pairs whose mark scheme says "in either order; accepts X or Y".
+   *
+   * The auto-grader now consults that field (see autoGradeScripts), but
+   * every paperQuestion ingested before R15-followup-10 lacks it, so the
+   * either-order pairs still grade strictly. This walks ALL PaperQuestion
+   * rows (or only the ones explicitly listed in `paperQuestionIds`), looks
+   * for stems containing the marker phrase, parses the letter pair, and
+   * writes acceptedKeys on both questions in the pair.
+   *
+   * Default dryRun=true — returns the list of detected pairs without
+   * mutating. Pass dryRun=false to actually update.
+   */
+  async backfillEitherOrderAcceptedKeys(
+    opts: { dryRun?: boolean; paperQuestionIds?: string[] } = {},
+  ) {
+    const dryRun = opts.dryRun ?? true;
+    // Pattern: "in either order ... accepts X or Y" — case-insensitive.
+    // The marker phrase is volunteered by the ingest pipeline whenever
+    // the Cambridge mark scheme tags a question with "EITHER ORDER".
+    // Examples:
+    //   "Q18 & Q19 in either order; accepts B or C"
+    //   "Q26 & Q27 IN EITHER ORDER — accepts G or H"
+    const EITHER_ORDER_RE = /in\s+either\s+order[^.]*?accepts?\s+([A-Z])\s+or\s+([A-Z])/i;
+    // Scope: optionally only a subset of paperQuestions (caller-supplied).
+    // Otherwise scan all MCQ paperQuestions — that's where the marker phrase
+    // can show up.
+    const where: any = {};
+    if (opts.paperQuestionIds && opts.paperQuestionIds.length > 0) {
+      where.id = { in: opts.paperQuestionIds };
+    }
+    const all = await this.prisma.paperQuestion.findMany({
+      where,
+      select: { id: true, snapshotContent: true, snapshotOptions: true, marks: true },
+    });
+
+    const detected: Array<{
+      paperQuestionId: string;
+      keys: [string, string];
+      currentAccepted: string[] | null;
+      stemSnippet: string;
+    }> = [];
+    for (const pq of all) {
+      const sc =
+        typeof pq.snapshotContent === 'object' && pq.snapshotContent !== null
+          ? (pq.snapshotContent as Record<string, unknown>)
+          : null;
+      if (!sc) continue;
+      const stem = typeof sc.stem === 'string' ? (sc.stem as string) : '';
+      const m = stem.match(EITHER_ORDER_RE);
+      if (!m) continue;
+      const a = m[1].toUpperCase();
+      const b = m[2].toUpperCase();
+      if (a === b) continue;
+      // Sanity check — both letters MUST exist as option keys on this
+      // question. If the parse landed on a phantom pair the data has a
+      // ingest bug; logging it for forensics, skipping.
+      const opts =
+        Array.isArray(pq.snapshotOptions) && pq.snapshotOptions.every((o: any) => typeof o?.key === 'string')
+          ? (pq.snapshotOptions as Array<{ key: string }>)
+          : [];
+      const optKeys = new Set(opts.map((o) => o.key.toUpperCase()));
+      if (optKeys.size > 0 && (!optKeys.has(a) || !optKeys.has(b))) {
+        this.logger.warn(
+          `backfillEitherOrderAcceptedKeys: stem mentions ${a}/${b} but options are ${[...optKeys].join(',')} on pq=${pq.id}; skipping`,
+        );
+        continue;
+      }
+      const currentAccepted =
+        Array.isArray((sc as any).acceptedKeys) && (sc as any).acceptedKeys.every((x: any) => typeof x === 'string')
+          ? ((sc as any).acceptedKeys as string[])
+          : null;
+      detected.push({
+        paperQuestionId: pq.id,
+        keys: [a, b],
+        currentAccepted,
+        stemSnippet: stem.slice(0, 140),
+      });
+    }
+
+    if (dryRun) {
+      this.logger.log(`backfillEitherOrderAcceptedKeys (dryRun): detected=${detected.length}`);
+      return { dryRun: true, detected, updated: 0 };
+    }
+
+    // Live update — write acceptedKeys into snapshotContent for each
+    // detected question. JSON merge style: preserve all other fields.
+    let updated = 0;
+    for (const d of detected) {
+      // Re-fetch latest content to avoid clobbering an in-flight edit.
+      const pq = await this.prisma.paperQuestion.findUnique({
+        where: { id: d.paperQuestionId },
+        select: { snapshotContent: true },
+      });
+      const sc =
+        typeof pq?.snapshotContent === 'object' && pq.snapshotContent !== null
+          ? (pq.snapshotContent as Record<string, unknown>)
+          : {};
+      const next = { ...sc, acceptedKeys: d.keys };
+      await this.prisma.paperQuestion.update({
+        where: { id: d.paperQuestionId },
+        data: { snapshotContent: next as any },
+      });
+      updated += 1;
+    }
+    this.logger.warn(`backfillEitherOrderAcceptedKeys (live): updated=${updated}`);
+    return { dryRun: false, detected, updated };
+  }
 }

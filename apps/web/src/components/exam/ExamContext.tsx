@@ -52,6 +52,12 @@ interface ExamContextValue {
 
   // Connectivity surface.
   isOffline: boolean;
+
+  /** R15-followup-11 — true when another tab on this device claimed
+   *  ownership of this sessionId first. Autosave is blocked while in
+   *  secondary mode; host pages should render a banner asking the
+   *  student to close this tab and use the other one. */
+  isSecondaryTab: boolean;
 }
 
 const ExamContext = createContext<ExamContextValue | null>(null);
@@ -131,6 +137,101 @@ export function ExamProvider({
   // Round-3 H22 — surface save errors (used by SaveErrorBadge / the
   // OfflineBadge twin). Reset to null on the next successful save.
   const [saveError, setSaveError] = useState<string | null>(null);
+
+  // R15-followup-11 — multi-tab guard. iPad users have a habit of long-
+  // tapping a link and "open in new tab", or the QR scan can fire a
+  // window.location.replace that leaves the old tab around. If both tabs
+  // are live, they BOTH autosave, and the empty-state tab clobbers the
+  // populated one's answers seconds before submit.
+  //
+  // Strategy:
+  //   1. Mint a tab UUID on mount, write { tabId, ts } to localStorage
+  //      under `mq:tab-owner:<sessionId>`.
+  //   2. Heartbeat every 2s — refresh `ts` so a stale claim from a
+  //      crashed tab expires after ~10s and the next tab can take over.
+  //   3. Listen for `storage` events. If the owner key changes to a
+  //      different tabId, this tab becomes "secondary" → autosave is
+  //      blocked and a banner is shown.
+  //
+  // setAnswer below checks `isSecondaryTab` and refuses to persist
+  // (the localStorage cache still updates so the student doesn't lose
+  // their work visually, they're just told to switch back to the
+  // primary tab). The primary tab keeps autosaving normally.
+  const tabIdRef = useRef<string>(
+    typeof crypto !== 'undefined' && typeof (crypto as any).randomUUID === 'function'
+      ? (crypto as any).randomUUID()
+      : `tab-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`,
+  );
+  const TAB_OWNER_KEY = `mq:tab-owner:${sessionId}`;
+  const TAB_HEARTBEAT_MS = 2_000;
+  const TAB_STALE_MS = 10_000;
+  const [isSecondaryTab, setIsSecondaryTab] = useState<boolean>(false);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const myTabId = tabIdRef.current;
+    // On mount, decide who's the owner.
+    const readCurrent = (): { tabId: string; ts: number } | null => {
+      try {
+        const raw = localStorage.getItem(TAB_OWNER_KEY);
+        if (!raw) return null;
+        const parsed = JSON.parse(raw) as { tabId?: string; ts?: number };
+        if (typeof parsed?.tabId === 'string' && typeof parsed?.ts === 'number') {
+          return { tabId: parsed.tabId, ts: parsed.ts };
+        }
+      } catch { /* ignore */ }
+      return null;
+    };
+    const writeOwner = (tabId: string) => {
+      try {
+        localStorage.setItem(TAB_OWNER_KEY, JSON.stringify({ tabId, ts: Date.now() }));
+      } catch { /* quota — ignore, fall back to autosave-as-primary */ }
+    };
+    // Claim if empty / stale.
+    const cur = readCurrent();
+    if (!cur || Date.now() - cur.ts > TAB_STALE_MS) {
+      writeOwner(myTabId);
+      setIsSecondaryTab(false);
+    } else if (cur.tabId !== myTabId) {
+      // Someone else holds the claim and it's fresh.
+      setIsSecondaryTab(true);
+    } else {
+      setIsSecondaryTab(false);
+    }
+    // Heartbeat — only if we believe we're the primary tab.
+    const heartbeat = setInterval(() => {
+      const c = readCurrent();
+      if (!c || Date.now() - c.ts > TAB_STALE_MS) {
+        // Stale or missing → grab it.
+        writeOwner(myTabId);
+        setIsSecondaryTab(false);
+      } else if (c.tabId === myTabId) {
+        // Refresh our own claim.
+        writeOwner(myTabId);
+      } else {
+        // Someone else owns it.
+        setIsSecondaryTab(true);
+      }
+    }, TAB_HEARTBEAT_MS);
+    // Cross-tab storage events for instant flip.
+    const onStorage = (e: StorageEvent) => {
+      if (e.key !== TAB_OWNER_KEY) return;
+      const c = readCurrent();
+      setIsSecondaryTab(!!c && c.tabId !== myTabId);
+    };
+    window.addEventListener('storage', onStorage);
+    // Release the claim on unmount IF we still hold it (best-effort —
+    // a crash skips this and the next tab waits TAB_STALE_MS).
+    return () => {
+      clearInterval(heartbeat);
+      window.removeEventListener('storage', onStorage);
+      const c = readCurrent();
+      if (c && c.tabId === myTabId) {
+        try { localStorage.removeItem(TAB_OWNER_KEY); } catch { /* ignore */ }
+      }
+    };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sessionId]);
 
   // Round-3 H3 — timers + dirty set live in refs (NOT useMemo([])): a
   // future re-run of the callback dependency array would otherwise drop
@@ -239,6 +340,8 @@ export function ExamProvider({
     [onPersistAnswer],
   );
 
+  const isSecondaryTabRef = useRef(false);
+  isSecondaryTabRef.current = isSecondaryTab;
   const setAnswer = useCallback((qid: string, ans: ExamAnswer) => {
     setAnswers((prev) => {
       const next = { ...prev, [qid]: ans };
@@ -248,6 +351,13 @@ export function ExamProvider({
       return next;
     });
     latestAnswerRef.current[qid] = ans;
+    // R15-followup-11 — secondary tabs must NOT autosave: a second tab
+    // sitting on the same session with no answers typed yet would
+    // otherwise clobber the primary tab's progress with empty payloads.
+    // Local state + localStorage still update so the student can SEE
+    // their input, but no server round-trip happens until they close
+    // this tab and become primary again.
+    if (isSecondaryTabRef.current) return;
     dirtyRef.current.add(qid);
     // Reset the timer; fire when input pauses.
     const existing = timersRef.current.get(qid);
@@ -326,7 +436,8 @@ export function ExamProvider({
     flushPendingSaves,
     saveError,
     hasPendingSaves,
-  }), [mode, fontScale, setFontScale, isFlagged, toggleFlag, flagged.size, answers, setAnswer, savingId, isOffline, flushPendingSaves, saveError, hasPendingSaves]);
+    isSecondaryTab,
+  }), [mode, fontScale, setFontScale, isFlagged, toggleFlag, flagged.size, answers, setAnswer, savingId, isOffline, flushPendingSaves, saveError, hasPendingSaves, isSecondaryTab]);
 
   return <ExamContext.Provider value={value}>{children}</ExamContext.Provider>;
 }

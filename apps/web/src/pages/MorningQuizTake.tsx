@@ -279,13 +279,27 @@ function PaperHost({
   );
 }
 
+/** R15-followup-11 — locked-state detection used by both the banner AND
+ *  the confirm-modal auto-close path. Matches every server-side "this
+ *  attempt is over" error code:
+ *    - submission_locked (post-finalSubmit re-entry)
+ *    - already submitted
+ *    - session_ended / session_not_active (timer ran out while iPad slept)
+ *    - quiz_ended / window_closed (admin manually closed the window)
+ *    - attendance_window_closed (re-scan after 9:00)
+ *  The previous regex only caught the first two, so a student whose iPad
+ *  slept past quizEnd got a raw JSON dump and no auto-bounce. */
+const LOCKED_ERROR_RE =
+  /submission_locked|already submitted|session_ended|session_not_active|quiz_ended|window_closed|attendance_window_closed/i;
+
+function isLockedError(saveError: string | null): boolean {
+  return !!saveError && LOCKED_ERROR_RE.test(saveError);
+}
+
 /** R15-followup-9 — autosave error banner with submission_locked handling.
- *  Before: any autosave failure dumped raw JSON to the student ("⚠️ 保存失败:
- *  {"code":"submission_locked","status":"submitted"}.  系统将自动重试") with a
- *  promise of retry that would never succeed. After: detect the locked code,
- *  show a friendly message, clear beforeunload by reloading to /my-history
- *  so the student lands on their own portal instead of pounding Submit on
- *  a locked attempt. Non-locked errors keep the original retry banner. */
+ *  R15-followup-11 — extended to cover session_ended et al.; banner now
+ *  shows a 5-second countdown so students can read the explanation, and
+ *  uses an aria-live region for assistive-tech audibility. */
 function SaveErrorBanner({
   saveError,
   hasPendingSaves,
@@ -294,22 +308,25 @@ function SaveErrorBanner({
   hasPendingSaves: boolean;
 }) {
   const navigate = useNavigate();
-  const isLocked = !!saveError && /submission_locked|already submitted/i.test(saveError);
-  // Bounce to /my-history after a short delay so the student reads the
-  // explanation. Use replace so the back button doesn't drop them back
-  // on this locked quiz. Pull the name from useAuth — same source the
-  // submitToServer path uses.
+  const isLocked = isLockedError(saveError);
+  const [countdown, setCountdown] = useState(5);
   const studentName = useAuth((s) => s.user?.name) ?? '';
   useEffect(() => {
     if (!isLocked) return;
-    // Clear React-tracked beforeunload guard by reloading the route.
+    setCountdown(5);
+    const tick = setInterval(() => {
+      setCountdown((c) => (c > 0 ? c - 1 : 0));
+    }, 1000);
     const t = setTimeout(() => {
       const target = studentName
         ? `/my-history?name=${encodeURIComponent(studentName)}`
         : '/my-history';
       navigate(target, { replace: true });
-    }, 3000);
-    return () => clearTimeout(t);
+    }, 5000);
+    return () => {
+      clearTimeout(t);
+      clearInterval(tick);
+    };
   }, [isLocked, navigate, studentName]);
 
   if (!saveError) return null;
@@ -317,9 +334,10 @@ function SaveErrorBanner({
     return (
       <div
         role="alert"
-        className="bg-amber-50 border-b border-amber-200 text-amber-900 text-sm px-4 py-2 text-center"
+        aria-live="assertive"
+        className="bg-amber-50 border-b-2 border-amber-300 text-amber-900 text-sm px-4 py-3 text-center font-medium"
       >
-        ⚠️ 你已交过这次早测 / You have already submitted this quiz. 正在跳转到我的记录…
+        ⚠️ 这次早测已经结束或你已提交过 · 正在跳转到我的记录 ({countdown}s)…
       </div>
     );
   }
@@ -350,7 +368,7 @@ function ExamShellChrome({
   onSubmit: () => void;
 }) {
   const [paletteOpen, setPaletteOpen] = useState(false);
-  const { answers, flaggedCount, isFlagged, flushPendingSaves, saveError, hasPendingSaves } = useExam();
+  const { answers, flaggedCount, isFlagged, flushPendingSaves, saveError, hasPendingSaves, isSecondaryTab } = useExam();
 
   // R10 — explicit confirm dialog before submit. Round-3 H6 still applies:
   // every confirmed-submit path flushes autosaves first so the last 600ms
@@ -358,15 +376,47 @@ function ExamShellChrome({
   // race. Time-up auto-submit bypasses the confirm (the student is out
   // of time and we don't want a modal blocking the lock).
   const [confirmOpen, setConfirmOpen] = useState(false);
+  // R15-followup-11 — close the confirm modal AND disable Submit the
+  // moment a locked-state error surfaces. Before: SaveErrorBanner showed
+  // at top + confirm modal stayed open in middle, student tapped 确定 →
+  // a second locked POST → banner blinked again. Modal stole attention
+  // and students missed the 3-second auto-bounce countdown.
+  const locked = isLockedError(saveError);
+  useEffect(() => {
+    if (locked) setConfirmOpen(false);
+  }, [locked]);
   const doSubmit = useCallback(async () => {
+    // R15-followup-11 — three-step submit insurance:
+    //   1. Blur the active element. On iOS the soft keyboard's enter-
+    //      blur path is what fires the last React state update for a
+    //      mid-typed textarea. Without this, a student who taps Submit
+    //      while the cursor is in the textarea has the latest keystroke
+    //      sitting in the DOM but not in React state, so the next
+    //      flushPendingSaves writes the stale value.
+    //   2. await a microtask + a 50ms tick so React has time to commit
+    //      the pending setState from step 1.
+    //   3. flushPendingSaves — cancel any 600ms debounce timers and
+    //      synchronously POST the latest answers.
+    //
+    // Step 1+2 close the "typed but never blurred → Submit" race
+    // that was the most plausible cause of the 0/16 senior_sister
+    // submission on 2026-05-13 where every textarea was empty.
     try {
+      const ae = (typeof document !== 'undefined' ? document.activeElement : null) as
+        | HTMLElement
+        | null;
+      if (ae && typeof ae.blur === 'function') ae.blur();
+      await new Promise((r) => setTimeout(r, 50));
       await flushPendingSaves();
     } catch { /* surfaced via saveError, still proceed */ }
     onSubmit();
   }, [flushPendingSaves, onSubmit]);
   const onSubmitClick = useCallback(() => {
+    // R15-followup-11 — don't re-open the modal on a locked attempt;
+    // the SaveErrorBanner is already handling that state.
+    if (locked) return;
     setConfirmOpen(true);
-  }, []);
+  }, [locked]);
   const onTimeUpSubmit = doSubmit; // bypass confirm
 
   // Round-3 H17 — when the iOS soft keyboard pops up, fixed-bottom UI
@@ -446,6 +496,19 @@ function ExamShellChrome({
         // them to /my-history after 3s so they end up on their own portal
         // instead of mashing Submit on a locked attempt.
         <SaveErrorBanner saveError={saveError} hasPendingSaves={hasPendingSaves} />
+      )}
+      {isSecondaryTab && (
+        // R15-followup-11 — multi-tab guard. Another tab on this device
+        // already owns this session; autosave is blocked here. Tell the
+        // student to close this one so their answers in the other tab
+        // don't get overwritten.
+        <div
+          role="alert"
+          aria-live="polite"
+          className="bg-amber-100 border-b-2 border-amber-400 text-amber-900 text-sm px-4 py-3 text-center font-medium"
+        >
+          ⚠️ 这次早测已经在另一个标签页打开 · 请关闭此标签页，回到原来的窗口继续答题（这里的输入不会被保存）
+        </div>
       )}
 
       <div
@@ -557,18 +620,18 @@ function ExamShellChrome({
             </span>
           )}
           <button
-            disabled={submitted}
+            disabled={submitted || locked}
             onClick={onSubmitClick}
             data-testid="submit-button"
             className={`px-6 lg:px-7 py-3 text-white rounded-lg font-semibold text-base touch-manipulation min-h-[48px] ${
-              submitted
+              submitted || locked
                 ? 'bg-gray-300'
                 : mode === 'practice'
                 ? 'bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800'
                 : 'bg-blue-600 hover:bg-blue-700 active:bg-blue-800'
             }`}
           >
-            {submitted ? '提交中…' : mode === 'practice' ? '完成 · Done' : '交卷 · Submit'}
+            {locked ? '已结束' : submitted ? '提交中…' : mode === 'practice' ? '完成 · Done' : '交卷 · Submit'}
           </button>
         </div>
       </div>

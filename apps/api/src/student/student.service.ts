@@ -18,13 +18,27 @@ function normalizeShortAnswer(s: string | null | undefined): string {
   return String(s)
     .trim()
     .toLowerCase()
+    // R15-followup-11 — hyphens and en-dashes mean "join two words" in
+    // IELTS mark schemes. Students commonly write the hyphen as a plain
+    // space ("self confidence" for the schemed "self-confidence") or
+    // omit it entirely ("selfconfidence"). All three should match.
+    // Normalising to a single space + collapsing the whitespace run a
+    // step later catches both written-with-space and written-with-hyphen
+    // cases. The "omit hyphen" case still falls through to AI grading.
+    .replace(/[-–—]/g, ' ')
+    // R15-followup-11 — straight + curly apostrophes are noise in
+    // short-answer space ("narrator's" vs "narrators" vs "narrator").
+    // Stripping them in both expected + actual brings the cheap path
+    // a higher hit rate without false positives — the AI grader still
+    // owns the "is meaning preserved" judgement.
+    .replace(/[''`'']/g, '')
     // collapse internal whitespace runs to a single space so "pendulum  clock"
     // and "pendulum clock" compare equal
     .replace(/\s+/g, ' ')
     // strip surrounding punctuation people sometimes type (e.g. "D." or "(d)"
     // or "ii)") — only at the boundaries, never inside the answer
-    .replace(/^[.,;:!?()[\]{}"'`、，。；：（）「」]+/, '')
-    .replace(/[.,;:!?()[\]{}"'`、，。；：（）「」]+$/, '');
+    .replace(/^[.,;:!?()[\]{}"`、，。；：（）「」]+/, '')
+    .replace(/[.,;:!?()[\]{}"`、，。；：（）「」]+$/, '');
 }
 
 /**
@@ -109,13 +123,19 @@ export async function autoGradeScripts(
   aiGrader?: AiShortAnswerGrader,
 ): Promise<{
   autoScore: number;
-  scriptUpdates: Array<{ id: string; autoCorrect: boolean; awardedMarks: number; aiReason?: string }>;
+  scriptUpdates: Array<{
+    id: string;
+    // null = AI failed / no verdict → leave to marker queue (R15-followup-11)
+    autoCorrect: boolean | null;
+    awardedMarks: number | null;
+    aiReason?: string;
+  }>;
 }> {
   let autoScore = 0;
   const scriptUpdates: Array<{
     id: string;
-    autoCorrect: boolean;
-    awardedMarks: number;
+    autoCorrect: boolean | null;
+    awardedMarks: number | null;
     aiReason?: string;
   }> = [];
   for (const script of scripts) {
@@ -213,33 +233,66 @@ export async function autoGradeScripts(
         // paragraph — without the passage the AI is just guessing
         // whether the student wrote that letter).
         const passage = typeof content?.passage === 'string' ? (content.passage as string) : undefined;
+        // R15-followup-11 — separate "AI says wrong" from "AI failed to
+        // answer". The previous catch-all `try/catch → push 0` masked
+        // upstream failures (Anthropic 429s during the 08:00 quiz peak,
+        // network blips, JSON parse errors) as "student answered wrong".
+        // Outcome: an entire class's short-answer items could silently
+        // grade 0 if the Claude API hiccuped, and the only signal was
+        // students complaining. Now we tag AI failures with aiReason and
+        // leave the script with autoCorrect=null + no auto-zero, so the
+        // marker queue picks them up for human review and admins can
+        // run a re-grade once the upstream issue clears.
+        let verdict: { awardedMarks: number; reasoning?: string } | null | undefined = undefined;
+        let aiError: string | null = null;
         try {
-          const verdict = await aiGrader.evaluate({
+          verdict = await aiGrader.evaluate({
             stem,
             studentAnswer: script.textAnswer ?? '',
             markScheme: expected,
             maxMarks: script.paperQuestion.marks,
             passage,
           });
-          if (verdict) {
-            const awarded = Math.max(0, Math.min(script.paperQuestion.marks, verdict.awardedMarks));
-            autoScore += awarded;
-            scriptUpdates.push({
-              id: script.id,
-              autoCorrect: awarded >= script.paperQuestion.marks * 0.5,
-              awardedMarks: awarded,
-              aiReason: verdict.reasoning,
-            });
-            continue;
-          }
-        } catch {
-          // AI grader unavailable or threw — fall through to wrong.
+        } catch (e: any) {
+          aiError = String(e?.message ?? e ?? 'unknown').slice(0, 240);
         }
+        if (verdict) {
+          const awarded = Math.max(0, Math.min(script.paperQuestion.marks, verdict.awardedMarks));
+          autoScore += awarded;
+          scriptUpdates.push({
+            id: script.id,
+            autoCorrect: awarded >= script.paperQuestion.marks * 0.5,
+            awardedMarks: awarded,
+            aiReason: verdict.reasoning,
+          });
+          continue;
+        }
+        if (aiError) {
+          // Leave script ungraded — autoCorrect stays null in DB, marker
+          // queue surfaces it for human review, and the regrade endpoint
+          // can retry once the upstream blip clears. Awarding 0 silently
+          // here is what landed an entire morning quiz at 0% during a
+          // Claude 429.
+          scriptUpdates.push({
+            id: script.id,
+            autoCorrect: null as any,
+            awardedMarks: null as any,
+            aiReason: `[AI-ERROR] ${aiError}`,
+          });
+          continue;
+        }
+        // verdict === null (AI returned no decision) — treat as needs-human-review.
+        scriptUpdates.push({
+          id: script.id,
+          autoCorrect: null as any,
+          awardedMarks: null as any,
+          aiReason: '[AI-NO-VERDICT] AI grader returned no decision',
+        });
+        continue;
       }
-      // No AI grader available, or AI declined / errored → string mismatch
-      // counts as wrong. Better to under-credit than over-credit for an
-      // exam system; the post-submit "appeal" path stays open via teacher
-      // manual override.
+      // No AI grader available → string mismatch counts as wrong. This
+      // path is hit only when MorningQuizModule didn't wire the grader
+      // (e.g. test fixtures); production always has it.
       scriptUpdates.push({ id: script.id, autoCorrect: false, awardedMarks: 0 });
       continue;
     }

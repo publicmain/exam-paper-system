@@ -71,11 +71,41 @@ export function OLevelComprehension({ paper }: { paper: ExamPaper }) {
         t.startsWith('see passage') ||
         t.startsWith('see the passage') ||
         t.startsWith('using the passage above') ||
-        t.startsWith('see exercise')
+        t.startsWith('see exercise') ||
+        t.startsWith('based on the same') ||
+        t.startsWith('with reference to the')
       );
     };
     const startIdx = Math.min(idx, qs.length - 1);
-    // Pass 1 — prefer a non-back-reference passage.
+    // R15-followup-11 — Pass 0: paragraph-reference-aware selection.
+    // If the current question text mentions "Paragraph N" / "para N",
+    // prefer the earliest passage that ACTUALLY CONTAINS that paragraph
+    // marker. This handles cases the backref heuristic misses (e.g. a
+    // summary passage that doesn't start with "Refer to" but still
+    // isn't the real source). Today's senior_sister Q11 sub-parts ask
+    // about Paragraph 5, but the Q11 summary passage on the question
+    // itself doesn't have paragraph 5 — only the main narrative does.
+    const currentStem = (() => {
+      const sc = qs[startIdx]?.snapshotContent as any;
+      return typeof sc?.stem === 'string' ? (sc.stem as string) : '';
+    })();
+    const paraRef = (() => {
+      const m = /paragraph\s+(\d+)/i.exec(currentStem);
+      return m ? parseInt(m[1], 10) : null;
+    })();
+    if (paraRef != null) {
+      const paraToken = new RegExp(`paragraph\\s*${paraRef}\\b`, 'i');
+      // Look earliest-first so the canonical first-passage wins over a
+      // later summary that might also contain "paragraph N" verbatim.
+      for (let i = 0; i < qs.length; i++) {
+        const sc = qs[i]?.snapshotContent as any;
+        if (sc && typeof sc.passage === 'string' && sc.passage.length > 0 && paraToken.test(sc.passage)) {
+          return sc;
+        }
+      }
+    }
+    // Pass 1 — prefer a non-back-reference passage walking backwards
+    // from the current question (preserves multi-passage chunk grouping).
     for (let i = startIdx; i >= 0; i--) {
       const sc = qs[i]?.snapshotContent;
       if (sc && typeof sc.passage === 'string' && sc.passage.length > 0 && !looksLikeBackref(sc.passage)) {
@@ -204,6 +234,16 @@ function ComprehensionQuestionCard({
   const showFeedback = mode === 'practice' && ans?.selectedOption && correctKey;
   const isCorrect = showFeedback && ans.selectedOption === correctKey;
 
+  // R15-followup-11 — when the stem starts with a paper-native question
+  // label like "Q11(ii)." or "Q6(b).", pull that out and show it in the
+  // header. Before: students/teachers saw "Q13", "Q14", "Q15", "Q16"
+  // for the four flowchart sub-parts AND identical body text — couldn't
+  // tell which sub-part was which without reading the entire passage
+  // every time. Surfacing the original label removes that ambiguity.
+  const labelMatch = /^(Q\d+(?:\([a-z]+\))?)\.\s*/i.exec(stem);
+  const originalLabel = labelMatch ? labelMatch[1].toUpperCase() : null;
+  const stemWithoutLabel = labelMatch ? stem.slice(labelMatch[0].length) : stem;
+
   return (
     <article id={`q-${q.id}`} className="bg-white border border-gray-200 rounded-lg shadow-sm">
       <header className="px-5 py-3 border-b border-gray-100 flex items-center gap-3">
@@ -211,6 +251,11 @@ function ComprehensionQuestionCard({
           {idx + 1}
         </span>
         <span className="text-xs text-gray-400">of {total}</span>
+        {originalLabel && (
+          <span className="text-xs font-mono font-semibold text-blue-700 ml-1 px-1.5 py-0.5 rounded bg-blue-50 border border-blue-200">
+            {originalLabel}
+          </span>
+        )}
         <span className="text-xs text-gray-400 ml-1">· {q.marks}m</span>
         <div className="flex-1" />
         <QuestionFlag qid={q.id} />
@@ -220,7 +265,8 @@ function ComprehensionQuestionCard({
           className="text-gray-900 leading-relaxed mb-4 whitespace-pre-wrap"
           style={{ fontSize: `calc(1.125rem * var(--mq-fs, 1))` }}
         >
-          {stem}
+          {originalLabel && <span className="font-mono font-semibold text-blue-700 mr-2">{originalLabel}.</span>}
+          {stemWithoutLabel}
         </p>
         {q.snapshotOptions && q.snapshotOptions.length > 0 ? (
           <ul className="space-y-2">
