@@ -226,6 +226,7 @@ export default function MorningQuizTake() {
   return (
     <ExamProvider
       sessionId={view.sessionId}
+      submissionId={view.submissionId}
       mode={mode}
       onPersistAnswer={persistAnswer}
       initialAnswers={initialAnswers}
@@ -368,7 +369,7 @@ function ExamShellChrome({
   onSubmit: () => void;
 }) {
   const [paletteOpen, setPaletteOpen] = useState(false);
-  const { answers, flaggedCount, isFlagged, flushPendingSaves, saveError, hasPendingSaves, isSecondaryTab } = useExam();
+  const { answers, flaggedCount, isFlagged, flushPendingSaves, saveError, hasPendingSaves, isSecondaryTab, claimTabOwnership } = useExam();
 
   // R10 — explicit confirm dialog before submit. Round-3 H6 still applies:
   // every confirmed-submit path flushes autosaves first so the last 600ms
@@ -500,14 +501,27 @@ function ExamShellChrome({
       {isSecondaryTab && (
         // R15-followup-11 — multi-tab guard. Another tab on this device
         // already owns this session; autosave is blocked here. Tell the
-        // student to close this one so their answers in the other tab
-        // don't get overwritten.
+        // student to close that other one so their answers in this tab
+        // can be saved. R15-followup-12 — added a "切回此标签" takeover
+        // button: if the other tab is unreachable (closed, frozen, in a
+        // different Chrome window, etc.) the student can forcefully claim
+        // ownership on this tab and unblock autosave without waiting the
+        // 10s stale window.
         <div
           role="alert"
           aria-live="polite"
-          className="bg-amber-100 border-b-2 border-amber-400 text-amber-900 text-sm px-4 py-3 text-center font-medium"
+          className="bg-amber-100 border-b-2 border-amber-400 text-amber-900 text-sm px-4 py-3 text-center font-medium flex flex-wrap items-center justify-center gap-3"
         >
-          ⚠️ 这次早测已经在另一个标签页打开 · 请关闭此标签页，回到原来的窗口继续答题（这里的输入不会被保存）
+          <span>
+            ⚠️ 这次早测已经在另一个标签页打开 · 请关闭那个标签页继续答题（这里的输入不会被保存）
+          </span>
+          <button
+            type="button"
+            onClick={claimTabOwnership}
+            className="px-3 py-1 rounded bg-amber-600 hover:bg-amber-700 text-white text-xs font-semibold"
+          >
+            切回此标签 · Use this tab
+          </button>
         </div>
       )}
 

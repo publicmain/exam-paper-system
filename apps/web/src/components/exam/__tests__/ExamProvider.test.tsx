@@ -78,4 +78,55 @@ describe('ExamProvider', () => {
     );
     expect(screen.getByTestId('answer-q1').textContent).toBe('B');
   });
+
+  // R15-followup-12 — when a different student previously took this same
+  // session on this device, their answer draft sits in localStorage
+  // under the legacy unscoped key OR a different-submission scoped key.
+  // The new student MUST NOT see those answers — both keys get wiped at
+  // mount, and the take page hydrates clean.
+  it('does NOT hydrate a previous student\'s draft when submissionId is set', () => {
+    // Previous student left a draft under the legacy unscoped key
+    localStorage.setItem(
+      'mq:answers:shared-session',
+      JSON.stringify({ q1: { selectedOption: 'STALE' } }),
+    );
+    // And another previous student left one under a different scoped key
+    localStorage.setItem(
+      'mq:answers:shared-session:sub-previous',
+      JSON.stringify({ q1: { selectedOption: 'ALSO-STALE' } }),
+    );
+    render(
+      <ExamProvider
+        sessionId="shared-session"
+        submissionId="sub-current"
+        mode="test"
+        onPersistAnswer={async () => {}}
+      >
+        <Probe />
+      </ExamProvider>,
+    );
+    // Fresh state — no draft from either previous student bleeds through
+    expect(screen.getByTestId('answer-q1').textContent).toBe('');
+    // Both stale keys removed
+    expect(localStorage.getItem('mq:answers:shared-session')).toBe(null);
+    expect(localStorage.getItem('mq:answers:shared-session:sub-previous')).toBe(null);
+  });
+
+  it('preserves own-submission draft across remounts (page refresh mid-quiz)', () => {
+    localStorage.setItem(
+      'mq:answers:s5:sub-me',
+      JSON.stringify({ q1: { selectedOption: 'KEEPME' } }),
+    );
+    render(
+      <ExamProvider
+        sessionId="s5"
+        submissionId="sub-me"
+        mode="test"
+        onPersistAnswer={async () => {}}
+      >
+        <Probe />
+      </ExamProvider>,
+    );
+    expect(screen.getByTestId('answer-q1').textContent).toBe('KEEPME');
+  });
 });

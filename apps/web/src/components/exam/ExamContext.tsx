@@ -58,6 +58,14 @@ interface ExamContextValue {
    *  secondary mode; host pages should render a banner asking the
    *  student to close this tab and use the other one. */
   isSecondaryTab: boolean;
+
+  /** R15-followup-12 — explicit takeover. The 10-second stale window
+   *  doesn't expire while a phantom tab in another Chrome window is
+   *  still heartbeating (e.g. forgotten background tab on a shared
+   *  iPad). The banner exposes this as a button so the student can
+   *  forcefully claim ownership and unblock autosave on the tab they
+   *  ACTUALLY want to use. */
+  claimTabOwnership: () => void;
 }
 
 const ExamContext = createContext<ExamContextValue | null>(null);
@@ -78,11 +86,28 @@ interface ProviderProps {
     ans: { selectedOption?: string | null; textAnswer?: string | null },
   ) => Promise<void>;
   initialAnswers?: Record<string, ExamAnswer>;
+  /** R15-followup-12 — used to scope the localStorage answer/flag caches
+   *  per student so a shared device (e.g. school iPad two students take
+   *  turns on) doesn't show student A's draft to student B when B scans
+   *  the same session. When unset (e.g. practice mode where sessionId
+   *  is already the practiceSubmissionId), caches stay sessionId-only. */
+  submissionId?: string | null;
   children: React.ReactNode;
 }
 
-const ANSWERS_KEY = (sid: string) => `mq:answers:${sid}`;
-const FLAGS_KEY = (sid: string) => `mq:flags:${sid}`;
+// R15-followup-12 — bucket the answer/flag caches by (sessionId, submissionId)
+// so two students who scan into the same session on the same device don't
+// see each other's drafts. Practice mode passes no submissionId — its
+// `sessionId` is already the practiceSubmissionId, so suffixing isn't needed.
+const ANSWERS_KEY = (sid: string, submissionId?: string | null) =>
+  submissionId ? `mq:answers:${sid}:${submissionId}` : `mq:answers:${sid}`;
+const FLAGS_KEY = (sid: string, submissionId?: string | null) =>
+  submissionId ? `mq:flags:${sid}:${submissionId}` : `mq:flags:${sid}`;
+// Legacy (pre-R15-followup-12) keys — written by older builds. We strip
+// these on mount so a stale draft from a previous student never bleeds
+// into the next student's take page.
+const LEGACY_ANSWERS_KEY = (sid: string) => `mq:answers:${sid}`;
+const LEGACY_FLAGS_KEY = (sid: string) => `mq:flags:${sid}`;
 const FONT_KEY = 'mq:fontScale';
 const SAVE_DEBOUNCE_MS = 600;
 
@@ -91,15 +116,44 @@ export function ExamProvider({
   mode,
   onPersistAnswer,
   initialAnswers,
+  submissionId,
   children,
 }: ProviderProps) {
+  // R15-followup-12 — purge any cache rows for this session that belong
+  // to a DIFFERENT submission (different student previously took the quiz
+  // on this device). Runs synchronously before we hydrate so the next
+  // state read can't see a stale draft. The current-submission key is
+  // preserved so a page reload mid-quiz still recovers in-progress
+  // answers. Only runs when submissionId is set — in practice mode the
+  // caller passes the practiceSubmissionId as `sessionId` and skips this
+  // prop, so the cache is already per-submission by another name.
+  if (typeof window !== 'undefined' && submissionId) {
+    try {
+      const myAns = ANSWERS_KEY(sessionId, submissionId);
+      const myFlags = FLAGS_KEY(sessionId, submissionId);
+      const ansPrefix = `mq:answers:${sessionId}`;
+      const flagsPrefix = `mq:flags:${sessionId}`;
+      for (const k of Object.keys(localStorage)) {
+        if (k === myAns || k === myFlags) continue;
+        if (k === ansPrefix || k.startsWith(ansPrefix + ':')) localStorage.removeItem(k);
+        else if (k === flagsPrefix || k.startsWith(flagsPrefix + ':')) localStorage.removeItem(k);
+      }
+      // Belt-and-braces: drop the legacy unscoped keys too. Anything
+      // under those names belongs to a previous student's draft (the
+      // current student gets the scoped key) so it must not survive
+      // the device handoff.
+      localStorage.removeItem(LEGACY_ANSWERS_KEY(sessionId));
+      localStorage.removeItem(LEGACY_FLAGS_KEY(sessionId));
+    } catch { /* quota / private-mode — ignore, fall through to normal load */ }
+  }
+
   // Hydrate from localStorage so a refresh mid-quiz doesn't erase work.
   // Server-side answers (initialAnswers) win when there's a conflict —
   // they survived even without local cache (e.g. switched device).
   const [answers, setAnswers] = useState<Record<string, ExamAnswer>>(() => {
     let cached: Record<string, ExamAnswer> = {};
     try {
-      const raw = localStorage.getItem(ANSWERS_KEY(sessionId));
+      const raw = localStorage.getItem(ANSWERS_KEY(sessionId, submissionId));
       if (raw) cached = JSON.parse(raw);
     } catch { /* ignore */ }
     return { ...cached, ...(initialAnswers ?? {}) };
@@ -112,7 +166,7 @@ export function ExamProvider({
 
   const [flagged, setFlagged] = useState<Set<string>>(() => {
     try {
-      const raw = localStorage.getItem(FLAGS_KEY(sessionId));
+      const raw = localStorage.getItem(FLAGS_KEY(sessionId, submissionId));
       return raw ? new Set(JSON.parse(raw) as string[]) : new Set();
     } catch {
       return new Set();
@@ -166,6 +220,22 @@ export function ExamProvider({
   const TAB_HEARTBEAT_MS = 2_000;
   const TAB_STALE_MS = 10_000;
   const [isSecondaryTab, setIsSecondaryTab] = useState<boolean>(false);
+
+  // R15-followup-12 — explicit ownership claim. Used by the multi-tab
+  // banner when a phantom tab in another Chrome window keeps heartbeating
+  // past the 10s stale window. Forces ownership transfer to THIS tab,
+  // flips isSecondaryTab → false immediately so autosave resumes; the
+  // other tab will flip to secondary on its next storage event.
+  const claimTabOwnership = useCallback(() => {
+    if (typeof window === 'undefined') return;
+    try {
+      localStorage.setItem(
+        TAB_OWNER_KEY,
+        JSON.stringify({ tabId: tabIdRef.current, ts: Date.now() }),
+      );
+    } catch { /* quota — ignore */ }
+    setIsSecondaryTab(false);
+  }, [TAB_OWNER_KEY]);
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
@@ -346,7 +416,7 @@ export function ExamProvider({
     setAnswers((prev) => {
       const next = { ...prev, [qid]: ans };
       try {
-        localStorage.setItem(ANSWERS_KEY(sessionId), JSON.stringify(next));
+        localStorage.setItem(ANSWERS_KEY(sessionId, submissionId), JSON.stringify(next));
       } catch { /* quota — ignore */ }
       return next;
     });
@@ -370,7 +440,7 @@ export function ExamProvider({
       persistOne(qid, latest).catch(() => { /* dirty stays; saveError set */ });
     }, SAVE_DEBOUNCE_MS);
     timersRef.current.set(qid, t);
-  }, [sessionId, persistOne]);
+  }, [sessionId, submissionId, persistOne]);
 
   // Round-3 H6 — flush every queued / dirty save right now, return a
   // promise that resolves after each settles. Used by the submit handler
@@ -412,11 +482,11 @@ export function ExamProvider({
       if (next.has(qid)) next.delete(qid);
       else next.add(qid);
       try {
-        localStorage.setItem(FLAGS_KEY(sessionId), JSON.stringify([...next]));
+        localStorage.setItem(FLAGS_KEY(sessionId, submissionId), JSON.stringify([...next]));
       } catch { /* ignore */ }
       return next;
     });
-  }, [sessionId]);
+  }, [sessionId, submissionId]);
 
   const isFlagged = useCallback((qid: string) => flagged.has(qid), [flagged]);
 
@@ -437,7 +507,8 @@ export function ExamProvider({
     saveError,
     hasPendingSaves,
     isSecondaryTab,
-  }), [mode, fontScale, setFontScale, isFlagged, toggleFlag, flagged.size, answers, setAnswer, savingId, isOffline, flushPendingSaves, saveError, hasPendingSaves, isSecondaryTab]);
+    claimTabOwnership,
+  }), [mode, fontScale, setFontScale, isFlagged, toggleFlag, flagged.size, answers, setAnswer, savingId, isOffline, flushPendingSaves, saveError, hasPendingSaves, isSecondaryTab, claimTabOwnership]);
 
   return <ExamContext.Provider value={value}>{children}</ExamContext.Provider>;
 }
