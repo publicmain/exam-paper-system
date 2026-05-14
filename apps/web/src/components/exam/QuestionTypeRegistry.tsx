@@ -85,10 +85,38 @@ export function pickRenderer(paper: ExamPaper) {
     // correct fallback is OLevelComprehension which is paged
     // (one Q at a time) AND already walks back from the current Q
     // to find its passage.
+    //
+    // R15-followup-13 — but the AI generator for OLEVEL Section-B
+    // comprehension (library_card / ndp_orchid / senior_sister fixtures)
+    // appends a SHORT "Refer to the same narrative above…" backref
+    // pseudo-passage to the MCQ sub-section (Q7-Q10 on library_card,
+    // Q13-Q16 on ndp_orchid). That tripped the multi-passage check
+    // (uniquePassages.size = 2) and forced these papers through the
+    // paged OLevelComprehension shell, which renders the section-intro
+    // preamble inside each question card.
+    //
+    // The IELTSReadingPassage shell groups by taskType + instruction
+    // and shows the preamble ONCE at the top of each group — much
+    // cleaner. Filter out backref passages before counting so single-
+    // real-passage OLEVEL papers route to the IELTS shell instead.
+    const looksLikeBackref = (s: string): boolean => {
+      const t = s.trim().toLowerCase();
+      if (!t) return false;
+      return (
+        t.startsWith('refer to') ||
+        t.startsWith('see passage') ||
+        t.startsWith('see the passage') ||
+        t.startsWith('using the passage above') ||
+        t.startsWith('see exercise') ||
+        t.startsWith('based on the same') ||
+        t.startsWith('with reference to the')
+      );
+    };
     const uniquePassages = new Set(
       (paper.questions ?? [])
         .map((q) => q?.snapshotContent?.passage)
-        .filter((p) => typeof p === 'string' && p.length > 0),
+        .filter((p): p is string => typeof p === 'string' && p.length > 0)
+        .filter((p) => !looksLikeBackref(p)),
     );
     if (uniquePassages.size > 1) {
       return OLevelComprehension;
