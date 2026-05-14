@@ -854,4 +854,65 @@ export class AdminCleanupService {
     this.logger.warn(`backfillEitherOrderAcceptedKeys (live): updated=${updated}`);
     return { dryRun: false, detected, updated };
   }
+
+  /**
+   * R15-followup-12 — targeted patch of a single PaperQuestion's
+   * snapshotContent fields (stem / passage / options). Used to fix the
+   * morning-quiz-qa-flagged ambiguous wording the night before a quiz
+   * without regenerating the whole paper. Allow-list of patchable
+   * fields keeps blast radius small — never accepts arbitrary keys.
+   *
+   * Always returns the before/after values so the caller has a diff
+   * to eyeball before / after. Audited so the change is traceable.
+   */
+  async patchPaperQuestionSnapshot(
+    patch: {
+      paperQuestionId: string;
+      stem?: string;
+      passage?: string;
+      passageTitle?: string;
+    },
+    actor: { id: string; role: string; ip?: string | null },
+  ) {
+    const pq = await this.prisma.paperQuestion.findUnique({
+      where: { id: patch.paperQuestionId },
+      select: { id: true, paperId: true, snapshotContent: true },
+    });
+    if (!pq) throw new NotFoundException({ code: 'paper_question_not_found' });
+    const current =
+      typeof pq.snapshotContent === 'object' && pq.snapshotContent !== null
+        ? (pq.snapshotContent as Record<string, unknown>)
+        : {};
+    const before: Record<string, unknown> = {};
+    const after: Record<string, unknown> = {};
+    const next: Record<string, unknown> = { ...current };
+    for (const field of ['stem', 'passage', 'passageTitle'] as const) {
+      const v = patch[field];
+      if (typeof v === 'string') {
+        before[field] = current[field] ?? null;
+        after[field] = v;
+        next[field] = v;
+      }
+    }
+    if (Object.keys(after).length === 0) {
+      return { ok: true, paperQuestionId: pq.id, paperId: pq.paperId, noop: true };
+    }
+    await this.prisma.paperQuestion.update({
+      where: { id: pq.id },
+      data: { snapshotContent: next as any },
+    });
+    await this.audit.log({
+      actorId: actor.id,
+      actorRole: actor.role,
+      action: 'admin_cleanup.patch_paper_question_snapshot',
+      entityType: 'PaperQuestion',
+      entityId: pq.id,
+      ip: actor.ip ?? null,
+      metadata: { paperId: pq.paperId, fields: Object.keys(after), before, after },
+    });
+    this.logger.warn(
+      `patchPaperQuestionSnapshot: pq=${pq.id} paper=${pq.paperId} fields=${Object.keys(after).join(',')}`,
+    );
+    return { ok: true, paperQuestionId: pq.id, paperId: pq.paperId, before, after };
+  }
 }

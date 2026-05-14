@@ -39,6 +39,16 @@ const BackfillEitherOrderSchema = z.object({
   paperQuestionIds: z.array(z.string().min(1).max(40)).max(2000).optional(),
 });
 
+// R15-followup-12 — patch specific fields of a PaperQuestion's
+// snapshotContent (stem / passage / passageTitle). Allow-list locked
+// so a typo'd field name can't blast arbitrary JSON into the column.
+const PatchSnapshotSchema = z.object({
+  paperQuestionId: z.string().min(1).max(40),
+  stem: z.string().min(1).max(4000).optional(),
+  passage: z.string().min(1).max(20000).optional(),
+  passageTitle: z.string().min(1).max(200).optional(),
+});
+
 /**
  * Admin-only data hygiene endpoints (Bugs #2 + #5).
  *
@@ -136,6 +146,27 @@ export class AdminCleanupController {
     return this.cleanup.backfillEitherOrderAcceptedKeys({
       dryRun: parsed.data.dryRun,
       paperQuestionIds: parsed.data.paperQuestionIds,
+    });
+  }
+
+  /**
+   * R15-followup-12 — patch a PaperQuestion's snapshotContent.stem /
+   * .passage / .passageTitle directly. Used to fix wording flagged by
+   * morning-quiz-qa overnight without regenerating the paper. Allow-list
+   * of patchable fields locked at zod layer; no arbitrary JSON write.
+   *
+   *   POST /admin-cleanup/patch-paper-question-snapshot
+   *   { paperQuestionId: string, stem?: string, passage?: string, passageTitle?: string }
+   */
+  @Post('patch-paper-question-snapshot')
+  patchSnapshot(@Body() body: unknown, @Req() req: Request) {
+    const parsed = PatchSnapshotSchema.safeParse(body ?? {});
+    if (!parsed.success) throw new BadRequestException(parsed.error.flatten());
+    const actor = (req as any).user ?? null;
+    return this.cleanup.patchPaperQuestionSnapshot(parsed.data, {
+      id: actor?.id ?? actor?.userId ?? 'unknown',
+      role: actor?.role ?? 'admin',
+      ip: req.ip ?? null,
     });
   }
 
