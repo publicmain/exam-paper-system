@@ -273,6 +273,26 @@ export class AttendanceService {
       });
     }
 
+    // R15-followup-10 — re-scan timestamp bug. Scenario: a student scans
+    // at 08:31:54 (on_time), the page reloads or they back out, they
+    // scan again at 08:36:01. The previous upsert UPDATE block always
+    // overwrote scanTime=now AND re-computed status from `now`, so the
+    // 8:36 scan flipped the record from on_time → late. Real student
+    // got marked 迟到 on 2026-05-14 because of this.
+    //
+    // New behaviour: read the existing row first. If it's already a
+    // legitimate present row (on_time / late), keep its scanTime AND
+    // status — re-scans only refresh fingerprint metadata for forensics.
+    // If it's `absent` (e.g. lockPastSessions seeded an absent row before
+    // the session was re-activated), promote to the freshly-computed
+    // status using `now`. This is the same upsert outcome the previous
+    // code intended, just without overwriting on already-present rows.
+    const existing = await this.prisma.attendance.findUnique({
+      where: { sessionId_studentId: { sessionId: session.id, studentId } },
+      select: { id: true, status: true },
+    });
+    const isAlreadyPresent =
+      !!existing && (existing.status === AttendanceStatus.on_time || existing.status === AttendanceStatus.late);
     const attendance = await this.prisma.attendance.upsert({
       where: { sessionId_studentId: { sessionId: session.id, studentId } },
       create: {
@@ -285,19 +305,24 @@ export class AttendanceService {
         userAgent,
         source: AttendanceSource.qr_scan,
       },
-      update: {
-        // Promote absent → on_time/late if a pre-existing roster row exists
-        // (e.g. lockPastSessions created an absent row before the session
-        // was re-activated). For a normal re-scan within the same session,
-        // status was already on_time/late and stays that way.
-        status: attendanceStatus,
-        sourceIp,
-        scanTime: now,
-        // Re-scans by the same student update fingerprint fields too
-        // so the latest device info is what auditors see.
-        deviceUuid: deviceUuid ?? undefined,
-        userAgent: userAgent ?? undefined,
-      },
+      update: isAlreadyPresent
+        ? {
+            // Already-present row — keep scanTime + status, just refresh
+            // forensic fingerprint fields.
+            sourceIp,
+            deviceUuid: deviceUuid ?? undefined,
+            userAgent: userAgent ?? undefined,
+          }
+        : {
+            // Absent (or other non-present) row — promote with current
+            // timestamp + status. This is the original behaviour, scoped
+            // to the case where it actually makes sense.
+            status: attendanceStatus,
+            sourceIp,
+            scanTime: now,
+            deviceUuid: deviceUuid ?? undefined,
+            userAgent: userAgent ?? undefined,
+          },
     });
 
     const paperId = session.paperAssignment.paperId;

@@ -91,6 +91,11 @@ export async function autoGradeScripts(
     paperQuestion: {
       marks: number;
       snapshotOptions: any;
+      // R15-followup-10 — snapshotContent surfaces `acceptedKeys: string[]`
+      // for "either-order" MCQ pairs (e.g. IELTS Q18 & Q19 in either order
+      // accept B or C). Optional and backwards-compatible — when absent or
+      // empty, grading falls back to the single `options[].correct` flag.
+      snapshotContent?: any;
       question: {
         questionType: string;
         options: any;
@@ -121,7 +126,39 @@ export async function autoGradeScripts(
         correct: boolean;
       }>;
       const correctOpt = Array.isArray(opts) ? opts.find((o) => o.correct) : null;
-      const isCorrect = correctOpt?.key === script.selectedOption;
+      // R15-followup-10 — "either order" MCQ pairs. IELTS Reading
+      // commonly tags two adjacent questions with mark schemes like
+      //   Q18 & Q19 in either order; accepts B or C
+      // i.e. either student answer is valid for either question, so
+      // long as both letters appear across the pair. The naive
+      // `correctOpt.key === selectedOption` check rejects the swap
+      // (Q18=C, Q19=B) and gives a real student a 0 on Q19 even though
+      // they got the underlying comprehension right.
+      //
+      // Authoritative source: snapshotContent.acceptedKeys: string[]
+      // (or the more verbose alias `acceptableOptionKeys`). When the
+      // ingest pipeline writes either field with multiple keys, the
+      // grader accepts any of them. Falls back to the single
+      // `correctOpt` when those fields are absent (backwards-compatible
+      // with every other question type / older imports).
+      const sc =
+        typeof (script.paperQuestion as any).snapshotContent === 'object'
+          ? ((script.paperQuestion as any).snapshotContent as Record<string, unknown>)
+          : null;
+      const accepted = (() => {
+        if (!sc) return null;
+        for (const field of ['acceptedKeys', 'acceptableOptionKeys', 'acceptOptions']) {
+          const v = sc[field];
+          if (Array.isArray(v) && v.every((x) => typeof x === 'string')) {
+            return v as string[];
+          }
+        }
+        return null;
+      })();
+      const selected = script.selectedOption;
+      const isCorrect = accepted && accepted.length > 0
+        ? accepted.includes(selected ?? '')
+        : correctOpt?.key === selected;
       const awarded = isCorrect ? script.paperQuestion.marks : 0;
       autoScore += awarded;
       scriptUpdates.push({ id: script.id, autoCorrect: isCorrect, awardedMarks: awarded });

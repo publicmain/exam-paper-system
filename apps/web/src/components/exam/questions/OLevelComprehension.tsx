@@ -43,18 +43,53 @@ export function OLevelComprehension({ paper }: { paper: ExamPaper }) {
   const passageSource = useMemo(() => {
     const qs = paper?.questions ?? [];
     if (qs.length === 0) return {};
-    // Walk backwards from the current question to find the most recent
-    // question that carries a passage; that's the one this question
-    // belongs to. Matches how OLEVEL papers chunk multi-passage runs.
+    // R15-followup-10 — OLEVEL flowchart sub-parts (Q11(i)..(iv) in the
+    // senior_sister fixture, internally Q13-Q16) carry a SUMMARY passage
+    // that begins with "Refer to the same 'Senior Sister' narrative in
+    // Exercise 1 above. The narrator's feelings shift over the days…".
+    // It is a back-reference, NOT the actual passage students need:
+    // those sub-parts ask "What best describes the narrator's feeling in
+    // Paragraph 5…", and Paragraph 5 lives in the ORIGINAL narrative —
+    // the one Q1-Q12 carry. The previous "walk backwards, stop at first
+    // passage" loop landed on this summary and blocked students from
+    // answering Q13-Q16 because the paragraph they needed wasn't on
+    // screen.
+    //
+    // Two-pass selection:
+    //   1. Walk backwards skipping any passage that looks like a back-
+    //      reference (starts with "Refer to" / "See passage above" / is
+    //      a brief recap). Land on a "real" passage if one exists earlier.
+    //   2. If pass 1 finds nothing, fall back to the original loop's
+    //      most-recent-passage behaviour (legacy multi-passage papers
+    //      that genuinely chunk Q1-7 vs Q8-15 with two real passages
+    //      still work — neither chunk's passage begins with "Refer to").
+    const looksLikeBackref = (s: string): boolean => {
+      const t = s.trim().toLowerCase();
+      if (!t) return false;
+      return (
+        t.startsWith('refer to') ||
+        t.startsWith('see passage') ||
+        t.startsWith('see the passage') ||
+        t.startsWith('using the passage above') ||
+        t.startsWith('see exercise')
+      );
+    };
     const startIdx = Math.min(idx, qs.length - 1);
+    // Pass 1 — prefer a non-back-reference passage.
+    for (let i = startIdx; i >= 0; i--) {
+      const sc = qs[i]?.snapshotContent;
+      if (sc && typeof sc.passage === 'string' && sc.passage.length > 0 && !looksLikeBackref(sc.passage)) {
+        return sc;
+      }
+    }
+    // Pass 2 — legacy fallback: any passage, even back-reference, to
+    // avoid a blank left pane when the data is unusual.
     for (let i = startIdx; i >= 0; i--) {
       const sc = qs[i]?.snapshotContent;
       if (sc && typeof sc.passage === 'string' && sc.passage.length > 0) {
         return sc;
       }
     }
-    // No passage anywhere — last-resort fall back to Q1's snapshot so
-    // the title still renders.
     return qs[0]?.snapshotContent ?? {};
   }, [paper?.questions, idx]);
   const passageTitle = clean(passageSource.passageTitle ?? 'Passage');
