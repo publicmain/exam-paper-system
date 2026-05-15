@@ -403,13 +403,30 @@ export const api = {
     level: 'ielts_authentic' | 'ielts_simplified' | 'olevel',
   ) => request('DELETE', `/morning-quiz/classes/${classId}/english-level/${level}`),
   /** Round-4 attendance Excel export. Returns a Blob the caller saves
-   *  via URL.createObjectURL. */
+   *  via URL.createObjectURL.
+   *
+   *  R15-followup-14 — was hitting `/api/morning-quiz/export/attendance`
+   *  RELATIVE TO THE FRONTEND ORIGIN. In dev that worked because Vite's
+   *  proxy forwarded /api/* to the local Nest server. In prod the
+   *  frontend is on `nurturing-radiance-production.up.railway.app`
+   *  and the API is on `exam-paper-system-production.up.railway.app` —
+   *  there is no /api/* proxy on the frontend host. The fetch resolved
+   *  to the SPA index.html (200 OK, content-type text/html), the code
+   *  blindly handed it to URL.createObjectURL + a.download with the
+   *  .xlsx extension, and Excel rejected the HTML body as a corrupt
+   *  workbook ("file format or file extension is not valid").
+   *
+   *  Fix: prepend ${BASE} so the URL points at the API host in prod,
+   *  matching every other api.* helper in this file. ALSO content-type
+   *  check the response so a future "200 OK but body is HTML" regression
+   *  doesn't silently return a corrupt file again — surface as a clear
+   *  error the caller can show. */
   morningQuizExportAttendance: async (params: {
     from: string;
     to: string;
     classId?: string;
   }) => {
-    const url = `/api/morning-quiz/export/attendance${qs(params)}`;
+    const url = `${BASE}/api/morning-quiz/export/attendance${qs(params)}`;
     const resp = await fetch(url, {
       method: 'GET',
       credentials: 'include',
@@ -418,6 +435,14 @@ export const api = {
     if (!resp.ok) {
       const txt = await resp.text();
       throw new Error(`export failed (${resp.status}): ${txt.slice(0, 200)}`);
+    }
+    const ct = resp.headers.get('content-type') || '';
+    if (!ct.includes('spreadsheet') && !ct.includes('octet-stream')) {
+      const txt = await resp.text();
+      throw new Error(
+        `export returned wrong content-type (${ct || 'none'}). ` +
+          `Body head: ${txt.slice(0, 120)}`,
+      );
     }
     return resp.blob();
   },

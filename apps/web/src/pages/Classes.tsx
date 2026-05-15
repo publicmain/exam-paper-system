@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { api } from '../lib/api';
+import { api, BASE } from '../lib/api';
 import TransferStudentModal from '../components/TransferStudentModal';
 
 /**
@@ -117,7 +117,7 @@ export default function ClassesPage() {
                     // Backend delete endpoint is now soft-delete by default;
                     // pass ?hard=true for the permanent path.
                     if (hardOk) {
-                      await fetch(`/api/classes/${c.id}?hard=true`, {
+                      await fetch(`${BASE}/api/classes/${c.id}?hard=true`, {
                         method: 'DELETE',
                         headers: {
                           Authorization: `Bearer ${localStorage.getItem('auth_token')}`,

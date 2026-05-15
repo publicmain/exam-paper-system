@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { api } from '../lib/api';
+import { api, BASE } from '../lib/api';
 import AppealReviewModal from '../components/AppealReviewModal';
 
 /**
@@ -26,7 +26,7 @@ export default function MarkerQueuePage() {
       const [queue, who, ap] = await Promise.all([
         (api as any).markerQueue
           ? (api as any).markerQueue()
-          : fetch('/api/marker/queue', {
+          : fetch(`${BASE}/api/marker/queue`, {
               headers: { Authorization: `Bearer ${localStorage.getItem('auth_token')}` },
             }).then((r) => r.json()),
         api.me(),
@@ -61,7 +61,7 @@ export default function MarkerQueuePage() {
       if (fn) {
         await fn(submissionId);
       } else {
-        const r = await fetch('/api/marker/claim', {
+        const r = await fetch(`${BASE}/api/marker/claim`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',

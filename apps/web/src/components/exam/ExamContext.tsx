@@ -1,5 +1,6 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import type { ExamAnswer, ExamMode } from './types';
+import { BASE } from '../../lib/api';
 
 /**
  * Top-level context for an in-progress exam attempt.
@@ -351,7 +352,13 @@ export function ExamProvider({
       try {
         const ctl = new AbortController();
         const t = setTimeout(() => ctl.abort(), 5000);
-        const res = await fetch('/api/health', {
+        // R15-followup-14 — `/api/health` was relative to the frontend
+        // origin. In prod the SPA host serves index.html for any
+        // unmatched route (200 OK, text/html), so this probe ALWAYS
+        // returned res.ok=true and the offline detector never triggered
+        // even when the actual API host was unreachable. Prefix BASE so
+        // the probe hits the API directly.
+        const res = await fetch(`${BASE}/api/health`, {
           method: 'GET',
           cache: 'no-store',
           signal: ctl.signal,
