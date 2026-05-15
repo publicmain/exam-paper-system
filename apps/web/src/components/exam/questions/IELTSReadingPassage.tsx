@@ -35,7 +35,13 @@ type TaskType =
   | 'table_completion'
   | 'flow_chart_completion'
   | 'diagram_label_completion'
-  | 'short_answer';
+  | 'short_answer'
+  // R15-followup-14b — Cambridge "classify the following events" task.
+  // Stem looks like an MCQ ("Write the correct letter, A, B or C.")
+  // but ingest tags it as `classification`. Was missing from the union →
+  // QuestionItem's switch fell to default → bare textarea → student
+  // typed the letter into textAnswer instead of selecting an option.
+  | 'classification';
 
 const TASK_TITLES: Record<string, string> = {
   matching_information: 'Matching Information',
@@ -60,6 +66,7 @@ const TASK_TITLES: Record<string, string> = {
   multi_match: 'Multi-text Matching',
   olevel_short_answer: 'Short Answer',
   olevel_comprehension: 'Comprehension',
+  classification: 'Classification',
   _other: 'Question',
 };
 
@@ -344,6 +351,18 @@ function QuestionItem({
     case 'true_false_not_given':
     case 'multiple_choice':
     case 'matching_features':
+    // R15-followup-14b — Cambridge IELTS "classification" tasks (e.g.
+    // "Classify the following events as occurring during the Medieval
+    // Warm Period (A) / Little Ice Age (B) / Modern Warm Period (C)")
+    // were missing from this switch and fell to the default branch — a
+    // bare textarea. The stem says "Write the correct letter, A, B or
+    // C." so students typed the letter; it got stored as textAnswer
+    // with selectedOption=null and the MCQ grader silently dropped the
+    // mark. Adding `classification` here renders the RadioGroup so the
+    // letter lands in selectedOption like every other MCQ. The grader
+    // textAnswer fallback (autoGradeScripts) still credits any
+    // pre-2026-05-14 submissions that went through the old textarea.
+    case 'classification':
       return (
         <>
           <div
@@ -408,6 +427,32 @@ function QuestionItem({
         />
       );
     default:
+      // R15-followup-14b — defensive fallback: when the question is an
+      // MCQ (questionType==='mcq') with populated snapshotOptions but
+      // an unrecognised taskType, render as RadioGroup instead of
+      // textarea. Without this, any new IELTS-family taskType the
+      // generator might invent (e.g. another "Write the letter" task)
+      // would silently route to textarea and re-introduce the same
+      // selectedOption=null + textAnswer data-shape mismatch the
+      // 5/14 classification block exposed.
+      if (q.questionType === 'mcq' && Array.isArray(q.snapshotOptions) && q.snapshotOptions.length > 0) {
+        return (
+          <>
+            <div
+              className="text-gray-800 mb-2.5 whitespace-pre-wrap leading-snug"
+              style={{ fontSize: `calc(1rem * var(--mq-fs, 1))` }}
+            >
+              {itemNode}
+            </div>
+            <RadioGroup
+              options={q.snapshotOptions}
+              value={answer?.selectedOption}
+              onChange={(opt) => setAnswer(q.id, { selectedOption: opt })}
+              compact={hasBank}
+            />
+          </>
+        );
+      }
       return (
         <>
           <div
