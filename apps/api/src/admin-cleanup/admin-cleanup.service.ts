@@ -1128,6 +1128,7 @@ export class AdminCleanupService {
           pqOrder: sc.paperQuestion.sortOrder,
           pqId: sc.paperQuestionId,
           selectedRaw: selected,
+          textAnswerRaw: sc.textAnswer,
           selectedHex: selected == null ? null : Array.from(selected).map(c => c.charCodeAt(0).toString(16)).join(','),
           canonicalRaw: canonical,
           acceptedRaw: accepted,
