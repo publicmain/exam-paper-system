@@ -1003,6 +1003,16 @@ export class AdminCleanupService {
       return null;
     };
 
+    // R15-followup-14b — case/whitespace tolerant comparator. The MyHistoryDetail
+    // UI uses trim().toLowerCase() when deciding whether a student's stored
+    // answer "is the same option as" a displayed key, so the UI shows
+    // "我的答案 ✓ 正确" even for 'c' vs 'C' or 'C ' vs 'C'. The auto-grader's
+    // strict `===` rejected those, producing the visible inconsistency we saw
+    // with 李淳's Q10–Q13. Normalise both sides here so the grader is at
+    // least as forgiving as the UI's comparison.
+    const norm = (s: string | null | undefined): string =>
+      s == null ? '' : String(s).trim().toLowerCase();
+
     const diffs: Array<{
       submissionId: string;
       studentId: string;
@@ -1024,9 +1034,10 @@ export class AdminCleanupService {
         const canonical = resolveCanonicalKey(snap, opts, answerContent);
         const accepted = resolveAcceptedKeys(snap);
         const selected = sc.selectedOption;
+        const selectedN = norm(selected);
         const isCorrect = accepted && accepted.length > 0
-          ? accepted.includes(selected ?? '')
-          : canonical != null && canonical === selected;
+          ? accepted.map(norm).includes(selectedN)
+          : canonical != null && norm(canonical) === selectedN;
         const newAwarded = isCorrect ? sc.paperQuestion.marks : 0;
         const changed = sc.autoCorrect !== isCorrect || sc.awardedMarks !== newAwarded;
         if (changed) {
