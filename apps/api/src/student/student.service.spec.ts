@@ -161,6 +161,73 @@ describe('autoGradeScripts MCQ fallback chain (R15-followup-14)', () => {
     expect(scriptUpdates[0].awardedMarks).toBe(0);
   });
 
+  // R15-followup-14b — Cambridge classification stems say "Write the correct
+  // letter, A, B or C." so the take page renders a TEXT INPUT, not radio
+  // buttons. Student types 'C' → stored as textAnswer='C' with
+  // selectedOption=null. The grader used to look only at selectedOption and
+  // gave 0; the historyDetail UI fell back to textAnswer for display and
+  // showed "我的答案 ✓ 正确" — a visible inconsistency 李淳 (5/14) caught.
+  it('grades CORRECT when the student typed the letter into textAnswer (Cambridge "Write the letter" path)', async () => {
+    const { autoScore, scriptUpdates } = await autoGradeScripts([
+      script({
+        paperQuestion: {
+          marks: 1,
+          snapshotOptions: [
+            { key: 'A', text: 'Medieval Warm Period', correct: false },
+            { key: 'B', text: 'Little Ice Age', correct: false },
+            { key: 'C', text: 'Modern Warm Period', correct: true },
+          ],
+          snapshotContent: {},
+          question: { questionType: 'mcq', options: null, answerContent: null },
+        },
+        selectedOption: null,
+        textAnswer: 'C',
+      }),
+    ]);
+    expect(scriptUpdates[0].autoCorrect).toBe(true);
+    expect(autoScore).toBe(1);
+  });
+
+  it('case-insensitive textAnswer fallback ("c" still grades correctly)', async () => {
+    const { scriptUpdates } = await autoGradeScripts([
+      script({
+        paperQuestion: {
+          marks: 1,
+          snapshotOptions: [
+            { key: 'A', text: 'a', correct: false },
+            { key: 'B', text: 'b', correct: true },
+            { key: 'C', text: 'c', correct: false },
+          ],
+          snapshotContent: {},
+          question: { questionType: 'mcq', options: null, answerContent: null },
+        },
+        selectedOption: null,
+        textAnswer: 'b',
+      }),
+    ]);
+    expect(scriptUpdates[0].autoCorrect).toBe(true);
+  });
+
+  it('textAnswer fallback ignores noise (long string, NOT a single letter)', async () => {
+    const { scriptUpdates } = await autoGradeScripts([
+      script({
+        paperQuestion: {
+          marks: 1,
+          snapshotOptions: [
+            { key: 'A', text: 'a', correct: false },
+            { key: 'B', text: 'b', correct: true },
+          ],
+          snapshotContent: {},
+          question: { questionType: 'mcq', options: null, answerContent: null },
+        },
+        selectedOption: null,
+        textAnswer: 'this is a sentence that happens to start with B',
+      }),
+    ]);
+    // Length > 4 → not treated as a letter pick.
+    expect(scriptUpdates[0].autoCorrect).toBe(false);
+  });
+
   it('ignores a too-long correctOption (defensive cap so a full passage in the field cannot mis-grade)', async () => {
     const veryLong = 'A'.repeat(50);
     const { scriptUpdates } = await autoGradeScripts([

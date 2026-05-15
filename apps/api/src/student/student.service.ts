@@ -208,10 +208,35 @@ export async function autoGradeScripts(
           canonicalCorrectKey = ac.text;
         }
       }
-      const selected = script.selectedOption;
+      // R15-followup-14b — when a question is type 'mcq' but the take-page
+      // rendered as a text input (because the stem said "Write the correct
+      // letter, A, B or C." — Cambridge classification papers do this), the
+      // student types the letter and it ends up in `textAnswer` with
+      // `selectedOption=null`. The MCQ grader used to only check
+      // selectedOption, so the student's typed letter was ignored and the
+      // question silently graded 0 even when the typed letter was right.
+      // Fall back to textAnswer when it matches an option key.
+      let selected = script.selectedOption;
+      if (selected == null && typeof script.textAnswer === 'string') {
+        const candidate = script.textAnswer.trim();
+        if (candidate.length > 0 && candidate.length <= 4) {
+          const optKeys = (Array.isArray(opts) ? opts : [])
+            .map((o: any) => String(o?.key ?? ''))
+            .filter(Boolean);
+          const cu = candidate.toUpperCase();
+          const matchedKey = optKeys.find((k) => k.toUpperCase() === cu);
+          if (matchedKey) selected = matchedKey;
+        }
+      }
+      // Use case/whitespace-tolerant compare to mirror the MyHistoryDetail
+      // UI's `trim().toLowerCase()` check, so the grader and the student's
+      // "我的答案 ✓ 正确" badge can never visibly disagree.
+      const norm = (s: string | null | undefined): string =>
+        s == null ? '' : String(s).trim().toLowerCase();
+      const selectedN = norm(selected);
       const isCorrect = accepted && accepted.length > 0
-        ? accepted.includes(selected ?? '')
-        : canonicalCorrectKey != null && canonicalCorrectKey === selected;
+        ? accepted.map(norm).includes(selectedN)
+        : canonicalCorrectKey != null && norm(canonicalCorrectKey) === selectedN;
       const awarded = isCorrect ? script.paperQuestion.marks : 0;
       autoScore += awarded;
       scriptUpdates.push({ id: script.id, autoCorrect: isCorrect, awardedMarks: awarded });

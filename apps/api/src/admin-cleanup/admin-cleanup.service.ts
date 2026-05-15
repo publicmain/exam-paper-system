@@ -1033,7 +1033,26 @@ export class AdminCleanupService {
         const answerContent = (sc.paperQuestion as any).question.answerContent;
         const canonical = resolveCanonicalKey(snap, opts, answerContent);
         const accepted = resolveAcceptedKeys(snap);
-        const selected = sc.selectedOption;
+        // R15-followup-14b — fallback to textAnswer when selectedOption is null.
+        // Cambridge classification stems explicitly tell students "Write the
+        // correct letter, A, B or C." so the UI rendered a text input; the
+        // student typed 'C' which got stored as textAnswer="C" with
+        // selectedOption=null. The MCQ grader only looked at selectedOption
+        // → null → marked wrong. For MCQ questions where textAnswer is a
+        // single letter matching one of the option keys, treat it as the
+        // student's chosen option.
+        let selected = sc.selectedOption;
+        if (selected == null && typeof sc.textAnswer === 'string') {
+          const candidate = sc.textAnswer.trim();
+          if (candidate.length > 0 && candidate.length <= 4) {
+            const optKeys = (Array.isArray(opts) ? (opts as any[]) : [])
+              .map((o) => String(o?.key ?? ''))
+              .filter(Boolean);
+            const cu = candidate.toUpperCase();
+            const matchedKey = optKeys.find((k) => k.toUpperCase() === cu);
+            if (matchedKey) selected = matchedKey;
+          }
+        }
         const selectedN = norm(selected);
         const isCorrect = accepted && accepted.length > 0
           ? accepted.map(norm).includes(selectedN)
