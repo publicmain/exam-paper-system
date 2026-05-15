@@ -22,14 +22,25 @@ interface ExportFilter {
 
 const HEADER_FILL = 'FF1E40AF'; // blue-700
 const ZEBRA_FILL = 'FFF8FAFC'; // slate-50
+// R15-followup-14 — status colour codes for the pivot cells. Light tint
+// so a teacher can scan a row in a glance: emerald = on_time, amber =
+// late, rose = absent, grey = no session that day.
+const ON_TIME_FILL = 'FFD1FAE5'; // emerald-100
+const LATE_FILL = 'FFFEF3C7'; // amber-100
+const ABSENT_FILL = 'FFFEE2E2'; // rose-100
+const NO_SESSION_FILL = 'FFF3F4F6'; // gray-100
 
 /**
  * Excel export for the morning-quiz teacher dashboard.
  *
- * Three sheets per workbook:
- *   1. Attendance detail   — one row per (student, day)
- *   2. Score detail        — one row per submission with mcq/total/grade
- *   3. Absence summary     — aggregated per student over the date range
+ * R15-followup-14 — was a 3-sheet workbook (attendance detail + score
+ * detail + absence summary). Teacher feedback: "I only want to see
+ * each day who was on_time / late / absent. Everything else is noise."
+ *
+ * New layout: ONE pivot sheet — rows = students, columns = days in
+ * the export range. Cells show 按时/迟到/缺勤/— with a colour tint so
+ * a teacher can spot a problem row at a glance. Summary columns on
+ * the right tally each student's week (按时/迟到/缺勤 counts).
  *
  * Reads only — does not mutate any DB row. Audit-logged so we know who
  * pulled student data and when. Output is binary .xlsx; controllers
@@ -131,173 +142,163 @@ export class MorningQuizExportService {
 
     // Index lookups
     const sessionById = new Map(sessions.map((s) => [s.id, s]));
-    const submissionById = new Map(submissions.map((s) => [s.id, s]));
 
-    // ─────── Sheet 1: Attendance detail ───────
-    const s1 = wb.addWorksheet('考勤明细 Attendance', {
-      views: [{ state: 'frozen', ySplit: 1 }],
-    });
-    s1.columns = [
-      { header: '学生 Student', key: 'student', width: 18 },
-      { header: '班级 Class', key: 'className', width: 14 },
-      { header: '日期 Date', key: 'date', width: 12 },
-      { header: '状态 Status', key: 'status', width: 12 },
-      { header: '扫码时间 Scan Time', key: 'scanTime', width: 20 },
-      { header: '提交时间 Submitted', key: 'submittedAt', width: 20 },
-    ];
-    this.styleHeader(s1.getRow(1));
+    // R15-followup-14 — single pivot sheet: rows=students, columns=days
+    // in the export range. Cells: 按时 / 迟到 / 缺勤 / — (no session).
+    // Status colour tint so a teacher can scan a row visually.
 
-    for (let i = 0; i < attendances.length; i++) {
-      const att = attendances[i];
-      const sess = sessionById.get(att.sessionId);
-      const sub = att.submissionId ? submissionById.get(att.submissionId) : null;
-      s1.addRow({
-        student: att.student.name,
-        className: sess?.class.name ?? '—',
-        date: sess?.date ? this.formatDate(sess.date) : '—',
-        status: this.statusZh(att.status),
-        scanTime: att.scanTime ? this.formatDateTime(att.scanTime) : '—',
-        submittedAt: sub?.submittedAt ? this.formatDateTime(sub.submittedAt) : '—',
-      });
-      if (i % 2 === 1) {
-        this.applyZebraRow(s1.getRow(i + 2));
-      }
+    // 1) Build the set of distinct session dates within the filter range,
+    //    sorted ascending. Skips weekends/no-session days automatically
+    //    because we only include dates that actually have a session row.
+    const dateKeys: string[] = [...new Set(sessions.map((s) => this.formatDate(s.date)))].sort();
+
+    // 2) Build per-student aggregate: their class + a date→status map.
+    //    Pull from `attendances` (only rows where the cron seeded an
+    //    `absent` or where a real scan happened). A student who is
+    //    enrolled but has no attendance row for a date shows as "—".
+    interface PerStudent {
+      studentId: string;
+      name: string;
+      className: string;
+      byDate: Record<string, AttendanceStatus>;
+      onTime: number;
+      late: number;
+      absent: number;
     }
-
-    // ─────── Sheet 2: Score detail ───────
-    const s2 = wb.addWorksheet('成绩明细 Scores', {
-      views: [{ state: 'frozen', ySplit: 1 }],
-    });
-    s2.columns = [
-      { header: '学生 Student', key: 'student', width: 18 },
-      { header: '班级 Class', key: 'className', width: 14 },
-      { header: '日期 Date', key: 'date', width: 12 },
-      // Round-7: was paperId (cuid). Now paper name — humans look at this.
-      { header: '卷子 Paper', key: 'paperName', width: 32 },
-      { header: 'MCQ 分 Score', key: 'mcqScore', width: 12 },
-      { header: 'MCQ 总题数', key: 'mcqTotal', width: 12 },
-      { header: '正确率 %', key: 'mcqPct', width: 10 },
-      { header: '总分 Total', key: 'totalMarks', width: 12 },
-      { header: '等级 Grade', key: 'grade', width: 8 },
-    ];
-    this.styleHeader(s2.getRow(1));
-
-    let scoreRowIndex = 2;
-    for (const att of attendances) {
-      if (!att.submissionId) continue;
-      const sub = submissionById.get(att.submissionId);
-      if (!sub) continue;
-      // Round-7: skip absent attendances. The score sheet should only
-      // contain rows where a student actually attempted the quiz, otherwise
-      // every absent student gets a fake "0/0 → F" row that misrepresents
-      // them as having failed. Sheet 3 (Absences) covers this case.
-      if (att.status === AttendanceStatus.absent) continue;
-      const sess = sessionById.get(att.sessionId);
-      const mcqAnswered = sub.scripts.filter((s) => s.autoCorrect !== null);
-      const mcqCorrect = mcqAnswered.filter((s) => s.autoCorrect === true).length;
-      const totalMarks = sub.scripts.reduce((acc, s) => acc + (s.awardedMarks ?? 0), 0);
-      const pct = mcqAnswered.length > 0 ? Math.round((mcqCorrect / mcqAnswered.length) * 100) : 0;
-      // For students who DID attend but answered nothing before time-up,
-      // show '—' instead of an F grade. F is reserved for actual scoring.
-      const grade = mcqAnswered.length === 0 && totalMarks === 0 ? '—' : this.gradeBucket(pct);
-      const paperName = sess?.paperAssignment?.paper?.name ?? sess?.paperAssignment?.paperId ?? '—';
-      s2.addRow({
-        student: att.student.name,
-        className: sess?.class.name ?? '—',
-        date: sess?.date ? this.formatDate(sess.date) : '—',
-        paperName,
-        mcqScore: mcqCorrect,
-        mcqTotal: mcqAnswered.length,
-        mcqPct: pct,
-        totalMarks: Math.round(totalMarks * 10) / 10,
-        grade,
-      });
-      if (scoreRowIndex % 2 === 0) {
-        this.applyZebraRow(s2.getRow(scoreRowIndex));
-      }
-      scoreRowIndex++;
-    }
-
-    // ─────── Sheet 3: Absence summary ───────
-    const s3 = wb.addWorksheet('缺勤汇总 Absences', {
-      views: [{ state: 'frozen', ySplit: 1 }],
-    });
-    s3.columns = [
-      { header: '学生 Student', key: 'student', width: 18 },
-      { header: '班级 Class', key: 'className', width: 14 },
-      { header: '缺勤天数 Absent', key: 'absentDays', width: 14 },
-      { header: '迟到天数 Late', key: 'lateDays', width: 14 },
-      { header: '连续缺勤 Streak', key: 'streak', width: 16 },
-      { header: '出勤率 % Rate', key: 'rate', width: 12 },
-    ];
-    this.styleHeader(s3.getRow(1));
-
-    // Aggregate per student.
-    const perStudent = new Map<
-      string,
-      {
-        student: { id: string; name: string };
-        className: string;
-        present: number;
-        absent: number;
-        late: number;
-        records: Array<{ date: Date; status: AttendanceStatus }>;
-      }
-    >();
+    const perStudent = new Map<string, PerStudent>();
     for (const att of attendances) {
       const sess = sessionById.get(att.sessionId);
       if (!sess?.date) continue;
+      const dateKey = this.formatDate(sess.date);
       const cur =
         perStudent.get(att.studentId) ??
         {
-          student: { id: att.student.id, name: att.student.name },
+          studentId: att.student.id,
+          name: att.student.name,
           className: sess.class.name,
-          present: 0,
-          absent: 0,
+          byDate: {} as Record<string, AttendanceStatus>,
+          onTime: 0,
           late: 0,
-          records: [] as Array<{ date: Date; status: AttendanceStatus }>,
+          absent: 0,
         };
-      cur.records.push({ date: sess.date, status: att.status });
-      if (att.status === AttendanceStatus.absent) cur.absent++;
-      else if (att.status === AttendanceStatus.late) cur.late++;
-      else cur.present++;
+      // If two sessions on the same day (multi-level: a student can only
+      // really sit one, but defensively pick the strongest signal:
+      // on_time > late > absent).
+      const prior = cur.byDate[dateKey];
+      const score = (s: AttendanceStatus | undefined): number =>
+        s === AttendanceStatus.on_time ? 3 : s === AttendanceStatus.late ? 2 : s === AttendanceStatus.absent ? 1 : 0;
+      if (score(att.status) > score(prior)) {
+        cur.byDate[dateKey] = att.status;
+      }
       perStudent.set(att.studentId, cur);
     }
-
-    // Compute consecutive-absent streak (longest run of absent days,
-    // counting only days where the class actually had a session).
-    function longestAbsentStreak(
-      records: Array<{ date: Date; status: AttendanceStatus }>,
-    ): number {
-      const sorted = [...records].sort((a, b) => a.date.getTime() - b.date.getTime());
-      let best = 0;
-      let cur = 0;
-      for (const r of sorted) {
-        if (r.status === AttendanceStatus.absent) {
-          cur++;
-          if (cur > best) best = cur;
-        } else {
-          cur = 0;
-        }
+    // Recompute totals from the deduped byDate map (so a student listed in
+    // two sessions on the same day doesn't get double-counted).
+    for (const p of perStudent.values()) {
+      p.onTime = 0;
+      p.late = 0;
+      p.absent = 0;
+      for (const s of Object.values(p.byDate)) {
+        if (s === AttendanceStatus.on_time) p.onTime++;
+        else if (s === AttendanceStatus.late) p.late++;
+        else if (s === AttendanceStatus.absent) p.absent++;
       }
-      return best;
     }
 
-    let absRow = 2;
-    for (const v of perStudent.values()) {
-      const total = v.present + v.absent + v.late;
-      const rate = total > 0 ? Math.round(((v.present + v.late) / total) * 100) : 0;
-      s3.addRow({
-        student: v.student.name,
-        className: v.className,
-        absentDays: v.absent,
-        lateDays: v.late,
-        streak: longestAbsentStreak(v.records),
-        rate,
-      });
-      if (absRow % 2 === 0) this.applyZebraRow(s3.getRow(absRow));
-      absRow++;
+    // Sort: class then student name (so a teacher reading row-by-row sees
+    // their class clustered together).
+    const rows = [...perStudent.values()].sort((a, b) => {
+      if (a.className !== b.className) return a.className.localeCompare(b.className);
+      return a.name.localeCompare(b.name, 'zh');
+    });
+
+    // ─────── Single sheet: pivot view ───────
+    const s = wb.addWorksheet('考勤 Attendance', {
+      views: [{ state: 'frozen', ySplit: 1, xSplit: 2 }],
+    });
+    const columns: Array<{ header: string; key: string; width: number }> = [
+      { header: '学生 Student', key: 'student', width: 18 },
+      { header: '班级 Class', key: 'className', width: 14 },
+    ];
+    for (const dk of dateKeys) {
+      // Header like "2026-05-12\n周一" — date plus a Chinese weekday hint
+      // so the teacher doesn't have to compute which day-of-week each
+      // column is when scanning across.
+      columns.push({ header: `${dk}\n${this.weekdayZh(dk)}`, key: `d_${dk}`, width: 14 });
     }
+    columns.push({ header: '按时 Σ', key: 'sumOnTime', width: 8 });
+    columns.push({ header: '迟到 Σ', key: 'sumLate', width: 8 });
+    columns.push({ header: '缺勤 Σ', key: 'sumAbsent', width: 8 });
+    s.columns = columns;
+    this.styleHeader(s.getRow(1));
+    s.getRow(1).height = 32;
+    s.getRow(1).alignment = { vertical: 'middle', horizontal: 'center', wrapText: true };
+
+    for (let i = 0; i < rows.length; i++) {
+      const p = rows[i];
+      const rowData: Record<string, string | number> = {
+        student: p.name,
+        className: p.className,
+        sumOnTime: p.onTime,
+        sumLate: p.late,
+        sumAbsent: p.absent,
+      };
+      for (const dk of dateKeys) {
+        rowData[`d_${dk}`] = this.statusShortZh(p.byDate[dk]);
+      }
+      const xlRow = s.addRow(rowData);
+      // Colour-tint each date cell by status. ExcelJS uses 1-based column
+      // indices; the first date column lives at columns.length - 3 from
+      // the right (sumOnTime/Late/Absent occupy the last 3), so the
+      // first date column index is 3 (after student + className).
+      for (let dIdx = 0; dIdx < dateKeys.length; dIdx++) {
+        const cell = xlRow.getCell(3 + dIdx);
+        const st = p.byDate[dateKeys[dIdx]];
+        const fill =
+          st === AttendanceStatus.on_time
+            ? ON_TIME_FILL
+            : st === AttendanceStatus.late
+            ? LATE_FILL
+            : st === AttendanceStatus.absent
+            ? ABSENT_FILL
+            : NO_SESSION_FILL;
+        cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: fill } };
+        cell.alignment = { vertical: 'middle', horizontal: 'center' };
+      }
+      // Right-align the three summary count columns for easy scanning.
+      const sumStart = 2 + dateKeys.length + 1; // 1-based: student(1) + class(2) + N dates + 1
+      for (let k = 0; k < 3; k++) {
+        xlRow.getCell(sumStart + k).alignment = { vertical: 'middle', horizontal: 'center' };
+      }
+    }
+
+    // Total row at the bottom — per-day counts of on_time / late / absent
+    // so a teacher can answer "how many late on Tuesday" at a glance.
+    const totalRowData: Record<string, string | number> = {
+      student: '合计 Total',
+      className: `${rows.length} 人`,
+      sumOnTime: rows.reduce((a, p) => a + p.onTime, 0),
+      sumLate: rows.reduce((a, p) => a + p.late, 0),
+      sumAbsent: rows.reduce((a, p) => a + p.absent, 0),
+    };
+    for (const dk of dateKeys) {
+      let on = 0;
+      let lt = 0;
+      let ab = 0;
+      for (const p of rows) {
+        const st = p.byDate[dk];
+        if (st === AttendanceStatus.on_time) on++;
+        else if (st === AttendanceStatus.late) lt++;
+        else if (st === AttendanceStatus.absent) ab++;
+      }
+      totalRowData[`d_${dk}`] = `按时${on} 迟${lt} 缺${ab}`;
+    }
+    const totalRow = s.addRow(totalRowData);
+    totalRow.font = { bold: true };
+    totalRow.eachCell((cell) => {
+      cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFE0E7FF' } }; // indigo-100
+      cell.alignment = { vertical: 'middle', horizontal: 'center' };
+    });
 
     await this.audit.log({
       actorId: actor.id,
@@ -311,7 +312,7 @@ export class MorningQuizExportService {
         to: filter.to,
         classId: filter.classId ?? null,
         sessions: sessions.length,
-        students: perStudent.size,
+        students: rows.length,
       },
     });
 
@@ -350,6 +351,24 @@ export class MorningQuizExportService {
     if (s === AttendanceStatus.late) return '迟到 Late';
     if (s === AttendanceStatus.absent) return '缺席 Absent';
     return String(s);
+  }
+
+  /** R15-followup-14 — compact 2-char Chinese label for the pivot cells.
+   *  "—" for days without an attendance row (no session OR student wasn't
+   *  enrolled in this class on that date). */
+  private statusShortZh(s: AttendanceStatus | undefined): string {
+    if (s === AttendanceStatus.on_time) return '按时';
+    if (s === AttendanceStatus.late) return '迟到';
+    if (s === AttendanceStatus.absent) return '缺勤';
+    return '—';
+  }
+
+  /** R15-followup-14 — Chinese weekday hint for the date column header.
+   *  Takes "YYYY-MM-DD" school-local and returns 周一/周二/.../周日. */
+  private weekdayZh(dateKey: string): string {
+    const d = new Date(`${dateKey}T00:00:00+08:00`);
+    const labels = ['周日', '周一', '周二', '周三', '周四', '周五', '周六'];
+    return labels[d.getUTCDay()] ?? '';
   }
 
   private gradeBucket(pct: number): string {
