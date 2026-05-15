@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { api } from '../lib/api';
 
@@ -394,22 +394,17 @@ export default function MorningQuizSchedule() {
           <Link to="/admin/attendance" className="text-sm text-blue-600 hover:underline" title="按日期范围跨多场 session 查考勤历史">
             历史考勤 →
           </Link>
-          <button
-            type="button"
-            onClick={handleCleanupRetired}
-            className="text-sm px-2 py-1 rounded text-rose-700 hover:bg-rose-50"
-            title="一次性清掉所有 cambridge_0510 (已退役内容) 的 Paper/Session/考勤/答卷, 用于消除学生 portal 上的旧测试残留"
-          >
-            🧹 清理旧测试数据
-          </button>
-          <button
-            type="button"
-            onClick={handleCleanupNonSchoolDays}
-            className="text-sm px-2 py-1 rounded text-rose-700 hover:bg-rose-50"
-            title="清掉所有周一/周末的 sessions (校历无早测日), 学生 portal 不再误显示周一缺勤"
-          >
-            🗓️ 清掉周一 sessions
-          </button>
+          {/* R15-followup-14 — the two cleanup actions below are one-time
+              maintenance buttons left over from migrating retired-content
+              ingest pipelines + the school-calendar bug fix. They almost
+              never need to run again, so they used to clutter the daily
+              schedule page with rarely-used rose-coloured destructive
+              buttons. Folded into a "更多 / 维护" disclosure menu so the
+              header has 4 daily-use entries instead of 6. */}
+          <MaintenanceMenu
+            onCleanupRetired={handleCleanupRetired}
+            onCleanupNonSchoolDays={handleCleanupNonSchoolDays}
+          />
         </div>
       </div>
 
@@ -960,5 +955,79 @@ function ExportAttendanceButton({ weekStart }: { weekStart: string }) {
     >
       📥 {busy ? '生成中…' : '导出 Excel'}
     </button>
+  );
+}
+
+/**
+ * R15-followup-14 — collapsible "更多 / 维护" menu for rarely-used
+ * destructive actions (retired-content cleanup, non-school-day session
+ * scrub). Both used to sit in the page header as rose-coloured buttons
+ * that almost never need to run again. Click outside or pick an action
+ * to close.
+ */
+function MaintenanceMenu({
+  onCleanupRetired,
+  onCleanupNonSchoolDays,
+}: {
+  onCleanupRetired: () => void;
+  onCleanupNonSchoolDays: () => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const wrapRef = useRef<HTMLDivElement | null>(null);
+  useEffect(() => {
+    if (!open) return;
+    function onDocClick(e: MouseEvent) {
+      if (!wrapRef.current?.contains(e.target as Node)) setOpen(false);
+    }
+    function onEsc(e: KeyboardEvent) {
+      if (e.key === 'Escape') setOpen(false);
+    }
+    document.addEventListener('mousedown', onDocClick);
+    document.addEventListener('keydown', onEsc);
+    return () => {
+      document.removeEventListener('mousedown', onDocClick);
+      document.removeEventListener('keydown', onEsc);
+    };
+  }, [open]);
+  return (
+    <div className="relative" ref={wrapRef}>
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        aria-expanded={open}
+        aria-haspopup="menu"
+        className="text-sm px-2 py-1 rounded text-gray-600 hover:bg-gray-100"
+        title="一次性维护工具 (清理历史残留)"
+      >
+        ⋯ 更多
+      </button>
+      {open && (
+        <div
+          role="menu"
+          className="absolute right-0 mt-1 w-64 bg-white border border-gray-200 rounded-md shadow-lg z-30 py-1 text-sm"
+        >
+          <button
+            type="button"
+            role="menuitem"
+            onClick={() => { setOpen(false); onCleanupRetired(); }}
+            className="w-full text-left px-3 py-2 text-rose-700 hover:bg-rose-50"
+            title="一次性清掉所有 cambridge_0510 (已退役内容) 的 Paper/Session/考勤/答卷"
+          >
+            🧹 清理旧测试数据
+            <div className="text-xs text-gray-500 mt-0.5">删退役内容残留（一次性）</div>
+          </button>
+          <button
+            type="button"
+            role="menuitem"
+            onClick={() => { setOpen(false); onCleanupNonSchoolDays(); }}
+            className="w-full text-left px-3 py-2 text-rose-700 hover:bg-rose-50"
+            title="清掉所有周一/周末的 sessions (校历无早测日)"
+          >
+            🗓️ 清掉周一 sessions
+            <div className="text-xs text-gray-500 mt-0.5">删非上学日误排（一次性）</div>
+          </button>
+        </div>
+      )}
+    </div>
   );
 }
