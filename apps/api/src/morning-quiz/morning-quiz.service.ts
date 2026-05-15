@@ -1975,9 +1975,20 @@ export class MorningQuizService {
         // tx is updating the same script row), we log + move on instead
         // of nuking everyone else's regrade.
         await this.prisma.$transaction(async (tx) => {
+          // R15-followup-14 — was only writing `autoScore`. The student /
+          // parent dashboards display `totalScore` (= autoScore + manualScore)
+          // which is cached on the submission row. Without recomputing it,
+          // a successful regrade would update individual script awardedMarks
+          // BUT the student would still see the old totalScore — exactly the
+          // confusing "I picked the right answer and the system still says 0"
+          // pattern teachers reported after the 5/14 IELTS bulk regrade.
+          // Mirror the convention from resolveAppeal: totalScore = autoScore
+          // + manualScore (0 when unset).
+          const manualScore = sub.manualScore ?? 0;
+          const totalScore = autoScore + manualScore;
           await tx.studentSubmission.update({
             where: { id: sub.id },
-            data: { autoScore },
+            data: { autoScore, totalScore },
           });
           for (const u of scriptUpdates) {
             await tx.answerScript.update({
