@@ -915,4 +915,189 @@ export class AdminCleanupService {
     );
     return { ok: true, paperQuestionId: pq.id, paperId: pq.paperId, before, after };
   }
+
+  /**
+   * R15-followup-14b — emergency MCQ regrade that uses the historyDetail
+   * resolution order verbatim. The general regradeSession path uses
+   * autoGradeScripts which checks snapshotOptions[].correct FIRST, but
+   * for Cambridge classification papers the snapshotOptions correct flag
+   * may not match snapshotContent.correctOption (different ingest paths
+   * write to different fields). historyDetail prefers
+   * snapshotContent.correctOption first, so students see "✓ 正确" while
+   * the grader silently disagrees and reports 0 marks.
+   *
+   * This endpoint walks every MCQ AnswerScript on a session, resolves
+   * the canonical correct key with the SAME chain as historyDetail
+   * (snapshotContent.correctOption → snapshotContent.correctAnswer →
+   * snapshotOptions.find(correct=true) → answerContent.text), and
+   * rewrites autoCorrect + awardedMarks accordingly. Returns a
+   * per-script diff so the caller can audit the change.
+   *
+   * Also recomputes submission.autoScore + totalScore so the
+   * student-portal display matches.
+   */
+  async refreshMcqGradingBySession(
+    sessionId: string,
+    opts: { dryRun?: boolean } = {},
+    actor: { id: string; role: string; ip?: string | null },
+  ) {
+    const dryRun = opts.dryRun ?? true;
+    const session = await this.prisma.morningQuizSession.findUnique({
+      where: { id: sessionId },
+      select: { id: true, paperAssignmentId: true },
+    });
+    if (!session) throw new NotFoundException({ code: 'session_not_found' });
+    const submissions = await this.prisma.studentSubmission.findMany({
+      where: {
+        assignmentId: session.paperAssignmentId,
+        status: { in: ['submitted', 'locked'] },
+      },
+      include: {
+        scripts: {
+          include: {
+            paperQuestion: {
+              include: {
+                question: {
+                  select: { questionType: true, answerContent: true },
+                },
+              },
+            },
+          },
+        },
+      },
+    });
+
+    const resolveCanonicalKey = (
+      sc: any,
+      snapshotOptions: any,
+      answerContent: any,
+    ): string | null => {
+      // 1. snapshotContent.correctOption (Cambridge classification path)
+      if (sc && typeof sc.correctOption === 'string' && sc.correctOption.length > 0 && sc.correctOption.length <= 8) {
+        return sc.correctOption;
+      }
+      // 2. snapshotContent.correctAnswer (alias)
+      if (sc && typeof sc.correctAnswer === 'string' && sc.correctAnswer.length > 0 && sc.correctAnswer.length <= 8) {
+        return sc.correctAnswer;
+      }
+      // 3. snapshotOptions.find(o => o.correct === true) (legacy IELTS Y/N/NG)
+      if (Array.isArray(snapshotOptions)) {
+        const co = (snapshotOptions as any[]).find((o) => o?.correct === true);
+        if (co?.key) return String(co.key);
+      }
+      // 4. Question.answerContent.text (1-letter)
+      if (answerContent && typeof answerContent.text === 'string' && answerContent.text.length <= 8) {
+        return answerContent.text;
+      }
+      return null;
+    };
+
+    const resolveAcceptedKeys = (sc: any): string[] | null => {
+      if (!sc) return null;
+      for (const field of ['acceptedKeys', 'acceptableOptionKeys', 'acceptOptions']) {
+        const v = sc[field];
+        if (Array.isArray(v) && v.every((x: any) => typeof x === 'string')) {
+          return v as string[];
+        }
+      }
+      return null;
+    };
+
+    const diffs: Array<{
+      submissionId: string;
+      studentId: string;
+      pqId: string;
+      sortOrder: number;
+      selected: string | null;
+      canonical: string | null;
+      accepted: string[] | null;
+      before: { autoCorrect: boolean | null; awardedMarks: number | null };
+      after: { autoCorrect: boolean; awardedMarks: number };
+    }> = [];
+
+    for (const sub of submissions) {
+      const mcqScripts = sub.scripts.filter((s) => s.paperQuestion.question.questionType === 'mcq');
+      for (const sc of mcqScripts) {
+        const snap = (sc.paperQuestion as any).snapshotContent;
+        const opts = (sc.paperQuestion as any).snapshotOptions;
+        const answerContent = (sc.paperQuestion as any).question.answerContent;
+        const canonical = resolveCanonicalKey(snap, opts, answerContent);
+        const accepted = resolveAcceptedKeys(snap);
+        const selected = sc.selectedOption;
+        const isCorrect = accepted && accepted.length > 0
+          ? accepted.includes(selected ?? '')
+          : canonical != null && canonical === selected;
+        const newAwarded = isCorrect ? sc.paperQuestion.marks : 0;
+        const changed = sc.autoCorrect !== isCorrect || sc.awardedMarks !== newAwarded;
+        if (changed) {
+          diffs.push({
+            submissionId: sub.id,
+            studentId: sub.studentId,
+            pqId: sc.paperQuestionId,
+            sortOrder: sc.paperQuestion.sortOrder,
+            selected,
+            canonical,
+            accepted,
+            before: { autoCorrect: sc.autoCorrect, awardedMarks: sc.awardedMarks },
+            after: { autoCorrect: isCorrect, awardedMarks: newAwarded },
+          });
+        }
+      }
+    }
+
+    if (!dryRun && diffs.length > 0) {
+      // Group diffs by submissionId so we recompute autoScore/totalScore
+      // exactly once per submission.
+      const bySub = new Map<string, typeof diffs>();
+      for (const d of diffs) {
+        const arr = bySub.get(d.submissionId) ?? [];
+        arr.push(d);
+        bySub.set(d.submissionId, arr);
+      }
+      for (const [submissionId, subDiffs] of bySub.entries()) {
+        await this.prisma.$transaction(async (tx) => {
+          for (const d of subDiffs) {
+            await tx.answerScript.update({
+              where: {
+                submissionId_paperQuestionId: { submissionId, paperQuestionId: d.pqId },
+              },
+              data: { autoCorrect: d.after.autoCorrect, awardedMarks: d.after.awardedMarks },
+            });
+          }
+          // Recompute autoScore from all scripts.
+          const allScripts = await tx.answerScript.findMany({
+            where: { submissionId },
+            select: { awardedMarks: true },
+          });
+          const autoScore = allScripts.reduce((a, s) => a + (s.awardedMarks ?? 0), 0);
+          const subRow = await tx.studentSubmission.findUnique({
+            where: { id: submissionId },
+            select: { manualScore: true },
+          });
+          const manualScore = subRow?.manualScore ?? 0;
+          await tx.studentSubmission.update({
+            where: { id: submissionId },
+            data: { autoScore, totalScore: autoScore + manualScore },
+          });
+        });
+      }
+      await this.audit.log({
+        actorId: actor.id,
+        actorRole: actor.role,
+        action: 'admin_cleanup.refresh_mcq_grading',
+        entityType: 'MorningQuizSession',
+        entityId: sessionId,
+        ip: actor.ip ?? null,
+        metadata: { diffCount: diffs.length, dryRun: false },
+      });
+    }
+
+    return {
+      sessionId,
+      dryRun,
+      submissionsScanned: submissions.length,
+      diffCount: diffs.length,
+      diffs,
+    };
+  }
 }

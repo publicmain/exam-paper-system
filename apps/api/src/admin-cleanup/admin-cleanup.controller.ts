@@ -49,6 +49,12 @@ const PatchSnapshotSchema = z.object({
   passageTitle: z.string().min(1).max(200).optional(),
 });
 
+// R15-followup-14b — emergency MCQ regrade endpoint.
+const RefreshMcqGradingSchema = z.object({
+  sessionId: z.string().min(1).max(40),
+  dryRun: z.boolean().optional(),
+});
+
 /**
  * Admin-only data hygiene endpoints (Bugs #2 + #5).
  *
@@ -168,6 +174,32 @@ export class AdminCleanupController {
       role: actor?.role ?? 'admin',
       ip: req.ip ?? null,
     });
+  }
+
+  /**
+   * R15-followup-14b — emergency MCQ regrade that uses the historyDetail
+   * resolution order (snapshotContent.correctOption first). Used when the
+   * general /regrade path picks the wrong canonical key on Cambridge
+   * classification papers where snapshotOptions[].correct disagrees with
+   * snapshotContent.correctOption.
+   *
+   *   POST /admin-cleanup/refresh-mcq-grading-by-session
+   *   { sessionId: string, dryRun?: boolean (default true) }
+   */
+  @Post('refresh-mcq-grading-by-session')
+  refreshMcqGrading(@Body() body: unknown, @Req() req: Request) {
+    const parsed = RefreshMcqGradingSchema.safeParse(body ?? {});
+    if (!parsed.success) throw new BadRequestException(parsed.error.flatten());
+    const actor = (req as any).user ?? null;
+    return this.cleanup.refreshMcqGradingBySession(
+      parsed.data.sessionId,
+      { dryRun: parsed.data.dryRun },
+      {
+        id: actor?.id ?? actor?.userId ?? 'unknown',
+        role: actor?.role ?? 'admin',
+        ip: req.ip ?? null,
+      },
+    );
   }
 
   @Post('repair-ielts')
