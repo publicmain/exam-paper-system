@@ -44,18 +44,23 @@ export interface BatchScheduleInput {
 }
 
 // R10 — attendance window per spec:
-//   8:30:00 – 8:35:00     → on_time
-//   8:35:00 – 8:59:59.999 → late
+//   8:30:00 – 8:40:00     → on_time
+//   8:40:00 – 8:59:59.999 → late
 //   9:00:00+              → absent (an absent attendance row gets created
 //                            on attempted scan after this point so the
 //                            roster shows them as no-show)
 //   9:00:00               → quiz auto-locks; in-progress submissions
 //                            flip to submitted by the cron tick
 //
+// R15-followup-14 — teacher widened the on_time window from 5 min
+// (08:30–08:35) to 10 min (08:30–08:40). The end-of-quiz time stays at
+// 09:00 so the total quiz duration is unchanged; students who arrive in
+// the second half of the original 30-min window still get late status.
+//
 // lateCutoff is set at 08:59:59 (NOT 09:00:00) so the strict `<` invariant
 // `lateCutoff < quizEnd` still holds and the boundary-second is unambiguous.
 const ATTENDANCE_START_LOCAL = '08:30:00';
-const ATTENDANCE_END_LOCAL = '08:35:00';
+const ATTENDANCE_END_LOCAL = '08:40:00';
 const LATE_CUTOFF_LOCAL = '08:59:59';
 const QUIZ_END_LOCAL = '09:00:00';
 
@@ -1661,7 +1666,7 @@ export class MorningQuizService {
    * Inverse of debugActivateNow — restore a session that was force-activated
    * by debugActivateNow (for a dry-run) back to its canonical pre-dry-run
    * state: recompute attendanceStart / attendanceEnd / lateCutoff / quizStart
-   * / quizEnd from session.date using the standard 08:30 / 08:35 / 08:59:59
+   * / quizEnd from session.date using the standard 08:30 / 08:40 / 08:59:59
    * / 09:00 SGT constants, and flip status back to `scheduled`. Does NOT
    * touch Attendance / StudentSubmission / AnswerScript rows — those are
    * handled by clearStudentTestData. Audit-logged.
