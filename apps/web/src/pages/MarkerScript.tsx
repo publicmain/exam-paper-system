@@ -324,7 +324,14 @@ export default function MarkerScriptPage() {
               )}
             </div>
 
-            {!isMcq && script && (
+            {script && (
+              // R15-followup-14 — was `!isMcq && script` so MCQ rows had no
+              // teacher-override controls. When the MCQ auto-grader misfires
+              // (e.g. shuffled key reverse-map bug, mis-tagged correctOption,
+              // missed acceptedKeys entry) the only way to fix a wrong 0 was
+              // to redeploy + re-grade the whole class. Now teachers can edit
+              // marks per-script just like short_answer. Awarded value still
+              // bounded server-side by pq.marks.
               <div className="mt-3 border-t pt-3 space-y-2">
                 <div className="flex items-center gap-2">
                   <label className="text-sm font-semibold">Marks</label>
@@ -344,6 +351,11 @@ export default function MarkerScriptPage() {
                     }
                   />
                   <span className="text-xs text-gray-500">/ {pq.marks}</span>
+                  {isMcq && (
+                    <span className="text-xs text-amber-600 ml-2">
+                      MCQ 自动判分覆写 · 改后请保存
+                    </span>
+                  )}
                 </div>
                 <textarea
                   className="w-full border rounded p-2 text-sm font-sans"

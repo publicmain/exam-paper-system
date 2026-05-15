@@ -556,7 +556,7 @@ export const api = {
       reason: string;
       awardAllStudents: boolean;
     },
-  ) => request('POST', `/papers/${paperId}/retract-question`, body),
+  ) => request('POST', `/morning-quiz/papers/${paperId}/retract-question`, body),
 
   // ROUND 14 — Feature 18 (wrong-rate display)
   paperWrongRate: (paperId: string): Promise<{

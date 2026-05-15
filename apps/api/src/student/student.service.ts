@@ -175,10 +175,43 @@ export async function autoGradeScripts(
         }
         return null;
       })();
+      // R15-followup-14 — MCQ grader fallback chain.
+      //
+      // Previous behaviour: only honoured `correctOpt = opts.find(correct: true)`.
+      // Cambridge IELTS classification + matching_information ingests store
+      // the canonical answer key in `snapshotContent.correctOption` /
+      // `snapshotContent.correctAnswer` instead of marking one option as
+      // `correct: true` (the options are a SHARED bank across multiple
+      // questions, so the per-row "correct" flag would be ambiguous).
+      // Without this fallback the grader saw `correctOpt === undefined` for
+      // every such question and marked every student's pick wrong — even
+      // when they picked the right letter. On 2026-05-14 morning quiz the
+      // IELTS section's classification block (Q23-Q26) graded an entire
+      // class to 0 despite the history-detail UI showing "✓ 正确" because
+      // historyDetail already had the same fallback chain. This aligns
+      // grader logic with historyDetail (morning-quiz.service.ts:2430).
+      let canonicalCorrectKey: string | null = correctOpt?.key ?? null;
+      if (!canonicalCorrectKey && sc) {
+        for (const field of ['correctOption', 'correctAnswer']) {
+          const v = sc[field];
+          if (typeof v === 'string' && v.length > 0 && v.length <= 8) {
+            canonicalCorrectKey = v;
+            break;
+          }
+        }
+      }
+      // Final defensive fallback — Question.answerContent.text (1-letter
+      // short answers like "ii" / "B" that some legacy ingests use).
+      if (!canonicalCorrectKey) {
+        const ac = (q as any).answerContent as { text?: unknown } | null;
+        if (typeof ac?.text === 'string' && ac.text.length <= 8) {
+          canonicalCorrectKey = ac.text;
+        }
+      }
       const selected = script.selectedOption;
       const isCorrect = accepted && accepted.length > 0
         ? accepted.includes(selected ?? '')
-        : correctOpt?.key === selected;
+        : canonicalCorrectKey != null && canonicalCorrectKey === selected;
       const awarded = isCorrect ? script.paperQuestion.marks : 0;
       autoScore += awarded;
       scriptUpdates.push({ id: script.id, autoCorrect: isCorrect, awardedMarks: awarded });
