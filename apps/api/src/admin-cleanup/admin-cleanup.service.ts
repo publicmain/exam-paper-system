@@ -1103,7 +1103,7 @@ export class AdminCleanupService {
       });
     }
 
-    // R15-followup-14b — debug trace. Return the first 12 MCQ scripts'
+    // R15-followup-14b — debug trace. Return ALL MCQ scripts'
     // resolved values regardless of whether they differ from stored, so
     // the caller can see WHY no diff was detected.
     const trace: any[] = [];
@@ -1111,7 +1111,7 @@ export class AdminCleanupService {
     for (const sub of submissions) {
       for (const sc of sub.scripts) {
         if (sc.paperQuestion.question.questionType !== 'mcq') continue;
-        if (traced >= 12) break;
+        if (traced >= 200) break;
         const snap = (sc.paperQuestion as any).snapshotContent;
         const opts = (sc.paperQuestion as any).snapshotOptions;
         const answerContent = (sc.paperQuestion as any).question.answerContent;
@@ -1126,7 +1126,9 @@ export class AdminCleanupService {
           submissionId: sub.id,
           studentId: sub.studentId,
           pqOrder: sc.paperQuestion.sortOrder,
+          pqId: sc.paperQuestionId,
           selectedRaw: selected,
+          selectedHex: selected == null ? null : Array.from(selected).map(c => c.charCodeAt(0).toString(16)).join(','),
           canonicalRaw: canonical,
           acceptedRaw: accepted,
           storedAutoCorrect: sc.autoCorrect,
@@ -1135,7 +1137,7 @@ export class AdminCleanupService {
         });
         traced++;
       }
-      if (traced >= 12) break;
+      if (traced >= 200) break;
     }
     return {
       sessionId,
