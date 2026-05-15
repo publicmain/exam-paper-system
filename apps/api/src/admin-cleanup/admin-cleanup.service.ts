@@ -1103,12 +1103,47 @@ export class AdminCleanupService {
       });
     }
 
+    // R15-followup-14b — debug trace. Return the first 12 MCQ scripts'
+    // resolved values regardless of whether they differ from stored, so
+    // the caller can see WHY no diff was detected.
+    const trace: any[] = [];
+    let traced = 0;
+    for (const sub of submissions) {
+      for (const sc of sub.scripts) {
+        if (sc.paperQuestion.question.questionType !== 'mcq') continue;
+        if (traced >= 12) break;
+        const snap = (sc.paperQuestion as any).snapshotContent;
+        const opts = (sc.paperQuestion as any).snapshotOptions;
+        const answerContent = (sc.paperQuestion as any).question.answerContent;
+        const canonical = resolveCanonicalKey(snap, opts, answerContent);
+        const accepted = resolveAcceptedKeys(snap);
+        const selected = sc.selectedOption;
+        const selectedN = norm(selected);
+        const isCorrect = accepted && accepted.length > 0
+          ? accepted.map(norm).includes(selectedN)
+          : canonical != null && norm(canonical) === selectedN;
+        trace.push({
+          submissionId: sub.id,
+          studentId: sub.studentId,
+          pqOrder: sc.paperQuestion.sortOrder,
+          selectedRaw: selected,
+          canonicalRaw: canonical,
+          acceptedRaw: accepted,
+          storedAutoCorrect: sc.autoCorrect,
+          storedAwarded: sc.awardedMarks,
+          computedIsCorrect: isCorrect,
+        });
+        traced++;
+      }
+      if (traced >= 12) break;
+    }
     return {
       sessionId,
       dryRun,
       submissionsScanned: submissions.length,
       diffCount: diffs.length,
       diffs,
+      trace,
     };
   }
 }
