@@ -55,6 +55,12 @@ const RefreshMcqGradingSchema = z.object({
   dryRun: z.boolean().optional(),
 });
 
+// R15-followup-14b — hard-delete sessions so batch-generate can re-fill
+// the (classId, date, level) tuple with a fresh paper.
+const HardDeleteSessionsSchema = z.object({
+  sessionIds: z.array(z.string().min(1).max(40)).min(1).max(30),
+});
+
 /**
  * Admin-only data hygiene endpoints (Bugs #2 + #5).
  *
@@ -186,6 +192,26 @@ export class AdminCleanupController {
    *   POST /admin-cleanup/refresh-mcq-grading-by-session
    *   { sessionId: string, dryRun?: boolean (default true) }
    */
+  /**
+   * R15-followup-14b — hard-delete cancelled sessions so the (classId,
+   * date, level) tuple is vacated for batch-generate re-fill. Refuses
+   * sessions that carry non-absent attendance.
+   *
+   *   POST /admin-cleanup/hard-delete-sessions
+   *   { sessionIds: string[] (1-30) }
+   */
+  @Post('hard-delete-sessions')
+  hardDeleteSessions(@Body() body: unknown, @Req() req: Request) {
+    const parsed = HardDeleteSessionsSchema.safeParse(body ?? {});
+    if (!parsed.success) throw new BadRequestException(parsed.error.flatten());
+    const actor = (req as any).user ?? null;
+    return this.cleanup.hardDeleteSessions(parsed.data.sessionIds, {
+      id: actor?.id ?? actor?.userId ?? 'unknown',
+      role: actor?.role ?? 'admin',
+      ip: req.ip ?? null,
+    });
+  }
+
   @Post('refresh-mcq-grading-by-session')
   refreshMcqGrading(@Body() body: unknown, @Req() req: Request) {
     const parsed = RefreshMcqGradingSchema.safeParse(body ?? {});

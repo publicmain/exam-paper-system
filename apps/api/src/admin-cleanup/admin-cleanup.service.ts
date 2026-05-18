@@ -1,4 +1,4 @@
-import { Injectable, Logger, NotFoundException } from '@nestjs/common';
+import { ForbiddenException, Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { AuditService } from '../audit/audit.service';
 import { PrismaService } from '../common/prisma.service';
 
@@ -1167,5 +1167,88 @@ export class AdminCleanupService {
       diffs,
       trace,
     };
+  }
+
+  /**
+   * R15-followup-14b — hard-delete a list of MorningQuizSession rows + their
+   * cascade-related Paper / PaperAssignment / PaperQuestion / Attendance /
+   * StudentSubmission / AnswerScript rows. Use when a session has been
+   * cancelled (or has bad data) and the (classId, date, level) tuple needs
+   * to be vacated so batch-generate can re-fill it with a fresh paper.
+   *
+   * Refuses sessions that have a non-absent attendance row (real student
+   * work). The caller must purge those via the existing
+   * purge-submissions-by-id flow first. Audit-logged.
+   */
+  async hardDeleteSessions(
+    sessionIds: string[],
+    actor: { id: string; role: string; ip?: string | null },
+  ) {
+    if (actor.role !== 'admin') {
+      throw new ForbiddenException({ code: 'admin_required' });
+    }
+    const sessions = await (this.prisma as any).morningQuizSession.findMany({
+      where: { id: { in: sessionIds } },
+      include: {
+        attendances: { select: { id: true, status: true, submissionId: true } },
+        paperAssignment: { select: { id: true, paperId: true } },
+      },
+    });
+    const blocked: Array<{ sessionId: string; reason: string }> = [];
+    const deleted: string[] = [];
+    for (const s of sessions as Array<{
+      id: string;
+      paperAssignment: { id: string; paperId: string } | null;
+      attendances: Array<{ id: string; status: string; submissionId: string | null }>;
+    }>) {
+      const realAtts = (s.attendances || []).filter(
+        (a) => a.status !== 'absent' || a.submissionId != null,
+      );
+      if (realAtts.length > 0) {
+        blocked.push({
+          sessionId: s.id,
+          reason: `has ${realAtts.length} non-absent attendance row(s); purge those first`,
+        });
+        continue;
+      }
+      try {
+        await this.prisma.$transaction(async (tx) => {
+          // Drop any absent attendance rows the cron seeded (no student
+          // work attached, so safe to delete unconditionally).
+          await tx.attendance.deleteMany({ where: { sessionId: s.id } });
+          // Drop the session row (Paper still referenced via PaperAssignment;
+          // we delete that next).
+          await tx.morningQuizSession.delete({ where: { id: s.id } });
+          if (s.paperAssignment) {
+            // Drop the PaperAssignment + its Paper (cascade removes
+            // PaperQuestion). If other classes share this paperId (rare),
+            // skip the paper delete.
+            const otherAssignments = await tx.paperAssignment.count({
+              where: { paperId: s.paperAssignment.paperId, NOT: { id: s.paperAssignment.id } },
+            });
+            await tx.paperAssignment.delete({ where: { id: s.paperAssignment.id } });
+            if (otherAssignments === 0) {
+              await tx.paper.delete({ where: { id: s.paperAssignment.paperId } }).catch(() => {
+                // Best-effort: if FK restrict blocks (e.g. shared question
+                // bank), leave the paper row and just drop the assignment.
+              });
+            }
+          }
+        });
+        deleted.push(s.id);
+      } catch (e: any) {
+        blocked.push({ sessionId: s.id, reason: e?.message?.slice(0, 200) ?? 'tx-failed' });
+      }
+    }
+    await this.audit.log({
+      actorId: actor.id,
+      actorRole: actor.role,
+      action: 'admin_cleanup.hard_delete_sessions',
+      entityType: 'MorningQuizSession',
+      entityId: '(batch)',
+      ip: actor.ip ?? null,
+      metadata: { requested: sessionIds.length, deleted: deleted.length, blocked: blocked.length },
+    });
+    return { requested: sessionIds.length, deleted, blocked };
   }
 }
