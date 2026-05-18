@@ -17,6 +17,20 @@ const ASSET_STORE = process.env.AI_IMAGE_STORAGE_PATH
  * via SVG, instead of asking gpt-image-2 to "draw a perpendicular bisector"
  * (which gets the slope wrong because image models do not compute geometry).
  */
+/**
+ * Per-element role used to separate "given" data from "answer" overlays so
+ * the same spec can produce both a blank student grid (mode='blank') and a
+ * solved answer-key figure (mode='solution').
+ *
+ * - 'given' (default) — always rendered; data the question itself supplies
+ *   (e.g. labelled point A(2,7) in a geometry question).
+ * - 'answer' — only rendered in solution mode; an overlay the student is
+ *   asked to plot/draw/find. Q3 in a Functions-and-graphs paper that says
+ *   "plot the six points from the table" should tag those six points as
+ *   'answer' so they don't appear pre-plotted on the student paper.
+ */
+export type DiagramElementRole = 'given' | 'answer';
+
 export interface CoordinatePlaneSpec {
   kind: 'coordinate_plane';
   xRange: [number, number];
@@ -30,6 +44,7 @@ export interface CoordinatePlaneSpec {
     /** Where to place the label relative to the point. Default top-right. */
     labelPos?: 'top' | 'bottom' | 'left' | 'right'
              | 'top-right' | 'top-left' | 'bottom-right' | 'bottom-left';
+    role?: DiagramElementRole;
   }>;
   /** Finite line segments. */
   segments?: Array<{
@@ -37,6 +52,7 @@ export interface CoordinatePlaneSpec {
     to: [number, number];
     label?: string;
     style?: 'solid' | 'dashed';
+    role?: DiagramElementRole;
   }>;
   /** Infinite lines, defined either by point+slope or as a vertical x=k. */
   lines?: Array<{
@@ -46,12 +62,14 @@ export interface CoordinatePlaneSpec {
     verticalX?: number;
     label?: string;
     style?: 'solid' | 'dashed';
+    role?: DiagramElementRole;
   }>;
   /** Parabola y = a x² + b x + c. */
   parabolas?: Array<{
     a: number; b: number; c: number;
     label?: string;
     style?: 'solid' | 'dashed';
+    role?: DiagramElementRole;
   }>;
   /** Sine/cosine waveforms for waveform-type diagrams. y = amplitude *
    *  sin(frequency * x + phase) + vertOffset. Two cycles or so worth in
@@ -63,8 +81,16 @@ export interface CoordinatePlaneSpec {
     vertOffset?: number;
     label?: string;
     style?: 'solid' | 'dashed';
+    role?: DiagramElementRole;
   }>;
 }
+
+/** Render mode for diagram specs.
+ *  - 'blank' (default) — student-paper version. Elements tagged role='answer'
+ *    are stripped so the question remains solvable.
+ *  - 'solution' — answer-key version. Every element renders.
+ */
+export type DiagramRenderMode = 'blank' | 'solution';
 
 /**
  * Graphviz DOT-syntax spec used for CS-style network diagrams (flowcharts,
@@ -230,6 +256,10 @@ export interface SvgGenerateInput {
   syllabus?: string;
   topicCode?: string;
   altText?: string;
+  /** Default 'blank' so generated assets are safe to drop straight into
+   *  student papers without leaking answer overlays. Set to 'solution'
+   *  when generating the answer-key variant. */
+  mode?: DiagramRenderMode;
 }
 
 export interface SvgGenerateResult {
@@ -266,7 +296,7 @@ export class SvgDiagramService {
     });
     if (!question) throw new BadRequestException('question not found');
 
-    const svg = await this.renderSpec(input.spec);
+    const svg = await this.renderSpec(input.spec, input.mode ?? 'blank');
 
     const dir = path.join(ASSET_STORE, input.questionId);
     await fs.mkdir(dir, { recursive: true });
@@ -307,9 +337,15 @@ export class SvgDiagramService {
   }
 
   /** Top-level dispatch by spec.kind. Async because Graphviz uses wasm
-   *  and circuit rendering hits the pdf-worker over HTTP. */
-  async renderSpec(spec: AnyDiagramSpec): Promise<string> {
-    if (spec.kind === 'coordinate_plane') return this.renderCoordinatePlane(spec);
+   *  and circuit rendering hits the pdf-worker over HTTP. `mode` is
+   *  threaded through to renderers that distinguish given vs answer
+   *  overlays (currently only coordinate_plane). Other kinds always
+   *  render everything they're given. */
+  async renderSpec(
+    spec: AnyDiagramSpec,
+    mode: DiagramRenderMode = 'blank',
+  ): Promise<string> {
+    if (spec.kind === 'coordinate_plane') return this.renderCoordinatePlane(spec, mode);
     if (spec.kind === 'graphviz_dot') return this.renderGraphvizDot(spec);
     if (spec.kind === 'free_body') return this.renderFreeBody(spec);
     if (spec.kind === 'energy_level') return this.renderEnergyLevel(spec);
@@ -825,8 +861,14 @@ export class SvgDiagramService {
     return this.graphvizPromise;
   }
 
-  /** Pure renderer — exposed for tests. Returns a self-contained SVG string. */
-  renderCoordinatePlane(spec: CoordinatePlaneSpec): string {
+  /** Pure renderer — exposed for tests. Returns a self-contained SVG string.
+   *  In 'blank' mode (default), elements tagged role='answer' are stripped
+   *  so the figure is safe to show on the student paper. Use 'solution' for
+   *  the answer-key version. */
+  renderCoordinatePlane(spec: CoordinatePlaneSpec, mode: DiagramRenderMode = 'blank'): string {
+    const visible = <T extends { role?: DiagramElementRole }>(el: T): boolean =>
+      mode === 'solution' || el.role !== 'answer';
+
     const [xMin, xMax] = spec.xRange;
     const [yMin, yMax] = spec.yRange;
     if (!(xMax > xMin) || !(yMax > yMin)) {
@@ -894,6 +936,7 @@ export class SvgDiagramService {
 
     // Infinite lines
     for (const line of spec.lines || []) {
+      if (!visible(line)) continue;
       const dash = line.style === 'dashed' ? ' stroke-dasharray="5,4"' : '';
       if (typeof line.verticalX === 'number') {
         const xv = line.verticalX;
@@ -920,6 +963,7 @@ export class SvgDiagramService {
 
     // Parabolas (sample 80 points, clip)
     for (const p of spec.parabolas || []) {
+      if (!visible(p)) continue;
       const dash = p.style === 'dashed' ? ' stroke-dasharray="5,4"' : '';
       const pts: string[] = [];
       const N = 80;
@@ -953,6 +997,7 @@ export class SvgDiagramService {
 
     // Sine / cosine waveforms — y = A * sin(B*x + C) + D
     for (const c of spec.sineCurves || []) {
+      if (!visible(c)) continue;
       const dash = c.style === 'dashed' ? ' stroke-dasharray="5,4"' : '';
       const A = c.amplitude;
       const B = c.frequency;
@@ -991,6 +1036,7 @@ export class SvgDiagramService {
 
     // Segments
     for (const seg of spec.segments || []) {
+      if (!visible(seg)) continue;
       const dash = seg.style === 'dashed' ? ' stroke-dasharray="5,4"' : '';
       const [x1, y1] = seg.from;
       const [x2, y2] = seg.to;
@@ -1004,6 +1050,7 @@ export class SvgDiagramService {
 
     // Points (drawn last, on top)
     for (const pt of spec.points || []) {
+      if (!visible(pt)) continue;
       parts.push(`<circle cx="${px(pt.x)}" cy="${py(pt.y)}" r="2.6" fill="black"/>`);
       if (pt.label) {
         const pos = pt.labelPos || 'top-right';

@@ -7,6 +7,7 @@ import {
 import Anthropic from '@anthropic-ai/sdk';
 import { PrismaService } from '../common/prisma.service';
 import { AuditService } from '../audit/audit.service';
+import { QuickPaperAuditService } from './quick-paper-audit.service';
 import {
   ComplianceStatus,
   QuestionItemSource,
@@ -49,22 +50,30 @@ export interface GenerateQuestionsResult {
 
 /** Structured math-diagram spec for type=geometry/graph. AI emits exact
  *  geometry; SVG renderer draws it precisely (image models can't compute
- *  slopes / midpoints / intersections). */
+ *  slopes / midpoints / intersections).
+ *
+ *  Per-element `role` separates "given" data (data the question itself
+ *  supplies, e.g. a labelled point A(2,7) in a geometry stem) from
+ *  "answer" overlays (things the student is asked to plot, draw, or
+ *  find — e.g. the six table points in a "Plot the points from the
+ *  table" question). Student-paper SVGs are rendered in mode='blank',
+ *  which strips role='answer' elements so the question stays solvable. */
 export interface CoordinateMathSpec {
   kind: 'coordinate_plane';
   xRange: [number, number];
   yRange: [number, number];
   gridStep?: number;
-  points?: Array<{ x: number; y: number; label?: string; labelPos?: string }>;
-  segments?: Array<{ from: [number, number]; to: [number, number]; label?: string; style?: 'solid' | 'dashed' }>;
+  points?: Array<{ x: number; y: number; label?: string; labelPos?: string; role?: 'given' | 'answer' }>;
+  segments?: Array<{ from: [number, number]; to: [number, number]; label?: string; style?: 'solid' | 'dashed'; role?: 'given' | 'answer' }>;
   lines?: Array<{
     point?: [number, number];
     slope?: number;
     verticalX?: number;
     label?: string;
     style?: 'solid' | 'dashed';
+    role?: 'given' | 'answer';
   }>;
-  parabolas?: Array<{ a: number; b: number; c: number; label?: string; style?: 'solid' | 'dashed' }>;
+  parabolas?: Array<{ a: number; b: number; c: number; label?: string; style?: 'solid' | 'dashed'; role?: 'given' | 'answer' }>;
 }
 
 /** Graphviz DOT-syntax spec for type=flowchart/data_structure/network_topology/
@@ -258,6 +267,7 @@ export class AiQuestionGeneratorService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly audit: AuditService,
+    private readonly qpAudit: QuickPaperAuditService,
   ) {
     const apiKey = process.env.ANTHROPIC_API_KEY;
     this.model = process.env.ANTHROPIC_MODEL || 'claude-sonnet-4-6';
@@ -436,7 +446,41 @@ export class AiQuestionGeneratorService {
     const errors: string[] = [];
     const created: GeneratedQuestionItemSummary[] = [];
 
+    // R15-followup-15: 10-step audit. Runs over each parsed question
+    // BEFORE we write it to the DB so a question with show-stopping
+    // findings (table values that contradict the formula, diagram
+    // overlays that leak the answer, unbalanced math delimiters, etc.)
+    // never reaches the question bank. Errors drop the question;
+    // warnings are logged and surfaced through the audit log.
+    const auditReports = parsed.map((q, i) =>
+      this.qpAudit.audit({
+        ref: `Q${i + 1}`,
+        stem: q.stem,
+        parts: q.parts,
+        totalMarks: q.totalMarks,
+        questionType: q.questionType,
+        diagram: q.diagram?.needed ? { needed: true, type: q.diagram.type, spec: (q.diagram as any).spec } : undefined,
+      }),
+    );
+    const droppedByAudit = new Set<number>();
+    const auditWarnings: string[] = [];
+    auditReports.forEach((rep, i) => {
+      for (const finding of rep.findings) {
+        const line = `Q${i + 1} ${finding.checkId}: ${finding.message}`;
+        if (finding.severity === 'error') {
+          droppedByAudit.add(i);
+          errors.push(`audit: ${line}`);
+        } else {
+          auditWarnings.push(line);
+        }
+      }
+    });
+    if (auditWarnings.length > 0) {
+      this.logger.warn(`ai-gen audit warnings (${auditWarnings.length}): ${auditWarnings.slice(0, 5).join(' | ')}`);
+    }
+
     for (let i = 0; i < parsed.length; i++) {
+      if (droppedByAudit.has(i)) continue;
       const q = parsed[i];
       try {
         const item = await this.prisma.$transaction(async (tx) => {
@@ -512,6 +556,11 @@ export class AiQuestionGeneratorService {
         promptChars: prompt.userText.length,
         difficulty: input.difficulty ?? null,
         multiPart: input.multiPart ?? false,
+        auditDropped: droppedByAudit.size,
+        auditWarnings: auditWarnings.slice(0, 50),
+        auditFindings: auditReports.flatMap((rep, i) =>
+          rep.findings.map((fd) => ({ q: i + 1, ...fd })),
+        ).slice(0, 50),
       },
       ip: actor.ip ?? null,
     });
@@ -576,6 +625,17 @@ Authoring principles:
 - Use exact values where appropriate (\`$\\sqrt{2}$\`, \`$\\frac{\\pi}{3}$\`); decimal approximations only when explicitly required.
 - Time-per-mark calibration: roughly 1.0 minute per mark.
 - Diagram suggestions are HIGH VALUE for: geometric figures, coordinate-axes plots, statistical charts. LOW value for: algebraic manipulation, calculus computations, pure-trig identities.`;
+    }
+    if (syllabusCode === '4024') {
+      return `Subject: Singapore-Cambridge 4024 O-Level Mathematics.
+- This is a Singapore-Cambridge O-Level paper, NOT an A-Level paper. Pitch difficulty accordingly: a typical "standard exam" item (difficulty 3) is what an upper-secondary student would meet on Paper 1 or Paper 2 of 4024, NOT what a 9709 student would meet.
+- Time-per-mark calibration: roughly 1.0 minute per mark; 4024 Paper 2 is 100 marks in 150 min.
+- Calculator allowed in Paper 2 (most quick-paper output). Numerical answers: 3 sig fig unless the question specifies otherwise, or exact form (surd / fraction) when natural.
+- Use proper notation: \`$\\sqrt{2}$\`, \`$\\frac{1}{3}$\`, \`$\\pi$\`, \`$x^2$\` inside \`$...$\`. NEVER emit a bare superscript Unicode character (²/³) outside a math span — the PDF renderer's text extractor mangles them. Always wrap exponents in \`$...$\`.
+- For tabulated function values (y = f(x) tables), COMPUTE every table cell yourself by substituting x into the formula. The pipeline runs a numeric audit that rejects tables whose cells do not match the formula. Show whole numbers when the formula produces them (\`y = 6/x + x - 5\` at x=2 is 0, NOT -0.5 or "≈0").
+- For graph-plotting questions: emit the diagram spec as a BLANK GRID with role="answer" on every points/curves/lines element the student is asked to plot or draw. NEVER pre-plot the table points on the student version of the figure — they appear in the answer key only.
+- Diagram HIGH VALUE for: coordinate graphs (function plots, transformations), geometric figures (Pythagoras, similar triangles, circle theorems), bearings/trigonometry, vector arrows, statistical charts (histograms, cumulative frequency, scatter, box plots), Venn diagrams, nets / 3D shapes. LOW VALUE for: pure-number arithmetic, algebraic manipulation, mensuration with given measurements only, sequence-pattern questions whose pattern is verbal.
+- Topic codes follow the 4024 syllabus: OL.1 Number, OL.2 Algebra, OL.3 Mensuration, OL.4 Functions and graphs, OL.5 Geometry, OL.6 Trigonometry, OL.7 Vectors, OL.8 Statistics & probability, etc.`;
     }
     if (syllabusCode === '9701') {
       return `Subject: CIE 9701 Chemistry.
@@ -668,19 +728,19 @@ SVG from your spec instead. Schema for spec:
   "yRange": [yMin, yMax],          // same
   "gridStep": 1,                    // optional grid unit, default 1
   "points": [
-    { "x": 2, "y": 7, "label": "A(2, 7)", "labelPos": "top-right" }
+    { "x": 2, "y": 7, "label": "A(2, 7)", "labelPos": "top-right", "role": "given" }
   ],
   "segments": [
-    { "from": [2, 7], "to": [6, -1], "label": "AB", "style": "solid" }
+    { "from": [2, 7], "to": [6, -1], "label": "AB", "style": "solid", "role": "given" }
   ],
   "lines": [
     /* infinite lines: either point+slope OR verticalX */
-    { "point": [4, 3], "slope": 0.5, "label": "l", "style": "solid" },
-    { "verticalX": 4, "label": "x = 4", "style": "dashed" }
+    { "point": [4, 3], "slope": 0.5, "label": "l", "style": "solid", "role": "answer" },
+    { "verticalX": 4, "label": "x = 4", "style": "dashed", "role": "given" }
   ],
   "parabolas": [
     /* y = a x^2 + b x + c */
-    { "a": 1, "b": 0, "c": -3, "label": "y = x² − 3" }
+    { "a": 1, "b": 0, "c": -3, "label": "y = x² − 3", "role": "answer" }
   ]
 }
 
@@ -695,6 +755,38 @@ CRITICAL when emitting spec:
 - Use "labelPos" to keep point labels from colliding with line labels.
 - "scene" can stay short and natural-language; the rendered figure comes from
   the spec.
+
+CRITICAL — student paper vs answer key (READ THIS, DO NOT SKIP):
+Every points/segments/lines/parabolas element MUST carry a "role" of either
+"given" or "answer". The renderer strips role="answer" elements from the
+student paper so the question stays solvable; they appear only on the
+answer-key version. Misclassifying overlays as "given" is the single
+biggest failure mode of this pipeline — graphs end up shipping with the
+answers pre-drawn.
+
+  Use "role": "given" when the element is data the question itself
+  supplies and the student needs to see:
+    - A labelled point named in the stem (e.g. A(2,7), the curve passes
+      through P).
+    - Pre-drawn axes-only reference points like the origin label, or a
+      vertical asymptote x = 4 that the stem explicitly states.
+    - The principal curve y = f(x) when the stem TELLS the student "the
+      diagram shows y = f(x)" and asks them to read values OFF it.
+
+  Use "role": "answer" when the student is asked to plot, draw, find,
+  calculate, or otherwise produce the element themselves:
+    - Points from a table when the part says "plot the points from the
+      table". (Do NOT pre-plot them.)
+    - A curve through plotted points when the part says "draw a smooth
+      curve through them". (Do NOT pre-draw it.)
+    - A "suitable straight line" the student is asked to draw to solve
+      a graphical equation in a later part.
+    - The intersection point(s) the student is asked to find.
+    - A perpendicular bisector / tangent / normal the student is asked
+      to construct.
+
+If unsure, default to "answer". A blank grid + table is always solvable;
+a pre-solved figure is not a question.
 
 CS-style graph diagrams (REQUIRED structured spec via Graphviz):
 For type "flowchart", "data_structure", "network_topology", or "logic_gate"
@@ -1498,12 +1590,15 @@ existing math renderer handles scatter via points + axes.`;
     const yRange = this.parseRange(s.yRange);
     if (!xRange || !yRange) return null;
     const num = (v: any) => (typeof v === 'number' && Number.isFinite(v) ? v : null);
+    const role = (v: any): 'given' | 'answer' | undefined =>
+      v === 'answer' ? 'answer' : v === 'given' ? 'given' : undefined;
     const points = Array.isArray(s.points)
       ? s.points.flatMap((p: any) => {
           const x = num(p?.x); const y = num(p?.y);
           if (x === null || y === null) return [];
           return [{ x, y, label: p?.label ? String(p.label).slice(0, 60) : undefined,
-                    labelPos: p?.labelPos ? String(p.labelPos) : undefined }];
+                    labelPos: p?.labelPos ? String(p.labelPos) : undefined,
+                    role: role(p?.role) }];
         }).slice(0, 20)
       : [];
     const segments = Array.isArray(s.segments)
@@ -1511,7 +1606,8 @@ existing math renderer handles scatter via points + axes.`;
           const f = this.parseXY(g?.from); const t = this.parseXY(g?.to);
           if (!f || !t) return [];
           return [{ from: f, to: t, label: g?.label ? String(g.label).slice(0, 60) : undefined,
-                    style: g?.style === 'dashed' ? 'dashed' : 'solid' as const }];
+                    style: g?.style === 'dashed' ? 'dashed' : 'solid' as const,
+                    role: role(g?.role) }];
         }).slice(0, 20)
       : [];
     const lines = Array.isArray(s.lines)
@@ -1526,6 +1622,7 @@ existing math renderer handles scatter via points + axes.`;
             verticalX: vX ?? undefined,
             label: l?.label ? String(l.label).slice(0, 60) : undefined,
             style: l?.style === 'dashed' ? 'dashed' : 'solid' as const,
+            role: role(l?.role),
           }];
         }).slice(0, 10)
       : [];
@@ -1534,7 +1631,8 @@ existing math renderer handles scatter via points + axes.`;
           const a = num(p?.a); const b = num(p?.b); const c = num(p?.c);
           if (a === null || b === null || c === null) return [];
           return [{ a, b, c, label: p?.label ? String(p.label).slice(0, 60) : undefined,
-                    style: p?.style === 'dashed' ? 'dashed' : 'solid' as const }];
+                    style: p?.style === 'dashed' ? 'dashed' : 'solid' as const,
+                    role: role(p?.role) }];
         }).slice(0, 5)
       : [];
     if (points.length === 0 && segments.length === 0 && lines.length === 0 && parabolas.length === 0) {

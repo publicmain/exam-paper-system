@@ -100,22 +100,40 @@ function renderInline(text: string): string {
   working = working.replace(/(?<!\*)\*([^*\n]+?)\*(?!\*)/g, (_m, body) =>
     pushSlot(`<em>${escapeHtml(body)}</em>`));
 
-  // 5. GFM tables
-  const tableRe = /(?:^|\n)(\|[^\n]+\|)\n\|[\s\-:|]+\|\n((?:\|[^\n]+\|(?:\n|$))+)/g;
-  working = working.replace(tableRe, (_m, headerLine: string, bodySection: string) => {
+  // 5. Markdown tables.
+  //
+  // Originally we only matched strict GFM (header | separator | body). The
+  // problem: when the AI omitted the separator row — a common
+  // hallucination — the entire block fell through to the escape-+-<br/>
+  // path, dumping raw pipes into the PDF. Worse, the AI's lone "x" and
+  // numeric cells could be picked up by the italic regex earlier, leaving
+  // orphan characters like "x2" floating between the stem and the
+  // diagram. We now match any consecutive run of `|...|` lines (>= 2):
+  // the first row is the header, any separator-shaped row is dropped,
+  // the rest are body rows.
+  const tableBlockRe = /(?:^|\n)((?:[ \t]*\|[^\n]+\|[ \t]*(?:\n|$)){2,})/g;
+  working = working.replace(tableBlockRe, (_m, block: string) => {
+    const rawRows = block.trim().split('\n')
+      .map((r) => r.trim())
+      .filter((r) => r.length > 0);
+    if (rawRows.length < 2) return _m;
     const parseCells = (line: string) =>
-      line.replace(/^\||\|$/g, '').split('|').map(c => c.trim());
-    const headerCells = parseCells(headerLine);
-    const bodyRows = bodySection.trim().split('\n').map(parseCells);
-    if (headerCells.length === 0 || bodyRows.length === 0) return _m;
+      line.replace(/^\||\|$/g, '').split('|').map((c) => c.trim());
+    const separatorRe = /^[\s\-:|]+$/;
+    const headerCells = parseCells(rawRows[0]);
+    if (headerCells.length === 0) return _m;
+    const bodyRows = rawRows.slice(1)
+      .filter((r) => !separatorRe.test(r.replace(/^\||\|$/g, '').trim()))
+      .map(parseCells);
+    if (bodyRows.length === 0) return _m;
     const cell = (c: string) =>
       escapeHtml(c).replace(new RegExp(`${SLOT_MARK}K(\\d+)${SLOT_MARK}`, 'g'),
         (m, i) => slots[Number(i)] ?? m);
     let html = '<table class="md-table">';
-    html += '<thead><tr>' + headerCells.map(c => `<th>${cell(c)}</th>`).join('') + '</tr></thead>';
+    html += '<thead><tr>' + headerCells.map((c) => `<th>${cell(c)}</th>`).join('') + '</tr></thead>';
     html += '<tbody>';
     for (const row of bodyRows) {
-      html += '<tr>' + row.map(c => `<td>${cell(c)}</td>`).join('') + '</tr>';
+      html += '<tr>' + row.map((c) => `<td>${cell(c)}</td>`).join('') + '</tr>';
     }
     html += '</tbody></table>';
     return '\n' + pushSlot(html);

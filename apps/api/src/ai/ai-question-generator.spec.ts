@@ -8,8 +8,8 @@ import { AiQuestionGeneratorService } from './ai-question-generator.service';
  */
 
 function makeService(): AiQuestionGeneratorService {
-  // Both deps unused by the methods under test.
-  return new AiQuestionGeneratorService(null as any, null as any);
+  // All deps unused by the methods under test.
+  return new AiQuestionGeneratorService(null as any, null as any, null as any);
 }
 
 describe('AiQuestionGeneratorService — B5 uiKind contract', () => {

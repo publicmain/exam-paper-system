@@ -7,6 +7,7 @@ import { SvgDiagramService } from './svg-diagram.service';
 import { RemoteRenderService } from './remote-render.service';
 import { AiQuestionGeneratorService } from './ai-question-generator.service';
 import { QuickPaperService } from './quick-paper.service';
+import { QuickPaperAuditService } from './quick-paper-audit.service';
 import { AutoGraderService } from './auto-grader.service';
 import { PrismaService } from '../common/prisma.service';
 import { ReviewModule } from '../review/review.module';
@@ -19,6 +20,7 @@ import { ReviewModule } from '../review/review.module';
     OpenAiImageService,
     SvgDiagramService,
     RemoteRenderService,
+    QuickPaperAuditService,
     AiQuestionGeneratorService,
     QuickPaperService,
     AutoGraderService,
@@ -29,6 +31,7 @@ import { ReviewModule } from '../review/review.module';
     OpenAiImageService,
     SvgDiagramService,
     RemoteRenderService,
+    QuickPaperAuditService,
     AiQuestionGeneratorService,
     QuickPaperService,
     AutoGraderService,
