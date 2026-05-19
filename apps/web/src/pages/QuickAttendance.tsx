@@ -81,6 +81,129 @@ function downloadCsv(s: { name: string; marks: Record<string, Status> }) {
  * generic class manager (we already have /classes for that). When the
  * roster changes, edit STUDENTS at the top of this file.
  */
+// Tactile button styles — keyframes + base classes scoped to this page.
+// Inline <style> rather than touching index.css since these animations are
+// nowhere else used; the bundle stays small and the page is self-contained.
+const STYLE = `
+@keyframes qa-pop {
+  0%   { transform: translateY(0)   scale(1); }
+  35%  { transform: translateY(-3px) scale(1.06); }
+  70%  { transform: translateY(0)   scale(0.985); }
+  100% { transform: translateY(0)   scale(1); }
+}
+@keyframes qa-sheen {
+  0%   { opacity: 0; transform: translateX(-60%) skewX(-18deg); }
+  40%  { opacity: 0.55; }
+  100% { opacity: 0; transform: translateX(160%) skewX(-18deg); }
+}
+.qa-stu {
+  position: relative;
+  overflow: hidden;
+  border-radius: 16px;
+  border: 1px solid;
+  padding: 14px 12px 12px;
+  min-height: 76px;
+  text-align: left;
+  line-height: 1.2;
+  font-weight: 700;
+  transition: transform 90ms ease, box-shadow 120ms ease, background-color 140ms ease, border-color 140ms ease;
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,0.75),
+    0 1px 0 rgba(0,0,0,0.04),
+    0 6px 14px -8px rgba(15,23,42,0.18);
+  will-change: transform, box-shadow;
+  -webkit-tap-highlight-color: transparent;
+  user-select: none;
+}
+.qa-stu:active {
+  transform: translateY(2px) scale(0.97);
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,0.45),
+    0 0 0 rgba(0,0,0,0),
+    0 2px 6px -2px rgba(15,23,42,0.18);
+}
+.qa-stu[data-pulse="1"] {
+  animation: qa-pop 320ms cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+.qa-stu[data-pulse="1"]::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(90deg, transparent 0%, rgba(255,255,255,0.85) 50%, transparent 100%);
+  width: 50%;
+  height: 100%;
+  animation: qa-sheen 420ms ease-out;
+  pointer-events: none;
+}
+.qa-stu.unset   { background: linear-gradient(180deg, #ffffff 0%, #f4f6fb 100%); border-color: #e4e8f0; color: #0f172a; }
+.qa-stu.present { background: linear-gradient(180deg, #d1fae5 0%, #6ee7b7 100%); border-color: #10b981; color: #064e3b; }
+.qa-stu.absent  { background: linear-gradient(180deg, #ffe4e6 0%, #fda4af 100%); border-color: #f43f5e; color: #7f1d1d; }
+.qa-stu.signup  { background: linear-gradient(180deg, #dbeafe 0%, #93c5fd 100%); border-color: #3b82f6; color: #1e3a8a; }
+.qa-stu .qa-tag {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.5px;
+  padding: 3px 8px;
+  border-radius: 999px;
+  background: rgba(255,255,255,0.55);
+  backdrop-filter: blur(6px);
+  box-shadow: inset 0 0 0 1px rgba(0,0,0,0.06);
+}
+.qa-stu .qa-id { font-size: 11px; font-weight: 600; opacity: 0.65; margin-top: 4px; font-variant-numeric: tabular-nums; letter-spacing: 0.3px; }
+.qa-stu .qa-nm { font-size: 17px; font-weight: 800; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; padding-right: 38px; }
+
+.qa-mode {
+  position: relative;
+  border-radius: 14px;
+  border: 1px solid;
+  padding: 12px 6px;
+  font-size: 14px;
+  font-weight: 800;
+  letter-spacing: 0.3px;
+  transition: transform 90ms ease, box-shadow 120ms ease, filter 160ms ease;
+  -webkit-tap-highlight-color: transparent;
+  user-select: none;
+}
+.qa-mode.off  { filter: saturate(0.55) brightness(1.02); transform: translateY(2px); box-shadow: inset 0 1px 2px rgba(15,23,42,0.08); opacity: 0.7; }
+.qa-mode.on   { transform: translateY(-1px); box-shadow: inset 0 1px 0 rgba(255,255,255,0.7), 0 4px 12px -3px rgba(15,23,42,0.22), 0 0 0 2px rgba(15,23,42,0.85); }
+.qa-mode:active { transform: translateY(2px) scale(0.98); }
+.qa-mode.m-present { background: linear-gradient(180deg, #ecfdf5 0%, #a7f3d0 100%); border-color: #10b981; color: #065f46; }
+.qa-mode.m-absent  { background: linear-gradient(180deg, #fff1f2 0%, #fecaca 100%); border-color: #f43f5e; color: #881337; }
+.qa-mode.m-signup  { background: linear-gradient(180deg, #eff6ff 0%, #bfdbfe 100%); border-color: #3b82f6; color: #1e3a8a; }
+.qa-mode.m-clear   { background: linear-gradient(180deg, #f8fafc 0%, #e2e8f0 100%); border-color: #94a3b8; color: #334155; }
+
+.qa-foot { background: rgba(255,255,255,0.92); backdrop-filter: blur(10px) saturate(140%); }
+.qa-foot button {
+  border-radius: 14px;
+  font-weight: 800;
+  letter-spacing: 0.3px;
+  padding: 12px 0;
+  font-size: 15px;
+  border: 1px solid;
+  transition: transform 90ms ease, box-shadow 120ms ease;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.6), 0 4px 12px -4px rgba(15,23,42,0.18);
+  -webkit-tap-highlight-color: transparent;
+}
+.qa-foot button:active { transform: translateY(2px) scale(0.985); box-shadow: inset 0 1px 0 rgba(255,255,255,0.4), 0 1px 4px -2px rgba(15,23,42,0.18); }
+.qa-foot .save   { background: linear-gradient(180deg, #34d399 0%, #059669 100%); color: #fff; border-color: #047857; }
+.qa-foot .csv    { background: linear-gradient(180deg, #ffffff 0%, #e5e7eb 100%); color: #111827; border-color: #cbd5e1; }
+.qa-foot .reset  { background: linear-gradient(180deg, #fecaca 0%, #f87171 100%); color: #7f1d1d; border-color: #ef4444; }
+
+@media (prefers-reduced-motion: reduce) {
+  .qa-stu, .qa-mode, .qa-foot button { transition: none !important; animation: none !important; }
+  .qa-stu[data-pulse="1"]::after { display: none; }
+}
+`;
+
+function buzz(ms = 12) {
+  // navigator.vibrate works on Android Chrome. iOS Safari silently ignores —
+  // we accept that. No-throw guard for older browsers.
+  try { (navigator as any).vibrate?.(ms); } catch { /* ignore */ }
+}
+
 export default function QuickAttendancePage() {
   const initial = loadCurrent();
   const [name, setName] = useState<string>(initial.name);
@@ -88,6 +211,7 @@ export default function QuickAttendancePage() {
   const [mode, setMode] = useState<Mode>('present');
   const [showHistory, setShowHistory] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
+  const [pulse, setPulse] = useState<Record<string, number>>({});
 
   useEffect(() => {
     localStorage.setItem(KEY_CURRENT, JSON.stringify({ name, marks }));
@@ -106,6 +230,14 @@ export default function QuickAttendancePage() {
       else next[id] = mode;
       return next;
     });
+    // Token-based pulse — keyed on a timestamp so re-tapping the same name
+    // restarts the animation cleanly (CSS won't replay without a state diff).
+    const t = Date.now();
+    setPulse((p) => ({ ...p, [id]: t }));
+    setTimeout(() => {
+      setPulse((p) => (p[id] === t ? (() => { const n = { ...p }; delete n[id]; return n; })() : p));
+    }, 340);
+    buzz(12);
   }
 
   function flash(msg: string) {
@@ -118,6 +250,7 @@ export default function QuickAttendancePage() {
     sessions.unshift({ name: name || defaultName(), savedAt: new Date().toISOString(), marks: { ...marks } });
     localStorage.setItem(KEY_SESSIONS, JSON.stringify(sessions.slice(0, 200)));
     flash('已保存 ✓');
+    buzz(20);
   }
 
   function reset() {
@@ -126,64 +259,64 @@ export default function QuickAttendancePage() {
   }
 
   return (
-    <div className="max-w-2xl mx-auto pb-24">
-      <div className="sticky top-0 z-10 bg-white/90 backdrop-blur border-b -mx-6 px-6 py-3 sm:mx-0 sm:px-0 sm:border-0 sm:bg-transparent sm:backdrop-blur-0 sm:static">
+    <div className="max-w-2xl mx-auto pb-28 px-3 sm:px-0">
+      <style>{STYLE}</style>
+      <div className="sticky top-0 z-10 bg-white/85 backdrop-blur-md -mx-3 px-3 pt-3 pb-2 border-b border-slate-200/60 sm:mx-0 sm:px-0 sm:border-0 sm:bg-transparent sm:backdrop-blur-0 sm:static">
         <div className="flex items-center gap-2 mb-2">
           <input
-            className="input"
+            className="input shadow-sm"
             value={name}
             onChange={(e) => setName(e.target.value)}
             placeholder="本次记录名称（如 2026-05-19 早测）"
           />
-          <button className="btn" title="查看历史" onClick={() => setShowHistory(true)}>📂</button>
+          <button
+            className="rounded-xl border border-slate-300 bg-white px-3 py-2 text-base shadow-sm active:translate-y-[1px] active:shadow-none transition"
+            title="查看历史"
+            onClick={() => setShowHistory(true)}
+          >📂</button>
         </div>
-        <div className="flex flex-wrap gap-2 text-xs mb-2">
+        <div className="flex flex-wrap gap-1.5 text-xs mb-3">
           <Pill>总 <b className="tabular-nums ml-1">{STUDENTS.length}</b></Pill>
           <Pill color="text-emerald-700 bg-emerald-50 border-emerald-200">✅ <b className="tabular-nums ml-1">{counts.present}</b></Pill>
           <Pill color="text-rose-700 bg-rose-50 border-rose-200">❌ <b className="tabular-nums ml-1">{counts.absent}</b></Pill>
           <Pill color="text-sky-700 bg-sky-50 border-sky-200">📝 <b className="tabular-nums ml-1">{counts.signup}</b></Pill>
-          <Pill color="text-gray-600">⬜ <b className="tabular-nums ml-1">{counts.unmarked}</b></Pill>
+          <Pill color="text-slate-600 bg-slate-50 border-slate-200">⬜ <b className="tabular-nums ml-1">{counts.unmarked}</b></Pill>
         </div>
         <div className="grid grid-cols-4 gap-2">
-          <ModeBtn current={mode} value="present" onClick={setMode} className="bg-emerald-50 text-emerald-800 border-emerald-300">✅ 到</ModeBtn>
-          <ModeBtn current={mode} value="absent" onClick={setMode} className="bg-rose-50 text-rose-800 border-rose-300">❌ 未到</ModeBtn>
-          <ModeBtn current={mode} value="signup" onClick={setMode} className="bg-sky-50 text-sky-800 border-sky-300">📝 报名</ModeBtn>
-          <ModeBtn current={mode} value="clear" onClick={setMode} className="bg-gray-50 text-gray-700 border-gray-300">⬜ 清除</ModeBtn>
+          <ModeBtn current={mode} value="present" onClick={(m) => { setMode(m); buzz(8); }} kind="present">✅ 到</ModeBtn>
+          <ModeBtn current={mode} value="absent" onClick={(m) => { setMode(m); buzz(8); }} kind="absent">❌ 未到</ModeBtn>
+          <ModeBtn current={mode} value="signup" onClick={(m) => { setMode(m); buzz(8); }} kind="signup">📝 报名</ModeBtn>
+          <ModeBtn current={mode} value="clear" onClick={(m) => { setMode(m); buzz(8); }} kind="clear">⬜ 清除</ModeBtn>
         </div>
       </div>
 
-      <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 mt-4">
+      <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5 mt-4">
         {STUDENTS.map((s) => {
           const st = marks[s.id];
-          const cls =
-            st === 'present' ? 'bg-emerald-100 border-emerald-400 text-emerald-900' :
-            st === 'absent'  ? 'bg-rose-100 border-rose-400 text-rose-900' :
-            st === 'signup'  ? 'bg-sky-100 border-sky-400 text-sky-900' :
-                               'bg-white border-gray-200 text-gray-800';
+          const kind = st ?? 'unset';
           return (
             <button
               key={s.id}
               onClick={() => tap(s.id)}
-              className={`relative text-left rounded-xl border px-3 py-3 min-h-[64px] leading-tight active:scale-[0.98] transition ${cls}`}
+              data-pulse={pulse[s.id] ? '1' : '0'}
+              className={`qa-stu ${kind}`}
             >
-              <div className="font-bold truncate text-base">{s.name}</div>
-              <div className="text-[11px] tabular-nums opacity-70 mt-0.5">{s.id}</div>
-              {st && (
-                <div className="absolute top-1.5 right-2 text-[11px] font-bold tracking-wide">{TAGS[st]}</div>
-              )}
+              <div className="qa-nm">{s.name}</div>
+              <div className="qa-id">{s.id}</div>
+              {st && <div className="qa-tag">{TAGS[st]}</div>}
             </button>
           );
         })}
       </div>
 
-      <div className="fixed bottom-0 left-0 right-0 bg-white/95 backdrop-blur border-t px-3 py-2 flex gap-2 z-10">
-        <button className="btn btn-primary flex-1" onClick={save}>💾 保存</button>
-        <button className="btn flex-1" onClick={() => downloadCsv({ name, marks })}>⬇ 导出 CSV</button>
-        <button className="btn btn-danger flex-1" onClick={reset}>重置</button>
+      <div className="qa-foot fixed bottom-0 left-0 right-0 border-t border-slate-200/70 px-3 py-3 grid grid-cols-3 gap-2 z-10" style={{paddingBottom:'calc(0.75rem + env(safe-area-inset-bottom))'}}>
+        <button className="save" onClick={save}>💾 保存</button>
+        <button className="csv" onClick={() => { downloadCsv({ name, marks }); buzz(15); }}>⬇ 导出</button>
+        <button className="reset" onClick={reset}>重置</button>
       </div>
 
       {toast && (
-        <div className="fixed top-20 left-1/2 -translate-x-1/2 bg-emerald-600 text-white px-4 py-2 rounded-lg font-bold shadow-lg z-20">
+        <div className="fixed top-24 left-1/2 -translate-x-1/2 bg-gradient-to-b from-emerald-500 to-emerald-700 text-white px-5 py-2.5 rounded-xl font-bold shadow-xl z-20 ring-1 ring-emerald-800/40">
           {toast}
         </div>
       )}
@@ -200,22 +333,24 @@ export default function QuickAttendancePage() {
 
 function Pill({ children, color }: { children: React.ReactNode; color?: string }) {
   return (
-    <span className={`inline-flex items-center gap-1 border rounded-full px-2.5 py-0.5 font-semibold ${color ?? 'bg-gray-50 border-gray-200 text-gray-700'}`}>
+    <span className={`inline-flex items-center gap-1 border rounded-full px-2.5 py-1 font-semibold shadow-sm ${color ?? 'bg-slate-50 border-slate-200 text-slate-700'}`}>
       {children}
     </span>
   );
 }
 
 function ModeBtn({
-  current, value, onClick, className, children,
+  current, value, onClick, kind, children,
 }: {
-  current: Mode; value: Mode; onClick: (m: Mode) => void; className: string; children: React.ReactNode;
+  current: Mode; value: Mode; onClick: (m: Mode) => void;
+  kind: 'present' | 'absent' | 'signup' | 'clear';
+  children: React.ReactNode;
 }) {
   const on = current === value;
   return (
     <button
       onClick={() => onClick(value)}
-      className={`rounded-lg border py-2 text-sm font-bold ${className} ${on ? 'ring-2 ring-offset-1 ring-gray-900' : 'opacity-60'}`}
+      className={`qa-mode m-${kind} ${on ? 'on' : 'off'}`}
     >
       {children}
     </button>
