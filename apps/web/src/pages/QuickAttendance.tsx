@@ -70,14 +70,16 @@ function downloadCsv(s: { name: string; marks: Record<string, Status> }) {
 /**
  * Quick Attendance — phone-first roster tracker.
  *
- * Self-contained: state lives entirely in localStorage, no backend round-trip.
- * The teacher carries their phone into a classroom, taps each name to mark
- * present/absent/signed-up for an event, then exports CSV when done. History
- * tab lets them re-open a past session for re-export.
+ * Public route (no login). State lives entirely in localStorage, zero
+ * backend round-trip — the page is safe to expose because it touches no
+ * user data, just a hardcoded name list. The teacher home-screens it on
+ * their phone, taps each name to mark present/absent/signed-up for an
+ * event, then exports CSV when done. History tab lets them re-open a
+ * past session for re-export.
  *
- * Roster is hardcoded — this is a personal tool for one cohort, not a generic
- * class manager (we already have /classes for that). When the roster changes,
- * edit STUDENTS at the top of this file.
+ * Roster is hardcoded — this is a personal tool for one cohort, not a
+ * generic class manager (we already have /classes for that). When the
+ * roster changes, edit STUDENTS at the top of this file.
  */
 export default function QuickAttendancePage() {
   const initial = loadCurrent();

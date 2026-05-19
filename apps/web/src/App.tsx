@@ -112,6 +112,18 @@ export default function App() {
     );
   }
 
+  // Public route: phone-first roster tap-tracker. No login (it's a
+  // personal tool for the cohort owner — all state is local to the
+  // device, no API calls). Bypasses both the auth gate and the admin
+  // chrome so it can be home-screened as a standalone PWA.
+  if (location.pathname === '/quick-attendance') {
+    return (
+      <Routes>
+        <Route path="/quick-attendance" element={<QuickAttendancePage />} />
+      </Routes>
+    );
+  }
+
   // QR-scan gate. Lift it OUT of the !user branch so when staff are
   // already logged in as admin/teacher on the same browser, scanning a
   // student QR doesn't render the full admin header + "404 链接无效或已
@@ -244,9 +256,9 @@ export default function App() {
               {(user.role === 'admin' || user.role === 'head_teacher' || user.role === 'teacher') && (
                 <NavLink to="/morning-quiz/schedule" label="🌅 Morning Quiz" />
               )}
-              {(user.role === 'admin' || user.role === 'head_teacher' || user.role === 'teacher') && (
-                <NavLink to="/quick-attendance" label="📋 快速考勤" />
-              )}
+              {/* /quick-attendance is a public route (handled above the auth
+                  gate); link kept here as a convenience shortcut for staff. */}
+              <NavLink to="/quick-attendance" label="📋 快速考勤" />
               {(user.role === 'admin' || user.role === 'head_teacher') && (
                 <NavLink to="/quality" label="Quality" />
               )}
@@ -393,16 +405,6 @@ export default function App() {
             element={
               user.role === 'admin' || user.role === 'head_teacher' || user.role === 'teacher' ? (
                 <AttendanceAdminPage />
-              ) : (
-                <Navigate to="/" replace />
-              )
-            }
-          />
-          <Route
-            path="/quick-attendance"
-            element={
-              user.role === 'admin' || user.role === 'head_teacher' || user.role === 'teacher' ? (
-                <QuickAttendancePage />
               ) : (
                 <Navigate to="/" replace />
               )
