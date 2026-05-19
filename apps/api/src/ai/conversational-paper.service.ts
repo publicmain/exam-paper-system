@@ -41,7 +41,16 @@ import {
  * making this service stateful — kept out of scope for the first ship.
  */
 
-const PARSE_MODEL_DEFAULT = 'claude-haiku-4-5';
+// Default to the same model as the generator. We tried claude-haiku-4-5
+// first for cost reasons but production rejected it ("Internal server
+// error" from Anthropic, status 400 — the SDK doesn't recognise it on
+// the deployed Anthropic account/region). Falling back to whatever the
+// generator uses (sonnet-4-6 by default) is ~5x the parse cost but on
+// ~500 output tokens that's still < $0.005 per chat-paper run, and
+// dwarfed by the sonnet question-authoring cost ($0.07-0.15). The env
+// var ANTHROPIC_PARSE_MODEL still lets the operator opt into a cheaper
+// model if they're confident it works on their account.
+const PARSE_MODEL_FALLBACK = 'claude-sonnet-4-6';
 
 /** Strict shape Claude must emit. We then map it to QuickPaperInput. */
 interface ParsedSpec {
@@ -89,7 +98,10 @@ export class ConversationalPaperService {
     private readonly quickPaper: QuickPaperService,
   ) {
     const apiKey = process.env.ANTHROPIC_API_KEY;
-    this.parseModel = process.env.ANTHROPIC_PARSE_MODEL || PARSE_MODEL_DEFAULT;
+    this.parseModel =
+      process.env.ANTHROPIC_PARSE_MODEL ||
+      process.env.ANTHROPIC_MODEL ||
+      PARSE_MODEL_FALLBACK;
     if (!apiKey || apiKey.startsWith('sk-ant-replace')) {
       this.client = null;
     } else {
@@ -259,12 +271,28 @@ export class ConversationalPaperService {
     ].join('\n');
 
     const t0 = Date.now();
-    const resp = await this.client!.messages.create({
-      model: this.parseModel,
-      max_tokens: 800,
-      system,
-      messages: [{ role: 'user', content: message }],
-    });
+    let resp: Anthropic.Message;
+    try {
+      resp = await this.client!.messages.create({
+        model: this.parseModel,
+        max_tokens: 800,
+        system,
+        messages: [{ role: 'user', content: message }],
+      });
+    } catch (e: any) {
+      // Anthropic SDK throws APIError subtypes with .status + .message.
+      // Surface the real message so we don't ship a generic "Internal
+      // server error" that gives the teacher no idea what to fix (model
+      // not found, region restricted, cap exceeded, etc.).
+      const status = typeof e?.status === 'number' ? e.status : 500;
+      const msg = String(e?.message ?? e).slice(0, 300);
+      this.logger.error(
+        `chat-paper anthropic call failed: model=${this.parseModel} status=${status} msg=${msg}`,
+      );
+      throw new ServiceUnavailableException(
+        `chat-paper interpret failed (status ${status}, model ${this.parseModel}): ${msg}`,
+      );
+    }
     const text = resp.content
       .map((c) => (c.type === 'text' ? c.text : ''))
       .join('')
