@@ -142,12 +142,37 @@ function renderInline(text: string): string {
   // 6. Escape remaining + br
   let escaped = escapeHtml(working).replace(/\n/g, '<br/>');
 
-  // 7. Restore slots
-  for (let i = 0; i < slots.length; i++) {
-    escaped = escaped.replace(placeholder(i), slots[i]);
+  // 7. Restore slots.
+  //
+  // Naive forward iteration breaks when one slot's content references an
+  // earlier slot. Concretely: an italic-wrapped formula
+  //   *Hint: Let $u = 6x^2 - 13x - 5$ and use your answers.*
+  // produces slot 0 (the KaTeX HTML) and slot 1 (an <em>...</em> body
+  // containing the K0 placeholder). At restore time `escaped` only
+  // contains K1 — K0 is hidden inside slot 1's content and doesn't
+  // surface until we replace K1. With `for (i = 0; i < N; i++)` we
+  // restore K0 first (no-op because K0 isn't visible yet), then K1, and
+  // the loop ends — leaving a literal "K1" in the PDF stem next to
+  // surviving SLOT_MARK U+E000 chars (which most fonts render as
+  // .notdef / invisible). That's the bug 2026-05-19 that leaked
+  // "Let K1 and use..." into a 4024 weekly test.
+  //
+  // Fix: keep replacing the lowest-index placeholder visible in the
+  // output until no placeholder pattern remains. The combined regex
+  // walks the string once per pass; we cap passes at slots.length + 2
+  // as a paranoia bound against pathological nesting.
+  const slotRe = new RegExp(`${SLOT_MARK}K(\\d+)${SLOT_MARK}`, 'g');
+  for (let pass = 0; pass < slots.length + 2; pass++) {
+    if (!slotRe.test(escaped)) break;
+    slotRe.lastIndex = 0;
+    escaped = escaped.replace(slotRe, (m, idx) => slots[Number(idx)] ?? m);
   }
   return escaped;
 }
+
+/** Exposed for unit tests. Do not call from production code paths;
+ *  use renderPaperHtml which wires the full pipeline. */
+export const __testHooks = { renderInline };
 
 function escapeHtml(s: string): string {
   return s.replace(/[&<>"']/g, c => ({
