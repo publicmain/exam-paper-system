@@ -732,6 +732,15 @@ export class MorningQuizService {
     // candidate pool — no extra bookkeeping needed because we read the
     // ever-used set live from Paper rows.
     //
+    // 5/19 WiFi-outage policy: when a morning-quiz session is *cancelled*
+    // (e.g. WiFi failure prevented students from scanning, so no one
+    // actually saw the paper), its passage rejoins the candidate pool.
+    // Attendance rows survive the cancel — only the LRU consumption
+    // tagged "this passage was burnt on this class" is reversed. The
+    // OR-arm `morningQuizSession: null` preserves non-morning-quiz
+    // assignments (homework etc.) which never had a session to begin
+    // with.
+    //
     // Round-7 hardening retained:
     //   - scope to (this subject + passage_pick mode) so unrelated picks
     //     can't skew the bucket;
@@ -742,7 +751,15 @@ export class MorningQuizService {
     const recentPapers = await this.prisma.paper.findMany({
       where: {
         subjectId: subject.id,
-        assignments: { some: { classId } },
+        assignments: {
+          some: {
+            classId,
+            OR: [
+              { morningQuizSession: null },
+              { morningQuizSession: { status: { not: 'cancelled' } } },
+            ],
+          },
+        },
       },
       select: { config: true, createdAt: true },
       orderBy: { createdAt: 'desc' },
@@ -920,10 +937,21 @@ export class MorningQuizService {
     // don't dedup each other — the basic and middle bands run on
     // different days for different students. When a Paper row is deleted
     // (e.g. force-regenerate), its paperKey silently rejoins this pool.
+    // 5/19 WiFi-outage policy mirrors pickPassageAndCreatePaper:
+    // cancelled morning-quiz sessions release their paperKey back into the
+    // candidate pool. See that function for the full rationale.
     const recent = await this.prisma.paper.findMany({
       where: {
         subjectId: subject.id,
-        assignments: { some: { classId } },
+        assignments: {
+          some: {
+            classId,
+            OR: [
+              { morningQuizSession: null },
+              { morningQuizSession: { status: { not: 'cancelled' } } },
+            ],
+          },
+        },
       },
       select: { config: true, createdAt: true },
       orderBy: { createdAt: 'desc' },
@@ -1022,6 +1050,15 @@ export class MorningQuizService {
    * the other or this counter lies. Field name `usedRecent` is kept for
    * API backward-compat (UI clients still read it); semantically it now
    * means "ever served" not "in last 30 days".
+   *
+   * Cancelled-session exception: papers whose linked morning-quiz session
+   * has status='cancelled' are NOT counted as used here. The schedule UI
+   * already differentiates cancelled rows visually, and the cancel button
+   * is the operator's signal that "this paper was never actually seen by
+   * students" (e.g. 5/19 WiFi outage). Removing them from this tally
+   * lets the operator recycle the slot for next week without touching
+   * the attendance records. Filter is duplicated in the two pick
+   * functions so generation honours the same release.
    */
   async bankStatsForClass(classId: string): Promise<
     Array<{
@@ -1109,9 +1146,22 @@ export class MorningQuizService {
     // don't accidentally count cross-level papers against each other.
     // Mirrors the lifetime dedup in pickPassageAndCreatePaper /
     // pickOlevelPaperAndCreatePaper.
+    // 5/19 WiFi-outage policy mirrors pickPassageAndCreatePaper /
+    // pickOlevelPaperAndCreatePaper: cancelled morning-quiz sessions
+    // release their config.passageRef / config.paperKey back into the
+    // candidate pool so the "本班累计已用 / 剩 N" tally on the schedule
+    // page UI correctly reflects what's actually still recyclable.
     const recent = await this.prisma.paper.findMany({
       where: {
-        assignments: { some: { classId } },
+        assignments: {
+          some: {
+            classId,
+            OR: [
+              { morningQuizSession: null },
+              { morningQuizSession: { status: { not: 'cancelled' } } },
+            ],
+          },
+        },
       },
       select: { config: true },
     });
