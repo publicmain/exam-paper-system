@@ -2023,7 +2023,38 @@ export class MorningQuizService {
       try {
         // AI calls happen here, outside any tx. Slow but doesn't hold a
         // db transaction open.
-        const { autoScore, scriptUpdates } = await autoGradeScripts(sub.scripts, this.evaluator);
+        const raw = await autoGradeScripts(sub.scripts, this.evaluator);
+        // R15-followup-18 — retraction sweep: honour QuestionRetraction's
+        // awardAllStudents=true so a regrade can't silently revoke a
+        // retraction-credit. Same shape as the one in student.service.ts
+        // finalSubmit; see that comment for rationale.
+        let { autoScore, scriptUpdates } = raw;
+        const retractedRows = await this.prisma.questionRetraction.findMany({
+          where: {
+            awardAllStudents: true,
+            paperQuestionId: { in: sub.scripts.map((s) => s.paperQuestionId) },
+          },
+          select: { paperQuestionId: true },
+        });
+        if (retractedRows.length > 0) {
+          const retracted = new Set(retractedRows.map((r) => r.paperQuestionId));
+          const marksByScript = new Map<string, number>();
+          const pqByScript = new Map<string, string>();
+          for (const s of sub.scripts) {
+            marksByScript.set(s.id, s.paperQuestion?.marks ?? 0);
+            pqByScript.set(s.id, s.paperQuestionId);
+          }
+          scriptUpdates = raw.scriptUpdates.map((u) => {
+            const pqid = pqByScript.get(u.id);
+            if (!pqid || !retracted.has(pqid)) return u;
+            return {
+              ...u,
+              autoCorrect: true,
+              awardedMarks: marksByScript.get(u.id) ?? u.awardedMarks ?? 0,
+            };
+          });
+          autoScore = scriptUpdates.reduce((acc, u) => acc + (u.awardedMarks ?? 0), 0);
+        }
         const before = sub.autoScore ?? 0;
 
         // Tiny atomic write per submission. If one fails (e.g. another
@@ -3528,7 +3559,37 @@ export class MorningQuizService {
         },
       },
     });
-    const { autoScore, scriptUpdates } = await autoGradeScripts(scripts, this.evaluator);
+    const raw = await autoGradeScripts(scripts, this.evaluator);
+    // R15-followup-18 — apply retractions in practice too, so a student
+    // who re-does a paper post-retraction sees the same "everyone gets
+    // the mark" credit they'd see in the real submission.
+    let { autoScore, scriptUpdates } = raw;
+    const retractedRows = await this.prisma.questionRetraction.findMany({
+      where: {
+        awardAllStudents: true,
+        paperQuestionId: { in: scripts.map((s) => s.paperQuestionId) },
+      },
+      select: { paperQuestionId: true },
+    });
+    if (retractedRows.length > 0) {
+      const retracted = new Set(retractedRows.map((r) => r.paperQuestionId));
+      const marksByScript = new Map<string, number>();
+      const pqByScript = new Map<string, string>();
+      for (const s of scripts) {
+        marksByScript.set(s.id, s.paperQuestion?.marks ?? 0);
+        pqByScript.set(s.id, s.paperQuestionId);
+      }
+      scriptUpdates = raw.scriptUpdates.map((u) => {
+        const pqid = pqByScript.get(u.id);
+        if (!pqid || !retracted.has(pqid)) return u;
+        return {
+          ...u,
+          autoCorrect: true,
+          awardedMarks: marksByScript.get(u.id) ?? u.awardedMarks ?? 0,
+        };
+      });
+      autoScore = scriptUpdates.reduce((acc, u) => acc + (u.awardedMarks ?? 0), 0);
+    }
     await this.prisma.$transaction(async (tx) => {
       await tx.studentSubmission.update({
         where: { id: sub.id },

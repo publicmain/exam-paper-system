@@ -607,7 +607,49 @@ export class StudentService {
       sub.scripts.push(...(fresh as typeof sub.scripts));
     }
 
-    const { autoScore, scriptUpdates } = await autoGradeScripts(sub.scripts, this.aiGrader);
+    const raw = await autoGradeScripts(sub.scripts, this.aiGrader);
+    // R15-followup-18 — retraction sweep for late submitters.
+    //
+    // retractQuestion(awardAllStudents=true) walks every EXISTING submission
+    // when fired and rewrites the script for the retracted question to full
+    // marks. That covers students who'd already submitted. Students who
+    // submit AFTER the retraction land here in finalSubmit and would
+    // otherwise get scored normally against the (broken) canonical key —
+    // defeating the retraction's "everyone gets the mark" guarantee.
+    //
+    // Sweep QuestionRetraction once per submit (cheap: one indexed FK lookup
+    // bounded by paper size) and override each affected script. We rebuild
+    // autoScore from scriptUpdates rather than diffing — handles the case
+    // where the same paperQuestion was double-graded by autoGradeScripts +
+    // retraction (retraction always wins).
+    const retractedRows = await this.prisma.questionRetraction.findMany({
+      where: {
+        awardAllStudents: true,
+        paperQuestionId: { in: sub.scripts.map((s) => s.paperQuestionId) },
+      },
+      select: { paperQuestionId: true },
+    });
+    let autoScore = raw.autoScore;
+    let scriptUpdates = raw.scriptUpdates;
+    if (retractedRows.length > 0) {
+      const retractedSet = new Set(retractedRows.map((r) => r.paperQuestionId));
+      const pqMarksByScriptId = new Map<string, number>();
+      for (const s of sub.scripts) {
+        pqMarksByScriptId.set(s.id, s.paperQuestion?.marks ?? 0);
+      }
+      const pqByScriptId = new Map<string, string>();
+      for (const s of sub.scripts) pqByScriptId.set(s.id, s.paperQuestionId);
+      scriptUpdates = raw.scriptUpdates.map((u) => {
+        const pqid = pqByScriptId.get(u.id);
+        if (!pqid || !retractedSet.has(pqid)) return u;
+        return {
+          ...u,
+          autoCorrect: true,
+          awardedMarks: pqMarksByScriptId.get(u.id) ?? u.awardedMarks ?? 0,
+        };
+      });
+      autoScore = scriptUpdates.reduce((acc, u) => acc + (u.awardedMarks ?? 0), 0);
+    }
     // R10-fix: back-fill maxScore on submit too. Older submissions created by
     // attendance.scanQr before the maxScore-from-paper fix landed had
     // maxScore=0, which surfaced as "3 / 1 = 300%" on the result page (the
