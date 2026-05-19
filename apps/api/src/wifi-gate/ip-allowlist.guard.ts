@@ -57,14 +57,39 @@ export class IpAllowlistGuard implements CanActivate {
   private readonly logger = new Logger(IpAllowlistGuard.name);
   private rules: CidrRule[] = [];
   private bypassed = false;
+  // 5/20 follow-up: time-bounded bypass. Set SCHOOL_IP_BYPASS_UNTIL to an
+  // ISO timestamp (e.g. "2026-05-20T02:00:00Z" = 10:00 SGT) and the guard
+  // returns true for every request until that moment passes. Auto-expires
+  // so we can't forget to flip it back. Read at construction; one config
+  // change → one deploy. If a parse fails, log loud and treat as disabled
+  // (fail-secure).
+  private bypassUntil: Date | null = null;
 
   constructor(private readonly config: ConfigService) {
     const raw = this.config.get<string>('SCHOOL_PUBLIC_IPS');
     const bypass = this.config.get<string>('SCHOOL_IP_BYPASS');
+    const until = this.config.get<string>('SCHOOL_IP_BYPASS_UNTIL');
     if (bypass === 'true') {
       this.bypassed = true;
       this.logger.warn('SCHOOL_IP_BYPASS=true — IP allowlist disabled (DEV ONLY)');
       return;
+    }
+    if (until) {
+      const parsed = new Date(until);
+      if (Number.isNaN(parsed.getTime())) {
+        this.logger.error(
+          `SCHOOL_IP_BYPASS_UNTIL="${until}" — failed to parse as ISO timestamp; ignoring`,
+        );
+      } else if (parsed.getTime() <= Date.now()) {
+        this.logger.warn(
+          `SCHOOL_IP_BYPASS_UNTIL="${until}" — already in the past; ignoring`,
+        );
+      } else {
+        this.bypassUntil = parsed;
+        this.logger.warn(
+          `SCHOOL_IP_BYPASS_UNTIL="${until}" — IP allowlist auto-bypassed until ${parsed.toISOString()}`,
+        );
+      }
     }
     if (!raw) {
       this.logger.error('SCHOOL_PUBLIC_IPS not set — guard fails closed (every request blocked)');
@@ -79,6 +104,10 @@ export class IpAllowlistGuard implements CanActivate {
 
   canActivate(ctx: ExecutionContext): boolean {
     if (this.bypassed) return true;
+    // Time-bounded bypass — re-check on every request so the guard re-arms
+    // automatically the instant the deadline passes (no service restart
+    // needed). Cheap: one Date.now() vs. a cached timestamp.
+    if (this.bypassUntil && Date.now() < this.bypassUntil.getTime()) return true;
     const req = ctx.switchToHttp().getRequest<Request>();
     // Express' req.ip honours the trust-proxy setting — main.ts must enable it
     // for deployments behind Railway/Cloudflare so X-Forwarded-For is read.
