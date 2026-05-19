@@ -417,7 +417,14 @@ export class AiQuestionGeneratorService {
       const t0 = Date.now();
       const resp = await this.client.messages.create({
         model: this.model,
-        max_tokens: 4000,
+        // 8000 (was 4000): after the R15-followup-15 prompt added the
+        // role-tag block for coordinate_plane specs, a 5-question OL.4
+        // graph paper hit the 4000-token ceiling mid-string, producing
+        // malformed JSON ("Expected ',' or '}' at position ~8000") that
+        // bricked the topic. 8000 covers worst-case 5-question output
+        // with full diagram specs without changing per-question cost
+        // meaningfully (Anthropic bills output tokens used, not the cap).
+        max_tokens: 8000,
         system: prompt.systemBlocks as any,
         messages: [{ role: 'user', content: prompt.userText }],
       });
@@ -756,37 +763,16 @@ CRITICAL when emitting spec:
 - "scene" can stay short and natural-language; the rendered figure comes from
   the spec.
 
-CRITICAL — student paper vs answer key (READ THIS, DO NOT SKIP):
-Every points/segments/lines/parabolas element MUST carry a "role" of either
-"given" or "answer". The renderer strips role="answer" elements from the
-student paper so the question stays solvable; they appear only on the
-answer-key version. Misclassifying overlays as "given" is the single
-biggest failure mode of this pipeline — graphs end up shipping with the
-answers pre-drawn.
-
-  Use "role": "given" when the element is data the question itself
-  supplies and the student needs to see:
-    - A labelled point named in the stem (e.g. A(2,7), the curve passes
-      through P).
-    - Pre-drawn axes-only reference points like the origin label, or a
-      vertical asymptote x = 4 that the stem explicitly states.
-    - The principal curve y = f(x) when the stem TELLS the student "the
-      diagram shows y = f(x)" and asks them to read values OFF it.
-
-  Use "role": "answer" when the student is asked to plot, draw, find,
-  calculate, or otherwise produce the element themselves:
-    - Points from a table when the part says "plot the points from the
-      table". (Do NOT pre-plot them.)
-    - A curve through plotted points when the part says "draw a smooth
-      curve through them". (Do NOT pre-draw it.)
-    - A "suitable straight line" the student is asked to draw to solve
-      a graphical equation in a later part.
-    - The intersection point(s) the student is asked to find.
-    - A perpendicular bisector / tangent / normal the student is asked
-      to construct.
-
-If unsure, default to "answer". A blank grid + table is always solvable;
-a pre-solved figure is not a question.
+CRITICAL — student paper vs answer-key role tagging:
+Every points/segments/lines/parabolas element MUST carry "role". Use
+"given" for data the question itself supplies (a labelled point A(2,7)
+named in the stem; a vertical asymptote x=4 the stem states; a curve
+y=f(x) when the stem says "the diagram shows y=f(x)"). Use "answer" for
+anything the student is asked to plot, draw, find, or construct (table
+points to plot; smooth curve through plotted points; a "suitable
+straight line" for part (b); a tangent / perpendicular bisector). The
+renderer strips role="answer" from the student paper. If unsure, use
+"answer" — a blank grid is always solvable; a pre-solved one is not.
 
 CS-style graph diagrams (REQUIRED structured spec via Graphviz):
 For type "flowchart", "data_structure", "network_topology", or "logic_gate"
@@ -1128,13 +1114,26 @@ existing math renderer handles scatter via points + axes.`;
         'Claude response did not contain a JSON array of questions.',
       );
     }
+    const candidate = arrayMatch[0];
     let raw: any;
     try {
-      raw = JSON.parse(arrayMatch[0]);
-    } catch (e: any) {
-      throw new ServiceUnavailableException(
-        `Failed to parse Claude JSON: ${e.message}`,
-      );
+      raw = JSON.parse(candidate);
+    } catch (firstErr: any) {
+      // R15-followup-15b: Claude occasionally produces JSON with subtle
+      // syntactic faults — most often (1) raw newlines/tabs inside string
+      // values from a long LaTeX block, (2) single backslashes from `\frac`
+      // or `\sqrt` that aren't legal JSON escapes, or (3) a trailing
+      // comma before a closing brace. Each of those poisons JSON.parse
+      // at the first occurrence and bricks an entire 5-question topic
+      // for a whole-paper retry. Try a conservative repair pass before
+      // giving up.
+      try {
+        raw = JSON.parse(this.repairJsonish(candidate));
+      } catch {
+        throw new ServiceUnavailableException(
+          `Failed to parse Claude JSON: ${firstErr.message}`,
+        );
+      }
     }
     if (!Array.isArray(raw)) {
       throw new ServiceUnavailableException('Claude response was not a JSON array.');
@@ -1186,6 +1185,64 @@ existing math renderer handles scatter via points + axes.`;
         diagram,
       };
     });
+  }
+
+  /** R15-followup-15b: conservative JSON repair — only fires when
+   *  JSON.parse rejects the raw candidate. Walks the string character
+   *  by character tracking string-vs-structure context, and inside a
+   *  string value:
+   *    - escapes raw newlines, tabs, carriage returns
+   *    - escapes a single backslash that's NOT followed by a legal JSON
+   *      escape character (`"\frac"` → `"\\frac"`, `"\"` left alone)
+   *  At top level it also drops trailing commas before `}` or `]`. If
+   *  the repair output still won't parse we let the caller fall through
+   *  to the original error so we don't quietly ship corrupted content. */
+  repairJsonish(src: string): string {
+    const out: string[] = [];
+    const legalEscapes = new Set(['"', '\\', '/', 'b', 'f', 'n', 'r', 't', 'u']);
+    let inString = false;
+    let i = 0;
+    while (i < src.length) {
+      const c = src[i];
+      if (!inString) {
+        // Drop trailing commas before } or ].
+        if (c === ',') {
+          let j = i + 1;
+          while (j < src.length && /\s/.test(src[j])) j++;
+          if (src[j] === '}' || src[j] === ']') { i++; continue; }
+        }
+        out.push(c);
+        if (c === '"') inString = true;
+        i++;
+        continue;
+      }
+      // Inside a string.
+      if (c === '\\') {
+        const next = src[i + 1];
+        if (next && legalEscapes.has(next)) {
+          out.push(c, next);
+          i += 2;
+        } else {
+          // Escape the lone backslash. `"\frac"` → `"\\frac"`.
+          out.push('\\', '\\');
+          i++;
+        }
+        continue;
+      }
+      if (c === '"') {
+        out.push(c);
+        inString = false;
+        i++;
+        continue;
+      }
+      // Raw control characters inside a string break JSON.parse — escape them.
+      if (c === '\n') { out.push('\\', 'n'); i++; continue; }
+      if (c === '\r') { out.push('\\', 'r'); i++; continue; }
+      if (c === '\t') { out.push('\\', 't'); i++; continue; }
+      out.push(c);
+      i++;
+    }
+    return out.join('');
   }
 
   /** B5 — normalize uiKind to one of the allowed renderer hints, or

@@ -12,6 +12,41 @@ function makeService(): AiQuestionGeneratorService {
   return new AiQuestionGeneratorService(null as any, null as any, null as any);
 }
 
+describe('AiQuestionGeneratorService — repairJsonish (R15-followup-15b)', () => {
+  const svc = makeService();
+  const repair = (s: string) => (svc as any).repairJsonish(s) as string;
+
+  it('escapes a single backslash from raw LaTeX so JSON.parse succeeds', () => {
+    // What Claude actually emits when it gets sloppy: "stem": "compute $\sqrt{2}$"
+    // with a single backslash. `\s` is NOT a legal JSON string escape, so
+    // JSON.parse rejects it at the first occurrence.
+    const broken = '[{"stem":"compute $\\sqrt{2}$ at x=1"}]';
+    expect(() => JSON.parse(broken)).toThrow(); // baseline: parser rejects
+    const repaired = repair(broken);
+    const parsed = JSON.parse(repaired);
+    expect(parsed[0].stem).toContain('\\sqrt');
+  });
+
+  it('escapes raw newlines inside a string value', () => {
+    const broken = '[{"stem":"line one\nline two"}]';
+    expect(() => JSON.parse(broken)).toThrow();
+    const parsed = JSON.parse(repair(broken));
+    expect(parsed[0].stem).toBe('line one\nline two');
+  });
+
+  it('drops trailing comma before closing brace', () => {
+    const broken = '[{"stem":"foo", "marks": 3,}]';
+    expect(() => JSON.parse(broken)).toThrow();
+    const parsed = JSON.parse(repair(broken));
+    expect(parsed[0].marks).toBe(3);
+  });
+
+  it('leaves valid JSON untouched modulo identity-equivalence', () => {
+    const good = '[{"stem":"f","marks":3,"esc":"\\\\n"}]';
+    expect(JSON.parse(repair(good))).toEqual(JSON.parse(good));
+  });
+});
+
 describe('AiQuestionGeneratorService — B5 uiKind contract', () => {
   it('parseResponse extracts uiKind when AI emits it', () => {
     const svc = makeService();
