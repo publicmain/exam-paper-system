@@ -256,9 +256,15 @@ export default function App() {
               {(user.role === 'admin' || user.role === 'head_teacher' || user.role === 'teacher') && (
                 <NavLink to="/morning-quiz/schedule" label="🌅 Morning Quiz" />
               )}
-              {/* /quick-attendance is a public route (handled above the auth
-                  gate); link kept here as a convenience shortcut for staff. */}
-              <NavLink to="/quick-attendance" label="📋 快速考勤" />
+              {/* /quick-attendance is a static-HTML page served from
+                  apps/web/public/quick-attendance.html. The bare path
+                  bounces through a React redirect (see QuickAttendance.tsx),
+                  but for the nav we link straight to the .html to skip
+                  the React detour. */}
+              <a
+                href="/quick-attendance.html"
+                className="px-3 py-1.5 rounded-md whitespace-nowrap shrink-0 hover:bg-gray-50"
+              >📋 快速考勤</a>
               {(user.role === 'admin' || user.role === 'head_teacher') && (
                 <NavLink to="/quality" label="Quality" />
               )}

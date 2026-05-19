@@ -1,0 +1,1319 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="记录">
+<title>学生记录 · Super</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Lilita+One&family=ZCOOL+KuaiLe&family=Plus+Jakarta+Sans:wght@500;600;700&display=swap" rel="stylesheet">
+<style>
+  /* ===================== Tokens ===================== */
+  :root{
+    /* Overworld (default) */
+    --sky-top:#5C94FC;
+    --sky-bot:#9CC3FF;
+    --hill:#3CB043;
+
+    --paper:#FFFFFF;
+    --paper-2:#FFF6DC;
+    --ink:#1A1F36;
+    --ink-2:#3F465F;
+    --muted:#7C84A0;
+    --line:rgba(26,31,54,.10);
+    --line-strong:rgba(26,31,54,.18);
+
+    --mario-red:#E52521;
+    --mario-red-dk:#A60E0A;
+    --pipe-green:#2EA64A;
+    --pipe-green-dk:#0E6A28;
+    --coin-gold:#F4B71B;
+    --coin-gold-dk:#9C6800;
+    --coin-lt:#FFE16A;
+    --brick:#C44A2C;
+    --brick-dk:#6E3624;
+    --brick-mortar:#3D1A0E;
+    --pipe-shadow:#063E14;
+    --block-shadow:#6F4400;
+
+    --shadow-block: 0 4px 0 var(--block-shadow), 0 8px 14px -4px rgba(0,0,0,.25);
+    --shadow-card: 0 3px 0 rgba(0,0,0,.06), 0 10px 20px -8px rgba(0,0,0,.18);
+
+    --r-block:8px;
+    --r-card:14px;
+
+    --display:"ZCOOL KuaiLe","Lilita One","PingFang SC","Microsoft YaHei",sans-serif;
+    --display-en:"Lilita One","ZCOOL KuaiLe",sans-serif;
+    --body:"Plus Jakarta Sans",-apple-system,BlinkMacSystemFont,"PingFang SC","Helvetica Neue","Microsoft YaHei",sans-serif;
+  }
+  [data-theme="castle"]{
+    --sky-top:#1F1340;
+    --sky-bot:#43286E;
+    --hill:#2A1751;
+    --paper:#382558;
+    --paper-2:#48306C;
+    --ink:#FFF6DC;
+    --ink-2:#E1D6FA;
+    --muted:#A89BC7;
+    --line:rgba(255,246,220,.10);
+    --line-strong:rgba(255,246,220,.22);
+    --block-shadow:#1F1340;
+    --shadow-card:0 3px 0 rgba(0,0,0,.25), 0 10px 20px -8px rgba(0,0,0,.45);
+  }
+  [data-theme="underground"]{
+    --sky-top:#0F0F12;
+    --sky-bot:#1A1A1F;
+    --hill:#0F0F12;
+    --paper:#6E3624;
+    --paper-2:#7E4029;
+    --ink:#FFF6DC;
+    --ink-2:#FBE9B4;
+    --muted:#C9A98C;
+    --line:rgba(255,246,220,.10);
+    --line-strong:rgba(255,246,220,.22);
+    --block-shadow:#000;
+    --shadow-card:0 3px 0 rgba(0,0,0,.35), 0 10px 20px -8px rgba(0,0,0,.6);
+  }
+
+  /* ===================== Base ===================== */
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+  html,body{margin:0;padding:0}
+  body{
+    background:linear-gradient(180deg,var(--sky-top) 0%,var(--sky-bot) 100%);
+    color:var(--ink);
+    font:15px/1.45 var(--body);
+    min-height:100vh;
+    padding:env(safe-area-inset-top) 16px calc(108px + env(safe-area-inset-bottom));
+    overscroll-behavior:none;
+    -webkit-font-smoothing:antialiased;
+    transition:background .35s ease, color .35s ease;
+    position:relative;
+  }
+  /* Clouds (overworld only) */
+  body::before{
+    content:"";
+    position:fixed;left:0;right:0;top:0;height:100vh;z-index:0;pointer-events:none;
+    background-repeat:no-repeat;
+    background-image:
+      radial-gradient(58px 16px at 12% 14%, #fff 95%, transparent 100%),
+      radial-gradient(82px 22px at 22% 18%, #fff 95%, transparent 100%),
+      radial-gradient(52px 14px at 32% 12%, #fff 95%, transparent 100%),
+      radial-gradient(78px 22px at 80% 9%, #fff 95%, transparent 100%),
+      radial-gradient(56px 16px at 92% 14%, #fff 95%, transparent 100%),
+      radial-gradient(68px 18px at 60% 30%, #fff 95%, transparent 100%),
+      radial-gradient(48px 14px at 8% 36%, #fff 95%, transparent 100%);
+    opacity:.85;
+  }
+  [data-theme="castle"] body::before,
+  [data-theme="underground"] body::before{display:none}
+  /* Underground: brick wall pattern */
+  [data-theme="underground"] body{
+    background-image:
+      linear-gradient(180deg,var(--sky-top) 0%,var(--sky-bot) 100%),
+      repeating-linear-gradient(0deg,
+        rgba(255,255,255,.025) 0 38px,
+        rgba(0,0,0,.05) 38px 40px);
+    background-blend-mode:normal, overlay;
+  }
+  /* Castle: starry */
+  [data-theme="castle"] body::before{
+    content:"";display:block;
+    background-image:
+      radial-gradient(1.5px 1.5px at 12% 12%, #fff, transparent 60%),
+      radial-gradient(1.5px 1.5px at 32% 22%, #fff, transparent 60%),
+      radial-gradient(1.5px 1.5px at 52% 8%, #fff, transparent 60%),
+      radial-gradient(1.5px 1.5px at 72% 18%, #fff, transparent 60%),
+      radial-gradient(1.5px 1.5px at 88% 6%, #fff, transparent 60%),
+      radial-gradient(1.5px 1.5px at 18% 38%, #fff, transparent 60%),
+      radial-gradient(1.5px 1.5px at 58% 32%, #fff, transparent 60%),
+      radial-gradient(1.5px 1.5px at 78% 42%, #fff, transparent 60%);
+    opacity:.7;
+  }
+
+  .wrap{max-width:780px;margin:0 auto;position:relative;z-index:1}
+  button{font-family:inherit;cursor:pointer;border:0}
+
+  /* ===================== Header ===================== */
+  header[data-screen-label="01 Header"]{padding:18px 2px 14px}
+  .eyebrow{
+    display:flex;align-items:center;gap:10px;flex-wrap:wrap;
+    font-family:var(--display-en);font-size:14px;letter-spacing:.04em;
+    color:#fff;text-shadow:0 2px 0 rgba(0,0,0,.25);
+  }
+  .eyebrow > *{white-space:nowrap}
+  .eyebrow .world-badge{
+    display:inline-flex;align-items:center;gap:6px;
+    background:#fff;color:var(--ink);
+    padding:3px 10px 4px;border-radius:6px;
+    box-shadow:inset 0 -2px 0 rgba(0,0,0,.15), 0 2px 0 rgba(0,0,0,.22);
+    text-shadow:none;
+    font-family:var(--display-en);font-size:14px;letter-spacing:.04em;
+  }
+  .eyebrow .world-badge .star{color:var(--coin-gold)}
+
+  h1.title{
+    margin:8px 0 0;
+    display:flex;align-items:baseline;gap:14px;flex-wrap:wrap;
+    line-height:.95;
+  }
+  h1.title .zh{
+    font-family:var(--display);font-weight:normal;
+    font-size:clamp(46px, 12vw, 68px);
+    letter-spacing:2px;
+    color:#fff;
+    text-shadow:
+      -3px 0 0 var(--mario-red), 3px 0 0 var(--mario-red),
+      0 -3px 0 var(--mario-red), 0 3px 0 var(--mario-red),
+      -3px -3px 0 var(--mario-red), 3px -3px 0 var(--mario-red),
+      -3px 3px 0 var(--mario-red), 3px 3px 0 var(--mario-red),
+      0 6px 0 var(--mario-red-dk),
+      0 8px 12px rgba(0,0,0,.35);
+  }
+  h1.title .en{
+    font-family:var(--display-en);font-size:clamp(20px, 5vw, 28px);
+    color:var(--coin-gold);letter-spacing:.05em;
+    text-shadow:
+      -2px 0 0 var(--ink), 2px 0 0 var(--ink),
+      0 -2px 0 var(--ink), 0 2px 0 var(--ink),
+      -2px -2px 0 var(--ink), 2px -2px 0 var(--ink),
+      -2px 2px 0 var(--ink), 2px 2px 0 var(--ink),
+      0 4px 0 rgba(0,0,0,.5);
+  }
+
+  /* Meta row */
+  .meta-row{
+    margin-top:22px;
+    display:flex;align-items:stretch;gap:12px;flex-wrap:wrap;
+  }
+  .sess-field{flex:1;min-width:220px;position:relative;
+    background:var(--paper);border-radius:14px;
+    padding:9px 14px 10px;
+    box-shadow:inset 0 -3px 0 rgba(0,0,0,.06), 0 3px 0 rgba(0,0,0,.10);
+  }
+  .sess-field label{
+    display:block;font-family:var(--display-en);font-size:11px;
+    letter-spacing:.1em;color:var(--muted);margin-bottom:2px;
+  }
+  .sess-field input{
+    width:100%;background:transparent;border:0;
+    font-family:var(--display);font-size:18px;color:var(--ink);
+    font-weight:normal;padding:2px 0;
+  }
+  .sess-field input::placeholder{color:var(--muted);font-family:var(--body);font-weight:500;font-size:15px}
+  .sess-field input:focus{outline:none}
+
+  /* Coin counter (Mario top-bar style) */
+  .count-card{
+    display:flex;align-items:center;gap:10px;
+    background:var(--paper);
+    border-radius:14px;padding:8px 14px 8px 10px;
+    box-shadow:inset 0 -3px 0 rgba(0,0,0,.06), 0 3px 0 rgba(0,0,0,.10);
+    min-width:160px;
+  }
+  .coin-ic{
+    width:32px;height:32px;flex:0 0 32px;
+    border-radius:50%;
+    background:radial-gradient(circle at 35% 30%, var(--coin-lt) 0%, var(--coin-gold) 60%, var(--coin-gold-dk) 100%);
+    box-shadow:inset 0 -2px 0 rgba(0,0,0,.25), inset 0 2px 0 rgba(255,255,255,.5), 0 2px 0 rgba(0,0,0,.20);
+    position:relative;
+    animation:coin-spin 2.6s linear infinite;
+  }
+  .coin-ic::after{
+    content:"";position:absolute;inset:6px 11px;
+    border-radius:6px;background:var(--coin-gold-dk);
+    box-shadow:inset 0 1px 0 rgba(0,0,0,.3);
+  }
+  @keyframes coin-spin{
+    0%{transform:scaleX(1)}
+    25%{transform:scaleX(.2)}
+    50%{transform:scaleX(-1)}
+    75%{transform:scaleX(.2)}
+    100%{transform:scaleX(1)}
+  }
+  .count-card .x{
+    font-family:var(--display-en);font-size:18px;color:var(--ink-2);margin:0 2px 0 -2px;
+  }
+  .count-card .nums{
+    display:flex;align-items:baseline;gap:3px;line-height:1;
+    font-family:var(--display-en);
+  }
+  .count-card .now{font-size:30px;color:var(--ink);font-variant-numeric:tabular-nums}
+  .count-card .slash{color:var(--muted);font-size:18px;padding:0 1px}
+  .count-card .tot{font-size:18px;color:var(--muted);font-variant-numeric:tabular-nums}
+
+  /* Toolbar */
+  .toolbar{
+    display:flex;justify-content:space-between;align-items:center;gap:8px;
+    margin-top:14px;padding:0 2px;flex-wrap:wrap;
+  }
+  .toolbar .left{display:flex;gap:8px;flex-wrap:wrap}
+  .pill{
+    display:inline-flex;align-items:center;gap:6px;
+    background:var(--paper);color:var(--ink);
+    border-radius:999px;padding:8px 14px;
+    font-family:var(--display);font-size:14px;
+    box-shadow:inset 0 -3px 0 rgba(0,0,0,.10), 0 2px 0 rgba(0,0,0,.15);
+    white-space:nowrap;
+    transition:transform .1s;
+  }
+  .pill:active{transform:translateY(2px);box-shadow:inset 0 -1px 0 rgba(0,0,0,.10), 0 0 0 rgba(0,0,0,.15)}
+  .pill .ic{font-size:14px;line-height:1;color:var(--mario-red)}
+
+  .theme-switch{
+    display:inline-flex;background:var(--paper);
+    border-radius:999px;padding:3px;
+    box-shadow:inset 0 -2px 0 rgba(0,0,0,.10), 0 2px 0 rgba(0,0,0,.15);
+  }
+  .theme-switch button{
+    background:transparent;width:32px;height:32px;
+    border-radius:999px;font-size:15px;line-height:1;color:var(--muted);
+    transition:background .2s, color .2s, transform .1s;
+  }
+  .theme-switch button[aria-pressed="true"]{
+    background:var(--mario-red);color:#fff;
+    box-shadow:inset 0 -2px 0 rgba(0,0,0,.25);
+  }
+  .theme-switch button:active{transform:scale(.92)}
+
+  /* ===================== Grid ===================== */
+  main{padding-top:20px}
+  .section-head{
+    display:flex;align-items:baseline;gap:12px;padding:4px 4px 12px;
+    color:#fff;text-shadow:0 2px 0 rgba(0,0,0,.25);
+  }
+  .section-head h2{
+    margin:0;font-family:var(--display);font-weight:normal;font-size:22px;letter-spacing:1px;
+  }
+  .section-head .hint{font-family:var(--display-en);font-size:12px;opacity:.9}
+
+  .grid{
+    display:grid;grid-template-columns:repeat(2, minmax(0,1fr));gap:10px;
+  }
+  @media (min-width:560px){.grid{grid-template-columns:repeat(3, minmax(0,1fr));gap:12px}}
+  @media (min-width:780px){.grid{grid-template-columns:repeat(4, minmax(0,1fr));gap:14px}}
+
+  .stu{
+    position:relative;
+    display:flex;align-items:center;gap:12px;
+    background:var(--paper);
+    border:2px solid var(--line);
+    border-radius:var(--r-card);
+    padding:11px 12px;text-align:left;
+    color:var(--ink);font-family:inherit;
+    box-shadow:var(--shadow-card);
+    transition:transform .14s cubic-bezier(.34,1.56,.64,1),
+               border-color .25s, background .25s, box-shadow .25s;
+    cursor:pointer;
+  }
+  .stu:active{transform:translateY(2px) scale(.99)}
+  .stu[data-pulse="1"]{animation:card-pop 380ms cubic-bezier(.34,1.56,.64,1)}
+  @keyframes card-pop{
+    0%{transform:scale(1)} 35%{transform:scale(1.03)}
+    70%{transform:scale(.99)} 100%{transform:scale(1)}
+  }
+
+  /* The ?-Block / used-block */
+  .block{
+    position:relative;
+    width:48px;height:48px;flex:0 0 48px;
+    border-radius:var(--r-block);
+    background:linear-gradient(180deg,#FFE16A 0%, var(--coin-gold) 45%, var(--coin-gold-dk) 100%);
+    display:flex;align-items:center;justify-content:center;
+    box-shadow:
+      inset 0 -4px 0 rgba(0,0,0,.22),
+      inset 0 3px 0 rgba(255,255,255,.45),
+      0 3px 0 var(--block-shadow);
+    transition:background .25s, box-shadow .25s, transform .25s cubic-bezier(.34,1.56,.64,1);
+  }
+  .block .mark{
+    font-family:var(--display-en);font-size:26px;color:#fff;
+    text-shadow:0 2px 0 var(--block-shadow), 0 3px 0 rgba(0,0,0,.25);
+    line-height:1;position:absolute;
+    transition:opacity .25s, transform .25s cubic-bezier(.34,1.56,.64,1);
+  }
+  .block .mark.q{opacity:1;transform:scale(1)}
+  .block .mark.coin{opacity:0;transform:scale(.4) rotate(-30deg);font-size:22px}
+  .block .rivet{
+    position:absolute;width:5px;height:5px;border-radius:1px;
+    background:rgba(0,0,0,.42);
+    box-shadow:inset 0 -1px 0 rgba(255,255,255,.25);
+  }
+  .block .rivet.lt{top:4px;left:4px}
+  .block .rivet.rt{top:4px;right:4px}
+  .block .rivet.lb{bottom:4px;left:4px}
+  .block .rivet.rb{bottom:4px;right:4px}
+
+  /* Used (hit) block */
+  .stu.on .block{
+    background:
+      repeating-linear-gradient(0deg, rgba(0,0,0,.15) 0 2px, transparent 2px 11px),
+      linear-gradient(180deg,#8C3E22 0%, var(--brick) 45%, var(--brick-dk) 100%);
+    box-shadow:
+      inset 0 -4px 0 rgba(0,0,0,.30),
+      inset 0 3px 0 rgba(255,255,255,.18),
+      0 3px 0 rgba(0,0,0,.55);
+    transform:translateY(2px);
+  }
+  .stu.on .block .mark.q{opacity:0;transform:scale(.4)}
+  .stu.on .block .mark.coin{opacity:1;transform:scale(1) rotate(0)}
+
+  .stu .info{flex:1;min-width:0}
+  .stu .nm{
+    font-family:var(--display);
+    font-size:18px;color:var(--ink);
+    white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+    letter-spacing:.5px;
+  }
+  .stu .id{
+    font-family:var(--display-en);font-size:13px;
+    color:var(--muted);margin-top:2px;
+    font-variant-numeric:tabular-nums;letter-spacing:.04em;
+  }
+
+  /* Selected card frame */
+  .stu.on{
+    background:linear-gradient(180deg,var(--paper-2) 0%, var(--paper) 100%);
+    border-color:var(--coin-gold);
+    box-shadow:0 3px 0 rgba(0,0,0,.06), 0 10px 22px -6px rgba(244,183,27,.40);
+  }
+  [data-theme="castle"] .stu.on,
+  [data-theme="underground"] .stu.on{
+    background:var(--paper-2);
+    border-color:var(--coin-gold);
+  }
+
+  /* Stamp on selected card */
+  .stu .stamp{
+    position:absolute;top:8px;right:8px;
+    font-family:var(--display-en);font-size:11px;letter-spacing:.06em;
+    color:#fff;background:var(--mario-red);
+    padding:2px 7px;border-radius:4px;
+    box-shadow:inset 0 -2px 0 rgba(0,0,0,.25);
+    opacity:0;transform:translateY(-4px) rotate(8deg);
+    transition:opacity .25s, transform .3s cubic-bezier(.34,1.56,.64,1);
+    pointer-events:none;
+  }
+  .stu.on .stamp{opacity:1;transform:translateY(0) rotate(8deg)}
+
+  /* ===================== Floating "+1" coin (created on tap) ===================== */
+  .floatcoin{
+    position:fixed;z-index:45;pointer-events:none;
+    font-family:var(--display-en);font-weight:normal;
+    font-size:22px;color:var(--coin-gold);
+    text-shadow:-2px 0 0 var(--block-shadow), 2px 0 0 var(--block-shadow),
+                0 -2px 0 var(--block-shadow), 0 2px 0 var(--block-shadow),
+                -2px 2px 0 var(--block-shadow), 2px 2px 0 var(--block-shadow),
+                0 3px 0 rgba(0,0,0,.4);
+    animation:coin-float .9s cubic-bezier(.2,.7,.2,1) forwards;
+  }
+  @keyframes coin-float{
+    0%  {transform:translate(-50%,0) scale(.6);opacity:0}
+    15% {transform:translate(-50%,-8px) scale(1);opacity:1}
+    100%{transform:translate(-50%,-58px) scale(.95);opacity:0}
+  }
+
+  /* ===================== Footer actions ===================== */
+  footer[data-screen-label="03 Actions"]{
+    position:fixed;left:0;right:0;bottom:0;z-index:6;
+    padding:12px 12px calc(16px + env(safe-area-inset-bottom));
+    background:linear-gradient(180deg,transparent 0%, var(--sky-bot) 60%);
+    pointer-events:none;
+  }
+  [data-theme="castle"] footer{background:linear-gradient(180deg,transparent 0%, var(--sky-bot) 60%)}
+  [data-theme="underground"] footer{background:linear-gradient(180deg,transparent 0%, var(--sky-bot) 60%)}
+
+  .actionbar{
+    pointer-events:auto;
+    max-width:780px;margin:0 auto;
+    display:grid;grid-template-columns:1.3fr 1fr 1fr;gap:10px;
+  }
+  .btn3d{
+    border-radius:14px;padding:13px 8px;
+    font-family:var(--display);font-size:16px;letter-spacing:1px;
+    color:#fff;
+    display:flex;align-items:center;justify-content:center;gap:8px;
+    text-shadow:0 2px 0 rgba(0,0,0,.30);
+    transition:transform .1s;
+    position:relative;
+  }
+  .btn3d:active{transform:translateY(3px)}
+  .btn3d .ic{
+    width:18px;height:18px;display:inline-block;
+    font-family:var(--display-en);font-size:16px;line-height:1;
+  }
+  .btn3d.save{
+    background:linear-gradient(180deg,#5BE082 0%, var(--pipe-green) 45%, var(--pipe-green-dk) 100%);
+    box-shadow:
+      inset 0 -4px 0 rgba(0,0,0,.22),
+      inset 0 3px 0 rgba(255,255,255,.30),
+      0 4px 0 var(--pipe-shadow),
+      0 8px 12px rgba(0,0,0,.18);
+  }
+  .btn3d.save:active{box-shadow:
+      inset 0 -2px 0 rgba(0,0,0,.22),
+      inset 0 3px 0 rgba(255,255,255,.20),
+      0 1px 0 var(--pipe-shadow);
+  }
+  .btn3d.csv{
+    background:linear-gradient(180deg,#FFE16A 0%, var(--coin-gold) 45%, var(--coin-gold-dk) 100%);
+    color:var(--ink);
+    text-shadow:0 2px 0 rgba(255,255,255,.4);
+    box-shadow:
+      inset 0 -4px 0 rgba(0,0,0,.20),
+      inset 0 3px 0 rgba(255,255,255,.40),
+      0 4px 0 var(--coin-gold-dk),
+      0 8px 12px rgba(0,0,0,.18);
+  }
+  .btn3d.csv:active{box-shadow:
+      inset 0 -2px 0 rgba(0,0,0,.18),
+      inset 0 3px 0 rgba(255,255,255,.30),
+      0 1px 0 var(--coin-gold-dk);
+  }
+  .btn3d.reset{
+    background:linear-gradient(180deg,#FF6C6C 0%, var(--mario-red) 45%, var(--mario-red-dk) 100%);
+    box-shadow:
+      inset 0 -4px 0 rgba(0,0,0,.22),
+      inset 0 3px 0 rgba(255,255,255,.30),
+      0 4px 0 #5C0805,
+      0 8px 12px rgba(0,0,0,.18);
+  }
+  .btn3d.reset:active{box-shadow:
+      inset 0 -2px 0 rgba(0,0,0,.22),
+      inset 0 3px 0 rgba(255,255,255,.20),
+      0 1px 0 #5C0805;
+  }
+
+  /* ===================== Toast ===================== */
+  .toast{
+    position:fixed;top:26px;left:50%;
+    transform:translateX(-50%);
+    background:var(--ink);color:#fff;
+    padding:10px 20px;border-radius:999px;
+    font-family:var(--display);font-size:15px;letter-spacing:.5px;
+    z-index:30;
+    box-shadow:0 4px 0 rgba(0,0,0,.30), 0 12px 24px -8px rgba(0,0,0,.4);
+    display:flex;align-items:center;gap:8px;
+    opacity:0;animation:toast-in .35s cubic-bezier(.34,1.56,.64,1) forwards;
+  }
+  .toast.out{animation:toast-out .25s ease forwards}
+  @keyframes toast-in{
+    from{opacity:0;transform:translateX(-50%) translateY(-12px) scale(.95)}
+    to  {opacity:1;transform:translateX(-50%) translateY(0)         scale(1)}
+  }
+  @keyframes toast-out{
+    from{opacity:1;transform:translateX(-50%) translateY(0)}
+    to  {opacity:0;transform:translateX(-50%) translateY(-12px)}
+  }
+
+  /* ===================== FX layer ===================== */
+  .fx{position:fixed;inset:0;pointer-events:none;z-index:40;overflow:hidden}
+  .particle{
+    position:absolute;left:0;top:0;width:10px;height:10px;border-radius:50%;
+    will-change:transform,opacity;
+    animation:burst 700ms cubic-bezier(.2,.7,.2,1) forwards;
+  }
+  @keyframes burst{
+    0%  {transform:translate(var(--x),var(--y)) scale(.4);opacity:1}
+    100%{transform:translate(calc(var(--x) + var(--dx)),calc(var(--y) + var(--dy))) scale(1);opacity:0}
+  }
+  .coin-fall{
+    position:absolute;top:-30px;width:18px;height:18px;border-radius:50%;
+    background:radial-gradient(circle at 35% 30%, var(--coin-lt) 0%, var(--coin-gold) 60%, var(--coin-gold-dk) 100%);
+    box-shadow:inset 0 -2px 0 rgba(0,0,0,.25);
+    animation:fall var(--dur,2.4s) linear forwards;
+  }
+  @keyframes fall{
+    0%  {transform:translateY(-30px) scaleX(1);opacity:1}
+    100%{transform:translateY(110vh) scaleX(-1);opacity:.9}
+  }
+
+  /* ===================== History dialog ===================== */
+  dialog{
+    background:var(--paper);color:var(--ink);
+    border:0;border-radius:18px;padding:0;max-width:92vw;width:460px;
+    box-shadow:0 6px 0 rgba(0,0,0,.20), 0 24px 60px -10px rgba(0,0,0,.45);
+  }
+  dialog::backdrop{background:rgba(15,23,42,.55);backdrop-filter:blur(6px)}
+  dialog .dlg-head{
+    padding:16px 20px 14px;
+    background:linear-gradient(180deg,#FFE16A 0%, var(--coin-gold) 100%);
+    color:var(--ink);
+    border-bottom:3px solid var(--coin-gold-dk);
+    display:flex;align-items:baseline;justify-content:space-between;
+    border-radius:18px 18px 0 0;
+  }
+  dialog h3{margin:0;font-family:var(--display);font-weight:normal;font-size:22px;letter-spacing:1px}
+  dialog .dlg-head .hint{font-family:var(--display-en);font-size:12px;color:var(--ink-2)}
+  .session-list{
+    max-height:55vh;overflow:auto;
+    display:flex;flex-direction:column;gap:8px;padding:14px 14px;
+  }
+  .session-list .item{
+    display:flex;align-items:center;gap:8px;
+    background:var(--paper-2);
+    border:2px solid var(--line);border-radius:12px;
+    padding:10px 12px;
+  }
+  .session-list .item .meta{flex:1;min-width:0}
+  .session-list .item .title{
+    font-family:var(--display);font-size:15px;color:var(--ink);
+    white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+  }
+  .session-list .item .sub{
+    font-family:var(--display-en);font-size:11.5px;
+    color:var(--muted);margin-top:2px;
+    font-variant-numeric:tabular-nums;letter-spacing:.04em;
+  }
+  .session-list .item button{
+    border-radius:8px;background:#fff;color:var(--ink);
+    padding:6px 10px;font-family:var(--display);font-size:13px;
+    box-shadow:inset 0 -2px 0 rgba(0,0,0,.12), 0 2px 0 rgba(0,0,0,.10);
+    transition:transform .1s;
+  }
+  .session-list .item button:active{transform:translateY(2px);box-shadow:inset 0 -1px 0 rgba(0,0,0,.12)}
+  .session-list .item button.del{color:#fff;background:var(--mario-red)}
+  .empty{padding:30px 20px;text-align:center;color:var(--muted)}
+  .empty .big{font-size:48px;margin-bottom:6px;font-family:var(--display-en);color:var(--muted)}
+  .dlg-actions{padding:12px 18px 16px;text-align:right}
+  .dlg-actions button{
+    border-radius:10px;background:var(--ink);color:#fff;
+    padding:8px 18px;font-family:var(--display);font-size:14px;
+    box-shadow:inset 0 -2px 0 rgba(0,0,0,.25), 0 2px 0 rgba(0,0,0,.20);
+  }
+
+  /* Course-clear banner */
+  .clear-banner{
+    position:fixed;top:42%;left:50%;transform:translate(-50%,-50%);
+    z-index:45;pointer-events:none;
+    font-family:var(--display-en);font-size:54px;color:#fff;letter-spacing:3px;
+    text-shadow:
+      -3px 0 0 var(--mario-red), 3px 0 0 var(--mario-red),
+      0 -3px 0 var(--mario-red), 0 3px 0 var(--mario-red),
+      -3px -3px 0 var(--mario-red), 3px -3px 0 var(--mario-red),
+      -3px 3px 0 var(--mario-red), 3px 3px 0 var(--mario-red),
+      0 7px 0 var(--mario-red-dk), 0 10px 14px rgba(0,0,0,.4);
+    opacity:0;
+    animation:banner 2.2s cubic-bezier(.34,1.56,.64,1) forwards;
+  }
+  @keyframes banner{
+    0%  {opacity:0;transform:translate(-50%,-50%) scale(.3) rotate(-8deg)}
+    20% {opacity:1;transform:translate(-50%,-50%) scale(1)   rotate(-3deg)}
+    70% {opacity:1;transform:translate(-50%,-50%) scale(1)   rotate(-3deg)}
+    100%{opacity:0;transform:translate(-50%,-50%) scale(1.1) rotate(-3deg)}
+  }
+
+  /* ===================== Level strip (Mushroom walks the world) ===================== */
+  .level{
+    margin-top:14px;position:relative;overflow:hidden;
+    height:96px;border-radius:16px;
+    background:linear-gradient(180deg,#6BA8FF 0%, #A8CEFF 60%, #A8CEFF 78%);
+    border:3px solid #1A1F36;
+    box-shadow:inset 0 -4px 0 rgba(0,0,0,.15), 0 3px 0 rgba(0,0,0,.20);
+  }
+  [data-theme="castle"] .level{
+    background:linear-gradient(180deg,#2A1751 0%, #43286E 78%);
+    border-color:#FFF6DC;
+  }
+  [data-theme="underground"] .level{
+    background:linear-gradient(180deg,#0F0F12 0%, #1A1A1F 78%);
+    border-color:#FFF6DC;
+  }
+  /* Brick ground */
+  .level::after{
+    content:"";position:absolute;left:0;right:0;bottom:0;
+    height:18px;z-index:1;
+    background:
+      repeating-linear-gradient(0deg, transparent 0 8px, rgba(0,0,0,.35) 8px 9px),
+      repeating-linear-gradient(90deg, transparent 0 19px, rgba(0,0,0,.35) 19px 20px, transparent 20px 39px, rgba(0,0,0,.35) 39px 40px),
+      linear-gradient(180deg, #E08C40 0%, #B36019 60%, #7C3F0F 100%);
+  }
+  /* Drifting clouds */
+  .level .cloud{
+    position:absolute;z-index:0;
+    width:24px;height:8px;background:#fff;border-radius:50%;
+    box-shadow: 10px -2px 0 #fff, -8px 2px 0 #fff, 18px 3px 0 #fff, 26px -1px 0 #fff;
+    animation:cloud-drift var(--dur,30s) linear infinite;
+  }
+  .level .cloud.c1{ top:12px; left:-60px; --dur:30s; animation-delay:-4s }
+  .level .cloud.c2{ top:28px; left:-60px; --dur:46s; animation-delay:-18s }
+  .level .cloud.c3{ top:6px;  left:-60px; --dur:26s; animation-delay:-22s }
+  [data-theme="castle"] .level .cloud,
+  [data-theme="underground"] .level .cloud{display:none}
+  @keyframes cloud-drift{
+    0%   { transform:translateX(0) }
+    100% { transform:translateX(calc(100vw + 80px)) }
+  }
+  /* Hills (overworld) and bush */
+  .level .hill{ position:absolute;bottom:18px;z-index:0; }
+  .level .hill.h1{
+    left:60%;width:62px;height:24px;background:#1F8C2E;
+    border-radius:60% 60% 0 0 / 100% 100% 0 0;
+    box-shadow:inset 0 -3px 0 rgba(0,0,0,.2), inset 0 4px 0 rgba(255,255,255,.1);
+  }
+  .level .hill.h2{
+    left:24%;width:40px;height:14px;background:#2EA64A;
+    border-radius:60% 60% 0 0 / 100% 100% 0 0;
+    box-shadow:inset 0 -2px 0 rgba(0,0,0,.18);
+  }
+  .level .bush{
+    position:absolute;bottom:18px;left:42%;z-index:0;
+    width:36px;height:12px;background:#2EA64A;border-radius:50%;
+    box-shadow:-8px -3px 0 #2EA64A, 8px -3px 0 #2EA64A, inset 0 -2px 0 rgba(0,0,0,.18);
+  }
+  [data-theme="castle"] .level .hill{ background:#14072C }
+  [data-theme="castle"] .level .hill.h2{ background:#2A1751 }
+  [data-theme="castle"] .level .bush{ background:#14072C;box-shadow:-8px -3px 0 #14072C, 8px -3px 0 #14072C }
+  [data-theme="underground"] .level .hill,
+  [data-theme="underground"] .level .bush{ display:none }
+
+  /* HUD coin counter */
+  .level .hud{
+    position:absolute;top:8px;left:14px;z-index:3;
+    display:flex;flex-direction:column;align-items:flex-start;gap:2px;
+    font-family:var(--display-en);color:#fff;line-height:1;
+    text-shadow:
+      -2px 0 0 #1A1F36, 2px 0 0 #1A1F36,
+      0 -2px 0 #1A1F36, 0 2px 0 #1A1F36,
+      -2px 2px 0 #1A1F36, 2px -2px 0 #1A1F36,
+      2px 2px 0 #1A1F36, -2px -2px 0 #1A1F36,
+      0 4px 0 rgba(0,0,0,.4);
+  }
+  .level .hud-label{ font-size:11px;letter-spacing:.1em;color:#FFE16A }
+  .level .hud-val{ font-size:24px;font-variant-numeric:tabular-nums;display:flex;align-items:baseline;gap:1px }
+  .level .hud-sep{ opacity:.8;margin:0 3px }
+  .level #tot{ font-size:17px;opacity:.85 }
+
+  /* Walker (the mushroom) */
+  .level .walker{
+    position:absolute;bottom:14px;z-index:2;
+    left:calc(8px + (var(--pct, 0) * (100% - 64px)));
+    transition:left .7s cubic-bezier(.34,1.56,.64,1);
+    cursor:pointer;animation:hop .6s ease-in-out infinite;
+    transform-origin:center bottom;
+  }
+  .level .walker.boing{ animation:boing .55s cubic-bezier(.34,1.56,.64,1) }
+  .level .walker.cheer{ animation:cheer .8s ease-in-out infinite }
+  @keyframes hop{
+    0%, 100% { transform:translateY(0) scaleY(1) }
+    35%      { transform:translateY(-8px) scaleY(1.04) }
+    60%      { transform:translateY(-3px) scaleY(.98) }
+  }
+  @keyframes boing{
+    0%   { transform:translateY(0) }
+    35%  { transform:translateY(-32px) scaleY(1.12) }
+    70%  { transform:translateY(0) scaleY(.82) }
+    100% { transform:translateY(0) scaleY(1) }
+  }
+  @keyframes cheer{
+    0%, 100% { transform:translateY(0) rotate(-4deg) }
+    50%      { transform:translateY(-10px) rotate(4deg) }
+  }
+  .mushroom-svg{
+    width:36px;height:32px;display:block;
+    image-rendering:pixelated;
+    filter:drop-shadow(0 2px 0 rgba(0,0,0,.30));
+  }
+
+  /* Flagpole */
+  .level .flagpole{
+    position:absolute;right:16px;bottom:18px;z-index:1;
+    width:18px;height:62px;
+  }
+  .level .flagpole .pole-ball{
+    position:absolute;left:6px;top:-4px;width:10px;height:10px;border-radius:50%;
+    background:#E52521;box-shadow:inset 0 -2px 0 rgba(0,0,0,.3), 0 0 0 2px #1A1F36;
+  }
+  .level .flagpole .pole{
+    position:absolute;left:10px;top:4px;width:2px;height:60px;
+    background:linear-gradient(90deg, #888 0%, #f5f5f5 50%, #888 100%);
+  }
+  .level .flagpole .flag{
+    position:absolute;left:-4px;top:8px;width:16px;height:12px;
+    background:#E52521;
+    clip-path:polygon(0 50%, 100% 0, 100% 100%);
+    transform-origin:right center;
+    animation:wave 1.4s ease-in-out infinite;
+  }
+  @keyframes wave{
+    0%, 100% { transform:scaleX(1) }
+    50%      { transform:scaleX(.85) }
+  }
+
+  /* Combo banner */
+  .combo{
+    position:fixed;top:32%;left:50%;z-index:35;
+    transform:translate(-50%,-50%) scale(0);
+    font-family:var(--display-en);
+    font-size:clamp(40px, 13vw, 72px);letter-spacing:3px;
+    color:#FFE16A;pointer-events:none;opacity:0;white-space:nowrap;
+    text-shadow:
+      -3px 0 0 #1A1F36, 3px 0 0 #1A1F36,
+      0 -3px 0 #1A1F36, 0 3px 0 #1A1F36,
+      -3px -3px 0 #1A1F36, 3px -3px 0 #1A1F36,
+      -3px 3px 0 #1A1F36, 3px 3px 0 #1A1F36,
+      0 7px 0 rgba(0,0,0,.45),
+      0 10px 16px rgba(0,0,0,.35);
+  }
+  .combo.show{ animation:combo-in .95s cubic-bezier(.34,1.56,.64,1) forwards }
+  @keyframes combo-in{
+    0%   { transform:translate(-50%,-50%) scale(.2) rotate(-12deg);opacity:0 }
+    22%  { transform:translate(-50%,-50%) scale(1.18) rotate(-4deg);opacity:1 }
+    65%  { transform:translate(-50%,-50%) scale(1) rotate(-4deg);opacity:1 }
+    100% { transform:translate(-50%,-70%) scale(.95) rotate(-4deg);opacity:0 }
+  }
+
+  /* ===================== Responsive ===================== */
+  /* Very narrow phones (iPhone SE, etc.) */
+  @media (max-width: 359px){
+    body{padding-left:12px;padding-right:12px}
+    h1.title .zh{font-size:38px;text-shadow:
+      -2px 0 0 var(--mario-red), 2px 0 0 var(--mario-red),
+      0 -2px 0 var(--mario-red), 0 2px 0 var(--mario-red),
+      -2px -2px 0 var(--mario-red), 2px -2px 0 var(--mario-red),
+      -2px 2px 0 var(--mario-red), 2px 2px 0 var(--mario-red),
+      0 5px 0 var(--mario-red-dk),
+      0 7px 10px rgba(0,0,0,.35);
+    }
+    h1.title .en{font-size:18px}
+    .level{height:84px}
+    .mushroom-svg{width:30px;height:26px}
+    .level .hud-val{font-size:20px}
+    .level .hud-label{font-size:10px}
+    .stu{padding:10px 10px}
+    .stu .nm{font-size:16px}
+    .stu .id{font-size:12px}
+    .block{width:42px;height:42px;flex:0 0 42px}
+    .block .mark{font-size:22px}
+    .actionbar button{font-size:13.5px;padding:12px 4px;letter-spacing:.3px}
+  }
+
+  /* Tablets (iPad portrait 768+) */
+  @media (min-width: 720px){
+    body{padding-left:28px;padding-right:28px;padding-bottom:calc(120px + env(safe-area-inset-bottom))}
+    .wrap{max-width:1080px}
+    header[data-screen-label="01 Header"]{padding-top:28px}
+    h1.title .zh{font-size:84px;letter-spacing:3px}
+    h1.title .en{font-size:34px}
+    .level{height:120px;border-radius:20px;border-width:4px}
+    .level .hud-label{font-size:13px}
+    .level .hud-val{font-size:30px}
+    .level #tot{font-size:22px}
+    .mushroom-svg{width:48px;height:42px}
+    .level .flagpole{height:84px;width:22px;bottom:24px;right:24px}
+    .level .flagpole .pole{height:84px}
+    .level .flagpole .flag{width:22px;height:16px;top:10px}
+    .level .flagpole .pole-ball{width:12px;height:12px;left:5px}
+    .level::after{height:24px}
+    .level .walker{bottom:20px;left:calc(12px + (var(--pct, 0) * (100% - 80px)))}
+    .level .hill.h1{width:80px;height:30px}
+    .level .hill.h2{width:54px;height:20px}
+    .level .bush{width:48px;height:16px}
+    .grid{grid-template-columns:repeat(5, minmax(0,1fr));gap:14px}
+    .stu{padding:14px 14px}
+    .stu .nm{font-size:19px}
+    .block{width:54px;height:54px;flex:0 0 54px;border-radius:10px}
+    .block .mark{font-size:30px}
+    .section-head h2{font-size:26px}
+    .section-head .hint{font-size:13px}
+    .actionbar{max-width:560px;gap:12px}
+    .actionbar button{font-size:17px;padding:15px 10px}
+  }
+
+  /* iPad landscape + small desktop */
+  @media (min-width: 1024px){
+    .wrap{max-width:1200px}
+    .grid{grid-template-columns:repeat(6, minmax(0,1fr));gap:16px}
+    .level{height:140px}
+    .mushroom-svg{width:56px;height:50px}
+    .level .walker{bottom:22px}
+  }
+
+  /* Wider desktop */
+  @media (min-width: 1280px){
+    .grid{grid-template-columns:repeat(7, minmax(0,1fr))}
+  }
+
+  /* Hover-capable devices: subtle lift on hover */
+  @media (hover: hover){
+    .stu:hover{transform:translateY(-2px);box-shadow:0 6px 0 rgba(0,0,0,.08), 0 14px 26px -8px rgba(0,0,0,.22)}
+    .stu.on:hover{box-shadow:0 6px 0 rgba(0,0,0,.08), 0 14px 26px -6px rgba(244,183,27,.45)}
+    .pill:hover{transform:translateY(-1px)}
+  }
+
+  @media (prefers-reduced-motion: reduce){
+    *,*::before,*::after{animation-duration:.001ms!important;transition-duration:.001ms!important}
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header data-screen-label="01 Header">
+  <div class="eyebrow">
+    <span class="world-badge"><span class="star">★</span> WORLD 1-1</span>
+    <span id="dateline">TUE · MAY 19</span>
+  </div>
+  <h1 class="title">
+    <span class="zh">学生记录</span>
+    <span class="en">ROSTER</span>
+  </h1>
+
+  <div class="meta-row">
+    <div class="sess-field">
+      <label for="sess">★ 本次记录</label>
+      <input id="sess" type="text" placeholder="例：早测 / 第三周课堂">
+    </div>
+  </div>
+
+  <div class="level" id="level" aria-label="进度关卡">
+    <span class="cloud c1"></span>
+    <span class="cloud c2"></span>
+    <span class="cloud c3"></span>
+    <span class="hill h1"></span>
+    <span class="hill h2"></span>
+    <span class="bush b1"></span>
+    <div class="hud">
+      <span class="hud-label">★ COINS</span>
+      <span class="hud-val">×<span id="cnt">0</span><span class="hud-sep">/</span><span id="tot">0</span></span>
+    </div>
+    <div class="walker" id="walker" role="button" tabindex="0" aria-label="蘑菇">
+      <svg viewBox="0 0 16 14" class="mushroom-svg" preserveAspectRatio="xMidYMid meet" shape-rendering="crispEdges" aria-hidden="true">
+        <rect x="4" y="0" width="8" height="1" fill="#E52521"/>
+        <rect x="2" y="1" width="12" height="1" fill="#E52521"/>
+        <rect x="1" y="2" width="14" height="4" fill="#E52521"/>
+        <rect x="3" y="2" width="2" height="2" fill="#FFFFFF"/>
+        <rect x="10" y="2" width="3" height="2" fill="#FFFFFF"/>
+        <rect x="6" y="4" width="2" height="1" fill="#FFFFFF"/>
+        <rect x="1" y="6" width="14" height="1" fill="#A60E0A"/>
+        <rect x="2" y="7" width="12" height="4" fill="#FFE4B0"/>
+        <rect x="3" y="11" width="10" height="1" fill="#FFE4B0"/>
+        <rect x="4" y="12" width="8" height="1" fill="#FFE4B0"/>
+        <rect x="2" y="11" width="12" height="1" fill="#E8C58A"/>
+        <rect x="4" y="8" width="2" height="3" fill="#000000"/>
+        <rect x="10" y="8" width="2" height="3" fill="#000000"/>
+        <rect x="4" y="8" width="1" height="1" fill="#FFFFFF"/>
+        <rect x="10" y="8" width="1" height="1" fill="#FFFFFF"/>
+      </svg>
+    </div>
+    <div class="flagpole" aria-hidden="true">
+      <span class="pole-ball"></span>
+      <span class="pole"></span>
+      <span class="flag"></span>
+    </div>
+  </div>
+
+  <div class="toolbar">
+    <div class="left">
+      <button class="pill" id="btnSessions" type="button">
+        <span class="ic">★</span> 历史记录
+      </button>
+      <button class="pill" id="btnAllOff" type="button" title="清空选择">
+        <span class="ic">○</span> 全部清空
+      </button>
+      <button class="pill mute" id="btnMute" type="button" title="声音">
+        <span class="ic" id="muteIc">♪</span>
+      </button>
+    </div>
+    <div class="theme-switch" role="group" aria-label="主题">
+      <button data-th="overworld"   aria-pressed="true"  title="地上">☀</button>
+      <button data-th="castle"      aria-pressed="false" title="城堡">⛫</button>
+      <button data-th="underground" aria-pressed="false" title="地下">▣</button>
+    </div>
+  </div>
+</header>
+
+<main data-screen-label="02 Roster">
+  <div class="section-head">
+    <h2>同 学</h2>
+    <span class="hint">TAP THE ? BLOCK</span>
+  </div>
+  <div class="grid" id="grid"></div>
+</main>
+
+</div><!-- /wrap -->
+
+<footer data-screen-label="03 Actions">
+  <div class="actionbar">
+    <button class="btn3d save" id="btnSave"><span class="ic">✓</span> 保存</button>
+    <button class="btn3d csv"  id="btnExport"><span class="ic">↓</span> 导出</button>
+    <button class="btn3d reset" id="btnReset"><span class="ic">↻</span> 重置</button>
+  </div>
+</footer>
+
+<div class="fx" id="fx" aria-hidden="true"></div>
+<div class="combo" id="combo" aria-hidden="true"></div>
+
+<dialog id="dlgSessions">
+  <div class="dlg-head">
+    <h3>历史记录</h3>
+    <span class="hint" id="sessHint"></span>
+  </div>
+  <div class="session-list" id="sessList"></div>
+  <div class="dlg-actions"><button id="btnCloseSess">关闭</button></div>
+</dialog>
+
+<script>
+/* =====================================================
+   学生记录 — v3 (Super Mario edition)
+   ===================================================== */
+
+const STUDENTS = [
+  {name:"杨钧皓",id:"S260053"},{name:"于琳晶",id:"S260052"},{name:"胡鑫瑜",id:"S260051"},
+  {name:"罗翾瑶",id:"S260050"},{name:"孙爱迪",id:"S260049"},{name:"王晨旭",id:"S260048"},
+  {name:"王晨宇",id:"S260047"},{name:"于小婷",id:"S260046"},{name:"刘思璇",id:"S260045"},
+  {name:"牛星林",id:"S260044"},{name:"林寅嘉",id:"S260043"},{name:"于小娉",id:"S260039"},
+  {name:"HEIN HTET NAING",id:"S260038"},{name:"牟歌",id:"S260037"},{name:"叶书瑞",id:"S260036"},
+  {name:"毛思琳",id:"S260035"},{name:"田昌",id:"S260034"},{name:"田硕",id:"S260033"},
+  {name:"李淳",id:"S260032"},{name:"王耀星",id:"S260031"},{name:"郑靖稀",id:"S260030"},
+  {name:"郑稀瑜",id:"S260029"},{name:"雷泽锐",id:"S260028"},{name:"祝振豪",id:"S260027"},
+  {name:"严锦诺",id:"S260026"},{name:"李明阳",id:"S260020"},{name:"喻耀程",id:"S260024"},
+  {name:"闫雯涵",id:"S260023"},{name:"李永轩",id:"S260022"},{name:"范恩慧",id:"S260021"},
+  {name:"孔凡今",id:"S260019"},{name:"刘钇村",id:"S260009"},{name:"刘亦佳",id:"S260008"}
+];
+
+const KEY_CURRENT  = "qa.current.v2";
+const KEY_SESSIONS = "qa.sessions.v2";
+const KEY_THEME    = "qa.theme";
+
+let state = loadCurrent();
+let lastCount = state.marked.size;
+
+function loadCurrent(){
+  try{
+    const raw = localStorage.getItem(KEY_CURRENT);
+    if(raw){
+      const v = JSON.parse(raw);
+      if(Array.isArray(v.marked)) return { name: v.name||defaultName(), marked: new Set(v.marked) };
+    }
+  }catch(e){}
+  return { name: defaultName(), marked: new Set() };
+}
+function saveCurrent(){
+  localStorage.setItem(KEY_CURRENT, JSON.stringify({ name: state.name, marked: [...state.marked] }));
+}
+function defaultName(){
+  const d = new Date(), p = n => String(n).padStart(2,"0");
+  return `${d.getFullYear()}-${p(d.getMonth()+1)}-${p(d.getDate())} 记录`;
+}
+function buzz(ms){ try{ navigator.vibrate && navigator.vibrate(ms||10); }catch(e){} }
+function escapeHtml(s){return String(s).replace(/[&<>"']/g, c=>({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[c]));}
+
+/* ---------- Audio synth (8-bit) ---------- */
+let _ac, muted = localStorage.getItem("qa.muted") === "1";
+function ac(){
+  if(!_ac){ try{ _ac = new (window.AudioContext || window.webkitAudioContext)(); }catch(e){} }
+  if(_ac && _ac.state === "suspended") _ac.resume();
+  return _ac;
+}
+function note(freq, dur, vol=0.06, type="square", delay=0){
+  const a = ac(); if(!a) return;
+  const t = a.currentTime + delay;
+  const osc = a.createOscillator(); const g = a.createGain();
+  osc.type = type; osc.frequency.value = freq;
+  g.gain.setValueAtTime(0.0001, t);
+  g.gain.exponentialRampToValueAtTime(vol, t + 0.005);
+  g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+  osc.connect(g).connect(a.destination);
+  osc.start(t); osc.stop(t + dur + 0.02);
+}
+const SOUND = {
+  coin(){  note(987.77, 0.06, 0.06); note(1318.51, 0.32, 0.06, "square", 0.05); },
+  bump(){  note(196, 0.10, 0.05, "square"); },
+  jump(){  note(523, 0.08, 0.05, "square"); note(740, 0.10, 0.05, "square", 0.06); note(988, 0.10, 0.05, "square", 0.12); },
+  oneUp(){
+    [659.25, 783.99, 1318.51, 1046.50, 1174.66, 1567.98].forEach((f,i) =>
+      note(f, 0.12, 0.07, "square", i * 0.12));
+  },
+  clear(){
+    const seq = [523.25, 659.25, 783.99, 1046.50, 1318.51, 1046.50, 1567.98];
+    seq.forEach((f,i) => note(f, 0.16, 0.07, "square", i * 0.14));
+  }
+};
+function play(name){ if(!muted) SOUND[name] && SOUND[name](); }
+
+/* ---------- Combo system ---------- */
+let _combo = 0, _comboTimer;
+const COMBO_LABELS = ["NICE!","COOL!","WOW!","AWESOME!","RADICAL!","INSANE!","SUPER!","LEGENDARY!"];
+function bumpCombo(){
+  _combo++;
+  clearTimeout(_comboTimer);
+  if(_combo >= 3){
+    const lbl = COMBO_LABELS[Math.min(_combo - 3, COMBO_LABELS.length - 1)];
+    const el = document.getElementById("combo");
+    el.textContent = `${lbl}  ×${_combo}`;
+    el.classList.remove("show");
+    void el.offsetWidth;
+    el.classList.add("show");
+  }
+  _comboTimer = setTimeout(() => { _combo = 0; }, 1300);
+}
+
+/* ---------- Date eyebrow ---------- */
+(function initDate(){
+  const d = new Date();
+  const wk = ["SUN","MON","TUE","WED","THU","FRI","SAT"][d.getDay()];
+  const mo = ["JAN","FEB","MAR","APR","MAY","JUN","JUL","AUG","SEP","OCT","NOV","DEC"][d.getMonth()];
+  document.getElementById("dateline").textContent = `${wk} · ${mo} ${d.getDate()}`;
+})();
+
+/* ---------- Theme ---------- */
+function applyTheme(name){
+  if(name === "overworld") document.documentElement.removeAttribute("data-theme");
+  else document.documentElement.setAttribute("data-theme", name);
+  document.querySelectorAll(".theme-switch button").forEach(b => {
+    b.setAttribute("aria-pressed", String(b.dataset.th === name));
+  });
+  localStorage.setItem(KEY_THEME, name);
+}
+applyTheme(localStorage.getItem(KEY_THEME) || "overworld");
+document.querySelectorAll(".theme-switch button").forEach(b => {
+  b.addEventListener("click", () => applyTheme(b.dataset.th));
+});
+
+/* ---------- Render roster ---------- */
+function render(){
+  const grid = document.getElementById("grid");
+  grid.innerHTML = "";
+  STUDENTS.forEach(s => {
+    const on = state.marked.has(s.id);
+    const b = document.createElement("button");
+    b.type = "button";
+    b.className = "stu " + (on ? "on" : "off");
+    b.innerHTML = `
+      <div class="block" aria-hidden="true">
+        <span class="rivet lt"></span><span class="rivet rt"></span>
+        <span class="rivet lb"></span><span class="rivet rb"></span>
+        <span class="mark q">?</span>
+        <span class="mark coin">★</span>
+      </div>
+      <div class="info">
+        <div class="nm">${escapeHtml(s.name)}</div>
+        <div class="id">${s.id}</div>
+      </div>
+      <span class="stamp">GET!</span>
+    `;
+    b.addEventListener("click", () => toggle(s, b));
+    grid.appendChild(b);
+  });
+  document.getElementById("sess").value = state.name || "";
+  document.getElementById("tot").textContent = STUDENTS.length;
+  updateCount(true);
+}
+
+function toggle(student, btn){
+  const becameOn = !state.marked.has(student.id);
+  if(becameOn) state.marked.add(student.id);
+  else state.marked.delete(student.id);
+  saveCurrent();
+  btn.classList.toggle("on", becameOn);
+  btn.classList.toggle("off", !becameOn);
+  btn.setAttribute("data-pulse","1");
+  setTimeout(()=> btn.removeAttribute("data-pulse"), 400);
+
+  if(becameOn){
+    const block = btn.querySelector(".block");
+    const r = block.getBoundingClientRect();
+    spawnCoin(r.left + r.width/2, r.top);
+    play("coin");
+    bumpCombo();
+  } else {
+    play("bump");
+  }
+  buzz(becameOn ? 14 : 8);
+  updateCount();
+}
+
+/* ---------- Floating +1 ---------- */
+function spawnCoin(x, y){
+  const el = document.createElement("div");
+  el.className = "floatcoin";
+  el.textContent = "+1";
+  el.style.left = x + "px";
+  el.style.top = (y - 4) + "px";
+  document.body.appendChild(el);
+  setTimeout(() => el.remove(), 950);
+}
+
+/* ---------- Counter ---------- */
+function updateCount(skipAnim){
+  const n = state.marked.size, t = STUDENTS.length;
+  const pct = t > 0 ? n / t : 0;
+  const level = document.getElementById("level");
+  if(level) level.style.setProperty("--pct", pct);
+  const walker = document.getElementById("walker");
+  if(walker) walker.classList.toggle("cheer", n === t && t > 0);
+  const el = document.getElementById("cnt");
+  if(skipAnim){ el.textContent = String(n); lastCount = n; return; }
+  tweenNum(el, lastCount, n, 380);
+  lastCount = n;
+  if(n === t && t > 0) celebrate();
+}
+function tweenNum(el, from, to, dur){
+  const t0 = performance.now();
+  function step(now){
+    const k = Math.min(1, (now - t0) / dur);
+    const eased = 1 - Math.pow(1 - k, 3);
+    el.textContent = String(Math.round(from + (to - from) * eased));
+    if(k < 1) requestAnimationFrame(step);
+    else el.textContent = String(to);
+  }
+  requestAnimationFrame(step);
+}
+
+/* ---------- Course clear celebration ---------- */
+let _lastCelebrate = 0;
+function celebrate(){
+  const now = Date.now();
+  if(now - _lastCelebrate < 2400) return;
+  _lastCelebrate = now;
+
+  // Banner
+  const banner = document.createElement("div");
+  banner.className = "clear-banner";
+  banner.textContent = "COURSE CLEAR!";
+  document.body.appendChild(banner);
+  setTimeout(() => banner.remove(), 2300);
+
+  // Falling coins
+  const layer = document.getElementById("fx");
+  for(let i = 0; i < 40; i++){
+    const c = document.createElement("span");
+    c.className = "coin-fall";
+    c.style.left = (Math.random() * 100) + "%";
+    c.style.setProperty("--dur", (1.6 + Math.random() * 1.6) + "s");
+    c.style.animationDelay = (Math.random() * 0.35) + "s";
+    const size = 12 + Math.random() * 10;
+    c.style.width = size + "px";
+    c.style.height = size + "px";
+    layer.appendChild(c);
+    setTimeout(() => c.remove(), 3600);
+  }
+  buzz(50);
+  play("clear");
+}
+
+/* ---------- Session name ---------- */
+document.getElementById("sess").addEventListener("input", e => {
+  state.name = e.target.value; saveCurrent();
+});
+
+/* ---------- Toolbar / footer actions ---------- */
+document.getElementById("btnAllOff").addEventListener("click", () => {
+  if(state.marked.size === 0) return;
+  state.marked.clear(); saveCurrent(); render(); flash("已清空");
+});
+document.getElementById("btnReset").addEventListener("click", () => {
+  if(!confirm("清空当前所有标记？(已保存的历史不受影响)")) return;
+  state.marked.clear(); saveCurrent(); render();
+});
+document.getElementById("btnSave").addEventListener("click", () => {
+  const sessions = JSON.parse(localStorage.getItem(KEY_SESSIONS) || "[]");
+  sessions.unshift({ name: state.name || defaultName(), savedAt: new Date().toISOString(), marked: [...state.marked] });
+  localStorage.setItem(KEY_SESSIONS, JSON.stringify(sessions.slice(0,200)));
+  flash("SAVED ✓"); buzz(20); play("oneUp");
+});
+document.getElementById("btnExport").addEventListener("click", () => {
+  exportCsv({ name: state.name, marked: [...state.marked] }); buzz(15);
+});
+
+function exportCsv(s){
+  const set = new Set(s.marked);
+  const rows = [["姓名","学工号","已选","记录名","导出时间"]];
+  const ts = new Date().toISOString();
+  STUDENTS.forEach(st => rows.push([st.name, st.id, set.has(st.id) ? "是" : "", s.name || "", ts]));
+  const csv = "\ufeff" + rows.map(r => r.map(csvCell).join(",")).join("\r\n");
+  const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  const safe = (s.name || "记录").replace(/[\\/:*?"<>|]/g, "_");
+  a.href = url; a.download = `${safe}.csv`;
+  document.body.appendChild(a); a.click();
+  setTimeout(() => { URL.revokeObjectURL(url); a.remove(); }, 200);
+}
+function csvCell(v){ const s = String(v ?? ""); return /[",\r\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s; }
+
+/* ---------- Toast ---------- */
+function flash(msg){
+  const el = document.createElement("div");
+  el.className = "toast"; el.textContent = msg;
+  document.body.appendChild(el);
+  setTimeout(() => { el.classList.add("out"); setTimeout(() => el.remove(), 260); }, 1400);
+}
+
+/* ---------- Mute toggle ---------- */
+function renderMute(){
+  const ic = document.getElementById("muteIc");
+  if(ic) ic.textContent = muted ? "✕" : "♪";
+  const btn = document.getElementById("btnMute");
+  if(btn) btn.style.opacity = muted ? "0.55" : "1";
+}
+document.getElementById("btnMute").addEventListener("click", () => {
+  muted = !muted;
+  localStorage.setItem("qa.muted", muted ? "1" : "0");
+  renderMute();
+  if(!muted) play("coin");
+});
+renderMute();
+
+/* ---------- Mushroom easter egg (tap to jump) ---------- */
+(function initWalkerToy(){
+  const walker = document.getElementById("walker");
+  if(!walker) return;
+  walker.addEventListener("click", (e) => {
+    e.stopPropagation();
+    walker.classList.add("boing");
+    play("jump");
+    buzz(8);
+    setTimeout(() => walker.classList.remove("boing"), 560);
+  });
+})();
+const dlg = document.getElementById("dlgSessions");
+document.getElementById("btnSessions").addEventListener("click", () => {
+  const sessions = JSON.parse(localStorage.getItem(KEY_SESSIONS) || "[]");
+  const list = document.getElementById("sessList");
+  document.getElementById("sessHint").textContent = sessions.length ? `× ${sessions.length}` : "";
+  if(!sessions.length){
+    list.innerHTML = '<div class="empty"><div class="big">∅</div>还没有保存的记录<br><span style="font-size:11px">按下 “保存” 即可在此查看</span></div>';
+  } else {
+    list.innerHTML = sessions.map((s,i) => {
+      const t = new Date(s.savedAt).toLocaleString("zh-CN", { month:"short", day:"numeric", hour:"2-digit", minute:"2-digit" });
+      const count = (s.marked || []).length;
+      return `<div class="item">
+        <div class="meta"><div class="title">${escapeHtml(s.name || "(未命名)")}</div><div class="sub">${escapeHtml(t)} · ★ ${count}/${STUDENTS.length}</div></div>
+        <button data-i="${i}" data-act="load">读取</button>
+        <button data-i="${i}" data-act="export">CSV</button>
+        <button data-i="${i}" data-act="del" class="del">删</button>
+      </div>`;
+    }).join("");
+    list.querySelectorAll("button").forEach(btn => {
+      btn.addEventListener("click", () => {
+        const i = +btn.dataset.i, act = btn.dataset.act;
+        const arr = JSON.parse(localStorage.getItem(KEY_SESSIONS) || "[]");
+        if(act === "load"){
+          state = { name: arr[i].name, marked: new Set(arr[i].marked || []) };
+          saveCurrent(); render(); dlg.close(); flash("已读取");
+        } else if(act === "export"){
+          exportCsv({ name: arr[i].name, marked: arr[i].marked || [] });
+        } else if(act === "del"){
+          if(confirm("删除该条记录？")){
+            arr.splice(i, 1);
+            localStorage.setItem(KEY_SESSIONS, JSON.stringify(arr));
+            document.getElementById("btnSessions").click();
+          }
+        }
+      });
+    });
+  }
+  dlg.showModal();
+});
+document.getElementById("btnCloseSess").addEventListener("click", () => dlg.close());
+dlg.addEventListener("click", (e) => { if(e.target === dlg) dlg.close(); });
+
+/* ---------- Boot ---------- */
+render();
+</script>
+</body>
+</html>
