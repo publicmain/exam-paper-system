@@ -29,6 +29,7 @@ import { OpenAiImageService, DiagramType } from './openai-image.service';
 import { AiQuestionGeneratorService } from './ai-question-generator.service';
 import { QuickPaperService } from './quick-paper.service';
 import { ConversationalPaperService } from './conversational-paper.service';
+import { ManualPaperService, ManualImportInput } from './manual-paper.service';
 import { AuthGuard } from '../common/auth.guard';
 import { RateLimit } from '../common/rate-limit.guard';
 import { CurrentUser } from '../common/current-user.decorator';
@@ -125,6 +126,7 @@ export class AiController {
     private readonly aiQuestions: AiQuestionGeneratorService,
     private readonly quickPaper: QuickPaperService,
     private readonly chatPaper: ConversationalPaperService,
+    private readonly manualPaper: ManualPaperService,
   ) {}
 
   /**
@@ -245,6 +247,36 @@ export class AiController {
       throw new ForbiddenException('admin or head_teacher role required');
     }
     return this.quickPaper.generate(dto, {
+      id: user.id,
+      role: user.role,
+      ip: req.ip ?? null,
+    });
+  }
+
+  /**
+   * R18: import a fully-authored paper. Bypasses Anthropic entirely —
+   * the caller supplies the question content, this endpoint runs the
+   * existing audit + approve + paper-assembly pipeline.
+   *
+   * Used (a) when Anthropic credits are dry, and (b) for content
+   * authored externally (Claude in a dev chat, a CLI script, a
+   * future admin UI). Diagrams are limited to structured SVG specs —
+   * image-only types are refused to keep the path cost-free.
+   *
+   * Admin / head_teacher only — bypassing Anthropic doesn't bypass the
+   * privilege check on authoring questions into the bank.
+   */
+  @Post('import-paper')
+  @RateLimit({ limit: 10, windowSec: 60, scope: 'user' })
+  async importPaper(
+    @Body() dto: ManualImportInput,
+    @CurrentUser() user: any,
+    @Req() req: Request,
+  ) {
+    if (!['admin', 'head_teacher'].includes(user?.role)) {
+      throw new ForbiddenException('admin or head_teacher role required');
+    }
+    return this.manualPaper.importPaper(dto, {
       id: user.id,
       role: user.role,
       ip: req.ip ?? null,

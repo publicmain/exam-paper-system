@@ -9,6 +9,7 @@ import { AiQuestionGeneratorService } from './ai-question-generator.service';
 import { QuickPaperService } from './quick-paper.service';
 import { QuickPaperAuditService } from './quick-paper-audit.service';
 import { ConversationalPaperService } from './conversational-paper.service';
+import { ManualPaperService } from './manual-paper.service';
 import { AutoGraderService } from './auto-grader.service';
 import { PrismaService } from '../common/prisma.service';
 import { ReviewModule } from '../review/review.module';
@@ -25,6 +26,7 @@ import { ReviewModule } from '../review/review.module';
     AiQuestionGeneratorService,
     QuickPaperService,
     ConversationalPaperService,
+    ManualPaperService,
     AutoGraderService,
     PrismaService,
   ],
@@ -37,6 +39,7 @@ import { ReviewModule } from '../review/review.module';
     AiQuestionGeneratorService,
     QuickPaperService,
     ConversationalPaperService,
+    ManualPaperService,
     AutoGraderService,
   ],
 })
