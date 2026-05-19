@@ -50,6 +50,7 @@ import ArchivedClassesPage from './pages/ArchivedClasses';
 // ROUND 14 — FE-Student PracticeMode + FE-Parent ParentPortal.
 import PracticeModePage from './pages/PracticeMode';
 import ParentPortalPage from './pages/ParentPortal';
+import QuickAttendancePage from './pages/QuickAttendance';
 
 export default function App() {
   const { user, loading, init, logout } = useAuth();
@@ -243,6 +244,9 @@ export default function App() {
               {(user.role === 'admin' || user.role === 'head_teacher' || user.role === 'teacher') && (
                 <NavLink to="/morning-quiz/schedule" label="🌅 Morning Quiz" />
               )}
+              {(user.role === 'admin' || user.role === 'head_teacher' || user.role === 'teacher') && (
+                <NavLink to="/quick-attendance" label="📋 快速考勤" />
+              )}
               {(user.role === 'admin' || user.role === 'head_teacher') && (
                 <NavLink to="/quality" label="Quality" />
               )}
@@ -389,6 +393,16 @@ export default function App() {
             element={
               user.role === 'admin' || user.role === 'head_teacher' || user.role === 'teacher' ? (
                 <AttendanceAdminPage />
+              ) : (
+                <Navigate to="/" replace />
+              )
+            }
+          />
+          <Route
+            path="/quick-attendance"
+            element={
+              user.role === 'admin' || user.role === 'head_teacher' || user.role === 'teacher' ? (
+                <QuickAttendancePage />
               ) : (
                 <Navigate to="/" replace />
               )
