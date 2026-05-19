@@ -279,7 +279,14 @@ const baseStyles = `
     .answer-area { background: white; }
     .answer-block { background: #fafafa; border: 1px solid #ddd; padding: 8px 10px; margin-top: 6px; }
     .q-assets { margin: 8px 0; text-align: center; }
-    .q-assets img { display: block; margin: 6px auto; max-width: 75%; max-height: 280px; page-break-inside: avoid; }
+    /* Figures: cap the longer pixel dimension at ~470px so a 600×600 figure
+       scales to ~470×470 (small enough to leave writing room below the
+       diagram). Before R17 this said max-height 280px, which crushed
+       any figure whose source pixel height exceeded ~370px to a thumb-
+       nail. With renderCoordinatePlane now capping its output at 600px
+       on the longer side, 470px CSS max keeps figures legible without
+       blowing past one page. */
+    .q-assets img { display: block; margin: 6px auto; max-width: 75%; max-height: 470px; page-break-inside: avoid; }
     .answer-label { font-weight: bold; color: #555; font-size: 9.5pt; text-transform: uppercase; letter-spacing: 0.05em; }
     .footer { position: running(footer); font-size: 9pt; color: #666; text-align: center; }
     code { background: #fdd; padding: 0 3px; }

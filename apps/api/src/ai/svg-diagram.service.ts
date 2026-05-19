@@ -31,12 +31,35 @@ const ASSET_STORE = process.env.AI_IMAGE_STORAGE_PATH
  */
 export type DiagramElementRole = 'given' | 'answer';
 
+/**
+ * Cell-aspect policy for coordinate_plane.
+ *
+ * - 'square' (default) — one math unit on x has the same pixel size as one
+ *   math unit on y. Required when the figure carries any geometry-sensitive
+ *   element: perpendicularity, angle equality, circle roundness, segment-
+ *   length comparison. The figure becomes physically tall (or wide) when
+ *   yRange/xRange is far from 1.
+ *
+ * - 'fit' — sx and sy are independent so the figure always fills a fixed
+ *   ~600×400 bounding box. Cells become rectangular but axis tick labels
+ *   still read correctly. Use this for pure function plots (y = f(x))
+ *   where the student reads (x, y) values off labelled gridlines and
+ *   doesn't infer geometry from cell shape — exactly CIE past-paper
+ *   convention for "x scale: 2 cm to 1 unit, y scale: 1 cm to 1 unit".
+ *
+ * Picked at spec time because the renderer can't tell from the data
+ * alone whether geometry needs to be preserved.
+ */
+export type CellAspect = 'square' | 'fit';
+
 export interface CoordinatePlaneSpec {
   kind: 'coordinate_plane';
   xRange: [number, number];
   yRange: [number, number];
   /** Grid step in math units (default 1). 0 to disable grid. */
   gridStep?: number;
+  /** See CellAspect docs. Default 'square'. */
+  cellAspect?: CellAspect;
   points?: Array<{
     x: number;
     y: number;
@@ -878,10 +901,30 @@ export class SvgDiagramService {
     const xRange = xMax - xMin;
     const yRange = yMax - yMin;
 
-    // Pixel canvas — 600×N keeps lines crisp at print.
+    // Pixel canvas. Two policies (see CellAspect docs):
+    //   - 'square': preserve aspect ratio; the longer math axis sets the
+    //     longer pixel side. We cap the longer side at MAX_DIM (600px)
+    //     so a yRange/xRange of 2 produces a 300×600 figure instead of
+    //     the original 600×1200 that got squashed to 280px by the PDF
+    //     <img> CSS max-height and looked tiny on the page.
+    //   - 'fit': always 600×400 with independent sx/sy. Cells become
+    //     rectangular; geometry assumptions about cell shape break, but
+    //     function plots and CIE-style asymmetric scales render at a
+    //     readable size.
     const padding = 36;
-    const widthPx = 600;
-    const heightPx = Math.round((widthPx - 2 * padding) * (yRange / xRange) + 2 * padding);
+    const MAX_DIM = 600;
+    let widthPx: number;
+    let heightPx: number;
+    if ((spec.cellAspect ?? 'square') === 'fit') {
+      widthPx = 600;
+      heightPx = 400;
+    } else if (yRange > xRange) {
+      heightPx = MAX_DIM;
+      widthPx = Math.round((MAX_DIM - 2 * padding) * (xRange / yRange) + 2 * padding);
+    } else {
+      widthPx = MAX_DIM;
+      heightPx = Math.round((MAX_DIM - 2 * padding) * (yRange / xRange) + 2 * padding);
+    }
 
     const sx = (widthPx - 2 * padding) / xRange;
     const sy = (heightPx - 2 * padding) / yRange;

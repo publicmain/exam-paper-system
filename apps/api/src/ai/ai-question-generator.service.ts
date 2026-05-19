@@ -63,6 +63,10 @@ export interface CoordinateMathSpec {
   xRange: [number, number];
   yRange: [number, number];
   gridStep?: number;
+  /** See CellAspect docs in svg-diagram.service.ts. Default 'square'.
+   *  Use 'fit' for asymmetric function plots so the figure doesn't
+   *  become physically tall. */
+  cellAspect?: 'square' | 'fit';
   points?: Array<{ x: number; y: number; label?: string; labelPos?: string; role?: 'given' | 'answer' }>;
   segments?: Array<{ from: [number, number]; to: [number, number]; label?: string; style?: 'solid' | 'dashed'; role?: 'given' | 'answer' }>;
   lines?: Array<{
@@ -722,6 +726,7 @@ Diagram rules (HARD):
 - Across the whole batch, NO MORE THAN 50% of questions should have \`needed: true\`. Pick the ones where a figure genuinely aids comprehension.
 - The "scene" must reference exact named entities and quantities from the question stem (e.g. "a metal sphere of radius 3.2 cm", not "a sphere"). Avoid colour, shading, 3D perspective.
 - "labels" are placed verbatim on the diagram. Include units. Keep each label under 40 characters.
+- SYMBOLIC mensuration questions (rectangle with length (2x+1) m and width (x-2) m, triangle with side (n+3), etc.) should NOT request a diagram. The dimensions are algebraic expressions, not numeric distances, so a coordinate-plane render of "length 5 along the x-axis" is meaningless to the student — they're not solving by measuring. Set \`needed: false\` for any geometry question whose given dimensions are algebraic in the unknowns. A diagram only helps for mensuration when the numeric values are concrete (e.g. "a rectangle 8 cm by 5 cm").
 
 Geometry / coordinate-graph diagrams (REQUIRED structured spec):
 For type "geometry" or "graph", in addition to scene/labels you MUST emit a "spec"
@@ -734,6 +739,7 @@ SVG from your spec instead. Schema for spec:
   "xRange": [xMin, xMax],          // numbers, xMin < xMax, leave 1-2 units padding
   "yRange": [yMin, yMax],          // same
   "gridStep": 1,                    // optional grid unit, default 1
+  "cellAspect": "fit",              // optional: "square" (default) | "fit"
   "points": [
     { "x": 2, "y": 7, "label": "A(2, 7)", "labelPos": "top-right", "role": "given" }
   ],
@@ -762,6 +768,24 @@ CRITICAL when emitting spec:
 - Use "labelPos" to keep point labels from colliding with line labels.
 - "scene" can stay short and natural-language; the rendered figure comes from
   the spec.
+
+cellAspect — when the figure should NOT have square cells:
+- DEFAULT "square" — required whenever the figure carries any geometry-
+  sensitive element: perpendicularity, parallel lines used to infer
+  congruence, circles, angle bisectors, segment-length comparison by
+  eye. The figure may then be physically tall or wide (renderer caps
+  the longer side at 600px).
+- "fit" — use ONLY for asymmetric function plots y = f(x) where the
+  student reads (x, y) values off labelled gridlines and doesn't infer
+  geometry from cell shape. This is CIE Paper-2 convention ("x scale:
+  2 cm to 1 unit, y scale: 1 cm to 1 unit"). Concretely, switch to
+  "fit" when type = "graph" and yRange / xRange > 1.5 OR < 0.67 — the
+  figure will fill a 600×400 box instead of going physically tall.
+  Examples that warrant "fit": y = x³ − 6x + 2 over x ∈ [−3, 3] with
+  y ∈ [−8, 12]; y = 6/x + x − 5 over x ∈ [0, 7] with y ∈ [−2, 4].
+  Examples that must stay "square": triangle with given side lengths;
+  perpendicular bisector construction; circle with chord; any figure
+  where "looks parallel" or "looks perpendicular" carries information.
 
 CRITICAL — student paper vs answer-key role tagging:
 Every points/segments/lines/parabolas element MUST carry "role". Use
@@ -1695,10 +1719,12 @@ existing math renderer handles scatter via points + axes.`;
     if (points.length === 0 && segments.length === 0 && lines.length === 0 && parabolas.length === 0) {
       return null;
     }
+    const cellAspect = s.cellAspect === 'fit' ? 'fit' as const : 'square' as const;
     return {
       kind: 'coordinate_plane',
       xRange, yRange,
       gridStep: typeof s.gridStep === 'number' && s.gridStep > 0 ? s.gridStep : 1,
+      cellAspect,
       points, segments, lines, parabolas,
     };
   }
