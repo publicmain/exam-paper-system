@@ -85,6 +85,8 @@ export const api = {
   generateAiQuestions: (data: any) => request('POST', '/ai/generate-questions', data),
   questionBudget: () => request('GET', '/ai/question-budget'),
   quickPaper: (data: any) => request('POST', '/ai/quick-paper', data),
+  chatPaper: (data: { syllabusCode: string; message: string; classLabel?: string }) =>
+    request('POST', '/ai/chat-paper', data),
 
   // sources (admin only)
   listSources: () => request('GET', '/sources'),

@@ -28,6 +28,7 @@ import { AiService } from './ai.service';
 import { OpenAiImageService, DiagramType } from './openai-image.service';
 import { AiQuestionGeneratorService } from './ai-question-generator.service';
 import { QuickPaperService } from './quick-paper.service';
+import { ConversationalPaperService } from './conversational-paper.service';
 import { AuthGuard } from '../common/auth.guard';
 import { RateLimit } from '../common/rate-limit.guard';
 import { CurrentUser } from '../common/current-user.decorator';
@@ -92,6 +93,12 @@ class BackfillTopicsDto {
   @IsOptional() @IsBoolean() dryRun?: boolean;
 }
 
+class ChatPaperDto {
+  @IsString() @MinLength(2) @MaxLength(20) syllabusCode: string;
+  @IsString() @MinLength(3) @MaxLength(2000) message: string;
+  @IsOptional() @IsString() @MaxLength(60) classLabel?: string;
+}
+
 class QuickPaperDto {
   @IsString() @MinLength(2) @MaxLength(20) syllabusCode: string;
   // Either supply a single topic (legacy) ...
@@ -117,6 +124,7 @@ export class AiController {
     private readonly openaiImage: OpenAiImageService,
     private readonly aiQuestions: AiQuestionGeneratorService,
     private readonly quickPaper: QuickPaperService,
+    private readonly chatPaper: ConversationalPaperService,
   ) {}
 
   /**
@@ -241,5 +249,35 @@ export class AiController {
       role: user.role,
       ip: req.ip ?? null,
     });
+  }
+
+  /**
+   * R16: chat-paper. Teacher types a free-text description and the
+   * system parses it into a QuickPaperInput, then runs the same
+   * generate pipeline. Strict authoring-role gate matches /quick-paper
+   * — every call burns both haiku (parse) and sonnet (generate) tokens.
+   */
+  @Post('chat-paper')
+  @RateLimit({ limit: 5, windowSec: 60, scope: 'user' })
+  async chatPaperGenerate(
+    @Body() dto: ChatPaperDto,
+    @CurrentUser() user: any,
+    @Req() req: Request,
+  ) {
+    if (!['admin', 'head_teacher'].includes(user?.role)) {
+      throw new ForbiddenException('admin or head_teacher role required');
+    }
+    return this.chatPaper.generateFromMessage(
+      {
+        syllabusCode: dto.syllabusCode,
+        message: dto.message,
+        classLabel: dto.classLabel ?? null,
+      },
+      {
+        id: user.id,
+        role: user.role,
+        ip: req.ip ?? null,
+      },
+    );
   }
 }

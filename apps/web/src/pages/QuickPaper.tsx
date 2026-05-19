@@ -69,6 +69,10 @@ export default function QuickPaperPage() {
   const [count, setCount] = useState(5);
   // Custom mix: { 'CS.1': 1, 'CS.3': 2, ... }
   const [mix, setMix] = useState<Record<string, number>>({});
+  // R16: free-text chat-paper description. When non-empty, the
+  // "Generate from description" button parses it via Claude haiku and
+  // feeds the result into the same QuickPaper pipeline.
+  const [chatMessage, setChatMessage] = useState('');
 
   const nav = useNavigate();
 
@@ -209,6 +213,41 @@ export default function QuickPaperPage() {
     });
   }
 
+  async function runChatPaper() {
+    if (busy) return;
+    const msg = chatMessage.trim();
+    if (msg.length < 3) return;
+    setBusy('chat');
+    setProgress({ step: 'Interpreting your description with Claude …' });
+    const tickerSteps = [
+      'Interpreting your description with Claude (~3s)',
+      'Drafting questions with sonnet · ~30-60s',
+      'Auto-approving drafts into the question bank',
+      withDiagrams ? 'Generating diagrams in parallel' : 'Skipping diagrams',
+      'Assembling paper',
+    ];
+    let stepIdx = 0;
+    const ticker = setInterval(() => {
+      if (stepIdx < tickerSteps.length - 1) {
+        stepIdx++;
+        setProgress((p) => (p && !p.result ? { ...p, step: tickerSteps[stepIdx] } : p));
+      }
+    }, 12000);
+    try {
+      const result: any = await api.chatPaper({
+        syllabusCode: subjectCode,
+        message: msg,
+      });
+      clearInterval(ticker);
+      setProgress({ step: 'Done', result });
+    } catch (e: any) {
+      clearInterval(ticker);
+      setProgress({ step: 'Failed', error: e.message });
+    } finally {
+      setBusy(null);
+    }
+  }
+
   function runCustomMix() {
     if (mixEntries.length === 0) return;
     const topicsArg = mixEntries.map(([code, count]) => ({ code, count }));
@@ -237,6 +276,57 @@ export default function QuickPaperPage() {
           and assembles a printable paper. Single-topic ~70-90s ($0.10-0.20). Mixed papers
           (Mock Exam) parallelise per topic, ~45s ($0.30-0.80).
         </p>
+      </div>
+
+      {/* R16: chat-paper — type a free-text description, Claude haiku
+          parses it into a QuickPaperInput, then the same author-audit-
+          assemble pipeline runs. Subject chip below still decides which
+          syllabus's topic taxonomy is grounded into the parse. */}
+      <div
+        className="card space-y-2"
+        style={{ background: 'linear-gradient(135deg,#fef3c7,#fef9c3)' }}
+      >
+        <div className="flex items-baseline justify-between flex-wrap gap-2">
+          <div>
+            <div className="font-bold text-base">💬 用对话出题</div>
+            <div className="text-xs text-gray-600">
+              一句话描述要出的题，AI 会解析成具体的考点 / 题数 / 难度 / 是否要图。
+              例: "4024，OL.4 二次函数图像 + 零点，5 题，难度 3-4，要图，40 分钟"
+            </div>
+          </div>
+          <div className="text-xs text-gray-500">
+            语料范围跟下面选的 syllabus 一致（当前: <span className="font-mono">{subjectCode}</span>）
+          </div>
+        </div>
+        <textarea
+          className="input w-full font-mono text-sm"
+          rows={2}
+          placeholder="例: 5 道 OL.4 函数与图像题，重点二次函数零点和图像变换，难度中等偏难，要图"
+          value={chatMessage}
+          disabled={!!busy}
+          onChange={(e) => setChatMessage(e.target.value.slice(0, 2000))}
+        />
+        <div className="flex items-center justify-between gap-2">
+          <div className="text-xs text-gray-500">
+            {chatMessage.length}/2000
+          </div>
+          <div className="flex gap-2">
+            <button
+              className="btn btn-ghost text-sm"
+              disabled={!!busy || !chatMessage}
+              onClick={() => setChatMessage('')}
+            >
+              清空
+            </button>
+            <button
+              className="btn btn-primary"
+              disabled={!!busy || chatMessage.trim().length < 3}
+              onClick={runChatPaper}
+            >
+              {busy === 'chat' ? '生成中 …' : '✨ AI 出题'}
+            </button>
+          </div>
+        </div>
       </div>
 
       <div className="card flex flex-wrap items-center gap-4">

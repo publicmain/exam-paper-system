@@ -8,6 +8,7 @@ import { RemoteRenderService } from './remote-render.service';
 import { AiQuestionGeneratorService } from './ai-question-generator.service';
 import { QuickPaperService } from './quick-paper.service';
 import { QuickPaperAuditService } from './quick-paper-audit.service';
+import { ConversationalPaperService } from './conversational-paper.service';
 import { AutoGraderService } from './auto-grader.service';
 import { PrismaService } from '../common/prisma.service';
 import { ReviewModule } from '../review/review.module';
@@ -23,6 +24,7 @@ import { ReviewModule } from '../review/review.module';
     QuickPaperAuditService,
     AiQuestionGeneratorService,
     QuickPaperService,
+    ConversationalPaperService,
     AutoGraderService,
     PrismaService,
   ],
@@ -34,6 +36,7 @@ import { ReviewModule } from '../review/review.module';
     QuickPaperAuditService,
     AiQuestionGeneratorService,
     QuickPaperService,
+    ConversationalPaperService,
     AutoGraderService,
   ],
 })
