@@ -342,38 +342,7 @@ export class MorningQuizCron {
         });
         if (!sub) continue;
 
-        const raw = await autoGradeScripts(sub.scripts, this.evaluator);
-        // R15-followup-18 — cron-late grader also honours retractions.
-        // lockPastSessions runs after the quiz window ends so any
-        // retract-with-awardAll fired between submit and lock window
-        // would otherwise be silently dropped on the cron's final grade.
-        let { autoScore, scriptUpdates } = raw;
-        const retractedRows = await this.prisma.questionRetraction.findMany({
-          where: {
-            awardAllStudents: true,
-            paperQuestionId: { in: sub.scripts.map((s: any) => s.paperQuestionId) },
-          },
-          select: { paperQuestionId: true },
-        });
-        if (retractedRows.length > 0) {
-          const retracted = new Set(retractedRows.map((r) => r.paperQuestionId));
-          const marksByScript = new Map<string, number>();
-          const pqByScript = new Map<string, string>();
-          for (const s of sub.scripts as any[]) {
-            marksByScript.set(s.id, s.paperQuestion?.marks ?? 0);
-            pqByScript.set(s.id, s.paperQuestionId);
-          }
-          scriptUpdates = raw.scriptUpdates.map((u) => {
-            const pqid = pqByScript.get(u.id);
-            if (!pqid || !retracted.has(pqid)) return u;
-            return {
-              ...u,
-              autoCorrect: true,
-              awardedMarks: marksByScript.get(u.id) ?? u.awardedMarks ?? 0,
-            };
-          });
-          autoScore = scriptUpdates.reduce((acc, u) => acc + (u.awardedMarks ?? 0), 0);
-        }
+        const { autoScore, scriptUpdates } = await autoGradeScripts(sub.scripts, this.evaluator);
 
         // Tiny atomic write — well under 5s even with N=20 scripts.
         await this.prisma.$transaction(async (tx) => {
