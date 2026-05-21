@@ -16,10 +16,8 @@ import {
 } from '@nestjs/common';
 import { Request, Response, Express } from 'express';
 import { z } from 'zod';
-import { UseGuards } from '@nestjs/common';
 import { CurrentUser } from '../common/current-user.decorator';
 import { Public } from '../common/auth.guard';
-import { IpAllowlistGuard } from '../wifi-gate/ip-allowlist.guard';
 import { RateLimit } from '../common/rate-limit.guard';
 import { PrismaService } from '../common/prisma.service';
 import { StudentService } from '../student/student.service';
@@ -482,16 +480,15 @@ export class MorningQuizController {
    * R10 followup — student-self-service: look up ALL past submissions
    * by name. Public route (no JWT — the scan flow's scanToken expires
    * with quizEnd, so a student can't reuse it to check yesterday's
-   * score). IP-gated to school WiFi so it's not world-readable; the
-   * threat model matches the existing scan flow (anyone at the venue
-   * can pick any name from the roster).
+   * score). Rate-limited per IP; the threat model matches the existing
+   * scan flow (anyone can pick any name from the roster — names are
+   * not a secret within the school).
    *
    * Returns submitted/graded papers only — in-progress and never-
    * scanned-in sessions are filtered out so the page reads as
    * "exams I've actually taken".
    */
   @Public()
-  @UseGuards(IpAllowlistGuard)
   @RateLimit({ limit: HISTORY_RATE_LIMIT.limit, windowSec: HISTORY_RATE_LIMIT.windowSec, scope: 'ip' })
   @Get('history-by-name')
   async historyByName(
@@ -742,21 +739,20 @@ export class MorningQuizController {
 
   /**
    * Per-submission per-question detail for a student — public route,
-   * IP-gated, name-matched. Lets students re-open their morning-quiz
+   * rate-limited, name-matched. Lets students re-open their morning-quiz
    * result from /my-history without needing to be logged in (the scan
    * flow's session token expires, so the existing /student/result/:id
    * page is useless for "check last week's answers").
    *
    * Security:
-   *   - IpAllowlistGuard: must be on school WiFi
    *   - Name match: the typed name MUST exactly equal the submission's
-   *     student.name. Otherwise a curious student on school WiFi could
-   *     enumerate submissionIds and read other students' answers.
+   *     student.name. Otherwise a curious student could enumerate
+   *     submissionIds and read other students' answers.
+   *   - Per-IP rate limit caps an enumeration loop.
    *   - No identifying info beyond the submission (no roster, no other
    *     students' data).
    */
   @Public()
-  @UseGuards(IpAllowlistGuard)
   @RateLimit({ limit: HISTORY_RATE_LIMIT.limit, windowSec: HISTORY_RATE_LIMIT.windowSec, scope: 'ip' })
   @Get('history-detail')
   async historyDetail(
@@ -793,13 +789,11 @@ export class MorningQuizController {
 
   /**
    * Wave-2 F2 — public lookup of upcoming morning-quiz sessions for one
-   * named student. IP-gated + rate-limited, same shape as
-   * /history-by-name (incl. same-name disambig flow). Used by the
-   * student-portal landing page to show "your next quiz is in
-   * <class> at 08:30".
+   * named student. Rate-limited, same shape as /history-by-name (incl.
+   * same-name disambig flow). Used by the student-portal landing page
+   * to show "your next quiz is in <class> at 08:30".
    */
   @Public()
-  @UseGuards(IpAllowlistGuard)
   @RateLimit({ limit: HISTORY_RATE_LIMIT.limit, windowSec: HISTORY_RATE_LIMIT.windowSec, scope: 'ip' })
   @Get('upcoming-for-name')
   async upcomingForName(
@@ -812,10 +806,9 @@ export class MorningQuizController {
   // ─────────────────── F10 — AI-grade appeals ───────────────────
 
   /** Public — student files an appeal against an AI-graded item.
-   *  IP-gated + rate-limited (5/60s). Name+studentId disambig matches
+   *  Rate-limited (5/60s). Name+studentId disambig matches
    *  /history-by-name. */
   @Public()
-  @UseGuards(IpAllowlistGuard)
   @RateLimit({ limit: 5, windowSec: 60, scope: 'ip' })
   @Post('appeals')
   async createAppeal(@Body() body: unknown, @Req() req: Request) {
@@ -928,9 +921,8 @@ export class MorningQuizController {
   // ─────────────────── F16 — Practice mode ───────────────────
 
   /** Public — start a fresh practice attempt from an old submission.
-   *  IP-gated + rate-limited; name+studentId scoped. */
+   *  Rate-limited; name+studentId scoped. */
   @Public()
-  @UseGuards(IpAllowlistGuard)
   @RateLimit({ limit: HISTORY_RATE_LIMIT.limit, windowSec: HISTORY_RATE_LIMIT.windowSec, scope: 'ip' })
   @Post('practice/:submissionId')
   async startPractice(
@@ -947,10 +939,9 @@ export class MorningQuizController {
     return this.svc.startPractice(submissionId, parsed.data, req.ip ?? null);
   }
 
-  /** Public — fetch a practice paper for replay. IP-gated +
-   *  rate-limited; name+studentId scoped. Body via Query for GET. */
+  /** Public — fetch a practice paper for replay. Rate-limited;
+   *  name+studentId scoped. Body via Query for GET. */
   @Public()
-  @UseGuards(IpAllowlistGuard)
   @RateLimit({ limit: HISTORY_RATE_LIMIT.limit, windowSec: HISTORY_RATE_LIMIT.windowSec, scope: 'ip' })
   @Get('practice/:practiceSubmissionId')
   async getPractice(
@@ -969,7 +960,6 @@ export class MorningQuizController {
    *  but DOES NOT mark the submission as 'submitted' or fire
    *  score_ready. Stats endpoints exclude status='practice'. */
   @Public()
-  @UseGuards(IpAllowlistGuard)
   @RateLimit({ limit: HISTORY_RATE_LIMIT.limit, windowSec: HISTORY_RATE_LIMIT.windowSec, scope: 'ip' })
   @Post('practice/:practiceSubmissionId/submit')
   async submitPractice(
@@ -998,9 +988,8 @@ export class MorningQuizController {
   // ─────────────────── F17 — Score trend ───────────────────
 
   /** Public — N-week trend of avg score per (week, level) for one student.
-   *  IP-gated + rate-limited; reuses /history-by-name disambig. */
+   *  Rate-limited; reuses /history-by-name disambig. */
   @Public()
-  @UseGuards(IpAllowlistGuard)
   @RateLimit({ limit: HISTORY_RATE_LIMIT.limit, windowSec: HISTORY_RATE_LIMIT.windowSec, scope: 'ip' })
   @Get('history-by-name/trend')
   async historyTrend(

@@ -41,7 +41,6 @@ import { ClassifierModule } from './classifier/classifier.module';
 import { PracticeModule } from './practice/practice.module';
 // Morning attendance + quiz (feature/morning-attendance-quiz)
 import { ShuffleModule } from './shuffle/shuffle.module';
-import { WifiGateModule } from './wifi-gate/wifi-gate.module';
 import { QrModule } from './qr/qr.module';
 import { AttendanceModule } from './attendance/attendance.module';
 import { MorningQuizModule } from './morning-quiz/morning-quiz.module';
@@ -96,7 +95,6 @@ import { HealthController } from './health.controller';
     PracticeModule,
     // Morning attendance + quiz
     ShuffleModule,
-    WifiGateModule,
     QrModule,
     AttendanceModule,
     MorningQuizModule,
@@ -113,8 +111,7 @@ import { HealthController } from './health.controller';
     ContentBootstrapModule,
     // F14 — Parent portal. AdminParentLinksController is admin-only and
     // goes through the global JWT AuthGuard. ParentPortalController is
-    // @Public + ParentAuthGuard, the only off-campus surface in the
-    // system (IpAllowlistGuard intentionally NOT applied).
+    // @Public + ParentAuthGuard.
     ParentPortalModule,
   ],
   controllers: [HealthController],

@@ -20,8 +20,8 @@ interface ActorCtx {
  *   - Admin CRUD on ParentLink rows (create / list / revoke)
  *   - Public read-only portal payload keyed by a 32-char token
  *
- * The portal is the ONLY off-campus path in the system — IpAllowlistGuard
- * is intentionally bypassed for the portal endpoint. Compensating controls:
+ * The portal is a public, unauthenticated read surface. Compensating
+ * controls:
  *   - random 32-char token (192 bits of entropy)
  *   - server-side revoke flag (admin can kill any link)
  *   - rate-limit on the public endpoint

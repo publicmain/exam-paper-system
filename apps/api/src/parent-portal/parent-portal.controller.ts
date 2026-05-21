@@ -84,8 +84,7 @@ export class AdminParentLinksController {
 /**
  * F14 — public parent portal payload. PUBLIC (@Public bypasses the
  * global AuthGuard JWT requirement) + ParentAuthGuard does its own
- * token check. IpAllowlistGuard is intentionally NOT applied — this
- * is the only off-campus path.
+ * token check.
  *
  * Rate-limited 30/60s/IP because token enumeration on a 192-bit
  * keyspace is computationally infeasible but a rude client could

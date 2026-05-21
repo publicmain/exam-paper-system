@@ -4,11 +4,9 @@ import {
   Get,
   NotFoundException,
   Query,
-  UseGuards,
 } from '@nestjs/common';
 import { Public } from '../common/auth.guard';
 import { PrismaService } from '../common/prisma.service';
-import { IpAllowlistGuard } from '../wifi-gate/ip-allowlist.guard';
 import { QrService } from './qr.service';
 
 @Controller('qr')
@@ -21,17 +19,13 @@ export class QrController {
    * @Public — no JWT required (the venue laptop runs anonymously, the
    * Display page just opens the URL).
    *
-   * @UseGuards(IpAllowlistGuard) — but the request MUST come from the
-   * school's egress IP. Without this gate the QR display page would be
-   * world-readable, which would let a remote attacker prefetch QR tokens
-   * and phish students; the existing /scan IP gate would still reject the
-   * scan, but exposing the QR feed at all is unnecessary risk.
-   *
-   * Net effect: open /display from a home network → 403 from this API →
-   * the React page renders a "请连接学校 WiFi" message.
+   * The QR token this returns is short-lived (rotates every
+   * qrRotationSeconds) and only useful while the session is `active`,
+   * so the QR feed being reachable off-network is low-risk: a scan
+   * still has to pass QR freshness + roster + attendance-window checks,
+   * and in-room invigilation is the real backstop.
    */
   @Public()
-  @UseGuards(IpAllowlistGuard)
   @Get('current')
   async current(@Query('classId') classId?: string, @Query('sessionId') sessionId?: string) {
     if (sessionId) {

@@ -80,9 +80,9 @@ export default function MorningQuizScan() {
   // there's just one (single-band class).
   const [chosenSessionId, setChosenSessionId] = useState<string | null>(null);
 
-  // Fetch the class meta on mount. We still hit /scan-roster (which is
-  // gated by school WiFi + valid QR) but only display the class name +
-  // count, never the names themselves — avoids leaking the roster.
+  // Fetch the class meta on mount. We hit /scan-roster (gated by a live
+  // QR token) but only display the class name + count, never the names
+  // themselves — avoids leaking the roster.
   useEffect(() => {
     if (!token) {
       setError({ code: 'no_token', message: '扫码链接缺少 token,请重新扫一次大屏二维码。' });
@@ -112,7 +112,7 @@ export default function MorningQuizScan() {
       .catch((e: any) => {
         if (cancelled) return;
         const raw = e?.message ?? String(e);
-        const code = extractCode(raw) ?? (raw.includes('Forbidden') ? 'not_on_school_wifi' : 'unknown');
+        const code = extractCode(raw) ?? 'unknown';
         setError({ code, message: friendlyMessage(code, raw) });
       });
     return () => {
@@ -148,7 +148,7 @@ export default function MorningQuizScan() {
       window.location.replace(r.quizUrl);
     } catch (e: any) {
       const raw = e?.message ?? String(e);
-      const code = extractCode(raw) ?? (raw.includes('Forbidden') ? 'not_on_school_wifi' : 'unknown');
+      const code = extractCode(raw) ?? 'unknown';
       setError({ code, message: friendlyMessage(code, raw) });
       setSubmitting(false);
     }
@@ -299,9 +299,6 @@ function extractCode(raw: string): string | null {
 
 function friendlyMessage(code: string, raw: string): string {
   switch (code) {
-    case 'not_on_school_wifi':
-    case 'allowlist_unconfigured':
-      return '请连接学校 WiFi 后再扫码(检测到你不在校园网内)。';
     case 'qr_expired':
     case 'qr_from_future':
       return '二维码已过期。请重新扫一次大屏上的最新二维码。';

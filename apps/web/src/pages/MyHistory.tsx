@@ -17,9 +17,10 @@ import { formatCNDateTime, formatCNTime } from '../lib/dateCN';
  *   - 历史成绩 (submissions: paper / level / score, each row links to a
  *     per-question detail view at /my-history/submission/:id?name=...)
  *
- * Public route, IP-gated to school WiFi (same threat model as the scan
- * flow). After a student submits the morning quiz, MorningQuizTake.tsx
- * navigates here with ?name=<student.name> so the page auto-loads.
+ * Public route, rate-limited per IP (same threat model as the scan
+ * flow — names are not a secret within the school). After a student
+ * submits the morning quiz, MorningQuizTake.tsx navigates here with
+ * ?name=<student.name> so the page auto-loads.
  */
 
 interface HistorySubmission {
@@ -150,8 +151,8 @@ export default function MyHistory() {
         const body = await r.json().catch(() => null);
         if (r.status === 404) {
           setError(`没有找到名为「${trimmed}」的学生 · No student found with this name. 请检查姓名是否完全一致(含全角符号)。`);
-        } else if (r.status === 403) {
-          setError('需要连接学校 WiFi · You must be on the school WiFi to view history.');
+        } else if (r.status === 429) {
+          setError('查询太频繁,请稍后再试 · Too many lookups, please wait a moment.');
         } else {
           setError(body?.code || `查询失败 · Lookup failed (HTTP ${r.status})`);
         }

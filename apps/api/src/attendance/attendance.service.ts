@@ -46,10 +46,10 @@ export class AttendanceService {
   ) {}
 
   /**
-   * Public roster lookup for the scan page. Caller has already passed
-   * IpAllowlistGuard (gate 1: school WiFi). We re-verify the QR token to
-   * limit exposure of the student-name list to the brief active session
-   * window, then return enrolled students sorted by name.
+   * Public roster lookup for the scan page. The live QR token is the
+   * gate — we verify it and only return the student-name list while the
+   * session is active, limiting exposure to the brief in-progress window.
+   * Students are returned sorted by name.
    */
   async fetchRoster(qrToken: string) {
     const decoded = await this.qr.verify(qrToken);
@@ -58,10 +58,10 @@ export class AttendanceService {
       select: { id: true, classId: true, date: true, level: true, status: true, class: { select: { name: true } } },
     });
     if (!session) throw new NotFoundException({ code: 'session_not_found' });
-    // Gate: only roster-leak the names while the session is *active*. School
-    // WiFi alone + a stale QR is not enough — without this, anyone in the
-    // building during off-hours could harvest the class roster by replaying
-    // yesterday's QR.
+    // Gate: only roster-leak the names while the session is *active*.
+    // Without this, a stale QR replayed off-hours could harvest the
+    // class roster — the active-status check scopes any leak to the
+    // brief in-progress window.
     if (session.status !== MorningQuizStatus.active) {
       throw new GoneException({ code: 'session_not_active', status: session.status });
     }
@@ -100,12 +100,11 @@ export class AttendanceService {
   }
 
   /**
-   * Public five-gate scan. Caller has passed IpAllowlistGuard (gate 1) at
-   * the controller. Remaining gates run here:
-   *   2. QR token verify (HMAC + freshness)
-   *   3. Session is `status=active`
-   *   4. studentId belongs to a real student enrolled in the session's class
-   *   5. Current time is within the attendance window (on_time | late | absent)
+   * Public four-gate scan. All gates run here:
+   *   1. QR token verify (HMAC + freshness)
+   *   2. Session is `status=active`
+   *   3. studentId belongs to a real student enrolled in the session's class
+   *   4. Current time is within the attendance window (on_time | late | absent)
    *
    * On success: upserts Attendance + StudentSubmission + ShuffleMap and
    * mints a short-lived "scan token" JWT carrying role='student' so the

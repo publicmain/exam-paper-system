@@ -47,16 +47,15 @@ async function bootstrap() {
     process.exit(1);
   }
 
-  // Detect dev-only escape hatches in production. The truly dangerous ones
-  // (MOCK_AUTH, SCHOOL_IP_BYPASS) hard-fail; the lower-risk ones
-  // (MORNING_QUIZ_DEBUG, ALLOW_PROD_SEED) are loud-logged but allowed,
-  // since they are also gated at the endpoint / seed-script level. This
-  // keeps prod bootable for the off-hours smoke-test workflow that
-  // legitimately uses MORNING_QUIZ_DEBUG=true.
+  // Detect dev-only escape hatches in production. The truly dangerous one
+  // (MOCK_AUTH) hard-fails; the lower-risk ones (MORNING_QUIZ_DEBUG,
+  // ALLOW_PROD_SEED) are loud-logged but allowed, since they are also
+  // gated at the endpoint / seed-script level. This keeps prod bootable
+  // for the off-hours smoke-test workflow that legitimately uses
+  // MORNING_QUIZ_DEBUG=true.
   if (process.env.NODE_ENV === 'production') {
     const fatal: Array<{ name: string; value: string | undefined }> = [
       { name: 'MOCK_AUTH', value: process.env.MOCK_AUTH },
-      { name: 'SCHOOL_IP_BYPASS', value: process.env.SCHOOL_IP_BYPASS },
     ];
     const tripped = fatal.filter((d) => d.value === 'true' || d.value === '1');
     if (tripped.length > 0) {
@@ -111,12 +110,12 @@ async function bootstrap() {
   expressApp.use(express.json({ limit: '2mb' }));
   expressApp.use(express.urlencoded({ limit: '2mb', extended: true }));
   // Trust proxy so req.ip reads X-Forwarded-For when fronted by Railway /
-  // Cloudflare. Required by IpAllowlistGuard to detect the real school egress
-  // IP rather than the proxy's loopback. Trust exactly ONE hop — the
-  // single Railway/Cloudflare layer in front of us. `trust proxy=true` would
-  // happily honour any number of fake X-Forwarded-For headers, letting a
-  // malicious client claim any source IP for the rate limiter / IP
-  // allowlist. Round-7 agent-2 H-10.
+  // Cloudflare. Needed so the per-IP rate limiter and the audit log
+  // record the real client IP rather than the proxy's loopback. Trust
+  // exactly ONE hop — the single Railway/Cloudflare layer in front of
+  // us. `trust proxy=true` would happily honour any number of fake
+  // X-Forwarded-For headers, letting a malicious client claim any
+  // source IP for the rate limiter. Round-7 agent-2 H-10.
   (app.getHttpAdapter().getInstance() as any).set('trust proxy', 1);
   app.useGlobalPipes(
     new ValidationPipe({

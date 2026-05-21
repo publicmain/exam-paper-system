@@ -1,10 +1,7 @@
 import { describe, it, expect, vi } from 'vitest';
-import { ConfigService } from '@nestjs/config';
 import { ShuffleService } from '../src/shuffle/shuffle.service';
 import { QrService } from '../src/qr/qr.service';
-import { IpAllowlistGuard } from '../src/wifi-gate/ip-allowlist.guard';
 import { parseFilename } from '../src/ingest/filename-parser';
-import type { ExecutionContext } from '@nestjs/common';
 
 // ─────────────────────────── ShuffleService ───────────────────────────
 
@@ -173,68 +170,6 @@ describe('QrService', () => {
     await expect(svc.verify(token)).rejects.toMatchObject({
       response: { code: 'qr_session_not_found' },
     });
-  });
-});
-
-// ─────────────────────────── IpAllowlistGuard ───────────────────────────
-
-function mockConfig(env: Record<string, string | undefined>): ConfigService {
-  return { get: (k: string) => env[k] } as any;
-}
-
-function execCtx(req: { ip?: string; remoteAddress?: string }): ExecutionContext {
-  return {
-    switchToHttp: () => ({
-      getRequest: () => ({
-        ip: req.ip,
-        socket: { remoteAddress: req.remoteAddress },
-      }),
-    }),
-  } as any;
-}
-
-describe('IpAllowlistGuard', () => {
-  it('allows exact IP match', () => {
-    const g = new IpAllowlistGuard(mockConfig({ SCHOOL_PUBLIC_IPS: '203.0.113.5' }));
-    expect(g.canActivate(execCtx({ ip: '203.0.113.5' }))).toBe(true);
-  });
-
-  it('allows CIDR-block match', () => {
-    const g = new IpAllowlistGuard(mockConfig({ SCHOOL_PUBLIC_IPS: '203.0.113.0/24' }));
-    expect(g.canActivate(execCtx({ ip: '203.0.113.42' }))).toBe(true);
-    expect(g.canActivate(execCtx({ ip: '203.0.113.255' }))).toBe(true);
-  });
-
-  it('rejects IP outside allowlist', () => {
-    const g = new IpAllowlistGuard(mockConfig({ SCHOOL_PUBLIC_IPS: '203.0.113.0/24' }));
-    expect(() => g.canActivate(execCtx({ ip: '198.51.100.1' }))).toThrow();
-  });
-
-  it('strips IPv4-mapped-IPv6 prefix', () => {
-    const g = new IpAllowlistGuard(mockConfig({ SCHOOL_PUBLIC_IPS: '203.0.113.5' }));
-    expect(g.canActivate(execCtx({ ip: '::ffff:203.0.113.5' }))).toBe(true);
-  });
-
-  it('fails closed when SCHOOL_PUBLIC_IPS is unset', () => {
-    const g = new IpAllowlistGuard(mockConfig({}));
-    expect(() => g.canActivate(execCtx({ ip: '203.0.113.5' }))).toThrow();
-  });
-
-  it('honours SCHOOL_IP_BYPASS=true (dev escape hatch)', () => {
-    const g = new IpAllowlistGuard(
-      mockConfig({ SCHOOL_PUBLIC_IPS: '203.0.113.0/24', SCHOOL_IP_BYPASS: 'true' }),
-    );
-    expect(g.canActivate(execCtx({ ip: '198.51.100.1' }))).toBe(true);
-  });
-
-  it('handles multi-rule comma-separated allowlist', () => {
-    const g = new IpAllowlistGuard(
-      mockConfig({ SCHOOL_PUBLIC_IPS: '203.0.113.0/24, 198.51.100.42, 192.0.2.0/28' }),
-    );
-    expect(g.canActivate(execCtx({ ip: '203.0.113.7' }))).toBe(true);
-    expect(g.canActivate(execCtx({ ip: '198.51.100.42' }))).toBe(true);
-    expect(g.canActivate(execCtx({ ip: '192.0.2.5' }))).toBe(true);
-    expect(() => g.canActivate(execCtx({ ip: '192.0.2.16' }))).toThrow();
   });
 });
 

@@ -119,20 +119,8 @@ export default function MorningQuizDisplay() {
 
       {error ? (
         <div className="max-w-xl text-center text-rose-600 text-2xl">
-          <div className="text-7xl mb-6">{isWifiError(error) ? '📡' : '⚠️'}</div>
-          {isWifiError(error) ? (
-            <>
-              <div className="font-bold mb-3">需要连接学校 WiFi</div>
-              <div className="text-lg text-gray-700 leading-relaxed">
-                这个页面只能在学校网络内打开。
-                <br />
-                请检查电脑/手机的 WiFi 是否已切换到校园网。
-              </div>
-              <div className="mt-6 text-sm text-gray-400 font-mono">
-                School-network only display
-              </div>
-            </>
-          ) : error.includes('no_session_today_or_tomorrow') ? (
+          <div className="text-7xl mb-6">⚠️</div>
+          {error.includes('no_session_today_or_tomorrow') ? (
             <>今天和明天都没有早测安排 / No morning quiz scheduled today or tomorrow.</>
           ) : error.includes('no_session_today') || error.includes('not_found') ? (
             <>今天没有早测安排 / No morning quiz scheduled today.</>
@@ -174,10 +162,10 @@ export default function MorningQuizDisplay() {
             <QRCodeSVG value={scanUrl} size={420} level="M" includeMargin={false} />
           </div>
           <div className="mt-8 text-3xl font-semibold tracking-tight">
-            连接学校 WiFi 后扫描二维码
+            扫描二维码签到
           </div>
           <div className="mt-2 text-xl text-gray-500">
-            Connect to school WiFi, then scan the QR with your phone camera.
+            Scan the QR with your phone camera to sign in.
           </div>
           <div className="mt-6 text-base text-gray-400 font-mono">
             QR refreshes every 15s · screenshots expire in 30s
@@ -185,17 +173,5 @@ export default function MorningQuizDisplay() {
         </>
       )}
     </div>
-  );
-}
-
-/** Detect the IpAllowlistGuard rejection by inspecting the error string;
- *  the API returns a structured message mentioning either the literal
- *  "not_on_school_wifi" code or the "allowlist_unconfigured" fallback. */
-function isWifiError(msg: string): boolean {
-  const m = msg.toLowerCase();
-  return (
-    m.includes('not_on_school_wifi') ||
-    m.includes('allowlist_unconfigured') ||
-    m.includes('forbidden')
   );
 }
