@@ -4,10 +4,18 @@ import { PrismaService } from '../common/prisma.service';
 
 export interface DecodedQrToken {
   sessionId: string;
-  windowStartMs: number;
+  /** Only present for v1 rotating tokens — the rotation window the token
+   *  was minted in. Absent for v2 static tokens, which carry no timestamp. */
+  windowStartMs?: number;
 }
 
 const TOKEN_VERSION = 'v1';
+// v2 — permanent, printable QR. Encodes only the classId (no timestamp,
+// no per-session secret) so it can be generated for any class far in
+// advance, printed once, and stuck on a wall. The scan-time session is
+// resolved by (classId, today's date). See `staticTokenForClass` /
+// the v2 branch of `verify`.
+const STATIC_TOKEN_VERSION = 'v2';
 const SIG_LEN = 16;
 // Tolerance window after a QR token's rotation window ends, during which
 // the server still accepts the token. The display rotates every
@@ -76,11 +84,98 @@ export class QrService {
   }
 
   /**
+   * Build the permanent, printable QR token for a class. Format:
+   *   v2.<classId>.<hmac16>
+   *
+   * No timestamp and no per-session secret — so this token is identical
+   * every day and can be generated months ahead, printed once, and stuck
+   * on a wall. No overnight laptop / projector needed.
+   *
+   * Signed with JWT_SECRET (domain-separated input so it can't collide
+   * with an actual JWT) purely as an anti-garbage check — the classId
+   * itself is not a secret (it's literally printed in public), the HMAC
+   * just lets `verify` reject a hand-typed bogus token fast. Real
+   * attendance integrity rests on the unchanged downstream gates:
+   * attendance time window, roster membership, deviceUuid de-dup, and
+   * in-room invigilation.
+   *
+   * Caveat: if JWT_SECRET is ever rotated, every printed v2 QR stops
+   * verifying and must be reprinted. Acceptable — secret rotation is rare
+   * and operationally loud.
+   */
+  staticTokenForClass(classId: string): string {
+    return `${STATIC_TOKEN_VERSION}.${classId}.${this.staticSig(classId)}`;
+  }
+
+  private staticSig(classId: string): string {
+    const secret = process.env.JWT_SECRET ?? '';
+    return createHmac('sha256', secret)
+      .update(`qr-static.${STATIC_TOKEN_VERSION}.${classId}`)
+      .digest('hex')
+      .slice(0, SIG_LEN);
+  }
+
+  /**
+   * Resolve the morning-quiz session a static (classId-only) QR should
+   * attach to right now. A class runs up to one session per English
+   * level per day; we return any one of today's as the anchor — the scan
+   * page's sibling-session logic surfaces the rest for the level picker.
+   *
+   * "Today" = the current UTC calendar date. The attendance window opens
+   * 08:30 SGT == 00:30 UTC of the SAME date, so a session dated
+   * 2026-05-20 is the one a student scans on the morning of 2026-05-20.
+   * Status is intentionally NOT filtered here: returning a scheduled /
+   * locked session lets the downstream fetchRoster / scanQr checks emit
+   * the precise `session_not_active` error with the real status, instead
+   * of a vague "no session" here.
+   */
+  private async resolveTodaySession(classId: string): Promise<{ id: string } | null> {
+    const now = new Date();
+    const todayUtc = new Date(
+      Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()),
+    );
+    const tomorrowUtc = new Date(todayUtc.getTime() + 86_400_000);
+    return this.prisma.morningQuizSession.findFirst({
+      where: { classId, date: { gte: todayUtc, lt: tomorrowUtc } },
+      orderBy: { level: 'asc' },
+      select: { id: true },
+    });
+  }
+
+  /**
    * Verify and decode a QR token. Throws UnauthorizedException with a precise
    * error code on failure; returns the decoded payload on success.
+   *
+   * Two token families are accepted:
+   *   v1.<windowStartMs>.<hmac>.<sessionId>  — rotating, on-screen QR
+   *   v2.<classId>.<hmac>                    — static, printable QR
    */
   async verify(rawToken: string): Promise<DecodedQrToken> {
     const parts = rawToken.split('.');
+
+    // ── v2 static token ────────────────────────────────────────────────
+    if (parts[0] === STATIC_TOKEN_VERSION) {
+      if (parts.length !== 3) {
+        throw new UnauthorizedException({ code: 'qr_malformed' });
+      }
+      const [, classId, providedSig] = parts;
+      if (!classId || providedSig.length !== SIG_LEN) {
+        throw new UnauthorizedException({ code: 'qr_malformed' });
+      }
+      const expected = this.staticSig(classId);
+      const a = Buffer.from(providedSig);
+      const b = Buffer.from(expected);
+      if (a.length !== b.length || !timingSafeEqual(a, b)) {
+        throw new UnauthorizedException({ code: 'qr_invalid' });
+      }
+      const session = await this.resolveTodaySession(classId);
+      if (!session) {
+        throw new UnauthorizedException({ code: 'qr_no_session_today' });
+      }
+      return { sessionId: session.id };
+    }
+
+    // ── v1 rotating token ──────────────────────────────────────────────
     if (parts.length !== 4 || parts[0] !== TOKEN_VERSION) {
       throw new UnauthorizedException({ code: 'qr_malformed' });
     }

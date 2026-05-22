@@ -57,6 +57,33 @@ export class QrController {
     if (!session) throw new NotFoundException('no_session_today_or_tomorrow');
     return this.qr.currentToken(session.id);
   }
+
+  /**
+   * Static, printable QR token for a class.
+   *
+   * @Public — same rationale as /current: the QR-display surface runs
+   * anonymously. The returned token is meant to be printed in public, so
+   * it isn't a secret; the endpoint just hands back what /qr-print renders.
+   *
+   * Unlike /current this token never changes — print it once, stick it on
+   * a wall, and the morning scan resolves to that day's session at scan
+   * time. No overnight laptop / projector.
+   */
+  @Public()
+  @Get('static')
+  async static(@Query('classId') classId?: string) {
+    if (!classId) throw new BadRequestException('classId required');
+    const cls = await this.prisma.class.findUnique({
+      where: { id: classId },
+      select: { id: true, name: true },
+    });
+    if (!cls) throw new NotFoundException('class_not_found');
+    return {
+      classId: cls.id,
+      className: cls.name,
+      token: this.qr.staticTokenForClass(cls.id),
+    };
+  }
 }
 
 function startOfTodayUtc(): Date {

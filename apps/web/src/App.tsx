@@ -20,6 +20,7 @@ import { ErrorBoundary } from './components/ErrorBoundary';
 import { CommandPalette } from './components/CommandPalette';
 // Morning quiz feature
 import MorningQuizDisplayPage from './pages/MorningQuizDisplay';
+import MorningQuizQrPrintPage from './pages/MorningQuizQrPrint';
 import MorningQuizScanPage from './pages/MorningQuizScan';
 import MorningQuizTakePage from './pages/MorningQuizTake';
 import MorningQuizSchedulePage from './pages/MorningQuizSchedule';
@@ -69,6 +70,17 @@ export default function App() {
       <Routes>
         <Route path="/display" element={<MorningQuizDisplayPage />} />
         <Route path="/display/:sessionId" element={<MorningQuizDisplayPage />} />
+      </Routes>
+    );
+  }
+
+  // Public route: printable permanent QR. No login — opened once by staff
+  // to print the wall sheet, then never needed again. Kept above the auth
+  // gate so it renders chrome-free for a clean print.
+  if (location.pathname === '/qr-print') {
+    return (
+      <Routes>
+        <Route path="/qr-print" element={<MorningQuizQrPrintPage />} />
       </Routes>
     );
   }

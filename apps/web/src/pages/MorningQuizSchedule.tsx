@@ -455,6 +455,15 @@ export default function MorningQuizSchedule() {
                 <td>
                   <span className="font-medium">{c.name}</span>
                   <span className="text-gray-400 ml-2 font-mono">{c.classCode}</span>
+                  <a
+                    href={`/qr-print?classId=${encodeURIComponent(c.id)}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-xs text-indigo-600 hover:underline ml-2"
+                    title="打开可打印的永久二维码 — 打印后贴墙，每天直接扫，无需开电脑"
+                  >
+                    🖨 墙贴 QR
+                  </a>
                 </td>
                 {/* R10 multi-level: render one chip per registered band.
                     Click chip × to remove. Empty = "未配置". */}

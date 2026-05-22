@@ -259,6 +259,12 @@ export const api = {
   // ── Morning attendance + quiz ──
   qrCurrent: (params: { classId?: string; sessionId?: string }) =>
     request('GET', `/qr/current${qs(params)}`),
+  /** Permanent printable QR token for a class — print once, no laptop. */
+  qrStatic: (classId: string) =>
+    request<{ classId: string; className: string; token: string }>(
+      'GET',
+      `/qr/static?classId=${encodeURIComponent(classId)}`,
+    ),
   /** Public roster fetch — gated by school WiFi + valid QR token. */
   attendanceScanRoster: (qrToken: string) =>
     request('GET', `/attendance/scan-roster?qrToken=${encodeURIComponent(qrToken)}`),
