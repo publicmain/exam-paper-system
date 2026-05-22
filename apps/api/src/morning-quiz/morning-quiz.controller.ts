@@ -459,11 +459,15 @@ export class MorningQuizController {
     if (user.role !== 'student') throw new ForbiddenException('student_only');
     const submission = await this.svc.findSubmissionForSession(id, user.id);
     if (!submission) throw new BadRequestException('no_submission_for_session');
-    return this.student.finalSubmit(submission.id, {
-      id: user.id,
-      role: user.role,
-      ip: req.ip ?? null,
-    });
+    // R15-followup-20 — deferAi: grade MCQ inline (instant), but skip the
+    // Claude short-answer call. The 09:00 lockPastSessions cron runs ONE
+    // batched AI sweep for the whole cohort, so 30 students submitting at
+    // once can't fan out into ~200 concurrent Claude calls.
+    return this.student.finalSubmit(
+      submission.id,
+      { id: user.id, role: user.role, ip: req.ip ?? null },
+      { deferAi: true },
+    );
   }
 
   /** F3 — student post-submit result page payload.

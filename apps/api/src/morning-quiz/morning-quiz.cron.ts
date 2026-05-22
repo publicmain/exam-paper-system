@@ -314,14 +314,26 @@ export class MorningQuizCron {
       }
     }
 
-    // ── Phase 2: AI-grade each claimed submission, NO outer tx ────────
-    // Load scripts outside any tx (reads don't need one). Then per
-    // submission: AI call (slow, no tx) → small write tx. If one
-    // submission's AI call or write fails, log and continue — don't
-    // poison the rest of the cohort.
+    // ── Phase 2: AI-grade EVERY submission in the session, NO outer tx ─
+    // R15-followup-20 — this is now the single batched AI-grading sweep.
+    // The morning-quiz submit path (finalSubmit deferAi=true) scores MCQ
+    // inline but parks short answers as pending, so the cohort that
+    // submitted on time is sitting here un-AI-graded alongside the
+    // stragglers this cron just force-submitted. Grade them all: one
+    // batched Claude call per submission, drained sequentially — ~30
+    // calls over a few minutes, comfortably under any rate limit.
+    //
+    // Re-grading an on-time submitter re-runs MCQ (idempotent, same
+    // result) and fills in the short-answer scores. Load scripts outside
+    // any tx; per submission: batched AI call (slow, no tx) → small
+    // write tx. One failure logs + continues — never poison the cohort.
+    const allSubs = await this.prisma.studentSubmission.findMany({
+      where: { assignmentId: paperAssignmentId, status: { not: 'practice' } },
+      select: { id: true },
+    });
     let graded = 0;
     let gradeFailed = 0;
-    for (const subId of inProgressIds) {
+    for (const { id: subId } of allSubs) {
       try {
         const sub = await this.prisma.studentSubmission.findUnique({
           where: { id: subId },
@@ -348,7 +360,12 @@ export class MorningQuizCron {
         await this.prisma.$transaction(async (tx) => {
           await tx.studentSubmission.update({
             where: { id: sub.id },
-            data: { autoScore },
+            // R15-followup-20 — also write totalScore. finalSubmit's
+            // deferAi path left it at the MCQ-only partial; this sweep
+            // produces the final number the marker/parent dashboards
+            // read directly. manualScore is null pre-marking → equals
+            // autoScore (mirrors finalSubmit / regradeSession).
+            data: { autoScore, totalScore: autoScore },
           });
           for (const u of scriptUpdates) {
             await tx.answerScript.update({

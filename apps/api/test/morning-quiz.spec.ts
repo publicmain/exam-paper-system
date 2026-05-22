@@ -117,6 +117,9 @@ describe('QrService', () => {
     qrSecret: 'aabbccdd00112233',
     qrRotationSeconds: 15,
     status: 'active',
+    // currentToken() surfaces attendanceStart for the overnight-display
+    // countdown — the mock must carry it or .toISOString() throws.
+    attendanceStart: new Date(),
   };
 
   it('round-trips a freshly generated token', async () => {
@@ -148,8 +151,9 @@ describe('QrService', () => {
 
   it('rejects expired token (older than rotation+tolerance)', async () => {
     const svc = new QrService(mockPrismaForQr(session));
-    // Forge a token with a windowStart 60s in the past — past 15+30 tolerance.
-    const past = Math.floor((Date.now() - 60_000) / 15_000) * 15_000;
+    // Forge a token 150s in the past — well past the 15s rotation +
+    // 60s TOLERANCE_MS acceptance window.
+    const past = Math.floor((Date.now() - 150_000) / 15_000) * 15_000;
     const { createHmac } = await import('crypto');
     const sig = createHmac('sha256', session.qrSecret)
       .update(`${session.id}.${past}`)
@@ -484,8 +488,9 @@ describe('autoGradeScripts — shared grader for finalSubmit + cron lock', () =>
     expect(r.scriptUpdates[0].autoCorrect).toBe(true);
   });
 
-  it('R10 marks short_answer wrong on misspelling — no fuzzy match without aiGrader', async () => {
-    // Without an AI grader, string mismatch falls through to wrong.
+  it('R10/R15-followup-20 parks short_answer pending when no aiGrader is wired (string mismatch)', async () => {
+    // Without an AI grader, a string mismatch is parked pending
+    // (autoCorrect=null) for the marker queue — never silently 0.
     const r = await autoGradeScripts([
       {
         id: 's1', selectedOption: null, textAnswer: 'pendalum clock',
@@ -496,13 +501,13 @@ describe('autoGradeScripts — shared grader for finalSubmit + cron lock', () =>
       },
     ]);
     expect(r.autoScore).toBe(0);
-    expect(r.scriptUpdates[0]).toMatchObject({ autoCorrect: false, awardedMarks: 0 });
+    expect(r.scriptUpdates[0]).toMatchObject({ autoCorrect: null, awardedMarks: null });
   });
 
   it('R10 marks short_answer wrong when student left it blank — never calls AI', async () => {
-    const calls: any[] = [];
+    let called = 0;
     const aiGrader = {
-      evaluate: async (i: any) => { calls.push(i); return null; },
+      evaluateBatch: async () => { called++; return null; },
     };
     const r = await autoGradeScripts([
       {
@@ -515,10 +520,10 @@ describe('autoGradeScripts — shared grader for finalSubmit + cron lock', () =>
     ], aiGrader);
     expect(r.autoScore).toBe(0);
     expect(r.scriptUpdates[0].autoCorrect).toBe(false);
-    expect(calls).toHaveLength(0);
+    expect(called).toBe(0);
   });
 
-  it('R10 still defers long free-form short_answer to the marker (>80 char canonical)', async () => {
+  it('R10/R15-followup-20 parks long free-form short_answer pending for the marker (>80 char canonical)', async () => {
     const longCanonical = 'a'.repeat(120);
     const r = await autoGradeScripts([
       {
@@ -530,7 +535,8 @@ describe('autoGradeScripts — shared grader for finalSubmit + cron lock', () =>
       },
     ]);
     expect(r.autoScore).toBe(0);
-    expect(r.scriptUpdates).toHaveLength(0); // marker queue
+    expect(r.scriptUpdates).toHaveLength(1);
+    expect(r.scriptUpdates[0].autoCorrect).toBeNull();
   });
 
   it('R10 defers short_answer with no canonical answer (still uncategorised)', async () => {
@@ -546,15 +552,22 @@ describe('autoGradeScripts — shared grader for finalSubmit + cron lock', () =>
     expect(r.scriptUpdates).toHaveLength(0);
   });
 
-  // ─────── R10: AI grader fallback for paraphrase / typo ────────
+  // ─────── R10/R15-followup-20: batched AI grader fallback ────────
 
   it('R10 AI grader credits paraphrase that string match would reject', async () => {
     const aiGrader = {
-      evaluate: async (i: any) => ({
-        awardedMarks: 1,
-        reasoning: '"the fat beneath the shell" is the same as the canonical "fat beneath shell" with optional articles.',
-        confident: true,
-      }),
+      evaluateBatch: async (input: any) =>
+        new Map(
+          input.items.map((it: any) => [
+            it.id,
+            {
+              awardedMarks: 1,
+              reasoning:
+                '"the fat beneath the shell" is the same as the canonical "fat beneath shell" with optional articles.',
+              confident: true,
+            },
+          ]),
+        ),
     };
     const r = await autoGradeScripts([
       {
@@ -576,7 +589,13 @@ describe('autoGradeScripts — shared grader for finalSubmit + cron lock', () =>
 
   it('R10 AI grader rejects clearly wrong answer', async () => {
     const aiGrader = {
-      evaluate: async () => ({ awardedMarks: 0, reasoning: 'Off-topic.', confident: true }),
+      evaluateBatch: async (input: any) =>
+        new Map(
+          input.items.map((it: any) => [
+            it.id,
+            { awardedMarks: 0, reasoning: 'Off-topic.', confident: true },
+          ]),
+        ),
     };
     const r = await autoGradeScripts([
       {
@@ -594,8 +613,8 @@ describe('autoGradeScripts — shared grader for finalSubmit + cron lock', () =>
     expect(r.scriptUpdates[0].autoCorrect).toBe(false);
   });
 
-  it('R10 AI grader returning null is treated as wrong (no over-credit)', async () => {
-    const aiGrader = { evaluate: async () => null };
+  it('R15-followup-20 a null batch result parks the item pending (no over-credit, no silent 0)', async () => {
+    const aiGrader = { evaluateBatch: async () => null };
     const r = await autoGradeScripts([
       {
         id: 's1', selectedOption: null, textAnswer: 'something',
@@ -606,12 +625,13 @@ describe('autoGradeScripts — shared grader for finalSubmit + cron lock', () =>
       },
     ], aiGrader);
     expect(r.autoScore).toBe(0);
-    expect(r.scriptUpdates[0].autoCorrect).toBe(false);
+    expect(r.scriptUpdates[0].autoCorrect).toBeNull();
+    expect(r.scriptUpdates[0].awardedMarks).toBeNull();
   });
 
   it('R10 AI grader is NOT called when string match already passes — saves cost', async () => {
     let called = 0;
-    const aiGrader = { evaluate: async () => { called++; return null; } };
+    const aiGrader = { evaluateBatch: async () => { called++; return null; } };
     const r = await autoGradeScripts([
       {
         id: 's1', selectedOption: null, textAnswer: 'D.',
@@ -653,9 +673,14 @@ describe('autoGradeScripts — shared grader for finalSubmit + cron lock', () =>
   it('R10 AI grader receives the reading passage so paragraph-letter tasks can be semantically graded', async () => {
     const captured: any[] = [];
     const aiGrader = {
-      evaluate: async (i: any) => {
-        captured.push(i);
-        return { awardedMarks: 1, reasoning: 'Foxton is the bag in paragraph C.', confident: true };
+      evaluateBatch: async (input: any) => {
+        captured.push(input);
+        return new Map(
+          input.items.map((it: any) => [
+            it.id,
+            { awardedMarks: 1, reasoning: 'Foxton is the bag in paragraph C.', confident: true },
+          ]),
+        );
       },
     };
     const passage = 'A The Flyer B3...\nB The Lightglide...\nC The Foxton is easy to control across most surfaces. However, the zips don\'t always run smoothly...';
@@ -678,8 +703,8 @@ describe('autoGradeScripts — shared grader for finalSubmit + cron lock', () =>
     ], aiGrader);
     expect(captured).toHaveLength(1);
     expect(captured[0].passage).toBe(passage);
-    expect(captured[0].markScheme).toBe('C');
-    expect(captured[0].studentAnswer).toBe('Foxton');
+    expect(captured[0].items[0].markScheme).toBe('C');
+    expect(captured[0].items[0].studentAnswer).toBe('Foxton');
     expect(r.autoScore).toBe(1);
     expect(r.scriptUpdates[0]).toMatchObject({ autoCorrect: true, awardedMarks: 1 });
   });
@@ -687,9 +712,14 @@ describe('autoGradeScripts — shared grader for finalSubmit + cron lock', () =>
   it('R10 AI grader receives undefined passage when content has no passage field', async () => {
     const captured: any[] = [];
     const aiGrader = {
-      evaluate: async (i: any) => {
-        captured.push(i);
-        return { awardedMarks: 1, reasoning: 'paraphrase ok', confident: true };
+      evaluateBatch: async (input: any) => {
+        captured.push(input);
+        return new Map(
+          input.items.map((it: any) => [
+            it.id,
+            { awardedMarks: 1, reasoning: 'paraphrase ok', confident: true },
+          ]),
+        );
       },
     };
     const r = await autoGradeScripts([
@@ -833,7 +863,10 @@ describe('MorningQuizExportService.generateAttendanceWorkbook', () => {
     };
   }
 
-  it('produces an .xlsx with three named sheets and the expected row counts', async () => {
+  it('produces a non-empty .xlsx workbook and audit-logs the export', async () => {
+    // The detailed sheet shape (single 考勤 pivot — students × days) is
+    // pinned in morning-quiz-export.spec.ts. Here we only assert the
+    // service returns real workbook bytes and writes the audit row.
     const audit = { log: vi.fn().mockResolvedValue(undefined) } as any;
     const svc = new MorningQuizExportService(makePrismaStub() as any, audit);
     const buf = await svc.generateAttendanceWorkbook(
@@ -844,23 +877,7 @@ describe('MorningQuizExportService.generateAttendanceWorkbook', () => {
     expect(buf.length).toBeGreaterThan(2000); // workbook bytes
     const wb = new ExcelJS.Workbook();
     await wb.xlsx.load(buf as any);
-    const names = wb.worksheets.map((w) => w.name);
-    expect(names).toEqual(
-      expect.arrayContaining([
-        '考勤明细 Attendance',
-        '成绩明细 Scores',
-        '缺勤汇总 Absences',
-      ]),
-    );
-    const att = wb.getWorksheet('考勤明细 Attendance')!;
-    // 1 header + 3 attendance rows
-    expect(att.rowCount).toBe(4);
-    const scores = wb.getWorksheet('成绩明细 Scores')!;
-    // 1 header + 2 submitted rows (a1 and a3, not a2 which has no submission)
-    expect(scores.rowCount).toBe(3);
-    const summary = wb.getWorksheet('缺勤汇总 Absences')!;
-    // 1 header + 2 distinct students
-    expect(summary.rowCount).toBe(3);
+    expect(wb.worksheets.length).toBeGreaterThanOrEqual(1);
     expect(audit.log).toHaveBeenCalled();
   });
 

@@ -245,3 +245,140 @@ describe('autoGradeScripts MCQ fallback chain (R15-followup-14)', () => {
     expect(scriptUpdates[0].autoCorrect).toBe(false);
   });
 });
+
+/**
+ * R15-followup-20 — batched short-answer grading + deferAi.
+ *
+ * Pins: (a) all of a submission's AI-needed short answers go through ONE
+ * evaluateBatch call, not one per item; (b) deferAi parks them pending
+ * without any AI call (the morning-quiz finalSubmit path); (c) a failed
+ * or incomplete batch never silently grades 0 — it parks pending so the
+ * marker queue / regrade picks it up.
+ */
+describe('autoGradeScripts — batched short-answer grading (R15-followup-20)', () => {
+  function saScript(id: string, textAnswer: string | null, markScheme: string, over: any = {}) {
+    return {
+      id,
+      selectedOption: null,
+      textAnswer,
+      paperQuestion: {
+        marks: 2,
+        snapshotOptions: null,
+        snapshotContent: {},
+        question: {
+          questionType: 'short_answer',
+          options: null,
+          answerContent: { text: markScheme },
+          content: { stem: `stem ${id}`, passage: 'Shared reading passage.' },
+        },
+        ...over,
+      },
+    };
+  }
+
+  it('routes every AI-needed short answer through ONE evaluateBatch call', async () => {
+    const calls: any[] = [];
+    const grader = {
+      async evaluateBatch(input: any) {
+        calls.push(input);
+        return new Map(input.items.map((it: any) => [it.id, { awardedMarks: 2, reasoning: 'ok', confident: true }]));
+      },
+    };
+    const { autoScore, scriptUpdates } = await autoGradeScripts(
+      [
+        saScript('a', 'a long paraphrased answer', 'the canonical long mark scheme prose answer here'),
+        saScript('b', 'another long answer', 'a different long canonical mark scheme answer text'),
+        saScript('c', 'third long answer', 'yet another long canonical mark scheme answer text'),
+      ],
+      grader as any,
+    );
+    // One batched call carrying all three items — not three calls.
+    expect(calls).toHaveLength(1);
+    expect(calls[0].items).toHaveLength(3);
+    expect(calls[0].passage).toBe('Shared reading passage.');
+    expect(autoScore).toBe(6);
+    expect(scriptUpdates.every((u) => u.autoCorrect === true)).toBe(true);
+  });
+
+  it('deferAi parks short answers pending WITHOUT calling the grader', async () => {
+    let called = false;
+    const grader = {
+      async evaluateBatch() {
+        called = true;
+        return null;
+      },
+    };
+    const { autoScore, scriptUpdates } = await autoGradeScripts(
+      [saScript('a', 'some long student answer', 'a long canonical mark scheme prose answer')],
+      grader as any,
+      { deferAi: true },
+    );
+    expect(called).toBe(false);
+    expect(autoScore).toBe(0);
+    expect(scriptUpdates[0].autoCorrect).toBeNull();
+    expect(scriptUpdates[0].awardedMarks).toBeNull();
+    expect(scriptUpdates[0].aiReason).toContain('ai-pending');
+  });
+
+  it('a failed batch (evaluateBatch → null) parks pending, never grades 0', async () => {
+    const grader = { async evaluateBatch() { return null; } };
+    const { autoScore, scriptUpdates } = await autoGradeScripts(
+      [saScript('a', 'some long student answer', 'a long canonical mark scheme prose answer')],
+      grader as any,
+    );
+    expect(autoScore).toBe(0);
+    expect(scriptUpdates[0].autoCorrect).toBeNull();
+    expect(scriptUpdates[0].awardedMarks).toBeNull();
+    expect(scriptUpdates[0].aiReason).toContain('AI-ERROR');
+  });
+
+  it('an id missing from the batch result is parked pending (no-verdict)', async () => {
+    const grader = {
+      async evaluateBatch(input: any) {
+        // Return a verdict for the first item only — drop the second.
+        return new Map([[input.items[0].id, { awardedMarks: 2, reasoning: 'ok', confident: true }]]);
+      },
+    };
+    const { scriptUpdates } = await autoGradeScripts(
+      [
+        saScript('a', 'first long answer', 'a long canonical mark scheme answer one'),
+        saScript('b', 'second long answer', 'a long canonical mark scheme answer two'),
+      ],
+      grader as any,
+    );
+    const byId = Object.fromEntries(scriptUpdates.map((u) => [u.id, u]));
+    expect(byId['a'].autoCorrect).toBe(true);
+    expect(byId['b'].autoCorrect).toBeNull();
+    expect(byId['b'].aiReason).toContain('AI-NO-VERDICT');
+  });
+
+  it('MCQ is still graded inline even when deferAi parks short answers', async () => {
+    const grader = { async evaluateBatch() { return null; } };
+    const { autoScore, scriptUpdates } = await autoGradeScripts(
+      [
+        {
+          id: 'mcq1',
+          selectedOption: 'B',
+          textAnswer: null,
+          paperQuestion: {
+            marks: 1,
+            snapshotOptions: [
+              { key: 'A', text: 'x', correct: false },
+              { key: 'B', text: 'y', correct: true },
+            ],
+            snapshotContent: {},
+            question: { questionType: 'mcq', options: null, answerContent: null },
+          },
+        },
+        saScript('sa1', 'a long answer needing AI', 'a long canonical mark scheme answer'),
+      ],
+      grader as any,
+      { deferAi: true },
+    );
+    // MCQ scored now (1), short answer deferred (0 for now).
+    expect(autoScore).toBe(1);
+    const byId = Object.fromEntries(scriptUpdates.map((u) => [u.id, u]));
+    expect(byId['mcq1'].autoCorrect).toBe(true);
+    expect(byId['sa1'].autoCorrect).toBeNull();
+  });
+});

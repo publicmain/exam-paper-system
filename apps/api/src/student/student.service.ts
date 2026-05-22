@@ -61,22 +61,33 @@ function normalizeShortAnswer(s: string | null | undefined): string {
  *     so a 5-day class run lands well under $1/week. Acceptable.
  */
 export interface AiShortAnswerGrader {
-  evaluate(input: {
-    stem: string;
-    studentAnswer: string;
-    markScheme: string;
-    maxMarks: number;
+  /**
+   * R15-followup-20 — batch grading. One call scores every short-answer
+   * item in `items` against its own mark scheme. `passage` (the reading
+   * text all items share) is shipped once. Returns a Map keyed by the
+   * caller's item id; null signals total failure (no key, network/429,
+   * unparseable) so the caller routes the whole batch to manual review.
+   * An id absent from the Map means the model skipped that item.
+   */
+  evaluateBatch(input: {
     /**
-     * R10 follow-up — the reading passage the question is grounded on.
-     * Optional because non-passage items (vocab, transformation) don't
-     * have one. When present, the evaluator includes a truncated version
-     * in the AI prompt so the grader can do real semantic matching for
-     * tasks like matching_information ("which paragraph mentions X?")
-     * and 0510 comprehension paraphrases. Without this context the AI
-     * can only do shallow string-overlap checking on the answer key.
+     * The reading passage the items are grounded on. Optional — non-
+     * passage items (vocab, transformation) don't have one. When present
+     * the evaluator includes a truncated copy so the grader can do real
+     * semantic matching (matching_information, 0510 paraphrases).
      */
     passage?: string;
-  }): Promise<{ awardedMarks: number; reasoning: string; confident: boolean } | null>;
+    items: Array<{
+      id: string;
+      stem: string;
+      studentAnswer: string;
+      markScheme: string;
+      maxMarks: number;
+    }>;
+  }): Promise<Map<
+    string,
+    { awardedMarks: number; reasoning: string; confident: boolean }
+  > | null>;
 }
 
 /**
@@ -92,10 +103,16 @@ export interface AiShortAnswerGrader {
  *
  *   3. anything else — leave to the marker queue.
  *
- * `aiGrader` is optional. When omitted, this function behaves exactly
- * as before (string-only); existing tests pass unchanged. When
- * provided, short_answer items that fail the string match get a
- * second pass through Claude.
+ * `aiGrader` is optional. When omitted, short_answer items that miss the
+ * string match are left for the marker queue (autoCorrect=null). When
+ * provided, they are collected and graded in ONE batched call after the
+ * MCQ pass (R15-followup-20).
+ *
+ * `opts.deferAi` — set by the morning-quiz `finalSubmit` path: MCQ is
+ * scored inline (instant, free) but the AI short-answer call is skipped
+ * and those scripts are parked as pending. The 09:00 lock cron then runs
+ * one batched sweep for the whole cohort. Keeps 30 students' submits from
+ * fanning out into ~200 concurrent Claude calls.
  */
 export async function autoGradeScripts(
   scripts: Array<{
@@ -121,11 +138,12 @@ export async function autoGradeScripts(
     };
   }>,
   aiGrader?: AiShortAnswerGrader,
+  opts?: { deferAi?: boolean },
 ): Promise<{
   autoScore: number;
   scriptUpdates: Array<{
     id: string;
-    // null = AI failed / no verdict → leave to marker queue (R15-followup-11)
+    // null = AI failed / no verdict / deferred → marker queue (R15-followup-11)
     autoCorrect: boolean | null;
     awardedMarks: number | null;
     aiReason?: string;
@@ -137,6 +155,21 @@ export async function autoGradeScripts(
     autoCorrect: boolean | null;
     awardedMarks: number | null;
     aiReason?: string;
+  }> = [];
+  // R15-followup-20 — short-answer items needing AI judgement are
+  // collected here and graded in ONE batched call after the loop, rather
+  // than one Claude round-trip per item.
+  const pendingAi: Array<{
+    scriptId: string;
+    marks: number;
+    passage?: string;
+    item: {
+      id: string;
+      stem: string;
+      studentAnswer: string;
+      markScheme: string;
+      maxMarks: number;
+    };
   }> = [];
   for (const script of scripts) {
     const q = script.paperQuestion.question;
@@ -277,84 +310,112 @@ export async function autoGradeScripts(
         continue;
       }
       // Path 3: string mismatch (or long mark scheme) + non-empty answer
-      // → ask Claude. Long mark schemes are exactly where AI shines, so
-      // routing them here is the whole point of the AI fallback.
-      if (aiGrader) {
-        const content =
-          typeof q.content === 'object' && q.content !== null
-            ? (q.content as Record<string, unknown>)
-            : null;
-        const stem = typeof content?.stem === 'string' ? (content.stem as string) : '';
-        // Surface the reading passage to the AI so it can actually do
-        // semantic matching for matching_information / paragraph-id
-        // tasks (the answer is a single letter referring to a passage
-        // paragraph — without the passage the AI is just guessing
-        // whether the student wrote that letter).
-        const passage = typeof content?.passage === 'string' ? (content.passage as string) : undefined;
-        // R15-followup-11 — separate "AI says wrong" from "AI failed to
-        // answer". The previous catch-all `try/catch → push 0` masked
-        // upstream failures (Anthropic 429s during the 08:00 quiz peak,
-        // network blips, JSON parse errors) as "student answered wrong".
-        // Outcome: an entire class's short-answer items could silently
-        // grade 0 if the Claude API hiccuped, and the only signal was
-        // students complaining. Now we tag AI failures with aiReason and
-        // leave the script with autoCorrect=null + no auto-zero, so the
-        // marker queue picks them up for human review and admins can
-        // run a re-grade once the upstream issue clears.
-        let verdict: { awardedMarks: number; reasoning?: string } | null | undefined = undefined;
+      // → needs AI judgement. Collect it; the actual Claude call is
+      // batched once after the loop (R15-followup-20) so a 12-question
+      // paper costs one round-trip, not twelve.
+      const content =
+        typeof q.content === 'object' && q.content !== null
+          ? (q.content as Record<string, unknown>)
+          : null;
+      const stem = typeof content?.stem === 'string' ? (content.stem as string) : '';
+      // The reading passage lets the grader do real semantic matching
+      // for matching_information / paragraph-id tasks (the answer is a
+      // single letter referring to a passage paragraph).
+      const passage =
+        typeof content?.passage === 'string' ? (content.passage as string) : undefined;
+      pendingAi.push({
+        scriptId: script.id,
+        marks: script.paperQuestion.marks,
+        passage,
+        item: {
+          id: script.id,
+          stem,
+          studentAnswer: script.textAnswer ?? '',
+          markScheme: expected,
+          maxMarks: script.paperQuestion.marks,
+        },
+      });
+      continue;
+    }
+    // structured / unknown: leave to marker.
+  }
+
+  // ── Batched AI grading (R15-followup-20) ────────────────────────────
+  if (pendingAi.length > 0) {
+    if (!aiGrader || opts?.deferAi) {
+      // deferAi — the morning-quiz finalSubmit path: MCQ is already
+      // scored above; the 09:00 lock cron runs ONE batched sweep for the
+      // whole cohort. No grader wired — test fixtures / non-AI deploy.
+      // Either way the item is parked pending (autoCorrect=null), NOT
+      // auto-zeroed, so it surfaces correctly once graded.
+      const reason = opts?.deferAi
+        ? '[ai-pending] queued for post-quiz batch grading'
+        : '[ai-unavailable] no grader wired';
+      for (const p of pendingAi) {
+        scriptUpdates.push({
+          id: p.scriptId,
+          autoCorrect: null,
+          awardedMarks: null,
+          aiReason: reason,
+        });
+      }
+    } else {
+      // Group by passage — a morning-quiz paper shares one passage
+      // across all its questions, so this is almost always one group;
+      // grouping just keeps a mixed-paper batch correct.
+      const groups = new Map<string, typeof pendingAi>();
+      for (const p of pendingAi) {
+        const key = p.passage ?? '';
+        const g = groups.get(key);
+        if (g) g.push(p);
+        else groups.set(key, [p]);
+      }
+      for (const [passage, group] of groups) {
+        let result:
+          | Map<string, { awardedMarks: number; reasoning: string; confident: boolean }>
+          | null = null;
         let aiError: string | null = null;
         try {
-          verdict = await aiGrader.evaluate({
-            stem,
-            studentAnswer: script.textAnswer ?? '',
-            markScheme: expected,
-            maxMarks: script.paperQuestion.marks,
-            passage,
+          result = await aiGrader.evaluateBatch({
+            passage: passage || undefined,
+            items: group.map((p) => p.item),
           });
         } catch (e: any) {
           aiError = String(e?.message ?? e ?? 'unknown').slice(0, 240);
         }
-        if (verdict) {
-          const awarded = Math.max(0, Math.min(script.paperQuestion.marks, verdict.awardedMarks));
+        for (const p of group) {
+          // R15-followup-11 — a failed AI call must NOT silently grade 0.
+          // Park it pending so the marker queue / regrade picks it up.
+          if (result === null) {
+            scriptUpdates.push({
+              id: p.scriptId,
+              autoCorrect: null,
+              awardedMarks: null,
+              aiReason: `[AI-ERROR] ${aiError ?? 'grader returned no result'}`,
+            });
+            continue;
+          }
+          const v = result.get(p.item.id);
+          if (!v) {
+            scriptUpdates.push({
+              id: p.scriptId,
+              autoCorrect: null,
+              awardedMarks: null,
+              aiReason: '[AI-NO-VERDICT] AI grader returned no decision',
+            });
+            continue;
+          }
+          const awarded = Math.max(0, Math.min(p.marks, v.awardedMarks));
           autoScore += awarded;
           scriptUpdates.push({
-            id: script.id,
-            autoCorrect: awarded >= script.paperQuestion.marks * 0.5,
+            id: p.scriptId,
+            autoCorrect: awarded >= p.marks * 0.5,
             awardedMarks: awarded,
-            aiReason: verdict.reasoning,
+            aiReason: v.reasoning,
           });
-          continue;
         }
-        if (aiError) {
-          // Leave script ungraded — autoCorrect stays null in DB, marker
-          // queue surfaces it for human review, and the regrade endpoint
-          // can retry once the upstream blip clears. Awarding 0 silently
-          // here is what landed an entire morning quiz at 0% during a
-          // Claude 429.
-          scriptUpdates.push({
-            id: script.id,
-            autoCorrect: null as any,
-            awardedMarks: null as any,
-            aiReason: `[AI-ERROR] ${aiError}`,
-          });
-          continue;
-        }
-        // verdict === null (AI returned no decision) — treat as needs-human-review.
-        scriptUpdates.push({
-          id: script.id,
-          autoCorrect: null as any,
-          awardedMarks: null as any,
-          aiReason: '[AI-NO-VERDICT] AI grader returned no decision',
-        });
-        continue;
       }
-      // No AI grader available → string mismatch counts as wrong. This
-      // path is hit only when MorningQuizModule didn't wire the grader
-      // (e.g. test fixtures); production always has it.
-      scriptUpdates.push({ id: script.id, autoCorrect: false, awardedMarks: 0 });
-      continue;
     }
-    // structured / unknown: leave to marker.
   }
   return { autoScore, scriptUpdates };
 }
@@ -527,7 +588,20 @@ export class StudentService {
    *  other sees count===0 (loser, gets 400). Without this guard, both
    *  requests' read-then-update windows overlap and both write 'submitted'
    *  with slightly different `submittedAt` timestamps (T5-1). */
-  async finalSubmit(submissionId: string, student: ActorCtx) {
+  /**
+   * @param opts.deferAi — R15-followup-20. When true (the morning-quiz
+   * submit path), the slow Claude short-answer grading is skipped here:
+   * MCQ is still scored inline so the student sees a partial score
+   * immediately, and the 09:00 lock cron runs one batched AI sweep for
+   * the whole cohort. `score_ready` is likewise withheld until the cron
+   * has the final score. The generic homework submit path leaves this
+   * unset → inline AI grading + notify, exactly as before.
+   */
+  async finalSubmit(
+    submissionId: string,
+    student: ActorCtx,
+    opts?: { deferAi?: boolean },
+  ) {
     const sub = await this.prisma.studentSubmission.findUnique({
       where: { id: submissionId },
       include: {
@@ -607,7 +681,11 @@ export class StudentService {
       sub.scripts.push(...(fresh as typeof sub.scripts));
     }
 
-    const { autoScore, scriptUpdates } = await autoGradeScripts(sub.scripts, this.aiGrader);
+    const { autoScore, scriptUpdates } = await autoGradeScripts(
+      sub.scripts,
+      this.aiGrader,
+      { deferAi: opts?.deferAi },
+    );
     // R10-fix: back-fill maxScore on submit too. Older submissions created by
     // attendance.scanQr before the maxScore-from-paper fix landed had
     // maxScore=0, which surfaced as "3 / 1 = 300%" on the result page (the
@@ -665,7 +743,11 @@ export class StudentService {
     // already auto-submitted this submission earlier today and emitted
     // score_ready, don't fire a second copy when a teacher manually
     // regrades. Lookup is per-submissionId on the JSON payload.
-    if (this.notify) {
+    //
+    // R15-followup-20 — when deferAi, the score here is MCQ-only
+    // (short answers are still pending the 09:00 batch sweep). Withhold
+    // the notification; the cron fires it once with the final score.
+    if (this.notify && !opts?.deferAi) {
       try {
         const studentName = sub.student?.name ?? '';
         const paperName = sub.assignment?.paper?.name ?? '';
