@@ -274,16 +274,41 @@ export class MorningQuizController {
    * end-to-end smoke testing of the scan flow off-hours. Gated behind
    * `MORNING_QUIZ_DEBUG=true` env var — without it, returns 404 to keep
    * the surface area invisible in normal production.
+   *
+   * Optional `{ atIso }` body — schedule the windows around an arbitrary
+   * future time instead of NOW. Used when an admin wants a real cron-driven
+   * dry-run ("the session must auto-activate at 14:00, not be jammed active
+   * right now"). If `at` is in the future, status flips to `scheduled` and
+   * the EVERY_MINUTE cron's activateDueSessions takes over at T-30s; if `at`
+   * is now or past, status is forced `active` immediately (same as the
+   * no-arg behaviour).
    */
   @Patch('sessions/:id/debug-activate')
-  debugActivate(@Param('id') id: string, @CurrentUser() user: any, @Req() req: Request) {
+  debugActivate(
+    @Param('id') id: string,
+    @Body() body: { atIso?: string } | undefined,
+    @CurrentUser() user: any,
+    @Req() req: Request,
+  ) {
     if (process.env.MORNING_QUIZ_DEBUG !== 'true') {
       throw new NotFoundException();
     }
     if (user.role !== 'admin') {
       throw new ForbiddenException({ code: 'admin_required' });
     }
-    return this.svc.debugActivateNow(id, { id: user.id, role: user.role, ip: req.ip ?? null });
+    let at: Date | undefined;
+    if (typeof body?.atIso === 'string' && body.atIso.length > 0) {
+      const parsed = new Date(body.atIso);
+      if (Number.isNaN(parsed.getTime())) {
+        throw new BadRequestException({ code: 'bad_atIso' });
+      }
+      at = parsed;
+    }
+    return this.svc.debugActivateNow(
+      id,
+      { id: user.id, role: user.role, ip: req.ip ?? null },
+      { at },
+    );
   }
 
   /**

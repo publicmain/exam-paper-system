@@ -1763,19 +1763,39 @@ export class MorningQuizService {
     return after;
   }
 
-  async debugActivateNow(sessionId: string, actor: ActorCtx) {
+  async debugActivateNow(
+    sessionId: string,
+    actor: ActorCtx,
+    opts?: { at?: Date },
+  ) {
     const before = await this.prisma.morningQuizSession.findUnique({ where: { id: sessionId } });
     if (!before) throw new NotFoundException({ code: 'session_not_found' });
     const now = new Date();
+    // Anchor the window around `opts.at` if supplied (admin wants a
+    // future-time cron dry-run), else around NOW (the original
+    // "make-it-active-immediately" behaviour). Same offsets either way:
+    //   attendanceStart = anchor - 30s
+    //   attendanceEnd   = anchor + 2m
+    //   lateCutoff      = anchor + 20m
+    //   quizEnd         = anchor + 30m
+    // If anchor is in the future, leave status as `scheduled` so the
+    // EVERY_MINUTE activate cron flips it at T-30s — that exercises the
+    // production cron path instead of bypassing it. If anchor is now/past,
+    // force `active` immediately (matches the original no-arg semantics so
+    // existing callers keep working).
+    const anchor = opts?.at ?? now;
+    const isFuture = anchor.getTime() > now.getTime() + 5_000;
     const after = await this.prisma.morningQuizSession.update({
       where: { id: sessionId },
       data: {
-        attendanceStart: new Date(now.getTime() - 30_000),
-        attendanceEnd: new Date(now.getTime() + 2 * 60_000),
-        lateCutoff: new Date(now.getTime() + 20 * 60_000),
-        quizStart: new Date(now.getTime() - 30_000),
-        quizEnd: new Date(now.getTime() + 30 * 60_000),
-        status: MorningQuizStatus.active,
+        attendanceStart: new Date(anchor.getTime() - 30_000),
+        attendanceEnd: new Date(anchor.getTime() + 2 * 60_000),
+        lateCutoff: new Date(anchor.getTime() + 20 * 60_000),
+        quizStart: new Date(anchor.getTime() - 30_000),
+        quizEnd: new Date(anchor.getTime() + 30 * 60_000),
+        status: isFuture
+          ? MorningQuizStatus.scheduled
+          : MorningQuizStatus.active,
       },
     });
     // Clear any absent attendance rows the cron may have inserted before
