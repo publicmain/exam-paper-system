@@ -349,18 +349,48 @@ export class MarkerService {
       );
     }
 
-    // Verify every structured script is graded.
+    // Verify every structured script is graded, and split the awarded
+    // marks into "auto-graded" vs "marker-graded" buckets so we don't
+    // double-count.
+    //
+    // Bug history (2026-05-25 e2e walkthrough finding):
+    //   The previous version summed `manualScore` over ALL non-MCQ scripts,
+    //   then set `totalScore = sub.autoScore + manualScore`. But
+    //   `sub.autoScore` (computed at finalSubmit) already includes the
+    //   short_answer items that were auto-graded inline via Path-1 exact
+    //   match (student.service.ts:298). Result: a student whose Q1–Q7 all
+    //   exact-matched the canonical answer would see their 5-point Path-1
+    //   contribution counted twice (once in autoScore, once in manualScore),
+    //   inflating the final mark by 5 on /my-history.
+    //
+    // Fix: discriminate by `markedById`. Scripts with markedById != null
+    // were set by scoreScript() (the teacher) — those go to manualScore.
+    // Scripts with markedById == null were set by the auto-grader (Path-1
+    // exact match, Path-2 blank-zero, Path-3 AI batch) — those go to
+    // autoScore. We recompute autoScore from the current script state so
+    // a teacher overriding a Path-1 auto-grade also lands cleanly (the
+    // override leaves the script with markedById != null, and the new
+    // autoScore drops the no-longer-auto contribution).
+    let mcqScore = 0;
+    let autoScore = 0;
     let manualScore = 0;
     let structuredScripts = 0;
     let ungraded = 0;
     for (const s of sub.scripts) {
       const t = s.paperQuestion.question.questionType;
-      if (t === 'mcq') continue;
+      if (t === 'mcq') {
+        mcqScore += s.awardedMarks ?? 0;
+        continue;
+      }
       structuredScripts += 1;
       if (s.awardedMarks == null) {
         ungraded += 1;
-      } else {
+        continue;
+      }
+      if (s.markedById != null) {
         manualScore += s.awardedMarks;
+      } else {
+        autoScore += s.awardedMarks;
       }
     }
     if (ungraded > 0) {
@@ -368,8 +398,7 @@ export class MarkerService {
         `cannot finalize: ${ungraded}/${structuredScripts} structured scripts are still ungraded`,
       );
     }
-
-    const autoScore = sub.autoScore ?? 0;
+    autoScore += mcqScore;
     const totalScore = autoScore + manualScore;
 
     // Atomic transition: only flip submitted → marked. If two markers both
@@ -378,6 +407,11 @@ export class MarkerService {
       where: { id: submissionId, status: 'submitted' },
       data: {
         status: 'marked',
+        // Also overwrite autoScore so the row reflects the recomputed
+        // split. Without this, a teacher overriding a Path-1 SA leaves
+        // the stale Path-1 contribution in autoScore (read by
+        // getStudentResult, history-by-name, analytics).
+        autoScore,
         manualScore,
         totalScore,
       },
