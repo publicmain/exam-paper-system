@@ -31,6 +31,13 @@ const CreateSessionSchema = z.object({
   date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
   classId: z.string(),
   paperId: z.string(),
+  // R10 multi-level: a class can run multiple difficulty bands per day.
+  // When the schema dropped this field, callers passing
+  // `level: 'olevel'` silently fell back to the service default
+  // (ielts_authentic), producing mislabeled one-off sessions. The
+  // batch path (BatchGenerateSchema) already iterates over
+  // ClassEnglishLevel rows itself, so it doesn't need this in its DTO.
+  level: z.enum(['ielts_authentic', 'ielts_simplified', 'olevel']).optional(),
 });
 
 const BatchScheduleSchema = z.object({
@@ -205,7 +212,12 @@ export class MorningQuizController {
     const parsed = CreateSessionSchema.safeParse(body);
     if (!parsed.success) throw new BadRequestException(parsed.error.flatten());
     return this.svc.createSession(
-      { date: new Date(parsed.data.date), classId: parsed.data.classId, paperId: parsed.data.paperId },
+      {
+        date: new Date(parsed.data.date),
+        classId: parsed.data.classId,
+        paperId: parsed.data.paperId,
+        level: parsed.data.level,
+      },
       { id: user.id, role: user.role, ip: req.ip ?? null },
     );
   }
