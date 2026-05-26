@@ -311,6 +311,33 @@ export class AdminCleanupController {
     );
   }
 
+  /**
+   * R15-followup-24 — one-off patch for AI-authored IELTS fixture's
+   * TFNG/YNG Question rows shipped with empty `options`.
+   *
+   *   POST /api/admin-cleanup/patch-tfng-empty-options
+   *   { dryRun?: boolean (default true), provenanceTag?: string
+   *     (default 'ielts_authored_2026_v1') }
+   *
+   * Default dryRun=true returns a preview of every row that would be
+   * touched. Re-call with { dryRun: false } to apply.
+   */
+  @Post('patch-tfng-empty-options')
+  patchTfngEmptyOptions(@Body() body: unknown, @Req() req: Request) {
+    const schema = z.object({
+      dryRun: z.boolean().optional(),
+      provenanceTag: z.string().min(1).max(80).optional(),
+    });
+    const parsed = schema.safeParse(body ?? {});
+    if (!parsed.success) throw new BadRequestException(parsed.error.flatten());
+    const actor = (req as any).user ?? null;
+    return this.cleanup.patchTfngEmptyOptions(parsed.data, {
+      id: actor?.id ?? actor?.userId ?? 'unknown',
+      role: actor?.role ?? 'admin',
+      ip: req.ip ?? null,
+    });
+  }
+
   @Post('repair-ielts')
   repairIelts(@Body() body: unknown) {
     const parsed = RepairIeltsSchema.safeParse(body ?? {});

@@ -1251,4 +1251,160 @@ export class AdminCleanupService {
     });
     return { requested: sessionIds.length, deleted, blocked };
   }
+
+  /**
+   * R15-followup-24 — patch source Question rows in the AI-authored
+   * IELTS fixture where TFNG/YNG items shipped with empty `options`.
+   *
+   * The 5/26 morning-quiz Q6–Q10 bug traced to `ielts_authored_2026_v1`:
+   * every true_false_not_given Question was ingested with
+   * `options: []` AND `questionType: 'short_answer'` (mis-typed at
+   * ingest). Paper generation copied this into snapshotOptions, so
+   * students saw an empty radio group at runtime. The UI fallback
+   * (r15-followup-22) and retraction-aware grading (r15-followup-21)
+   * defend the runtime, but the source Questions are still broken —
+   * if the LRU rotation ever re-picks this fixture, fresh PaperQuestion
+   * snapshots will again carry empty options.
+   *
+   * This patch fixes the source rows: populates `options` with the
+   * standard 3 choices for the taskType (TFNG → {TRUE,FALSE,NOT GIVEN},
+   * YNG → {YES,NO,NOT GIVEN}) marking `correct: true` on the one whose
+   * text matches `answerContent.text`, and flips `questionType` to
+   * `mcq` so the grader's MCQ path handles it correctly.
+   *
+   * Defaults to dryRun=true. The dryRun response surfaces every row
+   * that would be touched plus a per-row "newOptions" preview so the
+   * operator can sanity-check before flipping dryRun=false.
+   *
+   * Refuses to patch if ANY candidate row has an unrecognised
+   * canonical answer (e.g. answerContent.text is null, or some random
+   * string) — better a loud refusal than a silent half-fix.
+   */
+  async patchTfngEmptyOptions(
+    opts: { dryRun?: boolean; provenanceTag?: string },
+    actor: { id: string; role: string; ip: string | null },
+  ) {
+    const dryRun = opts.dryRun !== false; // default true — never destructive without explicit opt-in
+    const provenanceTag = opts.provenanceTag ?? 'ielts_authored_2026_v1';
+
+    // Pull every Question for this fixture. We filter on taskType +
+    // empty-options in memory — Prisma can't easily express "JSON field
+    // taskType IN (..) AND JSON field options length=0" portably across
+    // databases.
+    const candidates = await this.prisma.question.findMany({
+      where: { provenanceTag },
+      select: {
+        id: true,
+        questionType: true,
+        content: true,
+        options: true,
+        answerContent: true,
+        sourceRef: true,
+      },
+    });
+
+    type Plan = {
+      id: string;
+      sourceRef: string | null;
+      taskType: 'true_false_not_given' | 'yes_no_not_given';
+      canonicalAnswer: string;
+      newOptions: Array<{ key: string; text: string; correct: boolean }>;
+      oldQuestionType: string;
+      newQuestionType: 'mcq';
+      hasCorrect: boolean;
+    };
+
+    const TFNG_CHOICES = [
+      { key: 'A', text: 'TRUE' },
+      { key: 'B', text: 'FALSE' },
+      { key: 'C', text: 'NOT GIVEN' },
+    ];
+    const YNG_CHOICES = [
+      { key: 'A', text: 'YES' },
+      { key: 'B', text: 'NO' },
+      { key: 'C', text: 'NOT GIVEN' },
+    ];
+
+    const plan: Plan[] = [];
+    for (const q of candidates) {
+      const content = (q.content as any) ?? {};
+      const tt = String(content.taskType ?? '') as Plan['taskType'];
+      if (tt !== 'true_false_not_given' && tt !== 'yes_no_not_given') continue;
+      const currentOpts = Array.isArray(q.options) ? (q.options as unknown[]) : [];
+      if (currentOpts.length > 0) continue;
+      const choices = tt === 'true_false_not_given' ? TFNG_CHOICES : YNG_CHOICES;
+      const canonical = String(((q.answerContent as any) ?? {}).text ?? '')
+        .trim()
+        .toUpperCase();
+      const newOptions = choices.map((c) => ({ ...c, correct: c.text === canonical }));
+      const hasCorrect = newOptions.some((o) => o.correct);
+      plan.push({
+        id: q.id,
+        sourceRef: q.sourceRef,
+        taskType: tt,
+        canonicalAnswer: canonical,
+        newOptions,
+        oldQuestionType: q.questionType,
+        newQuestionType: 'mcq',
+        hasCorrect,
+      });
+    }
+
+    const unrecognised = plan.filter((p) => !p.hasCorrect);
+    if (unrecognised.length > 0) {
+      return {
+        dryRun,
+        provenanceTag,
+        totalCandidates: candidates.length,
+        wouldPatch: 0,
+        error: 'unrecognised_canonical_answer',
+        message:
+          'Refusing to patch: some candidate Questions have an answerContent.text that does not match any of the standard TFNG/YNG choices. Investigate these rows first.',
+        unrecognised: unrecognised.map((p) => ({
+          id: p.id,
+          sourceRef: p.sourceRef,
+          taskType: p.taskType,
+          canonicalAnswer: p.canonicalAnswer || '(empty)',
+        })),
+      };
+    }
+
+    if (dryRun) {
+      return {
+        dryRun: true,
+        provenanceTag,
+        totalCandidates: candidates.length,
+        wouldPatch: plan.length,
+        sample: plan.slice(0, 3),
+        message:
+          'Dry run — no rows changed. Re-call with { dryRun: false } to apply.',
+      };
+    }
+
+    let patched = 0;
+    for (const p of plan) {
+      await this.prisma.question.update({
+        where: { id: p.id },
+        data: {
+          options: p.newOptions as any,
+          // Cast at the call site — Prisma generates a string-literal
+          // type for QuestionType; 'mcq' is one of the legal values.
+          questionType: p.newQuestionType as any,
+        },
+      });
+      patched++;
+    }
+
+    await this.audit.log({
+      actorId: actor.id,
+      actorRole: actor.role,
+      action: 'admin_cleanup.patch_tfng_empty_options',
+      entityType: 'Question',
+      entityId: '(batch)',
+      ip: actor.ip,
+      metadata: { provenanceTag, patched, sample: plan.slice(0, 3).map((p) => p.id) },
+    });
+
+    return { dryRun: false, provenanceTag, patched };
+  }
 }
