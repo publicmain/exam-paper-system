@@ -112,7 +112,18 @@ export class QrController {
   }
 }
 
+/**
+ * The SGT (school timezone) calendar day represented as the UTC instant
+ * at SGT midnight. Sessions are dated by SGT day (attendanceStart 08:30
+ * SGT → SGT-dated DATE column), so "today" must be the school's day, not
+ * the server's UTC day. See r15-followup-28: the previous UTC version
+ * silently shifted "today" by one day for any caller invoked between
+ * 00:00 SGT and 08:00 SGT (= the UTC-midnight crossover window).
+ */
 function startOfTodayUtc(): Date {
-  const now = new Date();
-  return new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
+  const tzOffMin = Number(process.env.MORNING_QUIZ_TZ_OFFSET_MIN ?? 8 * 60);
+  const localNow = new Date(Date.now() + tzOffMin * 60_000);
+  return new Date(
+    Date.UTC(localNow.getUTCFullYear(), localNow.getUTCMonth(), localNow.getUTCDate()),
+  );
 }
