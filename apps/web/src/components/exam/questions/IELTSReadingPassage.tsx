@@ -362,7 +362,31 @@ function QuestionItem({
     // letter lands in selectedOption like every other MCQ. The grader
     // textAnswer fallback (autoGradeScripts) still credits any
     // pre-2026-05-14 submissions that went through the old textarea.
-    case 'classification':
+    case 'classification': {
+      // R15-followup-22 — defensive fallback for TFNG/YNG tasks shipped
+      // with empty snapshotOptions. 5/26 ielts_authored_2026_v1/Test2/P1
+      // Q6-Q10 (true_false_not_given) had `snapshotOptions: []` from an
+      // AI-fixture ingest bug, so the RadioGroup rendered no buttons and
+      // students left them blank. Synthesise the standard 3 options so
+      // the student can ALWAYS pick — never an empty radio group.
+      const TFNG_FALLBACK = [
+        { key: 'A', text: 'TRUE' },
+        { key: 'B', text: 'FALSE' },
+        { key: 'C', text: 'NOT GIVEN' },
+      ];
+      const YNG_FALLBACK = [
+        { key: 'A', text: 'YES' },
+        { key: 'B', text: 'NO' },
+        { key: 'C', text: 'NOT GIVEN' },
+      ];
+      const haveRealOpts = Array.isArray(q.snapshotOptions) && q.snapshotOptions.length > 0;
+      const opts = haveRealOpts
+        ? q.snapshotOptions!
+        : taskType === 'true_false_not_given'
+          ? TFNG_FALLBACK
+          : taskType === 'yes_no_not_given'
+            ? YNG_FALLBACK
+            : [];
       return (
         <>
           <div
@@ -372,13 +396,24 @@ function QuestionItem({
             {itemNode}
           </div>
           <RadioGroup
-            options={q.snapshotOptions ?? []}
+            options={opts}
             value={answer?.selectedOption}
-            onChange={(opt) => setAnswer(q.id, { selectedOption: opt })}
+            onChange={(opt) => {
+              // Dual-write: selectedOption for the MCQ grader path,
+              // textAnswer for the short_answer grader path. When a
+              // TFNG question ships with questionType=short_answer
+              // (the 5/26 ingest bug), only the textAnswer path runs;
+              // dual-writing means whichever branch grades, it sees the
+              // student's pick. Safe for real MCQs — textAnswer is
+              // unused there.
+              const text = opts.find((o) => o.key === opt)?.text ?? '';
+              setAnswer(q.id, { selectedOption: opt, textAnswer: text });
+            }}
             compact={hasBank}
           />
         </>
       );
+    }
     case 'matching_information':
       return (
         <>
