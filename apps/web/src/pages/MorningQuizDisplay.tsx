@@ -128,6 +128,27 @@ export default function MorningQuizDisplay() {
             error
           )}
         </div>
+      ) : sessionStatus === 'cancelled' ? (
+        // r15-followup-27 — never show a scannable QR for a cancelled
+        // session. Without this hide, qr-current legitimately returns
+        // today's cancelled session (after the controller fix) and the
+        // big-screen QR is still readable through any overlay we put on
+        // it, so students would scan and hit `session_not_active`.
+        <div className="max-w-xl text-center text-amber-700 text-3xl">
+          <div className="text-7xl mb-6">🚫</div>
+          <div className="font-semibold">本场早测已取消</div>
+          <div className="mt-2 text-xl text-gray-500">
+            This morning's quiz has been cancelled.
+          </div>
+        </div>
+      ) : sessionStatus === 'locked' ? (
+        <div className="max-w-xl text-center text-gray-700 text-3xl">
+          <div className="text-7xl mb-6">🔒</div>
+          <div className="font-semibold">今早早测已结束</div>
+          <div className="mt-2 text-xl text-gray-500">
+            Today's morning quiz window is closed.
+          </div>
+        </div>
       ) : !scanUrl ? (
         <div className="text-3xl text-gray-400">Loading…</div>
       ) : waitingForActivation ? (

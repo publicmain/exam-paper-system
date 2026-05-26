@@ -35,27 +35,53 @@ export class QrController {
     }
     if (!classId) throw new BadRequestException('classId or sessionId required');
 
-    // Look ahead 48h: pick today's session if still serviceable
-    // (status active or scheduled), otherwise auto-fall-through to
-    // tomorrow's. Lets a venue laptop be left running overnight pointed
-    // at /display?classId=X — the QR for tomorrow morning's quiz appears
-    // as soon as today's session locks (or right away after the previous
-    // day's session is done), no re-opening required.
+    // r15-followup-27 — DO NOT silently fall through to tomorrow while
+    // today's window is still notionally live. The previous behaviour
+    //   status: { in: ['active', 'scheduled'] }
+    // would skip today's session whenever it was `cancelled` or `locked`
+    // and project tomorrow's QR instead. Students standing at the wall
+    // 08:40 still scan (the "明早" overlay is 70% white + blur, but QR
+    // codes punch through with 15% error correction), land on tomorrow's
+    // scheduled session, and see "早测窗口尚未开启或已结束" — the exact
+    // confusing report we received on 2026-05-26.
     //
-    // Order by date asc so today wins if it's still scheduled/active;
-    // only fall through to tomorrow when today is past (locked).
+    // New rule:
+    //   1. Look at today's session FIRST regardless of status. If it
+    //      exists AND its quizEnd is still in the future, return it; the
+    //      display page renders the right overlay from session.status
+    //      (scheduled → countdown, cancelled → "已取消", locked
+    //      shouldn't happen yet because quizEnd > now).
+    //   2. Only if today has no session, OR today's quizEnd has passed,
+    //      fall through to a *scheduled* tomorrow session for the
+    //      overnight-projector workflow.
+    //
+    // Multi-level classes: pick the session whose level sorts first
+    // (ielts_authentic < ielts_simplified < olevel). The scan page's
+    // sibling-picker surfaces the rest, so a single QR still covers all
+    // bands.
+    const now = new Date();
     const today = startOfTodayUtc();
+    const tomorrow = new Date(today.getTime() + 86_400_000);
     const dayAfterTomorrow = new Date(today.getTime() + 2 * 86_400_000);
-    const session = await this.prisma.morningQuizSession.findFirst({
+
+    const todaysSession = await this.prisma.morningQuizSession.findFirst({
+      where: { classId, date: { gte: today, lt: tomorrow } },
+      orderBy: { level: 'asc' },
+    });
+    if (todaysSession && todaysSession.quizEnd > now) {
+      return this.qr.currentToken(todaysSession.id);
+    }
+
+    const tomorrowsSession = await this.prisma.morningQuizSession.findFirst({
       where: {
         classId,
-        date: { gte: today, lt: dayAfterTomorrow },
+        date: { gte: tomorrow, lt: dayAfterTomorrow },
         status: { in: ['active', 'scheduled'] },
       },
-      orderBy: { date: 'asc' },
+      orderBy: { level: 'asc' },
     });
-    if (!session) throw new NotFoundException('no_session_today_or_tomorrow');
-    return this.qr.currentToken(session.id);
+    if (!tomorrowsSession) throw new NotFoundException('no_session_today_or_tomorrow');
+    return this.qr.currentToken(tomorrowsSession.id);
   }
 
   /**
