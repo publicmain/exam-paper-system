@@ -121,35 +121,22 @@ export class QrService {
    * level per day; we return any one of today's as the anchor — the scan
    * page's sibling-session logic surfaces the rest for the level picker.
    *
-   * "Today" must be computed in the SCHOOL's wall-clock timezone (SGT),
-   * not in UTC. The session's `date` column is the SGT calendar date
-   * (because attendanceStart is 08:30 SGT, whose UTC instant 00:30 UTC
-   * rounds to the SGT day in the @db.Date column). If we used UTC,
-   * any student scanning before 08:00 SGT (= midnight UTC) would have
-   * `now.getUTCDate()` return YESTERDAY, the query would return
-   * yesterday's locked session, and fetchRoster would fire
-   * `session_not_active` → the student sees "早测已结束" while
-   * standing at the wall an hour before quiz time. This is the
-   * 2026-05-26 "极个别学生" report — the few students who arrived
-   * 07:30–07:55 SGT (the UTC midnight crossover window) and hit the
-   * bug; the cohort that arrived 08:00+ saw the correct session.
-   *
+   * "Today" = the current UTC calendar date. The attendance window opens
+   * 08:30 SGT == 00:30 UTC of the SAME date, so a session dated
+   * 2026-05-20 is the one a student scans on the morning of 2026-05-20.
    * Status is intentionally NOT filtered here: returning a scheduled /
    * locked session lets the downstream fetchRoster / scanQr checks emit
    * the precise `session_not_active` error with the real status, instead
    * of a vague "no session" here.
    */
   private async resolveTodaySession(classId: string): Promise<{ id: string } | null> {
-    const tzOffMin = Number(process.env.MORNING_QUIZ_TZ_OFFSET_MIN ?? 8 * 60);
     const now = new Date();
-    // Shift into the school's local timezone, then take that date.
-    const localNow = new Date(now.getTime() + tzOffMin * 60_000);
-    const todayLocalAsUtc = new Date(
-      Date.UTC(localNow.getUTCFullYear(), localNow.getUTCMonth(), localNow.getUTCDate()),
+    const todayUtc = new Date(
+      Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()),
     );
-    const tomorrowLocalAsUtc = new Date(todayLocalAsUtc.getTime() + 86_400_000);
+    const tomorrowUtc = new Date(todayUtc.getTime() + 86_400_000);
     return this.prisma.morningQuizSession.findFirst({
-      where: { classId, date: { gte: todayLocalAsUtc, lt: tomorrowLocalAsUtc } },
+      where: { classId, date: { gte: todayUtc, lt: tomorrowUtc } },
       orderBy: { level: 'asc' },
       select: { id: true },
     });

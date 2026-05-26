@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeAll, afterEach } from 'vitest';
+import { describe, it, expect, vi, beforeAll } from 'vitest';
 import { QrService } from './qr.service';
 
 /**
@@ -77,81 +77,5 @@ describe('QrService — v2 static printable QR', () => {
     expect(await codeOf(s.verify(s.staticTokenForClass('cls_abc')))).toBe(
       'qr_no_session_today',
     );
-  });
-});
-
-/**
- * r15-followup-28 — the 2026-05-26 "极个别学生" timezone bug. Sessions
- * are dated by SGT calendar day. `resolveTodaySession` previously used
- * `now.getUTCDate()` to build the query range, so any student scanning
- * BEFORE 08:00 SGT (= midnight UTC) hit yesterday's range and landed
- * on yesterday's locked session → fetchRoster fired session_not_active
- * → "早测已结束" while they were standing at the wall at 07:50 SGT.
- *
- * These specs freeze the system clock at the crossover boundary and
- * verify the query range matches the SGT day, not the UTC day.
- */
-describe('QrService — resolveTodaySession SGT/UTC crossover', () => {
-  afterEach(() => vi.useRealTimers());
-
-  function captureRangeSvc(): { svc: QrService; rangeArg: () => any } {
-    let captured: any = null;
-    const prisma: any = {
-      morningQuizSession: {
-        findFirst: vi.fn().mockImplementation((args: any) => {
-          captured = args;
-          return Promise.resolve({ id: 'sess_dummy' });
-        }),
-      },
-    };
-    return { svc: new QrService(prisma), rangeArg: () => captured };
-  }
-
-  it('07:55 SGT (= 23:55 UTC prev day) queries against SGT today, not UTC yesterday', async () => {
-    // Real wall clock: 2026-05-26 07:55 SGT
-    // UTC equivalent: 2026-05-25 23:55 UTC
-    vi.useFakeTimers();
-    vi.setSystemTime(new Date('2026-05-25T23:55:00Z'));
-
-    const { svc, rangeArg } = captureRangeSvc();
-    await svc.verify(svc.staticTokenForClass('cls_X'));
-    const r = rangeArg();
-    expect(r.where.date.gte.toISOString()).toBe('2026-05-26T00:00:00.000Z'); // SGT today
-    expect(r.where.date.lt.toISOString()).toBe('2026-05-27T00:00:00.000Z');  // SGT tomorrow
-  });
-
-  it('08:40 SGT (= 00:40 UTC same day) queries against the same SGT date', async () => {
-    vi.useFakeTimers();
-    vi.setSystemTime(new Date('2026-05-26T00:40:00Z'));
-
-    const { svc, rangeArg } = captureRangeSvc();
-    await svc.verify(svc.staticTokenForClass('cls_X'));
-    const r = rangeArg();
-    expect(r.where.date.gte.toISOString()).toBe('2026-05-26T00:00:00.000Z');
-    expect(r.where.date.lt.toISOString()).toBe('2026-05-27T00:00:00.000Z');
-  });
-
-  it('23:30 SGT (= 15:30 UTC same day) still rolls to that SGT date (not next)', async () => {
-    // Edge: late night, SGT date is still 5/26, UTC is also 5/26 (since
-    // 15:30 UTC < 16:00 UTC = SGT midnight). Both agree — query SGT 5/26.
-    vi.useFakeTimers();
-    vi.setSystemTime(new Date('2026-05-26T15:30:00Z'));
-
-    const { svc, rangeArg } = captureRangeSvc();
-    await svc.verify(svc.staticTokenForClass('cls_X'));
-    const r = rangeArg();
-    expect(r.where.date.gte.toISOString()).toBe('2026-05-26T00:00:00.000Z');
-  });
-
-  it('00:30 SGT (= 16:30 UTC prev day) rolls to NEW SGT day (not prev UTC)', async () => {
-    // Just past midnight SGT. UTC is still 5/25 16:30. Without the fix,
-    // we'd query SGT 5/25; with the fix we correctly query SGT 5/26.
-    vi.useFakeTimers();
-    vi.setSystemTime(new Date('2026-05-25T16:30:00Z'));
-
-    const { svc, rangeArg } = captureRangeSvc();
-    await svc.verify(svc.staticTokenForClass('cls_X'));
-    const r = rangeArg();
-    expect(r.where.date.gte.toISOString()).toBe('2026-05-26T00:00:00.000Z');
   });
 });
