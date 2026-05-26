@@ -1,5 +1,5 @@
-import { describe, it, expect } from 'vitest';
-import { autoGradeScripts } from './student.service';
+import { describe, it, expect, vi } from 'vitest';
+import { applyRetractionCredits, autoGradeScripts } from './student.service';
 
 /**
  * R15-followup-14 — regression coverage for the MCQ grader fallback chain.
@@ -380,5 +380,102 @@ describe('autoGradeScripts — batched short-answer grading (R15-followup-20)', 
     const byId = Object.fromEntries(scriptUpdates.map((u) => [u.id, u]));
     expect(byId['mcq1'].autoCorrect).toBe(true);
     expect(byId['sa1'].autoCorrect).toBeNull();
+  });
+});
+
+/**
+ * R15-followup-21 — retraction sweep regression. The 5/26 TFNG bug
+ * proved that without this helper, the 09:00 lock cron's autoGradeScripts
+ * overwrites teacher-issued awardAllStudents credit. These tests pin
+ * the override semantics so a future refactor can't quietly drop them.
+ */
+describe('applyRetractionCredits (R15-followup-21)', () => {
+  function mkScript(id: string, paperQuestionId: string, marks: number) {
+    return { id, paperQuestionId, paperQuestion: { marks } };
+  }
+  function mockPrisma(retractedPqids: string[]) {
+    return {
+      questionRetraction: {
+        findMany: vi
+          .fn()
+          .mockResolvedValue(retractedPqids.map((pqid) => ({ paperQuestionId: pqid }))),
+      },
+    } as any;
+  }
+
+  it('overrides a retracted-awardAllStudents script to full marks + true', async () => {
+    const scripts = [mkScript('s1', 'pq-retracted', 1), mkScript('s2', 'pq-normal', 1)];
+    const raw = {
+      autoScore: 1,
+      scriptUpdates: [
+        { id: 's1', autoCorrect: false, awardedMarks: 0 },
+        { id: 's2', autoCorrect: true, awardedMarks: 1 },
+      ],
+    };
+    const out = await applyRetractionCredits(mockPrisma(['pq-retracted']), scripts, raw);
+    expect(out.autoScore).toBe(2);
+    const byId = Object.fromEntries(out.scriptUpdates.map((u) => [u.id, u]));
+    expect(byId['s1'].autoCorrect).toBe(true);
+    expect(byId['s1'].awardedMarks).toBe(1);
+    expect(byId['s2'].autoCorrect).toBe(true); // untouched
+    expect(byId['s2'].awardedMarks).toBe(1);
+  });
+
+  it('overrides a script that was pending (null) — 5/26 TFNG scenario', async () => {
+    // Cron grades blank TFNG as 0; retraction must still credit full.
+    const scripts = [mkScript('s1', 'pq-tfng', 1)];
+    const raw = {
+      autoScore: 0,
+      scriptUpdates: [{ id: 's1', autoCorrect: false, awardedMarks: 0 }],
+    };
+    const out = await applyRetractionCredits(mockPrisma(['pq-tfng']), scripts, raw);
+    expect(out.autoScore).toBe(1);
+    expect(out.scriptUpdates[0].awardedMarks).toBe(1);
+    expect(out.scriptUpdates[0].autoCorrect).toBe(true);
+  });
+
+  it('is a no-op when no retractions exist (fast path)', async () => {
+    const scripts = [mkScript('s1', 'pq-a', 2)];
+    const raw = {
+      autoScore: 2,
+      scriptUpdates: [{ id: 's1', autoCorrect: true, awardedMarks: 2 }],
+    };
+    const prisma = mockPrisma([]);
+    const out = await applyRetractionCredits(prisma, scripts, raw);
+    expect(out).toEqual(raw);
+    expect(prisma.questionRetraction.findMany).toHaveBeenCalledOnce();
+  });
+
+  it('only credits retracted paperQuestionIds, not all of them', async () => {
+    const scripts = [
+      mkScript('s1', 'pq-r1', 1),
+      mkScript('s2', 'pq-not-retracted', 1),
+      mkScript('s3', 'pq-r2', 1),
+    ];
+    const raw = {
+      autoScore: 1,
+      scriptUpdates: [
+        { id: 's1', autoCorrect: false, awardedMarks: 0 },
+        { id: 's2', autoCorrect: true, awardedMarks: 1 },
+        { id: 's3', autoCorrect: false, awardedMarks: 0 },
+      ],
+    };
+    const out = await applyRetractionCredits(mockPrisma(['pq-r1', 'pq-r2']), scripts, raw);
+    expect(out.autoScore).toBe(3);
+    const byId = Object.fromEntries(out.scriptUpdates.map((u) => [u.id, u]));
+    expect(byId['s1'].awardedMarks).toBe(1);
+    expect(byId['s2'].awardedMarks).toBe(1); // already-correct, untouched
+    expect(byId['s3'].awardedMarks).toBe(1);
+  });
+
+  it('honors marks > 1 (multi-mark retracted question awards all of them)', async () => {
+    const scripts = [mkScript('s1', 'pq-big', 4)];
+    const raw = {
+      autoScore: 0,
+      scriptUpdates: [{ id: 's1', autoCorrect: false, awardedMarks: 0 }],
+    };
+    const out = await applyRetractionCredits(mockPrisma(['pq-big']), scripts, raw);
+    expect(out.scriptUpdates[0].awardedMarks).toBe(4);
+    expect(out.autoScore).toBe(4);
   });
 });

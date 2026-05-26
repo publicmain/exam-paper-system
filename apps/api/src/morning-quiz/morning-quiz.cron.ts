@@ -6,7 +6,7 @@ import {
   MorningQuizStatus,
 } from '@prisma/client';
 import { PrismaService } from '../common/prisma.service';
-import { autoGradeScripts } from '../student/student.service';
+import { applyRetractionCredits, autoGradeScripts } from '../student/student.service';
 import { WechatNotifyService } from '../wechat-notify/wechat-notify.service';
 import { ShortAnswerEvaluatorService } from './short-answer-evaluator.service';
 
@@ -354,7 +354,15 @@ export class MorningQuizCron {
         });
         if (!sub) continue;
 
-        const { autoScore, scriptUpdates } = await autoGradeScripts(sub.scripts, this.evaluator);
+        const rawGrade = await autoGradeScripts(sub.scripts, this.evaluator);
+        // R15-followup-21 — without this sweep the 09:00 lock cron would
+        // regrade retracted questions back to 0 (see helper for the
+        // 5/26 TFNG case). Retraction always wins.
+        const { autoScore, scriptUpdates } = await applyRetractionCredits(
+          this.prisma,
+          sub.scripts as any,
+          rawGrade,
+        );
 
         // Tiny atomic write — well under 5s even with N=20 scripts.
         await this.prisma.$transaction(async (tx) => {

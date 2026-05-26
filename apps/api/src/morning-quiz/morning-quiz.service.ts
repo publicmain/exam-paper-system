@@ -20,7 +20,7 @@ import { canActOnClass } from '../common/roles';
 import { ShuffleService } from '../shuffle/shuffle.service';
 import { MorningQuizQaService } from '../morning-quiz-qa/morning-quiz-qa.service';
 import { ShortAnswerEvaluatorService } from './short-answer-evaluator.service';
-import { autoGradeScripts } from '../student/student.service';
+import { applyRetractionCredits, autoGradeScripts } from '../student/student.service';
 
 interface ActorCtx {
   id: string;
@@ -2043,7 +2043,15 @@ export class MorningQuizService {
       try {
         // AI calls happen here, outside any tx. Slow but doesn't hold a
         // db transaction open.
-        const { autoScore, scriptUpdates } = await autoGradeScripts(sub.scripts, this.evaluator);
+        const rawGrade = await autoGradeScripts(sub.scripts, this.evaluator);
+        // R15-followup-21 — retraction sweep so a manual admin regrade
+        // can't quietly drop a retracted question's awardAllStudents
+        // credit back to 0.
+        const { autoScore, scriptUpdates } = await applyRetractionCredits(
+          this.prisma,
+          sub.scripts as any,
+          rawGrade,
+        );
         const before = sub.autoScore ?? 0;
 
         // Tiny atomic write per submission. If one fails (e.g. another
@@ -3548,7 +3556,15 @@ export class MorningQuizService {
         },
       },
     });
-    const { autoScore, scriptUpdates } = await autoGradeScripts(scripts, this.evaluator);
+    const rawGrade = await autoGradeScripts(scripts, this.evaluator);
+    // R15-followup-21 — practice mode also honours retractions so a
+    // student re-doing a paper post-retract sees the same credit they'd
+    // see on the real submission.
+    const { autoScore, scriptUpdates } = await applyRetractionCredits(
+      this.prisma,
+      scripts as any,
+      rawGrade,
+    );
     await this.prisma.$transaction(async (tx) => {
       await tx.studentSubmission.update({
         where: { id: sub.id },

@@ -421,6 +421,77 @@ export async function autoGradeScripts(
 }
 
 /**
+ * R15-followup-21 — retraction sweep (re-shipped from r15-followup-18,
+ * which was reverted in panic during the 5/19 Railway/GCP outage that
+ * turned out to be unrelated to our code).
+ *
+ * Why this exists — when a teacher calls `retractQuestion(...,
+ * awardAllStudents:true)` on a broken paper question, the retract
+ * endpoint walks every existing submission and bumps that question to
+ * full marks. But the 09:00 `lockPastSessions` cron re-runs
+ * `autoGradeScripts` over every submission to apply final grades, and
+ * `autoGradeScripts` is retraction-blind — it just scores
+ * "student-answer vs canonical-answer". So the cron quietly clobbered
+ * the retraction credit back to 0. (5/26 ielts_authentic Q6–Q10 TFNG
+ * are the smoking-gun case: TFNG snapshotOptions empty → UI rendered as
+ * text box → students left blank → retract awarded 1 each → cron
+ * regraded blank vs "FALSE" → back to 0.)
+ *
+ * Helper: call this RIGHT AFTER `autoGradeScripts` at every grading
+ * call site. It overrides each script that belongs to a retracted-
+ * with-awardAllStudents paperQuestion to `autoCorrect:true,
+ * awardedMarks:question.marks` and recomputes `autoScore` from the
+ * post-override script list. Retraction always wins.
+ *
+ * Pure-ish: takes a Prisma instance (one indexed FK lookup) + the
+ * scripts we just graded + the raw result. No side effects beyond the
+ * read. The caller writes the result back inside its own transaction.
+ */
+export async function applyRetractionCredits(
+  prisma: PrismaService,
+  scripts: Array<{
+    id: string;
+    paperQuestionId: string;
+    paperQuestion: { marks: number };
+  }>,
+  raw: {
+    autoScore: number;
+    scriptUpdates: Array<{
+      id: string;
+      autoCorrect: boolean | null;
+      awardedMarks: number | null;
+      aiReason?: string;
+    }>;
+  },
+): Promise<typeof raw> {
+  const pqids = [...new Set(scripts.map((s) => s.paperQuestionId))];
+  if (pqids.length === 0) return raw;
+  const retracted = await prisma.questionRetraction.findMany({
+    where: { paperQuestionId: { in: pqids }, awardAllStudents: true },
+    select: { paperQuestionId: true },
+  });
+  if (retracted.length === 0) return raw;
+  const retractedSet = new Set(retracted.map((r) => r.paperQuestionId));
+  const marksByScript = new Map(scripts.map((s) => [s.id, s.paperQuestion.marks]));
+  const pqByScript = new Map(scripts.map((s) => [s.id, s.paperQuestionId]));
+  const newUpdates = raw.scriptUpdates.map((u) => {
+    const pqid = pqByScript.get(u.id);
+    if (!pqid || !retractedSet.has(pqid)) return u;
+    return {
+      ...u,
+      autoCorrect: true,
+      awardedMarks: marksByScript.get(u.id) ?? u.awardedMarks ?? 0,
+      aiReason: u.aiReason ?? '[retracted] awardAllStudents — credited',
+    };
+  });
+  const newAutoScore = newUpdates.reduce(
+    (acc, u) => acc + (u.awardedMarks ?? 0),
+    0,
+  );
+  return { autoScore: newAutoScore, scriptUpdates: newUpdates };
+}
+
+/**
  * Student-side workflow:
  *   1. Teacher calls POST /api/papers/:paperId/assign with { classId, dueAt? }.
  *      Creates a PaperAssignment.
@@ -681,10 +752,19 @@ export class StudentService {
       sub.scripts.push(...(fresh as typeof sub.scripts));
     }
 
-    const { autoScore, scriptUpdates } = await autoGradeScripts(
+    const rawGrade = await autoGradeScripts(
       sub.scripts,
       this.aiGrader,
       { deferAi: opts?.deferAi },
+    );
+    // R15-followup-21 — retraction-aware credit. If a teacher retracted
+    // any of these paperQuestions with awardAllStudents=true, override
+    // the script's awardedMarks to full so the cron / regrade / submit
+    // path can't quietly clobber the retraction back to 0.
+    const { autoScore, scriptUpdates } = await applyRetractionCredits(
+      this.prisma,
+      sub.scripts,
+      rawGrade,
     );
     // R10-fix: back-fill maxScore on submit too. Older submissions created by
     // attendance.scanQr before the maxScore-from-paper fix landed had
