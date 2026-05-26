@@ -811,6 +811,11 @@ function OneOffSessionModal({
       setErr('请选择日期');
       return;
     }
+    const dow = new Date(date + 'T00:00:00Z').getUTCDay();
+    if (dow === 0 || dow === 6) {
+      setErr('周六周日不排早测 · No morning quiz on weekends');
+      return;
+    }
     setBusy(true);
     setErr(null);
     try {

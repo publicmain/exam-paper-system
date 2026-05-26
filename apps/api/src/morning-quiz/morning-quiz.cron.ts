@@ -145,7 +145,7 @@ export class MorningQuizCron {
     // We pre-flip in_progress submissions to `submitted` with autoScore=0
     // so the session is in a consistent state immediately. The AI-grade
     // pass below upgrades autoScore in-place per submission.
-    const { inProgressIds, totalRosterCount, claimedCount } = await this.prisma.$transaction(async (tx) => {
+    const { inProgressIds, totalRosterCount, claimedCount, isWeekendSession } = await this.prisma.$transaction(async (tx) => {
       await tx.morningQuizSession.update({
         where: { id: sessionId },
         data: { status: MorningQuizStatus.locked },
@@ -204,6 +204,13 @@ export class MorningQuizCron {
         where: { id: sessionId },
         select: { date: true },
       });
+      // Defense-in-depth: never seed absent rows for a Sat/Sun session,
+      // even if a legacy/manual path slipped one past the createSession
+      // boundary guard. School doesn't run morning quiz on weekends,
+      // so a "no-show" on those days is not a real absence — see the
+      // 2026-05-10 (Sun) G11 incident.
+      const sessionWeekday = sessionRow ? sessionRow.date.getUTCDay() : -1;
+      const isWeekendSession = sessionWeekday === 0 || sessionWeekday === 6;
       let siblingAlreadyLocked = false;
       if (sessionRow) {
         const otherLocked = await tx.morningQuizSession.count({
@@ -220,7 +227,7 @@ export class MorningQuizCron {
         where: { classId, role: 'student', user: { isActive: true } },
         select: { userId: true },
       });
-      if (enrollments.length > 0 && !siblingAlreadyLocked) {
+      if (enrollments.length > 0 && !siblingAlreadyLocked && !isWeekendSession) {
         // Also: skip absent insert for students who already have a
         // non-absent attendance row TODAY in ANY of this class's
         // sessions (covers the "I scanned into level X first, then
@@ -285,6 +292,7 @@ export class MorningQuizCron {
         inProgressIds: claimed.map((s) => s.id),
         totalRosterCount: enrollments.length,
         claimedCount,
+        isWeekendSession,
       };
     });
 
@@ -294,7 +302,7 @@ export class MorningQuizCron {
     // notify failure from the cron's hot path.
     const absentCount = totalRosterCount - claimedCount;
     const absentRatio = totalRosterCount > 0 ? absentCount / totalRosterCount : 0;
-    if (totalRosterCount >= 5 && absentRatio >= 0.9) {
+    if (totalRosterCount >= 5 && absentRatio >= 0.9 && !isWeekendSession) {
       try {
         await this.notify.fire('mass_absence', {
           sessionId,

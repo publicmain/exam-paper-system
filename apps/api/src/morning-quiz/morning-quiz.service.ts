@@ -236,6 +236,26 @@ export class MorningQuizService {
     }
 
     const dateIso = input.date.toISOString().slice(0, 10);
+
+    // No morning quiz on Sat/Sun — school doesn't run quizzes on
+    // weekends. Without this guard a mis-click in the schedule UI's
+    // "+ 一次性 session" modal (date picker has no weekend filter)
+    // creates a real session, then lockPastSessions at quizEnd seeds
+    // the entire roster as `absent`, surfacing as a fake mass-absence
+    // on the parent portal / dashboards. The 2026-05-10 (Sunday) G11
+    // incident produced 611 spurious absent rows before this guard
+    // existed. Boundary-level reject is the cheap fix; the cron
+    // carries a defense-in-depth check for legacy weekend sessions.
+    const weekday = new Date(dateIso + 'T00:00:00Z').getUTCDay();
+    if (weekday === 0 || weekday === 6) {
+      throw new BadRequestException({
+        code: 'no_weekend_sessions',
+        dateIso,
+        weekday,
+        hint: weekday === 0 ? 'Sunday' : 'Saturday',
+      });
+    }
+
     const tzOff = Number(process.env.MORNING_QUIZ_TZ_OFFSET_MIN ?? 8 * 60);
     const attendanceStart = combineLocal(dateIso, ATTENDANCE_START_LOCAL, tzOff);
     const attendanceEnd = combineLocal(dateIso, ATTENDANCE_END_LOCAL, tzOff);
