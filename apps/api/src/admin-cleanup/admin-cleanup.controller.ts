@@ -1,7 +1,9 @@
-import { BadRequestException, Body, Controller, Post, Req, UseGuards } from '@nestjs/common';
+import { BadRequestException, Body, Controller, Get, Post, Query, Req, UseGuards } from '@nestjs/common';
 import type { Request } from 'express';
 import { z } from 'zod';
 import { AuthGuard, Roles } from '../common/auth.guard';
+import { PrismaService } from '../common/prisma.service';
+import { validatePaperStructure } from '../morning-quiz/paper-structure-validator';
 import { AdminCleanupService } from './admin-cleanup.service';
 import { IeltsRepairService } from './ielts-repair.service';
 
@@ -78,7 +80,88 @@ export class AdminCleanupController {
   constructor(
     private readonly cleanup: AdminCleanupService,
     private readonly ieltsRepair: IeltsRepairService,
+    private readonly prisma: PrismaService,
   ) {}
+
+  /**
+   * R15-followup-23 — scan upcoming morning-quiz papers for structural
+   * violations (the 5/26 TFNG empty-options class of bug). Runs the
+   * pure `validatePaperStructure` against every paper attached to a
+   * MorningQuizSession in the given date range, returns a flat list of
+   * findings: papers that are missing options, empty stems, or whose
+   * MCQ-shape questions have no canonical answer.
+   *
+   *   GET /api/admin-cleanup/scan-paper-structure?from=2026-05-27&to=2026-06-05
+   *
+   * Use this BEFORE each week's quizzes go live to catch broken
+   * fixtures while there's still time to retract or regenerate.
+   */
+  @Get('scan-paper-structure')
+  async scanPaperStructure(
+    @Query('from') from?: string,
+    @Query('to') to?: string,
+  ) {
+    if (!from || !to) {
+      throw new BadRequestException('from and to required (YYYY-MM-DD)');
+    }
+    const fromDate = new Date(from + 'T00:00:00Z');
+    const toDate = new Date(to + 'T23:59:59Z');
+    if (Number.isNaN(fromDate.getTime()) || Number.isNaN(toDate.getTime())) {
+      throw new BadRequestException('invalid date format — use YYYY-MM-DD');
+    }
+    const sessions = await this.prisma.morningQuizSession.findMany({
+      where: { date: { gte: fromDate, lte: toDate } },
+      include: {
+        class: { select: { id: true, name: true } },
+        paperAssignment: {
+          include: {
+            paper: {
+              include: {
+                questions: {
+                  include: { question: { select: { questionType: true } } },
+                  orderBy: { sortOrder: 'asc' },
+                },
+              },
+            },
+          },
+        },
+      },
+      orderBy: [{ date: 'asc' }, { level: 'asc' }],
+    });
+    const findings: Array<{
+      date: string;
+      className: string;
+      level: string;
+      sessionId: string;
+      paperId: string;
+      paperName: string;
+      sessionStatus: string;
+      violations: ReturnType<typeof validatePaperStructure>;
+    }> = [];
+    for (const s of sessions) {
+      const paper = s.paperAssignment?.paper;
+      if (!paper) continue;
+      const violations = validatePaperStructure(paper.questions as any);
+      if (violations.length === 0) continue;
+      findings.push({
+        date: s.date.toISOString().slice(0, 10),
+        className: s.class.name,
+        level: s.level,
+        sessionId: s.id,
+        paperId: paper.id,
+        paperName: paper.name,
+        sessionStatus: s.status,
+        violations,
+      });
+    }
+    return {
+      from,
+      to,
+      sessionsChecked: sessions.length,
+      papersWithViolations: findings.length,
+      findings,
+    };
+  }
 
   @Post('fix-replacement-chars')
   fix() {
