@@ -308,8 +308,20 @@ function friendlyMessage(code: string, raw: string): string {
     case 'qr_session_not_found':
     case 'session_not_found':
       return '今天没有早测安排,请联系老师。';
-    case 'session_not_active':
-      return '早测窗口尚未开启或已结束。';
+    case 'session_not_active': {
+      // Backend includes the actual session.status in the error body
+      // (see attendance.service.ts:66 / :164). Surfacing it lets us
+      // tell scheduled / locked / cancelled apart on the spot — the
+      // old generic "已开启或已结束" wording made operator triage
+      // impossible (you didn't know if it was a cron miss, a teacher
+      // mis-cancel, or just past 9:00).
+      const m = raw.match(/status["']?\s*[:=]\s*["']([a-z_]+)["']/);
+      const status = m?.[1];
+      if (status === 'scheduled') return '考勤窗口尚未开启,请稍等大屏倒计时归零再扫。';
+      if (status === 'locked') return '今早早测已结束(9:00 之后)。请联系班主任手工补登。';
+      if (status === 'cancelled') return '本场早测已取消,请联系老师确认。';
+      return `早测会话状态异常(${status ?? 'unknown'})。请联系老师并截图本提示。`;
+    }
     case 'student_not_found':
       return '名单里没有这个名字,请检查拼写后重试(全名,不加空格)。';
     case 'multiple_students_with_same_name':
