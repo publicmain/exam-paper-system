@@ -62,14 +62,23 @@ export class MorningQuizCron {
         // those should fall through to the lock pass instead.
         quizEnd: { gt: now },
       },
-      select: { id: true },
+      select: { id: true, classId: true, level: true, attendanceStart: true },
     });
     if (due.length === 0) return;
     await this.prisma.morningQuizSession.updateMany({
       where: { id: { in: due.map((s) => s.id) } },
       data: { status: MorningQuizStatus.active },
     });
-    this.logger.log(`activated ${due.length} session(s)`);
+    // r15-followup-29 — log the EXACT (session, classId, level, attStart)
+    // tuples so when a "学生扫码已结束" report comes in we can confirm
+    // which sessions got activated and at what tick. Cron logs are
+    // ephemeral; without this you can't reconstruct the morning.
+    for (const s of due) {
+      this.logger.log(
+        `activated sessionId=${s.id} classId=${s.classId} level=${s.level} ` +
+          `attStart=${s.attendanceStart.toISOString()} at=${now.toISOString()}`,
+      );
+    }
   }
 
   private async lockPastSessions(now: Date) {

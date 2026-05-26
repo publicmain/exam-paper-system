@@ -4,6 +4,7 @@ import {
   ForbiddenException,
   GoneException,
   Injectable,
+  Logger,
   NotFoundException,
 } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
@@ -37,6 +38,8 @@ export interface ScanResult {
 
 @Injectable()
 export class AttendanceService {
+  private readonly logger = new Logger('AttendanceService');
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly qr: QrService,
@@ -55,7 +58,18 @@ export class AttendanceService {
     const decoded = await this.qr.verify(qrToken);
     const session = await this.prisma.morningQuizSession.findUnique({
       where: { id: decoded.sessionId },
-      select: { id: true, classId: true, date: true, level: true, status: true, class: { select: { name: true } } },
+      select: {
+        id: true,
+        classId: true,
+        date: true,
+        level: true,
+        status: true,
+        attendanceStart: true,
+        attendanceEnd: true,
+        lateCutoff: true,
+        quizEnd: true,
+        class: { select: { name: true } },
+      },
     });
     if (!session) throw new NotFoundException({ code: 'session_not_found' });
     // Gate: only roster-leak the names while the session is *active*.
@@ -63,6 +77,44 @@ export class AttendanceService {
     // class roster — the active-status check scopes any leak to the
     // brief in-progress window.
     if (session.status !== MorningQuizStatus.active) {
+      // r15-followup-29 — every failure here is a "学生扫码看到已结束"
+      // incident. Log the FULL context so the next time it happens we
+      // can grep Railway logs for the timestamps + sessionIds. Without
+      // this the failures are completely silent. Token type is v1/v2 —
+      // legacy rotating display QR vs v2 printable static QR.
+      const tokenType = qrToken.startsWith('v2.') ? 'v2-static' : 'v1-rotating';
+      const now = new Date();
+      this.logger.warn(
+        `fetchRoster denied — session_not_active. ` +
+          `now=${now.toISOString()} sessionId=${session.id} status=${session.status} ` +
+          `class=${session.class.name} (${session.classId}) level=${session.level} ` +
+          `tokenType=${tokenType} ` +
+          `attStart=${session.attendanceStart.toISOString()} quizEnd=${session.quizEnd.toISOString()} ` +
+          `withinWindow=${now >= session.attendanceStart && now <= session.quizEnd}`,
+      );
+      // Also write to AuditLog so a SQL query can reconstruct who-was-
+      // affected after the fact. action='attendance.scan_denied' keeps
+      // it cleanly separable from successful attendance.scan rows.
+      // Best-effort: don't let an audit-table write block the throw.
+      this.audit
+        .log({
+          actorId: 'public',
+          actorRole: 'public',
+          action: 'attendance.scan_denied',
+          entityType: 'MorningQuizSession',
+          entityId: session.id,
+          ip: null,
+          metadata: {
+            reason: 'session_not_active',
+            status: session.status,
+            classId: session.classId,
+            level: session.level,
+            tokenType,
+            sessionAttStart: session.attendanceStart.toISOString(),
+            sessionQuizEnd: session.quizEnd.toISOString(),
+          },
+        })
+        .catch((e) => this.logger.warn(`audit write failed: ${e?.message ?? e}`));
       throw new GoneException({ code: 'session_not_active', status: session.status });
     }
     const enrollments = await this.prisma.classEnrollment.findMany({
@@ -161,6 +213,43 @@ export class AttendanceService {
     });
     if (!session) throw new NotFoundException({ code: 'session_not_found' });
     if (session.status !== MorningQuizStatus.active) {
+      // r15-followup-29 — mirror the fetchRoster diagnostic. Capture
+      // the override scenario explicitly so we can tell apart "QR
+      // resolved to a bad session" vs "student picked a sibling that
+      // got cancelled between fetchRoster and submit".
+      const tokenType = qrToken.startsWith('v2.') ? 'v2-static' : 'v1-rotating';
+      const now = new Date();
+      this.logger.warn(
+        `scanQr denied — session_not_active. ` +
+          `now=${now.toISOString()} sessionId=${session.id} status=${session.status} ` +
+          `classId=${session.classId} ` +
+          `tokenType=${tokenType} ` +
+          `qrSessionId=${decoded.sessionId} override=${sessionIdOverride ?? '(none)'} ` +
+          `studentNameLen=${studentName?.length ?? 0} deviceUuid=${deviceUuid?.slice(0, 8) ?? ''} ` +
+          `attStart=${session.attendanceStart.toISOString()} quizEnd=${session.quizEnd.toISOString()}`,
+      );
+      this.audit
+        .log({
+          actorId: 'public',
+          actorRole: 'public',
+          action: 'attendance.scan_denied',
+          entityType: 'MorningQuizSession',
+          entityId: session.id,
+          ip: sourceIp,
+          metadata: {
+            reason: 'session_not_active',
+            status: session.status,
+            classId: session.classId,
+            tokenType,
+            qrSessionId: decoded.sessionId,
+            sessionIdOverride: sessionIdOverride ?? null,
+            sessionAttStart: session.attendanceStart.toISOString(),
+            sessionQuizEnd: session.quizEnd.toISOString(),
+            studentName: studentName?.trim() ?? null,
+            stage: 'scanQr.gate3',
+          },
+        })
+        .catch((e) => this.logger.warn(`audit write failed: ${e?.message ?? e}`));
       throw new GoneException({ code: 'session_not_active', status: session.status });
     }
 
