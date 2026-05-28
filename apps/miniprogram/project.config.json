@@ -1,0 +1,17 @@
+{
+  "description": "早测查询小程序 — 学生通过微信查看自己的晨测考勤与答题记录",
+  "appid": "REPLACE_WITH_YOUR_MINIPROGRAM_APPID",
+  "projectname": "zaoce-student-portal",
+  "miniprogramRoot": "./",
+  "compileType": "miniprogram",
+  "libVersion": "3.5.0",
+  "setting": {
+    "es6": true,
+    "enhance": true,
+    "postcss": true,
+    "minified": true,
+    "urlCheck": true,
+    "ignoreDevUnusedFiles": false
+  },
+  "condition": {}
+}

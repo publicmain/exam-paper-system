@@ -1,0 +1,15 @@
+{
+  "pages": [
+    "pages/index/index",
+    "pages/detail/detail"
+  ],
+  "window": {
+    "navigationBarBackgroundColor": "#1d4ed8",
+    "navigationBarTextStyle": "white",
+    "navigationBarTitleText": "早测查询",
+    "backgroundColor": "#f3f4f6",
+    "enablePullDownRefresh": true
+  },
+  "style": "v2",
+  "sitemapLocation": "sitemap.json"
+}

@@ -1,0 +1,79 @@
+<view class="wrap">
+
+  <!-- Name entry (shown until a name is committed) -->
+  <view wx:if="{{!student}}" class="card entry">
+    <view class="title">早测查询 · Morning Quiz</view>
+    <view class="muted sub">输入你的姓名查看本人的考勤与答题记录</view>
+    <input
+      class="name-input"
+      placeholder="请输入你的完整真名"
+      value="{{inputName}}"
+      bindinput="onInput"
+      confirm-type="search"
+      bindconfirm="onQuery"
+    />
+    <view wx:if="{{error}}" class="err">{{error}}</view>
+    <view class="btn {{loading ? 'disabled' : ''}}" bindtap="onQuery">
+      {{loading ? '查询中…' : '查询 · Look up'}}
+    </view>
+    <view class="muted foot">名字打错或查不到？请联系老师</view>
+  </view>
+
+  <!-- Results -->
+  <block wx:if="{{student}}">
+    <view class="card header">
+      <view class="row-between">
+        <view>
+          <view class="stu-name">{{student.name}}</view>
+          <view class="muted">{{student.classes[0]}}</view>
+        </view>
+        <view class="btn-ghost switch" bindtap="onSwitch">切换</view>
+      </view>
+      <view wx:if="{{student.matchedCount > 1}}" class="warn">
+        ⚠️ 名单里有 {{student.matchedCount}} 个同名同学，记录已合并显示；如有疑问请联系老师。
+      </view>
+    </view>
+
+    <view wx:if="{{summary}}" class="card summary">
+      <view class="sum-item">
+        <view class="sum-num">{{summary.count}}</view>
+        <view class="muted">已交卷</view>
+      </view>
+      <view class="sum-item">
+        <view class="sum-num {{summary.avgPct >= 70 ? 'pct-good' : (summary.avgPct >= 50 ? 'pct-mid' : 'pct-low')}}">
+          {{summary.avgPct === null ? '—' : summary.avgPct + '%'}}
+        </view>
+        <view class="muted">平均正确率</view>
+      </view>
+    </view>
+
+    <view wx:if="{{loading}}" class="muted center">加载中…</view>
+    <view wx:if="{{error}}" class="card err">{{error}}</view>
+
+    <view wx:if="{{!loading && submissions.length === 0}}" class="card center muted">
+      还没有任何答题记录
+    </view>
+
+    <view
+      wx:for="{{submissions}}"
+      wx:key="submissionId"
+      class="card sub-row"
+      data-id="{{item.submissionId}}"
+      bindtap="goDetail"
+    >
+      <view class="row-between">
+        <view class="sub-date">{{item.dateLabel}}</view>
+        <view class="badge {{item.statusClass}}">{{item.statusLabel}}</view>
+      </view>
+      <view class="sub-paper">{{item.paperName}}</view>
+      <view class="row-between sub-foot">
+        <view class="muted">{{item.className}}</view>
+        <view class="sub-score {{item.pctClass}}">
+          {{item.total}} / {{item.max}} · {{item.pct}}%
+        </view>
+      </view>
+      <view class="muted detail-hint">查看每题详情 ›</view>
+    </view>
+  </block>
+
+</view>

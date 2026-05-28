@@ -1,0 +1,51 @@
+page {
+  background: #f3f4f6;
+  font-family: -apple-system, BlinkMacSystemFont, "Helvetica Neue", "PingFang SC", "Microsoft YaHei", sans-serif;
+  color: #1f2937;
+  font-size: 28rpx;
+}
+
+.card {
+  background: #fff;
+  border-radius: 20rpx;
+  padding: 28rpx;
+  margin: 20rpx 24rpx;
+  box-shadow: 0 2rpx 12rpx rgba(0, 0, 0, 0.04);
+}
+
+.muted {
+  color: #9ca3af;
+  font-size: 24rpx;
+}
+
+.btn {
+  background: #1d4ed8;
+  color: #fff;
+  border-radius: 14rpx;
+  text-align: center;
+  padding: 24rpx;
+  font-size: 30rpx;
+  font-weight: 600;
+}
+.btn[disabled] {
+  background: #c7d2e8;
+  color: #fff;
+}
+.btn-ghost {
+  background: #eef2ff;
+  color: #1d4ed8;
+}
+
+/* score colour ramp */
+.pct-good { color: #15803d; }
+.pct-mid { color: #b45309; }
+.pct-low { color: #b91c1c; }
+
+.badge {
+  display: inline-block;
+  padding: 4rpx 14rpx;
+  border-radius: 999rpx;
+  font-size: 22rpx;
+}
+.badge-marked { background: #dcfce7; color: #15803d; }
+.badge-submitted { background: #dbeafe; color: #1e40af; }

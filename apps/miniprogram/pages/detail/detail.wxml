@@ -1,0 +1,59 @@
+<view class="wrap">
+
+  <view wx:if="{{loading}}" class="muted center pad">加载中…</view>
+  <view wx:if="{{error}}" class="card err">{{error}}</view>
+
+  <block wx:if="{{header}}">
+    <view class="card head">
+      <view class="paper">{{header.paperName}}</view>
+      <view class="score-line">
+        <text class="big {{header.pctClass}}">{{header.total}}</text>
+        <text class="muted"> / {{header.max}} · {{header.pct}}%</text>
+        <text class="badge badge-marked status">{{header.statusLabel}}</text>
+      </view>
+    </view>
+
+    <!-- Collapsible passage (Reading papers) -->
+    <view wx:if="{{passage}}" class="card">
+      <view class="passage-toggle" bindtap="togglePassage">
+        📖 {{passageTitle || '阅读原文'}} {{passageOpen ? '▲' : '▼'}}
+      </view>
+      <view wx:if="{{passageOpen}}" class="passage-text">{{passage}}</view>
+    </view>
+
+    <!-- Per-question review -->
+    <view
+      wx:for="{{items}}"
+      wx:key="paperQuestionId"
+      class="card q {{item.mark === 'right' ? 'q-right' : (item.mark === 'wrong' ? 'q-wrong' : 'q-pending')}}"
+    >
+      <view class="q-top">
+        <text class="q-no">Q{{item.sortOrder}}</text>
+        <text class="q-type muted">{{item.questionType}}</text>
+        <text class="q-mark">
+          <text wx:if="{{item.pendingMark}}" class="m-pending">待批改</text>
+          <text wx:elif="{{item.mark === 'right'}}" class="m-right">✓ {{item.awarded}}/{{item.marks}}</text>
+          <text wx:elif="{{item.mark === 'wrong'}}" class="m-wrong">✗ {{item.awarded}}/{{item.marks}}</text>
+          <text wx:else class="muted">{{item.awarded}}/{{item.marks}}</text>
+        </text>
+      </view>
+
+      <view class="q-stem">{{item.stem}}</view>
+
+      <view class="ans-block">
+        <view class="ans-label muted">你的答案</view>
+        <view class="ans-val">{{item.studentAnswer}}</view>
+      </view>
+
+      <view wx:if="{{item.correctAnswer}}" class="ans-block">
+        <view class="ans-label muted">参考答案</view>
+        <view class="ans-val ref">{{item.correctAnswer}}</view>
+      </view>
+
+      <view wx:if="{{item.comment}}" class="comment {{item.commentKind === 'pending' ? 'comment-pending' : ''}}">
+        {{item.comment}}
+      </view>
+    </view>
+  </block>
+
+</view>

@@ -1,0 +1,59 @@
+.center { text-align: center; }
+.pad { padding: 60rpx; }
+
+.head .paper { font-size: 28rpx; color: #374151; line-height: 1.4; }
+.score-line { margin-top: 16rpx; }
+.big { font-size: 56rpx; font-weight: 800; }
+.status { margin-left: 16rpx; vertical-align: middle; }
+
+.passage-toggle { font-weight: 600; color: #1d4ed8; }
+.passage-text {
+  margin-top: 16rpx;
+  font-size: 26rpx;
+  color: #4b5563;
+  line-height: 1.7;
+  white-space: pre-wrap;
+}
+
+.q { border-left: 8rpx solid #e5e7eb; }
+.q-right { border-left-color: #22c55e; }
+.q-wrong { border-left-color: #ef4444; }
+.q-pending { border-left-color: #f59e0b; }
+
+.q-top { display: flex; align-items: center; }
+.q-no { font-weight: 700; font-size: 30rpx; }
+.q-type { margin-left: 16rpx; flex: 1; }
+.q-mark { font-weight: 700; font-size: 26rpx; }
+.m-right { color: #15803d; }
+.m-wrong { color: #b91c1c; }
+.m-pending { color: #b45309; }
+
+.q-stem {
+  margin: 16rpx 0;
+  font-size: 28rpx;
+  line-height: 1.6;
+  white-space: pre-wrap;
+}
+
+.ans-block { margin-top: 16rpx; }
+.ans-label { font-size: 22rpx; }
+.ans-val {
+  margin-top: 4rpx;
+  background: #f9fafb;
+  border-radius: 10rpx;
+  padding: 16rpx;
+  font-size: 28rpx;
+  white-space: pre-wrap;
+}
+.ans-val.ref { background: #ecfdf5; color: #065f46; }
+
+.comment {
+  margin-top: 16rpx;
+  font-size: 24rpx;
+  color: #6b7280;
+  background: #f3f4f6;
+  border-radius: 10rpx;
+  padding: 14rpx;
+  white-space: pre-wrap;
+}
+.comment-pending { background: #fffbeb; color: #92400e; }
