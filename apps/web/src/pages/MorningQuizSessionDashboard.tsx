@@ -110,15 +110,16 @@ export default function MorningQuizSessionDashboard() {
               <tr className="text-left border-b">
                 <th className="py-2 pr-2">学生</th>
                 <th className="py-2 pr-2">考勤</th>
+                <th className="py-2 pr-2">扫码时间</th>
                 <th className="py-2 pr-2">已交卷</th>
                 <th className="py-2 pr-2">分数 (auto)</th>
-                <th className="py-2 pr-2">提交时间</th>
+                <th className="py-2 pr-2">答题结束时间</th>
                 <th className="py-2 pr-2 text-right"></th>
               </tr>
             </thead>
             <tbody className="divide-y">
               {(attendances ?? []).length === 0 && (
-                <tr><td colSpan={6} className="py-4 text-center text-gray-500">还没有学生扫码</td></tr>
+                <tr><td colSpan={7} className="py-4 text-center text-gray-500">还没有学生扫码</td></tr>
               )}
               {(attendances ?? []).map((a: any) => {
                 const sid = a.studentId ?? a.student?.id;
@@ -128,6 +129,9 @@ export default function MorningQuizSessionDashboard() {
                   <tr key={a.id ?? sid}>
                     <td className="py-2 pr-2">{sname}</td>
                     <td className="py-2 pr-2"><StatusBadge status={a.status} /></td>
+                    <td className="py-2 pr-2 text-xs text-gray-500">
+                      {a.scanTime ? new Date(a.scanTime).toLocaleTimeString() : '—'}
+                    </td>
                     <td className="py-2 pr-2">{a.submission?.submittedAt ? '✓' : '—'}</td>
                     <td className="py-2 pr-2">{a.submission?.totalScore ?? a.submission?.autoScore ?? '—'}</td>
                     <td className="py-2 pr-2 text-xs text-gray-500">
