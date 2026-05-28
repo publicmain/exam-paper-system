@@ -51,9 +51,24 @@ export class MorningQuizCron {
   }
 
   private async activateDueSessions(now: Date) {
-    // Activate when we're within 30s of attendanceStart so the QR display
-    // page can render a valid token a few seconds before students arrive.
-    const upper = new Date(now.getTime() + 30_000);
+    // r15-followup-30 — pre-activate 5 minutes (was 30s) before
+    // attendanceStart. Why: cron only ticks at minute boundaries, so a
+    // 30s buffer was ineffective — at the 08:29:00 tick, upper=08:29:30
+    // and attendanceStart=08:30:00 > upper → not activated; activation
+    // didn't actually happen until the 08:30:00 tick, putting the
+    // window's effective open at exactly 08:30:00 sharp. Students who
+    // scanned at 08:29:5x (phone camera + Chrome cold start lag) saw
+    // "考勤窗口尚未开启" and panicked, then re-scanned with WeChat at
+    // 08:30:0x and it worked — the 2026-05-28 report.
+    //
+    // 5min buffer means the 08:25:00 tick activates today's session
+    // (upper=08:30:00, attendanceStart=08:30:00, lte matches). The
+    // window of "scheduled" status is now only ~24h overnight instead
+    // of the last anxious minute before 08:30. scanQr's gate 5 still
+    // blocks submits before attendanceStart, so no extra attendance
+    // can be banked early — only the roster lookup is permitted
+    // sooner.
+    const upper = new Date(now.getTime() + 5 * 60_000);
     const due = await this.prisma.morningQuizSession.findMany({
       where: {
         status: MorningQuizStatus.scheduled,
