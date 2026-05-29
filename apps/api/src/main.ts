@@ -109,6 +109,25 @@ async function bootstrap() {
   const express = require('express');
   expressApp.use(express.json({ limit: '2mb' }));
   expressApp.use(express.urlencoded({ limit: '2mb', extended: true }));
+
+  // r15-followup-31 — NO browser caching of any API response. Every /api
+  // route is dynamic and time-sensitive (attendance windows, live scores).
+  // Bug: GET /attendance/scan-roster returns 410 Gone for
+  // `session_not_active`, and 410 is heuristically CACHEABLE per HTTP spec.
+  // With the v2 static QR the scan URL is byte-identical every day, so a
+  // 410 cached BEFORE the window opened (student scanned at 08:20) was
+  // replayed from the browser cache AFTER it opened (08:41) — Chrome
+  // showed "考勤窗口尚未开启" while WeChat (no/different cache) hit the
+  // live backend and worked. The PWA service worker added a second cache
+  // layer with the same effect. Force no-store on the whole API so no
+  // response — success OR error — is ever reused. Also disable ETag so
+  // there's no conditional-revalidation path either.
+  expressApp.set('etag', false);
+  expressApp.use((_req: any, res: any, next: any) => {
+    res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, max-age=0');
+    next();
+  });
+
   // Trust proxy so req.ip reads X-Forwarded-For when fronted by Railway /
   // Cloudflare. Needed so the per-IP rate limiter and the audit log
   // record the real client IP rather than the proxy's loopback. Trust

@@ -258,16 +258,19 @@ export const api = {
 
   // ── Morning attendance + quiz ──
   qrCurrent: (params: { classId?: string; sessionId?: string }) =>
-    request('GET', `/qr/current${qs(params)}`),
+    request('GET', `/qr/current${qs(params)}&_=${Date.now()}`),
   /** Permanent printable QR token for a class — print once, no laptop. */
   qrStatic: (classId: string) =>
     request<{ classId: string; className: string; token: string }>(
       'GET',
       `/qr/static?classId=${encodeURIComponent(classId)}`,
     ),
-  /** Public roster fetch — gated by school WiFi + valid QR token. */
+  /** Public roster fetch — gated by a valid QR token. The `_` cache-buster
+   *  makes every request URL unique so a 410 (session_not_active) cached
+   *  before the window opened can never be replayed from the browser /
+   *  service-worker cache against the static v2 QR (r15-followup-31). */
   attendanceScanRoster: (qrToken: string) =>
-    request('GET', `/attendance/scan-roster?qrToken=${encodeURIComponent(qrToken)}`),
+    request('GET', `/attendance/scan-roster?qrToken=${encodeURIComponent(qrToken)}&_=${Date.now()}`),
   // deviceUuid is required by the backend schema (Round 1 critical fix —
   // without it a single device can sign in 30 students). Type signature
   // tightened so a future caller can't silently drop the field and fail

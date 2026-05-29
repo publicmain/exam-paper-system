@@ -9,7 +9,7 @@
 //     filenames) → cache-first for instant repeat loads.
 //
 // Bump CACHE on any change to this file so old caches are evicted.
-const CACHE = 'zaoce-pwa-v1';
+const CACHE = 'zaoce-pwa-v2';
 
 self.addEventListener('install', (event) => {
   // Activate this SW immediately instead of waiting for old tabs to close.
@@ -35,13 +35,22 @@ self.addEventListener('fetch', (event) => {
   const isNavigation = req.mode === 'navigate';
   const isApi = url.pathname.startsWith('/api/');
 
-  // Network-first for the app shell + API so deploys/data are never stale.
-  if (isNavigation || isApi) {
+  // API is NEVER cached and NEVER served from cache — it's time-sensitive
+  // (attendance windows). Force cache:'no-store' so the SW's own fetch
+  // can't return an HTTP-cached response (r15-followup-31: a 410
+  // session_not_active cached before the window opened was replayed).
+  if (isApi) {
+    event.respondWith(fetch(req, { cache: 'no-store' }));
+    return;
+  }
+
+  // Network-first for the app shell so deploys are never stale.
+  if (isNavigation) {
     event.respondWith(
       (async () => {
         try {
           const fresh = await fetch(req);
-          if (isNavigation && fresh && fresh.ok) {
+          if (fresh && fresh.ok) {
             const cache = await caches.open(CACHE);
             cache.put(req, fresh.clone());
           }
