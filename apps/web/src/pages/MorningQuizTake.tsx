@@ -549,6 +549,19 @@ function ExamShellChrome({
         <Timer endsAt={paper.quizEnd} onTimeUp={onTimeUpSubmit} />
       </div>
 
+      {/* r15-followup-32 — questions are shuffled per student (anti-cheat).
+          The stems still carry their original "Qn." labels, so a student
+          who fills boxes top-to-bottom in their own numeric order lands
+          answers in the wrong boxes (the 2026-05-29 李永轩 case). A loud
+          banner tells them to read each box's question number. */}
+      <div
+        className="px-4 py-2 bg-amber-50 border-b border-amber-200 text-amber-800 text-sm text-center"
+        role="note"
+      >
+        ⚠️ 本试卷题目为<strong>随机顺序</strong>,请认准每题的题号 (Q1、Q2…) 再作答
+        <span className="hidden lg:inline"> · Questions are in random order — check each question's number before answering.</span>
+      </div>
+
       <main>
         <ExamRenderer paper={paper} />
       </main>
