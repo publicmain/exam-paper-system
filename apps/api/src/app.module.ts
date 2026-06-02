@@ -4,6 +4,7 @@ import { ConfigModule } from '@nestjs/config';
 import { JwtModule } from '@nestjs/jwt';
 import { ScheduleModule } from '@nestjs/schedule';
 import { PrismaService } from './common/prisma.service';
+import { GradeService } from './grading/grade.service';
 import { AuthGuard } from './common/auth.guard';
 import { GlobalExceptionFilter } from './common/global-exception.filter';
 import { RateLimitGuard } from './common/rate-limit.guard';
@@ -125,7 +126,9 @@ import { HealthController } from './health.controller';
     { provide: APP_GUARD, useClass: AuthGuard },
     { provide: APP_FILTER, useClass: GlobalExceptionFilter },
     RateLimitGuard,
+    // Phase 1 AI-ready grading seam (docs/PRD §7).
+    GradeService,
   ],
-  exports: [PrismaService],
+  exports: [PrismaService, GradeService],
 })
 export class AppModule {}

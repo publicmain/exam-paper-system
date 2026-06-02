@@ -1,5 +1,6 @@
 import { BadRequestException, ForbiddenException, Injectable, Logger, NotFoundException, Optional } from '@nestjs/common';
 import { PrismaService } from '../common/prisma.service';
+import { gradeMcq } from '../grading/grade';
 import { redactSnapshotForStudent } from '../morning-quiz/morning-quiz.service';
 import { WechatNotifyService } from '../wechat-notify/wechat-notify.service';
 
@@ -174,105 +175,24 @@ export async function autoGradeScripts(
   for (const script of scripts) {
     const q = script.paperQuestion.question;
     if (q.questionType === 'mcq') {
-      const opts = (script.paperQuestion.snapshotOptions ?? q.options ?? []) as Array<{
-        key: string;
-        correct: boolean;
-      }>;
-      const correctOpt = Array.isArray(opts) ? opts.find((o) => o.correct) : null;
-      // R15-followup-10 — "either order" MCQ pairs. IELTS Reading
-      // commonly tags two adjacent questions with mark schemes like
-      //   Q18 & Q19 in either order; accepts B or C
-      // i.e. either student answer is valid for either question, so
-      // long as both letters appear across the pair. The naive
-      // `correctOpt.key === selectedOption` check rejects the swap
-      // (Q18=C, Q19=B) and gives a real student a 0 on Q19 even though
-      // they got the underlying comprehension right.
-      //
-      // Authoritative source: snapshotContent.acceptedKeys: string[]
-      // (or the more verbose alias `acceptableOptionKeys`). When the
-      // ingest pipeline writes either field with multiple keys, the
-      // grader accepts any of them. Falls back to the single
-      // `correctOpt` when those fields are absent (backwards-compatible
-      // with every other question type / older imports).
-      const sc =
-        typeof (script.paperQuestion as any).snapshotContent === 'object'
-          ? ((script.paperQuestion as any).snapshotContent as Record<string, unknown>)
-          : null;
-      const accepted = (() => {
-        if (!sc) return null;
-        for (const field of ['acceptedKeys', 'acceptableOptionKeys', 'acceptOptions']) {
-          const v = sc[field];
-          if (Array.isArray(v) && v.every((x) => typeof x === 'string')) {
-            return v as string[];
-          }
-        }
-        return null;
-      })();
-      // R15-followup-14 — MCQ grader fallback chain.
-      //
-      // Previous behaviour: only honoured `correctOpt = opts.find(correct: true)`.
-      // Cambridge IELTS classification + matching_information ingests store
-      // the canonical answer key in `snapshotContent.correctOption` /
-      // `snapshotContent.correctAnswer` instead of marking one option as
-      // `correct: true` (the options are a SHARED bank across multiple
-      // questions, so the per-row "correct" flag would be ambiguous).
-      // Without this fallback the grader saw `correctOpt === undefined` for
-      // every such question and marked every student's pick wrong — even
-      // when they picked the right letter. On 2026-05-14 morning quiz the
-      // IELTS section's classification block (Q23-Q26) graded an entire
-      // class to 0 despite the history-detail UI showing "✓ 正确" because
-      // historyDetail already had the same fallback chain. This aligns
-      // grader logic with historyDetail (morning-quiz.service.ts:2430).
-      let canonicalCorrectKey: string | null = correctOpt?.key ?? null;
-      if (!canonicalCorrectKey && sc) {
-        for (const field of ['correctOption', 'correctAnswer']) {
-          const v = sc[field];
-          if (typeof v === 'string' && v.length > 0 && v.length <= 8) {
-            canonicalCorrectKey = v;
-            break;
-          }
-        }
-      }
-      // Final defensive fallback — Question.answerContent.text (1-letter
-      // short answers like "ii" / "B" that some legacy ingests use).
-      if (!canonicalCorrectKey) {
-        const ac = (q as any).answerContent as { text?: unknown } | null;
-        if (typeof ac?.text === 'string' && ac.text.length <= 8) {
-          canonicalCorrectKey = ac.text;
-        }
-      }
-      // R15-followup-14b — when a question is type 'mcq' but the take-page
-      // rendered as a text input (because the stem said "Write the correct
-      // letter, A, B or C." — Cambridge classification papers do this), the
-      // student types the letter and it ends up in `textAnswer` with
-      // `selectedOption=null`. The MCQ grader used to only check
-      // selectedOption, so the student's typed letter was ignored and the
-      // question silently graded 0 even when the typed letter was right.
-      // Fall back to textAnswer when it matches an option key.
-      let selected = script.selectedOption;
-      if (selected == null && typeof script.textAnswer === 'string') {
-        const candidate = script.textAnswer.trim();
-        if (candidate.length > 0 && candidate.length <= 4) {
-          const optKeys = (Array.isArray(opts) ? opts : [])
-            .map((o: any) => String(o?.key ?? ''))
-            .filter(Boolean);
-          const cu = candidate.toUpperCase();
-          const matchedKey = optKeys.find((k) => k.toUpperCase() === cu);
-          if (matchedKey) selected = matchedKey;
-        }
-      }
-      // Use case/whitespace-tolerant compare to mirror the MyHistoryDetail
-      // UI's `trim().toLowerCase()` check, so the grader and the student's
-      // "我的答案 ✓ 正确" badge can never visibly disagree.
-      const norm = (s: string | null | undefined): string =>
-        s == null ? '' : String(s).trim().toLowerCase();
-      const selectedN = norm(selected);
-      const isCorrect = accepted && accepted.length > 0
-        ? accepted.map(norm).includes(selectedN)
-        : canonicalCorrectKey != null && norm(canonicalCorrectKey) === selectedN;
-      const awarded = isCorrect ? script.paperQuestion.marks : 0;
-      autoScore += awarded;
-      scriptUpdates.push({ id: script.id, autoCorrect: isCorrect, awardedMarks: awarded });
+      // R15-followup-10/-14/-14b MCQ semantics (acceptedKeys "either-order",
+      // correctOption/correctAnswer fallback chain, typed-letter textAnswer
+      // fallback, case/whitespace tolerance) now live in the shared
+      // deterministic core grading/grade.ts — the Phase 1 AI-ready seam.
+      // autoGradeScripts and GradeService dispatch through the SAME gradeMcq
+      // so they can never diverge. Behaviour is byte-identical to the inlined
+      // version this replaced; grade.spec.ts pins the tricky cases.
+      const r = gradeMcq({
+        marks: script.paperQuestion.marks,
+        selectedOption: script.selectedOption,
+        textAnswer: script.textAnswer,
+        snapshotOptions: script.paperQuestion.snapshotOptions,
+        snapshotContent: (script.paperQuestion as any).snapshotContent,
+        questionOptions: q.options,
+        answerContent: q.answerContent,
+      });
+      autoScore += r.awardedMarks ?? 0;
+      scriptUpdates.push({ id: script.id, autoCorrect: r.isCorrect, awardedMarks: r.awardedMarks });
       continue;
     }
     if (q.questionType === 'short_answer') {
