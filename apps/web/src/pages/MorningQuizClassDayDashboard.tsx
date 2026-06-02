@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { api } from '../lib/api';
+import { Spinner, ErrorState } from '../components/AsyncState';
 
 /**
  * Aggregated dashboard for one (classId, date). A class can have 1–3
@@ -255,12 +256,12 @@ export default function MorningQuizClassDayDashboard() {
   }
 
   if (!classId || !date) return <div className="p-6">missing :classId or :date</div>;
-  if (loading) return <div className="p-6 text-gray-500">Loading dashboard…</div>;
+  if (loading) return <Spinner label="加载班级日面板…" />;
   if (err)
     return (
       <div className="p-6">
-        <div className="card text-sm text-red-700">{err}</div>
-        <Link to="/morning-quiz/schedule" className="text-blue-600 text-sm mt-2 inline-block">
+        <ErrorState message={err} onRetry={reload} />
+        <Link to="/morning-quiz/schedule" className="text-blue-600 text-sm mt-3 block text-center">
           ← back to schedule
         </Link>
       </div>

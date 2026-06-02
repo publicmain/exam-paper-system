@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { api } from '../lib/api';
+import { Spinner, ErrorState } from '../components/AsyncState';
 
 /**
  * R10-Bug2 — `/morning-quiz/sessions/:id/dashboard` was a server-only
@@ -70,11 +71,11 @@ export default function MorningQuizSessionDashboard() {
   }, [sessionId]);
 
   if (!sessionId) return <div className="p-6">missing :sessionId</div>;
-  if (loading) return <div className="p-6 text-gray-500">Loading session dashboard…</div>;
+  if (loading) return <Spinner label="加载早测面板…" />;
   if (err) return (
     <div className="p-6">
-      <div className="card text-sm text-red-700">{err}</div>
-      <Link to="/morning-quiz/schedule" className="text-blue-600 text-sm mt-2 inline-block">← back to schedule</Link>
+      <ErrorState message={err} onRetry={reload} />
+      <Link to="/morning-quiz/schedule" className="text-blue-600 text-sm mt-3 block text-center">← back to schedule</Link>
     </div>
   );
   if (!data) return null;
