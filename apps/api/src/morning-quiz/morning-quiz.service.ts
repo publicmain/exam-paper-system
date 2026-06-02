@@ -20,6 +20,7 @@ import { canActOnClass } from '../common/roles';
 import { ShuffleService } from '../shuffle/shuffle.service';
 import { MorningQuizQaService } from '../morning-quiz-qa/morning-quiz-qa.service';
 import { ShortAnswerEvaluatorService } from './short-answer-evaluator.service';
+import { validatePaperStructure } from './paper-structure-validator';
 import { applyRetractionCredits, autoGradeScripts } from '../student/student.service';
 
 interface ActorCtx {
@@ -289,6 +290,32 @@ export class MorningQuizService {
       select: { id: true, totalMarksActual: true },
     });
     if (!paper) throw new NotFoundException({ code: 'paper_not_found' });
+
+    // Pre-publish structure gate (docs/PRD §6.1). A structurally-broken paper
+    // — empty options, no discoverable answer key, blank stem (the 5/26 TFNG
+    // incident class) — must never reach a live session. validatePaperStructure
+    // is pure + golden-fixture tested. Both callers (batch-schedule and the
+    // weekly-generate cron) wrap createSession in try/catch, so a rejection
+    // skips that one session and is recorded, never crashing the batch.
+    const paperQuestions = await this.prisma.paperQuestion.findMany({
+      where: { paperId: input.paperId },
+      select: {
+        sortOrder: true,
+        snapshotOptions: true,
+        snapshotContent: true,
+        snapshotAnswer: true,
+        question: { select: { questionType: true } },
+      },
+      orderBy: { sortOrder: 'asc' },
+    });
+    const structureViolations = validatePaperStructure(paperQuestions as any);
+    if (structureViolations.length > 0) {
+      throw new BadRequestException({
+        code: 'paper_structure_invalid',
+        paperId: input.paperId,
+        violations: structureViolations,
+      });
+    }
 
     // Bind paper → class via PaperAssignment (1:1). Reuse existing if present;
     // otherwise create. dueAt aligned with quizEnd so existing student.service

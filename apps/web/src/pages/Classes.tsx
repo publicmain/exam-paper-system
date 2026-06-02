@@ -3,6 +3,21 @@ import { Link } from 'react-router-dom';
 import { api, BASE } from '../lib/api';
 import TransferStudentModal from '../components/TransferStudentModal';
 
+/** Short English-level labels for the compact list card (R10 multi-level). */
+const LEVEL_SHORT: Record<string, string> = {
+  ielts_authentic: '强',
+  ielts_simplified: '中',
+  olevel: '基',
+};
+/** Render a class's registered levels for the list card. Reads the R10
+ *  `englishLevels` (plural) array — the legacy singular `englishLevel` was
+ *  removed, so the old `c.englishLevel?.level` silently rendered nothing. */
+function levelCardLabel(c: { englishLevels?: Array<{ level: string }> }): string | null {
+  const levels = c.englishLevels ?? [];
+  if (levels.length === 0) return null;
+  return levels.map((l) => LEVEL_SHORT[l.level] ?? l.level).join('/');
+}
+
 /**
  * Class management page (Fix #14).
  *
@@ -82,7 +97,7 @@ export default function ClassesPage() {
             >
               <div className="font-medium">{c.name}</div>
               <div className="text-xs text-gray-500 mt-0.5">
-                {[c.classCode, c.englishLevel?.level, `${c._count?.enrollments ?? 0} students`]
+                {[c.classCode, levelCardLabel(c), `${c._count?.enrollments ?? 0} students`]
                   .filter(Boolean)
                   .join(' · ')}
               </div>
