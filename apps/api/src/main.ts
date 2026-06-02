@@ -128,6 +128,23 @@ async function bootstrap() {
     next();
   });
 
+  // Phase 1 observability (docs/PRD §6.4) — request correlation id. Reuse an
+  // inbound x-request-id if a proxy already set one, else mint a uuid. Stamped
+  // on req.id (available to logging/error paths) and echoed in the response
+  // header so a client or support agent can quote it for trace lookup.
+  // eslint-disable-next-line @typescript-eslint/no-var-requires
+  const { randomUUID } = require('crypto');
+  expressApp.use((req: any, res: any, next: any) => {
+    const incoming = req.headers['x-request-id'];
+    const id =
+      typeof incoming === 'string' && incoming.length > 0 && incoming.length <= 200
+        ? incoming
+        : randomUUID();
+    req.id = id;
+    res.setHeader('x-request-id', id);
+    next();
+  });
+
   // Trust proxy so req.ip reads X-Forwarded-For when fronted by Railway /
   // Cloudflare. Needed so the per-IP rate limiter and the audit log
   // record the real client IP rather than the proxy's loopback. Trust
