@@ -23,6 +23,7 @@ const mockClasses = [
     name: 'G11 IELTS Test',
     classCode: 'TEST_MQ',
     englishLevel: { level: 'ielts_authentic' },
+    englishLevels: [{ level: 'ielts_authentic' }],
     _count: { enrollments: 36 },
   },
 ];
@@ -31,7 +32,8 @@ const mockClassDetail = {
   id: 'cls1',
   name: 'G11 IELTS Test',
   classCode: 'TEST_MQ',
-  englishLevel: { level: 'ielts_authentic' }, // R10-Bug1: now returned
+  englishLevel: { level: 'ielts_authentic' }, // legacy singular (list card)
+  englishLevels: [{ level: 'ielts_authentic' }], // R10 multi-level (detail modal)
   weeklyFocus: 'matching headings',
   enrollments: [
     { id: 'e1', userId: 'u1', role: 'student', user: { id: 'u1', name: 'Alice', email: 'a@x.com', role: 'student' } },
@@ -59,17 +61,17 @@ describe('Classes page (R10-Bug1)', () => {
     open();
     await waitFor(() => screen.getByText('G11 IELTS Test'));
     fireEvent.click(screen.getByText('G11 IELTS Test'));
-    await waitFor(() => screen.getByText(/level: ielts_authentic/));
+    await waitFor(() => screen.getByText(/强\(IELTS Auth\)/));
   });
 
   it('detail modal closes on Escape (R10-Bug1)', async () => {
     open();
     await waitFor(() => screen.getByText('G11 IELTS Test'));
     fireEvent.click(screen.getByText('G11 IELTS Test'));
-    await waitFor(() => screen.getByText(/level: ielts_authentic/));
+    await waitFor(() => screen.getByText(/强\(IELTS Auth\)/));
     act(() => { fireEvent.keyDown(window, { key: 'Escape' }); });
     await waitFor(() => {
-      expect(screen.queryByText(/level: ielts_authentic/)).toBeNull();
+      expect(screen.queryByText(/强\(IELTS Auth\)/)).toBeNull();
     });
   });
 
@@ -78,7 +80,7 @@ describe('Classes page (R10-Bug1)', () => {
     await waitFor(() => screen.getByText('G11 IELTS Test'));
     fireEvent.click(screen.getByText('G11 IELTS Test'));
     // Both card AND modal show ielts_authentic — no "—" mismatch
-    await waitFor(() => screen.getByText(/level: ielts_authentic/));
+    await waitFor(() => screen.getByText(/强\(IELTS Auth\)/));
   });
 
   it('weeklyFocus textarea renders, edits, and PATCHes class (R10-Bug1)', async () => {

@@ -24,9 +24,20 @@ describe('reflowPassage', () => {
     const out = reflowPassage('one\ntwo\nthree');
     expect(out).toBe('one two three');
   });
-  it('separates ABC paragraph markers', () => {
-    const out = reflowPassage('intro A The Babylonians invented');
-    expect(out).toContain('\n\nA The Babylonians');
+  it('separates an IELTS paragraph label after sentence-ending punctuation', () => {
+    // R15-Audit#1: the conservative reflow only injects a paragraph break
+    // when the lone capital is at block-start or right after [.!?] — never
+    // mid-sentence (which used to corrupt "the U S Senate").
+    const out = reflowPassage('Writing began early. B The Greeks borrowed it');
+    expect(out).toContain('\n\nB The Greeks');
+  });
+  it('keeps a leading paragraph label without a leading blank line', () => {
+    const out = reflowPassage('A The Babylonians invented writing');
+    expect(out.startsWith('A The Babylonians')).toBe(true);
+  });
+  it('does NOT split mid-sentence initials (R15-Audit#1 false-positive guard)', () => {
+    const out = reflowPassage('a base run by the U S Senate today');
+    expect(out).toBe('a base run by the U S Senate today');
   });
   it('returns empty for empty input', () => {
     expect(reflowPassage('')).toBe('');

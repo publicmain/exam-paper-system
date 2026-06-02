@@ -18,6 +18,9 @@
     "db:seed": "npm run prisma:seed -w @app/api",
     "db:reset": "npm run prisma:reset -w @app/api",
     "test": "npm run test -w @app/api",
+    "test:web": "npm run test -w @app/web",
+    "test:all": "npm run test -w @app/api && npm run test -w @app/web",
+    "typecheck": "npm run typecheck -w @app/api && npm run typecheck -w @app/web",
     "start": "npm run start -w @app/api"
   },
   "devDependencies": {

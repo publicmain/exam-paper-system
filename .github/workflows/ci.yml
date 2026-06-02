@@ -1,0 +1,55 @@
+name: CI
+
+# Phase 1 (product-maturity overhaul) institutional gate: every push to main
+# and every PR must pass typecheck + tests + build for BOTH workspaces before
+# it is considered green. See docs/PRD/exam-paper-system-overhaul.md §6 Phase 1.
+#
+# NOTE: this repo currently pushes straight to main (Railway auto-deploys on
+# push). This workflow gives a red/green signal on each commit; to make it a
+# TRUE pre-deploy gate, enable branch protection requiring this check on main
+# (a deliberate workflow change — left to the maintainer).
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build-test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      # Dummy values so Prisma's datasource env() resolves and any env reads
+      # during build/test don't fail. No real DB/secret is needed — the test
+      # suites do not open a live connection.
+      DATABASE_URL: postgresql://ci:ci@localhost:5432/ci?schema=public
+      JWT_SECRET: ci-dummy-secret-not-used-at-runtime
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Prisma generate
+        run: npm run prisma:generate -w @app/api
+
+      - name: Typecheck (api + web)
+        run: npm run typecheck
+
+      - name: Test (api + web)
+        run: npm run test:all
+
+      - name: Build (api + web)
+        run: npm run build

@@ -5,6 +5,7 @@
   "scripts": {
     "dev": "nest start --watch",
     "build": "nest build",
+    "typecheck": "tsc --noEmit -p tsconfig.json",
     "start": "node -r dotenv/config dist/main.js dotenv_config_path=../../.env dotenv_config_override=true",
     "start:prod": "node dist/main.js",
     "prisma:generate": "prisma generate",
