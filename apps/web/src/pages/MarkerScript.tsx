@@ -4,6 +4,7 @@ import { api } from '../lib/api';
 import { MathHtml } from '../components/MathHtml';
 import { AuthImage } from '../components/AuthImage';
 import RetractQuestionModal from '../components/RetractQuestionModal';
+import { Spinner, ErrorState } from '../components/AsyncState';
 import { clean } from '../components/exam/shared/textUtils';
 
 /**
@@ -46,6 +47,7 @@ export default function MarkerScriptPage() {
 
   const load = useCallback(async () => {
     if (!submissionId) return;
+    setErr(null); // clear any prior error so Retry can visibly recover
     try {
       const fn = (api as any).markerSubmission;
       const data = fn ? await fn(submissionId) : await fetchJson(`/marker/submissions/${submissionId}`);
@@ -68,8 +70,8 @@ export default function MarkerScriptPage() {
     load();
   }, [load]);
 
-  if (err) return <div className="card text-red-700">{err}</div>;
-  if (!sub) return <div className="text-gray-500">Loading…</div>;
+  if (err) return <ErrorState message={err} onRetry={load} />;
+  if (!sub) return <Spinner label="加载答卷…" />;
 
   const paper = sub.assignment?.paper;
   const myClaim = sub.myClaim;

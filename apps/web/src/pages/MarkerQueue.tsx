@@ -23,6 +23,7 @@ export default function MarkerQueuePage() {
   const [activeAppeal, setActiveAppeal] = useState<any | null>(null);
 
   async function load() {
+    setErr(null); // clear any prior error so Retry can visibly recover
     try {
       const [queue, who, ap] = await Promise.all([
         (api as any).markerQueue
