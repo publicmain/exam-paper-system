@@ -105,21 +105,36 @@ export class GenerationService {
       complianceStatus: { in: allowedCompliance },
       allowedUsage: { in: [AllowedUsage.free_use, AllowedUsage.internal_classroom_only] },
       ...(config.componentId && { componentId: config.componentId }),
-      ...(expandedTopicIds.length > 0 && {
+    };
+    // The topic filter and the AI-Quick-Paper exclusion each need an `OR`, and
+    // a Prisma `where` can hold only ONE top-level `OR` key — so combine them
+    // under `AND`.
+    const andClauses: any[] = [];
+    if (expandedTopicIds.length > 0) {
+      andClauses.push({
         OR: [
           { primaryTopicId: { in: expandedTopicIds } },
           { topics: { some: { topicId: { in: expandedTopicIds } } } },
         ],
-      }),
-      // Default-deny AI Quick Paper output unless explicitly opted in.
-      // These questions were auto-approved into the bank only so that
-      // Quick Paper's own paper assembly could reference them; they have
-      // not been individually reviewed by a teacher and should not leak
-      // into other teachers' generated papers.
-      ...((config as any).includeAiQuickPaper
-        ? {}
-        : { provenanceTag: { not: 'ai_quick_paper' } }),
-    };
+      });
+    }
+    // Default-deny AI Quick Paper output unless explicitly opted in. Those
+    // questions were auto-approved into the bank only so Quick Paper's own
+    // assembly could reference them; they are not individually teacher-reviewed
+    // and must not leak into other teachers' generated papers.
+    //
+    // CRITICAL — keep `provenanceTag IS NULL`. Prisma `{ not: 'ai_quick_paper' }`
+    // compiles to SQL `<> 'ai_quick_paper'`, which by three-valued logic drops
+    // NULL rows — i.e. EVERY normal school-authored question (provenanceTag is
+    // set ONLY for ai_quick_paper). That silently zeroed paper generation for
+    // 9709/9702/9608/4MA1 despite full banks (gen=0 — the 2026-06 outage).
+    // The explicit OR-null is the only cross-version-safe form.
+    if (!(config as any).includeAiQuickPaper) {
+      andClauses.push({
+        OR: [{ provenanceTag: null }, { provenanceTag: { not: 'ai_quick_paper' } }],
+      });
+    }
+    if (andClauses.length > 0) where.AND = andClauses;
     let pool = await this.prisma.question.findMany({
       where, include: { topics: true, primaryTopic: true, component: true, assets: true },
     });
