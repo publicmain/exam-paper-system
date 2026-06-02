@@ -26,81 +26,39 @@ import { PrismaClient } from '@prisma/client';
  */
 
 const GRADES: Record<string, { awardedMarks: number; reason: string }> = {
-  // 2026-05-29 G11 IELTS Test — 3 levels:
-  //   ielts_authentic = Cambridge IELTS 8 Test3 P1 (lightning/lasers)
-  //   ielts_simplified = AI hawker-auntie narrative
-  //   olevel = AI window-seat narrative
+  // 2026-06-02 G11 IELTS Test — 3 levels / 3 papers:
+  //   ielts_authentic   = ielts_authored_2026_v1 Test3 P3 (Linear B / Knossos)
+  //   olevel            = ai_authored_olevel_03_empty_seat (reunion-dinner chair)
+  //   ielts_simplified  = ai_authored_olevel_simplified_21_drawing (void-deck mural)
+  // 14 short-answer scripts, all maxMarks=1.
 
-  // 郑瑞尚 (cmpq6t1xf00qsatyrlkqeooxg) — ielts_authentic
-  cmpq6tn0n00rmatyrtzbvw11m: { awardedMarks: 0, reason: 'Q4: "cksnxjsk" — 乱码，非有效答案。答案应为 "power companies"。' },
-  cmpq6tp5k00roatyrddmnwdcw: { awardedMarks: 0, reason: 'Q5: "fjsixiksd" — 乱码。答案应为 "safely"。' },
-  cmpq6tr0000rqatyrfjal5pfc: { awardedMarks: 0, reason: 'Q6: "djshfd" — 乱码。答案应为 "size"。' },
+  // 喻耀程 (cmpvwkxrw00rsx68na02eekbn) — ielts_simplified · drawing
+  cmpvwl70m00skx68ndzjd73k7: { awardedMarks: 0, reason: 'Q5: "nb" — 非有效答案。' },
 
-  // 喻耀程 (cmpq73v4l00wjatyrpaxb3ay5) — ielts_simplified · 全部 "nb" 非答案
-  cmpq758oy00xbatyrnu9vbpaq: { awardedMarks: 0, reason: 'Q3: "nb" — 非有效答案。' },
-  cmpq75af000xfatyrqrlcuu6c: { awardedMarks: 0, reason: 'Q1: "nb" — 非有效答案。' },
-  cmpq75bw700xhatyr8xh66e80: { awardedMarks: 0, reason: 'Q7: "nb" — 非有效答案。' },
-  cmpq75fix00xlatyrvpjnhs1e: { awardedMarks: 0, reason: 'Q4: "nb" — 非有效答案。' },
-  cmpq751zj00wzatyr9g46mw1y: { awardedMarks: 0, reason: 'Q2: "nb" — 非有效答案。' },
-  cmpq754h300x3atyrnd3jyxwe: { awardedMarks: 0, reason: 'Q6: "nb" — 非有效答案。' },
+  // 杨钧皓 (cmpvwkwgs00rlx68n135zwfjj) — ielts_authentic · Linear B
+  cmpvwq8bg00v2x68nqmac1xa0: { awardedMarks: 0, reason: 'Sentence completion: "index card" 单数 — 答案为 "index cards"（复数），IELTS 须与原文完全一致。' },
+  cmpvwqe8x00v6x68nrvh4tqxp: { awardedMarks: 0, reason: 'Sentence completion: "john" — 填的是题干已给的名 John，空格要填姓 Chadwick。' },
 
-  // HEIN HTET NAING (cmpq6y66100ubatyrea1sb2f6) — olevel
-  cmpq70vta00v6atyr3356ek7d: { awardedMarks: 0, reason: 'Q2: "Disappointed" 错 — 该句体现父亲细心/可靠，不是失望。' },
+  // 孙爱迪 (cmpvwnx1400u0x68nxy0fkhq9) — olevel · empty seat
+  cmpvx0dup00yzx68nq92o3h55: { awardedMarks: 1, reason: 'Q10: "It feels like he is still there" — 抓住了"他仍在场→不需实物纪念"这一核心。' },
 
-  // 李永轩 (cmpq71c8a00vcatyrxcbazyv2) — ielts_simplified · 答案与题号错位，均不对应
-  cmpq7b8io0137atyrlh6wsgy2: { awardedMarks: 0, reason: 'Q1: 答的内容与题无关（像是 Q4 的答案）。' },
-  cmpq77wid00zdatyrtwc0yy2u: { awardedMarks: 0, reason: 'Q7: 答的是 Q1 的内容（她记得他的常点），未答"承诺"题。' },
-  cmpq78fe000zratyrvxcwu79f: { awardedMarks: 0, reason: 'Q3: 答的是早餐内容（Q2），不是"不爱说话"的细节。' },
-  cmpq7aiy30125atyr5fnfh5lc: { awardedMarks: 0, reason: 'Q5: "他承诺回来" — 没解释 Auntie Lim 为何加鱼丸。' },
-  cmpq7asmp012patyrqpd6ua7j: { awardedMarks: 0, reason: 'Q2: 答的是情绪（Q6），不是早餐订单。' },
+  // HEIN HTET NAING (cmpvwk3m100r7x68nzqil4p0s) — olevel · empty seat
+  cmpvwt1op00wfx68nyw8412ii: { awardedMarks: 0, reason: 'Q7: "To mock Ah Gong" — 与"以欢笑/幽默缅怀"相反。' },
+  cmpvww9og00x4x68n0qoxr3mz: { awardedMarks: 0, reason: 'Q6: "mother could not stop the outburst" — 漏了"too late=话已被众人听见、打破沉默"。' },
+  cmpvwxpcf00y7x68njjm3nnks: { awardedMarks: 0, reason: 'Q10: "放回原处免得弄丢" — 纯实用理由，漏了情感推断。' },
+  cmpvx3tpb011bx68n8r943dz3: { awardedMarks: 0, reason: 'Q8: "too happy and excited" — 漏了悲伤那一半（哭中带笑=悲喜交织）。' },
+  cmpvx1ytp010px68nj5ywytup: { awardedMarks: 1, reason: 'Q5: "气氛紧张、无人愿打破沉默" — 抓住了尴尬不适这一要点。' },
 
-  // 王耀星 (cmpq73h0y00vzatyrtguudgx2) — ielts_authentic
-  cmpq7cbam014oatyrqiz76j3s: { awardedMarks: 0, reason: 'Q6: "safety" 错 — 难点是 size（激光太大），不是安全。' },
-  cmpq7c87s014katyrwchwhf3g: { awardedMarks: 0, reason: 'Q5: "extract electrons" 错 — 答案为 "safely"。' },
+  // 王晨宇 (cmpvx6ujq012hx68nylw0hny6) — ielts_simplified · drawing
+  cmpvxbba2015hx68n75ph8wek: { awardedMarks: 0, reason: 'Q1: "waiting for his dinner" — 太单薄，漏了"每天在此等婆婆送饭/熟悉亲近"。' },
 
-  // 郑稀瑜 (cmpq6ues100rxatyri71jthji) — ielts_authentic
-  cmpq78afg00zjatyrdvod8l9l: { awardedMarks: 0, reason: 'Q5: "discharge lightning" 不填入句意，答案为 "safely"。' },
-  cmpq7avwq012tatyr2b6kycwx: { awardedMarks: 0, reason: 'Q6: "commercial system" 错 — 答案为 "size"。' },
+  // 郑稀瑜 (cmpvwwlnu00y0x68nef667g0w) — ielts_authentic · Linear B
+  cmpvxebt7017mx68naw2utiqy: { awardedMarks: 0, reason: 'Sentence completion: "handmade index card" — 超过两词上限，且 "handmade" 非原文，答案为 "index cards"。' },
 
-  // 王晨宇 (cmpq74vbn00wuatyrntgizjdy) — ielts_simplified
-  cmpq7e39o0184atyrc4bfalrs: { awardedMarks: 0, reason: 'Q4: "不在乎转学" — 未抓住要点（最想念的是 bee hoon 代表的日常）。' },
-  cmpq7em2v018oatyrgpmkzgct: { awardedMarks: 1, reason: 'Q3: "Simply nod" — 抓住了"只点头不说话"这一关键细节。' },
-  cmpq7g58201b0atyr0cab5mlk: { awardedMarks: 1, reason: 'Q1: "她不用点单就把饭递出来" — 抓住了她记得他常点。' },
-  cmpq7fm03019watyrtmygmeta: { awardedMarks: 0, reason: 'Q5: "可能是最后一次吃" — 是学生视角，没答她为何加鱼丸。' },
-  cmpq79brw0109atyra0xt2u1z: { awardedMarks: 1, reason: 'Q2: "friedbeehoon fish cake no chili morespring" — 订单要素齐全，仅拼写/空格问题。' },
-  cmpq7cwpj015datyr75zi22rk: { awardedMarks: 0, reason: 'Q7: 只答"她想他回来"，漏了"我的承诺也是"（双向承诺）。' },
-
-  // 于琳晶 (cmpq6xfvd00t6atyrni5gppbs) — olevel
-  cmpq7epeo018uatyr764g5rsc: { awardedMarks: 0, reason: 'Q8: "她很想念房间" — 漏了母亲也在与家告别这一共有情感。' },
-  cmpq7fdt8019iatyr1cy0bhwg: { awardedMarks: 0, reason: 'Q3: 表述不通，未答"为何房间显得更小"。' },
-  cmpq7ideo01e3atyrew1q5phy: { awardedMarks: 1, reason: 'Q1: "18 years" = eighteen years，正确。' },
-  cmpq7k8ny01gbatyrz52lt2hq: { awardedMarks: 0, reason: 'Q9: 表述不通，未答该意象的作用。' },
-  cmpq7let401isatyrryhb7nce: { awardedMarks: 0, reason: 'Q2: "父亲不细心" — 与原意相反。' },
-  cmpq7bikz013katyrwcdo9s51: { awardedMarks: 0, reason: 'Q6: "因为她难过" — 太笼统，漏了"想再多待一会儿告别"。' },
-  cmpq7cboo014qatyrjg0n5nj5: { awardedMarks: 1, reason: 'Q10: "爱旧房间但已准备好去新房间" — 抓住了"不舍+接受"并存。' },
-  cmpq7io1401ejatyru5ug8r4l: { awardedMarks: 0, reason: 'Q4: 表述不通，未答三段记忆的作用。' },
-  cmpq7jj4v01fdatyr9bzypd26: { awardedMarks: 0, reason: 'Q5: "不想她难过" — 漏了"担心她熬夜过度用功"的要点。' },
-
-  // 王晨旭 (cmpq765cy00y8atyrosg76qy2) — ielts_simplified
-  cmpq7e1e3017yatyrx4zcue1e: { awardedMarks: 1, reason: 'Q5: "是个承诺，她在乎他、希望他长大后回来" — 抓住了告别的用意。' },
-  cmpq7jyky01fxatyryw9qo4vd: { awardedMarks: 1, reason: 'Q4: "最重要的是 bee hoon" — 抓住了他最想念的是这日常。' },
-  cmpq7ljga01j2atyrgjtzqf64: { awardedMarks: 0, reason: 'Q1: "他每天在这吃" — 是背景，不是"她记得他常点"这个关键事实。' },
-  cmpq7g9ah01b6atyrinlbo8co: { awardedMarks: 0, reason: 'Q6: 只答了他难过/不愿答，漏了"她提高音量=告别意义重大"那半。' },
-  cmpq77k4f00yzatyrbtldbno2: { awardedMarks: 1, reason: 'Q2: "Fried been hoon, one fish cake, no chilli, more spring onion" — 订单正确（小拼写）。' },
-  cmpq7bx960140atyrqu07gyl9: { awardedMarks: 0, reason: 'Q7: 只答她的承诺，漏了"我的也是"（双向）。' },
-  cmpq7mx3c01l0atyrafma50gb: { awardedMarks: 0, reason: 'Q3: 答的是她的外貌（蓝围裙/发髻），不是"不爱说话"的证据。' },
-
-  // 孔凡今 (cmpq6vblf00s4atyr6vshwmku) — ielts_authentic
-  cmpq7e3ji0186atyrd8z7fsp7: { awardedMarks: 0, reason: 'Q6: "portable" 错 — 激光恰恰"不便携"，难点是 size。' },
-  cmpq7ajwy0127atyrn765kwcd: { awardedMarks: 0, reason: 'Q5: "discharge lightning" 错 — 答案为 "safely"。' },
-
-  // 李明阳 (cmpq6zdta00uyatyr4cwvxhug) — ielts_authentic
-  cmpq7ocx001ljatyrbj3y2z2s: { awardedMarks: 0, reason: 'Q4: "Promising system" 错 — 答案为 "power companies"。' },
-
-  // 胡鑫瑜 (cmpq6xgmr00tdatyrz1jy9a0u) — olevel
-  cmpq7foxt01a4atyrkq2ombgg: { awardedMarks: 1, reason: 'Q3: 没有家具参照 + 记忆放大 → 空房显小，答得准确完整。' },
-  cmpq7p5hf01m3atyr54m5rmq8: { awardedMarks: 0, reason: 'Q5: "Because" — 未完成，无内容。' },
-  cmpq7k25r01g1atyrlph9odcb: { awardedMarks: 0, reason: 'Q8: "住得久、对他们打击大" — 太笼统，漏了"母亲也在与亲手营造的家告别"。' },
+  // 王晨旭 (cmpvx7dms012wx68nq0swmfmy) — ielts_simplified · drawing
+  cmpvxah9u0151x68n9ia92chl: { awardedMarks: 1, reason: 'Q2: 指出"用身体感受细节表现紧张" — 抓住了该细节的效果。' },
+  cmpvxdio30173x68n8mhv4qch: { awardedMarks: 1, reason: 'Q1: "每天在此等婆婆送晚饭" — 命中要点。' },
+  cmpvxhpur019jx68nn40z5s6a: { awardedMarks: 1, reason: 'Q4: "画作本身属于他，名牌不重要" — 命中要点。' },
 };
 
 const prisma = new PrismaClient();
