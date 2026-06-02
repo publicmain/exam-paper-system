@@ -464,6 +464,28 @@ export class AttendanceService {
       { expiresIn: expSeconds },
     );
 
+    // Cross-device handoff token. Students scan on a phone but often want
+    // to answer on a MacBook (bigger screen, real keyboard for the
+    // short-answer items) by AirDropping the quiz link across. AirDrop
+    // only carries the URL — not the phone's localStorage — so the second
+    // device has no auth and the SPA bounces it to /my-history. We embed
+    // this token in the quiz URL's hash fragment (never sent to the
+    // server, so it stays out of logs/referrers) so the second device can
+    // authenticate. It is scoped to THIS session only (scope='mq_handoff',
+    // mqs=session.id) and the AuthGuard rejects it everywhere else, so a
+    // mis-shared link can answer this one quiz and nothing more.
+    const handoffToken = await this.jwt.signAsync(
+      {
+        id: student.id,
+        email: student.email,
+        role: 'student',
+        name: student.name,
+        scope: 'mq_handoff',
+        mqs: session.id,
+      },
+      { expiresIn: expSeconds },
+    );
+
     await this.audit.log({
       actorId: studentId,
       actorRole: 'student',
@@ -479,7 +501,10 @@ export class AttendanceService {
       attendance: { id: attendance.id, status: attendanceStatus, scanTime: now },
       student: { id: student.id, name: student.name },
       scanToken,
-      quizUrl: `/morning-quiz/${session.id}`,
+      // Hash fragment, not query: keeps the handoff token off the wire
+      // (no server logs, no Referer leak) — the SPA reads it client-side
+      // and strips it from the address bar after adopting.
+      quizUrl: `/morning-quiz/${session.id}#h=${handoffToken}`,
       remainingMinutes: Math.max(0, Math.floor(remainingMs / 60_000)),
     };
   }

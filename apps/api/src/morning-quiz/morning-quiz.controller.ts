@@ -17,7 +17,7 @@ import {
 import { Request, Response, Express } from 'express';
 import { z } from 'zod';
 import { CurrentUser } from '../common/current-user.decorator';
-import { Public } from '../common/auth.guard';
+import { AllowHandoff, Public } from '../common/auth.guard';
 import { RateLimit } from '../common/rate-limit.guard';
 import { PrismaService } from '../common/prisma.service';
 import { StudentService } from '../student/student.service';
@@ -462,6 +462,7 @@ export class MorningQuizController {
 
   /** Student fetches the day's questions (shuffle applied). */
   @Get('sessions/:id')
+  @AllowHandoff()
   getSession(@Param('id') id: string, @CurrentUser() user: any) {
     if (user.role !== 'student') throw new ForbiddenException('student_only');
     return this.svc.getStudentView(id, user.id);
@@ -469,6 +470,7 @@ export class MorningQuizController {
 
   /** Autosave a single answer. */
   @Patch('sessions/:id/answer')
+  @AllowHandoff()
   saveAnswer(@Param('id') id: string, @Body() body: unknown, @CurrentUser() user: any) {
     if (user.role !== 'student') throw new ForbiddenException('student_only');
     const parsed = SaveAnswerSchema.safeParse(body);
@@ -482,6 +484,7 @@ export class MorningQuizController {
    *  during the live test, so a client-side `?mode=practice` URL trick
    *  can't unlock answers. */
   @Post('sessions/:id/check')
+  @AllowHandoff()
   check(@Param('id') id: string, @Body() body: unknown, @CurrentUser() user: any) {
     if (user.role !== 'student') throw new ForbiddenException('student_only');
     const parsed = SaveAnswerSchema.safeParse(body);
@@ -492,6 +495,7 @@ export class MorningQuizController {
   /** Final submit — delegates to existing student.service so auto-grading +
    *  race-safety logic stays in one place. */
   @Post('sessions/:id/submit')
+  @AllowHandoff()
   async submit(@Param('id') id: string, @CurrentUser() user: any, @Req() req: Request) {
     if (user.role !== 'student') throw new ForbiddenException('student_only');
     const submission = await this.svc.findSubmissionForSession(id, user.id);
