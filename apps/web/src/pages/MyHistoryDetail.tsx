@@ -3,6 +3,7 @@ import { Link, useParams, useSearchParams } from 'react-router-dom';
 import { api } from '../lib/api';
 import AppealModal, { type AppealQuestionContext } from '../components/AppealModal';
 import { formatCNDateTime } from '../lib/dateCN';
+import { Spinner } from '../components/AsyncState';
 
 /**
  * Public per-submission per-question detail page. Public, IP-gated
@@ -88,7 +89,7 @@ export default function MyHistoryDetail() {
   if (!data) {
     return (
       <div className="min-h-screen bg-gray-50">
-        <div className="max-w-2xl mx-auto p-6 text-gray-500">Loading…</div>
+        <Spinner label="加载中…" />
       </div>
     );
   }

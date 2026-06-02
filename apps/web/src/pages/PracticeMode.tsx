@@ -4,6 +4,7 @@ import { ExamProvider, useExam } from '../components/exam/ExamContext';
 import { ExamRenderer } from '../components/exam/QuestionTypeRegistry';
 import { FontSizeAdjuster } from '../components/exam/shared/FontSizeAdjuster';
 import { OfflineBadge } from '../components/exam/shared/OfflineBadge';
+import { Spinner } from '../components/AsyncState';
 import { QuestionNavBar } from '../components/exam/shared/QuestionNavBar';
 import type { EnglishLevel, ExamAnswer, ExamPaper } from '../components/exam/types';
 import {
@@ -235,7 +236,7 @@ export default function PracticeMode() {
     return (
       <div className="min-h-screen bg-gray-50">
         <div className="max-w-2xl mx-auto py-12 px-6 text-center">
-          <div className="text-rose-700 text-lg mb-4">⚠️ {error}</div>
+          <div className="text-rose-700 text-lg mb-4" role="alert">⚠️ {error}</div>
           <a className="text-sm text-blue-600 underline" href={backToHistory}>← 返回我的记录</a>
         </div>
       </div>
@@ -244,7 +245,7 @@ export default function PracticeMode() {
   if (!view) {
     return (
       <div className="min-h-screen bg-gray-50">
-        <div className="max-w-2xl mx-auto p-6 text-gray-500">Loading…</div>
+        <Spinner label="加载练习…" />
       </div>
     );
   }

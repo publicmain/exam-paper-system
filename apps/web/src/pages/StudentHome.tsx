@@ -1,7 +1,8 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { api } from '../lib/api';
 import { formatCNDateTime } from '../lib/dateCN';
+import { Spinner, ErrorState } from '../components/AsyncState';
 
 /**
  * Student home — list assignments visible to the logged-in student.
@@ -12,18 +13,19 @@ export default function StudentHomePage() {
   const [assignments, setAssignments] = useState<any[] | null>(null);
   const [err, setErr] = useState<string | null>(null);
 
-  useEffect(() => {
-    // Round-7 H21 unmount guard.
-    let cancelled = false;
+  const load = useCallback(() => {
+    setErr(null);
+    setAssignments(null);
     api
       .studentAssignments()
-      .then((a) => { if (!cancelled) setAssignments(a); })
-      .catch((e) => { if (!cancelled) setErr(String(e)); });
-    return () => { cancelled = true; };
+      .then(setAssignments)
+      .catch((e) => setErr(String(e)));
   }, []);
 
-  if (err) return <div className="card text-red-700">{err}</div>;
-  if (!assignments) return <div className="text-gray-500">Loading…</div>;
+  useEffect(() => { load(); }, [load]);
+
+  if (err) return <ErrorState message={err} onRetry={load} />;
+  if (!assignments) return <Spinner label="加载中…" />;
   if (assignments.length === 0) {
     return (
       <div className="card text-center py-12">
