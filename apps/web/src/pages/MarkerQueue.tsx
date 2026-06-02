@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { api, BASE } from '../lib/api';
 import AppealReviewModal from '../components/AppealReviewModal';
+import { Spinner, ErrorState } from '../components/AsyncState';
 
 /**
  * Marker queue page. Lists submitted submissions that still have ungraded
@@ -79,8 +80,8 @@ export default function MarkerQueuePage() {
     }
   }
 
-  if (err) return <div className="card text-red-700">{err}</div>;
-  if (!data) return <div className="text-gray-500">Loading…</div>;
+  if (err) return <ErrorState message={err} onRetry={load} />;
+  if (!data) return <Spinner label="加载评分队列…" />;
   if (!data.items || data.items.length === 0) {
     // R15-followup-8 — even when the marker queue is empty, the teacher
     // still has work to do if appeals are pending. The previous version
