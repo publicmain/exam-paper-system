@@ -270,6 +270,26 @@ export class GenerationService {
     const topicIds = orig.topics.map(t => t.topicId);
     if (orig.primaryTopicId) topicIds.push(orig.primaryTopicId);
 
+    // The replace path must honour the SAME default safety net as generate():
+    // otherwise swapping a question can leak content generate would never use.
+    //   - complianceStatus gated to approved_internal so blocked / pending /
+    //     expired / restricted (licensed past-paper) content can't sneak in via
+    //     a replacement (generate documents this as a hard system-level gate).
+    //   - default-deny ai_quick_paper (un-reviewed AI output), NULL-safe — see
+    //     the generate() comment on Prisma `not` dropping NULL rows.
+    // (A future enhancement could mirror the original paper's includeRestricted
+    //  opt-in; the safe default is approved-only.)
+    const andClauses: any[] = [
+      { OR: [{ provenanceTag: null }, { provenanceTag: { not: 'ai_quick_paper' } }] },
+    ];
+    if (topicIds.length > 0) {
+      andClauses.push({
+        OR: [
+          { primaryTopicId: { in: topicIds } },
+          { topics: { some: { topicId: { in: topicIds } } } },
+        ],
+      });
+    }
     const pool = await this.prisma.question.findMany({
       where: {
         subjectId: orig.subjectId,
@@ -277,13 +297,9 @@ export class GenerationService {
         marks: orig.marks,
         difficulty: orig.difficulty,
         status: QuestionStatus.active,
+        complianceStatus: { in: [ComplianceStatus.approved_internal] },
         id: { notIn: Array.from(exclude) },
-        ...(topicIds.length > 0 && {
-          OR: [
-            { primaryTopicId: { in: topicIds } },
-            { topics: { some: { topicId: { in: topicIds } } } },
-          ],
-        }),
+        AND: andClauses,
       },
       take: 10,
       include: { primaryTopic: true, component: true, topics: { include: { topic: true } } },
