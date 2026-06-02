@@ -107,6 +107,20 @@ describe('validatePaperStructure', () => {
     expect(v).toEqual([]);
   });
 
+  it('accepts canonical via snapshotContent.acceptedKeys (relaxed/either-order MCQ)', () => {
+    // Guards the acceptedKeys answer-key path (e.g. the 6/03 simplified Q8/Q9
+    // "confident"/"still confident" relaxation) against the validator
+    // regressing and flagging a legitimately-relaxed question.
+    const v = validatePaperStructure([
+      q({
+        snapshotOptions: [{ key: 'A', text: 'a' }, { key: 'B', text: 'b' }, { key: 'C', text: 'c' }],
+        snapshotContent: { stem: 's', taskType: 'multiple_choice', acceptedKeys: ['A', 'B'] },
+        snapshotAnswer: {},
+      }),
+    ]);
+    expect(v).toEqual([]);
+  });
+
   it('flags empty stem regardless of taskType', () => {
     const v = validatePaperStructure([
       q({ snapshotContent: { stem: '', taskType: 'short_answer' } }),
