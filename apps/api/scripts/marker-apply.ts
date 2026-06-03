@@ -26,39 +26,45 @@ import { PrismaClient } from '@prisma/client';
  */
 
 const GRADES: Record<string, { awardedMarks: number; reason: string }> = {
-  // 2026-06-02 G11 IELTS Test — 3 levels / 3 papers:
-  //   ielts_authentic   = ielts_authored_2026_v1 Test3 P3 (Linear B / Knossos)
-  //   olevel            = ai_authored_olevel_03_empty_seat (reunion-dinner chair)
-  //   ielts_simplified  = ai_authored_olevel_simplified_21_drawing (void-deck mural)
-  // 14 short-answer scripts, all maxMarks=1.
+  // 2026-06-03 G11 morning-quiz — 2 papers / 3 levels:
+  //   olevel           = ai_authored_olevel_20_unsent_letter_v1/Paper2 (Ah Ma · Bukit Merah 旧居 · 未寄出的信)
+  //   ielts_simplified = ai_authored_olevel_simplified_13_spelling_bee_v1/Paper2 (拼字比赛 · "fastidious")
+  // 23 short-answer scripts, all maxMarks=1.
 
-  // 喻耀程 (cmpvwkxrw00rsx68na02eekbn) — ielts_simplified · drawing
-  cmpvwl70m00skx68ndzjd73k7: { awardedMarks: 0, reason: 'Q5: "nb" — 非有效答案。' },
+  // 喻耀程 (olevel · unsent letter) — 3 题全填 "nb"，非有效作答
+  cmpxbzkgt00tsz1nj79t5kles: { awardedMarks: 0, reason: 'Q1: "nb" — 非有效答案。' },
+  cmpxbzixb00toz1njqz7z9ngb: { awardedMarks: 0, reason: 'Q10: "nb" — 非有效答案。' },
+  cmpxbzm4400tyz1njokx87be0: { awardedMarks: 0, reason: 'Q3: "nb" — 非有效答案。' },
 
-  // 杨钧皓 (cmpvwkwgs00rlx68n135zwfjj) — ielts_authentic · Linear B
-  cmpvwq8bg00v2x68nqmac1xa0: { awardedMarks: 0, reason: 'Sentence completion: "index card" 单数 — 答案为 "index cards"（复数），IELTS 须与原文完全一致。' },
-  cmpvwqe8x00v6x68nrvh4tqxp: { awardedMarks: 0, reason: 'Sentence completion: "john" — 填的是题干已给的名 John，空格要填姓 Chadwick。' },
+  // 王晨宇 (ielts_simplified · spelling bee)
+  cmpxcmkqc0143z1njslo17ejb: { awardedMarks: 0, reason: 'Q6: 答的是"从失败中学到教训"，没解释引语本意（可避免的失误比能力不足之败更痛）。' },
 
-  // 孙爱迪 (cmpvwnx1400u0x68nxy0fkhq9) — olevel · empty seat
-  cmpvx0dup00yzx68nq92o3h55: { awardedMarks: 1, reason: 'Q10: "It feels like he is still there" — 抓住了"他仍在场→不需实物纪念"这一核心。' },
+  // HEIN HTET NAING (olevel · unsent letter) — 6 题
+  cmpxctvo301abz1njxnjd1a1f: { awardedMarks: 0, reason: 'Q7: "她做完了该做的事" — 含糊，漏了短句 "That was all" 的效果＝决定已定、无需多言。' },
+  cmpxcul5301arz1njpbsr82dd: { awardedMarks: 0, reason: 'Q6(b): "怕弄丢" — 纯实用理由，漏了"视若身份证般珍重＝信极重要"的推断。' },
+  cmpxcuyd601bmz1njuhrzj0yj: { awardedMarks: 0, reason: 'Q2(b): "觉得物件重要" — 表层，漏了"无声哀悼、每件旧物承载对 Ah Ma 的记忆"。' },
+  cmpxcx1r801e9z1njri07m7sp: { awardedMarks: 0, reason: 'Q1: "他觉得母亲不会做" — 含糊，漏了"母亲需要情感支持、不愿独自面对"。' },
+  cmpxcxw6y01fhz1njsmtbqb8u: { awardedMarks: 0, reason: 'Q6(a): "又软又弱" — 只解释 fragile 词义，没答母亲"如何小心翼翼地拿"。' },
+  cmpxcy1yi01fvz1nj6yj3wsa4: { awardedMarks: 0, reason: 'Q10: "珍惜与家人的时间" — 泛化说教，漏了温柔中带焦虑/迟到 37 年/盼妹妹仍在的具体效果。' },
 
-  // HEIN HTET NAING (cmpvwk3m100r7x68nzqil4p0s) — olevel · empty seat
-  cmpvwt1op00wfx68nyw8412ii: { awardedMarks: 0, reason: 'Q7: "To mock Ah Gong" — 与"以欢笑/幽默缅怀"相反。' },
-  cmpvww9og00x4x68n0qoxr3mz: { awardedMarks: 0, reason: 'Q6: "mother could not stop the outburst" — 漏了"too late=话已被众人听见、打破沉默"。' },
-  cmpvwxpcf00y7x68njjm3nnks: { awardedMarks: 0, reason: 'Q10: "放回原处免得弄丢" — 纯实用理由，漏了情感推断。' },
-  cmpvx3tpb011bx68n8r943dz3: { awardedMarks: 0, reason: 'Q8: "too happy and excited" — 漏了悲伤那一半（哭中带笑=悲喜交织）。' },
-  cmpvx1ytp010px68nj5ywytup: { awardedMarks: 1, reason: 'Q5: "气氛紧张、无人愿打破沉默" — 抓住了尴尬不适这一要点。' },
+  // 于琳晶 (olevel · unsent letter) — 5 题
+  cmpxcmiab013xz1nj5g2x3o3h: { awardedMarks: 1, reason: 'Q2(b): "暗示母亲其实很思念外婆" — 命中无声哀悼/思念这一要点。' },
+  cmpxcpk42016az1njcuiiing9: { awardedMarks: 0, reason: 'Q2(a): "她是个活泼的女人" — 与"日复一日的固定习惯"无关，错。' },
+  cmpxcw3pm01d5z1nj9x6aq55o: { awardedMarks: 1, reason: 'Q4: "她不想生前被人发现" — 命中"刻意藏起、非遗忘"这一推断。' },
+  cmpxcxfa401enz1njtpb6peja: { awardedMarks: 1, reason: 'Q6(b): "她非常看重这封信" — 命中"信极重要"的意义推断。' },
+  cmpxcr0jv018fz1nj2hwrchu1: { awardedMarks: 1, reason: 'Q6(a): "非常小心" — 直接命中"小心翼翼地拿"。' },
 
-  // 王晨宇 (cmpvx6ujq012hx68nylw0hny6) — ielts_simplified · drawing
-  cmpvxbba2015hx68n75ph8wek: { awardedMarks: 0, reason: 'Q1: "waiting for his dinner" — 太单薄，漏了"每天在此等婆婆送饭/熟悉亲近"。' },
+  // 王晨旭 (ielts_simplified · spelling bee) — 7 题
+  cmpxcsawe018sz1njw6pmsj7s: { awardedMarks: 1, reason: 'Q6: "本该拼对、因太急拼错，比根本不会拼更难过" — 准确解释引语本意。' },
+  cmpxcu80i01adz1njeme5a8mj: { awardedMarks: 1, reason: 'Q2: "得意/自豪却保持谦虚、不外露喜悦" — 命中。' },
+  cmpxcutxs01b9z1njvhce7axo: { awardedMarks: 0, reason: 'Q7: "忘不了今天" — 含糊，漏了"每天提醒自己吸取教训/别再犯同样的错"。' },
+  cmpxcwllf01dpz1njgzpt39ii: { awardedMarks: 1, reason: 'Q1: "准备了六个月" — 有效细节，得分。' },
+  cmpxcxrh501f9z1njwaubzn6k: { awardedMarks: 1, reason: 'Q5: "Mr Tan 对她的遭遇心生同情" — 命中无言的安慰/善意。' },
+  cmpxczfn401i3z1njkbhcx7rq: { awardedMarks: 1, reason: 'Q4: "强烈震惊与深深失望" — 命中身体被冲击/震惊的效果。' },
+  cmpxczrw601i5z1njwp7p6m9v: { awardedMarks: 1, reason: 'Q3: "太急、想快点赢" — 命中"操之过急、草率作答"。' },
 
-  // 郑稀瑜 (cmpvwwlnu00y0x68nef667g0w) — ielts_authentic · Linear B
-  cmpvxebt7017mx68naw2utiqy: { awardedMarks: 0, reason: 'Sentence completion: "handmade index card" — 超过两词上限，且 "handmade" 非原文，答案为 "index cards"。' },
-
-  // 王晨旭 (cmpvx7dms012wx68nq0swmfmy) — ielts_simplified · drawing
-  cmpvxah9u0151x68n9ia92chl: { awardedMarks: 1, reason: 'Q2: 指出"用身体感受细节表现紧张" — 抓住了该细节的效果。' },
-  cmpvxdio30173x68n8mhv4qch: { awardedMarks: 1, reason: 'Q1: "每天在此等婆婆送晚饭" — 命中要点。' },
-  cmpvxhpur019jx68nn40z5s6a: { awardedMarks: 1, reason: 'Q4: "画作本身属于他，名牌不重要" — 命中要点。' },
+  // 胡鑫瑜 (olevel · unsent letter)
+  cmpxcnt1v015rz1njlwvnd0js: { awardedMarks: 0, reason: 'Q9: 误读为"母亲想回家私下拆信"，实则信属 Aunt Hooi、不该由他们拆 — 偏离要点。' },
 };
 
 const prisma = new PrismaClient();
