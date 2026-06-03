@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
+import { Injectable, NotFoundException, BadRequestException, ConflictException } from '@nestjs/common';
 import { PrismaService } from '../common/prisma.service';
 import { GenerationService } from './generation.service';
 import { GeneratePaperDto, UpdatePaperQuestionDto } from './dto';
@@ -126,6 +126,17 @@ export class PapersService {
     if (!pq || pq.paperId !== paperId) throw new NotFoundException();
 
     if (dto.action === 'delete') {
+      // Guard: AnswerScript.paperQuestion cascades, so deleting a question
+      // that students have already answered would silently wipe their
+      // answers + marks. Refuse it — editing a paper must never destroy
+      // exam history. (admin test-data cleanup uses its own path, not this.)
+      const answered = await this.prisma.answerScript.count({ where: { paperQuestionId: pqId } });
+      if (answered > 0) {
+        throw new ConflictException({
+          code: 'question_has_student_answers',
+          message: `这道题已有 ${answered} 份学生作答/判分，删除会一并抹掉。已阻止——如需调整请改用“替换”该题，或归档整张卷子。`,
+        });
+      }
       await this.prisma.paperQuestion.delete({ where: { id: pqId } });
       await this.recompactSortOrder(paperId);
     } else if (dto.action === 'reorder' && typeof dto.newSortOrder === 'number') {

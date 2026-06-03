@@ -140,6 +140,22 @@ export class ClassesService {
   async remove(classId: string) {
     const cls = await this.prisma.class.findUnique({ where: { id: classId } });
     if (!cls) throw new NotFoundException('class not found');
+    // Guard: a hard delete cascades PaperAssignment → StudentSubmission →
+    // AnswerScript and MorningQuizSession → Attendance — i.e. it wipes the
+    // class's real exam history. Refuse if any submitted work or attendance
+    // exists; archive the class (archivedAt) instead of destroying it.
+    const [submissions, attendances] = await Promise.all([
+      this.prisma.studentSubmission.count({
+        where: { assignment: { classId }, status: { not: 'in_progress' } },
+      }),
+      this.prisma.attendance.count({ where: { session: { classId } } }),
+    ]);
+    if (submissions > 0 || attendances > 0) {
+      throw new ConflictException({
+        code: 'class_has_exam_history',
+        message: `该班有 ${submissions} 份已提交作答、${attendances} 条考勤记录，硬删会连带抹掉这些早测历史。已阻止——请改用“归档”(archive)班级。`,
+      });
+    }
     await this.prisma.class.delete({ where: { id: classId } });
     return { deleted: classId, name: cls.name };
   }
