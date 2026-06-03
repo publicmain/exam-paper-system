@@ -2592,6 +2592,29 @@ export class MorningQuizService {
         typeof sc.explanation === 'string'
           ? (sc.explanation as string).slice(0, 600)
           : null;
+      // Reference answer for non-MCQ review (short_answer / structured /
+      // essay), pulled from Question.answerContent (text or markScheme).
+      // Kept SEPARATE from correctKey on purpose: correctKey stays capped
+      // at 80 chars and drives isCorrect; this longer mark-scheme text is
+      // display-only and NEVER feeds isCorrect, so surfacing it can't flip
+      // a graded short answer to ✗. Same post-submit/window-closed gate as
+      // every other answer-key field here, so it can't pre-leak mid-quiz.
+      let referenceAnswer: string | null = null;
+      if (pq.question.questionType !== 'mcq') {
+        const ac = (pq.question as any)?.answerContent as
+          | { text?: unknown; markScheme?: unknown }
+          | null;
+        const rawRef =
+          typeof ac?.text === 'string'
+            ? ac.text
+            : typeof ac?.markScheme === 'string'
+            ? ac.markScheme
+            : null;
+        if (rawRef && rawRef.trim().length > 0) {
+          referenceAnswer =
+            rawRef.length > 600 ? rawRef.slice(0, 600) + '…' : rawRef;
+        }
+      }
       const script = scriptByPq.get(pq.id);
       const studentChoice = script?.selectedOption ?? script?.textAnswer ?? null;
       // R10-fix: prefer the persisted autoCorrect that finalSubmit's
@@ -2634,6 +2657,17 @@ export class MorningQuizService {
           typeof script?.markerComment === 'string'
             ? script.markerComment.replace(/^\[ai-grade\]\s*/, '')
             : null,
+        // Lets the student UI label the comment correctly. Human marker
+        // comments — the norm here, grading is done by a teacher, never the
+        // API — carry no prefix → 'teacher'; the AI-grader fallback writes a
+        // `[ai-grade]` prefix → 'ai'. Null when there is no comment.
+        commentSource:
+          typeof script?.markerComment === 'string'
+            ? /^\[ai-grade\]/.test(script.markerComment)
+              ? 'ai'
+              : 'teacher'
+            : null,
+        referenceAnswer,
       };
     });
 

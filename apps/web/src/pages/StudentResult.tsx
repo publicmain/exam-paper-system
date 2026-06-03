@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { api } from '../lib/api';
 import { formatCNDateTime } from '../lib/dateCN';
+import { prettifyPaperName, commonStemPrefix, stripStemPrefix } from '../lib/paperName';
 
 /**
  * F3 — student post-submit result page.
@@ -28,10 +29,14 @@ interface ResultItem {
   awardedMarks: number | null;
   autoCorrect: boolean | null;
   isCorrect: boolean | null;
-  // R10 follow-up — Claude AI grader's rationale for short_answer items
-  // that hit the AI fallback (paraphrase / typo / non-letter input).
-  // Server already stripped the `[ai-grade]` prefix before returning.
+  // R10 follow-up — marker rationale for short_answer items. Server strips
+  // the `[ai-grade]` prefix before returning; commentSource says whether it
+  // came from a human teacher (the norm) or the AI-grader fallback.
   markerComment: string | null;
+  commentSource?: 'teacher' | 'ai' | null;
+  // Full mark-scheme text for non-MCQ review (display-only — never affects
+  // the ✓/✗ rendering).
+  referenceAnswer?: string | null;
 }
 
 interface ResultPayload {
@@ -79,6 +84,12 @@ export default function StudentResult() {
     return <div className="max-w-2xl mx-auto p-6 text-gray-500">Loading…</div>;
   }
 
+  const commonIntro = commonStemPrefix(
+    data.items.map((it) => {
+      const sc = it.snapshotContent ?? {};
+      return typeof sc.stem === 'string' ? sc.stem : '';
+    }),
+  );
   const score = data.totalScore ?? data.autoScore ?? 0;
   const max = data.maxScore || 1;
   const pct = Math.round((score / max) * 100);
@@ -90,7 +101,7 @@ export default function StudentResult() {
     <div className="max-w-3xl mx-auto py-8 px-4 lg:px-6 space-y-6">
       {/* Score summary card — calm, no animation */}
       <header className="bg-white border border-gray-200 rounded-xl shadow-sm p-6 lg:p-8">
-        <div className="text-sm text-gray-500 mb-1">{data.paperName}</div>
+        <div className="text-sm text-gray-500 mb-1">{prettifyPaperName(data.paperName)}</div>
         <h1 className="text-2xl lg:text-3xl font-semibold text-gray-900 mb-4">
           已提交 · Submitted
         </h1>
@@ -122,8 +133,16 @@ export default function StudentResult() {
       {/* Per-question breakdown */}
       <section className="space-y-3">
         <h2 className="text-lg font-semibold text-gray-800">逐题回顾</h2>
+        {commonIntro && (
+          <div className="bg-white border border-gray-200 rounded-lg p-4 text-sm text-gray-700 whitespace-pre-wrap leading-relaxed">
+            <div className="text-xs font-semibold text-gray-400 mb-1">
+              试卷说明 · Instructions
+            </div>
+            {commonIntro}
+          </div>
+        )}
         {data.items.map((it) => (
-          <ResultRow key={it.paperQuestionId} item={it} />
+          <ResultRow key={it.paperQuestionId} item={it} commonIntro={commonIntro} />
         ))}
       </section>
 
@@ -134,14 +153,15 @@ export default function StudentResult() {
   );
 }
 
-function ResultRow({ item }: { item: ResultItem }) {
+function ResultRow({ item, commonIntro }: { item: ResultItem; commonIntro: string }) {
   const sc = item.snapshotContent ?? {};
-  const stem: string =
+  const rawStem: string =
     typeof sc.stem === 'string'
       ? sc.stem
       : typeof sc === 'string'
       ? sc
       : '';
+  const stem = stripStemPrefix(rawStem, commonIntro);
   const isMcq = item.questionType === 'mcq';
 
   // Status icon — three states: correct ✓, wrong ✗, pending ○.
@@ -210,10 +230,12 @@ function ResultRow({ item }: { item: ResultItem }) {
               {item.studentAnswer || '(空)'}
             </span>
           </div>
-          {item.correctAnswer && (
+          {(item.referenceAnswer ?? item.correctAnswer) && (
             <div>
               <span className="text-gray-500">正确答案：</span>
-              <span className="text-emerald-700">{item.correctAnswer}</span>
+              <span className="text-emerald-700 whitespace-pre-wrap">
+                {item.referenceAnswer ?? item.correctAnswer}
+              </span>
             </div>
           )}
         </div>
@@ -230,7 +252,9 @@ function ResultRow({ item }: { item: ResultItem }) {
           className="ml-11 mt-3 p-3 bg-blue-50 border border-blue-100 rounded text-sm text-blue-900 leading-relaxed"
           data-testid={`ai-rationale-${item.sortOrder}`}
         >
-          <span className="text-xs font-semibold text-blue-700 mr-2">AI 判分理由</span>
+          <span className="text-xs font-semibold text-blue-700 mr-2">
+            {item.commentSource === 'ai' ? 'AI 判分理由' : '老师评语'}
+          </span>
           {item.markerComment}
         </div>
       )}

@@ -10,6 +10,7 @@ import {
 } from '../lib/api-student';
 import ScoreTrendChart from '../components/ScoreTrendChart';
 import { formatCNDateTime, formatCNTime } from '../lib/dateCN';
+import { prettifyPaperName } from '../lib/paperName';
 
 /**
  * Student self-service portal — typed-name lookup gives one page with
@@ -444,7 +445,7 @@ export default function MyHistory() {
                         <th className="py-2 px-4">日期</th>
                         <th className="py-2 px-4">Level</th>
                         <th className="py-2 px-4">考勤</th>
-                        <th className="py-2 px-4">扫码时间</th>
+                        <th className="py-2 px-4 hidden sm:table-cell">扫码时间</th>
                         <th className="py-2 px-4">备注</th>
                       </tr>
                     </thead>
@@ -466,7 +467,7 @@ export default function MyHistory() {
                               <span className="ml-1 text-xs text-gray-400">(老师补登)</span>
                             )}
                           </td>
-                          <td className="py-2 px-4 text-xs text-gray-500">
+                          <td className="py-2 px-4 text-xs text-gray-500 hidden sm:table-cell">
                             {a.scanTime ? formatCNTime(a.scanTime) : '—'}
                           </td>
                           <td className="py-2 px-4 text-xs text-gray-500">{a.correctedNote ?? '—'}</td>
@@ -525,7 +526,7 @@ export default function MyHistory() {
                         <div className="flex items-start gap-4">
                           <Link to={detailHref} className="flex-1 min-w-0 block">
                             <div className="text-sm font-semibold text-gray-900 truncate flex items-center gap-2 flex-wrap">
-                              <span className="truncate">{s.paperName}</span>
+                              <span className="truncate">{prettifyPaperName(s.paperName)}</span>
                               {isPractice && (
                                 <span className="shrink-0 text-[10px] font-semibold uppercase tracking-wide px-1.5 py-0.5 rounded bg-violet-100 text-violet-800 border border-violet-200">
                                   练习 · Practice
@@ -608,7 +609,7 @@ function UpcomingTile({ sessions }: { sessions: UpcomingSession[] }) {
               <div className="flex flex-wrap items-baseline gap-x-2">
                 <span className="font-mono text-amber-900">{formatCNTime(s.quizStart).slice(0, 5)}</span>
                 <span className="text-gray-400">—</span>
-                <span className="font-semibold text-gray-900">{s.paperName}</span>
+                <span className="font-semibold text-gray-900">{prettifyPaperName(s.paperName)}</span>
               </div>
               <div className="text-xs text-gray-500 mt-0.5 flex flex-wrap gap-x-2 gap-y-0.5">
                 <span>{s.className}</span>

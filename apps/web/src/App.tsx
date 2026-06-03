@@ -454,6 +454,12 @@ export default function App() {
           {/* R13 Bug 5: /scan?token=... (query form, used by some old
               QR generators) → bounce to /scan/:token. */}
           <Route path="/scan" element={<ScanQueryRedirect />} />
+          {/* Already-authenticated users who hand-type or bookmark /login
+              or /dashboard shouldn't hit a 404 — the real dashboard is at
+              "/". (Unauthenticated /login is handled in the logged-out
+              branch above; this only runs when a session exists.) */}
+          <Route path="/login" element={<Navigate to="/" replace />} />
+          <Route path="/dashboard" element={<Navigate to="/" replace />} />
           {/* R13 Bug 5: unknown URLs MUST NOT leak the admin dashboard.
               Render a chrome-light NotFoundPage instead of bouncing to `/`. */}
           <Route path="*" element={<NotFoundPage />} />

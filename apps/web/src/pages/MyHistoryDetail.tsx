@@ -4,6 +4,7 @@ import { api } from '../lib/api';
 import AppealModal, { type AppealQuestionContext } from '../components/AppealModal';
 import { formatCNDateTime } from '../lib/dateCN';
 import { Spinner } from '../components/AsyncState';
+import { prettifyPaperName, commonStemPrefix, stripStemPrefix } from '../lib/paperName';
 
 /**
  * Public per-submission per-question detail page. Public, IP-gated
@@ -28,6 +29,13 @@ interface ResultItem {
   autoCorrect: boolean | null;
   isCorrect: boolean | null;
   markerComment: string | null;
+  // Source of markerComment: 'teacher' (human marker — the norm) vs 'ai'
+  // (AI-grader fallback). Drives the comment label. Older API responses may
+  // omit it → treated as teacher.
+  commentSource?: 'teacher' | 'ai' | null;
+  // Full mark-scheme text for non-MCQ review. Display-only — never affects
+  // the ✓/✗ correctness rendering.
+  referenceAnswer?: string | null;
 }
 
 interface ResultPayload {
@@ -94,6 +102,19 @@ export default function MyHistoryDetail() {
     );
   }
 
+  // The long "Read the narrative… Qn." preamble repeats on every
+  // Section-B question's stem; pull the shared part out so we can show it
+  // once at the top instead of burying each question under it.
+  const commonIntro = commonStemPrefix(
+    data.items.map((it) => {
+      const sc = it.snapshotContent ?? {};
+      return typeof sc.stem === 'string'
+        ? sc.stem
+        : typeof sc.text === 'string'
+        ? sc.text
+        : '';
+    }),
+  );
   const score = data.totalScore ?? data.autoScore ?? 0;
   const max = data.maxScore || 1;
   const pct = Math.round((score / max) * 100);
@@ -121,7 +142,7 @@ export default function MyHistoryDetail() {
         </div>
 
         <header className="bg-white rounded-xl border shadow-sm p-5">
-          <div className="text-sm text-gray-500">{data.paperName}</div>
+          <div className="text-sm text-gray-500">{prettifyPaperName(data.paperName)}</div>
           <div className={`text-4xl font-bold mt-2 ${pctColor}`}>
             {score}<span className="text-2xl text-gray-400 font-normal"> / {max}</span>
             <span className={`text-base ml-2 ${pctColor}`}>({pct}%)</span>
@@ -135,10 +156,19 @@ export default function MyHistoryDetail() {
 
         <section className="space-y-3">
           <h2 className="text-lg font-semibold text-gray-800 px-1">逐题回顾</h2>
+          {commonIntro && (
+            <div className="bg-white rounded-lg border border-gray-200 p-4 text-sm text-gray-700 whitespace-pre-wrap leading-relaxed">
+              <div className="text-xs font-semibold text-gray-400 mb-1">
+                试卷说明 · Instructions
+              </div>
+              {commonIntro}
+            </div>
+          )}
           {data.items.map((it) => (
             <ResultRow
               key={it.paperQuestionId}
               item={it}
+              commonIntro={commonIntro}
               onAppeal={(ctx) =>
                 setAppealTarget({
                   kind: 'question',
@@ -172,14 +202,17 @@ export default function MyHistoryDetail() {
 function ResultRow({
   item,
   onAppeal,
+  commonIntro,
 }: {
   item: ResultItem;
   onAppeal: (ctx: AppealQuestionContext) => void;
+  commonIntro: string;
 }) {
   const sc = item.snapshotContent ?? {};
-  const stem: string =
+  const rawStem: string =
     typeof sc.stem === 'string' ? sc.stem :
     typeof sc.text === 'string' ? sc.text : '';
+  const stem = stripStemPrefix(rawStem, commonIntro);
   const isMcq = item.questionType === 'mcq';
   const isCorrect = item.isCorrect ?? item.autoCorrect;
   const awarded = item.awardedMarks;
@@ -242,17 +275,22 @@ function ResultRow({
                   {item.studentAnswer ? item.studentAnswer : <em className="text-gray-400">(空答)</em>}
                 </span>
               </div>
-              {item.correctAnswer && (
+              {(item.referenceAnswer ?? item.correctAnswer) && (
                 <div>
                   <span className="text-gray-400">参考答案:</span>{' '}
-                  <span className="text-gray-800">{item.correctAnswer}</span>
+                  <span className="text-gray-800 whitespace-pre-wrap">
+                    {item.referenceAnswer ?? item.correctAnswer}
+                  </span>
                 </div>
               )}
             </div>
           )}
           {item.markerComment && (
             <div className="mt-2 text-xs text-blue-700 bg-blue-50 border border-blue-200 rounded p-2">
-              <span className="font-semibold">AI 评语:</span> {item.markerComment}
+              <span className="font-semibold">
+                {item.commentSource === 'ai' ? 'AI 评语' : '老师评语'}:
+              </span>{' '}
+              {item.markerComment}
             </div>
           )}
           {item.explanation && (
