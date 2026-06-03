@@ -12,6 +12,20 @@ interface TeacherTodo {
     consecutiveAbsentStudents: number;
     unaccountedStudentsToday: number;
   };
+  // Optional so older API deployments (without the field) degrade gracefully.
+  morningQuizToday?: Array<{
+    sessionId: string;
+    level: string;
+    className: string;
+    quizStart: string | null;
+    status: string;
+    enrolled: number;
+    onTime: number;
+    late: number;
+    absent: number;
+    submitted: number;
+    pendingMark: number;
+  }>;
 }
 
 export default function DashboardPage() {
@@ -60,6 +74,24 @@ export default function DashboardPage() {
             <TodoStat label="待批改答题" value={todo.summary.pendingMarkScripts} href="/marker" />
             <TodoStat label="连续缺勤" value={todo.summary.consecutiveAbsentStudents} href="/attendance/admin" />
             <TodoStat label="今日未签到" value={todo.summary.unaccountedStudentsToday} href="/attendance/admin" />
+          </div>
+        </section>
+      )}
+
+      {/* 今日早测 — per-level overview of today's morning quizzes:
+          attendance split, attendance rate, submitted count, pending marking. */}
+      {todo?.morningQuizToday && todo.morningQuizToday.length > 0 && (
+        <section aria-labelledby="mq-today-heading" className="space-y-3">
+          <h2
+            id="mq-today-heading"
+            className="text-base font-semibold text-gray-800 flex items-center gap-2"
+          >
+            <span aria-hidden>🌅</span> 今日早测
+          </h2>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+            {todo.morningQuizToday.map((s) => (
+              <MorningQuizCard key={s.sessionId} s={s} />
+            ))}
           </div>
         </section>
       )}
@@ -118,6 +150,79 @@ export default function DashboardPage() {
         </div>
       </div>
     </div>
+  );
+}
+
+const MQ_LEVEL_CN: Record<string, string> = {
+  olevel: 'O-Level',
+  ielts_authentic: '雅思',
+  ielts_simplified: '轻雅思',
+};
+const MQ_STATUS_CN: Record<string, string> = {
+  locked: '已锁定',
+  scheduled: '待开始',
+  active: '进行中',
+  closed: '已结束',
+  cancelled: '已取消',
+};
+
+function MorningQuizCard({
+  s,
+}: {
+  s: NonNullable<TeacherTodo['morningQuizToday']>[number];
+}) {
+  const present = s.onTime + s.late;
+  // Denominator = students with an attendance row for THIS level (present +
+  // marked-absent), not the whole class — each student sits only one level,
+  // so dividing by the full roster would understate every level's rate.
+  const recorded = present + s.absent;
+  const rate = recorded > 0 ? Math.round((present / recorded) * 100) : 0;
+  const statusCls =
+    s.status === 'active'
+      ? 'bg-emerald-100 text-emerald-700'
+      : s.status === 'scheduled'
+      ? 'bg-blue-100 text-blue-700'
+      : 'bg-gray-100 text-gray-600';
+  return (
+    <Link
+      to={`/morning-quiz/sessions/${s.sessionId}/dashboard`}
+      className="block bg-white border border-gray-200 rounded-lg p-4 hover:shadow-sm transition-shadow"
+    >
+      <div className="flex items-center justify-between gap-2">
+        <div className="font-semibold text-gray-900">{MQ_LEVEL_CN[s.level] ?? s.level}</div>
+        <span className={`text-xs px-2 py-0.5 rounded ${statusCls}`}>
+          {MQ_STATUS_CN[s.status] ?? s.status}
+        </span>
+      </div>
+      <div className="text-xs text-gray-500 mt-0.5 truncate">{s.className}</div>
+      <div className="mt-3 grid grid-cols-3 gap-2 text-center">
+        <div>
+          <div className="text-lg font-bold text-emerald-700">{s.onTime}</div>
+          <div className="text-[11px] text-gray-500">按时</div>
+        </div>
+        <div>
+          <div className="text-lg font-bold text-amber-700">{s.late}</div>
+          <div className="text-[11px] text-gray-500">迟到</div>
+        </div>
+        <div>
+          <div className="text-lg font-bold text-rose-700">{s.absent}</div>
+          <div className="text-[11px] text-gray-500">缺勤</div>
+        </div>
+      </div>
+      <div className="mt-3 pt-2 border-t border-gray-100 flex items-center justify-between text-xs text-gray-600">
+        <span>
+          出勤率 <b className="text-gray-900">{rate}%</b>
+        </span>
+        <span>
+          已交 <b className="text-gray-900">{s.submitted}</b>
+        </span>
+        {s.pendingMark > 0 ? (
+          <span className="text-rose-600 font-medium">待批 {s.pendingMark}</span>
+        ) : (
+          <span className="text-emerald-600">已判完</span>
+        )}
+      </div>
+    </Link>
   );
 }
 

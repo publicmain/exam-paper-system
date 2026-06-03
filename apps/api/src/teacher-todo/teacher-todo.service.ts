@@ -38,6 +38,20 @@ export interface TeacherTodoTodayPayload {
     studentId: string;
     studentName: string;
   }>;
+  /** Per-session overview of today's morning quizzes (one row per level). */
+  morningQuizToday: Array<{
+    sessionId: string;
+    level: string;
+    className: string;
+    quizStart: string | null;
+    status: string;
+    enrolled: number;
+    onTime: number;
+    late: number;
+    absent: number;
+    submitted: number;
+    pendingMark: number;
+  }>;
 }
 
 const ABSENCE_ALERT_THRESHOLD = 3;
@@ -152,6 +166,60 @@ export class TeacherTodoService {
       }
     }
 
+    // Per-session overview of ALL today's morning quizzes (any status),
+    // powering the Dashboard "今日早测" card: attendance split + how many
+    // submitted + how many short/structured items still await marking.
+    const mqSessions = await this.prisma.morningQuizSession.findMany({
+      where: { date: todayDate },
+      orderBy: { level: 'asc' },
+      select: {
+        id: true,
+        level: true,
+        status: true,
+        quizStart: true,
+        paperAssignmentId: true,
+        class: {
+          select: {
+            name: true,
+            enrollments: { where: { role: 'student' }, select: { userId: true } },
+          },
+        },
+        attendances: { select: { status: true } },
+      },
+    });
+    const morningQuizToday: TeacherTodoTodayPayload['morningQuizToday'] = [];
+    for (const s of mqSessions) {
+      const ac: Record<string, number> = { on_time: 0, late: 0, absent: 0 };
+      for (const a of s.attendances) ac[a.status] = (ac[a.status] ?? 0) + 1;
+      const [submitted, pendingMark] = await Promise.all([
+        this.prisma.studentSubmission.count({
+          where: { assignmentId: s.paperAssignmentId, status: { not: 'in_progress' } },
+        }),
+        this.prisma.answerScript.count({
+          where: {
+            awardedMarks: null,
+            submission: { assignmentId: s.paperAssignmentId, status: { not: 'in_progress' } },
+            paperQuestion: {
+              question: { questionType: { in: ['short_answer', 'structured'] as any } },
+            },
+          },
+        }),
+      ]);
+      morningQuizToday.push({
+        sessionId: s.id,
+        level: s.level,
+        className: s.class.name,
+        quizStart: s.quizStart?.toISOString() ?? null,
+        status: s.status,
+        enrolled: s.class.enrollments.length,
+        onTime: ac.on_time ?? 0,
+        late: ac.late ?? 0,
+        absent: ac.absent ?? 0,
+        submitted,
+        pendingMark,
+      });
+    }
+
     return {
       generatedAt: now.toISOString(),
       summary: {
@@ -178,6 +246,7 @@ export class TeacherTodoService {
       })),
       consecutiveAbsentStudents: studentsWithAbsence,
       unaccountedStudentsToday: unaccounted,
+      morningQuizToday,
     };
   }
 
