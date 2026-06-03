@@ -278,7 +278,7 @@ function TopicBar({
         </div>
         <div className="text-xs text-gray-600 whitespace-nowrap">
           {pct == null ? '无选择题数据' : `${pct}%`}
-          <span className="text-gray-400 ml-2">({attempts} 次作答 · {questionCount} 题)</span>
+          <span className="text-gray-500 ml-2">({attempts} 次作答 · {questionCount} 题)</span>
         </div>
       </div>
       <svg width="100%" height="14" className="mt-1 block">

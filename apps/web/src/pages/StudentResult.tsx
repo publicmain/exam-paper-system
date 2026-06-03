@@ -124,7 +124,7 @@ export default function StudentResult() {
           </div>
         </div>
         {data.submittedAt && (
-          <div className="text-xs text-gray-400 mt-3">
+          <div className="text-xs text-gray-500 mt-3">
             提交时间：{formatCNDateTime(data.submittedAt)}
           </div>
         )}
@@ -135,7 +135,7 @@ export default function StudentResult() {
         <h2 className="text-lg font-semibold text-gray-800">逐题回顾</h2>
         {commonIntro && (
           <div className="bg-white border border-gray-200 rounded-lg p-4 text-sm text-gray-700 whitespace-pre-wrap leading-relaxed">
-            <div className="text-xs font-semibold text-gray-400 mb-1">
+            <div className="text-xs font-semibold text-gray-500 mb-1">
               试卷说明 · Instructions
             </div>
             {commonIntro}

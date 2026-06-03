@@ -144,11 +144,11 @@ export default function MyHistoryDetail() {
         <header className="bg-white rounded-xl border shadow-sm p-5">
           <div className="text-sm text-gray-500">{prettifyPaperName(data.paperName)}</div>
           <div className={`text-4xl font-bold mt-2 ${pctColor}`}>
-            {score}<span className="text-2xl text-gray-400 font-normal"> / {max}</span>
+            {score}<span className="text-2xl text-gray-500 font-normal"> / {max}</span>
             <span className={`text-base ml-2 ${pctColor}`}>({pct}%)</span>
           </div>
           {data.submittedAt && (
-            <div className="text-xs text-gray-400 mt-2">
+            <div className="text-xs text-gray-500 mt-2">
               提交时间:{formatCNDateTime(data.submittedAt)}
             </div>
           )}
@@ -158,7 +158,7 @@ export default function MyHistoryDetail() {
           <h2 className="text-lg font-semibold text-gray-800 px-1">逐题回顾</h2>
           {commonIntro && (
             <div className="bg-white rounded-lg border border-gray-200 p-4 text-sm text-gray-700 whitespace-pre-wrap leading-relaxed">
-              <div className="text-xs font-semibold text-gray-400 mb-1">
+              <div className="text-xs font-semibold text-gray-500 mb-1">
                 试卷说明 · Instructions
               </div>
               {commonIntro}
@@ -270,14 +270,14 @@ function ResultRow({
           {!isMcq && (
             <div className="text-xs text-gray-600 space-y-1">
               <div>
-                <span className="text-gray-400">我的答案:</span>{' '}
+                <span className="text-gray-500">我的答案:</span>{' '}
                 <span className="text-gray-800">
                   {item.studentAnswer ? item.studentAnswer : <em className="text-gray-400">(空答)</em>}
                 </span>
               </div>
               {(item.referenceAnswer ?? item.correctAnswer) && (
                 <div>
-                  <span className="text-gray-400">参考答案:</span>{' '}
+                  <span className="text-gray-500">参考答案:</span>{' '}
                   <span className="text-gray-800 whitespace-pre-wrap">
                     {item.referenceAnswer ?? item.correctAnswer}
                   </span>

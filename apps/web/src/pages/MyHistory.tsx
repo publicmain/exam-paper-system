@@ -454,7 +454,7 @@ export default function MyHistory() {
                               {STATUS_LABEL[a.status]}
                             </span>
                             {a.source === 'manual_correction' && (
-                              <span className="text-xs text-gray-400">(老师补登)</span>
+                              <span className="text-xs text-gray-500">(老师补登)</span>
                             )}
                           </div>
                         </div>
@@ -492,7 +492,7 @@ export default function MyHistory() {
                                 {STATUS_LABEL[a.status]}
                               </span>
                               {a.source === 'manual_correction' && (
-                                <span className="ml-1 text-xs text-gray-400">(老师补登)</span>
+                                <span className="ml-1 text-xs text-gray-500">(老师补登)</span>
                               )}
                             </td>
                             <td className="py-2 px-4 text-xs text-gray-500 hidden sm:table-cell">
@@ -569,7 +569,7 @@ export default function MyHistory() {
                               {isPractice && <span className="text-violet-700">· 不计入成绩</span>}
                             </div>
                             {s.submittedAt && (
-                              <div className="text-[11px] text-gray-400 mt-1">
+                              <div className="text-[11px] text-gray-500 mt-1">
                                 提交于 {formatCNDateTime(s.submittedAt)}
                               </div>
                             )}
@@ -578,7 +578,7 @@ export default function MyHistory() {
                             <Link to={detailHref} className="block">
                               <div className={`text-2xl font-bold ${pctColor}`}>
                                 {score}
-                                <span className="text-base text-gray-400 font-normal"> / {max}</span>
+                                <span className="text-base text-gray-500 font-normal"> / {max}</span>
                               </div>
                               <div className={`text-xs ${pctColor}`}>{pct}%</div>
                               <div className="text-[11px] text-blue-600 mt-1">
@@ -637,7 +637,7 @@ function UpcomingTile({ sessions }: { sessions: UpcomingSession[] }) {
             >
               <div className="flex flex-wrap items-baseline gap-x-2">
                 <span className="font-mono text-amber-900">{formatCNTime(s.quizStart).slice(0, 5)}</span>
-                <span className="text-gray-400">—</span>
+                <span className="text-gray-400" aria-hidden="true">—</span>
                 <span className="font-semibold text-gray-900">{prettifyPaperName(s.paperName)}</span>
               </div>
               <div className="text-xs text-gray-500 mt-0.5 flex flex-wrap gap-x-2 gap-y-0.5">
