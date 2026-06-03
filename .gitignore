@@ -66,3 +66,6 @@ apps/api/test-fixtures/*.json
 .tmp/
 apps/api/test.tmp
 *.tmp
+
+# DB backups — contain student PII, live off-site in OneDrive; never commit.
+backups/
