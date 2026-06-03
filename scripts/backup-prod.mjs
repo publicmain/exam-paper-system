@@ -21,7 +21,7 @@
 
 import { PrismaClient, Prisma } from '@prisma/client';
 import { gzipSync, gunzipSync } from 'node:zlib';
-import { writeFileSync, readFileSync, mkdirSync, readdirSync, unlinkSync, statSync } from 'node:fs';
+import { writeFileSync, readFileSync, mkdirSync, readdirSync, unlinkSync, statSync, existsSync } from 'node:fs';
 import { join } from 'node:path';
 
 const BACKUP_DIR = process.env.BACKUP_DIR || 'C:/Users/yaoke/OneDrive/exam-paper-backups';
@@ -85,6 +85,25 @@ const prisma = new PrismaClient();
   console.log(`[${ts()}] backup OK: ${file}`);
   console.log(`  ${models.length} tables, ${totalRows} rows, ${sizeMB} MB (gzip), self-verify PASSED`);
   console.log(`  key: submissions=${counts.StudentSubmission} answerScripts=${counts.AnswerScript} attendances=${counts.Attendance} users=${counts.User}`);
+
+  // ---- monthly long-term archive: the first backup of each calendar month
+  // is copied to monthly/ and kept for 12 months, so a problem discovered
+  // weeks later (a deploy that quietly clobbered data, or a Railway loss the
+  // daily copies have since rotated past) can still be recovered from a
+  // known-good month-start snapshot — not just the last 14 daily copies. ----
+  const ym = stamp.slice(0, 7); // YYYY-MM
+  const monthlyDir = join(BACKUP_DIR, 'monthly');
+  mkdirSync(monthlyDir, { recursive: true });
+  const monthlyFile = join(monthlyDir, `exam-backup-${ym}.json.gz`);
+  if (!existsSync(monthlyFile)) {
+    writeFileSync(monthlyFile, gz);
+    console.log(`  monthly archive created: ${monthlyFile}`);
+    const months = readdirSync(monthlyDir).filter((f) => /^exam-backup-.*\.json\.gz$/.test(f)).sort();
+    for (const f of months.slice(0, Math.max(0, months.length - 12))) {
+      unlinkSync(join(monthlyDir, f));
+      console.log(`  monthly rotated out: ${f}`);
+    }
+  }
 
   // ---- rotation: keep RETAIN most recent (timestamp name => lexical = chrono) ----
   const all = readdirSync(BACKUP_DIR).filter((f) => /^exam-backup-.*\.json\.gz$/.test(f)).sort();
