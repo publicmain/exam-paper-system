@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { api } from '../lib/api';
 import { EmptyState } from '../components/EmptyState';
+import { prettifyPaperName } from '../lib/paperName';
 
 interface TeacherTodo {
   generatedAt: string;
@@ -33,8 +34,8 @@ export default function DashboardPage() {
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between flex-wrap gap-2">
-        <h1 className="text-2xl font-bold">Dashboard</h1>
-        <Link to="/papers/new" className="btn btn-primary">+ Create New Paper</Link>
+        <h1 className="text-2xl font-bold">仪表盘</h1>
+        <Link to="/papers/new" className="btn btn-primary">+ 新建卷子</Link>
       </div>
 
       {/* F1 — today's teacher-todo card.
@@ -67,28 +68,28 @@ export default function DashboardPage() {
           add xl gap bump so wide monitors don't look cramped between cards. */}
       <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-3 xl:grid-cols-3 gap-3 md:gap-4 xl:gap-5">
         <div className="card">
-          <div className="text-xs text-gray-500 uppercase tracking-wide">Papers</div>
+          <div className="text-xs text-gray-500 uppercase tracking-wide">卷子</div>
           <div className="text-3xl font-bold mt-1">{papers.length}</div>
         </div>
         <div className="card">
-          <div className="text-xs text-gray-500 uppercase tracking-wide">Templates</div>
+          <div className="text-xs text-gray-500 uppercase tracking-wide">模板</div>
           <div className="text-3xl font-bold mt-1">{templates.length}</div>
         </div>
         <div className="card col-span-2 sm:col-span-1">
-          <div className="text-xs text-gray-500 uppercase tracking-wide">Questions in Bank</div>
+          <div className="text-xs text-gray-500 uppercase tracking-wide">题库题目数</div>
           <div className="text-3xl font-bold mt-1">{stats.totalQuestions}</div>
         </div>
       </div>
 
       <div>
-        <h2 className="font-semibold mb-2">Recent Papers</h2>
+        <h2 className="font-semibold mb-2">最近卷子</h2>
         <div className="card divide-y">
           {papers.length === 0 ? (
             <EmptyState
               variant="no-paper"
               title="还没有卷子"
               description="点击右上角创建第一份卷子。"
-              action={{ label: 'Create New Paper', onClick: () => (window.location.href = '/papers/new') }}
+              action={{ label: '新建卷子', onClick: () => (window.location.href = '/papers/new') }}
             />
           ) : (
             papers.slice(0, 8).map((p) => (
@@ -98,7 +99,7 @@ export default function DashboardPage() {
                 className="flex items-center justify-between py-3 hover:bg-gray-50 -mx-4 px-4 transition-colors"
               >
                 <div className="min-w-0 flex-1">
-                  <div className="font-medium truncate">{p.name}</div>
+                  <div className="font-medium truncate" title={p.name}>{prettifyPaperName(p.name)}</div>
                   {/* Fix #4: filter null/undefined parts before joining so a missing
                       component doesn't render as " ·  · " (double middle dot). */}
                   <div className="text-xs text-gray-500 truncate">

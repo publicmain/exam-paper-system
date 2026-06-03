@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { api } from '../lib/api';
 import { formatCNDateTime } from '../lib/dateCN';
 import { Spinner, ErrorState } from '../components/AsyncState';
+import { prettifyPaperName } from '../lib/paperName';
 
 /**
  * Student home — list assignments visible to the logged-in student.
@@ -53,7 +54,7 @@ export default function StudentHomePage() {
         return (
           <div key={a.id} className="card flex items-start justify-between gap-4">
             <div className="flex-1 min-w-0">
-              <div className="font-semibold">{a.paper?.name ?? 'Untitled paper'}</div>
+              <div className="font-semibold">{prettifyPaperName(a.paper?.name) || 'Untitled paper'}</div>
               <div className="text-xs text-gray-600 mt-1">
                 Class: {a.class?.name} ({a.class?.classCode})
                 {a.durationMin || a.paper?.durationMin ? ` · ${a.durationMin ?? a.paper?.durationMin} min` : ''}

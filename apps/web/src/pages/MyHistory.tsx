@@ -80,9 +80,9 @@ const LEVEL_LABEL: Record<string, string> = {
   olevel: 'O-Level 英语',
 };
 const LEVEL_SHORT: Record<string, string> = {
-  ielts_authentic: '强',
-  ielts_simplified: '中',
-  olevel: '基',
+  ielts_authentic: '雅思',
+  ielts_simplified: '轻雅思',
+  olevel: 'O-Lv',
 };
 
 const STATUS_BADGE: Record<AttendanceRow['status'], string> = {
@@ -438,44 +438,73 @@ export default function MyHistory() {
               {data.attendances.length === 0 ? (
                 <div className="p-6 text-center text-gray-500 text-sm">还没有任何出勤记录</div>
               ) : (
-                <div className="overflow-x-auto">
-                  <table className="w-full text-sm">
-                    <thead>
-                      <tr className="text-left border-b text-xs text-gray-500">
-                        <th className="py-2 px-4">日期</th>
-                        <th className="py-2 px-4">Level</th>
-                        <th className="py-2 px-4">考勤</th>
-                        <th className="py-2 px-4 hidden sm:table-cell">扫码时间</th>
-                        <th className="py-2 px-4">备注</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y">
-                      {data.attendances.map((a) => (
-                        <tr key={a.id}>
-                          <td className="py-2 px-4 font-mono">{String(a.date).slice(0, 10)}</td>
-                          <td className="py-2 px-4">
+                <>
+                  {/* 窄屏 (<640px)：卡片堆叠，避免横滑 */}
+                  <ul className="sm:hidden divide-y">
+                    {data.attendances.map((a) => (
+                      <li key={a.id} className="p-4">
+                        <div className="flex items-center justify-between gap-2">
+                          <span className="font-mono text-sm text-gray-900">{String(a.date).slice(0, 10)}</span>
+                          <div className="flex items-center gap-2">
                             <span className="inline-flex items-center px-2 py-0.5 rounded text-xs border border-gray-200 bg-gray-50 text-gray-700"
                               title={a.level ? (LEVEL_LABEL[a.level] ?? a.level) : '—'}>
                               {a.level ? (LEVEL_SHORT[a.level] ?? '?') : '—'}
                             </span>
-                          </td>
-                          <td className="py-2 px-4">
                             <span className={`text-xs px-2 py-0.5 rounded ${STATUS_BADGE[a.status]}`}>
                               {STATUS_LABEL[a.status]}
                             </span>
                             {a.source === 'manual_correction' && (
-                              <span className="ml-1 text-xs text-gray-400">(老师补登)</span>
+                              <span className="text-xs text-gray-400">(老师补登)</span>
                             )}
-                          </td>
-                          <td className="py-2 px-4 text-xs text-gray-500 hidden sm:table-cell">
-                            {a.scanTime ? formatCNTime(a.scanTime) : '—'}
-                          </td>
-                          <td className="py-2 px-4 text-xs text-gray-500">{a.correctedNote ?? '—'}</td>
+                          </div>
+                        </div>
+                        {a.correctedNote && (
+                          <div className="text-xs text-gray-500 mt-1.5">{a.correctedNote}</div>
+                        )}
+                      </li>
+                    ))}
+                  </ul>
+
+                  {/* sm: 及以上：原 table 布局 */}
+                  <div className="hidden sm:block overflow-x-auto">
+                    <table className="w-full text-sm">
+                      <thead>
+                        <tr className="text-left border-b text-xs text-gray-500">
+                          <th className="py-2 px-4">日期</th>
+                          <th className="py-2 px-4">Level</th>
+                          <th className="py-2 px-4">考勤</th>
+                          <th className="py-2 px-4 hidden sm:table-cell">扫码时间</th>
+                          <th className="py-2 px-4">备注</th>
                         </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
+                      </thead>
+                      <tbody className="divide-y">
+                        {data.attendances.map((a) => (
+                          <tr key={a.id}>
+                            <td className="py-2 px-4 font-mono">{String(a.date).slice(0, 10)}</td>
+                            <td className="py-2 px-4">
+                              <span className="inline-flex items-center px-2 py-0.5 rounded text-xs border border-gray-200 bg-gray-50 text-gray-700"
+                                title={a.level ? (LEVEL_LABEL[a.level] ?? a.level) : '—'}>
+                                {a.level ? (LEVEL_SHORT[a.level] ?? '?') : '—'}
+                              </span>
+                            </td>
+                            <td className="py-2 px-4">
+                              <span className={`text-xs px-2 py-0.5 rounded ${STATUS_BADGE[a.status]}`}>
+                                {STATUS_LABEL[a.status]}
+                              </span>
+                              {a.source === 'manual_correction' && (
+                                <span className="ml-1 text-xs text-gray-400">(老师补登)</span>
+                              )}
+                            </td>
+                            <td className="py-2 px-4 text-xs text-gray-500 hidden sm:table-cell">
+                              {a.scanTime ? formatCNTime(a.scanTime) : '—'}
+                            </td>
+                            <td className="py-2 px-4 text-xs text-gray-500">{a.correctedNote ?? '—'}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </>
               )}
             </section>
 

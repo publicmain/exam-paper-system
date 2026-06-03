@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { api, BASE } from '../lib/api';
 import AppealReviewModal from '../components/AppealReviewModal';
 import { Spinner, ErrorState } from '../components/AsyncState';
+import { prettifyPaperName } from '../lib/paperName';
 
 /**
  * Marker queue page. Lists submitted submissions that still have ungraded
@@ -75,7 +76,7 @@ export default function MarkerQueuePage() {
       }
       await load();
     } catch (e: any) {
-      alert(`Claim failed: ${String(e)}`);
+      alert(`认领失败: ${String(e)}`);
     } finally {
       setBusy(null);
     }
@@ -132,7 +133,7 @@ export default function MarkerQueuePage() {
         )}
         <div className="card text-center py-12">
           <div className="text-4xl mb-3">✅</div>
-          <div className="text-gray-700">No submissions awaiting marking.</div>
+          <div className="text-gray-700">暂无待判答卷。</div>
         </div>
         {activeAppeal && (
           <AppealReviewModal
@@ -152,7 +153,7 @@ export default function MarkerQueuePage() {
     <div className="space-y-3">
       <div className="flex items-center justify-between flex-wrap gap-2">
         <h1 className="text-2xl font-bold">
-          Marker Queue
+          判分队列
           {/* ROUND 14 — Feature 10: header badge showing open appeals count */}
           {totalOpenAppeals > 0 && (
             <span
@@ -164,7 +165,7 @@ export default function MarkerQueuePage() {
           )}
         </h1>
         <div className="text-sm text-gray-500">
-          {data.total} submission{data.total === 1 ? '' : 's'} awaiting marking
+          {data.total} 份待判
         </div>
       </div>
 
@@ -177,23 +178,25 @@ export default function MarkerQueuePage() {
         return (
           <div key={it.id} className="card flex items-start justify-between gap-4">
             <div className="flex-1 min-w-0">
-              <div className="font-semibold">{it.assignment?.paper?.name ?? 'Paper'}</div>
+              <div className="font-semibold" title={it.assignment?.paper?.name ?? 'Paper'}>
+                {prettifyPaperName(it.assignment?.paper?.name ?? 'Paper')}
+              </div>
               <div className="text-xs text-gray-600 mt-1">
-                Student: {it.student?.name ?? it.student?.email ?? 'unknown'} · Class:{' '}
+                学生: {it.student?.name ?? it.student?.email ?? 'unknown'} · 班级:{' '}
                 {it.assignment?.class?.name} ({it.assignment?.class?.classCode})
               </div>
               <div className="text-xs text-gray-500 mt-0.5">
-                Submitted: {it.submittedAt ? new Date(it.submittedAt).toLocaleString() : '—'} ·{' '}
-                {it.ungradedCount}/{it.structuredCount} structured items ungraded · auto-score:{' '}
+                提交于: {it.submittedAt ? new Date(it.submittedAt).toLocaleString() : '—'} ·{' '}
+                {it.ungradedCount}/{it.structuredCount} 项待批 · 自动分:{' '}
                 {it.autoScore ?? 0} / {it.maxScore}
               </div>
               {claim && (
                 <div className="text-xs mt-1">
                   {claimedByMe ? (
-                    <span className="text-green-700">✓ claimed by you</span>
+                    <span className="text-green-700">✓ 你已认领</span>
                   ) : claimedByOther ? (
                     <span className="text-amber-700">
-                      🔒 claimed by {claim.marker?.name ?? claim.markerId}
+                      🔒 已被 {claim.marker?.name ?? claim.markerId} 认领
                     </span>
                   ) : null}
                 </div>
@@ -212,11 +215,11 @@ export default function MarkerQueuePage() {
               )}
               {claimedByMe ? (
                 <Link to={`/marker/submission/${it.id}`} className="btn btn-primary">
-                  Continue marking
+                  继续判分
                 </Link>
               ) : claimedByOther ? (
                 <button className="btn btn-ghost" disabled>
-                  Locked
+                  已锁定
                 </button>
               ) : (
                 <button
@@ -224,7 +227,7 @@ export default function MarkerQueuePage() {
                   disabled={busy === it.id}
                   onClick={() => claim(it.id)}
                 >
-                  {busy === it.id ? 'Claiming…' : 'Claim'}
+                  {busy === it.id ? '认领中…' : '认领'}
                 </button>
               )}
             </div>

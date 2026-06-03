@@ -14,6 +14,7 @@ import {
   type PracticeSubmissionView,
   type PracticeSubmitResult,
 } from '../lib/api-student';
+import { prettifyPaperName } from '../lib/paperName';
 
 /**
  * Practice-mode replay of a past morning-quiz submission.
@@ -360,7 +361,7 @@ function PracticeHost({
         >
           ← 退出练习
         </a>
-        <div className="font-semibold text-base lg:text-lg">{view.paperName}</div>
+        <div className="font-semibold text-base lg:text-lg">{prettifyPaperName(view.paperName)}</div>
         <div className="hidden lg:block text-sm text-gray-500">
           {answeredCount} / {total} 已答
         </div>
@@ -504,7 +505,7 @@ function PracticeResultView({
         </div>
 
         <header className="bg-white rounded-xl border shadow-sm p-5">
-          <div className="text-sm text-gray-500">{view.paperName} (练习)</div>
+          <div className="text-sm text-gray-500">{prettifyPaperName(view.paperName)} (练习)</div>
           <div className={`text-4xl font-bold mt-2 ${pctColor}`}>
             {result.autoScore}<span className="text-2xl text-gray-400 font-normal"> / {result.maxScore}</span>
             <span className={`text-base ml-2 ${pctColor}`}>({pct}%)</span>

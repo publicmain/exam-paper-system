@@ -3,6 +3,7 @@ import { useParams } from 'react-router-dom';
 import { api, downloadPdf } from '../lib/api';
 import { MathHtml } from '../components/MathHtml';
 import { AuthImage } from '../components/AuthImage';
+import { prettifyPaperName } from '../lib/paperName';
 
 export default function PaperEditPage() {
   const { id } = useParams<{ id: string }>();
@@ -95,7 +96,7 @@ export default function PaperEditPage() {
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold">{paper.name}</h1>
+          <h1 className="text-2xl font-bold">{prettifyPaperName(paper.name)}</h1>
           <div className="text-sm text-gray-600">
             {paper.subject?.name} · {paper.component?.name || '—'} · {paper.durationMin} min · {paper.totalMarksActual}/{paper.totalMarksTarget} marks ·{' '}
             <span className={`badge ${paper.status === 'published' ? 'badge-success' : ''}`}>{paper.status}</span>

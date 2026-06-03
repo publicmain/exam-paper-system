@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { api } from '../lib/api';
 import { Spinner, ErrorState } from '../components/AsyncState';
+import { prettifyPaperName } from '../lib/paperName';
 
 /**
  * R10-Bug2 — `/morning-quiz/sessions/:id/dashboard` was a server-only
@@ -90,7 +91,7 @@ export default function MorningQuizSessionDashboard() {
         <div>
           <h1 className="text-2xl font-bold">{session?.class?.name} — 早测实时面板</h1>
           <div className="text-sm text-gray-500">
-            {session?.paper?.name} · {new Date(session?.date).toISOString().slice(0, 10)} · status: {session?.status}
+            {prettifyPaperName(session?.paper?.name)} · {new Date(session?.date).toISOString().slice(0, 10)} · status: {session?.status}
           </div>
         </div>
         <button className="btn btn-ghost text-xs" onClick={reload}>↻ 刷新</button>

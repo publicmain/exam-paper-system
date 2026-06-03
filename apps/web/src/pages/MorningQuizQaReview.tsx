@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { api } from '../lib/api';
+import { prettifyPaperName } from '../lib/paperName';
 
 type Verdict = 'pass' | 'needs_review' | 'reject' | 'pending';
 
@@ -287,7 +288,7 @@ export default function MorningQuizQaReview() {
                         type="checkbox"
                         checked={checked.has(r.id)}
                         onChange={() => toggleCheck(r.id)}
-                        aria-label={`选择 ${r.name}`}
+                        aria-label={`选择 ${prettifyPaperName(r.name)}`}
                       />
                       <span
                         className={`text-xs px-2 py-0.5 rounded ${VERDICT_BADGE[r.qaReviewVerdict]}`}
@@ -301,8 +302,8 @@ export default function MorningQuizQaReview() {
                       </span>
                     )}
                   </div>
-                  <div className="font-medium text-sm mt-1 truncate" title={r.name}>
-                    {r.name}
+                  <div className="font-medium text-sm mt-1 truncate" title={prettifyPaperName(r.name)}>
+                    {prettifyPaperName(r.name)}
                   </div>
                   {r.qaReviewSummary && (
                     <div className="text-xs text-gray-600 mt-1 line-clamp-2">
@@ -333,7 +334,7 @@ export default function MorningQuizQaReview() {
                 >
                   {VERDICT_LABEL[detail.paper.qaReviewVerdict]}
                 </span>
-                <h2 className="text-lg font-semibold">{detail.paper.name}</h2>
+                <h2 className="text-lg font-semibold">{prettifyPaperName(detail.paper.name)}</h2>
               </div>
 
               {detail.paper.qaReviewSummary && (

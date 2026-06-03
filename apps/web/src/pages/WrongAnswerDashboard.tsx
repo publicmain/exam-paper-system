@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { api } from '../lib/api';
+import { prettifyPaperName } from '../lib/paperName';
 
 /**
  * Wrong-answer dashboard — pick a paper, see which questions students
@@ -76,62 +77,62 @@ export default function WrongAnswerDashboardPage() {
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold">Wrong-Answer Dashboard</h1>
+        <h1 className="text-2xl font-bold">错题分析</h1>
         <div className="flex items-center gap-2">
-          <label className="text-sm text-gray-600">Paper:</label>
+          <label className="text-sm text-gray-600">卷子:</label>
           <select
             className="select w-80"
             value={paperId}
             onChange={(e) => setPaperId(e.target.value)}
             disabled={!papers}
           >
-            {!papers && <option>Loading…</option>}
-            {papers && papers.length === 0 && <option value="">— no papers —</option>}
+            {!papers && <option>加载中…</option>}
+            {papers && papers.length === 0 && <option value="">— 暂无卷子 —</option>}
             {papers?.map(p => (
-              <option key={p.id} value={p.id}>{p.name}</option>
+              <option key={p.id} value={p.id} title={p.name}>{prettifyPaperName(p.name)}</option>
             ))}
           </select>
         </div>
       </div>
 
       {err && <div className="card text-red-700">{err}</div>}
-      {loading && <div className="text-gray-500">Loading…</div>}
+      {loading && <div className="text-gray-500">加载中…</div>}
 
       {dash && (
         <>
           <div className="grid grid-cols-3 gap-3">
             <div className="card">
-              <div className="text-xs text-gray-500">Paper</div>
-              <div className="text-lg font-semibold mt-1 truncate">{dash.paperName}</div>
+              <div className="text-xs text-gray-500">卷子</div>
+              <div className="text-lg font-semibold mt-1 truncate" title={dash.paperName}>{prettifyPaperName(dash.paperName)}</div>
             </div>
             <div className="card">
-              <div className="text-xs text-gray-500">Submissions counted</div>
+              <div className="text-xs text-gray-500">计入的作答数</div>
               <div className="text-2xl font-semibold mt-1">{dash.totalSubmissions}</div>
-              <div className="text-xs text-gray-500 mt-1">submitted / marked / returned</div>
+              <div className="text-xs text-gray-500 mt-1">已交 / 已批 / 已发回</div>
             </div>
             <div className="card">
-              <div className="text-xs text-gray-500">Questions</div>
+              <div className="text-xs text-gray-500">题目数</div>
               <div className="text-2xl font-semibold mt-1">{dash.rows.length}</div>
-              <div className="text-xs text-gray-500 mt-1">sorted worst-first</div>
+              <div className="text-xs text-gray-500 mt-1">按正确率从低到高排序</div>
             </div>
           </div>
 
           <div className="card">
             {dash.rows.length === 0 ? (
-              <div className="text-sm text-gray-500 py-3">No questions on this paper.</div>
+              <div className="text-sm text-gray-500 py-3">这张卷子没有题目。</div>
             ) : (
               <div className="overflow-x-auto">
                 <table className="w-full text-sm">
                   <thead className="text-left text-gray-600 border-b">
                     <tr>
                       <th className="py-2 pr-2 w-10">#</th>
-                      <th className="py-2 pr-2 w-16">Type</th>
-                      <th className="py-2 pr-3">Stem</th>
-                      <th className="py-2 pr-3 text-right w-24">% correct</th>
-                      <th className="py-2 pr-3 text-right w-20">Answered</th>
-                      <th className="py-2 pr-3 text-right w-20">Unanswered</th>
-                      <th className="py-2 pr-3 w-44">Top distractor</th>
-                      <th className="py-2 pr-3 text-right w-20">Marks</th>
+                      <th className="py-2 pr-2 w-16">题型</th>
+                      <th className="py-2 pr-3">题干</th>
+                      <th className="py-2 pr-3 text-right w-24">正确率</th>
+                      <th className="py-2 pr-3 text-right w-20">已作答</th>
+                      <th className="py-2 pr-3 text-right w-20">未作答</th>
+                      <th className="py-2 pr-3 w-44">最常见错误项</th>
+                      <th className="py-2 pr-3 text-right w-20">分值</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y">
@@ -140,7 +141,7 @@ export default function WrongAnswerDashboardPage() {
                         <td className="py-2 pr-2 text-gray-600">{r.sortOrder + 1}</td>
                         <td className="py-2 pr-2"><span className="badge text-xs">{r.questionType}</span></td>
                         <td className="py-2 pr-3 max-w-md">
-                          <div className="line-clamp-2 text-gray-800">{r.stemSnippet || '(no stem)'}</div>
+                          <div className="line-clamp-2 text-gray-800">{r.stemSnippet || '(无题干)'}</div>
                         </td>
                         <td className="py-2 pr-3 text-right">
                           <PctBadge pct={r.pctCorrect} />
@@ -177,7 +178,7 @@ export default function WrongAnswerDashboardPage() {
 }
 
 function PctBadge({ pct }: { pct: number | null }) {
-  if (pct == null) return <span className="text-xs text-gray-400">n/a</span>;
+  if (pct == null) return <span className="text-xs text-gray-400">暂无</span>;
   const cls =
     pct < 40 ? 'badge-error' :
     pct < 70 ? 'badge-warn' :

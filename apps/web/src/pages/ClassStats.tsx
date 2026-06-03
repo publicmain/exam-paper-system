@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { api } from '../lib/api';
+import { prettifyPaperName } from '../lib/paperName';
 
 /**
  * Class statistics — teachers / heads / admins pick a class, and we pull
@@ -120,17 +121,17 @@ export default function ClassStatsPage() {
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold">Class Statistics</h1>
+        <h1 className="text-2xl font-bold">班级统计</h1>
         <div className="flex items-center gap-2">
-          <label className="text-sm text-gray-600">Class:</label>
+          <label className="text-sm text-gray-600">班级:</label>
           <select
             className="select w-64"
             value={classId}
             onChange={(e) => setClassId(e.target.value)}
             disabled={!classes}
           >
-            {!classes && <option>Loading…</option>}
-            {classes && classes.length === 0 && <option value="">— no classes —</option>}
+            {!classes && <option>加载中…</option>}
+            {classes && classes.length === 0 && <option value="">— 暂无班级 —</option>}
             {classes?.map(c => (
               <option key={c.id} value={c.id}>{c.name} ({c.classCode})</option>
             ))}
@@ -139,95 +140,98 @@ export default function ClassStatsPage() {
       </div>
 
       {err && <div className="card text-red-700">{err}</div>}
-      {loading && <div className="text-gray-500">Loading…</div>}
+      {loading && <div className="text-gray-500">加载中…</div>}
 
       {overview && (
         <>
           <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
-            <StatCard label="Students" value={overview.studentCount} />
-            <StatCard label="Papers assigned" value={overview.paperCount} />
+            <StatCard label="学生数" value={overview.studentCount} />
+            <StatCard label="已布置卷子" value={overview.paperCount} />
             {/* Fix #6: include in-progress in the hint so the math reads
                 consistently. Before: "1 / 57 ... 55 missing" left readers
                 wondering where the 57th student went (the one who started
                 but didn't submit). */}
             <StatCard
-              label="Submitted"
+              label="已交"
               value={`${overview.totals.submitted} / ${overview.totals.expectedSubmissions}`}
               hint={
                 overview.totals.inProgress > 0
-                  ? `${overview.totals.inProgress} in progress · ${overview.totals.missing} missing`
-                  : `${overview.totals.missing} missing`
+                  ? `${overview.totals.inProgress} 进行中 · ${overview.totals.missing} 缺交`
+                  : `${overview.totals.missing} 缺交`
               }
             />
             <StatCard
-              label="Mean auto-score"
+              label="平均自动分"
               value={overview.meanAutoScorePct == null ? '—' : `${overview.meanAutoScorePct}%`}
             />
             <StatCard
-              label="Mean total score"
+              label="平均总分"
               value={overview.meanTotalScorePct == null ? '—' : `${overview.meanTotalScorePct}%`}
-              hint="(graded only)"
+              hint="(仅已批)"
             />
           </div>
 
           <div className="card">
             <div className="flex items-center justify-between mb-3">
-              <h2 className="font-semibold">Per-paper performance</h2>
+              <h2 className="font-semibold">各卷表现</h2>
             </div>
             {overview.perPaper.length === 0 ? (
-              <div className="text-sm text-gray-500 py-3">No assignments yet.</div>
+              <div className="text-sm text-gray-500 py-3">暂无布置的卷子。</div>
             ) : (
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm">
-                  <thead className="text-left text-gray-600 border-b">
-                    <tr>
-                      <th className="py-2 pr-3">Paper</th>
-                      <th className="py-2 pr-3 text-right">Submitted</th>
-                      <th className="py-2 pr-3 text-right">Marked</th>
-                      <th className="py-2 pr-3 text-right">Missing</th>
-                      <th className="py-2 pr-3 text-right">Mean auto</th>
-                      <th className="py-2 pr-3 text-right">Mean total</th>
-                      <th className="py-2 pr-3 text-right">Max</th>
-                      <th className="py-2 pr-3"></th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y">
-                    {overview.perPaper.map(p => (
-                      <tr key={p.assignmentId}>
-                        <td className="py-2 pr-3 font-medium">{p.paperName}</td>
-                        <td className="py-2 pr-3 text-right">{p.submitted}/{p.studentsExpected}</td>
-                        <td className="py-2 pr-3 text-right">{p.marked}</td>
-                        <td className="py-2 pr-3 text-right">{p.missing}</td>
-                        <td className="py-2 pr-3 text-right">{fmtScore(p.meanAutoScore)}</td>
-                        <td className="py-2 pr-3 text-right">{fmtScore(p.meanTotalScore)}</td>
-                        <td className="py-2 pr-3 text-right">{p.maxScore}</td>
-                        <td className="py-2 pr-3 text-right">
-                          <button
-                            className="btn btn-ghost text-xs"
-                            onClick={() => setPaperId(p.paperId)}
-                          >
-                            Filter mastery
-                          </button>
-                        </td>
+              <>
+                <PaperMeanChart papers={overview.perPaper} />
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm">
+                    <thead className="text-left text-gray-600 border-b">
+                      <tr>
+                        <th className="py-2 pr-3">卷子</th>
+                        <th className="py-2 pr-3 text-right">已交</th>
+                        <th className="py-2 pr-3 text-right">已批</th>
+                        <th className="py-2 pr-3 text-right">缺交</th>
+                        <th className="py-2 pr-3 text-right">平均自动分</th>
+                        <th className="py-2 pr-3 text-right">平均总分</th>
+                        <th className="py-2 pr-3 text-right">满分</th>
+                        <th className="py-2 pr-3"></th>
                       </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
+                    </thead>
+                    <tbody className="divide-y">
+                      {overview.perPaper.map(p => (
+                        <tr key={p.assignmentId}>
+                          <td className="py-2 pr-3 font-medium" title={p.paperName}>{prettifyPaperName(p.paperName)}</td>
+                          <td className="py-2 pr-3 text-right">{p.submitted}/{p.studentsExpected}</td>
+                          <td className="py-2 pr-3 text-right">{p.marked}</td>
+                          <td className="py-2 pr-3 text-right">{p.missing}</td>
+                          <td className="py-2 pr-3 text-right">{fmtScore(p.meanAutoScore)}</td>
+                          <td className="py-2 pr-3 text-right">{fmtScore(p.meanTotalScore)}</td>
+                          <td className="py-2 pr-3 text-right">{p.maxScore}</td>
+                          <td className="py-2 pr-3 text-right">
+                            <button
+                              className="btn btn-ghost text-xs"
+                              onClick={() => setPaperId(p.paperId)}
+                            >
+                              知识点掌握
+                            </button>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </>
             )}
           </div>
 
           <div className="card">
             <div className="flex items-center justify-between mb-3">
               <h2 className="font-semibold">
-                Topic mastery {paperId && <span className="text-xs text-gray-500">(filtered to one paper)</span>}
+                知识点掌握 {paperId && <span className="text-xs text-gray-500">(已筛选到单张卷子)</span>}
               </h2>
               {paperId && (
-                <button className="btn btn-ghost text-xs" onClick={() => setPaperId('')}>Clear filter</button>
+                <button className="btn btn-ghost text-xs" onClick={() => setPaperId('')}>清除筛选</button>
               )}
             </div>
             {!mastery || mastery.topics.length === 0 ? (
-              <div className="text-sm text-gray-500 py-3">No graded MCQ data yet.</div>
+              <div className="text-sm text-gray-500 py-3">暂无已批改的选择题数据。</div>
             ) : (
               <div className="space-y-2">
                 {mastery.topics.map(t => (
@@ -273,8 +277,8 @@ function TopicBar({
           {name}
         </div>
         <div className="text-xs text-gray-600 whitespace-nowrap">
-          {pct == null ? 'no MCQ data' : `${pct}%`}
-          <span className="text-gray-400 ml-2">({attempts} attempts · {questionCount} q)</span>
+          {pct == null ? '无选择题数据' : `${pct}%`}
+          <span className="text-gray-400 ml-2">({attempts} 次作答 · {questionCount} 题)</span>
         </div>
       </div>
       <svg width="100%" height="14" className="mt-1 block">
@@ -288,4 +292,63 @@ function TopicBar({
 function fmtScore(v: number | null): string {
   if (v == null) return '—';
   return (Math.round(v * 10) / 10).toString();
+}
+
+/**
+ * 各卷平均总分对比 — 纯 SVG 横向条形图（与 ScoreTrendChart / TopicBar 一致，
+ * 不引入图表库）。条形长度按「平均总分 ÷ 满分」的百分比绘制；缺平均总分或
+ * 满分为 0 的卷子不计入，全部缺失时整个图表不渲染。
+ */
+function PaperMeanChart({
+  papers,
+}: {
+  papers: Array<{ assignmentId: string; paperName: string; meanTotalScore: number | null; maxScore: number }>;
+}) {
+  const bars = papers
+    .map((p) => ({
+      id: p.assignmentId,
+      name: prettifyPaperName(p.paperName),
+      rawName: p.paperName,
+      pct:
+        p.meanTotalScore != null && p.maxScore > 0
+          ? Math.max(0, Math.min(100, (p.meanTotalScore / p.maxScore) * 100))
+          : null,
+    }))
+    .filter((b) => b.pct != null) as Array<{ id: string; name: string; rawName: string; pct: number }>;
+
+  if (bars.length === 0) return null;
+
+  const rowH = 26;
+  const labelW = 160;
+  const trackX = labelW + 8;
+  const W = 560;
+  const trackW = W - trackX - 44; // 右侧留出百分比文字空间
+  const H = bars.length * rowH + 8;
+
+  const colourFor = (pct: number) => (pct < 40 ? '#dc2626' : pct < 70 ? '#d97706' : '#16a34a');
+
+  return (
+    <div className="mb-4 overflow-x-auto">
+      <div className="text-xs text-gray-500 mb-1">各卷平均总分对比</div>
+      <svg viewBox={`0 0 ${W} ${H}`} width="100%" height={H} role="img" aria-label="各卷平均总分对比">
+        {bars.map((b, i) => {
+          const y = i * rowH + 4;
+          const barW = (b.pct / 100) * trackW;
+          return (
+            <g key={b.id}>
+              <text x={labelW} y={y + 14} fontSize={11} fill="#374151" textAnchor="end">
+                <title>{b.rawName}</title>
+                {b.name.length > 22 ? b.name.slice(0, 21) + '…' : b.name}
+              </text>
+              <rect x={trackX} y={y + 4} width={trackW} height={12} fill="#f3f4f6" rx={3} />
+              <rect x={trackX} y={y + 4} width={barW} height={12} fill={colourFor(b.pct)} rx={3} />
+              <text x={trackX + trackW + 6} y={y + 14} fontSize={11} fill="#6b7280" textAnchor="start">
+                {Math.round(b.pct)}%
+              </text>
+            </g>
+          );
+        })}
+      </svg>
+    </div>
+  );
 }

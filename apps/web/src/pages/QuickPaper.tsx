@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { api } from '../lib/api';
+import { prettifyPaperName } from '../lib/paperName';
 
 const SUBJECT_PRESETS = [
   { code: '9608', name: 'Computer Science', emoji: '💻' },
@@ -634,7 +635,7 @@ function ProgressOverlay({
                 progress.result.partial ? 'bg-amber-50' : 'bg-green-50'
               }`}
             >
-              <div className="font-semibold">{progress.result.paperName}</div>
+              <div className="font-semibold">{prettifyPaperName(progress.result.paperName)}</div>
               <div className="text-gray-700 mt-1">
                 {progress.result.questionCount} questions across {progress.result.topicCount}{' '}
                 topic{progress.result.topicCount > 1 ? 's' : ''} · {progress.result.totalMarks}{' '}

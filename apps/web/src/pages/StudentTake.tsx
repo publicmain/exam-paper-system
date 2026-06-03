@@ -3,6 +3,7 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { api } from '../lib/api';
 import { MathHtml } from '../components/MathHtml';
 import { AuthImage } from '../components/AuthImage';
+import { prettifyPaperName } from '../lib/paperName';
 
 /**
  * Take-paper page. Opens (or resumes) a StudentSubmission for the given
@@ -78,7 +79,7 @@ export default function StudentTakePage() {
     <div className="space-y-4">
       <div className="card">
         <div className="flex items-center justify-between">
-          <h1 className="text-xl font-bold">{paper.name}</h1>
+          <h1 className="text-xl font-bold">{prettifyPaperName(paper.name)}</h1>
           {locked ? (
             <span className="badge bg-gray-100">Status: {submission.status}</span>
           ) : (

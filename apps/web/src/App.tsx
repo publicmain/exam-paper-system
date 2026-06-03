@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { Routes, Route, Navigate, Link, useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from './lib/auth';
 import LoginPage from './pages/Login';
@@ -240,54 +240,67 @@ export default function App() {
         <div className="max-w-7xl mx-auto px-6 py-3 flex items-center justify-between gap-4">
           <div className="flex items-center gap-6 min-w-0 flex-1">
             <Link to="/" className="font-bold text-lg whitespace-nowrap shrink-0">📄 Exam Paper System</Link>
-            <nav className="flex gap-1 text-sm overflow-x-auto min-w-0">
-              <NavLink to="/" label="Dashboard" />
-              <NavLink to="/practice" label="📝 Practice" />
-              <NavLink to="/papers" label="Papers" />
-              <NavLink to="/questions" label="Questions" />
-              <NavLink to="/templates" label="Templates" />
-              {(user.role === 'admin' || user.role === 'head_teacher') && (
-                <NavLink to="/review" label="Review" />
+            {/* Nav reorg: 常驻高频一级项 + 「出卷」「管理」两个下拉，
+                取代原先 21 个 NavLink 挤在一行横滑的布局。所有 to= 路径、
+                角色显示条件、emoji、/quick-attendance.html 的 <a href>
+                均原样保留，仅中文化文字 + 重新分组。 */}
+            <nav className="flex gap-1 text-sm flex-wrap min-w-0">
+              {/* 常驻一级项 */}
+              <NavLink to="/" label="仪表盘" />
+              {(user.role === 'admin' || user.role === 'head_teacher' || user.role === 'teacher') && (
+                <NavLink to="/morning-quiz/schedule" label="🌅 早测" />
               )}
-              {(user.role === 'admin' || user.role === 'head_teacher') && (
-                <NavLink to="/quick-paper" label="⚡ Quick Paper" />
-              )}
-              {(user.role === 'admin' || user.role === 'head_teacher') && (
-                <NavLink to="/ai-generate" label="AI Generate" />
+              {(user.role === 'admin' || user.role === 'head_teacher' || user.role === 'teacher') && (
+                <NavLink to="/marker" label="判分" />
               )}
               {/* Fix #14: classes management nav */}
               {(user.role === 'admin' || user.role === 'head_teacher' || user.role === 'teacher') && (
-                <NavLink to="/classes" label="Classes" />
+                <NavLink to="/classes" label="班级" />
               )}
               {(user.role === 'admin' || user.role === 'head_teacher' || user.role === 'teacher') && (
-                <NavLink to="/marker" label="Marker" />
+                <NavLink to="/stats" label="统计" />
               )}
-              {(user.role === 'admin' || user.role === 'head_teacher' || user.role === 'teacher') && (
-                <NavLink to="/stats" label="Stats" />
-              )}
-              {(user.role === 'admin' || user.role === 'head_teacher' || user.role === 'teacher') && (
-                <NavLink to="/morning-quiz/schedule" label="🌅 Morning Quiz" />
-              )}
-              {/* /quick-attendance is a static-HTML page served from
-                  apps/web/public/quick-attendance.html. The bare path
-                  bounces through a React redirect (see QuickAttendance.tsx),
-                  but for the nav we link straight to the .html to skip
-                  the React detour. */}
-              <a
-                href="/quick-attendance.html"
-                className="px-3 py-1.5 rounded-md whitespace-nowrap shrink-0 hover:bg-gray-50"
-              >📋 快速考勤</a>
-              {(user.role === 'admin' || user.role === 'head_teacher') && (
-                <NavLink to="/quality" label="Quality" />
-              )}
-              {(user.role === 'admin' || user.role === 'head_teacher' || user.role === 'teacher') && (
-                <NavLink to="/codegrader-test" label="Code Grader" />
-              )}
-              {user.role === 'admin' && <NavLink to="/syllabus" label="Syllabus" />}
-              {user.role === 'admin' && <NavLink to="/admin/cost" label="AI Cost" />}
-              {user.role === 'admin' && <NavLink to="/admin/users" label="Users" />}
-              {user.role === 'admin' && <NavLink to="/admin/audit" label="🔍 Audit" />}
-              {user.role === 'admin' && <NavLink to="/sources" label="Sources" />}
+
+              {/* 「出卷 ▾」下拉 */}
+              <NavDropdown label="出卷">
+                <NavDropdownLink to="/papers" label="卷子" />
+                <NavDropdownLink to="/questions" label="题库" />
+                <NavDropdownLink to="/templates" label="模板" />
+                {(user.role === 'admin' || user.role === 'head_teacher') && (
+                  <NavDropdownLink to="/quick-paper" label="⚡ 快速出卷" />
+                )}
+                {(user.role === 'admin' || user.role === 'head_teacher') && (
+                  <NavDropdownLink to="/ai-generate" label="AI出卷" />
+                )}
+                {(user.role === 'admin' || user.role === 'head_teacher') && (
+                  <NavDropdownLink to="/review" label="审核" />
+                )}
+              </NavDropdown>
+
+              {/* 「管理 ▾」下拉 — 各项保留原有角色条件 */}
+              <NavDropdown label="管理">
+                {user.role === 'admin' && <NavDropdownLink to="/admin/users" label="用户" />}
+                {user.role === 'admin' && <NavDropdownLink to="/admin/audit" label="🔍 审计" />}
+                {user.role === 'admin' && <NavDropdownLink to="/sources" label="题源" />}
+                {user.role === 'admin' && <NavDropdownLink to="/syllabus" label="大纲" />}
+                {user.role === 'admin' && <NavDropdownLink to="/admin/cost" label="AI成本" />}
+                {(user.role === 'admin' || user.role === 'head_teacher') && (
+                  <NavDropdownLink to="/quality" label="质量" />
+                )}
+                {(user.role === 'admin' || user.role === 'head_teacher' || user.role === 'teacher') && (
+                  <NavDropdownLink to="/codegrader-test" label="代码判分" />
+                )}
+                <NavDropdownLink to="/practice" label="📝 练习" />
+                {/* /quick-attendance is a static-HTML page served from
+                    apps/web/public/quick-attendance.html. The bare path
+                    bounces through a React redirect (see QuickAttendance.tsx),
+                    but for the nav we link straight to the .html to skip
+                    the React detour. */}
+                <a
+                  href="/quick-attendance.html"
+                  className="block px-4 py-2 text-sm whitespace-nowrap hover:bg-gray-50"
+                >📋 快速考勤</a>
+              </NavDropdown>
             </nav>
           </div>
           <div className="flex items-center gap-3 text-sm">
@@ -480,6 +493,73 @@ function NavLink({ to, label }: { to: string; label: string }) {
     <Link
       to={to}
       className={`px-3 py-1.5 rounded-md whitespace-nowrap shrink-0 ${active ? 'bg-gray-100 font-medium' : 'hover:bg-gray-50'}`}
+    >
+      {label}
+    </Link>
+  );
+}
+
+/**
+ * Lightweight nav dropdown — pure React + Tailwind, no extra deps.
+ * Opens on hover (desktop) and on click (keyboard/touch), closes on
+ * outside-click. Children are <NavDropdownLink> items (or a raw <a>
+ * for the static quick-attendance.html page). If a dropdown has no
+ * visible children (all gated out by role), it renders nothing.
+ */
+function NavDropdown({ label, children }: { label: string; children: React.ReactNode }) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+
+  // Hide the whole dropdown when role-gating left it with no items.
+  const hasItems = Array.isArray(children)
+    ? children.some(Boolean)
+    : Boolean(children);
+
+  useEffect(() => {
+    if (!open) return;
+    const onDocClick = (e: MouseEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+    };
+    document.addEventListener('mousedown', onDocClick);
+    return () => document.removeEventListener('mousedown', onDocClick);
+  }, [open]);
+
+  if (!hasItems) return null;
+
+  return (
+    <div
+      ref={ref}
+      className="relative shrink-0"
+      onMouseEnter={() => setOpen(true)}
+      onMouseLeave={() => setOpen(false)}
+    >
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        className="px-3 py-1.5 rounded-md whitespace-nowrap hover:bg-gray-50 flex items-center gap-1"
+      >
+        {label}
+        <span className="text-xs text-gray-400">▾</span>
+      </button>
+      {open && (
+        <div
+          className="absolute left-0 top-full z-20 mt-1 min-w-[10rem] rounded-md border bg-white py-1 shadow-lg"
+          onClick={() => setOpen(false)}
+        >
+          {children}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function NavDropdownLink({ to, label }: { to: string; label: string }) {
+  const { pathname } = useLocation();
+  const active = pathname === to || (to !== '/' && pathname.startsWith(to));
+  return (
+    <Link
+      to={to}
+      className={`block px-4 py-2 text-sm whitespace-nowrap ${active ? 'bg-gray-100 font-medium' : 'hover:bg-gray-50'}`}
     >
       {label}
     </Link>

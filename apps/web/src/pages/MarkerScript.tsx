@@ -6,6 +6,7 @@ import { AuthImage } from '../components/AuthImage';
 import RetractQuestionModal from '../components/RetractQuestionModal';
 import { Spinner, ErrorState } from '../components/AsyncState';
 import { clean } from '../components/exam/shared/textUtils';
+import { prettifyPaperName } from '../lib/paperName';
 
 /**
  * Marker script page. Per-submission view: each structured Q with the
@@ -81,7 +82,7 @@ export default function MarkerScriptPage() {
     const v = edits[scriptId];
     if (!v) return;
     if (v.awardedMarks === '' || isNaN(Number(v.awardedMarks))) {
-      alert('Please enter a numeric mark.');
+      alert('请输入数字分数。');
       return;
     }
     setBusy(scriptId);
@@ -101,7 +102,7 @@ export default function MarkerScriptPage() {
       }
       await load();
     } catch (ex: any) {
-      alert(`Save failed: ${String(ex)}`);
+      alert(`保存失败: ${String(ex)}`);
     } finally {
       setBusy(null);
     }
@@ -119,14 +120,14 @@ export default function MarkerScriptPage() {
       await api.markerClaim(submissionId);
       await load();
     } catch (ex: any) {
-      alert(`Claim failed: ${String(ex?.message ?? ex)}`);
+      alert(`认领失败: ${String(ex?.message ?? ex)}`);
     } finally {
       setBusy(null);
     }
   }
 
   async function release() {
-    if (!confirm('Release the claim on this submission? Another marker can pick it up.')) return;
+    if (!confirm('释放这份答卷的认领? 之后其他老师可以接手。')) return;
     setBusy('release');
     try {
       const fn = (api as any).markerRelease;
@@ -138,14 +139,14 @@ export default function MarkerScriptPage() {
         });
       nav('/marker');
     } catch (ex: any) {
-      alert(`Release failed: ${String(ex)}`);
+      alert(`释放失败: ${String(ex)}`);
     } finally {
       setBusy(null);
     }
   }
 
   async function finalize() {
-    if (!confirm('Finalize this submission? totalScore will be computed and locked.')) return;
+    if (!confirm('完成这份答卷的判分? 总分将被计算并锁定。')) return;
     setBusy('finalize');
     try {
       const fn = (api as any).markerFinalize;
@@ -153,11 +154,11 @@ export default function MarkerScriptPage() {
         ? await fn(submissionId!)
         : await fetchJson(`/marker/finalize/${submissionId}`, { method: 'POST' });
       alert(
-        `Finalized. autoScore=${updated.autoScore ?? 0}, manualScore=${updated.manualScore ?? 0}, totalScore=${updated.totalScore ?? 0}`,
+        `判分已完成。自动分=${updated.autoScore ?? 0}, 人工分=${updated.manualScore ?? 0}, 总分=${updated.totalScore ?? 0}`,
       );
       nav('/marker');
     } catch (ex: any) {
-      alert(`Finalize failed: ${String(ex)}`);
+      alert(`完成判分失败: ${String(ex)}`);
     } finally {
       setBusy(null);
     }
@@ -174,21 +175,23 @@ export default function MarkerScriptPage() {
       <div className="card">
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-xl font-bold">{paper?.name ?? 'Paper'}</h1>
+            <h1 className="text-xl font-bold" title={paper?.name ?? 'Paper'}>
+              {prettifyPaperName(paper?.name ?? 'Paper')}
+            </h1>
             <div className="text-xs text-gray-600 mt-1">
-              Student: {sub.student?.name ?? sub.student?.email} · Class:{' '}
+              学生: {sub.student?.name ?? sub.student?.email} · 班级:{' '}
               {sub.assignment?.class?.name} ({sub.assignment?.class?.classCode})
             </div>
             <div className="text-xs text-gray-600">
-              Status: <span className="badge">{status}</span> · auto-score: {sub.autoScore ?? 0} / {sub.maxScore}
-              {sub.manualScore != null && ` · manual: ${sub.manualScore}`}
-              {sub.totalScore != null && ` · total: ${sub.totalScore}`}
+              状态: <span className="badge">{status}</span> · 自动分: {sub.autoScore ?? 0} / {sub.maxScore}
+              {sub.manualScore != null && ` · 人工分: ${sub.manualScore}`}
+              {sub.totalScore != null && ` · 总分: ${sub.totalScore}`}
             </div>
           </div>
           <div className="flex gap-2">
             {status === 'submitted' && myClaim && (
               <button className="btn btn-ghost" onClick={release} disabled={busy === 'release'}>
-                Release claim
+                释放认领
               </button>
             )}
             {status === 'submitted' && myClaim && (
@@ -196,23 +199,23 @@ export default function MarkerScriptPage() {
                 className="btn btn-primary"
                 onClick={finalize}
                 disabled={!allGraded || busy === 'finalize'}
-                title={allGraded ? 'Finalize submission' : 'Score every structured script first'}
+                title={allGraded ? '完成这份答卷的判分' : '请先给每道结构化题打分'}
               >
-                {busy === 'finalize' ? 'Finalizing…' : 'Finalize'}
+                {busy === 'finalize' ? '完成中…' : '完成判分'}
               </button>
             )}
           </div>
         </div>
         {!myClaim && status === 'submitted' && (
           <div className="mt-2 text-amber-700 text-sm flex items-center justify-between gap-2">
-            <span>⚠ You don't hold the marker claim on this submission. Scoring is read-only.</span>
+            <span>⚠ 你尚未认领这份答卷,当前为只读,无法打分。</span>
             <button
               className="btn btn-primary text-xs"
               onClick={claim}
               disabled={busy === 'claim'}
               title="把这份卷子领下来, 之后才能改分"
             >
-              {busy === 'claim' ? '认领中…' : '🖐 认领这份 / Claim'}
+              {busy === 'claim' ? '认领中…' : '🖐 认领这份'}
             </button>
           </div>
         )}
@@ -237,14 +240,14 @@ export default function MarkerScriptPage() {
             <div className="flex items-center gap-2 mb-2 flex-wrap">
               <span className="font-bold">Q{i + 1}.</span>
               <span className="badge">{qType}</span>
-              <span className="badge">[{pq.marks} marks]</span>
+              <span className="badge">[{pq.marks} 分]</span>
               {script?.autoCorrect != null && (
                 <span className={`badge ${script.autoCorrect ? 'bg-green-100' : 'bg-red-100'}`}>
-                  {script.autoCorrect ? 'auto: correct' : 'auto: incorrect'}
+                  {script.autoCorrect ? '自动: 正确' : '自动: 错误'}
                 </span>
               )}
               {script?.awardedMarks != null && (
-                <span className="badge bg-blue-100">awarded: {script.awardedMarks}</span>
+                <span className="badge bg-blue-100">得分: {script.awardedMarks}</span>
               )}
               {!isRetracted && paper?.id && (
                 <button
@@ -271,7 +274,7 @@ export default function MarkerScriptPage() {
             {typeof content.passage === 'string' && content.passage.length > 0 && (
               <details className="mb-3 bg-gray-50 border border-gray-200 rounded">
                 <summary className="cursor-pointer px-3 py-2 text-xs uppercase tracking-wide text-gray-600 font-semibold select-none">
-                  📖 Passage · {clean(content.passageTitle ?? 'Source text')}
+                  📖 原文 · {clean(content.passageTitle ?? '原文文本')}
                 </summary>
                 <div className="px-4 py-3 text-sm text-gray-800 font-serif leading-[1.7] whitespace-pre-wrap border-t border-gray-200">
                   {content.passage}
@@ -301,11 +304,11 @@ export default function MarkerScriptPage() {
 
             <div className="mt-3 border-t pt-3">
               <div className="text-xs uppercase tracking-wide text-gray-500 mb-1">
-                Student answer
+                学生作答
               </div>
               {isMcq ? (
                 <div className="text-sm">
-                  Selected option: <span className="font-mono">{script?.selectedOption ?? '—'}</span>
+                  所选选项: <span className="font-mono">{script?.selectedOption ?? '—'}</span>
                   {Array.isArray(opts) && (
                     <ul className="mt-1 ml-4 text-xs text-gray-600">
                       {opts.map((o: any) => (
@@ -321,7 +324,7 @@ export default function MarkerScriptPage() {
                 </div>
               ) : (
                 <pre className="whitespace-pre-wrap font-sans text-sm bg-gray-50 p-2 rounded">
-                  {script?.textAnswer ?? <span className="text-gray-400">— blank —</span>}
+                  {script?.textAnswer ?? <span className="text-gray-400">— 空白 —</span>}
                 </pre>
               )}
             </div>
@@ -336,7 +339,7 @@ export default function MarkerScriptPage() {
               // bounded server-side by pq.marks.
               <div className="mt-3 border-t pt-3 space-y-2">
                 <div className="flex items-center gap-2">
-                  <label className="text-sm font-semibold">Marks</label>
+                  <label className="text-sm font-semibold">得分</label>
                   <input
                     type="number"
                     min={0}
@@ -361,7 +364,7 @@ export default function MarkerScriptPage() {
                 </div>
                 <textarea
                   className="w-full border rounded p-2 text-sm font-sans"
-                  placeholder="Marker comment (optional)"
+                  placeholder="评语 (选填)"
                   rows={3}
                   value={v?.markerComment ?? ''}
                   disabled={!myClaim || status !== 'submitted' || isRetracted}
@@ -378,7 +381,7 @@ export default function MarkerScriptPage() {
                     disabled={!myClaim || status !== 'submitted' || busy === script.id || isRetracted}
                     onClick={() => saveScript(script.id)}
                   >
-                    {busy === script.id ? 'Saving…' : 'Save score'}
+                    {busy === script.id ? '保存中…' : '保存得分'}
                   </button>
                 </div>
               </div>
