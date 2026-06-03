@@ -2,14 +2,29 @@
 @tailwind components;
 @tailwind utilities;
 
+/* ──────────────────────────────────────────────────────────────────────
+   Design tokens — the single source of truth for colour / shape / shadow.
+   Components below consume these so the teacher + student surfaces stay
+   visually consistent. Prefer a token over a raw value when adding UI.
+   ────────────────────────────────────────────────────────────────────── */
 :root {
+  /* surface / text */
   --bg: #fafafa;
   --ink: #111;
   --muted: #666;
   --border: #e5e5e5;
+  /* brand + semantic (success/info/warn/error mirror the badge palette) */
   --accent: #1f4e79;
+  --success: #166534;
+  --info: #2563eb;
   --warn: #b45309;
   --error: #b91c1c;
+  /* shape — one radius for controls, one for cards. The card radius matches
+     the student portal's rounded-xl so both ends share the same softness. */
+  --radius: 0.5rem;        /* buttons, inputs, badges */
+  --radius-card: 0.75rem;  /* cards / panels (== Tailwind rounded-xl) */
+  --shadow-card: 0 1px 2px rgba(0, 0, 0, 0.05);
+  --shadow-card-hover: 0 4px 12px rgba(0, 0, 0, 0.08);
 }
 
 html, body, #root { height: 100%; }
@@ -42,9 +57,14 @@ body {
 }
 
 .card {
-  @apply bg-white rounded-lg border p-4 shadow-sm;
+  @apply bg-white border p-4;
   border-color: var(--border);
+  border-radius: var(--radius-card);
+  box-shadow: var(--shadow-card);
 }
+/* Add alongside `card` on a clickable <Link>/<a> for a subtle hover lift. */
+.card-link { @apply transition-shadow; }
+.card-link:hover { box-shadow: var(--shadow-card-hover); }
 
 .badge {
   @apply inline-flex items-center px-2 py-0.5 rounded text-xs font-medium;
@@ -53,6 +73,7 @@ body {
 .badge-warn { background: #fef3c7; color: var(--warn); }
 .badge-error { background: #fee2e2; color: var(--error); }
 .badge-success { background: #dcfce7; color: #166534; }
+.badge-info { background: #dbeafe; color: var(--info); }
 
 .q-stem code { background: #fde2e2; padding: 0 3px; border-radius: 2px; }
 
