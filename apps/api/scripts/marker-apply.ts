@@ -26,35 +26,55 @@ import { PrismaClient } from '@prisma/client';
  */
 
 const GRADES: Record<string, { awardedMarks: number; reason: string }> = {
-  // 2026-06-04 G11 morning-quiz — 3 papers / 3 levels:
-  //   ielts_authentic  = cambridge_ielts_8/Test4/P3 (collecting ants · 图表标注 Q37/38/40)
-  //   ielts_simplified = ai_authored_olevel_simplified_02_forgotten_promise (喂猫 · 忘记的承诺)
-  //   olevel           = ai_authored_olevel_07_last_lap (4x100m 接力赛)
-  // 5 submissions, 14 short-answer scripts, all maxMarks=1.
+  // 2026-05-26 G11 morning-quiz BACKLOG — 8 submissions, 29 scripts.
+  //   ielts_authentic  = ielts_authored_2026_v1/Test2/P1 (段落匹配,答案 A-H 字母)
+  //   ielts_simplified = ai_authored_olevel_simplified_17_relay (接力赛 Aaron)
+  //   olevel           = singapore_olevel_1128_bedokview (the dying deer)
 
-  // 李淳 (ielts_authentic · ant)
-  cmpyrkfu900wwij0m4i0otl0o: { awardedMarks: 0, reason: 'Q40: "ethanol" — IELTS 图表填空须用原文词,原文是 "alcohol";ethanol 虽同义但非原文词,不接受。' },
+  // 闫雯涵 (ielts_simplified · relay) — 4 题全填 "yes"
+  cmplwnz5x00v0ju0pk50mm7ir: { awardedMarks: 0, reason: '"yes" — 非有效答案。' },
+  cmplwo6p300vaju0ptu9d7b1k: { awardedMarks: 0, reason: '"yes" — 非有效答案。' },
+  cmplwoemn00vqju0p523uysel: { awardedMarks: 0, reason: '"yes" — 非有效答案。' },
+  cmplwoigk00w8ju0pyzin825h: { awardedMarks: 0, reason: '"yes" — 非有效答案。' },
 
-  // 喻耀程 (ielts_simplified · 喂猫) — 4 题
-  cmpyrhu3e00swij0mu3jigqfr: { awardedMarks: 0, reason: 'Q4: "she seudenly realread" — 残句/拼写错乱,没说出"突然想起忘了喂猫"。' },
-  cmpyrkest00wuij0mgs95cvbx: { awardedMarks: 0, reason: 'Q3: "because she like cat" — 跑题,与"独自承担起被托付的责任"的成就感无关。' },
-  cmpyrltmq00yhij0m4ozu0waq: { awardedMarks: 0, reason: 'Q5: "she thinks is good" — 无实质作答,未解释引语含义。' },
-  cmpyrokyg011wij0mepov7ge8: { awardedMarks: 0, reason: 'Q6: "no" — 非有效答案。' },
+  // 喻耀程 (ielts_authentic · 段落匹配) — 5 题字母全错
+  cmplwmy8r00ukju0puk8s5j0x: { awardedMarks: 0, reason: '段落匹配:答 A,正确 C。' },
+  cmplwou6b00wpju0phv1ee8s7: { awardedMarks: 0, reason: '段落匹配:答 BC(应填单个字母),正确 B。' },
+  cmplwp1b200wvju0pduyujsfq: { awardedMarks: 0, reason: '段落匹配:答 c,正确 F。' },
+  cmplwp53m00x3ju0pasn29l1a: { awardedMarks: 0, reason: '段落匹配:答 b,正确 A。' },
+  cmplwp7xq00x7ju0pq9wm5izi: { awardedMarks: 0, reason: '段落匹配:答 A,正确 D。' },
 
-  // HEIN HTET NAING (olevel · 接力赛) — 5 题
-  cmpyrndsx00zxij0ma0g8ewlg: { awardedMarks: 0, reason: 'Q5: "他还没完全摔倒" — 仅字面复述,没答出"表现比赛之接近、那半步刚好够他反超"的效果。' },
-  cmpyrnu52011aij0maizahspn: { awardedMarks: 0, reason: 'Q3: "声音很响" — 误读;原句是"杂音都退成心跳后的一个闷响"＝屏蔽外界、高度专注,与"很响"相反。' },
-  cmpyrv5w30139ij0mb0pzcsix: { awardedMarks: 0, reason: 'Q7: "Mr Lim 为他们骄傲" — 跑题,没答"夺冠是四人团队铺垫的功劳、非个人"。' },
-  cmpyrwxot013yij0m96kiqegp: { awardedMarks: 1, reason: 'Q2: "跑太快以致腿撑不住" — 命中"全力以赴、早早把体力耗尽到极限"。' },
-  cmpyrxky2014mij0mhoxl4s7l: { awardedMarks: 0, reason: 'Q4: "跑得很快" — 泛泛,没答"身体凭本能/训练在跑、不再有意识控制"。' },
+  // 毛思琳 (ielts_simplified · relay) — 5 题
+  cmplwq42100xpju0pa4010n4x: { awardedMarks: 1, reason: '"紧张" — 命中(紧张/压力大)。' },
+  cmplwqdzt00y4ju0p6mxoa2yc: { awardedMarks: 0, reason: '"放松" — 与"认识到自己能力更强、眼界被拓宽"相反。' },
+  cmplwqlwc00yeju0pwawi2ciy: { awardedMarks: 0, reason: '"其他人受伤" — 原因不符,原文是两人发烧+一人出国导致人手不够。' },
+  cmplwr08u00yyju0p07euk0xd: { awardedMarks: 0, reason: '"要求不高" — 跑题,应为"想让他明白价值在尽力而非输赢"。' },
+  cmplwr7gt00z0ju0p1olps66i: { awardedMarks: 1, reason: '"专注" — 命中(完全专注)。' },
 
-  // 郑稀瑜 (ielts_authentic · ant) — 3 题图表标注
-  cmpys2lfs015zij0mzkt640xf: { awardedMarks: 0, reason: 'Q40: "pitfall trap" — 答的是方法名,不是漏斗底部保存蚂蚁的液体(alcohol)。' },
-  cmpys3ct10165ij0mvefiiasn: { awardedMarks: 0, reason: 'Q38: "Baits" — 错,网上方放的是 "leaf litter"。' },
-  cmpys4s5t016dij0mkzmaeb14: { awardedMarks: 0, reason: 'Q37: "leaf litter" — 搞反了;问"从上方施加什么使落叶层变干"＝heat,leaf litter 是被烘干的材料。' },
+  // 牟歌 (olevel · deer)
+  cmplwpedm00xdju0pn8ft8km7: { awardedMarks: 0, reason: '"He felt regretful" — 没答出"努力控制汹涌的情绪"这一核心。' },
 
-  // 牛星林 (ielts_authentic · ant)
-  cmpysb8u80175ij0men49wwkv: { awardedMarks: 0, reason: 'Q37: "Large funnel" — 错,应为 "heat"。' },
+  // 刘钇村 (ielts_authentic · 段落匹配) — 3 题
+  cmplwty8p00zkju0pnje7lkhz: { awardedMarks: 0, reason: '段落匹配:答 G,正确 B。' },
+  cmplwwb8s0108ju0plllt7r2r: { awardedMarks: 0, reason: '段落匹配:答 H,正确 A。' },
+  cmplwyp61011cju0peskrl7rf: { awardedMarks: 0, reason: '段落匹配:答 E,正确 D。' },
+
+  // 叶书瑞 (ielts_simplified · relay) — 6 题(几处把答案填到了错的题号)
+  cmplwwwtk010aju0p47zds42a: { awardedMarks: 0, reason: '答的是"过去不擅长运动"(填错题),本题要"完全专注"。' },
+  cmplwx6l8010cju0pva9j9v21: { awardedMarks: 0, reason: '答的是"人手不够的原因"(填错题),本题要"认识到自己更有能力"。' },
+  cmplwxiku010gju0puqd1fkx1: { awardedMarks: 1, reason: '"nervous and anxious" — 命中(紧张/压力大)。' },
+  cmplx1e1s013fju0p3w2ikg96: { awardedMarks: 0, reason: '答的是"专注、屏蔽干扰"(填错题),本题要"过去不擅长运动"。' },
+  cmplx1pvs013hju0pjer057un: { awardedMarks: 0, reason: '答的是"认为自己勇敢有能力"(填错题),本题要"人手不够的原因(发烧/出国)"。' },
+  cmplwxv21010kju0paeaooenv: { awardedMarks: 1, reason: '"trying his best matters as much as winning" — 命中(价值在尽力而非输赢)。' },
+
+  // 郑稀瑜 (ielts_authentic · 段落匹配) — 3 题
+  cmplwhpib00siju0pvirzhq27: { awardedMarks: 0, reason: '段落匹配:答 a,正确 C。' },
+  cmplwmslt00u2ju0p089icogm: { awardedMarks: 0, reason: '段落匹配:答 e,正确 F。' },
+  cmplx3drg0172ju0perk11cfo: { awardedMarks: 0, reason: '段落匹配:答 f,正确 A。' },
+
+  // 孔凡今 (ielts_authentic · 段落匹配) — 2 题
+  cmplwkxen00t2ju0p9v7mz8zj: { awardedMarks: 0, reason: '段落匹配:答 A,正确 C。' },
+  cmplx1ccf013dju0pum96s06y: { awardedMarks: 0, reason: '段落匹配:答 H,正确 A。' },
 };
 
 const prisma = new PrismaClient();
