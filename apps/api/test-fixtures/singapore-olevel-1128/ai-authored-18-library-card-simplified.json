@@ -1,55 +1,67 @@
 {
-  "setCode": "ai_authored_olevel_simplified_18_library_card_v1",
+  "setCode": "ai_authored_olevel_simplified_18_library_card_v2",
   "paperNumber": 2,
-  "paperTitle": "Singapore-Cambridge GCE O-Level 1128 English Language — AI-authored Simplified Practice 18: The Library Card (§B style, simplified band)",
+  "paperTitle": "Singapore-Cambridge GCE O-Level 1184 English Language — AI-authored Simplified Practice 18: The Library Card (§B style, simplified band)",
   "provenanceTag": "ai_authored_olevel_1128_simplified",
   "sections": [
     {
       "exercise": 1,
-      "instruction": "Read the narrative text below about a Sec 2 girl who loses her NLB library card on a bus and finds out the next morning how it came back to her, and answer the questions that follow. Section B [10 marks] — AI-authored simplified practice paper modelled on the Singapore-Cambridge 1128/02 Section B format, pitched at students stretching from middle secondary toward the full O-Level standard. Original passage written for the morning quiz bank; not from a past exam paper. 6 short-answer items (Q1–Q6) and a 4-item flowchart MCQ (Q7) are included.",
+      "instruction": "Read the narrative text below about a Sec 2 girl who loses her NLB library card on a bus and finds out the next morning how it came back to her, and answer the questions that follow. Section B [15 marks] — AI-authored simplified practice paper modelled on the Singapore-Cambridge 1184/02 (formerly 1128) Section B format and calibrated to the SEAB assessment objectives (literal / inferential comprehension, vocabulary in context, language for effect), pitched at students stretching from middle secondary toward the full O-Level standard. Original passage written for the morning quiz bank; not from a past exam paper. Items mix mark values [1]/[2]: 7 short-answer questions (Q1-Q7) — 1 literal, 2 vocabulary-in-context, 3 inference and 1 language-for-effect — plus a 4-blank emotion-flowchart MCQ (Q8). Answer in your own words as far as possible.",
       "passageTitle": "The Library Card",
-      "passage": "Paragraph 1\nMy name is Hui Min. I am in Sec 2 at Tampines East Secondary. Every Tuesday after school, I take bus 168 to the Bedok library. I have done this since Primary 4. My NLB library card is the most ordinary thing in my schoolbag, but I cannot do without it.\n\nParagraph 2\nLast Tuesday, I borrowed three books. On the way home, the bus was crowded. I opened my wallet to keep my EZ-Link card, and the library card must have slipped out. I only realised it that night when I emptied my bag at home.\n\nParagraph 3\nI searched everywhere. Under the bed, inside my school bag, behind the cushions of the sofa. The card was not in the flat. I sat down at the kitchen table and felt my chest go tight. The three borrowed books were due on Saturday. I did not have time to fill in the lost-card form, wait for a new card, and finish the books by the weekend.\n\nParagraph 4\nThat night I slept badly. I told myself it was only a card. But it was the first thing my mother had given me when I started Primary 4 reading on my own, and I did not want to lose it.\n\nParagraph 5\nThe next morning, I changed buses at the Tampines interchange on the way to school. I do not know why I walked to the small lost-and-found counter. Maybe I just wanted to feel I had tried something. The auntie behind the counter looked up. Before I could speak, she opened a drawer and held up my card. 'Yours, right?' she said. 'Bus 168, yesterday afternoon.'\n\nParagraph 6\nFor a few seconds, I could not say anything. Then I asked her how she had known to send the card to Tampines interchange. The auntie shrugged. 'Your bag also got Tampines East Secondary tag. You looked like a Tampines kid.' She handed the card to me, smiled briefly, and turned back to her notebook.\n\nParagraph 7\nI walked the rest of the way to school slowly. I thought about the person on bus 168 who must have picked up my card and walked it to the driver, who had then worked out that it belonged to a girl from Tampines East. I would never know who any of them were.\n\nParagraph 8\nFor the first time, I thought about how much strangers see that we do not realise they see. The school tag on a bag. The interchange a tired student gets off at every afternoon. I had been moving through Singapore as if I were invisible, and I was not. The thought, strangely, did not embarrass me. It made me feel safer than I had felt for a long time.\n\n(AI-authored original narrative for O-Level 1128 §B style practice, simplified band; not from a past examination paper. NLB: the National Library Board of Singapore; EZ-Link: the contactless transport card; interchange: a hub where buses meet.)",
+      "passage": "Paragraph 1\nMy name is Hui Min. I am in Sec 2 at Tampines East Secondary. Every Tuesday after school, I take bus 168 to the Bedok library. I have done this since Primary 4. My NLB library card is the most ordinary thing in my schoolbag, but I cannot do without it.\n\nParagraph 2\nLast Tuesday, I borrowed three books. On the way home, the bus was crowded. I opened my wallet to keep my EZ-Link card, and the library card must have slipped out. I only realised it that night when I emptied my bag at home.\n\nParagraph 3\nI searched everywhere. Under the bed, inside my school bag, behind the cushions of the sofa. The card was not in the flat. I sat down at the kitchen table and felt my chest go tight. The three borrowed books were due on Saturday. I did not have time to fill in the lost-card form, wait for a new card, and finish the books by the weekend.\n\nParagraph 4\nThat night I slept badly. I told myself it was only a card. But it was the first thing my mother had given me when I started Primary 4 reading on my own, and I did not want to lose it.\n\nParagraph 5\nThe next morning, I changed buses at the Tampines interchange on the way to school. I do not know why I walked to the small lost-and-found counter. Maybe I just wanted to feel I had tried something. The auntie behind the counter looked up. Before I could speak, she opened a drawer and held up my card. 'Yours, right?' she said. 'Bus 168, yesterday afternoon.'\n\nParagraph 6\nFor a few seconds, I could not say anything. Then I asked her how she had known to send the card to Tampines interchange. The auntie shrugged. 'Your bag also got Tampines East Secondary tag. You looked like a Tampines kid.' She handed the card to me, smiled briefly, and turned back to her notebook.\n\nParagraph 7\nI walked the rest of the way to school slowly. I thought about the person on bus 168 who must have picked up my card and walked it to the driver, who had then worked out that it belonged to a girl from Tampines East. I would never know who any of them were.\n\nParagraph 8\nFor the first time, I thought about how much strangers see that we do not realise they see. The school tag on a bag. The interchange a tired student gets off at every afternoon. I had been moving through Singapore as if I were invisible, and I was not. The thought, strangely, did not embarrass me. It made me feel safer than I had felt for a long time.\n\n(AI-authored original narrative for O-Level 1184 §B style practice, simplified band; not from a past examination paper. NLB: the National Library Board of Singapore; EZ-Link: the contactless transport card; interchange: a hub where buses meet.)",
       "questions": [
         {
           "n": 1,
-          "stem": "Q1. In Paragraph 1, what details show that Hui Min's trip to the Bedok library is a long-standing routine? [1]",
-          "answer": "she takes bus 168 from school to the Bedok library every Tuesday after school, and she has been doing this since Primary 4"
+          "stem": "Q1. From Paragraph 1, on which day and which bus does Hui Min travel to the Bedok library? [1]",
+          "answer": "every Tuesday, on bus 168",
+          "marks": 1
         },
         {
           "n": 2,
-          "stem": "Q2. In Paragraph 2, how did Hui Min think she had lost her library card? [1]",
-          "answer": "on a crowded bus she opened her wallet to keep her EZ-Link card, and she believes the library card must have slipped out at that moment without her noticing"
+          "stem": "Q2. What does the word 'slipped' (Paragraph 2) suggest about how the card was lost? [1]",
+          "answer": "it fell out by itself, quietly and without her noticing",
+          "marks": 1
         },
         {
           "n": 3,
-          "stem": "Q3. What is the effect of the phrase 'felt my chest go tight' (Paragraph 3)? [1]",
-          "answer": "it conveys her physical reaction to anxiety — losing the card has made her so worried that her body itself tenses up, which shows how serious the problem feels to her"
+          "stem": "Q3. What does the phrase 'slept badly' (Paragraph 4) suggest about how Hui Min felt that night? [1]",
+          "answer": "she was worried / upset and could not rest properly",
+          "marks": 1
         },
         {
           "n": 4,
-          "stem": "Q4. In Paragraph 4, why was the library card especially important to Hui Min, beyond its practical use? [1]",
-          "answer": "it was the first thing her mother had given her when she started reading on her own in Primary 4, so the card had sentimental value as well as practical use"
+          "stem": "Q4. Using your own words, explain why losing the card before Saturday was such a big problem for Hui Min. (Paragraph 3) [2]",
+          "answer": "① the three borrowed books were due on Saturday; ② she had no time to fill in the lost-card form, wait for a new card and still finish the books",
+          "marks": 2
         },
         {
           "n": 5,
-          "stem": "Q5. In Paragraph 6, how had the auntie at the lost-and-found counter known that the card belonged to a girl from Tampines? [1]",
-          "answer": "Hui Min's school bag had a Tampines East Secondary tag on it, so to the auntie she 'looked like a Tampines kid' — the school tag had told a stranger where she came from"
+          "stem": "Q5. Using your own words, explain why the card meant more to Hui Min than just being useful. (Paragraph 4) [2]",
+          "answer": "① it was the first thing her mother gave her when she started reading on her own; ② so it carried a personal, sentimental value, not only a practical one",
+          "marks": 2
         },
         {
           "n": 6,
-          "stem": "Q6. What does the ending 'It made me feel safer than I had felt for a long time' (Paragraph 8) reveal about how Hui Min has changed? [1]",
-          "answer": "she now sees that being noticed by strangers is not threatening but reassuring — small details like a school tag mean people around her can help when something goes wrong, and she feels less alone in the city"
+          "stem": "Q6. Using your own words, explain how the auntie worked out that the card belonged to a girl from Tampines. (Paragraph 6) [2]",
+          "answer": "① the school bag had a Tampines East Secondary tag on it; ② so the auntie guessed the owner was a student from that area",
+          "marks": 2
+        },
+        {
+          "n": 7,
+          "stem": "Q7. What is the effect of the phrase 'felt my chest go tight' (Paragraph 3)? [2]",
+          "answer": "it describes a physical sign of anxiety — her worry is so strong that her body itself tenses, showing how upset she is about losing the card",
+          "marks": 2
         }
       ]
     },
     {
       "exercise": 2,
-      "instruction": "Q7. Hui Min's dominant feeling shifts over the two days the library card is lost. For each part of the passage, choose ONE word from the bank that best describes her dominant feeling at that moment. There are some extra words in the bank you do not need to use. Word bank: worried / proud / hopeful / suspicious / grateful / annoyed / curious / sleepy. The original task carries 4 marks; each blank is split into its own MCQ so each sub-part can be auto-graded independently.",
+      "instruction": "Q8. Hui Min's dominant feeling shifts over the two days the library card is lost. For each part of the passage, choose ONE word from the bank that best describes her dominant feeling at that moment. There are some extra words in the bank you do not need to use. Word bank: worried / proud / hopeful / suspicious / grateful / annoyed / curious / sleepy. The original task carries 4 marks; each blank is split into its own MCQ so each sub-part can be auto-graded independently.",
       "passage": "Refer to the same 'Library Card' narrative in Exercise 1 above. Hui Min's feelings shift as the search for the card unfolds — from worry at the kitchen table when she realises the books are due on Saturday, to a small spark of hope as she walks to the lost-and-found counter the next morning, to deep gratitude when the auntie hands the card back, ending in a thoughtful curiosity on the walk to school about how much strangers see that we do not realise they see. Pick the single best word from the bank for each moment.",
       "questions": [
         {
-          "n": 7,
-          "stem": "Q7(i). What best describes Hui Min's dominant feeling in Paragraph 3, sitting at the kitchen table after realising the card is gone and the books are due on Saturday? [1]",
+          "n": 8,
+          "stem": "Q8(i). What best describes Hui Min's dominant feeling in Paragraph 3, sitting at the kitchen table after realising the card is gone and the books are due on Saturday? [1]",
           "options": [
             {"key": "A", "text": "worried", "correct": true},
             {"key": "B", "text": "proud", "correct": false},
@@ -60,11 +72,12 @@
             {"key": "G", "text": "curious", "correct": false},
             {"key": "H", "text": "sleepy", "correct": false}
           ],
-          "answer": "A"
+          "answer": "A",
+          "marks": 1
         },
         {
-          "n": 8,
-          "stem": "Q7(ii). What best describes Hui Min's dominant feeling in Paragraph 5, as she walks over to the lost-and-found counter at Tampines interchange just to feel that she has tried something? [1]",
+          "n": 9,
+          "stem": "Q8(ii). What best describes Hui Min's dominant feeling in Paragraph 5, as she walks over to the lost-and-found counter at Tampines interchange just to feel that she has tried something? [1]",
           "options": [
             {"key": "A", "text": "worried", "correct": false},
             {"key": "B", "text": "proud", "correct": false},
@@ -75,11 +88,12 @@
             {"key": "G", "text": "curious", "correct": false},
             {"key": "H", "text": "sleepy", "correct": false}
           ],
-          "answer": "C"
+          "answer": "C",
+          "marks": 1
         },
         {
-          "n": 9,
-          "stem": "Q7(iii). What best describes Hui Min's dominant feeling at the end of Paragraph 6, as the auntie hands the card back to her and turns back to her notebook? [1]",
+          "n": 10,
+          "stem": "Q8(iii). What best describes Hui Min's dominant feeling at the end of Paragraph 6, as the auntie hands the card back to her and turns back to her notebook? [1]",
           "options": [
             {"key": "A", "text": "worried", "correct": false},
             {"key": "B", "text": "proud", "correct": false},
@@ -90,11 +104,12 @@
             {"key": "G", "text": "curious", "correct": false},
             {"key": "H", "text": "sleepy", "correct": false}
           ],
-          "answer": "E"
+          "answer": "E",
+          "marks": 1
         },
         {
-          "n": 10,
-          "stem": "Q7(iv). What best describes Hui Min's dominant feeling in Paragraphs 7–8, walking the rest of the way to school thinking about how much strangers see that we do not realise they see? [1]",
+          "n": 11,
+          "stem": "Q8(iv). What best describes Hui Min's dominant feeling in Paragraphs 7–8, walking the rest of the way to school thinking about how much strangers see that we do not realise they see? [1]",
           "options": [
             {"key": "A", "text": "worried", "correct": false},
             {"key": "B", "text": "proud", "correct": false},
@@ -105,7 +120,8 @@
             {"key": "G", "text": "curious", "correct": true},
             {"key": "H", "text": "sleepy", "correct": false}
           ],
-          "answer": "G"
+          "answer": "G",
+          "marks": 1
         }
       ]
     }

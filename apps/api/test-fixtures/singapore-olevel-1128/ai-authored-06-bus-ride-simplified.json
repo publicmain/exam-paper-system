@@ -1,55 +1,67 @@
 {
-  "setCode": "ai_authored_olevel_simplified_06_bus_ride_v1",
+  "setCode": "ai_authored_olevel_simplified_06_bus_ride_v2",
   "paperNumber": 2,
-  "paperTitle": "Singapore-Cambridge GCE O-Level 1128 English Language — AI-authored Simplified Practice 06: The First Bus Ride (§B style, simplified band)",
+  "paperTitle": "Singapore-Cambridge GCE O-Level 1184 English Language — AI-authored Simplified Practice 06: The First Bus Ride (§B style, simplified band)",
   "provenanceTag": "ai_authored_olevel_1128_simplified",
   "sections": [
     {
       "exercise": 1,
-      "instruction": "Read the narrative text below about a Secondary One girl who falls asleep on the bus on her first day of taking it alone, and answer the questions that follow. Section B [10 marks] — AI-authored simplified practice paper modelled on the Singapore-Cambridge 1128/02 Section B format, pitched at students stretching from middle secondary toward the full O-Level standard. Original passage written for the morning quiz bank; not from a past exam paper. 6 short-answer items (Q1–Q6) and a 4-item flowchart MCQ (Q7) are included.",
+      "instruction": "Read the narrative text below about a Secondary One girl who falls asleep on the bus on her first day of taking it alone, and answer the questions that follow. Section B [15 marks] — AI-authored simplified practice paper modelled on the Singapore-Cambridge 1184/02 (formerly 1128) Section B format and calibrated to the SEAB assessment objectives (literal / inferential comprehension, vocabulary in context, language for effect), pitched at students stretching from middle secondary toward the full O-Level standard. Original passage written for the morning quiz bank; not from a past exam paper. Items mix mark values [1]/[2]: 7 short-answer questions (Q1-Q7) plus a 4-blank emotion-flowchart MCQ (Q8). Answer in your own words as far as possible.",
       "passageTitle": "The First Bus Ride",
-      "passage": "Paragraph 1\nIt was the first day of Secondary One. For the two years before this, in Primary Five and Primary Six, Mei's mother had walked her to the bus stop every morning. Today, Mei had said, 'I want to do it alone.' Her mother had looked at her for a long moment, and then she had smiled and let her go.\n\nParagraph 2\nMei boarded bus 27 with confidence. She tapped her EZ-Link card. She found a seat by the window, near the back. The bus moved off through the quiet morning streets, past the old wet market, past the kopitiam where her father bought breakfast every Sunday.\n\nParagraph 3\nShe was so proud of herself that she let her eyes close for a moment. Just one moment. When she opened them again, the bus was at a place she did not recognise. The skyscrapers had been replaced by low blocks of HDB flats. The bus driver called out, 'Last stop, Sengkang interchange.' Mei's stomach dropped.\n\nParagraph 4\nShe got off the bus slowly. Sengkang interchange was huge and noisy. There were buses going in twenty different directions. None of the signs said 'Toh Yi'. The people around her were walking fast and looking certain. Mei felt very small.\n\nParagraph 5\nAn old uncle was sitting on a bench, reading the Lianhe Zaobao. Mei's heart was pounding. She walked over to him slowly. 'Excuse me, Uncle,' she said, 'do you know how to go to Toh Yi Secondary School?' Her voice came out thinner than she had meant it to.\n\nParagraph 6\nThe uncle put down his newspaper. He looked at her kindly. 'You took 27 the wrong way, is it?' Mei nodded, embarrassed. 'Don't worry,' he said. 'Cross the road over there, take bus 80. It will be twenty minutes. You can do it.' He pointed at the right platform. Mei thanked him three times.\n\nParagraph 7\nBus 80 brought her back the other way. She arrived at school thirty-five minutes late. Her form teacher, Mrs Tan, was standing at the school gate with her hands on her hips. Mei explained, half crying. Mrs Tan listened to the end. Then she surprised her: 'Class,' Mrs Tan announced when they got to the classroom, 'today Mei is going to tell you the most useful lesson of Secondary One — it is okay to ask for help.'\n\nParagraph 8\nThat night, at the dinner table, Mei told her mother the whole story. Her mother laughed and laughed. 'Tomorrow I walk you to the bus stop again?' she asked. Mei thought about it. 'No,' she said. 'But I won't fall asleep.'\n\n(AI-authored original narrative for O-Level 1128 §B style practice, simplified-band difficulty; not from a past examination paper. EZ-Link: Singapore's public transport stored-value card; kopitiam: traditional coffee shop; Lianhe Zaobao: a Chinese-language newspaper widely read in Singapore.)",
+      "passage": "Paragraph 1\nIt was the first day of Secondary One. For the two years before this, in Primary Five and Primary Six, Mei's mother had walked her to the bus stop every morning. Today, Mei had said, 'I want to do it alone.' Her mother had looked at her for a long moment, and then she had smiled and let her go.\n\nParagraph 2\nMei boarded bus 27 with confidence. She tapped her EZ-Link card. She found a seat by the window, near the back. The bus moved off through the quiet morning streets, past the old wet market, past the kopitiam where her father bought breakfast every Sunday.\n\nParagraph 3\nShe was so proud of herself that she let her eyes close for a moment. Just one moment. When she opened them again, the bus was at a place she did not recognise. The skyscrapers had been replaced by low blocks of HDB flats. The bus driver called out, 'Last stop, Sengkang interchange.' Mei's stomach dropped.\n\nParagraph 4\nShe got off the bus slowly. Sengkang interchange was huge and noisy. There were buses going in twenty different directions. None of the signs said 'Toh Yi'. The people around her were walking fast and looking certain. Mei felt very small.\n\nParagraph 5\nAn old uncle was sitting on a bench, reading the Lianhe Zaobao. Mei's heart was pounding. She walked over to him slowly. 'Excuse me, Uncle,' she said, 'do you know how to go to Toh Yi Secondary School?' Her voice came out thinner than she had meant it to.\n\nParagraph 6\nThe uncle put down his newspaper. He looked at her kindly. 'You took 27 the wrong way, is it?' Mei nodded, embarrassed. 'Don't worry,' he said. 'Cross the road over there, take bus 80. It will be twenty minutes. You can do it.' He pointed at the right platform. Mei thanked him three times.\n\nParagraph 7\nBus 80 brought her back the other way. She arrived at school thirty-five minutes late. Her form teacher, Mrs Tan, was standing at the school gate with her hands on her hips. Mei explained, half crying. Mrs Tan listened to the end. Then she surprised her: 'Class,' Mrs Tan announced when they got to the classroom, 'today Mei is going to tell you the most useful lesson of Secondary One — it is okay to ask for help.'\n\nParagraph 8\nThat night, at the dinner table, Mei told her mother the whole story. Her mother laughed and laughed. 'Tomorrow I walk you to the bus stop again?' she asked. Mei thought about it. 'No,' she said. 'But I won't fall asleep.'\n\n(AI-authored original narrative for O-Level 1184 §B style practice, simplified-band difficulty; not from a past examination paper. EZ-Link: Singapore's public transport stored-value card; kopitiam: traditional coffee shop; Lianhe Zaobao: a Chinese-language newspaper widely read in Singapore.)",
       "questions": [
         {
           "n": 1,
-          "stem": "Q1. In Paragraph 1, what did Mei tell her mother on the morning of her first day of Secondary One? [1]",
-          "answer": "she told her mother 'I want to do it alone' — she wanted to take the bus to school by herself instead of being walked to the bus stop"
+          "stem": "Q1. From Paragraph 3, what did the bus driver call out when Mei opened her eyes? [1]",
+          "answer": "'Last stop, Sengkang interchange'",
+          "marks": 1
         },
         {
           "n": 2,
-          "stem": "Q2. What is the effect of the phrase 'Mei's stomach dropped' (Paragraph 3)? [1]",
-          "answer": "it suggests a sudden shock of fear or panic at realising she had ended up at the wrong place — her body reacted instantly before her mind could catch up"
+          "stem": "Q2. What does the phrase 'Mei's stomach dropped' (Paragraph 3) suggest about how she felt? [1]",
+          "answer": "sudden fear / panic",
+          "marks": 1
         },
         {
           "n": 3,
-          "stem": "Q3. In Paragraph 4, why did Mei feel 'very small'? [1]",
-          "answer": "the interchange was huge and noisy, the buses went in many directions, and everyone around her looked certain of where they were going — all of this made her feel lost and overwhelmed"
+          "stem": "Q3. What does the word 'pounding' (Paragraph 5) suggest about Mei at that moment? [1]",
+          "answer": "she was very nervous / afraid",
+          "marks": 1
         },
         {
           "n": 4,
-          "stem": "Q4. In Paragraph 5, why did Mei's voice come out 'thinner than she had meant it to'? [1]",
-          "answer": "she was nervous and embarrassed about being lost, and this caused her voice to come out weaker and less confident than she intended"
+          "stem": "Q4. Using your own words, explain why Mei felt 'very small' at the interchange. (Paragraph 4) [2]",
+          "answer": "① the place was huge and noisy with buses going everywhere; ② everyone else looked sure of the way while she felt lost",
+          "marks": 2
         },
         {
           "n": 5,
-          "stem": "Q5. What is the effect of the detail that the uncle was 'reading the Lianhe Zaobao' on a bench (Paragraph 5)? [1]",
-          "answer": "it shows the uncle as an ordinary, relatable person going about his day, which makes him feel safe and approachable to ask for help"
+          "stem": "Q5. Using your own words, explain why Mei's voice 'came out thinner than she had meant it to' (Paragraph 5). [2]",
+          "answer": "① she was nervous and embarrassed about being lost; ② so her voice sounded weaker and less confident than she wanted",
+          "marks": 2
         },
         {
           "n": 6,
-          "stem": "Q6. Why did Mrs Tan ask Mei to tell the class her story instead of scolding her (Paragraph 7)? [1]",
-          "answer": "she wanted Mei's mistake to become a useful lesson for the other Secondary One students that asking for help is okay; she also reassured Mei that the experience was worth sharing, not something to be ashamed of"
+          "stem": "Q6. Using your own words, explain why Mrs Tan asked Mei to tell the class her story instead of scolding her. (Paragraph 7) [2]",
+          "answer": "① she wanted Mei's mistake to become a useful lesson for the others; ② to show that it is okay to ask for help, not something to be ashamed of",
+          "marks": 2
+        },
+        {
+          "n": 7,
+          "stem": "Q7. What is the effect of Mei saying 'No' but then adding 'But I won't fall asleep' (Paragraph 8)? [2]",
+          "answer": "the light, playful reply shows she has grown more confident — she still wants to go alone, but has learned from her mistake",
+          "marks": 2
         }
       ]
     },
     {
       "exercise": 2,
-      "instruction": "Q7. Mei's main feeling shifts as the morning unfolds. For each part of the passage, choose ONE word from the bank that best describes her dominant feeling at that moment. There are some extra words in the bank you do not need to use. Word bank: proud / panicked / small / grateful / impatient / embarrassed / determined / casual. The original task carries 4 marks; each blank is split into its own MCQ so each sub-part can be auto-graded independently.",
+      "instruction": "Q8. Mei's main feeling shifts as the morning unfolds. For each part of the passage, choose ONE word from the bank that best describes her dominant feeling at that moment. There are some extra words in the bank you do not need to use. Word bank: proud / panicked / small / grateful / impatient / embarrassed / determined / casual. The original task carries 4 marks; each blank is split into its own MCQ so each sub-part can be auto-graded independently.",
       "passage": "Refer to the same 'First Bus Ride' narrative in Exercise 1 above. Mei's feelings shift across the morning — from proud when she boards bus 27 confidently by herself, to panicked when she wakes up at Sengkang interchange and realises she missed her stop, to grateful when the uncle on the bench gives her clear directions to bus 80, ending determined when she decides at dinner that she will not need her mother to walk her again. Pick the single best word from the bank for each moment.",
       "questions": [
         {
-          "n": 7,
-          "stem": "Q7(i). What best describes Mei's dominant feeling in Paragraphs 1-2, boarding bus 27 confidently and finding a seat by the window? [1]",
+          "n": 8,
+          "stem": "Q8(i). What best describes Mei's dominant feeling in Paragraphs 1-2, boarding bus 27 confidently and finding a seat by the window? [1]",
           "options": [
             {"key": "A", "text": "proud", "correct": true},
             {"key": "B", "text": "panicked", "correct": false},
@@ -60,11 +72,12 @@
             {"key": "G", "text": "determined", "correct": false},
             {"key": "H", "text": "casual", "correct": false}
           ],
-          "answer": "A"
+          "answer": "A",
+          "marks": 1
         },
         {
-          "n": 8,
-          "stem": "Q7(ii). What best describes Mei's dominant feeling in Paragraph 3, opening her eyes to hear the driver call out 'Last stop, Sengkang interchange' at a place she did not recognise? [1]",
+          "n": 9,
+          "stem": "Q8(ii). What best describes Mei's dominant feeling in Paragraph 3, opening her eyes to hear the driver call out 'Last stop, Sengkang interchange' at a place she did not recognise? [1]",
           "options": [
             {"key": "A", "text": "proud", "correct": false},
             {"key": "B", "text": "panicked", "correct": true},
@@ -75,11 +88,12 @@
             {"key": "G", "text": "determined", "correct": false},
             {"key": "H", "text": "casual", "correct": false}
           ],
-          "answer": "B"
+          "answer": "B",
+          "marks": 1
         },
         {
-          "n": 9,
-          "stem": "Q7(iii). What best describes Mei's dominant feeling in Paragraph 6, after the uncle has told her clearly which bus to take and pointed at the right platform, and she has thanked him three times? [1]",
+          "n": 10,
+          "stem": "Q8(iii). What best describes Mei's dominant feeling in Paragraph 6, after the uncle has told her clearly which bus to take and pointed at the right platform, and she has thanked him three times? [1]",
           "options": [
             {"key": "A", "text": "proud", "correct": false},
             {"key": "B", "text": "panicked", "correct": false},
@@ -90,11 +104,12 @@
             {"key": "G", "text": "determined", "correct": false},
             {"key": "H", "text": "casual", "correct": false}
           ],
-          "answer": "D"
+          "answer": "D",
+          "marks": 1
         },
         {
-          "n": 10,
-          "stem": "Q7(iv). What best describes Mei's dominant feeling in Paragraph 8, telling her mother 'No' to being walked again and adding 'But I won't fall asleep'? [1]",
+          "n": 11,
+          "stem": "Q8(iv). What best describes Mei's dominant feeling in Paragraph 8, telling her mother 'No' to being walked again and adding 'But I won't fall asleep'? [1]",
           "options": [
             {"key": "A", "text": "proud", "correct": false},
             {"key": "B", "text": "panicked", "correct": false},
@@ -105,7 +120,8 @@
             {"key": "G", "text": "determined", "correct": true},
             {"key": "H", "text": "casual", "correct": false}
           ],
-          "answer": "G"
+          "answer": "G",
+          "marks": 1
         }
       ]
     }

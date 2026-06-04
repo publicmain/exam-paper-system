@@ -1,69 +1,74 @@
 {
-  "setCode": "ai_authored_olevel_03_empty_seat_v1",
+  "setCode": "ai_authored_olevel_03_empty_seat_v2",
   "paperNumber": 2,
-  "paperTitle": "Singapore-Cambridge GCE O-Level 1128 English Language — AI-authored Practice Paper 03: The Empty Seat (Paper 2 §B style)",
+  "paperTitle": "Singapore-Cambridge GCE O-Level 1184 English Language — AI-authored Practice Paper 03: The Empty Seat (Paper 2 §B style)",
   "provenanceTag": "ai_authored_olevel_1128",
   "sections": [
     {
       "exercise": 1,
-      "instruction": "Read the narrative text below about a teenage girl asked to sit in her late grandfather's chair at the family's first Lunar New Year reunion dinner after his passing, and answer the questions that follow. Section B [14 marks] — AI-authored practice paper modelled on the Singapore-Cambridge 1128/02 Section B format. Original passage written for the morning quiz bank; not from a past exam paper. 10 short-answer items (Q1–Q10) on language use and inference, plus a 4-item flowchart MCQ (Q11) on the narrator's emotion arc, are included.",
+      "instruction": "Read the narrative text below about a teenage girl asked to sit in her late grandfather's chair at the family's first Lunar New Year reunion dinner after his passing, and answer the questions that follow. Section B [19 marks] — AI-authored practice paper modelled on the Singapore-Cambridge 1184/02 (formerly 1128) Section B format and calibrated to the SEAB assessment objectives (literal / inferential comprehension, vocabulary in context, language for effect). Original passage written for the morning quiz bank; not from a past exam paper. Items mix mark values [1]/[2] as in the real paper: 10 short-answer questions (Q1-Q10) — 2 literal, 3 vocabulary-in-context, 3 inference and 2 language-for-effect — plus a 4-blank emotion-flowchart MCQ (Q11). Answer in your own words as far as possible.",
       "passageTitle": "The Empty Seat",
-      "passage": "Paragraph 1\nThe round table was set for ten, but only nine of us were there. Po Po had laid out the same dishes she had laid out for forty years — yam abacus, kueh pie tee, white-cut chicken, pen cai. The chopsticks rested in their usual places. The chair at the head of the table was empty.\n\nParagraph 2\nThis was our first reunion dinner without Ah Gong. He had passed in October. Now it was the first day of Lunar New Year, and we were sitting around his chair like a family of moths around a candle that had gone out.\n\nParagraph 3\n'Mei,' Po Po said, looking at me. 'You sit there.' She pointed at Ah Gong's chair. I froze. The whole table went quiet. My cousin's spoon paused halfway between bowl and mouth. 'Po Po, I —' I began. 'You were his favourite,' she said. 'Sit.'\n\nParagraph 4\nI stood up slowly. Every step toward the head of the table felt like walking through wet sand. I lowered myself into the chair. The seat was firmer than I had expected; the wood was warmer too, as if the chair had been waiting for someone. I did not know what to do with my hands.\n\nParagraph 5\nFor a long moment, no one spoke. My uncle stared at his rice. My aunt found a sudden interest in the lazy Susan. My six-year-old cousin Bao Bao broke the silence by announcing loudly: 'Mei is sitting in Ah Gong's chair!' His mother shushed him too late.\n\nParagraph 6\nBut Po Po laughed — laughed the way Ah Gong used to. 'You know what Ah Gong would have said?' she asked Bao Bao. 'He would have said: at least the chair is not empty.' Then she told us about the year Ah Gong had filled the chair with a sack of rice because no grandchild had come home for the new year. The whole table laughed; my aunt cried while laughing. I laughed too, though I did not know which I was doing more, laughing or holding back tears.\n\nParagraph 7\nBy the time the steamed fish was served, the chair did not feel like Ah Gong's chair anymore. It just felt like a chair. And I realised, sitting there with rice in my bowl and his family around me, that Ah Gong was not in the chair. He was in Po Po's laughter, in the smell of pen cai, in the way Bao Bao reached across the table without permission for a piece of chicken, just like Ah Gong always had.\n\nParagraph 8\nAfter dinner, I helped clear the table. In the kitchen drawer, looking for tea leaves, I found a pair of reading glasses. Ah Gong's reading glasses. I held them for a long moment. I considered putting them in my own pocket. Then I placed them back in the drawer, exactly where I had found them, and closed it gently. Po Po was waiting in the living room with the teapot.\n\n(AI-authored original narrative for O-Level 1128 §B style practice; not from a past examination paper. Po Po: paternal grandmother; Ah Gong: paternal grandfather; yam abacus, kueh pie tee, pen cai: traditional Chinese/Peranakan reunion dinner dishes; lazy Susan: a rotating tray at the centre of a Chinese dining table.)",
+      "passage": "Paragraph 1\nThe round table was set for ten, but only nine of us were there. Po Po had laid out the same dishes she had laid out for forty years — yam abacus, kueh pie tee, white-cut chicken, pen cai. The chopsticks rested in their usual places. The chair at the head of the table was empty.\n\nParagraph 2\nThis was our first reunion dinner without Ah Gong. He had passed in October. Now it was the first day of Lunar New Year, and we were sitting around his chair like a family of moths around a candle that had gone out.\n\nParagraph 3\n'Mei,' Po Po said, looking at me. 'You sit there.' She pointed at Ah Gong's chair. I froze. The whole table went quiet. My cousin's spoon paused halfway between bowl and mouth. 'Po Po, I —' I began. 'You were his favourite,' she said. 'Sit.'\n\nParagraph 4\nI stood up slowly. Every step toward the head of the table felt like walking through wet sand. I lowered myself into the chair. The seat was firmer than I had expected; the wood was warmer too, as if the chair had been waiting for someone. I did not know what to do with my hands.\n\nParagraph 5\nFor a long moment, no one spoke. My uncle stared at his rice. My aunt found a sudden interest in the lazy Susan. My six-year-old cousin Bao Bao broke the silence by announcing loudly: 'Mei is sitting in Ah Gong's chair!' His mother shushed him too late.\n\nParagraph 6\nBut Po Po laughed — laughed the way Ah Gong used to. 'You know what Ah Gong would have said?' she asked Bao Bao. 'He would have said: at least the chair is not empty.' Then she told us about the year Ah Gong had filled the chair with a sack of rice because no grandchild had come home for the new year. The whole table laughed; my aunt cried while laughing. I laughed too, though I did not know which I was doing more, laughing or holding back tears.\n\nParagraph 7\nBy the time the steamed fish was served, the chair did not feel like Ah Gong's chair anymore. It just felt like a chair. And I realised, sitting there with rice in my bowl and his family around me, that Ah Gong was not in the chair. He was in Po Po's laughter, in the smell of pen cai, in the way Bao Bao reached across the table without permission for a piece of chicken, just like Ah Gong always had.\n\nParagraph 8\nAfter dinner, I helped clear the table. In the kitchen drawer, looking for tea leaves, I found a pair of reading glasses. Ah Gong's reading glasses. I held them for a long moment. I considered putting them in my own pocket. Then I placed them back in the drawer, exactly where I had found them, and closed it gently. Po Po was waiting in the living room with the teapot.\n\n(AI-authored original narrative for O-Level 1184 §B style practice; not from a past examination paper. Po Po: paternal grandmother; Ah Gong: paternal grandfather; yam abacus, kueh pie tee, pen cai: traditional Chinese/Peranakan reunion dinner dishes; lazy Susan: a rotating tray at the centre of a Chinese dining table.)",
       "questions": [
         {
           "n": 1,
-          "stem": "Q1. In Paragraph 1, why was the round table set for ten when only nine people were there? [1]",
-          "answer": "Po Po had laid the place for Ah Gong as well, honouring the forty-year routine even though he had passed away"
+          "stem": "Q1. From Paragraph 1, how many people were the round table set for, and how many were actually present? [1]",
+          "answer": "set for ten; only nine were there",
+          "marks": 1
         },
         {
           "n": 2,
-          "stem": "Q2(a). What is the effect of the comparison 'a family of moths around a candle that had gone out' (Paragraph 2)? [1]",
-          "answer": "it suggests the family is still drawn together by Ah Gong (the candle) even though he is no longer there to give light or warmth, showing their continued attachment to his absence"
+          "stem": "Q2. From Paragraph 2, in which month had Ah Gong passed away? [1]",
+          "answer": "October",
+          "marks": 1
         },
         {
           "n": 3,
-          "stem": "Q2(b). Which single phrase in Paragraph 2 most directly captures the family's sense of loss? [1]",
-          "answer": "candle that had gone out"
+          "stem": "Q3. What does the word 'froze' (Paragraph 3) suggest about the narrator's reaction when told to sit in the chair? [1]",
+          "answer": "she went still / could not move",
+          "marks": 1
         },
         {
           "n": 4,
-          "stem": "Q3. In Paragraph 3, why did the narrator freeze when Po Po told her to sit in Ah Gong's chair? [1]",
-          "answer": "she felt overwhelmed by the responsibility and emotion of taking Ah Gong's place / she felt unworthy or unprepared"
+          "stem": "Q4. What does the word 'warmer' in 'the wood was warmer too, as if the chair had been waiting for someone' (Paragraph 4) suggest about the chair? [1]",
+          "answer": "it felt alive / welcoming, not cold",
+          "marks": 1
         },
         {
           "n": 5,
-          "stem": "Q4. What is the effect of the simile 'every step toward the head of the table felt like walking through wet sand' (Paragraph 4)? [1]",
-          "answer": "it conveys how heavy and difficult each step felt for the narrator — slow, resistant and full of emotional weight"
+          "stem": "Q5. What does the word 'shushed' in 'His mother shushed him too late' (Paragraph 5) mean? [1]",
+          "answer": "told him to be quiet",
+          "marks": 1
         },
         {
           "n": 6,
-          "stem": "Q5. Why was no one speaking after the narrator sat down (Paragraph 5)? [1]",
-          "answer": "they were all uncomfortable, not knowing how to handle the sight of someone else sitting in Ah Gong's chair, so they avoided eye contact and looked elsewhere"
+          "stem": "Q6. Using your own words, explain why the round table was still set for ten when only nine people were present. (Paragraph 1) [2]",
+          "answer": "① Po Po still laid a place for Ah Gong; ② she was keeping the same forty-year routine even though he had died",
+          "marks": 2
         },
         {
           "n": 7,
-          "stem": "Q6. In Paragraph 5, what does 'His mother shushed him too late' suggest about Bao Bao's outburst? [1]",
-          "answer": "Bao Bao's remark had already been heard by everyone, breaking the silence and making the awkwardness impossible to hide"
+          "stem": "Q7. Using your own words, explain why the narrator froze when Po Po told her to sit in Ah Gong's chair. (Paragraph 3) [2]",
+          "answer": "① she felt it was not her place to take her grandfather's seat; ② she was overwhelmed by the emotion and weight of the moment",
+          "marks": 2
         },
         {
           "n": 8,
-          "stem": "Q7. Why did Po Po laugh in Paragraph 6 when the others were trying to be quiet about the chair? [1]",
-          "answer": "she deliberately chose to remember Ah Gong with joy and humour rather than treating his absence as a forbidden or sad topic"
+          "stem": "Q8. Using your own words, explain what the narrator finally understood about Ah Gong by the end of Paragraph 7. [2]",
+          "answer": "① he was not really in the empty chair; ② he lived on in the family's laughter, food and everyday habits",
+          "marks": 2
         },
         {
           "n": 9,
-          "stem": "Q8. What does the phrase 'my aunt cried while laughing' (Paragraph 6) reveal about the aunt's feelings? [1]",
-          "answer": "she was caught between grief at Ah Gong's death and warmth at remembering his humour — both feelings were happening at the same time"
+          "stem": "Q9. What is the effect of the comparison 'like a family of moths around a candle that had gone out' (Paragraph 2)? [2]",
+          "answer": "the metaphor shows the family still drawn together by Ah Gong (the candle) even though he can no longer give them light or warmth, stressing their loss and continued attachment",
+          "marks": 2
         },
         {
           "n": 10,
-          "stem": "Q9. By the end of Paragraph 7, what has the narrator come to realise about Ah Gong? [1]",
-          "answer": "that Ah Gong is not in the empty chair but lives on in the family's habits, laughter, food and traditions — his presence is everywhere among them"
-        },
-        {
-          "n": 11,
-          "stem": "Q10. In Paragraph 8, why did the narrator put the reading glasses back in the drawer after considering keeping them? [1]",
-          "answer": "she realised she did not need a physical object to remember Ah Gong by, because he was already present in the family; it felt right to leave the glasses where they had always been"
+          "stem": "Q10. What is the effect of the simile 'every step toward the head of the table felt like walking through wet sand' (Paragraph 4)? [2]",
+          "answer": "it makes each step seem slow, heavy and resistant, conveying how reluctant and emotionally burdened the narrator felt as she approached the chair",
+          "marks": 2
         }
       ]
     },
@@ -73,7 +78,7 @@
       "passage": "Refer to the same 'Empty Seat' narrative in Exercise 1 above. The narrator's feelings shift through the evening — from dread at being asked to sit in Ah Gong's chair, to awkwardness through the silence that follows, to being moved by Po Po's rice-sack story, ending at peace as she returns the reading glasses to the drawer. Pick the single best word from the bank for each moment.",
       "questions": [
         {
-          "n": 12,
+          "n": 11,
           "stem": "Q11(i). What best describes the narrator's dominant feeling in Paragraphs 3-4, as she stands up and walks slowly toward Ah Gong's chair, feeling each step like walking through wet sand? [1]",
           "options": [
             {"key": "A", "text": "dread", "correct": true},
@@ -85,10 +90,11 @@
             {"key": "G", "text": "smug", "correct": false},
             {"key": "H", "text": "curious", "correct": false}
           ],
-          "answer": "A"
+          "answer": "A",
+          "marks": 1
         },
         {
-          "n": 13,
+          "n": 12,
           "stem": "Q11(ii). What best describes the narrator's dominant feeling in Paragraph 5, sitting in the chair through the long silence with everyone staring elsewhere and Bao Bao's outburst hanging in the air? [1]",
           "options": [
             {"key": "A", "text": "dread", "correct": false},
@@ -100,10 +106,11 @@
             {"key": "G", "text": "smug", "correct": false},
             {"key": "H", "text": "curious", "correct": false}
           ],
-          "answer": "B"
+          "answer": "B",
+          "marks": 1
         },
         {
-          "n": 14,
+          "n": 13,
           "stem": "Q11(iii). What best describes the narrator's dominant feeling in Paragraph 6, listening to Po Po's story about Ah Gong filling the chair with a sack of rice while her aunt cries-laughs and she is unsure whether she is laughing or holding back tears? [1]",
           "options": [
             {"key": "A", "text": "dread", "correct": false},
@@ -115,10 +122,11 @@
             {"key": "G", "text": "smug", "correct": false},
             {"key": "H", "text": "curious", "correct": false}
           ],
-          "answer": "C"
+          "answer": "C",
+          "marks": 1
         },
         {
-          "n": 15,
+          "n": 14,
           "stem": "Q11(iv). What best describes the narrator's dominant feeling in Paragraph 8, placing Ah Gong's reading glasses back in the drawer exactly where she had found them and closing it gently while Po Po waits in the living room with the teapot? [1]",
           "options": [
             {"key": "A", "text": "dread", "correct": false},
@@ -130,7 +138,8 @@
             {"key": "G", "text": "smug", "correct": false},
             {"key": "H", "text": "curious", "correct": false}
           ],
-          "answer": "D"
+          "answer": "D",
+          "marks": 1
         }
       ]
     }

@@ -1,49 +1,56 @@
 {
-  "setCode": "ai_authored_olevel_simplified_14_hamster_v1",
+  "setCode": "ai_authored_olevel_simplified_14_hamster_v2",
   "paperNumber": 2,
-  "paperTitle": "Singapore-Cambridge GCE O-Level 1128 English Language — AI-authored Simplified Practice 14: Snowy (§B style, simplified band)",
+  "paperTitle": "Singapore-Cambridge GCE O-Level 1184 English Language — AI-authored Simplified Practice 14: Snowy (§B style, simplified band)",
   "provenanceTag": "ai_authored_olevel_1128_simplified",
   "sections": [
     {
       "exercise": 1,
-      "instruction": "Read the narrative text below about a Secondary 2 boy who is in charge of his class hamster Snowy over the September school holidays and accidentally lets her escape, and answer the questions that follow. Section B [10 marks] — AI-authored simplified practice paper modelled on the Singapore-Cambridge 1128/02 Section B format, pitched at students stretching from middle secondary toward the full O-Level standard. Original passage written for the morning quiz bank; not from a past exam paper. 7 short-answer items (Q1–Q7) and a 4-item flowchart MCQ (Q8) are included.",
+      "instruction": "Read the narrative text below about a Secondary 2 boy who is in charge of his class hamster Snowy over the September school holidays and accidentally lets her escape, and answer the questions that follow. Section B [15 marks] — AI-authored simplified practice paper modelled on the Singapore-Cambridge 1184/02 (formerly 1128) Section B format and calibrated to the SEAB assessment objectives (literal / inferential comprehension, vocabulary in context, language for effect), pitched at students stretching from middle secondary toward the full O-Level standard. Original passage written for the morning quiz bank; not from a past exam paper. Items mix mark values [1]/[2]: 7 short-answer questions (Q1-Q7) plus a 4-blank emotion-flowchart MCQ (Q8). Answer in your own words as far as possible.",
       "passageTitle": "Snowy",
-      "passage": "Paragraph 1\nFor the September holidays my form teacher Mrs Lee picked me to take care of Snowy, our class hamster. I carried the cage home in both hands, sitting carefully on the MRT from Bedok back to my block in Tampines.\n\nParagraph 2\nThe first three days went well. I fed her sunflower seeds in the morning and carrot slices at night. I spoke to her sometimes, telling her about my Maths homework. She would sit up on her back legs and look at me as if listening.\n\nParagraph 3\nOn Day 4 I was in a hurry. I had promised my friend Daniel I would meet him at the void deck for football at four o'clock. I changed her water bottle, dropped in some seeds, and closed the cage door. I did not check the latch. I grabbed my ball and ran out. Two hours later I came home and walked into the kitchen. The cage door was wide open. Snowy was gone.\n\nParagraph 4\nMy heart fell straight down to my shoes. I searched the living room — under the sofa, behind the TV cabinet, inside my mother's slippers. Nothing. I even opened the rice cooker, which was silly, but I was desperate. My mother was at Tekka market. My father was at work.\n\nParagraph 5\nFor two hours I crawled on my hands and knees. I called her name in a whisper, because I did not want the neighbours to know. By the time the sky turned orange, I was imagining what I would say to Mrs Lee on Monday. Twenty-eight pairs of eyes would look at me.\n\nParagraph 6\nThen I heard a tiny scratching behind the washing machine. I lay flat and looked. Two black eyes shone back. Snowy. I reached in with a finger, and she walked onto my hand as if nothing had happened. I almost cried with relief. Then I noticed beside her the power cable, with the plastic casing chewed clean through. The wire inside was bare but not damaged. She had stopped just in time.\n\nParagraph 7\nI did not tell my parents that evening. I latched the cage carefully, twice, every time after that. I told my mother only on Sunday night. She sighed and said, 'Next time, you tell me when it happens. Not three days later.' She did not punish me. She did not need to.\n\nParagraph 8\nOn Monday I returned Snowy to Mrs Lee's class. The other children crowded around the cage, asking whether she had enjoyed her holiday. 'Yes,' I said. 'She was very good.' Nobody knew. But I knew. From that week on, I checked the latch on every cage, every box, and every door I closed — twice, and then once more for safety.\n\n(AI-authored original narrative for O-Level 1128 §B style practice, simplified-band difficulty; not from a past exam. MRT: Mass Rapid Transit; void deck: the open ground floor of an HDB public-housing block; Tekka: a market in Little India.)",
+      "passage": "Paragraph 1\nFor the September holidays my form teacher Mrs Lee picked me to take care of Snowy, our class hamster. I carried the cage home in both hands, sitting carefully on the MRT from Bedok back to my block in Tampines.\n\nParagraph 2\nThe first three days went well. I fed her sunflower seeds in the morning and carrot slices at night. I spoke to her sometimes, telling her about my Maths homework. She would sit up on her back legs and look at me as if listening.\n\nParagraph 3\nOn Day 4 I was in a hurry. I had promised my friend Daniel I would meet him at the void deck for football at four o'clock. I changed her water bottle, dropped in some seeds, and closed the cage door. I did not check the latch. I grabbed my ball and ran out. Two hours later I came home and walked into the kitchen. The cage door was wide open. Snowy was gone.\n\nParagraph 4\nMy heart fell straight down to my shoes. I searched the living room — under the sofa, behind the TV cabinet, inside my mother's slippers. Nothing. I even opened the rice cooker, which was silly, but I was desperate. My mother was at Tekka market. My father was at work.\n\nParagraph 5\nFor two hours I crawled on my hands and knees. I called her name in a whisper, because I did not want the neighbours to know. By the time the sky turned orange, I was imagining what I would say to Mrs Lee on Monday. Twenty-eight pairs of eyes would look at me.\n\nParagraph 6\nThen I heard a tiny scratching behind the washing machine. I lay flat and looked. Two black eyes shone back. Snowy. I reached in with a finger, and she walked onto my hand as if nothing had happened. I almost cried with relief. Then I noticed beside her the power cable, with the plastic casing chewed clean through. The wire inside was bare but not damaged. She had stopped just in time.\n\nParagraph 7\nI did not tell my parents that evening. I latched the cage carefully, twice, every time after that. I told my mother only on Sunday night. She sighed and said, 'Next time, you tell me when it happens. Not three days later.' She did not punish me. She did not need to.\n\nParagraph 8\nOn Monday I returned Snowy to Mrs Lee's class. The other children crowded around the cage, asking whether she had enjoyed her holiday. 'Yes,' I said. 'She was very good.' Nobody knew. But I knew. From that week on, I checked the latch on every cage, every box, and every door I closed — twice, and then once more for safety.\n\n(AI-authored original narrative for O-Level 1184 §B style practice, simplified-band difficulty; not from a past exam. MRT: Mass Rapid Transit; void deck: the open ground floor of an HDB public-housing block; Tekka: a market in Little India.)",
       "questions": [
         {
           "n": 1,
-          "stem": "Q1. In Paragraph 1, what details show that the narrator was careful with Snowy on the way home? [1]",
-          "answer": "he carried the cage in both hands and sat carefully on the MRT all the way from Bedok back to his block in Tampines"
+          "stem": "Q1. From Paragraph 2, name one food the narrator gave Snowy in the morning. [1]",
+          "answer": "sunflower seeds",
+          "marks": 1
         },
         {
           "n": 2,
-          "stem": "Q2. In Paragraph 3, why did the narrator forget to check the latch on Snowy's cage? [1]",
-          "answer": "he was in a hurry because he had promised to meet his friend Daniel for football at four o'clock at the void deck, so he rushed through her feeding and ran out"
+          "stem": "Q2. What does the word 'desperate' (Paragraph 4) suggest about how the narrator felt as he searched? [1]",
+          "answer": "he was anxious and willing to try anything / had almost lost hope",
+          "marks": 1
         },
         {
           "n": 3,
-          "stem": "Q3. What is the effect of the phrase 'My heart fell straight down to my shoes' (Paragraph 4)? [1]",
-          "answer": "it vividly conveys the sudden shock and dread the narrator felt — his heart seemed to drop to the lowest part of his body, showing just how strongly the discovery hit him"
+          "stem": "Q3. What does the phrase 'in a whisper' (Paragraph 5) suggest about how the narrator was searching? [1]",
+          "answer": "quietly and secretly, so no one would hear / notice",
+          "marks": 1
         },
         {
           "n": 4,
-          "stem": "Q4. In Paragraph 5, why did the narrator call Snowy's name in a whisper? [1]",
-          "answer": "he did not want the neighbours to know what had happened / he was embarrassed and afraid of being found out, so he tried to search secretly"
+          "stem": "Q4. Using your own words, explain why the narrator forgot to check the latch on the cage. (Paragraph 3) [2]",
+          "answer": "① he was rushing because he had promised to meet Daniel for football; ② in his hurry he closed the door but did not stop to check it was locked",
+          "marks": 2
         },
         {
           "n": 5,
-          "stem": "Q5. Why is it important in Paragraph 6 that the chewed wire was 'bare but not damaged'? [1]",
-          "answer": "it shows that Snowy came dangerously close to being electrocuted but stopped just in time — the narrator realises how serious the consequences of his carelessness could have been"
+          "stem": "Q5. Using your own words, explain why the narrator did not want the neighbours to know. (Paragraph 5) [2]",
+          "answer": "① he felt embarrassed about losing the class hamster; ② he was afraid of being found out and judged, so he searched secretly",
+          "marks": 2
         },
         {
           "n": 6,
-          "stem": "Q6. What does his mother mean in Paragraph 7 when she says, 'Next time, you tell me when it happens. Not three days later'? [1]",
-          "answer": "she is teaching him that he should be honest with her at the moment a problem occurs rather than hiding it / she is more disappointed that he kept it a secret than that he made the mistake"
+          "stem": "Q6. Using your own words, explain why it matters that the chewed wire was 'bare but not damaged' (Paragraph 6). [2]",
+          "answer": "① Snowy came very close to a real danger / being electrocuted; ② she stopped just in time, so the narrator realises how serious his carelessness could have been",
+          "marks": 2
         },
         {
           "n": 7,
-          "stem": "Q7. What is the effect of the closing detail that he now checks every latch 'twice, and then once more for safety' (Paragraph 8)? [1]",
-          "answer": "it shows that he has truly learnt his lesson and become more careful and responsible — the careless boy at the start has changed into someone who checks his work thoroughly"
+          "stem": "Q7. What is the effect of the phrase 'My heart fell straight down to my shoes' (Paragraph 4)? [2]",
+          "answer": "it is an exaggeration / image that makes his shock and dismay vivid — it shows how suddenly and deeply his spirits dropped when he saw the empty cage",
+          "marks": 2
         }
       ]
     },

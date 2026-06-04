@@ -25,14 +25,15 @@ import { PrismaService } from '../common/prisma.service';
  *   options       = MCQ options for Ex 2; null otherwise
  */
 
-type ShortAnswerQ = { n: number; stem: string; answer: string };
+type ShortAnswerQ = { n: number; stem: string; answer: string; marks?: number };
 type MultiMatchQ = {
   n: number;
   stem: string;
   options: Array<{ key: string; text: string; correct: boolean }>;
   answer: string;
+  marks?: number;
 };
-type NotesQ = { n: number; stem: string; answer: string };
+type NotesQ = { n: number; stem: string; answer: string; marks?: number };
 
 type Section =
   | {
@@ -111,13 +112,14 @@ export class OlevelIngestService {
         }
 
         const built = this.buildQuestionData(section, q);
+        const marks = (q as { marks?: number }).marks ?? 1;
         const row = await this.prisma.question.create({
           data: {
             subjectId: subject.id,
             componentId: component.id,
             questionType: built.questionType,
-            marks: 1,
-            estimatedTimeMin: 1.5,
+            marks,
+            estimatedTimeMin: marks >= 3 ? 3 : marks === 2 ? 2 : 1.5,
             difficulty: 2,
             sourceType: 'past_paper_reference',
             sourceRef,

@@ -1,55 +1,67 @@
 {
-  "setCode": "ai_authored_olevel_simplified_21_drawing_v1",
+  "setCode": "ai_authored_olevel_simplified_21_drawing_v2",
   "paperNumber": 2,
-  "paperTitle": "Singapore-Cambridge GCE O-Level 1128 English Language — AI-authored Simplified Practice 21: The Drawing on the Wall (§B style, simplified band)",
+  "paperTitle": "Singapore-Cambridge GCE O-Level 1184 English Language — AI-authored Simplified Practice 21: The Drawing on the Wall (§B style, simplified band)",
   "provenanceTag": "ai_authored_olevel_1128_simplified",
   "sections": [
     {
       "exercise": 1,
-      "instruction": "Read the narrative text below about a Secondary 2 boy whose watercolour painting is shown at his school's Art Day mural exhibition under another student's name, and answer the questions that follow. Section B [10 marks] — AI-authored simplified practice paper modelled on the Singapore-Cambridge 1128/02 Section B format, pitched at students stretching from middle secondary toward the full O-Level standard. Original passage written for the morning quiz bank; not from a past exam paper. 6 short-answer items (Q1–Q6) and a 4-item flowchart MCQ (Q7) are included.",
+      "instruction": "Read the narrative text below about a Secondary 2 boy whose watercolour painting is shown at his school's Art Day mural exhibition under another student's name, and answer the questions that follow. Section B [15 marks] — AI-authored simplified practice paper modelled on the Singapore-Cambridge 1184/02 (formerly 1128) Section B format and calibrated to the SEAB assessment objectives (literal / inferential comprehension, vocabulary in context, language for effect), pitched at students stretching from middle secondary toward the full O-Level standard. Original passage written for the morning quiz bank; not from a past exam paper. Items mix mark values [1]/[2]: 7 short-answer questions (Q1-Q7) plus a 4-blank emotion-flowchart MCQ (Q8). Answer in your own words as far as possible.",
       "passageTitle": "The Drawing on the Wall",
-      "passage": "Paragraph 1\nFor three weeks in April, I had been painting the void deck below my block. I was in Sec 2, and the school had announced an Art Day mural exhibition. I chose the void deck because I sat there every afternoon waiting for my Po Po to bring my dinner. I painted the red mailbox, the green metal tables, and the old uncle who slept on the bench.\n\nParagraph 2\nOn Monday morning I came to school early. The paintings hung on the corridor wall outside the staff room — forty in a neat row, each with a small white label beneath. My heart was beating so fast I could feel it in my throat. I walked down the corridor looking for mine.\n\nParagraph 3\nI found it near the middle. There was my void deck — the red mailbox, the green tables, the sleeping uncle. But the label did not say my name. It said 'Tan Wei Xin, 2 Faith'. Tan Wei Xin was a Sec 2 girl I did not know. I stood there for a long minute. Then I read the label again, just in case the words had changed by themselves.\n\nParagraph 4\nMrs Lim, my art teacher, came past with a clipboard. She saw my face, looked at the label, and her hand went to her mouth. 'Oh no,' she said softly. 'Hong Wei, I am so sorry. The labels must have been swapped. I will fix it now.' She started to pull the label off the wall.\n\nParagraph 5\nI was about to say yes when something stopped me. The red mailbox was still mine. The green tables were still mine. The old uncle was still mine. The label was only the label. I said, 'Mrs Lim. It's okay. Just leave it.' My voice came out smaller than I had wanted. 'Are you sure?' she asked. I nodded.\n\nParagraph 6\nMrs Lim looked at me for a long moment. Then she pressed the label back and smoothed it with her thumb. 'But I am going to remember that this one is yours,' she said. She smiled and walked on.\n\nParagraph 7\nThat night, over rice and stir-fried kailan, I told my mother what had happened. She put down her chopsticks. She did not scold me. She only asked, 'Are you sad?' I thought for a moment, then said, 'No, Ma. I liked the painting more for having made it than for having my name under it.'\n\nParagraph 8\nMy mother nodded and picked up her chopsticks again. Outside, the sun was setting over the HDB blocks, and downstairs the old uncle was probably still asleep on his bench. I thought about him. I thought about the red mailbox. And I ate my rice.\n\n(AI-authored original narrative for O-Level 1128 §B style practice, simplified-band difficulty; not from a past examination paper. Po Po: maternal grandmother in Mandarin; void deck: the open ground floor of an HDB block; kailan: a Chinese leafy vegetable.)",
+      "passage": "Paragraph 1\nFor three weeks in April, I had been painting the void deck below my block. I was in Sec 2, and the school had announced an Art Day mural exhibition. I chose the void deck because I sat there every afternoon waiting for my Po Po to bring my dinner. I painted the red mailbox, the green metal tables, and the old uncle who slept on the bench.\n\nParagraph 2\nOn Monday morning I came to school early. The paintings hung on the corridor wall outside the staff room — forty in a neat row, each with a small white label beneath. My heart was beating so fast I could feel it in my throat. I walked down the corridor looking for mine.\n\nParagraph 3\nI found it near the middle. There was my void deck — the red mailbox, the green tables, the sleeping uncle. But the label did not say my name. It said 'Tan Wei Xin, 2 Faith'. Tan Wei Xin was a Sec 2 girl I did not know. I stood there for a long minute. Then I read the label again, just in case the words had changed by themselves.\n\nParagraph 4\nMrs Lim, my art teacher, came past with a clipboard. She saw my face, looked at the label, and her hand went to her mouth. 'Oh no,' she said softly. 'Hong Wei, I am so sorry. The labels must have been swapped. I will fix it now.' She started to pull the label off the wall.\n\nParagraph 5\nI was about to say yes when something stopped me. The red mailbox was still mine. The green tables were still mine. The old uncle was still mine. The label was only the label. I said, 'Mrs Lim. It's okay. Just leave it.' My voice came out smaller than I had wanted. 'Are you sure?' she asked. I nodded.\n\nParagraph 6\nMrs Lim looked at me for a long moment. Then she pressed the label back and smoothed it with her thumb. 'But I am going to remember that this one is yours,' she said. She smiled and walked on.\n\nParagraph 7\nThat night, over rice and stir-fried kailan, I told my mother what had happened. She put down her chopsticks. She did not scold me. She only asked, 'Are you sad?' I thought for a moment, then said, 'No, Ma. I liked the painting more for having made it than for having my name under it.'\n\nParagraph 8\nMy mother nodded and picked up her chopsticks again. Outside, the sun was setting over the HDB blocks, and downstairs the old uncle was probably still asleep on his bench. I thought about him. I thought about the red mailbox. And I ate my rice.\n\n(AI-authored original narrative for O-Level 1184 §B style practice, simplified-band difficulty; not from a past examination paper. Po Po: maternal grandmother in Mandarin; void deck: the open ground floor of an HDB block; kailan: a Chinese leafy vegetable.)",
       "questions": [
         {
           "n": 1,
-          "stem": "Q1. In Paragraph 1, why did the narrator choose to paint the void deck for the Art Day exhibition? [1]",
-          "answer": "he sat at the void deck every afternoon waiting for his Po Po to bring his dinner from the seventh floor, so it was a place he knew very well and felt close to"
+          "stem": "Q1. From Paragraph 1, what three things did the narrator paint at the void deck? [1]",
+          "answer": "the red mailbox, the green metal tables, and the old uncle on the bench",
+          "marks": 1
         },
         {
           "n": 2,
-          "stem": "Q2. In Paragraph 2, what is the effect of the detail 'My heart was beating so fast I could feel it in my throat'? [1]",
-          "answer": "it shows how excited and nervous the narrator was as he walked down the corridor to see his own painting on display for the first time"
+          "stem": "Q2. What does the phrase 'beating so fast I could feel it in my throat' (Paragraph 2) suggest about the narrator? [1]",
+          "answer": "he was very excited and nervous",
+          "marks": 1
         },
         {
           "n": 3,
-          "stem": "Q3. Why did the narrator 'read the label again, just in case the words had changed by themselves' (Paragraph 3)? [1]",
-          "answer": "he was so confused and unwilling to believe that his painting had been labelled with someone else's name that he hoped, unrealistically, that he had read it wrongly the first time"
+          "stem": "Q3. Using your own words, explain why the narrator chose to paint the void deck. (Paragraph 1) [2]",
+          "answer": "① he sat there every afternoon waiting for his Po Po; ② so it was a place he knew well and felt close to",
+          "marks": 2
         },
         {
           "n": 4,
-          "stem": "Q4. In Paragraph 5, what does the narrator mean when he says 'The label was only the label'? [1]",
-          "answer": "he realises that the painting itself — the red mailbox, the green tables, the old uncle — is what truly belongs to him, and that the small white name card on the wall is much less important than the work itself"
+          "stem": "Q4. What is the effect of the repetition 'The red mailbox was still mine. The green tables were still mine. The old uncle was still mine.' (Paragraph 5)? [2]",
+          "answer": "the repetition stresses that the painting itself truly belongs to him, making clear the name on the label matters far less than the work",
+          "marks": 2
         },
         {
           "n": 5,
-          "stem": "Q5. Why does Mrs Lim say 'I am going to remember that this one is yours' (Paragraph 6)? [1]",
-          "answer": "even though the public label will stay wrong, Mrs Lim wants the narrator to know that she personally will not forget who really painted it — it is her quiet way of honouring his choice"
+          "stem": "Q5. What does the word 'smoothed' (Paragraph 6) suggest about how Mrs Lim pressed the label back? [1]",
+          "answer": "gently and carefully",
+          "marks": 1
         },
         {
           "n": 6,
-          "stem": "Q6. What does the narrator's reply 'I liked the painting more for having made it than for having my name under it' (Paragraph 7) reveal about how he has changed? [1]",
-          "answer": "he has come to understand that the value of his work lies in the experience and effort of making it, not in public recognition — getting credit matters less to him now than the painting itself"
+          "stem": "Q6. Using your own words, explain why the narrator told Mrs Lim to leave the wrong label on the wall. (Paragraph 5) [2]",
+          "answer": "① he realised the painting was his no matter whose name was shown; ② so the label felt unimportant to him",
+          "marks": 2
+        },
+        {
+          "n": 7,
+          "stem": "Q7. Using your own words, explain how the narrator had changed by the time he answered his mother in Paragraph 7. [2]",
+          "answer": "① he now valued the painting for the joy of making it; ② rather than for the credit or his name being shown",
+          "marks": 2
         }
       ]
     },
     {
       "exercise": 2,
-      "instruction": "Q7. The narrator's main feeling shifts as the morning of Art Day unfolds. For each part of the passage, choose ONE word from the bank that best describes his dominant feeling at that moment. There are some extra words in the bank you do not need to use. Word bank: excited / confused / disappointed / at peace / angry / proud / bored / jealous. The original task carries 4 marks; each blank is split into its own MCQ so each sub-part can be auto-graded independently.",
+      "instruction": "Q8. The narrator's main feeling shifts as the morning of Art Day unfolds. For each part of the passage, choose ONE word from the bank that best describes his dominant feeling at that moment. There are some extra words in the bank you do not need to use. Word bank: excited / confused / disappointed / at peace / angry / proud / bored / jealous. The original task carries 4 marks; each blank is split into its own MCQ so each sub-part can be auto-graded independently.",
       "passage": "Refer to the same 'Drawing on the Wall' narrative in Exercise 1 above. The narrator's feelings shift over the morning — from excited as he hurries down the corridor to find his painting, to confused as he reads someone else's name beneath his own work, to disappointed as Mrs Lim apologises and he absorbs what has happened, ending at peace that evening as he tells his mother that the making of the painting mattered more than the name under it. Pick the single best word from the bank for each moment.",
       "questions": [
         {
-          "n": 7,
-          "stem": "Q7(i). What best describes the narrator's dominant feeling in Paragraph 2 as he walks down the corridor outside the staff room with his heart beating in his throat, looking for his own painting? [1]",
+          "n": 8,
+          "stem": "Q8(i). What best describes the narrator's dominant feeling in Paragraph 2 as he walks down the corridor outside the staff room with his heart beating in his throat, looking for his own painting? [1]",
           "options": [
             {"key": "A", "text": "excited", "correct": true},
             {"key": "B", "text": "confused", "correct": false},
@@ -60,11 +72,12 @@
             {"key": "G", "text": "bored", "correct": false},
             {"key": "H", "text": "jealous", "correct": false}
           ],
-          "answer": "A"
+          "answer": "A",
+          "marks": 1
         },
         {
-          "n": 8,
-          "stem": "Q7(ii). What best describes the narrator's dominant feeling in Paragraph 3 as he stands in front of his painting and reads 'Tan Wei Xin, 2 Faith' on the label, then reads it again 'just in case the words had changed by themselves'? [1]",
+          "n": 9,
+          "stem": "Q8(ii). What best describes the narrator's dominant feeling in Paragraph 3 as he stands in front of his painting and reads 'Tan Wei Xin, 2 Faith' on the label, then reads it again 'just in case the words had changed by themselves'? [1]",
           "options": [
             {"key": "A", "text": "excited", "correct": false},
             {"key": "B", "text": "confused", "correct": true},
@@ -75,11 +88,12 @@
             {"key": "G", "text": "bored", "correct": false},
             {"key": "H", "text": "jealous", "correct": false}
           ],
-          "answer": "B"
+          "answer": "B",
+          "marks": 1
         },
         {
-          "n": 9,
-          "stem": "Q7(iii). What best describes the narrator's dominant feeling in Paragraph 4 as Mrs Lim apologises, says 'Oh no' and starts to pull the wrong label off the wall? [1]",
+          "n": 10,
+          "stem": "Q8(iii). What best describes the narrator's dominant feeling in Paragraph 4 as Mrs Lim apologises, says 'Oh no' and starts to pull the wrong label off the wall? [1]",
           "options": [
             {"key": "A", "text": "excited", "correct": false},
             {"key": "B", "text": "confused", "correct": false},
@@ -90,11 +104,12 @@
             {"key": "G", "text": "bored", "correct": false},
             {"key": "H", "text": "jealous", "correct": false}
           ],
-          "answer": "C"
+          "answer": "C",
+          "marks": 1
         },
         {
-          "n": 10,
-          "stem": "Q7(iv). What best describes the narrator's dominant feeling in Paragraphs 7–8 that night as he tells his mother he liked the painting more for having made it than for having his name under it, and then quietly eats his rice? [1]",
+          "n": 11,
+          "stem": "Q8(iv). What best describes the narrator's dominant feeling in Paragraphs 7–8 that night as he tells his mother he liked the painting more for having made it than for having his name under it, and then quietly eats his rice? [1]",
           "options": [
             {"key": "A", "text": "excited", "correct": false},
             {"key": "B", "text": "confused", "correct": false},
@@ -105,7 +120,8 @@
             {"key": "G", "text": "bored", "correct": false},
             {"key": "H", "text": "jealous", "correct": false}
           ],
-          "answer": "D"
+          "answer": "D",
+          "marks": 1
         }
       ]
     }

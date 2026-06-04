@@ -222,49 +222,51 @@ export class ContentBootstrapService implements OnApplicationBootstrap {
         this.logger.warn(`could not retire legacy 0510 rows: ${e.message ?? e}`);
       }
 
-      // R10 followup pilot — DELETE stale singapore_olevel_1128
-      // rows whose sourceRef doesn't match the *current* fixture
-      // version (we use setCode versioning, e.g. `_admiralty_2021_v2`,
-      // so a content bump = a new prefix). This makes fixture edits
-      // idempotently take effect on the next boot. Once the pilot is
-      // stabilised we'll switch to upsert-by-sourceRef; for now the
-      // ingest service still does findFirst+skip, hence the explicit
-      // wipe step. Only active questions get deleted; if any have
-      // been answered by students (FK to AnswerScript), the delete
-      // throws and we fall through silently — the orphan rows will
-      // be retired by a later admin pass.
-      const CURRENT_OLEVEL_PREFIXES = [
-        'OLEVEL/singapore_olevel_1128_admiralty_2021_v2/',
-        'OLEVEL/singapore_olevel_1128_bedokview_2021_v2/',
-      ];
+      // Retire stale OLEVEL rows whose sourceRef doesn't match the
+      // *current* fixture version. We use setCode versioning (e.g.
+      // `…_last_lap_v1` → `…_last_lap_v2`), so a content recalibration =
+      // a new sourceRef prefix. The ingest service does findFirst+skip
+      // on existing sourceRefs, so without this step an edited-in-place
+      // fixture would never take effect — and a setCode bump would leave
+      // the OLD version still `active` in the picker's pool.
+      //
+      // Generic over all three OLEVEL provenance tags and computed from
+      // the payloads we're about to ingest, so it self-maintains as the
+      // bank evolves. We RETIRE (status → retired), never DELETE:
+      //   - no data loss (per the "never lose student data" rule);
+      //   - no FK risk (AnswerScript / PaperQuestion keep pointing at the
+      //     row; status is just a pool filter, and answered papers read
+      //     their own snapshot, not the live question);
+      //   - reversible if a fixture bump is ever rolled back.
       try {
-        // Pull all olevel-1128 rows then filter by JS — Prisma doesn't
-        // express "startsWith ANY of these prefixes" cleanly.
+        const currentPrefixes = olevelPapers.map(
+          (p) => `OLEVEL/${p.payload.setCode}/Paper${p.payload.paperNumber}/`,
+        );
         const all = await this.prisma.question.findMany({
-          where: { provenanceTag: 'singapore_olevel_1128' },
+          where: {
+            provenanceTag: {
+              in: [
+                'singapore_olevel_1128',
+                'ai_authored_olevel_1128',
+                'ai_authored_olevel_1128_simplified',
+              ],
+            },
+            status: 'active',
+          },
           select: { id: true, sourceRef: true },
         });
         const stale = all.filter(
-          (q) => !CURRENT_OLEVEL_PREFIXES.some((p) => q.sourceRef?.startsWith(p)),
+          (q) => !currentPrefixes.some((p) => q.sourceRef?.startsWith(p)),
         );
         if (stale.length > 0) {
-          // Best-effort delete; PaperQuestion FK + AnswerScript FK can block.
-          // Wrap each in try/catch so one bad row doesn't kill the batch.
-          let deleted = 0;
-          for (const s of stale) {
-            try {
-              await this.prisma.question.delete({ where: { id: s.id } });
-              deleted++;
-            } catch { /* row referenced by a paper or scripted; leave it */ }
-          }
-          if (deleted > 0) {
-            this.logger.log(`pruned ${deleted}/${stale.length} stale singapore_olevel_1128 row(s) from outdated fixture versions`);
-          } else if (stale.length > 0) {
-            this.logger.log(`${stale.length} stale singapore_olevel_1128 row(s) referenced by other tables — left in place (will be retired by next admin cleanup pass)`);
-          }
+          const r = await this.prisma.question.updateMany({
+            where: { id: { in: stale.map((s) => s.id) } },
+            data: { status: 'retired' },
+          });
+          this.logger.log(`retired ${r.count} stale OLEVEL row(s) from outdated fixture versions`);
         }
       } catch (e: any) {
-        this.logger.warn(`could not prune stale singapore_olevel_1128 rows: ${e.message ?? e}`);
+        this.logger.warn(`could not retire stale OLEVEL rows: ${e.message ?? e}`);
       }
 
       let olCreated = 0;

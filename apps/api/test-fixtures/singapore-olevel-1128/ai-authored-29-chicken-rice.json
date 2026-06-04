@@ -1,64 +1,74 @@
 {
-  "setCode": "ai_authored_olevel_29_chicken_rice_v1",
+  "setCode": "ai_authored_olevel_29_chicken_rice_v2",
   "paperNumber": 2,
-  "paperTitle": "Singapore-Cambridge GCE O-Level 1128 English Language — AI-authored Practice Paper 29: Ah Ma's Chicken Rice (Paper 2 §B style)",
+  "paperTitle": "Singapore-Cambridge GCE O-Level 1184 English Language — AI-authored Practice Paper 29: Ah Ma's Chicken Rice (Paper 2 §B style)",
   "provenanceTag": "ai_authored_olevel_1128",
   "sections": [
     {
       "exercise": 1,
-      "instruction": "Read the narrative text below about a Secondary Four boy who learns to cook his grandmother's Hainanese chicken rice in a Singapore HDB kitchen as her memory begins to fail, and answer the questions that follow. Section B [14 marks] — AI-authored practice paper modelled on the Singapore-Cambridge 1128/02 Section B format. Original passage written for the morning quiz bank; not from a past exam paper. 10 short-answer items (Q1–Q10) on language use and inference, plus a 4-item flowchart MCQ (Q11) on the narrator's emotion arc, are included.",
+      "instruction": "Read the narrative text below about a Secondary Four boy who learns to cook his grandmother's Hainanese chicken rice in a Singapore HDB kitchen as her memory begins to fail, and answer the questions that follow. Section B [19 marks] — AI-authored practice paper modelled on the Singapore-Cambridge 1184/02 (formerly 1128) Section B format and calibrated to the SEAB assessment objectives (literal / inferential comprehension, vocabulary in context, language for effect). Original passage written for the morning quiz bank; not from a past exam paper. Items mix mark values [1]/[2] as in the real paper: 10 short-answer questions (Q1-Q10 — 2 literal, 3 vocabulary, 3 inference, 2 language-for-effect) plus a 4-blank emotion-flowchart MCQ (Q11). Answer in your own words as far as possible.",
       "passageTitle": "Ah Ma's Chicken Rice",
-      "passage": "Paragraph 1\nMy mother announced it over dinner on a Tuesday, the way she announced most things that were not really up for discussion. 'This Sunday you will learn to make Ah Ma's chicken rice.' I groaned into my bowl. I had three chapters of chemistry to revise and a football match I had been waiting all term to watch. Cooking a chicken with my grandmother was, I decided, the last thing I wanted to spend a Sunday doing. But my mother had already turned back to her own rice, and the matter, as far as she was concerned, was closed.\n\nParagraph 2\nAh Ma had cooked Hainanese chicken rice every Sunday for forty years — first in a kampung kitchen, then in this three-room flat in Toa Payoh — the smell of pandan and ginger drifting down the corridor so that the neighbours always knew what day it was. But that spring she had begun to forget things. Small things at first: where she had left her spectacles, whether she had taken her medicine. Then larger things. The week before, she had called me by my late uncle's name without noticing. My mother had stopped explaining; she had simply started writing labels on the kitchen drawers.\n\nParagraph 3\nSo on Sunday morning I stood in Ah Ma's narrow kitchen, the window fan pushing the warm air around, and watched her hands. They moved without her thinking. She rubbed the whole chicken with coarse salt, then with a halved lime, working it into the skin in slow circles. 'You wash away the smell, then you put back the taste,' she said, though I was not sure she was speaking to me. She pressed a thumb of ginger flat with the cleaver. Her hands did not shake. Her hands remembered.\n\nParagraph 4\nI tried to follow. I rubbed too hard and tore the skin. I crushed the ginger to a pulp instead of a bruise. Ah Ma watched me with a patience she had never shown when I was small and underfoot. 'Not so angry,' she said, taking my wrist and slowing it. 'The chicken is not your enemy.' For the first time that morning I stopped thinking about the football match. I watched her lower the bird into water that was barely trembling, not boiling — 'boiling makes it tough, you want it just smiling' — and I wrote the words on the back of my chemistry notes.\n\nParagraph 5\nThen, halfway through, something went wrong. Ah Ma stood at the stove holding the ladle and stared into the pot as though she had never seen it before. 'What are we making?' she asked. Her voice was small. I told her, gently, that we were making chicken rice, her chicken rice, the one she made every Sunday. She looked at me, and for a long moment I could see her searching for something that would not come. Then her hand found the pandan leaves on the counter, tied them into a knot without being told, and dropped them into the rice, and her face cleared. Her hands had remembered what her mind had let go.\n\nParagraph 6\nWe ate at noon, three generations around the small table — Ah Ma, my mother, and me. The rice was fragrant, each grain separate and glossy with chicken fat and ginger. Ah Ma tasted it and nodded once. 'A bit more salt next time,' she said to me, and it was the proudest I had felt in years, prouder than any test result, because she had said next time, and next time meant she trusted me to do it again.\n\nParagraph 7\nThat was in March. By June, Ah Ma did not come into the kitchen anymore. She sat by the window, watching the void deck below; some days she knew my name and some days she did not. So on Sundays I cooked. I rubbed the chicken with salt and lime, pressed the ginger flat, knotted the pandan leaves and lowered the bird into water that was just smiling — and I let the smell drift down the corridor so that the neighbours would still know what day it was.\n\nParagraph 8\nIt was never quite as good as hers. The skin was a shade less silky, the rice a little less fragrant; there was always something I could not name that was missing. But one Sunday Ah Ma walked slowly to the table, drawn perhaps by the smell, sat down, and tasted a spoonful of the rice I had made. She did not call me by the right name. She said nothing for a while. Then she patted the back of my hand, twice, the way she used to when I was small, and went on eating. I understood then that the recipe had never really been about the chicken. It had been her way of feeding us love without having to say the word, and now, clumsily, it had become mine.\n\n(AI-authored original narrative for O-Level 1128 §B style practice; not from a past examination paper. Hainanese chicken rice: a Singaporean dish of poached chicken served with rice cooked in chicken stock; kampung: a traditional village; pandan: a fragrant tropical leaf used in Southeast Asian cooking; void deck: the open ground floor of an HDB block; HDB: Housing and Development Board public flats where most Singaporeans live.)",
+      "passage": "Paragraph 1\nMy mother announced it over dinner on a Tuesday, the way she announced most things that were not really up for discussion. 'This Sunday you will learn to make Ah Ma's chicken rice.' I groaned into my bowl. I had three chapters of chemistry to revise and a football match I had been waiting all term to watch. Cooking a chicken with my grandmother was, I decided, the last thing I wanted to spend a Sunday doing. But my mother had already turned back to her own rice, and the matter, as far as she was concerned, was closed.\n\nParagraph 2\nAh Ma had cooked Hainanese chicken rice every Sunday for forty years — first in a kampung kitchen, then in this three-room flat in Toa Payoh — the smell of pandan and ginger drifting down the corridor so that the neighbours always knew what day it was. But that spring she had begun to forget things. Small things at first: where she had left her spectacles, whether she had taken her medicine. Then larger things. The week before, she had called me by my late uncle's name without noticing. My mother had stopped explaining; she had simply started writing labels on the kitchen drawers.\n\nParagraph 3\nSo on Sunday morning I stood in Ah Ma's narrow kitchen, the window fan pushing the warm air around, and watched her hands. They moved without her thinking. She rubbed the whole chicken with coarse salt, then with a halved lime, working it into the skin in slow circles. 'You wash away the smell, then you put back the taste,' she said, though I was not sure she was speaking to me. She pressed a thumb of ginger flat with the cleaver. Her hands did not shake. Her hands remembered.\n\nParagraph 4\nI tried to follow. I rubbed too hard and tore the skin. I crushed the ginger to a pulp instead of a bruise. Ah Ma watched me with a patience she had never shown when I was small and underfoot. 'Not so angry,' she said, taking my wrist and slowing it. 'The chicken is not your enemy.' For the first time that morning I stopped thinking about the football match. I watched her lower the bird into water that was barely trembling, not boiling — 'boiling makes it tough, you want it just smiling' — and I wrote the words on the back of my chemistry notes.\n\nParagraph 5\nThen, halfway through, something went wrong. Ah Ma stood at the stove holding the ladle and stared into the pot as though she had never seen it before. 'What are we making?' she asked. Her voice was small. I told her, gently, that we were making chicken rice, her chicken rice, the one she made every Sunday. She looked at me, and for a long moment I could see her searching for something that would not come. Then her hand found the pandan leaves on the counter, tied them into a knot without being told, and dropped them into the rice, and her face cleared. Her hands had remembered what her mind had let go.\n\nParagraph 6\nWe ate at noon, three generations around the small table — Ah Ma, my mother, and me. The rice was fragrant, each grain separate and glossy with chicken fat and ginger. Ah Ma tasted it and nodded once. 'A bit more salt next time,' she said to me, and it was the proudest I had felt in years, prouder than any test result, because she had said next time, and next time meant she trusted me to do it again.\n\nParagraph 7\nThat was in March. By June, Ah Ma did not come into the kitchen anymore. She sat by the window, watching the void deck below; some days she knew my name and some days she did not. So on Sundays I cooked. I rubbed the chicken with salt and lime, pressed the ginger flat, knotted the pandan leaves and lowered the bird into water that was just smiling — and I let the smell drift down the corridor so that the neighbours would still know what day it was.\n\nParagraph 8\nIt was never quite as good as hers. The skin was a shade less silky, the rice a little less fragrant; there was always something I could not name that was missing. But one Sunday Ah Ma walked slowly to the table, drawn perhaps by the smell, sat down, and tasted a spoonful of the rice I had made. She did not call me by the right name. She said nothing for a while. Then she patted the back of my hand, twice, the way she used to when I was small, and went on eating. I understood then that the recipe had never really been about the chicken. It had been her way of feeding us love without having to say the word, and now, clumsily, it had become mine.\n\n(AI-authored original narrative for O-Level 1184 §B style practice; not from a past examination paper. Hainanese chicken rice: a Singaporean dish of poached chicken served with rice cooked in chicken stock; kampung: a traditional village; pandan: a fragrant tropical leaf used in Southeast Asian cooking; void deck: the open ground floor of an HDB block; HDB: Housing and Development Board public flats where most Singaporeans live.)",
       "questions": [
         {
           "n": 1,
-          "stem": "Q1. In Paragraph 1, why was the narrator unenthusiastic about his mother's announcement? [1]",
-          "answer": "he had three chapters of chemistry to revise and a football match he had been looking forward to all term, so spending the Sunday cooking with his grandmother felt like the last thing he wanted to do"
+          "stem": "Q1. From Paragraph 1, give the two things the narrator would rather have done with his Sunday than cook with his grandmother. [1]",
+          "answer": "revise chemistry and watch the football match",
+          "marks": 1
         },
         {
           "n": 2,
-          "stem": "Q2. In Paragraph 2, what is the effect of the detail that the smell of Ah Ma's cooking drifted down the corridor 'so that the neighbours always knew what day it was'? [1]",
-          "answer": "it shows how regular and dependable Ah Ma's Sunday cooking was — it had become a fixed part of the community's rhythm, marking the day as reliably as a clock, which emphasises the loss when that routine begins to break down"
+          "stem": "Q2. From Paragraph 2, how long had Ah Ma cooked Hainanese chicken rice every Sunday? [1]",
+          "answer": "forty years",
+          "marks": 1
         },
         {
           "n": 3,
-          "stem": "Q3. In Paragraph 2, what does it suggest about Ah Ma's condition that the narrator's mother 'had stopped explaining; she had simply started writing labels on the kitchen drawers'? [1]",
-          "answer": "it suggests Ah Ma's forgetfulness had become serious and lasting rather than occasional — the mother no longer tries to reason with it or talk Ah Ma through it, but instead quietly adapts the home to help her cope, showing the family has accepted the decline"
+          "stem": "Q3. What does the word 'drifting' in 'the smell of pandan and ginger drifting down the corridor' (Paragraph 2) suggest about how the smell travelled? [1]",
+          "answer": "it floated along gently and slowly",
+          "marks": 1
         },
         {
           "n": 4,
-          "stem": "Q4. What is the effect of the repeated short sentences 'Her hands did not shake. Her hands remembered.' (Paragraph 3)? [1]",
-          "answer": "the short, parallel sentences create a firm, certain tone that contrasts with Ah Ma's failing memory — they stress that the skill lives in her body through years of practice, so her hands stay sure and capable even as her mind weakens"
+          "stem": "Q4. What does the word 'trembling' in 'water that was barely trembling, not boiling' (Paragraph 4) suggest about the water? [1]",
+          "answer": "it was only just moving, almost still",
+          "marks": 1
         },
         {
           "n": 5,
-          "stem": "Q5. In Paragraph 4, what does Ah Ma mean when she says 'Not so angry... The chicken is not your enemy'? [1]",
-          "answer": "she means the narrator is being too rough and forceful in his movements, treating the cooking as a task to fight through; he needs to slow down and handle the ingredients gently and patiently rather than with frustration"
+          "stem": "Q5. What does the word 'silky' in 'The skin was a shade less silky' (Paragraph 8) suggest about Ah Ma's chicken skin compared with the narrator's? [1]",
+          "answer": "hers was smoother / softer and more tender",
+          "marks": 1
         },
         {
           "n": 6,
-          "stem": "Q6. Why does the narrator write Ah Ma's words down 'on the back of my chemistry notes' (Paragraph 4)? [1]",
-          "answer": "his attitude has shifted from reluctance to genuine attention — he now wants to capture and remember exactly what she says, treating her cooking instructions as worth recording, even using the very notes he had earlier resented giving up his Sunday for"
+          "stem": "Q6. Using your own words, explain what the mother's choice to 'stop explaining' and 'start writing labels on the kitchen drawers' (Paragraph 2) shows about Ah Ma's condition. [2]",
+          "answer": "① her forgetfulness had become serious and lasting, not occasional; ② the family had given up reasoning with it and instead adapted the home to help her cope",
+          "marks": 2
         },
         {
           "n": 7,
-          "stem": "Q7. In Paragraph 5, what is the significance of Ah Ma tying the pandan leaves into a knot 'without being told' just after she had forgotten what they were making? [1]",
-          "answer": "it shows that the cooking is so deeply ingrained in her through decades of repetition that her hands carry out the steps automatically even when her conscious memory fails — the skill survives in her muscle memory after the knowledge has slipped away, which is both moving and reassuring"
+          "stem": "Q7. Using your own words, explain why it is significant that Ah Ma tied the pandan leaves into a knot 'without being told' just after she forgot what they were making (Paragraph 5). [2]",
+          "answer": "① decades of repetition had fixed the steps in her hands; ② so her body carried out the task automatically even when her conscious memory had failed",
+          "marks": 2
         },
         {
           "n": 8,
-          "stem": "Q8. In Paragraph 6, why does Ah Ma's comment 'A bit more salt next time' make the narrator feel proud — 'prouder than any test result'? [1]",
-          "answer": "the words 'next time' imply that Ah Ma trusts him enough to expect him to cook the dish again; this faith in him, and his place in carrying on her tradition, means more to him than any academic achievement because it is personal and shows he has been accepted as her successor"
+          "stem": "Q8. Using your own words, explain what the narrator finally understands in the last paragraph when he says 'the recipe had never really been about the chicken' (Paragraph 8). [2]",
+          "answer": "① the dish was Ah Ma's way of showing love without saying it; ② by learning to cook it he has taken on that role of caring for the family",
+          "marks": 2
         },
         {
           "n": 9,
-          "stem": "Q9. In Paragraph 7, why does the narrator make a point of letting the smell 'drift down the corridor so that the neighbours would still know what day it was'? [1]",
-          "answer": "he is deliberately preserving Ah Ma's tradition and the rhythm she gave the neighbourhood now that she can no longer cook — by keeping the Sunday routine alive he is honouring her and refusing to let that part of her, and of family life, fade away"
+          "stem": "Q9. What is the effect of the repeated short sentences 'Her hands did not shake. Her hands remembered.' (Paragraph 3)? [2]",
+          "answer": "the short, parallel sentences create a firm, certain tone that contrasts with her failing mind — stressing that the skill lives in her body and stays sure even as her memory weakens",
+          "marks": 2
         },
         {
           "n": 10,
-          "stem": "Q10. What does the narrator come to understand in the final paragraph when he says 'the recipe had never really been about the chicken'? [1]",
-          "answer": "he realises the dish was Ah Ma's way of expressing and giving love to her family without ever needing to say it in words; in learning to cook it himself, he has taken on not just the recipe but that role of caring for and feeding the family, so the love and the tradition pass to him"
+          "stem": "Q10. What is the effect of Ah Ma's description of the cooking water — 'you want it just smiling' (Paragraph 4)? [2]",
+          "answer": "the personification makes the gentle, barely-moving water vivid and warm — it captures her tender, almost loving way of cooking and makes her advice easy to picture",
+          "marks": 2
         }
       ]
     },
@@ -80,7 +90,8 @@
             {"key": "G", "text": "triumphant", "correct": false},
             {"key": "H", "text": "indifferent", "correct": false}
           ],
-          "answer": "A"
+          "answer": "A",
+          "marks": 1
         },
         {
           "n": 12,
@@ -95,7 +106,8 @@
             {"key": "G", "text": "triumphant", "correct": false},
             {"key": "H", "text": "indifferent", "correct": false}
           ],
-          "answer": "B"
+          "answer": "B",
+          "marks": 1
         },
         {
           "n": 13,
@@ -110,7 +122,8 @@
             {"key": "G", "text": "triumphant", "correct": false},
             {"key": "H", "text": "indifferent", "correct": false}
           ],
-          "answer": "C"
+          "answer": "C",
+          "marks": 1
         },
         {
           "n": 14,
@@ -125,7 +138,8 @@
             {"key": "G", "text": "triumphant", "correct": false},
             {"key": "H", "text": "indifferent", "correct": false}
           ],
-          "answer": "D"
+          "answer": "D",
+          "marks": 1
         }
       ]
     }

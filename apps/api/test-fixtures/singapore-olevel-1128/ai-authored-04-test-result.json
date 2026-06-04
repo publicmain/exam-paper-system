@@ -1,69 +1,74 @@
 {
-  "setCode": "ai_authored_olevel_04_test_result_v1",
+  "setCode": "ai_authored_olevel_04_test_result_v2",
   "paperNumber": 2,
-  "paperTitle": "Singapore-Cambridge GCE O-Level 1128 English Language — AI-authored Practice Paper 04: The Test Result (Paper 2 §B style)",
+  "paperTitle": "Singapore-Cambridge GCE O-Level 1184 English Language — AI-authored Practice Paper 04: The Test Result (Paper 2 §B style)",
   "provenanceTag": "ai_authored_olevel_1128",
   "sections": [
     {
       "exercise": 1,
-      "instruction": "Read the narrative text below about a 16-year-old girl checking her O-Level results alone in her empty flat, and answer the questions that follow. Section B [14 marks] — AI-authored practice paper modelled on the Singapore-Cambridge 1128/02 Section B format. Original passage written for the morning quiz bank; not from a past exam paper. 10 short-answer items (Q1–Q10) on language use and inference, plus a 4-item flowchart MCQ (Q11) on the narrator's emotion arc, are included.",
+      "instruction": "Read the narrative text below about a 16-year-old girl checking her O-Level results alone in her empty flat, and answer the questions that follow. Section B [19 marks] — AI-authored practice paper modelled on the Singapore-Cambridge 1184/02 (formerly 1128) Section B format and calibrated to the SEAB assessment objectives (literal / inferential comprehension, vocabulary in context, language for effect). Original passage written for the morning quiz bank; not from a past exam paper. Items mix mark values [1]/[2] as in the real paper: 10 short-answer questions (Q1-Q10) — 2 literal, 3 vocabulary-in-context, 3 inference, 2 language-for-effect — plus a 4-blank emotion-flowchart MCQ (Q11). Answer in your own words as far as possible.",
       "passageTitle": "The Test Result",
-      "passage": "Paragraph 1\nIt was three days before Chinese New Year, the morning of O-Level results day. The flat was empty. Her parents had both gone to work — they had asked if she wanted them to take leave, and she had said no. She wanted to do this alone.\n\nParagraph 2\nShe had memorised every paper she had sat. She could recite, in order, which questions she had rushed, which questions she had probably gotten wrong, which answers she had changed at the last minute and regretted. The mathematics paper 2 — she had spent fifteen minutes on a vector question she should have skipped.\n\nParagraph 3\nAt 8.59 a.m., her phone began to buzz. Wei from her form class: 'Have you checked?' Lina from CCA: 'OMG check now'. Even her old Primary 6 friend Marcus: 'Today right?' She put the phone in a drawer and slid the drawer shut.\n\nParagraph 4\nShe opened her laptop. The SEAB portal. She typed her IC number into the box. Her fingers were shaking; she got it wrong twice, having to delete and start again. On the third try the portal accepted her. She entered her date of birth. The page loaded.\n\nParagraph 5\nSix subjects, each with a small grey box, each with a single letter inside. English: B3. Mathematics: A2. Chinese: C5. Physics: A1. Chemistry: B3. Geography: A2. She read the grades. Then she read them again. Then a third time.\n\nParagraph 6\nShe did not feel what she had expected to feel. She had imagined she would either cry from disappointment or scream from joy. Instead she sat very still. The results were better than her worst guess. They were also worse than the silent hope she had carried for the last three months.\n\nParagraph 7\nShe picked up her phone and called her mother. Her mother picked up on the first ring. 'How was it?' her mother asked. 'I passed,' Mei said. There was a small pause. 'Are you all right?' 'Yes,' Mei said. 'I'm all right.' Her mother did not ask for the grades. She understood the rest.\n\nParagraph 8\nShe opened her bedroom window. Six floors down, in the void deck, a primary school child was wailing about something — a dropped ice cream, a missing toy, she could not tell. The mother was kneeling, comforting him. Mei watched them for a long moment. Then she smiled. It was her first smile of the day.\n\n(AI-authored original narrative for O-Level 1128 §B style practice; not from a past examination paper. SEAB: Singapore Examinations and Assessment Board; void deck: the empty open ground floor of a Singapore HDB block; CCA: co-curricular activity.)",
+      "passage": "Paragraph 1\nIt was three days before Chinese New Year, the morning of O-Level results day. The flat was empty. Her parents had both gone to work — they had asked if she wanted them to take leave, and she had said no. She wanted to do this alone.\n\nParagraph 2\nShe had memorised every paper she had sat. She could recite, in order, which questions she had rushed, which questions she had probably gotten wrong, which answers she had changed at the last minute and regretted. The mathematics paper 2 — she had spent fifteen minutes on a vector question she should have skipped.\n\nParagraph 3\nAt 8.59 a.m., her phone began to buzz. Wei from her form class: 'Have you checked?' Lina from CCA: 'OMG check now'. Even her old Primary 6 friend Marcus: 'Today right?' She put the phone in a drawer and slid the drawer shut.\n\nParagraph 4\nShe opened her laptop. The SEAB portal. She typed her IC number into the box. Her fingers were shaking; she got it wrong twice, having to delete and start again. On the third try the portal accepted her. She entered her date of birth. The page loaded.\n\nParagraph 5\nSix subjects, each with a small grey box, each with a single letter inside. English: B3. Mathematics: A2. Chinese: C5. Physics: A1. Chemistry: B3. Geography: A2. She read the grades. Then she read them again. Then a third time.\n\nParagraph 6\nShe did not feel what she had expected to feel. She had imagined she would either cry from disappointment or scream from joy. Instead she sat very still. The results were better than her worst guess. They were also worse than the silent hope she had carried for the last three months.\n\nParagraph 7\nShe picked up her phone and called her mother. Her mother picked up on the first ring. 'How was it?' her mother asked. 'I passed,' Mei said. There was a small pause. 'Are you all right?' 'Yes,' Mei said. 'I'm all right.' Her mother did not ask for the grades. She understood the rest.\n\nParagraph 8\nShe opened her bedroom window. Six floors down, in the void deck, a primary school child was wailing about something — a dropped ice cream, a missing toy, she could not tell. The mother was kneeling, comforting him. Mei watched them for a long moment. Then she smiled. It was her first smile of the day.\n\n(AI-authored original narrative for O-Level 1184 §B style practice; not from a past examination paper. SEAB: Singapore Examinations and Assessment Board; void deck: the empty open ground floor of a Singapore HDB block; CCA: co-curricular activity.)",
       "questions": [
         {
           "n": 1,
-          "stem": "Q1. In Paragraph 1, why was the flat empty on the morning of results day? [1]",
-          "answer": "her parents had both gone to work because she had told them not to take leave — she wanted to receive her results alone"
+          "stem": "Q1. From Paragraph 1, what reason did the narrator give her parents for not wanting them to take leave? [1]",
+          "answer": "she wanted to do this alone",
+          "marks": 1
         },
         {
           "n": 2,
-          "stem": "Q2(a). What does the level of detail in Paragraph 2 ('which questions she had rushed, which questions she had probably gotten wrong, which answers she had changed at the last minute and regretted') suggest about the narrator? [1]",
-          "answer": "she has been obsessively replaying her papers in her head — she is deeply anxious about every small decision she made"
+          "stem": "Q2. What does the word 'recite' in 'She could recite, in order, which questions she had rushed' (Paragraph 2) suggest about how well she remembered the papers? [1]",
+          "answer": "she remembered them perfectly / by heart",
+          "marks": 1
         },
         {
           "n": 3,
-          "stem": "Q2(b). Which single detail in Paragraph 2 most clearly shows the narrator's regret about a specific exam decision? [1]",
-          "answer": "the fifteen minutes she spent on a vector question she should have skipped (Mathematics Paper 2)"
+          "stem": "Q3. Using your own words, explain why the narrator wanted to check her results by herself, without her parents present. (Paragraph 1) [2]",
+          "answer": "① it was a deeply personal moment she felt she had to face on her own; ② she did not want anyone watching her reaction as she found out",
+          "marks": 2
         },
         {
           "n": 4,
-          "stem": "Q3. In Paragraph 3, why did the narrator put her phone in a drawer and slide it shut? [1]",
-          "answer": "she did not want to be distracted by her friends' messages — she wanted to face her results alone, without their reactions getting in first"
+          "stem": "Q4. From Paragraph 4, what did the narrator type into the SEAB portal to log in? [1]",
+          "answer": "her IC number and her date of birth",
+          "marks": 1
         },
         {
           "n": 5,
-          "stem": "Q4. What is the effect of the detail that the narrator typed her IC number 'wrong twice' before getting in (Paragraph 4)? [1]",
-          "answer": "it shows physically how nervous she is — her body is betraying her anxiety even though she is trying to act calm and decisive"
+          "stem": "Q5. What does the word 'shaking' in 'Her fingers were shaking' (Paragraph 4) suggest about the narrator's state at that moment? [1]",
+          "answer": "she was very nervous / tense",
+          "marks": 1
         },
         {
           "n": 6,
-          "stem": "Q5. In Paragraph 5, why did the narrator read her grades 'Then she read them again. Then a third time'? [1]",
-          "answer": "she was struggling to absorb the information / she could not quite believe what she was seeing on the first glance and needed to make sure the result was real"
+          "stem": "Q6. Using your own words, explain why the narrator put her phone in a drawer and slid it shut. (Paragraph 3) [2]",
+          "answer": "① she did not want to be distracted by her friends' messages; ② she wanted to face her results alone, before anyone else's reaction reached her",
+          "marks": 2
         },
         {
           "n": 7,
-          "stem": "Q6. In Paragraph 6, what had the narrator expected to feel, and why was the actual feeling different? [1]",
-          "answer": "she had expected to either cry from disappointment or scream from joy — extreme emotions in one direction or the other. The actual mixed result (better than her worst guess but worse than her silent hope) left her unable to feel either way"
+          "stem": "Q7. What is the effect of the detail that the narrator typed her IC number 'wrong twice' before getting in (Paragraph 4)? [2]",
+          "answer": "it shows physically how nervous she is — her shaking hands betray her anxiety even as she tries to act calm and in control",
+          "marks": 2
         },
         {
           "n": 8,
-          "stem": "Q7. In Paragraph 7, why did Mei say 'I passed' instead of telling her mother her actual grades? [1]",
-          "answer": "'I passed' was the truest summary she could give in the moment — she did not want to discuss specifics yet, and she trusted her mother to hear her tone and not press for the numbers"
+          "stem": "Q8. Using your own words, explain how Mei's mother 'understood the rest' at the end of Paragraph 7. [2]",
+          "answer": "① she sensed from Mei's restrained tone of voice that the result was acceptable but not what Mei had hoped for; ② so she did not press for the actual grades",
+          "marks": 2
         },
         {
           "n": 9,
-          "stem": "Q8. At the end of Paragraph 7, how did Mei's mother 'understand the rest'? [1]",
-          "answer": "she could tell from her daughter's restrained tone of voice that the result was acceptable but not what Mei had been hoping for, so she did not push for the grades"
+          "stem": "Q9. What does the word 'wailing' mean in Paragraph 8? [1]",
+          "answer": "crying loudly and with distress",
+          "marks": 1
         },
         {
           "n": 10,
-          "stem": "Q9. What does the word 'wailing' mean in Paragraph 8? [1]",
-          "answer": "crying loudly and with distress / making a long, loud cry"
-        },
-        {
-          "n": 11,
-          "stem": "Q10. What is the effect of ending the passage with the image of the wailing child and Mei's first smile of the day? [1]",
-          "answer": "it puts Mei's own disappointment into perspective — the child's intense distress over a small thing reminds her that her grades will also feel smaller with time, allowing her to smile for the first time"
+          "stem": "Q10. What is the effect of ending the passage with the image of the wailing child and Mei's first smile of the day? [2]",
+          "answer": "it puts her own disappointment into perspective — the child's loud distress over something small reminds her that her grades, too, will matter less with time, freeing her to smile at last",
+          "marks": 2
         }
       ]
     },
@@ -73,7 +78,7 @@
       "passage": "Refer to the same 'Test Result' narrative in Exercise 1 above. The narrator's feelings shift across the morning — from anxiety as she silences her phone and types her IC with shaking fingers, to numbness as she reads the grades three times unable to feel anything, to quiet relief when her mother accepts 'I passed' without asking for numbers, ending settled as she sees a wailing child in the void deck and finally smiles. Pick the single best word from the bank for each moment.",
       "questions": [
         {
-          "n": 12,
+          "n": 11,
           "stem": "Q11(i). What best describes the narrator's dominant feeling in Paragraphs 3-4, as she silences her phone in a drawer and types her IC wrong twice with shaking fingers before the SEAB portal lets her in? [1]",
           "options": [
             {"key": "A", "text": "anxious", "correct": true},
@@ -85,10 +90,11 @@
             {"key": "G", "text": "settled", "correct": false},
             {"key": "H", "text": "hopeful", "correct": false}
           ],
-          "answer": "A"
+          "answer": "A",
+          "marks": 1
         },
         {
-          "n": 13,
+          "n": 12,
           "stem": "Q11(ii). What best describes the narrator's dominant feeling in Paragraphs 5-6, reading her grades three times and sitting very still, unable to either cry from disappointment or scream from joy as she had expected? [1]",
           "options": [
             {"key": "A", "text": "anxious", "correct": false},
@@ -100,10 +106,11 @@
             {"key": "G", "text": "settled", "correct": false},
             {"key": "H", "text": "hopeful", "correct": false}
           ],
-          "answer": "B"
+          "answer": "B",
+          "marks": 1
         },
         {
-          "n": 14,
+          "n": 13,
           "stem": "Q11(iii). What best describes the narrator's dominant feeling in Paragraph 7, after her mother accepts 'I passed' without asking for grades and understands the rest from her tone? [1]",
           "options": [
             {"key": "A", "text": "anxious", "correct": false},
@@ -115,10 +122,11 @@
             {"key": "G", "text": "settled", "correct": false},
             {"key": "H", "text": "hopeful", "correct": false}
           ],
-          "answer": "C"
+          "answer": "C",
+          "marks": 1
         },
         {
-          "n": 15,
+          "n": 14,
           "stem": "Q11(iv). What best describes the narrator's dominant feeling in Paragraph 8, watching the wailing child in the void deck below her window and smiling for the first time that day? [1]",
           "options": [
             {"key": "A", "text": "anxious", "correct": false},
@@ -130,7 +138,8 @@
             {"key": "G", "text": "settled", "correct": true},
             {"key": "H", "text": "hopeful", "correct": false}
           ],
-          "answer": "G"
+          "answer": "G",
+          "marks": 1
         }
       ]
     }

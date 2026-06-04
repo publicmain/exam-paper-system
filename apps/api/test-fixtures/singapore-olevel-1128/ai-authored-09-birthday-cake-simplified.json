@@ -1,55 +1,67 @@
 {
-  "setCode": "ai_authored_olevel_simplified_09_birthday_cake_v1",
+  "setCode": "ai_authored_olevel_simplified_09_birthday_cake_v2",
   "paperNumber": 2,
-  "paperTitle": "Singapore-Cambridge GCE O-Level 1128 English Language — AI-authored Simplified Practice 09: The Birthday Cake (§B style, simplified band)",
+  "paperTitle": "Singapore-Cambridge GCE O-Level 1184 English Language — AI-authored Simplified Practice 09: The Birthday Cake (§B style, simplified band)",
   "provenanceTag": "ai_authored_olevel_1128_simplified",
   "sections": [
     {
       "exercise": 1,
-      "instruction": "Read the narrative text below about a Secondary Two boy who buys his mother a birthday cake, then crashes his bicycle on the way home and ruins it, and answer the questions that follow. Section B [10 marks] — AI-authored simplified practice paper modelled on the Singapore-Cambridge 1128/02 Section B format, pitched at students stretching from middle secondary toward the full O-Level standard. Original passage written for the morning quiz bank; not from a past exam paper. 6 short-answer items (Q1–Q6) and a 4-item flowchart MCQ (Q7) are included.",
+      "instruction": "Read the narrative text below about a Secondary Two boy who buys his mother a birthday cake, then crashes his bicycle on the way home and ruins it, and answer the questions that follow. Section B [15 marks] — AI-authored simplified practice paper modelled on the Singapore-Cambridge 1184/02 (formerly 1128) Section B format and calibrated to the SEAB assessment objectives (literal / inferential comprehension, vocabulary in context, language for effect), pitched at students stretching from middle secondary toward the full O-Level standard. Original passage written for the morning quiz bank; not from a past exam paper. Items mix mark values [1]/[2]: 7 short-answer questions (Q1-Q7) plus a 4-blank emotion-flowchart MCQ (Q8). Answer in your own words as far as possible.",
       "passageTitle": "The Birthday Cake",
-      "passage": "Paragraph 1\nIt was my mother's birthday — her forty-fifth. I had planned the surprise for three weeks. After school I cycled to Bakery & Cake at Ang Mo Kio Hub to collect the cake I had ordered: chocolate, with the words MAMA, HAPPY BIRTHDAY piped on top in white icing. I paid thirty-five dollars, saved from three months of my own pocket money. The cake box felt very important in my hands.\n\nParagraph 2\nI placed it carefully in the cycle basket. I pedalled home slowly, taking the long way to avoid the bumpy stretch by the canal. The wind was warm. I imagined my mother's face when she opened the box.\n\nParagraph 3\nNear the void deck of Block 215, the front wheel hit a raised crack in the pavement I had not noticed. The bike jerked. The box slid forward, then sideways. I tried to brace it with my elbow but I could not steer at the same time. The box landed back in the basket. Something inside it shifted with a soft, awful sound.\n\nParagraph 4\nI stopped. I lifted the lid. The cake was still mostly there — but it had slid against one wall of the box and one whole side of the icing was smashed. The word BIRTHDAY had become a mess of crushed letters. I sat on the pavement for a moment. I did not know I was going to cry until the first tear had already fallen onto my school shoe.\n\nParagraph 5\nI walked the rest of the way pushing the bike with one hand and holding the box flat on the other. My mother was in the kitchen, cooking dinner. I went in. I placed the box on the dining table without a word.\n\nParagraph 6\n'What's this?' she said, turning. I opened the lid. The cake looked pathetic — crushed letters, smeared frosting, a sad chocolate hill on one side. I braced myself for her to be disappointed, or worse, for her to try to hide that she was disappointed.\n\nParagraph 7\nShe burst out laughing. She did not stop. She hugged me so hard I could not breathe. 'This,' she said, 'is the best cake I have ever had in my life.' I started to apologise. She told me to stop.\n\nParagraph 8\nWe ate the cake straight out of the box, sitting on the kitchen floor with two spoons. She told me it was the best gift not in spite of being broken but because of it — because I had cared enough to make a mess of trying. We finished the entire cake before my father came home.\n\n(AI-authored original narrative for O-Level 1128 §B style practice, simplified-band difficulty; not from a past examination paper. Ang Mo Kio Hub: a shopping mall and transport interchange in central Singapore; void deck: the open ground floor of an HDB block.)",
+      "passage": "Paragraph 1\nIt was my mother's birthday — her forty-fifth. I had planned the surprise for three weeks. After school I cycled to Bakery & Cake at Ang Mo Kio Hub to collect the cake I had ordered: chocolate, with the words MAMA, HAPPY BIRTHDAY piped on top in white icing. I paid thirty-five dollars, saved from three months of my own pocket money. The cake box felt very important in my hands.\n\nParagraph 2\nI placed it carefully in the cycle basket. I pedalled home slowly, taking the long way to avoid the bumpy stretch by the canal. The wind was warm. I imagined my mother's face when she opened the box.\n\nParagraph 3\nNear the void deck of Block 215, the front wheel hit a raised crack in the pavement I had not noticed. The bike jerked. The box slid forward, then sideways. I tried to brace it with my elbow but I could not steer at the same time. The box landed back in the basket. Something inside it shifted with a soft, awful sound.\n\nParagraph 4\nI stopped. I lifted the lid. The cake was still mostly there — but it had slid against one wall of the box and one whole side of the icing was smashed. The word BIRTHDAY had become a mess of crushed letters. I sat on the pavement for a moment. I did not know I was going to cry until the first tear had already fallen onto my school shoe.\n\nParagraph 5\nI walked the rest of the way pushing the bike with one hand and holding the box flat on the other. My mother was in the kitchen, cooking dinner. I went in. I placed the box on the dining table without a word.\n\nParagraph 6\n'What's this?' she said, turning. I opened the lid. The cake looked pathetic — crushed letters, smeared frosting, a sad chocolate hill on one side. I braced myself for her to be disappointed, or worse, for her to try to hide that she was disappointed.\n\nParagraph 7\nShe burst out laughing. She did not stop. She hugged me so hard I could not breathe. 'This,' she said, 'is the best cake I have ever had in my life.' I started to apologise. She told me to stop.\n\nParagraph 8\nWe ate the cake straight out of the box, sitting on the kitchen floor with two spoons. She told me it was the best gift not in spite of being broken but because of it — because I had cared enough to make a mess of trying. We finished the entire cake before my father came home.\n\n(AI-authored original narrative for O-Level 1184 §B style practice, simplified-band difficulty; not from a past examination paper. Ang Mo Kio Hub: a shopping mall and transport interchange in central Singapore; void deck: the open ground floor of an HDB block.)",
       "questions": [
         {
           "n": 1,
-          "stem": "Q1. In Paragraph 1, how had the narrator paid for the cake? [1]",
-          "answer": "with thirty-five dollars he had saved from three months of his own pocket money"
+          "stem": "Q1. From Paragraph 1, how much did the narrator pay for the cake? [1]",
+          "answer": "thirty-five dollars",
+          "marks": 1
         },
         {
           "n": 2,
-          "stem": "Q2. In Paragraph 2, why did the narrator take 'the long way' home and avoid the bumpy stretch by the canal? [1]",
-          "answer": "he wanted to protect the cake from bumps so it would arrive perfect — he was being extra careful because the cake was so important to him"
+          "stem": "Q2. What does the word 'important' in 'The cake box felt very important in my hands' (Paragraph 1) suggest about how the narrator viewed the cake? [1]",
+          "answer": "it mattered greatly to him / was precious",
+          "marks": 1
         },
         {
           "n": 3,
-          "stem": "Q3. What is the effect of the phrase 'Something inside it shifted with a soft, awful sound' (Paragraph 3)? [1]",
-          "answer": "the contrast between 'soft' (physically quiet) and 'awful' (emotionally terrible) captures the moment perfectly — the small sound carried devastating meaning because of what it implied for the cake"
+          "stem": "Q3. Using your own words, explain why the narrator took 'the long way' home. (Paragraph 2) [2]",
+          "answer": "① he wanted to avoid the bumpy stretch by the canal; ② so the cake would not be shaken or damaged before he got home",
+          "marks": 2
         },
         {
           "n": 4,
-          "stem": "Q4. In Paragraph 4, what does the narrator mean by 'I did not know I was going to cry until the first tear had already fallen onto my school shoe'? [1]",
-          "answer": "the disappointment hit him so quickly that his crying began before his conscious mind realised it — the tears arrived ahead of the thought"
+          "stem": "Q4. What is the effect of the phrase 'Something inside it shifted with a soft, awful sound' (Paragraph 3)? [2]",
+          "answer": "the contrast between 'soft' (quiet) and 'awful' makes the small sound dreadful — it warns the reader the cake has been ruined",
+          "marks": 2
         },
         {
           "n": 5,
-          "stem": "Q5. In Paragraph 8, why did the mother say the cake was 'the best gift not in spite of being broken but because of it'? [1]",
-          "answer": "what mattered to her was that her son had cared enough to try — the broken cake was proof of his effort and love, which mattered more to her than a perfect cake would have"
+          "stem": "Q5. What does the word 'pathetic' (Paragraph 6) suggest about how the damaged cake looked? [1]",
+          "answer": "sad and ruined / pitiful",
+          "marks": 1
         },
         {
           "n": 6,
-          "stem": "Q6. What is the effect of ending the passage with them 'eating the cake straight out of the box, sitting on the kitchen floor with two spoons' (Paragraph 8)? [1]",
-          "answer": "it shows a moment of warm, informal closeness between mother and son — they have made a real memory together out of the disaster, which would not have existed if the cake had been perfect"
+          "stem": "Q6. Using your own words, explain why the mother said the cake was 'the best gift not in spite of being broken but because of it'. (Paragraph 8) [2]",
+          "answer": "① the broken cake showed her son had cared enough to try; ② his effort and love mattered to her more than a perfect cake would have",
+          "marks": 2
+        },
+        {
+          "n": 7,
+          "stem": "Q7. Using your own words, explain why the ending — mother and son eating the cake 'sitting on the kitchen floor with two spoons' (Paragraph 8) — is a happy one. [2]",
+          "answer": "① they share a warm, close moment together; ② the disaster has turned into a real memory they would not have had if the cake were perfect",
+          "marks": 2
         }
       ]
     },
     {
       "exercise": 2,
-      "instruction": "Q7. The narrator's main feeling shifts as the afternoon unfolds. For each part of the passage, choose ONE word from the bank that best describes his dominant feeling at that moment. There are some extra words in the bank you do not need to use. Word bank: excited / careful / devastated / hopeful / ashamed / understood / proud / impatient. The original task carries 4 marks; each blank is split into its own MCQ so each sub-part can be auto-graded independently.",
+      "instruction": "Q8. The narrator's main feeling shifts as the afternoon unfolds. For each part of the passage, choose ONE word from the bank that best describes his dominant feeling at that moment. There are some extra words in the bank you do not need to use. Word bank: excited / careful / devastated / hopeful / ashamed / understood / proud / impatient. The original task carries 4 marks; each blank is split into its own MCQ so each sub-part can be auto-graded independently.",
       "passage": "Refer to the same 'Birthday Cake' narrative in Exercise 1 above. The narrator's feelings shift over the afternoon — from excited as he pedals home imagining his mother's face when she opens the box, to devastated as he sits on the pavement and discovers the crushed icing, to ashamed as he places the pathetic-looking cake on the dining table without a word, ending understood when his mother bursts out laughing and hugs him hard. Pick the single best word from the bank for each moment.",
       "questions": [
         {
-          "n": 7,
-          "stem": "Q7(i). What best describes the narrator's dominant feeling in Paragraphs 1-2, paying thirty-five dollars at the bakery and pedalling home with the cake imagining his mother's face when she opens the box? [1]",
+          "n": 8,
+          "stem": "Q8(i). What best describes the narrator's dominant feeling in Paragraphs 1-2, paying thirty-five dollars at the bakery and pedalling home with the cake imagining his mother's face when she opens the box? [1]",
           "options": [
             {"key": "A", "text": "excited", "correct": true},
             {"key": "B", "text": "careful", "correct": false},
@@ -60,11 +72,12 @@
             {"key": "G", "text": "proud", "correct": false},
             {"key": "H", "text": "impatient", "correct": false}
           ],
-          "answer": "A"
+          "answer": "A",
+          "marks": 1
         },
         {
-          "n": 8,
-          "stem": "Q7(ii). What best describes the narrator's dominant feeling in Paragraph 4, sitting on the pavement with the lid open over the crushed icing, crying onto his school shoe before he realises he is crying? [1]",
+          "n": 9,
+          "stem": "Q8(ii). What best describes the narrator's dominant feeling in Paragraph 4, sitting on the pavement with the lid open over the crushed icing, crying onto his school shoe before he realises he is crying? [1]",
           "options": [
             {"key": "A", "text": "excited", "correct": false},
             {"key": "B", "text": "careful", "correct": false},
@@ -75,11 +88,12 @@
             {"key": "G", "text": "proud", "correct": false},
             {"key": "H", "text": "impatient", "correct": false}
           ],
-          "answer": "C"
+          "answer": "C",
+          "marks": 1
         },
         {
-          "n": 9,
-          "stem": "Q7(iii). What best describes the narrator's dominant feeling in Paragraphs 5-6, placing the box on the dining table without a word and bracing himself for his mother's disappointment? [1]",
+          "n": 10,
+          "stem": "Q8(iii). What best describes the narrator's dominant feeling in Paragraphs 5-6, placing the box on the dining table without a word and bracing himself for his mother's disappointment? [1]",
           "options": [
             {"key": "A", "text": "excited", "correct": false},
             {"key": "B", "text": "careful", "correct": false},
@@ -90,11 +104,12 @@
             {"key": "G", "text": "proud", "correct": false},
             {"key": "H", "text": "impatient", "correct": false}
           ],
-          "answer": "E"
+          "answer": "E",
+          "marks": 1
         },
         {
-          "n": 10,
-          "stem": "Q7(iv). What best describes the narrator's dominant feeling in Paragraphs 7-8, after his mother bursts out laughing, hugs him hard, and tells him the cake is the best gift because he cared enough to make a mess of trying? [1]",
+          "n": 11,
+          "stem": "Q8(iv). What best describes the narrator's dominant feeling in Paragraphs 7-8, after his mother bursts out laughing, hugs him hard, and tells him the cake is the best gift because he cared enough to make a mess of trying? [1]",
           "options": [
             {"key": "A", "text": "excited", "correct": false},
             {"key": "B", "text": "careful", "correct": false},
@@ -105,7 +120,8 @@
             {"key": "G", "text": "proud", "correct": false},
             {"key": "H", "text": "impatient", "correct": false}
           ],
-          "answer": "F"
+          "answer": "F",
+          "marks": 1
         }
       ]
     }

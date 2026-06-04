@@ -1,49 +1,56 @@
 {
-  "setCode": "ai_authored_olevel_simplified_25_hawker_auntie_v1",
+  "setCode": "ai_authored_olevel_simplified_25_hawker_auntie_v2",
   "paperNumber": 2,
-  "paperTitle": "Singapore-Cambridge GCE O-Level 1128 English Language — AI-authored Simplified Practice 25: Auntie Lim's Bee Hoon (§B style, simplified band)",
+  "paperTitle": "Singapore-Cambridge GCE O-Level 1184 English Language — AI-authored Simplified Practice 25: Auntie Lim's Bee Hoon (§B style, simplified band)",
   "provenanceTag": "ai_authored_olevel_1128_simplified",
   "sections": [
     {
       "exercise": 1,
-      "instruction": "Read the narrative text below about a Secondary 1 boy who has eaten breakfast at the same hawker centre at Tampines for two years, and how he says goodbye to Auntie Lim at the bee hoon stall on his last morning before his family moves to Yishun. Section B [11 marks] — AI-authored simplified practice paper modelled on the Singapore-Cambridge 1128/02 Section B format, pitched at students stretching from middle secondary toward the full O-Level standard. Original passage written for the morning quiz bank; not from a past exam paper. 7 short-answer items (Q1–Q7) and a 4-item flowchart MCQ (Q8) are included.",
+      "instruction": "Read the narrative text below about a Secondary 1 boy who has eaten breakfast at the same hawker centre at Tampines for two years, and how he says goodbye to Auntie Lim at the bee hoon stall on his last morning before his family moves to Yishun. Answer the questions that follow. Section B [15 marks] — AI-authored simplified practice paper modelled on the Singapore-Cambridge 1184/02 (formerly 1128) Section B format and calibrated to the SEAB assessment objectives (literal / inferential comprehension, vocabulary in context, language for effect), pitched at students stretching from middle secondary toward the full O-Level standard. Original passage written for the morning quiz bank; not from a past exam paper. Items mix mark values [1]/[2]: 7 short-answer questions (Q1-Q7) plus a 4-blank emotion-flowchart MCQ (Q8). Answer in your own words as far as possible.",
       "passageTitle": "Auntie Lim's Bee Hoon",
-      "passage": "Paragraph 1\nFor two years, I had eaten breakfast at the same hawker centre at Tampines every weekday before school. I would walk down from Block 410 with my school bag on my back, and by the time I sat down, Auntie Lim already knew what I wanted.\n\nParagraph 2\nHer stall sold fried bee hoon. The signboard was old and the red paint had peeled. My order had never changed since Primary 5 — fried bee hoon, one fishcake, no chilli, more spring onion. Auntie Lim could recite it from memory every morning.\n\nParagraph 3\nShe was not a chatty auntie. She wore a faded blue apron and tied her hair in a small bun. When I came to the counter she would simply nod, scoop the bee hoon, place the fishcake on top, and add the extra spring onion without me saying a word.\n\nParagraph 4\nIn Sec 1, my father told us one evening that we were moving to Yishun. The new flat was bigger, he said. My MRT ride to school would be too long, so I would change schools next year. I nodded and did not say much. I thought, mostly, about the bee hoon.\n\nParagraph 5\nMy last day at the Tampines hawker centre was a Friday in November. I sat at our usual table near the drinks stall. When I went up to order, I did not know how to say what I wanted to say. So I just said, 'Auntie, last time today. I am moving to Yishun next week.'\n\nParagraph 6\nAuntie Lim did not say much. She scooped the bee hoon as always. She placed the fishcake on top. Then, without looking up, she opened a small container and added a second fishball to my plate. She had never done that before. She pushed the plate across with one hand and took my coins with the other.\n\nParagraph 7\nAs I picked up the plate, she called after me. Her voice was a little louder than usual. 'You come back when you grown up, can?' I turned around and nodded. I could not find any other answer.\n\nParagraph 8\nOn the bus home that afternoon, I sat by the window and looked out at the HDB blocks passing by. I promised myself, quietly, that I would. One day, when I was grown up, I would come back. The extra fishball, I realised, had been a promise — and now mine was too.\n\n(AI-authored original narrative for O-Level 1128 §B style practice, simplified-band difficulty; not from a past examination paper. Bee hoon: thin rice vermicelli noodles; fishcake and fishball: common accompaniments served at hawker centres.)",
+      "passage": "Paragraph 1\nFor two years, I had eaten breakfast at the same hawker centre at Tampines every weekday before school. I would walk down from Block 410 with my school bag on my back, and by the time I sat down, Auntie Lim already knew what I wanted.\n\nParagraph 2\nHer stall sold fried bee hoon. The signboard was old and the red paint had peeled. My order had never changed since Primary 5 — fried bee hoon, one fishcake, no chilli, more spring onion. Auntie Lim could recite it from memory every morning.\n\nParagraph 3\nShe was not a chatty auntie. She wore a faded blue apron and tied her hair in a small bun. When I came to the counter she would simply nod, scoop the bee hoon, place the fishcake on top, and add the extra spring onion without me saying a word.\n\nParagraph 4\nIn Sec 1, my father told us one evening that we were moving to Yishun. The new flat was bigger, he said. My MRT ride to school would be too long, so I would change schools next year. I nodded and did not say much. I thought, mostly, about the bee hoon.\n\nParagraph 5\nMy last day at the Tampines hawker centre was a Friday in November. I sat at our usual table near the drinks stall. When I went up to order, I did not know how to say what I wanted to say. So I just said, 'Auntie, last time today. I am moving to Yishun next week.'\n\nParagraph 6\nAuntie Lim did not say much. She scooped the bee hoon as always. She placed the fishcake on top. Then, without looking up, she opened a small container and added a second fishball to my plate. She had never done that before. She pushed the plate across with one hand and took my coins with the other.\n\nParagraph 7\nAs I picked up the plate, she called after me. Her voice was a little louder than usual. 'You come back when you grown up, can?' I turned around and nodded. I could not find any other answer.\n\nParagraph 8\nOn the bus home that afternoon, I sat by the window and looked out at the HDB blocks passing by. I promised myself, quietly, that I would. One day, when I was grown up, I would come back. The extra fishball, I realised, had been a promise — and now mine was too.\n\n(AI-authored original narrative for O-Level 1184 §B style practice, simplified-band difficulty; not from a past examination paper. Bee hoon: thin rice vermicelli noodles; fishcake and fishball: common accompaniments served at hawker centres.)",
       "questions": [
         {
           "n": 1,
-          "stem": "Q1. In Paragraph 1, what fact tells us that Auntie Lim knew the narrator very well? [1]",
-          "answer": "by the time he sat down she already knew what he wanted to eat, even though he had not yet ordered"
+          "stem": "Q1. From Paragraph 2, what exactly did the narrator order for breakfast every morning? [1]",
+          "answer": "fried bee hoon, one fishcake, no chilli, more spring onion",
+          "marks": 1
         },
         {
           "n": 2,
-          "stem": "Q2. In Paragraph 2, what exactly was the narrator's daily breakfast order at Auntie Lim's stall? [1]",
-          "answer": "fried bee hoon, one fishcake, no chilli, with more spring onion"
+          "stem": "Q2. What does the word 'recite' (Paragraph 2) suggest about how well Auntie Lim knew the narrator's order? [1]",
+          "answer": "she knew it perfectly, by heart / from memory",
+          "marks": 1
         },
         {
           "n": 3,
-          "stem": "Q3. In Paragraph 3, what details tell us that Auntie Lim was not a chatty person? [1]",
-          "answer": "she only nodded instead of speaking, did not need the narrator to say a word, and simply pushed the plate across without conversation"
+          "stem": "Q3. What does the phrase 'a faded blue apron' (Paragraph 3) suggest about Auntie Lim's stall? [1]",
+          "answer": "it was old / well-worn, used for a long time",
+          "marks": 1
         },
         {
           "n": 4,
-          "stem": "Q4. In Paragraph 4, what does the sentence 'I thought, mostly, about the bee hoon' suggest about the narrator? [1]",
-          "answer": "what he would miss most about his old home was not the flat itself but the small daily routine at Auntie Lim's stall — the bee hoon stands in for everything familiar about his life there"
+          "stem": "Q4. Using your own words, explain why the narrator 'thought, mostly, about the bee hoon' when he heard the family was moving. (Paragraph 4) [2]",
+          "answer": "① the daily breakfast was the part of his old life he cared about most; ② it stood for everything familiar he would lose by moving away",
+          "marks": 2
         },
         {
           "n": 5,
-          "stem": "Q5. In Paragraph 6, why did Auntie Lim add a second fishball to the narrator's plate? [1]",
-          "answer": "it was her quiet way of saying goodbye and showing that she would miss him, since she was not a chatty person who could express such feelings in words"
+          "stem": "Q5. Using your own words, explain why Auntie Lim added a second fishball to the narrator's plate. (Paragraph 6) [2]",
+          "answer": "① it was her quiet way of saying goodbye; ② since she was not chatty, she showed she would miss him through a small gift instead of words",
+          "marks": 2
         },
         {
           "n": 6,
-          "stem": "Q6. In Paragraph 7, what is suggested by the fact that Auntie Lim's voice was 'a little louder than usual', and what does the narrator's silent nod reveal about him? [1]",
-          "answer": "Auntie Lim was making a real effort to be heard because the goodbye meant more to her than she was letting on, and the narrator could only nod because he was too overcome with emotion to speak"
+          "stem": "Q6. Using your own words, explain how the narrator felt when Auntie Lim called after him, and why he could only nod. (Paragraph 7) [2]",
+          "answer": "① he was moved / too emotional to speak; ② a nod was all he could manage because words were too hard at that moment",
+          "marks": 2
         },
         {
           "n": 7,
-          "stem": "Q7. In Paragraph 8, what does the narrator mean when he says 'The extra fishball, I realised, had been a promise — and now mine was too'? [1]",
-          "answer": "Auntie Lim's small gift of the extra fishball was her unspoken promise to remember him, and his quiet nod and inner promise to return one day match hers — both have promised the other something without using many words"
+          "stem": "Q7. What is the effect of the dash in 'The extra fishball, I realised, had been a promise — and now mine was too' (Paragraph 8)? [2]",
+          "answer": "the dash pauses before the key idea, drawing attention to it; it links her unspoken promise to his and gives the ending a quiet, thoughtful close",
+          "marks": 2
         }
       ]
     },
@@ -65,7 +72,8 @@
             {"key": "G", "text": "nervous", "correct": false},
             {"key": "H", "text": "surprised", "correct": false}
           ],
-          "answer": "A"
+          "answer": "A",
+          "marks": 1
         },
         {
           "n": 9,
@@ -80,7 +88,8 @@
             {"key": "G", "text": "nervous", "correct": false},
             {"key": "H", "text": "surprised", "correct": false}
           ],
-          "answer": "B"
+          "answer": "B",
+          "marks": 1
         },
         {
           "n": 10,
@@ -95,7 +104,8 @@
             {"key": "G", "text": "nervous", "correct": false},
             {"key": "H", "text": "surprised", "correct": false}
           ],
-          "answer": "C"
+          "answer": "C",
+          "marks": 1
         },
         {
           "n": 11,
@@ -110,7 +120,8 @@
             {"key": "G", "text": "nervous", "correct": false},
             {"key": "H", "text": "surprised", "correct": false}
           ],
-          "answer": "D"
+          "answer": "D",
+          "marks": 1
         }
       ]
     }

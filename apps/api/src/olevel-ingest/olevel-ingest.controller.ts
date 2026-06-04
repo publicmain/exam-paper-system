@@ -47,8 +47,15 @@ const ShortAnswerQ = z.object({
   // Canonical answer. autoGradeScripts normalises whitespace + case +
   // trailing punctuation, so "fat beneath shell" and "fat beneath the
   // shell" both match if either is the canonical. Use the shortest
-  // mark-scheme phrasing that's still unambiguous.
-  answer: z.string().min(1).max(120),
+  // mark-scheme phrasing that's still unambiguous. For multi-mark
+  // items, encode the accepted points (e.g. "①… ②…") so the chat
+  // marker has the mark scheme on hand — hence the 500-char ceiling.
+  answer: z.string().min(1).max(500),
+  // Per-question mark value, defaulting to 1. Mirrors the real
+  // 1184/1128 §B paper, where comprehension items mix [1] (vocabulary
+  // in context / literal retrieval), [2] (inference) and [3]
+  // (language for effect). The chat marker caps awardedMarks at this.
+  marks: z.number().int().min(1).max(10).optional(),
 });
 
 const MultiMatchQ = z.object({
@@ -68,12 +75,14 @@ const MultiMatchQ = z.object({
     .min(2)
     .max(8),
   answer: z.string().min(1).max(8),
+  marks: z.number().int().min(1).max(10).optional(),
 });
 
 const NotesQ = z.object({
   n: z.number().int().min(1).max(80),
   stem: z.string().min(1).max(800),
-  answer: z.string().min(1).max(120),
+  answer: z.string().min(1).max(500),
+  marks: z.number().int().min(1).max(10).optional(),
 });
 
 const SectionSchema = z.discriminatedUnion('exercise', [

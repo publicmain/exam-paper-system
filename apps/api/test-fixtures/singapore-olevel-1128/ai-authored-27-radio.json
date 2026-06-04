@@ -1,64 +1,74 @@
 {
-  "setCode": "ai_authored_olevel_27_radio_v1",
+  "setCode": "ai_authored_olevel_27_radio_v2",
   "paperNumber": 2,
-  "paperTitle": "Singapore-Cambridge GCE O-Level 1128 English Language — AI-authored Practice Paper 27: The Old Radio (Paper 2 §B style)",
+  "paperTitle": "Singapore-Cambridge GCE O-Level 1184 English Language — AI-authored Practice Paper 27: The Old Radio (Paper 2 §B style)",
   "provenanceTag": "ai_authored_olevel_1128",
   "sections": [
     {
       "exercise": 1,
-      "instruction": "Read the narrative text below about a teenager who, after his grandfather's death, switches on the old radio that once filled their flat with Mandarin oldies and Rediffusion broadcasts, and answer the questions that follow. Section B [14 marks] — AI-authored practice paper modelled on the Singapore-Cambridge 1128/02 Section B format. Original passage written for the morning quiz bank; not from a past exam paper. 10 short-answer items (Q1–Q10) on language use and inference, plus a 4-item flowchart MCQ (Q11) on the narrator's emotion arc, are included.",
+      "instruction": "Read the narrative text below about a teenager who, after his grandfather's death, switches on the old radio that once filled their flat with Mandarin oldies and Rediffusion broadcasts, and answer the questions that follow. Section B [19 marks] — AI-authored practice paper modelled on the Singapore-Cambridge 1184/02 (formerly 1128) Section B format and calibrated to the SEAB assessment objectives (literal / inferential comprehension, vocabulary in context, language for effect). Original passage written for the morning quiz bank; not from a past exam paper. Items mix mark values [1]/[2]: 10 short-answer questions (Q1-Q10) made up of 2 literal, 3 vocabulary-in-context, 3 inference and 2 language-for-effect items, plus a 4-blank emotion-flowchart MCQ (Q11). Answer in your own words as far as possible.",
       "passageTitle": "The Old Radio",
-      "passage": "Paragraph 1\nThe radio had sat on the same corner of the kitchen counter for as long as I could remember — a squat brown box with a cracked dial and a single silver knob worn smooth by my grandfather's thumb. Every morning before the rest of the flat stirred, he would lean over it, turn the knob a hair's breadth at a time, and coax a station out of the static. By the time the rice was steaming, the kitchen of our three-room flat in Toa Payoh would be full of Mandarin oldies — Teresa Teng, Wang Chiang Sang, voices older than my mother.\n\nParagraph 2\nGrandfather called it his 'Rediffusion box', though it had not picked up Rediffusion since long before I was born. He said it the way other people said the name of an old friend. When I was small I thought the singers lived inside it, and that Grandfather, by turning the knob just so, was politely asking them to come out and sing for us. He never corrected me. 'Listen,' he would only say, tapping the counter in time. 'This one your grandmother liked.'\n\nParagraph 3\nAs I grew older the radio became background, then nuisance. By Secondary Three I had earphones of my own, a phone full of songs no one in the flat had heard of. The brown box and its crackling oldies belonged to a slower world, and I had places to be. I do not remember the last morning I sat and listened with him. That is the cruelty of last times — they pass without announcing themselves.\n\nParagraph 4\nGrandfather went into hospital in March and did not come home. For two weeks after the funeral the radio stayed dark. No one switched it on. No one moved it either; it would have felt like moving him. The kitchen was very quiet in the mornings, and I had not known, until then, how much of the silence he used to fill.\n\nParagraph 5\nOne Saturday, when the flat was empty, I found myself standing in front of it. My thumb fitted the worn groove in the knob exactly. I turned it the way I had watched him turn it ten thousand times — a hair's breadth, then another — and the static parted, and a woman's voice swam up out of the years, singing something slow in a dialect I half understood.\n\nParagraph 6\nThe sound went straight through me. For one disorienting second the kitchen smelled of steaming rice and his menthol balm, and he was there, leaning at my shoulder, tapping the counter in time. Then the second passed and he was not there, and the gap where he had been was the loudest thing in the room.\n\nParagraph 7\nI almost switched it off. My finger was on the knob. But I did not. I sat down on his stool instead, the way he used to, and let the song finish. It was a sad song and I did not understand all of it, but I understood that he had loved it, and that was enough to keep me sitting there. When it ended the announcer read out a dedication from a listener in Ang Mo Kio to her late husband, and I thought: so I am not the only one who comes here to find someone.\n\nParagraph 8\nNow I switch it on most mornings before school. The songs are still older than my mother and I still catch only half the words. My friends would not understand it and I have stopped trying to explain. The radio is not Grandfather, and turning the knob does not bring him back. But for the length of one slow song, in a kitchen that smells faintly of rice, I get to keep a little company with the man who taught me how to listen.\n\n(AI-authored original narrative for O-Level 1128 §B style practice; not from a past examination paper. Rediffusion: a wired cable-radio service once popular in Singapore homes, famous for its Mandarin and dialect programmes; many older residents still call any old radio set a 'Rediffusion box'. Mandarin oldies: classic Chinese popular songs from the 1960s–1980s, such as those of singer Teresa Teng.)",
+      "passage": "Paragraph 1\nThe radio had sat on the same corner of the kitchen counter for as long as I could remember — a squat brown box with a cracked dial and a single silver knob worn smooth by my grandfather's thumb. Every morning before the rest of the flat stirred, he would lean over it, turn the knob a hair's breadth at a time, and coax a station out of the static. By the time the rice was steaming, the kitchen of our three-room flat in Toa Payoh would be full of Mandarin oldies — Teresa Teng, Wang Chiang Sang, voices older than my mother.\n\nParagraph 2\nGrandfather called it his 'Rediffusion box', though it had not picked up Rediffusion since long before I was born. He said it the way other people said the name of an old friend. When I was small I thought the singers lived inside it, and that Grandfather, by turning the knob just so, was politely asking them to come out and sing for us. He never corrected me. 'Listen,' he would only say, tapping the counter in time. 'This one your grandmother liked.'\n\nParagraph 3\nAs I grew older the radio became background, then nuisance. By Secondary Three I had earphones of my own, a phone full of songs no one in the flat had heard of. The brown box and its crackling oldies belonged to a slower world, and I had places to be. I do not remember the last morning I sat and listened with him. That is the cruelty of last times — they pass without announcing themselves.\n\nParagraph 4\nGrandfather went into hospital in March and did not come home. For two weeks after the funeral the radio stayed dark. No one switched it on. No one moved it either; it would have felt like moving him. The kitchen was very quiet in the mornings, and I had not known, until then, how much of the silence he used to fill.\n\nParagraph 5\nOne Saturday, when the flat was empty, I found myself standing in front of it. My thumb fitted the worn groove in the knob exactly. I turned it the way I had watched him turn it ten thousand times — a hair's breadth, then another — and the static parted, and a woman's voice swam up out of the years, singing something slow in a dialect I half understood.\n\nParagraph 6\nThe sound went straight through me. For one disorienting second the kitchen smelled of steaming rice and his menthol balm, and he was there, leaning at my shoulder, tapping the counter in time. Then the second passed and he was not there, and the gap where he had been was the loudest thing in the room.\n\nParagraph 7\nI almost switched it off. My finger was on the knob. But I did not. I sat down on his stool instead, the way he used to, and let the song finish. It was a sad song and I did not understand all of it, but I understood that he had loved it, and that was enough to keep me sitting there. When it ended the announcer read out a dedication from a listener in Ang Mo Kio to her late husband, and I thought: so I am not the only one who comes here to find someone.\n\nParagraph 8\nNow I switch it on most mornings before school. The songs are still older than my mother and I still catch only half the words. My friends would not understand it and I have stopped trying to explain. The radio is not Grandfather, and turning the knob does not bring him back. But for the length of one slow song, in a kitchen that smells faintly of rice, I get to keep a little company with the man who taught me how to listen.\n\n(AI-authored original narrative for O-Level 1184 §B style practice; not from a past examination paper. Rediffusion: a wired cable-radio service once popular in Singapore homes, famous for its Mandarin and dialect programmes; many older residents still call any old radio set a 'Rediffusion box'. Mandarin oldies: classic Chinese popular songs from the 1960s–1980s, such as those of singer Teresa Teng.)",
       "questions": [
         {
           "n": 1,
-          "stem": "Q1. In Paragraph 1, what details show that the radio had been used by the grandfather for a very long time? [1]",
-          "answer": "the dial was cracked and the single silver knob had been 'worn smooth by his thumb' from years of daily use; he had also turned it on every morning for as long as the narrator could remember"
+          "stem": "Q1. From Paragraph 1, where in the flat did the radio sit? [1]",
+          "answer": "on the same corner of the kitchen counter",
+          "marks": 1
         },
         {
           "n": 2,
-          "stem": "Q2. In Paragraph 2, the grandfather said 'Rediffusion box' 'the way other people said the name of an old friend'. What does this comparison suggest about his feelings towards the radio? [1]",
-          "answer": "it suggests that he felt deep affection and familiarity towards the radio, treating it not as a mere object but as a cherished companion he had known for years"
+          "stem": "Q2. From Paragraph 4, how long after the funeral did the radio stay switched off? [1]",
+          "answer": "two weeks",
+          "marks": 1
         },
         {
           "n": 3,
-          "stem": "Q3. In Paragraph 2, why did the grandfather never correct the young narrator's belief that the singers 'lived inside' the radio? [1]",
-          "answer": "he was happy to let the child keep his charming, imaginative idea / he enjoyed sharing that sense of wonder with his grandson and did not want to spoil it with a dull factual explanation"
+          "stem": "Q3. What does the word 'coax' in 'coax a station out of the static' (Paragraph 1) suggest about how the grandfather tuned the radio? [1]",
+          "answer": "gently / patiently, with careful effort",
+          "marks": 1
         },
         {
           "n": 4,
-          "stem": "Q4. What is the effect of the phrase 'the radio became background, then nuisance' (Paragraph 3)? [1]",
-          "answer": "the two-stage shift compresses the narrator's growing indifference into a few words — it traces how the radio went from something he simply stopped noticing to something that actively annoyed him, showing how he drifted away from his grandfather's world as he grew up"
+          "stem": "Q4. What does the phrase 'a hair's breadth at a time' (Paragraph 1) tell us about how he turned the knob? [1]",
+          "answer": "by very tiny / minute amounts",
+          "marks": 1
         },
         {
           "n": 5,
-          "stem": "Q5. In Paragraph 3, what does the narrator mean by 'the cruelty of last times — they pass without announcing themselves'? [1]",
-          "answer": "he means that we never know at the time that a particular moment will be the last one of its kind, so we fail to treasure it; he never realised the last morning he listened with his grandfather was the last, and so lost the chance to value it"
+          "stem": "Q5. What does the word 'nuisance' in 'the radio became background, then nuisance' (Paragraph 3) suggest about the narrator's attitude to the radio? [1]",
+          "answer": "he found it annoying / a bother",
+          "marks": 1
         },
         {
           "n": 6,
-          "stem": "Q6. In Paragraph 4, why does the narrator say that switching on or moving the radio 'would have felt like moving him'? [1]",
-          "answer": "the radio had become so closely bound up with the grandfather's presence that disturbing it felt like disturbing the grandfather himself / touching the radio would mean accepting that he was truly gone, which the family was not yet ready to do"
+          "stem": "Q6. Using your own words, explain why the grandfather never corrected the young narrator's belief that the singers 'lived inside' the radio. (Paragraph 2) [2]",
+          "answer": "① he wanted to let the child keep his charming, imaginative idea; ② he enjoyed sharing that sense of wonder and did not want to spoil it with a dull fact",
+          "marks": 2
         },
         {
           "n": 7,
-          "stem": "Q7. What is the effect of the description in Paragraph 5: 'a woman's voice swam up out of the years'? [1]",
-          "answer": "the word 'swam' makes the voice seem to rise slowly and effortlessly through time, as if surfacing from deep memory; the phrase 'out of the years' suggests the song is bringing the distant past back into the present, heightening the sense that the music carries his grandfather's era with it"
+          "stem": "Q7. Using your own words, explain why no one would switch on or move the radio, as it 'would have felt like moving him' (Paragraph 4). [2]",
+          "answer": "① the radio was so closely tied to the grandfather that touching it felt like disturbing him; ② doing so would mean accepting he was truly gone, which they were not ready to do",
+          "marks": 2
         },
         {
           "n": 8,
-          "stem": "Q8. In Paragraph 6, why does the narrator call the gap where his grandfather had been 'the loudest thing in the room'? [1]",
-          "answer": "it is a paradox — an absence cannot literally make a sound, yet his grandfather's absence felt so overwhelming and impossible to ignore that it dominated the narrator's awareness more than any actual noise could, emphasising the depth of his loss"
+          "stem": "Q8. Using your own words, explain what the narrator realised from the announcer's dedication in Paragraph 7 ('so I am not the only one who comes here to find someone'). [2]",
+          "answer": "① other listeners also turn to the radio to feel close to people they have lost; ② his own grief and way of remembering were shared by strangers, so he was not alone in it",
+          "marks": 2
         },
         {
           "n": 9,
-          "stem": "Q9. In Paragraph 7, what made the narrator decide not to switch the radio off, even though his finger was already on the knob? [1]",
-          "answer": "he realised that, although he could not fully understand the song, his grandfather had loved it, and sharing in something his grandfather had loved felt like a way of staying close to him — that connection was enough to make him stay and let the song finish"
+          "stem": "Q9. What is the effect of the description 'a woman's voice swam up out of the years' (Paragraph 5)? [2]",
+          "answer": "the word 'swam' makes the voice seem to rise slowly and effortlessly through time, while 'out of the years' suggests the song brings the distant past into the present, heightening the sense that the music carries his grandfather's era with it",
+          "marks": 2
         },
         {
           "n": 10,
-          "stem": "Q10. In Paragraph 8, what does the narrator mean by the closing idea that he gets 'to keep a little company with the man who taught me how to listen'? [1]",
-          "answer": "playing the radio is no longer about the songs themselves but about feeling near to his grandfather; 'taught me how to listen' suggests his grandfather passed on not just a love of music but a way of paying attention and valuing quiet moments — so the morning ritual lets him remember and honour that gift while accepting that his grandfather is gone"
+          "stem": "Q10. What is the effect of calling the gap where his grandfather had been 'the loudest thing in the room' (Paragraph 6)? [2]",
+          "answer": "it is a paradox — an absence cannot make a sound, yet his grandfather's absence felt so overwhelming and impossible to ignore that it dominated his awareness more than any noise, emphasising the depth of his loss",
+          "marks": 2
         }
       ]
     },
@@ -80,7 +90,8 @@
             {"key": "G", "text": "amused", "correct": false},
             {"key": "H", "text": "resentful", "correct": false}
           ],
-          "answer": "A"
+          "answer": "A",
+          "marks": 1
         },
         {
           "n": 12,
@@ -95,7 +106,8 @@
             {"key": "G", "text": "amused", "correct": false},
             {"key": "H", "text": "resentful", "correct": false}
           ],
-          "answer": "B"
+          "answer": "B",
+          "marks": 1
         },
         {
           "n": 13,
@@ -110,7 +122,8 @@
             {"key": "G", "text": "amused", "correct": false},
             {"key": "H", "text": "resentful", "correct": false}
           ],
-          "answer": "C"
+          "answer": "C",
+          "marks": 1
         },
         {
           "n": 14,
@@ -125,7 +138,8 @@
             {"key": "G", "text": "amused", "correct": false},
             {"key": "H", "text": "resentful", "correct": false}
           ],
-          "answer": "D"
+          "answer": "D",
+          "marks": 1
         }
       ]
     }

@@ -1,55 +1,67 @@
 {
-  "setCode": "ai_authored_olevel_simplified_05_lost_wallet_v1",
+  "setCode": "ai_authored_olevel_simplified_05_lost_wallet_v2",
   "paperNumber": 2,
-  "paperTitle": "Singapore-Cambridge GCE O-Level 1128 English Language — AI-authored Simplified Practice 05: The Lost Wallet (§B style, simplified band)",
+  "paperTitle": "Singapore-Cambridge GCE O-Level 1184 English Language — AI-authored Simplified Practice 05: The Lost Wallet (§B style, simplified band)",
   "provenanceTag": "ai_authored_olevel_1128_simplified",
   "sections": [
     {
       "exercise": 1,
-      "instruction": "Read the narrative text below about a teenage boy who finds a wallet under a table at a hawker centre and has to decide what to do with the money inside, and answer the questions that follow. Section B [10 marks] — AI-authored simplified practice paper modelled on the Singapore-Cambridge 1128/02 Section B format, pitched at students stretching from middle secondary toward the full O-Level standard. Original passage written for the morning quiz bank; not from a past exam paper. 6 short-answer items (Q1–Q6) and a 4-item flowchart MCQ (Q7) are included.",
+      "instruction": "Read the narrative text below about a teenage boy who finds a wallet under a table at a hawker centre and has to decide what to do with the money inside, and answer the questions that follow. Section B [15 marks] — AI-authored simplified practice paper modelled on the Singapore-Cambridge 1184/02 (formerly 1128) Section B format and calibrated to the SEAB assessment objectives (literal / inferential comprehension, vocabulary in context, language for effect), pitched at students stretching from middle secondary toward the full O-Level standard. Original passage written for the morning quiz bank; not from a past exam paper. Items mix mark values [1]/[2]: 7 short-answer questions (Q1-Q7) plus a 4-blank emotion-flowchart MCQ (Q8). Answer in your own words as far as possible.",
       "passageTitle": "The Lost Wallet",
-      "passage": "Paragraph 1\nAfter school, Wei went to the hawker centre at Block 165 with the five-dollar note his mother had given him that morning. He bought a plate of chicken rice for three dollars and a cup of iced water for fifty cents. He sat alone at a corner table, near the noodle stall.\n\nParagraph 2\nWhile he was eating, his right foot bumped against something soft under the table. He bent down to look. It was a brown leather wallet, worn at the edges. The owner was nowhere to be seen. Wei picked it up slowly.\n\nParagraph 3\nHe opened the wallet carefully. Inside were three things: eighty dollars in cash, a few NTUC vouchers, and an identity card with the photograph of a thin old uncle. The name on the card was Lim Chin Hock. The card said he was seventy-two years old.\n\nParagraph 4\nFor a moment, Wei thought about the eighty dollars. With eighty dollars he could buy the limited-edition football boots he had wanted for six months. No one had seen him pick up the wallet. The uncle had probably already given up the wallet for lost.\n\nParagraph 5\nThen he looked at the photograph again. The old uncle's eyes looked tired. Wei thought about his own grandfather, who had once lost his wallet at Tampines MRT and not slept for two whole days. He stood up, took the wallet in both hands, and walked to the hawker centre management office.\n\nParagraph 6\nThe auntie at the desk took the wallet from him. She opened it, counted the cash, and wrote everything down in a small notebook. She asked Wei for his name and his class. He told her. She wrote that down too. 'Good boy,' she said, but she did not look up from her writing.\n\nParagraph 7\nTwo days later, Mrs Tan, his form teacher, called him to her desk after Maths. 'Wei,' she said. 'An old man called the school office this morning. He said you returned his wallet at the hawker centre. He wanted you to know that the eighty dollars was meant for his medicine this week.'\n\nParagraph 8\nWei did not say anything. He just nodded. Walking back to his seat, he thought about the football boots. He still wanted them. But not as much as before.\n\n(AI-authored original narrative for O-Level 1128 §B style practice, simplified-band difficulty; not from a past examination paper. NTUC: a chain of supermarkets in Singapore; identity card / IC: the official Singaporean ID card.)",
+      "passage": "Paragraph 1\nAfter school, Wei went to the hawker centre at Block 165 with the five-dollar note his mother had given him that morning. He bought a plate of chicken rice for three dollars and a cup of iced water for fifty cents. He sat alone at a corner table, near the noodle stall.\n\nParagraph 2\nWhile he was eating, his right foot bumped against something soft under the table. He bent down to look. It was a brown leather wallet, worn at the edges. The owner was nowhere to be seen. Wei picked it up slowly.\n\nParagraph 3\nHe opened the wallet carefully. Inside were three things: eighty dollars in cash, a few NTUC vouchers, and an identity card with the photograph of a thin old uncle. The name on the card was Lim Chin Hock. The card said he was seventy-two years old.\n\nParagraph 4\nFor a moment, Wei thought about the eighty dollars. With eighty dollars he could buy the limited-edition football boots he had wanted for six months. No one had seen him pick up the wallet. The uncle had probably already given up the wallet for lost.\n\nParagraph 5\nThen he looked at the photograph again. The old uncle's eyes looked tired. Wei thought about his own grandfather, who had once lost his wallet at Tampines MRT and not slept for two whole days. He stood up, took the wallet in both hands, and walked to the hawker centre management office.\n\nParagraph 6\nThe auntie at the desk took the wallet from him. She opened it, counted the cash, and wrote everything down in a small notebook. She asked Wei for his name and his class. He told her. She wrote that down too. 'Good boy,' she said, but she did not look up from her writing.\n\nParagraph 7\nTwo days later, Mrs Tan, his form teacher, called him to her desk after Maths. 'Wei,' she said. 'An old man called the school office this morning. He said you returned his wallet at the hawker centre. He wanted you to know that the eighty dollars was meant for his medicine this week.'\n\nParagraph 8\nWei did not say anything. He just nodded. Walking back to his seat, he thought about the football boots. He still wanted them. But not as much as before.\n\n(AI-authored original narrative for O-Level 1184 §B style practice, simplified-band difficulty; not from a past examination paper. NTUC: a chain of supermarkets in Singapore; identity card / IC: the official Singaporean ID card.)",
       "questions": [
         {
           "n": 1,
-          "stem": "Q1. In Paragraph 1, what did Wei buy with the five-dollar note his mother had given him? [1]",
-          "answer": "a plate of chicken rice for three dollars and a cup of iced water for fifty cents"
+          "stem": "Q1. From Paragraph 1, where did Wei sit when he reached the hawker centre? [1]",
+          "answer": "at a corner table, near the noodle stall",
+          "marks": 1
         },
         {
           "n": 2,
-          "stem": "Q2. In Paragraph 4, why did Wei think about keeping the eighty dollars in the wallet? [1]",
-          "answer": "he wanted to use the money to buy the limited-edition football boots he had wanted for six months, and he believed no one had seen him pick up the wallet"
+          "stem": "Q2. What does the word 'worn' in 'a brown leather wallet, worn at the edges' (Paragraph 2) suggest about the wallet? [1]",
+          "answer": "it was old and had been used for a long time",
+          "marks": 1
         },
         {
           "n": 3,
-          "stem": "Q3. What is the effect of the detail that the old uncle's 'eyes looked tired' in his identity card photograph (Paragraph 5)? [1]",
-          "answer": "it makes the wallet's owner feel real and human to Wei rather than just a stranger — the tired eyes create sympathy for someone who has had a hard life"
+          "stem": "Q3. Using your own words, explain why Wei was tempted to keep the eighty dollars. (Paragraph 4) [2]",
+          "answer": "① he could use the money to buy the football boots he had wanted for a long time; ② he thought no one had seen him, so he would not be caught",
+          "marks": 2
         },
         {
           "n": 4,
-          "stem": "Q4. In Paragraph 5, how did thinking about his own grandfather change Wei's decision? [1]",
-          "answer": "he remembered how upset his grandfather had been when he lost his wallet, so he understood that the old uncle in the photo would be feeling the same way, and decided to return the wallet"
+          "stem": "Q4. What does the phrase 'given up the wallet for lost' (Paragraph 4) mean? [1]",
+          "answer": "stopped hoping to get it back",
+          "marks": 1
         },
         {
           "n": 5,
-          "stem": "Q5. Why did the auntie at the desk not look up at Wei when she said 'Good boy' (Paragraph 6)? [1]",
-          "answer": "she was busy writing the details down in her notebook / she was treating the return as a routine matter and not making a fuss over it"
+          "stem": "Q5. Using your own words, explain how thinking about his grandfather changed Wei's decision. (Paragraph 5) [2]",
+          "answer": "① he remembered how upset his grandfather was after losing a wallet; ② he realised the old uncle would feel the same, so he decided to return it",
+          "marks": 2
         },
         {
           "n": 6,
-          "stem": "Q6. What does the ending 'He still wanted them. But not as much as before' (Paragraph 8) reveal about how Wei has changed? [1]",
-          "answer": "he realises that helping someone in real need matters more than getting something he wanted just for himself — his sense of what is important has shifted slightly"
+          "stem": "Q6. What is the effect of the detail that the auntie 'did not look up from her writing' when she said 'Good boy' (Paragraph 6)? [2]",
+          "answer": "it shows she treated the return as ordinary and routine, making no fuss — so Wei gets no real praise or reward for doing the right thing",
+          "marks": 2
+        },
+        {
+          "n": 7,
+          "stem": "Q7. Using your own words, explain what the ending 'He still wanted them. But not as much as before' (Paragraph 8) shows about how Wei has changed. [2]",
+          "answer": "① he no longer cares about the football boots as strongly; ② he has learnt that helping someone in real need matters more than getting what he wants",
+          "marks": 2
         }
       ]
     },
     {
       "exercise": 2,
-      "instruction": "Q7. Wei's main feeling shifts as he handles the wallet over the two days. For each part of the passage, choose ONE word from the bank that best describes his dominant feeling at that moment. There are some extra words in the bank you do not need to use. Word bank: tempted / honest / suspicious / proud / casual / regretful / changed / annoyed. The original task carries 4 marks; each blank is split into its own MCQ so each sub-part can be auto-graded independently.",
+      "instruction": "Q8. Wei's main feeling shifts as he handles the wallet over the two days. For each part of the passage, choose ONE word from the bank that best describes his dominant feeling at that moment. There are some extra words in the bank you do not need to use. Word bank: tempted / honest / suspicious / proud / casual / regretful / changed / annoyed. The original task carries 4 marks; each blank is split into its own MCQ so each sub-part can be auto-graded independently.",
       "passage": "Refer to the same 'Lost Wallet' narrative in Exercise 1 above. Wei's feelings shift as the situation unfolds — from being tempted by the eighty dollars and the football boots he wanted, to being honest as he chooses to walk to the management office, to being casual at the desk where he does not make a fuss, ending changed two days later when he hears that the money was meant for medicine. Pick the single best word from the bank for each moment.",
       "questions": [
         {
-          "n": 7,
-          "stem": "Q7(i). What best describes Wei's dominant feeling in Paragraph 4, holding the eighty dollars in his hands and thinking about the limited-edition football boots? [1]",
+          "n": 8,
+          "stem": "Q8(i). What best describes Wei's dominant feeling in Paragraph 4, holding the eighty dollars in his hands and thinking about the limited-edition football boots? [1]",
           "options": [
             {"key": "A", "text": "tempted", "correct": true},
             {"key": "B", "text": "honest", "correct": false},
@@ -63,8 +75,8 @@
           "answer": "A"
         },
         {
-          "n": 8,
-          "stem": "Q7(ii). What best describes Wei's dominant feeling in Paragraph 5, standing up with the wallet in both hands and walking to the management office after thinking about his grandfather? [1]",
+          "n": 9,
+          "stem": "Q8(ii). What best describes Wei's dominant feeling in Paragraph 5, standing up with the wallet in both hands and walking to the management office after thinking about his grandfather? [1]",
           "options": [
             {"key": "A", "text": "tempted", "correct": false},
             {"key": "B", "text": "honest", "correct": true},
@@ -78,8 +90,8 @@
           "answer": "B"
         },
         {
-          "n": 9,
-          "stem": "Q7(iii). What best describes Wei's dominant feeling in Paragraph 6, at the management office where the auntie writes down the details and calls him a 'good boy' without looking up? [1]",
+          "n": 10,
+          "stem": "Q8(iii). What best describes Wei's dominant feeling in Paragraph 6, at the management office where the auntie writes down the details and calls him a 'good boy' without looking up? [1]",
           "options": [
             {"key": "A", "text": "tempted", "correct": false},
             {"key": "B", "text": "honest", "correct": false},
@@ -93,8 +105,8 @@
           "answer": "E"
         },
         {
-          "n": 10,
-          "stem": "Q7(iv). What best describes Wei's dominant feeling in Paragraph 8, walking back to his seat after hearing that the eighty dollars was meant for the old man's medicine? [1]",
+          "n": 11,
+          "stem": "Q8(iv). What best describes Wei's dominant feeling in Paragraph 8, walking back to his seat after hearing that the eighty dollars was meant for the old man's medicine? [1]",
           "options": [
             {"key": "A", "text": "tempted", "correct": false},
             {"key": "B", "text": "honest", "correct": false},

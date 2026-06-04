@@ -1,49 +1,56 @@
 {
-  "setCode": "ai_authored_olevel_simplified_26_phone_bus80_v1",
+  "setCode": "ai_authored_olevel_simplified_26_phone_bus80_v2",
   "paperNumber": 2,
-  "paperTitle": "Singapore-Cambridge GCE O-Level 1128 English Language — AI-authored Simplified Practice 26: The Phone on Bus 80 (§B style, simplified band)",
+  "paperTitle": "Singapore-Cambridge GCE O-Level 1184 English Language — AI-authored Simplified Practice 26: The Phone on Bus 80 (§B style, simplified band)",
   "provenanceTag": "ai_authored_olevel_1128_simplified",
   "sections": [
     {
       "exercise": 1,
-      "instruction": "Read the narrative text below about a Secondary 2 girl who leaves her phone on the seat of bus 80 after school, and the elderly auntie at the bus stop who waits with her until the driver comes round again. Section B [10 marks] — AI-authored simplified practice paper modelled on the Singapore-Cambridge 1128/02 Section B format, pitched at students stretching from middle secondary toward the full O-Level standard. Original passage written for the morning quiz bank; not from a past exam paper. 7 short-answer items (Q1–Q7) and a 4-item flowchart MCQ (Q8) are included.",
+      "instruction": "Read the narrative text below about a Secondary 2 girl who leaves her phone on the seat of bus 80 after school, and the elderly auntie at the bus stop who waits with her until the driver comes round again. Answer the questions that follow. Section B [15 marks] — AI-authored simplified practice paper modelled on the Singapore-Cambridge 1184/02 (formerly 1128) Section B format and calibrated to the SEAB assessment objectives (literal / inferential comprehension, vocabulary in context, language for effect), pitched at students stretching from middle secondary toward the full O-Level standard. Original passage written for the morning quiz bank; not from a past exam paper. Items mix mark values [1]/[2]: 7 short-answer questions (Q1-Q7) plus a 4-blank emotion-flowchart MCQ (Q8). Answer in your own words as far as possible.",
       "passageTitle": "The Phone on Bus 80",
-      "passage": "Paragraph 1\nIt was a Tuesday afternoon and I had just finished school. I boarded bus 80 with my friend Wen Qi and we sat at the back. We were talking about a Maths test and a YouTube video she had watched. I put my phone on the seat beside me when I dug into my bag for a water bottle.\n\nParagraph 2\nWen Qi alighted three stops before mine. When my own stop came, I stood up quickly, swung my school bag onto my shoulder, and stepped off. The doors hissed shut. The bus pulled away with a low rumble.\n\nParagraph 3\nIt was only after I had walked about two hundred metres down the road that I felt for my phone in my pocket. It was not there. I checked my bag. Not there either. My stomach turned cold. I had left it on the seat.\n\nParagraph 4\nI ran back. By the time I reached the bus stop, the bus was long gone. I stood at the kerb, breathing hard, not knowing what to do. There was only one other person at the bus stop — an old auntie with a small woven basket on her arm.\n\nParagraph 5\nShe looked at me kindly. 'Girl, your phone ah?' she asked, in a soft voice. I nodded, too out of breath to speak. 'The driver — I saw him. After you got down, he picked up your phone. Don't worry. This bus goes one big round. He'll come back this way in about twenty-five minutes.'\n\nParagraph 6\nTwenty-five minutes felt like a very long time, but also like the only piece of good news I had heard that afternoon. The auntie patted the empty space beside her. 'Sit down first lah. Sit, sit.' I sat.\n\nParagraph 7\nShe chatted with me while we waited. Her grandson, she said, was in Primary 4 at the same school I went to. She asked about my classes and what my mother cooked for dinner. Halfway through the wait, she opened her basket and offered me a piece of biscuit wrapped in cling film. It was sweet and slightly stale, but I took it and ate it slowly.\n\nParagraph 8\nWhen the bus came back round the corner, I stood up. The driver opened the door, smiled, and held out my phone with both hands. He nodded at me — a small, kindly nod — and drove off before I could properly thank him. I turned to thank the auntie, but she just smiled and waved me on my way. Walking home with the phone safe in my pocket, I thought that twenty-five minutes had felt like both a very long and a very short time.\n\n(AI-authored original narrative for O-Level 1128 §B style practice, simplified-band difficulty; not from a past examination paper. Bus 80: a Singapore public bus service; 'lah': a Singlish particle that softens a request; alight: to get off a bus.)",
+      "passage": "Paragraph 1\nIt was a Tuesday afternoon and I had just finished school. I boarded bus 80 with my friend Wen Qi and we sat at the back. We were talking about a Maths test and a YouTube video she had watched. I put my phone on the seat beside me when I dug into my bag for a water bottle.\n\nParagraph 2\nWen Qi alighted three stops before mine. When my own stop came, I stood up quickly, swung my school bag onto my shoulder, and stepped off. The doors hissed shut. The bus pulled away with a low rumble.\n\nParagraph 3\nIt was only after I had walked about two hundred metres down the road that I felt for my phone in my pocket. It was not there. I checked my bag. Not there either. My stomach turned cold. I had left it on the seat.\n\nParagraph 4\nI ran back. By the time I reached the bus stop, the bus was long gone. I stood at the kerb, breathing hard, not knowing what to do. There was only one other person at the bus stop — an old auntie with a small woven basket on her arm.\n\nParagraph 5\nShe looked at me kindly. 'Girl, your phone ah?' she asked, in a soft voice. I nodded, too out of breath to speak. 'The driver — I saw him. After you got down, he picked up your phone. Don't worry. This bus goes one big round. He'll come back this way in about twenty-five minutes.'\n\nParagraph 6\nTwenty-five minutes felt like a very long time, but also like the only piece of good news I had heard that afternoon. The auntie patted the empty space beside her. 'Sit down first lah. Sit, sit.' I sat.\n\nParagraph 7\nShe chatted with me while we waited. Her grandson, she said, was in Primary 4 at the same school I went to. She asked about my classes and what my mother cooked for dinner. Halfway through the wait, she opened her basket and offered me a piece of biscuit wrapped in cling film. It was sweet and slightly stale, but I took it and ate it slowly.\n\nParagraph 8\nWhen the bus came back round the corner, I stood up. The driver opened the door, smiled, and held out my phone with both hands. He nodded at me — a small, kindly nod — and drove off before I could properly thank him. I turned to thank the auntie, but she just smiled and waved me on my way. Walking home with the phone safe in my pocket, I thought that twenty-five minutes had felt like both a very long and a very short time.\n\n(AI-authored original narrative for O-Level 1184 §B style practice, simplified-band difficulty; not from a past examination paper. Bus 80: a Singapore public bus service; 'lah': a Singlish particle that softens a request; alight: to get off a bus.)",
       "questions": [
         {
           "n": 1,
-          "stem": "Q1. In Paragraph 1, what was the narrator doing when she put her phone down on the seat beside her? [1]",
-          "answer": "she was digging into her bag to look for a water bottle, and put the phone down so her hand was free"
+          "stem": "Q1. From Paragraph 1, what was the narrator doing when she put her phone down on the seat beside her? [1]",
+          "answer": "digging in her bag for a water bottle",
+          "marks": 1
         },
         {
           "n": 2,
-          "stem": "Q2. In Paragraph 3, what is the effect of the phrase 'My stomach turned cold'? [1]",
-          "answer": "it shows the narrator's sudden physical reaction to fear and panic when she realised her phone was missing — her body felt the shock before she could fully think it through"
+          "stem": "Q2. What does the phrase 'My stomach turned cold' (Paragraph 3) suggest about how the narrator felt? [1]",
+          "answer": "she felt sudden fear / shock",
+          "marks": 1
         },
         {
           "n": 3,
-          "stem": "Q3. In Paragraph 4, what details show the narrator's panic when she reached the bus stop? [1]",
-          "answer": "she ran back to the stop, she was breathing hard, and she stood there not knowing what to do — all of which suggest she had run as fast as she could and was now lost as to what to do next"
+          "stem": "Q3. Using your own words, explain why the narrator did not notice her phone was missing until she had walked some distance. (Paragraphs 2-3) [2]",
+          "answer": "① she had got off the bus quickly and the bus had already driven away; ② she only checked her pocket and bag for the phone later, after walking about two hundred metres",
+          "marks": 2
         },
         {
           "n": 4,
-          "stem": "Q4. In Paragraph 5, what important information did the auntie give the narrator? [1]",
-          "answer": "she had seen the driver pick up the phone after the narrator got off, and she explained that the bus goes one big round and the driver would come back this way in about twenty-five minutes"
+          "stem": "Q4. Using your own words, explain how the auntie reassured the narrator. (Paragraph 5) [2]",
+          "answer": "① she told her the driver had seen and picked up the phone; ② she explained the bus would come back this way in about twenty-five minutes, so the phone was not lost",
+          "marks": 2
         },
         {
           "n": 5,
-          "stem": "Q5. In Paragraph 6, what does the auntie's gesture of patting the empty space on the bench and saying 'Sit down first lah. Sit, sit.' reveal about her? [1]",
-          "answer": "she is warm and motherly — she takes care of the panicked girl by gently inviting her to rest and stay with her until the bus comes back, treating her almost like family"
+          "stem": "Q5. What does the word 'patted' (Paragraph 6) suggest about the auntie's manner towards the narrator? [1]",
+          "answer": "she was gentle, warm and welcoming",
+          "marks": 1
         },
         {
           "n": 6,
-          "stem": "Q6. In Paragraph 7, why do you think the writer included the small detail that the biscuit was 'sweet and slightly stale'? [1]",
-          "answer": "the honest detail makes the kindness feel real and ordinary rather than perfect — the auntie shared whatever she had in her basket, and the narrator accepted it gratefully even though it was not fresh"
+          "stem": "Q6. Using your own words, explain why the narrator still ate the biscuit even though it was 'slightly stale'. (Paragraph 7) [2]",
+          "answer": "① she did not want to refuse the auntie's kindness; ② the auntie had shared what little she had, so she accepted it gratefully",
+          "marks": 2
         },
         {
           "n": 7,
-          "stem": "Q7. What does the narrator mean at the end of the passage when she says that twenty-five minutes 'had felt like both a very long and a very short time' (Paragraph 8)? [1]",
-          "answer": "the waiting felt long because she was anxious about her phone, but it felt short because of the unexpectedly warm and pleasant time she spent chatting with the kind auntie — the two feelings together capture the whole experience"
+          "stem": "Q7. What is the effect of describing the wait as 'both a very long and a very short time' (Paragraph 8)? [2]",
+          "answer": "the contrast / paradox shows mixed feelings — the wait felt long because she was anxious about her phone, yet short because the auntie's kind company made the time pleasant",
+          "marks": 2
         }
       ]
     },
@@ -54,7 +61,7 @@
       "questions": [
         {
           "n": 8,
-          "stem": "Q8(i). What best describes the narrator's dominant feeling in Paragraphs 1–2 as she chats with Wen Qi at the back of the bus and gets off at her own stop? [1]",
+          "stem": "Q8(i). What best describes the narrator's dominant feeling in Paragraphs 1-2 as she chats with Wen Qi at the back of the bus and gets off at her own stop? [1]",
           "options": [
             {"key": "A", "text": "distracted", "correct": true},
             {"key": "B", "text": "panicked", "correct": false},
@@ -65,11 +72,12 @@
             {"key": "G", "text": "annoyed", "correct": false},
             {"key": "H", "text": "proud", "correct": false}
           ],
-          "answer": "A"
+          "answer": "A",
+          "marks": 1
         },
         {
           "n": 9,
-          "stem": "Q8(ii). What best describes the narrator's dominant feeling in Paragraphs 3–4 as her stomach turns cold and she runs back only to find the bus long gone? [1]",
+          "stem": "Q8(ii). What best describes the narrator's dominant feeling in Paragraphs 3-4 as her stomach turns cold and she runs back only to find the bus long gone? [1]",
           "options": [
             {"key": "A", "text": "distracted", "correct": false},
             {"key": "B", "text": "panicked", "correct": true},
@@ -80,11 +88,12 @@
             {"key": "G", "text": "annoyed", "correct": false},
             {"key": "H", "text": "proud", "correct": false}
           ],
-          "answer": "B"
+          "answer": "B",
+          "marks": 1
         },
         {
           "n": 10,
-          "stem": "Q8(iii). What best describes the narrator's dominant feeling in Paragraphs 6–7 as she sits on the bench, accepts the piece of biscuit, and chats with the auntie about school and dinner? [1]",
+          "stem": "Q8(iii). What best describes the narrator's dominant feeling in Paragraphs 6-7 as she sits on the bench, accepts the piece of biscuit, and chats with the auntie about school and dinner? [1]",
           "options": [
             {"key": "A", "text": "distracted", "correct": false},
             {"key": "B", "text": "panicked", "correct": false},
@@ -95,7 +104,8 @@
             {"key": "G", "text": "annoyed", "correct": false},
             {"key": "H", "text": "proud", "correct": false}
           ],
-          "answer": "C"
+          "answer": "C",
+          "marks": 1
         },
         {
           "n": 11,
@@ -110,7 +120,8 @@
             {"key": "G", "text": "annoyed", "correct": false},
             {"key": "H", "text": "proud", "correct": false}
           ],
-          "answer": "D"
+          "answer": "D",
+          "marks": 1
         }
       ]
     }
