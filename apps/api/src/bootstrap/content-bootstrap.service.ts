@@ -178,6 +178,11 @@ export class ContentBootstrapService implements OnApplicationBootstrap {
         { label: 'AI 20 Unsent Letter (sealed 1989)',        payload: loadFixture('singapore-olevel-1128/ai-authored-20-unsent-letter.json') },
         { label: 'AI 23 Friday Soup (Wai Yan from Yangon)',  payload: loadFixture('singapore-olevel-1128/ai-authored-23-friday-soup.json') },
         { label: 'AI 24 MRT Photograph (vanished kampung)',  payload: loadFixture('singapore-olevel-1128/ai-authored-24-mrt-photograph.json') },
+        // 2026-06-04 bank top-up — 4 more standard-tier originals
+        { label: 'AI 27 Old Radio (grandfather Rediffusion)', payload: loadFixture('singapore-olevel-1128/ai-authored-27-radio.json') },
+        { label: 'AI 28 Between Floors (stuck HDB lift)',     payload: loadFixture('singapore-olevel-1128/ai-authored-28-lift.json') },
+        { label: 'AI 29 Ah Ma\'s Chicken Rice (recipe)',      payload: loadFixture('singapore-olevel-1128/ai-authored-29-chicken-rice.json') },
+        { label: 'AI 30 Second-Hand Textbook (margin notes)', payload: loadFixture('singapore-olevel-1128/ai-authored-30-textbook.json') },
         // AI-authored simplified tier (middle band) — 13 papers
         { label: 'AI 02 Forgotten Promise (cat-sitting)',    payload: loadFixture('singapore-olevel-1128/ai-authored-02-forgotten-promise-simplified.json') },
         { label: 'AI 05 Lost Wallet (hawker centre)',        payload: loadFixture('singapore-olevel-1128/ai-authored-05-lost-wallet-simplified.json') },
@@ -192,6 +197,11 @@ export class ContentBootstrapService implements OnApplicationBootstrap {
         { label: 'AI 22 MacRitchie Frog (let it go)',        payload: loadFixture('singapore-olevel-1128/ai-authored-22-macritchie-frog-simplified.json') },
         { label: 'AI 25 Auntie Lim Bee Hoon (moving away)',  payload: loadFixture('singapore-olevel-1128/ai-authored-25-hawker-auntie-simplified.json') },
         { label: 'AI 26 Phone on Bus 80 (kind driver)',      payload: loadFixture('singapore-olevel-1128/ai-authored-26-phone-bus80-simplified.json') },
+        // 2026-06-04 bank top-up — 4 more simplified-tier originals
+        { label: 'AI 27 The Kite (grandfather kite, let go)',payload: loadFixture('singapore-olevel-1128/ai-authored-27-kite-simplified.json') },
+        { label: 'AI 28 Newcomer (transfer student day 1)',  payload: loadFixture('singapore-olevel-1128/ai-authored-28-newcomer-simplified.json') },
+        { label: 'AI 29 Wet Laundry (rain, neighbour Auntie)',payload: loadFixture('singapore-olevel-1128/ai-authored-29-laundry-simplified.json') },
+        { label: 'AI 30 Wet Market (little brother lost)',   payload: loadFixture('singapore-olevel-1128/ai-authored-30-market-simplified.json') },
       ];
 
       // Before ingesting the new 1128 fixtures, retire the legacy
