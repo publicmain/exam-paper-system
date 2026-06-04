@@ -107,6 +107,36 @@ const SAFE_SNAPSHOT_SCALAR_FIELDS = new Set([
 const SAFE_SNAPSHOT_BANK_FIELDS = new Set(['headingsBank', 'wordBank']);
 
 /**
+ * Strip the INTERNAL provenance sentence from a passage before showing it to
+ * a student. Our AI-authored fixtures end the passage with a parenthetical
+ * that bundles (a) a provenance note — "AI-authored original … not from a past
+ * examination paper" — kept for teacher/audit transparency (the copyright
+ * policy: be explicit these are original, not past-paper text), and (b) a
+ * glossary of unusual terms that students genuinely need. Students should see
+ * the glossary (real exams gloss terms) but NOT the AI-provenance line, which
+ * breaks the exam-room illusion. We drop only sentence (a), keep (b); the
+ * teacher/bank views don't go through this redactor, so they keep the full
+ * note.
+ */
+export function stripProvenanceForStudent(text: string): string {
+  if (typeof text !== 'string') return text;
+  // Matches all three wordings the fixtures use: "not from a past exam.",
+  // "not from a past exam paper.", "not from a past examination paper.".
+  const NOT_PAST = String.raw`not from a past exam(?:ination)?(?:\s+paper)?\.`;
+  let out = text
+    // Passage glossary note: "(AI-authored original … not from a past exam
+    // paper. <glossary>)" → "(<glossary>)" (keep the glossary students need).
+    .replace(new RegExp(`\\(AI-authored original [^)]*?${NOT_PAST}\\s*`, 'i'), '(')
+    // Instruction meta: "… Section B [N marks] — AI-authored … not from a past
+    // exam paper. <rest>" → "… Section B [N marks]. <rest>".
+    .replace(new RegExp(`\\s*[—–-]\\s*AI-authored .*?${NOT_PAST}\\s*`, 'i'), '. ');
+  // Tidy any empty "()" left when a passage note had no glossary, and collapse
+  // doubled spaces — but never touch paragraph newlines.
+  out = out.replace(/\s*\(\s*\)\s*/g, ' ').replace(/[ \t]{2,}/g, ' ');
+  return out.trim();
+}
+
+/**
  * Redact a `snapshotContent` JSON for delivery to a student.
  * Whitelist-based: only known-safe fields pass; everything else (incl.
  * answer-key fields like `correctOption`, `correctAnswer`, `explanation`,
@@ -120,7 +150,13 @@ export function redactSnapshotForStudent(sc: unknown): unknown {
   const out: Record<string, unknown> = {};
   for (const k of Object.keys(src)) {
     if (SAFE_SNAPSHOT_SCALAR_FIELDS.has(k)) {
-      out[k] = src[k];
+      // The OLEVEL ingest prepends the section instruction to each question's
+      // `stem` (`instruction\n\nQ1…`), so the provenance meta rides along in
+      // `stem` too — strip all three text fields. The regex only matches the
+      // AI-provenance wording, so non-OLEVEL stems are untouched.
+      out[k] = (k === 'passage' || k === 'instruction' || k === 'stem') && typeof src[k] === 'string'
+        ? stripProvenanceForStudent(src[k] as string)
+        : src[k];
     } else if (SAFE_SNAPSHOT_BANK_FIELDS.has(k) && Array.isArray(src[k])) {
       out[k] = (src[k] as unknown[]).map((b: any) => ({
         key: b?.key,
