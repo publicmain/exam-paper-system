@@ -26,45 +26,35 @@ import { PrismaClient } from '@prisma/client';
  */
 
 const GRADES: Record<string, { awardedMarks: number; reason: string }> = {
-  // 2026-06-03 G11 morning-quiz — 2 papers / 3 levels:
-  //   olevel           = ai_authored_olevel_20_unsent_letter_v1/Paper2 (Ah Ma · Bukit Merah 旧居 · 未寄出的信)
-  //   ielts_simplified = ai_authored_olevel_simplified_13_spelling_bee_v1/Paper2 (拼字比赛 · "fastidious")
-  // 23 short-answer scripts, all maxMarks=1.
+  // 2026-06-04 G11 morning-quiz — 3 papers / 3 levels:
+  //   ielts_authentic  = cambridge_ielts_8/Test4/P3 (collecting ants · 图表标注 Q37/38/40)
+  //   ielts_simplified = ai_authored_olevel_simplified_02_forgotten_promise (喂猫 · 忘记的承诺)
+  //   olevel           = ai_authored_olevel_07_last_lap (4x100m 接力赛)
+  // 5 submissions, 14 short-answer scripts, all maxMarks=1.
 
-  // 喻耀程 (olevel · unsent letter) — 3 题全填 "nb"，非有效作答
-  cmpxbzkgt00tsz1nj79t5kles: { awardedMarks: 0, reason: 'Q1: "nb" — 非有效答案。' },
-  cmpxbzixb00toz1njqz7z9ngb: { awardedMarks: 0, reason: 'Q10: "nb" — 非有效答案。' },
-  cmpxbzm4400tyz1njokx87be0: { awardedMarks: 0, reason: 'Q3: "nb" — 非有效答案。' },
+  // 李淳 (ielts_authentic · ant)
+  cmpyrkfu900wwij0m4i0otl0o: { awardedMarks: 0, reason: 'Q40: "ethanol" — IELTS 图表填空须用原文词,原文是 "alcohol";ethanol 虽同义但非原文词,不接受。' },
 
-  // 王晨宇 (ielts_simplified · spelling bee)
-  cmpxcmkqc0143z1njslo17ejb: { awardedMarks: 0, reason: 'Q6: 答的是"从失败中学到教训"，没解释引语本意（可避免的失误比能力不足之败更痛）。' },
+  // 喻耀程 (ielts_simplified · 喂猫) — 4 题
+  cmpyrhu3e00swij0mu3jigqfr: { awardedMarks: 0, reason: 'Q4: "she seudenly realread" — 残句/拼写错乱,没说出"突然想起忘了喂猫"。' },
+  cmpyrkest00wuij0mgs95cvbx: { awardedMarks: 0, reason: 'Q3: "because she like cat" — 跑题,与"独自承担起被托付的责任"的成就感无关。' },
+  cmpyrltmq00yhij0m4ozu0waq: { awardedMarks: 0, reason: 'Q5: "she thinks is good" — 无实质作答,未解释引语含义。' },
+  cmpyrokyg011wij0mepov7ge8: { awardedMarks: 0, reason: 'Q6: "no" — 非有效答案。' },
 
-  // HEIN HTET NAING (olevel · unsent letter) — 6 题
-  cmpxctvo301abz1njxnjd1a1f: { awardedMarks: 0, reason: 'Q7: "她做完了该做的事" — 含糊，漏了短句 "That was all" 的效果＝决定已定、无需多言。' },
-  cmpxcul5301arz1njpbsr82dd: { awardedMarks: 0, reason: 'Q6(b): "怕弄丢" — 纯实用理由，漏了"视若身份证般珍重＝信极重要"的推断。' },
-  cmpxcuyd601bmz1njuhrzj0yj: { awardedMarks: 0, reason: 'Q2(b): "觉得物件重要" — 表层，漏了"无声哀悼、每件旧物承载对 Ah Ma 的记忆"。' },
-  cmpxcx1r801e9z1njri07m7sp: { awardedMarks: 0, reason: 'Q1: "他觉得母亲不会做" — 含糊，漏了"母亲需要情感支持、不愿独自面对"。' },
-  cmpxcxw6y01fhz1njsmtbqb8u: { awardedMarks: 0, reason: 'Q6(a): "又软又弱" — 只解释 fragile 词义，没答母亲"如何小心翼翼地拿"。' },
-  cmpxcy1yi01fvz1nj6yj3wsa4: { awardedMarks: 0, reason: 'Q10: "珍惜与家人的时间" — 泛化说教，漏了温柔中带焦虑/迟到 37 年/盼妹妹仍在的具体效果。' },
+  // HEIN HTET NAING (olevel · 接力赛) — 5 题
+  cmpyrndsx00zxij0ma0g8ewlg: { awardedMarks: 0, reason: 'Q5: "他还没完全摔倒" — 仅字面复述,没答出"表现比赛之接近、那半步刚好够他反超"的效果。' },
+  cmpyrnu52011aij0maizahspn: { awardedMarks: 0, reason: 'Q3: "声音很响" — 误读;原句是"杂音都退成心跳后的一个闷响"＝屏蔽外界、高度专注,与"很响"相反。' },
+  cmpyrv5w30139ij0mb0pzcsix: { awardedMarks: 0, reason: 'Q7: "Mr Lim 为他们骄傲" — 跑题,没答"夺冠是四人团队铺垫的功劳、非个人"。' },
+  cmpyrwxot013yij0m96kiqegp: { awardedMarks: 1, reason: 'Q2: "跑太快以致腿撑不住" — 命中"全力以赴、早早把体力耗尽到极限"。' },
+  cmpyrxky2014mij0mhoxl4s7l: { awardedMarks: 0, reason: 'Q4: "跑得很快" — 泛泛,没答"身体凭本能/训练在跑、不再有意识控制"。' },
 
-  // 于琳晶 (olevel · unsent letter) — 5 题
-  cmpxcmiab013xz1nj5g2x3o3h: { awardedMarks: 1, reason: 'Q2(b): "暗示母亲其实很思念外婆" — 命中无声哀悼/思念这一要点。' },
-  cmpxcpk42016az1njcuiiing9: { awardedMarks: 0, reason: 'Q2(a): "她是个活泼的女人" — 与"日复一日的固定习惯"无关，错。' },
-  cmpxcw3pm01d5z1nj9x6aq55o: { awardedMarks: 1, reason: 'Q4: "她不想生前被人发现" — 命中"刻意藏起、非遗忘"这一推断。' },
-  cmpxcxfa401enz1njtpb6peja: { awardedMarks: 1, reason: 'Q6(b): "她非常看重这封信" — 命中"信极重要"的意义推断。' },
-  cmpxcr0jv018fz1nj2hwrchu1: { awardedMarks: 1, reason: 'Q6(a): "非常小心" — 直接命中"小心翼翼地拿"。' },
+  // 郑稀瑜 (ielts_authentic · ant) — 3 题图表标注
+  cmpys2lfs015zij0mzkt640xf: { awardedMarks: 0, reason: 'Q40: "pitfall trap" — 答的是方法名,不是漏斗底部保存蚂蚁的液体(alcohol)。' },
+  cmpys3ct10165ij0mvefiiasn: { awardedMarks: 0, reason: 'Q38: "Baits" — 错,网上方放的是 "leaf litter"。' },
+  cmpys4s5t016dij0mkzmaeb14: { awardedMarks: 0, reason: 'Q37: "leaf litter" — 搞反了;问"从上方施加什么使落叶层变干"＝heat,leaf litter 是被烘干的材料。' },
 
-  // 王晨旭 (ielts_simplified · spelling bee) — 7 题
-  cmpxcsawe018sz1njw6pmsj7s: { awardedMarks: 1, reason: 'Q6: "本该拼对、因太急拼错，比根本不会拼更难过" — 准确解释引语本意。' },
-  cmpxcu80i01adz1njeme5a8mj: { awardedMarks: 1, reason: 'Q2: "得意/自豪却保持谦虚、不外露喜悦" — 命中。' },
-  cmpxcutxs01b9z1njvhce7axo: { awardedMarks: 0, reason: 'Q7: "忘不了今天" — 含糊，漏了"每天提醒自己吸取教训/别再犯同样的错"。' },
-  cmpxcwllf01dpz1njgzpt39ii: { awardedMarks: 1, reason: 'Q1: "准备了六个月" — 有效细节，得分。' },
-  cmpxcxrh501f9z1njwaubzn6k: { awardedMarks: 1, reason: 'Q5: "Mr Tan 对她的遭遇心生同情" — 命中无言的安慰/善意。' },
-  cmpxczfn401i3z1njkbhcx7rq: { awardedMarks: 1, reason: 'Q4: "强烈震惊与深深失望" — 命中身体被冲击/震惊的效果。' },
-  cmpxczrw601i5z1njwp7p6m9v: { awardedMarks: 1, reason: 'Q3: "太急、想快点赢" — 命中"操之过急、草率作答"。' },
-
-  // 胡鑫瑜 (olevel · unsent letter)
-  cmpxcnt1v015rz1njlwvnd0js: { awardedMarks: 0, reason: 'Q9: 误读为"母亲想回家私下拆信"，实则信属 Aunt Hooi、不该由他们拆 — 偏离要点。' },
+  // 牛星林 (ielts_authentic · ant)
+  cmpysb8u80175ij0men49wwkv: { awardedMarks: 0, reason: 'Q37: "Large funnel" — 错,应为 "heat"。' },
 };
 
 const prisma = new PrismaClient();
