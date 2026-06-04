@@ -49,8 +49,10 @@ const ShortAnswerQ = z.object({
   // shell" both match if either is the canonical. Use the shortest
   // mark-scheme phrasing that's still unambiguous. For multi-mark
   // items, encode the accepted points (e.g. "①… ②…") so the chat
-  // marker has the mark scheme on hand — hence the 500-char ceiling.
-  answer: z.string().min(1).max(500),
+  // marker has the mark scheme on hand. Summary-writing items (Section C)
+  // carry a longer content-point mark scheme + an ~80-word model, hence the
+  // generous ceiling.
+  answer: z.string().min(1).max(1800),
   // Per-question mark value, defaulting to 1. Mirrors the real
   // 1184/1128 §B paper, where comprehension items mix [1] (vocabulary
   // in context / literal retrieval), [2] (inference) and [3]

@@ -1,0 +1,40 @@
+{
+  "setCode": "ai_authored_olevel_summary_04_water_v1",
+  "paperNumber": 2,
+  "paperTitle": "Singapore-Cambridge GCE O-Level 1184 English Language — AI-authored Practice: Section C (non-narrative + 80-word summary) — Securing Singapore's Water",
+  "provenanceTag": "ai_authored_olevel_1184_summary",
+  "sections": [
+    {
+      "exercise": 1,
+      "instruction": "Read the non-narrative text below about how Singapore secures a reliable water supply, and answer the questions that follow. Section C [12 marks] — AI-authored practice modelled on the Singapore-Cambridge 1184/02 Section C format and calibrated to the SEAB assessment objectives: comprehension and vocabulary in context on an informational text, plus a summary-writing task (identify main ideas; synthesise and summarise in your own words). Original informational text written for the morning quiz bank; not from a past exam paper. 3 short-answer items (Q1-Q3) of mixed mark value, plus a summary-writing task (Q4). Answer in your own words as far as possible.",
+      "passageTitle": "Securing Singapore's Water",
+      "passage": "Paragraph 1\nWater is the one resource a small island can never take for granted. Singapore has no natural lakes or large rivers, and for decades it has had to think carefully about every drop. With a growing population and the warming climate making rainfall less predictable, the country cannot simply hope that the skies will provide. Instead, planners have spent half a century building what they call the 'Four National Taps', backed by a steady effort to use less and waste nothing.\n\nParagraph 2\nThe first tap is rain caught at home. Two-thirds of Singapore's land surface now drains into a network of reservoirs through canals and drains, so that storms over the city are channelled and stored rather than lost to the sea. Schemes such as the Marina Barrage have even dammed a river mouth to create a fresh-water reservoir in the heart of the city.\n\nParagraph 3\nThe second tap reaches across the border. Under long-standing agreements, Singapore draws raw water from the state of Johor in neighbouring Malaysia, treats it, and pipes some back as clean drinking water. This imported supply has met a large share of demand for many years, though the agreements will not last forever.\n\nParagraph 4\nThe third tap turns yesterday's water into tomorrow's. Used water from homes and factories is collected, cleaned and then purified again through fine membranes and ultraviolet light to produce NEWater, a high-grade recycled supply pure enough for industry and, when needed, for topping up the reservoirs. Because it does not depend on rain or imports, recycled water gives the system a dependable backbone.\n\nParagraph 5\nThe fourth tap comes from the sea itself. Several desalination plants remove the salt from seawater, an endless source that is unaffected by drought. Although the process uses a great deal of energy, it means the island can keep producing fresh water even when the rains fail for months on end.\n\nParagraph 6\nSecuring supply is only half the task; the other half is curbing demand. Tiered water prices, public campaigns and water-saving fittings all nudge households and businesses to use less, so that each new source has to stretch further. Lowering how much the island consumes is as valuable as finding fresh sources.\n\nParagraph 7\nFinally, the catchments themselves must be defended. Authorities keep reservoirs and the land that drains into them free of pollution, and engineers work constantly to repair leaks so that treated water is not lost from the pipes before it reaches a tap. Clean catchments and tight pipes protect the supply that all the other taps depend upon.\n\nParagraph 8\nNo single tap could keep the island supplied on its own. Taken together, however, these sources and savings show how careful planning has turned a serious weakness into one of Singapore's quiet strengths.\n\n(AI-authored original informational text for O-Level 1184 Section C style practice; not from a past examination paper. The figures are illustrative. NEWater: high-grade recycled water; desalination: removing salt from seawater to make it drinkable.)",
+      "questions": [
+        {
+          "n": 1,
+          "stem": "Q1. What does the word 'curbing' (Paragraph 6) mean? [1]",
+          "answer": "reducing / limiting / controlling",
+          "marks": 1
+        },
+        {
+          "n": 2,
+          "stem": "Q2. From Paragraph 3, name the place from which Singapore imports raw water. [1]",
+          "answer": "Johor (in Malaysia)",
+          "marks": 1
+        },
+        {
+          "n": 3,
+          "stem": "Q3. Using your own words, explain why recycled water gives the system 'a dependable backbone'. (Paragraph 4) [2]",
+          "answer": "① it does not rely on the weather / rainfall to be produced; ② nor does it depend on water imported from another country, so it can be relied on steadily",
+          "marks": 2
+        },
+        {
+          "n": 4,
+          "stem": "Q4. Using your own words as far as possible, summarise the ways in which Singapore secures its water supply, as described in paragraphs 2 to 7. Your summary must be in continuous writing (not note form) and must be no more than 80 words, including the words given below.\n\nBegin your summary: 'Singapore secures its water supply by...' [8]",
+          "answer": "CONTENT POINTS (award ~1 each, up to 8; the points are spread over paragraphs 2-7): ① collecting rainfall from most of the land into reservoirs; ② damming river mouths to store fresh water; ③ importing and treating raw water from Johor; ④ recycling used water into high-grade NEWater; ⑤ desalinating seawater, a source unaffected by drought; ⑥ reducing demand through pricing, campaigns and water-saving fittings; ⑦ keeping catchments and reservoirs free of pollution; ⑧ repairing leaks so treated water is not lost from the pipes. STYLE (note in the comment; mirrors the SEAB 7-mark summary band): reward own words + structures and organised continuous writing; penalise lifting / note form / exceeding 80 words. MODEL (~78 words): 'Singapore secures its water supply by draining most of its land into reservoirs and even damming river mouths, and by importing and treating raw water from Johor. It also recycles used water into high-grade NEWater and removes the salt from seawater, a source unharmed by drought. Demand is cut through pricing, campaigns and water-saving fittings, while clean, protected catchments and the swift repair of pipe leaks ensure that the water already treated is not wasted.'",
+          "marks": 8
+        }
+      ]
+    }
+  ]
+}

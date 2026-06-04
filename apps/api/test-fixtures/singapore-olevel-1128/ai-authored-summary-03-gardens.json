@@ -1,0 +1,40 @@
+{
+  "setCode": "ai_authored_olevel_summary_03_gardens_v1",
+  "paperNumber": 2,
+  "paperTitle": "Singapore-Cambridge GCE O-Level 1184 English Language — AI-authored Practice: Section C (non-narrative + 80-word summary) — Community Gardens",
+  "provenanceTag": "ai_authored_olevel_1184_summary",
+  "sections": [
+    {
+      "exercise": 1,
+      "instruction": "Read the non-narrative text below about the rise of community gardens in Singapore, and answer the questions that follow. Section C [12 marks] — AI-authored practice modelled on the Singapore-Cambridge 1184/02 Section C format and calibrated to the SEAB assessment objectives: comprehension and vocabulary in context on an informational text, plus a summary-writing task (identify main ideas; synthesise and summarise in your own words). Original informational text written for the morning quiz bank; not from a past exam paper. 3 short-answer items (Q1-Q3) of mixed mark value, plus a summary-writing task (Q4). Answer in your own words as far as possible.",
+      "passageTitle": "The Rise of Community Gardens in Singapore",
+      "passage": "Paragraph 1\nLook closely at the open spaces between Singapore's high-rise blocks and you will increasingly find neat rows of leafy greens, herbs and flowers tended by residents themselves. Under a national programme begun in 2005, more than 1,500 community gardens have sprung up across the island, on rooftops, in housing estates and beside schools. Once a patch of bare grass, each plot is now a small working farm shared by neighbours — and the benefits it brings reach far beyond the vegetables that grow there.\n\nParagraph 2\nThe most obvious benefit is fresh, healthy produce. Residents harvest vegetables such as kang kong, chillies and sweet potato leaves only metres from their kitchens, so the food reaches the plate within hours rather than after a long journey. Growing their own greens also nudges gardeners towards eating more vegetables and fewer processed meals.\n\nParagraph 3\nThese gardens also strengthen the bonds between neighbours. People who once nodded silently in the lift now spend weekend mornings weeding, watering and swapping seeds side by side. For elderly residents in particular, the shared plot offers regular company and a reason to step outdoors, easing the loneliness that can come with living alone.\n\nParagraph 4\nGardening is quietly good for the body and mind as well. Bending, digging and carrying watering cans give older participants gentle, regular exercise, while the calm of tending plants has been found to lower stress and lift the spirits of those recovering from illness. A morning spent among the greenery often does as much for a gardener's health as a visit to the clinic.\n\nParagraph 5\nThe plots double as outdoor classrooms. Children learn where food actually comes from, watching a seed they planted swell into a fruit they can pick. Older gardeners pass down traditional knowledge — which herb soothes a cough, when the rains will come — keeping skills alive that might otherwise be forgotten.\n\nParagraph 6\nCommunity gardens green the city in measurable ways too. Their foliage cools the surrounding air, softening the fierce heat that bounces off concrete, and the flowers draw bees and butterflies back into built-up neighbourhoods. Even kitchen scraps find a use, composted on site into fertiliser instead of being trucked away as rubbish.\n\nParagraph 7\nFinally, the gardens make the nation a little more self-reliant. Singapore imports over ninety per cent of its food, so every basket of home-grown produce, however small, trims that dependence. Just as importantly, the gardens teach thousands of ordinary people the practical skills of growing food — knowledge the country can lean on should supplies from abroad ever be disrupted.\n\nParagraph 8\nNo single garden will feed a city, of course. Yet taken together, these humble plots show how a crowded island can turn its scraps of spare land into greenery that nourishes not only its people's bodies but also their friendships, their well-being and their sense of belonging.\n\n(AI-authored original informational text for O-Level 1184 Section C style practice; not from a past examination paper. The figures are illustrative. Kang kong: a leafy green vegetable, also called water spinach, commonly grown and eaten in Singapore.)",
+      "questions": [
+        {
+          "n": 1,
+          "stem": "Q1. What does the word 'foliage' (Paragraph 6) mean? [1]",
+          "answer": "leaves / greenery / plant leaves",
+          "marks": 1
+        },
+        {
+          "n": 2,
+          "stem": "Q2. From Paragraph 7, what percentage of its food does Singapore import? [1]",
+          "answer": "over ninety per cent (more than 90%)",
+          "marks": 1
+        },
+        {
+          "n": 3,
+          "stem": "Q3. Using your own words, explain why community gardens are especially valuable for elderly residents. (Paragraph 3) [2]",
+          "answer": "① they provide regular companionship / the company of other people, easing loneliness; ② they give those who live alone a reason to leave home and go outdoors",
+          "marks": 2
+        },
+        {
+          "n": 4,
+          "stem": "Q4. Using your own words as far as possible, summarise the benefits that community gardens bring to Singapore, as described in paragraphs 2 to 7. Your summary must be in continuous writing (not note form) and must be no more than 80 words, including the words given below.\n\nBegin your summary: 'Community gardens benefit Singapore by...' [8]",
+          "answer": "CONTENT POINTS (award ~1 each, up to 8; the points are spread over paragraphs 2-7): ① supplying fresh produce that reaches the plate quickly; ② encouraging gardeners to eat more vegetables / more healthily; ③ strengthening friendships and ties between neighbours; ④ easing loneliness and giving the elderly company; ⑤ providing gentle exercise and lowering stress / aiding recovery; ⑥ teaching children and passing down traditional knowledge; ⑦ cooling the air, attracting wildlife and composting scraps; ⑧ boosting self-reliance and food-growing skills against supply disruption. STYLE (note in the comment; mirrors the SEAB 7-mark summary band): reward own words + structures and organised continuous writing; penalise lifting / note form / exceeding 80 words. MODEL (~74 words): 'Community gardens benefit Singapore by supplying fresh vegetables quickly and encouraging healthier eating. They draw neighbours together, easing the loneliness of elderly residents who gain company outdoors. Tending plants offers gentle exercise and calms the mind, while children and adults learn how food grows and share traditional knowledge. The greenery cools the air, attracts wildlife and recycles scraps. Finally, the plots make the nation more self-reliant by teaching people to grow their own food.'",
+          "marks": 8
+        }
+      ]
+    }
+  ]
+}

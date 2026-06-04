@@ -1,0 +1,40 @@
+{
+  "setCode": "ai_authored_olevel_summary_01_food_waste_v1",
+  "paperNumber": 2,
+  "paperTitle": "Singapore-Cambridge GCE O-Level 1184 English Language — AI-authored Practice: Section C (non-narrative + 80-word summary) — Cutting Food Waste",
+  "provenanceTag": "ai_authored_olevel_1184_summary",
+  "sections": [
+    {
+      "exercise": 1,
+      "instruction": "Read the non-narrative text below about how Singapore is reducing food waste, and answer the questions that follow. Section C [12 marks] — AI-authored practice modelled on the Singapore-Cambridge 1184/02 Section C format and calibrated to the SEAB assessment objectives: comprehension and vocabulary in context on an informational text, plus a summary-writing task (identify main ideas; synthesise and summarise in your own words). Original informational text written for the morning quiz bank; not from a past exam paper. 3 short-answer items (Q1-Q3) of mixed mark value, plus a summary-writing task (Q4). Answer in your own words as far as possible.",
+      "passageTitle": "Cutting Food Waste in Singapore",
+      "passage": "Paragraph 1\nEvery day, Singapore throws away enough food to fill hundreds of lorries. In 2022 alone, the country generated more than 800,000 tonnes of food waste, and only a small fraction of it was recycled. Because Singapore imports over ninety per cent of its food, wasting it is also wasting the water, fuel and labour used to grow and ship it halfway around the world. In recent years, households, businesses and the government have begun to tackle the problem from several directions.\n\nParagraph 2\nThe simplest changes begin at home. Families are encouraged to plan their meals before they shop and to buy only what they actually need, so that vegetables and bread do not rot forgotten at the back of the fridge. Storing food properly and using up older items first stretches every grocery trip further.\n\nParagraph 3\nEating out has changed too. Many hawker stalls and restaurants now offer smaller portions, or let customers ask for 'less rice' at no extra charge. By matching the amount served to what a diner can finish, these stalls cut the heap of leftovers scraped into the bin at the end of each meal.\n\nParagraph 4\nSupermarkets have joined in. Several chains now sell so-called 'ugly' vegetables — carrots that are bent or tomatoes that are oddly shaped — at a discount, alongside items close to their expiry date. This produce is perfectly good to eat, and selling it cheaply means it is bought and eaten rather than tossed out for failing to look perfect.\n\nParagraph 5\nNot all surplus food can be sold, but much of it can still be shared. Charities such as food banks collect unsold but edible food from shops and factories and pass it on to families in need. In this way, a loaf that a bakery cannot sell by closing time becomes someone's dinner instead of rubbish.\n\nParagraph 6\nWhat cannot be eaten need not be wasted either. Food scraps can be composted into fertiliser for community gardens, or processed into feed for animals. A growing number of malls and housing estates have installed digesters — machines that break down food waste on site and turn it into water or even energy to help power the building.\n\nParagraph 7\nUnderpinning all of this is a steady effort to change minds. Schools run lessons on finishing one's food, and nationwide campaigns remind shoppers that 'love your food' means buying, cooking and ordering only what will be eaten. Slowly, wasting food is coming to be seen not as normal but as something to be avoided.\n\nParagraph 8\nNone of these measures is a complete answer on its own. Taken together, however, they show that a small, crowded island can still find many ways to make the most of the food it works so hard to bring in.\n\n(AI-authored original informational text for O-Level 1184 Section C style practice; not from a past examination paper. The figures are illustrative. Hawker stall: a stall selling cooked food at a hawker centre; digester: a machine that breaks down food waste biologically.)",
+      "questions": [
+        {
+          "n": 1,
+          "stem": "Q1. What does the word 'surplus' (Paragraph 5) mean? [1]",
+          "answer": "extra / left over / more than is needed",
+          "marks": 1
+        },
+        {
+          "n": 2,
+          "stem": "Q2. From Paragraph 6, name one thing a digester turns food waste into. [1]",
+          "answer": "water (or energy)",
+          "marks": 1
+        },
+        {
+          "n": 3,
+          "stem": "Q3. Using your own words, explain why selling 'ugly' vegetables at a discount helps to reduce food waste. (Paragraph 4) [2]",
+          "answer": "① such produce would otherwise be thrown away just for looking imperfect; ② the lower price encourages shoppers to buy and eat it instead of it being wasted",
+          "marks": 2
+        },
+        {
+          "n": 4,
+          "stem": "Q4. Using your own words as far as possible, summarise the ways in which food waste is being reduced in Singapore, as described in paragraphs 2 to 7. Your summary must be in continuous writing (not note form) and must be no more than 80 words, including the words given below.\n\nBegin your summary: 'Singapore is reducing the food it wastes by...' [8]",
+          "answer": "CONTENT POINTS (award ~1 each, up to 8; the points are spread over paragraphs 2-7): ① planning meals and buying only what is needed; ② storing food well / using older items first; ③ serving or ordering smaller portions ('less rice'); ④ supermarkets selling imperfect or near-expiry food cheaply; ⑤ giving unsold but edible food to charities / food banks; ⑥ composting scraps or turning them into animal feed; ⑦ using digesters to turn waste into water or energy; ⑧ education campaigns that change attitudes. STYLE (note in the comment; mirrors the SEAB 7-mark summary band): reward own words + structures and organised continuous writing; penalise lifting / note form / exceeding 80 words. MODEL (~78 words): 'Singapore is reducing the food it wastes by planning meals and buying only what is needed, and by serving smaller portions. Supermarkets sell imperfect or soon-to-expire food cheaply, while shops give unsold but edible food to charities. Leftover scraps are composted or fed to animals, and some buildings use digesters that turn waste into water or energy. Schools and campaigns also persuade people to order and cook only what they will eat.'",
+          "marks": 8
+        }
+      ]
+    }
+  ]
+}

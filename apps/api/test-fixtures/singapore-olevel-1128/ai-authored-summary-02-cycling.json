@@ -1,0 +1,40 @@
+{
+  "setCode": "ai_authored_olevel_summary_02_cycling_v1",
+  "paperNumber": 2,
+  "paperTitle": "Singapore-Cambridge GCE O-Level 1184 English Language — AI-authored Practice: Section C (non-narrative + 80-word summary) — Cycling in Singapore",
+  "provenanceTag": "ai_authored_olevel_1184_summary",
+  "sections": [
+    {
+      "exercise": 1,
+      "instruction": "Read the non-narrative text below about how and why cycling has grown in Singapore, and answer the questions that follow. Section C [12 marks] — AI-authored practice modelled on the Singapore-Cambridge 1184/02 Section C format and calibrated to the SEAB assessment objectives: comprehension and vocabulary in context on an informational text, plus a summary-writing task (identify main ideas; synthesise and summarise in your own words). Original informational text written for the morning quiz bank; not from a past exam paper. 3 short-answer items (Q1-Q3) of mixed mark value, plus a summary-writing task (Q4). Answer in your own words as far as possible.",
+      "passageTitle": "Cycling in Singapore",
+      "passage": "Paragraph 1\nFor a long time, the bicycle was something most Singaporeans left behind once they could afford a car or a season pass on the train. In a hot, crowded city with heavy traffic, riding seemed slow and even risky. Yet over the past decade the number of people who cycle, whether to work, to school or simply for pleasure, has risen sharply. This change has not happened by accident; it is the result of a deliberate effort to make cycling safer, cheaper and far more convenient.\n\nParagraph 2\nThe most visible step has been the building of paths. The authorities have laid down hundreds of kilometres of sheltered cycling tracks that connect housing estates, parks and town centres, keeping riders apart from fast-moving cars. Painted lanes on quieter roads and shared footways add to the network, so that a journey can now be made almost entirely off the main carriageway.\n\nParagraph 3\nGetting hold of a bicycle has also been made easier. Schemes that let people rent a bicycle through a phone application, picking one up and dropping it off at racks across the island, mean that a rider no longer needs to own or store a machine. For those who do buy their own, employers and the government offer subsidies that lower the cost.\n\nParagraph 4\nCycling has been woven into longer journeys too. New stations are fitted with bicycle bays and lockers, and trains allow folding bicycles on board outside the busiest hours. A commuter can therefore ride to a station, take the train across the city, and finish the last stretch on the same bicycle.\n\nParagraph 5\nSafety has been tackled from several sides. Lower speed limits on certain estate roads protect riders from traffic, while clear rules set out where bicycles may and may not go. Wide public campaigns teach both cyclists and motorists to share the road courteously and to watch out for one another.\n\nParagraph 6\nThe habit is being grown from a young age. Schools organise cycling lessons and group rides so that children learn to ride confidently and to follow the rules of the road. Community clubs lend out bicycles and run weekend outings, turning a practical skill into a social pastime that whole families can enjoy together.\n\nParagraph 7\nFinally, the city has tried to make riding pleasant rather than merely possible. Round-island park connectors and waterfront routes let people pedal through greenery away from exhaust fumes, and end-of-trip facilities such as showers and secure parking at offices remove the excuses for not cycling to work.\n\nParagraph 8\nNo single measure explains the change. Together, however, these efforts show how a dense, tropical city has steadily turned a forgotten mode of travel into a genuine everyday choice.\n\n(AI-authored original informational text for O-Level 1184 Section C style practice; not from a past examination paper. The figures are illustrative. Park connector: a landscaped path linking parks and estates for walking and cycling.)",
+      "questions": [
+        {
+          "n": 1,
+          "stem": "Q1. What does the word 'deliberate' (Paragraph 1) mean? [1]",
+          "answer": "intentional / planned / done on purpose",
+          "marks": 1
+        },
+        {
+          "n": 2,
+          "stem": "Q2. From Paragraph 4, name one thing new stations provide for cyclists. [1]",
+          "answer": "bicycle bays (or lockers)",
+          "marks": 1
+        },
+        {
+          "n": 3,
+          "stem": "Q3. Using your own words, explain how the bicycle-rental schemes make cycling easier. (Paragraph 3) [2]",
+          "answer": "① a rider can pick up and return a bicycle at racks anywhere on the island; ② so they do not need to buy a bicycle of their own or find space to keep it",
+          "marks": 2
+        },
+        {
+          "n": 4,
+          "stem": "Q4. Using your own words as far as possible, summarise the ways in which Singapore encourages and supports cycling, as described in paragraphs 2 to 7. Your summary must be in continuous writing (not note form) and must be no more than 80 words, including the words given below.\n\nBegin your summary: 'Singapore encourages cycling by...' [8]",
+          "answer": "CONTENT POINTS (award ~1 each, up to 8; the points are spread over paragraphs 2-7): ① building sheltered cycling tracks linking estates, parks and town centres; ② adding painted lanes and shared footways away from main roads; ③ rental schemes letting people borrow bicycles by phone app; ④ subsidies that lower the cost of buying a bicycle; ⑤ fitting stations with bicycle bays/lockers and allowing folding bicycles on trains; ⑥ lower speed limits, clear rules and safety campaigns; ⑦ teaching children to ride through school lessons and club outings; ⑧ scenic park-connector routes plus showers and secure parking at work. STYLE (note in the comment; mirrors the SEAB 7-mark summary band): reward own words + structures and organised continuous writing; penalise lifting / note form / exceeding 80 words. MODEL (~78 words): 'Singapore encourages cycling by building sheltered tracks and quieter lanes that keep riders away from traffic, and by letting people rent bicycles through an app or buy one with subsidies. Stations provide racks and lockers, and trains carry folding bicycles. Lower speed limits, clear rules and campaigns improve safety, while schools and clubs teach children to ride. Scenic park routes, showers and secure parking at offices make cycling pleasant enough for everyday journeys.'",
+          "marks": 8
+        }
+      ]
+    }
+  ]
+}

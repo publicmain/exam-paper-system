@@ -202,6 +202,17 @@ export class ContentBootstrapService implements OnApplicationBootstrap {
         { label: 'AI 28 Newcomer (transfer student day 1)',  payload: loadFixture('singapore-olevel-1128/ai-authored-28-newcomer-simplified.json') },
         { label: 'AI 29 Wet Laundry (rain, neighbour Auntie)',payload: loadFixture('singapore-olevel-1128/ai-authored-29-laundry-simplified.json') },
         { label: 'AI 30 Wet Market (little brother lost)',   payload: loadFixture('singapore-olevel-1128/ai-authored-30-market-simplified.json') },
+        // 2026-06-04 Section C — non-narrative text + 80-word summary task
+        // (provenanceTag ai_authored_olevel_1184_summary). The summary item
+        // is human/chat-graded (zero API, per the marking policy); content
+        // points + an ~80-word model live in the canonical answer as the
+        // mark scheme. These join the STANDARD band (the picker's standard
+        // tier = NOT the simplified tag) so the stronger cohort gets
+        // occasional summary-writing practice alongside §B comprehension.
+        { label: 'SUM 01 Cutting Food Waste (summary)',      payload: loadFixture('singapore-olevel-1128/ai-authored-summary-01-food-waste.json') },
+        { label: 'SUM 02 Cycling in Singapore (summary)',    payload: loadFixture('singapore-olevel-1128/ai-authored-summary-02-cycling.json') },
+        { label: 'SUM 03 Community Gardens (summary)',       payload: loadFixture('singapore-olevel-1128/ai-authored-summary-03-gardens.json') },
+        { label: 'SUM 04 Securing Water (summary)',          payload: loadFixture('singapore-olevel-1128/ai-authored-summary-04-water.json') },
       ];
 
       // Before ingesting the new 1128 fixtures, retire the legacy
@@ -249,6 +260,7 @@ export class ContentBootstrapService implements OnApplicationBootstrap {
                 'singapore_olevel_1128',
                 'ai_authored_olevel_1128',
                 'ai_authored_olevel_1128_simplified',
+                'ai_authored_olevel_1184_summary',
               ],
             },
             status: 'active',
