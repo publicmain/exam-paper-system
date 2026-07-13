@@ -202,6 +202,15 @@ export class ContentBootstrapService implements OnApplicationBootstrap {
         { label: 'AI 28 Newcomer (transfer student day 1)',  payload: loadFixture('singapore-olevel-1128/ai-authored-28-newcomer-simplified.json') },
         { label: 'AI 29 Wet Laundry (rain, neighbour Auntie)',payload: loadFixture('singapore-olevel-1128/ai-authored-29-laundry-simplified.json') },
         { label: 'AI 30 Wet Market (little brother lost)',   payload: loadFixture('singapore-olevel-1128/ai-authored-30-market-simplified.json') },
+        // 2026-07-13 simplified-tier top-up — the tier was down to 3 unused
+        // stories (17 bank, 14 served) so weekly generation was forced to
+        // repeat; 4 fresh calibrated §B stories restore headroom. See the
+        // morning-quiz-no-repeats rule (never re-serve a class a story it
+        // has done, version-agnostic).
+        { label: 'AI 31 The Kelong (last season, first fish)', payload: loadFixture('singapore-olevel-1128/ai-authored-31-kelong-simplified.json') },
+        { label: 'AI 32 The Wayang (shy boy, street opera)',   payload: loadFixture('singapore-olevel-1128/ai-authored-32-wayang-simplified.json') },
+        { label: 'AI 33 Rooftop Garden (elderly neighbour)',   payload: loadFixture('singapore-olevel-1128/ai-authored-33-rooftop-simplified.json') },
+        { label: 'AI 34 The Kompang (National Day drum)',      payload: loadFixture('singapore-olevel-1128/ai-authored-34-kompang-simplified.json') },
         // 2026-06-04 Section C — non-narrative text + 80-word summary task
         // (provenanceTag ai_authored_olevel_1184_summary). The summary item
         // is human/chat-graded (zero API, per the marking policy); content

@@ -1,0 +1,129 @@
+{
+  "setCode": "ai_authored_olevel_simplified_32_wayang_v2",
+  "paperNumber": 2,
+  "paperTitle": "Singapore-Cambridge GCE O-Level 1184 English Language — AI-authored Simplified Practice 32: The Wayang (§B style, simplified band)",
+  "provenanceTag": "ai_authored_olevel_1128_simplified",
+  "sections": [
+    {
+      "exercise": 1,
+      "instruction": "Read the narrative text below about a shy Secondary 1 boy who is given a small role in his grandmother's Teochew wayang troupe at a temple getai, forgets his one line on stage, recovers with her quiet help, and discovers a new pride in the fading art. Answer the questions that follow. Section B [15 marks] — AI-authored simplified practice paper modelled on the Singapore-Cambridge 1184/02 (formerly 1128) Section B format and calibrated to the SEAB assessment objectives (literal / inferential comprehension, vocabulary in context, language for effect), pitched at students stretching from middle secondary toward the full O-Level standard. Original passage written for the morning quiz bank; not from a past exam paper. Items mix mark values [1]/[2]: 7 short-answer questions (Q1-Q7) plus a 4-blank emotion-flowchart MCQ (Q8). Answer in your own words as far as possible.",
+      "passageTitle": "The Wayang",
+      "passage": "Paragraph 1\nMy grandmother has sung in a Teochew wayang troupe for as long as I can remember. Every seventh month, when the temple near our flat in Hougang holds its getai, she paints her face, puts on a bright silk robe, and becomes a queen or a general. This year, she asked if I would take a tiny role — a palace servant with only one line. I was in Secondary 1, and I said yes before I could think.\n\nParagraph 2\nThe moment I agreed, I began to worry. I was a shy boy who hated standing in front of the class, let alone a crowd. At home I practised my single line again and again: 'My queen, the general has arrived.' But each time I imagined the bright lights and the watching faces, my throat went dry and my hands turned cold.\n\nParagraph 3\nOn the night of the show, the temple courtyard was packed. Old uncles sat on plastic stools, families sat on mats, and the smell of joss sticks and fried noodles filled the warm air. Behind the stage, my grandmother helped me into my costume. 'Just look at me if you feel lost,' she said quietly, tying the sash at my waist. I nodded, but my heart was beating like a drum.\n\nParagraph 4\nThen the gongs crashed and the show began. I waited in the shadows at the side, watching the painted actors glide across the stage under the white lights. When my turn came, my grandmother gave me a small push. I stepped out. Hundreds of faces turned towards me, and for a second the whole world seemed to go silent.\n\nParagraph 5\nI opened my mouth — and nothing came out. The line had vanished from my head, as if someone had wiped it clean. The lights burned. Somewhere in the crowd a baby cried. My cheeks grew hot, and a terrible thought rushed through me: I was going to freeze here, in front of everyone, and shame my grandmother.\n\nParagraph 6\nThen I heard her voice, low and steady, from behind the curtain. 'The general has arrived,' she whispered, just loud enough for me to catch. Her calm words reached me like a hand in the dark. I breathed in, turned to the queen on her throne, and said, clearly this time, 'My queen, the general has arrived.'\n\nParagraph 7\nThe scene moved on. My part was over in less than a minute, but I walked off the stage as if I had crossed a great river. My grandmother was waiting in the wings. She did not make a fuss. She only squeezed my shoulder and smiled, and that quiet smile meant more to me than any loud praise could have.\n\nParagraph 8\nLater, packing up the costumes, I looked at the old stage in a new way. Fewer and fewer young people learn this art now; one day it may disappear. But that night I had stood on those worn boards and kept it alive for one more scene. For the first time, I felt proud to be part of something my grandmother loved — and proud to help carry it on.\n\n(AI-authored original narrative for O-Level 1184 §B style practice, simplified-band difficulty; not from a past exam. wayang: traditional Chinese street opera; getai: an open-air stage show; the seventh month: the lunar Hungry Ghost month, when many getai shows are held.)",
+      "questions": [
+        {
+          "n": 1,
+          "stem": "Q1. From Paragraph 1, what role in the wayang was the narrator given? [1]",
+          "answer": "a palace servant with only one line",
+          "marks": 1
+        },
+        {
+          "n": 2,
+          "stem": "Q2. Using your own words, explain why the narrator began to worry the moment he agreed to take the role. (Paragraph 2) [2]",
+          "answer": "① he was very shy and even hated standing in front of his class; ② the thought of a big crowd and bright lights frightened him, leaving his throat dry and hands cold",
+          "marks": 2
+        },
+        {
+          "n": 3,
+          "stem": "Q3. What does the word 'glide' (Paragraph 4) suggest about the way the actors moved across the stage? [1]",
+          "answer": "they moved smoothly and gracefully",
+          "marks": 1
+        },
+        {
+          "n": 4,
+          "stem": "Q4. What is the effect of the comparison 'The line had vanished from my head, as if someone had wiped it clean' (Paragraph 5)? [2]",
+          "answer": "it stresses how completely and suddenly the line left his mind — as though every trace of it had been erased at once, leaving nothing to say",
+          "marks": 2
+        },
+        {
+          "n": 5,
+          "stem": "Q5. What does the word 'steady' (Paragraph 6) suggest about his grandmother's voice? [1]",
+          "answer": "it was calm, firm and reassuring",
+          "marks": 1
+        },
+        {
+          "n": 6,
+          "stem": "Q6. Using your own words, explain how his grandmother helped him recover after he forgot his line. (Paragraph 6) [2]",
+          "answer": "① she quietly whispered the line to him from behind the curtain; ② her calm, steady voice reassured him so that he could speak it clearly",
+          "marks": 2
+        },
+        {
+          "n": 7,
+          "stem": "Q7. Using your own words, explain why the narrator felt proud by the end of the night. (Paragraph 8) [2]",
+          "answer": "① he had performed and kept a fading / dying art alive for one more scene; ② he was glad to share and help carry on something his grandmother loved",
+          "marks": 2
+        }
+      ]
+    },
+    {
+      "exercise": 2,
+      "instruction": "Q8. The narrator's main feeling changes as the night of the wayang unfolds. For each part of the passage, choose ONE word from the bank that best describes his dominant feeling at that moment. There are some extra words in the bank you do not need to use. Word bank: fearful / panicked / reassured / proud / jealous / furious / bored / impatient. The original task carries 4 marks; each blank is split into its own MCQ so each sub-part can be auto-graded independently.",
+      "passage": "Refer to the same 'The Wayang' narrative in Exercise 1 above. The narrator's feelings shift as the night unfolds — from fearful in Paragraph 2, when he practises his single line over and over and imagines the bright lights and watching faces until his throat goes dry and his hands turn cold, to panicked in Paragraph 5, when he steps on stage, finds the line gone from his head, feels the lights burning and his cheeks growing hot, and dreads freezing in front of everyone, to reassured in Paragraph 6, when his grandmother whispers the line from behind the curtain and her calm, steady voice reaches him like a hand in the dark, ending proud in Paragraph 8, when he sees that he has kept a fading art alive for one more scene and is glad to help carry on something his grandmother loves. Pick the single best word from the bank for each moment.",
+      "questions": [
+        {
+          "n": 8,
+          "stem": "Q8(i). What best describes the narrator's dominant feeling in Paragraph 2, when he has just agreed to take the role, practises his single line again and again, and imagines the bright lights and watching faces until his throat goes dry and his hands turn cold? [1]",
+          "options": [
+            {"key": "A", "text": "fearful", "correct": true},
+            {"key": "B", "text": "panicked", "correct": false},
+            {"key": "C", "text": "reassured", "correct": false},
+            {"key": "D", "text": "proud", "correct": false},
+            {"key": "E", "text": "jealous", "correct": false},
+            {"key": "F", "text": "furious", "correct": false},
+            {"key": "G", "text": "bored", "correct": false},
+            {"key": "H", "text": "impatient", "correct": false}
+          ],
+          "answer": "A",
+          "marks": 1
+        },
+        {
+          "n": 9,
+          "stem": "Q8(ii). What best describes the narrator's dominant feeling in Paragraph 5, when he steps out on stage, opens his mouth and finds the line gone from his head, the lights burning and his cheeks growing hot as he fears he will freeze and shame his grandmother? [1]",
+          "options": [
+            {"key": "A", "text": "fearful", "correct": false},
+            {"key": "B", "text": "panicked", "correct": true},
+            {"key": "C", "text": "reassured", "correct": false},
+            {"key": "D", "text": "proud", "correct": false},
+            {"key": "E", "text": "jealous", "correct": false},
+            {"key": "F", "text": "furious", "correct": false},
+            {"key": "G", "text": "bored", "correct": false},
+            {"key": "H", "text": "impatient", "correct": false}
+          ],
+          "answer": "B",
+          "marks": 1
+        },
+        {
+          "n": 10,
+          "stem": "Q8(iii). What best describes the narrator's dominant feeling in Paragraph 6, when his grandmother whispers the line from behind the curtain, her calm, steady voice reaches him like a hand in the dark, and he is able to say his line clearly at last? [1]",
+          "options": [
+            {"key": "A", "text": "fearful", "correct": false},
+            {"key": "B", "text": "panicked", "correct": false},
+            {"key": "C", "text": "reassured", "correct": true},
+            {"key": "D", "text": "proud", "correct": false},
+            {"key": "E", "text": "jealous", "correct": false},
+            {"key": "F", "text": "furious", "correct": false},
+            {"key": "G", "text": "bored", "correct": false},
+            {"key": "H", "text": "impatient", "correct": false}
+          ],
+          "answer": "C",
+          "marks": 1
+        },
+        {
+          "n": 11,
+          "stem": "Q8(iv). What best describes the narrator's dominant feeling in Paragraph 8, when he packs up the costumes, sees that he has kept a fading art alive for one more scene, and feels glad to help carry on something his grandmother loves? [1]",
+          "options": [
+            {"key": "A", "text": "fearful", "correct": false},
+            {"key": "B", "text": "panicked", "correct": false},
+            {"key": "C", "text": "reassured", "correct": false},
+            {"key": "D", "text": "proud", "correct": true},
+            {"key": "E", "text": "jealous", "correct": false},
+            {"key": "F", "text": "furious", "correct": false},
+            {"key": "G", "text": "bored", "correct": false},
+            {"key": "H", "text": "impatient", "correct": false}
+          ],
+          "answer": "D",
+          "marks": 1
+        }
+      ]
+    }
+  ]
+}

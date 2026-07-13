@@ -1,0 +1,125 @@
+{
+  "setCode": "ai_authored_olevel_simplified_34_kompang_v2",
+  "paperNumber": 2,
+  "paperTitle": "Singapore-Cambridge GCE O-Level 1184 English Language — AI-authored Simplified Practice 34: The Kompang (§B style, simplified band)",
+  "provenanceTag": "ai_authored_olevel_1128_simplified",
+  "sections": [
+    {
+      "exercise": 1,
+      "instruction": "Read the narrative text below about a Secondary 1 boy who joins his neighbourhood kompang troupe to play at a National Day observance at his HDB void deck, misses a beat during the performance, is steadied by the troupe leader Pak Samad, and finishes proudly, feeling part of something bigger. Answer the questions that follow. Section B [15 marks] — AI-authored simplified practice paper modelled on the Singapore-Cambridge 1184/02 (formerly 1128) Section B format and calibrated to the SEAB assessment objectives (literal / inferential comprehension, vocabulary in context, language for effect), pitched at students stretching from middle secondary toward the full O-Level standard. Original passage written for the morning quiz bank; not from a past exam paper. Items mix mark values [1]/[2]: 7 short-answer questions (Q1-Q7) plus a 4-blank emotion-flowchart MCQ (Q8). Answer in your own words as far as possible.",
+      "passageTitle": "The Kompang",
+      "passage": "Paragraph 1\nWhen Pak Samad asked me to join the kompang troupe, I almost said no. I was only in Secondary 1, the youngest boy on the block, and I had never played a drum in my life. But my mother had already answered for me. 'He will come,' she told Pak Samad, smiling. So every evening that month I went down to the void deck to practise.\n\nParagraph 2\nThe kompang was heavier than it looked. It was a round frame of wood with goatskin stretched tight across one side, and when you struck it in the right spot it gave a deep, warm boom. Pak Samad taught us three beats — the low 'bung', the sharp 'tak', and the roll that tied them together. The older boys played as if it were easy. My hands felt clumsy and slow.\n\nParagraph 3\nThe troupe was going to play at the National Day observance, right there at our void deck, in front of all our neighbours. As the day came closer, I could not sleep. I kept imagining the rows of plastic chairs, the aunties and uncles watching, and the flags on the walls. What if I forgot the beats? What if I let everyone down? My stomach felt tight.\n\nParagraph 4\nOn the morning of the observance, the void deck was full. Red and white flags hung from the pillars, and someone had set up a small speaker. I stood in the line of drummers in my baju, holding my kompang against my chest. My palms were damp. Pak Samad caught my eye and gave me a small nod, as if to say: you are ready.\n\nParagraph 5\nThe song began. For the first minute everything went well — bung, tak, bung, the whole troupe moving as one. Then, somewhere in the middle, my mind went blank. My hand came down a moment too late, and the wrong sound slipped out, flat and loose against the others. My face went hot. I wanted to disappear.\n\nParagraph 6\nBut Pak Samad was standing right beside me. Without stopping his own drum, he leaned close and murmured, 'Follow me, slow.' He struck the next beat a little louder, so I could hear it clearly, and matched his rhythm to mine. Bung. Tak. Bung. Slowly my hand found the pattern again, and I slid back into the song as if I had never left it.\n\nParagraph 7\nAfter that I did not miss another beat. The drums rolled together, louder and prouder, and the neighbours began to clap along. I felt the boom of my kompang travel up my arms and into my chest, joining the sound of eleven other drums. We were not eleven boys any more. We were one big heartbeat under the flags.\n\nParagraph 8\nWhen the last beat landed and the crowd cheered, Pak Samad rested a hand on my shoulder. 'You see?' he said. 'One missed beat does not stop the song.' I looked at the smiling faces of my neighbours and the older boys grinning beside me, and I stood a little taller. I was the youngest on the block — but that morning, I was part of something bigger than myself.\n\n(AI-authored original narrative for O-Level 1184 §B style practice, simplified-band difficulty; not from a past exam. kompang: a traditional Malay hand-held frame drum; void deck: the open ground floor of an HDB block; baju: a traditional Malay shirt worn on special occasions.)",
+      "questions": [
+        {
+          "n": 1,
+          "stem": "Q1. From Paragraph 2, what material was stretched tightly across the wooden frame of the kompang? [1]",
+          "answer": "goatskin",
+          "marks": 1
+        },
+        {
+          "n": 2,
+          "stem": "Q2. What does the word 'clumsy' (Paragraph 2) suggest about how the narrator's hands felt as he learned to drum? [1]",
+          "answer": "awkward and not yet skilful or neat",
+          "marks": 1
+        },
+        {
+          "n": 3,
+          "stem": "Q3. What does the word 'slipped' in 'the wrong sound slipped out' (Paragraph 5) suggest about how the mistake happened? [1]",
+          "answer": "it came out by accident, beyond his control",
+          "marks": 1
+        },
+        {
+          "n": 4,
+          "stem": "Q4. Using your own words, explain why the narrator could not sleep as the day of the observance came closer. (Paragraph 3) [2]",
+          "answer": "① he was afraid he would forget the beats; ② and let his neighbours / everyone down in front of the whole crowd",
+          "marks": 2
+        },
+        {
+          "n": 5,
+          "stem": "Q5. Using your own words, explain how Pak Samad helped the narrator find the rhythm again after his mistake. (Paragraph 6) [2]",
+          "answer": "① he kept drumming and quietly told him to follow slowly; ② he struck the next beats louder so the boy could hear and match them",
+          "marks": 2
+        },
+        {
+          "n": 6,
+          "stem": "Q6. What is the effect of the image 'We were one big heartbeat under the flags' (Paragraph 7)? [2]",
+          "answer": "the metaphor makes the many drummers feel like a single, living whole — beating as one, so the narrator feels joined to something alive and united",
+          "marks": 2
+        },
+        {
+          "n": 7,
+          "stem": "Q7. Using your own words, explain what the narrator finally understood about his own place in the troupe at the end. (Paragraph 8) [2]",
+          "answer": "① even though he was the youngest and had slipped once; ② he now felt he truly belonged to something bigger than himself",
+          "marks": 2
+        }
+      ]
+    },
+    {
+      "exercise": 2,
+      "instruction": "Q8. The narrator's main feeling shifts as the National Day performance unfolds. For each part of the passage, choose ONE word from the bank that best describes his dominant feeling at that moment. There are some extra words in the bank you do not need to use. Word bank: nervous / panicked / reassured / proud / bored / jealous / furious / indifferent. The original task carries 4 marks; each blank is split into its own MCQ so each sub-part can be auto-graded independently.",
+      "passage": "Refer to the same 'The Kompang' narrative in Exercise 1 above. The narrator's feelings shift as the performance unfolds — from nervous in Paragraphs 3 and 4, when he cannot sleep before the observance and stands in the line of drummers with damp palms, to panicked in Paragraph 5, when his mind goes blank, his hand comes down too late and the wrong sound slips out in front of everyone, to reassured in Paragraph 6, when Pak Samad drums beside him, tells him to follow slowly and helps him find the beat again, ending proud in Paragraph 8, when the crowd cheers, Pak Samad rests a hand on his shoulder and he stands tall, feeling part of something bigger than himself. Pick the single best word from the bank for each moment.",
+      "questions": [
+        {
+          "n": 8,
+          "stem": "Q8(i). What best describes the narrator's dominant feeling in Paragraphs 3 and 4, when he cannot sleep as the observance draws near, imagines the watching neighbours and the flags, and finally stands in the line of drummers with a tight stomach and damp palms? [1]",
+          "options": [
+            {"key": "A", "text": "nervous", "correct": true},
+            {"key": "B", "text": "panicked", "correct": false},
+            {"key": "C", "text": "reassured", "correct": false},
+            {"key": "D", "text": "proud", "correct": false},
+            {"key": "E", "text": "bored", "correct": false},
+            {"key": "F", "text": "jealous", "correct": false},
+            {"key": "G", "text": "furious", "correct": false},
+            {"key": "H", "text": "indifferent", "correct": false}
+          ],
+          "answer": "A"
+        },
+        {
+          "n": 9,
+          "stem": "Q8(ii). What best describes the narrator's dominant feeling in Paragraph 5, when his mind suddenly goes blank in the middle of the song, his hand comes down too late, the wrong sound slips out flat against the others, his face goes hot and he wants to disappear? [1]",
+          "options": [
+            {"key": "A", "text": "nervous", "correct": false},
+            {"key": "B", "text": "panicked", "correct": true},
+            {"key": "C", "text": "reassured", "correct": false},
+            {"key": "D", "text": "proud", "correct": false},
+            {"key": "E", "text": "bored", "correct": false},
+            {"key": "F", "text": "jealous", "correct": false},
+            {"key": "G", "text": "furious", "correct": false},
+            {"key": "H", "text": "indifferent", "correct": false}
+          ],
+          "answer": "B"
+        },
+        {
+          "n": 10,
+          "stem": "Q8(iii). What best describes the narrator's dominant feeling in Paragraph 6, when Pak Samad drums steadily beside him, murmurs 'Follow me, slow', strikes the next beats a little louder so he can hear them, and helps him slide back into the pattern? [1]",
+          "options": [
+            {"key": "A", "text": "nervous", "correct": false},
+            {"key": "B", "text": "panicked", "correct": false},
+            {"key": "C", "text": "reassured", "correct": true},
+            {"key": "D", "text": "proud", "correct": false},
+            {"key": "E", "text": "bored", "correct": false},
+            {"key": "F", "text": "jealous", "correct": false},
+            {"key": "G", "text": "furious", "correct": false},
+            {"key": "H", "text": "indifferent", "correct": false}
+          ],
+          "answer": "C"
+        },
+        {
+          "n": 11,
+          "stem": "Q8(iv). What best describes the narrator's dominant feeling in Paragraph 8, when the last beat lands, the crowd cheers, Pak Samad rests a hand on his shoulder, and he stands a little taller, feeling part of something bigger than himself? [1]",
+          "options": [
+            {"key": "A", "text": "nervous", "correct": false},
+            {"key": "B", "text": "panicked", "correct": false},
+            {"key": "C", "text": "reassured", "correct": false},
+            {"key": "D", "text": "proud", "correct": true},
+            {"key": "E", "text": "bored", "correct": false},
+            {"key": "F", "text": "jealous", "correct": false},
+            {"key": "G", "text": "furious", "correct": false},
+            {"key": "H", "text": "indifferent", "correct": false}
+          ],
+          "answer": "D"
+        }
+      ]
+    }
+  ]
+}

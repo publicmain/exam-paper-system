@@ -1,0 +1,125 @@
+{
+  "setCode": "ai_authored_olevel_simplified_31_kelong_v2",
+  "paperNumber": 2,
+  "paperTitle": "Singapore-Cambridge GCE O-Level 1184 English Language — AI-authored Simplified Practice 31: The Kelong (§B style, simplified band)",
+  "provenanceTag": "ai_authored_olevel_1128_simplified",
+  "sections": [
+    {
+      "exercise": 1,
+      "instruction": "Read the narrative text below about a Secondary 2 child who goes out to his grandfather's old kelong for its last season before it is torn down, catches his first fish, and chooses to let it go. Answer the questions that follow. Section B [15 marks] — AI-authored simplified practice paper modelled on the Singapore-Cambridge 1184/02 (formerly 1128) Section B format and calibrated to the SEAB assessment objectives (literal / inferential comprehension, vocabulary in context, language for effect), pitched at students stretching from middle secondary toward the full O-Level standard. Original passage written for the morning quiz bank; not from a past exam paper. Items mix mark values [1]/[2]: 7 short-answer questions (Q1-Q7) plus a 4-blank emotion-flowchart MCQ (Q8). Answer in your own words as far as possible.",
+      "passageTitle": "The Kelong",
+      "passage": "Paragraph 1\nMy grandfather's kelong stood on tall wooden legs in the sea off Pasir Ris, where he had fished for more than forty years. He told me it would be torn down after this season, as the platform was no longer safe, and asked if I would come out one last time. I was in Secondary 2, and I said yes, though I did not really understand what the place meant to him.\n\nParagraph 2\nWe set out before dawn. The sea was grey, and the wind smelled of diesel. When we reached the kelong, I saw only a shabby wooden hut on stilts, its planks grey with age. I had imagined something grander. I sat on an upturned pail, cold and a little bored, wishing I had stayed home with my phone and my bed.\n\nParagraph 3\nGrandfather did not seem to notice my mood. He moved about the platform slowly, checking the nets he had tended ten thousand times. He showed me how to bait a hook and feel the line with two fingers. 'The fish will tell you when it is ready,' he said, smiling. As the sky turned pink, I began, despite myself, to pay attention.\n\nParagraph 4\nFor a long while, nothing happened. Then, without warning, the line jerked in my hand. 'Pull!' Grandfather cried. My heart hammered. I pulled, and the line fought back like a living thing, cutting into my fingers. With his hands over mine, I drew in a silver fish that thrashed and flashed in the light. My first fish, ever.\n\nParagraph 5\nI could not stop grinning. I held the fish up, and it felt like the greatest thing I had ever done. Grandfather laughed a deep laugh I had not heard in years. In that moment the old kelong did not seem shabby at all — it seemed like the very centre of the wide sea, and I was proud to stand on it beside him.\n\nParagraph 6\nThen I looked down at the fish in my hands. Its mouth opened and closed, its gills working hard for water. Its eye was round and bright and afraid. My grin faded. I thought of how alive it had been only a moment before. Something in me twisted. I did not know whether to drop it in the pail or let it go.\n\nParagraph 7\nGrandfather watched me quietly. 'It is your fish,' he said. 'You decide.' I knelt at the platform's edge and lowered my hands into the cool water. For a second the fish lay still, as if surprised. Then it flicked its tail and shot away into the green. I felt a strange lightness, as though I had given something back. Grandfather said nothing.\n\nParagraph 8\nOn the boat home, I finally understood. The kelong had never really been about the fish. It was where my grandfather had spent his whole life learning the sea's patience, and he had wanted to give some of that to me before it was gone. The platform would soon be gone, but what he had taught me would not. I looked back at the small grey shape and did not think it shabby at all.\n\n(AI-authored original narrative for O-Level 1184 §B style practice, simplified-band difficulty; not from a past exam. kelong: a wooden offshore fishing platform on stilts; Pasir Ris: a coastal residential town in eastern Singapore; stilts: tall posts that hold a structure up above the water.)",
+      "questions": [
+        {
+          "n": 1,
+          "stem": "Q1. From Paragraph 1, for how long had the grandfather fished from the kelong? [1]",
+          "answer": "for more than forty years",
+          "marks": 1
+        },
+        {
+          "n": 2,
+          "stem": "Q2. What does the word 'shabby' (Paragraph 2) suggest about the kelong? [1]",
+          "answer": "old, worn-out and run-down",
+          "marks": 1
+        },
+        {
+          "n": 3,
+          "stem": "Q3. Using your own words, explain why the narrator felt 'cold and a little bored' when he first reached the kelong. (Paragraph 2) [2]",
+          "answer": "① the kelong was just a shabby old hut, not the grand place he had imagined; ② he would rather have stayed home with his phone and his bed",
+          "marks": 2
+        },
+        {
+          "n": 4,
+          "stem": "Q4. What is the effect of the comparison 'the line fought back like a living thing' (Paragraph 4)? [2]",
+          "answer": "the simile makes the fish's pull feel strong and alive, showing how hard the narrator had to struggle and building the excitement of his first catch",
+          "marks": 2
+        },
+        {
+          "n": 5,
+          "stem": "Q5. What does the word 'twisted' in 'Something in me twisted' (Paragraph 6) suggest about how the narrator felt? [1]",
+          "answer": "a sudden pang of guilt or unease",
+          "marks": 1
+        },
+        {
+          "n": 6,
+          "stem": "Q6. Using your own words, explain why the narrator decided to let the fish go. (Paragraphs 6-7) [2]",
+          "answer": "① he saw how frightened and alive the fish was, gasping and searching for water; ② he felt it was wrong to keep it and wanted to give it back its life / freedom",
+          "marks": 2
+        },
+        {
+          "n": 7,
+          "stem": "Q7. From Paragraph 8, using your own words, explain what the narrator finally understood the kelong had really meant to his grandfather. [2]",
+          "answer": "① it was where his grandfather had spent his whole life learning the sea's patience; ② he wanted to pass that on to the narrator before the kelong was torn down",
+          "marks": 2
+        }
+      ]
+    },
+    {
+      "exercise": 2,
+      "instruction": "Q8. The narrator's main feeling shifts as the day at the kelong unfolds. For each part of the passage, choose ONE word from the bank that best describes his dominant feeling at that moment. There are some extra words in the bank you do not need to use. Word bank: reluctant / proud / conflicted / contented / jealous / furious / terrified / impatient. The original task carries 4 marks; each blank is split into its own MCQ so each sub-part can be auto-graded independently.",
+      "passage": "Refer to the same 'The Kelong' narrative in Exercise 1 above. The narrator's feelings shift as the day unfolds — from reluctant in Paragraph 2, when he sits on an upturned pail before the shabby hut, cold and wishing he had stayed home with his phone and his bed, to proud in Paragraph 5, when he holds up his first fish, cannot stop grinning, and feels the old kelong is the very centre of the wide sea, to conflicted in Paragraph 6, when he looks at the frightened fish gasping in his hands and cannot decide whether to keep it or let it go, ending contented in Paragraphs 7 and 8, when he releases the fish, feels a strange lightness, and finally understands what the kelong meant to his grandfather. Pick the single best word from the bank for each moment.",
+      "questions": [
+        {
+          "n": 8,
+          "stem": "Q8(i). What best describes the narrator's dominant feeling in Paragraph 2, when he reaches the kelong, sees only a shabby wooden hut on stilts, and sits on an upturned pail feeling cold and wishing he had stayed home with his phone and his bed? [1]",
+          "options": [
+            {"key": "A", "text": "reluctant", "correct": true},
+            {"key": "B", "text": "proud", "correct": false},
+            {"key": "C", "text": "conflicted", "correct": false},
+            {"key": "D", "text": "contented", "correct": false},
+            {"key": "E", "text": "jealous", "correct": false},
+            {"key": "F", "text": "furious", "correct": false},
+            {"key": "G", "text": "terrified", "correct": false},
+            {"key": "H", "text": "impatient", "correct": false}
+          ],
+          "answer": "A"
+        },
+        {
+          "n": 9,
+          "stem": "Q8(ii). What best describes the narrator's dominant feeling in Paragraph 5, when he holds up his first fish, cannot stop grinning, hears his grandfather laugh, and feels the shabby old kelong is the very centre of the wide sea? [1]",
+          "options": [
+            {"key": "A", "text": "reluctant", "correct": false},
+            {"key": "B", "text": "proud", "correct": true},
+            {"key": "C", "text": "conflicted", "correct": false},
+            {"key": "D", "text": "contented", "correct": false},
+            {"key": "E", "text": "jealous", "correct": false},
+            {"key": "F", "text": "furious", "correct": false},
+            {"key": "G", "text": "terrified", "correct": false},
+            {"key": "H", "text": "impatient", "correct": false}
+          ],
+          "answer": "B"
+        },
+        {
+          "n": 10,
+          "stem": "Q8(iii). What best describes the narrator's dominant feeling in Paragraph 6, when he looks down at the fish gasping in his hands, sees its frightened eye, feels something twist inside him, and cannot decide whether to drop it in the pail or let it go? [1]",
+          "options": [
+            {"key": "A", "text": "reluctant", "correct": false},
+            {"key": "B", "text": "proud", "correct": false},
+            {"key": "C", "text": "conflicted", "correct": true},
+            {"key": "D", "text": "contented", "correct": false},
+            {"key": "E", "text": "jealous", "correct": false},
+            {"key": "F", "text": "furious", "correct": false},
+            {"key": "G", "text": "terrified", "correct": false},
+            {"key": "H", "text": "impatient", "correct": false}
+          ],
+          "answer": "C"
+        },
+        {
+          "n": 11,
+          "stem": "Q8(iv). What best describes the narrator's dominant feeling in Paragraphs 7 and 8, when he lowers the fish back into the water and lets it swim away, feels a strange lightness as though he has given something back, and on the boat home finally understands what the kelong meant to his grandfather? [1]",
+          "options": [
+            {"key": "A", "text": "reluctant", "correct": false},
+            {"key": "B", "text": "proud", "correct": false},
+            {"key": "C", "text": "conflicted", "correct": false},
+            {"key": "D", "text": "contented", "correct": true},
+            {"key": "E", "text": "jealous", "correct": false},
+            {"key": "F", "text": "furious", "correct": false},
+            {"key": "G", "text": "terrified", "correct": false},
+            {"key": "H", "text": "impatient", "correct": false}
+          ],
+          "answer": "D"
+        }
+      ]
+    }
+  ]
+}

@@ -169,6 +169,17 @@ export function redactSnapshotForStudent(sc: unknown): unknown {
 }
 
 /**
+ * Story identity of a paperKey / passageRef — strips the `_vN` version
+ * suffix so a fixture recalibrated from `_v1` to `_v2` (or any later bump)
+ * dedups as the SAME story. Without this, the §B `_v1→_v2` recalibration
+ * silently made previously-served stories eligible again (a class saw 5/12
+ * repeats the following week). Lifetime dedup keys off this, not the raw key.
+ */
+export function storyKey(key: string | null | undefined): string {
+  return key == null ? '' : String(key).replace(/_v\d+/g, '');
+}
+
+/**
  * Combine a y-m-d and a hh:mm:ss string in school local time (assumed
  * Asia/Singapore = UTC+8) into a UTC Date. We avoid pulling a tz library
  * for this single use; the offset is hard-coded but adjustable via the
@@ -852,14 +863,15 @@ export class MorningQuizService {
     for (const p of recentPapers) {
       const cfg = p.config as { mode?: string; passageRef?: string } | null;
       if (cfg?.mode !== 'passage_pick' || !cfg?.passageRef) continue;
-      usedPassageRefs.add(cfg.passageRef);
+      const sk = storyKey(cfg.passageRef);
+      usedPassageRefs.add(sk);
       const t = p.createdAt.getTime();
-      if ((lastUsedAt.get(cfg.passageRef) ?? 0) < t) {
-        lastUsedAt.set(cfg.passageRef, t);
+      if ((lastUsedAt.get(sk) ?? 0) < t) {
+        lastUsedAt.set(sk, t);
       }
     }
     const candidates = Array.from(byPassage.keys()).filter(
-      (k) => !usedPassageRefs.has(k),
+      (k) => !usedPassageRefs.has(storyKey(k)),
     );
     let pick: string;
     if (candidates.length > 0) {
@@ -869,7 +881,7 @@ export class MorningQuizService {
       // weekly loop. Loud-log so the ops dashboard surfaces this and
       // someone ingests more passages.
       const sorted = Array.from(byPassage.keys()).sort(
-        (a, b) => (lastUsedAt.get(a) ?? 0) - (lastUsedAt.get(b) ?? 0),
+        (a, b) => (lastUsedAt.get(storyKey(a)) ?? 0) - (lastUsedAt.get(storyKey(b)) ?? 0),
       );
       pick = sorted[0];
       this.logger.warn(
@@ -1049,17 +1061,18 @@ export class MorningQuizService {
       // the simplified-tier split), so default to 'standard' for those.
       const pickTier = cfg.provenanceFilter ?? 'standard';
       if (pickTier !== filter) continue;
-      usedKeys.add(cfg.paperKey);
+      const sk = storyKey(cfg.paperKey);
+      usedKeys.add(sk);
       const t = p.createdAt.getTime();
-      if ((lastUsedAt.get(cfg.paperKey) ?? 0) < t) lastUsedAt.set(cfg.paperKey, t);
+      if ((lastUsedAt.get(sk) ?? 0) < t) lastUsedAt.set(sk, t);
     }
-    const candidates = Array.from(byPaperKey.keys()).filter((k) => !usedKeys.has(k));
+    const candidates = Array.from(byPaperKey.keys()).filter((k) => !usedKeys.has(storyKey(k)));
     let pick: string;
     if (candidates.length > 0) {
       pick = candidates[Math.floor(Math.random() * candidates.length)];
     } else {
       const sorted = Array.from(byPaperKey.keys()).sort(
-        (a, b) => (lastUsedAt.get(a) ?? 0) - (lastUsedAt.get(b) ?? 0),
+        (a, b) => (lastUsedAt.get(storyKey(a)) ?? 0) - (lastUsedAt.get(storyKey(b)) ?? 0),
       );
       pick = sorted[0];
       this.logger.warn(
