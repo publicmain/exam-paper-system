@@ -483,6 +483,64 @@ async function buildWeekly(offset) {
     total: sessions.length, collisions, sessions };
 }
 
+// ── action center (what needs a human's attention, prioritised) ─────────────
+async function buildActions() {
+  const m = await buildMetrics();
+  let nextWk = { total: 0, collisions: 0, weekStart: '' };
+  try { nextWk = await buildWeekly(1); } catch (e) { /* keep default */ }
+  const items = [];
+  const add = (sev, prio, title, detail, metric, page, cta) => items.push({ sev, prio, title, detail, metric, page, cta });
+  // crit
+  if (m.week.repeats > 0) add('crit', 0, 'Repeat collision this week', m.week.repeats + ' session(s) reuse a story this class has already seen — swap before it is served.', m.week.repeats, 'weekly', 'Review this week');
+  if (nextWk.total > 0 && nextWk.collisions > 0) add('crit', 0, 'Next week has repeats', nextWk.collisions + ' collision(s) in week of ' + nextWk.weekStart + '.', nextWk.collisions, 'weekly', 'Review next week');
+  // act (needs doing today)
+  if (m.latest.markerQueue > 0) add('act', 1, 'Short-answers awaiting grading', m.latest.markerQueue + ' free-text answer(s) from the ' + m.latest.date + ' quiz are parked for a human mark.', m.latest.markerQueue, 'grade', 'Open grade queue');
+  // warn (needs doing soon)
+  if (nextWk.total === 0) add('warn', 2, 'Next week not built yet', 'Week of ' + nextWk.weekStart + ' has 0 sessions scheduled — generate Mon–Fri × 3 tiers.', 0, 'weekly', 'Build next week');
+  if (m.bank.simplifiedRunway < 4) add('warn', 2, 'Simplified §B runway low', 'Only ' + m.bank.simplifiedRunway + ' unused stories left for this class (target 4/week) — author a top-up.', m.bank.simplifiedRunway, 'weekly', 'Plan a build');
+  // info (routine daily)
+  const present = m.latest.onTime + m.latest.late;
+  if (present > 0) add('info', 3, 'Attendance to enter in Seiue', present + ' present on ' + m.latest.date + ' — enter into OL_MO_English + MO_English.', present, 'sync', 'Open Seiue sync');
+  items.sort((a, b) => a.prio - b.prio);
+  const attention = items.filter((i) => i.sev === 'crit' || i.sev === 'act' || i.sev === 'warn').length;
+  return { generatedAt: new Date().toISOString(), attention, allClear: attention === 0, items };
+}
+
+// ── audit timeline (real, timestamped events across the system) ─────────────
+async function buildAudit() {
+  const [grades, schedules, quizzes, attends] = await Promise.all([
+    q(`select to_char(date_trunc('minute', a."markedAt"),'YYYY-MM-DD"T"HH24:MI') ts, u.name actor, count(*) n, min(s.date)::text qday
+         from "AnswerScript" a join "User" u on u.id=a."markedById"
+         join "StudentSubmission" ss on ss.id=a."submissionId"
+         join "MorningQuizSession" s on s."paperAssignmentId"=ss."assignmentId"
+        where a."markedById" is not null and a."markedAt" is not null and s."classId"=$1
+        group by 1,2 order by 1 desc limit 12`, [CLASS_ID]),
+    q(`select to_char(date_trunc('minute', "createdAt"),'YYYY-MM-DD"T"HH24:MI') ts, count(*) n, min(date)::text wk_from, max(date)::text wk_to
+         from "MorningQuizSession" where "classId"=$1 group by 1 order by 1 desc limit 8`, [CLASS_ID]),
+    q(`select s.date::text qday, count(distinct ss.id) subs, to_char(max(ss."submittedAt"),'YYYY-MM-DD"T"HH24:MI') ts
+         from "MorningQuizSession" s join "StudentSubmission" ss on ss."assignmentId"=s."paperAssignmentId"
+        where s."classId"=$1 and ss.status in ('submitted','marked') group by s.date order by s.date desc limit 8`, [CLASS_ID]),
+    q(`select s.date::text qday, count(distinct a."studentId") present, to_char(max(a."scanTime"),'YYYY-MM-DD"T"HH24:MI') ts
+         from "Attendance" a join "MorningQuizSession" s on s.id=a."sessionId"
+        where s."classId"=$1 and a.status in ('on_time','late') group by s.date order by s.date desc limit 8`, [CLASS_ID]),
+  ]);
+  const live = [];
+  grades.forEach((r) => live.push({ ts: r.ts, type: 'grade', actor: r.actor || 'admin', text: 'Graded ' + r.n + ' short-answer' + (Number(r.n) > 1 ? 's' : '') + ' · quiz ' + r.qday, source: 'live' }));
+  schedules.forEach((r) => live.push({ ts: r.ts, type: 'schedule', actor: 'scheduler', text: 'Scheduled ' + r.n + ' session' + (Number(r.n) > 1 ? 's' : '') + ' · ' + (r.wk_from === r.wk_to ? r.wk_from : r.wk_from + '…' + r.wk_to), source: 'live' }));
+  quizzes.forEach((r) => { if (r.ts) live.push({ ts: r.ts, type: 'quiz', actor: 'students', text: 'Quiz day ' + r.qday + ' · ' + r.subs + ' submissions', source: 'live' }); });
+  attends.forEach((r) => { if (r.ts) live.push({ ts: r.ts, type: 'attend', actor: 'QR scan', text: 'Attendance ' + r.qday + ' · ' + r.present + ' present', source: 'live' }); });
+  live.sort((a, b) => (a.ts < b.ts ? 1 : a.ts > b.ts ? -1 : 0));
+  // recorded content-pipeline events (from runs.json) — clearly labeled, no live ts
+  const run = loadRun();
+  const recorded = [];
+  const ab = (run.agents || []).filter((a) => String(a.kind || '').indexOf('author') === 0);
+  const dep = run.deploy || {};
+  if (ab.length) recorded.push({ type: 'author', actor: 'content-author ×' + ab.length, text: 'Authoring fan-out · ' + ab.length + ' agents · bank ' + dep.bankBefore + '→' + dep.bankAfter, source: 'recorded' });
+  (run.doubleBlind || []).filter((d) => d.flagged).forEach((d) => recorded.push({ type: 'flag', actor: 'blind-solver', text: 'Double-blind flagged ' + d.paper + ' — ' + d.note, source: 'recorded' }));
+  if (run.deploy) recorded.push({ type: 'deploy', actor: 'orchestrator-00', text: 'Shipped fixtures → ' + dep.target + ' · ' + dep.repeats + ' repeats introduced', source: 'recorded' });
+  return { generatedAt: new Date().toISOString(), live: live.slice(0, 30), recorded };
+}
+
 // ── agent work board (mission control) ──────────────────────────────────────
 // Combines LIVE prod signals (grading queue, bank runway, zero-repeat,
 // attendance, per-day history) with the recorded authoring run into
@@ -860,12 +918,47 @@ app.post('/api/grade', gate, async (req, res) => {
     const { scriptId, awardedMarks, reason } = req.body || {};
     if (!scriptId || awardedMarks == null) return res.status(400).json({ ok: false, error: 'scriptId and awardedMarks required' });
     const r = await applyGrade(scriptId, awardedMarks, reason);
-    // bust caches so the queue / metrics / board reflect the write immediately
-    qcache.at = 0; cache.at = 0; scache.at = 0; bcache.at = 0;
+    // bust caches so the queue / metrics / board / actions / audit reflect the write immediately
+    qcache.at = 0; cache.at = 0; scache.at = 0; bcache.at = 0; ncache.at = 0; dcache.at = 0;
     res.set('Cache-Control', 'no-store');
     res.status(r.ok ? 200 : 400).json(r);
   } catch (e) {
     res.status(500).json({ ok: false, error: String((e && e.message) || e) });
+  }
+});
+
+// health probe — real DB ping + freshness, so the console can't look alive while dead
+app.get('/api/status', gate, async (_req, res) => {
+  const t0 = Date.now();
+  let db = 'ok', dbMs = null, error = null;
+  try { await q('select 1'); dbMs = Date.now() - t0; } catch (e) { db = 'error'; error = String((e && e.message) || e); }
+  res.set('Cache-Control', 'no-store');
+  res.status(db === 'ok' ? 200 : 503).json({
+    ok: db === 'ok', db, dbMs, error,
+    serverTime: new Date().toISOString(), uptimeSec: Math.round(process.uptime()),
+    class: CLASS_ID,
+  });
+});
+
+let ncache = { at: 0, data: null };
+app.get('/api/actions', gate, async (_req, res) => {
+  try {
+    if (Date.now() - ncache.at >= 8000 || !ncache.data) ncache = { at: Date.now(), data: await buildActions() };
+    res.set('Cache-Control', 'no-store');
+    res.json(ncache.data);
+  } catch (e) {
+    res.status(500).json({ error: String((e && e.message) || e) });
+  }
+});
+
+let dcache = { at: 0, data: null };
+app.get('/api/audit', gate, async (_req, res) => {
+  try {
+    if (Date.now() - dcache.at >= 15000 || !dcache.data) dcache = { at: Date.now(), data: await buildAudit() };
+    res.set('Cache-Control', 'no-store');
+    res.json(dcache.data);
+  } catch (e) {
+    res.status(500).json({ error: String((e && e.message) || e) });
   }
 });
 
