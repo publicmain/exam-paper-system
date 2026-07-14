@@ -299,7 +299,7 @@
   .acard.crit{border-left-color:var(--crit)} .acard.act{border-left-color:var(--warn)} .acard.warn{border-left-color:var(--warn)} .acard.info{border-left-color:var(--info)} .acard.ok{border-left-color:var(--ok);cursor:default}
   .acard .abadge{font-family:var(--mono);font-size:22px;font-weight:700;min-width:44px;text-align:center}
   .acard.crit .abadge{color:var(--crit)} .acard.act .abadge,.acard.warn .abadge{color:var(--warn)} .acard.info .abadge{color:var(--info)} .acard.ok .abadge{color:var(--ok)}
-  .acard .atxt{flex:1;min-width:0} .acard .att{font-weight:700;font-size:14px} .acard .adt{font-size:12px;color:var(--muted);margin-top:2px;line-height:1.4}
+  .acard .atxt{flex:1;min-width:0} .acard .actt{font-weight:700;font-size:14px} .acard .adt{font-size:12px;color:var(--muted);margin-top:2px;line-height:1.4}
   .acard .acta{font-family:var(--mono);font-size:11px;color:var(--accent-ink);white-space:nowrap;flex:none}
   .acard.ok .acta{color:var(--muted)}
   .acsev{font-family:var(--mono);font-size:8.5px;letter-spacing:.08em;text-transform:uppercase;padding:2px 7px;border-radius:99px;flex:none}
@@ -995,9 +995,9 @@
     id("ac-sum").innerHTML=a.allClear?'✓ <b>All clear</b> — nothing needs your attention right now.':'<b>'+a.attention+'</b> item'+(a.attention>1?'s':'')+' need attention'+(a.items.length>a.attention?' · '+(a.items.length-a.attention)+' routine':'');
     setActPill(a.attention);
     var host=id("actions");if(!host)return;
-    if(!a.items.length){host.innerHTML='<div class="acard ok"><div class="abadge">✓</div><div class="atxt"><div class="att">All clear</div><div class="adt">No pending grading, next week built, runway healthy, no repeats.</div></div><div class="acta">nothing to do</div></div>';return}
+    if(!a.items.length){host.innerHTML='<div class="acard ok"><div class="abadge">✓</div><div class="atxt"><div class="actt">All clear</div><div class="adt">No pending grading, next week built, runway healthy, no repeats.</div></div><div class="acta">nothing to do</div></div>';return}
     host.innerHTML=a.items.map(function(i){
-      return '<div class="acard '+i.sev+'"'+(i.page?' data-page="'+esc(i.page)+'"':'')+'><div class="abadge">'+esc(String(i.metric))+'</div><div class="atxt"><div class="att">'+esc(i.title)+' <span class="acsev '+i.sev+'">'+(lbl[i.sev]||i.sev)+'</span></div><div class="adt">'+esc(i.detail)+'</div></div><div class="acta">'+esc(i.cta)+' →</div></div>';
+      return '<div class="acard '+i.sev+'"'+(i.page?' data-page="'+esc(i.page)+'"':'')+'><div class="abadge">'+esc(String(i.metric))+'</div><div class="atxt"><div class="actt">'+esc(i.title)+' <span class="acsev '+i.sev+'">'+(lbl[i.sev]||i.sev)+'</span></div><div class="adt">'+esc(i.detail)+'</div></div><div class="acta">'+esc(i.cta)+' →</div></div>';
     }).join("");
     host.querySelectorAll(".acard[data-page]").forEach(function(el){el.addEventListener("click",function(){goTo(el.getAttribute("data-page"))})});
   }
