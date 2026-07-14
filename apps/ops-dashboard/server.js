@@ -339,16 +339,19 @@ app.get('/api/series', gate, async (_req, res) => {
   }
 });
 
-let runCache = null;
-app.get('/api/run', gate, (_req, res) => {
-  try {
-    if (!runCache) runCache = JSON.parse(fs.readFileSync(path.join(__dirname, 'runs.json'), 'utf8'));
-    res.set('Cache-Control', 'no-store');
-    res.json(runCache);
-  } catch (e) {
-    res.status(500).json({ error: String((e && e.message) || e) });
-  }
-});
+function serveJson(file, cacheRef) {
+  return (_req, res) => {
+    try {
+      if (!cacheRef.v) cacheRef.v = JSON.parse(fs.readFileSync(path.join(__dirname, file), 'utf8'));
+      res.set('Cache-Control', 'no-store');
+      res.json(cacheRef.v);
+    } catch (e) {
+      res.status(500).json({ error: String((e && e.message) || e) });
+    }
+  };
+}
+app.get('/api/run', gate, serveJson('runs.json', { v: null }));
+app.get('/api/platform', gate, serveJson('platform.json', { v: null }));
 
 app.get('/', gate, (_req, res) => res.sendFile(path.join(__dirname, 'public', 'index.html')));
 app.use(express.static(path.join(__dirname, 'public')));

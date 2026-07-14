@@ -167,6 +167,21 @@
   .g2 .nm{color:var(--ink-dim)} .g2 .vl{margin-left:auto;font-family:var(--mono);font-size:11px;color:var(--ok)}
   .db{padding:9px 0;font-size:12px;border-top:1px solid var(--line-soft)} .db:first-child{border-top:none} .db .p{font-family:var(--mono);font-weight:600} .db .nz{color:var(--muted);margin-top:2px;font-size:11.5px} .db.flag .p{color:var(--warn)}
 
+  /* control-plane layers */
+  .layer{display:grid;grid-template-columns:212px 1fr;border-radius:var(--r);overflow:hidden;border:1px solid var(--line);background:var(--panel);box-shadow:var(--shadow)}
+  .layer + .layer{margin-top:12px}
+  .layer .lhead{padding:16px 16px 16px 20px;border-right:1px solid var(--line-soft);position:relative;background:linear-gradient(180deg,color-mix(in srgb,var(--lc) 6%,transparent),transparent)}
+  .layer .lhead::before{content:"";position:absolute;left:0;top:0;bottom:0;width:4px;background:var(--lc)}
+  .layer .ln{font-family:var(--mono);font-size:10px;letter-spacing:.14em;color:var(--faint)}
+  .layer .lname{font-size:16px;font-weight:700;margin-top:5px;letter-spacing:-.01em} .layer .lname small{color:var(--muted);font-weight:600;font-size:12px;margin-left:7px}
+  .layer .lpath{font-family:var(--mono);font-size:10.5px;color:var(--lc);margin-top:7px}
+  .layer .lstat{font-family:var(--mono);font-size:10.5px;color:var(--muted);margin-top:12px;padding-top:10px;border-top:1px solid var(--line-soft)}
+  .layer .lbody{padding:16px}
+  .layer .lval{font-size:13px;color:var(--ink);line-height:1.5} .layer .lrole{font-size:11.5px;color:var(--muted);margin-top:8px;line-height:1.55}
+  .layer .litems{display:flex;flex-wrap:wrap;gap:6px;margin-top:13px}
+  .lchip{font-family:var(--mono);font-size:10.5px;padding:4px 9px;border-radius:7px;background:var(--panel2);border:1px solid var(--line-soft);color:var(--ink-dim)}
+  @media(max-width:640px){.layer{grid-template-columns:1fr}.layer .lhead{border-right:none;border-bottom:1px solid var(--line-soft)}}
+
   .foot{padding:16px clamp(14px,2.4vw,28px);border-top:1px solid var(--line);font-family:var(--mono);font-size:10.5px;color:var(--faint);display:flex;gap:16px;flex-wrap:wrap;justify-content:space-between}
   .foot b{color:var(--accent-ink);font-weight:600} .foot span{color:var(--muted)}
 
@@ -190,6 +205,8 @@
     <div class="nav" data-page="grading"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 12l5 5L20 6"/><path d="M4 19h16"/></svg>Grading</div>
     <div class="nav" data-page="content"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="6" r="2.2"/><circle cx="5" cy="18" r="2.2"/><circle cx="19" cy="18" r="2.2"/><path d="M12 8.2v3M10.6 13l-4 3M13.4 13l4 3"/></svg>Content &amp; QA</div>
     <div class="nav" data-page="attendance"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H7a4 4 0 0 0-4 4v2"/><circle cx="10" cy="8" r="3.2"/><path d="M22 21v-2a4 4 0 0 0-3-3.8"/></svg>Attendance</div>
+    <div class="navlab">Govern</div>
+    <div class="nav" data-page="platform"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="4" rx="1"/><rect x="3" y="10" width="18" height="4" rx="1"/><rect x="3" y="16" width="18" height="4" rx="1"/></svg>Agent Platform</div>
     <div class="side-foot">
       <span class="sfpill live"><span class="dot"></span>LIVE · production</span>
       <span class="sfpill cost"><span class="dot"></span>Anthropic API · $0.00</span>
@@ -289,6 +306,14 @@
         </div>
         <div class="card"><div class="ch"><h2>Per-day log</h2><span class="meta">quiz days</span></div><div class="cbody" style="overflow-x:auto"><table class="tbl"><thead><tr><th>Date</th><th>Present</th><th>Subs</th><th>Auto</th><th>Human</th><th>Avg %</th></tr></thead><tbody id="logbody"></tbody></table></div></div>
       </section>
+
+      <!-- ===== AGENT PLATFORM (control plane) ===== -->
+      <section class="page" data-pg="platform">
+        <div class="card"><div class="ch"><h2>Agent Control Plane</h2><span class="meta">config-as-code · 5-layer governance</span></div>
+          <div class="cbody"><p class="note" style="margin:0" id="pf-note"></p></div></div>
+        <div id="platform"></div>
+        <div class="card"><div class="cbody"><p class="note" style="margin:0">Governance (this stack) + observability (Content&nbsp;&amp;&nbsp;QA trace) + live ops (Overview) together form the control plane. Distributed via <b>plugins</b> so every teammate runs an identical agent setup — the pattern used by control planes like FleetManifest / Copilot CLI marketplace.</p></div></div>
+      </section>
     </div>
 
     <footer class="foot">
@@ -310,7 +335,7 @@
   var LV={ielts_authentic:"AUTHENTIC",ielts_simplified:"SIMPLIFIED",olevel:"O-LEVEL"};var DOW=["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
 
   // ---- nav ----
-  var TITLES={overview:"Overview",grading:"Grading",content:"Content & QA",attendance:"Attendance"};
+  var TITLES={overview:"Overview",grading:"Grading",content:"Content & QA",attendance:"Attendance",platform:"Agent Platform"};
   document.querySelectorAll(".nav").forEach(function(n){n.addEventListener("click",function(){
     document.querySelectorAll(".nav").forEach(function(x){x.classList.remove("active")});n.classList.add("active");
     var pg=n.getAttribute("data-page");
@@ -369,7 +394,17 @@
   }
 
   // ---- state ----
-  var M=null,S=null,RUN=null,SEL=0;
+  var M=null,S=null,RUN=null,SEL=0,PF=null;
+  function renderPlatform(p){
+    var host=id("platform");if(!host)return;id("pf-note").innerHTML=p.note;
+    host.innerHTML=p.layers.map(function(L){
+      var chips=(L.items||[]).map(function(it){return '<span class="lchip">'+esc(it)+'</span>'}).join("");
+      return '<div class="layer" style="--lc:'+L.color+'"><div class="lhead"><div class="ln">LAYER '+L.n+'</div>'+
+        '<div class="lname">'+esc(L.name)+'<small>'+esc(L.zh)+'</small></div><div class="lpath">'+esc(L.path)+'</div>'+
+        '<div class="lstat">'+esc(L.stat)+'</div></div>'+
+        '<div class="lbody"><div class="lval">'+esc(L.value)+'</div><div class="lrole">'+esc(L.role)+'</div><div class="litems">'+chips+'</div></div></div>';
+    }).join("");
+  }
   function seriesInRange(){if(!S)return[];var days=S.days.slice();if(RANGE>=999)return days;
     var cutoff=new Date(Date.now()-RANGE*86400000);return days.filter(function(d){return new Date(d.date+"T00:00:00Z")>=cutoff})}
   function shortDate(s){return s.slice(5)}
@@ -467,6 +502,7 @@
   loadMetrics();setInterval(loadMetrics,15000);
   api("/api/series").then(function(s){if(s&&s.days){S=s;renderSeries()}});
   api("/api/run").then(function(r){if(r&&r.agents){RUN=r;renderTrace(r)}});
+  api("/api/platform").then(function(p){if(p&&p.layers){PF=p;renderPlatform(p)}});
 </script>
 </body>
 </html>

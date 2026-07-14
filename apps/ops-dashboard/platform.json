@@ -1,0 +1,78 @@
+{
+  "note": "Agent control-plane config for this project — the 5-layer governance stack (memory → skills → hooks → subagents → plugins). Config-as-code; distributed via plugins for whole-team parity.",
+  "layers": [
+    {
+      "n": 1, "key": "memory", "name": "Memory", "zh": "记忆层", "path": "CLAUDE.md · memory/", "color": "var(--accent)",
+      "value": "Unify naming, structure and repo rules so every agent aligns to the same baseline.",
+      "role": "Global config, project rules, code standards, engineering red-lines — written-in-stone team consensus.",
+      "stat": "1 charter · 15 memories · 7 iron rules",
+      "items": [
+        "CLAUDE.md — project charter & iron rules",
+        "ai_api_usage_policy — ZERO Anthropic API calls",
+        "morning_quiz_no_repeats — never re-serve a story",
+        "pdf_ingest_rules — 10-point audit before push",
+        "daily_attendance_sync — Seiue sync runbook",
+        "railway_deploy_topology — prod deploy map",
+        "workflow_preferences — push-to-main, terse",
+        "+ 8 more project/user memories"
+      ]
+    },
+    {
+      "n": 2, "key": "skills", "name": "Skills", "zh": "知识层", "path": ".claude/skills/", "color": "var(--info)",
+      "value": "Distil best practices so agents match the right capability to the task — no reinventing.",
+      "role": "On-demand workflows the agent auto-recognises and invokes only when relevant.",
+      "stat": "~25 skills · project + plugin",
+      "items": [
+        "diagnose — disciplined bug-hunt loop",
+        "tdd — red-green-refactor",
+        "triage / to-prd / to-issues — planning",
+        "improve-codebase-architecture",
+        "write-a-skill — author new skills",
+        "brainstorming · product-manager-toolkit",
+        "+ 11 plugin skills (namespaced)"
+      ]
+    },
+    {
+      "n": 3, "key": "hooks", "name": "Guardrails", "zh": "护栏层", "path": ".claude/settings · hooks/", "color": "var(--warn)",
+      "value": "Block risk before it happens, keep an after-the-fact record — safe, controllable agents.",
+      "role": "Deterministic pre/post lifecycle enforcement: block dangerous commands, auto-deploy notices, permission gates.",
+      "stat": "policy allowlist · iron-rule guards",
+      "items": [
+        "ZERO-API guard — grading never triggers the AI grader",
+        "No-delete — archive/retire, never hard-delete",
+        "10-audit gate — no PDF→fixture ships unaudited",
+        "Copyright — past-paper metadata only",
+        "Permission allowlist (project + global)",
+        "PreToolUse / PostToolUse lifecycle hooks"
+      ]
+    },
+    {
+      "n": 4, "key": "subagents", "name": "Subagents", "zh": "委派层", "path": "subagents · agent-teams", "color": "var(--violet)",
+      "value": "Each subagent gets its own context window, tools and permissions; results return to the main thread, keeping it clean.",
+      "role": "Isolated context, parallel execution, no cross-talk — raises throughput and quality.",
+      "stat": "15+ agent types · parallel fan-out",
+      "items": [
+        "Explore · Plan · general-purpose",
+        "code-reviewer · architect-review",
+        "security-auditor · test-automator",
+        "team-lead / implementer / reviewer / debugger",
+        "content-author ×4 (this project's authoring run)",
+        "→ see the Content & QA trace"
+      ]
+    },
+    {
+      "n": 5, "key": "plugins", "name": "Plugins", "zh": "分发层", "path": ".claude/plugins/", "color": "var(--ok)",
+      "value": "NPM-style distribution with version control — one-click install syncs the whole team's config.",
+      "role": "Bundle skills + hooks + subagents; one install keeps every teammate's setup identical.",
+      "stat": "5 plugins · 2 marketplaces",
+      "items": [
+        "agent-teams @ 1.0.2",
+        "comprehensive-review @ 1.3.0",
+        "full-stack-orchestration",
+        "security-scanning · unit-testing",
+        "marketplace: anthropics/claude-plugins-official",
+        "marketplace: wshobson/agents"
+      ]
+    }
+  ]
+}
