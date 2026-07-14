@@ -412,6 +412,77 @@ async function applyGrade(scriptId, awardedMarks, reason) {
   }
 }
 
+// ── attendance roster (per-student, for Seiue entry) ────────────────────────
+// Read-only. Surfaces the exact on-time / late / absent list for a quiz day so
+// the daily Seiue cross-entry is a checklist, not a manual reconciliation.
+async function buildAttendanceRoster(date) {
+  const d = date || (await latestGradingDate());
+  const rows = await q(
+    `select u.name student,
+        case when bool_or(a.status='on_time') then 'on_time'
+             when bool_or(a.status='late') then 'late'
+             else 'absent' end status,
+        max(s.level) level,
+        min(a."scanTime") scanned_at
+       from "ClassEnrollment" ce
+       join "User" u on u.id=ce."userId"
+       left join "Attendance" a on a."studentId"=u.id
+          and a."sessionId" in (select id from "MorningQuizSession" where "classId"=$1 and date=$2::date)
+       left join "MorningQuizSession" s on s.id=a."sessionId"
+       where ce."classId"=$1 and ce.role='student' and u."isActive"=true
+       group by u.name
+       order by status, u.name`,
+    [CLASS_ID, d],
+  );
+  const students = rows.map((r) => ({
+    student: r.student, level: r.level || null, status: r.status,
+    scannedAt: r.scanned_at ? new Date(r.scanned_at).toISOString() : null,
+  }));
+  const counts = { on_time: 0, late: 0, absent: 0 };
+  students.forEach((s) => { counts[s.status] = (counts[s.status] || 0) + 1; });
+  return { generatedAt: new Date().toISOString(), date: d, counts, students };
+}
+
+// ── weekly build assistant (plan + validate a teaching week) ────────────────
+// Read-only. Shows a target week's sessions with a per-session repeat check
+// against the class's full history, so building next week is a glance, not a
+// manual cross-reference.
+async function buildWeekly(offset) {
+  const base = sgtWeekMonday();
+  const off = Number(offset) || 0;
+  const weekStart = new Date(new Date(base + 'T00:00:00Z').getTime() + off * 7 * 86400000).toISOString().slice(0, 10);
+  const weekEnd = new Date(new Date(weekStart + 'T00:00:00Z').getTime() + 7 * 86400000).toISOString().slice(0, 10);
+  const rows = await q(
+    `with hist as (
+        select s.date::date d, s.level,
+          regexp_replace(coalesce(p.config->>'paperKey', p.config->>'passageRef',''),'_v[0-9]+','','g') story
+        from "MorningQuizSession" s
+        join "PaperAssignment" pa on pa.id=s."paperAssignmentId"
+        join "Paper" p on p.id=pa."paperId"
+        where s."classId"=$1 and s.status<>'cancelled'
+      )
+      select tw.date::date::text date, tw.level, tw.status,
+        regexp_replace(coalesce(p.config->>'paperKey', p.config->>'passageRef',''),'_v[0-9]+','','g') story,
+        (select count(*) from hist h
+           where h.level=tw.level
+             and h.story=regexp_replace(coalesce(p.config->>'paperKey', p.config->>'passageRef',''),'_v[0-9]+','','g')
+             and h.d < tw.date::date) prior
+       from "MorningQuizSession" tw
+       join "PaperAssignment" pa on pa.id=tw."paperAssignmentId"
+       join "Paper" p on p.id=pa."paperId"
+       where tw."classId"=$1 and tw.date>=$2 and tw.date<$3 and tw.status<>'cancelled'
+       order by tw.date, tw.level`,
+    [CLASS_ID, weekStart, weekEnd],
+  );
+  const sessions = rows.map((r) => ({
+    date: r.date, level: r.level, status: r.status,
+    story: prettyStory(r.story), repeat: Number(r.prior) > 0, priorCount: Number(r.prior),
+  }));
+  const collisions = sessions.filter((s) => s.repeat).length;
+  return { generatedAt: new Date().toISOString(), weekStart, weekEnd, offset: off,
+    total: sessions.length, collisions, sessions };
+}
+
 // ── agent work board (mission control) ──────────────────────────────────────
 // Combines LIVE prod signals (grading queue, bank runway, zero-repeat,
 // attendance, per-day history) with the recorded authoring run into
@@ -795,6 +866,36 @@ app.post('/api/grade', gate, async (req, res) => {
     res.status(r.ok ? 200 : 400).json(r);
   } catch (e) {
     res.status(500).json({ ok: false, error: String((e && e.message) || e) });
+  }
+});
+
+let acache = { at: 0, key: '', data: null };
+app.get('/api/attendance-roster', gate, async (req, res) => {
+  try {
+    const date = req.query.date || null;
+    const key = date || 'latest';
+    if (acache.key !== key || Date.now() - acache.at >= 8000 || !acache.data) {
+      acache = { at: Date.now(), key, data: await buildAttendanceRoster(date) };
+    }
+    res.set('Cache-Control', 'no-store');
+    res.json(acache.data);
+  } catch (e) {
+    res.status(500).json({ error: String((e && e.message) || e) });
+  }
+});
+
+let wcache = { at: 0, key: '', data: null };
+app.get('/api/weekly', gate, async (req, res) => {
+  try {
+    const offset = req.query.offset != null ? req.query.offset : 1;
+    const key = String(offset);
+    if (wcache.key !== key || Date.now() - wcache.at >= 8000 || !wcache.data) {
+      wcache = { at: Date.now(), key, data: await buildWeekly(offset) };
+    }
+    res.set('Cache-Control', 'no-store');
+    res.json(wcache.data);
+  } catch (e) {
+    res.status(500).json({ error: String((e && e.message) || e) });
   }
 });
 
