@@ -240,12 +240,72 @@ function prettyStory(ref) {
   return key.replace(/.*olevel_\d+_/, '').replace(/^ai_authored_/, '');
 }
 
+// ── historical time-series (real quiz days) ─────────────────────────────────
+async function buildSeries() {
+  const rows = await q(
+    `with days as (
+        select distinct s.date::date d from "MorningQuizSession" s
+        where s."classId"=$1 and s.status<>'cancelled'
+      )
+      select to_char(d,'YYYY-MM-DD') date,
+        (select count(distinct ss.id) from "StudentSubmission" ss join "MorningQuizSession" s on s."paperAssignmentId"=ss."assignmentId"
+           where s."classId"=$1 and s.date=days.d and ss.status in ('submitted','marked')) subs,
+        (select count(distinct a."studentId") from "Attendance" a join "MorningQuizSession" s on s.id=a."sessionId"
+           where s."classId"=$1 and s.date=days.d and a.status in ('on_time','late')) present,
+        (select count(*) from "AnswerScript" x join "StudentSubmission" ss on ss.id=x."submissionId"
+           join "MorningQuizSession" s on s."paperAssignmentId"=ss."assignmentId"
+           where s."classId"=$1 and s.date=days.d and x."markedById" is not null and ss.status<>'practice') human,
+        (select count(*) from "AnswerScript" x join "StudentSubmission" ss on ss.id=x."submissionId"
+           join "MorningQuizSession" s on s."paperAssignmentId"=ss."assignmentId"
+           where s."classId"=$1 and s.date=days.d and x."markedById" is null and x."awardedMarks" is not null and ss.status<>'practice') auto,
+        (select round(avg(ss."totalScore"::numeric/nullif(ss."maxScore",0)*100)) from "StudentSubmission" ss
+           join "MorningQuizSession" s on s."paperAssignmentId"=ss."assignmentId"
+           where s."classId"=$1 and s.date=days.d and ss.status='marked') avg_pct
+      from days order by d`,
+    [CLASS_ID],
+  );
+  const days = rows
+    .filter((r) => Number(r.subs) > 0)
+    .map((r) => ({
+      date: r.date, subs: Number(r.subs), present: Number(r.present),
+      human: Number(r.human), auto: Number(r.auto),
+      avgPct: r.avg_pct == null ? null : Number(r.avg_pct),
+    }));
+  const studentsEver = await q(
+    `select count(distinct ss."studentId") n from "StudentSubmission" ss
+       join "MorningQuizSession" s on s."paperAssignmentId"=ss."assignmentId"
+       where s."classId"=$1 and ss.status in ('submitted','marked')`,
+    [CLASS_ID],
+  );
+  const totalSubs = days.reduce((a, d) => a + d.subs, 0);
+  const scored = days.filter((d) => d.avgPct != null);
+  return {
+    generatedAt: new Date().toISOString(),
+    days,
+    totals: {
+      quizDays: days.length,
+      totalSubs,
+      studentsServed: Number(studentsEver[0] ? studentsEver[0].n : 0),
+      avgScorePct: scored.length ? Math.round(scored.reduce((a, d) => a + d.avgPct, 0) / scored.length) : null,
+      humanGraded: days.reduce((a, d) => a + d.human, 0),
+      autoGraded: days.reduce((a, d) => a + d.auto, 0),
+    },
+  };
+}
+
 // ── cache ───────────────────────────────────────────────────────────────────
-let cache = { at: 0, data: null, err: null };
+let cache = { at: 0, data: null };
 async function getMetrics() {
   if (Date.now() - cache.at < 8000 && cache.data) return cache.data;
   const data = await buildMetrics();
-  cache = { at: Date.now(), data, err: null };
+  cache = { at: Date.now(), data };
+  return data;
+}
+let scache = { at: 0, data: null };
+async function getSeries() {
+  if (Date.now() - scache.at < 30000 && scache.data) return scache.data;
+  const data = await buildSeries();
+  scache = { at: Date.now(), data };
   return data;
 }
 
@@ -265,6 +325,15 @@ app.get('/api/metrics', gate, async (_req, res) => {
   try {
     res.set('Cache-Control', 'no-store');
     res.json(await getMetrics());
+  } catch (e) {
+    res.status(500).json({ error: String((e && e.message) || e) });
+  }
+});
+
+app.get('/api/series', gate, async (_req, res) => {
+  try {
+    res.set('Cache-Control', 'no-store');
+    res.json(await getSeries());
   } catch (e) {
     res.status(500).json({ error: String((e && e.message) || e) });
   }
