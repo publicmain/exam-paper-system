@@ -293,6 +293,92 @@ async function buildSeries() {
   };
 }
 
+// ── agent work board (mission control) ──────────────────────────────────────
+// Combines LIVE prod signals (grading queue, bank runway, zero-repeat,
+// attendance) with the recorded authoring run into operational work items.
+async function buildBoard() {
+  const m = await buildMetrics();
+  const runway = m.bank.simplifiedRunway;
+  const runwayLow = runway < 4;
+  const present = m.latest.onTime + m.latest.late;
+  const items = [];
+
+  // upcoming / triggered
+  if (runwayLow) items.push({
+    id: 'author-next', col: 'triggered', title: 'Author §B stories', agent: 'content-author',
+    role: 'author fan-out', trigger: 'runway ' + runway + ' < 4/week', tokens: 0,
+    detail: 'queued — top up the simplified bank before it runs dry', live: true,
+  });
+  items.push({
+    id: 'ingest', col: 'triggered', title: 'Ingest PDF → fixture', agent: 'ingest + auditor',
+    role: 'author + guard', trigger: 'new source paper', tokens: 0,
+    detail: 'on demand — must pass the 10-point audit before it ships',
+  });
+
+  // in review (human-in-the-loop)
+  items.push({
+    id: 'grade', col: m.latest.markerQueue > 0 ? 'review' : 'done', title: 'Grade morning quiz · ' + m.latest.date,
+    agent: 'grader-hitl', role: 'human-in-loop', trigger: '09:00 auto-lock', tokens: 0, live: true,
+    detail: m.latest.markerQueue > 0
+      ? m.latest.markerQueue + ' short-answers awaiting a human'
+      : m.latest.humanGraded + ' human · ' + m.latest.autoGraded + ' auto graded',
+  });
+  items.push({
+    id: 'sync', col: 'review', title: 'Attendance → Seiue · ' + m.latest.date, agent: 'attendance-sync',
+    role: 'human-in-loop', trigger: 'after the quiz window', tokens: 0, live: true,
+    detail: present + ' present to enter into OL_MO_English + MO_English',
+  });
+
+  // done (recorded + live-verified)
+  items.push({
+    id: 'author', col: 'done', title: 'Author §B top-up ×4', agent: 'content-author ×4', role: 'author fan-out',
+    trigger: 'runway < 4/week', tokens: 270405, link: 'content',
+    detail: 'kelong · wayang · rooftop · kompang → +4 stories',
+  });
+  items.push({
+    id: 'blind', col: 'done', title: 'Double-blind verify', agent: 'blind-solver ×2', role: 'verify',
+    trigger: 'pre-ship gate', tokens: 0, detail: '3 papers solved · 1 flagged (water ② damming → merged)',
+  });
+  items.push({
+    id: 'zero', col: 'done', title: 'Zero-repeat check · week ' + m.week.weekStart, agent: 'dedup', role: 'guard',
+    trigger: 'post-generate', tokens: 0, live: true, detail: m.week.total + ' sessions · ' + m.week.repeats + ' collisions',
+  });
+  items.push({
+    id: 'deploy', col: 'done', title: 'Deploy fixtures → Railway', agent: 'orchestrator-00', role: 'ship',
+    trigger: 'all audits green', tokens: 0, detail: 'bank 17 → 21 stories · live',
+  });
+
+  const roster = [
+    { id: 'orchestrator-00', role: 'Orchestrator', status: 'idle', handles: 'plans & dispatches the fleet' },
+    { id: 'content-author', role: '§B Author', n: 4, status: runwayLow ? 'queued' : 'idle', handles: 'writes calibrated stories + items' },
+    { id: 'auditor-01', role: 'Auditor', status: 'idle', handles: '5 schema / rubric / shape gates' },
+    { id: 'blind-solver', role: 'Double-blind', n: 2, status: 'idle', handles: 'independently solves to verify keys' },
+    { id: 'grader-hitl', role: 'Grader', status: m.latest.markerQueue > 0 ? 'active' : 'idle', handles: 'human-in-loop short-answers' },
+    { id: 'attendance-sync', role: 'Sync', status: 'review', handles: 'quiz attendance → Seiue' },
+  ];
+  const guardrails = [
+    'ZERO-API · grading never triggers the AI grader',
+    'No-delete · archive / retire, never hard-delete',
+    '10-audit · no fixture ships unaudited',
+    'Zero-repeat · never re-serve a story',
+    'Copyright · past-paper metadata only',
+  ];
+  const cols = { triggered: 0, running: 0, review: 0, done: 0 };
+  items.forEach(function (i) { cols[i.col] = (cols[i.col] || 0) + 1; });
+  const activeAgents = roster.filter(function (r) { return r.status === 'active' || r.status === 'queued' || r.status === 'review'; }).length;
+
+  return {
+    generatedAt: new Date().toISOString(),
+    summary: {
+      activeAgents, totalAgents: roster.reduce(function (a, r) { return a + (r.n || 1); }, 0),
+      inFlight: cols.triggered + cols.running, pendingReview: cols.review, done: cols.done,
+      tokensCycle: 270405, apiCost: 0,
+    },
+    cols, items, roster, guardrails,
+    distribution: { plugins: 5, marketplaces: 2 },
+  };
+}
+
 // ── cache ───────────────────────────────────────────────────────────────────
 let cache = { at: 0, data: null };
 async function getMetrics() {
@@ -334,6 +420,17 @@ app.get('/api/series', gate, async (_req, res) => {
   try {
     res.set('Cache-Control', 'no-store');
     res.json(await getSeries());
+  } catch (e) {
+    res.status(500).json({ error: String((e && e.message) || e) });
+  }
+});
+
+let bcache = { at: 0, data: null };
+app.get('/api/board', gate, async (_req, res) => {
+  try {
+    if (Date.now() - bcache.at >= 8000 || !bcache.data) bcache = { at: Date.now(), data: await buildBoard() };
+    res.set('Cache-Control', 'no-store');
+    res.json(bcache.data);
   } catch (e) {
     res.status(500).json({ error: String((e && e.message) || e) });
   }
