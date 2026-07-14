@@ -320,6 +320,11 @@
   .tlsrc{font-family:var(--mono);font-size:8.5px;letter-spacing:.06em;text-transform:uppercase;padding:1px 6px;border-radius:99px;margin-left:6px}
   .tlsrc.recorded{background:var(--violet-wash);color:var(--violet)}
   .tldiv{font-family:var(--mono);font-size:10px;letter-spacing:.06em;text-transform:uppercase;color:var(--faint);margin:16px 0 8px;padding-top:12px;border-top:1px solid var(--line)}
+  /* health page */
+  .hpbanner{border-radius:12px;padding:16px 20px;font-size:16px;font-weight:700;border:1px solid var(--line);background:var(--panel2);color:var(--ink-dim)}
+  .hpbanner.ok{background:var(--ok-wash);border-color:color-mix(in srgb,var(--ok) 40%,transparent);color:var(--ok)}
+  .hpbanner.bad{background:var(--crit-wash);border-color:color-mix(in srgb,var(--crit) 40%,transparent);color:var(--crit)}
+  #hp-run:disabled{opacity:.5;cursor:default}
   /* drawer */
   .dwscrim{position:fixed;inset:0;background:rgba(4,10,14,.5);opacity:0;pointer-events:none;transition:opacity .2s;z-index:60}
   .dwscrim.on{opacity:1;pointer-events:auto}
@@ -385,6 +390,7 @@
     <div class="navlab">Control</div>
     <div class="nav active" data-page="home"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="4"/><path d="M12 1v3M12 20v3M1 12h3M20 12h3"/></svg>Action Center<span class="navpill" id="nav-act"></span></div>
     <div class="nav" data-page="timeline"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 6h16M4 12h16M4 18h10"/><circle cx="20" cy="18" r="1.4" fill="currentColor" stroke="none"/></svg>Timeline</div>
+    <div class="nav" data-page="health"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12h4l2 6 4-14 2 8h6"/></svg>Health<span class="navpill" id="nav-health" style="background:var(--crit)"></span></div>
     <div class="navlab">Monitor</div>
     <div class="nav" data-page="overview"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="9" rx="1"/><rect x="14" y="3" width="7" height="5" rx="1"/><rect x="14" y="12" width="7" height="9" rx="1"/><rect x="3" y="16" width="7" height="5" rx="1"/></svg>Overview</div>
     <div class="nav" data-page="grading"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 12l5 5L20 6"/><path d="M4 19h16"/></svg>Grading</div>
@@ -432,6 +438,19 @@
       <section class="page" data-pg="timeline">
         <div class="achead"><div class="acsum">Real, timestamped events across the system — grading, scheduling, quiz runs, attendance — plus the recorded content-pipeline run.</div><button class="gqref" id="tl-refresh">↻ refresh</button></div>
         <div id="timeline"></div>
+      </section>
+
+      <!-- ===== HEALTH (on-demand diagnostics) ===== -->
+      <section class="page" data-pg="health">
+        <div class="hpbanner" id="hp-banner">Checking…</div>
+        <div class="achead" style="margin-top:16px">
+          <div class="acsum">On-demand diagnostics — actively probe the database and every data source, with latency.</div>
+          <button class="gqref" id="hp-run">▶ Run full check</button>
+        </div>
+        <div class="grid2">
+          <div class="card"><div class="ch"><h2>Live probe &amp; freshness</h2><span class="meta" id="hp-probe-m">—</span></div><div class="cbody" id="hp-probe"></div></div>
+          <div class="card"><div class="ch"><h2>Endpoint diagnostics</h2><span class="meta" id="hp-diag-m">not run</span></div><div class="cbody" id="hp-diag"></div></div>
+        </div>
       </section>
 
       <!-- ===== OVERVIEW ===== -->
@@ -608,7 +627,7 @@
   var LV={ielts_authentic:"AUTHENTIC",ielts_simplified:"SIMPLIFIED",olevel:"O-LEVEL"};var DOW=["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
 
   // ---- nav ----
-  var TITLES={home:"Action Center",timeline:"Timeline — system audit",overview:"Overview",grading:"Grading",content:"Content & QA",attendance:"Attendance",grade:"Grade Queue — human marking",sync:"Seiue Sync — attendance entry",weekly:"Weekly Build — plan the week",platform:"Agent Ops — Mission Control"};
+  var TITLES={home:"Action Center",timeline:"Timeline — system audit",health:"System Health — diagnostics",overview:"Overview",grading:"Grading",content:"Content & QA",attendance:"Attendance",grade:"Grade Queue — human marking",sync:"Seiue Sync — attendance entry",weekly:"Weekly Build — plan the week",platform:"Agent Ops — Mission Control"};
   document.querySelectorAll(".nav").forEach(function(n){n.addEventListener("click",function(){
     document.querySelectorAll(".nav").forEach(function(x){x.classList.remove("active")});n.classList.add("active");
     var pg=n.getAttribute("data-page");
@@ -616,6 +635,7 @@
     id("pgTitle").textContent=TITLES[pg]; id("side").classList.remove("open"); id("scrim").classList.remove("on");
     if(pg==="home")loadHome();
     if(pg==="timeline")loadAudit();
+    if(pg==="health")loadHealthPage();
     if(pg==="grade")loadQueue();
     if(pg==="sync")loadSync();
     if(pg==="weekly")loadWeekly();
@@ -1023,6 +1043,7 @@
     });
     id("health-m").textContent=s?(s.ok?"all systems go":"degraded"):"unreachable";
     host.innerHTML=rows;
+    if(typeof renderProbe==="function")renderProbe();
   }
 
   function loadAudit(){api("/api/audit").then(function(d){if(d&&d.live!==undefined){AUDIT=d;renderTimeline();renderTlPreview()}})}
@@ -1043,6 +1064,59 @@
   if(id("tl-more"))id("tl-more").addEventListener("click",function(){goTo("timeline")});
   loadHome();
   setInterval(function(){loadStatus();loadActions();var p=activePg();if(p==="home"||p==="timeline")loadAudit()},20000);
+
+  // ---- health page (on-demand diagnostics operation) ----
+  var DIAG=null;
+  var PROBES=[["/api/status","Database probe"],["/api/metrics","Live metrics"],["/api/series","Time-series"],["/api/actions","Action center"],["/api/audit","Audit feed"],["/api/board","Agent board"],["/api/queue","Grade queue"],["/api/attendance-roster","Attendance roster"],["/api/weekly?offset=1","Weekly build"],["/api/run","Content run"]];
+  function nowMs(){return (window.performance&&performance.now)?performance.now():+new Date()}
+  function updateHpBanner(){
+    var bad=(STATUS===null)||!(STATUS&&STATUS.ok)||(DIAG&&DIAG.some(function(x){return !x.ok}));
+    var b=id("hp-banner");
+    if(b){
+      if(STATUS===null||!(STATUS&&STATUS.ok)){b.className="hpbanner bad";b.textContent="⚠ Degraded — database unreachable"}
+      else if(DIAG&&DIAG.some(function(x){return !x.ok})){b.className="hpbanner bad";b.textContent="⚠ Degraded — "+DIAG.filter(function(x){return !x.ok}).length+" data source(s) failing"}
+      else{b.className="hpbanner ok";b.textContent="✓ All systems operational"+(DIAG?" · "+DIAG.length+"/"+DIAG.length+" endpoints · db "+STATUS.dbMs+"ms":"")}
+    }
+    var np=id("nav-health");if(np){np.textContent=bad?"!":"";np.classList.toggle("on",!!bad)}
+  }
+  function renderProbe(){
+    var host=id("hp-probe");if(!host){updateHpBanner();return}var s=STATUS,rows="";
+    if(s){
+      rows+=hrow(s.db==="ok"?"ok":"bad","Database",s.db==="ok"?("connected · "+s.dbMs+"ms"):("ERROR: "+(s.error||"unreachable")));
+      rows+=hrow("ok","Server time",new Date(s.serverTime).toISOString().slice(0,19).replace("T"," ")+"Z");
+      rows+=hrow("ok","Uptime",fmtDur(s.uptimeSec));
+      rows+=hrow("ok","Class",s.class||"—");
+    }else rows+=hrow("bad","Health probe","service unreachable");
+    [["metrics","Live metrics"],["actions","Action center"],["audit","Audit feed"],["board","Agent board"],["series","Time-series"],["queue","Grade queue"]].forEach(function(sc){
+      var h=HEALTH.sources[sc[0]];if(!h)return;var age=Math.round((Date.now()-h.at)/1000);
+      var st=h.ok===false?"bad":(age>90?"stale":"ok");
+      rows+=hrow(st,sc[1]+" · fresh",h.ok===false?"unreachable":("updated "+agoStr(age)));
+    });
+    host.innerHTML=rows;
+    id("hp-probe-m").textContent=s?(s.db==="ok"?"db "+s.dbMs+"ms · up "+fmtDur(s.uptimeSec):"db error"):"unreachable";
+    updateHpBanner();
+  }
+  function renderDiag(rs){
+    var host=id("hp-diag");if(!host)return;
+    if(!rs||!rs.length){host.innerHTML='<div class="hrow" style="border:none;color:var(--muted)">Click <b style="color:var(--ink-dim)">▶ Run full check</b> to probe every endpoint with live latency.</div>';return}
+    host.innerHTML=rs.map(function(x){return '<div class="hrow"><span class="hdot '+(x.ok?"ok":"bad")+'"></span><span class="hk">'+esc(x.name)+'</span><span class="hv">'+(x.ok?"200 OK":("HTTP "+x.code))+' · '+x.ms+'ms</span></div>'}).join("");
+  }
+  function runFullCheck(){
+    var btn=id("hp-run");if(btn){btn.disabled=true;btn.textContent="running…"}if(id("hp-diag-m"))id("hp-diag-m").textContent="running…";
+    Promise.all(PROBES.map(function(p){
+      var u=p[0]+(KEY?((p[0].indexOf("?")>=0?"&":"?")+"k="+encodeURIComponent(KEY)):"");var t0=nowMs();
+      return fetch(u,{cache:"no-store"}).then(function(r){return {name:p[1],ok:r.ok,code:r.status,ms:Math.round(nowMs()-t0)}},function(){return {name:p[1],ok:false,code:0,ms:Math.round(nowMs()-t0)}});
+    })).then(function(rs){
+      DIAG=rs;renderDiag(rs);
+      var okN=rs.filter(function(x){return x.ok}).length;
+      if(id("hp-diag-m"))id("hp-diag-m").textContent=okN+" / "+rs.length+" ok";
+      updateHpBanner();
+      if(btn){btn.disabled=false;btn.textContent="▶ Run full check"}
+    });
+  }
+  function loadHealthPage(){loadStatus();renderProbe();renderDiag(DIAG);if(!DIAG)runFullCheck()}
+  if(id("hp-run"))id("hp-run").addEventListener("click",runFullCheck);
+  (function(){var lp=document.querySelector(".sfpill.live");if(lp){lp.style.cursor="pointer";lp.title="View system health";lp.setAttribute("role","button");lp.addEventListener("click",function(){goTo("health")})}})();
 </script>
 </body>
 </html>
