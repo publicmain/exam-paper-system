@@ -162,6 +162,21 @@
   .kid .mm{color:var(--ink-dim);line-height:1.4}
   .chips{display:flex;gap:6px;flex-wrap:wrap;margin-top:6px}
   .chip{font-family:var(--mono);font-size:10px;padding:3px 8px;border-radius:99px;background:var(--accent-wash);color:var(--accent-ink);border:1px solid color-mix(in srgb,var(--accent) 30%,transparent)}
+  .agenttbl{display:flex;flex-direction:column;gap:2px;margin-bottom:6px}
+  .agr-h{display:grid;grid-template-columns:11px minmax(72px,auto) 1fr auto;gap:10px;padding:2px 9px 6px;font-family:var(--mono);font-size:9px;letter-spacing:.06em;text-transform:uppercase;color:var(--faint)}
+  .agr-h span:last-child{text-align:right}
+  .agrow{display:grid;grid-template-columns:11px minmax(72px,auto) 1fr auto;gap:10px;align-items:center;padding:7px 9px;border-radius:7px;cursor:pointer;border:1px solid transparent;transition:.12s}
+  .agrow:hover{background:var(--panel2)}
+  .agrow.on{background:var(--accent-wash);border-color:color-mix(in srgb,var(--accent) 32%,transparent)}
+  .agrow.orch{cursor:default;border-bottom:1px solid var(--line-soft);border-radius:0;margin-bottom:2px;padding-bottom:9px}
+  .agrow.orch:hover{background:none}
+  .agrow .dot{width:7px;height:7px;border-radius:50%;justify-self:center}
+  .agrow .aid{font-family:var(--mono);font-size:11.5px;color:var(--ink);white-space:nowrap}
+  .agrow.orch .aid{color:var(--violet)}
+  .agrow .ast{font-size:11px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .agrow .amet{font-family:var(--mono);font-size:10.5px;color:var(--ink-dim);text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}
+  .agrow.on .amet{color:var(--accent-ink)}
+  .insp-h{font-family:var(--mono);font-size:9px;letter-spacing:.06em;text-transform:uppercase;color:var(--faint);padding:2px 0 8px;border-top:1px solid var(--line-soft);margin-top:8px}
   .gates2{display:flex;flex-direction:column} .g2{display:flex;align-items:center;gap:10px;padding:8px 0;font-size:12.5px} .g2+.g2{border-top:1px solid var(--line-soft)}
   .g2 .tk{width:18px;height:18px;border-radius:5px;flex:none;display:grid;place-items:center;background:var(--ok-wash);border:1px solid color-mix(in srgb,var(--ok) 40%,transparent)} .g2 .tk svg{width:11px;height:11px;stroke:var(--ok)}
   .g2 .nm{color:var(--ink-dim)} .g2 .vl{margin-left:auto;font-family:var(--mono);font-size:11px;color:var(--ok)}
@@ -354,7 +369,7 @@
                 <p class="note" id="r-note"></p>
               </div>
             </div>
-            <div class="card" style="margin-top:16px"><div class="ch"><h2>Span Detail</h2><span class="meta" id="i-meta">select a span</span></div><div class="cbody" id="inspector"></div></div>
+            <div class="card" style="margin-top:16px"><div class="ch"><h2>Span Detail</h2><span class="meta" id="i-meta">all agents</span></div><div class="cbody"><div class="agr-h"><span></span><span>agent</span><span>story</span><span>marks · tok · dur</span></div><div class="agenttbl" id="agentgrid"></div><div class="insp-h">selected span</div><div id="inspector"></div></div></div>
           </div>
           <div>
             <div class="card"><div class="ch"><h2>Content Bank</h2><span class="meta">active · version-agnostic</span></div>
@@ -632,11 +647,23 @@
       r.gates.forEach(function(x){var e=document.createElement("div");e.className="g2";e.innerHTML='<span class="tk">'+ck+'</span><span class="nm">'+x.name+'</span><span class="vl">'+x.pass+'/'+x.of+'</span>';g2.appendChild(e)})}
     var db=id("dblind");if(db){db.innerHTML="";r.doubleBlind.forEach(function(x){var e=document.createElement("div");e.className="db"+(x.flagged?" flag":"");e.innerHTML='<div class="p">'+esc(x.paper)+(x.flagged?" · flagged":"")+'</div><div class="nz">'+esc(x.note)+'</div>';db.appendChild(e)})}
     num("d-bank",r.deploy.bankAfter);num("d-rep",r.deploy.repeats);
+    renderAgentGrid();
     selectSpan(SEL,true);
     requestAnimationFrame(function(){tr.querySelectorAll(".sbar > i").forEach(function(b,i){if(reduce){b.style.width=b.getAttribute("data-w")+"%";return}b.style.transition="width .6s cubic-bezier(.2,.7,.2,1) "+(i*0.03)+"s";setTimeout(function(){b.style.width=b.getAttribute("data-w")+"%"},20)})});
   }
+  function renderAgentGrid(){
+    var g=id("agentgrid");if(!g||!RUN)return;
+    var h='<div class="agrow orch"><span class="dot" style="background:var(--violet)"></span><span class="aid">'+RUN.orchestrator.id+'</span><span class="ast">dispatch ×'+RUN.agents.length+'</span><span class="amet">'+RUN.durationSec+'s</span></div>';
+    RUN.agents.forEach(function(a,i){
+      h+='<div class="agrow'+(i===SEL?" on":"")+'" data-i="'+i+'"><span class="dot" style="background:var(--ok)"></span><span class="aid">'+a.id+'</span><span class="ast">'+esc(a.story)+'</span>'+
+         '<span class="amet">'+a.output.marks+'m · '+(a.tokens/1000).toFixed(1)+'k · '+a.durationSec+'s</span></div>';
+    });
+    g.innerHTML=h;
+    g.querySelectorAll(".agrow[data-i]").forEach(function(el){el.addEventListener("click",function(){selectSpan(+el.getAttribute("data-i"))})});
+  }
   function selectSpan(i){if(!RUN)return;SEL=i;var a=RUN.agents[i];
     document.querySelectorAll("#trace .kids .span,#trace #rootkids > .span").forEach(function(x,j){x.classList.toggle("sel",j===i)});
+    var g=id("agentgrid");if(g){g.querySelectorAll(".agrow[data-i]").forEach(function(el){el.classList.toggle("on",(+el.getAttribute("data-i"))===i)})}
     id("i-meta").textContent=a.id+" · "+a.status;
     var emo=(a.output.emotions||[]).map(function(e){return '<span class="chip">'+esc(e)+'</span>'}).join("");
     id("inspector").innerHTML='<div class="runhead"><span class="rt" style="font-size:13px">'+a.id+'</span><span class="rtag">'+a.role+'</span><span class="rtag">model · '+a.model+'</span></div>'+
