@@ -295,66 +295,190 @@ async function buildSeries() {
 
 // ── agent work board (mission control) ──────────────────────────────────────
 // Combines LIVE prod signals (grading queue, bank runway, zero-repeat,
-// attendance) with the recorded authoring run into operational work items.
+// attendance, per-day history) with the recorded authoring run into
+// operational work items — each carrying a rich detail payload for drill-down.
+const GRADE_STEPS = [
+  { at: '08:25', k: 'arm', m: 'activation cron arms the session' },
+  { at: '08:30', k: 'open', m: 'QR scan → attendance · take window opens' },
+  { at: '08:30–09:00', k: 'collect', m: 'students submit · MCQ / matching auto-scored inline' },
+  { at: '09:00', k: 'lock', m: 'session auto-locks · short-answers parked to the marker queue' },
+  { at: 'post', k: 'grade', m: 'human grades short-answers in chat · zero metered API' },
+  { at: 'final', k: 'final', m: 'scores finalized · results portal + trend updated' },
+];
+function gradeItem(day, latest, live) {
+  const q = live ? latest.markerQueue : 0;
+  const done = q === 0;
+  const subs = live ? latest.submissions : day.subs;
+  const auto = live ? latest.autoGraded : day.auto;
+  const human = live ? latest.humanGraded : day.human;
+  const avg = live ? null : day.avgPct;
+  const per = live && latest.perLevel
+    ? latest.perLevel.map((r) => r.level.replace('ielts_', '').replace('_', ' ') + ' ' + r.subs).join(' · ')
+    : '—';
+  return {
+    id: 'grade-' + day.date, col: done ? 'done' : 'review',
+    title: 'Grade morning quiz · ' + day.date, agent: 'grader-hitl', role: 'human-in-loop',
+    trigger: '09:00 auto-lock', tokens: 0, live: !!live,
+    line: done ? human + ' human · ' + auto + ' auto graded' : q + ' short-answers awaiting a human',
+    detail: {
+      summary: done
+        ? 'All ' + subs + ' submissions marked — objective items auto, short-answers by a human. Zero metered API.'
+        : q + ' short-answers are parked in the marker queue for a human. MCQ already auto-scored.',
+      steps: GRADE_STEPS,
+      outputs: [['Submissions', subs], ['Auto-graded', auto], ['Human-graded', human],
+        ['Marker queue', q], ['Avg score', avg == null ? '—' : avg + '%']],
+      meta: [['Levels', live ? per : '3 tiers'], ['Grader', 'human-in-loop · no AI grader'], ['Cost', '$0.00 · flat-fee']],
+      links: [{ label: 'Open Grading', page: 'grading' }],
+    },
+  };
+}
+
 async function buildBoard() {
   const m = await buildMetrics();
+  let series = null;
+  try { series = await getSeries(); } catch (e) { series = { days: [] }; }
   const runway = m.bank.simplifiedRunway;
   const runwayLow = runway < 4;
   const present = m.latest.onTime + m.latest.late;
   const items = [];
 
-  // upcoming / triggered
+  // ── triggered ──
   if (runwayLow) items.push({
     id: 'author-next', col: 'triggered', title: 'Author §B stories', agent: 'content-author',
-    role: 'author fan-out', trigger: 'runway ' + runway + ' < 4/week', tokens: 0,
-    detail: 'queued — top up the simplified bank before it runs dry', live: true,
+    role: 'author fan-out', trigger: 'runway ' + runway + ' < 4/week', tokens: 0, live: true,
+    line: 'queued — top up the simplified bank before it runs dry',
+    detail: {
+      summary: 'The simplified §B tier has ' + runway + ' unused stories left but needs 4/week — a fan-out of author agents is queued to top it up.',
+      steps: [
+        { at: 'plan', k: 'arm', m: 'orchestrator picks N = 4 − runway stories to write' },
+        { at: 'fan-out', k: 'write', m: 'one author agent per story · parallel · per-tier rubric' },
+        { at: 'gate', k: 'audit', m: '5 audit gates + double-blind before any ships' },
+      ],
+      outputs: [['Runway now', runway], ['Target', '4 / week'], ['To author', Math.max(0, 4 - runway)]],
+      meta: [['Tier', 'Simplified IELTS §B'], ['Trigger', 'bank runway watchdog']],
+      links: [{ label: 'Bank & QA', page: 'content' }],
+    },
   });
   items.push({
     id: 'ingest', col: 'triggered', title: 'Ingest PDF → fixture', agent: 'ingest + auditor',
     role: 'author + guard', trigger: 'new source paper', tokens: 0,
-    detail: 'on demand — must pass the 10-point audit before it ships',
+    line: 'on demand — must pass the 10-point audit before it ships',
+    detail: {
+      summary: 'When a new past-paper PDF arrives, an agent converts it to a fixture and the auditor runs a 10-point check before it can be served.',
+      steps: [
+        { at: '1', k: 'read', m: 'extract passage / stems / mark-scheme from PDF' },
+        { at: '2', k: 'write', m: 'build fixture JSON · schema-shaped' },
+        { at: '3', k: 'audit', m: '10-point audit — passage / stem / mark-scheme / schema / grader' },
+        { at: '4', k: 'blind', m: 'AI-grader exact + paraphrase + reject checks' },
+        { at: '5', k: 'done', m: 'copyright: store metadata only (e.g. 9702/22/M/J/19/Q3)' },
+      ],
+      outputs: [['Audit points', 10], ['Copyright', 'metadata only'], ['Status', 'awaiting source']],
+      meta: [['Guard', '10-audit gate'], ['Provenance', 'source_type = original_school']],
+      links: [],
+    },
   });
 
-  // in review (human-in-the-loop)
-  items.push({
-    id: 'grade', col: m.latest.markerQueue > 0 ? 'review' : 'done', title: 'Grade morning quiz · ' + m.latest.date,
-    agent: 'grader-hitl', role: 'human-in-loop', trigger: '09:00 auto-lock', tokens: 0, live: true,
-    detail: m.latest.markerQueue > 0
-      ? m.latest.markerQueue + ' short-answers awaiting a human'
-      : m.latest.humanGraded + ' human · ' + m.latest.autoGraded + ' auto graded',
-  });
+  // ── review (human-in-the-loop) ──
+  items.push(gradeItem({ date: m.latest.date }, m.latest, true));
   items.push({
     id: 'sync', col: 'review', title: 'Attendance → Seiue · ' + m.latest.date, agent: 'attendance-sync',
     role: 'human-in-loop', trigger: 'after the quiz window', tokens: 0, live: true,
-    detail: present + ' present to enter into OL_MO_English + MO_English',
+    line: present + ' present to enter into OL_MO_English + MO_English',
+    detail: {
+      summary: 'Quiz attendance is reconciled and entered into the school system (Seiue) across two class rosters, following the skip rules in the runbook.',
+      steps: [
+        { at: '1', k: 'read', m: 'pull attendance from the morning-quiz platform' },
+        { at: '2', k: 'audit', m: 'reconcile on-time / late / absent · dedupe scans' },
+        { at: '3', k: 'grade', m: 'enter into Seiue OL_MO_English + MO_English' },
+        { at: '4', k: 'done', m: 'apply skip rules (holiday / WiFi-outage manual)' },
+      ],
+      outputs: [['On-time', m.latest.onTime], ['Late', m.latest.late], ['Absent', m.latest.absent], ['To enter', present]],
+      meta: [['Targets', 'OL_MO_English · MO_English'], ['Runbook', 'daily_attendance_sync']],
+      links: [{ label: 'Attendance', page: 'attendance' }],
+    },
   });
 
-  // done (recorded + live-verified)
+  // ── done: recorded + live-verified ──
   items.push({
     id: 'author', col: 'done', title: 'Author §B top-up ×4', agent: 'content-author ×4', role: 'author fan-out',
     trigger: 'runway < 4/week', tokens: 270405, link: 'content',
-    detail: 'kelong · wayang · rooftop · kompang → +4 stories',
+    line: 'kelong · wayang · rooftop · kompang → +4 stories',
+    detail: {
+      summary: 'A parallel fan-out of 4 author agents wrote 4 calibrated §B stories; each passed 5 audit gates and double-blind before shipping. Bank 17 → 21.',
+      steps: [
+        { at: '2s', k: 'arm', m: 'orchestrator dispatched 4 authors · concurrency 4' },
+        { at: '~46s', k: 'write', m: 'each drafted a 500–535w narrative + 7 SA + 4-blank emotion MCQ' },
+        { at: '~215s', k: 'audit', m: 'schema · mark-scheme · gradeMcq · distinct emotions · marks → 5/5 each' },
+        { at: '~290s', k: 'blind', m: 'independent double-blind solve verified every answer key' },
+        { at: '~326s', k: 'done', m: 'all green → shipped to Railway' },
+      ],
+      outputs: [['Stories', 4], ['Marks each', 15], ['Bank', '17 → 21'], ['Emotions', '4 distinct / story']],
+      meta: [['Tokens', '270.4k'], ['Agents', '4 parallel'], ['Wall-clock', '~340s'], ['kelong', '70.9k · 7 tools']],
+      links: [{ label: 'Open trace', page: 'content' }],
+    },
   });
   items.push({
     id: 'blind', col: 'done', title: 'Double-blind verify', agent: 'blind-solver ×2', role: 'verify',
-    trigger: 'pre-ship gate', tokens: 0, detail: '3 papers solved · 1 flagged (water ② damming → merged)',
+    trigger: 'pre-ship gate', tokens: 0, link: 'content',
+    line: '3 papers solved · 1 flagged (water ② damming → merged)',
+    detail: {
+      summary: 'Independent solver agents re-answer each new paper blind to the key; mismatches are flagged. The water summary was caught double-counting a content point.',
+      steps: [
+        { at: '1', k: 'blind', m: 'solver re-answers the paper with the key hidden' },
+        { at: '2', k: 'audit', m: 'compare solver answers vs the mark scheme' },
+        { at: '3', k: 'grade', m: 'flag mismatches for human review' },
+      ],
+      outputs: [['Papers', 3], ['Verified', 2], ['Flagged', 1]],
+      meta: [['lift §B', '14 / 14'], ['frog §B', '11 / 11'], ['water summary', '② damming = sub-point of ① → merged']],
+      links: [{ label: 'Content & QA', page: 'content' }],
+    },
   });
   items.push({
     id: 'zero', col: 'done', title: 'Zero-repeat check · week ' + m.week.weekStart, agent: 'dedup', role: 'guard',
-    trigger: 'post-generate', tokens: 0, live: true, detail: m.week.total + ' sessions · ' + m.week.repeats + ' collisions',
+    trigger: 'post-generate', tokens: 0, live: true,
+    line: m.week.total + ' sessions · ' + m.week.repeats + ' collisions',
+    detail: {
+      summary: 'After each week is generated, every session is checked against the class’s full history (version-agnostic) — a class must never see a story twice.',
+      steps: [
+        { at: '1', k: 'read', m: 'list this week’s ' + m.week.total + ' sessions + full class history' },
+        { at: '2', k: 'audit', m: 'strip _vN → compare by story, per level' },
+        { at: '3', k: 'done', m: m.week.repeats + ' collisions → ' + (m.week.repeats === 0 ? 'clean' : 'regenerate') },
+      ],
+      outputs: [['Sessions', m.week.total], ['Collisions', m.week.repeats], ['Dedup', 'by story']],
+      meta: [['Rule', 'never re-serve a passage'], ['Key', 'storyKey() strips _vN']],
+      links: [{ label: 'Attendance', page: 'attendance' }],
+    },
   });
   items.push({
     id: 'deploy', col: 'done', title: 'Deploy fixtures → Railway', agent: 'orchestrator-00', role: 'ship',
-    trigger: 'all audits green', tokens: 0, detail: 'bank 17 → 21 stories · live',
+    trigger: 'all audits green', tokens: 0,
+    line: 'bank 17 → 21 stories · live',
+    detail: {
+      summary: 'Once audits + double-blind are green, fixtures are ingested to production on Railway and a full-history repeat check gates any class from being served.',
+      steps: [
+        { at: '1', k: 'audit', m: 'confirm 5/5 gates + double-blind on every fixture' },
+        { at: '2', k: 'write', m: 'register fixtures in content bootstrap' },
+        { at: '3', k: 'done', m: 'push → Railway auto-deploy · bootstrap ingest' },
+        { at: '4', k: 'final', m: 'zero-repeat check before any class is served' },
+      ],
+      outputs: [['Bank', '17 → 21'], ['Repeats', 0], ['Target', 'Railway']],
+      meta: [['Deploy', 'push to main → auto'], ['Services', 'API + web + Postgres']],
+      links: [],
+    },
   });
 
+  // ── done: historical grading (real per-day aggregates) ──
+  const hist = (series.days || []).filter((d) => d.date !== m.latest.date).slice(-5).reverse();
+  hist.forEach((d) => items.push(gradeItem(d, null, false)));
+
+  // ── roster (subagents, live status) ──
   const roster = [
-    { id: 'orchestrator-00', role: 'Orchestrator', status: 'idle', handles: 'plans & dispatches the fleet' },
-    { id: 'content-author', role: '§B Author', n: 4, status: runwayLow ? 'queued' : 'idle', handles: 'writes calibrated stories + items' },
-    { id: 'auditor-01', role: 'Auditor', status: 'idle', handles: '5 schema / rubric / shape gates' },
-    { id: 'blind-solver', role: 'Double-blind', n: 2, status: 'idle', handles: 'independently solves to verify keys' },
-    { id: 'grader-hitl', role: 'Grader', status: m.latest.markerQueue > 0 ? 'active' : 'idle', handles: 'human-in-loop short-answers' },
-    { id: 'attendance-sync', role: 'Sync', status: 'review', handles: 'quiz attendance → Seiue' },
+    { id: 'orchestrator-00', role: 'Orchestrator', status: 'idle', handles: 'plans & dispatches the fleet', tasks: 1, tokens: 12400 },
+    { id: 'content-author', role: '§B Author', n: 4, status: runwayLow ? 'queued' : 'idle', handles: 'writes calibrated stories + items', tasks: 4, tokens: 270405 },
+    { id: 'auditor-01', role: 'Auditor', status: 'idle', handles: '5 schema / rubric / shape gates', tasks: 4, tokens: 0 },
+    { id: 'blind-solver', role: 'Double-blind', n: 2, status: 'idle', handles: 'independently solves to verify keys', tasks: 3, tokens: 0 },
+    { id: 'grader-hitl', role: 'Grader', status: m.latest.markerQueue > 0 ? 'active' : 'idle', handles: 'human-in-loop short-answers', tasks: series.totals ? series.totals.quizDays : 1, tokens: 0 },
+    { id: 'attendance-sync', role: 'Sync', status: 'review', handles: 'quiz attendance → Seiue', tasks: series.totals ? series.totals.quizDays : 1, tokens: 0 },
   ];
   const guardrails = [
     'ZERO-API · grading never triggers the AI grader',
@@ -363,18 +487,30 @@ async function buildBoard() {
     'Zero-repeat · never re-serve a story',
     'Copyright · past-paper metadata only',
   ];
+
+  // ── activity feed (recent real events) ──
+  const activity = [];
+  activity.push({ ts: m.latest.date, tag: 'grade', text: 'Morning quiz graded — ' + m.latest.humanGraded + ' human · ' + m.latest.autoGraded + ' auto' });
+  activity.push({ ts: m.latest.date, tag: 'attend', text: 'Attendance — ' + m.latest.onTime + ' on-time · ' + m.latest.late + ' late · ' + m.latest.absent + ' absent' });
+  activity.push({ ts: '—', tag: 'author', text: 'Bank topped up 17 → 21 — kelong · wayang · rooftop · kompang' });
+  activity.push({ ts: '—', tag: 'flag', text: 'Double-blind flagged water summary — ② damming merged into ①' });
+  activity.push({ ts: m.week.weekStart, tag: 'guard', text: 'Zero-repeat check — ' + m.week.total + ' sessions, ' + m.week.repeats + ' collisions' });
+  hist.slice(0, 2).forEach((d) => activity.push({ ts: d.date, tag: 'grade', text: 'Quiz graded — ' + d.human + ' human · ' + d.auto + ' auto · avg ' + (d.avgPct == null ? '—' : d.avgPct + '%') }));
+
   const cols = { triggered: 0, running: 0, review: 0, done: 0 };
-  items.forEach(function (i) { cols[i.col] = (cols[i.col] || 0) + 1; });
-  const activeAgents = roster.filter(function (r) { return r.status === 'active' || r.status === 'queued' || r.status === 'review'; }).length;
+  items.forEach((i) => { cols[i.col] = (cols[i.col] || 0) + 1; });
+  const activeAgents = roster.filter((r) => r.status === 'active' || r.status === 'queued' || r.status === 'review').length;
 
   return {
     generatedAt: new Date().toISOString(),
     summary: {
-      activeAgents, totalAgents: roster.reduce(function (a, r) { return a + (r.n || 1); }, 0),
+      activeAgents, totalAgents: roster.reduce((a, r) => a + (r.n || 1), 0),
       inFlight: cols.triggered + cols.running, pendingReview: cols.review, done: cols.done,
       tokensCycle: 270405, apiCost: 0,
+      quizDays: series.totals ? series.totals.quizDays : 0,
+      totalGraded: series.totals ? series.totals.humanGraded + series.totals.autoGraded : 0,
     },
-    cols, items, roster, guardrails,
+    cols, items, roster, guardrails, activity,
     distribution: { plugins: 5, marketplaces: 2 },
   };
 }
