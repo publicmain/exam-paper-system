@@ -333,6 +333,15 @@ function gradeItem(day, latest, live) {
   };
 }
 
+// next occurrence of the weekly quiz-build cron (Sun 18:00 SGT)
+function nextWeeklyBuild() {
+  const now = new Date(Date.now() + 8 * 3600 * 1000); // SGT
+  const dow = now.getUTCDay(); // 0 = Sun
+  let add = (7 - dow) % 7; if (add === 0) add = 7;
+  const d = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() + add));
+  return d.toISOString().slice(0, 10);
+}
+
 let _run = null;
 function loadRun() {
   if (!_run) {
@@ -370,6 +379,25 @@ async function buildBoard() {
   const bankMove = dep.bankBefore + ' → ' + dep.bankAfter;
 
   // ── triggered ──
+  const nextBuild = nextWeeklyBuild();
+  items.push({
+    id: 'weekly-build', col: 'triggered', title: 'Weekly quiz build', agent: 'scheduler-cron',
+    role: 'cron · weekly', trigger: 'every Sun 18:00 SGT', tokens: 0, live: true,
+    line: 'next run ' + nextBuild + ' — plan next week’s ' + m.week.total + ' sessions',
+    detail: {
+      summary: 'A weekly cron plans the coming teaching week: it assembles Mon–Fri × 3-tier sessions from the content bank, checks every pick against each class’s full history (zero-repeat), and dispatches the authoring fan-out whenever a tier’s runway runs low.',
+      steps: [
+        { at: 'Sun 18:00', k: 'arm', m: 'cron fires · plans the upcoming teaching week' },
+        { at: '1', k: 'read', m: 'load bank + each class’s full story history' },
+        { at: '2', k: 'write', m: 'assign Mon–Fri × 3 tiers · skip anything ever served' },
+        { at: '3', k: 'audit', m: 'runway < 4 on a tier → dispatch the authoring fan-out' },
+        { at: '4', k: 'done', m: 'zero-repeat check → ' + m.week.total + ' sessions scheduled' },
+      ],
+      outputs: [['Cadence', 'weekly'], ['Sessions / week', m.week.total], ['Tiers', 3], ['Next run', nextBuild]],
+      meta: [['Schedule', 'Sun 18:00 SGT'], ['Also fires', 'runway watchdog · mid-week'], ['This week', 'week of ' + m.week.weekStart]],
+      links: [{ label: 'This week', page: 'overview' }],
+    },
+  });
   if (runwayLow) items.push({
     id: 'author-next', col: 'triggered', title: 'Author §B stories', agent: 'content-author',
     role: 'author fan-out', trigger: 'runway ' + runway + ' < 4/week', tokens: 0, live: true,
@@ -428,7 +456,7 @@ async function buildBoard() {
   // ── done: recorded content pipeline (author → audit → verify waves) ──
   items.push({
     id: 'author', col: 'done', title: 'Author content ×' + nAuthors, agent: 'content-author ×' + nAuthors, role: 'author fan-out',
-    trigger: 'runway < 4/week', tokens: sumTok(authorsB.concat(authorsC)), link: 'content',
+    trigger: 'weekly cron · runway < 4', tokens: sumTok(authorsB.concat(authorsC)), link: 'content',
     line: authorsB.length + ' §B + ' + authorsC.length + ' §C authored → bank ' + bankMove,
     detail: {
       summary: 'A parallel fan-out of ' + nAuthors + ' author agents wrote ' + authorsB.length + ' §B narratives (15 marks each) and ' + authorsC.length + ' Section-C summaries (8 marks each); every fixture then went through the audit + double-blind waves before shipping.',
@@ -517,6 +545,7 @@ async function buildBoard() {
 
   // ── roster (subagents, live status) — content agents mirror runs.json ──
   const roster = [
+    { id: 'scheduler-cron', role: 'Scheduler', status: 'scheduled', handles: 'weekly cron — plans the week & arms authoring', tasks: series.totals ? series.totals.quizDays : 1, tokens: 0 },
     { id: 'orchestrator-00', role: 'Orchestrator', status: 'idle', handles: 'plans & dispatches the fleet', tasks: 1, tokens: orchTok },
     { id: 'content-author-b', role: '§B Author', n: authorsB.length, status: runwayLow ? 'queued' : 'idle', handles: 'writes §B narratives + 7 SA + emotion MCQ', tasks: authorsB.length, tokens: sumTok(authorsB) },
     { id: 'content-author-c', role: '§C Author', n: authorsC.length, status: 'idle', handles: 'writes Section-C summary passages + point maps', tasks: authorsC.length, tokens: sumTok(authorsC) },
@@ -537,6 +566,7 @@ async function buildBoard() {
   const activity = [];
   activity.push({ ts: m.latest.date, tag: 'grade', text: 'Morning quiz graded — ' + m.latest.humanGraded + ' human · ' + m.latest.autoGraded + ' auto' });
   activity.push({ ts: m.latest.date, tag: 'attend', text: 'Attendance — ' + m.latest.onTime + ' on-time · ' + m.latest.late + ' late · ' + m.latest.absent + ' absent' });
+  activity.push({ ts: m.week.weekStart, tag: 'sched', text: 'Weekly build — ' + m.week.total + ' sessions planned for week of ' + m.week.weekStart + ' · next run ' + nextBuild });
   activity.push({ ts: '—', tag: 'author', text: 'Content pipeline — ' + nAuthors + ' authors (' + authorsB.length + ' §B + ' + authorsC.length + ' §C) → bank ' + bankMove });
   activity.push({ ts: '—', tag: 'audit', text: 'Auditors swept ' + auditFixtures + ' fixture-checks — ' + auditIssues + ' issue flagged & fixed' });
   activity.push({ ts: '—', tag: 'flag', text: 'Double-blind (' + blinds.length + ' solvers) flagged water summary — ② damming merged into ①' });
