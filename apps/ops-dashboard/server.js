@@ -293,6 +293,125 @@ async function buildSeries() {
   };
 }
 
+// ── grading cockpit (marker queue read + write-back) ────────────────────────
+// Replicates apps/api/scripts/marker-apply.ts exactly, in SQL. Human grading
+// only — captures a human's mark decision and writes it back. NEVER invokes an
+// AI grader (iron rule: zero Anthropic API). Every write is behind the gate.
+const cleanTxt = (s) => (s == null ? '' : String(s).replace(/\s+/g, ' ').trim());
+
+async function latestGradingDate() {
+  const today = sgtToday();
+  const r = await q(
+    `select max(s.date)::date::text d from "MorningQuizSession" s
+       where s."classId"=$1 and s.date<=$2::date
+         and exists (select 1 from "StudentSubmission" ss where ss."assignmentId"=s."paperAssignmentId")`,
+    [CLASS_ID, today],
+  );
+  return r[0] && r[0].d ? r[0].d : today;
+}
+
+// The marker inbox: every ungraded short-answer/structured/essay script for
+// this class (optionally scoped to one quiz day), grouped by submission.
+async function buildQueue(date) {
+  const params = [CLASS_ID];
+  let dateFilter = '';
+  if (date) { params.push(date); dateFilter = ' and s.date=$2::date'; }
+  const rows = await q(
+    `select a.id script_id, a."submissionId" submission_id, u.name student, s.level,
+        p.name paper, s.date::date::text sess_date, qq."questionType" qtype,
+        pq.marks max_marks, ss."autoScore" auto_so_far, ss."maxScore" max_score,
+        coalesce(pq."snapshotContent"->>'stem', qq.content->>'stem') stem,
+        coalesce(pq."snapshotContent"->>'passage', qq.content->>'passage') passage,
+        coalesce(pq."snapshotAnswer"->>'text', pq."snapshotAnswer"->>'markScheme',
+                 qq."answerContent"->>'text', qq."answerContent"->>'markScheme',
+                 pq."snapshotAnswer"::text, qq."answerContent"::text) mark_scheme,
+        coalesce(a."textAnswer", a."selectedOption") student_ans
+       from "AnswerScript" a
+       join "StudentSubmission" ss on ss.id=a."submissionId" and ss.status='submitted'
+       join "MorningQuizSession" s on s."paperAssignmentId"=ss."assignmentId"
+       join "PaperAssignment" pa on pa.id=ss."assignmentId"
+       join "Paper" p on p.id=pa."paperId"
+       join "PaperQuestion" pq on pq.id=a."paperQuestionId"
+       join "Question" qq on qq.id=pq."questionId"
+       join "User" u on u.id=ss."studentId"
+       where s."classId"=$1${dateFilter}
+         and qq."questionType" in ('short_answer','structured','essay')
+         and a."awardedMarks" is null
+       order by s.date desc, u.name, ss.id, a.id`,
+    params,
+  );
+  const subs = {}; const order = [];
+  rows.forEach((r) => {
+    if (!subs[r.submission_id]) {
+      subs[r.submission_id] = {
+        id: r.submission_id, student: r.student, level: r.level, paper: r.paper,
+        date: r.sess_date, autoSoFar: Number(r.auto_so_far) || 0, maxScore: Number(r.max_score) || 0,
+        scripts: [],
+      };
+      order.push(r.submission_id);
+    }
+    subs[r.submission_id].scripts.push({
+      scriptId: r.script_id, qtype: r.qtype, maxMarks: Number(r.max_marks),
+      stem: cleanTxt(r.stem), passage: r.passage ? cleanTxt(r.passage) : null,
+      markScheme: cleanTxt(r.mark_scheme), studentAns: cleanTxt(r.student_ans),
+    });
+  });
+  return { generatedAt: new Date().toISOString(), scope: date || 'all pending',
+    pending: rows.length, submissions: order.map((id) => subs[id]) };
+}
+
+// Write one human mark decision + recompute the submission. Mirrors
+// marker.service.finalize / marker-apply.ts. Idempotent (skips graded scripts).
+async function applyGrade(scriptId, awardedMarks, reason) {
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+    const adminR = await client.query(`select id from "User" where role='admin' order by "createdAt" asc limit 1`);
+    if (!adminR.rows[0]) { await client.query('ROLLBACK'); return { ok: false, error: 'no admin user' }; }
+    const adminId = adminR.rows[0].id;
+    const sR = await client.query(
+      `select a."awardedMarks" awarded, a."markedById" marked_by, a."submissionId" sub, pq.marks max
+         from "AnswerScript" a join "PaperQuestion" pq on pq.id=a."paperQuestionId" where a.id=$1`, [scriptId]);
+    const sc = sR.rows[0];
+    if (!sc) { await client.query('ROLLBACK'); return { ok: false, error: 'script not found' }; }
+    const max = Number(sc.max);
+    const am = Number(awardedMarks);
+    if (!(am >= 0) || am > max) { await client.query('ROLLBACK'); return { ok: false, error: 'awardedMarks must be 0..' + max }; }
+    if (sc.marked_by && sc.awarded != null) { await client.query('ROLLBACK'); return { ok: false, already: true, error: 'already graded' }; }
+    await client.query(
+      `update "AnswerScript" set "awardedMarks"=$2, "markerComment"=$3, "markedById"=$4, "markedAt"=now() where id=$1`,
+      [scriptId, am, reason || null, adminId]);
+    const subId = sc.sub;
+    const scripts = (await client.query(
+      `select a."awardedMarks" awarded, a."markedById" marked_by, qq."questionType" qtype
+         from "AnswerScript" a join "PaperQuestion" pq on pq.id=a."paperQuestionId"
+         join "Question" qq on qq.id=pq."questionId" where a."submissionId"=$1`, [subId])).rows;
+    let mcq = 0, auto = 0, manual = 0, ungraded = 0;
+    for (const r of scripts) {
+      if (r.qtype === 'mcq') { mcq += Number(r.awarded) || 0; continue; }
+      if (r.awarded == null) { ungraded++; continue; }
+      if (r.marked_by != null) manual += Number(r.awarded); else auto += Number(r.awarded);
+    }
+    auto += mcq;
+    const total = auto + manual;
+    let status = 'submitted';
+    if (ungraded > 0) {
+      await client.query(`update "StudentSubmission" set "autoScore"=$2,"manualScore"=$3,"totalScore"=$4 where id=$1`, [subId, auto, manual, total]);
+    } else {
+      const upd = await client.query(`update "StudentSubmission" set status='marked', "autoScore"=$2,"manualScore"=$3,"totalScore"=$4 where id=$1 and status='submitted'`, [subId, auto, manual, total]);
+      if (upd.rowCount === 0) await client.query(`update "StudentSubmission" set "autoScore"=$2,"manualScore"=$3,"totalScore"=$4 where id=$1`, [subId, auto, manual, total]);
+      status = 'marked';
+    }
+    await client.query('COMMIT');
+    return { ok: true, scriptId, submissionId: subId, submissionStatus: status, ungradedRemaining: ungraded, totalScore: total, maxScore: max };
+  } catch (e) {
+    try { await client.query('ROLLBACK'); } catch (e2) { /* noop */ }
+    return { ok: false, error: String((e && e.message) || e) };
+  } finally {
+    client.release();
+  }
+}
+
 // ── agent work board (mission control) ──────────────────────────────────────
 // Combines LIVE prod signals (grading queue, bank runway, zero-repeat,
 // attendance, per-day history) with the recorded authoring run into
@@ -610,6 +729,7 @@ async function getSeries() {
 // ── server ──────────────────────────────────────────────────────────────────
 const app = express();
 app.disable('x-powered-by');
+app.use(express.json({ limit: '256kb' }));
 
 function gate(req, res, next) {
   if (!ACCESS_KEY) return next();
@@ -645,6 +765,36 @@ app.get('/api/board', gate, async (_req, res) => {
     res.json(bcache.data);
   } catch (e) {
     res.status(500).json({ error: String((e && e.message) || e) });
+  }
+});
+
+// ── grading cockpit endpoints ──
+let qcache = { at: 0, key: '', data: null };
+app.get('/api/queue', gate, async (req, res) => {
+  try {
+    const date = req.query.date || null;
+    const key = date || 'all';
+    if (qcache.key !== key || Date.now() - qcache.at >= 5000 || !qcache.data) {
+      qcache = { at: Date.now(), key, data: await buildQueue(date) };
+    }
+    res.set('Cache-Control', 'no-store');
+    res.json(qcache.data);
+  } catch (e) {
+    res.status(500).json({ error: String((e && e.message) || e) });
+  }
+});
+
+app.post('/api/grade', gate, async (req, res) => {
+  try {
+    const { scriptId, awardedMarks, reason } = req.body || {};
+    if (!scriptId || awardedMarks == null) return res.status(400).json({ ok: false, error: 'scriptId and awardedMarks required' });
+    const r = await applyGrade(scriptId, awardedMarks, reason);
+    // bust caches so the queue / metrics / board reflect the write immediately
+    qcache.at = 0; cache.at = 0; scache.at = 0; bcache.at = 0;
+    res.set('Cache-Control', 'no-store');
+    res.status(r.ok ? 200 : 400).json(r);
+  } catch (e) {
+    res.status(500).json({ ok: false, error: String((e && e.message) || e) });
   }
 });
 
