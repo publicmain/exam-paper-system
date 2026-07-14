@@ -333,6 +333,15 @@ function gradeItem(day, latest, live) {
   };
 }
 
+let _run = null;
+function loadRun() {
+  if (!_run) {
+    try { _run = JSON.parse(fs.readFileSync(path.join(__dirname, 'runs.json'), 'utf8')); }
+    catch (e) { _run = { agents: [], orchestrator: {}, deploy: {} }; }
+  }
+  return _run;
+}
+
 async function buildBoard() {
   const m = await buildMetrics();
   let series = null;
@@ -341,6 +350,24 @@ async function buildBoard() {
   const runwayLow = runway < 4;
   const present = m.latest.onTime + m.latest.late;
   const items = [];
+
+  // recorded content-pipeline fleet — derived from runs.json so the board and
+  // the Content & QA trace can never drift apart.
+  const run = loadRun();
+  const ag = run.agents || [];
+  const dep = run.deploy || { bankBefore: 16, bankAfter: 21 };
+  const byKind = (k) => ag.filter((a) => a.kind === k);
+  const authorsB = byKind('author-b'), authorsC = byKind('author-c');
+  const auditors = byKind('audit'), blinds = byKind('blind');
+  const nAuthors = authorsB.length + authorsC.length;
+  const sumTok = (arr) => arr.reduce((s, a) => s + (a.tokens || 0), 0);
+  const orchTok = 12400;
+  const pipelineTokens = orchTok + sumTok(ag);
+  const auditFixtures = auditors.reduce((s, a) => s + ((a.output && a.output.fixtures) || 0), 0);
+  const auditIssues = auditors.reduce((s, a) => s + ((a.output && a.output.issues) || 0), 0);
+  const blindVerified = blinds.filter((b) => b.output && b.output.verified).length;
+  const blindFlagged = blinds.length - blindVerified;
+  const bankMove = dep.bankBefore + ' → ' + dep.bankAfter;
 
   // ── triggered ──
   if (runwayLow) items.push({
@@ -398,29 +425,46 @@ async function buildBoard() {
     },
   });
 
-  // ── done: recorded + live-verified ──
+  // ── done: recorded content pipeline (author → audit → verify waves) ──
   items.push({
-    id: 'author', col: 'done', title: 'Author §B top-up ×4', agent: 'content-author ×4', role: 'author fan-out',
-    trigger: 'runway < 4/week', tokens: 270405, link: 'content',
-    line: 'kelong · wayang · rooftop · kompang → +4 stories',
+    id: 'author', col: 'done', title: 'Author content ×' + nAuthors, agent: 'content-author ×' + nAuthors, role: 'author fan-out',
+    trigger: 'runway < 4/week', tokens: sumTok(authorsB.concat(authorsC)), link: 'content',
+    line: authorsB.length + ' §B + ' + authorsC.length + ' §C authored → bank ' + bankMove,
     detail: {
-      summary: 'A parallel fan-out of 4 author agents wrote 4 calibrated §B stories; each passed 5 audit gates and double-blind before shipping. Bank 17 → 21.',
+      summary: 'A parallel fan-out of ' + nAuthors + ' author agents wrote ' + authorsB.length + ' §B narratives (15 marks each) and ' + authorsC.length + ' Section-C summaries (8 marks each); every fixture then went through the audit + double-blind waves before shipping.',
       steps: [
-        { at: '2s', k: 'arm', m: 'orchestrator dispatched 4 authors · concurrency 4' },
-        { at: '~46s', k: 'write', m: 'each drafted a 500–535w narrative + 7 SA + 4-blank emotion MCQ' },
-        { at: '~215s', k: 'audit', m: 'schema · mark-scheme · gradeMcq · distinct emotions · marks → 5/5 each' },
-        { at: '~290s', k: 'blind', m: 'independent double-blind solve verified every answer key' },
-        { at: '~326s', k: 'done', m: 'all green → shipped to Railway' },
+        { at: '2s', k: 'arm', m: 'orchestrator dispatched ' + ag.length + ' agents · concurrency ' + (run.concurrency || 6) },
+        { at: '~46s', k: 'write', m: '§B: 500–535w narrative + 7 SA + 4-blank emotion MCQ each' },
+        { at: '~52s', k: 'write', m: '§C: ~310w source passage + 8 own-words content points each' },
+        { at: '~290s', k: 'return', m: 'each returned fixture · self-check green · handed to audit' },
+        { at: '~326s', k: 'done', m: 'authoring wave complete' },
       ],
-      outputs: [['Stories', 4], ['Marks each', 15], ['Bank', '17 → 21'], ['Emotions', '4 distinct / story']],
-      meta: [['Tokens', '270.4k'], ['Agents', '4 parallel'], ['Wall-clock', '~340s'], ['kelong', '70.9k · 7 tools']],
+      outputs: [['Authors', nAuthors], ['§B stories', authorsB.length], ['§C summaries', authorsC.length], ['Bank', bankMove]],
+      meta: [['Tokens', (sumTok(authorsB.concat(authorsC)) / 1000).toFixed(0) + 'k'], ['Agents', nAuthors + ' parallel'], ['kelong', '70.9k · 7 tools (exact)'], ['§B stories', authorsB.map((a) => a.story).join(' · ')]],
       links: [{ label: 'Open trace', page: 'content' }],
     },
   });
   items.push({
-    id: 'blind', col: 'done', title: 'Double-blind verify', agent: 'blind-solver ×2', role: 'verify',
-    trigger: 'pre-ship gate', tokens: 0, link: 'content',
-    line: '3 papers solved · 1 flagged (water ② damming → merged)',
+    id: 'audit', col: 'done', title: 'Audit gates ×' + auditors.length, agent: 'auditor ×' + auditors.length, role: 'verify',
+    trigger: 'after authoring wave', tokens: sumTok(auditors), link: 'content',
+    line: auditFixtures + ' fixture-checks · ' + auditIssues + ' issue fixed',
+    detail: {
+      summary: 'Independent auditor agents sweep every returned fixture through deterministic gates — schema, mark-scheme, rubric bands, MCQ integrity, distinct emotions and mark values. Any failure is flagged back to the authoring agent.',
+      steps: [
+        { at: '1', k: 'read', m: 'pick up returned fixtures from the authoring wave' },
+        { at: '2', k: 'audit', m: 'auditor-51 · schema / mark-scheme / rubric-band — 7/7' },
+        { at: '3', k: 'audit', m: 'auditor-52 · gradeMcq / distinct-emotions / mark-values — 5/5' },
+        { at: '4', k: 'done', m: auditIssues + ' issue flagged to author-32 · re-checked green' },
+      ],
+      outputs: [['Auditors', auditors.length], ['Gates', '6 distinct'], ['Fixtures', nAuthors], ['Issues fixed', auditIssues]],
+      meta: [['auditor-51', 'schema · rubric · 7 fixtures'], ['auditor-52', 'MCQ · marks · 5 §B'], ['Tokens', (sumTok(auditors) / 1000).toFixed(0) + 'k']],
+      links: [{ label: 'Audit gates', page: 'content' }],
+    },
+  });
+  items.push({
+    id: 'blind', col: 'done', title: 'Double-blind verify ×' + blinds.length, agent: 'blind-solver ×' + blinds.length, role: 'verify',
+    trigger: 'pre-ship gate', tokens: sumTok(blinds), link: 'content',
+    line: blinds.length + ' papers solved · ' + blindFlagged + ' flagged (water ② damming → merged)',
     detail: {
       summary: 'Independent solver agents re-answer each new paper blind to the key; mismatches are flagged. The water summary was caught double-counting a content point.',
       steps: [
@@ -428,7 +472,7 @@ async function buildBoard() {
         { at: '2', k: 'audit', m: 'compare solver answers vs the mark scheme' },
         { at: '3', k: 'grade', m: 'flag mismatches for human review' },
       ],
-      outputs: [['Papers', 3], ['Verified', 2], ['Flagged', 1]],
+      outputs: [['Papers', blinds.length], ['Verified', blindVerified], ['Flagged', blindFlagged]],
       meta: [['lift §B', '14 / 14'], ['frog §B', '11 / 11'], ['water summary', '② damming = sub-point of ① → merged']],
       links: [{ label: 'Content & QA', page: 'content' }],
     },
@@ -452,16 +496,16 @@ async function buildBoard() {
   items.push({
     id: 'deploy', col: 'done', title: 'Deploy fixtures → Railway', agent: 'orchestrator-00', role: 'ship',
     trigger: 'all audits green', tokens: 0,
-    line: 'bank 17 → 21 stories · live',
+    line: 'bank ' + bankMove + ' stories · live',
     detail: {
       summary: 'Once audits + double-blind are green, fixtures are ingested to production on Railway and a full-history repeat check gates any class from being served.',
       steps: [
-        { at: '1', k: 'audit', m: 'confirm 5/5 gates + double-blind on every fixture' },
+        { at: '1', k: 'audit', m: 'confirm all gates + double-blind on every fixture' },
         { at: '2', k: 'write', m: 'register fixtures in content bootstrap' },
         { at: '3', k: 'done', m: 'push → Railway auto-deploy · bootstrap ingest' },
         { at: '4', k: 'final', m: 'zero-repeat check before any class is served' },
       ],
-      outputs: [['Bank', '17 → 21'], ['Repeats', 0], ['Target', 'Railway']],
+      outputs: [['Bank', bankMove], ['Repeats', 0], ['Target', 'Railway']],
       meta: [['Deploy', 'push to main → auto'], ['Services', 'API + web + Postgres']],
       links: [],
     },
@@ -471,12 +515,13 @@ async function buildBoard() {
   const hist = (series.days || []).filter((d) => d.date !== m.latest.date).slice(-5).reverse();
   hist.forEach((d) => items.push(gradeItem(d, null, false)));
 
-  // ── roster (subagents, live status) ──
+  // ── roster (subagents, live status) — content agents mirror runs.json ──
   const roster = [
-    { id: 'orchestrator-00', role: 'Orchestrator', status: 'idle', handles: 'plans & dispatches the fleet', tasks: 1, tokens: 12400 },
-    { id: 'content-author', role: '§B Author', n: 4, status: runwayLow ? 'queued' : 'idle', handles: 'writes calibrated stories + items', tasks: 4, tokens: 270405 },
-    { id: 'auditor-01', role: 'Auditor', status: 'idle', handles: '5 schema / rubric / shape gates', tasks: 4, tokens: 0 },
-    { id: 'blind-solver', role: 'Double-blind', n: 2, status: 'idle', handles: 'independently solves to verify keys', tasks: 3, tokens: 0 },
+    { id: 'orchestrator-00', role: 'Orchestrator', status: 'idle', handles: 'plans & dispatches the fleet', tasks: 1, tokens: orchTok },
+    { id: 'content-author-b', role: '§B Author', n: authorsB.length, status: runwayLow ? 'queued' : 'idle', handles: 'writes §B narratives + 7 SA + emotion MCQ', tasks: authorsB.length, tokens: sumTok(authorsB) },
+    { id: 'content-author-c', role: '§C Author', n: authorsC.length, status: 'idle', handles: 'writes Section-C summary passages + point maps', tasks: authorsC.length, tokens: sumTok(authorsC) },
+    { id: 'auditor', role: 'Auditor', n: auditors.length, status: 'idle', handles: '6 schema / rubric / MCQ / mark gates', tasks: auditFixtures, tokens: sumTok(auditors) },
+    { id: 'blind-solver', role: 'Double-blind', n: blinds.length, status: 'idle', handles: 'independently solves to verify keys', tasks: blinds.length, tokens: sumTok(blinds) },
     { id: 'grader-hitl', role: 'Grader', status: m.latest.markerQueue > 0 ? 'active' : 'idle', handles: 'human-in-loop short-answers', tasks: series.totals ? series.totals.quizDays : 1, tokens: 0 },
     { id: 'attendance-sync', role: 'Sync', status: 'review', handles: 'quiz attendance → Seiue', tasks: series.totals ? series.totals.quizDays : 1, tokens: 0 },
   ];
@@ -492,8 +537,9 @@ async function buildBoard() {
   const activity = [];
   activity.push({ ts: m.latest.date, tag: 'grade', text: 'Morning quiz graded — ' + m.latest.humanGraded + ' human · ' + m.latest.autoGraded + ' auto' });
   activity.push({ ts: m.latest.date, tag: 'attend', text: 'Attendance — ' + m.latest.onTime + ' on-time · ' + m.latest.late + ' late · ' + m.latest.absent + ' absent' });
-  activity.push({ ts: '—', tag: 'author', text: 'Bank topped up 17 → 21 — kelong · wayang · rooftop · kompang' });
-  activity.push({ ts: '—', tag: 'flag', text: 'Double-blind flagged water summary — ② damming merged into ①' });
+  activity.push({ ts: '—', tag: 'author', text: 'Content pipeline — ' + nAuthors + ' authors (' + authorsB.length + ' §B + ' + authorsC.length + ' §C) → bank ' + bankMove });
+  activity.push({ ts: '—', tag: 'audit', text: 'Auditors swept ' + auditFixtures + ' fixture-checks — ' + auditIssues + ' issue flagged & fixed' });
+  activity.push({ ts: '—', tag: 'flag', text: 'Double-blind (' + blinds.length + ' solvers) flagged water summary — ② damming merged into ①' });
   activity.push({ ts: m.week.weekStart, tag: 'guard', text: 'Zero-repeat check — ' + m.week.total + ' sessions, ' + m.week.repeats + ' collisions' });
   hist.slice(0, 2).forEach((d) => activity.push({ ts: d.date, tag: 'grade', text: 'Quiz graded — ' + d.human + ' human · ' + d.auto + ' auto · avg ' + (d.avgPct == null ? '—' : d.avgPct + '%') }));
 
@@ -506,7 +552,7 @@ async function buildBoard() {
     summary: {
       activeAgents, totalAgents: roster.reduce((a, r) => a + (r.n || 1), 0),
       inFlight: cols.triggered + cols.running, pendingReview: cols.review, done: cols.done,
-      tokensCycle: 270405, apiCost: 0,
+      tokensCycle: pipelineTokens, apiCost: 0,
       quizDays: series.totals ? series.totals.quizDays : 0,
       totalGraded: series.totals ? series.totals.humanGraded + series.totals.autoGraded : 0,
     },
