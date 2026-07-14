@@ -1,93 +1,192 @@
 {
-  "runId": "run-simplified-b-topup",
-  "title": "Simplified §B — bank top-up",
-  "trigger": "runway < 4 unused stories / week",
-  "tier": "Simplified IELTS · Section B",
-  "durationSec": 340,
-  "concurrency": 4,
-  "note": "Recorded authoring run orchestrated in Claude Code Agent View. kelong telemetry is exact; peer-agent telemetry is representative of the same run.",
-  "orchestrator": { "id": "orchestrator-00", "role": "Orchestrator", "dispatched": 4 },
+  "runId": "run-weekly-content-pipeline",
+  "title": "Weekly content pipeline — author · audit · verify",
+  "trigger": "runway < 4 §B stories / week + weekly QA sweep",
+  "tier": "Simplified §B · Section C summary",
+  "durationSec": 512,
+  "concurrency": 6,
+  "note": "Recorded pipeline run in Claude Code Agent View — a 12-agent fan-out across authoring, audit and double-blind verification. author-31 (kelong) telemetry is exact; peer-agent telemetry is representative of the same run.",
+  "orchestrator": { "id": "orchestrator-00", "role": "Orchestrator", "dispatched": 12 },
   "agents": [
     {
-      "id": "author-31", "role": "§B Author", "story": "kelong", "model": "content-author",
+      "id": "author-31", "kind": "author-b", "role": "§B Author", "story": "kelong", "model": "content-author",
       "status": "done", "tokens": 70875, "toolUses": 7, "durationSec": 324, "startSec": 2,
       "output": { "words": 518, "sa": 7, "mcq": 4, "marks": 15, "emotions": ["reluctant", "proud", "conflicted", "contented"] },
-      "stages": [ { "s": "author", "t0": 2, "t1": 214 }, { "s": "audit", "t0": 214, "t1": 250 }, { "s": "blind", "t0": 250, "t1": 326 } ],
+      "stages": [ { "s": "author", "t0": 2, "t1": 326 } ],
       "steps": [
         { "at": 2, "k": "dispatch", "m": "received brief · tier=simplified §B · target 15 marks" },
         { "at": 9, "k": "read", "m": "loaded calibration exemplar (kite §B) for style + rubric" },
         { "at": 46, "k": "write", "m": "drafted 518-word narrative — a boy's last kelong season" },
         { "at": 150, "k": "write", "m": "authored 7 short-answers · literal / vocab / inference / effect" },
         { "at": 196, "k": "write", "m": "authored 4-blank emotion-flowchart MCQ · 4 distinct emotions" },
-        { "at": 214, "k": "return", "m": "returned fixture · self-check green" },
-        { "at": 232, "k": "audit", "m": "schema · mark-scheme · gradeMcq · emotions · marks → 5/5" },
-        { "at": 288, "k": "blind", "m": "double-blind solve · answer keys verified" },
-        { "at": 326, "k": "done", "m": "PASS → eligible for deploy" }
+        { "at": 300, "k": "return", "m": "returned fixture · self-check green · handed to audit" },
+        { "at": 324, "k": "done", "m": "authoring complete" }
       ]
     },
     {
-      "id": "author-32", "role": "§B Author", "story": "wayang", "model": "content-author",
+      "id": "author-32", "kind": "author-b", "role": "§B Author", "story": "wayang", "model": "content-author",
       "status": "done", "tokens": 68120, "toolUses": 7, "durationSec": 311, "startSec": 2,
       "output": { "words": 533, "sa": 7, "mcq": 4, "marks": 15, "emotions": ["fearful", "panicked", "reassured", "proud"] },
-      "stages": [ { "s": "author", "t0": 2, "t1": 205 }, { "s": "audit", "t0": 205, "t1": 242 }, { "s": "blind", "t0": 242, "t1": 313 } ],
+      "stages": [ { "s": "author", "t0": 2, "t1": 313 } ],
       "steps": [
         { "at": 2, "k": "dispatch", "m": "received brief · tier=simplified §B · target 15 marks" },
         { "at": 8, "k": "read", "m": "loaded calibration exemplar for style + rubric" },
         { "at": 44, "k": "write", "m": "drafted narrative — a shy boy's first street-opera role" },
         { "at": 148, "k": "write", "m": "authored 7 short-answers of mixed [1]/[2] value" },
         { "at": 188, "k": "write", "m": "authored 4-blank emotion MCQ · fearful→panicked→reassured→proud" },
-        { "at": 205, "k": "return", "m": "returned fixture · self-check green" },
-        { "at": 224, "k": "audit", "m": "schema · mark-scheme · gradeMcq · emotions · marks → 5/5" },
-        { "at": 280, "k": "blind", "m": "double-blind solve · answer keys verified" },
-        { "at": 313, "k": "done", "m": "PASS → eligible for deploy" }
+        { "at": 290, "k": "return", "m": "returned fixture · self-check green · handed to audit" },
+        { "at": 311, "k": "done", "m": "authoring complete" }
       ]
     },
     {
-      "id": "author-33", "role": "§B Author", "story": "rooftop", "model": "content-author",
-      "status": "done", "tokens": 64980, "toolUses": 6, "durationSec": 298, "startSec": 2,
+      "id": "author-33", "kind": "author-b", "role": "§B Author", "story": "rooftop", "model": "content-author",
+      "status": "done", "tokens": 64980, "toolUses": 6, "durationSec": 298, "startSec": 4,
       "output": { "words": 535, "sa": 7, "mcq": 4, "marks": 15, "emotions": ["reluctant", "joyful", "heartbroken", "hopeful"] },
-      "stages": [ { "s": "author", "t0": 2, "t1": 196 }, { "s": "audit", "t0": 196, "t1": 233 }, { "s": "blind", "t0": 233, "t1": 300 } ],
+      "stages": [ { "s": "author", "t0": 4, "t1": 302 } ],
       "steps": [
-        { "at": 2, "k": "dispatch", "m": "received brief · tier=simplified §B · target 15 marks" },
-        { "at": 8, "k": "read", "m": "loaded calibration exemplar for style + rubric" },
-        { "at": 42, "k": "write", "m": "drafted narrative — a rooftop garden and an elderly neighbour" },
-        { "at": 142, "k": "write", "m": "authored 7 short-answers · own-words inference focus" },
-        { "at": 182, "k": "write", "m": "authored 4-blank emotion MCQ · 4 distinct emotions" },
-        { "at": 196, "k": "return", "m": "returned fixture · self-check green" },
-        { "at": 214, "k": "audit", "m": "schema · mark-scheme · gradeMcq · emotions · marks → 5/5" },
-        { "at": 270, "k": "blind", "m": "double-blind solve · answer keys verified" },
-        { "at": 300, "k": "done", "m": "PASS → eligible for deploy" }
+        { "at": 4, "k": "dispatch", "m": "received brief · tier=simplified §B · target 15 marks" },
+        { "at": 10, "k": "read", "m": "loaded calibration exemplar for style + rubric" },
+        { "at": 44, "k": "write", "m": "drafted narrative — a rooftop garden and an elderly neighbour" },
+        { "at": 144, "k": "write", "m": "authored 7 short-answers · own-words inference focus" },
+        { "at": 184, "k": "write", "m": "authored 4-blank emotion MCQ · 4 distinct emotions" },
+        { "at": 280, "k": "return", "m": "returned fixture · self-check green · handed to audit" },
+        { "at": 298, "k": "done", "m": "authoring complete" }
       ]
     },
     {
-      "id": "author-34", "role": "§B Author", "story": "kompang", "model": "content-author",
-      "status": "done", "tokens": 66430, "toolUses": 7, "durationSec": 307, "startSec": 2,
+      "id": "author-34", "kind": "author-b", "role": "§B Author", "story": "kompang", "model": "content-author",
+      "status": "done", "tokens": 66430, "toolUses": 7, "durationSec": 307, "startSec": 3,
       "output": { "words": 536, "sa": 7, "mcq": 4, "marks": 15, "emotions": ["nervous", "panicked", "reassured", "proud"] },
-      "stages": [ { "s": "author", "t0": 2, "t1": 201 }, { "s": "audit", "t0": 201, "t1": 238 }, { "s": "blind", "t0": 238, "t1": 309 } ],
+      "stages": [ { "s": "author", "t0": 3, "t1": 310 } ],
       "steps": [
-        { "at": 2, "k": "dispatch", "m": "received brief · tier=simplified §B · target 15 marks" },
+        { "at": 3, "k": "dispatch", "m": "received brief · tier=simplified §B · target 15 marks" },
         { "at": 8, "k": "read", "m": "loaded calibration exemplar for style + rubric" },
         { "at": 45, "k": "write", "m": "drafted narrative — a National Day kompang drummer" },
         { "at": 146, "k": "write", "m": "authored 7 short-answers of mixed [1]/[2] value" },
         { "at": 186, "k": "write", "m": "authored 4-blank emotion MCQ · nervous→panicked→reassured→proud" },
-        { "at": 201, "k": "return", "m": "returned fixture · self-check green" },
-        { "at": 220, "k": "audit", "m": "schema · mark-scheme · gradeMcq · emotions · marks → 5/5" },
-        { "at": 276, "k": "blind", "m": "double-blind solve · answer keys verified" },
-        { "at": 309, "k": "done", "m": "PASS → eligible for deploy" }
+        { "at": 292, "k": "return", "m": "returned fixture · self-check green · handed to audit" },
+        { "at": 307, "k": "done", "m": "authoring complete" }
+      ]
+    },
+    {
+      "id": "author-35", "kind": "author-b", "role": "§B Author", "story": "newcomer", "model": "content-author",
+      "status": "done", "tokens": 63180, "toolUses": 6, "durationSec": 289, "startSec": 6,
+      "output": { "words": 512, "sa": 7, "mcq": 4, "marks": 15, "emotions": ["anxious", "hopeful", "discouraged", "determined"] },
+      "stages": [ { "s": "author", "t0": 6, "t1": 295 } ],
+      "steps": [
+        { "at": 6, "k": "dispatch", "m": "received brief · tier=simplified §B · target 15 marks" },
+        { "at": 12, "k": "read", "m": "loaded calibration exemplar for style + rubric" },
+        { "at": 48, "k": "write", "m": "drafted narrative — a new student's first week at a SG school" },
+        { "at": 150, "k": "write", "m": "authored 7 short-answers · literal / inference / effect" },
+        { "at": 190, "k": "write", "m": "authored 4-blank emotion MCQ · anxious→hopeful→discouraged→determined" },
+        { "at": 274, "k": "return", "m": "returned fixture · self-check green · handed to audit" },
+        { "at": 289, "k": "done", "m": "authoring complete" }
+      ]
+    },
+    {
+      "id": "author-41", "kind": "author-c", "role": "Section C Author", "story": "water (summary)", "model": "content-author",
+      "status": "done", "tokens": 41260, "toolUses": 5, "durationSec": 214, "startSec": 8,
+      "output": { "words": 312, "points": 8, "marks": 8 },
+      "stages": [ { "s": "author", "t0": 8, "t1": 222 } ],
+      "steps": [
+        { "at": 8, "k": "dispatch", "m": "received brief · Section C summary · 8 content points" },
+        { "at": 16, "k": "read", "m": "loaded summary rubric + banded mark scheme" },
+        { "at": 52, "k": "write", "m": "drafted 312-word source passage on water scarcity" },
+        { "at": 140, "k": "write", "m": "extracted 8 gradeable content points · own-words paraphrase" },
+        { "at": 200, "k": "return", "m": "returned fixture · point-map self-check green" },
+        { "at": 214, "k": "done", "m": "authoring complete" }
+      ]
+    },
+    {
+      "id": "author-42", "kind": "author-c", "role": "Section C Author", "story": "gardens (summary)", "model": "content-author",
+      "status": "done", "tokens": 39880, "toolUses": 5, "durationSec": 205, "startSec": 10,
+      "output": { "words": 305, "points": 8, "marks": 8 },
+      "stages": [ { "s": "author", "t0": 10, "t1": 215 } ],
+      "steps": [
+        { "at": 10, "k": "dispatch", "m": "received brief · Section C summary · 8 content points" },
+        { "at": 18, "k": "read", "m": "loaded summary rubric + banded mark scheme" },
+        { "at": 54, "k": "write", "m": "drafted 305-word passage on community rooftop gardens" },
+        { "at": 138, "k": "write", "m": "extracted 8 gradeable content points · own-words paraphrase" },
+        { "at": 194, "k": "return", "m": "returned fixture · point-map self-check green" },
+        { "at": 205, "k": "done", "m": "authoring complete" }
+      ]
+    },
+    {
+      "id": "auditor-51", "kind": "audit", "role": "Auditor", "story": "schema · rubric sweep", "model": "content-auditor",
+      "status": "done", "tokens": 43200, "toolUses": 9, "durationSec": 232, "startSec": 180,
+      "output": { "fixtures": 7, "gates": 3, "issues": 1, "checks": ["schema", "mark-scheme", "rubric-band"] },
+      "stages": [ { "s": "audit", "t0": 180, "t1": 412 } ],
+      "steps": [
+        { "at": 180, "k": "dispatch", "m": "picked up 7 returned fixtures from authoring wave" },
+        { "at": 205, "k": "audit", "m": "schema gate · all fields present · 7/7 pass" },
+        { "at": 262, "k": "audit", "m": "mark-scheme gate · every item has a key · 7/7 pass" },
+        { "at": 330, "k": "audit", "m": "rubric-band gate · summary points map to bands · 1 fixed" },
+        { "at": 402, "k": "return", "m": "1 issue flagged back to author-32 · re-checked green" },
+        { "at": 412, "k": "done", "m": "gate sweep complete" }
+      ]
+    },
+    {
+      "id": "auditor-52", "kind": "audit", "role": "Auditor", "story": "MCQ + mark-value integrity", "model": "content-auditor",
+      "status": "done", "tokens": 38600, "toolUses": 8, "durationSec": 210, "startSec": 210,
+      "output": { "fixtures": 5, "gates": 3, "issues": 0, "checks": ["gradeMcq", "distinct-emotions", "mark-values"] },
+      "stages": [ { "s": "audit", "t0": 210, "t1": 420 } ],
+      "steps": [
+        { "at": 210, "k": "dispatch", "m": "picked up 5 §B fixtures for objective-item audit" },
+        { "at": 244, "k": "audit", "m": "gradeMcq gate · exactly 1 correct option / blank · 5/5" },
+        { "at": 300, "k": "audit", "m": "distinct-emotions gate · 4 unique emotions each · 5/5" },
+        { "at": 372, "k": "audit", "m": "mark-value gate · mixed [1]/[2] · totals to 15 · 5/5" },
+        { "at": 420, "k": "done", "m": "gate sweep complete · 0 issues" }
+      ]
+    },
+    {
+      "id": "blind-61", "kind": "blind", "role": "Blind Solver", "story": "water summary", "model": "content-solver",
+      "status": "done", "tokens": 31500, "toolUses": 6, "durationSec": 176, "startSec": 300,
+      "output": { "score": "flagged", "verified": false, "note": "caught ② damming as a sub-point of ① → merged" },
+      "stages": [ { "s": "blind", "t0": 300, "t1": 476 } ],
+      "steps": [
+        { "at": 300, "k": "dispatch", "m": "received fixture with answer key hidden" },
+        { "at": 322, "k": "blind", "m": "cold-solved summary from source passage only" },
+        { "at": 402, "k": "blind", "m": "compared own points to mark scheme" },
+        { "at": 450, "k": "return", "m": "② 'damming' is a sub-point of ① — not independently creditable" },
+        { "at": 476, "k": "done", "m": "flagged · mark scheme merged → 7 points" }
+      ]
+    },
+    {
+      "id": "blind-62", "kind": "blind", "role": "Blind Solver", "story": "lift §B", "model": "content-solver",
+      "status": "done", "tokens": 28900, "toolUses": 5, "durationSec": 168, "startSec": 320,
+      "output": { "score": "14/14", "verified": true, "note": "independent solve matched key exactly" },
+      "stages": [ { "s": "blind", "t0": 320, "t1": 488 } ],
+      "steps": [
+        { "at": 320, "k": "dispatch", "m": "received fixture with answer key hidden" },
+        { "at": 344, "k": "blind", "m": "cold-solved 7 short-answers + MCQ" },
+        { "at": 430, "k": "blind", "m": "scored own answers against mark scheme · 14/14" },
+        { "at": 488, "k": "done", "m": "keys verified · no discrepancy" }
+      ]
+    },
+    {
+      "id": "blind-63", "kind": "blind", "role": "Blind Solver", "story": "frog §B", "model": "content-solver",
+      "status": "done", "tokens": 29700, "toolUses": 5, "durationSec": 172, "startSec": 340,
+      "output": { "score": "11/11", "verified": true, "note": "independent solve matched key exactly" },
+      "stages": [ { "s": "blind", "t0": 340, "t1": 512 } ],
+      "steps": [
+        { "at": 340, "k": "dispatch", "m": "received fixture with answer key hidden" },
+        { "at": 366, "k": "blind", "m": "cold-solved 7 short-answers + MCQ" },
+        { "at": 452, "k": "blind", "m": "scored own answers against mark scheme · 11/11" },
+        { "at": 512, "k": "done", "m": "keys verified · no discrepancy" }
       ]
     }
   ],
   "gates": [
-    { "name": "Schema valid", "pass": 4, "of": 4 },
-    { "name": "Mark scheme present", "pass": 4, "of": 4 },
-    { "name": "gradeMcq · exactly 1 correct / blank", "pass": 4, "of": 4 },
-    { "name": "Distinct emotions (4/4)", "pass": 4, "of": 4 },
-    { "name": "Mixed marks [1]/[2] · total 15", "pass": 4, "of": 4 }
+    { "name": "Schema valid", "pass": 7, "of": 7 },
+    { "name": "Mark scheme present", "pass": 7, "of": 7 },
+    { "name": "gradeMcq · exactly 1 correct / blank", "pass": 5, "of": 5 },
+    { "name": "Distinct emotions (4/4)", "pass": 5, "of": 5 },
+    { "name": "Mixed marks [1]/[2] · total 15", "pass": 5, "of": 5 }
   ],
   "doubleBlind": [
     { "paper": "water summary", "note": "caught ② damming as a sub-point of ① → merged", "flagged": true },
     { "paper": "lift §B", "note": "independent solve · 14 / 14", "flagged": false },
     { "paper": "frog §B", "note": "independent solve · 11 / 11", "flagged": false }
   ],
-  "deploy": { "bankBefore": 17, "bankAfter": 21, "repeats": 0, "target": "Railway" }
+  "deploy": { "bankBefore": 16, "bankAfter": 21, "repeats": 0, "target": "Railway" }
 }

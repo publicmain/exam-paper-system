@@ -163,6 +163,8 @@
   .chips{display:flex;gap:6px;flex-wrap:wrap;margin-top:6px}
   .chip{font-family:var(--mono);font-size:10px;padding:3px 8px;border-radius:99px;background:var(--accent-wash);color:var(--accent-ink);border:1px solid color-mix(in srgb,var(--accent) 30%,transparent)}
   .agenttbl{display:flex;flex-direction:column;gap:2px;margin-bottom:6px}
+  .agr-g{font-family:var(--mono);font-size:9px;letter-spacing:.08em;text-transform:uppercase;color:var(--faint);padding:9px 9px 3px;border-top:1px solid var(--line-soft);margin-top:4px}
+  .agr-g:first-child{border-top:none;margin-top:0}
   .agr-h{display:grid;grid-template-columns:11px minmax(72px,auto) 1fr auto;gap:10px;padding:2px 9px 6px;font-family:var(--mono);font-size:9px;letter-spacing:.06em;text-transform:uppercase;color:var(--faint)}
   .agr-h span:last-child{text-align:right}
   .agrow{display:grid;grid-template-columns:11px minmax(72px,auto) 1fr auto;gap:10px;align-items:center;padding:7px 9px;border-radius:7px;cursor:pointer;border:1px solid transparent;transition:.12s}
@@ -651,12 +653,37 @@
     selectSpan(SEL,true);
     requestAnimationFrame(function(){tr.querySelectorAll(".sbar > i").forEach(function(b,i){if(reduce){b.style.width=b.getAttribute("data-w")+"%";return}b.style.transition="width .6s cubic-bezier(.2,.7,.2,1) "+(i*0.03)+"s";setTimeout(function(){b.style.width=b.getAttribute("data-w")+"%"},20)})});
   }
+  function agentView(a){
+    var tok=(a.tokens/1000).toFixed(1)+"k",dur=a.durationSec+"s",o=a.output||{};
+    if(a.kind==="audit")return{group:"Audit",dot:"var(--info)",task:esc(a.story),
+      metric:o.fixtures+"fx · "+tok+" · "+dur,
+      boxes:[[tok,"tokens"],[a.toolUses,"tool uses"],[dur,"duration"],[o.issues,"issues flagged"]],
+      line:"Swept <b>"+o.fixtures+" fixtures</b> across "+o.gates+" gates · "+(o.issues?o.issues+" issue(s) flagged for fix":"all clean"),
+      chips:(o.checks||[])};
+    if(a.kind==="blind")return{group:"Double-blind",dot:"var(--violet)",task:esc(a.story),
+      metric:o.score+" · "+tok+" · "+dur,
+      boxes:[[tok,"tokens"],[a.toolUses,"tool uses"],[dur,"duration"],[o.score,"cold-solve"]],
+      line:"Cold-solved <b>"+esc(a.story)+"</b> with keys hidden · "+(o.verified?"answer keys verified":"discrepancy flagged")+(o.note?" — "+esc(o.note):""),
+      chips:[o.verified?"verified":"flagged"]};
+    if(a.kind==="author-c")return{group:"Authors",dot:"var(--accent)",task:esc(a.story),
+      metric:o.marks+"m · "+tok+" · "+dur,
+      boxes:[[tok,"tokens"],[a.toolUses,"tool uses"],[dur,"duration"],[o.marks,"marks output"]],
+      line:"Section C summary <b style=\"color:var(--ink-dim)\">"+esc(a.story)+"</b> · "+o.words+"w passage · "+o.points+" content points · rubric-scored",
+      chips:[]};
+    return{group:"Authors",dot:"var(--ok)",task:esc(a.story),
+      metric:o.marks+"m · "+tok+" · "+dur,
+      boxes:[[tok,"tokens"],[a.toolUses,"tool uses"],[dur,"duration"],[o.marks,"marks output"]],
+      line:"Story <b style=\"color:var(--ink-dim)\">"+esc(a.story)+"</b> · "+o.words+"w · "+o.sa+" SA + "+o.mcq+" MCQ · emotion arc:",
+      chips:(o.emotions||[])};
+  }
   function renderAgentGrid(){
     var g=id("agentgrid");if(!g||!RUN)return;
-    var h='<div class="agrow orch"><span class="dot" style="background:var(--violet)"></span><span class="aid">'+RUN.orchestrator.id+'</span><span class="ast">dispatch ×'+RUN.agents.length+'</span><span class="amet">'+RUN.durationSec+'s</span></div>';
-    RUN.agents.forEach(function(a,i){
-      h+='<div class="agrow'+(i===SEL?" on":"")+'" data-i="'+i+'"><span class="dot" style="background:var(--ok)"></span><span class="aid">'+a.id+'</span><span class="ast">'+esc(a.story)+'</span>'+
-         '<span class="amet">'+a.output.marks+'m · '+(a.tokens/1000).toFixed(1)+'k · '+a.durationSec+'s</span></div>';
+    var h='<div class="agrow orch"><span class="dot" style="background:var(--violet)"></span><span class="aid">'+RUN.orchestrator.id+'</span><span class="ast">dispatch ×'+RUN.orchestrator.dispatched+'</span><span class="amet">'+RUN.durationSec+'s</span></div>';
+    var lastG=null;
+    RUN.agents.forEach(function(a,i){var v=agentView(a);
+      if(v.group!==lastG){h+='<div class="agr-g">'+v.group+'</div>';lastG=v.group}
+      h+='<div class="agrow'+(i===SEL?" on":"")+'" data-i="'+i+'"><span class="dot" style="background:'+v.dot+'"></span><span class="aid">'+a.id+'</span><span class="ast">'+v.task+'</span>'+
+         '<span class="amet">'+v.metric+'</span></div>';
     });
     g.innerHTML=h;
     g.querySelectorAll(".agrow[data-i]").forEach(function(el){el.addEventListener("click",function(){selectSpan(+el.getAttribute("data-i"))})});
@@ -665,10 +692,12 @@
     document.querySelectorAll("#trace .kids .span,#trace #rootkids > .span").forEach(function(x,j){x.classList.toggle("sel",j===i)});
     var g=id("agentgrid");if(g){g.querySelectorAll(".agrow[data-i]").forEach(function(el){el.classList.toggle("on",(+el.getAttribute("data-i"))===i)})}
     id("i-meta").textContent=a.id+" · "+a.status;
-    var emo=(a.output.emotions||[]).map(function(e){return '<span class="chip">'+esc(e)+'</span>'}).join("");
+    var v=agentView(a);
+    var boxes=v.boxes.map(function(b){return '<div class="zbox"><div class="n">'+b[0]+'</div><div class="l">'+b[1]+'</div></div>'}).join("");
+    var chips=v.chips.map(function(e){return '<span class="chip">'+esc(e)+'</span>'}).join("");
     id("inspector").innerHTML='<div class="runhead"><span class="rt" style="font-size:13px">'+a.id+'</span><span class="rtag">'+a.role+'</span><span class="rtag">model · '+a.model+'</span></div>'+
-      '<div class="zsum" style="margin-top:12px"><div class="zbox"><div class="n">'+(a.tokens/1000).toFixed(1)+'k</div><div class="l">tokens</div></div><div class="zbox"><div class="n">'+a.toolUses+'</div><div class="l">tool uses</div></div><div class="zbox"><div class="n">'+a.durationSec+'s</div><div class="l">duration</div></div><div class="zbox"><div class="n">'+a.output.marks+'</div><div class="l">marks output</div></div></div>'+
-      '<div class="note">Story <b style="color:var(--ink-dim)">'+esc(a.story)+'</b> · '+a.output.words+'w · '+a.output.sa+' SA + '+a.output.mcq+' MCQ · emotion arc:</div><div class="chips">'+emo+'</div>';
+      '<div class="zsum" style="margin-top:12px">'+boxes+'</div>'+
+      '<div class="note">'+v.line+'</div>'+(chips?'<div class="chips">'+chips+'</div>':'');
   }
 
   // ---- load ----
