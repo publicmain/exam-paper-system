@@ -677,72 +677,11 @@ export class MorningQuizController {
     for (const s of sessionsByAsgmt) {
       if (!sessByAssignment.has(s.paperAssignmentId)) sessByAssignment.set(s.paperAssignmentId, s);
     }
-    // Attendance history — separate from submissions because a student
-    // can have an attendance row (scan or absent) without ever submitting,
-    // and conversely a "late scan + no answer" still appears on the
-    // attendance side. Pull all attendances for these student IDs.
-    // Filter to attendances on past-or-today sessions only. A student
-    // portal is a record of what HAPPENED, not what's coming up. Future-
-    // dated absent rows are inevitable noise: dev "batch-generate the
-    // next week" + 「立即激活」 testing populates Attendance rows on
-    // session.date=next-Monday even though the actual quiz hasn't
-    // happened yet, and dedupe-by-date can't filter them because
-    // session.date IS in the future. Cut them off at "today's end".
-    const todayEnd = new Date();
-    todayEnd.setUTCHours(23, 59, 59, 999);
-    const rawAttendances = await this.prisma.attendance.findMany({
-      where: {
-        studentId: { in: studentIds },
-        session: { date: { lte: todayEnd } },
-      },
-      orderBy: { scanTime: 'desc' },
-      select: {
-        id: true, status: true, scanTime: true, source: true,
-        correctedNote: true,
-        session: {
-          select: {
-            id: true, date: true, level: true,
-            class: { select: { id: true, name: true } },
-            paperAssignment: { select: { paper: { select: { name: true } } } },
-          },
-        },
-      },
-    });
-    // Dedupe by date: the cron's lockOne inserts an `absent` row for
-    // every enrolled student × every session, so a student in a class
-    // with 3 levels who picks one level on a given day still ends up
-    // with 2 spurious absent rows (the levels they didn't pick) plus
-    // 1 real row. From the student's POV those absent rows are noise
-    // ("you missed 强 and 中" — but they were never expected to take
-    // both). Collapse to one row per date, keeping the highest-priority
-    // status (on_time > late > absent). Each kept row carries the level
-    // the student actually picked when there's a real scan; otherwise
-    // any of the spurious absent rows (they're equivalent for display).
-    const PRIORITY: Record<string, number> = { on_time: 3, late: 2, absent: 1 };
-    const byDate = new Map<string, (typeof rawAttendances)[number]>();
-    for (const a of rawAttendances) {
-      // Date column is @db.Date — JS Date at UTC midnight. Group by
-      // YYYY-MM-DD slice for stable bucketing regardless of tz shift.
-      const day = new Date(a.session.date).toISOString().slice(0, 10);
-      const existing = byDate.get(day);
-      if (!existing) {
-        byDate.set(day, a);
-        continue;
-      }
-      const newP = PRIORITY[a.status] ?? 0;
-      const oldP = PRIORITY[existing.status] ?? 0;
-      if (
-        newP > oldP ||
-        (newP === oldP && (a.scanTime?.getTime() ?? 0) > (existing.scanTime?.getTime() ?? 0))
-      ) {
-        byDate.set(day, a);
-      }
-    }
-    const attendances = Array.from(byDate.values()).sort((a, b) => {
-      const ad = new Date(a.session.date).getTime();
-      const bd = new Date(b.session.date).getTime();
-      return bd - ad; // newest first
-    });
+    // NOTE: attendance is deliberately NOT returned here. Students may see
+    // their own scores only — on-time / late / absent is teacher-facing.
+    // Removing it from the payload (not just the UI) means it can't be read
+    // out of the network response either. Teachers use the class dashboards;
+    // parents use the separate token-gated /api/parent/portal.
     return {
       student: {
         name,
@@ -767,18 +706,6 @@ export class MorningQuizController {
           status: s.status,
         };
       }),
-      attendances: attendances.map((a) => ({
-        id: a.id,
-        sessionId: a.session.id,
-        date: a.session.date,
-        level: a.session.level,
-        className: a.session.class.name,
-        paperName: a.session.paperAssignment.paper.name,
-        status: a.status,
-        scanTime: a.scanTime,
-        source: a.source,
-        correctedNote: a.correctedNote,
-      })),
     };
   }
 

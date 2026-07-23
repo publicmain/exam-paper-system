@@ -14,9 +14,13 @@ import { prettifyPaperName } from '../lib/paperName';
 
 /**
  * Student self-service portal — typed-name lookup gives one page with
- *   - 出勤记录 (attendance: date / level / status / scan time)
  *   - 历史成绩 (submissions: paper / level / score, each row links to a
  *     per-question detail view at /my-history/submission/:id?name=...)
+ *
+ * Attendance is deliberately NOT shown here. Students may see their own
+ * scores only; attendance (on-time / late / absent) is teacher-facing and
+ * is neither rendered nor returned by /history-by-name. Parents still see
+ * attendance via the separate /api/parent/portal token flow.
  *
  * Public route, rate-limited per IP (same threat model as the scan
  * flow — names are not a secret within the school). After a student
@@ -38,23 +42,9 @@ interface HistorySubmission {
   status: string;
 }
 
-interface AttendanceRow {
-  id: string;
-  sessionId: string;
-  date: string;
-  level: string | null;
-  className: string;
-  paperName: string;
-  status: 'on_time' | 'late' | 'absent';
-  scanTime: string | null;
-  source: string;
-  correctedNote: string | null;
-}
-
 interface HistoryResponse {
   student: { name: string; matchedCount: number; classes: string[] };
   submissions: HistorySubmission[];
-  attendances: AttendanceRow[];
 }
 
 interface DisambigCandidate {
@@ -78,22 +68,6 @@ const LEVEL_LABEL: Record<string, string> = {
   ielts_authentic: '雅思真题 · IELTS Authentic',
   ielts_simplified: '轻难度雅思 · Simplified IELTS',
   olevel: 'O-Level 英语',
-};
-const LEVEL_SHORT: Record<string, string> = {
-  ielts_authentic: '雅思',
-  ielts_simplified: '轻雅思',
-  olevel: 'O-Lv',
-};
-
-const STATUS_BADGE: Record<AttendanceRow['status'], string> = {
-  on_time: 'bg-emerald-100 text-emerald-800',
-  late: 'bg-amber-100 text-amber-800',
-  absent: 'bg-rose-100 text-rose-800',
-};
-const STATUS_LABEL: Record<AttendanceRow['status'], string> = {
-  on_time: '按时',
-  late: '迟到',
-  absent: '缺勤',
 };
 
 export default function MyHistory() {
@@ -249,12 +223,6 @@ export default function MyHistory() {
     }
   }
 
-  const attCounts = (() => {
-    const c = { on_time: 0, late: 0, absent: 0 };
-    for (const a of data?.attendances ?? []) c[a.status]++;
-    return c;
-  })();
-
   return (
     <div className="min-h-screen bg-gray-50">
       <header className="bg-white border-b">
@@ -262,7 +230,7 @@ export default function MyHistory() {
           <div>
             <h1 className="text-xl font-bold text-gray-900">📊 我的早测记录 · My Morning Quiz Portal</h1>
             <p className="text-xs text-gray-500 mt-1">
-              输入姓名即可查看本人考勤 + 答题历史 · Type your name to see your attendance & quiz history.
+              输入姓名即可查看本人成绩 · Type your name to see your quiz scores.
             </p>
           </div>
           {/* Shared-laptop scenario: the previous student leaves the page
@@ -424,88 +392,9 @@ export default function MyHistory() {
                   </div>
                 )}
               </div>
-              <div className="mt-3 grid grid-cols-2 md:grid-cols-4 gap-2 text-sm">
-                <Stat label="按时到" value={attCounts.on_time} tint="emerald" />
-                <Stat label="迟到" value={attCounts.late} tint="amber" />
-                <Stat label="缺勤" value={attCounts.absent} tint="rose" />
+              <div className="mt-3 grid grid-cols-2 gap-2 text-sm">
                 <Stat label="已交卷" value={data.submissions.length} tint="blue" />
               </div>
-            </section>
-
-            {/* Attendance section */}
-            <section className="bg-white border border-gray-200 rounded-xl shadow-sm">
-              <div className="px-5 py-3 border-b font-semibold">📅 出勤记录 · Attendance</div>
-              {data.attendances.length === 0 ? (
-                <div className="p-6 text-center text-gray-500 text-sm">还没有任何出勤记录</div>
-              ) : (
-                <>
-                  {/* 窄屏 (<640px)：卡片堆叠，避免横滑 */}
-                  <ul className="sm:hidden divide-y">
-                    {data.attendances.map((a) => (
-                      <li key={a.id} className="p-4">
-                        <div className="flex items-center justify-between gap-2">
-                          <span className="font-mono text-sm text-gray-900">{String(a.date).slice(0, 10)}</span>
-                          <div className="flex items-center gap-2">
-                            <span className="inline-flex items-center px-2 py-0.5 rounded text-xs border border-gray-200 bg-gray-50 text-gray-700"
-                              title={a.level ? (LEVEL_LABEL[a.level] ?? a.level) : '—'}>
-                              {a.level ? (LEVEL_SHORT[a.level] ?? '?') : '—'}
-                            </span>
-                            <span className={`text-xs px-2 py-0.5 rounded ${STATUS_BADGE[a.status]}`}>
-                              {STATUS_LABEL[a.status]}
-                            </span>
-                            {a.source === 'manual_correction' && (
-                              <span className="text-xs text-gray-500">(老师补登)</span>
-                            )}
-                          </div>
-                        </div>
-                        {a.correctedNote && (
-                          <div className="text-xs text-gray-500 mt-1.5">{a.correctedNote}</div>
-                        )}
-                      </li>
-                    ))}
-                  </ul>
-
-                  {/* sm: 及以上：原 table 布局 */}
-                  <div className="hidden sm:block overflow-x-auto">
-                    <table className="w-full text-sm">
-                      <thead>
-                        <tr className="text-left border-b text-xs text-gray-500">
-                          <th className="py-2 px-4">日期</th>
-                          <th className="py-2 px-4">Level</th>
-                          <th className="py-2 px-4">考勤</th>
-                          <th className="py-2 px-4 hidden sm:table-cell">扫码时间</th>
-                          <th className="py-2 px-4">备注</th>
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y">
-                        {data.attendances.map((a) => (
-                          <tr key={a.id}>
-                            <td className="py-2 px-4 font-mono">{String(a.date).slice(0, 10)}</td>
-                            <td className="py-2 px-4">
-                              <span className="inline-flex items-center px-2 py-0.5 rounded text-xs border border-gray-200 bg-gray-50 text-gray-700"
-                                title={a.level ? (LEVEL_LABEL[a.level] ?? a.level) : '—'}>
-                                {a.level ? (LEVEL_SHORT[a.level] ?? '?') : '—'}
-                              </span>
-                            </td>
-                            <td className="py-2 px-4">
-                              <span className={`text-xs px-2 py-0.5 rounded ${STATUS_BADGE[a.status]}`}>
-                                {STATUS_LABEL[a.status]}
-                              </span>
-                              {a.source === 'manual_correction' && (
-                                <span className="ml-1 text-xs text-gray-500">(老师补登)</span>
-                              )}
-                            </td>
-                            <td className="py-2 px-4 text-xs text-gray-500 hidden sm:table-cell">
-                              {a.scanTime ? formatCNTime(a.scanTime) : '—'}
-                            </td>
-                            <td className="py-2 px-4 text-xs text-gray-500">{a.correctedNote ?? '—'}</td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                </>
-              )}
             </section>
 
             {/* F17 — score trend chart. Hidden when we have <2 data
