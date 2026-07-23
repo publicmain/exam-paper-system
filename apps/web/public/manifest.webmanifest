@@ -1,7 +1,7 @@
 {
   "name": "早测查询 · Morning Quiz",
   "short_name": "早测查询",
-  "description": "查看本人的晨测考勤与答题记录",
+  "description": "查看本人的晨测成绩与答题记录",
   "lang": "zh-CN",
   "start_url": "/my-history",
   "scope": "/",
