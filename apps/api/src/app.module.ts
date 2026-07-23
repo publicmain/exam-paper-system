@@ -51,6 +51,7 @@ import { IeltsIngestModule } from './ielts-ingest/ielts-ingest.module';
 import { OlevelIngestModule } from './olevel-ingest/olevel-ingest.module';
 import { ContentBootstrapModule } from './bootstrap/content-bootstrap.module';
 import { ParentPortalModule } from './parent-portal/parent-portal.module';
+import { HomeworkModule } from './homework/homework.module';
 import { HealthController } from './health.controller';
 
 @Module({
@@ -103,6 +104,8 @@ import { HealthController } from './health.controller';
     TeacherTodoModule,
     IeltsIngestModule,
     OlevelIngestModule,
+    // Homework M1 — course folders, homework upload/assign, photo submissions.
+    HomeworkModule,
     // ContentBootstrapModule MUST come after IeltsIngestModule and
     // OlevelIngestModule — its provider injects their services. On
     // every API start it idempotently seeds the morning-quiz bank

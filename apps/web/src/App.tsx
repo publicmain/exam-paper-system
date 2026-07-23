@@ -68,6 +68,11 @@ const ArchivedClassesPage = lazy(() => import('./pages/ArchivedClasses'));
 const PracticeModePage = lazy(() => import('./pages/PracticeMode'));
 const ParentPortalPage = lazy(() => import('./pages/ParentPortal'));
 const QuickAttendancePage = lazy(() => import('./pages/QuickAttendance'));
+// Homework M1 — 作业中心（老师）+ 学生作业提交
+const HomeworkCoursesPage = lazy(() => import('./pages/HomeworkCourses'));
+const HomeworkDashboardPage = lazy(() => import('./pages/HomeworkDashboard'));
+const StudentHomeworkPage = lazy(() => import('./pages/StudentHomework'));
+const StudentHomeworkSubmitPage = lazy(() => import('./pages/StudentHomeworkSubmit'));
 
 export default function App() {
   const { user, loading, init, logout } = useAuth();
@@ -214,6 +219,7 @@ export default function App() {
             <div className="max-w-4xl mx-auto px-6 py-3 flex items-center justify-between">
               <div className="flex items-center gap-5 text-sm">
                 <Link to="/student" className="font-bold text-lg">📝 My Papers</Link>
+                <Link to="/student/homework" className="text-blue-600 hover:underline">Homework</Link>
                 <Link to="/practice" className="text-blue-600 hover:underline">Past-Paper Practice</Link>
               </div>
               <div className="flex items-center gap-3 text-sm">
@@ -227,6 +233,8 @@ export default function App() {
           <ErrorBoundary>
             <Routes>
               <Route path="/student" element={<StudentHomePage />} />
+              <Route path="/student/homework" element={<StudentHomeworkPage />} />
+              <Route path="/student/homework/:assignmentId" element={<StudentHomeworkSubmitPage />} />
               <Route path="/student/take/:assignmentId" element={<StudentTakePage />} />
               <Route path="/student/result/:sessionId" element={<StudentResultPage />} />
               <Route path="/student/tutor" element={<StudentTutorPage />} />
@@ -265,6 +273,9 @@ export default function App() {
               <NavLink to="/" label="仪表盘" />
               {(user.role === 'admin' || user.role === 'head_teacher' || user.role === 'teacher') && (
                 <NavLink to="/morning-quiz/schedule" label="🌅 早测" />
+              )}
+              {(user.role === 'admin' || user.role === 'head_teacher' || user.role === 'teacher') && (
+                <NavLink to="/homework" label="📚 作业" />
               )}
               {(user.role === 'admin' || user.role === 'head_teacher' || user.role === 'teacher') && (
                 <NavLink to="/marker" label="判分" />
@@ -370,6 +381,8 @@ export default function App() {
           />
           {/* Path-B routes */}
           <Route path="/classes" element={<ClassesPage />} />
+          <Route path="/homework" element={<HomeworkCoursesPage />} />
+          <Route path="/homework/assignments/:assignmentId" element={<HomeworkDashboardPage />} />
           <Route path="/marker" element={<MarkerQueuePage />} />
           {/* Fix #16: param name must match useParams<{ submissionId }> in MarkerScript.tsx,
               otherwise the page guard early-returns and gets stuck at "Loading…". */}

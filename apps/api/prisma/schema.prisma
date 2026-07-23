@@ -63,6 +63,11 @@ model User {
   parentLinks                  ParentLink[]             @relation("ParentLinkStudent")
   parentLinksCreated           ParentLink[]             @relation("ParentLinkCreator")
   questionRetractions          QuestionRetraction[]     @relation("RetractionActor")
+  // Homework M1 back-relations
+  coursesCreated               Course[]                 @relation("CourseCreator")
+  homeworksCreated             Homework[]               @relation("HomeworkCreator")
+  homeworkAssignmentsMade      HomeworkAssignment[]     @relation("HomeworkAssignedBy")
+  homeworkSubmissions          HomeworkSubmission[]     @relation("HomeworkSubmissionStudent")
 }
 
 // ============================================================
@@ -101,6 +106,8 @@ model Class {
   // R14 — Feature 12: class-transfer audit trail back-relations.
   transfersFrom       ClassTransferLog[]   @relation("TransferFrom")
   transfersTo         ClassTransferLog[]   @relation("TransferTo")
+  // Homework M1 back-relation
+  homeworkAssignments HomeworkAssignment[]
 }
 
 model ClassEnrollment {
@@ -238,6 +245,8 @@ model Subject {
   questions   Question[]
   papers      Paper[]
   templates   PaperTemplate[]
+  // Homework M1 back-relation
+  courses     Course[]
 
   @@unique([examBoardId, code, level])
 }
@@ -1602,4 +1611,125 @@ model QuestionRetraction {
   actorId          String
   actor            User          @relation("RetractionActor", fields: [actorId], references: [id])
   createdAt        DateTime      @default(now())
+}
+
+// ============================================================
+// Homework M1 — teacher uploads homework files into course folders,
+// assigns to classes; students submit photographed pages. AI grading
+// arrives in M3; M1 is pure collect/return logistics.
+// ============================================================
+
+model Course {
+  id          String    @id @default(cuid())
+  name        String // "Form 5 Add Maths", "IGCSE Physics 2027"
+  // Optional link into the existing reference tree so future analytics
+  // can join homework back to syllabus topics. Not required — a course
+  // like "General English" may have no syllabus.
+  subjectId   String?
+  subject     Subject?  @relation(fields: [subjectId], references: [id], onDelete: SetNull)
+  createdById String
+  createdBy   User      @relation("CourseCreator", fields: [createdById], references: [id], onDelete: Restrict)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  archivedAt  DateTime?
+
+  homeworks Homework[]
+
+  @@index([createdById])
+  @@index([subjectId])
+}
+
+model Homework {
+  id           String    @id @default(cuid())
+  courseId     String
+  course       Course    @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  title        String
+  instructions String?   @db.Text
+  totalMarks   Int?
+  createdById  String
+  createdBy    User      @relation("HomeworkCreator", fields: [createdById], references: [id], onDelete: Restrict)
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+  archivedAt   DateTime?
+
+  files       HomeworkFile[]
+  assignments HomeworkAssignment[]
+
+  @@index([courseId])
+}
+
+model HomeworkFile {
+  id          String   @id @default(cuid())
+  homeworkId  String
+  homework    Homework @relation(fields: [homeworkId], references: [id], onDelete: Cascade)
+  filename    String // original upload name, shown in UI
+  mimeType    String
+  sizeBytes   Int
+  // Path relative to HOMEWORK_STORAGE_PATH so the volume can be
+  // remounted elsewhere without a data migration.
+  storagePath String
+  sortOrder   Int      @default(0)
+  createdAt   DateTime @default(now())
+
+  @@index([homeworkId])
+}
+
+model HomeworkAssignment {
+  id           String    @id @default(cuid())
+  homeworkId   String
+  homework     Homework  @relation(fields: [homeworkId], references: [id], onDelete: Cascade)
+  classId      String
+  class        Class     @relation(fields: [classId], references: [id], onDelete: Cascade)
+  assignedById String
+  assignedBy   User      @relation("HomeworkAssignedBy", fields: [assignedById], references: [id], onDelete: Restrict)
+  assignedAt   DateTime  @default(now())
+  startAt      DateTime?
+  dueAt        DateTime?
+  allowLate    Boolean   @default(true)
+  // 'open' | 'closed' (teacher can close early; dueAt is the soft wall)
+  status       String    @default("open")
+
+  submissions HomeworkSubmission[]
+
+  @@unique([homeworkId, classId])
+  @@index([classId])
+}
+
+model HomeworkSubmission {
+  id             String             @id @default(cuid())
+  assignmentId   String
+  assignment     HomeworkAssignment @relation(fields: [assignmentId], references: [id], onDelete: Cascade)
+  studentId      String
+  // Restrict — grade/return audit trail must survive account churn,
+  // mirroring StudentSubmission.
+  student        User               @relation("HomeworkSubmissionStudent", fields: [studentId], references: [id], onDelete: Restrict)
+  startedAt      DateTime           @default(now())
+  submittedAt    DateTime?
+  // 'in_progress' | 'submitted' | 'returned' (M3 adds 'ai_graded')
+  status         String             @default("in_progress")
+  isLate         Boolean            @default(false)
+  // M1: teacher may hand back a plain-text comment + score without AI.
+  teacherScore   Float?
+  teacherComment String?            @db.Text
+  returnedAt     DateTime?
+
+  pages HomeworkPage[]
+
+  @@unique([assignmentId, studentId])
+  @@index([studentId])
+  @@index([assignmentId, status])
+}
+
+model HomeworkPage {
+  id           String             @id @default(cuid())
+  submissionId String
+  submission   HomeworkSubmission @relation(fields: [submissionId], references: [id], onDelete: Cascade)
+  sortOrder    Int                @default(0)
+  filename     String
+  mimeType     String
+  sizeBytes    Int
+  storagePath  String
+  createdAt    DateTime           @default(now())
+
+  @@index([submissionId])
 }
