@@ -1,57 +1,73 @@
-import { useEffect, useState, useRef } from 'react';
+import { useEffect, useState, useRef, lazy } from 'react';
 import { Routes, Route, Navigate, Link, useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from './lib/auth';
-import LoginPage from './pages/Login';
-import DashboardPage from './pages/Dashboard';
-import QuestionsPage from './pages/Questions';
-import QuestionEditPage from './pages/QuestionEdit';
-import PapersPage from './pages/Papers';
-import PaperWizardPage from './pages/PaperWizard';
-import PaperEditPage from './pages/PaperEdit';
-import TemplatesPage from './pages/Templates';
-import SourcesPage from './pages/Sources';
-import ReviewPage from './pages/Review';
-import AiGeneratePage from './pages/AiGenerate';
-import QuickPaperPage from './pages/QuickPaper';
-import StudentHomePage from './pages/StudentHome';
-import StudentTakePage from './pages/StudentTake';
-import StudentResultPage from './pages/StudentResult';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import { CommandPalette } from './components/CommandPalette';
-// Morning quiz feature
-import MorningQuizDisplayPage from './pages/MorningQuizDisplay';
-import MorningQuizQrPrintPage from './pages/MorningQuizQrPrint';
-import MorningQuizScanPage from './pages/MorningQuizScan';
-import MorningQuizTakePage from './pages/MorningQuizTake';
-import MorningQuizSchedulePage from './pages/MorningQuizSchedule';
-import MorningQuizQaReviewPage from './pages/MorningQuizQaReview';
-import MorningQuizSessionDashboard from './pages/MorningQuizSessionDashboard';
-import MorningQuizClassDayDashboard from './pages/MorningQuizClassDayDashboard';
-import AttendanceAdminPage from './pages/AttendanceAdmin';
-// Path-B pages
-import ClassesPage from './pages/Classes';
-import MarkerQueuePage from './pages/MarkerQueue';
-import MarkerScriptPage from './pages/MarkerScript';
-import ClassStatsPage from './pages/ClassStats';
-import WrongAnswerDashboardPage from './pages/WrongAnswerDashboard';
-import QualityFeedbackPage from './pages/QualityFeedback';
-import AiGenWithPerfPage from './pages/AiGenWithPerf';
-import SyllabusAdminPage from './pages/SyllabusAdmin';
-import CostDashboardPage from './pages/CostDashboard';
-import UserAdminPage from './pages/UserAdmin';
-import VariantPreviewPage from './pages/VariantPreview';
-import CodegraderTestPage from './pages/CodegraderTest';
-import StudentTutorPage from './pages/StudentTutor';
-import PracticePage from './pages/Practice';
+
+// Code splitting — why it matters here.
+//
+// Every page used to be imported eagerly, so the single JS bundle grew to
+// ~900 KB. A student opening /my-history (the PWA start_url) had to
+// download, parse and execute the ENTIRE teacher/admin app — quick-paper,
+// cost dashboard, user admin, audit log, marker, charts — before their own
+// score could even be requested. Measured on the deployed build: two
+// ~2.6 s main-thread long tasks, and the score API call didn't fire until
+// t≈8 s. On a phone (3-5× slower) that's ~30-45 s of white screen, which
+// is exactly what students reported.
+//
+// Only the student-facing entry points stay eager, so /my-history renders
+// from the first chunk with no extra round-trip. Everything else loads on
+// demand behind <Suspense> (mounted in main.tsx around <App/>).
 import MyHistoryPage from './pages/MyHistory';
 import MyHistoryDetailPage from './pages/MyHistoryDetail';
+import LoginPage from './pages/Login';
+
+const DashboardPage = lazy(() => import('./pages/Dashboard'));
+const QuestionsPage = lazy(() => import('./pages/Questions'));
+const QuestionEditPage = lazy(() => import('./pages/QuestionEdit'));
+const PapersPage = lazy(() => import('./pages/Papers'));
+const PaperWizardPage = lazy(() => import('./pages/PaperWizard'));
+const PaperEditPage = lazy(() => import('./pages/PaperEdit'));
+const TemplatesPage = lazy(() => import('./pages/Templates'));
+const SourcesPage = lazy(() => import('./pages/Sources'));
+const ReviewPage = lazy(() => import('./pages/Review'));
+const AiGeneratePage = lazy(() => import('./pages/AiGenerate'));
+const QuickPaperPage = lazy(() => import('./pages/QuickPaper'));
+const StudentHomePage = lazy(() => import('./pages/StudentHome'));
+const StudentTakePage = lazy(() => import('./pages/StudentTake'));
+const StudentResultPage = lazy(() => import('./pages/StudentResult'));
+// Morning quiz feature
+const MorningQuizDisplayPage = lazy(() => import('./pages/MorningQuizDisplay'));
+const MorningQuizQrPrintPage = lazy(() => import('./pages/MorningQuizQrPrint'));
+const MorningQuizScanPage = lazy(() => import('./pages/MorningQuizScan'));
+const MorningQuizTakePage = lazy(() => import('./pages/MorningQuizTake'));
+const MorningQuizSchedulePage = lazy(() => import('./pages/MorningQuizSchedule'));
+const MorningQuizQaReviewPage = lazy(() => import('./pages/MorningQuizQaReview'));
+const MorningQuizSessionDashboard = lazy(() => import('./pages/MorningQuizSessionDashboard'));
+const MorningQuizClassDayDashboard = lazy(() => import('./pages/MorningQuizClassDayDashboard'));
+const AttendanceAdminPage = lazy(() => import('./pages/AttendanceAdmin'));
+// Path-B pages
+const ClassesPage = lazy(() => import('./pages/Classes'));
+const MarkerQueuePage = lazy(() => import('./pages/MarkerQueue'));
+const MarkerScriptPage = lazy(() => import('./pages/MarkerScript'));
+const ClassStatsPage = lazy(() => import('./pages/ClassStats'));
+const WrongAnswerDashboardPage = lazy(() => import('./pages/WrongAnswerDashboard'));
+const QualityFeedbackPage = lazy(() => import('./pages/QualityFeedback'));
+const AiGenWithPerfPage = lazy(() => import('./pages/AiGenWithPerf'));
+const SyllabusAdminPage = lazy(() => import('./pages/SyllabusAdmin'));
+const CostDashboardPage = lazy(() => import('./pages/CostDashboard'));
+const UserAdminPage = lazy(() => import('./pages/UserAdmin'));
+const VariantPreviewPage = lazy(() => import('./pages/VariantPreview'));
+const CodegraderTestPage = lazy(() => import('./pages/CodegraderTest'));
+const StudentTutorPage = lazy(() => import('./pages/StudentTutor'));
+const PracticePage = lazy(() => import('./pages/Practice'));
 // ROUND 14 — new admin/teacher pages
-import AuditLogPage from './pages/AuditLog';
-import ArchivedClassesPage from './pages/ArchivedClasses';
+const AuditLogPage = lazy(() => import('./pages/AuditLog'));
+const ArchivedClassesPage = lazy(() => import('./pages/ArchivedClasses'));
 // ROUND 14 — FE-Student PracticeMode + FE-Parent ParentPortal.
-import PracticeModePage from './pages/PracticeMode';
-import ParentPortalPage from './pages/ParentPortal';
-import QuickAttendancePage from './pages/QuickAttendance';
+const PracticeModePage = lazy(() => import('./pages/PracticeMode'));
+const ParentPortalPage = lazy(() => import('./pages/ParentPortal'));
+const QuickAttendancePage = lazy(() => import('./pages/QuickAttendance'));
 
 export default function App() {
   const { user, loading, init, logout } = useAuth();

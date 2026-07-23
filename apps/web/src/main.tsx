@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { Suspense } from 'react';
 import ReactDOM from 'react-dom/client';
 import { BrowserRouter } from 'react-router-dom';
 import App from './App';
@@ -9,7 +9,13 @@ import './styles/brand.css';
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
     <BrowserRouter>
-      <App />
+      {/* Catches every lazy() page chunk in App.tsx, whichever branch of
+          the route guard renders. The student entry points (/my-history +
+          its detail page) are eager, so this fallback never shows for
+          them — it only covers staff pages loading their own chunk. */}
+      <Suspense fallback={<div className="p-8 text-gray-500">加载中…</div>}>
+        <App />
+      </Suspense>
     </BrowserRouter>
   </React.StrictMode>,
 );
