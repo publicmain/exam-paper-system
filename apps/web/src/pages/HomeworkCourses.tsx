@@ -184,6 +184,7 @@ export default function HomeworkCoursesPage() {
 function HomeworkCard({ hw, onAssign, onChanged }: { hw: any; onAssign: () => void; onChanged: () => void }) {
   const fileInput = useRef<HTMLInputElement>(null);
   const [uploading, setUploading] = useState(false);
+  const [showRubric, setShowRubric] = useState(false);
 
   return (
     <div className="bg-white rounded border p-4">
@@ -197,6 +198,9 @@ function HomeworkCard({ hw, onAssign, onChanged }: { hw: any; onAssign: () => vo
           </div>
         </div>
         <div className="flex gap-2 shrink-0">
+          <button className="btn btn-ghost text-sm" onClick={() => setShowRubric(true)}>
+            📋 评分标准{hw.questions?.length ? ` (${hw.questions.length})` : ''}
+          </button>
           <button className="btn btn-ghost text-sm" onClick={() => fileInput.current?.click()} disabled={uploading}>
             {uploading ? '上传中…' : '＋文件'}
           </button>
@@ -265,7 +269,73 @@ function HomeworkCard({ hw, onAssign, onChanged }: { hw: any; onAssign: () => vo
           ))}
         </div>
       )}
+
+      {showRubric && (
+        <RubricModal hw={hw} onClose={() => setShowRubric(false)} onSaved={() => { setShowRubric(false); onChanged(); }} />
+      )}
     </div>
+  );
+}
+
+/** Define per-question marks + criteria. Locked once any submission is graded. */
+function RubricModal({ hw, onClose, onSaved }: { hw: any; onClose: () => void; onSaved: () => void }) {
+  const [rows, setRows] = useState<{ label: string; maxMarks: string; criteria: string }[]>(
+    hw.questions?.length
+      ? hw.questions.map((q: any) => ({ label: q.label, maxMarks: String(q.maxMarks), criteria: q.criteria ?? '' }))
+      : [{ label: 'Q1', maxMarks: '', criteria: '' }],
+  );
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState('');
+  const total = rows.reduce((s, r) => s + (Number(r.maxMarks) || 0), 0);
+
+  return (
+    <Modal title={`评分标准 — ${hw.title}`} onClose={onClose}>
+      <div className="text-xs text-gray-500 mb-2">
+        为每道题设分值 + 评分要点。AI 建议分和老师复核都按这个标准逐题判分。
+      </div>
+      <div className="space-y-2 max-h-80 overflow-y-auto">
+        {rows.map((r, i) => (
+          <div key={i} className="flex gap-2 items-start">
+            <input className="input w-16" placeholder="题号" value={r.label}
+              onChange={(e) => setRows(rows.map((x, j) => j === i ? { ...x, label: e.target.value } : x))} />
+            <input className="input w-16" type="number" min={1} placeholder="分"
+              value={r.maxMarks}
+              onChange={(e) => setRows(rows.map((x, j) => j === i ? { ...x, maxMarks: e.target.value } : x))} />
+            <input className="input flex-1" placeholder="评分要点 / 参考答案（可选）" value={r.criteria}
+              onChange={(e) => setRows(rows.map((x, j) => j === i ? { ...x, criteria: e.target.value } : x))} />
+            <button className="text-gray-400 hover:text-red-600 px-1"
+              onClick={() => setRows(rows.filter((_, j) => j !== i))}>✕</button>
+          </div>
+        ))}
+      </div>
+      <button className="btn btn-ghost text-sm mt-2"
+        onClick={() => setRows([...rows, { label: `Q${rows.length + 1}`, maxMarks: '', criteria: '' }])}>
+        ＋ 加一题
+      </button>
+      <div className="text-sm text-gray-600 mt-2">合计满分：<b>{total}</b></div>
+      {err && <div className="text-sm text-red-600 mt-2">{err}</div>}
+      <div className="flex justify-end gap-2 mt-3">
+        <button className="btn btn-ghost" onClick={onClose}>取消</button>
+        <button className="btn btn-primary" disabled={busy}
+          onClick={async () => {
+            const qs = rows
+              .filter((r) => r.label.trim() && Number(r.maxMarks) > 0)
+              .map((r) => ({ label: r.label.trim(), maxMarks: Number(r.maxMarks), criteria: r.criteria.trim() || undefined }));
+            if (qs.length === 0) { setErr('至少一道有效的题（题号 + 分值）'); return; }
+            setBusy(true);
+            try {
+              await hwApi.setRubric(hw.id, qs);
+              onSaved();
+            } catch (e: any) {
+              setErr(e.message);
+            } finally {
+              setBusy(false);
+            }
+          }}>
+          {busy ? '保存中…' : '保存评分标准'}
+        </button>
+      </div>
+    </Modal>
   );
 }
 

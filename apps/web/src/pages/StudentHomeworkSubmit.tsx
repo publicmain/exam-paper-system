@@ -88,14 +88,34 @@ export default function StudentHomeworkSubmitPage() {
       )}
 
       {/* 已批改结果 */}
-      {sub?.status === 'returned' && (
-        <div className="bg-green-50 border border-green-200 rounded p-4 mb-4">
-          <div className="text-lg font-bold text-green-800">
-            Score: {sub.teacherScore ?? '—'}{data.homework.totalMarks ? ` / ${data.homework.totalMarks}` : ''}
+      {sub?.status === 'returned' && (() => {
+        const questions: any[] = data.homework.questions ?? [];
+        const gradeByQ = new Map<string, any>((sub.grades ?? []).map((g: any) => [g.questionId, g]));
+        const maxTotal = questions.reduce((s, q) => s + q.maxMarks, 0);
+        return (
+          <div className="bg-green-50 border border-green-200 rounded p-4 mb-4">
+            <div className="text-lg font-bold text-green-800">
+              Score: {sub.teacherScore ?? '—'}
+              {questions.length > 0 ? ` / ${maxTotal}` : data.homework.totalMarks ? ` / ${data.homework.totalMarks}` : ''}
+            </div>
+            {sub.teacherComment && <div className="text-sm mt-1 whitespace-pre-wrap">{sub.teacherComment}</div>}
+            {questions.length > 0 && (
+              <div className="mt-3 space-y-1">
+                {questions.map((q) => {
+                  const g = gradeByQ.get(q.id);
+                  return (
+                    <div key={q.id} className="text-sm flex items-start gap-2 border-t border-green-200 pt-1">
+                      <span className="font-medium w-12">{q.label}</span>
+                      <span className="w-16">{g?.awardedMarks ?? '—'} / {q.maxMarks}</span>
+                      {g?.comment && <span className="text-gray-600 flex-1">{g.comment}</span>}
+                    </div>
+                  );
+                })}
+              </div>
+            )}
           </div>
-          {sub.teacherComment && <div className="text-sm mt-1 whitespace-pre-wrap">{sub.teacherComment}</div>}
-        </div>
-      )}
+        );
+      })()}
 
       {/* 我的答卷页 */}
       <h2 className="text-sm font-semibold text-gray-500 mb-2">

@@ -68,6 +68,7 @@ model User {
   homeworksCreated             Homework[]               @relation("HomeworkCreator")
   homeworkAssignmentsMade      HomeworkAssignment[]     @relation("HomeworkAssignedBy")
   homeworkSubmissions          HomeworkSubmission[]     @relation("HomeworkSubmissionStudent")
+  homeworkGraded               HomeworkGrade[]          @relation("HomeworkGradedBy")
 }
 
 // ============================================================
@@ -1654,6 +1655,8 @@ model Homework {
 
   files       HomeworkFile[]
   assignments HomeworkAssignment[]
+  // M3 — rubric questions (per-question marks + marking criteria).
+  questions   HomeworkQuestion[]
 
   @@index([courseId])
 }
@@ -1715,10 +1718,55 @@ model HomeworkSubmission {
 
   pages    HomeworkPage[]
   inkPages HomeworkInkPage[]
+  grades   HomeworkGrade[]
 
   @@unique([assignmentId, studentId])
   @@index([studentId])
   @@index([assignmentId, status])
+}
+
+// M3 — one rubric line of a homework: a question with its max marks and
+// (optional) marking criteria / reference answer. AI grading and human
+// review both grade against these. Defining a rubric switches the homework
+// from M1's single-score return to the per-question grading console.
+model HomeworkQuestion {
+  id         String   @id @default(cuid())
+  homeworkId String
+  homework   Homework @relation(fields: [homeworkId], references: [id], onDelete: Cascade)
+  order      Int      @default(0)
+  label      String // "Q1", "1(a)"
+  maxMarks   Int
+  criteria   String?  @db.Text // reference answer / marking points
+  createdAt  DateTime @default(now())
+
+  grades HomeworkGrade[]
+
+  @@index([homeworkId])
+}
+
+// M3 — one graded question of one submission. Starts life either as a
+// teacher entry (source='teacher') or an AI suggestion (source='ai_suggested',
+// carries confidence + rationale). AI suggestions NEVER publish on their own —
+// the teacher confirms each into source='teacher' before the submission can be
+// returned. One row per (submission, question).
+model HomeworkGrade {
+  id           String             @id @default(cuid())
+  submissionId String
+  submission   HomeworkSubmission @relation(fields: [submissionId], references: [id], onDelete: Cascade)
+  questionId   String
+  question     HomeworkQuestion   @relation(fields: [questionId], references: [id], onDelete: Cascade)
+  awardedMarks Float?
+  comment      String?            @db.Text
+  // 'teacher' (final, teacher-owned) | 'ai_suggested' (pending review)
+  source       String             @default("teacher")
+  confidence   Float? // 0..1, AI only
+  rationale    String?            @db.Text // AI one-line reason
+  gradedById   String?
+  gradedBy     User?              @relation("HomeworkGradedBy", fields: [gradedById], references: [id], onDelete: SetNull)
+  updatedAt    DateTime           @updatedAt
+
+  @@unique([submissionId, questionId])
+  @@index([submissionId])
 }
 
 model HomeworkPage {

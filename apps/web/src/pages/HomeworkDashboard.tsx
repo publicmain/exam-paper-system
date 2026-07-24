@@ -177,40 +177,150 @@ function SubmissionViewer({ submissionId, totalMarks, onClose, onReturned }: {
               ))}
             </div>
 
-            {/* M1 手动打分返回；M3 换成 AI 建议分复核台 */}
-            <div className="border-t pt-4">
-              <div className="flex items-end gap-3 flex-wrap">
-                <div>
-                  <label className="block text-sm mb-1">分数{totalMarks ? `（满分 ${totalMarks}）` : ''}</label>
-                  <input className="input w-28" type="number" min={0} value={score}
-                    onChange={(e) => setScore(e.target.value)} />
+            {/* M3: rubric → per-question grading console; else M1 single score. */}
+            {sub.assignment.homework.questions?.length > 0 ? (
+              <GradingPanel sub={sub} onReturned={onReturned} reload={() => hwApi.getSubmission(submissionId).then(setSub)} />
+            ) : (
+              <div className="border-t pt-4">
+                <div className="flex items-end gap-3 flex-wrap">
+                  <div>
+                    <label className="block text-sm mb-1">分数{totalMarks ? `（满分 ${totalMarks}）` : ''}</label>
+                    <input className="input w-28" type="number" min={0} value={score}
+                      onChange={(e) => setScore(e.target.value)} />
+                  </div>
+                  <div className="flex-1 min-w-52">
+                    <label className="block text-sm mb-1">评语（可选）</label>
+                    <input className="input w-full" value={comment} onChange={(e) => setComment(e.target.value)}
+                      placeholder="写给学生的评语" />
+                  </div>
+                  <button className="btn btn-primary" disabled={busy}
+                    onClick={async () => {
+                      setBusy(true);
+                      try {
+                        await hwApi.returnSubmission(submissionId, {
+                          teacherScore: score === '' ? undefined : Number(score),
+                          teacherComment: comment || undefined,
+                        });
+                        onReturned();
+                      } catch (e: any) {
+                        alert(e.message);
+                      } finally {
+                        setBusy(false);
+                      }
+                    }}>
+                    {busy ? '返回中…' : sub.status === 'returned' ? '更新并返回' : '打分并返回学生'}
+                  </button>
                 </div>
-                <div className="flex-1 min-w-52">
-                  <label className="block text-sm mb-1">评语（可选）</label>
-                  <input className="input w-full" value={comment} onChange={(e) => setComment(e.target.value)}
-                    placeholder="写给学生的评语" />
-                </div>
-                <button className="btn btn-primary" disabled={busy}
-                  onClick={async () => {
-                    setBusy(true);
-                    try {
-                      await hwApi.returnSubmission(submissionId, {
-                        teacherScore: score === '' ? undefined : Number(score),
-                        teacherComment: comment || undefined,
-                      });
-                      onReturned();
-                    } catch (e: any) {
-                      alert(e.message);
-                    } finally {
-                      setBusy(false);
-                    }
-                  }}>
-                  {busy ? '返回中…' : sub.status === 'returned' ? '更新并返回' : '打分并返回学生'}
-                </button>
               </div>
-            </div>
+            )}
           </>
         )}
+      </div>
+    </div>
+  );
+}
+
+/** M3 per-question grading console: rubric items with mark inputs, AI-suggestion
+ *  pre-fill + confidence, save (confirm) and publish. */
+function GradingPanel({ sub, onReturned, reload }: { sub: any; onReturned: () => void; reload: () => void }) {
+  const questions: any[] = sub.assignment.homework.questions;
+  const gradeByQ = new Map<string, any>((sub.grades ?? []).map((g: any) => [g.questionId, g]));
+  const [rows, setRows] = useState(
+    questions.map((q) => {
+      const g = gradeByQ.get(q.id);
+      return {
+        questionId: q.id,
+        label: q.label,
+        maxMarks: q.maxMarks,
+        criteria: q.criteria,
+        awarded: g?.awardedMarks != null ? String(g.awardedMarks) : '',
+        comment: g?.comment ?? '',
+        source: g?.source ?? null,
+        confidence: g?.confidence ?? null,
+        rationale: g?.rationale ?? null,
+      };
+    }),
+  );
+  const [comment, setComment] = useState(sub.teacherComment ?? '');
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState('');
+
+  const hasAiSuggestions = rows.some((r) => r.source === 'ai_suggested');
+  const total = rows.reduce((s, r) => s + (Number(r.awarded) || 0), 0);
+  const maxTotal = questions.reduce((s, q) => s + q.maxMarks, 0);
+
+  async function saveTeacher() {
+    setBusy(true); setErr('');
+    try {
+      const grades = rows.map((r) => ({
+        questionId: r.questionId,
+        awardedMarks: r.awarded === '' ? null : Number(r.awarded),
+        comment: r.comment || undefined,
+      }));
+      await hwApi.saveGrades(sub.id, grades);
+      await reload();
+      setRows((rs) => rs.map((r) => ({ ...r, source: 'teacher' })));
+    } catch (e: any) { setErr(e.message); } finally { setBusy(false); }
+  }
+
+  async function publish() {
+    setBusy(true); setErr('');
+    try {
+      await hwApi.saveGrades(sub.id, rows.map((r) => ({
+        questionId: r.questionId,
+        awardedMarks: r.awarded === '' ? null : Number(r.awarded),
+        comment: r.comment || undefined,
+      })));
+      await hwApi.publishGrades(sub.id, comment || undefined);
+      onReturned();
+    } catch (e: any) { setErr(e.message); } finally { setBusy(false); }
+  }
+
+  return (
+    <div className="border-t pt-4">
+      <div className="flex items-center justify-between mb-2">
+        <h4 className="font-semibold">逐题评分</h4>
+        {hasAiSuggestions && (
+          <span className="text-xs bg-purple-100 text-purple-700 rounded px-2 py-0.5">
+            含 AI 建议分 — 请复核后发布
+          </span>
+        )}
+      </div>
+      <div className="space-y-2">
+        {rows.map((r, i) => (
+          <div key={r.questionId} className={`rounded border p-2 ${r.source === 'ai_suggested' ? 'bg-purple-50 border-purple-200' : ''}`}>
+            <div className="flex items-center gap-2">
+              <span className="font-medium w-12">{r.label}</span>
+              <input className="input w-20" type="number" min={0} max={r.maxMarks} value={r.awarded}
+                onChange={(e) => setRows(rows.map((x, j) => j === i ? { ...x, awarded: e.target.value } : x))} />
+              <span className="text-sm text-gray-500">/ {r.maxMarks}</span>
+              <input className="input flex-1" placeholder="评语（可选）" value={r.comment}
+                onChange={(e) => setRows(rows.map((x, j) => j === i ? { ...x, comment: e.target.value } : x))} />
+              {r.source === 'ai_suggested' && (
+                <span className="text-xs text-purple-700 whitespace-nowrap">
+                  🤖 AI{r.confidence != null ? ` ${Math.round(r.confidence * 100)}%` : ''}
+                </span>
+              )}
+              {r.source === 'teacher' && <span className="text-xs text-green-700">✓</span>}
+            </div>
+            {r.criteria && <div className="text-xs text-gray-500 mt-1 ml-14">要点：{r.criteria}</div>}
+            {r.rationale && <div className="text-xs text-purple-600 mt-0.5 ml-14">AI 理由：{r.rationale}</div>}
+          </div>
+        ))}
+      </div>
+      <div className="flex items-center gap-3 mt-3">
+        <span className="text-sm">合计 <b>{total}</b> / {maxTotal}</span>
+        <input className="input flex-1" placeholder="总评语（可选）" value={comment}
+          onChange={(e) => setComment(e.target.value)} />
+      </div>
+      {err && <div className="text-sm text-red-600 mt-2">{err}</div>}
+      <div className="flex justify-end gap-2 mt-3">
+        <button className="btn btn-ghost" disabled={busy} onClick={saveTeacher}>
+          {busy ? '保存中…' : hasAiSuggestions ? '确认为老师评分（暂存）' : '暂存'}
+        </button>
+        <button className="btn btn-primary" disabled={busy} onClick={publish}>
+          {busy ? '发布中…' : '发布给学生'}
+        </button>
       </div>
     </div>
   );

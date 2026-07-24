@@ -11,7 +11,7 @@ import { randomUUID } from 'crypto';
 import { PrismaService } from '../common/prisma.service';
 import { AuditService } from '../audit/audit.service';
 import { AuthUser } from '../common/auth.guard';
-import { canActOnClass, isAdminOrHead } from '../common/roles';
+import { canActOnClass, isAdminOrHead, isTeacherOrAbove } from '../common/roles';
 
 // Homework files live on the same Railway volume as the past-paper
 // archive (RAW_STORAGE_PATH=/data/raw → /data/raw/homework) so no new
@@ -150,6 +150,7 @@ export class HomeworkService {
       include: {
         course: true,
         files: { orderBy: { sortOrder: 'asc' } },
+        questions: { orderBy: { order: 'asc' } },
         assignments: {
           include: { class: { select: { id: true, name: true, classCode: true } } },
         },
@@ -386,14 +387,27 @@ export class HomeworkService {
     };
   }
 
-  /** Teacher views one submission's pages. */
+  /** Teacher views one submission's pages + rubric + existing grades
+   *  (the M3 grading console; also serves the M1 viewer when no rubric). */
   async getSubmissionForTeacher(user: AuthUser, submissionId: string) {
     const sub = await this.prisma.homeworkSubmission.findUnique({
       where: { id: submissionId },
       include: {
         pages: { orderBy: { sortOrder: 'asc' } },
+        grades: true,
         student: { select: { id: true, name: true, email: true } },
-        assignment: { include: { homework: { select: { id: true, title: true, totalMarks: true } } } },
+        assignment: {
+          include: {
+            homework: {
+              select: {
+                id: true,
+                title: true,
+                totalMarks: true,
+                questions: { orderBy: { order: 'asc' } },
+              },
+            },
+          },
+        },
       },
     });
     if (!sub) throw new NotFoundException('submission not found');
@@ -436,6 +450,199 @@ export class HomeworkService {
       entityType: 'HomeworkSubmission',
       entityId: submissionId,
       metadata: { teacherScore: data.teacherScore ?? null },
+    });
+    return updated;
+  }
+
+  // ---------- M3: rubric + per-question grading ----------
+
+  private async assertHomeworkOwner(user: AuthUser, homeworkId: string) {
+    const hw = await this.prisma.homework.findUnique({ where: { id: homeworkId } });
+    if (!hw) throw new NotFoundException('homework not found');
+    if (hw.createdById !== user.id && !isAdminOrHead(user.role)) {
+      throw new ForbiddenException('only the homework creator or an admin can edit its rubric');
+    }
+    return hw;
+  }
+
+  /** Replace the whole rubric for a homework. Editing is blocked once any
+   *  submission has been graded, to keep awarded marks meaningful. */
+  async setRubric(
+    user: AuthUser,
+    homeworkId: string,
+    questions: { id?: string; label: string; maxMarks: number; criteria?: string }[],
+  ) {
+    await this.assertHomeworkOwner(user, homeworkId);
+    const graded = await this.prisma.homeworkGrade.count({
+      where: { question: { homeworkId } },
+    });
+    if (graded > 0) {
+      throw new BadRequestException('rubric is locked — some submissions are already graded');
+    }
+    return this.prisma.$transaction(async (tx) => {
+      await tx.homeworkQuestion.deleteMany({ where: { homeworkId } });
+      for (const [i, q] of questions.entries()) {
+        await tx.homeworkQuestion.create({
+          data: {
+            homeworkId,
+            order: i,
+            label: q.label,
+            maxMarks: q.maxMarks,
+            criteria: q.criteria ?? null,
+          },
+        });
+      }
+      return tx.homeworkQuestion.findMany({ where: { homeworkId }, orderBy: { order: 'asc' } });
+    });
+  }
+
+  private async gradableSubmission(user: AuthUser, submissionId: string, requireTeacher = true) {
+    const sub = await this.prisma.homeworkSubmission.findUnique({
+      where: { id: submissionId },
+      include: {
+        assignment: { include: { homework: { include: { questions: true } } } },
+      },
+    });
+    if (!sub) throw new NotFoundException('submission not found');
+    if (sub.status === 'in_progress') throw new BadRequestException('student has not submitted yet');
+    if (requireTeacher && !(await canActOnClass(this.prisma, user, sub.assignment.classId))) {
+      throw new ForbiddenException('not your class');
+    }
+    return sub;
+  }
+
+  /** Teacher saves per-question marks (source='teacher', final). */
+  async saveGrades(
+    user: AuthUser,
+    submissionId: string,
+    grades: { questionId: string; awardedMarks: number | null; comment?: string }[],
+  ) {
+    const sub = await this.gradableSubmission(user, submissionId);
+    const validIds = new Set(sub.assignment.homework.questions.map((q) => q.id));
+    const maxByQ = new Map(sub.assignment.homework.questions.map((q) => [q.id, q.maxMarks]));
+    for (const g of grades) {
+      if (!validIds.has(g.questionId)) throw new BadRequestException('unknown question');
+      if (g.awardedMarks != null) {
+        const max = maxByQ.get(g.questionId)!;
+        if (g.awardedMarks < 0 || g.awardedMarks > max) {
+          throw new BadRequestException(`marks out of range for a question (0–${max})`);
+        }
+      }
+    }
+    await this.prisma.$transaction(
+      grades.map((g) =>
+        this.prisma.homeworkGrade.upsert({
+          where: { submissionId_questionId: { submissionId, questionId: g.questionId } },
+          create: {
+            submissionId,
+            questionId: g.questionId,
+            awardedMarks: g.awardedMarks,
+            comment: g.comment ?? null,
+            source: 'teacher',
+            gradedById: user.id,
+          },
+          update: {
+            awardedMarks: g.awardedMarks,
+            comment: g.comment ?? null,
+            source: 'teacher',
+            gradedById: user.id,
+          },
+        }),
+      ),
+    );
+    return this.getSubmissionForTeacher(user, submissionId);
+  }
+
+  /**
+   * Write AI-suggested per-question grades (source='ai_suggested'). This is the
+   * iron-rule-compliant seam: the CODE never calls a model — suggestions are
+   * written here by whatever produced them (a future backend, or Claude-in-chat
+   * reading the flattened answer image). Never publishes; the teacher still
+   * confirms each into a 'teacher' grade. Won't overwrite a teacher grade.
+   */
+  async saveAiSuggestions(
+    user: AuthUser,
+    submissionId: string,
+    grades: { questionId: string; awardedMarks: number | null; confidence?: number; rationale?: string; comment?: string }[],
+  ) {
+    const sub = await this.gradableSubmission(user, submissionId);
+    if (!isTeacherOrAbove(user.role)) throw new ForbiddenException('teachers only');
+    const validIds = new Set(sub.assignment.homework.questions.map((q) => q.id));
+    for (const g of grades) {
+      if (!validIds.has(g.questionId)) throw new BadRequestException('unknown question');
+    }
+    const existing = await this.prisma.homeworkGrade.findMany({ where: { submissionId } });
+    const teacherOwned = new Set(existing.filter((e) => e.source === 'teacher').map((e) => e.questionId));
+    const toWrite = grades.filter((g) => !teacherOwned.has(g.questionId));
+    await this.prisma.$transaction(
+      toWrite.map((g) =>
+        this.prisma.homeworkGrade.upsert({
+          where: { submissionId_questionId: { submissionId, questionId: g.questionId } },
+          create: {
+            submissionId,
+            questionId: g.questionId,
+            awardedMarks: g.awardedMarks,
+            comment: g.comment ?? null,
+            source: 'ai_suggested',
+            confidence: g.confidence ?? null,
+            rationale: g.rationale ?? null,
+          },
+          update: {
+            awardedMarks: g.awardedMarks,
+            comment: g.comment ?? null,
+            source: 'ai_suggested',
+            confidence: g.confidence ?? null,
+            rationale: g.rationale ?? null,
+          },
+        }),
+      ),
+    );
+    await this.audit.log({
+      actorId: user.id,
+      actorRole: user.role,
+      action: 'homework.ai_suggest',
+      entityType: 'HomeworkSubmission',
+      entityId: submissionId,
+      metadata: { count: toWrite.length, skippedTeacherOwned: grades.length - toWrite.length },
+    });
+    return this.getSubmissionForTeacher(user, submissionId);
+  }
+
+  /** Publish per-question grades to the student. Requires every rubric
+   *  question to have a teacher-confirmed mark (AI suggestions must be
+   *  reviewed first). Sums to teacherScore + returns. */
+  async publishGrades(user: AuthUser, submissionId: string, teacherComment?: string) {
+    const sub = await this.gradableSubmission(user, submissionId);
+    const questions = sub.assignment.homework.questions;
+    if (questions.length === 0) throw new BadRequestException('this homework has no rubric');
+    const grades = await this.prisma.homeworkGrade.findMany({ where: { submissionId } });
+    const byQ = new Map(grades.map((g) => [g.questionId, g]));
+    for (const q of questions) {
+      const g = byQ.get(q.id);
+      if (!g || g.awardedMarks == null) {
+        throw new BadRequestException(`question "${q.label}" is not graded yet`);
+      }
+      if (g.source !== 'teacher') {
+        throw new BadRequestException(`question "${q.label}" still has an unreviewed AI suggestion`);
+      }
+    }
+    const total = questions.reduce((sum, q) => sum + (byQ.get(q.id)!.awardedMarks ?? 0), 0);
+    const updated = await this.prisma.homeworkSubmission.update({
+      where: { id: submissionId },
+      data: {
+        status: 'returned',
+        returnedAt: new Date(),
+        teacherScore: total,
+        ...(teacherComment !== undefined ? { teacherComment } : {}),
+      },
+    });
+    await this.audit.log({
+      actorId: user.id,
+      actorRole: user.role,
+      action: 'homework.grades.publish',
+      entityType: 'HomeworkSubmission',
+      entityId: submissionId,
+      metadata: { total },
     });
     return updated;
   }
@@ -501,7 +708,15 @@ export class HomeworkService {
   private async assertStudentAssignment(user: AuthUser, assignmentId: string) {
     const assignment = await this.prisma.homeworkAssignment.findUnique({
       where: { id: assignmentId },
-      include: { homework: { include: { files: { orderBy: { sortOrder: 'asc' } }, course: true } } },
+      include: {
+        homework: {
+          include: {
+            files: { orderBy: { sortOrder: 'asc' } },
+            questions: { orderBy: { order: 'asc' } },
+            course: true,
+          },
+        },
+      },
     });
     if (!assignment || assignment.homework.archivedAt) {
       throw new NotFoundException('assignment not found');
@@ -517,14 +732,18 @@ export class HomeworkService {
     const assignment = await this.assertStudentAssignment(user, assignmentId);
     const sub = await this.prisma.homeworkSubmission.findUnique({
       where: { assignmentId_studentId: { assignmentId, studentId: user.id } },
-      include: { pages: { orderBy: { sortOrder: 'asc' } } },
+      include: { pages: { orderBy: { sortOrder: 'asc' } }, grades: true },
     });
+    const returned = sub?.status === 'returned';
     return {
       ...assignment,
       submission: sub
         ? {
             ...sub,
-            teacherComment: sub.status === 'returned' ? sub.teacherComment : null,
+            teacherComment: returned ? sub.teacherComment : null,
+            // Per-question breakdown only once returned (never leak
+            // in-progress teacher/AI marks to the student).
+            grades: returned ? sub.grades : [],
           }
         : null,
       canSubmit: this.canSubmitNow(assignment, new Date()),

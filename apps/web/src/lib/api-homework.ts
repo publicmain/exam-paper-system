@@ -73,6 +73,16 @@ export const hwApi = {
   returnSubmission: (id: string, data: { teacherScore?: number; teacherComment?: string }) =>
     req('POST', `/homework-submissions/${id}/return`, data),
 
+  // M3 — rubric + per-question grading
+  setRubric: (homeworkId: string, questions: { label: string; maxMarks: number; criteria?: string }[]) =>
+    req('PUT', `/homework/${homeworkId}/rubric`, { questions }),
+  saveGrades: (submissionId: string, grades: { questionId: string; awardedMarks: number | null; comment?: string }[]) =>
+    req('PUT', `/homework-submissions/${submissionId}/grades`, { grades }),
+  saveAiGrades: (submissionId: string, grades: any[]) =>
+    req('PUT', `/homework-submissions/${submissionId}/ai-grades`, { grades }),
+  publishGrades: (submissionId: string, teacherComment?: string) =>
+    req('POST', `/homework-submissions/${submissionId}/publish`, { teacherComment }),
+
   // student
   myHomework: () => req('GET', '/student/homework'),
   myHomeworkDetail: (assignmentId: string) => req('GET', `/student/homework/${assignmentId}`),
