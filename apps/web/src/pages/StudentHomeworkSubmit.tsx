@@ -94,21 +94,28 @@ export default function StudentHomeworkSubmitPage() {
     }
   }
 
+  const maxTotal = questions.length > 0
+    ? questions.reduce((s, q) => s + q.maxMarks, 0)
+    : data.homework.totalMarks;
+
   return (
-    <div className="pb-28">
-      <div className="mb-1 text-sm">
-        <Link to="/student/homework" className="text-blue-600 hover:underline">← 作业列表</Link>
+    <div className="pb-28 max-w-5xl mx-auto">
+      {/* Canvas 式面包屑 + 版头 */}
+      <nav className="text-sm mb-1">
+        <Link to="/student/homework" className="text-[#0374B5] hover:underline">作业</Link>
+        <span className="text-gray-400 mx-1.5">›</span>
+        <span className="text-gray-500">{data.homework.course?.name}</span>
+      </nav>
+      <div className="border-b border-[#C7CDD1] pb-3 mb-4">
+        <h1 className="text-2xl font-bold text-[#2D3B45]">{data.homework.title}</h1>
+        <div className="text-sm text-[#6B7780] mt-1.5 flex items-center gap-3 flex-wrap">
+          {data.dueAt ? <DueChip dueAt={data.dueAt} /> : <span>无截止时间</span>}
+          {maxTotal ? <span><b className="text-[#2D3B45]">{maxTotal}</b> 分</span> : null}
+        </div>
       </div>
-      <h1 className="text-xl font-bold">{data.homework.title}</h1>
-      <div className="text-sm text-gray-600 mb-3 flex items-center gap-2 flex-wrap">
-        <span>{data.homework.course?.name}</span>
-        {data.dueAt && (
-          <DueChip dueAt={data.dueAt} />
-        )}
-        {questions.length > 0 && (
-          <span className="text-gray-400">满分 {questions.reduce((s, q) => s + q.maxMarks, 0)} 分</span>
-        )}
-      </div>
+
+      <div className="lg:grid lg:grid-cols-3 lg:gap-6">
+      <div className="lg:col-span-2">
 
       {data.homework.instructions && (
         <div className="bg-blue-50 border border-blue-200 rounded p-3 text-sm mb-4 whitespace-pre-wrap">
@@ -244,6 +251,49 @@ export default function StudentHomeworkSubmitPage() {
           </div>
         ))}
       </div>
+
+      </div>{/* /左列 */}
+
+      {/* Canvas 式右侧 Submission 状态卡（桌面） */}
+      <aside className="hidden lg:block">
+        <div className="sticky top-4 bg-white rounded-lg border border-[#C7CDD1] p-4">
+          <div className="text-xs font-semibold text-[#6B7780] uppercase tracking-wide mb-2">Submission 提交状态</div>
+          {!sub || sub.status === 'in_progress' ? (
+            <>
+              <span className="inline-block px-2.5 py-1 rounded-full text-xs font-medium bg-amber-100 text-amber-700 mb-2">
+                {pages.length > 0 || inkDraftCount > 0 ? '作答中' : '未开始'}
+              </span>
+              <div className="text-sm text-[#6B7780]">
+                已有 {pages.length + inkDraftCount} 页答卷{inkDraftCount > 0 ? `（含 ${inkDraftCount} 页手写草稿）` : ''}。
+                用页面底部按钮作答并提交。
+              </div>
+              {!data.canSubmit && (
+                <div className="text-sm text-[#E0061F] mt-2">已截止，不能再提交。</div>
+              )}
+            </>
+          ) : sub.status === 'submitted' ? (
+            <>
+              <span className="inline-block px-2.5 py-1 rounded-full text-xs font-medium bg-[#E8F4FB] text-[#0374B5] mb-2">已提交 · 等待批改</span>
+              <div className="text-sm text-[#6B7780]">
+                {sub.submittedAt && new Date(sub.submittedAt).toLocaleString()}
+                {sub.isLate && <span className="text-[#E0061F]"> · 迟交</span>}
+              </div>
+            </>
+          ) : (
+            <>
+              <span className="inline-block px-2.5 py-1 rounded-full text-xs font-medium bg-green-100 text-green-700 mb-2">已批改</span>
+              <div className="flex items-baseline gap-1.5 mt-1">
+                <span className="text-3xl font-bold text-[#2D3B45]">{sub.teacherScore ?? '—'}</span>
+                <span className="text-[#6B7780]">/ {maxTotal ?? '—'}</span>
+              </div>
+              {sub.returnedAt && (
+                <div className="text-xs text-[#6B7780] mt-1">{new Date(sub.returnedAt).toLocaleString()} 返回</div>
+              )}
+            </>
+          )}
+        </div>
+      </aside>
+      </div>{/* /grid */}
 
       {/* 底部操作条 */}
       {editable && (

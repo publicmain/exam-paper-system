@@ -49,6 +49,7 @@ export function HandwritingWorkspace({
   const [penOnly, setPenOnly] = useState(true);
   const [loading, setLoading] = useState(true);
   const [finishing, setFinishing] = useState(false);
+  const [showAdd, setShowAdd] = useState(false); // Examplify 式「＋添加页」抽屉
   const [err, setErr] = useState('');
   const bgUrlCache = useRef<Record<string, string>>({});
 
@@ -230,100 +231,128 @@ export function HandwritingWorkspace({
   const cur = pages[active] ?? null;
 
   return (
-    <div className="fixed inset-0 bg-gray-900/95 z-50 flex flex-col">
-      {/* top bar */}
-      <div className="flex items-center justify-between px-4 py-2 bg-gray-800 text-white gap-2 flex-wrap">
-        <div className="flex items-center gap-2">
-          <span className="font-semibold">✍️ 手写作答</span>
+    <div className="fixed inset-0 bg-[#E9EDF2] z-50 flex flex-col">
+      {/* Examplify 式考试顶栏 */}
+      <div className="h-12 bg-[#12395B] text-white flex items-center px-3 gap-3 shrink-0">
+        <button className="px-3 h-8 rounded border border-white/30 text-xs hover:bg-white/10"
+          onClick={onClose}>退出</button>
+        <div className="min-w-0">
+          <div className="text-sm font-semibold truncate">✍️ 手写作答</div>
+        </div>
+        <div className="flex-1 text-center text-sm text-white/90">
+          {pages.length > 0 && <>第 <b>{active + 1}</b> 页 / 共 {pages.length} 页</>}
           {cur && (
-            <span className="text-xs text-gray-300">
-              {cur.saving ? '保存中…' : cur.dirty ? '待保存' : '已保存'}
+            <span className="ml-3 text-xs text-white/50">
+              {cur.saving ? '保存中…' : cur.dirty ? '待保存' : '已自动保存'}
             </span>
           )}
         </div>
-        <div className="flex items-center gap-2 flex-wrap">
-          {/* tools */}
-          <button className={`px-2 py-1 rounded text-sm ${tool === 'pen' ? 'bg-blue-600' : 'bg-gray-600'}`}
-            onClick={() => setTool('pen')}>✏️ 笔</button>
-          <button className={`px-2 py-1 rounded text-sm ${tool === 'eraser' ? 'bg-blue-600' : 'bg-gray-600'}`}
-            onClick={() => setTool('eraser')}>🧽 橡皮</button>
-          <span className="flex items-center gap-1">
-            {PEN_COLORS.map((c) => (
-              <button key={c.value} title={c.name}
-                onClick={() => { setColor(c.value); setTool('pen'); }}
-                className={`w-6 h-6 rounded-full border-2 ${color === c.value ? 'border-white' : 'border-transparent'}`}
-                style={{ background: c.value }} />
-            ))}
-          </span>
-          <span className="flex items-center gap-1">
-            {PEN_SIZES.map((s) => (
-              <button key={s} onClick={() => setSize(s)}
-                className={`px-2 py-1 rounded text-sm ${size === s ? 'bg-blue-600' : 'bg-gray-600'}`}>{s}</button>
-            ))}
-          </span>
-          {cur && <button className="px-2 py-1 rounded text-sm bg-gray-600" onClick={() => undo(cur.id)}>↩︎ 撤销</button>}
-          {cur && <button className="px-2 py-1 rounded text-sm bg-gray-600" onClick={() => clearPage(cur.id)}>清空</button>}
-          <label className="flex items-center gap-1 text-xs">
-            <input type="checkbox" checked={penOnly} onChange={(e) => setPenOnly(e.target.checked)} />
-            仅笔（防误触）
-          </label>
-        </div>
-        <div className="flex items-center gap-2">
-          <button className="px-3 py-1 rounded bg-green-600 text-sm disabled:opacity-50"
-            disabled={finishing} onClick={finish}>
-            {finishing ? '处理中…' : '✅ 完成手写'}
-          </button>
-          <button className="px-3 py-1 rounded bg-gray-600 text-sm" onClick={onClose}>关闭</button>
-        </div>
+        <button
+          className="px-4 h-9 rounded-md bg-[#2E8540] text-white text-sm font-semibold hover:bg-[#267236] disabled:opacity-50"
+          disabled={finishing} onClick={finish}>
+          {finishing ? '处理中…' : '完成手写 ✓'}
+        </button>
       </div>
 
-      {err && <div className="bg-red-600 text-white text-sm px-4 py-1">{err}</div>}
-
-      <div className="flex-1 flex min-h-0">
-        {/* page rail */}
-        <div className="w-40 shrink-0 bg-gray-800 text-white overflow-y-auto p-2 space-y-2">
-          {pages.map((p, i) => (
-            <div key={p.id} className="relative">
-              <button onClick={() => setActive(i)}
-                className={`w-full text-left px-2 py-3 rounded text-sm ${i === active ? 'bg-blue-600' : 'bg-gray-700'}`}>
-                第 {i + 1} 页{p.backgroundFileId ? ' · 题图' : ''}
-                <span className="block text-xs text-gray-300">{p.strokes.length} 笔</span>
-              </button>
-              <button className="absolute top-1 right-1 text-xs text-gray-300 hover:text-red-300"
-                onClick={() => removePage(p.id)}>✕</button>
-            </div>
+      {/* Examplify 式工具条（Tool Kit 行） */}
+      <div className="h-11 bg-[#F7F8FA] border-b border-[#C7CDD1] flex items-center px-3 gap-2 shrink-0 overflow-x-auto">
+        <button className={`h-8 px-3 rounded-md text-sm border ${tool === 'pen' ? 'bg-[#0374B5] text-white border-[#0374B5]' : 'bg-white border-[#C7CDD1] text-[#2D3B45]'}`}
+          onClick={() => setTool('pen')}>✏️ 笔</button>
+        <button className={`h-8 px-3 rounded-md text-sm border ${tool === 'eraser' ? 'bg-[#0374B5] text-white border-[#0374B5]' : 'bg-white border-[#C7CDD1] text-[#2D3B45]'}`}
+          onClick={() => setTool('eraser')}>🧽 橡皮</button>
+        <span className="w-px h-6 bg-[#C7CDD1] mx-1" />
+        <span className="flex items-center gap-1">
+          {PEN_COLORS.map((c) => (
+            <button key={c.value} title={c.name}
+              onClick={() => { setColor(c.value); setTool('pen'); }}
+              className={`w-6 h-6 rounded-full border-2 ${color === c.value ? 'border-[#0374B5] ring-2 ring-[#0374B5]/30' : 'border-white shadow'}`}
+              style={{ background: c.value }} />
           ))}
-          <button className="w-full px-2 py-2 rounded bg-gray-700 text-sm hover:bg-gray-600"
-            onClick={() => addPage()}>＋ 空白页</button>
-          {(imageQuestionFiles.length > 0 || pdfQuestionFiles.length > 0) && (
-            <div className="pt-1 border-t border-gray-600">
-              <div className="text-xs text-gray-400 px-1 py-1">在卷面上直接写：</div>
-              {imageQuestionFiles.map((f) => (
-                <button key={f.id} className="w-full px-2 py-1 rounded bg-gray-700 text-xs hover:bg-gray-600 mb-1 truncate"
-                  onClick={() => addPage(f.id)} title={f.filename}>＋ 🖼 {f.filename}</button>
-              ))}
-              {pdfQuestionFiles.map((f) => (
-                <PdfBgPicker key={f.id} file={f}
-                  onPickPage={(page) => addPage(f.id, page)}
-                  onPickAll={async (pageCount) => {
-                    // 整卷逐页建页（真实场景：一份 PDF 卷子每页都要写）
-                    for (let p = 1; p <= pageCount; p++) await addPage(f.id, p);
-                  }} />
-              ))}
-            </div>
-          )}
+        </span>
+        <span className="flex items-center gap-1 ml-1">
+          {PEN_SIZES.map((s) => (
+            <button key={s} onClick={() => setSize(s)}
+              className={`h-8 px-2.5 rounded-md text-sm border ${size === s ? 'bg-[#0374B5] text-white border-[#0374B5]' : 'bg-white border-[#C7CDD1] text-[#2D3B45]'}`}>{s}</button>
+          ))}
+        </span>
+        <span className="w-px h-6 bg-[#C7CDD1] mx-1" />
+        {cur && <button className="h-8 px-3 rounded-md text-sm bg-white border border-[#C7CDD1] text-[#2D3B45] hover:bg-gray-50"
+          onClick={() => undo(cur.id)}>↩︎ 撤销</button>}
+        {cur && <button className="h-8 px-3 rounded-md text-sm bg-white border border-[#C7CDD1] text-[#E0061F] hover:bg-red-50"
+          onClick={() => clearPage(cur.id)}>清空本页</button>}
+        <label className="flex items-center gap-1.5 text-xs text-[#2D3B45] ml-auto whitespace-nowrap">
+          <input type="checkbox" checked={penOnly} onChange={(e) => setPenOnly(e.target.checked)} />
+          仅笔模式（防误触）
+        </label>
+      </div>
+
+      {err && <div className="bg-[#E0061F] text-white text-sm px-4 py-1">{err}</div>}
+
+      <div className="flex-1 flex min-h-0 relative">
+        {/* Examplify 式页号方块轨 */}
+        <div className="w-[4.5rem] shrink-0 bg-white border-r border-[#C7CDD1] overflow-y-auto py-3 flex flex-col items-center gap-2">
+          {pages.map((p, i) => {
+            const answered = p.strokes.length > 0;
+            const current = i === active;
+            return (
+              <div key={p.id} className="relative group">
+                <button onClick={() => setActive(i)} title={`第 ${i + 1} 页${p.backgroundFileId ? '（卷面）' : ''} · ${p.strokes.length} 笔`}
+                  className={`w-11 h-11 rounded-md text-sm font-semibold border-2 transition ${
+                    current
+                      ? answered
+                        ? 'bg-[#0374B5] text-white border-[#12395B] ring-2 ring-[#0374B5]/40'
+                        : 'bg-white text-[#0374B5] border-[#0374B5] ring-2 ring-[#0374B5]/30'
+                      : answered
+                        ? 'bg-[#0374B5] text-white border-[#0374B5]'
+                        : 'bg-white text-[#6B7780] border-[#C7CDD1] hover:border-[#0374B5]'
+                  }`}>
+                  {i + 1}
+                </button>
+                {p.backgroundFileId && (
+                  <span className="absolute -top-1 -right-1 text-[9px] bg-amber-400 text-white rounded-full w-4 h-4 flex items-center justify-center">卷</span>
+                )}
+                <button
+                  className="absolute -bottom-1 -right-1 w-4 h-4 rounded-full bg-white border border-[#C7CDD1] text-[9px] text-[#E0061F] hidden group-hover:flex items-center justify-center"
+                  title="删除本页" onClick={() => removePage(p.id)}>✕</button>
+              </div>
+            );
+          })}
+          <button
+            className="w-11 h-11 rounded-md border-2 border-dashed border-[#C7CDD1] text-[#6B7780] text-xl hover:border-[#0374B5] hover:text-[#0374B5]"
+            title="添加页" onClick={() => setShowAdd(!showAdd)}>＋</button>
         </div>
 
+        {/* 添加页抽屉 */}
+        {showAdd && (
+          <div className="absolute left-[4.5rem] top-2 z-20 w-64 bg-white rounded-lg border border-[#C7CDD1] shadow-lg p-3">
+            <div className="text-xs font-semibold text-[#6B7780] uppercase tracking-wide mb-2">添加作答页</div>
+            <button className="w-full text-left px-3 py-2 rounded-md border border-[#C7CDD1] text-sm hover:bg-gray-50 mb-1.5"
+              onClick={() => { addPage(); setShowAdd(false); }}>▦ 空白页</button>
+            {imageQuestionFiles.map((f) => (
+              <button key={f.id} className="w-full text-left px-3 py-2 rounded-md border border-[#C7CDD1] text-sm hover:bg-gray-50 mb-1.5 truncate"
+                onClick={() => { addPage(f.id); setShowAdd(false); }} title={f.filename}>🖼 {f.filename}</button>
+            ))}
+            {pdfQuestionFiles.map((f) => (
+              <PdfBgPicker key={f.id} file={f}
+                onPickPage={(page) => { addPage(f.id, page); setShowAdd(false); }}
+                onPickAll={async (pageCount) => {
+                  for (let p = 1; p <= pageCount; p++) await addPage(f.id, p);
+                  setShowAdd(false);
+                }} />
+            ))}
+          </div>
+        )}
+
         {/* canvas area */}
-        <div className="flex-1 overflow-auto p-4 flex justify-center items-start">
+        <div className="flex-1 overflow-auto p-5 flex justify-center items-start">
           {loading ? (
-            <div className="text-gray-300 mt-10">加载中…</div>
+            <div className="text-[#6B7780] mt-10">加载中…</div>
           ) : pages.length === 0 ? (
-            <div className="text-gray-300 mt-10 text-center">
-              还没有手写页。<br />点左侧「＋ 空白页」开始，或选一张题目图在上面直接写。
+            <div className="text-[#6B7780] mt-14 text-center bg-white rounded-lg border border-[#C7CDD1] px-10 py-8">
+              还没有作答页。<br />点左侧「＋」添加：空白页，或直接在题目卷面上写。
             </div>
           ) : cur ? (
-            <div className="w-full max-w-3xl">
+            <div className="w-full max-w-3xl pb-20">
               <HandwritingCanvas
                 key={cur.id}
                 width={cur.width}
@@ -339,6 +368,18 @@ export function HandwritingWorkspace({
             </div>
           ) : null}
         </div>
+
+        {/* Examplify 式 Previous / Next */}
+        {pages.length > 1 && (
+          <div className="absolute bottom-4 right-5 flex gap-2 z-10">
+            <button
+              className="h-10 px-4 rounded-md bg-white border border-[#C7CDD1] text-sm text-[#2D3B45] shadow disabled:opacity-40"
+              disabled={active <= 0} onClick={() => setActive(active - 1)}>‹ 上一页</button>
+            <button
+              className="h-10 px-4 rounded-md bg-[#0374B5] text-white text-sm font-medium shadow hover:bg-[#02659F] disabled:opacity-40"
+              disabled={active >= pages.length - 1} onClick={() => setActive(active + 1)}>下一页 ›</button>
+          </div>
+        )}
       </div>
     </div>
   );
@@ -381,25 +422,25 @@ function PdfBgPicker({ file, onPickPage, onPickAll }: {
   }
 
   return (
-    <div className="mb-1">
-      <button className="w-full px-2 py-1 rounded bg-gray-700 text-xs hover:bg-gray-600 truncate"
+    <div className="mb-1.5">
+      <button className="w-full text-left px-3 py-2 rounded-md border border-[#C7CDD1] text-sm hover:bg-gray-50 truncate"
         onClick={expand} title={file.filename}>
         📄 {file.filename}{loading ? ' …' : pageCount == null ? '（点开选页）' : ''}
       </button>
       {pageCount != null && pageCount > 0 && (
-        <div className="flex flex-wrap gap-1 mt-1 px-1">
-          <button className="px-2 py-0.5 rounded bg-blue-700 text-xs hover:bg-blue-600 disabled:opacity-50"
+        <div className="flex flex-wrap gap-1 mt-1.5 px-1">
+          <button className="px-2.5 py-1 rounded-md bg-[#0374B5] text-white text-xs hover:bg-[#02659F] disabled:opacity-50"
             disabled={adding}
             onClick={async () => { setAdding(true); try { await onPickAll(pageCount); } finally { setAdding(false); } }}>
-            {adding ? '…' : `＋整卷 ${pageCount} 页`}
+            {adding ? '…' : `整卷 ${pageCount} 页`}
           </button>
           {Array.from({ length: pageCount }, (_, i) => i + 1).map((p) => (
-            <button key={p} className="px-2 py-0.5 rounded bg-gray-600 text-xs hover:bg-gray-500"
+            <button key={p} className="px-2 py-1 rounded-md border border-[#C7CDD1] text-xs text-[#2D3B45] hover:bg-gray-50"
               onClick={() => onPickPage(p)}>P{p}</button>
           ))}
         </div>
       )}
-      {pageCount === 0 && <div className="text-xs text-red-300 px-1">PDF 读取失败</div>}
+      {pageCount === 0 && <div className="text-xs text-[#E0061F] px-1 mt-1">PDF 读取失败</div>}
     </div>
   );
 }
