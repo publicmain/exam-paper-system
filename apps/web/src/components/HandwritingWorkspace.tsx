@@ -1,7 +1,9 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
-import { hwApi } from '../lib/api-homework';
+import { hwApi, hwFileContentPath } from '../lib/api-homework';
 import { finishInkDrafts, resolveBgUrl } from '../lib/ink-flatten';
 import { HandwritingCanvas, Stroke } from './HandwritingCanvas';
+import { AuthImage } from './AuthImage';
+import { PdfPreview } from './PdfPreview';
 
 /**
  * 手写作答工作区（M2）。整屏弹层，学生用 Apple Pencil 逐页书写。
@@ -50,6 +52,10 @@ export function HandwritingWorkspace({
   const [loading, setLoading] = useState(true);
   const [finishing, setFinishing] = useState(false);
   const [showAdd, setShowAdd] = useState(false); // Examplify 式「＋添加页」抽屉
+  // 审题-答题同屏：右侧题目参照面板（iPad 横屏左写右看）
+  const [showRef, setShowRef] = useState(false);
+  // 画布显示缩放（%）。笔坐标按 getBoundingClientRect 换算，缩放不影响精度。
+  const [zoom, setZoom] = useState(100);
   const [err, setErr] = useState('');
   const bgUrlCache = useRef<Record<string, string>>({});
 
@@ -280,6 +286,23 @@ export function HandwritingWorkspace({
           onClick={() => undo(cur.id)}>↩︎ 撤销</button>}
         {cur && <button className="h-8 px-3 rounded-md text-sm bg-white border border-[#C7CDD1] text-[#E0061F] hover:bg-red-50"
           onClick={() => clearPage(cur.id)}>清空本页</button>}
+        <span className="w-px h-6 bg-[#C7CDD1] mx-1" />
+        {/* 缩放：iPad 上写分数/根号等精细式子先放大 */}
+        <span className="flex items-center gap-1">
+          {[75, 100, 150, 200].map((z) => (
+            <button key={z} onClick={() => setZoom(z)}
+              className={`h-8 px-2 rounded-md text-xs border ${zoom === z ? 'bg-[#0374B5] text-white border-[#0374B5]' : 'bg-white border-[#C7CDD1] text-[#2D3B45]'}`}>
+              {z}%
+            </button>
+          ))}
+        </span>
+        {questionFiles.length > 0 && (
+          <button
+            className={`h-8 px-3 rounded-md text-sm border whitespace-nowrap ${showRef ? 'bg-[#0374B5] text-white border-[#0374B5]' : 'bg-white border-[#C7CDD1] text-[#2D3B45]'}`}
+            onClick={() => setShowRef(!showRef)}>
+            📄 {showRef ? '收起题目' : '看题'}
+          </button>
+        )}
         <label className="flex items-center gap-1.5 text-xs text-[#2D3B45] ml-auto whitespace-nowrap">
           <input type="checkbox" checked={penOnly} onChange={(e) => setPenOnly(e.target.checked)} />
           仅笔模式（防误触）
@@ -344,7 +367,7 @@ export function HandwritingWorkspace({
         )}
 
         {/* canvas area */}
-        <div className="flex-1 overflow-auto p-5 flex justify-center items-start">
+        <div className="flex-1 overflow-auto p-5 flex justify-center items-start min-w-0">
           {loading ? (
             <div className="text-[#6B7780] mt-10">加载中…</div>
           ) : pages.length === 0 ? (
@@ -352,7 +375,7 @@ export function HandwritingWorkspace({
               还没有作答页。<br />点左侧「＋」添加：空白页，或直接在题目卷面上写。
             </div>
           ) : cur ? (
-            <div className="w-full max-w-3xl pb-20">
+            <div className="pb-20" style={{ width: `${Math.round(720 * zoom / 100)}px`, maxWidth: zoom <= 100 ? '100%' : undefined }}>
               <HandwritingCanvas
                 key={cur.id}
                 width={cur.width}
@@ -368,6 +391,31 @@ export function HandwritingWorkspace({
             </div>
           ) : null}
         </div>
+
+        {/* 题目参照面板：审题-答题同屏（iPad 横屏左写右看） */}
+        {showRef && (
+          <aside className="w-[38%] min-w-64 shrink-0 bg-white border-l border-[#C7CDD1] overflow-y-auto">
+            <div className="sticky top-0 bg-white border-b border-[#E8EAEC] px-3 py-2 flex items-center justify-between z-10">
+              <span className="text-sm font-semibold text-[#2D3B45]">📄 题目</span>
+              <button className="text-xs text-[#6B7780] hover:text-[#2D3B45]" onClick={() => setShowRef(false)}>收起 ✕</button>
+            </div>
+            <div className="p-3 space-y-4">
+              {questionFiles.map((f) => (
+                <div key={f.id}>
+                  <div className="text-xs text-[#6B7780] mb-1 truncate">{f.filename}</div>
+                  {f.mimeType === 'application/pdf' ? (
+                    <div className="border border-[#E8EAEC] rounded">
+                      <PdfPreview contentPath={hwFileContentPath(f.id)} />
+                    </div>
+                  ) : (
+                    <AuthImage src={hwFileContentPath(f.id)} alt={f.filename}
+                      className="w-full border border-[#E8EAEC] rounded" />
+                  )}
+                </div>
+              ))}
+            </div>
+          </aside>
+        )}
 
         {/* Examplify 式 Previous / Next */}
         {pages.length > 1 && (

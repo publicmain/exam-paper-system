@@ -19,6 +19,10 @@ export default function StudentHomeworkSubmitPage() {
   const [busy, setBusy] = useState(false);
   const [handwriting, setHandwriting] = useState(false);
   const [inkDraftCount, setInkDraftCount] = useState(0);
+  // 提交前预览确认（替代裸 confirm）：让学生看清楚到底交什么
+  const [preview, setPreview] = useState<{ open: boolean; draftsWithInk: number; emptyDrafts: number }>({ open: false, draftsWithInk: 0, emptyDrafts: 0 });
+  // 答卷大图查看
+  const [lightbox, setLightbox] = useState<string | null>(null);
   const cameraInput = useRef<HTMLInputElement>(null);
   const fileInput = useRef<HTMLInputElement>(null);
 
@@ -61,31 +65,32 @@ export default function StudentHomeworkSubmitPage() {
     }
   }
 
-  async function doSubmit() {
+  /** 第一步：打开提交预览（学生检查答卷 + 看到未完成手写将被合入）。 */
+  async function openSubmitPreview() {
     setBusy(true);
     try {
-      // P0 rescue: unfinished handwriting gets flattened in, never lost.
-      let extra = 0;
       const drafts = await listInkDrafts(assignmentId!).catch(() => []);
-      const withInk = drafts.filter((d) => d.strokes.length > 0);
-      if (withInk.length > 0) {
-        if (!confirm(`你有 ${withInk.length} 页手写还没点「完成手写」，将自动一并提交。继续？`)) {
-          setBusy(false);
-          return;
-        }
-        extra = await finishInkDrafts(assignmentId!, drafts);
-      }
-      const totalPages = pages.length + extra;
-      if (totalPages === 0) {
+      const withInk = drafts.filter((d) => d.strokes.length > 0).length;
+      if (pages.length + withInk === 0) {
         alert('还没有任何答卷内容');
-        setBusy(false);
         return;
       }
-      if (withInk.length === 0 && !confirm(`确认提交 ${totalPages} 页？提交后需老师同意才能修改。`)) {
-        setBusy(false);
-        return;
+      setPreview({ open: true, draftsWithInk: withInk, emptyDrafts: drafts.length - withInk });
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  /** 第二步：确认提交（未完成手写自动展平合入，绝不丢）。 */
+  async function confirmSubmit() {
+    setBusy(true);
+    try {
+      const drafts = await listInkDrafts(assignmentId!).catch(() => []);
+      if (drafts.some((d) => d.strokes.length > 0)) {
+        await finishInkDrafts(assignmentId!, drafts);
       }
       await hwApi.submitHomework(assignmentId!);
+      setPreview({ open: false, draftsWithInk: 0, emptyDrafts: 0 });
       await load();
     } catch (e: any) {
       alert(e.message);
@@ -246,7 +251,9 @@ export default function StudentHomeworkSubmitPage() {
             {p.mimeType === 'application/pdf' ? (
               <div className="p-6 text-center text-sm text-gray-500">📄 PDF</div>
             ) : (
-              <AuthImage src={hwPageContentPath(p.id)} alt={`第 ${i + 1} 页`} className="w-full" />
+              <button className="block w-full cursor-zoom-in" onClick={() => setLightbox(p.id)} title="点击看大图">
+                <AuthImage src={hwPageContentPath(p.id)} alt={`第 ${i + 1} 页`} className="w-full" />
+              </button>
             )}
           </div>
         ))}
@@ -313,7 +320,7 @@ export default function StudentHomeworkSubmitPage() {
               🖼 文件
             </button>
             <button className="btn btn-primary flex-1" disabled={busy || (pages.length === 0 && inkDraftCount === 0)}
-              onClick={doSubmit}>
+              onClick={openSubmitPreview}>
               {busy ? '…' : `✅ 提交${pages.length + inkDraftCount > 0 ? `（${pages.length + inkDraftCount} 页）` : ''}`}
             </button>
           </div>
@@ -333,6 +340,74 @@ export default function StudentHomeworkSubmitPage() {
           onClose={async () => { setHandwriting(false); await load(); }}
           onFinished={async () => { setHandwriting(false); await load(); }}
         />
+      )}
+
+      {/* 答卷大图 lightbox */}
+      {lightbox && (
+        <div className="fixed inset-0 bg-black/85 z-[60] flex flex-col" onClick={() => setLightbox(null)}>
+          <div className="flex items-center justify-between px-4 py-2 text-white text-sm shrink-0">
+            <span>第 {pages.findIndex((p: any) => p.id === lightbox) + 1} 页 / 共 {pages.length} 页</span>
+            <button className="px-3 py-1 rounded bg-white/20 hover:bg-white/30">关闭 ✕</button>
+          </div>
+          <div className="flex-1 overflow-auto p-4 flex justify-center items-start">
+            <AuthImage src={hwPageContentPath(lightbox)} alt="答卷大图"
+              className="max-w-full rounded shadow-2xl bg-white" />
+          </div>
+        </div>
+      )}
+
+      {/* 提交前预览确认 */}
+      {preview.open && (
+        <div className="fixed inset-0 bg-black/50 z-[70] flex items-center justify-center p-4">
+          <div className="bg-white rounded-lg shadow-xl w-full max-w-2xl max-h-[85vh] flex flex-col">
+            <div className="px-5 py-3 border-b flex items-center justify-between shrink-0">
+              <h3 className="font-bold text-[#2D3B45]">确认提交答卷</h3>
+              <button className="text-gray-400 hover:text-gray-600" onClick={() => setPreview({ ...preview, open: false })}>✕</button>
+            </div>
+            <div className="flex-1 overflow-y-auto p-5">
+              <div className="text-sm text-[#6B7780] mb-3">
+                共将提交 <b className="text-[#2D3B45]">{pages.length + preview.draftsWithInk}</b> 页
+                {preview.draftsWithInk > 0 && (
+                  <span className="ml-1 text-amber-700 bg-amber-50 border border-amber-200 rounded px-1.5 py-0.5">
+                    含 {preview.draftsWithInk} 页未点「完成手写」的草稿，将自动合入
+                  </span>
+                )}
+                {preview.emptyDrafts > 0 && (
+                  <span className="block mt-1 text-xs">（{preview.emptyDrafts} 页空白手写页将被忽略）</span>
+                )}
+              </div>
+              {pages.length > 0 ? (
+                <div className="grid grid-cols-2 gap-3">
+                  {pages.map((p: any, i: number) => (
+                    <div key={p.id} className="border rounded overflow-hidden">
+                      <div className="text-xs text-[#6B7780] px-2 py-1 bg-gray-50 border-b">
+                        {i + 1} · {p.source === 'ink' ? '✍️ 手写' : '📷 上传'}
+                      </div>
+                      {p.mimeType === 'application/pdf'
+                        ? <div className="p-4 text-center text-sm text-gray-500">📄 PDF</div>
+                        : <AuthImage src={hwPageContentPath(p.id)} alt={`第 ${i + 1} 页`} className="w-full" />}
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="text-sm text-[#6B7780] bg-gray-50 rounded p-4 text-center">
+                  当前答卷全部来自手写草稿，确认后自动生成答卷页。
+                </div>
+              )}
+              <div className="text-xs text-[#6B7780] mt-4">
+                提交后如需修改：批改开始前可自己「撤回修改」，批改开始后需联系老师。
+              </div>
+            </div>
+            <div className="px-5 py-3 border-t flex gap-2 justify-end shrink-0">
+              <button className="px-4 py-2 rounded-md border border-[#C7CDD1] text-sm"
+                onClick={() => setPreview({ ...preview, open: false })}>再检查一下</button>
+              <button className="px-5 py-2 rounded-md bg-[#0374B5] text-white text-sm font-medium hover:bg-[#02659F] disabled:opacity-50"
+                disabled={busy} onClick={confirmSubmit}>
+                {busy ? '提交中…' : '✅ 确认提交'}
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );
