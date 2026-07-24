@@ -23,6 +23,9 @@ export default function StudentHomeworkSubmitPage() {
   const [preview, setPreview] = useState<{ open: boolean; draftsWithInk: number; emptyDrafts: number }>({ open: false, draftsWithInk: 0, emptyDrafts: 0 });
   // 答卷大图查看
   const [lightbox, setLightbox] = useState<string | null>(null);
+  // v2: 申诉（每题一次）
+  const [myRegrades, setMyRegrades] = useState<any[]>([]);
+  const [disputeQ, setDisputeQ] = useState<{ id: string; label: string } | null>(null);
   const cameraInput = useRef<HTMLInputElement>(null);
   const fileInput = useRef<HTMLInputElement>(null);
 
@@ -30,6 +33,9 @@ export default function StudentHomeworkSubmitPage() {
     try {
       const d = await hwApi.myHomeworkDetail(assignmentId!);
       setData(d);
+      if (d.submission?.status === 'returned') {
+        hwApi.myRegrades(assignmentId!).then(setMyRegrades).catch(() => {});
+      }
       // Surface unfinished handwriting so the student (and the submit flow)
       // always know it's there.
       if (!d.submission || d.submission.status === 'in_progress') {
@@ -187,13 +193,30 @@ export default function StudentHomeworkSubmitPage() {
                   const g = gradeByQ.get(q.id);
                   const full = g?.awardedMarks === q.maxMarks;
                   const zero = (g?.awardedMarks ?? 0) === 0;
+                  const dispute = myRegrades.find((r) => r.questionId === q.id);
                   return (
-                    <div key={q.id} className="py-1.5 flex items-start gap-3 text-sm">
-                      <span className="font-medium w-10">{q.label}</span>
-                      <span className={`w-14 font-semibold ${full ? 'text-green-600' : zero ? 'text-red-600' : 'text-amber-600'}`}>
-                        {g?.awardedMarks ?? '—'} / {q.maxMarks}
-                      </span>
-                      {g?.comment && <span className="text-gray-600 flex-1">{g.comment}</span>}
+                    <div key={q.id} className="py-1.5 text-sm">
+                      <div className="flex items-start gap-3">
+                        <span className="font-medium w-10">{q.label}</span>
+                        <span className={`w-14 font-semibold ${full ? 'text-green-600' : zero ? 'text-red-600' : 'text-amber-600'}`}>
+                          {g?.awardedMarks ?? '—'} / {q.maxMarks}
+                        </span>
+                        {g?.comment && <span className="text-gray-600 flex-1">{g.comment}</span>}
+                        {!dispute && !full && (
+                          <button className="text-xs text-[#0374B5] hover:underline shrink-0"
+                            onClick={() => setDisputeQ({ id: q.id, label: q.label })}>
+                            申诉
+                          </button>
+                        )}
+                      </div>
+                      {dispute && (
+                        <div className={`ml-10 mt-1 text-xs rounded px-2 py-1.5 ${dispute.status === 'replied' ? 'bg-green-50 text-green-800' : 'bg-amber-50 text-amber-800'}`}>
+                          💬 已申诉：{dispute.message}
+                          {dispute.reply
+                            ? <span className="block mt-0.5">老师回复：{dispute.reply}</span>
+                            : <span className="block mt-0.5 text-amber-600">等待老师回复…</span>}
+                        </div>
+                      )}
                     </div>
                   );
                 })}
@@ -350,10 +373,24 @@ export default function StudentHomeworkSubmitPage() {
             <button className="px-3 py-1 rounded bg-white/20 hover:bg-white/30">关闭 ✕</button>
           </div>
           <div className="flex-1 overflow-auto p-4 flex justify-center items-start">
-            <AuthImage src={hwPageContentPath(lightbox)} alt="答卷大图"
+            <InkOverlayImage
+              pageId={lightbox}
+              strokes={pages.find((p: any) => p.id === lightbox)?.teacherInk}
               className="max-w-full rounded shadow-2xl bg-white" />
           </div>
         </div>
+      )}
+
+      {/* v2: 申诉 modal */}
+      {disputeQ && (
+        <DisputeModal q={disputeQ} onClose={() => setDisputeQ(null)}
+          onSubmit={async (msg) => {
+            try {
+              await hwApi.fileRegrade(assignmentId!, disputeQ.id, msg);
+              setDisputeQ(null);
+              hwApi.myRegrades(assignmentId!).then(setMyRegrades).catch(() => {});
+            } catch (e: any) { alert(e.message); }
+          }} />
       )}
 
       {/* 提交前预览确认 */}
@@ -426,6 +463,68 @@ function DueChip({ dueAt }: { dueAt: string }) {
     <span className={`px-2 py-0.5 rounded text-xs ${cls}`}>
       {hoursLeft < 0 ? '已截止 ' : '截止 '}{due.toLocaleString()}
     </span>
+  );
+}
+
+/** v2 — 答卷图 + 老师批注叠加（returned 后学生看到老师圈画的内容）。 */
+function InkOverlayImage({ pageId, strokes, className }: { pageId: string; strokes?: any[] | null; className?: string }) {
+  const [img, setImg] = useState<{ url: string; w: number; h: number } | null>(null);
+  useEffect(() => {
+    let revoke: string | null = null;
+    let cancelled = false;
+    (async () => {
+      const token = localStorage.getItem('auth_token');
+      const base = (import.meta as any).env?.VITE_API_URL || '';
+      const res = await fetch(`${base}${hwPageContentPath(pageId)}`,
+        { headers: token ? { Authorization: `Bearer ${token}` } : {} });
+      if (!res.ok || cancelled) return;
+      const url = URL.createObjectURL(await res.blob());
+      revoke = url;
+      const im = new Image();
+      im.onload = () => { if (!cancelled) setImg({ url, w: im.naturalWidth, h: im.naturalHeight }); };
+      im.src = url;
+    })();
+    return () => { cancelled = true; if (revoke) URL.revokeObjectURL(revoke); };
+  }, [pageId]);
+  if (!img) return <div className="text-white/70 p-10">加载中…</div>;
+  const hasInk = Array.isArray(strokes) && strokes.length > 0;
+  return (
+    <div className={`relative ${className ?? ''}`} style={{ lineHeight: 0 }} onClick={(e) => e.stopPropagation()}>
+      <img src={img.url} alt="答卷大图" className="max-w-full rounded" />
+      {hasInk && (
+        <svg className="absolute inset-0 w-full h-full pointer-events-none" viewBox={`0 0 ${img.w} ${img.h}`} preserveAspectRatio="none">
+          {strokes!.map((s: any, i: number) => (
+            <polyline key={i}
+              points={(s.pts ?? []).map((p: number[]) => `${p[0]},${p[1]}`).join(' ')}
+              fill="none" stroke={s.color ?? '#E0061F'} strokeWidth={s.size ?? 3}
+              strokeLinecap="round" strokeLinejoin="round" />
+          ))}
+        </svg>
+      )}
+    </div>
+  );
+}
+
+/** v2 — 申诉弹窗。 */
+function DisputeModal({ q, onClose, onSubmit }: {
+  q: { id: string; label: string }; onClose: () => void; onSubmit: (msg: string) => void;
+}) {
+  const [msg, setMsg] = useState('');
+  return (
+    <div className="fixed inset-0 bg-black/50 z-[80] flex items-center justify-center p-4" onClick={onClose}>
+      <div className="bg-white rounded-lg shadow-xl w-full max-w-md p-5" onClick={(e) => e.stopPropagation()}>
+        <h3 className="font-bold text-[#2D3B45] mb-1">对 {q.label} 的分数提出申诉</h3>
+        <p className="text-xs text-[#6B7780] mb-3">说明你认为哪里判得不对（每题只能申诉一次，老师会收到通知并回复）。</p>
+        <textarea className="input w-full" rows={4} value={msg} onChange={(e) => setMsg(e.target.value)}
+          placeholder="例：我第二步用的是二倍角公式，结果和参考答案等价…" />
+        <div className="flex justify-end gap-2 mt-3">
+          <button className="btn btn-ghost text-sm" onClick={onClose}>取消</button>
+          <button className="btn btn-primary text-sm" disabled={!msg.trim()} onClick={() => onSubmit(msg.trim())}>
+            提交申诉
+          </button>
+        </div>
+      </div>
+    </div>
   );
 }
 

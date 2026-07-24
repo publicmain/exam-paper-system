@@ -56,6 +56,41 @@ export function HandwritingWorkspace({
   const [showRef, setShowRef] = useState(false);
   // 画布显示缩放（%）。笔坐标按 getBoundingClientRect 换算，缩放不影响精度。
   const [zoom, setZoom] = useState(100);
+  // v2 双指捏合缩放：原生 non-passive touch listener（React 的 touchmove 是
+  // passive，preventDefault 无效，会触发浏览器整页缩放）。
+  const canvasAreaRef = useRef<HTMLDivElement>(null);
+  const zoomRef = useRef(zoom);
+  zoomRef.current = zoom;
+  useEffect(() => {
+    const el = canvasAreaRef.current;
+    if (!el) return;
+    let startDist = 0;
+    let startZoom = 100;
+    const dist = (t: TouchList) =>
+      Math.hypot(t[0].clientX - t[1].clientX, t[0].clientY - t[1].clientY);
+    const onStart = (e: TouchEvent) => {
+      if (e.touches.length === 2) {
+        startDist = dist(e.touches);
+        startZoom = zoomRef.current;
+      }
+    };
+    const onMove = (e: TouchEvent) => {
+      if (e.touches.length === 2 && startDist > 0) {
+        e.preventDefault(); // block browser page-zoom
+        const next = Math.round(Math.max(50, Math.min(300, startZoom * (dist(e.touches) / startDist))));
+        setZoom(next);
+      }
+    };
+    const onEnd = () => { startDist = 0; };
+    el.addEventListener('touchstart', onStart, { passive: true });
+    el.addEventListener('touchmove', onMove, { passive: false });
+    el.addEventListener('touchend', onEnd, { passive: true });
+    return () => {
+      el.removeEventListener('touchstart', onStart);
+      el.removeEventListener('touchmove', onMove);
+      el.removeEventListener('touchend', onEnd);
+    };
+  }, []);
   const [err, setErr] = useState('');
   const bgUrlCache = useRef<Record<string, string>>({});
 
@@ -81,15 +116,32 @@ export function HandwritingWorkspace({
           const bgUrl = p.backgroundFileId
             ? await bgUrlFor(p.backgroundFileId, p.backgroundPage ?? null)
             : null;
+          // v2 offline buffer: if a save failed earlier the freshest strokes
+          // live in localStorage — prefer them over the (stale) server copy
+          // and mark dirty so autosave re-tries immediately.
+          let strokes = Array.isArray(p.strokes) ? p.strokes : [];
+          let dirty = false;
+          try {
+            const buf = localStorage.getItem(`ink-buf-${p.id}`);
+            if (buf) {
+              const parsed = JSON.parse(buf);
+              if (Array.isArray(parsed) && parsed.length >= strokes.length) {
+                strokes = parsed;
+                dirty = true;
+              } else {
+                localStorage.removeItem(`ink-buf-${p.id}`);
+              }
+            }
+          } catch { /* corrupted buffer — ignore */ }
           loaded.push({
             id: p.id,
-            strokes: Array.isArray(p.strokes) ? p.strokes : [],
+            strokes,
             width: p.width,
             height: p.height,
             backgroundFileId: p.backgroundFileId,
             backgroundPage: p.backgroundPage ?? null,
             bgUrl,
-            dirty: false,
+            dirty,
             saving: false,
           });
         }
@@ -115,10 +167,14 @@ export function HandwritingWorkspace({
         setPages((ps) => ps.map((x) => (x.id === p.id ? { ...x, saving: true } : x)));
         try {
           await hwApi.saveInk(p.id, p.strokes);
+          localStorage.removeItem(`ink-buf-${p.id}`); // synced — drop buffer
           setPages((ps) =>
             ps.map((x) => (x.id === p.id ? { ...x, saving: false, dirty: x.strokes !== p.strokes } : x)),
           );
         } catch {
+          // v2 offline buffer: network down — park strokes locally so a
+          // reload (or reconnect) replays them instead of losing ink.
+          try { localStorage.setItem(`ink-buf-${p.id}`, JSON.stringify(p.strokes)); } catch { /* quota */ }
           setPages((ps) => ps.map((x) => (x.id === p.id ? { ...x, saving: false } : x)));
         }
       }
@@ -366,8 +422,8 @@ export function HandwritingWorkspace({
           </div>
         )}
 
-        {/* canvas area */}
-        <div className="flex-1 overflow-auto p-5 flex justify-center items-start min-w-0">
+        {/* canvas area — 双指捏合缩放（zoom 50–300%），仅笔模式下手指只用于缩放/滚动 */}
+        <div ref={canvasAreaRef} className="flex-1 overflow-auto p-5 flex justify-center items-start min-w-0">
           {loading ? (
             <div className="text-[#6B7780] mt-10">加载中…</div>
           ) : pages.length === 0 ? (

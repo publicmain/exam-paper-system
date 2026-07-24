@@ -3,6 +3,7 @@ import { Routes, Route, Navigate, Link, useLocation, useNavigate, useSearchParam
 import { useAuth } from './lib/auth';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import { CommandPalette } from './components/CommandPalette';
+import { NotificationBell } from './components/NotificationBell';
 
 // Code splitting — why it matters here.
 //
@@ -73,6 +74,7 @@ const HomeworkCoursesPage = lazy(() => import('./pages/HomeworkCourses'));
 const HomeworkDashboardPage = lazy(() => import('./pages/HomeworkDashboard'));
 const StudentHomeworkPage = lazy(() => import('./pages/StudentHomework'));
 const StudentHomeworkSubmitPage = lazy(() => import('./pages/StudentHomeworkSubmit'));
+const StudentMistakesPage = lazy(() => import('./pages/StudentMistakes'));
 
 export default function App() {
   const { user, loading, init, logout } = useAuth();
@@ -220,9 +222,11 @@ export default function App() {
               <div className="flex items-center gap-5 text-sm">
                 <Link to="/student" className="font-bold text-lg">📝 My Papers</Link>
                 <Link to="/student/homework" className="text-blue-600 hover:underline">Homework</Link>
+                <Link to="/student/mistakes" className="text-blue-600 hover:underline">错题本</Link>
                 <Link to="/practice" className="text-blue-600 hover:underline">Past-Paper Practice</Link>
               </div>
               <div className="flex items-center gap-3 text-sm">
+                <NotificationBell />
                 <span className="text-gray-600">{user.name} <span className="badge">student</span></span>
                 <button className="btn btn-ghost" onClick={() => { logout(); navigate('/login'); }}>Logout</button>
               </div>
@@ -235,6 +239,7 @@ export default function App() {
               <Route path="/student" element={<StudentHomePage />} />
               <Route path="/student/homework" element={<StudentHomeworkPage />} />
               <Route path="/student/homework/:assignmentId" element={<StudentHomeworkSubmitPage />} />
+              <Route path="/student/mistakes" element={<StudentMistakesPage />} />
               <Route path="/student/take/:assignmentId" element={<StudentTakePage />} />
               <Route path="/student/result/:sessionId" element={<StudentResultPage />} />
               <Route path="/student/tutor" element={<StudentTutorPage />} />
@@ -331,6 +336,7 @@ export default function App() {
             </nav>
           </div>
           <div className="flex items-center gap-3 text-sm">
+            <NotificationBell />
             <span className="text-gray-600">{user.name} <span className="badge">{user.role}</span></span>
             <button className="btn btn-ghost" onClick={() => { logout(); navigate('/login'); }}>Logout</button>
           </div>

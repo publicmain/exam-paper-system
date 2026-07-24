@@ -76,7 +76,7 @@ export const hwApi = {
   // M3 — rubric + per-question grading
   setRubric: (homeworkId: string, questions: { label: string; maxMarks: number; criteria?: string }[]) =>
     req('PUT', `/homework/${homeworkId}/rubric`, { questions }),
-  saveGrades: (submissionId: string, grades: { questionId: string; awardedMarks: number | null; comment?: string }[]) =>
+  saveGrades: (submissionId: string, grades: { questionId: string; awardedMarks: number | null; comment?: string; appliedItems?: string[] }[]) =>
     req('PUT', `/homework-submissions/${submissionId}/grades`, { grades }),
   saveAiGrades: (submissionId: string, grades: any[]) =>
     req('PUT', `/homework-submissions/${submissionId}/ai-grades`, { grades }),
@@ -95,6 +95,26 @@ export const hwApi = {
   withdrawHomework: (assignmentId: string) => req('POST', `/student/homework/${assignmentId}/withdraw`),
   publishAll: (assignmentId: string) => req('POST', `/homework-assignments/${assignmentId}/publish-all`),
 
+  // ---- v2: regions / items / annotations / vertical grading ----
+  updateQuestionMeta: (questionId: string, data: any) => req('PATCH', `/homework-questions/${questionId}`, data),
+  updateItemDelta: (questionId: string, itemId: string, delta: number) =>
+    req('PATCH', `/homework-questions/${questionId}/items/${itemId}`, { delta }),
+  saveAnnotations: (pageId: string, strokes: any[]) =>
+    req('PUT', `/homework-pages/${pageId}/annotations`, { strokes }),
+  byQuestion: (assignmentId: string, questionId: string) =>
+    req('GET', `/homework-assignments/${assignmentId}/by-question/${questionId}`),
+
+  // ---- v2: regrades / analytics / notifications / mistakes ----
+  listRegrades: (assignmentId: string) => req('GET', `/homework-assignments/${assignmentId}/regrades`),
+  replyRegrade: (requestId: string, reply: string) => req('POST', `/regrade-requests/${requestId}/reply`, { reply }),
+  analytics: (assignmentId: string) => req('GET', `/homework-assignments/${assignmentId}/analytics`),
+  notifications: () => req('GET', `/notifications`),
+  markNotificationsRead: (ids?: string[]) => req('POST', `/notifications/read`, { ids }),
+  fileRegrade: (assignmentId: string, questionId: string, message: string) =>
+    req('POST', `/student/homework/${assignmentId}/regrade`, { questionId, message }),
+  myRegrades: (assignmentId: string) => req('GET', `/student/homework/${assignmentId}/regrades`),
+  myMistakes: () => req('GET', `/student/homework/mistakes`),
+
   // student — M2 handwriting (ink)
   listInk: (assignmentId: string) => req('GET', `/student/homework/${assignmentId}/ink`),
   createInkPage: (
@@ -107,6 +127,22 @@ export const hwApi = {
   uploadInkFlattened: (assignmentId: string, files: File[]) =>
     upload(`/student/homework/${assignmentId}/pages?source=ink`, 'pages', files),
 };
+
+/** Authorized CSV download (JWT header, so a plain <a href> won't do). */
+export async function downloadHomeworkCsv(assignmentId: string, filename: string) {
+  const token = localStorage.getItem('auth_token');
+  const base = (import.meta as any).env?.VITE_API_URL || '';
+  const res = await fetch(`${base}/api/homework-assignments/${assignmentId}/export.csv`, {
+    headers: token ? { Authorization: `Bearer ${token}` } : {},
+  });
+  if (!res.ok) throw new Error(`导出失败: ${res.status}`);
+  const url = URL.createObjectURL(await res.blob());
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  a.click();
+  URL.revokeObjectURL(url);
+}
 
 /** Path helpers for AuthImage / blob viewing. */
 export const hwFileContentPath = (fileId: string) => `/api/homework-files/${fileId}/content`;

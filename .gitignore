@@ -69,3 +69,4 @@ apps/api/test.tmp
 
 # DB backups — contain student PII, live off-site in OneDrive; never commit.
 backups/
+.seiue_sync_v2/

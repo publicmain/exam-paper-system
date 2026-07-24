@@ -54,6 +54,18 @@ function writeToStore(subdir: string, mime: string, buf: Buffer): { rel: string;
   return { rel, abs };
 }
 
+/** v2 — marks from clicked rubric items: sum of deltas, clamped to [0, maxMarks].
+ *  Single source of truth for saveGrades AND the retroactive re-score, so the
+ *  two paths can never disagree on arithmetic. Unknown item ids contribute 0. */
+export function resolveItemMarks(
+  items: { id: string; delta: number }[],
+  appliedIds: string[],
+  maxMarks: number,
+): number {
+  const sum = appliedIds.reduce((s, id) => s + (items.find((x) => x.id === id)?.delta ?? 0), 0);
+  return Math.max(0, Math.min(maxMarks, sum));
+}
+
 @Injectable()
 export class HomeworkService {
   constructor(
@@ -401,7 +413,7 @@ export class HomeworkService {
                 },
                 questions: {
                   orderBy: { order: 'asc' },
-                  select: { id: true, label: true, maxMarks: true, criteria: true },
+                  select: { id: true, label: true, maxMarks: true, criteria: true, regions: true, items: true, topic: true },
                 },
               },
             },
@@ -698,8 +710,7 @@ export class HomeworkService {
       for (const g of grades) {
         const applied = (g.appliedItems as string[]) ?? [];
         if (!applied.includes(itemId)) continue;
-        const sum = applied.reduce((s, id) => s + (items.find((x) => x.id === id)?.delta ?? 0), 0);
-        const clamped = Math.max(0, Math.min(q.maxMarks, sum));
+        const clamped = resolveItemMarks(items, applied, q.maxMarks);
         await tx.homeworkGrade.update({ where: { id: g.id }, data: { awardedMarks: clamped } });
         rescored++;
         // Keep returned totals honest.
@@ -812,12 +823,7 @@ export class HomeworkService {
       if (!q) throw new BadRequestException('unknown question');
       let marks = g.awardedMarks;
       if (g.appliedItems && g.appliedItems.length > 0) {
-        const items = ((q as any).items as any[]) ?? [];
-        const sum = g.appliedItems.reduce(
-          (s, id) => s + (items.find((x) => x.id === id)?.delta ?? 0),
-          0,
-        );
-        marks = Math.max(0, Math.min(q.maxMarks, sum));
+        marks = resolveItemMarks(((q as any).items as any[]) ?? [], g.appliedItems, q.maxMarks);
       }
       if (marks != null && (marks < 0 || marks > q.maxMarks)) {
         throw new BadRequestException(`marks out of range for a question (0–${q.maxMarks})`);

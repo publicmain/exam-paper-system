@@ -288,38 +288,84 @@ function HomeworkCard({ hw, onAssign, onChanged }: { hw: any; onAssign: () => vo
 }
 
 /** Define per-question marks + criteria. Locked once any submission is graded. */
+type RubricRow = {
+  label: string; maxMarks: string; criteria: string; topic: string;
+  items: { id: string; label: string; delta: number }[];
+  regions: { fileId: string; page?: number | null; x: number; y: number; w: number; h: number }[];
+};
+
 function RubricModal({ hw, onClose, onSaved }: { hw: any; onClose: () => void; onSaved: () => void }) {
-  const [rows, setRows] = useState<{ label: string; maxMarks: string; criteria: string }[]>(
+  const [rows, setRows] = useState<RubricRow[]>(
     hw.questions?.length
-      ? hw.questions.map((q: any) => ({ label: q.label, maxMarks: String(q.maxMarks), criteria: q.criteria ?? '' }))
-      : [{ label: 'Q1', maxMarks: '', criteria: '' }],
+      ? hw.questions.map((q: any) => ({
+          label: q.label, maxMarks: String(q.maxMarks), criteria: q.criteria ?? '',
+          topic: q.topic ?? '',
+          items: (q.items as any[]) ?? [],
+          regions: (q.regions as any[]) ?? [],
+        }))
+      : [{ label: 'Q1', maxMarks: '', criteria: '', topic: '', items: [], regions: [] }],
   );
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState('');
+  const [regionFor, setRegionFor] = useState<number | null>(null); // row idx being region-picked
   const total = rows.reduce((s, r) => s + (Number(r.maxMarks) || 0), 0);
+  const set = (i: number, patch: Partial<RubricRow>) =>
+    setRows(rows.map((x, j) => (j === i ? { ...x, ...patch } : x)));
 
   return (
     <Modal title={`评分标准 — ${hw.title}`} onClose={onClose}>
       <div className="text-xs text-gray-500 mb-2">
-        为每道题设分值 + 评分要点。AI 建议分和老师复核都按这个标准逐题判分。
+        每题：分值 + 要点 + 知识点（错题本归类用）。可选：<b>题区</b>（在卷面上框出作答区域，
+        按题批改和 AI 判分会自动裁剪到该区域）、<b>评分项</b>（批改时点击给分，如「+2 方法正确」「−1 漏单位」）。
       </div>
-      <div className="space-y-2 max-h-80 overflow-y-auto">
+      <div className="space-y-3 max-h-96 overflow-y-auto pr-1">
         {rows.map((r, i) => (
-          <div key={i} className="flex gap-2 items-start">
-            <input className="input w-16" placeholder="题号" value={r.label}
-              onChange={(e) => setRows(rows.map((x, j) => j === i ? { ...x, label: e.target.value } : x))} />
-            <input className="input w-16" type="number" min={1} placeholder="分"
-              value={r.maxMarks}
-              onChange={(e) => setRows(rows.map((x, j) => j === i ? { ...x, maxMarks: e.target.value } : x))} />
-            <input className="input flex-1" placeholder="评分要点 / 参考答案（可选）" value={r.criteria}
-              onChange={(e) => setRows(rows.map((x, j) => j === i ? { ...x, criteria: e.target.value } : x))} />
-            <button className="text-gray-400 hover:text-red-600 px-1"
-              onClick={() => setRows(rows.filter((_, j) => j !== i))}>✕</button>
+          <div key={i} className="border rounded-lg p-2.5 bg-gray-50/50">
+            <div className="flex gap-2 items-start">
+              <input className="input w-16" placeholder="题号" value={r.label}
+                onChange={(e) => set(i, { label: e.target.value })} />
+              <input className="input w-16" type="number" min={1} placeholder="分" value={r.maxMarks}
+                onChange={(e) => set(i, { maxMarks: e.target.value })} />
+              <input className="input flex-1" placeholder="评分要点 / 参考答案（可选）" value={r.criteria}
+                onChange={(e) => set(i, { criteria: e.target.value })} />
+              <button className="text-gray-400 hover:text-red-600 px-1"
+                onClick={() => setRows(rows.filter((_, j) => j !== i))}>✕</button>
+            </div>
+            <div className="flex gap-2 items-center mt-1.5">
+              <input className="input w-40 text-sm" placeholder="知识点（如 二倍角公式）" value={r.topic}
+                onChange={(e) => set(i, { topic: e.target.value })} />
+              <button
+                className={`text-xs px-2.5 py-1.5 rounded-md border ${r.regions.length > 0 ? 'border-green-300 bg-green-50 text-green-700' : 'border-gray-300 bg-white text-gray-600 hover:border-blue-400'}`}
+                onClick={() => setRegionFor(i)}>
+                {r.regions.length > 0 ? '☑ 已框题区' : '⬚ 框题区'}
+              </button>
+              <button className="text-xs px-2.5 py-1.5 rounded-md border border-gray-300 bg-white text-gray-600 hover:border-blue-400"
+                onClick={() => set(i, {
+                  items: [...r.items, { id: `it${Date.now()}${r.items.length}`, label: '', delta: 1 }],
+                })}>
+                ＋ 评分项
+              </button>
+            </div>
+            {r.items.length > 0 && (
+              <div className="mt-1.5 space-y-1">
+                {r.items.map((it, k) => (
+                  <div key={it.id} className="flex gap-1.5 items-center">
+                    <input className="input w-16 text-sm" type="number" value={it.delta}
+                      title="正=给分 负=扣分"
+                      onChange={(e) => set(i, { items: r.items.map((x, m) => m === k ? { ...x, delta: Number(e.target.value) } : x) })} />
+                    <input className="input flex-1 text-sm" placeholder="如：方法正确 / 漏写单位" value={it.label}
+                      onChange={(e) => set(i, { items: r.items.map((x, m) => m === k ? { ...x, label: e.target.value } : x) })} />
+                    <button className="text-gray-400 hover:text-red-600 text-xs"
+                      onClick={() => set(i, { items: r.items.filter((_, m) => m !== k) })}>✕</button>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         ))}
       </div>
       <button className="btn btn-ghost text-sm mt-2"
-        onClick={() => setRows([...rows, { label: `Q${rows.length + 1}`, maxMarks: '', criteria: '' }])}>
+        onClick={() => setRows([...rows, { label: `Q${rows.length + 1}`, maxMarks: '', criteria: '', topic: '', items: [], regions: [] }])}>
         ＋ 加一题
       </button>
       <div className="text-sm text-gray-600 mt-2">合计满分：<b>{total}</b></div>
@@ -330,7 +376,16 @@ function RubricModal({ hw, onClose, onSaved }: { hw: any; onClose: () => void; o
           onClick={async () => {
             const qs = rows
               .filter((r) => r.label.trim() && Number(r.maxMarks) > 0)
-              .map((r) => ({ label: r.label.trim(), maxMarks: Number(r.maxMarks), criteria: r.criteria.trim() || undefined }));
+              .map((r) => ({
+                label: r.label.trim(),
+                maxMarks: Number(r.maxMarks),
+                criteria: r.criteria.trim() || undefined,
+                topic: r.topic.trim() || undefined,
+                items: r.items.filter((it) => it.label.trim()).length > 0
+                  ? r.items.filter((it) => it.label.trim())
+                  : undefined,
+                regions: r.regions.length > 0 ? r.regions : undefined,
+              }));
             if (qs.length === 0) { setErr('至少一道有效的题（题号 + 分值）'); return; }
             setBusy(true);
             try {
@@ -345,7 +400,132 @@ function RubricModal({ hw, onClose, onSaved }: { hw: any; onClose: () => void; o
           {busy ? '保存中…' : '保存评分标准'}
         </button>
       </div>
+      {regionFor != null && (
+        <RegionPicker
+          files={hw.files ?? []}
+          existing={rows[regionFor]?.regions ?? []}
+          onSave={(regions) => { set(regionFor, { regions }); setRegionFor(null); }}
+          onClose={() => setRegionFor(null)}
+        />
+      )}
     </Modal>
+  );
+}
+
+/**
+ * v2 — 题区拖框：选一份题目文件（图/PDF 页），在卷面上拖出这道题的作答区域，
+ * 存归一化坐标。Gradescope 的 question outline 同款交互。
+ */
+function RegionPicker({ files, existing, onSave, onClose }: {
+  files: { id: string; filename: string; mimeType: string }[];
+  existing: any[];
+  onSave: (regions: any[]) => void;
+  onClose: () => void;
+}) {
+  const [fileId, setFileId] = useState<string>(existing[0]?.fileId ?? files[0]?.id ?? '');
+  const [page, setPage] = useState<number>(existing[0]?.page ?? 1);
+  const [pageCount, setPageCount] = useState(1);
+  const [imgUrl, setImgUrl] = useState<string | null>(null);
+  const [rect, setRect] = useState<{ x: number; y: number; w: number; h: number } | null>(
+    existing[0] ? { x: existing[0].x, y: existing[0].y, w: existing[0].w, h: existing[0].h } : null,
+  );
+  const dragRef = useRef<{ x: number; y: number } | null>(null);
+  const boxRef = useRef<HTMLDivElement>(null);
+  const file = files.find((f) => f.id === fileId);
+  const isPdf = file?.mimeType === 'application/pdf';
+
+  useEffect(() => {
+    let revoke: string | null = null;
+    let cancelled = false;
+    setImgUrl(null);
+    (async () => {
+      if (!file) return;
+      if (isPdf) {
+        const { renderPdfPageToUrl, pdfPageCount } = await import('../lib/pdf-render');
+        const n = await pdfPageCount(hwFileContentPath(file.id));
+        if (cancelled) return;
+        setPageCount(n);
+        const r = await renderPdfPageToUrl(hwFileContentPath(file.id), Math.min(page, n), 1000);
+        if (cancelled) { URL.revokeObjectURL(r.url); return; }
+        revoke = r.url;
+        setImgUrl(r.url);
+      } else {
+        const token = localStorage.getItem('auth_token');
+        const base = (import.meta as any).env?.VITE_API_URL || '';
+        const res = await fetch(`${base}${hwFileContentPath(file.id)}`,
+          { headers: token ? { Authorization: `Bearer ${token}` } : {} });
+        if (!res.ok || cancelled) return;
+        const url = URL.createObjectURL(await res.blob());
+        revoke = url;
+        setImgUrl(url);
+        setPageCount(1);
+      }
+    })();
+    return () => { cancelled = true; if (revoke) URL.revokeObjectURL(revoke); };
+  }, [fileId, page]);
+
+  const norm = (e: React.PointerEvent) => {
+    const r = boxRef.current!.getBoundingClientRect();
+    return {
+      x: Math.max(0, Math.min(1, (e.clientX - r.left) / r.width)),
+      y: Math.max(0, Math.min(1, (e.clientY - r.top) / r.height)),
+    };
+  };
+
+  return (
+    <div className="fixed inset-0 bg-black/60 z-[90] flex items-center justify-center p-4" onClick={onClose}>
+      <div className="bg-white rounded-lg shadow-xl w-full max-w-3xl max-h-[90vh] flex flex-col" onClick={(e) => e.stopPropagation()}>
+        <div className="px-4 py-2.5 border-b flex items-center gap-3 flex-wrap shrink-0">
+          <span className="font-bold text-sm">⬚ 框出这道题的作答区域</span>
+          <select className="input text-sm py-1" value={fileId} onChange={(e) => { setFileId(e.target.value); setPage(1); setRect(null); }}>
+            {files.map((f) => <option key={f.id} value={f.id}>{f.filename}</option>)}
+          </select>
+          {isPdf && pageCount > 1 && (
+            <select className="input text-sm py-1" value={page} onChange={(e) => { setPage(Number(e.target.value)); setRect(null); }}>
+              {Array.from({ length: pageCount }, (_, i) => i + 1).map((p) => <option key={p} value={p}>第 {p} 页</option>)}
+            </select>
+          )}
+          <span className="text-xs text-gray-500">按住拖拽画框</span>
+          <button className="ml-auto text-gray-400 hover:text-gray-700" onClick={onClose}>✕</button>
+        </div>
+        <div className="flex-1 overflow-auto p-3">
+          {!imgUrl ? (
+            <div className="text-center text-gray-400 py-16">渲染中…</div>
+          ) : (
+            <div ref={boxRef} className="relative select-none cursor-crosshair touch-none"
+              onPointerDown={(e) => {
+                (e.target as HTMLElement).setPointerCapture(e.pointerId);
+                const p = norm(e);
+                dragRef.current = p;
+                setRect({ x: p.x, y: p.y, w: 0, h: 0 });
+              }}
+              onPointerMove={(e) => {
+                if (!dragRef.current) return;
+                const p = norm(e);
+                const s = dragRef.current;
+                setRect({
+                  x: Math.min(s.x, p.x), y: Math.min(s.y, p.y),
+                  w: Math.abs(p.x - s.x), h: Math.abs(p.y - s.y),
+                });
+              }}
+              onPointerUp={() => { dragRef.current = null; }}>
+              <img src={imgUrl} alt="卷面" className="w-full pointer-events-none" draggable={false} />
+              {rect && rect.w > 0.005 && (
+                <div className="absolute border-2 border-[#0374B5] bg-[#0374B5]/15 rounded-sm"
+                  style={{ left: `${rect.x * 100}%`, top: `${rect.y * 100}%`, width: `${rect.w * 100}%`, height: `${rect.h * 100}%` }} />
+              )}
+            </div>
+          )}
+        </div>
+        <div className="px-4 py-2.5 border-t flex justify-end gap-2 shrink-0">
+          {rect && <button className="btn btn-ghost text-sm" onClick={() => setRect(null)}>清除</button>}
+          <button className="btn btn-primary text-sm" disabled={!rect || rect.w < 0.01 || rect.h < 0.01}
+            onClick={() => onSave([{ fileId, page: isPdf ? page : null, ...rect! }])}>
+            保存题区
+          </button>
+        </div>
+      </div>
+    </div>
   );
 }
 
