@@ -92,7 +92,9 @@ export function HandwritingCanvas({
   size: number;
   tool: 'pen' | 'eraser';
   penOnly: boolean;
-  onChange: (strokes: Stroke[]) => void;
+  // Functional updater so two strokes finishing within one React render cycle
+  // both land (a plain snapshot would drop the earlier one — lost student work).
+  onChange: (updater: (prev: Stroke[]) => Stroke[]) => void;
 }) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const bgImgRef = useRef<HTMLImageElement | null>(null);
@@ -188,10 +190,10 @@ export function HandwritingCanvas({
   function eraseAt(x: number, y: number) {
     // Stroke-erase: drop any stroke with a point within a small radius.
     const r = Math.max(12, size * 3);
-    const next = strokesRef.current.filter(
-      (s) => !s.pts.some((p) => Math.hypot(p[0] - x, p[1] - y) <= r),
-    );
-    if (next.length !== strokesRef.current.length) onChange(next);
+    onChange((prev) => {
+      const next = prev.filter((s) => !s.pts.some((p) => Math.hypot(p[0] - x, p[1] - y) <= r));
+      return next.length !== prev.length ? next : prev;
+    });
   }
 
   function onPointerDown(e: React.PointerEvent) {
@@ -231,7 +233,7 @@ export function HandwritingCanvas({
     const cur = currentRef.current;
     currentRef.current = null;
     if (cur && cur.pts.length > 0) {
-      onChange([...strokesRef.current, cur]);
+      onChange((prev) => [...prev, cur]);
     } else {
       redraw();
     }

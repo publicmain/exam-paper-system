@@ -166,8 +166,14 @@ export function HandwritingWorkspace({
     }
   }
 
-  function updateStrokes(id: string, strokes: Stroke[]) {
-    setPages((ps) => ps.map((p) => (p.id === id ? { ...p, strokes, dirty: true } : p)));
+  function updateStrokes(id: string, updater: (prev: Stroke[]) => Stroke[]) {
+    setPages((ps) =>
+      ps.map((p) => {
+        if (p.id !== id) return p;
+        const next = updater(p.strokes);
+        return next === p.strokes ? p : { ...p, strokes: next, dirty: true };
+      }),
+    );
   }
 
   function undo(id: string) {
@@ -313,7 +319,7 @@ export function HandwritingWorkspace({
                 size={size}
                 tool={tool}
                 penOnly={penOnly}
-                onChange={(s) => updateStrokes(cur.id, s)}
+                onChange={(updater) => updateStrokes(cur.id, updater)}
               />
             </div>
           ) : null}
