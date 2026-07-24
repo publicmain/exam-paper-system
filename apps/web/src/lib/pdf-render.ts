@@ -49,7 +49,12 @@ export async function loadPdf(contentPath: string): Promise<RenderedPdf> {
       canvas.width = Math.ceil(viewport.width);
       canvas.height = Math.ceil(viewport.height);
       const ctx = canvas.getContext('2d')!;
-      await page.render({ canvasContext: ctx, viewport } as any).promise;
+      // intent:'print' — the default 'display' intent schedules paint chunks
+      // via requestAnimationFrame, which never fires in a backgrounded /
+      // hidden tab, so the render promise hangs forever (student switches
+      // tab while a big PDF renders → spinner stuck). Print intent renders
+      // synchronously to the canvas with identical output for our use.
+      await page.render({ canvasContext: ctx, viewport, intent: 'print' } as any).promise;
       const blob = await new Promise<Blob | null>((r) => canvas.toBlob(r, 'image/png'));
       if (!blob) throw new Error('PDF 页渲染失败');
       return URL.createObjectURL(blob);
