@@ -156,6 +156,14 @@ export class HomeworkController {
     return this.homework.listHomework(courseId);
   }
 
+  /** AI-grading queue — declared before homework/:id so the literal path wins.
+   *  Lists submitted-but-ungraded submissions with a rubric + answer pages. */
+  @Get('homework/grading-queue')
+  gradingQueue(@CurrentUser() user: AuthUser, @Query('classId') classId?: string) {
+    assertTeacher(user);
+    return this.homework.gradingQueue(user, { classId });
+  }
+
   @Get('homework/:id')
   getHomework(@CurrentUser() user: AuthUser, @Param('id') id: string) {
     assertTeacher(user);

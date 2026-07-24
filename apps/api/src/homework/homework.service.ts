@@ -336,6 +336,85 @@ export class HomeworkService {
     });
   }
 
+  /**
+   * AI-grading queue: every submitted-but-not-yet-graded submission that has a
+   * rubric, with the rubric + answer-page ids. This is the seam the human (or
+   * Claude-in-chat) uses to grade off-code: pull the queue, look at the page
+   * images, write AI suggestions back via PUT .../ai-grades. No model is called
+   * server-side. Admin/head see all; a teacher sees only their classes'.
+   */
+  async gradingQueue(user: AuthUser, filter: { classId?: string }) {
+    let classIdIn: string[] | undefined;
+    if (!isAdminOrHead(user.role)) {
+      const enr = await this.prisma.classEnrollment.findMany({
+        where: { userId: user.id, role: { not: 'student' } },
+        select: { classId: true },
+      });
+      classIdIn = enr.map((e) => e.classId);
+      if (filter.classId && !classIdIn.includes(filter.classId)) {
+        return { count: 0, submissions: [] };
+      }
+    }
+    const subs = await this.prisma.homeworkSubmission.findMany({
+      where: {
+        status: 'submitted',
+        assignment: {
+          ...(filter.classId ? { classId: filter.classId } : {}),
+          ...(classIdIn ? { classId: { in: classIdIn } } : {}),
+          homework: { questions: { some: {} } },
+        },
+      },
+      orderBy: { submittedAt: 'asc' },
+      include: {
+        student: { select: { id: true, name: true } },
+        pages: {
+          orderBy: { sortOrder: 'asc' },
+          select: { id: true, source: true, mimeType: true },
+        },
+        grades: { select: { questionId: true, source: true } },
+        assignment: {
+          include: {
+            class: { select: { id: true, name: true } },
+            homework: {
+              select: {
+                id: true,
+                title: true,
+                course: { select: { name: true } },
+                questions: {
+                  orderBy: { order: 'asc' },
+                  select: { id: true, label: true, maxMarks: true, criteria: true },
+                },
+              },
+            },
+          },
+        },
+      },
+    });
+    // "needs grading" = fewer grades than rubric questions.
+    const pending = subs.filter(
+      (s) => s.grades.length < s.assignment.homework.questions.length,
+    );
+    return {
+      count: pending.length,
+      submissions: pending.map((s) => ({
+        submissionId: s.id,
+        student: s.student.name,
+        homework: s.assignment.homework.title,
+        course: s.assignment.homework.course?.name ?? null,
+        class: s.assignment.class.name,
+        submittedAt: s.submittedAt,
+        questions: s.assignment.homework.questions,
+        pages: s.pages.map((p) => ({
+          id: p.id,
+          source: p.source,
+          mimeType: p.mimeType,
+          contentPath: `/api/homework-pages/${p.id}/content`,
+        })),
+        alreadyGraded: s.grades.length,
+      })),
+    };
+  }
+
   /** 收卷看板: full roster of the class × submission status. */
   async dashboard(user: AuthUser, assignmentId: string) {
     const assignment = await this.prisma.homeworkAssignment.findUnique({
