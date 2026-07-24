@@ -1713,7 +1713,8 @@ model HomeworkSubmission {
   teacherComment String?            @db.Text
   returnedAt     DateTime?
 
-  pages HomeworkPage[]
+  pages    HomeworkPage[]
+  inkPages HomeworkInkPage[]
 
   @@unique([assignmentId, studentId])
   @@index([studentId])
@@ -1729,7 +1730,36 @@ model HomeworkPage {
   mimeType     String
   sizeBytes    Int
   storagePath  String
+  // M2: 'upload' (camera/file photo) | 'ink' (flattened handwriting).
+  // Lets the teacher UI label handwriting pages and lets the client
+  // re-flatten ink safely (delete prior source='ink' pages first).
+  source       String             @default("upload")
   createdAt    DateTime           @default(now())
+
+  @@index([submissionId])
+}
+
+// M2 — iPad handwriting. One vector-ink page the student draws on with an
+// Apple Pencil. Auto-saved as a draft so a dropped WiFi connection never
+// loses strokes ("断网续写"). On "finish handwriting" the client flattens
+// each ink page (optional background image + strokes) to a PNG and uploads
+// it as a HomeworkPage(source='ink'); the ink draft is the editable source
+// of truth until then. Never seen by the teacher directly — the flattened
+// PNG is what flows to the dashboard and (M3) AI grading.
+model HomeworkInkPage {
+  id               String             @id @default(cuid())
+  submissionId     String
+  submission       HomeworkSubmission @relation(fields: [submissionId], references: [id], onDelete: Cascade)
+  sortOrder        Int                @default(0)
+  // Strokes as [{ pts: [[x,y,pressure], ...], color, size }] in logical
+  // page coordinates (0..width, 0..height); replayed scaled to display.
+  strokes          Json               @default("[]")
+  width            Int
+  height           Int
+  // Optional HomeworkFile (image) id rendered under the ink so the student
+  // writes directly on the question page. null = blank sheet.
+  backgroundFileId String?
+  updatedAt        DateTime           @updatedAt
 
   @@index([submissionId])
 }

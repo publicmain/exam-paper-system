@@ -82,6 +82,16 @@ export const hwApi = {
   reorderPages: (assignmentId: string, pageIds: string[]) =>
     req('PATCH', `/student/homework/${assignmentId}/pages/reorder`, { pageIds }),
   submitHomework: (assignmentId: string) => req('POST', `/student/homework/${assignmentId}/submit`),
+
+  // student — M2 handwriting (ink)
+  listInk: (assignmentId: string) => req('GET', `/student/homework/${assignmentId}/ink`),
+  createInkPage: (assignmentId: string, data: { width: number; height: number; backgroundFileId?: string }) =>
+    req('POST', `/student/homework/${assignmentId}/ink`, data),
+  saveInk: (pageId: string, strokes: any) => req('PUT', `/student/homework/ink/${pageId}`, { strokes }),
+  deleteInkPage: (pageId: string) => req('DELETE', `/student/homework/ink/${pageId}`),
+  // Flatten upload: mark the resulting HomeworkPage as source=ink.
+  uploadInkFlattened: (assignmentId: string, files: File[]) =>
+    upload(`/student/homework/${assignmentId}/pages?source=ink`, 'pages', files),
 };
 
 /** Path helpers for AuthImage / blob viewing. */

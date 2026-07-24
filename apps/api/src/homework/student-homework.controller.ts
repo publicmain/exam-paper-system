@@ -8,6 +8,8 @@ import {
   Param,
   Patch,
   Post,
+  Put,
+  Query,
   UploadedFiles,
   UseInterceptors,
 } from '@nestjs/common';
@@ -20,6 +22,24 @@ import { HomeworkService, UploadedFileLike } from './homework.service';
 
 const ReorderSchema = z.object({
   pageIds: z.array(z.string().min(1)).min(1).max(50),
+});
+
+const CreateInkSchema = z.object({
+  width: z.number().int().min(50).max(4000),
+  height: z.number().int().min(50).max(6000),
+  backgroundFileId: z.string().min(1).optional(),
+});
+
+// strokes: [{ pts: [[x,y,pressure], ...], color, size }]. Kept loose on
+// purpose — it's opaque replay data; the service caps its serialized size.
+const SaveInkSchema = z.object({
+  strokes: z.array(
+    z.object({
+      pts: z.array(z.array(z.number())).max(20000),
+      color: z.string().max(32).optional(),
+      size: z.number().optional(),
+    }),
+  ).max(2000),
 });
 
 function assertStudent(user: AuthUser) {
@@ -50,10 +70,11 @@ export class StudentHomeworkController {
     @CurrentUser() user: AuthUser,
     @Param('assignmentId') assignmentId: string,
     @UploadedFiles() files: UploadedFileLike[],
+    @Query('source') source?: string,
   ) {
     assertStudent(user);
     if (!files?.length) throw new BadRequestException('no files');
-    return this.homework.addPages(user, assignmentId, files);
+    return this.homework.addPages(user, assignmentId, files, source === 'ink' ? 'ink' : 'upload');
   }
 
   @Delete('pages/:pageId')
@@ -78,5 +99,39 @@ export class StudentHomeworkController {
   submit(@CurrentUser() user: AuthUser, @Param('assignmentId') assignmentId: string) {
     assertStudent(user);
     return this.homework.submit(user, assignmentId);
+  }
+
+  // ---------- M2: handwriting (ink) ----------
+
+  @Get(':assignmentId/ink')
+  listInk(@CurrentUser() user: AuthUser, @Param('assignmentId') assignmentId: string) {
+    assertStudent(user);
+    return this.homework.listInk(user, assignmentId);
+  }
+
+  @Post(':assignmentId/ink')
+  createInk(
+    @CurrentUser() user: AuthUser,
+    @Param('assignmentId') assignmentId: string,
+    @Body() body: unknown,
+  ) {
+    assertStudent(user);
+    const r = CreateInkSchema.safeParse(body);
+    if (!r.success) throw new BadRequestException(r.error.issues?.[0]?.message ?? 'invalid body');
+    return this.homework.createInkPage(user, assignmentId, r.data);
+  }
+
+  @Put('ink/:pageId')
+  saveInk(@CurrentUser() user: AuthUser, @Param('pageId') pageId: string, @Body() body: unknown) {
+    assertStudent(user);
+    const r = SaveInkSchema.safeParse(body);
+    if (!r.success) throw new BadRequestException('invalid body');
+    return this.homework.saveInk(user, pageId, r.data.strokes);
+  }
+
+  @Delete('ink/:pageId')
+  deleteInk(@CurrentUser() user: AuthUser, @Param('pageId') pageId: string) {
+    assertStudent(user);
+    return this.homework.deleteInkPage(user, pageId);
   }
 }

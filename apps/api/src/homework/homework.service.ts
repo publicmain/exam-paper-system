@@ -531,7 +531,12 @@ export class HomeworkService {
     };
   }
 
-  async addPages(user: AuthUser, assignmentId: string, files: UploadedFileLike[]) {
+  async addPages(
+    user: AuthUser,
+    assignmentId: string,
+    files: UploadedFileLike[],
+    source: 'upload' | 'ink' = 'upload',
+  ) {
     const assignment = await this.assertStudentAssignment(user, assignmentId);
     if (!this.canSubmitNow(assignment, new Date())) {
       throw new BadRequestException('this assignment is closed');
@@ -569,6 +574,7 @@ export class HomeworkService {
             sizeBytes: f.size,
             storagePath: rel,
             sortOrder: existing + i,
+            source,
           },
         }),
       );
@@ -662,5 +668,99 @@ export class HomeworkService {
       }
     }
     return page;
+  }
+
+  // ---------- M2: handwriting (ink) drafts ----------
+
+  /** Open-or-resume the submission row for the current student. Used by the
+   *  ink flow (which needs a submission id before any HomeworkPage exists). */
+  private async openSubmission(user: AuthUser, assignmentId: string) {
+    let sub = await this.prisma.homeworkSubmission.findUnique({
+      where: { assignmentId_studentId: { assignmentId, studentId: user.id } },
+    });
+    if (sub && sub.status !== 'in_progress') {
+      throw new BadRequestException('already submitted — ask your teacher to reopen it');
+    }
+    if (!sub) {
+      sub = await this.prisma.homeworkSubmission.create({
+        data: { assignmentId, studentId: user.id },
+      });
+    }
+    return sub;
+  }
+
+  async listInk(user: AuthUser, assignmentId: string) {
+    await this.assertStudentAssignment(user, assignmentId);
+    const sub = await this.prisma.homeworkSubmission.findUnique({
+      where: { assignmentId_studentId: { assignmentId, studentId: user.id } },
+    });
+    if (!sub) return { submissionId: null, pages: [] };
+    const pages = await this.prisma.homeworkInkPage.findMany({
+      where: { submissionId: sub.id },
+      orderBy: { sortOrder: 'asc' },
+    });
+    return { submissionId: sub.id, pages };
+  }
+
+  async createInkPage(
+    user: AuthUser,
+    assignmentId: string,
+    data: { width: number; height: number; backgroundFileId?: string },
+  ) {
+    const assignment = await this.assertStudentAssignment(user, assignmentId);
+    if (!this.canSubmitNow(assignment, new Date())) {
+      throw new BadRequestException('this assignment is closed');
+    }
+    if (data.backgroundFileId) {
+      // Background must be a file of THIS homework (don't leak other files).
+      const ok = assignment.homework.files.some((f) => f.id === data.backgroundFileId);
+      if (!ok) throw new BadRequestException('background file not part of this homework');
+    }
+    const sub = await this.openSubmission(user, assignmentId);
+    const count = await this.prisma.homeworkInkPage.count({ where: { submissionId: sub.id } });
+    if (count >= MAX_PAGES_PER_SUBMISSION) {
+      throw new BadRequestException(`too many handwriting pages (max ${MAX_PAGES_PER_SUBMISSION})`);
+    }
+    return this.prisma.homeworkInkPage.create({
+      data: {
+        submissionId: sub.id,
+        sortOrder: count,
+        width: Math.round(data.width),
+        height: Math.round(data.height),
+        backgroundFileId: data.backgroundFileId ?? null,
+        strokes: [],
+      },
+    });
+  }
+
+  private async ownedInkPage(user: AuthUser, pageId: string) {
+    const page = await this.prisma.homeworkInkPage.findUnique({
+      where: { id: pageId },
+      include: { submission: { select: { studentId: true, status: true } } },
+    });
+    if (!page) throw new NotFoundException('ink page not found');
+    if (page.submission.studentId !== user.id) throw new ForbiddenException('not your page');
+    if (page.submission.status !== 'in_progress') {
+      throw new BadRequestException('already submitted');
+    }
+    return page;
+  }
+
+  /** Autosave. `strokes` is opaque vector JSON; we cap its serialized size so
+   *  a runaway client can't fill the row. */
+  async saveInk(user: AuthUser, pageId: string, strokes: unknown) {
+    await this.ownedInkPage(user, pageId);
+    const size = JSON.stringify(strokes ?? []).length;
+    if (size > 2_000_000) throw new BadRequestException('handwriting data too large for one page');
+    return this.prisma.homeworkInkPage.update({
+      where: { id: pageId },
+      data: { strokes: strokes as any },
+    });
+  }
+
+  async deleteInkPage(user: AuthUser, pageId: string) {
+    await this.ownedInkPage(user, pageId);
+    await this.prisma.homeworkInkPage.delete({ where: { id: pageId } });
+    return { ok: true };
   }
 }

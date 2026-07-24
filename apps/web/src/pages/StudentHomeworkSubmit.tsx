@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { hwApi, hwFileContentPath, hwPageContentPath } from '../lib/api-homework';
 import { AuthImage } from '../components/AuthImage';
+import { HandwritingWorkspace } from '../components/HandwritingWorkspace';
 
 /**
  * 学生作业详情 + 拍照提交页（iPad/手机优先）。
@@ -13,6 +14,7 @@ export default function StudentHomeworkSubmitPage() {
   const [data, setData] = useState<any | null>(null);
   const [err, setErr] = useState('');
   const [busy, setBusy] = useState(false);
+  const [handwriting, setHandwriting] = useState(false);
   const cameraInput = useRef<HTMLInputElement>(null);
   const fileInput = useRef<HTMLInputElement>(null);
 
@@ -147,6 +149,9 @@ export default function StudentHomeworkSubmitPage() {
               className="hidden" onChange={(e) => { addFiles(Array.from(e.target.files ?? [])); e.target.value = ''; }} />
             <input ref={fileInput} type="file" accept="image/*,application/pdf" multiple
               className="hidden" onChange={(e) => { addFiles(Array.from(e.target.files ?? [])); e.target.value = ''; }} />
+            <button className="btn btn-ghost flex-1" disabled={busy} onClick={() => setHandwriting(true)}>
+              ✍️ 手写
+            </button>
             <button className="btn btn-ghost flex-1" disabled={busy} onClick={() => cameraInput.current?.click()}>
               📷 拍照
             </button>
@@ -181,6 +186,15 @@ export default function StudentHomeworkSubmitPage() {
         <div className="bg-red-50 border border-red-200 rounded p-3 text-sm text-red-700">
           This assignment is closed.
         </div>
+      )}
+
+      {handwriting && (
+        <HandwritingWorkspace
+          assignmentId={assignmentId!}
+          questionFiles={data.homework.files ?? []}
+          onClose={() => setHandwriting(false)}
+          onFinished={async () => { setHandwriting(false); await load(); }}
+        />
       )}
     </div>
   );

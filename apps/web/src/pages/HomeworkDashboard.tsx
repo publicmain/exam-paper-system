@@ -154,7 +154,9 @@ function SubmissionViewer({ submissionId, totalMarks, onClose, onReturned }: {
             <div className="space-y-3 mb-5">
               {sub.pages.map((p: any, i: number) => (
                 <div key={p.id}>
-                  <div className="text-xs text-gray-500 mb-1">第 {i + 1} 页</div>
+                  <div className="text-xs text-gray-500 mb-1">
+                    第 {i + 1} 页{p.source === 'ink' && <span className="ml-1 text-blue-600">✍️ 手写</span>}
+                  </div>
                   {p.mimeType === 'application/pdf' ? (
                     <div className="text-sm">
                       📄 PDF 页 — <a className="text-blue-600 hover:underline" href="#"
