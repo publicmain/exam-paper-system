@@ -26,6 +26,9 @@ export default function StudentHomeworkSubmitPage() {
   // v2: 申诉（每题一次）
   const [myRegrades, setMyRegrades] = useState<any[]>([]);
   const [disputeQ, setDisputeQ] = useState<{ id: string; label: string } | null>(null);
+  // v2 拍照增强：图片先进预览（旋转/增亮）。⚠️ 必须在所有条件 return 之前
+  // 声明 —— 放在早退 return 之后会让 hooks 数量随渲染变化（React #310）。
+  const [enhanceFiles, setEnhanceFiles] = useState<File[] | null>(null);
   const cameraInput = useRef<HTMLInputElement>(null);
   const fileInput = useRef<HTMLInputElement>(null);
 
@@ -57,9 +60,6 @@ export default function StudentHomeworkSubmitPage() {
   const editable = data.canSubmit && (!sub || sub.status === 'in_progress');
   const pages: any[] = sub?.pages ?? [];
   const questions: any[] = data.homework.questions ?? [];
-
-  // v2 拍照增强：图片先进预览（旋转/增亮），非图片直接传
-  const [enhanceFiles, setEnhanceFiles] = useState<File[] | null>(null);
 
   async function addFiles(files: File[]) {
     if (!files.length) return;
