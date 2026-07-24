@@ -99,42 +99,53 @@ export default function HomeworkDashboardPage() {
       </div>
 
       {/* 名单 */}
-      <div className="bg-white rounded border divide-y">
+      <div className="bg-white rounded-lg border shadow-sm divide-y overflow-hidden">
         {roster.map((r: any) => {
           const s = STATUS_LABEL[r.status] ?? STATUS_LABEL.missing;
+          const initial = (r.student.name || '?').slice(0, 1);
           return (
-            <div key={r.student.id} className="flex items-center justify-between px-4 py-2.5 text-sm">
-              <div className="flex items-center gap-2 min-w-0 flex-wrap">
-                <span className="font-medium">{r.student.name}</span>
-                <span className={`px-2 py-0.5 rounded text-xs ${s.cls}`}>{s.text}</span>
-                {r.isLate && <span className="px-2 py-0.5 rounded text-xs bg-red-100 text-red-700">迟交</span>}
+            <div key={r.student.id} className="flex items-center gap-3 px-4 py-3 hover:bg-gray-50/70">
+              {/* 头像 + 姓名/时间 两行 */}
+              <div className="w-9 h-9 rounded-full bg-gradient-to-br from-blue-500 to-indigo-600 text-white flex items-center justify-center font-semibold shrink-0">
+                {initial}
+              </div>
+              <div className="min-w-0 w-44 shrink-0">
+                <div className="font-medium truncate">{r.student.name}</div>
+                <div className="text-xs text-gray-400">
+                  {r.submittedAt ? new Date(r.submittedAt).toLocaleString() : '—'}
+                </div>
+              </div>
+              {/* 状态徽章组 */}
+              <div className="flex items-center gap-1.5 flex-wrap min-w-0 flex-1">
+                <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${s.cls}`}>{s.text}</span>
+                {r.isLate && <span className="px-2 py-0.5 rounded-full text-xs bg-red-100 text-red-700">迟交</span>}
                 {hasRubric && r.submissionId && r.status !== 'missing' && r.status !== 'in_progress' && (
                   <>
-                    <span className={`px-2 py-0.5 rounded text-xs ${
-                      r.teacherGraded === r.questionCount ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-600'
+                    <span className={`px-2 py-0.5 rounded-full text-xs ${
+                      r.teacherGraded === r.questionCount ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'
                     }`}>
-                      已判 {r.teacherGraded}/{r.questionCount} 题
+                      已判 {r.teacherGraded}/{r.questionCount}
                     </span>
                     {r.aiPending > 0 && (
-                      <span className="px-2 py-0.5 rounded text-xs bg-purple-100 text-purple-700">
-                        🤖 {r.aiPending} 题 AI 待复核
+                      <span className="px-2 py-0.5 rounded-full text-xs bg-purple-100 text-purple-700">
+                        🤖 {r.aiPending} 待复核
                       </span>
                     )}
-                    {r.readyToPublish && <span title="可发布" className="text-green-600">●</span>}
+                    {r.readyToPublish && (
+                      <span className="px-2 py-0.5 rounded-full text-xs bg-green-600 text-white">可发布</span>
+                    )}
                   </>
                 )}
               </div>
-              <div className="flex items-center gap-4 shrink-0">
-                {r.submittedAt && (
-                  <span className="text-gray-400 text-xs hidden sm:inline">
-                    {new Date(r.submittedAt).toLocaleString()}
+              {/* 分数 + 操作 */}
+              <div className="flex items-center gap-3 shrink-0">
+                {r.teacherScore != null && (
+                  <span className="text-lg font-bold text-gray-800">
+                    {r.teacherScore}<span className="text-xs text-gray-400 font-normal">{homework.totalMarks ? ` / ${homework.totalMarks}` : ''}</span>
                   </span>
                 )}
-                {r.teacherScore != null && (
-                  <span className="font-semibold">{r.teacherScore}{homework.totalMarks ? ` / ${homework.totalMarks}` : ''}</span>
-                )}
                 {r.submissionId && r.pageCount > 0 && (
-                  <button className="btn btn-primary text-xs px-3 py-1"
+                  <button className="btn btn-primary text-sm px-4"
                     onClick={() => setGrading(r.submissionId)}>
                     {r.status === 'returned' ? '查看' : '批改'} →
                   </button>
@@ -159,9 +170,9 @@ export default function HomeworkDashboardPage() {
 
 function Stat({ label, value, cls }: { label: string; value: number; cls: string }) {
   return (
-    <div className="bg-white rounded border p-3 text-center">
-      <div className={`text-2xl font-bold ${cls}`}>{value}</div>
-      <div className="text-xs text-gray-500">{label}</div>
+    <div className="bg-white rounded-lg border shadow-sm p-3 text-center">
+      <div className={`text-2xl font-bold ${value === 0 ? 'text-gray-300' : cls}`}>{value}</div>
+      <div className="text-xs text-gray-500 mt-0.5">{label}</div>
     </div>
   );
 }
@@ -360,32 +371,47 @@ function GradingPanel({ sub, onReturned, reload }: { sub: any; onReturned: () =>
           🤖 含 AI 建议分 — 请复核每题后发布
         </div>
       )}
-      <div className="space-y-2">
+      <div className="space-y-2.5">
         {rows.map((r, i) => (
           <div key={r.questionId}
-            className={`rounded border p-2 ${r.source === 'ai_suggested' ? 'bg-purple-50 border-purple-200' : ''}`}>
-            <div className="flex items-center gap-2">
-              <span className="font-medium w-9">{r.label}</span>
-              <input className="input w-16 text-center" type="number" min={0} max={r.maxMarks} value={r.awarded}
-                onChange={(e) => setRows(rows.map((x, j) => j === i ? { ...x, awarded: e.target.value } : x))} />
-              <span className="text-sm text-gray-500">/ {r.maxMarks}</span>
-              <span className="ml-auto flex gap-1">
-                <button className="text-xs px-1.5 py-0.5 rounded bg-green-100 text-green-700" title="满分"
+            className={`rounded-lg border p-3 ${r.source === 'ai_suggested' ? 'bg-purple-50/60 border-purple-200' : 'bg-gray-50/50'}`}>
+            {/* 行1：题号 | 分数组（不换行）| 满/零 | 状态徽章 */}
+            <div className="flex items-center gap-2 flex-nowrap">
+              <span className="inline-flex items-center justify-center min-w-9 h-7 px-1.5 rounded-md bg-gray-800 text-white text-sm font-semibold shrink-0">
+                {r.label}
+              </span>
+              <span className="inline-flex items-baseline gap-1 whitespace-nowrap shrink-0">
+                <input
+                  className="w-14 h-9 text-center text-lg font-semibold border rounded-md focus:ring-2 focus:ring-blue-400 outline-none"
+                  type="number" inputMode="numeric" min={0} max={r.maxMarks} value={r.awarded}
+                  onChange={(e) => setRows(rows.map((x, j) => j === i ? { ...x, awarded: e.target.value } : x))} />
+                <span className="text-sm text-gray-400 font-medium">/ {r.maxMarks}</span>
+              </span>
+              <span className="flex gap-1 shrink-0">
+                <button className="h-7 px-2 text-xs rounded-md bg-green-100 text-green-700 hover:bg-green-200" title="满分"
                   onClick={() => setRows(rows.map((x, j) => j === i ? { ...x, awarded: String(r.maxMarks) } : x))}>满</button>
-                <button className="text-xs px-1.5 py-0.5 rounded bg-red-100 text-red-700" title="零分"
+                <button className="h-7 px-2 text-xs rounded-md bg-red-100 text-red-700 hover:bg-red-200" title="零分"
                   onClick={() => setRows(rows.map((x, j) => j === i ? { ...x, awarded: '0' } : x))}>零</button>
               </span>
-              {r.source === 'ai_suggested' && (
-                <span className="text-xs text-purple-700 whitespace-nowrap">
-                  🤖{r.confidence != null ? ` ${Math.round(r.confidence * 100)}%` : ''}
-                </span>
-              )}
-              {r.source === 'teacher' && <span className="text-xs text-green-700">✓</span>}
+              <span className="ml-auto shrink-0">
+                {r.source === 'ai_suggested' && (
+                  <span className="inline-flex items-center gap-1 text-xs text-purple-700 bg-purple-100 rounded-full px-2 py-0.5 whitespace-nowrap">
+                    🤖 AI{r.confidence != null ? ` ${Math.round(r.confidence * 100)}%` : ''}
+                  </span>
+                )}
+                {r.source === 'teacher' && (
+                  <span className="inline-flex items-center text-xs text-green-700 bg-green-100 rounded-full px-2 py-0.5">✓ 已确认</span>
+                )}
+              </span>
             </div>
-            <input className="input w-full mt-1 text-sm" placeholder="本题评语（可选）" value={r.comment}
+            <input className="input w-full mt-2 text-sm" placeholder="本题评语（可选）" value={r.comment}
               onChange={(e) => setRows(rows.map((x, j) => j === i ? { ...x, comment: e.target.value } : x))} />
-            {r.criteria && <div className="text-xs text-gray-500 mt-1">要点：{r.criteria}</div>}
-            {r.rationale && <div className="text-xs text-purple-600 mt-0.5">AI：{r.rationale}</div>}
+            {r.criteria && (
+              <div className="text-xs text-gray-500 mt-1.5 bg-white/70 rounded px-2 py-1">📌 {r.criteria}</div>
+            )}
+            {r.rationale && (
+              <div className="text-xs text-purple-600 mt-1 bg-purple-50 rounded px-2 py-1">🤖 {r.rationale}</div>
+            )}
           </div>
         ))}
       </div>

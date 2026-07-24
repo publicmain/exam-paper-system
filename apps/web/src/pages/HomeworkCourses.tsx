@@ -72,11 +72,11 @@ export default function HomeworkCoursesPage() {
             <button
               key={c.id}
               onClick={() => setSelectedCourse(c)}
-              className={`w-full text-left p-3 rounded border bg-white hover:border-blue-400 ${
-                selectedCourse?.id === c.id ? 'border-blue-500 ring-1 ring-blue-300' : ''
+              className={`w-full text-left p-3 rounded-lg border bg-white shadow-sm transition hover:border-blue-400 hover:shadow ${
+                selectedCourse?.id === c.id ? 'border-blue-500 ring-2 ring-blue-200' : ''
               }`}
             >
-              <div className="font-medium">📁 {c.name}</div>
+              <div className="font-semibold">📁 {c.name}</div>
               <div className="text-xs text-gray-500 mt-1">
                 {c.subject ? `${c.subject.code} ${c.subject.name} · ` : ''}
                 {c._count.homeworks} 份作业
@@ -186,23 +186,32 @@ function HomeworkCard({ hw, onAssign, onChanged }: { hw: any; onAssign: () => vo
   const [uploading, setUploading] = useState(false);
   const [showRubric, setShowRubric] = useState(false);
 
+  const rubricCount = hw.questions?.length ?? 0;
   return (
-    <div className="bg-white rounded border p-4">
+    <div className="bg-white rounded-lg border shadow-sm p-4 hover:shadow transition">
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
-          <div className="font-medium">{hw.title}</div>
+          <div className="font-semibold text-base">{hw.title}</div>
           {hw.instructions && <div className="text-sm text-gray-600 mt-1 whitespace-pre-wrap">{hw.instructions}</div>}
-          <div className="text-xs text-gray-500 mt-1">
+          <div className="text-xs text-gray-400 mt-1.5">
             {hw.totalMarks ? `满分 ${hw.totalMarks} · ` : ''}
             {new Date(hw.createdAt).toLocaleDateString()} · {hw.createdBy?.name}
           </div>
         </div>
-        <div className="flex gap-2 shrink-0">
-          <button className="btn btn-ghost text-sm" onClick={() => setShowRubric(true)}>
-            📋 评分标准{hw.questions?.length ? ` (${hw.questions.length})` : ''}
+        <div className="flex gap-1.5 shrink-0">
+          <button
+            className={`text-sm px-3 py-1.5 rounded-md border transition ${
+              rubricCount > 0
+                ? 'border-green-300 bg-green-50 text-green-700 hover:bg-green-100'
+                : 'border-amber-300 bg-amber-50 text-amber-700 hover:bg-amber-100'
+            }`}
+            title={rubricCount > 0 ? '已设评分标准' : '还没设评分标准 — AI 判分前建议先设'}
+            onClick={() => setShowRubric(true)}>
+            📋 评分标准{rubricCount > 0 ? ` · ${rubricCount} 题` : ''}
           </button>
-          <button className="btn btn-ghost text-sm" onClick={() => fileInput.current?.click()} disabled={uploading}>
-            {uploading ? '上传中…' : '＋文件'}
+          <button className="text-sm px-3 py-1.5 rounded-md border hover:bg-gray-50 transition"
+            onClick={() => fileInput.current?.click()} disabled={uploading}>
+            {uploading ? '上传中…' : '＋ 文件'}
           </button>
           <button className="btn btn-primary text-sm" onClick={onAssign}>布置</button>
         </div>
@@ -230,9 +239,9 @@ function HomeworkCard({ hw, onAssign, onChanged }: { hw: any; onAssign: () => vo
       </div>
 
       {hw.files?.length > 0 && (
-        <div className="mt-2 flex flex-wrap gap-2">
+        <div className="mt-2.5 flex flex-wrap gap-1.5">
           {hw.files.map((f: any) => (
-            <span key={f.id} className="inline-flex items-center gap-1 text-xs bg-gray-100 rounded px-2 py-1">
+            <span key={f.id} className="inline-flex items-center gap-1.5 text-xs bg-gray-50 border rounded-full pl-2.5 pr-1.5 py-1">
               <FileLink fileId={f.id} name={f.filename} />
               <button
                 className="text-gray-400 hover:text-red-600"
@@ -253,17 +262,18 @@ function HomeworkCard({ hw, onAssign, onChanged }: { hw: any; onAssign: () => vo
       )}
 
       {hw.assignments?.length > 0 && (
-        <div className="mt-3 border-t pt-2 space-y-1">
+        <div className="mt-3 border-t pt-2.5 space-y-1.5">
           {hw.assignments.map((a: any) => (
-            <div key={a.id} className="flex items-center justify-between text-sm">
-              <span>
-                🏫 {a.class.name}
+            <div key={a.id}
+              className="flex items-center justify-between text-sm bg-gray-50 rounded-md px-3 py-2">
+              <span className="min-w-0 truncate">
+                🏫 <span className="font-medium">{a.class.name}</span>
                 {a.dueAt && <span className="text-gray-500"> · 截止 {new Date(a.dueAt).toLocaleString()}</span>}
                 {a.status === 'closed' && <span className="text-red-600"> · 已关闭</span>}
               </span>
-              <span className="flex items-center gap-3">
+              <span className="flex items-center gap-3 shrink-0">
                 <span className="text-gray-500">{a._count?.submissions ?? 0} 已交</span>
-                <Link className="text-blue-600 hover:underline" to={`/homework/assignments/${a.id}`}>收卷看板 →</Link>
+                <Link className="text-blue-600 font-medium hover:underline" to={`/homework/assignments/${a.id}`}>收卷看板 →</Link>
               </span>
             </div>
           ))}

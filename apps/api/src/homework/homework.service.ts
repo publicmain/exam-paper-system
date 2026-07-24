@@ -361,7 +361,10 @@ export class HomeworkService {
         assignment: {
           ...(filter.classId ? { classId: filter.classId } : {}),
           ...(classIdIn ? { classId: { in: classIdIn } } : {}),
-          homework: { questions: { some: {} } },
+          // No rubric filter: submissions WITHOUT a rubric must surface too —
+          // the AI grader splits the questions itself from the worksheet +
+          // answer images and writes the rubric (needsRubric flag below),
+          // so a teacher who skipped rubric setup still gets graded work.
         },
       },
       orderBy: { submittedAt: 'asc' },
@@ -380,6 +383,10 @@ export class HomeworkService {
                 id: true,
                 title: true,
                 course: { select: { name: true } },
+                files: {
+                  orderBy: { sortOrder: 'asc' },
+                  select: { id: true, filename: true, mimeType: true },
+                },
                 questions: {
                   orderBy: { order: 'asc' },
                   select: { id: true, label: true, maxMarks: true, criteria: true },
@@ -390,9 +397,12 @@ export class HomeworkService {
         },
       },
     });
-    // "needs grading" = fewer grades than rubric questions.
+    // "needs grading" = no rubric yet (AI will split questions itself),
+    // or fewer grades than rubric questions.
     const pending = subs.filter(
-      (s) => s.grades.length < s.assignment.homework.questions.length,
+      (s) =>
+        s.assignment.homework.questions.length === 0 ||
+        s.grades.length < s.assignment.homework.questions.length,
     );
     return {
       count: pending.length,
@@ -400,10 +410,21 @@ export class HomeworkService {
         submissionId: s.id,
         student: s.student.name,
         homework: s.assignment.homework.title,
+        homeworkId: s.assignment.homework.id,
         course: s.assignment.homework.course?.name ?? null,
         class: s.assignment.class.name,
         submittedAt: s.submittedAt,
         questions: s.assignment.homework.questions,
+        // Rubric missing: the grader should derive Q1..Qn (labels + max marks)
+        // from the worksheet, PUT /homework/:id/rubric, then write ai-grades.
+        needsRubric: s.assignment.homework.questions.length === 0,
+        // Question files so the grader can read the original worksheet too.
+        questionFiles: s.assignment.homework.files.map((f) => ({
+          id: f.id,
+          filename: f.filename,
+          mimeType: f.mimeType,
+          contentPath: `/api/homework-files/${f.id}/content`,
+        })),
         pages: s.pages.map((p) => ({
           id: p.id,
           source: p.source,

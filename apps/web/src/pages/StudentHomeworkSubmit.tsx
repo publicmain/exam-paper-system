@@ -210,32 +210,32 @@ export default function StudentHomeworkSubmitPage() {
       )}
       <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 mb-4">
         {pages.map((p: any, i: number) => (
-          <div key={p.id} className="relative bg-white border rounded overflow-hidden">
-            <div className="absolute top-1 left-1 z-10 flex gap-1">
-              <span className="bg-black/60 text-white text-xs rounded px-1.5 py-0.5">{i + 1}</span>
-              <span className="bg-white/90 border text-xs rounded px-1.5 py-0.5">
-                {p.source === 'ink' ? '✍️ 手写' : '📷 上传'}
+          <div key={p.id} className="bg-white border rounded-lg shadow-sm overflow-hidden">
+            {/* 卡片头部条：序号 + 来源 + 操作，不遮挡图片 */}
+            <div className="flex items-center justify-between px-2 py-1.5 border-b bg-gray-50">
+              <span className="text-xs font-medium text-gray-600">
+                {i + 1} · {p.source === 'ink' ? '✍️ 手写' : '📷 上传'}
               </span>
-            </div>
-            {editable && (
-              <div className="absolute top-1 right-1 z-10 flex gap-1">
-                {i > 0 && (
-                  <button className="bg-white/90 border rounded px-1.5 text-xs" title="上移"
+              {editable && (
+                <span className="flex gap-1">
+                  {i > 0 && (
+                    <button className="w-6 h-6 rounded border bg-white text-xs hover:bg-gray-100" title="上移"
+                      onClick={async () => {
+                        const ids = pages.map((x) => x.id);
+                        [ids[i - 1], ids[i]] = [ids[i], ids[i - 1]];
+                        await hwApi.reorderPages(assignmentId!, ids);
+                        load();
+                      }}>↑</button>
+                  )}
+                  <button className="w-6 h-6 rounded border bg-white text-xs text-red-500 hover:bg-red-50" title="删除"
                     onClick={async () => {
-                      const ids = pages.map((x) => x.id);
-                      [ids[i - 1], ids[i]] = [ids[i], ids[i - 1]];
-                      await hwApi.reorderPages(assignmentId!, ids);
+                      if (!confirm('删除这一页？')) return;
+                      await hwApi.deletePage(p.id);
                       load();
-                    }}>↑</button>
-                )}
-                <button className="bg-white/90 border rounded px-1.5 text-xs text-red-600" title="删除"
-                  onClick={async () => {
-                    if (!confirm('删除这一页？')) return;
-                    await hwApi.deletePage(p.id);
-                    load();
-                  }}>✕</button>
-              </div>
-            )}
+                    }}>✕</button>
+                </span>
+              )}
+            </div>
             {p.mimeType === 'application/pdf' ? (
               <div className="p-6 text-center text-sm text-gray-500">📄 PDF</div>
             ) : (
