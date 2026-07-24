@@ -313,6 +313,18 @@ export class HomeworkService {
       entityId: assignment.id,
       metadata: { homeworkId, classId: data.classId, dueAt: data.dueAt ?? null },
     });
+    // v2: tell the class there's new homework.
+    const students = await this.prisma.classEnrollment.findMany({
+      where: { classId: data.classId, role: 'student', user: { archivedAt: null } },
+      select: { userId: true },
+    });
+    await this.notify(
+      students.map((s) => s.userId),
+      'hw_assigned',
+      `新作业：${hw.title}`,
+      data.dueAt ? `截止 ${new Date(data.dueAt).toLocaleString('zh-CN')}` : null,
+      `/student/homework/${assignment.id}`,
+    );
     return assignment;
   }
 
@@ -591,7 +603,16 @@ export class HomeworkService {
   async setRubric(
     user: AuthUser,
     homeworkId: string,
-    questions: { id?: string; label: string; maxMarks: number; criteria?: string }[],
+    questions: {
+      id?: string;
+      label: string;
+      maxMarks: number;
+      criteria?: string;
+      // v2: question regions on the worksheet, clickable rubric items, topic tag
+      regions?: { fileId: string; page?: number | null; x: number; y: number; w: number; h: number }[];
+      items?: { id: string; label: string; delta: number }[];
+      topic?: string;
+    }[],
   ) {
     await this.assertHomeworkOwner(user, homeworkId);
     const graded = await this.prisma.homeworkGrade.count({
@@ -610,11 +631,154 @@ export class HomeworkService {
             label: q.label,
             maxMarks: q.maxMarks,
             criteria: q.criteria ?? null,
+            regions: q.regions ?? undefined,
+            items: q.items ?? undefined,
+            topic: q.topic ?? null,
           },
         });
       }
       return tx.homeworkQuestion.findMany({ where: { homeworkId }, orderBy: { order: 'asc' } });
     });
+  }
+
+  /**
+   * v2 — regions/items/topic can be edited even after grading started (the
+   * lock above only protects question identity + maxMarks, which grades
+   * depend on). Teachers refine regions or add rubric items mid-grading.
+   */
+  async updateQuestionMeta(
+    user: AuthUser,
+    questionId: string,
+    data: {
+      regions?: { fileId: string; page?: number | null; x: number; y: number; w: number; h: number }[];
+      items?: { id: string; label: string; delta: number }[];
+      topic?: string | null;
+      criteria?: string | null;
+    },
+  ) {
+    const q = await this.prisma.homeworkQuestion.findUnique({
+      where: { id: questionId },
+      include: { homework: true },
+    });
+    if (!q) throw new NotFoundException('question not found');
+    await this.assertHomeworkOwner(user, q.homeworkId);
+    return this.prisma.homeworkQuestion.update({
+      where: { id: questionId },
+      data: {
+        ...(data.regions !== undefined ? { regions: data.regions } : {}),
+        ...(data.items !== undefined ? { items: data.items } : {}),
+        ...(data.topic !== undefined ? { topic: data.topic } : {}),
+        ...(data.criteria !== undefined ? { criteria: data.criteria } : {}),
+      },
+    });
+  }
+
+  /**
+   * v2 — change one rubric item's delta and RETROACTIVELY re-score every
+   * grade that applied it (Gradescope's mid-grading rubric edit). Published
+   * submissions get their teacherScore re-summed too.
+   */
+  async updateRubricItemDelta(user: AuthUser, questionId: string, itemId: string, delta: number) {
+    const q = await this.prisma.homeworkQuestion.findUnique({
+      where: { id: questionId },
+      include: { homework: true },
+    });
+    if (!q) throw new NotFoundException('question not found');
+    await this.assertHomeworkOwner(user, q.homeworkId);
+    const items = (q.items as any[]) ?? [];
+    const item = items.find((x) => x.id === itemId);
+    if (!item) throw new BadRequestException('unknown rubric item');
+    item.delta = delta;
+
+    return this.prisma.$transaction(async (tx) => {
+      await tx.homeworkQuestion.update({ where: { id: questionId }, data: { items } });
+      // Re-score every grade that applied this item.
+      const grades = await tx.homeworkGrade.findMany({ where: { questionId } });
+      let rescored = 0;
+      for (const g of grades) {
+        const applied = (g.appliedItems as string[]) ?? [];
+        if (!applied.includes(itemId)) continue;
+        const sum = applied.reduce((s, id) => s + (items.find((x) => x.id === id)?.delta ?? 0), 0);
+        const clamped = Math.max(0, Math.min(q.maxMarks, sum));
+        await tx.homeworkGrade.update({ where: { id: g.id }, data: { awardedMarks: clamped } });
+        rescored++;
+        // Keep returned totals honest.
+        const sub = await tx.homeworkSubmission.findUnique({
+          where: { id: g.submissionId },
+          include: { grades: true },
+        });
+        if (sub?.status === 'returned') {
+          const total = sub.grades.reduce(
+            (s, x) => s + (x.id === g.id ? clamped : (x.awardedMarks ?? 0)),
+            0,
+          );
+          await tx.homeworkSubmission.update({ where: { id: sub.id }, data: { teacherScore: total } });
+        }
+      }
+      await this.audit.log({
+        actorId: user.id,
+        actorRole: user.role,
+        action: 'homework.rubric_item.rescore',
+        entityType: 'HomeworkQuestion',
+        entityId: questionId,
+        metadata: { itemId, delta, rescored },
+      });
+      return { rescored };
+    });
+  }
+
+  /** v2 — save teacher annotation strokes over one answer page (overlay). */
+  async saveAnnotations(user: AuthUser, pageId: string, strokes: unknown[]) {
+    const page = await this.prisma.homeworkPage.findUnique({
+      where: { id: pageId },
+      include: { submission: { include: { assignment: true } } },
+    });
+    if (!page) throw new NotFoundException('page not found');
+    if (!(await canActOnClass(this.prisma, user, page.submission.assignment.classId))) {
+      throw new ForbiddenException('not your class');
+    }
+    await this.prisma.homeworkPage.update({
+      where: { id: pageId },
+      data: { teacherInk: strokes as any },
+    });
+    return { ok: true };
+  }
+
+  /**
+   * v2 — grade-by-question: one question across the whole class. Returns each
+   * submitted student's pages plus this question's regions so the client can
+   * crop straight to the answer area. Vertical grading = Gradescope's core.
+   */
+  async byQuestion(user: AuthUser, assignmentId: string, questionId: string) {
+    const assignment = await this.prisma.homeworkAssignment.findUnique({
+      where: { id: assignmentId },
+      include: { homework: { include: { questions: { orderBy: { order: 'asc' } } } } },
+    });
+    if (!assignment) throw new NotFoundException('assignment not found');
+    if (!(await canActOnClass(this.prisma, user, assignment.classId))) {
+      throw new ForbiddenException('not your class');
+    }
+    const question = assignment.homework.questions.find((q) => q.id === questionId);
+    if (!question) throw new NotFoundException('question not found');
+    const subs = await this.prisma.homeworkSubmission.findMany({
+      where: { assignmentId, status: { in: ['submitted', 'returned'] } },
+      include: {
+        student: { select: { id: true, name: true } },
+        pages: { orderBy: { sortOrder: 'asc' } },
+        grades: { where: { questionId } },
+      },
+      orderBy: { submittedAt: 'asc' },
+    });
+    return {
+      question,
+      entries: subs.map((s) => ({
+        submissionId: s.id,
+        student: s.student,
+        status: s.status,
+        pages: s.pages.map((p) => ({ id: p.id, source: p.source, mimeType: p.mimeType })),
+        grade: s.grades[0] ?? null,
+      })),
+    };
   }
 
   private async gradableSubmission(user: AuthUser, submissionId: string, requireTeacher = true) {
@@ -632,26 +796,36 @@ export class HomeworkService {
     return sub;
   }
 
-  /** Teacher saves per-question marks (source='teacher', final). */
+  /** Teacher saves per-question marks (source='teacher', final).
+   *  v2: an entry may carry appliedItems (clicked rubric-item ids) — marks
+   *  are then derived server-side from the items' deltas, clamped to
+   *  [0, maxMarks], so client and server can never disagree on arithmetic. */
   async saveGrades(
     user: AuthUser,
     submissionId: string,
-    grades: { questionId: string; awardedMarks: number | null; comment?: string }[],
+    grades: { questionId: string; awardedMarks: number | null; comment?: string; appliedItems?: string[] }[],
   ) {
     const sub = await this.gradableSubmission(user, submissionId);
-    const validIds = new Set(sub.assignment.homework.questions.map((q) => q.id));
-    const maxByQ = new Map(sub.assignment.homework.questions.map((q) => [q.id, q.maxMarks]));
-    for (const g of grades) {
-      if (!validIds.has(g.questionId)) throw new BadRequestException('unknown question');
-      if (g.awardedMarks != null) {
-        const max = maxByQ.get(g.questionId)!;
-        if (g.awardedMarks < 0 || g.awardedMarks > max) {
-          throw new BadRequestException(`marks out of range for a question (0–${max})`);
-        }
+    const qById = new Map(sub.assignment.homework.questions.map((q) => [q.id, q]));
+    const resolved = grades.map((g) => {
+      const q = qById.get(g.questionId);
+      if (!q) throw new BadRequestException('unknown question');
+      let marks = g.awardedMarks;
+      if (g.appliedItems && g.appliedItems.length > 0) {
+        const items = ((q as any).items as any[]) ?? [];
+        const sum = g.appliedItems.reduce(
+          (s, id) => s + (items.find((x) => x.id === id)?.delta ?? 0),
+          0,
+        );
+        marks = Math.max(0, Math.min(q.maxMarks, sum));
       }
-    }
+      if (marks != null && (marks < 0 || marks > q.maxMarks)) {
+        throw new BadRequestException(`marks out of range for a question (0–${q.maxMarks})`);
+      }
+      return { ...g, awardedMarks: marks };
+    });
     await this.prisma.$transaction(
-      grades.map((g) =>
+      resolved.map((g) =>
         this.prisma.homeworkGrade.upsert({
           where: { submissionId_questionId: { submissionId, questionId: g.questionId } },
           create: {
@@ -661,12 +835,14 @@ export class HomeworkService {
             comment: g.comment ?? null,
             source: 'teacher',
             gradedById: user.id,
+            appliedItems: g.appliedItems ?? undefined,
           },
           update: {
             awardedMarks: g.awardedMarks,
             comment: g.comment ?? null,
             source: 'teacher',
             gradedById: user.id,
+            appliedItems: g.appliedItems ?? undefined,
           },
         }),
       ),
@@ -765,6 +941,14 @@ export class HomeworkService {
       entityId: submissionId,
       metadata: { total },
     });
+    // v2: tell the student their grades are back.
+    await this.notify(
+      [sub.studentId],
+      'hw_returned',
+      `作业已批改：${sub.assignment.homework.title}`,
+      `得分 ${total}`,
+      `/student/homework/${sub.assignmentId}`,
+    );
     return updated;
   }
 
@@ -804,6 +988,13 @@ export class HomeworkService {
         data: { status: 'returned', returnedAt: new Date(), teacherScore: total },
       });
       published.push(sub.id);
+      await this.notify(
+        [sub.studentId],
+        'hw_returned',
+        `作业已批改：${assignment.homework.title}`,
+        `得分 ${total}`,
+        `/student/homework/${assignmentId}`,
+      );
     }
     await this.audit.log({
       actorId: user.id,
@@ -1026,12 +1217,23 @@ export class HomeworkService {
     if (sub.status !== 'in_progress') throw new BadRequestException('already submitted');
     if (sub._count.pages === 0) throw new BadRequestException('upload at least one page first');
     const now = new Date();
+    // v2: version history — snapshot the submitted page manifest.
+    const manifest = await this.prisma.homeworkPage.findMany({
+      where: { submissionId: sub.id },
+      orderBy: { sortOrder: 'asc' },
+      select: { id: true, filename: true, source: true },
+    });
+    const history = [
+      ...(((sub as any).history as any[]) ?? []),
+      { at: now.toISOString(), event: 'submit', pages: manifest },
+    ];
     return this.prisma.homeworkSubmission.update({
       where: { id: sub.id },
       data: {
         status: 'submitted',
         submittedAt: now,
         isLate: !!assignment.dueAt && now > assignment.dueAt,
+        history,
       },
     });
   }
@@ -1056,10 +1258,262 @@ export class HomeworkService {
     if (!this.canSubmitNow(assignment, new Date())) {
       throw new BadRequestException('this assignment is closed');
     }
+    // v2: version history — keep the withdrawn manifest for the audit trail.
+    const pages = await this.prisma.homeworkPage.findMany({
+      where: { submissionId: sub.id },
+      orderBy: { sortOrder: 'asc' },
+      select: { id: true, filename: true, source: true },
+    });
+    const history = [
+      ...(((sub as any).history as any[]) ?? []),
+      { at: new Date().toISOString(), event: 'withdraw', pages },
+    ];
     return this.prisma.homeworkSubmission.update({
       where: { id: sub.id },
-      data: { status: 'in_progress', submittedAt: null, isLate: false },
+      data: { status: 'in_progress', submittedAt: null, isLate: false, history },
     });
+  }
+
+  // ------------------------------------------------------------------
+  // v2 — notifications (in-app; the bell polls, no push infra)
+  // ------------------------------------------------------------------
+
+  private async notify(
+    userIds: string[],
+    type: string,
+    title: string,
+    body: string | null,
+    link: string | null,
+  ) {
+    if (userIds.length === 0) return;
+    await this.prisma.notification.createMany({
+      data: userIds.map((userId) => ({ userId, type, title, body, link })),
+    });
+  }
+
+  async listNotifications(user: AuthUser) {
+    const [items, unread] = await Promise.all([
+      this.prisma.notification.findMany({
+        where: { userId: user.id },
+        orderBy: { createdAt: 'desc' },
+        take: 30,
+      }),
+      this.prisma.notification.count({ where: { userId: user.id, readAt: null } }),
+    ]);
+    return { unread, items };
+  }
+
+  async markNotificationsRead(user: AuthUser, ids?: string[]) {
+    await this.prisma.notification.updateMany({
+      where: { userId: user.id, readAt: null, ...(ids?.length ? { id: { in: ids } } : {}) },
+      data: { readAt: new Date() },
+    });
+    return { ok: true };
+  }
+
+  // ------------------------------------------------------------------
+  // v2 — regrade requests (dispute one question after return)
+  // ------------------------------------------------------------------
+
+  async fileRegrade(user: AuthUser, assignmentId: string, questionId: string, message: string) {
+    const assignment = await this.assertStudentAssignment(user, assignmentId);
+    const sub = await this.prisma.homeworkSubmission.findUnique({
+      where: { assignmentId_studentId: { assignmentId, studentId: user.id } },
+    });
+    if (!sub || sub.status !== 'returned') {
+      throw new BadRequestException('grades not returned yet');
+    }
+    const question = await this.prisma.homeworkQuestion.findFirst({
+      where: { id: questionId, homeworkId: assignment.homeworkId },
+    });
+    if (!question) throw new NotFoundException('question not found');
+    const existing = await this.prisma.regradeRequest.findUnique({
+      where: { submissionId_questionId: { submissionId: sub.id, questionId } },
+    });
+    if (existing) throw new BadRequestException('already filed for this question');
+    const req = await this.prisma.regradeRequest.create({
+      data: { submissionId: sub.id, questionId, studentId: user.id, message },
+    });
+    // Tell the teachers of that class.
+    const teachers = await this.prisma.classEnrollment.findMany({
+      where: { classId: assignment.classId, role: { not: 'student' } },
+      select: { userId: true },
+    });
+    await this.notify(
+      teachers.map((t) => t.userId),
+      'regrade_filed',
+      `申诉：${question.label}`,
+      message.slice(0, 120),
+      `/homework/assignments/${assignmentId}`,
+    );
+    return req;
+  }
+
+  async listRegrades(user: AuthUser, assignmentId: string) {
+    const assignment = await this.prisma.homeworkAssignment.findUnique({ where: { id: assignmentId } });
+    if (!assignment) throw new NotFoundException('assignment not found');
+    if (!(await canActOnClass(this.prisma, user, assignment.classId))) {
+      throw new ForbiddenException('not your class');
+    }
+    return this.prisma.regradeRequest.findMany({
+      where: { submission: { assignmentId } },
+      include: {
+        student: { select: { id: true, name: true } },
+        question: { select: { id: true, label: true } },
+      },
+      orderBy: [{ status: 'asc' }, { createdAt: 'desc' }],
+    });
+  }
+
+  async replyRegrade(user: AuthUser, requestId: string, reply: string) {
+    const req = await this.prisma.regradeRequest.findUnique({
+      where: { id: requestId },
+      include: {
+        submission: { include: { assignment: true } },
+        question: { select: { label: true } },
+      },
+    });
+    if (!req) throw new NotFoundException('regrade request not found');
+    if (!(await canActOnClass(this.prisma, user, req.submission.assignment.classId))) {
+      throw new ForbiddenException('not your class');
+    }
+    const updated = await this.prisma.regradeRequest.update({
+      where: { id: requestId },
+      data: { status: 'replied', reply, repliedById: user.id, resolvedAt: new Date() },
+    });
+    await this.notify(
+      [req.studentId],
+      'regrade_replied',
+      `申诉已回复：${req.question.label}`,
+      reply.slice(0, 120),
+      `/student/homework/${req.submission.assignmentId}`,
+    );
+    return updated;
+  }
+
+  /** Student view: their own regrades for one assignment. */
+  async myRegrades(user: AuthUser, assignmentId: string) {
+    return this.prisma.regradeRequest.findMany({
+      where: { studentId: user.id, submission: { assignmentId } },
+      select: { id: true, questionId: true, message: true, status: true, reply: true, createdAt: true, resolvedAt: true },
+    });
+  }
+
+  // ------------------------------------------------------------------
+  // v2 — class analytics + CSV export (data was already in HomeworkGrade)
+  // ------------------------------------------------------------------
+
+  async analytics(user: AuthUser, assignmentId: string) {
+    const assignment = await this.prisma.homeworkAssignment.findUnique({
+      where: { id: assignmentId },
+      include: { homework: { include: { questions: { orderBy: { order: 'asc' } } } } },
+    });
+    if (!assignment) throw new NotFoundException('assignment not found');
+    if (!(await canActOnClass(this.prisma, user, assignment.classId))) {
+      throw new ForbiddenException('not your class');
+    }
+    const subs = await this.prisma.homeworkSubmission.findMany({
+      where: { assignmentId, status: 'returned' },
+      include: { grades: true },
+    });
+    const questions = assignment.homework.questions;
+    const maxTotal = questions.reduce((s, q) => s + q.maxMarks, 0) || assignment.homework.totalMarks || 0;
+    // Score distribution in 5 bands of maxTotal.
+    const bands = [0, 0, 0, 0, 0];
+    for (const s of subs) {
+      if (s.teacherScore == null || !maxTotal) continue;
+      const r = s.teacherScore / maxTotal;
+      bands[Math.min(4, Math.floor(r * 5))]++;
+    }
+    // Per-question mean score rate + weakest ranking.
+    const perQuestion = questions.map((q) => {
+      const gs = subs.flatMap((s) => s.grades.filter((g) => g.questionId === q.id && g.awardedMarks != null));
+      const rate = gs.length ? gs.reduce((s, g) => s + (g.awardedMarks ?? 0), 0) / (gs.length * q.maxMarks) : null;
+      return { questionId: q.id, label: q.label, topic: q.topic, maxMarks: q.maxMarks, n: gs.length, rate };
+    });
+    const weakest = [...perQuestion].filter((x) => x.rate != null).sort((a, b) => a.rate! - b.rate!).slice(0, 3);
+    const scores = subs.map((s) => s.teacherScore).filter((x): x is number => x != null);
+    return {
+      returned: subs.length,
+      maxTotal,
+      mean: scores.length ? scores.reduce((a, b) => a + b, 0) / scores.length : null,
+      max: scores.length ? Math.max(...scores) : null,
+      min: scores.length ? Math.min(...scores) : null,
+      lateRate: subs.length ? subs.filter((s) => s.isLate).length / subs.length : 0,
+      bands,
+      perQuestion,
+      weakest,
+    };
+  }
+
+  async exportCsv(user: AuthUser, assignmentId: string): Promise<string> {
+    const assignment = await this.prisma.homeworkAssignment.findUnique({
+      where: { id: assignmentId },
+      include: { homework: { include: { questions: { orderBy: { order: 'asc' } } } } },
+    });
+    if (!assignment) throw new NotFoundException('assignment not found');
+    if (!(await canActOnClass(this.prisma, user, assignment.classId))) {
+      throw new ForbiddenException('not your class');
+    }
+    const subs = await this.prisma.homeworkSubmission.findMany({
+      where: { assignmentId },
+      include: { student: { select: { name: true, email: true } }, grades: true },
+      orderBy: { student: { name: 'asc' } },
+    });
+    const qs = assignment.homework.questions;
+    const esc = (v: unknown) => `"${String(v ?? '').replace(/"/g, '""')}"`;
+    const head = ['Student', 'Email', 'Status', 'Late', ...qs.map((q) => q.label), 'Total'].map(esc).join(',');
+    const rows = subs.map((s) => {
+      const byQ = new Map(s.grades.map((g) => [g.questionId, g.awardedMarks]));
+      return [
+        s.student.name, s.student.email, s.status, s.isLate ? 'yes' : '',
+        ...qs.map((q) => byQ.get(q.id) ?? ''),
+        s.teacherScore ?? '',
+      ].map(esc).join(',');
+    });
+    // BOM so Excel opens Chinese names correctly.
+    return '﻿' + [head, ...rows].join('\r\n');
+  }
+
+  // ------------------------------------------------------------------
+  // v2 — mistake book: every lost-mark question across a student's returned
+  // homework, grouped client-side by course/topic.
+  // ------------------------------------------------------------------
+
+  async myMistakes(user: AuthUser) {
+    const grades = await this.prisma.homeworkGrade.findMany({
+      where: {
+        submission: { studentId: user.id, status: 'returned' },
+        awardedMarks: { not: null },
+      },
+      include: {
+        question: true,
+        submission: {
+          include: {
+            assignment: {
+              include: { homework: { select: { id: true, title: true, course: { select: { id: true, name: true } } } } },
+            },
+          },
+        },
+      },
+      orderBy: { updatedAt: 'desc' },
+    });
+    return grades
+      .filter((g) => (g.awardedMarks ?? 0) < g.question.maxMarks)
+      .map((g) => ({
+        gradeId: g.id,
+        assignmentId: g.submission.assignmentId,
+        homework: g.submission.assignment.homework.title,
+        course: g.submission.assignment.homework.course?.name ?? null,
+        label: g.question.label,
+        topic: g.question.topic,
+        criteria: g.question.criteria,
+        awarded: g.awardedMarks,
+        maxMarks: g.question.maxMarks,
+        comment: g.comment,
+        rationale: g.rationale,
+        returnedAt: g.submission.returnedAt,
+      }));
   }
 
   /** Bytes for a page image: the owning student, or any teacher of the class. */

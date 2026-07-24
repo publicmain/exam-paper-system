@@ -67,6 +67,20 @@ const ReturnSchema = z.object({
 });
 
 // M3
+const RegionSchema = z.object({
+  fileId: z.string().min(1),
+  page: z.number().int().min(1).max(500).nullable().optional(),
+  x: z.number().min(0).max(1),
+  y: z.number().min(0).max(1),
+  w: z.number().min(0.005).max(1),
+  h: z.number().min(0.005).max(1),
+});
+const RubricItemSchema = z.object({
+  id: z.string().min(1).max(40),
+  label: z.string().min(1).max(200),
+  delta: z.number().min(-200).max(200),
+});
+
 const RubricSchema = z.object({
   questions: z
     .array(
@@ -74,10 +88,26 @@ const RubricSchema = z.object({
         label: z.string().min(1).max(40),
         maxMarks: z.number().int().min(1).max(200),
         criteria: z.string().max(5000).optional(),
+        regions: z.array(RegionSchema).max(8).optional(),
+        items: z.array(RubricItemSchema).max(20).optional(),
+        topic: z.string().max(80).optional(),
       }),
     )
     .max(50),
 });
+
+const QuestionMetaSchema = z.object({
+  regions: z.array(RegionSchema).max(8).optional(),
+  items: z.array(RubricItemSchema).max(20).optional(),
+  topic: z.string().max(80).nullable().optional(),
+  criteria: z.string().max(5000).nullable().optional(),
+});
+
+const ItemDeltaSchema = z.object({ delta: z.number().min(-200).max(200) });
+
+const AnnotationsSchema = z.object({ strokes: z.array(z.any()).max(2000) });
+
+const RegradeReplySchema = z.object({ reply: z.string().min(1).max(3000) });
 
 const SaveGradesSchema = z.object({
   grades: z
@@ -86,6 +116,7 @@ const SaveGradesSchema = z.object({
         questionId: z.string().min(1),
         awardedMarks: z.number().min(0).max(1000).nullable(),
         comment: z.string().max(3000).optional(),
+        appliedItems: z.array(z.string().max(40)).max(20).optional(),
       }),
     )
     .min(1)
@@ -280,6 +311,87 @@ export class HomeworkController {
   publishAll(@CurrentUser() user: AuthUser, @Param('id') id: string) {
     assertTeacher(user);
     return this.homework.publishAll(user, id);
+  }
+
+  // ---------- v2: regions / rubric items / annotations ----------
+
+  /** Edit one question's regions/items/topic (allowed even mid-grading). */
+  @Patch('homework-questions/:id')
+  updateQuestionMeta(@CurrentUser() user: AuthUser, @Param('id') id: string, @Body() body: unknown) {
+    assertTeacher(user);
+    return this.homework.updateQuestionMeta(user, id, parse<z.infer<typeof QuestionMetaSchema>>(QuestionMetaSchema, body));
+  }
+
+  /** Change a rubric item's delta — retroactively re-scores everyone who used it. */
+  @Patch('homework-questions/:id/items/:itemId')
+  updateItemDelta(
+    @CurrentUser() user: AuthUser,
+    @Param('id') id: string,
+    @Param('itemId') itemId: string,
+    @Body() body: unknown,
+  ) {
+    assertTeacher(user);
+    return this.homework.updateRubricItemDelta(user, id, itemId, parse<z.infer<typeof ItemDeltaSchema>>(ItemDeltaSchema, body).delta);
+  }
+
+  /** Save teacher annotation strokes over one answer page. */
+  @Put('homework-pages/:id/annotations')
+  saveAnnotations(@CurrentUser() user: AuthUser, @Param('id') id: string, @Body() body: unknown) {
+    assertTeacher(user);
+    return this.homework.saveAnnotations(user, id, parse<z.infer<typeof AnnotationsSchema>>(AnnotationsSchema, body).strokes);
+  }
+
+  /** Grade-by-question: one question across the whole class. */
+  @Get('homework-assignments/:id/by-question/:questionId')
+  byQuestion(
+    @CurrentUser() user: AuthUser,
+    @Param('id') id: string,
+    @Param('questionId') questionId: string,
+  ) {
+    assertTeacher(user);
+    return this.homework.byQuestion(user, id, questionId);
+  }
+
+  // ---------- v2: regrades / analytics / export ----------
+
+  @Get('homework-assignments/:id/regrades')
+  listRegrades(@CurrentUser() user: AuthUser, @Param('id') id: string) {
+    assertTeacher(user);
+    return this.homework.listRegrades(user, id);
+  }
+
+  @Post('regrade-requests/:id/reply')
+  replyRegrade(@CurrentUser() user: AuthUser, @Param('id') id: string, @Body() body: unknown) {
+    assertTeacher(user);
+    return this.homework.replyRegrade(user, id, parse<z.infer<typeof RegradeReplySchema>>(RegradeReplySchema, body).reply);
+  }
+
+  @Get('homework-assignments/:id/analytics')
+  analytics(@CurrentUser() user: AuthUser, @Param('id') id: string) {
+    assertTeacher(user);
+    return this.homework.analytics(user, id);
+  }
+
+  @Get('homework-assignments/:id/export.csv')
+  async exportCsv(@CurrentUser() user: AuthUser, @Param('id') id: string, @Res() res: Response) {
+    assertTeacher(user);
+    const csv = await this.homework.exportCsv(user, id);
+    res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+    res.setHeader('Content-Disposition', `attachment; filename="homework-${id}.csv"`);
+    res.send(csv);
+  }
+
+  // ---------- v2: notifications (any authenticated role) ----------
+
+  @Get('notifications')
+  notifications(@CurrentUser() user: AuthUser) {
+    return this.homework.listNotifications(user);
+  }
+
+  @Post('notifications/read')
+  markRead(@CurrentUser() user: AuthUser, @Body() body: unknown) {
+    const ids = (body as any)?.ids as string[] | undefined;
+    return this.homework.markNotificationsRead(user, Array.isArray(ids) ? ids : undefined);
   }
 
   /** Page bytes: owning student or class teacher (checked in service). */

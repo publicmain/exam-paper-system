@@ -69,6 +69,9 @@ model User {
   homeworkAssignmentsMade      HomeworkAssignment[]     @relation("HomeworkAssignedBy")
   homeworkSubmissions          HomeworkSubmission[]     @relation("HomeworkSubmissionStudent")
   homeworkGraded               HomeworkGrade[]          @relation("HomeworkGradedBy")
+  regradeRequests              RegradeRequest[]         @relation("RegradeStudent")
+  regradeReplies               RegradeRequest[]         @relation("RegradeRepliedBy")
+  notifications                Notification[]           @relation("UserNotifications")
 }
 
 // ============================================================
@@ -1715,14 +1718,61 @@ model HomeworkSubmission {
   teacherScore   Float?
   teacherComment String?            @db.Text
   returnedAt     DateTime?
+  // v2 — submission version history: [{at,event:'submit'|'withdraw',pages:[{id,filename,source}]}].
+  // Appended on every submit/withdraw so resubmissions keep an audit trail
+  // (Canvas keeps prior versions; we keep the manifest).
+  history        Json?
 
-  pages    HomeworkPage[]
-  inkPages HomeworkInkPage[]
-  grades   HomeworkGrade[]
+  pages           HomeworkPage[]
+  inkPages        HomeworkInkPage[]
+  grades          HomeworkGrade[]
+  regradeRequests RegradeRequest[]
 
   @@unique([assignmentId, studentId])
   @@index([studentId])
   @@index([assignmentId, status])
+}
+
+// v2 — a student disputes one question's grade after return. Lifecycle:
+// open → replied. The teacher's reply may come with a grade change (done
+// through the normal grades endpoint so the audit trail stays in one place).
+model RegradeRequest {
+  id           String             @id @default(cuid())
+  submissionId String
+  submission   HomeworkSubmission @relation(fields: [submissionId], references: [id], onDelete: Cascade)
+  questionId   String
+  question     HomeworkQuestion   @relation(fields: [questionId], references: [id], onDelete: Cascade)
+  studentId    String
+  student      User               @relation("RegradeStudent", fields: [studentId], references: [id], onDelete: Restrict)
+  message      String             @db.Text
+  // 'open' | 'replied'
+  status       String             @default("open")
+  reply        String?            @db.Text
+  repliedById  String?
+  repliedBy    User?              @relation("RegradeRepliedBy", fields: [repliedById], references: [id], onDelete: SetNull)
+  resolvedAt   DateTime?
+  createdAt    DateTime           @default(now())
+
+  @@unique([submissionId, questionId]) // one dispute per question
+  @@index([submissionId])
+}
+
+// v2 — in-app notifications: assigned homework, grades returned, regrade
+// filed/replied. Deliberately simple (no push infra): the bell polls.
+model Notification {
+  id        String    @id @default(cuid())
+  userId    String
+  user      User      @relation("UserNotifications", fields: [userId], references: [id], onDelete: Cascade)
+  // 'hw_assigned' | 'hw_returned' | 'regrade_filed' | 'regrade_replied'
+  type      String
+  title     String
+  body      String?   @db.Text
+  link      String? // SPA path to jump to
+  readAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  @@index([userId, readAt])
+  @@index([userId, createdAt])
 }
 
 // M3 — one rubric line of a homework: a question with its max marks and
@@ -1737,9 +1787,22 @@ model HomeworkQuestion {
   label      String // "Q1", "1(a)"
   maxMarks   Int
   criteria   String?  @db.Text // reference answer / marking points
+  // v2 — question regions on the worksheet: [{fileId,page,x,y,w,h}] with
+  // normalized 0..1 coords. Foundation for grade-by-question (crop+zoom to
+  // the answer area) and for deterministic AI cropping instead of visual
+  // guessing. page is 1-based for PDFs, null for images.
+  regions    Json?
+  // v2 — clickable rubric items: [{id,label,delta}]. delta may be + or -.
+  // Applying items sums into awardedMarks; appliedItems on the grade keeps
+  // the link so changing an item's delta retroactively re-scores everyone.
+  items      Json?
+  // v2 — knowledge-point tag ("三角比", "二倍角公式"…) powering the mistake
+  // book's per-topic grouping. AI question-splitting writes this too.
+  topic      String?
   createdAt  DateTime @default(now())
 
-  grades HomeworkGrade[]
+  grades          HomeworkGrade[]
+  regradeRequests RegradeRequest[]
 
   @@index([homeworkId])
 }
@@ -1763,6 +1826,10 @@ model HomeworkGrade {
   rationale    String?            @db.Text // AI one-line reason
   gradedById   String?
   gradedBy     User?              @relation("HomeworkGradedBy", fields: [gradedById], references: [id], onDelete: SetNull)
+  // v2 — ids of the rubric items applied to reach awardedMarks. Kept so a
+  // later change to an item's delta can retroactively re-score every grade
+  // that used it (Gradescope's "modify rubric mid-grading" behaviour).
+  appliedItems Json?
   updatedAt    DateTime           @updatedAt
 
   @@unique([submissionId, questionId])
@@ -1782,6 +1849,10 @@ model HomeworkPage {
   // Lets the teacher UI label handwriting pages and lets the client
   // re-flatten ink safely (delete prior source='ink' pages first).
   source       String             @default("upload")
+  // v2 — teacher annotations drawn over this page in the grading console:
+  // same stroke format as HomeworkInkPage. Rendered as an overlay for the
+  // student after return — the original image is never mutated.
+  teacherInk   Json?
   createdAt    DateTime           @default(now())
 
   @@index([submissionId])

@@ -44,6 +44,11 @@ const SaveInkSchema = z.object({
   ).max(2000),
 });
 
+const RegradeSchema = z.object({
+  questionId: z.string().min(1),
+  message: z.string().min(1).max(2000),
+});
+
 function assertStudent(user: AuthUser) {
   if (user.role !== ROLE_STUDENT) throw new ForbiddenException('students only');
 }
@@ -58,10 +63,37 @@ export class StudentHomeworkController {
     return this.homework.listForStudent(user);
   }
 
+  /** v2 mistake book — literal path, declared before :assignmentId. */
+  @Get('mistakes')
+  mistakes(@CurrentUser() user: AuthUser) {
+    assertStudent(user);
+    return this.homework.myMistakes(user);
+  }
+
   @Get(':assignmentId')
   detail(@CurrentUser() user: AuthUser, @Param('assignmentId') assignmentId: string) {
     assertStudent(user);
     return this.homework.studentDetail(user, assignmentId);
+  }
+
+  /** v2 — dispute one question's grade after return. */
+  @Post(':assignmentId/regrade')
+  fileRegrade(
+    @CurrentUser() user: AuthUser,
+    @Param('assignmentId') assignmentId: string,
+    @Body() body: unknown,
+  ) {
+    assertStudent(user);
+    const parsed = RegradeSchema.safeParse(body);
+    if (!parsed.success) throw new BadRequestException(parsed.error.issues[0]?.message ?? 'invalid');
+    return this.homework.fileRegrade(user, assignmentId, parsed.data.questionId, parsed.data.message);
+  }
+
+  /** v2 — my regrade requests for this assignment. */
+  @Get(':assignmentId/regrades')
+  myRegrades(@CurrentUser() user: AuthUser, @Param('assignmentId') assignmentId: string) {
+    assertStudent(user);
+    return this.homework.myRegrades(user, assignmentId);
   }
 
   /** Photo pages, multipart field name "pages". iPad Safari's
