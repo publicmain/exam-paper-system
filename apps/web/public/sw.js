@@ -9,7 +9,10 @@
 //     filenames) → cache-first for instant repeat loads.
 //
 // Bump CACHE on any change to this file so old caches are evicted.
-const CACHE = 'zaoce-pwa-v2';
+// v3: evict caches poisoned by the pre-fix nginx serving .mjs as
+// application/octet-stream (pdf.js worker) — cache-first kept replaying
+// the bad MIME even after the server was fixed.
+const CACHE = 'zaoce-pwa-v3';
 
 self.addEventListener('install', (event) => {
   // Activate this SW immediately instead of waiting for old tabs to close.
