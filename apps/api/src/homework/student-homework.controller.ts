@@ -101,6 +101,13 @@ export class StudentHomeworkController {
     return this.homework.submit(user, assignmentId);
   }
 
+  /** Withdraw to resubmit — only before any grading starts (checked in service). */
+  @Post(':assignmentId/withdraw')
+  withdraw(@CurrentUser() user: AuthUser, @Param('assignmentId') assignmentId: string) {
+    assertStudent(user);
+    return this.homework.withdraw(user, assignmentId);
+  }
+
   // ---------- M2: handwriting (ink) ----------
 
   @Get(':assignmentId/ink')

@@ -275,6 +275,13 @@ export class HomeworkController {
     return this.homework.publishGrades(user, id, parse<{ teacherComment?: string }>(PublishSchema, body).teacherComment);
   }
 
+  /** Bulk publish every fully teacher-confirmed submission of an assignment. */
+  @Post('homework-assignments/:id/publish-all')
+  publishAll(@CurrentUser() user: AuthUser, @Param('id') id: string) {
+    assertTeacher(user);
+    return this.homework.publishAll(user, id);
+  }
+
   /** Page bytes: owning student or class teacher (checked in service). */
   @Get('homework-pages/:pageId/content')
   async pageContent(

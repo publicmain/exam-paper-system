@@ -424,10 +424,25 @@ function NewHomeworkModal({ busy, onClose, onCreate }: any) {
   );
 }
 
+/** 把 Date 转 datetime-local 需要的本地格式 yyyy-MM-ddTHH:mm。 */
+function toLocalInput(d: Date): string {
+  const p = (n: number) => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}T${p(d.getHours())}:${p(d.getMinutes())}`;
+}
+
 function AssignModal({ hw, classes, busy, onClose, onAssign }: any) {
   const [classId, setClassId] = useState('');
   const [dueAt, setDueAt] = useState('');
   const [allowLate, setAllowLate] = useState(true);
+
+  function quickDue(kind: 'tonight' | 'tomorrow' | 'sunday') {
+    const d = new Date();
+    if (kind === 'tomorrow') d.setDate(d.getDate() + 1);
+    if (kind === 'sunday') d.setDate(d.getDate() + ((7 - d.getDay()) % 7 || 7));
+    d.setHours(23, 59, 0, 0);
+    setDueAt(toLocalInput(d));
+  }
+
   return (
     <Modal title={`布置「${hw.title}」`} onClose={onClose}>
       <label className="block text-sm mb-1">班级</label>
@@ -438,6 +453,12 @@ function AssignModal({ hw, classes, busy, onClose, onAssign }: any) {
         ))}
       </select>
       <label className="block text-sm mb-1">截止时间（可选）</label>
+      <div className="flex gap-1 mb-1">
+        <button type="button" className="text-xs px-2 py-1 rounded bg-gray-100 hover:bg-gray-200" onClick={() => quickDue('tonight')}>今晚 23:59</button>
+        <button type="button" className="text-xs px-2 py-1 rounded bg-gray-100 hover:bg-gray-200" onClick={() => quickDue('tomorrow')}>明晚 23:59</button>
+        <button type="button" className="text-xs px-2 py-1 rounded bg-gray-100 hover:bg-gray-200" onClick={() => quickDue('sunday')}>周日 23:59</button>
+        {dueAt && <button type="button" className="text-xs px-2 py-1 rounded text-gray-500 hover:bg-gray-100" onClick={() => setDueAt('')}>清除</button>}
+      </div>
       <input className="input w-full mb-3" type="datetime-local" value={dueAt}
         onChange={(e) => setDueAt(e.target.value)} />
       <label className="flex items-center gap-2 text-sm mb-4">

@@ -420,7 +420,13 @@ export class HomeworkService {
     const assignment = await this.prisma.homeworkAssignment.findUnique({
       where: { id: assignmentId },
       include: {
-        homework: { include: { course: true, files: { orderBy: { sortOrder: 'asc' } } } },
+        homework: {
+          include: {
+            course: true,
+            files: { orderBy: { sortOrder: 'asc' } },
+            questions: { select: { id: true } },
+          },
+        },
         class: {
           include: {
             enrollments: {
@@ -429,17 +435,26 @@ export class HomeworkService {
             },
           },
         },
-        submissions: { include: { _count: { select: { pages: true } } } },
+        submissions: {
+          include: {
+            _count: { select: { pages: true } },
+            grades: { select: { source: true, awardedMarks: true } },
+          },
+        },
       },
     });
     if (!assignment) throw new NotFoundException('assignment not found');
     if (!(await canActOnClass(this.prisma, user, assignment.classId))) {
       throw new ForbiddenException('not your class');
     }
+    const questionCount = assignment.homework.questions.length;
     const byStudent = new Map(assignment.submissions.map((s) => [s.studentId, s]));
     const roster = assignment.class.enrollments
       .map((e) => {
         const sub = byStudent.get(e.user.id);
+        const teacherGraded =
+          sub?.grades.filter((g) => g.source === 'teacher' && g.awardedMarks != null).length ?? 0;
+        const aiPending = sub?.grades.filter((g) => g.source === 'ai_suggested').length ?? 0;
         return {
           student: e.user,
           submissionId: sub?.id ?? null,
@@ -448,6 +463,12 @@ export class HomeworkService {
           submittedAt: sub?.submittedAt ?? null,
           pageCount: sub?._count.pages ?? 0,
           teacherScore: sub?.teacherScore ?? null,
+          // Grading progress for the roster badges + bulk publish gating.
+          questionCount,
+          teacherGraded,
+          aiPending,
+          readyToPublish:
+            sub?.status === 'submitted' && questionCount > 0 && teacherGraded === questionCount,
         };
       })
       .sort((a, b) => a.student.name.localeCompare(b.student.name));
@@ -726,6 +747,54 @@ export class HomeworkService {
     return updated;
   }
 
+  /** Bulk publish: every submitted submission of the assignment whose rubric is
+   *  fully teacher-confirmed. Skips (never fails on) the rest, so the teacher
+   *  can publish the reviewed half of the class and keep grading. */
+  async publishAll(user: AuthUser, assignmentId: string) {
+    const assignment = await this.prisma.homeworkAssignment.findUnique({
+      where: { id: assignmentId },
+      include: { homework: { include: { questions: { select: { id: true } } } } },
+    });
+    if (!assignment) throw new NotFoundException('assignment not found');
+    if (!(await canActOnClass(this.prisma, user, assignment.classId))) {
+      throw new ForbiddenException('not your class');
+    }
+    const qIds = assignment.homework.questions.map((q) => q.id);
+    if (qIds.length === 0) throw new BadRequestException('this homework has no rubric');
+    const subs = await this.prisma.homeworkSubmission.findMany({
+      where: { assignmentId, status: 'submitted' },
+      include: { grades: true },
+    });
+    const published: string[] = [];
+    const skipped: { submissionId: string; reason: string }[] = [];
+    for (const sub of subs) {
+      const byQ = new Map(sub.grades.map((g) => [g.questionId, g]));
+      const unconfirmed = qIds.filter((id) => {
+        const g = byQ.get(id);
+        return !g || g.awardedMarks == null || g.source !== 'teacher';
+      });
+      if (unconfirmed.length > 0) {
+        skipped.push({ submissionId: sub.id, reason: `${unconfirmed.length} question(s) not teacher-confirmed` });
+        continue;
+      }
+      const total = qIds.reduce((s, id) => s + (byQ.get(id)!.awardedMarks ?? 0), 0);
+      await this.prisma.homeworkSubmission.update({
+        where: { id: sub.id },
+        data: { status: 'returned', returnedAt: new Date(), teacherScore: total },
+      });
+      published.push(sub.id);
+    }
+    await this.audit.log({
+      actorId: user.id,
+      actorRole: user.role,
+      action: 'homework.grades.publish_all',
+      entityType: 'HomeworkAssignment',
+      entityId: assignmentId,
+      metadata: { published: published.length, skipped: skipped.length },
+    });
+    return { published: published.length, skipped };
+  }
+
   // ---------- Student side ----------
 
   async listForStudent(user: AuthUser) {
@@ -943,6 +1012,32 @@ export class HomeworkService {
         submittedAt: now,
         isLate: !!assignment.dueAt && now > assignment.dueAt,
       },
+    });
+  }
+
+  /** Student withdraws a submission to fix/add pages (Canvas-style resubmit).
+   *  Only while: still 'submitted', assignment still open, and NO grading has
+   *  started — once a teacher or AI has touched it, withdrawal would silently
+   *  invalidate marks, so it's blocked. */
+  async withdraw(user: AuthUser, assignmentId: string) {
+    const assignment = await this.assertStudentAssignment(user, assignmentId);
+    const sub = await this.prisma.homeworkSubmission.findUnique({
+      where: { assignmentId_studentId: { assignmentId, studentId: user.id } },
+      include: { _count: { select: { grades: true } } },
+    });
+    if (!sub) throw new NotFoundException('no submission');
+    if (sub.status !== 'submitted') {
+      throw new BadRequestException(sub.status === 'returned' ? 'already graded and returned' : 'not submitted yet');
+    }
+    if (sub._count.grades > 0) {
+      throw new BadRequestException('grading has already started — ask your teacher to reopen it');
+    }
+    if (!this.canSubmitNow(assignment, new Date())) {
+      throw new BadRequestException('this assignment is closed');
+    }
+    return this.prisma.homeworkSubmission.update({
+      where: { id: sub.id },
+      data: { status: 'in_progress', submittedAt: null, isLate: false },
     });
   }
 

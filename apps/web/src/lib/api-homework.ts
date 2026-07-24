@@ -92,6 +92,8 @@ export const hwApi = {
   reorderPages: (assignmentId: string, pageIds: string[]) =>
     req('PATCH', `/student/homework/${assignmentId}/pages/reorder`, { pageIds }),
   submitHomework: (assignmentId: string) => req('POST', `/student/homework/${assignmentId}/submit`),
+  withdrawHomework: (assignmentId: string) => req('POST', `/student/homework/${assignmentId}/withdraw`),
+  publishAll: (assignmentId: string) => req('POST', `/homework-assignments/${assignmentId}/publish-all`),
 
   // student — M2 handwriting (ink)
   listInk: (assignmentId: string) => req('GET', `/student/homework/${assignmentId}/ink`),

@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
 import { hwApi, hwFileContentPath } from '../lib/api-homework';
-import { HandwritingCanvas, Stroke, flattenInkToPng } from './HandwritingCanvas';
+import { finishInkDrafts } from '../lib/ink-flatten';
+import { HandwritingCanvas, Stroke } from './HandwritingCanvas';
 
 /**
  * 手写作答工作区（M2）。整屏弹层，学生用 Apple Pencil 逐页书写。
@@ -195,23 +196,22 @@ export function HandwritingWorkspace({
     setFinishing(true);
     setErr('');
     try {
-      // Ensure latest strokes are saved first.
+      // Ensure latest strokes are saved first, then run the shared
+      // flatten→upload→delete-drafts pipeline (same one the submit-time
+      // rescue uses, so behaviour can't drift).
       for (const p of pages.filter((x) => x.dirty)) {
         await hwApi.saveInk(p.id, p.strokes).catch(() => {});
       }
-      // Flatten each ink page → PNG → upload as source=ink page. Off-screen
-      // render so every page exports, not just the one currently mounted.
-      const files: File[] = [];
-      for (let i = 0; i < pages.length; i++) {
-        const p = pages[i];
-        if (p.strokes.length === 0) continue;
-        const blob = await flattenInkToPng(p.strokes, p.width, p.height, p.bgUrl);
-        if (blob) files.push(new File([blob], `handwriting-${i + 1}.png`, { type: 'image/png' }));
-      }
-      if (files.length === 0) throw new Error('导出失败，请重试');
-      await hwApi.uploadInkFlattened(assignmentId, files);
-      // Clear ink drafts now that they're flattened (avoids double-adding).
-      for (const p of pages) await hwApi.deleteInkPage(p.id).catch(() => {});
+      await finishInkDrafts(
+        assignmentId,
+        pages.map((p) => ({
+          id: p.id,
+          strokes: p.strokes,
+          width: p.width,
+          height: p.height,
+          backgroundFileId: p.backgroundFileId,
+        })),
+      );
       onFinished();
     } catch (e: any) {
       setErr(e.message);
