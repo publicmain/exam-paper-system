@@ -112,10 +112,20 @@ export function IELTSReadingPassage({ paper }: { paper: ExamPaper }) {
   // so the first non-empty render after a refetch reordered them and
   // React threw the "Rules of Hooks" violation.
   const { fontScale } = useExam();
-  // Mobile pane toggle — the split collapses to a stack on iPad portrait
-  // and phones; the user picks which side to look at. Default to questions
-  // since that's where they'll spend most of their time.
-  const [mobileSide, setMobileSide] = useState<'left' | 'right'>('right');
+  // Mobile pane toggle — below lg the split collapses to a stack and only
+  // ONE side is shown at a time; the student switches with the segmented
+  // control below.
+  //
+  // 2026-07-24 incident: on 07-24 the ielts_authentic session ran a real
+  // Cambridge reading passage (cambridge_ielts_8/Test1/P1). Students on
+  // phones reported "扫码后看不到文章，只能看到题目" — the split defaulted
+  // to the Questions pane and the old toggle (grey text, no border) didn't
+  // read as tappable, so they never found the passage. iPad-landscape
+  // users (lg+, both panes visible) were unaffected, which is why "not
+  // everyone" hit it. Fix: default to the PASSAGE side so the first thing
+  // a student sees is the text they're worried about missing, and make the
+  // toggle an unmistakable segmented control (see the tablist below).
+  const [mobileSide, setMobileSide] = useState<'left' | 'right'>('left');
   const passageContent = paper?.questions?.[0]?.snapshotContent ?? {};
   const passageTitle = clean(passageContent.passageTitle ?? 'Reading Passage');
   const passageBody = useMemo(() => reflowPassage(clean(passageContent.passage ?? '')), [passageContent.passage]);
@@ -147,22 +157,40 @@ export function IELTSReadingPassage({ paper }: { paper: ExamPaper }) {
       style={{ ['--mq-fs' as any]: String(fontScale) }}
     >
       {/* Mobile pane switch — only visible below lg.  On lg+ the split
-          renders both panes side-by-side. */}
-      <div className="lg:hidden flex justify-center gap-1 px-3 py-2 border-b bg-white sticky top-14 z-10">
-        <button
-          type="button"
-          onClick={() => setMobileSide('left')}
-          className={`px-4 py-1.5 rounded-md text-sm font-medium ${mobileSide === 'left' ? 'bg-blue-600 text-white' : 'text-gray-700'}`}
-        >
-          原文 · Passage
-        </button>
-        <button
-          type="button"
-          onClick={() => setMobileSide('right')}
-          className={`px-4 py-1.5 rounded-md text-sm font-medium ${mobileSide === 'right' ? 'bg-blue-600 text-white' : 'text-gray-700'}`}
-        >
-          题目 · Questions
-        </button>
+          renders both panes side-by-side (no toggle needed).
+
+          Rendered as a full-width segmented control: a filled container
+          with two equal tabs and a white "pill" on the active one. The
+          old version was two loose buttons where the inactive one was
+          plain grey text with no border, so it didn't look tappable and
+          students missed the passage (2026-07-24 incident). Both tabs now
+          clearly read as a two-way switch, with an icon for instant
+          recognition. */}
+      <div className="lg:hidden sticky top-14 z-10 bg-white border-b px-3 py-2">
+        <div className="flex gap-1 p-1 rounded-lg bg-gray-100" role="tablist" aria-label="切换原文 / 题目">
+          <button
+            type="button"
+            role="tab"
+            aria-selected={mobileSide === 'left'}
+            onClick={() => setMobileSide('left')}
+            className={`flex-1 px-3 py-2 rounded-md text-sm font-semibold transition-colors ${
+              mobileSide === 'left' ? 'bg-white text-blue-700 shadow-sm' : 'text-gray-600 active:bg-gray-200'
+            }`}
+          >
+            📖 原文 · Passage
+          </button>
+          <button
+            type="button"
+            role="tab"
+            aria-selected={mobileSide === 'right'}
+            onClick={() => setMobileSide('right')}
+            className={`flex-1 px-3 py-2 rounded-md text-sm font-semibold transition-colors ${
+              mobileSide === 'right' ? 'bg-white text-blue-700 shadow-sm' : 'text-gray-600 active:bg-gray-200'
+            }`}
+          >
+            ✎ 题目 · Questions
+          </button>
+        </div>
       </div>
 
       <DraggableSplit
