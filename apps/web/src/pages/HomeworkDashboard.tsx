@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { hwApi, hwPageContentPath } from '../lib/api-homework';
 import { AuthImage } from '../components/AuthImage';
+import { PdfPreview } from '../components/PdfPreview';
 
 const STATUS_LABEL: Record<string, { text: string; cls: string }> = {
   missing: { text: '未交', cls: 'bg-gray-100 text-gray-600' },
@@ -238,16 +239,8 @@ function GradingConsole({ submissionId, gradableIds, onNavigate, onClose }: {
                     <span className="ml-1">{p.source === 'ink' ? '✍️ 手写' : '📷 上传'}</span>
                   </div>
                   {p.mimeType === 'application/pdf' ? (
-                    <div className="text-sm bg-white rounded border p-4">
-                      📄 PDF — <a className="text-blue-600 hover:underline" href="#"
-                        onClick={async (e) => {
-                          e.preventDefault();
-                          const token = localStorage.getItem('auth_token');
-                          const base = (import.meta as any).env?.VITE_API_URL || '';
-                          const res = await fetch(`${base}${hwPageContentPath(p.id)}`,
-                            { headers: token ? { Authorization: `Bearer ${token}` } : {} });
-                          window.open(URL.createObjectURL(await res.blob()), '_blank');
-                        }}>打开</a>
+                    <div className="bg-white rounded border">
+                      <PdfPreview contentPath={hwPageContentPath(p.id)} />
                     </div>
                   ) : (
                     <div className={zoomed ? 'overflow-auto' : ''}>

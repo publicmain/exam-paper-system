@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
-import { hwApi, hwFileContentPath } from '../lib/api-homework';
-import { finishInkDrafts } from '../lib/ink-flatten';
+import { hwApi } from '../lib/api-homework';
+import { finishInkDrafts, resolveBgUrl } from '../lib/ink-flatten';
 import { HandwritingCanvas, Stroke } from './HandwritingCanvas';
 
 /**
@@ -24,6 +24,7 @@ interface InkPageState {
   width: number;
   height: number;
   backgroundFileId: string | null;
+  backgroundPage: number | null; // PDF page (1-based) when bg is a PDF
   bgUrl: string | null; // authorized object URL
   dirty: boolean;
   saving: boolean;
@@ -52,18 +53,14 @@ export function HandwritingWorkspace({
   const bgUrlCache = useRef<Record<string, string>>({});
 
   const imageQuestionFiles = questionFiles.filter((f) => f.mimeType.startsWith('image/'));
+  const pdfQuestionFiles = questionFiles.filter((f) => f.mimeType === 'application/pdf');
 
-  // Fetch an authorized object URL for a question-image background.
-  const bgUrlFor = useCallback(async (fileId: string): Promise<string | null> => {
-    if (bgUrlCache.current[fileId]) return bgUrlCache.current[fileId];
-    const token = localStorage.getItem('auth_token');
-    const base = (import.meta as any).env?.VITE_API_URL || '';
-    const res = await fetch(`${base}${hwFileContentPath(fileId)}`, {
-      headers: token ? { Authorization: `Bearer ${token}` } : {},
-    });
-    if (!res.ok) return null;
-    const url = URL.createObjectURL(await res.blob());
-    bgUrlCache.current[fileId] = url;
+  // Background resolver (image blob OR pdf.js-rendered page), cached per file:page.
+  const bgUrlFor = useCallback(async (fileId: string, page: number | null): Promise<string | null> => {
+    const key = `${fileId}:${page ?? ''}`;
+    if (bgUrlCache.current[key]) return bgUrlCache.current[key];
+    const url = await resolveBgUrl(fileId, page);
+    if (url) bgUrlCache.current[key] = url;
     return url;
   }, []);
 
@@ -74,13 +71,16 @@ export function HandwritingWorkspace({
         const { pages: raw } = await hwApi.listInk(assignmentId);
         const loaded: InkPageState[] = [];
         for (const p of raw) {
-          const bgUrl = p.backgroundFileId ? await bgUrlFor(p.backgroundFileId) : null;
+          const bgUrl = p.backgroundFileId
+            ? await bgUrlFor(p.backgroundFileId, p.backgroundPage ?? null)
+            : null;
           loaded.push({
             id: p.id,
             strokes: Array.isArray(p.strokes) ? p.strokes : [],
             width: p.width,
             height: p.height,
             backgroundFileId: p.backgroundFileId,
+            backgroundPage: p.backgroundPage ?? null,
             bgUrl,
             dirty: false,
             saving: false,
@@ -119,13 +119,13 @@ export function HandwritingWorkspace({
     return () => clearTimeout(t);
   }, [pages]);
 
-  async function addPage(backgroundFileId?: string) {
+  async function addPage(backgroundFileId?: string, backgroundPage?: number) {
     setErr('');
     try {
       let width = A4.w, height = A4.h;
       let bgUrl: string | null = null;
       if (backgroundFileId) {
-        bgUrl = await bgUrlFor(backgroundFileId);
+        bgUrl = await bgUrlFor(backgroundFileId, backgroundPage ?? null);
         if (bgUrl) {
           const dim = await imgDims(bgUrl);
           // fit within A4 width, preserve aspect
@@ -133,7 +133,12 @@ export function HandwritingWorkspace({
           height = Math.round((dim.h / dim.w) * A4.w);
         }
       }
-      const created = await hwApi.createInkPage(assignmentId, { width, height, backgroundFileId });
+      const created = await hwApi.createInkPage(assignmentId, {
+        width,
+        height,
+        backgroundFileId,
+        backgroundPage,
+      });
       setPages((ps) => [
         ...ps,
         {
@@ -142,6 +147,7 @@ export function HandwritingWorkspace({
           width,
           height,
           backgroundFileId: backgroundFileId ?? null,
+          backgroundPage: backgroundPage ?? null,
           bgUrl,
           dirty: false,
           saving: false,
@@ -210,6 +216,7 @@ export function HandwritingWorkspace({
           width: p.width,
           height: p.height,
           backgroundFileId: p.backgroundFileId,
+          backgroundPage: p.backgroundPage,
         })),
       );
       onFinished();
@@ -288,12 +295,20 @@ export function HandwritingWorkspace({
           ))}
           <button className="w-full px-2 py-2 rounded bg-gray-700 text-sm hover:bg-gray-600"
             onClick={() => addPage()}>＋ 空白页</button>
-          {imageQuestionFiles.length > 0 && (
+          {(imageQuestionFiles.length > 0 || pdfQuestionFiles.length > 0) && (
             <div className="pt-1 border-t border-gray-600">
-              <div className="text-xs text-gray-400 px-1 py-1">以题目图为底：</div>
+              <div className="text-xs text-gray-400 px-1 py-1">在卷面上直接写：</div>
               {imageQuestionFiles.map((f) => (
                 <button key={f.id} className="w-full px-2 py-1 rounded bg-gray-700 text-xs hover:bg-gray-600 mb-1 truncate"
-                  onClick={() => addPage(f.id)} title={f.filename}>＋ {f.filename}</button>
+                  onClick={() => addPage(f.id)} title={f.filename}>＋ 🖼 {f.filename}</button>
+              ))}
+              {pdfQuestionFiles.map((f) => (
+                <PdfBgPicker key={f.id} file={f}
+                  onPickPage={(page) => addPage(f.id, page)}
+                  onPickAll={async (pageCount) => {
+                    // 整卷逐页建页（真实场景：一份 PDF 卷子每页都要写）
+                    for (let p = 1; p <= pageCount; p++) await addPage(f.id, p);
+                  }} />
               ))}
             </div>
           )}
@@ -336,4 +351,55 @@ function imgDims(url: string): Promise<{ w: number; h: number }> {
     img.onerror = () => resolve({ w: 794, h: 1123 });
     img.src = url;
   });
+}
+
+/**
+ * PDF 卷子按页选底：点文件名懒加载页数，展开 P1..Pn + 「整卷」。
+ * 老师上传的基本都是 PDF，这是手写作答的主路径。
+ */
+function PdfBgPicker({ file, onPickPage, onPickAll }: {
+  file: { id: string; filename: string };
+  onPickPage: (page: number) => void;
+  onPickAll: (pageCount: number) => Promise<void>;
+}) {
+  const [pageCount, setPageCount] = useState<number | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [adding, setAdding] = useState(false);
+
+  async function expand() {
+    if (pageCount != null || loading) return;
+    setLoading(true);
+    try {
+      const { pdfPageCount } = await import('../lib/pdf-render');
+      const { hwFileContentPath } = await import('../lib/api-homework');
+      setPageCount(await pdfPageCount(hwFileContentPath(file.id)));
+    } catch {
+      setPageCount(0);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  return (
+    <div className="mb-1">
+      <button className="w-full px-2 py-1 rounded bg-gray-700 text-xs hover:bg-gray-600 truncate"
+        onClick={expand} title={file.filename}>
+        📄 {file.filename}{loading ? ' …' : pageCount == null ? '（点开选页）' : ''}
+      </button>
+      {pageCount != null && pageCount > 0 && (
+        <div className="flex flex-wrap gap-1 mt-1 px-1">
+          <button className="px-2 py-0.5 rounded bg-blue-700 text-xs hover:bg-blue-600 disabled:opacity-50"
+            disabled={adding}
+            onClick={async () => { setAdding(true); try { await onPickAll(pageCount); } finally { setAdding(false); } }}>
+            {adding ? '…' : `＋整卷 ${pageCount} 页`}
+          </button>
+          {Array.from({ length: pageCount }, (_, i) => i + 1).map((p) => (
+            <button key={p} className="px-2 py-0.5 rounded bg-gray-600 text-xs hover:bg-gray-500"
+              onClick={() => onPickPage(p)}>P{p}</button>
+          ))}
+        </div>
+      )}
+      {pageCount === 0 && <div className="text-xs text-red-300 px-1">PDF 读取失败</div>}
+    </div>
+  );
 }

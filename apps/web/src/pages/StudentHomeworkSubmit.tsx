@@ -3,6 +3,7 @@ import { Link, useParams } from 'react-router-dom';
 import { hwApi, hwFileContentPath, hwPageContentPath } from '../lib/api-homework';
 import { listInkDrafts, finishInkDrafts } from '../lib/ink-flatten';
 import { AuthImage } from '../components/AuthImage';
+import { PdfPreview } from '../components/PdfPreview';
 import { HandwritingWorkspace } from '../components/HandwritingWorkspace';
 
 /**
@@ -303,34 +304,21 @@ function DueChip({ dueAt }: { dueAt: string }) {
   );
 }
 
-/** 题目文件：图片内嵌可折叠预览；PDF 打开新窗口。 */
+/** 题目文件：图片和 PDF 都内嵌预览（PDF 经 pdf.js 逐页渲染），不跳出上下文。 */
 function QuestionFile({ file }: { file: { id: string; filename: string; mimeType: string } }) {
   const isImage = file.mimeType.startsWith('image/');
-  const [open, setOpen] = useState(isImage); // 图片默认展开
-  if (!isImage) {
-    return (
-      <button
-        className="text-sm bg-white border rounded px-3 py-2 text-blue-600 hover:border-blue-400"
-        onClick={async () => {
-          const token = localStorage.getItem('auth_token');
-          const base = (import.meta as any).env?.VITE_API_URL || '';
-          const res = await fetch(`${base}${hwFileContentPath(file.id)}`,
-            { headers: token ? { Authorization: `Bearer ${token}` } : {} });
-          if (!res.ok) return alert(`打开失败: ${res.status}`);
-          window.open(URL.createObjectURL(await res.blob()), '_blank');
-        }}>
-        📄 {file.filename}（PDF，点击打开）
-      </button>
-    );
-  }
+  const isPdf = file.mimeType === 'application/pdf';
+  const [open, setOpen] = useState(isImage); // 图片默认展开；PDF 点开（渲染成本高）
   return (
     <div className="bg-white border rounded overflow-hidden">
       <button className="w-full text-left px-3 py-2 text-sm flex items-center justify-between"
         onClick={() => setOpen(!open)}>
-        <span>🖼 {file.filename}</span>
+        <span>{isPdf ? '📄' : '🖼'} {file.filename}</span>
         <span className="text-gray-400">{open ? '收起 ▲' : '展开 ▼'}</span>
       </button>
-      {open && <AuthImage src={hwFileContentPath(file.id)} alt={file.filename} className="w-full border-t" />}
+      {open && (isPdf
+        ? <PdfPreview contentPath={hwFileContentPath(file.id)} className="border-t" />
+        : <AuthImage src={hwFileContentPath(file.id)} alt={file.filename} className="w-full border-t" />)}
     </div>
   );
 }

@@ -97,8 +97,10 @@ export const hwApi = {
 
   // student — M2 handwriting (ink)
   listInk: (assignmentId: string) => req('GET', `/student/homework/${assignmentId}/ink`),
-  createInkPage: (assignmentId: string, data: { width: number; height: number; backgroundFileId?: string }) =>
-    req('POST', `/student/homework/${assignmentId}/ink`, data),
+  createInkPage: (
+    assignmentId: string,
+    data: { width: number; height: number; backgroundFileId?: string; backgroundPage?: number },
+  ) => req('POST', `/student/homework/${assignmentId}/ink`, data),
   saveInk: (pageId: string, strokes: any) => req('PUT', `/student/homework/ink/${pageId}`, { strokes }),
   deleteInkPage: (pageId: string) => req('DELETE', `/student/homework/ink/${pageId}`),
   // Flatten upload: mark the resulting HomeworkPage as source=ink.

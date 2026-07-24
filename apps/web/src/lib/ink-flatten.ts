@@ -15,6 +15,8 @@ export interface InkDraft {
   width: number;
   height: number;
   backgroundFileId: string | null;
+  /** 1-based PDF page when the background file is a PDF. */
+  backgroundPage: number | null;
 }
 
 /** Drafts that actually contain ink (empty pages are ignored + cleaned). */
@@ -26,10 +28,22 @@ export async function listInkDrafts(assignmentId: string): Promise<InkDraft[]> {
     width: p.width,
     height: p.height,
     backgroundFileId: p.backgroundFileId ?? null,
+    backgroundPage: p.backgroundPage ?? null,
   }));
 }
 
-async function authorizedBgUrl(fileId: string): Promise<string | null> {
+/** Resolve a draft's background to an object URL: PDF page → pdf.js render
+ *  (lazy chunk), image → authorized blob. Shared by workspace + flatten. */
+export async function resolveBgUrl(
+  fileId: string,
+  page: number | null,
+  targetWidth = 1200,
+): Promise<string | null> {
+  if (page != null) {
+    const { renderPdfPageToUrl } = await import('./pdf-render');
+    const r = await renderPdfPageToUrl(hwFileContentPath(fileId), page, targetWidth);
+    return r.url;
+  }
   const token = localStorage.getItem('auth_token');
   const base = (import.meta as any).env?.VITE_API_URL || '';
   const res = await fetch(`${base}${hwFileContentPath(fileId)}`, {
@@ -52,7 +66,9 @@ export async function finishInkDrafts(assignmentId: string, drafts?: InkDraft[])
   const files: File[] = [];
   for (let i = 0; i < withInk.length; i++) {
     const d = withInk[i];
-    const bgUrl = d.backgroundFileId ? await authorizedBgUrl(d.backgroundFileId) : null;
+    const bgUrl = d.backgroundFileId
+      ? await resolveBgUrl(d.backgroundFileId, d.backgroundPage, d.width)
+      : null;
     bgUrls.push(bgUrl);
     const blob = await flattenInkToPng(d.strokes, d.width, d.height, bgUrl);
     if (blob) files.push(new File([blob], `handwriting-${i + 1}.png`, { type: 'image/png' }));

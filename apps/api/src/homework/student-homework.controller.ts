@@ -28,6 +28,8 @@ const CreateInkSchema = z.object({
   width: z.number().int().min(50).max(4000),
   height: z.number().int().min(50).max(6000),
   backgroundFileId: z.string().min(1).optional(),
+  // 1-based PDF page when the background file is a PDF.
+  backgroundPage: z.number().int().min(1).max(500).optional(),
 });
 
 // strokes: [{ pts: [[x,y,pressure], ...], color, size }]. Kept loose on

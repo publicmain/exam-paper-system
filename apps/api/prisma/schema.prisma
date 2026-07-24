@@ -1807,6 +1807,10 @@ model HomeworkInkPage {
   // Optional HomeworkFile (image) id rendered under the ink so the student
   // writes directly on the question page. null = blank sheet.
   backgroundFileId String?
+  // 1-based page number when the background file is a PDF (teachers mostly
+  // upload PDF worksheets; the client renders the page via pdf.js both in
+  // the workspace and at flatten time). null for image backgrounds.
+  backgroundPage   Int?
   updatedAt        DateTime           @updatedAt
 
   @@index([submissionId])

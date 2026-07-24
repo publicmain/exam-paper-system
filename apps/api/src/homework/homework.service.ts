@@ -1098,7 +1098,7 @@ export class HomeworkService {
   async createInkPage(
     user: AuthUser,
     assignmentId: string,
-    data: { width: number; height: number; backgroundFileId?: string },
+    data: { width: number; height: number; backgroundFileId?: string; backgroundPage?: number },
   ) {
     const assignment = await this.assertStudentAssignment(user, assignmentId);
     if (!this.canSubmitNow(assignment, new Date())) {
@@ -1106,8 +1106,12 @@ export class HomeworkService {
     }
     if (data.backgroundFileId) {
       // Background must be a file of THIS homework (don't leak other files).
-      const ok = assignment.homework.files.some((f) => f.id === data.backgroundFileId);
-      if (!ok) throw new BadRequestException('background file not part of this homework');
+      const bg = assignment.homework.files.find((f) => f.id === data.backgroundFileId);
+      if (!bg) throw new BadRequestException('background file not part of this homework');
+      // backgroundPage only makes sense for PDFs; images render whole.
+      if (data.backgroundPage != null && bg.mimeType !== 'application/pdf') {
+        throw new BadRequestException('backgroundPage is only valid for PDF backgrounds');
+      }
     }
     const sub = await this.openSubmission(user, assignmentId);
     const count = await this.prisma.homeworkInkPage.count({ where: { submissionId: sub.id } });
@@ -1121,6 +1125,7 @@ export class HomeworkService {
         width: Math.round(data.width),
         height: Math.round(data.height),
         backgroundFileId: data.backgroundFileId ?? null,
+        backgroundPage: data.backgroundPage ?? null,
         strokes: [],
       },
     });
