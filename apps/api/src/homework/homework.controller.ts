@@ -132,6 +132,9 @@ const AiGradesSchema = z.object({
         confidence: z.number().min(0).max(1).optional(),
         rationale: z.string().max(2000).optional(),
         comment: z.string().max(3000).optional(),
+        // v2: AI may pre-select rubric items; the teacher sees them applied
+        // in the console and just confirms/adjusts.
+        appliedItems: z.array(z.string().max(40)).max(20).optional(),
       }),
     )
     .min(1)

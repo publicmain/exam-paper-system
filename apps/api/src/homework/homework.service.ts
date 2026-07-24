@@ -866,13 +866,19 @@ export class HomeworkService {
   async saveAiSuggestions(
     user: AuthUser,
     submissionId: string,
-    grades: { questionId: string; awardedMarks: number | null; confidence?: number; rationale?: string; comment?: string }[],
+    grades: { questionId: string; awardedMarks: number | null; confidence?: number; rationale?: string; comment?: string; appliedItems?: string[] }[],
   ) {
     const sub = await this.gradableSubmission(user, submissionId);
     if (!isTeacherOrAbove(user.role)) throw new ForbiddenException('teachers only');
-    const validIds = new Set(sub.assignment.homework.questions.map((q) => q.id));
+    const qById = new Map(sub.assignment.homework.questions.map((q) => [q.id, q]));
     for (const g of grades) {
-      if (!validIds.has(g.questionId)) throw new BadRequestException('unknown question');
+      const q = qById.get(g.questionId);
+      if (!q) throw new BadRequestException('unknown question');
+      // AI may pre-select rubric items — derive marks the same way teacher
+      // grading does, so the console shows consistent numbers.
+      if (g.appliedItems && g.appliedItems.length > 0) {
+        g.awardedMarks = resolveItemMarks(((q as any).items as any[]) ?? [], g.appliedItems, q.maxMarks);
+      }
     }
     const existing = await this.prisma.homeworkGrade.findMany({ where: { submissionId } });
     const teacherOwned = new Set(existing.filter((e) => e.source === 'teacher').map((e) => e.questionId));
@@ -889,6 +895,7 @@ export class HomeworkService {
             source: 'ai_suggested',
             confidence: g.confidence ?? null,
             rationale: g.rationale ?? null,
+            appliedItems: g.appliedItems ?? undefined,
           },
           update: {
             awardedMarks: g.awardedMarks,
@@ -896,6 +903,7 @@ export class HomeworkService {
             source: 'ai_suggested',
             confidence: g.confidence ?? null,
             rationale: g.rationale ?? null,
+            appliedItems: g.appliedItems ?? undefined,
           },
         }),
       ),

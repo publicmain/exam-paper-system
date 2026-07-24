@@ -58,8 +58,18 @@ export default function StudentHomeworkSubmitPage() {
   const pages: any[] = sub?.pages ?? [];
   const questions: any[] = data.homework.questions ?? [];
 
+  // v2 拍照增强：图片先进预览（旋转/增亮），非图片直接传
+  const [enhanceFiles, setEnhanceFiles] = useState<File[] | null>(null);
+
   async function addFiles(files: File[]) {
     if (!files.length) return;
+    const images = files.filter((f) => f.type.startsWith('image/'));
+    const rest = files.filter((f) => !f.type.startsWith('image/'));
+    if (rest.length > 0) await uploadRaw(rest);
+    if (images.length > 0) setEnhanceFiles(images);
+  }
+
+  async function uploadRaw(files: File[]) {
     setBusy(true);
     try {
       await hwApi.uploadPages(assignmentId!, files);
@@ -381,6 +391,13 @@ export default function StudentHomeworkSubmitPage() {
         </div>
       )}
 
+      {/* v2: 拍照增强预览 */}
+      {enhanceFiles && (
+        <EnhanceModal files={enhanceFiles}
+          onCancel={() => setEnhanceFiles(null)}
+          onConfirm={async (processed) => { setEnhanceFiles(null); await uploadRaw(processed); }} />
+      )}
+
       {/* v2: 申诉 modal */}
       {disputeQ && (
         <DisputeModal q={disputeQ} onClose={() => setDisputeQ(null)}
@@ -501,6 +518,87 @@ function InkOverlayImage({ pageId, strokes, className }: { pageId: string; strok
           ))}
         </svg>
       )}
+    </div>
+  );
+}
+
+/**
+ * v2 — 拍照增强预览（Google Classroom 扫描流的轻量版）：
+ * 每张图可旋转 90°、一键提亮（补光/去灰），确认后 canvas 处理为 JPEG 上传。
+ */
+function EnhanceModal({ files, onCancel, onConfirm }: {
+  files: File[]; onCancel: () => void; onConfirm: (files: File[]) => void;
+}) {
+  const [items, setItems] = useState(files.map((f) => ({ file: f, url: URL.createObjectURL(f), rotate: 0, enhance: true })));
+  const [busy, setBusy] = useState(false);
+  useEffect(() => () => { items.forEach((it) => URL.revokeObjectURL(it.url)); }, []);
+
+  async function process(): Promise<File[]> {
+    const out: File[] = [];
+    for (const it of items) {
+      const img = await new Promise<HTMLImageElement>((res, rej) => {
+        const im = new Image();
+        im.onload = () => res(im); im.onerror = rej; im.src = it.url;
+      });
+      const rot = ((it.rotate % 360) + 360) % 360;
+      const swap = rot === 90 || rot === 270;
+      const cv = document.createElement('canvas');
+      cv.width = swap ? img.naturalHeight : img.naturalWidth;
+      cv.height = swap ? img.naturalWidth : img.naturalHeight;
+      const ctx = cv.getContext('2d')!;
+      if (it.enhance) ctx.filter = 'brightness(1.12) contrast(1.15) saturate(0.95)';
+      ctx.translate(cv.width / 2, cv.height / 2);
+      ctx.rotate((rot * Math.PI) / 180);
+      ctx.drawImage(img, -img.naturalWidth / 2, -img.naturalHeight / 2);
+      const blob = await new Promise<Blob | null>((r) => cv.toBlob(r, 'image/jpeg', 0.92));
+      if (blob) out.push(new File([blob], it.file.name.replace(/\.\w+$/, '') + '.jpg', { type: 'image/jpeg' }));
+    }
+    return out;
+  }
+
+  return (
+    <div className="fixed inset-0 bg-black/60 z-[75] flex items-center justify-center p-4">
+      <div className="bg-white rounded-lg shadow-xl w-full max-w-2xl max-h-[85vh] flex flex-col">
+        <div className="px-4 py-2.5 border-b flex items-center justify-between shrink-0">
+          <span className="font-bold text-[#2D3B45]">📷 检查照片（{items.length} 张）</span>
+          <button className="text-gray-400 hover:text-gray-600" onClick={onCancel}>✕</button>
+        </div>
+        <div className="flex-1 overflow-y-auto p-4 grid grid-cols-2 gap-3">
+          {items.map((it, i) => (
+            <div key={i} className="border rounded-lg overflow-hidden">
+              <div className="flex items-center gap-2 px-2 py-1.5 bg-gray-50 border-b text-xs">
+                <button className="px-2 py-0.5 rounded border bg-white hover:bg-gray-100"
+                  onClick={() => setItems(items.map((x, j) => j === i ? { ...x, rotate: x.rotate + 90 } : x))}>
+                  ↻ 旋转
+                </button>
+                <label className="flex items-center gap-1 cursor-pointer">
+                  <input type="checkbox" checked={it.enhance}
+                    onChange={(e) => setItems(items.map((x, j) => j === i ? { ...x, enhance: e.target.checked } : x))} />
+                  提亮增强
+                </label>
+              </div>
+              <div className="p-2 flex justify-center bg-gray-100">
+                <img src={it.url} alt={`照片 ${i + 1}`}
+                  className="max-h-52 object-contain transition-transform"
+                  style={{
+                    transform: `rotate(${it.rotate}deg)`,
+                    filter: it.enhance ? 'brightness(1.12) contrast(1.15) saturate(0.95)' : undefined,
+                  }} />
+              </div>
+            </div>
+          ))}
+        </div>
+        <div className="px-4 py-2.5 border-t flex justify-end gap-2 shrink-0">
+          <button className="btn btn-ghost text-sm" onClick={onCancel}>取消</button>
+          <button className="btn btn-primary text-sm" disabled={busy}
+            onClick={async () => {
+              setBusy(true);
+              try { onConfirm(await process()); } finally { setBusy(false); }
+            }}>
+            {busy ? '处理中…' : `确认上传 ${items.length} 张`}
+          </button>
+        </div>
+      </div>
     </div>
   );
 }
