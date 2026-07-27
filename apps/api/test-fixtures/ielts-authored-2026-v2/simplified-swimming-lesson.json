@@ -1,0 +1,258 @@
+{
+  "setCode": "ai_authored_olevel_simplified_36_swimming_v1",
+  "paperNumber": 2,
+  "paperTitle": "Singapore-Cambridge GCE O-Level 1184 English Language — AI-authored Simplified Practice 36: The Swimming Lesson (§B style, simplified band)",
+  "provenanceTag": "ai_authored_olevel_1128_simplified",
+  "sections": [
+    {
+      "exercise": 1,
+      "instruction": "Read the narrative text below and answer the questions that follow. Section B, Part 1 [11 marks]. Answer in your own words as far as possible.",
+      "passageTitle": "The Swimming Lesson",
+      "passage": "Paragraph 1\nEvery Saturday morning my father took me to the public swimming pool near our flat. While the other children splashed and laughed in the water, I sat at the edge with my toes barely touching the surface. I was ten years old, and I was afraid of the water. The deep end, with its dark blue tiles, looked to me like a mouth waiting to swallow me whole.\n\nParagraph 2\nMy instructor, Mr Tan, was a patient man with a loud, cheerful voice. 'Today we float,' he said, and led me into the shallow end. The water rose to my chest, cold and unfamiliar. When he asked me to lie back, my whole body went stiff. I clung to the side of the pool with both hands, my knuckles white, and could not make myself let go.\n\nParagraph 3\n'Try,' Mr Tan said gently. I leaned back, but the moment my ears dipped under, water rushed into my nose and I panicked. I spluttered and grabbed wildly for the rail, coughing and blinking, my heart pounding against my ribs. I was sure I had almost drowned, though the water was not even up to my shoulders.\n\nParagraph 4\nMr Tan did not laugh at me. He stood beside me and slid one hand under my back. 'I am right here,' he said. 'I will not let you sink.' Somehow those few words loosened the knot in my chest. With his hand holding me up, I lay back again and stared at the wide morning sky, breathing slowly, waiting for the fear to pass.\n\nParagraph 5\nThen, without telling me, he took his hand away. For three whole seconds I floated all by myself. When I realised there was nothing beneath me but water, I did not sink — I simply lay there, light as a leaf, held up by the pool itself. A laugh burst out of me before I could stop it.\n\nParagraph 6\nBy the end of the lesson I could float on my own and had even managed a few clumsy strokes across the shallow end. The water no longer felt like an enemy. It felt, strangely, like something that had been waiting all along to hold me, if only I would let it.\n\nParagraph 7\nMy father was waiting with a towel and a wide smile. As we walked home, my hair still dripping, I kept thinking about those three seconds when I had floated alone. I had been afraid of the water for as long as I could remember, and that morning, in a shallow pool under an ordinary sky, I had finally beaten that fear.\n\n(Glossary: public swimming pool: a low-cost community pool, common in Singapore housing estates; the shallow end and deep end are the shallower and deeper parts of such a pool.)",
+      "questions": [
+        {
+          "n": 1,
+          "stem": "Q1. From Paragraph 1, where did the narrator's father take him every Saturday morning? [1]",
+          "answer": "to the public swimming pool near their flat",
+          "marks": 1
+        },
+        {
+          "n": 2,
+          "stem": "Q2. What does the word 'clung' in 'I clung to the side of the pool with both hands' (Paragraph 2) suggest about how the narrator held on? [1]",
+          "answer": "he held on very tightly / desperately (the mark is for 'tightly / desperately / firmly'; mentioning fear is acceptable but not required)",
+          "marks": 1
+        },
+        {
+          "n": 3,
+          "stem": "Q3. What does the word 'spluttered' (Paragraph 3) suggest about the narrator after water went into his nose? [1]",
+          "answer": "he coughed and choked, struggling to clear the water / to breathe",
+          "marks": 1
+        },
+        {
+          "n": 4,
+          "stem": "Q4. Using your own words, explain why the narrator 'grabbed wildly for the rail' in Paragraph 3. [2]",
+          "answer": "① water rushed into his nose and he could not breathe, so he panicked; ② he believed he was about to sink or drown, so he reached desperately for something solid to hold on to. (Award the mark for either strand that is clearly expressed.)",
+          "marks": 2
+        },
+        {
+          "n": 5,
+          "stem": "Q5. Using your own words, explain why Mr Tan kept one hand under the narrator's back and said 'I am right here.' (Paragraph 4) [2]",
+          "answer": "① to hold him up physically so that he would not sink; ② to reassure him emotionally / make him feel safe, so that he would stop panicking and be willing to try to float",
+          "marks": 2
+        },
+        {
+          "n": 6,
+          "stem": "Q6. Using your own words, explain what the narrator realised when he floated by himself for three seconds. (Paragraph 5) [2]",
+          "answer": "① that he could stay afloat on his own, without anyone holding him up; ② that the water would support him / that his fear had been unnecessary all along",
+          "marks": 2
+        },
+        {
+          "n": 7,
+          "stem": "Q7. What is the effect of the description that the water 'no longer felt like an enemy' but 'like something that had been waiting all along to hold me' (Paragraph 6)? [2]",
+          "answer": "it shows how completely the narrator's feelings have changed — the water that once frightened him now feels safe and supporting, making clear that he has overcome his fear and now trusts it",
+          "marks": 2
+        }
+      ]
+    },
+    {
+      "exercise": 2,
+      "instruction": "Q8. [4 marks in total] The narrator's main feeling changes as the swimming lesson goes on. For each moment below, go back to the relevant paragraph of the narrative and choose ONE word from the bank that best describes his dominant feeling there. There are some extra words in the bank you do not need to use, and each word may be used once only. Word bank: amused / angry / bored / jealous / nervous / panicked / proud / reassured.",
+      "passage": "Refer to the same 'The Swimming Lesson' narrative in Exercise 1 above. Read the paragraph named in each question, then choose the single word from the bank that best describes how the narrator feels at that moment.",
+      "questions": [
+        {
+          "n": 8,
+          "stem": "Q8(i). Paragraph 2 — the first time in the water with Mr Tan. [1]",
+          "options": [
+            {
+              "key": "A",
+              "text": "proud",
+              "correct": false
+            },
+            {
+              "key": "B",
+              "text": "amused",
+              "correct": false
+            },
+            {
+              "key": "C",
+              "text": "angry",
+              "correct": false
+            },
+            {
+              "key": "D",
+              "text": "panicked",
+              "correct": false
+            },
+            {
+              "key": "E",
+              "text": "nervous",
+              "correct": true
+            },
+            {
+              "key": "F",
+              "text": "jealous",
+              "correct": false
+            },
+            {
+              "key": "G",
+              "text": "bored",
+              "correct": false
+            },
+            {
+              "key": "H",
+              "text": "reassured",
+              "correct": false
+            }
+          ],
+          "answer": "E",
+          "marks": 1
+        },
+        {
+          "n": 9,
+          "stem": "Q8(ii). Paragraph 3 — when water goes up the narrator's nose. [1]",
+          "options": [
+            {
+              "key": "A",
+              "text": "reassured",
+              "correct": false
+            },
+            {
+              "key": "B",
+              "text": "panicked",
+              "correct": true
+            },
+            {
+              "key": "C",
+              "text": "bored",
+              "correct": false
+            },
+            {
+              "key": "D",
+              "text": "proud",
+              "correct": false
+            },
+            {
+              "key": "E",
+              "text": "jealous",
+              "correct": false
+            },
+            {
+              "key": "F",
+              "text": "nervous",
+              "correct": false
+            },
+            {
+              "key": "G",
+              "text": "amused",
+              "correct": false
+            },
+            {
+              "key": "H",
+              "text": "angry",
+              "correct": false
+            }
+          ],
+          "answer": "B",
+          "marks": 1
+        },
+        {
+          "n": 10,
+          "stem": "Q8(iii). Paragraph 4 — when Mr Tan puts a hand under the narrator's back. [1]",
+          "options": [
+            {
+              "key": "A",
+              "text": "nervous",
+              "correct": false
+            },
+            {
+              "key": "B",
+              "text": "bored",
+              "correct": false
+            },
+            {
+              "key": "C",
+              "text": "proud",
+              "correct": false
+            },
+            {
+              "key": "D",
+              "text": "jealous",
+              "correct": false
+            },
+            {
+              "key": "E",
+              "text": "angry",
+              "correct": false
+            },
+            {
+              "key": "F",
+              "text": "amused",
+              "correct": false
+            },
+            {
+              "key": "G",
+              "text": "panicked",
+              "correct": false
+            },
+            {
+              "key": "H",
+              "text": "reassured",
+              "correct": true
+            }
+          ],
+          "answer": "H",
+          "marks": 1
+        },
+        {
+          "n": 11,
+          "stem": "Q8(iv). Paragraphs 5-7 — after floating alone, and on the walk home. [1]",
+          "options": [
+            {
+              "key": "A",
+              "text": "angry",
+              "correct": false
+            },
+            {
+              "key": "B",
+              "text": "nervous",
+              "correct": false
+            },
+            {
+              "key": "C",
+              "text": "amused",
+              "correct": false
+            },
+            {
+              "key": "D",
+              "text": "proud",
+              "correct": true
+            },
+            {
+              "key": "E",
+              "text": "reassured",
+              "correct": false
+            },
+            {
+              "key": "F",
+              "text": "bored",
+              "correct": false
+            },
+            {
+              "key": "G",
+              "text": "panicked",
+              "correct": false
+            },
+            {
+              "key": "H",
+              "text": "jealous",
+              "correct": false
+            }
+          ],
+          "answer": "D",
+          "marks": 1
+        }
+      ]
+    }
+  ],
+  "provenanceNote": "NOT STUDENT-FACING. Read the narrative text below about a boy who is afraid of the water and, at a swimming lesson one morning, finally learns to float and to trust himself. Answer the questions that follow. Section B [15 marks] — AI-authored simplified practice paper modelled on the Singapore-Cambridge 1184/02 (formerly 1128) Section B format and calibrated to the SEAB assessment objectives (literal / inferential comprehension, vocabulary in context, language for effect), pitched at students stretching from middle secondary toward the full O-Level standard. Original passage written for the morning quiz bank; not from a past exam paper. Items mix mark values [1]/[2]: 7 short-answer questions (Q1-Q7 = 11 marks) plus a 4-blank emotion-flowchart MCQ (Q8 = 4 marks). Answer in your own words as far as possible. Ex2 production note: The original task carries 4 marks; each blank is split into its own MCQ so each sub-part can be auto-graded independently."
+}
