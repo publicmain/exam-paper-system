@@ -530,7 +530,10 @@ export default function MorningQuizSchedule() {
                     className="border rounded px-2 py-1 text-sm"
                   >
                     <option value="">+ 添加等级</option>
-                    {(['ielts_authentic', 'ielts_simplified', 'olevel'] as Level[])
+                    {/* 轻雅思 (ielts_simplified) discontinued 2026-07-24 — only these two
+                        levels can be added now. Historical ielts_simplified sessions still
+                        render via LEVEL_LABEL. */}
+                    {(['ielts_authentic', 'olevel'] as Level[])
                       .filter((l) => !levels.includes(l))
                       .map((l) => (
                         <option key={l} value={l}>
@@ -885,7 +888,7 @@ function OneOffSessionModal({
             className="border rounded px-2 py-1 w-full mt-1"
           >
             <option value="ielts_authentic">{LEVEL_LABEL.ielts_authentic}</option>
-            <option value="ielts_simplified">{LEVEL_LABEL.ielts_simplified}</option>
+            {/* 轻雅思 (ielts_simplified) discontinued 2026-07-24 — removed as a selectable option. */}
             <option value="olevel">{LEVEL_LABEL.olevel}</option>
           </select>
         </label>
