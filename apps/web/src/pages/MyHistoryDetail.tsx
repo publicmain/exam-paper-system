@@ -147,6 +147,11 @@ export default function MyHistoryDetail() {
             {score}<span className="text-2xl text-gray-500 font-normal"> / {max}</span>
             <span className={`text-base ml-2 ${pctColor}`}>({pct}%)</span>
           </div>
+          {data.items.some((it) => it.questionType !== 'mcq' && it.awardedMarks == null) && (
+            <div className="mt-3 text-sm rounded-lg bg-sky-50 border border-sky-200 text-sky-800 px-3 py-2">
+              ⏳ 选择题已即时评分;<strong>简答题正由老师人工批改</strong>,批改完成后总分会更新,请稍后再来查看。
+            </div>
+          )}
           {data.submittedAt && (
             <div className="text-xs text-gray-500 mt-2">
               提交时间:{formatCNDateTime(data.submittedAt)}
@@ -217,6 +222,11 @@ function ResultRow({
   const isCorrect = item.isCorrect ?? item.autoCorrect;
   const awarded = item.awardedMarks;
   const showAwarded = awarded != null;
+  // A written (non-MCQ) answer with no mark yet is waiting for the teacher
+  // to grade it by hand — show that clearly instead of a bare "—" / no
+  // score, which reads as "you got zero". (Grading is teacher-done, never
+  // described as AI.)
+  const isPending = !isMcq && awarded == null;
   // F10 — appeal eligibility: any row where the auto-grader said wrong OR
   // where the student scored less than full marks. Also enabled for null
   // (manual-mark-pending) so students can still flag a misgraded short
@@ -225,11 +235,12 @@ function ResultRow({
     item.autoCorrect === false ||
     (awarded != null && awarded < item.marks);
   const correctTone =
+    isPending ? 'border-sky-200 bg-sky-50' :
     isCorrect === true ? 'border-emerald-300 bg-emerald-50' :
     isCorrect === false ? 'border-rose-300 bg-rose-50' :
     'border-gray-200 bg-white';
-  const icon = isCorrect === true ? '✓' : isCorrect === false ? '✗' : '—';
-  const iconColor = isCorrect === true ? 'text-emerald-700' : isCorrect === false ? 'text-rose-700' : 'text-gray-400';
+  const icon = isPending ? '⏳' : isCorrect === true ? '✓' : isCorrect === false ? '✗' : '—';
+  const iconColor = isPending ? 'text-sky-600' : isCorrect === true ? 'text-emerald-700' : isCorrect === false ? 'text-rose-700' : 'text-gray-400';
 
   return (
     <div className={`border rounded-lg p-4 ${correctTone}`}>
@@ -242,6 +253,11 @@ function ResultRow({
             <span>[{item.marks} mark{item.marks !== 1 ? 's' : ''}]</span>
             {showAwarded && (
               <span className="font-mono">得分:{awarded} / {item.marks}</span>
+            )}
+            {isPending && (
+              <span className="px-1.5 py-0.5 rounded bg-sky-100 text-sky-700 font-medium">
+                ⏳ 待老师批改 · Pending teacher marking
+              </span>
             )}
           </div>
           {stem && <div className="text-sm text-gray-800 whitespace-pre-wrap mb-3">{stem}</div>}

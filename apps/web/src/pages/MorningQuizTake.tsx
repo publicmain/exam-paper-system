@@ -562,6 +562,19 @@ function ExamShellChrome({
         <span className="hidden lg:inline"> · Questions are in random order — check each question's number before answering.</span>
       </div>
 
+      {/* Set expectations on grading timing: MCQ (选择题) are scored the
+          instant you submit, but written short answers are marked by the
+          teacher by hand and appear later. Without this, students see a
+          partial score right after submitting and think they lost the
+          short-answer marks. (Never attribute grading to AI.) */}
+      <div
+        className="px-4 py-2 bg-sky-50 border-b border-sky-200 text-sky-800 text-sm text-center"
+        role="note"
+      >
+        📝 选择题<strong>交卷后即时出分</strong>;<strong>简答题由老师人工批改</strong>,不会马上出分,请稍后到「早测查询」再看成绩。
+        <span className="hidden lg:inline"> · Multiple-choice is scored instantly; written short answers are marked by the teacher later.</span>
+      </div>
+
       <main>
         <ExamRenderer paper={paper} />
       </main>
