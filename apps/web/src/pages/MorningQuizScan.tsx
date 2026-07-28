@@ -3,20 +3,23 @@ import { useParams } from 'react-router-dom';
 import { api } from '../lib/api';
 
 type Level = 'ielts_authentic' | 'ielts_simplified' | 'olevel';
-const LEVEL_LABEL: Record<Level, { zh: string; en: string; tint: string }> = {
+const LEVEL_LABEL: Record<Level, { zh: string; en: string; desc: string; tint: string }> = {
   ielts_authentic: {
     zh: '雅思真题',
     en: 'IELTS Authentic',
+    desc: '真·剑桥雅思学术阅读,难度最高 · hardest',
     tint: 'bg-purple-50 border-purple-200 hover:bg-purple-100',
   },
   ielts_simplified: {
     zh: '轻难度雅思',
     en: 'Simplified IELTS',
+    desc: '简化版雅思阅读 · easier',
     tint: 'bg-blue-50 border-blue-200 hover:bg-blue-100',
   },
   olevel: {
     zh: 'O-Level 英语',
     en: 'OLevel English',
+    desc: 'O-Level 记叙文理解,大多数同学选这个 · most students',
     tint: 'bg-emerald-50 border-emerald-200 hover:bg-emerald-100',
   },
 };
@@ -196,6 +199,7 @@ export default function MorningQuizScan() {
                 >
                   <div className="text-lg font-semibold text-gray-900">{lab.zh}</div>
                   <div className="text-xs text-gray-500 mt-0.5">{lab.en}</div>
+                  <div className="text-xs text-gray-600 mt-1">{lab.desc}</div>
                 </button>
               );
             })}

@@ -487,6 +487,7 @@ function ExamShellChrome({
       `}</style>
 
       <OfflineBadge />
+      {mode !== 'practice' && <FirstRunGuide />}
       {saveError && (
         // Round-3 H22: surfacing autosave errors instead of swallowing
         // them silently. Auto-dismisses on the next successful save.
@@ -806,6 +807,73 @@ function SubmitConfirmDialog({
             确定交卷 · Submit
           </button>
         </div>
+      </div>
+    </div>
+  );
+}
+
+/** First-run onboarding card for the real morning quiz.
+ *
+ * Self-service students (no teacher in the room) land on the take page with
+ * no idea how it works. This one-time, dismissible card explains the three
+ * things they need: questions are shuffled (read the Qn label), the reading
+ * passage lives behind the 「📖 原文」tab on mobile, and answers autosave +
+ * are graded partly by the teacher afterwards.
+ *
+ * Fully self-contained: owns its own visibility via localStorage, renders a
+ * fixed overlay, and touches no quiz state. Dismiss via the button OR by
+ * tapping the backdrop. Shown once per device (key 'mq:guide:v1'). */
+function FirstRunGuide() {
+  const [show, setShow] = useState<boolean>(() => {
+    try {
+      return localStorage.getItem('mq:guide:v1') !== 'seen';
+    } catch {
+      return false;
+    }
+  });
+  if (!show) return null;
+  const dismiss = () => {
+    try {
+      localStorage.setItem('mq:guide:v1', 'seen');
+    } catch {
+      /* private mode — just hide for this session */
+    }
+    setShow(false);
+  };
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4"
+      role="dialog"
+      aria-modal="true"
+      aria-label="怎么答这份早测"
+      onClick={dismiss}
+    >
+      <div
+        className="bg-white rounded-2xl shadow-xl max-w-sm w-full p-5"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="text-lg font-bold text-gray-900 mb-3">怎么答这份早测 · How it works</div>
+        <ul className="space-y-2.5 text-sm text-gray-700">
+          <li className="flex gap-2">
+            <span aria-hidden>①</span>
+            <span>题目是<strong>随机顺序</strong>的 —— 认准每题的题号(Q1、Q2…)再作答。</span>
+          </li>
+          <li className="flex gap-2">
+            <span aria-hidden>②</span>
+            <span>手机上,阅读长文在顶部<strong>「📖 原文」</strong>那一栏,答题在<strong>「✎ 题目」</strong>栏,点按钮切换。</span>
+          </li>
+          <li className="flex gap-2">
+            <span aria-hidden>③</span>
+            <span>答案会<strong>自动保存</strong>;答完点<strong>「交卷」</strong>。选择题即时出分,<strong>简答由老师人工批改</strong>,稍后公布。</span>
+          </li>
+        </ul>
+        <button
+          type="button"
+          onClick={dismiss}
+          className="mt-5 w-full py-3 rounded-xl bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white font-semibold text-base touch-manipulation"
+        >
+          开始答题 · Start
+        </button>
       </div>
     </div>
   );

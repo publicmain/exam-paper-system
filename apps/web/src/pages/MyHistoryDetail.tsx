@@ -292,9 +292,9 @@ function ResultRow({
                 </span>
               </div>
               {(item.referenceAnswer ?? item.correctAnswer) && (
-                <div>
-                  <span className="text-gray-500">参考答案:</span>{' '}
-                  <span className="text-gray-800 whitespace-pre-wrap">
+                <div className="mt-1.5 rounded-md border border-emerald-200 bg-emerald-50 px-2.5 py-2">
+                  <span className="font-semibold text-emerald-800">参考答案 · Model answer:</span>{' '}
+                  <span className="text-emerald-900 whitespace-pre-wrap">
                     {item.referenceAnswer ?? item.correctAnswer}
                   </span>
                 </div>
@@ -303,9 +303,7 @@ function ResultRow({
           )}
           {item.markerComment && (
             <div className="mt-2 text-xs text-blue-700 bg-blue-50 border border-blue-200 rounded p-2">
-              <span className="font-semibold">
-                {item.commentSource === 'ai' ? 'AI 评语' : '老师评语'}:
-              </span>{' '}
+              <span className="font-semibold">老师评语:</span>{' '}
               {item.markerComment}
             </div>
           )}
