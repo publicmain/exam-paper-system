@@ -138,16 +138,70 @@ const GRADES_0729: Record<string, { awardedMarks: number; reason: string }> = {
   cms5dn66d01emdox84hxbvrvv: { awardedMarks: 1, reason: "Q7:'不只是一个字'→此前当作寻常字句(MP1);答案被截断,MP2 未完成。1/2。" },
 };
 
+const GRADES_0730: Record<string, { awardedMarks: number; reason: string }> = {
+  // 2026-07-30 早测 · authentic=ielts_authored_2026_v2/Test1/P3 (Mending the Sky · 臭氧层)
+  // olevel=ai_authored_olevel_38_red_packet (Gu Po 的红包). MCQ 与精确命中的客观短答
+  // 已在交卷/锁卷时自动判分,这里只判"未精确命中"留人工的. 全 Claude 在 chat 判,零 AI.
+
+  // ── 雅思 段落匹配(A–H 精确字母)──
+  cms6sy6do01b9mnkypchqehjf: { awardedMarks: 0, reason: '段2:c,正解 F(Kigali 修正案针对替代品)。' },
+  cms6s6flz00timnkymywkpyr1: { awardedMarks: 0, reason: '段2:A,正解 F。' },
+  cms6s6ldi00txmnkyvqm3vfuq: { awardedMarks: 0, reason: '段3:C,正解 G(CFC 滞留数十年故恢复慢)。' },
+  cms6s6oqh00ubmnkypajccxxx: { awardedMarks: 0, reason: '段4:F,正解 D(Molina 与 Rowland)。' },
+  cms6se0jj0129mnky510cfl2h: { awardedMarks: 0, reason: '段1:C,正解 B(皮肤癌/白内障/浮游生物之害)。' },
+  cms6se7e9012bmnkylovknefh: { awardedMarks: 0, reason: '段2:D,正解 F。' },
+  cms6sf8a5012xmnkyxobe3juo: { awardedMarks: 0, reason: '段3:E,正解 G。' },
+  cms6sgeer013bmnkyufml3zix: { awardedMarks: 0, reason: '段4:H,正解 D。' },
+  cms6su9t501a5mnkyc7hluc97: { awardedMarks: 0, reason: '段1:C,正解 B。' },
+  cms6suf7801ahmnky20e7d8cz: { awardedMarks: 0, reason: '段2:C,正解 F。' },
+  cms6s7aga00wnmnkylx2qxsy3: { awardedMarks: 0, reason: '段1:F,正解 B。' },
+  cms6s7fbx00x7mnkym7qwabet: { awardedMarks: 0, reason: '段2:C,正解 F。' },
+  cms6s7jjm00xtmnkyufau2s09: { awardedMarks: 0, reason: '段3:B,正解 G。' },
+  cms6s7mxd00xxmnkyqqfngwr9: { awardedMarks: 0, reason: '段4:A,正解 D。' },
+  cms6sk4fr015pmnky5o2zg0dg: { awardedMarks: 0, reason: '段2:e,正解 F。' },
+  cms6s6kgo00tvmnky8bhamwr6: { awardedMarks: 0, reason: '段2:D,正解 F。' },
+  cms6s6r3m00uhmnkyn1nd7u6r: { awardedMarks: 0, reason: '段3:C,正解 G。' },
+  cms6s6vuz00v3mnky4eog7zf4: { awardedMarks: 0, reason: '段4:E,正解 D。' },
+
+  // ── 雅思 句子填空 ──
+  cms6siib8014qmnky73t1stry: { awardedMarks: 0, reason: "填9:'ultraviolet radiation' 多写了 radiation —— 空格后面本来就有 radiation,填进去成 \"the sun's ultraviolet radiation radiation\",句子不通。只需填 ultraviolet。0。" },
+  cms6sjaac0158mnkyina3y858: { awardedMarks: 0, reason: "填10:'catalyst'(催化剂,是段 D 讲氯原子的词)错位,此处应 foams(塑料泡沫)。0。" },
+  cms6sjwwp015imnkyug3lq98n: { awardedMarks: 0, reason: "填11:'greenhouse gases' 错,问的是恢复到 1980 年水平的时间点,应 middle(本世纪中)。0。" },
+
+  // ── O-Level §B(HEIN HTET NAING)──
+  cms6s9s1300zcmnkyeuss5p5a: { awardedMarks: 1, reason: 'Q1:坐两班巴士。1。' },
+  cms6scgly010vmnkyqdh9o5fa: { awardedMarks: 1, reason: 'Q2:两块钱。1。' },
+  cms6scqb2010zmnkyczz33vjt: { awardedMarks: 1, reason: "Q3:'weak' 命中 frail=虚弱。1。" },
+  cms6s6saa00ulmnky6e9mbn5i: { awardedMarks: 0, reason: "Q4:'very old' 只说旧;crumpled 指被揉皱/有折痕(不再挺括),未答出。0。" },
+  cms6se7o4012dmnky4k61li0r: { awardedMarks: 0, reason: "Q5:'distant and isolated'(偏远孤立)理解错;sparse 此处指屋里空荡、家当极少。0。" },
+  cms6slayx0164mnkysdd1roe8: { awardedMarks: 0, reason: "Q6:'self-reliant'(自立)不是第4段所写的行为;应答待客之道(立刻拆饼干招待)与舍己为人(连喂四块自己一块不吃)。0/2。" },
+  cms6sg6wo0131mnkybdiuybt8: { awardedMarks: 1, reason: "Q7:'想被人尊重'≈要体面、不愿被当作受济的穷亲戚(MP1);未及'以牺牲表达疼爱'(年中起攒硬币)。1/2。" },
+  cms6sddj6011vmnkyp3wutgb3: { awardedMarks: 1, reason: "Q9:'crumpled and worn' 触及枯叶般单薄陈旧的形象(MP1);未点出'在他眼里一文不值、被随手搁下'的效果。1/2。" },
+  cms6smdni0174mnkyrafx0kid: { awardedMarks: 1, reason: 'Q10:答出"值得珍藏而非花掉"=价值反转(MP2);未点出磨得像布=多年随身携带的物证(MP1)。1/2。' },
+
+  // ── O-Level §B(闫乙鑫)──
+  cms6skdiq015vmnkyyy4hkcnf: { awardedMarks: 1, reason: 'Q1:两班巴士。1。' },
+  cms6sccuz010pmnky46zc54ie: { awardedMarks: 1, reason: 'Q2:两块钱。1。' },
+  cms6sc74q010nmnkycrhud522: { awardedMarks: 1, reason: 'Q3:身体虚弱、年迈,命中 frail。1。' },
+  cms6sjnka015cmnky5lfyx4gi: { awardedMarks: 1, reason: "Q4:'much used / worn from being handled many times' 点出被反复摩挲揉搓、不再挺括,命中 crumpled。1。" },
+  cms6sjxpt015kmnkyv48hrvnb: { awardedMarks: 1, reason: 'Q5:家当极少、陈设简陋,命中 sparse。1。' },
+  cms6skr4r0161mnkyporwhcsw: { awardedMarks: 2, reason: 'Q6:待客(坚持把饼干分给来客)+ 舍己(自己不留),两点齐。2/2。' },
+  cms6sk7eh015tmnky65ftfzqr: { awardedMarks: 2, reason: 'Q7:延续过年给红包的责任/传统(MP1)+ 要让每个孩子都被顾到、开心(MP2),两点齐。2/2。' },
+  cms6shjy0014amnky8yde5b9h: { awardedMarks: 2, reason: 'Q8:只按钞票面额衡量(错的秤)+ 应看给予者付出的代价(对的秤),两点齐。2/2。' },
+  cms6sh5u1013pmnkyzp5wbvvf: { awardedMarks: 2, reason: 'Q9:枯叶=薄、脆、旧的形象(MP1)+ 由此联想到姑婆的艰辛与付出(替代 MP2),两点齐。2/2。' },
+  cms6scuar0119mnkykhzqffpi: { awardedMarks: 2, reason: 'Q10:磨软=多年珍藏随身(MP1)+ 情感价值远超面额的反转(MP2),两点齐。2/2。' },
+};
+
 // Finalize-sweep — every non-practice submission in these assignments gets
 // its status flipped submitted→marked (recomputing scores), even the fully
 // auto-graded ones (0 parked items) and blank submissions (no scripts). The
 // GRADES map alone only reaches submissions that had a parked item.
 const SWEEP_ASSIGNMENTS: string[] = [
-  'b58fa2e5-8fc9-40da-aa3a-052b8aaa93bc', // 2026-07-29 IELTS authentic (Roman Concrete P2)
-  'e496cfd7-25a5-4d2e-ad6c-32175e3bbf51', // 2026-07-29 O-Level (monsoon drain)
+  'a3b71798-f0f3-47ba-82de-51a61aa17686', // 2026-07-30 IELTS authentic (Mending the Sky P3)
+  '61b45a60-037f-4174-ad4d-b080ff2e9a1b', // 2026-07-30 O-Level (red packet)
 ];
 
-const GRADES: Record<string, { awardedMarks: number; reason: string }> = GRADES_0729;
+const GRADES: Record<string, { awardedMarks: number; reason: string }> = GRADES_0730;
 const _OLD_GRADES: Record<string, { awardedMarks: number; reason: string }> = {
   // 2026-07-24 早测 · ielts_authentic = cambridge_ielts_8/Test1/P1
   // "A Chronicle of Timekeeping"(Q1-4 段落匹配 A-H;Q9-13 图标注 ≤2词).
