@@ -174,12 +174,18 @@ export class StudentWordService {
       const sc = (s.paperQuestion.snapshotContent ?? {}) as Record<string, unknown>;
       const title = typeof sc.passageTitle === 'string' ? sc.passageTitle : null;
       const stem = typeof sc.stem === 'string' ? sc.stem : '';
+      const passage = typeof sc.passage === 'string' ? sc.passage : '';
       const target =
         typeof sc.targetWord === 'string' && sc.targetWord.trim()
           ? sc.targetWord.trim()
           : extractQuotedWord(stem);
       if (!target) continue;
-      wanted.push({ word: target, qid: s.paperQuestion.id, title, sentence: firstSentenceWith(stem, target) });
+      wanted.push({
+        word: target,
+        qid: s.paperQuestion.id,
+        title,
+        sentence: contextFor(passage, stem, target),
+      });
     }
 
     let added = 0;
@@ -223,12 +229,64 @@ export function extractQuotedWord(stem: string): string | null {
   return null;
 }
 
-/** 找出题干里包含该词的第一句，作为生词卡的上下文。 */
-export function firstSentenceWith(stem: string, word: string): string {
-  const sentences = stem.split(/(?<=[.!?])\s+/);
-  const lower = word.toLowerCase();
-  for (const s of sentences) {
-    if (s.toLowerCase().includes(lower)) return s.trim();
+/**
+ * 把文章切成句子。
+ *
+ * 文章正文带 "Paragraph 3" 这样的段落标记和换行，朴素的
+ * `split(/(?<=[.!?])\s+/)` 会出两种毛病（真实数据实测）：
+ *   - 句末是 `liked.'` 这种「句号+引号」时不切，于是把上一句和下一句连在一起
+ *   - 段落标记被当成句子的一部分 → 卡片上下文变成 "Paragraph 1\nAh Seng's…"
+ * 这里先按换行拆、丢掉段落标记行，再按句末标点（允许尾随引号）切。
+ */
+function splitSentences(text: string): string[] {
+  const out: string[] = [];
+  for (const line of text.split(/\n+/)) {
+    const t = line.trim();
+    if (!t) continue;
+    if (/^Paragraph\s+[0-9A-H]+$/i.test(t)) continue; // 段落标记行
+    for (const s of t.split(/(?<=[.!?]['"’”]?)\s+/)) {
+      const v = s.trim();
+      if (v) out.push(v);
+    }
   }
-  return stem.slice(0, 200).trim();
+  return out;
+}
+
+/** 找出文本里包含该词的第一句。 */
+export function firstSentenceWith(text: string, word: string): string {
+  const lower = word.toLowerCase();
+  for (const s of splitSentences(text)) {
+    if (s.toLowerCase().includes(lower)) return s;
+  }
+  return text.slice(0, 200).trim();
+}
+
+/**
+ * 生词卡的上下文句 —— **必须来自文章原文，不能用题干**。
+ *
+ * 复习卡会把该词从句子里挖空让学生回忆。如果拿题干当上下文，卡片会变成
+ *   "What does the word '___' in 'frail now, her back curved…' suggest?"
+ * —— 挖掉的是题目里的引用词，学生看到的是一道题而不是自然语境，卡片是坏的。
+ * （这个缺陷是 P4 上线后拿真实数据做端到端验证时发现的。）
+ *
+ * 优先级：
+ *   1. 文章原文里含该词的第一句
+ *   2. 题干里被引号括起来的那段原文摘录（O-Level 词义题固定写法：
+ *      What does the word 'frail' in 'frail now, her back curved like a
+ *      question mark' (Paragraph 2) suggest? —— 第二段引文就是原文）
+ *   3. 实在没有才退回题干
+ */
+export function contextFor(passage: string, stem: string, target: string): string {
+  if (passage) {
+    const s = firstSentenceWith(passage, target);
+    // firstSentenceWith 找不到时会返回开头截断，这里要求确实含该词才采用
+    if (s.toLowerCase().includes(target.toLowerCase())) return s;
+  }
+  // 题干里第二段引文（长度 > 目标词本身）通常就是原文摘录
+  const quotes = [...stem.matchAll(/['‘’"“”]([^'‘’"“”]{4,200})['‘’"“”]/g)].map((m) => m[1]);
+  const excerpt = quotes.find(
+    (q) => q.toLowerCase().includes(target.toLowerCase()) && q.trim().length > target.length + 3,
+  );
+  if (excerpt) return excerpt.trim();
+  return firstSentenceWith(stem, target);
 }
