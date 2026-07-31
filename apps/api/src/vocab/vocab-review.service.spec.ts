@@ -109,8 +109,45 @@ describe('VocabReviewService.review — FSRS 接线', () => {
       }),
     );
     await svc.review({ studentName: '张三', headword: 'coax', rating: 'again' });
+    // 关掉日内步进后不再有 Relearning 态；真正要保证的是：脱离已掌握、
+    // 间隔被大幅砍短、lapses 累计 —— 标签按间隔判定为 learning。
+    expect(updated.state).not.toBe('known');
     expect(updated.state).toBe('learning');
+    expect(updated.scheduledDays).toBeLessThan(7);
     expect(updated.lapses).toBeGreaterThan(1);
+  });
+
+  /**
+   * 回归：间隔必须真的随复习次数变长。
+   *
+   * 这是间隔重复的**核心承诺**，也是 V3 验证抓到的真缺陷 ——
+   * FSRS 默认带日内学习步进(1m/10m)，「现在第几步」记在 Card.learning_steps 上；
+   * 我们把调度状态拆成列存，没有这一列，还原 Card 时只能填 0，
+   * 于是每次复习都被重置回第一步、永远毕业不了，间隔恒为 0 天。
+   * 修法是关闭日内步进（学生一天只复习一次，1 分钟后再来根本不会发生）。
+   */
+  it('连续答对时间隔单调变长，而不是永远卡在 0 天', async () => {
+    const { svc, updated } = makeSvc(makeWord());
+    const seen: number[] = [];
+    const word = makeWord();
+    for (let i = 0; i < 5; i++) {
+      // 每次都在"到期那天"来复习
+      Object.assign(word, updated, {
+        due: new Date(),
+        lastReview: word.reps ? new Date(Date.now() - (updated.scheduledDays ?? 0) * 86400000) : null,
+      });
+      const h = makeSvc(word);
+      const r = await h.svc.review({ studentName: '张三', headword: 'coax', rating: 'good' });
+      Object.assign(updated, h.updated);
+      Object.assign(word, h.updated);
+      seen.push(r.intervalDays);
+    }
+    void svc;
+    // 第一次答对就应进入按天调度，而不是 0 天
+    expect(seen[0]).toBeGreaterThan(0);
+    // 间隔必须增长
+    expect(seen[4]).toBeGreaterThan(seen[0]);
+    expect(seen[4]).toBeGreaterThan(7);
   });
 
   it('不在生词本里的词报 404', async () => {

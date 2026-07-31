@@ -14,12 +14,40 @@ import { StudentWordService } from './student-word.service';
  * 铁律：ts-fsrs 是纯本地计算的 MIT 库，**不涉及任何 API 调用**。
  */
 
-/** 关闭 fuzz：同一批词的到期时间保持确定，便于排查与测试复现。 */
-const PARAMS = generatorParameters({ enable_fuzz: false });
+/**
+ * 调度参数。
+ *
+ * `enable_fuzz: false` —— 同一批词的到期时间保持确定，便于排查与测试复现。
+ *
+ * `learning_steps: []` / `relearning_steps: []` —— **取消日内学习步进**。
+ * 这不是省事，是本场景的正确选择，且修掉了一个真实缺陷：
+ *
+ *   FSRS 默认的 learning_steps 是 ['1m','10m']，卡片要连续答对两次才
+ *   毕业到 Review 态；「现在处于第几步」是记在 Card.learning_steps 上的。
+ *   我们把调度状态拆成列存在 StudentWord 里，并没有这一列，还原 Card 时
+ *   只能填 0 —— 于是每次复习都把卡片重置回第一步，**永远毕业不了**，
+ *   间隔恒为 0 天，间隔重复完全失效（V3 验证实测：连续答对 6 次仍是 0 天）。
+ *
+ *   而我们的学生一天只复习一次（交卷后那 2 分钟），"1 分钟后再来一次"
+ *   本就没人会做。去掉日内步进后，第一次答对即进入 Review 态，
+ *   间隔按天走：2 → 11 → 46 → 163 → 497 天，这才是间隔重复该有的样子。
+ */
+const PARAMS = generatorParameters({
+  enable_fuzz: false,
+  learning_steps: [],
+  relearning_steps: [],
+});
 const scheduler = fsrs(PARAMS);
 
-/** 间隔超过这个天数就认为"已掌握"，只作为给学生看的标签，不影响调度。 */
+/**
+ * state 只是给学生看的标签，**不参与调度**（调度全由 FSRS 的
+ * stability/difficulty 决定）。按「下次多久要再见到它」分档最直观：
+ *   < 7 天  → 还在学          learning
+ *   ≥ 60 天 → 已掌握          known（`due` 查询会跳过它）
+ *   其余    → 复习中          review
+ */
 const KNOWN_INTERVAL_DAYS = 60;
+const LEARNING_INTERVAL_DAYS = 7;
 
 type DbState = 'new' | 'learning' | 'review' | 'known';
 
@@ -47,7 +75,12 @@ function toFsrsState(s: DbState): State {
 function fromFsrsState(s: State, scheduledDays: number): DbState {
   if (s === State.New) return 'new';
   if (s === State.Learning || s === State.Relearning) return 'learning';
-  return scheduledDays >= KNOWN_INTERVAL_DAYS ? 'known' : 'review';
+  // Review 态按间隔长短分档。关掉日内步进后，答错的词不再进 Relearning，
+  // 而是留在 Review 但间隔被砍到很短（如 355 天 → 2 天）——
+  // 这时给学生看「复习中」是误导，按间隔判定才诚实。
+  if (scheduledDays >= KNOWN_INTERVAL_DAYS) return 'known';
+  if (scheduledDays < LEARNING_INTERVAL_DAYS) return 'learning';
+  return 'review';
 }
 
 const RATING_MAP = {
@@ -152,6 +185,8 @@ export class VocabReviewService {
             lapses: word.lapses,
             state: toFsrsState(word.state as DbState),
             last_review: word.lastReview ?? undefined,
+            // 参数里已关闭日内步进（见 PARAMS 注释），该计数恒为 0，
+            // 不需要也不应该持久化。
             learning_steps: 0,
           } as unknown as Card);
 
