@@ -1,0 +1,147 @@
+{
+  "setCode": "ielts_authored_2026_v3",
+  "provenanceTag": "ielts_authored_2026_v3_authentic",
+  "level": "ielts_authentic",
+  "passageTitle": "The Machine from the Sea",
+  "note": "AI-authored original academic passage for IELTS Academic Reading practice; not from a past examination paper. 出处说明仅作内部记录，不得写进 passage 正文（学生可见）。",
+  "passage": "Paragraph A\nIn the spring of 1900, a party of sponge divers sheltering from a storm anchored off the barren island of Antikythera, between Crete and mainland Greece. One of them descended to look for sponges and surfaced in a panic, describing a heap of corpses on the seabed. What he had found was not a graveyard but a Roman-era shipwreck, its cargo of bronze and marble statues scattered across the slope. Over the following months the divers brought up arms, heads and torsos, and the haul was shipped to the National Archaeological Museum in Athens. Among the crates was a lump of corroded bronze and rotted wood about the size of a large book. It attracted no attention at all.\n\nParagraph B\nSome months later the lump split open as it dried, and a museum official noticed something startling inside: a toothed wheel, cut with the precision of clockwork. This was profoundly out of place. The wreck dated from around the first century BC, and nothing remotely like a gear train was thought to have existed for another thousand years and more. The first reaction of many scholars was that the object must be an intruder — a later instrument that had somehow sunk on the same spot. Only when the corrosion was studied closely, and the fragments were found to be fused into the ancient seabed deposits, was the date accepted.\n\nParagraph C\nFor decades the device resisted interpretation. It had shattered into more than eighty pieces, many of them thin flakes of green corrosion in which the metal itself had almost entirely dissolved. Inscriptions covered its surfaces, but the letters were smaller than a grain of rice and largely buried. Researchers could count perhaps a dozen gears and guess at the rest. Every proposed reconstruction depended on what could be seen, and what could be seen was very little.\n\nParagraph D\nThe breakthrough came from an instrument built for a completely different purpose. In 2005 a team persuaded a manufacturer of industrial X-ray equipment to bring an eight-tonne scanner to Athens, a machine designed to search for cracks inside cast metal parts. Instead of taking a single flat image, it captured hundreds of slices through each fragment and assembled them into a three-dimensional model. Gears that had never been seen could now be counted through the corrosion, and text hidden beneath other text could be read letter by letter. The scanner had been intended for quality control in heavy industry; it turned out to be an archaeological tool of the first order.\n\nParagraph E\nWhat the scans revealed was a mechanism of astonishing sophistication. At least thirty bronze gears had been fitted into a wooden case, and the largest bore two hundred and twenty-three teeth, each one cut by hand. Turning a handle on the side drove the whole train at once. On the front, pointers moved around a ring marked with the twelve signs of the zodiac and a calendar of three hundred and sixty-five days, showing the positions of the sun and moon on any chosen date. A small ball, half silver and half black, rotated to display the phase of the moon.\n\nParagraph F\nOne detail in particular impressed the engineers who studied it. The moon does not travel around the Earth at a constant speed; it moves faster when it is closer and slower when it is further away. The builder had reproduced this uneven motion mechanically, by mounting one gear on top of another with its axis slightly off-centre and letting a pin ride in a slot. As the pair rotated, the pin was alternately pushed ahead and held back, so the pointer sped up and slowed down exactly as the moon does in the sky. Nothing of comparable subtlety survives from the ancient world.\n\nParagraph G\nThe back of the device carried two great spirals. The upper one tracked a cycle of two hundred and thirty-five lunar months, after which the phases of the moon return to the same dates in the year — a period long used to keep calendars in step. The lower spiral predicted eclipses, with small inscriptions on the individual months naming the hour at which an eclipse could be expected and even the colour the moon might appear. A subsidiary dial listed the four-year cycle of athletic festivals, including the Olympic Games, which suggests that the instrument was made for a Greek-speaking public rather than for a single astronomer.\n\nParagraph H\nWho built it remains unknown. Ancient writers describe bronze spheres and models of the heavens made by Archimedes and others, so the tradition clearly existed, but no workshop or maker's name has been recovered. What is certain is that the skills involved did not survive. No comparable geared instrument appears anywhere in the record until medieval astronomical clocks, and those were built without knowledge of this one. The device is not, as it is sometimes called, an ancient computer; it does not calculate anything it was not built to show. It is something arguably more remarkable — proof that a technology can be invented, refined to a very high level, and then lost so completely that its rediscovery two thousand years later is met with disbelief.\n\n(Glossary: sponge divers: men who dived without breathing apparatus to collect natural sponges from the sea floor; gear train: a set of toothed wheels that transmit motion from one to another.)",
+  "questions": [
+    {
+      "n": 1,
+      "questionType": "short_answer",
+      "taskType": "matching_information",
+      "instruction": "Reading Passage 1 has eight paragraphs, A–H. Which paragraph contains the following information? Write the correct letter, A–H, in boxes 1–4 on your answer sheet.",
+      "item": "a description of how a machine borrowed from industry solved the problem",
+      "answer": "D",
+      "marks": 1
+    },
+    {
+      "n": 2,
+      "questionType": "short_answer",
+      "taskType": "matching_information",
+      "instruction": "Reading Passage 1 has eight paragraphs, A–H. Which paragraph contains the following information? Write the correct letter, A–H, in boxes 1–4 on your answer sheet.",
+      "item": "an explanation of why scholars at first doubted the object's age",
+      "answer": "B",
+      "marks": 1
+    },
+    {
+      "n": 3,
+      "questionType": "short_answer",
+      "taskType": "matching_information",
+      "instruction": "Reading Passage 1 has eight paragraphs, A–H. Which paragraph contains the following information? Write the correct letter, A–H, in boxes 1–4 on your answer sheet.",
+      "item": "evidence that the instrument was aimed at ordinary people rather than specialists",
+      "answer": "G",
+      "marks": 1
+    },
+    {
+      "n": 4,
+      "questionType": "short_answer",
+      "taskType": "matching_information",
+      "instruction": "Reading Passage 1 has eight paragraphs, A–H. Which paragraph contains the following information? Write the correct letter, A–H, in boxes 1–4 on your answer sheet.",
+      "item": "an account of the circumstances in which the wreck was found",
+      "answer": "A",
+      "marks": 1
+    },
+    {
+      "n": 5,
+      "questionType": "mcq",
+      "taskType": "true_false_not_given",
+      "instruction": "Do the following statements agree with the information given in Reading Passage 1? In boxes 5–8 on your answer sheet, write TRUE if the statement agrees with the information, FALSE if the statement contradicts the information, NOT GIVEN if there is no information on this.",
+      "item": "The corroded lump was recognised as important as soon as it reached the museum.",
+      "options": [
+        { "key": "A", "text": "TRUE" },
+        { "key": "B", "text": "FALSE", "correct": true },
+        { "key": "C", "text": "NOT GIVEN" }
+      ],
+      "answer": "B",
+      "marks": 1
+    },
+    {
+      "n": 6,
+      "questionType": "mcq",
+      "taskType": "true_false_not_given",
+      "instruction": "Do the following statements agree with the information given in Reading Passage 1? In boxes 5–8 on your answer sheet, write TRUE if the statement agrees with the information, FALSE if the statement contradicts the information, NOT GIVEN if there is no information on this.",
+      "item": "The X-ray scanner was originally designed for examining metal for flaws.",
+      "options": [
+        { "key": "A", "text": "TRUE", "correct": true },
+        { "key": "B", "text": "FALSE" },
+        { "key": "C", "text": "NOT GIVEN" }
+      ],
+      "answer": "A",
+      "marks": 1
+    },
+    {
+      "n": 7,
+      "questionType": "mcq",
+      "taskType": "true_false_not_given",
+      "instruction": "Do the following statements agree with the information given in Reading Passage 1? In boxes 5–8 on your answer sheet, write TRUE if the statement agrees with the information, FALSE if the statement contradicts the information, NOT GIVEN if there is no information on this.",
+      "item": "The device cost more to build than any other instrument of its time.",
+      "options": [
+        { "key": "A", "text": "TRUE" },
+        { "key": "B", "text": "FALSE" },
+        { "key": "C", "text": "NOT GIVEN", "correct": true }
+      ],
+      "answer": "C",
+      "marks": 1
+    },
+    {
+      "n": 8,
+      "questionType": "mcq",
+      "taskType": "true_false_not_given",
+      "instruction": "Do the following statements agree with the information given in Reading Passage 1? In boxes 5–8 on your answer sheet, write TRUE if the statement agrees with the information, FALSE if the statement contradicts the information, NOT GIVEN if there is no information on this.",
+      "item": "Medieval clockmakers based their designs on the Antikythera device.",
+      "options": [
+        { "key": "A", "text": "TRUE" },
+        { "key": "B", "text": "FALSE", "correct": true },
+        { "key": "C", "text": "NOT GIVEN" }
+      ],
+      "answer": "B",
+      "marks": 1
+    },
+    {
+      "n": 9,
+      "questionType": "short_answer",
+      "taskType": "sentence_completion",
+      "instruction": "Complete the sentences below. Choose NO MORE THAN TWO WORDS from the passage for each answer. Write your answers in boxes 9–11 on your answer sheet.",
+      "item": "The wreck was discovered by a group of [BLANK] who had taken shelter from bad weather.",
+      "answer": "sponge divers",
+      "marks": 1
+    },
+    {
+      "n": 10,
+      "questionType": "short_answer",
+      "taskType": "sentence_completion",
+      "instruction": "Complete the sentences below. Choose NO MORE THAN TWO WORDS from the passage for each answer. Write your answers in boxes 9–11 on your answer sheet.",
+      "item": "The first clue to the object's true nature was a toothed [BLANK] seen after the lump dried out.",
+      "answer": "wheel",
+      "marks": 1
+    },
+    {
+      "n": 11,
+      "questionType": "short_answer",
+      "taskType": "sentence_completion",
+      "instruction": "Complete the sentences below. Choose NO MORE THAN TWO WORDS from the passage for each answer. Write your answers in boxes 9–11 on your answer sheet.",
+      "item": "On the front of the mechanism, a ball that was half silver and half black showed the [BLANK] of the moon.",
+      "answer": "phase",
+      "marks": 1
+    },
+    {
+      "n": 12,
+      "questionType": "short_answer",
+      "taskType": "flow_chart_completion",
+      "instruction": "Complete the flow-chart below, which shows how the builder reproduced the moon's uneven motion. Choose NO MORE THAN TWO WORDS from the passage for each answer. Write your answers in boxes 12–13 on your answer sheet.\n\nFlow-chart: One gear is mounted on another with its /12/ slightly off-centre → a pin rides in a /13/ → as the pair turn, the pin is pushed ahead and held back → the pointer speeds up and slows down like the moon.",
+      "item": "Stage 1 — one gear is mounted on another with its /12/ slightly off-centre",
+      "answer": "axis",
+      "marks": 1
+    },
+    {
+      "n": 13,
+      "questionType": "short_answer",
+      "taskType": "flow_chart_completion",
+      "instruction": "Complete the flow-chart below, which shows how the builder reproduced the moon's uneven motion. Choose NO MORE THAN TWO WORDS from the passage for each answer. Write your answers in boxes 12–13 on your answer sheet.\n\nFlow-chart: One gear is mounted on another with its /12/ slightly off-centre → a pin rides in a /13/ → as the pair turn, the pin is pushed ahead and held back → the pointer speeds up and slows down like the moon.",
+      "item": "Stage 2 — a pin rides in a /13/",
+      "answer": "slot",
+      "marks": 1
+    }
+  ]
+}

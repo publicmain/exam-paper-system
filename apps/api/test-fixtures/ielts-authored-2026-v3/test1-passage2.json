@@ -1,0 +1,147 @@
+{
+  "setCode": "ielts_authored_2026_v3",
+  "provenanceTag": "ielts_authored_2026_v3_authentic",
+  "level": "ielts_authentic",
+  "passageTitle": "Gardening the Reef",
+  "note": "AI-authored original academic passage for IELTS Academic Reading practice; not from a past examination paper. 出处说明仅作内部记录，不得写进 passage 正文（学生可见）。",
+  "passage": "Paragraph A\nA coral reef looks like rock and behaves like a city. The stony structure is built by animals no bigger than a pinhead, each secreting a cup of limestone around itself and living in partnership with algae that lodge inside its tissues. The algae photosynthesise and pass sugars to their host; the host gives them shelter and raw materials. It is this partnership, rather than the coral alone, that builds reefs, and it is this partnership that fails first when conditions change.\n\nParagraph B\nWhen the water grows too warm, the relationship breaks down. The algae begin to produce substances harmful to the coral, which expels them, and with them goes almost all of the coral's colour. The white skeleton shows through the now-transparent tissue, and the reef appears to have been bleached. The animal is not yet dead. If the temperature falls again within a few weeks, algae can recolonise and the coral may recover. If the heat persists, the coral starves. A single severe summer can strip a reef that took centuries to grow.\n\nParagraph C\nFor a long time the response of conservationists was to protect reefs and wait. Fishing was restricted, pollution reduced, and the reef left to repair itself as it always had. This is still the foundation of any sensible policy, but it has begun to look insufficient. Bleaching events that were once separated by decades now arrive every few years, which is faster than a slow-growing coral colony can rebuild. Waiting is only a strategy if there is time.\n\nParagraph D\nOut of that impatience grew coral gardening. The method is simple in outline. Fragments of healthy coral, some no longer than a finger, are collected or broken off and hung in mid-water nurseries — frames, ropes, or structures shaped like small trees — where they are suspended away from predators and smothering sediment. There they grow far faster than they would on the reef floor, often reaching a transplantable size within a year. Divers then cement the young colonies onto damaged reef, where they continue to spread.\n\nParagraph E\nThe technique works, and its limits are equally clear. A skilled team can plant several thousand corals in a season; a single reef system may cover hundreds of square kilometres. Restoration at that scale is arithmetically impossible with current methods, and no amount of planting will help if the water keeps heating. Its defenders do not claim otherwise. What gardening buys, they argue, is time and material — keeping populations alive and genetically varied through the bad decades, so that something remains to recolonise the reef when conditions allow.\n\nParagraph F\nThat argument has pushed researchers towards a harder question: not how to grow more coral, but how to grow tougher coral. Reefs are not uniform. On any reef some colonies survive a heatwave that kills their neighbours, and the difference is at least partly inherited. Nurseries can therefore be stocked deliberately from survivors. In some laboratories corals from naturally hot pools — shallow lagoons that already reach temperatures lethal elsewhere — are crossed with corals from cooler reefs, in the hope of passing on whatever allows the first group to endure.\n\nParagraph G\nA second line of work targets the algae rather than the animal. Because the partner supplies most of the coral's food, a more heat-tolerant partner should raise the tolerance of the whole. Researchers have grown algae for many generations at temperatures just below the lethal point, selecting the strains that cope best, and have then introduced these hardened strains into young corals. In aquarium trials the treated corals withstood heat that bleached untreated ones. Whether the effect lasts on a real reef, over years rather than weeks, is not yet known.\n\nParagraph H\nAll of this raises an uncomfortable question about what is being restored. A reef rebuilt from a small number of heat-tolerant colonies is not the reef that was lost; it may be less varied, and variety is itself a form of insurance. Critics also warn of a subtler danger — that visible, photogenic restoration projects allow governments to appear active while the cause of the damage goes unaddressed. Almost every researcher in the field says the same thing when pressed. Coral gardening is not a substitute for cooling the ocean. It is a way of keeping the patient alive while the real treatment is argued over.\n\n(Glossary: photosynthesise: to make food using light energy; sediment: fine sand and mud carried in water, which can settle on and suffocate coral.)",
+  "questions": [
+    {
+      "n": 1,
+      "questionType": "short_answer",
+      "taskType": "matching_information",
+      "instruction": "Reading Passage 2 has eight paragraphs, A–H. Which paragraph contains the following information? Write the correct letter, A–H, in boxes 1–4 on your answer sheet.",
+      "item": "a concern that restoration work may distract from the underlying problem",
+      "answer": "H",
+      "marks": 1
+    },
+    {
+      "n": 2,
+      "questionType": "short_answer",
+      "taskType": "matching_information",
+      "instruction": "Reading Passage 2 has eight paragraphs, A–H. Which paragraph contains the following information? Write the correct letter, A–H, in boxes 1–4 on your answer sheet.",
+      "item": "a description of work aimed at improving the coral's partner rather than the coral",
+      "answer": "G",
+      "marks": 1
+    },
+    {
+      "n": 3,
+      "questionType": "short_answer",
+      "taskType": "matching_information",
+      "instruction": "Reading Passage 2 has eight paragraphs, A–H. Which paragraph contains the following information? Write the correct letter, A–H, in boxes 1–4 on your answer sheet.",
+      "item": "an explanation of why simply protecting reefs is no longer thought to be enough",
+      "answer": "C",
+      "marks": 1
+    },
+    {
+      "n": 4,
+      "questionType": "short_answer",
+      "taskType": "matching_information",
+      "instruction": "Reading Passage 2 has eight paragraphs, A–H. Which paragraph contains the following information? Write the correct letter, A–H, in boxes 1–4 on your answer sheet.",
+      "item": "an account of how coral fragments are raised before being moved",
+      "answer": "D",
+      "marks": 1
+    },
+    {
+      "n": 5,
+      "questionType": "mcq",
+      "taskType": "true_false_not_given",
+      "instruction": "Do the following statements agree with the information given in Reading Passage 2? In boxes 5–8 on your answer sheet, write TRUE if the statement agrees with the information, FALSE if the statement contradicts the information, NOT GIVEN if there is no information on this.",
+      "item": "A bleached coral is already dead.",
+      "options": [
+        { "key": "A", "text": "TRUE" },
+        { "key": "B", "text": "FALSE", "correct": true },
+        { "key": "C", "text": "NOT GIVEN" }
+      ],
+      "answer": "B",
+      "marks": 1
+    },
+    {
+      "n": 6,
+      "questionType": "mcq",
+      "taskType": "true_false_not_given",
+      "instruction": "Do the following statements agree with the information given in Reading Passage 2? In boxes 5–8 on your answer sheet, write TRUE if the statement agrees with the information, FALSE if the statement contradicts the information, NOT GIVEN if there is no information on this.",
+      "item": "Corals in mid-water nurseries grow more quickly than those on the reef floor.",
+      "options": [
+        { "key": "A", "text": "TRUE", "correct": true },
+        { "key": "B", "text": "FALSE" },
+        { "key": "C", "text": "NOT GIVEN" }
+      ],
+      "answer": "A",
+      "marks": 1
+    },
+    {
+      "n": 7,
+      "questionType": "mcq",
+      "taskType": "true_false_not_given",
+      "instruction": "Do the following statements agree with the information given in Reading Passage 2? In boxes 5–8 on your answer sheet, write TRUE if the statement agrees with the information, FALSE if the statement contradicts the information, NOT GIVEN if there is no information on this.",
+      "item": "Coral gardening costs less than restricting fishing.",
+      "options": [
+        { "key": "A", "text": "TRUE" },
+        { "key": "B", "text": "FALSE" },
+        { "key": "C", "text": "NOT GIVEN", "correct": true }
+      ],
+      "answer": "C",
+      "marks": 1
+    },
+    {
+      "n": 8,
+      "questionType": "mcq",
+      "taskType": "true_false_not_given",
+      "instruction": "Do the following statements agree with the information given in Reading Passage 2? In boxes 5–8 on your answer sheet, write TRUE if the statement agrees with the information, FALSE if the statement contradicts the information, NOT GIVEN if there is no information on this.",
+      "item": "Heat-tolerant algae have been shown to protect corals on real reefs over several years.",
+      "options": [
+        { "key": "A", "text": "TRUE" },
+        { "key": "B", "text": "FALSE" },
+        { "key": "C", "text": "NOT GIVEN", "correct": true }
+      ],
+      "answer": "C",
+      "marks": 1
+    },
+    {
+      "n": 9,
+      "questionType": "short_answer",
+      "taskType": "sentence_completion",
+      "instruction": "Complete the sentences below. Choose NO MORE THAN TWO WORDS from the passage for each answer. Write your answers in boxes 9–11 on your answer sheet.",
+      "item": "The algae living inside coral tissue supply their host with [BLANK].",
+      "answer": "sugars",
+      "marks": 1
+    },
+    {
+      "n": 10,
+      "questionType": "short_answer",
+      "taskType": "sentence_completion",
+      "instruction": "Complete the sentences below. Choose NO MORE THAN TWO WORDS from the passage for each answer. Write your answers in boxes 9–11 on your answer sheet.",
+      "item": "In nurseries, young corals are suspended away from predators and smothering [BLANK].",
+      "answer": "sediment",
+      "marks": 1
+    },
+    {
+      "n": 11,
+      "questionType": "short_answer",
+      "taskType": "sentence_completion",
+      "instruction": "Complete the sentences below. Choose NO MORE THAN TWO WORDS from the passage for each answer. Write your answers in boxes 9–11 on your answer sheet.",
+      "item": "Researchers hope to breed tougher coral by crossing colonies from cooler reefs with those from naturally hot [BLANK].",
+      "answer": "pools",
+      "marks": 1
+    },
+    {
+      "n": 12,
+      "questionType": "short_answer",
+      "taskType": "flow_chart_completion",
+      "instruction": "Complete the flow-chart below, which shows what happens to coral when the sea becomes too warm. Choose NO MORE THAN TWO WORDS from the passage for each answer. Write your answers in boxes 12–13 on your answer sheet.\n\nFlow-chart: The water grows too warm → the algae start producing harmful /12/ → the coral expels the algae and loses its colour → the white /13/ shows through the tissue → if the heat continues, the coral starves.",
+      "item": "Stage 1 — the algae start producing harmful /12/",
+      "answer": "substances",
+      "marks": 1
+    },
+    {
+      "n": 13,
+      "questionType": "short_answer",
+      "taskType": "flow_chart_completion",
+      "instruction": "Complete the flow-chart below, which shows what happens to coral when the sea becomes too warm. Choose NO MORE THAN TWO WORDS from the passage for each answer. Write your answers in boxes 12–13 on your answer sheet.\n\nFlow-chart: The water grows too warm → the algae start producing harmful /12/ → the coral expels the algae and loses its colour → the white /13/ shows through the tissue → if the heat continues, the coral starves.",
+      "item": "Stage 2 — the white /13/ shows through the tissue",
+      "answer": "skeleton",
+      "marks": 1
+    }
+  ]
+}

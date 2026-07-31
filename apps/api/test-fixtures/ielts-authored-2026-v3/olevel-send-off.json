@@ -1,0 +1,94 @@
+{
+  "setCode": "ai_authored_olevel_40_send_off_v1",
+  "paperNumber": 2,
+  "paperTitle": "O-Level English 1184 Paper 2 Section B — The Send-off",
+  "provenanceTag": "ai_authored_olevel_40_send_off_v1",
+  "note": "AI-authored original narrative for O-Level §B style practice; not from a past examination paper. 出处说明仅作内部记录，不得写进 passage 正文（学生可见）。",
+  "sections": [
+    {
+      "exercise": 1,
+      "passageTitle": "The Send-off",
+      "instruction": "Read the narrative text below and answer the questions that follow. Section B, Part 1 [15 marks]. Answer in your own words as far as possible.",
+      "passage": "Paragraph 1\nMy brother Wei and I shared a room for sixteen years and spoke, I think, about four hundred words a year. He was five years older. He took the top bunk, the better desk and the last of the milk, and I took the view that this was simply weather — something that happened to me and could not be argued with.\n\nParagraph 2\nThe letter came in March. Enlistment: a date, a time, a place. My mother read it twice and put it under the magnet on the fridge, where it stayed for eleven weeks, going slightly yellow at the edges, and where all of us looked at it every day without ever mentioning it.\n\nParagraph 3\nHe changed in those weeks, though I only recognised it later. He came home earlier. He fixed the wobbling leg of the kitchen table that had wobbled since I was nine. One evening he cooked, badly, and we ate it anyway, and he asked me a question about my school and then actually waited for the answer, which was so unlike him that I gave a short one out of pure suspicion.\n\nParagraph 4\nOn the last Sunday he pulled a box out from under the bunk and began sorting it: comics, a broken watch, a football medal, a photograph of the two of us at the beach in which I am perhaps four and crying. He handed me the medal without ceremony. 'You keep this,' he said, and went back to sorting, and I stood there holding it, and the room was suddenly very small.\n\nParagraph 5\nThe morning itself was bright and horribly ordinary. We took the MRT, all four of us, and my father carried the bag although Wei kept trying to take it back. At the centre there were hundreds of them, all with the same haircut already or about to have it, and hundreds of families doing what we were doing, which was standing in a rough circle saying things that did not matter.\n\nParagraph 6\nMy mother did not cry, which surprised me, until I saw that she was concentrating very hard on not crying, which is a different thing and takes more effort. My father shook Wei's hand, then thought better of it and pulled him in. Then Wei turned to me, and I put out my hand, because I was fifteen and that was what I had decided to do, and he looked at it for a second and then hugged me anyway, hard and quickly, the way you shut a door in the wind.\n\nParagraph 7\nHe went through the gate with the others. He did not look back — I watched for it, and he did not — and the crowd of them closed over him, all the same colour, and that was that. On the train home nobody said anything. My mother held the empty bag on her lap the whole way as if it were still full.\n\nParagraph 8\nThat night I lay in the bottom bunk listening to a silence I had wanted for sixteen years. I had waited so long to have that room to myself, and I had somehow never once considered what it would actually sound like. Above me the mattress did not creak. I understood then that I had spent my whole life measuring how much space my brother took up, and had never once measured what he filled.\n\n(Glossary: enlistment: the compulsory start of National Service, which young Singaporean men begin at around eighteen; MRT: Mass Rapid Transit, Singapore's train network.)",
+      "questions": [
+        { "stem": "Q1. From Paragraph 2, where did the family keep the enlistment letter? [1]", "answer": "under the magnet on the fridge (door)", "marks": 1 },
+        { "stem": "Q2. From Paragraph 4, what did Wei give the narrator? [1]", "answer": "his football medal", "marks": 1 },
+        { "stem": "Q3. What does the word 'wobbling' in 'the wobbling leg of the kitchen table' (Paragraph 3) suggest about the table? [1]", "answer": "it was unsteady / rocked from side to side because the leg was loose", "marks": 1 },
+        { "stem": "Q4. What does the phrase 'horribly ordinary' in 'The morning itself was bright and horribly ordinary' (Paragraph 5) suggest about how the narrator felt about that morning? [1]", "answer": "it felt wrong that such an important, painful day should look and feel exactly like any other day", "marks": 1 },
+        { "stem": "Q5. What does the word 'rough' in 'standing in a rough circle' (Paragraph 5) suggest about how the families were standing? [1]", "answer": "loosely and untidily, not in a neat or deliberate shape", "marks": 1 },
+        { "stem": "Q6. Using your own words, explain what Wei's behaviour in the weeks before he left shows about how he was feeling. (Paragraph 3) [2]", "answer": "MP1 (he was preparing to leave / putting things right): coming home earlier and finally mending the table he had ignored for years shows he was settling his affairs and making up for lost time before going; MP2 (he wanted to be closer to his brother): asking about school and actually waiting for the answer shows he was trying, awkwardly, to connect with the narrator while he still could. Award one mark per distinct point.", "marks": 2 },
+        { "stem": "Q7. Using your own words, explain why the narrator says his mother 'not crying' took 'more effort' than crying. (Paragraph 6) [2]", "answer": "MP1 (she was not calm but controlled): her dry eyes were not a sign that she felt little, but the result of deliberately holding back very strong feeling; MP2 (holding it in is harder): keeping that grief hidden, for her son's sake, cost her far more than simply letting the tears come would have. Award one mark per distinct point.", "marks": 2 },
+        { "stem": "Q8. Using your own words, explain what the detail of the mother holding 'the empty bag on her lap the whole way as if it were still full' (Paragraph 7) shows about her. [2]", "answer": "MP1 (she is not ready to accept he has gone): she holds and protects the bag as carefully as if her son's things — or her son — were still in it; MP2 (the emptiness is the point): the bag is now weightless, and carrying nothing all the way home makes her loss physical and visible to the reader without her saying a word. Award one mark per distinct point.", "marks": 2 },
+        { "stem": "Q9. What is the effect of the comparison in Paragraph 6, that Wei hugged him 'the way you shut a door in the wind'? [2]", "answer": "it makes the hug quick, forceful and almost involuntary — something done fast and firmly because hesitating would make it impossible; it captures a boy who cannot express feeling slowly, so he has to get it over with in one movement, which tells us how much the moment cost him", "marks": 2 },
+        { "stem": "Q10. What is the effect of the final sentence, in which the narrator says he had measured how much space his brother 'took up' but never what he 'filled'? [2]", "answer": "the two verbs turn the same brother into two opposite things — an intruder crowding a small room, and a presence that made it feel inhabited; by setting them side by side the narrator admits that what he had spent sixteen years resenting was in fact what he most depended on, and the realisation arrives only in the silence left behind", "marks": 2 }
+      ]
+    },
+    {
+      "exercise": 2,
+      "instruction": "Refer to the same 'The Send-off' narrative in Exercise 1 above. Read the paragraphs named in each question, then choose the single word from the bank that best describes how the narrator feels at that moment.",
+      "passage": "Refer to the same 'The Send-off' narrative in Exercise 1 above. Read the paragraphs named in each question, then choose the single word from the bank that best describes how the narrator feels at that moment.",
+      "questions": [
+        {
+          "stem": "Q11. [4 marks in total] The narrator's feelings towards his brother shift as the departure approaches and passes. For each part of the passage, choose ONE word from the bank that best describes his dominant feeling at that moment. There are some extra words in the bank you do not need to use, and each word may be used once only. Word bank: amused / bewildered / grateful / lonely / proud / resigned / suspicious / uneasy.\n\nQ11(i). Paragraph 1 — the sixteen years of sharing a room. [1]",
+          "options": [
+            { "key": "A", "text": "grateful" },
+            { "key": "B", "text": "lonely" },
+            { "key": "C", "text": "amused" },
+            { "key": "D", "text": "resigned", "correct": true },
+            { "key": "E", "text": "proud" },
+            { "key": "F", "text": "bewildered" },
+            { "key": "G", "text": "uneasy" },
+            { "key": "H", "text": "suspicious" }
+          ],
+          "answer": "D",
+          "marks": 1
+        },
+        {
+          "stem": "Q11(ii). Paragraph 3 — when Wei starts behaving differently. [1]",
+          "options": [
+            { "key": "A", "text": "proud" },
+            { "key": "B", "text": "lonely" },
+            { "key": "C", "text": "suspicious", "correct": true },
+            { "key": "D", "text": "grateful" },
+            { "key": "E", "text": "amused" },
+            { "key": "F", "text": "resigned" },
+            { "key": "G", "text": "bewildered" },
+            { "key": "H", "text": "uneasy" }
+          ],
+          "answer": "C",
+          "marks": 1
+        },
+        {
+          "stem": "Q11(iii). Paragraph 4 — being handed the medal. [1]",
+          "options": [
+            { "key": "A", "text": "amused" },
+            { "key": "B", "text": "resigned" },
+            { "key": "C", "text": "proud" },
+            { "key": "D", "text": "suspicious" },
+            { "key": "E", "text": "lonely" },
+            { "key": "F", "text": "bewildered", "correct": true },
+            { "key": "G", "text": "grateful" },
+            { "key": "H", "text": "uneasy" }
+          ],
+          "answer": "F",
+          "marks": 1
+        },
+        {
+          "stem": "Q11(iv). Paragraph 8 — lying in the bunk that night. [1]",
+          "options": [
+            { "key": "A", "text": "suspicious" },
+            { "key": "B", "text": "amused" },
+            { "key": "C", "text": "resigned" },
+            { "key": "D", "text": "proud" },
+            { "key": "E", "text": "lonely", "correct": true },
+            { "key": "F", "text": "grateful" },
+            { "key": "G", "text": "bewildered" },
+            { "key": "H", "text": "uneasy" }
+          ],
+          "answer": "E",
+          "marks": 1
+        }
+      ]
+    }
+  ]
+}

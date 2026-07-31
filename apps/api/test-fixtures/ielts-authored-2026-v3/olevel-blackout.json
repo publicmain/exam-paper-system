@@ -1,0 +1,94 @@
+{
+  "setCode": "ai_authored_olevel_39_blackout_v1",
+  "paperNumber": 2,
+  "paperTitle": "O-Level English 1184 Paper 2 Section B — The Blackout",
+  "provenanceTag": "ai_authored_olevel_39_blackout_v1",
+  "note": "AI-authored original narrative for O-Level §B style practice; not from a past examination paper. 出处说明仅作内部记录，不得写进 passage 正文（学生可见）。",
+  "sections": [
+    {
+      "exercise": 1,
+      "passageTitle": "The Blackout",
+      "instruction": "Read the narrative text below and answer the questions that follow. Section B, Part 1 [15 marks]. Answer in your own words as far as possible.",
+      "passage": "Paragraph 1\nMr Tan on the fourteenth floor was the man everybody in our block complained about. He swept the corridor outside his own door twice a day, which was fine, and then swept the section outside ours, which was not. He left notes taped to the lift about shoes left on landings and bicycles chained to railings. My mother said he had too much time. I was fifteen and had a shorter word for him, though I never said it where she could hear.\n\nParagraph 2\nThe power went out on a Thursday evening, just after seven. The lights did not flicker; they simply stopped, and the whole block went dark and silent at once, the hum of a hundred air-conditioners cut off mid-breath. For a second nobody made a sound. Then the corridor filled with voices, doors opening, children calling out, somebody's pot still hissing on a gas stove.\n\nParagraph 3\nMy mother lit two candles and told me to stay put. Through our window I could see the blocks opposite were dark too, all the way down the estate, and beyond them the road lamps had gone as well. The lifts, obviously, were dead. Our flat grew hot within minutes. I sat in the doorway where there was a little moving air and listened to the building talk to itself in the dark.\n\nParagraph 4\nSomeone was crying on the landing below. It was Mrs Kaur from the twelfth floor, who was eighty and who had been in the lift when it stopped. She had been in there perhaps twenty minutes. People had got the doors open by then, but she would not come out; she stood in the gap holding the rail with both hands, and she would not let anyone take her arm.\n\nParagraph 5\nMr Tan came down with a torch. He did not touch her. He sat down on the landing step, an arm's length away, and switched the beam so it pointed at the ceiling instead of her face, and he began to talk about nothing at all — the price of vegetables, a football match, his sister in Malacca. He talked for a long time in an ordinary voice, and slowly Mrs Kaur's grip loosened, and after a while she sat down on the step beside him, and after a while longer she let him walk her up to her flat.\n\nParagraph 6\nBy nine o'clock half the block was in the void deck, where it was cooler. Somebody had brought down a radio. The uncle from the coffee shop was handing out ice cream that would otherwise have melted, and children who normally never spoke were chasing each other between the pillars. Mr Tan went from group to group with his list of who lived where, checking off the flats with old people in them, going back up fourteen floors in the dark to knock on the ones nobody had seen.\n\nParagraph 7\nThe lights came back at half past eleven. The whole void deck cheered, and then, almost at once, everyone began to gather their things and go up, and within ten minutes it was as if none of it had happened. The air-conditioners started again one by one. The estate hummed.\n\nParagraph 8\nThe next morning there was a new note taped to the lift, in his small square handwriting, about bicycles at the railings. I read it on my way to school and I did not laugh. I had spent four years deciding what kind of man Mr Tan was, and it had taken one dark evening to show me that I had been reading the wrong thing entirely. He had not been counting our faults. He had been counting us.\n\n(Glossary: void deck: the open ground floor of a Singapore HDB block, left empty for residents to gather; Malacca: a state in Malaysia.)",
+      "questions": [
+        { "stem": "Q1. From Paragraph 1, what did Mr Tan do twice a day? [1]", "answer": "he swept the corridor outside his own door", "marks": 1 },
+        { "stem": "Q2. From Paragraph 4, why was Mrs Kaur upset? [1]", "answer": "she had been trapped in the lift for about twenty minutes when the power failed", "marks": 1 },
+        { "stem": "Q3. What does the word 'hissing' in 'somebody's pot still hissing on a gas stove' (Paragraph 2) suggest about the pot? [1]", "answer": "it was still cooking / still on the heat, making a soft sputtering sound", "marks": 1 },
+        { "stem": "Q4. What does the phrase 'cut off mid-breath' in 'the hum of a hundred air-conditioners cut off mid-breath' (Paragraph 2) suggest about how the power failed? [1]", "answer": "it stopped abruptly and completely, in an instant, rather than fading away", "marks": 1 },
+        { "stem": "Q5. What does the word 'loosened' in 'slowly Mrs Kaur's grip loosened' (Paragraph 5) suggest about Mrs Kaur? [1]", "answer": "she was gradually becoming less frightened / beginning to relax", "marks": 1 },
+        { "stem": "Q6. Using your own words, explain why Mr Tan pointed his torch at the ceiling and sat an arm's length away from Mrs Kaur. (Paragraph 5) [2]", "answer": "MP1 (avoid adding to her fear): shining the light in her face or crowding her would have startled and pressured an already frightened woman, so he kept the beam and himself away from her; MP2 (let her recover in her own time): by staying near but not touching or urging her, he gave her space to calm down and come out when she was ready, instead of forcing her. Award one mark per distinct point.", "marks": 2 },
+        { "stem": "Q7. Using your own words, explain why Mr Tan talked about 'nothing at all' — vegetables, football, his sister. (Paragraph 5) [2]", "answer": "MP1 (distraction): ordinary, unimportant talk drew her attention away from the lift and from her fear; MP2 (restoring normality): speaking in an everyday voice about everyday things made the situation feel normal again, which calmed her more than reassurance about the lift would have. Award one mark per distinct point.", "marks": 2 },
+        { "stem": "Q8. Using your own words, explain what Mr Tan was doing when he went 'from group to group with his list' and climbed fourteen floors in the dark. (Paragraph 6) [2]", "answer": "MP1 (checking on the vulnerable): he was using his knowledge of who lived in each flat to identify the elderly residents; MP2 (making sure none were missed): he went up in the dark to knock on the doors of those nobody had seen downstairs, to be certain no one was left alone or in trouble. Award one mark per distinct point.", "marks": 2 },
+        { "stem": "Q9. What is the effect of the description in Paragraph 7 that within ten minutes 'it was as if none of it had happened'? [2]", "answer": "it shows how quickly the neighbours returned to their separate, private lives once the lights came back, emphasising that the warmth and closeness of that evening was unusual and fragile — and quietly suggesting that it took a failure of the ordinary for people to notice one another at all", "marks": 2 },
+        { "stem": "Q10. What is the effect of the closing sentence, 'He had not been counting our faults. He had been counting us.'? [2]", "answer": "the two short parallel sentences turn a single word, 'counting', from something critical into something protective, so the narrator's whole picture of Mr Tan is reversed in one stroke; the plainness of the phrasing makes the realisation land as quiet, honest shame rather than drama", "marks": 2 }
+      ]
+    },
+    {
+      "exercise": 2,
+      "instruction": "Refer to the same 'The Blackout' narrative in Exercise 1 above. Read the paragraphs named in each question, then choose the single word from the bank that best describes how the narrator feels at that moment.",
+      "passage": "Refer to the same 'The Blackout' narrative in Exercise 1 above. Read the paragraphs named in each question, then choose the single word from the bank that best describes how the narrator feels at that moment.",
+      "questions": [
+        {
+          "stem": "Q11. [4 marks in total] The narrator's feelings towards his neighbour and his block change over the course of one evening. For each part of the passage, choose ONE word from the bank that best describes his dominant feeling at that moment. There are some extra words in the bank you do not need to use, and each word may be used once only. Word bank: ashamed / bored / contemptuous / delighted / envious / moved / uneasy / warmed.\n\nQ11(i). Paragraph 1 — his view of Mr Tan before the blackout. [1]",
+          "options": [
+            { "key": "A", "text": "moved" },
+            { "key": "B", "text": "warmed" },
+            { "key": "C", "text": "contemptuous", "correct": true },
+            { "key": "D", "text": "uneasy" },
+            { "key": "E", "text": "delighted" },
+            { "key": "F", "text": "bored" },
+            { "key": "G", "text": "ashamed" },
+            { "key": "H", "text": "envious" }
+          ],
+          "answer": "C",
+          "marks": 1
+        },
+        {
+          "stem": "Q11(ii). Paragraphs 3-4 — sitting in the dark, hearing crying below. [1]",
+          "options": [
+            { "key": "A", "text": "delighted" },
+            { "key": "B", "text": "uneasy", "correct": true },
+            { "key": "C", "text": "envious" },
+            { "key": "D", "text": "warmed" },
+            { "key": "E", "text": "contemptuous" },
+            { "key": "F", "text": "ashamed" },
+            { "key": "G", "text": "bored" },
+            { "key": "H", "text": "moved" }
+          ],
+          "answer": "B",
+          "marks": 1
+        },
+        {
+          "stem": "Q11(iii). Paragraph 6 — the void deck, the radio and the ice cream. [1]",
+          "options": [
+            { "key": "A", "text": "bored" },
+            { "key": "B", "text": "contemptuous" },
+            { "key": "C", "text": "envious" },
+            { "key": "D", "text": "ashamed" },
+            { "key": "E", "text": "warmed", "correct": true },
+            { "key": "F", "text": "uneasy" },
+            { "key": "G", "text": "delighted" },
+            { "key": "H", "text": "moved" }
+          ],
+          "answer": "E",
+          "marks": 1
+        },
+        {
+          "stem": "Q11(iv). Paragraph 8 — reading the new note the next morning. [1]",
+          "options": [
+            { "key": "A", "text": "envious" },
+            { "key": "B", "text": "delighted" },
+            { "key": "C", "text": "bored" },
+            { "key": "D", "text": "ashamed", "correct": true },
+            { "key": "E", "text": "uneasy" },
+            { "key": "F", "text": "contemptuous" },
+            { "key": "G", "text": "warmed" },
+            { "key": "H", "text": "moved" }
+          ],
+          "answer": "D",
+          "marks": 1
+        }
+      ]
+    }
+  ]
+}

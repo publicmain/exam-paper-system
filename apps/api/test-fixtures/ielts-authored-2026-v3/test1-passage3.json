@@ -1,0 +1,147 @@
+{
+  "setCode": "ielts_authored_2026_v3",
+  "provenanceTag": "ielts_authored_2026_v3_authentic",
+  "level": "ielts_authentic",
+  "passageTitle": "The Slow Journey of Paper",
+  "note": "AI-authored original academic passage for IELTS Academic Reading practice; not from a past examination paper. 出处说明仅作内部记录，不得写进 passage 正文（学生可见）。",
+  "passage": "Paragraph A\nBefore paper, writing was expensive. In the Mediterranean world the standard surface was papyrus, made from a reed that grew well only in Egypt, so every sheet used in Rome or Athens had to be imported. The alternative was parchment, prepared from animal skin: durable, beautiful and extravagantly costly, since a single large book might consume the hides of an entire flock. Both materials worked. Neither could ever be cheap, and that single fact shaped who was able to write and what was thought worth writing down.\n\nParagraph B\nPaper solved the problem by abandoning the search for a suitable surface and manufacturing one instead. Any plant material containing fibre will do — bark, hemp, old rope, worn-out cloth. The raw material is beaten in water until the fibres separate and float freely. A mould with a fine mesh base is dipped into the vat and lifted out flat, catching a thin layer of fibres as the water drains through. The mat is pressed to squeeze out moisture and hung to dry, and as it dries the fibres bond to one another. The essential insight is that the sheet is not cut from anything; it is assembled from waste.\n\nParagraph C\nThe method was developed in China, where paper was in use well before the technique is first described in detail, and for several centuries it travelled no further. Knowledge of it reached Central Asia by the eighth century and the cities of the Middle East soon after, where papermakers adapted it to local materials, substituting linen rags for the mulberry bark used further east. Baghdad had paper mills while Europe was still writing on skin. From there the craft moved west along the trade routes of the Islamic world, reaching Spain and Sicily before it reached France or Germany.\n\nParagraph D\nEurope was slow to take it up, and the reluctance was not merely technical. Paper was widely distrusted as flimsy, and its association with the Islamic world made it suspect in some quarters; more than one ruler forbade its use for official records, insisting that documents of lasting importance be written on parchment. There were also practical objections. Early European paper was indeed poor, and the objection was self-fulfilling: without demand there was no investment, and without investment quality did not improve.\n\nParagraph E\nWhat changed the calculation was mechanical power. European mills adapted the waterwheel, already familiar from grinding grain, to lift and drop heavy wooden hammers that pounded the rags in stone troughs. The work that had been done by hand, slowly, could now be done continuously by a river. Output rose and prices fell. It was the application of an existing machine to a new task, rather than any new discovery about paper itself, that made the material ordinary.\n\nParagraph F\nThe consequences went far beyond the price of a page. Printing with movable type, which arrived in Europe in the fifteenth century, would have been almost pointless without a cheap surface to print on: a press can produce hundreds of copies in a day, but only if the material to receive them is affordable. Paper made printing worth doing, and printing in turn created an enormous new appetite for paper. Each pushed the other forward.\n\nParagraph G\nThe rag supply eventually became the bottleneck. Mills competed for worn-out cloth; some cities forbade its export, and collectors combed households for scraps. As literacy and printing spread through the eighteenth century, demand outran the amount of old linen a population could produce, and the shortage grew acute. The answer, found in the nineteenth century, was to grind wood into pulp — which removed the limit entirely, at a price. Wood pulp contains a substance that yellows and weakens with age, so books printed on the new paper decay far faster than those printed on rag. Libraries are still dealing with the consequences.\n\nParagraph H\nIt is tempting to describe the spread of paper as an inevitable triumph, but the record suggests something less tidy. The technique existed for roughly a thousand years before it reached Western Europe, held back not by any difficulty in the process — it can be learned in a week — but by trade routes, suspicion and the absence of a reason to want it. Paper did not conquer the world because it was better. It spread when someone had a use for large quantities of cheap writing surface, and not before.\n\n(Glossary: papyrus: a writing material made from the pith of a reed; parchment: a writing surface made from treated animal skin; pulp: a wet mixture of fibres from which paper is formed.)",
+  "questions": [
+    {
+      "n": 1,
+      "questionType": "short_answer",
+      "taskType": "matching_information",
+      "instruction": "Reading Passage 3 has eight paragraphs, A–H. Which paragraph contains the following information? Write the correct letter, A–H, in boxes 1–4 on your answer sheet.",
+      "item": "a reference to a shortage of raw material and the solution that followed",
+      "answer": "G",
+      "marks": 1
+    },
+    {
+      "n": 2,
+      "questionType": "short_answer",
+      "taskType": "matching_information",
+      "instruction": "Reading Passage 3 has eight paragraphs, A–H. Which paragraph contains the following information? Write the correct letter, A–H, in boxes 1–4 on your answer sheet.",
+      "item": "an explanation of how two inventions increased demand for each other",
+      "answer": "F",
+      "marks": 1
+    },
+    {
+      "n": 3,
+      "questionType": "short_answer",
+      "taskType": "matching_information",
+      "instruction": "Reading Passage 3 has eight paragraphs, A–H. Which paragraph contains the following information? Write the correct letter, A–H, in boxes 1–4 on your answer sheet.",
+      "item": "a description of non-technical reasons for resistance to a new material",
+      "answer": "D",
+      "marks": 1
+    },
+    {
+      "n": 4,
+      "questionType": "short_answer",
+      "taskType": "matching_information",
+      "instruction": "Reading Passage 3 has eight paragraphs, A–H. Which paragraph contains the following information? Write the correct letter, A–H, in boxes 1–4 on your answer sheet.",
+      "item": "an account of the drawbacks of the writing surfaces used before paper",
+      "answer": "A",
+      "marks": 1
+    },
+    {
+      "n": 5,
+      "questionType": "mcq",
+      "taskType": "true_false_not_given",
+      "instruction": "Do the following statements agree with the information given in Reading Passage 3? In boxes 5–8 on your answer sheet, write TRUE if the statement agrees with the information, FALSE if the statement contradicts the information, NOT GIVEN if there is no information on this.",
+      "item": "Papyrus could be produced easily throughout the Mediterranean region.",
+      "options": [
+        { "key": "A", "text": "TRUE" },
+        { "key": "B", "text": "FALSE", "correct": true },
+        { "key": "C", "text": "NOT GIVEN" }
+      ],
+      "answer": "B",
+      "marks": 1
+    },
+    {
+      "n": 6,
+      "questionType": "mcq",
+      "taskType": "true_false_not_given",
+      "instruction": "Do the following statements agree with the information given in Reading Passage 3? In boxes 5–8 on your answer sheet, write TRUE if the statement agrees with the information, FALSE if the statement contradicts the information, NOT GIVEN if there is no information on this.",
+      "item": "Paper mills were operating in Baghdad before paper was used in Europe.",
+      "options": [
+        { "key": "A", "text": "TRUE", "correct": true },
+        { "key": "B", "text": "FALSE" },
+        { "key": "C", "text": "NOT GIVEN" }
+      ],
+      "answer": "A",
+      "marks": 1
+    },
+    {
+      "n": 7,
+      "questionType": "mcq",
+      "taskType": "true_false_not_given",
+      "instruction": "Do the following statements agree with the information given in Reading Passage 3? In boxes 5–8 on your answer sheet, write TRUE if the statement agrees with the information, FALSE if the statement contradicts the information, NOT GIVEN if there is no information on this.",
+      "item": "The waterwheel was invented specifically for making paper.",
+      "options": [
+        { "key": "A", "text": "TRUE" },
+        { "key": "B", "text": "FALSE", "correct": true },
+        { "key": "C", "text": "NOT GIVEN" }
+      ],
+      "answer": "B",
+      "marks": 1
+    },
+    {
+      "n": 8,
+      "questionType": "mcq",
+      "taskType": "true_false_not_given",
+      "instruction": "Do the following statements agree with the information given in Reading Passage 3? In boxes 5–8 on your answer sheet, write TRUE if the statement agrees with the information, FALSE if the statement contradicts the information, NOT GIVEN if there is no information on this.",
+      "item": "Chinese papermakers taught the technique directly to European craftsmen.",
+      "options": [
+        { "key": "A", "text": "TRUE" },
+        { "key": "B", "text": "FALSE" },
+        { "key": "C", "text": "NOT GIVEN", "correct": true }
+      ],
+      "answer": "C",
+      "marks": 1
+    },
+    {
+      "n": 9,
+      "questionType": "short_answer",
+      "taskType": "sentence_completion",
+      "instruction": "Complete the sentences below. Choose NO MORE THAN TWO WORDS from the passage for each answer. Write your answers in boxes 9–11 on your answer sheet.",
+      "item": "Middle Eastern papermakers replaced the mulberry bark used further east with linen [BLANK].",
+      "answer": "rags",
+      "marks": 1
+    },
+    {
+      "n": 10,
+      "questionType": "short_answer",
+      "taskType": "sentence_completion",
+      "instruction": "Complete the sentences below. Choose NO MORE THAN TWO WORDS from the passage for each answer. Write your answers in boxes 9–11 on your answer sheet.",
+      "item": "European mills used the [BLANK], already used for grinding grain, to drive hammers that pounded the rags.",
+      "answer": "waterwheel",
+      "marks": 1
+    },
+    {
+      "n": 11,
+      "questionType": "short_answer",
+      "taskType": "sentence_completion",
+      "instruction": "Complete the sentences below. Choose NO MORE THAN TWO WORDS from the passage for each answer. Write your answers in boxes 9–11 on your answer sheet.",
+      "item": "Books printed on paper made from wood pulp decay faster than those printed on [BLANK].",
+      "answer": "rag",
+      "marks": 1
+    },
+    {
+      "n": 12,
+      "questionType": "short_answer",
+      "taskType": "flow_chart_completion",
+      "instruction": "Complete the flow-chart below, which shows how a sheet of paper is formed. Choose NO MORE THAN TWO WORDS from the passage for each answer. Write your answers in boxes 12–13 on your answer sheet.\n\nFlow-chart: Plant material is beaten in water until the /12/ separate → a mould with a fine mesh base is dipped into the vat and lifted out → the water drains through, leaving a thin layer → the mat is /13/ to remove moisture, then hung to dry.",
+      "item": "Stage 1 — plant material is beaten in water until the /12/ separate",
+      "answer": "fibres",
+      "marks": 1
+    },
+    {
+      "n": 13,
+      "questionType": "short_answer",
+      "taskType": "flow_chart_completion",
+      "instruction": "Complete the flow-chart below, which shows how a sheet of paper is formed. Choose NO MORE THAN TWO WORDS from the passage for each answer. Write your answers in boxes 12–13 on your answer sheet.\n\nFlow-chart: Plant material is beaten in water until the /12/ separate → a mould with a fine mesh base is dipped into the vat and lifted out → the water drains through, leaving a thin layer → the mat is /13/ to remove moisture, then hung to dry.",
+      "item": "Stage 2 — the mat is /13/ to remove moisture",
+      "answer": "pressed",
+      "marks": 1
+    }
+  ]
+}

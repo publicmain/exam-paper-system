@@ -1,0 +1,147 @@
+{
+  "setCode": "ielts_authored_2026_v3",
+  "provenanceTag": "ielts_authored_2026_v3_authentic",
+  "level": "ielts_authentic",
+  "passageTitle": "The Ground That Remembers",
+  "note": "AI-authored original academic passage for IELTS Academic Reading practice; not from a past examination paper. 出处说明仅作内部记录，不得写进 passage 正文（学生可见）。",
+  "passage": "Paragraph A\nAcross the far north of Russia, Canada and Alaska lies a band of ground that has not thawed for a very long time. Permafrost is defined not by what it contains but by its temperature: any soil, sediment or rock that stays at or below freezing for at least two consecutive years qualifies. It underlies roughly a sixth of the exposed land in the northern hemisphere, and in places it reaches down more than a kilometre. Above it sits a thin skin of earth, the active layer, which melts each summer and refreezes each winter. Almost everything that lives in the Arctic lives in that skin.\n\nParagraph B\nWhat makes permafrost interesting to climate scientists is what is stored inside it. In a temperate forest, a fallen leaf is consumed by microbes within a season or two and its carbon returns to the air. In the Arctic the cold interrupts that process. Plant material is buried, frozen before it can rot, and simply held. Repeated over tens of thousands of years, this has produced an enormous reservoir: current estimates put the carbon locked in northern permafrost at roughly twice the amount now present in the entire atmosphere.\n\nParagraph C\nThe concern is straightforward. As the ground warms, the microbes that were halted resume the work they began long ago. Ancient plant matter starts to decompose, and the carbon that had been held for millennia is released. If the thawed ground is dry and well aired, the microbes produce mainly carbon dioxide. If it is waterlogged, a different community takes over and produces methane instead — a gas which, over a twenty-year period, traps far more heat per molecule than carbon dioxide does. Whether a thawing landscape drains or floods therefore matters a great deal.\n\nParagraph D\nBecause warming causes thaw and thaw causes further warming, the process is often described as a feedback. The word is accurate but can mislead. A feedback in this sense does not mean a runaway collapse; it means an amplification. The permafrost is not a bomb waiting to detonate, and most researchers expect the release to be gradual, spread across decades and centuries rather than years. What it does mean is that emissions from the Arctic will be added to human emissions, and that this addition is not optional. It will happen at whatever rate the warming dictates.\n\nParagraph E\nThawing does not always proceed evenly. Much of the Arctic contains ground ice — wedges and lenses of pure ice formed over centuries. When that ice melts, the soil above loses its support and collapses, sometimes suddenly, producing pits, slumps and small lakes. Landscapes can be rearranged in a single season. This abrupt thaw affects a much smaller area than the slow, gradual warming of the ground, but it exposes deep material very quickly, and current estimates suggest it may account for a disproportionate share of the total emissions.\n\nParagraph F\nMeasuring any of this is genuinely difficult. The region is vast, roads are few, and instruments must survive winters that destroy most equipment. Satellites can map surface temperature and the shape of the ground, but cannot see how deep the thaw has reached or what is happening chemically a metre down. That requires boreholes drilled and monitored by hand. The result is a network of a few hundred well-studied sites standing in for an area of millions of square kilometres, which is the main reason estimates carry wide margins of uncertainty.\n\nParagraph G\nFor people living on this ground the changes are not abstract. Permafrost is a foundation, and buildings, roads, pipelines and airstrips across the north were designed on the assumption that it would stay frozen. As it softens, structures tilt and crack; engineers now raise buildings on piles driven into deeper, colder ground, and in some settlements refrigeration units are used to keep the soil beneath frozen. Coastlines that were held together by ice are eroding rapidly, and several communities have begun the expensive process of moving.\n\nParagraph H\nThere is a further, stranger consequence. Because permafrost preserves rather than destroys, it has acted as an archive: seeds, insects, the bodies of ice-age mammals and, in a few cases, viable microorganisms have been recovered from ground that has been frozen since before agriculture existed. Scientists value this archive enormously. It is also a reminder of what thaw means. Permafrost has been keeping a record for a very long time, and the process now under way is the record being opened, read and, in the same moment, destroyed.\n\n(Glossary: active layer: the upper soil that thaws each summer and refreezes each winter; borehole: a narrow shaft drilled into the ground to take measurements.)",
+  "questions": [
+    {
+      "n": 1,
+      "questionType": "short_answer",
+      "taskType": "matching_information",
+      "instruction": "Reading Passage 1 has eight paragraphs, A–H. Which paragraph contains the following information? Write the correct letter, A–H, in boxes 1–4 on your answer sheet.",
+      "item": "an explanation of why the amount of carbon released is hard to estimate accurately",
+      "answer": "F",
+      "marks": 1
+    },
+    {
+      "n": 2,
+      "questionType": "short_answer",
+      "taskType": "matching_information",
+      "instruction": "Reading Passage 1 has eight paragraphs, A–H. Which paragraph contains the following information? Write the correct letter, A–H, in boxes 1–4 on your answer sheet.",
+      "item": "a description of the effects on buildings and settlements",
+      "answer": "G",
+      "marks": 1
+    },
+    {
+      "n": 3,
+      "questionType": "short_answer",
+      "taskType": "matching_information",
+      "instruction": "Reading Passage 1 has eight paragraphs, A–H. Which paragraph contains the following information? Write the correct letter, A–H, in boxes 1–4 on your answer sheet.",
+      "item": "a clarification of a term that is commonly misunderstood",
+      "answer": "D",
+      "marks": 1
+    },
+    {
+      "n": 4,
+      "questionType": "short_answer",
+      "taskType": "matching_information",
+      "instruction": "Reading Passage 1 has eight paragraphs, A–H. Which paragraph contains the following information? Write the correct letter, A–H, in boxes 1–4 on your answer sheet.",
+      "item": "an account of how cold prevented material from decaying",
+      "answer": "B",
+      "marks": 1
+    },
+    {
+      "n": 5,
+      "questionType": "mcq",
+      "taskType": "true_false_not_given",
+      "instruction": "Do the following statements agree with the information given in Reading Passage 1? In boxes 5–8 on your answer sheet, write TRUE if the statement agrees with the information, FALSE if the statement contradicts the information, NOT GIVEN if there is no information on this.",
+      "item": "Ground must remain frozen for at least two years in a row to count as permafrost.",
+      "options": [
+        { "key": "A", "text": "TRUE", "correct": true },
+        { "key": "B", "text": "FALSE" },
+        { "key": "C", "text": "NOT GIVEN" }
+      ],
+      "answer": "A",
+      "marks": 1
+    },
+    {
+      "n": 6,
+      "questionType": "mcq",
+      "taskType": "true_false_not_given",
+      "instruction": "Do the following statements agree with the information given in Reading Passage 1? In boxes 5–8 on your answer sheet, write TRUE if the statement agrees with the information, FALSE if the statement contradicts the information, NOT GIVEN if there is no information on this.",
+      "item": "Most researchers expect the carbon to be released suddenly within a few years.",
+      "options": [
+        { "key": "A", "text": "TRUE" },
+        { "key": "B", "text": "FALSE", "correct": true },
+        { "key": "C", "text": "NOT GIVEN" }
+      ],
+      "answer": "B",
+      "marks": 1
+    },
+    {
+      "n": 7,
+      "questionType": "mcq",
+      "taskType": "true_false_not_given",
+      "instruction": "Do the following statements agree with the information given in Reading Passage 1? In boxes 5–8 on your answer sheet, write TRUE if the statement agrees with the information, FALSE if the statement contradicts the information, NOT GIVEN if there is no information on this.",
+      "item": "Abrupt thaw covers a smaller area than gradual thaw.",
+      "options": [
+        { "key": "A", "text": "TRUE", "correct": true },
+        { "key": "B", "text": "FALSE" },
+        { "key": "C", "text": "NOT GIVEN" }
+      ],
+      "answer": "A",
+      "marks": 1
+    },
+    {
+      "n": 8,
+      "questionType": "mcq",
+      "taskType": "true_false_not_given",
+      "instruction": "Do the following statements agree with the information given in Reading Passage 1? In boxes 5–8 on your answer sheet, write TRUE if the statement agrees with the information, FALSE if the statement contradicts the information, NOT GIVEN if there is no information on this.",
+      "item": "More people now live in the Arctic than fifty years ago.",
+      "options": [
+        { "key": "A", "text": "TRUE" },
+        { "key": "B", "text": "FALSE" },
+        { "key": "C", "text": "NOT GIVEN", "correct": true }
+      ],
+      "answer": "C",
+      "marks": 1
+    },
+    {
+      "n": 9,
+      "questionType": "short_answer",
+      "taskType": "sentence_completion",
+      "instruction": "Complete the sentences below. Choose NO MORE THAN TWO WORDS from the passage for each answer. Write your answers in boxes 9–11 on your answer sheet.",
+      "item": "The thin layer of earth above the permafrost, which melts every summer, is called the [BLANK].",
+      "answer": "active layer",
+      "marks": 1
+    },
+    {
+      "n": 10,
+      "questionType": "short_answer",
+      "taskType": "sentence_completion",
+      "instruction": "Complete the sentences below. Choose NO MORE THAN TWO WORDS from the passage for each answer. Write your answers in boxes 9–11 on your answer sheet.",
+      "item": "Northern permafrost is thought to hold about [BLANK] as much carbon as the whole atmosphere.",
+      "answer": "twice",
+      "marks": 1
+    },
+    {
+      "n": 11,
+      "questionType": "short_answer",
+      "taskType": "sentence_completion",
+      "instruction": "Complete the sentences below. Choose NO MORE THAN TWO WORDS from the passage for each answer. Write your answers in boxes 9–11 on your answer sheet.",
+      "item": "To keep buildings stable, engineers now raise them on [BLANK] driven into deeper, colder ground.",
+      "answer": "piles",
+      "marks": 1
+    },
+    {
+      "n": 12,
+      "questionType": "short_answer",
+      "taskType": "flow_chart_completion",
+      "instruction": "Complete the flow-chart below, which shows how the ground collapses when buried ice melts. Choose NO MORE THAN TWO WORDS from the passage for each answer. Write your answers in boxes 12–13 on your answer sheet.\n\nFlow-chart: Wedges and lenses of ground /12/ melt → the soil above loses its support → the surface collapses, forming pits, slumps and small /13/ → deep material is exposed very quickly.",
+      "item": "Stage 1 — wedges and lenses of ground /12/ melt",
+      "answer": "ice",
+      "marks": 1
+    },
+    {
+      "n": 13,
+      "questionType": "short_answer",
+      "taskType": "flow_chart_completion",
+      "instruction": "Complete the flow-chart below, which shows how the ground collapses when buried ice melts. Choose NO MORE THAN TWO WORDS from the passage for each answer. Write your answers in boxes 12–13 on your answer sheet.\n\nFlow-chart: Wedges and lenses of ground /12/ melt → the soil above loses its support → the surface collapses, forming pits, slumps and small /13/ → deep material is exposed very quickly.",
+      "item": "Stage 2 — the surface collapses, forming pits, slumps and small /13/",
+      "answer": "lakes",
+      "marks": 1
+    }
+  ]
+}
