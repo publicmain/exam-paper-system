@@ -192,16 +192,94 @@ const GRADES_0730: Record<string, { awardedMarks: number; reason: string }> = {
   cms6scuar0119mnkykhzqffpi: { awardedMarks: 2, reason: 'Q10:磨软=多年珍藏随身(MP1)+ 情感价值远超面额的反转(MP2),两点齐。2/2。' },
 };
 
+const GRADES_0731: Record<string, { awardedMarks: number; reason: string }> = {
+  // 2026-07-31 早测 · authentic=cambridge_ielts_8/Test1/P2 (Air Traffic Control in the USA)
+  // olevel=ai_authored_olevel_27_radio_v2 (The Old Radio). MCQ 与精确命中的客观短答已自动
+  // 判分, 这里只判"未精确命中"留人工的. 全 Claude 在 chat 判, 零 AI.
+  //
+  // 本次标题匹配(matching headings)判分口径 —— 说明一下为什么这样判:
+  //   题目要求填罗马数字 i–x, 但有 3 位同学填了阿拉伯数字(1/2/3…), 另有同学
+  //   填大写(II)或带口音符(Iì). 这些都属于"写法"问题, 不是"读懂没读懂"的问题:
+  //   "3" 唯一对应 iii, 没有歧义, 学生已经证明他选对了那个小标题.
+  //   因此按等价换算给分, 但在评语里明确提醒"考试必须按题目要求写罗马数字".
+  //   拼写错误(如昨天的 pozolanic)性质不同 —— 那会把答案变成另一个词, 仍判 0.
+
+  // ── 雅思 标题匹配(刘亦佳)──
+  cms87p25s00ytx9dbpizjeek8: { awardedMarks: 1, reason: "标题1:'Iì' 是 ii 打成带口音符的写法, 选的就是 ii, 正确。1。(考试请写规范的 ii)" },
+  cms87phau00z7x9dbd9lxvpp1: { awardedMarks: 0, reason: "标题4(段E):'VII'=vii, 正解 iv(Setting altitude zones, 段E讲 365m/215m 高度分层)。0。" },
+  cms87pmf200zhx9dbqjbfrput: { awardedMarks: 0, reason: "标题5(段F):'Vii'=vii, 正解 viii(Setting rules to weather conditions, 段F讲 VFR/IFR)。0。" },
+  cms87poni00zjx9dbb61bicgy: { awardedMarks: 0, reason: "标题6(段G):'Viji' 写法不清(应为 viii), 且正解是 vii(Defining airspace categories)。0。" },
+
+  // ── 雅思 标题匹配(刘钇村 · 全部大写罗马数字, 已按等价换算)──
+  cms886y3101cxx9dbseufx2ch: { awardedMarks: 0, reason: "标题1(段A):'I'=i, 正解 ii(Aviation disaster prompts action)。0。" },
+  cms88706801d1x9dblf5qti6q: { awardedMarks: 0, reason: "标题2(段C):'II'=ii, 正解 iii(Two coincidental developments)。0。" },
+  cms8872ny01d3x9db7cxwzpe8: { awardedMarks: 0, reason: "标题3(段D):'III'=iii, 正解 v(An oversimplified view)。0。" },
+  cms8878cr01ddx9dbsrlmk8vh: { awardedMarks: 0, reason: "标题5(段F):'VI'=vi, 正解 viii。0。" },
+
+  // ── 雅思 标题匹配(叶书瑞 · 阿拉伯数字, 按等价换算)──
+  cms87n8dp00wqx9dbai47f3q3: { awardedMarks: 0, reason: "标题1(段A):'1'=i, 正解 ii。0。(考试请写罗马数字 i–x)" },
+  cms87nb9q00wsx9dbqpdngux7: { awardedMarks: 1, reason: "标题2(段C):'3'=iii, 与正解一致, 给分。1。(考试请写罗马数字 iii, 不要写 3)" },
+  cms87ndla00wux9db7wet7rp9: { awardedMarks: 0, reason: "标题3(段D):'2'=ii, 正解 v。0。" },
+  cms87nft100wwx9dbfgcohsdy: { awardedMarks: 1, reason: "标题4(段E):'4'=iv, 与正解一致, 给分。1。(考试请写 iv)" },
+  cms87nict00wyx9db132m5sff: { awardedMarks: 0, reason: "标题5(段F):'7'=vii, 正解 viii。0。" },
+  cms87nk6v00x0x9dbkhg741eo: { awardedMarks: 0, reason: "标题6(段G):'6'=vi, 正解 vii。0。" },
+
+  // ── 雅思 标题匹配(叶雅滋)──
+  cms882y5w01a3x9dbr4wzrujr: { awardedMarks: 0, reason: '标题4(段E):vii, 正解 iv(段E讲高度分层)。0。' },
+  cms884hct01arx9db4pnuzfrp: { awardedMarks: 0, reason: '标题6(段G):vi, 正解 vii(段G讲空域分类 A/B/C/D/E/F)。0。' },
+
+  // ── 雅思 标题匹配(毛思琳 · 阿拉伯数字, 按等价换算; 且有重复使用)──
+  cms87jlnn00uxx9db86jr4hgk: { awardedMarks: 1, reason: "标题1(段A):'2'=ii, 与正解一致, 给分。1。(考试请写罗马数字 ii)" },
+  cms87jnny00v4x9dbcfmhvmvb: { awardedMarks: 0, reason: "标题2(段C):'1'=i, 正解 iii。0。" },
+  cms87jp8400v6x9dbsybyq9d3: { awardedMarks: 0, reason: "标题3(段D):'3'=iii, 正解 v。0。" },
+  cms87jsz300v8x9dbo0the1gl: { awardedMarks: 0, reason: "标题4(段E):'2'=ii(与第1题重复), 正解 iv。注意每个小标题只能用一次。0。" },
+  cms87judo00vax9dbb882h7iu: { awardedMarks: 0, reason: "标题5(段F):'1'=i(重复), 正解 viii。0。" },
+  cms87jvm400vcx9dbh8x3aoyv: { awardedMarks: 0, reason: "标题6(段G):'3'=iii(重复), 正解 vii。0。" },
+
+  // ── 雅思 标题匹配(郑稀瑜)──
+  cms87vadd013ox9dbhc8llay0: { awardedMarks: 0, reason: '标题1(段A):ix, 正解 ii。0。' },
+  cms87vcv3013qx9dbdzsho3i0: { awardedMarks: 0, reason: "标题2(段C):'i i'=ii, 正解 iii。0。" },
+  cms87veeq013ux9dbexwlc3c5: { awardedMarks: 0, reason: '标题3(段D):iii, 正解 v。0。' },
+  cms87vots014ox9dbibznxpbz: { awardedMarks: 0, reason: '标题4(段E):x, 正解 iv。0。' },
+  cms87vkas014cx9dbye6x24tr: { awardedMarks: 0, reason: '标题5(段F):vi, 正解 viii。0。' },
+  cms87vqml014yx9dbkoqdmir1: { awardedMarks: 0, reason: '标题6(段G):ix(与第1题重复), 正解 vii。0。' },
+
+  // ── 雅思 标题匹配(闫雯涵 · 阿拉伯数字, 按等价换算)──
+  cms87hhrg00sux9dbcbibi9yk: { awardedMarks: 0, reason: "标题1(段A):'1'=i, 正解 ii。0。(考试请写罗马数字 i–x)" },
+  cms87hjw600swx9dbngdp3d1b: { awardedMarks: 1, reason: "标题2(段C):'3'=iii, 与正解一致, 给分。1。(考试请写 iii)" },
+  cms87hmnf00syx9dbxvrfc18q: { awardedMarks: 0, reason: "标题3(段D):'3'=iii(重复), 正解 v。每个标题只能用一次。0。" },
+  cms87hor400t0x9db8l65enbl: { awardedMarks: 0, reason: "标题4(段E):'2'=ii, 正解 iv。0。" },
+  cms87hswa00t6x9db772txx61: { awardedMarks: 0, reason: "标题5(段F):'1'=i(重复), 正解 viii。0。" },
+  cms87huq200t8x9dbwsyxk2rh: { awardedMarks: 0, reason: "标题6(段G):'3'=iii(重复), 正解 vii。0。" },
+
+  // ── O-Level §B(HEIN HTET NAING)──
+  cms87u0c9012lx9dbrs19h2ba: { awardedMarks: 1, reason: 'Q1:厨房料理台的同一个角落。1。' },
+  cms87pi0o00z9x9dbktpv2z8m: { awardedMarks: 1, reason: 'Q2:两个星期。1。' },
+  cms87xo550169x9dblflt53fl: { awardedMarks: 0, reason: "Q4:'very slow' 说的是快慢; 'a hair's breadth at a time' 说的是每次只转极小的幅度(量), 未答出。0。" },
+  cms87smi00129x9dbqwnf4wn9: { awardedMarks: 1, reason: "Q5:'annoyed' 命中 nuisance=嫌它烦。1。" },
+  cms87yw3p016fx9dbqee6f3ve: { awardedMarks: 1, reason: 'Q7:收音机等同于爷爷本人、动它像惊扰他(MP1);未及"开机就等于承认他真的走了"(MP2)。1/2。' },
+  cms8809ar017mx9db9aogawj5: { awardedMarks: 2, reason: "Q9:'gentle' 对应 swam(声音缓缓浮起)+ '把多年前的回忆带回来' 对应 out of the years(往昔涌入当下),两层齐。2/2。" },
+
+  // ── O-Level §B(赵伯容)──
+  cms87oo7v00yox9dbw11g21s1: { awardedMarks: 1, reason: 'Q1:厨房料理台的同一个角落。1。' },
+  cms87r3v9010nx9dbe8lwsmtw: { awardedMarks: 1, reason: 'Q2:两个星期。1。' },
+  cms87vihl0144x9db7mtc8xb6: { awardedMarks: 0, reason: "Q3:'skillful'(技术好)不是 coax 的意思; coax 指轻柔、耐心地把电台「哄」出来。0。" },
+  cms8807zm017kx9dby65ajk9n: { awardedMarks: 0, reason: "Q4:'careful' 泛指小心; 'a hair's breadth at a time' 要答出每次只转极微小的幅度。0。" },
+  cms884hbt01apx9dbgn7nnntx: { awardedMarks: 0, reason: "Q5:答成「收音机太旧、不属于新世界」(那是上下文), nuisance 要答出「他嫌它碍事/烦人」。0。" },
+  cms887kl801e3x9dbrondw4r5: { awardedMarks: 1, reason: 'Q7:"家人把收音机看作爷爷"命中 MP1;未及"开机=承认他真的不在了"(MP2)。1/2。' },
+  cms88fepk01kwx9db4qxnrf8v: { awardedMarks: 0, reason: 'Q8:答成"明白爷爷为何喜欢收音机", 与点播启示无关; 应答"别人也来这里找逝去的人, 原来我不是唯一的"。0/2。' },
+};
+
 // Finalize-sweep — every non-practice submission in these assignments gets
 // its status flipped submitted→marked (recomputing scores), even the fully
 // auto-graded ones (0 parked items) and blank submissions (no scripts). The
 // GRADES map alone only reaches submissions that had a parked item.
 const SWEEP_ASSIGNMENTS: string[] = [
-  'a3b71798-f0f3-47ba-82de-51a61aa17686', // 2026-07-30 IELTS authentic (Mending the Sky P3)
-  '61b45a60-037f-4174-ad4d-b080ff2e9a1b', // 2026-07-30 O-Level (red packet)
+  '4ac8cd2f-eb5f-4e67-92ea-7c60455f59b1', // 2026-07-31 IELTS authentic (Air Traffic Control, Cam8 T1/P2)
+  '112e63b7-fb42-4d0c-be8f-bc3622fab9c1', // 2026-07-31 O-Level (The Old Radio)
 ];
 
-const GRADES: Record<string, { awardedMarks: number; reason: string }> = GRADES_0730;
+const GRADES: Record<string, { awardedMarks: number; reason: string }> = GRADES_0731;
 const _OLD_GRADES: Record<string, { awardedMarks: number; reason: string }> = {
   // 2026-07-24 早测 · ielts_authentic = cambridge_ielts_8/Test1/P1
   // "A Chronicle of Timekeeping"(Q1-4 段落匹配 A-H;Q9-13 图标注 ≤2词).
