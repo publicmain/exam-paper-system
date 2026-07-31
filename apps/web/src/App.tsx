@@ -78,6 +78,8 @@ const HomeworkDashboardPage = lazy(() => import('./pages/HomeworkDashboard'));
 const StudentHomeworkPage = lazy(() => import('./pages/StudentHomework'));
 const StudentHomeworkSubmitPage = lazy(() => import('./pages/StudentHomeworkSubmit'));
 const StudentMistakesPage = lazy(() => import('./pages/StudentMistakes'));
+// 生词本 P4 — 教师端班级生词看板
+const VocabClassPage = lazy(() => import('./pages/VocabClass'));
 
 export default function App() {
   const { user, loading, init, logout } = useAuth();
@@ -303,6 +305,9 @@ export default function App() {
               {(user.role === 'admin' || user.role === 'head_teacher' || user.role === 'teacher') && (
                 <NavLink to="/stats" label="统计" />
               )}
+              {(user.role === 'admin' || user.role === 'head_teacher' || user.role === 'teacher') && (
+                <NavLink to="/vocab-class" label="生词" />
+              )}
 
               {/* 「出卷 ▾」下拉 */}
               <NavDropdown label="出卷">
@@ -405,6 +410,8 @@ export default function App() {
               otherwise the page guard early-returns and gets stuck at "Loading…". */}
           <Route path="/marker/submission/:submissionId" element={<MarkerScriptPage />} />
           <Route path="/stats" element={<ClassStatsPage />} />
+          {/* 生词本 P4 — 班级生词看板（老师用来决定"今天该讲哪几个词"） */}
+          <Route path="/vocab-class" element={<VocabClassPage />} />
           <Route path="/stats/wrong-answers" element={<WrongAnswerDashboardPage />} />
           <Route
             path="/quality"

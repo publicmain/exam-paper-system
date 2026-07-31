@@ -1,10 +1,13 @@
-import { BadRequestException, Body, Controller, Get, Post, Query } from '@nestjs/common';
+import { BadRequestException, Body, Controller, Get, Param, Post, Query, Req } from '@nestjs/common';
+import type { Request } from 'express';
 import { z } from 'zod';
+import { CurrentUser } from '../common/current-user.decorator';
 import { Public } from '../common/auth.guard';
 import { RateLimit } from '../common/rate-limit.guard';
 import { StudentWordService } from './student-word.service';
 import { VocabReviewService, type RatingKey } from './vocab-review.service';
 import { VocabService } from './vocab.service';
+import { VocabTeacherService } from './vocab-teacher.service';
 
 /**
  * 生词本 —— 查词接口（P1，只读）。
@@ -22,6 +25,7 @@ export class VocabController {
     private readonly svc: VocabService,
     private readonly words: StudentWordService,
     private readonly review: VocabReviewService,
+    private readonly teacher: VocabTeacherService,
   ) {}
 
   /** 查单词。查不到返回 { found: false } —— 前端显示「未收录」，绝不猜词义。 */
@@ -119,5 +123,54 @@ export class VocabController {
   @Get('stats')
   async stats(@Query('name') name?: string, @Query('studentId') studentId?: string) {
     return this.review.stats({ studentName: name ?? '', studentId: studentId || undefined });
+  }
+
+  // ─────────────────── P4 教师端 ───────────────────
+  // 以下三个接口需要登录 + 班级权限（canActOnClass），非 @Public。
+
+  /** 班级高频生词榜 —— 回答"今天该讲哪几个词"。 */
+  @Get('class/:classId/top')
+  async classTop(
+    @Param('classId') classId: string,
+    @CurrentUser() user: any,
+    @Req() req: Request,
+    @Query('limit') limit?: string,
+    @Query('days') days?: string,
+  ) {
+    return this.teacher.classTop(
+      classId,
+      { id: user.id, role: user.role, ip: (req as any).ip ?? null },
+      {
+        limit: limit ? parseInt(limit, 10) : undefined,
+        days: days ? parseInt(days, 10) : undefined,
+      },
+    );
+  }
+
+  /** 老师推一批词给全班（已有的词跳过，重复推送安全）。 */
+  @Post('push')
+  async pushWords(@Body() body: unknown, @CurrentUser() user: any, @Req() req: Request) {
+    const schema = z.object({
+      classId: z.string().min(1),
+      words: z.array(z.string().min(1).max(64)).min(1).max(50),
+      contextSentence: z.string().max(500).optional(),
+    });
+    const p = schema.safeParse(body);
+    if (!p.success) throw new BadRequestException(p.error.flatten());
+    return this.teacher.pushWords(p.data, {
+      id: user.id,
+      role: user.role,
+      ip: (req as any).ip ?? null,
+    });
+  }
+
+  /** 班级生词执行情况（采集量 / 已掌握 / 复习总次数）。 */
+  @Get('class/:classId/stats')
+  async classStats(@Param('classId') classId: string, @CurrentUser() user: any, @Req() req: Request) {
+    return this.teacher.classStats(classId, {
+      id: user.id,
+      role: user.role,
+      ip: (req as any).ip ?? null,
+    });
   }
 }

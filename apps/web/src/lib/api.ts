@@ -403,6 +403,18 @@ export const api = {
     rating: string;
     elapsedMs?: number;
   }) => request('POST', '/vocab/review', body),
+  /** 生词本 P4 教师端 — 班级高频生词 / 推词 / 班级统计 */
+  vocabClassTop: (classId: string, p?: { days?: number; limit?: number }) =>
+    request(
+      'GET',
+      '/vocab/class/' + encodeURIComponent(classId) + '/top' +
+        (p?.days ? '?days=' + p.days : '?days=30') +
+        (p?.limit ? '&limit=' + p.limit : ''),
+    ),
+  vocabClassStats: (classId: string) =>
+    request('GET', '/vocab/class/' + encodeURIComponent(classId) + '/stats'),
+  vocabPush: (body: { classId: string; words: string[]; contextSentence?: string }) =>
+    request('POST', '/vocab/push', body),
   morningQuizBatchSchedule: (items: Array<{ date: string; classId: string; paperId: string }>) =>
     request('POST', '/morning-quiz/batch', { items }),
   morningQuizBatchGenerate: (body: {
