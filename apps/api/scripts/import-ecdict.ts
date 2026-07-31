@@ -42,6 +42,14 @@ const prisma = new PrismaClient();
 /** 与前端点词分词器保持一致的归一化。 */
 const norm = (w: string) => w.toLowerCase().replace(/’/g, "'");
 
+/**
+ * ECDICT 的 CSV 用两字符转义 `\n` 表示释义内的换行。原样入库的话，
+ * 学生在点词卡上会看到可见的脏字符：
+ *     vt. 哄, 诱骗, 耐心地摆弄\nvi. 哄骗\n[计] 同轴电缆
+ * 全库 103,092 条里有 52,292 条中招（实测），必须在导入时就换成真换行。
+ */
+const unescapeNl = (s: string) => s.split(String.fromCharCode(92) + 'n').join('\n');
+
 /** 流式 CSV 解析（ECDICT 的释义字段含逗号与引号，必须按引号状态机解析）。 */
 function* parseCSV(text: string): Generator<string[]> {
   let i = 0;
@@ -267,8 +275,8 @@ function download(url: string, dest: string): Promise<void> {
     const row: Row = {
       word,
       phonetic: (r[1] || '').trim() || null,
-      translation,
-      definition: (r[2] || '').trim() || null,
+      translation: unescapeNl(translation),
+      definition: unescapeNl((r[2] || '').trim()) || null,
       pos: (r[4] || '').trim() || null,
       collins: Number.isFinite(collins) && collins > 0 ? collins : null,
       oxford,

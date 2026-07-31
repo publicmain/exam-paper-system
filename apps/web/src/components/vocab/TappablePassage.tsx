@@ -69,16 +69,33 @@ export function TappablePassage({
     loading: boolean;
     entry: Entry | null;
     notFound: boolean;
+    /** 查询失败（网络/超时/服务端错误）—— 与「词典没这个词」是两回事 */
+    failed: boolean;
   } | null>(null);
 
+  /**
+   * 查词。
+   *
+   * ⚠️ 必须把「词典未收录」和「查询失败」分开显示。
+   * 早先两者都显示成"本词典未收录"，结果 API 冷启动慢了 15 秒时，学生看到的是
+   * 「本词典未收录 coax」—— 一个彻头彻尾的谎话，会让人以为词典缺常用词。
+   * （这是真机验证时实际发生的。）
+   * 超时也要兜住：宁可 8 秒后告诉他"网络慢，重试"，也不要转圈转到天荒地老。
+   */
   const lookup = useCallback(async (surface: string, sentence: string) => {
-    setActive({ surface, sentence, loading: true, entry: null, notFound: false });
+    setActive({ surface, sentence, loading: true, entry: null, notFound: false, failed: false });
     try {
-      const r: any = await api.vocabLookup(surface);
-      if (r?.found) setActive({ surface, sentence, loading: false, entry: r.entry, notFound: false });
-      else setActive({ surface, sentence, loading: false, entry: null, notFound: true });
+      const r: any = await Promise.race([
+        api.vocabLookup(surface),
+        new Promise((_, rej) => setTimeout(() => rej(new Error('timeout')), 8000)),
+      ]);
+      if (r?.found) {
+        setActive({ surface, sentence, loading: false, entry: r.entry, notFound: false, failed: false });
+      } else {
+        setActive({ surface, sentence, loading: false, entry: null, notFound: true, failed: false });
+      }
     } catch {
-      setActive({ surface, sentence, loading: false, entry: null, notFound: true });
+      setActive({ surface, sentence, loading: false, entry: null, notFound: false, failed: true });
     }
   }, []);
 
@@ -166,6 +183,19 @@ export function TappablePassage({
                 <div className="text-xs text-gray-400 mt-1">
                   多为人名、地名或本地词汇 —— 文章末尾的 Glossary 通常有解释。
                 </div>
+              </div>
+            )}
+
+            {active.failed && (
+              <div className="mt-3 text-sm text-gray-700">
+                查询失败，可能是网络慢。
+                <button
+                  type="button"
+                  onClick={() => lookup(active.surface, active.sentence)}
+                  className="ml-2 px-3 py-1 rounded-md bg-blue-600 hover:bg-blue-700 text-white text-xs font-medium"
+                >
+                  重试
+                </button>
               </div>
             )}
 
