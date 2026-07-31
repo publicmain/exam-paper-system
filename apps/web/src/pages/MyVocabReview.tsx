@@ -59,8 +59,14 @@ export default function MyVocabReviewPage() {
       return;
     }
     let cancelled = false;
-    api
-      .vocabDue({ name, studentId: studentId || undefined, limit: 5 })
+    // ⚠️ 必须有超时。这个页面现在挡在**每个学生交卷之后**，而 Railway 容器
+    // 冷启动实测可达 15 秒（V4 真机验证时遇到过）。周一早上 8:30 的第一个
+    // 请求很可能就是冷的 —— 学生刚交完卷却卡在转圈，会以为交卷失败。
+    // 5 秒拿不到就直接放行去看成绩：复习是锦上添花，成绩才是他来的目的。
+    Promise.race([
+      api.vocabDue({ name, studentId: studentId || undefined, limit: 5 }),
+      new Promise((_, rej) => setTimeout(() => rej(new Error('timeout')), 5000)),
+    ])
       .then((r: any) => {
         if (cancelled) return;
         const list: Card[] = r?.cards ?? [];
@@ -69,7 +75,7 @@ export default function MyVocabReviewPage() {
         else setCards(list);
       })
       .catch(() => {
-        // 生词本不可用绝不能挡住看成绩
+        // 超时或生词本不可用，绝不能挡住看成绩
         if (!cancelled) navigate(historyUrl, { replace: true });
       });
     return () => { cancelled = true; };
