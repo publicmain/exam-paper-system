@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { contextFor, extractQuotedWord, firstSentenceWith } from './student-word.service';
+import { contextFor, extractQuotedWord, firstSentenceWith, isCompletionTask, isWorthLearning } from './student-word.service';
 
 /**
  * 自动采集的抽词逻辑回归测试。
@@ -103,5 +103,43 @@ describe('firstSentenceWith — 取含该词的原句作为卡片上下文', () 
   it('找不到时退回题干开头，不返回空', () => {
     const out = firstSentenceWith('No target here at all.', 'zzz');
     expect(out.length).toBeGreaterThan(0);
+  });
+});
+
+describe('isCompletionTask — 哪些题型的参考答案本身就是个词', () => {
+  it('识别各类填空题', () => {
+    for (const t of ['sentence_completion','flow_chart_completion','summary_completion','note_completion','table_completion','diagram_label_completion']) {
+      expect(isCompletionTask(t)).toBe(true);
+    }
+  });
+  it('不把非填空题当填空', () => {
+    for (const t of ['matching_information','true_false_not_given','multi_match','short_answer','matching_headings']) {
+      expect(isCompletionTask(t)).toBe(false);
+    }
+    expect(isCompletionTask(undefined)).toBe(false);
+  });
+});
+
+describe('isWorthLearning — 填空答案要不要进生词本', () => {
+  // 以下取值全部来自生产词典里这些词的真实字段（2026-07-31 实测）
+  it('收进阶词：sediment / skeleton / axis / slot / interference', () => {
+    expect(isWorthLearning({ tag: ['toefl','ielts','gre'], oxford: false, bnc: 5512 })).toBe(true);   // sediment
+    expect(isWorthLearning({ tag: ['cet6','ky','toefl','ielts','gre'], oxford: false, bnc: 5954 })).toBe(true); // skeleton
+    expect(isWorthLearning({ tag: ['cet4','cet6','ky','toefl','ielts','gre'], oxford: false, bnc: 5787 })).toBe(true); // axis
+    expect(isWorthLearning({ tag: ['cet6','ky','ielts','gre'], oxford: false, bnc: 5604 })).toBe(true); // slot
+  });
+  it('不收学生本就认识的核心高频词：hole / mirror / twice', () => {
+    // hole 带 cet6 标签，但它是牛津核心词且 bnc=1329 —— 答错是读错段落，不是不认识
+    expect(isWorthLearning({ tag: ['zk','gk','cet4','cet6','ky'], oxford: true, bnc: 1329 })).toBe(false);
+    expect(isWorthLearning({ tag: ['zk','gk','cet4','cet6','ky'], oxford: true, bnc: 2086 })).toBe(false);
+    expect(isWorthLearning({ tag: ['zk','gk'], oxford: true, bnc: 1501 })).toBe(false);
+  });
+  it('无进阶考纲标签的一律不收', () => {
+    expect(isWorthLearning({ tag: [], oxford: false, bnc: 8367 })).toBe(false);      // carbonate
+    expect(isWorthLearning({ tag: ['zk','gk'], oxford: false, bnc: 9999 })).toBe(false);
+  });
+  it('缺字段时不报错且从严', () => {
+    expect(isWorthLearning({})).toBe(false);
+    expect(isWorthLearning({ tag: ['ielts'], oxford: null, bnc: null })).toBe(true);
   });
 });

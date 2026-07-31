@@ -141,6 +141,11 @@ export class StudentWordService {
    *   1. snapshotContent.targetWord   —— vocab-in-context 题型的显式字段
    *   2. 题干里被引号括起来的词        —— O-Level §B 词义题的固定写法：
    *      What does the word 'coax' in ... suggest?
+   *   3. 填空类题目的**参考答案本身**  —— 雅思卷没有任何引号词义题（实测：
+   *      本周雅思 305 次失分里，带引号目标词的是 0 个），只靠 1/2 的话
+   *      雅思学生一个词都收不到。而填空答错时，正确答案往往正是那个他不
+   *      认识的词（sediment / skeleton / axis / interference…），这才是
+   *      雅思那边真正的词汇缺口。
    *
    * 幂等：已在生词本里的词跳过。
    */
@@ -158,6 +163,7 @@ export class StudentWordService {
                 id: true,
                 marks: true,
                 snapshotContent: true,
+                snapshotAnswer: true,
               },
             },
           },
@@ -166,7 +172,13 @@ export class StudentWordService {
     });
     if (!sub || sub.status === 'practice') return { added: 0, candidates: 0 };
 
-    const wanted: Array<{ word: string; qid: string; title: string | null; sentence: string }> = [];
+    const wanted: Array<{
+      word: string;
+      qid: string;
+      title: string | null;
+      sentence: string;
+      needsWorthCheck?: boolean;
+    }> = [];
     for (const s of sub.scripts) {
       // 只采集"确实失分"的题：满分不采
       if (s.awardedMarks == null) continue;
@@ -175,16 +187,32 @@ export class StudentWordService {
       const title = typeof sc.passageTitle === 'string' ? sc.passageTitle : null;
       const stem = typeof sc.stem === 'string' ? sc.stem : '';
       const passage = typeof sc.passage === 'string' ? sc.passage : '';
-      const target =
+      let target =
         typeof sc.targetWord === 'string' && sc.targetWord.trim()
           ? sc.targetWord.trim()
           : extractQuotedWord(stem);
+
+      // 来源 3：填空类题目 —— 参考答案本身就是那个词
+      let fromAnswer = false;
+      if (!target && isCompletionTask(sc.taskType)) {
+        const ref = (s.paperQuestion.snapshotAnswer as { text?: unknown } | null)?.text;
+        const cand = typeof ref === 'string' ? ref.trim() : '';
+        // 只收单个词：多词答案（"calcium carbonate" / "active layer"）不是
+        // 单一生词，塞进生词卡既查不到释义也不便复习。
+        if (cand && /^[A-Za-z][A-Za-z'’-]*$/.test(cand)) {
+          target = cand;
+          fromAnswer = true;
+        }
+      }
       if (!target) continue;
       wanted.push({
         word: target,
         qid: s.paperQuestion.id,
         title,
         sentence: contextFor(passage, stem, target),
+        // 由参考答案推出来的词要额外过一道"值不值得背"的筛子，
+        // 见 harvest 主循环里的 isWorthLearning。
+        needsWorthCheck: fromAnswer,
       });
     }
 
@@ -192,6 +220,12 @@ export class StudentWordService {
     for (const w of wanted) {
       const hit = await this.vocab.lookup(w.word);
       if (!hit) continue;
+      // 由填空答案推出来的词：只收"确实值得背"的，否则会把 hole / mirror /
+      // twice 这种学生明明认识、只是读错了段落的常用词灌进生词本。
+      if (w.needsWorthCheck) {
+        const entry = await this.prisma.dictEntry.findUnique({ where: { word: hit.word } });
+        if (!entry || !isWorthLearning(entry)) continue;
+      }
       const exists = await this.prisma.studentWord.findUnique({
         where: { studentId_headword: { studentId: sub.studentId, headword: hit.word } },
         select: { id: true },
@@ -212,6 +246,40 @@ export class StudentWordService {
     }
     return { added, candidates: wanted.length };
   }
+}
+
+/** 填空类题型：正确答案本身就是一个从原文取出的词。 */
+export function isCompletionTask(taskType: unknown): boolean {
+  return typeof taskType === 'string' && /completion$/.test(taskType);
+}
+
+/**
+ * 「这个词值不值得进生词本」。
+ *
+ * 只对**由填空参考答案推出来的词**生效。填空答错有两种原因：不认识那个词，
+ * 或者只是读错了段落。两者无法区分，所以取保守策略 —— 只收对 G11 学生
+ * 而言确实可能不认识的词：
+ *   · 带进阶考纲标签（雅思 / 托福 / GRE / 六级）
+ *   · 且不是牛津 3000 核心词
+ *   · 且不是高频词（BNC 排名前 3000）
+ *
+ * 实测校准（2026-07-31 本周真实错题）：
+ *   收：sediment / skeleton / axis / slot / interference / calcium
+ *   不收：hole(bnc 1329,核心词) / mirror(2086,核心词) / twice(1501,核心词)
+ * 而 chromatophores / leucophores / clast 这类文中专业术语词典本就未收录，
+ * 在更前面的 lookup 一步就已经被挡掉。
+ */
+export function isWorthLearning(e: {
+  tag?: string[] | null;
+  oxford?: boolean | null;
+  bnc?: number | null;
+}): boolean {
+  const tags = e.tag ?? [];
+  const advanced = ['ielts', 'toefl', 'gre', 'cet6'];
+  if (!tags.some((t) => advanced.includes(t))) return false;
+  if (e.oxford) return false;
+  if (typeof e.bnc === 'number' && e.bnc > 0 && e.bnc < 3000) return false;
+  return true;
 }
 
 /**
