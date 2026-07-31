@@ -154,7 +154,15 @@ export default function MorningQuizTake() {
     // score?" because /student/result is bound to a single session +
     // requires login. /my-history is the single durable entry point.
     if (studentName) {
-      navigate(`/my-history?name=${encodeURIComponent(studentName)}`, { replace: true });
+      // 生词本 P3 —— 交卷后先过一遍「今日生词」(约 2 分钟, 最多 5 张卡),
+      // 再进成绩页。复习寄生在这个既有仪式里, 不新增任何自律要求
+      // (见 docs/PRD/vocabulary-notebook.md §1.2)。
+      // 该页在「没有待复习的词」或「生词本接口不可用」时会立刻 replace 到
+      // /my-history —— 绝不会挡住学生看成绩。
+      navigate(
+        `/my-vocab/review?name=${encodeURIComponent(studentName)}&after=submit`,
+        { replace: true },
+      );
     } else {
       // Fallback for edge cases where useAuth.user is somehow empty —
       // the portal page also reads localStorage 'mq:history:name', so

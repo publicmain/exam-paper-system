@@ -386,6 +386,23 @@ export const api = {
   }) => request('POST', '/vocab/words', body),
   vocabRemove: (body: { studentName: string; studentId?: string; headword: string }) =>
     request('POST', '/vocab/words/remove', body),
+  /** 生词本 P3 — 今日待复习卡片 */
+  vocabDue: (p: { name: string; studentId?: string; limit?: number }) =>
+    request(
+      'GET',
+      '/vocab/due?name=' +
+        encodeURIComponent(p.name) +
+        (p.studentId ? '&studentId=' + encodeURIComponent(p.studentId) : '') +
+        (p.limit ? '&limit=' + p.limit : ''),
+    ),
+  /** 生词本 P3 — 提交复习评分，服务端用 FSRS 重新调度 */
+  vocabReview: (body: {
+    studentName: string;
+    studentId?: string;
+    headword: string;
+    rating: string;
+    elapsedMs?: number;
+  }) => request('POST', '/vocab/review', body),
   morningQuizBatchSchedule: (items: Array<{ date: string; classId: string; paperId: string }>) =>
     request('POST', '/morning-quiz/batch', { items }),
   morningQuizBatchGenerate: (body: {

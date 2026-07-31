@@ -23,6 +23,7 @@ import MyHistoryPage from './pages/MyHistory';
 import MyHistoryDetailPage from './pages/MyHistoryDetail';
 // 生词本 P2 —— 与上面两页同属学生自助入口，保持 eager 以免多一次网络往返
 import MyVocabPage from './pages/MyVocab';
+import MyVocabReviewPage from './pages/MyVocabReview';
 import LoginPage from './pages/Login';
 
 const DashboardPage = lazy(() => import('./pages/Dashboard'));
@@ -119,13 +120,15 @@ export default function App() {
     location.pathname === '/my-history' ||
     location.pathname.startsWith('/my-history/submission/') ||
     // 生词本 P2 —— 同一套公开 + 姓名匹配的学生自助入口
-    location.pathname === '/my-vocab'
+    location.pathname === '/my-vocab' ||
+    location.pathname === '/my-vocab/review'
   ) {
     return (
       <Routes>
         <Route path="/my-history" element={<MyHistoryPage />} />
         <Route path="/my-history/submission/:submissionId" element={<MyHistoryDetailPage />} />
         <Route path="/my-vocab" element={<MyVocabPage />} />
+        <Route path="/my-vocab/review" element={<MyVocabReviewPage />} />
       </Routes>
     );
   }

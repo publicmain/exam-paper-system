@@ -3,6 +3,7 @@ import { z } from 'zod';
 import { Public } from '../common/auth.guard';
 import { RateLimit } from '../common/rate-limit.guard';
 import { StudentWordService } from './student-word.service';
+import { VocabReviewService, type RatingKey } from './vocab-review.service';
 import { VocabService } from './vocab.service';
 
 /**
@@ -20,6 +21,7 @@ export class VocabController {
   constructor(
     private readonly svc: VocabService,
     private readonly words: StudentWordService,
+    private readonly review: VocabReviewService,
   ) {}
 
   /** 查单词。查不到返回 { found: false } —— 前端显示「未收录」，绝不猜词义。 */
@@ -75,5 +77,47 @@ export class VocabController {
     const p = schema.safeParse(body);
     if (!p.success) throw new BadRequestException(p.error.flatten());
     return this.words.removeWord(p.data);
+  }
+  // ─────────────────── P3 间隔重复复习 ───────────────────
+
+  /** 今日待复习卡片（默认 5 张 —— 复习插在交卷后，给多了学生会直接跳过）。 */
+  @Public()
+  @RateLimit({ limit: 60, windowSec: 60, scope: 'ip' })
+  @Get('due')
+  async due(
+    @Query('name') name?: string,
+    @Query('studentId') studentId?: string,
+    @Query('limit') limit?: string,
+  ) {
+    return this.review.due({
+      studentName: name ?? '',
+      studentId: studentId || undefined,
+      limit: limit ? parseInt(limit, 10) : undefined,
+    });
+  }
+
+  /** 提交一次复习评分 → FSRS 重新调度。 */
+  @Public()
+  @RateLimit({ limit: 120, windowSec: 60, scope: 'ip' })
+  @Post('review')
+  async submitReview(@Body() body: unknown) {
+    const schema = z.object({
+      studentName: z.string().min(1).max(50),
+      studentId: z.string().optional(),
+      headword: z.string().min(1).max(64),
+      rating: z.enum(['again', 'hard', 'good', 'easy']),
+      elapsedMs: z.number().int().min(0).max(600000).optional(),
+    });
+    const p = schema.safeParse(body);
+    if (!p.success) throw new BadRequestException(p.error.flatten());
+    return this.review.review({ ...p.data, rating: p.data.rating as RatingKey });
+  }
+
+  /** 我的词汇统计。 */
+  @Public()
+  @RateLimit({ limit: 60, windowSec: 60, scope: 'ip' })
+  @Get('stats')
+  async stats(@Query('name') name?: string, @Query('studentId') studentId?: string) {
+    return this.review.stats({ studentName: name ?? '', studentId: studentId || undefined });
   }
 }
