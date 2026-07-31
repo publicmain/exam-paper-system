@@ -9,6 +9,7 @@ import {
 import { PrismaService } from '../common/prisma.service';
 import { canActOnClass, isAdminOrHead } from '../common/roles';
 import { ClaimDto, QueueQueryDto, ScoreScriptDto } from './dto';
+import { StudentWordService } from '../vocab/student-word.service';
 
 interface ActorCtx {
   id: string;
@@ -43,7 +44,10 @@ interface ActorCtx {
 export class MarkerService {
   private readonly logger = new Logger('MarkerService');
 
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly studentWords: StudentWordService,
+  ) {}
 
   /**
    * List submissions with at least one ungraded structured script.
@@ -425,6 +429,19 @@ export class MarkerService {
       where: { submissionId },
       data: { status: 'released', releasedAt: new Date() },
     });
+
+    // 生词本 P2 —— 「批改即采集」：判完分立刻把答错的词义题目标词写进
+    // 该生生词本。最需要生词本的学生恰恰最不会主动加词（见 PRD §1.2 学情
+    // 数据），所以采集必须是判分的自动副产品。
+    // best-effort：采集失败绝不能让判分回滚。
+    try {
+      const r = await this.studentWords.harvestFromSubmission(submissionId);
+      if (r.added > 0) {
+        this.logger.log(`vocab harvest: submission=${submissionId} added=${r.added}/${r.candidates}`);
+      }
+    } catch (e: any) {
+      this.logger.warn(`vocab harvest failed for ${submissionId}: ${e?.message ?? e}`);
+    }
 
     return this.prisma.studentSubmission.findUnique({ where: { id: submissionId } });
   }

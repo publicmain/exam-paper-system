@@ -83,6 +83,21 @@ export default function MyHistoryDetail() {
       });
   }, [submissionId, name]);
 
+  // 生词本 P2 —— 已在本子里的词（原形），用于点词卡按钮显示「已加入」。
+  // 拉取失败不影响复盘页任何功能，静默降级为空集。
+  const [vocabWords, setVocabWords] = useState<Set<string>>(new Set());
+  useEffect(() => {
+    if (!name) return;
+    let cancelled = false;
+    api
+      .vocabList({ name, studentId: studentId || undefined })
+      .then((r: any) => {
+        if (!cancelled) setVocabWords(new Set((r?.words ?? []).map((w: any) => w.headword)));
+      })
+      .catch(() => { /* 生词本不可用时静默降级 */ });
+    return () => { cancelled = true; };
+  }, [name, studentId]);
+
   const backToHistory = `/my-history?name=${encodeURIComponent(name)}`;
 
   if (error) {
@@ -180,7 +195,30 @@ export default function MyHistoryDetail() {
             见 docs/PRD/vocabulary-notebook.md §2.2。 */}
         {passage && (
           <section className="bg-white rounded-xl border shadow-sm p-5">
-            <TappablePassage text={passage.text} title={passage.title} />
+            <TappablePassage
+              text={passage.text}
+              title={passage.title}
+              addedWords={vocabWords}
+              onAdd={async ({ headword, surfaceForm, contextSentence }) => {
+                // 乐观更新：先标记已加入，失败再回滚 —— 网络慢时不让学生等
+                setVocabWords((prev) => new Set(prev).add(headword));
+                try {
+                  await api.vocabAdd({
+                    studentName: name,
+                    studentId: studentId || undefined,
+                    word: surfaceForm,
+                    contextSentence,
+                    sourcePassageTitle: passage.title ?? undefined,
+                  });
+                } catch {
+                  setVocabWords((prev) => {
+                    const n = new Set(prev);
+                    n.delete(headword);
+                    return n;
+                  });
+                }
+              }}
+            />
           </section>
         )}
 

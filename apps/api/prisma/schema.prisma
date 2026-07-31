@@ -72,6 +72,7 @@ model User {
   regradeRequests              RegradeRequest[]         @relation("RegradeStudent")
   regradeReplies               RegradeRequest[]         @relation("RegradeRepliedBy")
   notifications                Notification[]           @relation("UserNotifications")
+  vocabWords                   StudentWord[]            @relation("StudentWordOwner")
 }
 
 // ============================================================
@@ -1922,4 +1923,84 @@ model DictEntry {
   frq         Int?
 
   @@index([tag])
+}
+
+/// 学生生词本条目（生词本 P2）。
+///
+/// 采集有两条路径，遵循本项目既有的「批改即采集」哲学
+/// （见 StudentMistakes 错题本）：
+///   - click        学生在复盘页点词后主动加入
+///   - wrong_answer 判分后，答错的词义题目标词自动入本（无需学生操作）
+///   - teacher_push 老师推送的重点词
+///
+/// contextSentence 是与百词斩类产品最大的体验差异 —— 复习时永远带上
+/// 他自己读过的那一句原文，而不是脱离语境的孤词。
+model StudentWord {
+  id                    String      @id @default(cuid())
+  studentId             String
+  student               User        @relation("StudentWordOwner", fields: [studentId], references: [id], onDelete: Cascade)
+  /// 词典原形（DictEntry.word），生词本按它去重
+  headword              String
+  /// 学生点击时文章中的实际形态（shattered / Singapore's）
+  surfaceForm           String
+  sourceType            VocabSource @default(click)
+  /// 来自哪道题 / 哪篇文章（都可为空：teacher_push 没有来源题）
+  sourcePaperQuestionId String?
+  sourcePassageTitle    String?
+  /// 该词所在的原句 —— 复习卡片必须显示它
+  contextSentence       String      @default("")
+  state                 VocabState  @default(new)
+
+  // ── FSRS 调度状态（P3 启用；P2 先落库，默认值即"从未复习"）──
+  due           DateTime  @default(now())
+  stability     Float     @default(0)
+  difficulty    Float     @default(0)
+  elapsedDays   Int       @default(0)
+  scheduledDays Int       @default(0)
+  reps          Int       @default(0)
+  lapses        Int       @default(0)
+  lastReview    DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  reviews WordReviewLog[]
+
+  @@unique([studentId, headword])
+  @@index([studentId, due])
+  @@index([studentId, state])
+}
+
+enum VocabSource {
+  click
+  wrong_answer
+  teacher_push
+}
+
+enum VocabState {
+  new
+  learning
+  review
+  known
+}
+
+/// 复习流水。FSRS 的参数优化需要完整历史，且这是"生词本到底有没有用"
+/// 的度量依据（见 PRD §7 迁移证据）。
+model WordReviewLog {
+  id            String      @id @default(cuid())
+  studentWordId String
+  studentWord   StudentWord @relation(fields: [studentWordId], references: [id], onDelete: Cascade)
+  rating        VocabRating
+  reviewedAt    DateTime    @default(now())
+  /// 本次作答耗时（毫秒），用于识别"秒选"式敷衍复习
+  elapsedMs     Int         @default(0)
+
+  @@index([studentWordId])
+}
+
+enum VocabRating {
+  again
+  hard
+  good
+  easy
 }

@@ -1,6 +1,8 @@
-import { BadRequestException, Controller, Get, Query } from '@nestjs/common';
+import { BadRequestException, Body, Controller, Get, Post, Query } from '@nestjs/common';
+import { z } from 'zod';
 import { Public } from '../common/auth.guard';
 import { RateLimit } from '../common/rate-limit.guard';
+import { StudentWordService } from './student-word.service';
 import { VocabService } from './vocab.service';
 
 /**
@@ -15,7 +17,10 @@ import { VocabService } from './vocab.service';
  */
 @Controller('vocab')
 export class VocabController {
-  constructor(private readonly svc: VocabService) {}
+  constructor(
+    private readonly svc: VocabService,
+    private readonly words: StudentWordService,
+  ) {}
 
   /** 查单词。查不到返回 { found: false } —— 前端显示「未收录」，绝不猜词义。 */
   @Public()
@@ -27,5 +32,48 @@ export class VocabController {
     if (w.length > 64) throw new BadRequestException({ code: 'word_too_long' });
     const hit = await this.svc.lookup(w);
     return hit ? { found: true as const, entry: hit } : { found: false as const, query: w };
+  }
+
+  // ─────────────────── P2 生词本 ───────────────────
+
+  /** 我的生词本。姓名匹配（同名时需带 studentId），与 /my-history 同口径。 */
+  @Public()
+  @RateLimit({ limit: 60, windowSec: 60, scope: 'ip' })
+  @Get('words')
+  async listWords(@Query('name') name?: string, @Query('studentId') studentId?: string) {
+    return this.words.listWords({ studentName: name ?? '', studentId: studentId || undefined });
+  }
+
+  /** 加入生词本。headword 由服务端查词典确定，不信任前端。 */
+  @Public()
+  @RateLimit({ limit: 60, windowSec: 60, scope: 'ip' })
+  @Post('words')
+  async addWord(@Body() body: unknown) {
+    const schema = z.object({
+      studentName: z.string().min(1).max(50),
+      studentId: z.string().optional(),
+      word: z.string().min(1).max(64),
+      contextSentence: z.string().max(500).optional(),
+      sourcePaperQuestionId: z.string().optional(),
+      sourcePassageTitle: z.string().max(200).optional(),
+    });
+    const p = schema.safeParse(body);
+    if (!p.success) throw new BadRequestException(p.error.flatten());
+    return this.words.addWord(p.data);
+  }
+
+  /** 移出生词本。 */
+  @Public()
+  @RateLimit({ limit: 60, windowSec: 60, scope: 'ip' })
+  @Post('words/remove')
+  async removeWord(@Body() body: unknown) {
+    const schema = z.object({
+      studentName: z.string().min(1).max(50),
+      studentId: z.string().optional(),
+      headword: z.string().min(1).max(64),
+    });
+    const p = schema.safeParse(body);
+    if (!p.success) throw new BadRequestException(p.error.flatten());
+    return this.words.removeWord(p.data);
   }
 }

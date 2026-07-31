@@ -370,6 +370,22 @@ export const api = {
   /** 生词本 P1 — 点词查义。本地词典，零 AI 调用。查不到返回 {found:false}。 */
   vocabLookup: (word: string) =>
     request('GET', `/vocab/lookup?word=${encodeURIComponent(word)}`),
+  /** 生词本 P2 — 我的生词本 */
+  vocabList: (p: { name: string; studentId?: string }) =>
+    request(
+      'GET',
+      `/vocab/words?name=${encodeURIComponent(p.name)}${p.studentId ? `&studentId=${encodeURIComponent(p.studentId)}` : ''}`,
+    ),
+  vocabAdd: (body: {
+    studentName: string;
+    studentId?: string;
+    word: string;
+    contextSentence?: string;
+    sourcePaperQuestionId?: string;
+    sourcePassageTitle?: string;
+  }) => request('POST', '/vocab/words', body),
+  vocabRemove: (body: { studentName: string; studentId?: string; headword: string }) =>
+    request('POST', '/vocab/words/remove', body),
   morningQuizBatchSchedule: (items: Array<{ date: string; classId: string; paperId: string }>) =>
     request('POST', '/morning-quiz/batch', { items }),
   morningQuizBatchGenerate: (body: {

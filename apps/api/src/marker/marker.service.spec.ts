@@ -61,11 +61,15 @@ function mockPrisma(opts: {
 }
 
 function makeSvc(prisma: any) {
-  // MarkerService takes only prisma; audit is set to a no-op-friendly dummy
-  // because finalize doesn't write an audit log directly (the claim+release
-  // is the audit trail). The constructor signature in marker.module.ts wires
-  // PrismaService only.
-  return new MarkerService(prisma);
+  // MarkerService takes prisma + StudentWordService. finalize() doesn't write
+  // an audit log directly (the claim+release is the audit trail).
+  // 生词本 P2：finalize 末尾会调 harvestFromSubmission 自动采集错词。这里注入
+  // 一个 no-op 桩 —— 采集是 best-effort 的副作用，绝不能影响分数记账，
+  // 本 spec 测的正是分数记账。
+  const studentWords = {
+    harvestFromSubmission: vi.fn().mockResolvedValue({ added: 0, candidates: 0 }),
+  } as any;
+  return new MarkerService(prisma, studentWords);
 }
 
 describe('MarkerService.finalize — score accounting', () => {

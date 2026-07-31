@@ -1,0 +1,246 @@
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import { Link, useSearchParams } from 'react-router-dom';
+import { api } from '../lib/api';
+import { Spinner } from '../components/AsyncState';
+
+/**
+ * 我的生词本（生词本 P2）。
+ *
+ * 公开页 + 姓名匹配，与 /my-history 同口径（学生不需要登录）。
+ *
+ * 设计取向见 docs/PRD/vocabulary-notebook.md §1.4：
+ * 这不是又一个背单词 App —— 每个词都必须带着**他自己读过的那一句原文**
+ * 和来源文章，这是百词斩之类产品给不了的东西。
+ */
+
+interface VocabWord {
+  headword: string;
+  surfaceForm: string;
+  sourceType: 'click' | 'wrong_answer' | 'teacher_push';
+  sourcePassageTitle: string | null;
+  contextSentence: string;
+  state: 'new' | 'learning' | 'review' | 'known';
+  reps: number;
+  lapses: number;
+  due: string;
+  createdAt: string;
+  phonetic: string | null;
+  translation: string;
+  tag: string[];
+}
+
+const SOURCE_LABEL: Record<VocabWord['sourceType'], { text: string; cls: string }> = {
+  click: { text: '阅读时添加', cls: 'bg-blue-50 text-blue-700 border-blue-200' },
+  wrong_answer: { text: '答错自动收录', cls: 'bg-rose-50 text-rose-700 border-rose-200' },
+  teacher_push: { text: '老师推送', cls: 'bg-purple-50 text-purple-700 border-purple-200' },
+};
+
+const EXAM_TAGS: Record<string, string> = {
+  ielts: '雅思',
+  toefl: '托福',
+  gre: 'GRE',
+  cet4: '四级',
+  cet6: '六级',
+  gk: '高考',
+  zk: '中考',
+  ky: '考研',
+};
+
+export default function MyVocabPage() {
+  const [params] = useSearchParams();
+  const name = params.get('name') ?? '';
+  const studentId = params.get('studentId') ?? '';
+  const [data, setData] = useState<{ total: number; dueCount: number; words: VocabWord[] } | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [filter, setFilter] = useState<'all' | 'wrong_answer' | 'click'>('all');
+  const [busy, setBusy] = useState<string | null>(null);
+
+  const load = useCallback(() => {
+    if (!name) return;
+    api
+      .vocabList({ name, studentId: studentId || undefined })
+      .then((r: any) => setData(r))
+      .catch((e: any) => setError(String(e?.message ?? e)));
+  }, [name, studentId]);
+
+  useEffect(load, [load]);
+
+  const shown = useMemo(
+    () => (data?.words ?? []).filter((w) => filter === 'all' || w.sourceType === filter),
+    [data, filter],
+  );
+
+  const remove = async (headword: string) => {
+    setBusy(headword);
+    try {
+      await api.vocabRemove({ studentName: name, studentId: studentId || undefined, headword });
+      setData((d) =>
+        d ? { ...d, total: d.total - 1, words: d.words.filter((w) => w.headword !== headword) } : d,
+      );
+    } catch {
+      /* 忽略：下次刷新会纠正 */
+    } finally {
+      setBusy(null);
+    }
+  };
+
+  if (!name) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center px-6">
+        <div className="text-center text-gray-600">
+          <div className="mb-3">请从「我的记录」进入生词本。</div>
+          <Link to="/my-history" className="text-blue-600 underline">
+            → 我的记录
+          </Link>
+        </div>
+      </div>
+    );
+  }
+  if (error) {
+    return (
+      <div className="min-h-screen bg-gray-50 px-6 py-12 text-center">
+        <div className="text-rose-700 mb-4">⚠️ {error}</div>
+        <Link to={`/my-history?name=${encodeURIComponent(name)}`} className="text-blue-600 underline text-sm">
+          ← 返回我的记录
+        </Link>
+      </div>
+    );
+  }
+  if (!data) {
+    return (
+      <div className="min-h-screen bg-gray-50">
+        <Spinner label="加载生词本…" />
+      </div>
+    );
+  }
+
+  return (
+    <div className="min-h-screen bg-gray-50">
+      <main className="max-w-2xl mx-auto px-4 py-5 space-y-4">
+        <Link
+          to={`/my-history?name=${encodeURIComponent(name)}`}
+          className="text-sm text-blue-600 hover:underline"
+        >
+          ← 返回我的记录
+        </Link>
+
+        <header className="bg-white rounded-xl border shadow-sm p-5">
+          <h1 className="text-2xl font-bold text-gray-900">📒 我的生词本</h1>
+          <div className="mt-2 flex items-baseline gap-4">
+            <div>
+              <span className="text-3xl font-bold text-gray-900">{data.total}</span>
+              <span className="text-sm text-gray-500 ml-1">个词</span>
+            </div>
+            {data.dueCount > 0 && (
+              <div className="text-sm text-amber-700 bg-amber-50 border border-amber-200 rounded px-2 py-0.5">
+                {data.dueCount} 个待复习
+              </div>
+            )}
+          </div>
+          {data.total === 0 && (
+            <p className="mt-3 text-sm text-gray-600 leading-relaxed">
+              还没有生词。交卷后在成绩页重读文章，<strong>点任意单词</strong>即可查释义并加入这里；
+              答错的词义题也会自动收录。
+            </p>
+          )}
+        </header>
+
+        {data.total > 0 && (
+          <div className="flex gap-2">
+            {([
+              ['all', `全部 ${data.total}`],
+              ['wrong_answer', '答错收录'],
+              ['click', '我加的'],
+            ] as const).map(([k, label]) => (
+              <button
+                key={k}
+                type="button"
+                onClick={() => setFilter(k)}
+                className={`text-sm px-3 py-1.5 rounded-full border ${
+                  filter === k
+                    ? 'bg-gray-900 text-white border-gray-900'
+                    : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50'
+                }`}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+        )}
+
+        <section className="space-y-3">
+          {shown.map((w) => {
+            const src = SOURCE_LABEL[w.sourceType];
+            return (
+              <article key={w.headword} className="bg-white rounded-xl border shadow-sm p-4">
+                <div className="flex items-start justify-between gap-3">
+                  <div className="min-w-0">
+                    <div className="flex items-baseline gap-2 flex-wrap">
+                      <span className="text-xl font-bold text-gray-900">{w.headword}</span>
+                      {w.phonetic && <span className="text-sm text-gray-500">/{w.phonetic}/</span>}
+                      {w.tag.filter((t) => EXAM_TAGS[t]).slice(0, 3).map((t) => (
+                        <span
+                          key={t}
+                          className={`text-[11px] px-1.5 py-0.5 rounded ${
+                            t === 'ielts'
+                              ? 'bg-purple-100 text-purple-700 font-semibold'
+                              : 'bg-gray-100 text-gray-600'
+                          }`}
+                        >
+                          {EXAM_TAGS[t]}
+                        </span>
+                      ))}
+                    </div>
+                    <div className="mt-1 text-[15px] text-gray-800 whitespace-pre-wrap">
+                      {w.translation.split('\n').slice(0, 2).join('\n')}
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => remove(w.headword)}
+                    disabled={busy === w.headword}
+                    aria-label={`移除 ${w.headword}`}
+                    className="shrink-0 text-xs text-gray-400 hover:text-rose-600 px-2 py-1"
+                  >
+                    {busy === w.headword ? '…' : '移除'}
+                  </button>
+                </div>
+
+                {w.contextSentence && (
+                  <div className="mt-2.5 rounded-lg bg-gray-50 border border-gray-200 px-3 py-2 text-[13px] text-gray-700 leading-relaxed">
+                    {highlight(w.contextSentence, w.surfaceForm)}
+                  </div>
+                )}
+
+                <div className="mt-2 flex items-center gap-2 flex-wrap text-[11px]">
+                  <span className={`px-1.5 py-0.5 rounded border ${src.cls}`}>{src.text}</span>
+                  {w.sourcePassageTitle && (
+                    <span className="text-gray-500">来自《{w.sourcePassageTitle}》</span>
+                  )}
+                  {w.reps > 0 && <span className="text-gray-400">已复习 {w.reps} 次</span>}
+                </div>
+              </article>
+            );
+          })}
+          {data.total > 0 && shown.length === 0 && (
+            <div className="text-center text-sm text-gray-500 py-8">该分类下暂无生词。</div>
+          )}
+        </section>
+      </main>
+    </div>
+  );
+}
+
+/** 在原句里把该词高亮出来 —— 复习时一眼看到它长在什么语境。 */
+function highlight(sentence: string, surface: string) {
+  if (!surface) return sentence;
+  const idx = sentence.toLowerCase().indexOf(surface.toLowerCase());
+  if (idx < 0) return sentence;
+  return (
+    <>
+      {sentence.slice(0, idx)}
+      <mark className="bg-amber-200 rounded px-0.5">{sentence.slice(idx, idx + surface.length)}</mark>
+      {sentence.slice(idx + surface.length)}
+    </>
+  );
+}

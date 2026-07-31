@@ -377,6 +377,26 @@ export default function MyHistory() {
           <UpcomingTile sessions={upcoming} />
         )}
 
+        {/* 生词本 P2 —— 入口。放在成绩列表之上，因为它是"复盘之后该做的事"。 */}
+        {data && (
+          <Link
+            to={`/my-vocab?name=${encodeURIComponent(data.student.name)}${
+              chosenStudentId ? `&studentId=${encodeURIComponent(chosenStudentId)}` : ''
+            }`}
+            className="block bg-white border border-gray-200 rounded-xl shadow-sm p-4 hover:bg-gray-50 active:bg-gray-100"
+          >
+            <div className="flex items-center justify-between gap-3">
+              <div>
+                <div className="font-semibold text-gray-900">📒 我的生词本</div>
+                <div className="text-xs text-gray-500 mt-0.5">
+                  答错的词会自动收录;点开成绩还能重读原文、点词查义
+                </div>
+              </div>
+              <span className="text-gray-400 text-lg">›</span>
+            </div>
+          </Link>
+        )}
+
         {data && (
           <>
             {/* Student summary card */}
