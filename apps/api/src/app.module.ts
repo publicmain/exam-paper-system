@@ -39,6 +39,7 @@ import { AiTutorModule } from './ai-tutor/ai-tutor.module';
 import { WatermarkModule } from './watermark/watermark.module';
 import { AdminCleanupModule } from './admin-cleanup/admin-cleanup.module';
 import { ClassifierModule } from './classifier/classifier.module';
+import { VocabModule } from './vocab/vocab.module';
 import { PracticeModule } from './practice/practice.module';
 // Morning attendance + quiz (feature/morning-attendance-quiz)
 import { ShuffleModule } from './shuffle/shuffle.module';
@@ -94,6 +95,8 @@ import { HealthController } from './health.controller';
     WatermarkModule,
     AdminCleanupModule,
     ClassifierModule,
+
+    VocabModule,
     PracticeModule,
     // Morning attendance + quiz
     ShuffleModule,

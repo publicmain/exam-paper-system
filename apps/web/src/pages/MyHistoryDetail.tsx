@@ -5,6 +5,7 @@ import AppealModal, { type AppealQuestionContext } from '../components/AppealMod
 import { formatCNDateTime } from '../lib/dateCN';
 import { Spinner } from '../components/AsyncState';
 import { prettifyPaperName, commonStemPrefix, stripStemPrefix } from '../lib/paperName';
+import { TappablePassage } from '../components/vocab/TappablePassage';
 
 /**
  * Public per-submission per-question detail page. Public, IP-gated
@@ -115,6 +116,21 @@ export default function MyHistoryDetail() {
         : '';
     }),
   );
+  // 生词本 P1 —— 从任意一题的 snapshotContent 里取出文章原文。
+  // 一份卷子的所有题共享同一篇 passage（Exercise 2 的指引段除外，它很短，
+  // 这里取最长的一个即为正文）。后端 redactSnapshotForStudent 保留了 passage。
+  const passage = (() => {
+    let best: { text: string; title: string | null } | null = null;
+    for (const it of data.items) {
+      const sc = it.snapshotContent ?? {};
+      const t = typeof sc.passage === 'string' ? sc.passage : '';
+      if (t.length > (best?.text.length ?? 0)) {
+        best = { text: t, title: typeof sc.passageTitle === 'string' ? sc.passageTitle : null };
+      }
+    }
+    return best && best.text.length > 200 ? best : null;
+  })();
+
   const score = data.totalScore ?? data.autoScore ?? 0;
   const max = data.maxScore || 1;
   const pct = Math.round((score / max) * 100);
@@ -158,6 +174,15 @@ export default function MyHistoryDetail() {
             </div>
           )}
         </header>
+
+        {/* 生词本 P1 — 复盘时重读原文，并可点词查义。
+            ⚠️ 只在这里（交卷后）开放；考试进行中禁用，否则词义题直接送答案。
+            见 docs/PRD/vocabulary-notebook.md §2.2。 */}
+        {passage && (
+          <section className="bg-white rounded-xl border shadow-sm p-5">
+            <TappablePassage text={passage.text} title={passage.title} />
+          </section>
+        )}
 
         <section className="space-y-3">
           <h2 className="text-lg font-semibold text-gray-800 px-1">逐题回顾</h2>

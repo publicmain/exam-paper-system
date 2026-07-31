@@ -367,6 +367,9 @@ export const api = {
       'GET',
       `/morning-quiz/history-detail?submissionId=${encodeURIComponent(params.submissionId)}&name=${encodeURIComponent(params.name)}`,
     ),
+  /** 生词本 P1 — 点词查义。本地词典，零 AI 调用。查不到返回 {found:false}。 */
+  vocabLookup: (word: string) =>
+    request('GET', `/vocab/lookup?word=${encodeURIComponent(word)}`),
   morningQuizBatchSchedule: (items: Array<{ date: string; classId: string; paperId: string }>) =>
     request('POST', '/morning-quiz/batch', { items }),
   morningQuizBatchGenerate: (body: {

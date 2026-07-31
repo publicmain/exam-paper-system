@@ -1886,3 +1886,40 @@ model HomeworkInkPage {
 
   @@index([submissionId])
 }
+
+// ============================================================
+// 生词本 / Vocabulary loop  —— docs/PRD/vocabulary-notebook.md
+// ============================================================
+
+/// 离线英汉词典条目（导入自 ECDICT，MIT）。
+///
+/// 全局共享、非用户数据 —— 点词查义走这张表，**不调用任何 LLM**
+/// （铁律：代码零 Anthropic API 调用）。
+///
+/// P0 实测（docs/PRD/vocabulary-notebook-p0-report.md）：对本系统 69 篇真实
+/// 文章的词次覆盖率 99.4%，中文释义覆盖 100%。ECDICT 已把 went / coaxed /
+/// shattered 等变形收作独立词条，因此**不需要词形还原引擎**；查不到时只需
+/// 依次尝试「剥离所有格 's」与「按连字符拆分」。
+model DictEntry {
+  /// 小写化后的词条本身，直接做主键（查询永远是等值查找）
+  word        String   @id
+  phonetic    String?
+  /// 中文释义。P0 实测已解析词形 100% 有中文释义，故非空。
+  translation String
+  /// 英文释义（部分词条为空）
+  definition  String?
+  /// 词性占比，如 "n:46/v:54"
+  pos         String?
+  /// 柯林斯星级 1-5
+  collins     Int?
+  /// 是否属于牛津 3000 核心词
+  oxford      Boolean  @default(false)
+  /// 考纲标签：ielts / toefl / gre / cet4 / cet6 / gk / zk / ky
+  tag         String[] @default([])
+  /// 英国国家语料库词频排名（越小越常用，0=未收录）
+  bnc         Int?
+  /// 当代语料库词频排名
+  frq         Int?
+
+  @@index([tag])
+}
