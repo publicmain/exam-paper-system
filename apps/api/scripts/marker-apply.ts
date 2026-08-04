@@ -1,4 +1,6 @@
 import { PrismaClient } from '@prisma/client';
+import { StudentWordService } from '../src/vocab/student-word.service';
+import { VocabService } from '../src/vocab/vocab.service';
 
 /**
  * Write back chat-graded marks for today's marker queue.
@@ -270,16 +272,86 @@ const GRADES_0731: Record<string, { awardedMarks: number; reason: string }> = {
   cms88fepk01kwx9db4qxnrf8v: { awardedMarks: 0, reason: 'Q8:答成"明白爷爷为何喜欢收音机", 与点播启示无关; 应答"别人也来这里找逝去的人, 原来我不是唯一的"。0/2。' },
 };
 
+const GRADES_0804: Record<string, { awardedMarks: number; reason: string }> = {
+  // 2026-08-04 早测 · authentic=ielts_authored_2026_v3/Test1/P1 (The Machine from
+  // the Sea 安提基特拉机械) / olevel=ai_authored_olevel_39_blackout_v1 (The Blackout)
+  // MCQ 与精确命中的客观短答已自动判分, 这里只判挂起项. 全 Claude 在 chat 判, 零 AI.
+
+  // ── 雅思 段落匹配(A–H 精确字母) ──
+  cmsdy2n6c01rdn31mpkslpadj: { awardedMarks: 0, reason: '段1:A,正解 D(段D讲工业X光扫描仪解决了难题)。0。' },
+  cmsdy5u7801xin31mbh6a9aee: { awardedMarks: 0, reason: '段3:C,正解 G(段G讲奥运周期表明面向公众)。0。' },
+  cmsdy60w001y5n31m0rbbkv4h: { awardedMarks: 0, reason: '段4:D,正解 A(段A讲沉船被发现的经过)。0。' },
+  cmsdxavmv00utn31mlwjplkhw: { awardedMarks: 0, reason: '段1:B,正解 D。0。' },
+  cmsdxb0ay00v1n31mf73poc6j: { awardedMarks: 0, reason: '段2:C,正解 B(段B讲学者最初怀疑年代)。0。' },
+  cmsdxb3lj00vin31m3vwdt8ni: { awardedMarks: 0, reason: '段3:A,正解 G。0。' },
+  cmsdxb7y600vkn31mxcxdh8pw: { awardedMarks: 0, reason: '段4:F,正解 A。0。' },
+  cmsdxh7ne0133n31m21yxu70a: { awardedMarks: 0, reason: '段1:B,正解 D。0。' },
+  cmsdxhcoi013en31mjt4cruud: { awardedMarks: 0, reason: '段2:C,正解 B。0。' },
+  cmsdxhklp013pn31ms68obixb: { awardedMarks: 0, reason: '段3:F,正解 G。0。' },
+  cmsdxfuo4010gn31m0xoyjpec: { awardedMarks: 0, reason: '段4:C,正解 A。0。' },
+  cmsdxqwt101d8n31mc9h6jtyi: { awardedMarks: 0, reason: '段3:H,正解 G。0。' },
+  cmsdxqemz01cmn31m0xfpku4v: { awardedMarks: 0, reason: '段4:E,正解 A。0。' },
+  cmsdy83ka020wn31mu5z82qyd: { awardedMarks: 0, reason: '段4:H,正解 A。0。' },
+
+  // ── 雅思 毛思琳：段落匹配题用中文作答, 未按要求填 A–H 字母 ──
+  cmsdxaesw00tun31m6chu4tj7: { awardedMarks: 0, reason: '段1:写成中文「带回去研究」。本题要求在框里填段落字母 A–H(如 D),不是写句子。0。' },
+  cmsdxam5k00udn31m8pukgmbd: { awardedMarks: 0, reason: '段2:同上,应填字母 B。0。' },
+  cmsdxay2700uxn31mb55te0e6: { awardedMarks: 0, reason: '段3:同上,应填字母 G。0。' },
+  cmsdxf2ww00z5n31mas1g018w: { awardedMarks: 0, reason: '填11:写成中文「太阳或者」。填空题要从原文抄英文词(≤2 词),此处应填 phase。0。' },
+
+  // ── 雅思 填空 ──
+  cmsdy0kkm01mrn31mm57a2ovo: { awardedMarks: 0, reason: "填11:'Positions' 是段E里太阳月亮的「位置」,而本空问的是半银半黑小球显示月亮的什么,应填 phase(月相)。0。" },
+  cmsdy3e3i01srn31mb5pv2kl1: { awardedMarks: 0, reason: "填9:'scholars' 错,发现沉船的是 sponge divers(采海绵的潜水员)。0。" },
+  cmsdy782k01zyn31m7f1kfbvv: { awardedMarks: 0, reason: "图12:'case' 错,流程图此处是「一个齿轮叠在另一个上、其 axis(轴)略微偏心」。0。" },
+
+  // ── O-Level《The Blackout》HEIN HTET NAING ──
+  cmsdxo7gw018sn31muefz8nii: { awardedMarks: 1, reason: 'Q1:每天扫两次自家门外的走廊。1。' },
+  cmsdy5e7c01wmn31m1xvmyrdu: { awardedMarks: 1, reason: 'Q2:被困电梯约二十分钟。1。' },
+  cmsdy3ksr01t5n31mo8hci035: { awardedMarks: 1, reason: "Q3:'still boiling' 命中 hissing=锅还在火上煮着。1。" },
+  cmsdxzaj701m9n31mc2eca59g: { awardedMarks: 1, reason: 'Q7:答出「安抚受惊的 Mrs Kaur」这一意图;但没答出为什么偏要聊菜价球赛这些无关小事(转移注意 / 把气氛拉回日常)。1/2。' },
+  cmsdxxja001lbn31mjlo8y213: { awardedMarks: 1, reason: 'Q9:抓到「危机一过就迅速恢复常态」;未点出那份邻里温情因此显得反常而脆弱。1/2。' },
+  cmsdy4bb601u6n31m5z84zwio: { awardedMarks: 0, reason: 'Q10:「To show that the memorable and final impression」句子未写完,也没谈到 counting 一词由挑剔变成守护的反转。0/2。' },
+
+  // ── O-Level 曾义洋 ──
+  cmsdy5y5s01xtn31mdfw73420: { awardedMarks: 1, reason: "Q2:'stopped at the lift' 抓到「被困在电梯里」这一核心。1。" },
+  cmsdy4vp501v0n31mnhosbwy0: { awardedMarks: 0, reason: 'Q4:答成「讲商店的背景」,与题目无关。本题问 cut off mid-breath 说明停电是怎样发生的(戛然而止)。0。' },
+  cmsdy122701n9n31mq4joz92p: { awardedMarks: 0, reason: 'Q7:「让她不难过」既太笼统、情绪也不对(她是受惊不是难过),未答出聊闲事的作用。0/2。' },
+  cmsdyazh7023rn31mr881w0y6: { awardedMarks: 0, reason: 'Q8:「It reveals a surprise」未涉及他在逐户核对独居老人、并上楼敲没露面那几家的门。0/2。' },
+  cmsdya4ox022xn31mbff5m32k: { awardedMarks: 1, reason: 'Q9:抓到「大家很快回到日常」;未点出温情的反常与脆弱。1/2。' },
+
+  // ── O-Level 蒋安祁(只作答 4 题) ──
+  cmsdy58ii01wcn31m41peddax: { awardedMarks: 0, reason: 'Q2:「Because awould not come out」句子残缺,未说出她被困电梯。0。' },
+  cmsdy3nv701tbn31mih2hx7ng: { awardedMarks: 0, reason: "Q5:「Her was slowly」残缺;loosened 指她的手渐渐松开=没那么怕了。0。" },
+
+  // ── O-Level 赵一鸣 ──
+  cmsdxvxg301kfn31m1chso71d: { awardedMarks: 0, reason: 'Q2:「She is scared」说的是她的状态,题目问的是原因(被困在电梯里约二十分钟)。0。' },
+  cmsdy0maj01mtn31mk091ux8l: { awardedMarks: 0, reason: 'Q4:「电被切断了」是复述事实;题目问的是 cut off mid-breath 说明它怎样停的(一瞬间戛然而止)。0。' },
+  cmsdy1phl01o7n31ma2fmhwxd: { awardedMarks: 1, reason: 'Q6:答出「她害怕、不想被人碰」= 不去加重她的恐惧(MP1);未及「给她时间自己缓过来」(MP2)。1/2。' },
+  cmsdy4v5m01uyn31motgd1p69: { awardedMarks: 0, reason: 'Q7:读反了 —— 一直在说话的是 Mr Tan,不是 Mrs Kaur。0/2。' },
+  cmsdxo7vd018un31mlwdmwtvn: { awardedMarks: 1, reason: 'Q9:抓到「人都散了,像没发生过一样」;未点出温情的反常与脆弱。1/2。' },
+
+  // ── O-Level 赵伯容 ──
+  cmsdxdvzs00xnn31mbd9s73pu: { awardedMarks: 1, reason: 'Q1:每天扫两次自家门外走廊。1。' },
+  cmsdxg2t5010yn31m7cuhyh7y: { awardedMarks: 1, reason: 'Q2:停电时她正在电梯里。1。' },
+  cmsdxivlr014un31m60u5c9ah: { awardedMarks: 1, reason: "Q3:'still cooking' 命中 hissing。1。" },
+  cmsdxv81k01jvn31ma0jj6i1i: { awardedMarks: 1, reason: "Q4:'failed quickly' 可接受(停电是一下子断的);更完整的答法是「毫无预兆、一瞬间全部停掉」。1。" },
+  cmsdxqvzn01d6n31miu4rday8: { awardedMarks: 0, reason: 'Q5:方向反了 —— 手「松开」是没那么害怕了,不是更紧张。0。' },
+  cmsdy1krl01nzn31mh6f0xzq6: { awardedMarks: 0, reason: 'Q6:「觉得她的动作危险」文中没有;应答不去加重她的恐惧、以及给她时间自己缓过来。0/2。' },
+  cmsdy3b6901sln31m68m3iffu: { awardedMarks: 1, reason: 'Q7:答出「想让她冷静下来」这一意图;未答出为什么用闲聊达成(转移注意 / 恢复日常感)。1/2。' },
+  cmsdy5c4p01win31mom40rd4p: { awardedMarks: 2, reason: 'Q8:逐户核对有老人的住户(MP1)+ 上楼敲没露面那几家的门(MP2),两点齐。(文中是十四层,不是 40 层,不扣分。)2/2。' },
+  cmsdyaqpq023jn31mrn8ta6ve: { awardedMarks: 0, reason: 'Q9:只写了「To」,未作答。0/2。' },
+};
+
 // Finalize-sweep — every non-practice submission in these assignments gets
 // its status flipped submitted→marked (recomputing scores), even the fully
 // auto-graded ones (0 parked items) and blank submissions (no scripts). The
 // GRADES map alone only reaches submissions that had a parked item.
 const SWEEP_ASSIGNMENTS: string[] = [
-  '4ac8cd2f-eb5f-4e67-92ea-7c60455f59b1', // 2026-07-31 IELTS authentic (Air Traffic Control, Cam8 T1/P2)
-  '112e63b7-fb42-4d0c-be8f-bc3622fab9c1', // 2026-07-31 O-Level (The Old Radio)
+  'd2d16e00-7ae1-42ca-ba0f-2a39d822277d', // 2026-08-04 IELTS authentic (The Machine from the Sea)
+  '5308a741-f733-4ac3-9b24-8c453ab1e6bc', // 2026-08-04 O-Level (The Blackout)
 ];
 
-const GRADES: Record<string, { awardedMarks: number; reason: string }> = GRADES_0731;
+const GRADES: Record<string, { awardedMarks: number; reason: string }> = GRADES_0804;
 const _OLD_GRADES: Record<string, { awardedMarks: number; reason: string }> = {
   // 2026-07-24 早测 · ielts_authentic = cambridge_ielts_8/Test1/P1
   // "A Chronicle of Timekeeping"(Q1-4 段落匹配 A-H;Q9-13 图标注 ≤2词).
@@ -496,6 +568,29 @@ const prisma = new PrismaClient();
       );
     }
   }
+
+  // ── 生词本「批改即采集」──────────────────────────────────────────
+  //
+  // 采集本来只挂在 MarkerService.finalize（即 /api/marker/finalize 端点）上，
+  // 但实际判分走的是**本脚本**，从不经过那个端点 —— 于是自动采集在真实流程
+  // 里一次都没触发过（2026-08-04 判完分发现新增 0 条才查出来）。
+  //
+  // 这里直接复用同一个生产服务类，保证抽词与筛选逻辑和线上完全一致，
+  // 不重写。best-effort：采集失败绝不能影响已经写好的分数。
+  const vocabSvc = new VocabService(prisma as any);
+  const wordsSvc = new StudentWordService(prisma as any, vocabSvc);
+  let harvested = 0;
+  let harvestFailed = 0;
+  for (const submissionId of submissionIds) {
+    try {
+      const r = await wordsSvc.harvestFromSubmission(submissionId);
+      harvested += r.added;
+    } catch (e: any) {
+      harvestFailed++;
+      console.warn(`  vocab harvest failed for ${submissionId}: ${e?.message ?? e}`);
+    }
+  }
+  console.log(`\n生词本自动采集: 新增 ${harvested} 条${harvestFailed ? `（${harvestFailed} 份失败）` : ''}`);
 
   console.log(`\n=== Done ===\n  scripts written: ${scriptsWritten}\n  submissions finalized: ${finalized}\n  partial: ${partial}\n`);
   await prisma.$disconnect();
