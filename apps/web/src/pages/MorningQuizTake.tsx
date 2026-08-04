@@ -584,7 +584,15 @@ function ExamShellChrome({
         <span className="hidden lg:inline"> · Multiple-choice is scored instantly; written short answers are marked by the teacher later.</span>
       </div>
 
-      <main>
+      {/* ⚠️ 考试效度：禁止浏览器整页翻译**被考的内容**。
+          2026-08-04 发现一名学生用 Chrome 自带翻译把整篇文章译成中文再作答
+          —— 那份卷子就不再是在考阅读理解了，分数也失去意义。
+          `translate="no"` 是 HTML5 标准属性，`notranslate` 是 Google 翻译
+          识别的类名，两个一起写以覆盖不同浏览器。
+          只圈住原文与题目：页面上的按钮、说明等界面文字仍可翻译，
+          不影响看不懂界面的学生操作。
+          合法的查词渠道仍在 —— 交卷后的复盘页可以点任意单词看释义。 */}
+      <main translate="no" className="notranslate">
         <ExamRenderer paper={paper} />
       </main>
 
