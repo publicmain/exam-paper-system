@@ -342,16 +342,69 @@ const GRADES_0804: Record<string, { awardedMarks: number; reason: string }> = {
   cmsdyaqpq023jn31mrn8ta6ve: { awardedMarks: 0, reason: 'Q9:只写了「To」,未作答。0/2。' },
 };
 
+const GRADES_0805: Record<string, { awardedMarks: number; reason: string }> = {
+  // 2026-08-05 早测 · authentic=ielts_authored_2026_v3/Test1/P2 (Gardening the Reef
+  // 珊瑚礁修复) / olevel=summary_01_food_waste (概要写作卷, Q4 为 8 分总结题)
+  // 全 Claude 在 chat 判, 零 AI。
+
+  // ── 雅思 段落匹配 ──
+  cmsfdoo5n024ga7q3rgjh4j2a: { awardedMarks: 0, reason: '段1:a,正解 H(段H讲修复可能掩盖真正病因)。0。' },
+  cmsfdoqz4024ia7q3vmp92ue7: { awardedMarks: 0, reason: '段2:b,正解 G(段G讲改造共生藻而非珊瑚本身)。0。' },
+  cmsfdpark025ca7q3o8qxp715: { awardedMarks: 0, reason: '段3:e,正解 C(段C讲只做保护已不够)。0。' },
+  cmsfdpee6025ea7q3pwjjlwgf: { awardedMarks: 0, reason: '段4:h,正解 D(段D讲苗圃里怎么养珊瑚断枝)。0。' },
+  cmsfcuj7t00u8a7q38mxs393s: { awardedMarks: 0, reason: '段1:B,正解 H。0。' },
+  cmsfcunbb00uca7q3jqub965u: { awardedMarks: 0, reason: '段2:C,正解 G。0。' },
+  cmsfcur2j00ura7q3o48lupvb: { awardedMarks: 0, reason: '段3:A,正解 C。0。' },
+  cmsfcv9d000uza7q3y9p2ny8h: { awardedMarks: 0, reason: '段4:H,正解 D。0。' },
+  cmsfcymrq012ja7q35tepukgq: { awardedMarks: 0, reason: '段1:E,正解 H。0。' },
+  cmsfdm6iy022ua7q33fpjygn4: { awardedMarks: 0, reason: '段1:E,正解 H。0。' },
+  cmsfcyzh20135a7q3wodkg6d6: { awardedMarks: 0, reason: '段2:a,正解 G。0。' },
+  cmsfdlbfd0226a7q3rqfzzorv: { awardedMarks: 0, reason: '段4:G,正解 D。0。' },
+
+  // 中文输入法打出的全角字母 —— 字母本身选对了，判对
+  cmsfd5qd10196a7q3fclr6b7e: { awardedMarks: 1, reason: '段3:你填的「Ｃ」是中文输入法的全角字母，字母选的是 C，正确，给分。1。(下次记得切英文输入法，避免系统识别不到)' },
+
+  // ── 雅思 填空：单复数必须照抄原文形式 ──
+  cmsfdcrvt01k1a7q3ly7zywbq: { awardedMarks: 0, reason: "填12:'substance' 少了复数 s。原文是 the algae begin to produce substances，填空要原样照抄原文的词形，雅思判卷单复数算错。0。" },
+  cmsfcxk1c00zra7q3c7md14hy: { awardedMarks: 0, reason: "填12:同上,'substance' 应为 substances(照抄原文词形)。0。" },
+  cmsfdg3ez01ria7q3zvyf5wqw: { awardedMarks: 0, reason: "填9:'sugar' 应为 sugars(原文 pass sugars to their host)。0。" },
+  cmsfdbecf01gva7q329giz1od: { awardedMarks: 0, reason: "填10:'raw materials' 是段A里珊瑚给藻类的东西;本空问苗圃里悬空养殖是为了避开捕食者和会把珊瑚闷死的什么,应填 sediment(沉积物)。0。" },
+  cmsfdda0701l7a7q3ej1u9l7h: { awardedMarks: 0, reason: "填13:'transparent' 是形容组织的;本空是「白色的什么透出来」,应填 skeleton(骨骼)。0。" },
+
+  // ── O-Level 概要写作卷《Cutting Food Waste》HEIN HTET NAING ──
+  cmsfd7jzv01ara7q3visvcr8u: { awardedMarks: 1, reason: "Q1:'left over, unsold' 命中 surplus=多出来的、剩余的。1。" },
+  cmsfd48au018ma7q35az5tsro: { awardedMarks: 0, reason: 'Q2:堆肥做花园肥料/做动物饲料是另一种做法;第6段说 digester(厌氧分解机)把厨余变成水或电能。0。' },
+  cmsfd8le401c1a7q3xerul51t: { awardedMarks: 2, reason: 'Q3:点出「样子怪的菜」+「降价促使人买下吃掉、因而不被丢弃」，两层齐。2/2。' },
+
+  // ── O-Level 曾义洋 ──
+  cmsfcwgoy00xfa7q3oom5kc5w: { awardedMarks: 0, reason: 'Q1:surplus 指「多出来但仍能吃」的食物,不等于 waste(废弃物) —— 正因为不是废物才拿去捐赠。0。' },
+  cmsfcv4n300uva7q3lary1ij3: { awardedMarks: 1, reason: 'Q2:变成水或电能,正确。1。' },
+  cmsfcyg5d0123a7q3ehf5ggdu: { awardedMarks: 2, reason: 'Q3:「本来就能吃、只因卖相不好会被丢掉」+「便宜卖出去就有人买来吃」,两层都写到了。2/2。' },
+  cmsfczvov014ga7q35vob2vzs: { awardedMarks: 0, reason: 'Q4:只写了一句收尾感想,没有列出任何一条具体做法(计划采购/小份量/临期打折/捐赠/堆肥/厌氧分解/教育宣传),也没有按要求用给定开头。内容点 0。0/8。' },
+
+  // ── O-Level 赵一鸣 ──
+  cmsfdlguu022aa7q3o71fch9i: { awardedMarks: 1, reason: "Q1:'excess the quantity which their owner needs' 命中 surplus=超出所需。1。" },
+  cmsfdou85024ta7q32akajv5f: { awardedMarks: 1, reason: 'Q2:水或电能,正确。1。' },
+  cmsfcxeuw00zfa7q3m9o2lc58: { awardedMarks: 1, reason: 'Q3:答出「降价→被买走→减少浪费」;未点出这些菜本来只因卖相不好就要被丢掉。1/2。' },
+  cmsfd6271019ga7q3ksdjqypp: { awardedMarks: 5, reason: 'Q4:写到 5 条做法 —— 家庭计划餐食、餐厅减少份量、设食物银行捐赠、厨余做动物饲料、学校开课教育。内容 5/8。注意三点:①超过 80 词上限 ②没有用规定开头「Singapore is reducing the food it wastes by...」 ③最后一句没写完。5/8。' },
+
+  // ── O-Level 赵伯容 ──
+  cmsfcw6rl00wna7q3n13u7bi9: { awardedMarks: 1, reason: "Q1:'the rest food' 意思是剩下的食物,命中 surplus。1。(英文更地道的说法是 leftover / extra food)" },
+  cmsfcy0pk010ta7q34r3foy77: { awardedMarks: 0, reason: 'Q2:「Food Scraps」是放进去的厨余,不是产出物;第6段说变成水或电能。0。' },
+  cmsfczm4v013ua7q3td5mygh8: { awardedMarks: 1, reason: 'Q3:句子有点乱,但抓到「被买走吃掉而不是被丢弃」;未点出它们本来只因卖相不好就要被丢。1/2。' },
+  cmsfd95kq01cva7q3173n0qdq: { awardedMarks: 4, reason: 'Q4:写到 4 条做法 —— 按需采购、餐厅份量减少、超市打折卖次品菜、学校教育。内容 4/8。字数在 80 词内 ✓,但没用规定开头,且末句「As you can see...」是凑字的感想,概要里不需要。4/8。' },
+};
+
 // Finalize-sweep — every non-practice submission in these assignments gets
 // its status flipped submitted→marked (recomputing scores), even the fully
 // auto-graded ones (0 parked items) and blank submissions (no scripts). The
 // GRADES map alone only reaches submissions that had a parked item.
 const SWEEP_ASSIGNMENTS: string[] = [
-  'd2d16e00-7ae1-42ca-ba0f-2a39d822277d', // 2026-08-04 IELTS authentic (The Machine from the Sea)
-  '5308a741-f733-4ac3-9b24-8c453ab1e6bc', // 2026-08-04 O-Level (The Blackout)
+  'd6e952c7-d196-4c18-99f0-feb3e7110ad3', // 2026-08-05 IELTS authentic (Gardening the Reef)
+  '07df7f1f-17db-4001-a987-90be22242388', // 2026-08-05 O-Level (Cutting Food Waste, 概要写作)
 ];
 
-const GRADES: Record<string, { awardedMarks: number; reason: string }> = GRADES_0804;
+const GRADES: Record<string, { awardedMarks: number; reason: string }> = GRADES_0805;
 const _OLD_GRADES: Record<string, { awardedMarks: number; reason: string }> = {
   // 2026-07-24 早测 · ielts_authentic = cambridge_ielts_8/Test1/P1
   // "A Chronicle of Timekeeping"(Q1-4 段落匹配 A-H;Q9-13 图标注 ≤2词).
