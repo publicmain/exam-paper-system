@@ -395,16 +395,91 @@ const GRADES_0805: Record<string, { awardedMarks: number; reason: string }> = {
   cmsfd95kq01cva7q3173n0qdq: { awardedMarks: 4, reason: 'Q4:写到 4 条做法 —— 按需采购、餐厅份量减少、超市打折卖次品菜、学校教育。内容 4/8。字数在 80 词内 ✓,但没用规定开头,且末句「As you can see...」是凑字的感想,概要里不需要。4/8。' },
 };
 
+const GRADES_0806: Record<string, { awardedMarks: number; reason: string }> = {
+  // 2026-08-06 早测 · authentic=ielts_authored_2026_v3/Test1/P3 (The Slow Journey
+  // of Paper 造纸术西传) / olevel=ai_authored_olevel_40_send_off_v1 (The Send-off
+  // 送哥哥入伍)。全 Claude 在 chat 判, 零 AI。
+
+  // ── 雅思 美式拼写：IELTS 官方接受英美两种拼写，判对 ──
+  cmsgsehiq00ymtte6d57z8emd: { awardedMarks: 1, reason: "填12:'Fibers' 是 fibres 的美式拼写。雅思官方明确英式美式拼写都接受,判对。1。" },
+  cmsgsywxq01wvtte6die32exg: { awardedMarks: 1, reason: "填12:'Fibers' 美式拼写,雅思接受,判对。1。" },
+
+  // ── 雅思 单复数仍从严(与 8/05 substance/substances 同一条线) ──
+  cmsgsx35j01t9tte6t6tlmg23: { awardedMarks: 0, reason: "填12:'fibre' 少了复数 s。原文 until the fibres separate,填空须照抄原文词形。0。" },
+  cmsgss24u01hmtte6715ug67u: { awardedMarks: 0, reason: "填9:'rage'(愤怒)是另一个词,不是拼写变体。原文是 linen rags(亚麻破布)。0。" },
+
+  // ── 雅思 字母间多打了空格，词本身是对的 ──
+  cmsgssl6f01j4tte69d9r2r52: { awardedMarks: 1, reason: "填11:'r a g' 字母间多了空格,词本身就是 rag,判对。1。(下次连着打成一个词,系统按字符精确匹配)" },
+
+  // ── 雅思 段落匹配 ──
+  cmsgt5ct6028itte6j9tczm09: { awardedMarks: 0, reason: '段1:A,正解 G(段G讲原料短缺与木浆的代价)。0。' },
+  cmsgt5f6e028otte6xtbkkxc3: { awardedMarks: 0, reason: '段2:B,正解 F(段F讲印刷与纸互相拉动需求)。0。' },
+  cmsgt5hee028qtte6m2kicbde: { awardedMarks: 0, reason: '段3:C,正解 D(段D讲欧洲抵制纸的非技术原因)。0。' },
+  cmsgt5kez028utte68jdpdydy: { awardedMarks: 0, reason: '段4:D,正解 A(段A讲纸出现前书写材料的缺点)。0。' },
+  cmsgsi70m012rtte638e8xi95: { awardedMarks: 0, reason: '段1:B,正解 G。0。' },
+  cmsgsibc90131tte6a7j34vs1: { awardedMarks: 0, reason: '段2:A,正解 F。0。' },
+  cmsgsidmh0139tte6hyb7ny1a: { awardedMarks: 0, reason: '段3:C,正解 D。0。' },
+  cmsgsiezc013dtte6w8gv8986: { awardedMarks: 0, reason: '段4:D,正解 A。0。' },
+  cmsgsp8vx01dbtte6uaoqfwzx: { awardedMarks: 0, reason: '段1:B,正解 G。0。' },
+  cmsgsgc5000yotte6sgkfgh9c: { awardedMarks: 0, reason: '段1:B,正解 G。0。' },
+  cmsgs69kz00tktte6w7cqxnud: { awardedMarks: 0, reason: '段2:B,正解 F。0。' },
+  cmsgs6cu300tutte6vbr1rzhm: { awardedMarks: 0, reason: '段3:C,正解 D。0。' },
+  cmsgsj99q015btte6hydn1khe: { awardedMarks: 0, reason: '段1:A,正解 G。0。' },
+  cmsgsywea01wttte6rf9zb74f: { awardedMarks: 0, reason: '段2:D,正解 F。0。' },
+  cmsgszsmw01xdtte6dgqufyif: { awardedMarks: 0, reason: '段3:G,正解 D。0。' },
+  cmsgsz83g01x5tte62l9zpybc: { awardedMarks: 0, reason: '段4:B,正解 A。0。' },
+  cmsgsra6401g2tte65oyh0rh3: { awardedMarks: 0, reason: '段3:B,正解 D。0。' },
+  cmsgsrcu901g8tte63kyuocb9: { awardedMarks: 0, reason: '段4:C,正解 A。0。' },
+
+  // ── 雅思 其他填空 ──
+  cmsgt2e1c023htte6wbkfxwzo: { awardedMarks: 0, reason: "填11:'paper' 错。原文说木浆纸比 rag(破布)纸更易朽坏,应填 rag。0。" },
+  cmsgswocl01sltte62n5qs6h1: { awardedMarks: 0, reason: "图13:'squeeze' 是原文 pressed to squeeze out moisture 里的动作对象,本空要填 pressed(被压)。0。" },
+
+  // ── O-Level《The Send-off》HEIN HTET NAING ──
+  cmsgstp9a01m7tte6z4mqqxq0: { awardedMarks: 1, reason: 'Q1:压在冰箱的磁贴下。1。' },
+  cmsgsghhh00ywtte61owv7o7r: { awardedMarks: 1, reason: 'Q2:那枚(足球)奖牌。1。' },
+  cmsgsvb0501pjtte6eqqt42xz: { awardedMarks: 1, reason: "Q3:'unstable' 命中 wobbling=桌子不稳、会晃。1。" },
+  cmsgshtnu0121tte6ado3v46d: { awardedMarks: 1, reason: "Q4:'surprisingly unremarkable and normal' 抓到「和平常一模一样却让人觉得不对劲」。1。" },
+  cmsgslg9f017jtte6ao8ka58l: { awardedMarks: 1, reason: 'Q9:答出拥抱「又急又短」;未点出那是因为一犹豫就抱不下去了、以及他不会慢慢表达感情。1/2。' },
+
+  // ── O-Level 曾义洋 ──
+  cmsgsjz6f016dtte6igtas4et: { awardedMarks: 1, reason: 'Q2:一枚奖牌。1。' },
+  cmsgsrqns01gytte6ebu3bu7o: { awardedMarks: 0, reason: 'Q4:只写「Surprised」一个词,没有说明;本题要答「重要的日子却和平常一样,反而让人觉得不对劲」。0。' },
+  cmsgsh3g300zttte6c8tj7jdd: { awardedMarks: 0, reason: "Q5:'rough' 说的是围站得松散不齐,不是「一起解决问题」。0。" },
+  cmsgsxkqm01tztte6jcsa5hdy: { awardedMarks: 1, reason: 'Q7:抓到「妈妈很难过却哭不出来」= 她在硬憋着(MP1);未及「憋住比哭出来更费力」。1/2。' },
+  cmsgt6qkr02a6tte60vc79v01: { awardedMarks: 0, reason: 'Q8:只写了「To」,未作答。0/2。' },
+  cmsgt0koa01y7tte6msqsv9ww: { awardedMarks: 0, reason: 'Q9:句子不通,也没解释「像大风里关门那样」这个比喻(又快又用力、不敢犹豫)。0/2。' },
+  cmsgsun5m01nrtte61nv0obhz: { awardedMarks: 0, reason: 'Q10:只说「想哥哥」,未触及 took up(占地方)与 filled(填满)这组反义对照。0/2。' },
+
+  // ── O-Level 赵一鸣 ──
+  cmsgsqix401estte6xqurl3j1: { awardedMarks: 1, reason: 'Q2:足球奖牌。1。' },
+  cmsgsmb6c0199tte652g0ls0i: { awardedMarks: 0, reason: 'Q4:答成「紧张但天亮着、对未来有期待」,与原意相反。horribly ordinary 是说这天平常得让人难受。0。' },
+  cmsgt121l01zptte62irsgr2m: { awardedMarks: 0, reason: "Q5:'rough' 形容围站的形状松散不齐,不是形容心情茫然。0。" },
+  cmsgshrcu011rtte60zj0ge7s: { awardedMarks: 1, reason: 'Q7:答出「不想在这个时刻让 Wei 看见自己难过」= 刻意压住情绪(MP1);未及「憋住比哭出来更费力」。1/2。' },
+  cmsgssext01igtte663vc51uy: { awardedMarks: 1, reason: 'Q8:答出「不敢相信儿子真的走了」(MP1);未点出袋子已空却仍抱着、那份「轻」正是失去本身。1/2。' },
+  cmsgszicu01x9tte6ixbfofnr: { awardedMarks: 0, reason: 'Q9:没有解释比喻本身,只说「他开始改变对哥哥的看法」。0/2。' },
+
+  // ── O-Level 赵伯容 ──
+  cmsgs67ja00titte62y3mpqv5: { awardedMarks: 1, reason: 'Q1:压在冰箱磁贴下。1。' },
+  cmsgs972o00vhtte6yfa84kw7: { awardedMarks: 1, reason: 'Q2:足球奖牌。1。' },
+  cmsgsalbt00wbtte6lyay04gm: { awardedMarks: 0, reason: "Q3:'broken'(坏了)不是 wobbling 的意思;wobbling 指桌腿松、桌子会晃。0。" },
+  cmsgsigim013htte658e6hv60: { awardedMarks: 0, reason: 'Q4:答成「那天早晨不寻常」,与原意相反 —— horribly ordinary 正是说它平常得和任何一天一样,而这恰恰让人难受。0。' },
+  cmsgsl9zy017htte67wxx5rus: { awardedMarks: 0, reason: "Q5:'optionally' 不通;rough circle 指围站得松散、不成形。0。" },
+  cmsgsoiha01bntte6egbyzmgr: { awardedMarks: 1, reason: 'Q6:列出了行为(提早回家、修桌子、问我学校的事)并读出「他舍不得走」;但未点出他是在临走前把事情一件件安顿好、以及那是想趁还来得及跟弟弟亲近。1/2。' },
+  cmsgt0p2a01yptte6ym9dl10u: { awardedMarks: 1, reason: 'Q7:「mom overcome that」抓到她是硬压住了(MP1);「想看清楚记住他」是自己加的,原文没有;未及「憋住比哭出来更费力」。1/2。' },
+  cmsgt6co6029ntte6l6nd608t: { awardedMarks: 1, reason: 'Q8:「不敢相信」点到了(MP1),但只有四个字、没有展开,也没写到那只空袋子。1/2。' },
+};
+
 // Finalize-sweep — every non-practice submission in these assignments gets
 // its status flipped submitted→marked (recomputing scores), even the fully
 // auto-graded ones (0 parked items) and blank submissions (no scripts). The
 // GRADES map alone only reaches submissions that had a parked item.
 const SWEEP_ASSIGNMENTS: string[] = [
-  'd6e952c7-d196-4c18-99f0-feb3e7110ad3', // 2026-08-05 IELTS authentic (Gardening the Reef)
-  '07df7f1f-17db-4001-a987-90be22242388', // 2026-08-05 O-Level (Cutting Food Waste, 概要写作)
+  'a7bfaa81-2fd4-44a2-afe3-bf0ba4bd12b4', // 2026-08-06 IELTS authentic (The Slow Journey of Paper)
+  '14ea71e0-3f0e-41be-a10f-ed068c43f7eb', // 2026-08-06 O-Level (The Send-off)
 ];
 
-const GRADES: Record<string, { awardedMarks: number; reason: string }> = GRADES_0805;
+const GRADES: Record<string, { awardedMarks: number; reason: string }> = GRADES_0806;
 const _OLD_GRADES: Record<string, { awardedMarks: number; reason: string }> = {
   // 2026-07-24 早测 · ielts_authentic = cambridge_ielts_8/Test1/P1
   // "A Chronicle of Timekeeping"(Q1-4 段落匹配 A-H;Q9-13 图标注 ≤2词).
