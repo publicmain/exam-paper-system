@@ -470,16 +470,66 @@ const GRADES_0806: Record<string, { awardedMarks: number; reason: string }> = {
   cmsgt6co6029ntte6l6nd608t: { awardedMarks: 1, reason: 'Q8:「不敢相信」点到了(MP1),但只有四个字、没有展开,也没写到那只空袋子。1/2。' },
 };
 
+const GRADES_0807: Record<string, { awardedMarks: number; reason: string }> = {
+  // 2026-08-07 早测（本周收官）· authentic=ielts_authored_2026_v3/Test2/P1
+  // (The Ground That Remembers 永久冻土) / olevel=summary_02_cycling (概要写作卷)
+  // 全 Claude 在 chat 判, 零 AI。
+
+  // ── 雅思 段落匹配 ──
+  cmsi7y1q101bp14kfzz6a5ggf: { awardedMarks: 0, reason: '段3:A,正解 D(段D澄清 feedback 一词常被误解)。0。' },
+  cmsi8hm9k024q14kfi8v2hj3h: { awardedMarks: 0, reason: '段1:a,正解 F(段F讲为何释放量难以准确估算)。0。' },
+  cmsi82qy601lu14kf8ysz07kp: { awardedMarks: 0, reason: '段3:A,正解 D。0。' },
+  cmsi80hi601ib14kf5n9v56ry: { awardedMarks: 0, reason: '段4:H,正解 B(段B讲低温阻断了腐烂过程)。0。' },
+  cmsi7nmfm00u714kf406kcqno: { awardedMarks: 0, reason: '段3:a,正解 D。0。' },
+  cmsi7ote400vg14kfrbxl81yy: { awardedMarks: 0, reason: '段1:D,正解 F。0。' },
+  cmsi7p7fk00wg14kfgrkwmwsm: { awardedMarks: 0, reason: '段2:F,正解 G(段G讲对建筑与聚落的影响)。0。' },
+  cmsi7pb7c00wo14kfalsmesri: { awardedMarks: 0, reason: '段3:A,正解 D。0。' },
+  cmsi80bbh01hx14kfghrf94qf: { awardedMarks: 0, reason: '段1:A,正解 F。0。' },
+  cmsi8082001hp14kfxk2kq1pk: { awardedMarks: 0, reason: '段2:c,正解 G。0。' },
+  cmsi805jb01hh14kfp2ltsc2e: { awardedMarks: 0, reason: '段3:B,正解 D。0。' },
+  cmsi803v301hd14kfa1ypbjrv: { awardedMarks: 0, reason: '段4:H,正解 B。0。' },
+
+  // ── 雅思 填空 ──
+  cmsi7ps7300xm14kf2a4r36h1: { awardedMarks: 0, reason: "图13:'lake' 少了复数 s。原文 forming pits, slumps and small lakes,填空须照抄原文词形(与本周 fibre/substance 同一条线)。0。" },
+  cmsi8en0u023814kfkrfmykyt: { awardedMarks: 0, reason: "填10:'locked' 错。本空问北方永久冻土封存的碳大约是整个大气层的多少倍,原文 roughly twice,应填 twice。0。" },
+
+  // ── O-Level 概要写作卷《Cycling in Singapore》HEIN HTET NAING ──
+  cmsi7p5ow00w814kfmzcg6oa4: { awardedMarks: 1, reason: "Q1:'done intentionally' 命中 deliberate=有意为之。1。" },
+  cmsi7prjy00xk14kfm8kxtzf5: { awardedMarks: 1, reason: 'Q2:自行车停放位(bicycle bays),正确。1。' },
+  cmsi7rfvk00zu14kf51eviyup: { awardedMarks: 2, reason: 'Q3:「岛上到处都能借还」+「不必自己买车、也不用找地方存放」,两点齐。2/2。' },
+
+  // ── O-Level 曾义洋 ──
+  cmsi85kss01ox14kfcs2sxxq9: { awardedMarks: 0, reason: 'Q1:只写了「A wa」,未作答。0。' },
+  cmsi83wii01n914kfi81xb738: { awardedMarks: 0, reason: 'Q2:抄的是「换乘后可继续骑同一辆车」那句,答的不是车站提供了什么;应答自行车停放位或储物柜。0。' },
+  cmsi7udic017f14kfl26jobug: { awardedMarks: 2, reason: 'Q3:两点都写到了(到处可借还 + 不必自己买或存放)。2/2。但基本是照抄原文,题目要求 in your own words,下次请换成自己的说法。' },
+  cmsi826to01ko14kft2j3aq96: { awardedMarks: 0, reason: 'Q4:又是把原文最后一句收尾感想抄下来(上周食物浪费那篇也是),没有列出任何一条具体做法(修车道/共享单车/车站停放/限速宣导/学校教学/环岛路线),也没用规定开头。内容点 0。0/8。' },
+
+  // ── O-Level 蒋安祁 ──
+  cmsi8lhm3026w14kf4pgvamov: { awardedMarks: 1, reason: "Q1:'not happened by accident'(不是偶然发生的)确实表达了 deliberate=有意为之。1。(这是原文里的同义句,能找到并用上是好的阅读策略)" },
+
+  // ── O-Level 赵一鸣 ──
+  cmsi8h6bv024214kf3t95q8sj: { awardedMarks: 0, reason: "Q1:'thinking twice'(三思而行)是 deliberate 的另一个义项;此处 a deliberate policy 指「刻意推行的、有意为之的」。0。" },
+  cmsi7ryak010a14kfvpms8poi: { awardedMarks: 0, reason: 'Q2:折叠车可上地铁是列车的规定,不是「车站提供了什么」;应答自行车停放位或储物柜。0。' },
+  cmsi8hx9n024u14kfu0rxvmuj: { awardedMarks: 0, reason: 'Q3:「更便宜、更方便」太笼统,没有写出到底怎么方便(随处借还、不必自己买车存车)。0/2。' },
+  cmsi7vgf2018u14kfrtikovhn: { awardedMarks: 5, reason: 'Q4:写到 5 条做法 —— 手机 App 租车、地铁允许带折叠车、公众宣导交通规则、学校教孩子骑行、环岛路线。用了规定开头 ✓。内容 5/8。注意:①超过 80 词上限 ②中文标点(，)要换成英文逗号。5/8。' },
+
+  // ── O-Level 赵伯容 ──
+  cmsi7o6pf00un14kfwbh2m2ap: { awardedMarks: 0, reason: 'Q1:答的是这项政策的内容,不是 deliberate 这个词的意思(有意为之、刻意安排的)。0。' },
+  cmsi7tlug016914kfrkh9dwnc: { awardedMarks: 1, reason: 'Q2:自行车停放位和储物柜,正确。1。' },
+  cmsi7ykg801dk14kflupy7ibe: { awardedMarks: 1, reason: 'Q3:「租一辆车骑遍全岛」触及「不必自己买车」这层;未写出随处可借可还、也不用找地方存放。1/2。' },
+  cmsi823l101k814kfhzwczom0: { awardedMarks: 0, reason: 'Q4:「政策、支持、意愿、观念转变」全是抽象名词,没有一条具体做法,也没用规定开头。概要要写「做了什么」,不是「靠什么」。内容点 0。0/8。' },
+};
+
 // Finalize-sweep — every non-practice submission in these assignments gets
 // its status flipped submitted→marked (recomputing scores), even the fully
 // auto-graded ones (0 parked items) and blank submissions (no scripts). The
 // GRADES map alone only reaches submissions that had a parked item.
 const SWEEP_ASSIGNMENTS: string[] = [
-  'a7bfaa81-2fd4-44a2-afe3-bf0ba4bd12b4', // 2026-08-06 IELTS authentic (The Slow Journey of Paper)
-  '14ea71e0-3f0e-41be-a10f-ed068c43f7eb', // 2026-08-06 O-Level (The Send-off)
+  '6505ffb6-0e48-455b-b1f2-aa43175f0584', // 2026-08-07 IELTS authentic (The Ground That Remembers)
+  '46b3b678-b7f4-4139-aeac-917adcbf7af1', // 2026-08-07 O-Level (Cycling in Singapore, 概要写作)
 ];
 
-const GRADES: Record<string, { awardedMarks: number; reason: string }> = GRADES_0806;
+const GRADES: Record<string, { awardedMarks: number; reason: string }> = GRADES_0807;
 const _OLD_GRADES: Record<string, { awardedMarks: number; reason: string }> = {
   // 2026-07-24 早测 · ielts_authentic = cambridge_ielts_8/Test1/P1
   // "A Chronicle of Timekeeping"(Q1-4 段落匹配 A-H;Q9-13 图标注 ≤2词).
