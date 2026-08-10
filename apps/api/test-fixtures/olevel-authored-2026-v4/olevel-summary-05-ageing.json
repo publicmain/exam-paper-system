@@ -1,0 +1,41 @@
+{
+  "setCode": "ai_authored_olevel_summary_05_ageing_v1",
+  "paperNumber": 2,
+  "paperTitle": "Singapore-Cambridge GCE O-Level 1184 English Language — Practice: Section C (non-narrative + 80-word summary) — An Ageing Singapore",
+  "provenanceTag": "ai_authored_olevel_1184_summary",
+  "note": "AI-authored original informational text for O-Level 1184 Section C style practice; not from a past examination paper. Figures are illustrative. 出处说明仅作内部记录，不得写进 passage 正文（学生可见）。",
+  "sections": [
+    {
+      "exercise": 1,
+      "passageTitle": "An Ageing Singapore",
+      "instruction": "Read the non-narrative text below about how Singapore is responding to its ageing population, and answer the questions that follow. Section C [12 marks]. 3 short-answer items (Q1-Q3) of mixed mark value, plus a summary-writing task (Q4). Answer in your own words as far as possible.",
+      "passage": "Paragraph 1\nSingapore is growing old faster than almost any country in the world. Fewer babies are born each year, people live longer than ever, and the result is a population in which the proportion of citizens over sixty-five is climbing steeply. This is not a crisis that arrives one morning; it arrives slowly, over decades, which is precisely what makes it easy to ignore and difficult to reverse. The response has therefore been to prepare on several fronts at once.\n\nParagraph 2\nThe first front is work. Because a longer life is expensive, the retirement and re-employment ages have been raised in stages, so that older workers who wish to stay employed may do so rather than being pushed out at a fixed birthday. Employers receive support for adjusting jobs to suit them, and subsidised courses allow workers in their fifties and sixties to pick up new skills, so that experience is not discarded simply because it is decades old.\n\nParagraph 3\nThe second front is money. Compulsory savings through the Central Provident Fund are converted into a monthly payout for life, which protects the very old from the risk of outliving whatever they managed to put aside. For those whose savings are small, additional payments top up the incomes of poorer elderly citizens, so that a long working life in a low-paid job does not end in hardship.\n\nParagraph 4\nThe third front is health, and the emphasis has shifted from treating illness to postponing it. Screening programmes catch conditions such as diabetes and high blood pressure before they become disabling, and campaigns encourage exercise and better diets among people who are still in their forties and fifties. Keeping citizens healthy for longer is far cheaper than caring for them once they are not, and it is also, plainly, better for them.\n\nParagraph 5\nThe fourth front is care. Nursing-home places have been expanded, but the greater effort has gone into services that allow people to remain in their own flats: day-care centres, visiting nurses, meal deliveries and help with washing and dressing. Most older people would much rather stay at home, and home-based care costs the country less than an institution does.\n\nParagraph 6\nBuildings and streets have been altered too. Lifts now stop on every floor of older blocks, ramps and handrails have been added, pedestrian crossings give more time to those who walk slowly, and estates are being fitted with benches and shelters. Small physical changes of this kind decide whether an eighty-year-old leaves the flat at all.\n\nParagraph 7\nFinally, there is the problem of solitude. A growing number of elderly Singaporeans live alone, and isolation damages health as surely as any disease. Community groups run activity centres and befriending schemes in which volunteers visit regularly, while intergenerational projects place childcare centres inside the same buildings as senior facilities so that the young and the old meet daily rather than never.\n\nParagraph 8\nNone of these measures is sufficient by itself, and all of them cost money that must come from a shrinking share of working citizens. Taken together, however, they represent a deliberate attempt to make a long life something other than a burden — for the country, and for the person living it.\n\n(Glossary: Central Provident Fund: Singapore's compulsory national savings scheme; intergenerational: involving people of different age groups.)",
+      "questions": [
+        {
+          "n": 1,
+          "stem": "Q1. What does the word 'postponing' (Paragraph 4) mean? [1]",
+          "answer": "delaying / putting off until later",
+          "marks": 1
+        },
+        {
+          "n": 2,
+          "stem": "Q2. From Paragraph 7, name ONE way in which the young and the old are brought together. [1]",
+          "answer": "placing childcare centres in the same buildings as facilities for the elderly (intergenerational projects)",
+          "marks": 1
+        },
+        {
+          "n": 3,
+          "stem": "Q3. Using your own words, explain why the writer describes the ageing of the population as a problem that is 'easy to ignore and difficult to reverse'. (Paragraph 1) [2]",
+          "answer": "① it develops very gradually over many decades, so there is never a single alarming moment that forces people to act; ② by the time its effects are obvious the population structure is already set, and birth rates and lifespans cannot be changed quickly",
+          "marks": 2
+        },
+        {
+          "n": 4,
+          "stem": "Q4. Using your own words as far as possible, summarise the ways in which Singapore is responding to its ageing population, as described in paragraphs 2 to 7. Your summary must be in continuous writing (not note form) and must be no more than 80 words, including the words given below.\n\nBegin your summary: 'Singapore is responding to its ageing population by...' [8]",
+          "answer": "CONTENT POINTS (award ~1 each; 7 distinct ideas spread over paragraphs 2-7): ① raising retirement and re-employment ages so older staff may keep working; ② retraining older workers through subsidised courses / adapting jobs for them; ③ turning compulsory savings into a lifelong monthly income; ④ topping up the incomes of poorer elderly citizens; ⑤ screening and healthy-living campaigns to delay illness rather than only treat it; ⑥ expanding home-based care (day centres, visiting nurses, meals, help with washing) so people can stay in their flats; ⑦ altering buildings and streets — lifts on every floor, ramps, handrails, longer crossing times; ⑧ tackling loneliness through befriending schemes and mixing the young and old. STYLE / OWN-WORDS (the 8th mark; mirrors the SEAB 7-mark summary band): reward sustained own words + structures and organised continuous writing; penalise lifting / note form / exceeding 80 words. MODEL (~79 words): 'Singapore is responding to its ageing population by letting people work later and retraining them cheaply, and by turning forced savings into lifelong monthly payments topped up for the poorest. Illness is delayed through screening and healthier habits rather than merely treated. Services such as day centres, visiting nurses and delivered meals keep the elderly in their own homes, while lifts, ramps and longer crossings ease movement, and volunteer visits and shared premises reduce loneliness.'",
+          "marks": 8
+        }
+      ]
+    }
+  ]
+}

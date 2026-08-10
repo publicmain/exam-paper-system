@@ -1,0 +1,41 @@
+{
+  "setCode": "ai_authored_olevel_summary_06_sleep_v1",
+  "paperNumber": 2,
+  "paperTitle": "Singapore-Cambridge GCE O-Level 1184 English Language — Practice: Section C (non-narrative + 80-word summary) — Why Teenagers Are Not Sleeping",
+  "provenanceTag": "ai_authored_olevel_1184_summary",
+  "note": "AI-authored original informational text for O-Level 1184 Section C style practice; not from a past examination paper. Figures are illustrative. 出处说明仅作内部记录，不得写进 passage 正文（学生可见）。",
+  "sections": [
+    {
+      "exercise": 1,
+      "passageTitle": "Why Teenagers Are Not Sleeping",
+      "instruction": "Read the non-narrative text below about teenage sleep, and answer the questions that follow. Section C [12 marks]. 3 short-answer items (Q1-Q3) of mixed mark value, plus a summary-writing task (Q4). Answer in your own words as far as possible.",
+      "passage": "Paragraph 1\nAsk a roomful of secondary-school students how much they slept last night and the answers cluster somewhere around six hours. The figure adolescents actually need is closer to nine. That gap is not a matter of laziness or poor character; it is produced by a set of causes that are mostly outside a teenager's control, and understanding them is the only way to close it.\n\nParagraph 2\nThe first cause is biological. At puberty the body's internal clock shifts later by roughly two hours, so that the hormone which brings on drowsiness is released nearer midnight than at nine o'clock. A fifteen-year-old lying awake at eleven is not being difficult; the signal to sleep has genuinely not yet arrived. The same shift reverses in the twenties, which is why the problem largely solves itself later — far too late to help anyone sitting an examination.\n\nParagraph 3\nAgainst that late clock runs an early alarm. Schools in Singapore commonly begin around half past seven, and a student travelling any distance must rise before six. Since the body will not fall asleep earlier merely because the morning is early, the shortfall comes straight out of the end of the night. Several countries have experimented with pushing the school day back, and the trials generally report longer sleep and better attendance, though the change is difficult to arrange around transport and working parents.\n\nParagraph 4\nWorkload adds a second squeeze. Homework, tuition classes and revision fill the hours after school, and for many students the only quiet time available for study is late at night. A candidate preparing for major examinations may treat sleep as the one flexible item in the timetable, precisely because everything else has a fixed deadline attached to it.\n\nParagraph 5\nScreens make the problem worse in two ways at once. The bright light of a phone held close to the face suppresses the hormone that induces sleep, delaying it further; and the content itself — messages, videos, games designed never to reach a natural stopping point — keeps the mind alert long past the moment the user intended to stop. Devices left within reach overnight also break sleep that has already begun.\n\nParagraph 6\nThe consequences are more serious than tiredness. Memory is consolidated during sleep, so a night cut short weakens exactly the learning the extra hours of study were meant to secure. Short sleep is also associated with low mood, irritability and anxiety, with slower reactions, and over the long term with poorer physical health. Students who sleep badly do not simply feel worse; they perform worse at the very tasks they sacrificed the sleep for.\n\nParagraph 7\nSome remedies lie within reach of the student. Keeping the same rising time at weekends prevents the clock from drifting even later; charging the phone outside the bedroom removes both the light and the temptation; and shifting demanding revision to the early evening protects the hour before bed. Naps of twenty minutes restore alertness without spoiling the following night, whereas long afternoon sleeps do the opposite.\n\nParagraph 8\nOthers require adults to act. Schools can review how much homework is set and how early the day starts; parents can resist filling every evening with additional classes. Sleep is not the reward for finishing the work. It is one of the conditions under which the work can be done at all.\n\n(Glossary: consolidate: to make memories firm and lasting; suppress: to hold back or prevent.)",
+      "questions": [
+        {
+          "n": 1,
+          "stem": "Q1. What does the word 'shortfall' (Paragraph 3) mean? [1]",
+          "answer": "the amount by which the sleep obtained falls short of what is needed / the missing hours",
+          "marks": 1
+        },
+        {
+          "n": 2,
+          "stem": "Q2. From Paragraph 7, how long should a nap be if it is not to spoil the following night's sleep? [1]",
+          "answer": "about twenty minutes",
+          "marks": 1
+        },
+        {
+          "n": 3,
+          "stem": "Q3. Using your own words, explain why students who lose sleep in order to study may 'perform worse at the very tasks they sacrificed the sleep for'. (Paragraph 6) [2]",
+          "answer": "① memories are made firm and lasting during sleep, so cutting the night short undoes much of what was revised; ② tiredness also slows thinking and reactions and worsens mood, so the student is less able to use whatever was learnt",
+          "marks": 2
+        },
+        {
+          "n": 4,
+          "stem": "Q4. Using your own words as far as possible, summarise the reasons why teenagers do not get enough sleep AND what can be done about it, as described in paragraphs 2 to 7. Your summary must be in continuous writing (not note form) and must be no more than 80 words, including the words given below.\n\nBegin your summary: 'Teenagers sleep too little because...' [8]",
+          "answer": "CONTENT POINTS (award ~1 each; 7 distinct ideas spread over paragraphs 2-7): ① at puberty the internal clock shifts about two hours later, so drowsiness arrives near midnight; ② school starts very early, forcing an early rise that cuts the night short at the other end; ③ homework and tuition leave only late hours for study, and sleep is the one part of the timetable without a fixed deadline; ④ bright screens suppress the sleep hormone and stimulating content keeps the mind alert, while devices left nearby interrupt sleep. REMEDIES: ⑤ rising at the same time on weekends stops the clock drifting later; ⑥ charging the phone outside the bedroom removes light and temptation; ⑦ moving hard revision to the early evening and taking only short naps. STYLE / OWN-WORDS (the 8th mark; mirrors the SEAB 7-mark summary band): reward sustained own words + structures and organised continuous writing; penalise lifting / note form / exceeding 80 words. MODEL (~79 words): 'Teenagers sleep too little because puberty delays the body clock by about two hours while school still begins very early, and because homework and tuition push studying into the night, sleep being the only flexible item. Bright, absorbing screens delay and interrupt it further. They can help themselves by rising at a fixed hour even at weekends, charging phones elsewhere, revising earlier in the evening and keeping any nap brief.'",
+          "marks": 8
+        }
+      ]
+    }
+  ]
+}
