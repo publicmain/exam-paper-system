@@ -11,7 +11,7 @@
   "questions": [
     { "n": 1, "questionType": "short_answer", "taskType": "matching_information",
       "instruction": "Reading Passage 1 has eight paragraphs, A–H. Which paragraph contains the following information? Write the correct letter, A–H, in boxes 1–4 on your answer sheet.",
-      "item": "an explanation of why some events cannot be forecast in advance", "answer": "H", "marks": 1 },
+      "item": "a statement of how much notice a grid operator can be given", "answer": "H", "marks": 1 },
     { "n": 2, "questionType": "short_answer", "taskType": "matching_information",
       "instruction": "Reading Passage 1 has eight paragraphs, A–H. Which paragraph contains the following information? Write the correct letter, A–H, in boxes 1–4 on your answer sheet.",
       "item": "a historical example of damage to a power network", "answer": "F", "marks": 1 },
@@ -20,7 +20,7 @@
       "item": "a description of the steady conditions against which disturbances are measured", "answer": "B", "marks": 1 },
     { "n": 4, "questionType": "short_answer", "taskType": "matching_information",
       "instruction": "Reading Passage 1 has eight paragraphs, A–H. Which paragraph contains the following information? Write the correct letter, A–H, in boxes 1–4 on your answer sheet.",
-      "item": "a reference to equipment in orbit being worn out sooner than planned", "answer": "G", "marks": 1 },
+      "item": "a description of the upper atmosphere expanding during a storm", "answer": "G", "marks": 1 },
 
     { "n": 5, "questionType": "mcq", "taskType": "true_false_not_given",
       "instruction": "Do the following statements agree with the information given in Reading Passage 1? In boxes 5–8 on your answer sheet, write TRUE if the statement agrees with the information, FALSE if the statement contradicts the information, NOT GIVEN if there is no information on this.",
