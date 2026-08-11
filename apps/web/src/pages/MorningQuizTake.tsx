@@ -377,6 +377,9 @@ function ExamShellChrome({
   onSubmit: () => void;
 }) {
   const [paletteOpen, setPaletteOpen] = useState(false);
+  // 2.0 —— 考试中查词要把词记进该生的生词本（sourceType=click），
+  // 所以要把姓名一路传到渲染层。取不到时只查词、不记录。
+  const studentName = useAuth((s) => s.user?.name) ?? '';
   const { answers, flaggedCount, isFlagged, flushPendingSaves, saveError, hasPendingSaves, isSecondaryTab, claimTabOwnership } = useExam();
 
   // R10 — explicit confirm dialog before submit. Round-3 H6 still applies:
@@ -593,7 +596,7 @@ function ExamShellChrome({
           不影响看不懂界面的学生操作。
           合法的查词渠道仍在 —— 交卷后的复盘页可以点任意单词看释义。 */}
       <main translate="no" className="notranslate">
-        <ExamRenderer paper={paper} />
+        <ExamRenderer paper={{ ...paper, studentName }} />
       </main>
 
       {paletteOpen && (

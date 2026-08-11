@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState, createContext, useContext } from 'react';
 import type { ExamPaper, ExamQuestion, ExamOption } from '../types';
 import { useExam } from '../ExamContext';
 import { clean, reflowPassage, splitStem } from '../shared/textUtils';
@@ -6,6 +6,7 @@ import { Highlighter, useStoredHighlights } from '../shared/Highlighter';
 import { useStoredNotes, StickyNoteRail } from '../shared/StickyNote';
 import { DraggableSplit } from '../shared/DraggableSplit';
 import { QuestionFlag } from '../shared/QuestionFlag';
+import ExamWordSheet from '../ExamWordSheet';
 
 /**
  * IELTS Computer-Delivered-style reading shell.
@@ -106,6 +107,10 @@ function groupQuestions(qs: ExamQuestion[]): TaskGroup[] {
   return groups;
 }
 
+/** 2.0 —— 记录"最后聚焦的填空题",供文章侧的取词面板使用。
+ *  只在本文件内传递,不污染共享的 ExamContext。 */
+const FillFocusCtx = createContext<((id: string | null) => void) | null>(null);
+
 export function IELTSReadingPassage({ paper }: { paper: ExamPaper }) {
   // All hooks run on every render — round-7 C-E2. The empty-paper early
   // return previously sat between useState and useMemo / useStoredX hooks,
@@ -135,6 +140,51 @@ export function IELTSReadingPassage({ paper }: { paper: ExamPaper }) {
   const noteKey = `mq:nt:${paper?.sessionId ?? ''}`;
   const [highlights, setHighlights] = useStoredHighlights(hlKey);
   const [notes, addNote, editNote, removeNote] = useStoredNotes(noteKey);
+
+  // ── 2.0 考试中查词 / 填空取词 ──────────────────────────────
+  const [pickedWord, setPickedWord] = useState<string | null>(null);
+  // 最后聚焦过的填空题。用"记住"而不是读 document.activeElement：手机上
+  // 点文章会先让输入框 blur，等面板弹出时活动元素早就不是它了。
+  const [fillTargetId, setFillTargetId] = useState<string | null>(null);
+
+  const { answers, setAnswer } = useExam();
+
+  /** 面板上的"填入第 N 题"按钮：只有当前确实有一道填空题被聚焦过才出现。 */
+  const fillTarget = useMemo(() => {
+    if (!fillTargetId) return null;
+    const q = (paper?.questions ?? []).find((x) => x.id === fillTargetId);
+    if (!q) return null;
+    return {
+      questionId: fillTargetId,
+      label: `第 ${q.sortOrder} 题`,
+      hasValue: Boolean(answers[fillTargetId]?.textAnswer?.trim()),
+    };
+  }, [fillTargetId, paper?.questions, answers]);
+
+  /**
+   * 本卷考点词 —— 点到这些词只提示、不给释义。
+   *
+   * 1.x 明令禁止考试中查词，理由是早测有词义题（「'shadow' 这个词暗示
+   * 什么」），能查词就等于送答案。这个顾虑只对**被考的那几个词**成立，
+   * 对文章里另外七百多个词不成立 —— 所以这里做精确屏蔽而不是一刀切。
+   *
+   * 来源是词义题题干里被引号引住的目标词。判定与后端 extractQuotedWord
+   * 保持同一套规则：必须是"问这个词什么意思"的问法，叙事引语不算
+   * （否则《The Uniform》Q6 的 'good' 也会被误判成考点）。
+   */
+  const blockedWords = useMemo(() => {
+    const out = new Set<string>();
+    for (const q of paper?.questions ?? []) {
+      const stem = String(q.snapshotContent?.stem ?? '');
+      const asks = /\bwhat does\b/i.test(stem) && /\b(suggest|mean|means|imply|convey)\b/i.test(stem);
+      if (!asks && !/\bthe word\s*['‘’"“”]/i.test(stem)) continue;
+      const m = stem.match(/['‘’"“”]([A-Za-z][A-Za-z'’-]{1,30})['‘’"“”]/);
+      if (m) out.add(m[1].toLowerCase());
+      const tw = q.snapshotContent?.targetWord;
+      if (typeof tw === 'string' && tw.trim()) out.add(tw.trim().toLowerCase());
+    }
+    return out;
+  }, [paper?.questions]);
 
   if (!paper?.questions?.length) {
     return (
@@ -193,6 +243,7 @@ export function IELTSReadingPassage({ paper }: { paper: ExamPaper }) {
         </div>
       </div>
 
+      <FillFocusCtx.Provider value={setFillTargetId}>
       <DraggableSplit
         storageKey={`mq:split:${paper.sessionId}`}
         mobileSide={mobileSide}
@@ -208,11 +259,14 @@ export function IELTSReadingPassage({ paper }: { paper: ExamPaper }) {
               <h2 className="font-semibold text-xl lg:text-2xl mb-1">{passageTitle}</h2>
               <div className="text-xs text-gray-400 mb-3">
                 提示 · Tip：拖选文字加黄色高亮，点击高亮可移除。
+                <span className="text-blue-500">选中单个单词可查词义</span>
+                {fillTargetId && <span className="text-blue-500">，也可填进正在作答的填空题</span>}。
               </div>
               <Highlighter
                 body={passageBody}
                 highlights={highlights}
                 onChange={setHighlights}
+                onSingleWordPick={setPickedWord}
                 className="text-gray-800 leading-[1.75] font-serif"
                 // Apply the user-controlled font scale via inline style
                 // (overrides any inherited text-* class). 1.125rem is the
@@ -248,6 +302,19 @@ export function IELTSReadingPassage({ paper }: { paper: ExamPaper }) {
             ))}
           </div>
         }
+      />
+      </FillFocusCtx.Provider>
+
+      <ExamWordSheet
+        word={pickedWord}
+        blocked={!!pickedWord && blockedWords.has(pickedWord.toLowerCase())}
+        fillTarget={fillTarget}
+        studentName={paper?.studentName ?? null}
+        onFill={(qid, w, append) => {
+          const cur = answers[qid]?.textAnswer ?? '';
+          setAnswer(qid, { textAnswer: append && cur ? `${cur.trim()} ${w}` : w });
+        }}
+        onClose={() => setPickedWord(null)}
       />
     </div>
   );
@@ -515,6 +582,7 @@ function QuestionItem({
           item={q.itemText}
           value={answer?.textAnswer ?? ''}
           onChange={(v) => setAnswer(q.id, { textAnswer: v })}
+          questionId={q.id}
         />
       );
     }
@@ -707,11 +775,17 @@ function BlankAwareInput({
   item,
   value,
   onChange,
+  questionId,
 }: {
   item: string;
   value: string;
   onChange: (v: string) => void;
+  questionId?: string;
 }) {
+  // 2.0 —— 聚焦时把自己登记为「取词目标」。必须记住而不是等弹面板时读
+  // document.activeElement：手机上点文章会先让本框 blur，那时活动元素
+  // 早就不是它了。
+  const registerFill = useContext(FillFocusCtx);
   const cleaned = clean(item);
   const hasBlank = /\[BLANK\]/i.test(cleaned);
   const [local, setLocal] = useState(value);
@@ -740,6 +814,7 @@ function BlankAwareInput({
           setLocal(v);
           onChange(v);
         }}
+        onFocus={() => { if (questionId) registerFill?.(questionId); }}
         onBlur={() => { if (local !== value) onChange(local); }}
         placeholder="Your answer…"
         className="border rounded-lg px-4 py-3 text-base w-full max-w-md min-h-[48px] focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-200"

@@ -3,7 +3,7 @@
   "paperNumber": 2,
   "paperTitle": "O-Level English 1184 Paper 2 Section B — The Durian",
   "provenanceTag": "ai_authored_olevel_41_durian_v1",
-  "note": "AI-authored original narrative for O-Level §B style practice; not from a past examination paper. 出处说明仅作内部记录，不得写进 passage 正文（学生可见）。",
+  "note": "AI-authored original narrative for O-Level §B style practice; not from a past examination paper. 出处说明仅作内部记录，不得写进 passage 正文（学生可见）。 2026-08-11 2.0 改造：原 Q6-Q8 三道 2 分 prose 拆成六道 1 分单选（得分点不变，只把「写出来」换成「选出来」）；原 Q9-Q10 保留为 prose并加结构脚手架，作为卷内对照组；Q1-Q5 加答案长度提示。分值仍为 15。",
   "sections": [
     {
       "exercise": 1,
@@ -11,16 +11,191 @@
       "instruction": "Read the narrative text below and answer the questions that follow. Section B, Part 1 [15 marks]. Answer in your own words as far as possible.",
       "passage": "Paragraph 1\nMy father brought home a durian on the last Friday of every month. He carried it in a red plastic bag held out from his body at arm's length, as though it were something that might change its mind. We would hear the lift doors, then his key, then the bag going down on the kitchen floor, and the whole flat would fill with that smell within about four seconds.\n\nParagraph 2\nHe opened it himself, always. He put down two sheets of newspaper, sat on the low plastic stool, wedged the point of the knife into the seam at the bottom and worked it until the shell gave with a sound like a small door. Inside, the flesh sat in its compartments, pale gold, and he would hold the first one up and look at it for a moment before passing it to my grandmother, who ate it very slowly with her eyes shut.\n\nParagraph 3\nThen my mother. Then my sister. Then me. There were usually five or six pieces in a good one, and my father took the last, or if there were only five, he took none, and said he had eaten too much at lunch. He said this so regularly that for years I simply believed it, the way you believe that the lift is slow or that Fridays come after Thursdays.\n\nParagraph 4\nI was fourteen when I went with him. It was raining and he wanted help with the umbrella. The stall was under a shophouse five stops away on the bus, and I watched him do a thing I had never seen him do: he stood at the front of the pile for a long time, picking up one fruit and then another, shaking each one beside his ear, tapping the shell with a knuckle, putting it down. The seller waited. My father moved along the whole row and came back to one he had already put down twice.\n\nParagraph 5\nThen he asked the price. Then he asked it again about a smaller one at the back. He bought the smaller one. On the bus he held it on his lap and said nothing much, and I looked at the rain on the window and did the arithmetic I had never once thought to do: what he earned, what the fruit cost, what a month of Fridays came to.\n\nParagraph 6\nThat evening he opened it on the newspaper as usual. There were five pieces. My grandmother took the first with her eyes shut, and my mother, and my sister, and I took mine and did not eat it. I put it on the edge of the newspaper nearest him and said I was full. He looked at me for slightly too long. Then he said, 'Don't waste,' and ate it, and nothing else was said about it, and nothing else has ever been said about it since.\n\nParagraph 7\nHe still buys one on the last Friday of the month. He is slower on the stool now and he lets my sister's husband do the opening, though he still chooses the fruit himself, and still shakes it beside his ear, and still comes back to one he has put down twice.\n\nParagraph 8\nPeople write a great deal about how much a father says and how little he explains. Mine never explained anything. He simply arranged, month after month, for there to be a thing in the house that everybody wanted and that he would not have — and he arranged it so quietly, and for so long, that his own children took nearly fifteen years to notice they were being given something.\n\n(Glossary: shophouse: a traditional two- or three-storey building with a shop below and living space above; stool: a low plastic seat commonly used in Singapore kitchens.)",
       "questions": [
-        { "stem": "Q1. From Paragraph 1, how often did the narrator's father bring home a durian? [1]", "answer": "on the last Friday of every month / once a month", "marks": 1 },
-        { "stem": "Q2. From Paragraph 3, what reason did the father give for not eating any durian? [1]", "answer": "that he had eaten too much at lunch", "marks": 1 },
-        { "stem": "Q3. What does the phrase 'held out from his body at arm's length' (Paragraph 1) suggest about the durian? [1]", "answer": "that its smell was so strong and pungent that he kept it as far from himself as he could while still carrying it", "marks": 1 },
-        { "stem": "Q4. What does the writer suggest by describing the shell as giving 'with a sound like a small door' (Paragraph 2)? [1]", "answer": "that it opened with a single sharp crack, and that opening it felt like being let into something / the start of an occasion", "marks": 1 },
-        { "stem": "Q5. What does the word 'arithmetic' in 'did the arithmetic I had never once thought to do' (Paragraph 5) suggest about the narrator? [1]", "answer": "that he was working out the cost for the first time and realising, coldly and precisely, what the monthly durian meant against his father's wages", "marks": 1 },
-        { "stem": "Q6. Using your own words, explain why the narrator had 'simply believed' his father's excuse for years. (Paragraph 3) [2]", "answer": "MP1 (it was repeated until ordinary): the same explanation was given every month, so it became an unremarkable part of the routine rather than something to question; MP2 (a child does not look for hidden motives): he was too young to suspect that an adult might be going without on purpose, and accepted the household's habits as simply the way things were. Award one mark per distinct point.", "marks": 2 },
-        { "stem": "Q7. Using your own words, explain what the narrator learns from watching his father choose the fruit at the stall. (Paragraph 4) [2]", "answer": "MP1 (great care and expertise): his father inspected the whole pile, shaking and tapping each fruit, showing skill and seriousness the boy had never witnessed at home; MP2 (the effort was hidden from the family): all of this trouble happened out of sight, so what arrived at home as a casual treat was in fact the result of considerable deliberation. Award one mark per distinct point.", "marks": 2 },
-        { "stem": "Q8. Using your own words, explain why the narrator put his piece 'on the edge of the newspaper nearest him' and said he was full. (Paragraph 6) [2]", "answer": "MP1 (to give his share back): having understood the sacrifice, he wanted his father to eat some for once; MP2 (without saying so openly): he used the same kind of excuse his father had always used, so that the gift could be returned without either of them having to admit out loud what was happening. Award one mark per distinct point.", "marks": 2 },
-        { "stem": "Q9. What is the effect of the father's response, 'Don't waste,' and of the fact that 'nothing else has ever been said about it since'? (Paragraph 6) [2]", "answer": "the blunt two-word reply refuses the emotional moment and keeps the exchange practical, which is exactly how this family communicates; the years of silence that follow show that both understood perfectly and that the understanding did not need words — the restraint conveys far more warmth than a spoken thank-you would", "marks": 2 },
-        { "stem": "Q10. What is the effect of the final clause, 'took nearly fifteen years to notice they were being given something'? (Paragraph 8) [2]", "answer": "the long stretch of time measures the father's steadiness against the children's obliviousness, so the sacrifice is made to seem larger for having gone unremarked; the plain word 'something', left deliberately unnamed, suggests the gift was never really the fruit at all", "marks": 2 }
+        {
+          "stem": "Q1. From Paragraph 1, how often did the narrator's father bring home a durian? （一句话即可） [1]",
+          "answer": "on the last Friday of every month / once a month",
+          "marks": 1
+        },
+        {
+          "stem": "Q2. From Paragraph 3, what reason did the father give for not eating any durian? （一句话即可） [1]",
+          "answer": "that he had eaten too much at lunch",
+          "marks": 1
+        },
+        {
+          "stem": "Q3. What does the phrase 'held out from his body at arm's length' (Paragraph 1) suggest about the durian? （写出它暗示了什么，一句话） [1]",
+          "answer": "that its smell was so strong and pungent that he kept it as far from himself as he could while still carrying it",
+          "marks": 1
+        },
+        {
+          "stem": "Q4. What does the writer suggest by describing the shell as giving 'with a sound like a small door' (Paragraph 2)? （写出它暗示了什么，一句话） [1]",
+          "answer": "that it opened with a single sharp crack, and that opening it felt like being let into something / the start of an occasion",
+          "marks": 1
+        },
+        {
+          "stem": "Q5. What does the word 'arithmetic' in 'did the arithmetic I had never once thought to do' (Paragraph 5) suggest about the narrator? （写出它暗示了什么，一句话） [1]",
+          "answer": "that he was working out the cost for the first time and realising, coldly and precisely, what the monthly durian meant against his father's wages",
+          "marks": 1
+        },
+        {
+          "stem": "Choose the ONE best answer for each question. Write the correct letter in the box.\n\nQ6. The narrator believed his father's excuse for years partly because of HOW the excuse was given. Which is correct? [1]",
+          "options": [
+            {
+              "key": "A",
+              "text": "It was repeated every month until it became an ordinary part of the routine.",
+              "correct": true
+            },
+            {
+              "key": "B",
+              "text": "It was given only once, in a very serious tone."
+            },
+            {
+              "key": "C",
+              "text": "It was confirmed by his mother each time."
+            },
+            {
+              "key": "D",
+              "text": "It was written on a note left in the kitchen."
+            }
+          ],
+          "answer": "A",
+          "marks": 1,
+          "taskType": "multiple_choice"
+        },
+        {
+          "stem": "Choose the ONE best answer for each question. Write the correct letter in the box.\n\nQ7. The narrator also believed it because of his own age at the time. Which is correct? [1]",
+          "options": [
+            {
+              "key": "A",
+              "text": "He was old enough to check the family accounts but chose not to."
+            },
+            {
+              "key": "B",
+              "text": "He was too young to suspect that an adult might go without on purpose.",
+              "correct": true
+            },
+            {
+              "key": "C",
+              "text": "He had been asked by his grandmother not to ask questions."
+            },
+            {
+              "key": "D",
+              "text": "He disliked durian himself and did not pay attention."
+            }
+          ],
+          "answer": "B",
+          "marks": 1,
+          "taskType": "multiple_choice"
+        },
+        {
+          "stem": "Choose the ONE best answer for each question. Write the correct letter in the box.\n\nQ8. What did the narrator learn about his father from watching him choose the fruit? [1]",
+          "options": [
+            {
+              "key": "A",
+              "text": "He inspected the whole pile with skill and seriousness the boy had never seen at home.",
+              "correct": true
+            },
+            {
+              "key": "B",
+              "text": "He chose the largest fruit he could find."
+            },
+            {
+              "key": "C",
+              "text": "He was given a discount because he knew the seller."
+            },
+            {
+              "key": "D",
+              "text": "He picked the first fruit he touched."
+            }
+          ],
+          "answer": "A",
+          "marks": 1,
+          "taskType": "multiple_choice"
+        },
+        {
+          "stem": "Choose the ONE best answer for each question. Write the correct letter in the box.\n\nQ9. Why does this change how the reader sees the monthly durian? [1]",
+          "options": [
+            {
+              "key": "A",
+              "text": "It shows the fruit was cheaper than the family believed."
+            },
+            {
+              "key": "B",
+              "text": "All that trouble happened out of sight, so what arrived as a casual treat was really the result of great care.",
+              "correct": true
+            },
+            {
+              "key": "C",
+              "text": "It shows the father enjoyed shopping more than eating."
+            },
+            {
+              "key": "D",
+              "text": "It shows the seller chose the fruit for him."
+            }
+          ],
+          "answer": "B",
+          "marks": 1,
+          "taskType": "multiple_choice"
+        },
+        {
+          "stem": "Choose the ONE best answer for each question. Write the correct letter in the box.\n\nQ10. Why did the narrator push his piece towards his father? [1]",
+          "options": [
+            {
+              "key": "A",
+              "text": "He had understood the sacrifice and wanted his father to eat some for once.",
+              "correct": true
+            },
+            {
+              "key": "B",
+              "text": "He had genuinely eaten too much at dinner."
+            },
+            {
+              "key": "C",
+              "text": "He wanted his sister to have it instead."
+            },
+            {
+              "key": "D",
+              "text": "He had decided he no longer liked durian."
+            }
+          ],
+          "answer": "A",
+          "marks": 1,
+          "taskType": "multiple_choice"
+        },
+        {
+          "stem": "Choose the ONE best answer for each question. Write the correct letter in the box.\n\nQ11. Why did he say he was \"full\" instead of explaining himself? [1]",
+          "options": [
+            {
+              "key": "A",
+              "text": "He was afraid his father would be angry."
+            },
+            {
+              "key": "B",
+              "text": "He used the same kind of excuse his father always used, so nothing had to be said aloud.",
+              "correct": true
+            },
+            {
+              "key": "C",
+              "text": "He could not think of the English words."
+            },
+            {
+              "key": "D",
+              "text": "His grandmother had told him to stay quiet."
+            }
+          ],
+          "answer": "B",
+          "marks": 1,
+          "taskType": "multiple_choice"
+        },
+        {
+          "stem": "Q12. What is the effect of the father's response, 'Don't waste,' and of the fact that 'nothing else has ever been said about it since'? (Paragraph 6) [2]\n\n作答提示：分两点写，每点一句话即可。① …… ② ……",
+          "answer": "the blunt two-word reply refuses the emotional moment and keeps the exchange practical, which is exactly how this family communicates; the years of silence that follow show that both understood perfectly and that the understanding did not need words — the restraint conveys far more warmth than a spoken thank-you would",
+          "marks": 2
+        },
+        {
+          "stem": "Q13. What is the effect of the final clause, 'took nearly fifteen years to notice they were being given something'? (Paragraph 8) [2]\n\n作答提示：分两点写，每点一句话即可。① …… ② ……",
+          "answer": "the long stretch of time measures the father's steadiness against the children's obliviousness, so the sacrifice is made to seem larger for having gone unremarked; the plain word 'something', left deliberately unnamed, suggests the gift was never really the fruit at all",
+          "marks": 2
+        }
       ]
     },
     {
@@ -29,61 +204,161 @@
       "passage": "Refer to the same 'The Durian' narrative in Exercise 1 above. Read the paragraphs named in each question, then choose the single word from the bank that best describes how the narrator feels at that moment.",
       "questions": [
         {
-          "stem": "Q11. [4 marks in total] The narrator's understanding of his father changes over the course of the story. For each part of the passage, choose ONE word from the bank that best describes his dominant feeling at that moment. There are some extra words in the bank you do not need to use, and each word may be used once only. Word bank: bewildered / cheerful / curious / guilty / hostile / nostalgic / suspicious / unquestioning.\n\nQ11(i). Paragraph 3 — accepting his father's excuse year after year. [1]",
+          "stem": "Q14. [4 marks in total] The narrator's understanding of his father changes over the course of the story. For each part of the passage, choose ONE word from the bank that best describes his dominant feeling at that moment. There are some extra words in the bank you do not need to use, and each word may be used once only. Word bank: bewildered / cheerful / curious / guilty / hostile / nostalgic / suspicious / unquestioning.\n\nQ14(i). Paragraph 3 — accepting his father's excuse year after year. [1]",
           "options": [
-            { "key": "A", "text": "guilty" },
-            { "key": "B", "text": "curious" },
-            { "key": "C", "text": "unquestioning", "correct": true },
-            { "key": "D", "text": "hostile" },
-            { "key": "E", "text": "nostalgic" },
-            { "key": "F", "text": "bewildered" },
-            { "key": "G", "text": "suspicious" },
-            { "key": "H", "text": "cheerful" }
+            {
+              "key": "A",
+              "text": "guilty"
+            },
+            {
+              "key": "B",
+              "text": "curious"
+            },
+            {
+              "key": "C",
+              "text": "unquestioning",
+              "correct": true
+            },
+            {
+              "key": "D",
+              "text": "hostile"
+            },
+            {
+              "key": "E",
+              "text": "nostalgic"
+            },
+            {
+              "key": "F",
+              "text": "bewildered"
+            },
+            {
+              "key": "G",
+              "text": "suspicious"
+            },
+            {
+              "key": "H",
+              "text": "cheerful"
+            }
           ],
           "answer": "C",
           "marks": 1
         },
         {
-          "stem": "Q11(ii). Paragraph 4 — watching his father shake and tap each fruit. [1]",
+          "stem": "Q14(ii). Paragraph 4 — watching his father shake and tap each fruit. [1]",
           "options": [
-            { "key": "A", "text": "hostile" },
-            { "key": "B", "text": "curious", "correct": true },
-            { "key": "C", "text": "guilty" },
-            { "key": "D", "text": "cheerful" },
-            { "key": "E", "text": "nostalgic" },
-            { "key": "F", "text": "unquestioning" },
-            { "key": "G", "text": "suspicious" },
-            { "key": "H", "text": "bewildered" }
+            {
+              "key": "A",
+              "text": "hostile"
+            },
+            {
+              "key": "B",
+              "text": "curious",
+              "correct": true
+            },
+            {
+              "key": "C",
+              "text": "guilty"
+            },
+            {
+              "key": "D",
+              "text": "cheerful"
+            },
+            {
+              "key": "E",
+              "text": "nostalgic"
+            },
+            {
+              "key": "F",
+              "text": "unquestioning"
+            },
+            {
+              "key": "G",
+              "text": "suspicious"
+            },
+            {
+              "key": "H",
+              "text": "bewildered"
+            }
           ],
           "answer": "B",
           "marks": 1
         },
         {
-          "stem": "Q11(iii). Paragraph 6 — pushing his piece towards his father. [1]",
+          "stem": "Q14(iii). Paragraph 6 — pushing his piece towards his father. [1]",
           "options": [
-            { "key": "A", "text": "cheerful" },
-            { "key": "B", "text": "suspicious" },
-            { "key": "C", "text": "bewildered" },
-            { "key": "D", "text": "hostile" },
-            { "key": "E", "text": "guilty", "correct": true },
-            { "key": "F", "text": "curious" },
-            { "key": "G", "text": "unquestioning" },
-            { "key": "H", "text": "nostalgic" }
+            {
+              "key": "A",
+              "text": "cheerful"
+            },
+            {
+              "key": "B",
+              "text": "suspicious"
+            },
+            {
+              "key": "C",
+              "text": "bewildered"
+            },
+            {
+              "key": "D",
+              "text": "hostile"
+            },
+            {
+              "key": "E",
+              "text": "guilty",
+              "correct": true
+            },
+            {
+              "key": "F",
+              "text": "curious"
+            },
+            {
+              "key": "G",
+              "text": "unquestioning"
+            },
+            {
+              "key": "H",
+              "text": "nostalgic"
+            }
           ],
           "answer": "E",
           "marks": 1
         },
         {
-          "stem": "Q11(iv). Paragraph 7 — watching his father at the stool today. [1]",
+          "stem": "Q14(iv). Paragraph 7 — watching his father at the stool today. [1]",
           "options": [
-            { "key": "A", "text": "suspicious" },
-            { "key": "B", "text": "hostile" },
-            { "key": "C", "text": "cheerful" },
-            { "key": "D", "text": "bewildered" },
-            { "key": "E", "text": "unquestioning" },
-            { "key": "F", "text": "curious" },
-            { "key": "G", "text": "nostalgic", "correct": true },
-            { "key": "H", "text": "guilty" }
+            {
+              "key": "A",
+              "text": "suspicious"
+            },
+            {
+              "key": "B",
+              "text": "hostile"
+            },
+            {
+              "key": "C",
+              "text": "cheerful"
+            },
+            {
+              "key": "D",
+              "text": "bewildered"
+            },
+            {
+              "key": "E",
+              "text": "unquestioning"
+            },
+            {
+              "key": "F",
+              "text": "curious"
+            },
+            {
+              "key": "G",
+              "text": "nostalgic",
+              "correct": true
+            },
+            {
+              "key": "H",
+              "text": "guilty"
+            }
           ],
           "answer": "G",
           "marks": 1

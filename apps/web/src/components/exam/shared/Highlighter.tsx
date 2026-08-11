@@ -87,12 +87,22 @@ export function Highlighter({
   onChange,
   className = '',
   style,
+  onSingleWordPick,
 }: {
   body: string;
   highlights: Highlight[];
   onChange: (next: Highlight[]) => void;
   className?: string;
   style?: React.CSSProperties;
+  /**
+   * 2.0 —— 选中的正好是**一个单词**时额外回调一次（高亮照常产生）。
+   *
+   * 为什么挂在选中而不是给每个词加 onClick：这个组件靠拖选做高亮，
+   * 给每个词包一层可点元素会和拖选抢事件（拖动结束落在某个词上会
+   * 误触发点击）。选中单词本来就是学生表达"我在意这个词"的自然动作，
+   * 复用它零冲突。不传这个 prop 时行为与改动前完全一致。
+   */
+  onSingleWordPick?: (word: string) => void;
 }) {
   const containerRef = useRef<HTMLDivElement | null>(null);
 
@@ -108,6 +118,12 @@ export function Highlighter({
     if (start === end) return;
     const lo = Math.min(start, end);
     const hi = Math.max(start, end);
+    // 2.0 —— 在清掉 selection 之前先看它是不是单个单词。用 body 的切片而不是
+    // sel.toString()：后者在跨高亮片段时会带上零宽字符与重复空白。
+    if (onSingleWordPick) {
+      const picked = body.slice(lo, hi).trim();
+      if (/^[A-Za-z][A-Za-z'’-]*$/.test(picked)) onSingleWordPick(picked);
+    }
     onChange(mergeHighlight(highlights, { id: uid(), start: lo, end: hi }));
     sel.removeAllRanges();
   }

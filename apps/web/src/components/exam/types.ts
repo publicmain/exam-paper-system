@@ -44,6 +44,9 @@ export interface ExamPaper {
   /** `passage_pick` ⇒ shared passage at the top of paper (IELTS Reading).
    *  `null`/`standard` ⇒ each question stands alone. */
   paperMode: 'passage_pick' | 'standard' | null;
+  /** 2.0 —— 考试中查词要把词记进该生的生词本(sourceType=click),
+   *  所以渲染层需要知道是谁在答。缺省时只查词不记录。 */
+  studentName?: string | null;
   questions: ExamQuestion[];
 }
 
