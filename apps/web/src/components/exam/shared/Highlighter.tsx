@@ -36,6 +36,45 @@ function textOffset(root: HTMLElement, node: Node, offset: number): number {
   return total;
 }
 
+/**
+ * 按屏幕坐标反查点到了哪个英文单词。
+ *
+ * caretRangeFromPoint 是 WebKit/Blink 的（iOS Safari、Chrome 都有），
+ * caretPositionFromPoint 是标准接口（Firefox）。两个都试一遍即可覆盖。
+ * 拿到落点所在的文本节点和字符偏移后，向两侧扩到词边界。
+ * 词内的撇号和连字符算词的一部分（don't / self-confidence），与后端
+ * normalizeWord / candidateForms 的切词口径一致。
+ */
+function wordAtPoint(x: number, y: number, root: HTMLElement): string | null {
+  const doc = document as any;
+  let node: Node | null = null;
+  let offset = 0;
+  if (typeof doc.caretRangeFromPoint === 'function') {
+    const r: Range | null = doc.caretRangeFromPoint(x, y);
+    if (r) { node = r.startContainer; offset = r.startOffset; }
+  } else if (typeof doc.caretPositionFromPoint === 'function') {
+    const p = doc.caretPositionFromPoint(x, y);
+    if (p) { node = p.offsetNode; offset = p.offset; }
+  }
+  if (!node || node.nodeType !== Node.TEXT_NODE) return null;
+  if (!root.contains(node)) return null;
+
+  const text = node.textContent ?? '';
+  const isWordChar = (ch: string) => /[A-Za-z'’-]/.test(ch);
+  if (!text) return null;
+  // 落点可能正好在词尾空格上，往左退一格再判
+  let i = Math.min(offset, text.length - 1);
+  if (!isWordChar(text[i] ?? '') && i > 0 && isWordChar(text[i - 1] ?? '')) i -= 1;
+  if (!isWordChar(text[i] ?? '')) return null;
+
+  let s = i, e = i;
+  while (s > 0 && isWordChar(text[s - 1])) s--;
+  while (e < text.length - 1 && isWordChar(text[e + 1])) e++;
+  // 去掉首尾的撇号/连字符（引号紧贴单词时会被扫进来）
+  const raw = text.slice(s, e + 1).replace(/^['’-]+|['’-]+$/g, '');
+  return /^[A-Za-z][A-Za-z'’-]*$/.test(raw) ? raw : null;
+}
+
 function mergeHighlight(existing: Highlight[], add: Highlight): Highlight[] {
   const out: Highlight[] = [];
   let merged: Highlight = { ...add };
@@ -87,7 +126,7 @@ export function Highlighter({
   onChange,
   className = '',
   style,
-  onSingleWordPick,
+  onWordTap,
 }: {
   body: string;
   highlights: Highlight[];
@@ -95,14 +134,24 @@ export function Highlighter({
   className?: string;
   style?: React.CSSProperties;
   /**
-   * 2.0 —— 选中的正好是**一个单词**时额外回调一次（高亮照常产生）。
+   * 查词回调。**单击**某个词时触发（拖选高亮不受影响）。
    *
-   * 为什么挂在选中而不是给每个词加 onClick：这个组件靠拖选做高亮，
-   * 给每个词包一层可点元素会和拖选抢事件（拖动结束落在某个词上会
-   * 误触发点击）。选中单词本来就是学生表达"我在意这个词"的自然动作，
-   * 复用它零冲突。不传这个 prop 时行为与改动前完全一致。
+   * 为什么从「选中即查词」改成「单击查词」（2026-08-11 触屏调研）：
+   * 手机上要选中一个词只能长按，而长按同时会唤起 iOS 自己的
+   * 「拷贝/查询/翻译」菜单，两套菜单打架。这个躲不掉 ——
+   * -webkit-touch-callout:none 只对链接有效，对可选中文字无效，
+   * 而拖选高亮又要求文字必须 user-select:text。选中式查词在手机上
+   * 是在跟操作系统抢手势，赢不了。
+   *
+   * 调研发现：LingQ / Readlang 这类语言学习阅读器都用单击；Kindle 和
+   * Apple Books 之所以用长按/双击，是因为它们的单击被**翻页**占了。
+   * 我们的原文区是滚动的，单击这个手势完全空着 —— 所以可以直接用。
+   *
+   * 实现上不给每个词包 span（近千个节点，且会打乱 textOffset 的偏移
+   * 计算），而是用 caretRangeFromPoint 按坐标反查点到了哪个词：
+   * DOM 一个节点都不加，高亮逻辑完全不受影响。
    */
-  onSingleWordPick?: (word: string) => void;
+  onWordTap?: (word: string) => void;
 }) {
   const containerRef = useRef<HTMLDivElement | null>(null);
 
@@ -118,18 +167,38 @@ export function Highlighter({
     if (start === end) return;
     const lo = Math.min(start, end);
     const hi = Math.max(start, end);
-    // 2.0 —— 在清掉 selection 之前先看它是不是单个单词。用 body 的切片而不是
-    // sel.toString()：后者在跨高亮片段时会带上零宽字符与重复空白。
-    if (onSingleWordPick) {
-      const picked = body.slice(lo, hi).trim();
-      if (/^[A-Za-z][A-Za-z'’-]*$/.test(picked)) onSingleWordPick(picked);
-    }
     onChange(mergeHighlight(highlights, { id: uid(), start: lo, end: hi }));
     sel.removeAllRanges();
   }
 
   function removeHighlight(id: string) {
     onChange(highlights.filter((h) => h.id !== id));
+  }
+
+  // ── 单击查词 ──────────────────────────────────────────────
+  // 判定「单击」而不是「拖选 / 滚动」：按下到抬起位移小于 8px、时长小于
+  // 500ms、且抬起时没有选中内容。8px 是业界常用阈值（浏览器自身区分
+  // tap 与 gesture 也在 5-10px 这个量级）。
+  // 长按会先产生 selection，届时 sel.isCollapsed 为 false，这里自动让路，
+  // 高亮流程照常走。
+  const tapRef = useRef<{ x: number; y: number; t: number } | null>(null);
+  function onPointerDownForTap(e: React.PointerEvent) {
+    if (!onWordTap) return;
+    tapRef.current = { x: e.clientX, y: e.clientY, t: Date.now() };
+  }
+  function onPointerUpForTap(e: React.PointerEvent) {
+    if (!onWordTap) return;
+    const s = tapRef.current;
+    tapRef.current = null;
+    if (!s) return;
+    if (Math.abs(e.clientX - s.x) > 8 || Math.abs(e.clientY - s.y) > 8) return; // 拖动/滚动
+    if (Date.now() - s.t > 500) return;                                          // 长按
+    const sel = window.getSelection();
+    if (sel && !sel.isCollapsed) return;                                         // 已经在选中
+    const root = containerRef.current;
+    if (!root) return;
+    const w = wordAtPoint(e.clientX, e.clientY, root);
+    if (w) onWordTap(w);
   }
 
   // Round-3 H21: only left-click should grab a selection (right-click on
@@ -183,6 +252,8 @@ export function Highlighter({
       ref={containerRef}
       onMouseUp={onMouseUpGuarded}
       onTouchEnd={onTouchEndGuarded}
+      onPointerDown={onPointerDownForTap}
+      onPointerUp={onPointerUpForTap}
       className={`select-text whitespace-pre-wrap ${className}`}
       style={{ WebkitUserSelect: 'text', userSelect: 'text', ...style }}
     >

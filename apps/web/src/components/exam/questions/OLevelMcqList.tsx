@@ -33,7 +33,7 @@ export function OLevelMcqList({ paper }: { paper: ExamPaper }) {
       <article id={`q-${q.id}`} className="bg-white border border-gray-200 rounded-xl shadow-sm">
         <header className="px-5 py-3 border-b flex items-center gap-3">
           <span className="font-mono text-sm text-gray-500 tabular-nums">Q{idx + 1} / {total}</span>
-          <span className="text-xs text-gray-400">{q.marks}m</span>
+          <span className="text-[13px] text-gray-500 tabular-nums">{q.marks} 分</span>
           <div className="flex-1" />
           <QuestionFlag qid={q.id} />
         </header>

@@ -259,16 +259,20 @@ export function IELTSReadingPassage({ paper }: { paper: ExamPaper }) {
           <aside className="bg-white lg:rounded-lg lg:border lg:shadow-sm lg:max-h-full lg:overflow-y-auto h-full [scrollbar-gutter:stable]">
             <div className="px-5 py-5 lg:px-6 lg:py-6">
               <h2 className="font-semibold text-xl lg:text-2xl mb-1">{passageTitle}</h2>
-              <div className="text-xs text-gray-400 mb-3">
-                提示 · Tip：拖选文字加黄色高亮，点击高亮可移除。
-                <span className="text-blue-500">选中单个单词可查词义</span>
-                {fillTargetId && <span className="text-blue-500">，也可填进正在作答的填空题</span>}。
+              {/* 对比度：原来 text-gray-400 (2.54:1) + text-blue-500 (3.68:1)
+                  都低于 WCAG AA 的 4.5:1，而这行正是要让学生发现查词功能的。
+                  换成 gray-600 / blue-600 并从 12px 提到 13px。
+                  措辞也从「选中」改成「点」—— 手势已经变了。 */}
+              <div className="text-[13px] text-gray-600 mb-3 leading-relaxed">
+                <span className="text-blue-600 font-medium">点单词查词义</span>
+                {fillTargetId && <span className="text-blue-600 font-medium">（可填进正在作答的填空题）</span>}
+                ；拖选文字加高亮，点高亮可移除。
               </div>
               <Highlighter
                 body={passageBody}
                 highlights={highlights}
                 onChange={setHighlights}
-                onSingleWordPick={setPickedWord}
+                onWordTap={setPickedWord}
                 className="text-gray-800 leading-[1.75] font-serif"
                 // Apply the user-controlled font scale via inline style
                 // (overrides any inherited text-* class). 1.125rem is the
@@ -406,7 +410,7 @@ function QuestionRow({
         <span className="inline-flex items-center justify-center min-w-[28px] h-7 px-2 rounded-md bg-gray-100 text-gray-700 font-mono text-sm font-semibold tabular-nums">
           {q.localIdx}
         </span>
-        <span className="text-xs text-gray-400">{q.marks}m</span>
+        <span className="text-[13px] text-gray-500 tabular-nums">{q.marks} 分</span>
         {savingId === q.id && <span className="text-xs text-blue-500">saving…</span>}
         <div className="flex-1" />
         <QuestionFlag qid={q.id} />

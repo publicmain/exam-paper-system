@@ -804,12 +804,16 @@ function SubmitConfirmDialog({
           </p>
         )}
 
-        <div className="flex gap-2 justify-end pt-2">
+        {/* 2026-08-11 触屏审计：这两个按钮原来都是 36px 高且紧挨着，是全 app
+            后果最重的一对 —— 点错就是提前交卷，不可逆。提到 48px，并把
+            「交卷」放到右侧、两者之间留出 12px，降低误触。手机上竖排铺满，
+            拇指区最难点错。 */}
+        <div className="flex flex-col-reverse sm:flex-row gap-3 sm:justify-end pt-3">
           <button
             type="button"
             onClick={onCancel}
             data-testid="submit-cancel"
-            className="px-4 py-2 text-sm bg-gray-100 hover:bg-gray-200 text-gray-800 rounded-lg font-medium"
+            className="press min-h-[48px] px-5 text-[15px] bg-gray-100 active:bg-gray-200 text-gray-800 rounded-[14px] font-medium"
           >
             {allAnswered ? '再检查' : '继续答题'}
           </button>
@@ -817,13 +821,13 @@ function SubmitConfirmDialog({
             type="button"
             onClick={onConfirm}
             data-testid="submit-confirm"
-            className={`px-4 py-2 text-sm text-white rounded-lg font-semibold ${
+            className={`press min-h-[48px] px-5 text-[15px] text-white rounded-[14px] font-semibold ${
               allAnswered
-                ? 'bg-blue-600 hover:bg-blue-700'
-                : 'bg-amber-600 hover:bg-amber-700'
+                ? 'bg-blue-600 active:bg-blue-700'
+                : 'bg-amber-600 active:bg-amber-700'
             }`}
           >
-            确定交卷 · Submit
+            确定交卷
           </button>
         </div>
       </div>

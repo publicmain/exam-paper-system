@@ -82,7 +82,7 @@ function TransformationCard({ q, idx, total }: { q: ExamQuestion; idx: number; t
         <span className="text-xs text-gray-500 uppercase tracking-wide font-semibold">Sentence Transformation</span>
         <span className="text-xs text-gray-400">·</span>
         <span className="font-mono text-sm text-gray-500 tabular-nums">Q{idx + 1} / {total}</span>
-        <span className="text-xs text-gray-400 ml-1">{q.marks}m</span>
+        <span className="text-[13px] text-gray-500 ml-1 tabular-nums">{q.marks} 分</span>
         <div className="flex-1" />
         <QuestionFlag qid={q.id} />
       </header>
