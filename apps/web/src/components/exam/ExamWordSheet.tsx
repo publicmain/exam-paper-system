@@ -101,20 +101,37 @@ export default function ExamWordSheet({
   const [saved, setSaved] = useState(false);
   const sheetRef = useRef<HTMLDivElement | null>(null);
 
+  // 主信号是 React 自己的渲染，不是 ResizeObserver。
+  //
+  // 首版只挂 ResizeObserver，生产实测发现它构造了却一次回调都不触发
+  // （卡片从「查询中…」的 264px 长到有释义的 344px，RO 全程沉默），
+  // 于是只有挂载那一次量到的小卡尺寸生效，词还是被压在卡片下面。
+  // 反正「内容变了」这件事组件自己最清楚 —— 把状态放进依赖直接重量，
+  // RO 留着兜底（字体加载后换行变化这类 React 看不见的重排）。
+  //
+  // rAF 是必须的：state 刚变成 ok 时这一帧的布局还没跑完，
+  // 同步 getBoundingClientRect 量到的是旧高度。
   useEffect(() => {
     if (!word || !onSheetMetrics) return;
     const el = sheetRef.current;
     if (!el) return;
+    let raf = 0;
     const report = () => {
-      const r = el.getBoundingClientRect();
-      onSheetMetrics(r.top, r.height);
+      cancelAnimationFrame(raf);
+      raf = requestAnimationFrame(() => {
+        const r = el.getBoundingClientRect();
+        onSheetMetrics(r.top, r.height);
+      });
     };
     report();
     // 卡片是 fixed 的，滚动不会改变它的尺寸 —— 不会和调用方的滚动互相触发
-    const ro = new ResizeObserver(report);
-    ro.observe(el);
-    return () => ro.disconnect();
-  }, [word, onSheetMetrics]);
+    const ro = typeof ResizeObserver !== 'undefined' ? new ResizeObserver(report) : null;
+    ro?.observe(el);
+    return () => {
+      cancelAnimationFrame(raf);
+      ro?.disconnect();
+    };
+  }, [word, state, entry, blocked, saved, contextSentence, onSheetMetrics]);
 
   useEffect(() => {
     if (!word || blocked) { setEntry(null); setState('idle'); setSaved(false); return; }
