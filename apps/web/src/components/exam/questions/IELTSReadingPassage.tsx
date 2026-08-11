@@ -111,6 +111,29 @@ function groupQuestions(qs: ExamQuestion[]): TaskGroup[] {
  *  只在本文件内传递,不污染共享的 ExamContext。 */
 const FillFocusCtx = createContext<((id: string | null) => void) | null>(null);
 
+/**
+ * 取出某个词在原文里所处的那句话，放进词卡顶部当语境。
+ *
+ * 切句规则与后端 student-word.service 的 splitSentences 保持一致：
+ * 先按换行拆、丢掉「Paragraph X」标记行，再按句末标点切（允许尾随引号）。
+ * 朴素的 split(/(?<=[.!?])\s+/) 会在 `liked.'` 这种「句号+引号」处不切，
+ * 也会把段落标记当成句子的一部分。
+ * 找不到就返回 null —— 宁可不显示，也不给一句不含该词的话。
+ */
+function sentenceContaining(passage: string, word: string): string | null {
+  if (!passage || !word) return null;
+  const re = new RegExp(`(^|[^A-Za-z])${word.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}([^A-Za-z]|$)`, 'i');
+  for (const line of passage.split(/\n+/)) {
+    const t = line.trim();
+    if (!t || /^Paragraph\s+[0-9A-H]+$/i.test(t)) continue;
+    for (const raw of t.split(/(?<=[.!?]['"’”]?)\s+/)) {
+      const s = raw.trim();
+      if (s && re.test(s)) return s.length > 260 ? s.slice(0, 257) + '…' : s;
+    }
+  }
+  return null;
+}
+
 export function IELTSReadingPassage({ paper }: { paper: ExamPaper }) {
   // All hooks run on every render — round-7 C-E2. The empty-paper early
   // return previously sat between useState and useMemo / useStoredX hooks,
@@ -143,6 +166,31 @@ export function IELTSReadingPassage({ paper }: { paper: ExamPaper }) {
 
   // ── 2.0 考试中查词 / 填空取词 ──────────────────────────────
   const [pickedWord, setPickedWord] = useState<string | null>(null);
+  const [pickedSentence, setPickedSentence] = useState<string | null>(null);
+
+  /**
+   * 点词后的处理：先把这个词滚到弹卡上方，再取出它所在的那句原文。
+   *
+   * 遮挡问题（2026-08-11 真机反馈）：弹卡在底部，会盖住正在读的那句话，
+   * 而查词恰恰是为了读懂那句话。Kindle 新版的做法是弹卡时把页面推上去，
+   * 保证被查的词仍然可见 —— 这里照做。
+   *
+   * 卡片最高 58vh，所以要保证词的底边在 42vh 以内；留 24px 余量，
+   * 太靠上也不行（学生会失去上下文），所以只在确实会被遮住时才滚。
+   */
+  function handleWordTap(w: string, rect: DOMRect) {
+    const sheetTop = window.innerHeight * 0.42;
+    if (rect.bottom > sheetTop - 24) {
+      const delta = rect.bottom - (sheetTop - 24);
+      // 手机上整页滚动；lg 以上是 aside 自己滚 —— 两种都试，谁能动谁动
+      const aside = document.querySelector('aside');
+      const asideScrolls = aside && aside.scrollHeight > aside.clientHeight + 4;
+      if (asideScrolls) aside!.scrollBy({ top: delta, behavior: 'smooth' });
+      else window.scrollBy({ top: delta, behavior: 'smooth' });
+    }
+    setPickedSentence(sentenceContaining(passageBody, w));
+    setPickedWord(w);
+  }
   // 最后聚焦过的填空题。用"记住"而不是读 document.activeElement：手机上
   // 点文章会先让输入框 blur，等面板弹出时活动元素早就不是它了。
   const [fillTargetId, setFillTargetId] = useState<string | null>(null);
@@ -275,7 +323,7 @@ export function IELTSReadingPassage({ paper }: { paper: ExamPaper }) {
                 body={passageBody}
                 highlights={highlights}
                 onChange={setHighlights}
-                onWordTap={setPickedWord}
+                onWordTap={handleWordTap}
                 className="text-gray-800 leading-[1.75] font-serif"
                 // Apply the user-controlled font scale via inline style
                 // (overrides any inherited text-* class). 1.125rem is the
@@ -316,6 +364,7 @@ export function IELTSReadingPassage({ paper }: { paper: ExamPaper }) {
 
       <ExamWordSheet
         word={pickedWord}
+        contextSentence={pickedSentence}
         blocked={!!pickedWord && blockedWords.has(pickedWord.toLowerCase())}
         fillTarget={fillTarget}
         studentName={paper?.studentName ?? null}
@@ -323,7 +372,7 @@ export function IELTSReadingPassage({ paper }: { paper: ExamPaper }) {
           const cur = answers[qid]?.textAnswer ?? '';
           setAnswer(qid, { textAnswer: append && cur ? `${cur.trim()} ${w}` : w });
         }}
-        onClose={() => setPickedWord(null)}
+        onClose={() => { setPickedWord(null); setPickedSentence(null); }}
       />
     </div>
   );

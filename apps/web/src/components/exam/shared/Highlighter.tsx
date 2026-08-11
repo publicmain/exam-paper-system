@@ -45,7 +45,11 @@ function textOffset(root: HTMLElement, node: Node, offset: number): number {
  * 词内的撇号和连字符算词的一部分（don't / self-confidence），与后端
  * normalizeWord / candidateForms 的切词口径一致。
  */
-function wordAtPoint(x: number, y: number, root: HTMLElement): string | null {
+function wordAtPoint(
+  x: number,
+  y: number,
+  root: HTMLElement,
+): { word: string; rect: DOMRect } | null {
   const doc = document as any;
   let node: Node | null = null;
   let offset = 0;
@@ -72,7 +76,13 @@ function wordAtPoint(x: number, y: number, root: HTMLElement): string | null {
   while (e < text.length - 1 && isWordChar(text[e + 1])) e++;
   // 去掉首尾的撇号/连字符（引号紧贴单词时会被扫进来）
   const raw = text.slice(s, e + 1).replace(/^['’-]+|['’-]+$/g, '');
-  return /^[A-Za-z][A-Za-z'’-]*$/.test(raw) ? raw : null;
+  if (!/^[A-Za-z][A-Za-z'’-]*$/.test(raw)) return null;
+
+  // 词在屏幕上的位置 —— 调用方要用它把这个词顶到弹窗上方，避免被遮住
+  const r = document.createRange();
+  r.setStart(node, s);
+  r.setEnd(node, e + 1);
+  return { word: raw, rect: r.getBoundingClientRect() };
 }
 
 function mergeHighlight(existing: Highlight[], add: Highlight): Highlight[] {
@@ -151,7 +161,7 @@ export function Highlighter({
    * 计算），而是用 caretRangeFromPoint 按坐标反查点到了哪个词：
    * DOM 一个节点都不加，高亮逻辑完全不受影响。
    */
-  onWordTap?: (word: string) => void;
+  onWordTap?: (word: string, rect: DOMRect) => void;
 }) {
   const containerRef = useRef<HTMLDivElement | null>(null);
 
@@ -197,8 +207,8 @@ export function Highlighter({
     if (sel && !sel.isCollapsed) return;                                         // 已经在选中
     const root = containerRef.current;
     if (!root) return;
-    const w = wordAtPoint(e.clientX, e.clientY, root);
-    if (w) onWordTap(w);
+    const hit = wordAtPoint(e.clientX, e.clientY, root);
+    if (hit) onWordTap(hit.word, hit.rect);
   }
 
   // Round-3 H21: only left-click should grab a selection (right-click on
