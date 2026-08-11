@@ -340,6 +340,9 @@ export const api = {
    *  so per-student delete still targets the correct session. */
   morningQuizClassDayDashboard: (classId: string, date: string) =>
     request('GET', `/morning-quiz/classes/${classId}/date/${date}/dashboard`),
+  // 2.0 技能诊断 —— 按题型看班级失分点
+  morningQuizClassSkillProfile: (classId: string, days = 30) =>
+    request('GET', `/morning-quiz/classes/${classId}/skill-profile?days=${days}`),
   morningQuizScheduled: (weekStart: string) =>
     request('GET', `/morning-quiz/scheduled?weekStart=${encodeURIComponent(weekStart)}`),
   morningQuizCreateSession: (body: { date: string; classId: string; paperId: string }) =>

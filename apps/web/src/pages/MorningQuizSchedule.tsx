@@ -754,6 +754,15 @@ export default function MorningQuizSchedule() {
                         >
                           考勤 →
                         </Link>
+                        {/* 2.0 —— 按题型看这个班哪里失分,回答"明天该重讲什么"。
+                            与"考勤"并列:一个看谁来了,一个看该讲什么。 */}
+                        <Link
+                          to={`/morning-quiz/classes/${primary.class.id}/skills`}
+                          className="text-blue-600 hover:underline text-xs ml-2"
+                          title="按题型看本班失分点(得分率 + 空白率),含学生×题型热图"
+                        >
+                          技能诊断 →
+                        </Link>
                       </td>
                     </tr>
                   );

@@ -49,6 +49,7 @@ const MorningQuizSchedulePage = lazy(() => import('./pages/MorningQuizSchedule')
 const MorningQuizQaReviewPage = lazy(() => import('./pages/MorningQuizQaReview'));
 const MorningQuizSessionDashboard = lazy(() => import('./pages/MorningQuizSessionDashboard'));
 const MorningQuizClassDayDashboard = lazy(() => import('./pages/MorningQuizClassDayDashboard'));
+const MorningQuizSkillProfilePage = lazy(() => import('./pages/MorningQuizSkillProfile'));
 const AttendanceAdminPage = lazy(() => import('./pages/AttendanceAdmin'));
 // Path-B pages
 const ClassesPage = lazy(() => import('./pages/Classes'));
@@ -479,6 +480,18 @@ export default function App() {
             element={
               user.role === 'admin' || user.role === 'head_teacher' || user.role === 'teacher' ? (
                 <MorningQuizClassDayDashboard />
+              ) : (
+                <Navigate to="/" replace />
+              )
+            }
+          />
+          {/* 2.0 技能诊断 —— 按题型看班级失分点,回答"明天该重讲什么"。
+              后端做了 canActOnClass 鉴权,这里只挡非教师角色。 */}
+          <Route
+            path="/morning-quiz/classes/:classId/skills"
+            element={
+              user.role === 'admin' || user.role === 'head_teacher' || user.role === 'teacher' ? (
+                <MorningQuizSkillProfilePage />
               ) : (
                 <Navigate to="/" replace />
               )
