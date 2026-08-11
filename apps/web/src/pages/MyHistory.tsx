@@ -554,9 +554,10 @@ export default function MyHistory() {
                                 type="button"
                                 onClick={() => handlePracticeAgain(s.submissionId, data.student.name)}
                                 disabled={practicePending === s.submissionId}
-                                className="text-[11px] px-2 py-1 rounded border border-emerald-300 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 font-medium disabled:opacity-50"
+                                /* 触屏：每行一个,原来只有 26px 高 */
+                                className="hit press text-[14px] px-3 rounded-[12px] bg-emerald-50 text-emerald-700 font-semibold disabled:opacity-50"
                               >
-                                {practicePending === s.submissionId ? '创建中…' : '🔄 重做 · Practice'}
+                                {practicePending === s.submissionId ? '创建中…' : '重做'}
                               </button>
                             )}
                           </div>

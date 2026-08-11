@@ -78,41 +78,37 @@ export default function SkillProfileCard({
   const lazyBlank = skills.filter((s) => s.blankPct >= 30);
 
   return (
-    <section className="bg-white border border-gray-200 rounded-xl shadow-sm p-5">
-      <div className="flex items-baseline justify-between gap-3 mb-1">
-        <h2 className="font-semibold text-gray-900">🎯 我的强弱项</h2>
-        <span className="text-xs text-gray-400">近 60 天</span>
+    <section className="card enter p-5">
+      <div className="flex items-baseline justify-between gap-3">
+        <h2 className="t-title text-gray-900">我的强弱项</h2>
+        <span className="t-cap">近 60 天</span>
       </div>
-      <p className="text-xs text-gray-500 mb-4">
-        按题型统计。竖线是班级平均，条形是你自己。
-      </p>
+      <p className="t-cap mt-1 mb-4">竖线是班级平均，色条是你自己</p>
 
       {lazyBlank.length > 0 && (
-        <div className="mb-4 rounded-lg bg-amber-50 border border-amber-200 px-3 py-2.5">
-          <div className="text-sm font-medium text-amber-900">
-            先把空着的题写上 —— 这是最快的提分点
+        <div className="mb-5 rounded-[14px] bg-amber-50 px-4 py-3.5">
+          <div className="t-head text-amber-900">
+            先把空着的题写上
           </div>
-          <div className="text-xs text-amber-800 mt-1 leading-relaxed">
-            {lazyBlank.map((s) => `${s.label}有 ${s.blankPct}% 直接空着`).join('；')}。
+          <div className="t-sub text-amber-800 mt-1 leading-relaxed">
+            {lazyBlank.map((s) => `${s.label} ${s.blankPct}% 空着`).join('，')}。
             这类题答案就在原文里，写错也比不写强。
           </div>
         </div>
       )}
 
-      <div className="space-y-3">
+      <div className="space-y-4">
         {shown.map((s) => (
           <div key={s.taskType}>
-            <div className="flex items-baseline justify-between gap-2 mb-1">
-              <span className="text-sm text-gray-800">
+            <div className="flex items-baseline justify-between gap-2 mb-1.5">
+              <span className="t-body text-gray-900">
                 {s.label}
-                {s.needsTyping && (
-                  <span className="ml-1.5 text-[10px] text-gray-400 align-middle">需打字</span>
-                )}
+                {s.needsTyping && <span className="ml-2 t-cap">需打字</span>}
               </span>
-              <span className="text-sm tabular-nums text-gray-900 font-medium">
+              <span className="t-head tabular-nums text-gray-900">
                 {s.pct}%
                 {s.classPct !== null && (
-                  <span className={`ml-1.5 text-xs font-normal ${
+                  <span className={`ml-2 text-[15px] font-normal ${
                     s.pct >= s.classPct ? 'text-emerald-600' : 'text-rose-500'
                   }`}>
                     {s.pct >= s.classPct ? '↑' : '↓'}{Math.abs(Math.round(s.pct - s.classPct))}
@@ -121,7 +117,7 @@ export default function SkillProfileCard({
               </span>
             </div>
             <Bar pct={s.pct} cls={s.classPct} />
-            <div className="text-[11px] text-gray-400 mt-1">
+            <div className="t-cap mt-1.5">
               做过 {s.attempted} 题
               {s.blankPct > 0 && ` · 其中 ${s.blankPct}% 空着没做`}
             </div>
@@ -133,15 +129,15 @@ export default function SkillProfileCard({
         <button
           type="button"
           onClick={() => setOpen((v) => !v)}
-          className="mt-3 text-sm text-blue-600 hover:underline"
+          className="hit press mt-2 -ml-2 px-2 text-[15px] text-blue-600 font-medium rounded-lg"
         >
-          {open ? '收起' : `展开全部 ${skills.length} 类题型`}
+          {open ? '收起' : `展开全部 ${skills.length} 类`}
         </button>
       )}
 
-      <div className="mt-4 pt-3 border-t border-gray-100 text-xs text-gray-500">
-        最该练的是 <span className="font-medium text-gray-800">{weakest.label}</span>
-        （{weakest.pct}%）。
+      <div className="mt-4 pt-4 t-sub" style={{ borderTop: '1px solid var(--ios-sep)' }}>
+        最该练的是 <span className="text-gray-900 font-semibold">{weakest.label}</span>
+        （{weakest.pct}%）
       </div>
     </section>
   );
