@@ -446,18 +446,20 @@ function PracticeHost({
             <p className="text-sm text-gray-600">
               已答 {answeredCount} / {total} 题。提交后查看每题对错。
             </p>
-            <div className="flex justify-end gap-2 pt-1">
+            {/* 练习页有自己独立的一套确认弹窗（真实考试那套在 MorningQuizTake）。
+                两处都要保持 48pt 触控目标，否则改了一处等于没改。 */}
+            <div className="flex flex-col-reverse sm:flex-row sm:justify-end gap-3 pt-2">
               <button
                 type="button"
                 onClick={() => setConfirmOpen(false)}
-                className="px-4 py-2 text-sm bg-gray-100 hover:bg-gray-200 text-gray-800 rounded-lg font-medium"
+                className="press min-h-[48px] px-5 text-[15px] bg-gray-100 active:bg-gray-200 text-gray-800 rounded-[14px] font-medium"
               >
                 继续答题
               </button>
               <button
                 type="button"
                 onClick={() => { setConfirmOpen(false); doSubmit(); }}
-                className="px-4 py-2 text-sm text-white rounded-lg font-semibold bg-emerald-600 hover:bg-emerald-700"
+                className="press min-h-[48px] px-5 text-[15px] text-white rounded-[14px] font-semibold bg-emerald-600 active:bg-emerald-700"
               >
                 完成
               </button>
@@ -516,13 +518,13 @@ function PracticeResultView({
               type="button"
               onClick={onTryAgain}
               disabled={cloning}
-              className="px-4 py-2 text-sm bg-emerald-600 hover:bg-emerald-700 disabled:bg-gray-300 text-white rounded-lg font-medium"
+              className="press min-h-[48px] px-5 text-[15px] bg-emerald-600 active:bg-emerald-700 disabled:bg-gray-300 text-white rounded-[14px] font-semibold"
             >
               {cloning ? '创建中…' : '🔄 再来一份 · Try again'}
             </button>
             <a
               href={backToHistory}
-              className="px-4 py-2 text-sm bg-gray-100 hover:bg-gray-200 text-gray-800 rounded-lg font-medium"
+              className="press min-h-[48px] px-5 text-[15px] bg-gray-100 active:bg-gray-200 text-gray-800 rounded-[14px] font-medium"
             >
               回到我的记录
             </a>

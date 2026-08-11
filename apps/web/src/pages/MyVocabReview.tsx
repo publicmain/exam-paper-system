@@ -154,9 +154,8 @@ export default function MyVocabReviewPage() {
           <button
             type="button"
             onClick={() => navigate(historyUrl, { replace: true })}
-            className="text-xs text-gray-400 hover:text-gray-600"
-          >
-            跳过
+            className="hit press text-[14px] text-gray-500 px-2 -mr-2 rounded-lg hover:text-gray-600"
+          >跳过
           </button>
         </div>
         <div className="h-1.5 bg-gray-200 rounded-full mb-4 overflow-hidden">
