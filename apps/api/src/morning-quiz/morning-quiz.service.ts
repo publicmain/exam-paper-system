@@ -20,6 +20,7 @@ import { canActOnClass } from '../common/roles';
 import { ShuffleService } from '../shuffle/shuffle.service';
 import { MorningQuizQaService } from '../morning-quiz-qa/morning-quiz-qa.service';
 import { ShortAnswerEvaluatorService } from './short-answer-evaluator.service';
+import { SkillProfileService } from './skill-profile.service';
 import { validatePaperStructure } from './paper-structure-validator';
 import { applyRetractionCredits, autoGradeScripts } from '../student/student.service';
 
@@ -208,7 +209,58 @@ export class MorningQuizService {
     // the re-grade endpoint here applies byte-identical rules to the
     // cron's lockOne path (which uses the same evaluator).
     private readonly evaluator?: ShortAnswerEvaluatorService,
+    private readonly skills?: SkillProfileService,
   ) {}
+
+  /**
+   * 判一份卷子的所有作答。
+   *
+   * 2.0：短答要不要交给 Claude，由 MORNING_QUIZ_AI_GRADING 决定，**默认关闭**。
+   * 本校铁律是零 Anthropic 调用，短答一律由老师人工判；关闭时走 deferAi ——
+   * MCQ 仍然即时判分，短答 park 成待判（awardedMarks=null）进人工队列，
+   * 而不是被判 0 分。要恢复 AI 判分，设 MORNING_QUIZ_AI_GRADING=on。
+   */
+  private async gradeScripts(scripts: Parameters<typeof autoGradeScripts>[0]) {
+    return process.env.MORNING_QUIZ_AI_GRADING === 'on'
+      ? autoGradeScripts(scripts, this.evaluator)
+      : autoGradeScripts(scripts, undefined, { deferAi: true });
+  }
+
+  // ─────────────────── 2.0 技能画像 ───────────────────
+
+  /** 学生自查。复用 history-by-name 的姓名解析（含重名消歧）。 */
+  async skillProfileByName(
+    rawName: string,
+    studentIdFilter?: string,
+    opts?: { windowDays?: number },
+  ) {
+    const resolved = await this.resolveStudentByName(rawName, studentIdFilter);
+    if (resolved.kind === 'disambig') {
+      return { needDisambiguation: true, candidates: resolved.candidates };
+    }
+    const student = resolved.student;
+    if (!this.skills) throw new BadRequestException({ code: 'skill_profile_unavailable' });
+    const { skills, levels } = await this.skills.forStudent(student.id, opts);
+    return {
+      student: { id: student.id, name: student.name },
+      windowDays: opts?.windowDays ?? 60,
+      levels,
+      skills,
+    };
+  }
+
+  /** 教师端班级热图。鉴权与生词本教师接口一致。 */
+  async classSkillProfile(
+    classId: string,
+    actor: { id: string; role: string },
+    opts?: { windowDays?: number },
+  ) {
+    if (!(await canActOnClass(this.prisma, actor, classId))) {
+      throw new ForbiddenException({ code: 'not_your_class' });
+    }
+    if (!this.skills) throw new BadRequestException({ code: 'skill_profile_unavailable' });
+    return this.skills.forClass(classId, opts);
+  }
 
   /**
    * Wraps a paper generator with the AI QA review loop.
@@ -2138,8 +2190,8 @@ export class MorningQuizService {
     for (const sub of submissions) {
       try {
         // AI calls happen here, outside any tx. Slow but doesn't hold a
-        // db transaction open.
-        const rawGrade = await autoGradeScripts(sub.scripts, this.evaluator);
+        // db transaction open. 2.0 起同样受 MORNING_QUIZ_AI_GRADING 开关约束。
+        const rawGrade = await this.gradeScripts(sub.scripts);
         // R15-followup-21 — retraction sweep so a manual admin regrade
         // can't quietly drop a retracted question's awardAllStudents
         // credit back to 0.
@@ -3686,7 +3738,10 @@ export class MorningQuizService {
         },
       },
     });
-    const rawGrade = await autoGradeScripts(scripts, this.evaluator);
+    // 2.0 — 与 09:00 锁定 cron 同一个开关，默认不调 AI（见 morning-quiz.cron.ts
+    // 里的长注释）。练习模式是学生随时可点的，若不收口，任何一次带文字作答的
+    // 重做都会发一次真实 Anthropic 请求。
+    const rawGrade = await this.gradeScripts(scripts);
     // R15-followup-21 — practice mode also honours retractions so a
     // student re-doing a paper post-retract sees the same credit they'd
     // see on the real submission.

@@ -1032,4 +1032,38 @@ export class MorningQuizController {
       ip: req.ip ?? null,
     });
   }
+  // ─────────────────── 2.0 技能画像 ───────────────────
+  // 立项依据见 skill-profile.service.ts 顶部注释：每道题本来就存了 taskType，
+  // 但系统从未按它聚合，学生只看到一个总分、老师不知道该重讲什么。
+
+  /** 学生自查：我哪类题弱。与 history-by-name 同一套姓名解析与限流。 */
+  @Public()
+  @RateLimit({ limit: HISTORY_RATE_LIMIT.limit, windowSec: HISTORY_RATE_LIMIT.windowSec, scope: 'ip' })
+  @Get('skill-profile')
+  async skillProfile(
+    @Query('name') rawName?: string,
+    @Query('studentId') studentIdFilter?: string,
+    @Query('days') days?: string,
+  ) {
+    const name = (rawName ?? '').trim();
+    if (!name) throw new BadRequestException({ code: 'name_required' });
+    if (name.length > 50) throw new BadRequestException({ code: 'name_too_long' });
+    return this.svc.skillProfileByName(name, studentIdFilter, {
+      windowDays: days ? Math.min(Math.max(parseInt(days, 10) || 60, 7), 365) : undefined,
+    });
+  }
+
+  /** 教师端：班级题型热图 + 该重讲什么。需登录且是自己的班。 */
+  @Get('classes/:classId/skill-profile')
+  async classSkillProfile(
+    @Param('classId') classId: string,
+    @CurrentUser() user: any,
+    @Query('days') days?: string,
+  ) {
+    return this.svc.classSkillProfile(
+      classId,
+      { id: user.id, role: user.role },
+      { windowDays: days ? Math.min(Math.max(parseInt(days, 10) || 30, 7), 365) : undefined },
+    );
+  }
 }

@@ -481,7 +481,35 @@ function QuestionItem({
     case 'table_completion':
     case 'flow_chart_completion':
     case 'diagram_label_completion':
-    case 'short_answer':
+    case 'short_answer': {
+      // 2.0 —— 单行框 vs 多行框。
+      //
+      // 雅思的 completion / short_answer 答案是「不超过两个词」，单行框正好；
+      // 但 O-Level 的 short_answer 完全是另一回事：2 分题要写 1-3 句，
+      // Section C 的 8 分题要写 80 词连续文章，全都挤在一个单行 input 里。
+      // 线上实测（8/5、8/7 两场）：8 分题作答词数中位 46、最长 93 —— 学生
+      // 确实硬写进去了，但 O-Level 短答整体 64% 直接空着不答，全历史得分率
+      // 只有 19%，而同一批学生做选择型题目空白率只有 6-12%。
+      // 输入门槛是这条曲线上最可解释的因素，先把框给够。
+      //
+      // 判据用 uiKind（只有 O-Level 卷带这个字段）+ 分值，雅思路径一字不动。
+      const sc = q.snapshotContent ?? {};
+      const isOlevelProse = sc.uiKind === 'olevel_short_answer' || q.marks >= 2;
+      if (isOlevelProse) {
+        return (
+          <>
+            <div className="text-base text-gray-800 mb-2.5 whitespace-pre-wrap leading-relaxed">
+              {clean(q.itemText)}
+            </div>
+            <DebouncedTextarea
+              value={answer?.textAnswer ?? ''}
+              onChange={(v) => setAnswer(q.id, { textAnswer: v })}
+              minRows={q.marks >= 5 ? 8 : 3}
+              showWordCount={q.marks >= 5}
+            />
+          </>
+        );
+      }
       return (
         <BlankAwareInput
           item={q.itemText}
@@ -489,6 +517,7 @@ function QuestionItem({
           onChange={(v) => setAnswer(q.id, { textAnswer: v })}
         />
       );
+    }
     default:
       // R15-followup-14b — defensive fallback: when the question is an
       // MCQ (questionType==='mcq') with populated snapshotOptions but
@@ -635,27 +664,42 @@ function LetterInput({
 function DebouncedTextarea({
   value,
   onChange,
+  minRows = 3,
+  showWordCount = false,
 }: {
   value: string;
   onChange: (v: string) => void;
+  minRows?: number;
+  showWordCount?: boolean;
 }) {
   const [local, setLocal] = useState(value);
   useEffect(() => { setLocal(value); }, [value]);
   // R15-followup-6 — save on every keystroke (same fix as LetterInput).
   // The blur-only save raced the Done button and dropped answers; for
   // 1-3 sentence short answers per-keystroke save is cheap.
+  const words = local.trim() ? local.trim().split(/\s+/).length : 0;
   return (
-    <textarea
-      value={local}
-      onChange={(e) => {
-        const v = e.target.value;
-        setLocal(v);
-        onChange(v);
-      }}
-      onBlur={() => { if (local !== value) onChange(local); }}
-      placeholder="Your answer…"
-      className="w-full border rounded-lg px-4 py-3 text-base min-h-[80px] focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-200"
-    />
+    <>
+      <textarea
+        value={local}
+        rows={minRows}
+        onChange={(e) => {
+          const v = e.target.value;
+          setLocal(v);
+          onChange(v);
+        }}
+        onBlur={() => { if (local !== value) onChange(local); }}
+        placeholder="Your answer…"
+        className="w-full border rounded-lg px-4 py-3 text-base focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-200"
+      />
+      {/* 8 分摘要题有 80 词上限，写的时候看得见才好控制 —— 只提示不拦截，
+          超了由老师按 SEAB 的口径扣分，前端不替考官做判断。 */}
+      {showWordCount && (
+        <div className={`mt-1 text-xs tabular-nums ${words > 80 ? 'text-amber-600 font-medium' : 'text-gray-400'}`}>
+          {words} 词{words > 80 ? ' · 已超过 80 词上限' : ' / 80'}
+        </div>
+      )}
+    </>
   );
 }
 

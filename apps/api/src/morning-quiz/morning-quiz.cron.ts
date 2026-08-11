@@ -386,7 +386,22 @@ export class MorningQuizCron {
         });
         if (!sub) continue;
 
-        const rawGrade = await autoGradeScripts(sub.scripts, this.evaluator);
+        // 2.0 — 短答是否交给 Claude 判，由环境变量决定，**默认关闭**。
+        //
+        // 关掉的理由：本校的铁律是零 Anthropic 调用（出题 / 审核 / 判分全部
+        // 人工在 chat 里做）。而这里原本无条件把 this.evaluator 传下去，
+        // ShortAnswerEvaluatorService 只要 ANTHROPIC_API_KEY 不是占位值就会
+        // 建出真实 client —— 线上这个 key 是真的。也就是说每个考试日 09:00
+        // 都会对每份含长参考答案短答的提交发一次真实请求，挡住它的只是
+        // 「额度是空的」，不是任何开关。一旦充值就会静默开始自动判分。
+        //
+        // 现在默认走 deferAi：MCQ 照常即时判，短答一律 park 进人工队列，
+        // 与老师每天排队判分的实际流程一致。要恢复 AI 判分，在 Railway 上
+        // 设 MORNING_QUIZ_AI_GRADING=on 即可，无需改代码。
+        const aiGradingOn = process.env.MORNING_QUIZ_AI_GRADING === 'on';
+        const rawGrade = aiGradingOn
+          ? await autoGradeScripts(sub.scripts, this.evaluator)
+          : await autoGradeScripts(sub.scripts, undefined, { deferAi: true });
         // R15-followup-21 — without this sweep the 09:00 lock cron would
         // regrade retracted questions back to 0 (see helper for the
         // 5/26 TFNG case). Retraction always wins.

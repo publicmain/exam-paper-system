@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { BASE } from '../lib/api';
+import SkillProfileCard from '../components/SkillProfileCard';
 import {
   createPracticeClone,
   fetchTrend,
@@ -433,6 +434,12 @@ export default function MyHistory() {
               </div>
             </div>
           </Link>
+        )}
+
+        {/* 2.0 技能画像 —— 放在逐场成绩之前。逐场分数只说明"考得怎么样",
+            按题型拆开才回答"我该练什么",后者才是学生能行动的。 */}
+        {data && (
+          <SkillProfileCard name={data.student.name} studentId={chosenStudentId} />
         )}
 
         {data && (
