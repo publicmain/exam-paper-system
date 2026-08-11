@@ -13,7 +13,7 @@ export function QuestionFlag({ qid, compact = false }: { qid: string; compact?: 
         e.stopPropagation();
         toggleFlag(qid);
       }}
-      className={`inline-flex items-center gap-1 rounded-md text-xs font-medium border transition-colors touch-manipulation min-h-[36px] ${
+      className={`inline-flex items-center gap-1 rounded-md text-xs font-medium border transition-colors press min-h-[44px] px-2.5 ${
         compact ? 'px-2 py-1' : 'px-2.5 py-1.5'
       } ${
         flagged
