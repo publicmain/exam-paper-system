@@ -349,7 +349,7 @@ function PracticeHost({
       {/* Big yellow banner — required by spec so students can't confuse
           a practice run with a graded morning quiz. */}
       <div className="bg-yellow-300/80 border-b border-yellow-500 text-yellow-900 px-4 py-3 text-center font-semibold">
-        📚 Practice Mode · 练习模式 (不计入成绩 · NOT counted)
+        📚 练习模式 · 不计入成绩
       </div>
 
       <div
@@ -426,7 +426,7 @@ function PracticeHost({
                 : 'bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800'
             }`}
           >
-            {submitting ? '提交中…' : '完成 · Done'}
+            {submitting ? '提交中…' : '完成'}
           </button>
         </div>
       </div>
@@ -459,7 +459,7 @@ function PracticeHost({
                 onClick={() => { setConfirmOpen(false); doSubmit(); }}
                 className="px-4 py-2 text-sm text-white rounded-lg font-semibold bg-emerald-600 hover:bg-emerald-700"
               >
-                完成 · Done
+                完成
               </button>
             </div>
           </div>

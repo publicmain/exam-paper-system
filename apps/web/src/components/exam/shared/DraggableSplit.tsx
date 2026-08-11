@@ -151,7 +151,7 @@ export function DraggableSplit({
         // far easier to grab on iPad with a thumb. The visual line stays
         // ~2px so the layout doesn't shift; the hit-box pads it.
         className="hidden lg:flex w-3 cursor-col-resize bg-transparent hover:bg-blue-200 active:bg-blue-300 transition-colors items-center justify-center group touch-manipulation"
-        title="拖动调整分栏 · drag to resize"
+        title="拖动调整分栏"
         aria-label="Resize split"
       >
         <div className="w-0.5 h-12 bg-gray-300 group-hover:bg-blue-500 rounded" />

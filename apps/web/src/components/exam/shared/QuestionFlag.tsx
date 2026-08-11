@@ -20,7 +20,7 @@ export function QuestionFlag({ qid, compact = false }: { qid: string; compact?: 
           ? 'bg-orange-100 border-orange-300 text-orange-800'
           : 'border-gray-200 text-gray-500 hover:bg-gray-50 active:bg-gray-100'
       }`}
-      title={flagged ? '取消标记 · Unflag' : '标记复习 · Flag for review'}
+      title={flagged ? '取消标记' : '标记复习'}
       aria-pressed={flagged}
       aria-label={flagged ? 'Flagged for review' : 'Flag for review'}
     >

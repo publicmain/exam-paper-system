@@ -203,7 +203,10 @@ export function IELTSReadingPassage({ paper }: { paper: ExamPaper }) {
   // and option labels all scale together.
   return (
     <div
-      className="lg:h-[calc(100dvh-9rem)]"
+      // ui-ios：学生端统一的界面语言（44pt 触控目标、按压回弹、iOS 字阶）。
+      // 这里只加作用域，不改本页既有的字号类 —— 考试页的正文字号由学生自己
+      // 用 A± 控制（--mq-fs），不能被外部统一值覆盖。
+      className="ui-ios lg:h-[calc(100dvh-9rem)]"
       style={{ ['--mq-fs' as any]: String(fontScale) }}
     >
       {/* Mobile pane switch — only visible below lg.  On lg+ the split
@@ -326,6 +329,65 @@ export function IELTSReadingPassage({ paper }: { paper: ExamPaper }) {
   );
 }
 
+/** 各题型指令的中文一句话摘要。查不到就不显示，绝不猜。 */
+const INSTRUCTION_GIST: Record<string, string> = {
+  matching_information: '找出下列信息各在哪一段，填段落字母',
+  matching_headings: '给每段配一个小标题，填标题编号',
+  matching_features: '把下列内容与选项库里的对象对应起来',
+  classification: '按题目给的类别给每一项归类，填字母',
+  true_false_not_given: '判断与原文是否一致：TRUE / FALSE / NOT GIVEN',
+  yes_no_not_given: '判断与作者观点是否一致：YES / NO / NOT GIVEN',
+  multiple_choice: '从选项中选一个最合适的',
+  multi_select: '按题目要求选出指定数量的选项',
+  sentence_completion: '从原文取词填空，不超过两个词',
+  summary_completion: '从原文取词把摘要补全，不超过两个词',
+  note_completion: '从原文取词把笔记补全，不超过两个词',
+  table_completion: '从原文取词把表格补全，不超过两个词',
+  flow_chart_completion: '从原文取词把流程图补全，不超过两个词',
+  diagram_completion: '从原文取词把图示补全，不超过两个词',
+  diagram_label_completion: '从原文取词标注图中各处，不超过两个词',
+  short_answer: '用自己的话简答',
+  multi_match: '从词库里选一个最贴切的词',
+};
+
+/**
+ * 题型指令块。
+ *
+ * 2026-08-11 触屏审计：每组指令平均 261 个字符纯英文，渲染出来 152px 高。
+ * 手机上除去上下固定栏只剩 614px 可用高度，指令一项就吃掉 25%。
+ * 而 O-Level 那批学生的瓶颈本来就是英文 —— 读不懂
+ * 「Write the correct letter, A–H, in boxes 1–4 on your answer sheet」
+ * 而丢分是纯粹的浪费，那句话考的不是阅读能力。
+ *
+ * 处理：默认只显示一行中文摘要 + 「英文原文」展开按钮。英文一字不改、
+ * 随时可看，但不再默认占据四分之一屏。没有对应摘要的题型（含未来新增的）
+ * 直接照旧显示英文全文，不做任何猜测。
+ */
+function InstructionBlock({ text, taskType }: { text: string; taskType?: string }) {
+  const [open, setOpen] = useState(false);
+  const gist = taskType ? INSTRUCTION_GIST[taskType] : undefined;
+  const fs = { fontSize: `calc(0.9375rem * var(--mq-fs, 1))` };
+
+  if (!gist) {
+    return <p className="mt-2 text-gray-700 whitespace-pre-wrap leading-relaxed" style={fs}>{text}</p>;
+  }
+  return (
+    <div className="mt-2">
+      <p className="text-gray-800 leading-relaxed" style={fs}>{gist}</p>
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        className="press hit -ml-2 px-2 text-[13px] text-blue-600 font-medium rounded-lg"
+      >
+        {open ? '收起英文原文' : '英文原文'}
+      </button>
+      {open && (
+        <p className="text-gray-600 whitespace-pre-wrap leading-relaxed mt-1" style={fs}>{text}</p>
+      )}
+    </div>
+  );
+}
+
 function TaskGroupView({ group, gi }: { group: TaskGroup; gi: number }) {
   const firstNum = group.questions[0].localIdx;
   const lastNum = group.questions[group.questions.length - 1].localIdx;
@@ -342,12 +404,7 @@ function TaskGroupView({ group, gi }: { group: TaskGroup; gi: number }) {
           <span className="font-mono text-gray-500">Q{range}</span>
         </div>
         {group.instruction && (
-          <p
-            className="mt-2 text-gray-700 whitespace-pre-wrap leading-relaxed"
-            style={{ fontSize: `calc(0.9375rem * var(--mq-fs, 1))` }}
-          >
-            {clean(group.instruction)}
-          </p>
+          <InstructionBlock text={clean(group.instruction)} taskType={group.taskType} />
         )}
       </header>
       {group.bank && (

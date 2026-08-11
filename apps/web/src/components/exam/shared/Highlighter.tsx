@@ -109,7 +109,7 @@ function renderHighlighted(
         key={h.id}
         className="bg-yellow-200 cursor-pointer"
         onClick={() => onRemove(h.id)}
-        title="点击移除高亮 · click to remove"
+        title="点击移除高亮"
       >
         {body.slice(h.start, h.end)}
       </mark>,

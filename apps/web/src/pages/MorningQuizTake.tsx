@@ -309,6 +309,30 @@ function isLockedError(saveError: string | null): boolean {
  *  R15-followup-11 — extended to cover session_ended et al.; banner now
  *  shows a 5-second countdown so students can read the explanation, and
  *  uses an aria-live region for assistive-tech audibility. */
+/**
+ * 极轻的保存状态。
+ *
+ * 正在存 → 灰色「保存中…」；存完 → 绿色「已保存」并在 2 秒后淡出，
+ * 不长期占位。答题数为 0 时完全不显示（还没输入过任何东西，
+ * 挂一个「已保存」只会让人困惑）。
+ */
+function SaveState({ pending, answered }: { pending: boolean; answered: number }) {
+  const [justSaved, setJustSaved] = useState(false);
+  const wasPending = useRef(false);
+  useEffect(() => {
+    if (wasPending.current && !pending) {
+      setJustSaved(true);
+      const t = setTimeout(() => setJustSaved(false), 2000);
+      return () => clearTimeout(t);
+    }
+    wasPending.current = pending;
+  }, [pending]);
+  if (answered === 0) return null;
+  if (pending) return <span className="text-[13px] text-gray-400 tabular-nums">保存中…</span>;
+  if (justSaved) return <span className="text-[13px] text-emerald-600">已保存</span>;
+  return null;
+}
+
 function SaveErrorBanner({
   saveError,
   hasPendingSaves,
@@ -552,6 +576,11 @@ function ExamShellChrome({
         <div className="hidden lg:block text-sm text-gray-500">
           {answeredCount} / {total} 已答
         </div>
+        {/* 2026-08-11 触屏审计：过去只有「保存失败」横幅，没有任何成功反馈。
+            学生打完一段字不知道存没存上，面对一个 30 分钟会锁的考试，这种
+            不确定感会让人反复检查。这里给一个极轻的状态字：正在存 / 已保存。
+            只在真的有过输入之后才显示，避免开场就挂一个「已保存」显得莫名。 */}
+        <SaveState pending={hasPendingSaves} answered={answeredCount} />
         <div className="flex-1" />
         <FontSizeAdjuster />
         {/* Time-up auto-submit must also flush pending autosaves —
@@ -691,7 +720,7 @@ function ExamShellChrome({
                 : 'bg-blue-600 hover:bg-blue-700 active:bg-blue-800'
             }`}
           >
-            {locked ? '已结束' : submitted ? '提交中…' : mode === 'practice' ? '完成 · Done' : '交卷 · Submit'}
+            {locked ? '已结束' : submitted ? '提交中…' : mode === 'practice' ? '完成' : '交卷'}
           </button>
         </div>
       </div>
@@ -875,7 +904,7 @@ function FirstRunGuide() {
         className="bg-white rounded-2xl shadow-xl max-w-sm w-full p-5"
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="text-lg font-bold text-gray-900 mb-3">怎么答这份早测 · How it works</div>
+        <div className="text-lg font-bold text-gray-900 mb-3">怎么答这份早测</div>
         <ul className="space-y-2.5 text-sm text-gray-700">
           <li className="flex gap-2">
             <span aria-hidden>①</span>

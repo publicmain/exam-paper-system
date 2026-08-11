@@ -90,13 +90,13 @@ export function StickyNoteRail({
           className="hit press text-[15px] text-gray-600 font-medium px-2 -ml-2 rounded-lg"
           onClick={() => setOpen((v) => !v)}
         >
-          便笺 · Notes ({notes.length})
+          便笺 ({notes.length})
         </button>
         <button
           type="button"
           className="text-sm text-blue-600 px-3 py-1.5 rounded-lg border border-blue-200 hover:bg-blue-50 active:bg-blue-100 touch-manipulation min-h-[44px] font-medium press"
           onClick={() => {
-            const t = prompt('便笺内容 · Note text');
+            const t = prompt('便笺内容');
             if (t !== null) onAdd(t);
           }}
         >
