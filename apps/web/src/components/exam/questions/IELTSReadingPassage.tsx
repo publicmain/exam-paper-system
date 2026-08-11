@@ -242,12 +242,15 @@ export function IELTSReadingPassage({ paper }: { paper: ExamPaper }) {
     // 词在文章最后一段时容器已经滚到底，再滚不动 —— 临时把底部撑高，
     // 这样任何位置的词都能被顶到卡片上方（iOS 键盘避让就是这么做的）。
     //
-    // 撑的是 body 不是 <html>：整页滚动时滚动元素是 documentElement，
-    // 但给它加 padding-bottom 并不会增大 scrollHeight（实测余量仍是 0，
-    // scrollTop 被夹回原位、词纹丝不动），撑 body 才真的把文档变高。
+    // 撑的是**文章容器本身**，不是滚动容器。整页滚动时滚动元素是
+    // documentElement，而这个布局里 html 和 body 都被固定成 100dvh
+    // （812px）、靠内容溢出产生滚动条 —— padding 加在它们身上会被溢出的
+    // 内容淹没，scrollHeight 一点不变（两版实测余量都还是 0、词纹丝不动）。
+    // 文章容器在正常流里，撑它一定能把文档变高。
     const room = el.scrollHeight - el.clientHeight - el.scrollTop;
     if (room < overlap) {
-      const pad = el === document.scrollingElement ? document.body : el;
+      const host = r.startContainer.parentElement?.closest<HTMLElement>('.select-text');
+      const pad = host ?? el;
       if (!padRef.current) padRef.current = { el: pad, prev: pad.style.paddingBottom };
       pad.style.paddingBottom = `${sheetBox.height + 24}px`;
     }
