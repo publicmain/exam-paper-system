@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { useNavigate, useSearchParams } from 'react-router-dom';
+import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { QRCodeSVG } from 'qrcode.react';
 import { api } from '../lib/api';
 
@@ -17,8 +17,14 @@ import { api } from '../lib/api';
 export default function MorningQuizDisplay() {
   const navigate = useNavigate();
   const [params] = useSearchParams();
+  // App.tsx 同时注册了 /display 和 /display/:sessionId 两个路由，但这里原来
+  // 只读查询串。用路径形式打开时 classId 和 sessionId 都是 undefined，
+  // qs() 返回空串，请求就拼成了 `/api/qr/current&_=…`（问号变成 &），
+  // 页面上报「Cannot GET /api/qr/current&_=…」—— 谁也看不懂这是"少传了参数"。
+  // 两种写法都支持，查询串优先。
+  const routeParams = useParams();
   const classId = params.get('classId') ?? undefined;
-  const sessionId = params.get('sessionId') ?? undefined;
+  const sessionId = params.get('sessionId') ?? routeParams.sessionId ?? undefined;
   const [token, setToken] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [now, setNow] = useState(new Date());
