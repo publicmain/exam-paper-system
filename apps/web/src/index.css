@@ -201,7 +201,8 @@ body {
   border-radius: var(--r-pill);
 }
 .ui-ios .seg > button {
-  flex: 1; min-height: 40px;
+  /* 44pt 是 HIG 的硬底线；外层 3px padding 让整条到 50px */
+  flex: 1; min-height: var(--tap);
   border-radius: var(--r-pill);
   font-size: 15px; font-weight: 600;
   color: #3c3c43; background: transparent; border: none;
