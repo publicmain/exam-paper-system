@@ -241,10 +241,15 @@ export function IELTSReadingPassage({ paper }: { paper: ExamPaper }) {
     }
     // 词在文章最后一段时容器已经滚到底，再滚不动 —— 临时把底部撑高，
     // 这样任何位置的词都能被顶到卡片上方（iOS 键盘避让就是这么做的）。
+    //
+    // 撑的是 body 不是 <html>：整页滚动时滚动元素是 documentElement，
+    // 但给它加 padding-bottom 并不会增大 scrollHeight（实测余量仍是 0，
+    // scrollTop 被夹回原位、词纹丝不动），撑 body 才真的把文档变高。
     const room = el.scrollHeight - el.clientHeight - el.scrollTop;
     if (room < overlap) {
-      if (!padRef.current) padRef.current = { el, prev: el.style.paddingBottom };
-      el.style.paddingBottom = `${sheetBox.height + 24}px`;
+      const pad = el === document.scrollingElement ? document.body : el;
+      if (!padRef.current) padRef.current = { el: pad, prev: pad.style.paddingBottom };
+      pad.style.paddingBottom = `${sheetBox.height + 24}px`;
     }
     // 瞬时滚动而非 smooth：smooth 期间 rect 读到的是中途值，下一次校正会
     // 在旧位置上再叠加一次，越滚越远。
@@ -261,8 +266,9 @@ export function IELTSReadingPassage({ paper }: { paper: ExamPaper }) {
    * 变化时 React 先跑 cleanup，把排好的那一帧取消了，回调一次没执行。
    *
    * 与其继续跟 effect 的清理时序较劲，不如让这件事跟 React 的渲染时序
-   * 完全解耦：只由「卡片开了」触发，1 秒内校正 8 次，够覆盖查词请求的
-   * 往返。已经露出来时 liftWordAboveSheet 直接返回，多余的几次是空跑。
+   * 完全解耦：只由「卡片开了」触发，1.8 秒内校正 12 次，够覆盖查词请求
+   * 的往返（本地词典通常几百毫秒，冷启动会慢些）。已经露出来时
+   * liftWordAboveSheet 直接返回，多余的几次是空跑。
    */
   useEffect(() => {
     if (!pickedWord) return;
@@ -270,7 +276,7 @@ export function IELTSReadingPassage({ paper }: { paper: ExamPaper }) {
     let timer = 0;
     const step = () => {
       liftWordAboveSheet();
-      if (++n < 8) timer = window.setTimeout(step, 120);
+      if (++n < 12) timer = window.setTimeout(step, 150);
     };
     step();
     return () => window.clearTimeout(timer);
