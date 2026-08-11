@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { contextFor, extractQuotedWord, firstSentenceWith, isCompletionTask, isWorthLearning } from './student-word.service';
+import { contextFor, extractQuotedWord, firstSentenceWith, isCompletionTask, isWorthLearning, lemmaCandidates } from './student-word.service';
 
 /**
  * 自动采集的抽词逻辑回归测试。
@@ -141,5 +141,88 @@ describe('isWorthLearning — 填空答案要不要进生词本', () => {
   it('缺字段时不报错且从严', () => {
     expect(isWorthLearning({})).toBe(false);
     expect(isWorthLearning({ tag: ['ielts'], oxford: null, bnc: null })).toBe(true);
+  });
+});
+
+/**
+ * 2026-08-11 线上数据复盘补的回归用例。
+ *
+ * 上线两周后查生词本，发现全班覆盖最广的词之一是 "lakes"（8 名学生），
+ * 而 "minutes" 的词卡释义是「会议记录」—— 原文里是「几分钟」。
+ * 根因：ECDICT 只在原形上带 oxford / bnc，屈折形式两个字段都是空的，
+ * isWorthLearning 三条规则一条也拦不住，于是基础词的复数畅通无阻。
+ */
+describe('lemmaCandidates — 屈折形式回退原形', () => {
+  it('复数', () => {
+    expect(lemmaCandidates('lakes')).toContain('lake');
+    expect(lemmaCandidates('minutes')).toContain('minute');
+    expect(lemmaCandidates('cables')).toContain('cable');
+  });
+
+  it('过去式，含重复辅音与 -e 结尾', () => {
+    expect(lemmaCandidates('surged')).toContain('surge');
+    expect(lemmaCandidates('dwindled')).toContain('dwindle');
+    expect(lemmaCandidates('stopped')).toContain('stop');
+  });
+
+  it('-ing 形式', () => {
+    expect(lemmaCandidates('wobbling')).toContain('wobble');
+    expect(lemmaCandidates('running')).toContain('run');
+  });
+
+  it('-ies → -y', () => {
+    expect(lemmaCandidates('bodies')).toContain('body');
+  });
+
+  it('不给出与自身相同的形式', () => {
+    expect(lemmaCandidates('axis')).not.toContain('axis');
+  });
+});
+
+describe('isWorthLearning — 屈折形式要看原形', () => {
+  it('lakes 自身无词频信号，但原形 lake 是牛津核心词 → 拒', () => {
+    const lakes = { tag: ['ielts', 'gre'], oxford: false, bnc: null };
+    expect(isWorthLearning(lakes)).toBe(true);                                  // 修复前的行为
+    expect(isWorthLearning(lakes, { oxford: true, bnc: 1200 })).toBe(false);    // 修复后
+  });
+
+  it('minutes 同理：原形 minute 高频 → 拒', () => {
+    const minutes = { tag: ['ielts', 'gre'], oxford: false, bnc: null };
+    expect(isWorthLearning(minutes, { oxford: false, bnc: 800 })).toBe(false);
+  });
+
+  it('原形本身也是进阶词时照收（wobbling → wobble）', () => {
+    const wobbling = { tag: ['toefl'], oxford: false, bnc: null };
+    expect(isWorthLearning(wobbling, { oxford: false, bnc: 38793 })).toBe(true);
+  });
+
+  it('本身就带词频信号的词不走回退，行为不变', () => {
+    // interference: bnc 4513，原形回退不该把它拒掉
+    expect(isWorthLearning({ tag: ['ielts'], oxford: false, bnc: 4513 }, { oxford: true, bnc: 1 })).toBe(true);
+  });
+
+  it('查不到原形时退回原来的判断', () => {
+    expect(isWorthLearning({ tag: ['ielts'], oxford: false, bnc: null }, null)).toBe(true);
+  });
+});
+
+describe('extractQuotedWord — 叙事引语不是词汇考点', () => {
+  it('《The Uniform》Q6 的 \u0027good\u0027 不该被当成生词', () => {
+    const stem =
+      "Q6. Using your own words, explain why the narrator 'said nothing' when his mother called the cloth 'good' (Paragraph 2). [2]";
+    expect(extractQuotedWord(stem)).toBeNull();
+  });
+
+  it('“效果题”里的引语同样不收', () => {
+    const stem =
+      "Q9. What is the effect of the narrator's realisation that there 'had been nothing' to cover? [2]";
+    expect(extractQuotedWord(stem)).toBeNull();
+  });
+
+  it('真正的词义题仍然照抽', () => {
+    expect(
+      extractQuotedWord("Q4. What does the word 'shadow' in 'There was a shadow on the left pocket' suggest?"),
+    ).toBe('shadow');
+    expect(extractQuotedWord('What does ‘crumpled’ suggest about the note?')).toBe('crumpled');
   });
 });

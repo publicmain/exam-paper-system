@@ -103,6 +103,8 @@ export default function MyHistory() {
   const [practicePending, setPracticePending] = useState<string | null>(null);
   // Countdown re-render tick — bumped every 30s so the T-minus label updates.
   const [, setTick] = useState(0);
+  // 生词本到期数；null = 尚未取到或接口不可用（此时卡片保持原样）
+  const [dueCount, setDueCount] = useState<number | null>(null);
 
   async function lookup(searchName: string, studentId?: string) {
     const trimmed = searchName.trim();
@@ -196,6 +198,29 @@ export default function MyHistory() {
     const t = setInterval(() => setTick((n) => n + 1), 30_000);
     return () => clearInterval(t);
   }, [upcoming]);
+
+  // 生词本到期数。上线两周的真实数据：100 次复习全部发生在早测当天,
+  // 非早测日一次都没有,同时积压了 80 条到期未复习的词 —— 学生是"交完卷
+  // 顺手点进去",而不是"想起来该背单词"。间隔重复的价值恰恰在非考试日,
+  // 所以把到期数直接摆到这张卡上,让他们回来看成绩时就能看见。
+  // 拿不到就当没有,绝不能因为生词本接口挂了而影响看成绩。
+  useEffect(() => {
+    const nm = data?.student?.name;
+    if (!nm) { setDueCount(null); return; }
+    let cancelled = false;
+    (async () => {
+      try {
+        const qs =
+          '?name=' + encodeURIComponent(nm) +
+          (chosenStudentId ? '&studentId=' + encodeURIComponent(chosenStudentId) : '');
+        const r = await fetch(`${BASE}/api/vocab/stats${qs}`);
+        if (!r.ok) return;
+        const j = await r.json();
+        if (!cancelled && typeof j?.totalDue === 'number') setDueCount(j.totalDue);
+      } catch { /* 生词本不可用时静默降级 */ }
+    })();
+    return () => { cancelled = true; };
+  }, [data?.student?.name, chosenStudentId]);
 
   // F16 — POST to /practice/:submissionId, then navigate to the new
   // practice-mode page. Graceful 404 → toast in setError.
@@ -383,16 +408,29 @@ export default function MyHistory() {
             to={`/my-vocab?name=${encodeURIComponent(data.student.name)}${
               chosenStudentId ? `&studentId=${encodeURIComponent(chosenStudentId)}` : ''
             }`}
-            className="block bg-white border border-gray-200 rounded-xl shadow-sm p-4 hover:bg-gray-50 active:bg-gray-100"
+            className={`block border rounded-xl shadow-sm p-4 active:bg-gray-100 ${
+              dueCount && dueCount > 0
+                ? 'bg-amber-50 border-amber-300 hover:bg-amber-100'
+                : 'bg-white border-gray-200 hover:bg-gray-50'
+            }`}
           >
             <div className="flex items-center justify-between gap-3">
-              <div>
+              <div className="min-w-0">
                 <div className="font-semibold text-gray-900">📒 我的生词本</div>
                 <div className="text-xs text-gray-500 mt-0.5">
-                  答错的词会自动收录;点开成绩还能重读原文、点词查义
+                  {dueCount && dueCount > 0
+                    ? '按记忆曲线该复习了,大约一两分钟'
+                    : '答错的词会自动收录;点开成绩还能重读原文、点词查义'}
                 </div>
               </div>
-              <span className="text-gray-400 text-lg">›</span>
+              <div className="flex items-center gap-2 shrink-0">
+                {dueCount !== null && dueCount > 0 && (
+                  <span className="inline-flex items-center rounded-full bg-amber-500 px-2.5 py-1 text-xs font-semibold text-white tabular-nums">
+                    {dueCount} 个待复习
+                  </span>
+                )}
+                <span className="text-gray-400 text-lg">›</span>
+              </div>
             </div>
           </Link>
         )}

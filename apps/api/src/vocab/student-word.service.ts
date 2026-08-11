@@ -224,7 +224,23 @@ export class StudentWordService {
       // twice 这种学生明明认识、只是读错了段落的常用词灌进生词本。
       if (w.needsWorthCheck) {
         const entry = await this.prisma.dictEntry.findUnique({ where: { word: hit.word } });
-        if (!entry || !isWorthLearning(entry)) continue;
+        if (!entry) continue;
+        // 屈折形式自身没有词频信号，取原形的记录一并交给过滤器判断
+        let lemma: { tag: string[]; oxford: boolean | null; bnc: number | null } | null = null;
+        if (!entry.oxford && !(typeof entry.bnc === 'number' && entry.bnc > 0)) {
+          const cands = lemmaCandidates(hit.word);
+          if (cands.length) {
+            const rows = await this.prisma.dictEntry.findMany({
+              where: { word: { in: cands } },
+              select: { tag: true, oxford: true, bnc: true },
+            });
+            // 多个候选原形都命中时取"最基础"的那个（牛津核心优先，其次词频最高）
+            lemma = rows.sort((a, b) =>
+              Number(Boolean(b.oxford)) - Number(Boolean(a.oxford)) ||
+              (a.bnc ?? 1e9) - (b.bnc ?? 1e9))[0] ?? null;
+          }
+        }
+        if (!isWorthLearning(entry, lemma)) continue;
       }
       const exists = await this.prisma.studentWord.findUnique({
         where: { studentId_headword: { studentId: sub.studentId, headword: hit.word } },
@@ -269,17 +285,52 @@ export function isCompletionTask(taskType: unknown): boolean {
  * 而 chromatophores / leucophores / clast 这类文中专业术语词典本就未收录，
  * 在更前面的 lookup 一步就已经被挡掉。
  */
-export function isWorthLearning(e: {
-  tag?: string[] | null;
-  oxford?: boolean | null;
-  bnc?: number | null;
-}): boolean {
+type FreqSignals = { tag?: string[] | null; oxford?: boolean | null; bnc?: number | null };
+
+/** 这条词典记录到底有没有"常不常用"的信号。屈折形式两个字段都是空的。 */
+function hasFreqSignal(e: FreqSignals): boolean {
+  return Boolean(e.oxford) || (typeof e.bnc === 'number' && e.bnc > 0);
+}
+
+export function isWorthLearning(e: FreqSignals, lemma?: FreqSignals | null): boolean {
   const tags = e.tag ?? [];
   const advanced = ['ielts', 'toefl', 'gre', 'cet6'];
   if (!tags.some((t) => advanced.includes(t))) return false;
   if (e.oxford) return false;
   if (typeof e.bnc === 'number' && e.bnc > 0 && e.bnc < 3000) return false;
+  // 屈折形式（lakes / minutes / surged）在 ECDICT 里 oxford 与 bnc 都是空的，
+  // 上面三条一条也拦不住 —— 于是"湖泊的复数"成了全班覆盖最广的生词。
+  // 本身没有词频信号时，回退到原形再判一次：lakes→lake 是牛津核心词，拒。
+  if (!hasFreqSignal(e) && lemma) {
+    if (lemma.oxford) return false;
+    if (typeof lemma.bnc === 'number' && lemma.bnc > 0 && lemma.bnc < 3000) return false;
+  }
   return true;
+}
+
+/**
+ * 猜这个词可能的原形，供上面回退用。只做规则变形，不引入词形还原引擎
+ * —— 猜错了顶多是回退不生效，退回原来的行为，不会误伤。
+ */
+export function lemmaCandidates(word: string): string[] {
+  const w = word.toLowerCase().trim();
+  const out = new Set<string>();
+  const add = (s: string) => { if (s.length >= 3 && s !== w) out.add(s); };
+  if (w.endsWith('ies')) add(w.slice(0, -3) + 'y');
+  if (w.endsWith('es')) { add(w.slice(0, -2)); add(w.slice(0, -1)); }
+  if (w.endsWith('s') && !w.endsWith('ss')) add(w.slice(0, -1));
+  if (w.endsWith('ied')) add(w.slice(0, -3) + 'y');
+  if (w.endsWith('ed')) {
+    add(w.slice(0, -2));
+    add(w.slice(0, -1));
+    if (/(.)\1ed$/.test(w)) add(w.slice(0, -3)); // stopped → stop
+  }
+  if (w.endsWith('ing')) {
+    add(w.slice(0, -3));
+    add(w.slice(0, -3) + 'e'); // wobbling → wobble
+    if (/(.)\1ing$/.test(w)) add(w.slice(0, -4)); // running → run
+  }
+  return [...out];
 }
 
 /**
@@ -288,6 +339,13 @@ export function isWorthLearning(e: {
  * 取**第一个**单引号/弯引号里的单个词（多词的是引用句子，不是目标词）。
  */
 export function extractQuotedWord(stem: string): string | null {
+  // 只在"这个词是什么意思"这类词义题里抽。叙事题里也有引号，但那是引用
+  // 人物说的话，不是考点 —— 真实误报：《The Uniform》Q6「explain why the
+  // narrator 'said nothing' when his mother called the cloth 'good'」，
+  // 'good' 被当成生词收进了 3 名学生的本子（BNC 词频第 73 位）。
+  const asksAboutWord = /\bwhat does\b/i.test(stem) && /\b(suggest|mean|means|imply|convey)\b/i.test(stem);
+  if (!asksAboutWord && !/\bthe word\s*['‘’"“”]/i.test(stem)) return null;
+
   const re = /['‘’"“”]([A-Za-z][A-Za-z'’-]{1,30})['‘’"“”]/g;
   let m: RegExpExecArray | null;
   while ((m = re.exec(stem))) {
