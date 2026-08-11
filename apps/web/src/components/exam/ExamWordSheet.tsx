@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { BASE } from '../../lib/api';
 
 /**
@@ -76,6 +76,7 @@ export default function ExamWordSheet({
   fillTarget,
   studentName,
   onFill,
+  onSheetMetrics,
   onClose,
 }: {
   word: string | null;
@@ -85,11 +86,35 @@ export default function ExamWordSheet({
   fillTarget: FillTarget;
   studentName?: string | null;
   onFill: (questionId: string, word: string, append: boolean) => void;
+  /**
+   * 报告卡片真实的顶边与高度，供调用方把被查的词顶到卡片上方。
+   *
+   * 为什么必须由卡片来报：卡片是自适应高度，且内容异步（「查询中…」的
+   * 小卡 → 有中英释义的大卡），外面按 vh 估必然估错。挂载时报一次，
+   * 之后每次尺寸变化再报（ResizeObserver）。
+   */
+  onSheetMetrics?: (top: number, height: number) => void;
   onClose: () => void;
 }) {
   const [entry, setEntry] = useState<Entry | null>(null);
   const [state, setState] = useState<'idle' | 'loading' | 'ok' | 'notFound' | 'failed'>('idle');
   const [saved, setSaved] = useState(false);
+  const sheetRef = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    if (!word || !onSheetMetrics) return;
+    const el = sheetRef.current;
+    if (!el) return;
+    const report = () => {
+      const r = el.getBoundingClientRect();
+      onSheetMetrics(r.top, r.height);
+    };
+    report();
+    // 卡片是 fixed 的，滚动不会改变它的尺寸 —— 不会和调用方的滚动互相触发
+    const ro = new ResizeObserver(report);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [word, onSheetMetrics]);
 
   useEffect(() => {
     if (!word || blocked) { setEntry(null); setState('idle'); setSaved(false); return; }
@@ -140,6 +165,7 @@ export default function ExamWordSheet({
     <div className="ui-ios fixed inset-0 z-50 flex items-end" onClick={onClose}>
       <div className="absolute inset-0 bg-black/25" />
       <div
+        ref={sheetRef}
         className="relative w-full bg-white rounded-t-[24px] shadow-2xl max-h-[58vh] overflow-y-auto"
         onClick={(e) => e.stopPropagation()}
       >
@@ -173,6 +199,10 @@ export default function ExamWordSheet({
             </button>
           </div>
 
+          {/* 给释义区一个下限高度：卡片从「查询中…」长到有中英释义会高出
+              一大截，每次变高都要重新把词顶上去一次，学生看到文字连跳两下。
+              先占住位置，多数情况下就只滚一次。 */}
+          <div className="min-h-[96px]">
           {blocked ? (
             <div className="mt-3 rounded-[14px] bg-amber-50 px-4 py-3.5 text-[15px] text-amber-900">
               这个词是本卷的考点，考试期间不显示释义。
@@ -204,6 +234,7 @@ export default function ExamWordSheet({
               )}
             </>
           )}
+          </div>
 
           {/* 填空取词。屏蔽的是「释义」，不是「这个词存在于原文」，所以
               考点词也允许填。 */}

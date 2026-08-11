@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, createContext, useContext } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, createContext, useContext } from 'react';
 import type { ExamPaper, ExamQuestion, ExamOption } from '../types';
 import { useExam } from '../ExamContext';
 import { clean, reflowPassage, splitStem } from '../shared/textUtils';
@@ -120,6 +120,25 @@ const FillFocusCtx = createContext<((id: string | null) => void) | null>(null);
  * 也会把段落标记当成句子的一部分。
  * 找不到就返回 null —— 宁可不显示，也不给一句不含该词的话。
  */
+/**
+ * 找到真正在滚动的那个祖先元素。
+ *
+ * 不能假定是 window 或 <aside>：手机上原文和题目是同一块内部滚动区里的
+ * 两个面板，lg 以上才是 aside 各自滚。首版写死这两种，手机上两边都没滚成。
+ */
+function scrollParentOf(node: Node | null): HTMLElement | null {
+  let el: HTMLElement | null =
+    node && node.nodeType === Node.ELEMENT_NODE
+      ? (node as HTMLElement)
+      : (node?.parentElement ?? null);
+  while (el) {
+    const oy = getComputedStyle(el).overflowY;
+    if (/(auto|scroll|overlay)/.test(oy) && el.scrollHeight > el.clientHeight + 4) return el;
+    el = el.parentElement;
+  }
+  return null;
+}
+
 function sentenceContaining(passage: string, word: string): string | null {
   if (!passage || !word) return null;
   const re = new RegExp(`(^|[^A-Za-z])${word.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}([^A-Za-z]|$)`, 'i');
@@ -169,28 +188,73 @@ export function IELTSReadingPassage({ paper }: { paper: ExamPaper }) {
   const [pickedSentence, setPickedSentence] = useState<string | null>(null);
 
   /**
-   * 点词后的处理：先把这个词滚到弹卡上方，再取出它所在的那句原文。
+   * 点词后的处理：记住这个词在文档里的位置，再取出它所在的那句原文。
    *
    * 遮挡问题（2026-08-11 真机反馈）：弹卡在底部，会盖住正在读的那句话，
-   * 而查词恰恰是为了读懂那句话。Kindle 新版的做法是弹卡时把页面推上去，
-   * 保证被查的词仍然可见 —— 这里照做。
-   *
-   * 卡片最高 58vh，所以要保证词的底边在 42vh 以内；留 24px 余量，
-   * 太靠上也不行（学生会失去上下文），所以只在确实会被遮住时才滚。
+   * 而查词恰恰是为了读懂那句话。Kindle 新版的做法是弹卡时把正文推上去，
+   * 保证被查的词仍然可见 —— 这里照做，但滚动交给 onSheetMetrics：
+   * 卡片高度是异步变化的（「查询中…」→ 有释义就长高一截），只有卡片
+   * 自己知道它最终多高，这里靠 vh 猜必然猜错（首版按 42vh 估，实测
+   * 卡片顶边在 57.6vh，滚动量算少了一半，等于没滚）。
    */
-  function handleWordTap(w: string, rect: DOMRect) {
-    const sheetTop = window.innerHeight * 0.42;
-    if (rect.bottom > sheetTop - 24) {
-      const delta = rect.bottom - (sheetTop - 24);
-      // 手机上整页滚动；lg 以上是 aside 自己滚 —— 两种都试，谁能动谁动
-      const aside = document.querySelector('aside');
-      const asideScrolls = aside && aside.scrollHeight > aside.clientHeight + 4;
-      if (asideScrolls) aside!.scrollBy({ top: delta, behavior: 'smooth' });
-      else window.scrollBy({ top: delta, behavior: 'smooth' });
-    }
+  function handleWordTap(w: string, range: Range) {
+    wordRangeRef.current = range;
     setPickedSentence(sentenceContaining(passageBody, w));
     setPickedWord(w);
   }
+
+  /** 被查的词在文档里的位置。存 Range 不存 rect —— 每滚一次 rect 就过期。 */
+  const wordRangeRef = useRef<Range | null>(null);
+  /** 为把末尾的词顶上去而临时加的底部留白，关卡时还原。 */
+  const padRef = useRef<{ el: HTMLElement; prev: string } | null>(null);
+
+  const restorePad = useCallback(() => {
+    const p = padRef.current;
+    if (!p) return;
+    p.el.style.paddingBottom = p.prev;
+    padRef.current = null;
+  }, []);
+
+  /**
+   * 卡片每次改变尺寸都会回调这里（挂载时一次，释义加载完再一次）。
+   * 用卡片报上来的真实顶边，把被查的词顶到它上面。
+   */
+  const onSheetMetrics = useCallback((sheetTop: number, sheetHeight: number) => {
+    const r = wordRangeRef.current;
+    if (!r) return;
+    let rect: DOMRect;
+    try {
+      rect = r.getBoundingClientRect();
+    } catch {
+      return; // Range 所在节点已被替换（高亮重渲染），放弃滚动
+    }
+    if (!rect.width && !rect.height) return;
+    const overlap = rect.bottom - (sheetTop - 16);
+    if (overlap <= 4) return; // 本来就没被遮住 —— 别乱滚，学生会失去上下文
+
+    const el = scrollParentOf(r.startContainer) ?? (document.scrollingElement as HTMLElement | null);
+    if (!el) {
+      window.scrollBy({ top: overlap });
+      return;
+    }
+    // 词在文章最后一段时容器已经滚到底，再滚不动 —— 临时把底部撑高，
+    // 这样任何位置的词都能被顶到卡片上方（iOS 键盘避让就是这么做的）。
+    const room = el.scrollHeight - el.clientHeight - el.scrollTop;
+    if (room < overlap) {
+      if (!padRef.current) padRef.current = { el, prev: el.style.paddingBottom };
+      el.style.paddingBottom = `${sheetHeight + 24}px`;
+    }
+    // 瞬时滚动而非 smooth：smooth 期间 rect 读到的是中途值，卡片长高时
+    // 的第二次回调会在旧位置上再叠加一次，越滚越远。
+    el.scrollTop += overlap;
+  }, []);
+
+  const closeWordSheet = useCallback(() => {
+    restorePad();
+    wordRangeRef.current = null;
+    setPickedWord(null);
+    setPickedSentence(null);
+  }, [restorePad]);
   // 最后聚焦过的填空题。用"记住"而不是读 document.activeElement：手机上
   // 点文章会先让输入框 blur，等面板弹出时活动元素早就不是它了。
   const [fillTargetId, setFillTargetId] = useState<string | null>(null);
@@ -372,7 +436,8 @@ export function IELTSReadingPassage({ paper }: { paper: ExamPaper }) {
           const cur = answers[qid]?.textAnswer ?? '';
           setAnswer(qid, { textAnswer: append && cur ? `${cur.trim()} ${w}` : w });
         }}
-        onClose={() => { setPickedWord(null); setPickedSentence(null); }}
+        onSheetMetrics={onSheetMetrics}
+        onClose={closeWordSheet}
       />
     </div>
   );

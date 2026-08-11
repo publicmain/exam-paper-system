@@ -49,7 +49,7 @@ function wordAtPoint(
   x: number,
   y: number,
   root: HTMLElement,
-): { word: string; rect: DOMRect } | null {
+): { word: string; range: Range } | null {
   const doc = document as any;
   let node: Node | null = null;
   let offset = 0;
@@ -78,11 +78,13 @@ function wordAtPoint(
   const raw = text.slice(s, e + 1).replace(/^['’-]+|['’-]+$/g, '');
   if (!/^[A-Za-z][A-Za-z'’-]*$/.test(raw)) return null;
 
-  // 词在屏幕上的位置 —— 调用方要用它把这个词顶到弹窗上方，避免被遮住
+  // 返回 Range 而不是一次性的 rect：调用方要把这个词顶到弹窗上方，而弹窗
+  // 高度是异步变化的（「查询中…」→ 有释义就长高一截），得能**反复**问
+  // 「这个词现在在屏幕的哪里」。rect 是快照，滚一次就过期了。
   const r = document.createRange();
   r.setStart(node, s);
   r.setEnd(node, e + 1);
-  return { word: raw, rect: r.getBoundingClientRect() };
+  return { word: raw, range: r };
 }
 
 function mergeHighlight(existing: Highlight[], add: Highlight): Highlight[] {
@@ -161,7 +163,7 @@ export function Highlighter({
    * 计算），而是用 caretRangeFromPoint 按坐标反查点到了哪个词：
    * DOM 一个节点都不加，高亮逻辑完全不受影响。
    */
-  onWordTap?: (word: string, rect: DOMRect) => void;
+  onWordTap?: (word: string, range: Range) => void;
 }) {
   const containerRef = useRef<HTMLDivElement | null>(null);
 
@@ -208,7 +210,7 @@ export function Highlighter({
     const root = containerRef.current;
     if (!root) return;
     const hit = wordAtPoint(e.clientX, e.clientY, root);
-    if (hit) onWordTap(hit.word, hit.rect);
+    if (hit) onWordTap(hit.word, hit.range);
   }
 
   // Round-3 H21: only left-click should grab a selection (right-click on
