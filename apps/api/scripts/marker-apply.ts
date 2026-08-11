@@ -522,14 +522,69 @@ const GRADES_0807: Record<string, { awardedMarks: number; reason: string }> = {
 
 // Finalize-sweep — every non-practice submission in these assignments gets
 // its status flipped submitted→marked (recomputing scores), even the fully
+const GRADES_0811: Record<string, { awardedMarks: number; reason: string }> = {
+  // 2026-08-11 早测 · authentic=ielts_adapted_2026_v5/Test1/P1
+  // (Weather Beyond the Atmosphere 空间天气, NOAA 公有领域底本改编)
+  // olevel=ai_authored_olevel_40_uniform_v1 (The Uniform 叙事卷)
+  // 全部由 Claude 在 chat 逐条判,零 AI 调用。
+
+  // ── O-Level ──
+  cmsnxrlbi017xk35hgdne2f9p: { awardedMarks: 1, reason: "Q1:表哥 Wei Ming,对。1。(叙述者是男生,用 his)" }, // HEIN HTET NAING Q1
+  cmsnxlq5i00yfk35hcgzi23zd: { awardedMarks: 1, reason: "Q1:表哥 Wei Ming,对。1。" }, // 赵伯容 Q1
+  cmsnxpgg9015gk35h53kownk8: { awardedMarks: 1, reason: "Q2:four evenings,对。1。" }, // HEIN HTET NAING Q2
+  cmsnxnsg5012zk35hogavaffn: { awardedMarks: 1, reason: "Q2:four,对。1。" }, // 赵一鸣 Q2
+  cmsnxnxek013jk35h3wbty7mt: { awardedMarks: 1, reason: "Q2:four evenings,对。1。(It took her... 时态用 took)" }, // 赵伯容 Q2
+  cmsnxqjv40170k35hxc6ccevr: { awardedMarks: 0, reason: "Q3:只说 old。这题考的是\"weak tea 这个颜色比喻说明了什么\",要答出领口已经泛黄变色、不再是白的。只说\"旧\"没有触及颜色,不给分。0。" }, // HEIN HTET NAING Q3
+  cmsnxq65z016ek35hhc019nle: { awardedMarks: 1, reason: "Q3:答到 dirty(不再干净洁白),抓住了颜色这一层,判对。1。(更准确是\"泛黄/褪成淡褐色\")" }, // 赵一鸣 Q3
+  cmsnxr73h0174k35hn2sa1lnq: { awardedMarks: 0, reason: "Q3:只说 old,同上,没有触及颜色。0。" }, // 赵伯容 Q3
+  cmsny6lyj01rpk35hmot8bp7d: { awardedMarks: 0, reason: "Q4:抄的是下一句关于 tear 的内容,答非所问。0。shadow 指徽章拆掉后布料留下一块颜色较深的印子。" }, // 曾义洋 Q4
+  cmsnxtx5401bpk35h3ufci38o: { awardedMarks: 0, reason: "Q4:只说徽章没了、那里空着 —— 但题干已经写明 badge had been unpicked,等于没有补充信息。shadow 的关键是\"留下了看得见的痕迹\"。0。" }, // 赵一鸣 Q4
+  cmsnxtqxd01bfk35hpdpyfw6b: { awardedMarks: 0, reason: "Q4:说前任主人喜欢戴徽章,文中无据。0。" }, // 赵伯容 Q4
+  cmsnxsnls019jk35hn9omycea: { awardedMarks: 0, reason: "Q5:只说 examined carefully,不看那个比喻也能写出来。要答出她像挑菜一样内行、务实地估量这块布还能不能用。0。" }, // HEIN HTET NAING Q5
+  cmsnxy9t401gdk35hjhu2rai8: { awardedMarks: 1, reason: "Q5:答到\"像为家里买菜一样认真对待\",抓住了务实估量这一层,判对。1。" }, // 赵一鸣 Q5
+  cmsnxy4zs01g7k35h2vvl7m76: { awardedMarks: 0, reason: "Q5:说母亲喜欢穿彩色衣服,文中无据。0。" }, // 赵伯容 Q5
+  cmsny0vgy01l3k35hy32a7vjk: { awardedMarks: 1, reason: "Q6:答到 MP1(他不认同),得 1。缺 MP2 —— 为什么明明不认同还是不说:抱怨没用,而且会显得不领情,家里本来也买不起新的。1/2。" }, // 赵一鸣 Q6
+  cmsny0cdb01kdk35hym6seapg: { awardedMarks: 1, reason: "Q6:答到 MP1(他不喜欢这块布),得 1。\"所以我什么都没说\"只是把题干重复一遍,没解释原因,缺 MP2。1/2。" }, // 赵伯容 Q6
+  cmsnyahb401w2k35h88w2gjzd: { awardedMarks: 0, reason: "Q7:只写了一个\"9\",无法判分。0。这题问的是:十八块说明家里买不起新衬衫(MP1),而且母子都心知肚明却都不说破(MP2)。" }, // 曾义洋 Q7
+  cmsny3cz501ntk35hzt5bh1ti: { awardedMarks: 0, reason: "Q7:与原文不符 —— 他并没有买新衬衫,他穿的就是母亲改好的那件。0。" }, // 赵一鸣 Q7
+  cmsny5z8n01r3k35h0atdtu0n: { awardedMarks: 0, reason: "Q7:说母亲明白儿子不喜欢她的审美,偏了。这句的关键是钱:买不起新的,而且两人都避而不谈。0。" }, // 赵伯容 Q7
+  cmsnycdd401x4k35hepkwuphh: { awardedMarks: 0, reason: "Q8:只写了 \"Because \" 就没有了。0。答案:一是对自己的手艺满意(MP1),二是她不善言辞,这个多余的小动作就是她表达疼爱的方式(MP2)。" }, // 赵伯容 Q8
+  cmsny7hu501srk35h5cetbmfp: { awardedMarks: 0, reason: "Q9:整段抄原文,没有回答\"效果\"。0。要点:他是事后才发觉自己语气里根本没有需要掩饰的东西,说明羞耻感是真的消失了、而非他刻意装出来的,这种不经意的发现比直接宣告更可信。" }, // 曾义洋 Q9
+
+  // ── 雅思 ──
+  cmsnxyjtm01gvk35hqahumdah: { awardedMarks: 0, reason: "段1:B,正解 H。0。" }, // 刘钇村 Q1
+  cmsnxrdu4017ek35hf94a98hl: { awardedMarks: 0, reason: "段1:A,正解 H。0。" }, // 叶雅滋 Q1
+  cmsnxnhqt011xk35hdoc3qtxi: { awardedMarks: 0, reason: "段1:B,正解 H。0。" }, // 林寅嘉 Q1
+  cmsnxcexb00sgk35hfl0y966a: { awardedMarks: 0, reason: "段1:C,正解 H。0。" }, // 毛思琳 Q1
+  cmsnxzmrt01jhk35h0vnzkc3u: { awardedMarks: 0, reason: "段2:C,正解 F。0。" }, // 刘钇村 Q2
+  cmsnxq8d4016ik35hn7e1n3lt: { awardedMarks: 1, reason: "段2:答案就是 F,只是打成了全角「Ｆ」,系统按字符精确匹配才没自动判对。内容正确,判对。1。(下次把输入法切成半角英文)" }, // 叶雅滋 Q2
+  cmsnxnkrs0127k35hkv1qqf1g: { awardedMarks: 0, reason: "段2:A,正解 F。0。" }, // 林寅嘉 Q2
+  cmsnxcgz600sik35ha9pjhqfg: { awardedMarks: 0, reason: "段2:E,正解 F。0。" }, // 毛思琳 Q2
+  cmsnxouqj014qk35hl74dv488: { awardedMarks: 0, reason: "段2:C,正解 F。0。" }, // 闫雯涵 Q2
+  cmsny69up01rjk35h1y39vx0l: { awardedMarks: 0, reason: "段3:D,正解 B。0。" }, // 刘钇村 Q3
+  cmsnxnnfa012hk35hnf0owg2x: { awardedMarks: 0, reason: "段3:H,正解 B。0。" }, // 林寅嘉 Q3
+  cmsnxcmez00skk35hez222win: { awardedMarks: 0, reason: "段3:D,正解 B。0。" }, // 毛思琳 Q3
+  cmsny8otm01uqk35hnmmx0nqb: { awardedMarks: 0, reason: "段3:E,正解 B。0。" }, // 郑稀瑜 Q3
+  cmsny3hfd01o1k35hasnx6uw5: { awardedMarks: 0, reason: "段4:E,正解 G。0。" }, // 刘钇村 Q4
+  cmsnxnsc1012vk35hxcps2la5: { awardedMarks: 0, reason: "段4:D,正解 G。0。" }, // 林寅嘉 Q4
+  cmsnxcsty00smk35h0jpue0bw: { awardedMarks: 0, reason: "段4:A,正解 G。0。" }, // 毛思琳 Q4
+  cmsny7qr901t0k35h9pfiw47n: { awardedMarks: 1, reason: "填11:gas。原文\"encounter more gas than expected\"就在这句上,题干措辞和它重合,gas 说得通,判对。1。(标准答案 drag,即原文点名的 satellite drag)" }, // 叶雅滋 Q11
+  cmsnxnrrb012tk35h9l7fo6yh: { awardedMarks: 1, reason: "填11:gas。同上,题干与原文\"more gas\"重合,判对。1。(标准答案 drag)" }, // 李淳 Q11
+  cmsny69pk01rhk35hp8egxynn: { awardedMarks: 1, reason: "填11:Gas。同上,判对。1。(标准答案 drag)" }, // 胡齐家 Q11
+  cmsny3xnn01olk35hg9mrodq3: { awardedMarks: 1, reason: "填11:gas。同上,判对。1。(标准答案 drag)" }, // 郑稀瑜 Q11
+  cmsnxpn4b015zk35hx9szb9j5: { awardedMarks: 1, reason: "填11:satellite drag,正是原文点名的那个效应,判对。1。" }, // 闫雯涵 Q11
+  cmsnxfehs00uqk35h5qpcgffz: { awardedMarks: 0, reason: "填13:geomagrtices。前半 geomag 对了,后半拼错得认不出来,雅思阅读拼写必须完全正确。0。正解 geomagnetic。" }, // 杨钧皓 Q13
+  cmsnxtetg01axk35hckh93c49: { awardedMarks: 1, reason: "填13:geomagenetic,只多打了一个 e,词本身认得出是 geomagnetic,判对。1。(雅思正式考试拼写从严,考场上要检查一遍)" }, // 王耀星 Q13
+};
+
 // auto-graded ones (0 parked items) and blank submissions (no scripts). The
 // GRADES map alone only reaches submissions that had a parked item.
 const SWEEP_ASSIGNMENTS: string[] = [
-  '6505ffb6-0e48-455b-b1f2-aa43175f0584', // 2026-08-07 IELTS authentic (The Ground That Remembers)
-  '46b3b678-b7f4-4139-aeac-917adcbf7af1', // 2026-08-07 O-Level (Cycling in Singapore, 概要写作)
+  47f92310-c27f-4f65-ab31-134aee25bb2a, // 2026-08-11 IELTS authentic (Weather Beyond the Atmosphere)
+  addb3d7a-b801-453a-a756-dccb6edf1f47, // 2026-08-11 O-Level (The Uniform, 叙事卷)
 ];
 
-const GRADES: Record<string, { awardedMarks: number; reason: string }> = GRADES_0807;
+const GRADES: Record<string, { awardedMarks: number; reason: string }> = GRADES_0811;
 const _OLD_GRADES: Record<string, { awardedMarks: number; reason: string }> = {
   // 2026-07-24 早测 · ielts_authentic = cambridge_ielts_8/Test1/P1
   // "A Chronicle of Timekeeping"(Q1-4 段落匹配 A-H;Q9-13 图标注 ≤2词).
