@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { BASE } from '../../lib/api';
 
 /**
@@ -76,7 +76,7 @@ export default function ExamWordSheet({
   fillTarget,
   studentName,
   onFill,
-  onSheetMetrics,
+  sheetRef,
   onClose,
 }: {
   word: string | null;
@@ -87,51 +87,20 @@ export default function ExamWordSheet({
   studentName?: string | null;
   onFill: (questionId: string, word: string, append: boolean) => void;
   /**
-   * 报告卡片真实的顶边与高度，供调用方把被查的词顶到卡片上方。
+   * 卡片外框的 ref，由调用方持有。
    *
-   * 为什么必须由卡片来报：卡片是自适应高度，且内容异步（「查询中…」的
-   * 小卡 → 有中英释义的大卡），外面按 vh 估必然估错。挂载时报一次，
-   * 之后每次尺寸变化再报（ResizeObserver）。
+   * 调用方要把被查的词顶到卡片上方，就得知道卡片真实的顶边 —— 卡片是
+   * 自适应高度且内容异步（「查询中…」的小卡 → 有中英释义的大卡），
+   * 按 vh 估必然估错。这里只负责把 ref 挂上，量和滚都归调用方，
+   * 谁滚谁负责。
    */
-  onSheetMetrics?: (top: number, height: number) => void;
+  sheetRef?: React.RefObject<HTMLDivElement | null>;
   onClose: () => void;
 }) {
   const [entry, setEntry] = useState<Entry | null>(null);
   const [state, setState] = useState<'idle' | 'loading' | 'ok' | 'notFound' | 'failed'>('idle');
   const [saved, setSaved] = useState(false);
-  const sheetRef = useRef<HTMLDivElement | null>(null);
 
-  // 主信号是 React 自己的渲染，不是 ResizeObserver。
-  //
-  // 首版只挂 ResizeObserver，生产实测发现它构造了却一次回调都不触发
-  // （卡片从「查询中…」的 264px 长到有释义的 344px，RO 全程沉默），
-  // 于是只有挂载那一次量到的小卡尺寸生效，词还是被压在卡片下面。
-  // 反正「内容变了」这件事组件自己最清楚 —— 把状态放进依赖直接重量，
-  // RO 留着兜底（字体加载后换行变化这类 React 看不见的重排）。
-  //
-  // rAF 是必须的：state 刚变成 ok 时这一帧的布局还没跑完，
-  // 同步 getBoundingClientRect 量到的是旧高度。
-  useEffect(() => {
-    if (!word || !onSheetMetrics) return;
-    const el = sheetRef.current;
-    if (!el) return;
-    let raf = 0;
-    const report = () => {
-      cancelAnimationFrame(raf);
-      raf = requestAnimationFrame(() => {
-        const r = el.getBoundingClientRect();
-        onSheetMetrics(r.top, r.height);
-      });
-    };
-    report();
-    // 卡片是 fixed 的，滚动不会改变它的尺寸 —— 不会和调用方的滚动互相触发
-    const ro = typeof ResizeObserver !== 'undefined' ? new ResizeObserver(report) : null;
-    ro?.observe(el);
-    return () => {
-      cancelAnimationFrame(raf);
-      ro?.disconnect();
-    };
-  }, [word, state, entry, blocked, saved, contextSentence, onSheetMetrics]);
 
   useEffect(() => {
     if (!word || blocked) { setEntry(null); setState('idle'); setSaved(false); return; }

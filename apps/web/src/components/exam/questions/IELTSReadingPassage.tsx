@@ -215,13 +215,14 @@ export function IELTSReadingPassage({ paper }: { paper: ExamPaper }) {
     padRef.current = null;
   }, []);
 
-  /**
-   * 卡片每次改变尺寸都会回调这里（挂载时一次，释义加载完再一次）。
-   * 用卡片报上来的真实顶边，把被查的词顶到它上面。
-   */
-  const onSheetMetrics = useCallback((sheetTop: number, sheetHeight: number) => {
+  /** 卡片外框。量它的真实顶边，才知道要把词顶多高。 */
+  const sheetRef = useRef<HTMLDivElement | null>(null);
+
+  /** 量一次、需要就滚一次。已经露出来了就什么都不做。 */
+  const liftWordAboveSheet = useCallback(() => {
     const r = wordRangeRef.current;
-    if (!r) return;
+    const sheet = sheetRef.current;
+    if (!r || !sheet) return;
     let rect: DOMRect;
     try {
       rect = r.getBoundingClientRect();
@@ -229,7 +230,8 @@ export function IELTSReadingPassage({ paper }: { paper: ExamPaper }) {
       return; // Range 所在节点已被替换（高亮重渲染），放弃滚动
     }
     if (!rect.width && !rect.height) return;
-    const overlap = rect.bottom - (sheetTop - 16);
+    const sheetBox = sheet.getBoundingClientRect();
+    const overlap = rect.bottom - (sheetBox.top - 16);
     if (overlap <= 4) return; // 本来就没被遮住 —— 别乱滚，学生会失去上下文
 
     const el = scrollParentOf(r.startContainer) ?? (document.scrollingElement as HTMLElement | null);
@@ -242,12 +244,37 @@ export function IELTSReadingPassage({ paper }: { paper: ExamPaper }) {
     const room = el.scrollHeight - el.clientHeight - el.scrollTop;
     if (room < overlap) {
       if (!padRef.current) padRef.current = { el, prev: el.style.paddingBottom };
-      el.style.paddingBottom = `${sheetHeight + 24}px`;
+      el.style.paddingBottom = `${sheetBox.height + 24}px`;
     }
-    // 瞬时滚动而非 smooth：smooth 期间 rect 读到的是中途值，卡片长高时
-    // 的第二次回调会在旧位置上再叠加一次，越滚越远。
+    // 瞬时滚动而非 smooth：smooth 期间 rect 读到的是中途值，下一次校正会
+    // 在旧位置上再叠加一次，越滚越远。
     el.scrollTop += overlap;
   }, []);
+
+  /**
+   * 开卡后连续校正若干次，直到词露出来为止。
+   *
+   * 为什么是重试循环而不是「内容变了就重量」：卡片高度是异步长起来的
+   * （「查询中…」→ 有中英释义），前两版分别试过 ResizeObserver 和把
+   * 状态放进 effect 依赖，生产实测都失灵 —— RO 构造了但回调不触发；
+   * 换成依赖驱动后 effect 确实跑了 3 次、rAF 也排了 3 次，但每次依赖
+   * 变化时 React 先跑 cleanup，把排好的那一帧取消了，回调一次没执行。
+   *
+   * 与其继续跟 effect 的清理时序较劲，不如让这件事跟 React 的渲染时序
+   * 完全解耦：只由「卡片开了」触发，1 秒内校正 8 次，够覆盖查词请求的
+   * 往返。已经露出来时 liftWordAboveSheet 直接返回，多余的几次是空跑。
+   */
+  useEffect(() => {
+    if (!pickedWord) return;
+    let n = 0;
+    let timer = 0;
+    const step = () => {
+      liftWordAboveSheet();
+      if (++n < 8) timer = window.setTimeout(step, 120);
+    };
+    step();
+    return () => window.clearTimeout(timer);
+  }, [pickedWord, liftWordAboveSheet]);
 
   const closeWordSheet = useCallback(() => {
     restorePad();
@@ -436,7 +463,7 @@ export function IELTSReadingPassage({ paper }: { paper: ExamPaper }) {
           const cur = answers[qid]?.textAnswer ?? '';
           setAnswer(qid, { textAnswer: append && cur ? `${cur.trim()} ${w}` : w });
         }}
-        onSheetMetrics={onSheetMetrics}
+        sheetRef={sheetRef}
         onClose={closeWordSheet}
       />
     </div>
