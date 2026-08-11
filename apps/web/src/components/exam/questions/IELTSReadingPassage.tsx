@@ -216,29 +216,31 @@ export function IELTSReadingPassage({ paper }: { paper: ExamPaper }) {
           students missed the passage (2026-07-24 incident). Both tabs now
           clearly read as a two-way switch, with an icon for instant
           recognition. */}
-      <div className="lg:hidden sticky top-14 z-10 bg-white border-b px-3 py-2">
-        <div className="flex gap-1 p-1 rounded-lg bg-gray-100" role="tablist" aria-label="切换原文 / 题目">
+      {/* 2026-08-11 触屏可用性：这个切换原来只有 36px 高,低于 Apple HIG 的
+          44pt 最小触控目标 —— 而它是全页后果最严重的控件（点不中就整场
+          只做题不看原文）。改用 .seg 分段控件,内含 40px 按钮 + 外层 padding
+          正好到 46px,并去掉了描边改用浮起的白色药丸表示当前页。 */}
+      <div className="ui-ios lg:hidden sticky top-14 z-10 glass glass-top px-3 py-2">
+        <div className="seg" role="tablist" aria-label="切换原文 / 题目">
           <button
             type="button"
             role="tab"
             aria-selected={mobileSide === 'left'}
+            data-on={mobileSide === 'left'}
             onClick={() => setMobileSide('left')}
-            className={`flex-1 px-3 py-2 rounded-md text-sm font-semibold transition-colors ${
-              mobileSide === 'left' ? 'bg-white text-blue-700 shadow-sm' : 'text-gray-600 active:bg-gray-200'
-            }`}
+            className="press"
           >
-            📖 原文 · Passage
+            原文
           </button>
           <button
             type="button"
             role="tab"
             aria-selected={mobileSide === 'right'}
+            data-on={mobileSide === 'right'}
             onClick={() => setMobileSide('right')}
-            className={`flex-1 px-3 py-2 rounded-md text-sm font-semibold transition-colors ${
-              mobileSide === 'right' ? 'bg-white text-blue-700 shadow-sm' : 'text-gray-600 active:bg-gray-200'
-            }`}
+            className="press"
           >
-            ✎ 题目 · Questions
+            题目
           </button>
         </div>
       </div>

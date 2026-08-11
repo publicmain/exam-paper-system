@@ -357,9 +357,10 @@ function PracticeHost({
       >
         <a
           href={backToHistory}
-          className="text-sm text-blue-600 hover:underline"
+          /* 2026-08-11 触屏：原来只有 20px 高的纯文字链接 */
+          className="hit press text-[15px] text-blue-600 font-medium -ml-2 px-2 rounded-lg"
         >
-          ← 退出练习
+          ← 退出
         </a>
         <div className="font-semibold text-base lg:text-lg">{prettifyPaperName(view.paperName)}</div>
         <div className="hidden lg:block text-sm text-gray-500">

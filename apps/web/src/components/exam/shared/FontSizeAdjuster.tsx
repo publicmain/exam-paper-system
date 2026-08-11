@@ -17,7 +17,7 @@ export function FontSizeAdjuster() {
         type="button"
         onClick={() => setFontScale(fontScale - 0.1)}
         disabled={fontScale <= 0.7}
-        className="px-2.5 py-1.5 hover:bg-gray-50 disabled:text-gray-300 disabled:cursor-not-allowed touch-manipulation min-h-[36px]"
+        className="hit press px-3 hover:bg-gray-50 disabled:text-gray-300 disabled:cursor-not-allowed rounded-md"
         aria-label="Decrease font size"
       >
         A−
@@ -27,7 +27,7 @@ export function FontSizeAdjuster() {
         type="button"
         onClick={() => setFontScale(fontScale + 0.1)}
         disabled={fontScale >= 1.6}
-        className="px-2.5 py-1.5 hover:bg-gray-50 disabled:text-gray-300 disabled:cursor-not-allowed touch-manipulation min-h-[36px]"
+        className="hit press px-3 hover:bg-gray-50 disabled:text-gray-300 disabled:cursor-not-allowed rounded-md"
         aria-label="Increase font size"
       >
         A+

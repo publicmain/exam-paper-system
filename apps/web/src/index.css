@@ -88,3 +88,165 @@ body {
   border: 1px solid var(--border);
   box-shadow: 0 4px 12px rgba(0,0,0,0.05);
 }
+
+/* ══════════════════════════════════════════════════════════════════════
+   学生端界面语言（2026-08-11）
+
+   起因：老师用手机实测后反馈「整个页面的交互对触屏不友好」。量了一下,
+   考试页 9 个可点元素里 7 个低于 Apple HIG 的 44pt 最小触控目标 ——
+   便笺按钮只有 16px 高、退出链接 20px,而后果最严重的「原文/题目」切换
+   标签只有 36px（历史上出过学生找不到原文、整场只做题不看文章的事故）。
+   答题控件本身没问题：单选虽然只有 20px,但外层 label 有 50px。
+   所以要修的是外围控件,不是答题区。
+
+   方向参照 Apple HIG,但有两处刻意偏离,理由都在性能上：
+
+   1) 不引入 Framer Motion。本仓库为打包体积打过一次硬仗（曾经 900KB
+      单包,学生手机白屏 30-45 秒,后来才做的代码分割）。纯 CSS transition
+      + 一个 stagger 工具能拿到绝大部分观感,代价 0KB。
+   2) backdrop-filter 只用在贴边的小面积浮层（工具条、底部操作栏）。
+      整页玻璃在低端安卓上会掉帧,而我们的学生正是用那些机器在校园 WiFi
+      上答题 —— 为了好看牺牲滚动流畅度是本末倒置。
+
+   作用域：这一整套只在 .ui-ios 容器内生效,老师端页面完全不受影响。
+   ══════════════════════════════════════════════════════════════════════ */
+:root {
+  /* 触控 —— Apple HIG 最小 44pt */
+  --tap: 44px;
+
+  /* 圆角。iOS 用的是连续曲率,web 只能用较大的半径去近似那种"软"的手感 */
+  --r-sm: 10px;
+  --r-md: 14px;
+  --r-lg: 18px;
+  --r-xl: 24px;
+  --r-pill: 999px;
+
+  /* 阴影 —— 极轻的环境光,靠层次而不是描边来区分平面 */
+  --e-1: 0 1px 2px rgba(16, 24, 40, .04), 0 1px 3px rgba(16, 24, 40, .06);
+  --e-2: 0 2px 8px rgba(16, 24, 40, .06), 0 8px 24px rgba(16, 24, 40, .06);
+  --e-3: 0 8px 32px rgba(16, 24, 40, .10);
+
+  /* 系统蓝 */
+  --ios-blue: #007aff;
+  --ios-blue-press: #0062cc;
+  --ios-gray: #8e8e93;
+  --ios-fill: rgba(120, 120, 128, .12);
+  --ios-sep: rgba(60, 60, 67, .12);
+
+  /* 动效 —— 时长克制,曲线接近 iOS 的 spring 观感 */
+  --dur-fast: .18s;
+  --dur: .28s;
+  --ease-out: cubic-bezier(.32, .72, 0, 1);
+  --ease-spring: cubic-bezier(.34, 1.4, .64, 1);
+}
+
+.ui-ios {
+  /* iOS 正文是 17px。原来全局 14px 是这个界面显得"挤"的一大来源,
+     但只在学生端放大,老师端的密集表格保持原样。 */
+  font-size: 17px;
+  line-height: 1.47;
+  -webkit-font-smoothing: antialiased;
+  letter-spacing: -0.01em;
+}
+.ui-ios .t-large   { font-size: 34px; font-weight: 700; letter-spacing: -0.03em; line-height: 1.15; }
+.ui-ios .t-title   { font-size: 22px; font-weight: 600; letter-spacing: -0.02em; }
+.ui-ios .t-head    { font-size: 17px; font-weight: 600; letter-spacing: -0.01em; }
+.ui-ios .t-body    { font-size: 17px; font-weight: 400; }
+.ui-ios .t-sub     { font-size: 15px; color: var(--ios-gray); }
+.ui-ios .t-cap     { font-size: 13px; color: var(--ios-gray); }
+
+/* 任何可点元素套上就保证够 44pt。用 min-height 而不是硬改尺寸,
+   这样不会撑坏已有布局。 */
+.hit {
+  min-height: var(--tap);
+  min-width: var(--tap);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* 按下反馈。iOS 的按压是"缩一点再弹回来",而不是变个底色。 */
+.press {
+  transition: transform var(--dur-fast) var(--ease-out),
+              background-color var(--dur-fast) var(--ease-out),
+              opacity var(--dur-fast) var(--ease-out);
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+}
+.press:active { transform: scale(.97); }
+/* 大块卡片按下时缩得更少,否则会显得在"塌陷" */
+.press-soft:active { transform: scale(.99); }
+
+/* 卡片：靠阴影和留白分层,不用描边 */
+.ui-ios .card {
+  background: #fff;
+  border-radius: var(--r-lg);
+  box-shadow: var(--e-1);
+  border: none;
+}
+.ui-ios .card-lift { box-shadow: var(--e-2); }
+
+/* 分组列表 —— Apple 设置/健康那种成组的行 */
+.ui-ios .group { background: #fff; border-radius: var(--r-lg); box-shadow: var(--e-1); overflow: hidden; }
+.ui-ios .group > * + * { border-top: 1px solid var(--ios-sep); }
+.ui-ios .row {
+  display: flex; align-items: center; gap: 12px;
+  padding: 14px 16px; min-height: var(--tap);
+}
+
+/* 分段控件（原文/题目切换用它）。这是全页最关键的控件,必须一眼可见、一指可中。 */
+.ui-ios .seg {
+  display: flex; padding: 3px; gap: 3px;
+  background: var(--ios-fill);
+  border-radius: var(--r-pill);
+}
+.ui-ios .seg > button {
+  flex: 1; min-height: 40px;
+  border-radius: var(--r-pill);
+  font-size: 15px; font-weight: 600;
+  color: #3c3c43; background: transparent; border: none;
+  transition: background-color var(--dur-fast) var(--ease-out),
+              color var(--dur-fast) var(--ease-out),
+              box-shadow var(--dur-fast) var(--ease-out);
+}
+.ui-ios .seg > button[data-on="true"] {
+  background: #fff; color: #000; box-shadow: var(--e-1);
+}
+
+/* 贴边浮层 —— 唯一用玻璃的地方,面积小、收益大（内容从下面滑过时仍可读） */
+.ui-ios .glass {
+  background: rgba(255, 255, 255, .82);
+  backdrop-filter: saturate(180%) blur(20px);
+  -webkit-backdrop-filter: saturate(180%) blur(20px);
+  border-top: 1px solid var(--ios-sep);
+}
+.ui-ios .glass-top { border-top: none; border-bottom: 1px solid var(--ios-sep); }
+
+/* 主按钮 */
+.ui-ios .btn-ios {
+  min-height: var(--tap);
+  padding: 0 20px;
+  border-radius: var(--r-md);
+  font-size: 17px; font-weight: 600;
+  background: var(--ios-blue); color: #fff; border: none;
+}
+.ui-ios .btn-ios:active { background: var(--ios-blue-press); }
+.ui-ios .btn-ghost {
+  min-height: var(--tap); padding: 0 16px;
+  border-radius: var(--r-md); font-size: 17px; font-weight: 500;
+  background: var(--ios-fill); color: var(--ios-blue); border: none;
+}
+
+/* 入场：淡入 + 轻微上移,依次错开。只做一次,不循环。 */
+@keyframes ios-enter { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
+.ui-ios .enter { animation: ios-enter var(--dur) var(--ease-out) both; }
+.ui-ios .enter-1 { animation-delay: .04s; }
+.ui-ios .enter-2 { animation-delay: .08s; }
+.ui-ios .enter-3 { animation-delay: .12s; }
+.ui-ios .enter-4 { animation-delay: .16s; }
+
+/* 无障碍：系统开了"减弱动态效果"就全部关掉,这是 HIG 的硬要求 */
+@media (prefers-reduced-motion: reduce) {
+  .ui-ios .enter { animation: none; }
+  .press, .press:active, .press-soft:active { transition: none; transform: none; }
+}

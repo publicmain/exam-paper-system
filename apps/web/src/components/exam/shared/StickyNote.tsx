@@ -85,14 +85,16 @@ export function StickyNoteRail({
       <div className="flex items-center justify-between mb-2">
         <button
           type="button"
-          className="text-xs text-gray-500 underline"
+          /* 2026-08-11 触屏：原来是 text-xs 下划线文字,实测仅 16px 高,
+             远低于 44pt。改成有实体触控区的按钮。 */
+          className="hit press text-[15px] text-gray-600 font-medium px-2 -ml-2 rounded-lg"
           onClick={() => setOpen((v) => !v)}
         >
           便笺 · Notes ({notes.length})
         </button>
         <button
           type="button"
-          className="text-sm text-blue-600 px-3 py-1.5 rounded-lg border border-blue-200 hover:bg-blue-50 active:bg-blue-100 touch-manipulation min-h-[36px] font-medium"
+          className="text-sm text-blue-600 px-3 py-1.5 rounded-lg border border-blue-200 hover:bg-blue-50 active:bg-blue-100 touch-manipulation min-h-[44px] font-medium press"
           onClick={() => {
             const t = prompt('便笺内容 · Note text');
             if (t !== null) onAdd(t);

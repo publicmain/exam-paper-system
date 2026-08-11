@@ -250,13 +250,16 @@ export default function MyHistory() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <header className="bg-white border-b">
-        <div className="max-w-4xl mx-auto px-6 py-4 flex items-start justify-between gap-4">
-          <div>
-            <h1 className="text-xl font-bold text-gray-900">📊 我的早测记录 · My Morning Quiz Portal</h1>
-            <p className="text-xs text-gray-500 mt-1">
-              输入姓名即可查看本人成绩 · Type your name to see your quiz scores.
+    // 2026-08-11 —— 学生端换用 .ui-ios 界面语言（正文 17px、44pt 触控目标、
+    // 靠留白与字号分层而不是描边）。作用域限定在这个容器内,老师端不受影响。
+    <div className="ui-ios min-h-screen" style={{ background: '#f2f2f7' }}>
+      <header className="glass glass-top sticky top-0 z-20">
+        <div className="max-w-3xl mx-auto px-5 pt-5 pb-3 flex items-start justify-between gap-3">
+          <div className="min-w-0">
+            {/* iOS 的 large title：标题本身承担层级,不需要图标和副标题堆砌 */}
+            <h1 className="t-large text-gray-900">我的早测</h1>
+            <p className="t-sub mt-0.5">
+              输入姓名查看本人成绩
             </p>
           </div>
           {/* Shared-laptop scenario: the previous student leaves the page
@@ -268,10 +271,10 @@ export default function MyHistory() {
             <button
               type="button"
               onClick={() => setConfirmSwitch(true)}
-              className="shrink-0 text-sm px-4 py-2 rounded-md border border-gray-300 bg-white hover:bg-gray-100 active:bg-gray-200 text-gray-700 font-medium touch-manipulation"
+              className="shrink-0 hit press btn-ghost text-[15px]"
               title="清空记住的姓名, 让下一位学生查自己的"
             >
-              ↺ 换学生 · Switch
+              换学生
             </button>
           )}
           {confirmSwitch && (
@@ -290,14 +293,14 @@ export default function MyHistory() {
                   params.delete('name');
                   setParams(params, { replace: true });
                 }}
-                className="px-3 py-1.5 rounded-md border border-rose-300 bg-rose-50 hover:bg-rose-100 text-rose-700 font-medium touch-manipulation"
+                className="hit press px-4 rounded-[14px] bg-rose-50 text-rose-600 font-semibold"
               >
                 是
               </button>
               <button
                 type="button"
                 onClick={() => setConfirmSwitch(false)}
-                className="px-3 py-1.5 rounded-md border border-gray-300 bg-white hover:bg-gray-100 text-gray-700 font-medium touch-manipulation"
+                className="hit press px-4 rounded-[14px] bg-[color:var(--ios-fill)] text-gray-700 font-semibold"
               >
                 否
               </button>
@@ -309,7 +312,7 @@ export default function MyHistory() {
       <main className="max-w-4xl mx-auto px-6 py-6 space-y-6">
         <form
           onSubmit={(e) => { e.preventDefault(); lookup(name); }}
-          className="bg-white border border-gray-200 rounded-xl shadow-sm p-5 space-y-3"
+          className="card enter p-5 space-y-3"
         >
           <label className="block text-sm font-medium text-gray-700">
             姓名 · Name
@@ -411,8 +414,8 @@ export default function MyHistory() {
             }`}
             className={`block border rounded-xl shadow-sm p-4 active:bg-gray-100 ${
               dueCount && dueCount > 0
-                ? 'bg-amber-50 border-amber-300 hover:bg-amber-100'
-                : 'bg-white border-gray-200 hover:bg-gray-50'
+                ? 'bg-amber-50 shadow-none ring-1 ring-amber-200'
+                : 'bg-white'
             }`}
           >
             <div className="flex items-center justify-between gap-3">
@@ -445,7 +448,7 @@ export default function MyHistory() {
         {data && (
           <>
             {/* Student summary card */}
-            <section className="bg-white border border-gray-200 rounded-xl shadow-sm p-5">
+            <section className="card enter p-5">
               <div className="flex items-baseline gap-3 flex-wrap">
                 <div className="text-lg font-semibold">{data.student.name}</div>
                 {data.student.classes.length > 0 && (
