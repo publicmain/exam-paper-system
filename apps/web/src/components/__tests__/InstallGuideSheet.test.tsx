@@ -10,10 +10,10 @@ import { detectPlatform } from '../../lib/pwa';
 /**
  * 分机型安装向导（一步一屏）的行为契约。
  *
- * 最重要的一条：iPhone 的第一步必须是「逃回真 Safari」——
- * 2026-08-12 老师真机实测发现,扫码打开的是 iOS 的扫码小窗口,
- * 里面没有分享按钮,「添加到主屏幕」根本不存在。教程第一步若直接
- * 讲分享按钮,对不上学生眼前的屏幕,后面全部作废。
+ * 步骤与截图来自老师 2026-08-12 的真机逐步实拍：iPhone 从扫码小窗口
+ * 的「···」→「共享」直达（不需要逃回 Safari）；安卓的第一步是
+ * **必须用 Chrome 的相机扫码**（系统相机打开的页面装不了 App）——
+ * 这一步没做对后面全部白搭,所以必须是第一步。
  */
 
 const setUA = (ua: string, touch = 0) => {
@@ -50,16 +50,14 @@ describe('detectPlatform', () => {
 });
 
 describe('InstallGuideSheet（一步一屏向导）', () => {
-  it('iPhone 第一步是「逃回真 Safari」,不是分享按钮', () => {
+  it('iPhone 第一步是扫码小窗口的「···」,配拷贝网址兜底', () => {
     setUA(IPHONE);
     render(<InstallGuideSheet onDone={vi.fn()} />);
     expect(screen.getByRole('tab', { name: /iPhone/ }).getAttribute('aria-selected')).toBe('true');
-    expect(screen.getByText('先回到真正的 Safari')).toBeTruthy();
-    expect(screen.getByText(/在 Safari 中打开/)).toBeTruthy();
-    // 兜底：拷贝网址按钮
+    expect(screen.getByText('点右下角的「···」')).toBeTruthy();
     expect(screen.getByText(/拷贝网址/)).toBeTruthy();
-    // 一步一屏：分享按钮那一步此刻不该出现
-    expect(screen.queryByText('点底部中间的「分享」按钮')).toBeNull();
+    // 一步一屏：后面的步骤此刻不该出现
+    expect(screen.queryByText('点「共享」')).toBeNull();
   });
 
   it('下一步/上一步逐屏推进,最后一步变成「开始答题」', async () => {
@@ -68,22 +66,27 @@ describe('InstallGuideSheet（一步一屏向导）', () => {
     const onDone = vi.fn();
     render(<InstallGuideSheet onDone={onDone} />);
     await u.click(screen.getByText('下一步 · 1/5'));
-    expect(screen.getByText('点底部中间的「分享」按钮')).toBeTruthy();
+    expect(screen.getByText('点「共享」')).toBeTruthy();
     await u.click(screen.getByText('上一步'));
-    expect(screen.getByText('先回到真正的 Safari')).toBeTruthy();
+    expect(screen.getByText('点右下角的「···」')).toBeTruthy();
     for (const n of [1, 2, 3, 4]) await u.click(screen.getByText(`下一步 · ${n}/5`));
-    expect(screen.getByText('完成！')).toBeTruthy();
+    expect(screen.getByText('点右上角「添加」，完成！')).toBeTruthy();
     await u.click(screen.getByText('知道了，开始答题'));
     expect(onDone).toHaveBeenCalledTimes(1);
   });
 
-  it('iPad（桌面 UA + 触控）：第二步分享按钮指向右上角', async () => {
+  it('iPad（桌面 UA + 触控）：第一步分享按钮在右上角', () => {
     setUA(IPAD_DESKTOP_UA, 5);
-    const u = userEvent.setup();
     render(<InstallGuideSheet onDone={vi.fn()} />);
     expect(screen.getByRole('tab', { name: /iPad/ }).getAttribute('aria-selected')).toBe('true');
-    await u.click(screen.getByText('下一步 · 1/3'));
     expect(screen.getByText(/右上角的「分享」按钮/)).toBeTruthy();
+  });
+
+  it('安卓第一步必须是「用 Chrome 的相机扫码」—— 顺序错了后面全白搭', () => {
+    setUA(ANDROID);
+    render(<InstallGuideSheet onDone={vi.fn()} />);
+    expect(screen.getByText(/必须用 Chrome 的相机扫码/)).toBeTruthy();
+    expect(screen.getByText(/系统相机或其他扫码工具打开的页面装不了/)).toBeTruthy();
   });
 
   it('切机型回到第一步 —— 步骤不通用', async () => {
@@ -92,8 +95,8 @@ describe('InstallGuideSheet（一步一屏向导）', () => {
     render(<InstallGuideSheet onDone={vi.fn()} />);
     await u.click(screen.getByText('下一步 · 1/5'));
     await u.click(screen.getByRole('tab', { name: /安卓/ }));
-    expect(screen.getByText('点右上角「⋮」菜单')).toBeTruthy();
-    expect(screen.getByText('下一步 · 1/3')).toBeTruthy();
+    expect(screen.getByText(/必须用 Chrome 的相机扫码/)).toBeTruthy();
+    expect(screen.getByText('下一步 · 1/5')).toBeTruthy();
   });
 
   it('「跳过」在任何一步都立即放行', async () => {
@@ -101,7 +104,7 @@ describe('InstallGuideSheet（一步一屏向导）', () => {
     const u = userEvent.setup();
     const onDone = vi.fn();
     render(<InstallGuideSheet onDone={onDone} />);
-    await u.click(screen.getByText('下一步 · 1/3'));
+    await u.click(screen.getByText('下一步 · 1/5'));
     await u.click(screen.getByText('跳过'));
     expect(onDone).toHaveBeenCalledTimes(1);
   });

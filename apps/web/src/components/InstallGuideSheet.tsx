@@ -13,14 +13,14 @@ import {
  *
  * 第一版把所有步骤竖排在一页里,老师用 iPhone 实测发现一个致命问题:
  * 学生扫码进来的根本**不是 Safari**,而是 iOS 相机/扫码器的
- * 「小窗口浏览器」(in-app browser) —— 底部只有 返回/地址栏/「···」,
- * **没有分享按钮**,「添加到主屏幕」在这种窗口里根本不存在。
- * 教程第一步就对不上学生眼前的屏幕,后面全部作废。
+ * 「小窗口浏览器」(in-app browser),底部没有分享按钮 —— 教程第一步
+ * 就对不上学生眼前的屏幕。
  *
- * 所以 iPhone/iPad 的第一步永远是**逃回真 Safari**:点右下角「···」→
- * 「在 Safari 中打开」。这一步配了按老师实拍截图复刻的示意图。
- * 逃生失败的兜底:「拷贝网址」按钮,自己打开 Safari 粘贴 ——
- * 无论被关在哪种小窗口里,这条路永远走得通。
+ * 第二版我让学生「逃回真 Safari」再操作;老师随后用真机逐步实拍了
+ * 全流程,实拍推翻了这个绕路:小窗口的「···」菜单里就有「共享」,
+ * 共享面板里直接有「添加到主屏幕」,根本不用逃。当前步骤与截图
+ * 全部来自老师的实拍(见 STEPS 注释)。「拷贝网址」兜底保留 ——
+ * 旧系统若没有共享入口,拷贝→自己开 Safari→粘贴永远走得通。
  *
  * ## 为什么一步一屏(集百家之所长)
  *
@@ -56,72 +56,102 @@ interface Step {
   img: string;
   title: string;
   desc: string;
-  /** iPhone 第 0 步专用：显示「拷贝网址」兜底按钮 */
+  /** 竖屏截图（iPhone）—— 限高显示，不然一张图占两屏 */
+  portrait?: boolean;
+  /** 兜底：显示「拷贝网址」按钮 */
   copyUrl?: boolean;
 }
 
+/**
+ * 步骤截图全部是老师 2026-08-12 用真机逐步实拍的（红色箭头也是老师
+ * 标注的），存放于 public/install-guide/real-*.jpg。此前两版用自绘
+ * 示意图都被真机打回 —— 示意图画的是"我以为的界面"，实拍才是学生
+ * 眼前的界面。
+ *
+ * 实拍还推翻了我一个假设：iPhone 扫码小窗口**不需要**逃回 Safari ——
+ * 「···」菜单里就有「共享」，共享面板里直接有「添加到主屏幕」。
+ */
 const STEPS: Record<Exclude<Platform, 'other'>, Step[]> = {
   iphone: [
     {
-      img: '/install-guide/ip0.png',
-      title: '先回到真正的 Safari',
-      desc: '扫码打开的是一个「小窗口」，里面装不了 App。点右下角「···」，选「在 Safari 中打开」。（如果你底部已经有 ⬆︎ 分享按钮，说明已经在 Safari 里，直接下一步。）',
+      img: '/install-guide/real-ip-1.jpg',
+      title: '点右下角的「···」',
+      desc: '扫码打开的页面，底部最右边有一个「···」按钮 —— 点它。',
+      portrait: true,
       copyUrl: true,
     },
     {
-      img: '/install-guide/ip1.png',
-      title: '点底部中间的「分享」按钮',
-      desc: '就是那个带向上箭头的方框 ⬆︎，在 Safari 屏幕最底下一排的正中间。',
+      img: '/install-guide/real-ip-2.jpg',
+      title: '点「共享」',
+      desc: '弹出的菜单里，点最上面的「共享」（带 ⬆︎ 图标）。',
+      portrait: true,
     },
     {
-      img: '/install-guide/ip2.png',
-      title: '选「添加到主屏幕」',
-      desc: '菜单往下滑一点就能看到。英文系统叫 Add to Home Screen。',
+      img: '/install-guide/real-ip-3.jpg',
+      title: '点「View More / 查看更多」',
+      desc: '分享面板下面一排圆形按钮，最右边那个 ∨ 就是。',
+      portrait: true,
     },
     {
-      img: '/install-guide/ip3.png',
-      title: '点右上角「添加」',
-      desc: '名字保持「早测查询」就行，不用改。',
+      img: '/install-guide/real-ip-4.jpg',
+      title: '点「添加到主屏幕」',
+      desc: '在展开的列表里，图标是一个带 + 的方框。',
+      portrait: true,
     },
     {
-      img: '/install-guide/ip4.png',
-      title: '完成！',
-      desc: '主屏幕多了一个蓝色图标。以后点它就直接看到自己的成绩和生词本，不用扫码、不用输名字。',
+      img: '/install-guide/real-ip-5.jpg',
+      title: '点右上角「添加」，完成！',
+      desc: '名字保持「早测查询」不用改；「作为网页 App 打开」保持打开。添加后主屏幕就有蓝色图标了。',
+      portrait: true,
     },
   ],
   ipad: [
     {
-      img: '/install-guide/ip0.png',
-      title: '先回到真正的 Safari',
-      desc: '如果是扫码打开的「小窗口」（没有分享按钮），点「···」选「在 Safari 中打开」。已经在 Safari 里就直接下一步。',
-      copyUrl: true,
-    },
-    {
-      img: '/install-guide/pad1.png',
+      img: '/install-guide/real-pad-1.jpg',
       title: '点右上角的「分享」按钮',
-      desc: 'iPad 的分享按钮 ⬆︎ 在地址栏旁边的右上角 —— 和 iPhone 位置不一样。',
+      desc: 'iPad 的分享按钮 ⬆︎ 在右上角、地址栏旁边 —— 和 iPhone 位置不一样。',
     },
     {
-      img: '/install-guide/pad2.png',
-      title: '选「添加到主屏幕」，再点「添加」',
-      desc: '完成后主屏幕就有「早测查询」图标了。',
+      img: '/install-guide/real-pad-2.jpg',
+      title: '点「查看更多」',
+      desc: '分享面板里那排圆形按钮的最后一个 ∨。',
+    },
+    {
+      img: '/install-guide/real-pad-3.jpg',
+      title: '点「添加到主屏幕」',
+      desc: '在展开列表的最下面。',
+    },
+    {
+      img: '/install-guide/real-pad-4.jpg',
+      title: '点「添加」，完成！',
+      desc: '名字保持「早测查询」，「作为网页 App 打开」保持打开。',
     },
   ],
   android: [
     {
-      img: '/install-guide/and1.png',
+      img: '/install-guide/real-and-1.jpg',
+      title: '关键：必须用 Chrome 的相机扫码',
+      desc: '打开 Chrome，点搜索栏右边的相机图标，用它扫墙上的二维码。⚠️ 用系统相机或其他扫码工具打开的页面装不了 App —— 这一步没做对，后面全都看不到。',
+    },
+    {
+      img: '/install-guide/real-and-2.jpg',
       title: '点右上角「⋮」菜单',
-      desc: '用 Chrome 或手机自带浏览器打开时，右上角都有这个三个点的菜单。',
+      desc: '页面打开后，Chrome 右上角三个点。',
     },
     {
-      img: '/install-guide/and2.png',
-      title: '点「安装应用」',
-      desc: '有的手机叫「添加到主屏幕 / Add to Home Screen」，是同一个东西。',
+      img: '/install-guide/real-and-3.jpg',
+      title: '点「安装并创建快捷方式」',
+      desc: '菜单中间偏下的位置（有的手机叫「安装应用」或「添加到主屏幕」）。',
     },
     {
-      img: '/install-guide/and3.png',
-      title: '点「安装」，完成！',
-      desc: '桌面出现「早测查询」图标，以后点它就直接看成绩，不用扫码。',
+      img: '/install-guide/real-and-4.jpg',
+      title: '选「安装」',
+      desc: '注意选上面的「安装」—— 下面的「创建快捷方式」只是个书签，不是 App。',
+    },
+    {
+      img: '/install-guide/real-and-5.jpg',
+      title: '弹窗里再点「安装」，完成！',
+      desc: '桌面出现「早测查询 · Morning Quiz」图标，以后点它就直接看成绩。',
     },
   ],
 };
@@ -232,8 +262,10 @@ export default function InstallGuideSheet({ onDone }: { onDone: () => void }) {
           <p className="text-[14px] text-gray-600 mt-1.5 leading-relaxed">{s.desc}</p>
           <img
             src={s.img}
-            alt={`第 ${step + 1} 步示意图`}
-            className="mt-3 w-full rounded-[16px] border border-gray-200"
+            alt={`第 ${step + 1} 步截图`}
+            className={`mt-3 rounded-[16px] border border-gray-200 ${
+              s.portrait ? 'max-h-[52vh] w-auto mx-auto' : 'w-full'
+            }`}
           />
           {s.copyUrl && (
             <button
