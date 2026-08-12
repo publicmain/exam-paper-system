@@ -209,6 +209,9 @@ export function IELTSReadingPassage({ paper }: { paper: ExamPaper }) {
    */
   function handleWordTap(w: string, range: Range) {
     wordRangeRef.current = range;
+    // 先让位、再开卡。顺序反过来的话卡片会盖住词、下一帧再把它推出来,
+    // 那一下就是"抖"。
+    liftWordAboveSheet(range);
     setPickedSentence(sentenceContaining(passageBody, w));
     setPickedWord(w);
     if (neverLookedUp) {
@@ -233,14 +236,24 @@ export function IELTSReadingPassage({ paper }: { paper: ExamPaper }) {
     padRef.current = null;
   }, []);
 
-  /** 卡片外框。量它的真实顶边，才知道要把词顶多高。 */
-  const sheetRef = useRef<HTMLDivElement | null>(null);
-
-  /** 量一次、需要就滚一次。已经露出来了就什么都不做。 */
-  const liftWordAboveSheet = useCallback(() => {
-    const r = wordRangeRef.current;
-    const sheet = sheetRef.current;
-    if (!r || !sheet) return;
+  /**
+   * 把词顶到卡片上方。**在卡片出现之前同步做完，只做一次。**
+   *
+   * 关键是不用去量卡片：它贴着底边、`max-h` 写死 58vh，所以顶边最低
+   * 也就到 42vh（撑满时 100vh − 58vh）。只要把词底边顶到 42vh 以上，
+   * 任何高度的卡片都遮不住它 —— 不必等它渲染、不必测它多高、更不必
+   * 等释义加载完再校正一次。
+   *
+   * 上一版为了拿到"卡片真实高度"跑了个 1.8 秒 / 12 次的自收敛循环,
+   * 每次都读一遍布局、可能再写一次 scrollTop。老师的原话是"很卡、
+   * 不跟手" —— 就是它:卡片正在滑上来的同时,文章底下还在被反复推,
+   * 两个动作打架。改成一次算准,循环整个删掉。
+   *
+   * (当初第一版其实就是按 42vh 估的,失败原因是滚动容器找错了 ——
+   *  写死了 aside/window,手机上两个都不是。我当时把两件事混在一起,
+   *  误判成"vh 估算错",绕了一大圈。容器那个 bug 早已修掉。)
+   */
+  const liftWordAboveSheet = useCallback((r: Range) => {
     let rect: DOMRect;
     try {
       rect = r.getBoundingClientRect();
@@ -248,8 +261,9 @@ export function IELTSReadingPassage({ paper }: { paper: ExamPaper }) {
       return; // Range 所在节点已被替换（高亮重渲染），放弃滚动
     }
     if (!rect.width && !rect.height) return;
-    const sheetBox = sheet.getBoundingClientRect();
-    const overlap = rect.bottom - (sheetBox.top - 16);
+    const vh = window.innerHeight;
+    const worstSheetTop = vh * 0.42; // 卡片撑满 58vh 时的顶边
+    const overlap = rect.bottom - (worstSheetTop - 16);
     if (overlap <= 4) return; // 本来就没被遮住 —— 别乱滚，学生会失去上下文
 
     const el = scrollParentOf(r.startContainer) ?? (document.scrollingElement as HTMLElement | null);
@@ -270,38 +284,13 @@ export function IELTSReadingPassage({ paper }: { paper: ExamPaper }) {
       const host = r.startContainer.parentElement?.closest<HTMLElement>('.select-text');
       const pad = host ?? el;
       if (!padRef.current) padRef.current = { el: pad, prev: pad.style.paddingBottom };
-      pad.style.paddingBottom = `${sheetBox.height + 24}px`;
+      pad.style.paddingBottom = `${Math.round(vh * 0.58) + 24}px`;
     }
-    // 瞬时滚动而非 smooth：smooth 期间 rect 读到的是中途值，下一次校正会
-    // 在旧位置上再叠加一次，越滚越远。
+    // 瞬时滚动。这一下发生在卡片渲染之前，学生看到的是「文章先让开，
+    // 卡片再滑上来」两个分开的动作；换成 smooth 会和卡片的入场动画
+    // 叠在一起同时跑，反而糊。
     el.scrollTop += overlap;
   }, []);
-
-  /**
-   * 开卡后连续校正若干次，直到词露出来为止。
-   *
-   * 为什么是重试循环而不是「内容变了就重量」：卡片高度是异步长起来的
-   * （「查询中…」→ 有中英释义），前两版分别试过 ResizeObserver 和把
-   * 状态放进 effect 依赖，生产实测都失灵 —— RO 构造了但回调不触发；
-   * 换成依赖驱动后 effect 确实跑了 3 次、rAF 也排了 3 次，但每次依赖
-   * 变化时 React 先跑 cleanup，把排好的那一帧取消了，回调一次没执行。
-   *
-   * 与其继续跟 effect 的清理时序较劲，不如让这件事跟 React 的渲染时序
-   * 完全解耦：只由「卡片开了」触发，1.8 秒内校正 12 次，够覆盖查词请求
-   * 的往返（本地词典通常几百毫秒，冷启动会慢些）。已经露出来时
-   * liftWordAboveSheet 直接返回，多余的几次是空跑。
-   */
-  useEffect(() => {
-    if (!pickedWord) return;
-    let n = 0;
-    let timer = 0;
-    const step = () => {
-      liftWordAboveSheet();
-      if (++n < 12) timer = window.setTimeout(step, 150);
-    };
-    step();
-    return () => window.clearTimeout(timer);
-  }, [pickedWord, liftWordAboveSheet]);
 
   const closeWordSheet = useCallback(() => {
     restorePad();
@@ -510,7 +499,6 @@ export function IELTSReadingPassage({ paper }: { paper: ExamPaper }) {
           const cur = answers[qid]?.textAnswer ?? '';
           setAnswer(qid, { textAnswer: append && cur ? `${cur.trim()} ${w}` : w });
         }}
-        sheetRef={sheetRef}
         onClose={closeWordSheet}
       />
     </div>

@@ -76,7 +76,6 @@ export default function ExamWordSheet({
   fillTarget,
   studentName,
   onFill,
-  sheetRef,
   onClose,
 }: {
   word: string | null;
@@ -86,15 +85,10 @@ export default function ExamWordSheet({
   fillTarget: FillTarget;
   studentName?: string | null;
   onFill: (questionId: string, word: string, append: boolean) => void;
-  /**
-   * 卡片外框的 ref，由调用方持有。
-   *
-   * 调用方要把被查的词顶到卡片上方，就得知道卡片真实的顶边 —— 卡片是
-   * 自适应高度且内容异步（「查询中…」的小卡 → 有中英释义的大卡），
-   * 按 vh 估必然估错。这里只负责把 ref 挂上，量和滚都归调用方，
-   * 谁滚谁负责。
-   */
-  sheetRef?: React.RefObject<HTMLDivElement | null>;
+  /* 这里曾经有个 sheetRef，用来让调用方量卡片的真实高度、再决定把词
+     顶多高。后来发现根本不用量：卡片贴底且 max-h 写死 58vh，顶边最低
+     只到 42vh，按这个最坏值一次算准就行。调用方现在在开卡**之前**就
+     把位置腾好了，不再需要回头看卡片一眼。 */
   onClose: () => void;
 }) {
   const [entry, setEntry] = useState<Entry | null>(null);
@@ -149,10 +143,9 @@ export default function ExamWordSheet({
 
   return (
     <div className="ui-ios fixed inset-0 z-50 flex items-end" onClick={onClose}>
-      <div className="absolute inset-0 bg-black/25" />
+      <div className="absolute inset-0 bg-black/25 ws-dim" />
       <div
-        ref={sheetRef}
-        className="relative w-full bg-white rounded-t-[24px] shadow-2xl max-h-[58vh] overflow-y-auto"
+        className="ws-rise relative w-full bg-white rounded-t-[24px] shadow-2xl max-h-[58vh] overflow-y-auto"
         onClick={(e) => e.stopPropagation()}
       >
         {/* 顶部小横条 —— iOS 抽屉的标准可拖拽暗示 */}

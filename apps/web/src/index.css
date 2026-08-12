@@ -261,6 +261,15 @@ body {
   animation: wn-pulse 1.4s var(--ease-out) infinite;
 }
 
+/* 查词卡入场：从底边滑上来 + 背景淡入。
+   只动 transform / opacity —— 这两个属性走合成层,不触发重排,
+   在手机上才跟得住手指。曲线用 iOS 那条(快起慢收),观感上像是被
+   甩上来再稳住,而不是匀速推上来。 */
+@keyframes ws-rise { from { transform: translateY(100%); } to { transform: translateY(0); } }
+@keyframes ws-dim  { from { opacity: 0; } to { opacity: 1; } }
+.ws-rise { animation: ws-rise .3s cubic-bezier(.32, .72, 0, 1) both; will-change: transform; }
+.ws-dim  { animation: ws-dim .3s var(--ease-out) both; }
+
 /* 聚光灯巡礼的变暗层：淡入,不要"啪"地一下糊上来 */
 @keyframes wn-fade { from { opacity: 0; } to { opacity: 1; } }
 .wn-fade { animation: wn-fade .28s var(--ease-out) both; }
@@ -268,6 +277,7 @@ body {
 /* 无障碍：系统开了"减弱动态效果"就全部关掉,这是 HIG 的硬要求 */
 @media (prefers-reduced-motion: reduce) {
   .wn-fade { animation: none; }
+  .ws-rise, .ws-dim { animation: none; }
   .ui-ios .enter { animation: none; }
   .press, .press:active, .press-soft:active { transition: none; transform: none; }
   /* 呼吸动画关掉,但提示还得看得见 —— 换成静态底色,不是直接消失 */
