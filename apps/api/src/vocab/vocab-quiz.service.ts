@@ -51,6 +51,28 @@ export function optionText(translation: string): string {
   return line.length > 38 ? line.slice(0, 37) + '…' : line;
 }
 
+/**
+ * 干扰项黑名单。词典兜底池按"考纲标签+高频段"过滤,但 ECDICT 的标签
+ * 来自历史考纲,里面混着今天绝不该出现在学校题目里的词(上线首日实测
+ * 就抽出了 negro)。宁可误杀。
+ */
+const OFFENSIVE = /negro|nigg|rape|fuck|shit|bitch|cunt|whore|slut|penis|vagina|dick\b|porn|nazi/i;
+
+export function isSafeDistractor(word: string): boolean {
+  return !OFFENSIVE.test(word) && /^[a-z][a-z-]{2,15}$/i.test(word);
+}
+
+/** 释义第一行的词性前缀（n./v./a. …）。匹配不到返回 ''。 */
+export function posOf(translation: string): string {
+  const m = (translation ?? '').trim().match(/^(vt|vi|n|v|adj|adv|a|ad|prep|conj|pron)\./i);
+  if (!m) return '';
+  const p = m[1].toLowerCase();
+  if (p === 'adj') return 'a';
+  if (p === 'adv' || p === 'ad') return 'ad';
+  if (p === 'vt' || p === 'vi') return 'v';
+  return p;
+}
+
 /** 两条中文释义是否共享任何连续两个汉字 —— 同义词碰撞的便宜探测器。 */
 export function cjkBigramCollision(a: string, b: string): boolean {
   const grams = (s: string) => {
@@ -95,9 +117,18 @@ export function pickDistractors(
 ): Candidate[] | null {
   const seen = new Set<string>([answer.headword.toLowerCase()]);
   const ok: Candidate[] = [];
-  for (const c of shuffle(pool, seed)) {
+  // 词性相同的候选排前面：看义选词/原句填空时,四个选项词性一致才有
+  // 迷惑性("was ___ with rain" 里混一个名词等于白送)。词性不足再用
+  // 其他的补 —— 出得出题永远优先于题目漂亮。
+  const target = posOf(answer.translation);
+  const shuffled = shuffle(pool, seed);
+  const ordered = target
+    ? [...shuffled.filter((c) => posOf(c.translation) === target), ...shuffled.filter((c) => posOf(c.translation) !== target)]
+    : shuffled;
+  for (const c of ordered) {
     const hw = c.headword.toLowerCase();
     if (seen.has(hw)) continue;
+    if (!isSafeDistractor(c.headword)) continue;
     if (!c.translation?.trim()) continue;
     if (cjkBigramCollision(optionText(c.translation), optionText(answer.translation))) continue;
     // 干扰项之间也不能互为近义 —— 否则"两个都像对的"

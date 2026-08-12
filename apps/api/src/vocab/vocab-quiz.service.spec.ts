@@ -1,5 +1,11 @@
 import { describe, expect, it } from 'vitest';
-import { cjkBigramCollision, optionText, pickDistractors } from './vocab-quiz.service';
+import {
+  cjkBigramCollision,
+  isSafeDistractor,
+  optionText,
+  pickDistractors,
+  posOf,
+} from './vocab-quiz.service';
 
 /**
  * 自测出题的三个纯函数。出题质量的生死线在干扰项：
@@ -64,9 +70,46 @@ describe('pickDistractors（挑干扰项）', () => {
   });
 
   it('跳过空释义的候选', () => {
-    const pool = [mk('a', ''), mk('b', 'n. 轴'), mk('c', 'n. 骨骼'), mk('d', 'n. 模式')];
+    const pool = [mk('aaa', ''), mk('bbb', 'n. 轴'), mk('ccc', 'n. 骨骼'), mk('ddd', 'n. 模式')];
     const d = pickDistractors(answer, pool, 3)!;
-    expect(d.map((x) => x.headword)).not.toContain('a');
+    expect(d.map((x) => x.headword)).not.toContain('aaa');
     expect(d).toHaveLength(3);
+  });
+
+  it('冒犯性词汇绝不进题目 —— 上线首日实测抽出过 negro', () => {
+    const pool = [
+      mk('negro', 'n. 黑人'),
+      mk('skeleton', 'n. 骨骼'),
+      mk('slot', 'n. 狭缝'),
+      mk('pattern', 'n. 模式'),
+      mk('axis', 'n. 轴'),
+    ];
+    for (let seed = 1; seed < 30; seed += 3) {
+      const d = pickDistractors(answer, pool, seed)!;
+      expect(d.map((x) => x.headword)).not.toContain('negro');
+    }
+    expect(isSafeDistractor('negro')).toBe(false);
+    expect(isSafeDistractor('ok')).toBe(false); // 太短(<3)也不要
+    expect(isSafeDistractor('skeleton')).toBe(true);
+  });
+
+  it('词性一致的干扰项优先', () => {
+    expect(posOf('n. 轴')).toBe('n');
+    expect(posOf('vt. 哄, 诱骗')).toBe('v');
+    expect(posOf('a. 松的')).toBe('a');
+    expect(posOf('紫外线的')).toBe('');
+    // 答案是名词,池里名词管够 → 三个全应是名词
+    const pool = [
+      mk('coax', 'vt. 哄'),
+      mk('slick', 'a. 光滑的'),
+      mk('skeleton', 'n. 骨骼'),
+      mk('slot', 'n. 狭缝'),
+      mk('pattern', 'n. 模式'),
+      mk('axis', 'n. 轴'),
+    ];
+    for (let seed = 1; seed < 30; seed += 3) {
+      const d = pickDistractors(answer, pool, seed)!;
+      expect(d.every((x) => posOf(x.translation) === 'n')).toBe(true);
+    }
   });
 });
