@@ -194,7 +194,15 @@ export default function MorningQuizScan() {
     return (
       <Centered>
         <div className="text-7xl mb-6">{isQuizOver(error.code, error.message) ? '🕐' : '⛔'}</div>
-        <div className="text-2xl font-semibold mb-2 text-rose-600">{error.message}</div>
+        {/* 「不是考试时间」不是错误 —— 下午扫码查成绩的学生占多数,满屏
+            红字"联系班主任"会吓到他们。灰字陈述事实,红色留给真报错。 */}
+        <div
+          className={`text-2xl font-semibold mb-2 ${
+            isQuizOver(error.code, error.message) ? 'text-gray-600' : 'text-rose-600'
+          }`}
+        >
+          {error.message}
+        </div>
         <div className="text-xs text-gray-400 mt-2 font-mono">code: {error.code}</div>
         <AfterQuizPortal code={error.code} raw={error.message} />
       </Centered>
