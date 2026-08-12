@@ -436,6 +436,26 @@ export default function MyHistory() {
                 <span className="text-gray-400 text-lg">›</span>
               </div>
             </div>
+            {/* P5 自测入口 —— 卡片内的次级动作。用 span+onClick 而不是嵌套
+                <Link>（a 里套 a 是无效 HTML，点击行为由浏览器随机决定）。 */}
+            <span
+              role="link"
+              tabIndex={0}
+              onClick={(e) => {
+                e.preventDefault();
+                navigate(
+                  `/my-vocab/quiz?name=${encodeURIComponent(data.student.name)}${
+                    chosenStudentId ? `&studentId=${encodeURIComponent(chosenStudentId)}` : ''
+                  }`,
+                );
+              }}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' || e.key === ' ') (e.target as HTMLElement).click();
+              }}
+              className="mt-2.5 inline-flex items-center gap-1 text-[13px] font-semibold text-blue-700 bg-blue-50 border border-blue-200 rounded-full px-3 py-1.5"
+            >
+              🎯 自测一轮 —— 系统出题考你，答错的会安排重背
+            </span>
           </Link>
         )}
 

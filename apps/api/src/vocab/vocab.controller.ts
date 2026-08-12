@@ -5,6 +5,7 @@ import { CurrentUser } from '../common/current-user.decorator';
 import { Public } from '../common/auth.guard';
 import { RateLimit } from '../common/rate-limit.guard';
 import { StudentWordService } from './student-word.service';
+import { VocabQuizService } from './vocab-quiz.service';
 import { VocabReviewService, type RatingKey } from './vocab-review.service';
 import { VocabService } from './vocab.service';
 import { VocabTeacherService } from './vocab-teacher.service';
@@ -25,6 +26,7 @@ export class VocabController {
     private readonly svc: VocabService,
     private readonly words: StudentWordService,
     private readonly review: VocabReviewService,
+    private readonly quiz: VocabQuizService,
     private readonly teacher: VocabTeacherService,
   ) {}
 
@@ -115,6 +117,26 @@ export class VocabController {
     const p = schema.safeParse(body);
     if (!p.success) throw new BadRequestException(p.error.flatten());
     return this.review.review({ ...p.data, rating: p.data.rating as RatingKey });
+  }
+
+  /**
+   * 生词自测（P5）—— 组一套百词斩式选择题。出题纯本地计算（学生生词 +
+   * 本地词典做干扰项），零 AI。答题结果由前端经既有 POST /vocab/review
+   * 写回（对→good 错→again），复用同一条 FSRS 调度线。
+   */
+  @Public()
+  @RateLimit({ limit: 30, windowSec: 60, scope: 'ip' })
+  @Get('quiz')
+  async quizBuild(
+    @Query('name') name?: string,
+    @Query('studentId') studentId?: string,
+    @Query('limit') limit?: string,
+  ) {
+    return this.quiz.buildQuiz({
+      studentName: name ?? '',
+      studentId: studentId || undefined,
+      limit: limit ? parseInt(limit, 10) : undefined,
+    });
   }
 
   /** 我的词汇统计。 */

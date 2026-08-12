@@ -621,7 +621,7 @@ function ExamShellChrome({
         className="px-4 py-2 bg-sky-50 border-b border-sky-200 text-sky-800 text-sm text-center"
         role="note"
       >
-        📝 选择题<strong>交卷后即时出分</strong>;<strong>简答题由老师人工批改</strong>,不会马上出分,请稍后到「早测查询」再看成绩。
+        📝 选择题<strong>交卷后即时出分</strong>;<strong>简答题由老师人工批改</strong>,不会马上出分。交卷后自动带你去成绩页;以后想看,<strong>再扫一次教室的二维码</strong>就行。
         <span className="hidden lg:inline"> · Multiple-choice is scored instantly; written short answers are marked by the teacher later.</span>
       </div>
 

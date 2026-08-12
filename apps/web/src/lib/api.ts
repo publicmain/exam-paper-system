@@ -406,6 +406,15 @@ export const api = {
     rating: string;
     elapsedMs?: number;
   }) => request('POST', '/vocab/review', body),
+  /** 生词本 P5 — 自测出题（百词斩式选择题，出题纯本地计算） */
+  vocabQuiz: (p: { name: string; studentId?: string; limit?: number }) =>
+    request(
+      'GET',
+      '/vocab/quiz?name=' +
+        encodeURIComponent(p.name) +
+        (p.studentId ? '&studentId=' + encodeURIComponent(p.studentId) : '') +
+        (p.limit ? '&limit=' + p.limit : ''),
+    ),
   /** 生词本 P4 教师端 — 班级高频生词 / 推词 / 班级统计 */
   vocabClassTop: (classId: string, p?: { days?: number; limit?: number }) =>
     request(

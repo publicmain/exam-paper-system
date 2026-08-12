@@ -143,6 +143,24 @@ export default function MyVocabPage() {
               答错的词义题也会自动收录。
             </p>
           )}
+          {/* P5 自测：主入口。自测（客观判分）放主位，翻卡复习退居次位 ——
+              自评式复习的结构性弱点是最需要背单词的学生最会骗自己。 */}
+          {data.total > 0 && (
+            <div className="mt-4 flex gap-2">
+              <Link
+                to={`/my-vocab/quiz?name=${encodeURIComponent(name)}${studentId ? `&studentId=${encodeURIComponent(studentId)}` : ''}`}
+                className="flex-1 text-center py-3 rounded-xl bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white font-semibold touch-manipulation"
+              >
+                🎯 自测一轮
+              </Link>
+              <Link
+                to={`/my-vocab/review?name=${encodeURIComponent(name)}${studentId ? `&studentId=${encodeURIComponent(studentId)}` : ''}`}
+                className="flex-1 text-center py-3 rounded-xl bg-gray-100 hover:bg-gray-200 text-gray-800 font-semibold touch-manipulation"
+              >
+                📖 翻卡复习
+              </Link>
+            </div>
+          )}
         </header>
 
         {data.total > 0 && (

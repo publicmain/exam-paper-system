@@ -149,6 +149,11 @@ export default function MorningQuizScan() {
           : undefined,
       );
       localStorage.setItem('auth_token', r.scanToken);
+      // 记住姓名 —— /my-history 的输入框会用它预填。学生以后随时扫墙上
+      // 的码查成绩时,不用再回忆"当时登记的是哪个写法"。
+      try {
+        localStorage.setItem('mq:history:name', trimmed);
+      } catch { /* 隐私模式，无所谓 */ }
       // 2.0 新功能引导：签到已经写进服务端了,这里只是在跳转前插一屏。
       //
       // 为什么放在这个位置 —— 前后各有一个不能碰的东西:
@@ -188,9 +193,10 @@ export default function MorningQuizScan() {
   if (error && !meta) {
     return (
       <Centered>
-        <div className="text-7xl mb-6">⛔</div>
+        <div className="text-7xl mb-6">{isQuizOver(error.code, error.message) ? '🕐' : '⛔'}</div>
         <div className="text-2xl font-semibold mb-2 text-rose-600">{error.message}</div>
         <div className="text-xs text-gray-400 mt-2 font-mono">code: {error.code}</div>
+        <AfterQuizPortal code={error.code} raw={error.message} />
       </Centered>
     );
   }
@@ -313,6 +319,64 @@ function Centered({ children }: { children: React.ReactNode }) {
   return (
     <div className="fixed inset-0 bg-white flex flex-col items-center justify-center text-center px-6">
       {children}
+    </div>
+  );
+}
+
+/**
+ * 「现在不是考试时间」类的状态 —— 学生此刻扫码,多半不是来补签的,
+ * 是来**查成绩 / 背单词**的。涵盖:考完(locked/closed)、周末或假期
+ * (session_not_found)、考前(scheduled/not_open)。
+ * 不涵盖考试进行中的具体报错(查无此名、设备冲突、二维码轮换过期),
+ * 那些场景学生正急着签到,塞成绩链接只会添乱。
+ */
+function isQuizOver(code: string, raw: string): boolean {
+  return (
+    code === 'attendance_window_closed' ||
+    code === 'attendance_window_not_open' ||
+    code === 'session_not_found' ||
+    code === 'qr_session_not_found' ||
+    code === 'session_not_active'
+  );
+}
+
+/**
+ * 死胡同 → 门厅。
+ *
+ * 老师反馈学生不知道去哪看成绩,「单单一个链接」记不住。观察到的事实:
+ * 学生唯一形成肌肉记忆的动作就是**扫墙上那个码**(每天早上都在做)。
+ * 以前考试结束后再扫,得到的是"窗口已关闭,请联系班主任" —— 一个
+ * 死胡同。把这个死胡同改成门厅,查成绩就不需要学生学任何新东西:
+ * 还是那个码,考试时间扫=签到,考完扫=查成绩/练生词。
+ *
+ * 姓名从签到时存的 localStorage 里带上,一次点击直达本人页面。
+ * 换了设备没有姓名也不要紧 —— /my-history 自己会让他输一次并记住。
+ */
+function AfterQuizPortal({ code, raw }: { code: string; raw: string }) {
+  if (!isQuizOver(code, raw)) return null;
+  let savedName = '';
+  try {
+    savedName = localStorage.getItem('mq:history:name') ?? '';
+  } catch { /* ignore */ }
+  const q = savedName ? `?name=${encodeURIComponent(savedName)}` : '';
+  return (
+    <div className="mt-8 w-full max-w-sm">
+      <div className="text-base text-gray-600 mb-3">要查成绩或背单词？就是这里：</div>
+      <a
+        href={`/my-history${q}`}
+        className="block w-full py-4 rounded-2xl bg-blue-600 active:bg-blue-700 text-white text-xl font-semibold text-center touch-manipulation"
+      >
+        📊 我的成绩{savedName ? ` · ${savedName}` : ''}
+      </a>
+      <a
+        href={`/my-vocab${q}`}
+        className="mt-3 block w-full py-4 rounded-2xl bg-white border-2 border-gray-300 text-gray-800 text-xl font-semibold text-center touch-manipulation"
+      >
+        📒 我的生词本 · 自测
+      </a>
+      <div className="mt-3 text-sm text-gray-400 text-center">
+        以后任何时候扫这个码，都能从这里进。
+      </div>
     </div>
   );
 }

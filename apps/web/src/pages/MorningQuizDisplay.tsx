@@ -148,11 +148,22 @@ export default function MorningQuizDisplay() {
           </div>
         </div>
       ) : sessionStatus === 'locked' ? (
-        <div className="max-w-xl text-center text-gray-700 text-3xl">
-          <div className="text-7xl mb-6">🔒</div>
-          <div className="font-semibold">今早早测已结束</div>
+        // 考完不放死画面 —— 换成查成绩入口。学生对"扫大屏"有肌肉记忆,
+        // 这块屏幕在考后继续亮着就是最好的"成绩去哪看"广告位。
+        // 二维码指向 /my-history(公开+姓名匹配),无 token、不过期。
+        <div className="max-w-xl text-center text-gray-700">
+          <div className="text-5xl mb-4">✅ 今早早测已结束</div>
+          <div className="bg-white p-5 rounded-2xl shadow-xl border border-gray-200 inline-block">
+            <QRCodeSVG
+              value={`${window.location.origin}/my-history`}
+              size={300}
+              level="M"
+              includeMargin={false}
+            />
+          </div>
+          <div className="mt-5 text-3xl font-semibold text-blue-700">扫码查成绩 · 背单词</div>
           <div className="mt-2 text-xl text-gray-500">
-            Today's morning quiz window is closed.
+            选择题已出分；简答题老师批改后也在这里看。
           </div>
         </div>
       ) : !scanUrl ? (
