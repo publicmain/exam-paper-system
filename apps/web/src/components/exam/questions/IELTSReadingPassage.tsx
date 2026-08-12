@@ -186,6 +186,16 @@ export function IELTSReadingPassage({ paper }: { paper: ExamPaper }) {
   // ── 2.0 考试中查词 / 填空取词 ──────────────────────────────
   const [pickedWord, setPickedWord] = useState<string | null>(null);
   const [pickedSentence, setPickedSentence] = useState<string | null>(null);
+  /** 这台设备上从没查过词 —— 决定上面那条提示是显眼版还是常态小字。
+   *  用 localStorage 而不是本场次的 state：一个学生只需要被提醒一次,
+   *  下周再考时不该又被当成新手。 */
+  const [neverLookedUp, setNeverLookedUp] = useState(() => {
+    try {
+      return localStorage.getItem(LOOKED_UP_KEY) !== '1';
+    } catch {
+      return true;
+    }
+  });
 
   /**
    * 点词后的处理：记住这个词在文档里的位置，再取出它所在的那句原文。
@@ -201,6 +211,14 @@ export function IELTSReadingPassage({ paper }: { paper: ExamPaper }) {
     wordRangeRef.current = range;
     setPickedSentence(sentenceContaining(passageBody, w));
     setPickedWord(w);
+    if (neverLookedUp) {
+      setNeverLookedUp(false);
+      try {
+        localStorage.setItem(LOOKED_UP_KEY, '1');
+      } catch {
+        /* 隐私模式：提示条这场考试内仍会收起,只是下场再出现一次 */
+      }
+    }
   }
 
   /** 被查的词在文档里的位置。存 Range 不存 rect —— 每滚一次 rect 就过期。 */
@@ -414,11 +432,31 @@ export function IELTSReadingPassage({ paper }: { paper: ExamPaper }) {
                   都低于 WCAG AA 的 4.5:1，而这行正是要让学生发现查词功能的。
                   换成 gray-600 / blue-600 并从 12px 提到 13px。
                   措辞也从「选中」改成「点」—— 手势已经变了。 */}
-              <div className="text-[13px] text-gray-600 mb-3 leading-relaxed">
-                <span className="text-blue-600 font-medium">点单词查词义</span>
-                {fillTargetId && <span className="text-blue-600 font-medium">（可填进正在作答的填空题）</span>}
-                ；拖选文字加高亮，点高亮可移除。
-              </div>
+              {/* 情境提示（just-in-time）。签到时那一屏只让学生"知道有这
+                  回事",真正的操作提示要落在用到它的地方 —— 公开数据里
+                  情境化提示的功能采纳率是预先讲解的 2.9 倍(42.6% vs
+                  14.7%),因为学习时机和使用时机贴在一起。
+                  所以这行字在学生**还没查过任何词**时是一个显眼的蓝色
+                  提示条,查过一次就永久缩回原来的小灰字 —— 它的任务是
+                  被发现一次,不是长期占着版面。 */}
+              {neverLookedUp ? (
+                <div className="mb-3 rounded-[12px] bg-blue-50 border border-blue-200 px-3.5 py-2.5">
+                  <div className="text-[14px] text-blue-900 font-medium">
+                    看不懂的词，点一下就有意思
+                  </div>
+                  <div className="text-[12px] text-blue-700/80 mt-0.5">
+                    不用长按，轻轻一点
+                    {fillTargetId && '，还能直接填进正在作答的填空题'}
+                    ；拖选文字可以加高亮。
+                  </div>
+                </div>
+              ) : (
+                <div className="text-[13px] text-gray-600 mb-3 leading-relaxed">
+                  <span className="text-blue-600 font-medium">点单词查词义</span>
+                  {fillTargetId && <span className="text-blue-600 font-medium">（可填进正在作答的填空题）</span>}
+                  ；拖选文字加高亮，点高亮可移除。
+                </div>
+              )}
               <Highlighter
                 body={passageBody}
                 highlights={highlights}
@@ -478,6 +516,9 @@ export function IELTSReadingPassage({ paper }: { paper: ExamPaper }) {
     </div>
   );
 }
+
+/** 「这台设备已经查过词了」的标记 —— 提示条只需要被发现一次。 */
+const LOOKED_UP_KEY = 'mq:lookedUpOnce';
 
 /** 各题型指令的中文一句话摘要。查不到就不显示，绝不猜。 */
 const INSTRUCTION_GIST: Record<string, string> = {

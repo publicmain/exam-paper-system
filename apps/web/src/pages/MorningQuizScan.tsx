@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { api } from '../lib/api';
+import WhatsNewSheet, { hasSeenWhatsNew, markWhatsNewSeen } from '../components/exam/WhatsNewSheet';
 
 type Level = 'ielts_authentic' | 'ielts_simplified' | 'olevel';
 const LEVEL_LABEL: Record<Level, { zh: string; en: string; desc: string; tint: string }> = {
@@ -82,6 +83,8 @@ export default function MorningQuizScan() {
   // meta.siblingSessions.length > 1; auto-set to the only entry when
   // there's just one (single-band class).
   const [chosenSessionId, setChosenSessionId] = useState<string | null>(null);
+  /** 签到成功后要去的试卷地址。非 null = 正在显示新功能引导。 */
+  const [pendingQuizUrl, setPendingQuizUrl] = useState<string | null>(null);
 
   // Fetch the class meta on mount. We hit /scan-roster (gated by a live
   // QR token) but only display the class name + count, never the names
@@ -146,15 +149,40 @@ export default function MorningQuizScan() {
           : undefined,
       );
       localStorage.setItem('auth_token', r.scanToken);
-      // Full reload sidesteps the SPA route-table swap race; take page
-      // boots cleanly with the new auth_token already in place.
-      window.location.replace(r.quizUrl);
+      // 2.0 新功能引导：签到已经写进服务端了,这里只是在跳转前插一屏。
+      //
+      // 为什么放在这个位置 —— 前后各有一个不能碰的东西:
+      //   · 往前放（输姓名之前）会挡住签到本身,迟到的学生最需要的是
+      //     先把考勤打上,不是看功能介绍;
+      //   · 往后放（进了试卷再弹）会盖住考卷,而倒计时挂的是固定的
+      //     9:00,那时候每一秒都是答题时间。
+      // 夹在中间这一下,考勤已经落库、试卷还没开始渲染,是唯一一个
+      // "出了任何岔子都不影响成绩"的位置。引导组件自身也不做任何
+      // 网络请求,卡住也只是白屏一秒,点跳过就走。
+      if (hasSeenWhatsNew()) {
+        window.location.replace(r.quizUrl);
+        return;
+      }
+      setPendingQuizUrl(r.quizUrl);
     } catch (e: any) {
       const raw = e?.message ?? String(e);
       const code = extractCode(raw) ?? 'unknown';
       setError({ code, message: friendlyMessage(code, raw) });
       setSubmitting(false);
     }
+  }
+
+  // 引导优先于其余所有分支：此刻考勤已经落库,唯一还没做的就是跳转,
+  // 不能被下面任何一个 meta/error 分支抢先渲染掉。
+  if (pendingQuizUrl) {
+    return (
+      <WhatsNewSheet
+        onDone={() => {
+          markWhatsNewSeen();
+          window.location.replace(pendingQuizUrl);
+        }}
+      />
+    );
   }
 
   if (error && !meta) {

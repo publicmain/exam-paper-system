@@ -246,8 +246,25 @@ body {
 .ui-ios .enter-3 { animation-delay: .12s; }
 .ui-ios .enter-4 { animation-delay: .16s; }
 
+/* 新功能引导里那个"点我"的呼吸提示。
+   游戏教程里的闪光指引 —— 不写一句"请点击这里",光靠动静把注意力
+   引过去。只在学生还没点过任何词时出现,点过一次立刻撤掉。 */
+@keyframes wn-pulse {
+  0%, 100% { background-color: rgba(37, 99, 235, .16); box-shadow: 0 0 0 0 rgba(37, 99, 235, .45); }
+  50%      { background-color: rgba(37, 99, 235, .34); box-shadow: 0 0 0 7px rgba(37, 99, 235, 0); }
+}
+.wn-pulse {
+  border-radius: 4px;
+  /* 光靠底色深浅在手机上一扫而过是看不见的,补一条实线下划线,
+     静止的那一帧也认得出"这个词可以点"。 */
+  border-bottom: 2px solid rgba(37, 99, 235, .75);
+  animation: wn-pulse 1.4s var(--ease-out) infinite;
+}
+
 /* 无障碍：系统开了"减弱动态效果"就全部关掉,这是 HIG 的硬要求 */
 @media (prefers-reduced-motion: reduce) {
   .ui-ios .enter { animation: none; }
   .press, .press:active, .press-soft:active { transition: none; transform: none; }
+  /* 呼吸动画关掉,但提示还得看得见 —— 换成静态底色,不是直接消失 */
+  .wn-pulse { animation: none; background-color: rgba(37, 99, 235, .16); }
 }
