@@ -577,14 +577,79 @@ const GRADES_0811: Record<string, { awardedMarks: number; reason: string }> = {
   cmsnxtetg01axk35hckh93c49: { awardedMarks: 1, reason: "填13:geomagenetic,只多打了一个 e,词本身认得出是 geomagnetic,判对。1。(雅思正式考试拼写从严,考场上要检查一遍)" }, // 王耀星 Q13
 };
 
+const GRADES_0812: Record<string, { awardedMarks: number; reason: string }> = {
+  // 2026-08-12 早测 · authentic=ielts_adapted_2026_v5/Test1/P2
+  // (Finding Planets You Cannot See 系外行星探测, NASA 公有领域底本改编)
+  // olevel=ai_authored_olevel_summary_05_ageing_v1 (新加坡老龄化, summary 卷)
+  // 全部由 Claude 在 chat 逐条判,零 AI 调用。
+  //
+  // 判前先回原文复核了四道段落匹配题的唯一性:
+  //   Q1 只有 C 段解释"为什么最早发现的都是大而近的行星";
+  //   Q2 只有 G 段写了两项遮星光技术(coronagraph + starshade);
+  //   Q3 只有 F 段说 alignment never repeats;
+  //   Q4 只有 H 段讲透射光谱定大气成分。
+  // 题干无歧义,答错就是答错。
+
+  // ── 雅思 段落匹配(Q1-4) ──
+  cmspcsdy900sn11hy1u2m8vji: { awardedMarks: 0, reason: "段1:B,正解 C。0。B 段只说 1995 年发现了 51 Pegasi b 是热木星,C 段才解释\"为什么\"最早发现的都是这一类 —— 质量大拽得动星、轨道近周期短,信号又强又快。题干问的是 explanation。" }, // 林寅嘉 Q1
+  cmspd2rnu011f11hywz14vzsd: { awardedMarks: 0, reason: "段1:B,正解 C。0。同上 —— B 段是\"发现了什么\",C 段才是\"为什么是这一类\"。" }, // 叶书瑞 Q1
+  cmspdnd4v01tm11hy221c3y9m: { awardedMarks: 0, reason: "段1:E,正解 C。0。E 段讲的是凌星法的对齐偏差和 Kepler,不是最早那批发现。" }, // 王张欣 Q1
+  cmspcsjo000sv11hyeux2rn6b: { awardedMarks: 0, reason: "段2:D,正解 G。0。D 段是凌星法原理。两项遮星光技术(遮光板 coronagraph + 遮星伞 starshade)在 G 段,原文写得很明白:Two engineering answers are being pursued。" }, // 林寅嘉 Q2
+  cmspd2uv2011n11hyepex1qk6: { awardedMarks: 0, reason: "段2:A,正解 G。0。A 段是全文引子(飞蛾与探照灯的比喻),没有任何技术描述。" }, // 叶书瑞 Q2
+  cmspdkwoj01pk11hy4lp92824: { awardedMarks: 0, reason: "段2:D,正解 G。0。找 two pieces of technology 这种题,先在文中扫\"两个/双\"的字眼 —— G 段 Two engineering answers 就是路标。" }, // 叶雅滋 Q2
+  cmspd457v013q11hy9ghjaq7g: { awardedMarks: 0, reason: "段2:D,正解 G。0。同上。" }, // 郑稀瑜 Q2
+  cmspd96fw01a111hyyjsqy1i7: { awardedMarks: 0, reason: "段2:D,正解 G。0。同上。" }, // 刘钇村 Q2
+  cmspcsm3800sx11hyx28uf8o3: { awardedMarks: 0, reason: "段3:C,正解 F。0。\"观测永远无法重复\"对应 F 段微引力透镜:the alignment never repeats... cannot be checked by looking again。C 段讲的是方法的偏好,不是不可重复。" }, // 林寅嘉 Q3
+  cmspd2yvh011r11hypiat8a2c: { awardedMarks: 0, reason: "段3:C,正解 F。0。同上。" }, // 叶书瑞 Q3
+  cmspdq28i01xb11hy1ixvmir9: { awardedMarks: 0, reason: "段3:A,正解 F。0。A 段是引子。never repeated 这种绝对措辞,回原文找 never 一词最快。" }, // 王张欣 Q3
+  cmspcsndf00sz11hyv3548bud: { awardedMarks: 0, reason: "段4:G,正解 H。0。G 段是直接成像的两项技术;大气成分靠的是凌星时穿过大气的星光被分光(H 段),原文点名了 helium 和 water vapour。" }, // 林寅嘉 Q4
+  cmspd32hv011t11hyvn4vcrcy: { awardedMarks: 0, reason: "段4:F,正解 H。0。F 段是微引力透镜。composition of atmosphere → 找 H 段的 which molecules are present。" }, // 叶书瑞 Q4
+  cmspdr7vm01z811hygd78vrve: { awardedMarks: 0, reason: "段4:D,正解 H。0。D 段是凌星法测轨道和大小,H 段才是用同一次凌星去测大气成分。两段确实容易混,区别在\"测的是什么\"。" }, // 王张欣 Q4
+
+  // ── 雅思 句子填空(Q9) ──
+  cmspds6nv021311hyrlkrj93y: { awardedMarks: 0, reason: "填9:gravity,正解 mass。0。物理上 centre of gravity 确实是常见说法,方向没错;但这题写明 Choose NO MORE THAN TWO WORDS FROM THE PASSAGE,原文 B 段就是 their common centre of mass,填空必须回原文取词,同义替换在雅思填空里不给分。" }, // 叶雅滋 Q9
+
+  // ── O-Level Q1 词义(1分) ── postponing = 推迟/延后
+  cmspd7ms1016u11hyvdl0vqy0: { awardedMarks: 1, reason: "Q1:Delaying,正解。1。" }, // 闫乙鑫 Q1
+  cmspd1ang00zy11hym3qh0jhi: { awardedMarks: 1, reason: "Q1:It means delaying,正解。1。" }, // HEIN HTET NAING Q1
+  cmspdjnrh01ok11hyhlakw1g5: { awardedMarks: 1, reason: "Q1:delaying something until a later time,完整准确。1。" }, // 孙爱迪 Q1
+  cmspd7zaq017c11hygx1tybau: { awardedMarks: 1, reason: "Q1:arrange something for a later time,意思对了(推到以后),语法小瑕疵不影响判断。1。" }, // 赵一鸣 Q1
+  cmspdh71801j511hyuaih2iw7: { awardedMarks: 0, reason: "Q1:Keep something healthy。答的是第 4 段整段在讲什么,不是 postponing 这个词的意思。0。postponing = 推迟、延后 —— 这里指把疾病往后推,而不是等病了再治。" }, // 曾义洋 Q1
+  cmspcyhb400wn11hyhjmf860u: { awardedMarks: 0, reason: "Q1:starts protecting before the illness comes。这是 screening(筛查)在做的事,不是 postponing 的词义。0。词义题只答这个词本身:推迟。" }, // 赵伯容 Q1
+
+  // ── O-Level Q2 细节(1分) ── 托儿所与老人设施同楼(intergenerational projects)
+  cmspd948v019w11hyjj2pcb9k: { awardedMarks: 1, reason: "Q2:Childcare centres are placed in the same buildings as senior facilities,正解。1。" }, // 闫乙鑫 Q2
+  cmspd29v2011411hy93286lmh: { awardedMarks: 1, reason: "Q2:正确点(intergenerational projects 把托儿所设在老人设施同一栋楼)写到了,判对。1。不过题目只要 ONE way,前面那半段 befriending schemes 是多余的 —— 考场上多写不加分,写错反而可能倒扣,答完一个就停。" }, // HEIN HTET NAING Q2
+  cmspdjwdv01oq11hygc9l38cv: { awardedMarks: 1, reason: "Q2:表述完整准确。1。" }, // 孙爱迪 Q2
+  cmspde6pv01ds11hywp3se9fo: { awardedMarks: 1, reason: "Q2:putting child centres inside the same buildings as senior facilities,正解。1。(拼写 puting→putting,不扣分但记一下)" }, // 赵一鸣 Q2
+  cmspd0lop00zj11hyhpqdr13a: { awardedMarks: 1, reason: "Q2:抄了原文后半句,主语\"托儿所\"漏了,但指向明确,判对。1。抄原文时把句子抄完整,漏主语的答案在正式考试里是会被扣的。" }, // 曾义洋 Q2
+  cmspd6ndx015a11hyoph7qmu6: { awardedMarks: 1, reason: "Q2:The intergenerational projects —— 评分标准把这个术语列为可接受答案,判对。1。但更稳的写法是把做法写出来(托儿所与老人设施同楼),术语本身不解释,遇到严格的考官会有风险。" }, // 赵伯容 Q2
+
+  // ── O-Level Q3 解释(2分) ── ①发展极缓,没有警醒时刻 ②结构已定,出生率/寿命无法快速改变
+  cmspd8tkw019e11hyilm0tf8k: { awardedMarks: 2, reason: "Q3:两个点都到了 —— 逐年缓慢发展所以容易被忽视(①),人更长寿加上出生率低所以逆转要很久(②),而且是自己的话。2/2。" }, // 闫乙鑫 Q3
+  cmspdh8uu01j711hyhj5ifnp7: { awardedMarks: 2, reason: "Q3:①缓慢发生所以没人注意到,②一旦老化成形要很久才能改变 —— 两点都答到且用自己的话。2/2。" }, // 孙爱迪 Q3
+  cmspcxm7900vt11hyamr1xeh0: { awardedMarks: 1, reason: "Q3:①答到了(不是一夜之间,而是长期渐进,所以容易忽视)。②\"hard to change the situation\"只是把题干的 difficult to reverse 换个说法,没有解释原因。1/2。要答:等到看得出来的时候人口结构已经定型,出生率和寿命都不是短期能扭转的。" }, // HEIN HTET NAING Q3
+  cmspdhn2t01kf11hyi7thidoc: { awardedMarks: 1, reason: "Q3:①答到了(危机来得慢,人不易察觉)。②完全没写。1/2。两分的题一定要检查是不是答了两件事 —— 题干里\"easy to ignore\"和\"difficult to reverse\"就是两个得分点。" }, // 赵一鸣 Q3
+  cmspd5lrh014x11hy90fnewbe: { awardedMarks: 0, reason: "Q3:\"Because is not a crisis that arrives one morning\"整句照抄原文,而题目写明 Using your own words。抄写不给分。0。内容方向是对的,换成自己的话就有分:它是几十年一点点累积的,没有哪一天让人警觉。另外②也没写。" }, // 曾义洋 Q3
+  cmspde2pe01dj11hyw8tkvd6y: { awardedMarks: 0, reason: "Q3:\"劳动力越来越少\"是老龄化的后果,不是\"为什么容易被忽视、为什么难以逆转\"。答非所问。0。" }, // 赵伯容 Q3
+
+  // ── O-Level Q4 summary(8分) ── 内容点 7 个各 ~1 分 + own words/连贯写作 1 分,上限 80 词
+  cmspd7uq1017811hyxthku299: { awardedMarks: 7, reason: "Q4:52 词,六个方面全覆盖 —— 继续就业①、退休收入③、预防性医疗⑤、居家照护⑥、建筑与街道⑦、缓解孤独⑧,第 2 到 7 段一段不漏,而且几乎全是自己的话、连贯成段。7/8。差的一分:两处可以更具体(强制储蓄转终身月领、贫困老人额外补贴),另外结尾那句评价不算内容点,80 词的额度可以用来多写一个措施。" }, // 闫乙鑫 Q4
+  cmspdfzjb01hr11hy7u6e8y5l: { awardedMarks: 4, reason: "Q4:43 词,四个内容点 —— 提高退休/再就业年龄①、雇主改造岗位+补贴培训②、CPF 终身月领③、补贴贫困老人④,组织清楚。4/8。问题在覆盖面:只写到第 2、3 段就停了,第 4 到 7 段(健康筛查、居家照护、无障碍改造、缓解孤独)一个都没提,而你只用了 43 词,还有一半额度没用。另外多处直接搬原文词组,own-words 的那一分没拿到。" }, // 孙爱迪 Q4
+  cmspdacib01ah11hydrjj9vaz: { awardedMarks: 2, reason: "Q4:5 词。\"Providing work, money, and healthcare\"方向对(对应第 2、3、4 段三条战线),但全是类别名词,没有一个具体做法,而 summary 考的就是把做法复述出来。2/8。80 词的额度只用了 5 个词 —— 哪怕每条战线写一句话,分数也会完全不同。" }, // HEIN HTET NAING Q4
+  cmspdkkjw01p211hy4ax3k9ca: { awardedMarks: 2, reason: "Q4:30 词,两个内容点(提高退休年龄①、CPF 强制储蓄③),而且写到\"Thirdly,\"就断了 —— 没写完。2/8。改写成自己的话这点做得不错,继续保持;下次注意留时间写完,没写完的部分一分都拿不到。" }, // 赵一鸣 Q4
+  cmspddksk01cy11hy3xvzswgq: { awardedMarks: 1, reason: "Q4:两个问题。一是用了 1. 2. 3. 的分条形式,题目明确要求 continuous writing (not note form),这一条直接失掉行文分;二是三条全部照抄第 5 段原句,而且只覆盖了居家照护⑥这一个方面。1/8。summary 的做法:先在第 2-7 段各圈一个关键措施,再用自己的话串成一段。" }, // 曾义洋 Q4
+  cmspdntvw01ue11hyazhl1dxj: { awardedMarks: 1, reason: "Q4:14 词。\"帮老人学技能\"算一个点(②补贴培训);\"the banks save money for the old\"不对 —— 不是银行替老人存钱,而是 CPF 强制储蓄转成终身每月领取。1/8。80 词的额度只用了 14 个,第 4 到 7 段完全没读到。" }, // 赵伯容 Q4
+};
+
 // auto-graded ones (0 parked items) and blank submissions (no scripts). The
 // GRADES map alone only reaches submissions that had a parked item.
 const SWEEP_ASSIGNMENTS: string[] = [
-  47f92310-c27f-4f65-ab31-134aee25bb2a, // 2026-08-11 IELTS authentic (Weather Beyond the Atmosphere)
-  addb3d7a-b801-453a-a756-dccb6edf1f47, // 2026-08-11 O-Level (The Uniform, 叙事卷)
+  '687973e5-ccd7-4f1c-b33f-7058de7e0aa3', // 2026-08-12 IELTS authentic (Finding Planets You Cannot See)
+  '5ce5f490-b979-449e-95f0-340d6c0e900f', // 2026-08-12 O-Level (新加坡老龄化, summary 卷)
 ];
 
-const GRADES: Record<string, { awardedMarks: number; reason: string }> = GRADES_0811;
+const GRADES: Record<string, { awardedMarks: number; reason: string }> = GRADES_0812;
 const _OLD_GRADES: Record<string, { awardedMarks: number; reason: string }> = {
   // 2026-07-24 早测 · ielts_authentic = cambridge_ielts_8/Test1/P1
   // "A Chronicle of Timekeeping"(Q1-4 段落匹配 A-H;Q9-13 图标注 ≤2词).
