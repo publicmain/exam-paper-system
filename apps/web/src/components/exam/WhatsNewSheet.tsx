@@ -68,10 +68,61 @@ const DEMO_DICT: Record<string, { ph: string; cn: string; en: string }> = {
 /** 引导学生点的那个词 —— 加呼吸动画。游戏教程里的"闪光提示"。 */
 const DEMO_TARGET = 'migration';
 
+/** 聚光灯巡礼每一条停留多久（毫秒）。第三条多给一点 —— 那条字最多，
+ *  而且是"别空着"这个最该被记住的提醒。 */
+const TOUR_STEPS = [1400, 1400, 1700];
+
 export default function WhatsNewSheet({ onDone }: { onDone: () => void }) {
   const [picked, setPicked] = useState<string | null>(null);
   const [tried, setTried] = useState(false);
   const liveRef = useRef<HTMLDivElement | null>(null);
+
+  /**
+   * 聚光灯：-1 = 没在巡礼（全部正常亮着），0/1/2 = 正在高亮第几条。
+   *
+   * 三条并排摆着，眼睛会一次性扫过去、然后一条都没记住。逐条打灯是
+   * 强行给它们排了个先后 —— 同一时刻只有一件事在争夺注意力。
+   *
+   * 系统开了「减弱动态效果」就直接不巡礼：这类效果本身就是 HIG 点名
+   * 要让路的那一类，而三条内容静态摆着也完全读得通,不损失信息。
+   */
+  const prefersReduced =
+    typeof window !== 'undefined' &&
+    typeof window.matchMedia === 'function' &&
+    window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const [spot, setSpot] = useState<number>(prefersReduced ? -1 : 0);
+  const touring = spot >= 0;
+  const timersRef = useRef<number[]>([]);
+
+  function endTour() {
+    timersRef.current.forEach((t) => window.clearTimeout(t));
+    timersRef.current = [];
+    setSpot(-1);
+  }
+
+  useEffect(() => {
+    if (prefersReduced) return;
+    // 排好整趟的节拍：先亮第 0 条,到点换第 1 条,最后收灯。
+    // 每一步都是独立 timeout,中途 endTour 一次性全清 —— 学生随时能打断。
+    let acc = 320; // 先让这一屏自己渲染完再打灯,否则第一帧就闪
+    const ids: number[] = [];
+    TOUR_STEPS.forEach((dur, i) => {
+      acc += i === 0 ? 0 : TOUR_STEPS[i - 1];
+      ids.push(window.setTimeout(() => setSpot(i), acc));
+    });
+    ids.push(window.setTimeout(() => setSpot(-1), acc + TOUR_STEPS[TOUR_STEPS.length - 1]));
+    timersRef.current = ids;
+    return () => ids.forEach((t) => window.clearTimeout(t));
+  }, [prefersReduced]);
+
+  /** 巡礼中的卡片样式：当前那条浮到遮罩之上，其余留在暗处。
+   *  ring 跟着卡片自己的色系走 —— 第三条是琥珀底,套蓝圈会脏。 */
+  function spotCls(i: number, ring = 'ring-blue-400') {
+    if (!touring) return 'transition-all duration-300';
+    return spot === i
+      ? `relative z-[62] transition-all duration-300 shadow-2xl ring-2 ${ring} scale-[1.015]`
+      : 'transition-all duration-300 opacity-45';
+  }
 
   // 点过一次之后，把焦点挪到释义上，读屏用户也能听到结果
   useEffect(() => {
@@ -83,33 +134,50 @@ export default function WhatsNewSheet({ onDone }: { onDone: () => void }) {
     if (!DEMO_DICT[key]) return;
     setPicked(key);
     setTried(true);
+    endTour(); // 学生开始自己动手了，聚光灯让位
   }
 
   const entry = picked ? DEMO_DICT[picked] : null;
 
   return (
     <div className="ui-ios fixed inset-0 z-[60] bg-white overflow-y-auto">
+      {/* 变暗层。点它=打断巡礼,而不是关掉整屏 —— 学生此刻想表达的是
+          "别演了我自己看",不是"我要走"。真想走,右上角的跳过一直在。 */}
+      {touring && (
+        <div
+          onClick={endTour}
+          aria-hidden="true"
+          className="fixed inset-0 z-[61] bg-black/55 wn-fade"
+        />
+      )}
+
       <div className="max-w-md mx-auto px-5 pb-8 pt-4 min-h-full flex flex-col">
-        {/* 跳过永远可见 —— 迟到的学生一秒都不该被拦住 */}
-        <div className="flex justify-end -mr-2">
+        {/* 跳过永远可见 —— 迟到的学生一秒都不该被拦住。
+            z 值压在遮罩之上,巡礼期间也是一点就走,不用先点一下取消。 */}
+        <div className="relative z-[62] flex justify-end -mr-2">
           <button
             type="button"
             onClick={onDone}
-            className="hit press text-[15px] text-gray-400 px-3 py-2"
+            className={`hit press text-[15px] px-3 py-2 transition-colors ${
+              touring ? 'text-white/90' : 'text-gray-400'
+            }`}
           >
             跳过
           </button>
         </div>
 
-        <div className="mt-1">
+        {/* 标题也压在遮罩之下 —— 巡礼时它不该和被打灯的那条抢注意力 */}
+        <div className={`mt-1 transition-opacity duration-300 ${touring ? 'opacity-45' : ''}`}>
           <div className="text-[13px] font-semibold tracking-[0.2em] text-blue-600">早测更新了</div>
           <h1 className="text-[26px] font-bold text-gray-900 mt-1 leading-tight">
             这三件事，以前做不到
           </h1>
         </div>
 
-        {/* ① 点词查义 —— 唯一需要动手学的，所以放第一个并且当场练 */}
-        <section className="mt-4 rounded-[16px] border border-gray-200 overflow-hidden">
+        {/* ① 点词查义 —— 唯一需要动手学的，所以放第一个并且当场练。
+            bg-white 是必须的：巡礼时它要浮在半透明黑幕之上,原本靠页面
+            底色的透明卡片在那层黑幕上会直接糊掉。 */}
+        <section className={`mt-4 rounded-[16px] border border-gray-200 overflow-hidden bg-white ${spotCls(0)}`}>
           <div className="px-4 pt-3.5 pb-2.5">
             <div className="flex items-baseline gap-2">
               <span className="text-[13px] font-bold text-white bg-blue-600 rounded-full w-5 h-5 flex items-center justify-center shrink-0">
@@ -177,7 +245,7 @@ export default function WhatsNewSheet({ onDone }: { onDone: () => void }) {
         </section>
 
         {/* ② 生词本 —— 白拿的好处，不需要学操作，一句话带过 */}
-        <section className="mt-3 rounded-[16px] border border-gray-200 px-4 py-3.5">
+        <section className={`mt-3 rounded-[16px] border border-gray-200 bg-white px-4 py-3.5 ${spotCls(1)}`}>
           <div className="flex items-baseline gap-2">
             <span className="text-[13px] font-bold text-white bg-blue-600 rounded-full w-5 h-5 flex items-center justify-center shrink-0">
               2
@@ -190,7 +258,9 @@ export default function WhatsNewSheet({ onDone }: { onDone: () => void }) {
         </section>
 
         {/* ③ 主观题 —— 全班最大的失分来源，所以单列一条 */}
-        <section className="mt-3 rounded-[16px] border border-amber-200 bg-amber-50 px-4 py-3.5">
+        <section
+          className={`mt-3 rounded-[16px] border border-amber-200 bg-amber-50 px-4 py-3.5 ${spotCls(2, 'ring-amber-400')}`}
+        >
           <div className="flex items-baseline gap-2">
             <span className="text-[13px] font-bold text-white bg-amber-500 rounded-full w-5 h-5 flex items-center justify-center shrink-0">
               3
@@ -207,7 +277,14 @@ export default function WhatsNewSheet({ onDone }: { onDone: () => void }) {
             sticky 是必须的：学生点开演示词之后卡片会长出一截，实测把
             按钮顶出了视口 —— 那一刻正是他最可能想走的时候，却看不见
             出口。钉在底部，永远一眼可见。 */}
-        <div className="mt-auto sticky bottom-0 -mx-5 px-5 pt-3 pb-2 bg-white/95 backdrop-blur border-t border-gray-100">
+        {/* z 值必须压在遮罩之上：巡礼总共不到 5 秒,但这 5 秒里学生要是
+            点不动「开始答题」,那就是被一段动画锁在了考试外面。出口在
+            任何一帧都得是活的 —— 只把它调暗表示"现在不是重点",不挡。 */}
+        <div
+          className={`mt-auto sticky bottom-0 z-[62] -mx-5 px-5 pt-3 pb-2 bg-white/95 backdrop-blur border-t border-gray-100 transition-opacity duration-300 ${
+            touring ? 'opacity-70' : ''
+          }`}
+        >
           <button
             type="button"
             onClick={onDone}
@@ -215,9 +292,24 @@ export default function WhatsNewSheet({ onDone }: { onDone: () => void }) {
           >
             开始答题
           </button>
-          <p className="text-[12px] text-gray-400 text-center mt-2">
-            这个提示只出现一次，之后不会再打扰你。
-          </p>
+          {/* 巡礼时把这行换成进度点：三条到底有几条、现在讲到哪,
+              不给交代的话学生不知道要等多久,只会想马上跳过。 */}
+          {touring ? (
+            <div className="flex justify-center gap-1.5 mt-3 mb-1" aria-hidden="true">
+              {TOUR_STEPS.map((_, i) => (
+                <span
+                  key={i}
+                  className={`h-1.5 rounded-full transition-all duration-300 ${
+                    i === spot ? 'w-5 bg-blue-600' : 'w-1.5 bg-gray-300'
+                  }`}
+                />
+              ))}
+            </div>
+          ) : (
+            <p className="text-[12px] text-gray-400 text-center mt-2">
+              这个提示只出现一次，之后不会再打扰你。
+            </p>
+          )}
         </div>
       </div>
     </div>

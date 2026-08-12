@@ -15,6 +15,28 @@ beforeEach(() => {
 });
 
 describe('WhatsNewSheet', () => {
+  it('聚光灯巡礼进行中，「跳过」和「开始答题」依然点得动', async () => {
+    // 巡礼会盖一层半透明黑幕。它只该压住三条内容，绝不能连出口一起压住 ——
+    // 那等于用一段动画把学生锁在考试外面。
+    const u = userEvent.setup();
+    const onDone = vi.fn();
+    render(<WhatsNewSheet onDone={onDone} />);
+    const overlay = document.querySelector('.wn-fade');
+    expect(overlay).not.toBeNull(); // 确认此刻确实在巡礼
+    await u.click(screen.getByText('开始答题'));
+    expect(onDone).toHaveBeenCalledTimes(1);
+  });
+
+  it('点遮罩只打断巡礼，不会把整屏关掉', async () => {
+    const u = userEvent.setup();
+    const onDone = vi.fn();
+    render(<WhatsNewSheet onDone={onDone} />);
+    const overlay = document.querySelector('.wn-fade') as HTMLElement;
+    await u.click(overlay);
+    expect(onDone).not.toHaveBeenCalled();
+    expect(document.querySelector('.wn-fade')).toBeNull();
+  });
+
   it('「跳过」和「开始答题」都能立刻放行', async () => {
     const u = userEvent.setup();
     const onDone = vi.fn();
