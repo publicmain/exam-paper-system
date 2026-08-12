@@ -31,7 +31,9 @@ describe('InstallAppCard', () => {
     render(<InstallAppCard />);
     expect(screen.getByText(/装到主屏幕/)).toBeTruthy();
     expect(screen.getByText(/添加到主屏幕/)).toBeTruthy();
-    expect(screen.getByText(/分享按钮/)).toBeTruthy();
+    // 步骤① + 「看不到分享按钮」兜底提示 —— 两处都提到分享按钮
+    expect(screen.getAllByText(/分享按钮/).length).toBeGreaterThanOrEqual(2);
+    expect(screen.getByText(/在 Safari 中打开/)).toBeTruthy();
   });
 
   it('点 × 关闭后永久隐藏', async () => {

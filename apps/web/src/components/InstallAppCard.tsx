@@ -97,6 +97,9 @@ export default function InstallAppCard() {
           </li>
           <li>② 往下滑，选「<strong>添加到主屏幕</strong>」</li>
           <li>③ 点右上角「添加」—— 桌面就有 📊 图标了</li>
+          <li className="text-gray-500">
+            看不到分享按钮？说明在扫码小窗口里 —— 先点右下角「···」→「在 Safari 中打开」。
+          </li>
         </ol>
       ) : (
         <button

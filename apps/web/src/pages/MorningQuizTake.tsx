@@ -599,31 +599,13 @@ function ExamShellChrome({
         <Timer endsAt={paper.quizEnd} onTimeUp={onTimeUpSubmit} />
       </div>
 
-      {/* r15-followup-32 — questions are shuffled per student (anti-cheat).
-          The stems still carry their original "Qn." labels, so a student
-          who fills boxes top-to-bottom in their own numeric order lands
-          answers in the wrong boxes (the 2026-05-29 李永轩 case). A loud
-          banner tells them to read each box's question number. */}
-      <div
-        className="px-4 py-2 bg-amber-50 border-b border-amber-200 text-amber-800 text-sm text-center"
-        role="note"
-      >
-        ⚠️ 本试卷题目为<strong>随机顺序</strong>,请认准每题的题号 (Q1、Q2…) 再作答
-        <span className="hidden lg:inline"> · Questions are in random order — check each question's number before answering.</span>
-      </div>
-
-      {/* Set expectations on grading timing: MCQ (选择题) are scored the
-          instant you submit, but written short answers are marked by the
-          teacher by hand and appear later. Without this, students see a
-          partial score right after submitting and think they lost the
-          short-answer marks. (Never attribute grading to AI.) */}
-      <div
-        className="px-4 py-2 bg-sky-50 border-b border-sky-200 text-sky-800 text-sm text-center"
-        role="note"
-      >
-        📝 选择题<strong>交卷后即时出分</strong>;<strong>简答题由老师人工批改</strong>,不会马上出分。交卷后自动带你去成绩页;以后想看,<strong>再扫一次教室的二维码</strong>就行。
-        <span className="hidden lg:inline"> · Multiple-choice is scored instantly; written short answers are marked by the teacher later.</span>
-      </div>
+      {/* 这里原本有两条常驻横幅（随机顺序警告 + 出分时间说明）。
+          2026-08-12 老师实测后要求去掉 —— 常驻在考卷顶上干扰答题。
+          它们承载的信息没有丢：
+          · 随机顺序 → 每张题卡自带醒目的 Qn 题号（r15-followup-32 之后
+            串答题框的前提已不存在，5/29 那次事故是题号还不明显的年代）；
+          · 简答题人工批改稍后出分 → 交卷确认弹窗和成绩页状态里都有。
+          (Never attribute grading to AI.) */}
 
       {/* ⚠️ 考试效度：禁止浏览器整页翻译**被考的内容**。
           2026-08-04 发现一名学生用 Chrome 自带翻译把整篇文章译成中文再作答
@@ -810,6 +792,12 @@ function SubmitConfirmDialog({
             {allAnswered
               ? `已答完 ${answered} / ${total} 题`
               : `已答 ${answered} / ${total} 题,还有 ${unanswered.length} 题未答`}
+          </p>
+          {/* 出分时间的说明放这里,而不是考卷顶上的常驻横幅(2026-08-12
+              老师要求撤掉)——交卷这一刻才是学生关心"什么时候出分"的
+              时刻。(Never attribute grading to AI.) */}
+          <p className="text-xs text-gray-500">
+            选择题交卷后立刻出分;简答题由老师批改后出分,稍后在成绩页查看。
           </p>
         </div>
 
