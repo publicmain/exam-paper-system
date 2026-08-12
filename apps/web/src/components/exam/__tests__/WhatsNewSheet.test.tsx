@@ -15,29 +15,59 @@ beforeEach(() => {
 });
 
 describe('WhatsNewSheet', () => {
-  it('聚光灯巡礼进行中，「跳过」和「开始答题」依然点得动', async () => {
-    // 巡礼会盖一层半透明黑幕。它只该压住三条内容，绝不能连出口一起压住 ——
-    // 那等于用一段动画把学生锁在考试外面。
+  it('聚光灯由学生自己点着走，不自动跳步', async () => {
+    const u = userEvent.setup();
+    render(<WhatsNewSheet onDone={vi.fn()} />);
+    // 停在第一站
+    expect(screen.getByText('下一步 · 1/3')).toBeTruthy();
+    // 等一段远超过原来那版自动轮播的时间，步数必须纹丝不动
+    await new Promise((r) => setTimeout(r, 1200));
+    expect(screen.getByText('下一步 · 1/3')).toBeTruthy();
+    await u.click(screen.getByText('下一步 · 1/3'));
+    expect(screen.getByText('下一步 · 2/3')).toBeTruthy();
+    // 第三站是最后一站，按钮直接变成出口，不再要求多点一下
+    await u.click(screen.getByText('下一步 · 2/3'));
+    expect(screen.queryByText(/下一步/)).toBeNull();
+    expect(screen.getByText('开始答题')).toBeTruthy();
+    expect(document.querySelector('.wn-fade')).not.toBeNull(); // 仍在聚光灯下
+  });
+
+  it('点遮罩等于下一步；走到最后再点是收灯而不是关屏', async () => {
     const u = userEvent.setup();
     const onDone = vi.fn();
     render(<WhatsNewSheet onDone={onDone} />);
-    const overlay = document.querySelector('.wn-fade');
-    expect(overlay).not.toBeNull(); // 确认此刻确实在巡礼
-    await u.click(screen.getByText('开始答题'));
+    const ov = () => document.querySelector('.wn-fade') as HTMLElement;
+    await u.click(ov());
+    expect(screen.getByText('下一步 · 2/3')).toBeTruthy();
+    await u.click(ov());
+    expect(screen.queryByText(/下一步/)).toBeNull(); // 第三站
+    await u.click(ov());
+    expect(document.querySelector('.wn-fade')).toBeNull(); // 收灯
+    expect(onDone).not.toHaveBeenCalled(); // 但没把整屏关掉
+  });
+
+  it('巡礼进行中，「跳过」和底部按钮都不会被遮罩挡住', async () => {
+    // 遮罩只该压住三条内容，绝不能连出口一起压住 ——
+    // 那等于用一层黑幕把学生锁在考试外面。
+    const u = userEvent.setup();
+    const onDone = vi.fn();
+    render(<WhatsNewSheet onDone={onDone} />);
+    expect(document.querySelector('.wn-fade')).not.toBeNull();
+    await u.click(screen.getByText('跳过'));
     expect(onDone).toHaveBeenCalledTimes(1);
   });
 
-  it('点遮罩只打断巡礼，不会把整屏关掉', async () => {
+  it('第一站点词试用，不会把学生踢出巡礼', async () => {
+    // 演示区就在第一站的高亮框里，点词是第一站的内容而不是打断它。
     const u = userEvent.setup();
-    const onDone = vi.fn();
-    render(<WhatsNewSheet onDone={onDone} />);
-    const overlay = document.querySelector('.wn-fade') as HTMLElement;
-    await u.click(overlay);
-    expect(onDone).not.toHaveBeenCalled();
-    expect(document.querySelector('.wn-fade')).toBeNull();
+    render(<WhatsNewSheet onDone={vi.fn()} />);
+    await u.click(screen.getByText('migration'));
+    expect(screen.getByText(/n\. 迁徙/)).toBeTruthy();
+    expect(screen.getByText('下一步 · 1/3')).toBeTruthy(); // 还在第一站
+    expect(document.querySelector('.wn-fade')).not.toBeNull();
   });
 
-  it('「跳过」和「开始答题」都能立刻放行', async () => {
+  it('「跳过」随时放行；走完三站后「开始答题」放行', async () => {
     const u = userEvent.setup();
     const onDone = vi.fn();
     const { unmount } = render(<WhatsNewSheet onDone={onDone} />);
@@ -47,6 +77,8 @@ describe('WhatsNewSheet', () => {
 
     const onDone2 = vi.fn();
     render(<WhatsNewSheet onDone={onDone2} />);
+    await u.click(screen.getByText('下一步 · 1/3'));
+    await u.click(screen.getByText('下一步 · 2/3'));
     await u.click(screen.getByText('开始答题'));
     expect(onDone2).toHaveBeenCalledTimes(1);
   });

@@ -68,9 +68,8 @@ const DEMO_DICT: Record<string, { ph: string; cn: string; en: string }> = {
 /** 引导学生点的那个词 —— 加呼吸动画。游戏教程里的"闪光提示"。 */
 const DEMO_TARGET = 'migration';
 
-/** 聚光灯巡礼每一条停留多久（毫秒）。第三条多给一点 —— 那条字最多，
- *  而且是"别空着"这个最该被记住的提醒。 */
-const TOUR_STEPS = [1400, 1400, 1700];
+/** 聚光灯一共几站。手动推进，不计时。 */
+const TOUR_TOTAL = 3;
 
 export default function WhatsNewSheet({ onDone }: { onDone: () => void }) {
   const [picked, setPicked] = useState<string | null>(null);
@@ -78,10 +77,18 @@ export default function WhatsNewSheet({ onDone }: { onDone: () => void }) {
   const liveRef = useRef<HTMLDivElement | null>(null);
 
   /**
-   * 聚光灯：-1 = 没在巡礼（全部正常亮着），0/1/2 = 正在高亮第几条。
+   * 聚光灯：-1 = 没在巡礼（全部正常亮着），0/1/2 = 正在看第几条。
    *
    * 三条并排摆着，眼睛会一次性扫过去、然后一条都没记住。逐条打灯是
    * 强行给它们排了个先后 —— 同一时刻只有一件事在争夺注意力。
+   *
+   * **由学生自己点着走，不自动播放。** 首版做成 4.5 秒自动轮播，老师
+   * 试了一下的评价是"跳得太快"。这个批评是对的，而且自动播放的毛病
+   * 不是把时长调长就能修好的：一屏里有中文说明、英文例句、还有一个
+   * 要动手点的演示，每个学生读完的时间根本不一样,任何一个固定时长
+   * 都必然对一部分人太快、对另一部分人太慢。手动推进就没有这个问题,
+   * 而且和调研里那条对得上 —— 用户主动触发的引导完成率是自动触发的
+   * 2-3 倍。
    *
    * 系统开了「减弱动态效果」就直接不巡礼：这类效果本身就是 HIG 点名
    * 要让路的那一类，而三条内容静态摆着也完全读得通,不损失信息。
@@ -92,28 +99,13 @@ export default function WhatsNewSheet({ onDone }: { onDone: () => void }) {
     window.matchMedia('(prefers-reduced-motion: reduce)').matches;
   const [spot, setSpot] = useState<number>(prefersReduced ? -1 : 0);
   const touring = spot >= 0;
-  const timersRef = useRef<number[]>([]);
+  const lastStep = spot === TOUR_TOTAL - 1;
 
-  function endTour() {
-    timersRef.current.forEach((t) => window.clearTimeout(t));
-    timersRef.current = [];
-    setSpot(-1);
+  /** 往下一站。已经在最后一站就收灯（不退出这一屏 —— 学生可能还想
+   *  回头点两个词试试，那是这一屏最值钱的部分）。 */
+  function next() {
+    setSpot((s) => (s < TOUR_TOTAL - 1 ? s + 1 : -1));
   }
-
-  useEffect(() => {
-    if (prefersReduced) return;
-    // 排好整趟的节拍：先亮第 0 条,到点换第 1 条,最后收灯。
-    // 每一步都是独立 timeout,中途 endTour 一次性全清 —— 学生随时能打断。
-    let acc = 320; // 先让这一屏自己渲染完再打灯,否则第一帧就闪
-    const ids: number[] = [];
-    TOUR_STEPS.forEach((dur, i) => {
-      acc += i === 0 ? 0 : TOUR_STEPS[i - 1];
-      ids.push(window.setTimeout(() => setSpot(i), acc));
-    });
-    ids.push(window.setTimeout(() => setSpot(-1), acc + TOUR_STEPS[TOUR_STEPS.length - 1]));
-    timersRef.current = ids;
-    return () => ids.forEach((t) => window.clearTimeout(t));
-  }, [prefersReduced]);
 
   /** 巡礼中的卡片样式：当前那条浮到遮罩之上，其余留在暗处。
    *  ring 跟着卡片自己的色系走 —— 第三条是琥珀底,套蓝圈会脏。 */
@@ -134,18 +126,21 @@ export default function WhatsNewSheet({ onDone }: { onDone: () => void }) {
     if (!DEMO_DICT[key]) return;
     setPicked(key);
     setTried(true);
-    endTour(); // 学生开始自己动手了，聚光灯让位
+    // 注意这里**不**收灯。演示区就在第一站的高亮框里，点词是第一站
+    // 的内容而不是打断它 —— 学生试完还得能接着点「下一步」看后两条。
+    // 高亮的那张卡浮在遮罩之上，弹出来的词卡照样看得见。
   }
 
   const entry = picked ? DEMO_DICT[picked] : null;
 
   return (
     <div className="ui-ios fixed inset-0 z-[60] bg-white overflow-y-auto">
-      {/* 变暗层。点它=打断巡礼,而不是关掉整屏 —— 学生此刻想表达的是
-          "别演了我自己看",不是"我要走"。真想走,右上角的跳过一直在。 */}
+      {/* 变暗层。点它 = 往下一站，和点底部按钮一样 —— 手机上拇指落在
+          哪儿都能推进，不用每次都够到底部。最后一站再点就收灯，不退出
+          这一屏。真想直接走,右上角的跳过一直在。 */}
       {touring && (
         <div
-          onClick={endTour}
+          onClick={next}
           aria-hidden="true"
           className="fixed inset-0 z-[61] bg-black/55 wn-fade"
         />
@@ -285,18 +280,21 @@ export default function WhatsNewSheet({ onDone }: { onDone: () => void }) {
             touring ? 'opacity-70' : ''
           }`}
         >
+          {/* 巡礼期间这个按钮就是"下一步"。走到最后一站直接变成
+              「开始答题」—— 三条都看完了,再要求多点一下纯属浪费
+              考试时间。 */}
           <button
             type="button"
-            onClick={onDone}
+            onClick={touring && !lastStep ? next : onDone}
             className="press w-full min-h-[52px] rounded-[16px] bg-blue-600 text-white text-[17px] font-semibold active:bg-blue-700"
           >
-            开始答题
+            {touring && !lastStep ? `下一步 · ${spot + 1}/${TOUR_TOTAL}` : '开始答题'}
           </button>
-          {/* 巡礼时把这行换成进度点：三条到底有几条、现在讲到哪,
-              不给交代的话学生不知道要等多久,只会想马上跳过。 */}
+          {/* 巡礼时把这行换成进度点：一共几站、现在在哪一站 ——
+              不给交代的话学生不知道还有多少,只会想直接跳过。 */}
           {touring ? (
             <div className="flex justify-center gap-1.5 mt-3 mb-1" aria-hidden="true">
-              {TOUR_STEPS.map((_, i) => (
+              {Array.from({ length: TOUR_TOTAL }, (_, i) => (
                 <span
                   key={i}
                   className={`h-1.5 rounded-full transition-all duration-300 ${
