@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { BASE } from '../lib/api';
 import SkillProfileCard from '../components/SkillProfileCard';
+import InstallAppCard from '../components/InstallAppCard';
 import {
   createPracticeClone,
   fetchTrend,
@@ -187,8 +188,22 @@ export default function MyHistory() {
   // shared classroom laptop. The localStorage value still seeds the
   // input for the same-user refresh convenience case, but loading data
   // requires an explicit button click.
+  //
+  // PWA 例外（standalone）：从主屏幕图标打开时自动带出记住的名字。
+  // 这不违背上面的决定 —— Bug 2 防的是**共用设备的浏览器**;而
+  // standalone 只发生在学生**主动把这页装到自己手机主屏**之后,
+  // "装"这个动作本身就是"这是我的设备"的声明。App 打开还要输一遍
+  // 名字,就不叫 App 了。右上角「换人」按钮保留,借手机的场景走它。
   useEffect(() => {
-    if (urlName && !submitted) lookup(urlName);
+    if (urlName && !submitted) {
+      lookup(urlName);
+      return;
+    }
+    const standalone =
+      (typeof window.matchMedia === 'function' &&
+        window.matchMedia('(display-mode: standalone)').matches) ||
+      (navigator as any).standalone === true;
+    if (standalone && !submitted && name.trim()) lookup(name);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -458,6 +473,10 @@ export default function MyHistory() {
             </span>
           </Link>
         )}
+
+        {/* PWA 安装引导 —— 放在刚查完成绩的下文里,用"下次不用再输名字"
+            这个此刻正在发生的痛点当理由。已安装 / 已关闭 / 桌面端自动隐藏。 */}
+        {data && <InstallAppCard />}
 
         {/* 2.0 技能画像 —— 放在逐场成绩之前。逐场分数只说明"考得怎么样",
             按题型拆开才回答"我该练什么",后者才是学生能行动的。 */}

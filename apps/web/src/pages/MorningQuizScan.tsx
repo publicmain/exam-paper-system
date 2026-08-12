@@ -384,6 +384,8 @@ function AfterQuizPortal({ code, raw }: { code: string; raw: string }) {
       </a>
       <div className="mt-3 text-sm text-gray-400 text-center">
         以后任何时候扫这个码，都能从这里进。
+        <br />
+        进去后还可以<strong className="text-gray-500">把成绩页装到手机主屏幕</strong>，一点就开。
       </div>
     </div>
   );
