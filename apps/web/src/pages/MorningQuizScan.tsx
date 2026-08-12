@@ -158,9 +158,13 @@ export default function MorningQuizScan() {
       localStorage.setItem('auth_token', r.scanToken);
       // 记住姓名 —— /my-history 的输入框会用它预填。学生以后随时扫墙上
       // 的码查成绩时,不用再回忆"当时登记的是哪个写法"。
-      try {
-        localStorage.setItem('mq:history:name', trimmed);
-      } catch { /* 隐私模式，无所谓 */ }
+      // 测试班除外(2026-08-12 事故):学生们用「测试学生」签到体验流程,
+      // 这个名字被存成默认身份,装好的 App 打开全是测试班级。
+      if (!(meta?.className ?? '').startsWith('【测试】')) {
+        try {
+          localStorage.setItem('mq:history:name', trimmed);
+        } catch { /* 隐私模式，无所谓 */ }
+      }
       // 2.0 新功能引导：签到已经写进服务端了,这里只是在跳转前插一屏。
       //
       // 为什么放在这个位置 —— 前后各有一个不能碰的东西:

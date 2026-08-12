@@ -147,7 +147,15 @@ export default function MyHistory() {
       }
       setData(json as HistoryResponse);
       setChosenStudentId(studentId ?? null);
-      try { localStorage.setItem('mq:history:name', trimmed); } catch {/* */}
+      // 测试账号不写入"记住的名字"。2026-08-12 事故:学生们用「测试学生」
+      // 签到体验流程,这个名字被存成了默认,装好的 App 打开全是测试班级。
+      // 查谁都可以,但只有真实班级的学生才配成为这台设备的默认身份。
+      const hr = json as HistoryResponse;
+      const isTestAccount =
+        hr.student.classes.length > 0 && hr.student.classes.every((c) => c.startsWith('【测试】'));
+      if (!isTestAccount) {
+        try { localStorage.setItem('mq:history:name', trimmed); } catch {/* */}
+      }
       if (studentId) {
         try { localStorage.setItem('mq:history:studentId', studentId); } catch {/* */}
       }
@@ -417,6 +425,22 @@ export default function MyHistory() {
         {/* F2 — Today's upcoming morning quizzes. Hidden when the backend
             hasn't deployed the endpoint (upcoming === null) or when
             nothing is scheduled (empty array). */}
+        {/* 测试账号提醒。2026-08-12:几名学生体验安装流程时用「测试学生」
+            签了到,这个名字成了他们手机的默认身份,装好的 App 打开全是
+            测试班级。这条横幅出现在"错误的那一屏"上,指路自助修复 ——
+            换一次学生,默认身份就永久换过来了(lookup 成功即覆写)。 */}
+        {data &&
+          data.student.classes.length > 0 &&
+          data.student.classes.every((c) => c.startsWith('【测试】')) && (
+            <div className="rounded-xl border-2 border-amber-300 bg-amber-50 p-4">
+              <div className="font-semibold text-amber-900">⚠️ 你现在看的是测试账号，不是你自己的成绩</div>
+              <div className="text-sm text-amber-800 mt-1 leading-relaxed">
+                点右上角<strong>「换学生」</strong>，输入<strong>你自己的名字</strong>再查询 ——
+                换过一次之后，App 以后打开就是你自己的成绩了。
+              </div>
+            </div>
+          )}
+
         {data && upcoming && upcoming.length > 0 && (
           <UpcomingTile sessions={upcoming} />
         )}
