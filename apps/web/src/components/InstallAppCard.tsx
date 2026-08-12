@@ -1,4 +1,12 @@
 import { useEffect, useState } from 'react';
+import {
+  consumeInstallPrompt,
+  detectPlatform,
+  getInstallPrompt,
+  isStandalone,
+  isWeChat,
+  onInstallPromptReady,
+} from '../lib/pwa';
 
 /**
  * 「把成绩页装到主屏幕」引导卡（PWA 安装向导）。
@@ -18,30 +26,6 @@ import { useEffect, useState } from 'react';
  *   微信内置浏览器  装不了,显示会误导,直接隐藏。
  */
 
-/** Chrome 的安装事件在页面加载早期就发出,必须在模块加载时就挂监听 ——
- *  等 React 组件挂载再听就错过了。 */
-let deferredPrompt: any = null;
-const promptListeners = new Set<() => void>();
-if (typeof window !== 'undefined') {
-  window.addEventListener('beforeinstallprompt', (e) => {
-    e.preventDefault();
-    deferredPrompt = e;
-    promptListeners.forEach((fn) => fn());
-  });
-}
-
-function isStandalone(): boolean {
-  try {
-    return (
-      (typeof window.matchMedia === 'function' &&
-        window.matchMedia('(display-mode: standalone)').matches) ||
-      (navigator as any).standalone === true
-    );
-  } catch {
-    return false;
-  }
-}
-
 const DISMISS_KEY = 'mq:pwa:nudge-dismissed';
 
 export default function InstallAppCard() {
@@ -52,27 +36,24 @@ export default function InstallAppCard() {
       return false;
     }
   });
-  const [canPrompt, setCanPrompt] = useState(() => deferredPrompt !== null);
+  const [canPrompt, setCanPrompt] = useState(() => getInstallPrompt() !== null);
   const [installed, setInstalled] = useState(false);
 
   useEffect(() => {
-    const on = () => setCanPrompt(true);
-    promptListeners.add(on);
+    const off = onInstallPromptReady(() => setCanPrompt(true));
     const onInstalled = () => setInstalled(true);
     window.addEventListener('appinstalled', onInstalled);
     return () => {
-      promptListeners.delete(on);
+      off();
       window.removeEventListener('appinstalled', onInstalled);
     };
   }, []);
 
-  const ua = typeof navigator !== 'undefined' ? navigator.userAgent : '';
-  const isIos = /iPhone|iPad|iPod/i.test(ua);
-  const isWeChat = /MicroMessenger/i.test(ua);
-  const isMobile = isIos || /Android/i.test(ua);
+  const platform = detectPlatform();
+  const isIos = platform === 'iphone' || platform === 'ipad';
 
   // 桌面不推(学生场景是手机)、微信里装不了、装完就闭嘴
-  if (dismissed || installed || isStandalone() || !isMobile || isWeChat) return null;
+  if (dismissed || installed || isStandalone() || platform === 'other' || isWeChat()) return null;
   // Android 上 Chrome 认为不可安装(已装过/不满足条件)时也不硬推
   if (!isIos && !canPrompt) return null;
 
@@ -109,7 +90,7 @@ export default function InstallAppCard() {
         // iOS 没有安装 API —— 教手动操作，步骤配符号，纯文字找不到按钮
         <ol className="mt-3 space-y-1.5 text-[13px] text-gray-700">
           <li>
-            ① 点 Safari 底部中间的分享按钮{' '}
+            ① 点 Safari {platform === 'ipad' ? '右上角' : '底部中间'}的分享按钮{' '}
             <span className="inline-block border border-gray-400 rounded px-1 text-[12px] leading-4 align-middle">
               ⬆︎
             </span>
@@ -121,9 +102,8 @@ export default function InstallAppCard() {
         <button
           type="button"
           onClick={async () => {
-            const p = deferredPrompt;
+            const p = consumeInstallPrompt();
             if (!p) return;
-            deferredPrompt = null;
             try {
               await p.prompt();
             } catch { /* 用户取消 */ }

@@ -2,6 +2,11 @@ import { useEffect, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { api } from '../lib/api';
 import WhatsNewSheet, { hasSeenWhatsNew, markWhatsNewSeen } from '../components/exam/WhatsNewSheet';
+import InstallGuideSheet, {
+  hasSeenInstallGuide,
+  markInstallGuideSeen,
+} from '../components/InstallGuideSheet';
+import { detectPlatform, isStandalone } from '../lib/pwa';
 
 type Level = 'ielts_authentic' | 'ielts_simplified' | 'olevel';
 const LEVEL_LABEL: Record<Level, { zh: string; en: string; desc: string; tint: string }> = {
@@ -83,8 +88,10 @@ export default function MorningQuizScan() {
   // meta.siblingSessions.length > 1; auto-set to the only entry when
   // there's just one (single-band class).
   const [chosenSessionId, setChosenSessionId] = useState<string | null>(null);
-  /** 签到成功后要去的试卷地址。非 null = 正在显示新功能引导。 */
+  /** 签到成功后要去的试卷地址。非 null = 正在显示一次性引导。 */
   const [pendingQuizUrl, setPendingQuizUrl] = useState<string | null>(null);
+  /** 当前在放哪道引导。 */
+  const [gate, setGate] = useState<'whatsnew' | 'install' | null>(null);
 
   // Fetch the class meta on mount. We hit /scan-roster (gated by a live
   // QR token) but only display the class name + count, never the names
@@ -164,10 +171,19 @@ export default function MorningQuizScan() {
       // 夹在中间这一下,考勤已经落库、试卷还没开始渲染,是唯一一个
       // "出了任何岔子都不影响成绩"的位置。引导组件自身也不做任何
       // 网络请求,卡住也只是白屏一秒,点跳过就走。
-      if (hasSeenWhatsNew()) {
+      // 两道一次性引导按序排队：2.0 新功能(whatsnew) → 装 App 教程
+      // (installguide)。都看过 → 直接进卷。绝大多数学生任一时刻最多
+      // 只会遇到其中一道(whatsnew 已在 8/13 全班放过一轮)。
+      const nextGate = !hasSeenWhatsNew()
+        ? ('whatsnew' as const)
+        : !hasSeenInstallGuide() && detectPlatform() !== 'other' && !isStandalone()
+          ? ('install' as const)
+          : null;
+      if (!nextGate) {
         window.location.replace(r.quizUrl);
         return;
       }
+      setGate(nextGate);
       setPendingQuizUrl(r.quizUrl);
     } catch (e: any) {
       const raw = e?.message ?? String(e);
@@ -179,11 +195,27 @@ export default function MorningQuizScan() {
 
   // 引导优先于其余所有分支：此刻考勤已经落库,唯一还没做的就是跳转,
   // 不能被下面任何一个 meta/error 分支抢先渲染掉。
-  if (pendingQuizUrl) {
+  if (pendingQuizUrl && gate === 'whatsnew') {
     return (
       <WhatsNewSheet
         onDone={() => {
           markWhatsNewSeen();
+          // whatsnew 看完接着看装 App 教程(仅限没看过的新设备)——
+          // 两道门back-to-back只会发生在全新设备上,极少数。
+          if (!hasSeenInstallGuide() && detectPlatform() !== 'other' && !isStandalone()) {
+            setGate('install');
+          } else {
+            window.location.replace(pendingQuizUrl);
+          }
+        }}
+      />
+    );
+  }
+  if (pendingQuizUrl && gate === 'install') {
+    return (
+      <InstallGuideSheet
+        onDone={() => {
+          markInstallGuideSeen();
           window.location.replace(pendingQuizUrl);
         }}
       />
