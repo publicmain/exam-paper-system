@@ -43,9 +43,14 @@ export function cleanStem(stem: string): string {
   for (const re of RUBRIC_PATTERNS) s = s.replace(re, '').trim();
   // 「Q4. …」形式：取最后一个题号之后（题干里可能带 section 说明再带题）
   const qs = s.split(/(?:^|\s)Q\d+(?:\([ivx]+\))?\.\s+/);
-  if (qs.length > 1) s = qs[qs.length - 1].trim();
-  // 仍有多段时取最后一段 —— 须知在前、问题在后是这批卷子的固定结构
-  if (s.includes('\n\n')) {
+  if (qs.length > 1) {
+    // 命中题号 = 已经精确切到这一道，整块保留，不再往下切。
+    // summary 题的最后一段是开头提示 "Begin your summary: 'Singapore
+    // is responding…'"，真正的任务("用自己的话概括第2-7段")在它前面 ——
+    // 再取一次"最后一段"就只剩提示语，学生看不懂在考什么。
+    s = qs[qs.length - 1].trim();
+  } else if (s.includes('\n\n')) {
+    // 没有题号时才用位置兜底：须知在前、问题在后是这批卷子的固定结构
     const parts = s.split(/\n{2,}/).map((x) => x.trim()).filter(Boolean);
     if (parts.length > 1) s = parts[parts.length - 1];
   }
@@ -96,7 +101,10 @@ export function humanizeAnswer(raw: string): { points: string[]; model: string }
   }
   points = points
     .map((p) => p.replace(/^[,;:.\s]+|[,;\s]+$/g, '').trim())
-    .filter((p) => p.length > 1);
+    // 只丢纯标点残渣，绝不按长度过滤 —— 段落匹配/判断题的答案就是
+    // 单个字母（"C"、"H"），length>1 会把它们整条吃掉，学生看到「参考
+    // 答案：—」。2026-08-13 上线首查就撞到了。
+    .filter((p) => /[A-Za-z0-9一-鿿]/.test(p));
 
   return { points, model };
 }

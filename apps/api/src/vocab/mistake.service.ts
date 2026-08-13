@@ -192,7 +192,10 @@ export class MistakeService {
             // 里永远可查（本表存了 paperQuestionId）。
             stem: (cleanStem(stem) || stem).slice(0, 600),
             studentAnswer: studentAnswer.slice(0, 1000),
-            correctAnswer: correctAnswer.slice(0, 1000),
+            // 2000 而不是 1000：8 分 summary 的 mark scheme 是
+            // CONTENT POINTS + STYLE + MODEL 三段，1000 正好把末尾的
+            // MODEL 范文切掉，而范文恰恰是学生最该照着看的东西。
+            correctAnswer: correctAnswer.slice(0, 2000),
             markerComment: (sc.markerComment ?? '').slice(0, 1000),
             awarded,
             maxMarks,

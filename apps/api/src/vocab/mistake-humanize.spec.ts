@@ -35,6 +35,21 @@ describe('cleanStem —— 剥掉答题须知，只留真正在问的那句', ()
     expect(cleanStem(raw)).not.toContain('[15 marks]');
   });
 
+  it('summary 题：保留真正的任务，不能只剩「Begin your summary」提示语', () => {
+    const raw =
+      'Read the non-narrative text below about how Singapore is responding to its ageing ' +
+      'population, and answer the questions that follow. Section C [12 marks]. Answer in your ' +
+      'own words as far as possible.\n\n' +
+      'Q4. Using your own words as far as possible, summarise the ways in which Singapore is ' +
+      'responding to its ageing population, as described in paragraphs 2 to 7. Your summary must ' +
+      'be no more than 80 words.\n\n' +
+      "Begin your summary: 'Singapore is responding to its ageing population by...' [8]";
+    const out = cleanStem(raw);
+    expect(out).toContain('summarise the ways in which Singapore');
+    expect(out).not.toContain('Section C');
+    expect(out).not.toMatch(/^Begin your summary/);
+  });
+
   it('认不出格式时原样返回，绝不吞掉题目', () => {
     expect(cleanStem('What is the capital of France?')).toBe('What is the capital of France?');
     expect(cleanStem('')).toBe('');
@@ -80,6 +95,12 @@ describe('humanizeAnswer —— 把判分指令翻译成学生看得懂的要点
     const { points, model } = humanizeAnswer('delaying / putting off until later');
     expect(points).toEqual(['delaying / putting off until later']);
     expect(model).toBe('');
+  });
+
+  it('单字母答案不能被吃掉（段落匹配题的答案就是一个字母）', () => {
+    expect(humanizeAnswer('F').points).toEqual(['F']);
+    expect(humanizeAnswer('B').points).toEqual(['B']);
+    expect(humanizeAnswer('TRUE').points).toEqual(['TRUE']);
   });
 
   it('空输入不炸', () => {
