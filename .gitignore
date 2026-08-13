@@ -70,3 +70,7 @@ apps/api/test.tmp
 # DB backups — contain student PII, live off-site in OneDrive; never commit.
 backups/
 .seiue_sync_v2/
+
+# 版权：剑桥雅思原文只留在本地，绝不入库（铁律）
+apps/api/test-fixtures/cambridge-ielts-gt-14/
+apps/api/test-fixtures/cambridge-ielts-*/
