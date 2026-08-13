@@ -201,7 +201,9 @@ export default function MyHistoryDetail() {
             {score}<span className="text-2xl text-gray-500 font-normal"> / {max}</span>
             <span className={`text-base ml-2 ${pctColor}`}>({pct}%)</span>
           </div>
-          {data.items.some((it) => it.questionType !== 'mcq' && it.awardedMarks == null) && (
+          {data.items.some(
+            (it) => it.questionType !== 'mcq' && it.awardedMarks == null && hasWrittenAnswer(it),
+          ) && (
             <div className="mt-3 text-sm rounded-lg bg-sky-50 border border-sky-200 text-sky-800 px-3 py-2">
               ⏳ 选择题已即时评分;<strong>简答题正由老师人工批改</strong>,批改完成后总分会更新,请稍后再来查看。
             </div>
@@ -291,6 +293,21 @@ export default function MyHistoryDetail() {
   );
 }
 
+/**
+ * 这道题学生有没有写东西。
+ *
+ * 关键：**没作答的题在数据库里根本没有答题记录行**，接口是拿试卷题目
+ * 补出来的，于是 awardedMarks 是 null —— 和「写了但还没判」长得一模
+ * 一样。只看 awardedMarks 会把空白题显示成「正在人工批改」，而这个班
+ * 空白率很高，等于绝大多数复盘页都永久挂着一条假横幅
+ * （2026-08-12 叶雅滋 Q12 即如此）。
+ */
+export function hasWrittenAnswer(it: { studentAnswer?: unknown }): boolean {
+  const a = it.studentAnswer;
+  if (a == null) return false;
+  return typeof a === 'string' ? a.trim() !== '' : true;
+}
+
 function ResultRow({
   item,
   onAppeal,
@@ -313,7 +330,8 @@ function ResultRow({
   // to grade it by hand — show that clearly instead of a bare "—" / no
   // score, which reads as "you got zero". (Grading is teacher-done, never
   // described as AI.)
-  const isPending = !isMcq && awarded == null;
+  const isBlank = !isMcq && !hasWrittenAnswer(item);
+  const isPending = !isMcq && awarded == null && !isBlank;
   // F10 — appeal eligibility: any row where the auto-grader said wrong OR
   // where the student scored less than full marks. Also enabled for null
   // (manual-mark-pending) so students can still flag a misgraded short
@@ -323,10 +341,11 @@ function ResultRow({
     (awarded != null && awarded < item.marks);
   const correctTone =
     isPending ? 'border-sky-200 bg-sky-50' :
+    isBlank ? 'border-gray-200 bg-gray-50' :
     isCorrect === true ? 'border-emerald-300 bg-emerald-50' :
     isCorrect === false ? 'border-rose-300 bg-rose-50' :
     'border-gray-200 bg-white';
-  const icon = isPending ? '⏳' : isCorrect === true ? '✓' : isCorrect === false ? '✗' : '—';
+  const icon = isPending ? '⏳' : isBlank ? '—' : isCorrect === true ? '✓' : isCorrect === false ? '✗' : '—';
   const iconColor = isPending ? 'text-sky-600' : isCorrect === true ? 'text-emerald-700' : isCorrect === false ? 'text-rose-700' : 'text-gray-400';
 
   return (
@@ -344,6 +363,11 @@ function ResultRow({
             {isPending && (
               <span className="px-1.5 py-0.5 rounded bg-sky-100 text-sky-700 font-medium">
                 ⏳ 待老师批改 · Pending teacher marking
+              </span>
+            )}
+            {isBlank && (
+              <span className="px-1.5 py-0.5 rounded bg-gray-200 text-gray-600 font-medium">
+                未作答 · Not answered
               </span>
             )}
           </div>
