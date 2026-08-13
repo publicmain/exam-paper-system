@@ -965,6 +965,34 @@ const prisma = new PrismaClient();
   }
   console.log(`\n生词本自动采集: 新增 ${harvested} 条${harvestFailed ? `（${harvestFailed} 份失败）` : ''}`);
 
+  // ── 错题本「批改即采集」────────────────────────────────────────
+  //
+  // 和上面生词本同一个坑：MistakeService 只挂在 MarkerService.finalize
+  // 上，而真实判分走的是本脚本，从不经过那个端点。2026-08-13 引入错题本
+  // 时 import 写了、调用漏了 —— 直到补考三份卷判完、错题本里没有他们
+  // 才发现。
+  const mistakeSvc = new MistakeService(prisma as any);
+  let mkAdded = 0;
+  let mkFailed = 0;
+  for (const submissionId of submissionIds) {
+    try {
+      // quizDay 取该场次的日期（新加坡自然日），不是「今天」——
+      // 补判前几天的卷子时不能把错题记到今天名下。
+      const row = await prisma.studentSubmission.findUnique({
+        where: { id: submissionId },
+        select: { assignment: { select: { morningQuizSession: { select: { date: true } } } } },
+      });
+      const d = row?.assignment?.morningQuizSession?.date;
+      const quizDay = (d ?? new Date()).toISOString().slice(0, 10);
+      const r = await mistakeSvc.collectFromSubmission(submissionId, quizDay);
+      mkAdded += r.added;
+    } catch (e: any) {
+      mkFailed++;
+      console.warn(`  mistake harvest failed for ${submissionId}: ${e?.message ?? e}`);
+    }
+  }
+  console.log(`错题本自动采集: 新增 ${mkAdded} 条${mkFailed ? `（${mkFailed} 份失败）` : ''}`);
+
   console.log(`\n=== Done ===\n  scripts written: ${scriptsWritten}\n  submissions finalized: ${finalized}\n  partial: ${partial}\n`);
   await prisma.$disconnect();
 })();
