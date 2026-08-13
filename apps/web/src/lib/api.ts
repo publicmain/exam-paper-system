@@ -260,10 +260,11 @@ export const api = {
   qrCurrent: (params: { classId?: string; sessionId?: string }) =>
     request('GET', `/qr/current${qs(params)}&_=${Date.now()}`),
   /** Permanent printable QR token for a class — print once, no laptop. */
-  qrStatic: (classId: string) =>
+  qrStatic: (classId: string, variant?: string) =>
     request<{ classId: string; className: string; token: string }>(
       'GET',
-      `/qr/static?classId=${encodeURIComponent(classId)}`,
+      `/qr/static?classId=${encodeURIComponent(classId)}` +
+        (variant ? `&variant=${encodeURIComponent(variant)}` : ''),
     ),
   /** Public roster fetch — gated by a valid QR token. The `_` cache-buster
    *  makes every request URL unique so a 410 (session_not_active) cached

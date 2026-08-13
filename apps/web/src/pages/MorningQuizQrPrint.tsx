@@ -18,6 +18,11 @@ import { api } from '../lib/api';
 export default function MorningQuizQrPrint() {
   const [params] = useSearchParams();
   const classId = params.get('classId') ?? undefined;
+  // ?variant=w34 —— 印一张带标签的分身码。和原始码同时有效、扫起来
+  // 一模一样，但考勤会记下学生扫的是哪一张：悄悄换掉墙上这张之后，
+  // 当天仍扫到旧标签的，用的必然是之前拍的照片。
+  // 版式与原始码这一页**完全相同**，否则换码这件事等于自己声张出去。
+  const variant = params.get('variant') ?? undefined;
   const [token, setToken] = useState<string | null>(null);
   const [className, setClassName] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -29,7 +34,7 @@ export default function MorningQuizQrPrint() {
       return;
     }
     api
-      .qrStatic(classId)
+      .qrStatic(classId, variant)
       .then((r) => {
         if (cancelled) return;
         setToken(r.token);
@@ -42,7 +47,7 @@ export default function MorningQuizQrPrint() {
     return () => {
       cancelled = true;
     };
-  }, [classId]);
+  }, [classId, variant]);
 
   const scanUrl = useMemo(() => {
     if (!token) return null;
