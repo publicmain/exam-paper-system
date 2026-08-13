@@ -642,14 +642,88 @@ const GRADES_0812: Record<string, { awardedMarks: number; reason: string }> = {
   cmspdntvw01ue11hyazhl1dxj: { awardedMarks: 1, reason: "Q4:14 词。\"帮老人学技能\"算一个点(②补贴培训);\"the banks save money for the old\"不对 —— 不是银行替老人存钱,而是 CPF 强制储蓄转成终身每月领取。1/8。80 词的额度只用了 14 个,第 4 到 7 段完全没读到。" }, // 赵伯容 Q4
 };
 
+const GRADES_0813: Record<string, { awardedMarks: number; reason: string }> = {
+  // 2026-08-13 早测 · authentic=ielts_adapted_2026_v5 (Fire as a Management Tool
+  // 计划烧除, NPS 公有领域底本改编) · olevel=The Durian(叙事卷,2.0 改版:
+  // 5 短答 + 6 MCQ + 2 长答 + 4 情绪配对)。全部由 Claude 在 chat 逐条判,零 AI。
+  //
+  // 判前回原文复核四道段落匹配题的唯一性:
+  //   #1 只有 B 段列举了依赖火的植物特征(树脂封的球果/厚树皮/根部萌蘖);
+  //   #2 只有 H 段解释激励错位(烧跑了断送前程,不烧没人看得见成本);
+  //   #3 只有 F 段写点火手法(滴油火炬/信号枪/直升机投高锰酸钾球);
+  //   #4 只有 C 段讲可燃物逐年累积。
+  // 四题均无歧义。
+
+  // ── 雅思 段落匹配(#1-4) ──
+  cmsqt4pfs01qaw1g1n24w33ka: { awardedMarks: 0, reason: "段1:A,正解 B。0。A 段讲的是二十世纪\"见火就扑\"的政策,B 段才列举依赖火的植物特征 —— 树脂封住的球果、厚树皮、根部萌蘖。题干问 examples of plant features。" }, // 刘钇村 #1
+  cmsqsjpap010lw1g1jt94iyt0: { awardedMarks: 0, reason: "段1:C,正解 B。0。C 段是\"不烧会怎样\"(可燃物堆积),植物特征在 B 段。" }, // 林寅嘉 #1
+  cmsqsmchq014rw1g1wf6s1gcd: { awardedMarks: 0, reason: "段1:G,正解 B。0。G 段讲治理成效(镶嵌斑块),不是植物特征。" }, // 闫雯涵 #1
+  cmsqt7k6a01uhw1g1xhws2rgv: { awardedMarks: 0, reason: "段2:B,正解 H。0。这题问\"为什么计划烧除的人面对的激励是失衡的\",答案在末段 H:烧跑了断送职业生涯,而压根不点火不会有任何看得见的代价 —— the incentives point the wrong way。" }, // 刘钇村 #2
+  cmsqsnoe7016xw1g1xht7igos: { awardedMarks: 0, reason: "段2:B,正解 H。0。同上,找 incentives 这个词就直接落在 H 段。" }, // 叶书瑞 #2
+  cmsqsjsr8010pw1g1tnerorp8: { awardedMarks: 0, reason: "段2:B,正解 H。0。同上。" }, // 林寅嘉 #2
+  cmsqsmhio0151w1g1par1jldh: { awardedMarks: 0, reason: "段2:B,正解 H。0。同上。四个人都选了 B,B 段是植物适应性,和\"激励\"无关 —— 遇到抽象词(incentives)先回原文扫这个词本身,别凭印象。" }, // 闫雯涵 #2
+  cmsqt8yo601wxw1g1xspk9ibq: { awardedMarks: 0, reason: "段3:C,正解 F。0。点火手法在 F 段:drip torches(滴油火炬)、flare guns(信号枪)、直升机投放高锰酸钾塑料球。" }, // 刘钇村 #3
+  cmsqsnq5c0173w1g1e53u6bli: { awardedMarks: 0, reason: "段3:B,正解 F。0。同上。" }, // 叶书瑞 #3
+  cmsqsj7030109w1g1n377x5wx: { awardedMarks: 0, reason: "段3:E,正解 F。0。E 段是烧前要写的\"处方\"(计划文件),F 段才是当天怎么点火。两段确实挨着,区别在\"纸面准备\"还是\"实际动作\"。" }, // 叶雅滋 #3
+  cmsqsjxyn010xw1g1ble4jimb: { awardedMarks: 0, reason: "段3:D,正解 F。0。D 段是\"什么叫计划烧除\"的定义,不是点火方法。" }, // 林寅嘉 #3
+  cmsqt84uz01viw1g1c36zms87: { awardedMarks: 0, reason: "段3:D,正解 F。0。同上。" }, // 郑稀瑜 #3
+  cmsqsmla60157w1g14sb2gtgr: { awardedMarks: 0, reason: "段3:C,正解 F。0。同上。" }, // 闫雯涵 #3
+  cmsqt90ar01x6w1g1fp4uemuf: { awardedMarks: 0, reason: "段4:D,正解 C。0。\"多年不烧的可燃物会怎样\"在 C 段:枯枝、松针、落叶、幼树丛年年堆积,林子越来越密。" }, // 刘钇村 #4
+  cmsqsomab018xw1g19cdtak3m: { awardedMarks: 0, reason: "段4:A,正解 C。0。同上。" }, // 叶书瑞 #4
+  cmsqsk0ly0111w1g1cwj3ur0h: { awardedMarks: 0, reason: "段4:H,正解 C。0。同上。" }, // 林寅嘉 #4
+  cmsqsmnp4015dw1g1776rjqc7: { awardedMarks: 0, reason: "段4:D,正解 C。0。同上。" }, // 闫雯涵 #4
+
+  // ── 雅思 填空(#9/#11/#13) ──
+  cmsqsor4g019fw1g17pa7d26f: { awardedMarks: 1, reason: "填9:reisn —— 就是 resin 两个字母写颠倒了,词认得出,判对。1。但雅思正式考试拼写从严,填完最后留一分钟逐个核对拼写。" }, // 李永轩 #9
+  cmsqsvtrw01i5w1g1rn7lupyx: { awardedMarks: 1, reason: "填11:patchwork,判对。1。**这道题出得有问题,不是你的错**:原文写的是 \"not a cleared area but a mosaic — a patchwork of stands of different ages\",题干\"a [BLANK] of stands of different ages\"照抄的正是 patchwork 前面那一截,你填的比参考答案 mosaic 还更贴原句。两个都算对。" }, // 叶雅滋 #11
+  cmsqsiald00z8w1g187fh4hzf: { awardedMarks: 0, reason: "填11:layer,正解 mosaic(或 patchwork)。0。layer 不在原文这句里 —— 填空题必须回原文取词,不能自己造词。原句:\"what managers are trying to rebuild is not a cleared area but a mosaic — a patchwork of stands of different ages\"。" }, // 李淳 #11
+  cmsqt6xez01suw1g181ak1m1v: { awardedMarks: 0, reason: "填11:Stable,正解 mosaic(或 patchwork)。0。同上,这个词原文里没有。" }, // 胡齐家 #11
+  cmsqsfeck00w2w1g10l00cvwu: { awardedMarks: 0, reason: "填13:check,正解 checklist。0。原文是 go/no-go checklist,check 和 checklist 是两个词,填空必须完整照抄原文那个词。" }, // 杨钧皓 #13
+
+  // ── O-Level Q1 细节(1分) ── 每月最后一个星期五 / 一个月一次
+  cmsqsix1i00zkw1g1spkpx5bp: { awardedMarks: 1, reason: "Q1:Once a month,正解(参考答案接受\"once a month\")。1。" }, // HEIN HTET NAING Q1
+  cmsqso5h0017mw1g11b5fikq4: { awardedMarks: 1, reason: "Q1:Once a month, on the last Friday of every month —— 完整准确。1。" }, // 孙爱迪 Q1
+  cmsqsnzhu0177w1g1g5jtjnu7: { awardedMarks: 1, reason: "Q1:on the last Friday of every month,正解。1。(He bring → He brings,时态和三单下次注意)" }, // 赵伯容 Q1
+  cmsqsprag01brw1g1ohr8t709: { awardedMarks: 1, reason: "Q1:\"the last day of every month\" —— 题目问的是\"多久一次\",你答出了\"每月一次\",这一点是对的,判对。1。但细节错了:原文是每月最后一个**星期五**(last Friday),不是最后一天。抄细节的时候连原词一起抄。" }, // 赵一鸣 Q1
+  cmsqt2k3801nlw1g1tyqkplqt: { awardedMarks: 0, reason: "Q1:整句抄了第 1 段关于红色塑料袋的描写,没有回答\"多久一次\"。0。答案就在同一句里:on the last Friday of every month。抄之前先确认这句到底答没答题目问的那个点。" }, // 曾义洋 Q1
+
+  // ── O-Level Q2 细节(1分) ── 他说自己午饭吃太多了
+  cmsqsh82d00xfw1g1vas017mc: { awardedMarks: 1, reason: "Q2:he had eaten too much at lunch,正解。1。" }, // HEIN HTET NAING Q2
+  cmsqssmtc01fzw1g11jccbnqj: { awardedMarks: 1, reason: "Q2:正解。1。" }, // 孙爱迪 Q2
+  cmsqsu20s01glw1g1vtlitglb: { awardedMarks: 1, reason: "Q2:正解。1。" }, // 赵一鸣 Q2
+
+  // ── O-Level Q3 修辞(1分) ── 拎得离身体远 = 气味太冲
+  cmsqsnf18016mw1g1f2acligd: { awardedMarks: 1, reason: "Q3:答到\"气味强烈难闻,所以想把它拿得离自己远远的\",正解。1。" }, // 孙爱迪 Q3
+  cmsqshh0m00y5w1g1t1uqjqtx: { awardedMarks: 0, reason: "Q3:\"榴莲很大\"。0。伸直手臂拎着不是因为大,是因为**气味太冲** —— 拿得离身体越远越好。这类\"这个动作暗示什么\"的题,先问自己:换成一个没味道的东西,他还会这样拿吗?" }, // HEIN HTET NAING Q3
+  cmsqsyc2p01jjw1g1rfwhbc02: { awardedMarks: 0, reason: "Q3:\"榴莲挺大的\"。0。同上,伸直手臂是躲气味不是嫌大。" }, // 赵一鸣 Q3
+  cmsqsk1t30117w1g1idby3c3r: { awardedMarks: 0, reason: "Q3:\"父亲很擅长买榴莲\"。0。这个动作跟熟练无关,是气味太冲,他把它拎得离身体越远越好。" }, // 赵伯容 Q3
+
+  // ── O-Level Q4 修辞(1分) ── 壳裂开"像一扇小门"
+  cmsqsmtp7015nw1g1m6fgs0sp: { awardedMarks: 0, reason: "Q4:\"壳很硬、很难打开\"。0。\"像一扇小门\"这个比喻说的是**声音**(咔的一声脆响),以及门这个意象带来的\"被放进去了\"的感觉 —— 一场仪式开场了。硬不硬跟门无关。" }, // 孙爱迪 Q4
+  cmsqt0zcz01mzw1g1g6nkdem2: { awardedMarks: 0, reason: "Q4:把比喻复述了一遍(\"壳打开时声音像一扇小门\"),但题目问的是它**暗示**什么。0。要答:一声脆响,而且\"门\"让人觉得是被放进了某个地方 —— 开场的仪式感。" }, // 赵一鸣 Q4
+  cmsqt8eok01vyw1g1hbzg8y8w: { awardedMarks: 0, reason: "Q4:抄了第 2 段前两句(他自己开、铺两张报纸),没有回答比喻暗示什么。0。见上一条的答案。" }, // 曾义洋 Q4
+
+  // ── O-Level Q5 词义(1分) ── arithmetic = 第一次算这笔账
+  cmsqstzgx01gjw1g1pvjuyisv: { awardedMarks: 1, reason: "Q5:答到\"突然意识到父亲有限的收入里有多少花在了这个榴莲上\",正解。1。" }, // 孙爱迪 Q5
+  cmsqsyiz701jtw1g1sn9igbtu: { awardedMarks: 0, reason: "Q5:\"叙述者喜欢算术\"。0。arithmetic 在这里不是学科,是\"算这笔账\":他第一次把父亲的工资、榴莲的价钱、一个月四个星期五摆在一起算,才明白这份月月不落的东西意味着什么。" }, // 赵伯容 Q5
+
+  // ── O-Level Q12 长答(2分) ── ①一句\"别浪费\"把情绪挡回去,保持家里一贯的实用口吻 ②此后多年不提=两人都懂,不必说破
+  cmsqst8yb01g5w1g1c0wukhrh: { awardedMarks: 2, reason: "Q12:两点都到位 —— ①父亲不用解释就明白儿子为什么把那块推给他;②这份心照不宣本身就是这家人表达感情的方式。用自己的话,英文也干净。2/2。" }, // 孙爱迪 Q12
+  cmsqt6e1b01rqw1g11oy5iywr: { awardedMarks: 0, reason: "Q12:①\"父亲不喜欢浪费\"是把台词照字面复述了一遍,没答\"效果\";②\"父亲专心看报纸\"文中无据。0/2。这题要答:一句生硬的\"别浪费\"把煽情的时刻挡了回去,保持了这家人一贯的实用口吻;而此后多年只字不提,恰恰说明两个人都听懂了、也都知道不必说破。" }, // 赵伯容 Q12
+
+  // ── O-Level Q13 长答(2分) ── ①十五年这个跨度把父亲的持之以恒和孩子的浑然不觉摆在一起 ②\"something\"故意不点名,暗示给的从来不是那颗果子
+  cmsqsrncv01f9w1g18hvljzl9: { awardedMarks: 2, reason: "Q13:两点都成立 —— ①父亲多年安静地付出、不求人知;②孩子过了这么久才读懂。正好构成原文那个对照。2/2。再加一层会更好:结尾用了\"something\"这个含糊的词而不点名,暗示他给的从来就不是榴莲本身。" }, // 孙爱迪 Q13
+  cmsqt92nm01xew1g1y91jszys: { awardedMarks: 0, reason: "Q13:只写了一个\"1.\"就没有了。0/2。两分的题哪怕只写一句也比空着强 —— 这次全班丢分最多的地方还是空白。答案:①\"十五年\"这个跨度把父亲的持之以恒和孩子的浑然不觉摆在一起,越是没人察觉,这份付出显得越大;②结尾用\"something\"含糊带过、始终不点名,暗示给的从来不是那颗果子。" }, // 曾义洋 Q13
+};
+
 // auto-graded ones (0 parked items) and blank submissions (no scripts). The
 // GRADES map alone only reaches submissions that had a parked item.
 const SWEEP_ASSIGNMENTS: string[] = [
-  '687973e5-ccd7-4f1c-b33f-7058de7e0aa3', // 2026-08-12 IELTS authentic (Finding Planets You Cannot See)
-  '5ce5f490-b979-449e-95f0-340d6c0e900f', // 2026-08-12 O-Level (新加坡老龄化, summary 卷)
+  '1206c23f-7b6e-4017-997b-dcd0204a7299', // 2026-08-13 IELTS authentic (Fire as a Management Tool)
+  'af9f777f-740d-42c2-85a6-542015c8c6be', // 2026-08-13 O-Level (The Durian, 叙事卷)
 ];
 
-const GRADES: Record<string, { awardedMarks: number; reason: string }> = GRADES_0812;
+const GRADES: Record<string, { awardedMarks: number; reason: string }> = GRADES_0813;
 const _OLD_GRADES: Record<string, { awardedMarks: number; reason: string }> = {
   // 2026-07-24 早测 · ielts_authentic = cambridge_ielts_8/Test1/P1
   // "A Chronicle of Timekeeping"(Q1-4 段落匹配 A-H;Q9-13 图标注 ≤2词).
