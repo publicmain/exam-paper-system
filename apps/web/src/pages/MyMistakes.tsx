@@ -20,11 +20,16 @@ import { Spinner } from '../components/AsyncState';
 
 interface MistakeEntry {
   id: string;
+  submissionId: string | null;
   taskType: string;
   passageTitle: string;
   stem: string;
   studentAnswer: string;
   correctAnswer: string;
+  /** 服务端已把 mark scheme 拆成要点（去掉 MP1/①/判分指令） */
+  answerPoints?: string[];
+  /** 范文，长答题才有 —— 学生最该照着看的东西 */
+  answerModel?: string;
   markerComment: string;
   awarded: number;
   maxMarks: number;
@@ -197,21 +202,51 @@ export default function MyMistakesPage() {
                     <div className="text-[11px] text-rose-700 font-semibold mb-0.5">我当时写的</div>
                     <div className="text-gray-800 whitespace-pre-wrap">{e.studentAnswer || '（空白）'}</div>
                   </div>
-                  <div className="rounded-lg bg-emerald-50 border border-emerald-100 px-3 py-2">
-                    <div className="text-[11px] text-emerald-700 font-semibold mb-0.5">正确答案</div>
-                    <div className="text-gray-800 whitespace-pre-wrap">{e.correctAnswer || '—'}</div>
-                  </div>
+
+                  {/* 老师批语提到参考答案**之前**。它是针对这个学生写的、
+                      用中文说清了错在哪，比一串英文要点好懂得多 ——
+                      放在最后学生根本看不到（老师 2026-08-13 的原话：
+                      "这么大一长串，学生根本不会细看"）。 */}
                   {e.markerComment && (
                     <div className="rounded-lg bg-blue-50 border border-blue-200 px-3 py-2.5">
-                      <div className="text-[11px] text-blue-800 font-bold mb-1">老师批语</div>
+                      <div className="text-[11px] text-blue-800 font-bold mb-1">老师说</div>
                       <div className="text-[13.5px] text-gray-900 whitespace-pre-wrap leading-relaxed">
                         {e.markerComment}
                       </div>
                     </div>
                   )}
+
+                  {/* 参考答案：拆成要点逐条列，不是一整坨 mark scheme */}
+                  {(e.answerPoints?.length || e.answerModel || e.correctAnswer) && (
+                    <div className="rounded-lg bg-emerald-50 border border-emerald-100 px-3 py-2">
+                      <div className="text-[11px] text-emerald-700 font-semibold mb-1">
+                        {e.answerPoints && e.answerPoints.length > 1 ? '参考要点' : '参考答案'}
+                      </div>
+                      {e.answerPoints && e.answerPoints.length > 1 ? (
+                        <ul className="space-y-1">
+                          {e.answerPoints.map((pt, i) => (
+                            <li key={i} className="flex gap-1.5 text-gray-800">
+                              <span className="text-emerald-600 shrink-0">{i + 1}.</span>
+                              <span>{pt}</span>
+                            </li>
+                          ))}
+                        </ul>
+                      ) : (
+                        <div className="text-gray-800 whitespace-pre-wrap">
+                          {e.answerPoints?.[0] || e.correctAnswer || '—'}
+                        </div>
+                      )}
+                      {e.answerModel && (
+                        <div className="mt-2 pt-2 border-t border-emerald-200">
+                          <div className="text-[11px] text-emerald-700 font-semibold mb-0.5">范文</div>
+                          <div className="text-gray-800 leading-relaxed">{e.answerModel}</div>
+                        </div>
+                      )}
+                    </div>
+                  )}
                 </div>
 
-                <div className="mt-3 flex items-center gap-3">
+                <div className="mt-3 flex items-center gap-3 flex-wrap">
                   <button
                     type="button"
                     disabled={busy === e.id}
@@ -220,6 +255,18 @@ export default function MyMistakesPage() {
                   >
                     {busy === e.id ? '…' : '已弄懂'}
                   </button>
+                  {/* 看原文 —— 老师 2026-08-13 指出的第一个问题：只有题目
+                      没有文章，学生根本不知道在说什么。原文太长不适合塞进
+                      每张卡片（几千字 × 30 条），链到那场的复盘页最实在,
+                      那里有完整原文、全部题目和自己的作答。 */}
+                  {e.submissionId && (
+                    <Link
+                      to={`/my-history/submission/${e.submissionId}?name=${encodeURIComponent(name)}`}
+                      className="text-[13px] font-semibold text-blue-700"
+                    >
+                      看原文 →
+                    </Link>
+                  )}
                   {e.vocabWord && (
                     <Link
                       to={`/my-vocab?name=${encodeURIComponent(name)}`}

@@ -1,5 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { PrismaService } from '../common/prisma.service';
+import { cleanStem, humanizeAnswer } from './mistake-humanize';
 
 /**
  * 错题本（2026-08-13 老师需求）。
@@ -185,7 +186,11 @@ export class MistakeService {
             paperQuestionId: sc.paperQuestionId,
             taskType,
             passageTitle: String(content?.passageTitle ?? '').slice(0, 200),
-            stem: stem.slice(0, 400),
+            // 收录时就清洗：原始题干前 400 字常常全是答题须知，真正的
+            // 问题被截掉（8 分 summary 题实测正好断在 "…ageing popul"）。
+            // 存清洗后的，600 字上限绰绰有余；原始题干在 PaperQuestion
+            // 里永远可查（本表存了 paperQuestionId）。
+            stem: (cleanStem(stem) || stem).slice(0, 600),
             studentAnswer: studentAnswer.slice(0, 1000),
             correctAnswer: correctAnswer.slice(0, 1000),
             markerComment: (sc.markerComment ?? '').slice(0, 1000),
@@ -206,7 +211,13 @@ export class MistakeService {
     return { added };
   }
 
-  /** 学生的错题本。默认只给未解决的，按最近优先。 */
+  /**
+   * 学生的错题本。
+   *
+   * 出口处把「给老师判分用的东西」翻成「学生看得懂的东西」（见
+   * mistake-humanize）：题干剥掉答题须知、mark scheme 拆成要点并抽出
+   * 范文。数据库保留原文 —— 老师复核判分依据时仍要看完整 mark scheme。
+   */
   async listForStudent(studentId: string, opts?: { includeResolved?: boolean; limit?: number }) {
     const rows = await this.prisma.mistakeEntry.findMany({
       where: {
@@ -230,7 +241,18 @@ export class MistakeService {
     return {
       total,
       byTaskType: byType.map((t) => ({ taskType: t.taskType, count: t._count })),
-      entries: rows,
+      entries: rows.map((r) => {
+        const { points, model } = humanizeAnswer(r.correctAnswer);
+        return {
+          ...r,
+          /** 只留真正在问的那句话 */
+          stem: cleanStem(r.stem) || r.stem,
+          /** 答案要点（已去掉 MP1/①/判分指令） */
+          answerPoints: points,
+          /** 范文，长答题才有 */
+          answerModel: model,
+        };
+      }),
     };
   }
 
