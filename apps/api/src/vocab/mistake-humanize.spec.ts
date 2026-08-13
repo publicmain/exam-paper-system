@@ -1,5 +1,10 @@
 import { describe, expect, it } from 'vitest';
-import { cleanStem, humanizeAnswer } from './mistake-humanize';
+import {
+  cleanMarkerComment,
+  cleanStem,
+  humanizeAnswer,
+  translateAnswerLetter,
+} from './mistake-humanize';
 
 /**
  * 用真实入库数据当样本。老师 2026-08-13 的原话：
@@ -105,5 +110,41 @@ describe('humanizeAnswer —— 把判分指令翻译成学生看得懂的要点
 
   it('空输入不炸', () => {
     expect(humanizeAnswer('')).toEqual({ points: [], model: '' });
+  });
+});
+
+describe('translateAnswerLetter —— 判断题字母翻译回学生看得懂的词', () => {
+  // 上线首日实测：学生写 FALSE，参考答案显示 "C"，160 条全是这样
+  it('TFNG: A/B/C → TRUE/FALSE/NOT GIVEN', () => {
+    expect(translateAnswerLetter('true_false_not_given', 'A')).toBe('TRUE');
+    expect(translateAnswerLetter('true_false_not_given', 'B')).toBe('FALSE');
+    expect(translateAnswerLetter('true_false_not_given', 'C')).toBe('NOT GIVEN');
+  });
+  it('YNG: A/B/C → YES/NO/NOT GIVEN', () => {
+    expect(translateAnswerLetter('yes_no_not_given', 'B')).toBe('NO');
+  });
+  it('段落匹配的字母就是答案本身，不翻译', () => {
+    expect(translateAnswerLetter('matching_information', 'F')).toBe('F');
+    expect(translateAnswerLetter('multi_match', 'B')).toBe('B');
+  });
+  it('已经是词的不受影响', () => {
+    expect(translateAnswerLetter('true_false_not_given', 'TRUE')).toBe('TRUE');
+  });
+});
+
+describe('cleanMarkerComment —— 客观题的判分流水不给学生看', () => {
+  it('纯流水（"段3:B,正解 F。0。同上。"）整条隐藏', () => {
+    expect(cleanMarkerComment('段3:B,正解 F。0。同上。', 1)).toBe('');
+    expect(cleanMarkerComment('Q5: FALSE, 正解 C。0。', 1)).toBe('');
+  });
+  it('带实质讲解的保留', () => {
+    const c = '段3:B,正解 F。0。F 段开头那句 drip torches 就是在讲点火方法。';
+    expect(cleanMarkerComment(c, 1)).toBe(c);
+  });
+  it('长答题评语永远保留 —— 哪怕很短', () => {
+    expect(cleanMarkerComment('同上。', 2)).toBe('同上。');
+  });
+  it('空评语返回空', () => {
+    expect(cleanMarkerComment('', 1)).toBe('');
   });
 });

@@ -57,6 +57,49 @@ export function cleanStem(stem: string): string {
   return s.replace(/\s+/g, ' ').trim();
 }
 
+/**
+ * 判断题的答案在题库里存的是选项字母（考试界面硬编码 A/B/C 三个键，
+ * 见 IELTSReadingPassage.tsx），而学生的作答存的是键上的**文字**
+ * （TRUE / FALSE / NOT GIVEN）。错题本上线首日实测：学生看到
+ * 「我写了 FALSE，正确答案 C」—— 160 条（全库 31%）全是这样。
+ * 读取时必须把字母翻译回学生看得懂的词。
+ */
+const LETTER_LABELS: Record<string, Record<string, string>> = {
+  true_false_not_given: { A: 'TRUE', B: 'FALSE', C: 'NOT GIVEN' },
+  yes_no_not_given: { A: 'YES', B: 'NO', C: 'NOT GIVEN' },
+};
+
+/** 把客观题答案从选项字母翻译成学生作答时看到的词。非判断题原样返回。 */
+export function translateAnswerLetter(taskType: string, answer: string): string {
+  const map = LETTER_LABELS[taskType];
+  const key = (answer ?? '').trim().toUpperCase();
+  return map?.[key] ?? answer;
+}
+
+/**
+ * 客观题判分时留下的流水评语（"段3:B,正解 F。0。同上。"）是判分记录
+ * 不是教学内容 —— 「同上」在错题本的孤立卡片里是指向虚空的引用，
+ * "正解 F"和卡片上的参考答案重复。整条都是噪音时不展示。
+ * 判断标准：去掉 题号/学生答案/正解X/得分/同上 这些记账 token 后，
+ * 剩余的实质内容不足 6 个字 → 认定为纯流水，隐藏。
+ * 长答题（≥2 分）的评语永远保留 —— 那是逐份手写的教学资产。
+ */
+export function cleanMarkerComment(comment: string, maxMarks: number): string {
+  const c = (comment ?? '').trim();
+  if (!c) return '';
+  if (maxMarks >= 2) return c; // 长答题评语永远保留
+  const residue = c
+    .replace(/[QĐ段]\s*\d+\s*[:：]?/gi, '')
+    .replace(/正解\s*[^\s。,，;；]+/g, '')
+    .replace(/同上/g, '')
+    .replace(/\b\d+(\.\d+)?\s*\/\s*\d+\b/g, '')
+    .replace(/(^|[\s。,，;；])[0-2](?=$|[\s。,，;；])/g, '$1')
+    .replace(/\b(TRUE|FALSE|NOT GIVEN|YES|NO)\b/gi, '')
+    .replace(/[A-H](?=[\s。,，;；]|$)/g, '')
+    .replace(/[\s。,，;；:：、]+/g, '');
+  return residue.length >= 6 ? c : '';
+}
+
 /** 判分指令 —— 对学生零价值，整段删掉。 */
 const GRADING_NOISE: RegExp[] = [
   /Award one mark per distinct point\.?/gi,

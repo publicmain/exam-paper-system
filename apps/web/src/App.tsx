@@ -26,6 +26,7 @@ import MyVocabPage from './pages/MyVocab';
 import MyVocabReviewPage from './pages/MyVocabReview';
 import MyVocabQuizPage from './pages/MyVocabQuiz';
 import MyMistakesPage from './pages/MyMistakes';
+import MyMistakesPracticePage from './pages/MyMistakesPractice';
 import LoginPage from './pages/Login';
 
 const DashboardPage = lazy(() => import('./pages/Dashboard'));
@@ -128,7 +129,8 @@ export default function App() {
     location.pathname === '/my-vocab' ||
     location.pathname === '/my-vocab/review' ||
     location.pathname === '/my-vocab/quiz' ||
-    location.pathname === '/my-mistakes'
+    location.pathname === '/my-mistakes' ||
+    location.pathname === '/my-mistakes/practice'
   ) {
     return (
       <Routes>
@@ -138,6 +140,7 @@ export default function App() {
         <Route path="/my-vocab/review" element={<MyVocabReviewPage />} />
         <Route path="/my-vocab/quiz" element={<MyVocabQuizPage />} />
         <Route path="/my-mistakes" element={<MyMistakesPage />} />
+        <Route path="/my-mistakes/practice" element={<MyMistakesPracticePage />} />
       </Routes>
     );
   }

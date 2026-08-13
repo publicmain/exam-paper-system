@@ -67,6 +67,22 @@ export default function MyHistoryDetail() {
     | null
   >(null);
 
+  // 错题本「看原文」带 #q-<paperQuestionId> 跳进来。数据是异步加载的，
+  // 浏览器原生锚点在渲染时找不到目标，所以数据到位后手动滚一次，
+  // 并给那道题一个短暂的高亮 —— 学生要找的就是这一道，不能让他
+  // 在 13 道题里自己翻（8000px 的页面，实测根本找不到）。
+  useEffect(() => {
+    if (!data || !location.hash.startsWith('#q-')) return;
+    const el = document.getElementById(location.hash.slice(1));
+    if (!el) return;
+    el.scrollIntoView({ block: 'start' });
+    el.style.transition = 'box-shadow 0.4s';
+    el.style.boxShadow = '0 0 0 3px rgb(59 130 246 / 0.55)';
+    el.style.borderRadius = '12px';
+    const t = setTimeout(() => { el.style.boxShadow = 'none'; }, 2200);
+    return () => clearTimeout(t);
+  }, [data]);
+
   useEffect(() => {
     if (!submissionId || !name) return;
     api
@@ -240,8 +256,8 @@ export default function MyHistoryDetail() {
             </div>
           )}
           {data.items.map((it) => (
+            <div key={it.paperQuestionId} id={`q-${it.paperQuestionId}`}>
             <ResultRow
-              key={it.paperQuestionId}
               item={it}
               commonIntro={commonIntro}
               onAppeal={(ctx) =>
@@ -252,6 +268,7 @@ export default function MyHistoryDetail() {
                 })
               }
             />
+            </div>
           ))}
         </section>
 

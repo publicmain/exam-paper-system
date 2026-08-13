@@ -2044,6 +2044,8 @@ enum PageViewKind {
   vocab_practice
   /// 打开了错题本
   mistakes
+  /// 做了错题重练
+  mistake_practice
 }
 
 // ═══════════════════════════════════════════════════════════════
@@ -2096,6 +2098,13 @@ model MistakeEntry {
   /// 学生自己标记「已弄懂」后置为 true —— 错题本要能清空,否则永远在增长
   resolved   Boolean   @default(false)
   resolvedAt DateTime?
+  /// ── 重练闭环（2026-08-13 v2）──
+  /// 自报「已弄懂」是最弱的确认方式（上线首日全班 0 人点过）。
+  /// v2 规则：练习里做对、且**隔天再做对一次**才自动销账 —— 同一天
+  /// 连点两次对不算，防止"刚看完答案马上重做"的假掌握。
+  practiceCount   Int       @default(0)
+  correctStreak   Int       @default(0)
+  lastPracticedAt DateTime?
   /// 早测日期（YYYY-MM-DD, SGT）
   quizDay   String
   createdAt DateTime @default(now())

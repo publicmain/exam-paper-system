@@ -12,6 +12,7 @@ import { PrismaClient } from '@prisma/client';
  *   2. **参与度**：交卷之后有多少人回来看（新增，老师的第二问）
  *   3. 迟到与放弃：按到达时间分组的空白率（支撑补做功能的效果验证）
  *   4. 错题本：收录量与题型分布
+ *   5. 错题重练：谁在练、练会了多少（错题闭环的核心指标）
  *
  *   SINCE=2026-08-11 UNTIL=2026-08-14 \
  *     npx ts-node apps/api/scripts/weekly-report-data.ts
@@ -166,7 +167,40 @@ const pct = (a: number, b: number) => (b ? ((a / b) * 100).toFixed(1) + '%' : '�
     console.log('  全班最常错的题型: ' + mkType.map((x) => `${x.t}(${x.n})`).join('  '));
   }
   const resolved = await prisma.mistakeEntry.count({ where: { resolved: true } });
-  console.log(`  学生已标记「已弄懂」: ${resolved} 条`);
+  console.log(`  已销账（弄懂/练会）: ${resolved} 条`);
+
+  // ── 5. 错题重练（2026-08-13 上线的闭环）──────────────────
+  // 谁在练、练了多少、练会了多少 —— 这是错题本有没有被用起来的
+  // 直接证据，比「打开次数」硬得多。
+  console.log('
+【5】错题重练');
+  const practiced = await prisma.$queryRaw<
+    Array<{ name: string; entries: number; times: number; cleared: number }>
+  >`
+    SELECT u.name,
+           COUNT(*) FILTER (WHERE m."practiceCount" > 0)::int AS entries,
+           COALESCE(SUM(m."practiceCount"), 0)::int AS times,
+           COUNT(*) FILTER (WHERE m.resolved AND m."practiceCount" > 0)::int AS cleared
+    FROM "MistakeEntry" m JOIN "User" u ON u.id = m."studentId"
+    GROUP BY u.name
+    HAVING COALESCE(SUM(m."practiceCount"), 0) > 0
+    ORDER BY 3 DESC`;
+  if (!practiced.length) {
+    console.log('  （本周还没有人练过错题）');
+  } else {
+    for (const r of practiced) {
+      console.log(
+        `    ${r.name.padEnd(10)} 练了 ${String(r.entries).padStart(3)} 道 · ${String(r.times).padStart(3)} 次 · 练会移出 ${r.cleared} 道`,
+      );
+    }
+  }
+  const practiceOpens = await prisma.$queryRaw<Array<{ stu: number; hits: number }>>`
+    SELECT COUNT(DISTINCT v."studentId")::int AS stu, COALESCE(SUM(v.hits), 0)::int AS hits
+    FROM "StudentPageView" v
+    WHERE v.kind = 'mistake_practice' AND v.day BETWEEN ${'${SINCE}'} AND ${'${UNTIL}'}`;
+  console.log(
+    `  本周打开练习页: ${practiceOpens[0]?.stu ?? 0} 人 / ${practiceOpens[0]?.hits ?? 0} 次`,
+  );
 
   await prisma.$disconnect();
 })().catch((e) => {

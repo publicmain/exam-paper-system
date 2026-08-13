@@ -27,7 +27,8 @@ export type PageViewKindKey =
   | 'submission_detail'
   | 'vocab'
   | 'vocab_practice'
-  | 'mistakes';
+  | 'mistakes'
+  | 'mistake_practice';
 
 /** 新加坡自然日。直接用偏移算，避免服务器时区依赖。 */
 export function sgtDay(d = new Date()): string {

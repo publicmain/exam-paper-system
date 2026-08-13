@@ -184,6 +184,43 @@ export class VocabController {
     return this.mistakes.resolve(student.id, p.data.id, p.data.resolved);
   }
 
+  /**
+   * 今日错题练习队列（带原文）。段落匹配/判断题离开原文没法真正重做，
+   * 所以每道题带完整 passage 下发。每天最多 10 道。
+   */
+  @Public()
+  @RateLimit({ limit: 30, windowSec: 60, scope: 'ip' })
+  @Get('mistakes/practice-queue')
+  async practiceQueue(
+    @Query('name') name?: string,
+    @Query('studentId') studentId?: string,
+    @Query('limit') limit?: string,
+  ) {
+    const student = await this.words.resolveStudent(name ?? '', studentId || undefined);
+    const r = await this.mistakes.practiceQueue(
+      student.id,
+      limit ? parseInt(limit, 10) : undefined,
+    );
+    return { student: { id: student.id, name: student.name }, ...r };
+  }
+
+  /** 提交一次练习结果。做对且隔天再对一次 → 自动销账。 */
+  @Public()
+  @RateLimit({ limit: 120, windowSec: 60, scope: 'ip' })
+  @Post('mistakes/practice-result')
+  async practiceResult(@Body() body: unknown) {
+    const schema = z.object({
+      studentName: z.string().min(1).max(50),
+      studentId: z.string().optional(),
+      id: z.string().min(1),
+      correct: z.boolean(),
+    });
+    const p = schema.safeParse(body);
+    if (!p.success) throw new BadRequestException(p.error.flatten());
+    const student = await this.words.resolveStudent(p.data.studentName, p.data.studentId);
+    return this.mistakes.practiceResult(student.id, p.data.id, p.data.correct);
+  }
+
   // ─────────────────── P6 访问埋点 ───────────────────
 
   /**
@@ -197,7 +234,7 @@ export class VocabController {
     const schema = z.object({
       studentName: z.string().min(1).max(50),
       studentId: z.string().optional(),
-      kind: z.enum(['history', 'submission_detail', 'vocab', 'vocab_practice', 'mistakes']),
+      kind: z.enum(['history', 'submission_detail', 'vocab', 'vocab_practice', 'mistakes', 'mistake_practice']),
     });
     const p = schema.safeParse(body);
     if (!p.success) throw new BadRequestException(p.error.flatten());

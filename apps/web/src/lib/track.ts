@@ -17,7 +17,8 @@ export type TrackKind =
   | 'submission_detail'
   | 'vocab'
   | 'vocab_practice'
-  | 'mistakes';
+  | 'mistakes'
+  | 'mistake_practice';
 
 export function track(kind: TrackKind, studentName: string, studentId?: string): void {
   if (!studentName) return;

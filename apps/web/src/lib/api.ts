@@ -407,12 +407,20 @@ export const api = {
     elapsedMs?: number;
   }) => request('POST', '/vocab/review', body),
   /** 错题本 P6 — 我的错题（收录门槛在服务端，不是每道错题都进） */
-  mistakeList: (p: { name: string; studentId?: string }) =>
+  mistakeList: (p: { name: string; studentId?: string; includeResolved?: boolean }) =>
     request('GET', '/vocab/mistakes?name=' + encodeURIComponent(p.name) +
-      (p.studentId ? '&studentId=' + encodeURIComponent(p.studentId) : '')),
-  /** 错题本 P6 — 标记已弄懂 */
+      (p.studentId ? '&studentId=' + encodeURIComponent(p.studentId) : '') +
+      (p.includeResolved ? '&includeResolved=1' : '')),
+  /** 错题本 P6 — 标记已弄懂 / 撤销 */
   mistakeResolve: (body: { studentName: string; studentId?: string; id: string; resolved: boolean }) =>
     request('POST', '/vocab/mistakes/resolve', body),
+  /** 错题重练 — 今日队列（带原文和选项，最多 10 道） */
+  mistakePracticeQueue: (p: { name: string; studentId?: string }) =>
+    request('GET', '/vocab/mistakes/practice-queue?name=' + encodeURIComponent(p.name) +
+      (p.studentId ? '&studentId=' + encodeURIComponent(p.studentId) : '')),
+  /** 错题重练 — 上报一次结果（隔天两次做对自动销账） */
+  mistakePracticeResult: (body: { studentName: string; studentId?: string; id: string; correct: boolean }) =>
+    request('POST', '/vocab/mistakes/practice-result', body),
   /** P6 埋点 — 记录学生打开了哪类自助页（失败静默，绝不阻断） */
   recordPageView: (body: { studentName: string; studentId?: string; kind: string }) =>
     request('POST', '/vocab/page-view', body).catch(() => null),

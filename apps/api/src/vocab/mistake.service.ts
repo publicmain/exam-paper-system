@@ -1,6 +1,11 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { PrismaService } from '../common/prisma.service';
-import { cleanStem, humanizeAnswer } from './mistake-humanize';
+import {
+  cleanMarkerComment,
+  cleanStem,
+  humanizeAnswer,
+  translateAnswerLetter,
+} from './mistake-humanize';
 
 /**
  * 错题本（2026-08-13 老师需求）。
@@ -71,6 +76,57 @@ export function extractVocabWord(stem: string): string {
  * 判定一条答题记录该不该进错题本。纯函数,可测。
  * 返回 null = 不收；否则返回命中的规则。
  */
+/** SGT 自然日（YYYY-MM-DD）。练习的"隔天"判定必须按新加坡日历日。 */
+export function sgtDayOf(d: Date): string {
+  return new Date(d.getTime() + 8 * 3600_000).toISOString().slice(0, 10);
+}
+
+/**
+ * 练习一次后的新状态。纯函数，可测。
+ *
+ * 销账规则（v2，替代纯自报的「已弄懂」）：
+ *   做对 → streak 从 0 升 1；**隔天**再做对 → 2 → 自动销账。
+ *   同一天内反复做对不叠加 —— 刚看完答案马上重做是短时记忆，不算掌握。
+ *   做错 → streak 归零。
+ * 这是 FSRS 的极简版：错题量级小（人均几十条），两点确认足够，
+ * 不需要完整的记忆曲线调度。
+ */
+export function nextPracticeState(
+  prev: { correctStreak: number; lastPracticedAt: Date | null },
+  correct: boolean,
+  now: Date,
+): { correctStreak: number; resolved: boolean } {
+  if (!correct) return { correctStreak: 0, resolved: false };
+  const today = sgtDayOf(now);
+  const lastDay = prev.lastPracticedAt ? sgtDayOf(prev.lastPracticedAt) : null;
+  let streak = prev.correctStreak;
+  if (streak <= 0) streak = 1;
+  else if (lastDay !== today) streak += 1;
+  return { correctStreak: streak, resolved: streak >= 2 };
+}
+
+/**
+ * 练习时的作答方式，由题型决定：
+ *   tfng   —— 固定三键（TRUE/FALSE/NOT GIVEN 或 YES/NO/NOT GIVEN）
+ *   letters —— 段落字母键（从原文的 "Paragraph X" 标记推出来）
+ *   reveal —— 主观题：想好再翻卡，自评对错（无 AI，Anki 模式）
+ */
+export function practiceKindOf(taskType: string, passage: string): {
+  kind: 'tfng' | 'letters' | 'reveal';
+  options: string[];
+} {
+  if (taskType === 'true_false_not_given') return { kind: 'tfng', options: ['TRUE', 'FALSE', 'NOT GIVEN'] };
+  if (taskType === 'yes_no_not_given') return { kind: 'tfng', options: ['YES', 'NO', 'NOT GIVEN'] };
+  // 只有段落匹配（答案=段落字母）能从原文推选项。matching_headings 的
+  // 答案是标题编号（i–x），跟段落字母不是一套体系，走 snapshotOptions
+  // 或翻卡兜底。
+  if (taskType === 'matching_information') {
+    const letters = [...new Set([...passage.matchAll(/Paragraph\s+([A-Z])\b/g)].map((m) => m[1]))];
+    if (letters.length >= 3) return { kind: 'letters', options: letters.sort() };
+  }
+  return { kind: 'reveal', options: [] };
+}
+
 export function shouldCollect(
   s: { studentAnswer: string; awarded: number; maxMarks: number; stem: string },
   repeatCount: number,
@@ -227,11 +283,11 @@ export class MistakeService {
         studentId,
         ...(opts?.includeResolved ? {} : { resolved: false }),
       },
-      orderBy: [{ createdAt: 'desc' }],
-      // 默认只给 30 条。回填三周后弱生有 58 条（叶书瑞）—— 一次性
-      // 摊开只会让他直接关掉。顶部的"哪类题错得最多"统计才是弱生
-      // 真正该看的（我该练什么），逐条是给中等生用的。
-      take: Math.min(opts?.limit ?? 30, 200),
+      orderBy: [{ quizDay: 'desc' }, { createdAt: 'desc' }],
+      // 全量给（上限 200 兜底）。之前默认 30 条踩过坑：标题写 58、
+      // 列表只有 30，学生数不出来另外 28 条在哪。加载多少显示多少，
+      // 分批渲染是前端的事。
+      take: Math.min(opts?.limit ?? 200, 200),
     });
     const total = await this.prisma.mistakeEntry.count({ where: { studentId, resolved: false } });
     // 按题型统计 —— 回答"我到底哪类题一直错"
@@ -241,22 +297,169 @@ export class MistakeService {
       _count: true,
       orderBy: { _count: { taskType: 'desc' } },
     });
+
+    // 解析/证据句存在 PaperQuestion 的 answer JSON 里（explanation /
+    // evidence 字段，出卷时或事后补写）。**读取时** join 而不是收录时
+    // 冻结 —— 解析是后补的、还会改，冻结快照只该冻学生的作答现场。
+    const extras = await this.answerExtras(rows.map((r) => r.paperQuestionId));
+
+    // 同一天内：长答题（老师评语）在前，词义题次之，客观题最后 ——
+    // 最贵的内容不能被字母卡埋掉。
+    const reasonRank = { long_answer: 0, vocabulary: 1, repeated_tasktype: 2 } as const;
+    rows.sort((a, b) =>
+      a.quizDay !== b.quizDay
+        ? b.quizDay.localeCompare(a.quizDay)
+        : (reasonRank[a.reason] ?? 9) - (reasonRank[b.reason] ?? 9),
+    );
+
     return {
       total,
       byTaskType: byType.map((t) => ({ taskType: t.taskType, count: t._count })),
       entries: rows.map((r) => {
         const { points, model } = humanizeAnswer(r.correctAnswer);
+        const extra = r.paperQuestionId ? extras.get(r.paperQuestionId) : undefined;
         return {
           ...r,
           /** 只留真正在问的那句话 */
           stem: cleanStem(r.stem) || r.stem,
+          /** 判断题：字母翻译回 TRUE/FALSE/NOT GIVEN */
+          correctAnswer: translateAnswerLetter(r.taskType, r.correctAnswer),
+          /** 客观题的判分流水（"段3:B,正解 F。同上。"）不给学生看 */
+          markerComment: cleanMarkerComment(r.markerComment, r.maxMarks),
           /** 答案要点（已去掉 MP1/①/判分指令） */
-          answerPoints: points,
+          answerPoints: points.map((p) => translateAnswerLetter(r.taskType, p)),
           /** 范文，长答题才有 */
           answerModel: model,
+          /** 为什么是这个答案（中文，手写） */
+          explanation: extra?.explanation ?? '',
+          /** 原文里的证据句 */
+          evidence: extra?.evidence ?? '',
         };
       }),
     };
+  }
+
+  /** 从 PaperQuestion answer JSON 批量取 explanation/evidence。 */
+  private async answerExtras(paperQuestionIds: Array<string | null>) {
+    const ids = [...new Set(paperQuestionIds.filter((x): x is string => !!x))];
+    const map = new Map<string, { explanation: string; evidence: string }>();
+    if (!ids.length) return map;
+    const pqs = await this.prisma.paperQuestion.findMany({
+      where: { id: { in: ids } },
+      select: { id: true, snapshotAnswer: true, overrideAnswer: true },
+    });
+    for (const pq of pqs) {
+      const a = (pq.overrideAnswer ?? pq.snapshotAnswer) as any;
+      if (a && typeof a === 'object') {
+        map.set(pq.id, {
+          explanation: String(a.explanation ?? ''),
+          evidence: String(a.evidence ?? ''),
+        });
+      }
+    }
+    return map;
+  }
+
+  /**
+   * 今日待练队列。带原文 —— 段落匹配/判断题离开原文没法真正重做，
+   * 这是错题本从「档案馆」变「训练场」的关键（content JSON 里每道题
+   * 都存了完整 passage，直接下发）。
+   *
+   * 选题顺序：从没练过的优先（correctStreak 0 → 1），同级里新错的
+   * 优先 —— 记忆还热，证据句读得进去。每次最多 10 道，练完明天再来。
+   */
+  async practiceQueue(studentId: string, limit = 10) {
+    const todayStartUtc = new Date(Date.parse(`${sgtDayOf(new Date())}T00:00:00+08:00`));
+    const rows = await this.prisma.mistakeEntry.findMany({
+      where: {
+        studentId,
+        resolved: false,
+        OR: [{ lastPracticedAt: null }, { lastPracticedAt: { lt: todayStartUtc } }],
+      },
+      orderBy: [{ correctStreak: 'asc' }, { quizDay: 'desc' }, { createdAt: 'desc' }],
+      take: Math.min(limit, 20),
+    });
+    const remaining = await this.prisma.mistakeEntry.count({
+      where: {
+        studentId,
+        resolved: false,
+        OR: [{ lastPracticedAt: null }, { lastPracticedAt: { lt: todayStartUtc } }],
+      },
+    });
+
+    const ids = rows.map((r) => r.paperQuestionId).filter((x): x is string => !!x);
+    const pqs = ids.length
+      ? await this.prisma.paperQuestion.findMany({
+          where: { id: { in: ids } },
+          select: { id: true, snapshotContent: true, overrideContent: true, snapshotAnswer: true, overrideAnswer: true, snapshotOptions: true },
+        })
+      : [];
+    const byId = new Map(pqs.map((p) => [p.id, p]));
+
+    return {
+      remaining,
+      items: rows.map((r) => {
+        const pq = r.paperQuestionId ? byId.get(r.paperQuestionId) : undefined;
+        const content = (pq?.overrideContent ?? pq?.snapshotContent) as any;
+        const answerObj = (pq?.overrideAnswer ?? pq?.snapshotAnswer) as any;
+        const passage = String(content?.passage ?? '');
+        let { kind, options } = practiceKindOf(r.taskType, passage) as {
+          kind: 'tfng' | 'letters' | 'reveal' | 'options';
+          options: Array<string | { key: string; text: string }>;
+        };
+        // MCQ / 情绪配对：题库存了完整选项（snapshotOptions），能真正重选
+        const so = pq?.snapshotOptions as any;
+        if (kind === 'reveal' && Array.isArray(so) && so.length >= 2 && so[0]?.key) {
+          kind = 'options';
+          options = so.map((o: any) => ({ key: String(o.key), text: String(o.text ?? '') }));
+        }
+        const { points, model } = humanizeAnswer(r.correctAnswer);
+        return {
+          id: r.id,
+          taskType: r.taskType,
+          reason: r.reason,
+          passageTitle: r.passageTitle,
+          quizDay: r.quizDay,
+          stem: cleanStem(r.stem) || r.stem,
+          correctAnswer: translateAnswerLetter(r.taskType, r.correctAnswer),
+          myOldAnswer: r.studentAnswer,
+          markerComment: cleanMarkerComment(r.markerComment, r.maxMarks),
+          answerPoints: points.map((p) => translateAnswerLetter(r.taskType, p)),
+          answerModel: model,
+          explanation: String((answerObj as any)?.explanation ?? ''),
+          evidence: String((answerObj as any)?.evidence ?? ''),
+          practiceKind: kind,
+          options,
+          correctStreak: r.correctStreak,
+          passage,
+          submissionId: r.submissionId,
+          paperQuestionId: r.paperQuestionId,
+        };
+      }),
+    };
+  }
+
+  /** 记录一次练习结果；隔天第二次做对自动销账。 */
+  async practiceResult(studentId: string, id: string, correct: boolean) {
+    const entry = await this.prisma.mistakeEntry.findFirst({
+      where: { id, studentId },
+      select: { correctStreak: true, lastPracticedAt: true, resolved: true },
+    });
+    if (!entry) return { ok: false as const };
+    const now = new Date();
+    const next = nextPracticeState(entry, correct, now);
+    await this.prisma.mistakeEntry.update({
+      where: { id },
+      data: {
+        practiceCount: { increment: 1 },
+        correctStreak: next.correctStreak,
+        lastPracticedAt: now,
+        ...(next.resolved && !entry.resolved
+          ? { resolved: true, resolvedAt: now }
+          : {}),
+      },
+    });
+    return { ok: true as const, correctStreak: next.correctStreak, resolved: next.resolved };
   }
 
   /** 学生标记「已弄懂」。错题本必须能清空，否则只会一直变长。 */
