@@ -7,7 +7,7 @@ import {
 } from '@nestjs/common';
 import { Public } from '../common/auth.guard';
 import { PrismaService } from '../common/prisma.service';
-import { QrService } from './qr.service';
+import { QrService, normaliseVariant, ORIGINAL_VARIANT } from './qr.service';
 
 @Controller('qr')
 export class QrController {
@@ -97,17 +97,27 @@ export class QrController {
    */
   @Public()
   @Get('static')
-  async static(@Query('classId') classId?: string) {
+  async static(
+    @Query('classId') classId?: string,
+    @Query('variant') variant?: string,
+  ) {
     if (!classId) throw new BadRequestException('classId required');
     const cls = await this.prisma.class.findUnique({
       where: { id: classId },
       select: { id: true, name: true },
     });
     if (!cls) throw new NotFoundException('class_not_found');
+    // variant：同一个班的第 N 张贴墙码。带标签的码与原始码**同时有效**，
+    // 学生扫起来毫无差别，但考勤会记下他扫的是哪一张 —— 墙上换了新
+    // 标签而某人仍扫到旧标签，说明他用的是之前拍的照片。
+    // 非法标签一律退回原始码，不报错：印码这条链路不该因为拼错一个
+    // 字母就断掉。
+    const v = normaliseVariant(variant);
     return {
       classId: cls.id,
       className: cls.name,
-      token: this.qr.staticTokenForClass(cls.id),
+      variant: v ?? ORIGINAL_VARIANT,
+      token: this.qr.staticTokenForClass(cls.id, v),
     };
   }
 }

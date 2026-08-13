@@ -4,6 +4,9 @@ import { PrismaService } from '../common/prisma.service';
 
 export interface DecodedQrToken {
   sessionId: string;
+  /** v2 静态码扫到的是哪一张分身。三段式旧码为 'original'，
+   *  四段式带标签的码为标签本身。v1 轮转码不涉及，为 undefined。 */
+  qrVariant?: string;
   /** Only present for v1 rotating tokens — the rotation window the token
    *  was minted in. Absent for v2 static tokens, which carry no timestamp. */
   windowStartMs?: number;
@@ -17,6 +20,17 @@ const TOKEN_VERSION = 'v1';
 // the v2 branch of `verify`.
 const STATIC_TOKEN_VERSION = 'v2';
 const SIG_LEN = 16;
+/** 未带标签的三段式旧码在考勤里记成这个值。 */
+export const ORIGINAL_VARIANT = 'original';
+
+/** 标签只允许小写字母数字和连字符，长度 1-16，且不能叫 'original'
+ *  （那是旧码的保留名）。带点会破坏 token 的分段解析。 */
+export function normaliseVariant(v?: string | null): string | undefined {
+  const s = (v ?? '').trim().toLowerCase();
+  if (!s) return undefined;
+  if (s === ORIGINAL_VARIANT) return undefined;
+  return /^[a-z0-9-]{1,16}$/.test(s) ? s : undefined;
+}
 // Tolerance window after a QR token's rotation window ends, during which
 // the server still accepts the token. The display rotates every
 // qrRotationSeconds (default 15s), but a student takes some seconds to
@@ -103,16 +117,29 @@ export class QrService {
    * verifying and must be reprinted. Acceptable — secret rotation is rare
    * and operationally loud.
    */
-  staticTokenForClass(classId: string): string {
-    return `${STATIC_TOKEN_VERSION}.${classId}.${this.staticSig(classId)}`;
+  staticTokenForClass(classId: string, variant?: string): string {
+    const v = normaliseVariant(variant);
+    return v
+      ? `${STATIC_TOKEN_VERSION}.${classId}.${v}.${this.staticSig(classId, v)}`
+      : `${STATIC_TOKEN_VERSION}.${classId}.${this.staticSig(classId)}`;
   }
 
-  private staticSig(classId: string): string {
+  /**
+   * 同一个班可以同时存在多张**都能用**的贴墙码，靠 variant 区分。
+   *
+   * 用途：贴墙码固定不变，学生可以拍照带回家扫，考勤无从分辨人是否
+   * 真的在墙前。换一张带新标签的贴上去、不通知学生 —— 当天扫到旧
+   * 标签的，用的必然是之前拍的照片。两张码扫起来体验完全一样。
+   *
+   * 不带 variant 时签发的仍是三段式旧码，已印出去的墙贴继续有效。
+   */
+  private staticSig(classId: string, variant?: string): string {
     const secret = process.env.JWT_SECRET ?? '';
-    return createHmac('sha256', secret)
-      .update(`qr-static.${STATIC_TOKEN_VERSION}.${classId}`)
-      .digest('hex')
-      .slice(0, SIG_LEN);
+    const v = normaliseVariant(variant);
+    const input = v
+      ? `qr-static.${STATIC_TOKEN_VERSION}.${classId}.${v}`
+      : `qr-static.${STATIC_TOKEN_VERSION}.${classId}`;
+    return createHmac('sha256', secret).update(input).digest('hex').slice(0, SIG_LEN);
   }
 
   /**
@@ -155,14 +182,21 @@ export class QrService {
 
     // ── v2 static token ────────────────────────────────────────────────
     if (parts[0] === STATIC_TOKEN_VERSION) {
-      if (parts.length !== 3) {
+      // 三段 = 原始码；四段 = 带标签的分身码。两者都有效，
+      // 学生扫起来没有任何差别，后台能分辨扫的是哪一张。
+      if (parts.length !== 3 && parts.length !== 4) {
         throw new UnauthorizedException({ code: 'qr_malformed' });
       }
-      const [, classId, providedSig] = parts;
+      const classId = parts[1];
+      const variant = parts.length === 4 ? parts[2] : undefined;
+      const providedSig = parts[parts.length - 1];
       if (!classId || providedSig.length !== SIG_LEN) {
         throw new UnauthorizedException({ code: 'qr_malformed' });
       }
-      const expected = this.staticSig(classId);
+      if (variant !== undefined && normaliseVariant(variant) !== variant) {
+        throw new UnauthorizedException({ code: 'qr_malformed' });
+      }
+      const expected = this.staticSig(classId, variant);
       const a = Buffer.from(providedSig);
       const b = Buffer.from(expected);
       if (a.length !== b.length || !timingSafeEqual(a, b)) {
@@ -172,7 +206,7 @@ export class QrService {
       if (!session) {
         throw new UnauthorizedException({ code: 'qr_no_session_today' });
       }
-      return { sessionId: session.id };
+      return { sessionId: session.id, qrVariant: variant ?? ORIGINAL_VARIANT };
     }
 
     // ── v1 rotating token ──────────────────────────────────────────────

@@ -1512,6 +1512,18 @@ model Attendance {
   correctedNote String?
   submissionId  String?            @unique
   submission    StudentSubmission? @relation(fields: [submissionId], references: [id])
+  /// 本次扫的是哪一张贴墙二维码。
+  ///
+  /// 贴墙码是固定不变的，学生完全可以把它拍成照片带回家扫 —— 系统
+  /// 无从分辨。做法：同一个班同时签发多张**都能用**的码，各带一个
+  /// 标签；换墙上那张时不通知学生。当天扫到旧标签的，用的必然是
+  /// 之前拍的照片，人不在墙前。
+  ///
+  /// 值为标签本身（如 'w34'）；旧的三段式码记为 'original'。
+  /// 注意：这是**一次性**证据 —— 换码当天有效，之后新码同样会被拍照
+  /// 传播，需要定期换标签。
+  qrVariant     String?
+
   /// 该生就这一场做了补考的时间（学校 2026-08 新政：早上无故缺席 →
   /// 中午补考）。盖在**正式场次**的考勤行上，status 保持 absent ——
   /// 早上确实没来是既成事实，同步 Seiue 要照实报；补考只补回学业内容，

@@ -410,6 +410,9 @@ export class AttendanceService {
         sourceIp,
         deviceUuid,
         userAgent,
+        // 扫的是哪一张贴墙码。墙上换了新标签而学生仍扫到旧标签，
+        // 说明他用的是之前拍下来的照片，人不在墙前。
+        qrVariant: decoded.qrVariant ?? null,
         source: AttendanceSource.qr_scan,
       },
       update: isAlreadyPresent
@@ -419,6 +422,7 @@ export class AttendanceService {
             sourceIp,
             deviceUuid: deviceUuid ?? undefined,
             userAgent: userAgent ?? undefined,
+            qrVariant: decoded.qrVariant ?? undefined,
             // 早上来过的学生又在补考窗口扫了一次：不动出勤状态，
             // 只记一笔补考时间（他本来就不该出现在补考名单里，
             // 但记下来比默默忽略强）。
@@ -434,6 +438,7 @@ export class AttendanceService {
             ...(isMakeupScan ? { makeupAt: now } : { scanTime: now }),
             deviceUuid: deviceUuid ?? undefined,
             userAgent: userAgent ?? undefined,
+            qrVariant: decoded.qrVariant ?? undefined,
           },
     });
 
