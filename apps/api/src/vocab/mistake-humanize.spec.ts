@@ -137,9 +137,13 @@ describe('cleanMarkerComment —— 客观题的判分流水不给学生看', ()
     expect(cleanMarkerComment('段3:B,正解 F。0。同上。', 1)).toBe('');
     expect(cleanMarkerComment('Q5: FALSE, 正解 C。0。', 1)).toBe('');
   });
-  it('带实质讲解的保留', () => {
-    const c = '段3:B,正解 F。0。F 段开头那句 drip torches 就是在讲点火方法。';
-    expect(cleanMarkerComment(c, 1)).toBe(c);
+  it('流水后面跟着真讲解：剥掉记账前缀，讲解保留', () => {
+    expect(
+      cleanMarkerComment('段3:B,正解 F。0。F 段开头那句 drip torches 就是在讲点火方法。', 1),
+    ).toBe('F 段开头那句 drip torches 就是在讲点火方法。');
+    expect(
+      cleanMarkerComment('段2:B,正解 H。0。同上,找 incentives 这个词就直接落在 H 段。', 1),
+    ).toBe('找 incentives 这个词就直接落在 H 段。');
   });
   it('长答题评语永远保留 —— 哪怕很短', () => {
     expect(cleanMarkerComment('同上。', 2)).toBe('同上。');

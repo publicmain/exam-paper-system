@@ -85,9 +85,19 @@ export function translateAnswerLetter(taskType: string, answer: string): string 
  * 长答题（≥2 分）的评语永远保留 —— 那是逐份手写的教学资产。
  */
 export function cleanMarkerComment(comment: string, maxMarks: number): string {
-  const c = (comment ?? '').trim();
+  let c = (comment ?? '').trim();
   if (!c) return '';
   if (maxMarks >= 2) return c; // 长答题评语永远保留
+  // 先剥掉开头的记账前缀（"段2:B,正解 H。0。同上,"）——有些评语在流水
+  // 后面跟着真讲解（"找 incentives 这个词就直接落在 H 段"），整条隐藏
+  // 会把讲解一起丢掉。剥完后下面的 residue 检查决定剩余部分够不够格。
+  c = c
+    .replace(
+      /^[QĐ段]\s*\d+(?:\([ivx]+\))?\s*[:：]\s*[^。;；]{0,16}?正解\s*[^\s。,，;；]+\s*[。,，;；]\s*(?:[0-2](?:\.5)?\s*[。,，;；]?\s*)?(?:同上)?[,，。;；\-—\s]*/,
+      '',
+    )
+    .trim();
+  if (!c) return '';
   const residue = c
     .replace(/[QĐ段]\s*\d+\s*[:：]?/gi, '')
     .replace(/正解\s*[^\s。,，;；]+/g, '')
