@@ -144,8 +144,7 @@ export default function MyVocabPage() {
           </div>
           {data.total === 0 && (
             <p className="mt-3 text-sm text-gray-600 leading-relaxed">
-              还没有生词。交卷后在成绩页重读文章，<strong>点任意单词</strong>即可查释义并加入这里；
-              答错的词义题也会自动收录。
+              交卷后在成绩页重读文章，点任意单词即可查释义并加入这里。
             </p>
           )}
           {/* P5 自测：主入口。自测（客观判分）放主位，翻卡复习退居次位 ——
@@ -156,13 +155,13 @@ export default function MyVocabPage() {
                 to={`/my-vocab/quiz?name=${encodeURIComponent(name)}${studentId ? `&studentId=${encodeURIComponent(studentId)}` : ''}`}
                 className="flex-1 text-center py-3 rounded-xl bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white font-semibold touch-manipulation"
               >
-                🎯 自测一轮
+                🎯 自测
               </Link>
               <Link
                 to={`/my-vocab/review?name=${encodeURIComponent(name)}${studentId ? `&studentId=${encodeURIComponent(studentId)}` : ''}`}
                 className="flex-1 text-center py-3 rounded-xl bg-gray-100 hover:bg-gray-200 text-gray-800 font-semibold touch-manipulation"
               >
-                📖 翻卡复习
+                📖 复习
               </Link>
             </div>
           )}

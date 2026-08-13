@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { api } from '../lib/api';
+import { track } from '../lib/track';
 import { Spinner } from '../components/AsyncState';
 
 /**
@@ -70,7 +71,12 @@ export default function MyMistakesPage() {
     if (!name) return;
     api
       .mistakeList({ name, studentId: studentId || undefined })
-      .then((r: any) => setData(r))
+      .then((r: any) => {
+        setData(r);
+        // 埋点在这里,不在服务端 —— 成绩页也会调同一个接口取徽标数字,
+        // 服务端埋点会把"打开成绩页"误记成"打开错题本"。
+        track('mistakes', name, studentId);
+      })
       .catch((e: any) => setError(String(e?.message ?? e)));
   }, [name, studentId]);
 
@@ -124,21 +130,14 @@ export default function MyMistakesPage() {
 
         <header className="bg-white rounded-xl border shadow-sm p-5">
           <h1 className="text-2xl font-bold text-gray-900">📕 我的错题本</h1>
-          <div className="mt-2 flex items-baseline gap-2">
-            <span className="text-3xl font-bold text-gray-900">{data.total}</span>
-            <span className="text-sm text-gray-500">条待弄懂</span>
-          </div>
-          {data.total === 0 ? (
-            <p className="mt-3 text-sm text-gray-600 leading-relaxed">
-              还没有错题。<strong>不是每道错题都会进这里</strong> —— 只收三类：
-              这类题你反复错、考词义的题、还有老师写了评语的长答题。
-              空着没做的题不收，那个要靠自己动笔解决。
-            </p>
-          ) : (
-            <p className="mt-2 text-[13px] text-gray-500 leading-relaxed">
-              只收三类：<strong>反复错的题型</strong>、<strong>词义题</strong>、
-              <strong>老师写了评语的长答题</strong>。弄懂一条就点「已弄懂」划掉它。
-            </p>
+          {data.total > 0 && (
+            <div className="mt-2 flex items-baseline gap-2">
+              <span className="text-3xl font-bold text-gray-900">{data.total}</span>
+              <span className="text-sm text-gray-500">条待弄懂</span>
+            </div>
+          )}
+          {data.total === 0 && (
+            <p className="mt-3 text-sm text-gray-600">这里会收录你反复错的题型、词义题，以及老师批改过的长答题。</p>
           )}
         </header>
 

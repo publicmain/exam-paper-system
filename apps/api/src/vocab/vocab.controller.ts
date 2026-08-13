@@ -158,7 +158,9 @@ export class VocabController {
     @Query('includeResolved') includeResolved?: string,
   ) {
     const student = await this.words.resolveStudent(name ?? '', studentId || undefined);
-    await this.views.record(student.id, 'mistakes');
+    // 这里**不埋点**。成绩页要拿错题数做徽标，也会打这个接口 —— 在
+    // 服务端埋点会把"打开成绩页"误记成"打开错题本",而这个区分正是
+    // 埋点存在的理由。改由前端 MyMistakes 页面显式 track('mistakes')。
     const r = await this.mistakes.listForStudent(student.id, {
       includeResolved: includeResolved === '1',
     });

@@ -83,14 +83,8 @@ export default function TimeUpMakeup({
         {unanswered > 0 ? (
           <>
             <p className="text-[15px] text-gray-600 mt-2.5 leading-relaxed">
-              已答 {answered} / {total} 题。
-              <strong className="text-gray-900">现在把剩下的做完仍然算数</strong>
-              —— 系统照样判分、错题照样进你的错题本，老师也看得到。
-              只是不计入今天的正式分数。
+              已答 {answered} / {total} 题。现在做完仍然会判分、进错题本，不计入今天的成绩。
             </p>
-            <div className="mt-3 rounded-[12px] bg-amber-50 border border-amber-200 px-3.5 py-2.5 text-[13px] text-amber-900 leading-relaxed">
-              空着一定是 0 分。做完至少你知道自己哪里不会 —— 这比分数有用。
-            </div>
             {err && <div className="mt-3 text-[13px] text-rose-600">{err}</div>}
             <button
               type="button"
@@ -110,9 +104,7 @@ export default function TimeUpMakeup({
           </>
         ) : (
           <>
-            <p className="text-[15px] text-gray-600 mt-2.5">
-              {total} 题全部作答完毕。去看看这次的成绩和错题。
-            </p>
+            <p className="text-[15px] text-gray-600 mt-2.5">{total} 题全部作答完毕。</p>
             <button
               type="button"
               onClick={onSkip}

@@ -108,6 +108,8 @@ export default function MyHistory() {
   const [, setTick] = useState(0);
   // 生词本到期数；null = 尚未取到或接口不可用（此时卡片保持原样）
   const [dueCount, setDueCount] = useState<number | null>(null);
+  // 错题本待弄懂数。同样 null = 取不到就不显示徽标,绝不因此挡住成绩。
+  const [mistakeCount, setMistakeCount] = useState<number | null>(null);
 
   async function lookup(searchName: string, studentId?: string) {
     const trimmed = searchName.trim();
@@ -246,6 +248,27 @@ export default function MyHistory() {
         const j = await r.json();
         if (!cancelled && typeof j?.totalDue === 'number') setDueCount(j.totalDue);
       } catch { /* 生词本不可用时静默降级 */ }
+    })();
+    return () => { cancelled = true; };
+  }, [data?.student?.name, chosenStudentId]);
+
+  // 错题本待弄懂数。与上面同一个模式：拿不到就不显示徽标，绝不因此
+  // 影响看成绩。数字本身就是卡片要说的全部内容 —— 收录规则是我们的
+  // 实现细节，不该占学生的屏幕。
+  useEffect(() => {
+    const nm = data?.student?.name;
+    if (!nm) { setMistakeCount(null); return; }
+    let cancelled = false;
+    (async () => {
+      try {
+        const qs =
+          '?name=' + encodeURIComponent(nm) +
+          (chosenStudentId ? '&studentId=' + encodeURIComponent(chosenStudentId) : '');
+        const r = await fetch(`${BASE}/api/vocab/mistakes${qs}`);
+        if (!r.ok) return;
+        const j = await r.json();
+        if (!cancelled && typeof j?.total === 'number') setMistakeCount(j.total);
+      } catch { /* 错题本不可用时静默降级 */ }
     })();
     return () => { cancelled = true; };
   }, [data?.student?.name, chosenStudentId]);
@@ -464,11 +487,6 @@ export default function MyHistory() {
             <div className="flex items-center justify-between gap-3">
               <div className="min-w-0">
                 <div className="font-semibold text-gray-900">📒 我的生词本</div>
-                <div className="text-xs text-gray-500 mt-0.5">
-                  {dueCount && dueCount > 0
-                    ? '按记忆曲线该复习了,大约一两分钟'
-                    : '答错的词会自动收录;点开成绩还能重读原文、点词查义'}
-                </div>
               </div>
               <div className="flex items-center gap-2 shrink-0">
                 {dueCount !== null && dueCount > 0 && (
@@ -497,7 +515,7 @@ export default function MyHistory() {
               }}
               className="mt-2.5 inline-flex items-center gap-1 text-[13px] font-semibold text-blue-700 bg-blue-50 border border-blue-200 rounded-full px-3 py-1.5"
             >
-              🎯 自测一轮 —— 系统出题考你，答错的会安排重背
+              🎯 自测
             </span>
           </Link>
         )}
@@ -514,11 +532,15 @@ export default function MyHistory() {
             <div className="flex items-center justify-between gap-3">
               <div className="min-w-0">
                 <div className="font-semibold text-gray-900">📕 我的错题本</div>
-                <div className="text-xs text-gray-500 mt-0.5">
-                  反复错的题型、词义题、老师写了评语的长答题 —— 只收这三类，不是流水账
-                </div>
               </div>
-              <span className="text-gray-400 text-lg shrink-0">›</span>
+              <div className="flex items-center gap-2 shrink-0">
+                {mistakeCount !== null && mistakeCount > 0 && (
+                  <span className="inline-flex items-center rounded-full bg-rose-500 px-2.5 py-1 text-xs font-semibold text-white tabular-nums">
+                    {mistakeCount}
+                  </span>
+                )}
+                <span className="text-gray-400 text-lg">›</span>
+              </div>
             </div>
           </Link>
         )}
