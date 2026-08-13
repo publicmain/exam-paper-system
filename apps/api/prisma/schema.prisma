@@ -53,6 +53,7 @@ model User {
   watermarkTokens              WatermarkToken[]         @relation("WatermarkTokenStudent")
   // Morning quiz back-relations
   morningQuizSessionsScheduled MorningQuizSession[]     @relation("MorningQuizScheduledBy")
+  morningQuizMakeupsOpened     MorningQuizSession[]     @relation("MorningQuizMakeupOpenedBy")
   attendances                  Attendance[]             @relation("AttendanceStudent")
   attendancesCorrected         Attendance[]             @relation("AttendanceCorrectedBy")
   shuffleMaps                  QuestionShuffleMap[]     @relation("ShuffleMapStudent")
@@ -1466,6 +1467,17 @@ model MorningQuizSession {
   // to figure out which band an in-flight session belongs to.
   level EnglishLevel @default(ielts_authentic)
 
+  /// ── 补考窗口（学校 2026-08 新政）──
+  /// 早上无故缺席的学生中午补考。**正式窗口（attendanceStart /
+  /// lateCutoff / quizEnd）永远不动** —— 2026-08-13 首次补考时用
+  /// debug-activate 原地改写了它们（08:30/08:40/09:00 → 13:21/13:42/
+  /// 13:52），早上的真实时间和缺席记录一起没了，三名补考学生还被记成
+  /// 「准时出勤」。补考另开一对窗口，与正式窗口互不干扰。
+  makeupStart      DateTime?
+  makeupEnd        DateTime?
+  makeupOpenedById String?
+  makeupOpenedBy   User?     @relation("MorningQuizMakeupOpenedBy", fields: [makeupOpenedById], references: [id])
+
   attendances Attendance[]
 
   @@unique([date, classId, level])
@@ -1500,6 +1512,11 @@ model Attendance {
   correctedNote String?
   submissionId  String?            @unique
   submission    StudentSubmission? @relation(fields: [submissionId], references: [id])
+  /// 该生就这一场做了补考的时间（学校 2026-08 新政：早上无故缺席 →
+  /// 中午补考）。盖在**正式场次**的考勤行上，status 保持 absent ——
+  /// 早上确实没来是既成事实，同步 Seiue 要照实报；补考只补回学业内容，
+  /// 不抹掉出勤记录。补考本身的扫码记录在补考场次自己的行里。
+  makeupAt      DateTime?
   createdAt     DateTime           @default(now())
   updatedAt     DateTime           @updatedAt
 

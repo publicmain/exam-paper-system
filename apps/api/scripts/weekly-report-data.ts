@@ -11,6 +11,7 @@ import { PrismaClient } from '@prisma/client';
  *   1. 成绩：每人得分率、参加场次（原有周报口径）
  *   2. **参与度**：交卷之后有多少人回来看（新增，老师的第二问）
  *   3. 迟到与放弃：按到达时间分组的空白率（支撑补做功能的效果验证）
+ *   3b. 补考：早上缺席、中午补考的名单与得分
  *   4. 错题本：收录量与题型分布
  *   5. 错题重练：谁在练、练会了多少（错题闭环的核心指标）
  *
@@ -142,6 +143,34 @@ const pct = (a: number, b: number) => (b ? ((a / b) * 100).toFixed(1) + '%' : '�
       `  ${r.bucket.padEnd(14)} n=${String(r.n).padStart(3)}  ` +
         `平均得分率 ${(r.rate * 100).toFixed(1)}%   平均空白率 ${(r.blank * 100).toFixed(1)}%`,
     );
+  }
+
+  // ── 3b. 补考（学校 2026-08 新政）────────────────────────
+  // 谁早上无故缺席、中午补了。出勤仍按 absent 报 Seiue —— 补考补的是
+  // 学业内容不是出勤，这里单列是给老师看政策执行情况。
+  console.log('
+【3b】补考执行情况');
+  const makeup = await prisma.$queryRaw<
+    Array<{ day: string; name: string; ts: number | null; ms: number | null }>
+  >`
+    SELECT to_char(s."date", 'YYYY-MM-DD') AS day, u.name,
+           sub."totalScore"::float AS ts, sub."maxScore"::float AS ms
+    FROM "Attendance" a
+    JOIN "MorningQuizSession" s ON s.id = a."sessionId"
+    JOIN "User" u ON u.id = a."studentId"
+    LEFT JOIN "StudentSubmission" sub ON sub.id = a."submissionId"
+    WHERE s."classId" = ${CLASS_ID}
+      AND s."date" BETWEEN ${SINCE}::date AND ${UNTIL}::date
+      AND a."makeupAt" IS NOT NULL
+    ORDER BY 1, 2`;
+  if (!makeup.length) {
+    console.log('  （本周没有补考记录）');
+  } else {
+    for (const r of makeup) {
+      const sc = r.ts != null && r.ms ? `${r.ts}/${r.ms}` : '未判分';
+      console.log(`    ${r.day}  ${r.name.padEnd(10)} 补考得分 ${sc}`);
+    }
+    console.log(`  本周补考 ${makeup.length} 人次（出勤仍记缺席）`);
   }
 
   // ── 4. 错题本 ────────────────────────────────────────────

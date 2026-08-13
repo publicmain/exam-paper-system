@@ -164,6 +164,9 @@ export class MorningQuizExportService {
       onTime: number;
       late: number;
       absent: number;
+      /** 该生「早上缺席但中午补考了」的日期集合（学校 2026-08 新政）。
+       *  出勤仍按 absent 计 —— 补考补的是学业内容，不是出勤。 */
+      makeupDates: Set<string>;
     }
     const perStudent = new Map<string, PerStudent>();
     for (const att of attendances) {
@@ -180,6 +183,7 @@ export class MorningQuizExportService {
           onTime: 0,
           late: 0,
           absent: 0,
+          makeupDates: new Set<string>(),
         };
       // If two sessions on the same day (multi-level: a student can only
       // really sit one, but defensively pick the strongest signal:
@@ -190,6 +194,7 @@ export class MorningQuizExportService {
       if (score(att.status) > score(prior)) {
         cur.byDate[dateKey] = att.status;
       }
+      if (att.makeupAt) cur.makeupDates.add(dateKey);
       perStudent.set(att.studentId, cur);
     }
     // Recompute totals from the deduped byDate map (so a student listed in
@@ -244,7 +249,11 @@ export class MorningQuizExportService {
         sumAbsent: p.absent,
       };
       for (const dk of dateKeys) {
-        rowData[`d_${dk}`] = this.statusShortZh(p.byDate[dk]);
+        // 补考日单独标记：状态仍是缺勤（合计里照算），但老师一眼能
+        // 看出这天是「没来但补了」，不用去翻另一张表。
+        rowData[`d_${dk}`] = p.makeupDates.has(dk)
+          ? '补考'
+          : this.statusShortZh(p.byDate[dk]);
       }
       const xlRow = s.addRow(rowData);
       // Colour-tint each date cell by status. ExcelJS uses 1-based column

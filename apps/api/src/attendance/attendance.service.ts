@@ -11,6 +11,7 @@ import { JwtService } from '@nestjs/jwt';
 import { AttendanceSource, AttendanceStatus, MorningQuizStatus } from '@prisma/client';
 import { AuditService } from '../audit/audit.service';
 import { PrismaService } from '../common/prisma.service';
+import { isMakeupWindowOpen } from '../morning-quiz/morning-quiz.service';
 import { canActOnClass } from '../common/roles';
 import { QrService } from '../qr/qr.service';
 import { ShuffleService } from '../shuffle/shuffle.service';
@@ -313,12 +314,26 @@ export class AttendanceService {
     // Gate 5 — time window: on_time | late | absent
     const now = new Date();
     let attendanceStatus: AttendanceStatus;
+    /** 这次扫码发生在补考窗口内（早上缺席、中午来补） */
+    let isMakeupScan = false;
     if (now < session.attendanceStart) {
       throw new GoneException({ code: 'attendance_window_not_open' });
     } else if (now <= session.attendanceEnd) {
       attendanceStatus = AttendanceStatus.on_time;
     } else if (now <= session.lateCutoff) {
       attendanceStatus = AttendanceStatus.late;
+    } else if (isMakeupWindowOpen(session, now)) {
+      // 补考（学校 2026-08 新政：早上无故缺席 → 中午补考）。
+      //
+      // 状态**照旧记 absent** —— 早上确实没来是既成事实，同步 Seiue
+      // 要照实报；补考补回的是学业内容，不是出勤。只额外盖一个
+      // makeupAt，面板和导出据此显示「缺席 · 已补考」。
+      //
+      // 2026-08-13 第一次补考没有这条分支，老师只能用 debug-activate
+      // 把正式窗口整个挪到 13:21，于是三名学生被记成「准时出勤」，
+      // 早上的缺席在系统里一点痕迹都没留下。
+      attendanceStatus = AttendanceStatus.absent;
+      isMakeupScan = true;
     } else {
       const existing = await this.prisma.attendance.findUnique({
         where: { sessionId_studentId: { sessionId: session.id, studentId } },
@@ -387,7 +402,11 @@ export class AttendanceService {
         sessionId: session.id,
         studentId,
         status: attendanceStatus,
-        scanTime: now,
+        // 补考扫码不写 scanTime —— scanTime 的语义是「早上到场的时刻」，
+        // 写进 13:22 会让考勤报表以为这人早上 13:22 到了校。补考时刻
+        // 记在 makeupAt。
+        scanTime: isMakeupScan ? null : now,
+        makeupAt: isMakeupScan ? now : null,
         sourceIp,
         deviceUuid,
         userAgent,
@@ -400,6 +419,10 @@ export class AttendanceService {
             sourceIp,
             deviceUuid: deviceUuid ?? undefined,
             userAgent: userAgent ?? undefined,
+            // 早上来过的学生又在补考窗口扫了一次：不动出勤状态，
+            // 只记一笔补考时间（他本来就不该出现在补考名单里，
+            // 但记下来比默默忽略强）。
+            ...(isMakeupScan ? { makeupAt: now } : {}),
           }
         : {
             // Absent (or other non-present) row — promote with current
@@ -407,7 +430,8 @@ export class AttendanceService {
             // to the case where it actually makes sense.
             status: attendanceStatus,
             sourceIp,
-            scanTime: now,
+            // 补考不覆盖 scanTime（见 create 分支注释），只盖 makeupAt
+            ...(isMakeupScan ? { makeupAt: now } : { scanTime: now }),
             deviceUuid: deviceUuid ?? undefined,
             userAgent: userAgent ?? undefined,
           },

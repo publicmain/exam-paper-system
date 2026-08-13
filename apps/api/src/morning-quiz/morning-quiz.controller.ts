@@ -295,6 +295,41 @@ export class MorningQuizController {
    * is now or past, status is forced `active` immediately (same as the
    * no-arg behaviour).
    */
+  /**
+   * 打开补考窗口 —— 早上无故缺席的学生中午来补（学校 2026-08 新政）。
+   *
+   * 教师可用（canActOnClass 在 service 里查），不是 debug 端点：
+   * 2026-08-13 第一次补考是拿 debug-activate 开的，那个东西会把正式
+   * 场次的时间窗整体挪走，早上的考勤记录跟着一起失真。
+   */
+  @Post('sessions/:id/makeup/open')
+  openMakeup(
+    @Param('id') id: string,
+    @Body() body: { minutes?: number } | undefined,
+    @CurrentUser() user: any,
+    @Req() req: Request,
+  ) {
+    const minutes = Number(body?.minutes ?? 30);
+    if (!Number.isFinite(minutes)) {
+      throw new BadRequestException({ code: 'bad_minutes' });
+    }
+    return this.svc.openMakeupWindow(
+      id,
+      { id: user.id, role: user.role, ip: req.ip ?? null },
+      { minutes },
+    );
+  }
+
+  /** 手动关闭补考窗口。 */
+  @Post('sessions/:id/makeup/close')
+  closeMakeup(@Param('id') id: string, @CurrentUser() user: any, @Req() req: Request) {
+    return this.svc.closeMakeupWindow(id, {
+      id: user.id,
+      role: user.role,
+      ip: req.ip ?? null,
+    });
+  }
+
   @Patch('sessions/:id/debug-activate')
   debugActivate(
     @Param('id') id: string,

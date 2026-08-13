@@ -105,6 +105,10 @@ export class MorningQuizCron {
         status: { in: [MorningQuizStatus.active, MorningQuizStatus.scheduled] },
         quizEnd: { lte: now },
         class: { archivedAt: null },
+        // 补考窗口开着的场次先放过 —— 否则老师中午开了补考，这个
+        // 每分钟跑的 cron 会立刻把它锁掉（quizEnd 早上 9 点就过了），
+        // 补考窗口活不过一分钟。窗口一关，下一轮 tick 正常收尾。
+        OR: [{ makeupEnd: null }, { makeupEnd: { lt: now } }],
       },
       include: {
         // F4: include class.name + paper.name so lockOne can populate the

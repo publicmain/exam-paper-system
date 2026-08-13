@@ -67,6 +67,31 @@ const LATE_CUTOFF_LOCAL = '08:59:59';
 const QUIZ_END_LOCAL = '09:00:00';
 
 /**
+ * 这一场此刻是否还能作答 —— 正式窗口，或者老师开着的补考窗口。
+ *
+ * 学校 2026-08 新政：早上无故缺席的学生中午补考。补考**不动正式窗口**
+ * （2026-08-13 用 debug-activate 原地改写 08:30/08:40/09:00 那次，把
+ * 早上的真实时间和缺席记录一起弄丢了），而是另开 makeupStart/makeupEnd
+ * 一对字段。所有原本判 `now > quizEnd` 的闸门都改走这里。
+ */
+export function isQuizWindowOpen(
+  session: { quizEnd: Date; makeupStart?: Date | null; makeupEnd?: Date | null },
+  now: Date = new Date(),
+): boolean {
+  if (now <= session.quizEnd) return true;
+  return isMakeupWindowOpen(session, now);
+}
+
+/** 此刻是否在补考窗口内（正式窗口已过）。 */
+export function isMakeupWindowOpen(
+  session: { makeupStart?: Date | null; makeupEnd?: Date | null },
+  now: Date = new Date(),
+): boolean {
+  if (!session.makeupStart || !session.makeupEnd) return false;
+  return now >= session.makeupStart && now <= session.makeupEnd;
+}
+
+/**
  * Whitelist of `snapshotContent` fields that are safe to send to a student
  * during an active quiz. ANY field not on this list is dropped, including
  * fields that don't exist today but may be added by a future PR
@@ -1666,7 +1691,7 @@ export class MorningQuizService {
       select: { status: true },
     });
     const now = new Date();
-    const windowClosed = now > session.quizEnd;
+    const windowClosed = !isQuizWindowOpen(session, now);
     const submitted =
       submission?.status === 'submitted' || submission?.status === 'graded';
     if (!windowClosed && !submitted) {
@@ -1741,7 +1766,9 @@ export class MorningQuizService {
     });
     if (!session) throw new NotFoundException({ code: 'session_not_found' });
     const now = new Date();
-    if (now > session.quizEnd) throw new BadRequestException({ code: 'quiz_window_closed' });
+    if (!isQuizWindowOpen(session, now)) {
+      throw new BadRequestException({ code: 'quiz_window_closed' });
+    }
 
     const submission = await this.prisma.studentSubmission.findFirst({
       where: {
@@ -1873,6 +1900,93 @@ export class MorningQuizService {
    * admin role. The controller does the env-flag check; this service
    * method only does the canActOnClass test.
    */
+  /**
+   * 打开补考窗口（学校 2026-08 新政：早上无故缺席 → 中午补考）。
+   *
+   * **不动正式窗口**。2026-08-13 第一次补考是拿 debug-activate 开的，
+   * 那个调试端点会把 attendanceStart/lateCutoff/quizEnd 整体挪到当前
+   * 时刻，于是当天 08:30/08:40/09:00 被改写成 13:21/13:42/13:52，
+   * 早上的真实时间没了，它还顺手删掉了 9 点已生成的缺席行 ——
+   * 三名补考学生最终被记成「准时出勤」。
+   *
+   * 这里只写 makeupStart/makeupEnd，并把状态放回 active 让学生能扫码。
+   * 补考扫码在 attendance.service 里落成 absent + makeupAt。
+   */
+  async openMakeupWindow(
+    sessionId: string,
+    actor: ActorCtx,
+    opts: { minutes: number },
+  ) {
+    const session = await this.prisma.morningQuizSession.findUnique({
+      where: { id: sessionId },
+    });
+    if (!session) throw new NotFoundException({ code: 'session_not_found' });
+    if (!(await canActOnClass(this.prisma, actor, session.classId))) {
+      throw new ForbiddenException({ code: 'not_your_class' });
+    }
+    if (session.status === MorningQuizStatus.cancelled) {
+      throw new BadRequestException({ code: 'session_cancelled' });
+    }
+    const minutes = Math.min(Math.max(Math.round(opts.minutes), 5), 120);
+    const now = new Date();
+    if (now <= session.quizEnd) {
+      // 正式场还没结束就开补考没有意义，而且会让「补考」这个统计口径
+      // 失真（人还在正常考试窗口里）。
+      throw new BadRequestException({
+        code: 'regular_window_still_open',
+        quizEnd: session.quizEnd,
+      });
+    }
+    const after = await this.prisma.morningQuizSession.update({
+      where: { id: sessionId },
+      data: {
+        makeupStart: now,
+        makeupEnd: new Date(now.getTime() + minutes * 60_000),
+        makeupOpenedById: actor.id,
+        status: MorningQuizStatus.active,
+      },
+    });
+    await this.audit.log({
+      actorId: actor.id,
+      actorRole: actor.role,
+      action: 'morning_quiz.makeup_window_open',
+      entityType: 'MorningQuizSession',
+      entityId: sessionId,
+      ip: actor.ip,
+      diff: {
+        before: { status: session.status },
+        after: { makeupStart: after.makeupStart, makeupEnd: after.makeupEnd, minutes },
+      },
+    });
+    return after;
+  }
+
+  /** 手动关闭补考窗口（不等它自然到期）。下一轮 lock cron 收尾。 */
+  async closeMakeupWindow(sessionId: string, actor: ActorCtx) {
+    const session = await this.prisma.morningQuizSession.findUnique({
+      where: { id: sessionId },
+    });
+    if (!session) throw new NotFoundException({ code: 'session_not_found' });
+    if (!(await canActOnClass(this.prisma, actor, session.classId))) {
+      throw new ForbiddenException({ code: 'not_your_class' });
+    }
+    const after = await this.prisma.morningQuizSession.update({
+      where: { id: sessionId },
+      // makeupStart 留着 —— 它是「今天开过补考」的凭据，报表要用。
+      data: { makeupEnd: new Date() },
+    });
+    await this.audit.log({
+      actorId: actor.id,
+      actorRole: actor.role,
+      action: 'morning_quiz.makeup_window_close',
+      entityType: 'MorningQuizSession',
+      entityId: sessionId,
+      ip: actor.ip,
+      diff: { before: { makeupEnd: session.makeupEnd }, after: { makeupEnd: after.makeupEnd } },
+    });
+    return after;
+  }
+
   async revertSessionToScheduled(sessionId: string, actor: ActorCtx) {
     const before = await this.prisma.morningQuizSession.findUnique({ where: { id: sessionId } });
     if (!before) throw new NotFoundException({ code: 'session_not_found' });
@@ -2499,8 +2613,13 @@ export class MorningQuizService {
       const oldP = PRIORITY[existing.status] ?? 0;
       // If equal priority (e.g. two absent rows for the same student),
       // prefer the row that has a submission attached — keeps any quiz
-      // data visible even if status ended up tied.
-      if (newP > oldP || (newP === oldP && a.submission && !existing.submission)) {
+      // data visible even if status ended up tied. 补考行（absent +
+      // makeupAt）也要赢过同级别的空缺席行，否则「已补考」的标记会在
+      // 多级别班级里被另一条纯缺席行盖掉。
+      const tieBreak =
+        newP === oldP &&
+        ((a.submission && !existing.submission) || (a.makeupAt && !existing.makeupAt));
+      if (newP > oldP || tieBreak) {
         byStudent.set(sid, a);
       }
     }
@@ -2511,8 +2630,14 @@ export class MorningQuizService {
     });
     // Recompute counts on the deduped set — one tally per student, not
     // per attendance row.
-    const counts = { on_time: 0, late: 0, absent: 0 };
-    for (const a of attendances) counts[a.status]++;
+    const counts = { on_time: 0, late: 0, absent: 0, makeup: 0 };
+    for (const a of attendances) {
+      counts[a.status]++;
+      // 补考不是第四种出勤状态 —— 它是 absent 的一个子集（早上没来、
+      // 中午补了）。单独计数是给老师看「今天有几个人补了」，同步
+      // Seiue 时仍按 absent 报。
+      if (a.makeupAt) counts.makeup++;
+    }
 
     return {
       classId,
@@ -2523,6 +2648,10 @@ export class MorningQuizService {
         level: s.level,
         status: s.status,
         paper: s.paperAssignment.paper,
+        makeupStart: s.makeupStart,
+        makeupEnd: s.makeupEnd,
+        /** 此刻补考窗口是否开着 —— 面板据此显示「补考进行中」 */
+        makeupOpen: isMakeupWindowOpen(s),
       })),
       counts,
       attendances,
@@ -2636,7 +2765,7 @@ export class MorningQuizService {
     });
     if (!submission) throw new NotFoundException({ code: 'no_submission' });
     const now = new Date();
-    const windowClosed = now > session.quizEnd;
+    const windowClosed = !isQuizWindowOpen(session, now);
     const submitted =
       submission.status === 'submitted' || submission.status === 'graded' ||
       submission.status === 'returned' || submission.status === 'marked';
@@ -2928,7 +3057,9 @@ export class MorningQuizService {
         classId: { in: classIds },
         date: { gte: dayStart, lt: dayEnd },
         status: { not: 'cancelled' },
-        quizEnd: { gte: now },
+        // 补考窗口开着的场次也要出现在「今天可以考」的列表里，
+        // 否则补考学生进来看到的是空页。
+        OR: [{ quizEnd: { gte: now } }, { makeupEnd: { gte: now } }],
       },
       include: {
         class: { select: { id: true, name: true } },
