@@ -363,8 +363,20 @@ export class MorningQuizCron {
     // result) and fills in the short-answer scores. Load scripts outside
     // any tx; per submission: batched AI call (slow, no tx) → small
     // write tx. One failure logs + continues — never poison the cohort.
+    // ⚠️ 排除 status='marked' —— 那是老师判完并定稿的卷子。
+    //
+    // 2026-08-13 事故：老师中午重新激活场次开补考，13:53 窗口关闭时
+    // 这个 cron 又锁了一次，Phase 2 无条件重判**整场每一份**，而 AI
+    // 判分按规定是关着的（走 deferAi），于是早上人工判好的 43 道短答
+    // 题被重置回 awardedMarks=null + [ai-pending]，totalScore 也被
+    // 覆盖成只算选择题的部分分。学生页面重新显示「待老师批改」。
+    //
+    // 锁场次必须对已定稿的卷子幂等。
     const allSubs = await this.prisma.studentSubmission.findMany({
-      where: { assignmentId: paperAssignmentId, status: { not: 'practice' } },
+      where: {
+        assignmentId: paperAssignmentId,
+        status: { notIn: ['practice', 'marked'] },
+      },
       select: { id: true },
     });
     let graded = 0;
@@ -427,6 +439,15 @@ export class MorningQuizCron {
             data: { autoScore, totalScore: autoScore },
           });
           for (const u of scriptUpdates) {
+            // 人工判过的那一条永不覆盖：markedById 有值 = 老师写过分数
+            // 和评语，自动流程再怎么跑都不能把它抹掉（同上 2026-08-13
+            // 事故）。第二道防线，与上面按 submission 过滤互补 ——
+            // 一份卷可能只有部分题被人工判过。
+            const already = await tx.answerScript.findUnique({
+              where: { id: u.id },
+              select: { markedById: true },
+            });
+            if (already?.markedById) continue;
             await tx.answerScript.update({
               where: { id: u.id },
               data: {
