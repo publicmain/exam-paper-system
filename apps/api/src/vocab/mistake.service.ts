@@ -125,14 +125,32 @@ export class MistakeService {
     });
     if (!sub) return { added: 0 };
 
-    // 该生近 30 天各题型的错题次数 —— 规则 2 的依据
+    // 该生近 30 天各题型的**真实错题次数** —— 规则 2 的依据。
+    //
+    // ⚠️ 这里必须查 AnswerScript 而不是查已收录的 MistakeEntry。
+    // 2026-08-13 首次回填时踩到:原实现用"已收录条数"当计数,而规则 2 又
+    // 规定第一次错不收 —— 于是计数永远停在 0,阈值永远达不到,形成死锁。
+    // 表现是 119 条回填全部来自 O-Level 的长答/词义题(那两条规则不依赖
+    // 计数),而 IELTS 的 47 道段落匹配错题一条都没进来。
+    // 计数问的是"他错过几次",不是"我们收过几次",两者不能混。
     const since = new Date(Date.now() - REPEAT_WINDOW_DAYS * 86400_000);
-    const prior = await this.prisma.mistakeEntry.groupBy({
-      by: ['taskType'],
-      where: { studentId: sub.studentId, createdAt: { gte: since } },
-      _count: true,
-    });
-    const priorByType = new Map(prior.map((p) => [p.taskType, p._count]));
+    const prior = await this.prisma.$queryRaw<Array<{ taskType: string; n: number }>>`
+      SELECT COALESCE(
+               COALESCE(pq."overrideContent", pq."snapshotContent")->>'taskType',
+               'unknown'
+             ) AS "taskType",
+             COUNT(*)::int AS n
+      FROM "AnswerScript" sc
+      JOIN "StudentSubmission" s2 ON s2.id = sc."submissionId"
+      JOIN "PaperQuestion" pq ON pq.id = sc."paperQuestionId"
+      WHERE s2."studentId" = ${sub.studentId}
+        AND s2.id <> ${sub.id}            -- 不含当前这份，否则"第一次错"就已达阈值
+        AND sc."awardedMarks" IS NOT NULL
+        AND sc."awardedMarks" < pq.marks
+        AND COALESCE(sc."textAnswer", sc."selectedOption", '') <> ''
+        AND sc."updatedAt" >= ${since}
+      GROUP BY 1`;
+    const priorByType = new Map(prior.map((p) => [p.taskType, Number(p.n)]));
 
     let added = 0;
     for (const sc of sub.scripts) {
@@ -149,6 +167,12 @@ export class MistakeService {
         { studentAnswer, awarded, maxMarks, stem },
         priorByType.get(taskType) ?? 0,
       );
+      // 计数必须**在收录判定之后、continue 之前**递增：同一份卷里连错
+      // 两道同类型时，第二道才算得上"反复错"。放在 continue 之后就会
+      // 重演上面那个死锁（不收 → 不计数 → 永远不收）。
+      if (awarded < maxMarks && studentAnswer) {
+        priorByType.set(taskType, (priorByType.get(taskType) ?? 0) + 1);
+      }
       if (!reason) continue;
 
       const correctAnswer =
@@ -173,9 +197,6 @@ export class MistakeService {
           },
         });
         added++;
-        // 收录后把 priorByType 也 +1，同一份卷里连错两道同类型时
-        // 第二道才不会因为读的是陈旧计数而漏收
-        priorByType.set(taskType, (priorByType.get(taskType) ?? 0) + 1);
       } catch (e: any) {
         if (e?.code !== 'P2002') {
           this.log.warn(`mistake collect failed ${sub.id}/${sc.paperQuestionId}: ${e?.message}`);
@@ -193,7 +214,10 @@ export class MistakeService {
         ...(opts?.includeResolved ? {} : { resolved: false }),
       },
       orderBy: [{ createdAt: 'desc' }],
-      take: Math.min(opts?.limit ?? 60, 200),
+      // 默认只给 30 条。回填三周后弱生有 58 条（叶书瑞）—— 一次性
+      // 摊开只会让他直接关掉。顶部的"哪类题错得最多"统计才是弱生
+      // 真正该看的（我该练什么），逐条是给中等生用的。
+      take: Math.min(opts?.limit ?? 30, 200),
     });
     const total = await this.prisma.mistakeEntry.count({ where: { studentId, resolved: false } });
     // 按题型统计 —— 回答"我到底哪类题一直错"
