@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
-import { BASE } from '../lib/api';
+import { BASE, api } from '../lib/api';
+import { track } from '../lib/track';
 import SkillProfileCard from '../components/SkillProfileCard';
 import InstallAppCard from '../components/InstallAppCard';
 import {
@@ -147,6 +148,9 @@ export default function MyHistory() {
       }
       setData(json as HistoryResponse);
       setChosenStudentId(studentId ?? null);
+      // P6 埋点：记录"这个学生今天打开过成绩页"。失败静默 ——
+      // 埋点绝不能影响看成绩（见 page-view.service 顶部注释）。
+      track('history', (json as HistoryResponse).student.name, studentId);
       // 测试账号不写入"记住的名字"。2026-08-12 事故:学生们用「测试学生」
       // 签到体验流程,这个名字被存成了默认,装好的 App 打开全是测试班级。
       // 查谁都可以,但只有真实班级的学生才配成为这台设备的默认身份。
@@ -495,6 +499,27 @@ export default function MyHistory() {
             >
               🎯 自测一轮 —— 系统出题考你，答错的会安排重背
             </span>
+          </Link>
+        )}
+
+        {/* 错题本入口（2026-08-13）。紧挨生词本 —— 两者是同一件事的
+            两半：生词本管"词不认识"，错题本管"题做错了"。 */}
+        {data && (
+          <Link
+            to={`/my-mistakes?name=${encodeURIComponent(data.student.name)}${
+              chosenStudentId ? `&studentId=${encodeURIComponent(chosenStudentId)}` : ''
+            }`}
+            className="block bg-white border rounded-xl shadow-sm p-4 active:bg-gray-100"
+          >
+            <div className="flex items-center justify-between gap-3">
+              <div className="min-w-0">
+                <div className="font-semibold text-gray-900">📕 我的错题本</div>
+                <div className="text-xs text-gray-500 mt-0.5">
+                  反复错的题型、词义题、老师写了评语的长答题 —— 只收这三类，不是流水账
+                </div>
+              </div>
+              <span className="text-gray-400 text-lg shrink-0">›</span>
+            </div>
           </Link>
         )}
 

@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { api } from '../lib/api';
+import { track } from '../lib/track';
 import { Spinner } from '../components/AsyncState';
 
 /**
@@ -59,7 +60,11 @@ export default function MyVocabPage() {
     if (!name) return;
     api
       .vocabList({ name, studentId: studentId || undefined })
-      .then((r: any) => setData(r))
+      .then((r: any) => {
+        setData(r);
+        // P6 埋点：记录"打开过生词本"。失败静默。
+        track('vocab', name, studentId);
+      })
       .catch((e: any) => setError(String(e?.message ?? e)));
   }, [name, studentId]);
 

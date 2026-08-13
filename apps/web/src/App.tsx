@@ -25,6 +25,7 @@ import MyHistoryDetailPage from './pages/MyHistoryDetail';
 import MyVocabPage from './pages/MyVocab';
 import MyVocabReviewPage from './pages/MyVocabReview';
 import MyVocabQuizPage from './pages/MyVocabQuiz';
+import MyMistakesPage from './pages/MyMistakes';
 import LoginPage from './pages/Login';
 
 const DashboardPage = lazy(() => import('./pages/Dashboard'));
@@ -126,7 +127,8 @@ export default function App() {
     // 生词本 P2 —— 同一套公开 + 姓名匹配的学生自助入口
     location.pathname === '/my-vocab' ||
     location.pathname === '/my-vocab/review' ||
-    location.pathname === '/my-vocab/quiz'
+    location.pathname === '/my-vocab/quiz' ||
+    location.pathname === '/my-mistakes'
   ) {
     return (
       <Routes>
@@ -135,6 +137,7 @@ export default function App() {
         <Route path="/my-vocab" element={<MyVocabPage />} />
         <Route path="/my-vocab/review" element={<MyVocabReviewPage />} />
         <Route path="/my-vocab/quiz" element={<MyVocabQuizPage />} />
+        <Route path="/my-mistakes" element={<MyMistakesPage />} />
       </Routes>
     );
   }

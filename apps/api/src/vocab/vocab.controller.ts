@@ -1,4 +1,4 @@
-import { BadRequestException, Body, Controller, Get, Param, Post, Query, Req } from '@nestjs/common';
+import { BadRequestException, Body, Controller, ForbiddenException, Get, Param, Post, Query, Req } from '@nestjs/common';
 import type { Request } from 'express';
 import { z } from 'zod';
 import { CurrentUser } from '../common/current-user.decorator';
@@ -9,6 +9,10 @@ import { VocabQuizService } from './vocab-quiz.service';
 import { VocabReviewService, type RatingKey } from './vocab-review.service';
 import { VocabService } from './vocab.service';
 import { VocabTeacherService } from './vocab-teacher.service';
+import { MistakeService } from './mistake.service';
+import { PageViewService } from './page-view.service';
+import { PrismaService } from '../common/prisma.service';
+import { canActOnClass } from '../common/roles';
 
 /**
  * 生词本 —— 查词接口（P1，只读）。
@@ -28,6 +32,9 @@ export class VocabController {
     private readonly review: VocabReviewService,
     private readonly quiz: VocabQuizService,
     private readonly teacher: VocabTeacherService,
+    private readonly mistakes: MistakeService,
+    private readonly views: PageViewService,
+    private readonly prisma: PrismaService,
   ) {}
 
   /** 查单词。查不到返回 { found: false } —— 前端显示「未收录」，绝不猜词义。 */
@@ -137,6 +144,88 @@ export class VocabController {
       studentId: studentId || undefined,
       limit: limit ? parseInt(limit, 10) : undefined,
     });
+  }
+
+  // ─────────────────── P6 错题本 ───────────────────
+
+  /** 我的错题本。收录门槛见 mistake.service 顶部注释（不是每道错题都进）。 */
+  @Public()
+  @RateLimit({ limit: 60, windowSec: 60, scope: 'ip' })
+  @Get('mistakes')
+  async listMistakes(
+    @Query('name') name?: string,
+    @Query('studentId') studentId?: string,
+    @Query('includeResolved') includeResolved?: string,
+  ) {
+    const student = await this.words.resolveStudent(name ?? '', studentId || undefined);
+    await this.views.record(student.id, 'mistakes');
+    const r = await this.mistakes.listForStudent(student.id, {
+      includeResolved: includeResolved === '1',
+    });
+    return { student: { id: student.id, name: student.name }, ...r };
+  }
+
+  /** 标记「已弄懂」/ 撤销。错题本必须能清空，否则只会一直变长。 */
+  @Public()
+  @RateLimit({ limit: 60, windowSec: 60, scope: 'ip' })
+  @Post('mistakes/resolve')
+  async resolveMistake(@Body() body: unknown) {
+    const schema = z.object({
+      studentName: z.string().min(1).max(50),
+      studentId: z.string().optional(),
+      id: z.string().min(1),
+      resolved: z.boolean().default(true),
+    });
+    const p = schema.safeParse(body);
+    if (!p.success) throw new BadRequestException(p.error.flatten());
+    const student = await this.words.resolveStudent(p.data.studentName, p.data.studentId);
+    return this.mistakes.resolve(student.id, p.data.id, p.data.resolved);
+  }
+
+  // ─────────────────── P6 访问埋点 ───────────────────
+
+  /**
+   * 记录一次学生自助页访问。前端在页面加载成功后调用，失败静默。
+   * 只记 谁/哪类页面/哪天 —— 不记 IP、UA、停留时长。
+   */
+  @Public()
+  @RateLimit({ limit: 60, windowSec: 60, scope: 'ip' })
+  @Post('page-view')
+  async recordPageView(@Body() body: unknown) {
+    const schema = z.object({
+      studentName: z.string().min(1).max(50),
+      studentId: z.string().optional(),
+      kind: z.enum(['history', 'submission_detail', 'vocab', 'vocab_practice', 'mistakes']),
+    });
+    const p = schema.safeParse(body);
+    if (!p.success) throw new BadRequestException(p.error.flatten());
+    try {
+      const student = await this.words.resolveStudent(p.data.studentName, p.data.studentId);
+      await this.views.record(student.id, p.data.kind);
+    } catch {
+      /* 埋点绝不能影响学生看成绩 */
+    }
+    return { ok: true };
+  }
+
+  /** 班级参与度（教师端）。回答"判分后到底有多少人回来看"。 */
+  @Get('class/:classId/engagement')
+  async classEngagement(
+    @Param('classId') classId: string,
+    @CurrentUser() user: any,
+    @Req() req: Request,
+    @Query('days') days?: string,
+  ) {
+    // 班级权限沿用与 classTop/classStats 相同的守卫
+    if (!(await canActOnClass(this.prisma, { id: user.id, role: user.role }, classId))) {
+      throw new ForbiddenException({ code: 'forbidden_class' });
+    }
+    const d = days ? parseInt(days, 10) : 14;
+    const [engagement, never] = await Promise.all([
+      this.views.classEngagement(classId, d),
+      this.views.neverLookedBack(classId, d),
+    ]);
+    return { ...engagement, students: never };
   }
 
   /** 我的词汇统计。 */

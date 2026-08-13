@@ -406,6 +406,16 @@ export const api = {
     rating: string;
     elapsedMs?: number;
   }) => request('POST', '/vocab/review', body),
+  /** 错题本 P6 — 我的错题（收录门槛在服务端，不是每道错题都进） */
+  mistakeList: (p: { name: string; studentId?: string }) =>
+    request('GET', '/vocab/mistakes?name=' + encodeURIComponent(p.name) +
+      (p.studentId ? '&studentId=' + encodeURIComponent(p.studentId) : '')),
+  /** 错题本 P6 — 标记已弄懂 */
+  mistakeResolve: (body: { studentName: string; studentId?: string; id: string; resolved: boolean }) =>
+    request('POST', '/vocab/mistakes/resolve', body),
+  /** P6 埋点 — 记录学生打开了哪类自助页（失败静默，绝不阻断） */
+  recordPageView: (body: { studentName: string; studentId?: string; kind: string }) =>
+    request('POST', '/vocab/page-view', body).catch(() => null),
   /** 生词本 P5 — 自测出题（百词斩式选择题，出题纯本地计算） */
   vocabQuiz: (p: { name: string; studentId?: string; limit?: number }) =>
     request(

@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { api } from '../lib/api';
+import TimeUpMakeup from '../components/exam/TimeUpMakeup';
 import { useAuth } from '../lib/auth';
 import { ExamProvider, useExam } from '../components/exam/ExamContext';
 import { ExamRenderer } from '../components/exam/QuestionTypeRegistry';
@@ -72,6 +73,15 @@ export default function MorningQuizTake() {
   const [view, setView] = useState<SessionView | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [submitted, setSubmitted] = useState(false);
+  /**
+   * 超时自动交卷后停在「补做」落地页，而不是直接跳走。
+   * null = 不显示（正常手动交卷 / 还没交）。
+   * 见 TimeUpMakeup 顶部注释：迟到 20 分钟以上的学生空白率 95.6%,
+   * 把终点改成存档点是为了消掉"反正做不完"这个放弃动机。
+   */
+  const [timeUpState, setTimeUpState] = useState<
+    { submissionId: string; unanswered: number; total: number } | null
+  >(null);
   // Synchronous in-flight guard — round-7 C-E3. The `submitted` state
   // doesn't flip until React schedules the next render, but the second
   // click of a double-tap can fire its `await flushPendingSaves()` before
@@ -142,12 +152,22 @@ export default function MorningQuizTake() {
   // Submit handler also needs to flush in-flight autosaves first (round-3
   // H6) — the actual flush call lives inside PaperHost where useExam is
   // accessible. We pass this raw submit hook down; PaperHost wraps it.
-  const submitToServer = useCallback(async () => {
+  const submitToServer = useCallback(async (opts?: { timeUp?: boolean; unanswered?: number; total?: number }) => {
     if (!sessionId) return;
     await api.morningQuizSubmit(sessionId);
     try {
       localStorage.removeItem(`mq:answers:${sessionId}`);
     } catch { /* ignore */ }
+    // 超时自动收卷 → 停在「补做」落地页，不直接跳走。
+    // 手动交卷的学生说明他自己认为答完了，不打扰。
+    if (opts?.timeUp && view?.submissionId) {
+      setTimeUpState({
+        submissionId: view.submissionId,
+        unanswered: opts.unanswered ?? 0,
+        total: opts.total ?? 0,
+      });
+      return;
+    }
     // After submit, drop the student onto their portal (attendance +
     // history in one view). This replaces the older /student/result/:id
     // dead-end page — students kept asking "how do I check yesterday's
@@ -169,9 +189,9 @@ export default function MorningQuizTake() {
       // the student can still see their history if they typed it once.
       navigate('/my-history', { replace: true });
     }
-  }, [sessionId, navigate, studentName]);
+  }, [sessionId, navigate, studentName, view?.submissionId]);
 
-  async function handleSubmit() {
+  async function handleSubmit(opts?: { timeUp?: boolean; unanswered?: number; total?: number }) {
     // Compatibility shim — the real flush + submit happens inside
     // PaperHost via SubmitButton. Kept here so the existing Timer's
     // `onTimeUp={onSubmit}` path still works for time-up auto-submit.
@@ -180,7 +200,7 @@ export default function MorningQuizTake() {
     submitInflightRef.current = true;
     setSubmitted(true);
     try {
-      await submitToServer();
+      await submitToServer(opts);
     } catch (e: any) {
       setError(e.message ?? String(e));
       setSubmitted(false);
@@ -229,6 +249,25 @@ export default function MorningQuizTake() {
         }
       }
     }
+  }
+
+  // 超时收卷后的补做落地页。放在 ExamProvider 之前 —— 此刻卷子已经
+  // 提交锁定，再挂考试上下文没有意义，而且会让学生以为还能改答案。
+  if (timeUpState) {
+    return (
+      <TimeUpMakeup
+        submissionId={timeUpState.submissionId}
+        studentName={studentName}
+        unanswered={timeUpState.unanswered}
+        total={timeUpState.total}
+        onSkip={() =>
+          navigate(
+            studentName ? `/my-history?name=${encodeURIComponent(studentName)}` : '/my-history',
+            { replace: true },
+          )
+        }
+      />
+    );
   }
 
   return (
@@ -398,7 +437,7 @@ function ExamShellChrome({
   paper: ExamPaper;
   mode: 'practice' | 'test';
   submitted: boolean;
-  onSubmit: () => void;
+  onSubmit: (opts?: { timeUp?: boolean; unanswered?: number; total?: number }) => void;
 }) {
   const [paletteOpen, setPaletteOpen] = useState(false);
   // 2.0 —— 考试中查词要把词记进该生的生词本（sourceType=click），
@@ -421,7 +460,7 @@ function ExamShellChrome({
   useEffect(() => {
     if (locked) setConfirmOpen(false);
   }, [locked]);
-  const doSubmit = useCallback(async () => {
+  const doSubmit = useCallback(async (opts?: { timeUp?: boolean; unanswered?: number; total?: number }) => {
     // R15-followup-11 — three-step submit insurance:
     //   1. Blur the active element. On iOS the soft keyboard's enter-
     //      blur path is what fires the last React state update for a
@@ -445,7 +484,7 @@ function ExamShellChrome({
       await new Promise((r) => setTimeout(r, 50));
       await flushPendingSaves();
     } catch { /* surfaced via saveError, still proceed */ }
-    onSubmit();
+    onSubmit(opts);
   }, [flushPendingSaves, onSubmit]);
   const onSubmitClick = useCallback(() => {
     // R15-followup-11 — don't re-open the modal on a locked attempt;
@@ -453,7 +492,20 @@ function ExamShellChrome({
     if (locked) return;
     setConfirmOpen(true);
   }, [locked]);
-  const onTimeUpSubmit = doSubmit; // bypass confirm
+  /**
+   * 超时自动收卷。除了 bypass 确认框，还要把「还有几题没答」带出去 ——
+   * 补做落地页要用它决定是提示补做还是直接放行（见 TimeUpMakeup）。
+   * 这里必须现算：answeredCount 在本组件后面才定义，而且计时器触发时
+   * 需要的是**那一刻**的作答状态。
+   */
+  const onTimeUpSubmit = useCallback(() => {
+    const t = paper.questions.length;
+    const done = paper.questions.filter((q) => {
+      const a = answers[q.id];
+      return !!(a?.selectedOption || (a?.textAnswer && a.textAnswer.trim()));
+    }).length;
+    void doSubmit({ timeUp: true, unanswered: t - done, total: t });
+  }, [doSubmit, paper.questions, answers]);
 
   // Round-3 H17 — when the iOS soft keyboard pops up, fixed-bottom UI
   // (palette button + Submit) gets covered. visualViewport lets us see

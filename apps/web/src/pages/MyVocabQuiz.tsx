@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { api } from '../lib/api';
+import { track } from '../lib/track';
 import { Spinner } from '../components/AsyncState';
 
 /**
@@ -86,6 +87,7 @@ export default function MyVocabQuizPage() {
       .then((r: any) => {
         if (cancelled) return;
         setPayload(r);
+        track('vocab_practice', name, studentId);
         setQueue(r.questions ?? []);
       })
       .catch((e: any) => !cancelled && setError(String(e?.message ?? e)));

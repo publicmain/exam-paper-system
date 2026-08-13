@@ -1,6 +1,7 @@
 import { PrismaClient } from '@prisma/client';
 import { StudentWordService } from '../src/vocab/student-word.service';
 import { VocabService } from '../src/vocab/vocab.service';
+import { MistakeService } from '../src/vocab/mistake.service';
 
 /**
  * Write back chat-graded marks for today's marker queue.

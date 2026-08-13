@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Link, useParams, useSearchParams } from 'react-router-dom';
 import { api } from '../lib/api';
+import { track } from '../lib/track';
 import AppealModal, { type AppealQuestionContext } from '../components/AppealModal';
 import { formatCNDateTime } from '../lib/dateCN';
 import { Spinner } from '../components/AsyncState';
@@ -70,7 +71,13 @@ export default function MyHistoryDetail() {
     if (!submissionId || !name) return;
     api
       .morningQuizHistoryDetail({ submissionId, name })
-      .then((r) => setData(r as ResultPayload))
+      .then((r) => {
+        setData(r as ResultPayload);
+        // P6 埋点：submission_detail 才是"他真的在复盘"的信号 ——
+        // 打开成绩列表可能只是交卷后被自动带过来的，点进逐题详情
+        // 必须手动点。两个指标一起看才知道有多少人真的往里走了。
+        track('submission_detail', name);
+      })
       .catch((e: any) => {
         const msg = String(e?.message ?? e);
         if (msg.includes('name_mismatch') || msg.includes('Forbidden')) {

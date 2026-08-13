@@ -73,6 +73,8 @@ model User {
   regradeReplies               RegradeRequest[]         @relation("RegradeRepliedBy")
   notifications                Notification[]           @relation("UserNotifications")
   vocabWords                   StudentWord[]            @relation("StudentWordOwner")
+  pageViews                    StudentPageView[]        @relation("StudentPageViewOwner")
+  mistakes                     MistakeEntry[]           @relation("MistakeOwner")
 }
 
 // ============================================================
@@ -2003,4 +2005,111 @@ enum VocabRating {
   hard
   good
   easy
+}
+
+// ═══════════════════════════════════════════════════════════════
+// 学生自助页面的访问埋点（2026-08-13 老师提问："到底有多少人真的
+// 打开过自己的成绩 / 错题 / 生词本？"）。
+//
+// 只记录**发生了什么、谁、什么时候**，不记 IP、不记 UA、不记停留时长
+// —— 这是给老师看班级参与度的，不是行为画像。一个学生一天内重复打开
+// 同一类页面只记一条（唯一约束 day+student+kind），既够回答"今天有
+// 多少人看了"，又不会让表随点击量膨胀。
+// ═══════════════════════════════════════════════════════════════
+model StudentPageView {
+  id        String   @id @default(cuid())
+  studentId String
+  student   User     @relation("StudentPageViewOwner", fields: [studentId], references: [id], onDelete: Cascade)
+  kind      PageViewKind
+  /// 新加坡自然日（YYYY-MM-DD）—— 直接存字符串，避免时区换算出错
+  day       String
+  /// 当天首次打开的时刻
+  firstAt   DateTime @default(now())
+  /// 当天打开次数（同日重复打开只累加计数，不新增行）
+  hits      Int      @default(1)
+  updatedAt DateTime @updatedAt
+
+  @@unique([studentId, kind, day])
+  @@index([day, kind])
+}
+
+enum PageViewKind {
+  /// 打开了「我的记录」成绩列表
+  history
+  /// 点开了某一场的逐题详情（真正在看错在哪）
+  submission_detail
+  /// 打开了生词本
+  vocab
+  /// 做了生词复习/自测
+  vocab_practice
+  /// 打开了错题本
+  mistakes
+}
+
+// ═══════════════════════════════════════════════════════════════
+// 错题本（2026-08-13 老师需求）。
+//
+// ## 收录门槛（这是这张表最重要的设计决定）
+//
+// 不是"每道错题都进"。全班每天约 34 份卷 × 13-19 题，全收会得到一个
+// 没人看的流水账 —— 错题本一旦变成"又一个长列表"，就和没有一样。
+// 收录规则见 mistake.service.ts 的 shouldCollect()：
+//   1. **空白不收**（answered=false 且从未补做）—— 空白是行为问题
+//      不是知识问题，它已经被空白率指标盯着了,塞进错题本只会稀释;
+//   2. **同一考点重复错才收**（同 taskType 近 30 天错 ≥2 次）——
+//      偶尔错一道段落匹配是运气,连续错才是能力缺口;
+//   3. **词义题一律收**（vocabWord 非空）—— 它天然对应一个具体单词,
+//      可以直接推进生词本,是最可行动的一类;
+//   4. **长答题(≥2 分)一律收** —— 老师批改时写了评语,那条评语本身
+//      就是最值钱的教学资产,不该只出现一次。
+//
+// 收录时**冻结快照**（题干/学生答案/正确答案/老师评语），因为 Paper
+// 可能被改、AnswerScript 可能被重判,而错题本必须能长期回看。
+// ═══════════════════════════════════════════════════════════════
+model MistakeEntry {
+  id        String   @id @default(cuid())
+  studentId String
+  student   User     @relation("MistakeOwner", fields: [studentId], references: [id], onDelete: Cascade)
+  /// 来源答卷与题目（可为空：卷子被删后错题本仍应可读）
+  submissionId    String?
+  paperQuestionId String?
+  /// ── 冻结快照 ──
+  /// 题型（matching_information / short_answer / mcq …），用于归类统计
+  taskType    String
+  /// 该题所属篇目，学生回看时的定位锚点
+  passageTitle String @default("")
+  /// 题干（截断到 400 字）
+  stem        String
+  /// 学生当时的答案（空白记为空串）
+  studentAnswer String @default("")
+  /// 正确答案 / 参考要点
+  correctAnswer String @default("")
+  /// 老师批改评语 —— 长答题的核心价值就在这里
+  markerComment String @default("")
+  /// 得分 / 满分
+  awarded Float @default(0)
+  maxMarks Float @default(1)
+  /// 词义题对应的那个单词（可推进生词本）；非词义题为空
+  vocabWord String @default("")
+  /// 命中了哪条收录规则，便于日后调阈值时复盘
+  reason MistakeReason
+  /// 学生自己标记「已弄懂」后置为 true —— 错题本要能清空,否则永远在增长
+  resolved   Boolean   @default(false)
+  resolvedAt DateTime?
+  /// 早测日期（YYYY-MM-DD, SGT）
+  quizDay   String
+  createdAt DateTime @default(now())
+
+  @@unique([studentId, submissionId, paperQuestionId])
+  @@index([studentId, resolved])
+  @@index([quizDay])
+}
+
+enum MistakeReason {
+  /// 同一题型近期反复出错
+  repeated_tasktype
+  /// 词义题（对应具体单词）
+  vocabulary
+  /// 长答题（≥2 分，带老师评语）
+  long_answer
 }
