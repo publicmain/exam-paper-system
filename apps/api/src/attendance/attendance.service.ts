@@ -392,7 +392,7 @@ export class AttendanceService {
     // code intended, just without overwriting on already-present rows.
     const existing = await this.prisma.attendance.findUnique({
       where: { sessionId_studentId: { sessionId: session.id, studentId } },
-      select: { id: true, status: true },
+      select: { id: true, status: true, qrVariant: true },
     });
     const isAlreadyPresent =
       !!existing && (existing.status === AttendanceStatus.on_time || existing.status === AttendanceStatus.late);
@@ -422,7 +422,9 @@ export class AttendanceService {
             sourceIp,
             deviceUuid: deviceUuid ?? undefined,
             userAgent: userAgent ?? undefined,
-            qrVariant: decoded.qrVariant ?? undefined,
+            // 只在还没记过时写入：证据要的是**第一次**扫的那张码。
+            // 覆盖式写入的话，学生再扫一次墙上的新码就把痕迹抹掉了。
+            ...(existing?.qrVariant ? {} : { qrVariant: decoded.qrVariant ?? undefined }),
             // 早上来过的学生又在补考窗口扫了一次：不动出勤状态，
             // 只记一笔补考时间（他本来就不该出现在补考名单里，
             // 但记下来比默默忽略强）。
@@ -438,7 +440,7 @@ export class AttendanceService {
             ...(isMakeupScan ? { makeupAt: now } : { scanTime: now }),
             deviceUuid: deviceUuid ?? undefined,
             userAgent: userAgent ?? undefined,
-            qrVariant: decoded.qrVariant ?? undefined,
+            ...(existing?.qrVariant ? {} : { qrVariant: decoded.qrVariant ?? undefined }),
           },
     });
 
