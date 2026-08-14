@@ -302,6 +302,28 @@ export default function MyHistoryDetail() {
  * 空白率很高，等于绝大多数复盘页都永久挂着一条假横幅
  * （2026-08-12 叶雅滋 Q12 即如此）。
  */
+/**
+ * 老师评语里的记账前缀和 markdown 都不该出现在学生眼前。
+ *
+ * 判分时写的是给自己看的流水：「填11:patchwork,判对。1。」——题号、
+ * 学生答案、判定、分数，这四样卡片上都已经显示了，重复一遍只会把真正
+ * 的讲解挤到后面。markdown 的 ** 更是直接以星号原样印在屏幕上
+ * （2026-08-13 叶雅滋 Q11 实例）。
+ */
+export function cleanComment(raw: string | null | undefined): string {
+  let s = String(raw ?? '').trim();
+  if (!s) return '';
+  // 记账前缀：填11:xxx,判对。1。 / 段3:B,正解 F。0。 / Q4:
+  s = s.replace(
+    /^(?:填|段|Q)\s*\d+(?:\([ivx]+\))?\s*[:：][^。]*?(?:判对|正解[^。]*)?。\s*\d+(?:\.\d+)?。\s*/,
+    '',
+  );
+  s = s.replace(/^(?:填|段|Q)\s*\d+(?:\([ivx]+\))?\s*[:：]\s*/, '');
+  // markdown 粗体/斜体标记：终端里是强调，屏幕上就是一堆星号
+  s = s.replace(/\*\*(.+?)\*\*/g, '$1').replace(/(?<!\*)\*(?!\*)/g, '');
+  return s.trim();
+}
+
 export function hasWrittenAnswer(it: { studentAnswer?: unknown }): boolean {
   const a = it.studentAnswer;
   if (a == null) return false;
@@ -323,7 +345,15 @@ function ResultRow({
     typeof sc.text === 'string' ? sc.text : '';
   const stem = stripStemPrefix(rawStem, commonIntro);
   const isMcq = item.questionType === 'mcq';
-  const isCorrect = item.isCorrect ?? item.autoCorrect;
+  // 判过分之后，对错一律以分数为准。autoCorrect 是交卷时自动比对的
+  // 结果，老师改判后它不会跟着变 —— 2026-08-13 叶雅滋 Q11 就是：
+  // patchwork 判对给了 1/1，卡片却因为 autoCorrect=false 显示红叉。
+  const gradedCorrect =
+    item.awardedMarks != null ? item.awardedMarks >= item.marks : null;
+  const isCorrect = gradedCorrect ?? item.isCorrect ?? item.autoCorrect;
+  /** 长答题常见的「拿了一半」——既不该是绿勾也不该是红叉 */
+  const isPartial =
+    item.awardedMarks != null && item.awardedMarks > 0 && item.awardedMarks < item.marks;
   const awarded = item.awardedMarks;
   const showAwarded = awarded != null;
   // A written (non-MCQ) answer with no mark yet is waiting for the teacher
@@ -342,11 +372,12 @@ function ResultRow({
   const correctTone =
     isPending ? 'border-sky-200 bg-sky-50' :
     isBlank ? 'border-gray-200 bg-gray-50' :
+    isPartial ? 'border-amber-300 bg-amber-50' :
     isCorrect === true ? 'border-emerald-300 bg-emerald-50' :
     isCorrect === false ? 'border-rose-300 bg-rose-50' :
     'border-gray-200 bg-white';
-  const icon = isPending ? '⏳' : isBlank ? '—' : isCorrect === true ? '✓' : isCorrect === false ? '✗' : '—';
-  const iconColor = isPending ? 'text-sky-600' : isCorrect === true ? 'text-emerald-700' : isCorrect === false ? 'text-rose-700' : 'text-gray-400';
+  const icon = isPending ? '⏳' : isBlank ? '—' : isPartial ? '◐' : isCorrect === true ? '✓' : isCorrect === false ? '✗' : '—';
+  const iconColor = isPending ? 'text-sky-600' : isPartial ? 'text-amber-600' : isCorrect === true ? 'text-emerald-700' : isCorrect === false ? 'text-rose-700' : 'text-gray-400';
 
   return (
     <div className={`border rounded-lg p-4 ${correctTone}`}>
@@ -412,10 +443,10 @@ function ResultRow({
               )}
             </div>
           )}
-          {item.markerComment && (
-            <div className="mt-2 text-xs text-blue-700 bg-blue-50 border border-blue-200 rounded p-2">
-              <span className="font-semibold">老师评语:</span>{' '}
-              {item.markerComment}
+          {cleanComment(item.markerComment) && (
+            <div className="mt-2 text-[13px] leading-relaxed text-gray-900 bg-blue-50 border border-blue-200 rounded p-2.5 whitespace-pre-wrap">
+              <span className="font-semibold text-blue-800">老师评语</span>{'　'}
+              {cleanComment(item.markerComment)}
             </div>
           )}
           {item.explanation && (
