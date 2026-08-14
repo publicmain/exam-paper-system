@@ -16,6 +16,9 @@ import { ShortAnswerEvaluatorService } from './short-answer-evaluator.service';
  *  转 UTC —— 与正式窗口字段同一套时区约定。 */
 const MAKEUP_START_LOCAL = '16:30:00';
 const MAKEUP_END_LOCAL = '17:00:00';
+/** 自动补考场自 2026-08-18（下周二）起生效 —— 校方口头通知学生从
+ *  下周开始，生效日前即使有缺席也不开。周一无早测，所以从周二算。 */
+const AUTO_MAKEUP_EFFECTIVE_FROM = '2026-08-18';
 
 /**
  * 今天这场要不要自动开补考窗。纯函数，可测。
@@ -33,6 +36,8 @@ const MAKEUP_END_LOCAL = '17:00:00';
  */
 export function shouldAutoOpenMakeup(input: {
   autoMakeupEnv: string | undefined;
+  /** SGT 当天日期 YYYY-MM-DD —— 生效日之前一律不开 */
+  dateIsoLocal: string;
   nowLocalHHMMSS: string;
   weekdayLocal: number; // 0=Sun..6=Sat
   sessionStatus: string;
@@ -40,6 +45,7 @@ export function shouldAutoOpenMakeup(input: {
   absentPendingCount: number;
 }): boolean {
   if (input.autoMakeupEnv === 'off') return false;
+  if (input.dateIsoLocal < AUTO_MAKEUP_EFFECTIVE_FROM) return false;
   if (input.nowLocalHHMMSS < MAKEUP_START_LOCAL) return false;
   if (input.nowLocalHHMMSS >= MAKEUP_END_LOCAL) return false;
   if (input.weekdayLocal === 0 || input.weekdayLocal === 6) return false;
@@ -125,6 +131,7 @@ export class MorningQuizCron {
       });
       const open = shouldAutoOpenMakeup({
         autoMakeupEnv: process.env.MORNING_QUIZ_AUTO_MAKEUP,
+        dateIsoLocal: dateIso,
         nowLocalHHMMSS,
         weekdayLocal: local.getUTCDay(),
         sessionStatus: s.status,

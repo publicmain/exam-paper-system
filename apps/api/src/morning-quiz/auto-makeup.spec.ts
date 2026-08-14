@@ -11,6 +11,7 @@ import { shouldAutoOpenMakeup } from './morning-quiz.cron';
 
 const base = {
   autoMakeupEnv: undefined as string | undefined,
+  dateIsoLocal: '2026-08-18', // 生效首日（下周二）
   nowLocalHHMMSS: '16:30:00',
   weekdayLocal: 5, // Friday
   sessionStatus: 'locked',
@@ -48,6 +49,13 @@ describe('shouldAutoOpenMakeup', () => {
     expect(shouldAutoOpenMakeup({ ...base, sessionStatus: 'active' })).toBe(false);
     expect(shouldAutoOpenMakeup({ ...base, sessionStatus: 'cancelled' })).toBe(false);
     expect(shouldAutoOpenMakeup({ ...base, sessionStatus: 'scheduled' })).toBe(false);
+  });
+
+  it('生效日（2026-08-18）之前一律不开 —— 校方通知学生下周开始', () => {
+    expect(shouldAutoOpenMakeup({ ...base, dateIsoLocal: '2026-08-14', weekdayLocal: 5 })).toBe(false);
+    expect(shouldAutoOpenMakeup({ ...base, dateIsoLocal: '2026-08-17', weekdayLocal: 1 })).toBe(false);
+    expect(shouldAutoOpenMakeup({ ...base, dateIsoLocal: '2026-08-18', weekdayLocal: 2 })).toBe(true);
+    expect(shouldAutoOpenMakeup({ ...base, dateIsoLocal: '2026-08-19', weekdayLocal: 3 })).toBe(true);
   });
 
   it('MORNING_QUIZ_AUTO_MAKEUP=off 一键停用', () => {
