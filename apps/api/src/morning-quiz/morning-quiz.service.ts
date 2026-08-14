@@ -3763,7 +3763,15 @@ export class MorningQuizService {
         autoScore: true,
         maxScore: true,
         submittedAt: true,
-        assignment: { select: { paperId: true } },
+        assignment: {
+          select: {
+            paperId: true,
+            // 前端 PracticeSubmissionView 一直声明着 paperName/level/
+            // paperMode，服务端却没返回 —— 结果页标题长期是空的「(练习)」。
+            paper: { select: { name: true, config: true } },
+            morningQuizSession: { select: { level: true } },
+          },
+        },
       },
     });
     if (!sub) throw new NotFoundException({ code: 'submission_not_found' });
@@ -3863,6 +3871,12 @@ export class MorningQuizService {
     return {
       practiceSubmissionId: sub.id,
       paperId: sub.assignment.paperId,
+      paperName: sub.assignment.paper?.name ?? '',
+      level: sub.assignment.morningQuizSession?.level ?? null,
+      paperMode:
+        ((sub.assignment.paper?.config as any)?.mode === 'passage_pick'
+          ? 'passage_pick'
+          : 'standard') as 'passage_pick' | 'standard',
       paperQuestions: paperQuestions.map((pq) => ({
         id: pq.id,
         sortOrder: pq.sortOrder,
@@ -3910,7 +3924,9 @@ export class MorningQuizService {
         studentId: true,
         status: true,
         maxScore: true,
-        assignment: { select: { paperId: true } },
+        assignment: {
+          select: { paperId: true, paper: { select: { name: true } } },
+        },
       },
     });
     if (!sub) throw new NotFoundException({ code: 'submission_not_found' });
@@ -4004,54 +4020,59 @@ export class MorningQuizService {
     // explanation) so it can render "Q3 · 1/1 · ✓ · my answer: X /
     // correct: Y". Without these, the result page renders every row
     // as "Q? · 得分:0 · (空答)" even when answers were submitted.
+    // ⚠️ perQuestion 必须按**试卷题目**组装，不能按 AnswerScript 组装。
+    //
+    // 未作答的题在库里根本没有 AnswerScript 行（本项目的老坑，2026-08-13
+    // 在成绩页栽过一次）。原来这里 `scripts.map(...)`，学生一题没答就
+    // 返回空数组，结果页「逐题回顾」整块空白 —— 连正确答案都看不到，
+    // 而看答案恰恰是练习模式唯一的价值。getPractice（重访路径）一直是
+    // 按 paperQuestions 组装的，两条路径口径必须一致。
     const scriptById = new Map(scriptUpdates.map((u) => [u.id, u]));
+    const scriptByPq = new Map(scripts.map((s) => [s.paperQuestionId, s]));
+    const paperQuestions = await this.prisma.paperQuestion.findMany({
+      where: { paperId: sub.assignment.paperId },
+      orderBy: { sortOrder: 'asc' },
+      include: { question: { select: { answerContent: true } } },
+    });
     return {
       autoScore,
       maxScore: sub.maxScore,
-      perQuestion: scripts.map((s) => {
-        const u = scriptById.get(s.id);
-        const autoCorrect = u?.autoCorrect ?? s.autoCorrect ?? null;
-        const awardedMarks = u?.awardedMarks ?? s.awardedMarks ?? 0;
-        const sc = (s.paperQuestion.snapshotContent ?? {}) as any;
-        // Derive a canonical correctAnswer for the result view —
-        // mirror getStudentResult's logic. snapshotContent may carry
-        // correctOption (MCQ key) OR correctAnswer (short text);
-        // fall back to snapshotOptions array, then question.answerContent.
+      paperName: sub.assignment.paper?.name ?? '',
+      perQuestion: paperQuestions.map((pq) => {
+        const s = scriptByPq.get(pq.id);
+        const u = s ? scriptById.get(s.id) : undefined;
+        const autoCorrect = u?.autoCorrect ?? s?.autoCorrect ?? null;
+        const awardedMarks = u?.awardedMarks ?? s?.awardedMarks ?? 0;
+        const sc = (pq.snapshotContent ?? {}) as any;
+        // 正确答案的三级回退，与 getStudentResult / getPractice 同一套：
+        // snapshotContent.correctOption|correctAnswer → snapshotOptions
+        // 里 correct=true 的那项 → question.answerContent.text。
         let correctKey: string | null =
           typeof sc.correctOption === 'string'
             ? sc.correctOption
             : typeof sc.correctAnswer === 'string'
             ? sc.correctAnswer
             : null;
-        if (!correctKey && Array.isArray(s.paperQuestion.snapshotOptions)) {
-          const correctOpt = (s.paperQuestion.snapshotOptions as any[]).find(
-            (o) => o?.correct === true,
-          );
+        if (!correctKey && Array.isArray(pq.snapshotOptions)) {
+          const correctOpt = (pq.snapshotOptions as any[]).find((o) => o?.correct === true);
           if (correctOpt?.key) correctKey = String(correctOpt.key);
         }
         if (!correctKey) {
-          const ac = (s.paperQuestion.question as any)?.answerContent as
-            | { text?: unknown }
-            | null;
-          if (typeof ac?.text === 'string' && ac.text.length <= 80) {
-            correctKey = ac.text;
-          }
+          const ac = (pq.question as any)?.answerContent as { text?: unknown } | null;
+          if (typeof ac?.text === 'string' && ac.text.length <= 80) correctKey = ac.text;
         }
-        const studentAnswer = s.selectedOption ?? s.textAnswer ?? null;
         return {
-          scriptId: s.id,
-          paperQuestionId: s.paperQuestionId,
-          sortOrder: s.paperQuestion.sortOrder,
-          marks: s.paperQuestion.marks,
+          scriptId: s?.id ?? null,
+          paperQuestionId: pq.id,
+          sortOrder: pq.sortOrder,
+          marks: pq.marks,
           autoCorrect,
           isCorrect: autoCorrect,
           awardedMarks,
-          studentAnswer,
+          studentAnswer: s?.selectedOption ?? s?.textAnswer ?? null,
           correctAnswer: correctKey,
           explanation:
-            typeof sc.explanation === 'string'
-              ? sc.explanation.slice(0, 600)
-              : null,
+            typeof sc.explanation === 'string' ? sc.explanation.slice(0, 600) : null,
           aiReason: u?.aiReason ?? null,
         };
       }),

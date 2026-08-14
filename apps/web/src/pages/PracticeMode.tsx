@@ -15,6 +15,7 @@ import {
   type PracticeSubmitResult,
 } from '../lib/api-student';
 import { prettifyPaperName } from '../lib/paperName';
+import { BASE } from '../lib/api';
 
 /**
  * Practice-mode replay of a past morning-quiz submission.
@@ -260,6 +261,7 @@ export default function PracticeMode() {
         backToHistory={backToHistory}
         onTryAgain={handleTryAgain}
         cloning={cloning}
+        studentName={studentName}
       />
     );
   }
@@ -477,12 +479,14 @@ function PracticeResultView({
   backToHistory,
   onTryAgain,
   cloning,
+  studentName,
 }: {
   result: PracticeSubmitResult;
   view: PracticeSubmissionView;
   backToHistory: string;
   onTryAgain: () => void;
   cloning: boolean;
+  studentName: string;
 }) {
   const pct = result.maxScore > 0
     ? Math.round((result.autoScore / result.maxScore) * 100)
@@ -530,6 +534,11 @@ function PracticeResultView({
             </a>
           </div>
         </header>
+
+        {/* 基础层的设计前提：题只有 5 道，做完还剩时间 —— 那段时间是留给
+            背单词的。这张卡是「答完 → 背词」的唯一衔接点，放在成绩下面、
+            逐题回顾上面，因为学生看完分数就想走。 */}
+        <VocabNextCard studentName={studentName} />
 
         <section className="space-y-3">
           <h2 className="text-lg font-semibold text-gray-800 px-1">逐题回顾</h2>
@@ -584,5 +593,82 @@ function PracticeResultView({
         </section>
       </main>
     </div>
+  );
+}
+
+/**
+ * 「答完 → 背词」的衔接卡。
+ *
+ * 基础层每份卷只有 5 题，做完还剩十几分钟 —— 那段时间按设计是拿来
+ * 背单词的（校方 2026-08-14 定的基础层形态：短卷 + 词汇训练）。
+ * 没有这张卡，学生看完分数就直接离开，词汇环节等于不存在。
+ *
+ * 两个入口分别对应两件事：
+ *   复习（/my-vocab/review）—— FSRS 排期的到期词，本来就该今天见
+ *   自测（/my-vocab/quiz）—— 客观选择题，把判断权从学生手里拿回来
+ * 到期数为 0 时不显示复习按钮，避免点进去空手而归。
+ */
+function VocabNextCard({ studentName }: { studentName: string }) {
+  const [due, setDue] = useState<number | null>(null);
+  useEffect(() => {
+    if (!studentName) return;
+    let cancelled = false;
+    (async () => {
+      // 与 MyHistory 同一个来源和同一套降级：拿不到就当没有，
+      // 绝不因为生词本接口挂了而挡住成绩页。
+      try {
+        const r = await fetch(
+          `${BASE}/api/vocab/stats?name=${encodeURIComponent(studentName)}`,
+        );
+        if (!r.ok) return;
+        const j = await r.json();
+        if (!cancelled && typeof j?.totalDue === 'number') setDue(j.totalDue);
+      } catch {
+        /* 静默降级 */
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [studentName]);
+
+  const nameQs = `?name=${encodeURIComponent(studentName)}`;
+  return (
+    <section className="bg-white rounded-xl border border-indigo-200 shadow-sm p-5">
+      <div className="flex items-start gap-3">
+        <div className="text-2xl leading-none">📖</div>
+        <div className="flex-1 min-w-0">
+          <h2 className="font-semibold text-gray-900">接下来：背单词</h2>
+          <p className="text-sm text-gray-600 mt-1">
+            这份卷子只有 5 题,剩下的时间用来记单词。每天几分钟,比考前突击有用得多。
+          </p>
+          <div className="mt-3 flex flex-wrap gap-2">
+            {due !== null && due > 0 && (
+              <a
+                href={`/my-vocab/review${nameQs}`}
+                className="press min-h-[48px] px-5 text-[15px] inline-flex items-center bg-indigo-600 active:bg-indigo-700 text-white rounded-[14px] font-semibold"
+              >
+                今日复习 · {due} 个词
+              </a>
+            )}
+            <a
+              href={`/my-vocab/quiz${nameQs}`}
+              className="press min-h-[48px] px-5 text-[15px] inline-flex items-center bg-indigo-50 active:bg-indigo-100 text-indigo-800 rounded-[14px] font-semibold"
+            >
+              单词自测
+            </a>
+            <a
+              href={`/my-vocab${nameQs}`}
+              className="press min-h-[48px] px-5 text-[15px] inline-flex items-center bg-gray-100 active:bg-gray-200 text-gray-800 rounded-[14px] font-medium"
+            >
+              我的生词本
+            </a>
+          </div>
+          {due === 0 && (
+            <p className="text-xs text-gray-500 mt-2">
+              今天没有到期要复习的词 —— 可以直接做自测,或在文章里点生词加入本子。
+            </p>
+          )}
+        </div>
+      </div>
+    </section>
   );
 }
