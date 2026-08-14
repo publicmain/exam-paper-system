@@ -206,12 +206,73 @@ export function storyKey(key: string | null | undefined): string {
 }
 
 /**
+ * 成绩发布口径（2026-08-14 与老师们定的新政）。
+ *
+ * 学生交卷后**立刻**能看到每道题的正确答案（即时反馈是学生自己在
+ * 沟通会上提的第一诉求），但**得分、对错判定和评语**要等老师人工
+ * 判分定稿（status='marked'）之后才下发。
+ *
+ * 为什么连 MCQ 的自动分也一起憋住：判分是一个整体口径 ——
+ * deferAi 模式下 totalScore 在人工判分前只是"选择题部分分"，
+ * 之前学生把它当最终分数看，闹过好几次「我怎么才 3 分」。
+ * 干脆统一：分数要么是定稿的，要么没有。
+ *
+ * practice（学生自发重做）不适用 —— 它的判分本来就是即时的。
+ */
+export function scoresReleased(status: string): boolean {
+  return (
+    status === 'marked' ||
+    status === 'graded' ||
+    status === 'returned' ||
+    status === 'practice'
+  );
+}
+
+/**
+ * 把未定稿的成绩从 result payload 里剥掉。**必须在服务端做** ——
+ * 前端藏起来挡不住 devtools。答案字段（correctAnswer /
+ * referenceAnswer / explanation）保留照发。纯函数，可测。
+ */
+export function stripUnreleasedScores<
+  T extends {
+    status: string;
+    autoScore: number | null;
+    manualScore: number | null;
+    totalScore: number | null;
+    items: Array<{
+      awardedMarks: number | null;
+      autoCorrect: boolean | null;
+      isCorrect: boolean | null;
+      markerComment: string | null;
+      commentSource: string | null;
+    }>;
+  },
+>(result: T): T & { scoresPending: boolean } {
+  if (scoresReleased(result.status)) return { ...result, scoresPending: false };
+  return {
+    ...result,
+    autoScore: null,
+    manualScore: null,
+    totalScore: null,
+    scoresPending: true,
+    items: result.items.map((it) => ({
+      ...it,
+      awardedMarks: null,
+      autoCorrect: null,
+      isCorrect: null,
+      markerComment: null,
+      commentSource: null,
+    })),
+  };
+}
+
+/**
  * Combine a y-m-d and a hh:mm:ss string in school local time (assumed
  * Asia/Singapore = UTC+8) into a UTC Date. We avoid pulling a tz library
  * for this single use; the offset is hard-coded but adjustable via the
  * MORNING_QUIZ_TZ_OFFSET_MIN env var if the school ever moves.
  */
-function combineLocal(dateOnlyIso: string, timeLocal: string, tzOffsetMin = 8 * 60): Date {
+export function combineLocal(dateOnlyIso: string, timeLocal: string, tzOffsetMin = 8 * 60): Date {
   const [h, m, s] = timeLocal.split(':').map(Number);
   // dateOnlyIso = "2026-05-12"
   const [y, mo, d] = dateOnlyIso.split('-').map(Number);
@@ -2901,7 +2962,9 @@ export class MorningQuizService {
       };
     });
 
-    return {
+    // 新政（2026-08-14）：答案即时可见，分数评语等 marked 才下发。
+    // strip 在服务端做，history-detail 复用本方法所以同样被覆盖。
+    return stripUnreleasedScores({
       sessionId: session.id,
       paperName: session.paperAssignment.paper.name,
       submissionId: submission.id,
@@ -2912,7 +2975,7 @@ export class MorningQuizService {
       maxScore: submission.maxScore,
       submittedAt: submission.submittedAt,
       items,
-    };
+    });
   }
 
   // ─────────────────── Wave-2 private helpers ───────────────────
@@ -4013,7 +4076,9 @@ export class MorningQuizService {
     const submissions = await this.prisma.studentSubmission.findMany({
       where: {
         studentId: resolved.student.id,
-        status: { in: ['submitted', 'graded', 'returned', 'marked'] },
+        // 2026-08-14 新政：未定稿（submitted）的分数是 MCQ 部分分，
+        // 进趋势图会画出一个假的低分点 —— 只取已发布口径。
+        status: { in: ['graded', 'returned', 'marked'] },
         submittedAt: { gte: cutoffUtc },
       },
       select: {

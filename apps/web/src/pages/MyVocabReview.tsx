@@ -49,9 +49,14 @@ export default function MyVocabReviewPage() {
   const [done, setDone] = useState(0);
   const [shownAt, setShownAt] = useState<number>(() => Date.now());
 
-  const historyUrl = `/my-history?name=${encodeURIComponent(name)}${
-    studentId ? `&studentId=${encodeURIComponent(studentId)}` : ''
-  }`;
+  // 2026-08-14 —— 交卷流程会带 then=<逐题详情页>，复习完直接落过去
+  // （学生要的即时反馈）。只接受本域 /my-history 前缀，防开放跳转。
+  const thenParam = params.get('then') ?? '';
+  const historyUrl = thenParam.startsWith('/my-history')
+    ? thenParam
+    : `/my-history?name=${encodeURIComponent(name)}${
+        studentId ? `&studentId=${encodeURIComponent(studentId)}` : ''
+      }`;
 
   useEffect(() => {
     if (!name) {

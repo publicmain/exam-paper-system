@@ -24,7 +24,7 @@ import { StudentService } from '../student/student.service';
 import { AbsenceAlertService } from './absence-alert.service';
 import { MorningQuizExportService } from './morning-quiz-export.service';
 import { MorningQuizWeeklyCron } from './morning-quiz-weekly-cron';
-import { MorningQuizService } from './morning-quiz.service';
+import { MorningQuizService, scoresReleased } from './morning-quiz.service';
 import { ShortAnswerEvaluatorService } from './short-answer-evaluator.service';
 
 const CreateSessionSchema = z.object({
@@ -727,6 +727,10 @@ export class MorningQuizController {
       },
       submissions: submissions.map((s) => {
         const sess = sessByAssignment.get(s.assignment.id);
+        // 2026-08-14 新政：分数等人工判分定稿（marked）才下发。未定稿时
+        // totalScore 只是 MCQ 部分分，学生会当成最终分数 —— 服务端置空，
+        // 前端据 scoresPending 显示「已交 · 待批改」。
+        const released = scoresReleased(s.status);
         return {
           submissionId: s.id,
           sessionId: sess?.id ?? null,
@@ -734,11 +738,12 @@ export class MorningQuizController {
           level: sess?.level ?? null,
           paperName: s.assignment.paper.name,
           className: s.assignment.class.name,
-          autoScore: s.autoScore,
-          totalScore: s.totalScore ?? s.autoScore,
+          autoScore: released ? s.autoScore : null,
+          totalScore: released ? s.totalScore ?? s.autoScore : null,
           maxScore: s.maxScore,
           submittedAt: s.submittedAt,
           status: s.status,
+          scoresPending: !released,
         };
       }),
     };

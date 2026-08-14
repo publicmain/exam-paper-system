@@ -179,8 +179,15 @@ export default function MorningQuizTake() {
       // (见 docs/PRD/vocabulary-notebook.md §1.2)。
       // 该页在「没有待复习的词」或「生词本接口不可用」时会立刻 replace 到
       // /my-history —— 绝不会挡住学生看成绩。
+      // 2026-08-14 新政：交卷即公布答案。复习完生词后不再停在成绩
+      // 列表页，直接落到本场的逐题详情 —— 学生要的「当场反馈」就是
+      // 这一页（答案立即可见；分数评语等老师判分后显示）。
+      const detail = view?.submissionId
+        ? `/my-history/submission/${view.submissionId}?name=${encodeURIComponent(studentName)}`
+        : '';
       navigate(
-        `/my-vocab/review?name=${encodeURIComponent(studentName)}&after=submit`,
+        `/my-vocab/review?name=${encodeURIComponent(studentName)}&after=submit` +
+          (detail ? `&then=${encodeURIComponent(detail)}` : ''),
         { replace: true },
       );
     } else {

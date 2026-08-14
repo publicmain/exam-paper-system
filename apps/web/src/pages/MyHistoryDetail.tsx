@@ -49,6 +49,9 @@ interface ResultPayload {
   totalScore: number | null;
   maxScore: number;
   submittedAt: string | null;
+  /** 2026-08-14 新政：交卷即见答案，分数评语等老师判分定稿后下发。
+   *  true = 服务端已把分数/对错/评语剥掉，本页只展示答案对照。 */
+  scoresPending?: boolean;
   items: ResultItem[];
 }
 
@@ -197,11 +200,21 @@ export default function MyHistoryDetail() {
 
         <header className="bg-white rounded-xl border shadow-sm p-5">
           <div className="text-sm text-gray-500">{prettifyPaperName(data.paperName)}</div>
-          <div className={`text-4xl font-bold mt-2 ${pctColor}`}>
-            {score}<span className="text-2xl text-gray-500 font-normal"> / {max}</span>
-            <span className={`text-base ml-2 ${pctColor}`}>({pct}%)</span>
-          </div>
-          {data.items.some(
+          {data.scoresPending ? (
+            <>
+              <div className="text-3xl font-bold mt-2 text-gray-400">— / {max}</div>
+              <div className="mt-3 text-sm rounded-lg bg-emerald-50 border border-emerald-200 text-emerald-800 px-3 py-2">
+                ✅ 已交卷,<strong>每道题的答案已公布</strong>,可以对照下方复盘。
+                得分与老师评语将在人工批改完成后显示。
+              </div>
+            </>
+          ) : (
+            <div className={`text-4xl font-bold mt-2 ${pctColor}`}>
+              {score}<span className="text-2xl text-gray-500 font-normal"> / {max}</span>
+              <span className={`text-base ml-2 ${pctColor}`}>({pct}%)</span>
+            </div>
+          )}
+          {!data.scoresPending && data.items.some(
             (it) => it.questionType !== 'mcq' && it.awardedMarks == null && hasWrittenAnswer(it),
           ) && (
             <div className="mt-3 text-sm rounded-lg bg-sky-50 border border-sky-200 text-sky-800 px-3 py-2">
@@ -261,6 +274,7 @@ export default function MyHistoryDetail() {
             <div key={it.paperQuestionId} id={`q-${it.paperQuestionId}`}>
             <ResultRow
               item={it}
+              scoresPending={!!data.scoresPending}
               commonIntro={commonIntro}
               onAppeal={(ctx) =>
                 setAppealTarget({
@@ -334,10 +348,15 @@ function ResultRow({
   item,
   onAppeal,
   commonIntro,
+  scoresPending = false,
 }: {
   item: ResultItem;
   onAppeal: (ctx: AppealQuestionContext) => void;
   commonIntro: string;
+  /** 2026-08-14 新政：true = 判分未定稿。本行只做「答案对照」——
+   *  不显示 ✓/✗/⏳/得分/评语（服务端也没下发），避免把每道题都
+   *  渲染成「待老师批改」的刷屏。 */
+  scoresPending?: boolean;
 }) {
   const sc = item.snapshotContent ?? {};
   const rawStem: string =
@@ -361,7 +380,7 @@ function ResultRow({
   // score, which reads as "you got zero". (Grading is teacher-done, never
   // described as AI.)
   const isBlank = !isMcq && !hasWrittenAnswer(item);
-  const isPending = !isMcq && awarded == null && !isBlank;
+  const isPending = !scoresPending && !isMcq && awarded == null && !isBlank;
   // F10 — appeal eligibility: any row where the auto-grader said wrong OR
   // where the student scored less than full marks. Also enabled for null
   // (manual-mark-pending) so students can still flag a misgraded short

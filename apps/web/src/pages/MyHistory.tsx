@@ -43,6 +43,8 @@ interface HistorySubmission {
   maxScore: number;
   submittedAt: string | null;
   status: string;
+  /** 2026-08-14 新政：true = 老师还没判分定稿，分数字段为 null。 */
+  scoresPending?: boolean;
 }
 
 interface HistoryResponse {
@@ -69,7 +71,7 @@ type LookupResponse = HistoryResponse | DisambigResponse;
 
 const LEVEL_LABEL: Record<string, string> = {
   ielts_authentic: '雅思真题 · IELTS Authentic',
-  ielts_simplified: '轻难度雅思 · Simplified IELTS',
+  ielts_simplified: 'O-Level 基础 · Basic',
   olevel: 'O-Level 英语',
 };
 
@@ -643,14 +645,26 @@ export default function MyHistory() {
                           </Link>
                           <div className="text-right shrink-0 flex flex-col items-end gap-2">
                             <Link to={detailHref} className="block">
-                              <div className={`text-2xl font-bold ${pctColor}`}>
-                                {score}
-                                <span className="text-base text-gray-500 font-normal"> / {max}</span>
-                              </div>
-                              <div className={`text-xs ${pctColor}`}>{pct}%</div>
-                              <div className="text-[11px] text-blue-600 mt-1">
-                                {isPractice ? '查看练习卷 →' : '查看每题详情 →'}
-                              </div>
+                              {s.scoresPending ? (
+                                <>
+                                  <div className="text-sm font-semibold text-emerald-700 px-2 py-1 rounded bg-emerald-50 border border-emerald-200">
+                                    答案已公布
+                                  </div>
+                                  <div className="text-[11px] text-gray-500 mt-1">成绩待老师批改</div>
+                                  <div className="text-[11px] text-blue-600 mt-1">对照答案复盘 →</div>
+                                </>
+                              ) : (
+                                <>
+                                  <div className={`text-2xl font-bold ${pctColor}`}>
+                                    {score}
+                                    <span className="text-base text-gray-500 font-normal"> / {max}</span>
+                                  </div>
+                                  <div className={`text-xs ${pctColor}`}>{pct}%</div>
+                                  <div className="text-[11px] text-blue-600 mt-1">
+                                    {isPractice ? '查看练习卷 →' : '查看每题详情 →'}
+                                  </div>
+                                </>
+                              )}
                             </Link>
                             {/* F16 — clone this submission into a practice
                                 run. Hidden on practice rows themselves —
