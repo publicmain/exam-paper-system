@@ -6,8 +6,8 @@ import TransferStudentModal from '../components/TransferStudentModal';
 /** Short English-level labels for the compact list card (R10 multi-level). */
 const LEVEL_SHORT: Record<string, string> = {
   ielts_authentic: '强',
-  ielts_simplified: '中',
-  olevel: '基',
+  ielts_simplified: '基',
+  olevel: '标',
 };
 /** Render a class's registered levels for the list card. Reads the R10
  *  `englishLevels` (plural) array — the legacy singular `englishLevel` was
@@ -416,8 +416,8 @@ function ClassDetailModal({
               // joining the multi-level chips.
               const labels: Record<string, string> = {
                 ielts_authentic: '强(IELTS Auth)',
-                ielts_simplified: '中(Simplified)',
-                olevel: '基(O-Level)',
+                ielts_simplified: '基(O-Level Basic)',
+                olevel: '标(O-Level)',
               };
               const levels: Array<{ level: string }> = cls.englishLevels ?? [];
               if (levels.length === 0) return '— (未注册)';

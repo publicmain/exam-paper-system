@@ -16,10 +16,15 @@ const LEVEL_LABEL: Record<Level, { zh: string; en: string; desc: string; tint: s
     desc: '真·剑桥雅思学术阅读,难度最高 · hardest',
     tint: 'bg-purple-50 border-purple-200 hover:bg-purple-100',
   },
+  // 2026-08-14 —— 这个枚举位历史上叫「轻雅思」，R10 后内容已换成
+  // O-Level §B 精简短文（provenance ai_authored_olevel_1128_simplified），
+  // 现按校方新政重新上架，定位「O-Level 基础」：短文精简 + 题量少，
+  // 剩余时间背 O-Level 词汇 + 参加词汇自测。枚举值不改（历史数据），
+  // 只改学生看到的名字。
   ielts_simplified: {
-    zh: '轻难度雅思',
-    en: 'Simplified IELTS',
-    desc: '简化版雅思阅读 · easier',
+    zh: 'O-Level 基础',
+    en: 'O-Level Basic',
+    desc: '精简短文,题量少,配词汇训练 · easiest',
     tint: 'bg-blue-50 border-blue-200 hover:bg-blue-100',
   },
   olevel: {

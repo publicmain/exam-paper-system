@@ -156,7 +156,7 @@ export default function DashboardPage() {
 const MQ_LEVEL_CN: Record<string, string> = {
   olevel: 'O-Level',
   ielts_authentic: '雅思',
-  ielts_simplified: '轻雅思',
+  ielts_simplified: 'O-Level 基础',
 };
 const MQ_STATUS_CN: Record<string, string> = {
   locked: '已锁定',

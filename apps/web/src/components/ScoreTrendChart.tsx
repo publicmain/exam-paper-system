@@ -19,7 +19,7 @@ const LEVEL_COLOR: Record<string, string> = {
 };
 const LEVEL_LABEL: Record<string, string> = {
   ielts_authentic: '雅思真题',
-  ielts_simplified: '轻雅思',
+  ielts_simplified: 'O-Level 基础',
   olevel: 'O-Level',
 };
 

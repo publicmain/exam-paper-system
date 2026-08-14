@@ -9,7 +9,7 @@ type Level = 'ielts_authentic' | 'ielts_simplified' | 'olevel';
 // IELTS while keeping vocabulary in their reach.
 const LEVEL_LABEL: Record<Level, string> = {
   ielts_authentic: '雅思真题 · IELTS Authentic',
-  ielts_simplified: '轻难度雅思 · Simplified IELTS',
+  ielts_simplified: 'O-Level 基础 · O-Level Basic',
   olevel: 'O-Level 英语 · 1123',
 };
 
@@ -530,10 +530,11 @@ export default function MorningQuizSchedule() {
                     className="border rounded px-2 py-1 text-sm"
                   >
                     <option value="">+ 添加等级</option>
-                    {/* 轻雅思 (ielts_simplified) discontinued 2026-07-24 — only these two
-                        levels can be added now. Historical ielts_simplified sessions still
-                        render via LEVEL_LABEL. */}
-                    {(['ielts_authentic', 'olevel'] as Level[])
+                    {/* ielts_simplified：2026-07-24 曾以「轻雅思」停用；2026-08-14
+                        按校方新政以「O-Level 基础」重新上架（枚举值不变，内容走
+                        ai_authored_olevel_1128_simplified 库）。题库备足 5 篇并过
+                        审计之前，先别给真实班级加这个等级。 */}
+                    {(['ielts_authentic', 'ielts_simplified', 'olevel'] as Level[])
                       .filter((l) => !levels.includes(l))
                       .map((l) => (
                         <option key={l} value={l}>
@@ -897,7 +898,8 @@ function OneOffSessionModal({
             className="border rounded px-2 py-1 w-full mt-1"
           >
             <option value="ielts_authentic">{LEVEL_LABEL.ielts_authentic}</option>
-            {/* 轻雅思 (ielts_simplified) discontinued 2026-07-24 — removed as a selectable option. */}
+            {/* 2026-08-14 重新上架为「O-Level 基础」 */}
+            <option value="ielts_simplified">{LEVEL_LABEL.ielts_simplified}</option>
             <option value="olevel">{LEVEL_LABEL.olevel}</option>
           </select>
         </label>

@@ -1438,7 +1438,10 @@ enum AttendanceSource {
 
 enum EnglishLevel {
   ielts_authentic // Cambridge IELTS authentic past papers (passage_pick)
-  ielts_simplified // simplified-IELTS for OLEVEL+ students (AI-generated, lower-vocab)
+  // 历史名「轻雅思」→ 2026-07-24 停用 → 2026-08-14 以「O-Level 基础」
+  // 重新上架（校方新政：短文精简 + 题量少 + 词汇训练）。枚举值不改，
+  // 历史数据依赖它；内容走 provenanceTag=ai_authored_olevel_1128_simplified。
+  ielts_simplified
   olevel // CIE 1123 OLEVEL English (AI-generated)
 }
 
