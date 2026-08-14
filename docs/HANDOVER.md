@@ -51,19 +51,6 @@
 **部署方式**：push 到 `main` 自动部署 API 与 Web。ops-dashboard 需要手动
 `railway up`（它不在自动部署链路里，改了记得手动发）。
 
-### 1.3 需要交接的账号与访问
-
-以下不写在文档里，需要口头 / 密码管理器交接：
-
-- Railway 账号与 `RAILWAY_API_TOKEN`
-- GitHub 仓库 `publicmain/exam-paper-system` 写权限
-- ops-dashboard 的密钥 URL（形如 `https://<host>/?k=<ACCESS_KEY>`）
-- Seiue（校务系统）账号 —— 每日出勤同步要用
-- 学校微信通知的配置入口（wechat-notify 的 admin UI）
-
-**数据库凭证**在 Railway 变量里，不要复制到本地文件。临时连生产库的方法见 §9.4，
-用完立刻删掉临时文件。
-
 ---
 
 ## 2. 红线：不要做的操作
@@ -680,7 +667,9 @@ railway run -- npx ts-node apps/api/scripts/<script>.ts
 ```
 
 如需直连，用 `DATABASE_PUBLIC_URL`，**Prisma 必须加 `?sslmode=require`**。
-临时凭证文件用完立刻删除。
+
+凭证一律从 Railway 环境变量读取，**不要复制到本地文件**；确需落盘的临时
+文件用完立刻删除。
 
 ### 9.5 备份与灾难恢复
 
