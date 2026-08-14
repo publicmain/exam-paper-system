@@ -1,0 +1,72 @@
+{
+  "setCode": "ai_authored_olevel_basic_01_new_shoes_v1",
+  "paperNumber": 2,
+  "paperTitle": "O-Level English — Basic Band Practice 01: The New Shoes",
+  "provenanceTag": "ai_authored_olevel_1128_basic",
+  "provenanceNote": "NOT STUDENT-FACING. Basic band (2026-08-14). Original narrative written for the morning-quiz bank; NOT from any past exam paper. Target: students who score only a few marks on the full O-Level band. Spec: ~250-word passage, high-frequency vocabulary, sentences mostly under 15 words, 5 questions / 5 marks, of which 3 are click-only (school data: typed items run a 64% blank rate in the weakest cohort, so an all-typed basic paper would just produce blank scripts). Q1-Q2 short answer, answers liftable in 1-4 words. Q3 vocabulary in context, Q4 literal, Q5 feeling — all MCQ.",
+  "sections": [
+    {
+      "exercise": 1,
+      "instruction": "Read the story below and answer the questions that follow. [2 marks]. Write short answers. One or two words are enough.",
+      "passageTitle": "The New Shoes",
+      "passage": "Paragraph 1\nMy mother bought me white shoes for the first day of Secondary One. They were the cleanest thing I owned. I put them by the door and looked at them twice before I slept.\n\nParagraph 2\nIt rained on Monday morning. I walked slowly and kept my eyes on the ground. I did not want a single mark on those shoes.\n\nParagraph 3\nAt the bus stop, a lorry went past. It hit a puddle. Brown water flew up and landed on my legs and my shoes.\n\nParagraph 4\nI stood still. The white was gone. I wanted to go home and change, but the bus was already coming.\n\nParagraph 5\nOn the bus I sat alone. A girl in the same uniform sat down beside me. She looked at my shoes and then at my face.\n\nParagraph 6\n'Here,' she said. She took out a small packet of wet wipes and gave me two. 'My brother did this to me last year. It comes off.'\n\nParagraph 7\nI cleaned my shoes on the bus. They were not white again, but they were not brown either. The girl told me her name was Mei. She sat beside me every morning after that.\n\nParagraph 8\nNow my shoes are grey and I do not think about them at all. I think about who is waiting at the bus stop.",
+      "questions": [
+        {
+          "n": 1,
+          "stem": "Q1. From Paragraph 3, what hit the puddle? [1]",
+          "answer": "a lorry",
+          "marks": 1
+        },
+        {
+          "n": 2,
+          "stem": "Q2. From Paragraph 6, what did Mei give the writer? [1]",
+          "answer": "wet wipes",
+          "marks": 1
+        }
+      ]
+    },
+    {
+      "exercise": 2,
+      "instruction": "Choose the best answer for each question. [3 marks]",
+      "passage": "Paragraph 1\nMy mother bought me white shoes for the first day of Secondary One. They were the cleanest thing I owned. I put them by the door and looked at them twice before I slept.\n\nParagraph 2\nIt rained on Monday morning. I walked slowly and kept my eyes on the ground. I did not want a single mark on those shoes.\n\nParagraph 3\nAt the bus stop, a lorry went past. It hit a puddle. Brown water flew up and landed on my legs and my shoes.\n\nParagraph 4\nI stood still. The white was gone. I wanted to go home and change, but the bus was already coming.\n\nParagraph 5\nOn the bus I sat alone. A girl in the same uniform sat down beside me. She looked at my shoes and then at my face.\n\nParagraph 6\n'Here,' she said. She took out a small packet of wet wipes and gave me two. 'My brother did this to me last year. It comes off.'\n\nParagraph 7\nI cleaned my shoes on the bus. They were not white again, but they were not brown either. The girl told me her name was Mei. She sat beside me every morning after that.\n\nParagraph 8\nNow my shoes are grey and I do not think about them at all. I think about who is waiting at the bus stop.",
+      "questions": [
+        {
+          "n": 3,
+          "stem": "Q3. In Paragraph 6, Mei says the mud 'comes off'. What does she mean? [1]",
+          "options": [
+            { "key": "A", "text": "The mud can be cleaned away.", "correct": true },
+            { "key": "B", "text": "The shoes are already broken.", "correct": false },
+            { "key": "C", "text": "The writer should buy new shoes.", "correct": false },
+            { "key": "D", "text": "The rain will stop soon.", "correct": false }
+          ],
+          "answer": "A",
+          "marks": 1
+        },
+        {
+          "n": 4,
+          "stem": "Q4. Why did the writer not go home to change? [1]",
+          "options": [
+            { "key": "A", "text": "Her mother was angry with her.", "correct": false },
+            { "key": "B", "text": "The bus was already coming.", "correct": true },
+            { "key": "C", "text": "She had no other shoes at home.", "correct": false },
+            { "key": "D", "text": "Mei told her not to go.", "correct": false }
+          ],
+          "answer": "B",
+          "marks": 1
+        },
+        {
+          "n": 5,
+          "stem": "Q5. In Paragraph 8, how does the writer feel about her shoes now? [1]",
+          "options": [
+            { "key": "A", "text": "She is still upset about them.", "correct": false },
+            { "key": "B", "text": "She wants her mother to buy new ones.", "correct": false },
+            { "key": "C", "text": "She no longer worries about them.", "correct": true },
+            { "key": "D", "text": "She is proud of how clean they are.", "correct": false }
+          ],
+          "answer": "C",
+          "marks": 1
+        }
+      ]
+    }
+  ]
+}

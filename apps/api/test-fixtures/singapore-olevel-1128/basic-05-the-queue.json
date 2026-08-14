@@ -1,0 +1,72 @@
+{
+  "setCode": "ai_authored_olevel_basic_05_the_queue_v1",
+  "paperNumber": 2,
+  "paperTitle": "O-Level English — Basic Band Practice 05: The Queue",
+  "provenanceTag": "ai_authored_olevel_1128_basic",
+  "provenanceNote": "NOT STUDENT-FACING. Basic band (2026-08-14). Original narrative written for the morning-quiz bank; NOT from any past exam paper. Spec: ~250-word passage, high-frequency vocabulary, short sentences, 5 questions / 5 marks, 3 of them click-only. Q1-Q2 short answer (1-4 words), Q3 vocabulary in context, Q4 literal, Q5 feeling — all MCQ.",
+  "sections": [
+    {
+      "exercise": 1,
+      "instruction": "Read the story below and answer the questions that follow. [2 marks]. Write short answers. One or two words are enough.",
+      "passageTitle": "The Queue",
+      "passage": "Paragraph 1\nMy father does not like sweet things. He does not eat cake. He says fruit is enough.\n\nParagraph 2\nSo I did not understand why he stood in the durian queue for fifty minutes on a Saturday afternoon in June.\n\nParagraph 3\nThe queue went past two shops. The floor was wet. Flies came and went. My father did not move out of the line even once.\n\nParagraph 4\nWhen we reached the front, he pointed at one durian and asked the man to open it. He smelled it, nodded, and paid.\n\nParagraph 5\nHe did not eat any of it. Not one seed. He carried the box on the bus with both hands, on his lap, all the way to Toa Payoh.\n\nParagraph 6\nMy grandmother is eighty-one. She cannot walk far now, and she has not been to a durian stall in three years.\n\nParagraph 7\nWhen we opened the box in her flat, she laughed. She ate two seeds and then a third. My father sat and watched her eat.\n\nParagraph 8\nOn the bus home I asked him why he queued so long for something he does not even like.\n\nParagraph 9\n'She used to queue,' he said. 'For me.'",
+      "questions": [
+        {
+          "n": 1,
+          "stem": "Q1. From Paragraph 2, how long did the father stand in the queue? [1]",
+          "answer": "fifty minutes",
+          "marks": 1
+        },
+        {
+          "n": 2,
+          "stem": "Q2. From Paragraph 6, how old is the grandmother? [1]",
+          "answer": "eighty-one",
+          "marks": 1
+        }
+      ]
+    },
+    {
+      "exercise": 2,
+      "instruction": "Choose the best answer for each question. [3 marks]",
+      "passage": "Paragraph 1\nMy father does not like sweet things. He does not eat cake. He says fruit is enough.\n\nParagraph 2\nSo I did not understand why he stood in the durian queue for fifty minutes on a Saturday afternoon in June.\n\nParagraph 3\nThe queue went past two shops. The floor was wet. Flies came and went. My father did not move out of the line even once.\n\nParagraph 4\nWhen we reached the front, he pointed at one durian and asked the man to open it. He smelled it, nodded, and paid.\n\nParagraph 5\nHe did not eat any of it. Not one seed. He carried the box on the bus with both hands, on his lap, all the way to Toa Payoh.\n\nParagraph 6\nMy grandmother is eighty-one. She cannot walk far now, and she has not been to a durian stall in three years.\n\nParagraph 7\nWhen we opened the box in her flat, she laughed. She ate two seeds and then a third. My father sat and watched her eat.\n\nParagraph 8\nOn the bus home I asked him why he queued so long for something he does not even like.\n\nParagraph 9\n'She used to queue,' he said. 'For me.'",
+      "questions": [
+        {
+          "n": 3,
+          "stem": "Q3. In Paragraph 3, the father 'did not move out of the line even once'. What does this show? [1]",
+          "options": [
+            { "key": "A", "text": "He was afraid of the flies.", "correct": false },
+            { "key": "B", "text": "He was determined to wait for the durian.", "correct": true },
+            { "key": "C", "text": "He could not find another shop.", "correct": false },
+            { "key": "D", "text": "He was too tired to walk away.", "correct": false }
+          ],
+          "answer": "B",
+          "marks": 1
+        },
+        {
+          "n": 4,
+          "stem": "Q4. How did the father carry the durian on the bus? [1]",
+          "options": [
+            { "key": "A", "text": "In a bag on the floor.", "correct": false },
+            { "key": "B", "text": "He asked the writer to hold it.", "correct": false },
+            { "key": "C", "text": "With both hands, on his lap.", "correct": true },
+            { "key": "D", "text": "He left it at the durian stall.", "correct": false }
+          ],
+          "answer": "C",
+          "marks": 1
+        },
+        {
+          "n": 5,
+          "stem": "Q5. What does the father's answer in Paragraph 9 tell us? [1]",
+          "options": [
+            { "key": "A", "text": "He is repaying his mother's kindness from long ago.", "correct": true },
+            { "key": "B", "text": "He has started to enjoy durian.", "correct": false },
+            { "key": "C", "text": "He wants the writer to queue next time.", "correct": false },
+            { "key": "D", "text": "His mother had asked him to buy it.", "correct": false }
+          ],
+          "answer": "A",
+          "marks": 1
+        }
+      ]
+    }
+  ]
+}

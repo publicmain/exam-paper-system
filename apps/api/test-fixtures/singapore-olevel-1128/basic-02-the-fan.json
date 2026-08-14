@@ -1,0 +1,72 @@
+{
+  "setCode": "ai_authored_olevel_basic_02_the_fan_v1",
+  "paperNumber": 2,
+  "paperTitle": "O-Level English — Basic Band Practice 02: The Fan",
+  "provenanceTag": "ai_authored_olevel_1128_basic",
+  "provenanceNote": "NOT STUDENT-FACING. Basic band (2026-08-14). Original narrative written for the morning-quiz bank; NOT from any past exam paper. Spec: ~250-word passage, high-frequency vocabulary, short sentences, 5 questions / 5 marks, 3 of them click-only. Q1-Q2 short answer (1-4 words), Q3 vocabulary in context, Q4 literal, Q5 feeling — all MCQ.",
+  "sections": [
+    {
+      "exercise": 1,
+      "instruction": "Read the story below and answer the questions that follow. [2 marks]. Write short answers. One or two words are enough.",
+      "passageTitle": "The Fan",
+      "passage": "Paragraph 1\nOur classroom is on the top floor. In the afternoon the sun sits on the roof and the room turns into an oven.\n\nParagraph 2\nWe have four fans. In March, the one above my desk stopped turning. Nobody said anything. We just moved our chairs.\n\nParagraph 3\nBy the second week, the back row was empty. Everyone had squeezed to the front, under the three fans that still worked.\n\nParagraph 4\nMy friend Hafiz said, 'Somebody should tell the office.' We all agreed. Then we all did nothing.\n\nParagraph 5\nOn Friday I stayed back to finish my homework. The room was quiet. I looked up at the dead fan and finally walked downstairs.\n\nParagraph 6\nThe lady at the office wrote down my class and the fan number. It took her about thirty seconds. She thanked me.\n\nParagraph 7\nOn Monday a man came with a ladder. When he climbed down he saw me and smiled. It was Uncle Raj from my block. He fixes lifts and fans for the town council.\n\nParagraph 8\n'Three weeks,' he said, shaking his head. 'You know how long the repair takes? Twenty minutes.'\n\nParagraph 9\nI think about that a lot now. The hard part was never the fan.",
+      "questions": [
+        {
+          "n": 1,
+          "stem": "Q1. From Paragraph 2, in which month did the fan stop turning? [1]",
+          "answer": "March",
+          "marks": 1
+        },
+        {
+          "n": 2,
+          "stem": "Q2. From Paragraph 7, what does Uncle Raj repair for the town council? [1]",
+          "answer": "lifts and fans",
+          "marks": 1
+        }
+      ]
+    },
+    {
+      "exercise": 2,
+      "instruction": "Choose the best answer for each question. [3 marks]",
+      "passage": "Paragraph 1\nOur classroom is on the top floor. In the afternoon the sun sits on the roof and the room turns into an oven.\n\nParagraph 2\nWe have four fans. In March, the one above my desk stopped turning. Nobody said anything. We just moved our chairs.\n\nParagraph 3\nBy the second week, the back row was empty. Everyone had squeezed to the front, under the three fans that still worked.\n\nParagraph 4\nMy friend Hafiz said, 'Somebody should tell the office.' We all agreed. Then we all did nothing.\n\nParagraph 5\nOn Friday I stayed back to finish my homework. The room was quiet. I looked up at the dead fan and finally walked downstairs.\n\nParagraph 6\nThe lady at the office wrote down my class and the fan number. It took her about thirty seconds. She thanked me.\n\nParagraph 7\nOn Monday a man came with a ladder. When he climbed down he saw me and smiled. It was Uncle Raj from my block. He fixes lifts and fans for the town council.\n\nParagraph 8\n'Three weeks,' he said, shaking his head. 'You know how long the repair takes? Twenty minutes.'\n\nParagraph 9\nI think about that a lot now. The hard part was never the fan.",
+      "questions": [
+        {
+          "n": 3,
+          "stem": "Q3. In Paragraph 1, the writer says the room 'turns into an oven'. What does this tell us? [1]",
+          "options": [
+            { "key": "A", "text": "The room becomes very hot.", "correct": true },
+            { "key": "B", "text": "Food is cooked in the room.", "correct": false },
+            { "key": "C", "text": "The room is very small.", "correct": false },
+            { "key": "D", "text": "The room smells of smoke.", "correct": false }
+          ],
+          "answer": "A",
+          "marks": 1
+        },
+        {
+          "n": 4,
+          "stem": "Q4. Why was the back row empty by the second week? [1]",
+          "options": [
+            { "key": "A", "text": "Those students had left the school.", "correct": false },
+            { "key": "B", "text": "The teacher moved them to the front.", "correct": false },
+            { "key": "C", "text": "Everyone moved forward to sit under the working fans.", "correct": true },
+            { "key": "D", "text": "The back row was being repaired.", "correct": false }
+          ],
+          "answer": "C",
+          "marks": 1
+        },
+        {
+          "n": 5,
+          "stem": "Q5. In Paragraph 9, what has the writer learnt? [1]",
+          "options": [
+            { "key": "A", "text": "Fans break more often than lifts.", "correct": false },
+            { "key": "B", "text": "Speaking up was easier than waiting.", "correct": true },
+            { "key": "C", "text": "The office staff work too slowly.", "correct": false },
+            { "key": "D", "text": "He should sit in the front row.", "correct": false }
+          ],
+          "answer": "B",
+          "marks": 1
+        }
+      ]
+    }
+  ]
+}

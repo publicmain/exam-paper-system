@@ -1,0 +1,72 @@
+{
+  "setCode": "ai_authored_olevel_basic_03_block_12_cat_v1",
+  "paperNumber": 2,
+  "paperTitle": "O-Level English — Basic Band Practice 03: The Cat at Block 12",
+  "provenanceTag": "ai_authored_olevel_1128_basic",
+  "provenanceNote": "NOT STUDENT-FACING. Basic band (2026-08-14). Original narrative written for the morning-quiz bank; NOT from any past exam paper. Spec: ~250-word passage, high-frequency vocabulary, short sentences, 5 questions / 5 marks, 3 of them click-only. Q1-Q2 short answer (1-4 words), Q3 vocabulary in context, Q4 literal, Q5 feeling — all MCQ.",
+  "sections": [
+    {
+      "exercise": 1,
+      "instruction": "Read the story below and answer the questions that follow. [2 marks]. Write short answers. One or two words are enough.",
+      "passageTitle": "The Cat at Block 12",
+      "passage": "Paragraph 1\nThere is a brown cat that sleeps behind the bicycle rack at Block 12. It has one ear that folds down. I named it Toast.\n\nParagraph 2\nI started feeding Toast in June. I kept a small bag of cat food inside my school bag, under my books.\n\nParagraph 3\nI did not tell my mother. She says animals bring dirt into the house. I fed Toast on the way home and washed my hands before I opened our door.\n\nParagraph 4\nOne evening my mother came down to throw the rubbish. She saw me crouching by the bicycle rack with the bag in my hand.\n\nParagraph 5\nI stood up quickly. I waited for her to be angry.\n\nParagraph 6\nShe did not say anything. She walked over and looked at Toast for a long moment. Then she looked at the folded ear.\n\nParagraph 7\n'This one is old,' she said. 'Dry food is too hard for old cats.'\n\nParagraph 8\nThe next day there was a plastic container by our door. Inside was rice with a little fish, cooked without salt. There was a note: 'For the cat. Not for you.'\n\nParagraph 9\nMy mother still will not let Toast into the house. But every Sunday she cooks a little extra.",
+      "questions": [
+        {
+          "n": 1,
+          "stem": "Q1. From Paragraph 1, where does Toast sleep? [1]",
+          "answer": "behind the bicycle rack",
+          "marks": 1
+        },
+        {
+          "n": 2,
+          "stem": "Q2. From Paragraph 8, what was inside the plastic container? [1]",
+          "answer": "rice with a little fish",
+          "marks": 1
+        }
+      ]
+    },
+    {
+      "exercise": 2,
+      "instruction": "Choose the best answer for each question. [3 marks]",
+      "passage": "Paragraph 1\nThere is a brown cat that sleeps behind the bicycle rack at Block 12. It has one ear that folds down. I named it Toast.\n\nParagraph 2\nI started feeding Toast in June. I kept a small bag of cat food inside my school bag, under my books.\n\nParagraph 3\nI did not tell my mother. She says animals bring dirt into the house. I fed Toast on the way home and washed my hands before I opened our door.\n\nParagraph 4\nOne evening my mother came down to throw the rubbish. She saw me crouching by the bicycle rack with the bag in my hand.\n\nParagraph 5\nI stood up quickly. I waited for her to be angry.\n\nParagraph 6\nShe did not say anything. She walked over and looked at Toast for a long moment. Then she looked at the folded ear.\n\nParagraph 7\n'This one is old,' she said. 'Dry food is too hard for old cats.'\n\nParagraph 8\nThe next day there was a plastic container by our door. Inside was rice with a little fish, cooked without salt. There was a note: 'For the cat. Not for you.'\n\nParagraph 9\nMy mother still will not let Toast into the house. But every Sunday she cooks a little extra.",
+      "questions": [
+        {
+          "n": 3,
+          "stem": "Q3. In Paragraph 4, the writer was 'crouching' by the bicycle rack. What was he doing? [1]",
+          "options": [
+            { "key": "A", "text": "Running away from his mother.", "correct": false },
+            { "key": "B", "text": "Bending down low to the ground.", "correct": true },
+            { "key": "C", "text": "Standing on top of the rack.", "correct": false },
+            { "key": "D", "text": "Sleeping beside the cat.", "correct": false }
+          ],
+          "answer": "B",
+          "marks": 1
+        },
+        {
+          "n": 4,
+          "stem": "Q4. Why did the writer hide the cat food under his books? [1]",
+          "options": [
+            { "key": "A", "text": "His mother did not know he was feeding the cat.", "correct": true },
+            { "key": "B", "text": "The bag was too small for the food.", "correct": false },
+            { "key": "C", "text": "His teacher had told him to hide it.", "correct": false },
+            { "key": "D", "text": "He wanted to keep the food cold.", "correct": false }
+          ],
+          "answer": "A",
+          "marks": 1
+        },
+        {
+          "n": 5,
+          "stem": "Q5. What does the last paragraph show about the mother? [1]",
+          "options": [
+            { "key": "A", "text": "She has forgotten about the cat.", "correct": false },
+            { "key": "B", "text": "She is still angry with her son.", "correct": false },
+            { "key": "C", "text": "She now wants the cat to live with them.", "correct": false },
+            { "key": "D", "text": "She has quietly decided to help the cat.", "correct": true }
+          ],
+          "answer": "D",
+          "marks": 1
+        }
+      ]
+    }
+  ]
+}
