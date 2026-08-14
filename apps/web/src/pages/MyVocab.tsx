@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
-import { api } from '../lib/api';
+import { BASE, api } from '../lib/api';
 import { track } from '../lib/track';
 import { Spinner } from '../components/AsyncState';
 
@@ -52,6 +52,9 @@ export default function MyVocabPage() {
   const name = params.get('name') ?? '';
   const studentId = params.get('studentId') ?? '';
   const [data, setData] = useState<{ total: number; dueCount: number; words: VocabWord[] } | null>(null);
+  /** 进度反馈（2026-08-14 调研缺陷五）：已掌握数 + 连续学习天数。
+   *  拿不到就不显示 —— 绝不因统计接口影响词表本身。 */
+  const [progress, setProgress] = useState<{ known: number; streak: number } | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [filter, setFilter] = useState<'all' | 'wrong_answer' | 'click'>('all');
   const [busy, setBusy] = useState<string | null>(null);
@@ -69,6 +72,24 @@ export default function MyVocabPage() {
   }, [name, studentId]);
 
   useEffect(load, [load]);
+
+  useEffect(() => {
+    if (!name) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const r = await fetch(
+          `${BASE}/api/vocab/stats?name=${encodeURIComponent(name)}${studentId ? `&studentId=${encodeURIComponent(studentId)}` : ''}`,
+        );
+        if (!r.ok) return;
+        const j = await r.json();
+        if (!cancelled && typeof j?.knownCount === 'number') {
+          setProgress({ known: j.knownCount, streak: j.streakDays ?? 0 });
+        }
+      } catch { /* 静默 */ }
+    })();
+    return () => { cancelled = true; };
+  }, [name, studentId]);
 
   const shown = useMemo(
     () => (data?.words ?? []).filter((w) => filter === 'all' || w.sourceType === filter),
@@ -139,6 +160,17 @@ export default function MyVocabPage() {
             {data.dueCount > 0 && (
               <div className="text-sm text-amber-700 bg-amber-50 border border-amber-200 rounded px-2 py-0.5">
                 {data.dueCount} 个待复习
+              </div>
+            )}
+            {/* 进度反馈：欠账旁边必须放「攒下了什么」，否则页面只剩压力 */}
+            {progress && progress.known > 0 && (
+              <div className="text-sm text-emerald-700 bg-emerald-50 border border-emerald-200 rounded px-2 py-0.5">
+                ✓ 已掌握 {progress.known}
+              </div>
+            )}
+            {progress && progress.streak > 0 && (
+              <div className="text-sm text-orange-600 bg-orange-50 border border-orange-200 rounded px-2 py-0.5">
+                🔥 连续 {progress.streak} 天
               </div>
             )}
           </div>

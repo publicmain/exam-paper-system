@@ -3,6 +3,7 @@ import { AiModule } from '../ai/ai.module';
 import { AuditModule } from '../audit/audit.module';
 import { PrismaService } from '../common/prisma.service';
 import { ShuffleModule } from '../shuffle/shuffle.module';
+import { VocabModule } from '../vocab/vocab.module';
 import { StudentModule } from '../student/student.module';
 import { WechatNotifyModule } from '../wechat-notify/wechat-notify.module';
 import { MorningQuizQaModule } from '../morning-quiz-qa/morning-quiz-qa.module';
@@ -19,6 +20,8 @@ import { AbsenceAlertCron } from './absence-alert.cron';
 @Module({
   imports: [
     ShuffleModule,
+    // 基础层词表自动推送（createSession → VocabTeacherService.pushWords）
+    VocabModule,
     StudentModule,
     AiModule,
     AuditModule,

@@ -66,12 +66,19 @@ export default function MyVocabQuizPage() {
   const [round, setRound] = useState(0); // 「再练一轮」时 +1 触发重新拉题
   const feedbackRef = useRef<HTMLDivElement | null>(null);
 
+  /** 交卷流程跳进来的：完成后主目的地是本场逐题详情（then 参数），
+   *  且主按钮从「再练一轮」换成「去看成绩」。只认 /my-history 前缀，
+   *  防开放跳转 —— 与 MyVocabReview 同一约定。 */
+  const afterSubmit = params.get('after') === 'submit';
+  const thenParam = params.get('then') ?? '';
   const backUrl = `/my-vocab?name=${encodeURIComponent(name)}${
     studentId ? `&studentId=${encodeURIComponent(studentId)}` : ''
   }`;
-  const historyUrl = `/my-history?name=${encodeURIComponent(name)}${
-    studentId ? `&studentId=${encodeURIComponent(studentId)}` : ''
-  }`;
+  const historyUrl = thenParam.startsWith('/my-history')
+    ? thenParam
+    : `/my-history?name=${encodeURIComponent(name)}${
+        studentId ? `&studentId=${encodeURIComponent(studentId)}` : ''
+      }`;
 
   useEffect(() => {
     if (!name) return;
@@ -216,17 +223,37 @@ export default function MyVocabQuizPage() {
             </div>
           )}
 
-          <button
-            type="button"
-            onClick={() => setRound((r) => r + 1)}
-            className="press mt-6 w-full min-h-[48px] rounded-[14px] bg-blue-600 text-white text-[16px] font-semibold active:bg-blue-700"
-          >
-            再练一轮
-          </button>
-          <div className="mt-3 flex justify-center gap-5 text-[14px]">
-            <Link to={backUrl} className="text-blue-600">返回生词本</Link>
-            <Link to={historyUrl} className="text-blue-600">查看成绩</Link>
-          </div>
+          {afterSubmit ? (
+            <>
+              {/* 交卷流程：词考完了，学生的下一站是看答案 —— 主按钮让路 */}
+              <Link
+                to={historyUrl}
+                className="press mt-6 block w-full min-h-[48px] leading-[48px] rounded-[14px] bg-blue-600 text-white text-[16px] font-semibold active:bg-blue-700"
+              >
+                继续 → 查看答案与成绩
+              </Link>
+              <div className="mt-3 flex justify-center gap-5 text-[14px]">
+                <button type="button" onClick={() => setRound((r) => r + 1)} className="text-blue-600">
+                  再练一轮
+                </button>
+                <Link to={backUrl} className="text-blue-600">返回生词本</Link>
+              </div>
+            </>
+          ) : (
+            <>
+              <button
+                type="button"
+                onClick={() => setRound((r) => r + 1)}
+                className="press mt-6 w-full min-h-[48px] rounded-[14px] bg-blue-600 text-white text-[16px] font-semibold active:bg-blue-700"
+              >
+                再练一轮
+              </button>
+              <div className="mt-3 flex justify-center gap-5 text-[14px]">
+                <Link to={backUrl} className="text-blue-600">返回生词本</Link>
+                <Link to={historyUrl} className="text-blue-600">查看成绩</Link>
+              </div>
+            </>
+          )}
         </div>
       </div>
     );

@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../common/prisma.service';
 import { StudentWordService } from './student-word.service';
+import { VocabReviewService } from './vocab-review.service';
 
 /**
  * 生词自测（P5）—— 百词斩式的客观选择题。
@@ -145,6 +146,7 @@ export class VocabQuizService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly words: StudentWordService,
+    private readonly review: VocabReviewService,
   ) {}
 
   /**
@@ -280,34 +282,10 @@ export class VocabQuizService {
 
     return {
       student: { id: student.id, name: student.name },
-      streakDays: await this.streakDays(student.id),
+      streakDays: await this.review.streakDays(student.id),
       totalWords: mine.length,
       questions,
     };
   }
 
-  /**
-   * 连续学习天数（新加坡时区自然日）。今天有复习记录算今天起，否则从
-   * 昨天往前数 —— 今天还没做不该把昨天攒的连胜清零，多邻国同款规则。
-   */
-  private async streakDays(studentId: string): Promise<number> {
-    const rows = await this.prisma.$queryRaw<Array<{ d: string }>>`
-      SELECT DISTINCT (("reviewedAt" + interval '8 hours')::date)::text AS d
-      FROM "WordReviewLog" l JOIN "StudentWord" w ON w.id = l."studentWordId"
-      WHERE w."studentId" = ${studentId}
-      ORDER BY d DESC LIMIT 120`;
-    if (!rows.length) return 0;
-    const days = rows.map((r) => r.d);
-    const sgtToday = new Date(Date.now() + 8 * 3600_000).toISOString().slice(0, 10);
-    const sgtYesterday = new Date(Date.now() + 8 * 3600_000 - 86400_000).toISOString().slice(0, 10);
-    if (days[0] !== sgtToday && days[0] !== sgtYesterday) return 0;
-    let streak = 1;
-    for (let i = 1; i < days.length; i++) {
-      const prev = new Date(days[i - 1] + 'T00:00:00Z').getTime();
-      const cur = new Date(days[i] + 'T00:00:00Z').getTime();
-      if (prev - cur === 86400_000) streak++;
-      else break;
-    }
-    return streak;
-  }
 }

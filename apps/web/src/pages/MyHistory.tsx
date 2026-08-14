@@ -110,6 +110,8 @@ export default function MyHistory() {
   const [, setTick] = useState(0);
   // 生词本到期数；null = 尚未取到或接口不可用（此时卡片保持原样）
   const [dueCount, setDueCount] = useState<number | null>(null);
+  // 已掌握数 + 连续天数（2026-08-14 进度反馈）。同一 stats 响应顺带取。
+  const [vocabProgress, setVocabProgress] = useState<{ known: number; streak: number } | null>(null);
   // 错题本待弄懂数。同样 null = 取不到就不显示徽标,绝不因此挡住成绩。
   const [mistakeCount, setMistakeCount] = useState<number | null>(null);
 
@@ -249,6 +251,9 @@ export default function MyHistory() {
         if (!r.ok) return;
         const j = await r.json();
         if (!cancelled && typeof j?.totalDue === 'number') setDueCount(j.totalDue);
+        if (!cancelled && typeof j?.knownCount === 'number') {
+          setVocabProgress({ known: j.knownCount, streak: j.streakDays ?? 0 });
+        }
       } catch { /* 生词本不可用时静默降级 */ }
     })();
     return () => { cancelled = true; };
@@ -489,6 +494,13 @@ export default function MyHistory() {
             <div className="flex items-center justify-between gap-3">
               <div className="min-w-0">
                 <div className="font-semibold text-gray-900">📒 我的生词本</div>
+                {vocabProgress && (vocabProgress.known > 0 || vocabProgress.streak > 0) && (
+                  <div className="text-xs text-gray-500 mt-0.5">
+                    {vocabProgress.known > 0 && <span className="text-emerald-700">已掌握 {vocabProgress.known}</span>}
+                    {vocabProgress.known > 0 && vocabProgress.streak > 0 && ' · '}
+                    {vocabProgress.streak > 0 && <span className="text-orange-600">🔥 连续 {vocabProgress.streak} 天</span>}
+                  </div>
+                )}
               </div>
               <div className="flex items-center gap-2 shrink-0">
                 {dueCount !== null && dueCount > 0 && (

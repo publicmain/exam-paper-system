@@ -77,6 +77,19 @@ export default function MyVocabReviewPage() {
         const list: Card[] = r?.cards ?? [];
         // 没有要复习的 → 直接放行，不打扰
         if (list.length === 0) navigate(historyUrl, { replace: true });
+        // 2026-08-14 调研后改：交卷后的必经环节从翻卡换成**客观自测**。
+        // 翻卡自评的判断权在学生手里（秒选「记得」两秒钟），而自测选错
+        // 就是错、答题即回写 FSRS —— 信号真实调度才准。自测此前两周只有
+        // 2 人用过 2 次，原因就是它不在任何必经路径上。可考词不足 4 个
+        // 时出不了像样的选择题，才退回翻卡。
+        else if (afterSubmit && list.length >= 4) {
+          navigate(
+            `/my-vocab/quiz?name=${encodeURIComponent(name)}` +
+              (studentId ? `&studentId=${encodeURIComponent(studentId)}` : '') +
+              `&after=submit&then=${encodeURIComponent(historyUrl)}`,
+            { replace: true },
+          );
+        }
         else setCards(list);
       })
       .catch(() => {

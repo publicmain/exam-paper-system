@@ -102,22 +102,54 @@ export class VocabReviewService {
   /**
    * 今日待复习。
    *
-   * 刻意设上限（默认 5）：复习是插在交卷后的，学生已经答了 30 分钟题，
-   * 给 20 个词只会让他直接跳过。宁可每天 5 个、天天做得完。
+   * ## 吞吐（2026-08-14 调研后重定）
+   *
+   * 原来固定 5 张：词少时合理，但采集不限量、复习限死量，两周就积出
+   * 307 词欠账（22 人，最老欠两周）—— 每天 5 张连利息都还不上，这是
+   * 数学必然不是学生懒。现在**积压超过 20 时上限提到 10**；仍然封顶，
+   * 因为一次塞 30 张的结局是学生直接跳过。
+   *
+   * ## 配额（同一次调研）
+   *
+   * 原来纯按「欠最久优先」排 —— 学生每天见到的全是陈债，**新学的词
+   * 永远等不到第二面**，间隔重复最关键的第 2 天复习点全部错过。
+   * 现在每次先给最多 3 个从没复习过的新词（最新加入优先，趁热），
+   * 其余名额还旧债（仍按欠最久优先）。
    */
   async due(input: { studentName: string; studentId?: string; limit?: number }) {
     const student = await this.words.resolveStudent(input.studentName, input.studentId);
-    const limit = Math.min(Math.max(input.limit ?? 5, 1), 20);
-    const rows = await this.prisma.studentWord.findMany({
+    const now = new Date();
+    const backlog = await this.prisma.studentWord.count({
+      where: { studentId: student.id, state: { not: 'known' }, due: { lte: now } },
+    });
+    const dynamicCap = backlog > 20 ? 10 : 5;
+    // 显式传 limit 的调用方（如管理面板）仍可覆盖，但不越过 20 的硬顶
+    const limit = Math.min(Math.max(input.limit ?? dynamicCap, 1), 20);
+
+    // 配额 1：新词（一次都没复习过的），最新加入优先 —— 「趁热」
+    const NEW_QUOTA = Math.min(3, limit);
+    const freshRows = await this.prisma.studentWord.findMany({
       where: {
         studentId: student.id,
         state: { not: 'known' },
-        due: { lte: new Date() },
+        due: { lte: now },
+        reps: 0,
       },
-      // 先复习欠得最久的
-      orderBy: [{ due: 'asc' }, { createdAt: 'asc' }],
-      take: limit,
+      orderBy: [{ createdAt: 'desc' }],
+      take: NEW_QUOTA,
     });
+    // 配额 2：旧债，仍按欠最久优先
+    const oldRows = await this.prisma.studentWord.findMany({
+      where: {
+        studentId: student.id,
+        state: { not: 'known' },
+        due: { lte: now },
+        id: { notIn: freshRows.map((r) => r.id) },
+      },
+      orderBy: [{ due: 'asc' }, { createdAt: 'asc' }],
+      take: limit - freshRows.length,
+    });
+    const rows = [...freshRows, ...oldRows];
     const entries = await this.prisma.dictEntry.findMany({
       where: { word: { in: rows.map((r) => r.headword) } },
     });
@@ -253,6 +285,37 @@ export class VocabReviewService {
       bySource: Object.fromEntries(bySource.map((r) => [r.sourceType, r._count])),
       totalReviews: reviews,
       totalDue,
+      // 2026-08-14 进度反馈：全班只有 6 词毕业、无任何成就展示 ——
+      // 学生看到的永远是「还欠多少」，看不到「已经攒下多少」。
+      knownCount: rows.find((r) => r.state === 'known')?._count ?? 0,
+      streakDays: await this.streakDays(student.id),
     };
+  }
+
+  /**
+   * 连续学习天数（新加坡自然日）。今天有复习记录算今天起，否则从昨天
+   * 往前数 —— 今天还没做不该把昨天攒的连胜清零，多邻国同款规则。
+   * （2026-08-14 从 vocab-quiz.service 挪来公用：stats 与自测完成页
+   * 都要显示它。）
+   */
+  async streakDays(studentId: string): Promise<number> {
+    const rows = await this.prisma.$queryRaw<Array<{ d: string }>>`
+      SELECT DISTINCT (("reviewedAt" + interval '8 hours')::date)::text AS d
+      FROM "WordReviewLog" l JOIN "StudentWord" w ON w.id = l."studentWordId"
+      WHERE w."studentId" = ${studentId}
+      ORDER BY d DESC LIMIT 120`;
+    if (!rows.length) return 0;
+    const days = rows.map((r) => r.d);
+    const sgtToday = new Date(Date.now() + 8 * 3600_000).toISOString().slice(0, 10);
+    const sgtYesterday = new Date(Date.now() + 8 * 3600_000 - 86400_000).toISOString().slice(0, 10);
+    if (days[0] !== sgtToday && days[0] !== sgtYesterday) return 0;
+    let streak = 1;
+    for (let i = 1; i < days.length; i++) {
+      const prev = new Date(days[i - 1] + 'T00:00:00Z').getTime();
+      const cur = new Date(days[i] + 'T00:00:00Z').getTime();
+      if (prev - cur === 86400_000) streak++;
+      else break;
+    }
+    return streak;
   }
 }

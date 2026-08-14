@@ -21,6 +21,9 @@ import { ShuffleService } from '../shuffle/shuffle.service';
 import { MorningQuizQaService } from '../morning-quiz-qa/morning-quiz-qa.service';
 import { ShortAnswerEvaluatorService } from './short-answer-evaluator.service';
 import { SkillProfileService } from './skill-profile.service';
+import { VocabTeacherService } from '../vocab/vocab-teacher.service';
+import * as fs from 'fs';
+import * as path from 'path';
 import { validatePaperStructure } from './paper-structure-validator';
 import { applyRetractionCredits, autoGradeScripts } from '../student/student.service';
 
@@ -327,6 +330,9 @@ export class MorningQuizService {
     // cron's lockOne path (which uses the same evaluator).
     private readonly evaluator?: ShortAnswerEvaluatorService,
     private readonly skills?: SkillProfileService,
+    // 基础层词表自动推送用。optional：既有测试直接 new 本服务，
+    // 不给就只是不推词，绝不影响出卷。
+    private readonly vocabTeacher?: VocabTeacherService,
   ) {}
 
   /**
@@ -598,7 +604,74 @@ export class MorningQuizService {
       metadata: { date: dateIso, classId: input.classId, paperId: input.paperId },
     });
 
+    // 基础层（O-Level 基础，枚举位 ielts_simplified）：建场即自动推送
+    // 该篇配套词表到全班生词本。这不是锦上添花 —— 调研（2026-08-14）
+    // 证实基础层学生的另外两条词来源都是断的：不会主动点词，短文又
+    // 刻意用高频词、自动采集的难度筛子会全部滤掉。词表是唯一供给。
+    // 顺序也对：先建场（学生今天会读这篇），词表例句就是他读过的句子。
+    // 失败只记日志 —— 推词绝不能挡出卷。
+    if (sessionLevel === 'ielts_simplified') {
+      try {
+        await this.pushBasicWordlistForPaper(input.paperId, input.classId);
+      } catch (e: any) {
+        this.logger.warn(
+          `basic wordlist push failed for paper=${input.paperId} class=${input.classId}: ${e?.message ?? e}`,
+        );
+      }
+    }
+
     return session;
+  }
+
+  /**
+   * 按 paperKey 找到基础层短文的配套词表并推给全班。
+   *
+   * 词表文件与 fixture 同目录（basic-wordlists.json，随镜像 COPY，
+   * 路径解析与 ContentBootstrapService 同款）。paperKey 形如
+   * `OLEVEL/ai_authored_olevel_basic_01_new_shoes_v1/Paper2`，
+   * 取中段去版本号 → `basic-01-new-shoes` 对上词表的 story 字段。
+   * pushWords 幂等（已在本子里的词跳过，保留 FSRS 进度），
+   * 所以同一篇因重新生成/补场被推两次也安全。
+   */
+  private async pushBasicWordlistForPaper(paperId: string, classId: string) {
+    if (!this.vocabTeacher) return;
+    const paper = await this.prisma.paper.findUnique({
+      where: { id: paperId },
+      select: { config: true },
+    });
+    const paperKey = (paper?.config as { paperKey?: string } | null)?.paperKey ?? '';
+    const m = paperKey.match(/olevel_(basic_\d+_[a-z0-9_]+?)(?:_v\d+)?\/Paper/);
+    if (!m) return; // 不是基础层自撰卷（比如手动指定了别的 paper）
+    const story = m[1].replace(/_/g, '-');
+
+    const file = path.join(
+      __dirname, '..', '..', 'test-fixtures', 'singapore-olevel-1128', 'basic-wordlists.json',
+    );
+    if (!fs.existsSync(file)) {
+      this.logger.warn(`basic-wordlists.json not found at ${file}`);
+      return;
+    }
+    const data = JSON.parse(fs.readFileSync(file, 'utf-8')) as {
+      lists: Array<{ story: string; items: Array<{ word: string; context: string }> }>;
+    };
+    const list = data.lists.find((l) => l.story === story);
+    if (!list) {
+      this.logger.warn(`no wordlist for story=${story} (paperKey=${paperKey})`);
+      return;
+    }
+    // 用一个 admin 身份推（pushWords 校验 canActOnClass，admin 全通过）
+    const admin = await this.prisma.user.findFirst({
+      where: { role: 'admin', isActive: true },
+      select: { id: true },
+    });
+    if (!admin) return;
+    const r = await this.vocabTeacher.pushWords(
+      { classId, items: list.items },
+      { id: admin.id, role: 'admin', ip: null },
+    );
+    this.logger.log(
+      `basic wordlist pushed: story=${story} class=${classId} created=${r.created} skipped=${r.skipped}`,
+    );
   }
 
   /**
