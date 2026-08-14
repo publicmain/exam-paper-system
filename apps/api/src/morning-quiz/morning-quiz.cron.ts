@@ -8,7 +8,45 @@ import {
 import { PrismaService } from '../common/prisma.service';
 import { applyRetractionCredits, autoGradeScripts } from '../student/student.service';
 import { WechatNotifyService } from '../wechat-notify/wechat-notify.service';
+import { combineLocal } from './morning-quiz.service';
 import { ShortAnswerEvaluatorService } from './short-answer-evaluator.service';
+
+/** 每日固定补考场（2026-08-14 与老师们定的新政）：16:30–17:00，
+ *  给早上无故缺席的学生。时间存成 SGT 挂钟字符串，经 combineLocal
+ *  转 UTC —— 与正式窗口字段同一套时区约定。 */
+const MAKEUP_START_LOCAL = '16:30:00';
+const MAKEUP_END_LOCAL = '17:00:00';
+
+/**
+ * 今天这场要不要自动开补考窗。纯函数，可测。
+ *
+ * 只在满足全部条件时开：
+ *   - 开关没关（MORNING_QUIZ_AUTO_MAKEUP !== 'off'）
+ *   - 当前 SGT 时刻已进入补考时段（cron 每分钟跳一次，第一跳开窗，
+ *     之后 makeupStart 非空即跳过 —— 幂等）
+ *   - 工作日（周末本就不该有场次，纵深防御）
+ *   - 场次已 locked（正式场 09:00 收过卷）。仍 active 的场次说明
+ *     当天流程异常，不叠加补考
+ *   - **今天没开过补考窗**（makeupStart 为空）。老师中午手动开过的，
+ *     当天 16:30 不再自动开 —— 手动操作优先
+ *   - 有至少一名缺席且未补考的学生。全勤的日子不必开一扇没人走的门
+ */
+export function shouldAutoOpenMakeup(input: {
+  autoMakeupEnv: string | undefined;
+  nowLocalHHMMSS: string;
+  weekdayLocal: number; // 0=Sun..6=Sat
+  sessionStatus: string;
+  makeupStart: Date | null;
+  absentPendingCount: number;
+}): boolean {
+  if (input.autoMakeupEnv === 'off') return false;
+  if (input.nowLocalHHMMSS < MAKEUP_START_LOCAL) return false;
+  if (input.nowLocalHHMMSS >= MAKEUP_END_LOCAL) return false;
+  if (input.weekdayLocal === 0 || input.weekdayLocal === 6) return false;
+  if (input.sessionStatus !== 'locked') return false;
+  if (input.makeupStart != null) return false;
+  return input.absentPendingCount > 0;
+}
 
 /**
  * Morning quiz lifecycle cron. Runs every minute and acts on three transitions:
@@ -48,6 +86,66 @@ export class MorningQuizCron {
     const now = new Date();
     await this.activateDueSessions(now);
     await this.lockPastSessions(now);
+    await this.autoOpenMakeupWindows(now);
+  }
+
+  /**
+   * 每天 16:30–17:00 的固定补考场（学校 2026-08-14 新政）。
+   *
+   * 早上 09:00 正常锁场、判分、报出勤 —— 全部不受影响。16:30 起，
+   * 当天有缺席且未补考学生的场次自动开补考窗（status 翻回 active，
+   * 学生扫墙上同一张码即可进入；Gate 5 的补考分支照旧记
+   * absent + makeupAt）。17:00 后 lockPastSessions 在下一跳重锁，
+   * Phase 2 的幂等守卫保证早上人工判好的分不被动。
+   *
+   * makeupOpenedById 留空 —— 与老师手动开窗（有操作人）区分，
+   * 报表上能看出哪天是自动场、哪天是手动加场。
+   */
+  private async autoOpenMakeupWindows(now: Date) {
+    const tzOff = Number(process.env.MORNING_QUIZ_TZ_OFFSET_MIN ?? 8 * 60);
+    const local = new Date(now.getTime() + tzOff * 60_000);
+    const nowLocalHHMMSS = local.toISOString().slice(11, 19);
+    // 时段外直接返回，不打库（一天 1410 分钟里只有 30 分钟需要查）
+    if (nowLocalHHMMSS < MAKEUP_START_LOCAL || nowLocalHHMMSS >= MAKEUP_END_LOCAL) return;
+
+    const dateIso = local.toISOString().slice(0, 10);
+    const todayUtc = new Date(`${dateIso}T00:00:00.000Z`);
+    const sessions = await this.prisma.morningQuizSession.findMany({
+      where: {
+        date: todayUtc,
+        status: MorningQuizStatus.locked,
+        makeupStart: null,
+        class: { archivedAt: null },
+      },
+      select: { id: true, classId: true, level: true, status: true, makeupStart: true },
+    });
+    for (const s of sessions) {
+      const absentPending = await this.prisma.attendance.count({
+        where: { sessionId: s.id, status: AttendanceStatus.absent, makeupAt: null },
+      });
+      const open = shouldAutoOpenMakeup({
+        autoMakeupEnv: process.env.MORNING_QUIZ_AUTO_MAKEUP,
+        nowLocalHHMMSS,
+        weekdayLocal: local.getUTCDay(),
+        sessionStatus: s.status,
+        makeupStart: s.makeupStart,
+        absentPendingCount: absentPending,
+      });
+      if (!open) continue;
+      await this.prisma.morningQuizSession.update({
+        where: { id: s.id },
+        data: {
+          makeupStart: combineLocal(dateIso, MAKEUP_START_LOCAL, tzOff),
+          makeupEnd: combineLocal(dateIso, MAKEUP_END_LOCAL, tzOff),
+          // makeupOpenedById 留 null = 自动开
+          status: MorningQuizStatus.active,
+        },
+      });
+      this.logger.log(
+        `auto-opened makeup window sessionId=${s.id} classId=${s.classId} ` +
+          `level=${s.level} absentPending=${absentPending} at=${now.toISOString()}`,
+      );
+    }
   }
 
   private async activateDueSessions(now: Date) {
@@ -465,7 +563,10 @@ export class MorningQuizCron {
         // teacher-regrade would re-enter this loop on the same submission
         // and we don't want the student to receive a second WeChat ping.
         // Lookup is per-submissionId on the NotificationLog payload JSON.
-        try {
+        // 2026-08-14 新政：deferAi 路径下 autoScore 只是 MCQ 部分分，
+        // 学生分数要等人工判分定稿 —— 这时推「成绩已出」是假消息。
+        // 只有 AI 判分真开着（分数即最终）才发。
+        if (aiGradingOn) try {
           const prismaAny = this.prisma as any;
           const already = await prismaAny.notificationLog.findFirst({
             where: {
