@@ -43,7 +43,7 @@
 | controller | 42 |
 | service | 71 |
 | HTTP 端点 | 282（GET 117 / POST 115 / PATCH 27 / DELETE 16 / PUT 7） |
-| Prisma model | 71 |
+| Prisma model | 63 |
 | `@@index` / `@@unique` | 95 |
 | migration | 18 |
 | 遗留 TODO / FIXME | 1 |
@@ -132,7 +132,7 @@ throttler + Redis 是机械替换。
 
 ## 三、数据模型
 
-71 个 model。核心链路是四张表：
+63 个 model。核心链路是四张表：
 
 ```
 PaperAssignment ──1:N── StudentSubmission ──1:N── AnswerScript
@@ -772,7 +772,7 @@ find apps/api/src -name "*.module.ts"     | wc -l    # 44
 find apps/api/src -name "*.controller.ts" | wc -l    # 42
 find apps/api/src -name "*.service.ts"    | wc -l    # 71
 grep -rhoE "@(Get|Post|Put|Patch|Delete)\(" apps/api/src --include=*.controller.ts | wc -l   # 282
-grep -c "^model " apps/api/prisma/schema.prisma              # 71
+grep -c "^model " apps/api/prisma/schema.prisma              # 63
 grep -c "@@index\|@@unique" apps/api/prisma/schema.prisma    # 95
 
 # 测试
