@@ -306,6 +306,49 @@ export default function MorningQuizSchedule() {
     }
   }
 
+  /** 「立即激活」整组（本班当日所有等级）。locked 场次要二次确认 ——
+   *  重新激活会覆盖今早真实数据（Bug 8 的强警告路径）。 */
+  async function activateGroup(group: ScheduledSession[]) {
+    const anyLocked = group.some((s) => s.status === 'locked');
+    if (anyLocked) {
+      const ok = confirm(
+        `⚠️ 本班 ${group.length} 场 session 中至少有 1 场已 locked.
+
+` +
+          `再次「立即激活」会**覆盖今早真实数据**(timestamps + status), ` +
+          `学生可重新扫码污染原成绩。
+
+` +
+          `测试 / 演示场景才点。生产请用「撤销激活」恢复 08:30 窗口。
+
+` +
+          `确认要全部激活?`,
+      );
+      if (!ok) return;
+      for (const s of group) {
+        await handleDebugActivate(s.id, { sessionStatus: s.status, alreadyConfirmed: true });
+      }
+    } else {
+      for (const s of group) {
+        await handleDebugActivate(s.id, { sessionStatus: s.status });
+      }
+    }
+  }
+
+  /** 撤销整组激活 —— 状态改回 scheduled，窗口重算回 08:30/09:00。 */
+  async function revertGroup(group: ScheduledSession[]) {
+    const confirmed = confirm(
+      `撤销激活本班 ${group.length} 个 level 的 session？
+
+` +
+        `会把状态从 active 改回 scheduled, 时间窗口重算回 08:30 / 09:00。
+` +
+        `不会删除考勤或答卷记录(那些用 dashboard 里的 🗑️ 按钮单独清)。`,
+    );
+    if (!confirmed) return;
+    for (const s of group) await handleRevertSession(s.id);
+  }
+
   /** One-shot: nuke every Paper / Session / Attendance / Submission
    *  derived from a retired content bank (currently: cambridge_0510 —
    *  the old OLEVEL 0510 papers that the picker stopped using after
@@ -371,41 +414,20 @@ export default function MorningQuizSchedule() {
 
   return (
     <div>
+      {/* 2026-08-14 重构 —— 排课/生成/清理由 Claude 在会话里代办，
+          页面职责变成「老师看今天和本周的状态」：
+            ① 今天 —— 场次状态 + 考勤汇总 + 待判数 + 补考窗（主视觉）
+            ② 本周 —— 排课一览，操作按钮全部收进每行的 ⋯ 菜单
+            ③ 排课与配置 —— 原 1/2/3 节整体折叠，默认收起
+          头部只留一个 ⋯ 更多（一次性场次/导出/审核/历史/维护）。 */}
       <div className="flex items-center justify-between mb-4">
-        <h1 className="text-2xl font-bold">Morning Quiz · 周排课</h1>
-        <div className="flex items-center gap-3">
-          {/* ROUND 14 — Feature 9: one-off session creator */}
-          <button
-            type="button"
-            onClick={() => setCreatingOneOff(true)}
-            className="text-sm px-2 py-1 rounded text-emerald-700 hover:bg-emerald-50"
-            title="创建一次性 session (不进入周排程, 用于补测/特殊场次)"
-          >
-            + 一次性 session
-          </button>
-          <ExportAttendanceButton weekStart={weekStart} />
-          <Link to="/morning-quiz/qa-review" className="text-sm text-amber-700 hover:underline">
-            🤖 AI 审核待复核 →
-          </Link>
-          {/* Bug 9: the old /admin/attendance page is a date-range
-              history view (separate from the new per-(class, date)
-              merged dashboard). Keep both entries, but make this one
-              clearly say "history" so users know the difference. */}
-          <Link to="/admin/attendance" className="text-sm text-blue-600 hover:underline" title="按日期范围跨多场 session 查考勤历史">
-            历史考勤 →
-          </Link>
-          {/* R15-followup-14 — the two cleanup actions below are one-time
-              maintenance buttons left over from migrating retired-content
-              ingest pipelines + the school-calendar bug fix. They almost
-              never need to run again, so they used to clutter the daily
-              schedule page with rarely-used rose-coloured destructive
-              buttons. Folded into a "更多 / 维护" disclosure menu so the
-              header has 4 daily-use entries instead of 6. */}
-          <MaintenanceMenu
-            onCleanupRetired={handleCleanupRetired}
-            onCleanupNonSchoolDays={handleCleanupNonSchoolDays}
-          />
-        </div>
+        <h1 className="text-2xl font-bold">早测 · Morning Quiz</h1>
+        <MoreMenu
+          weekStart={weekStart}
+          onCreateOneOff={() => setCreatingOneOff(true)}
+          onCleanupRetired={handleCleanupRetired}
+          onCleanupNonSchoolDays={handleCleanupNonSchoolDays}
+        />
       </div>
 
       {error && (
@@ -414,8 +436,29 @@ export default function MorningQuizSchedule() {
         </div>
       )}
 
-      <div className="bg-white border rounded-lg p-5 mb-6">
-        <h2 className="font-semibold mb-3">1. 选目标周(周一日期)</h2>
+      <TodayCard classes={classes} scheduled={scheduled} />
+
+      <WeekTable
+        scheduled={scheduled}
+        onOpenDisplay={openDisplay}
+        onOpenOvernight={openDisplayOvernight}
+        onActivateGroup={activateGroup}
+        onRevertGroup={revertGroup}
+        onRefresh={refresh}
+      />
+
+      <details className="bg-white border rounded-lg mb-6 group">
+        <summary className="cursor-pointer select-none px-5 py-3.5 font-semibold text-gray-700 hover:bg-gray-50 rounded-lg flex items-center gap-2">
+          <span className="text-gray-400 transition-transform group-open:rotate-90">▸</span>
+          排课与配置
+          <span className="text-xs font-normal text-gray-400 ml-1">
+            选周 · 班级等级 · 生成下周（周常操作，平时由 Claude 代办）
+          </span>
+        </summary>
+        <div className="px-5 pb-5 pt-2 space-y-6 border-t">
+
+      <div>
+        <h2 className="font-semibold mb-3 mt-3">1. 选目标周(周一日期)</h2>
         <input
           type="date"
           value={weekStart}
@@ -427,7 +470,7 @@ export default function MorningQuizSchedule() {
         </span>
       </div>
 
-      <div className="bg-white border rounded-lg p-5 mb-6">
+      <div>
         <h2 className="font-semibold mb-3">2. 配置每个班级的英语等级</h2>
         <table className="w-full text-sm">
           <thead className="text-left text-gray-500 border-b">
@@ -550,7 +593,7 @@ export default function MorningQuizSchedule() {
         </table>
       </div>
 
-      <div className="bg-white border rounded-lg p-5 mb-6">
+      <div>
         <h2 className="font-semibold mb-3">3. 一键生成下周早测</h2>
         <div className="flex items-center gap-4 flex-wrap">
           <button
@@ -582,7 +625,7 @@ export default function MorningQuizSchedule() {
       </div>
 
       {outcomes && (
-        <div className="bg-white border rounded-lg p-5 mb-6">
+        <div>
           <h2 className="font-semibold mb-3">4. 本次生成结果</h2>
           <div className="text-sm">
             ✅ 成功 {outcomes.filter((o) => o.ok).length} ·
@@ -602,177 +645,8 @@ export default function MorningQuizSchedule() {
         </div>
       )}
 
-      <div className="bg-white border rounded-lg p-5">
-        <div className="flex items-center justify-between mb-3">
-          <h2 className="font-semibold">本周已排课表 ({scheduled.length})</h2>
-          {/* R10-Bug5: explicit refresh — for the case where the user
-              wants to check progress mid-batch or after closing+reopening
-              this tab, without re-mounting the whole page. */}
-          <button
-            type="button"
-            onClick={() => refresh()}
-            className="text-xs text-blue-600 hover:underline"
-            title="重新拉取本周排课列表"
-          >
-            ↻ 刷新
-          </button>
         </div>
-        {scheduled.length === 0 ? (
-          <div className="text-gray-500 text-sm">本周还没有排课</div>
-        ) : (
-          // R10 multi-level UX fix: collapse rows by (date, classId) so
-          // the teacher sees ONE QR per (day, class) regardless of how
-          // many difficulty bands are running. The student-side picker
-          // fans out to siblings; the teacher should only think in
-          // terms of "which class on which day", not per-band QRs.
-          <table className="w-full text-sm">
-            <thead className="text-left text-gray-500 border-b">
-              <tr>
-                <th className="py-2">日期</th>
-                <th>班级</th>
-                <th>状态</th>
-                <th></th>
-              </tr>
-            </thead>
-            <tbody>
-              {(() => {
-                // Group sessions by (date.slice(0,10), classId). The level
-                // breakdown is hidden from the table — students pick their
-                // band on the scan page anyway, so the teacher just needs
-                // "which class on which day, and is it ready?".
-                const groups = new Map<string, typeof scheduled>();
-                for (const s of scheduled) {
-                  const key = `${s.date.slice(0, 10)}::${s.class.id}`;
-                  if (!groups.has(key)) groups.set(key, []);
-                  groups.get(key)!.push(s);
-                }
-                return Array.from(groups.entries()).map(([key, group]) => {
-                  // Pick the "primary" session for action buttons —
-                  // any active one, else the first in the group.
-                  const primary =
-                    group.find((s) => s.status === 'active') ?? group[0];
-                  const allStatuses = Array.from(new Set(group.map((g) => g.status)));
-                  const aggregateStatus =
-                    allStatuses.length === 1 ? allStatuses[0] : `${allStatuses.length} 状态`;
-                  // Stash level names in the row's title so they're still
-                  // discoverable on hover without taking real estate.
-                  const levelsTitle = group
-                    .map((s) => (s.level ? LEVEL_LABEL[s.level] : '—'))
-                    .join(' · ');
-                  return (
-                    <tr key={key} className="border-b last:border-0 align-top" title={levelsTitle}>
-                      <td className="py-2 font-mono">{primary.date.slice(0, 10)}</td>
-                      <td>{primary.class.name}</td>
-                      <td>
-                        <span className="badge text-xs px-2 py-0.5 rounded bg-gray-100">
-                          {aggregateStatus}
-                        </span>
-                      </td>
-                      <td className="text-right whitespace-nowrap">
-                        <button
-                          onClick={() => openDisplay(primary.id)}
-                          className="text-xs px-2 py-1 rounded bg-blue-50 hover:bg-blue-100 text-blue-700 mr-1"
-                          title="一个 QR 给本班所有等级共用,学生扫码后自己选难度"
-                        >
-                          🖥️ 大屏 QR
-                        </button>
-                        <button
-                          onClick={() => openDisplayOvernight(primary.class.id)}
-                          className="text-xs px-2 py-1 rounded bg-indigo-50 hover:bg-indigo-100 text-indigo-700 mr-1"
-                          title="开了就走 · 自动跟随班级当日 / 次日的 session。前一晚打开, 第二天 8:30 二维码自动激活"
-                        >
-                          🌙 留到明早
-                        </button>
-                        <button
-                          onClick={async () => {
-                            // Bug 8 fix: if any session in this group is
-                            // locked (real morning quiz already ran),
-                            // require an EXTRA confirm before reactivating
-                            // — see handleDebugActivate strong-warning path.
-                            const anyLocked = group.some((s) => s.status === 'locked');
-                            if (anyLocked) {
-                              const ok = confirm(
-                                `⚠️ 本班 ${group.length} 场 session 中至少有 1 场已 locked.\n\n` +
-                                  `再次「立即激活」会**覆盖今早真实数据**(timestamps + status), ` +
-                                  `学生可重新扫码污染原成绩。\n\n` +
-                                  `测试 / 演示场景才点。生产请用「撤销激活」恢复 08:30 窗口。\n\n` +
-                                  `确认要全部激活?`,
-                              );
-                              if (!ok) return;
-                              // Pass alreadyConfirmed=true so the inner
-                              // per-session loop doesn't re-prompt.
-                              for (const s of group) {
-                                await handleDebugActivate(s.id, {
-                                  sessionStatus: s.status,
-                                  alreadyConfirmed: true,
-                                });
-                              }
-                            } else {
-                              for (const s of group) {
-                                await handleDebugActivate(s.id, { sessionStatus: s.status });
-                              }
-                            }
-                          }}
-                          className="text-xs px-2 py-1 rounded bg-amber-50 hover:bg-amber-100 text-amber-700 mr-1"
-                          title="DEV ONLY: 一键激活本班所有等级的 session(测试用,生产 MORNING_QUIZ_DEBUG=true 才可用)"
-                        >
-                          ⚡ 立即激活{group.length > 1 ? ` (${group.length})` : ''}
-                        </button>
-                        <button
-                          onClick={async () => {
-                            // Revert every band in the group back to
-                            // scheduled with canonical 08:30 windows.
-                            // Used after a dry-run to restore tomorrow's
-                            // sessions so the real cron-activation flow
-                            // takes over normally.
-                            const confirmed = confirm(
-                              `撤销激活本班 ${group.length} 个 level 的 session？\n\n` +
-                                `会把状态从 active 改回 scheduled, 时间窗口重算回 08:30 / 09:00。\n` +
-                                `不会删除考勤或答卷记录(那些用 dashboard 里的 🗑️ 按钮单独清)。`,
-                            );
-                            if (!confirmed) return;
-                            for (const s of group) await handleRevertSession(s.id);
-                          }}
-                          className="text-xs px-2 py-1 rounded bg-stone-50 hover:bg-stone-100 text-stone-700 mr-1"
-                          title="DEV ONLY: 撤销本班所有等级的「立即激活」(把时间窗口和状态改回 scheduled, 不删数据)"
-                        >
-                          ↩️ 撤销激活{group.length > 1 ? ` (${group.length})` : ''}
-                        </button>
-                        {/* One aggregated dashboard link per (class,
-                            date). The dashboard merges all 1–3 level
-                            sessions into a single roster — safe to
-                            collapse because a student picks exactly
-                            ONE level on the scan page, so a student
-                            appears in at most one of the day's
-                            sessions. Each row in the merged table
-                            still carries its source sessionId + level,
-                            so the per-student delete still targets
-                            the right session. */}
-                        <Link
-                          to={`/morning-quiz/classes/${primary.class.id}/date/${primary.date.slice(0, 10)}/dashboard`}
-                          className="text-blue-600 hover:underline text-xs ml-1"
-                          title="进入本班当日合并考勤+答卷面板(含「清除测试数据」按钮)"
-                        >
-                          考勤 →
-                        </Link>
-                        {/* 2.0 —— 按题型看这个班哪里失分,回答"明天该重讲什么"。
-                            与"考勤"并列:一个看谁来了,一个看该讲什么。 */}
-                        <Link
-                          to={`/morning-quiz/classes/${primary.class.id}/skills`}
-                          className="text-blue-600 hover:underline text-xs ml-2"
-                          title="按题型看本班失分点(得分率 + 空白率),含学生×题型热图"
-                        >
-                          技能诊断 →
-                        </Link>
-                      </td>
-                    </tr>
-                  );
-                });
-              })()}
-            </tbody>
-          </table>
-        )}
-      </div>
+      </details>
 
       {creatingOneOff && (
         <OneOffSessionModal
@@ -947,58 +821,284 @@ function addDays(iso: string, n: number): string {
   return d.toISOString().slice(0, 10);
 }
 
-/** Export-attendance button used in the page header. Lazy-instantiates
- *  a hidden anchor so we can name the .xlsx file without a navigation
- *  trip — the API streams a Blob which we hand to URL.createObjectURL. */
-function ExportAttendanceButton({ weekStart }: { weekStart: string }) {
-  const [busy, setBusy] = useState(false);
-  const from = weekStart;
-  const to = addDays(weekStart, 4);
-  async function download() {
-    if (busy) return;
-    setBusy(true);
-    try {
-      const blob = await api.morningQuizExportAttendance({ from, to });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `morning-quiz-${from}-to-${to}.xlsx`;
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      URL.revokeObjectURL(url);
-    } catch (e: any) {
-      alert(`导出失败: ${e?.message ?? e}`);
-    } finally {
-      setBusy(false);
-    }
+/* ────────────────────────────────────────────────────────────────────
+ * 2026-08-14 重构新增的四个组件。
+ * 页面职责：老师看「今天怎么样、要做什么」；操作全部收进菜单。
+ * ──────────────────────────────────────────────────────────────────── */
+
+/** 新加坡今天（YYYY-MM-DD）。挂钟约定与后端一致。 */
+function sgtTodayIso(): string {
+  return new Date(Date.now() + 8 * 3600_000).toISOString().slice(0, 10);
+}
+
+const STATUS_ZH: Record<string, { label: string; cls: string }> = {
+  scheduled: { label: '未开始', cls: 'bg-gray-100 text-gray-600' },
+  active: { label: '进行中', cls: 'bg-emerald-100 text-emerald-800' },
+  locked: { label: '已收卷', cls: 'bg-blue-100 text-blue-800' },
+  cancelled: { label: '已取消', cls: 'bg-rose-100 text-rose-700' },
+};
+function StatusBadge({ status }: { status: string }) {
+  const s = STATUS_ZH[status] ?? { label: status, cls: 'bg-gray-100 text-gray-600' };
+  return <span className={`text-xs px-2 py-0.5 rounded ${s.cls}`}>{s.label}</span>;
+}
+
+/** 自动补考场生效日（与 morning-quiz.cron.ts 的 AUTO_MAKEUP_EFFECTIVE_FROM 一致）。 */
+const AUTO_MAKEUP_FROM = '2026-08-18';
+
+/**
+ * ① 今天卡 —— 页面主视觉。
+ *
+ * 回答三个问题：今天的场次怎么样了（状态/考勤）、有多少份等判、
+ * 下午补考窗会不会开。数据三路：本周 scheduled 里过滤出今天 +
+ * 每班一次 class-day dashboard（考勤计数与补考窗）+ marker 队列
+ * 总数。任何一路失败只影响自己那块，绝不整卡报错。
+ */
+function TodayCard({ classes, scheduled }: { classes: ClassRow[]; scheduled: ScheduledSession[] }) {
+  const todayIso = sgtTodayIso();
+  const weekdayZh = '日一二三四五六'[new Date(`${todayIso}T00:00:00Z`).getUTCDay()];
+  const todays = scheduled.filter((s) => s.date.slice(0, 10) === todayIso && s.status !== 'cancelled');
+  const byClass = new Map<string, ScheduledSession[]>();
+  for (const s of todays) {
+    if (!byClass.has(s.class.id)) byClass.set(s.class.id, []);
+    byClass.get(s.class.id)!.push(s);
   }
+  const classIdsKey = Array.from(byClass.keys()).sort().join(',');
+
+  const [dash, setDash] = useState<Record<string, {
+    counts: { on_time: number; late: number; absent: number; makeup: number };
+    sessions: Array<{ id: string; level: Level; status: string; makeupOpen: boolean }>;
+  }>>({});
+  const [pendingMarks, setPendingMarks] = useState<number | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      const next: Record<string, any> = {};
+      await Promise.all(
+        classIdsKey.split(',').filter(Boolean).map(async (cid) => {
+          try {
+            next[cid] = await api.morningQuizClassDayDashboard(cid, todayIso);
+          } catch { /* 单班失败只缺那一块 */ }
+        }),
+      );
+      if (!cancelled) setDash(next);
+      try {
+        const q = await api.markerQueue({ page: 1, pageSize: 1 });
+        if (!cancelled) setPendingMarks(typeof q?.total === 'number' ? q.total : null);
+      } catch { if (!cancelled) setPendingMarks(null); }
+    })();
+    return () => { cancelled = true; };
+  }, [classIdsKey, todayIso]);
+
   return (
-    <button
-      type="button"
-      onClick={download}
-      disabled={busy}
-      className="text-sm px-3 py-1.5 rounded-md border border-emerald-300 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 disabled:opacity-60 touch-manipulation"
-      title={`导出 ${from} ~ ${to} 的考勤+成绩+缺勤汇总 Excel`}
-    >
-      📥 {busy ? '生成中…' : '导出 Excel'}
-    </button>
+    <div className="bg-white border rounded-lg p-5 mb-6">
+      <div className="flex items-center justify-between flex-wrap gap-2 mb-3">
+        <h2 className="font-semibold text-lg">
+          今天 <span className="font-mono text-gray-500 text-base">{todayIso}</span>
+          <span className="text-gray-500 text-base"> · 周{weekdayZh}</span>
+        </h2>
+        {pendingMarks != null && (
+          <span
+            className={`text-sm px-3 py-1 rounded-full border ${
+              pendingMarks > 0
+                ? 'bg-amber-50 border-amber-300 text-amber-800'
+                : 'bg-emerald-50 border-emerald-200 text-emerald-700'
+            }`}
+            title="人工判分队列 —— 在会话里对 Claude 说「判分」即可排空"
+          >
+            {pendingMarks > 0 ? `📝 待判 ${pendingMarks} 份 · 找 Claude 判分` : '✓ 判分已清空'}
+          </span>
+        )}
+      </div>
+
+      {byClass.size === 0 ? (
+        <div className="text-sm text-gray-500 py-4">
+          今天没有早测场次{new Date(`${todayIso}T00:00:00Z`).getUTCDay() === 1 ? '（周一无早测）' : ''}。
+        </div>
+      ) : (
+        <div className="space-y-4">
+          {Array.from(byClass.entries()).map(([cid, group]) => {
+            const cls = classes.find((c) => c.id === cid);
+            const d = dash[cid];
+            const counts = d?.counts;
+            const makeupOpen = d?.sessions?.some((x) => x.makeupOpen) ?? false;
+            const absentPending = counts ? counts.absent - counts.makeup : null;
+            const allLocked = group.every((s) => s.status === 'locked');
+            let makeupLine: string;
+            if (makeupOpen) {
+              makeupLine = '🟢 补考窗开着（16:30–17:00），缺席学生扫墙贴码即可补考';
+            } else if (todayIso < AUTO_MAKEUP_FROM) {
+              makeupLine = `自动补考场 ${AUTO_MAKEUP_FROM.slice(5)}（周二）起生效，今天不开`;
+            } else if (!allLocked) {
+              makeupLine = '正式场结束后，16:30 视缺席情况自动开补考窗';
+            } else if (absentPending == null) {
+              makeupLine = '16:30–17:00 视缺席情况自动开补考窗';
+            } else if (absentPending > 0) {
+              makeupLine = `16:30 将自动开补考窗 —— ${absentPending} 人缺席待补`;
+            } else {
+              makeupLine = '无人待补考，今天不开补考窗';
+            }
+            return (
+              <div key={cid} className="border rounded-lg p-4 bg-gray-50/60">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <span className="font-semibold">{cls?.name ?? group[0].class.name}</span>
+                  {group.map((s) => (
+                    <span key={s.id} className="inline-flex items-center gap-1.5 text-xs bg-white border rounded px-2 py-0.5">
+                      {LEVEL_LABEL[s.level]?.split(' · ')[0] ?? s.level}
+                      <StatusBadge status={s.status} />
+                    </span>
+                  ))}
+                </div>
+                <div className="mt-2.5 flex items-center gap-x-5 gap-y-1 flex-wrap text-sm">
+                  {counts ? (
+                    <span className="font-mono">
+                      <span className="text-emerald-700">到 {counts.on_time}</span>
+                      <span className="text-amber-700 ml-3">迟 {counts.late}</span>
+                      <span className="text-rose-700 ml-3">缺 {counts.absent}</span>
+                      {counts.makeup > 0 && <span className="text-blue-700 ml-3">已补考 {counts.makeup}</span>}
+                    </span>
+                  ) : (
+                    <span className="text-gray-400 text-xs">考勤加载中…</span>
+                  )}
+                  <span className="text-xs text-gray-600">{makeupLine}</span>
+                </div>
+                <div className="mt-2.5 flex gap-4 text-sm">
+                  <Link
+                    to={`/morning-quiz/classes/${cid}/date/${todayIso}/dashboard`}
+                    className="text-blue-600 hover:underline"
+                  >
+                    考勤明细 →
+                  </Link>
+                  <Link to={`/morning-quiz/classes/${cid}/skills`} className="text-blue-600 hover:underline">
+                    技能诊断 →
+                  </Link>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </div>
   );
 }
 
 /**
- * R15-followup-14 — collapsible "更多 / 维护" menu for rarely-used
- * destructive actions (retired-content cleanup, non-school-day session
- * scrub). Both used to sit in the page header as rose-coloured buttons
- * that almost never need to run again. Click outside or pick an action
- * to close.
+ * ② 本周表 —— 原「本周已排课表」瘦身版。
+ * 行 = (日期, 班级)；今天高亮；激活/大屏等操作全部收进行尾 ⋯ 菜单
+ * （日常不点它们 —— 贴墙码常驻、激活由 cron 干）。
  */
-function MaintenanceMenu({
-  onCleanupRetired,
-  onCleanupNonSchoolDays,
+function WeekTable({
+  scheduled,
+  onOpenDisplay,
+  onOpenOvernight,
+  onActivateGroup,
+  onRevertGroup,
+  onRefresh,
 }: {
-  onCleanupRetired: () => void;
-  onCleanupNonSchoolDays: () => void;
+  scheduled: ScheduledSession[];
+  onOpenDisplay: (sessionId: string) => void;
+  onOpenOvernight: (classId: string) => void;
+  onActivateGroup: (group: ScheduledSession[]) => void;
+  onRevertGroup: (group: ScheduledSession[]) => void;
+  onRefresh: () => void;
+}) {
+  const todayIso = sgtTodayIso();
+  const groups = new Map<string, ScheduledSession[]>();
+  for (const s of scheduled) {
+    const key = `${s.date.slice(0, 10)}::${s.class.id}`;
+    if (!groups.has(key)) groups.set(key, []);
+    groups.get(key)!.push(s);
+  }
+  return (
+    <div className="bg-white border rounded-lg p-5 mb-6">
+      <div className="flex items-center justify-between mb-3">
+        <h2 className="font-semibold">本周 ({scheduled.length} 场)</h2>
+        <button type="button" onClick={onRefresh} className="text-xs text-blue-600 hover:underline">
+          ↻ 刷新
+        </button>
+      </div>
+      {groups.size === 0 ? (
+        <div className="text-gray-500 text-sm">本周还没有排课</div>
+      ) : (
+        <table className="w-full text-sm">
+          <thead className="text-left text-gray-500 border-b">
+            <tr>
+              <th className="py-2">日期</th>
+              <th>班级</th>
+              <th>等级 · 状态</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody>
+            {Array.from(groups.entries()).map(([key, group]) => {
+              const primary = group.find((s) => s.status === 'active') ?? group[0];
+              const dateIso = primary.date.slice(0, 10);
+              const isToday = dateIso === todayIso;
+              return (
+                <tr
+                  key={key}
+                  className={`border-b last:border-0 align-top ${isToday ? 'bg-blue-50/50' : ''}`}
+                >
+                  <td className="py-2.5 font-mono whitespace-nowrap">
+                    {dateIso.slice(5)}
+                    {isToday && <span className="ml-1.5 text-[10px] text-blue-700 font-sans font-semibold">今天</span>}
+                  </td>
+                  <td className="py-2.5">{primary.class.name}</td>
+                  <td className="py-2.5">
+                    <div className="flex gap-1.5 flex-wrap">
+                      {group.map((s) => (
+                        <span key={s.id} className="inline-flex items-center gap-1 text-xs">
+                          <span className="text-gray-500">{LEVEL_LABEL[s.level]?.split(' · ')[0] ?? s.level}</span>
+                          <StatusBadge status={s.status} />
+                        </span>
+                      ))}
+                    </div>
+                  </td>
+                  <td className="py-2 text-right whitespace-nowrap">
+                    <Link
+                      to={`/morning-quiz/classes/${primary.class.id}/date/${dateIso}/dashboard`}
+                      className="text-blue-600 hover:underline text-xs"
+                    >
+                      考勤 →
+                    </Link>
+                    <Link
+                      to={`/morning-quiz/classes/${primary.class.id}/skills`}
+                      className="text-blue-600 hover:underline text-xs ml-3"
+                    >
+                      技能诊断 →
+                    </Link>
+                    <RowActionsMenu
+                      group={group}
+                      onOpenDisplay={() => onOpenDisplay(primary.id)}
+                      onOpenOvernight={() => onOpenOvernight(primary.class.id)}
+                      onActivate={() => onActivateGroup(group)}
+                      onRevert={() => onRevertGroup(group)}
+                    />
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      )}
+    </div>
+  );
+}
+
+/** 行尾 ⋯ 菜单 —— 大屏 QR / 留到明早 / 立即激活 / 撤销激活。
+ *  这四个是投影仪时代和测试用的操作，贴墙码 + cron 之后日常不再点。 */
+function RowActionsMenu({
+  group,
+  onOpenDisplay,
+  onOpenOvernight,
+  onActivate,
+  onRevert,
+}: {
+  group: ScheduledSession[];
+  onOpenDisplay: () => void;
+  onOpenOvernight: () => void;
+  onActivate: () => void;
+  onRevert: () => void;
 }) {
   const [open, setOpen] = useState(false);
   const wrapRef = useRef<HTMLDivElement | null>(null);
@@ -1017,6 +1117,100 @@ function MaintenanceMenu({
       document.removeEventListener('keydown', onEsc);
     };
   }, [open]);
+  const n = group.length;
+  const item = 'w-full text-left px-3 py-2 hover:bg-gray-50';
+  return (
+    <div className="relative inline-block ml-2" ref={wrapRef}>
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        aria-expanded={open}
+        aria-haspopup="menu"
+        className="text-xs px-2 py-1 rounded text-gray-500 hover:bg-gray-100 border border-transparent hover:border-gray-200"
+        title="投影 / 激活等不常用操作"
+      >
+        ⋯
+      </button>
+      {open && (
+        <div role="menu" className="absolute right-0 mt-1 w-56 bg-white border border-gray-200 rounded-md shadow-lg z-30 py-1 text-sm text-left">
+          <button type="button" role="menuitem" className={item} onClick={() => { setOpen(false); onOpenDisplay(); }}>
+            🖥️ 大屏 QR
+            <div className="text-xs text-gray-500">投影仪展示轮转码（贴墙码时代很少用）</div>
+          </button>
+          <button type="button" role="menuitem" className={item} onClick={() => { setOpen(false); onOpenOvernight(); }}>
+            🌙 留到明早
+            <div className="text-xs text-gray-500">投影页自动跟随当日/次日场次</div>
+          </button>
+          <div className="border-t my-1" />
+          <button type="button" role="menuitem" className={`${item} text-amber-700`} onClick={() => { setOpen(false); onActivate(); }}>
+            ⚡ 立即激活{n > 1 ? ` (${n})` : ''}
+            <div className="text-xs text-gray-500">DEV：测试用，locked 场次会二次确认</div>
+          </button>
+          <button type="button" role="menuitem" className={`${item} text-stone-700`} onClick={() => { setOpen(false); onRevert(); }}>
+            ↩️ 撤销激活{n > 1 ? ` (${n})` : ''}
+            <div className="text-xs text-gray-500">恢复 08:30 窗口与 scheduled 状态</div>
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
+
+/** 头部唯一的菜单 —— 一次性场次 / 导出 / 审核 / 历史 / 一次性维护。 */
+function MoreMenu({
+  weekStart,
+  onCreateOneOff,
+  onCleanupRetired,
+  onCleanupNonSchoolDays,
+}: {
+  weekStart: string;
+  onCreateOneOff: () => void;
+  onCleanupRetired: () => void;
+  onCleanupNonSchoolDays: () => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const [exporting, setExporting] = useState(false);
+  const wrapRef = useRef<HTMLDivElement | null>(null);
+  useEffect(() => {
+    if (!open) return;
+    function onDocClick(e: MouseEvent) {
+      if (!wrapRef.current?.contains(e.target as Node)) setOpen(false);
+    }
+    function onEsc(e: KeyboardEvent) {
+      if (e.key === 'Escape') setOpen(false);
+    }
+    document.addEventListener('mousedown', onDocClick);
+    document.addEventListener('keydown', onEsc);
+    return () => {
+      document.removeEventListener('mousedown', onDocClick);
+      document.removeEventListener('keydown', onEsc);
+    };
+  }, [open]);
+
+  /** 原 ExportAttendanceButton 的 Blob 下载逻辑，原样搬进菜单项。 */
+  async function exportWeek() {
+    if (exporting) return;
+    setExporting(true);
+    const from = weekStart;
+    const to = addDays(weekStart, 4);
+    try {
+      const blob = await api.morningQuizExportAttendance({ from, to });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `morning-quiz-${from}-to-${to}.xlsx`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    } catch (e: any) {
+      alert(`导出失败: ${e?.message ?? e}`);
+    } finally {
+      setExporting(false);
+    }
+  }
+
+  const item = 'w-full text-left px-3 py-2 hover:bg-gray-50';
   return (
     <div className="relative" ref={wrapRef}>
       <button
@@ -1024,35 +1218,35 @@ function MaintenanceMenu({
         onClick={() => setOpen((v) => !v)}
         aria-expanded={open}
         aria-haspopup="menu"
-        className="text-sm px-2 py-1 rounded text-gray-600 hover:bg-gray-100"
-        title="一次性维护工具 (清理历史残留)"
+        className="text-sm px-3 py-1.5 rounded-md border border-gray-200 text-gray-600 hover:bg-gray-100"
       >
         ⋯ 更多
       </button>
       {open && (
-        <div
-          role="menu"
-          className="absolute right-0 mt-1 w-64 bg-white border border-gray-200 rounded-md shadow-lg z-30 py-1 text-sm"
-        >
-          <button
-            type="button"
-            role="menuitem"
-            onClick={() => { setOpen(false); onCleanupRetired(); }}
-            className="w-full text-left px-3 py-2 text-rose-700 hover:bg-rose-50"
-            title="一次性清掉所有 cambridge_0510 (已退役内容) 的 Paper/Session/考勤/答卷"
-          >
-            🧹 清理旧测试数据
-            <div className="text-xs text-gray-500 mt-0.5">删退役内容残留（一次性）</div>
+        <div role="menu" className="absolute right-0 mt-1 w-64 bg-white border border-gray-200 rounded-md shadow-lg z-30 py-1 text-sm">
+          <button type="button" role="menuitem" className={`${item} text-emerald-700`} onClick={() => { setOpen(false); onCreateOneOff(); }}>
+            + 一次性 session
+            <div className="text-xs text-gray-500">补测 / 特殊场次，不进周排程</div>
           </button>
-          <button
-            type="button"
-            role="menuitem"
-            onClick={() => { setOpen(false); onCleanupNonSchoolDays(); }}
-            className="w-full text-left px-3 py-2 text-rose-700 hover:bg-rose-50"
-            title="清掉所有周一/周末的 sessions (校历无早测日)"
-          >
+          <button type="button" role="menuitem" className={item} onClick={() => { setOpen(false); exportWeek(); }} disabled={exporting}>
+            📥 {exporting ? '导出中…' : '导出本周 Excel'}
+            <div className="text-xs text-gray-500">考勤 + 成绩 + 缺勤汇总</div>
+          </button>
+          <Link to="/morning-quiz/qa-review" role="menuitem" className={`block ${item} text-amber-700`} onClick={() => setOpen(false)}>
+            🤖 AI 审核待复核 →
+          </Link>
+          <Link to="/admin/attendance" role="menuitem" className={`block ${item}`} onClick={() => setOpen(false)}>
+            🗂 历史考勤 →
+            <div className="text-xs text-gray-500">按日期范围跨场次查询</div>
+          </Link>
+          <div className="border-t my-1" />
+          <button type="button" role="menuitem" className={`${item} text-rose-700`} onClick={() => { setOpen(false); onCleanupRetired(); }}>
+            🧹 清理旧测试数据
+            <div className="text-xs text-gray-500">删退役内容残留（一次性）</div>
+          </button>
+          <button type="button" role="menuitem" className={`${item} text-rose-700`} onClick={() => { setOpen(false); onCleanupNonSchoolDays(); }}>
             🗓️ 清掉周一 sessions
-            <div className="text-xs text-gray-500 mt-0.5">删非上学日误排（一次性）</div>
+            <div className="text-xs text-gray-500">删非上学日误排（一次性）</div>
           </button>
         </div>
       )}
