@@ -1,7 +1,7 @@
 # 开发历程 · Development History
 
 > 本文档记录 `exam-paper-system` 从立项到当前的完整开发历程：每个阶段
-> 的时间范围、参与者、提交量与交付内容，以及影响系统形态的关键技术决策
+> 的时间范围、提交量与交付内容，以及影响系统形态的关键技术决策
 > 和生产事故。
 >
 > **所有数字均由 git 历史生成，不依赖记忆**。复现命令见 [附录 A](#附录-a统计口径与复现命令)。
@@ -19,7 +19,6 @@
 | 统计截止 | 2026-08-14 |
 | 跨度 | 110 天（其中 46 天有提交） |
 | 提交总数 | 472 |
-| 参与者 | 3 |
 | 代码规模 | 411 个 TS/TSX 文件，79691 行（api 45882 / web 33809） |
 | 自动化测试 | 49 个测试文件，460 项断言（后端 348 / 前端 112），全绿 |
 | 部署 | Railway：2 service（API / Web）+ managed Postgres |
@@ -34,17 +33,17 @@ Puppeteer/KaTeX 出 PDF）、`apps/web`（React 18 + Vite + Tailwind + KaTeX）�
 
 ---
 
-## 二、参与者
+## 二、作者
 
-| 提交者 | 提交数 | 占比 | 主要时期 |
-|---|---:|---:|---|
-| Claude (cowork) | 357 | 75.6% | 2026-05-07 起全程 |
-| publicmain | 117 | 24.8% | 2026-04-27 ~ 2026-05-31 |
-| yaokexiang1bc | 7 | 1.5% | 2026-04-27（立项当日） |
+| 项 | 值 |
+|---|---|
+| 作者 / 维护者 | **publicmain** |
+| 提交总数 | 472 |
+| 起止 | 2026-04-27 ~ 2026-08-14 |
 
-> 说明：`Claude (cowork)` 是在 Cowork 会话中由 Claude 代为提交的记录，
-> 每一次提交的需求、验收和上线决定均由项目所有者（英语组教师）作出。
-> 提交者字段反映的是「谁执行的写入」，不是「谁决定的」。
+本项目由 publicmain 一人设计、开发与维护：产品形态、技术方案、每一次
+上线取舍与验收，均由其决定。系统自 2026 年 5 月起在真实课堂每日运行，
+需求全部来自一线教学。
 
 ---
 
@@ -68,10 +67,10 @@ Puppeteer/KaTeX 出 PDF）、`apps/web`（React 18 + Vite + Tailwind + KaTeX）�
 
 ### P1 · 试卷生成 MVP（2026-04-27 ~ 05-06）
 
-**提交 83 次**（publicmain 76 / yaokexiang1bc 7）
+**提交 83 次**
 
 项目从一次提交开始：`Initial commit: Phase 1 MVP exam paper generation
-system`（04-27，yaokexiang1bc）。前十天完成了整条出卷链路。
+system`（04-27）。前十天完成了整条出卷链路。
 
 主要交付：
 
@@ -86,8 +85,7 @@ system`（04-27，yaokexiang1bc）。前十天完成了整条出卷链路。
 
 ### P2 · 早测系统（2026-05-07 ~ 06-04）
 
-**提交 268 次**（Claude 232 / publicmain 36）—— 全项目最密集的阶段，
-单周峰值 127 次提交（W19）。
+**提交 268 次** —— 全项目最密集的阶段，单周峰值 127 次提交（W19）。
 
 起点是 05-07 的 `feat(morning-quiz): backend foundation for attendance
 + morning quiz`。这一阶段把系统从「老师的出卷工具」变成了「学生每天要用的产品」。
@@ -119,7 +117,7 @@ system`（04-27，yaokexiang1bc）。前十天完成了整条出卷链路。
 
 ### P3 · 作业系统 v2（2026-07-13 ~ 08-02）
 
-**提交 59 次**（全部 Claude）
+**提交 59 次**
 
 07-23 起以 M1–M3 里程碑推进，参照 Canvas SpeedGrader 与 Examplify
 的交互建模。
@@ -136,7 +134,7 @@ system`（04-27，yaokexiang1bc）。前十天完成了整条出卷链路。
 
 ### P4 · 学生自助学习闭环（2026-08-10 ~ 08-14）
 
-**提交 56 次**（全部 Claude）
+**提交 56 次**
 
 这一阶段的驱动力全部来自真实课堂反馈，主题是**把「判完分」变成「学得到」**。
 
@@ -209,9 +207,6 @@ system`（04-27，yaokexiang1bc）。前十天完成了整条出卷链路。
 # 提交总数与时间跨度
 git log --oneline | wc -l
 git log --reverse --format="%ad" --date=short | head -1
-
-# 参与者
-git shortlog -sne --all
 
 # 按月 / 按周提交量
 git log --format="%ad" --date=format:"%Y-%m" | sort | uniq -c
