@@ -131,24 +131,48 @@ export class VocabTeacherService {
    *
    * 已在某学生本子里的词会跳过（保留其原有的调度进度和来源），
    * 所以重复推送是安全的。
+   *
+   * 两种入参，可混用：
+   *   words: string[]                        整批共用一个 contextSentence
+   *   items: Array<{word, context}>          **逐词各自的例句**（推荐）
+   *
+   * 为什么要逐词例句：生词本相对百词斩类产品的唯一优势就是「复习时
+   * 看到的是他自己读过的那一句」。整批共用一句话时，10 个词配同一个
+   * 句子，这个优势直接归零 —— 学生看到的是一堆对不上号的卡片。
    */
   async pushWords(
-    input: { classId: string; words: string[]; contextSentence?: string },
+    input: {
+      classId: string;
+      words?: string[];
+      items?: Array<{ word: string; context?: string }>;
+      contextSentence?: string;
+    },
     actor: ActorCtx,
   ) {
     if (!(await canActOnClass(this.prisma, actor, input.classId))) {
       throw new ForbiddenException({ code: 'not_your_class' });
     }
-    if (!input.words.length) throw new BadRequestException({ code: 'words_required' });
-    if (input.words.length > 50) throw new BadRequestException({ code: 'too_many_words' });
+    // 归一成 {word, context} 列表；words[] 走整批共用句。
+    const requested: Array<{ word: string; context: string }> = [
+      ...(input.items ?? []).map((it) => ({
+        word: it.word,
+        context: (it.context ?? input.contextSentence ?? '').slice(0, 500),
+      })),
+      ...(input.words ?? []).map((w) => ({
+        word: w,
+        context: (input.contextSentence ?? '').slice(0, 500),
+      })),
+    ];
+    if (!requested.length) throw new BadRequestException({ code: 'words_required' });
+    if (requested.length > 50) throw new BadRequestException({ code: 'too_many_words' });
 
     // 先把每个词落到词典原形；查不到的直接拒绝，不让老师推一个查不到释义的词
-    const resolved: Array<{ headword: string; surface: string }> = [];
+    const resolved: Array<{ headword: string; surface: string; context: string }> = [];
     const notFound: string[] = [];
-    for (const w of input.words) {
-      const hit = await this.vocab.lookup(w);
-      if (hit) resolved.push({ headword: hit.word, surface: w.toLowerCase() });
-      else notFound.push(w);
+    for (const r of requested) {
+      const hit = await this.vocab.lookup(r.word);
+      if (hit) resolved.push({ headword: hit.word, surface: r.word.toLowerCase(), context: r.context });
+      else notFound.push(r.word);
     }
 
     const students = await this.prisma.classEnrollment.findMany({
@@ -174,7 +198,7 @@ export class VocabTeacherService {
             headword: r.headword,
             surfaceForm: r.surface,
             sourceType: 'teacher_push',
-            contextSentence: (input.contextSentence ?? '').slice(0, 500),
+            contextSentence: r.context,
           },
         });
         created++;

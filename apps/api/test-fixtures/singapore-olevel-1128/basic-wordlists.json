@@ -1,0 +1,235 @@
+{
+  "note": "O-Level 基础层配套词表（2026-08-14）。每篇 10 词，与同名 basic-*.json 的短文配套。context 是该词在学生刚读过的那篇短文里的原句 —— 生词本复习卡片会原样显示它，这是本产品相对百词斩类应用的核心差异，不能省。选词口径：ECDICT 可查、带 zk/gk/cet4 级考纲标签或 O-Level 记叙文高频、且不是学生已经烂熟的词（edge/coach 这类 bnc<1500 的不收）。",
+  "lists": [
+    {
+      "story": "basic-01-new-shoes",
+      "title": "The New Shoes",
+      "items": [
+        {
+          "word": "uniform",
+          "context": "A girl in the same uniform sat down beside me."
+        },
+        {
+          "word": "lorry",
+          "context": "At the bus stop, a lorry went past."
+        },
+        {
+          "word": "puddle",
+          "context": "It hit a puddle."
+        },
+        {
+          "word": "packet",
+          "context": "She took out a small packet of wet wipes and gave me two."
+        },
+        {
+          "word": "mark",
+          "context": "I did not want a single mark on those shoes."
+        },
+        {
+          "word": "slowly",
+          "context": "I walked slowly and kept my eyes on the ground."
+        },
+        {
+          "word": "grey",
+          "context": "Now my shoes are grey and I do not think about them at all."
+        },
+        {
+          "word": "clean",
+          "context": "I cleaned my shoes on the bus."
+        },
+        {
+          "word": "beside",
+          "context": "She sat beside me every morning after that."
+        },
+        {
+          "word": "already",
+          "context": "I wanted to go home and change, but the bus was already coming."
+        }
+      ]
+    },
+    {
+      "story": "basic-02-the-fan",
+      "title": "The Fan",
+      "items": [
+        {
+          "word": "oven",
+          "context": "In the afternoon the sun sits on the roof and the room turns into an oven."
+        },
+        {
+          "word": "squeeze",
+          "context": "Everyone had squeezed to the front, under the three fans that still worked."
+        },
+        {
+          "word": "ladder",
+          "context": "On Monday a man came with a ladder."
+        },
+        {
+          "word": "repair",
+          "context": "You know how long the repair takes? Twenty minutes."
+        },
+        {
+          "word": "council",
+          "context": "He fixes lifts and fans for the town council."
+        },
+        {
+          "word": "agree",
+          "context": "We all agreed. Then we all did nothing."
+        },
+        {
+          "word": "finally",
+          "context": "I looked up at the dead fan and finally walked downstairs."
+        },
+        {
+          "word": "quiet",
+          "context": "I stayed back to finish my homework. The room was quiet."
+        },
+        {
+          "word": "row",
+          "context": "By the second week, the back row was empty."
+        },
+        {
+          "word": "office",
+          "context": "The lady at the office wrote down my class and the fan number."
+        }
+      ]
+    },
+    {
+      "story": "basic-03-block-12-cat",
+      "title": "The Cat at Block 12",
+      "items": [
+        {
+          "word": "crouch",
+          "context": "She saw me crouching by the bicycle rack with the bag in my hand."
+        },
+        {
+          "word": "rack",
+          "context": "There is a brown cat that sleeps behind the bicycle rack at Block 12."
+        },
+        {
+          "word": "container",
+          "context": "The next day there was a plastic container by our door."
+        },
+        {
+          "word": "rubbish",
+          "context": "One evening my mother came down to throw the rubbish."
+        },
+        {
+          "word": "fold",
+          "context": "It has one ear that folds down."
+        },
+        {
+          "word": "salt",
+          "context": "Inside was rice with a little fish, cooked without salt."
+        },
+        {
+          "word": "angry",
+          "context": "I stood up quickly. I waited for her to be angry."
+        },
+        {
+          "word": "moment",
+          "context": "She walked over and looked at Toast for a long moment."
+        },
+        {
+          "word": "extra",
+          "context": "But every Sunday she cooks a little extra."
+        },
+        {
+          "word": "note",
+          "context": "There was a note: 'For the cat. Not for you.'"
+        }
+      ]
+    },
+    {
+      "story": "basic-04-deep-end",
+      "title": "The Deep End",
+      "items": [
+        {
+          "word": "tile",
+          "context": "He sat down on the wet tiles beside my feet, which made him look shorter than me."
+        },
+        {
+          "word": "pole",
+          "context": "He walked beside me the whole way, holding a long pole."
+        },
+        {
+          "word": "metre",
+          "context": "Twenty-five metres. Nothing under you."
+        },
+        {
+          "word": "shake",
+          "context": "When I climbed out my arms were shaking."
+        },
+        {
+          "word": "shout",
+          "context": "Coach Lim did not shout."
+        },
+        {
+          "word": "cross",
+          "context": "At our school swimming test, we had to cross the pool at the deep end."
+        },
+        {
+          "word": "climb",
+          "context": "When I climbed out my arms were shaking."
+        },
+        {
+          "word": "touch",
+          "context": "I had never swum where my feet could not touch the floor."
+        },
+        {
+          "word": "reach",
+          "context": "When you reach ten, stop and tell me if you want the next ten."
+        },
+        {
+          "word": "whole",
+          "context": "At ten metres I did not stop. I swam the whole twenty-five."
+        }
+      ]
+    },
+    {
+      "story": "basic-05-the-queue",
+      "title": "The Queue",
+      "items": [
+        {
+          "word": "queue",
+          "context": "So I did not understand why he stood in the durian queue for fifty minutes on a Saturday afternoon in June."
+        },
+        {
+          "word": "seed",
+          "context": "She ate two seeds and then a third."
+        },
+        {
+          "word": "lap",
+          "context": "He carried the box on the bus with both hands, on his lap, all the way to Toa Payoh."
+        },
+        {
+          "word": "stall",
+          "context": "She cannot walk far now, and she has not been to a durian stall in three years."
+        },
+        {
+          "word": "point",
+          "context": "When we reached the front, he pointed at one durian and asked the man to open it."
+        },
+        {
+          "word": "smell",
+          "context": "He smelled it, nodded, and paid."
+        },
+        {
+          "word": "nod",
+          "context": "He smelled it, nodded, and paid."
+        },
+        {
+          "word": "laugh",
+          "context": "When we opened the box in her flat, she laughed."
+        },
+        {
+          "word": "watch",
+          "context": "My father sat and watched her eat."
+        },
+        {
+          "word": "enough",
+          "context": "He does not eat cake. He says fruit is enough."
+        }
+      ]
+    }
+  ]
+}

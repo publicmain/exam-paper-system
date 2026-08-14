@@ -189,15 +189,34 @@ export class VocabQuizService {
       .map((w) => ({ headword: w.headword, translation: dict.get(w.headword.toLowerCase())?.translation ?? '' }))
       .filter((c) => c.translation);
 
-    // 干扰项池 2：词典兜底。限考纲标签 + BNC 高频段（3k–20k），
-    // 避免抽出 abecedarian 这种一眼假的词。随机取一批足够整场用。
-    const poolDictRows = await this.prisma.$queryRaw<Array<{ word: string; translation: string }>>`
+    // 干扰项池 2：词典兜底。
+    //
+    // 难度必须跟着**被考的词**走，不能写死一个窗口。原来固定在
+    // ielts/toefl/cet6 + bnc 3k–20k —— 那是照雅思班调的，基础层的词
+    // （uniform bnc=3504、packet 3805）配上 photosynthesis / prevalence
+    // 这种干扰项，学生一眼就能排除，题目等于白出（2026-08-14 基础层
+    // 实测发现）。
+    //
+    // 现在按本场被考词的 bnc 区间取：下界放宽一半、上界放宽一倍，
+    // 并把 zk/gk/cet4 这些中学考纲标签也纳入 —— 基础层的词大多只带
+    // 这些标签，不带 ielts/toefl。区间取不到足够的词时回退到原窗口。
+    const chosenBncs = chosen
+      .map((w) => dict.get(w.headword.toLowerCase())?.bnc ?? 0)
+      .filter((n) => n > 0);
+    const loBnc = chosenBncs.length ? Math.max(500, Math.floor(Math.min(...chosenBncs) / 2)) : 3000;
+    const hiBnc = chosenBncs.length ? Math.min(60000, Math.max(...chosenBncs) * 2) : 20000;
+    const dictPoolQuery = (lo: number, hi: number) => this.prisma.$queryRaw<
+      Array<{ word: string; translation: string }>
+    >`
       SELECT word, translation FROM "DictEntry"
       WHERE translation IS NOT NULL AND translation <> ''
-        AND ('ielts' = ANY(tag) OR 'toefl' = ANY(tag) OR 'cet6' = ANY(tag))
-        AND bnc BETWEEN 3000 AND 20000
+        AND ('ielts' = ANY(tag) OR 'toefl' = ANY(tag) OR 'cet6' = ANY(tag)
+             OR 'cet4' = ANY(tag) OR 'gk' = ANY(tag) OR 'zk' = ANY(tag))
+        AND bnc BETWEEN ${lo} AND ${hi}
         AND word NOT IN (SELECT unnest(${allWords}::text[]))
       ORDER BY random() LIMIT 80`;
+    let poolDictRows = await dictPoolQuery(loBnc, hiBnc);
+    if (poolDictRows.length < 12) poolDictRows = await dictPoolQuery(3000, 20000);
     const poolDict: Candidate[] = poolDictRows.map((r) => ({ headword: r.word, translation: r.translation }));
 
     const questions: QuizQuestion[] = [];

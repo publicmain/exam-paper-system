@@ -300,11 +300,26 @@ export class VocabController {
   /** 老师推一批词给全班（已有的词跳过，重复推送安全）。 */
   @Post('push')
   async pushWords(@Body() body: unknown, @CurrentUser() user: any, @Req() req: Request) {
-    const schema = z.object({
-      classId: z.string().min(1),
-      words: z.array(z.string().min(1).max(64)).min(1).max(50),
-      contextSentence: z.string().max(500).optional(),
-    });
+    // items 为逐词例句（推荐），words 为整批共用一句的旧形式。
+    // 两者至少给一个，合计不超过 50 词。
+    const schema = z
+      .object({
+        classId: z.string().min(1),
+        words: z.array(z.string().min(1).max(64)).max(50).optional(),
+        items: z
+          .array(
+            z.object({
+              word: z.string().min(1).max(64),
+              context: z.string().max(500).optional(),
+            }),
+          )
+          .max(50)
+          .optional(),
+        contextSentence: z.string().max(500).optional(),
+      })
+      .refine((v) => (v.words?.length ?? 0) + (v.items?.length ?? 0) > 0, {
+        message: 'words 或 items 至少给一个',
+      });
     const p = schema.safeParse(body);
     if (!p.success) throw new BadRequestException(p.error.flatten());
     return this.teacher.pushWords(p.data, {
