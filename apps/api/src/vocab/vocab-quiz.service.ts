@@ -210,8 +210,12 @@ export class VocabQuizService {
     >`
       SELECT word, translation FROM "DictEntry"
       WHERE translation IS NOT NULL AND translation <> ''
-        AND ('ielts' = ANY(tag) OR 'toefl' = ANY(tag) OR 'cet6' = ANY(tag)
-             OR 'cet4' = ANY(tag) OR 'gk' = ANY(tag) OR 'zk' = ANY(tag))
+        -- 考纲范围（2026-08-14）：只考雅思 / O-Level。干扰项也必须在
+        -- 范围内 —— 拿 GRE 词做干扰项等于告诉学生「这个你不用管」，
+        -- 而且一眼就能排除，题目失去区分度。
+        AND ('ielts' = ANY(tag) OR 'cet6' = ANY(tag)
+             OR 'cet4' = ANY(tag) OR 'gk' = ANY(tag) OR 'zk' = ANY(tag)
+             OR 'ky' = ANY(tag))
         AND bnc BETWEEN ${lo} AND ${hi}
         AND word NOT IN (SELECT unnest(${allWords}::text[]))
       ORDER BY random() LIMIT 80`;

@@ -2,6 +2,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { PrismaClient } from '@prisma/client';
 import { VocabService } from '../src/vocab/vocab.service';
+import { isInSyllabus } from '../src/vocab/student-word.service';
 
 /**
  * 基础层词表审计。三件必须成立的事：
@@ -46,6 +47,14 @@ const prisma = new PrismaClient();
       // （shake↔shaking、fold↔folds），比后缀剥离稳。
       const head = it.word.toLowerCase().slice(0, Math.min(4, it.word.length));
       if (!ctx.toLowerCase().includes(head)) problems.push('例句里没有这个词');
+      // 考纲范围（2026-08-14 教师定）：只考雅思 / O-Level。
+      // 只出现在托福 / GRE 里的词不收 —— 本校两条通道都不考那两个试。
+      if (hit) {
+        const e0 = await prisma.dictEntry.findUnique({ where: { word: hit.word } });
+        if (!isInSyllabus(e0?.tag)) {
+          problems.push(`超考纲(只有 ${(e0?.tag ?? []).join(',') || '无标签'})`);
+        }
+      }
 
       if (problems.length) {
         fails++;

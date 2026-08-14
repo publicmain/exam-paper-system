@@ -191,9 +191,17 @@ describe('isWorthLearning — 屈折形式要看原形', () => {
     expect(isWorthLearning(minutes, { oxford: false, bnc: 800 })).toBe(false);
   });
 
-  it('原形本身也是进阶词时照收（wobbling → wobble）', () => {
+  it('原形本身也是进阶词时照收（sediments → sediment）', () => {
+    // 2026-08-14：原例词是 wobbling(tag=['toefl'])，新增考纲范围规则后
+    // 「只带 toefl/gre」本就该拒 —— wobble 正是线上清理掉的超考纲词之一。
+    // 换成考纲内的进阶词，本例要验的「屈折形式回退查原形」逻辑不变。
+    const sediments = { tag: ['ielts'], oxford: false, bnc: null };
+    expect(isWorthLearning(sediments, { oxford: false, bnc: 38793 })).toBe(true);
+  });
+
+  it('超考纲的屈折形式：原形再生僻也不收', () => {
     const wobbling = { tag: ['toefl'], oxford: false, bnc: null };
-    expect(isWorthLearning(wobbling, { oxford: false, bnc: 38793 })).toBe(true);
+    expect(isWorthLearning(wobbling, { oxford: false, bnc: 38793 })).toBe(false);
   });
 
   it('本身就带词频信号的词不走回退，行为不变', () => {

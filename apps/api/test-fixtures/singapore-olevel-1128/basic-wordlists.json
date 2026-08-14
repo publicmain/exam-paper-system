@@ -1,5 +1,5 @@
 {
-  "note": "O-Level 基础层配套词表（2026-08-14）。每篇 10 词，与同名 basic-*.json 的短文配套。context 是该词在学生刚读过的那篇短文里的原句 —— 生词本复习卡片会原样显示它，这是本产品相对百词斩类应用的核心差异，不能省。选词口径：ECDICT 可查、带 zk/gk/cet4 级考纲标签或 O-Level 记叙文高频、且不是学生已经烂熟的词（edge/coach 这类 bnc<1500 的不收）。",
+  "note": "O-Level 基础层配套词表（2026-08-14）。每篇 10 词，与同名 basic-*.json 的短文配套。context 是该词在学生刚读过的那篇短文里的原句 —— 生词本复习卡片会原样显示它，这是本产品相对百词斩类应用的核心差异，不能省。选词口径：ECDICT 可查、在考纲范围内（只考雅思 / O-Level —— 只带 toefl/gre 标签的词不收，本校两条通道都不考那两个试）、且不是学生已经烂熟的词（edge/coach 这类 bnc<1500 的不收）。",
   "lists": [
     {
       "story": "basic-01-new-shoes",
@@ -14,8 +14,8 @@
           "context": "At the bus stop, a lorry went past."
         },
         {
-          "word": "puddle",
-          "context": "It hit a puddle."
+          "word": "wipe",
+          "context": "She took out a small packet of wet wipes and gave me two."
         },
         {
           "word": "packet",

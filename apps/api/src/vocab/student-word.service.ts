@@ -292,8 +292,29 @@ function hasFreqSignal(e: FreqSignals): boolean {
   return Boolean(e.oxford) || (typeof e.bnc === 'number' && e.bnc > 0);
 }
 
+/**
+ * 考纲范围（2026-08-14 教师定）：**只考雅思 / O-Level 范围内的词**。
+ * 只出现在托福或 GRE 里的词一律不收 —— 本校两条通道都不考这两个试，
+ * 背它们对学生没有回报。
+ *
+ * ECDICT 没有 O-Level 标签，用中学-大学四六级这一串作代理：
+ * zk(中考) / gk(高考) / cet4 / cet6 / ky(考研) 覆盖的难度带与
+ * O-Level 英语基本重合。判定方式是**排除法**：只要还有 toefl/gre
+ * 之外的任何标签就算在范围内，避免漏掉 ECDICT 标注不全的词。
+ */
+const OUT_OF_SYLLABUS_ONLY = new Set(['toefl', 'gre']);
+
+export function isInSyllabus(tags: string[] | null | undefined): boolean {
+  const t = tags ?? [];
+  if (t.length === 0) return false;
+  if (t.includes('ielts')) return true;
+  return t.some((x) => !OUT_OF_SYLLABUS_ONLY.has(x));
+}
+
 export function isWorthLearning(e: FreqSignals, lemma?: FreqSignals | null): boolean {
   const tags = e.tag ?? [];
+  // 先卡考纲范围：只带 toefl / gre 的词直接不收
+  if (!isInSyllabus(tags)) return false;
   const advanced = ['ielts', 'toefl', 'gre', 'cet6'];
   if (!tags.some((t) => advanced.includes(t))) return false;
   if (e.oxford) return false;
