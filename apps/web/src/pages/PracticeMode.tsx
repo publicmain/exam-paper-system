@@ -14,7 +14,7 @@ import {
   type PracticeSubmissionView,
   type PracticeSubmitResult,
 } from '../lib/api-student';
-import { prettifyPaperName } from '../lib/paperName';
+import { prettifyPaperName, commonStemPrefix, stripStemPrefix } from '../lib/paperName';
 import { BASE } from '../lib/api';
 
 /**
@@ -499,6 +499,19 @@ function PracticeResultView({
   // index questions by id so per-question result rows can show stems.
   const qById = new Map(view.paperQuestions.map((q) => [q.id, q]));
 
+  // 入库时题干是「说明 + 空行 + 问题」拼出来的，于是每道题都
+  // 顶着同一段说明。原来直接渲染 + line-clamp-3，结果三行全被说明占满，
+  // **真正的问题被截在外面**（2026-08-14 老师试读时发现：只看得到
+  // 「Read the story below…」，看不到「what hit the puddle?」）。
+  // 复盘页早有这套处理，这里接上：公共说明抽出来单独显示一次，
+  // 每题只留自己的问题，并去掉 line-clamp。
+  const commonIntro = commonStemPrefix(
+    view.paperQuestions
+      .map((q) => (typeof (q.snapshotContent as any)?.stem === 'string'
+        ? String((q.snapshotContent as any).stem) : ''))
+      .filter(Boolean),
+  );
+
   return (
     <div className="min-h-screen bg-gray-50">
       <div className="bg-yellow-300/80 border-b border-yellow-500 text-yellow-900 px-4 py-3 text-center font-semibold">
@@ -542,12 +555,18 @@ function PracticeResultView({
 
         <section className="space-y-3">
           <h2 className="text-lg font-semibold text-gray-800 px-1">逐题回顾</h2>
+          {commonIntro && (
+            <div className="text-xs text-gray-500 bg-gray-100 border rounded-lg px-3 py-2">
+              {commonIntro}
+            </div>
+          )}
           {result.perQuestion.map((it) => {
             const q = qById.get(it.paperQuestionId);
             const sc = q?.snapshotContent ?? {};
-            const stem: string =
+            const rawStem: string =
               typeof sc.stem === 'string' ? sc.stem :
               typeof sc.text === 'string' ? sc.text : '';
+            const stem = stripStemPrefix(rawStem, commonIntro);
             const correctTone =
               it.isCorrect === true ? 'border-emerald-300 bg-emerald-50' :
               it.isCorrect === false ? 'border-rose-300 bg-rose-50' :
@@ -567,7 +586,7 @@ function PracticeResultView({
                       <span className="font-mono">得分:{it.awardedMarks ?? 0} / {it.marks}</span>
                     </div>
                     {stem && (
-                      <div className="text-sm text-gray-800 whitespace-pre-wrap mb-2 line-clamp-3">
+                      <div className="text-sm text-gray-800 whitespace-pre-wrap mb-2">
                         {stem}
                       </div>
                     )}
