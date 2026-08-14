@@ -1,242 +1,818 @@
-# 开发历程 · Development History
+# 开发历程 · exam-paper-system
 
-> 本文档记录 `exam-paper-system` 从立项到当前的完整开发历程：每个阶段
-> 的时间范围、提交量与交付内容，以及影响系统形态的关键技术决策
-> 和生产事故。
+> 面向工程读者的项目档案：架构、数据模型、关键子系统的实现取舍、
+> 生产事故的根因，以及这些取舍留下的技术债。
 >
-> **所有数字均由 git 历史生成，不依赖记忆**。复现命令见 [附录 A](#附录-a统计口径与复现命令)。
->
-> 统计截止：**2026-08-14**（提交 `a68042f`）
+> 统计截止 **2026-08-14**。所有数字由 git 与源码统计生成，复现命令见
+> [附录 A](#附录-a统计口径与复现命令)。
 
 ---
 
-## 一、项目概况
+## 一、速览
 
-| 项 | 值 |
+| | |
 |---|---|
-| 仓库 | `publicmain/exam-paper-system` |
-| 立项 | 2026-04-27 |
-| 统计截止 | 2026-08-14 |
-| 跨度 | 110 天（46 天有提交，其余为调研期与学期假期） |
-| 提交总数 | 472 |
-| 代码规模 | 411 个 TS/TSX 文件，79691 行（api 45882 / web 33809） |
-| 自动化测试 | 49 个测试文件，460 项断言（后端 348 / 前端 112），全绿 |
-| 部署 | Railway：2 service（API / Web）+ managed Postgres |
+| 仓库 | `publicmain/exam-paper-system`，npm workspaces monorepo |
+| 作者 | publicmain（设计 / 开发 / 运维 / 线上判分） |
+| 周期 | 2026-04-27 ~ 2026-08-14，110 天，475 次提交（46 天有提交） |
+| 运行状态 | 生产环境每工作日运行，G11 一个班，两个难度层并行 |
+| 语言 | TypeScript（strict）、Python 3（PDF worker）、SQL |
+| 后端 | NestJS 10 · Prisma 5 · PostgreSQL · Puppeteer 23 · KaTeX |
+| 前端 | React 18 · Vite 5 · Tailwind 3 · react-router 6 · zustand 5 |
+| 部署 | Railway：API / Web / pdf-worker / ops-dashboard 四个 service + managed Postgres |
 
-**产品定位**：国际课程学校（CIE / Edexcel / O-Level / IGCSE / A-Level）的
-试卷生成与日常测评系统。核心链路是「从打标签的题库抽题 → 可编辑试卷 →
-导出 PDF + 答案卷」，在此基础上长出了每日早测、作业批改、学生自助复盘
-三条业务线。
+### 代码规模
 
-**技术栈**：monorepo。`apps/api`（NestJS + Prisma + PostgreSQL +
-Puppeteer/KaTeX 出 PDF）、`apps/web`（React 18 + Vite + Tailwind + KaTeX）。
+| 目录 | 行数 | 文件 | 说明 |
+|---|---:|---:|---|
+| `apps/api/src` | 41,713 | 197 | NestJS 后端 |
+| `apps/web/src` | 32,150 | 116 | React 前端 |
+| `apps/api/scripts` | 5,330 | 38 | 一次性运维 / 回填 / 判分脚本 |
+| `apps/api/prisma` | 3,571 | 16 | schema + 18 个 migration + seed |
+| `apps/ops-dashboard` | 1,012 | 1 | 只读运维台（独立 service） |
+| `services/pdf-worker` | 387 | 1 | FastAPI，PyMuPDF / schemdraw / RDKit |
+| `apps/miniprogram` | 297 | 4 | 微信小程序壳 |
+| **合计（不含测试）** | **84,460** | **373** | |
+| 测试 | 7,076 | 49 | 460 项断言，全绿 |
 
----
+### 后端结构量化
 
-## 二、作者
-
-| 项 | 值 |
-|---|---|
-| 作者 / 维护者 | **publicmain** |
-| 提交总数 | 472 |
-| 起止 | 2026-04-27 ~ 2026-08-14 |
-
-本项目由 publicmain 一人设计、开发与维护：产品形态、技术方案、每一次
-上线取舍与验收，均由其决定。系统自 2026 年 5 月起在真实课堂每日运行，
-需求全部来自一线教学。
-
----
-
-## 三、开发阶段总览
-
-| 阶段 | 时间 | 提交 | 新功能 | 修复 | 主题 |
-|---|---|---:|---:|---:|---|
-| **P1** 试卷生成 MVP | 2026-04-27 ~ 05-06 | 83 | 34 | 46 | 题库、抽题、PDF、图表渲染 |
-| **P2** 早测系统 | 2026-05-07 ~ 06-04 | 268 | 110 | 103 | 扫码考勤、在线答题、判分、运维 |
-| **调研** · 需求沉淀 | 2026-06-05 ~ 07-12 | 0 | | | 39 天。学期末 / 假期，系统在线上照常运行；对标 Canvas SpeedGrader、Examplify |
-| **P3** 作业系统 v2 | 2026-07-13 ~ 08-02 | 59 | 34 | 19 | 收发作业、手写批改、评分量表 |
-| **调研** · 课堂反馈 | 2026-08-03 ~ 08-09 | 0 | | | 7 天。收集一线使用反馈，形成 P4 的全部需求 |
-| **P4** 学生自助闭环 | 2026-08-10 ~ 08-14 | 56 | 20 | 28 | 生词本、错题本、PWA、补考 |
-
-提交类型分布（全项目）：`fix` 197 · `feat` 189 · `docs` 24 · `chore` 14 ·
-其他 48。**修复多于新功能**，这是一个每天在真实课堂使用的系统的正常形态。
-
-**关于两段零提交期**：这两段时间系统在线上照常运行，学生每个工作日照常
-使用。不写代码不等于项目停下 —— P3 的产品形态（对标 Canvas SpeedGrader
-与 Examplify）和 P4 的全部需求（生词本、错题本、补考），都是在这两段
-时间里从真实课堂里攒出来的。功能想清楚再动手，比边写边改省得多。
+| 指标 | 值 |
+|---|---:|
+| NestJS module | 44 |
+| controller | 42 |
+| service | 71 |
+| HTTP 端点 | 282（GET 117 / POST 115 / PATCH 27 / DELETE 16 / PUT 7） |
+| Prisma model | 71 |
+| `@@index` / `@@unique` | 95 |
+| migration | 18 |
+| 遗留 TODO / FIXME | 1 |
 
 ---
 
-## 四、分阶段详述
+## 二、架构
 
-### P1 · 试卷生成 MVP（2026-04-27 ~ 05-06）
+### 2.1 服务拓扑
 
-**提交 83 次**
+```
+                    ┌──────────────┐
+   学生手机 / iPad ──│  apps/web    │  React SPA + PWA（Vite 构建，静态托管）
+   老师浏览器       └──────┬───────┘
+                           │ fetch，Bearer JWT
+                    ┌──────▼───────┐
+                    │  apps/api    │  NestJS，单副本
+                    │              │  ├ 44 module / 282 端点
+                    │              │  ├ @nestjs/schedule 内置 cron
+                    │              │  └ Puppeteer 常驻 browser 实例
+                    └──┬────────┬──┘
+             Prisma    │        │  HTTP + X-Internal-Token
+                    ┌──▼──┐  ┌──▼──────────────┐
+                    │ PG  │  │ services/pdf-   │  FastAPI
+                    │     │  │ worker (Python) │  PyMuPDF 渲染 / OCR
+                    └──▲──┘  │                 │  schemdraw 电路
+                       │     │                 │  RDKit 化学结构
+                 只读   │     └─────────────────┘
+                 SELECT │
+                    ┌──┴──────────────┐
+                    │ ops-dashboard   │  Express + node-pg，独立 service
+                    └─────────────────┘  只读 / 无 PII / 不碰主 API
+```
 
-项目从一次提交开始：`Initial commit: Phase 1 MVP exam paper generation
-system`（04-27）。前十天完成了整条出卷链路。
+**为什么 PDF 处理拆成 Python 服务**：理科题目的图不是贴图，是渲染出来的
+——电路走 `schemdraw`、化学结构走 `RDKit`、PDF 页面栅格化走 `PyMuPDF`。
+这三个库在 Python 生态里成熟且无可替代，Node 侧没有等价物。拆成独立
+service 而非在 Node 里 spawn Python，是因为 Railway 上每个 service 独立
+构建镜像，Python 依赖（RDKit 尤其重）不必污染 API 的构建。
 
-主要交付：
+代价：跨服务传图只能走 base64 over HTTP —— Railway 的 volume 是 service
+私有的，没有共享文件系统。单页大约几百 KB 到几 MB，对内部调用可接受，
+`main.py` 顶部的 docstring 里明确记了这个取舍。
 
-- **题库与抽题**：按考纲、章节、题型、难度打标签；模板驱动的组卷。
-- **PDF 出卷**：Puppeteer + KaTeX，封面页、markdown 表格、答案卷分离。
-- **学科图表渲染**（04-30 集中落地，Phase 6–11）：
-  数学几何精确 SVG、Graphviz 流程图、物理受力/波形/能级、
-  电路（schemdraw）、光路、化学结构（RDKit）、统计图表。
-  这是这个系统区别于通用出卷工具的地方 —— 理科题目的图不是贴图，是渲染出来的。
-- **一键 AI 出卷**（04-29）：70–90 秒产出题目 + 图 + PDF；混合章节模拟卷。
-- **考纲扩充**：CIE 4024 O-Level Math、Edexcel 4MA1 IGCSE Math。
+**ops-dashboard 为什么独立**：三条硬约束写在 `server.js` 头部 —— 只读
+（只跑 SELECT）、只出聚合量（无学生姓名、无个人分数）、不碰主 API。
+因为它要暴露在一个可以随手打开的 URL 上，把它和主 API 物理隔离，
+误操作和数据泄露的面就都被限制住了。
 
-### P2 · 早测系统（2026-05-07 ~ 06-04）
+### 2.2 monorepo 布局
 
-**提交 268 次** —— 全项目最密集的阶段，单周峰值 127 次提交（W19）。
+```
+apps/api              NestJS 后端
+apps/web              React 前端
+apps/ops-dashboard    只读运维台
+apps/miniprogram      微信小程序
+packages/shared-types 前后端共享类型
+services/pdf-worker   Python PDF / 图形渲染
+```
 
-起点是 05-07 的 `feat(morning-quiz): backend foundation for attendance
-+ morning quiz`。这一阶段把系统从「老师的出卷工具」变成了「学生每天要用的产品」。
+npm workspaces，根 `package.json` 用 `concurrently` 同时起 API 和 Web。
+`packages/shared-types` 刻意保持得很薄 —— Prisma 生成的类型已经覆盖了
+大部分数据结构，再往上抽象只会增加耦合。
 
-主要交付：
+### 2.3 请求链路上的三层守卫
 
-- **扫码考勤**：QR + HMAC 签名、时间窗（08:30 到场 / 08:40 迟到线 /
-  09:00 收卷）、同设备防代签、多难度分层（一个班一天多场）。
-- **在线答题**：五种 O-Level 题型 UI（Comprehension / Cloze /
-  VocabInContext / SentenceTransformation / McqList）、雅思阅读题型、
-  防作弊题序与选项乱序（`QuestionShuffleMap`）。
-- **判分流水线**：客观题交卷即判；主观题进人工队列。
-  05-22 曾上线批量 AI 判分（`feat(r15-followup-20)`，批处理 + Haiku +
-  缓存 + 延迟判分，成本降约 15 倍），后于 P4 阶段因预算耗尽全面停用，
-  改为教师在会话中逐条判分。
-- **运维硬化**：异地数据库备份 + 恢复演练（06-03）、14 天滚动 + 12 个月
-  长期归档、级联删除保护（禁止误删学生答卷）。
-- **学生触达**：PWA 可安装（05-28，规避 App Store 与 ICP 备案）、
-  微信小程序（同日）、成绩自助查询页。
+`app.module.ts` 里全局注册，顺序有意义：
 
-**关键技术决策**：
+```ts
+{ provide: APP_GUARD, useClass: RateLimitGuard },   // 先
+{ provide: APP_GUARD, useClass: AuthGuard },        // 后
+{ provide: APP_FILTER, useClass: GlobalExceptionFilter },
+```
+
+RateLimit 排在 Auth 之前，这样匿名请求打 `/auth/login` 的暴力破解会在
+认证之前就被挡掉。顺序反过来的话，`@Public` 路由直接穿过 AuthGuard，
+限流形同虚设。
+
+限流器是自己写的进程内固定窗口（`common/rate-limit.guard.ts`），没用
+`@nestjs/throttler`。理由写在文件头：单副本部署下进程内计数就够，省一个
+运行时依赖和它的 `cache-manager` peer。装饰器签名 `@RateLimit({ limit,
+windowSec, scope })` **刻意和 throttler 保持一致**，将来上多副本时换成
+throttler + Redis 是机械替换。
+
+---
+
+## 三、数据模型
+
+71 个 model。核心链路是四张表：
+
+```
+PaperAssignment ──1:N── StudentSubmission ──1:N── AnswerScript
+       │                        │
+       │                        └──1:1── Attendance
+       └── Paper ──1:N── PaperQuestion
+```
+
+### 3.1 快照模式
+
+`PaperQuestion` 存 `snapshotContent` / `snapshotOptions`，而不是外键指向
+`Question` 的当前内容。试卷一旦发出去，题目内容必须冻结 —— 题库里的题
+会被编辑、会被撤回、会出新版本，而学生三个月后回看自己的答卷，看到的
+必须是当时那道题。
+
+同理，`MistakeEntry` 收录错题时冻结题干 / 学生答案 / 评语 / 正确答案
+四份快照。`mistake.service.ts` 头部写了原因：卷子可能被改、分数可能被
+重判，而错题本必须能长期回看。
+
+**唯一的例外是客观题解析**：2026-08-13 决定把解析写进题库（`Question`），
+不冻结进错题本。因为解析会持续迭代（人工补写了 155 条），冻结等于把
+所有学生锁在第一版解析上。读取时 join，接受这一次额外查询。
+
+### 3.2 级联删除策略不统一，三种模式各有理由
+
+| 关系 | 策略 | 理由 |
+|---|---|---|
+| `StudentSubmission.student` | `onDelete: Restrict` | 删学生账号不能把成绩审计链一起删掉 |
+| `AnswerScript.submission` | `onDelete: Cascade` | 答卷是提交的一部分，无独立意义 |
+| `GradeAppeal.paperQuestion` | `onDelete: SetNull` | 申诉可以针对整张卷（`paperQuestionId` 为 null） |
+
+`Restrict` 那条是踩过才加的 —— schema 注释里标着 `B4`。
+
+### 3.3 索引按实际查询加，不按直觉
+
+95 个索引 / 唯一约束，好几个带着为什么要加的注释：
+
+```prisma
+// Round-7 H15 — MorningQuiz schedule reads use
+// `WHERE classId = ? AND date >= ?`；unique 是 (date, classId)，
+// 对这个过滤条件列序不对，planner 需要 (classId, date)。
+@@index([classId, date])
+```
+
+```prisma
+// Round-7 H17 — MarkerService.listQueue 按 status='submitted'
+// 且存在未判 script 过滤。没有 (assignmentId, status) 时
+// planner 会回退到 (assignmentId, studentId) 再内存过滤。
+@@index([assignmentId, status])
+```
+
+### 3.4 一个被唯一约束绊住的设计
+
+`StudentSubmission` 原本有 `@@unique([assignmentId, studentId])`。加练习
+模式时发现：学生不能在有正式提交的同时再有一份 `practice` 提交。
+
+Postgres 支持带 `WHERE` 的部分唯一索引，但 Prisma schema 表达不了。
+最后的做法是**去掉约束，把非练习提交的唯一性下沉到 service 层**
+（`finalSubmit` 和发卷流程都先 `findFirst`），练习提交自由写入，
+全局靠 `status != 'practice'` 过滤。
+
+这是一处真实的取舍：用应用层不变量换掉了数据库层保证。代价是每一处
+统计查询都必须记得排除 `practice` —— 2026-08-14 判分时漏过一次，
+练习提交污染了导出。
+
+---
+
+## 四、关键子系统
+
+### 4.1 扫码考勤：两代 QR token
+
+`apps/api/src/qr/qr.service.ts`
+
+**v1 — 轮转码**（投影仪场景）：
+
+```
+v1.<windowStartMs>.<hmac16>.<sessionId>
+```
+
+每 `qrRotationSeconds`（默认 15s）一个窗口，HMAC-SHA256 用 session 自己
+的 `qrSecret` 签 `${sessionId}.${windowStart}`，取前 16 位十六进制。
+校验用 `timingSafeEqual`，先比长度再比内容。
+
+容差 `TOLERANCE_MS = 60_000`，是从 30s 调上来的。文件里记了原因：
+学生从「举起手机」到「扫码 API 被调用」的真实延迟在忙碌的早晨常常
+30–60 秒 —— 抬手、对焦、点开页面、输名字、选难度。原来 30s 容差 + 15s
+窗口 = 45s 总接受窗口，正在误杀合法扫码，学生那头看到的是「二维码失效」。
+现在 60 + 15 = 75s，仍然紧到能拒掉昨天截屏的码。
+
+**v2 — 静态码**（贴墙场景）：
+
+```
+v2.<classId>.<hmac16>              三段，原始码
+v2.<classId>.<variant>.<hmac16>    四段，带标签的分身码
+```
+
+不含时间戳、不含 session secret，只签 classId，所以可以提前几个月生成、
+印一次、贴墙上，不用每天架笔记本和投影仪。签名用 `JWT_SECRET`，输入做了
+域分隔（`qr-static.v2.<classId>`）以免和真的 JWT 撞上。
+
+这里签名的作用被明确降级了 —— 注释写着：classId 本身不是秘密（它就印在
+公开的墙上），HMAC 只是让 `verify` 能快速拒掉手打的垃圾 token。真正的
+考勤完整性靠下游没变的几道闸门：时间窗、名单校验、设备去重、现场监考。
+
+代价也写清楚了：`JWT_SECRET` 一旦轮换，所有印出去的 v2 码全部失效，
+必须重印。可接受 —— 密钥轮换很罕见且动静很大。
+
+**分身码（variant）是个诱捕机制**：贴墙码固定不变，学生完全可以拍成
+照片带回家扫。做法是同一个班同时签发多张**都能用**的码，各带一个标签；
+换墙上那张时不通知学生。当天扫到旧标签的，用的必然是之前拍的照片。
+两张码扫起来体验完全一样，后台能分辨。
+
+```ts
+export function normaliseVariant(v?: string | null): string | undefined {
+  const s = (v ?? '').trim().toLowerCase();
+  if (!s) return undefined;
+  if (s === ORIGINAL_VARIANT) return undefined;   // 'original' 是旧码保留名
+  return /^[a-z0-9-]{1,16}$/.test(s) ? s : undefined;   // 带点会破坏分段解析
+}
+```
+
+`verify` 同时接受三段和四段，返回值多一个 `qrVariant` 字段，
+`ORIGINAL_VARIANT` 代表未带标签的旧码。
+
+注释里也标了这个机制的**有效期**：这是一次性证据 —— 换码当天有效，
+之后新码同样会被拍照传播，需要定期换标签。
+
+### 4.2 扫码的五道闸门
+
+`attendance.service.ts::scanQr`
+
+1. **QR 校验** —— HMAC + 新鲜度（v1）或签名（v2）
+2. **session 状态** —— 必须 `active`
+3. **名单** —— 输入的姓名要能解析到该班在册（`isActive`）的学生
+4. **时间窗** —— `on_time` / `late` / `absent` / 补考
+5. **设备去重** —— 同一 `deviceUuid` 在同一 session 里不能签两个人
+
+`deviceUuid` 是设备首次访问时 localStorage 生成的 UUID，之后每次扫码
+带上。防的是「一台手机代签 30 个人」。冲突时硬拒并返回冲突学生姓名；
+合法边界情况（B 手机没电借了 A 的）走人工更正流程。`userAgent` 也存，
+但只用于取证，不参与判定。
+
+**重扫不覆盖已有状态**。这是修出来的：学生 08:31:54 扫码（on_time），
+页面刷新或退回去，08:36:01 又扫一次 —— 原来的 upsert 无条件写
+`scanTime = now` 并用 `now` 重算状态，于是第二次扫码把记录从 on_time
+翻成了 late。2026-05-14 有真实学生因此被记迟到。
+
+```ts
+const existing = await this.prisma.attendance.findUnique({ ... });
+const isAlreadyPresent = !!existing &&
+  (existing.status === AttendanceStatus.on_time ||
+   existing.status === AttendanceStatus.late);
+// 已 present 的行：只刷新指纹元数据，保留 scanTime 和 status
+// absent 的行（lock cron 提前种下的）：允许用 now 提升
+```
+
+### 4.3 补考：为什么另开一对时间窗
+
+学校 2026-08 新政：早上无故缺席 → 中午补考。
+
+第一次补考（2026-08-13）没有这个功能，只能用 `debug-activate` 把正式
+时间窗整个挪到 13:21。后果是早上的真实时间和缺席记录一起没了，三名
+补考学生还被记成「准时出勤」。
+
+修法是在 `MorningQuizSession` 上加一对独立字段，正式窗口永远不动：
+
+```prisma
+makeupStart      DateTime?
+makeupEnd        DateTime?
+makeupOpenedById String?
+```
+
+Gate 5 多一个分支：
+
+```ts
+} else if (isMakeupWindowOpen(session, now)) {
+  attendanceStatus = AttendanceStatus.absent;   // 照旧记缺席
+  isMakeupScan = true;                          // 只额外盖一个 makeupAt
+}
+```
+
+出勤状态保持 `absent` 是有意的 —— 早上确实没来是既成事实，同步 Seiue
+要照实报；补考补回的是学业内容，不是出勤。面板据 `makeupAt` 显示
+「缺席 · 已补考」。
+
+连带要改 lock cron，否则中午一开补考，每分钟跑的 cron 立刻把它锁掉
+（`quizEnd` 早上 9 点就过了），补考窗口活不过一分钟：
+
+```ts
+OR: [{ makeupEnd: null }, { makeupEnd: { lt: now } }],
+```
+
+### 4.4 防作弊：确定性打乱
+
+`apps/api/src/shuffle/shuffle.service.ts`
+
+每个 (学生, 试卷) 对生成一份持久化的置换表，存进 `QuestionShuffleMap`：
+
+```ts
+const seedHex = createHash('sha256')
+  .update(`${studentId}.${paperId}`)
+  .digest('hex').slice(0, 16);
+const rng = mulberry32(seedFromHex(seedHex));
+const questionOrder = fisherYates(indices, rng);
+```
+
+Mulberry32（32 位状态的小型确定性 PRNG）+ Fisher-Yates。用确定性 PRNG
+而不是 `Math.random()`，是为了 seed 可复现 —— 排查「学生说他看到的题跟
+别人不一样」时能重放出他当时看到的顺序。
+
+选项置换按 `paperQuestionId` 建键，而不是 questionId：
+
+```ts
+// Key by paperQuestionId so the answer-grading path can resolve directly
+// off AnswerScript.paperQuestionId without a join back to Question.
+optionOrders[pq.id] = fisherYates(ids, rng);
+```
+
+判分时 `unmapOptionIndex` 把学生看到的下标反解回原始下标，
+既有判分逻辑不用知道打乱这回事。
+
+**缓存失效处理**：试卷被编辑（加题 / 删题）后，缓存的 `questionOrder`
+长度就对不上了，`applyToPaper` 会抛长度不匹配；MCQ 的 `optionOrders`
+缺键则会静默跳过打乱。所以 `getOrCreate` 每次都校验缓存是否仍然有效
+（题数一致、每个 MCQ 的选项数一致），无效就删掉重新生成 —— 宁可重算，
+不能给学生发一个错位的半截置换。
+
+### 4.5 判分流水线：三段式 lockOne
+
+`morning-quiz.cron.ts`
+
+cron 每分钟跑，管两个状态转移：
+
+- `attendanceStart` 前 5 分钟 → `scheduled` 翻 `active`
+- `quizEnd` 到点 → `active` 翻 `locked`，强制交卷 + 补缺席行
+
+**预激活为什么是 5 分钟而不是 30 秒**：cron 只在整分钟跳。原来 30s 缓冲
+在 08:29:00 那一跳，`upper = 08:29:30 < attendanceStart = 08:30:00`，
+不激活；真正激活要等 08:30:00 那一跳，等于窗口在 08:30:00 整点才开。
+08:29:5x 扫码的学生（手机相机 + Chrome 冷启动延迟）看到「考勤窗口尚未
+开启」然后慌了，改用微信扫又成了 —— 这是 2026-05-28 的真实报障。改成
+5 分钟后，08:25:00 那一跳就激活。Gate 5 仍然挡住提前提交，所以只是名单
+查询提前可用，不会多录一条考勤。
+
+**lockOne 拆成三段，中间不持有事务**：
+
+```
+Phase 1  一个小而快的事务：session → locked，in_progress → submitted
+         （autoScore=0 占位），补缺席行，统计 claim 率
+Phase 2  事务外加载每份提交的 scripts
+Phase 3  逐份提交：判分（慢），然后一个极小的写事务；单份失败只记日志不影响其余
+```
+
+拆开的原因是 Prisma 交互式事务默认 5 秒超时。30 个学生 × 10 道短答，
+判分调用轻易超时，整个 lock 回滚，session 卡在 `active` 状态过了
+`quizEnd` 还没锁。
+
+**幂等守卫**（2026-08-13 事故后加），两层：
+
+```ts
+// 提交级：已定稿的卷子不重判
+const allSubs = await this.prisma.studentSubmission.findMany({
+  where: { assignmentId, status: { notIn: ['practice', 'marked'] } },
+});
+// script 级：markedById 有值的绝不覆盖
+const already = await tx.answerScript.findUnique({
+  where: { id: u.id }, select: { markedById: true },
+});
+if (already?.markedById) continue;
+```
+
+### 4.6 多难度层带来的组合问题
+
+一个班一天可以跑多个难度层（`ClassEnglishLevel` 是 1:N）。学生扫码时
+只选一个层，于是产生了两个 bug：
+
+**缺席行爆炸**：47 人的班 × 3 个层 = 每天 141 条考勤行，其中 94 条是
+另外两个层的假缺席。修法是只有当天**第一个锁定的** session 插缺席行，
+后锁的兄弟 session 看到已有兄弟 `locked` 就跳过；再叠一层 —— 今天在该班
+任意 session 有非缺席记录的学生，一律不插。
+
+**全员缺席误报**：`mass_absence` 告警（本来是防投影仪坏了）在兄弟层上
+每天早上都误触发，因为那两个层 `claimedCount = 0`。修法是把统计口径
+从「本 session」改成「整个班这一天」—— 只有全班今天在哪儿都没扫，
+才是真的出事了。阈值：名单 ≥ 5 人且 ≥ 90% 没扫。
+
+还有一层纵深防御：周末的 session 不插缺席行。2026-05-10 是周日，有一场
+session 漏过了创建时的边界检查，全班被记了一次缺席。
+
+### 4.7 间隔重复：FSRS 及其一个陷阱
+
+`apps/api/src/vocab/vocab-review.service.ts`，用 `ts-fsrs`（MIT，纯本地
+计算，不涉及任何 API 调用）。
+
+选 FSRS 而不是 SM-2：FSRS 基于约 7 亿次真实复习数据训练，同等记忆留存下
+比 SM-2 少 20–30% 的复习量。本场景每天只能挤出 2–3 分钟（复习寄生在
+交卷后的既有流程里），这 20–30% 是决定性的。
+
+**踩到的坑值得单独说**：
+
+```ts
+const PARAMS = generatorParameters({
+  enable_fuzz: false,
+  learning_steps: [],      // ← 取消日内学习步进
+  relearning_steps: [],
+});
+```
+
+FSRS 默认 `learning_steps = ['1m','10m']`，卡片要连续答对两次才毕业到
+Review 态，而「现在处于第几步」记在 `Card.learning_steps` 上。我们把调度
+状态**拆成列**存在 `StudentWord` 里（stability / difficulty / reps /
+lapses / elapsedDays / scheduledDays…），**唯独没有这一列**，还原 Card 时
+只能填 0 —— 于是每次复习都把卡片重置回第一步，永远毕业不了，间隔恒为
+0 天，间隔重复完全失效。实测连续答对 6 次仍是 0 天。
+
+去掉日内步进后，第一次答对即进入 Review 态，间隔按天走：
+**2 → 11 → 46 → 163 → 497 天**。
+
+顺带一提，学生看到的 `state` 标签（learning / review / known）**不参与
+调度**，纯粹按下次间隔长短分档：< 7 天叫「还在学」，≥ 60 天叫「已掌握」
+（`due` 查询跳过它）。调度完全由 FSRS 的 stability / difficulty 决定。
+FSRS 有 New/Learning/Review/Relearning 四态，我们没有 Relearning，
+落库时归为 learning；`known` 送进 FSRS 时按 Review 处理。
+
+每日上限默认 5 个，硬编码上界 20。理由写在方法注释里：复习是插在交卷后
+的，学生已经答了 30 分钟题，给 20 个词只会让他直接跳过。
+
+### 4.8 错题本：收录规则是纯函数
+
+`apps/api/src/vocab/mistake.service.ts`
+
+第一设计目标是**短**。全班每天约 34 份卷、每份 13–19 题，全收一周上千条；
+生词本已经验证过这条路走不通 —— 80 条到期未复习积压着没人动。
+
+四条规则，实现成一个可测的纯函数：
+
+```ts
+export function shouldCollect(s, repeatCount): MistakeReasonKey | null {
+  if (s.awarded >= s.maxMarks) return null;          // 满分不收
+  if (!s.studentAnswer.trim()) return null;          // 规则1：空白不收
+  if (extractVocabWord(s.stem)) return 'vocabulary'; // 规则3：词义题
+  if (s.maxMarks >= 2) return 'long_answer';         // 规则4：长答题
+  if (repeatCount + 1 >= REPEAT_THRESHOLD) return 'repeated_tasktype';
+  return null;
+}
+```
+
+**规则 1（空白不收）是最重要的一条**。上线两周的数据：准时到的学生空白率
+26.5%，迟到 20 分钟以上的高达 95.6%。空白是行为问题不是知识问题 —— 学生
+不是「不会」，是「没写」。把空白塞进错题本，等于用一堆「你没写」淹掉真正
+值得复盘的那几道。空白率有它自己的指标盯着（技能画像、周报）。
+
+**阈值 `REPEAT_THRESHOLD = 2` 是刻意定低的**：一周只有 4 场早测，每场
+每题型 3–4 道，阈值定高了整学期都触发不了。
+
+**销账规则**是 FSRS 的极简版：
+
+```ts
+export function nextPracticeState(prev, correct, now) {
+  if (!correct) return { correctStreak: 0, resolved: false };
+  const today = sgtDayOf(now);
+  const lastDay = prev.lastPracticedAt ? sgtDayOf(prev.lastPracticedAt) : null;
+  let streak = prev.correctStreak;
+  if (streak <= 0) streak = 1;
+  else if (lastDay !== today) streak += 1;   // 同一天不叠加
+  return { correctStreak: streak, resolved: streak >= 2 };
+}
+```
+
+做对一次 streak 升 1，**隔天**再做对才升到 2 并自动销账。同一天内反复
+做对不叠加 —— 刚看完答案马上重做是短时记忆，不算掌握。错题量级小
+（人均几十条），两点确认足够，不需要完整的记忆曲线调度。
+
+「隔天」必须按新加坡自然日判定：
+
+```ts
+export function sgtDayOf(d: Date): string {
+  return new Date(d.getTime() + 8 * 3600_000).toISOString().slice(0, 10);
+}
+```
+
+练习的作答方式由题型推导，不是配置出来的：
+
+```ts
+export function practiceKindOf(taskType, passage) {
+  if (taskType === 'true_false_not_given')
+    return { kind: 'tfng', options: ['TRUE', 'FALSE', 'NOT GIVEN'] };
+  if (taskType === 'yes_no_not_given')
+    return { kind: 'tfng', options: ['YES', 'NO', 'NOT GIVEN'] };
+  if (taskType === 'matching_information') {
+    // 从原文里抠出实际存在的段落字母，而不是假定 A–G
+    const letters = [...new Set(
+      [...passage.matchAll(/Paragraph\s+([A-Z])\b/g)].map((m) => m[1]))];
+    if (letters.length >= 3) return { kind: 'letters', options: letters.sort() };
+  }
+  return { kind: 'reveal', options: [] };   // 主观题：Anki 式翻卡自评
+}
+```
+
+`matching_headings` 刻意不走 letters 分支 —— 它的答案是标题编号（i–x），
+跟段落字母不是一套体系。
+
+### 4.9 前端：题型渲染注册表
+
+`apps/web/src/components/exam/QuestionTypeRegistry.tsx`
+
+六种题型组件（IELTS Reading passage、O-Level 的 Comprehension / Cloze /
+VocabInContext / SentenceTransformation / McqList），由 `pickRenderer`
+按**数据**而非 `level` 字段分派：
+
+1. `paperMode === 'passage_pick'` 或首题 `taskType` 属于 IELTS 家族
+   （`matching_*` / `*_completion` / `true_false_not_given` …）→ IELTS 壳
+2. 首题 `snapshotContent.uiKind` 为 `cloze` / `vocab` / `transformation`
+   → 对应 O-Level 壳
+3. 有 passage 但没有 IELTS taskType → Comprehension
+4. 兜底 → McqList
+
+注释里写明了意图：一切由题目数据驱动，registry 保持 level-agnostic，
+`level` 只是提示不是判据。加一种新题型 = 这里一个 case 加一个组件文件。
+
+还有一张空卷兜底卡 —— schema 并不严格禁止零题的 paper（管理员改到一半、
+AI 生成半失败、清理竞态），而早期渲染器直接索引 `questions[0]`。
+
+考试外壳的共享件在 `components/exam/shared/`：计时器、题号导航、
+可拖拽分栏、字号调节、荧光笔、便签、离线徽章、行内填空输入。
+
+### 4.10 出卷 PDF
+
+`pdf.service.ts` 持有一个常驻的 Puppeteer `Browser` 实例（`browserPromise`
+懒加载，`OnModuleDestroy` 时关闭），把 HTML 模板渲染成 PDF。数学公式走
+KaTeX **服务端**渲染成 HTML，不依赖浏览器里的 JS。
+
+学科图表分两路：能用 SVG 直接画的（几何、受力、波形、能级、光路）在
+Node 侧生成（`ai/svg-diagram.service.ts`，1167 行）；需要专业库的
+（电路 schemdraw、化学结构 RDKit）走 pdf-worker。
+
+pdf-worker 的所有端点（除 `/health`）都要 `X-Internal-Token`。原本
+`/render_circuit` 和 `/render_molecule` 是开放的，而 pdf-worker 在 Railway
+上默认有公网 URL —— 任何人都可以用复杂 SMILES 或 30 元件电路把它打挂。
+
+---
+
+## 五、横切关注点
+
+### 5.1 三种 token
+
+`common/auth.guard.ts`
+
+| token | 用途 | 约束 |
+|---|---|---|
+| 普通 JWT | 老师 / 管理员 / 学生登录 | `expiresIn` 默认 7d |
+| scan token | 扫码成功后签发，让前端能调 take / answer / submit | `role='student'`，短时效 |
+| handoff token | 从扫码的手机换到第二台设备答题（AirDrop 题目 URL 到 MacBook） | `scope='mq_handoff'` + `mqs=<sessionId>` |
+
+handoff token 是刻意做窄的凭证：它是一个合法的学生 JWT（能过 verify），
+但 AuthGuard 在**除了** `@AllowHandoff` 装饰的路由之外的所有路由上拒绝它，
+并且只在路由的 session id 与 `mqs` 匹配时放行。所以一个泄露的 handoff
+链接只能碰那一场考试，别的什么都碰不到。
+
+### 5.2 判分开关
+
+铁律是零 Anthropic 调用（出题 / 审核 / 判分全部人工在 chat 里做）。
+但代码里原本无条件把 evaluator 传下去，`ShortAnswerEvaluatorService`
+只要 `ANTHROPIC_API_KEY` 不是占位值就会建出真实 client —— 线上这个 key
+是真的。也就是说每个考试日 09:00 都会对每份含长参考答案短答的提交发
+一次真实请求，挡住它的**只是额度是空的，不是任何开关**。一旦充值就会
+静默开始自动判分。
+
+现在收敛成一个显式开关，默认关：
+
+```ts
+const aiGradingOn = process.env.MORNING_QUIZ_AI_GRADING === 'on';
+const rawGrade = aiGradingOn
+  ? await autoGradeScripts(sub.scripts, this.evaluator)
+  : await autoGradeScripts(sub.scripts, undefined, { deferAi: true });
+```
+
+`deferAi` 路径下 MCQ 照常即时判，短答一律 park 进人工队列。人工判分走
+`/api/marker/*`：`GET queue` → `POST claim` → 逐条 `PATCH scripts/:id`
+→ `POST finalize/:submissionId`，finalize 之后提交状态变 `marked`，
+就被 §4.5 的幂等守卫保护住了。
+
+`autoGradeScripts` 的返回契约里，`autoCorrect: null` 表示「AI 失败 /
+无结论 / 被 defer」→ 进人工队列，与 `false`（判定为错）区分开。
+
+### 5.3 时区
+
+`quizStart` / `quizEnd` / `attendanceStart` 是 `timestamp without time zone`，
+存的是 UTC 挂钟时间（00:30 = 08:30 SGT）。**所有跨日计算必须在 SQL 里做，
+不能在 JS 里做** —— 这是踩过好几次的地方。`sgtDayOf`（API）和 ops-dashboard
+的 `sgtToday()` 都是为此存在的辅助函数。
+
+QR 的 `resolveTodaySession` 也依赖这个约定：静态码只带 classId，
+扫码时按「当前 UTC 日历日」定位当天的 session，因为考勤窗口 08:30 SGT
+== 同一日期的 00:30 UTC。
+
+---
+
+## 六、测试
+
+49 个测试文件，460 项断言，7,076 行，vitest。
+
+| | 文件 | 断言 |
+|---|---:|---:|
+| 后端（`*.spec.ts`） | 31 | 348 |
+| 前端（`*.test.tsx`） | 18 | 112 |
+
+测试集中在**纯函数和边界判定**，而不是端到端：`shouldCollect`、
+`nextPracticeState`、`practiceKindOf`、`gradeMcq`、`hasWrittenAnswer`、
+`cleanMarkerComment`、`normaliseVariant`、rate-limit 窗口、
+auth guard 的 handoff 约束、试卷结构校验器、补考窗口判定。
+
+这是刻意的：这个系统里最容易出错、后果最重的地方是判定逻辑
+（这道题该不该收、这次扫码算不算迟到、这条评语该不该显示给学生），
+而不是 HTTP 管道。所以关键判定一律抽成可导出的纯函数。
+
+测试文件本身带着事故背景。`MyHistoryDetailPending.test.tsx` 头部：
+
+> 坑在于：**没作答的题在数据库里根本没有答题记录行**，接口是拿试卷
+> 题目补出来的，`awardedMarks` 因此是 null —— 和「写了但还没判」完全
+> 一样。原来只看 `awardedMarks`，于是每一道留空的简答题都被显示成
+> 「⏳ 待老师批改」…… 这个班空白率 26%–95%，等于绝大多数复盘页永久
+> 挂着一条假提示，学生会一直等一个永远不会来的分数。
+
+---
+
+## 七、时间线
+
+| 阶段 | 时间 | 天数 | 提交 | feat | fix | 主题 |
+|---|---|---:|---:|---:|---:|---|
+| **P1** 试卷生成 MVP | 04-27 ~ 05-06 | 10 | 83 | 34 | 46 | 题库、抽题、PDF、学科图表渲染 |
+| **P2** 早测系统 | 05-07 ~ 06-04 | 29 | 268 | 108 | 103 | 扫码考勤、在线答题、判分、运维硬化 |
+| 需求沉淀 | 06-05 ~ 07-12 | 38 | 0 | — | — | 学期末 / 假期；系统在线运行 |
+| **P3** 作业系统 v2 | 07-13 ~ 08-02 | 21 | 59 | 31 | 19 | 收发闭环、Apple Pencil 批改、rubric |
+| 日常运维 | 08-03 ~ 08-09 | 7 | 5 | 0 | 1 | 每日人工判分（`grade:` 提交） |
+| **P4** 学生自助闭环 | 08-10 ~ 08-14 | 5 | 60 | 19 | 28 | 生词本、错题本、PWA、补考、分身码 |
+
+提交类型：`fix` 197 · `feat` 192 · `docs` 27 · `chore` 14 · `grade` 10 ·
+其他 35。**fix 多于 feat**，对一个每天在真实课堂运行的系统是正常形态。
+
+`grade:` 是一类专属前缀 —— 每天人工判分后把判分脚本和结果一起提交，
+既是审计留痕也是可回溯的判分依据。08-03 ~ 08-09 那一周只有这类提交，
+是纯运维周：没有功能开发，但系统每天在跑。
+
+06-05 ~ 07-12 是真正的零提交期（38 天，学期末 + 假期）。P3 的产品形态
+（对标 Canvas SpeedGrader 与 Examplify）是在这段时间定下来的。
+
+### 关键技术决策
 
 | 日期 | 决策 | 原因 |
 |---|---|---|
 | 05-21 | 取消早测的校园网 IP 白名单 | 学生用移动数据时被误挡 |
-| 05-22 | 永久贴墙静态二维码 | 免去每天架笔记本/投影仪 |
-| 05-28 | PWA 而非原生 App | 无需应用商店与备案 |
-| 06-02 | 抽出 `AsyncState` UI 原语 | 统一加载/错误/重试形态 |
-
-### P3 · 作业系统 v2（2026-07-13 ~ 08-02）
-
-**提交 59 次**
-
-07-23 起以 M1–M3 里程碑推进，参照 Canvas SpeedGrader 与 Examplify
-的交互建模。
-
-主要交付：
-
-- **M1 收发闭环**：课程文件夹、作业下发、拍照提交、收卷看板。
-- **M2 iPad 手写批改**：Apple Pencil 墨迹层，仅笔尖生效（防手掌误触）。
-- **M3 评分量表**：逐题批改台、rubric 条目、AI 建议接缝（未接真实调用）。
-- **v2 完整能力**：区域框选、纵向批改、批注、重判、通知、分析、CSV 导出、
-  历史版本；PDF 作为一等公民（内联预览 + 直接在 PDF 页上书写）。
-- **早测内容治理**：07-27 停用「轻雅思」（`ielts_simplified`）难度层；
-  按 SEAB 1184 考核目标重校 34 份 O-Level fixture。
-
-### P4 · 学生自助学习闭环（2026-08-10 ~ 08-14）
-
-**提交 56 次**
-
-这一阶段的驱动力全部来自真实课堂反馈，主题是**把「判完分」变成「学得到」**。
-
-主要交付：
-
-- **生词本**（08-11 ~ 08-12）：文章内点词查释义（本地 ECDICT 词典，
-  零 API）、加入生词本并保存语境句、FSRS 间隔重复、百词斩式自测出题。
-- **PWA 安装引导**（08-12）：分机型九张自绘分步截图，后按教师真机实拍重做。
-- **错题本 v1 → v2**（08-13）：四条收录规则（空白不收 / 同题型反复错 /
-  词义题 / 长答题）；v2 为 155 道客观题补齐中文解析与原文证据句，
-  加入「隔天两次做对才销账」的重练闭环。
-- **补考制度**（08-13）：早上无故缺席 → 中午补考，独立时间窗，
-  出勤仍记缺席。
-- **贴墙码分身**（08-13）：同一班同时签发多张都能用的二维码，
-  后台可分辨学生扫的是哪一张。
-
-**关键技术决策**：
-
-| 日期 | 决策 | 原因 |
-|---|---|---|
-| 2026-08 | **零 Anthropic API 调用** | 额度耗尽；出题、审核、主观题判分全部改为教师在会话中完成 |
-| 08-13 | 补考另开时间窗，不改正式窗口 | 见「生产事故」第 3 条 |
-| 08-13 | 客观题解析写进题库而非冻结进错题本 | 解析会迭代，冻结会锁死旧版本 |
+| 05-22 | 引入 v2 静态贴墙码 | 免去每天架笔记本 / 投影仪；接受「可被拍照」的已知弱点 |
+| 05-28 | PWA 而非原生 App | 无需应用商店与 ICP 备案 |
+| 05-28 | 扫码容差 30s → 60s | 真实抬手到调用的延迟是 30–60s，原值在误杀合法扫码 |
+| 06-02 | 抽出 `AsyncState` UI 原语 | 统一加载 / 错误 / 重试形态 |
+| 07-27 | 停用 `ielts_simplified` 难度层 | 内容质量不达标，三层收敛为两层 |
+| 08-12 | FSRS 取消日内学习步进 | 调度状态拆列存储缺 `learning_steps`，卡片永远毕业不了 |
+| 08-13 | 补考另开时间窗，不改正式窗口 | 见事故 #4 |
+| 08-13 | 客观题解析写进题库，不冻结进错题本 | 解析会迭代，冻结会锁死旧版本 |
+| 2026-08 | 零 Anthropic 调用收敛成显式开关 | 额度耗尽；且原实现只靠「额度是空的」挡着，充值即静默启用 |
 
 ---
 
-## 五、生产事故与修复记录
+## 八、生产事故
 
-真实运行的系统才会有这一节。以下均为**已在生产发生并影响到学生或数据**
-的问题，按发生时间倒序。
+已在生产发生并影响到学生或数据的问题，按时间倒序。
 
-| 日期 | 现象 | 根因 | 修复 |
-|---|---|---|---|
-| 08-14 | 判对的题显示红叉 | 对错取自交卷时的自动比对结果，人工改判后不同步 | 判过分之后一律以分数为准，并新增「部分得分」状态（`69c8ffd`） |
-| 08-13 | 空白题永久显示「待老师批改」 | 未作答的题在库中没有答题记录行，接口补出的 `awardedMarks` 为 null，与「未判」无法区分 | 按 `studentAnswer` 区分，空白显示「未作答」（`beb1f83`） |
-| 08-13 | **43 条人工判分被冲掉** | 中午开补考重新激活场次，窗口关闭后 lock cron 再跑一次，Phase 2 无条件重判整场 | 跳过已定稿的卷子 + 永不覆盖 `markedById` 有值的题（`4a98274`） |
-| 08-13 | 三名补考学生被记成「准时出勤」 | 用 `debug-activate` 开补考，它会覆写正式时间窗并删除已生成的缺席行 | 补考改为独立窗口字段，出勤照实记 absent + `makeupAt`（`3434c74`） |
-| 08-13 | 错题采集从未真正触发 | `MistakeService` 只挂在判分端点上，而实际判分走的是脚本 | 在脚本中补上采集调用（`d16b439`） |
-| 08-13 | 剑桥雅思原文误入库 | `git add` 目录时扫入未跟踪的 fixture | 移除并加 `.gitignore` 兜底；确立「逐个文件 add」规则 |
-| 08-12 | 学生装完 PWA 身份变成「测试学生」 | 默认身份写死 | 三层修复 |
-| 08-12 | 生词自测抽出冒犯性干扰项 | 干扰项从词典随机取，无过滤 | 加黑名单 + 词性匹配 |
+| # | 日期 | 现象 | 根因 | 修复 |
+|---:|---|---|---|---|
+| 1 | 08-14 | 判对的题显示红叉 | 前端取 `autoCorrect`（交卷时的自动比对结果），人工改判后不同步 | 判过分之后一律以 `awardedMarks` 为准，并新增「部分得分」状态（`69c8ffd`） |
+| 2 | 08-13 | 空白题永久显示「待老师批改」 | 未作答的题**没有 `AnswerScript` 行**，接口拿试卷题目补出来，`awardedMarks` 为 null，与「写了没判」无法区分 | 引入 `hasWrittenAnswer(studentAnswer)` 区分（`beb1f83`） |
+| 3 | 08-13 | **43 条人工判分被冲掉** | 中午重新激活场次开补考，窗口关闭后 lock cron 再跑一次，`lockOne` Phase 2 无条件重判整场；而 AI 判分是关的（走 `deferAi`），于是人工分被重置回 `null` + `[ai-pending]`，`totalScore` 被覆盖成只算选择题 | Phase 2 排除 `status='marked'`；per-script 跳过 `markedById` 非空（`4a98274`） |
+| 4 | 08-13 | 三名补考学生被记成「准时出勤」 | 用 `debug-activate` 开补考，它原地改写了正式时间窗（08:30/08:40/09:00 → 13:21/13:42/13:52）并删掉已生成的缺席行 | 补考改为独立窗口字段 + Gate 5 新分支（`3434c74`） |
+| 5 | 08-13 | 错题采集从未真正触发 | `MistakeService` 的采集只挂在判分 controller 上，而实际判分走的是 `scripts/marker-apply.ts` | 在脚本中补上采集调用（`d16b439`） |
+| 6 | 08-13 | 剑桥雅思原文误入库 | `git add apps/api` 把未跟踪的 fixture 一起扫进去 | 移除 + `.gitignore` 兜底；确立「逐个文件 add」规则 |
+| 7 | 08-12 | 学生装完 PWA 身份变成「测试学生」 | 默认身份写死 | 三层修复 |
+| 8 | 08-12 | 生词自测抽出冒犯性干扰项 | 干扰项从 ECDICT 随机取，无过滤 | 加黑名单 + 词性匹配 |
+| 9 | 05-28 | 08:29:5x 扫码报「窗口尚未开启」 | cron 只在整分钟跳，30s 预激活缓冲在 08:29:00 那一跳不生效，窗口实际 08:30:00 整才开 | 预激活提前到 5 分钟 |
+| 10 | 05-14 | 学生重扫被改记迟到 | upsert 无条件写 `scanTime = now` 并重算状态 | 已 present 的行只刷新指纹元数据 |
+| 11 | 05-10 | 周日 session 全班记缺席 | 创建时的周末边界检查被绕过 | lock cron 加纵深防御：周末 session 不插缺席行 |
 
-**从事故中固化的规则**（已写入 `CLAUDE.md` 与项目记忆）：
+### 固化下来的规则
 
 1. 绝不 `git add -A` 或 `git add <目录>`，逐个文件添加 —— 版权风险。
 2. 开补考只用 `makeup/open` 端点，绝不用 `debug-activate`。
 3. 判完分后如果又动了场次状态，必须回查一次 `ai-pending` 条数。
-4. 面向学生的判分评语不写记账流水、不用 markdown、必须给可迁移的方法。
+4. 任何「批量重算」路径必须对已定稿数据幂等。
+5. 面向学生的判分评语不写记账流水、不用 markdown、必须给可迁移的方法。
 
 ---
 
-## 六、当前系统规模
+## 九、已知技术债
 
-| 维度 | 数值 |
-|---|---|
-| 后端源码 | 45882 行 |
-| 前端源码 | 33809 行 |
-| 测试文件 | 49 个（后端 31 / 前端 18） |
-| 测试断言 | 460 项（后端 348 / 前端 112），全绿 |
-| 数据库迁移 | 见 `apps/api/prisma/migrations/` |
-| 日常使用 | G11 一个班，每工作日一场早测，两个难度层 |
+**`morning-quiz.service.ts` 4166 行**。全项目最大的文件，早测的排课、
+生成、判分、导出、画像都堆在里面。该拆，但它同时是改动最频繁的文件，
+拆分的冲突成本目前高于收益。
+
+**练习提交的唯一性只有应用层保证**。见 §3.4。每一处统计都要记得
+`status != 'practice'`，已经漏过一次。正解是 Postgres 部分唯一索引，
+但要绕过 Prisma schema 写 raw migration。
+
+**单副本假设**。进程内限流、Puppeteer 常驻实例、cron 无分布式锁 ——
+都建立在「只有一个 API 副本」上。上多副本时这三处会同时出问题。
+
+**base64 传图**。pdf-worker 的跨服务传输，单页几 MB。Railway 没有共享
+volume，短期没有更好的方案；长期应该走对象存储。
+
+**`mass_absence` 的 `claimedCount` 是近似值**。Prisma 的 `count()` 不支持
+distinct，靠 scanQr 的重复扫码保护让它约等于唯一学生数。
+
+**v2 静态码的固有弱点**。可被拍照。分身码是缓解不是根治，且需要人工
+定期换标签才有效 —— 一旦忘记换，这个机制就退化成零。
+
+**git 历史里仍有剑桥雅思原文**（事故 #6）。工作区已清理，历史未清理；
+彻底清除需要 `filter-repo` + 强推。
 
 ---
 
 ## 附录 A：统计口径与复现命令
 
-本文档的所有数字可用以下命令复现（在仓库根目录执行）：
-
 ```bash
-# 提交总数与时间跨度
+# 提交总数 / 跨度 / 有提交天数
 git log --oneline | wc -l
-git log --reverse --format="%ad" --date=short | head -1
+git log --format="%ad" --date=short | sort -u | wc -l
 
-# 按月 / 按周提交量
-git log --format="%ad" --date=format:"%Y-%m" | sort | uniq -c
-git log --format="%ad" --date=format:"%Y-W%V" | sort | uniq -c
-
-# 某阶段的提交量与类型
+# 按阶段的提交量与类型（示例：P2）
 git log --oneline --since=2026-05-07 --until="2026-06-04 23:59:59" | wc -l
-git log --format="%s" --since=2026-05-07 --until="2026-06-04 23:59:59" \
-  | grep -cE '^feat'
+git log --format="%s" --since=2026-05-07 --until="2026-06-04 23:59:59" | grep -cE '^feat'
 
-# 代码规模
-find apps/api/src -name "*.ts" | xargs cat | wc -l
-find apps -name "*.spec.ts" -o -name "*.test.tsx" | grep -v node_modules | wc -l
+# 代码规模（排除测试）
+find apps/api/src -name "*.ts" ! -name "*.spec.ts" | xargs cat | wc -l
+find apps/web/src \( -name "*.ts" -o -name "*.tsx" \) ! -name "*.test.*" | xargs cat | wc -l
 
-# 有提交的日期（用于识别调研期）
-git log --format="%ad" --date=short | sort -u
+# 后端结构
+find apps/api/src -name "*.module.ts"     | wc -l    # 44
+find apps/api/src -name "*.controller.ts" | wc -l    # 42
+find apps/api/src -name "*.service.ts"    | wc -l    # 71
+grep -rhoE "@(Get|Post|Put|Patch|Delete)\(" apps/api/src --include=*.controller.ts | wc -l   # 282
+grep -c "^model " apps/api/prisma/schema.prisma              # 71
+grep -c "@@index\|@@unique" apps/api/prisma/schema.prisma    # 95
+
+# 测试
+cd apps/api && npx vitest run    # 31 files, 348 tests
+cd apps/web && npx vitest run    # 18 files, 112 tests
 ```
 
-## 附录 B：如何更新本文档
+## 附录 B：本地起服务
 
-每完成一个阶段（或每月）追加一节，流程：
+```bash
+docker compose up -d          # Postgres
+npm run db:migrate && npm run db:seed
+npm run dev                   # API :4000  Web :5173
+```
 
-1. 用附录 A 的命令取当期数字，**不要凭印象写**；
-2. 从 `git log --format="%ad %an|%s"` 中挑出该期的 `feat` 提交，
-   归纳为 3–6 条交付；
-3. 关键技术决策单独列表，写明**为什么**而不只是做了什么；
-4. 生产事故必须记录，包含现象、根因、修复提交号 —— 这一节的价值
-   高于功能清单，它是后来者唯一能学到「为什么代码长这样」的地方。
+demo 账户 `teacher@school.local` / `teacher123`。
+
+关键环境变量：
+
+| 变量 | 作用 |
+|---|---|
+| `JWT_SECRET` | JWT 签名**以及 v2 静态 QR 签名** —— 轮换会让所有印出去的墙贴失效 |
+| `MORNING_QUIZ_AI_GRADING` | `on` 才启用 AI 判分短答；默认关，走人工队列 |
+| `INTERNAL_API_TOKEN` | API ↔ pdf-worker 之间的共享令牌 |
+| `BOOTSTRAP_CONTENT_DISABLED` | 关掉启动时的题库幂等 seed |
+| `MOCK_AUTH` | 开发用，跳过 JWT |
+
+Railway 部署入口在根 `railway.json`：
+
+```json
+"startCommand": "sh -c 'npx prisma migrate deploy && node dist/main.js'",
+"healthcheckPath": "/api/health"
+```
+
+## 附录 C：如何续写本文档
+
+1. 数字一律用附录 A 的命令取，**不要凭印象写**；
+2. 新子系统写进 §4，格式对齐：先说做了什么，再说**为什么这么做**，
+   附上关键代码片段和文件路径 —— 只有 what 没有 why 的段落没有价值，
+   因为 what 读代码就有；
+3. 关键技术决策进 §7 的表，必须写原因；
+4. 生产事故进 §8，必须有现象 / 根因 / 修复提交号；
+5. 技术债进 §9，不要删 —— 债还了才划掉，并在提交信息里说明。
