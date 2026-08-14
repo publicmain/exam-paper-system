@@ -87,7 +87,8 @@
 | 09:30 | A | `absence-alert` cron —— 连续缺席 ≥3 天的学生告警 |
 | 上午 | **H** | **人工判分**，见 §3.2 |
 | 上午 | **H** | **出勤同步到 Seiue**（`OL_MO_English` + `MO_English`） |
-| 中午（按需） | **H** | 补考，见 §3.3 |
+| 16:30–17:00 | A | **自动补考场**：当天有缺席且未补考学生的场次自动开窗（`makeupOpenedById` 为空 = 自动场）；17:00 后 cron 自动重锁 |
+| 17:00 后 | **H** | 若有人补考：**第二次判分**（marker-dump → 判 → marker-apply） |
 | 18:30 | A | `teacher-todo` 晚间摘要 |
 | 周日 18:00 | A | `morning-quiz-weekly-generate`（需 `MORNING_QUIZ_AUTO_GENERATE=true`，当前手动） |
 
@@ -117,6 +118,12 @@ railway run -- npx ts-node apps/api/scripts/marker-apply.ts
 
 **幂等**：已判过的 script 会被跳过，可以安全重跑。
 
+**发布口径（2026-08-14 新政）**：学生交卷即可看到每题答案，但**分数与
+评语在提交翻成 `marked` 之前不下发**（服务端剥离，见
+`stripUnreleasedScores`）。也就是说：**判分不及时 = 学生一直看不到
+分数**，判分与 finalize 是每天必须闭环的动作；16:30 补考场结束后
+如有补考卷，当天要再判一轮。
+
 **评语规范**（面向学生，会直接显示在成绩页）：
 
 - 不写记账流水（`填11:xxx,判对。1。` 这类内部记号）
@@ -138,12 +145,18 @@ grade(morning-quiz): 2026-08-14 人工判分 43 项
 
 ### 3.3 补考 SOP
 
-学校 2026-08 政策：早上无故缺席的学生中午补考。
+学校 2026-08 政策：早上无故缺席的学生下午补考。
+
+**自 2026-08-14 起补考窗每天 16:30–17:00 自动开**（cron，条件：当天场次
+已锁 + 存在缺席未补考学生 + 当天没手动开过窗）。手动端点仍在，用于
+临时加场；老师手动开过的当天不再自动开：
 
 ```
-POST /api/morning-quiz/sessions/:id/makeup/open     开窗
-POST /api/morning-quiz/sessions/:id/makeup/close    关窗
+POST /api/morning-quiz/sessions/:id/makeup/open     手动开窗
+POST /api/morning-quiz/sessions/:id/makeup/close    手动关窗
 ```
+
+停用自动窗：环境变量 `MORNING_QUIZ_AUTO_MAKEUP=off`。
 
 **要点**：
 
