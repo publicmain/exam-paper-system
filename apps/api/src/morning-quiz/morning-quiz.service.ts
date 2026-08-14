@@ -206,6 +206,37 @@ export function storyKey(key: string | null | undefined): string {
 }
 
 /**
+ * OLEVEL 题库的三个难度层，靠 provenanceTag 分桶。
+ *
+ *   standard   —— 真题 prelim（singapore_olevel_1128）+ AI 全难度自撰。
+ *                 服务 `olevel` 层。排除法定义：不属于下面两个 tag 的都算。
+ *   simplified —— 中间层，11 题 / 500-790 词的精简叙事。曾服务
+ *                 `ielts_simplified`（原「轻雅思」），2026-07-24 停用后
+ *                 目前**没有任何层读它** —— 21 篇内容原地保留，将来若
+ *                 恢复中间层可直接启用，不必重做。
+ *   basic      —— 2026-08-14 新增。真·基础层：短文约 250 词、5 题、
+ *                 高频词，且 5 题中 3 题是点选（本校数据：打字题在最弱
+ *                 学生里空白率 64%，全打字等于让他们交白卷）。
+ *                 服务 `ielts_simplified` 枚举位（学生看到的名字是
+ *                 「O-Level 基础」）。
+ *
+ * 加新层时：加 tag 常量 → 塞进 OLEVEL_NON_STANDARD_TAGS → standard 层
+ * 自动把它排除掉，不会串味。
+ */
+export const OLEVEL_SIMPLIFIED_TAG = 'ai_authored_olevel_1128_simplified';
+export const OLEVEL_BASIC_TAG = 'ai_authored_olevel_1128_basic';
+const OLEVEL_NON_STANDARD_TAGS = [OLEVEL_SIMPLIFIED_TAG, OLEVEL_BASIC_TAG];
+
+export type OlevelTier = 'standard' | 'simplified' | 'basic';
+
+/** Prisma where 片段：把题库限定到某一层。 */
+export function olevelTierCondition(tier: OlevelTier) {
+  if (tier === 'simplified') return { provenanceTag: OLEVEL_SIMPLIFIED_TAG };
+  if (tier === 'basic') return { provenanceTag: OLEVEL_BASIC_TAG };
+  return { NOT: { provenanceTag: { in: OLEVEL_NON_STANDARD_TAGS } } };
+}
+
+/**
  * 成绩发布口径（2026-08-14 与老师们定的新政）。
  *
  * 学生交卷后**立刻**能看到每道题的正确答案（即时反馈是学生自己在
@@ -810,10 +841,12 @@ export class MorningQuizService {
                 { provenanceFilter: 'authentic' },
               );
             } else if (levelRow.level === 'ielts_simplified') {
-              // Middle band: pull from OLEVEL simplified tier, not IELTS GT.
+              // 2026-08-14：这个枚举位现在是「O-Level 基础」层，读 basic
+              // 桶（短文 5 题）。simplified 桶的 21 篇中间层内容原地保留，
+              // 当前没有层读它 —— 见 olevelTierCondition 的注释。
               paperId = await this.pickOlevelPaperAndCreatePaper(
                 classId, dateIso, actor,
-                { provenanceFilter: 'simplified' },
+                { provenanceFilter: 'basic' },
               );
             } else {
               // olevel basic band: pull from OLEVEL standard tier.
@@ -1104,7 +1137,7 @@ export class MorningQuizService {
     classId: string,
     dateIso: string,
     actor: ActorCtx,
-    opts: { provenanceFilter?: 'standard' | 'simplified' } = {},
+    opts: { provenanceFilter?: OlevelTier } = {},
   ): Promise<string> {
     const subject = await this.prisma.subject.findFirst({
       where: { code: '1123' },
@@ -1133,11 +1166,8 @@ export class MorningQuizService {
     // (standard = anything that is NOT the simplified tag) so any future
     // standard-tier provenance tag we add (e.g. for Boon Lay, Hua Yi) is
     // picked up automatically without code changes.
-    const filter = opts.provenanceFilter ?? 'standard';
-    const tierCondition =
-      filter === 'simplified'
-        ? { provenanceTag: 'ai_authored_olevel_1128_simplified' }
-        : { NOT: { provenanceTag: 'ai_authored_olevel_1128_simplified' } };
+    const filter: OlevelTier = opts.provenanceFilter ?? 'standard';
+    const tierCondition = olevelTierCondition(filter);
     const bank = await this.prisma.question.findMany({
       where: {
         subjectId: subject.id,
@@ -1347,17 +1377,14 @@ export class MorningQuizService {
     // ai_authored_olevel_1128_simplified only; standard = everything else
     // under OLEVEL/* (real-PDF prelims + AI-authored full-difficulty).
     const countOlevelBank = async (
-      tier: 'standard' | 'simplified',
+      tier: OlevelTier,
     ): Promise<number> => {
       const subject = await this.prisma.subject.findFirst({
         where: { code: '1123' },
         select: { id: true },
       });
       if (!subject) return 0;
-      const tierCondition =
-        tier === 'simplified'
-          ? { provenanceTag: 'ai_authored_olevel_1128_simplified' }
-          : { NOT: { provenanceTag: 'ai_authored_olevel_1128_simplified' } };
+      const tierCondition = olevelTierCondition(tier);
       const bank = await this.prisma.question.findMany({
         where: {
           subjectId: subject.id,
@@ -1440,8 +1467,8 @@ export class MorningQuizService {
         totalBank = await countIeltsBank('authentic');
         usedRecent = usedByMode.passage_pick_authentic.size;
       } else if (lr.level === 'ielts_simplified') {
-        // Middle band now pulls from OLEVEL simplified tier, not IELTS GT.
-        totalBank = await countOlevelBank('simplified');
+        // 2026-08-14：「O-Level 基础」层，余量按 basic 桶算。
+        totalBank = await countOlevelBank('basic');
         usedRecent = usedByMode.olevel_curated_simplified.size;
       } else {
         totalBank = await countOlevelBank('standard');
