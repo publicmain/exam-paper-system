@@ -744,11 +744,56 @@ const GRADES_0813: Record<string, { awardedMarks: number; reason: string }> = {
 // auto-graded ones (0 parked items) and blank submissions (no scripts). The
 // GRADES map alone only reaches submissions that had a parked item.
 const SWEEP_ASSIGNMENTS: string[] = [
-  '1206c23f-7b6e-4017-997b-dcd0204a7299', // 2026-08-13 IELTS authentic (Fire as a Management Tool)
-  'af9f777f-740d-42c2-85a6-542015c8c6be', // 2026-08-13 O-Level (The Durian, 叙事卷)
+  'd6e5928b-a330-47c9-9b87-faef560a7955', // 2026-08-14 IELTS authentic (Reading the Signs of a Volcano)
+  '5e02bfaf-6654-4060-a7c8-80cbf961ddb2', // 2026-08-14 O-Level (Why Teenagers Are Not Sleeping)
 ];
 
-const GRADES: Record<string, { awardedMarks: number; reason: string }> = GRADES_0813;
+const GRADES_0814: Record<string, { awardedMarks: number; reason: string }> = {
+  // 2026-08-14 早测 · authentic=ielts_adapted_2026_v5/Test2/P1
+  // (Reading the Signs of a Volcano 火山喷发预报)
+  // olevel=ai_authored_olevel_summary_06_sleep_v1 (Why Teenagers Are Not Sleeping)
+  // 全部由 Claude 在 chat 逐条判，零 AI API 调用。
+  //
+  // 判前回原文复核四道段落匹配的唯一性：
+  //   #1 只有 H 段有比较结构(closer to forecasting an illness than an eclipse);
+  //   #2 只有 G 段说多数危险火山没有仪器(effectively unwatched);
+  //   #3 只有 B 段讲用地质历史做危害评估(hazard assessments/earlier eruptions);
+  //   #4 只有 E 段列测形变的仪器(tiltmeters/GPS/雷达)。均无歧义。
+
+  cmss8bk9d01f59rbbdakde1uv: { awardedMarks: 0, reason: "这题找的是「把火山预报和别的预测放在一起比较」的那一段。答案在最后一段 H：forecasting a volcano is closer to forecasting an illness than to forecasting an eclipse——拿看病和日食来作比。A 段是开头的引入，说火山不会预告自己，没有任何比较。\n方法：题干出现 a comparison between… 时，回文章找比较结构本身——than、closer to、rather than、like。这类句式在文章里很显眼，比通读一遍快得多。" },
+  cmss7xuv900xs9rbb5fx3qu6u: { awardedMarks: 0, reason: "答案是 H 段：forecasting a volcano is closer to forecasting an illness than to forecasting an eclipse。B 段讲的是用地质历史做长期危害评估，里面确实列了「多久喷一次、多大、什么类型」，但那是并列描述，不是比较。\n方法：a comparison 要找 than / closer to / rather than 这种比较结构，不是「列了好几样东西」就算比较。" },
+  cmss7z1vf00z49rbbq4h0mv2w: { awardedMarks: 0, reason: "答案在 H 段——把预报火山比作预报疾病、而不是预报日食。B 段是长期危害评估，讲的是怎么用地质记录，没有跟别的预测作比。\n方法：这套题你和很多同学都选了 B。B 段信息密度高，容易一眼觉得「什么都像」。定位后回读一遍题干，确认这一段真的在做题干要求的那个动作（这里是「比较」）。" },
+  cmss7r01z00pr9rbb6zykkixi: { awardedMarks: 0, reason: "答案是 H 段（closer to forecasting an illness than to forecasting an eclipse）。B 段是危害评估的方法，没有跨领域的比较。\n方法：你其他题定位都很准，这题差在没往最后一段看。段落匹配的答案不按题号顺序排，结尾段经常藏着「总结性」的比喻和评价。" },
+  cmss8fx4401lo9rbbj2ano8yl: { awardedMarks: 0, reason: "答案是 H 段：把火山预报比作预报疾病，而不是预报日食。B 段讲的是怎么根据地质记录判断一座火山会喷多大、多久喷一次。\n方法：先在题干里圈动作词——这题是 comparison，然后到文章里找比较句式（than、closer to）。这比记住每段讲什么更省时间。" },
+  cmss8l1gj01pg9rbbakpkrruh: { awardedMarks: 0, reason: "答案是 H 段（closer to forecasting an illness than to forecasting an eclipse）。B 段是长期危害评估。\n方法：H 段是全文最后一段，很多同学做到这里时间紧了就不再往后看。段落匹配四道题的答案可能全在后半篇，别默认「第 1 题在前面」。" },
+  cmss8bkwt01f79rbb21vtydrp: { awardedMarks: 0, reason: "答案在 G 段最后一句：世界上大多数危险的火山 have almost no instruments at all，remain effectively unwatched——正是题干说的「许多危险火山没有被监测」。\n方法：题干里的 not monitored 在文章里换了说法，叫 unwatched、no instruments、poorly instrumented。段落匹配几乎不会原词照搬，练的就是认出这种同义替换。" },
+  cmss7xxa700xu9rbb58x0zxdw: { awardedMarks: 0, reason: "答案是 G 段：the majority of the world's dangerous volcanoes… remain effectively unwatched。\n方法：你这套四道题选了三次 B。B 段确实内容多，但正因为它「什么都沾一点」，更要用题干里的关键信息去卡——这题的关键是 not monitored，B 段完全没提仪器。" },
+  cmss84lae012u9rbbqq4dl15h: { awardedMarks: 0, reason: "H 段讲的是「能提前多久察觉」——是时间尺度的问题。题干问的是「很多危险火山没人监测」，那在 G 段：almost no instruments at all… effectively unwatched。\n方法：G 和 H 是相邻两段，都在讲「预报的局限」，很容易混。分辨的办法是抓名词——题干有 volcanoes 和 monitored，就去找同时出现「火山数量」和「仪器」的那一段。" },
+  cmss7sgod00qx9rbbwkec4qeg: { awardedMarks: 0, reason: "D 段讲的是地震信号（岩浆上升压裂岩石）。题干问的是很多危险火山没有监测，答案在 G 段：almost no instruments at all，effectively unwatched。\n方法：D、E、F 三段是三类信号（地震、形变、气体），G 段才是对这些信号的总评价。先分清「讲某一类信号」和「讲监测体系整体」，这四道题就好定位了。" },
+  cmss8g3go01lq9rbbq2in017k: { awardedMarks: 0, reason: "C 段讲的是短期预报要靠平时测出的 background level。题干问「很多危险火山没有仪器」，在 G 段末句。\n方法：扫读时可以先给每段贴一个两三字的标签（C=背景水平、D=地震、E=形变、F=气体、G=综合判断、H=能做到什么）。贴完再回来做题，四道题几秒钟就能定位。" },
+  cmss8bmtj01fc9rbb6l87xh0p: { awardedMarks: 0, reason: "答案是 B 段：hazard assessments are built from an individual volcano's geological past——通过给以往喷发的沉积物测年、测量，得出这座火山多久喷一次、喷多大。C 段讲的是短期预报和背景活动水平，不涉及地质历史。\n方法：题干里 past eruptions 和 assess future hazards 两个词组，在 B 段里几乎原样出现（geological past / hazard assessments）。这种时候直接扫关键词最快。" },
+  cmss83yfl01289rbbkq1nvjwz: { awardedMarks: 0, reason: "D 段是地震信号。答案在 B 段：用以往喷发留下的沉积物做测年和测量，得出喷发频率、规模和类型——这就是题干说的 hazard assessments。\n方法：题干问「过去的喷发怎么用来评估未来」，B 段里 geological past、earlier eruptions、hazard assessments 三个词都在，是最典型的关键词命中。" },
+  cmss7solz00r19rbbusf5nd1v: { awardedMarks: 0, reason: "答案是 B 段——hazard assessments 建立在这座火山的 geological past 上，靠给以往喷发的沉积物测年测量得出频率、规模、类型。C 段讲的是短期预报的背景水平。\n另外提醒：字母要大写。答题卡上写小写 c，正式考试有被判无效的风险，养成写大写的习惯。" },
+  cmss8g5c501ls9rbb6mjud2hd: { awardedMarks: 0, reason: "D 段是地震信号。题干问的是「怎么用过去的喷发评估未来危害」，答案在 B 段：by dating and measuring the deposits of well-characterised earlier eruptions。\n方法：这套四道题你选了 B、C、D、F，唯独没选到正确的那几段。建议改成先扫读贴标签、再一次性做四题，比一题一题回文章找更准。" },
+  cmss8okkl00mkvmoxig4x2ntr: { awardedMarks: 0, reason: "F 段是气体信号（二氧化硫、紫外光谱仪）。答案在 B 段：用以往喷发的沉积物推算这座火山的喷发频率、规模和类型。\n方法：题干里出现 past / earlier / history 这类时间词，先往文章前半部分讲「地质记录」的段落找，通常就是长期评估那一段。" },
+  cmss7yp7200ya9rbbmpqu8eua: { awardedMarks: 0, reason: "答案是 E 段：Ground deformation is measured by tiltmeters, by satellite positioning receivers…, and by radar images——三种仪器，全都用来测山体形状的变化。\n方法：题干里出现 instruments，就去找文章里连着列了好几个仪器名的那一段。仪器名（tiltmeters、receivers、radar）在文章里很扎眼，扫一遍就能找到。" },
+  cmss8gfdu01ma9rbbzfynyswo: { awardedMarks: 0, reason: "F 段确实提到了仪器——ultraviolet spectrometer，但那是测气体的。题干问的是测「山体形状变化」的仪器，在 E 段：tiltmeters、卫星定位接收机、轨道雷达影像。\n方法：这题错得很值得记：光看到「有仪器」不够，还要看它测的是什么。题干 changes in a volcano's shape 对应文章的 ground deformation，把这一组同义词记住，下次一眼就能分开 E 和 F。" },
+  cmss89sdp01co9rbb6ua932hd: { awardedMarks: 0, reason: "词找对了——原文是 background level of activity，你定位准确。但只写了 backg，半个词不能算答案。\n这和拼错还不一样：拼错至少写完了，阅卷人能看出你想写哪个词；写一半会被直接判空。你 08:59 才交卷，明显在赶时间——最后一分钟的正确做法是先把已经动笔的词补完，而不是急着去填下一个空。" },
+  cmss88bj301bs9rbbjgyoe3dc: { awardedMarks: 0, reason: "答案是 sulphur dioxide（二氧化硫），两个词是一个完整的化学名，缺一个就不成立——sulphur 是硫，和二氧化硫不是同一种物质。\n方法：题目允许 NO MORE THAN TWO WORDS，正是在提示你这个空可能要填两个词。看到字数上限是 2，就该想想答案是不是一个词组。" },
+  cmss7tlki00rx9rbbvim0b18q: { awardedMarks: 0, reason: "答案是 sulphur dioxide，两个词要一起写。单写 dioxide（二氧化物）不指向任何具体气体，拿不到分。\n方法：这道题限了两个词，说明答案很可能就是两个词。回原文时把整个词组抄下来，不要只截一半。" },
+  cmss7r5t500px9rbbiizncbuc: { awardedMarks: 0, reason: "答案是 sulphur dioxide。原文是 A rising output of sulphur dioxide is a particularly useful indicator，两个词是一个整体。\n你这份卷子只错了这一道，很可惜——就差把 sulphur 一起抄上。以后遇到 TWO WORDS 的空，抄完先数一下自己写了几个词。" },
+  cmss8mnqf00mevmoxx4swhqq7: { awardedMarks: 0, reason: "答案是 pressure。原文 F 段：as it rises and the pressure falls，岩浆上升、压力下降，溶解的气体才跑出来。ground（地面）不会「下降」，而且流程图这一步讲的是气体为什么会逸出。\n方法：流程图填空要顺着因果链读——上一格是「岩浆上升」，下一格是「气体逸出」，中间缺的一定是把这两件事连起来的原因。" },
+  cmss84hu1012m9rbb28pq5jmp: { awardedMarks: 0, reason: "shortfall 是「缺口」——需要九小时、实际只睡了六小时，中间少掉的那部分就是 shortfall。你写的句子是把前一句话重讲了一遍，没有解释这个词的意思。\n方法：问某个词的意思时，先看它在句子里充当什么。原文是 the shortfall comes straight out of the end of the night——「缺口」是个可以「来自某处」的东西，所以它是一个量，不是一个动作。抓住这一点，答案就出来了。" },
+  cmss7q62z00o59rbb8u8le8jc: { awardedMarks: 0, reason: "「睡得时间短」说的是结果，不是这个词本身的意思。shortfall 指的是「差额」——需要九小时而只睡了六小时，少掉的那三小时就是 shortfall。\n方法：英文里 -fall 结尾的这类词（shortfall、rainfall）多半是「量」。答词义题时试着用「……的量」来套一下，能帮你判断词性和方向。" },
+  cmss8c5yn01gh9rbbe4bfccre: { awardedMarks: 1, reason: "答案对，二十分钟，给分。\n但要说清楚一件事：这次你整句抄了原文，恰好那句话里就有答案，所以拿到了分；昨天你抄的那两句里没有答案，就是零分。抄原句是碰运气，不是方法。\n这题只要写 About twenty minutes. 五个词就够了。养成先答出那个点、再考虑要不要补充的习惯，遇到「用自己的话」的题才不会吃亏。" },
+  cmss80vx200zr9rbbj6sobbo4: { awardedMarks: 1, reason: "正确，二十分钟，给分。答得干脆，这类细节题就该这样。\n小提醒：英文写成 Twenty minutes is best. 就行，the 可以去掉——泛指某个时长时前面不加 the。" },
+  cmss8h1wc01ni9rbbfqh9ofot: { awardedMarks: 0, reason: "这两分要的是「为什么」，你抄的是第 6 段最后一句，那句话正是题目里引用的结论本身，等于把问题重复了一遍。\n参考答案两点：①记忆是在睡眠中固化的，熬夜复习等于把刚背的东西又丢掉一部分；②缺觉还会让人反应变慢、情绪变差，学到的东西也用不出来。\n方法：题目里如果已经引用了原文的一句话，那句话就一定不是答案——答案在它的前面或后面，是支撑这个结论的理由。" },
+  cmss7u8ez00ss9rbbqy29s34d: { awardedMarks: 0, reason: "你解释的是「学生为什么睡得少」（作业多、花时间长），但题目问的是「为什么少睡反而在他们熬夜想做好的那件事上表现更差」——问的是后果，不是原因。\n参考答案两点：①记忆在睡眠中才会固化，睡不够等于把刚复习的内容又削掉一块；②疲倦让人反应变慢、情绪变差，学过的也发挥不出来。\n方法：动笔前把题目的问句抄一遍或在心里说一遍，确认自己回答的是那个问句。这题你的英文表达是通顺的，丢分丢在答偏了，很可惜。" },
+  cmss86yn201939rbb45l8o3tt: { awardedMarks: 1, reason: "只写了一句、一个要点（作业和补习占满放学后的时间），给 1 分。\n这题满分 8 分，要在 80 词内覆盖两部分：为什么睡不够（生物钟推迟约两小时、上学太早、作业补习挤占夜里、屏幕的光和内容让人更晚睡），以及怎么办（周末也固定时间起床、手机放到卧室外充电、难的复习挪到傍晚、只打二十分钟的盹）。\n方法：summary 题先在原文里逐段圈要点，一段一个，圈完再连成句子。八分的题写一句话，等于主动放弃七分——哪怕英文不完美，也要把要点数量堆上去。" },
+  cmss81yb6010x9rbbftzs7evq: { awardedMarks: 2, reason: "答到两个要点：作业太多占掉时间、玩手机导致更晚睡，给 2 分。而且你是用自己的话写的、也是连贯成段的，这个方向是对的——很多同学直接抄原文，那样连风格分都拿不到。\n还差的要点：青春期生物钟往后推约两小时、学校开得太早、以及第 7 段那几条对策（周末也固定时间起床、手机放卧室外充电、难的复习挪到傍晚、午觉只睡二十分钟）。\n另外几处英文要改：a lots of → a lot of；many much time → so much time；there no more time → there is no more time。\n方法：这题限 80 词，但要覆盖「原因＋对策」两部分。先各列三四个短要点，再用 because、while、They can 这样的连接词串起来，比写长句更容易拿分。" },
+};
+
+const GRADES: Record<string, { awardedMarks: number; reason: string }> = GRADES_0814;
 const _OLD_GRADES: Record<string, { awardedMarks: number; reason: string }> = {
   // 2026-07-24 早测 · ielts_authentic = cambridge_ielts_8/Test1/P1
   // "A Chronicle of Timekeeping"(Q1-4 段落匹配 A-H;Q9-13 图标注 ≤2词).
