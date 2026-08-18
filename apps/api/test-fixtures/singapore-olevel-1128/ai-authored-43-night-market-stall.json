@@ -1,0 +1,148 @@
+{
+  "setCode": "ai_authored_olevel_43_night_market_stall_v1",
+  "paperNumber": 2,
+  "paperTitle": "Singapore-Cambridge GCE O-Level 1184 English Language — AI-authored Practice 43: The Last Night of the Pasar Malam (§B style, standard band)",
+  "provenanceTag": "ai_authored_olevel_1128",
+  "provenanceNote": "NOT STUDENT-FACING. Original narrative written for the morning-quiz bank; NOT from any past exam paper. Section B [19 marks] modelled on the Singapore-Cambridge 1184/02 Section B format and calibrated to SEAB assessment objectives (literal comprehension, inference, vocabulary in context, language for effect). Structure: 10 short-answer items (Q1-Q10, mixed [1]/[2]) + a 4-blank emotion-flowchart MCQ (Q11, split into Q11-Q14 so each sub-part auto-grades independently). Answer in your own words as far as possible.",
+  "sections": [
+    {
+      "exercise": 1,
+      "instruction": "Read the narrative text below about a boy helping his grandmother pack up her pasar malam stall on its final night, and answer the questions that follow. Section B, Part 1 [15 marks]. Answer in your own words as far as possible.",
+      "passageTitle": "The Last Night of the Pasar Malam",
+      "passage": "Paragraph 1\nFor eleven years my grandmother sold kueh from a folding table at the pasar malam that came to our estate every October. She never advertised. People simply knew that the third stall from the entrance, the one with the blue cloth, was hers.\n\nParagraph 2\nThis year the town council announced that the night market would not return. A new hawker centre was opening two streets away, and the open field where the stalls stood was to become a car park. My grandmother read the notice twice, folded it, and said nothing about it for a week.\n\nParagraph 3\nOn the final night she asked me to come. 'Bring a trolley,' she said. 'There will be things to carry.' She did not say goodbye to anyone, and she did not tell the neighbouring stallholders that it was her last night. She simply set out her trays as she had done four hundred times before.\n\nParagraph 4\nBusiness was slow at first. Then, at about half past eight, people began arriving. Not tourists, not the usual passing crowd — our own neighbours. Mr Devan from Block 118 bought six pieces of ondeh-ondeh, though I had never once seen him eat kueh. The lady who runs the laundry took a whole tray and did not ask the price.\n\nParagraph 5\nBy nine o'clock the trays were empty. My grandmother stood behind a bare table, her hands folded, watching the line that had not stopped forming. I saw her turn her face away and busy herself with a cloth that was already clean.\n\nParagraph 6\nA boy of about six pushed to the front holding a two-dollar coin. There was nothing left to sell him. My grandmother reached under the table, took out the last piece she had kept aside for her own supper, and put it in his hand. She would not take the coin.\n\nParagraph 7\nWe packed up at half past ten. The folding table went into the trolley, then the trays, then the blue cloth, which she shook out once in the night air before folding it into a small neat square. The field was already emptying. Somebody had begun taking down the string of bulbs.\n\nParagraph 8\nOn the walk home she was quiet. At the lift lobby she finally spoke. 'Eleven years,' she said. 'And I never learnt any of their names.' Then, after the lift doors opened: 'But they knew where to find me.'\n\nParagraph 9\nShe has not sold kueh since. The blue cloth is still in the cupboard, still folded into that small neat square. Sometimes I take it out and look at it, and I think about the boy with the two-dollar coin, and about how a person can be known for eleven years without ever being asked her name.",
+      "questions": [
+        {
+          "n": 1,
+          "stem": "Q1. From Paragraph 1, how did customers identify which stall belonged to the narrator's grandmother? [1]",
+          "answer": "it was the third stall from the entrance, the one with the blue cloth",
+          "marks": 1
+        },
+        {
+          "n": 2,
+          "stem": "Q2. What does the phrase 'said nothing about it for a week' (Paragraph 2) suggest about how the grandmother received the news? [1]",
+          "answer": "she needed time to absorb it / she kept her feelings to herself",
+          "marks": 1
+        },
+        {
+          "n": 3,
+          "stem": "Q3. Using your own words, explain why the grandmother did not tell the other stallholders that it was her last night. (Paragraph 3) [2]",
+          "answer": "① she did not want a fuss made over her departure; ② she preferred to end quietly, on her own terms, as she had always worked",
+          "marks": 2
+        },
+        {
+          "n": 4,
+          "stem": "Q4. From Paragraph 4, what detail shows that Mr Devan came to the stall for a reason other than wanting kueh? [1]",
+          "answer": "the narrator had never once seen him eat kueh",
+          "marks": 1
+        },
+        {
+          "n": 5,
+          "stem": "Q5. Using your own words, explain what the neighbours' behaviour in Paragraph 4 reveals about how they regarded the grandmother. [2]",
+          "answer": "① they valued her and wanted to honour her final night; ② they showed it through buying rather than through words, respecting her reserve",
+          "marks": 2
+        },
+        {
+          "n": 6,
+          "stem": "Q6. What is the effect of the detail that the grandmother busied herself 'with a cloth that was already clean' (Paragraph 5)? [2]",
+          "answer": "it shows she was moved and needed to hide it — the pointless task gives her somewhere to put her hands and a reason to turn away",
+          "marks": 2
+        },
+        {
+          "n": 7,
+          "stem": "Q7. Using your own words, explain why the grandmother refused the boy's two-dollar coin. (Paragraph 6) [2]",
+          "answer": "① on this last night the kueh was a parting gift rather than goods for sale; ② she did not want the final exchange of her eleven years to be about money",
+          "marks": 2
+        },
+        {
+          "n": 8,
+          "stem": "Q8. What does the word 'bare' in 'stood behind a bare table' (Paragraph 5) suggest, beyond its literal meaning? [1]",
+          "answer": "that her working life there was finished / stripped away, leaving nothing",
+          "marks": 1
+        },
+        {
+          "n": 9,
+          "stem": "Q9. What is the effect of the description of the blue cloth being shaken out once and folded 'into a small neat square' (Paragraph 7)? [2]",
+          "answer": "the careful, deliberate folding turns an ordinary action into a private ceremony of closing — she is putting the whole eleven years away tidily rather than discarding it",
+          "marks": 2
+        },
+        {
+          "n": 10,
+          "stem": "Q10. Using your own words, explain the meaning of the grandmother's two statements at the lift: 'I never learnt any of their names' and 'But they knew where to find me.' (Paragraph 8) [1]",
+          "answer": "she regrets never knowing them personally, yet takes comfort that she mattered to them anyway",
+          "marks": 1
+        }
+      ]
+    },
+    {
+      "exercise": 2,
+      "instruction": "Q11. [4 marks in total] The grandmother's dominant feeling shifts across the final night. For each part of the passage below, choose the ONE word from the bank that best describes how she feels at that moment. Each word may be used once only.",
+      "passage": "Refer to the same 'The Last Night of the Pasar Malam' narrative in Exercise 1 above. Read the paragraphs named in each question, then choose the single word from the bank that best describes how the grandmother feels at that moment.",
+      "questions": [
+        {
+          "n": 11,
+          "stem": "Q11(i). Paragraph 2 — reading the town council's notice and folding it away. [1]",
+          "options": [
+            { "key": "A", "text": "guarded", "correct": true },
+            { "key": "B", "text": "resolute", "correct": false },
+            { "key": "C", "text": "moved", "correct": false },
+            { "key": "D", "text": "at peace", "correct": false },
+            { "key": "E", "text": "indignant", "correct": false },
+            { "key": "F", "text": "bewildered", "correct": false },
+            { "key": "G", "text": "triumphant", "correct": false },
+            { "key": "H", "text": "impatient", "correct": false }
+          ],
+          "answer": "A",
+          "marks": 1
+        },
+        {
+          "n": 12,
+          "stem": "Q11(ii). Paragraph 3 — setting out her trays for the last time without telling anyone. [1]",
+          "options": [
+            { "key": "A", "text": "guarded", "correct": false },
+            { "key": "B", "text": "resolute", "correct": true },
+            { "key": "C", "text": "moved", "correct": false },
+            { "key": "D", "text": "at peace", "correct": false },
+            { "key": "E", "text": "indignant", "correct": false },
+            { "key": "F", "text": "bewildered", "correct": false },
+            { "key": "G", "text": "triumphant", "correct": false },
+            { "key": "H", "text": "impatient", "correct": false }
+          ],
+          "answer": "B",
+          "marks": 1
+        },
+        {
+          "n": 13,
+          "stem": "Q11(iii). Paragraph 5 — standing behind the empty table as the queue keeps forming. [1]",
+          "options": [
+            { "key": "A", "text": "guarded", "correct": false },
+            { "key": "B", "text": "resolute", "correct": false },
+            { "key": "C", "text": "moved", "correct": true },
+            { "key": "D", "text": "at peace", "correct": false },
+            { "key": "E", "text": "indignant", "correct": false },
+            { "key": "F", "text": "bewildered", "correct": false },
+            { "key": "G", "text": "triumphant", "correct": false },
+            { "key": "H", "text": "impatient", "correct": false }
+          ],
+          "answer": "C",
+          "marks": 1
+        },
+        {
+          "n": 14,
+          "stem": "Q11(iv). Paragraph 8 — speaking at the lift lobby about the eleven years. [1]",
+          "options": [
+            { "key": "A", "text": "guarded", "correct": false },
+            { "key": "B", "text": "resolute", "correct": false },
+            { "key": "C", "text": "moved", "correct": false },
+            { "key": "D", "text": "at peace", "correct": true },
+            { "key": "E", "text": "indignant", "correct": false },
+            { "key": "F", "text": "bewildered", "correct": false },
+            { "key": "G", "text": "triumphant", "correct": false },
+            { "key": "H", "text": "impatient", "correct": false }
+          ],
+          "answer": "D",
+          "marks": 1
+        }
+      ]
+    }
+  ]
+}

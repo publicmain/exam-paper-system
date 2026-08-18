@@ -1,0 +1,148 @@
+{
+  "setCode": "ai_authored_olevel_44_relief_teacher_v1",
+  "paperNumber": 2,
+  "paperTitle": "Singapore-Cambridge GCE O-Level 1184 English Language — AI-authored Practice 44: The Relief Teacher (§B style, standard band)",
+  "provenanceTag": "ai_authored_olevel_1128",
+  "provenanceNote": "NOT STUDENT-FACING. Original narrative written for the morning-quiz bank; NOT from any past exam paper. Section B [19 marks], 1184/02 §B format, SEAB assessment objectives. 10 short-answer items (mixed [1]/[2]) + 4-blank emotion flowchart split for independent auto-grading.",
+  "sections": [
+    {
+      "exercise": 1,
+      "instruction": "Read the narrative text below about a class that decides to test a young relief teacher, and answer the questions that follow. Section B, Part 1 [15 marks]. Answer in your own words as far as possible.",
+      "passageTitle": "The Relief Teacher",
+      "passage": "Paragraph 1\nMiss Choo was twenty-three and looked younger. On her first morning she wrote her name on the whiteboard in careful round letters, and somebody at the back said, loudly enough, that it looked like primary school handwriting. She turned around and smiled as though she had not heard.\n\nParagraph 2\nWe were Secondary Four and we had already worked out the rules. A relief teacher stays six weeks, maybe eight. You do not have to respect her. You only have to outlast her.\n\nParagraph 3\nSo we began. Nothing dramatic — we were not cruel, only patient. Homework arrived a day late. Questions were asked that had already been answered. When she wrote on the board, three or four of us would start a conversation at conversational volume, and stop the moment she turned.\n\nParagraph 4\nShe did not shout. She did not send anyone to the discipline master. Every lesson she marked our work and returned it the next day, in full, with comments in green ink down the margin. For a while we treated this as further proof of her weakness.\n\nParagraph 5\nIn the fourth week Wei Xiang handed in an essay he had copied, more or less, from a website. It came back the following morning with a single line at the bottom: 'This is not your voice. I have read your voice and I prefer it.' He did not show anyone. I only know because I sat beside him and saw him read it three times.\n\nParagraph 6\nAfter that the noise thinned. Not by decision — nobody announced anything. It simply became less interesting to talk over a person who was clearly working harder than we were.\n\nParagraph 7\nIn the eighth week she told us that the permanent teacher was returning and that Friday would be her last day. There was a silence of a particular quality, and then somebody asked whether she would still mark the practice papers we had handed in on Wednesday. She said she had already done them. She had stayed back on Wednesday night to finish.\n\nParagraph 8\nOn Friday we gave her nothing — no card, no gift. We had thought of it too late, and the shops in the mall were closed by the time we finished. She said goodbye at the door and thanked us, which seemed to me then, and seems to me still, the wrong way round.\n\nParagraph 9\nI kept the essay she marked. The green ink has not faded. I am not sure she would remember our class at all; we were, after all, only eight weeks. But I remember the sentence about my voice, and I have tried since then to write in it.",
+      "questions": [
+        {
+          "n": 1,
+          "stem": "Q1. From Paragraph 1, what was the first thing a student said about Miss Choo? [1]",
+          "answer": "that her handwriting looked like primary school handwriting",
+          "marks": 1
+        },
+        {
+          "n": 2,
+          "stem": "Q2. Using your own words, explain the class's attitude towards relief teachers as described in Paragraph 2. [2]",
+          "answer": "① they saw such teachers as temporary and therefore not owed respect; ② they treated the situation as a waiting game they only had to endure until she left",
+          "marks": 2
+        },
+        {
+          "n": 3,
+          "stem": "Q3. What does the phrase 'we were not cruel, only patient' (Paragraph 3) suggest about the way the class behaved? [2]",
+          "answer": "their disruption was deliberate and sustained rather than openly hostile — a slow wearing-down that was harder to punish than outright rudeness",
+          "marks": 2
+        },
+        {
+          "n": 4,
+          "stem": "Q4. From Paragraph 4, give TWO things Miss Choo did NOT do in response to the class's behaviour. [1]",
+          "answer": "she did not shout and she did not send anyone to the discipline master",
+          "marks": 1
+        },
+        {
+          "n": 5,
+          "stem": "Q5. What does the word 'proof' in 'further proof of her weakness' (Paragraph 4) reveal about how the class was interpreting her patience at that stage? [1]",
+          "answer": "they were reading her restraint as an inability to control them",
+          "marks": 1
+        },
+        {
+          "n": 6,
+          "stem": "Q6. Using your own words, explain why Miss Choo's comment on Wei Xiang's essay affected him so strongly. (Paragraph 5) [2]",
+          "answer": "① she showed she had read his earlier work closely enough to recognise his own style; ② she expressed belief in him rather than punishing him, which was harder to dismiss than a scolding",
+          "marks": 2
+        },
+        {
+          "n": 7,
+          "stem": "Q7. What is the effect of the detail that Wei Xiang read the comment 'three times' and showed no one? [2]",
+          "answer": "it conveys that the words mattered to him privately and deeply — repeating the reading shows he was absorbing it, while hiding it shows he was not ready to admit he had been reached",
+          "marks": 2
+        },
+        {
+          "n": 8,
+          "stem": "Q8. Using your own words, explain why the class's disruption faded after the fourth week, according to Paragraph 6. [2]",
+          "answer": "① no one decided to stop, so it was not surrender to authority; ② her evident effort made mocking her feel pointless rather than clever",
+          "marks": 2
+        },
+        {
+          "n": 9,
+          "stem": "Q9. What does the phrase 'a silence of a particular quality' (Paragraph 7) suggest about the class's reaction to the news? [1]",
+          "answer": "it was not ordinary quiet but a silence of dismay / regret",
+          "marks": 1
+        },
+        {
+          "n": 10,
+          "stem": "Q10. Using your own words, explain why the narrator felt Miss Choo thanking the class was 'the wrong way round'. (Paragraph 8) [1]",
+          "answer": "the class owed her the gratitude, given how they had treated her and how much she had given them",
+          "marks": 1
+        }
+      ]
+    },
+    {
+      "exercise": 2,
+      "instruction": "Q11. [4 marks in total] The narrator's dominant attitude towards Miss Choo changes over the eight weeks. For each part of the passage below, choose the ONE word from the bank that best describes his attitude at that point. Each word may be used once only.",
+      "passage": "Refer to the same 'The Relief Teacher' narrative in Exercise 1 above. Read the paragraphs named in each question, then choose the single word from the bank that best describes the narrator's attitude at that point.",
+      "questions": [
+        {
+          "n": 11,
+          "stem": "Q11(i). Paragraphs 2-3 — setting out to outlast her. [1]",
+          "options": [
+            { "key": "A", "text": "dismissive", "correct": true },
+            { "key": "B", "text": "unsettled", "correct": false },
+            { "key": "C", "text": "respectful", "correct": false },
+            { "key": "D", "text": "remorseful", "correct": false },
+            { "key": "E", "text": "envious", "correct": false },
+            { "key": "F", "text": "indifferent", "correct": false },
+            { "key": "G", "text": "resentful", "correct": false },
+            { "key": "H", "text": "amused", "correct": false }
+          ],
+          "answer": "A",
+          "marks": 1
+        },
+        {
+          "n": 12,
+          "stem": "Q11(ii). Paragraph 5 — watching Wei Xiang reread the green-ink comment. [1]",
+          "options": [
+            { "key": "A", "text": "dismissive", "correct": false },
+            { "key": "B", "text": "unsettled", "correct": true },
+            { "key": "C", "text": "respectful", "correct": false },
+            { "key": "D", "text": "remorseful", "correct": false },
+            { "key": "E", "text": "envious", "correct": false },
+            { "key": "F", "text": "indifferent", "correct": false },
+            { "key": "G", "text": "resentful", "correct": false },
+            { "key": "H", "text": "amused", "correct": false }
+          ],
+          "answer": "B",
+          "marks": 1
+        },
+        {
+          "n": 13,
+          "stem": "Q11(iii). Paragraph 7 — learning she had stayed back on Wednesday night to finish marking. [1]",
+          "options": [
+            { "key": "A", "text": "dismissive", "correct": false },
+            { "key": "B", "text": "unsettled", "correct": false },
+            { "key": "C", "text": "respectful", "correct": true },
+            { "key": "D", "text": "remorseful", "correct": false },
+            { "key": "E", "text": "envious", "correct": false },
+            { "key": "F", "text": "indifferent", "correct": false },
+            { "key": "G", "text": "resentful", "correct": false },
+            { "key": "H", "text": "amused", "correct": false }
+          ],
+          "answer": "C",
+          "marks": 1
+        },
+        {
+          "n": 14,
+          "stem": "Q11(iv). Paragraphs 8-9 — the empty-handed goodbye and the kept essay. [1]",
+          "options": [
+            { "key": "A", "text": "dismissive", "correct": false },
+            { "key": "B", "text": "unsettled", "correct": false },
+            { "key": "C", "text": "respectful", "correct": false },
+            { "key": "D", "text": "remorseful", "correct": true },
+            { "key": "E", "text": "envious", "correct": false },
+            { "key": "F", "text": "indifferent", "correct": false },
+            { "key": "G", "text": "resentful", "correct": false },
+            { "key": "H", "text": "amused", "correct": false }
+          ],
+          "answer": "D",
+          "marks": 1
+        }
+      ]
+    }
+  ]
+}

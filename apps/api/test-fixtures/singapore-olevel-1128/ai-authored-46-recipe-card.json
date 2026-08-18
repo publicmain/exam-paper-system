@@ -1,0 +1,148 @@
+{
+  "setCode": "ai_authored_olevel_46_recipe_card_v1",
+  "paperNumber": 2,
+  "paperTitle": "Singapore-Cambridge GCE O-Level 1184 English Language — AI-authored Practice 46: The Recipe Card (§B style, standard band)",
+  "provenanceTag": "ai_authored_olevel_1128",
+  "provenanceNote": "NOT STUDENT-FACING. Original narrative written for the morning-quiz bank; NOT from any past exam paper. Section B [19 marks], 1184/02 §B format, SEAB assessment objectives. 10 short-answer items (mixed [1]/[2]) + 4-blank emotion flowchart split for independent auto-grading.",
+  "sections": [
+    {
+      "exercise": 1,
+      "instruction": "Read the narrative text below about a girl who tries to cook from her late grandmother's handwritten recipe card, and answer the questions that follow. Section B, Part 1 [15 marks]. Answer in your own words as far as possible.",
+      "passageTitle": "The Recipe Card",
+      "passage": "Paragraph 1\nThe card was the only thing I asked for. Everything else was divided in the careful, exhausting way that families divide things, but nobody wanted a piece of yellowed paper with my grandmother's curry recipe on it, so it came to me without argument.\n\nParagraph 2\nIt was not, strictly speaking, a recipe. It listed nine ingredients and no quantities. Under the list, in her slanting hand, were four instructions. The last one read: 'Cook until it smells correct.'\n\nParagraph 3\nI decided to make it for my mother's birthday. I had watched my grandmother cook this dish perhaps two hundred times. I had never once paid attention. Watching is not the same as learning, as I discovered at eleven o'clock that morning, standing in front of nine open jars with no idea how much of anything went in.\n\nParagraph 4\nThe first attempt was thin and sour. The second was better and still wrong. By the third I had stopped measuring and started smelling, which was, I began to suspect, the actual instruction all along.\n\nParagraph 5\nMy mother came home at six. She stood in the kitchen doorway with her bag still on her shoulder and did not say anything for a long moment. Then she put the bag down very slowly, as though a sudden movement might disturb something.\n\nParagraph 6\n'You used too much cinnamon,' she said at last. 'She always used too much cinnamon.'\n\nParagraph 7\nWe ate it at the small table. It was not as good as my grandmother's, and both of us knew it, and neither of us said so. Halfway through, my mother told me a thing I had not known: that my grandmother had learnt this dish from her own mother-in-law, who had disliked her, and who had deliberately left out one ingredient when teaching her. My grandmother had spent four years working out what it was.\n\nParagraph 8\n'Which one was it?' I asked.\n\nParagraph 9\n'She never told me,' my mother said. 'She said if she told me, I would not have to find it, and finding it was the point.'\n\nParagraph 10\nThe card is pinned above my stove now, where the steam has begun to soften its edges. I have made the curry eleven times. It is not right yet. I have stopped expecting it to be right, and started expecting only that each attempt will teach me one more thing that cannot be written on a card.",
+      "questions": [
+        {
+          "n": 1,
+          "stem": "Q1. From Paragraph 1, why did the narrator receive the recipe card 'without argument'? [1]",
+          "answer": "nobody else in the family wanted a piece of yellowed paper",
+          "marks": 1
+        },
+        {
+          "n": 2,
+          "stem": "Q2. From Paragraph 2, give TWO reasons why the card was 'not, strictly speaking, a recipe'. [1]",
+          "answer": "it gave no quantities, and its final instruction ('cook until it smells correct') was not a measurable step",
+          "marks": 1
+        },
+        {
+          "n": 3,
+          "stem": "Q3. Using your own words, explain what the narrator means by 'Watching is not the same as learning'. (Paragraph 3) [2]",
+          "answer": "① being present while someone works does not transfer their skill to you; ② real knowledge requires deliberate attention and practice, which she had never given the dish",
+          "marks": 2
+        },
+        {
+          "n": 4,
+          "stem": "Q4. What is the effect of the image of the narrator 'standing in front of nine open jars' (Paragraph 3)? [2]",
+          "answer": "it captures her helplessness at the moment of realisation — everything needed is laid out in front of her and she still cannot proceed, which makes the loss of her grandmother's knowledge feel concrete rather than sentimental",
+          "marks": 2
+        },
+        {
+          "n": 5,
+          "stem": "Q5. Using your own words, explain what the narrator learnt between her first and third attempts. (Paragraph 4) [2]",
+          "answer": "① that the dish could not be produced by following measurements; ② that judging it by smell was not a vague hint but the genuine method her grandmother had meant",
+          "marks": 2
+        },
+        {
+          "n": 6,
+          "stem": "Q6. What does the mother's action of putting her bag down 'very slowly' (Paragraph 5) suggest about her reaction? [2]",
+          "answer": "she was overwhelmed by the familiar smell and was holding herself carefully in check — the deliberate slowness shows her trying not to break the moment or her own composure",
+          "marks": 2
+        },
+        {
+          "n": 7,
+          "stem": "Q7. Why is the mother's remark about the cinnamon (Paragraph 6) more affectionate than it first appears? [1]",
+          "answer": "the 'mistake' is exactly what her own mother used to do, so it means the narrator has reproduced her grandmother's cooking",
+          "marks": 1
+        },
+        {
+          "n": 8,
+          "stem": "Q8. From Paragraph 7, what did the narrator learn about how her grandmother had acquired the recipe? [1]",
+          "answer": "her mother-in-law taught it to her but deliberately withheld one ingredient, which took her four years to work out",
+          "marks": 1
+        },
+        {
+          "n": 9,
+          "stem": "Q9. Using your own words, explain why the grandmother never revealed the missing ingredient. (Paragraph 9) [2]",
+          "answer": "① she believed the search itself was what mattered; ② handing over the answer would rob the next person of the understanding that only comes from working it out",
+          "marks": 2
+        },
+        {
+          "n": 10,
+          "stem": "Q10. What is the effect of the final sentence, in which the narrator stops expecting the curry to be 'right'? [1]",
+          "answer": "it shows she has accepted the grandmother's lesson — the value lies in the continuing attempt, not the finished dish",
+          "marks": 1
+        }
+      ]
+    },
+    {
+      "exercise": 2,
+      "instruction": "Q11. [4 marks in total] The narrator's dominant feeling changes as the day goes on. For each part of the passage below, choose the ONE word from the bank that best describes how she feels at that moment. Each word may be used once only.",
+      "passage": "Refer to the same 'The Recipe Card' narrative in Exercise 1 above. Read the paragraphs named in each question, then choose the single word from the bank that best describes how the narrator feels at that moment.",
+      "questions": [
+        {
+          "n": 11,
+          "stem": "Q11(i). Paragraph 3 — facing nine open jars at eleven o'clock. [1]",
+          "options": [
+            { "key": "A", "text": "helpless", "correct": true },
+            { "key": "B", "text": "determined", "correct": false },
+            { "key": "C", "text": "curious", "correct": false },
+            { "key": "D", "text": "accepting", "correct": false },
+            { "key": "E", "text": "boastful", "correct": false },
+            { "key": "F", "text": "irritated", "correct": false },
+            { "key": "G", "text": "fearful", "correct": false },
+            { "key": "H", "text": "bored", "correct": false }
+          ],
+          "answer": "A",
+          "marks": 1
+        },
+        {
+          "n": 12,
+          "stem": "Q11(ii). Paragraph 4 — abandoning measurement and cooking by smell. [1]",
+          "options": [
+            { "key": "A", "text": "helpless", "correct": false },
+            { "key": "B", "text": "determined", "correct": true },
+            { "key": "C", "text": "curious", "correct": false },
+            { "key": "D", "text": "accepting", "correct": false },
+            { "key": "E", "text": "boastful", "correct": false },
+            { "key": "F", "text": "irritated", "correct": false },
+            { "key": "G", "text": "fearful", "correct": false },
+            { "key": "H", "text": "bored", "correct": false }
+          ],
+          "answer": "B",
+          "marks": 1
+        },
+        {
+          "n": 13,
+          "stem": "Q11(iii). Paragraphs 7-8 — hearing about the withheld ingredient and asking which one it was. [1]",
+          "options": [
+            { "key": "A", "text": "helpless", "correct": false },
+            { "key": "B", "text": "determined", "correct": false },
+            { "key": "C", "text": "curious", "correct": true },
+            { "key": "D", "text": "accepting", "correct": false },
+            { "key": "E", "text": "boastful", "correct": false },
+            { "key": "F", "text": "irritated", "correct": false },
+            { "key": "G", "text": "fearful", "correct": false },
+            { "key": "H", "text": "bored", "correct": false }
+          ],
+          "answer": "C",
+          "marks": 1
+        },
+        {
+          "n": 14,
+          "stem": "Q11(iv). Paragraph 10 — the card above the stove after eleven attempts. [1]",
+          "options": [
+            { "key": "A", "text": "helpless", "correct": false },
+            { "key": "B", "text": "determined", "correct": false },
+            { "key": "C", "text": "curious", "correct": false },
+            { "key": "D", "text": "accepting", "correct": true },
+            { "key": "E", "text": "boastful", "correct": false },
+            { "key": "F", "text": "irritated", "correct": false },
+            { "key": "G", "text": "fearful", "correct": false },
+            { "key": "H", "text": "bored", "correct": false }
+          ],
+          "answer": "D",
+          "marks": 1
+        }
+      ]
+    }
+  ]
+}
