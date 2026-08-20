@@ -21,19 +21,37 @@ const prisma = new PrismaClient();
   const today = new Date(
     Date.UTC(localNow.getUTCFullYear(), localNow.getUTCMonth(), localNow.getUTCDate()),
   );
-  const tomorrow = new Date(today.getTime() + 86_400_000);
-  const dateIso = today.toISOString().slice(0, 10);
+  const todayIso = today.toISOString().slice(0, 10);
 
-  // All today's sessions → assignmentIds
-  const sessions = await prisma.morningQuizSession.findMany({
-    where: { date: { gte: today, lt: tomorrow } },
-    select: {
-      id: true,
-      level: true,
-      paperAssignmentId: true,
-      class: { select: { name: true } },
-    },
-  });
+  // 默认排今天的队列；补判 / 隔天判分时用 --dates 2026-08-19,2026-08-20
+  // 明确指定。session.date 存的是 attendanceStart（00:30 UTC 挂钟），
+  // 不是零点，所以只能按 [日期 00:00, 次日 00:00) 的范围查，不能拿
+  // 日期字符串精确匹配。
+  const datesArg = (() => {
+    const i = process.argv.indexOf('--dates');
+    return i >= 0 ? process.argv[i + 1] : undefined;
+  })();
+  const dateList = datesArg
+    ? datesArg.split(',').map((x) => x.trim()).filter(Boolean).sort()
+    : [todayIso];
+  const rangeStart = new Date(`${dateList[0]}T00:00:00.000Z`);
+  const rangeEnd = new Date(
+    new Date(`${dateList[dateList.length - 1]}T00:00:00.000Z`).getTime() + 86_400_000,
+  );
+  const dateIso = dateList.join(', ');
+
+  const sessions = (
+    await prisma.morningQuizSession.findMany({
+      where: { date: { gte: rangeStart, lt: rangeEnd } },
+      select: {
+        id: true,
+        date: true,
+        level: true,
+        paperAssignmentId: true,
+        class: { select: { name: true } },
+      },
+    })
+  ).filter((s) => dateList.includes(s.date.toISOString().slice(0, 10)));
   const assignmentIds = sessions.map((s) => s.paperAssignmentId);
 
   const submissions = await prisma.studentSubmission.findMany({
@@ -76,7 +94,7 @@ const prisma = new PrismaClient();
 
   console.log('═══════════════════════════════════════════════════════════');
   console.log(`MARKER QUEUE DUMP · ${dateIso} (SGT)`);
-  console.log(`Sessions today: ${sessions.length}`);
+  console.log(`Sessions: ${sessions.length}`);
   console.log(`Submissions awaiting marker: ${submissions.length}`);
   console.log('═══════════════════════════════════════════════════════════\n');
 

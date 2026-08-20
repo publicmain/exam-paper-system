@@ -744,8 +744,10 @@ const GRADES_0813: Record<string, { awardedMarks: number; reason: string }> = {
 // auto-graded ones (0 parked items) and blank submissions (no scripts). The
 // GRADES map alone only reaches submissions that had a parked item.
 const SWEEP_ASSIGNMENTS: string[] = [
-  'd6e5928b-a330-47c9-9b87-faef560a7955', // 2026-08-14 IELTS authentic (Reading the Signs of a Volcano)
-  '5e02bfaf-6654-4060-a7c8-80cbf961ddb2', // 2026-08-14 O-Level (Why Teenagers Are Not Sleeping)
+  'cmsy881el00n3a9sew4pxg60x', // 2026-08-19 IELTS authentic (cambridge_ielts_8 Test4/P1)
+  'cmsy9tkz400n5zzc5yzbytqqr', // 2026-08-19 O-Level (The Relief Teacher)
+  'cmsy88c2a00o3a9secztn7f6h', // 2026-08-20 IELTS authentic (cambridge_ielts_8 Test2/P3 · 嗅觉)
+  'cmsy9tuk500o5zzc5ljevoa8k', // 2026-08-20 O-Level (The Last Night of the Pasar Malam)
 ];
 
 const GRADES_0814: Record<string, { awardedMarks: number; reason: string }> = {
@@ -793,7 +795,59 @@ const GRADES_0814: Record<string, { awardedMarks: number; reason: string }> = {
   cmss81yb6010x9rbbftzs7evq: { awardedMarks: 2, reason: "答到两个要点：作业太多占掉时间、玩手机导致更晚睡，给 2 分。而且你是用自己的话写的、也是连贯成段的，这个方向是对的——很多同学直接抄原文，那样连风格分都拿不到。\n还差的要点：青春期生物钟往后推约两小时、学校开得太早、以及第 7 段那几条对策（周末也固定时间起床、手机放卧室外充电、难的复习挪到傍晚、午觉只睡二十分钟）。\n另外几处英文要改：a lots of → a lot of；many much time → so much time；there no more time → there is no more time。\n方法：这题限 80 词，但要覆盖「原因＋对策」两部分。先各列三四个短要点，再用 because、while、They can 这样的连接词串起来，比写长句更容易拿分。" },
 };
 
-const GRADES: Record<string, { awardedMarks: number; reason: string }> = GRADES_0814;
+const GRADES_0819: Record<string, { awardedMarks: number; reason: string }> = {
+  // 2026-08-19/20 早测 · olevel=ai_authored_olevel_44_relief_teacher(Miss Choo 代课老师)
+  // ielts=cambridge_ielts_8/Test2/P3(嗅觉 olfaction). MCQ 交卷时已自动判分,
+  // 这里只判未自动匹配的短答. 全 Claude 在 chat 判,零 AI.
+
+  // ── O-Level §B 8/19(HEIN HTET NAING)──
+  cmszdh4xd00ov1o8ewk12p0yr: {
+    awardedMarks: 0,
+    reason: 'Q1:抄了叙述句"twenty-three and looked younger",那是作者的描述;学生说的是"字像小学生写的"。0/1。',
+  },
+  cmszdg1v100ob1o8ezqu0mmr4: {
+    awardedMarks: 0,
+    reason: 'Q3:答"respectful to teacher",意思正好相反。not cruel/only patient 是说他们不吵不闹、用慢性消磨,比公开无礼更难被处理。0/2。',
+  },
+  cmszdigqf00pf1o8e4okal67w: {
+    awardedMarks: 1,
+    reason: 'Q4:不吼 + 不送纪律主任,两件都对。1/1。',
+  },
+
+  // ── O-Level §B 8/19(赵伯容)──
+  cmszdre4p00un1o8ecryhlkhn: {
+    awardedMarks: 1,
+    reason: 'Q1:"writing seemed like primary school handwriting" 命中。1/1。',
+  },
+  cmszdouxa00sf1o8e2nlnn3ep: {
+    awardedMarks: 2,
+    reason: 'Q2:"not respect"(MP1 不值得尊重)+"outlast"(MP2 熬到她走),两点齐。2/2。',
+  },
+  cmszdw5mw00xm1o8e1j69tky5: {
+    awardedMarks: 0,
+    reason: 'Q6:"Because Miss Choo gave Wai Xiang enough" 句子没写完,无法判读。答题时留意句子写完整。0/2。',
+  },
+  cmszdlsr100r11o8ea70lrhhx: {
+    awardedMarks: 1,
+    reason: 'Q8:抓到"less interesting"(MP2 一半),但漏了原文的因——她明显比我们更用功,所以嘲笑她不再显得聪明;也没提"没人宣布停止"(MP1)。1/2。',
+  },
+  cmszdidmp00p91o8edot6hlow: {
+    awardedMarks: 1,
+    reason: 'Q10:"the class gave her nothing" 锚住了第8段的对比(我们毫无表示、她却道谢),推理成立。更好的写法是点明"该由我们谢她"。1/1。',
+  },
+
+  // ── IELTS 8/20(胡齐家)· Reading P3 嗅觉 ──
+  cmt0st8kw012f1o8emo0n4an7: {
+    awardedMarks: 0,
+    reason: 'Q39:答 Emotion,正解 chemicals。原文说嗅觉也会对本身没有气味的化学物质起反应。0/1。',
+  },
+  cmt0sv8ba012h1o8er2t0i26r: {
+    awardedMarks: 0,
+    reason: 'Q40:答 Culture,正解 cultures。雅思填空要求填进句子后语法成立,"in certain ___" 后面必须是复数;单复数错在真考同样扣分。0/1。',
+  },
+};
+
+const GRADES: Record<string, { awardedMarks: number; reason: string }> = GRADES_0819;
 const _OLD_GRADES: Record<string, { awardedMarks: number; reason: string }> = {
   // 2026-07-24 早测 · ielts_authentic = cambridge_ielts_8/Test1/P1
   // "A Chronicle of Timekeeping"(Q1-4 段落匹配 A-H;Q9-13 图标注 ≤2词).
