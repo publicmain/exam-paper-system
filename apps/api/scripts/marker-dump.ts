@@ -1,4 +1,5 @@
 import { PrismaClient } from '@prisma/client';
+import { diffAnswer } from '../src/morning-quiz/answer-diff';
 
 /**
  * Dump today's marker queue — all submissions with ungraded short_answer
@@ -147,6 +148,19 @@ const prisma = new PrismaClient();
       console.log(`    Stem:        ${String(stem).replace(/\s+/g, ' ').trim()}`);
       console.log(`    Mark scheme: ${String(markScheme).replace(/\s+/g, ' ').trim()}`);
       console.log(`    Student ans: ${String(studentAns).replace(/\s+/g, ' ').trim()}`);
+      // 机械差异分析（2026-08-24）。只对短答案有意义 —— 雅思填空里
+      // 「culture / cultures」这类差异，人逐条肉眼比对既慢又容易看漏。
+      // 它**只说差在哪，不给分**：雅思真考里单复数错就是错，让机器自动
+      // 放行等于骗学生。判几分仍然由判分人决定。
+      const dx = diffAnswer(
+        typeof studentAns === 'string' ? studentAns : null,
+        typeof markScheme === 'string' ? markScheme : null,
+      );
+      if (dx.kind !== 'long_answer') {
+        console.log(
+          `    ⟨差异⟩ ${dx.kind}${dx.wrongInExam ? ' · 真考算错' : ' · 真考不扣分'} — ${dx.note}`,
+        );
+      }
       console.log('');
     }
   }
