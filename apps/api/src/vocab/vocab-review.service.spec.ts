@@ -168,3 +168,102 @@ describe('VocabReviewService.review — FSRS 接线', () => {
     );
   });
 });
+
+/** 撤销 + 弱网重发去重（2026-08-24 学生十问修复 #4/#10）的接线。 */
+describe('VocabReviewService — undo 与 requestId 幂等', () => {
+  function makeUndoSvc(word: any, log: any) {
+    const state: any = { word: { ...word }, deletedLogId: null };
+    const prisma: any = {
+      studentWord: {
+        findUnique: vi.fn().mockImplementation(() => Promise.resolve(state.word)),
+        update: vi.fn().mockImplementation(({ data }: any) => {
+          Object.assign(state.word, data);
+          return Promise.resolve(state.word);
+        }),
+      },
+      wordReviewLog: {
+        findFirst: vi.fn().mockResolvedValue(log),
+        findUnique: vi.fn().mockResolvedValue(null),
+        delete: vi.fn().mockImplementation(({ where }: any) => {
+          state.deletedLogId = where.id;
+          return Promise.resolve({});
+        }),
+        create: vi.fn().mockResolvedValue({}),
+      },
+      // undo 用的是数组形式的 $transaction（两个已构造的 promise）
+      $transaction: vi.fn().mockImplementation(async (ops: any) =>
+        Array.isArray(ops) ? Promise.all(ops) : ops({
+          studentWord: prisma.studentWord,
+          wordReviewLog: prisma.wordReviewLog,
+        }),
+      ),
+    };
+    const words: any = { resolveStudent: vi.fn().mockResolvedValue({ id: 's1', name: '张三' }) };
+    return { svc: new VocabReviewService(prisma, words), state, prisma };
+  }
+
+  it('undo：从快照精确还原调度状态并删掉流水', async () => {
+    const rated = makeWord({
+      reps: 1, stability: 3, scheduledDays: 2, state: 'review',
+      due: new Date('2026-08-26T00:00:00Z'), lastReview: new Date('2026-08-24T00:00:00Z'),
+    });
+    const log = {
+      id: 'log1',
+      reviewedAt: new Date(), // 刚评完
+      prevState: {
+        due: '2026-08-24T00:00:00.000Z', stability: 0, difficulty: 0,
+        elapsedDays: 0, scheduledDays: 0, reps: 0, lapses: 0,
+        lastReview: null, state: 'new',
+      },
+    };
+    const { svc, state } = makeUndoSvc(rated, log);
+    const out = await svc.undo({ studentName: '张三', headword: 'coax' });
+    expect(out.undone).toBe(true);
+    expect(state.word.reps).toBe(0);
+    expect(state.word.state).toBe('new');
+    expect(state.word.stability).toBe(0);
+    expect(state.word.lastReview).toBeNull();
+    expect(state.deletedLogId).toBe('log1');
+  });
+
+  it('undo：超过 10 分钟拒绝（undo_window_expired）', async () => {
+    const log = {
+      id: 'log1',
+      reviewedAt: new Date(Date.now() - 11 * 60_000),
+      prevState: { due: '2026-08-24T00:00:00.000Z', stability: 0, difficulty: 0,
+        elapsedDays: 0, scheduledDays: 0, reps: 0, lapses: 0, lastReview: null, state: 'new' },
+    };
+    const { svc } = makeUndoSvc(makeWord({ reps: 1 }), log);
+    await expect(svc.undo({ studentName: '张三', headword: 'coax' })).rejects.toMatchObject({
+      response: { code: 'undo_window_expired' },
+    });
+  });
+
+  it('undo：没有可撤的流水（或无快照）拒绝', async () => {
+    const { svc } = makeUndoSvc(makeWord(), null);
+    await expect(svc.undo({ studentName: '张三', headword: 'coax' })).rejects.toMatchObject({
+      response: { code: 'nothing_to_undo' },
+    });
+  });
+
+  it('requestId 重放：直接返回当前状态，不再写 FSRS', async () => {
+    const word = makeWord({ reps: 1, scheduledDays: 2, state: 'review' });
+    const prisma: any = {
+      studentWord: {
+        findUnique: vi.fn().mockResolvedValue(word),
+        update: vi.fn(),
+      },
+      wordReviewLog: {
+        findUnique: vi.fn().mockResolvedValue({ id: 'log-exists' }), // 已记过
+      },
+      $transaction: vi.fn(),
+    };
+    const words: any = { resolveStudent: vi.fn().mockResolvedValue({ id: 's1', name: '张三' }) };
+    const svc = new VocabReviewService(prisma, words);
+    const out: any = await svc.review({
+      studentName: '张三', headword: 'coax', rating: 'good', requestId: 'rq-1',
+    });
+    expect(out.duplicate).toBe(true);
+    expect(prisma.$transaction).not.toHaveBeenCalled(); // 没有第二次调度
+  });
+});

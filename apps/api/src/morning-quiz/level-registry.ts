@@ -29,7 +29,9 @@ export interface LevelMeta {
   order: number;
   /** 一句话说明，用于配置页和面板的 tooltip */
   hint: string;
-  /** 建场时是否自动推送配套词表（短文层才有） */
+  /** 扫码时是否自动推送配套词表。2026-08-24 起五层全开：短文层用
+   *  fixture 词表，高层用卷内嵌词表（Paper.config.wordlist）——
+   *  没词表的卷子 resolveWordlistForPaperConfig 返回 null，静默跳过。 */
   pushesWordlist: boolean;
 }
 
@@ -39,7 +41,7 @@ export const LEVEL_REGISTRY: Record<EnglishLevel, LevelMeta> = {
     bucket: 'ielts_authentic',
     order: 1,
     hint: '剑桥雅思原文，700–900 词、13–14 题',
-    pushesWordlist: false,
+    pushesWordlist: true,
   },
   ielts_light: {
     label: '雅思轻量',
@@ -53,14 +55,14 @@ export const LEVEL_REGISTRY: Record<EnglishLevel, LevelMeta> = {
     bucket: 'olevel_standard',
     order: 3,
     hint: '§B 记叙文，440–650 词、14 题 19 分',
-    pushesWordlist: false,
+    pushesWordlist: true,
   },
   olevel_intermediate: {
     label: 'O-Level 进阶',
     bucket: 'olevel_simplified',
     order: 4,
     hint: '中等长度记叙文，500–790 词、11 题',
-    pushesWordlist: false,
+    pushesWordlist: true,
   },
   ielts_simplified: {
     label: 'O-Level 基础',

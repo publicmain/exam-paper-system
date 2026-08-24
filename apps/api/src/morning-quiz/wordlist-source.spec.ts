@@ -63,3 +63,33 @@ describe('配套词表来源', () => {
     expect(resolveWordlist({})).toBeNull();
   });
 });
+
+describe('卷内嵌词表（2026-08-24 高层级词表）', () => {
+  it('config.wordlist 优先于一切：原样返回并带 story', () => {
+    const r = resolveWordlist({
+      paperKey: 'IELTS/authentic_c15_t1_p2/Paper1',
+      wordlist: [
+        { word: 'sediment', context: 'Fine sediment settled on the reef flat.' },
+        { word: 'erosion', context: 'Erosion outpaced calcification.' },
+      ],
+    });
+    expect(r).not.toBeNull();
+    expect(r!.story).toBe('IELTS/authentic_c15_t1_p2/Paper1');
+    expect(r!.items.map((i) => i.word)).toEqual(['sediment', 'erosion']);
+  });
+
+  it('空的 / 全脏的 wordlist 不拦路：继续走 paperKey/passageRef 解析', () => {
+    const r = resolveWordlist({
+      paperKey: 'OLEVEL/ai_authored_olevel_basic_01_new_shoes_v1/Paper2',
+      wordlist: [],
+    });
+    expect(r).not.toBeNull();
+    expect(r!.story).toBe('basic-01-new-shoes');
+    const dirty = resolveWordlist({ wordlist: [{ word: '   ' } as any] });
+    expect(dirty).toBeNull();
+  });
+
+  it('高层级卷子没配 wordlist 时仍返回 null（推送静默跳过，不报错）', () => {
+    expect(resolveWordlist({ passageRef: 'IELTS/cambridge15/Test1/P2' })).toBeNull();
+  });
+});

@@ -65,3 +65,44 @@ export function findClozeSpan(sentence: string, surface: string): ClozeSpan | nu
   }
   return null;
 }
+
+/**
+ * 长句围绕挖空处开窗（学生十问修复 #5）。
+ *
+ * wrong_answer 收录的词带着雅思学术长句作语境 —— 卡片/题干上 300 字符
+ * 的句子对轻量层学生是墙，不是提示。超过 maxLen 时以挖空处为中心取窗，
+ * 两端在词边界收口并加省略号；span 偏移同步平移，调用方照常挖空。
+ */
+export function windowAroundSpan(
+  sentence: string,
+  span: ClozeSpan,
+  maxLen = 180,
+): { text: string; span: ClozeSpan } {
+  if (sentence.length <= maxLen) return { text: sentence, span };
+  const radius = Math.max(20, Math.floor((maxLen - (span.end - span.start)) / 2));
+  let start = Math.max(0, span.start - radius);
+  let end = Math.min(sentence.length, span.end + radius);
+  // 词边界收口：绝不把窗口边缘的单词拦腰切断
+  if (start > 0) {
+    const sp = sentence.indexOf(' ', start);
+    if (sp >= 0 && sp < span.start) start = sp + 1;
+  }
+  if (end < sentence.length) {
+    const sp = sentence.lastIndexOf(' ', end);
+    if (sp > span.end) end = sp;
+  }
+  const prefix = start > 0 ? '…' : '';
+  const suffix = end < sentence.length ? '…' : '';
+  const shift = start - prefix.length;
+  return {
+    text: prefix + sentence.slice(start, end) + suffix,
+    span: { start: span.start - shift, end: span.end - shift, token: span.token },
+  };
+}
+
+/** 无挖空处可对齐时的朴素截断（学习卡显示用）。 */
+export function trimSentence(sentence: string, maxLen = 220): string {
+  if (sentence.length <= maxLen) return sentence;
+  const cut = sentence.lastIndexOf(' ', maxLen);
+  return sentence.slice(0, cut > maxLen / 2 ? cut : maxLen) + '…';
+}

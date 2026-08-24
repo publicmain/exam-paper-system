@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../common/prisma.service';
-import { findClozeSpan } from './cloze';
+import { findClozeSpan, windowAroundSpan } from './cloze';
 import { StudentWordService } from './student-word.service';
 import { VocabReviewService } from './vocab-review.service';
 
@@ -193,7 +193,7 @@ export class VocabQuizService {
     // 干扰项池 1：该学生的全部生词（含已掌握的 —— 作干扰项正合适）
     const mine = await this.prisma.studentWord.findMany({
       where: { studentId: student.id },
-      select: { headword: true },
+      select: { headword: true, reps: true },
     });
     const allWords = [...new Set([...mine.map((w) => w.headword), ...chosen.map((w) => w.headword)])];
     const dictRows = await this.prisma.dictEntry.findMany({
@@ -275,8 +275,10 @@ export class VocabQuizService {
 
       let prompt: string;
       if (qtype === 'cloze') {
-        const s = w.contextSentence!;
-        prompt = s.slice(0, clozeSpan!.start) + '＿＿＿' + s.slice(clozeSpan!.end);
+        // 长句以挖空处为中心开窗（修复 #5）：300 字符的学术长句对轻量层
+        // 学生是墙不是提示，窗口化后题干只留挖空处前后各 ~80 字符。
+        const win = windowAroundSpan(w.contextSentence!, clozeSpan!, 180);
+        prompt = win.text.slice(0, win.span.start) + '＿＿＿' + win.text.slice(win.span.end);
       } else if (qtype === 'word_to_meaning') {
         prompt = w.headword;
       } else {
@@ -299,6 +301,9 @@ export class VocabQuizService {
       student: { id: student.id, name: student.name },
       streakDays: await this.review.streakDays(student.id),
       totalWords: mine.length,
+      // 复习过至少一次的词数（修复 #8）：全是 0 说明这套题考的全是没
+      // 学过的词 —— 前端据此把「直接考」改成「先学新词」的引导。
+      seenWords: mine.filter((w) => (w.reps ?? 0) > 0).length,
       questions,
     };
   }

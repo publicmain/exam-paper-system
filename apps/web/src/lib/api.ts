@@ -29,14 +29,21 @@ async function request<T = any>(method: string, path: string, body?: any): Promi
     // — show just the human message to callers, never the raw JSON.
     const text = await res.text();
     let friendly = text;
+    let parsedBody: any = null;
     try {
       const parsed = JSON.parse(text);
+      parsedBody = parsed;
       if (parsed && typeof parsed.message === 'string') friendly = parsed.message;
       else if (Array.isArray(parsed?.message)) friendly = parsed.message.join('; ');
     } catch {
       /* not JSON, fall through to raw text */
     }
-    throw new Error(friendly || `${method} ${path} failed: ${res.status}`);
+    // 结构化错误体挂在 err.body 上 —— student_not_found 的相近姓名建议
+    // （suggestions）之类的字段要能到达页面，只给 message 会把它们丢掉。
+    const err: any = new Error(friendly || `${method} ${path} failed: ${res.status}`);
+    err.body = parsedBody;
+    err.status = res.status;
+    throw err;
   }
   if (res.status === 204) return undefined as T;
   const ct = res.headers.get('content-type') || '';
@@ -420,7 +427,12 @@ export const api = {
     headword: string;
     rating: string;
     elapsedMs?: number;
+    /** 弱网重发去重用；由 lib/reviewQueue 生成 */
+    requestId?: string;
   }) => request('POST', '/vocab/review', body),
+  /** 生词本 — 撤销该词最近一次评分（10 分钟内，误触防线） */
+  vocabReviewUndo: (body: { studentName: string; studentId?: string; headword: string }) =>
+    request('POST', '/vocab/review/undo', body),
   /** 错题本 P6 — 我的错题（收录门槛在服务端，不是每道错题都进） */
   mistakeList: (p: { name: string; studentId?: string; includeResolved?: boolean }) =>
     request('GET', '/vocab/mistakes?name=' + encodeURIComponent(p.name) +

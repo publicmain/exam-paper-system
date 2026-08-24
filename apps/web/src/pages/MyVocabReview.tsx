@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { api } from '../lib/api';
-import { findClozeSpan } from '../lib/cloze';
+import { findClozeSpan, trimSentence, windowAroundSpan } from '../lib/cloze';
+import { flushPending, submitReview } from '../lib/reviewQueue';
 import { Spinner } from '../components/AsyncState';
 
 /**
@@ -26,14 +27,38 @@ interface Card {
   tag: string[];
   state: string;
   reps: number;
+  sourceType?: 'click' | 'wrong_answer' | 'teacher_push';
+  addedAt?: string;
 }
 
+/**
+ * 两档评分（2026-08-24 学生十问修复 #4）。
+ *
+ * 原来是 Anki 的四档（又忘了/有点难/记得/很简单）—— 那是老手语义，
+ * 学生要么全点「记得」，要么手滑点「很简单」把不会的词推到 11+ 天后。
+ * 降到两档：判断只剩「想起来了没有」，没有可犹豫的灰度。FSRS 用
+ * again/good 两个信号工作得很好；hard/easy 带来的调度增益远小于
+ * 学生乱选带来的噪声。后端四档接口原样保留（自测线也在用）。
+ */
 const RATINGS = [
-  { key: 'again', label: '又忘了', sub: 'Again', cls: 'bg-rose-600 hover:bg-rose-700' },
-  { key: 'hard', label: '有点难', sub: 'Hard', cls: 'bg-amber-500 hover:bg-amber-600' },
-  { key: 'good', label: '记得', sub: 'Good', cls: 'bg-emerald-600 hover:bg-emerald-700' },
-  { key: 'easy', label: '很简单', sub: 'Easy', cls: 'bg-blue-600 hover:bg-blue-700' },
+  { key: 'again', label: '忘了', labelNew: '没记住', sub: 'Forgot', cls: 'bg-rose-600 hover:bg-rose-700' },
+  { key: 'good', label: '记得', labelNew: '记住了', sub: 'Got it', cls: 'bg-emerald-600 hover:bg-emerald-700' },
 ] as const;
+
+/** 卡片来源行（修复 #6）：回答「这词怎么进我本子的」。 */
+const SOURCE_TEXT: Record<string, string> = {
+  click: '你阅读时自己添加的',
+  wrong_answer: '答错自动收录',
+  teacher_push: '随当天文章推送',
+};
+
+function sourceLine(card: Card): string | null {
+  const how = card.sourceType ? SOURCE_TEXT[card.sourceType] : null;
+  if (!how) return null;
+  const d = card.addedAt ? new Date(card.addedAt) : null;
+  const when = d && !Number.isNaN(d.getTime()) ? `${d.getMonth() + 1}/${d.getDate()} ` : '';
+  return `${when}${how}`;
+}
 
 export default function MyVocabReviewPage() {
   const [params] = useSearchParams();
@@ -51,6 +76,18 @@ export default function MyVocabReviewPage() {
   const [busy, setBusy] = useState(false);
   const [done, setDone] = useState(0);
   const [shownAt, setShownAt] = useState<number>(() => Date.now());
+  /** 上一张的评分回执（修复 #4/#7）：间隔反馈 + 撤销入口。
+   *  queued = 弱网已暂存（撤销不可用 —— 服务端还没有这条记录）。 */
+  const [lastRated, setLastRated] = useState<{
+    headword: string;
+    idx: number;
+    feedback: string;
+    canUndo: boolean;
+  } | null>(null);
+  const [undoBusy, setUndoBusy] = useState(false);
+
+  // 上次弱网攒下的评分，进页面先补传（fire-and-forget，失败留队）
+  useEffect(() => { void flushPending(); }, []);
 
   // 2026-08-14 —— 交卷流程会带 then=<逐题详情页>，复习完直接落过去
   // （学生要的即时反馈）。只接受本域 /my-history 前缀，防开放跳转。
@@ -141,29 +178,63 @@ export default function MyVocabReviewPage() {
       if (!cards || busy) return;
       const card = cards[idx];
       setBusy(true);
-      try {
-        await api.vocabReview({
-          studentName: name,
-          studentId: studentId || undefined,
-          headword: card.headword,
-          rating,
-          elapsedMs: Math.min(Date.now() - shownAt, 600_000),
-        });
-      } catch {
-        /* 评分失败不阻断流程：下次到期时还会再出现 */
-      } finally {
-        setBusy(false);
-        setDone((d) => d + 1);
-        if (idx + 1 >= cards.length) setIdx(cards.length); // → 完成页
-        else {
-          setIdx((i) => i + 1);
-          setRevealed(false);
-          setShownAt(Date.now());
-        }
+      // submitReview：失败自动进 localStorage 队列，下次打开词汇页补传
+      //（修复 #10 —— 原来 catch 静默吞掉，学生的复习凭空消失）。
+      const r = await submitReview({
+        studentName: name,
+        studentId: studentId || undefined,
+        headword: card.headword,
+        rating,
+        elapsedMs: Math.min(Date.now() - shownAt, 600_000),
+      });
+      // 间隔反馈（修复 #7）：让学生看见「这个词被推远了多少」——
+      // 没有它，反复出现的词只会传递「我在原地踏步」。
+      let feedback: string;
+      let canUndo = false;
+      if ('queued' in r && r.queued) {
+        feedback = '网络不稳，已暂存稍后补传';
+      } else {
+        const ok = r as { intervalDays: number; state: string };
+        canUndo = true;
+        if (rating === 'again') feedback = '待会儿再见';
+        else if (ok.state === 'known') feedback = `🎓 已掌握，${ok.intervalDays} 天内不再打扰`;
+        else feedback = ok.intervalDays >= 1 ? `${ok.intervalDays} 天后再见` : '明天再见';
+      }
+      setLastRated({ headword: card.headword, idx, feedback, canUndo });
+      setBusy(false);
+      setDone((d) => d + 1);
+      if (idx + 1 >= cards.length) setIdx(cards.length); // → 完成页
+      else {
+        setIdx((i) => i + 1);
+        setRevealed(false);
+        setShownAt(Date.now());
       }
     },
     [cards, idx, busy, name, studentId, shownAt],
   );
+
+  /** 撤销上一张（修复 #4）：服务端从快照精确还原，前端跳回那张卡重评。 */
+  const undo = useCallback(async () => {
+    if (!lastRated?.canUndo || undoBusy) return;
+    setUndoBusy(true);
+    try {
+      await api.vocabReviewUndo({
+        studentName: name,
+        studentId: studentId || undefined,
+        headword: lastRated.headword,
+      });
+      setIdx(lastRated.idx);
+      setRevealed(true);
+      setDone((d) => Math.max(0, d - 1));
+      setLastRated(null);
+      setShownAt(Date.now());
+    } catch {
+      // 撤销窗口过期 / 网络失败：把入口收掉，别让学生反复点一个坏按钮
+      setLastRated(null);
+    } finally {
+      setUndoBusy(false);
+    }
+  }, [lastRated, undoBusy, name, studentId]);
 
   if (!cards) {
     return (
@@ -208,6 +279,23 @@ export default function MyVocabReviewPage() {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center px-5">
         <div className="bg-white rounded-2xl border shadow-sm p-7 max-w-sm w-full text-center">
+          {lastRated && (
+            <div className="mb-3 flex items-center justify-center gap-2 text-[12px] text-gray-500">
+              <span>
+                {lastRated.headword} · {lastRated.feedback}
+              </span>
+              {lastRated.canUndo && (
+                <button
+                  type="button"
+                  onClick={undo}
+                  disabled={undoBusy}
+                  className="text-blue-600 underline disabled:opacity-50"
+                >
+                  撤销
+                </button>
+              )}
+            </div>
+          )}
           <div className="text-4xl mb-2">🎉</div>
           <div className="text-xl font-bold text-gray-900">今日生词看完了</div>
           <div className="text-sm text-gray-600 mt-1.5">
@@ -288,6 +376,25 @@ export default function MyVocabReviewPage() {
           />
         </div>
 
+        {/* 上一张的回执：间隔反馈 + 撤销（误触防线）。不挡内容，一行即可 */}
+        {lastRated && (
+          <div className="mb-3 flex items-center justify-between text-[12px] text-gray-500 bg-white border rounded-lg px-3 py-1.5">
+            <span className="truncate">
+              上一张 <span className="font-semibold text-gray-700">{lastRated.headword}</span> · {lastRated.feedback}
+            </span>
+            {lastRated.canUndo && (
+              <button
+                type="button"
+                onClick={undo}
+                disabled={undoBusy}
+                className="hit shrink-0 ml-2 text-blue-600 underline disabled:opacity-50"
+              >
+                撤销
+              </button>
+            )}
+          </div>
+        )}
+
         <div className="bg-white rounded-2xl border shadow-sm p-5 min-h-[300px] flex flex-col">
           {/* 正面：原句挖空 —— 先想，再翻面 */}
           <div className="text-[15px] leading-relaxed text-gray-800">{cloze}</div>
@@ -315,9 +422,14 @@ export default function MyVocabReviewPage() {
                     </span>
                   )}
                 </div>
+                {/* 释义放宽到 6 行（修复 #5）：一词多义时前两行可能根本
+                    不含文中义 —— mean 的动词义排在名词义后面就是坏例 */}
                 <div className="mt-1.5 text-[15px] text-gray-800 whitespace-pre-wrap">
-                  {card.translation.split('\n').slice(0, 2).join('\n')}
+                  {card.translation.split('\n').slice(0, 6).join('\n')}
                 </div>
+                {sourceLine(card) && (
+                  <div className="mt-2 text-[11px] text-gray-400">{sourceLine(card)}</div>
+                )}
               </div>
               <div className="mt-auto pt-4 grid grid-cols-2 gap-2">
                 {RATINGS.map((r) => (
@@ -326,9 +438,9 @@ export default function MyVocabReviewPage() {
                     type="button"
                     disabled={busy}
                     onClick={() => rate(r.key)}
-                    className={`py-3 rounded-xl text-white font-semibold text-sm disabled:opacity-50 touch-manipulation ${r.cls}`}
+                    className={`py-3.5 rounded-xl text-white font-semibold text-base disabled:opacity-50 touch-manipulation ${r.cls}`}
                   >
-                    {r.label}
+                    {(card.reps ?? 0) === 0 ? r.labelNew : r.label}
                     <span className="block text-[11px] font-normal opacity-80">{r.sub}</span>
                   </button>
                 ))}
@@ -354,14 +466,17 @@ export default function MyVocabReviewPage() {
 function clozeSentence(sentence: string, surface: string) {
   if (!sentence) return <span className="text-gray-400">（无原句）</span>;
   const span = surface ? findClozeSpan(sentence, surface) : null;
-  if (!span) return sentence;
+  // 定位不到 → 学习卡：句子原样给（长句截断,修复 #5），不假装挖空
+  if (!span) return trimSentence(sentence);
+  // 长句围绕挖空处开窗（修复 #5）：300 字符的学术长句是墙不是提示
+  const win = windowAroundSpan(sentence, span, 180);
   return (
     <>
-      {sentence.slice(0, span.start)}
+      {win.text.slice(0, win.span.start)}
       <span className="inline-block min-w-[64px] border-b-2 border-amber-400 text-center text-amber-600 font-semibold">
         ?
       </span>
-      {sentence.slice(span.end)}
+      {win.text.slice(win.span.end)}
     </>
   );
 }

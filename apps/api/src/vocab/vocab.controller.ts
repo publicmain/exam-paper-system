@@ -128,10 +128,27 @@ export class VocabController {
       headword: z.string().min(1).max(64),
       rating: z.enum(['again', 'hard', 'good', 'easy']),
       elapsedMs: z.number().int().min(0).max(600000).optional(),
+      // 弱网重发去重：前端每次评分生成一个 UUID，失败重发时带同一个
+      requestId: z.string().max(64).optional(),
     });
     const p = schema.safeParse(body);
     if (!p.success) throw new BadRequestException(p.error.flatten());
     return this.review.review({ ...p.data, rating: p.data.rating as RatingKey });
+  }
+
+  /** 撤销该词最近一次评分（10 分钟内）。误触防线 —— 详见 review 服务注释。 */
+  @Public()
+  @RateLimit({ limit: 120, windowSec: 60, scope: 'ip' })
+  @Post('review/undo')
+  async undoReview(@Body() body: unknown) {
+    const schema = z.object({
+      studentName: z.string().min(1).max(50),
+      studentId: z.string().optional(),
+      headword: z.string().min(1).max(64),
+    });
+    const p = schema.safeParse(body);
+    if (!p.success) throw new BadRequestException(p.error.flatten());
+    return this.review.undo(p.data);
   }
 
   /**

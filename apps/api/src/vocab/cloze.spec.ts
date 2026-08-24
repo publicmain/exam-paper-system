@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { findClozeSpan } from './cloze';
+import { findClozeSpan, trimSentence, windowAroundSpan } from './cloze';
 
 /**
  * 挖空定位。全部用 2026-08-24 审计时从生产库抽出来的真实坏例 ——
@@ -72,5 +72,58 @@ describe('findClozeSpan', () => {
   it('空入参不炸', () => {
     expect(findClozeSpan('', 'word')).toBeNull();
     expect(findClozeSpan('sentence', '')).toBeNull();
+  });
+});
+
+describe('windowAroundSpan — 长句围绕挖空处开窗（修复 #5）', () => {
+  const LONG =
+    'The researchers concluded that the accumulation of fine sediment on the reef flat, ' +
+    'driven largely by coastal construction and the clearing of mangrove forests upstream, ' +
+    'had reduced the light available to symbiotic algae to a level at which calcification ' +
+    'could no longer keep pace with natural erosion.';
+
+  it('短句原样返回，span 不动', () => {
+    const s = 'The axis tilts.';
+    const span = findClozeSpan(s, 'axis')!;
+    const win = windowAroundSpan(s, span, 180);
+    expect(win.text).toBe(s);
+    expect(win.span).toEqual(span);
+  });
+
+  it('长句开窗：挖空词仍在窗内且偏移正确', () => {
+    const span = findClozeSpan(LONG, 'sediment')!;
+    const win = windowAroundSpan(LONG, span, 180);
+    expect(win.text.length).toBeLessThan(LONG.length);
+    expect(win.text.slice(win.span.start, win.span.end)).toBe('sediment');
+  });
+
+  it('窗口边缘带省略号且不把单词拦腰切断', () => {
+    const span = findClozeSpan(LONG, 'calcification')!;
+    const win = windowAroundSpan(LONG, span, 160);
+    expect(win.text.startsWith('…')).toBe(true);
+    // 去掉省略号后的首个词应是原句里的完整 token
+    const firstWord = win.text.replace(/^…/, '').split(' ')[0];
+    expect(LONG.includes(` ${firstWord} `) || LONG.startsWith(firstWord)).toBe(true);
+  });
+
+  it('挖空词在句首：窗口从头开始，无前省略号', () => {
+    const s = 'Sediment accumulates slowly over decades, ' + 'x'.repeat(200) + ' end.';
+    const span = findClozeSpan(s, 'sediment')!;
+    const win = windowAroundSpan(s, span, 120);
+    expect(win.text.startsWith('…')).toBe(false);
+    expect(win.text.slice(win.span.start, win.span.end)).toBe('Sediment');
+  });
+});
+
+describe('trimSentence — 学习卡长句截断', () => {
+  it('短句不动', () => {
+    expect(trimSentence('short one.')).toBe('short one.');
+  });
+  it('长句在词边界截断并加省略号', () => {
+    const long = ('word '.repeat(80)).trim() + '.';
+    const out = trimSentence(long, 100);
+    expect(out.length).toBeLessThanOrEqual(101);
+    expect(out.endsWith('…')).toBe(true);
+    expect(out.includes('word wor…')).toBe(false); // 不拦腰切
   });
 });

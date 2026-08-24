@@ -16,6 +16,7 @@ import { randomBytes } from 'crypto';
 import { AuditService } from '../audit/audit.service';
 import { QuickPaperInput, QuickPaperService } from '../ai/quick-paper.service';
 import { PrismaService } from '../common/prisma.service';
+import { closeNames } from '../common/name-suggest';
 import { canActOnClass } from '../common/roles';
 import { ShuffleService } from '../shuffle/shuffle.service';
 import { secondWindowAppliesTo } from './second-window';
@@ -3231,7 +3232,22 @@ export class MorningQuizService {
       },
     });
     if (allCandidates.length === 0) {
-      throw new NotFoundException({ code: 'student_not_found', typed: name });
+      // 输错一个字的学生需要一条出路，不是一句「找不到」（学生十问 #9）。
+      // 只在查无此人时才多查一次名册 —— 正常路径零额外开销。
+      let suggestions: string[] = [];
+      try {
+        const roster = await this.prisma.user.findMany({
+          where: {
+            role: 'student',
+            isActive: true,
+            archivedAt: null,
+            classEnrollments: { some: { role: 'student', class: { archivedAt: null } } },
+          },
+          select: { name: true },
+        });
+        suggestions = closeNames(name, roster.map((r) => r.name));
+      } catch { /* 建议是锦上添花，失败不影响报错本身 */ }
+      throw new NotFoundException({ code: 'student_not_found', typed: name, suggestions });
     }
     if (studentIdFilter) {
       const matched = allCandidates.find((c) => c.id === studentIdFilter);

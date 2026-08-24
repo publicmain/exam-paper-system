@@ -33,10 +33,26 @@ export interface ResolvedWordlist {
 const FIXTURES = path.join(__dirname, '..', '..', 'test-fixtures');
 
 export function resolveWordlistForPaperConfig(
-  cfg: { paperKey?: string; passageRef?: string } | null | undefined,
+  cfg: {
+    paperKey?: string;
+    passageRef?: string;
+    wordlist?: Array<{ word: string; context?: string }>;
+  } | null | undefined,
 ): ResolvedWordlist | null {
   const paperKey = cfg?.paperKey ?? '';
   const passageRef = cfg?.passageRef ?? '';
+
+  // 来源 0（2026-08-24 起的首选）：**卷内嵌词表** —— Paper.config.wordlist。
+  // 高层级（雅思真题 / O-Level 标准 / 进阶）的卷子没有固定的 fixture 词表
+  // 文件，词表在生成/入库时直接写进卷子 config；数据跟卷子走，永不错位。
+  if (Array.isArray(cfg?.wordlist) && cfg.wordlist.length) {
+    const items = cfg.wordlist
+      .filter((w) => typeof w?.word === 'string' && w.word.trim())
+      .map((w) => ({ word: w.word.trim(), context: (w.context ?? '').trim() }));
+    if (items.length) {
+      return { story: paperKey || passageRef || 'inline', items };
+    }
+  }
 
   const olevelMatch = paperKey.match(/olevel_(basic_\d+_[a-z0-9_]+?)(?:_v\d+)?\/Paper/);
   if (olevelMatch) {

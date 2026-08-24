@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { api } from '../lib/api';
+import { flushPending, submitReview } from '../lib/reviewQueue';
 import { track } from '../lib/track';
 import { Spinner } from '../components/AsyncState';
 
@@ -38,6 +39,8 @@ interface QuizPayload {
   student: { id: string; name: string };
   streakDays: number;
   totalWords: number;
+  /** 复习过至少一次的词数。0 = 这套题全是没学过的词（修复 #8） */
+  seenWords?: number;
   questions: QuizQuestion[];
 }
 
@@ -65,7 +68,12 @@ export default function MyVocabQuizPage() {
   const [missed, setMissed] = useState<QuizQuestion[]>([]);
   const [firstTryCorrect, setFirstTryCorrect] = useState(0);
   const [round, setRound] = useState(0); // 「再练一轮」时 +1 触发重新拉题
+  /** 全是没学过的词时的门槛页（修复 #8）：学生明确点过「直接考」才放行 */
+  const [proceedAllNew, setProceedAllNew] = useState(false);
   const feedbackRef = useRef<HTMLDivElement | null>(null);
+
+  // 弱网攒下的评分先补传
+  useEffect(() => { void flushPending(); }, []);
 
   /** 交卷流程跳进来的：完成后主目的地是本场逐题详情（then 参数），
    *  且主按钮从「再练一轮」换成「去看成绩」。只认 /my-history 前缀，
@@ -143,16 +151,14 @@ export default function MyVocabQuizPage() {
           // 错题回炉：排到队尾再考一次（只考一次，不无限循环）
           setQueue((qq) => [...qq, { ...q, retry: true }]);
         }
-        // 客观结果 → FSRS。fire-and-forget：写失败下次到期还会出现，
-        // 绝不能让一次网络抖动卡住答题节奏。
-        api
-          .vocabReview({
-            studentName: name,
-            studentId: studentId || undefined,
-            headword: q.headword,
-            rating: correct ? 'good' : 'again',
-          })
-          .catch(() => {});
+        // 客观结果 → FSRS。fire-and-forget 但**不再静默丢失**（修复 #10）：
+        // submitReview 失败自动进 localStorage 队列，下次打开词汇页补传。
+        void submitReview({
+          studentName: name,
+          studentId: studentId || undefined,
+          headword: q.headword,
+          rating: correct ? 'good' : 'again',
+        });
       }
       // 读屏用户把焦点带到反馈区
       setTimeout(() => feedbackRef.current?.focus(), 50);
@@ -187,6 +193,41 @@ export default function MyVocabQuizPage() {
     return (
       <div className="ui-ios min-h-screen bg-gray-50">
         <Spinner label="正在出题…" />
+      </div>
+    );
+  }
+
+  // 全是没学过的词（修复 #8）：主页「自测」入口没有先学门槛，轻量层
+  // 第一天推进来的 8 个词全是 reps=0 —— 直接考只会全错，还把它们写成
+  // FSRS 困难词。给一道明确的岔路口：先去翻卡学（推荐），或坚持要考。
+  // 交卷流程不经过这里（MyVocabReview 已保证有新词先翻卡）。
+  if (!afterSubmit && !proceedAllNew && firstRoundTotal > 0 && (payload.seenWords ?? 1) === 0) {
+    const reviewUrl =
+      `/my-vocab/review?name=${encodeURIComponent(name)}` +
+      (studentId ? `&studentId=${encodeURIComponent(studentId)}` : '');
+    return (
+      <div className="ui-ios min-h-screen bg-gray-50 flex items-center justify-center px-5">
+        <div className="bg-white rounded-2xl border shadow-sm p-7 max-w-sm w-full text-center">
+          <div className="text-4xl mb-2">📖</div>
+          <div className="text-xl font-bold text-gray-900">这些词你还没学过</div>
+          <p className="text-sm text-gray-600 mt-2 leading-relaxed">
+            本子里的词都还没翻过卡。先学一遍（看词义和原句）再考，
+            比直接被考全错要有用得多。
+          </p>
+          <Link
+            to={reviewUrl}
+            className="press mt-5 block w-full py-3 rounded-[14px] bg-blue-600 text-white font-semibold"
+          >
+            先学新词 →
+          </Link>
+          <button
+            type="button"
+            onClick={() => setProceedAllNew(true)}
+            className="mt-3 text-sm text-gray-500 underline"
+          >
+            我就要直接考
+          </button>
+        </div>
       </div>
     );
   }

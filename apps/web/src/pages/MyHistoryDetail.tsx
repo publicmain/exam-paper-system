@@ -115,13 +115,18 @@ export default function MyHistoryDetail() {
   // 生词本 P2 —— 已在本子里的词（原形），用于点词卡按钮显示「已加入」。
   // 拉取失败不影响复盘页任何功能，静默降级为空集。
   const [vocabWords, setVocabWords] = useState<Set<string>>(new Set());
+  // 待复习词数（2026-08-24 流程反转）：交卷后不再强制先背词，改为在
+  // 本页给一条自愿入口 —— dueCount 来自同一个响应，零额外请求。
+  const [vocabDueCount, setVocabDueCount] = useState(0);
   useEffect(() => {
     if (!name) return;
     let cancelled = false;
     api
       .vocabList({ name, studentId: studentId || undefined })
       .then((r: any) => {
-        if (!cancelled) setVocabWords(new Set((r?.words ?? []).map((w: any) => w.headword)));
+        if (cancelled) return;
+        setVocabWords(new Set((r?.words ?? []).map((w: any) => w.headword)));
+        setVocabDueCount(typeof r?.dueCount === 'number' ? r.dueCount : 0);
       })
       .catch(() => { /* 生词本不可用时静默降级 */ });
     return () => { cancelled = true; };
@@ -245,6 +250,36 @@ export default function MyHistoryDetail() {
             </div>
           )}
         </header>
+
+        {/* 词汇入口横幅（2026-08-24 流程反转，修复 #1）：交卷后不再用
+            翻卡挡在成绩前面 —— 学生先看对错，情绪落定后自己点进来。
+            点进去走同一条 after=submit 链（先学新词→自测→错题重练），
+            链尾回到本页。dueCount=0（都复习完了）时整条横幅消失。 */}
+        {vocabDueCount > 0 && (
+          <Link
+            to={
+              `/my-vocab/review?name=${encodeURIComponent(name)}` +
+              (studentId ? `&studentId=${encodeURIComponent(studentId)}` : '') +
+              `&after=submit&then=${encodeURIComponent(
+                `/my-history/submission/${submissionId}?name=${encodeURIComponent(name)}` +
+                  (studentId ? `&studentId=${encodeURIComponent(studentId)}` : ''),
+              )}`
+            }
+            className="block bg-blue-50 border border-blue-200 rounded-xl px-4 py-3 hover:bg-blue-100 transition-colors"
+          >
+            <div className="flex items-center justify-between gap-3">
+              <div>
+                <div className="text-[15px] font-semibold text-blue-900">
+                  📒 顺便把今天的词过一遍
+                </div>
+                <div className="text-[12px] text-blue-700 mt-0.5">
+                  {vocabDueCount} 个词在等你 · 大约 2 分钟
+                </div>
+              </div>
+              <span className="text-blue-600 text-xl shrink-0">→</span>
+            </div>
+          </Link>
+        )}
 
         {/* 生词本 P1 — 复盘时重读原文，并可点词查义。
             ⚠️ 只在这里（交卷后）开放；考试进行中禁用，否则词义题直接送答案。

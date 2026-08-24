@@ -207,28 +207,60 @@ export default function MyVocabPage() {
             </div>
           )}
           {data.total === 0 && (
-            <p className="mt-3 text-sm text-gray-600 leading-relaxed">
-              交卷后在成绩页重读文章，点任意单词即可查释义并加入这里。
-            </p>
+            <div className="mt-3 text-sm text-gray-600 leading-relaxed space-y-1.5">
+              <p className="font-semibold text-gray-700">本子还是空的。词会从三个地方进来：</p>
+              <p>① 交卷后在成绩页重读文章，<strong>点任意不认识的单词</strong>即可加入；</p>
+              <p>② 每天扫码进考场时，当天文章的重点词会自动推给你；</p>
+              <p>③ 答错的词义/填空题，批改后那个词会自动收进来。</p>
+              <p className="text-gray-500">先去答一场早测，明天这里就有东西可背了。</p>
+            </div>
           )}
-          {/* P5 自测：主入口。自测（客观判分）放主位，翻卡复习退居次位 ——
-              自评式复习的结构性弱点是最需要背单词的学生最会骗自己。 */}
-          {data.total > 0 && (
-            <div className="mt-4 flex gap-2">
+          {/* 主按钮跟着本子状态走（修复 #8）：全是没学过的词时，主位给
+              「先学新词」—— 这时点自测只会被没见过的词考到全错。
+              有学过的词才把自测放主位（客观判分,自评会骗自己）。 */}
+          {data.total > 0 && (() => {
+            const qs = `name=${encodeURIComponent(name)}${studentId ? `&studentId=${encodeURIComponent(studentId)}` : ''}`;
+            const allNew = progress != null && progress.mastered + progress.learning === 0;
+            const quizBtn = (primary: boolean) => (
               <Link
-                to={`/my-vocab/quiz?name=${encodeURIComponent(name)}${studentId ? `&studentId=${encodeURIComponent(studentId)}` : ''}`}
-                className="flex-1 text-center py-3 rounded-xl bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white font-semibold touch-manipulation"
+                to={`/my-vocab/quiz?${qs}`}
+                className={`flex-1 text-center py-3 rounded-xl font-semibold touch-manipulation ${
+                  primary
+                    ? 'bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white'
+                    : 'bg-gray-100 hover:bg-gray-200 text-gray-800'
+                }`}
               >
                 🎯 自测
               </Link>
+            );
+            const reviewBtn = (primary: boolean) => (
               <Link
-                to={`/my-vocab/review?name=${encodeURIComponent(name)}${studentId ? `&studentId=${encodeURIComponent(studentId)}` : ''}`}
-                className="flex-1 text-center py-3 rounded-xl bg-gray-100 hover:bg-gray-200 text-gray-800 font-semibold touch-manipulation"
+                to={`/my-vocab/review?${qs}`}
+                className={`flex-1 text-center py-3 rounded-xl font-semibold touch-manipulation ${
+                  primary
+                    ? 'bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white'
+                    : 'bg-gray-100 hover:bg-gray-200 text-gray-800'
+                }`}
               >
-                📖 复习
+                {allNew ? '📖 先学新词' : '📖 复习'}
               </Link>
-            </div>
-          )}
+            );
+            return (
+              <div className="mt-4 flex gap-2">
+                {allNew ? (
+                  <>
+                    {reviewBtn(true)}
+                    {quizBtn(false)}
+                  </>
+                ) : (
+                  <>
+                    {quizBtn(true)}
+                    {reviewBtn(false)}
+                  </>
+                )}
+              </div>
+            );
+          })()}
         </header>
 
         {data.total > 0 && (

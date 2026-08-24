@@ -183,22 +183,18 @@ export default function MorningQuizTake() {
     // score?" because /student/result is bound to a single session +
     // requires login. /my-history is the single durable entry point.
     if (studentName) {
-      // 生词本 P3 —— 交卷后先过一遍「今日生词」(约 2 分钟, 最多 5 张卡),
-      // 再进成绩页。复习寄生在这个既有仪式里, 不新增任何自律要求
-      // (见 docs/PRD/vocabulary-notebook.md §1.2)。
-      // 该页在「没有待复习的词」或「生词本接口不可用」时会立刻 replace 到
-      // /my-history —— 绝不会挡住学生看成绩。
-      // 2026-08-14 新政：交卷即公布答案。复习完生词后不再停在成绩
-      // 列表页，直接落到本场的逐题详情 —— 学生要的「当场反馈」就是
-      // 这一页（答案立即可见；分数评语等老师判分后显示）。
+      // 2026-08-24 流程反转（学生十问修复 #1）：交卷**直接**落到本场
+      // 逐题详情。原来先塞翻卡→自测→错题重练四道关卡再给答案 ——
+      // 但学生点的按钮写着「交卷并看答案」，此刻他只想看对错；每天
+      // 被迫按「跳过」训练出来的是无脑跳过的肌肉记忆。
+      //
+      // 词汇链没有消失：成绩页顶部有「把今天的词过一遍」的入口横幅
+      //（MyHistoryDetail），学生看完对错、情绪落定后自己点进去 ——
+      // 同一条 after=submit 链（翻卡→自测→错题重练→回成绩页）。
       const detail = view?.submissionId
         ? `/my-history/submission/${view.submissionId}?name=${encodeURIComponent(studentName)}`
-        : '';
-      navigate(
-        `/my-vocab/review?name=${encodeURIComponent(studentName)}&after=submit` +
-          (detail ? `&then=${encodeURIComponent(detail)}` : ''),
-        { replace: true },
-      );
+        : `/my-history?name=${encodeURIComponent(studentName)}`;
+      navigate(detail, { replace: true });
     } else {
       // Fallback for edge cases where useAuth.user is somehow empty —
       // the portal page also reads localStorage 'mq:history:name', so

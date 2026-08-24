@@ -1,5 +1,6 @@
 import { BadRequestException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../common/prisma.service';
+import { closeNames } from '../common/name-suggest';
 import { VocabService, normalizeWord } from './vocab.service';
 
 /**
@@ -35,7 +36,25 @@ export class StudentWordService {
       },
       select: { id: true, name: true },
     });
-    if (candidates.length === 0) throw new NotFoundException({ code: 'student_not_found' });
+    if (candidates.length === 0) {
+      // 相近姓名建议（学生十问 #9）—— 与 morning-quiz 的 history-by-name
+      // 同一套逻辑：输错一个字要给出路，不是一句「找不到」。
+      let suggestions: string[] = [];
+      if (!studentId) {
+        try {
+          const roster = await this.prisma.user.findMany({
+            where: {
+              role: 'student',
+              isActive: true,
+              classEnrollments: { some: { role: 'student', class: { archivedAt: null } } },
+            },
+            select: { name: true },
+          });
+          suggestions = closeNames(name, roster.map((r) => r.name));
+        } catch { /* 建议失败不影响报错 */ }
+      }
+      throw new NotFoundException({ code: 'student_not_found', suggestions });
+    }
     if (candidates.length > 1) {
       throw new ForbiddenException({
         code: 'multiple_students_with_same_name',

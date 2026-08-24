@@ -2048,6 +2048,12 @@ model WordReviewLog {
   reviewedAt    DateTime    @default(now())
   /// 本次作答耗时（毫秒），用于识别"秒选"式敷衍复习
   elapsedMs     Int         @default(0)
+  /// 评分前的完整调度状态快照 —— 「撤销上一张」要能精确还原，
+  /// 重放 FSRS 是做不到的（同日二评会叠加），只能靠快照
+  prevState     Json?
+  /// 前端生成的请求 ID。弱网下前端会把失败的评分排队重发 ——
+  /// 「POST 成功但响应丢了」的重发靠它去重，否则一次复习记两笔
+  requestId     String?     @unique
 
   @@index([studentWordId])
 }

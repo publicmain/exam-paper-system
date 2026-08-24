@@ -83,7 +83,14 @@ const scheduler = fsrs(PARAMS);
  *   ≥ 60 天 → 已掌握          known（`due` 查询会跳过它）
  *   其余    → 复习中          review
  */
-const KNOWN_INTERVAL_DAYS = 60;
+/**
+ * 2026-08-24 从 60 天降到 21：470 词只有 6 个毕业，几乎没有学生见过
+ * 一个词「从每日复习里消失」的正反馈 —— 60 天对一个学期来说太远了。
+ * 21 天（三周不用再见）在记忆科学上已经是长期记忆的门槛，也和 stats
+ * 原来的 MASTERED_STABILITY_DAYS=21 口径合一。FSRS 到期后仍会在更长
+ * 间隔上考它，「毕业」只是不再挤占每日配额。
+ */
+const KNOWN_INTERVAL_DAYS = 21;
 const LEARNING_INTERVAL_DAYS = 7;
 
 type DbState = 'new' | 'learning' | 'review' | 'known';
@@ -118,6 +125,44 @@ function fromFsrsState(s: State, scheduledDays: number): DbState {
   if (scheduledDays >= KNOWN_INTERVAL_DAYS) return 'known';
   if (scheduledDays < LEARNING_INTERVAL_DAYS) return 'learning';
   return 'review';
+}
+
+/**
+ * 连胜的「上学日」口径（2026-08-24 学生十问修复 #3）。
+ *
+ * 原来要求严格连续的日历日 —— 但这是个学校产品，一周只考 4–5 天：
+ * 连胜上限天然是 4，而且周一早上打开时上次复习是周五，直接显示 0。
+ * 周五认真复习的学生周一被清零，激励机制反着用。
+ *
+ * 新规则：两天之间只要**没有隔着未复习的工作日**就算连上 ——
+ * 周五→周一连（中间只有周六日）、周六→周一也连；周四→周一断
+ * （周五这个工作日空着）。假期仍会断，那是已知取舍：识别校历
+ * 假期需要额外数据源，先不做。
+ *
+ * @param days   复习过的日期（'YYYY-MM-DD'，降序、去重，SGT）
+ * @param today  今天（'YYYY-MM-DD'，SGT）
+ */
+export function streakFromDays(days: string[], today: string): number {
+  if (!days.length) return 0;
+  // 只隔着周末 = 连上。a 晚于 b；逐日走过去，遇到任何一个空着的工作日就断。
+  const chained = (later: string, earlier: string): boolean => {
+    if (later <= earlier) return false;
+    const d = new Date(earlier + 'T00:00:00Z');
+    const end = new Date(later + 'T00:00:00Z');
+    for (d.setUTCDate(d.getUTCDate() + 1); d < end; d.setUTCDate(d.getUTCDate() + 1)) {
+      const dow = d.getUTCDay();
+      if (dow !== 0 && dow !== 6) return false; // 空着的工作日 → 断
+    }
+    return true;
+  };
+  // 连胜是否还活着：今天已复习，或距上次复习只隔着周末
+  if (days[0] !== today && !chained(today, days[0])) return 0;
+  let streak = 1;
+  for (let i = 1; i < days.length; i++) {
+    if (chained(days[i - 1], days[i])) streak++;
+    else break;
+  }
+  return streak;
 }
 
 const RATING_MAP = {
@@ -237,6 +282,10 @@ export class VocabReviewService {
           tag: e?.tag ?? [],
           state: w.state,
           reps: w.reps,
+          // 来源与收录日期（学生十问修复 #6）：卡片要能回答
+          // 「这词怎么进我本子的」，否则学生只觉得系统在塞词
+          sourceType: w.sourceType,
+          addedAt: w.createdAt.toISOString(),
         };
       }),
     };
@@ -255,6 +304,7 @@ export class VocabReviewService {
     headword: string;
     rating: RatingKey;
     elapsedMs?: number;
+    requestId?: string;
   }) {
     const student = await this.words.resolveStudent(input.studentName, input.studentId);
     const rating = RATING_MAP[input.rating];
@@ -264,6 +314,26 @@ export class VocabReviewService {
       where: { studentId_headword: { studentId: student.id, headword: input.headword.toLowerCase() } },
     });
     if (!word) throw new NotFoundException({ code: 'word_not_in_notebook' });
+
+    // 弱网重发去重（学生十问修复 #10）：前端对失败的评分会排队重发，
+    // 「POST 到了但响应丢了」的重发带同一个 requestId —— 已记过的直接
+    // 返回当前状态，绝不把一次复习算成两次（FSRS 会因此缩短间隔）。
+    if (input.requestId) {
+      const dup = await this.prisma.wordReviewLog.findUnique({
+        where: { requestId: input.requestId },
+        select: { id: true },
+      });
+      if (dup) {
+        return {
+          headword: word.headword,
+          state: word.state,
+          due: word.due.toISOString(),
+          intervalDays: word.scheduledDays,
+          reps: word.reps,
+          duplicate: true as const,
+        };
+      }
+    }
 
     const now = new Date();
     // 用库里的调度状态还原成 FSRS Card
@@ -308,6 +378,19 @@ export class VocabReviewService {
           rating: input.rating,
           reviewedAt: now,
           elapsedMs: Math.max(0, Math.min(input.elapsedMs ?? 0, 600_000)),
+          requestId: input.requestId ?? null,
+          // 评分前的调度状态快照 —— undo() 靠它精确还原
+          prevState: {
+            due: word.due.toISOString(),
+            stability: word.stability,
+            difficulty: word.difficulty,
+            elapsedDays: word.elapsedDays,
+            scheduledDays: word.scheduledDays,
+            reps: word.reps,
+            lapses: word.lapses,
+            lastReview: word.lastReview?.toISOString() ?? null,
+            state: word.state,
+          },
         },
       });
       return w;
@@ -320,6 +403,56 @@ export class VocabReviewService {
       intervalDays: updated.scheduledDays,
       reps: updated.reps,
     };
+  }
+
+  /**
+   * 撤销最近一次评分（学生十问修复 #4）。
+   *
+   * 手机上四个（现在两个）按钮挨在一起，误触是常态；误点「记得」会把
+   * 不会的词推走十几天且学生毫无办法。撤销 = 从快照精确还原调度状态
+   * 并删掉那条流水 —— 不能靠再评一次纠正，同日二评在 FSRS 里是叠加
+   * 不是覆盖。
+   *
+   * 安全闸：只撤**该词最近的一条**流水、且 10 分钟内、且带快照。
+   * 撤别人的词不可能（按 studentId 解析），撤历史记录不可能（时间闸）。
+   */
+  async undo(input: { studentName: string; studentId?: string; headword: string }) {
+    const student = await this.words.resolveStudent(input.studentName, input.studentId);
+    const word = await this.prisma.studentWord.findUnique({
+      where: { studentId_headword: { studentId: student.id, headword: input.headword.toLowerCase() } },
+    });
+    if (!word) throw new NotFoundException({ code: 'word_not_in_notebook' });
+    const last = await this.prisma.wordReviewLog.findFirst({
+      where: { studentWordId: word.id },
+      orderBy: { reviewedAt: 'desc' },
+    });
+    if (!last?.prevState) throw new BadRequestException({ code: 'nothing_to_undo' });
+    if (Date.now() - last.reviewedAt.getTime() > 10 * 60_000) {
+      throw new BadRequestException({ code: 'undo_window_expired' });
+    }
+    const p = last.prevState as {
+      due: string; stability: number; difficulty: number; elapsedDays: number;
+      scheduledDays: number; reps: number; lapses: number;
+      lastReview: string | null; state: string;
+    };
+    await this.prisma.$transaction([
+      this.prisma.studentWord.update({
+        where: { id: word.id },
+        data: {
+          due: new Date(p.due),
+          stability: p.stability,
+          difficulty: p.difficulty,
+          elapsedDays: p.elapsedDays,
+          scheduledDays: p.scheduledDays,
+          reps: p.reps,
+          lapses: p.lapses,
+          lastReview: p.lastReview ? new Date(p.lastReview) : null,
+          state: p.state as DbState,
+        },
+      }),
+      this.prisma.wordReviewLog.delete({ where: { id: last.id } }),
+    ]);
+    return { headword: word.headword, undone: true as const, reps: p.reps, state: p.state };
   }
 
   /** 我的词汇统计（学生端展示 + PRD §7 效果度量的基础）。 */
@@ -351,13 +484,11 @@ export class VocabReviewService {
     //   untouched 待开始 —— 一次都没复习过
     //
     // 「待开始」是这次要盯的指标：生产库里它占 68%，说明词收进来就沉底。
-    const MASTERED_STABILITY_DAYS = 21;
-    const mastered = await this.prisma.studentWord.count({
-      where: {
-        studentId: student.id,
-        OR: [{ state: 'known' }, { reps: { gt: 0 }, stability: { gte: MASTERED_STABILITY_DAYS } }],
-      },
-    });
+    //
+    // 口径统一（2026-08-24）：毕业门槛降到 21 天后，state='known' 与原来
+    // 的「stability≥21」两套口径合一 —— 处处只认 state，classTop /
+    // classStats / 这里三个地方从此对得上账。
+    const mastered = rows.find((r) => r.state === 'known')?._count ?? 0;
     const untouched = await this.prisma.studentWord.count({
       where: { studentId: student.id, reps: 0, state: { not: 'known' } },
     });
@@ -391,18 +522,7 @@ export class VocabReviewService {
       FROM "WordReviewLog" l JOIN "StudentWord" w ON w.id = l."studentWordId"
       WHERE w."studentId" = ${studentId}
       ORDER BY d DESC LIMIT 120`;
-    if (!rows.length) return 0;
-    const days = rows.map((r) => r.d);
     const sgtToday = new Date(Date.now() + 8 * 3600_000).toISOString().slice(0, 10);
-    const sgtYesterday = new Date(Date.now() + 8 * 3600_000 - 86400_000).toISOString().slice(0, 10);
-    if (days[0] !== sgtToday && days[0] !== sgtYesterday) return 0;
-    let streak = 1;
-    for (let i = 1; i < days.length; i++) {
-      const prev = new Date(days[i - 1] + 'T00:00:00Z').getTime();
-      const cur = new Date(days[i] + 'T00:00:00Z').getTime();
-      if (prev - cur === 86400_000) streak++;
-      else break;
-    }
-    return streak;
+    return streakFromDays(rows.map((r) => r.d), sgtToday);
   }
 }

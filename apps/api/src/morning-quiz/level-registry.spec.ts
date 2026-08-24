@@ -59,14 +59,14 @@ describe('LEVEL_REGISTRY', () => {
     ]);
   });
 
-  it('只有短文层推送配套词表', () => {
-    // 推词表的判据必须走注册表。写死判 ielts_simplified 的老代码在加
-    // 雅思轻量时必然漏掉，这条就是防那个回归的。
-    expect(levelPushesWordlist('ielts_light')).toBe(true);
-    expect(levelPushesWordlist('ielts_simplified')).toBe(true);
-    expect(levelPushesWordlist('ielts_authentic')).toBe(false);
-    expect(levelPushesWordlist('olevel')).toBe(false);
-    expect(levelPushesWordlist('olevel_intermediate')).toBe(false);
+  it('五层全部推送配套词表（2026-08-24 起）', () => {
+    // 判据必须走注册表（写死判 ielts_simplified 的老代码在加层时必漏）。
+    // 2026-08-24 高层级也开始推词：短文层用 fixture 词表，高层用卷内嵌
+    // 词表（Paper.config.wordlist）；没配词表的卷子由 resolveWordlist
+    // 返回 null 静默跳过，所以全开是安全的。
+    for (const level of ['ielts_light','ielts_simplified','ielts_authentic','olevel','olevel_intermediate'] as const) {
+      expect(levelPushesWordlist(level), level).toBe(true);
+    }
   });
 
   it('每个等级都有非空的显示名和说明', () => {

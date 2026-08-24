@@ -100,6 +100,8 @@ export default function MyHistory() {
   const [submitted, setSubmitted] = useState(false);
   const [data, setData] = useState<HistoryResponse | null>(null);
   const [disambig, setDisambig] = useState<DisambigCandidate[] | null>(null);
+  /** 查无此人时的相近姓名建议（修复 #9） */
+  const [suggestions, setSuggestions] = useState<string[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   // Bug 2 — one-tap confirmation for the "Switch student" button. Mobile
@@ -133,6 +135,7 @@ export default function MyHistory() {
     setError(null);
     setData(null);
     setDisambig(null);
+    setSuggestions([]);
     try {
       // BASE may be empty in local dev (relative path); URL constructor
       // throws "Invalid URL" on bare paths, so build the query string by
@@ -145,6 +148,8 @@ export default function MyHistory() {
         const body = await r.json().catch(() => null);
         if (r.status === 404) {
           setError(`没有找到名为「${trimmed}」的学生 · No student found with this name. 请检查姓名是否完全一致(含全角符号)。`);
+          // 相近姓名建议（学生十问修复 #9）：输错一个字要给出路
+          setSuggestions(Array.isArray(body?.suggestions) ? body.suggestions.slice(0, 3) : []);
         } else if (r.status === 429) {
           setError('查询太频繁,请稍后再试 · Too many lookups, please wait a moment.');
         } else {
@@ -403,6 +408,26 @@ export default function MyHistory() {
         {error && (
           <div className="bg-rose-50 border border-rose-200 rounded-lg p-4 text-rose-800 text-sm">
             ⚠️ {error}
+            {suggestions.length > 0 && (
+              <div className="mt-3 pt-3 border-t border-rose-200">
+                <div className="text-gray-700 mb-2">你是不是想找:</div>
+                <div className="flex flex-wrap gap-2">
+                  {suggestions.map((s) => (
+                    <button
+                      key={s}
+                      type="button"
+                      onClick={() => {
+                        setName(s);
+                        void lookup(s);
+                      }}
+                      className="px-3 py-1.5 rounded-full bg-white border border-rose-300 text-gray-800 font-medium hover:bg-rose-100"
+                    >
+                      {s}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
         )}
 
