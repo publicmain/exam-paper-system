@@ -43,26 +43,43 @@ describe('reviewBatchSize —— 一次给几张卡', () => {
   });
 });
 
-describe('newWordQuota —— 一次放几个新词', () => {
-  it('正常情况 3 个，趁热打铁', () => {
-    expect(newWordQuota(0)).toBe(3);
-    expect(newWordQuota(100)).toBe(3);
+describe('newWordQuota —— 判据是复习债，不是总积压', () => {
+  // 2026-08-24 第一版按总积压算，结果锁死了：新词一进本子 due 就是
+  // now()、也计入积压，于是「新词多 → 少给新词 → 新词更多」。生产库
+  // 2959 词里 2798 个（95%）是从没碰过的，真复习债只有 161。
+
+  it('没有复习债时放开学 —— 一次 8 个，短文层的正常节奏', () => {
+    expect(newWordQuota(0, 20)).toBe(8);
+    expect(newWordQuota(20, 20)).toBe(8);
   });
 
-  it('积压过百降到 1 —— 先消化存量，别让 68% 更难看', () => {
-    expect(newWordQuota(101)).toBe(1);
-    expect(newWordQuota(352)).toBe(1);
+  it('复习债重才压新词，但不清零 —— 保住「今天学了新东西」', () => {
+    expect(newWordQuota(21, 20)).toBe(2);
+    expect(newWordQuota(200, 20)).toBe(2);
   });
 
-  it('永远至少留 1 个新词，保住「今天学了点新东西」的感觉', () => {
-    for (const b of [0, 50, 100, 101, 1000]) {
-      expect(newWordQuota(b), `backlog=${b}`).toBeGreaterThanOrEqual(1);
+  it('批量小时不超过批量本身', () => {
+    expect(newWordQuota(0, 5)).toBe(5);
+    expect(newWordQuota(0, 3)).toBe(3);
+  });
+
+  it('永远至少 1 个新词', () => {
+    for (const [debt, batch] of [[0, 1], [100, 5], [500, 20]] as Array<[number, number]>) {
+      expect(newWordQuota(debt, batch), `debt=${debt} batch=${batch}`).toBeGreaterThanOrEqual(1);
     }
   });
 
-  it('新词配额不会超过当次总配额', () => {
-    for (const b of [0, 21, 101, 352]) {
-      expect(newWordQuota(b)).toBeLessThanOrEqual(reviewBatchSize(b));
+  it('新词配额不超过当次总配额', () => {
+    for (const debt of [0, 21, 200]) {
+      const batch = reviewBatchSize(debt);
+      expect(newWordQuota(debt, batch)).toBeLessThanOrEqual(batch);
     }
+  });
+
+  it('回归：全是新词、零复习债的学生每次能学 8 个，而不是 1 个', () => {
+    // 这正是生产库里绝大多数学生的样子。旧实现在这种情况下返回 1，
+    // 2798 个新词永远排不上队。
+    const batch = reviewBatchSize(219); // 某学生的实际积压
+    expect(newWordQuota(0, batch)).toBe(8);
   });
 });

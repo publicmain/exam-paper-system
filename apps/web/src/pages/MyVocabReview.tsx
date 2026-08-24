@@ -69,7 +69,11 @@ export default function MyVocabReviewPage() {
     // 请求很可能就是冷的 —— 学生刚交完卷却卡在转圈，会以为交卷失败。
     // 5 秒拿不到就直接放行去看成绩：复习是锦上添花，成绩才是他来的目的。
     Promise.race([
-      api.vocabDue({ name, studentId: studentId || undefined, limit: 5 }),
+      // 不传 limit —— 让服务端按这个学生的实际积压决定给几张（见
+      // vocab-review.service 的 reviewBatchSize）。写死 5 会绕过那套
+      // 动态配额：生产数据里积压最多的学生有 219 词，每次只还 5 张
+      // 永远追不上，而这正是 2798 个词卡在「从没碰过」的原因之一。
+      api.vocabDue({ name, studentId: studentId || undefined }),
       new Promise((_, rej) => setTimeout(() => rej(new Error('timeout')), 5000)),
     ])
       .then((r: any) => {

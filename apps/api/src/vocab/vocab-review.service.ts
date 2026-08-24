@@ -16,13 +16,28 @@ export function reviewBatchSize(backlog: number): number {
   return 5;
 }
 
-/** 一次里放几个「从没复习过」的新词。
+/**
+ * 一次里放几个「从没复习过」的新词。
  *
- * 平时 3 个，趁热打铁；但积压超过 100 时降到 1 —— 再往里灌新词只会让
- * 那个 68% 更难看，学生对着一堆没见过的词也更容易放弃。留 1 个是为了
- * 保住「今天学了点新东西」的感觉。 */
-export function newWordQuota(backlog: number): number {
-  return backlog > 100 ? 1 : 3;
+ * ⚠️ 判据是**复习债**（reps>0 且已到期），不是总积压。
+ *
+ * 2026-08-24 第一版按总积压算，「积压 > 100 就把新词降到 1」，本意是
+ * 先消化存量。但生产数据说明这个前提是错的：2959 个生词里 2798 个
+ * （95%）是 reps=0 的**从没碰过**，真正的复习债只有 161 个。而
+ * StudentWord.due 默认就是 now()，新词一进本子就计入积压 —— 于是
+ *
+ *     新词多 → 积压高 → 少给新词 → 新词更多
+ *
+ * 成了自我锁死的循环，2798 个词永远排不上队。加上排序是 createdAt
+ * DESC（最新优先），早期加入的词被永久饿死。
+ *
+ * 改成只看复习债：真欠着账才压新词，队列里全是新词时就放开学。
+ */
+export function newWordQuota(reviewDebt: number, batchSize: number): number {
+  // 复习债重 → 先还债，新词让位（但不清零，保住「今天学了新东西」）
+  if (reviewDebt > 20) return 2;
+  // 没什么债 → 一次学 8 个，这是短文层「答完题背单词」的正常节奏
+  return Math.min(8, batchSize);
 }
 
 /**
@@ -156,22 +171,37 @@ export class VocabReviewService {
     // 显式传 limit 的调用方（如管理面板）仍可覆盖，但不越过 20 的硬顶
     const limit = Math.min(Math.max(input.limit ?? dynamicCap, 1), 20);
 
-    // 配额 1：新词（一次都没复习过的），最新加入优先 —— 「趁热」。
-    //
-    // 但积压严重时要先消化存量：再往里灌新词只会让 68% 那个数字更难看，
-    // 而且学生对着一堆没见过的词更容易放弃。积压 > 100 时新词降到 1 个，
-    // 只保留「今天学了点新东西」的感觉。
-    const NEW_QUOTA = Math.min(newWordQuota(backlog), limit);
-    const freshRows = await this.prisma.studentWord.findMany({
-      where: {
-        studentId: student.id,
-        state: { not: 'known' },
-        due: { lte: now },
-        reps: 0,
-      },
-      orderBy: [{ createdAt: 'desc' }],
-      take: NEW_QUOTA,
+    // 真正的**复习债**：复习过至少一次、又到期了的。这才是「欠账」。
+    // 不能拿总积压当判据 —— 新词一进本子 due 就是 now()，也计入积压，
+    // 于是「新词多 → 少给新词 → 新词更多」自我锁死（见 newWordQuota）。
+    const reviewDebt = await this.prisma.studentWord.count({
+      where: { studentId: student.id, state: { not: 'known' }, due: { lte: now }, reps: { gt: 0 } },
     });
+
+    // 配额 1：新词（一次都没复习过的），最新加入优先 —— 「趁热」。
+    const NEW_QUOTA = Math.min(newWordQuota(reviewDebt, limit), limit);
+    //
+    // 一半给最新加入的（趁热，学生对刚读过的文章还有印象），一半给
+    // **等最久的**。纯 createdAt DESC 会让早期的词永久饿死 —— 生产库里
+    // 已经有 2026-07-31 加入、24 天没被翻到一次的词。
+    const freshWhere = {
+      studentId: student.id,
+      state: { not: 'known' as const },
+      due: { lte: now },
+      reps: 0,
+    };
+    const newestCount = Math.ceil(NEW_QUOTA / 2);
+    const newest = await this.prisma.studentWord.findMany({
+      where: freshWhere,
+      orderBy: [{ createdAt: 'desc' }],
+      take: newestCount,
+    });
+    const oldestUnseen = await this.prisma.studentWord.findMany({
+      where: { ...freshWhere, id: { notIn: newest.map((r) => r.id) } },
+      orderBy: [{ createdAt: 'asc' }],
+      take: NEW_QUOTA - newest.length,
+    });
+    const freshRows = [...newest, ...oldestUnseen];
     // 配额 2：旧债，仍按欠最久优先
     const oldRows = await this.prisma.studentWord.findMany({
       where: {
