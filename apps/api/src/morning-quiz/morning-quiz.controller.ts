@@ -527,11 +527,20 @@ export class MorningQuizController {
     return this.svc.checkAnswer(id, parsed.data, user.id);
   }
 
-  /** Final submit — delegates to existing student.service so auto-grading +
-   *  race-safety logic stays in one place. */
+  /** 交卷 —— 委托给 student.service，自动判分和竞态处理只保留一份实现。
+   *
+   *  body.final（2026-08-20 第二作答窗）：
+   *    true / 省略 —— 最终提交。公布答案，放弃 16:00-17:30 回来改的权利。
+   *    false —— 暂存提交。学生下午还能回来改，在此之前看不到答案。
+   *  省略时默认 true，保证既有客户端（老版本前端、e2e 脚本）语义不变。 */
   @Post('sessions/:id/submit')
   @AllowHandoff()
-  async submit(@Param('id') id: string, @CurrentUser() user: any, @Req() req: Request) {
+  async submit(
+    @Param('id') id: string,
+    @CurrentUser() user: any,
+    @Req() req: Request,
+    @Body() body?: { final?: boolean },
+  ) {
     if (user.role !== 'student') throw new ForbiddenException('student_only');
     const submission = await this.svc.findSubmissionForSession(id, user.id);
     if (!submission) throw new BadRequestException('no_submission_for_session');
@@ -542,7 +551,7 @@ export class MorningQuizController {
     return this.student.finalSubmit(
       submission.id,
       { id: user.id, role: user.role, ip: req.ip ?? null },
-      { deferAi: true },
+      { deferAi: true, final: body?.final !== false },
     );
   }
 

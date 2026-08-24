@@ -311,46 +311,70 @@ export class AttendanceService {
     const student = matches[0].user;
     const studentId = student.id;
 
-    // Gate 5 — time window: on_time | late | absent
+    // Gate 5 — 时间窗。
+    //
+    // 2026-08-20 起早测**不再记录出勤**（校方决定）。原因是同一天开了
+    // 两个作答窗、学生可任意选择，「几点到校」不再是这套系统该回答的
+    // 问题。于是：
+    //   · 准时 / 迟到 / 缺席的判定停用，扫码只负责认人 + 开卷
+    //   · 09:00 不再给未扫码的学生插缺席行（见 cron 的 attendanceTracking）
+    //   · 不再同步 Seiue
+    // Attendance 行仍然写 —— 它挂着 submissionId，是「谁参加了这场」的
+    // 索引，不写会连答卷都找不回来。status 统一记 on_time，含义退化成
+    // 「参加了」；历史数据保持原样不动。
+    //
+    // 想恢复出勤：MORNING_QUIZ_ATTENDANCE_TRACKING=on，下面的判定分支
+    // 原样还在。
     const now = new Date();
+    const attendanceTracking = process.env.MORNING_QUIZ_ATTENDANCE_TRACKING === 'on';
     let attendanceStatus: AttendanceStatus;
-    /** 这次扫码发生在补考窗口内（早上缺席、中午来补） */
+    /** 这次扫码发生在第二作答窗内（16:00–17:30） */
+    let isSecondWindowScan = false;
+    /** 出勤停用后 makeupAt 不再写 —— 它是「缺席但补考了」的标记，
+     *  而现在既没有缺席也没有补考的概念。 */
     let isMakeupScan = false;
     if (now < session.attendanceStart) {
       throw new GoneException({ code: 'attendance_window_not_open' });
     } else if (now <= session.attendanceEnd) {
       attendanceStatus = AttendanceStatus.on_time;
     } else if (now <= session.lateCutoff) {
-      attendanceStatus = AttendanceStatus.late;
+      attendanceStatus = attendanceTracking ? AttendanceStatus.late : AttendanceStatus.on_time;
     } else if (isMakeupWindowOpen(session, now)) {
-      // 补考（学校 2026-08 新政：早上无故缺席 → 中午补考）。
+      // 第二作答窗（2026-08-20 新政）：16:00–17:30，早上没来的、来了
+      // 没答完的、答完想再改的都能进，学生任意选择。
       //
-      // 状态**照旧记 absent** —— 早上确实没来是既成事实，同步 Seiue
-      // 要照实报；补考补回的是学业内容，不是出勤。只额外盖一个
-      // makeupAt，面板和导出据此显示「缺席 · 已补考」。
-      //
-      // 2026-08-13 第一次补考没有这条分支，老师只能用 debug-activate
-      // 把正式窗口整个挪到 13:21，于是三名学生被记成「准时出勤」，
-      // 早上的缺席在系统里一点痕迹都没留下。
-      attendanceStatus = AttendanceStatus.absent;
-      isMakeupScan = true;
+      // 出勤开关打开时仍走旧的补考语义（照记 absent + makeupAt）——
+      // 2026-08-13 那次事故的教训是补考绝不能洗白早上的缺席。关闭时
+      // 统一记 on_time，只表示「参加了」。
+      isSecondWindowScan = true;
+      if (attendanceTracking) {
+        attendanceStatus = AttendanceStatus.absent;
+        isMakeupScan = true;
+      } else {
+        attendanceStatus = AttendanceStatus.on_time;
+      }
     } else {
-      const existing = await this.prisma.attendance.findUnique({
-        where: { sessionId_studentId: { sessionId: session.id, studentId } },
-      });
-      if (!existing) {
-        await this.prisma.attendance.create({
-          data: {
-            sessionId: session.id,
-            studentId,
-            status: AttendanceStatus.absent,
-            scanTime: now,
-            sourceIp,
-            deviceUuid,
-            userAgent,
-            source: AttendanceSource.qr_scan,
-          },
+      // 两个窗都关了还来扫码。出勤停用后不再补一条缺席行 —— 记录
+      // 「这人 11 点扫过码」对现在的系统没有任何用处，只会在面板上
+      // 留一条谁也不看的 absent。开着出勤时保留原行为。
+      if (attendanceTracking) {
+        const existing = await this.prisma.attendance.findUnique({
+          where: { sessionId_studentId: { sessionId: session.id, studentId } },
         });
+        if (!existing) {
+          await this.prisma.attendance.create({
+            data: {
+              sessionId: session.id,
+              studentId,
+              status: AttendanceStatus.absent,
+              scanTime: now,
+              sourceIp,
+              deviceUuid,
+              userAgent,
+              source: AttendanceSource.qr_scan,
+            },
+          });
+        }
       }
       throw new GoneException({ code: 'attendance_window_closed' });
     }
@@ -470,6 +494,35 @@ export class AttendanceService {
           maxScore: paperForMax?.totalMarksActual ?? 0,
         },
       });
+    } else if (
+      isSecondWindowScan &&
+      submission.status === 'submitted' &&
+      submission.finalSubmittedAt == null
+    ) {
+      // 第二作答窗（2026-08-20 新政）：早上 09:00 被自动收卷的学生
+      // 下午回来续答。把答卷退回 in_progress —— saveAnswer 和
+      // finalSubmit 都硬性要求 in_progress，不退回的话学生进得来、
+      // 一个字也存不下。
+      //
+      // 只退「暂存提交」的（finalSubmittedAt == null）。学生自己点过
+      // 「交卷并查看答案」的已经看过答案，退回去就是让他照着答案改
+      // 满分 —— 那种答卷这里一律不碰。
+      //
+      // autoScore / totalScore 清零：早上那次自动判分是针对旧答案的，
+      // 学生改完后 finalSubmit 会整卷重判。留着旧分数的话，万一
+      // 17:30 前他没再交，收尾流程盖的就是一份对不上答案的分数。
+      const reopened = await this.prisma.studentSubmission.updateMany({
+        where: { id: submission.id, status: 'submitted', finalSubmittedAt: null },
+        data: { status: 'in_progress', autoScore: null, totalScore: null },
+      });
+      if (reopened.count > 0) {
+        this.logger?.log?.(
+          `second-window reopen submission=${submission.id} student=${studentId} session=${session.id}`,
+        );
+        submission = (await this.prisma.studentSubmission.findUnique({
+          where: { id: submission.id },
+        }))!;
+      }
     }
 
     if (attendance.submissionId !== submission.id) {
@@ -484,7 +537,14 @@ export class AttendanceService {
     // Mint scan token — same shape as the login JWT (so existing AuthGuard
     // accepts it without changes), but expiry tied to the session's quizEnd
     // so the token is useless after 9:00.
-    const expSeconds = Math.max(60, Math.floor((session.quizEnd.getTime() - Date.now()) / 1000));
+    // 令牌活到「今天最后一个还开着的窗」为止。原来只看 quizEnd(09:00)，
+    // 第二窗内扫码时 quizEnd 早已是过去时，Math.max 兜底成 60 秒 ——
+    // 学生下午扫完码，一分钟后 token 就过期，题都读不完。
+    const windowEndsAt =
+      session.makeupEnd && session.makeupEnd.getTime() > session.quizEnd.getTime()
+        ? session.makeupEnd
+        : session.quizEnd;
+    const expSeconds = Math.max(60, Math.floor((windowEndsAt.getTime() - Date.now()) / 1000));
     const scanToken = await this.jwt.signAsync(
       {
         id: student.id,

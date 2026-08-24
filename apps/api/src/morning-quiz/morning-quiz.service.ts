@@ -18,6 +18,7 @@ import { QuickPaperInput, QuickPaperService } from '../ai/quick-paper.service';
 import { PrismaService } from '../common/prisma.service';
 import { canActOnClass } from '../common/roles';
 import { ShuffleService } from '../shuffle/shuffle.service';
+import { secondWindowAppliesTo } from './second-window';
 import { MorningQuizQaService } from '../morning-quiz-qa/morning-quiz-qa.service';
 import { ShortAnswerEvaluatorService } from './short-answer-evaluator.service';
 import { SkillProfileService } from './skill-profile.service';
@@ -263,13 +264,50 @@ export function scoresReleased(status: string): boolean {
 }
 
 /**
- * 把未定稿的成绩从 result payload 里剥掉。**必须在服务端做** ——
- * 前端藏起来挡不住 devtools。答案字段（correctAnswer /
- * referenceAnswer / explanation）保留照发。纯函数，可测。
+ * 答案发布口径（2026-08-20 第二作答窗上线后新增的第二道门）。
+ *
+ * 在此之前答案的门就是「交卷」——交了就看得到。第二窗把这条打破了：
+ * 16:00-17:30 学生可以回来改早上写下的答案，如果交卷即给答案，早上
+ * 交卷的人下午就能照着答案把卷子改成满分。
+ *
+ * 所以「交卷」拆成两个动作，答案只认最终提交：
+ *   · 暂存提交（finalSubmittedAt = null）—— 9:00 自动收卷走这条。
+ *     保留下午回来改的权利，看不到答案。
+ *   · 最终提交（finalSubmittedAt 有值）—— 学生主动点「交卷并查看
+ *     答案」，或 17:30 自动收尾。给答案，同时锁死不能再改。
+ *
+ * practice 同样即时给答案 —— 它本来就是学生自发重做，无窗口可言。
+ */
+export function answersReleased(input: {
+  status: string;
+  finalSubmittedAt: Date | null;
+}): boolean {
+  if (input.status === 'practice') return true;
+  return input.finalSubmittedAt != null;
+}
+
+/**
+ * 把未发布的成绩**和答案**从 result payload 里剥掉。**必须在服务端
+ * 做** —— 前端藏起来挡不住 devtools。纯函数，可测。
+ *
+ * 两道独立的门（2026-08-20 第二作答窗上线后拆开）：
+ *
+ *   分数门 —— scoresReleased(status)，判分定稿才给。
+ *     剥 autoScore / manualScore / totalScore / awardedMarks /
+ *     autoCorrect / isCorrect / markerComment。
+ *
+ *   答案门 —— answersReleased(...)，最终提交才给。
+ *     剥 correctAnswer / referenceAnswer / explanation。
+ *     暂存提交（9:00 自动收卷）的学生 16:00-17:30 还能回来改答案，
+ *     这时候给答案就等于让他照抄改满分。
+ *
+ * 两道门互相独立：最终提交但没判分 → 有答案没分数（这是常态，也正是
+ * 学生要的即时反馈）；判了分但没最终提交在流程上不会出现。
  */
 export function stripUnreleasedScores<
   T extends {
     status: string;
+    finalSubmittedAt?: Date | null;
     autoScore: number | null;
     manualScore: number | null;
     totalScore: number | null;
@@ -279,24 +317,44 @@ export function stripUnreleasedScores<
       isCorrect: boolean | null;
       markerComment: string | null;
       commentSource: string | null;
+      correctAnswer?: string | null;
+      referenceAnswer?: string | null;
+      explanation?: string | null;
     }>;
   },
->(result: T): T & { scoresPending: boolean } {
-  if (scoresReleased(result.status)) return { ...result, scoresPending: false };
+>(result: T): T & { scoresPending: boolean; answersPending: boolean } {
+  const showScores = scoresReleased(result.status);
+  const showAnswers = answersReleased({
+    status: result.status,
+    // 迁移前的历史答卷已回填 finalSubmittedAt；真为 undefined 的只有
+    // 未经本函数以外路径构造的测试桩，按「已发布」处理更安全 —— 旧行为
+    // 就是交卷即给答案，不能因为加了一道门把历史成绩页的答案弄没。
+    finalSubmittedAt:
+      result.finalSubmittedAt === undefined ? new Date(0) : result.finalSubmittedAt,
+  });
+
+  const items = result.items.map((it) => ({
+    ...it,
+    ...(showScores
+      ? {}
+      : {
+          awardedMarks: null,
+          autoCorrect: null,
+          isCorrect: null,
+          markerComment: null,
+          commentSource: null,
+        }),
+    ...(showAnswers
+      ? {}
+      : { correctAnswer: null, referenceAnswer: null, explanation: null }),
+  }));
+
   return {
     ...result,
-    autoScore: null,
-    manualScore: null,
-    totalScore: null,
-    scoresPending: true,
-    items: result.items.map((it) => ({
-      ...it,
-      awardedMarks: null,
-      autoCorrect: null,
-      isCorrect: null,
-      markerComment: null,
-      commentSource: null,
-    })),
+    ...(showScores ? {} : { autoScore: null, manualScore: null, totalScore: null }),
+    scoresPending: !showScores,
+    answersPending: !showAnswers,
+    items,
   };
 }
 
@@ -1798,11 +1856,27 @@ export class MorningQuizService {
       }
     }
 
+    // 今天有没有第二作答窗（16:00-17:30）。前端拿它决定交卷弹窗是给
+    // 一个按钮还是两个 —— 没有第二窗的日子，「先交，下午再改」是个
+    // 骗人的选项，点了以后答案要等到 09:00 收卷才出来。
+    const secondWindowToday = secondWindowAppliesTo({
+      secondWindowEnv: process.env.MORNING_QUIZ_SECOND_WINDOW,
+      dateIsoLocal: new Date(
+        session.date.getTime() +
+          Number(process.env.MORNING_QUIZ_TZ_OFFSET_MIN ?? 8 * 60) * 60_000,
+      )
+        .toISOString()
+        .slice(0, 10),
+      weekdayLocal: session.date.getUTCDay(),
+    });
+
     return {
       sessionId: session.id,
       attendanceId: att.id,
       submissionId: att.submissionId,
       quizEnd: session.quizEnd,
+      secondWindowToday,
+      secondWindowEnd: secondWindowToday ? session.makeupEnd : null,
       level,
       paperMode,
       // Authoritative quiz mode for the client. Morning quizzes are always
@@ -1849,7 +1923,7 @@ export class MorningQuizService {
         studentId,
         status: { not: 'practice' },
       },
-      select: { status: true },
+      select: { status: true, finalSubmittedAt: true },
     });
     const now = new Date();
     const windowClosed = !isQuizWindowOpen(session, now);
@@ -1858,6 +1932,18 @@ export class MorningQuizService {
     if (!windowClosed && !submitted) {
       // Block during the live window — preserves test integrity.
       throw new ForbiddenException({ code: 'check_blocked_until_submit' });
+    }
+    // 2026-08-20 第二作答窗：这是答案的另一个出口（单题「对一下答案」），
+    // 必须和 stripUnreleasedScores 用同一道门，否则学生绕开成绩页逐题
+    // 点一遍就把答案全拿到了，下午照抄。暂存提交 = 还没最终交卷 = 不给。
+    if (
+      submission &&
+      !answersReleased({
+        status: submission.status,
+        finalSubmittedAt: submission.finalSubmittedAt,
+      })
+    ) {
+      throw new ForbiddenException({ code: 'answers_pending_final_submit' });
     }
 
     const pq = await this.prisma.paperQuestion.findFirst({
@@ -2907,6 +2993,7 @@ export class MorningQuizService {
         totalScore: true,
         maxScore: true,
         submittedAt: true,
+        finalSubmittedAt: true,
         scripts: {
           select: {
             paperQuestionId: true,
@@ -3069,6 +3156,8 @@ export class MorningQuizService {
       paperName: session.paperAssignment.paper.name,
       submissionId: submission.id,
       status: submission.status,
+      // 答案门看这个：暂存提交(null)的学生下午还能改，不能给答案
+      finalSubmittedAt: submission.finalSubmittedAt,
       autoScore: submission.autoScore,
       manualScore: submission.manualScore,
       totalScore: submission.totalScore,

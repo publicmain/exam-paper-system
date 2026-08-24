@@ -161,25 +161,32 @@ model PaperAssignment {
 }
 
 model StudentSubmission {
-  id           String          @id @default(cuid())
-  assignmentId String
-  assignment   PaperAssignment @relation(fields: [assignmentId], references: [id], onDelete: Cascade)
-  studentId    String
+  id               String          @id @default(cuid())
+  assignmentId     String
+  assignment       PaperAssignment @relation(fields: [assignmentId], references: [id], onDelete: Cascade)
+  studentId        String
   // B4: Restrict so deleting a student doesn't drop their submission
   // history (grade audit trail must survive account churn).
-  student      User            @relation(fields: [studentId], references: [id], onDelete: Restrict)
-  startedAt    DateTime        @default(now())
-  submittedAt  DateTime?
+  student          User            @relation(fields: [studentId], references: [id], onDelete: Restrict)
+  startedAt        DateTime        @default(now())
+  submittedAt      DateTime?
+  // 最终提交时间。2026-08-20 第二作答窗上线后，「交卷」拆成两个动作：
+  //   暂存提交（此列为 NULL）—— 9:00 自动收卷走这条，学生 16:00-17:30
+  //     还能回来改，**看不到答案**。
+  //   最终提交（此列有值）—— 学生主动点「交卷并查看答案」或 17:30 自动
+  //     收尾，立刻公布答案，同时放弃继续修改的权利。
+  // 答案与分数是两道独立的门：答案看这一列，分数仍看 status。
+  finalSubmittedAt DateTime?
   // in_progress | submitted | marked | returned
-  status       String          @default("in_progress")
+  status           String          @default("in_progress")
   // Auto-graded portion (MCQ items) computed on submit
-  autoScore    Float?
+  autoScore        Float?
   // Manually-marked portion (structured items) summed across scripts
-  manualScore  Float?
+  manualScore      Float?
   // autoScore + manualScore, surfaced in the dashboard
-  totalScore   Float?
+  totalScore       Float?
   // Snapshot of paper.totalMarksActual at submission time
-  maxScore     Int
+  maxScore         Int
 
   scripts           AnswerScript[]
   // Path-B back-relations
@@ -200,6 +207,8 @@ model StudentSubmission {
   // freely and are filtered out everywhere by `status != 'practice'`.
   @@index([assignmentId, studentId])
   @@index([studentId])
+  // 第二窗要按 (状态, 最终提交时间) 找出「已暂存但未最终提交」的答卷
+  @@index([status, finalSubmittedAt])
   // Round-7 H17 (agent-3 D9): MarkerService.listQueue filters by
   // `status='submitted'` AND has-ungraded-script. Without (assignmentId,
   // status) the planner falls back to the unique on (assignmentId,
@@ -1531,9 +1540,9 @@ model Attendance {
   /// 中午补考）。盖在**正式场次**的考勤行上，status 保持 absent ——
   /// 早上确实没来是既成事实，同步 Seiue 要照实报；补考只补回学业内容，
   /// 不抹掉出勤记录。补考本身的扫码记录在补考场次自己的行里。
-  makeupAt      DateTime?
-  createdAt     DateTime           @default(now())
-  updatedAt     DateTime           @updatedAt
+  makeupAt  DateTime?
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
 
   @@unique([sessionId, studentId])
   @@index([studentId, status])
@@ -2049,17 +2058,17 @@ enum VocabRating {
 // 多少人看了"，又不会让表随点击量膨胀。
 // ═══════════════════════════════════════════════════════════════
 model StudentPageView {
-  id        String   @id @default(cuid())
+  id        String       @id @default(cuid())
   studentId String
-  student   User     @relation("StudentPageViewOwner", fields: [studentId], references: [id], onDelete: Cascade)
+  student   User         @relation("StudentPageViewOwner", fields: [studentId], references: [id], onDelete: Cascade)
   kind      PageViewKind
   /// 新加坡自然日（YYYY-MM-DD）—— 直接存字符串，避免时区换算出错
   day       String
   /// 当天首次打开的时刻
-  firstAt   DateTime @default(now())
+  firstAt   DateTime     @default(now())
   /// 当天打开次数（同日重复打开只累加计数，不新增行）
-  hits      Int      @default(1)
-  updatedAt DateTime @updatedAt
+  hits      Int          @default(1)
+  updatedAt DateTime     @updatedAt
 
   @@unique([studentId, kind, day])
   @@index([day, kind])
@@ -2101,45 +2110,45 @@ enum PageViewKind {
 // 可能被改、AnswerScript 可能被重判,而错题本必须能长期回看。
 // ═══════════════════════════════════════════════════════════════
 model MistakeEntry {
-  id        String   @id @default(cuid())
-  studentId String
-  student   User     @relation("MistakeOwner", fields: [studentId], references: [id], onDelete: Cascade)
+  id              String        @id @default(cuid())
+  studentId       String
+  student         User          @relation("MistakeOwner", fields: [studentId], references: [id], onDelete: Cascade)
   /// 来源答卷与题目（可为空：卷子被删后错题本仍应可读）
   submissionId    String?
   paperQuestionId String?
   /// ── 冻结快照 ──
   /// 题型（matching_information / short_answer / mcq …），用于归类统计
-  taskType    String
+  taskType        String
   /// 该题所属篇目，学生回看时的定位锚点
-  passageTitle String @default("")
+  passageTitle    String        @default("")
   /// 题干（截断到 400 字）
-  stem        String
+  stem            String
   /// 学生当时的答案（空白记为空串）
-  studentAnswer String @default("")
+  studentAnswer   String        @default("")
   /// 正确答案 / 参考要点
-  correctAnswer String @default("")
+  correctAnswer   String        @default("")
   /// 老师批改评语 —— 长答题的核心价值就在这里
-  markerComment String @default("")
+  markerComment   String        @default("")
   /// 得分 / 满分
-  awarded Float @default(0)
-  maxMarks Float @default(1)
+  awarded         Float         @default(0)
+  maxMarks        Float         @default(1)
   /// 词义题对应的那个单词（可推进生词本）；非词义题为空
-  vocabWord String @default("")
+  vocabWord       String        @default("")
   /// 命中了哪条收录规则，便于日后调阈值时复盘
-  reason MistakeReason
+  reason          MistakeReason
   /// 学生自己标记「已弄懂」后置为 true —— 错题本要能清空,否则永远在增长
-  resolved   Boolean   @default(false)
-  resolvedAt DateTime?
+  resolved        Boolean       @default(false)
+  resolvedAt      DateTime?
   /// ── 重练闭环（2026-08-13 v2）──
   /// 自报「已弄懂」是最弱的确认方式（上线首日全班 0 人点过）。
   /// v2 规则：练习里做对、且**隔天再做对一次**才自动销账 —— 同一天
   /// 连点两次对不算，防止"刚看完答案马上重做"的假掌握。
-  practiceCount   Int       @default(0)
-  correctStreak   Int       @default(0)
+  practiceCount   Int           @default(0)
+  correctStreak   Int           @default(0)
   lastPracticedAt DateTime?
   /// 早测日期（YYYY-MM-DD, SGT）
-  quizDay   String
-  createdAt DateTime @default(now())
+  quizDay         String
+  createdAt       DateTime      @default(now())
 
   @@unique([studentId, submissionId, paperQuestionId])
   @@index([studentId, resolved])

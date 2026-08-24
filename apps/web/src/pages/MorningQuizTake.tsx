@@ -30,6 +30,10 @@ interface SessionView {
   attendanceId: string;
   submissionId: string | null;
   quizEnd: string;
+  /** 今天有没有第二作答窗（16:00-17:30）。决定交卷弹窗给一个按钮
+   *  还是两个 —— 没有第二窗的日子，「先交，下午再改」是个骗人的
+   *  选项。服务端算，前端不猜。 */
+  secondWindowToday?: boolean;
   level: EnglishLevel;
   paperMode: 'passage_pick' | 'standard' | null;
   /** Authoritative quiz mode from the server. Always 'test' for morning
@@ -152,9 +156,11 @@ export default function MorningQuizTake() {
   // Submit handler also needs to flush in-flight autosaves first (round-3
   // H6) — the actual flush call lives inside PaperHost where useExam is
   // accessible. We pass this raw submit hook down; PaperHost wraps it.
-  const submitToServer = useCallback(async (opts?: { timeUp?: boolean; unanswered?: number; total?: number }) => {
+  const submitToServer = useCallback(async (opts?: { timeUp?: boolean; unanswered?: number; total?: number; final?: boolean }) => {
     if (!sessionId) return;
-    await api.morningQuizSubmit(sessionId);
+    // final=false → 暂存提交，学生下午 16:00-17:30 还能回来改，在此之前
+    // 看不到答案。默认 true（最终提交）。
+    await api.morningQuizSubmit(sessionId, { final: opts?.final !== false });
     try {
       localStorage.removeItem(`mq:answers:${sessionId}`);
     } catch { /* ignore */ }
@@ -198,7 +204,7 @@ export default function MorningQuizTake() {
     }
   }, [sessionId, navigate, studentName, view?.submissionId]);
 
-  async function handleSubmit(opts?: { timeUp?: boolean; unanswered?: number; total?: number }) {
+  async function handleSubmit(opts?: { timeUp?: boolean; unanswered?: number; total?: number; final?: boolean }) {
     // Compatibility shim — the real flush + submit happens inside
     // PaperHost via SubmitButton. Kept here so the existing Timer's
     // `onTimeUp={onSubmit}` path still works for time-up auto-submit.
@@ -304,7 +310,7 @@ function PaperHost({
   view: SessionView;
   mode: 'practice' | 'test';
   submitted: boolean;
-  onSubmit: () => void;
+  onSubmit: (opts?: { timeUp?: boolean; unanswered?: number; total?: number; final?: boolean }) => void;
 }) {
   const paper: ExamPaper = useMemo(
     () => ({
@@ -330,7 +336,13 @@ function PaperHost({
     ],
   );
   return (
-    <ExamShellChrome paper={paper} mode={mode} submitted={submitted} onSubmit={onSubmit} />
+    <ExamShellChrome
+      paper={paper}
+      mode={mode}
+      submitted={submitted}
+      onSubmit={onSubmit}
+      secondWindowToday={view.secondWindowToday === true}
+    />
   );
 }
 
@@ -440,11 +452,14 @@ function ExamShellChrome({
   mode,
   submitted,
   onSubmit,
+  secondWindowToday,
 }: {
   paper: ExamPaper;
   mode: 'practice' | 'test';
   submitted: boolean;
-  onSubmit: (opts?: { timeUp?: boolean; unanswered?: number; total?: number }) => void;
+  /** 今天有没有第二作答窗（16:00-17:30）。服务端算好传下来。 */
+  secondWindowToday: boolean;
+  onSubmit: (opts?: { timeUp?: boolean; unanswered?: number; total?: number; final?: boolean }) => void;
 }) {
   const [paletteOpen, setPaletteOpen] = useState(false);
   // 2.0 —— 考试中查词要把词记进该生的生词本（sourceType=click），
@@ -467,7 +482,7 @@ function ExamShellChrome({
   useEffect(() => {
     if (locked) setConfirmOpen(false);
   }, [locked]);
-  const doSubmit = useCallback(async (opts?: { timeUp?: boolean; unanswered?: number; total?: number }) => {
+  const doSubmit = useCallback(async (opts?: { timeUp?: boolean; unanswered?: number; total?: number; final?: boolean }) => {
     // R15-followup-11 — three-step submit insurance:
     //   1. Blur the active element. On iOS the soft keyboard's enter-
     //      blur path is what fires the last React state update for a
@@ -511,7 +526,15 @@ function ExamShellChrome({
       const a = answers[q.id];
       return !!(a?.selectedOption || (a?.textAnswer && a.textAnswer.trim()));
     }).length;
-    void doSubmit({ timeUp: true, unanswered: t - done, total: t });
+    // 09:00 计时到点。今天还有第二窗的话收成暂存提交 —— 学生下午能
+    // 接着答，答案在此之前不给。这与后端 lockOne 的 finalize 推导是
+    // 同一个判断，两边必须一致，否则前端收成最终、后端以为还能改。
+    void doSubmit({
+      timeUp: true,
+      unanswered: t - done,
+      total: t,
+      final: !secondWindowToday,
+    });
   }, [doSubmit, paper.questions, answers]);
 
   // Round-3 H17 — when the iOS soft keyboard pops up, fixed-bottom UI
@@ -785,8 +808,10 @@ function ExamShellChrome({
         <SubmitConfirmDialog
           paper={paper}
           answers={answers}
+          secondWindowToday={secondWindowToday}
           onCancel={() => setConfirmOpen(false)}
-          onConfirm={() => { setConfirmOpen(false); doSubmit(); }}
+          onConfirm={() => { setConfirmOpen(false); doSubmit({ final: true }); }}
+          onDraftSubmit={() => { setConfirmOpen(false); doSubmit({ final: false }); }}
           onJumpTo={(qid) => { setConfirmOpen(false); handleJump(qid, 0); }}
         />
       )}
@@ -802,13 +827,19 @@ function SubmitConfirmDialog({
   answers,
   onCancel,
   onConfirm,
+  onDraftSubmit,
   onJumpTo,
+  secondWindowToday,
 }: {
   paper: ExamPaper;
   answers: Record<string, { selectedOption?: string; textAnswer?: string }>;
   onCancel: () => void;
+  /** 最终提交：公布答案，放弃下午继续改的权利 */
   onConfirm: () => void;
+  /** 暂存提交：保留下午 16:00-17:30 回来改的权利，此前看不到答案 */
+  onDraftSubmit: () => void;
   onJumpTo: (questionId: string) => void;
+  secondWindowToday: boolean;
 }) {
   // ESC to cancel.
   useEffect(() => {
@@ -856,7 +887,9 @@ function SubmitConfirmDialog({
               老师要求撤掉)——交卷这一刻才是学生关心"什么时候出分"的
               时刻。(Never attribute grading to AI.) */}
           <p className="text-xs text-gray-500">
-            选择题交卷后立刻出分;简答题由老师批改后出分,稍后在成绩页查看。
+            {secondWindowToday
+              ? '今天下午 16:00–17:30 还有一个作答时段,你可以选择现在交卷看答案,或者先存着、下午再来改。'
+              : '选择题交卷后立刻出分;简答题由老师批改后出分,稍后在成绩页查看。'}
           </p>
         </div>
 
@@ -878,12 +911,14 @@ function SubmitConfirmDialog({
               ))}
             </div>
             <p className="text-xs text-gray-500">
-              点击题号回去补答,或继续按"确定交卷"提交。一旦交卷将立即批改,无法撤销。
+              {secondWindowToday
+                ? '点击题号回去补答。如果时间不够,选下面的「先存着」,下午 16:00 后回来接着答。'
+                : '点击题号回去补答,或继续按"确定交卷"提交。一旦交卷将立即批改,无法撤销。'}
             </p>
           </div>
         )}
 
-        {allAnswered && (
+        {allAnswered && !secondWindowToday && (
           <p className="text-sm text-gray-600">
             确认后立即批改,无法撤销。
           </p>
@@ -902,6 +937,19 @@ function SubmitConfirmDialog({
           >
             {allAnswered ? '再检查' : '继续答题'}
           </button>
+          {/* 2026-08-20 第二作答窗：交卷拆成两个动作。后果直接写在按钮
+              文字里,不让学生猜 —— 「查看答案」和「还要改」是互斥的,
+              看过答案就不能再改,否则下午照抄一遍就是满分。 */}
+          {secondWindowToday && (
+            <button
+              type="button"
+              onClick={onDraftSubmit}
+              data-testid="submit-draft"
+              className="press min-h-[48px] px-5 text-[15px] bg-white active:bg-gray-100 text-gray-800 border border-gray-300 rounded-[14px] font-medium"
+            >
+              先存着,下午再改
+            </button>
+          )}
           <button
             type="button"
             onClick={onConfirm}
@@ -912,7 +960,7 @@ function SubmitConfirmDialog({
                 : 'bg-amber-600 active:bg-amber-700'
             }`}
           >
-            确定交卷
+            {secondWindowToday ? '交卷并看答案' : '确定交卷'}
           </button>
         </div>
       </div>

@@ -117,13 +117,53 @@ describe('MorningQuiz submit confirmation (R10)', () => {
     expect(api.morningQuizSubmit).not.toHaveBeenCalled();
   });
 
-  it('confirm fires the actual submit', async () => {
+  it('confirm fires the actual submit — final=true（最终提交，公布答案）', async () => {
     renderTake();
     fireEvent.click(await screen.findByTestId('submit-button'));
     await screen.findByTestId('submit-confirm-dialog');
     fireEvent.click(screen.getByTestId('submit-confirm'));
     await waitFor(() => {
-      expect(api.morningQuizSubmit).toHaveBeenCalledWith('sess1');
+      expect(api.morningQuizSubmit).toHaveBeenCalledWith('sess1', { final: true });
+    });
+  });
+
+  // ── 第二作答窗（2026-08-20）：交卷拆成暂存 / 最终两个动作 ──
+
+  it('没有第二窗的日子只给一个按钮 —— 「先存着」是个骗人的选项', async () => {
+    renderTake();
+    fireEvent.click(await screen.findByTestId('submit-button'));
+    await screen.findByTestId('submit-confirm-dialog');
+    expect(screen.queryByTestId('submit-draft')).toBeNull();
+  });
+
+  it('有第二窗时给两个按钮，「先存着」发 final=false', async () => {
+    (api.morningQuizSession as any).mockResolvedValueOnce({
+      ...mockPaper(3),
+      secondWindowToday: true,
+    });
+    renderTake();
+    fireEvent.click(await screen.findByTestId('submit-button'));
+    await screen.findByTestId('submit-confirm-dialog');
+    fireEvent.click(screen.getByTestId('submit-draft'));
+    await waitFor(() => {
+      // final=false 是答案门的钥匙：不盖 finalSubmittedAt，学生下午
+      // 16:00-17:30 还能回来改，在此之前看不到答案。发成 true 就等于
+      // 让他看完答案再改，整套设计就废了。
+      expect(api.morningQuizSubmit).toHaveBeenCalledWith('sess1', { final: false });
+    });
+  });
+
+  it('有第二窗时「交卷并看答案」仍发 final=true', async () => {
+    (api.morningQuizSession as any).mockResolvedValueOnce({
+      ...mockPaper(3),
+      secondWindowToday: true,
+    });
+    renderTake();
+    fireEvent.click(await screen.findByTestId('submit-button'));
+    await screen.findByTestId('submit-confirm-dialog');
+    fireEvent.click(screen.getByTestId('submit-confirm'));
+    await waitFor(() => {
+      expect(api.morningQuizSubmit).toHaveBeenCalledWith('sess1', { final: true });
     });
   });
 

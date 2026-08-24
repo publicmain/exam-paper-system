@@ -52,6 +52,9 @@ interface ResultPayload {
   /** 2026-08-14 新政：交卷即见答案，分数评语等老师判分定稿后下发。
    *  true = 服务端已把分数/对错/评语剥掉，本页只展示答案对照。 */
   scoresPending?: boolean;
+  /** 答案还没公布 —— 这份是「暂存提交」，学生今天 16:00-17:30 还能
+   *  回来改，改完点「交卷并看答案」才给答案。 */
+  answersPending?: boolean;
   items: ResultItem[];
 }
 
@@ -203,10 +206,22 @@ export default function MyHistoryDetail() {
           {data.scoresPending ? (
             <>
               <div className="text-3xl font-bold mt-2 text-gray-400">— / {max}</div>
-              <div className="mt-3 text-sm rounded-lg bg-emerald-50 border border-emerald-200 text-emerald-800 px-3 py-2">
-                ✅ 已交卷,<strong>每道题的答案已公布</strong>,可以对照下方复盘。
-                得分与老师评语将在人工批改完成后显示。
-              </div>
+              {data.answersPending ? (
+                // 暂存提交。学生最需要知道的两件事：答案为什么没有、
+                // 什么时候能拿到。不写清楚的话，他会以为系统坏了。
+                <div className="mt-3 text-sm rounded-lg bg-amber-50 border border-amber-200 text-amber-900 px-3 py-2">
+                  📝 答卷已保存,<strong>今天 16:00–17:30 可以回来继续答或修改</strong>。
+                  <div className="mt-1 text-amber-800">
+                    答案要等你按「交卷并看答案」之后才公布 —— 先看答案再改就没有意义了。
+                    到 17:30 仍未交的会自动交卷并公布答案。
+                  </div>
+                </div>
+              ) : (
+                <div className="mt-3 text-sm rounded-lg bg-emerald-50 border border-emerald-200 text-emerald-800 px-3 py-2">
+                  ✅ 已交卷,<strong>每道题的答案已公布</strong>,可以对照下方复盘。
+                  得分与老师评语将在人工批改完成后显示。
+                </div>
+              )}
             </>
           ) : (
             <div className={`text-4xl font-bold mt-2 ${pctColor}`}>

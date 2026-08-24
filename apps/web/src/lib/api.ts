@@ -306,8 +306,12 @@ export const api = {
     sessionId: string,
     body: { paperQuestionId: string; selectedOption?: string | null; textAnswer?: string | null },
   ) => request('PATCH', `/morning-quiz/sessions/${sessionId}/answer`, body),
-  morningQuizSubmit: (sessionId: string) =>
-    request('POST', `/morning-quiz/sessions/${sessionId}/submit`),
+  // final=false 是「暂存提交」：下午 16:00-17:30 还能回来改，在此之前
+  // 看不到答案。省略 = 最终提交（公布答案、放弃续答）。
+  morningQuizSubmit: (sessionId: string, opts?: { final?: boolean }) =>
+    request('POST', `/morning-quiz/sessions/${sessionId}/submit`, {
+      final: opts?.final !== false,
+    }),
   // F3 — student result page payload. Server enforces "submitted-or-window-
   // closed" gate; pre-submit calls return 403 result_locked_until_submit.
   morningQuizStudentResult: (sessionId: string) =>

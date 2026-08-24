@@ -588,10 +588,24 @@ export class StudentService {
    * has the final score. The generic homework submit path leaves this
    * unset → inline AI grading + notify, exactly as before.
    */
+  /**
+   * 交卷。
+   *
+   * 2026-08-20 第二作答窗上线后，交卷有两种：
+   *   · 最终提交（opts.final !== false，默认）—— 学生主动点「交卷并查看
+   *     答案」。盖 finalSubmittedAt，立刻公布答案，同时放弃 16:00-17:30
+   *     回来继续改的权利。
+   *   · 暂存提交（opts.final === false）—— 9:00 自动收卷走这条。不盖
+   *     finalSubmittedAt，学生下午还能回来改，在此之前**看不到答案**。
+   *
+   * 两者都把 status 翻成 submitted 并自动判客观题 —— 区别只在
+   * finalSubmittedAt，答案门认的就是它（见 morning-quiz.service 的
+   * answersReleased）。默认 final 是为了让所有既有调用点保持原语义。
+   */
   async finalSubmit(
     submissionId: string,
     student: ActorCtx,
-    opts?: { deferAi?: boolean },
+    opts?: { deferAi?: boolean; final?: boolean },
   ) {
     const sub = await this.prisma.studentSubmission.findUnique({
       where: { id: submissionId },
@@ -704,6 +718,8 @@ export class StudentService {
         where: { id: submissionId, status: 'in_progress' },
         data: {
           submittedAt: new Date(),
+          // 暂存提交不盖这个 —— 它是答案门的钥匙，见方法头注释
+          ...(opts?.final === false ? {} : { finalSubmittedAt: new Date() }),
           status: 'submitted',
           autoScore,
           // R15-Audit#3 — totalScore was left NULL after autoGrade so
