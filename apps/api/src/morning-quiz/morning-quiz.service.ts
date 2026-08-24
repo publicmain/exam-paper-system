@@ -86,6 +86,23 @@ export function isQuizWindowOpen(
   return isMakeupWindowOpen(session, now);
 }
 
+/**
+ * 此刻这一场真正的截止时刻 —— 学生端倒计时必须绑这个，不能绑 quizEnd。
+ *
+ * 2026-08-24 实测事故：第二作答窗内打开答题页，Timer 拿到的是早上
+ * 09:00 的 quizEnd，判定「一挂载就已过期」，1500ms 后直接触发
+ * onTimeUp 自动交卷 —— 学生连题目都没读完，卷子就被收走了。
+ *
+ * 规则：第二窗开着就用 makeupEnd，否则用 quizEnd。
+ */
+export function effectiveEndsAt(
+  session: { quizEnd: Date; makeupStart?: Date | null; makeupEnd?: Date | null },
+  now: Date = new Date(),
+): Date {
+  if (isMakeupWindowOpen(session, now) && session.makeupEnd) return session.makeupEnd;
+  return session.quizEnd;
+}
+
 /** 此刻是否在补考窗口内（正式窗口已过）。 */
 export function isMakeupWindowOpen(
   session: { makeupStart?: Date | null; makeupEnd?: Date | null },
@@ -1737,7 +1754,18 @@ export class MorningQuizService {
     const att = await this.prisma.attendance.findUnique({
       where: { sessionId_studentId: { sessionId: session.id, studentId } },
     });
-    if (!att || att.status === AttendanceStatus.absent) {
+    // 「absent 就拒绝」曾经把第二作答窗整个堵死。absent 这个状态有两个
+    // 来源，语义完全不同：
+    //   · cron 给名册上没扫码的人插的行 —— scanTime / makeupAt 都是
+    //     null，这种确实该拒绝，人根本没来。
+    //   · 学生**真的扫了码**但被判为缺席 —— 出勤开着时，第二窗扫码走的
+    //     正是这条（早上没来是既成事实，照实记 absent + makeupAt）。
+    //     这种人拿着有效令牌站在教室里，却被这道闸挡在答题页外。
+    // 2026-08-13 那次补考老师被迫用 debug-activate 把正式窗口整个挪到
+    // 下午，事后归因于「想保住出勤记录」；真正的原因是走补考分支的学生
+    // 压根进不来。判据改成「扫过码没有」而不是「算不算缺席」。
+    const everScanned = !!att && (att.scanTime != null || att.makeupAt != null);
+    if (!att || (att.status === AttendanceStatus.absent && !everScanned)) {
       throw new ForbiddenException({ code: 'no_attendance_record' });
     }
 
@@ -1874,7 +1902,11 @@ export class MorningQuizService {
       sessionId: session.id,
       attendanceId: att.id,
       submissionId: att.submissionId,
-      quizEnd: session.quizEnd,
+      // 学生端倒计时**必须**用这个，不是 quizEnd —— 第二窗内 quizEnd
+      // 早已过期，Timer 会当场自动交卷（2026-08-24 实测事故）。
+      quizEnd: effectiveEndsAt(session),
+      // 正式窗的截止时刻，仅供展示/诊断，不要拿去驱动倒计时。
+      regularQuizEnd: session.quizEnd,
       secondWindowToday,
       secondWindowEnd: secondWindowToday ? session.makeupEnd : null,
       level,
@@ -2076,6 +2108,16 @@ export class MorningQuizService {
       update: {
         selectedOption,
         textAnswer: body.textAnswer ?? null,
+        // 答案一改，这一题此前的判分就作废 —— 第二作答窗（2026-08-20）
+        // 让学生下午能回来改早上写的答案，如果老师上午已经判过、或者
+        // 09:00 的自动判分已经写过分，不清掉的话评语和分数会留在一份
+        // 已经不存在的答案上：学生看到「你写的 X」配着针对旧答案 Y 的
+        // 评语。清空后 finalSubmit / 17:30 收尾会整题重判。
+        awardedMarks: null,
+        autoCorrect: null,
+        markerComment: null,
+        markedById: null,
+        markedAt: null,
       },
     });
   }
@@ -2941,6 +2983,10 @@ export class MorningQuizService {
         paper: session.paperAssignment.paper,
       },
       counts,
+      // 2026-08-20 起早测默认不记出勤：不再插缺席行、迟到也统一记
+      // on_time。面板必须知道这件事，否则「缺勤 0」会被老师读成「全勤」，
+      // 而真相是「这个数字已经不再统计了」。
+      attendanceTracking: process.env.MORNING_QUIZ_ATTENDANCE_TRACKING === 'on',
       attendances: session.attendances,
     };
   }

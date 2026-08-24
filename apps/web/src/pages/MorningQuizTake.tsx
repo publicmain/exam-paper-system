@@ -34,6 +34,9 @@ interface SessionView {
    *  还是两个 —— 没有第二窗的日子，「先交，下午再改」是个骗人的
    *  选项。服务端算，前端不猜。 */
   secondWindowToday?: boolean;
+  /** 第二作答窗的结束时刻（窗开着时才有值）。用来判断此刻倒计时数到
+   *  的是早上 09:00 还是下午 17:30 —— 两者的收卷语义相反。 */
+  secondWindowEnd?: string | null;
   level: EnglishLevel;
   paperMode: 'passage_pick' | 'standard' | null;
   /** Authoritative quiz mode from the server. Always 'test' for morning
@@ -342,6 +345,14 @@ function PaperHost({
       submitted={submitted}
       onSubmit={onSubmit}
       secondWindowToday={view.secondWindowToday === true}
+      // 倒计时数到的是第二窗的结束时刻（服务端把 quizEnd 换成了
+      // makeupEnd）→ 到点即最终提交。否则数的是早上 09:00，今天还有
+      // 第二窗的话收成暂存。
+      timeUpIsFinal={
+        view.secondWindowToday !== true ||
+        (!!view.secondWindowEnd &&
+          new Date(view.quizEnd).getTime() === new Date(view.secondWindowEnd).getTime())
+      }
     />
   );
 }
@@ -453,12 +464,21 @@ function ExamShellChrome({
   submitted,
   onSubmit,
   secondWindowToday,
+  timeUpIsFinal,
 }: {
   paper: ExamPaper;
   mode: 'practice' | 'test';
   submitted: boolean;
   /** 今天有没有第二作答窗（16:00-17:30）。服务端算好传下来。 */
   secondWindowToday: boolean;
+  /**
+   * 计时到点时该收成「最终提交」还是「暂存」。
+   *
+   * 早上 09:00 到点、下午还有窗 → 暂存（学生还能回来改）。
+   * 下午 17:30 到点 → 最终，今天没有下一个窗了，必须当场公布答案。
+   * 光看 secondWindowToday 分不出这两种情况 —— 它俩当天都是 true。
+   */
+  timeUpIsFinal: boolean;
   onSubmit: (opts?: { timeUp?: boolean; unanswered?: number; total?: number; final?: boolean }) => void;
 }) {
   const [paletteOpen, setPaletteOpen] = useState(false);
@@ -526,14 +546,14 @@ function ExamShellChrome({
       const a = answers[q.id];
       return !!(a?.selectedOption || (a?.textAnswer && a.textAnswer.trim()));
     }).length;
-    // 09:00 计时到点。今天还有第二窗的话收成暂存提交 —— 学生下午能
-    // 接着答，答案在此之前不给。这与后端 lockOne 的 finalize 推导是
-    // 同一个判断，两边必须一致，否则前端收成最终、后端以为还能改。
+    // 计时到点自动收卷。收成暂存还是最终由 timeUpIsFinal 决定（见其
+    // 注释）—— 这与后端 lockOne 的 finalize 推导是同一个判断，两边必须
+    // 一致，否则前端收成最终、后端以为还能改。
     void doSubmit({
       timeUp: true,
       unanswered: t - done,
       total: t,
-      final: !secondWindowToday,
+      final: timeUpIsFinal,
     });
   }, [doSubmit, paper.questions, answers]);
 

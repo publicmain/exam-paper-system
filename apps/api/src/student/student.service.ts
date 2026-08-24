@@ -752,7 +752,11 @@ export class StudentService {
         });
       }
       return tx.studentSubmission.findUnique({ where: { id: submissionId } });
-    });
+      // 事务里逐题写 answerScript，N 道题就是 N 个 round-trip。默认 5 秒
+      // 的交互式事务上限在同机房绰绰有余，但只要数据库不在本地（跑验证
+      // 脚本走公网代理、或将来 DB 迁走），14 题就能撞穿它 —— 整次交卷
+      // 回滚，学生看到「提交失败」而答案其实没保存。放宽到 15 秒。
+    }, { timeout: 15_000 });
 
     // F3 — fire `score_ready` AFTER the tx commits (so a notification
     // never lands while the row is still mid-flight). Dedup: if the cron

@@ -211,6 +211,19 @@ function check(label: string, ok: boolean, detail = '') {
     } catch { /* 下面按 0 判失败 */ }
     check('扫码令牌有效期 > 5 分钟（原实现会压成 60 秒）',
       ttlMs > 5 * 60_000, `实际 ${Math.round(ttlMs / 1000)} 秒`);
+    check('扫码返回的剩余分钟数 > 0（原实现拿 quizEnd 减，必为 0）',
+      (scan2?.remainingMinutes ?? 0) > 0, `实际 ${scan2?.remainingMinutes}`);
+    check('此时未最终提交，alreadyFinalSubmitted=false',
+      scan2?.alreadyFinalSubmitted === false);
+
+    // 倒计时绑错时间是 2026-08-24 实测撞到的事故：第二窗内 take payload
+    // 若下发 09:00 的 quizEnd，前端 Timer 判「一挂载就过期」，1.5 秒后
+    // 自动交卷，学生连题都没读完。
+    const takeView: any = await (mq as any).getStudentView(sessionId, userId);
+    const endsAt = new Date(takeView.quizEnd).getTime();
+    check('take 下发的截止时间在未来（倒计时不会立刻触发自动交卷）',
+      endsAt > Date.now(), `还剩 ${Math.round((endsAt - Date.now()) / 1000)} 秒`);
+    check('take 同时下发 secondWindowToday=true', takeView.secondWindowToday === true);
 
     // ══ 6. 改早上的答案 + 补答 ══
     console.log('\n6. 修改早上的答案并补答一题');
@@ -237,6 +250,15 @@ function check(label: string, ok: boolean, detail = '') {
     );
     check('逐题答案已下发', withAnswer.length > 0, `${withAnswer.length}/${r2.items?.length} 题`);
     check('分数仍扣住（还没人工判分）', r2.scoresPending === true);
+
+    const scan3: any = await attendance.scanQr(
+      token, u.name!, '127.0.0.1', 'e2e-device-a', 'e2e-agent', sessionId,
+    );
+    check('已最终提交后再扫码 → alreadyFinalSubmitted=true（前端据此拦下）',
+      scan3?.alreadyFinalSubmitted === true);
+    const stillFinal = await prisma.studentSubmission.findUnique({ where: { id: subId } });
+    check('再扫码不会把已最终提交的答卷退回可编辑（否则等于照答案改分）',
+      stillFinal?.status === 'submitted' && stillFinal?.finalSubmittedAt != null);
 
     // ══ 8. 17:30 收尾解锁 ══
     console.log('\n8. 17:30 收尾（模拟一名下午没回来的学生）');
@@ -276,6 +298,38 @@ function check(label: string, ok: boolean, detail = '') {
     const aAfter = await prisma.studentSubmission.findUnique({ where: { id: subId } });
     check('已最终提交的 A 时间戳没被改写',
       aAfter?.finalSubmittedAt?.getTime() === afterFinal?.finalSubmittedAt?.getTime());
+
+    // ══ 8.5 改答案作废旧判分 ══
+    console.log('\n8.5 改答案后旧的判分/评语必须作废');
+    await prisma.morningQuizSession.update({
+      where: { id: sessionId },
+      data: {
+        status: MorningQuizStatus.active,
+        makeupStart: new Date(Date.now() - 60_000),
+        makeupEnd: new Date(Date.now() + 30 * 60_000),
+      },
+    });
+    // 造一份「老师已经判过」的现场：B 同学退回可编辑后改答案
+    await prisma.studentSubmission.update({
+      where: { id: sub2.id },
+      data: { status: 'in_progress', finalSubmittedAt: null },
+    });
+    const gradedScript = await prisma.answerScript.create({
+      data: {
+        submissionId: sub2.id,
+        paperQuestionId: pqs[0].id,
+        textAnswer: '旧答案',
+        awardedMarks: 2,
+        markerComment: '针对旧答案写的评语',
+        markedById: admin.id,
+        markedAt: new Date(),
+      },
+    });
+    await mq.saveAnswer(sessionId, { paperQuestionId: pqs[0].id, textAnswer: '改过的新答案' }, u2.id);
+    const afterEdit = await prisma.answerScript.findUnique({ where: { id: gradedScript.id } });
+    check('答案改了 → awardedMarks 清空', afterEdit?.awardedMarks == null);
+    check('答案改了 → 评语清空（否则评语挂在已不存在的答案上）',
+      afterEdit?.markerComment == null && afterEdit?.markedById == null);
 
     // ══ 9. 出勤确实没记 ══
     console.log('\n9. 出勤停用');

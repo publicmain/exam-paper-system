@@ -45,6 +45,10 @@ interface HistorySubmission {
   status: string;
   /** 2026-08-14 新政：true = 老师还没判分定稿，分数字段为 null。 */
   scoresPending?: boolean;
+  /** 答案还没公布 —— 这份是暂存提交，今天还能回去改 */
+  answersPending?: boolean;
+  /** 此刻第二作答窗开着且这份还没最终交卷 → 现在就能回去继续答 */
+  reopenable?: boolean;
 }
 
 interface HistoryResponse {
@@ -657,7 +661,19 @@ export default function MyHistory() {
                           </Link>
                           <div className="text-right shrink-0 flex flex-col items-end gap-2">
                             <Link to={detailHref} className="block">
-                              {s.scoresPending ? (
+                              {s.answersPending ? (
+                                // 暂存提交：还能改，所以既不能说「答案已
+                                // 公布」也不能只说「待批改」—— 那会让学生
+                                // 以为这场已经结束了。
+                                <>
+                                  <div className="text-sm font-semibold text-amber-800 px-2 py-1 rounded bg-amber-50 border border-amber-200">
+                                    {s.reopenable ? '可继续作答' : '已保存 · 未交卷'}
+                                  </div>
+                                  <div className="text-[11px] text-amber-700 mt-1">
+                                    {s.reopenable ? '扫码回来即可修改' : '答案交卷后公布'}
+                                  </div>
+                                </>
+                              ) : s.scoresPending ? (
                                 <>
                                   <div className="text-sm font-semibold text-emerald-700 px-2 py-1 rounded bg-emerald-50 border border-emerald-200">
                                     答案已公布

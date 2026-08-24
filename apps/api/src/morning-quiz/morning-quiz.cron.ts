@@ -57,6 +57,63 @@ export class MorningQuizCron {
     await this.activateDueSessions(now);
     await this.lockPastSessions(now);
     await this.autoOpenSecondWindows(now);
+    await this.releaseStrandedDrafts(now);
+  }
+
+  /**
+   * 兜底：把「卡在暂存状态、今天已经不可能再有窗」的答卷解锁。
+   *
+   * 为什么必须有这个 —— lockPastSessions 只捞 status ∈ (active,
+   * scheduled) 的场次。第二窗开启时场次被翻成 active，17:30 后它自然
+   * 会被重新捞出来收尾。但只要开窗那一步没成功，场次就停在 locked：
+   *   · 16:00 那一跳恰好赶上部署重启 / 服务没起来
+   *   · 09:00 的锁场没跑成，16:00 时场次还是 active（autoOpenSecondWindows
+   *     只处理 locked），于是窗压根没开
+   *   · 有人手工改过场次状态
+   * 这时 makeupEnd 是 null、status 是 locked，**永远不再匹配任何收尾
+   * 条件**，学生的 finalSubmittedAt 永远为 null —— 答案一辈子看不到，
+   * 且没有任何自愈路径。
+   *
+   * 判据只看时间，不看场次状态：SGT 已过第二窗结束时刻（或该日根本
+   * 不适用第二窗），当天的暂存答卷一律解锁。幂等 —— 已有
+   * finalSubmittedAt 的不动。
+   */
+  private async releaseStrandedDrafts(now: Date) {
+    const tzOff = Number(process.env.MORNING_QUIZ_TZ_OFFSET_MIN ?? 8 * 60);
+    const local = new Date(now.getTime() + tzOff * 60_000);
+    const nowLocalHHMMSS = local.toISOString().slice(11, 19);
+    const dateIso = local.toISOString().slice(0, 10);
+
+    const appliesToday = secondWindowAppliesTo({
+      secondWindowEnv: process.env.MORNING_QUIZ_SECOND_WINDOW,
+      dateIsoLocal: dateIso,
+      weekdayLocal: local.getUTCDay(),
+    });
+    // 适用第二窗的日子要等窗关了才兜底；不适用的日子（周末/停用/生效日
+    // 之前）任何时刻都不该有暂存答卷 —— 早上收卷时就该最终化了。
+    if (appliesToday && nowLocalHHMMSS < SECOND_WINDOW_END_LOCAL) return;
+
+    const todayUtc = new Date(`${dateIso}T00:00:00.000Z`);
+    const sessions = await this.prisma.morningQuizSession.findMany({
+      where: { date: todayUtc },
+      select: { id: true, paperAssignmentId: true, level: true },
+    });
+    if (sessions.length === 0) return;
+
+    const stranded = await this.prisma.studentSubmission.updateMany({
+      where: {
+        assignmentId: { in: sessions.map((s) => s.paperAssignmentId) },
+        finalSubmittedAt: null,
+        status: { notIn: ['in_progress', 'practice'] },
+      },
+      data: { finalSubmittedAt: now },
+    });
+    if (stranded.count > 0) {
+      this.logger.warn(
+        `released ${stranded.count} stranded draft submission(s) for ${dateIso} — ` +
+          `第二窗收尾没跑到，已兜底公布答案。检查当天 16:00 的开窗是否失败。`,
+      );
+    }
   }
 
   /**
@@ -229,7 +286,7 @@ export class MorningQuizCron {
    *
    * Structure (BUG 7 fix — mirrors `morning-quiz.service.regradeSession`):
    *   1. ONE small fast tx: flip session→locked, flip in_progress→submitted
-   *      with autoScore=0 placeholder, insert roster `absent` rows.
+   *      leaving autoScore null for Phase 3 to fill, insert roster `absent` rows.
    *   2. Load each just-flipped submission's scripts OUTSIDE any tx.
    *   3. Per-submission: run `autoGradeScripts` (slow Claude call,
    *      no tx held), then a tiny per-submission tx to write the
@@ -263,9 +320,10 @@ export class MorningQuizCron {
   ) {
     // ── Phase 1: fast lock-and-flip tx ────────────────────────────────
     // Idempotent; subsequent ticks see status=locked and skip.
-    // We pre-flip in_progress submissions to `submitted` with autoScore=0
-    // so the session is in a consistent state immediately. The AI-grade
-    // pass below upgrades autoScore in-place per submission.
+    // We pre-flip in_progress submissions to `submitted` and leave
+    // autoScore null — the grading pass below fills it per submission.
+    // (Writing a 0 placeholder here used to make a failed grading pass
+    // indistinguishable from a genuine zero; see the data note below.)
     const { inProgressIds, totalRosterCount, claimedCount, isWeekendSession } = await this.prisma.$transaction(async (tx) => {
       await tx.morningQuizSession.update({
         where: { id: sessionId },
@@ -298,7 +356,11 @@ export class MorningQuizCron {
             // finalizeNow 的推导。答案门认的就是这一列。
             ...(finalize ? { finalSubmittedAt: new Date() } : {}),
             status: 'submitted',
-            autoScore: 0,
+            // autoScore 刻意不在这里写 0。原来写 0 是为了让 session 立刻
+            // 处于一致状态，但 Phase 2 的自动判分跑在事务外、失败只记
+            // 日志继续 —— 一旦它挂了，学生就永久停在「0 分」，而 0 分和
+            // 「没判成」在数据上分不出来。留 null：marker 队列和面板据此
+            // 能看出这份还没自动判过，下面的 Phase 2 或人工判分会补上。
             maxScore: correctMax,
           },
         });
@@ -546,7 +608,25 @@ export class MorningQuizCron {
           rawGrade,
         );
 
-        // Tiny atomic write — well under 5s even with N=20 scripts.
+        // 一份卷一个小事务。原来这里对每道题做「findUnique 查是否已人工
+        // 判过 → update」两次往返，N=14 题就是 28 个 round-trip；只要
+        // 数据库不在同机房（本地跑验证脚本、或将来 DB 迁到别处），就会
+        // 撞穿 Prisma 默认的 5 秒交互式事务超时，整份卷的自动判分丢失、
+        // 只在日志里留一行 auto-grade failed。改成一次性批量查已判过的
+        // id（N+1 → 2 个 round-trip 的量级），并把超时放宽到 15 秒。
+        const markedIds = new Set(
+          scriptUpdates.length > 0
+            ? (
+                await this.prisma.answerScript.findMany({
+                  where: {
+                    id: { in: scriptUpdates.map((u) => u.id) },
+                    markedById: { not: null },
+                  },
+                  select: { id: true },
+                })
+              ).map((r) => r.id)
+            : [],
+        );
         await this.prisma.$transaction(async (tx) => {
           await tx.studentSubmission.update({
             where: { id: sub.id },
@@ -561,12 +641,8 @@ export class MorningQuizCron {
             // 人工判过的那一条永不覆盖：markedById 有值 = 老师写过分数
             // 和评语，自动流程再怎么跑都不能把它抹掉（同上 2026-08-13
             // 事故）。第二道防线，与上面按 submission 过滤互补 ——
-            // 一份卷可能只有部分题被人工判过。
-            const already = await tx.answerScript.findUnique({
-              where: { id: u.id },
-              select: { markedById: true },
-            });
-            if (already?.markedById) continue;
+            // 一份卷可能只有部分题被人工判过。名单在进事务前一次查好。
+            if (markedIds.has(u.id)) continue;
             await tx.answerScript.update({
               where: { id: u.id },
               data: {
@@ -576,7 +652,7 @@ export class MorningQuizCron {
               },
             });
           }
-        });
+        }, { timeout: 15_000 });
         graded++;
 
         // F3 — score_ready fires AFTER the per-submission tx commits so a

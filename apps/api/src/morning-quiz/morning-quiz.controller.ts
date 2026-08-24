@@ -24,7 +24,12 @@ import { StudentService } from '../student/student.service';
 import { AbsenceAlertService } from './absence-alert.service';
 import { MorningQuizExportService } from './morning-quiz-export.service';
 import { MorningQuizWeeklyCron } from './morning-quiz-weekly-cron';
-import { MorningQuizService, scoresReleased } from './morning-quiz.service';
+import {
+  MorningQuizService,
+  answersReleased,
+  isMakeupWindowOpen,
+  scoresReleased,
+} from './morning-quiz.service';
 import { ShortAnswerEvaluatorService } from './short-answer-evaluator.service';
 
 const CreateSessionSchema = z.object({
@@ -702,7 +707,7 @@ export class MorningQuizController {
       orderBy: { submittedAt: 'desc' },
       select: {
         id: true, autoScore: true, manualScore: true, totalScore: true,
-        maxScore: true, submittedAt: true, status: true,
+        maxScore: true, submittedAt: true, status: true, finalSubmittedAt: true,
         assignment: {
           select: {
             id: true,
@@ -715,7 +720,12 @@ export class MorningQuizController {
     const assignmentIds = submissions.map((s) => s.assignment.id);
     const sessionsByAsgmt = await this.prisma.morningQuizSession.findMany({
       where: { paperAssignmentId: { in: assignmentIds }, status: { not: 'cancelled' } },
-      select: { id: true, paperAssignmentId: true, date: true, level: true },
+      // makeupStart/End = 第二作答窗（2026-08-20 后的语义），列表页用它
+      // 判断「这场现在还能不能回去改」
+      select: {
+        id: true, paperAssignmentId: true, date: true, level: true,
+        makeupStart: true, makeupEnd: true,
+      },
     });
     const sessByAssignment = new Map<string, any>();
     for (const s of sessionsByAsgmt) {
@@ -740,8 +750,24 @@ export class MorningQuizController {
         // totalScore 只是 MCQ 部分分，学生会当成最终分数 —— 服务端置空，
         // 前端据 scoresPending 显示「已交 · 待批改」。
         const released = scoresReleased(s.status);
+        // 第二作答窗（2026-08-20）：暂存提交的答卷学生今天还能回来改，
+        // 列表页必须能一眼看出来 —— 否则他只看到「待批改」，不知道自己
+        // 其实还有一次机会。answersPending 就是那把钥匙。
+        const answersPending = !answersReleased({
+          status: s.status,
+          finalSubmittedAt: s.finalSubmittedAt,
+        });
         return {
           submissionId: s.id,
+          answersPending,
+          // 这一场此刻是否还能回去继续答（第二窗开着且我没最终交卷）
+          reopenable:
+            answersPending &&
+            !!sess &&
+            isMakeupWindowOpen(
+              { makeupStart: sess.makeupStart, makeupEnd: sess.makeupEnd },
+              new Date(),
+            ),
           sessionId: sess?.id ?? null,
           date: sess?.date ?? null,
           level: sess?.level ?? null,

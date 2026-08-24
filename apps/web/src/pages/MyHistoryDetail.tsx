@@ -212,6 +212,9 @@ export default function MyHistoryDetail() {
                 <div className="mt-3 text-sm rounded-lg bg-amber-50 border border-amber-200 text-amber-900 px-3 py-2">
                   📝 答卷已保存,<strong>今天 16:00–17:30 可以回来继续答或修改</strong>。
                   <div className="mt-1 text-amber-800">
+                    回来的方式：<strong>再扫一次教室墙上那张二维码</strong>,就会回到这份答卷继续答。
+                  </div>
+                  <div className="mt-1 text-amber-800">
                     答案要等你按「交卷并看答案」之后才公布 —— 先看答案再改就没有意义了。
                     到 17:30 仍未交的会自动交卷并公布答案。
                   </div>

@@ -54,6 +54,8 @@ interface ScanResult {
   scanToken: string;
   quizUrl: string;
   remainingMinutes: number;
+  /** 这一场已经「交卷并看过答案」，不能再作答 */
+  alreadyFinalSubmitted?: boolean;
 }
 
 /**
@@ -183,6 +185,18 @@ export default function MorningQuizScan() {
       // 两道一次性引导按序排队：2.0 新功能(whatsnew) → 装 App 教程
       // (installguide)。都看过 → 直接进卷。绝大多数学生任一时刻最多
       // 只会遇到其中一道(whatsnew 已在 8/13 全班放过一轮)。
+      // 已经交卷并看过答案的学生又来扫码（第二作答窗里很常见：他记得
+      // 下午还能进，但忘了自己上午已经点过「交卷并看答案」）。这时放他
+      // 进答题页是骗人的 —— 服务端不会让他保存任何修改。当场说清楚。
+      if (r.alreadyFinalSubmitted) {
+        setError({
+          code: 'already_final_submitted',
+          message:
+            '你这一场已经交卷并看过答案了，不能再修改。想复习的话去「我的记录」看逐题解析。',
+        });
+        return;
+      }
+
       const nextGate = !hasSeenWhatsNew()
         ? ('whatsnew' as const)
         : !hasSeenInstallGuide() && detectPlatform() !== 'other' && !isStandalone()

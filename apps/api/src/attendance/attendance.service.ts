@@ -35,6 +35,15 @@ export interface ScanResult {
   scanToken: string;
   quizUrl: string;
   remainingMinutes: number;
+  /**
+   * 这一场学生已经「交卷并看过答案」了，本场不能再作答。
+   *
+   * 第二作答窗（2026-08-20）里，主动最终提交过的学生仍然能扫码 ——
+   * scanQr 不会把他的答卷退回可编辑（那等于让他照着已看到的答案改成
+   * 满分）。但如果什么都不说，他会照常进到答题页、看到题目和自己的
+   * 答案，以为能改，一保存才撞 submission_locked。扫码这一刻就讲清楚。
+   */
+  alreadyFinalSubmitted: boolean;
 }
 
 @Injectable()
@@ -587,10 +596,17 @@ export class AttendanceService {
       metadata: { attendanceStatus, paperId, source: 'roster_pick' },
     });
 
-    const remainingMs = session.quizEnd.getTime() - now.getTime();
+    // 剩余时间按「当天最后一个还开着的窗」算 —— 拿 quizEnd 减，第二窗
+    // 内必然是负数，学生扫完码看到「剩余 0 分钟」。
+    const remainingMs = windowEndsAt.getTime() - now.getTime();
+    const finalSub = await this.prisma.studentSubmission.findUnique({
+      where: { id: submission.id },
+      select: { finalSubmittedAt: true },
+    });
     return {
       attendance: { id: attendance.id, status: attendanceStatus, scanTime: now },
       student: { id: student.id, name: student.name },
+      alreadyFinalSubmitted: finalSub?.finalSubmittedAt != null,
       scanToken,
       // Hash fragment, not query: keeps the handoff token off the wire
       // (no server logs, no Referer leak) — the SPA reads it client-side
