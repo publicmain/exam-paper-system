@@ -32,8 +32,13 @@ const BATCHES = {
     label: '雅思轻量层',
   },
   authored: {
-    dir: 'ielts-authored-2026-v6',
-    bookCode: 'ielts_authored_2026_v6',
+    dir: 'ielts-authored-aug2026',
+    // ⚠️ setCode/bookCode **不能以 _v<数字> 结尾**：picker 的 storyKey()
+    // 会把 _vN 当版本号剥掉，于是 ielts_authored_2026_v6 被规范化成
+    // ielts_authored_2026 —— 和库里既有的、内容完全不同的一批撞成同一个
+    // story，6 篇新卷全被判为「已服务」，候选池瞬间归零、每天走 LRU 回收
+    // 抽重复卷。2026-08-24 踩过，改名 aug2026 后才恢复。
+    bookCode: 'ielts_authored_aug2026',
     tag: 'ai_authored_ielts_2026',
     label: '雅思标准层补料',
   },
@@ -91,16 +96,43 @@ function arg(name: string): string | undefined {
         testNumber,
         passageNumber,
         passage: { title: d.passageTitle, body: d.passage },
-        questions: d.questions.map((q: any) => ({
-          n: q.n,
-          questionType: q.questionType,
-          taskType: q.taskType,
-          instruction: q.instruction,
-          // fixture 里字段叫 item（题干条目），ingest 接口要 stem
-          stem: q.item,
-          options: null,
-          answer: String(q.answer),
-        })),
+        questions: d.questions.map((q: any) => {
+          // TFNG 必须落成 mcq + TRUE/FALSE/NOT GIVEN 三个选项，答案存字母。
+          //
+          // 这不是可选风格：validatePaperStructure 有一条 EMPTY_OPTIONS
+          // 硬闸，taskType=true_false_not_given 而 snapshotOptions 为空
+          // 直接拒绝建场（2026-05-26 学生看到空 RadioGroup 的事故防线）。
+          // 既有剑桥内容也是这个形状，照抄它，渲染与判分才一致。
+          if (q.taskType === 'true_false_not_given') {
+            const opts = [
+              { key: 'A', text: 'TRUE' },
+              { key: 'B', text: 'FALSE' },
+              { key: 'C', text: 'NOT GIVEN' },
+            ];
+            const want = String(q.answer).trim().toUpperCase();
+            const hit = opts.find((o) => o.text === want);
+            if (!hit) throw new Error(`${f} Q${q.n}: TFNG 答案「${q.answer}」不是三选一`);
+            return {
+              n: q.n,
+              questionType: 'mcq' as const,
+              taskType: q.taskType,
+              instruction: q.instruction,
+              stem: q.item,
+              options: opts.map((o) => ({ ...o, correct: o.key === hit.key })),
+              answer: hit.key,
+            };
+          }
+          return {
+            n: q.n,
+            questionType: q.questionType,
+            taskType: q.taskType,
+            instruction: q.instruction,
+            // fixture 里字段叫 item（题干条目），ingest 接口要 stem
+            stem: q.item,
+            options: null,
+            answer: String(q.answer),
+          };
+        }),
       },
       { id: admin.id },
     );

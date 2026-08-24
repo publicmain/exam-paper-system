@@ -2,6 +2,7 @@ import { NestFactory } from '@nestjs/core';
 import { AppModule } from '../src/app.module';
 import { MorningQuizService } from '../src/morning-quiz/morning-quiz.service';
 import { PrismaService } from '../src/common/prisma.service';
+import { levelBucket } from '../src/morning-quiz/level-registry';
 
 /**
  * 按天补排早测场次。
@@ -77,19 +78,26 @@ function arg(name: string): string | undefined {
       }
       try {
         // 私有方法 —— 刻意复用，避免在脚本里重写终身去重逻辑。
-        // 层与题库桶的对应关系照抄 batchGenerateForWeek 的分发：
-        //   ielts_authentic  → 剑桥雅思原文（passage_pick）
-        //   ielts_simplified → OLEVEL basic 桶（O-Level 基础层）
-        //   olevel           → OLEVEL standard 桶
+        // 层→桶的映射查 level-registry，与 batchGenerateForWeek 同一张表。
+        // 不要在这里按枚举名 if/else 堆分支：枚举名和内容早就对不上
+        // （ielts_simplified 装的是 O-Level 基础），2026-08-24 加两个新
+        // 等级时这段旧分支就会把雅思轻量抽成 O-Level 标准。
         let paperId: string;
-        if (level === 'ielts_authentic') {
+        const bucket = levelBucket(level as any);
+        if (bucket === 'ielts_authentic' || bucket === 'ielts_light') {
           paperId = await (svc as any).pickPassageAndCreatePaper(
-            'IELTS', 'AUTH', cls.id, dateIso, actor, { provenanceFilter: 'authentic' },
+            'IELTS', 'AUTH', cls.id, dateIso, actor,
+            { provenanceFilter: bucket === 'ielts_light' ? 'light' : 'authentic' },
           );
         } else {
           paperId = await (svc as any).pickOlevelPaperAndCreatePaper(
             cls.id, dateIso, actor,
-            { provenanceFilter: level === 'ielts_simplified' ? 'basic' : 'standard' },
+            {
+              provenanceFilter:
+                bucket === 'olevel_basic' ? 'basic'
+                : bucket === 'olevel_simplified' ? 'simplified'
+                : 'standard',
+            },
           );
         }
         const session = await svc.createSession(

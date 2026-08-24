@@ -2,7 +2,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 
 /**
- * 雅思标准层自撰补料审计（ielts-authored-2026-v6）。
+ * 雅思标准层自撰补料审计（ielts-authored-aug2026）。
  *
  * 剑桥题库对本班耗尽后，标准层的新内容全部自撰。审计要盯住三件事：
  *
@@ -16,7 +16,7 @@ import * as path from 'path';
  * 用法：npx ts-node apps/api/scripts/audit-ielts-authored.ts
  */
 
-const DIR = path.join(__dirname, '..', 'test-fixtures', 'ielts-authored-2026-v6');
+const DIR = path.join(__dirname, '..', 'test-fixtures', 'ielts-authored-aug2026');
 const TAG = 'ai_authored_ielts_2026';
 
 const SPEC = {

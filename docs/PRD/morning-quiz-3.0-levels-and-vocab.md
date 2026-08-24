@@ -1,6 +1,10 @@
 # 早测 3.0 —— 五级英语训练 + 词汇主线
 
-> 状态：实施中 · 起草 2026-08-24 · 目标上线 2026-08-25（周二）
+> 状态：**已实施** · 起草并落地 2026-08-24 · 首次真实运行 2026-08-25（周二）
+>
+> 实施记录见文末 §12。第一批已推 main（e2f1999）：五个等级全部启用、
+> 11 篇自撰雅思内容入库、词汇吞吐与三分进度、错题重练接入交卷流程、
+> 出勤停用收尾。
 > 上游：[morning-quiz-2.0.md](./morning-quiz-2.0.md)、[vocabulary-notebook.md](./vocabulary-notebook.md)
 
 ---
@@ -303,3 +307,54 @@ Postgres 的 `ALTER TYPE ... ADD VALUE` **不能在事务块里跑**，Prisma mi
 - [ ] 历史欠账清理完毕
 - [ ] api / web 单测全绿，新增逻辑有对应测试
 - [ ] 生产 e2e 覆盖新等级
+
+
+---
+
+## 12. 实施记录（2026-08-24）
+
+### 已完成
+
+| 项 | 结果 |
+|---|---|
+| 等级 3→5 | 枚举加 `ielts_light` / `olevel_intermediate`；level-registry.ts 成为显示名与题库桶的唯一来源；分发与词表推送改为查表 |
+| 班级配置 | G11 五层全部启用（原来只有雅思真题 + O-Level 标准两层实跑） |
+| 雅思轻量内容 | 5 篇 × (250-350 词 + 6 题 + 8 词表)，审计 0 FAIL，已入库 active |
+| 雅思标准补料 | 6 篇 × (620-660 词 + 13 题)，审计 0 FAIL，已入库 active |
+| 词汇吞吐 | `reviewBatchSize` / `newWordQuota` 抽为纯函数并随积压调节；采集加闸 5 词/次 |
+| 词汇进度 | stats 返回 `progress: {mastered, learning, untouched}`，生词本主页出三分进度条 |
+| 错题重练 | 接入交卷流程（生词自测 → 重练 ≤3 题 → 成绩页），无待练则立即放行 |
+| 出勤收尾 | 班级日面板改口径；导出加「请先读」说明页 |
+| 测试 | api 428 / web 125 全绿；新增 level-registry 9 项 + vocab-throughput 9 项 |
+
+### 过程中发现的事实（值得记住）
+
+**1. 兜底 cron 从来没跑过。** `MORNING_QUIZ_DAILY_FALLBACK` 在生产未设置，
+而它的第一行就是「不等于 'true' 就 return」。这正是 2026-08-18 空场无人
+救回的原因 —— 安全网写好了但开关没开。同类的还有
+`MORNING_QUIZ_AUTO_GENERATE`（周日自动排课）。
+
+**2. 手动改生产枚举要先部署代码。** 本次先在库里 `ALTER TYPE ADD VALUE`
+加了两个等级值、又写了 ClassEnglishLevel 行，但代码还没部署 —— 这中间
+旧代码遇到 `ielts_light` 会落进 else 分支抽成 O-Level 标准。正确顺序是
+**先推代码、等部署完成，再动数据和开关**。
+
+**3. Railway 的公网代理会间歇性断。** 入库过程中 `Can't reach database
+server` 反复出现，TCP 可达但 Prisma 连不上；简单查询能过、NestFactory
+起 app context 就失败。改成直接 `new PrismaClient()` + 直接实例化 service
+（只依赖 Prisma 的那些）后稳定。跑生产脚本时优先走这条路，别起整个 Nest。
+
+**4. `DEVELOPMENT_HISTORY.md` 不该删。** 原计划把它作为冗余清掉，实际
+读过之后改判：它记录的是「当初为什么这么做」和技术债，与 HANDOVER 的
+「接手要做什么」是两种文档，且它自己已经标明了分工。
+
+### 未完成 / 下一步
+
+| 项 | 状态 |
+|---|---|
+| 打开 `MORNING_QUIZ_DAILY_FALLBACK` | **待部署完成后再开** —— 旧代码不认识新等级 |
+| 打开 `MORNING_QUIZ_AUTO_GENERATE` | 同上；开之前建议先加「题库余量告警」，否则耗尽时会静默抽重复卷 |
+| 薄弱层补料 | 雅思轻量 5 篇、O-Level 基础 5 篇，按每周 4 场算各只够 1.2 周 |
+| 王张欣重复账号合并 | 未做 |
+| 清理 08-13 事故的 02:26 孤儿场次 | 未做 |
+| git 历史里的剑桥原文 | 未做（需重写历史，风险高，建议单独安排） |
