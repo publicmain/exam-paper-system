@@ -380,3 +380,35 @@ story，6 篇全被判「已服务」，候选池归零、每天 LRU 回收抽�
 字母），否则撞 `validatePaperStructure` 的 EMPTY_OPTIONS 硬闸。且失败
 姿势很脏：Paper 和 PaperQuestion 已建好才抛异常，留下孤儿 paper，其
 passageRef 已进 used 集合 —— 清理时必须连 Paper 一起删。
+
+---
+
+## §13 学生十问修复（2026-08-24 晚，commit e6f0d97 + 53b028c）
+
+从学生座位视角审出的十个最可能遇到的问题，一次修完。核心判断：
+系统原来是围绕「卡片调度」设计的，不是围绕「学生这个时刻想干什么」。
+
+| # | 问题 | 修法 |
+|---|---|---|
+| 1 | 「交卷并看答案」按钮说谎（先塞四道词汇关卡） | **流程反转**：交卷直接落成绩页；成绩页顶部横幅（dueCount>0 才显示）自愿进入原 after=submit 链 |
+| 2 | 43% 学生生词本近空（高层级不推词） | 五层全开 pushesWordlist；高层级用**卷内嵌词表**（`Paper.config.wordlist`，resolveWordlistForPaperConfig 来源 0）；空本子给三来源引导 |
+| 3 | 周末必断连胜 | `streakFromDays` 上学日口径：只隔周末不断；假期仍断（已知取舍） |
+| 4 | 四档评分不会用/误触无解/可刷穿 | 降两档（忘了/记得，新词「没记住/记住了」）；**撤销上一张**（WordReviewLog.prevState 快照还原，10 分钟窗）；自测 again 回写继续兜底 |
+| 5 | 例句比词难、释义可能非文中义 | `windowAroundSpan` 长句围绕挖空开窗（卡片+自测题干，双镜像）；释义 2 行→6 行 |
+| 6 | 「这词我没加过」 | 卡片背面标来源+日期（答错收录/随文推送/自己添加） |
+| 7 | 看不到进步、毕业太远 | 毕业 60→21 天（存量回填 10 词，known 6→16）；评分后显示「N 天后再见/🎓已掌握」；mastered 口径统一为 state=known |
+| 8 | 主页自测直接考没学过的词 | 全新词时主按钮变「先学新词」；自测页加门槛岔路口（quiz payload 带 seenWords） |
+| 9 | 姓名输错静默失败 | 404 带相近姓名建议（closeNames，编辑距离 ≤1/2，≤3 个），/my-history 可点选重查 |
+| 10 | 弱网评分静默丢失 | localStorage 队列 + requestId 服务端唯一约束去重（WordReviewLog.requestId）；词汇页加载时自动补传 |
+
+**词表数据**：下周 12 张高层级卷已写入 config.wordlist（共 84 词，逐词
+过了 ECDICT 存在性 + 与本卷答案撞词检查 —— 撞词检查实际拦下 9 个
+「词表词=本卷答案」的泄题风险，如 swell/arithmetic/discipline）。
+**今后生成周卷时，高层级卷子应在生成阶段就配好 config.wordlist。**
+
+**生产验证**：review→重放（duplicate:true）→undo（reps 还原）→二次
+undo（nothing_to_undo）四步在生产 API 实测通过；迁移
+`20260824180000_review_undo_and_idempotency` 已生效。
+
+**明早盯**（8/25 8:25 首跑）：扫码日志应出现高层级的
+`wordlist pushed at scan`；成绩页横幅与两档评分 UI 首日表现。
