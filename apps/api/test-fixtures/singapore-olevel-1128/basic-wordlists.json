@@ -230,6 +230,232 @@
           "context": "He does not eat cake. He says fruit is enough."
         }
       ]
+    },
+    {
+      "story": "basic-06-the-umbrella",
+      "title": "The Umbrella",
+      "items": [
+        {
+          "word": "blue",
+          "context": "Then he walked to a corner, picked up a blue umbrella, and held it out to me."
+        },
+        {
+          "word": "cover",
+          "context": "I stood under the covered walkway with about twenty other students and waited."
+        },
+        {
+          "word": "share",
+          "context": "Their parents came, or their friends shared umbrellas with them."
+        },
+        {
+          "word": "sweep",
+          "context": "An old man was sweeping the walkway near me."
+        },
+        {
+          "word": "corner",
+          "context": "Then he walked to a corner, picked up a blue umbrella, and held it out to me."
+        },
+        {
+          "word": "push",
+          "context": "He pushed it into my hand and went back to his sweeping."
+        },
+        {
+          "word": "toilet",
+          "context": "A woman cleaning the toilets told me he only worked until the end of the month."
+        },
+        {
+          "word": "clear",
+          "context": "It is in my bag every day now, even when the sky is clear."
+        },
+        {
+          "word": "hard",
+          "context": "On Thursday the rain came down hard just as school ended."
+        },
+        {
+          "word": "month",
+          "context": "A woman cleaning the toilets told me he only worked until the end of the month."
+        }
+      ]
+    },
+    {
+      "story": "basic-07-the-wrong-bus",
+      "title": "The Wrong Bus",
+      "items": [
+        {
+          "word": "alone",
+          "context": "On her third day she went out alone to buy fish."
+        },
+        {
+          "word": "empty",
+          "context": "Her bag was empty."
+        },
+        {
+          "word": "instead",
+          "context": "She had taken bus 154 instead of bus 145."
+        },
+        {
+          "word": "remember",
+          "context": "She could not remember our address, only that our block was near a big tree."
+        },
+        {
+          "word": "address",
+          "context": "She could not remember our address, only that our block was near a big tree."
+        },
+        {
+          "word": "notice",
+          "context": "A young woman on the bus noticed her crying."
+        },
+        {
+          "word": "photograph",
+          "context": "She sat with my grandmother for forty minutes, showed her photographs of trees on her phone, and found the right block."
+        },
+        {
+          "word": "block",
+          "context": "She could not remember our address, only that our block was near a big tree."
+        },
+        {
+          "word": "mention",
+          "context": "She never mentions being lost."
+        },
+        {
+          "word": "taxi",
+          "context": "She came home at half past seven in a taxi."
+        }
+      ]
+    },
+    {
+      "story": "basic-08-the-empty-seat",
+      "title": "The Empty Seat",
+      "items": [
+        {
+          "word": "move",
+          "context": "In March his family moved to Johor."
+        },
+        {
+          "word": "stay",
+          "context": "The seat beside me stayed empty for the rest of the term."
+        },
+        {
+          "word": "term",
+          "context": "The seat beside me stayed empty for the rest of the term."
+        },
+        {
+          "word": "lend",
+          "context": "He always had two pens and would lend me one without being asked."
+        },
+        {
+          "word": "quiet",
+          "context": "Ryan was quiet."
+        },
+        {
+          "word": "forget",
+          "context": "Then one morning I forgot my pen."
+        },
+        {
+          "word": "pencil",
+          "context": "Ryan opened his pencil case and gave me one before I asked."
+        },
+        {
+          "word": "beside",
+          "context": "The seat beside me stayed empty for the rest of the term."
+        },
+        {
+          "word": "joke",
+          "context": "He laughed at jokes that were not funny, which made other people laugh."
+        },
+        {
+          "word": "care",
+          "context": "He knows a lot about birds, which I did not care about in May and do care about now."
+        }
+      ]
+    },
+    {
+      "story": "basic-09-the-durian",
+      "title": "The Durian",
+      "items": [
+        {
+          "word": "stall",
+          "context": "Only one, and always from the same stall."
+        },
+        {
+          "word": "village",
+          "context": "He has known my father since they were boys in the same village school."
+        },
+        {
+          "word": "spread",
+          "context": "We ate it at the table with newspaper spread out."
+        },
+        {
+          "word": "touch",
+          "context": "My sister would not touch it."
+        },
+        {
+          "word": "piece",
+          "context": "He takes one small piece and then watches the rest of us."
+        },
+        {
+          "word": "afford",
+          "context": "He said that when he was nine, his family could not afford durian."
+        },
+        {
+          "word": "promise",
+          "context": "He promised himself that when he had money he would buy one every year."
+        },
+        {
+          "word": "miss",
+          "context": "But he has never missed a June."
+        },
+        {
+          "word": "argue",
+          "context": "He laughed and said my father would argue about it."
+        }
+      ]
+    },
+    {
+      "story": "basic-10-the-locked-door",
+      "title": "The Locked Door",
+      "items": [
+        {
+          "word": "key",
+          "context": "I forgot my keys on a Tuesday."
+        },
+        {
+          "word": "credit",
+          "context": "I had no phone credit."
+        },
+        {
+          "word": "stairs",
+          "context": "I sat on the stairs."
+        },
+        {
+          "word": "neighbour",
+          "context": "After twenty minutes my neighbour, Mrs Lim, opened her door and looked at me."
+        },
+        {
+          "word": "ginger",
+          "context": "Her flat smelled of ginger."
+        },
+        {
+          "word": "programme",
+          "context": "We watched a programme about fishing that neither of us was interested in."
+        },
+        {
+          "word": "uncomfortable",
+          "context": "It was not uncomfortable."
+        },
+        {
+          "word": "photograph",
+          "context": "On her wall there was one photograph of a young man in a school uniform."
+        },
+        {
+          "word": "knock",
+          "context": "Mrs Lim opened the door before she could knock."
+        },
+        {
+          "word": "throw",
+          "context": "Mrs Lim said the soup would have been thrown away anyway."
+        }
+      ]
     }
   ]
 }

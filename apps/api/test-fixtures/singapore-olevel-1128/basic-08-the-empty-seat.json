@@ -1,0 +1,73 @@
+{
+  "setCode": "ai_authored_olevel_basic_08_the_empty_seat_v1",
+  "paperNumber": 2,
+  "paperTitle": "O-Level Basic Band — Practice 08: The Empty Seat",
+  "provenanceTag": "ai_authored_olevel_1128_basic",
+  "provenanceNote": "NOT STUDENT-FACING. Basic band. Original narrative written for the morning-quiz bank; NOT from any past exam paper. Short passage (~230 words, everyday vocabulary), 2 short-answer + 3 MCQ. Most marks reachable by choosing — typed items run a 64% blank rate in the weakest cohort.",
+  "sections": [
+    {
+      "exercise": 1,
+      "instruction": "Read the story below and answer the questions that follow. [2 marks]. Write short answers.",
+      "passageTitle": "The Empty Seat",
+      "passage": "Paragraph 1\nFor two years I sat next to Faizal in class. We were not close friends. We talked about football and nothing else.\n\nParagraph 2\nIn March his family moved to Johor. He told us on a Friday. He left on the Monday.\n\nParagraph 3\nThe teacher did not move anyone. The seat beside me stayed empty for the rest of the term.\n\nParagraph 4\nI found that I missed small things. He always had two pens and would lend me one without being asked. He laughed at jokes that were not funny, which made other people laugh.\n\nParagraph 5\nIn May a new boy came. His name was Ryan. The teacher put him in Faizal's seat.\n\nParagraph 6\nRyan was quiet. He did not like football. For three weeks I said almost nothing to him.\n\nParagraph 7\nThen one morning I forgot my pen. Ryan opened his pencil case and gave me one before I asked.\n\nParagraph 8\nI looked at him. He looked back and said nothing about it.\n\nParagraph 9\nWe talk now. Not about football. He knows a lot about birds, which I did not care about in May and do care about now.",
+      "questions": [
+        {
+          "n": 1,
+          "stem": "Q1. From Paragraph 2, where did Faizal's family move to? [1]",
+          "answer": "Johor",
+          "marks": 1
+        },
+        {
+          "n": 2,
+          "stem": "Q2. From Paragraph 9, what does Ryan know a lot about? [1]",
+          "answer": "birds",
+          "marks": 1
+        }
+      ]
+    },
+    {
+      "exercise": 2,
+      "instruction": "Choose the best answer for each question. [3 marks]",
+      "passageTitle": "The Empty Seat",
+      "passage": "Refer to the same story 'The Empty Seat' above.",
+      "questions": [
+        {
+          "n": 3,
+          "stem": "Q3. In Paragraph 4, what did the writer miss about Faizal? [1]",
+          "options": [
+            { "key": "A", "text": "Long conversations about their families.", "correct": false },
+            { "key": "B", "text": "Small everyday habits, like lending a pen.", "correct": true },
+            { "key": "C", "text": "Help with his homework.", "correct": false },
+            { "key": "D", "text": "Playing football together after school.", "correct": false }
+          ],
+          "answer": "B",
+          "marks": 1
+        },
+        {
+          "n": 4,
+          "stem": "Q4. Why is Ryan giving the writer a pen important? [1]",
+          "options": [
+            { "key": "A", "text": "The writer would have been punished without one.", "correct": false },
+            { "key": "B", "text": "It was the first time Ryan had spoken to him.", "correct": false },
+            { "key": "C", "text": "It repeats exactly what Faizal used to do.", "correct": true },
+            { "key": "D", "text": "It shows Ryan had spare pens to give away.", "correct": false }
+          ],
+          "answer": "C",
+          "marks": 1
+        },
+        {
+          "n": 5,
+          "stem": "Q5. What does the last sentence tell us about the writer? [1]",
+          "options": [
+            { "key": "A", "text": "He has changed because of getting to know Ryan.", "correct": true },
+            { "key": "B", "text": "He has always been interested in birds.", "correct": false },
+            { "key": "C", "text": "He no longer thinks about Faizal at all.", "correct": false },
+            { "key": "D", "text": "He wants to study science at university.", "correct": false }
+          ],
+          "answer": "A",
+          "marks": 1
+        }
+      ]
+    }
+  ]
+}

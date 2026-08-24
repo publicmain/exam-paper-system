@@ -1,0 +1,73 @@
+{
+  "setCode": "ai_authored_olevel_basic_07_the_wrong_bus_v1",
+  "paperNumber": 2,
+  "paperTitle": "O-Level Basic Band — Practice 07: The Wrong Bus",
+  "provenanceTag": "ai_authored_olevel_1128_basic",
+  "provenanceNote": "NOT STUDENT-FACING. Basic band. Original narrative written for the morning-quiz bank; NOT from any past exam paper. Short passage (~230 words, everyday vocabulary), 2 short-answer + 3 MCQ. Most marks reachable by choosing — typed items run a 64% blank rate in the weakest cohort.",
+  "sections": [
+    {
+      "exercise": 1,
+      "instruction": "Read the story below and answer the questions that follow. [2 marks]. Write short answers.",
+      "passageTitle": "The Wrong Bus",
+      "passage": "Paragraph 1\nMy grandmother came to stay with us in December. She had not been to Singapore for eleven years.\n\nParagraph 2\nOn her third day she went out alone to buy fish. She did not tell anyone.\n\nParagraph 3\nAt six o'clock she was still not back. My mother called the police. I went down to the bus stop to wait.\n\nParagraph 4\nShe came home at half past seven in a taxi. Her bag was empty. She had bought no fish.\n\nParagraph 5\nShe had taken bus 154 instead of bus 145. The numbers looked the same to her. The bus went the other way, past places she did not know.\n\nParagraph 6\nShe did not have a phone. She could not remember our address, only that our block was near a big tree.\n\nParagraph 7\nA young woman on the bus noticed her crying. She sat with my grandmother for forty minutes, showed her photographs of trees on her phone, and found the right block. Then she paid for the taxi and would not take the money back.\n\nParagraph 8\nMy grandmother tells this story to everyone. She never mentions being lost. She only talks about the girl on the bus.",
+      "questions": [
+        {
+          "n": 1,
+          "stem": "Q1. From Paragraph 2, why did the grandmother go out? [1]",
+          "answer": "to buy fish",
+          "marks": 1
+        },
+        {
+          "n": 2,
+          "stem": "Q2. From Paragraph 5, which bus should she have taken? [1]",
+          "answer": "bus 145",
+          "marks": 1
+        }
+      ]
+    },
+    {
+      "exercise": 2,
+      "instruction": "Choose the best answer for each question. [3 marks]",
+      "passageTitle": "The Wrong Bus",
+      "passage": "Refer to the same story 'The Wrong Bus' above.",
+      "questions": [
+        {
+          "n": 3,
+          "stem": "Q3. Why did the grandmother take the wrong bus? [1]",
+          "options": [
+            { "key": "A", "text": "The two numbers looked alike to her.", "correct": true },
+            { "key": "B", "text": "The bus stop had been moved.", "correct": false },
+            { "key": "C", "text": "Somebody gave her wrong directions.", "correct": false },
+            { "key": "D", "text": "She could not read English.", "correct": false }
+          ],
+          "answer": "A",
+          "marks": 1
+        },
+        {
+          "n": 4,
+          "stem": "Q4. In Paragraph 7, how did the young woman work out where the grandmother lived? [1]",
+          "options": [
+            { "key": "A", "text": "She called the grandmother's family.", "correct": false },
+            { "key": "B", "text": "She used photographs of trees to find the right block.", "correct": true },
+            { "key": "C", "text": "She asked the bus driver.", "correct": false },
+            { "key": "D", "text": "She took her to the police station.", "correct": false }
+          ],
+          "answer": "B",
+          "marks": 1
+        },
+        {
+          "n": 5,
+          "stem": "Q5. In Paragraph 8, what does the grandmother's way of telling the story show? [1]",
+          "options": [
+            { "key": "A", "text": "She has forgotten most of what happened.", "correct": false },
+            { "key": "B", "text": "She is angry with the bus company.", "correct": false },
+            { "key": "C", "text": "She wants people to remember the kindness, not her mistake.", "correct": true },
+            { "key": "D", "text": "She is proud of finding her own way home.", "correct": false }
+          ],
+          "answer": "C",
+          "marks": 1
+        }
+      ]
+    }
+  ]
+}

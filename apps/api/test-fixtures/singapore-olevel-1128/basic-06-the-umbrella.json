@@ -1,0 +1,73 @@
+{
+  "setCode": "ai_authored_olevel_basic_06_the_umbrella_v1",
+  "paperNumber": 2,
+  "paperTitle": "O-Level Basic Band — Practice 06: The Umbrella",
+  "provenanceTag": "ai_authored_olevel_1128_basic",
+  "provenanceNote": "NOT STUDENT-FACING. Basic band. Original narrative written for the morning-quiz bank; NOT from any past exam paper. Target: students who score only a few marks on the full O-Level band. Short passage (~230 words, everyday vocabulary), 2 short-answer + 3 MCQ. The 3:2 split is grounded in real data — typed items run a 64% blank rate in the weakest cohort, so most marks must be reachable by choosing.",
+  "sections": [
+    {
+      "exercise": 1,
+      "instruction": "Read the story below and answer the questions that follow. [2 marks]. Write short answers.",
+      "passageTitle": "The Umbrella",
+      "passage": "Paragraph 1\nIt rained every afternoon that week. I never brought an umbrella, because the sky was always blue at seven in the morning.\n\nParagraph 2\nOn Thursday the rain came down hard just as school ended. I stood under the covered walkway with about twenty other students and waited.\n\nParagraph 3\nAfter ten minutes most of them had gone. Their parents came, or their friends shared umbrellas with them.\n\nParagraph 4\nAn old man was sweeping the walkway near me. He had been there all week. I had never spoken to him.\n\nParagraph 5\nHe stopped sweeping and looked at the rain. Then he walked to a corner, picked up a blue umbrella, and held it out to me.\n\nParagraph 6\n'Take it,' he said. 'Someone left it here in May. Nobody came back for it.'\n\nParagraph 7\nI said I could not take it. He pushed it into my hand and went back to his sweeping.\n\nParagraph 8\nThe next morning I brought the umbrella back. He was not there. He was not there on Monday either. A woman cleaning the toilets told me he only worked until the end of the month.\n\nParagraph 9\nI still have the blue umbrella. It is in my bag every day now, even when the sky is clear.",
+      "questions": [
+        {
+          "n": 1,
+          "stem": "Q1. From Paragraph 5, what colour was the umbrella? [1]",
+          "answer": "blue",
+          "marks": 1
+        },
+        {
+          "n": 2,
+          "stem": "Q2. From Paragraph 8, who told the writer about the old man? [1]",
+          "answer": "a woman cleaning the toilets",
+          "marks": 1
+        }
+      ]
+    },
+    {
+      "exercise": 2,
+      "instruction": "Choose the best answer for each question. [3 marks]",
+      "passageTitle": "The Umbrella",
+      "passage": "Refer to the same story 'The Umbrella' above.",
+      "questions": [
+        {
+          "n": 3,
+          "stem": "Q3. Why did the writer never bring an umbrella? [1]",
+          "options": [
+            { "key": "A", "text": "She did not own one.", "correct": false },
+            { "key": "B", "text": "The mornings were always sunny.", "correct": true },
+            { "key": "C", "text": "Her bag was too small.", "correct": false },
+            { "key": "D", "text": "She liked walking in the rain.", "correct": false }
+          ],
+          "answer": "B",
+          "marks": 1
+        },
+        {
+          "n": 4,
+          "stem": "Q4. In Paragraph 6, why did the old man think he could give the umbrella away? [1]",
+          "options": [
+            { "key": "A", "text": "He had bought it himself.", "correct": false },
+            { "key": "B", "text": "The school told him to give it away.", "correct": false },
+            { "key": "C", "text": "It had been lost for months and no one claimed it.", "correct": true },
+            { "key": "D", "text": "It was broken and no longer useful.", "correct": false }
+          ],
+          "answer": "C",
+          "marks": 1
+        },
+        {
+          "n": 5,
+          "stem": "Q5. In Paragraph 9, why does the writer carry the umbrella even on clear days? [1]",
+          "options": [
+            { "key": "A", "text": "She is afraid of getting wet.", "correct": false },
+            { "key": "B", "text": "She wants to return it to him one day.", "correct": false },
+            { "key": "C", "text": "It reminds her of the old man's kindness.", "correct": true },
+            { "key": "D", "text": "Her mother told her to take it.", "correct": false }
+          ],
+          "answer": "C",
+          "marks": 1
+        }
+      ]
+    }
+  ]
+}

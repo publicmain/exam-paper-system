@@ -39,7 +39,9 @@ const warn = (file: string, check: string, detail: string) =>
 
 const files = fs
   .readdirSync(DIR)
-  .filter((f) => f.startsWith('basic-') && f.endsWith('.json'))
+  // 排除 basic-wordlists.json —— 它也以 basic- 开头，但装的是词表不是
+  // 卷子，没有 sections 字段，扫进来会直接 TypeError 崩掉整个审计。
+  .filter((f) => f.startsWith('basic-') && f.endsWith('.json') && !f.includes('wordlist'))
   .sort();
 
 const seenSetCodes = new Set<string>();

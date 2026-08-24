@@ -1,0 +1,73 @@
+{
+  "setCode": "ai_authored_olevel_basic_09_the_durian_v1",
+  "paperNumber": 2,
+  "paperTitle": "O-Level Basic Band — Practice 09: The Durian",
+  "provenanceTag": "ai_authored_olevel_1128_basic",
+  "provenanceNote": "NOT STUDENT-FACING. Basic band. Original narrative written for the morning-quiz bank; NOT from any past exam paper. Short passage (~230 words, everyday vocabulary), 2 short-answer + 3 MCQ. Most marks reachable by choosing — typed items run a 64% blank rate in the weakest cohort.",
+  "sections": [
+    {
+      "exercise": 1,
+      "instruction": "Read the story below and answer the questions that follow. [2 marks]. Write short answers.",
+      "passageTitle": "The Durian",
+      "passage": "Paragraph 1\nMy father buys one durian every June. Only one, and always from the same stall.\n\nParagraph 2\nThe man at the stall is called Uncle Teo. He has known my father since they were boys in the same village school.\n\nParagraph 3\nThis year the durian cost sixty dollars. My mother said it was too much. My father paid anyway.\n\nParagraph 4\nWe ate it at the table with newspaper spread out. My sister would not touch it. She says it smells like gas.\n\nParagraph 5\nMy father does not eat much of it either. He takes one small piece and then watches the rest of us.\n\nParagraph 6\nI asked him why he buys it if he hardly eats it.\n\nParagraph 7\nHe said that when he was nine, his family could not afford durian. He would stand outside the shop and smell it. He promised himself that when he had money he would buy one every year.\n\nParagraph 8\nHe has kept that promise for thirty-one years. Some years the durian was small. One year he bought it two weeks late because the price was too high. But he has never missed a June.\n\nParagraph 9\nNext June I will pay for it. I have already told Uncle Teo. He laughed and said my father would argue about it. I think he is right, and I think I will win.",
+      "questions": [
+        {
+          "n": 1,
+          "stem": "Q1. From Paragraph 3, how much did the durian cost this year? [1]",
+          "answer": "sixty dollars",
+          "marks": 1
+        },
+        {
+          "n": 2,
+          "stem": "Q2. From Paragraph 4, what does the sister say durian smells like? [1]",
+          "answer": "gas",
+          "marks": 1
+        }
+      ]
+    },
+    {
+      "exercise": 2,
+      "instruction": "Choose the best answer for each question. [3 marks]",
+      "passageTitle": "The Durian",
+      "passage": "Refer to the same story 'The Durian' above.",
+      "questions": [
+        {
+          "n": 3,
+          "stem": "Q3. In Paragraph 5, why does the father take only one small piece? [1]",
+          "options": [
+            { "key": "A", "text": "He does not like the taste any more.", "correct": false },
+            { "key": "B", "text": "He is saving the rest for the next day.", "correct": false },
+            { "key": "C", "text": "He enjoys watching his family eat it.", "correct": true },
+            { "key": "D", "text": "The doctor told him not to eat too much.", "correct": false }
+          ],
+          "answer": "C",
+          "marks": 1
+        },
+        {
+          "n": 4,
+          "stem": "Q4. From Paragraph 7, why does the father buy a durian every June? [1]",
+          "options": [
+            { "key": "A", "text": "He is keeping a promise he made as a child.", "correct": true },
+            { "key": "B", "text": "June is the only month durians are sold.", "correct": false },
+            { "key": "C", "text": "Uncle Teo gives him a special price.", "correct": false },
+            { "key": "D", "text": "It is his birthday month.", "correct": false }
+          ],
+          "answer": "A",
+          "marks": 1
+        },
+        {
+          "n": 5,
+          "stem": "Q5. What does the writer mean in the last paragraph? [1]",
+          "options": [
+            { "key": "A", "text": "He wants to eat the whole durian himself.", "correct": false },
+            { "key": "B", "text": "He thinks his father pays too much.", "correct": false },
+            { "key": "C", "text": "He plans to carry on his father's yearly habit.", "correct": true },
+            { "key": "D", "text": "He wants to buy from a different stall.", "correct": false }
+          ],
+          "answer": "C",
+          "marks": 1
+        }
+      ]
+    }
+  ]
+}
