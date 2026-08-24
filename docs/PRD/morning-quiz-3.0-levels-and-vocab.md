@@ -412,3 +412,35 @@ undo（nothing_to_undo）四步在生产 API 实测通过；迁移
 
 **明早盯**（8/25 8:25 首跑）：扫码日志应出现高层级的
 `wordlist pushed at scan`；成绩页横幅与两档评分 UI 首日表现。
+
+## §14 研究性分析五项落地（2026-08-25 凌晨，commit f25082a + d23457e）
+
+§13 之后的第二轮：文献（检索练习/Nation 覆盖率/语音形式习得）+ 自家
+生产数据（漏斗 4 人触达盲区、自评 21% vs 客观 80% 的 again 率差、
+人均单日 4.5 次评分）推导出的五项，全部上线：
+
+| 项 | 落地形态 |
+|---|---|
+| #0 埋点补齐 | PageViewKind + vocab_review / vocab_banner（枚举迁移单文件）；neverLookedBack 深度参与口径纳入 vocab_review |
+| #1 发音 | Web Speech API（speech.ts，en-GB 优先）；按钮只在不泄题位：卡背 / 自测反馈 / 生词本列表 / 看词选义题干 |
+| #2 拼写半产出 | 每轮自测 ≤2 道（reps>0 + 纯字母 4–12 token）；首字母+字数+中文意思；「不会写」=again；回炉不重写 FSRS |
+| #3 每周小主线 | test-fixtures/weekly-track/<ISO周>.json 分层轨道（W35 两轻量层各 15 词，过了答案撞词检查）；扫码随日词表一并推本人（pushListToStudent 复用）；生词本头部「🧭 本周主线 已学 X/N」 |
+| #4 连胜冻结 | streakFromDays 120 天窗口 2 次单日豁免，静默生效 |
+
+**浏览器全流程实测**（8/25 00:30–01:00，生产环境）：主线 chip 与
+学习进度实时联动、翻卡评分→撤销闭环、拼写题对/错/不会写/回炉四路、
+成绩页横幅→after=submit 链→跳过精准回本场、全新词门槛页+主按钮
+联动、空本子三来源引导、**弱网评分队列真机模拟**（劫持 fetch 强制
+失败→暂存条→刷新自动补传→requestId 落库）、手机视口无溢出。
+实测揪出并已修：释义放宽后 [计] 等专业义项漏出（displayTranslation
+过滤）、主线词来源文案误标「随当天文章推送」、34 条历史语境句带
+「Paragraph X」前缀（已清洗）。测试产生的曾义洋埋点行已删，漏斗
+首日数据干净。
+
+**转义坑复盘（一晚三个）**：bash 双引号里 `\\b`→JS 退格字符；
+JS 模板字符串里 `\s`→字面 s；对策 = 一切含正则的脚本走文件，
+不走 `node -e` 内联。
+
+**观察点**：8/25 首扫看 weekly-track pushed at scan 日志；两周后
+看 vocab_banner/submission_detail 转化率与拼写题「不会写」率
+（again 流水 elapsedMs=0 口径）。
