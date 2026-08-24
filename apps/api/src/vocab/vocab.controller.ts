@@ -259,7 +259,7 @@ export class VocabController {
     const schema = z.object({
       studentName: z.string().min(1).max(50),
       studentId: z.string().optional(),
-      kind: z.enum(['history', 'submission_detail', 'vocab', 'vocab_practice', 'mistakes', 'mistake_practice']),
+      kind: z.enum(['history', 'submission_detail', 'vocab', 'vocab_practice', 'vocab_review', 'vocab_banner', 'mistakes', 'mistake_practice']),
     });
     const p = schema.safeParse(body);
     if (!p.success) throw new BadRequestException(p.error.flatten());

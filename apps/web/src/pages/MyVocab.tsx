@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { BASE, api } from '../lib/api';
+import { weeklyTrackTitle } from '../lib/isoWeek';
+import { canSpeak, speak } from '../lib/speech';
 import { track } from '../lib/track';
 import { Spinner } from '../components/AsyncState';
 
@@ -108,6 +110,15 @@ export default function MyVocabPage() {
     [data, filter],
   );
 
+  // 每周小主线（研究性分析 #3）：本周随扫码推入的 15 个主线词。
+  // 有限游戏 —— 周内清完、下周换一批；比望不到头的 3000 词进度条
+  // 更符合人均单日 4.5 次评分的真实吞吐。
+  const weekTrack = useMemo(() => {
+    const title = weeklyTrackTitle();
+    const words = (data?.words ?? []).filter((w) => w.sourcePassageTitle === title);
+    return { total: words.length, learned: words.filter((w) => w.reps > 0).length };
+  }, [data]);
+
   const remove = async (headword: string) => {
     setBusy(headword);
     try {
@@ -177,6 +188,19 @@ export default function MyVocabPage() {
             {progress && progress.streak > 0 && (
               <div className="text-sm text-orange-600 bg-orange-50 border border-orange-200 rounded px-2 py-0.5">
                 🔥 连续 {progress.streak} 天
+              </div>
+            )}
+            {weekTrack.total > 0 && (
+              <div
+                className={`text-sm rounded px-2 py-0.5 border ${
+                  weekTrack.learned >= weekTrack.total
+                    ? 'text-emerald-700 bg-emerald-50 border-emerald-200'
+                    : 'text-indigo-700 bg-indigo-50 border-indigo-200'
+                }`}
+              >
+                {weekTrack.learned >= weekTrack.total
+                  ? `🏁 本周主线 ${weekTrack.total} 词全部学完`
+                  : `🧭 本周主线 已学 ${weekTrack.learned}/${weekTrack.total}`}
               </div>
             )}
           </div>
@@ -295,6 +319,16 @@ export default function MyVocabPage() {
                   <div className="min-w-0">
                     <div className="flex items-baseline gap-2 flex-wrap">
                       <span className="text-xl font-bold text-gray-900">{w.headword}</span>
+                      {canSpeak() && (
+                        <button
+                          type="button"
+                          onClick={() => speak(w.headword)}
+                          aria-label={`朗读 ${w.headword}`}
+                          className="text-base px-1 rounded hover:bg-gray-100"
+                        >
+                          🔊
+                        </button>
+                      )}
                       {w.phonetic && <span className="text-sm text-gray-500">/{w.phonetic}/</span>}
                       {w.tag.filter((t) => EXAM_TAGS[t]).slice(0, 3).map((t) => (
                         <span

@@ -3,6 +3,8 @@ import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { api } from '../lib/api';
 import { findClozeSpan, trimSentence, windowAroundSpan } from '../lib/cloze';
 import { flushPending, submitReview } from '../lib/reviewQueue';
+import { canSpeak, speak } from '../lib/speech';
+import { track } from '../lib/track';
 import { Spinner } from '../components/AsyncState';
 
 /**
@@ -134,6 +136,9 @@ export default function MyVocabReviewPage() {
           }
           return;
         }
+        // 埋点盲区修复（研究性分析 #0）：这个页面此前没有任何 kind ——
+        // 交卷后链路的触达从未被统计，漏斗数据一直缺翻卡这一环。
+        track('vocab_review', name, studentId);
         // 2026-08-14 调研后改：交卷后的必经环节从翻卡换成**客观自测**。
         // 翻卡自评的判断权在学生手里（秒选「记得」两秒钟），而自测选错
         // 就是错、答题即回写 FSRS —— 信号真实调度才准。
@@ -415,6 +420,17 @@ export default function MyVocabReviewPage() {
               <div className="mt-4 pt-4 border-t">
                 <div className="flex items-baseline gap-2 flex-wrap">
                   <span className="text-2xl font-bold text-gray-900">{card.headword}</span>
+                  {/* 发音（研究性分析 #1）：只认识字形=学了半个词，听力口试上等于没学 */}
+                  {canSpeak() && (
+                    <button
+                      type="button"
+                      onClick={() => speak(card.headword)}
+                      aria-label={`朗读 ${card.headword}`}
+                      className="hit press text-lg -my-1 px-1 rounded hover:bg-gray-100"
+                    >
+                      🔊
+                    </button>
+                  )}
                   {card.phonetic && <span className="text-sm text-gray-500">/{card.phonetic}/</span>}
                   {card.tag.includes('ielts') && (
                     <span className="text-[11px] px-1.5 py-0.5 rounded bg-purple-100 text-purple-700 font-semibold">

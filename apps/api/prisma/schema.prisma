@@ -2100,6 +2100,10 @@ enum PageViewKind {
   vocab
   /// 做了生词复习/自测
   vocab_practice
+  /// 打开了翻卡复习页（2026-08-24 补盲区：交卷后链路此前完全没被统计）
+  vocab_review
+  /// 点了成绩页的词汇入口横幅（转化率分子；分母≈submission_detail）
+  vocab_banner
   /// 打开了错题本
   mistakes
   /// 做了错题重练

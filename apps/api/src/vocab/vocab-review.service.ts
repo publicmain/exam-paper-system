@@ -139,23 +139,43 @@ function fromFsrsState(s: State, scheduledDays: number): DbState {
  * （周五这个工作日空着）。假期仍会断，那是已知取舍：识别校历
  * 假期需要额外数据源，先不做。
  *
- * @param days   复习过的日期（'YYYY-MM-DD'，降序、去重，SGT）
- * @param today  今天（'YYYY-MM-DD'，SGT）
+ * ## 自动冻结（2026-08-24 研究性分析 #4，Duolingo 的宽恕机制）
+ *
+ * 病假请假一天就清零，是把「习惯最容易死掉的时刻」推给学生。
+ * 计算窗口（120 天 ≈ 一学期）内允许 **2 次**单日豁免：恰好空了
+ * 一个工作日的缺口自动补上；空两个及以上工作日的缺口视为真实
+ * 中断，照断不误。静默生效，不做任何 UI —— 学生只感觉到
+ * 「病一天回来连胜还在」。
+ *
+ * @param days    复习过的日期（'YYYY-MM-DD'，降序、去重，SGT）
+ * @param today   今天（'YYYY-MM-DD'，SGT）
+ * @param freezes 单日豁免额度（默认 2；测试可传 0 关掉）
  */
-export function streakFromDays(days: string[], today: string): number {
+export function streakFromDays(days: string[], today: string, freezes = 2): number {
   if (!days.length) return 0;
-  // 只隔着周末 = 连上。a 晚于 b；逐日走过去，遇到任何一个空着的工作日就断。
-  const chained = (later: string, earlier: string): boolean => {
-    if (later <= earlier) return false;
+  // 缺口里空着的工作日数。later 必须晚于 earlier，否则视为无穷大（必断）。
+  const missedWeekdays = (later: string, earlier: string): number => {
+    if (later <= earlier) return Number.POSITIVE_INFINITY;
+    let n = 0;
     const d = new Date(earlier + 'T00:00:00Z');
     const end = new Date(later + 'T00:00:00Z');
     for (d.setUTCDate(d.getUTCDate() + 1); d < end; d.setUTCDate(d.getUTCDate() + 1)) {
       const dow = d.getUTCDay();
-      if (dow !== 0 && dow !== 6) return false; // 空着的工作日 → 断
+      if (dow !== 0 && dow !== 6) n++;
     }
-    return true;
+    return n;
   };
-  // 连胜是否还活着：今天已复习，或距上次复习只隔着周末
+  let left = freezes;
+  const chained = (later: string, earlier: string): boolean => {
+    const m = missedWeekdays(later, earlier);
+    if (m === 0) return true;
+    if (m === 1 && left > 0) {
+      left--;
+      return true;
+    }
+    return false;
+  };
+  // 连胜是否还活着：今天已复习，或距上次复习的缺口可被周末/冻结吸收
   if (days[0] !== today && !chained(today, days[0])) return 0;
   let streak = 1;
   for (let i = 1; i < days.length; i++) {

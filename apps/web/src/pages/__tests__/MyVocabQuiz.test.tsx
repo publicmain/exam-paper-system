@@ -123,3 +123,87 @@ describe('MyVocabQuiz', () => {
     expect(api.vocabReview).toHaveBeenCalledTimes(1); // 不再提交
   });
 });
+
+/** 拼写半产出题（2026-08-24 研究性分析 #2）。 */
+describe('MyVocabQuiz — 拼写题', () => {
+  const SPELL = {
+    qtype: 'spelling',
+    headword: 'latch',
+    prompt: 'I did not check the ＿＿＿.',
+    options: [],
+    correctIndex: -1,
+    phonetic: null,
+    translation: 'n. 门闩',
+    contextSentence: 'I did not check the latch.',
+    answer: 'latch',
+    hint: 'l',
+  };
+
+  it('输对（含大小写/空白归一）：绿反馈，FSRS 收 good', async () => {
+    (api.vocabQuiz as any).mockResolvedValue({
+      student: { id: 's1', name: '测试学生' },
+      streakDays: 0,
+      totalWords: 9,
+      seenWords: 5,
+      questions: [SPELL],
+    });
+    const u = userEvent.setup();
+    renderQuiz();
+    await screen.findByText('把缺的词拼出来——');
+    await u.type(screen.getByRole('textbox'), '  Latch ');
+    await u.click(screen.getByText('提交'));
+    expect(await screen.findByText('答对了')).toBeTruthy();
+    expect(api.vocabReview).toHaveBeenCalledWith(
+      expect.objectContaining({ headword: 'latch', rating: 'good' }),
+    );
+    await u.click(screen.getByText('继续'));
+    expect(await screen.findByText(/一次答对/)).toBeTruthy();
+  });
+
+  it('「不会写」= 按答错记 + 回炉再试一次，FSRS 只写第一遍', async () => {
+    (api.vocabQuiz as any).mockResolvedValue({
+      student: { id: 's1', name: '测试学生' },
+      streakDays: 0,
+      totalWords: 9,
+      seenWords: 5,
+      questions: [SPELL],
+    });
+    const u = userEvent.setup();
+    renderQuiz();
+    await screen.findByText('把缺的词拼出来——');
+    await u.click(screen.getByText('不会写'));
+    expect(await screen.findByText('正确拼写在下面')).toBeTruthy();
+    expect(api.vocabReview).toHaveBeenCalledTimes(1);
+    expect(api.vocabReview).toHaveBeenCalledWith(
+      expect.objectContaining({ headword: 'latch', rating: 'again' }),
+    );
+    await u.click(screen.getByText('继续'));
+    // 回炉：同一题再来，输入框已清空
+    expect(await screen.findByText(/错题再试/)).toBeTruthy();
+    expect((screen.getByRole('textbox') as HTMLInputElement).value).toBe('');
+    await u.type(screen.getByRole('textbox'), 'latch');
+    await u.click(screen.getByText('提交'));
+    expect(await screen.findByText('答对了')).toBeTruthy();
+    expect(api.vocabReview).toHaveBeenCalledTimes(1); // 回炉不重复写
+  });
+
+  it('输错：显示正确拼写与我写的，计入错词', async () => {
+    (api.vocabQuiz as any).mockResolvedValue({
+      student: { id: 's1', name: '测试学生' },
+      streakDays: 0,
+      totalWords: 9,
+      seenWords: 5,
+      questions: [SPELL],
+    });
+    const u = userEvent.setup();
+    renderQuiz();
+    await screen.findByText('把缺的词拼出来——');
+    await u.type(screen.getByRole('textbox'), 'lacth');
+    await u.click(screen.getByText('提交'));
+    expect(await screen.findByText('正确拼写在下面')).toBeTruthy();
+    expect(screen.getByText('lacth')).toBeTruthy(); // 我写的（划线展示）
+    expect(api.vocabReview).toHaveBeenCalledWith(
+      expect.objectContaining({ rating: 'again' }),
+    );
+  });
+});

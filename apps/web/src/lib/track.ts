@@ -17,6 +17,8 @@ export type TrackKind =
   | 'submission_detail'
   | 'vocab'
   | 'vocab_practice'
+  | 'vocab_review'
+  | 'vocab_banner'
   | 'mistakes'
   | 'mistake_practice';
 

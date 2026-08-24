@@ -35,16 +35,35 @@ import { VocabReviewService } from './vocab-review.service';
  */
 
 export interface QuizQuestion {
-  qtype: 'word_to_meaning' | 'meaning_to_word' | 'cloze';
+  qtype: 'word_to_meaning' | 'meaning_to_word' | 'cloze' | 'spelling';
   headword: string;
-  /** 看词选义时 = headword；看义选词时 = 中文释义；cloze 时 = 挖空句 */
+  /** 看词选义时 = headword；看义选词时 = 中文释义；cloze/spelling 时 = 挖空句 */
   prompt: string;
+  /** spelling 题恒为空数组（前端渲染输入框而非选项） */
   options: string[];
+  /** spelling 题恒为 -1 */
   correctIndex: number;
   /** 判完对错后展示用 */
   phonetic: string | null;
   translation: string;
   contextSentence: string | null;
+  /** spelling 专用：要拼出的原文 token（与 MCQ 的 correctIndex 同威胁模型 —— 客户端判分，答案本就到端） */
+  answer?: string;
+  /** spelling 专用：首字母提示（降低手机输入摩擦，半产出而非全产出） */
+  hint?: string;
+}
+
+/**
+ * 这个词能不能出拼写题（研究性分析 #2）。
+ *
+ * 依据：产出型检索的长期保持显著强于四选一辨认（Kang/Roediger），
+ * 且自家数据显示自评「记得」的词客观一考大面积倒下。约束是手机
+ * 输入摩擦：只挑 4–12 个纯字母的 token（太短没意义、太长劝退、
+ * 带撇号/连字符的输入法折磨人），且只考**复习过**的词 —— 产出练习
+ * 属于已见过的词，生词直接考拼写是罚抄。
+ */
+export function isSpellable(token: string): boolean {
+  return /^[A-Za-z]{4,12}$/.test(token);
 }
 
 /** 取释义第一行并截断 —— 做选项时太长会把手机屏挤爆。 */
@@ -241,15 +260,14 @@ export class VocabQuizService {
 
     const questions: QuizQuestion[] = [];
     let seed = (Date.now() % 2147483647) | 1;
+    // 每轮最多 2 道拼写题（研究性分析 #2）：产出型保持效果最好，但
+    // 手机打字摩擦大，混太多会把弱生劝退。盯着跳过率（「不会写」
+    // 即 again）决定是否加码。
+    let spellingLeft = 2;
     for (const w of chosen) {
       const e = dict.get(w.headword.toLowerCase());
       const translation = e?.translation ?? '';
       if (!translation.trim()) continue; // 词典没释义的词出不了选择题
-      const answer: Candidate = { headword: w.headword, translation };
-      seed = (seed * 48271) % 2147483647;
-      // 学生自己的词优先做干扰项，不足由词典池续上（pickDistractors 内部逐个过滤）
-      const distractors = pickDistractors(answer, [...poolMine, ...poolDict], seed);
-      if (!distractors) continue;
 
       // 挖空定位走 findClozeSpan —— 原来用 `includes` 判定 + `indexOf`
       // 挖空，26% 的例句里词形只是子串（agree ⊂ agreed），会挖出
@@ -257,6 +275,31 @@ export class VocabQuizService {
       // 绝不硬挖。
       const clozeSpan =
         w.contextSentence && w.surfaceForm ? findClozeSpan(w.contextSentence, w.surfaceForm) : null;
+
+      // 拼写题优先于选择题（不需要干扰项，所以在 pickDistractors 之前判）
+      if (spellingLeft > 0 && (w.reps ?? 0) > 0 && clozeSpan && isSpellable(clozeSpan.token)) {
+        spellingLeft--;
+        const win = windowAroundSpan(w.contextSentence!, clozeSpan, 180);
+        questions.push({
+          qtype: 'spelling',
+          headword: w.headword,
+          prompt: win.text.slice(0, win.span.start) + '＿＿＿' + win.text.slice(win.span.end),
+          options: [],
+          correctIndex: -1,
+          phonetic: e?.phonetic ?? null,
+          translation: optionText(translation),
+          contextSentence: w.contextSentence || null,
+          answer: clozeSpan.token,
+          hint: clozeSpan.token[0],
+        });
+        continue;
+      }
+
+      const answer: Candidate = { headword: w.headword, translation };
+      seed = (seed * 48271) % 2147483647;
+      // 学生自己的词优先做干扰项，不足由词典池续上（pickDistractors 内部逐个过滤）
+      const distractors = pickDistractors(answer, [...poolMine, ...poolDict], seed);
+      if (!distractors) continue;
       // 有原句 → 原句填空（独有资产，优先）；否则看词选义 / 看义选词交替
       const qtype: QuizQuestion['qtype'] = clozeSpan
         ? 'cloze'

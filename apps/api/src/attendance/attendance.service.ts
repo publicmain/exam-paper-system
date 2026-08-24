@@ -14,6 +14,7 @@ import { PrismaService } from '../common/prisma.service';
 import { isMakeupWindowOpen } from '../morning-quiz/morning-quiz.service';
 import { levelPushesWordlist } from '../morning-quiz/level-registry';
 import { resolveWordlistForPaperConfig } from '../morning-quiz/wordlist-source';
+import { resolveWeeklyTrack } from '../morning-quiz/weekly-track';
 import { canActOnClass } from '../common/roles';
 import { QrService } from '../qr/qr.service';
 import { ShuffleService } from '../shuffle/shuffle.service';
@@ -553,39 +554,21 @@ export class AttendanceService {
     // 就是他当天读的那篇。幂等（(studentId, headword) 唯一约束 +
     // skipDuplicates），第二窗再扫一次也安全。失败只记日志，绝不挡签到。
     if (levelPushesWordlist(session.level as any)) {
-      try {
-        const list = resolveWordlistForPaperConfig(paperForMax?.config as any);
-        if (list?.items.length) {
-          // 词表在入库审计时已逐词核对过 ECDICT 存在性，这里只做一次
-          // 存在性过滤兜底（词典变更/词表未审计时不至于塞进查不到释义的词）
-          const inDict = await this.prisma.dictEntry.findMany({
-            where: { word: { in: list.items.map((i) => i.word.toLowerCase()) } },
-            select: { word: true },
-          });
-          const ok = new Set(inDict.map((d) => d.word));
-          const rows = list.items
-            .filter((i) => ok.has(i.word.toLowerCase()))
-            .map((i) => ({
-              studentId,
-              headword: i.word.toLowerCase(),
-              surfaceForm: i.word.toLowerCase(),
-              sourceType: 'teacher_push' as const,
-              contextSentence: (i.context ?? '').slice(0, 500),
-              sourcePassageTitle: list.story,
-            }));
-          if (rows.length) {
-            const r = await this.prisma.studentWord.createMany({ data: rows, skipDuplicates: true });
-            if (r.count > 0) {
-              this.logger.log(
-                `wordlist pushed at scan: story=${list.story} student=${studentId} created=${r.count}`,
-              );
-            }
-          }
-        }
-      } catch (e: any) {
-        this.logger.warn(`scan-time wordlist push failed: ${e?.message ?? e}`);
-      }
+      await this.pushListToStudent(
+        studentId,
+        resolveWordlistForPaperConfig(paperForMax?.config as any),
+        'wordlist',
+      );
     }
+    // 每周小主线（研究性分析 #3）：本周第一次扫码时把 15 个主线词推给
+    // 本人；之后每天扫码重复推是幂等 no-op。只有在周表 json 里配了该
+    // 层级轨道的层才会推（试点 = 两个轻量层），没配的层 resolve 返回
+    // null 直接跳过。
+    await this.pushListToStudent(
+      studentId,
+      resolveWeeklyTrack(session.level as any, new Date()),
+      'weekly-track',
+    );
 
     await this.shuffle.getOrCreate(studentId, paperId);
 
@@ -660,6 +643,48 @@ export class AttendanceService {
       quizUrl: `/morning-quiz/${session.id}#h=${handoffToken}`,
       remainingMinutes: Math.max(0, Math.floor(remainingMs / 60_000)),
     };
+  }
+
+  /**
+   * 把一份词表推进**一个学生**的生词本。当日文章词表与每周主线共用。
+   *
+   * 词表在入库/authoring 时已逐词核对过 ECDICT 存在性，这里只做一次
+   * 存在性过滤兜底（词典变更/词表未审计时不至于塞进查不到释义的词）。
+   * 幂等（(studentId, headword) 唯一约束 + skipDuplicates），第二窗
+   * 再扫一次也安全。失败只记日志，**绝不挡签到**。
+   */
+  private async pushListToStudent(
+    studentId: string,
+    list: { story: string; items: Array<{ word: string; context: string }> } | null,
+    tag: string,
+  ): Promise<void> {
+    if (!list?.items.length) return;
+    try {
+      const inDict = await this.prisma.dictEntry.findMany({
+        where: { word: { in: list.items.map((i) => i.word.toLowerCase()) } },
+        select: { word: true },
+      });
+      const ok = new Set(inDict.map((d) => d.word));
+      const rows = list.items
+        .filter((i) => ok.has(i.word.toLowerCase()))
+        .map((i) => ({
+          studentId,
+          headword: i.word.toLowerCase(),
+          surfaceForm: i.word.toLowerCase(),
+          sourceType: 'teacher_push' as const,
+          contextSentence: (i.context ?? '').slice(0, 500),
+          sourcePassageTitle: list.story,
+        }));
+      if (!rows.length) return;
+      const r = await this.prisma.studentWord.createMany({ data: rows, skipDuplicates: true });
+      if (r.count > 0) {
+        this.logger.log(
+          `${tag} pushed at scan: story=${list.story} student=${studentId} created=${r.count}`,
+        );
+      }
+    } catch (e: any) {
+      this.logger.warn(`scan-time ${tag} push failed: ${e?.message ?? e}`);
+    }
   }
 
   /**

@@ -1,0 +1,40 @@
+{
+  "week": "2026-W35",
+  "note": "每周小主线试点第 1 周（2026-08-24 起）。两个轻量层各 15 词：雅思轻量取 IELTS 中频学术通用词，O-Level 基础取日常叙事高频词。例句为自撰简单句（主线词不来自当天文章，没有『你读过的那句』可用）。选词已过 ECDICT 存在性 + 当周该层各卷答案撞词检查（attach 前脚本复核）。",
+  "tracks": {
+    "ielts_light": [
+      { "word": "approach", "context": "Scientists tried a new approach to solve the problem." },
+      { "word": "benefit", "context": "Regular exercise has a clear benefit for your health." },
+      { "word": "decline", "context": "The number of visitors began to decline after summer." },
+      { "word": "estimate", "context": "Experts estimate that the bridge will take two years to build." },
+      { "word": "evidence", "context": "There is strong evidence that sleep improves memory." },
+      { "word": "expand", "context": "The company plans to expand into three new countries." },
+      { "word": "factor", "context": "Price is an important factor when people choose a phone." },
+      { "word": "method", "context": "This method of studying saves a lot of time." },
+      { "word": "region", "context": "The northern region of the country is much colder." },
+      { "word": "resource", "context": "Water is the most precious resource in the desert." },
+      { "word": "significant", "context": "The test results showed a significant improvement." },
+      { "word": "source", "context": "The river is the main source of drinking water for the town." },
+      { "word": "trend", "context": "The chart shows a rising trend in online shopping." },
+      { "word": "vary", "context": "Prices vary from shop to shop, so compare first." },
+      { "word": "process", "context": "Recycling glass is a simple process with three steps." }
+    ],
+    "ielts_simplified": [
+      { "word": "borrow", "context": "May I borrow your pen for a minute?" },
+      { "word": "brave", "context": "The brave boy jumped into the pool to help his friend." },
+      { "word": "calm", "context": "Please stay calm and walk to the exit slowly." },
+      { "word": "describe", "context": "Can you describe the man you saw at the gate?" },
+      { "word": "empty", "context": "The classroom was empty when I arrived." },
+      { "word": "familiar", "context": "Her voice sounded familiar, but I could not remember her name." },
+      { "word": "honest", "context": "An honest player never cheats in a game." },
+      { "word": "invite", "context": "We want to invite your family to dinner on Sunday." },
+      { "word": "lend", "context": "Could you lend me five dollars until tomorrow?" },
+      { "word": "notice", "context": "Did you notice the new sign outside the library?" },
+      { "word": "polite", "context": "It is polite to say thank you when someone helps you." },
+      { "word": "promise", "context": "I promise to return your book by Friday." },
+      { "word": "repair", "context": "My father knows how to repair a bicycle." },
+      { "word": "tidy", "context": "Keep your desk tidy before you leave the room." },
+      { "word": "worry", "context": "Do not worry; the test is easier than you think." }
+    ]
+  }
+}

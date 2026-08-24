@@ -265,6 +265,8 @@ export default function MyHistoryDetail() {
                   (studentId ? `&studentId=${encodeURIComponent(studentId)}` : ''),
               )}`
             }
+            // 转化率分子（研究性分析 #0）：分母 ≈ submission_detail 的触达
+            onClick={() => track('vocab_banner', name, studentId)}
             className="block bg-blue-50 border border-blue-200 rounded-xl px-4 py-3 hover:bg-blue-100 transition-colors"
           >
             <div className="flex items-center justify-between gap-3">

@@ -27,6 +27,8 @@ export type PageViewKindKey =
   | 'submission_detail'
   | 'vocab'
   | 'vocab_practice'
+  | 'vocab_review'
+  | 'vocab_banner'
   | 'mistakes'
   | 'mistake_practice';
 
@@ -109,7 +111,7 @@ export class PageViewService {
              COALESCE((
                SELECT SUM(v.hits)::int FROM "StudentPageView" v
                WHERE v."studentId" = u.id AND v."day" >= ${since}
-                 AND v.kind IN ('submission_detail', 'mistakes', 'vocab_practice')
+                 AND v.kind IN ('submission_detail', 'mistakes', 'vocab_practice', 'vocab_review')
              ), 0) AS views
       FROM "ClassEnrollment" e
       JOIN "User" u ON u.id = e."userId"

@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { api } from '../lib/api';
 import { flushPending, submitReview } from '../lib/reviewQueue';
+import { canSpeak, speak } from '../lib/speech';
 import { track } from '../lib/track';
 import { Spinner } from '../components/AsyncState';
 
@@ -25,7 +26,7 @@ import { Spinner } from '../components/AsyncState';
  */
 
 interface QuizQuestion {
-  qtype: 'word_to_meaning' | 'meaning_to_word' | 'cloze';
+  qtype: 'word_to_meaning' | 'meaning_to_word' | 'cloze' | 'spelling';
   headword: string;
   prompt: string;
   options: string[];
@@ -33,6 +34,14 @@ interface QuizQuestion {
   phonetic: string | null;
   translation: string;
   contextSentence: string | null;
+  /** spelling 专用：要拼出的原文 token / 首字母提示 */
+  answer?: string;
+  hint?: string;
+}
+
+/** 拼写判分的归一：大小写、首尾空白、弯撇号都不该算错。 */
+function normalizeSpelling(s: string): string {
+  return s.trim().toLowerCase().replace(/[’‘]/g, "'");
 }
 
 interface QuizPayload {
@@ -48,6 +57,7 @@ const QTYPE_LABEL: Record<QuizQuestion['qtype'], string> = {
   word_to_meaning: '选出正确的意思',
   meaning_to_word: '选出对应的单词',
   cloze: '这句话里缺的词是——',
+  spelling: '把缺的词拼出来——',
 };
 
 /** 队列项：retry = 错题回炉，不再写 FSRS。 */
@@ -64,6 +74,9 @@ export default function MyVocabQuizPage() {
   const [queue, setQueue] = useState<QueueItem[]>([]);
   const [i, setI] = useState(0);
   const [chosen, setChosen] = useState<number | null>(null);
+  /** 拼写题的输入与结果（null=未提交）。next() 时一并复位。 */
+  const [typed, setTyped] = useState('');
+  const [spellResult, setSpellResult] = useState<boolean | null>(null);
   /** 第一遍答错的词（回炉重做不改变这个名单） */
   const [missed, setMissed] = useState<QuizQuestion[]>([]);
   const [firstTryCorrect, setFirstTryCorrect] = useState(0);
@@ -112,6 +125,8 @@ export default function MyVocabQuizPage() {
     setQueue([]);
     setI(0);
     setChosen(null);
+    setTyped('');
+    setSpellResult(null);
     setMissed([]);
     setFirstTryCorrect(0);
     api
@@ -166,8 +181,33 @@ export default function MyVocabQuizPage() {
     [q, chosen, name, studentId],
   );
 
+  /** 拼写题结算 —— 与 pick() 的副作用完全对齐：第一遍才计分/回炉/写 FSRS。 */
+  const settleSpelling = useCallback(
+    (correct: boolean) => {
+      if (!q || q.qtype !== 'spelling' || spellResult !== null) return;
+      setSpellResult(correct);
+      if (!q.retry) {
+        if (correct) setFirstTryCorrect((c) => c + 1);
+        else {
+          setMissed((m) => [...m, q]);
+          setQueue((qq) => [...qq, { ...q, retry: true }]);
+        }
+        void submitReview({
+          studentName: name,
+          studentId: studentId || undefined,
+          headword: q.headword,
+          rating: correct ? 'good' : 'again',
+        });
+      }
+      setTimeout(() => feedbackRef.current?.focus(), 50);
+    },
+    [q, spellResult, name, studentId],
+  );
+
   const next = useCallback(() => {
     setChosen(null);
+    setTyped('');
+    setSpellResult(null);
     setI((x) => x + 1);
   }, []);
 
@@ -325,8 +365,9 @@ export default function MyVocabQuizPage() {
   }
 
   // ── 答题页 ──────────────────────────────────────────────
-  const answered = chosen !== null;
-  const correct = answered && chosen === q.correctIndex;
+  const isSpelling = q.qtype === 'spelling';
+  const answered = isSpelling ? spellResult !== null : chosen !== null;
+  const correct = isSpelling ? spellResult === true : answered && chosen === q.correctIndex;
 
   return (
     <div className="ui-ios min-h-screen bg-gray-50 flex flex-col">
@@ -354,14 +395,75 @@ export default function MyVocabQuizPage() {
           {q.qtype === 'word_to_meaning' ? (
             <div className="mt-2 flex items-baseline gap-2 flex-wrap">
               <span className="text-[30px] font-bold text-gray-900 break-words">{q.prompt}</span>
+              {/* 词就是题干，读出来不泄答案（选项是释义）——发音见研究性分析 #1 */}
+              {canSpeak() && (
+                <button
+                  type="button"
+                  onClick={() => speak(q.prompt)}
+                  aria-label={`朗读 ${q.prompt}`}
+                  className="hit press text-xl px-1 rounded hover:bg-gray-100"
+                >
+                  🔊
+                </button>
+              )}
               {q.phonetic && <span className="text-[15px] text-gray-500">/{q.phonetic}/</span>}
             </div>
-          ) : q.qtype === 'cloze' ? (
+          ) : q.qtype === 'cloze' || q.qtype === 'spelling' ? (
             <p className="mt-2 text-[17px] leading-relaxed text-gray-800 font-serif">{q.prompt}</p>
           ) : (
             <div className="mt-2 text-[22px] font-bold text-gray-900 leading-snug">{q.prompt}</div>
           )}
         </div>
+
+        {/* 拼写题：半产出输入（研究性分析 #2）。产出型检索的长期保持
+            显著强于四选一辨认，且自家数据显示自评「记得」的词客观一考
+            大面积倒下。首字母+字数提示压低手机输入摩擦；「不会写」是
+            诚实的出口 —— 按答错记（again），绝不困住学生。 */}
+        {isSpelling && !answered && (
+          <form
+            className="mt-5"
+            onSubmit={(e) => {
+              e.preventDefault();
+              if (!typed.trim()) return;
+              settleSpelling(normalizeSpelling(typed) === normalizeSpelling(q.answer ?? ''));
+            }}
+          >
+            <div className="text-[13px] text-gray-500 mb-2">
+              首字母 <b className="text-gray-800">{q.hint}</b>
+              {q.answer ? <> · 共 {q.answer.length} 个字母</> : null} · 意思：{q.translation}
+            </div>
+            <input
+              type="text"
+              value={typed}
+              onChange={(e) => setTyped(e.target.value)}
+              placeholder={`${q.hint ?? ''}…`}
+              autoFocus
+              autoCapitalize="off"
+              autoCorrect="off"
+              autoComplete="off"
+              spellCheck={false}
+              inputMode="text"
+              aria-label="输入这个单词的拼写"
+              className="w-full min-h-[52px] rounded-[14px] border-2 border-gray-300 px-4 py-3 text-[18px] font-medium tracking-wide focus:border-blue-500 focus:outline-none"
+            />
+            <div className="mt-3 flex gap-2">
+              <button
+                type="submit"
+                disabled={!typed.trim()}
+                className="press flex-1 min-h-[48px] rounded-[14px] bg-blue-600 text-white text-[16px] font-semibold disabled:bg-gray-300 active:bg-blue-700"
+              >
+                提交
+              </button>
+              <button
+                type="button"
+                onClick={() => settleSpelling(false)}
+                className="press px-5 min-h-[48px] rounded-[14px] bg-white border-2 border-gray-300 text-gray-600 text-[15px] font-medium"
+              >
+                不会写
+              </button>
+            </div>
+          </form>
+        )}
 
         {/* 选项 */}
         <div className="mt-5 space-y-2.5" role="group" aria-label="选项">
@@ -402,14 +504,33 @@ export default function MyVocabQuizPage() {
               }`}
             >
               <div className={`text-[15px] font-bold ${correct ? 'text-emerald-800' : 'text-rose-800'}`}>
-                {correct ? '答对了' : '正确答案已标出'}
+                {correct ? '答对了' : isSpelling ? '正确拼写在下面' : '正确答案已标出'}
               </div>
+              {/* 拼写题：正确拼写要放大给足，错在哪一眼可见 */}
+              {isSpelling && (
+                <div className="mt-1 text-[18px] font-bold tracking-wide text-gray-900">
+                  {q.answer}
+                  {!correct && typed.trim() && (
+                    <span className="ml-3 text-[14px] font-normal text-rose-700 line-through">{typed.trim()}</span>
+                  )}
+                </div>
+              )}
               <div className="mt-1 text-[14px] text-gray-800">
                 <span className="font-bold">{q.headword}</span>
+                {canSpeak() && (
+                  <button
+                    type="button"
+                    onClick={() => speak(q.headword)}
+                    aria-label={`朗读 ${q.headword}`}
+                    className="hit press text-base ml-1 px-1 rounded hover:bg-black/5"
+                  >
+                    🔊
+                  </button>
+                )}
                 {q.phonetic && <span className="text-gray-500 ml-1.5">/{q.phonetic}/</span>}
                 <span className="ml-2">{q.translation}</span>
               </div>
-              {!correct && q.contextSentence && q.qtype !== 'cloze' && (
+              {!correct && q.contextSentence && q.qtype !== 'cloze' && q.qtype !== 'spelling' && (
                 <div className="mt-1.5 text-[13px] text-gray-600 font-serif leading-relaxed">
                   {q.contextSentence}
                 </div>
