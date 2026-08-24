@@ -76,21 +76,40 @@ export default function MyVocabReviewPage() {
         if (cancelled) return;
         const list: Card[] = r?.cards ?? [];
         // 没有要复习的 → 直接放行，不打扰
-        if (list.length === 0) navigate(historyUrl, { replace: true });
+        if (list.length === 0) {
+          navigate(historyUrl, { replace: true });
+          return;
+        }
         // 2026-08-14 调研后改：交卷后的必经环节从翻卡换成**客观自测**。
         // 翻卡自评的判断权在学生手里（秒选「记得」两秒钟），而自测选错
-        // 就是错、答题即回写 FSRS —— 信号真实调度才准。自测此前两周只有
-        // 2 人用过 2 次，原因就是它不在任何必经路径上。可考词不足 4 个
-        // 时出不了像样的选择题，才退回翻卡。
-        else if (afterSubmit && list.length >= 4) {
+        // 就是错、答题即回写 FSRS —— 信号真实调度才准。
+        //
+        // 2026-08-24 补一条前置：**没学过的新词先翻卡，不直接考**。
+        //
+        // 短文层（雅思轻量 / O-Level 基础）的词表是建场时推进来的，
+        // 学生从没见过；而 StudentWord.due 默认就是 now()，一进本子就
+        // 算到期、立刻进自测题库。直接考的结果是全错 —— 更糟的是答错
+        // 会回写 FSRS，把这批词标成「困难」，往后天天来烦他。
+        //
+        // 判据是 reps===0（一次都没复习过）。有新词就先过翻卡（卡片正面
+        // 是词、背面是释义 + 他刚读过那篇文章里的原句），学生自己点开看，
+        // 看完再考。都是老词就维持直接自测。
+        const unseen = list.filter((c) => (c.reps ?? 0) === 0);
+        if (afterSubmit && unseen.length > 0) {
+          setCards(list);
+          return;
+        }
+        // 可考词不足 4 个时出不了像样的选择题，退回翻卡。
+        if (afterSubmit && list.length >= 4) {
           navigate(
             `/my-vocab/quiz?name=${encodeURIComponent(name)}` +
               (studentId ? `&studentId=${encodeURIComponent(studentId)}` : '') +
               `&after=submit&then=${encodeURIComponent(historyUrl)}`,
             { replace: true },
           );
+          return;
         }
-        else setCards(list);
+        setCards(list);
       })
       .catch(() => {
         // 超时或生词本不可用，绝不能挡住看成绩
@@ -143,14 +162,37 @@ export default function MyVocabReviewPage() {
       <div className="min-h-screen bg-gray-50 flex items-center justify-center px-5">
         <div className="bg-white rounded-2xl border shadow-sm p-7 max-w-sm w-full text-center">
           <div className="text-4xl mb-2">🎉</div>
-          <div className="text-xl font-bold text-gray-900">今日生词复习完成</div>
+          <div className="text-xl font-bold text-gray-900">今日生词看完了</div>
           <div className="text-sm text-gray-600 mt-1.5">
-            复习了 <strong>{done}</strong> 个词。间隔重复会在你快忘记时再把它们送回来。
+            过了 <strong>{done}</strong> 个词。间隔重复会在你快忘记时再把它们送回来。
           </div>
+          {/* 先背再考（2026-08-24）。刚翻完卡片就趁热考一遍 —— 这是记
+              得住的关键一步，也让 FSRS 拿到真实信号（翻卡的「我记得」是
+              自评，自测选错就是错）。学生可以跳过直接看成绩，不强制。 */}
+          {afterSubmit && cards.length >= 4 && (
+            <button
+              type="button"
+              onClick={() =>
+                navigate(
+                  `/my-vocab/quiz?name=${encodeURIComponent(name)}` +
+                    (studentId ? `&studentId=${encodeURIComponent(studentId)}` : '') +
+                    `&after=submit&then=${encodeURIComponent(historyUrl)}`,
+                  { replace: true },
+                )
+              }
+              className="mt-5 w-full py-3 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-semibold touch-manipulation"
+            >
+              趁热考一遍 →
+            </button>
+          )}
           <button
             type="button"
             onClick={() => navigate(historyUrl, { replace: true })}
-            className="mt-5 w-full py-3 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-semibold touch-manipulation"
+            className={`w-full py-3 rounded-xl font-semibold touch-manipulation ${
+              afterSubmit && cards.length >= 4
+                ? 'mt-2 bg-white border text-gray-700 hover:bg-gray-50'
+                : 'mt-5 bg-blue-600 hover:bg-blue-700 text-white'
+            }`}
           >
             {afterSubmit ? '查看我的成绩 →' : '返回我的记录 →'}
           </button>
@@ -168,6 +210,13 @@ export default function MyVocabReviewPage() {
         <div className="flex items-center justify-between mb-3">
           <div className="text-sm text-gray-600">
             今日生词 <strong>{idx + 1}</strong> / {cards.length}
+            {/* 第一次见的词标出来。短文层的词表是老师推的，学生此前没
+                接触过 —— 不标的话他会以为自己忘了，其实只是没学过。 */}
+            {(card.reps ?? 0) === 0 && (
+              <span className="ml-2 text-[11px] text-blue-700 bg-blue-50 border border-blue-200 rounded px-1.5 py-0.5">
+                新词
+              </span>
+            )}
           </div>
           <button
             type="button"
