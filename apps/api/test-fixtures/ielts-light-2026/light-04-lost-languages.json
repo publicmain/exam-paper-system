@@ -1,0 +1,74 @@
+{
+  "setCode": "ielts_light_2026",
+  "provenanceTag": "ai_authored_ielts_light",
+  "level": "ielts_light",
+  "passageTitle": "The Last Speakers",
+  "note": "NOT STUDENT-FACING. 原创短文，非任何真题。雅思轻量层：250-350 词 + 6 题（TFNG×3 + 句子填空×3）+ 8 词配套词表。TFNG 三条覆盖 TRUE/FALSE/NOT GIVEN 各一；填空答案逐字出现在原文且为单词。",
+  "passage": "There are about seven thousand languages spoken in the world today. Linguists estimate that half of them will fall silent before the end of this century. A language is considered to be in danger when children stop learning it, because once a generation is skipped the chain is almost impossible to repair.\n\nLanguages rarely vanish because speakers are forced to abandon them, although that has happened. More often the shift is gradual and voluntary. Parents notice that the national language brings better jobs and easier schooling, so they raise their children in it. Each family makes a sensible decision, and the sum of those decisions is the loss of a language.\n\nWhat disappears with it is not only vocabulary. Many small languages carry detailed knowledge of the local environment — the names of hundreds of plants, the signs that predict weather, the routes that fish take through a river system. Botanists working in the Pacific have found species already named and described in local speech that were unknown to science.\n\nEfforts to reverse the process have had mixed results. Recordings preserve a language but do not keep it alive. What works better is giving people reasons to use it every day: schools that teach in it, radio programmes, apps, road signs. Hebrew, revived after centuries with almost no native speakers, remains the outstanding success.\n\nMost endangered languages will not follow that path. Many communities have decided, however, that recording their language carefully is worth doing even if fluency cannot be restored. Something written down can be studied; something forgotten cannot.",
+  "questions": [
+    {
+      "n": 1,
+      "questionType": "short_answer",
+      "taskType": "true_false_not_given",
+      "instruction": "Do the following statements agree with the information given in the passage? Write TRUE if the statement agrees with the information, FALSE if the statement contradicts the information, or NOT GIVEN if there is no information on this.",
+      "item": "A language is regarded as endangered once children stop learning it.",
+      "answer": "TRUE",
+      "marks": 1
+    },
+    {
+      "n": 2,
+      "questionType": "short_answer",
+      "taskType": "true_false_not_given",
+      "instruction": "Do the following statements agree with the information given in the passage? Write TRUE if the statement agrees with the information, FALSE if the statement contradicts the information, or NOT GIVEN if there is no information on this.",
+      "item": "Most languages disappear because governments ban them.",
+      "answer": "FALSE",
+      "marks": 1
+    },
+    {
+      "n": 3,
+      "questionType": "short_answer",
+      "taskType": "true_false_not_given",
+      "instruction": "Do the following statements agree with the information given in the passage? Write TRUE if the statement agrees with the information, FALSE if the statement contradicts the information, or NOT GIVEN if there is no information on this.",
+      "item": "Hebrew was revived mainly through the use of radio programmes.",
+      "answer": "NOT GIVEN",
+      "marks": 1
+    },
+    {
+      "n": 4,
+      "questionType": "short_answer",
+      "taskType": "sentence_completion",
+      "instruction": "Complete the sentences below. Choose ONE WORD ONLY from the passage for each answer.",
+      "item": "Linguists expect about ______ of the world's languages to fall silent this century.",
+      "answer": "half",
+      "marks": 1
+    },
+    {
+      "n": 5,
+      "questionType": "short_answer",
+      "taskType": "sentence_completion",
+      "instruction": "Complete the sentences below. Choose ONE WORD ONLY from the passage for each answer.",
+      "item": "Parents often switch because the national language leads to better ______.",
+      "answer": "jobs",
+      "marks": 1
+    },
+    {
+      "n": 6,
+      "questionType": "short_answer",
+      "taskType": "sentence_completion",
+      "instruction": "Complete the sentences below. Choose ONE WORD ONLY from the passage for each answer.",
+      "item": "In the Pacific, ______ have found species that local speech had already named.",
+      "answer": "botanists",
+      "marks": 1
+    }
+  ],
+  "wordlist": [
+    { "word": "linguist", "meaning": "语言学家", "example": "Linguists estimate that half of them will fall silent before the end of this century." },
+    { "word": "endangered", "meaning": "濒危的", "example": "Most endangered languages will not follow that path." },
+    { "word": "abandon", "meaning": "放弃、抛弃", "example": "Languages rarely vanish because speakers are forced to abandon them." },
+    { "word": "gradual", "meaning": "逐渐的", "example": "More often the shift is gradual and voluntary." },
+    { "word": "voluntary", "meaning": "自愿的", "example": "More often the shift is gradual and voluntary." },
+    { "word": "predict", "meaning": "预测", "example": "…the names of hundreds of plants, the signs that predict weather, the routes that fish take through a river system." },
+    { "word": "revive", "meaning": "复兴、使复活", "example": "Hebrew, revived after centuries with almost no native speakers, remains the outstanding success." },
+    { "word": "fluency", "meaning": "流利（程度）", "example": "…recording their language carefully is worth doing even if fluency cannot be restored." }
+  ]
+}

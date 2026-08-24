@@ -79,6 +79,22 @@ export default function MyVocabQuizPage() {
     : `/my-history?name=${encodeURIComponent(name)}${
         studentId ? `&studentId=${encodeURIComponent(studentId)}` : ''
       }`;
+  /**
+   * 交卷流程的下一站（2026-08-24）：生词自测完不再直接去成绩页，中间
+   * 插一段错题重练。
+   *
+   * 为什么插在这里 —— 错题本 871 条、销账 0 条，规则没问题，问题是
+   * 重练不在任何必经路径上，跟生词自测冷了两周是同一个病。挂进交卷
+   * 仪式后它才有人走。错题页自己会判断「没有待练的就立刻放行」，所以
+   * 这里无条件跳过去也不会多挡学生一步。
+   *
+   * 非交卷流程（学生自己点进来练）不受影响，仍然直接去成绩页。
+   */
+  const nextAfterQuiz = afterSubmit
+    ? `/my-mistakes/practice?name=${encodeURIComponent(name)}${
+        studentId ? `&studentId=${encodeURIComponent(studentId)}` : ''
+      }&after=submit&then=${encodeURIComponent(historyUrl)}`
+    : historyUrl;
 
   useEffect(() => {
     if (!name) return;
@@ -227,7 +243,7 @@ export default function MyVocabQuizPage() {
             <>
               {/* 交卷流程：词考完了，学生的下一站是看答案 —— 主按钮让路 */}
               <Link
-                to={historyUrl}
+                to={nextAfterQuiz}
                 className="press mt-6 block w-full min-h-[48px] leading-[48px] rounded-[14px] bg-blue-600 text-white text-[16px] font-semibold active:bg-blue-700"
               >
                 继续 → 查看答案与成绩

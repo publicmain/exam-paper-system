@@ -1,0 +1,127 @@
+{
+  "setCode": "ielts_authored_2026_v6",
+  "provenanceTag": "ai_authored_ielts_2026",
+  "level": "ielts_authentic",
+  "passageTitle": "How Birds Know Where to Go",
+  "note": "NOT STUDENT-FACING. 原创雅思风格学术阅读，**非剑桥真题、非任何考试真题**。规格对齐真题：8 段（A-H）、约 750 词、13 题（段落匹配 4 + 判断 4 + 句子填空 5）。全文自撰，不存任何真题原文。",
+  "passage": "Paragraph A\nEach autumn a small songbird weighing less than a bar of chocolate leaves northern Europe and arrives, some weeks later, in a particular patch of African woodland. The following spring it returns, frequently to the same hedge it left. It has never been shown the route. Young birds of many species migrate alone, weeks after the adults have gone, which rules out the simplest explanation — that they follow somebody who knows the way.\n\nParagraph B\nExperiments in the 1950s established that the sun serves as a compass. Birds tested in circular cages under a clear sky orient in the direction they would migrate; shift the apparent position of the sun with mirrors and they shift correspondingly. Using the sun for direction requires knowing the time of day, since the sun moves. Birds solve this with an internal clock, and the clock can be reset: birds kept for days under artificial light cycles offset from real time depart on a predictably wrong bearing.\n\nParagraph C\nNight migrants use the stars instead. In a planetarium, birds orient by the artificial sky and will change direction if the projected sky is rotated. What they appear to learn is not individual constellations but the centre of rotation — the point about which the whole sky turns, which marks true north. Birds raised under a sky rotated about a different star treat that star as north for the rest of their lives, which suggests the pattern is learned in early life rather than inherited.\n\nParagraph D\nBoth these compasses fail under cloud, and birds continue to migrate accurately in overcast conditions. The third mechanism is magnetic. Birds detect the earth's field, but not as a compass needle does: they respond to the angle the field lines make with the earth's surface, not to their polarity. A bird taken to the opposite hemisphere and released will fly the wrong way, which is exactly what an inclination compass predicts and a polarity compass does not.\n\nParagraph E\nHow the field is sensed remains unsettled. The leading proposal involves a protein in the retina in which light triggers a reaction whose outcome is sensitive to magnetic field direction, so that the bird may in some sense see the field superimposed on what it looks at. A competing account points to crystals of magnetite in tissue near the beak. The two are not mutually exclusive, and evidence exists for both; some researchers think the retinal system supplies direction while the beak supplies information about field strength.\n\nParagraph F\nA compass alone is insufficient. It tells a bird which way is north, not where it currently is, and displaced birds demonstrate that they know both. In a celebrated experiment, adult starlings caught in the Netherlands and released hundreds of kilometres away corrected their route and reached the normal wintering area. Juveniles from the same catch flew the original compass bearing and ended up in the wrong country. Adults, having made the journey once, evidently possess something like a map; first-time migrants have only a direction and a distance.\n\nParagraph G\nWhat that map consists of is the least understood part of the subject. Candidates include gradients in the magnetic field, which vary predictably across the globe, and airborne odours, which experiments with homing pigeons have repeatedly implicated. Both are contested, and the difficulty is that a map must supply position on a continental scale from cues that also vary with weather and season.\n\nParagraph H\nThe practical stake in this research has risen. Migratory bird numbers have fallen sharply, and one suspected contributor is artificial light, which disrupts orientation at night; another is radio-frequency noise, which laboratory work suggests can interfere with the magnetic sense at intensities found in cities. Understanding the mechanism is now a conservation question rather than only a scientific curiosity.",
+  "questions": [
+    {
+      "n": 1,
+      "questionType": "short_answer",
+      "taskType": "matching_information",
+      "instruction": "Reading Passage 1 has eight paragraphs, A–H. Which paragraph contains the following information? Write the correct letter, A–H, in boxes 1–4 on your answer sheet.",
+      "item": "an experiment showing that experienced and inexperienced birds behave differently",
+      "answer": "F",
+      "marks": 1
+    },
+    {
+      "n": 2,
+      "questionType": "short_answer",
+      "taskType": "matching_information",
+      "instruction": "Reading Passage 1 has eight paragraphs, A–H. Which paragraph contains the following information? Write the correct letter, A–H, in boxes 1–4 on your answer sheet.",
+      "item": "two rival explanations of how a sense may physically work",
+      "answer": "E",
+      "marks": 1
+    },
+    {
+      "n": 3,
+      "questionType": "short_answer",
+      "taskType": "matching_information",
+      "instruction": "Reading Passage 1 has eight paragraphs, A–H. Which paragraph contains the following information? Write the correct letter, A–H, in boxes 1–4 on your answer sheet.",
+      "item": "reasons why this research now matters for conservation",
+      "answer": "H",
+      "marks": 1
+    },
+    {
+      "n": 4,
+      "questionType": "short_answer",
+      "taskType": "matching_information",
+      "instruction": "Reading Passage 1 has eight paragraphs, A–H. Which paragraph contains the following information? Write the correct letter, A–H, in boxes 1–4 on your answer sheet.",
+      "item": "evidence that a bird's timekeeping can be experimentally altered",
+      "answer": "B",
+      "marks": 1
+    },
+    {
+      "n": 5,
+      "questionType": "short_answer",
+      "taskType": "true_false_not_given",
+      "instruction": "Do the following statements agree with the information given in Reading Passage 1? Write TRUE if the statement agrees with the information, FALSE if the statement contradicts the information, or NOT GIVEN if there is no information on this.",
+      "item": "Young birds of many species set off separately from the adults.",
+      "answer": "TRUE",
+      "marks": 1
+    },
+    {
+      "n": 6,
+      "questionType": "short_answer",
+      "taskType": "true_false_not_given",
+      "instruction": "Do the following statements agree with the information given in Reading Passage 1? Write TRUE if the statement agrees with the information, FALSE if the statement contradicts the information, or NOT GIVEN if there is no information on this.",
+      "item": "Night migrants orient by memorising particular constellations.",
+      "answer": "FALSE",
+      "marks": 1
+    },
+    {
+      "n": 7,
+      "questionType": "short_answer",
+      "taskType": "true_false_not_given",
+      "instruction": "Do the following statements agree with the information given in Reading Passage 1? Write TRUE if the statement agrees with the information, FALSE if the statement contradicts the information, or NOT GIVEN if there is no information on this.",
+      "item": "The bird's magnetic compass responds to the field's polarity.",
+      "answer": "FALSE",
+      "marks": 1
+    },
+    {
+      "n": 8,
+      "questionType": "short_answer",
+      "taskType": "true_false_not_given",
+      "instruction": "Do the following statements agree with the information given in Reading Passage 1? Write TRUE if the statement agrees with the information, FALSE if the statement contradicts the information, or NOT GIVEN if there is no information on this.",
+      "item": "Radio-frequency noise has been proven to be the main cause of falling bird numbers.",
+      "answer": "NOT GIVEN",
+      "marks": 1
+    },
+    {
+      "n": 9,
+      "questionType": "short_answer",
+      "taskType": "sentence_completion",
+      "instruction": "Complete the sentences below. Choose ONE WORD ONLY from the passage for each answer.",
+      "item": "Using the sun for direction requires the bird to know the ______ of day.",
+      "answer": "time",
+      "marks": 1
+    },
+    {
+      "n": 10,
+      "questionType": "short_answer",
+      "taskType": "sentence_completion",
+      "instruction": "Complete the sentences below. Choose ONE WORD ONLY from the passage for each answer.",
+      "item": "From the night sky, birds learn the centre of ______, which marks true north.",
+      "answer": "rotation",
+      "marks": 1
+    },
+    {
+      "n": 11,
+      "questionType": "short_answer",
+      "taskType": "sentence_completion",
+      "instruction": "Complete the sentences below. Choose ONE WORD ONLY from the passage for each answer.",
+      "item": "One proposal locates the magnetic sense in a protein in the ______.",
+      "answer": "retina",
+      "marks": 1
+    },
+    {
+      "n": 12,
+      "questionType": "short_answer",
+      "taskType": "sentence_completion",
+      "instruction": "Complete the sentences below. Choose ONE WORD ONLY from the passage for each answer.",
+      "item": "The rival account points to crystals of ______ in tissue near the beak.",
+      "answer": "magnetite",
+      "marks": 1
+    },
+    {
+      "n": 13,
+      "questionType": "short_answer",
+      "taskType": "sentence_completion",
+      "instruction": "Complete the sentences below. Choose ONE WORD ONLY from the passage for each answer.",
+      "item": "Experiments with homing pigeons have repeatedly implicated airborne ______ as a map cue.",
+      "answer": "odours",
+      "marks": 1
+    }
+  ]
+}

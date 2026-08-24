@@ -1,0 +1,127 @@
+{
+  "setCode": "ielts_authored_2026_v6",
+  "provenanceTag": "ai_authored_ielts_2026",
+  "level": "ielts_authentic",
+  "passageTitle": "Cooling Without Machines",
+  "note": "NOT STUDENT-FACING. 原创雅思风格学术阅读，**非剑桥真题、非任何考试真题**。规格对齐真题：8 段（A-H）、约 750 词、13 题（段落匹配 4 + 判断 4 + 句子填空 5）。全文自撰，不存任何真题原文。",
+  "passage": "Paragraph A\nAir conditioning is the fastest-growing use of energy in buildings anywhere in the world. The number of units in service is expected to triple by the middle of the century, driven by rising incomes in hot countries and by cities that are themselves growing hotter. The arrangement contains an obvious trap: cooling interiors warms exteriors, both through waste heat and through the electricity generation behind it, which increases the demand for cooling again.\n\nParagraph B\nBefore compressors existed, hot regions had solved the problem architecturally. Builders in Persia raised wind towers — tall shafts open at the top — that caught the breeze and drove it down into the rooms below. Where the shaft passed over an underground channel of water, the descending air was cooled by evaporation before it arrived. Some of these structures still function today, five centuries after they were built, with no moving parts whatever.\n\nParagraph C\nThe underlying physics is available to any building. Evaporation absorbs heat, so water changing to vapour cools the air around it. Thermal mass — thick stone, brick or earth — absorbs heat slowly during the day and releases it at night, flattening the daily swing so that interiors never reach the outdoor peak. Shading intercepts sunlight before it enters, which is far more effective than removing the heat afterwards. Ventilation carries warm air away and replaces it, provided the incoming air is cooler than what it displaces.\n\nParagraph D\nThe difficulty is that these methods are specific to place. Evaporative cooling works well in dry heat and hardly at all in humid climates, where the air already carries as much moisture as it can hold. Thermal mass repays its cost where nights are cold enough to discharge the accumulated heat, and is useless where they are not. A design that performs superbly in Rajasthan may be actively uncomfortable in Singapore. Air conditioning, whatever its costs, has the advantage of working identically everywhere.\n\nParagraph E\nModern reinterpretations attempt to keep the physics while dropping the folklore. An office tower completed in Melbourne uses water sprayed into the ventilation intake at night, chilling the concrete floors so that they absorb heat through the following day. A hospital in Burkina Faso relies on a double roof: the outer layer takes the sun, and air moving through the gap between the layers carries the heat away before it reaches the ceiling below. Neither building looks traditional, and neither uses a compressor for its main cooling load.\n\nParagraph F\nMeasured results are encouraging but not miraculous. Well-designed passive buildings in appropriate climates commonly reduce cooling energy by half to three-quarters compared with conventional equivalents. Very few eliminate mechanical cooling entirely; most retain a small system for the hottest weeks. Occupant behaviour matters more than in a sealed building, since windows must be opened and closed at the right times, and buildings whose users are not told how they work tend to underperform their predictions substantially. Post-occupancy studies repeatedly find the same pattern: a building monitored for a year after handover performs close to its design figures, while the same building measured five years later has usually drifted, as tenants change and the reasoning behind the original instructions is forgotten.\n\nParagraph G\nCost is where the argument is usually won or lost. Passive features are largely built into the fabric — orientation, mass, shading, openings — and therefore have to be decided early and paid for up front, whereas air conditioning can be added late and paid for monthly. Developers who sell buildings rather than operate them have little incentive to spend more at the start so that somebody else spends less later.\n\nParagraph H\nSeveral cities have begun to change that arithmetic by writing performance requirements into building codes rather than prescribing particular technologies. A code that sets a maximum energy use per square metre, and leaves the means open, allows a passive design to compete on equal terms with a mechanical one. Where such codes exist, architects report that the old techniques reappear quickly.",
+  "questions": [
+    {
+      "n": 1,
+      "questionType": "short_answer",
+      "taskType": "matching_information",
+      "instruction": "Reading Passage 1 has eight paragraphs, A–H. Which paragraph contains the following information? Write the correct letter, A–H, in boxes 1–4 on your answer sheet.",
+      "item": "an explanation of why passive methods cannot be transferred between climates",
+      "answer": "D",
+      "marks": 1
+    },
+    {
+      "n": 2,
+      "questionType": "short_answer",
+      "taskType": "matching_information",
+      "instruction": "Reading Passage 1 has eight paragraphs, A–H. Which paragraph contains the following information? Write the correct letter, A–H, in boxes 1–4 on your answer sheet.",
+      "item": "a description of a self-reinforcing cycle",
+      "answer": "A",
+      "marks": 1
+    },
+    {
+      "n": 3,
+      "questionType": "short_answer",
+      "taskType": "matching_information",
+      "instruction": "Reading Passage 1 has eight paragraphs, A–H. Which paragraph contains the following information? Write the correct letter, A–H, in boxes 1–4 on your answer sheet.",
+      "item": "a reason why those who construct buildings may not invest in these features",
+      "answer": "G",
+      "marks": 1
+    },
+    {
+      "n": 4,
+      "questionType": "short_answer",
+      "taskType": "matching_information",
+      "instruction": "Reading Passage 1 has eight paragraphs, A–H. Which paragraph contains the following information? Write the correct letter, A–H, in boxes 1–4 on your answer sheet.",
+      "item": "two contemporary buildings that apply old principles in new forms",
+      "answer": "E",
+      "marks": 1
+    },
+    {
+      "n": 5,
+      "questionType": "short_answer",
+      "taskType": "true_false_not_given",
+      "instruction": "Do the following statements agree with the information given in Reading Passage 1? Write TRUE if the statement agrees with the information, FALSE if the statement contradicts the information, or NOT GIVEN if there is no information on this.",
+      "item": "Some Persian wind towers are still working after five hundred years.",
+      "answer": "TRUE",
+      "marks": 1
+    },
+    {
+      "n": 6,
+      "questionType": "short_answer",
+      "taskType": "true_false_not_given",
+      "instruction": "Do the following statements agree with the information given in Reading Passage 1? Write TRUE if the statement agrees with the information, FALSE if the statement contradicts the information, or NOT GIVEN if there is no information on this.",
+      "item": "Evaporative cooling performs equally well in humid and dry climates.",
+      "answer": "FALSE",
+      "marks": 1
+    },
+    {
+      "n": 7,
+      "questionType": "short_answer",
+      "taskType": "true_false_not_given",
+      "instruction": "Do the following statements agree with the information given in Reading Passage 1? Write TRUE if the statement agrees with the information, FALSE if the statement contradicts the information, or NOT GIVEN if there is no information on this.",
+      "item": "Most passive buildings do away with mechanical cooling completely.",
+      "answer": "FALSE",
+      "marks": 1
+    },
+    {
+      "n": 8,
+      "questionType": "short_answer",
+      "taskType": "true_false_not_given",
+      "instruction": "Do the following statements agree with the information given in Reading Passage 1? Write TRUE if the statement agrees with the information, FALSE if the statement contradicts the information, or NOT GIVEN if there is no information on this.",
+      "item": "Passive buildings are more expensive to insure than conventional ones.",
+      "answer": "NOT GIVEN",
+      "marks": 1
+    },
+    {
+      "n": 9,
+      "questionType": "short_answer",
+      "taskType": "sentence_completion",
+      "instruction": "Complete the sentences below. Choose ONE WORD ONLY from the passage for each answer.",
+      "item": "The number of air conditioning units in service is expected to ______ by mid-century.",
+      "answer": "triple",
+      "marks": 1
+    },
+    {
+      "n": 10,
+      "questionType": "short_answer",
+      "taskType": "sentence_completion",
+      "instruction": "Complete the sentences below. Choose ONE WORD ONLY from the passage for each answer.",
+      "item": "Thermal ______ absorbs heat by day and releases it at night, flattening the daily swing.",
+      "answer": "mass",
+      "marks": 1
+    },
+    {
+      "n": 11,
+      "questionType": "short_answer",
+      "taskType": "sentence_completion",
+      "instruction": "Complete the sentences below. Choose ONE WORD ONLY from the passage for each answer.",
+      "item": "Intercepting sunlight by ______ is more effective than removing the heat once it is inside.",
+      "answer": "shading",
+      "marks": 1
+    },
+    {
+      "n": 12,
+      "questionType": "short_answer",
+      "taskType": "sentence_completion",
+      "instruction": "Complete the sentences below. Choose ONE WORD ONLY from the passage for each answer.",
+      "item": "The hospital in Burkina Faso uses a double ______ with air moving through the gap.",
+      "answer": "roof",
+      "marks": 1
+    },
+    {
+      "n": 13,
+      "questionType": "short_answer",
+      "taskType": "sentence_completion",
+      "instruction": "Complete the sentences below. Choose ONE WORD ONLY from the passage for each answer.",
+      "item": "Codes that set a maximum energy use per square metre leave the ______ open to the designer.",
+      "answer": "means",
+      "marks": 1
+    }
+  ]
+}

@@ -1,0 +1,127 @@
+{
+  "setCode": "ielts_authored_2026_v6",
+  "provenanceTag": "ai_authored_ielts_2026",
+  "level": "ielts_authentic",
+  "passageTitle": "The Leaf That Moved Ships",
+  "note": "NOT STUDENT-FACING. 原创雅思风格学术阅读，**非剑桥真题、非任何考试真题**。规格对齐真题：8 段（A-H）、约 750 词、13 题（段落匹配 4 + 判断 4 + 句子填空 5）。全文自撰，不存任何真题原文。",
+  "passage": "Paragraph A\nTea is drunk more widely than any manufactured beverage on earth, and for most of its history it came from a single country. China had grown and processed tea for well over a thousand years before Europe acquired the habit, and for roughly two centuries after that it remained the only significant source. The consequences of that monopoly, and of the effort to break it, reshaped agriculture on three continents.\n\nParagraph B\nDemand in Britain rose with startling speed. Tea arrived as a curiosity in the middle of the seventeenth century and by the end of the eighteenth was consumed by labourers as well as by the wealthy. The reason was not only taste. Tea is made with boiled water, which made it safer than much of what was otherwise drunk, and it was taken with sugar, which supplied calories cheaply to people working long hours. Consumption per head rose roughly two hundredfold within a century.\n\nParagraph C\nPaying for it created a chronic problem. China would accept silver but wanted few European manufactures in exchange, so the trade ran persistently in China's favour and drained British reserves. The eventual response was to sell opium grown in India into China, a trade that led to two wars. Historians disagree about much of this period, but not about the underlying arithmetic: a commodity that a country cannot produce and will not stop buying must be paid for somehow.\n\nParagraph D\nThe alternative was to grow tea elsewhere, which required plants and knowledge that China guarded closely. In 1848 the East India Company sent the botanist Robert Fortune into the Chinese interior, disguised and travelling where foreigners were forbidden, to obtain both. He shipped some twenty thousand plants to India in sealed glass cases that allowed light in while retaining moisture — a recent invention without which the seedlings would not have survived the voyage.\n\nParagraph E\nMost of those plants died anyway. What made Indian tea viable was something Fortune also brought: eighty experienced Chinese growers and manufacturers, who understood the processing that turns a leaf into tea. It emerged besides that a variety already growing wild in Assam, long dismissed by British botanists as inferior, was better suited to the Indian climate than the Chinese plant. Within forty years India was producing more tea than China exported.\n\nParagraph F\nThe plantations that resulted were built on a labour system that has drawn sustained criticism. Workers were recruited from distant districts, transported at the employer's expense, and bound by contracts that made leaving before the term expired a criminal rather than a civil matter. Mortality on some estates in the early decades was extremely high. The system was reformed repeatedly and finally abolished, but the settlements it created remain, and many plantation workers today are descended from those first recruits.\n\nParagraph G\nProcessing explains why tea from one plant tastes so different. All true tea comes from Camellia sinensis; what distinguishes green from black is oxidation. Leaves for black tea are bruised and left exposed to air, during which enzymes convert the compounds that give green tea its character into darker, less astringent ones. Heating the leaf early — by steaming or pan-firing — halts the enzymes and produces green tea. Oolong stops the process partway. The same distinction explains why the two types keep differently: black tea, having already oxidised, is stable for years, whereas green tea loses its character within months and was historically difficult to ship over long distances without spoiling.\n\nParagraph H\nThe industry now faces a difficulty its founders never anticipated. Tea grows within a narrow band of temperature and rainfall, and yields in several major producing regions have already declined as that band shifts. Growers are experimenting with shade trees and with varieties bred for heat, but the plant takes years to reach maturity, which makes adaptation slow in an industry that must decide today what it will be harvesting in a decade.",
+  "questions": [
+    {
+      "n": 1,
+      "questionType": "short_answer",
+      "taskType": "matching_information",
+      "instruction": "Reading Passage 1 has eight paragraphs, A–H. Which paragraph contains the following information? Write the correct letter, A–H, in boxes 1–4 on your answer sheet.",
+      "item": "an explanation of how the same plant yields different kinds of tea",
+      "answer": "G",
+      "marks": 1
+    },
+    {
+      "n": 2,
+      "questionType": "short_answer",
+      "taskType": "matching_information",
+      "instruction": "Reading Passage 1 has eight paragraphs, A–H. Which paragraph contains the following information? Write the correct letter, A–H, in boxes 1–4 on your answer sheet.",
+      "item": "reasons why tea became popular among poorer workers",
+      "answer": "B",
+      "marks": 1
+    },
+    {
+      "n": 3,
+      "questionType": "short_answer",
+      "taskType": "matching_information",
+      "instruction": "Reading Passage 1 has eight paragraphs, A–H. Which paragraph contains the following information? Write the correct letter, A–H, in boxes 1–4 on your answer sheet.",
+      "item": "a description of conditions imposed on plantation workers",
+      "answer": "F",
+      "marks": 1
+    },
+    {
+      "n": 4,
+      "questionType": "short_answer",
+      "taskType": "matching_information",
+      "instruction": "Reading Passage 1 has eight paragraphs, A–H. Which paragraph contains the following information? Write the correct letter, A–H, in boxes 1–4 on your answer sheet.",
+      "item": "a threat that makes long-term planting decisions difficult",
+      "answer": "H",
+      "marks": 1
+    },
+    {
+      "n": 5,
+      "questionType": "short_answer",
+      "taskType": "true_false_not_given",
+      "instruction": "Do the following statements agree with the information given in Reading Passage 1? Write TRUE if the statement agrees with the information, FALSE if the statement contradicts the information, or NOT GIVEN if there is no information on this.",
+      "item": "Fortune's plants alone were enough to establish the Indian industry.",
+      "answer": "FALSE",
+      "marks": 1
+    },
+    {
+      "n": 6,
+      "questionType": "short_answer",
+      "taskType": "true_false_not_given",
+      "instruction": "Do the following statements agree with the information given in Reading Passage 1? Write TRUE if the statement agrees with the information, FALSE if the statement contradicts the information, or NOT GIVEN if there is no information on this.",
+      "item": "The Assam variety had previously been regarded by British botanists as poor quality.",
+      "answer": "TRUE",
+      "marks": 1
+    },
+    {
+      "n": 7,
+      "questionType": "short_answer",
+      "taskType": "true_false_not_given",
+      "instruction": "Do the following statements agree with the information given in Reading Passage 1? Write TRUE if the statement agrees with the information, FALSE if the statement contradicts the information, or NOT GIVEN if there is no information on this.",
+      "item": "Green tea is produced by allowing the leaves to oxidise fully.",
+      "answer": "FALSE",
+      "marks": 1
+    },
+    {
+      "n": 8,
+      "questionType": "short_answer",
+      "taskType": "true_false_not_given",
+      "instruction": "Do the following statements agree with the information given in Reading Passage 1? Write TRUE if the statement agrees with the information, FALSE if the statement contradicts the information, or NOT GIVEN if there is no information on this.",
+      "item": "China remains the largest producer of tea in the world today.",
+      "answer": "NOT GIVEN",
+      "marks": 1
+    },
+    {
+      "n": 9,
+      "questionType": "short_answer",
+      "taskType": "sentence_completion",
+      "instruction": "Complete the sentences below. Choose ONE WORD ONLY from the passage for each answer.",
+      "item": "Tea was safer than other drinks because it was made with ______ water.",
+      "answer": "boiled",
+      "marks": 1
+    },
+    {
+      "n": 10,
+      "questionType": "short_answer",
+      "taskType": "sentence_completion",
+      "instruction": "Complete the sentences below. Choose ONE WORD ONLY from the passage for each answer.",
+      "item": "China would accept ______ in payment but wanted few European manufactures.",
+      "answer": "silver",
+      "marks": 1
+    },
+    {
+      "n": 11,
+      "questionType": "short_answer",
+      "taskType": "sentence_completion",
+      "instruction": "Complete the sentences below. Choose ONE WORD ONLY from the passage for each answer.",
+      "item": "Fortune shipped the plants in sealed ______ cases that let light in but kept moisture.",
+      "answer": "glass",
+      "marks": 1
+    },
+    {
+      "n": 12,
+      "questionType": "short_answer",
+      "taskType": "sentence_completion",
+      "instruction": "Complete the sentences below. Choose ONE WORD ONLY from the passage for each answer.",
+      "item": "The difference between green and black tea is a matter of ______.",
+      "answer": "oxidation",
+      "marks": 1
+    },
+    {
+      "n": 13,
+      "questionType": "short_answer",
+      "taskType": "sentence_completion",
+      "instruction": "Complete the sentences below. Choose ONE WORD ONLY from the passage for each answer.",
+      "item": "Growers are trying shade trees and varieties bred for ______ to adapt.",
+      "answer": "heat",
+      "marks": 1
+    }
+  ]
+}

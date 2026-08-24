@@ -3,6 +3,28 @@ import { createEmptyCard, fsrs, generatorParameters, Rating, State, type Card } 
 import { PrismaService } from '../common/prisma.service';
 import { StudentWordService } from './student-word.service';
 
+/** 一次复习给几张卡。纯函数，可测。
+ *
+ * 2026-08-24 调平：生产数据是 14 天进 430 词、出 156 次复习，519 词里
+ * 352 词（68%）从没被翻开过。收集是自动的、复习是固定配额，进出比常年
+ * 3:1 —— 生词本变成只涨不落的数字，学生直接放弃。
+ *
+ * 所以配额随积压走：积压越深给得越多，20 张封顶（再多学生会整个跳过）。 */
+export function reviewBatchSize(backlog: number): number {
+  if (backlog > 100) return 20;
+  if (backlog > 20) return Math.min(10 + Math.floor(backlog / 40), 20);
+  return 5;
+}
+
+/** 一次里放几个「从没复习过」的新词。
+ *
+ * 平时 3 个，趁热打铁；但积压超过 100 时降到 1 —— 再往里灌新词只会让
+ * 那个 68% 更难看，学生对着一堆没见过的词也更容易放弃。留 1 个是为了
+ * 保住「今天学了点新东西」的感觉。 */
+export function newWordQuota(backlog: number): number {
+  return backlog > 100 ? 1 : 3;
+}
+
 /**
  * 生词复习调度（P3）—— FSRS（Free Spaced Repetition Scheduler）。
  *
@@ -122,12 +144,24 @@ export class VocabReviewService {
     const backlog = await this.prisma.studentWord.count({
       where: { studentId: student.id, state: { not: 'known' }, due: { lte: now } },
     });
-    const dynamicCap = backlog > 20 ? 10 : 5;
+    // ## 吞吐（2026-08-24 调平）
+    //
+    // 生产数据摆在这里：14 天进 430 词、出 156 次复习，519 词里 352 词
+    // （68%）从没被复习过。收集是自动的（答错就采），复习却是固定配额，
+    // 进出比常年 3:1 —— 学生越用越绝望，生词本变成一个只涨不落的数字。
+    //
+    // 所以配额随积压走：积压越深，每次给得越多，直到 20 张的硬顶。
+    // 20 是既有的经验上限，一次塞更多学生会直接跳过。
+    const dynamicCap = reviewBatchSize(backlog);
     // 显式传 limit 的调用方（如管理面板）仍可覆盖，但不越过 20 的硬顶
     const limit = Math.min(Math.max(input.limit ?? dynamicCap, 1), 20);
 
-    // 配额 1：新词（一次都没复习过的），最新加入优先 —— 「趁热」
-    const NEW_QUOTA = Math.min(3, limit);
+    // 配额 1：新词（一次都没复习过的），最新加入优先 —— 「趁热」。
+    //
+    // 但积压严重时要先消化存量：再往里灌新词只会让 68% 那个数字更难看，
+    // 而且学生对着一堆没见过的词更容易放弃。积压 > 100 时新词降到 1 个，
+    // 只保留「今天学了点新东西」的感觉。
+    const NEW_QUOTA = Math.min(newWordQuota(backlog), limit);
     const freshRows = await this.prisma.studentWord.findMany({
       where: {
         studentId: student.id,
@@ -278,9 +312,32 @@ export class VocabReviewService {
     const totalDue = await this.prisma.studentWord.count({
       where: { studentId: student.id, state: { not: 'known' }, due: { lte: new Date() } },
     });
+    // 三分进度（2026-08-24 词汇主线化）。原来的 byState 是 FSRS 的内部
+    // 状态机（new / learning / review / relearning / known），学生看不懂
+    // 也不该看懂。压成三个他关心的数字：
+    //
+    //   mastered  已掌握 —— known，或者稳定度已经到 21 天以上（三周内
+    //             不会再考到，实质上就是记住了）
+    //   learning  学习中 —— 复习过至少一次但还没到掌握
+    //   untouched 待开始 —— 一次都没复习过
+    //
+    // 「待开始」是这次要盯的指标：生产库里它占 68%，说明词收进来就沉底。
+    const MASTERED_STABILITY_DAYS = 21;
+    const mastered = await this.prisma.studentWord.count({
+      where: {
+        studentId: student.id,
+        OR: [{ state: 'known' }, { reps: { gt: 0 }, stability: { gte: MASTERED_STABILITY_DAYS } }],
+      },
+    });
+    const untouched = await this.prisma.studentWord.count({
+      where: { studentId: student.id, reps: 0, state: { not: 'known' } },
+    });
+    const total = rows.reduce((a, r) => a + r._count, 0);
+    const learning = Math.max(0, total - mastered - untouched);
+
     return {
       student: { id: student.id, name: student.name },
-      total: rows.reduce((a, r) => a + r._count, 0),
+      total,
       byState: Object.fromEntries(rows.map((r) => [r.state, r._count])),
       bySource: Object.fromEntries(bySource.map((r) => [r.sourceType, r._count])),
       totalReviews: reviews,
@@ -289,6 +346,7 @@ export class VocabReviewService {
       // 学生看到的永远是「还欠多少」，看不到「已经攒下多少」。
       knownCount: rows.find((r) => r.state === 'known')?._count ?? 0,
       streakDays: await this.streakDays(student.id),
+      progress: { mastered, learning, untouched },
     };
   }
 

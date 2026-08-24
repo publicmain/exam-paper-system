@@ -1,0 +1,74 @@
+{
+  "setCode": "ielts_light_2026",
+  "provenanceTag": "ai_authored_ielts_light",
+  "level": "ielts_light",
+  "passageTitle": "Working Against the Clock",
+  "note": "NOT STUDENT-FACING. 原创短文，非任何真题。雅思轻量层：250-350 词 + 6 题（TFNG×3 + 句子填空×3）+ 8 词配套词表。TFNG 三条覆盖 TRUE/FALSE/NOT GIVEN 各一；填空答案逐字出现在原文且为单词。",
+  "passage": "Every human body keeps time. Deep in the brain sits a small cluster of cells that acts as an internal clock, telling us when to feel alert and when to feel tired. This rhythm repeats roughly every twenty-four hours, and it is set mainly by light. When morning light reaches the eye, the clock resets; when darkness falls, the body begins producing a hormone called melatonin, which prepares it for sleep.\n\nNight-shift workers live in conflict with this system. Nurses, factory staff, pilots and security guards are awake when their bodies expect rest, and they try to sleep when daylight is telling the clock to wake up. The result is not simply tiredness. Studies have linked long-term night work with digestive complaints, heart problems and a higher risk of certain illnesses.\n\nThe damage is not evenly spread. People differ in how easily they adjust, and a minority cope well for years. Age matters as well: workers over forty generally find night shifts harder than younger colleagues do.\n\nSome employers have begun to take the problem seriously. Rotating shifts forward — morning, then afternoon, then night — suits the body better than rotating them backwards. Bright lighting in the workplace during the shift, and dark curtains at home afterwards, can shift the clock a little. Short naps before a shift begins also help.\n\nNone of these measures removes the conflict entirely. The internal clock cannot be switched off, only nudged. For as long as hospitals, power stations and airports run through the night, somebody will be awake when their body would rather not be.",
+  "questions": [
+    {
+      "n": 1,
+      "questionType": "short_answer",
+      "taskType": "true_false_not_given",
+      "instruction": "Do the following statements agree with the information given in the passage? Write TRUE if the statement agrees with the information, FALSE if the statement contradicts the information, or NOT GIVEN if there is no information on this.",
+      "item": "The body's internal clock is set mainly by light.",
+      "answer": "TRUE",
+      "marks": 1
+    },
+    {
+      "n": 2,
+      "questionType": "short_answer",
+      "taskType": "true_false_not_given",
+      "instruction": "Do the following statements agree with the information given in the passage? Write TRUE if the statement agrees with the information, FALSE if the statement contradicts the information, or NOT GIVEN if there is no information on this.",
+      "item": "Everyone is affected by night work to the same degree.",
+      "answer": "FALSE",
+      "marks": 1
+    },
+    {
+      "n": 3,
+      "questionType": "short_answer",
+      "taskType": "true_false_not_given",
+      "instruction": "Do the following statements agree with the information given in the passage? Write TRUE if the statement agrees with the information, FALSE if the statement contradicts the information, or NOT GIVEN if there is no information on this.",
+      "item": "Night-shift workers are paid more than those who work during the day.",
+      "answer": "NOT GIVEN",
+      "marks": 1
+    },
+    {
+      "n": 4,
+      "questionType": "short_answer",
+      "taskType": "sentence_completion",
+      "instruction": "Complete the sentences below. Choose ONE WORD ONLY from the passage for each answer.",
+      "item": "As darkness falls the body starts to produce ______, which prepares it for sleep.",
+      "answer": "melatonin",
+      "marks": 1
+    },
+    {
+      "n": 5,
+      "questionType": "short_answer",
+      "taskType": "sentence_completion",
+      "instruction": "Complete the sentences below. Choose ONE WORD ONLY from the passage for each answer.",
+      "item": "Workers over ______ usually find night shifts harder than younger staff do.",
+      "answer": "forty",
+      "marks": 1
+    },
+    {
+      "n": 6,
+      "questionType": "short_answer",
+      "taskType": "sentence_completion",
+      "instruction": "Complete the sentences below. Choose ONE WORD ONLY from the passage for each answer.",
+      "item": "Taking short ______ before a shift starts is one measure that helps.",
+      "answer": "naps",
+      "marks": 1
+    }
+  ],
+  "wordlist": [
+    { "word": "cluster", "meaning": "一簇、一群", "example": "Deep in the brain sits a small cluster of cells that acts as an internal clock." },
+    { "word": "alert", "meaning": "警觉的、清醒的", "example": "…telling us when to feel alert and when to feel tired." },
+    { "word": "rhythm", "meaning": "节律、规律", "example": "This rhythm repeats roughly every twenty-four hours, and it is set mainly by light." },
+    { "word": "hormone", "meaning": "激素", "example": "…the body begins producing a hormone called melatonin, which prepares it for sleep." },
+    { "word": "conflict", "meaning": "冲突", "example": "Night-shift workers live in conflict with this system." },
+    { "word": "digestive", "meaning": "消化的", "example": "Studies have linked long-term night work with digestive complaints, heart problems and a higher risk of certain illnesses." },
+    { "word": "rotate", "meaning": "轮换", "example": "Rotating shifts forward — morning, then afternoon, then night — suits the body better than rotating them backwards." },
+    { "word": "nudge", "meaning": "轻推；微调", "example": "The internal clock cannot be switched off, only nudged." }
+  ]
+}

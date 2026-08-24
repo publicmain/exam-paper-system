@@ -1,0 +1,127 @@
+{
+  "setCode": "ielts_authored_2026_v6",
+  "provenanceTag": "ai_authored_ielts_2026",
+  "level": "ielts_authentic",
+  "passageTitle": "A Second Life for Glass",
+  "note": "NOT STUDENT-FACING. 原创雅思风格学术阅读，**非剑桥真题、非任何考试真题**。规格对齐真题：8 段（A-H）、约 750 词、13 题（段落匹配 4 + 判断 4 + 句子填空 5）。全文自撰，不存任何真题原文。",
+  "passage": "Paragraph A\nGlass has a property that almost no other packaging material shares: it can be melted and reformed indefinitely without losing quality. Paper fibres shorten each time they are pulped, and most plastics degrade into products of lower value with every cycle. A glass bottle can in principle become another glass bottle forever. That theoretical advantage has proved surprisingly hard to realise in practice.\n\nParagraph B\nThe industrial case rests on temperature. Making glass from raw materials requires heating sand, soda ash and limestone to about 1500°C. Crushed waste glass, known in the trade as cullet, melts at a lower temperature, so every tonne substituted for raw material reduces the energy the furnace consumes. The saving is around three per cent of furnace energy for each ten per cent of cullet in the mix, together with a reduction in the carbon dioxide released when limestone decomposes.\n\nParagraph C\nColour is what limits the process. Glass is coloured by metal oxides added to the melt, and those oxides cannot be removed afterwards. Green cullet produces green glass; brown produces brown. Clear glass, which commands the highest price because food and pharmaceutical customers require it, can only be made from clear cullet. A single green bottle in a tonne of clear will tint the entire batch. Countries whose waste glass arrives mixed therefore find much of it can be used only for the lowest-value applications.\n\nParagraph D\nThat constraint has produced two divergent national strategies. Several European countries collect glass in separate containers by colour at the point of disposal, accepting the inconvenience to households in exchange for a clean stream. Others collect everything together and separate it later using optical sorting machines, which identify colour as fragments fall past a sensor and divert them with jets of air. Machine sorting has improved considerably, but it works on fragments large enough to be seen; the fine material simply cannot be sorted.\n\nParagraph E\nFine material is the industry's persistent problem. Bottles collected in mixed household waste are broken by the collection vehicle itself, and a proportion of every load arrives as particles a few millimetres across, contaminated with paper, food residue and ceramic. Ceramic is especially troublesome: a fragment of a coffee mug does not melt at furnace temperature and remains in the finished product as a flaw that can cause a bottle to fail under pressure.\n\nParagraph F\nWhere it cannot go back into bottles, glass finds lower uses. It can replace gravel in road foundations, be spun into insulation fibre, or be ground into an additive for concrete, where very fine glass powder reacts chemically in a way that increases strength. These outlets consume large volumes and are genuinely useful, but each represents the end of the material's life as glass: nothing further will be recovered from a road. Waste authorities are sometimes criticised for counting such uses in their recycling statistics, since a figure that includes road aggregate can look impressive while the bottle-to-bottle rate underneath it remains low. Several jurisdictions have begun reporting the two separately for that reason.\n\nParagraph G\nThe most efficient system remains the oldest. Refillable bottles, collected, washed and used again as containers, avoid melting altogether. A bottle in such a system may complete twenty or more cycles, and the energy per use falls accordingly. Several countries maintained these systems for decades and abandoned them as retailing centralised and transport distances grew, since returning heavy empty bottles over long distances eventually costs more energy than it saves.\n\nParagraph H\nRecycling rates for glass vary more widely between countries than for any other common material — from over ninety per cent in parts of northern Europe to below forty in several large economies. The technology involved is essentially identical everywhere. What differs is how the glass is collected, which is a question of policy and habit rather than of engineering.",
+  "questions": [
+    {
+      "n": 1,
+      "questionType": "short_answer",
+      "taskType": "matching_information",
+      "instruction": "Reading Passage 1 has eight paragraphs, A–H. Which paragraph contains the following information? Write the correct letter, A–H, in boxes 1–4 on your answer sheet.",
+      "item": "a comparison of two national approaches to collection",
+      "answer": "D",
+      "marks": 1
+    },
+    {
+      "n": 2,
+      "questionType": "short_answer",
+      "taskType": "matching_information",
+      "instruction": "Reading Passage 1 has eight paragraphs, A–H. Which paragraph contains the following information? Write the correct letter, A–H, in boxes 1–4 on your answer sheet.",
+      "item": "an explanation of why a particular contaminant causes product defects",
+      "answer": "E",
+      "marks": 1
+    },
+    {
+      "n": 3,
+      "questionType": "short_answer",
+      "taskType": "matching_information",
+      "instruction": "Reading Passage 1 has eight paragraphs, A–H. Which paragraph contains the following information? Write the correct letter, A–H, in boxes 1–4 on your answer sheet.",
+      "item": "the reason an older system was given up despite its efficiency",
+      "answer": "G",
+      "marks": 1
+    },
+    {
+      "n": 4,
+      "questionType": "short_answer",
+      "taskType": "matching_information",
+      "instruction": "Reading Passage 1 has eight paragraphs, A–H. Which paragraph contains the following information? Write the correct letter, A–H, in boxes 1–4 on your answer sheet.",
+      "item": "figures quantifying the energy benefit of using waste glass",
+      "answer": "B",
+      "marks": 1
+    },
+    {
+      "n": 5,
+      "questionType": "short_answer",
+      "taskType": "true_false_not_given",
+      "instruction": "Do the following statements agree with the information given in Reading Passage 1? Write TRUE if the statement agrees with the information, FALSE if the statement contradicts the information, or NOT GIVEN if there is no information on this.",
+      "item": "Unlike paper, glass can be reprocessed without any loss of quality.",
+      "answer": "TRUE",
+      "marks": 1
+    },
+    {
+      "n": 6,
+      "questionType": "short_answer",
+      "taskType": "true_false_not_given",
+      "instruction": "Do the following statements agree with the information given in Reading Passage 1? Write TRUE if the statement agrees with the information, FALSE if the statement contradicts the information, or NOT GIVEN if there is no information on this.",
+      "item": "The colouring in glass can be removed during melting.",
+      "answer": "FALSE",
+      "marks": 1
+    },
+    {
+      "n": 7,
+      "questionType": "short_answer",
+      "taskType": "true_false_not_given",
+      "instruction": "Do the following statements agree with the information given in Reading Passage 1? Write TRUE if the statement agrees with the information, FALSE if the statement contradicts the information, or NOT GIVEN if there is no information on this.",
+      "item": "Optical sorting machines can separate glass particles of any size.",
+      "answer": "FALSE",
+      "marks": 1
+    },
+    {
+      "n": 8,
+      "questionType": "short_answer",
+      "taskType": "true_false_not_given",
+      "instruction": "Do the following statements agree with the information given in Reading Passage 1? Write TRUE if the statement agrees with the information, FALSE if the statement contradicts the information, or NOT GIVEN if there is no information on this.",
+      "item": "Glass recycling rates are rising in every large economy.",
+      "answer": "NOT GIVEN",
+      "marks": 1
+    },
+    {
+      "n": 9,
+      "questionType": "short_answer",
+      "taskType": "sentence_completion",
+      "instruction": "Complete the sentences below. Choose ONE WORD ONLY from the passage for each answer.",
+      "item": "Crushed waste glass is known within the industry as ______.",
+      "answer": "cullet",
+      "marks": 1
+    },
+    {
+      "n": 10,
+      "questionType": "short_answer",
+      "taskType": "sentence_completion",
+      "instruction": "Complete the sentences below. Choose ONE WORD ONLY from the passage for each answer.",
+      "item": "Clear glass fetches the highest price because ______ and pharmaceutical customers demand it.",
+      "answer": "food",
+      "marks": 1
+    },
+    {
+      "n": 11,
+      "questionType": "short_answer",
+      "taskType": "sentence_completion",
+      "instruction": "Complete the sentences below. Choose ONE WORD ONLY from the passage for each answer.",
+      "item": "A fragment of ______ will not melt and remains as a flaw in the finished bottle.",
+      "answer": "ceramic",
+      "marks": 1
+    },
+    {
+      "n": 12,
+      "questionType": "short_answer",
+      "taskType": "sentence_completion",
+      "instruction": "Complete the sentences below. Choose ONE WORD ONLY from the passage for each answer.",
+      "item": "Very fine glass powder added to ______ reacts chemically and increases its strength.",
+      "answer": "concrete",
+      "marks": 1
+    },
+    {
+      "n": 13,
+      "questionType": "short_answer",
+      "taskType": "sentence_completion",
+      "instruction": "Complete the sentences below. Choose ONE WORD ONLY from the passage for each answer.",
+      "item": "In a refillable system a single bottle may complete ______ or more cycles.",
+      "answer": "twenty",
+      "marks": 1
+    }
+  ]
+}

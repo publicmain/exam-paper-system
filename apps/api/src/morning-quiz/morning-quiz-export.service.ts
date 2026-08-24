@@ -217,6 +217,28 @@ export class MorningQuizExportService {
       return a.name.localeCompare(b.name, 'zh');
     });
 
+    // 出勤停用说明页（2026-08-20 起早测不再记录出勤）。
+    //
+    // 放在最前面而不是改列语义：老师手上有历史导出文件，同一列在不同
+    // 文件里含义不同会更糟。列照旧，但打开工作簿第一眼先说清楚这段
+    // 时间的数据是什么意思。
+    if (process.env.MORNING_QUIZ_ATTENDANCE_TRACKING !== 'on') {
+      const note = wb.addWorksheet('ℹ️ 请先读 Read Me');
+      note.columns = [{ header: '说明 / Note', key: 'note', width: 90 }];
+      this.styleHeader(note.getRow(1));
+      note.addRow({ note: '本学期早测【不再记录出勤】（2026-08-20 起）。' });
+      note.addRow({ note: '' });
+      note.addRow({ note: '原因：同一天开了两个作答窗（上午 8:30–9:00、下午 16:00–17:30），学生可任意选择，' });
+      note.addRow({ note: '「几点到校」已不再由这套系统回答，也不再同步到 Seiue。' });
+      note.addRow({ note: '' });
+      note.addRow({ note: '因此「考勤」页里：' });
+      note.addRow({ note: '  · 有记录的格子 = 该生当天实际扫码参加了早测；' });
+      note.addRow({ note: '  · 空白 = 没有参加记录，不代表旷课；' });
+      note.addRow({ note: '  · 不再产生「迟到 / 缺勤」，历史数据（2026-08-20 之前）保持原样不变。' });
+      note.addRow({ note: '' });
+      note.addRow({ note: '若需恢复出勤统计：设环境变量 MORNING_QUIZ_ATTENDANCE_TRACKING=on。' });
+    }
+
     // ─────── Single sheet: pivot view ───────
     const s = wb.addWorksheet('考勤 Attendance', {
       views: [{ state: 'frozen', ySplit: 1, xSplit: 2 }],

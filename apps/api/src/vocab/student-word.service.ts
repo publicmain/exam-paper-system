@@ -216,10 +216,23 @@ export class StudentWordService {
       });
     }
 
+    // 单次交卷的采集上限（2026-08-24）。
+    //
+    // 原来无上限：一份 14 题的卷子全错就可能一次进十几个词。生产数据
+    // 是 14 天 430 词、复习 156 次，进出比 3:1，68% 的词从没被翻开过 ——
+    // 生词本变成只涨不落的数字，学生直接放弃。
+    //
+    // 宁可漏收也不要淹没：真正重要的词会在后面的卷子里反复出现，还有
+    // 机会被收；而一次灌进来的十几个词，学生一个都不会看。
+    const HARVEST_CAP_PER_SUBMISSION = 5;
     let added = 0;
+    // 同一次交卷里同一个词只收一次（不同题的正确答案可能撞词）
+    const takenThisRun = new Set<string>();
     for (const w of wanted) {
+      if (added >= HARVEST_CAP_PER_SUBMISSION) break;
       const hit = await this.vocab.lookup(w.word);
       if (!hit) continue;
+      if (takenThisRun.has(hit.word.toLowerCase())) continue;
       // 由填空答案推出来的词：只收"确实值得背"的，否则会把 hole / mirror /
       // twice 这种学生明明认识、只是读错了段落的常用词灌进生词本。
       if (w.needsWorthCheck) {
@@ -259,6 +272,7 @@ export class StudentWordService {
         },
       });
       added++;
+      takenThisRun.add(hit.word.toLowerCase());
     }
     return { added, candidates: wanted.length };
   }

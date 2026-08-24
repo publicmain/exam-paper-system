@@ -1,0 +1,127 @@
+{
+  "setCode": "ielts_authored_2026_v6",
+  "provenanceTag": "ai_authored_ielts_2026",
+  "level": "ielts_authentic",
+  "passageTitle": "The Sound of Cities",
+  "note": "NOT STUDENT-FACING. 原创雅思风格学术阅读，**非剑桥真题、非任何考试真题**。2026-08 剑桥雅思题库对本班耗尽后的补料来源，沿用库中已有的 ielts_authored_2026 先例。规格对齐真题：8 段（A-H）、约 750 词、13 题（段落匹配 4 + 判断 4 + 句子填空 5）。版权上无风险：全文自撰，不存任何真题原文。",
+  "passage": "Paragraph A\nNoise is the pollutant people complain about most and legislate against least. Air quality is measured continuously in most large cities and published daily; water is tested to standards written into law. Sound, by contrast, is usually assessed only after somebody objects, and the assessment often consists of a single reading taken on a single afternoon. Yet the World Health Organization estimates that environmental noise costs Western Europe more than a million healthy life-years annually, placing it second only to air pollution among environmental threats to health.\n\nParagraph B\nPart of the difficulty is that noise resists simple measurement. Loudness is recorded in decibels, a scale that compresses an enormous range of pressures into manageable numbers, but the figure a meter reports correlates only loosely with the disturbance a person feels. A refrigerator and a distant motorway may register the same level; almost nobody is troubled by the first. Sudden sounds disturb more than steady ones, low frequencies travel further through walls than high ones, and a noise the listener cannot control is experienced as far worse than one they can.\n\nParagraph C\nThe health evidence has strengthened considerably since the 1990s. Long-term exposure to traffic noise is now associated with raised blood pressure and an increased incidence of heart disease. The mechanism appears to be indirect. Noise fragments sleep without necessarily waking the sleeper; the body responds to each interruption with a small release of stress hormones, and over years the cumulative effect resembles that of chronic stress. Studies near major airports have found measurable differences in children's reading ability, apparently because attention is repeatedly broken during lessons.\n\nParagraph D\nWhat cities have done about it has mostly involved barriers. Concrete walls beside motorways can reduce levels by ten decibels for houses immediately behind them, which is roughly a halving of perceived loudness. The benefit falls away quickly with distance and with height, so upper floors gain little, and the walls themselves are widely disliked for blocking light and views. Rubberised road surfaces work differently, reducing the noise where it is generated rather than intercepting it afterwards, but they wear faster and cost more to maintain.\n\nParagraph E\nThe most effective intervention has proved to be the least visible. Reducing urban speed limits from fifty to thirty kilometres per hour lowers tyre noise substantially, because that noise rises steeply with speed. Cities that have made the change report reductions of two to three decibels across whole districts — modest on paper, but applied to every street rather than to a favoured few. Electric vehicles help at low speeds, where engine noise dominates; above about thirty kilometres per hour the sound of tyre on road takes over and the advantage disappears.\n\nParagraph F\nA newer line of work asks not how to remove sound but which sounds to add. Researchers in soundscape studies have found that identical decibel levels are judged very differently depending on their source. Water, birdsong and human voices at conversational volume are rated as pleasant; mechanical hums and traffic are not. Several parks have accordingly been designed with fountains positioned to mask road noise, and evaluations suggest visitors report greater calm even where the measured level has risen.\n\nParagraph G\nQuiet, on this view, is not simply the absence of noise but the presence of sounds people want to hear. That reframing has consequences for policy. It suggests that money spent on a single expensive barrier might achieve more if spread across many small interventions, and that residents should be asked what they find disturbing rather than told what the meter says.\n\nParagraph H\nProgress remains slow, largely because noise has no obvious constituency. Nobody dies of it in a way a death certificate records. Its costs are spread thinly across millions of people and across decades, which is precisely the shape of problem that political systems handle worst.",
+  "questions": [
+    {
+      "n": 1,
+      "questionType": "short_answer",
+      "taskType": "matching_information",
+      "instruction": "Reading Passage 1 has eight paragraphs, A–H. Which paragraph contains the following information? Write the correct letter, A–H, in boxes 1–4 on your answer sheet.",
+      "item": "an explanation of why noise damages health without waking people",
+      "answer": "C",
+      "marks": 1
+    },
+    {
+      "n": 2,
+      "questionType": "short_answer",
+      "taskType": "matching_information",
+      "instruction": "Reading Passage 1 has eight paragraphs, A–H. Which paragraph contains the following information? Write the correct letter, A–H, in boxes 1–4 on your answer sheet.",
+      "item": "a comparison of how thoroughly different pollutants are monitored",
+      "answer": "A",
+      "marks": 1
+    },
+    {
+      "n": 3,
+      "questionType": "short_answer",
+      "taskType": "matching_information",
+      "instruction": "Reading Passage 1 has eight paragraphs, A–H. Which paragraph contains the following information? Write the correct letter, A–H, in boxes 1–4 on your answer sheet.",
+      "item": "a suggestion that adding certain sounds can improve how a place feels",
+      "answer": "F",
+      "marks": 1
+    },
+    {
+      "n": 4,
+      "questionType": "short_answer",
+      "taskType": "matching_information",
+      "instruction": "Reading Passage 1 has eight paragraphs, A–H. Which paragraph contains the following information? Write the correct letter, A–H, in boxes 1–4 on your answer sheet.",
+      "item": "a reason why this problem attracts little political attention",
+      "answer": "H",
+      "marks": 1
+    },
+    {
+      "n": 5,
+      "questionType": "short_answer",
+      "taskType": "true_false_not_given",
+      "instruction": "Do the following statements agree with the information given in Reading Passage 1? Write TRUE if the statement agrees with the information, FALSE if the statement contradicts the information, or NOT GIVEN if there is no information on this.",
+      "item": "A sound meter reading reliably predicts how disturbing people will find a noise.",
+      "answer": "FALSE",
+      "marks": 1
+    },
+    {
+      "n": 6,
+      "questionType": "short_answer",
+      "taskType": "true_false_not_given",
+      "instruction": "Do the following statements agree with the information given in Reading Passage 1? Write TRUE if the statement agrees with the information, FALSE if the statement contradicts the information, or NOT GIVEN if there is no information on this.",
+      "item": "Barriers beside motorways protect upper floors less well than lower ones.",
+      "answer": "TRUE",
+      "marks": 1
+    },
+    {
+      "n": 7,
+      "questionType": "short_answer",
+      "taskType": "true_false_not_given",
+      "instruction": "Do the following statements agree with the information given in Reading Passage 1? Write TRUE if the statement agrees with the information, FALSE if the statement contradicts the information, or NOT GIVEN if there is no information on this.",
+      "item": "Electric vehicles are quieter than petrol ones at all speeds.",
+      "answer": "FALSE",
+      "marks": 1
+    },
+    {
+      "n": 8,
+      "questionType": "short_answer",
+      "taskType": "true_false_not_given",
+      "instruction": "Do the following statements agree with the information given in Reading Passage 1? Write TRUE if the statement agrees with the information, FALSE if the statement contradicts the information, or NOT GIVEN if there is no information on this.",
+      "item": "Most European cities have now lowered their urban speed limits.",
+      "answer": "NOT GIVEN",
+      "marks": 1
+    },
+    {
+      "n": 9,
+      "questionType": "short_answer",
+      "taskType": "sentence_completion",
+      "instruction": "Complete the sentences below. Choose ONE WORD ONLY from the passage for each answer.",
+      "item": "The WHO ranks environmental noise second only to air pollution among environmental threats to ______.",
+      "answer": "health",
+      "marks": 1
+    },
+    {
+      "n": 10,
+      "questionType": "short_answer",
+      "taskType": "sentence_completion",
+      "instruction": "Complete the sentences below. Choose ONE WORD ONLY from the passage for each answer.",
+      "item": "Compared with high frequencies, low ones pass more easily through ______.",
+      "answer": "walls",
+      "marks": 1
+    },
+    {
+      "n": 11,
+      "questionType": "short_answer",
+      "taskType": "sentence_completion",
+      "instruction": "Complete the sentences below. Choose ONE WORD ONLY from the passage for each answer.",
+      "item": "Near major airports, researchers found differences in children's ______ ability.",
+      "answer": "reading",
+      "marks": 1
+    },
+    {
+      "n": 12,
+      "questionType": "short_answer",
+      "taskType": "sentence_completion",
+      "instruction": "Complete the sentences below. Choose ONE WORD ONLY from the passage for each answer.",
+      "item": "Rubberised surfaces cut noise at the point where it is ______ rather than blocking it later.",
+      "answer": "generated",
+      "marks": 1
+    },
+    {
+      "n": 13,
+      "questionType": "short_answer",
+      "taskType": "sentence_completion",
+      "instruction": "Complete the sentences below. Choose ONE WORD ONLY from the passage for each answer.",
+      "item": "Some parks now use ______ placed so that they mask the sound of traffic.",
+      "answer": "fountains",
+      "marks": 1
+    }
+  ]
+}

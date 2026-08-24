@@ -19,6 +19,7 @@ import { PrismaService } from '../common/prisma.service';
 import { canActOnClass } from '../common/roles';
 import { ShuffleService } from '../shuffle/shuffle.service';
 import { secondWindowAppliesTo } from './second-window';
+import { levelBucket, levelPushesWordlist } from './level-registry';
 import { MorningQuizQaService } from '../morning-quiz-qa/morning-quiz-qa.service';
 import { ShortAnswerEvaluatorService } from './short-answer-evaluator.service';
 import { SkillProfileService } from './skill-profile.service';
@@ -247,6 +248,12 @@ export function storyKey(key: string | null | undefined): string {
 export const OLEVEL_SIMPLIFIED_TAG = 'ai_authored_olevel_1128_simplified';
 export const OLEVEL_BASIC_TAG = 'ai_authored_olevel_1128_basic';
 const OLEVEL_NON_STANDARD_TAGS = [OLEVEL_SIMPLIFIED_TAG, OLEVEL_BASIC_TAG];
+
+/** 雅思轻量层（2026-08-24）。250-350 词短文 + 6 题，与真题桶物理隔离 ——
+ *  自撰内容绝不能混进 authentic 桶被当成剑桥原文。 */
+export const IELTS_LIGHT_TAG = 'ai_authored_ielts_light';
+/** 雅思标准层的自撰补料。剑桥真题库耗尽后的来源，同样与真题区分标注。 */
+export const IELTS_AUTHORED_TAG = 'ai_authored_ielts_2026';
 
 export type OlevelTier = 'standard' | 'simplified' | 'basic';
 
@@ -685,7 +692,9 @@ export class MorningQuizService {
     // 刻意用高频词、自动采集的难度筛子会全部滤掉。词表是唯一供给。
     // 顺序也对：先建场（学生今天会读这篇），词表例句就是他读过的句子。
     // 失败只记日志 —— 推词绝不能挡出卷。
-    if (sessionLevel === 'ielts_simplified') {
+    // 哪些层建场即推词表，由 level-registry 说了算（短文层才推）。
+    // 原来这里写死判 ielts_simplified，加雅思轻量时必然漏掉。
+    if (levelPushesWordlist(sessionLevel)) {
       try {
         await this.pushBasicWordlistForPaper(input.paperId, input.classId);
       } catch (e: any) {
@@ -983,18 +992,19 @@ export class MorningQuizService {
             void weeklyFocus;
             void targetCount;
             let paperId: string;
-            if (levelRow.level === 'ielts_authentic') {
+            // 等级 → 题库桶的对应关系由 level-registry 一张表统一表达。
+            // 别在这里按枚举名 if/else 堆分支 —— 枚举名和实际内容早就
+            // 对不上了（ielts_simplified 装的是 O-Level 基础）。
+            const bucket = levelBucket(levelRow.level);
+            if (bucket === 'ielts_authentic' || bucket === 'ielts_light') {
               paperId = await this.pickPassageAndCreatePaper(
                 'IELTS', 'AUTH', classId, dateIso, actor,
-                { provenanceFilter: 'authentic' },
+                { provenanceFilter: bucket === 'ielts_light' ? 'light' : 'authentic' },
               );
-            } else if (levelRow.level === 'ielts_simplified') {
-              // 2026-08-14：这个枚举位现在是「O-Level 基础」层，读 basic
-              // 桶（短文 5 题）。simplified 桶的 21 篇中间层内容原地保留，
-              // 当前没有层读它 —— 见 olevelTierCondition 的注释。
+            } else if (bucket === 'olevel_basic' || bucket === 'olevel_simplified') {
               paperId = await this.pickOlevelPaperAndCreatePaper(
                 classId, dateIso, actor,
-                { provenanceFilter: 'basic' },
+                { provenanceFilter: bucket === 'olevel_basic' ? 'basic' : 'simplified' },
               );
             } else {
               // olevel basic band: pull from OLEVEL standard tier.
@@ -1071,7 +1081,7 @@ export class MorningQuizService {
     classId: string,
     dateIso: string,
     actor: ActorCtx,
-    opts: { provenanceFilter?: 'authentic' | 'simplified' } = {},
+    opts: { provenanceFilter?: 'authentic' | 'simplified' | 'light' } = {},
   ): Promise<string> {
     const subject = await this.prisma.subject.findFirst({
       where: { code: subjectCode },
@@ -1092,21 +1102,23 @@ export class MorningQuizService {
     }
     const component = subject.components[0];
 
-    // R10 — provenanceTag filter so a `ielts_authentic` session only
-    // pulls Cambridge IELTS Academic passages and `ielts_simplified`
-    // only pulls Cambridge IELTS General Training passages. Both
-    // share the same Subject/Component (IELTS/AUTH); the band is
-    // disambiguated entirely by provenanceTag:
-    //   authentic  → tag like `cambridge_ielts_<n>_authentic` (Academic)
-    //   simplified → tag = `cambridge_ielts_gt` (General Training)
-    // Filter implemented as inclusion (simplified) vs exclusion
-    // (authentic = anything that isn't GT) so a future band rename
-    // doesn't accidentally drop authentic content.
+    // 雅思侧三个桶共用同一个 Subject/Component（IELTS/AUTH），靠
+    // provenanceTag 区分：
+    //   authentic → 剑桥 Academic 原文 + ai_authored_ielts_2026 自撰补料
+    //               （剑桥库 2026-08 耗尽后的来源，标注为非真题）
+    //   light     → ai_authored_ielts_light，250-350 词短文 + 6 题
+    //   simplified→ cambridge_ielts_gt（General Training，当前无层在读）
+    //
+    // authentic 用**排除法**（不是 GT、不是 light）而非白名单：新增一个
+    // 自撰批次时不用回来改这里，标准层自动收录；反过来，light 和 GT 是
+    // 精确匹配，绝不会串味 —— 短文混进真题层会让学生以为雅思就这难度。
     const filter = opts.provenanceFilter ?? 'authentic';
     const provenanceCondition =
       filter === 'simplified'
         ? { provenanceTag: 'cambridge_ielts_gt' }
-        : { NOT: { provenanceTag: 'cambridge_ielts_gt' } };
+        : filter === 'light'
+          ? { provenanceTag: IELTS_LIGHT_TAG }
+          : { NOT: { provenanceTag: { in: ['cambridge_ielts_gt', IELTS_LIGHT_TAG] } } };
 
     const bank = await this.prisma.question.findMany({
       where: {
@@ -2932,6 +2944,8 @@ export class MorningQuizService {
       classId,
       date: dateIso,
       className: sessions[0].class.name,
+      // 出勤停用时面板要换一套口径，否则「缺勤 0」会被读成全勤
+      attendanceTracking: process.env.MORNING_QUIZ_ATTENDANCE_TRACKING === 'on',
       sessions: sessions.map((s) => ({
         id: s.id,
         level: s.level,

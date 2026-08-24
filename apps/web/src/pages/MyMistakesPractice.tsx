@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Link, useSearchParams } from 'react-router-dom';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { api } from '../lib/api';
 import { track } from '../lib/track';
 import { Spinner } from '../components/AsyncState';
@@ -49,8 +49,22 @@ type Phase = 'answering' | 'feedback';
 
 export default function MyMistakesPracticePage() {
   const [params] = useSearchParams();
+  const navigate = useNavigate();
   const name = params.get('name') ?? '';
   const studentId = params.get('studentId') ?? '';
+  /**
+   * 交卷后的必经环节（2026-08-24）。
+   *
+   * 错题本 871 条、销账 0 条 —— 规则是「隔天再做对才销」，零销账说明
+   * 根本没人走完这条路。原因和生词自测冷了两周一模一样：它不在任何
+   * 必经路径上。现在把它挂进交卷仪式（交卷 → 生词自测 → 错题重练 →
+   * 成绩页），并遵守同一套规矩：
+   *   · 限量 —— 交卷后只练 3 题，学生已经答了半小时卷子
+   *   · 没有待练的就立刻放行，绝不挡路
+   */
+  const afterSubmit = params.get('after') === 'submit';
+  const then = params.get('then') ?? '';
+  const AFTER_SUBMIT_LIMIT = 3;
   const [items, setItems] = useState<PracticeItem[] | null>(null);
   const [remaining, setRemaining] = useState(0);
   const [error, setError] = useState<string | null>(null);
@@ -68,12 +82,22 @@ export default function MyMistakesPracticePage() {
     api
       .mistakePracticeQueue({ name, studentId: studentId || undefined })
       .then((r: any) => {
-        setItems(r.items ?? []);
+        const all: PracticeItem[] = r.items ?? [];
+        // 交卷后这一趟没有待练的 → 立刻放行去成绩页，不让学生多点一下
+        if (afterSubmit && all.length === 0 && then) {
+          navigate(then, { replace: true });
+          return;
+        }
+        setItems(afterSubmit ? all.slice(0, AFTER_SUBMIT_LIMIT) : all);
         setRemaining(r.remaining ?? 0);
         track('mistake_practice', name, studentId);
       })
-      .catch((e: any) => setError(String(e?.message ?? e)));
-  }, [name, studentId]);
+      // 队列取不到就直接放行 —— 错题练习绝不能挡住学生看成绩
+      .catch((e: any) => {
+        if (afterSubmit && then) navigate(then, { replace: true });
+        else setError(String(e?.message ?? e));
+      });
+  }, [name, studentId, afterSubmit, then, navigate]);
 
   const item = items && idx < items.length ? items[idx] : null;
   const qs = `name=${encodeURIComponent(name)}${studentId ? `&studentId=${encodeURIComponent(studentId)}` : ''}`;
@@ -158,7 +182,15 @@ export default function MyMistakesPracticePage() {
             做对的题明天再对一次就自动移出错题本；做错的明天会再出现。
             {remaining > items.length ? `今天还有 ${remaining - items.length} 条可以再练一轮。` : ''}
           </p>
-          {remaining > items.length && (
+          {afterSubmit && then ? (
+            <button
+              type="button"
+              onClick={() => navigate(then, { replace: true })}
+              className="press w-full min-h-[46px] rounded-[12px] bg-blue-600 text-white text-[15px] font-semibold mb-3"
+            >
+              看今天的卷子 →
+            </button>
+          ) : remaining > items.length ? (
             <button
               type="button"
               onClick={() => { window.location.reload(); }}
@@ -166,7 +198,7 @@ export default function MyMistakesPracticePage() {
             >
               再练一轮
             </button>
-          )}
+          ) : null}
           <Link to={`/my-mistakes?${qs}`} className="text-blue-600 underline text-sm">← 返回错题本</Link>
         </div>
       </div>

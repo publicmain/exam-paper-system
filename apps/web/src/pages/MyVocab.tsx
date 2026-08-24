@@ -54,7 +54,13 @@ export default function MyVocabPage() {
   const [data, setData] = useState<{ total: number; dueCount: number; words: VocabWord[] } | null>(null);
   /** 进度反馈（2026-08-14 调研缺陷五）：已掌握数 + 连续学习天数。
    *  拿不到就不显示 —— 绝不因统计接口影响词表本身。 */
-  const [progress, setProgress] = useState<{ known: number; streak: number } | null>(null);
+  const [progress, setProgress] = useState<{
+    known: number;
+    streak: number;
+    mastered: number;
+    learning: number;
+    untouched: number;
+  } | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [filter, setFilter] = useState<'all' | 'wrong_answer' | 'click'>('all');
   const [busy, setBusy] = useState<string | null>(null);
@@ -84,7 +90,13 @@ export default function MyVocabPage() {
         if (!r.ok) return;
         const j = await r.json();
         if (!cancelled && typeof j?.knownCount === 'number') {
-          setProgress({ known: j.knownCount, streak: j.streakDays ?? 0 });
+          setProgress({
+            known: j.knownCount,
+            streak: j.streakDays ?? 0,
+            mastered: j.progress?.mastered ?? j.knownCount ?? 0,
+            learning: j.progress?.learning ?? 0,
+            untouched: j.progress?.untouched ?? 0,
+          });
         }
       } catch { /* 静默 */ }
     })();
@@ -162,18 +174,38 @@ export default function MyVocabPage() {
                 {data.dueCount} 个待复习
               </div>
             )}
-            {/* 进度反馈：欠账旁边必须放「攒下了什么」，否则页面只剩压力 */}
-            {progress && progress.known > 0 && (
-              <div className="text-sm text-emerald-700 bg-emerald-50 border border-emerald-200 rounded px-2 py-0.5">
-                ✓ 已掌握 {progress.known}
-              </div>
-            )}
             {progress && progress.streak > 0 && (
               <div className="text-sm text-orange-600 bg-orange-50 border border-orange-200 rounded px-2 py-0.5">
                 🔥 连续 {progress.streak} 天
               </div>
             )}
           </div>
+
+          {/* 三分进度（2026-08-24 词汇主线化）。
+              原来只显示「已掌握 N」，学生看到的仍然主要是一个只涨不落的
+              生词总数。摊成三段之后，「待开始」那一格有多长是一眼能看见
+              的 —— 生产数据里它占 68%，这正是要让学生和老师都看见的事。 */}
+          {progress && (progress.mastered + progress.learning + progress.untouched) > 0 && (
+            <div className="mt-3">
+              <div className="flex h-2 rounded-full overflow-hidden bg-gray-100">
+                {[
+                  { n: progress.mastered, cls: 'bg-emerald-500' },
+                  { n: progress.learning, cls: 'bg-sky-500' },
+                  { n: progress.untouched, cls: 'bg-gray-300' },
+                ].map((seg, i) => {
+                  const tot = progress.mastered + progress.learning + progress.untouched;
+                  return seg.n > 0 ? (
+                    <div key={i} className={seg.cls} style={{ width: `${(seg.n / tot) * 100}%` }} />
+                  ) : null;
+                })}
+              </div>
+              <div className="mt-1.5 flex flex-wrap gap-x-4 gap-y-1 text-[12px] text-gray-600">
+                <span><span className="inline-block w-2 h-2 rounded-sm bg-emerald-500 mr-1" />已掌握 {progress.mastered}</span>
+                <span><span className="inline-block w-2 h-2 rounded-sm bg-sky-500 mr-1" />学习中 {progress.learning}</span>
+                <span><span className="inline-block w-2 h-2 rounded-sm bg-gray-300 mr-1" />待开始 {progress.untouched}</span>
+              </div>
+            </div>
+          )}
           {data.total === 0 && (
             <p className="mt-3 text-sm text-gray-600 leading-relaxed">
               交卷后在成绩页重读文章，点任意单词即可查释义并加入这里。

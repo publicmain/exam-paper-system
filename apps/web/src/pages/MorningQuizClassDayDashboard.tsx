@@ -269,6 +269,8 @@ export default function MorningQuizClassDayDashboard() {
   if (!data) return null;
 
   const { className, sessions, counts, attendances } = data;
+  // 出勤停用后 absent 恒为 0、late 并进 on_time —— 摆三个格子是骗人的
+  const tracking = data.attendanceTracking !== false;
   const total = (counts?.on_time ?? 0) + (counts?.late ?? 0) + (counts?.absent ?? 0);
   const submitted = (attendances ?? []).filter((a: any) => a.submission?.submittedAt).length;
 
@@ -322,12 +324,25 @@ export default function MorningQuizClassDayDashboard() {
         </div>
       )}
 
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-        <Stat label="按时" value={counts?.on_time ?? 0} tint="green" />
-        <Stat label="迟到" value={counts?.late ?? 0} tint="yellow" />
-        <Stat label="缺勤" value={counts?.absent ?? 0} tint="red" />
-        <Stat label="已交卷" value={`${submitted} / ${total}`} tint="blue" />
-      </div>
+      {tracking ? (
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+          <Stat label="按时" value={counts?.on_time ?? 0} tint="green" />
+          <Stat label="迟到" value={counts?.late ?? 0} tint="yellow" />
+          <Stat label="缺勤" value={counts?.absent ?? 0} tint="red" />
+          <Stat label="已交卷" value={`${submitted} / ${total}`} tint="blue" />
+        </div>
+      ) : (
+        <>
+          <div className="grid grid-cols-2 gap-3">
+            <Stat label="已参加" value={total} tint="green" />
+            <Stat label="已交卷" value={`${submitted} / ${total}`} tint="blue" />
+          </div>
+          <div className="text-xs text-gray-500 rounded-lg bg-gray-50 border px-3 py-2">
+            本学期早测<strong>不记录出勤</strong>（同一天两个作答窗、学生自选，
+            「几点到校」不再由这套系统统计）。「已参加」= 实际扫码进来答题的人数。
+          </div>
+        </>
+      )}
 
       <div className="card">
         <h2 className="font-semibold mb-2">学生明细(合并 {sessions.length} 个 level)</h2>

@@ -2,6 +2,12 @@ import { describe, it, expect, vi } from 'vitest';
 import * as ExcelJS from 'exceljs';
 import { MorningQuizExportService } from './morning-quiz-export.service';
 
+/** 取「考勤」数据表。出勤停用后工作簿前面会多一张纯说明页，按索引
+ *  取会拿到那张，所以一律按名字找。 */
+function attendanceSheet(wb: any) {
+  return wb.worksheets.find((w: any) => /考勤/.test(w.name)) ?? wb.worksheets[0];
+}
+
 /**
  * R15-followup-14 — teacher fed back that the old 3-sheet workbook
  * (考勤明细 / 成绩明细 / 缺勤汇总) was confusing. New layout: ONE
@@ -92,12 +98,14 @@ describe('MorningQuizExportService — R15-followup-14 pivot view', () => {
       ACTOR,
     );
     const wb = await workbookFromBuffer(buf);
-    expect(wb.worksheets.length).toBe(1);
-    expect(wb.worksheets[0].name).toContain('考勤');
-    // The old score / absence sheet names must NOT appear.
+    // 恰好一张**数据**表。2026-08-20 出勤停用后前面会多一张纯文字的
+    // 「请先读」说明页 —— 它不含数据，不违背这条断言原本要守的东西
+    // （不要再冒出 Score / Absence 那两张被清理掉的数据表）。
+    expect(attendanceSheet(wb).name).toContain('考勤');
     const names = wb.worksheets.map((w) => w.name);
     expect(names.find((n) => /成绩|Scores/.test(n))).toBeUndefined();
     expect(names.find((n) => /缺勤汇总|Absences/.test(n))).toBeUndefined();
+    expect(names.filter((n) => !/请先读|Read Me/.test(n)).length).toBe(1);
   });
 
   it('one row per student, one column per distinct session date, cells show 按时/迟到/缺勤/—', async () => {
@@ -125,7 +133,7 @@ describe('MorningQuizExportService — R15-followup-14 pivot view', () => {
       ACTOR,
     );
     const wb = await workbookFromBuffer(buf);
-    const sheet = wb.worksheets[0];
+    const sheet = attendanceSheet(wb);
 
     // Header row has student + class + 3 dates + 3 summary cols = 8 cols.
     const header = sheet.getRow(1);
@@ -178,7 +186,7 @@ describe('MorningQuizExportService — R15-followup-14 pivot view', () => {
       ACTOR,
     );
     const wb = await workbookFromBuffer(buf);
-    const sheet = wb.worksheets[0];
+    const sheet = attendanceSheet(wb);
 
     const aliceCell: any = sheet.getRow(2).getCell(3);
     const bobCell: any = sheet.getRow(3).getCell(3);
@@ -210,7 +218,7 @@ describe('MorningQuizExportService — R15-followup-14 pivot view', () => {
       ACTOR,
     );
     const wb = await workbookFromBuffer(buf);
-    const sheet = wb.worksheets[0];
+    const sheet = attendanceSheet(wb);
     // Row 2 = X. Column layout with 1 date column:
     //   1=学生, 2=班级, 3=date, 4=按时Σ, 5=迟到Σ, 6=缺勤Σ
     expect(String(sheet.getRow(2).getCell(3).value)).toBe('按时');

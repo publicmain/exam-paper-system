@@ -1,0 +1,74 @@
+{
+  "setCode": "ielts_light_2026",
+  "provenanceTag": "ai_authored_ielts_light",
+  "level": "ielts_light",
+  "passageTitle": "Roads Made of Rubbish",
+  "note": "NOT STUDENT-FACING. 原创短文，非任何真题。雅思轻量层：250-350 词 + 6 题（TFNG×3 + 句子填空×3）+ 8 词配套词表。TFNG 三条覆盖 TRUE/FALSE/NOT GIVEN 各一；填空答案逐字出现在原文且为单词。",
+  "passage": "Most roads are built from asphalt, a mixture of stone and a thick black substance left over from refining oil. Producing it requires a great deal of energy, and the world is running short of the sand and gravel that go into it. At the same time, governments everywhere are struggling to dispose of waste plastic. A number of engineers have asked an obvious question: why not combine the two problems?\n\nThe method is simpler than it sounds. Waste plastic is shredded into small flakes and added to the hot stone before the asphalt binder is mixed in. The plastic melts and coats the stones, and the binder is then added as usual. Roughly one tenth of the binder can be replaced this way.\n\nTrials in India, Britain and Australia suggest several advantages. Roads containing plastic have shown better resistance to water, which is the main cause of potholes. They also appear to soften less in very hot weather. Each kilometre of such road uses the equivalent of hundreds of thousands of plastic bags that would otherwise be buried or burned.\n\nCritics raise a serious objection. As tyres wear the surface away, the plastic does not disappear; it breaks into tiny fragments that wash into rivers and eventually the sea. Whether plastic roads shed more of these particles than ordinary ones is still being measured, and the results so far disagree with one another.\n\nFor now the technology remains a small part of road building. Its future depends less on engineering than on whether that question about fragments can be answered convincingly.",
+  "questions": [
+    {
+      "n": 1,
+      "questionType": "short_answer",
+      "taskType": "true_false_not_given",
+      "instruction": "Do the following statements agree with the information given in the passage? Write TRUE if the statement agrees with the information, FALSE if the statement contradicts the information, or NOT GIVEN if there is no information on this.",
+      "item": "Roads containing plastic have resisted water damage better in trials.",
+      "answer": "TRUE",
+      "marks": 1
+    },
+    {
+      "n": 2,
+      "questionType": "short_answer",
+      "taskType": "true_false_not_given",
+      "instruction": "Do the following statements agree with the information given in the passage? Write TRUE if the statement agrees with the information, FALSE if the statement contradicts the information, or NOT GIVEN if there is no information on this.",
+      "item": "Researchers now agree about how many particles plastic roads release.",
+      "answer": "FALSE",
+      "marks": 1
+    },
+    {
+      "n": 3,
+      "questionType": "short_answer",
+      "taskType": "true_false_not_given",
+      "instruction": "Do the following statements agree with the information given in the passage? Write TRUE if the statement agrees with the information, FALSE if the statement contradicts the information, or NOT GIVEN if there is no information on this.",
+      "item": "Plastic roads are cheaper to build than ordinary asphalt roads.",
+      "answer": "NOT GIVEN",
+      "marks": 1
+    },
+    {
+      "n": 4,
+      "questionType": "short_answer",
+      "taskType": "sentence_completion",
+      "instruction": "Complete the sentences below. Choose ONE WORD ONLY from the passage for each answer.",
+      "item": "Before being added to the hot stone, waste plastic is ______ into small flakes.",
+      "answer": "shredded",
+      "marks": 1
+    },
+    {
+      "n": 5,
+      "questionType": "short_answer",
+      "taskType": "sentence_completion",
+      "instruction": "Complete the sentences below. Choose ONE WORD ONLY from the passage for each answer.",
+      "item": "Water damage is described as the main cause of ______.",
+      "answer": "potholes",
+      "marks": 1
+    },
+    {
+      "n": 6,
+      "questionType": "short_answer",
+      "taskType": "sentence_completion",
+      "instruction": "Complete the sentences below. Choose ONE WORD ONLY from the passage for each answer.",
+      "item": "As ______ wear the road surface away, the plastic breaks into tiny fragments.",
+      "answer": "tyres",
+      "marks": 1
+    }
+  ],
+  "wordlist": [
+    { "word": "refine", "meaning": "提炼、精炼", "example": "…a thick black substance left over from refining oil." },
+    { "word": "gravel", "meaning": "砾石", "example": "…the world is running short of the sand and gravel that go into it." },
+    { "word": "dispose", "meaning": "处理、丢弃（of）", "example": "…governments everywhere are struggling to dispose of waste plastic." },
+    { "word": "shred", "meaning": "撕碎、切碎", "example": "Waste plastic is shredded into small flakes and added to the hot stone." },
+    { "word": "binder", "meaning": "黏合剂", "example": "The plastic melts and coats the stones, and the binder is then added as usual." },
+    { "word": "pothole", "meaning": "路面坑洞", "example": "Roads containing plastic have shown better resistance to water, which is the main cause of potholes." },
+    { "word": "objection", "meaning": "反对意见", "example": "Critics raise a serious objection." },
+    { "word": "fragment", "meaning": "碎片", "example": "…it breaks into tiny fragments that wash into rivers and eventually the sea." }
+  ]
+}

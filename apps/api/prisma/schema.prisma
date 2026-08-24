@@ -1445,13 +1445,24 @@ enum AttendanceSource {
   manual_correction
 }
 
+/// 英语等级。**枚举名是历史包袱，对外显示名一律查 level-registry.ts**，
+/// 不要在任何地方硬编码中文名 —— ielts_simplified 这个位置就是前车之鉴。
 enum EnglishLevel {
   ielts_authentic // Cambridge IELTS authentic past papers (passage_pick)
+  /// 雅思轻量（2026-08-24 新增）。250-350 词短文 + 6 题（TFNG×3 +
+  /// 句子填空×3）+ 配套词表。设计风格对齐 O-Level 基础层，但保留雅思
+  /// 题型骨架 —— 学生练的是雅思的思维方式，不是换个皮的阅读理解。
+  /// 内容走 provenanceTag=ai_authored_ielts_light。
+  ielts_light
   // 历史名「轻雅思」→ 2026-07-24 停用 → 2026-08-14 以「O-Level 基础」
   // 重新上架（校方新政：短文精简 + 题量少 + 词汇训练）。枚举值不改，
-  // 历史数据依赖它；内容走 provenanceTag=ai_authored_olevel_1128_simplified。
+  // 历史数据依赖它；内容走 provenanceTag=ai_authored_olevel_1128_basic。
   ielts_simplified
   olevel // CIE 1123 OLEVEL English (AI-generated)
+  /// O-Level 进阶（2026-08-24 新增）。复活 ai_authored_olevel_1128_simplified
+  /// 桶里那 21 篇中间难度内容 —— 比标准层短、比基础层深，「轻雅思」层
+  /// 停用后它们一直没有任何等级在读。
+  olevel_intermediate
 }
 
 model MorningQuizSession {

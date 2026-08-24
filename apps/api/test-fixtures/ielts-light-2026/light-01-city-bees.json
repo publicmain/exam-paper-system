@@ -1,0 +1,74 @@
+{
+  "setCode": "ielts_light_2026",
+  "provenanceTag": "ai_authored_ielts_light",
+  "level": "ielts_light",
+  "passageTitle": "Bees in the City",
+  "note": "NOT STUDENT-FACING. 原创短文，非任何真题。雅思轻量层（2026-08-24 上线）：250-350 词 + 6 题（TFNG×3 + 句子填空×3）+ 8 词配套词表。题型骨架与雅思真题一致，长度和词汇密度下调，面向读不动 700 词长文但需要接触雅思思维的学生。TFNG 三条覆盖 TRUE/FALSE/NOT GIVEN 各一；填空答案逐字出现在原文且为单词。",
+  "passage": "For a long time people assumed that bees belonged in the countryside, among fields and orchards. Recent studies have overturned that idea. In several European cities, hives placed on rooftops have produced more honey per year than hives in nearby farmland.\n\nThe reason lies in what grows around them. Modern farms often plant a single crop across huge areas. When that crop finishes flowering, the bees have nothing left to feed on for weeks. A city, by contrast, is a patchwork of small gardens, parks, balconies and roadside trees, and these are planted with many different species. Something is almost always in bloom, so the supply of food is steady rather than sudden.\n\nTemperature helps too. Buildings, roads and pavements absorb heat during the day and release it slowly at night, keeping cities warmer than the land around them. Bees emerge earlier in spring and remain active later into the autumn, which lengthens the season in which they can collect nectar.\n\nPesticides are the third factor. Farmers spray chemicals to protect their crops, and these treatments can weaken or kill bees. Gardeners in cities use far less spray, and many use none at all.\n\nCity beekeeping is not without difficulties. Space is limited, and a hive on a rooftop can be hard to reach and hard to inspect. Some cities have seen so many new hives appear that beekeepers worry the available flowers cannot support them all. Even so, the number of urban hives continues to rise, and the honey they produce is often sold within a few streets of where it was made.",
+  "questions": [
+    {
+      "n": 1,
+      "questionType": "short_answer",
+      "taskType": "true_false_not_given",
+      "instruction": "Do the following statements agree with the information given in the passage? Write TRUE if the statement agrees with the information, FALSE if the statement contradicts the information, or NOT GIVEN if there is no information on this.",
+      "item": "Some city hives produce more honey each year than hives on farms nearby.",
+      "answer": "TRUE",
+      "marks": 1
+    },
+    {
+      "n": 2,
+      "questionType": "short_answer",
+      "taskType": "true_false_not_given",
+      "instruction": "Do the following statements agree with the information given in the passage? Write TRUE if the statement agrees with the information, FALSE if the statement contradicts the information, or NOT GIVEN if there is no information on this.",
+      "item": "Gardeners in cities use more pesticide than farmers do.",
+      "answer": "FALSE",
+      "marks": 1
+    },
+    {
+      "n": 3,
+      "questionType": "short_answer",
+      "taskType": "true_false_not_given",
+      "instruction": "Do the following statements agree with the information given in the passage? Write TRUE if the statement agrees with the information, FALSE if the statement contradicts the information, or NOT GIVEN if there is no information on this.",
+      "item": "City honey is more expensive than honey produced on farms.",
+      "answer": "NOT GIVEN",
+      "marks": 1
+    },
+    {
+      "n": 4,
+      "questionType": "short_answer",
+      "taskType": "sentence_completion",
+      "instruction": "Complete the sentences below. Choose ONE WORD ONLY from the passage for each answer.",
+      "item": "Large farms often grow only a single ______, so food for bees disappears once it stops flowering.",
+      "answer": "crop",
+      "marks": 1
+    },
+    {
+      "n": 5,
+      "questionType": "short_answer",
+      "taskType": "sentence_completion",
+      "instruction": "Complete the sentences below. Choose ONE WORD ONLY from the passage for each answer.",
+      "item": "Because cities stay warmer, bees stay active later into the ______.",
+      "answer": "autumn",
+      "marks": 1
+    },
+    {
+      "n": 6,
+      "questionType": "short_answer",
+      "taskType": "sentence_completion",
+      "instruction": "Complete the sentences below. Choose ONE WORD ONLY from the passage for each answer.",
+      "item": "One problem with rooftop hives is that they are difficult to ______.",
+      "answer": "inspect",
+      "marks": 1
+    }
+  ],
+  "wordlist": [
+    { "word": "orchard", "meaning": "果园", "example": "For a long time people assumed that bees belonged in the countryside, among fields and orchards." },
+    { "word": "overturn", "meaning": "推翻（观点、结论）", "example": "Recent studies have overturned that idea." },
+    { "word": "patchwork", "meaning": "拼凑物；由许多小块拼成的东西", "example": "A city, by contrast, is a patchwork of small gardens, parks, balconies and roadside trees." },
+    { "word": "bloom", "meaning": "开花", "example": "Something is almost always in bloom, so the supply of food is steady rather than sudden." },
+    { "word": "absorb", "meaning": "吸收", "example": "Buildings, roads and pavements absorb heat during the day and release it slowly at night." },
+    { "word": "nectar", "meaning": "花蜜", "example": "Bees emerge earlier in spring and remain active later into the autumn, which lengthens the season in which they can collect nectar." },
+    { "word": "pesticide", "meaning": "杀虫剂、农药", "example": "Pesticides are the third factor." },
+    { "word": "inspect", "meaning": "检查、查看", "example": "Space is limited, and a hive on a rooftop can be hard to reach and hard to inspect." }
+  ]
+}
