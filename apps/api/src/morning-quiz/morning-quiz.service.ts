@@ -690,111 +690,14 @@ export class MorningQuizService {
     // 该篇配套词表到全班生词本。这不是锦上添花 —— 调研（2026-08-14）
     // 证实基础层学生的另外两条词来源都是断的：不会主动点词，短文又
     // 刻意用高频词、自动采集的难度筛子会全部滤掉。词表是唯一供给。
-    // 顺序也对：先建场（学生今天会读这篇），词表例句就是他读过的句子。
-    // 失败只记日志 —— 推词绝不能挡出卷。
-    // 哪些层建场即推词表，由 level-registry 说了算（短文层才推）。
-    // 原来这里写死判 ielts_simplified，加雅思轻量时必然漏掉。
-    if (levelPushesWordlist(sessionLevel)) {
-      try {
-        await this.pushBasicWordlistForPaper(input.paperId, input.classId);
-      } catch (e: any) {
-        this.logger.warn(
-          `basic wordlist push failed for paper=${input.paperId} class=${input.classId}: ${e?.message ?? e}`,
-        );
-      }
-    }
-
+    // 配套词表**不再**在建场时推 ——「谁收词」由扫码那一刻决定。
+    //
+    // 建场时推全班的问题（2026-08-24 审计定性）：学生选哪个难度是扫码
+    // 才定的，五个层混坐一个班，推全班意味着只做雅思真题的学生也收到
+    // 基础层的词，卡片例句来自他从没读过的文章。现在由
+    // attendance.scanQr 在学生扫进短文层的那一刻只推给他本人
+    // （levelPushesWordlist + resolveWordlistForPaperConfig）。
     return session;
-  }
-
-  /**
-   * 找到这份卷子的配套词表并推给全班。
-   *
-   * 两个短文层的词表存放方式不同：
-   *
-   *   **O-Level 基础** —— 卷子走 `config.paperKey`
-   *   （`OLEVEL/..._basic_01_new_shoes_v1/Paper2`），词表集中在
-   *   basic-wordlists.json，按 story 字段（`basic-01-new-shoes`）对应。
-   *
-   *   **雅思轻量** —— 卷子走 `config.passageRef`
-   *   （`IELTS/ielts_light_2026/Test3/P1`），词表**内嵌在各自的 fixture
-   *   里**（wordlist 字段）。Test 序号 = 目录内文件排序序号。
-   *
-   * 起初这里只认第一种，于是雅思轻量在 level-registry 里标了
-   * `pushesWordlist: true` 却一个词也推不出去 —— 而那一层的设计正是
-   * 「短文 + 少量题 + 背词」，词表推不出去等于砍掉一半。
-   *
-   * pushWords 幂等（已在本子里的词跳过，保留 FSRS 进度），同一篇因重新
-   * 生成 / 补场被推两次也安全。
-   */
-  private async pushBasicWordlistForPaper(paperId: string, classId: string) {
-    if (!this.vocabTeacher) return;
-    const paper = await this.prisma.paper.findUnique({
-      where: { id: paperId },
-      select: { config: true },
-    });
-    const cfg = (paper?.config as { paperKey?: string; passageRef?: string } | null) ?? {};
-    const fixtureDir = (d: string) => path.join(__dirname, '..', '..', 'test-fixtures', d);
-
-    let list: { items: Array<{ word: string; context: string }> } | null = null;
-    let story = '';
-
-    const olevelMatch = (cfg.paperKey ?? '').match(/olevel_(basic_\d+_[a-z0-9_]+?)(?:_v\d+)?\/Paper/);
-    const lightMatch = (cfg.passageRef ?? '').match(/^IELTS\/ielts_light_[^/]*\/Test(\d+)\/P\d+$/);
-
-    if (olevelMatch) {
-      story = olevelMatch[1].replace(/_/g, '-');
-      const file = path.join(fixtureDir('singapore-olevel-1128'), 'basic-wordlists.json');
-      if (!fs.existsSync(file)) {
-        this.logger.warn(`basic-wordlists.json not found at ${file}`);
-        return;
-      }
-      const data = JSON.parse(fs.readFileSync(file, 'utf-8')) as {
-        lists: Array<{ story: string; items: Array<{ word: string; context: string }> }>;
-      };
-      list = data.lists.find((l) => l.story === story) ?? null;
-    } else if (lightMatch) {
-      // 雅思轻量：Test<n> → 目录里排序第 n 个 fixture（与 ingest-ielts-batch
-      // 分配 testNumber 的规则一致），词表在它自己的 wordlist 字段里。
-      const dir = fixtureDir('ielts-light-2026');
-      if (!fs.existsSync(dir)) {
-        this.logger.warn(`ielts-light-2026 fixtures not found at ${dir}`);
-        return;
-      }
-      const files = fs.readdirSync(dir).filter((f) => f.endsWith('.json')).sort();
-      const f = files[Number(lightMatch[1]) - 1];
-      if (!f) {
-        this.logger.warn(`no ielts-light fixture for ${cfg.passageRef}`);
-        return;
-      }
-      story = f.replace(/\.json$/, '');
-      const d = JSON.parse(fs.readFileSync(path.join(dir, f), 'utf-8')) as {
-        wordlist?: Array<{ word: string; example: string }>;
-      };
-      list = d.wordlist?.length
-        ? { items: d.wordlist.map((w) => ({ word: w.word, context: w.example })) }
-        : null;
-    } else {
-      return; // 这一层不需要推词表
-    }
-
-    if (!list) {
-      this.logger.warn(`no wordlist for story=${story}`);
-      return;
-    }
-    // 用一个 admin 身份推（pushWords 校验 canActOnClass，admin 全通过）
-    const admin = await this.prisma.user.findFirst({
-      where: { role: 'admin', isActive: true },
-      select: { id: true },
-    });
-    if (!admin) return;
-    const r = await this.vocabTeacher.pushWords(
-      { classId, items: list.items },
-      { id: admin.id, role: 'admin', ip: null },
-    );
-    this.logger.log(
-      `wordlist pushed: story=${story} class=${classId} created=${r.created} skipped=${r.skipped}`,
-    );
   }
 
   /**

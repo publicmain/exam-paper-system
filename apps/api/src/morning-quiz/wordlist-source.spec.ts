@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import * as fs from 'fs';
 import * as path from 'path';
+import { resolveWordlistForPaperConfig as resolveWordlist } from './wordlist-source';
 
 /**
  * 配套词表的来源解析。
@@ -17,29 +18,7 @@ import * as path from 'path';
 
 const FIX = path.join(__dirname, '..', '..', 'test-fixtures');
 
-/** 复刻 pushBasicWordlistForPaper 的来源解析（纯读文件，不碰数据库） */
-function resolveWordlist(cfg: { paperKey?: string; passageRef?: string }) {
-  const olevel = (cfg.paperKey ?? '').match(/olevel_(basic_\d+_[a-z0-9_]+?)(?:_v\d+)?\/Paper/);
-  const light = (cfg.passageRef ?? '').match(/^IELTS\/ielts_light_[^/]*\/Test(\d+)\/P\d+$/);
-  if (olevel) {
-    const story = olevel[1].replace(/_/g, '-');
-    const file = path.join(FIX, 'singapore-olevel-1128', 'basic-wordlists.json');
-    const data = JSON.parse(fs.readFileSync(file, 'utf-8'));
-    const l = data.lists.find((x: any) => x.story === story);
-    return l ? { story, items: l.items } : null;
-  }
-  if (light) {
-    const dir = path.join(FIX, 'ielts-light-2026');
-    const files = fs.readdirSync(dir).filter((f) => f.endsWith('.json')).sort();
-    const f = files[Number(light[1]) - 1];
-    if (!f) return null;
-    const d = JSON.parse(fs.readFileSync(path.join(dir, f), 'utf-8'));
-    return d.wordlist?.length
-      ? { story: f.replace(/\.json$/, ''), items: d.wordlist.map((w: any) => ({ word: w.word, context: w.example })) }
-      : null;
-  }
-  return null;
-}
+
 
 describe('配套词表来源', () => {
   it('O-Level 基础：按 paperKey 找到集中词表', () => {

@@ -12,6 +12,8 @@ import { AttendanceSource, AttendanceStatus, MorningQuizStatus } from '@prisma/c
 import { AuditService } from '../audit/audit.service';
 import { PrismaService } from '../common/prisma.service';
 import { isMakeupWindowOpen } from '../morning-quiz/morning-quiz.service';
+import { levelPushesWordlist } from '../morning-quiz/level-registry';
+import { resolveWordlistForPaperConfig } from '../morning-quiz/wordlist-source';
 import { canActOnClass } from '../common/roles';
 import { QrService } from '../qr/qr.service';
 import { ShuffleService } from '../shuffle/shuffle.service';
@@ -483,7 +485,8 @@ export class AttendanceService {
     // result page rendered "3 / 1" (front-end ||1 fallback over a 0 max).
     const paperForMax = await this.prisma.paper.findUnique({
       where: { id: paperId },
-      select: { totalMarksActual: true },
+      // config 给下面的词表推送用（按 paperKey/passageRef 找到本篇词表）
+      select: { totalMarksActual: true, config: true },
     });
     // R14 — upsert via findFirst+create/update since @@unique was dropped
     // for practice-mode coexistence. Non-practice subs are uniquely keyed
@@ -539,6 +542,49 @@ export class AttendanceService {
         where: { id: attendance.id },
         data: { submissionId: submission.id },
       });
+    }
+
+    // 短文层（雅思轻量 / O-Level 基础）的配套词表：**扫码时推给本人**。
+    //
+    // 原来是建场时推全班 —— 但学生选哪个难度是扫码这一刻才定的，班里
+    // 五个层混坐，推全班意味着只做雅思真题的学生也收到基础层的词，
+    // 卡片例句来自他从没读过的文章，「复习你自己读过的句子」这个核心
+    // 承诺对他是破的。改到扫码时：谁坐进这一层、谁收这一层的词，例句
+    // 就是他当天读的那篇。幂等（(studentId, headword) 唯一约束 +
+    // skipDuplicates），第二窗再扫一次也安全。失败只记日志，绝不挡签到。
+    if (levelPushesWordlist(session.level as any)) {
+      try {
+        const list = resolveWordlistForPaperConfig(paperForMax?.config as any);
+        if (list?.items.length) {
+          // 词表在入库审计时已逐词核对过 ECDICT 存在性，这里只做一次
+          // 存在性过滤兜底（词典变更/词表未审计时不至于塞进查不到释义的词）
+          const inDict = await this.prisma.dictEntry.findMany({
+            where: { word: { in: list.items.map((i) => i.word.toLowerCase()) } },
+            select: { word: true },
+          });
+          const ok = new Set(inDict.map((d) => d.word));
+          const rows = list.items
+            .filter((i) => ok.has(i.word.toLowerCase()))
+            .map((i) => ({
+              studentId,
+              headword: i.word.toLowerCase(),
+              surfaceForm: i.word.toLowerCase(),
+              sourceType: 'teacher_push' as const,
+              contextSentence: (i.context ?? '').slice(0, 500),
+              sourcePassageTitle: list.story,
+            }));
+          if (rows.length) {
+            const r = await this.prisma.studentWord.createMany({ data: rows, skipDuplicates: true });
+            if (r.count > 0) {
+              this.logger.log(
+                `wordlist pushed at scan: story=${list.story} student=${studentId} created=${r.count}`,
+              );
+            }
+          }
+        }
+      } catch (e: any) {
+        this.logger.warn(`scan-time wordlist push failed: ${e?.message ?? e}`);
+      }
     }
 
     await this.shuffle.getOrCreate(studentId, paperId);
