@@ -708,14 +708,24 @@ export class MorningQuizService {
   }
 
   /**
-   * 按 paperKey 找到基础层短文的配套词表并推给全班。
+   * 找到这份卷子的配套词表并推给全班。
    *
-   * 词表文件与 fixture 同目录（basic-wordlists.json，随镜像 COPY，
-   * 路径解析与 ContentBootstrapService 同款）。paperKey 形如
-   * `OLEVEL/ai_authored_olevel_basic_01_new_shoes_v1/Paper2`，
-   * 取中段去版本号 → `basic-01-new-shoes` 对上词表的 story 字段。
-   * pushWords 幂等（已在本子里的词跳过，保留 FSRS 进度），
-   * 所以同一篇因重新生成/补场被推两次也安全。
+   * 两个短文层的词表存放方式不同：
+   *
+   *   **O-Level 基础** —— 卷子走 `config.paperKey`
+   *   （`OLEVEL/..._basic_01_new_shoes_v1/Paper2`），词表集中在
+   *   basic-wordlists.json，按 story 字段（`basic-01-new-shoes`）对应。
+   *
+   *   **雅思轻量** —— 卷子走 `config.passageRef`
+   *   （`IELTS/ielts_light_2026/Test3/P1`），词表**内嵌在各自的 fixture
+   *   里**（wordlist 字段）。Test 序号 = 目录内文件排序序号。
+   *
+   * 起初这里只认第一种，于是雅思轻量在 level-registry 里标了
+   * `pushesWordlist: true` 却一个词也推不出去 —— 而那一层的设计正是
+   * 「短文 + 少量题 + 背词」，词表推不出去等于砍掉一半。
+   *
+   * pushWords 幂等（已在本子里的词跳过，保留 FSRS 进度），同一篇因重新
+   * 生成 / 补场被推两次也安全。
    */
   private async pushBasicWordlistForPaper(paperId: string, classId: string) {
     if (!this.vocabTeacher) return;
@@ -723,24 +733,53 @@ export class MorningQuizService {
       where: { id: paperId },
       select: { config: true },
     });
-    const paperKey = (paper?.config as { paperKey?: string } | null)?.paperKey ?? '';
-    const m = paperKey.match(/olevel_(basic_\d+_[a-z0-9_]+?)(?:_v\d+)?\/Paper/);
-    if (!m) return; // 不是基础层自撰卷（比如手动指定了别的 paper）
-    const story = m[1].replace(/_/g, '-');
+    const cfg = (paper?.config as { paperKey?: string; passageRef?: string } | null) ?? {};
+    const fixtureDir = (d: string) => path.join(__dirname, '..', '..', 'test-fixtures', d);
 
-    const file = path.join(
-      __dirname, '..', '..', 'test-fixtures', 'singapore-olevel-1128', 'basic-wordlists.json',
-    );
-    if (!fs.existsSync(file)) {
-      this.logger.warn(`basic-wordlists.json not found at ${file}`);
-      return;
+    let list: { items: Array<{ word: string; context: string }> } | null = null;
+    let story = '';
+
+    const olevelMatch = (cfg.paperKey ?? '').match(/olevel_(basic_\d+_[a-z0-9_]+?)(?:_v\d+)?\/Paper/);
+    const lightMatch = (cfg.passageRef ?? '').match(/^IELTS\/ielts_light_[^/]*\/Test(\d+)\/P\d+$/);
+
+    if (olevelMatch) {
+      story = olevelMatch[1].replace(/_/g, '-');
+      const file = path.join(fixtureDir('singapore-olevel-1128'), 'basic-wordlists.json');
+      if (!fs.existsSync(file)) {
+        this.logger.warn(`basic-wordlists.json not found at ${file}`);
+        return;
+      }
+      const data = JSON.parse(fs.readFileSync(file, 'utf-8')) as {
+        lists: Array<{ story: string; items: Array<{ word: string; context: string }> }>;
+      };
+      list = data.lists.find((l) => l.story === story) ?? null;
+    } else if (lightMatch) {
+      // 雅思轻量：Test<n> → 目录里排序第 n 个 fixture（与 ingest-ielts-batch
+      // 分配 testNumber 的规则一致），词表在它自己的 wordlist 字段里。
+      const dir = fixtureDir('ielts-light-2026');
+      if (!fs.existsSync(dir)) {
+        this.logger.warn(`ielts-light-2026 fixtures not found at ${dir}`);
+        return;
+      }
+      const files = fs.readdirSync(dir).filter((f) => f.endsWith('.json')).sort();
+      const f = files[Number(lightMatch[1]) - 1];
+      if (!f) {
+        this.logger.warn(`no ielts-light fixture for ${cfg.passageRef}`);
+        return;
+      }
+      story = f.replace(/\.json$/, '');
+      const d = JSON.parse(fs.readFileSync(path.join(dir, f), 'utf-8')) as {
+        wordlist?: Array<{ word: string; example: string }>;
+      };
+      list = d.wordlist?.length
+        ? { items: d.wordlist.map((w) => ({ word: w.word, context: w.example })) }
+        : null;
+    } else {
+      return; // 这一层不需要推词表
     }
-    const data = JSON.parse(fs.readFileSync(file, 'utf-8')) as {
-      lists: Array<{ story: string; items: Array<{ word: string; context: string }> }>;
-    };
-    const list = data.lists.find((l) => l.story === story);
+
     if (!list) {
-      this.logger.warn(`no wordlist for story=${story} (paperKey=${paperKey})`);
+      this.logger.warn(`no wordlist for story=${story}`);
       return;
     }
     // 用一个 admin 身份推（pushWords 校验 canActOnClass，admin 全通过）
@@ -754,7 +793,7 @@ export class MorningQuizService {
       { id: admin.id, role: 'admin', ip: null },
     );
     this.logger.log(
-      `basic wordlist pushed: story=${story} class=${classId} created=${r.created} skipped=${r.skipped}`,
+      `wordlist pushed: story=${story} class=${classId} created=${r.created} skipped=${r.skipped}`,
     );
   }
 
