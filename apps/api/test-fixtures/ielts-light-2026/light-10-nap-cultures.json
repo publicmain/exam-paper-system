@@ -1,0 +1,74 @@
+{
+  "setCode": "ielts_light_2026",
+  "provenanceTag": "ai_authored_ielts_light",
+  "level": "ielts_light",
+  "passageTitle": "The Afternoon Sleep",
+  "note": "NOT STUDENT-FACING. 原创短文，非任何真题。雅思轻量层：250-350 词 + 6 题（TFNG×3 + 句子填空×3）+ 8 词配套词表。TFNG 三条覆盖 TRUE/FALSE/NOT GIVEN 各一；填空答案逐字出现在原文且为单词。",
+  "passage": "Somewhere between one and four in the afternoon, most people become noticeably less alert. Reaction times slow, mistakes increase, and drivers are more likely to crash. The dip happens whether or not lunch was eaten, which rules out the usual explanation about a heavy meal.\n\nSleep researchers regard it as built in. The body's internal clock produces two low points in each twenty-four hours: a deep one in the small hours and a shallower one in the early afternoon. Cultures that developed in hot climates arranged the working day around the second, closing shops in the middle of the day and reopening in the cooler evening.\n\nLaboratory work supports the practice. A nap of ten to twenty minutes improves alertness for two to three hours afterwards, and does so more reliably than caffeine. Longer naps are risky: sleeping beyond about thirty minutes brings the sleeper into deeper stages, and waking from those produces a heavy, confused feeling that can last half an hour and leaves the person worse off than before.\n\nSeveral large companies have installed rooms for the purpose, and some hospitals now schedule naps for staff on night shifts, having found that the alternative is errors. Where they exist, take-up is high.\n\nThe obstacle is not evidence but appearance. In many workplaces sleeping is read as a sign that somebody is not committed, and the employee who takes a twenty-minute nap looks lazier than the one who stares at a screen for three unproductive hours. Changing that impression has proved considerably harder than finding somewhere to lie down.",
+  "questions": [
+    {
+      "n": 1,
+      "questionType": "short_answer",
+      "taskType": "true_false_not_given",
+      "instruction": "Do the following statements agree with the information given in the passage? Write TRUE if the statement agrees with the information, FALSE if the statement contradicts the information, or NOT GIVEN if there is no information on this.",
+      "item": "The afternoon dip occurs even when no lunch has been eaten.",
+      "answer": "TRUE",
+      "marks": 1
+    },
+    {
+      "n": 2,
+      "questionType": "short_answer",
+      "taskType": "true_false_not_given",
+      "instruction": "Do the following statements agree with the information given in the passage? Write TRUE if the statement agrees with the information, FALSE if the statement contradicts the information, or NOT GIVEN if there is no information on this.",
+      "item": "The longer a nap lasts, the more refreshed the sleeper feels.",
+      "answer": "FALSE",
+      "marks": 1
+    },
+    {
+      "n": 3,
+      "questionType": "short_answer",
+      "taskType": "true_false_not_given",
+      "instruction": "Do the following statements agree with the information given in the passage? Write TRUE if the statement agrees with the information, FALSE if the statement contradicts the information, or NOT GIVEN if there is no information on this.",
+      "item": "Napping at work is now more common in Asia than in Europe.",
+      "answer": "NOT GIVEN",
+      "marks": 1
+    },
+    {
+      "n": 4,
+      "questionType": "short_answer",
+      "taskType": "sentence_completion",
+      "instruction": "Complete the sentences below. Choose ONE WORD ONLY from the passage for each answer.",
+      "item": "The internal clock produces two low points, the shallower one in the early ______.",
+      "answer": "afternoon",
+      "marks": 1
+    },
+    {
+      "n": 5,
+      "questionType": "short_answer",
+      "taskType": "sentence_completion",
+      "instruction": "Complete the sentences below. Choose ONE WORD ONLY from the passage for each answer.",
+      "item": "A short nap raises alertness more dependably than ______ does.",
+      "answer": "caffeine",
+      "marks": 1
+    },
+    {
+      "n": 6,
+      "questionType": "short_answer",
+      "taskType": "sentence_completion",
+      "instruction": "Complete the sentences below. Choose ONE WORD ONLY from the passage for each answer.",
+      "item": "The main obstacle to workplace napping is not evidence but ______.",
+      "answer": "appearance",
+      "marks": 1
+    }
+  ],
+  "wordlist": [
+    { "word": "alert", "meaning": "警觉的、清醒的", "example": "Somewhere between one and four in the afternoon, most people become noticeably less alert." },
+    { "word": "dip", "meaning": "下降、低谷", "example": "The dip happens whether or not lunch was eaten." },
+    { "word": "internal", "meaning": "内部的", "example": "The body's internal clock produces two low points in each twenty-four hours." },
+    { "word": "reliably", "meaning": "可靠地", "example": "…and does so more reliably than caffeine." },
+    { "word": "confused", "meaning": "迷糊的、混乱的", "example": "…waking from those produces a heavy, confused feeling that can last half an hour." },
+    { "word": "install", "meaning": "安装、设置", "example": "Several large companies have installed rooms for the purpose." },
+    { "word": "obstacle", "meaning": "障碍", "example": "The obstacle is not evidence but appearance." },
+    { "word": "committed", "meaning": "投入的、尽心的", "example": "…sleeping is read as a sign that somebody is not committed." }
+  ]
+}

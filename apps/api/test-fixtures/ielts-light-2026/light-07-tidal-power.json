@@ -1,0 +1,74 @@
+{
+  "setCode": "ielts_light_2026",
+  "provenanceTag": "ai_authored_ielts_light",
+  "level": "ielts_light",
+  "passageTitle": "Power from the Tide",
+  "note": "NOT STUDENT-FACING. 原创短文，非任何真题。雅思轻量层：250-350 词 + 6 题（TFNG×3 + 句子填空×3）+ 8 词配套词表。TFNG 三条覆盖 TRUE/FALSE/NOT GIVEN 各一；填空答案逐字出现在原文且为单词。",
+  "passage": "Wind and sunshine are unreliable. Clouds arrive, the air goes still, and output falls without warning. Tides do neither. They are produced by the pull of the moon, and their timing can be calculated centuries in advance. For an electricity grid, which must match supply to demand minute by minute, that predictability is worth a great deal.\n\nThe simplest way to use a tide is a barrage — a dam built across the mouth of an estuary. Water is trapped behind it at high tide and released through turbines as the tide falls. The largest example, in France, has been generating since 1966 and still works well.\n\nBut barrages are rarely built now, because of what they do to the estuary behind them. Mudflats that are normally uncovered twice a day stay submerged, and the birds that feed on them lose their food supply. Fish moving between river and sea must pass through the turbines.\n\nEngineers have therefore turned to underwater turbines, which sit on the seabed in a fast current and turn as the water flows past. They look like wind turbines and work on the same principle, but water is roughly eight hundred times denser than air, so a much smaller blade produces the same power. Nothing is dammed and the estuary is left intact.\n\nThe drawback is cost. Salt water destroys machinery, and repairing a turbine ten metres below the surface is far harder than climbing a tower on land. Tidal electricity remains more expensive than wind or solar, and only a handful of commercial sites exist. Its supporters argue that the price will fall as it did for wind, and that a grid full of unpredictable sources will eventually pay well for one it can rely on.",
+  "questions": [
+    {
+      "n": 1,
+      "questionType": "short_answer",
+      "taskType": "true_false_not_given",
+      "instruction": "Do the following statements agree with the information given in the passage? Write TRUE if the statement agrees with the information, FALSE if the statement contradicts the information, or NOT GIVEN if there is no information on this.",
+      "item": "Tidal output can be predicted a long time ahead.",
+      "answer": "TRUE",
+      "marks": 1
+    },
+    {
+      "n": 2,
+      "questionType": "short_answer",
+      "taskType": "true_false_not_given",
+      "instruction": "Do the following statements agree with the information given in the passage? Write TRUE if the statement agrees with the information, FALSE if the statement contradicts the information, or NOT GIVEN if there is no information on this.",
+      "item": "Tidal electricity currently costs less than wind power.",
+      "answer": "FALSE",
+      "marks": 1
+    },
+    {
+      "n": 3,
+      "questionType": "short_answer",
+      "taskType": "true_false_not_given",
+      "instruction": "Do the following statements agree with the information given in the passage? Write TRUE if the statement agrees with the information, FALSE if the statement contradicts the information, or NOT GIVEN if there is no information on this.",
+      "item": "The French barrage supplies most of that country's electricity.",
+      "answer": "NOT GIVEN",
+      "marks": 1
+    },
+    {
+      "n": 4,
+      "questionType": "short_answer",
+      "taskType": "sentence_completion",
+      "instruction": "Complete the sentences below. Choose ONE WORD ONLY from the passage for each answer.",
+      "item": "A ______ is a dam built across the mouth of an estuary to trap water.",
+      "answer": "barrage",
+      "marks": 1
+    },
+    {
+      "n": 5,
+      "questionType": "short_answer",
+      "taskType": "sentence_completion",
+      "instruction": "Complete the sentences below. Choose ONE WORD ONLY from the passage for each answer.",
+      "item": "Because water is much ______ than air, a smaller blade gives the same power.",
+      "answer": "denser",
+      "marks": 1
+    },
+    {
+      "n": 6,
+      "questionType": "short_answer",
+      "taskType": "sentence_completion",
+      "instruction": "Complete the sentences below. Choose ONE WORD ONLY from the passage for each answer.",
+      "item": "Behind a barrage, ______ that are usually exposed twice a day remain underwater.",
+      "answer": "mudflats",
+      "marks": 1
+    }
+  ],
+  "wordlist": [
+    { "word": "unreliable", "meaning": "不可靠的", "example": "Wind and sunshine are unreliable." },
+    { "word": "predictability", "meaning": "可预测性", "example": "For an electricity grid, which must match supply to demand minute by minute, that predictability is worth a great deal." },
+    { "word": "estuary", "meaning": "河口、入海口", "example": "The simplest way to use a tide is a barrage — a dam built across the mouth of an estuary." },
+    { "word": "turbine", "meaning": "涡轮机", "example": "Water is trapped behind it at high tide and released through turbines as the tide falls." },
+    { "word": "submerged", "meaning": "被水淹没的", "example": "Mudflats that are normally uncovered twice a day stay submerged." },
+    { "word": "dense", "meaning": "密度大的", "example": "…water is roughly eight hundred times denser than air, so a much smaller blade produces the same power." },
+    { "word": "intact", "meaning": "完好无损的", "example": "Nothing is dammed and the estuary is left intact." },
+    { "word": "drawback", "meaning": "缺点、不利之处", "example": "The drawback is cost." }
+  ]
+}

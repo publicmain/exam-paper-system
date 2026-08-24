@@ -203,13 +203,19 @@ export class ParentPortalService {
       className: s.assignment?.class?.name ?? null,
     }));
 
+    // 出勤停用后（2026-08-20）准时率必然是 100% —— 扫了码的一律记
+    // on_time，没扫的根本不产生行，分子恒等于分母。给家长看一个永远
+    // 满分的指标比不给更糟：它会被当成「孩子每天准时到校」的证据。
+    // 关掉时直接置 null，由前端隐藏整栏。
+    const attendanceTracking = process.env.MORNING_QUIZ_ATTENDANCE_TRACKING === 'on';
     const onTimeCount = attendance.filter((a) => a.status === 'on_time').length;
     const consideredCount = attendance.filter(
       (a) => a.status === 'on_time' || a.status === 'late',
     ).length;
-    const onTimeRate = consideredCount
-      ? Math.round((onTimeCount / consideredCount) * 100) / 100
-      : null;
+    const onTimeRate =
+      attendanceTracking && consideredCount
+        ? Math.round((onTimeCount / consideredCount) * 100) / 100
+        : null;
     const scored = submissions.filter(
       (s) => s.autoScore != null && s.maxScore && s.maxScore > 0,
     );
@@ -226,6 +232,9 @@ export class ParentPortalService {
       classes,
       recentAttendance,
       recentSubmissions,
+      // attendanceTracking=false 时前端隐藏出勤相关展示，并说明本学期
+      // 不再统计出勤（而不是显示 0 或空白，那会被读成「全勤」或「故障」）
+      attendanceTracking,
       summary: { onTimeRate, avgScore },
     };
   }

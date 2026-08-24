@@ -1,0 +1,74 @@
+{
+  "setCode": "ielts_light_2026",
+  "provenanceTag": "ai_authored_ielts_light",
+  "level": "ielts_light",
+  "passageTitle": "Why We Yawn",
+  "note": "NOT STUDENT-FACING. 原创短文，非任何真题。雅思轻量层：250-350 词 + 6 题（TFNG×3 + 句子填空×3）+ 8 词配套词表。TFNG 三条覆盖 TRUE/FALSE/NOT GIVEN 各一；填空答案逐字出现在原文且为单词。",
+  "passage": "Everybody yawns. Human babies do it before they are born, and so do dogs, cats, fish and birds. For something so common, it is remarkably poorly understood.\n\nThe oldest explanation was that yawning brings in extra oxygen when the blood is short of it. This idea survived for two hundred years and was finally tested in the 1980s. Volunteers were given air with more oxygen than normal, then air with more carbon dioxide. Neither changed how often they yawned. The theory was quietly abandoned.\n\nA newer proposal is that a yawn cools the brain. The jaw stretches wide, which increases blood flow to the head, and the deep breath draws in air that is usually cooler than body temperature. Supporting this, people yawn less when holding something cold against the forehead, and more in warm rooms than in cool ones.\n\nThe strangest feature of yawning is that it spreads. Seeing someone yawn, hearing one, or simply reading about yawning makes it more likely that you will do so within a few minutes. This effect is stronger between people who know each other well, and strongest of all between close family members. Children under four are not affected at all, and neither are most children with certain developmental conditions.\n\nThat pattern has led researchers to connect contagious yawning with empathy — the capacity to share what another person is feeling. Dogs, which have lived alongside humans for thousands of years, catch yawns from their owners; wolves do not catch them from people. Whatever a yawn was originally for, it appears to have acquired a second job as a signal passed between members of a group.",
+  "questions": [
+    {
+      "n": 1,
+      "questionType": "short_answer",
+      "taskType": "true_false_not_given",
+      "instruction": "Do the following statements agree with the information given in the passage? Write TRUE if the statement agrees with the information, FALSE if the statement contradicts the information, or NOT GIVEN if there is no information on this.",
+      "item": "The oxygen theory of yawning was disproved by experiment.",
+      "answer": "TRUE",
+      "marks": 1
+    },
+    {
+      "n": 2,
+      "questionType": "short_answer",
+      "taskType": "true_false_not_given",
+      "instruction": "Do the following statements agree with the information given in the passage? Write TRUE if the statement agrees with the information, FALSE if the statement contradicts the information, or NOT GIVEN if there is no information on this.",
+      "item": "Very young children catch yawns from adults just as older people do.",
+      "answer": "FALSE",
+      "marks": 1
+    },
+    {
+      "n": 3,
+      "questionType": "short_answer",
+      "taskType": "true_false_not_given",
+      "instruction": "Do the following statements agree with the information given in the passage? Write TRUE if the statement agrees with the information, FALSE if the statement contradicts the information, or NOT GIVEN if there is no information on this.",
+      "item": "Yawning lasts longer in humans than in other animals.",
+      "answer": "NOT GIVEN",
+      "marks": 1
+    },
+    {
+      "n": 4,
+      "questionType": "short_answer",
+      "taskType": "sentence_completion",
+      "instruction": "Complete the sentences below. Choose ONE WORD ONLY from the passage for each answer.",
+      "item": "According to the newer proposal, a yawn works by cooling the ______.",
+      "answer": "brain",
+      "marks": 1
+    },
+    {
+      "n": 5,
+      "questionType": "short_answer",
+      "taskType": "sentence_completion",
+      "instruction": "Complete the sentences below. Choose ONE WORD ONLY from the passage for each answer.",
+      "item": "Contagious yawning is strongest between close ______ members.",
+      "answer": "family",
+      "marks": 1
+    },
+    {
+      "n": 6,
+      "questionType": "short_answer",
+      "taskType": "sentence_completion",
+      "instruction": "Complete the sentences below. Choose ONE WORD ONLY from the passage for each answer.",
+      "item": "Researchers link catching yawns to ______, the ability to share another's feelings.",
+      "answer": "empathy",
+      "marks": 1
+    }
+  ],
+  "wordlist": [
+    { "word": "remarkably", "meaning": "非常地、显著地", "example": "For something so common, it is remarkably poorly understood." },
+    { "word": "volunteer", "meaning": "志愿者", "example": "Volunteers were given air with more oxygen than normal, then air with more carbon dioxide." },
+    { "word": "abandon", "meaning": "放弃", "example": "The theory was quietly abandoned." },
+    { "word": "proposal", "meaning": "提议、假说", "example": "A newer proposal is that a yawn cools the brain." },
+    { "word": "stretch", "meaning": "伸展、张开", "example": "The jaw stretches wide, which increases blood flow to the head." },
+    { "word": "contagious", "meaning": "会传染的", "example": "That pattern has led researchers to connect contagious yawning with empathy." },
+    { "word": "empathy", "meaning": "共情、同理心", "example": "…empathy — the capacity to share what another person is feeling." },
+    { "word": "acquire", "meaning": "获得", "example": "…it appears to have acquired a second job as a signal passed between members of a group." }
+  ]
+}

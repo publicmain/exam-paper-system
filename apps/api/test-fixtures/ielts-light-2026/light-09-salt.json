@@ -1,0 +1,74 @@
+{
+  "setCode": "ielts_light_2026",
+  "provenanceTag": "ai_authored_ielts_light",
+  "level": "ielts_light",
+  "passageTitle": "The Most Valuable Rock",
+  "note": "NOT STUDENT-FACING. 原创短文，非任何真题。雅思轻量层：250-350 词 + 6 题（TFNG×3 + 句子填空×3）+ 8 词配套词表。TFNG 三条覆盖 TRUE/FALSE/NOT GIVEN 各一；填空答案逐字出现在原文且为单词。",
+  "passage": "Salt now costs almost nothing. For most of human history it was among the most valuable substances traded, and the reason is straightforward: before refrigeration, it was the main way of keeping food from rotting.\n\nSalt draws water out of the cells of meat and fish, and out of the bacteria that would otherwise multiply in them. Without water, the bacteria cannot grow. A salted fish could travel for months; a fresh one lasted a day. Whole economies were built on this single fact. Fleets sailed to distant waters because the catch could be preserved before it came home.\n\nBecause everyone needed salt and few places produced it, it was easy to tax. Governments across Europe and Asia did so for centuries, and the tax was widely hated. In France the salt tax was among the grievances that preceded the revolution of 1789. In India, a British monopoly on salt production led Gandhi to walk to the sea in 1930 and make some himself, an act of deliberate lawbreaking that drew worldwide attention.\n\nThe trade also drew lines on the map. Caravans crossed the Sahara carrying slabs of salt southwards and returning with gold, and several cities grew wealthy simply because a salt road passed through them.\n\nWhat ended all this was not a discovery about salt but one about cold. Mechanical refrigeration spread through the late nineteenth century, and food could be kept without any chemical at all. Salt lost its strategic value within a few decades and became what it is today: the cheapest thing on the shelf, and the only rock most people eat.",
+  "questions": [
+    {
+      "n": 1,
+      "questionType": "short_answer",
+      "taskType": "true_false_not_given",
+      "instruction": "Do the following statements agree with the information given in the passage? Write TRUE if the statement agrees with the information, FALSE if the statement contradicts the information, or NOT GIVEN if there is no information on this.",
+      "item": "Salt preserves food by removing water that bacteria need.",
+      "answer": "TRUE",
+      "marks": 1
+    },
+    {
+      "n": 2,
+      "questionType": "short_answer",
+      "taskType": "true_false_not_given",
+      "instruction": "Do the following statements agree with the information given in the passage? Write TRUE if the statement agrees with the information, FALSE if the statement contradicts the information, or NOT GIVEN if there is no information on this.",
+      "item": "Salt lost its value because a cheaper kind of salt was discovered.",
+      "answer": "FALSE",
+      "marks": 1
+    },
+    {
+      "n": 3,
+      "questionType": "short_answer",
+      "taskType": "true_false_not_given",
+      "instruction": "Do the following statements agree with the information given in the passage? Write TRUE if the statement agrees with the information, FALSE if the statement contradicts the information, or NOT GIVEN if there is no information on this.",
+      "item": "Gandhi was arrested immediately after reaching the sea.",
+      "answer": "NOT GIVEN",
+      "marks": 1
+    },
+    {
+      "n": 4,
+      "questionType": "short_answer",
+      "taskType": "sentence_completion",
+      "instruction": "Complete the sentences below. Choose ONE WORD ONLY from the passage for each answer.",
+      "item": "Before ______ existed, salt was the main way of stopping food from rotting.",
+      "answer": "refrigeration",
+      "marks": 1
+    },
+    {
+      "n": 5,
+      "questionType": "short_answer",
+      "taskType": "sentence_completion",
+      "instruction": "Complete the sentences below. Choose ONE WORD ONLY from the passage for each answer.",
+      "item": "Salt was easy to ______ because everyone needed it and few places made it.",
+      "answer": "tax",
+      "marks": 1
+    },
+    {
+      "n": 6,
+      "questionType": "short_answer",
+      "taskType": "sentence_completion",
+      "instruction": "Complete the sentences below. Choose ONE WORD ONLY from the passage for each answer.",
+      "item": "Across the Sahara, ______ carried salt south and brought gold back.",
+      "answer": "caravans",
+      "marks": 1
+    }
+  ],
+  "wordlist": [
+    { "word": "substance", "meaning": "物质", "example": "For most of human history it was among the most valuable substances traded." },
+    { "word": "straightforward", "meaning": "简单明了的", "example": "…the reason is straightforward: before refrigeration, it was the main way of keeping food from rotting." },
+    { "word": "rot", "meaning": "腐烂", "example": "…it was the main way of keeping food from rotting." },
+    { "word": "multiply", "meaning": "繁殖、增多", "example": "…out of the bacteria that would otherwise multiply in them." },
+    { "word": "preserve", "meaning": "保存、保鲜", "example": "Fleets sailed to distant waters because the catch could be preserved before it came home." },
+    { "word": "grievance", "meaning": "不满、怨愤", "example": "In France the salt tax was among the grievances that preceded the revolution of 1789." },
+    { "word": "monopoly", "meaning": "垄断", "example": "In India, a British monopoly on salt production led Gandhi to walk to the sea in 1930." },
+    { "word": "strategic", "meaning": "战略性的", "example": "Salt lost its strategic value within a few decades." }
+  ]
+}

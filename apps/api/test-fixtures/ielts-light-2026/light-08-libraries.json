@@ -1,0 +1,74 @@
+{
+  "setCode": "ielts_light_2026",
+  "provenanceTag": "ai_authored_ielts_light",
+  "level": "ielts_light",
+  "passageTitle": "What Libraries Became",
+  "note": "NOT STUDENT-FACING. 原创短文，非任何真题。雅思轻量层：250-350 词 + 6 题（TFNG×3 + 句子填空×3）+ 8 词配套词表。TFNG 三条覆盖 TRUE/FALSE/NOT GIVEN 各一；填空答案逐字出现在原文且为单词。",
+  "passage": "When the internet arrived, a good many people predicted that public libraries would close. If any fact could be looked up from home, what was the building for?\n\nThe prediction was wrong, but not because borrowing held up. In most countries the number of books lent each year has indeed fallen. What rose instead was the number of visits. People came, and kept coming, for reasons that had little to do with the shelves.\n\nSurveys in several cities found the same pattern. The service users named most often was free internet access, used mainly by those without a connection at home — job seekers filling in applications, older residents managing pensions, new arrivals dealing with paperwork in an unfamiliar language. After that came a request that surprised the researchers: somewhere warm, quiet and free to sit, where nobody expects you to buy anything.\n\nLibraries have adapted accordingly. Many now run language classes, homework clubs and sessions teaching people to use a smartphone. Some lend tools, musical instruments or seeds. A few employ social workers, having found that the people who most need help are already walking through the door.\n\nNot everyone welcomes the change. Critics argue that a library is for books, and that asking it to absorb work the state has stopped doing elsewhere leaves it doing many things adequately and none of them well. Librarians tend to answer that they did not choose the role; it arrived, in the form of people who had nowhere else to go, and turning them away was never a serious option.",
+  "questions": [
+    {
+      "n": 1,
+      "questionType": "short_answer",
+      "taskType": "true_false_not_given",
+      "instruction": "Do the following statements agree with the information given in the passage? Write TRUE if the statement agrees with the information, FALSE if the statement contradicts the information, or NOT GIVEN if there is no information on this.",
+      "item": "The number of books borrowed has dropped in most countries.",
+      "answer": "TRUE",
+      "marks": 1
+    },
+    {
+      "n": 2,
+      "questionType": "short_answer",
+      "taskType": "true_false_not_given",
+      "instruction": "Do the following statements agree with the information given in the passage? Write TRUE if the statement agrees with the information, FALSE if the statement contradicts the information, or NOT GIVEN if there is no information on this.",
+      "item": "Everyone agrees that libraries should take on these new roles.",
+      "answer": "FALSE",
+      "marks": 1
+    },
+    {
+      "n": 3,
+      "questionType": "short_answer",
+      "taskType": "true_false_not_given",
+      "instruction": "Do the following statements agree with the information given in the passage? Write TRUE if the statement agrees with the information, FALSE if the statement contradicts the information, or NOT GIVEN if there is no information on this.",
+      "item": "Library staff are paid more than they were twenty years ago.",
+      "answer": "NOT GIVEN",
+      "marks": 1
+    },
+    {
+      "n": 4,
+      "questionType": "short_answer",
+      "taskType": "sentence_completion",
+      "instruction": "Complete the sentences below. Choose ONE WORD ONLY from the passage for each answer.",
+      "item": "While lending fell, the number of ______ to libraries went up.",
+      "answer": "visits",
+      "marks": 1
+    },
+    {
+      "n": 5,
+      "questionType": "short_answer",
+      "taskType": "sentence_completion",
+      "instruction": "Complete the sentences below. Choose ONE WORD ONLY from the passage for each answer.",
+      "item": "The most frequently named service was free ______ access.",
+      "answer": "internet",
+      "marks": 1
+    },
+    {
+      "n": 6,
+      "questionType": "short_answer",
+      "taskType": "sentence_completion",
+      "instruction": "Complete the sentences below. Choose ONE WORD ONLY from the passage for each answer.",
+      "item": "Some libraries now employ ______ workers to help visitors directly.",
+      "answer": "social",
+      "marks": 1
+    }
+  ],
+  "wordlist": [
+    { "word": "predict", "meaning": "预言、预测", "example": "…a good many people predicted that public libraries would close." },
+    { "word": "lent", "meaning": "lend（借出）的过去分词", "example": "In most countries the number of books lent each year has indeed fallen." },
+    { "word": "survey", "meaning": "调查", "example": "Surveys in several cities found the same pattern." },
+    { "word": "pension", "meaning": "养老金", "example": "…older residents managing pensions, new arrivals dealing with paperwork in an unfamiliar language." },
+    { "word": "adapt", "meaning": "适应、调整", "example": "Libraries have adapted accordingly." },
+    { "word": "absorb", "meaning": "承接、吸收", "example": "…asking it to absorb work the state has stopped doing elsewhere…" },
+    { "word": "adequately", "meaning": "勉强够用地", "example": "…leaves it doing many things adequately and none of them well." },
+    { "word": "critic", "meaning": "批评者", "example": "Critics argue that a library is for books." }
+  ]
+}

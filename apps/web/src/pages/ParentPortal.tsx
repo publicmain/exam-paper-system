@@ -52,6 +52,9 @@ interface ParentSummary {
 interface ParentPortalResponse {
   student: { id: string; name: string; archivedAt: string | null };
   classes: ParentClass[];
+  /** 本学期是否还在统计出勤（2026-08-20 起默认 false）。false 时隐藏
+   *  准时率 —— 那时它恒为 100%，会被家长误读成「孩子每天准时到校」。 */
+  attendanceTracking?: boolean;
   recentAttendance: ParentAttendance[];
   recentSubmissions: ParentSubmission[];
   summary: ParentSummary;
@@ -227,18 +230,30 @@ export default function ParentPortal() {
         {/* Section 1 — summary stat cards */}
         <section className="mb-6">
           <h2 className="text-sm font-semibold text-gray-700 mb-2">
-            本月考勤统计
+            {data.attendanceTracking === false ? '本月学习情况' : '本月考勤统计'}
           </h2>
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-            <div
-              className="bg-white rounded-lg shadow-sm p-4"
-              aria-label={`按时到课率 ${fmtPct(summary.onTimeRate)}`}
-            >
-              <div className="text-xs text-gray-500 mb-1">按时到课率</div>
-              <div className="text-2xl font-bold text-green-700">
-                {fmtPct(summary.onTimeRate)}
-              </div>
+          {data.attendanceTracking === false && (
+            <div className="mb-3 text-xs text-gray-600 bg-gray-50 border rounded-lg px-3 py-2 leading-relaxed">
+              本学期早测<strong>不再统计出勤</strong>：同一天有上午、下午两个作答时段，
+              学生可自行选择，因此「几点到校」不再由这套系统记录。下面显示的是孩子的
+              作答与成绩情况。
             </div>
+          )}
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            {/* 出勤停用时整块不渲染 —— 那时准时率恒为 100%（扫码的都记
+                on_time、没扫的不产生行），显示出来会被家长当成「孩子每天
+                准时到校」的证据。 */}
+            {data.attendanceTracking !== false && (
+              <div
+                className="bg-white rounded-lg shadow-sm p-4"
+                aria-label={`按时到课率 ${fmtPct(summary.onTimeRate)}`}
+              >
+                <div className="text-xs text-gray-500 mb-1">按时到课率</div>
+                <div className="text-2xl font-bold text-green-700">
+                  {fmtPct(summary.onTimeRate)}
+                </div>
+              </div>
+            )}
             <div
               className="bg-white rounded-lg shadow-sm p-4"
               aria-label={`平均得分 ${fmtNum(summary.avgScore)}`}
