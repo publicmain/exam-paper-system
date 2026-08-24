@@ -20,6 +20,7 @@ import { CurrentUser } from '../common/current-user.decorator';
 import { AllowHandoff, Public } from '../common/auth.guard';
 import { RateLimit } from '../common/rate-limit.guard';
 import { PrismaService } from '../common/prisma.service';
+import { closeNames } from '../common/name-suggest';
 import { StudentService } from '../student/student.service';
 import { AbsenceAlertService } from './absence-alert.service';
 import { MorningQuizExportService } from './morning-quiz-export.service';
@@ -630,7 +631,21 @@ export class MorningQuizController {
       },
     });
     if (allCandidates.length === 0) {
-      throw new NotFoundException({ code: 'student_not_found', typed: name });
+      // 相近姓名建议（学生十问修复 #9）：/my-history 是学生入口的第一道
+      // 门，输错一个字要给出路。只在查无此人时才多查一次名册。
+      let suggestions: string[] = [];
+      try {
+        const roster = await this.prisma.user.findMany({
+          where: {
+            role: 'student',
+            isActive: true,
+            classEnrollments: { some: { role: 'student', class: { archivedAt: null } } },
+          },
+          select: { name: true },
+        });
+        suggestions = closeNames(name, roster.map((r) => r.name));
+      } catch { /* 建议失败不影响报错本身 */ }
+      throw new NotFoundException({ code: 'student_not_found', typed: name, suggestions });
     }
     // Bug 5 — same-name disambiguation. If the lookup matches multiple
     // students AND the caller didn't specify which one (via ?studentId=),
