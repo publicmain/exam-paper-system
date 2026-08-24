@@ -27,7 +27,14 @@ function decodeJwt(token: string): JwtPayload | null {
     if (!part) return null;
     const b64 = part.replace(/-/g, '+').replace(/_/g, '/');
     const pad = b64.length % 4 ? '='.repeat(4 - (b64.length % 4)) : '';
-    return JSON.parse(atob(b64 + pad));
+    // atob 吐的是 Latin-1 字节串 —— 直接 JSON.parse 会把 UTF-8 的中文名
+    // 解成乱码（「王小明」→「çå°æ」）。这条路只有跨设备接力的
+    // handoff token 走（普通 scanToken 通过 /auth/me 从服务端取姓名），
+    // 所以一直没暴露；2026-08-24 用浏览器实测第二作答窗时才撞出来：
+    // 姓名乱码 → 成绩页的姓名匹配失败 → 学生看不到自己的卷子。
+    const bin = atob(b64 + pad);
+    const bytes = Uint8Array.from(bin, (c) => c.charCodeAt(0));
+    return JSON.parse(new TextDecoder().decode(bytes));
   } catch {
     return null;
   }
