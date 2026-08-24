@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
-import { useNavigate, useSearchParams } from 'react-router-dom';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { api } from '../lib/api';
 import { Spinner } from '../components/AsyncState';
 
@@ -43,6 +43,8 @@ export default function MyVocabReviewPage() {
   const afterSubmit = params.get('after') === 'submit';
 
   const [cards, setCards] = useState<Card[] | null>(null);
+  /** 到期队列已空（只在学生主动进来时用 —— 交卷流程直接放行） */
+  const [emptyQueue, setEmptyQueue] = useState(false);
   const [idx, setIdx] = useState(0);
   const [revealed, setRevealed] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -79,9 +81,19 @@ export default function MyVocabReviewPage() {
       .then((r: any) => {
         if (cancelled) return;
         const list: Card[] = r?.cards ?? [];
-        // 没有要复习的 → 直接放行，不打扰
+        // 没有要复习的：
+        //   · 交卷流程（被寄生在必经路径上）→ 直接放行，绝不打扰
+        //   · 学生**主动**点进来的 → 他是专门来背词的，把人踢走等于
+        //     告诉他「今天不用学了」。这时给一个「提前学」的选择：
+        //     队列空只说明到期的都还完了，本子里通常还压着几百个从没
+        //     碰过的词（生产库 2798 个）。
         if (list.length === 0) {
-          navigate(historyUrl, { replace: true });
+          if (afterSubmit) {
+            navigate(historyUrl, { replace: true });
+          } else {
+            setCards([]);
+            setEmptyQueue(true);
+          }
           return;
         }
         // 2026-08-14 调研后改：交卷后的必经环节从翻卡换成**客观自测**。
@@ -156,6 +168,36 @@ export default function MyVocabReviewPage() {
     return (
       <div className="min-h-screen bg-gray-50">
         <Spinner label="准备今日生词…" />
+      </div>
+    );
+  }
+
+  // 到期的都还完了 —— 学生主动进来才会看到这一屏（交卷流程直接放行）。
+  // 不能只说「今天没有了」就把人赶走：他是专门来背词的，而本子里通常
+  // 还压着大量从没碰过的词。给一条继续学的路。
+  if (emptyQueue) {
+    const qs =
+      `name=${encodeURIComponent(name)}` +
+      (studentId ? `&studentId=${encodeURIComponent(studentId)}` : '');
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center px-5">
+        <div className="bg-white rounded-2xl border shadow-sm p-7 max-w-sm w-full text-center">
+          <div className="text-4xl mb-2">✅</div>
+          <div className="text-xl font-bold text-gray-900">今天到期的都复习完了</div>
+          <p className="text-sm text-gray-600 mt-2 leading-relaxed">
+            间隔重复会在你快忘记时把它们送回来。想继续的话，可以做一轮自测 ——
+            自测不限于到期的词，随时都能练。
+          </p>
+          <Link
+            to={`/my-vocab/quiz?${qs}`}
+            className="press mt-5 block w-full py-3 rounded-xl bg-blue-600 text-white font-semibold"
+          >
+            🎯 做一轮自测
+          </Link>
+          <Link to={`/my-vocab?${qs}`} className="block mt-3 text-sm text-blue-600 underline">
+            ← 返回生词本
+          </Link>
+        </div>
       </div>
     );
   }

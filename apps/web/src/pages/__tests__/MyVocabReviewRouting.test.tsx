@@ -101,3 +101,28 @@ describe('交卷后的生词分流', () => {
     await waitFor(() => expect(screen.getByText('RESULT PAGE')).toBeInTheDocument());
   });
 });
+
+describe('学生主动来练（非交卷流程）', () => {
+  const SELF = '?name=%E5%BC%A0%E4%B8%89';
+
+  it('到期队列空时不把人赶走，给一条继续学的路', async () => {
+    // 学生是专门点进来背词的。只说「今天没有了」就跳走，等于告诉他
+    // 「不用学了」—— 而本子里通常还压着几百个从没碰过的词。
+    (api.vocabDue as any).mockResolvedValue({ cards: [] });
+    renderReview(SELF);
+    await waitFor(() => expect(screen.getByText(/今天到期的都复习完了/)).toBeInTheDocument());
+    expect(screen.getByRole('link', { name: /做一轮自测/ })).toBeInTheDocument();
+    // 没有被踢回成绩页
+    expect(screen.queryByText('HISTORY PAGE')).toBeNull();
+  });
+
+  it('主动进来且有新词时照常翻卡，不会被送进自测', async () => {
+    (api.vocabDue as any).mockResolvedValue({
+      cards: [card(), card({ headword: 'b', reps: 0 }), card({ headword: 'c', reps: 0 }),
+        card({ headword: 'd', reps: 0 }), card({ headword: 'e', reps: 0 })],
+    });
+    renderReview(SELF);
+    await waitFor(() => expect(screen.getByText(/今日生词/)).toBeInTheDocument());
+    expect(screen.queryByText('QUIZ PAGE')).toBeNull();
+  });
+});
