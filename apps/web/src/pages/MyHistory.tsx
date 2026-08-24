@@ -73,10 +73,14 @@ interface DisambigResponse {
 
 type LookupResponse = HistoryResponse | DisambigResponse;
 
+// 与 api 的 level-registry.ts 保持一致。取不到时调用处会回落到枚举名，
+// 不会崩，但学生会看到 ielts_light 这种内部名 —— 加等级时别忘了这里。
 const LEVEL_LABEL: Record<string, string> = {
   ielts_authentic: '雅思真题 · IELTS Authentic',
+  ielts_light: '雅思轻量 · IELTS Light',
+  olevel: 'O-Level 标准',
+  olevel_intermediate: 'O-Level 进阶',
   ielts_simplified: 'O-Level 基础 · Basic',
-  olevel: 'O-Level 英语',
 };
 
 export default function MyHistory() {

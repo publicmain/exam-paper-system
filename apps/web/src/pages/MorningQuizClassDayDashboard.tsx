@@ -18,12 +18,16 @@ import { Spinner, ErrorState } from '../components/AsyncState';
 
 const LEVEL_LABEL_SHORT: Record<string, string> = {
   ielts_authentic: '强',
+  ielts_light: '轻',
+  olevel_intermediate: '进',
   ielts_simplified: '基',
   olevel: '基',
 };
 
 const LEVEL_LABEL_FULL: Record<string, string> = {
   ielts_authentic: '强班 · IELTS Authentic',
+  ielts_light: '雅思轻量 · IELTS Light',
+  olevel_intermediate: 'O-Level 进阶 · Intermediate',
   ielts_simplified: 'O-Level 基础 · Basic',
   olevel: '基础班 · O-Level',
 };

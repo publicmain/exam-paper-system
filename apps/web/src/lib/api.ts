@@ -1,5 +1,15 @@
 export const BASE = (import.meta as any).env?.VITE_API_URL || '';
 
+/** 英语等级。与后端 prisma enum + level-registry.ts 一一对应。
+ *  加等级时改这一处即可 —— 原来四个签名各写一遍三值联合，
+ *  2026-08-24 加两层时全部漏改，靠 tsc 才发现。 */
+export type EnglishLevel =
+  | 'ielts_authentic'
+  | 'ielts_light'
+  | 'olevel'
+  | 'olevel_intermediate'
+  | 'ielts_simplified';
+
 function token(): string | null {
   return localStorage.getItem('auth_token');
 }
@@ -474,7 +484,7 @@ export const api = {
     ),
   setClassEnglishLevel: (
     classId: string,
-    level: 'ielts_authentic' | 'ielts_simplified' | 'olevel',
+    level: EnglishLevel,
   ) => request('PATCH', `/morning-quiz/classes/${classId}/english-level`, { level }),
   // 题库健康度 — per-(class, level) totalBank / usedRecent (累计已用, kept name
   // for API back-compat) / remaining counts,
@@ -482,7 +492,7 @@ export const api = {
   morningQuizBankStats: (classId: string): Promise<{
     classId: string;
     stats: Array<{
-      level: 'ielts_authentic' | 'ielts_simplified' | 'olevel';
+      level: EnglishLevel;
       totalBank: number;
       usedRecent: number;
       remaining: number;
@@ -494,7 +504,7 @@ export const api = {
   // batch-generate runs stop creating new ones.
   removeClassEnglishLevel: (
     classId: string,
-    level: 'ielts_authentic' | 'ielts_simplified' | 'olevel',
+    level: EnglishLevel,
   ) => request('DELETE', `/morning-quiz/classes/${classId}/english-level/${level}`),
   /** Round-4 attendance Excel export. Returns a Blob the caller saves
    *  via URL.createObjectURL.
@@ -590,7 +600,7 @@ export const api = {
   createMorningQuizSession: (body: {
     classId: string;
     date: string;
-    level?: 'ielts_authentic' | 'ielts_simplified' | 'olevel';
+    level?: EnglishLevel;
     paperId?: string;
   }) => request('POST', '/morning-quiz/sessions', body),
 

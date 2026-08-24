@@ -2,13 +2,20 @@ import { useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { api } from '../lib/api';
 
-type Level = 'ielts_authentic' | 'ielts_simplified' | 'olevel';
+type Level =
+  | 'ielts_authentic'
+  | 'ielts_light'
+  | 'olevel'
+  | 'olevel_intermediate'
+  | 'ielts_simplified';
 // R10 — three ascending difficulty bands. ielts_simplified replaces the
 // misnamed ielts_hard: it is the MIDDLE band (easier than authentic IELTS,
 // harder than O-Level), targeting strong O-Level students stretching toward
 // IELTS while keeping vocabulary in their reach.
 const LEVEL_LABEL: Record<Level, string> = {
   ielts_authentic: '雅思真题 · IELTS Authentic',
+  ielts_light: '雅思轻量 · IELTS Light',
+  olevel_intermediate: 'O-Level 进阶 · Intermediate',
   ielts_simplified: 'O-Level 基础 · O-Level Basic',
   olevel: 'O-Level 英语 · 1123',
 };

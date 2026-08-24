@@ -8,7 +8,23 @@ import InstallGuideSheet, {
 } from '../components/InstallGuideSheet';
 import { detectPlatform, isStandalone } from '../lib/pwa';
 
-type Level = 'ielts_authentic' | 'ielts_simplified' | 'olevel';
+type Level =
+  | 'ielts_authentic'
+  | 'ielts_light'
+  | 'ielts_simplified'
+  | 'olevel'
+  | 'olevel_intermediate';
+
+/**
+ * 学生扫码后看到的难度选择卡片。
+ *
+ * ⚠️ 加新等级时**必须同步这张表**。取不到配置时 `LEVEL_LABEL[level]`
+ * 是 undefined，下面读 `lab.tint` 会直接抛异常、整个选择页白屏 ——
+ * 学生连码都扫不进去。2026-08-24 加 ielts_light / olevel_intermediate
+ * 时就漏了这里，靠 levelFallback 兜底 + 这条注释防下次。
+ *
+ * 顺序 = 由难到易，与 level-registry.ts 的 order 一致。
+ */
 const LEVEL_LABEL: Record<Level, { zh: string; en: string; desc: string; tint: string }> = {
   ielts_authentic: {
     zh: '雅思真题',
@@ -28,12 +44,40 @@ const LEVEL_LABEL: Record<Level, { zh: string; en: string; desc: string; tint: s
     tint: 'bg-blue-50 border-blue-200 hover:bg-blue-100',
   },
   olevel: {
-    zh: 'O-Level 英语',
-    en: 'OLevel English',
+    zh: 'O-Level 标准',
+    en: 'OLevel Standard',
     desc: 'O-Level 记叙文理解,大多数同学选这个 · most students',
     tint: 'bg-emerald-50 border-emerald-200 hover:bg-emerald-100',
   },
+  // 2026-08-24 新增。雅思轻量：短文 + 6 题（判断 3 + 填空 3）+ 词汇，
+  // 题型骨架与真题一致，长度和词汇密度下调。
+  ielts_light: {
+    zh: '雅思轻量',
+    en: 'IELTS Light',
+    desc: '短篇雅思,题型和真题一样但更短 · lighter IELTS',
+    tint: 'bg-indigo-50 border-indigo-200 hover:bg-indigo-100',
+  },
+  // 2026-08-24 复活。O-Level 进阶：比标准层短、比基础层深。
+  olevel_intermediate: {
+    zh: 'O-Level 进阶',
+    en: 'OLevel Intermediate',
+    desc: '中等长度记叙文,比标准层短一些 · in between',
+    tint: 'bg-teal-50 border-teal-200 hover:bg-teal-100',
+  },
 };
+
+/** 取不到配置也不能让页面崩 —— 未登记的等级退化成朴素卡片，学生照样
+ *  能选、能进考卷。名字回落到枚举名，虽然难看但不挡路。 */
+function levelFallback(level: string) {
+  return (
+    LEVEL_LABEL[level as Level] ?? {
+      zh: level,
+      en: level,
+      desc: '',
+      tint: 'bg-gray-50 border-gray-200 hover:bg-gray-100',
+    }
+  );
+}
 
 interface RosterMeta {
   sessionId: string;
@@ -285,7 +329,7 @@ export default function MorningQuizScan() {
           </header>
           <div className="space-y-3">
             {meta.siblingSessions.map((s) => {
-              const lab = LEVEL_LABEL[s.level];
+              const lab = levelFallback(s.level);
               return (
                 <button
                   key={s.sessionId}
@@ -322,7 +366,7 @@ export default function MorningQuizScan() {
                 <>
                   {' · '}
                   <span className="text-blue-700 font-medium">
-                    {LEVEL_LABEL[sib.level].zh}
+                    {levelFallback(sib.level).zh}
                   </span>
                   {meta.siblingSessions.length > 1 && (
                     <button
