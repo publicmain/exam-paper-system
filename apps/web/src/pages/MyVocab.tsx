@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { BASE, api } from '../lib/api';
+import { displayTranslation } from '../lib/dictDisplay';
 import { weeklyTrackTitle } from '../lib/isoWeek';
 import { canSpeak, speak } from '../lib/speech';
 import { track } from '../lib/track';
@@ -344,7 +345,7 @@ export default function MyVocabPage() {
                       ))}
                     </div>
                     <div className="mt-1 text-[15px] text-gray-800 whitespace-pre-wrap">
-                      {w.translation.split('\n').slice(0, 2).join('\n')}
+                      {displayTranslation(w.translation, 2)}
                     </div>
                   </div>
                   <button

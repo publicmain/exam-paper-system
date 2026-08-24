@@ -3,6 +3,7 @@ import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { api } from '../lib/api';
 import { findClozeSpan, trimSentence, windowAroundSpan } from '../lib/cloze';
 import { flushPending, submitReview } from '../lib/reviewQueue';
+import { displayTranslation } from '../lib/dictDisplay';
 import { canSpeak, speak } from '../lib/speech';
 import { track } from '../lib/track';
 import { Spinner } from '../components/AsyncState';
@@ -55,7 +56,12 @@ const SOURCE_TEXT: Record<string, string> = {
 };
 
 function sourceLine(card: Card): string | null {
-  const how = card.sourceType ? SOURCE_TEXT[card.sourceType] : null;
+  // 每周主线词也是 teacher_push，但来路不同 —— 按标题区分文案
+  const how = card.sourcePassageTitle?.startsWith('每周主线')
+    ? '本周主线词'
+    : card.sourceType
+      ? SOURCE_TEXT[card.sourceType]
+      : null;
   if (!how) return null;
   const d = card.addedAt ? new Date(card.addedAt) : null;
   const when = d && !Number.isNaN(d.getTime()) ? `${d.getMonth() + 1}/${d.getDate()} ` : '';
@@ -439,9 +445,10 @@ export default function MyVocabReviewPage() {
                   )}
                 </div>
                 {/* 释义放宽到 6 行（修复 #5）：一词多义时前两行可能根本
-                    不含文中义 —— mean 的动词义排在名词义后面就是坏例 */}
+                    不含文中义；[计]/[医] 等专业义项行滤掉（实测 borrow
+                    漏出「[计] 借位」）。 */}
                 <div className="mt-1.5 text-[15px] text-gray-800 whitespace-pre-wrap">
-                  {card.translation.split('\n').slice(0, 6).join('\n')}
+                  {displayTranslation(card.translation)}
                 </div>
                 {sourceLine(card) && (
                   <div className="mt-2 text-[11px] text-gray-400">{sourceLine(card)}</div>
