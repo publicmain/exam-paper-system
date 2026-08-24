@@ -1,5 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../common/prisma.service';
+import { findClozeSpan } from './cloze';
 import { StudentWordService } from './student-word.service';
 import { VocabReviewService } from './vocab-review.service';
 
@@ -161,20 +162,33 @@ export class VocabQuizService {
     const limit = Math.min(Math.max(input.limit ?? 8, 1), 15);
     const now = new Date();
 
+    // 复习过的到期词优先（reps>0）—— 自测是「考」，考一个从没学过的词
+    // 只会全错，还把它写成 FSRS 里的困难词。从没碰过的词（reps=0）排在
+    // 最后，只在复习过的词不够凑一套题时才顶上；它们的主阵地是交卷后的
+    // 翻卡学习（MyVocabReview 的先学后考流程）。
     const due = await this.prisma.studentWord.findMany({
-      where: { studentId: student.id, state: { not: 'known' }, due: { lte: now } },
+      where: { studentId: student.id, state: { not: 'known' }, due: { lte: now }, reps: { gt: 0 } },
       orderBy: [{ due: 'asc' }],
       take: limit,
     });
-    const fresh =
+    const dueUnseen =
       due.length < limit
         ? await this.prisma.studentWord.findMany({
-            where: { studentId: student.id, headword: { notIn: due.map((w) => w.headword) } },
+            where: { studentId: student.id, state: { not: 'known' }, due: { lte: now }, reps: 0 },
             orderBy: [{ createdAt: 'desc' }],
             take: limit - due.length,
           })
         : [];
-    const chosen = [...due, ...fresh];
+    const picked = [...due, ...dueUnseen];
+    const fresh =
+      picked.length < limit
+        ? await this.prisma.studentWord.findMany({
+            where: { studentId: student.id, headword: { notIn: picked.map((w) => w.headword) } },
+            orderBy: [{ createdAt: 'desc' }],
+            take: limit - picked.length,
+          })
+        : [];
+    const chosen = [...picked, ...fresh];
 
     // 干扰项池 1：该学生的全部生词（含已掌握的 —— 作干扰项正合适）
     const mine = await this.prisma.studentWord.findMany({
@@ -237,12 +251,14 @@ export class VocabQuizService {
       const distractors = pickDistractors(answer, [...poolMine, ...poolDict], seed);
       if (!distractors) continue;
 
-      const hasCloze =
-        !!w.contextSentence &&
-        !!w.surfaceForm &&
-        w.contextSentence.toLowerCase().includes(w.surfaceForm.toLowerCase());
+      // 挖空定位走 findClozeSpan —— 原来用 `includes` 判定 + `indexOf`
+      // 挖空，26% 的例句里词形只是子串（agree ⊂ agreed），会挖出
+      // 「＿＿＿d」这种残缺提示。定位不到就放弃 cloze 改出词义题，
+      // 绝不硬挖。
+      const clozeSpan =
+        w.contextSentence && w.surfaceForm ? findClozeSpan(w.contextSentence, w.surfaceForm) : null;
       // 有原句 → 原句填空（独有资产，优先）；否则看词选义 / 看义选词交替
-      const qtype: QuizQuestion['qtype'] = hasCloze
+      const qtype: QuizQuestion['qtype'] = clozeSpan
         ? 'cloze'
         : questions.length % 2 === 0
           ? 'word_to_meaning'
@@ -260,8 +276,7 @@ export class VocabQuizService {
       let prompt: string;
       if (qtype === 'cloze') {
         const s = w.contextSentence!;
-        const i = s.toLowerCase().indexOf(w.surfaceForm.toLowerCase());
-        prompt = s.slice(0, i) + '＿＿＿' + s.slice(i + w.surfaceForm.length);
+        prompt = s.slice(0, clozeSpan!.start) + '＿＿＿' + s.slice(clozeSpan!.end);
       } else if (qtype === 'word_to_meaning') {
         prompt = w.headword;
       } else {

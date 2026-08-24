@@ -219,9 +219,8 @@ export class VocabReviewService {
     });
     const byWord = new Map(entries.map((e) => [e.word, e]));
 
-    const totalDue = await this.prisma.studentWord.count({
-      where: { studentId: student.id, state: { not: 'known' }, due: { lte: new Date() } },
-    });
+    // 方法开头已经数过一遍完全相同的条件（backlog），别再打一次库
+    const totalDue = backlog;
 
     return {
       student: { id: student.id, name: student.name },

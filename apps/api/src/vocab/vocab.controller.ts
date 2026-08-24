@@ -24,6 +24,14 @@ import { canActOnClass } from '../common/roles';
  * 限流：点词是高频操作（读一篇文章可能点十几次），给一个宽松但足以挡住
  * 爬词典的阈值。
  */
+/**
+ * 限流口径（2026-08-24 调整）：scope:'ip' + 学校 NAT = **全班共用一个
+ * 配额**。34 人在 9:00 前后几分钟内同时走「交卷 → 翻卡(≤20 次评分) →
+ * 自测 → 错题重练」，单是 POST /review 就可能冲到 400+/分钟。原来的
+ * 60~120/分钟会让后半段学生集体 429 —— 而评分失败是静默吞掉的，表现为
+ * FSRS 默默丢复习记录。放宽后的数字按「34 人并发峰值 × 1.5」估，仍足以
+ * 挡住逐词爬词典的脚本。
+ */
 @Controller('vocab')
 export class VocabController {
   constructor(
@@ -39,7 +47,7 @@ export class VocabController {
 
   /** 查单词。查不到返回 { found: false } —— 前端显示「未收录」，绝不猜词义。 */
   @Public()
-  @RateLimit({ limit: 120, windowSec: 60, scope: 'ip' })
+  @RateLimit({ limit: 240, windowSec: 60, scope: 'ip' })
   @Get('lookup')
   async lookup(@Query('word') word?: string) {
     const w = (word ?? '').trim();
@@ -53,7 +61,7 @@ export class VocabController {
 
   /** 我的生词本。姓名匹配（同名时需带 studentId），与 /my-history 同口径。 */
   @Public()
-  @RateLimit({ limit: 60, windowSec: 60, scope: 'ip' })
+  @RateLimit({ limit: 180, windowSec: 60, scope: 'ip' })
   @Get('words')
   async listWords(@Query('name') name?: string, @Query('studentId') studentId?: string) {
     return this.words.listWords({ studentName: name ?? '', studentId: studentId || undefined });
@@ -95,7 +103,7 @@ export class VocabController {
 
   /** 今日待复习卡片（默认 5 张 —— 复习插在交卷后，给多了学生会直接跳过）。 */
   @Public()
-  @RateLimit({ limit: 60, windowSec: 60, scope: 'ip' })
+  @RateLimit({ limit: 180, windowSec: 60, scope: 'ip' })
   @Get('due')
   async due(
     @Query('name') name?: string,
@@ -111,7 +119,7 @@ export class VocabController {
 
   /** 提交一次复习评分 → FSRS 重新调度。 */
   @Public()
-  @RateLimit({ limit: 120, windowSec: 60, scope: 'ip' })
+  @RateLimit({ limit: 480, windowSec: 60, scope: 'ip' })
   @Post('review')
   async submitReview(@Body() body: unknown) {
     const schema = z.object({
@@ -132,7 +140,7 @@ export class VocabController {
    * 写回（对→good 错→again），复用同一条 FSRS 调度线。
    */
   @Public()
-  @RateLimit({ limit: 30, windowSec: 60, scope: 'ip' })
+  @RateLimit({ limit: 120, windowSec: 60, scope: 'ip' })
   @Get('quiz')
   async quizBuild(
     @Query('name') name?: string,
@@ -150,7 +158,7 @@ export class VocabController {
 
   /** 我的错题本。收录门槛见 mistake.service 顶部注释（不是每道错题都进）。 */
   @Public()
-  @RateLimit({ limit: 60, windowSec: 60, scope: 'ip' })
+  @RateLimit({ limit: 180, windowSec: 60, scope: 'ip' })
   @Get('mistakes')
   async listMistakes(
     @Query('name') name?: string,
@@ -189,7 +197,7 @@ export class VocabController {
    * 所以每道题带完整 passage 下发。每天最多 10 道。
    */
   @Public()
-  @RateLimit({ limit: 30, windowSec: 60, scope: 'ip' })
+  @RateLimit({ limit: 120, windowSec: 60, scope: 'ip' })
   @Get('mistakes/practice-queue')
   async practiceQueue(
     @Query('name') name?: string,
@@ -206,7 +214,7 @@ export class VocabController {
 
   /** 提交一次练习结果。做对且隔天再对一次 → 自动销账。 */
   @Public()
-  @RateLimit({ limit: 120, windowSec: 60, scope: 'ip' })
+  @RateLimit({ limit: 360, windowSec: 60, scope: 'ip' })
   @Post('mistakes/practice-result')
   async practiceResult(@Body() body: unknown) {
     const schema = z.object({
@@ -228,7 +236,7 @@ export class VocabController {
    * 只记 谁/哪类页面/哪天 —— 不记 IP、UA、停留时长。
    */
   @Public()
-  @RateLimit({ limit: 60, windowSec: 60, scope: 'ip' })
+  @RateLimit({ limit: 240, windowSec: 60, scope: 'ip' })
   @Post('page-view')
   async recordPageView(@Body() body: unknown) {
     const schema = z.object({
@@ -269,7 +277,7 @@ export class VocabController {
 
   /** 我的词汇统计。 */
   @Public()
-  @RateLimit({ limit: 60, windowSec: 60, scope: 'ip' })
+  @RateLimit({ limit: 180, windowSec: 60, scope: 'ip' })
   @Get('stats')
   async stats(@Query('name') name?: string, @Query('studentId') studentId?: string) {
     return this.review.stats({ studentName: name ?? '', studentId: studentId || undefined });

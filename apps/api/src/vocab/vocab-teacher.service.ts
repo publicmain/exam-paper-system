@@ -180,30 +180,23 @@ export class VocabTeacherService {
       select: { userId: true },
     });
 
-    let created = 0;
-    let skipped = 0;
-    for (const s of students) {
-      for (const r of resolved) {
-        const exists = await this.prisma.studentWord.findUnique({
-          where: { studentId_headword: { studentId: s.userId, headword: r.headword } },
-          select: { id: true },
-        });
-        if (exists) {
-          skipped++;
-          continue;
-        }
-        await this.prisma.studentWord.create({
-          data: {
-            studentId: s.userId,
-            headword: r.headword,
-            surfaceForm: r.surface,
-            sourceType: 'teacher_push',
-            contextSentence: r.context,
-          },
-        });
-        created++;
-      }
-    }
+    // 批量写入。原来是「学生 × 词」逐条 findUnique + create —— 34 人
+    // × 8 词 = 272 次往返，同步跑在 createSession 里；经公网代理跑
+    // 补推脚本时直接超时（2026-08-24 实测 10 分钟没跑完）。
+    // createMany + skipDuplicates 靠 (studentId, headword) 唯一约束
+    // 一次落库，幂等语义不变：已在本子里的词照样跳过、保留 FSRS 进度。
+    const data = students.flatMap((s) =>
+      resolved.map((r) => ({
+        studentId: s.userId,
+        headword: r.headword,
+        surfaceForm: r.surface,
+        sourceType: 'teacher_push' as const,
+        contextSentence: r.context,
+      })),
+    );
+    const res = await this.prisma.studentWord.createMany({ data, skipDuplicates: true });
+    const created = res.count;
+    const skipped = data.length - created;
     return {
       students: students.length,
       wordsResolved: resolved.map((r) => r.headword),

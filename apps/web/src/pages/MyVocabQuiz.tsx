@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { Link, useSearchParams } from 'react-router-dom';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { api } from '../lib/api';
 import { track } from '../lib/track';
 import { Spinner } from '../components/AsyncState';
@@ -52,6 +52,7 @@ type QueueItem = QuizQuestion & { retry?: boolean };
 
 export default function MyVocabQuizPage() {
   const [params] = useSearchParams();
+  const navigate = useNavigate();
   const name = params.get('name') ?? '';
   const studentId = params.get('studentId') ?? '';
 
@@ -113,7 +114,14 @@ export default function MyVocabQuizPage() {
         track('vocab_practice', name, studentId);
         setQueue(r.questions ?? []);
       })
-      .catch((e: any) => !cancelled && setError(String(e?.message ?? e)));
+      .catch((e: any) => {
+        if (cancelled) return;
+        // 交卷流程里自测挂了（限流 429 / 网络抖动）绝不能把学生困在错误页
+        // —— 他是来看成绩的，自测只是顺路。直接放行去成绩页。
+        // 主动来练的仍显示错误（他有明确的重试意愿）。
+        if (afterSubmit) navigate(historyUrl, { replace: true });
+        else setError(String(e?.message ?? e));
+      });
     return () => {
       cancelled = true;
     };

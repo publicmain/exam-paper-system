@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { api } from '../lib/api';
+import { findClozeSpan } from '../lib/cloze';
 import { Spinner } from '../components/AsyncState';
 
 /**
@@ -266,7 +267,16 @@ export default function MyVocabReviewPage() {
           </div>
           <button
             type="button"
-            onClick={() => navigate(historyUrl, { replace: true })}
+            // 交卷流程跳过→成绩页（他来的目的）；主动来练的跳过→回生词本，
+            // 被扔去成绩页会莫名其妙
+            onClick={() =>
+              navigate(
+                afterSubmit
+                  ? historyUrl
+                  : `/my-vocab?name=${encodeURIComponent(name)}${studentId ? `&studentId=${encodeURIComponent(studentId)}` : ''}`,
+                { replace: true },
+              )
+            }
             className="hit press text-[14px] text-gray-500 px-2 -mr-2 rounded-lg hover:text-gray-600"
           >跳过
           </button>
@@ -331,19 +341,27 @@ export default function MyVocabReviewPage() {
   );
 }
 
-/** 把原句里的该词挖成下划线 —— 先回忆，再看答案。 */
+/**
+ * 把原句里的该词挖成下划线 —— 先回忆，再看答案。
+ *
+ * 定位走 findClozeSpan（与自测出题同一套规格）。原来的 indexOf 有两个
+ * 真数据坏例（2026-08-24 审计，占 26%）：
+ *   · agree ⊂ agreed → 挖出「＿＿＿d」，残缺又漏答案
+ *   · 例句里根本没有该词 → 原样显示整句，答案直接可见
+ * 定位不到时不再假装挖空 —— 退化成学习卡：句子原样给，词高亮不出现
+ * （句里没有它），学生看完释义自评即可。
+ */
 function clozeSentence(sentence: string, surface: string) {
   if (!sentence) return <span className="text-gray-400">（无原句）</span>;
-  if (!surface) return sentence;
-  const i = sentence.toLowerCase().indexOf(surface.toLowerCase());
-  if (i < 0) return sentence;
+  const span = surface ? findClozeSpan(sentence, surface) : null;
+  if (!span) return sentence;
   return (
     <>
-      {sentence.slice(0, i)}
+      {sentence.slice(0, span.start)}
       <span className="inline-block min-w-[64px] border-b-2 border-amber-400 text-center text-amber-600 font-semibold">
         ?
       </span>
-      {sentence.slice(i + surface.length)}
+      {sentence.slice(span.end)}
     </>
   );
 }
