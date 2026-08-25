@@ -106,6 +106,28 @@ export class LessonService {
           rulesVersion: LESSON_RULES_VERSION,
         },
       });
+    } else if (frozen && frozen.rulesVersion < LESSON_RULES_VERSION && input.freeze) {
+      // 判定口径变了 → **重新冻结当天目标**。
+      //
+      // 这正是 rulesVersion 存在的理由：不做失效，它就只是个装饰。
+      // 真实例子：补段加上「每日最多 5 道」的上限那次，今天已经冻结的
+      // 学生仍然顶着 20 的旧目标，看到的是「1/20 道 · 约 20 分钟」——
+      // 修好的规则对他们不生效。
+      //
+      // 只重算**目标**，不动进度和完成时刻（那是既成事实）。
+      frozen = await this.prisma.dailyLessonCompletion.update({
+        where: { id: frozen.id },
+        data: {
+          readTarget: readNow.hasSession ? 1 : 0,
+          vocabTarget: vocabNow.target,
+          drillTarget: drillNow.target,
+          targetsFrozenAt: now,
+          rulesVersion: LESSON_RULES_VERSION,
+        },
+      });
+      this.logger.log(
+        `re-froze lesson targets for student=${student.id} (rules v${frozen.rulesVersion})`,
+      );
     }
 
     // 冻结记录缺失（教师看板 / 学生还没进过课程页）时用当下值兜底，

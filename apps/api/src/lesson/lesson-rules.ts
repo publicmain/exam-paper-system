@@ -20,7 +20,7 @@
  * 完成率是拿来做决策的指标。口径改过而历史数据不标版本，改口径前后的
  * 数字就不可比 —— 会得出「参与率涨了 8 个点」这种其实是尺子变了的结论。
  */
-export const LESSON_RULES_VERSION = 1;
+export const LESSON_RULES_VERSION = 2;
 
 /** 谁最终提交的。只有 student / teacher 计入完成。 */
 export type SubmitSource = 'student' | 'teacher' | 'system_eod';

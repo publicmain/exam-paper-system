@@ -15,6 +15,7 @@ import {
   drillTarget,
   DRILL_DAILY_CAP,
   readablePaperTitle,
+  LESSON_RULES_VERSION,
 } from './lesson-rules';
 
 /**
@@ -206,5 +207,21 @@ describe('readablePaperTitle —— 别把内部 setCode 摔到学生脸上', ()
     expect(readablePaperTitle(null)).toBeNull();
     expect(readablePaperTitle('')).toBeNull();
     expect(readablePaperTitle('Morning Quiz X/12345/Paper1')).toBeNull();
+  });
+});
+
+describe('LESSON_RULES_VERSION', () => {
+  it('是个正整数，且改判定时必须递增', () => {
+    // 这条测试本身拦不住忘记递增，但它把「版本号是判定的一部分」这件事
+    // 写进了测试文件 —— 改规则的人会在同一个文件里看到它。
+    expect(Number.isInteger(LESSON_RULES_VERSION)).toBe(true);
+    expect(LESSON_RULES_VERSION).toBeGreaterThanOrEqual(1);
+  });
+
+  it('v2 = 补段加了每日上限（drillTarget）', () => {
+    // v1 没有上限，课程页出现过「0/20 道」。加上限改变了完成判定，
+    // 所以必须换版本 —— 否则改口径前后的完成率不可比。
+    expect(LESSON_RULES_VERSION).toBeGreaterThanOrEqual(2);
+    expect(drillTarget(20)).toBeLessThan(20);
   });
 });
