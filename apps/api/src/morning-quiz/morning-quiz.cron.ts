@@ -1,5 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { Cron, CronExpression } from '@nestjs/schedule';
+import { allDayConfigured, allDayEnabled } from '../lesson/all-day';
 import {
   AttendanceSource,
   AttendanceStatus,
@@ -106,7 +107,14 @@ export class MorningQuizCron {
         finalSubmittedAt: null,
         status: { notIn: ['in_progress', 'practice'] },
       },
-      data: { finalSubmittedAt: now },
+      data: {
+        finalSubmittedAt: now,
+        // 系统收尾**不算学生完成**（4.0 A0）。缺了这一行，「开卷读了
+        // 标题就走」的学生第二天课程页会显示 ✅、连续天数照涨 ——
+        // 完成度就再也回答不了「这孩子今天到底学没学」。
+        submitSource: 'system_eod',
+        autoFinalizeReason: 'eod_lock',
+      },
     });
     if (stranded.count > 0) {
       this.logger.warn(
@@ -156,10 +164,15 @@ export class MorningQuizCron {
         makeupStart: s.makeupStart,
       });
       if (!open) continue;
+      // 全天开放的班不需要第二窗 —— 一整天都开着（4.0 阶段 B）。
+      // 开关默认关，这一行此刻恒为 false。
+      if (allDayEnabled(s.classId)) continue;
       await this.prisma.morningQuizSession.update({
         where: { id: s.id },
         data: {
-          makeupStart: combineLocal(dateIso, SECOND_WINDOW_START_LOCAL, tzOff),
+          // 全天模式下第二窗没有意义（一整天都开着），跳过 —— 见下面
+        // 循环开头的 allDayEnabled 判断
+        makeupStart: combineLocal(dateIso, SECOND_WINDOW_START_LOCAL, tzOff),
           makeupEnd: combineLocal(dateIso, SECOND_WINDOW_END_LOCAL, tzOff),
           // makeupOpenedById 留 null = 自动开
           status: MorningQuizStatus.active,
@@ -354,7 +367,13 @@ export class MorningQuizCron {
             submittedAt: new Date(),
             // 早上 09:00 收卷时这里是 undefined —— 刻意的，见上面
             // finalizeNow 的推导。答案门认的就是这一列。
-            ...(finalize ? { finalSubmittedAt: new Date() } : {}),
+            ...(finalize
+              ? {
+                  finalSubmittedAt: new Date(),
+                  submitSource: 'system_eod',
+                  autoFinalizeReason: 'window_close',
+                }
+              : {}),
             status: 'submitted',
             // autoScore 刻意不在这里写 0。原来写 0 是为了让 session 立刻
             // 处于一致状态，但 Phase 2 的自动判分跑在事务外、失败只记
@@ -380,7 +399,11 @@ export class MorningQuizCron {
             finalSubmittedAt: null,
             status: { notIn: ['in_progress', 'practice'] },
           },
-          data: { finalSubmittedAt: new Date() },
+          data: {
+            finalSubmittedAt: new Date(),
+            submitSource: 'system_eod',
+            autoFinalizeReason: 'stranded_draft_release',
+          },
         });
       }
 

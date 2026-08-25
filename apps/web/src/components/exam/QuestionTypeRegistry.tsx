@@ -50,8 +50,34 @@ function EmptyPaperCard() {
  * renderer is one switch case here plus a new component file.
  */
 
+/**
+ * 显式渲染器表（4.0 A0）。key 就是出卷时写进 `Paper.rendererKey` 的值。
+ *
+ * 下面那套推断是**从第一题的题型猜整卷**。卷内词汇题上线后，一份卷子里
+ * 同时有阅读题和词汇题，第一题是什么完全是抽题顺序的偶然 —— 抽题顺序
+ * 一变整卷就换了个渲染器。所以出卷时写死，这里直接查表。
+ */
+const RENDERERS: Record<string, (props: any) => JSX.Element> = {
+  ielts_reading: IELTSReadingPassage,
+  olevel_comprehension: OLevelComprehension,
+  olevel_cloze: OLevelCloze,
+  olevel_vocab: OLevelVocabInContext,
+  olevel_transformation: OLevelSentenceTransformation,
+  olevel_mcq: OLevelMcqList,
+};
+
 export function pickRenderer(paper: ExamPaper) {
   const first = paper?.questions?.[0];
+  // ── 显式渲染器优先，推断只作为存量卷的回退 ──
+  const explicitKey = (paper as { rendererKey?: string | null } | null | undefined)?.rendererKey;
+  if (explicitKey) {
+    const explicit = RENDERERS[explicitKey];
+    if (explicit) return explicit;
+    // 有 key 却查不到 —— 比没有 key 更值得喊：说明出卷端写了个前端
+    // 不认识的值，改了一边没改另一边
+    console.warn('[renderer] 未知的 rendererKey，回退到推断:', explicitKey);
+  }
+
   if (!first) return EmptyPaperCard;
 
   const c = first.snapshotContent ?? {};

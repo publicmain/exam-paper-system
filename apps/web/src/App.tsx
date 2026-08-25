@@ -64,6 +64,8 @@ const TeacherViewBanner = lazy(() => import('./components/TeacherViewBanner'));
 // 抹掉**。必须在任何 API 调用之前跑，所以放模块级 —— React 渲染之前就完成。
 adoptTeacherViewFromUrl();
 const ClassRegistrationPage = lazy(() => import('./pages/ClassRegistration'));
+const LessonBoardPage = lazy(() => import('./pages/LessonBoard'));
+const MyLessonPage = lazy(() => import('./pages/MyLesson'));
 const MarkerQueuePage = lazy(() => import('./pages/MarkerQueue'));
 const MarkerScriptPage = lazy(() => import('./pages/MarkerScript'));
 const ClassStatsPage = lazy(() => import('./pages/ClassStats'));
@@ -134,6 +136,8 @@ export default function App() {
     // /me —— 学生个人主页（2026-08-25 PIN 登录）。它自带登录卡，
     // 不能落进教师 JWT 守卫，否则学生看到的是教师登录页
     location.pathname === '/me' ||
+    // 4.0 今天的课 —— 与 /me 同类，学生自助入口，不能落进教师守卫
+    location.pathname === '/my-lesson' ||
     location.pathname === '/my-history' ||
     location.pathname.startsWith('/my-history/submission/') ||
     // 生词本 P2 —— 同一套公开 + 姓名匹配的学生自助入口
@@ -150,6 +154,7 @@ export default function App() {
         <TeacherViewBanner />
         <Routes>
         <Route path="/me" element={<MePage />} />
+        <Route path="/my-lesson" element={<MyLessonPage />} />
         <Route path="/my-history" element={<MyHistoryPage />} />
         <Route path="/my-history/submission/:submissionId" element={<MyHistoryDetailPage />} />
         <Route path="/my-vocab" element={<MyVocabPage />} />
@@ -329,6 +334,10 @@ export default function App() {
               {(user.role === 'admin' || user.role === 'head_teacher' || user.role === 'teacher') && (
                 <NavLink to="/classes" label="班级" />
               )}
+              {/* 完成度看板（4.0 阶段 A）：替代出勤视图 */}
+              {(user.role === 'admin' || user.role === 'head_teacher' || user.role === 'teacher') && (
+                <NavLink to="/lesson-board" label="完成度" />
+              )}
               {/* 集体注册台（2026-08-25）：开窗让全班当场认领 PIN */}
               {(user.role === 'admin' || user.role === 'head_teacher' || user.role === 'teacher') && (
                 <NavLink to="/class-registration" label="注册" />
@@ -435,6 +444,7 @@ export default function App() {
           {/* Path-B routes */}
           <Route path="/classes" element={<ClassesPage />} />
           <Route path="/class-registration" element={<ClassRegistrationPage />} />
+          <Route path="/lesson-board" element={<LessonBoardPage />} />
           <Route path="/homework" element={<HomeworkCoursesPage />} />
           <Route path="/homework/assignments/:assignmentId" element={<HomeworkDashboardPage />} />
           <Route path="/marker" element={<MarkerQueuePage />} />

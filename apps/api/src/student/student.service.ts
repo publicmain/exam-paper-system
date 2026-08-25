@@ -605,7 +605,7 @@ export class StudentService {
   async finalSubmit(
     submissionId: string,
     student: ActorCtx,
-    opts?: { deferAi?: boolean; final?: boolean },
+    opts?: { deferAi?: boolean; final?: boolean; source?: 'student' | 'teacher' | 'system_eod' },
   ) {
     const sub = await this.prisma.studentSubmission.findUnique({
       where: { id: submissionId },
@@ -719,7 +719,17 @@ export class StudentService {
         data: {
           submittedAt: new Date(),
           // 暂存提交不盖这个 —— 它是答案门的钥匙，见方法头注释
-          ...(opts?.final === false ? {} : { finalSubmittedAt: new Date() }),
+          ...(opts?.final === false
+            ? {}
+            : {
+                finalSubmittedAt: new Date(),
+                // 谁交的（4.0 A0）。只有 student / teacher 计入完成度 ——
+                // 系统 23:59 收尾走 cron 那条路，标 system_eod。
+                // 不显式传就按调用者角色推断：能走到这里说明**有人点了
+                // 交卷**，所以默认 student 是安全的。
+                submitSource:
+                  opts?.source ?? (student.role === 'student' ? 'student' : 'teacher'),
+              }),
           status: 'submitted',
           autoScore,
           // R15-Audit#3 — totalScore was left NULL after autoGrade so

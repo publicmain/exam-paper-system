@@ -68,6 +68,8 @@ export interface BatchScheduleInput {
 //
 // lateCutoff is set at 08:59:59 (NOT 09:00:00) so the strict `<` invariant
 // `lateCutoff < quizEnd` still holds and the boundary-second is unambiguous.
+import { windowTimesFor } from '../lesson/all-day';
+
 const ATTENDANCE_START_LOCAL = '08:30:00';
 const ATTENDANCE_END_LOCAL = '08:40:00';
 const LATE_CUTOFF_LOCAL = '08:59:59';
@@ -577,12 +579,22 @@ export class MorningQuizService {
     }
 
     const tzOff = Number(process.env.MORNING_QUIZ_TZ_OFFSET_MIN ?? 8 * 60);
-    const attendanceStart = combineLocal(dateIso, ATTENDANCE_START_LOCAL, tzOff);
-    const attendanceEnd = combineLocal(dateIso, ATTENDANCE_END_LOCAL, tzOff);
-    const lateCutoff = combineLocal(dateIso, LATE_CUTOFF_LOCAL, tzOff);
-    const quizEnd = combineLocal(dateIso, QUIZ_END_LOCAL, tzOff);
+    // 全天开放（4.0 阶段 B）默认**关**，此时下面两行取的就是原来的
+    // 08:30 / 09:00，行为一字不差。打开后窗口变成 00:00–23:59。
+    // 开关支持按班灰度，回滚只需改环境变量，见 lesson/all-day.ts。
+    const win = windowTimesFor(input.classId);
+    const attendanceStart = combineLocal(dateIso, win.attendanceStartLocal, tzOff);
+    // 出勤已于 2026-08-24 停用，attendanceEnd / lateCutoff 只为满足下面的
+    // 严格递增不变量而存在。全天模式下把它们贴着开窗时刻放。
+    const attendanceEnd = win.allDay
+      ? new Date(attendanceStart.getTime() + 60_000)
+      : combineLocal(dateIso, ATTENDANCE_END_LOCAL, tzOff);
+    const lateCutoff = win.allDay
+      ? new Date(attendanceStart.getTime() + 120_000)
+      : combineLocal(dateIso, LATE_CUTOFF_LOCAL, tzOff);
+    const quizEnd = combineLocal(dateIso, win.quizEndLocal, tzOff);
 
-    // Invariant: window times must be strictly ordered. Without this, a
+    // Invariant: window times must be strictly ordered. (create) Without this, a
     // misconfigured MORNING_QUIZ_TZ_OFFSET_MIN or a bad set of LOCAL
     // constants would silently produce a session where every scan falls
     // into the absent branch, or where lateCutoff <= attendanceEnd makes
@@ -2258,10 +2270,19 @@ export class MorningQuizService {
     }
     const tzOff = Number(process.env.MORNING_QUIZ_TZ_OFFSET_MIN ?? 8 * 60);
     const dateIso = before.date.toISOString().slice(0, 10);
-    const attendanceStart = combineLocal(dateIso, ATTENDANCE_START_LOCAL, tzOff);
-    const attendanceEnd = combineLocal(dateIso, ATTENDANCE_END_LOCAL, tzOff);
-    const lateCutoff = combineLocal(dateIso, LATE_CUTOFF_LOCAL, tzOff);
-    const quizEnd = combineLocal(dateIso, QUIZ_END_LOCAL, tzOff);
+    // 全天开放（4.0 阶段 B）默认**关**，此时取的就是原来的 08:30 / 09:00，
+    // 行为一字不差。打开后窗口变成 00:00–23:59。见 lesson/all-day.ts。
+    const win = windowTimesFor(before.classId);
+    const attendanceStart = combineLocal(dateIso, win.attendanceStartLocal, tzOff);
+    // 出勤已于 2026-08-24 停用，attendanceEnd / lateCutoff 只为满足下面的
+    // 严格递增不变量而存在。全天模式下把它们贴着开窗时刻放。
+    const attendanceEnd = win.allDay
+      ? new Date(attendanceStart.getTime() + 60_000)
+      : combineLocal(dateIso, ATTENDANCE_END_LOCAL, tzOff);
+    const lateCutoff = win.allDay
+      ? new Date(attendanceStart.getTime() + 120_000)
+      : combineLocal(dateIso, LATE_CUTOFF_LOCAL, tzOff);
+    const quizEnd = combineLocal(dateIso, win.quizEndLocal, tzOff);
     const after = await this.prisma.morningQuizSession.update({
       where: { id: sessionId },
       data: {

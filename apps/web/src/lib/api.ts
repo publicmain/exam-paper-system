@@ -452,6 +452,20 @@ export const api = {
   studentChangePin: (body: { oldPin: string; newPin: string }) =>
     request('POST', '/student-auth/change-pin', body),
   studentAuthMe: () => request('GET', '/student-auth/me'),
+  // ── 4.0 每日一课（阶段 A，影子运行）──
+  /** 学生：今天的课。**这个调用会冻结当日目标**（首次） */
+  lessonToday: (name: string, studentId?: string) =>
+    request(
+      'GET',
+      `/lesson/today?name=${encodeURIComponent(name)}${studentId ? `&studentId=${encodeURIComponent(studentId)}` : ''}`,
+    ),
+  /** 教师：班级完成度看板（不冻结目标） */
+  lessonBoard: (classId: string, date?: string) =>
+    request(
+      'GET',
+      `/lesson/class?classId=${encodeURIComponent(classId)}${date ? `&date=${date}` : ''}`,
+    ),
+
   /** 学生端：现在能不能设 PIN（集体注册窗口开着吗） */
   studentClaimWindow: (): Promise<{ pinSet: boolean; open: boolean; remainingSec: number }> =>
     request('GET', '/student-auth/claim-window'),
