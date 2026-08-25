@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
+import { teacherViewToken } from '../lib/teacher-view';
 import { Link, useNavigate } from 'react-router-dom';
 import { api } from '../lib/api';
 import { decodeJwt } from '../lib/auth';
@@ -27,7 +28,10 @@ interface Segment {
 
 function tokenStudent(): { id: string; name: string } | null {
   try {
-    const t = localStorage.getItem('auth_token');
+    // 教师「以学生视角查看」的令牌在 sessionStorage 里（每标签页独立，
+    // 不挤掉教师自己的登录态）。这里必须一并认，否则教师点进学生视角
+    // 只会看到一张登录卡 —— 而这个功能的全部意义就是看到学生看到的东西。
+    const t = teacherViewToken() ?? localStorage.getItem('auth_token');
     if (!t) return null;
     const p = decodeJwt(t) as any;
     if (p?.role !== 'student' || !p.id || p.scope === 'mq_handoff') return null;
@@ -189,7 +193,13 @@ export default function MePage() {
     return () => { cancelled = true; };
   }, [me]);
 
+  const isTeacherView = teacherViewToken() != null;
+
   const logout = () => {
+    // 教师视角下这颗按钮是隐藏的。这里再挡一层：真被点到也不能去清
+    // localStorage.auth_token —— 那是**教师自己的登录票**，清了他就被
+    // 自己踢下线了。视角要退出走横幅上的「退出视角」。
+    if (isTeacherView) return;
     localStorage.removeItem('auth_token');
     setMe(null);
     setSegments(null);
@@ -293,9 +303,11 @@ export default function MePage() {
               <div className="text-[13px] text-orange-600 mt-0.5">🔥 连续学习 {streak} 天</div>
             )}
           </div>
-          <button type="button" onClick={logout} className="text-[13px] text-gray-400 px-2 py-1">
-            退出
-          </button>
+          {!isTeacherView && (
+            <button type="button" onClick={logout} className="text-[13px] text-gray-400 px-2 py-1">
+              退出
+            </button>
+          )}
         </header>
 
         <section className="bg-white rounded-2xl border shadow-sm divide-y">
@@ -350,7 +362,9 @@ export default function MePage() {
             <button
               type="button"
               onClick={() => setShowChange(true)}
-              className="text-[14px] text-gray-600"
+              disabled={isTeacherView}
+              title={isTeacherView ? '教师视角只读 —— 重置 PIN 请在班级花名册操作' : undefined}
+              className="text-[14px] text-gray-600 disabled:text-gray-300"
             >
               🔑 修改 PIN {pinSet === false && <span className="text-amber-600">（还没设置 —— 在教室扫码后设置）</span>}
             </button>
