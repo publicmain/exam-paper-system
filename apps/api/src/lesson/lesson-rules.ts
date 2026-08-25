@@ -153,3 +153,34 @@ export function effectiveLockAt(input: {
 export function shouldFinalizeOnEod(answeredCount: number): boolean {
   return answeredCount > 0;
 }
+
+// ─────────────────────────────────────────────────────────────────────
+// 日期口径 —— 两个不同的东西，混过一次，这里分开命名
+// ─────────────────────────────────────────────────────────────────────
+
+/**
+ * 日期**标签**：SGT 日历日对应的「UTC 午夜」。
+ *
+ * `MorningQuizSession.date` 存的就是这个（cron 里 `dateIso` 取自
+ * `now + 8h`，再拼 `T00:00:00.000Z`）。它是个**日期**，不是时刻 ——
+ * 8/25 那天永远是 `2026-08-25T00:00:00Z`，与真实的 SGT 零点差 8 小时。
+ *
+ * 第一版把它写成 `floor((now+8h)/1天)*1天 - 8h`（那是下面 sgtMidnight
+ * 的算法），多减了一次时区，于是下午三点算出来的是**昨天** ——
+ * 永远匹配不到今天的场次，读段恒显示「今天没有安排文章」。
+ */
+export function lessonDayKey(now: Date, tzOffsetMin = 8 * 60): Date {
+  const local = new Date(now.getTime() + tzOffsetMin * 60_000);
+  return new Date(`${local.toISOString().slice(0, 10)}T00:00:00.000Z`);
+}
+
+/**
+ * 时间**瞬刻**：某个 SGT 自然日的真实零点。
+ *
+ * 用于 `reviewedAt >= ?` 这类时间戳比较。8/25 的 SGT 零点是
+ * `2026-08-24T16:00:00Z`。与 vocab-review.service 的算法一致。
+ */
+export function sgtMidnightInstant(now: Date, tzOffsetMin = 8 * 60): Date {
+  const off = tzOffsetMin * 60_000;
+  return new Date(Math.floor((now.getTime() + off) / 86_400_000) * 86_400_000 - off);
+}

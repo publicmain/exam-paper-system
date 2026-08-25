@@ -14,6 +14,8 @@ import {
   type SubmitSource,
   countsAsStudentDone,
   lessonComplete,
+  lessonDayKey,
+  sgtMidnightInstant,
   lessonProgress,
   readStatus,
   segmentStatus,
@@ -52,10 +54,18 @@ export class LessonService {
     private readonly mistakes: MistakeService,
   ) {}
 
-  /** SGT 自然日的 UTC 午夜 —— 与 MorningQuizSession.date 同口径。 */
+  /**
+   * 今天是哪一天（日期标签）与 SGT 真实零点（时间瞬刻）。
+   *
+   * 实现放在 lesson-rules，因为这两个曾经被混用过一次 —— 纯函数才好
+   * 用测试钉死。区别见那边的注释。
+   */
   private sgtDayStart(now = new Date()): Date {
-    const tzOff = 8 * 3600_000;
-    return new Date(Math.floor((now.getTime() + tzOff) / 86_400_000) * 86_400_000 - tzOff);
+    return lessonDayKey(now, Number(process.env.MORNING_QUIZ_TZ_OFFSET_MIN ?? 8 * 60));
+  }
+
+  private sgtMidnight(now = new Date()): Date {
+    return sgtMidnightInstant(now, Number(process.env.MORNING_QUIZ_TZ_OFFSET_MIN ?? 8 * 60));
   }
 
   /**
@@ -276,7 +286,8 @@ export class LessonService {
     });
     const backlog = dueCount;
     const target = vocabTarget(dueCount + 0, reviewBatchSize(backlog));
-    const dayStart = this.sgtDayStart(now);
+    // 「今天复习了几次」比的是时间戳 → 用真正的 SGT 零点，不是日期标签
+    const dayStart = this.sgtMidnight(now);
     const progress = await this.prisma.wordReviewLog.count({
       where: { studentWord: { studentId }, reviewedAt: { gte: dayStart } },
     });

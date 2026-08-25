@@ -10,6 +10,8 @@ import {
   segmentStatus,
   shouldFinalizeOnEod,
   vocabTarget,
+  lessonDayKey,
+  sgtMidnightInstant,
 } from './lesson-rules';
 
 /**
@@ -138,4 +140,34 @@ describe('effectiveLockAt —— 23:59 不是一个可用的边界', () => {
 describe('shouldFinalizeOnEod —— 一道没答的卷子当没开过', () => {
   it('0 题 → 不最终化', () => expect(shouldFinalizeOnEod(0)).toBe(false));
   it('答了就最终化', () => expect(shouldFinalizeOnEod(1)).toBe(true));
+});
+
+describe('日期口径 —— 标签 vs 瞬刻（生产 E2E 抓到的 off-by-one）', () => {
+  // 2026-08-25 15:45 SGT = 07:45 UTC
+  const afternoon = new Date('2026-08-25T07:45:00Z');
+
+  it('lessonDayKey：下午三点算出来必须是**今天**', () => {
+    // 第一版这里返回 08-24，于是永远匹配不到今天的场次
+    expect(lessonDayKey(afternoon).toISOString()).toBe('2026-08-25T00:00:00.000Z');
+  });
+
+  it('lessonDayKey：SGT 凌晨 0:30（前一天 16:30 UTC）也算新的一天', () => {
+    expect(lessonDayKey(new Date('2026-08-24T16:30:00Z')).toISOString()).toBe(
+      '2026-08-25T00:00:00.000Z',
+    );
+  });
+
+  it('lessonDayKey：SGT 23:30（同日 15:30 UTC）仍是当天', () => {
+    expect(lessonDayKey(new Date('2026-08-25T15:30:00Z')).toISOString()).toBe(
+      '2026-08-25T00:00:00.000Z',
+    );
+  });
+
+  it('sgtMidnightInstant：是真实零点，与标签差 8 小时', () => {
+    expect(sgtMidnightInstant(afternoon).toISOString()).toBe('2026-08-24T16:00:00.000Z');
+  });
+
+  it('两者**不是**同一个值 —— 这就是当初混用的地方', () => {
+    expect(lessonDayKey(afternoon).getTime()).not.toBe(sgtMidnightInstant(afternoon).getTime());
+  });
 });
