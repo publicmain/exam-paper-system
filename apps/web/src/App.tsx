@@ -124,6 +124,9 @@ export default function App() {
   // to school WiFi + name-matched server-side so /my-history/submission/:id
   // can't be enumerated by curious onlookers.
   if (
+    // /me —— 学生个人主页（2026-08-25 PIN 登录）。它自带登录卡，
+    // 不能落进教师 JWT 守卫，否则学生看到的是教师登录页
+    location.pathname === '/me' ||
     location.pathname === '/my-history' ||
     location.pathname.startsWith('/my-history/submission/') ||
     // 生词本 P2 —— 同一套公开 + 姓名匹配的学生自助入口
