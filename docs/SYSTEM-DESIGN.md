@@ -59,7 +59,7 @@
 
 | 角色 | 认证方式 | 主入口 |
 |---|---|---|
-| **学生** | **无需登录**：姓名匹配（读）+ 扫码签发的学生 token（写） | `/my-lesson`（4.0）/ `/scan/:token`（扫码） |
+| **学生** | 姓名匹配（读，过渡期）+ 学生 token（写；扫码签发或 **PIN 登录**） | **`/me`（个人主页，已上线）** / `/scan/:token`（扫码）/ `/my-lesson`（4.0 计划） |
 | **教师** | JWT 登录 | `/`（管理台）、班级仪表盘 |
 | **管理员** | JWT + role=admin | 同上 + 管理端点 |
 | **家长** | 一次性 token 链接 | `/parent/:token` |
@@ -713,6 +713,16 @@ User ─┬─ ClassEnrollment ── Class
 
 ### 12.2 关键字段
 
+**User**（师生同表，role 区分）
+```
+id, email(unique), name, passwordHash(教师登录用), role, isActive, archivedAt
+── 学生 PIN 登录（2026-08-25 新增，见 §2.1）──
+pinHash        bcrypt(10)；null = 从未设置
+pinSetAt
+pinFailedCount 连错计数；成功登录清零
+pinLockedUntil 连错 5 次锁 15 分钟
+```
+
 **MorningQuizSession**（一场课）
 ```
 id, date(Date), classId, level(EnglishLevel), paperAssignmentId(unique)
@@ -778,11 +788,15 @@ studentId, date, readDone, vocabDone, drillDone, completedAt
 
 ## 13. API 清单
 
-### 13.1 学生端（公开 + 姓名匹配 + IP 门禁 + 限流）
+### 13.1 学生端（公开 + 姓名匹配 + 限流；写操作另需学生 token）
 
 | 方法 | 路径 | 说明 |
 |---|---|---|
-| GET | `/api/lesson/today?name=&studentId=` | **（4.0 新增）** 今天的课 + 完成度 |
+| POST | `/api/student-auth/login` | **PIN 登录**（`{name, studentId?, pin}` → 30 天 token；同名返回班级候选；连错 5 次锁 15 分钟） |
+| POST | `/api/student-auth/set-pin` | 首次设置（**需学生 token**，扫码后的信任根） |
+| POST | `/api/student-auth/change-pin` | 改 PIN（需旧 PIN） |
+| GET | `/api/student-auth/me` | 我是谁 + `pinSet` |
+| GET | `/api/lesson/today?name=&studentId=` | **（4.0 计划，未实现）** 今天的课 + 完成度。当前 `/me` 用既有接口组合替代 |
 | GET | `/api/morning-quiz/history-by-name?name=` | 我的记录（404 带 `suggestions`） |
 | GET | `/api/morning-quiz/history-detail?submissionId=&name=` | 逐题详情 |
 | GET | `/api/morning-quiz/sessions/:id` | 发卷 |
@@ -796,7 +810,7 @@ studentId, date, readDone, vocabDone, drillDone, completedAt
 | POST | `/api/vocab/review` | 提交评分（`{rating, elapsedMs, requestId}`） |
 | POST | `/api/vocab/review/undo` | 撤销最近一次评分 |
 | GET | `/api/vocab/quiz?name=` | 自测出题 |
-| GET | `/api/vocab/stats?name=` | 我的词汇统计 |
+| GET | `/api/vocab/stats?name=` | 我的词汇统计（含 `totalDue` / `reviewedToday` / `streakDays`，`/me` 的「背」段用） |
 | GET | `/api/vocab/lookup?word=` | 查词 |
 | GET | `/api/vocab/mistakes?name=` | 我的错题 |
 | GET | `/api/vocab/mistakes/practice-queue?name=` | 今日重练队列 |
@@ -816,6 +830,7 @@ studentId, date, readDone, vocabDone, drillDone, completedAt
 | GET | `/api/vocab/class/:classId/top` | 班级高频生词（今天该讲哪几个词） |
 | GET | `/api/vocab/class/:classId/stats` | 班级词汇执行情况 |
 | POST | `/api/vocab/push` | 老师推词给全班 |
+| POST | `/api/student-auth/admin/reset-pin` | **重置学生 PIN**（学生忘记时的恢复通道，走 canActOnClass） |
 | GET | `/api/vocab/class/:classId/engagement` | 班级参与度 |
 
 ### 13.3 限流口径（重要）
@@ -881,7 +896,7 @@ npm run dev                   # API :4000  Web :5173
 | 8 | 每份卷子、每个层级都必须**内容真实可答** | 结构对 ≠ 内容对，必须读原文核对 |
 | 9 | 生产脚本不起 NestFactory | 连接耗尽 |
 | 10 | 出勤已全面停用（2026-08-24 起） | 早测不再记出勤 |
-| 11 | 学生数据（姓名/答卷/成绩）导出给外部 AI 前应**去标识化** | PDPC 义务；当前 marker-dump 仍含姓名，属**已知未修** |
+| 11 | 学生数据（姓名/答卷/成绩）导出给外部 AI 前**去标识化** | PDPC 义务；marker-dump 已默认输出匿名代号 S-NNNN，`--with-names` 才带真名（2026-08-25 修） |
 | 12 | 学生端写操作必须带扫码签发的 token | 防「知道姓名即可改他人数据」（OWASP API1:2023） |
 
 ---
@@ -950,3 +965,70 @@ npm run dev                   # API :4000  Web :5173
 | **主线词** | 每周 15 个统一推送的核心词，卷内词汇题的题源 |
 | **秒选** | 停留 <1.5 秒的正面评分，不写 FSRS |
 | **marker queue** | 人工判分队列 |
+
+---
+
+## 附录 C：交付后的变更记录
+
+> 本文档首次交付于 2026-08-25（commit `d3ca8ea`）。此后系统经历两轮演进，
+> 正文各节已就地更新；这里按时间列出**相对首版的净变化**，便于对接方
+> 快速定位改了什么、为什么改。
+
+### C.1 外部审查修复（2026-08-25，`994edfc` / `7d15d5b`）
+
+ChatGPT 对首版文档做了独立审查，逐条查证后**坐实 6 条、误报 1 条**：
+
+| 问题 | 修法 | 影响文档节 |
+|---|---|---|
+| **`known` 词永久退出调度** | 所有到期查询改为只看 `due <= now`；`known` 降为纯展示标签 | §10.3 |
+| **「绝不重复」与代码相反** | 题库耗尽默认抛 `BankExhaustedError`；`MORNING_QUIZ_ALLOW_REPEAT=on` 才回退 LRU | §5.5 |
+| **姓名即身份（BOLA）** | 新增 `StudentIdentityGuard`；6 个写操作需学生 token | §2.1 |
+| **判分导出含姓名** | `marker-dump` 默认输出匿名代号 `S-NNNN` | §15 铁律 11 |
+| `storyKey` 全局正则 | 改为只剥每段末尾的 `_vN` | §5.4 |
+| `uncaughtException` 带病运行 | 改为退出让平台重启 | §14 |
+| ~~`snapshotOptions.correct` 泄露~~ | **误报** —— 服务端本有显式白名单剥离；补了契约测试 | — |
+
+**首版文档的两处错误声明已更正**：
+1. 「校园网 IP 门禁」——**实现中并不存在**，只有按 IP 的限流（配额≠授权）。
+   首版从代码注释里抄了这句，等于传播了一个不存在的安全层。
+2. 「人工判分」——正名为 **AI 辅助 + 教师负责**，并标注缺口（无模型/rubric
+   版本留存、无金标校准、无申诉 SLA）。
+
+依赖漏洞 26 → 18（只做兼容升级；剩余需 NestJS 10→11 等 major，单独排期）。
+
+### C.2 学生账号 + PIN + 个人主页（2026-08-25，`9be3be1` 起）
+
+关闭 C.1 遗留的读路径风险，**已上线生产**：
+
+- **PIN**：6 位数字、bcrypt、弱 PIN 黑名单、连错 5 次锁 15 分钟；
+  首次设置的信任根是**扫码**（人在教室、名字自选），零分发流程；
+  教师可在班级花名册一键重置。
+- **token**：PIN 登录发 30 天 token，与 scanToken **同构**（同 JWT 形状/
+  密钥/Guard 链），直接复用 C.1 建的授权体系，没有第二套逻辑。
+  scanToken 有效期同步延到当天 23:59（否则晚上背单词会撞 403）。
+- **`/me` 个人主页**：未登录=姓名+PIN 登录卡（同名消歧、锁定倒计时）；
+  已登录=「今天的课」三段 + 快捷入口 + 修改 PIN。
+  **这是 4.0 课程页的可用雏形** —— 用既有接口组合实现，
+  §13.1 里的 `/api/lesson/today` 仍是 4.0 计划、尚未实现。
+- 扫码链新增：响应带 `pinSet`；成功页三道门 `setpin → whatsnew → install`
+  （PIN 门可跳过，绝不挡答题）；同一学生已持更长效 token 时扫码不降级覆盖。
+
+**读路径仍可凭姓名查询**，这是过渡期的刻意保留（没设 PIN 的学生要能看成绩）。
+待 PIN 覆盖率 ≥90% 后打开 `STUDENT_READ_REQUIRES_AUTH` 彻底关闭
+（Phase B，开关未实现，防误开把人锁在门外）。
+
+### C.3 与 4.0 的关系（未变）
+
+4.0（全天开放、三段一课、完成度取代出勤）**仍是设计稿，未实施**。
+C.2 的 `/me` 让三段结构提前可用，但时间窗、cron、完成度落表都还是 3.0 形态。
+外部审查对 4.0 设计本身提出的意见（幽灵完成、23:59 竞态、迁移判据太弱等）
+**尚未写回 4.0 PRD**，实施前需先处理。
+
+### C.4 新增的运维教训
+
+| 教训 | 说明 |
+|---|---|
+| **提交前跑 `nest build`** | 它与 `tsc -p tsconfig.json --noEmit` 配置不同；spec 里字面量 `{x: null}` 的类型推断炸过部署 |
+| 部署 21 秒即 FAILED | = 构建期错误。构建日志用 GraphQL `buildLogs(deploymentId:)` 拿，CLI 的 `--deployment` 与 `--build` 互斥 |
+| 学生端新页面要进公开路由白名单 | `App.tsx` 按 pathname 判断；漏加会让学生看到教师登录页 |
+| 含正则/反斜杠的运维脚本写成 `.js` 文件再跑 | 不要用 `node -e` 内联或 heredoc —— 反斜杠会被吃掉，表现为「查询静默返回 0 条」 |
