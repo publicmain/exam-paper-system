@@ -63,11 +63,17 @@ export class StudentAuthController {
           row.archivedAt != null ||
           row.studentAuthVersion !== p.av
         ) {
-          throw new Error('token_revoked');
+          // 直接抛 Forbidden 并**跳出 try**（下面的 catch 只兜 token 本身
+          // 坏掉的情况）。生产 E2E 里这里原先落进 catch，被统一改写成
+          // student_token_required —— 前端据此不会清掉那张废票，学生会
+          // 卡在「要我登录，但我明明登录了」。撤销必须自报家门。
+          throw new ForbiddenException({ code: 'token_revoked' });
         }
       }
       return { id: p.id };
-    } catch {
+    } catch (e) {
+      // 撤销的拒绝理由要原样传出去，不能被统一改写
+      if (e instanceof ForbiddenException) throw e;
       throw new ForbiddenException({ code: 'student_token_required' });
     }
   }
