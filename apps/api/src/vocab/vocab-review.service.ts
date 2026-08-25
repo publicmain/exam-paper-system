@@ -185,6 +185,32 @@ export function streakFromDays(days: string[], today: string, freezes = 2): numb
   return streak;
 }
 
+/**
+ * 「秒选不算数」的阈值（2026-08-25 首日实测后加）。
+ *
+ * 改版首日的真机数据：翻卡每张停留中位数从 5.1 秒掉到 1.6 秒，21 次
+ * 评分 100% 是「记住了」。一名学生 25 秒刷完 10 张，最后四张不到 1 秒 ——
+ * 那不是复习，是把卡片当成了「下一张」按钮。四档降两档后绿色按钮固定
+ * 在右边，闭眼连点的成本比以前更低。
+ *
+ * 前端已经在显示答案后锁 1.5 秒（见 MyVocabReview 的 MIN_DWELL_MS），
+ * 这里是服务端兜底：旧缓存前端、脚本、或任何绕过 UI 的路径都拦得住。
+ *
+ * 只拦「会把词推远」的正面评分（good/easy）：
+ *   · 秒选「忘了」是**诚实**的 —— 一眼看出不认识，1 秒足够，且它只会
+ *     让词更早回来，没有作弊动机；
+ *   · elapsedMs = 0 是自测线（客观判分，前端不传耗时），选对本来就可能
+ *     很快，绝不能误伤 —— 那条线的信号是最真实的。
+ */
+export const MIN_HONEST_DWELL_MS = 1500;
+
+export function isTooFastToBeReal(rating: RatingKey, elapsedMs?: number): boolean {
+  if (rating !== 'good' && rating !== 'easy') return false;
+  // 0 / undefined = 自测线或旧前端没上报，一律放行
+  if (!elapsedMs || elapsedMs <= 0) return false;
+  return elapsedMs < MIN_HONEST_DWELL_MS;
+}
+
 const RATING_MAP = {
   again: Rating.Again,
   hard: Rating.Hard,
@@ -356,6 +382,33 @@ export class VocabReviewService {
     }
 
     const now = new Date();
+    const elapsedMs = Math.max(0, Math.min(input.elapsedMs ?? 0, 600_000));
+
+    // 秒选不算数（见 MIN_HONEST_DWELL_MS 注释）：不写调度，只留一条
+    // 流水作证据。这张卡的 due 没动 —— 下次进来它还在，语义就是
+    // 「这次不算你看过」。prevState 留空：没有调度变更，也就没有
+    // 可撤销的东西（undo 会正确地报 nothing_to_undo）。
+    if (isTooFastToBeReal(input.rating, elapsedMs)) {
+      await this.prisma.wordReviewLog.create({
+        data: {
+          studentWordId: word.id,
+          rating: input.rating,
+          reviewedAt: now,
+          elapsedMs,
+          requestId: input.requestId ?? null,
+          prevState: undefined,
+        },
+      });
+      return {
+        headword: word.headword,
+        state: word.state,
+        due: word.due.toISOString(),
+        intervalDays: word.scheduledDays,
+        reps: word.reps,
+        tooFast: true as const,
+      };
+    }
+
     // 用库里的调度状态还原成 FSRS Card
     const card: Card =
       word.reps === 0 && !word.lastReview
@@ -397,7 +450,7 @@ export class VocabReviewService {
           studentWordId: word.id,
           rating: input.rating,
           reviewedAt: now,
-          elapsedMs: Math.max(0, Math.min(input.elapsedMs ?? 0, 600_000)),
+          elapsedMs,
           requestId: input.requestId ?? null,
           // 评分前的调度状态快照 —— undo() 靠它精确还原
           prevState: {

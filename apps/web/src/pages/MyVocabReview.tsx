@@ -48,6 +48,20 @@ const RATINGS = [
   { key: 'good', label: '记得', labelNew: '记住了', sub: 'Got it', cls: 'bg-emerald-600 hover:bg-emerald-700' },
 ] as const;
 
+/**
+ * 显示答案后到可以评分之间的最短间隔（2026-08-25 首日实测后加）。
+ *
+ * 上线首日真机数据：每张卡停留中位数 5.1 秒 → 1.6 秒，21 次评分
+ * 100%「记住了」，一名学生 25 秒刷完 10 张、最后四张不到 1 秒。
+ * 两档评分把绿色按钮固定在右边，闭眼连点的成本比四档时代更低 ——
+ * 复习退化成了「下一张」按钮。
+ *
+ * 这 1.5 秒不是惩罚，是**逼着眼睛落到释义上**。真会的学生也不亏：
+ * 读一眼自己认识的词本来就要一秒。服务端还有一道同阈值的兜底
+ * （MIN_HONEST_DWELL_MS），所以旧缓存前端也绕不过去。
+ */
+const MIN_DWELL_MS = 1500;
+
 /** 卡片来源行（修复 #6）：回答「这词怎么进我本子的」。 */
 const SOURCE_TEXT: Record<string, string> = {
   click: '你阅读时自己添加的',
@@ -81,6 +95,8 @@ export default function MyVocabReviewPage() {
   const [emptyQueue, setEmptyQueue] = useState(false);
   const [idx, setIdx] = useState(0);
   const [revealed, setRevealed] = useState(false);
+  /** 答案显示后 MIN_DWELL_MS 内不接受评分 —— 掐掉无脑连点 */
+  const [canRate, setCanRate] = useState(false);
   const [busy, setBusy] = useState(false);
   const [done, setDone] = useState(0);
   const [shownAt, setShownAt] = useState<number>(() => Date.now());
@@ -96,6 +112,18 @@ export default function MyVocabReviewPage() {
 
   // 上次弱网攒下的评分，进页面先补传（fire-and-forget，失败留队）
   useEffect(() => { void flushPending(); }, []);
+
+  // 最小停留计时：每次翻面 / 换卡都重新计。撤销回上一张时 revealed 会
+  // 被重新设为 true，idx 也变了，所以两个依赖都要在。
+  useEffect(() => {
+    if (!revealed) {
+      setCanRate(false);
+      return;
+    }
+    setCanRate(false);
+    const t = setTimeout(() => setCanRate(true), MIN_DWELL_MS);
+    return () => clearTimeout(t);
+  }, [revealed, idx]);
 
   // 2026-08-14 —— 交卷流程会带 then=<逐题详情页>，复习完直接落过去
   // （学生要的即时反馈）。只接受本域 /my-history 前缀，防开放跳转。
@@ -187,6 +215,8 @@ export default function MyVocabReviewPage() {
   const rate = useCallback(
     async (rating: string) => {
       if (!cards || busy) return;
+      // 最小停留未到 —— 按钮本就是禁用的，这里挡住键盘/读屏等其它触发路径
+      if (!canRate) return;
       const card = cards[idx];
       setBusy(true);
       // submitReview：失败自动进 localStorage 队列，下次打开词汇页补传
@@ -204,6 +234,10 @@ export default function MyVocabReviewPage() {
       let canUndo = false;
       if ('queued' in r && r.queued) {
         feedback = '网络不稳，已暂存稍后补传';
+      } else if ((r as { tooFast?: boolean }).tooFast) {
+        // 服务端兜底判定这次太快 —— 调度没动，这张卡下次还会来。
+        // 说清楚原因，不然学生只会觉得系统吞了他的操作。
+        feedback = '太快了，这次不算 · 它还会再来';
       } else {
         const ok = r as { intervalDays: number; state: string };
         canUndo = true;
@@ -221,7 +255,7 @@ export default function MyVocabReviewPage() {
         setShownAt(Date.now());
       }
     },
-    [cards, idx, busy, name, studentId, shownAt],
+    [cards, idx, busy, canRate, name, studentId, shownAt],
   );
 
   /** 撤销上一张（修复 #4）：服务端从快照精确还原，前端跳回那张卡重评。 */
@@ -454,19 +488,31 @@ export default function MyVocabReviewPage() {
                   <div className="mt-2 text-[11px] text-gray-400">{sourceLine(card)}</div>
                 )}
               </div>
-              <div className="mt-auto pt-4 grid grid-cols-2 gap-2">
+              <div className="mt-auto pt-4">
+                {/* 为什么按钮暂时按不了 —— 不说清楚学生会以为系统卡了。
+                    1.5 秒后这行消失、按钮亮起。 */}
+                <div
+                  className={`text-[12px] text-center mb-2 transition-opacity ${
+                    canRate ? 'opacity-0' : 'text-amber-600 opacity-100'
+                  }`}
+                  aria-live="polite"
+                >
+                  {canRate ? ' ' : '先读一遍上面的意思…'}
+                </div>
+                <div className="grid grid-cols-2 gap-2">
                 {RATINGS.map((r) => (
                   <button
                     key={r.key}
                     type="button"
-                    disabled={busy}
+                    disabled={busy || !canRate}
                     onClick={() => rate(r.key)}
-                    className={`py-3.5 rounded-xl text-white font-semibold text-base disabled:opacity-50 touch-manipulation ${r.cls}`}
+                    className={`py-3.5 rounded-xl text-white font-semibold text-base disabled:opacity-40 disabled:cursor-not-allowed touch-manipulation ${r.cls}`}
                   >
                     {(card.reps ?? 0) === 0 ? r.labelNew : r.label}
                     <span className="block text-[11px] font-normal opacity-80">{r.sub}</span>
                   </button>
                 ))}
+                </div>
               </div>
             </>
           )}
