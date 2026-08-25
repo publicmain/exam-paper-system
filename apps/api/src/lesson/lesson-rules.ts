@@ -184,3 +184,63 @@ export function sgtMidnightInstant(now: Date, tzOffsetMin = 8 * 60): Date {
   const off = tzOffsetMin * 60_000;
   return new Date(Math.floor((now.getTime() + off) / 86_400_000) * 86_400_000 - off);
 }
+
+// ─────────────────────────────────────────────────────────────────────
+// 给学生看的文案
+// ─────────────────────────────────────────────────────────────────────
+
+/**
+ * 补段的每日上限。
+ *
+ * 与背段同一条原则（PRD §2.3「完成判定必须可达成」）：积压 20 道错题的
+ * 学生，今天练完 5 道就是 100%，剩下的明天再说。
+ *
+ * 第一版没有上限，课程页上真的出现了「0/20 道 · 约 20 分钟」—— 学生
+ * 打开一看今天要练 20 道，最合理的反应就是不做。PRD 的示例是
+ * 「3 道 · 约 3 分钟」，那才是会被打开的数字。
+ */
+export const DRILL_DAILY_CAP = 5;
+
+export function drillTarget(queueLength: number): number {
+  return Math.max(0, Math.min(Math.floor(queueLength), DRILL_DAILY_CAP));
+}
+
+/**
+ * 把内部卷名变成学生看得懂的标题。
+ *
+ * 生产里的卷名长这样：
+ *   `Morning Quiz OLEVEL/ai_authored_olevel_basic_05_the_queue_v1/Paper2 (2026-08-25)`
+ *
+ * 直接显示等于把内部 setCode 摔到学生脸上。剥掉前后缀、去掉出处前缀与
+ * 版本号，剩下 `the_queue` → `The Queue`。认不出来就返回 null，让 UI
+ * 干脆不显示标题 —— 显示一串内部编号比不显示更糟。
+ */
+/** 卷名里表示「出处/层级/编号」而不是标题的前缀词。 */
+const TITLE_NOISE = new Set([
+  'ai', 'authored', 'cambridge', 'ielts', 'olevel', 'mock', 'quiz', 'morning',
+  'basic', 'simplified', 'light', 'intermediate', 'authentic', 'paper', 'set',
+]);
+
+export function readablePaperTitle(raw: string | null | undefined): string | null {
+  if (!raw) return null;
+  const parts = raw.split('/');
+  let core = parts.length >= 2 ? parts[1] : raw;
+  core = core.replace(/\s*\(.*\)\s*$/, '').replace(/_v\d+$/i, '').trim();
+  if (!core) return null;
+
+  // 逐个丢掉开头的噪声词。用「丢前缀」而不是一条大正则，因为编号格式
+  // 五花八门（0510 / s23 / 05），正则一收紧就漏、一放松就把标题吃掉。
+  const tokens = core.split(/[_\s]+/).filter(Boolean);
+  let i = 0;
+  while (
+    i < tokens.length &&
+    (TITLE_NOISE.has(tokens[i].toLowerCase()) ||
+      /^\d+$/.test(tokens[i]) ||
+      /^[a-z]\d+$/i.test(tokens[i]))
+  ) {
+    i++;
+  }
+  const words = tokens.slice(i);
+  if (!words.length) return null;
+  return words.map((w) => (w.length <= 2 ? w : w[0].toUpperCase() + w.slice(1))).join(' ');
+}

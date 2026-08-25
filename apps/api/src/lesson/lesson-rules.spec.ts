@@ -12,6 +12,9 @@ import {
   vocabTarget,
   lessonDayKey,
   sgtMidnightInstant,
+  drillTarget,
+  DRILL_DAILY_CAP,
+  readablePaperTitle,
 } from './lesson-rules';
 
 /**
@@ -169,5 +172,39 @@ describe('日期口径 —— 标签 vs 瞬刻（生产 E2E 抓到的 off-by-one
 
   it('两者**不是**同一个值 —— 这就是当初混用的地方', () => {
     expect(lessonDayKey(afternoon).getTime()).not.toBe(sgtMidnightInstant(afternoon).getTime());
+  });
+});
+
+describe('drillTarget —— 补段同样要可达成', () => {
+  it('积压 20 道 → 今天只练 5 道', () => {
+    // 打开一看「今天要练 20 道」，最合理的反应就是不做
+    expect(drillTarget(20)).toBe(DRILL_DAILY_CAP);
+  });
+  it('少于上限按实际；空队列 → 0（→ none → 算完成）', () => {
+    expect(drillTarget(3)).toBe(3);
+    expect(drillTarget(0)).toBe(0);
+    expect(segmentStatus(0, drillTarget(0))).toBe('none');
+  });
+});
+
+describe('readablePaperTitle —— 别把内部 setCode 摔到学生脸上', () => {
+  it('生产里的真实卷名', () => {
+    expect(
+      readablePaperTitle(
+        'Morning Quiz OLEVEL/ai_authored_olevel_basic_05_the_queue_v1/Paper2 (2026-08-25)',
+      ),
+    ).toBe('The Queue');
+  });
+
+  it('剑桥真题也能读', () => {
+    expect(readablePaperTitle('Morning Quiz IELTS/cambridge_0510_s23_library_card/Paper1')).toBe(
+      'Library Card',
+    );
+  });
+
+  it('认不出来就返回 null（宁可不显示，也别显示编号）', () => {
+    expect(readablePaperTitle(null)).toBeNull();
+    expect(readablePaperTitle('')).toBeNull();
+    expect(readablePaperTitle('Morning Quiz X/12345/Paper1')).toBeNull();
   });
 });

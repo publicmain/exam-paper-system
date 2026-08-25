@@ -87,6 +87,14 @@ function detailOf(seg: LessonSeg): string {
   }
 }
 
+/** 完成后的按钮不该还写「开始」—— 学生会以为没记上。 */
+function ctaOf(seg: LessonSeg, fallback: string): string {
+  if (seg.key === 'read') return seg.status === 'done' ? '看答案' : '开始';
+  if (seg.status === 'done') return '再练一轮';
+  if (seg.status === 'partial') return '继续';
+  return fallback;
+}
+
 export default function MyLessonPage() {
   const [params] = useSearchParams();
   const name = params.get('name') ?? '';
@@ -203,7 +211,7 @@ export default function MyLessonPage() {
                       href={href}
                       className="shrink-0 text-[14px] text-blue-600 font-medium px-2 py-1"
                     >
-                      {seg.status === 'done' && seg.key === 'read' ? '看答案' : meta.cta} →
+                      {ctaOf(seg, meta.cta)} →
                     </a>
                   )}
                 </div>

@@ -20,6 +20,8 @@ import {
   readStatus,
   segmentStatus,
   vocabTarget,
+  drillTarget,
+  readablePaperTitle,
 } from './lesson-rules';
 
 /**
@@ -84,7 +86,7 @@ export class LessonService {
     const [readNow, vocabNow, drillNow] = await Promise.all([
       this.readState(student.id, day),
       this.vocabState(student.id, now),
-      this.drillState(student.id),
+      this.drillState(student.id, now),
     ]);
 
     // ── 目标：已冻结就用冻结值，否则（且允许时）现在冻结 ──
@@ -115,8 +117,7 @@ export class LessonService {
     const segments: LessonSegments = {
       read: readTarget === 0 ? 'none' : readStatus(readNow),
       vocab: segmentStatus(vocabNow.progress, vTarget),
-      // 补段的 progress = 「今天清掉了几道」= 冻结时的目标 - 现在还剩几道
-      drill: segmentStatus(Math.max(0, dTarget - drillNow.remaining), dTarget),
+      drill: segmentStatus(drillNow.progress, dTarget),
     };
 
     // 把进度写回快照（目标不动，只更新进度与完成时刻）
@@ -127,7 +128,7 @@ export class LessonService {
         readDone: segments.read === 'done',
         vocabProgress: vocabNow.progress,
         vocabDone: segments.vocab === 'done' || segments.vocab === 'none',
-        drillProgress: Math.max(0, dTarget - drillNow.remaining),
+        drillProgress: drillNow.progress,
         drillDone: segments.drill === 'done' || segments.drill === 'none',
         autoFinalizeReason: readNow.autoFinalizeReason ?? null,
         now,
@@ -168,7 +169,7 @@ export class LessonService {
         {
           key: 'drill' as const,
           status: segments.drill,
-          progress: Math.max(0, dTarget - drillNow.remaining),
+          progress: drillNow.progress,
           target: dTarget,
           typicalMinutes: Math.max(2, dTarget),
         },
@@ -288,7 +289,9 @@ export class LessonService {
       finalSubmitted: sub?.finalSubmittedAt != null,
       submitSource: (sub?.submitSource ?? null) as SubmitSource | null,
       opened: sub != null,
-      paperName: session.paperAssignment!.paper?.name ?? null,
+      // 学生看到《The Queue》而不是内部 setCode。认不出来返回 null，
+      // UI 就不显示标题 —— 显示一串内部编号比不显示更糟。
+      paperName: readablePaperTitle(session.paperAssignment!.paper?.name),
       questionCount: session.paperAssignment!.paper?._count.questions ?? 0,
       score: sub?.totalScore ?? null,
       maxScore: sub?.maxScore ?? null,
@@ -314,10 +317,21 @@ export class LessonService {
   }
 
   // ── ③ 补 ──
-  private async drillState(studentId: string) {
+  private async drillState(studentId: string, now: Date) {
     const q = await this.mistakes.practiceQueue(studentId, 50);
-    const remaining = (q?.items ?? []).length;
-    return { target: remaining, remaining };
+    const queued = (q?.items ?? []).length;
+    // 「今天练了几道」**直接数**，不要用「目标 - 队列剩余」去反推：
+    // 目标封顶 5 而队列有 20 时那个式子恒为 0，学生练一天也不动；
+    // 而且下午新错的题会让队列变长、进度倒退。
+    const practicedToday = await this.prisma.mistakeEntry.count({
+      where: { studentId, lastPracticedAt: { gte: this.sgtMidnight(now) } },
+    });
+    return {
+      // 上限 5 —— 与背段同一条「目标必须可达成」原则。没有上限时课程页
+      // 真的出现过「0/20 道 · 约 20 分钟」，那个数字只会劝退。
+      target: drillTarget(queued + practicedToday),
+      progress: practicedToday,
+    };
   }
 
   /**
