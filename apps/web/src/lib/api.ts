@@ -430,6 +430,17 @@ export const api = {
     /** 弱网重发去重用；由 lib/reviewQueue 生成 */
     requestId?: string;
   }) => request('POST', '/vocab/review', body),
+  /** 学生 PIN 登录（2026-08-25，docs/PRD/student-auth-and-home.md） */
+  studentLogin: (body: { name: string; studentId?: string; pin: string }) =>
+    request('POST', '/student-auth/login', body),
+  studentSetPin: (body: { pin: string }) => request('POST', '/student-auth/set-pin', body),
+  studentChangePin: (body: { oldPin: string; newPin: string }) =>
+    request('POST', '/student-auth/change-pin', body),
+  studentAuthMe: () => request('GET', '/student-auth/me'),
+  /** 教师端：重置学生 PIN（忘记时的恢复通道） */
+  adminResetStudentPin: (studentId: string) =>
+    request('POST', '/student-auth/admin/reset-pin', { studentId }),
+
   /** 生词本 — 撤销该词最近一次评分（10 分钟内，误触防线） */
   vocabReviewUndo: (body: { studentName: string; studentId?: string; headword: string }) =>
     request('POST', '/vocab/review/undo', body),

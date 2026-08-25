@@ -30,6 +30,15 @@ model User {
   isActive     Boolean   @default(true)
   createdAt    DateTime  @default(now())
   lastLogin    DateTime?
+
+  // ── 学生 PIN 登录（2026-08-25，docs/PRD/student-auth-and-home.md）──
+  /// 6 位数字 PIN 的 bcrypt 哈希；null = 从未设置（学生在教室扫码后自设）
+  pinHash        String?
+  pinSetAt       DateTime?
+  /// 连续输错计数；成功登录清零
+  pinFailedCount Int       @default(0)
+  /// 连错 5 次锁到这个时刻（15 分钟）—— 6 位 PIN 的暴力破解防线
+  pinLockedUntil DateTime?
   // R14 — Feature 12: soft-archive a student (or any user) without
   // deleting the row. Login + roster queries filter `archivedAt IS NULL`
   // by default; admin can un-archive by clearing the column.

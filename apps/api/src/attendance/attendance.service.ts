@@ -47,6 +47,8 @@ export interface ScanResult {
    * 答案，以为能改，一保存才撞 submission_locked。扫码这一刻就讲清楚。
    */
   alreadyFinalSubmitted: boolean;
+  /** 该生是否已设置登录 PIN（2026-08-25）—— 扫码成功页据此弹「设置 PIN」卡片 */
+  pinSet: boolean;
 }
 
 @Injectable()
@@ -652,10 +654,17 @@ export class AttendanceService {
       where: { id: submission.id },
       select: { finalSubmittedAt: true },
     });
+    // PIN 状态（2026-08-25）：没设过的学生在扫码成功页会看到「设置 PIN」
+    // 卡片 —— 扫码时刻是设置 PIN 的信任根（人在教室、名字是自己选的）
+    const pinRow = await this.prisma.user.findUnique({
+      where: { id: student.id },
+      select: { pinHash: true },
+    });
     return {
       attendance: { id: attendance.id, status: attendanceStatus, scanTime: now },
       student: { id: student.id, name: student.name },
       alreadyFinalSubmitted: finalSub?.finalSubmittedAt != null,
+      pinSet: pinRow?.pinHash != null,
       scanToken,
       // Hash fragment, not query: keeps the handoff token off the wire
       // (no server logs, no Referer leak) — the SPA reads it client-side

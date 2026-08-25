@@ -558,6 +558,15 @@ export class VocabReviewService {
     const totalDue = await this.prisma.studentWord.count({
       where: { studentId: student.id, due: { lte: new Date() } },
     });
+    // 今天（SGT 自然日）复习了几次 —— 个人主页「今天的课 · 背」段用。
+    // 与连胜同一套时区换算。
+    const tzOff = 8 * 3600_000;
+    const sgtDayStart = new Date(
+      Math.floor((Date.now() + tzOff) / 86_400_000) * 86_400_000 - tzOff,
+    );
+    const reviewedToday = await this.prisma.wordReviewLog.count({
+      where: { studentWord: { studentId: student.id }, reviewedAt: { gte: sgtDayStart } },
+    });
     // 三分进度（2026-08-24 词汇主线化）。原来的 byState 是 FSRS 的内部
     // 状态机（new / learning / review / relearning / known），学生看不懂
     // 也不该看懂。压成三个他关心的数字：
@@ -586,6 +595,7 @@ export class VocabReviewService {
       bySource: Object.fromEntries(bySource.map((r) => [r.sourceType, r._count])),
       totalReviews: reviews,
       totalDue,
+      reviewedToday,
       // 2026-08-14 进度反馈：全班只有 6 词毕业、无任何成就展示 ——
       // 学生看到的永远是「还欠多少」，看不到「已经攒下多少」。
       knownCount: rows.find((r) => r.state === 'known')?._count ?? 0,

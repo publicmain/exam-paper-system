@@ -2,6 +2,8 @@ import { useEffect, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { api } from '../lib/api';
 import WhatsNewSheet, { hasSeenWhatsNew, markWhatsNewSeen } from '../components/exam/WhatsNewSheet';
+import PinSetupCard from '../components/PinSetupCard';
+import { decodeJwt } from '../lib/auth';
 import InstallGuideSheet, {
   hasSeenInstallGuide,
   markInstallGuideSeen,
@@ -142,7 +144,7 @@ export default function MorningQuizScan() {
   /** 签到成功后要去的试卷地址。非 null = 正在显示一次性引导。 */
   const [pendingQuizUrl, setPendingQuizUrl] = useState<string | null>(null);
   /** 当前在放哪道引导。 */
-  const [gate, setGate] = useState<'whatsnew' | 'install' | null>(null);
+  const [gate, setGate] = useState<'setpin' | 'whatsnew' | 'install' | null>(null);
 
   // Fetch the class meta on mount. We hit /scan-roster (gated by a live
   // QR token) but only display the class name + count, never the names
@@ -206,7 +208,24 @@ export default function MorningQuizScan() {
           ? chosenSessionId
           : undefined,
       );
-      localStorage.setItem('auth_token', r.scanToken);
+      // token 保管（2026-08-25 PIN 上线）：若本机已持有**同一学生**的
+      // 更长效 token（30 天 PIN token），扫码不把它降级成当天过期的
+      // scanToken。不同学生（共用设备换人扫码）则照常覆盖。
+      try {
+        const existing = localStorage.getItem('auth_token');
+        const p: any = existing ? decodeJwt(existing) : null;
+        const newP: any = decodeJwt(r.scanToken);
+        const keepExisting =
+          p?.role === 'student' &&
+          p.scope !== 'mq_handoff' &&
+          p.id === newP?.id &&
+          typeof p.exp === 'number' &&
+          typeof newP?.exp === 'number' &&
+          p.exp > newP.exp;
+        if (!keepExisting) localStorage.setItem('auth_token', r.scanToken);
+      } catch {
+        localStorage.setItem('auth_token', r.scanToken);
+      }
       // 记住姓名 —— /my-history 的输入框会用它预填。学生以后随时扫墙上
       // 的码查成绩时,不用再回忆"当时登记的是哪个写法"。
       // 测试班除外(2026-08-12 事故):学生们用「测试学生」签到体验流程,
@@ -262,6 +281,18 @@ export default function MorningQuizScan() {
 
   // 引导优先于其余所有分支：此刻考勤已经落库,唯一还没做的就是跳转,
   // 不能被下面任何一个 meta/error 分支抢先渲染掉。
+  if (pendingQuizUrl && gate === 'setpin') {
+    return (
+      <PinSetupCard
+        onDone={() => {
+          // 设完（或跳过）接着走原有的两道门
+          if (!hasSeenWhatsNew()) setGate('whatsnew');
+          else if (!hasSeenInstallGuide() && detectPlatform() !== 'other' && !isStandalone()) setGate('install');
+          else window.location.replace(pendingQuizUrl);
+        }}
+      />
+    );
+  }
   if (pendingQuizUrl && gate === 'whatsnew') {
     return (
       <WhatsNewSheet

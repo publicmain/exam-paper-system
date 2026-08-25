@@ -53,6 +53,7 @@ import { OlevelIngestModule } from './olevel-ingest/olevel-ingest.module';
 import { ContentBootstrapModule } from './bootstrap/content-bootstrap.module';
 import { ParentPortalModule } from './parent-portal/parent-portal.module';
 import { HomeworkModule } from './homework/homework.module';
+import { StudentAuthModule } from './student-auth/student-auth.module';
 import { HealthController } from './health.controller';
 
 @Module({
@@ -97,6 +98,7 @@ import { HealthController } from './health.controller';
     ClassifierModule,
 
     VocabModule,
+    StudentAuthModule,
     PracticeModule,
     // Morning attendance + quiz
     ShuffleModule,

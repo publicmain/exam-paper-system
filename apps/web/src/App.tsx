@@ -21,6 +21,7 @@ import { NotificationBell } from './components/NotificationBell';
 // demand behind <Suspense> (mounted in main.tsx around <App/>).
 import MyHistoryPage from './pages/MyHistory';
 import MyHistoryDetailPage from './pages/MyHistoryDetail';
+import MePage from './pages/Me';
 // 生词本 P2 —— 与上面两页同属学生自助入口，保持 eager 以免多一次网络往返
 import MyVocabPage from './pages/MyVocab';
 import MyVocabReviewPage from './pages/MyVocabReview';
@@ -134,6 +135,7 @@ export default function App() {
   ) {
     return (
       <Routes>
+        <Route path="/me" element={<MePage />} />
         <Route path="/my-history" element={<MyHistoryPage />} />
         <Route path="/my-history/submission/:submissionId" element={<MyHistoryDetailPage />} />
         <Route path="/my-vocab" element={<MyVocabPage />} />

@@ -21,7 +21,7 @@ interface JwtPayload {
 /** Decode a JWT payload client-side (no verification — the server still
  *  enforces the signature on every request). Returns null on any malformed
  *  input so callers can fall back safely. */
-function decodeJwt(token: string): JwtPayload | null {
+export function decodeJwt(token: string): JwtPayload | null {
   try {
     const part = token.split('.')[1];
     if (!part) return null;

@@ -641,6 +641,27 @@ function EnrollmentRow({
             ↔️ 转班
           </button>
         )}
+        {isStudent && !editing && (
+          <button
+            className="btn btn-ghost text-xs text-indigo-700"
+            disabled={busy}
+            onClick={async () => {
+              // 学生忘 PIN 的唯一恢复通道（2026-08-25）：清空后学生下次
+              // 在教室扫码时重新设置。走班级权限，只能重置自己班的。
+              if (!window.confirm('重置该学生的登录 PIN？\n清空后学生下次扫码时重新设置。')) return;
+              try {
+                await api.adminResetStudentPin(enrollment.user?.id ?? enrollment.userId);
+                window.alert('已重置 —— 请让学生下次扫码时重新设置 PIN。');
+              } catch (e: any) {
+                window.alert('重置失败: ' + (e?.message ?? e));
+              }
+            }}
+            aria-label="reset-pin"
+            title="重置登录 PIN · 学生忘记 PIN 时用"
+          >
+            🔑 重置PIN
+          </button>
+        )}
         {isStudent && !editing && onArchive && (
           <button
             className="btn btn-ghost text-xs text-amber-700"
