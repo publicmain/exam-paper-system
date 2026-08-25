@@ -206,6 +206,17 @@ export default function MyVocabPage() {
             )}
           </div>
 
+          {/* 会考 —— 这一句是整条动机链的关键（2026-08-25）。
+              背单词此前没有任何回报，全班 23 人从没打开过词汇页；
+              现在主线词每天进早测卷（轻量两层各 2 道，共 2 分）。
+              学生不知道会考，等于没有回报。 */}
+          {weekTrack.total > 0 && (
+            <div className="mt-3 text-[13px] rounded-lg bg-amber-50 border border-amber-200 text-amber-900 px-3 py-2 leading-relaxed">
+              🎯 <strong>本周主线词会出现在每天的早测里</strong>（2 道题，2 分）。
+              背过就是白送的分 —— 每天花两分钟过一遍就够。
+            </div>
+          )}
+
           {/* 三分进度（2026-08-24 词汇主线化）。
               原来只显示「已掌握 N」，学生看到的仍然主要是一个只涨不落的
               生词总数。摊成三段之后，「待开始」那一格有多长是一眼能看见

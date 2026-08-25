@@ -7,7 +7,15 @@
  * re-deriving fields like "is this a passage paper".
  */
 
-export type EnglishLevel = 'ielts_authentic' | 'ielts_simplified' | 'olevel';
+/** 与后端 prisma enum + level-registry.ts 一一对应。
+ *  2026-08-24 扩到五层时这里漏改了（只影响类型、不影响渲染），
+ *  2026-08-25 写卷内词汇题的渲染测试时才暴露出来。 */
+export type EnglishLevel =
+  | 'ielts_authentic'
+  | 'ielts_light'
+  | 'olevel'
+  | 'olevel_intermediate'
+  | 'ielts_simplified';
 
 /** UI flavour. `practice` is friendly — instant correctness feedback,
  *  unlimited retries, soft visuals; `test` is the strict morning-quiz
