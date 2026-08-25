@@ -1,5 +1,6 @@
 import { PrismaClient } from '@prisma/client';
 import { diffAnswer } from '../src/morning-quiz/answer-diff';
+import { anonId } from '../src/common/anon-id';
 
 /**
  * Dump today's marker queue — all submissions with ungraded short_answer
@@ -8,12 +9,23 @@ import { diffAnswer } from '../src/morning-quiz/answer-diff';
  * Read-only. No JWT needed. Run on Railway:
  *   railway run -- npx ts-node apps/api/scripts/marker-dump.ts
  *
+ * 默认输出**匿名代号**（S-1234）而非姓名 —— 这份 dump 会进外部对话，
+ * 姓名不是判分所需。加 --with-names 才输出真实姓名。
+ *
  * Per the [[ai-api-usage-policy]] — short-answer grading is done by
  * Claude in chat, NEVER via the API's evaluateBatch. This script
  * surfaces the data; pair with marker-apply.ts to write back.
  */
 
 const prisma = new PrismaClient();
+
+/**
+ * 去标识化开关。默认**不输出真实姓名** —— 这份 dump 要交给外部对话
+ * 判分，姓名+成绩+答案合起来是可识别的个人数据。
+ * 需要人工核对身份时加 --with-names。
+ */
+const SHOW_NAMES = process.argv.includes('--with-names');
+
 
 (async () => {
   const tzOff = Number(process.env.MORNING_QUIZ_TZ_OFFSET_MIN ?? 8 * 60);
@@ -110,7 +122,14 @@ const prisma = new PrismaClient();
 
     console.log('─'.repeat(60));
     console.log(`SUBMISSION ${sub.id}`);
-    console.log(`  Student: ${sub.student.name}`);
+    // 去标识化（2026-08-25 外部审查 P0-7）：判分只需要「哪份答卷、
+    // 什么题、学生写了什么」，**不需要知道他叫什么**。默认输出匿名
+    // 代号；真要核对身份时显式加 --with-names。
+    //
+    // 为什么这很重要：这份 dump 会被贴进对话交给 Claude 判分，姓名 +
+    // 成绩 + 答题内容合起来是可识别的个人数据（PDPC 口径）。判分结果
+    // 靠 scriptId 写回，全程不需要姓名参与。
+    console.log(`  Student: ${SHOW_NAMES ? sub.student.name : anonId(sub.studentId)}`);
     console.log(`  Class:   ${sess?.class.name ?? '?'}  Level: ${sess?.level ?? '?'}`);
     console.log(`  Paper:   ${sub.assignment.paper.name}`);
     console.log(`  Auto score so far: ${sub.autoScore ?? 0} / ${sub.maxScore}`);
