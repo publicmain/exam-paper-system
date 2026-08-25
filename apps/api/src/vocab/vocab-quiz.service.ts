@@ -186,14 +186,14 @@ export class VocabQuizService {
     // 最后，只在复习过的词不够凑一套题时才顶上；它们的主阵地是交卷后的
     // 翻卡学习（MyVocabReview 的先学后考流程）。
     const due = await this.prisma.studentWord.findMany({
-      where: { studentId: student.id, state: { not: 'known' }, due: { lte: now }, reps: { gt: 0 } },
+      where: { studentId: student.id, due: { lte: now }, reps: { gt: 0 } },
       orderBy: [{ due: 'asc' }],
       take: limit,
     });
     const dueUnseen =
       due.length < limit
         ? await this.prisma.studentWord.findMany({
-            where: { studentId: student.id, state: { not: 'known' }, due: { lte: now }, reps: 0 },
+            where: { studentId: student.id, due: { lte: now }, reps: 0 },
             orderBy: [{ createdAt: 'desc' }],
             take: limit - due.length,
           })

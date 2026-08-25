@@ -85,8 +85,18 @@ async function bootstrap() {
   process.on('unhandledRejection', (reason) => {
     bootstrapLogger.error('unhandledRejection', reason as any);
   });
+  // ⚠️ 与 unhandledRejection **刻意区别对待**（2026-08-25 外部审查 P2-6）：
+  // 那个是某个 fire-and-forget Promise 挂了，进程通常仍然健康，继续服务
+  // 是对的；而 uncaughtException 是同步栈上抛出且没人接 —— Node 官方明确
+  // 指出此时进程处于**未定义状态**（半完成的写入、泄露的句柄、坏掉的模块级
+  // 单例）。原来这里也只记日志继续跑，等于让一个状态不可信的进程继续接收
+  // 学生答卷。带病服务比短暂不可用更危险，现在记完日志就退出，由 Railway
+  // 拉起新进程（约 15–30 秒）。前提是生命周期任务都幂等（cron 每分钟一跳、
+  // 都有兜底），重启不丢工作。
   process.on('uncaughtException', (err) => {
-    bootstrapLogger.error('uncaughtException', err);
+    bootstrapLogger.error('uncaughtException — 进程状态已不可信，退出让平台重启', err);
+    // 留 100ms 把日志刷出去；unref 避免这个定时器自己拖住事件循环
+    setTimeout(() => process.exit(1), 100).unref();
   });
 
   const app = await NestFactory.create(AppModule, {

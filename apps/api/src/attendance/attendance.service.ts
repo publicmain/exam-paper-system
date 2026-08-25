@@ -573,16 +573,36 @@ export class AttendanceService {
     await this.shuffle.getOrCreate(studentId, paperId);
 
     // Mint scan token — same shape as the login JWT (so existing AuthGuard
-    // accepts it without changes), but expiry tied to the session's quizEnd
-    // so the token is useless after 9:00.
-    // 令牌活到「今天最后一个还开着的窗」为止。原来只看 quizEnd(09:00)，
-    // 第二窗内扫码时 quizEnd 早已是过去时，Math.max 兜底成 60 秒 ——
-    // 学生下午扫完码，一分钟后 token 就过期，题都读不完。
+    // accepts it without changes).
+    //
+    // 有效期 = **当天结束**（SGT 23:59:59），不再绑答题窗口。
+    //
+    // 原来绑 quizEnd(09:00)/makeupEnd(17:30)，因为那时 token 唯一的用途
+    // 就是答题。2026-08-25 起它还是学生端**写操作的凭证**（加词、复习
+    // 评分、撤销、错题销账 —— 见 student-identity.guard），而背单词/
+    // 重做错题是全天可做的：token 17:30 过期会让晚上想背词的学生撞 403。
+    //
+    // 放长不放松：答题窗口由 morning-quiz 服务端独立校验，token 活得久
+    // 并不等于能在窗口外答题；它只证明「今天扫过码的确实是这个人」。
+    // 答题窗口何时关 —— 给学生显示「还剩几分钟」用。
+    // 注意与下面的 token 有效期**分开**：窗口管的是「还能不能答题」，
+    // token 管的是「你是谁」，两者的生命周期本就不同。
     const windowEndsAt =
       session.makeupEnd && session.makeupEnd.getTime() > session.quizEnd.getTime()
         ? session.makeupEnd
         : session.quizEnd;
-    const expSeconds = Math.max(60, Math.floor((windowEndsAt.getTime() - Date.now()) / 1000));
+
+    const tzOff = Number(process.env.MORNING_QUIZ_TZ_OFFSET_MIN ?? 8 * 60);
+    const localNow = new Date(Date.now() + tzOff * 60_000);
+    const endOfLocalDay = new Date(
+      Date.UTC(
+        localNow.getUTCFullYear(),
+        localNow.getUTCMonth(),
+        localNow.getUTCDate(),
+        23, 59, 59,
+      ) - tzOff * 60_000,
+    );
+    const expSeconds = Math.max(60, Math.floor((endOfLocalDay.getTime() - Date.now()) / 1000));
     const scanToken = await this.jwt.signAsync(
       {
         id: student.id,

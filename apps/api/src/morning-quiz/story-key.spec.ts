@@ -61,3 +61,31 @@ describe('storyKey —— 版本无关的去重键', () => {
     expect(storyKey('OLEVEL/singapore_olevel_1128/Paper2')).toBe('OLEVEL/singapore_olevel_1128/Paper2');
   });
 });
+
+/**
+ * 2026-08-25 外部审查 P2-2：原实现用 /_v\d+/g 全局替换，会匹配路径里
+ * **任意位置**的版本号，把两篇不相干的文章判成同一个 story。
+ */
+describe('storyKey — 只剥每段末尾的版本号', () => {
+  it('段中间的 _vN 必须保留 —— 否则两篇不同文章会撞成同一个 story', () => {
+    // 这是修复前的真实漏洞：两者都会被削成 'ielts_batch/Test1'
+    expect(storyKey('ielts_v2_batch/Test1')).not.toBe(storyKey('ielts_batch/Test1'));
+    expect(storyKey('ielts_v2_batch/Test1')).toBe('ielts_v2_batch/Test1');
+  });
+
+  it('每段末尾的版本号照剥（多段都剥）', () => {
+    expect(storyKey('OLEVEL/story_v2/Paper2')).toBe('OLEVEL/story/Paper2');
+    expect(storyKey('a_v1/b_v3')).toBe('a/b');
+  });
+
+  it('版本号在整串末尾也剥', () => {
+    expect(storyKey('ai_authored_olevel_46_recipe_card_v1')).toBe('ai_authored_olevel_46_recipe_card');
+  });
+
+  it('生产中真实使用的 key 行为不变（回归保护）', () => {
+    expect(storyKey('OLEVEL/ai_authored_olevel_simplified_30_market_v2/Paper2'))
+      .toBe('OLEVEL/ai_authored_olevel_simplified_30_market/Paper2');
+    expect(storyKey('IELTS/ielts_light_2026/Test5/P1')).toBe('IELTS/ielts_light_2026/Test5/P1');
+    expect(storyKey('IELTS/ielts_authored_aug2026/Test2/P1')).toBe('IELTS/ielts_authored_aug2026/Test2/P1');
+  });
+});

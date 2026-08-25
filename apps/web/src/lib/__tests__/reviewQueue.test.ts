@@ -64,3 +64,25 @@ describe('reviewQueue', () => {
     expect(pendingCount()).toBe(1);
   });
 });
+
+/**
+ * 身份校验上线后的新分支（2026-08-25 外部审查 P0-1）。
+ * 403 = 今天没扫码 / 身份对不上 —— 重试多少次都是 403，不能进队列。
+ */
+describe('reviewQueue — 403 不入队', () => {
+  it('403 直接返回 needsScan，队列保持空', async () => {
+    (api.vocabReview as any).mockRejectedValue(Object.assign(new Error('forbidden'), { status: 403 }));
+    const r: any = await submitReview(base);
+    expect(r.needsScan).toBe(true);
+    expect(r.queued).toBeUndefined();
+    expect(pendingCount()).toBe(0);
+  });
+
+  it('网络错误仍然入队（与 403 区别对待）', async () => {
+    (api.vocabReview as any).mockRejectedValue(new Error('network'));
+    const r: any = await submitReview(base);
+    expect(r.queued).toBe(true);
+    expect(r.needsScan).toBeUndefined();
+    expect(pendingCount()).toBe(1);
+  });
+});

@@ -80,15 +80,28 @@ const scheduler = fsrs(PARAMS);
  * state 只是给学生看的标签，**不参与调度**（调度全由 FSRS 的
  * stability/difficulty 决定）。按「下次多久要再见到它」分档最直观：
  *   < 7 天  → 还在学          learning
- *   ≥ 60 天 → 已掌握          known（`due` 查询会跳过它）
+ *   ≥ 21 天 → 已掌握          known
  *   其余    → 复习中          review
+ *
+ * ⚠️ 2026-08-25 修：所有到期查询**不再排除 known**。
+ *
+ * 原来 due / stats / quiz 全都带 `state != 'known'`，于是一个词间隔
+ * 涨到阈值被标成 known 之后，**即使 FSRS 算出的 due 日到了也永远不再
+ * 出现** —— 「以后仍会在更长间隔上考它」是假的，词是有去无回。
+ * 当天数据：16 个 known 词的 due 全在未来（最早 8/31），bug 尚未爆发
+ * 但已装好定时器。外部审查（2026-08-25）指出，实测坐实。
+ *
+ * 现在 known 纯粹是**展示标签**（进度条的「已掌握」），到期与否只看
+ * `due <= now`，由 FSRS 全权决定何时复现。
  */
 /**
- * 2026-08-24 从 60 天降到 21：470 词只有 6 个毕业，几乎没有学生见过
- * 一个词「从每日复习里消失」的正反馈 —— 60 天对一个学期来说太远了。
- * 21 天（三周不用再见）在记忆科学上已经是长期记忆的门槛，也和 stats
- * 原来的 MASTERED_STABILITY_DAYS=21 口径合一。FSRS 到期后仍会在更长
- * 间隔上考它，「毕业」只是不再挤占每日配额。
+ * 「已掌握」的间隔门槛。2026-08-24 从 60 天降到 21：470 词只有 6 个
+ * 毕业，几乎没有学生见过一个词「从每日复习里消失」的正反馈。21 天
+ * （三周不用再见）在记忆科学上已是长期记忆门槛，也与 stats 原来的
+ * MASTERED_STABILITY_DAYS=21 合一。
+ *
+ * 它**只影响标签**，不影响调度：到了 FSRS 算出的 due 日，known 的词
+ * 照样回队列（见上方注释）。回归测试见 known-not-permanent.spec.ts。
  */
 const KNOWN_INTERVAL_DAYS = 21;
 const LEARNING_INTERVAL_DAYS = 7;
@@ -248,7 +261,7 @@ export class VocabReviewService {
     const student = await this.words.resolveStudent(input.studentName, input.studentId);
     const now = new Date();
     const backlog = await this.prisma.studentWord.count({
-      where: { studentId: student.id, state: { not: 'known' }, due: { lte: now } },
+      where: { studentId: student.id, due: { lte: now } },
     });
     // ## 吞吐（2026-08-24 调平）
     //
@@ -266,7 +279,7 @@ export class VocabReviewService {
     // 不能拿总积压当判据 —— 新词一进本子 due 就是 now()，也计入积压，
     // 于是「新词多 → 少给新词 → 新词更多」自我锁死（见 newWordQuota）。
     const reviewDebt = await this.prisma.studentWord.count({
-      where: { studentId: student.id, state: { not: 'known' }, due: { lte: now }, reps: { gt: 0 } },
+      where: { studentId: student.id, due: { lte: now }, reps: { gt: 0 } },
     });
 
     // 配额 1：新词（一次都没复习过的），最新加入优先 —— 「趁热」。
@@ -277,7 +290,6 @@ export class VocabReviewService {
     // 已经有 2026-07-31 加入、24 天没被翻到一次的词。
     const freshWhere = {
       studentId: student.id,
-      state: { not: 'known' as const },
       due: { lte: now },
       reps: 0,
     };
@@ -297,7 +309,6 @@ export class VocabReviewService {
     const oldRows = await this.prisma.studentWord.findMany({
       where: {
         studentId: student.id,
-        state: { not: 'known' },
         due: { lte: now },
         id: { notIn: freshRows.map((r) => r.id) },
       },
@@ -545,7 +556,7 @@ export class VocabReviewService {
       where: { studentWord: { studentId: student.id } },
     });
     const totalDue = await this.prisma.studentWord.count({
-      where: { studentId: student.id, state: { not: 'known' }, due: { lte: new Date() } },
+      where: { studentId: student.id, due: { lte: new Date() } },
     });
     // 三分进度（2026-08-24 词汇主线化）。原来的 byState 是 FSRS 的内部
     // 状态机（new / learning / review / relearning / known），学生看不懂
@@ -563,7 +574,7 @@ export class VocabReviewService {
     // classStats / 这里三个地方从此对得上账。
     const mastered = rows.find((r) => r.state === 'known')?._count ?? 0;
     const untouched = await this.prisma.studentWord.count({
-      where: { studentId: student.id, reps: 0, state: { not: 'known' } },
+      where: { studentId: student.id, reps: 0 },
     });
     const total = rows.reduce((a, r) => a + r._count, 0);
     const learning = Math.max(0, total - mastered - untouched);

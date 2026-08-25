@@ -232,7 +232,11 @@ export default function MyVocabReviewPage() {
       // 没有它，反复出现的词只会传递「我在原地踏步」。
       let feedback: string;
       let canUndo = false;
-      if ('queued' in r && r.queued) {
+      if ('needsScan' in r && r.needsScan) {
+        // 没有当天的学生凭证 —— 复习没被记录。说清楚怎么办，
+        // 否则学生会以为背了却没算数（2026-08-25 身份校验上线）。
+        feedback = '没记上 · 今天还没扫码，扫一下再背就能存下来';
+      } else if ('queued' in r && r.queued) {
         feedback = '网络不稳，已暂存稍后补传';
       } else if ((r as { tooFast?: boolean }).tooFast) {
         // 服务端兜底判定这次太快 —— 调度没动，这张卡下次还会来。

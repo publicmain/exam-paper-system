@@ -61,12 +61,17 @@ export function newRequestId(): string {
  */
 export async function submitReview(input: Omit<PendingReview, 'requestId' | 'ts'>): Promise<
   | { queued: true }
+  | { needsScan: true }
   | { queued?: false; headword: string; state: string; intervalDays: number; reps: number }
 > {
   const requestId = newRequestId();
   try {
     return await api.vocabReview({ ...input, requestId });
-  } catch {
+  } catch (e: any) {
+    // 403 = 没有学生 token（今天没扫码）或身份对不上。
+    // 这类失败重试多少次都是 403，进队列只会攒垃圾 —— 直接告诉学生
+    // 该做什么（2026-08-25 加身份校验后的新分支）。
+    if (e?.status === 403) return { needsScan: true };
     writeQueue([...readQueue(), { ...input, requestId, ts: Date.now() }]);
     return { queued: true };
   }

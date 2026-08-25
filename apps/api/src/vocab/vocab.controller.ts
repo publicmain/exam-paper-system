@@ -1,9 +1,10 @@
-import { BadRequestException, Body, Controller, ForbiddenException, Get, Param, Post, Query, Req } from '@nestjs/common';
+import { BadRequestException, Body, Controller, ForbiddenException, Get, Param, Post, Query, Req, UseGuards } from '@nestjs/common';
 import type { Request } from 'express';
 import { z } from 'zod';
 import { CurrentUser } from '../common/current-user.decorator';
 import { Public } from '../common/auth.guard';
 import { RateLimit } from '../common/rate-limit.guard';
+import { RequireStudentToken, StudentIdentityGuard } from '../common/student-identity.guard';
 import { StudentWordService } from './student-word.service';
 import { VocabQuizService } from './vocab-quiz.service';
 import { VocabReviewService, type RatingKey } from './vocab-review.service';
@@ -32,6 +33,15 @@ import { canActOnClass } from '../common/roles';
  * FSRS 默默丢复习记录。放宽后的数字按「34 人并发峰值 × 1.5」估，仍足以
  * 挡住逐词爬词典的脚本。
  */
+/**
+ * 学生身份（2026-08-25 外部审查 P0-1）：
+ *   · 带了学生 token 就必须与请求里的姓名对得上（拦「拿自己的 token
+ *     操作别人」）
+ *   · 所有**写操作**必须带 token（见各方法上的 @RequireStudentToken）
+ *   · 读操作无 token 时降级为姓名匹配，保住「不登录也能查成绩」的入口
+ * 详见 student-identity.guard.ts 顶部。
+ */
+@UseGuards(StudentIdentityGuard)
 @Controller('vocab')
 export class VocabController {
   constructor(
@@ -70,6 +80,7 @@ export class VocabController {
   /** 加入生词本。headword 由服务端查词典确定，不信任前端。 */
   @Public()
   @RateLimit({ limit: 60, windowSec: 60, scope: 'ip' })
+  @RequireStudentToken()
   @Post('words')
   async addWord(@Body() body: unknown) {
     const schema = z.object({
@@ -88,6 +99,7 @@ export class VocabController {
   /** 移出生词本。 */
   @Public()
   @RateLimit({ limit: 60, windowSec: 60, scope: 'ip' })
+  @RequireStudentToken()
   @Post('words/remove')
   async removeWord(@Body() body: unknown) {
     const schema = z.object({
@@ -120,6 +132,7 @@ export class VocabController {
   /** 提交一次复习评分 → FSRS 重新调度。 */
   @Public()
   @RateLimit({ limit: 480, windowSec: 60, scope: 'ip' })
+  @RequireStudentToken()
   @Post('review')
   async submitReview(@Body() body: unknown) {
     const schema = z.object({
@@ -139,6 +152,7 @@ export class VocabController {
   /** 撤销该词最近一次评分（10 分钟内）。误触防线 —— 详见 review 服务注释。 */
   @Public()
   @RateLimit({ limit: 120, windowSec: 60, scope: 'ip' })
+  @RequireStudentToken()
   @Post('review/undo')
   async undoReview(@Body() body: unknown) {
     const schema = z.object({
@@ -195,6 +209,7 @@ export class VocabController {
   /** 标记「已弄懂」/ 撤销。错题本必须能清空，否则只会一直变长。 */
   @Public()
   @RateLimit({ limit: 60, windowSec: 60, scope: 'ip' })
+  @RequireStudentToken()
   @Post('mistakes/resolve')
   async resolveMistake(@Body() body: unknown) {
     const schema = z.object({
@@ -232,6 +247,7 @@ export class VocabController {
   /** 提交一次练习结果。做对且隔天再对一次 → 自动销账。 */
   @Public()
   @RateLimit({ limit: 360, windowSec: 60, scope: 'ip' })
+  @RequireStudentToken()
   @Post('mistakes/practice-result')
   async practiceResult(@Body() body: unknown) {
     const schema = z.object({

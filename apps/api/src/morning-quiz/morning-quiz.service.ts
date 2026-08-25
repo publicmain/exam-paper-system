@@ -18,6 +18,7 @@ import { QuickPaperInput, QuickPaperService } from '../ai/quick-paper.service';
 import { PrismaService } from '../common/prisma.service';
 import { closeNames } from '../common/name-suggest';
 import { canActOnClass } from '../common/roles';
+import { pickOnExhaustion } from './bank-exhaustion';
 import { ShuffleService } from '../shuffle/shuffle.service';
 import { secondWindowAppliesTo } from './second-window';
 import { levelBucket, levelPushesWordlist } from './level-registry';
@@ -223,9 +224,22 @@ export function redactSnapshotForStudent(sc: unknown): unknown {
  * dedups as the SAME story. Without this, the §B `_v1→_v2` recalibration
  * silently made previously-served stories eligible again (a class saw 5/12
  * repeats the following week). Lifetime dedup keys off this, not the raw key.
+ *
+ * ⚠️ 2026-08-25（外部审查 P2-2）：原来是 `/_v\d+/g` —— **全局替换，
+ * 匹配路径里任意位置**。于是 `ielts_v2_batch/Test1` 和 `ielts_batch/Test1`
+ * 会被算成同一个 story，两篇内容完全不同的文章互相把对方判成「已服务」。
+ * 现在只剥**每一段路径末尾**的版本号（`a_v2/Paper2` → `a/Paper2`），
+ * 段中间出现的 `_vN` 原样保留。
+ *
+ * 真正的长久解法是给每篇内容一个显式 storyId（不靠文件名推导），
+ * 那需要回填全部历史 fixture 与 Paper.config，另案处理。
  */
 export function storyKey(key: string | null | undefined): string {
-  return key == null ? '' : String(key).replace(/_v\d+/g, '');
+  if (key == null) return '';
+  return String(key)
+    .split('/')
+    .map((seg) => seg.replace(/_v\d+$/, ''))
+    .join('/');
 }
 
 /**
@@ -1151,16 +1165,18 @@ export class MorningQuizService {
     if (candidates.length > 0) {
       pick = candidates[Math.floor(Math.random() * candidates.length)];
     } else {
-      // Bank depleted — pick the least recently used to avoid a silent
-      // weekly loop. Loud-log so the ops dashboard surfaces this and
-      // someone ingests more passages.
-      const sorted = Array.from(byPassage.keys()).sort(
-        (a, b) => (lastUsedAt.get(storyKey(a)) ?? 0) - (lastUsedAt.get(storyKey(b)) ?? 0),
-      );
-      pick = sorted[0];
+      // 题库耗尽。**默认硬失败**（见 bank-exhaustion.ts）—— 静默回收
+      // 与「绝不重复」的铁律直接矛盾，2026-08-25 外部审查指出。
+      // MORNING_QUIZ_ALLOW_REPEAT=on 时才退回 LRU。
       this.logger.warn(
-        `passage_pick bank exhausted (lifetime) for class=${classId} subject=${subjectCode} — recycling LRU passage=${pick} ` +
-          `(bank=${byPassage.size}, ever served=${usedPassageRefs.size}). Ingest more past papers.`,
+        `passage_pick bank exhausted (lifetime) for class=${classId} subject=${subjectCode} ` +
+          `(bank=${byPassage.size}, ever served=${usedPassageRefs.size}). Ingest more passages.`,
+      );
+      pick = pickOnExhaustion(
+        Array.from(byPassage.keys()),
+        lastUsedAt,
+        storyKey,
+        { classId, bucket: `IELTS/${opts?.provenanceFilter ?? 'authentic'}`, everServed: usedPassageRefs.size },
       );
     }
     // Sort questions inside the passage NUMERICALLY by Q-number — string
@@ -1342,13 +1358,16 @@ export class MorningQuizService {
     if (candidates.length > 0) {
       pick = candidates[Math.floor(Math.random() * candidates.length)];
     } else {
-      const sorted = Array.from(byPaperKey.keys()).sort(
-        (a, b) => (lastUsedAt.get(storyKey(a)) ?? 0) - (lastUsedAt.get(storyKey(b)) ?? 0),
-      );
-      pick = sorted[0];
+      // 同 pickPassageAndCreatePaper：默认硬失败，不静默回收。
       this.logger.warn(
-        `olevel pick bank exhausted (lifetime, tier=${filter}) for class=${classId} — recycling LRU paper=${pick} ` +
+        `olevel pick bank exhausted (lifetime, tier=${filter}) for class=${classId} ` +
           `(bank=${byPaperKey.size}, ever served=${usedKeys.size}). Ingest more papers.`,
+      );
+      pick = pickOnExhaustion(
+        Array.from(byPaperKey.keys()),
+        lastUsedAt,
+        storyKey,
+        { classId, bucket: `OLEVEL/${filter}`, everServed: usedKeys.size },
       );
     }
     // Sort by trailing Q-number numerically (same trick as IELTS).
