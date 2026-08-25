@@ -218,7 +218,14 @@ export class LessonService {
 
   // ── ① 读 ──
   private async readState(studentId: string, day: Date) {
-    const session = await this.prisma.morningQuizSession.findFirst({
+    // **一个班一天可能有多场**（R10 多层：每个难度层一场）。
+    // 第一版用 findFirst 随便挑了一场，于是学生明明交了卷，读段却显示
+    // 「未开始」—— 挑中的是他没坐的那一层。生产 E2E 抓到。
+    //
+    // 正确顺序：先把今天所有可能的场次取出来，**优先认学生真有答卷的
+    // 那一场**；一份都没有才退回列表里的第一场（此时只用来取标题，
+    // 状态反正是 todo）。
+    const sessions = await this.prisma.morningQuizSession.findMany({
       where: {
         date: day,
         class: { enrollments: { some: { userId: studentId, role: 'student' } } },
@@ -235,7 +242,8 @@ export class LessonService {
         },
       },
     });
-    if (!session?.paperAssignment) {
+    const withAssignment = sessions.filter((s) => s.paperAssignment != null);
+    if (withAssignment.length === 0) {
       return {
         hasSession: false,
         finalSubmitted: false,
@@ -250,10 +258,18 @@ export class LessonService {
         autoFinalizeReason: null as string | null,
       };
     }
+
     const sub = await this.prisma.studentSubmission.findFirst({
-      where: { assignmentId: session.paperAssignment.id, studentId, status: { not: 'practice' } },
+      where: {
+        assignmentId: { in: withAssignment.map((s) => s.paperAssignment!.id) },
+        studentId,
+        status: { not: 'practice' },
+      },
+      // 有最终提交的排前面 —— 万一同一天两层都开了卷，认已交的那份
+      orderBy: [{ finalSubmittedAt: { sort: 'desc', nulls: 'last' } }, { startedAt: 'desc' }],
       select: {
         id: true,
+        assignmentId: true,
         finalSubmittedAt: true,
         submitSource: true,
         autoFinalizeReason: true,
@@ -262,6 +278,9 @@ export class LessonService {
         maxScore: true,
       },
     });
+    const session =
+      (sub && withAssignment.find((s) => s.paperAssignment!.id === sub.assignmentId)) ||
+      withAssignment[0];
     // 分数门与答案门是两道独立的闸（§9）—— 这里只管分数那道
     const scoresPending = sub != null && !['marked', 'graded', 'returned'].includes(sub.status);
     return {
@@ -269,8 +288,8 @@ export class LessonService {
       finalSubmitted: sub?.finalSubmittedAt != null,
       submitSource: (sub?.submitSource ?? null) as SubmitSource | null,
       opened: sub != null,
-      paperName: session.paperAssignment.paper?.name ?? null,
-      questionCount: session.paperAssignment.paper?._count.questions ?? 0,
+      paperName: session.paperAssignment!.paper?.name ?? null,
+      questionCount: session.paperAssignment!.paper?._count.questions ?? 0,
       score: sub?.totalScore ?? null,
       maxScore: sub?.maxScore ?? null,
       scoresPending,
