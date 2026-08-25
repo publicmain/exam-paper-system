@@ -212,40 +212,63 @@ except ImportError as _schemdraw_err:
 
 # Whitelist of schemdraw element classes we'll instantiate. AI gives us
 # an element type as a string; this avoids arbitrary-attribute access.
-_ALLOWED_ELEMENTS = {} if not _SCHEMDRAW_OK else {
-    'Resistor': elm.Resistor,
-    'ResistorIEC': elm.ResistorIEC,
-    'Capacitor': elm.Capacitor,
-    'CapacitorVar': elm.CapacitorVar,
-    'Inductor': elm.Inductor,
-    'Inductor2': elm.Inductor2,
-    'Battery': elm.Battery,
-    'Cell': elm.Cell,
-    'Diode': elm.Diode,
-    'LED': elm.LED,
-    'Photodiode': elm.Photodiode,
-    'Switch': elm.Switch,
-    'SwitchSpdt': elm.SwitchSpdt,
-    'Lamp': elm.Lamp,
-    'Speaker': elm.Speaker,
-    'Ground': elm.Ground,
-    'Vss': elm.Vss,
-    'Vdd': elm.Vdd,
-    'Line': elm.Line,
-    'Dot': elm.Dot,
-    'Arrow': elm.Arrow,
-    'SourceV': elm.SourceV,
-    'SourceI': elm.SourceI,
-    'Meter': elm.Meter,
-    'MeterV': elm.MeterV,
-    'MeterA': elm.MeterA,
-    'MeterOhm': elm.MeterOhm,
-    'Transformer': elm.Transformer,
-    'Fuse': elm.Fuse,
-    'Potentiometer': elm.Potentiometer,
-    'Crystal': elm.Crystal,
-    'Memristor': elm.Memristor,
-}
+#
+# **必须逐个 getattr，不能直接写 elm.Xxx。** 2026-08-25 整个 pdf-worker
+# 在启动时崩了一整天（7 次部署全 FAILED），原因就是 schemdraw 某个版本
+# 拿掉了 `elm.Cell` —— 而这张表是模块级 eager 求值的，**一个名字对不上，
+# 整个服务 import 失败**，连不画电路图的 /render_pdf 一起陪葬。
+# 白名单的意义是「限制能实例化什么」，不是「断言这些都存在」；装不出来
+# 的元件跳过并记一条日志即可。
+_ELEMENT_NAMES = (
+    'Resistor',
+    'ResistorIEC',
+    'Capacitor',
+    'CapacitorVar',
+    'Inductor',
+    'Inductor2',
+    'Battery',
+    'Cell',
+    'Diode',
+    'LED',
+    'Photodiode',
+    'Switch',
+    'SwitchSpdt',
+    'Lamp',
+    'Speaker',
+    'Ground',
+    'Vss',
+    'Vdd',
+    'Line',
+    'Dot',
+    'Arrow',
+    'SourceV',
+    'SourceI',
+    'Meter',
+    'MeterV',
+    'MeterA',
+    'MeterOhm',
+    'Transformer',
+    'Fuse',
+    'Potentiometer',
+    'Crystal',
+    'Memristor',
+)
+
+_ALLOWED_ELEMENTS = {}
+if _SCHEMDRAW_OK:
+    _missing = []
+    for _name in _ELEMENT_NAMES:
+        _cls = getattr(elm, _name, None)
+        if _cls is None:
+            _missing.append(_name)
+        else:
+            _ALLOWED_ELEMENTS[_name] = _cls
+    if _missing:
+        log.warning(
+            "schemdraw %s 没有这些元件，已从白名单跳过: %s",
+            getattr(schemdraw, '__version__', '?'),
+            ', '.join(_missing),
+        )
 
 _ALLOWED_DIRECTIONS = {'right', 'left', 'up', 'down'}
 
