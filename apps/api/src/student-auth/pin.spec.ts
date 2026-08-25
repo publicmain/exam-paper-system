@@ -7,6 +7,7 @@ import {
   isWeakPin,
   lockRemainingSec,
   validatePinFormat,
+  type LockState,
 } from './pin';
 
 describe('validatePinFormat', () => {
@@ -38,7 +39,10 @@ describe('isWeakPin', () => {
 
 describe('锁定状态机', () => {
   const now = new Date('2026-08-25T04:00:00Z');
-  const fresh = { pinFailedCount: 0, pinLockedUntil: null };
+  // 显式注解：字面量会把 pinLockedUntil 推断成 null 类型，
+  // 后续赋值 LockState 会炸 nest build（本地 tsc --noEmit 抓不到 ——
+  // 两者配置不同，2026-08-25 部署失败的教训：提交前要跑 nest build）
+  const fresh: LockState = { pinFailedCount: 0, pinLockedUntil: null };
 
   it('前 4 次失败只计数，不锁', () => {
     let s = fresh;
