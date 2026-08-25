@@ -744,10 +744,10 @@ const GRADES_0813: Record<string, { awardedMarks: number; reason: string }> = {
 // auto-graded ones (0 parked items) and blank submissions (no scripts). The
 // GRADES map alone only reaches submissions that had a parked item.
 const SWEEP_ASSIGNMENTS: string[] = [
-  'cmsy881el00n3a9sew4pxg60x', // 2026-08-19 IELTS authentic (cambridge_ielts_8 Test4/P1)
-  'cmsy9tkz400n5zzc5yzbytqqr', // 2026-08-19 O-Level (The Relief Teacher)
-  'cmsy88c2a00o3a9secztn7f6h', // 2026-08-20 IELTS authentic (cambridge_ielts_8 Test2/P3 · 嗅觉)
-  'cmsy9tuk500o5zzc5ljevoa8k', // 2026-08-20 O-Level (The Last Night of the Pasar Malam)
+  'cmt700xec00n3128p4l9lckon', // 2026-08-25 ielts_authentic (2 份)
+  'cmt6yl25k00ppmd9nqufnm1f1', // 2026-08-25 ielts_simplified (2 份)
+  'cmt6zhp6m00nncvymf82gc10p', // 2026-08-25 ielts_light (6 份)
+  'cmt6ykw2400p7md9nmq98s3ny', // 2026-08-25 olevel_intermediate (1 份)
 ];
 
 const GRADES_0814: Record<string, { awardedMarks: number; reason: string }> = {
@@ -847,7 +847,54 @@ const GRADES_0819: Record<string, { awardedMarks: number; reason: string }> = {
   },
 };
 
-const GRADES: Record<string, { awardedMarks: number; reason: string }> = GRADES_0819;
+const GRADES_0825: Record<string, { awardedMarks: number; reason: string }> = {
+  // 2026-08-25 早测 · 五层同开。全部 Claude 在 chat 逐题读原文判定,零 AI。
+  //
+  // ⚠️ 本轮有 3 道 answer-diff 标「真考算错」但**判给分** —— diff 的措辞
+  // 是按雅思填空(限定词数/须抄原词)写的,对 O-Level §B 短答不适用:
+  // 那边「One or two words are enough」是建议不是限制,完整句作答只要
+  // 内容正确就给分,数字形式(81)与文字(eighty-one)等价。
+
+  // ── 杨钧皓 · 雅思真题 Test2/P1(航海术) 段落匹配 ──
+  cmt7xmux300ntmg6bz7vjkq2p: {
+    awardedMarks: 0,
+    reason: '段落匹配答 H,正解 G。G 段是 1976 年那次「为验证可行性」的航行(The voyage was intended to test whether such journeys were possible);H 段讲的是今日复兴现状,不是那次航行。',
+  },
+
+  // ── 胡齐家 · 雅思真题 Test2/P1 填空 ──
+  cmt7y4u5s00vgmg6bg8rv6taj: {
+    awardedMarks: 0,
+    reason: '答 clouds,正解 cloud。理解是对的(找对了句子),但雅思填空必须照抄原文词形 —— 原句是 islands generate their own cloud(单数)。你多半是从前半句 the colour and shape of clouds 取的词。',
+  },
+
+  // ── 赵伯容 · O-Level 基础 the_queue 短答 ×2(完整句作答,内容正确)──
+  cmt7yaatw0113mg6bm7djvkqc: {
+    awardedMarks: 1,
+    reason: '答「He stood in the queue for fifty minutes.」内容正确(fifty minutes)。O-Level 短答允许整句作答,给分。',
+  },
+  cmt7ycbvs012xmg6btss2l7pe: {
+    awardedMarks: 1,
+    reason: '答「The narrator’s grandmother is eighty-one years old.」内容正确(eighty-one),整句作答不扣分。',
+  },
+
+  // ── 叶书瑞 · 雅思轻量 Test5/P1(垂直农场) 填空 ×2 ──
+  cmt7yeu3l014wmg6bmudipup0: {
+    awardedMarks: 0,
+    reason: '答 gains,正解 grains(少一个 r)。位置找对了,雅思填空拼写必须完全正确。',
+  },
+  cmt7ydugq014omg6brhxsmyoh: {
+    awardedMarks: 0,
+    reason: '答 counted,正解 electricity。原文说垂直农场最大的难处是电费,这题答案在讲成本那一段。',
+  },
+
+  // ── 曾义洋 · O-Level 基础 the_queue 短答 ──
+  cmt7yft7r015jmg6bhvz7chy8: {
+    awardedMarks: 1,
+    reason: '答「81」,与原文 eighty-one 同义,O-Level 短答接受数字形式,给分。',
+  },
+};
+
+const GRADES: Record<string, { awardedMarks: number; reason: string }> = GRADES_0825;
 const _OLD_GRADES: Record<string, { awardedMarks: number; reason: string }> = {
   // 2026-07-24 早测 · ielts_authentic = cambridge_ielts_8/Test1/P1
   // "A Chronicle of Timekeeping"(Q1-4 段落匹配 A-H;Q9-13 图标注 ≤2词).
