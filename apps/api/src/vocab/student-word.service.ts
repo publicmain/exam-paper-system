@@ -127,7 +127,10 @@ export class StudentWordService {
     return {
       student: { id: student.id, name: student.name },
       total: words.length,
-      dueCount: words.filter((w) => w.due.getTime() <= now && w.state !== 'known').length,
+      // 口径必须与 vocab-review.service 的 due() 一致：**只看 due**。
+      // 2026-08-25 复审指出，这里还留着 state!=='known' 的旧过滤，会出现
+      // 「复习队列里有词，但生词本头部显示 0 个待复习」的自相矛盾。
+      dueCount: words.filter((w) => w.due.getTime() <= now).length,
       words: words.map((w) => {
         const e = byWord.get(w.headword);
         return {

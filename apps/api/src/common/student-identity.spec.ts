@@ -1,5 +1,5 @@
-import { describe, expect, it } from 'vitest';
-import { claimedIdentity, identityConflicts } from './student-identity.guard';
+import { describe, expect, it, vi } from 'vitest';
+import { StudentIdentityGuard, claimedIdentity, identityConflicts } from './student-identity.guard';
 
 /**
  * 学生越权阻断（2026-08-25 外部审查 P0-1）。
@@ -48,5 +48,101 @@ describe('identityConflicts — 拿自己的 token 操作别人必须被拦', ()
   });
   it('不做模糊匹配 —— 差一个字也是冲突', () => {
     expect(identityConflicts(me, { name: '张三丰' })).toBe(true);
+  });
+});
+
+// ─────────────────────────────────────────────────────────────────────
+// 长期 token 的撤销（2026-08-25 复审 P0-2）
+// ─────────────────────────────────────────────────────────────────────
+
+function makeCtx(authHeader?: string, query: Record<string, any> = {}) {
+  const req: any = { headers: authHeader ? { authorization: authHeader } : {}, query, body: {} };
+  return {
+    req,
+    ctx: {
+      switchToHttp: () => ({ getRequest: () => req }),
+      getHandler: () => ({}),
+      getClass: () => ({}),
+    } as any,
+  };
+}
+
+function makeGuard(payload: any, dbRow: any) {
+  const jwt: any = { verifyAsync: vi.fn().mockResolvedValue(payload) };
+  const prisma: any = { user: { findUnique: vi.fn().mockResolvedValue(dbRow) } };
+  const reflector: any = { getAllAndOverride: vi.fn().mockReturnValue(false) };
+  return { guard: new StudentIdentityGuard(jwt, reflector, prisma), prisma };
+}
+
+const ACTIVE = { studentAuthVersion: 3, isActive: true, archivedAt: null };
+
+describe('StudentIdentityGuard — 撤销校验', () => {
+  it('版本一致 → 放行，身份挂上 req', async () => {
+    const { guard } = makeGuard(
+      { id: 'stu-1', name: '张三', role: 'student', av: 3 },
+      ACTIVE,
+    );
+    const { ctx, req } = makeCtx('Bearer x');
+    await expect(guard.canActivate(ctx)).resolves.toBe(true);
+    expect(req.studentAuth).toEqual({ id: 'stu-1', name: '张三' });
+  });
+
+  it('教师重置 PIN 后版本对不上 → 403 token_revoked（抢注者当场下线）', async () => {
+    const { guard } = makeGuard(
+      { id: 'stu-1', name: '张三', role: 'student', av: 3 },
+      { ...ACTIVE, studentAuthVersion: 4 },
+    );
+    const { ctx } = makeCtx('Bearer x');
+    await expect(guard.canActivate(ctx)).rejects.toMatchObject({
+      response: { code: 'token_revoked' },
+    });
+  });
+
+  it('账号停用 / 已归档 → 一样拒绝', async () => {
+    for (const row of [
+      { ...ACTIVE, isActive: false },
+      { ...ACTIVE, archivedAt: new Date() },
+      null,
+    ]) {
+      const { guard } = makeGuard({ id: 'stu-1', name: '张三', role: 'student', av: 3 }, row);
+      const { ctx } = makeCtx('Bearer x');
+      await expect(guard.canActivate(ctx)).rejects.toMatchObject({
+        response: { code: 'token_revoked' },
+      });
+    }
+  });
+
+  it('撤销不能被降级成「没带 token」—— 读操作也必须拒绝', async () => {
+    // catch 块若把 ForbiddenException 吞掉，这里会 resolve(true) 并放行，
+    // 被作废的凭证等于还能读成绩。
+    const { guard } = makeGuard(
+      { id: 'stu-1', name: '张三', role: 'student', av: 3 },
+      { ...ACTIVE, studentAuthVersion: 9 },
+    );
+    const { ctx } = makeCtx('Bearer x', { name: '张三' });
+    await expect(guard.canActivate(ctx)).rejects.toMatchObject({
+      response: { code: 'token_revoked' },
+    });
+  });
+
+  it('扫码签发的当天 token（无 av）不查库 —— 不给每次答题加一次往返', async () => {
+    const { guard, prisma } = makeGuard(
+      { id: 'stu-1', name: '张三', role: 'student' },
+      ACTIVE,
+    );
+    const { ctx } = makeCtx('Bearer x');
+    await expect(guard.canActivate(ctx)).resolves.toBe(true);
+    expect(prisma.user.findUnique).not.toHaveBeenCalled();
+  });
+
+  it('handoff 窄凭证不算学生身份，也不触发撤销查询', async () => {
+    const { guard, prisma } = makeGuard(
+      { id: 'stu-1', name: '张三', role: 'student', scope: 'mq_handoff', av: 3 },
+      ACTIVE,
+    );
+    const { ctx, req } = makeCtx('Bearer x');
+    await expect(guard.canActivate(ctx)).resolves.toBe(true);
+    expect(req.studentAuth).toBeUndefined();
+    expect(prisma.user.findUnique).not.toHaveBeenCalled();
   });
 });

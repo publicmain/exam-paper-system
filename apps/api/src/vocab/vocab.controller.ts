@@ -270,6 +270,7 @@ export class VocabController {
    */
   @Public()
   @RateLimit({ limit: 240, windowSec: 60, scope: 'ip' })
+  @RequireStudentToken()
   @Post('page-view')
   async recordPageView(@Body() body: unknown) {
     const schema = z.object({

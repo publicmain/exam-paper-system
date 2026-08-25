@@ -39,6 +39,12 @@ model User {
   pinFailedCount Int       @default(0)
   /// 连错 5 次锁到这个时刻（15 分钟）—— 6 位 PIN 的暴力破解防线
   pinLockedUntil DateTime?
+  /// 学生长期 token 的版本号（2026-08-25 复审 P0-2）。
+  /// 长期 token 是无状态 JWT，重置 PIN / 改 PIN / 停用账号都无法让已签发的
+  /// 30 天 token 失效 —— 抢注者拿到的 token 能一直用到过期。
+  /// 签发时把当前值写进 `av` claim，Guard 逐次比对；上述事件原子递增此值，
+  /// 旧 token 立刻全部作废（等价于「登出所有设备」）。
+  studentAuthVersion Int @default(0)
   // R14 — Feature 12: soft-archive a student (or any user) without
   // deleting the row. Login + roster queries filter `archivedAt IS NULL`
   // by default; admin can un-archive by clearing the column.

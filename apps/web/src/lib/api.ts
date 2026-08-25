@@ -1,3 +1,5 @@
+import { authErrorHint } from './student-token';
+
 export const BASE = (import.meta as any).env?.VITE_API_URL || '';
 
 /** 英语等级。与后端 prisma enum + level-registry.ts 一一对应。
@@ -37,6 +39,13 @@ async function request<T = any>(method: string, path: string, body?: any): Promi
       else if (Array.isArray(parsed?.message)) friendly = parsed.message.join('; ');
     } catch {
       /* not JSON, fall through to raw text */
+    }
+    // 学生 token 被作废/缺失/对不上号 —— 给一句「去重新登录」而不是
+    // 让学生对着 Forbidden 反复重试（2026-08-25 复审 P0-2）。
+    // token_revoked 还会顺手清掉本地那张废票。
+    if (res.status === 403 && parsedBody) {
+      const hint = authErrorHint(parsedBody?.code ?? parsedBody?.message?.code);
+      if (hint) friendly = hint;
     }
     // 结构化错误体挂在 err.body 上 —— student_not_found 的相近姓名建议
     // （suggestions）之类的字段要能到达页面，只给 message 会把它们丢掉。

@@ -12,6 +12,7 @@ import { JwtService } from '@nestjs/jwt';
 import { z } from 'zod';
 import { CurrentUser } from '../common/current-user.decorator';
 import { Public } from '../common/auth.guard';
+import { PrismaService } from '../common/prisma.service';
 import { RateLimit } from '../common/rate-limit.guard';
 import { StudentAuthService } from './student-auth.service';
 
@@ -28,6 +29,7 @@ export class StudentAuthController {
   constructor(
     private readonly svc: StudentAuthService,
     private readonly jwt: JwtService,
+    private readonly prisma: PrismaService,
   ) {}
 
   /** 从 Authorization 里解出**完整**学生身份；handoff 等窄凭证不算。 */
@@ -37,11 +39,32 @@ export class StudentAuthController {
       throw new ForbiddenException({ code: 'student_token_required' });
     }
     try {
-      const p = await this.jwt.verifyAsync<{ id?: string; role?: string; scope?: string }>(
-        auth.slice('Bearer '.length),
-      );
+      const p = await this.jwt.verifyAsync<{
+        id?: string;
+        role?: string;
+        scope?: string;
+        av?: number;
+      }>(auth.slice('Bearer '.length));
       if (p?.role !== 'student' || !p.id || p.scope === 'mq_handoff') {
         throw new Error('not_full_student');
+      }
+      // 撤销校验（2026-08-25 复审 P0-2）。改 PIN 这条路尤其要查：
+      // 抢注者若已拿到 30 天 token，教师重置 PIN 后他必须**不能**再用
+      // 旧 token 把 PIN 改回去，否则重置形同虚设。
+      // 与 StudentIdentityGuard 同口径：只查带 av 的长期 token。
+      if (typeof p.av === 'number') {
+        const row = await this.prisma.user.findUnique({
+          where: { id: p.id },
+          select: { studentAuthVersion: true, isActive: true, archivedAt: true },
+        });
+        if (
+          !row ||
+          !row.isActive ||
+          row.archivedAt != null ||
+          row.studentAuthVersion !== p.av
+        ) {
+          throw new Error('token_revoked');
+        }
       }
       return { id: p.id };
     } catch {

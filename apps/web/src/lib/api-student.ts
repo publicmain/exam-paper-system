@@ -6,23 +6,34 @@
  * on cleanly without touching that file. Reuses BASE from api.ts so the
  * dev / prod URL switch stays single-sourced.
  *
- * Every helper here calls a public endpoint (no Authorization header).
+ * 认证：这些端点大多是「公开 + 姓名匹配」的读接口，**但写接口不是** ——
+ * 申诉、开重练、交重练卷都挂了 `@RequireStudentToken()`（2026-08-25 复审）。
+ * 所以这里带上 auth_token：有就带（写接口靠它过闸、读接口靠它校验姓名
+ * 不被冒用），没有也不拦（不登录看历史成绩这条路要留着）。
+ *
  * Graceful degradation: on 404 (endpoint not deployed yet) the helper
  * returns null so the UI can hide the affordance instead of crashing.
  */
 import { BASE } from './api';
+import { onAuthError } from './student-token';
 
 async function publicFetch<T>(path: string, init?: RequestInit): Promise<T | null> {
+  const tok = localStorage.getItem('auth_token');
   const res = await fetch(`${BASE}${path}`, {
     ...init,
     headers: {
       'Content-Type': 'application/json',
+      ...(tok ? { Authorization: `Bearer ${tok}` } : {}),
       ...(init?.headers ?? {}),
     },
   });
   // 404 — endpoint not deployed yet. Return null so the caller can hide
   // the new affordance gracefully without crashing the page.
   if (res.status === 404) return null;
+  if (res.status === 403) {
+    const handled = await onAuthError(res.clone());
+    if (handled) throw new Error(handled);
+  }
   if (!res.ok) {
     const text = await res.text();
     let friendly = text;

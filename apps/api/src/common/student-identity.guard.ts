@@ -8,6 +8,7 @@ import {
 import { Reflector } from '@nestjs/core';
 import { JwtService } from '@nestjs/jwt';
 import type { Request } from 'express';
+import { PrismaService } from './prisma.service';
 
 /**
  * 学生身份 —— 可选解析 + 越权阻断（2026-08-25 外部审查 P0-1 的修复）。
@@ -93,6 +94,7 @@ export class StudentIdentityGuard implements CanActivate {
   constructor(
     private readonly jwt: JwtService,
     private readonly reflector: Reflector,
+    private readonly prisma: PrismaService,
   ) {}
 
   async canActivate(ctx: ExecutionContext): Promise<boolean> {
@@ -107,15 +109,43 @@ export class StudentIdentityGuard implements CanActivate {
           name?: string;
           role?: string;
           scope?: string;
+          av?: number;
         }>(auth.slice('Bearer '.length));
         // 只认学生本人的 token。教师 token 不冒充学生（教师看学生数据
         // 走教师端接口，那边有 canActOnClass 的班级权限校验）；
         // handoff token 是发卷专用的窄权限凭证，不用于数据读写。
         if (payload?.role === 'student' && payload.id && payload.scope !== 'mq_handoff') {
+          // 长期 token 的撤销校验（2026-08-25 复审 P0-2）。
+          //
+          // 带 av claim 的是 PIN 登录签发的 30 天 token —— 必须逐次比对
+          // 数据库里的 studentAuthVersion，并确认账号仍然启用。教师重置
+          // PIN / 学生改 PIN / 账号停用都会递增该版本，旧 token 当场作废。
+          // 没有这一步，「抢注者已拿到 30 天 token」的情况教师救不回来。
+          //
+          // 不带 av 的是扫码签发的当天 token（最长活到 23:59）——
+          // 它的暴露窗口只有几小时，不查库，避免给每次扫码答题都加一次
+          // 数据库往返。
+          if (typeof payload.av === 'number') {
+            const row = await this.prisma.user.findUnique({
+              where: { id: payload.id },
+              select: { studentAuthVersion: true, isActive: true, archivedAt: true },
+            });
+            const stillValid =
+              row != null &&
+              row.isActive &&
+              row.archivedAt == null &&
+              row.studentAuthVersion === payload.av;
+            if (!stillValid) {
+              throw new ForbiddenException({ code: 'token_revoked' });
+            }
+          }
           student = { id: payload.id, name: payload.name ?? '' };
         }
-      } catch {
-        // token 过期/损坏 —— 视作没带，走下面的降级逻辑
+      } catch (e) {
+        // token_revoked 是**明确的拒绝**，不能降级成「没带 token」——
+        // 那样读操作会静默放行，被撤销的凭证等于还能用
+        if (e instanceof ForbiddenException) throw e;
+        // 其余（过期/签名损坏）视作没带，走下面的降级逻辑
       }
     }
 

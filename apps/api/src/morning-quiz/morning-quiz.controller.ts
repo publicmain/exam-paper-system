@@ -12,13 +12,14 @@ import {
   Post,
   Query,
   Req,
-  Res,
+  Res,  UseGuards,
 } from '@nestjs/common';
 import { Request, Response, Express } from 'express';
 import { z } from 'zod';
 import { CurrentUser } from '../common/current-user.decorator';
 import { AllowHandoff, Public } from '../common/auth.guard';
 import { RateLimit } from '../common/rate-limit.guard';
+import { RequireStudentToken, StudentIdentityGuard } from '../common/student-identity.guard';
 import { PrismaService } from '../common/prisma.service';
 import { closeNames } from '../common/name-suggest';
 import { StudentService } from '../student/student.service';
@@ -108,6 +109,13 @@ function parseHistoryRateLimit(): { limit: number; windowSec: number } {
 }
 const HISTORY_RATE_LIMIT = parseHistoryRateLimit();
 
+/**
+ * 学生身份（2026-08-25 复审 P0）：本 controller 同时服务教师端与学生端。
+ * StudentIdentityGuard 只做两件事 —— 带学生 token 时校验它与请求声明的
+ * 姓名一致、标了 @RequireStudentToken 的路由必须带 token。教师端方法
+ * 不带学生 token，不受影响。
+ */
+@UseGuards(StudentIdentityGuard)
 @Controller('morning-quiz')
 export class MorningQuizController {
   constructor(
@@ -872,6 +880,7 @@ export class MorningQuizController {
    *  /history-by-name. */
   @Public()
   @RateLimit({ limit: 5, windowSec: 60, scope: 'ip' })
+  @RequireStudentToken()
   @Post('appeals')
   async createAppeal(@Body() body: unknown, @Req() req: Request) {
     const schema = z.object({
@@ -986,6 +995,7 @@ export class MorningQuizController {
    *  Rate-limited; name+studentId scoped. */
   @Public()
   @RateLimit({ limit: HISTORY_RATE_LIMIT.limit, windowSec: HISTORY_RATE_LIMIT.windowSec, scope: 'ip' })
+  @RequireStudentToken()
   @Post('practice/:submissionId')
   async startPractice(
     @Param('submissionId') submissionId: string,
@@ -1023,6 +1033,7 @@ export class MorningQuizController {
    *  score_ready. Stats endpoints exclude status='practice'. */
   @Public()
   @RateLimit({ limit: HISTORY_RATE_LIMIT.limit, windowSec: HISTORY_RATE_LIMIT.windowSec, scope: 'ip' })
+  @RequireStudentToken()
   @Post('practice/:practiceSubmissionId/submit')
   async submitPractice(
     @Param('practiceSubmissionId') practiceSubmissionId: string,

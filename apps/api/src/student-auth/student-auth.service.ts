@@ -10,7 +10,8 @@ import * as bcrypt from 'bcryptjs';
 import { PrismaService } from '../common/prisma.service';
 import { canActOnClass } from '../common/roles';
 import {
-  afterFailure,
+  LOCK_MINUTES,
+  MAX_FAILED_ATTEMPTS,
   afterSuccess,
   isLocked,
   lockRemainingSec,
@@ -64,6 +65,7 @@ export class StudentAuthService {
         pinHash: true,
         pinFailedCount: true,
         pinLockedUntil: true,
+        studentAuthVersion: true,
         classEnrollments: {
           where: { role: 'student', class: { archivedAt: null } },
           select: { class: { select: { id: true, name: true } } },
@@ -100,13 +102,28 @@ export class StudentAuthService {
 
     const ok = await bcrypt.compare(input.pin, user.pinHash);
     if (!ok) {
-      const next = afterFailure(user, now);
-      await this.prisma.user.update({ where: { id: user.id }, data: next });
-      if (next.pinLockedUntil) {
+      // ⚠️ 必须由**数据库**原子递增（2026-08-25 复审 P0-3）。
+      // 原来是「读 pinFailedCount → 内存 +1 → update」：五个并发的错误
+      // 请求会读到同一个旧值、各自写回 1，五次失败只记成一次，锁定形同
+      // 虚设。改成 { increment: 1 } 由 PG 保证原子性，再回读判定是否越线。
+      const bumped = await this.prisma.user.update({
+        where: { id: user.id },
+        data: { pinFailedCount: { increment: 1 } },
+        select: { pinFailedCount: true },
+      });
+      if (bumped.pinFailedCount >= MAX_FAILED_ATTEMPTS) {
+        // 越线才上锁并清零计数 —— 锁到期后重新拥有整额尝试
+        await this.prisma.user.update({
+          where: { id: user.id },
+          data: {
+            pinFailedCount: 0,
+            pinLockedUntil: new Date(now.getTime() + LOCK_MINUTES * 60_000),
+          },
+        });
         this.logger.warn(`PIN locked after repeated failures: student=${user.id}`);
         throw new ForbiddenException({
           code: 'pin_locked',
-          retryAfterSec: lockRemainingSec(next, now),
+          retryAfterSec: LOCK_MINUTES * 60,
         });
       }
       throw new UnauthorizedException({ code: 'invalid_credentials' });
@@ -118,7 +135,14 @@ export class StudentAuthService {
     });
 
     const token = await this.jwt.signAsync(
-      { id: user.id, email: user.email, role: 'student', name: user.name },
+      {
+        id: user.id,
+        email: user.email,
+        role: 'student',
+        name: user.name,
+        // 撤销用的版本号（复审 P0-2）：重置/改 PIN/停用时递增，旧 token 立即作废
+        av: user.studentAuthVersion,
+      },
       { expiresIn: StudentAuthService.TOKEN_TTL },
     );
     return { token, student: { id: user.id, name: user.name } };
@@ -161,14 +185,32 @@ export class StudentAuthService {
     }
     if (!(await bcrypt.compare(oldPin, user.pinHash))) {
       // 改 PIN 时输错旧 PIN 同样计入失败 —— 否则这里成了绕过锁定的
-      // 免费试错通道
-      const next = afterFailure(user, now);
-      await this.prisma.user.update({ where: { id: studentId }, data: next });
+      // 免费试错通道。同 login，用数据库原子递增。
+      const bumped = await this.prisma.user.update({
+        where: { id: studentId },
+        data: { pinFailedCount: { increment: 1 } },
+        select: { pinFailedCount: true },
+      });
+      if (bumped.pinFailedCount >= MAX_FAILED_ATTEMPTS) {
+        await this.prisma.user.update({
+          where: { id: studentId },
+          data: {
+            pinFailedCount: 0,
+            pinLockedUntil: new Date(now.getTime() + LOCK_MINUTES * 60_000),
+          },
+        });
+      }
       throw new UnauthorizedException({ code: 'invalid_credentials' });
     }
     await this.prisma.user.update({
       where: { id: studentId },
-      data: { pinHash: await bcrypt.hash(newPin, 10), pinSetAt: now, ...afterSuccess() },
+      data: {
+        pinHash: await bcrypt.hash(newPin, 10),
+        pinSetAt: now,
+        ...afterSuccess(),
+        // 改 PIN = 登出所有其它设备（复审 P0-2）
+        studentAuthVersion: { increment: 1 },
+      },
     });
     return { ok: true as const };
   }
@@ -195,7 +237,15 @@ export class StudentAuthService {
     }
     await this.prisma.user.update({
       where: { id: studentId },
-      data: { pinHash: null, pinSetAt: null, pinFailedCount: 0, pinLockedUntil: null },
+      data: {
+        pinHash: null,
+        pinSetAt: null,
+        pinFailedCount: 0,
+        pinLockedUntil: null,
+        // 关键（复审 P0-2）：重置必须让已签发的 30 天 token 立刻失效，
+        // 否则「抢注者已经拿到 token」的情况下，教师重置也救不回来
+        studentAuthVersion: { increment: 1 },
+      },
     });
     this.logger.log(`PIN reset by teacher=${actor.id} for student=${studentId}`);
     return { ok: true as const };

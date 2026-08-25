@@ -27,7 +27,9 @@ const prisma = new PrismaClient();
            SUM(CASE WHEN w."sourceType"::text='click' THEN 1 ELSE 0 END)::int AS click,
            SUM(CASE WHEN w."sourceType"::text='wrong_answer' THEN 1 ELSE 0 END)::int AS wrong,
            SUM(CASE WHEN w."sourceType"::text='teacher_push' THEN 1 ELSE 0 END)::int AS pushed,
-           SUM(CASE WHEN w.due <= now() AND w.state::text <> 'known' THEN 1 ELSE 0 END)::int AS due_now
+           -- 口径与 vocab-review.service 的 due() 一致：只看 due。
+           -- 'known' 的词到期了照样要复习（2026-08-25 复审）。
+           SUM(CASE WHEN w.due <= now() THEN 1 ELSE 0 END)::int AS due_now
     FROM "StudentWord" w
     JOIN "User" u ON u.id = w."studentId"
     JOIN "ClassEnrollment" e ON e."userId" = u.id AND e.role='student'
