@@ -1,4 +1,5 @@
 import { authErrorHint } from './student-token';
+import { teacherViewToken } from './teacher-view';
 
 export const BASE = (import.meta as any).env?.VITE_API_URL || '';
 
@@ -13,6 +14,11 @@ export type EnglishLevel =
   | 'ielts_simplified';
 
 function token(): string | null {
+  // 教师的「学生视角」令牌优先，且只在**开着它的那个标签页**里生效
+  // （sessionStorage 每标签页独立）。教师原来的管理标签页不受影响，
+  // 不会被自己挤下线。详见 lib/teacher-view.ts。
+  const view = teacherViewToken();
+  if (view) return view;
   return localStorage.getItem('auth_token');
 }
 
@@ -446,9 +452,49 @@ export const api = {
   studentChangePin: (body: { oldPin: string; newPin: string }) =>
     request('POST', '/student-auth/change-pin', body),
   studentAuthMe: () => request('GET', '/student-auth/me'),
+  /** 学生端：现在能不能设 PIN（集体注册窗口开着吗） */
+  studentClaimWindow: (): Promise<{ pinSet: boolean; open: boolean; remainingSec: number }> =>
+    request('GET', '/student-auth/claim-window'),
   /** 教师端：重置学生 PIN（忘记时的恢复通道） */
   adminResetStudentPin: (studentId: string) =>
     request('POST', '/student-auth/admin/reset-pin', { studentId }),
+
+  // ── 教师端：集体注册窗口（2026-08-25）──
+  /** 花名册：谁领了 PIN、谁没领、窗口开着没 */
+  claimStatus: (
+    classId: string,
+  ): Promise<{
+    classId: string;
+    className: string;
+    windowOpen: boolean;
+    windowOpenUntil: string | null;
+    total: number;
+    claimed: number;
+    unclaimed: number;
+    students: {
+      id: string;
+      name: string;
+      claimed: boolean;
+      claimedAt: string | null;
+      locked: boolean;
+      personalWindowOpen: boolean;
+    }[];
+  }> => request('GET', `/student-auth/admin/claim-status?classId=${encodeURIComponent(classId)}`),
+  openClaimWindow: (classId: string, minutes?: number) =>
+    request('POST', '/student-auth/admin/claim-window/open', { classId, minutes }),
+  closeClaimWindow: (classId: string) =>
+    request('POST', '/student-auth/admin/claim-window/close', { classId }),
+  openStudentClaimWindow: (studentId: string, minutes?: number) =>
+    request('POST', '/student-auth/admin/claim-window/student', { studentId, minutes }),
+  /** 教师端：签发「以学生视角查看」的只读令牌（15 分钟） */
+  studentViewToken: (
+    studentId: string,
+  ): Promise<{
+    token: string;
+    student: { id: string; name: string };
+    expiresInSec: number;
+    readOnly: true;
+  }> => request('POST', '/student-auth/admin/view-token', { studentId }),
 
   /** 生词本 — 撤销该词最近一次评分（10 分钟内，误触防线） */
   vocabReviewUndo: (body: { studentName: string; studentId?: string; headword: string }) =>

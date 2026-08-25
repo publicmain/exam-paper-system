@@ -50,9 +50,19 @@ export const REQUIRE_STUDENT_TOKEN = 'require_student_token';
 /** 标记：该路由必须携带有效的学生 token（写操作一律加）。 */
 export const RequireStudentToken = () => SetMetadata(REQUIRE_STUDENT_TOKEN, true);
 
+/** 教师「以学生视角查看」的 scope。与 student-auth.service 保持一致。 */
+export const TEACHER_VIEW_SCOPE = 'teacher_view';
+
 export interface StudentAuth {
   id: string;
   name: string;
+  /**
+   * 这个身份是教师借来的（`scope: 'teacher_view'`），不是学生本人。
+   * 读放行、**写一律拒绝** —— 见下面 canActivate 的第 ② 步。
+   */
+  viaTeacherView?: boolean;
+  /** teacher_view 时是哪位教师（审计/日志用）。 */
+  actorId?: string;
 }
 
 /** 挂了本 Guard 的 controller，req 上会多出这个字段。 */
@@ -110,10 +120,14 @@ export class StudentIdentityGuard implements CanActivate {
           role?: string;
           scope?: string;
           av?: number;
+          actorId?: string;
         }>(auth.slice('Bearer '.length));
         // 只认学生本人的 token。教师 token 不冒充学生（教师看学生数据
         // 走教师端接口，那边有 canActOnClass 的班级权限校验）；
         // handoff token 是发卷专用的窄权限凭证，不用于数据读写。
+        //
+        // teacher_view 是例外：它是教师端签发的**只读**学生视角令牌，
+        // 走到这里当学生身份用，但下面第 ② 步会拒掉一切写操作。
         if (payload?.role === 'student' && payload.id && payload.scope !== 'mq_handoff') {
           // 长期 token 的撤销校验（2026-08-25 复审 P0-2）。
           //
@@ -140,6 +154,12 @@ export class StudentIdentityGuard implements CanActivate {
             }
           }
           student = { id: payload.id, name: payload.name ?? '' };
+          // 只在真是教师视角时才挂这两个字段 —— 学生本人的身份对象保持
+          // 原样，下游任何 `toEqual({id, name})` 的契约都不受影响
+          if (payload.scope === TEACHER_VIEW_SCOPE) {
+            student.viaTeacherView = true;
+            student.actorId = payload.actorId;
+          }
         }
       } catch (e) {
         // token_revoked 是**明确的拒绝**，不能降级成「没带 token」——
@@ -163,6 +183,15 @@ export class StudentIdentityGuard implements CanActivate {
     ]);
     if (mustHaveToken && !student) {
       throw new ForbiddenException({ code: 'student_token_required' });
+    }
+    // ②b 教师的学生视角是**只读**的。
+    //
+    // 让教师以学生身份写入看着方便，但会污染成绩数据的可信度：教师进去
+    // 帮忙点两下，库里记的就是「学生交了卷」。判分队列和 FSRS 调度都建
+    // 在这些记录上，一旦教师的动作能被记成学生的，之后看任何一条记录都
+    // 要先问「这是他自己做的吗」。排障只需要看见，不需要代劳。
+    if (mustHaveToken && student?.viaTeacherView) {
+      throw new ForbiddenException({ code: 'teacher_view_is_read_only' });
     }
 
     if (student) req.studentAuth = student;

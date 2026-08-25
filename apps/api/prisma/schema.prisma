@@ -45,6 +45,11 @@ model User {
   /// 签发时把当前值写进 `av` claim，Guard 逐次比对；上述事件原子递增此值，
   /// 旧 token 立刻全部作废（等价于「登出所有设备」）。
   studentAuthVersion Int @default(0)
+
+  /// 个别补注册窗口（2026-08-25）。集体注册当天请假、换手机、被抢注后
+  /// 需要重来的学生，由教师在花名册上逐个开一个短窗，不必为一个人重开
+  /// 全班的窗。null 或已过期 = 关闭。与班级窗是**或**的关系。
+  pinClaimOpenUntil DateTime?
   // R14 — Feature 12: soft-archive a student (or any user) without
   // deleting the row. Login + roster queries filter `archivedAt IS NULL`
   // by default; admin can un-archive by clearing the column.
@@ -118,6 +123,19 @@ model Class {
   // null when the teacher hasn't set anything; the prompt then falls
   // back to the syllabus-default mix.
   weeklyFocus String?
+
+  /// 集体注册窗口（2026-08-25）。PIN 认领**只在这个时刻之前开放**。
+  ///
+  /// 为什么需要它：认领的信任根是「扫到码 + 在名单里点自己的名字」，
+  /// 这只证明拿到了二维码，不证明是本人。风险的大小 = 窗口有多长 ×
+  /// 有没有人看着。原设计窗口是**无限长**的 —— 任何未认领的名字，任何
+  /// 时候都能被任何同学领走。改成教师在课堂上开一个十几分钟的窗，全班
+  /// 当场注册、当场就能发现「我的名字被人领了」，之后窗口关死。
+  ///
+  /// null 或已过期 = 关闭。个别补注册见 `User.pinClaimOpenUntil`。
+  pinClaimOpenUntil DateTime?
+  /// 开窗的教师（审计用）。
+  pinClaimOpenedBy  String?
 
   enrollments         ClassEnrollment[]
   assignments         PaperAssignment[]

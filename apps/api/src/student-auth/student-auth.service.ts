@@ -17,6 +17,36 @@ import {
   lockRemainingSec,
   validatePinFormat,
 } from './pin';
+import {
+  type ClaimWindowState,
+  claimWindowOpen,
+  claimWindowRemainingSec,
+  normalizeWindowMinutes,
+  windowEndsAt,
+} from './claim-window';
+
+/**
+ * 把一行 user（带 classEnrollments）折成认领窗口状态。
+ *
+ * 学生可能在多个班（少见但存在）—— 取**最晚**的那个班级窗，否则一个
+ * 已归档班级的空窗会盖掉真正开着的那个。
+ */
+function claimWindowState(
+  user: {
+    pinClaimOpenUntil: Date | null;
+    classEnrollments: { class: { pinClaimOpenUntil: Date | null } }[];
+  },
+  _now: Date,
+): ClaimWindowState {
+  const classEnds = user.classEnrollments
+    .map((e) => e.class.pinClaimOpenUntil)
+    .filter((d): d is Date => d != null)
+    .map((d) => d.getTime());
+  return {
+    classOpenUntil: classEnds.length ? new Date(Math.max(...classEnds)) : null,
+    studentOpenUntil: user.pinClaimOpenUntil,
+  };
+}
 
 /**
  * 学生 PIN 认证（2026-08-25，docs/PRD/student-auth-and-home.md）。
@@ -40,6 +70,10 @@ export class StudentAuthService {
 
   /** PIN token 有效期。30 天 —— 学生设备丢失的风险由教师重置兜底。 */
   private static readonly TOKEN_TTL = '30d';
+
+  /** 教师「以学生视角查看」的令牌：只读、15 分钟。 */
+  static readonly TEACHER_VIEW_SCOPE = 'teacher_view';
+  private static readonly TEACHER_VIEW_TTL = '15m';
 
   async login(input: { name: string; studentId?: string; pin: string }) {
     const name = (input.name ?? '').trim();
@@ -154,7 +188,16 @@ export class StudentAuthService {
     if (err) throw new BadRequestException({ code: err });
     const user = await this.prisma.user.findUnique({
       where: { id: studentId },
-      select: { pinHash: true, role: true, isActive: true },
+      select: {
+        pinHash: true,
+        role: true,
+        isActive: true,
+        pinClaimOpenUntil: true,
+        classEnrollments: {
+          where: { role: 'student', class: { archivedAt: null } },
+          select: { class: { select: { pinClaimOpenUntil: true } } },
+        },
+      },
     });
     if (!user || user.role !== 'student' || !user.isActive) {
       throw new ForbiddenException({ code: 'not_a_student' });
@@ -164,11 +207,291 @@ export class StudentAuthService {
       // 还在有效期的 token 就能悄悄改掉 PIN 把人锁在门外。
       throw new BadRequestException({ code: 'pin_already_set' });
     }
+
+    // 认领窗口（2026-08-25）。这道闸是抢注防线的**全部** —— 上面那两条
+    // 检查都拦不住「同学扫了码、点了我的名字」。窗口关着时谁也领不走。
+    const now = new Date();
+    const state = claimWindowState(user, now);
+    if (!claimWindowOpen(state, now)) {
+      throw new ForbiddenException({ code: 'claim_window_closed' });
+    }
+
     await this.prisma.user.update({
       where: { id: studentId },
-      data: { pinHash: await bcrypt.hash(pin, 10), pinSetAt: new Date() },
+      data: {
+        pinHash: await bcrypt.hash(pin, 10),
+        pinSetAt: now,
+        // 认领成功即关掉个人窗 —— 一次性，不留给下一个人
+        pinClaimOpenUntil: null,
+      },
     });
+    this.logger.log(`PIN claimed: student=${studentId}`);
     return { ok: true as const };
+  }
+
+  /** 认领窗口状态（学生端「现在能不能设 PIN」）。 */
+  async claimWindow(studentId: string) {
+    const user = await this.prisma.user.findUnique({
+      where: { id: studentId },
+      select: {
+        pinHash: true,
+        pinClaimOpenUntil: true,
+        classEnrollments: {
+          where: { role: 'student', class: { archivedAt: null } },
+          select: { class: { select: { pinClaimOpenUntil: true } } },
+        },
+      },
+    });
+    if (!user) throw new UnauthorizedException({ code: 'invalid_credentials' });
+    const now = new Date();
+    const state = claimWindowState(user, now);
+    return {
+      pinSet: user.pinHash != null,
+      open: claimWindowOpen(state, now),
+      remainingSec: claimWindowRemainingSec(state, now),
+    };
+  }
+
+  // ───────────────────── 教师端：注册窗口 ─────────────────────
+
+  /**
+   * 开班级窗（集体注册课）。
+   *
+   * 刻意**不做**「一键给全班生成 PIN」：那样 PIN 要经过教师的手和一张
+   * 纸才能到学生手里，途中谁都看得见，比让学生自己设更差。
+   */
+  async openClassClaimWindow(
+    actor: { id: string; role: string },
+    classId: string,
+    minutes?: number,
+  ) {
+    if (!(await canActOnClass(this.prisma, actor, classId))) {
+      throw new ForbiddenException({ code: 'not_your_class' });
+    }
+    let mins: number;
+    try {
+      mins = normalizeWindowMinutes(minutes);
+    } catch (e) {
+      throw new BadRequestException({ code: (e as Error).message });
+    }
+    const openUntil = windowEndsAt(new Date(), mins);
+    await this.prisma.class.update({
+      where: { id: classId },
+      data: { pinClaimOpenUntil: openUntil, pinClaimOpenedBy: actor.id },
+    });
+    await this.audit(actor, 'pin_claim_window_open', 'Class', classId, {
+      minutes: mins,
+      openUntil,
+    });
+    this.logger.log(`Claim window opened: class=${classId} by=${actor.id} ${mins}min`);
+    return { ok: true as const, openUntil, minutes: mins };
+  }
+
+  /** 关班级窗。注册完当场关，不等它自己过期。 */
+  async closeClassClaimWindow(actor: { id: string; role: string }, classId: string) {
+    if (!(await canActOnClass(this.prisma, actor, classId))) {
+      throw new ForbiddenException({ code: 'not_your_class' });
+    }
+    await this.prisma.class.update({
+      where: { id: classId },
+      data: { pinClaimOpenUntil: null, pinClaimOpenedBy: null },
+    });
+    await this.audit(actor, 'pin_claim_window_close', 'Class', classId, {});
+    return { ok: true as const };
+  }
+
+  /**
+   * 给单个学生开补注册窗（请假 / 换手机 / 被抢注要重来）。
+   *
+   * 为什么不让教师重开全班窗：重开会把**所有**未认领的名字重新暴露一次。
+   * 一个人的问题不该扩大成全班的敞口。
+   */
+  async openStudentClaimWindow(
+    actor: { id: string; role: string },
+    studentId: string,
+    minutes?: number,
+  ) {
+    const enrollment = await this.prisma.classEnrollment.findFirst({
+      where: { userId: studentId, role: 'student', class: { archivedAt: null } },
+      select: { classId: true },
+    });
+    if (!enrollment) throw new BadRequestException({ code: 'student_not_found' });
+    if (!(await canActOnClass(this.prisma, actor, enrollment.classId))) {
+      throw new ForbiddenException({ code: 'not_your_class' });
+    }
+    let mins: number;
+    try {
+      mins = normalizeWindowMinutes(minutes);
+    } catch (e) {
+      throw new BadRequestException({ code: (e as Error).message });
+    }
+    const openUntil = windowEndsAt(new Date(), mins);
+    await this.prisma.user.update({
+      where: { id: studentId },
+      data: { pinClaimOpenUntil: openUntil },
+    });
+    await this.audit(actor, 'pin_claim_window_open', 'User', studentId, {
+      minutes: mins,
+      openUntil,
+    });
+    return { ok: true as const, openUntil, minutes: mins };
+  }
+
+  /**
+   * 教师端花名册：谁领了、谁没领、窗口开着没。
+   *
+   * 「未激活名单」是集体注册课的操作界面，也是之后要不要关闭姓名直读
+   * 的判断依据 —— 覆盖率不到 100% 就强制认证，等于把人关在门外。
+   */
+  async claimStatus(actor: { id: string; role: string }, classId: string) {
+    if (!(await canActOnClass(this.prisma, actor, classId))) {
+      throw new ForbiddenException({ code: 'not_your_class' });
+    }
+    const now = new Date();
+    const klass = await this.prisma.class.findUnique({
+      where: { id: classId },
+      select: { id: true, name: true, pinClaimOpenUntil: true },
+    });
+    if (!klass) throw new BadRequestException({ code: 'class_not_found' });
+
+    const rows = await this.prisma.classEnrollment.findMany({
+      where: { classId, role: 'student', user: { archivedAt: null, isActive: true } },
+      select: {
+        user: {
+          select: {
+            id: true,
+            name: true,
+            pinSetAt: true,
+            pinClaimOpenUntil: true,
+            pinLockedUntil: true,
+          },
+        },
+      },
+    });
+
+    const students = rows
+      .map((r) => r.user)
+      .sort((a, b) => a.name.localeCompare(b.name, 'zh'))
+      .map((u) => ({
+        id: u.id,
+        name: u.name,
+        claimed: u.pinSetAt != null,
+        claimedAt: u.pinSetAt,
+        locked: u.pinLockedUntil != null && u.pinLockedUntil.getTime() > now.getTime(),
+        personalWindowOpen:
+          u.pinClaimOpenUntil != null && u.pinClaimOpenUntil.getTime() > now.getTime(),
+      }));
+
+    const claimed = students.filter((s) => s.claimed).length;
+    return {
+      classId: klass.id,
+      className: klass.name,
+      windowOpen:
+        klass.pinClaimOpenUntil != null && klass.pinClaimOpenUntil.getTime() > now.getTime(),
+      windowOpenUntil: klass.pinClaimOpenUntil,
+      total: students.length,
+      claimed,
+      unclaimed: students.length - claimed,
+      students,
+    };
+  }
+
+  // ───────────────────── 教师端：学生视角（只读） ─────────────────────
+
+  /**
+   * 签发「以学生视角查看」的短时只读令牌。
+   *
+   * ## 为什么是只读
+   *
+   * 让教师**以学生身份登录**（可写）看起来更方便，但它会污染成绩数据的
+   * 可信度：教师进去帮忙点两下，数据库里记的就是「学生交了卷」「学生
+   * 评了这个词」。判分队列、FSRS 调度全建在这些记录上，一旦教师的动作
+   * 能被记成学生的，之后看任何一条记录都要先问「这是他自己做的吗」。
+   *
+   * 排障要的其实只是「看到学生看到的那个页面」。只读拿到了这份价值，
+   * 而写入的风险一点不担。
+   *
+   * ## 怎么强制只读
+   *
+   * token 带 `scope: 'teacher_view'`。`StudentIdentityGuard` 认它的读，
+   * 但凡标了 `@RequireStudentToken()` 的写接口一律 403 —— 这与发卷用的
+   * `mq_handoff` 窄凭证是同一个模式，不新增机制。
+   *
+   * 15 分钟过期：排障够用，捡到也没多少可用窗口。
+   */
+  async issueTeacherViewToken(
+    actor: { id: string; role: string },
+    studentId: string,
+    ip?: string,
+  ) {
+    const enrollment = await this.prisma.classEnrollment.findFirst({
+      where: { userId: studentId, role: 'student', class: { archivedAt: null } },
+      select: { classId: true },
+    });
+    if (!enrollment) throw new BadRequestException({ code: 'student_not_found' });
+    if (!(await canActOnClass(this.prisma, actor, enrollment.classId))) {
+      throw new ForbiddenException({ code: 'not_your_class' });
+    }
+    const student = await this.prisma.user.findUnique({
+      where: { id: studentId },
+      select: { id: true, name: true, email: true, studentAuthVersion: true, isActive: true },
+    });
+    if (!student || !student.isActive) {
+      throw new BadRequestException({ code: 'student_not_found' });
+    }
+
+    const token = await this.jwt.signAsync(
+      {
+        id: student.id,
+        email: student.email,
+        role: 'student',
+        name: student.name,
+        scope: StudentAuthService.TEACHER_VIEW_SCOPE,
+        av: student.studentAuthVersion,
+        // 谁在看 —— 进审计，也让日志能回答「这条读请求是学生还是老师」
+        actorId: actor.id,
+      },
+      { expiresIn: StudentAuthService.TEACHER_VIEW_TTL },
+    );
+
+    // 教师查看学生数据必须留痕。这不是防教师，是让「谁看过什么」可回答。
+    await this.audit(actor, 'teacher_view_student', 'User', studentId, {
+      ttl: StudentAuthService.TEACHER_VIEW_TTL,
+    }, ip);
+    this.logger.log(`Teacher view issued: teacher=${actor.id} student=${studentId}`);
+
+    return {
+      token,
+      student: { id: student.id, name: student.name },
+      expiresInSec: 15 * 60,
+      readOnly: true as const,
+    };
+  }
+
+  /** 审计写入。失败不能阻断主流程 —— 但要留下痕迹说明审计本身出了问题。 */
+  private async audit(
+    actor: { id: string; role: string },
+    action: string,
+    entityType: string,
+    entityId: string,
+    metadata: Record<string, unknown>,
+    ip?: string,
+  ) {
+    try {
+      await this.prisma.auditLog.create({
+        data: {
+          actorId: actor.id,
+          actorRole: actor.role,
+          action,
+          entityType,
+          entityId,
+          metadata: metadata as any,
+          ip: ip ?? null,
+        },
+      });
+    } catch (e) {
+      this.logger.error(`audit write failed action=${action} ${(e as Error).message}`);
+    }
   }
 
   async changePin(studentId: string, oldPin: string, newPin: string) {

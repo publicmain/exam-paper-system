@@ -146,3 +146,73 @@ describe('StudentIdentityGuard — 撤销校验', () => {
     expect(prisma.user.findUnique).not.toHaveBeenCalled();
   });
 });
+
+// ─────────────────────────────────────────────────────────────────────
+// 教师的学生视角：读放行、写一律拒（2026-08-25）
+// ─────────────────────────────────────────────────────────────────────
+
+function makeGuardRW(payload: any, dbRow: any, requireToken: boolean) {
+  const jwt: any = { verifyAsync: vi.fn().mockResolvedValue(payload) };
+  const prisma: any = { user: { findUnique: vi.fn().mockResolvedValue(dbRow) } };
+  const reflector: any = { getAllAndOverride: vi.fn().mockReturnValue(requireToken) };
+  return new StudentIdentityGuard(jwt, reflector, prisma);
+}
+
+const TEACHER_VIEW = {
+  id: 'stu-1',
+  name: '张三',
+  role: 'student',
+  scope: 'teacher_view',
+  av: 3,
+  actorId: 'teacher-9',
+};
+
+describe('StudentIdentityGuard — 教师学生视角只读', () => {
+  it('读操作放行，并标记 viaTeacherView + 是哪位教师', async () => {
+    const guard = makeGuardRW(TEACHER_VIEW, ACTIVE, false);
+    const { ctx, req } = makeCtx('Bearer x');
+    await expect(guard.canActivate(ctx)).resolves.toBe(true);
+    expect(req.studentAuth).toMatchObject({
+      id: 'stu-1',
+      viaTeacherView: true,
+      actorId: 'teacher-9',
+    });
+  });
+
+  it('**写操作一律 403** —— 教师帮忙点两下会被记成学生自己做的', async () => {
+    // 这条断言守的是成绩数据的可信度：判分队列和 FSRS 调度都建在
+    // 「这条记录是学生自己产生的」这个前提上。
+    const guard = makeGuardRW(TEACHER_VIEW, ACTIVE, true);
+    const { ctx } = makeCtx('Bearer x');
+    await expect(guard.canActivate(ctx)).rejects.toMatchObject({
+      response: { code: 'teacher_view_is_read_only' },
+    });
+  });
+
+  it('学生本人的 token 写操作照常放行（没有误伤）', async () => {
+    const guard = makeGuardRW(
+      { id: 'stu-1', name: '张三', role: 'student', av: 3 },
+      ACTIVE,
+      true,
+    );
+    const { ctx, req } = makeCtx('Bearer x');
+    await expect(guard.canActivate(ctx)).resolves.toBe(true);
+    expect(req.studentAuth?.viaTeacherView).toBeUndefined();
+  });
+
+  it('教师视角同样受撤销约束（学生 av 变了就失效）', async () => {
+    const guard = makeGuardRW(TEACHER_VIEW, { ...ACTIVE, studentAuthVersion: 4 }, false);
+    const { ctx } = makeCtx('Bearer x');
+    await expect(guard.canActivate(ctx)).rejects.toMatchObject({
+      response: { code: 'token_revoked' },
+    });
+  });
+
+  it('教师视角不能拿去操作**另一个**学生（身份仍要对得上号）', async () => {
+    const guard = makeGuardRW(TEACHER_VIEW, ACTIVE, false);
+    const { ctx } = makeCtx('Bearer x', { name: '李四' });
+    await expect(guard.canActivate(ctx)).rejects.toMatchObject({
+      response: { code: 'identity_mismatch' },
+    });
+  });
+});

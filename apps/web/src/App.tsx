@@ -1,4 +1,5 @@
 import { useEffect, useState, useRef, lazy } from 'react';
+import { adoptTeacherViewFromUrl } from './lib/teacher-view';
 import { Routes, Route, Navigate, Link, useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from './lib/auth';
 import { ErrorBoundary } from './components/ErrorBoundary';
@@ -57,6 +58,12 @@ const MorningQuizSkillProfilePage = lazy(() => import('./pages/MorningQuizSkillP
 const AttendanceAdminPage = lazy(() => import('./pages/AttendanceAdmin'));
 // Path-B pages
 const ClassesPage = lazy(() => import('./pages/Classes'));
+const TeacherViewBanner = lazy(() => import('./components/TeacherViewBanner'));
+
+// 教师「以学生视角查看」：令牌从 URL 进 sessionStorage 并**立刻从地址栏
+// 抹掉**。必须在任何 API 调用之前跑，所以放模块级 —— React 渲染之前就完成。
+adoptTeacherViewFromUrl();
+const ClassRegistrationPage = lazy(() => import('./pages/ClassRegistration'));
 const MarkerQueuePage = lazy(() => import('./pages/MarkerQueue'));
 const MarkerScriptPage = lazy(() => import('./pages/MarkerScript'));
 const ClassStatsPage = lazy(() => import('./pages/ClassStats'));
@@ -137,7 +144,11 @@ export default function App() {
     location.pathname === '/my-mistakes/practice'
   ) {
     return (
-      <Routes>
+      <>
+        {/* 教师以学生视角查看时常驻提示（只读）。学生本人看不到 ——
+            没有视角令牌时组件直接返回 null。 */}
+        <TeacherViewBanner />
+        <Routes>
         <Route path="/me" element={<MePage />} />
         <Route path="/my-history" element={<MyHistoryPage />} />
         <Route path="/my-history/submission/:submissionId" element={<MyHistoryDetailPage />} />
@@ -146,7 +157,8 @@ export default function App() {
         <Route path="/my-vocab/quiz" element={<MyVocabQuizPage />} />
         <Route path="/my-mistakes" element={<MyMistakesPage />} />
         <Route path="/my-mistakes/practice" element={<MyMistakesPracticePage />} />
-      </Routes>
+        </Routes>
+      </>
     );
   }
 
@@ -317,6 +329,10 @@ export default function App() {
               {(user.role === 'admin' || user.role === 'head_teacher' || user.role === 'teacher') && (
                 <NavLink to="/classes" label="班级" />
               )}
+              {/* 集体注册台（2026-08-25）：开窗让全班当场认领 PIN */}
+              {(user.role === 'admin' || user.role === 'head_teacher' || user.role === 'teacher') && (
+                <NavLink to="/class-registration" label="注册" />
+              )}
               {(user.role === 'admin' || user.role === 'head_teacher' || user.role === 'teacher') && (
                 <NavLink to="/stats" label="统计" />
               )}
@@ -418,6 +434,7 @@ export default function App() {
           />
           {/* Path-B routes */}
           <Route path="/classes" element={<ClassesPage />} />
+          <Route path="/class-registration" element={<ClassRegistrationPage />} />
           <Route path="/homework" element={<HomeworkCoursesPage />} />
           <Route path="/homework/assignments/:assignmentId" element={<HomeworkDashboardPage />} />
           <Route path="/marker" element={<MarkerQueuePage />} />

@@ -18,7 +18,8 @@ function makeStudent(over: Partial<any> = {}) {
     pinFailedCount: 0,
     pinLockedUntil: null,
     studentAuthVersion: 0,
-    classEnrollments: [{ class: { id: 'c1', name: 'G11' } }],
+    pinClaimOpenUntil: null,
+    classEnrollments: [{ class: { id: 'c1', name: 'G11', pinClaimOpenUntil: null } }],
     ...over,
   };
 }
@@ -141,23 +142,79 @@ describe('login', () => {
   });
 });
 
+/** 认领窗口开着的学生（集体注册课进行中）。 */
+function claimable(over: Partial<any> = {}) {
+  return makeStudent({
+    pinHash: null,
+    role: 'student',
+    isActive: true,
+    classEnrollments: [
+      { class: { id: 'c1', name: 'G11', pinClaimOpenUntil: new Date(Date.now() + 10 * 60_000) } },
+    ],
+    ...over,
+  });
+}
+
 describe('setPin', () => {
-  it('首次设置成功，落 bcrypt 哈希', async () => {
-    const { svc, updates } = makeSvc([makeStudent({ pinHash: null, role: 'student', isActive: true })]);
+  it('窗口开着 → 首次设置成功，落 bcrypt 哈希', async () => {
+    const { svc, updates } = makeSvc([claimable()]);
     await svc.setPin('stu-1', '731842');
     expect(updates[0].data.pinHash).toMatch(/^\$2[aby]\$/);
     expect(bcrypt.compareSync('731842', updates[0].data.pinHash)).toBe(true);
   });
 
+  it('**窗口关着 → claim_window_closed**（抢注防线的全部）', async () => {
+    // 默认状态就是关的。没有教师开窗，同班同学扫了码、点了你的名字，
+    // 也领不走 —— 这条断言失败就等于抢注重新开门。
+    const { svc } = makeSvc([
+      makeStudent({ pinHash: null, role: 'student', isActive: true, classEnrollments: [] }),
+    ]);
+    await expect(svc.setPin('stu-1', '731842')).rejects.toMatchObject({
+      response: { code: 'claim_window_closed' },
+    });
+  });
+
+  it('窗口过期 → 同样拒绝', async () => {
+    const { svc } = makeSvc([
+      claimable({
+        classEnrollments: [
+          { class: { id: 'c1', name: 'G11', pinClaimOpenUntil: new Date(Date.now() - 60_000) } },
+        ],
+      }),
+    ]);
+    await expect(svc.setPin('stu-1', '731842')).rejects.toMatchObject({
+      response: { code: 'claim_window_closed' },
+    });
+  });
+
+  it('个人补注册窗开着 → 放行（请假的学生不必重开全班窗）', async () => {
+    const { svc, updates } = makeSvc([
+      claimable({
+        classEnrollments: [{ class: { id: 'c1', name: 'G11', pinClaimOpenUntil: null } }],
+        pinClaimOpenUntil: new Date(Date.now() + 5 * 60_000),
+      }),
+    ]);
+    await svc.setPin('stu-1', '731842');
+    expect(updates[0].data.pinHash).toBeTruthy();
+  });
+
+  it('认领成功即关掉个人窗 —— 一次性，不留给下一个人', async () => {
+    const { svc, updates } = makeSvc([
+      claimable({ pinClaimOpenUntil: new Date(Date.now() + 5 * 60_000) }),
+    ]);
+    await svc.setPin('stu-1', '731842');
+    expect(updates[0].data.pinClaimOpenUntil).toBeNull();
+  });
+
   it('已设置过 → pin_already_set（防捡到 token 改 PIN 锁人）', async () => {
-    const { svc } = makeSvc([makeStudent({ role: 'student', isActive: true })]);
+    const { svc } = makeSvc([claimable({ pinHash: HASH })]);
     await expect(svc.setPin('stu-1', '731842')).rejects.toMatchObject({
       response: { code: 'pin_already_set' },
     });
   });
 
-  it('弱 PIN 拒绝', async () => {
-    const { svc } = makeSvc([makeStudent({ pinHash: null, role: 'student', isActive: true })]);
+  it('弱 PIN 拒绝 —— 且在查窗口之前就拒（格式错不必惊动数据库）', async () => {
+    const { svc } = makeSvc([claimable()]);
     await expect(svc.setPin('stu-1', '123456')).rejects.toMatchObject({
       response: { code: 'pin_too_weak' },
     });

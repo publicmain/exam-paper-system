@@ -16,9 +16,11 @@
  */
 import { BASE } from './api';
 import { onAuthError } from './student-token';
+import { teacherViewToken } from './teacher-view';
 
 async function publicFetch<T>(path: string, init?: RequestInit): Promise<T | null> {
-  const tok = localStorage.getItem('auth_token');
+  // 同 api.ts 的 token()：教师学生视角令牌优先（仅该标签页）
+  const tok = teacherViewToken() ?? localStorage.getItem('auth_token');
   const res = await fetch(`${BASE}${path}`, {
     ...init,
     headers: {
