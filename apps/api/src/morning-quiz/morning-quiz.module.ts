@@ -14,6 +14,7 @@ import { MorningQuizService } from './morning-quiz.service';
 import { ShortAnswerEvaluatorService } from './short-answer-evaluator.service';
 import { SkillProfileService } from './skill-profile.service';
 import { MorningQuizWeeklyCron } from './morning-quiz-weekly-cron';
+import { VocabAttachService } from './vocab-attach.service';
 import { AbsenceAlertService } from './absence-alert.service';
 import { AbsenceAlertCron } from './absence-alert.cron';
 
@@ -37,6 +38,7 @@ import { AbsenceAlertCron } from './absence-alert.cron';
     ShortAnswerEvaluatorService,
     SkillProfileService,
     MorningQuizWeeklyCron,
+    VocabAttachService,
     AbsenceAlertService,
     AbsenceAlertCron,
   ],

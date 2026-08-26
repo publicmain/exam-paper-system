@@ -2,6 +2,7 @@ import { Injectable, Logger } from '@nestjs/common';
 import { Cron } from '@nestjs/schedule';
 import { PrismaService } from '../common/prisma.service';
 import { WechatNotifyService } from '../wechat-notify/wechat-notify.service';
+import { VocabAttachService } from './vocab-attach.service';
 import { MorningQuizService } from './morning-quiz.service';
 
 /**
@@ -31,7 +32,28 @@ export class MorningQuizWeeklyCron {
     private readonly prisma: PrismaService,
     private readonly mq: MorningQuizService,
     private readonly notify: WechatNotifyService,
+    private readonly vocabAttach: VocabAttachService,
   ) {}
+
+  /**
+   * 每日 06:45 给当天轻量层卷子挂词汇题的**独立保险**（2026-08-26）。
+   *
+   * 这个功能曾以手工脚本交付、忘了接自动出卷 —— 8/25 起两天的卷子
+   * 静默缺了词汇题：出卷成功、无任何报警。周日出卷后会给整周挂，
+   * 但教师手工重出卷 / force 重生成会把题冲掉，这条 cron 兜底。
+   * 幂等（vocabTrack 标记），重复跑无害。
+   */
+  @Cron('45 6 * * 1-5', { name: 'morning-quiz-vocab-attach' })
+  async vocabAttachDaily(): Promise<void> {
+    const tzOff = Number(process.env.MORNING_QUIZ_TZ_OFFSET_MIN ?? 8 * 60);
+    const dateIso = new Date(Date.now() + tzOff * 60_000).toISOString().slice(0, 10);
+    try {
+      const r = await this.vocabAttach.attachForDate(dateIso);
+      if (r.attached > 0) this.logger.log(`vocab-attach daily: +${r.attached} for ${dateIso}`);
+    } catch (e) {
+      this.logger.error(`vocab-attach daily failed: ${(e as Error).message}`);
+    }
+  }
 
   // Cron syntax: '0 18 * * 0' = at 18:00 every Sunday.
   @Cron('0 18 * * 0', { name: 'morning-quiz-weekly-generate' })
@@ -136,6 +158,14 @@ export class MorningQuizWeeklyCron {
       errors.push({ classId: '*', error: e?.message ?? String(e) });
     }
 
+    // 出完卷立刻给轻量层挂词汇题（2026-08-26 —— 此前只有手工脚本，断了两天）。
+    // 放在成败分支之前：部分班级失败时，成功的那些卷子照样要有词汇题。
+    try {
+      const vocabN = await this.vocabAttach.attachForWeek(weekStart);
+      if (vocabN > 0) this.logger.log(`vocab-attach after weekly generate: +${vocabN}`);
+    } catch (e) {
+      this.logger.error(`vocab-attach after generate failed: ${(e as Error).message}`);
+    }
     if (errors.length > 0) {
       try {
         await this.notify.fire('morning_quiz_cron_failed', {
