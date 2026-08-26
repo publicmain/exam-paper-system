@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { api } from '../lib/api';
+import { vocabScoreShort, type VocabScoreView } from '../lib/vocabScore';
 
 /**
  * 完成度看板（4.0 阶段 A，PRD §4）。
@@ -28,6 +29,8 @@ interface Row {
   score: number | null;
   maxScore: number | null;
   scoresPending: boolean;
+  /** P7：正式词汇成绩，与上面的阅读分**分开一列** */
+  vocabScore?: VocabScoreView | null;
 }
 
 function Mark({ s }: { s: SegStatus }) {
@@ -140,7 +143,10 @@ export default function LessonBoardPage() {
                 <th className="py-2 font-medium text-center w-14">读</th>
                 <th className="py-2 font-medium text-center w-14">背</th>
                 <th className="py-2 font-medium text-center w-14">补</th>
-                <th className="py-2 font-medium text-right w-20">分数</th>
+                {/* P7：两项成绩分开成两列 —— 「分数」这个含糊的表头
+                    正是它们被混为一谈的地方 */}
+                <th className="py-2 font-medium text-right w-20">阅读</th>
+                <th className="py-2 font-medium text-right w-20">单词测试</th>
               </tr>
             </thead>
             <tbody>
@@ -163,6 +169,15 @@ export default function LessonBoardPage() {
                   </td>
                   <td className="py-2 text-right text-[13px] text-gray-500">
                     {r.scoresPending ? '待批' : r.score != null ? `${r.score}/${r.maxScore}` : '—'}
+                  </td>
+                  {/* P7：词汇成绩独立一列。0 分显示 0/8，没考显示「未考」 */}
+                  <td
+                    className={`py-2 text-right text-[13px] ${
+                      r.vocabScore?.status === 'submitted' ? 'text-blue-700 font-medium' : 'text-gray-400'
+                    }`}
+                    data-testid="board-vocab-score"
+                  >
+                    {vocabScoreShort(r.vocabScore)}
                   </td>
                 </tr>
               ))}

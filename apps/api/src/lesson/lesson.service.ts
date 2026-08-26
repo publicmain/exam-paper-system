@@ -3,6 +3,7 @@ import { PrismaService } from '../common/prisma.service';
 import { StudentWordService } from '../vocab/student-word.service';
 import { normalizeWord } from '../vocab/vocab.service';
 import { MIN_QUIZ_ITEMS } from '../vocab/quiz-eligibility';
+import { vocabScoreView, type VocabScoreView } from '../vocab/vocab-score';
 import {
   VocabReviewService,
   reviewBatchSize,
@@ -242,6 +243,14 @@ export class LessonService {
           progress: vocabNow.progress,
           target: vTarget,
           typicalMinutes: Math.max(2, Math.ceil(vTarget / 5)),
+          /**
+           * P7 —— **正式词汇成绩，与阅读成绩分开**。
+           *
+           * 它只来自这次任务名下 status='submitted' 的 VocabQuizAttempt。
+           * 上面的 progress/target 是**完成度**（今天复习了几次），不是
+           * 成绩；两者不要混着看。
+           */
+          quizScore: vocabNow.quizScore,
         },
         {
           key: 'drill' as const,
@@ -399,12 +408,14 @@ export class LessonService {
     // 和 P5 那次 unlearned 的死锁一模一样。
     // 按**本次任务**查（穿过 DLC 关系），不是「这个学生今天有没有交过
     // 某一份测试」—— 后者在任务与日历日不再一一对应时会认错人。
-    const quizSubmitted = await this.prisma.vocabQuizAttempt.count({
-      where: {
-        status: 'submitted',
-        dailyLessonCompletion: { studentId, date: this.sgtDayStart(now) },
-      },
+    // P7 —— 正式词汇成绩的**唯一来源**：这次任务名下的那一份 attempt。
+    // 顺带回答「交了没有」（背段完成条件要用）。自由练习与
+    // WordReviewLog 一律不参与。
+    const attempt = await this.prisma.vocabQuizAttempt.findFirst({
+      where: { dailyLessonCompletion: { studentId, date: this.sgtDayStart(now) } },
+      select: { status: true, submittedAt: true, total: true, correct: true, score: true, items: true },
     });
+    const quizSubmitted = attempt?.status === 'submitted' ? 1 : 0;
 
     // 还没**教过**的到期词 —— 阶段判定要靠它区分「该教」还是「该考」。
     //
@@ -466,6 +477,8 @@ export class LessonService {
       /** 这次任务考得起来（队列里教过的词够一份卷子）→ 背段必须等交卷 */
       quizRequired: testable >= MIN_QUIZ_ITEMS,
       queue,
+      /** P7：统一的正式词汇成绩视图（各页面只显示，不再各算各的） */
+      quizScore: vocabScoreView(frozenRow != null && frozenRow.vocabWords != null, attempt),
     };
   }
 
@@ -708,9 +721,12 @@ export class LessonService {
           completed: t.completed,
           total: t.total,
           allDone: t.allDone,
+          // 阅读成绩（既有语义不动：totalScore 含卷内词汇题的分）
           score: read.score ?? null,
           maxScore: read.maxScore ?? null,
           scoresPending: read.scoresPending ?? false,
+          // P7：正式词汇成绩，与上面三个字段**分开**，互不覆盖
+          vocabScore: (t.segments[1] as any).quizScore as VocabScoreView,
         };
       }),
     );

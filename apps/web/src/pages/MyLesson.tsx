@@ -1,6 +1,11 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { api } from '../lib/api';
+import {
+  submittedAtLabel,
+  vocabScoreLabel,
+  type VocabScoreView,
+} from '../lib/vocabScore';
 import { Spinner } from '../components/AsyncState';
 import RegistrationSheet from '../components/RegistrationSheet';
 import { checkRegistration, type RegStatus } from '../lib/registration';
@@ -41,6 +46,8 @@ interface LessonSeg {
   scoresPending?: boolean;
   submissionId?: string | null;
   autoClosed?: boolean;
+  /** P7：正式词汇成绩（只有 vocab 段有）。与 progress/target 是两回事 */
+  quizScore?: VocabScoreView | null;
 }
 
 type LessonStage = 'reading' | 'reading_done' | 'vocab_learn' | 'vocab_test' | 'done';
@@ -260,6 +267,28 @@ export default function MyLessonPage() {
                       <div className="mt-1 text-[13px] text-gray-700 truncate">《{seg.label}》</div>
                     )}
                     <div className="mt-1 text-[13px] text-gray-500">{detailOf(seg)}</div>
+                    {/* P7 —— 正式词汇成绩**单独一行**，与上面那行完成度分开。
+                        上面是「今天复习了几次」（过程），这里是「单词测试考了
+                        多少」（结果）。阅读成绩在 read 段，两者互不覆盖。 */}
+                    {seg.key === 'vocab' && seg.quizScore && (
+                      <div className="mt-1.5" data-testid="vocab-score">
+                        <span className="text-[11px] text-gray-400 mr-1.5">单词测试</span>
+                        <span
+                          className={`text-[13px] ${
+                            seg.quizScore.status === 'submitted'
+                              ? 'font-semibold text-blue-700'
+                              : 'text-gray-500'
+                          }`}
+                        >
+                          {vocabScoreLabel(seg.quizScore)}
+                        </span>
+                        {submittedAtLabel(seg.quizScore) && (
+                          <span className="ml-1.5 text-[11px] text-gray-400">
+                            {submittedAtLabel(seg.quizScore)}
+                          </span>
+                        )}
+                      </div>
+                    )}
                   </div>
                   {href && seg.status !== 'none' && (
                     <a

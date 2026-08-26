@@ -28,7 +28,14 @@ export class LessonController {
    * **这个接口会冻结当日目标**（首次调用时）—— 「学生打开了课程页」
    * 就是冻结时刻的定义。教师看板走 /class 那条，不冻结。
    */
+  // P7 —— 加**学生令牌门**。
+  //
+  // 这个接口原来只认请求里的 name 字符串：报个名字就能读别人的课程状态，
+  // 而里面本来就有阅读成绩，P7 又要往里放正式词汇成绩。成绩必须是
+  // 「只能看自己的」。教师的只读视角（teacher_view 令牌）照样能看 ——
+  // 那正是「看到学生看到的东西」。
   @Public()
+  @RequireStudentToken()
   @RateLimit({ limit: 120, windowSec: 60, scope: 'ip' })
   @Get('today')
   async today(@Query('name') name?: string, @Query('studentId') studentId?: string) {
