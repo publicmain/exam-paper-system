@@ -53,8 +53,8 @@ function makeSvc(overrides: Record<string, any> = {}, opts: { taskWords?: string
   };
   const words = { resolveStudent: vi.fn(async () => ({ id: 'stu1', name: '小明' })) } as any;
   const svc = new LessonService(prisma, words, {} as any, {} as any);
-  // today() 走完整链路要一堆依赖 —— 这里只关心事务本身，桩掉阶段回读
-  vi.spyOn(svc, 'today').mockResolvedValue({ stage: 'vocab_test' } as any);
+  // 走完整链路要一堆依赖 —— 这里只关心事务本身，桩掉阶段回读
+  vi.spyOn(svc, 'startOrResumeToday').mockResolvedValue({ stage: 'vocab_test' } as any);
   return { svc, prisma };
 }
 

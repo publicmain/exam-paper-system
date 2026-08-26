@@ -1274,4 +1274,119 @@ stability=3`、1 条历史复习流水，P5 全程未增未减。全库「已教
 
 ---
 
-## P8 ⬜ / P9 ⬜ / P10 ⬜
+## P8 ✅ 一条学生流程：阅读 → 学词 → 单词测试 → 任务总结
+
+**日期**：2026-08-26　**范围**：把四件已经各自能用的事串成一条路。
+不进 P9，不合并扫码入口，不清理身份字段。
+
+### 一、原有流程的断裂与重复入口（追踪结果）
+
+| # | 断裂 | 学生实际遇到的 |
+|---|---|---|
+| 1 | 课程页没有阅读入口 | 读段的链接只在**已有答卷**时才生成（指向逐题详情）。做到一半退出的学生回到课程页，找不到回卷子的路 |
+| 2 | 词段永远指向翻卡 | 走到「该考」的阶段点词段，进的还是翻卡页；正式测试的入口藏在翻卡完成页里 |
+| 3 | 做完之后仍是三张卡 | 没有总结。学生不知道今天到底考了多少 |
+| 4 | 三张卡各挂一个「开始 →」 | 三个并列 CTA 互相竞争，学生自己判断先做哪个 |
+| 5 | 旧任务的死按钮 | `vocabWords=NULL` 的任务 stage 是 `vocab_test`，按钮写「开始单词测试」，点进去必然 `insufficient_items` |
+| 6 | 总结页路由落进教师守卫 | `/my-lesson/summary` 没进学生公开路径白名单 → 从测试页点「看今天的总结」到的是学生门户首页 |
+| 7 | 深链接被挡时说错话 | 阶段没到就进 `/my-vocab/quiz`，看到的是「生词本里的词还太少」，且没有回到今天该做那一步的路 |
+| 8 | 自由练习与正式测试长得一样 | 「再练一轮」进去的页面和正式测试无法区分，学生会以为自己在考试 |
+| 9 | 「开始今天的阅读」是个打不开的门 | 答卷是**扫码时**建的。没扫码的学生点进去看得到题、答完存不下（`no_submission` / `no_attendance_record`） |
+
+3–9 都是本轮修的；1、2 是 P8 的主目标。**6、7、9 是浏览器实测抓到的**，
+服务端 E2E 全过时它们仍然存在。
+
+### 二、最终的阶段 → 页面映射
+
+服务端出唯一的 `nextAction`（`apps/api/src/lesson/next-action.ts`，纯函数）：
+
+| stage | 条件 | kind | 去处 |
+|---|---|---|---|
+| reading / reading_done | 今天没排文章 | `none` | 不给链接 |
+| reading / reading_done | **答卷还没开出来** | `scan_required` | 不给链接，写「扫码签到后开始今天的阅读」 |
+| reading / reading_done | 已开卷、没交 | `resume_reading` | `/morning-quiz/:sessionId` |
+| reading / reading_done | 已交卷 | `read_result` | `/my-history/submission/:id` |
+| vocab_learn | — | `learn_vocab` | `/my-vocab/review` |
+| vocab_test | 任务有词队列 | `vocab_test` | `/my-vocab/quiz` |
+| vocab_test | 旧任务（队列 NULL） | `summary` | `/my-lesson/summary` |
+| done | — | `summary` | `/my-lesson/summary` |
+
+「能不能进阅读」的判据是**答卷是否存在**，不是考勤记录 —— 中途试过用
+`Attendance` 判断，浏览器实测证明它不够：有考勤而无答卷时页面照样存不下
+答案。答卷由扫码流程创建（`attendance.service.ts` 会把它挂回
+`attendance.submissionId`），所以 `opened` 同时回答了「开过没有」和
+「进得去吗」。
+
+段卡片的行动链接现在**只给已完成的段和当前该做的段**，其余不给 CTA。
+自由复习生词本的路没被堵（「我的主页」里一直有）。
+
+### 三、命令与查询的边界
+
+| 入口 | 语义 | 会写库吗 |
+|---|---|---|
+| `POST /lesson/start` | 开始或恢复今天的课 | 会（建任务行、推进 stage、冻结队列） |
+| `GET /lesson/today` | 纯读 | 不会 |
+| 课程页 `/my-lesson` | 命令 | 调 `lessonStart` |
+| 总结页 `/my-lesson/summary` | 纯读 | 调 `lessonToday` |
+| 教师看板 | 纯读 | 调 `getToday` |
+
+### 四、修改清单
+
+**新增**：`apps/api/src/lesson/next-action.ts`（+ spec 10 条）、
+`apps/web/src/pages/TaskSummary.tsx`（+ test 7 条）
+
+**改**：`lesson.service.ts`（`getToday` / `startOrResumeToday` 拆分、
+读段返回 `sessionId`、顶层带 `nextAction`）、`lesson.controller.ts`
+（`POST /lesson/start`）、`MyLesson.tsx`（唯一主按钮、CTA 收敛）、
+`MyVocabReview.tsx`（完成页 →「去考今天的单词」）、`MyVocabQuiz.tsx`
+（正式/自由练习标注、交卷后去总结、阶段被挡时的正确文案）、
+`App.tsx`（总结页路由 + 学生公开路径白名单）、`api.ts`（`lessonStart`）
+
+### 五、E2E 结果
+
+**服务端（隔离库 `p8_db`、真实 HTTP）：21 通过 / 0 失败** —— 阶段映射 6
+条、legacy 2 条、H 自由练习不算成绩、G 0 分是成绩、阶段守卫 4 条、
+F 重复进入不新建、L 只读、I 纯复习日 5 条。
+
+**真实浏览器**：
+
+| 场景 | 结果 |
+|---|---|
+| A 全链路 | 扫码后的卷 → 继续做题 → 交卷 → 阅读结果 → 学新词 → 单词测试 → 总结，全程唯一主按钮 |
+| A' 未开卷 | 主按钮是不可点的「扫码签到后开始今天的阅读」，页面上**没有任何**指向阅读卷的链接 |
+| B 阅读做一半退出 | 回来「2/4 已答」，答案还在（草稿在本地，见第六节） |
+| C 已交卷未学词 | 主按钮「学今天的新词」→ 翻卡 |
+| D 学词中途清空 localStorage + sessionStorage | 重新登录后**仍从第 3 张卡继续**（进度在服务端） |
+| E 测试中途退出（并清空存储） | 恢复**同一个 attempt**、同一道题；库里始终只有 1 份 |
+| F/G 两项完成 | 主按钮「看今天的总结」；总结页显示阅读 3/4、词汇 `0/4 · 0 分`（不是「还没考」） |
+| K 阶段未到深链接进测试 | 挡住，且文案是「还没到考单词的时候」+「回今天的课 →」 |
+| 自由练习 | 做题页与完成页都标着「不计分」/「计入成绩」 |
+
+**全量**：api **818 tests / 75 files** 全过、web **226 tests / 35 files**
+全过、双端 `tsc --noEmit` 无错、`nest build` + `vite build` 均成功。
+**Git diff 只含 P8。**
+
+### 六、尚未验证 / 已知限制
+
+- **阅读草稿仍只在浏览器本地**：交卷前不落库，所以「做到一半」这个状态
+  服务端看不见 —— `resume_reading` 认的是「答卷已建」（扫码即建），
+  不是「答过题」。清空浏览器存储会丢掉未交卷的阅读草稿。改这一点要动
+  早测的存储模型，**不在 P8 范围**
+- **正式测试不写 `WordReviewLog`、不更新 FSRS**：考完 `reps` 仍是 0，
+  `vocabProgress` 仍是 0（stage 由 attempt 状态推进，所以不会卡死）。
+  这是 P6 定的形态，本轮只是记录，未改
+- 未跑：iOS / iPad 真机、教师端页面的点击验证（本轮教师侧只做 HTTP 级只读校验）
+- 生产迁移未执行
+
+**未 push、未部署、未执行生产迁移、未写生产数据。**
+
+**清理**：隔离库 `p8_db`、API 进程、`dist-p8` 与 `tsconfig.tsbuildinfo` 已删。
+
+**踩过两次的坑**：`nest build` 报成功却不产出完整 `dist` —— 用
+`tsc --outDir dist-xxx` 做过临时构建后 `tsconfig.tsbuildinfo` 会污染增量
+状态。修法：`rm -rf dist tsconfig.tsbuildinfo` 后全量重建。另外
+`dist-p8` 这类临时产物会被 vitest 扫进去，跑全量测试前必须先删。
+
+---
+
+## P9 ⬜ / P10 ⬜

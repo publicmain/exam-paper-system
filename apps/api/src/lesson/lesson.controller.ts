@@ -40,7 +40,33 @@ export class LessonController {
   @Get('today')
   async today(@Query('name') name?: string, @Query('studentId') studentId?: string) {
     if (!name?.trim()) throw new BadRequestException({ code: 'name_required' });
-    return this.svc.today({ studentName: name, studentId: studentId || undefined, freeze: true });
+    // **纯读取**（P8）。原来这个 GET 会创建当日任务、推进阶段、补词汇
+    // 队列 —— 一个 GET 有写副作用，教师看板和总结页一读就改数据。
+    // 开始/恢复课程改走下面的 POST /lesson/start。
+    return this.svc.getToday({ studentName: name, studentId: studentId || undefined });
+  }
+
+  /**
+   * **命令**：开始或恢复今天的课。
+   *
+   * 学生打开课程页时调用。它才会创建当日任务行、把进度与阶段对齐、
+   * 把新到期的词并进任务队列。
+   */
+  @Public()
+  @RequireStudentToken()
+  @RateLimit({ limit: 60, windowSec: 60, scope: 'ip' })
+  @Post('start')
+  async start(@Body() body: unknown) {
+    const schema = z.object({
+      name: z.string().min(1).max(120),
+      studentId: z.string().min(1).max(60).optional(),
+    });
+    const parsed = schema.safeParse(body);
+    if (!parsed.success) throw new BadRequestException(parsed.error.flatten());
+    return this.svc.startOrResumeToday({
+      studentName: parsed.data.name,
+      studentId: parsed.data.studentId,
+    });
   }
 
   /**

@@ -48,6 +48,22 @@ interface LessonSeg {
   autoClosed?: boolean;
   /** P7：正式词汇成绩（只有 vocab 段有）。与 progress/target 是两回事 */
   quizScore?: VocabScoreView | null;
+  /** P8：读段带场次 id —— 已开卷的学生能从课程页直接回到卷子 */
+  sessionId?: string | null;
+}
+
+/** P8：服务端给出的**唯一**下一步 */
+interface NextAction {
+  kind:
+    | 'scan_required'
+    | 'resume_reading'
+    | 'read_result'
+    | 'learn_vocab'
+    | 'vocab_test'
+    | 'summary'
+    | 'none';
+  label: string;
+  href: string | null;
 }
 
 type LessonStage = 'reading' | 'reading_done' | 'vocab_learn' | 'vocab_test' | 'done';
@@ -60,6 +76,8 @@ function activeSegOf(stage?: LessonStage): LessonSeg['key'] | null {
 }
 
 interface LessonToday {
+  /** P8：服务端给出的唯一下一步 */
+  nextAction?: NextAction;
   student: { id: string; name: string };
   date: string;
   stage?: LessonStage;
@@ -158,7 +176,9 @@ export default function MyLessonPage() {
     let alive = true;
     void (async () => {
       try {
-        const r = await api.lessonToday(name, studentId || undefined);
+        // P8 —— 打开课程页 = 「开始或恢复今天的课」这个**命令**。
+        // 只有这里会创建当日任务行、推进阶段。总结页与教师看板走纯读。
+        const r = await api.lessonStart(name, studentId || undefined);
         if (alive) setData(r as LessonToday);
       } catch (e: any) {
         if (alive) setErr(e?.message ?? String(e));
@@ -177,9 +197,19 @@ export default function MyLessonPage() {
 
   const hrefOf = (seg: LessonSeg): string | null => {
     if (seg.key === 'read') {
-      return seg.submissionId ? `/my-history/submission/${seg.submissionId}?${qs}` : null;
+      // 交过卷 → 看逐题解析；没交但卷子已开出 → 直接回今天这一场
+      // （P8：原来这里返回 null，做到一半退出的学生在课程页上找不到
+      // 回卷子的路）
+      if (seg.submissionId) return `/my-history/submission/${seg.submissionId}?${qs}`;
+      // 卷子还没开出来（没扫码）—— 进去看得到题却存不下答案。主按钮
+      // 已经说了「先去扫码」，这张卡就别再给一个会失败的链接。
+      if (data?.nextAction?.kind === 'scan_required') return null;
+      return seg.sessionId ? `/morning-quiz/${seg.sessionId}?${qs}` : null;
     }
-    if (seg.key === 'vocab') return `/my-vocab/review?${qs}`;
+    // 走到「该考」之后，词段的入口是正式测试而不是翻卡（P8）
+    if (seg.key === 'vocab') {
+      return data?.stage === 'vocab_test' ? `/my-vocab/quiz?${qs}` : `/my-vocab/review?${qs}`;
+    }
     return `/my-mistakes/practice?${qs}`;
   };
 
@@ -240,6 +270,30 @@ export default function MyLessonPage() {
           )}
         </header>
 
+        {/* ── P8：**唯一的主要下一步** ──
+            阶段由服务端判断，页面只显示。在这之前学生要在三张并排的卡片
+            里自己挑：没开始的人在课程页上根本找不到「开始阅读」（读段的
+            链接只有已交卷才有），走到该考的阶段点词段还是进翻卡。 */}
+        {data.nextAction && data.nextAction.href && (
+          <a
+            href={`${data.nextAction.href}?${qs}`}
+            data-testid="primary-next"
+            data-next-kind={data.nextAction.kind}
+            className="press mb-4 block w-full min-h-[52px] leading-[52px] rounded-[14px] bg-blue-600 text-white text-center text-[17px] font-semibold active:bg-blue-700"
+          >
+            {data.nextAction.label} →
+          </a>
+        )}
+        {data.nextAction && !data.nextAction.href && (
+          <div
+            data-testid="primary-next"
+            data-next-kind={data.nextAction.kind}
+            className="mb-4 rounded-[14px] border border-dashed border-gray-300 py-3 text-center text-[14px] text-gray-500"
+          >
+            {data.nextAction.label}
+          </div>
+        )}
+
         <div className="space-y-3">
           {data.segments.map((seg) => {
             const meta = META[seg.key];
@@ -290,7 +344,14 @@ export default function MyLessonPage() {
                       </div>
                     )}
                   </div>
-                  {href && seg.status !== 'none' && (
+                  {/* P8 —— 卡片上的入口只给**当前该做的**和**已经做完的**
+                      那两类：做完的要能回看（答案、成绩、再练一轮），当前
+                      的是主按钮的同一条路。还没轮到的段落不给行动链接 ——
+                      三张卡各挂一个「开始 →」就是学生分不清先做哪个的原因，
+                      也是唯一主按钮想解决的事。想自由复习生词本的路没被堵：
+                      「我的主页」里一直有。 */}
+                  {href && seg.status !== 'none' &&
+                    (finished || seg.key === activeSegOf(data.stage)) && (
                     <a
                       href={href}
                       className="shrink-0 text-[14px] text-blue-600 font-medium px-2 py-1"

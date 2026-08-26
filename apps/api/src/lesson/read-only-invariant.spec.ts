@@ -84,26 +84,26 @@ function makeSvc(opts: { dlc?: any } = {}) {
   return { svc, prisma, writes, queueWrites };
 }
 
-describe('today(freeze:false) —— 纯读取', () => {
+describe('getToday() —— 纯读取（P8 收口后的查询入口）', () => {
   beforeEach(() => vi.clearAllMocks());
 
   it('**一次写都不发**（教师看板走的就是这条路）', async () => {
     const { svc, writes } = makeSvc();
-    await svc.today({ studentName: '小明', studentId: 'stu1', freeze: false });
+    await svc.getToday({ studentName: '小明', studentId: 'stu1' });
     expect(writes()).toHaveLength(0);
   });
 
   it('连续读三次仍然零写入', async () => {
     const { svc, writes } = makeSvc();
     for (let i = 0; i < 3; i++) {
-      await svc.today({ studentName: '小明', studentId: 'stu1', freeze: false });
+      await svc.getToday({ studentName: '小明', studentId: 'stu1' });
     }
     expect(writes()).toHaveLength(0);
   });
 
   it('**vocabWords=NULL 的旧任务读完仍是 NULL**（不自动自愈）', async () => {
     const { svc, writes } = makeSvc({ dlc: dlcRow({ stage: 'vocab_learn', vocabWords: null }) });
-    const t = await svc.today({ studentName: '小明', studentId: 'stu1', freeze: false });
+    const t = await svc.getToday({ studentName: '小明', studentId: 'stu1' });
     expect(writes()).toHaveLength(0);
     const vocab = t.segments.find((x: any) => x.key === 'vocab') as any;
     expect(vocab.quizScore.status).toBe('legacy_no_queue');
@@ -111,25 +111,25 @@ describe('today(freeze:false) —— 纯读取', () => {
 
   it('没有当日任务行时也不创建（教师看一眼不给全班建记录）', async () => {
     const { svc, writes } = makeSvc({ dlc: null });
-    await svc.today({ studentName: '小明', studentId: 'stu1', freeze: false });
+    await svc.getToday({ studentName: '小明', studentId: 'stu1' });
     expect(writes()).toHaveLength(0);
   });
 
   it('阶段该前进也不落库 —— 只在返回值里给出推导结果', async () => {
     const { svc, prisma, writes } = makeSvc();
-    const t = await svc.today({ studentName: '小明', studentId: 'stu1', freeze: false });
+    const t = await svc.getToday({ studentName: '小明', studentId: 'stu1' });
     expect(writes()).toHaveLength(0);
     expect(prisma.__calls.some((c: any) => c.model === 'dlc' && c.op === 'updateMany')).toBe(false);
     expect(typeof t.stage).toBe('string');
   });
 });
 
-describe('today(freeze:true) —— 明确的学生动作才写', () => {
+describe('startOrResumeToday() —— 明确的学生命令才写', () => {
   beforeEach(() => vi.clearAllMocks());
 
   it('会对齐进度与阶段，且只写任务行', async () => {
     const { svc, writes } = makeSvc();
-    await svc.today({ studentName: '小明', studentId: 'stu1', freeze: true });
+    await svc.startOrResumeToday({ studentName: '小明', studentId: 'stu1' });
     expect(writes().length).toBeGreaterThan(0);
     expect(writes().every((w: any) => w.model === 'dlc')).toBe(true);
   });
@@ -138,13 +138,13 @@ describe('today(freeze:true) —— 明确的学生动作才写', () => {
     const { svc, queueWrites } = makeSvc({
       dlc: dlcRow({ stage: 'vocab_learn', vocabWords: null }),
     });
-    await svc.today({ studentName: '小明', studentId: 'stu1', freeze: true });
+    await svc.startOrResumeToday({ studentName: '小明', studentId: 'stu1' });
     expect(queueWrites()).toHaveLength(0);
   });
 
   it('**走到 vocab_test 之后队列不再扩充**', async () => {
     const { svc, queueWrites } = makeSvc({ dlc: dlcRow({ stage: 'vocab_test', vocabWords: ['a'] }) });
-    await svc.today({ studentName: '小明', studentId: 'stu1', freeze: true });
+    await svc.startOrResumeToday({ studentName: '小明', studentId: 'stu1' });
     expect(queueWrites()).toHaveLength(0);
   });
 
@@ -153,13 +153,13 @@ describe('today(freeze:true) —— 明确的学生动作才写', () => {
     prisma.vocabQuizAttempt.findFirst = async () => ({
       status: 'in_progress', submittedAt: null, total: 4, correct: 0, score: 0, items: [],
     });
-    await svc.today({ studentName: '小明', studentId: 'stu1', freeze: true });
+    await svc.startOrResumeToday({ studentName: '小明', studentId: 'stu1' });
     expect(queueWrites()).toHaveLength(0);
   });
 
   it('还没开始（stage=reading）且队列有值 → 并入新到期的词（只增不减）', async () => {
     const { svc, queueWrites } = makeSvc();
-    await svc.today({ studentName: '小明', studentId: 'stu1', freeze: true });
+    await svc.startOrResumeToday({ studentName: '小明', studentId: 'stu1' });
     const w = queueWrites();
     expect(w).toHaveLength(1);
     expect(w[0].args.data.vocabWords).toEqual(['a', 'b', 'c']);
@@ -167,7 +167,7 @@ describe('today(freeze:true) —— 明确的学生动作才写', () => {
 
   it('没有任务行 → 创建，并用当前到期队列初始化', async () => {
     const { svc, prisma } = makeSvc({ dlc: null });
-    await svc.today({ studentName: '小明', studentId: 'stu1', freeze: true });
+    await svc.startOrResumeToday({ studentName: '小明', studentId: 'stu1' });
     const created = prisma.__calls.find((c: any) => c.model === 'dlc' && c.op === 'create');
     expect(created).toBeTruthy();
     expect(created.args.data.vocabWords).toEqual(['a', 'b', 'c']);

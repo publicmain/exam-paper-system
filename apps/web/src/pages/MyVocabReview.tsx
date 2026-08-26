@@ -442,25 +442,25 @@ export default function MyVocabReviewPage() {
           <div className="text-sm text-gray-600 mt-1.5">
             过了 <strong>{done}</strong> 个词。间隔重复会在你快忘记时再把它们送回来。
           </div>
-          {/* 先背再考（2026-08-24）。刚翻完卡片就趁热考一遍 —— 这是记
-              得住的关键一步，也让 FSRS 拿到真实信号（翻卡的「我记得」是
-              自评，自测选错就是错）。学生可以跳过直接看成绩，不强制。 */}
-          {afterSubmit && cards.length >= 4 && (
-            <button
-              type="button"
-              onClick={() =>
-                navigate(
-                  `/my-vocab/quiz?name=${encodeURIComponent(name)}` +
-                    (studentId ? `&studentId=${encodeURIComponent(studentId)}` : '') +
-                    `&after=submit&then=${encodeURIComponent(historyUrl)}`,
-                  { replace: true },
-                )
-              }
-              className="mt-5 w-full py-3 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-semibold touch-manipulation"
-            >
-              趁热考一遍 →
-            </button>
-          )}
+          {/* P8 —— 学完就去考，**唯一的主要下一步**。
+              原来这个入口只在「交卷流程 + 卡片 ≥4」时才出现，学生主动
+              来背完词就没有任何通往正式测试的路；「趁热考一遍」也读不出
+              这是有成绩的正式测试还是随便练练。 */}
+          <button
+            type="button"
+            data-testid="review-next"
+            onClick={() =>
+              navigate(
+                `/my-vocab/quiz?name=${encodeURIComponent(name)}` +
+                  (studentId ? `&studentId=${encodeURIComponent(studentId)}` : '') +
+                  (afterSubmit ? `&after=submit&then=${encodeURIComponent(historyUrl)}` : ''),
+                { replace: true },
+              )
+            }
+            className="mt-5 w-full py-3 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-semibold touch-manipulation"
+          >
+            去考今天的单词 →
+          </button>
           <button
             type="button"
             onClick={() => navigate(historyUrl, { replace: true })}

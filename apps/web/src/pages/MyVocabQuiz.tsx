@@ -92,6 +92,14 @@ export default function MyVocabQuizPage() {
    * - 结束时提交一次，成绩落库
    */
   const [formal, setFormal] = useState<{ attemptId: string; total: number } | null>(null);
+  /**
+   * P8 —— 正式测试**开不出来的原因**。
+   *
+   * 「阶段还没到」和「生词本里词太少」是两件事，先前都落到同一个
+   * 「还出不了题 · 生词本里的词还太少」空态上。学生顺着深链接或旧标签页
+   * 进来，看到的解释是错的，也没有一条回到今天该做的事情的路。
+   */
+  const [blocked, setBlocked] = useState<string | null>(null);
   /** 提交结果（成绩）。有值 = 已交卷。 */
   const [result, setResult] = useState<{ total: number; correct: number; score: number } | null>(null);
   const submittingRef = useRef(false);
@@ -133,6 +141,14 @@ export default function MyVocabQuizPage() {
    *
    * 非交卷流程（学生自己点进来练）不受影响，仍然直接去成绩页。
    */
+  /** P8：被阶段挡住时回去的地方 —— 今天的课（那里有唯一的下一步） */
+  const lessonUrl = `/my-lesson?name=${encodeURIComponent(name)}${
+    studentId ? `&studentId=${encodeURIComponent(studentId)}` : ''
+  }`;
+  /** P8：正式测试之后的唯一去处 —— 今天的任务总结 */
+  const summaryUrl = `/my-lesson/summary?name=${encodeURIComponent(name)}${
+    studentId ? `&studentId=${encodeURIComponent(studentId)}` : ''
+  }`;
   const nextAfterQuiz = afterSubmit
     ? `/my-mistakes/practice?name=${encodeURIComponent(name)}${
         studentId ? `&studentId=${encodeURIComponent(studentId)}` : ''
@@ -151,6 +167,7 @@ export default function MyVocabQuizPage() {
     setMissed([]);
     setFirstTryCorrect(0);
     setFormal(null);
+    setBlocked(null);
     setResult(null);
     submittingRef.current = false;
     // P6：先试正式测试。不够格（not_ready / insufficient_items）才退回
@@ -177,8 +194,9 @@ export default function MyVocabQuizPage() {
         setI(firstUnanswered < 0 ? items.length : firstUnanswered);
         setFirstTryCorrect(items.filter((it) => it.isCorrect === true).length);
       })
-      .catch(() => {
+      .catch((e: any) => {
         if (cancelled) return;
+        setBlocked(String(e?.body?.code ?? ''));
         // 不够格考试 → 自由练习（老行为原样保留，含 FSRS 回写）
         return api
           .vocabQuiz({ name, studentId: studentId || undefined })
@@ -384,22 +402,40 @@ export default function MyVocabQuizPage() {
     );
   }
 
-  // 生词太少出不了题
+  // 出不了题 —— 但要说对是哪一种「出不了」
   if (firstRoundTotal === 0) {
+    // P8：阶段还没轮到单词测试（深链接 / 旧标签页 / 收藏夹进来的）。
+    // 这不是「词太少」，学生该回今天的课去做当前那一步。
+    const notYet = blocked === 'stage_not_ready';
     return (
       <div className="ui-ios min-h-screen bg-gray-50 flex items-center justify-center px-5">
-        <div className="bg-white rounded-2xl border shadow-sm p-7 max-w-sm w-full text-center">
-          <div className="text-4xl mb-2">📭</div>
-          <div className="text-xl font-bold text-gray-900">还出不了题</div>
+        <div
+          className="bg-white rounded-2xl border shadow-sm p-7 max-w-sm w-full text-center"
+          data-testid="quiz-blocked"
+          data-blocked-reason={notYet ? 'stage_not_ready' : 'too_few_words'}
+        >
+          <div className="text-4xl mb-2">{notYet ? '📘' : '📭'}</div>
+          <div className="text-xl font-bold text-gray-900">
+            {notYet ? '还没到考单词的时候' : '还出不了题'}
+          </div>
           <p className="text-sm text-gray-600 mt-2 leading-relaxed">
-            生词本里的词还太少。考试或复盘时<strong>点不认识的单词</strong>，
-            存下的词就会出现在这里变成自测题。
+            {notYet ? (
+              <>
+                今天的课要按顺序走：先读文章、再学新词，学完才考。
+                回到今天的课，那里写着你现在该做哪一步。
+              </>
+            ) : (
+              <>
+                生词本里的词还太少。考试或复盘时<strong>点不认识的单词</strong>，
+                存下的词就会出现在这里变成自测题。
+              </>
+            )}
           </p>
           <Link
-            to={backUrl}
+            to={notYet ? lessonUrl : backUrl}
             className="press mt-5 block w-full py-3 rounded-[14px] bg-blue-600 text-white font-semibold"
           >
-            返回生词本
+            {notYet ? '回今天的课 →' : '返回生词本'}
           </Link>
         </div>
       </div>
@@ -427,6 +463,18 @@ export default function MyVocabQuizPage() {
     return (
       <div className="ui-ios min-h-screen bg-gray-50 flex items-center justify-center px-5 py-8">
         <div className="bg-white rounded-2xl border shadow-sm p-7 max-w-sm w-full text-center enter">
+          {/* P8 —— 一眼看出这一轮算不算数。自由练习不计入正式成绩，
+              但它长得和正式测试一模一样，不标出来学生会以为自己考过了。 */}
+          <div
+            className={`mb-2 inline-block rounded-full px-3 py-1 text-[12px] ${
+              formal
+                ? 'bg-blue-50 text-blue-700 border border-blue-200'
+                : 'bg-gray-100 text-gray-600 border border-gray-200'
+            }`}
+            data-testid="quiz-mode-badge"
+          >
+            {formal ? '正式单词测试 · 计入成绩' : '自由练习 · 不计入正式成绩'}
+          </div>
           <div className="text-5xl mb-3">{pct === 100 ? '🏆' : pct >= 60 ? '💪' : '📖'}</div>
           <div className="text-2xl font-bold text-gray-900">
             {result ? result.correct : firstTryCorrect} / {result ? result.total : firstRoundTotal}{' '}
@@ -465,9 +513,28 @@ export default function MyVocabQuizPage() {
             </div>
           )}
 
-          {afterSubmit ? (
+          {formal ? (
             <>
-              {/* 交卷流程：词考完了，学生的下一站是看答案 —— 主按钮让路 */}
+              {/* P8 —— 正式测试交完卷，**唯一的下一步是今天的总结**。 */}
+              <Link
+                to={summaryUrl}
+                data-testid="quiz-next"
+                className="press mt-6 block w-full min-h-[48px] leading-[48px] rounded-[14px] bg-blue-600 text-white text-[16px] font-semibold active:bg-blue-700"
+              >
+                看今天的总结 →
+              </Link>
+              <div className="mt-3 flex justify-center gap-5 text-[14px]">
+                {/* 「再练一轮」是**自由练习**，不会新建正式测试（服务端
+                    也挡着：同一任务只有一份 attempt）。写清楚免得学生以为
+                    还能再考一次刷分。 */}
+                <button type="button" onClick={() => setRound((r) => r + 1)} className="text-gray-500">
+                  再练一轮（不计分）
+                </button>
+                <Link to={backUrl} className="text-blue-600">返回生词本</Link>
+              </div>
+            </>
+          ) : afterSubmit ? (
+            <>
               <Link
                 to={nextAfterQuiz}
                 className="press mt-6 block w-full min-h-[48px] leading-[48px] rounded-[14px] bg-blue-600 text-white text-[16px] font-semibold active:bg-blue-700"
@@ -475,8 +542,8 @@ export default function MyVocabQuizPage() {
                 继续 → 查看答案与成绩
               </Link>
               <div className="mt-3 flex justify-center gap-5 text-[14px]">
-                <button type="button" onClick={() => setRound((r) => r + 1)} className="text-blue-600">
-                  再练一轮
+                <button type="button" onClick={() => setRound((r) => r + 1)} className="text-gray-500">
+                  再练一轮（不计分）
                 </button>
                 <Link to={backUrl} className="text-blue-600">返回生词本</Link>
               </div>
@@ -488,7 +555,7 @@ export default function MyVocabQuizPage() {
                 onClick={() => setRound((r) => r + 1)}
                 className="press mt-6 w-full min-h-[48px] rounded-[14px] bg-blue-600 text-white text-[16px] font-semibold active:bg-blue-700"
               >
-                再练一轮
+                再练一轮（不计分）
               </button>
               <div className="mt-3 flex justify-center gap-5 text-[14px]">
                 <Link to={backUrl} className="text-blue-600">返回生词本</Link>
@@ -528,6 +595,15 @@ export default function MyVocabQuizPage() {
           <div className="text-[13px] font-semibold text-gray-500">
             {QTYPE_LABEL[q.qtype]}
             {q.retry && <span className="ml-2 text-amber-600">· 错题再试</span>}
+            {/* P8 —— 做题当中就要看得出这一轮算不算分。「再练一轮（不计分）」
+                进来的页面和正式测试长得一模一样，不标的话学生会以为自己
+                正在考试（或者反过来，把正式测试当练习乱点）。 */}
+            <span
+              className={`ml-2 font-normal ${formal ? 'text-blue-600' : 'text-gray-400'}`}
+              data-testid="quiz-taking-mode"
+            >
+              · {formal ? '计入成绩' : '不计分'}
+            </span>
           </div>
           {q.qtype === 'word_to_meaning' ? (
             <div className="mt-2 flex items-baseline gap-2 flex-wrap">

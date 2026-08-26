@@ -4,6 +4,7 @@ import { StudentWordService } from '../vocab/student-word.service';
 import { normalizeWord } from '../vocab/vocab.service';
 import { MIN_QUIZ_ITEMS } from '../vocab/quiz-eligibility';
 import { vocabScoreView, type VocabScoreView } from '../vocab/vocab-score';
+import { nextActionOf } from './next-action';
 import {
   VocabReviewService,
   reviewBatchSize,
@@ -92,7 +93,31 @@ export class LessonService {
    * 批量查询传 false —— **教师看一眼不该给全班创建当日记录**，那会把
    * 「学生今天来过」这个信号污染掉。
    */
-  async today(input: { studentName: string; studentId?: string; freeze?: boolean }) {
+  /**
+   * **查询** —— 今天的课，纯读取。
+   *
+   * 一个字都不写：不创建当日任务、不推进阶段、不补词汇队列。教师看板、
+   * 成绩页、任务总结都走这条。
+   */
+  async getToday(input: { studentName: string; studentId?: string }) {
+    return this.today({ ...input, freeze: false });
+  }
+
+  /**
+   * **命令** —— 开始或恢复今天的课。
+   *
+   * 学生打开课程页、完成一张教学卡这类明确动作走这条：创建当日任务、
+   * 把进度/阶段/词汇队列对齐到事实。
+   *
+   * 之所以要和 getToday 分成两个名字：布尔参数 `freeze` 会顺着调用链
+   * 一路传下去，传到某个只想「看一眼」的地方就变成了一次写。教师看板
+   * 改写全班 vocabWords 那个缺陷就是这么来的。
+   */
+  async startOrResumeToday(input: { studentName: string; studentId?: string }) {
+    return this.today({ ...input, freeze: true });
+  }
+
+  private async today(input: { studentName: string; studentId?: string; freeze?: boolean }) {
     const student = await this.words.resolveStudent(input.studentName, input.studentId);
     const now = new Date();
     const day = this.sgtDayStart(now);
@@ -222,9 +247,22 @@ export class LessonService {
     const vocabCursor = clampCursor(frozen?.vocabCursor, vocabNow.target);
 
     const prog = lessonProgress(segments);
+    // P8 —— **服务端决定唯一的下一步**。前端只负责显示它，不再让学生
+    // 在三张并排的卡片里自己判断该点哪个。
+    const nextAction = nextActionOf({
+      stage,
+      hasSession: readNow.hasSession,
+      opened: readNow.opened,
+      finalSubmitted: readNow.finalSubmitted,
+      sessionId: readNow.sessionId,
+      submissionId: readNow.submissionId,
+      // 有队列才开得出正式测试（旧任务 vocabWords=NULL → 开不出）
+      vocabTestAvailable: frozen != null && frozen.vocabWords != null,
+    });
     return {
       student: { id: student.id, name: student.name },
       date: day.toISOString().slice(0, 10),
+      nextAction,
       rulesVersion: LESSON_RULES_VERSION,
       completed: prog.completed,
       total: prog.total,
@@ -247,6 +285,7 @@ export class LessonService {
           maxScore: readNow.maxScore,
           scoresPending: readNow.scoresPending,
           submissionId: readNow.submissionId,
+          sessionId: readNow.sessionId,
           autoClosed: segments.read === 'auto_closed',
         },
         {
@@ -358,6 +397,7 @@ export class LessonService {
         scoresPending: false,
         submissionId: null as string | null,
         autoFinalizeReason: null as string | null,
+        sessionId: null as string | null,
       };
     }
 
@@ -392,6 +432,9 @@ export class LessonService {
       opened: sub != null,
       // 学生看到《The Queue》而不是内部 setCode。认不出来返回 null，
       // UI 就不显示标题 —— 显示一串内部编号比不显示更糟。
+      // P8：课程页要能直接把学生送进今天这一场（原来读段只有「已交卷
+      // 才有的逐题详情」链接，没开始的学生在课程页上找不到入口）
+      sessionId: session.id,
       paperName: readablePaperTitle(session.paperAssignment!.paper?.name),
       questionCount: session.paperAssignment!.paper?._count.questions ?? 0,
       score: sub?.totalScore ?? null,
@@ -713,10 +756,9 @@ export class LessonService {
     //
     // 副作用可控：走到这一步说明学生正在上今天的课，创建/对齐当日任务行
     // 本来就是应该的。
-    const t = await this.today({
+    const t = await this.startOrResumeToday({
       studentName: input.studentName,
       studentId: input.studentId,
-      freeze: true,
     });
     return {
       ok: true as const,
@@ -793,7 +835,7 @@ export class LessonService {
       roster.map(async (r) => {
         // freeze=false —— 教师看一眼不能给全班创建当日记录，否则
         // 「学生今天来过」这个信号就被教师的浏览污染了
-        const t = await this.today({ studentName: r.user.name, studentId: r.user.id, freeze: false });
+        const t = await this.getToday({ studentName: r.user.name, studentId: r.user.id });
         const read = t.segments[0] as any;
         return {
           studentId: r.user.id,

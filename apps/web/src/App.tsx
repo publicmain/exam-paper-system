@@ -66,6 +66,7 @@ adoptTeacherViewFromUrl();
 const ClassRegistrationPage = lazy(() => import('./pages/ClassRegistration'));
 const LessonBoardPage = lazy(() => import('./pages/LessonBoard'));
 const MyLessonPage = lazy(() => import('./pages/MyLesson'));
+const TaskSummaryPage = lazy(() => import('./pages/TaskSummary'));
 const MarkerQueuePage = lazy(() => import('./pages/MarkerQueue'));
 const MarkerScriptPage = lazy(() => import('./pages/MarkerScript'));
 const ClassStatsPage = lazy(() => import('./pages/ClassStats'));
@@ -138,6 +139,9 @@ export default function App() {
     location.pathname === '/me' ||
     // 4.0 今天的课 —— 与 /me 同类，学生自助入口，不能落进教师守卫
     location.pathname === '/my-lesson' ||
+    // P8 任务总结 —— 单词测试交卷后的唯一去处。忘了加进这张白名单的话
+    // 它会落进教师 JWT 守卫，学生点「看今天的总结」到的是学生门户首页。
+    location.pathname === '/my-lesson/summary' ||
     location.pathname === '/my-history' ||
     location.pathname.startsWith('/my-history/submission/') ||
     // 生词本 P2 —— 同一套公开 + 姓名匹配的学生自助入口
@@ -155,6 +159,8 @@ export default function App() {
         <Routes>
         <Route path="/me" element={<MePage />} />
         <Route path="/my-lesson" element={<MyLessonPage />} />
+        {/* P8：任务总结（纯读取，不创建任何东西） */}
+        <Route path="/my-lesson/summary" element={<TaskSummaryPage />} />
         <Route path="/my-history" element={<MyHistoryPage />} />
         <Route path="/my-history/submission/:submissionId" element={<MyHistoryDetailPage />} />
         <Route path="/my-vocab" element={<MyVocabPage />} />

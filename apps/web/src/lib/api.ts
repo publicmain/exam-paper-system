@@ -461,6 +461,15 @@ export const api = {
   studentAuthMe: () => request('GET', '/student-auth/me'),
   // ── 4.0 每日一课（阶段 A，影子运行）──
   /** 学生：今天的课。**这个调用会冻结当日目标**（首次） */
+  /**
+   * P8 —— **命令**：开始或恢复今天的课。
+   *
+   * 只有课程页调它。它会创建当日任务行、把进度与阶段对齐、把新到期的词
+   * 并进任务队列。成绩页、总结页、教师看板一律用下面的 lessonToday（纯读）。
+   */
+  lessonStart: (name: string, studentId?: string) =>
+    request('POST', '/lesson/start', { name, ...(studentId ? { studentId } : {}) }),
+  /** **查询**：今天的课。纯读取，不写任何东西。 */
   lessonToday: (name: string, studentId?: string) =>
     request(
       'GET',
