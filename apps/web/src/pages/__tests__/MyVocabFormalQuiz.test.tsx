@@ -197,3 +197,73 @@ describe('P6 正式测试', () => {
     await waitFor(() => expect(screen.getByText('axis')).toBeTruthy());
   });
 });
+
+/**
+ * P6 收尾 —— 作答保存失败绝不能被当成「未作答」。
+ *
+ * 原来失败只被 catch 掉、照样进下一题，交卷时那一题按空白算错。学生真的
+ * 选了答案，成绩单上却是空的 —— 这是分数造假，不是网络问题。
+ */
+describe('P6 收尾 · 作答持久化', () => {
+  beforeEach(() => {
+    vi.mocked(api.vocabQuizStart).mockReset();
+    vi.mocked(api.vocabQuizAnswer).mockReset();
+    vi.mocked(api.vocabQuizSubmit).mockResolvedValue({ total: 4, correct: 0, score: 0 } as any);
+    vi.mocked(api.vocabQuizStart).mockResolvedValue(attempt() as any);
+  });
+
+  it('**保存失败 → 停在原题、选项保持选中、给明确重试**', async () => {
+    const user = userEvent.setup();
+    vi.mocked(api.vocabQuizAnswer).mockRejectedValueOnce(new Error('offline'));
+    setup();
+    await waitFor(() => expect(screen.getByText('harbour')).toBeTruthy());
+
+    await user.click(screen.getByText('n. 港口'));
+
+    await waitFor(() => expect(screen.getByTestId('answer-save-failed')).toBeTruthy());
+    expect(screen.getByText(/这一题还没存上/)).toBeTruthy();
+    // 还在第一题（答完后反馈区也会出现词，所以用 getAllByText）
+    expect(screen.getAllByText('harbour').length).toBeGreaterThan(0);
+    expect(screen.queryByText('lantern')).toBeNull();
+    // 选项保持选中：四个选项仍在页面上且已禁用（不能改答案）
+    expect(screen.getByText('n. 港口')).toBeTruthy();
+    // 没有「继续」可点 —— 不能往下走
+    expect(screen.queryByTestId('quiz-continue')).toBeNull();
+    expect(screen.getByTestId('answer-retry')).toBeTruthy();
+  });
+
+  it('**重试成功后正常继续**，重试打的是同一个幂等接口、同样的参数', async () => {
+    const user = userEvent.setup();
+    vi.mocked(api.vocabQuizAnswer)
+      .mockRejectedValueOnce(new Error('offline'))
+      .mockResolvedValue({ accepted: true } as any);
+    setup();
+    await waitFor(() => expect(screen.getByText('harbour')).toBeTruthy());
+
+    await user.click(screen.getByText('n. 港口'));
+    await waitFor(() => expect(screen.getByTestId('answer-retry')).toBeTruthy());
+
+    await user.click(screen.getByTestId('answer-retry'));
+    await waitFor(() => expect(screen.getByTestId('quiz-continue')).toBeTruthy());
+
+    const calls = vi.mocked(api.vocabQuizAnswer).mock.calls.map((c: any) => c[0]);
+    expect(calls).toHaveLength(2);
+    expect(calls[0]).toEqual(calls[1]); // 同一题、同一个选项 —— 幂等重发
+    await user.click(screen.getByTestId('quiz-continue'));
+    await waitFor(() => expect(screen.getByText('lantern')).toBeTruthy());
+  });
+
+  it('保存失败后**不会提交**（不产生一份含空白答案的成绩）', async () => {
+    const user = userEvent.setup();
+    const a = attempt();
+    a.items = a.items.map((it, i) => (i < 3 ? { ...it, isCorrect: true, studentIndex: 0 } : it));
+    vi.mocked(api.vocabQuizStart).mockResolvedValue({ ...a, resumed: true } as any);
+    vi.mocked(api.vocabQuizAnswer).mockRejectedValue(new Error('offline'));
+    setup();
+    await waitFor(() => expect(screen.getByText('pebble')).toBeTruthy());
+
+    await user.click(screen.getByText('n. 港口'));
+    await waitFor(() => expect(screen.getByTestId('answer-save-failed')).toBeTruthy());
+    expect(api.vocabQuizSubmit).not.toHaveBeenCalled();
+  });
+});

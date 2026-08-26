@@ -117,3 +117,45 @@ describe('scoreOf —— 分数在提交时算一次', () => {
     expect(scoreOf([])).toEqual({ total: 0, correct: 0, score: 0 });
   });
 });
+
+/**
+ * P6 收尾 —— 资格条件的**反向测试**。
+ *
+ * 教学判据（P5）是 `firstTaughtAt IS NULL AND reps = 0`，
+ * 考试资格（P6）是 `firstTaughtAt IS NOT NULL`。两条相邻、方向相反，
+ * 读文档时极易看串 —— 所以正反两面都各钉一条。
+ */
+describe('资格条件正反面（P6 收尾）', () => {
+  it('**firstTaughtAt = null 绝不出题**：全是 null 时 not_ready，一题都不给', () => {
+    const words = Array.from({ length: 20 }, (_, i) =>
+      w('never' + i, { firstTaughtAt: null }),
+    );
+    const r = selectEligible(words, NOW, DAY_START);
+    expect(r.kind).toBe('not_ready');
+    expect((r as any).eligible).toBe(0);
+  });
+
+  it('**firstTaughtAt = null 绝不出题**：与够格的词混在一起时也只取够格的', () => {
+    const words = [
+      ...Array.from({ length: 5 }, (_, i) => w('ok' + i)),
+      ...Array.from({ length: 15 }, (_, i) => w('never' + i, { firstTaughtAt: null })),
+    ];
+    const r = selectEligible(words, NOW, DAY_START);
+    expect(r.kind).toBe('ok');
+    if (r.kind === 'ok') {
+      expect(r.words).toHaveLength(5);
+      expect(r.words.every((x) => x.firstTaughtAt != null)).toBe(true);
+      expect(r.words.map((x) => x.headword).some((h) => h.startsWith('never'))).toBe(false);
+    }
+  });
+
+  it('**firstTaughtAt != null 且 reps = 0 → 可以出题**（刚教完就考，正是设计意图）', () => {
+    // reps 根本不在资格判据里 —— 这条测试同时证明它没有被偷偷加回去
+    const justTaught = Array.from({ length: 6 }, (_, i) =>
+      w('fresh' + i, { firstTaughtAt: D('2026-08-28T01:30:00.000Z') }),
+    );
+    const r = selectEligible(justTaught, NOW, DAY_START);
+    expect(r.kind).toBe('ok');
+    if (r.kind === 'ok') expect(r.words).toHaveLength(6);
+  });
+});

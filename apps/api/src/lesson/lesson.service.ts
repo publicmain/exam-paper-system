@@ -378,8 +378,13 @@ export class LessonService {
     // 复习流水。不认这一条的话，一个「教 5 个新词 → 考一次」的日子里
     // progress 永远是 0、背段永远不完成，stage 就卡死在 vocab_test ——
     // 和 P5 那次 unlearned 的死锁一模一样。
+    // 按**本次任务**查（穿过 DLC 关系），不是「这个学生今天有没有交过
+    // 某一份测试」—— 后者在任务与日历日不再一一对应时会认错人。
     const quizSubmitted = await this.prisma.vocabQuizAttempt.count({
-      where: { studentId, date: this.sgtDayStart(now), status: 'submitted' },
+      where: {
+        status: 'submitted',
+        dailyLessonCompletion: { studentId, date: this.sgtDayStart(now) },
+      },
     });
 
     // 还没**教过**的到期词 —— 阶段判定要靠它区分「该教」还是「该考」。

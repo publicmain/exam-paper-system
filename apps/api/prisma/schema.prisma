@@ -2180,8 +2180,13 @@ model VocabQuizAttempt {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  /// 同一任务（studentId + 日）**只能有一份**正式测试。
-  /// 创建走 upsert，双击/重试撞上这条约束就是幂等 no-op。
+  /// 「一个任务一份正式测试」的**主约束**在 dailyLessonCompletionId 上
+  /// （见迁移里的 partial unique index —— Prisma 表达不了 WHERE 子句）。
+  /// DLC 行的 id 唯一属于一个学生的某一天，所以它就是「这次任务」本身。
+  ///
+  /// 下面这条 (studentId, date) 保留为**第二道防线**，兼容 P6 收尾之前
+  /// 建的、还没有 DLC 绑定的存量行：DLC 自己也是 (studentId, date) 唯一，
+  /// 所以两条约束在语义上一致，不会互相打架。
   @@unique([studentId, date])
   @@index([studentId, submittedAt])
 }

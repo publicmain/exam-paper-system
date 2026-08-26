@@ -24,6 +24,8 @@ function makeSvc(opts: {
   words?: any[];
   createThrows?: any;
   updateManyCount?: number;
+  dlc?: any;
+  reviewedToday?: any[];
 } = {}) {
   const calls: Array<{ model: string; op: string; args: any }> = [];
   const track = (model: string, op: string, impl: Function) => (args: any) => {
@@ -36,6 +38,7 @@ function makeSvc(opts: {
     __calls: calls,
     vocabQuizAttempt: {
       findUnique: track('attempt', 'findUnique', async () => stored),
+      findFirst: track('attempt', 'findFirst', async () => stored),
       create: track('attempt', 'create', async ({ data }: any) => {
         if (opts.createThrows) throw opts.createThrows;
         stored = {
@@ -56,17 +59,18 @@ function makeSvc(opts: {
       update: () => { throw new Error('考试不得改写 FSRS 字段'); },
       updateMany: () => { throw new Error('考试不得改写 FSRS 字段'); },
     },
-    wordReviewLog: {
-      create: () => { throw new Error('考试不得写复习流水'); },
-      findUnique: () => { throw new Error('考试不得读写复习流水'); },
-    },
     studentSubmission: {
       update: () => { throw new Error('考试不得写阅读答卷'); },
       create: () => { throw new Error('考试不得写阅读答卷'); },
       updateMany: () => { throw new Error('考试不得写阅读答卷'); },
     },
+    wordReviewLog: {
+      create: () => { throw new Error('考试不得写复习流水'); },
+      findUnique: () => { throw new Error('考试不得读写复习流水'); },
+      findMany: track('wordReviewLog', 'findMany', async () => opts.reviewedToday ?? []),
+    },
     dailyLessonCompletion: {
-      findUnique: track('dlc', 'findUnique', async () => ({ id: 'dlc1' })),
+      findUnique: track('dlc', 'findUnique', async () => (opts.dlc === null ? null : (opts.dlc ?? { id: 'dlc1' }))),
       update: () => { throw new Error('考试不得直接改任务行'); },
       updateMany: () => { throw new Error('考试不得直接改任务行'); },
     },
@@ -140,9 +144,9 @@ describe('start —— 创建与恢复', () => {
       total: 4, correct: 0, score: 0, items: ITEMS,
     };
     const { svc, prisma } = makeSvc({ words: dueWords(5), createThrows: { code: 'P2002' } });
-    // findUnique：建之前返回 null（所以会去 create），撞约束后返回赢家那一份
+    // findFirst：建之前返回 null（所以会去 create），撞约束后返回赢家那一份
     let first = true;
-    prisma.vocabQuizAttempt.findUnique = async () => {
+    prisma.vocabQuizAttempt.findFirst = async () => {
       if (first) { first = false; return null; }
       return winner;
     };
@@ -265,5 +269,86 @@ describe('全程不碰 FSRS / 阅读答卷', () => {
     );
     expect(writes.length).toBeGreaterThan(0);
     expect(new Set(writes.map((w: any) => w.model))).toEqual(new Set(['attempt']));
+  });
+});
+
+/**
+ * P6 收尾 —— 正式测试**属于一次任务**，不是「学生 + 今天」。
+ *
+ * 原来靠 (studentId, date) 定位：日历日与任务今天恰好一一对应，但那是
+ * 巧合不是契约。更现实的风险是 SGT 午夜前后两处各算一次「今天」，
+ * 任何一处算法微调都会让测试挂到另一天的任务上。
+ */
+describe('任务绑定（P6 收尾）', () => {
+  beforeEach(() => vi.clearAllMocks());
+
+  it('**没有当日任务 → no_task**，不建 attempt、不出题', async () => {
+    const { svc, prisma, quiz } = makeSvc({ dlc: null, words: dueWords(8) });
+    await expect(svc.start({ studentName: '小明' })).rejects.toThrow(ConflictException);
+    expect(prisma.__calls.filter((c: any) => c.op === 'create')).toHaveLength(0);
+    expect(quiz.buildQuiz).not.toHaveBeenCalled();
+  });
+
+  it('**按任务查已有 attempt**（dailyLessonCompletionId），不按学生+日期', async () => {
+    const { svc, prisma } = makeSvc({
+      dlc: { id: 'dlc_today' },
+      attempt: {
+        id: 'att1', status: 'in_progress', startedAt: new Date(), submittedAt: null,
+        total: 4, correct: 0, score: 0, items: ITEMS,
+      },
+    });
+    await svc.start({ studentName: '小明' });
+    const q = prisma.__calls.find((c: any) => c.model === 'attempt' && c.op === 'findFirst');
+    expect(q.args.where).toEqual({ dailyLessonCompletionId: 'dlc_today' });
+  });
+
+  it('**新建的 attempt 一定带任务绑定**', async () => {
+    const { svc, prisma } = makeSvc({ dlc: { id: 'dlc_today' }, words: dueWords(8) });
+    await svc.start({ studentName: '小明' });
+    const c = prisma.__calls.find((x: any) => x.op === 'create');
+    expect(c.args.data.dailyLessonCompletionId).toBe('dlc_today');
+  });
+
+  it('**候选词的 SQL 里就写死了 firstTaughtAt IS NOT NULL**，不靠下游过滤', async () => {
+    const { svc, prisma } = makeSvc({ dlc: { id: 'd' }, words: dueWords(8) });
+    await svc.start({ studentName: '小明' });
+    const w = prisma.__calls.find((c: any) => c.model === 'studentWord' && c.op === 'findMany');
+    expect(w.args.where.firstTaughtAt).toEqual({ not: null });
+    expect(w.args.where.studentId).toBe('stu1');
+  });
+
+  it('**任务归属不靠全局 due**：候选只取「今天教过」或「今天复习过」的词', async () => {
+    const { svc, prisma } = makeSvc({ dlc: { id: 'd' }, words: dueWords(8) });
+    await svc.start({ studentName: '小明' });
+    const w = prisma.__calls.find((c: any) => c.model === 'studentWord' && c.op === 'findMany');
+    // where 里绝不能出现「due <= now」这种全局条件
+    expect(w.args.where.due).toBeUndefined();
+    const or = w.args.where.OR;
+    expect(Array.isArray(or)).toBe(true);
+    expect(or.some((o: any) => o.firstTaughtAt?.gte instanceof Date)).toBe(true);
+    expect(or.some((o: any) => Array.isArray(o.headword?.in))).toBe(true);
+  });
+
+  it('今天复习过的词会被算进本次任务（走复习流水，不是扫全表）', async () => {
+    const { svc, prisma } = makeSvc({
+      dlc: { id: 'd' },
+      words: dueWords(8),
+      reviewedToday: [{ studentWord: { headword: 'oldie' } }],
+    });
+    await svc.start({ studentName: '小明' });
+    const w = prisma.__calls.find((c: any) => c.model === 'studentWord' && c.op === 'findMany');
+    const inList = w.args.where.OR.find((o: any) => Array.isArray(o.headword?.in));
+    expect(inList.headword.in).toContain('oldie');
+    // 复习流水的查询限定在本人 + 今天
+    const l = prisma.__calls.find((c: any) => c.model === 'wordReviewLog');
+    expect(l.args.where.studentWord.studentId).toBe('stu1');
+    expect(l.args.where.reviewedAt.gte).toBeInstanceOf(Date);
+  });
+
+  it('**User.englishLevel 全程不参与**：任何查询的 where 里都没有它', async () => {
+    const { svc, prisma } = makeSvc({ dlc: { id: 'd' }, words: dueWords(8) });
+    await svc.start({ studentName: '小明' });
+    const json = JSON.stringify(prisma.__calls.map((c: any) => c.args));
+    expect(json).not.toContain('englishLevel');
   });
 });

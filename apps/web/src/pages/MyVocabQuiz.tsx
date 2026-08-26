@@ -95,6 +95,15 @@ export default function MyVocabQuizPage() {
   /** 提交结果（成绩）。有值 = 已交卷。 */
   const [result, setResult] = useState<{ total: number; correct: number; score: number } | null>(null);
   const submittingRef = useRef(false);
+  /**
+   * 正式测试：这一题的答案**还没存进服务器**。
+   *
+   * 网络失败时绝不能往下走 —— 往下走等于把学生真的选了的答案记成空白，
+   * 交卷时按答错算进成绩。选项保持选中、停在原题、给重试，是唯一诚实的
+   * 处理。重试打的是同一个幂等接口（第一次成功持久化的答案为准）。
+   */
+  const [saving, setSaving] = useState(false);
+  const [saveFailed, setSaveFailed] = useState(false);
   const feedbackRef = useRef<HTMLDivElement | null>(null);
 
   // 弱网攒下的评分先补传
@@ -204,7 +213,8 @@ export default function MyVocabQuizPage() {
       if (formal) {
         // 正式测试：作答落进成绩单，**不写 FSRS、不回炉**。
         // 服务端第一次作答为准，重发是 no-op。
-        if (correct) setFirstTryCorrect((c) => c + 1);
+        setSaving(true);
+        setSaveFailed(false);
         void api
           .vocabQuizAnswer({
             studentName: name,
@@ -212,7 +222,15 @@ export default function MyVocabQuizPage() {
             index: i,
             optionIndex: idx,
           })
-          .catch(() => { /* 网络抖动：这一题按未作答计，交卷时算错 */ });
+          .then(() => {
+            setSaving(false);
+            if (correct) setFirstTryCorrect((c) => c + 1);
+          })
+          .catch(() => {
+            // **不静默记为空答案**：停在原题、选项保持选中、给明确重试。
+            setSaving(false);
+            setSaveFailed(true);
+          });
       } else if (!q.retry) {
         if (correct) setFirstTryCorrect((c) => c + 1);
         else {
@@ -241,7 +259,8 @@ export default function MyVocabQuizPage() {
       if (!q || q.qtype !== 'spelling' || spellResult !== null) return;
       setSpellResult(correct);
       if (formal) {
-        if (correct) setFirstTryCorrect((c) => c + 1);
+        setSaving(true);
+        setSaveFailed(false);
         void api
           .vocabQuizAnswer({
             studentName: name,
@@ -249,7 +268,14 @@ export default function MyVocabQuizPage() {
             index: i,
             text: typed,
           })
-          .catch(() => { /* 同上 */ });
+          .then(() => {
+            setSaving(false);
+            if (correct) setFirstTryCorrect((c) => c + 1);
+          })
+          .catch(() => {
+            setSaving(false);
+            setSaveFailed(true);
+          });
       } else if (!q.retry) {
         if (correct) setFirstTryCorrect((c) => c + 1);
         else {
@@ -272,8 +298,30 @@ export default function MyVocabQuizPage() {
     setChosen(null);
     setTyped('');
     setSpellResult(null);
+    setSaveFailed(false);
     setI((x) => x + 1);
   }, []);
+
+  /** 保存失败后重试。打同一个幂等接口，参数与刚才那一次完全一致。 */
+  const retrySave = useCallback(async () => {
+    if (!q || !formal || saving) return;
+    setSaving(true);
+    try {
+      await api.vocabQuizAnswer({
+        studentName: name,
+        studentId: studentId || undefined,
+        index: i,
+        ...(q.qtype === 'spelling' ? { text: typed } : { optionIndex: chosen ?? 0 }),
+      });
+      setSaveFailed(false);
+      const ok = q.qtype === 'spelling' ? spellResult === true : chosen === q.correctIndex;
+      if (ok) setFirstTryCorrect((c) => c + 1);
+    } catch {
+      setSaveFailed(true);
+    } finally {
+      setSaving(false);
+    }
+  }, [q, formal, saving, name, studentId, i, typed, chosen, spellResult]);
 
   if (!name) {
     return (
@@ -625,13 +673,34 @@ export default function MyVocabQuizPage() {
                 </div>
               )}
             </div>
+            {/* 正式测试：答案没存进服务器之前不许往下走。往下走等于把
+                学生真的选了的答案记成空白，交卷时按答错算进成绩。 */}
+            {saveFailed ? (
+              <div className="mt-3" data-testid="answer-save-failed">
+                <div className="text-[13px] text-rose-600 text-center mb-2" aria-live="assertive">
+                  这一题还没存上 · 你的选择还在，点下面重试
+                </div>
+                <button
+                  type="button"
+                  onClick={retrySave}
+                  disabled={saving}
+                  data-testid="answer-retry"
+                  className="press w-full min-h-[52px] rounded-[14px] bg-rose-600 text-white text-[17px] font-semibold active:bg-rose-700 disabled:opacity-50"
+                >
+                  {saving ? '重试中…' : '重试保存'}
+                </button>
+              </div>
+            ) : (
             <button
               type="button"
               onClick={next}
-              className="press mt-3 w-full min-h-[52px] rounded-[14px] bg-blue-600 text-white text-[17px] font-semibold active:bg-blue-700"
+              disabled={saving}
+              data-testid="quiz-continue"
+              className="press mt-3 w-full min-h-[52px] rounded-[14px] bg-blue-600 text-white text-[17px] font-semibold active:bg-blue-700 disabled:opacity-50"
             >
-              继续
+              {saving ? '保存中…' : '继续'}
             </button>
+            )}
           </div>
         )}
       </div>

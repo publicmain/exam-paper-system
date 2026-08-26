@@ -100,15 +100,50 @@ export class VocabQuizAttemptService {
     const student = await this.words.resolveStudent(input.studentName, input.studentId);
     const now = new Date();
     const date = this.dayKey(now);
+    const dayStart = this.sgtMidnight(now);
 
-    const existing = await this.prisma.vocabQuizAttempt.findUnique({
+    // ── 先要有「当前任务」──
+    //
+    // 正式测试属于一次任务，没有任务就没有正式测试。DLC 行由
+    // today(freeze:true) 创建（那里才有完整的目标冻结逻辑），这里只读不建
+    // —— 越权创建会造出 target 全 0 的空任务行。
+    const dlc = await this.prisma.dailyLessonCompletion.findUnique({
       where: { studentId_date: { studentId: student.id, date } },
+      select: { id: true },
+    });
+    if (!dlc) throw new ConflictException({ code: 'no_task' });
+
+    // 已有这次任务的测试 → 原样返回。按**任务**查，不按「学生 + 今天」查：
+    // 前者是 attempt 真正归属的东西，后者只是它恰好落在的那一天。
+    const existing = await this.prisma.vocabQuizAttempt.findFirst({
+      where: { dailyLessonCompletionId: dlc.id },
     });
     if (existing) return { ...this.view(existing), resumed: true as const };
 
-    // ── 资格 ──
+    // ── 资格：**本次任务的合法词汇集合** ──
+    //
+    // 不能拿全局 due <= now 代替任务归属 —— 那会把别的任务留下的到期词
+    // 混进今天的考卷。任务归属的事实来源是**学生在这次任务里真的动过它**：
+    //   · firstTaughtAt 落在今天 → 今天这节课教的（P5 的 /lesson/vocab-taught 写的）
+    //   · 今天有复习流水       → 今天这节课复习过的（翻卡评分写的）
+    // 两者都是本次任务活动留下的记录，不是对词表的一次全局扫描。
+    const reviewedToday = await this.prisma.wordReviewLog.findMany({
+      where: { reviewedAt: { gte: dayStart }, studentWord: { studentId: student.id } },
+      select: { studentWord: { select: { headword: true } } },
+      distinct: ['studentWordId'],
+    });
+    const touchedToday = new Set(reviewedToday.map((r) => r.studentWord.headword));
+
     const candidates = await this.prisma.studentWord.findMany({
-      where: { studentId: student.id },
+      where: {
+        studentId: student.id,
+        // 只考教过的词。这一条在 SQL 里就挡住，不依赖下游过滤。
+        firstTaughtAt: { not: null },
+        OR: [
+          { firstTaughtAt: { gte: dayStart } },
+          { headword: { in: [...touchedToday] } },
+        ],
+      },
       select: {
         headword: true,
         firstTaughtAt: true,
@@ -117,7 +152,7 @@ export class VocabQuizAttemptService {
         reps: true,
       },
     });
-    const outcome = selectEligible(candidates, now, this.sgtMidnight(now));
+    const outcome = selectEligible(candidates, now, dayStart);
     if (outcome.kind !== 'ok') {
       // 明确说不够，**不生成虚假测试**。前端据此退回自由练习或提示。
       throw new ConflictException({
@@ -166,17 +201,12 @@ export class VocabQuizAttemptService {
       answeredAt: null,
     }));
 
-    const dlc = await this.prisma.dailyLessonCompletion.findUnique({
-      where: { studentId_date: { studentId: student.id, date } },
-      select: { id: true },
-    });
-
     try {
       const created = await this.prisma.vocabQuizAttempt.create({
         data: {
           studentId: student.id,
           date,
-          dailyLessonCompletionId: dlc?.id ?? null,
+          dailyLessonCompletionId: dlc.id,
           status: 'in_progress',
           items: items as any,
           total: items.length,
@@ -189,8 +219,8 @@ export class VocabQuizAttemptService {
     } catch (e: any) {
       // 并发撞唯一约束 —— 回读那一份，绝不建第二份
       if (e?.code !== 'P2002') throw e;
-      const winner = await this.prisma.vocabQuizAttempt.findUnique({
-        where: { studentId_date: { studentId: student.id, date } },
+      const winner = await this.prisma.vocabQuizAttempt.findFirst({
+        where: { dailyLessonCompletionId: dlc.id },
       });
       if (!winner) throw e;
       return { ...this.view(winner), resumed: true as const };
@@ -200,8 +230,8 @@ export class VocabQuizAttemptService {
   /** 回读当日测试（恢复用）。没有就返回 null，不隐式创建。 */
   async current(input: { studentName: string; studentId?: string }) {
     const student = await this.words.resolveStudent(input.studentName, input.studentId);
-    const a = await this.prisma.vocabQuizAttempt.findUnique({
-      where: { studentId_date: { studentId: student.id, date: this.dayKey() } },
+    const a = await this.prisma.vocabQuizAttempt.findFirst({
+      where: { studentId: student.id, date: this.dayKey() },
     });
     return a ? this.view(a) : { attempt: null };
   }
@@ -222,8 +252,8 @@ export class VocabQuizAttemptService {
   }) {
     const student = await this.words.resolveStudent(input.studentName, input.studentId);
     const date = this.dayKey();
-    const a = await this.prisma.vocabQuizAttempt.findUnique({
-      where: { studentId_date: { studentId: student.id, date } },
+    const a = await this.prisma.vocabQuizAttempt.findFirst({
+      where: { studentId: student.id, date },
     });
     if (!a) throw new ConflictException({ code: 'no_attempt' });
     if (a.status === 'submitted') {
@@ -292,8 +322,8 @@ export class VocabQuizAttemptService {
   async submit(input: { studentName: string; studentId?: string }) {
     const student = await this.words.resolveStudent(input.studentName, input.studentId);
     const date = this.dayKey();
-    const a = await this.prisma.vocabQuizAttempt.findUnique({
-      where: { studentId_date: { studentId: student.id, date } },
+    const a = await this.prisma.vocabQuizAttempt.findFirst({
+      where: { studentId: student.id, date },
     });
     if (!a) throw new ConflictException({ code: 'no_attempt' });
     if (a.status === 'submitted') {
