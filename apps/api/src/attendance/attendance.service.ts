@@ -781,10 +781,28 @@ export class AttendanceService {
       const date = new Date(Date.UTC(sgt.getUTCFullYear(), sgt.getUTCMonth(), sgt.getUTCDate()));
       const dlc = await this.prisma.dailyLessonCompletion.findUnique({
         where: { studentId_date: { studentId, date } },
-        select: { id: true, vocabWords: true },
+        select: { id: true, vocabWords: true, stage: true },
       });
       // 还没有任务行 → 冻结时会把这批词一起快照进去，不用管
       if (!dlc) return;
+
+      // **旧任务（vocabWords=NULL）不在这里复活**。它的考试范围已经无法
+      // 可靠重建，用「今天推了哪几个词」去补只会造出一份不完整的假范围。
+      // 保持 NULL = legacy_no_queue，与 lesson.reconcileTask 同一条规矩。
+      if (dlc.vocabWords == null) return;
+
+      // 走到「该考」或已经开了卷之后就冻住 —— 考试范围一旦成立就不该再变。
+      const STAGE_ORDER = ['reading', 'reading_done', 'vocab_learn', 'vocab_test', 'done'];
+      const rank = (st: string) => {
+        const i = STAGE_ORDER.indexOf(st);
+        return i < 0 ? 0 : i;
+      };
+      if (rank(String(dlc.stage ?? STAGE_ORDER[0])) >= rank('vocab_test')) return;
+      const attempts = await this.prisma.vocabQuizAttempt.count({
+        where: { dailyLessonCompletionId: dlc.id },
+      });
+      if (attempts > 0) return;
+
       const cur: string[] = Array.isArray(dlc.vocabWords)
         ? (dlc.vocabWords as string[]).map((w) => String(w).toLowerCase().trim())
         : [];

@@ -117,8 +117,9 @@ export class LessonService {
           readTarget: readNow.hasSession ? 1 : 0,
           vocabTarget: vocabNow.target,
           drillTarget: drillNow.target,
-          // 与 vocabTarget 同一时刻冻结：目标数和被数的那批词必须是同一批
-          vocabWords: vocabNow.queue as any,
+          // 与 vocabTarget 同一时刻冻结：目标数和被数的那批词必须是同一批。
+          // 这是**新任务的初始化**，属于「学生明确开始今天的课」这个动作。
+          vocabWords: vocabNow.desiredQueue as any,
           targetsFrozenAt: now,
           rulesVersion: LESSON_RULES_VERSION,
         },
@@ -139,7 +140,14 @@ export class LessonService {
           vocabTarget: vocabNow.target,
           drillTarget: drillNow.target,
           targetsFrozenAt: now,
-          vocabWords: vocabNow.queue as any,
+          // 队列跟着目标一起重算 —— 但**只补不删**（并集），已经在里面的
+          // 词不会因为重新冻结而消失
+          vocabWords: [
+            ...new Set([
+              ...(Array.isArray(frozen.vocabWords) ? (frozen.vocabWords as string[]) : []),
+              ...vocabNow.desiredQueue,
+            ]),
+          ] as any,
           rulesVersion: LESSON_RULES_VERSION,
         },
       });
@@ -154,6 +162,13 @@ export class LessonService {
     const vTarget = frozen?.vocabTarget ?? vocabNow.target;
     const dTarget = frozen?.drillTarget ?? drillNow.target;
 
+    // 考试范围以**任务记下的队列**为准（不是此刻的到期集合）——
+    // 旧任务 vocabWords=NULL 时它是空的，考不起来，正是 legacy 的语义。
+    const taskQueue: string[] = Array.isArray(frozen?.vocabWords)
+      ? (frozen!.vocabWords as string[]).map((w) => normalizeWord(String(w))).filter(Boolean)
+      : [];
+    const quizRequired = await this.quizRequiredFor(student.id, taskQueue);
+
     const segments: LessonSegments = {
       read: readTarget === 0 ? 'none' : readStatus(readNow),
       // 交了当天的正式测试就算背段完成 —— 「学完再考一次」本来就是
@@ -165,26 +180,11 @@ export class LessonService {
       // （教过的词不够一份卷子）仍按复习次数判定，老行为不变。
       vocab: vocabNow.quizSubmitted
         ? 'done'
-        : vocabNow.quizRequired
+        : quizRequired
           ? capAtPartial(segmentStatus(vocabNow.progress, vTarget))
           : segmentStatus(vocabNow.progress, vTarget),
       drill: segmentStatus(drillNow.progress, dTarget),
     };
-
-    // 把进度写回快照（目标不动，只更新进度与完成时刻）
-    if (frozen) {
-      await this.syncProgress(frozen.id, frozen, {
-        readProgress: segments.read === 'done' ? 1 : 0,
-        readSource: readNow.submitSource ?? null,
-        readDone: segments.read === 'done',
-        vocabProgress: vocabNow.progress,
-        vocabDone: segments.vocab === 'done' || segments.vocab === 'none',
-        drillProgress: drillNow.progress,
-        drillDone: segments.drill === 'done' || segments.drill === 'none',
-        autoFinalizeReason: readNow.autoFinalizeReason ?? null,
-        now,
-      });
-    }
 
     // ── 任务阶段（P3）──
     // 从事实推导，再与库里存的做单调钳制（只前进不后退）。stage 是
@@ -196,15 +196,27 @@ export class LessonService {
       drillSettled: isSegmentComplete(segments.drill),
     });
     const stage: LessonStage = clampStage(frozen?.stage, derived);
-    // 只有真的前进了才写库，且**用条件更新**而不是先读后写
-    // （P3 合并前验证第 4 项）：两个标签页同时打开课程页时，读到旧
-    // 快照的那个不能把阶段写回去。stageRank 比较交给 SQL 的 IN —— 只
-    // 允许从「比目标阶段更早」的状态跃迁，落后的写入匹配 0 行。
-    if (frozen && stage !== frozen.stage) {
-      const earlier = STAGE_ORDER.slice(0, stageRank(stage));
-      await this.prisma.dailyLessonCompletion.updateMany({
-        where: { id: frozen.id, stage: { in: earlier } },
-        data: { stage, stageAt: now },
+
+    // ── 唯一的写入口 ──
+    //
+    // **freeze:true 才写**。freeze 的含义从「要不要创建当日记录」扩成
+    // 「这是不是一次明确的学生动作」：打开课程页是，教师看板不是。
+    //
+    // 教师看板走 today(freeze:false)。它原来会写三样东西 —— 进度快照、
+    // 阶段、词汇队列 —— 于是教师看一眼就改了全班的数据，队列内容还被
+    // 「教师什么时候看的」决定。现在那条路一个字都不写。
+    if (input.freeze && frozen) {
+      await this.reconcileTask({
+        frozen: frozen as any,
+        studentId: student.id,
+        now,
+        segments,
+        readNow,
+        vocabProgress: vocabNow.progress,
+        drillProgress: drillNow.progress,
+        desiredQueue: vocabNow.desiredQueue,
+        hasAttempt: vocabNow.attempt != null,
+        stage,
       });
     }
     const vocabCursor = clampCursor(frozen?.vocabCursor, vocabNow.target);
@@ -250,7 +262,10 @@ export class LessonService {
            * 上面的 progress/target 是**完成度**（今天复习了几次），不是
            * 成绩；两者不要混着看。
            */
-          quizScore: vocabNow.quizScore,
+          quizScore: vocabScoreView(
+            frozen != null && frozen.vocabWords != null,
+            vocabNow.attempt,
+          ),
         },
         {
           key: 'drill' as const,
@@ -426,60 +441,121 @@ export class LessonService {
     const unlearned = await this.prisma.studentWord.count({
       where: { studentId, due: { lte: now }, firstTaughtAt: null, reps: 0 },
     });
-    // 这次任务的词汇队列。
+    // 当前到期队列 —— **只读**，这里绝不落库。
     //
-    // **并集、只增不减**：冻结时快照一次不够 —— 词可能在冻结之后才推进来
-    // （学生先打开课程页、之后才扫码），而复习词不走教学卡、补不进去。
-    // 每次读课程状态时把当前到期队列并进来，漏词的窗口就关上了。
+    // 上一版在这里就把它并进 DLC.vocabWords 了。那是个真缺陷：vocabState
+    // 是所有读取路径都会走的「看一眼状态」，教师打开看板也会走 —— 于是
+    // 教师浏览一次就改写了全班学生的任务队列，而且改写时刻决定了队列内容
+    // （学生做完词、due 被 FSRS 推远之后再补，补进来的不是他上午做过的那批）。
     //
-    // 这不是「今天动过就算」那条被推翻的规则：并进来的是**到期队列**，
-    // 也就是翻卡页真正会服务的那批词。自由练习只会把词的 due 推远、
-    // 把它移出到期队列，永远不可能把一个词塞进来。
+    // 现在它只**算出**想要的队列，写不写、什么时候写由 today() 的
+    // reconcile 决定，而 reconcile 只在明确的学生动作（freeze:true）里跑。
     const dueQueue = await this.prisma.studentWord.findMany({
       where: { studentId, due: { lte: now } },
       orderBy: [{ due: 'asc' }, { createdAt: 'asc' }],
       take: 60,
       select: { headword: true },
     });
-    const frozenRow = await this.prisma.dailyLessonCompletion.findUnique({
-      where: { studentId_date: { studentId, date: this.sgtDayStart(now) } },
-      select: { id: true, vocabWords: true },
-    });
-    const prevWords: string[] = Array.isArray(frozenRow?.vocabWords)
-      ? (frozenRow!.vocabWords as string[]).map((w) => normalizeWord(String(w))).filter(Boolean)
-      : [];
-    const queue = [
-      ...new Set([...prevWords, ...dueQueue.map((w) => normalizeWord(w.headword)).filter(Boolean)]),
-    ];
-    if (frozenRow && queue.length !== prevWords.length) {
-      await this.prisma.dailyLessonCompletion.update({
-        where: { id: frozenRow.id },
-        data: { vocabWords: queue as any },
-      });
-    }
-
-    // 这次任务够不够开一场正式测试（只数队列里**教过**的词）。
-    //
-    // 为什么要在这里算：背段原来「复习够次数就算完成」。纯复习日里学生
-    // 一复习完，背段就 done、stage 直接跳到 done —— 他根本没在 vocab_test
-    // 停留过，正式测试永远开不了（阶段门会拒绝）。所以只要这次任务考得
-    // 起来，背段就不能靠复习次数自己收尾，必须等交卷。
-    const testable = queue.length
-      ? await this.prisma.studentWord.count({
-          where: { studentId, firstTaughtAt: { not: null }, headword: { in: queue } },
-        })
-      : 0;
     return {
       target,
       progress,
       unlearned,
       quizSubmitted: quizSubmitted > 0,
-      /** 这次任务考得起来（队列里教过的词够一份卷子）→ 背段必须等交卷 */
-      quizRequired: testable >= MIN_QUIZ_ITEMS,
-      queue,
-      /** P7：统一的正式词汇成绩视图（各页面只显示，不再各算各的） */
-      quizScore: vocabScoreView(frozenRow != null && frozenRow.vocabWords != null, attempt),
+      /** 这一刻的到期队列（规范化去重）。调用方决定要不要落库 */
+      desiredQueue: [
+        ...new Set(dueQueue.map((w) => normalizeWord(w.headword)).filter(Boolean)),
+      ],
+      /** 当日正式测试那一行（可能没有）—— 成绩视图与阶段判定都要用 */
+      attempt,
     };
+  }
+
+  /**
+   * 这次任务考不考得起来：队列里**教过**的词够不够一份卷子。
+   *
+   * 背段原来「复习够次数就算完成」。纯复习日里学生一复习完背段就 done、
+   * stage 直接跳过 vocab_test，正式测试永远开不了。所以只要考得起来，
+   * 背段就不能靠复习次数自己收尾，必须等交卷。
+   */
+  private async quizRequiredFor(studentId: string, queue: string[]): Promise<boolean> {
+    if (!queue.length) return false;
+    const testable = await this.prisma.studentWord.count({
+      where: { studentId, firstTaughtAt: { not: null }, headword: { in: queue } },
+    });
+    return testable >= MIN_QUIZ_ITEMS;
+  }
+
+  /**
+   * 队列还能不能扩充。
+   *
+   * 走到「该考」或已经开了卷之后就冻住 —— 考试范围一旦成立就不该再变，
+   * 否则学生做题做到一半，考纲还在长。
+   */
+  private queueStillOpen(frozen: { stage?: string | null } | null, hasAttempt: boolean): boolean {
+    if (!frozen || hasAttempt) return false;
+    return stageRank(String(frozen.stage ?? STAGE_ORDER[0])) < stageRank('vocab_test');
+  }
+
+  /**
+   * **写**：把这次任务的进度、阶段、词汇队列对齐到事实。
+   *
+   * 只有明确的学生动作才调用它 —— 打开课程页（today freeze:true）、
+   * 完成一张教学卡。教师看板走的是 today(freeze:false)，那条路一个字
+   * 都不写。
+   */
+  private async reconcileTask(input: {
+    frozen: { id: string; stage: string | null; vocabWords: unknown };
+    studentId: string;
+    now: Date;
+    segments: LessonSegments;
+    readNow: { submitSource?: string | null; autoFinalizeReason?: string | null };
+    vocabProgress: number;
+    drillProgress: number;
+    desiredQueue: string[];
+    hasAttempt: boolean;
+    stage: LessonStage;
+  }) {
+    const { frozen, now } = input;
+
+    await this.syncProgress(frozen.id, frozen as any, {
+      readProgress: input.segments.read === 'done' ? 1 : 0,
+      readSource: (input.readNow.submitSource as any) ?? null,
+      readDone: input.segments.read === 'done',
+      vocabProgress: input.vocabProgress,
+      vocabDone: input.segments.vocab === 'done' || input.segments.vocab === 'none',
+      drillProgress: input.drillProgress,
+      drillDone: input.segments.drill === 'done' || input.segments.drill === 'none',
+      autoFinalizeReason: input.readNow.autoFinalizeReason ?? null,
+      now,
+    });
+
+    // 阶段：条件更新，只允许从更早的阶段跃迁（两个标签页并发时落后的
+    // 那个匹配 0 行）
+    if (input.stage !== frozen.stage) {
+      const earlier = STAGE_ORDER.slice(0, stageRank(input.stage));
+      await this.prisma.dailyLessonCompletion.updateMany({
+        where: { id: frozen.id, stage: { in: earlier } },
+        data: { stage: input.stage, stageAt: now },
+      });
+    }
+
+    // 词汇队列：并集、只增不减，且走到「该考」之后就不再扩充。
+    //
+    // vocabWords 为 NULL 的旧任务**不在这里自愈** —— 见 initTaskQueue 的
+    // 注释：普通读取不许把 NULL 变成「此刻的到期集合」，那是拿部署时刻的
+    // 数据伪造历史任务的考试范围。
+    if (frozen.vocabWords != null && this.queueStillOpen(frozen, input.hasAttempt)) {
+      const prev = Array.isArray(frozen.vocabWords)
+        ? (frozen.vocabWords as string[]).map((w) => normalizeWord(String(w))).filter(Boolean)
+        : [];
+      const next = [...new Set([...prev, ...input.desiredQueue])];
+      if (next.length !== prev.length) {
+        await this.prisma.dailyLessonCompletion.update({
+          where: { id: frozen.id },
+          data: { vocabWords: next as any },
+        });
+      }
+    }
   }
 
   // ── ③ 补 ──
@@ -628,12 +704,19 @@ export class LessonService {
       return { cursor, stored, alreadyTaught: marked.count === 0 };
     });
 
-    // 事务外回读真实阶段 —— 前端据此判断该不该进下一段，不自己猜。
-    // freeze:false：只读，不在这里创建/冻结当日目标。
+    // 事务外把阶段对齐并回读 —— 前端据此判断该不该进下一段，不自己猜。
+    //
+    // **这里必须用 freeze:true**：完成一张教学卡是明确的学生动作，阶段要
+    // 真的落库（P6 的阶段门读的是 DLC.stage 这个缓存，不落库的话学生教完
+    // 最后一张卡也开不了正式测试）。freeze 现在的含义是「这是不是学生的
+    // 明确动作」，不再只是「要不要创建当日记录」。
+    //
+    // 副作用可控：走到这一步说明学生正在上今天的课，创建/对齐当日任务行
+    // 本来就是应该的。
     const t = await this.today({
       studentName: input.studentName,
       studentId: input.studentId,
-      freeze: false,
+      freeze: true,
     });
     return {
       ok: true as const,
