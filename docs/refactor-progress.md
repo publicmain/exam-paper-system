@@ -53,24 +53,24 @@ apps/api/scripts、scripts、apps/api/src）：
 - API 侧 setPin/claimWindow 无任何跨模块（cron / 其它 controller）引用
 
 **修改文件**（纯删除 + 一个新 spec，零 schema/迁移改动）：
--  删 5 端点
--  删 setPin / claimWindow /
+- `student-auth.controller.ts` 删 5 端点
+- `student-auth.service.ts` 删 setPin / claimWindow /
   openClassClaimWindow / closeClassClaimWindow / openStudentClaimWindow
   + claimWindowState 辅助 + claim-window 导入
-- 、 整体删除
--  删 setPin 测试块
--  删 5 个封装
-- **新增** ：路由契约（5 已删 / 8 保留）
-- ：增铁律「未经明确批准不得 git push / 部署 / 生产迁移」
+- `claim-window.ts`、`claim-window.spec.ts` 整体删除
+- `student-auth.service.spec.ts` 删 setPin 测试块
+- `apps/web/src/lib/api.ts` 删 5 个封装
+- **新增** `student-auth.routes.spec.ts`：路由契约（5 已删 / 8 保留）
+- `CLAUDE.md`：增铁律「未经明确批准不得 git push / 部署 / 生产迁移」
 
 **验证结果**（全部本地，未接触生产）：
 - 路由契约 spec：5 端点不在 Nest 路由表（= 线上必 404）、8 个保留端点
   在表内。**反向对照已做**：git stash 还原 HEAD 版 controller 后该
   断言必红，证明 spec 有鉴别力
-- 残留引用： 在
+- 残留引用：`set-pin|claim-window|claimWindow|studentSetPin` 在
   apps/**/*.ts(x) 命中 **0**（连注释残留一并清理）
 - api 668 tests（+2）/ web 176 tests / 双端 tsc + build 全过
-- git diff 逐块核查：7 文件、+3/-494， **为空**
+- git diff 逐块核查：7 文件、+3/-494，`git diff -- prisma/` **为空**
   —— 未删除任何用户或身份数据，pinClaim* 三列留给 P10
 
 **未验证项**：
