@@ -767,6 +767,39 @@ export class AttendanceService {
    * 幂等（(studentId, headword) 唯一约束 + skipDuplicates），第二窗
    * 再扫一次也安全。失败只记日志，**绝不挡签到**。
    */
+  /**
+   * 把词记进当天任务的词汇队列（P6 收尾）。
+   *
+   * 幂等、去重、失败只记日志 —— 推词本身不能因为这一步失败而回滚，
+   * 队列漏一个词的代价远小于学生扫不进码。
+   */
+  private async attachWordsToTodayTask(studentId: string, headwords: string[]) {
+    if (!headwords.length) return;
+    try {
+      const now = new Date();
+      const sgt = new Date(now.getTime() + 8 * 3600_000);
+      const date = new Date(Date.UTC(sgt.getUTCFullYear(), sgt.getUTCMonth(), sgt.getUTCDate()));
+      const dlc = await this.prisma.dailyLessonCompletion.findUnique({
+        where: { studentId_date: { studentId, date } },
+        select: { id: true, vocabWords: true },
+      });
+      // 还没有任务行 → 冻结时会把这批词一起快照进去，不用管
+      if (!dlc) return;
+      const cur: string[] = Array.isArray(dlc.vocabWords)
+        ? (dlc.vocabWords as string[]).map((w) => String(w).toLowerCase().trim())
+        : [];
+      const add = headwords.map((w) => String(w).toLowerCase().trim()).filter(Boolean);
+      const next = [...new Set([...cur, ...add])];
+      if (next.length === cur.length) return;
+      await this.prisma.dailyLessonCompletion.update({
+        where: { id: dlc.id },
+        data: { vocabWords: next as any },
+      });
+    } catch (e: any) {
+      this.logger.warn(`attachWordsToTodayTask failed: ${e?.message ?? e}`);
+    }
+  }
+
   private async pushListToStudent(
     studentId: string,
     list: { story: string; items: Array<{ word: string; context: string }> } | null,
@@ -791,6 +824,16 @@ export class AttendanceService {
         }));
       if (!rows.length) return;
       const r = await this.prisma.studentWord.createMany({ data: rows, skipDuplicates: true });
+      // P6 收尾 —— 把这批词记进**当天任务的词汇队列**。
+      //
+      // 冻结当日目标（today(freeze:true)）可能发生在推词之前：学生先打开
+      // 过课程页、之后才扫码推词。那样这批词就不在冻结时的快照里，而
+      // **复习词又不会走教学卡**（它们已经有 firstTaughtAt），于是永远补
+      // 不进队列 —— 正式测试会漏考它们。
+      //
+      // 推词是课程内的动作（扫码进这一场才会发生），所以它有资格写队列。
+      // 自由练习依然碰不到。
+      await this.attachWordsToTodayTask(studentId, rows.map((x) => x.headword));
       if (r.count > 0) {
         this.logger.log(
           `${tag} pushed at scan: story=${list.story} student=${studentId} created=${r.count}`,

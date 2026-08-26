@@ -1,6 +1,8 @@
 import { Injectable, Logger, BadRequestException, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../common/prisma.service';
 import { StudentWordService } from '../vocab/student-word.service';
+import { normalizeWord } from '../vocab/vocab.service';
+import { MIN_QUIZ_ITEMS } from '../vocab/quiz-eligibility';
 import {
   VocabReviewService,
   reviewBatchSize,
@@ -52,6 +54,11 @@ import {
  * 一种设计。首次打开课程页时把三个目标写进 DailyLessonCompletion，当天
  * 之后新增的错题和生词进明天的课。
  */
+/** 把 'done' 压成 'partial' —— 段落还差最后一步（交卷）时用 */
+function capAtPartial(st: SegmentStatus): SegmentStatus {
+  return st === 'done' ? 'partial' : st;
+}
+
 @Injectable()
 export class LessonService {
   private readonly logger = new Logger('Lesson');
@@ -149,8 +156,17 @@ export class LessonService {
     const segments: LessonSegments = {
       read: readTarget === 0 ? 'none' : readStatus(readNow),
       // 交了当天的正式测试就算背段完成 —— 「学完再考一次」本来就是
-      // 这一段的终点。没考的日子仍按复习次数判定（老行为不变）。
-      vocab: vocabNow.quizSubmitted ? 'done' : segmentStatus(vocabNow.progress, vTarget),
+      // 这一段的终点。
+      //
+      // 反过来：**这次任务考得起来的话，背段就不能靠复习次数自己收尾**。
+      // 不封这一手，纯复习日里学生复习完背段就 done、stage 直接跳过
+      // vocab_test，正式测试永远开不了（阶段门会拒）。考不起来的日子
+      // （教过的词不够一份卷子）仍按复习次数判定，老行为不变。
+      vocab: vocabNow.quizSubmitted
+        ? 'done'
+        : vocabNow.quizRequired
+          ? capAtPartial(segmentStatus(vocabNow.progress, vTarget))
+          : segmentStatus(vocabNow.progress, vTarget),
       drill: segmentStatus(drillNow.progress, dTarget),
     };
 
@@ -399,19 +415,57 @@ export class LessonService {
     const unlearned = await this.prisma.studentWord.count({
       where: { studentId, due: { lte: now }, firstTaughtAt: null, reps: 0 },
     });
-    // 这次任务的词汇队列 —— 冻结目标时一并快照（见 DLC.vocabWords 注释）
-    const queue = await this.prisma.studentWord.findMany({
+    // 这次任务的词汇队列。
+    //
+    // **并集、只增不减**：冻结时快照一次不够 —— 词可能在冻结之后才推进来
+    // （学生先打开课程页、之后才扫码），而复习词不走教学卡、补不进去。
+    // 每次读课程状态时把当前到期队列并进来，漏词的窗口就关上了。
+    //
+    // 这不是「今天动过就算」那条被推翻的规则：并进来的是**到期队列**，
+    // 也就是翻卡页真正会服务的那批词。自由练习只会把词的 due 推远、
+    // 把它移出到期队列，永远不可能把一个词塞进来。
+    const dueQueue = await this.prisma.studentWord.findMany({
       where: { studentId, due: { lte: now } },
       orderBy: [{ due: 'asc' }, { createdAt: 'asc' }],
       take: 60,
       select: { headword: true },
     });
+    const frozenRow = await this.prisma.dailyLessonCompletion.findUnique({
+      where: { studentId_date: { studentId, date: this.sgtDayStart(now) } },
+      select: { id: true, vocabWords: true },
+    });
+    const prevWords: string[] = Array.isArray(frozenRow?.vocabWords)
+      ? (frozenRow!.vocabWords as string[]).map((w) => normalizeWord(String(w))).filter(Boolean)
+      : [];
+    const queue = [
+      ...new Set([...prevWords, ...dueQueue.map((w) => normalizeWord(w.headword)).filter(Boolean)]),
+    ];
+    if (frozenRow && queue.length !== prevWords.length) {
+      await this.prisma.dailyLessonCompletion.update({
+        where: { id: frozenRow.id },
+        data: { vocabWords: queue as any },
+      });
+    }
+
+    // 这次任务够不够开一场正式测试（只数队列里**教过**的词）。
+    //
+    // 为什么要在这里算：背段原来「复习够次数就算完成」。纯复习日里学生
+    // 一复习完，背段就 done、stage 直接跳到 done —— 他根本没在 vocab_test
+    // 停留过，正式测试永远开不了（阶段门会拒绝）。所以只要这次任务考得
+    // 起来，背段就不能靠复习次数自己收尾，必须等交卷。
+    const testable = queue.length
+      ? await this.prisma.studentWord.count({
+          where: { studentId, firstTaughtAt: { not: null }, headword: { in: queue } },
+        })
+      : 0;
     return {
       target,
       progress,
       unlearned,
       quizSubmitted: quizSubmitted > 0,
-      queue: queue.map((w) => w.headword),
+      /** 这次任务考得起来（队列里教过的词够一份卷子）→ 背段必须等交卷 */
+      quizRequired: testable >= MIN_QUIZ_ITEMS,
+      queue,
     };
   }
 
@@ -530,12 +584,13 @@ export class LessonService {
       });
       if (dlcRow) {
         const list: string[] = Array.isArray(dlcRow.vocabWords)
-          ? (dlcRow.vocabWords as string[])
+          ? (dlcRow.vocabWords as string[]).map((w) => normalizeWord(String(w)))
           : [];
-        if (!list.includes(headword)) {
+        const key = normalizeWord(headword);
+        if (key && !list.includes(key)) {
           await tx.dailyLessonCompletion.update({
             where: { id: dlcRow.id },
-            data: { vocabWords: [...list, headword] as any },
+            data: { vocabWords: [...list, key] as any },
           });
         }
       }

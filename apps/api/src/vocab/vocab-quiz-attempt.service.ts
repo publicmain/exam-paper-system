@@ -8,6 +8,8 @@ import {
   scoreOf,
   selectEligible,
 } from './quiz-eligibility';
+import { STAGE_ORDER, stageRank } from '../lesson/lesson-rules';
+import { normalizeWord } from './vocab.service';
 
 /**
  * P6 —— 正式单词测试。
@@ -109,16 +111,32 @@ export class VocabQuizAttemptService {
     // —— 越权创建会造出 target 全 0 的空任务行。
     const dlc = await this.prisma.dailyLessonCompletion.findUnique({
       where: { studentId_date: { studentId: student.id, date } },
-      select: { id: true, vocabWords: true },
+      select: { id: true, vocabWords: true, stage: true },
     });
     if (!dlc) throw new ConflictException({ code: 'no_task' });
 
     // 已有这次任务的测试 → 原样返回。按**任务**查，不按「学生 + 今天」查：
     // 前者是 attempt 真正归属的东西，后者只是它恰好落在的那一天。
+    //
+    // 放在阶段门之前：已经开考的测试，无论现在走到哪个阶段都读得回来
+    // （交完卷 stage 会变成 done，那时仍然要能看成绩）。
     const existing = await this.prisma.vocabQuizAttempt.findFirst({
       where: { dailyLessonCompletionId: dlc.id },
     });
     if (existing) return { ...this.view(existing), resumed: true as const };
+
+    // ── 阶段门：**没走到该考的阶段就不许开考** ──
+    //
+    // 学生可能从深链接、书签、或直接打 API 进来。资格判据只回答「这些词
+    // 能不能考」，回答不了「他该不该现在考」—— 一个还在翻卡学新词的学生，
+    // 哪怕这次任务的词都教过了（比如队列里全是往日的复习词），也不该跳过
+    // 课程内的流程直接开考。
+    //
+    // stage=done 且没有现成的测试：这一天已经收尾了，不再新开一份。
+    const stage = String(dlc.stage ?? STAGE_ORDER[0]);
+    if (stageRank(stage) !== stageRank('vocab_test')) {
+      throw new ConflictException({ code: 'stage_not_ready', stage });
+    }
 
     // ── 资格：**本次任务的合法词汇集合** ──
     //
@@ -134,7 +152,7 @@ export class VocabQuizAttemptService {
     // 碰不到它。旧任务行没有快照 → 空集 → insufficient_items，宁可
     // 当天不考，也不考不属于这次任务的词。
     const taskWords: string[] = Array.isArray(dlc.vocabWords)
-      ? (dlc.vocabWords as string[])
+      ? [...new Set((dlc.vocabWords as string[]).map((w) => normalizeWord(String(w))).filter(Boolean))]
       : [];
 
     const candidates = await this.prisma.studentWord.findMany({

@@ -55,7 +55,7 @@ describe('selectEligible —— 资格', () => {
     if (r.kind === 'ok') expect(r.words).toHaveLength(5);
   });
 
-  it('今天刚教过的词即使 due 被挪到未来，仍然入选', () => {
+  it('due 被挪到未来的词仍然入选（due 与资格无关）', () => {
     const words = Array.from({ length: 4 }, (_, i) =>
       w('x' + i, {
         firstTaughtAt: D('2026-08-28T01:00:00.000Z'),
@@ -66,7 +66,10 @@ describe('selectEligible —— 资格', () => {
     expect(r.kind).toBe('ok');
   });
 
-  it('教过但既不到期、也不是今天教的 → 不属于这次任务，不入选', () => {
+  // 「不属于这次任务的词不入选」这条**已经上移到调用方的查询**
+  // （headword IN 任务队列，见 vocab-quiz-attempt.spec.ts）。这里曾经
+  // 再筛一道日期，纯复习日会把队列里的词全筛掉 —— 那层已删。
+  it('本函数**不再按日期筛**：往日教过、due 在未来的词照样入选', () => {
     const words = [
       ...Array.from({ length: 4 }, (_, i) => w('today' + i)),
       w('old', { firstTaughtAt: D('2026-08-01T00:00:00.000Z'), due: D('2026-09-09T00:00:00.000Z') }),
@@ -74,8 +77,9 @@ describe('selectEligible —— 资格', () => {
     const r = selectEligible(words, NOW, DAY_START);
     expect(r.kind).toBe('ok');
     if (r.kind === 'ok') {
-      expect(r.words.map((x) => x.headword)).not.toContain('old');
-      expect(r.words).toHaveLength(4);
+      // 纯复习日就是这个形状：复习完 due 被推远、firstTaughtAt 是往日的
+      expect(r.words.map((x) => x.headword)).toContain('old');
+      expect(r.words).toHaveLength(5);
     }
   });
 

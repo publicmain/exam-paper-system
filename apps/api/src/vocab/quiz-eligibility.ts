@@ -21,8 +21,13 @@
  *   1. 是这个学生自己的词（不跨学生）
  *   2. `firstTaughtAt != null` —— **教过**。刚教完、`reps` 还是 0 的词
  *      完全合格，这正是「先学后测」要考的那批
- *   3. 属于**当天这次任务**：今天该练的（`due <= now`），或今天刚教过的
- *      （`firstTaughtAt >= 当日零点` —— 哪怕它的 due 被别的动作挪走了）
+ *   3. 在**这次任务的词汇队列**里（`DailyLessonCompletion.vocabWords`）
+ *
+ * 第 3 条由调用方的查询执行（`headword IN 队列`），本文件只负责第 2 条
+ * 和「够不够一场测试」。**任务归属不再用任何日期推断** —— 早期版本在这里
+ * 还筛过一道「今天到期 或 今天教过」，纯复习日会把队列里的词全筛掉
+ * （复习完 due 被推远、firstTaughtAt 又是往日的），实测 taught=4
+ * eligible=0，正式测试永远开不了。那层过滤已删。
  *
  * 不够题就**明说不够**（`insufficient_items`），绝不为凑数放宽任何一条：
  * 不放宽到未教过的词，不放宽到别的任务的词，更不看 `User.englishLevel`
@@ -47,43 +52,33 @@ export type EligibilityOutcome =
   | { kind: 'insufficient_items'; taught: number; eligible: number }
   | { kind: 'ok'; words: EligibilityWord[] };
 
-function ts(v: Date | string | null | undefined): number | null {
-  if (v == null) return null;
-  const d = v instanceof Date ? v : new Date(v);
-  const n = d.getTime();
-  return Number.isFinite(n) ? n : null;
-}
-
 /**
- * 从「学生今天的词」里挑出够格的那些。
+ * 从**这次任务队列里的词**中挑出够格的那些。
  *
- * @param words     候选（调用方已按 studentId 取好，不做跨学生的事）
- * @param now       当前时刻
- * @param dayStart  当日零点（SGT），用于「今天刚教过」的判定
+ * @param words 候选（调用方已按 studentId + 任务队列取好）
+ *
+ * 后两个参数是历史签名，现在不再使用 —— 保留是为了不动调用方，
+ * 任何依赖它们做日期判断的实现都已经被删掉了。
  */
 export function selectEligible(
   words: ReadonlyArray<EligibilityWord>,
-  now: Date,
-  dayStart: Date,
+  _now?: Date,
+  _dayStart?: Date,
 ): EligibilityOutcome {
-  const nowMs = now.getTime();
-  const dayMs = dayStart.getTime();
-
-  const taught = words.filter((w) => ts(w.firstTaughtAt) != null);
+  // **任务归属已经在调用方的查询里决定了**（headword IN 这次任务的队列）。
+  //
+  // 这里曾经再筛一道「今天到期 或 今天教过」—— 那是任务归属还靠日期推断
+  // 时留下的。队列化之后它是纯粹的有害残留：纯复习日里，学生课程内复习
+  // 完，词的 due 被 FSRS 推到几天后、firstTaughtAt 又是往日的，于是**队列
+  // 里的词一个都不满足**，正式测试永远开不了（实测 taught=4 eligible=0）。
+  //
+  // 现在这里只回答一件事：这些词够不够开一场正式测试。
+  const taught = words.filter((w) => w.firstTaughtAt != null);
   if (taught.length === 0) return { kind: 'not_ready', taught: 0, eligible: 0 };
-
-  const eligible = taught.filter((w) => {
-    const dueMs = ts(w.due);
-    const taughtMs = ts(w.firstTaughtAt)!;
-    const dueToday = dueMs != null && dueMs <= nowMs;
-    const taughtToday = taughtMs >= dayMs;
-    return dueToday || taughtToday;
-  });
-
-  if (eligible.length < MIN_QUIZ_ITEMS) {
-    return { kind: 'insufficient_items', taught: taught.length, eligible: eligible.length };
+  if (taught.length < MIN_QUIZ_ITEMS) {
+    return { kind: 'insufficient_items', taught: taught.length, eligible: taught.length };
   }
-  return { kind: 'ok', words: eligible.slice(0, MAX_QUIZ_ITEMS) };
+  return { kind: 'ok', words: taught.slice(0, MAX_QUIZ_ITEMS) };
 }
 
 /** 一份 items 快照算分 —— 展示层不重算，改词库也不影响历史成绩。 */

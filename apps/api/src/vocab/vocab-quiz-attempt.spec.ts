@@ -80,7 +80,7 @@ function makeSvc(opts: {
       findUnique: track('dlc', 'findUnique', async () =>
         opts.dlc === null
           ? null
-          : (opts.dlc ?? { id: 'dlc1', vocabWords: (opts.words ?? []).map((w: any) => w.headword) })),
+          : (opts.dlc ?? { id: 'dlc1', stage: 'vocab_test', vocabWords: (opts.words ?? []).map((w: any) => w.headword) })),
       update: () => { throw new Error('考试不得直接改任务行'); },
       updateMany: () => { throw new Error('考试不得直接改任务行'); },
     },
@@ -313,14 +313,14 @@ describe('任务绑定（P6 收尾）', () => {
   });
 
   it('**新建的 attempt 一定带任务绑定**', async () => {
-    const { svc, prisma } = makeSvc({ dlc: { id: 'dlc_today', vocabWords: ['w0','w1','w2','w3','w4','w5','w6','w7'] }, words: dueWords(8) });
+    const { svc, prisma } = makeSvc({ dlc: { id: 'dlc_today', stage: 'vocab_test', vocabWords: ['w0','w1','w2','w3','w4','w5','w6','w7'] }, words: dueWords(8) });
     await svc.start({ studentName: '小明' });
     const c = prisma.__calls.find((x: any) => x.op === 'create');
     expect(c.args.data.dailyLessonCompletionId).toBe('dlc_today');
   });
 
   it('**候选词的 SQL 里就写死了 firstTaughtAt IS NOT NULL**，不靠下游过滤', async () => {
-    const { svc, prisma } = makeSvc({ dlc: { id: 'd', vocabWords: ['w0','w1','w2','w3','w4','w5','w6','w7'] }, words: dueWords(8) });
+    const { svc, prisma } = makeSvc({ dlc: { id: 'd', stage: 'vocab_test', vocabWords: ['w0','w1','w2','w3','w4','w5','w6','w7'] }, words: dueWords(8) });
     await svc.start({ studentName: '小明' });
     const w = prisma.__calls.find((c: any) => c.model === 'studentWord' && c.op === 'findMany');
     expect(w.args.where.firstTaughtAt).toEqual({ not: null });
@@ -329,7 +329,7 @@ describe('任务绑定（P6 收尾）', () => {
 
   it('**任务归属只认任务自己记的队列**：不看 due、不看「今天动过」', async () => {
     const { svc, prisma } = makeSvc({
-      dlc: { id: 'd', vocabWords: ['w0', 'w1', 'w2', 'w3', 'w4'] },
+      dlc: { id: 'd', stage: 'vocab_test', vocabWords: ['w0', 'w1', 'w2', 'w3', 'w4'] },
       words: dueWords(8),
     });
     await svc.start({ studentName: '小明' });
@@ -345,7 +345,7 @@ describe('任务绑定（P6 收尾）', () => {
 
   it('**不再读 WordReviewLog 推断归属** —— 自由练习的日志碰不到出题范围', async () => {
     const { svc, prisma } = makeSvc({
-      dlc: { id: 'd', vocabWords: ['w0', 'w1', 'w2', 'w3'] },
+      dlc: { id: 'd', stage: 'vocab_test', vocabWords: ['w0', 'w1', 'w2', 'w3'] },
       words: dueWords(8),
       reviewedToday: [{ studentWord: { headword: '自由练习的陈年旧词' } }],
     });
@@ -356,7 +356,7 @@ describe('任务绑定（P6 收尾）', () => {
   });
 
   it('旧任务行没有队列快照 → 空集 → insufficient_items，绝不放宽', async () => {
-    const { svc, prisma } = makeSvc({ dlc: { id: 'd', vocabWords: null }, words: dueWords(8) });
+    const { svc, prisma } = makeSvc({ dlc: { id: 'd', stage: 'vocab_test', vocabWords: null }, words: dueWords(8) });
     await expect(svc.start({ studentName: '小明' })).rejects.toThrow(ConflictException);
     const w = prisma.__calls.find((c: any) => c.model === 'studentWord' && c.op === 'findMany');
     expect(w.args.where.headword).toEqual({ in: [] });
@@ -365,9 +365,92 @@ describe('任务绑定（P6 收尾）', () => {
 
 
   it('**User.englishLevel 全程不参与**：任何查询的 where 里都没有它', async () => {
-    const { svc, prisma } = makeSvc({ dlc: { id: 'd', vocabWords: ['w0','w1','w2','w3','w4','w5','w6','w7'] }, words: dueWords(8) });
+    const { svc, prisma } = makeSvc({ dlc: { id: 'd', stage: 'vocab_test', vocabWords: ['w0','w1','w2','w3','w4','w5','w6','w7'] }, words: dueWords(8) });
     await svc.start({ studentName: '小明' });
     const json = JSON.stringify(prisma.__calls.map((c: any) => c.args));
     expect(json).not.toContain('englishLevel');
+  });
+});
+
+/**
+ * P6 最终核查 —— 阶段门。
+ *
+ * 资格判据回答的是「这些词能不能考」，回答不了「他该不该现在考」。
+ * 一个还在翻卡学新词的学生，哪怕这次任务的词碰巧都教过（队列里全是往日
+ * 的复习词），也不该从深链接直接跳进正式测试。
+ */
+describe('阶段门（P6 最终核查）', () => {
+  beforeEach(() => vi.clearAllMocks());
+
+  const WORDS = ['w0', 'w1', 'w2', 'w3', 'w4', 'w5', 'w6', 'w7'];
+
+  it('**stage=vocab_learn → 不许开考**，哪怕所有词都教过了', async () => {
+    const { svc, prisma, quiz } = makeSvc({
+      dlc: { id: 'd', vocabWords: WORDS, stage: 'vocab_learn' },
+      words: dueWords(8),
+    });
+    await expect(svc.start({ studentName: '小明' })).rejects.toThrow(ConflictException);
+    expect(prisma.__calls.filter((c: any) => c.op === 'create')).toHaveLength(0);
+    expect(quiz.buildQuiz).not.toHaveBeenCalled();
+  });
+
+  it('**stage=reading / reading_done 同样不许开考**（深链接绕不过去）', async () => {
+    for (const stage of ['reading', 'reading_done']) {
+      const { svc, prisma } = makeSvc({
+        dlc: { id: 'd', vocabWords: WORDS, stage },
+        words: dueWords(8),
+      });
+      await expect(svc.start({ studentName: '小明' })).rejects.toThrow(ConflictException);
+      expect(prisma.__calls.filter((c: any) => c.op === 'create')).toHaveLength(0);
+    }
+  });
+
+  it('走到 vocab_test 才能开考', async () => {
+    const { svc } = makeSvc({
+      dlc: { id: 'd', vocabWords: WORDS, stage: 'vocab_test' },
+      words: dueWords(8),
+    });
+    const r = await svc.start({ studentName: '小明' });
+    expect(r.status).toBe('in_progress');
+  });
+
+  it('**stage=done 且没有现成的测试 → 不新开第二份**', async () => {
+    const { svc, prisma } = makeSvc({
+      dlc: { id: 'd', vocabWords: WORDS, stage: 'done' },
+      words: dueWords(8),
+    });
+    await expect(svc.start({ studentName: '小明' })).rejects.toThrow(ConflictException);
+    expect(prisma.__calls.filter((c: any) => c.op === 'create')).toHaveLength(0);
+  });
+
+  it('stage=done 但已有测试 → 照常读回成绩（阶段门在恢复之后）', async () => {
+    const { svc } = makeSvc({
+      dlc: { id: 'd', vocabWords: WORDS, stage: 'done' },
+      attempt: {
+        id: 'att1', status: 'submitted', startedAt: new Date(), submittedAt: new Date(),
+        total: 4, correct: 3, score: 75, items: ITEMS,
+      },
+    });
+    const r = await svc.start({ studentName: '小明' });
+    expect(r.resumed).toBe(true);
+    expect(r.score).toBe(75);
+  });
+
+  it('stage 缺失（旧任务行）按最早阶段处理 → 不许开考', async () => {
+    const { svc } = makeSvc({
+      dlc: { id: 'd', vocabWords: WORDS, stage: null },
+      words: dueWords(8),
+    });
+    await expect(svc.start({ studentName: '小明' })).rejects.toThrow(ConflictException);
+  });
+
+  it('任务队列大小写/空白不一致时仍能匹配上（规范化防线）', async () => {
+    const { svc, prisma } = makeSvc({
+      dlc: { id: 'd', vocabWords: ['  W0 ', 'W1', 'w2', 'w3', 'w4'], stage: 'vocab_test' },
+      words: dueWords(8),
+    });
+    await svc.start({ studentName: '小明' });
+    const w = prisma.__calls.find((c: any) => c.model === 'studentWord' && c.op === 'findMany');
+    expect(w.args.where.headword.in).toEqual(['w0', 'w1', 'w2', 'w3', 'w4']);
   });
 });
