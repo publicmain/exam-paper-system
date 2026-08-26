@@ -65,10 +65,12 @@ describe('交卷后的生词分流', () => {
     expect(screen.queryByText('QUIZ PAGE')).toBeNull();
   });
 
-  it('新词卡片上标「新词」—— 学生要知道这不是自己忘了', async () => {
+  // P5：徽标从「新词」改成「第一次学」—— 语义从「这个词是新的」
+  // 变成「这一张是教学卡，不是考你」。意图不变：学生要知道这不是自己忘了。
+  it('新词卡片上标「第一次学」—— 学生要知道这不是自己忘了', async () => {
     (api.vocabDue as any).mockResolvedValue({ cards: [card()] });
     renderReview(AFTER_SUBMIT);
-    await waitFor(() => expect(screen.getByText('新词')).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByText('第一次学')).toBeInTheDocument());
   });
 
   it('全是复习过的词且够 4 个 → 直接进自测（保持 08-14 的设计）', async () => {

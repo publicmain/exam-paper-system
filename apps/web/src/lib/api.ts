@@ -518,6 +518,15 @@ export const api = {
   }> => request('POST', '/student-auth/admin/view-token', { studentId }),
 
   /** 生词本 — 撤销该词最近一次评分（10 分钟内，误触防线） */
+  /** P5 —— 标记一个词的首次教学完成。**不是评分**：不写复习流水、
+   *  不动 FSRS 调度、不产生成绩。幂等，重复提交 no-op。 */
+  vocabFirstTaught: (body: { studentName: string; studentId?: string; headword: string }) =>
+    request('POST', '/vocab/first-taught', {
+      name: body.studentName,
+      ...(body.studentId ? { studentId: body.studentId } : {}),
+      headword: body.headword,
+    }),
+
   vocabReviewUndo: (body: { studentName: string; studentId?: string; headword: string }) =>
     request('POST', '/vocab/review/undo', body),
   /** 错题本 P6 — 我的错题（收录门槛在服务端，不是每道错题都进） */

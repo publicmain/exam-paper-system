@@ -369,10 +369,14 @@ export class LessonService {
     const progress = await this.prisma.wordReviewLog.count({
       where: { studentWord: { studentId }, reviewedAt: { gte: dayStart } },
     });
-    // 还没学过的到期词（reps=0）—— 阶段判定要靠它区分「该教」还是
-    // 「该考」（P3）。与翻卡页 unseen 判据同源。
+    // 还没**教过**的到期词 —— 阶段判定要靠它区分「该教」还是「该考」。
+    //
+    // P5 起判据从 reps=0 换成 firstTaughtAt IS NULL AND reps=0（见
+    // first-teaching.ts）。原来的 reps=0 有个致命循环：首次教学不再写
+    // 评分之后 reps 永远是 0，unlearned 永远不降，stage 会卡在
+    // vocab_learn 出不去 —— 学生天天被教同一批词。
     const unlearned = await this.prisma.studentWord.count({
-      where: { studentId, due: { lte: now }, reps: 0 },
+      where: { studentId, due: { lte: now }, firstTaughtAt: null, reps: 0 },
     });
     return { target, progress, unlearned };
   }

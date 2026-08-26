@@ -129,6 +129,30 @@ export class VocabController {
     });
   }
 
+  /**
+   * P5 —— 首次教学完成。**不是评分**：不写复习流水、不动 FSRS、不产生成绩。
+   *
+   * 与 /review 同一道身份门（学生自己的写操作），同一档限流。
+   */
+  @Public()
+  @RateLimit({ limit: 480, windowSec: 60, scope: 'ip' })
+  @RequireStudentToken()
+  @Post('first-taught')
+  async firstTaught(@Body() body: unknown) {
+    const schema = z.object({
+      name: z.string().min(1).max(120),
+      studentId: z.string().min(1).max(60).optional(),
+      headword: z.string().min(1).max(80),
+    });
+    const parsed = schema.safeParse(body);
+    if (!parsed.success) throw new BadRequestException(parsed.error.flatten());
+    return this.review.markFirstTaught({
+      studentName: parsed.data.name,
+      studentId: parsed.data.studentId,
+      headword: parsed.data.headword,
+    });
+  }
+
   /** 提交一次复习评分 → FSRS 重新调度。 */
   @Public()
   @RateLimit({ limit: 480, windowSec: 60, scope: 'ip' })

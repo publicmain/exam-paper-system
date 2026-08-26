@@ -2107,6 +2107,17 @@ model StudentWord {
   lapses        Int       @default(0)
   lastReview    DateTime?
 
+  /// P5 —— 首次教学完成的时刻。null = 这个词还没被正式教过。
+  ///
+  /// 与上面那一组 FSRS 字段（due/stability/difficulty/reps/lapses/state）
+  /// **语义完全分开**：那些是调度与熟练度，这一个只记录「教过」这个事实。
+  /// 首次教学不评分、不写 WordReviewLog、不动任何 FSRS 字段，因此不能靠
+  /// reps 来表达「教过」—— 那正是「学」被迫长成「测」的根源。
+  ///
+  /// 只写一次、只增不减（条件写入 WHERE firstTaughtAt IS NULL）。
+  /// 不回填：reps>0 的存量词学生一定评过分，按复习词处理即可。
+  firstTaughtAt DateTime?
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 

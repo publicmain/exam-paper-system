@@ -1,6 +1,7 @@
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { createEmptyCard, fsrs, generatorParameters, Rating, State, type Card } from 'ts-fsrs';
 import { PrismaService } from '../common/prisma.service';
+import { needsFirstTeaching } from './first-teaching';
 import { StudentWordService } from './student-word.service';
 
 /** 一次复习给几张卡。纯函数，可测。
@@ -336,9 +337,17 @@ export class VocabReviewService {
           sourcePassageTitle: w.sourcePassageTitle,
           phonetic: e?.phonetic ?? null,
           translation: e?.translation ?? '',
+          // P5 教学面用：词性 / 英文释义。字典里没有就是 null ——
+          // **绝不编**，前端按 null 隐藏那一行。
+          pos: e?.pos ?? null,
+          definition: e?.definition ?? null,
           tag: e?.tag ?? [],
           state: w.state,
           reps: w.reps,
+          // P5：这个词该走首次教学卡还是复习交互。判据只有一处
+          // （first-teaching.ts），前端不再自己算 reps===0。
+          needsFirstTeaching: needsFirstTeaching(w),
+          firstTaughtAt: w.firstTaughtAt ? w.firstTaughtAt.toISOString() : null,
           // 来源与收录日期（学生十问修复 #6）：卡片要能回答
           // 「这词怎么进我本子的」，否则学生只觉得系统在塞词
           sourceType: w.sourceType,
@@ -346,6 +355,44 @@ export class VocabReviewService {
         };
       }),
     };
+  }
+
+  /**
+   * P5 —— 记录「这个词的首次教学完成了」。
+   *
+   * 这是教学卡上「下一个」按钮唯一的写操作。它**只**写 firstTaughtAt：
+   * - 不写 WordReviewLog（那是复习流水，教学不是复习）
+   * - 不动 due / stability / difficulty / reps / lapses / state
+   *   （教学不是评分，不能让 FSRS 把「学生第一次看见」当成记住或忘记）
+   * - 不产生任何成绩
+   *
+   * **条件写入**：WHERE firstTaughtAt IS NULL 由 PG 在行锁内判定。重复
+   * 提交、两个标签页同时翻到同一张，第一次胜出，之后一律 no-op ——
+   * 「教过的时刻」不会被后来的点击改写。
+   *
+   * 失败的后果是安全的：没标上，这个词明天再教一次。绝不会把没教过的
+   * 词标成教过，也不会污染调度。
+   */
+  async markFirstTaught(input: { studentName: string; studentId?: string; headword: string }) {
+    const student = await this.words.resolveStudent(input.studentName, input.studentId);
+    const headword = (input.headword ?? '').trim();
+    if (!headword) throw new BadRequestException({ code: 'headword_required' });
+
+    const marked = await this.prisma.studentWord.updateMany({
+      where: { studentId: student.id, headword, firstTaughtAt: null },
+      data: { firstTaughtAt: new Date() },
+    });
+    if (marked.count > 0) {
+      return { ok: true as const, headword, firstTaught: true, alreadyTaught: false };
+    }
+    // 没更新到：要么本子里没这个词，要么早就标过了。回读区分开 ——
+    // 前端对这两种情况的处理不同（前者是异常，后者是正常的重复提交）。
+    const row = await this.prisma.studentWord.findUnique({
+      where: { studentId_headword: { studentId: student.id, headword } },
+      select: { firstTaughtAt: true },
+    });
+    if (!row) throw new NotFoundException({ code: 'word_not_in_notebook' });
+    return { ok: true as const, headword, firstTaught: true, alreadyTaught: true };
   }
 
   /**

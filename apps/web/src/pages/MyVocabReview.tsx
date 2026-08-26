@@ -27,9 +27,15 @@ interface Card {
   sourcePassageTitle: string | null;
   phonetic: string | null;
   translation: string;
+  /** 词性 / 英文释义 —— 字典里没有就是 null，教学面按 null 隐藏那一行 */
+  pos?: string | null;
+  definition?: string | null;
   tag: string[];
   state: string;
   reps: number;
+  /** P5：这张卡该走首次教学还是复习交互。判据在服务端 first-teaching.ts */
+  needsFirstTeaching?: boolean;
+  firstTaughtAt?: string | null;
   sourceType?: 'click' | 'wrong_answer' | 'teacher_push';
   addedAt?: string;
 }
@@ -47,6 +53,18 @@ const RATINGS = [
   { key: 'again', label: '忘了', labelNew: '没记住', sub: 'Forgot', cls: 'bg-rose-600 hover:bg-rose-700' },
   { key: 'good', label: '记得', labelNew: '记住了', sub: 'Got it', cls: 'bg-emerald-600 hover:bg-emerald-700' },
 ] as const;
+
+/**
+ * P5 —— 这张卡走教学还是走复习。
+ *
+ * 结论由服务端给（`needsFirstTeaching`，判据见 api 的 first-teaching.ts）。
+ * 这里的兜底只在字段缺失时生效（旧构建的前端撞上新后端，或反过来），
+ * 用的是同一条式子，不构成第二套判据。
+ */
+function isTeachingCard(card: Card): boolean {
+  if (typeof card.needsFirstTeaching === 'boolean') return card.needsFirstTeaching;
+  return card.firstTaughtAt == null && (card.reps ?? 0) === 0;
+}
 
 /**
  * 显示答案后到可以评分之间的最短间隔（2026-08-25 首日实测后加）。
@@ -279,6 +297,45 @@ export default function MyVocabReviewPage() {
     [cards, idx, busy, canRate, name, studentId, shownAt],
   );
 
+  /**
+   * P5 —— 首次教学卡的「下一个」。
+   *
+   * 与 rate() **刻意不共用**：这条路不评分、不写复习流水、不动 FSRS，
+   * 也不产生任何成绩。它只做两件事 —— 标记「这个词教过了」，推进断点。
+   *
+   * 标记失败不拦学生（网络问题不该卡在背词页）。失败的后果是安全的：
+   * 这个词明天再教一次，绝不会被错标成已教。
+   */
+  const teachNext = useCallback(async () => {
+    if (!cards || busy) return;
+    const card = cards[idx];
+    setBusy(true);
+    try {
+      await api.vocabFirstTaught({
+        studentName: name,
+        studentId: studentId || undefined,
+        headword: card.headword,
+      });
+    } catch {
+      /* 没标上就明天再教一次 —— 不打扰学生 */
+    }
+    setBusy(false);
+    setDone((d) => d + 1);
+    // 教学不产生评分回执，把上一张的回执收掉，教学面绝不出现「撤销」
+    setLastRated(null);
+    if (idx + 1 >= cards.length) {
+      setIdx(cards.length);
+    } else {
+      setIdx((i) => {
+        const next = i + 1;
+        void api.lessonVocabCursor(name, next, studentId || undefined).catch(() => {});
+        return next;
+      });
+      setRevealed(false);
+      setShownAt(Date.now());
+    }
+  }, [cards, idx, busy, name, studentId]);
+
   /** 撤销上一张（修复 #4）：服务端从快照精确还原，前端跳回那张卡重评。 */
   const undo = useCallback(async () => {
     if (!lastRated?.canUndo || undoBusy) return;
@@ -403,7 +460,8 @@ export default function MyVocabReviewPage() {
   }
 
   const card = cards[idx];
-  const cloze = clozeSentence(card.contextSentence, card.surfaceForm);
+  const teaching = isTeachingCard(card);
+  const cloze = teaching ? null : clozeSentence(card.contextSentence, card.surfaceForm);
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -413,9 +471,9 @@ export default function MyVocabReviewPage() {
             今日生词 <strong>{idx + 1}</strong> / {cards.length}
             {/* 第一次见的词标出来。短文层的词表是老师推的，学生此前没
                 接触过 —— 不标的话他会以为自己忘了，其实只是没学过。 */}
-            {(card.reps ?? 0) === 0 && (
+            {teaching && (
               <span className="ml-2 text-[11px] text-blue-700 bg-blue-50 border border-blue-200 rounded px-1.5 py-0.5">
-                新词
+                第一次学
               </span>
             )}
           </div>
@@ -442,8 +500,10 @@ export default function MyVocabReviewPage() {
           />
         </div>
 
-        {/* 上一张的回执：间隔反馈 + 撤销（误触防线）。不挡内容，一行即可 */}
-        {lastRated && (
+        {/* 上一张的回执：间隔反馈 + 撤销（误触防线）。不挡内容，一行即可。
+            **教学面一律不显示** —— 首次教学不评分，也就没有可撤销的东西，
+            而「撤销」出现在教学卡上只会让学生以为刚才那一下被记了分。 */}
+        {lastRated && !teaching && (
           <div className="mb-3 flex items-center justify-between text-[12px] text-gray-500 bg-white border rounded-lg px-3 py-1.5">
             <span className="truncate">
               上一张 <span className="font-semibold text-gray-700">{lastRated.headword}</span> · {lastRated.feedback}
@@ -461,6 +521,80 @@ export default function MyVocabReviewPage() {
           </div>
         )}
 
+        {teaching ? (
+          /* ── 首次教学卡（P5）──
+             这个词学生从没见过。第一面就把答案给全：词、音标、词性、
+             释义、他刚读过那篇文章里的原句。**不挖空、不要求猜、不评分**
+             —— 让人猜一个从没教过的词，得到的不是学习而是挫败，那次
+             「不认识」还会被 FSRS 当成真实信号写进调度。
+             字段缺失一律隐藏，绝不编造音标或例句。 */
+          <div className="bg-white rounded-2xl border shadow-sm p-5 min-h-[300px] flex flex-col">
+            <div className="flex items-baseline gap-2 flex-wrap">
+              <span className="text-3xl font-bold text-gray-900">{card.headword}</span>
+              {canSpeak() && (
+                <button
+                  type="button"
+                  onClick={() => speak(card.headword)}
+                  aria-label={`朗读 ${card.headword}`}
+                  className="hit press text-xl -my-1 px-1 rounded hover:bg-gray-100"
+                >
+                  🔊
+                </button>
+              )}
+              {card.phonetic && <span className="text-sm text-gray-500">/{card.phonetic}/</span>}
+              {card.pos && (
+                <span className="text-[12px] px-1.5 py-0.5 rounded bg-gray-100 text-gray-600">
+                  {card.pos}
+                </span>
+              )}
+              {card.tag.includes('ielts') && (
+                <span className="text-[11px] px-1.5 py-0.5 rounded bg-purple-100 text-purple-700 font-semibold">
+                  雅思
+                </span>
+              )}
+            </div>
+
+            {displayTranslation(card.translation).trim() && (
+              <div className="mt-3 text-[16px] text-gray-800 whitespace-pre-wrap">
+                {displayTranslation(card.translation)}
+              </div>
+            )}
+            {card.definition && (
+              <div className="mt-1.5 text-[13px] text-gray-500 leading-relaxed">
+                {card.definition}
+              </div>
+            )}
+
+            {card.contextSentence?.trim() && (
+              <div className="mt-4 pt-4 border-t">
+                <div className="text-[11px] text-gray-400 mb-1">你读到的这句话</div>
+                <div className="text-[15px] leading-relaxed text-gray-800">
+                  {card.contextSentence}
+                </div>
+                {card.sourcePassageTitle && (
+                  <div className="text-[11px] text-gray-400 mt-2">
+                    来自《{card.sourcePassageTitle}》
+                  </div>
+                )}
+              </div>
+            )}
+
+            <div className="mt-auto pt-5">
+              <div className="text-[12px] text-center text-gray-400 mb-2">
+                第一次见这个词，先认识它就够了 —— 待会儿再考
+              </div>
+              <button
+                type="button"
+                data-testid="teach-next"
+                disabled={busy}
+                onClick={teachNext}
+                className="w-full py-3.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-semibold text-base disabled:opacity-40 touch-manipulation"
+              >
+                下一个 · Next
+              </button>
+            </div>
+          </div>
+        ) : (
         <div className="bg-white rounded-2xl border shadow-sm p-5 min-h-[300px] flex flex-col">
           {/* 正面：原句挖空 —— 先想，再翻面 */}
           <div className="text-[15px] leading-relaxed text-gray-800">{cloze}</div>
@@ -538,6 +672,7 @@ export default function MyVocabReviewPage() {
             </>
           )}
         </div>
+        )}
       </main>
     </div>
   );
