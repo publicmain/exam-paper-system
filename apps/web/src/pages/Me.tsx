@@ -72,6 +72,8 @@ export default function MePage() {
   const [segments, setSegments] = useState<Segment[] | null>(null);
   const [streak, setStreak] = useState(0);
   const [pinSet, setPinSet] = useState<boolean | null>(null);
+  // 注册时选的昵称/头像（2026-08-26），显示在头部
+  const [profile, setProfile] = useState<{ nickname: string; avatar: string | null } | null>(null);
 
   // ── 修改 PIN ──
   const [showChange, setShowChange] = useState(false);
@@ -200,7 +202,10 @@ export default function MePage() {
       // PIN 状态（修改 PIN 卡片要知道设没设过）
       try {
         const info: any = await api.studentAuthMe();
-        if (!cancelled) setPinSet(!!info.pinSet);
+        if (!cancelled) {
+          setPinSet(!!info.pinSet);
+          setProfile({ nickname: info.nickname ?? me.name, avatar: info.avatar ?? null });
+        }
       } catch { /* token 可能刚失效，忽略 */ }
     })();
     return () => { cancelled = true; };
@@ -321,7 +326,20 @@ export default function MePage() {
       <main className="max-w-md mx-auto px-4 py-5 space-y-4">
         <header className="flex items-center justify-between">
           <div>
-            <div className="text-xl font-bold text-gray-900">你好，{me.name}</div>
+            <span className="flex items-center gap-2">
+              {profile?.avatar?.startsWith('data:') && (
+                <img src={profile.avatar} alt="头像" className="w-8 h-8 rounded-full object-cover" />
+              )}
+              {profile?.avatar?.startsWith('emoji:') && (
+                <span className="text-2xl leading-none">{profile.avatar.slice(6)}</span>
+              )}
+              <span>
+                你好，{profile?.nickname ?? me.name}
+                {profile && profile.nickname !== me.name && (
+                  <span className="ml-1 text-[12px] text-gray-400">（{me.name}）</span>
+                )}
+              </span>
+            </span>
             {streak > 0 && (
               <div className="text-[13px] text-orange-600 mt-0.5">🔥 连续学习 {streak} 天</div>
             )}
