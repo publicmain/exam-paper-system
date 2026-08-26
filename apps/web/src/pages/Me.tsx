@@ -312,7 +312,13 @@ export default function MePage() {
 
         <section className="bg-white rounded-2xl border shadow-sm divide-y">
           <div className="px-4 py-3 text-[13px] font-semibold text-gray-500">
-            今天的课 ·{' '}
+            <a
+              href={`/my-lesson?name=${encodeURIComponent(me?.name ?? '')}&studentId=${encodeURIComponent(me?.id ?? '')}`}
+              className="hover:underline"
+              title="打开完整的课程页"
+            >
+              今天的课
+            </a>{' '}·{' '}
             {new Date().toLocaleDateString('zh-CN', { month: 'long', day: 'numeric', weekday: 'long' })}
           </div>
           {(segments ?? []).map((s) => (

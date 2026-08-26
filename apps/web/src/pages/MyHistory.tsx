@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
+import { lessonLaunchRedirect } from '../lib/lesson-entry';
 import { BASE, api } from '../lib/api';
 import { track } from '../lib/track';
 import SkillProfileCard from '../components/SkillProfileCard';
@@ -225,6 +226,15 @@ export default function MyHistory() {
   // standalone 只发生在学生**主动把这页装到自己手机主屏**之后,
   // "装"这个动作本身就是"这是我的设备"的声明。App 打开还要输一遍
   // 名字,就不叫 App 了。右上角「换人」按钮保留,借手机的场景走它。
+  // 4.0：作为 app 启动（主屏图标 → 裸 /my-history）时跳到「今天的课」。
+  // 全班的图标烧死的是这个地址，改 manifest 只救新安装 —— 存量设备
+  // 靠这里。带任何参数的访问（深链/页内导航）不受影响。
+  useEffect(() => {
+    const target = lessonLaunchRedirect();
+    if (target) navigate(target, { replace: true });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   useEffect(() => {
     if (urlName && !submitted) {
       lookup(urlName);

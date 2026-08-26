@@ -97,8 +97,26 @@ function ctaOf(seg: LessonSeg, fallback: string): string {
 
 export default function MyLessonPage() {
   const [params] = useSearchParams();
-  const name = params.get('name') ?? '';
-  const studentId = params.get('studentId') ?? '';
+  // 新装 PWA 的 start_url 是裸的 /my-lesson —— 没带参数时从本地取。
+  // 本地也没有（真正的新同学）才提示去主页走输名字流程。
+  const name =
+    params.get('name') ??
+    (() => {
+      try {
+        return localStorage.getItem('mq:history:name') ?? '';
+      } catch {
+        return '';
+      }
+    })();
+  const studentId =
+    params.get('studentId') ??
+    (() => {
+      try {
+        return localStorage.getItem('mq:history:studentId') ?? '';
+      } catch {
+        return '';
+      }
+    })();
   const [data, setData] = useState<LessonToday | null>(null);
   const [err, setErr] = useState<string | null>(null);
 
@@ -228,9 +246,13 @@ export default function MyLessonPage() {
           </p>
         )}
 
-        <div className="mt-6 text-center">
+        <div className="mt-6 flex items-center justify-center gap-5">
+          {/* 带参数 → 不会触发 my-history 的启动跳转，看成绩的路永远通 */}
+          <a href={`/my-history?${qs}`} className="text-[13px] text-gray-400">
+            成绩记录
+          </a>
           <a href={`/me`} className="text-[13px] text-gray-400">
-            ← 回到我的主页
+            我的主页
           </a>
         </div>
       </div>

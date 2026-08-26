@@ -12,7 +12,7 @@
 // v3: evict caches poisoned by the pre-fix nginx serving .mjs as
 // application/octet-stream (pdf.js worker) — cache-first kept replaying
 // the bad MIME even after the server was fixed.
-const CACHE = 'zaoce-pwa-v3';
+const CACHE = 'zaoce-pwa-v4';
 
 self.addEventListener('install', (event) => {
   // Activate this SW immediately instead of waiting for old tabs to close.
@@ -63,7 +63,7 @@ self.addEventListener('fetch', (event) => {
           if (cached) return cached;
           // For navigations offline, fall back to the cached shell root.
           if (isNavigation) {
-            const shell = await caches.match('/my-history') || await caches.match('/');
+            const shell = await caches.match('/my-lesson') || await caches.match('/my-history') || await caches.match('/');
             if (shell) return shell;
           }
           throw e;

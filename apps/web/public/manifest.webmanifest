@@ -1,9 +1,9 @@
 {
-  "name": "早测查询 · Morning Quiz",
-  "short_name": "早测查询",
-  "description": "查看本人的晨测成绩与答题记录",
+  "name": "每日英语 · Daily English",
+  "short_name": "每日英语",
+  "description": "今天的课：读一篇文章、背今日词汇、练错题",
   "lang": "zh-CN",
-  "start_url": "/my-history",
+  "start_url": "/my-lesson",
   "scope": "/",
   "display": "standalone",
   "orientation": "portrait",
