@@ -1,4 +1,4 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, BadRequestException, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../common/prisma.service';
 import { StudentWordService } from '../vocab/student-word.service';
 import {
@@ -428,6 +428,98 @@ export class LessonService {
       )
       .map((r) => r.date.toISOString().slice(0, 10));
     return streakFromDays(doneDays, today.toISOString().slice(0, 10));
+  }
+
+  /**
+   * P5 收尾 —— **教学卡「下一个」的唯一写操作**，一个事务做完两件事。
+   *
+   * ## 为什么必须原子
+   *
+   * 原来前端分别打 /vocab/first-taught 和 /lesson/vocab-cursor，两者之间
+   * 有一个真实的不一致窗口：**cursor 前进了、firstTaughtAt 却没写上**。
+   * 后果是死锁，不是小瑕疵 ——
+   *   · 那个词永远 unlearned → deriveStage 永远返回 vocab_learn
+   *   · 而 cursor 已经越过它 → 学生再进来直接从下一张开始，
+   *     怎么翻都翻不到那张漏掉的卡
+   *   · 于是 stage 永久停在 vocab_learn，进不了 vocab_test，
+   *     这一天的课再也完不成
+   *
+   * 反方向（标记成功、cursor 没动）只是「明天再看一次同一张卡」，
+   * 安全得多。所以两件事必须同生共死，且顺序上宁可先标记。
+   *
+   * ## 幂等
+   *
+   * 两个写都是条件写入：firstTaughtAt 只在仍为 null 时写，vocabCursor
+   * 只在更小时前进。重复提交、双击、乱序到达、超时重发 —— 结果都一样。
+   *
+   * 返回真实的 cursor 与 stage，前端不做任何推测补偿。
+   */
+  async markTaughtAndAdvance(input: {
+    studentName: string;
+    studentId?: string;
+    headword: string;
+    cursor: number;
+  }) {
+    const student = await this.words.resolveStudent(input.studentName, input.studentId);
+    const headword = (input.headword ?? '').trim();
+    if (!headword) throw new BadRequestException({ code: 'headword_required' });
+
+    const day = this.sgtDayStart(new Date());
+    // NaN/Infinity 挡在 SQL 之前（P3 合并前验证抓到过一次）
+    const raw = Number(input.cursor);
+    const wanted = Number.isFinite(raw) ? Math.max(0, Math.floor(raw)) : 0;
+
+    const result = await this.prisma.$transaction(async (tx) => {
+      // ① 标记教过 —— 条件写入，只写这一个字段
+      const marked = await tx.studentWord.updateMany({
+        where: { studentId: student.id, headword, firstTaughtAt: null },
+        data: { firstTaughtAt: new Date() },
+      });
+      if (marked.count === 0) {
+        // 没更新到：本子里没这个词（异常，整笔回滚，cursor 也不许前进），
+        // 还是早就标过了（正常的重复提交，继续推进 cursor）
+        const exists = await tx.studentWord.findUnique({
+          where: { studentId_headword: { studentId: student.id, headword } },
+          select: { id: true },
+        });
+        if (!exists) throw new NotFoundException({ code: 'word_not_in_notebook' });
+      }
+
+      // ② 单调推进断点 —— 与 saveVocabCursor 同一条件写入语义
+      const bumped = await tx.dailyLessonCompletion.updateMany({
+        where: { studentId: student.id, date: day, vocabCursor: { lt: wanted } },
+        data: { vocabCursor: wanted },
+      });
+      let cursor = wanted;
+      let stored = true;
+      if (bumped.count === 0) {
+        const row = await tx.dailyLessonCompletion.findUnique({
+          where: { studentId_date: { studentId: student.id, date: day } },
+          select: { vocabCursor: true },
+        });
+        // 没有当日记录说明学生还没打开过课程页 —— 不在这里创建
+        //（创建是 today(freeze:true) 的职责）。教学本身已经落库了。
+        if (!row) { cursor = 0; stored = false; }
+        else cursor = row.vocabCursor;
+      }
+      return { cursor, stored, alreadyTaught: marked.count === 0 };
+    });
+
+    // 事务外回读真实阶段 —— 前端据此判断该不该进下一段，不自己猜。
+    // freeze:false：只读，不在这里创建/冻结当日目标。
+    const t = await this.today({
+      studentName: input.studentName,
+      studentId: input.studentId,
+      freeze: false,
+    });
+    return {
+      ok: true as const,
+      headword,
+      cursor: result.cursor,
+      stored: result.stored,
+      alreadyTaught: result.alreadyTaught,
+      stage: t.stage,
+    };
   }
 
   /**

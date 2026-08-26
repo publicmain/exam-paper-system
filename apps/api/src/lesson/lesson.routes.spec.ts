@@ -28,6 +28,8 @@ describe('lesson 路由契约（P3）', () => {
 
     expect(paths).toContain('/api/lesson/today');
     expect(paths).toContain('/api/lesson/vocab-cursor');
+    // P5 收尾：教学卡的唯一写路径（标记+断点同事务）
+    expect(paths).toContain('/api/lesson/vocab-taught');
     expect(paths).toContain('/api/lesson/class');
   });
 });

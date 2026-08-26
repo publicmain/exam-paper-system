@@ -518,13 +518,24 @@ export const api = {
   }> => request('POST', '/student-auth/admin/view-token', { studentId }),
 
   /** 生词本 — 撤销该词最近一次评分（10 分钟内，误触防线） */
-  /** P5 —— 标记一个词的首次教学完成。**不是评分**：不写复习流水、
-   *  不动 FSRS 调度、不产生成绩。幂等，重复提交 no-op。 */
-  vocabFirstTaught: (body: { studentName: string; studentId?: string; headword: string }) =>
-    request('POST', '/vocab/first-taught', {
+  /**
+   * P5 收尾 —— 教学卡「下一个」：**一次调用**，服务端在事务里标记
+   * 「教过」+ 单调推进断点，返回真实 cursor 与 stage。
+   *
+   * 取代原来分别打 first-taught 与 vocab-cursor 的两步 —— 那两步之间有
+   * 「cursor 前进了但 firstTaughtAt 没写上」的窗口，会把 stage 永久锁死。
+   */
+  lessonVocabTaught: (body: {
+    studentName: string;
+    studentId?: string;
+    headword: string;
+    cursor: number;
+  }): Promise<{ ok: true; cursor: number; stage: string; alreadyTaught: boolean }> =>
+    request('POST', '/lesson/vocab-taught', {
       name: body.studentName,
       ...(body.studentId ? { studentId: body.studentId } : {}),
       headword: body.headword,
+      cursor: body.cursor,
     }),
 
   vocabReviewUndo: (body: { studentName: string; studentId?: string; headword: string }) =>

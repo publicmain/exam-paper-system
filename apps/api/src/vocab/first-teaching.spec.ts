@@ -1,14 +1,12 @@
-import { describe, it, expect, vi } from 'vitest';
-import { NotFoundException, BadRequestException } from '@nestjs/common';
+import { describe, it, expect } from 'vitest';
 import { needsFirstTeaching, needsReviewInteraction } from './first-teaching';
-import { VocabReviewService } from './vocab-review.service';
 
 /**
- * P5 —— 「教过没有」的判据，以及首次教学**只写一个字段**这件事。
+ * P5 —— 「教过没有」的判据。
  *
- * 第二组测试是本片最重要的防线：教学一旦顺手写了评分 / 流水 / due，
- * 「学」就又变回「测」了，而那种回归在页面上看不出来 —— 学生照样看到
- * 教学卡，只是他的调度被一次假评分污染了。
+ * 「教学只写一个字段、且与断点同事务」那组断言在
+ * lesson/vocab-taught.spec.ts —— 收尾后写路径合并到了
+ * markTaughtAndAdvance，这里只留纯判据。
  */
 
 describe('needsFirstTeaching —— 判据', () => {
@@ -45,77 +43,24 @@ describe('needsFirstTeaching —— 判据', () => {
   });
 });
 
-function makeSvc(overrides: Record<string, any> = {}) {
-  const calls: Array<{ model: string; op: string; args: any }> = [];
-  const track = (model: string, op: string, impl: Function) => (args: any) => {
-    calls.push({ model, op, args });
-    return impl(args);
-  };
-  const prisma: any = {
-    __calls: calls,
-    studentWord: {
-      updateMany: track('studentWord', 'updateMany', async () => ({ count: 1 })),
-      findUnique: track('studentWord', 'findUnique', async () => ({ firstTaughtAt: new Date() })),
-      // 教学绝不许碰这些
-      update: () => { throw new Error('教学不得改写 FSRS 字段'); },
-    },
-    wordReviewLog: {
-      create: () => { throw new Error('教学不得写复习流水'); },
-      findUnique: () => { throw new Error('教学不得读写复习流水'); },
-    },
-    $transaction: () => { throw new Error('教学不需要事务，也不该走评分那条路'); },
-  };
-  for (const [k, v] of Object.entries(overrides)) prisma[k] = { ...prisma[k], ...v };
-  const words = { resolveStudent: vi.fn(async () => ({ id: 'stu1', name: '小明' })) } as any;
-  const svc = new VocabReviewService(prisma, words);
-  return { svc, prisma };
-}
+describe('P5 收尾 —— 死端点已清除', () => {
+  it('**/vocab/first-taught 不再存在**：教学只剩 /lesson/vocab-taught 一条写路径', async () => {
+    const { Test } = await import('@nestjs/testing');
+    const { VocabController } = await import('./vocab.controller');
+    const moduleRef = await Test.createTestingModule({ controllers: [VocabController] })
+      .useMocker(() => ({}))
+      .compile();
+    const app = moduleRef.createNestApplication();
+    app.setGlobalPrefix('api');
+    await app.init();
+    const router = (app.getHttpServer() as any)._events.request._router;
+    const paths: string[] = router.stack.filter((l: any) => l.route).map((l: any) => l.route.path);
+    await app.close();
 
-describe('markFirstTaught —— 只写一个字段', () => {
-  it('**只写 firstTaughtAt，不碰任何 FSRS 字段、不写复习流水**', async () => {
-    const { svc, prisma } = makeSvc();
-    const r = await svc.markFirstTaught({ studentName: '小明', headword: 'harbour' });
-    expect(r).toEqual({ ok: true, headword: 'harbour', firstTaught: true, alreadyTaught: false });
-
-    const writes = prisma.__calls.filter((c: any) =>
-      ['update', 'updateMany', 'create', 'delete', 'deleteMany'].includes(c.op),
-    );
-    expect(writes).toHaveLength(1);
-    expect(writes[0].model).toBe('studentWord');
-    // 写进去的字段只有 firstTaughtAt 一个
-    expect(Object.keys(writes[0].args.data)).toEqual(['firstTaughtAt']);
-  });
-
-  it('**条件写入**：where 里带 firstTaughtAt: null —— 已教过的不会被改写', async () => {
-    const { svc, prisma } = makeSvc();
-    await svc.markFirstTaught({ studentName: '小明', headword: 'harbour' });
-    const w = prisma.__calls.find((c: any) => c.op === 'updateMany').args.where;
-    expect(w.firstTaughtAt).toBeNull();
-    expect(w.studentId).toBe('stu1');
-    expect(w.headword).toBe('harbour');
-  });
-
-  it('重复提交（已教过）→ 幂等 no-op，返回 alreadyTaught', async () => {
-    const { svc } = makeSvc({ studentWord: { updateMany: async () => ({ count: 0 }) } });
-    const r = await svc.markFirstTaught({ studentName: '小明', headword: 'harbour' });
-    expect(r.alreadyTaught).toBe(true);
-    expect(r.firstTaught).toBe(true);
-  });
-
-  it('本子里没这个词 → 404，不静默成功', async () => {
-    const { svc } = makeSvc({
-      studentWord: { updateMany: async () => ({ count: 0 }), findUnique: async () => null },
-    });
-    await expect(
-      svc.markFirstTaught({ studentName: '小明', headword: 'nosuchword' }),
-    ).rejects.toThrow(NotFoundException);
-  });
-
-  it('空 headword → 400，且在任何写操作之前挡住', async () => {
-    const { svc, prisma } = makeSvc();
-    await expect(svc.markFirstTaught({ studentName: '小明', headword: '   ' })).rejects.toThrow(
-      BadRequestException,
-    );
-    expect(prisma.__calls.filter((c: any) => c.op === 'updateMany')).toHaveLength(0);
+    // 分两步写会留下「cursor 前进了但 firstTaughtAt 没写上」的窗口。
+    // 端点留着就是留着那条旁路 —— 删掉，别指望后人记得不要用。
+    expect(paths).not.toContain('/api/vocab/first-taught');
+    // 复习评分这条路不受影响
+    expect(paths).toContain('/api/vocab/review');
   });
 });

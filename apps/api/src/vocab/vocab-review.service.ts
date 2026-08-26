@@ -358,44 +358,6 @@ export class VocabReviewService {
   }
 
   /**
-   * P5 —— 记录「这个词的首次教学完成了」。
-   *
-   * 这是教学卡上「下一个」按钮唯一的写操作。它**只**写 firstTaughtAt：
-   * - 不写 WordReviewLog（那是复习流水，教学不是复习）
-   * - 不动 due / stability / difficulty / reps / lapses / state
-   *   （教学不是评分，不能让 FSRS 把「学生第一次看见」当成记住或忘记）
-   * - 不产生任何成绩
-   *
-   * **条件写入**：WHERE firstTaughtAt IS NULL 由 PG 在行锁内判定。重复
-   * 提交、两个标签页同时翻到同一张，第一次胜出，之后一律 no-op ——
-   * 「教过的时刻」不会被后来的点击改写。
-   *
-   * 失败的后果是安全的：没标上，这个词明天再教一次。绝不会把没教过的
-   * 词标成教过，也不会污染调度。
-   */
-  async markFirstTaught(input: { studentName: string; studentId?: string; headword: string }) {
-    const student = await this.words.resolveStudent(input.studentName, input.studentId);
-    const headword = (input.headword ?? '').trim();
-    if (!headword) throw new BadRequestException({ code: 'headword_required' });
-
-    const marked = await this.prisma.studentWord.updateMany({
-      where: { studentId: student.id, headword, firstTaughtAt: null },
-      data: { firstTaughtAt: new Date() },
-    });
-    if (marked.count > 0) {
-      return { ok: true as const, headword, firstTaught: true, alreadyTaught: false };
-    }
-    // 没更新到：要么本子里没这个词，要么早就标过了。回读区分开 ——
-    // 前端对这两种情况的处理不同（前者是异常，后者是正常的重复提交）。
-    const row = await this.prisma.studentWord.findUnique({
-      where: { studentId_headword: { studentId: student.id, headword } },
-      select: { firstTaughtAt: true },
-    });
-    if (!row) throw new NotFoundException({ code: 'word_not_in_notebook' });
-    return { ok: true as const, headword, firstTaught: true, alreadyTaught: true };
-  }
-
-  /**
    * 提交一次复习评分 → FSRS 重新调度 → 落库 + 写流水。
    *
    * 幂等性说明：同一个词短时间内重复提交会被视作两次真实复习（FSRS 会据此

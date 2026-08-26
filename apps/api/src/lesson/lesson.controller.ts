@@ -45,6 +45,34 @@ export class LessonController {
   @Public()
   @RequireStudentToken()
   @RateLimit({ limit: 120, windowSec: 60, scope: 'ip' })
+  /**
+   * P5 收尾 —— 教学卡「下一个」：一次调用，事务里标记「教过」+ 推进断点。
+   *
+   * 取代原来分别打 /vocab/first-taught 与 /lesson/vocab-cursor 的两步 ——
+   * 那两步之间有「cursor 前进了但 firstTaughtAt 没写上」的窗口，会把
+   * stage 永久锁死在 vocab_learn。
+   */
+  @Public()
+  @RequireStudentToken()
+  @RateLimit({ limit: 120, windowSec: 60, scope: 'ip' })
+  @Post('vocab-taught')
+  async vocabTaught(@Body() body: unknown) {
+    const schema = z.object({
+      name: z.string().min(1).max(120),
+      studentId: z.string().min(1).max(60).optional(),
+      headword: z.string().min(1).max(80),
+      cursor: z.number().int().min(0).max(500),
+    });
+    const parsed = schema.safeParse(body);
+    if (!parsed.success) throw new BadRequestException(parsed.error.flatten());
+    return this.svc.markTaughtAndAdvance({
+      studentName: parsed.data.name,
+      studentId: parsed.data.studentId,
+      headword: parsed.data.headword,
+      cursor: parsed.data.cursor,
+    });
+  }
+
   @Post('vocab-cursor')
   async saveVocabCursor(@Body() body: unknown) {
     const schema = z.object({

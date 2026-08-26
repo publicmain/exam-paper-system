@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { api } from '../lib/api';
 import { findClozeSpan, trimSentence, windowAroundSpan } from '../lib/cloze';
@@ -127,6 +127,10 @@ export default function MyVocabReviewPage() {
     canUndo: boolean;
   } | null>(null);
   const [undoBusy, setUndoBusy] = useState(false);
+  /** 教学卡的「下一个」失败了 —— 什么都没存，提示学生再点一次 */
+  const [teachError, setTeachError] = useState(false);
+  /** 正在处理的教学卡下标（双击去重，不依赖渲染时机） */
+  const teachingRef = useRef<number | null>(null);
 
   // 上次弱网攒下的评分，进页面先补传（fire-and-forget，失败留队）
   useEffect(() => { void flushPending(); }, []);
@@ -308,16 +312,34 @@ export default function MyVocabReviewPage() {
    */
   const teachNext = useCallback(async () => {
     if (!cards || busy) return;
+    // 双击去重：同一张卡只处理一次。busy 在网络往返期间挡住第二次点击，
+    // 但接口极快返回时 busy 可能已经放开而 idx 还没重渲染 —— 那一瞬间的
+    // 第二次点击会拿着旧闭包再推一格，中间那张卡就被跳过了（从未教过，
+    // 而 cursor 已经越过它）。用 ref 记住正在处理的下标，不依赖渲染时机。
+    if (teachingRef.current === idx) return;
+    teachingRef.current = idx;
+
     const card = cards[idx];
     setBusy(true);
+    setTeachError(false);
     try {
-      await api.vocabFirstTaught({
+      // **一次调用**：服务端在事务里标记「教过」+ 单调推进断点。
+      // 分两步打会留下「cursor 前进了但 firstTaughtAt 没写上」的窗口，
+      // 那会把 stage 永久锁死在 vocab_learn（见 lesson.service 注释）。
+      await api.lessonVocabTaught({
         studentName: name,
         studentId: studentId || undefined,
         headword: card.headword,
+        cursor: idx + 1,
       });
     } catch {
-      /* 没标上就明天再教一次 —— 不打扰学生 */
+      // 服务端什么都没写（事务整笔回滚）。**这里绝不能往前走** ——
+      // 往前走等于页面在撒谎：进度条动了、完成页出来了，而库里这张卡
+      // 从没被教过。让学生再点一次，是唯一诚实的处理。
+      teachingRef.current = null;
+      setBusy(false);
+      setTeachError(true);
+      return;
     }
     setBusy(false);
     setDone((d) => d + 1);
@@ -326,11 +348,7 @@ export default function MyVocabReviewPage() {
     if (idx + 1 >= cards.length) {
       setIdx(cards.length);
     } else {
-      setIdx((i) => {
-        const next = i + 1;
-        void api.lessonVocabCursor(name, next, studentId || undefined).catch(() => {});
-        return next;
-      });
+      setIdx(idx + 1);
       setRevealed(false);
       setShownAt(Date.now());
     }
@@ -477,6 +495,11 @@ export default function MyVocabReviewPage() {
               </span>
             )}
           </div>
+          {/* 「跳过」只导航、不写库，所以它本身不会造成 cursor 与
+              firstTaughtAt 不一致。但首次教学卡上只该有「发音」和
+              「下一个」两个动作 —— 一个第一次见到这个词的学生，不需要
+              在「学」和「不学」之间做选择。复习卡保留原样。 */}
+          {!teaching && (
           <button
             type="button"
             // 交卷流程跳过→成绩页（他来的目的）；主动来练的跳过→回生词本，
@@ -492,6 +515,7 @@ export default function MyVocabReviewPage() {
             className="hit press text-[14px] text-gray-500 px-2 -mr-2 rounded-lg hover:text-gray-600"
           >跳过
           </button>
+          )}
         </div>
         <div className="h-1.5 bg-gray-200 rounded-full mb-4 overflow-hidden">
           <div
@@ -580,8 +604,15 @@ export default function MyVocabReviewPage() {
             )}
 
             <div className="mt-auto pt-5">
-              <div className="text-[12px] text-center text-gray-400 mb-2">
-                第一次见这个词，先认识它就够了 —— 待会儿再考
+              <div
+                className={`text-[12px] text-center mb-2 ${
+                  teachError ? 'text-rose-600' : 'text-gray-400'
+                }`}
+                aria-live="polite"
+              >
+                {teachError
+                  ? '没存上，再点一次 · 这一下没有被记录'
+                  : '第一次见这个词，先认识它就够了 —— 待会儿再考'}
               </div>
               <button
                 type="button"
