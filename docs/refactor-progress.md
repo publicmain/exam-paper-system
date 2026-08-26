@@ -163,4 +163,138 @@ sessionStorage**（模拟重新登录/换设备）→ 刷新后页面显示「�
    「翻卡 → 切后台/锁屏 → 回来 → 断点仍在」一遍。
 
 
-## P4 ⬜ / P5 ⬜ / P6 ⬜ / P7 ⬜ / P8 ⬜ / P9 ⬜ / P10 ⬜
+## P4 ✅ 难度的单一事实来源（2026-08-26，commit d1dfe22，**本地提交未 push**）
+
+**根因**：难度散落四处，**无一挂在学生身上**。`ClassEnglishLevel` 是班级
+今天开哪几层，`MorningQuizSession.level` 是那一场是哪层，扫码现选是当天
+的 useState（不写任何存储），词表跟着当天的选择走。学生因此可以天天跳层
+→ 词表混层 → 卡片例句来自他没读过的文章。章程要求的「确定难度」阶段在
+数据模型上根本不存在。
+
+### 难度来源清单（改动前，按语义分类）
+
+| 来源 | 语义 | 位置 | P4 处理 |
+|---|---|---|---|
+| `ClassEnglishLevel.level` | **排课配置** —— 班级今天开哪几层 | schema | **不动**（P4 不碰排课） |
+| `MorningQuizSession.level` | **任务快照** —— 那一场是哪层 | schema:1562 | **不动**（历史，永不改写） |
+| 扫码现选 `chosenSessionId` | **临时输入** —— 这次点了哪个按钮 | `MorningQuizScan.tsx` useState | 保留为「未落定」时的入口 |
+| `sessionIdOverride` | **临时输入** —— 传给服务端的那次选择 | `attendance.controller.ts:42` | 保留，但受难度门约束 |
+| `Paper.config.wordlist` / weekly-track | 内容选择，**跟着场次的层走** | `wordlist-source.ts` / `weekly-track.ts` | 不动（它读的是 session.level） |
+| 前端 localStorage | —— | grep 零命中 | 难度从未被前端持久化 |
+| 教师端修改入口 | 只有**班级**层级（`ClassEnglishLevel`） | `Classes.tsx` / admin-syllabus | **新增**学生层级入口 |
+| `User.englishLevel` | **学生属性** | **不存在** | **本片新增 = 事实来源** |
+
+**冲突**：没有任何一处回答「这个学生现在是哪一层」。学生跳层时，
+「他的词表」和「他读过的文章」立刻脱节，而系统无从察觉。
+
+### 最终事实来源规则
+
+`User.englishLevel`（`EnglishLevel?`，null = 尚未落定）是唯一事实来源。
+写入路径**只有两条**：
+
+1. **学生首次扫码成功后落定** —— `updateMany WHERE id AND englishLevel IS NULL`，
+   单调性交给 PG 行锁。位置在答卷建好之后（确认这次扫码真的成功），
+   不是在门口 —— 否则「扫码失败了难度却被定死」。
+2. **教师 `PATCH /admin/users/:id/english-level`** —— 走既有的
+   `canActOnClass`；handler 上的 `@Roles('admin','head_teacher','teacher')`
+   覆盖 controller 级的 admin-only。`level: null` 可清空（退回现选）。
+
+**学生端没有任何接口能改写已落定的值。** 已落定的人扫别的层时，服务端
+在 **Gate 4.5**（身份已知、任何写操作之前）返回 `403 level_locked` +
+`correctSessionId`，前端自动切过去重试一次，学生无感。
+
+两处**刻意的放行**，避免规则伤人：
+- 他那层今天没排 → 放行到别的层，**且不改写他的难度**（拒绝就等于把人
+  挡在早测门外，代价远大于让他临时做一次别的层）
+- **【测试】班** → 既不落定也不上锁（教师随意测试不会把自己锁进某一层）
+
+**教师修改只影响后续内容选择**：`setEnglishLevel` 只写 `User` 一行、
+只写 `englishLevel` 一个字段（有测试断言 Prisma 调用集合）。历史答卷、
+成绩、场次快照、已生成的当日任务一律不碰。
+
+### 修改文件
+
+- **DB**：`schema.prisma` 加 `User.englishLevel EnglishLevel?`；迁移
+  `20260827000000_user_english_level`
+- **API**：新增 `morning-quiz/level-lock.ts`（`decideLevel` 纯函数）；
+  `attendance.service.ts`（Gate 4.5 难度门 + 落定条件写入 + Gate 1 select）；
+  `users.service.ts` / `users.controller.ts` / `users.module.ts`
+  （`PATCH /admin/users/:id/english-level`）；`student-auth.service.ts`
+  （`/me` 返回 englishLevel）；`classes.service.ts`（花名册带 englishLevel）
+- **Web**：`MorningQuizScan.tsx`（已落定则跳过选择器 + `level_locked`
+  自动重试一次）；`Classes.tsx`（花名册行内难度下拉）；`lib/api.ts`
+- **测试**：`level-lock.spec.ts` 9 条、`users/english-level.spec.ts` 9 条、
+  `users/english-level.routes.spec.ts` 3 条、`ScanLevelSkip.test.tsx` 5 条
+
+### 数据库
+
+`ALTER TABLE "User" ADD COLUMN "englishLevel" "EnglishLevel";` —— 可空、
+**无默认值、不回填**。
+
+**为什么不回填**（计划原稿建议按「最近一次答卷所在场次的层」回填，本次
+按指示放弃）：回填只能靠猜，而学生换过层、代答过、或那天他那层没开时
+都会猜错；猜错的后果是他明天被锁进错的难度还得找老师改。让 35 个人各自
+选一次，比错锁其中几个便宜。
+
+**兼容**：null = 沿用旧行为（扫码时现选），首扫成功后落定。
+**回滚**：`ALTER TABLE "User" DROP COLUMN "englishLevel";` —— 该列不含
+任何原有数据，删除不影响历史答卷 / 成绩 / 场次。代码回退后列留存也无害。
+
+### 实际验证结果
+
+**迁移实跑**（本地 Postgres，无 Docker）：
+| 库 | 场景 | 结果 |
+|---|---|---|
+| `p4_test` | 空库从零跑全部迁移 | All migrations have been successfully applied |
+| `p4_legacy` | 跑到 P4 前 → 灌 3 个旧用户 → 跑 P4 迁移 | 同上 |
+
+迁移后抽样：3 个旧用户一条未丢，`englishLevel` **全部 NULL**（未批量
+指定默认难度），列定义 `EnglishLevel nullable=YES default=(无)`。
+
+**真实 API 端到端**（起真服务连 `p4_legacy`）：**21 项全 PASS**
+
+| # | 验收 | 实测 |
+|---|---|---|
+| ① | null 新生首选后落库 | 首扫选 olevel → 201，库值 olevel |
+| ② | 并发/重复首选不产生不确定结果 | 三路并发 → 201/403/403，落定 ielts_authentic；重复提交后不变 |
+| ③ | 已有难度不再要求选择 | `/student-auth/me` 返回 englishLevel；前端 5 条测试覆盖跳过选择器 |
+| ④ | 学生不能覆盖现有难度 | 指定别层 → 403 `level_locked`；**库值未变**；附 correctSessionId；走对场次 201 |
+| ⑤ | 教师可以合法修改 | 本班教师 PATCH → 200 且落库 |
+| ⑥ | 未授权不能修改 | 外班教师 403 `not_your_class` / 学生自己 403 / 无 token 403；三次尝试后库值不变 |
+| ⑦ | 教师改后新任务用新难度 | 改成 olevel 后扫 authentic 场 → 锁回 olevel 场；新答卷挂在 olevel 场次上 |
+| ⑧ | 历史保持不变 | 历史答卷（状态/分数/所属场次/场次 level）一字未动；DLC 数量未变；场次快照未改写 |
+| ⑨ | 旧用户 null 有明确处理 | 照常扫码并落定；**他那层今天没开 → 201 放行且难度不变** |
+| ⑩ | 所有难度同一套流程 | 三种难度拿到的都是 `/morning-quiz/<sessionId>#h=<token>` |
+| 附 | 【测试】班旋转门 | 扫码后 englishLevel 仍 null，不落定不上锁 |
+
+**反向对照已做**：临时禁用「按已落定难度自动选场」的 effect 后，
+「已定难度的学生不显示选择器」必红 —— 证明测试有鉴别力。
+
+**全量复验**：api **711 tests / 66 files** 全过（+21）、web **186 tests /
+31 files** 全过（+5）、双端 `tsc --noEmit` 无错、`nest build` +
+`vite build` 均成功。
+
+**Git diff 范围核查**：只碰 attendance / users / student-auth / classes /
+扫码页 / 花名册。**未动 `morning-quiz.service.ts`、`morning-quiz.cron.ts`
+等排课代码**；未创建 `preferredLevel` / `selectedDifficulty` 之类的第二套
+字段；未删除任何任务难度快照。
+
+### 尚未验证
+
+- **生产数据库未执行迁移**（按约束禁止）。生产有 35 个存量学生，全部会
+  是 null，各自首扫时落定 —— 这条路径只在 `p4_legacy` 的仿制数据上验证过
+- 教师端花名册的难度下拉**未在真实浏览器点过**（只有 tsc + build + 服务端
+  接口实测）
+- 多实例并发未实测（条件写入的正确性由 PG 行锁保证，与实例数无关）
+- `level_locked` 的**前端自动重试**只有 tsc 覆盖，未在真实浏览器跑过整条
+  「点错层 → 被拒 → 自动切回 → 进卷」链路
+- 一个学生同时在多个班（转班历史）时，`setEnglishLevel` 取「任一在读班有
+  权限即可」—— 逻辑有单测，但没有真实的多班学生数据验证过
+
+**未 push、未部署、未执行生产迁移**（等明确批准）。
+
+**清理**：临时库 `p4_test` / `p4_legacy`、临时 API 进程、`dist-p4` 产物已删。
+
+---
+
+## P5 ⬜ / P6 ⬜ / P7 ⬜ / P8 ⬜ / P9 ⬜ / P10 ⬜
