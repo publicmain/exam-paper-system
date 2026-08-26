@@ -84,4 +84,61 @@ apps/api/scripts、scripts、apps/api/src）：
 
 **未 push、未部署、未执行生产迁移**（等明确批准）。
 
-## P3 ⬜ / P4 ⬜ / P5 ⬜ / P6 ⬜ / P7 ⬜ / P8 ⬜ / P9 ⬜ / P10 ⬜
+
+## P3 ✅ 任务阶段实体化与退出恢复（2026-08-26，commit 4880420，**本地提交未 push**）
+
+**根因**：无「学生走到第几步」的实体 —— 流程由 12+ 个散落的布尔/字符串
+状态隐式拼出；翻卡页 `idx` 只在 useState，刷新即回第 1 张。
+
+**设计要点**：
+- **stage 是缓存不是真相**：真相始终是三段事实字段与答卷。
+  `deriveStage(facts)` 纯函数每次从事实重算，`clampStage` 单调钳制后
+  只在**严格前进**时写库 —— stage 与事实短暂不一致会被下一次读纠正，
+  不会出现「stage 卡住学生进不去」的死锁
+- `done` 单向不可逆：做完一天的课再自主加练，不会被打回 vocab_learn
+- **断点存服务端**（`DailyLessonCompletion.vocabCursor`）而非 localStorage
+  —— 换设备、重新登录同样恢复；`clampCursor` 对越界/脏值一律回 0，
+  最坏退化成今天的行为
+
+**阶段**：reading → reading_done → vocab_learn → vocab_test → done
+
+**修改文件**：
+- `lesson-rules.ts` 新增 LessonStage / deriveStage / clampStage /
+  clampCursor / stageRank / STAGE_ORDER（纯函数）
+- `lesson.service.ts` today() 算 stage 并前进时写回；vocabState 补
+  unlearned 信号；新增 saveVocabCursor（单调钳制、只写 cursor 不动 stage）
+- `lesson.controller.ts` 新增 POST /lesson/vocab-cursor（@RequireStudentToken）
+- `prisma/schema.prisma` + 迁移 `20260826230000_lesson_stage`
+- `MyVocabReview.tsx` 断点恢复 + 评分后上报（只持久化 idx）
+- `MyLesson.tsx` 按 stage 高亮当前该做的段
+- `lib/api.ts` lessonVocabCursor 封装
+- 测试：lesson-rules.spec +17 条、新增 MyVocabResume.test.tsx 5 条、
+  新增 lesson.routes.spec.ts、MyVocabDwellLock.test.tsx 补 mock
+
+**数据库**：ADD COLUMN stage(default 'reading') / stageAt / vocabCursor(default 0)。
+**兼容**：纯新增带默认值，不改不删任何现有列或行；存量行首次被 today()
+读到时由 deriveStage 按事实重算写回（昨天完成三段的旧记录修正为 done，
+不倒退）。**回滚**：代码回退即可（三列无人读、无害）；彻底回滚 =
+`DROP COLUMN stage, stageAt, vocabCursor`，三列不含任何原有数据。
+
+**验证结果**（全部本地，未接触生产）：
+- 验收 7 项测试全覆盖：正常进入 / 翻卡中退出（上报断点）/ 刷新恢复 /
+  重新登录恢复（断点来自服务端，非本机）/ 完成后不可退回旧阶段 /
+  旧任务兼容（stage 缺省可被事实推上去）/ 越界与接口失败兜底
+- **反向对照已做**：临时禁用 cursor 恢复逻辑后「断点 3 → 第 4 张」
+  必红，证明测试有鉴别力
+- api 683 tests / web 181 tests（+5）/ 双端 tsc + build 全过
+- git diff 范围核查：只碰 lesson 模块与翻卡/课程页，**未动排课逻辑**，
+  未提前实施 P4–P7
+
+**未验证项**：
+- **迁移未在任何数据库上实跑**（按指示不用 Docker、禁止生产操作）——
+  SQL 为纯 ADD COLUMN 带默认值，但未经真实执行
+- `POST /lesson/vocab-cursor` 未起真实服务打过（路由契约 spec 断言
+  端点存在于 Nest 路由表；服务方法逻辑无独立单测，仅经类型检查）
+- stage 写回的并发行为（同一学生两个标签页同时打开课程页）未测
+- 端到端「翻卡→退出→重进」真机链路未跑（需数据库）
+
+**未 push、未部署、未执行生产迁移**（等明确批准）。
+
+## P4 ⬜ / P5 ⬜ / P6 ⬜ / P7 ⬜ / P8 ⬜ / P9 ⬜ / P10 ⬜
