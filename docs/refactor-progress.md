@@ -517,4 +517,89 @@ stability=3`、1 条历史复习流水，P5 全程未增未减。全库「已教
 
 ---
 
+### P5 收尾 · 两个边界（2026-08-27，commit 5bedcc1）
+
+#### 一、firstTaughtAt 与 vocabCursor 的一致性
+
+**故障注入实测的结论**：原来「下一个」分别打 `/vocab/first-taught` 与
+`/lesson/vocab-cursor`，两者之间是一个**会导致永久死锁**的窗口。
+
+| 注入的故障 | 修复前的后果 | 修复后 |
+|---|---|---|
+| ① first-taught 失败、cursor 成功 | **cursor 前进但 firstTaughtAt 仍 null** → 那个词永远 unlearned、而 cursor 已越过它 → **stage 永久停在 vocab_learn，进不了 vocab_test** | 单事务，要么都成要么都不成 |
+| ② first-taught 超时但服务端写成功 | 前端吞掉异常照常前进 —— 恰好一致，纯属侥幸 | 重发幂等（条件写入），结果相同 |
+| ③ first-taught 成功、cursor 失败 | 刷新后回到同一张 → **重复教学**，且那张卡已变成复习卡形态（挖空），学生看到刚教过的词突然变考题 | 事务回滚，两者都不生效 |
+| ④ 两个请求乱序返回 | 两个独立请求，组合仍落进 ①/③ | 只有一个请求，不存在乱序 |
+| ⑤ 连续点击「下一个」 | 接口极快返回时 `busy` 已放开而 `idx` 未重渲染 → 旧闭包再推一格，**中间那张卡从未教过而 cursor 已越过它** | `teachingRef` 去重 + `setIdx` 用确定值、副作用移出 updater |
+| ⑥ 最后一张发生故障 | 最后一张**根本不上报 cursor**，标记失败即无声吞掉 → 完成页照常弹出，学生以为学完了，实则那个词未标记、stage 出不去 | 失败不进完成页，提示重试 |
+
+**修复**（用户指定的优先方案）：新增 `POST /lesson/vocab-taught`，
+一个事务里
+1. 条件设置 `firstTaughtAt`（`WHERE firstTaughtAt IS NULL`）
+2. 单调推进 `vocabCursor`（`WHERE vocabCursor < wanted`）
+3. 返回**真实的** cursor 与 stage
+
+本子里没这个词 → 整笔回滚，cursor 绝不前进。没有 localStorage、没有额外
+布尔字段、没有前端推测补偿。
+
+**失败时前端不前进**，显示「没存上，再点一次 · 这一下没有被记录」。
+往前走等于页面撒谎：进度条动了、完成页出来了，而库里那张卡从没被教过。
+代价是接口持续故障时学生停在词汇段（见「尚未验证 / 已知取舍」）。
+
+**死端点已清除**：`/vocab/first-taught` 与 `markFirstTaught` 收尾后
+已无生产调用方，留着就是留着那条能单独写标记的旁路 —— 删掉，并加路由
+契约测试钉死它不再存在。`/lesson/vocab-cursor` **保留**（复习卡的评分
+路径仍在用，那条路没有配对的标记动作）。
+
+#### 二、首次教学卡的「跳过」
+
+**追踪结果**：「跳过」只做 `navigate`，**不写任何库**（不推进 cursor、
+不写 firstTaughtAt）。所以它本身不制造不一致 —— 学生跳走时 cursor 没动，
+是安全方向。
+
+按指示**只在首次教学分支隐藏**：一个第一次见到这个词的学生，不需要在
+「学」和「不学」之间做选择。复习卡的「跳过」原样保留（有测试断言）。
+
+#### 验收结果（隔离库 `p5_browser` + 真实浏览器）
+
+| # | 验收 | 结果 |
+|---|---|---|
+| 1 | 正常点击下一张 | 一次 `POST /lesson/vocab-taught` → 201 `{cursor:1,stored:true,alreadyTaught:false,stage:"vocab_learn"}`；**没有**旧的两步调用 |
+| 2 | 双击下一张 | 只发出一次请求（`lantern@cursor2`），前进一张；单测另断言「越过几张就标记了哪几张、cursor 无跳号、同卡不重复标记」 |
+| 3 | first-taught 故障（reject / HTTP 500） | 停在原地，提示「没存上，再点一次」；库里 `vocabCursor=1`、4 个词仍未教 → **cursor 未越过任何未教的词** |
+| 4 | cursor 故障 | 与 ③ 同为一个事务，整笔回滚；连续三击全部失败后卡片与库值均不动 |
+| 5 | 最后一张发生故障 | **不进完成页**，停在 5/5 并提示重试 |
+| 6 | 刷新后恢复 | 刷新后准确回到第 3 张（meadow）、第 5 张（pebble，未教的那张） |
+| 7 | 最终进入 vocab_test | 全部教完 → `stage = vocab_test`，未教过的词 **0** 个 |
+| 8 | 不产生 WordReviewLog | **0 条**（多轮故障注入后仍为 0） |
+| 9 | 不改 reps/due/stability/difficulty | 5 个词全部 `reps=0 lapses=0 state=new stability=0 difficulty=5`，一字未动 |
+| 10 | 教学卡不再出现「跳过」 | 页面按钮只剩 `["🔊","下一个 · Next"]` |
+| 11 | 全量测试 / 双端 tsc / build | api **728 tests / 68 files**、web **201 tests / 32 files** 全过；双端 `tsc --noEmit` 无错；`nest build` + `vite build` 成功 |
+| 12 | Git diff 只含 P5 收尾 | 9 改 1 新，全部在 lesson / vocab / 翻卡页 |
+
+#### 尚未验证 / 已知取舍
+
+- **失败时学生被挡在词汇段**：接口持续故障时，教学卡既不前进也没有
+  「跳过」出口，学生只能关掉 App（不丢数据，明天重教）。这是「不撒谎」
+  与「不挡路」之间的取舍，选了前者；若上线后真的出现，再考虑连续失败
+  N 次后给一个明确标注「今天先不学了」的出口
+- 教学标记**仍未走弱网队列**（复习评分有 `reviewQueue` 补传，教学没有）
+- **生产数据库未执行迁移**（按约束禁止）
+- iOS Safari / iPad 未真机验证（仅桌面 Chrome）
+- 自测出题的 `reps=0` 兜底仍在（属 P6「堵未学先考」，本片未动）
+- 浏览器验证期间的一次「真实鼠标点击无反应」经查是页面 reload 后事件
+  尚未绑定所致，程序化点击立即生效 —— 非产品缺陷，但**真机上快速连点
+  刚加载完的页面**这一情形没有专门验证
+- 构建期间发现 `apps/api/tsconfig.tsbuildinfo` 会被我临时用的
+  `tsc --outDir dist-xxx` 污染，导致 `nest build` 静默不产出 `.js`。
+  已删缓存重建确认产物完整；**这是验证流程的坑，不是产品问题**，但值得
+  记一笔：以后临时构建不要复用同一个 tsconfig 的增量缓存
+
+**未 push、未部署、未执行生产迁移。**
+
+**清理**：隔离库 `p5_browser`、API/Vite 进程、`dist-p5b` 与陈旧的
+`tsconfig.tsbuildinfo` 已删。
+
+---
+
 ## P6 ⬜ / P7 ⬜ / P8 ⬜ / P9 ⬜ / P10 ⬜
