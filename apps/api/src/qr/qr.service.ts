@@ -162,9 +162,25 @@ export class QrService {
       Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()),
     );
     const tomorrowUtc = new Date(todayUtc.getTime() + 86_400_000);
-    return this.prisma.morningQuizSession.findFirst({
+    const today = await this.prisma.morningQuizSession.findFirst({
       where: { classId, date: { gte: todayUtc, lt: tomorrowUtc } },
       orderBy: { level: 'asc' },
+      select: { id: true },
+    });
+    if (today) return today;
+
+    // 【测试】常驻测试窗（2026-08-26 教师要求）：测试班的贴墙码不受
+    // 「只认当天场次」限制 —— 今天没有就退回**最近一场**。教师随时扫
+    // 随时进，不必每天给测试班排课。真实班级绝不走这里：日期锚定是
+    // 「扫昨天截图的码进不了今天的场」这条防线的一部分。
+    const klass = await this.prisma.class.findUnique({
+      where: { id: classId },
+      select: { name: true },
+    });
+    if (!klass?.name.startsWith('【测试】')) return null;
+    return this.prisma.morningQuizSession.findFirst({
+      where: { classId },
+      orderBy: { date: 'desc' },
       select: { id: true },
     });
   }

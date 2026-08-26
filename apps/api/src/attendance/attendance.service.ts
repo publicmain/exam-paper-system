@@ -224,7 +224,11 @@ export class AttendanceService {
     // Gate 3 — session active
     const session = await this.prisma.morningQuizSession.findUnique({
       where: { id: resolvedSessionId },
-      include: { paperAssignment: { select: { id: true, paperId: true } } },
+      include: {
+        paperAssignment: { select: { id: true, paperId: true } },
+        // 测试班旋转门要认班名（见下）
+        class: { select: { name: true } },
+      },
     });
     if (!session) throw new NotFoundException({ code: 'session_not_found' });
     if (session.status !== MorningQuizStatus.active) {
@@ -501,6 +505,17 @@ export class AttendanceService {
         status: { not: 'practice' },
       },
     });
+    // 【测试】旋转门（2026-08-26 教师要求）：测试班的卷子**永远可以重来**。
+    // 交过卷再扫 → 旧答卷（含 AnswerScript，FK 级联）直接清掉、当新卷进。
+    // 教师全流程测试不再受「已交卷不能再修改」限制，也不用每次喊人清场。
+    // 真实班级绝不走这里 —— finalSubmittedAt 是答案门的地基。
+    if (submission?.finalSubmittedAt != null && session.class.name.startsWith('【测试】')) {
+      await this.prisma.studentSubmission.delete({ where: { id: submission.id } });
+      this.logger.log(
+        `test-class revolving door: wiped submission=${submission.id} student=${studentId}`,
+      );
+      submission = null;
+    }
     if (!submission) {
       submission = await this.prisma.studentSubmission.create({
         data: {

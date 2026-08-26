@@ -15,10 +15,20 @@ describe('QrService — v2 static printable QR', () => {
     process.env.JWT_SECRET = 'test-secret-for-qr-spec';
   });
 
-  function svc(todaySession: { id: string } | null) {
+  function svc(
+    todaySession: { id: string } | null,
+    opts: { className?: string; latestSession?: { id: string } | null } = {},
+  ) {
+    // findFirst 第一次调用 = 今天的场次；测试班回退时的第二次调用 =
+    // 最近一场（2026-08-26 常驻测试窗）
+    const findFirst = vi
+      .fn()
+      .mockResolvedValueOnce(todaySession)
+      .mockResolvedValue(opts.latestSession ?? null);
     const prisma: any = {
-      morningQuizSession: {
-        findFirst: vi.fn().mockResolvedValue(todaySession),
+      morningQuizSession: { findFirst },
+      class: {
+        findUnique: vi.fn().mockResolvedValue({ name: opts.className ?? 'G11 真实班' }),
       },
     };
     return new QrService(prisma);
@@ -77,5 +87,27 @@ describe('QrService — v2 static printable QR', () => {
     expect(await codeOf(s.verify(s.staticTokenForClass('cls_abc')))).toBe(
       'qr_no_session_today',
     );
+  });
+
+  // ── 【测试】常驻测试窗（2026-08-26）──
+
+  it('测试班今天没场次 → 回退最近一场（教师随时能进）', async () => {
+    const s = svc(null, { className: '【测试】作业功能测试班', latestSession: { id: 'sess_old' } });
+    const decoded: any = await s.verify(s.staticTokenForClass('cls_test'));
+    expect(decoded.sessionId).toBe('sess_old');
+  });
+
+  it('**真实班级绝不回退** —— 日期锚定是防重放的防线', async () => {
+    // 学生拍昨天的码截图，今天没场次时绝不能落到昨天那场
+    const s = svc(null, { className: 'G11 IELTS', latestSession: { id: 'sess_old' } });
+    expect(await codeOf(s.verify(s.staticTokenForClass('cls_real')))).toBe(
+      'qr_no_session_today',
+    );
+  });
+
+  it('测试班今天有场次 → 用今天的，不碰回退', async () => {
+    const s = svc({ id: 'sess_today' }, { className: '【测试】作业功能测试班', latestSession: { id: 'sess_old' } });
+    const decoded: any = await s.verify(s.staticTokenForClass('cls_test'));
+    expect(decoded.sessionId).toBe('sess_today');
   });
 });
