@@ -448,7 +448,6 @@ export const api = {
   /** 学生 PIN 登录（2026-08-25，docs/PRD/student-auth-and-home.md） */
   studentLogin: (body: { name: string; studentId?: string; pin: string }) =>
     request('POST', '/student-auth/login', body),
-  studentSetPin: (body: { pin: string }) => request('POST', '/student-auth/set-pin', body),
   /** 网站式注册（2026-08-26）：首次设密码即注册即登录 */
   studentRegister: (body: {
     name: string;
@@ -474,9 +473,6 @@ export const api = {
       `/lesson/class?classId=${encodeURIComponent(classId)}${date ? `&date=${date}` : ''}`,
     ),
 
-  /** 学生端：现在能不能设 PIN（集体注册窗口开着吗） */
-  studentClaimWindow: (): Promise<{ pinSet: boolean; open: boolean; remainingSec: number }> =>
-    request('GET', '/student-auth/claim-window'),
   /** 教师端：重置学生 PIN（忘记时的恢复通道） */
   adminResetStudentPin: (studentId: string) =>
     request('POST', '/student-auth/admin/reset-pin', { studentId }),
@@ -502,12 +498,6 @@ export const api = {
       personalWindowOpen: boolean;
     }[];
   }> => request('GET', `/student-auth/admin/claim-status?classId=${encodeURIComponent(classId)}`),
-  openClaimWindow: (classId: string, minutes?: number) =>
-    request('POST', '/student-auth/admin/claim-window/open', { classId, minutes }),
-  closeClaimWindow: (classId: string) =>
-    request('POST', '/student-auth/admin/claim-window/close', { classId }),
-  openStudentClaimWindow: (studentId: string, minutes?: number) =>
-    request('POST', '/student-auth/admin/claim-window/student', { studentId, minutes }),
   /** 教师端：签发「以学生视角查看」的只读令牌（15 分钟） */
   studentViewToken: (
     studentId: string,

@@ -20,7 +20,7 @@ import { StudentAuthService } from './student-auth.service';
 /**
  * 学生 PIN 认证端点（2026-08-25，docs/PRD/student-auth-and-home.md §5）。
  *
- * login 是公开的（登录前当然没有 token）；set-pin / change-pin / me
+ * login/register 是公开的（登录前当然没有 token）；change-pin / me
  * 需要学生 token —— 这里**手动**验 token 而不是走 AuthGuard 的非公开
  * 路径，因为 AuthGuard 会把 handoff token 等窄凭证一并放进来，而
  * 设置 PIN 的信任根必须是完整的学生 token（扫码或登录签发）。
@@ -37,7 +37,7 @@ export class StudentAuthController {
    * 从 Authorization 里解出**完整**学生身份；handoff 等窄凭证不算。
    *
    * `allowTeacherView`：教师的只读学生视角能不能用这条路。默认**不能** ——
-   * set-pin / change-pin 是改凭证，教师借来的视角绝不能碰（教师要重置
+   * change-pin 是改凭证，教师借来的视角绝不能碰（教师要重置
    * 走 admin/reset-pin，那条路留痕）。只有 GET /me 打开它，因为「看到
    * 学生看到的主页」正是这个功能的用途。
    */
@@ -136,17 +136,6 @@ export class StudentAuthController {
 
   @Public()
   @RateLimit({ limit: 30, windowSec: 60, scope: 'ip' })
-  @Post('set-pin')
-  async setPin(@Body() body: unknown, @Req() req: Request) {
-    const me = await this.requireStudent(req);
-    const schema = z.object({ pin: z.string().min(1).max(20) });
-    const p = schema.safeParse(body);
-    if (!p.success) throw new BadRequestException(p.error.flatten());
-    return this.svc.setPin(me.id, p.data.pin);
-  }
-
-  @Public()
-  @RateLimit({ limit: 30, windowSec: 60, scope: 'ip' })
   @Post('change-pin')
   async changePin(@Body() body: unknown, @Req() req: Request) {
     const me = await this.requireStudent(req);
@@ -168,15 +157,6 @@ export class StudentAuthController {
     return this.svc.me(me.id);
   }
 
-  /** 学生端：现在能不能设 PIN（认领窗口开着吗、还剩多久）。 */
-  @Public()
-  @RateLimit({ limit: 120, windowSec: 60, scope: 'ip' })
-  @Get('claim-window')
-  async claimWindow(@Req() req: Request) {
-    const me = await this.requireStudent(req, { allowTeacherView: true });
-    return this.svc.claimWindow(me.id);
-  }
-
   /** 教师端：一键重置（学生忘 PIN 的恢复通道）。走 AuthGuard 正常认证。 */
   @Post('admin/reset-pin')
   async adminResetPin(@Body() body: unknown, @CurrentUser() user: any) {
@@ -184,49 +164,6 @@ export class StudentAuthController {
     const p = schema.safeParse(body);
     if (!p.success) throw new BadRequestException(p.error.flatten());
     return this.svc.adminResetPin({ id: user.id, role: user.role }, p.data.studentId);
-  }
-
-  // ───────────────── 教师端：集体注册窗口 ─────────────────
-
-  /** 开班级注册窗（集体注册课用）。默认 20 分钟，上限 120。 */
-  @Post('admin/claim-window/open')
-  async openClaimWindow(@Body() body: unknown, @CurrentUser() user: any) {
-    const schema = z.object({
-      classId: z.string().min(1),
-      minutes: z.number().int().min(1).max(120).optional(),
-    });
-    const p = schema.safeParse(body);
-    if (!p.success) throw new BadRequestException(p.error.flatten());
-    return this.svc.openClassClaimWindow(
-      { id: user.id, role: user.role },
-      p.data.classId,
-      p.data.minutes,
-    );
-  }
-
-  /** 关班级注册窗。注册完当场关，别等它自己过期。 */
-  @Post('admin/claim-window/close')
-  async closeClaimWindow(@Body() body: unknown, @CurrentUser() user: any) {
-    const schema = z.object({ classId: z.string().min(1) });
-    const p = schema.safeParse(body);
-    if (!p.success) throw new BadRequestException(p.error.flatten());
-    return this.svc.closeClassClaimWindow({ id: user.id, role: user.role }, p.data.classId);
-  }
-
-  /** 给单个学生开补注册窗（请假 / 换手机 / 被抢注要重来）。 */
-  @Post('admin/claim-window/student')
-  async openStudentWindow(@Body() body: unknown, @CurrentUser() user: any) {
-    const schema = z.object({
-      studentId: z.string().min(1),
-      minutes: z.number().int().min(1).max(120).optional(),
-    });
-    const p = schema.safeParse(body);
-    if (!p.success) throw new BadRequestException(p.error.flatten());
-    return this.svc.openStudentClaimWindow(
-      { id: user.id, role: user.role },
-      p.data.studentId,
-      p.data.minutes,
-    );
   }
 
   /** 教师端花名册：谁领了、谁没领、窗口开着没。 */
