@@ -2303,9 +2303,18 @@ model DailyLessonCompletion {
   drillDoneAt   DateTime?
 
   /// 目标快照时刻 —— 学生当天首次打开课程页
-  targetsFrozenAt    DateTime @default(now())
+  targetsFrozenAt DateTime  @default(now())
   /// 判定口径版本，见上文
-  rulesVersion       Int      @default(1)
+  rulesVersion    Int       @default(1)
+  /// 当天走到哪一步（P3）：reading|reading_done|vocab_learn|vocab_test|done。
+  /// **stage 是缓存不是真相** —— 真相是三段事实字段，每次 today() 由
+  /// deriveStage 从事实重算、只在严格前进时写回（见 lesson-rules.ts）。
+  stage           String    @default("reading")
+  /// 进入当前阶段的时刻（诊断用）
+  stageAt         DateTime?
+  /// 翻卡断点：已翻到第几张。越界由 clampCursor 兜底回 0。
+  vocabCursor     Int       @default(0)
+
   /// 读段若被系统收尾，记原因（课程页据此显示「已自动收卷」而非 ✅）
   autoFinalizeReason String?
 

@@ -16,6 +16,9 @@ import {
   DRILL_DAILY_CAP,
   readablePaperTitle,
   LESSON_RULES_VERSION,
+  deriveStage,
+  clampStage,
+  clampCursor,
 } from './lesson-rules';
 
 /**
@@ -223,5 +226,89 @@ describe('LESSON_RULES_VERSION', () => {
     // 所以必须换版本 —— 否则改口径前后的完成率不可比。
     expect(LESSON_RULES_VERSION).toBeGreaterThanOrEqual(2);
     expect(drillTarget(20)).toBeLessThan(20);
+  });
+});
+
+// ─────────────────────────────────────────────────────────────────────
+// P3 任务阶段（docs/refactor-plan.md P3）
+// ─────────────────────────────────────────────────────────────────────
+
+describe('deriveStage —— 从事实推导阶段', () => {
+  const F = {
+    readSettled: false,
+    vocabSettled: false,
+    hasUnlearnedWords: false,
+    drillSettled: false,
+  };
+
+  it('正常进入：还没交卷 → reading', () => {
+    expect(deriveStage(F)).toBe('reading');
+  });
+
+  it('交了卷、当天有新词 → vocab_learn（先教后测）', () => {
+    expect(deriveStage({ ...F, readSettled: true, hasUnlearnedWords: true })).toBe('vocab_learn');
+  });
+
+  it('新词学完、背段还没达标 → vocab_test', () => {
+    expect(deriveStage({ ...F, readSettled: true })).toBe('vocab_test');
+  });
+
+  it('背段达标但补段没完 → 仍是 vocab_test（课还没走完）', () => {
+    expect(deriveStage({ ...F, readSettled: true, vocabSettled: true })).toBe('vocab_test');
+  });
+
+  it('三段都达标 → done', () => {
+    expect(
+      deriveStage({ readSettled: true, vocabSettled: true, hasUnlearnedWords: false, drillSettled: true }),
+    ).toBe('done');
+  });
+
+  it('今天没场次（readSettled=true 由 target=0 得来）→ 直接进词汇阶段', () => {
+    expect(deriveStage({ ...F, readSettled: true, hasUnlearnedWords: true })).toBe('vocab_learn');
+  });
+});
+
+describe('clampStage —— 阶段只前进不后退', () => {
+  it('前进：写入新阶段', () => {
+    expect(clampStage('reading', 'vocab_learn')).toBe('vocab_learn');
+  });
+
+  it('**完成后不可恢复到旧阶段**：done 之后再自主加练也不退回', () => {
+    // 学生做完一整天的课，晚上又打开翻卡页自主加练 —— 事实层面
+    // vocab 又「未完成」了，但课程页不该显示「今天还没做完」
+    expect(clampStage('done', 'vocab_learn')).toBe('done');
+    expect(clampStage('done', 'reading')).toBe('done');
+  });
+
+  it('旧数据兼容：stage 缺省（null/空）当作 reading，可被事实推上去', () => {
+    expect(clampStage(null, 'done')).toBe('done');
+    expect(clampStage(undefined, 'vocab_test')).toBe('vocab_test');
+    expect(clampStage('', 'reading_done')).toBe('reading_done');
+  });
+
+  it('未知阶段字符串按最低位处理，不阻塞前进', () => {
+    expect(clampStage('garbage', 'vocab_test')).toBe('vocab_test');
+  });
+});
+
+describe('clampCursor —— 翻卡断点', () => {
+  it('翻卡中退出：保留断点', () => {
+    expect(clampCursor(3, 10)).toBe(3);
+  });
+
+  it('越界（卡片列表随 FSRS 变短）→ 回 0，退化成从头翻', () => {
+    expect(clampCursor(9, 5)).toBe(0);
+    expect(clampCursor(5, 5)).toBe(0); // 等于长度也越界
+  });
+
+  it('脏值（null/NaN/负数）→ 0，绝不让学生卡在不存在的下标', () => {
+    expect(clampCursor(null, 5)).toBe(0);
+    expect(clampCursor(undefined, 5)).toBe(0);
+    expect(clampCursor(Number.NaN, 5)).toBe(0);
+    expect(clampCursor(-2, 5)).toBe(0);
+  });
+
+  it('小数向下取整', () => {
+    expect(clampCursor(2.9, 10)).toBe(2);
   });
 });

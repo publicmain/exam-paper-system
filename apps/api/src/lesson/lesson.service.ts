@@ -16,12 +16,17 @@ import {
   lessonComplete,
   lessonDayKey,
   sgtMidnightInstant,
+  isSegmentComplete,
   lessonProgress,
   readStatus,
   segmentStatus,
   vocabTarget,
   drillTarget,
   readablePaperTitle,
+  type LessonStage,
+  deriveStage,
+  clampStage,
+  clampCursor,
 } from './lesson-rules';
 
 /**
@@ -157,6 +162,25 @@ export class LessonService {
       });
     }
 
+    // ── 任务阶段（P3）──
+    // 从事实推导，再与库里存的做单调钳制（只前进不后退）。stage 是
+    // 缓存：即使与事实短暂不一致，下一次读就会被事实纠正。
+    const derived = deriveStage({
+      readSettled: isSegmentComplete(segments.read),
+      vocabSettled: isSegmentComplete(segments.vocab),
+      hasUnlearnedWords: vocabNow.unlearned > 0,
+      drillSettled: isSegmentComplete(segments.drill),
+    });
+    const stage: LessonStage = clampStage(frozen?.stage, derived);
+    // 只有真的前进了才写库（课程页会被反复打开，不必每次 UPDATE）
+    if (frozen && stage !== frozen.stage) {
+      await this.prisma.dailyLessonCompletion.update({
+        where: { id: frozen.id },
+        data: { stage, stageAt: now },
+      });
+    }
+    const vocabCursor = clampCursor(frozen?.vocabCursor, vocabNow.target);
+
     const prog = lessonProgress(segments);
     return {
       student: { id: student.id, name: student.name },
@@ -167,6 +191,10 @@ export class LessonService {
       allDone: lessonComplete(segments),
       streakDays: await this.lessonStreak(student.id, day),
       targetsFrozenAt: frozen?.targetsFrozenAt ?? null,
+      // P3：当前阶段 + 翻卡断点（纯新增字段，旧前端忽略即可）
+      stage,
+      stageAt: frozen?.stageAt ?? null,
+      vocabCursor,
       segments: [
         {
           key: 'read' as const,
@@ -335,7 +363,12 @@ export class LessonService {
     const progress = await this.prisma.wordReviewLog.count({
       where: { studentWord: { studentId }, reviewedAt: { gte: dayStart } },
     });
-    return { target, progress };
+    // 还没学过的到期词（reps=0）—— 阶段判定要靠它区分「该教」还是
+    // 「该考」（P3）。与翻卡页 unseen 判据同源。
+    const unlearned = await this.prisma.studentWord.count({
+      where: { studentId, due: { lte: now }, reps: 0 },
+    });
+    return { target, progress, unlearned };
   }
 
   // ── ③ 补 ──
@@ -385,6 +418,34 @@ export class LessonService {
       )
       .map((r) => r.date.toISOString().slice(0, 10));
     return streakFromDays(doneDays, today.toISOString().slice(0, 10));
+  }
+
+  /**
+   * 上报翻卡断点（P3）。**只写 cursor，不动 stage** —— 阶段由
+   * today() 从事实推导，这里不越权。
+   *
+   * 单调钳制：只增不减。翻卡评分是并发上报的（弱网重发、快速连翻），
+   * 乱序到达时旧值不能把进度冲回去。
+   */
+  async saveVocabCursor(input: { studentName: string; studentId?: string; cursor: number }) {
+    const student = await this.words.resolveStudent(input.studentName, input.studentId);
+    const now = new Date();
+    const day = this.sgtDayStart(now);
+    const row = await this.prisma.dailyLessonCompletion.findUnique({
+      where: { studentId_date: { studentId: student.id, date: day } },
+      select: { id: true, vocabCursor: true },
+    });
+    // 没有当日记录说明学生还没打开过课程页 —— 不在这里创建（创建是
+    // today(freeze:true) 的职责，那里才有完整的目标冻结逻辑）
+    if (!row) return { ok: true as const, cursor: 0, stored: false };
+    const next = Math.max(row.vocabCursor, Math.max(0, Math.floor(input.cursor)));
+    if (next !== row.vocabCursor) {
+      await this.prisma.dailyLessonCompletion.update({
+        where: { id: row.id },
+        data: { vocabCursor: next },
+      });
+    }
+    return { ok: true as const, cursor: next, stored: true };
   }
 
   // ─────────────────── 教师端看板（PRD §4） ───────────────────

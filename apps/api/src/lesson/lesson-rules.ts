@@ -244,3 +244,96 @@ export function readablePaperTitle(raw: string | null | undefined): string | nul
   if (!words.length) return null;
   return words.map((w) => (w.length <= 2 ? w : w[0].toUpperCase() + w.slice(1))).join(' ');
 }
+
+// ─────────────────────────────────────────────────────────────────────
+// 任务阶段（P3，docs/refactor-plan.md）
+// ─────────────────────────────────────────────────────────────────────
+
+/**
+ * 学生当天走到哪一步。
+ *
+ * ## stage 是缓存，不是真相
+ *
+ * 真相永远是三段事实字段（doneAt / submitSource）与答卷本身；
+ * `deriveStage` 每次从事实重算，只有**严格前进**时才写库。这样即使
+ * stage 与事实短暂不一致（并发写、旧数据），下一次读就会被事实纠正 ——
+ * 不会出现「stage 卡住导致学生进不去」的死锁。
+ *
+ * 转换：
+ *   reading ──交卷(student/teacher)──▶ reading_done
+ *   reading_done ──有新词要学──▶ vocab_learn
+ *   vocab_learn ──新词学完──▶ vocab_test
+ *   vocab_test ──测完/无可测词──▶ done
+ *
+ * `done` 单向不可逆（见 clampStage）。
+ */
+export type LessonStage =
+  | 'reading'
+  | 'reading_done'
+  | 'vocab_learn'
+  | 'vocab_test'
+  | 'done';
+
+/** 阶段序（用于单调钳制）。 */
+export const STAGE_ORDER: LessonStage[] = [
+  'reading',
+  'reading_done',
+  'vocab_learn',
+  'vocab_test',
+  'done',
+];
+
+export function stageRank(s: LessonStage | string | null | undefined): number {
+  const i = STAGE_ORDER.indexOf(s as LessonStage);
+  return i < 0 ? 0 : i;
+}
+
+/**
+ * 单调钳制：阶段只前进不后退。
+ *
+ * 验收要求「任务完成后不可恢复到旧阶段」—— 学生做完一整天的课之后
+ * 再打开翻卡页（自主加练），事实层面 vocab 又「未完成」了，但这不该
+ * 把他打回 vocab_learn 让课程页显示「今天还没做完」。
+ */
+export function clampStage(
+  stored: LessonStage | string | null | undefined,
+  derived: LessonStage,
+): LessonStage {
+  return stageRank(derived) >= stageRank(stored) ? derived : (stored as LessonStage);
+}
+
+/**
+ * 从事实推导阶段。纯函数 —— 输入是三段的既成事实，不看 stored.stage。
+ * 调用方拿它的结果去 clampStage(stored, derived)。
+ */
+export function deriveStage(facts: {
+  /** 读段是否算学生完成（none 也算，今天没场次不是学生的锅） */
+  readSettled: boolean;
+  /** 背段目标是否已达成（含 target=0 的 none） */
+  vocabSettled: boolean;
+  /** 当天是否还有没学过的新词（reps=0）要教 */
+  hasUnlearnedWords: boolean;
+  /** 补段是否已达成 */
+  drillSettled: boolean;
+}): LessonStage {
+  if (!facts.readSettled) return 'reading';
+  if (facts.hasUnlearnedWords) return 'vocab_learn';
+  if (!facts.vocabSettled) return 'vocab_test';
+  if (!facts.drillSettled) return 'vocab_test';
+  return 'done';
+}
+
+/**
+ * 翻卡断点钳制。
+ *
+ * cursor 存的是「已翻到第几张」，但当日卡片列表会随 FSRS 调度变化
+ * （评过的词不再到期、新词可能被加进来）。越界一律回 0 —— 最坏退化
+ * 成今天的行为（从头翻），绝不让学生卡在一个不存在的下标上。
+ */
+export function clampCursor(cursor: number | null | undefined, cardCount: number): number {
+  if (!Number.isFinite(cursor as number)) return 0;
+  const c = Math.floor(cursor as number);
+  if (c <= 0) return 0;
+  if (c >= cardCount) return 0;
+  return c;
+}

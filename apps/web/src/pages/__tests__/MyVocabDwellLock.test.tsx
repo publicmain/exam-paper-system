@@ -20,7 +20,14 @@ import { api } from '../../lib/api';
  */
 
 vi.mock('../../lib/api', () => ({
-  api: { vocabDue: vi.fn(), vocabReview: vi.fn().mockResolvedValue({ intervalDays: 2, state: 'review', reps: 1 }) },
+  api: {
+    vocabDue: vi.fn(),
+    vocabReview: vi.fn().mockResolvedValue({ intervalDays: 2, state: 'review', reps: 1 }),
+    // P3 断点恢复：翻卡页会读 today() 拿 vocabCursor、评分后上报 cursor。
+    // 两者都是 best-effort（失败不打扰学生），这里给出成功的空档回应。
+    lessonToday: vi.fn().mockResolvedValue({ vocabCursor: 0 }),
+    lessonVocabCursor: vi.fn().mockResolvedValue({ ok: true, cursor: 1 }),
+  },
 }));
 
 const card = (over: Partial<any> = {}) => ({

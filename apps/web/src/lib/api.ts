@@ -466,6 +466,9 @@ export const api = {
       'GET',
       `/lesson/today?name=${encodeURIComponent(name)}${studentId ? `&studentId=${encodeURIComponent(studentId)}` : ''}`,
     ),
+  /** 学生：上报翻卡断点（P3 退出恢复） */
+  lessonVocabCursor: (name: string, cursor: number, studentId?: string) =>
+    request('POST', '/lesson/vocab-cursor', { name, cursor, studentId }),
   /** 教师：班级完成度看板（不冻结目标） */
   lessonBoard: (classId: string, date?: string) =>
     request(

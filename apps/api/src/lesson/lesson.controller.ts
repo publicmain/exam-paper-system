@@ -1,10 +1,11 @@
-import { BadRequestException, Controller, ForbiddenException, Get, Query, UseGuards } from '@nestjs/common';
+import { BadRequestException, Body, Controller, ForbiddenException, Get, Post, Query, UseGuards } from '@nestjs/common';
 import { CurrentUser } from '../common/current-user.decorator';
 import { Public } from '../common/auth.guard';
 import { RateLimit } from '../common/rate-limit.guard';
-import { StudentIdentityGuard } from '../common/student-identity.guard';
+import { RequireStudentToken, StudentIdentityGuard } from '../common/student-identity.guard';
 import { PrismaService } from '../common/prisma.service';
 import { canActOnClass } from '../common/roles';
+import { z } from 'zod';
 import { LessonService } from './lesson.service';
 
 /**
@@ -33,6 +34,31 @@ export class LessonController {
   async today(@Query('name') name?: string, @Query('studentId') studentId?: string) {
     if (!name?.trim()) throw new BadRequestException({ code: 'name_required' });
     return this.svc.today({ studentName: name, studentId: studentId || undefined, freeze: true });
+  }
+
+  /**
+   * 上报翻卡断点（P3）。学生退出/刷新/换设备后从这里恢复位置。
+   *
+   * 写操作 → 必须带学生 token（@RequireStudentToken 由 Guard 强制），
+   * 与所有其它学生写接口同一道闸。
+   */
+  @Public()
+  @RequireStudentToken()
+  @RateLimit({ limit: 120, windowSec: 60, scope: 'ip' })
+  @Post('vocab-cursor')
+  async saveVocabCursor(@Body() body: unknown) {
+    const schema = z.object({
+      name: z.string().min(1).max(50),
+      studentId: z.string().optional(),
+      cursor: z.number().int().min(0).max(500),
+    });
+    const p = schema.safeParse(body);
+    if (!p.success) throw new BadRequestException(p.error.flatten());
+    return this.svc.saveVocabCursor({
+      studentName: p.data.name,
+      studentId: p.data.studentId,
+      cursor: p.data.cursor,
+    });
   }
 
   /** 教师：班级完成度看板。 */

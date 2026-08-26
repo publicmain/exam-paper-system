@@ -203,6 +203,17 @@ export default function MyVocabReviewPage() {
           return;
         }
         setCards(list);
+        // P3 退出恢复：从服务端拿断点定位（换设备/重新登录也在）。
+        // 越界由 clampCursor 语义兜底 —— 拿不到就从头翻，绝不卡死。
+        void api
+          .lessonToday(name, studentId || undefined)
+          .then((t: any) => {
+            const c = Number(t?.vocabCursor);
+            if (!cancelled && Number.isInteger(c) && c > 0 && c < list.length) {
+              setIdx(c);
+            }
+          })
+          .catch(() => { /* 拿不到断点就从头翻，不打扰学生 */ });
       })
       .catch(() => {
         // 超时或生词本不可用，绝不能挡住看成绩
@@ -254,7 +265,13 @@ export default function MyVocabReviewPage() {
       setDone((d) => d + 1);
       if (idx + 1 >= cards.length) setIdx(cards.length); // → 完成页
       else {
-        setIdx((i) => i + 1);
+        setIdx((i) => {
+        const next = i + 1;
+        // P3：上报断点（best-effort —— 失败不打扰学生，下次翻卡
+        // 最坏从上一个已上报的位置继续）
+        void api.lessonVocabCursor(name, next, studentId || undefined).catch(() => {});
+        return next;
+      });
         setRevealed(false);
         setShownAt(Date.now());
       }

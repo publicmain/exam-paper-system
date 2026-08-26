@@ -43,9 +43,19 @@ interface LessonSeg {
   autoClosed?: boolean;
 }
 
+type LessonStage = 'reading' | 'reading_done' | 'vocab_learn' | 'vocab_test' | 'done';
+
+/** 当前阶段对应哪一段该高亮（P3）。done 时不高亮任何段。 */
+function activeSegOf(stage?: LessonStage): LessonSeg['key'] | null {
+  if (stage === 'reading') return 'read';
+  if (stage === 'vocab_learn' || stage === 'vocab_test') return 'vocab';
+  return null;
+}
+
 interface LessonToday {
   student: { id: string; name: string };
   date: string;
+  stage?: LessonStage;
   completed: number;
   total: number;
   allDone: boolean;
@@ -232,7 +242,11 @@ export default function MyLessonPage() {
               <div
                 key={seg.key}
                 className={`bg-white rounded-2xl border p-4 ${
-                  finished ? 'border-emerald-200' : 'border-gray-200'
+                  finished
+                    ? 'border-emerald-200'
+                    : seg.key === activeSegOf(data.stage)
+                      ? 'border-blue-400 ring-1 ring-blue-100'
+                      : 'border-gray-200'
                 }`}
               >
                 <div className="flex items-start justify-between gap-3">
