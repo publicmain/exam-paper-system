@@ -92,6 +92,34 @@ export class StudentAuthController {
     }
   }
 
+  /** 网站式注册（2026-08-26）：打开 app 弹卡 → 首次设密码即注册即登录。 */
+  @Public()
+  @RateLimit({ limit: 10, windowSec: 60, scope: 'ip' })
+  @Post('register')
+  async register(@Body() body: unknown) {
+    const schema = z.object({
+      name: z.string().min(1).max(50),
+      studentId: z.string().optional(),
+      password: z.string().min(1).max(64),
+      nickname: z.string().max(20).optional(),
+      avatar: z.string().max(95_000).optional(),
+    });
+    const p = schema.safeParse(body);
+    if (!p.success) throw new BadRequestException(p.error.flatten());
+    return this.svc.register(p.data);
+  }
+
+  /** 打开 app 要不要弹注册卡。 */
+  @Public()
+  @RateLimit({ limit: 60, windowSec: 60, scope: 'ip' })
+  @Get('registration-status')
+  async registrationStatus(
+    @Query('name') name?: string,
+    @Query('studentId') studentId?: string,
+  ) {
+    return this.svc.registrationStatus({ name: name ?? '', studentId: studentId || undefined });
+  }
+
   @Public()
   @RateLimit({ limit: 30, windowSec: 60, scope: 'ip' })
   @Post('login')
@@ -99,7 +127,7 @@ export class StudentAuthController {
     const schema = z.object({
       name: z.string().min(1).max(50),
       studentId: z.string().optional(),
-      pin: z.string().min(1).max(20),
+      pin: z.string().min(1).max(32),
     });
     const p = schema.safeParse(body);
     if (!p.success) throw new BadRequestException(p.error.flatten());
@@ -123,8 +151,8 @@ export class StudentAuthController {
   async changePin(@Body() body: unknown, @Req() req: Request) {
     const me = await this.requireStudent(req);
     const schema = z.object({
-      oldPin: z.string().min(1).max(20),
-      newPin: z.string().min(1).max(20),
+      oldPin: z.string().min(1).max(32),
+      newPin: z.string().min(1).max(32),
     });
     const p = schema.safeParse(body);
     if (!p.success) throw new BadRequestException(p.error.flatten());

@@ -2,6 +2,8 @@ import { useEffect, useMemo, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { api } from '../lib/api';
 import { Spinner } from '../components/AsyncState';
+import RegistrationSheet from '../components/RegistrationSheet';
+import { checkRegistration, type RegStatus } from '../lib/registration';
 
 /**
  * 今天的课（4.0 阶段 A，docs/PRD/morning-quiz-4.0-daily-lesson.md §3）。
@@ -119,6 +121,17 @@ export default function MyLessonPage() {
     })();
   const [data, setData] = useState<LessonToday | null>(null);
   const [err, setErr] = useState<string | null>(null);
+  // 网站式注册（2026-08-26）：打开 app 且未注册 → 弹卡，注册完继续
+  const [reg, setReg] = useState<RegStatus | null>(null);
+  useEffect(() => {
+    let alive = true;
+    void checkRegistration().then((r) => {
+      if (alive && r?.show) setReg(r);
+    });
+    return () => {
+      alive = false;
+    };
+  }, []);
 
   useEffect(() => {
     if (!name.trim()) {
@@ -153,6 +166,16 @@ export default function MyLessonPage() {
     return `/my-mistakes/practice?${qs}`;
   };
 
+  if (reg) {
+    return (
+      <RegistrationSheet
+        name={reg.name}
+        studentId={reg.studentId}
+        candidates={reg.candidates}
+        onDone={() => window.location.reload()}
+      />
+    );
+  }
   if (err) {
     return (
       <div className="ui-ios min-h-screen bg-gray-50 flex items-center justify-center px-5">

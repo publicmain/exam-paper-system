@@ -449,6 +449,14 @@ export const api = {
   studentLogin: (body: { name: string; studentId?: string; pin: string }) =>
     request('POST', '/student-auth/login', body),
   studentSetPin: (body: { pin: string }) => request('POST', '/student-auth/set-pin', body),
+  /** 网站式注册（2026-08-26）：首次设密码即注册即登录 */
+  studentRegister: (body: {
+    name: string;
+    studentId?: string;
+    password: string;
+    nickname?: string;
+    avatar?: string;
+  }) => request('POST', '/student-auth/register', body),
   studentChangePin: (body: { oldPin: string; newPin: string }) =>
     request('POST', '/student-auth/change-pin', body),
   studentAuthMe: () => request('GET', '/student-auth/me'),

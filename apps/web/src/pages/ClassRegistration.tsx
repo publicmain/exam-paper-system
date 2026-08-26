@@ -116,10 +116,11 @@ export default function ClassRegistration() {
 
   return (
     <div className="p-6 max-w-5xl mx-auto">
-      <h1 className="text-2xl font-bold text-gray-900">集体注册台</h1>
+      <h1 className="text-2xl font-bold text-gray-900">注册看板</h1>
       <p className="text-sm text-gray-500 mt-1 leading-relaxed">
-        PIN 认领<strong>只在开窗期间</strong>可用。请在课上开窗、让全班当场注册 ——
-        如果有人的名字已经被别人领走，当场就能发现。注册完请<strong>立刻关窗</strong>。
+        学生打开 App 时会<strong>自动引导注册</strong>（设密码、选头像），
+        不需要教师做任何操作。这里看谁注册了；有人被冒名或忘密码，
+        去「班级」页给他<strong>重置密码</strong>即可（重置瞬间对方所有登录失效）。
       </p>
 
       <div className="mt-4 flex flex-wrap items-center gap-3">
@@ -135,34 +136,7 @@ export default function ClassRegistration() {
           ))}
         </select>
 
-        {open ? (
-          <>
-            <span className="px-3 py-2 rounded-lg bg-emerald-50 text-emerald-700 font-mono text-lg font-bold">
-              开放中 {fmtRemaining(remainingSec)}
-            </span>
-            <button
-              disabled={busy}
-              onClick={() => void act(() => api.closeClaimWindow(classId))}
-              className="px-4 py-2 rounded-lg bg-rose-600 text-white font-semibold disabled:bg-gray-300"
-            >
-              立刻关窗
-            </button>
-          </>
-        ) : (
-          <>
-            <span className="px-3 py-2 rounded-lg bg-gray-100 text-gray-500">已关闭</span>
-            {[10, 20, 45].map((m) => (
-              <button
-                key={m}
-                disabled={busy || !classId}
-                onClick={() => void act(() => api.openClaimWindow(classId, m))}
-                className="px-4 py-2 rounded-lg bg-blue-600 text-white font-semibold disabled:bg-gray-300"
-              >
-                开窗 {m} 分钟
-              </button>
-            ))}
-          </>
-        )}
+        {/* 2026-08-26 网站式注册：开窗机制废弃，这里只剩看板 */}
       </div>
 
       {err && <div className="mt-3 text-sm text-rose-600">{err}</div>}
@@ -175,7 +149,7 @@ export default function ClassRegistration() {
               <span className="text-gray-400 text-xl"> / {data.total}</span>
             </div>
             <div className="text-sm text-gray-500">
-              已认领 · 还差 <strong className="text-gray-800">{data.unclaimed}</strong> 人
+              已注册 · 还差 <strong className="text-gray-800">{data.unclaimed}</strong> 人
             </div>
           </div>
 
@@ -204,16 +178,7 @@ export default function ClassRegistration() {
                   )}
                 </span>
                 <span className="flex gap-1 shrink-0">
-                  {!s.claimed && !s.personalWindowOpen && (
-                    <button
-                      disabled={busy}
-                      onClick={() => void act(() => api.openStudentClaimWindow(s.id, 10))}
-                      className="text-xs px-2 py-1 rounded border text-blue-700 hover:bg-blue-50"
-                      title="只给这个学生开 10 分钟 —— 不必为一个人重开全班的窗"
-                    >
-                      补开窗
-                    </button>
-                  )}
+
                   <button
                     onClick={() => void viewAs(s)}
                     className="text-xs px-2 py-1 rounded border text-gray-700 hover:bg-gray-50"

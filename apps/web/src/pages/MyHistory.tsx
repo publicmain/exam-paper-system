@@ -1,6 +1,8 @@
 import { useEffect, useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { lessonLaunchRedirect } from '../lib/lesson-entry';
+import RegistrationSheet from '../components/RegistrationSheet';
+import { checkRegistration, type RegStatus } from '../lib/registration';
 import { BASE, api } from '../lib/api';
 import { track } from '../lib/track';
 import SkillProfileCard from '../components/SkillProfileCard';
@@ -235,6 +237,16 @@ export default function MyHistory() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // 网站式注册（2026-08-26）：未注册的学生在这里也会被弹卡
+  const [reg, setReg] = useState<RegStatus | null>(null);
+  useEffect(() => {
+    let alive = true;
+    void checkRegistration().then((r) => {
+      if (alive && r?.show) setReg(r);
+    });
+    return () => { alive = false; };
+  }, []);
+
   useEffect(() => {
     if (urlName && !submitted) {
       lookup(urlName);
@@ -327,6 +339,17 @@ export default function MyHistory() {
     } finally {
       setPracticePending(null);
     }
+  }
+
+  if (reg) {
+    return (
+      <RegistrationSheet
+        name={reg.name}
+        studentId={reg.studentId}
+        candidates={reg.candidates}
+        onDone={() => window.location.reload()}
+      />
+    );
   }
 
   return (

@@ -7,7 +7,7 @@ import {
   isWeakPin,
   lockRemainingSec,
   validatePinFormat,
-  type LockState,
+  type LockState, validatePasswordFormat,
 } from './pin';
 
 describe('validatePinFormat', () => {
@@ -71,5 +71,29 @@ describe('锁定状态机', () => {
 
   it('成功登录清零一切', () => {
     expect(afterSuccess()).toEqual({ pinFailedCount: 0, pinLockedUntil: null });
+  });
+});
+
+describe('validatePasswordFormat —— 网站式注册的密码规则', () => {
+  it('6-32 位任意字符放行', () => {
+    expect(validatePasswordFormat('abc123')).toBeNull();
+    expect(validatePasswordFormat('我的密码abc1')).toBeNull();
+    expect(validatePasswordFormat('x'.repeat(31) + 'y')).toBeNull();
+  });
+  it('太短/太长', () => {
+    expect(validatePasswordFormat('abc12')).toBe('password_too_short');
+    expect(validatePasswordFormat('x1'.repeat(17))).toBe('password_too_long');
+  });
+  it('全同字符一律拒（不只是数字）', () => {
+    expect(validatePasswordFormat('aaaaaa')).toBe('password_too_weak');
+    expect(validatePasswordFormat('000000')).toBe('password_too_weak');
+  });
+  it('纯数字顺子任意长度都挡（123456 / 1234567 / 654321）', () => {
+    expect(validatePasswordFormat('123456')).toBe('password_too_weak');
+    expect(validatePasswordFormat('1234567')).toBe('password_too_weak');
+    expect(validatePasswordFormat('654321')).toBe('password_too_weak');
+  });
+  it('普通 6 位数字仍可用（280519 这类非顺子）', () => {
+    expect(validatePasswordFormat('280519')).toBeNull();
   });
 });

@@ -33,18 +33,24 @@ model User {
 
   // ── 学生 PIN 登录（2026-08-25，docs/PRD/student-auth-and-home.md）──
   /// 6 位数字 PIN 的 bcrypt 哈希；null = 从未设置（学生在教室扫码后自设）
-  pinHash            String?
-  pinSetAt           DateTime?
+  pinHash        String?
+  pinSetAt       DateTime?
   /// 连续输错计数；成功登录清零
-  pinFailedCount     Int       @default(0)
+  pinFailedCount Int       @default(0)
   /// 连错 5 次锁到这个时刻（15 分钟）—— 6 位 PIN 的暴力破解防线
-  pinLockedUntil     DateTime?
+  pinLockedUntil DateTime?
+  /// 学生自选昵称（2026-08-26 网站式注册）。默认真名，不要求唯一。
+  nickname       String?
+  /// 头像：emoji:X 预设 或 128x128 JPEG data URL（≤64KB 文本）。
+  /// 35 人规模直接存库，不引外部存储。
+  avatar         String?
+
   /// 学生长期 token 的版本号（2026-08-25 复审 P0-2）。
   /// 长期 token 是无状态 JWT，重置 PIN / 改 PIN / 停用账号都无法让已签发的
   /// 30 天 token 失效 —— 抢注者拿到的 token 能一直用到过期。
   /// 签发时把当前值写进 `av` claim，Guard 逐次比对；上述事件原子递增此值，
   /// 旧 token 立刻全部作废（等价于「登出所有设备」）。
-  studentAuthVersion Int       @default(0)
+  studentAuthVersion Int @default(0)
 
   /// 个别补注册窗口（2026-08-25）。集体注册当天请假、换手机、被抢注后
   /// 需要重来的学生，由教师在花名册上逐个开一个短窗，不必为一个人重开

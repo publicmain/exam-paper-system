@@ -2,7 +2,6 @@ import { useEffect, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { api } from '../lib/api';
 import WhatsNewSheet, { hasSeenWhatsNew, markWhatsNewSeen } from '../components/exam/WhatsNewSheet';
-import PinSetupCard from '../components/PinSetupCard';
 import { decodeJwt } from '../lib/auth';
 import InstallGuideSheet, {
   hasSeenInstallGuide,
@@ -144,7 +143,9 @@ export default function MorningQuizScan() {
   /** 签到成功后要去的试卷地址。非 null = 正在显示一次性引导。 */
   const [pendingQuizUrl, setPendingQuizUrl] = useState<string | null>(null);
   /** 当前在放哪道引导。 */
-  const [gate, setGate] = useState<'setpin' | 'whatsnew' | 'install' | null>(null);
+  // setpin 门已移除（2026-08-26）：注册改为打开 app 时自助完成（RegistrationSheet），
+  // 不再挤在扫码签到的路径上 —— 那条路每一秒都是答题时间
+  const [gate, setGate] = useState<'whatsnew' | 'install' | null>(null);
 
   // Fetch the class meta on mount. We hit /scan-roster (gated by a live
   // QR token) but only display the class name + count, never the names
@@ -281,18 +282,6 @@ export default function MorningQuizScan() {
 
   // 引导优先于其余所有分支：此刻考勤已经落库,唯一还没做的就是跳转,
   // 不能被下面任何一个 meta/error 分支抢先渲染掉。
-  if (pendingQuizUrl && gate === 'setpin') {
-    return (
-      <PinSetupCard
-        onDone={() => {
-          // 设完（或跳过）接着走原有的两道门
-          if (!hasSeenWhatsNew()) setGate('whatsnew');
-          else if (!hasSeenInstallGuide() && detectPlatform() !== 'other' && !isStandalone()) setGate('install');
-          else window.location.replace(pendingQuizUrl);
-        }}
-      />
-    );
-  }
   if (pendingQuizUrl && gate === 'whatsnew') {
     return (
       <WhatsNewSheet
@@ -474,7 +463,10 @@ function isQuizOver(code: string, raw: string): boolean {
     code === 'attendance_window_not_open' ||
     code === 'session_not_found' ||
     code === 'qr_session_not_found' ||
-    code === 'session_not_active'
+    code === 'session_not_active' ||
+    // 已交卷重扫（2026-08-26 教师实测）：原来是一堵「不能再修改」的红墙
+    // 死档 —— 改成门厅，给「我的成绩」大按钮。他重扫十有八九就是想看成绩。
+    code === 'already_final_submitted'
   );
 }
 

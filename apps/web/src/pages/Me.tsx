@@ -4,6 +4,8 @@ import { Link, useNavigate } from 'react-router-dom';
 import { api } from '../lib/api';
 import { decodeJwt } from '../lib/auth';
 import { Spinner } from '../components/AsyncState';
+import RegistrationSheet from '../components/RegistrationSheet';
+import { checkRegistration, type RegStatus } from '../lib/registration';
 
 /**
  * 个人主页 /me（2026-08-25，docs/PRD/student-auth-and-home.md §6）。
@@ -45,6 +47,17 @@ function tokenStudent(): { id: string; name: string } | null {
 export default function MePage() {
   const navigate = useNavigate();
   const [me, setMe] = useState<{ id: string; name: string } | null>(() => tokenStudent());
+  // 网站式注册（2026-08-26）：没登录且未注册 → 注册卡优先于登录卡
+  const [reg, setReg] = useState<RegStatus | null>(null);
+  useEffect(() => {
+    if (me) return;
+    let alive = true;
+    void checkRegistration().then((r) => {
+      if (alive && r?.show) setReg(r);
+    });
+    return () => { alive = false; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // ── 登录卡状态 ──
   const [name, setName] = useState(() => {
@@ -69,8 +82,8 @@ export default function MePage() {
   const doLogin = useCallback(
     async (studentId?: string) => {
       const trimmed = name.trim();
-      if (!trimmed || pin.length !== 6) {
-        setLoginErr('请输入姓名和 6 位 PIN');
+      if (!trimmed || pin.length < 6) {
+        setLoginErr('请输入姓名和密码（至少 6 位）');
         return;
       }
       setLoginBusy(true);
@@ -94,7 +107,7 @@ export default function MePage() {
           const min = Math.ceil((e.body.retryAfterSec ?? 900) / 60);
           setLoginErr(`连续输错次数过多，已锁定 —— ${min} 分钟后再试`);
         } else if (e?.body?.code === 'invalid_credentials' || e?.status === 401) {
-          setLoginErr('姓名或 PIN 不对。还没设过 PIN？在教室扫码后即可设置。');
+          setLoginErr('姓名或密码不对。还没注册？打开 App 时会引导注册。');
         } else {
           setLoginErr(String(e?.message ?? e));
         }
@@ -216,9 +229,9 @@ export default function MePage() {
     } catch (e: any) {
       const code = e?.body?.code;
       setChangeMsg(
-        code === 'invalid_credentials' ? '旧 PIN 不对' :
-        code === 'pin_too_weak' ? '新 PIN 太好猜了，换一个' :
-        code === 'pin_must_be_6_digits' ? 'PIN 必须是 6 位数字' :
+        code === 'invalid_credentials' ? '旧密码不对' :
+        code === 'pin_too_weak' || code === 'password_too_weak' ? '新密码太好猜了，换一个' :
+        code === 'password_too_short' ? '密码至少 6 位' :
         code === 'pin_locked' ? '输错太多次，稍后再试' :
         String(e?.message ?? e),
       );
@@ -226,6 +239,17 @@ export default function MePage() {
   };
 
   // ── 未登录：登录卡 ──
+  if (!me && reg) {
+    return (
+      <RegistrationSheet
+        name={reg.name}
+        studentId={reg.studentId}
+        candidates={reg.candidates}
+        onDone={(stu) => { setReg(null); setMe(stu); }}
+      />
+    );
+  }
+
   if (!me) {
     return (
       <div className="ui-ios min-h-screen bg-gray-50 flex items-center justify-center px-5">
@@ -245,16 +269,15 @@ export default function MePage() {
             />
             <input
               type="password"
-              inputMode="numeric"
               value={pin}
-              onChange={(e) => setPin(e.target.value.replace(/\D/g, '').slice(0, 6))}
-              placeholder="6 位 PIN"
+              onChange={(e) => setPin(e.target.value.slice(0, 32))}
+              placeholder="密码"
               autoComplete="off"
               className="w-full border border-gray-300 rounded-xl px-4 py-3 text-base tracking-[0.4em] text-center focus:border-blue-500 focus:outline-none"
             />
             <button
               type="submit"
-              disabled={loginBusy || !name.trim() || pin.length !== 6}
+              disabled={loginBusy || !name.trim() || pin.length < 6}
               className="press w-full py-3 rounded-xl bg-blue-600 text-white font-semibold disabled:bg-gray-300"
             >
               {loginBusy ? '登录中…' : '登录'}
@@ -281,7 +304,7 @@ export default function MePage() {
             </div>
           )}
           <div className="mt-5 pt-4 border-t text-[13px] text-gray-500 leading-relaxed">
-            第一次用？<strong>在教室扫码后</strong>即可设置 PIN。
+            第一次用？打开 App 会引导你<strong>注册账号</strong>（设密码、选头像）。
             <br />
             <Link to="/my-history" className="text-blue-600 underline">
               或先用姓名查看成绩 →
@@ -369,28 +392,28 @@ export default function MePage() {
               type="button"
               onClick={() => setShowChange(true)}
               disabled={isTeacherView}
-              title={isTeacherView ? '教师视角只读 —— 重置 PIN 请在班级花名册操作' : undefined}
+              title={isTeacherView ? '教师视角只读 —— 重置密码请在班级花名册操作' : undefined}
               className="text-[14px] text-gray-600 disabled:text-gray-300"
             >
-              🔑 修改 PIN {pinSet === false && <span className="text-amber-600">（还没设置 —— 在教室扫码后设置）</span>}
+              🔑 修改密码 {pinSet === false && <span className="text-amber-600">（还没设置 —— 打开 App 会引导注册）</span>}
             </button>
           ) : (
             <div className="space-y-2">
-              <div className="text-[14px] font-semibold text-gray-800">修改 PIN</div>
+              <div className="text-[14px] font-semibold text-gray-800">修改密码</div>
               <input
-                type="password" inputMode="numeric" placeholder="旧 PIN" value={oldPin}
-                onChange={(e) => setOldPin(e.target.value.replace(/\D/g, '').slice(0, 6))}
-                className="w-full border rounded-lg px-3 py-2 text-sm tracking-widest"
+                type="password" placeholder="旧密码" value={oldPin}
+                onChange={(e) => setOldPin(e.target.value.slice(0, 32))}
+                className="w-full border rounded-lg px-3 py-2 text-sm"
               />
               <input
-                type="password" inputMode="numeric" placeholder="新 PIN（6 位数字）" value={newPin}
-                onChange={(e) => setNewPin(e.target.value.replace(/\D/g, '').slice(0, 6))}
-                className="w-full border rounded-lg px-3 py-2 text-sm tracking-widest"
+                type="password" placeholder="新密码（至少 6 位）" value={newPin}
+                onChange={(e) => setNewPin(e.target.value.slice(0, 32))}
+                className="w-full border rounded-lg px-3 py-2 text-sm"
               />
               <div className="flex gap-2">
                 <button
                   type="button"
-                  disabled={oldPin.length !== 6 || newPin.length !== 6}
+                  disabled={oldPin.length < 6 || newPin.length < 6}
                   onClick={() => void changePin()}
                   className="press px-4 py-2 rounded-lg bg-blue-600 text-white text-sm font-medium disabled:bg-gray-300"
                 >

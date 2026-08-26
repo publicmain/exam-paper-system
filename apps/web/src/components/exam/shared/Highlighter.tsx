@@ -193,17 +193,27 @@ export function Highlighter({
   // tap 与 gesture 也在 5-10px 这个量级）。
   // 长按会先产生 selection，届时 sel.isCollapsed 为 false，这里自动让路，
   // 高亮流程照常走。
-  const tapRef = useRef<{ x: number; y: number; t: number } | null>(null);
+  const tapRef = useRef<{ x: number; y: number; t: number; touch: boolean } | null>(null);
   function onPointerDownForTap(e: React.PointerEvent) {
     if (!onWordTap) return;
-    tapRef.current = { x: e.clientX, y: e.clientY, t: Date.now() };
+    tapRef.current = {
+      x: e.clientX,
+      y: e.clientY,
+      t: Date.now(),
+      touch: e.pointerType === 'touch',
+    };
   }
   function onPointerUpForTap(e: React.PointerEvent) {
     if (!onWordTap) return;
     const s = tapRef.current;
     tapRef.current = null;
     if (!s) return;
-    if (Math.abs(e.clientX - s.x) > 8 || Math.abs(e.clientY - s.y) > 8) return; // 拖动/滚动
+    // iPad 实测（2026-08-26 教师报修）：8px 对手指太苛刻 —— 指腹按下到
+    // 抬起在 iPad 上常晃 10-15px，绝大多数「点词」被当成拖动丢弃，表现
+    // 为「触屏查词没反应」。鼠标维持 8px（拖选判定要灵），触屏放宽到 18px
+    // （仍远小于最短的滚动手势位移）。
+    const slop = s.touch ? 18 : 8;
+    if (Math.abs(e.clientX - s.x) > slop || Math.abs(e.clientY - s.y) > slop) return; // 拖动/滚动
     if (Date.now() - s.t > 500) return;                                          // 长按
     const sel = window.getSelection();
     if (sel && !sel.isCollapsed) return;                                         // 已经在选中

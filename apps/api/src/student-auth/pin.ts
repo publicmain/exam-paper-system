@@ -68,3 +68,37 @@ export function afterFailure(state: LockState, now: Date): LockState {
 export function afterSuccess(): LockState {
   return { pinFailedCount: 0, pinLockedUntil: null };
 }
+
+// ─────────────────────────────────────────────────────────────────────
+// 密码（2026-08-26 网站式注册，docs/PRD/student-registration.md §3）
+//
+// 教师定案从 6 位 PIN 放宽为普通密码。字段不改名（pinHash 继续装
+// bcrypt 摘要），只放宽格式；纯数字密码沿用弱 PIN 黑名单 —— 那 5%
+// 最常见的（123456 / 111111）换了名字还是得挡。
+// ─────────────────────────────────────────────────────────────────────
+
+export const PASSWORD_MIN = 6;
+export const PASSWORD_MAX = 32;
+
+export type PasswordFormatError =
+  | 'password_too_short'
+  | 'password_too_long'
+  | 'password_too_weak'
+  | null;
+
+export function validatePasswordFormat(pw: string): PasswordFormatError {
+  if (typeof pw !== 'string' || pw.length < PASSWORD_MIN) return 'password_too_short';
+  if (pw.length > PASSWORD_MAX) return 'password_too_long';
+  // 全同字符（aaaaaa / ...）无论什么字符集都太好猜
+  if (/^(.)\1+$/.test(pw)) return 'password_too_weak';
+  // 纯数字走原 PIN 黑名单（顺子/回绕顺子）——先补齐到 6 位判定习惯：
+  // isWeakPin 只对 6 位设计，超过 6 位的纯数字顺子（1234567）同样该挡，
+  // 这里按「任意长度顺子」判
+  if (/^\d+$/.test(pw)) {
+    const digits = [...pw].map(Number);
+    const asc = digits.every((d, i) => i === 0 || d === (digits[i - 1] + 1) % 10);
+    const desc = digits.every((d, i) => i === 0 || d === (digits[i - 1] + 9) % 10);
+    if (asc || desc) return 'password_too_weak';
+  }
+  return null;
+}

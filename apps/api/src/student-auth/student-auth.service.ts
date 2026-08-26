@@ -16,6 +16,7 @@ import {
   isLocked,
   lockRemainingSec,
   validatePinFormat,
+  validatePasswordFormat,
 } from './pin';
 import {
   type ClaimWindowState,
@@ -78,8 +79,10 @@ export class StudentAuthService {
   async login(input: { name: string; studentId?: string; pin: string }) {
     const name = (input.name ?? '').trim();
     if (!name) throw new BadRequestException({ code: 'name_required' });
-    // 格式不对连查库都不必 —— 但错误码统一，不给枚举者信号
-    if (!/^\d{6}$/.test(input.pin ?? '')) {
+    // 格式不对连查库都不必 —— 但错误码统一，不给枚举者信号。
+    // 2026-08-26 网站式注册：从 6 位数字放宽为 6-32 位任意字符。
+    const rawPin = input.pin ?? '';
+    if (rawPin.length < 6 || rawPin.length > 32) {
       throw new UnauthorizedException({ code: 'invalid_credentials' });
     }
 
@@ -96,6 +99,8 @@ export class StudentAuthService {
         id: true,
         email: true,
         name: true,
+        nickname: true,
+        avatar: true,
         pinHash: true,
         pinFailedCount: true,
         pinLockedUntil: true,
@@ -179,7 +184,161 @@ export class StudentAuthService {
       },
       { expiresIn: StudentAuthService.TOKEN_TTL },
     );
-    return { token, student: { id: user.id, name: user.name } };
+    return {
+      token,
+      student: {
+        id: user.id,
+        name: user.name,
+        nickname: user.nickname ?? user.name,
+        avatar: user.avatar ?? null,
+      },
+    };
+  }
+
+  // ─────────────── 网站式注册（2026-08-26，PRD student-registration.md）───────────────
+
+  /**
+   * 同名解析 —— 与 login 同一套口径复制（不抽公共层，保持两条路径
+   * 各自可读；改一处时另一处的注释会提醒）。
+   */
+  private async resolveForRegistration(name: string, studentId?: string) {
+    return this.prisma.user.findMany({
+      where: {
+        name,
+        role: 'student',
+        isActive: true,
+        archivedAt: null,
+        classEnrollments: { some: { role: 'student', class: { archivedAt: null } } },
+        ...(studentId ? { id: studentId } : {}),
+      },
+      select: {
+        id: true,
+        email: true,
+        name: true,
+        pinHash: true,
+        studentAuthVersion: true,
+        classEnrollments: {
+          where: { role: 'student', class: { archivedAt: null } },
+          select: { class: { select: { id: true, name: true } } },
+        },
+      },
+    });
+  }
+
+  /** 打开 app 要不要弹注册卡。 */
+  async registrationStatus(input: { name: string; studentId?: string }) {
+    const name = (input.name ?? '').trim();
+    if (!name) throw new BadRequestException({ code: 'name_required' });
+    const candidates = await this.resolveForRegistration(name, input.studentId);
+    if (candidates.length === 0) {
+      // 查无此人：不弹卡（别拿一张注不了册的卡挡住页面），
+      // 也不报错 —— 打开成绩页输错名字是常态
+      return { found: false as const, registered: false };
+    }
+    if (candidates.length > 1) {
+      return {
+        found: true as const,
+        needDisambiguation: true as const,
+        candidates: candidates.map((c) => ({
+          studentId: c.id,
+          name: c.name,
+          classes: c.classEnrollments.map((e) => e.class.name),
+        })),
+      };
+    }
+    return { found: true as const, registered: candidates[0].pinHash != null };
+  }
+
+  /**
+   * 注册 = 首次设密码（+昵称/头像），成功即登录。
+   *
+   * ## 身份模型（教师 2026-08-26 拍板，PRD §1.1）
+   *
+   * 先到先得，像普通网站认用户名一样认花名册里的名字。不再要求教师
+   * 开窗：弹卡的设备是长期查该生本人成绩的设备，这个延续性本身就是
+   * 主要的身份证据；抢注的兜底是教师重置（重置瞬间对方所有登录失效）。
+   */
+  async register(input: {
+    name: string;
+    studentId?: string;
+    password: string;
+    nickname?: string;
+    avatar?: string;
+  }) {
+    const name = (input.name ?? '').trim();
+    if (!name) throw new BadRequestException({ code: 'name_required' });
+
+    const pwErr = validatePasswordFormat(input.password ?? '');
+    if (pwErr) throw new BadRequestException({ code: pwErr });
+
+    const nickname = (input.nickname ?? '').trim().slice(0, 20) || name;
+    const avatar = this.validateAvatar(input.avatar);
+
+    const candidates = await this.resolveForRegistration(name, input.studentId);
+    if (candidates.length === 0) {
+      throw new BadRequestException({ code: 'student_not_found' });
+    }
+    if (candidates.length > 1) {
+      return {
+        needDisambiguation: true as const,
+        candidates: candidates.map((c) => ({
+          studentId: c.id,
+          name: c.name,
+          classes: c.classEnrollments.map((e) => e.class.name),
+        })),
+      };
+    }
+    const user = candidates[0];
+    if (user.pinHash) {
+      // 已注册 —— 不覆盖。捡到别人链接的人不能把密码改掉锁人；
+      // 本人忘密码走教师重置
+      throw new BadRequestException({ code: 'already_registered' });
+    }
+
+    await this.prisma.user.update({
+      where: { id: user.id },
+      data: {
+        pinHash: await bcrypt.hash(input.password, 10),
+        pinSetAt: new Date(),
+        pinFailedCount: 0,
+        pinLockedUntil: null,
+        nickname,
+        ...(avatar !== undefined ? { avatar } : {}),
+      },
+    });
+    this.logger.log(`student registered: ${user.id}`);
+
+    // 成功即登录 —— 与 login 同构的 30 天 token（带撤销版本号）
+    const token = await this.jwt.signAsync(
+      {
+        id: user.id,
+        email: user.email,
+        role: 'student',
+        name: user.name,
+        av: user.studentAuthVersion,
+      },
+      { expiresIn: StudentAuthService.TOKEN_TTL },
+    );
+    return {
+      token,
+      student: { id: user.id, name: user.name, nickname, avatar: avatar ?? null },
+    };
+  }
+
+  /**
+   * 头像校验。undefined = 没传（不写库）；合法值原样返回。
+   * 预设：emoji:<1-8字符>；上传：128x128 JPEG/PNG/WebP data URL ≤64KB。
+   */
+  private validateAvatar(raw?: string): string | undefined {
+    if (raw == null || raw === '') return undefined;
+    if (/^emoji:.{1,8}$/u.test(raw)) return raw;
+    if (/^data:image\/(jpeg|png|webp);base64,[A-Za-z0-9+/=]+$/.test(raw)) {
+      if (raw.length > 90_000) {
+        throw new BadRequestException({ code: 'avatar_too_large' });
+      }
+      return raw;
+    }
+    throw new BadRequestException({ code: 'avatar_invalid' });
   }
 
   /** 首次设置。studentId 来自已验证的 token（controller 取），不信 body。 */
@@ -208,13 +367,9 @@ export class StudentAuthService {
       throw new BadRequestException({ code: 'pin_already_set' });
     }
 
-    // 认领窗口（2026-08-25）。这道闸是抢注防线的**全部** —— 上面那两条
-    // 检查都拦不住「同学扫了码、点了我的名字」。窗口关着时谁也领不走。
+    // 2026-08-26：认领窗口闸移除 —— 注册改为学生打开 app 自助完成
+    // （网站式注册，PRD student-registration.md §1），此端点仅作兼容保留。
     const now = new Date();
-    const state = claimWindowState(user, now);
-    if (!claimWindowOpen(state, now)) {
-      throw new ForbiddenException({ code: 'claim_window_closed' });
-    }
 
     await this.prisma.user.update({
       where: { id: studentId },
@@ -495,7 +650,8 @@ export class StudentAuthService {
   }
 
   async changePin(studentId: string, oldPin: string, newPin: string) {
-    const err = validatePinFormat(newPin);
+    // 2026-08-26 网站式注册：新密码走密码规则（6-32 任意字符），不再限 6 位数字
+    const err = validatePasswordFormat(newPin);
     if (err) throw new BadRequestException({ code: err });
     const user = await this.prisma.user.findUnique({
       where: { id: studentId },
@@ -542,10 +698,16 @@ export class StudentAuthService {
   async me(studentId: string) {
     const user = await this.prisma.user.findUnique({
       where: { id: studentId },
-      select: { id: true, name: true, pinHash: true },
+      select: { id: true, name: true, nickname: true, avatar: true, pinHash: true },
     });
     if (!user) throw new UnauthorizedException({ code: 'invalid_credentials' });
-    return { id: user.id, name: user.name, pinSet: user.pinHash != null };
+    return {
+      id: user.id,
+      name: user.name,
+      nickname: user.nickname ?? user.name,
+      avatar: user.avatar ?? null,
+      pinSet: user.pinHash != null,
+    };
   }
 
   /** 教师重置：清空 PIN，学生下次扫码后重新设置。走班级权限。 */

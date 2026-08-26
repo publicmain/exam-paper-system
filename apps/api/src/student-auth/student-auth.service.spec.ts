@@ -68,7 +68,12 @@ describe('login', () => {
     const { svc, jwt, updates } = makeSvc([makeStudent({ pinFailedCount: 3 })]);
     const out: any = await svc.login({ name: '张三', pin: '280519' });
     expect(out.token).toBe('signed-token');
-    expect(out.student).toEqual({ id: 'stu-1', name: '张三' });
+    expect(out.student).toEqual({
+      id: 'stu-1',
+      name: '张三',
+      nickname: '张三',
+      avatar: null,
+    });
     expect(jwt.signAsync).toHaveBeenCalledWith(
       expect.objectContaining({ id: 'stu-1', role: 'student', name: '张三' }),
       { expiresIn: '30d' },
@@ -163,28 +168,14 @@ describe('setPin', () => {
     expect(bcrypt.compareSync('731842', updates[0].data.pinHash)).toBe(true);
   });
 
-  it('**窗口关着 → claim_window_closed**（抢注防线的全部）', async () => {
-    // 默认状态就是关的。没有教师开窗，同班同学扫了码、点了你的名字，
-    // 也领不走 —— 这条断言失败就等于抢注重新开门。
-    const { svc } = makeSvc([
+  it('窗口闸已移除（2026-08-26 网站式注册）：关着也能设', async () => {
+    // v2「集体注册窗口」被教师否决 —— 注册改为学生打开 app 自助完成，
+    // 首次设密码不再需要教师开窗。此端点仅作兼容保留。
+    const { svc, updates } = makeSvc([
       makeStudent({ pinHash: null, role: 'student', isActive: true, classEnrollments: [] }),
     ]);
-    await expect(svc.setPin('stu-1', '731842')).rejects.toMatchObject({
-      response: { code: 'claim_window_closed' },
-    });
-  });
-
-  it('窗口过期 → 同样拒绝', async () => {
-    const { svc } = makeSvc([
-      claimable({
-        classEnrollments: [
-          { class: { id: 'c1', name: 'G11', pinClaimOpenUntil: new Date(Date.now() - 60_000) } },
-        ],
-      }),
-    ]);
-    await expect(svc.setPin('stu-1', '731842')).rejects.toMatchObject({
-      response: { code: 'claim_window_closed' },
-    });
+    await svc.setPin('stu-1', '731842');
+    expect(updates[0].data.pinHash).toBeTruthy();
   });
 
   it('个人补注册窗开着 → 放行（请假的学生不必重开全班窗）', async () => {
@@ -271,5 +262,90 @@ describe('token 的 av claim', () => {
       expect.objectContaining({ av: 7 }),
       { expiresIn: '30d' },
     );
+  });
+});
+
+describe('register —— 网站式注册（2026-08-26）', () => {
+  const fresh = () =>
+    makeStudent({ pinHash: null, role: 'student', isActive: true });
+
+  it('首次注册：写哈希+昵称+头像，返回带 av 的 token（成功即登录）', async () => {
+    const users = [fresh()];
+    const { svc, jwt, updates } = makeSvc(users);
+    const out: any = await svc.register({
+      name: '张三',
+      password: 'abc123',
+      nickname: '小张',
+      avatar: 'emoji:🦊',
+    });
+    expect(out.token).toBe('signed-token');
+    expect(out.student).toEqual({ id: 'stu-1', name: '张三', nickname: '小张', avatar: 'emoji:🦊' });
+    expect(bcrypt.compareSync('abc123', updates[0].data.pinHash)).toBe(true);
+    expect(updates[0].data.nickname).toBe('小张');
+    expect(jwt.signAsync).toHaveBeenCalledWith(
+      expect.objectContaining({ id: 'stu-1', role: 'student', av: 0 }),
+      { expiresIn: '30d' },
+    );
+  });
+
+  it('昵称缺省 = 真名；头像可选不写库', async () => {
+    const { svc, updates } = makeSvc([fresh()]);
+    const out: any = await svc.register({ name: '张三', password: 'abc123' });
+    expect(out.student.nickname).toBe('张三');
+    expect('avatar' in updates[0].data).toBe(false);
+  });
+
+  it('已注册 → already_registered（捡到链接的人不能覆盖别人密码）', async () => {
+    const { svc } = makeSvc([makeStudent()]); // 带 HASH
+    await expect(
+      svc.register({ name: '张三', password: 'abc123' }),
+    ).rejects.toMatchObject({ response: { code: 'already_registered' } });
+  });
+
+  it('弱密码拒（123456 顺子 / aaaaaa 全同）', async () => {
+    const { svc } = makeSvc([fresh()]);
+    await expect(svc.register({ name: '张三', password: '123456' })).rejects.toMatchObject({
+      response: { code: 'password_too_weak' },
+    });
+    await expect(svc.register({ name: '张三', password: 'aaaaaa' })).rejects.toMatchObject({
+      response: { code: 'password_too_weak' },
+    });
+  });
+
+  it('同名多人 → 返回候选，不写任何东西', async () => {
+    const { svc, prisma } = makeSvc([
+      fresh(),
+      makeStudent({ id: 'b', pinHash: null, classEnrollments: [{ class: { id: 'c2', name: 'G12', pinClaimOpenUntil: null } }] }),
+    ]);
+    const out: any = await svc.register({ name: '张三', password: 'abc123' });
+    expect(out.needDisambiguation).toBe(true);
+    expect(prisma.user.update).not.toHaveBeenCalled();
+  });
+
+  it('非法头像拒；超大头像拒', async () => {
+    const { svc } = makeSvc([fresh()]);
+    await expect(
+      svc.register({ name: '张三', password: 'abc123', avatar: 'javascript:x' }),
+    ).rejects.toMatchObject({ response: { code: 'avatar_invalid' } });
+    const big = 'data:image/jpeg;base64,' + 'A'.repeat(91_000);
+    await expect(
+      svc.register({ name: '张三', password: 'abc123', avatar: big }),
+    ).rejects.toMatchObject({ response: { code: 'avatar_too_large' } });
+  });
+});
+
+describe('registrationStatus —— 打开 app 要不要弹卡', () => {
+  it('未注册 → registered:false；已注册 → true', async () => {
+    const a = makeSvc([makeStudent({ pinHash: null })]);
+    expect(((await a.svc.registrationStatus({ name: '张三' })) as any).registered).toBe(false);
+    const b = makeSvc([makeStudent()]);
+    expect(((await b.svc.registrationStatus({ name: '张三' })) as any).registered).toBe(true);
+  });
+
+  it('查无此人 → found:false 不弹卡不报错（输错名字是常态）', async () => {
+    const { svc } = makeSvc([]);
+    const r: any = await svc.registrationStatus({ name: '不存在' });
+    expect(r.found).toBe(false);
+    expect(r.registered).toBe(false);
   });
 });

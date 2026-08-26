@@ -9,7 +9,7 @@ import { api } from '../../lib/api';
  * 个人主页 /me（docs/PRD/student-auth-and-home.md §9）。
  *
  * 契约：
- *   · 无 token → 登录卡（姓名 + 6 位 PIN）
+ *   · 无 token → 登录卡（姓名 + 密码，2026-08-26 起任意字符）
  *   · 登录成功 → 存 token、渲染「今天的课」三段
  *   · pin_locked → 显示剩余分钟数
  *   · 同名 → 班级候选按钮
@@ -75,7 +75,7 @@ describe('/me 未登录', () => {
     const u = userEvent.setup();
     renderMe();
     await u.type(screen.getByPlaceholderText('姓名'), '张三');
-    await u.type(screen.getByPlaceholderText('6 位 PIN'), '280519');
+    await u.type(screen.getByPlaceholderText('密码'), '280519');
     await u.click(screen.getByRole('button', { name: '登录' }));
     await waitFor(() => expect(screen.getByText('你好，张三')).toBeTruthy());
     expect(localStorage.getItem('auth_token')).toBe('tok-abc');
@@ -93,7 +93,7 @@ describe('/me 未登录', () => {
     const u = userEvent.setup();
     renderMe();
     await u.type(screen.getByPlaceholderText('姓名'), '张三');
-    await u.type(screen.getByPlaceholderText('6 位 PIN'), '280519');
+    await u.type(screen.getByPlaceholderText('密码'), '280519');
     await u.click(screen.getByRole('button', { name: '登录' }));
     await waitFor(() => expect(screen.getByText(/已锁定 —— 10 分钟后再试/)).toBeTruthy());
   });
@@ -111,7 +111,7 @@ describe('/me 未登录', () => {
     const u = userEvent.setup();
     renderMe();
     await u.type(screen.getByPlaceholderText('姓名'), '张三');
-    await u.type(screen.getByPlaceholderText('6 位 PIN'), '280519');
+    await u.type(screen.getByPlaceholderText('密码'), '280519');
     await u.click(screen.getByRole('button', { name: '登录' }));
     await waitFor(() => expect(screen.getByText(/2 位同名同学/)).toBeTruthy());
     await u.click(screen.getByText(/G12/));
