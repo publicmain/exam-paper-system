@@ -426,6 +426,12 @@ export default function MorningQuizScan() {
               {error.message}
             </div>
           )}
+          {/* 已交卷/已结束：内联错误下也给门厅 —— 教师实测（2026-08-26）：
+              already_final_submitted 原来只有一堵红墙，重扫的人十有八九
+              是想看成绩，这里必须给出路 */}
+          {error && isQuizOver(error.code, error.message) && (
+            <AfterQuizPortal code={error.code} raw={error.message} />
+          )}
           <button
             type="submit"
             disabled={submitting || !name.trim()}
