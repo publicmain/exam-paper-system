@@ -390,4 +390,131 @@ Chrome 实际点击。**未碰生产**。
 
 ---
 
-## P5 ⬜ / P6 ⬜ / P7 ⬜ / P8 ⬜ / P9 ⬜ / P10 ⬜
+## P5 ✅ 新词教学卡（2026-08-27，commit a5df8e5，**本地提交未 push**）
+
+**根因**：系统里唯一能表示「学生见过这个词」的东西是 FSRS 的 `reps`，
+而 `reps` 只有**提交一次评分**才前进。于是「把新词标记成已教」除了让
+学生对一个从没见过的词打分之外没有别的做法 —— 教学被迫长成考试的样子
+（挖空 → 显示答案 → 认识/不认识），而那次评分又被 FSRS 当成真实信号
+写进调度：学生第一次见到 harbour 就被迫宣称自己「没记住」，这个词从此
+被标成困难词天天来烦他。**「学」和「测」混在一起的根源就是这一个缺失
+的字段。**
+
+### 事实来源
+
+新增 `StudentWord.firstTaughtAt`（可空、无默认值、不回填）。判据收在
+`apps/api/src/vocab/first-teaching.ts` 一处：
+
+    needsFirstTeaching = firstTaughtAt IS NULL AND reps = 0
+
+两个条件都**不需要回填**：`reps > 0` 的存量词学生一定评过分（当复习词
+处理）；`reps = 0` 的存量词从没被评过分（本来就该补一次教学）。前端只
+读服务端结论（`needsFirstTeaching`），字段缺失时的兜底用同一条式子，
+不构成第二套判据。**不用 localStorage 作事实来源。**
+
+它不是成绩、不是熟练度、不参与调度 —— P6 的词汇测试成绩是另一件事，
+不挂在这里。
+
+### 首次教学的最终行为
+
+第一面**直接给全**：词 + 音标 + 词性 + 中文释义 + 英文释义 + 他刚读过
+那篇文章里的原句 + 来源，底部只有一个「下一个 · Next」。字段缺失一律
+隐藏那一行，**绝不编造**音标 / 词性 / 释义 / 例句。
+
+教学面上**没有**：挖空猜词、显示答案、认识/不认识、待会儿再见、撤销、
+任何成绩。
+
+「下一个」只做两件事：
+1. 条件写入 `firstTaughtAt`（`WHERE firstTaughtAt IS NULL`，幂等，
+   重复提交与双标签页都 no-op）
+2. 推进 P3 的 `vocabCursor`（服务端持久化，只增不减）
+
+它**不写** `WordReviewLog`，**不动** `due / stability / difficulty /
+reps / lapses / state`。标记失败不拦学生 —— 失败的后果是安全的：这个词
+明天再教一次，绝不会被错标成已教。
+
+### 复习词边界
+
+复习词保持原有必要交互（挖空 → 显示答案 → 两档评分 → 间隔反馈 → 撤销）。
+两条分支在**同一个组件**里由 `needsFirstTeaching` 分开，没有复制页面、
+没有重写间隔重复算法、没有提前实现 P6。教学面不显示上一张的评分回执
+（那里面含「撤销」，出现在教学卡上会让学生以为刚才那一下被记了分）。
+
+### 修改文件
+
+- **DB**：`schema.prisma` 加 `StudentWord.firstTaughtAt`；迁移
+  `20260827120000_word_first_taught`
+- **API**：新增 `vocab/first-teaching.ts`（判据纯函数）；
+  `vocab-review.service.ts`（`due` 卡片补 `needsFirstTeaching` /
+  `pos` / `definition`，新增 `markFirstTaught`）；`vocab.controller.ts`
+  （`POST /vocab/first-taught`，`@RequireStudentToken`）；
+  `lesson.service.ts`（`unlearned` 判据同步）
+- **Web**：`MyVocabReview.tsx`（教学分支 + `teachNext`）；`lib/api.ts`
+- **测试**：`first-teaching.spec.ts` 11 条、`MyVocabFirstTeaching.test.tsx`
+  10 条、`MyVocabReviewRouting.test.tsx` 徽标断言更新
+
+**关键连带修正**：`lesson.service` 的 `unlearned` 判据从 `reps=0` 换成
+`firstTaughtAt IS NULL AND reps=0`。不改就是死循环 —— 首次教学不再写
+评分之后 `reps` 永远是 0，`unlearned` 永远不降，`stage` 卡在
+`vocab_learn` 出不去，学生天天被教同一批词。
+
+### 数据库
+
+`ALTER TABLE "StudentWord" ADD COLUMN "firstTaughtAt" TIMESTAMP(3);`
+可空、无默认、不回填。**兼容**：null 的存量词按上面的判据自然分流。
+**回滚**：`DROP COLUMN "firstTaughtAt";` —— 该列不含任何原有数据，
+删除不影响历史复习流水 / FSRS 调度 / 熟练度。
+
+### 实际验证结果
+
+**迁移实跑**：隔离库 `p5_browser` 从零跑全部迁移，
+`All migrations have been successfully applied`。
+
+**真实浏览器**（API :4300 + Vite :5274 连隔离库，Chrome 实际点击）：
+
+| 场景 | 结果 |
+|---|---|
+| **A** 全新学生进入词汇阶段 | 第一张（故意造的缺字段词 `thicket`）直接显示教学内容，**优雅隐藏**缺失的音标/词性/释义且不崩；页面按钮只有「跳过 / 🔊 / 下一个」；程序化断言：无挖空下划线、无显示答案、无认识不认识、无待会儿再见、无撤销。第二张 `lantern` 数据齐全 → 词+音标+词性+中英释义+原句+来源全在 |
+| **B** 翻到第 3 张 → 清空 localStorage+sessionStorage → 重新登录 | 刷新后仍停在**第 3 张 meadow**；旧标签页随后上报 cursor 0 与 1，库值稳在 2 **不倒退** |
+| **C** 完成全部首次教学卡 | stage 由 `vocab_learn` → **`vocab_test`**（当前设计规定的下一阶段）；5 个词全部 `firstTaughtAt` 已标记而 `reps=0 / state=new / stability=0` **一字未动**；`WordReviewLog` **0 条** —— 教学不产生任何词汇测试成绩 |
+| **D** 混合队列（2 新 + 2 复习） | 第 1–2 张走教学卡（带「第一次学」徽标、只有「下一个」）；第 3 张切回**挖空「The ? lay still…」+ 显示答案 + 忘了/记得**，评分后出现「4 天后再见 · 撤销」。库里只有复习词 `meadow` 产生 1 条流水，两个新词一条都没有 |
+
+**网络请求**：点「下一个」只发出 `POST /vocab/first-taught` 与
+`POST /lesson/vocab-cursor`，**全程没有 `/vocab/review`**。
+
+**历史不动**：历史丙的已判分答卷（16/20）、词的 `reps=6 / state=review /
+stability=3`、1 条历史复习流水，P5 全程未增未减。全库「已教过但 reps
+仍为 0」的词 7 个 —— 教学不动 FSRS 的直接证据。
+
+**反向对照已做**：临时把教学分支禁用（`teaching = false`）后，前端
+10 条测试 **9 条必红** —— 证明测试有鉴别力。
+
+**全量复验**：api **722 tests / 67 files** 全过（+11）、web **196 tests /
+32 files** 全过（+10）、双端 `tsc --noEmit` 无错、`nest build` +
+`vite build` 均成功。
+
+**Git diff 范围核查**：只碰 vocab / lesson 的词汇状态与翻卡页。未创建
+词汇测试成绩实体、未改阅读成绩展示、未创建任务总结页、未进入 P6–P8。
+
+### 尚未验证
+
+- **生产数据库未执行迁移**（按约束禁止）。生产上存量词会按判据自然分流
+  （`reps>0` 当复习、`reps=0` 补一次教学），这条路径只在仿制数据上验过
+- 教学卡在 **iOS Safari / iPad** 上未真机验证（仅桌面 Chrome）
+- **弱网/离线下的教学标记未走队列**：`teachNext` 是 best-effort，失败
+  只是这个词明天再教一次（安全），但没有像评分那样进 `reviewQueue` 补传
+- **自测出题的 `reps=0` 兜底仍在**（`vocab-quiz.service.ts`）：可考词
+  不足时仍会捞未评分的词入题，其中包括刚教过的。「堵未学先考」属 P6，
+  本片按约束未动
+- 刚教过的词当天再打开词汇页会以**复习卡**形态出现（`due` 未改，
+  `firstTaughtAt` 已标）。这符合「先学后测」，但没有在浏览器里走过
+  「同一天教完再回来」这一遍
+- 教学卡上的 🔊 发音依赖浏览器 TTS，未在真机核对读音
+
+**未 push、未部署、未执行生产迁移。**
+
+**清理**：隔离库 `p5_browser`、API/Vite 进程、`dist-p5` 产物已删。
+
+---
+
+## P6 ⬜ / P7 ⬜ / P8 ⬜ / P9 ⬜ / P10 ⬜
