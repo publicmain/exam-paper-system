@@ -11,6 +11,8 @@ import { JwtService } from '@nestjs/jwt';
 import { AttendanceSource, AttendanceStatus, MorningQuizStatus } from '@prisma/client';
 import { AuditService } from '../audit/audit.service';
 import { PrismaService } from '../common/prisma.service';
+import { createRealSubmissionSafe } from '../common/submission-create';
+import type { StudentSubmission } from '@prisma/client';
 import { isMakeupWindowOpen } from '../morning-quiz/morning-quiz.service';
 import { levelPushesWordlist } from '../morning-quiz/level-registry';
 import { resolveWordlistForPaperConfig } from '../morning-quiz/wordlist-source';
@@ -517,12 +519,11 @@ export class AttendanceService {
       submission = null;
     }
     if (!submission) {
-      submission = await this.prisma.studentSubmission.create({
-        data: {
-          assignmentId: session.paperAssignmentId,
-          studentId,
-          maxScore: paperForMax?.totalMarksActual ?? 0,
-        },
+      // P1 防线：partial unique + 撞墙自愈（双设备同扫的并发输家拿赢家那条）
+      submission = await createRealSubmissionSafe<StudentSubmission>(this.prisma, {
+        assignmentId: session.paperAssignmentId,
+        studentId,
+        maxScore: paperForMax?.totalMarksActual ?? 0,
       });
     } else if (
       isSecondWindowScan &&
@@ -808,12 +809,11 @@ export class AttendanceService {
         },
       });
       if (!submission) {
-        submission = await this.prisma.studentSubmission.create({
-          data: {
-            assignmentId: session.paperAssignmentId,
-            studentId: body.studentId,
-            maxScore: paperForMax?.totalMarksActual ?? 0,
-          },
+        // P1 防线：同 scanQr —— 教师补登与学生扫码并发时也不产双答卷
+        submission = await createRealSubmissionSafe<StudentSubmission>(this.prisma, {
+          assignmentId: session.paperAssignmentId,
+          studentId: body.studentId,
+          maxScore: paperForMax?.totalMarksActual ?? 0,
         });
       }
       await this.prisma.attendance.update({

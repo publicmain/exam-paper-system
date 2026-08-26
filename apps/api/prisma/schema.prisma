@@ -262,6 +262,11 @@ model StudentSubmission {
   // service-layer (`student.service.finalSubmit` + the assign-paper flow
   // already do `findFirst` before creating). Practice subs are written
   // freely and are filtered out everywhere by `status != 'practice'`.
+  // ⚠️ P1（2026-08-26）：非 practice 行受 partial unique 保护 ——
+  //   StudentSubmission_real_unique ON (assignmentId, studentId)
+  //   WHERE status <> 'practice'
+  // Prisma 表达不了 partial unique，索引在迁移 20260826210000 里。
+  // 创建真实答卷必须走 common/submission-create.ts，不要裸 create。
   @@index([assignmentId, studentId])
   @@index([studentId])
   // 第二窗要按 (状态, 最终提交时间) 找出「已暂存但未最终提交」的答卷

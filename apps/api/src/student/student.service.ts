@@ -1,5 +1,7 @@
 import { BadRequestException, ForbiddenException, Injectable, Logger, NotFoundException, Optional } from '@nestjs/common';
 import { PrismaService } from '../common/prisma.service';
+import { createRealSubmissionSafe } from '../common/submission-create';
+import type { StudentSubmission } from '@prisma/client';
 import { gradeMcq } from '../grading/grade';
 import { redactSnapshotForStudent } from '../morning-quiz/morning-quiz.service';
 import { WechatNotifyService } from '../wechat-notify/wechat-notify.service';
@@ -518,12 +520,11 @@ export class StudentService {
     });
     if (existing) return existing;
     const paper = await this.prisma.paper.findUnique({ where: { id: assignment.paperId } });
-    return this.prisma.studentSubmission.create({
-      data: {
-        assignmentId,
-        studentId: student.id,
-        maxScore: paper?.totalMarksActual ?? 0,
-      },
+    // P1 防线：partial unique + 撞墙自愈（并发打开作业时输家拿赢家那条）
+    return createRealSubmissionSafe<StudentSubmission>(this.prisma, {
+      assignmentId,
+      studentId: student.id,
+      maxScore: paper?.totalMarksActual ?? 0,
     });
   }
 
