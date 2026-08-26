@@ -805,17 +805,15 @@ stability=3`、1 条历史复习流水，P5 全程未增未减。全库「已教
 
 #### 四、题目属于当前任务的事实来源
 
-不再用全局 `due <= now` 代替任务归属。合法词汇集合 =
-**学生在这次任务里真的动过的词**：
+不再用全局 `due <= now` 代替任务归属。
 
-| 事实 | 谁写的 |
-|---|---|
-| `firstTaughtAt` 落在今天 | P5 的 `POST /lesson/vocab-taught`（教学卡「下一个」） |
-| 今天有 `WordReviewLog` | 翻卡评分 `POST /vocab/review` |
+> ⚠️ **这一版的做法（「今天动过这个词」）随后被推翻** —— 见下面的
+> 「最终一致性验证」。写 `WordReviewLog` 的不止课程内的翻卡，自由练习
+> 也写同一种日志，所以「今天动过」并不能代表「属于当前任务」。
+> 现行做法是任务自己记下队列（`DailyLessonCompletion.vocabWords`）。
 
-两者都是本次任务活动留下的记录，不是对词表的一次全局扫描。别的任务留下的
-到期词不再混入。`User.englishLevel` 全程不参与（有测试断言所有查询的
-where 里不含这个字段）。
+`User.englishLevel` 全程不参与（有测试断言所有查询的 where 里不含这个
+字段）。
 
 #### 验收结果（隔离库 + 真实浏览器）
 
@@ -859,6 +857,93 @@ where 里不含这个字段）。
 
 **清理**：隔离库 `p6_empty` / `p6_legacy`、API/Vite 进程、`dist-p6b` 与
 `tsconfig.tsbuildinfo` 已删。
+
+---
+
+### P6 最终一致性验证（2026-08-28，commit 70bd5fb）
+
+#### 一、任务归属：「今天动过」不成立，已推翻
+
+**先确认，再改**：`POST /vocab/review`（写 `WordReviewLog` 的唯一入口）
+有两个前端调用方 ——
+
+| 调用方 | 是不是课程内行为 |
+|---|---|
+| `MyVocabReview`（课程内翻卡） | 是 |
+| `MyVocabQuiz` **自由练习模式** | **否** —— 出题从「所有教过的词」里挑，含陈年旧词 |
+
+（`reviewQueue.ts` 的弱网补传也走它，补的是上面两者攒下的。）
+
+所以「今天有 WordReviewLog」会被自由练习污染。**浏览器实测复现**：对三个
+队列外的旧词（`willow / anchor / breeze`）做自由复习 → 当天日志写入
+（三次 201）→ 按旧规则它们就有资格进晚上的正式测试。
+
+**改法：任务自己记下队列。** 新增
+`DailyLessonCompletion.vocabWords`（headword 数组）：
+
+| 谁写 | 何时 |
+|---|---|
+| `today(freeze:true)` | 冻结当日目标时快照（与 `vocabTarget` 同一时刻、同一批词） |
+| `markTaughtAndAdvance` | 课程内教学时补入新教的词（与 `firstTaughtAt` 同一个事务） |
+
+**只有课程内的动作能写它**，自由练习碰不到。出题资格随之简化为：
+
+    firstTaughtAt IS NOT NULL AND headword IN 任务队列
+
+不再读 `WordReviewLog`，不再有任何日期推断。旧任务行没有快照 → 空集 →
+`insufficient_items`（宁可当天不考，也不考不属于这次任务的词；第二天
+新建的任务行自带快照，自然自愈）。
+
+**迁移**：纯新增一可空列，**不回填、不删任何数据**。
+**回滚**：`ALTER TABLE "DailyLessonCompletion" DROP COLUMN "vocabWords";`
+
+#### 二、提交成功但响应丢失
+
+注入方式：请求**真的打到服务端并落库**，然后让客户端「收不到」响应
+（`await 原生 fetch(...)` 之后 `throw new TypeError('Failed to fetch')`）。
+
+| 场景 | 结果 |
+|---|---|
+| answer 落库后丢响应 → 重试同答案 | `201 accepted=false reason=already_answered`；第一次的答案保留 |
+| 重试时**参数被改**（换了个选项） | 同样 `already_answered`，**不覆盖**第一次的 `n. 海港；避难所 / true` |
+| submit 落库后丢响应 → 连重试三次 | 四次同一个 `attemptId`、同一份成绩 `1/5 = 20`；`alreadySubmitted` 从 false 变 true 后保持 |
+| 库里最终 | attempt **1 条**、已作答 **3 题**（重发没造出重复答案或重复成绩） |
+| 前端不会永久停在错误态 | 进入错误态后点重试 → 提示消失、「继续」按钮回来、可以往下走；库里该题仍只有 **1 条**答案 |
+
+#### 验收结果
+
+| # | 验收 | 结果 |
+|---|---|---|
+| 1 | 当前 DLC 的题目不受自由练习日志污染 | 先自由复习 3 个队列外的词并写入当天日志 → 开正式测试，题目 `harbour/lantern/meadow/pebble/thicket` **全部来自任务队列**，自由练习的词一个没进 |
+| 2 | answer commit 后丢响应可恢复 | 见上表；服务端幂等 + 前端可走出错误态 |
+| 3 | submit commit 后丢响应可恢复 | 四次重试同一份成绩、同一个 attemptId |
+| 4 | WordReviewLog / FSRS / 阅读答卷不受额外影响 | 流水只有自由练习那 3 条（`anchor×1 breeze×1 willow×1`），**考试一条没写**；被考的 5 个词 FSRS 被动过的 **0** 个；阅读答卷 0 条 |
+| 5 | 空库与旧库迁移 | 两个场景均成功；旧数据一条未动；**旧任务行 `vocabWords` = NULL**（正确，不回填）；四个索引齐备 |
+| 6 | 全量测试 / 双端 tsc / build | api **768 tests / 70 files**、web **211 tests / 33 files** 全过；双端 `tsc --noEmit` 无错；`nest build` + `vite build` 成功 |
+| 7 | Git diff 只含 P6 收尾 | 6 改 1 新，全在 lesson / vocab / 迁移 |
+
+**测试质量修正**：假 Prisma 原来无视 `where` 直接返回全部候选 —— 那样
+`headword.in` 写错也不会红。已改成照着 `where` 真的过滤，随后才发现三条
+用例缺任务队列（补齐后全绿）。
+
+#### 尚未验证
+
+- **纯复习日现在考不了正式测试**：任务队列的快照来自冻结时的到期词，
+  但只有**教过的**词才够格。一个全是复习词、当天没教新词的日子，若那些
+  复习词都是往日教的，它们仍在队列里、也 `firstTaughtAt != null` ——
+  逻辑上够格。但这条路径**没有实测**（本轮种子都是当天教的词）
+- **冻结时机与推词时机的先后没实测**：扫码推词若发生在 `today(freeze)`
+  之后，那批词不在快照里，只能靠教学时补入。教学补入的代码路径有单测，
+  但「先冻结后推词」的真实时序没跑过
+- 生产迁移未执行；iOS / iPad 未真机验证
+- 跨午夜仍只验证到数据库约束层（没改系统时钟跑完整链路）
+- 弱网仍无离线队列（按要求本阶段不做）
+- 卷内词汇题（`vocab-attach.service.ts`）仍未加资格过滤
+- 已交卷当天想再自由练习的死角仍在
+
+**未 push、未部署、未执行生产迁移。**
+
+**清理**：隔离库、API/Vite 进程、`dist-p6c` 与 `tsconfig.tsbuildinfo` 已删。
 
 ---
 
