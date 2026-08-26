@@ -1,0 +1,119 @@
+import { describe, it, expect } from 'vitest';
+import { MIN_QUIZ_ITEMS, scoreOf, selectEligible } from './quiz-eligibility';
+
+/**
+ * P6 —— 出题资格。守的是「绝不考没教过的词」这一条。
+ *
+ * 这些是纯函数测试。之所以把资格从出题服务里摘出来单独钉死：原来的
+ * 两层「凑题数」兜底（reps=0、任意词）就是藏在选词那一大段 SQL 里的，
+ * 读代码时看起来只是几个 fallback，实际后果是学生第一次自测全错。
+ */
+
+const D = (iso: string) => new Date(iso);
+const NOW = D('2026-08-28T02:00:00.000Z');     // SGT 10:00
+const DAY_START = D('2026-08-27T16:00:00.000Z'); // SGT 当日零点
+
+const w = (headword: string, o: Partial<{ firstTaughtAt: Date | null; due: Date }> = {}) => ({
+  headword,
+  firstTaughtAt: o.firstTaughtAt === undefined ? D('2026-08-28T00:30:00.000Z') : o.firstTaughtAt,
+  due: o.due ?? D('2026-08-28T01:00:00.000Z'),
+});
+
+describe('selectEligible —— 资格', () => {
+  it('一个教过的词都没有 → not_ready（不是「凑不齐」，是还没到该考的时候）', () => {
+    const r = selectEligible(
+      [w('a', { firstTaughtAt: null }), w('b', { firstTaughtAt: null })],
+      NOW, DAY_START,
+    );
+    expect(r.kind).toBe('not_ready');
+  });
+
+  it('**未教过的词绝不入选** —— 哪怕它到期了、哪怕凑不够题', () => {
+    const r = selectEligible(
+      [
+        w('taught1'), w('taught2'), w('taught3'),
+        w('never1', { firstTaughtAt: null }),
+        w('never2', { firstTaughtAt: null }),
+        w('never3', { firstTaughtAt: null }),
+      ],
+      NOW, DAY_START,
+    );
+    // 教过的只有 3 个 < MIN(4) → 明说不够，绝不用未教过的补
+    expect(r.kind).toBe('insufficient_items');
+    if (r.kind === 'insufficient_items') {
+      expect(r.taught).toBe(3);
+      expect(r.eligible).toBe(3);
+    }
+  });
+
+  it('**刚教完、reps=0 的词正常入选** —— 这正是「先学后测」要考的那批', () => {
+    const justTaught = Array.from({ length: 5 }, (_, i) =>
+      w('fresh' + i, { firstTaughtAt: D('2026-08-28T01:50:00.000Z') }),
+    );
+    const r = selectEligible(justTaught, NOW, DAY_START);
+    expect(r.kind).toBe('ok');
+    if (r.kind === 'ok') expect(r.words).toHaveLength(5);
+  });
+
+  it('今天刚教过的词即使 due 被挪到未来，仍然入选', () => {
+    const words = Array.from({ length: 4 }, (_, i) =>
+      w('x' + i, {
+        firstTaughtAt: D('2026-08-28T01:00:00.000Z'),
+        due: D('2026-09-05T00:00:00.000Z'), // 被挪走了
+      }),
+    );
+    const r = selectEligible(words, NOW, DAY_START);
+    expect(r.kind).toBe('ok');
+  });
+
+  it('教过但既不到期、也不是今天教的 → 不属于这次任务，不入选', () => {
+    const words = [
+      ...Array.from({ length: 4 }, (_, i) => w('today' + i)),
+      w('old', { firstTaughtAt: D('2026-08-01T00:00:00.000Z'), due: D('2026-09-09T00:00:00.000Z') }),
+    ];
+    const r = selectEligible(words, NOW, DAY_START);
+    expect(r.kind).toBe('ok');
+    if (r.kind === 'ok') {
+      expect(r.words.map((x) => x.headword)).not.toContain('old');
+      expect(r.words).toHaveLength(4);
+    }
+  });
+
+  it('刚好 MIN 个 → ok；少一个 → insufficient_items', () => {
+    const mk = (n: number) => Array.from({ length: n }, (_, i) => w('w' + i));
+    expect(selectEligible(mk(MIN_QUIZ_ITEMS), NOW, DAY_START).kind).toBe('ok');
+    expect(selectEligible(mk(MIN_QUIZ_ITEMS - 1), NOW, DAY_START).kind).toBe('insufficient_items');
+  });
+
+  it('封顶 MAX：词很多也不出成一场马拉松', () => {
+    const r = selectEligible(Array.from({ length: 40 }, (_, i) => w('w' + i)), NOW, DAY_START);
+    expect(r.kind).toBe('ok');
+    if (r.kind === 'ok') expect(r.words.length).toBeLessThanOrEqual(10);
+  });
+
+  it('ISO 字符串形态的时间同样能判（跨 API 边界后是字符串）', () => {
+    const words = Array.from({ length: 4 }, (_, i) => ({
+      headword: 's' + i,
+      firstTaughtAt: '2026-08-28T00:30:00.000Z',
+      due: '2026-08-28T01:00:00.000Z',
+    }));
+    expect(selectEligible(words, NOW, DAY_START).kind).toBe('ok');
+  });
+});
+
+describe('scoreOf —— 分数在提交时算一次', () => {
+  it('全对 100，全错 0', () => {
+    expect(scoreOf([{ isCorrect: true }, { isCorrect: true }])).toEqual({ total: 2, correct: 2, score: 100 });
+    expect(scoreOf([{ isCorrect: false }, { isCorrect: false }])).toEqual({ total: 2, correct: 0, score: 0 });
+  });
+
+  it('未作答按答错计入总数 —— 考试就是这样', () => {
+    expect(scoreOf([{ isCorrect: true }, { isCorrect: null }, { isCorrect: null }])).toEqual({
+      total: 3, correct: 1, score: 33.3,
+    });
+  });
+
+  it('空卷不除以 0', () => {
+    expect(scoreOf([])).toEqual({ total: 0, correct: 0, score: 0 });
+  });
+});

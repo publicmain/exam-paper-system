@@ -538,6 +538,52 @@ export const api = {
       cursor: body.cursor,
     }),
 
+  // ── P6 · 正式单词测试（有成绩）──
+  //
+  // 与自测的区别不在页面，在于它有一份 VocabQuizAttempt：一个任务日
+  // 一份、题目创建时快照冻结、提交后落分。四个端点都要学生令牌。
+  /** 开始或恢复当日正式测试。幂等 —— 已有就原样返回。 */
+  vocabQuizStart: (body: { studentName: string; studentId?: string }) =>
+    request('POST', '/vocab/quiz/attempt/start', {
+      name: body.studentName,
+      ...(body.studentId ? { studentId: body.studentId } : {}),
+    }),
+  /** 回读当日测试（刷新 / 重新登录后恢复）。 */
+  vocabQuizCurrent: (name: string, studentId?: string) =>
+    request(
+      'GET',
+      `/vocab/quiz/attempt/current?name=${encodeURIComponent(name)}` +
+        (studentId ? `&studentId=${encodeURIComponent(studentId)}` : ''),
+    ),
+  /** 记一题的作答。第一次作答为准，重复提交 no-op。**不写 FSRS**。 */
+  vocabQuizAnswer: (body: {
+    studentName: string;
+    studentId?: string;
+    index: number;
+    optionIndex?: number;
+    text?: string;
+  }) =>
+    request('POST', '/vocab/quiz/attempt/answer', {
+      name: body.studentName,
+      ...(body.studentId ? { studentId: body.studentId } : {}),
+      index: body.index,
+      ...(body.optionIndex !== undefined ? { optionIndex: body.optionIndex } : {}),
+      ...(body.text !== undefined ? { text: body.text } : {}),
+    }),
+  /** 提交。幂等 —— 双击 / 重试只有一份成绩。 */
+  vocabQuizSubmit: (body: { studentName: string; studentId?: string }) =>
+    request('POST', '/vocab/quiz/attempt/submit', {
+      name: body.studentName,
+      ...(body.studentId ? { studentId: body.studentId } : {}),
+    }),
+  /** 历史成绩（只读）。 */
+  vocabQuizAttempts: (name: string, studentId?: string) =>
+    request(
+      'GET',
+      `/vocab/quiz/attempts?name=${encodeURIComponent(name)}` +
+        (studentId ? `&studentId=${encodeURIComponent(studentId)}` : ''),
+    ),
+
   vocabReviewUndo: (body: { studentName: string; studentId?: string; headword: string }) =>
     request('POST', '/vocab/review/undo', body),
   /** 错题本 P6 — 我的错题（收录门槛在服务端，不是每道错题都进） */

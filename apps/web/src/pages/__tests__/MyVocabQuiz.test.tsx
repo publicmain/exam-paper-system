@@ -12,8 +12,16 @@ import { api } from '../../lib/api';
  * - 完成页统计的是「一次答对」，回炉答对不算
  */
 
+// 这一组测试描述的是**自由练习**（学生不够格考正式测试时的老行为）。
+// P6 起页面会先试正式测试，不够格才退回来 —— 所以这里让 start 拒绝。
 vi.mock('../../lib/api', () => ({
-  api: { vocabQuiz: vi.fn(), vocabReview: vi.fn().mockResolvedValue({}) },
+  api: {
+    vocabQuiz: vi.fn(),
+    vocabReview: vi.fn().mockResolvedValue({}),
+    vocabQuizStart: vi.fn().mockRejectedValue(new Error('{"code":"not_ready"}')),
+    vocabQuizAnswer: vi.fn().mockResolvedValue({ accepted: true }),
+    vocabQuizSubmit: vi.fn().mockResolvedValue({ total: 0, correct: 0, score: 0 }),
+  },
 }));
 
 const Q = (over: Partial<any> = {}) => ({

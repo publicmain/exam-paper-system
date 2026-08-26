@@ -176,43 +176,58 @@ export class VocabQuizService {
    * 一套默认 8 题 —— 比复习的 5 张多一点（自测是学生主动点进来的，
    * 动机比"被寄生"强），但仍要保证 3 分钟内做得完。
    */
-  async buildQuiz(input: { studentName: string; studentId?: string; limit?: number }) {
+  async buildQuiz(input: {
+    studentName: string;
+    studentId?: string;
+    limit?: number;
+    /** P6：正式测试传进来的**固定词表**。给了就不再自己选词、不再补题。 */
+    words?: Array<{ headword: string; contextSentence: string | null; reps: number }>;
+  }) {
     const student = await this.words.resolveStudent(input.studentName, input.studentId);
     const limit = Math.min(Math.max(input.limit ?? 8, 1), 15);
     const now = new Date();
 
-    // 复习过的到期词优先（reps>0）—— 自测是「考」，考一个从没学过的词
-    // 只会全错，还把它写成 FSRS 里的困难词。从没碰过的词（reps=0）排在
-    // 最后，只在复习过的词不够凑一套题时才顶上；它们的主阵地是交卷后的
-    // 翻卡学习（MyVocabReview 的先学后考流程）。
-    const due = await this.prisma.studentWord.findMany({
-      where: { studentId: student.id, due: { lte: now }, reps: { gt: 0 } },
-      orderBy: [{ due: 'asc' }],
-      take: limit,
-    });
-    const dueUnseen =
-      due.length < limit
-        ? await this.prisma.studentWord.findMany({
-            where: { studentId: student.id, due: { lte: now }, reps: 0 },
-            orderBy: [{ createdAt: 'desc' }],
-            take: limit - due.length,
-          })
-        : [];
-    const picked = [...due, ...dueUnseen];
-    const fresh =
-      picked.length < limit
-        ? await this.prisma.studentWord.findMany({
-            where: { studentId: student.id, headword: { notIn: picked.map((w) => w.headword) } },
-            orderBy: [{ createdAt: 'desc' }],
-            take: limit - picked.length,
-          })
-        : [];
-    const chosen = [...picked, ...fresh];
+    // ## P6 —— 只考教过的词
+    //
+    // 原来这里有两层「凑题数」兜底：到期词不够就捞 reps=0 的（从没学过
+    // 的），还不够就捞任意词（连到期都不要求）。短文层的词是老师推的、
+    // 学生从没见过，而 due 默认就是 now() —— 两层兜底叠起来的结果是
+    // 第一次打开自测考的全是没读过的词，全错，答错还回写 FSRS 把它们
+    // 标成困难词。
+    //
+    // 现在判据换成 firstTaughtAt（P5 建立的「教过」事实）：**任何情况下
+    // 都不出没教过的词**。宁可题少，也不考他没学过的东西。
+    const chosen = input.words
+      ? (input.words as any[])
+      : await (async () => {
+          const dueTaught = await this.prisma.studentWord.findMany({
+            where: { studentId: student.id, due: { lte: now }, firstTaughtAt: { not: null } },
+            orderBy: [{ due: 'asc' }],
+            take: limit,
+          });
+          // 学生主动来练时，到期的不够可以从**教过的**旧词里续 ——
+          // 续的仍然只有教过的词，绝不放宽到 firstTaughtAt = null。
+          const moreTaught =
+            dueTaught.length < limit
+              ? await this.prisma.studentWord.findMany({
+                  where: {
+                    studentId: student.id,
+                    firstTaughtAt: { not: null },
+                    headword: { notIn: dueTaught.map((w) => w.headword) },
+                  },
+                  orderBy: [{ createdAt: 'desc' }],
+                  take: limit - dueTaught.length,
+                })
+              : [];
+          return [...dueTaught, ...moreTaught];
+        })();
 
     // 干扰项池 1：该学生的全部生词（含已掌握的 —— 作干扰项正合适）
     const mine = await this.prisma.studentWord.findMany({
       where: { studentId: student.id },
-      select: { headword: true, reps: true },
+      // firstTaughtAt：seenWords 的判据（P6）。干扰项池不看这个 ——
+      // 拿没教过的词当**干扰项**没问题，它不是被考的那一个。
+      select: { headword: true, reps: true, firstTaughtAt: true },
     });
     const allWords = [...new Set([...mine.map((w) => w.headword), ...chosen.map((w) => w.headword)])];
     const dictRows = await this.prisma.dictEntry.findMany({
@@ -344,9 +359,9 @@ export class VocabQuizService {
       student: { id: student.id, name: student.name },
       streakDays: await this.review.streakDays(student.id),
       totalWords: mine.length,
-      // 复习过至少一次的词数（修复 #8）：全是 0 说明这套题考的全是没
-      // 学过的词 —— 前端据此把「直接考」改成「先学新词」的引导。
-      seenWords: mine.filter((w) => (w.reps ?? 0) > 0).length,
+      // 教过的词数（P6 起判据从 reps>0 换成 firstTaughtAt）。为 0 说明
+      // 学生还没学过任何词 —— 前端据此把「直接考」改成「先学新词」的引导。
+      seenWords: mine.filter((w) => w.firstTaughtAt != null).length,
       questions,
     };
   }

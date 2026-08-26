@@ -83,6 +83,18 @@ export default function MyVocabQuizPage() {
   const [round, setRound] = useState(0); // 「再练一轮」时 +1 触发重新拉题
   /** 全是没学过的词时的门槛页（修复 #8）：学生明确点过「直接考」才放行 */
   const [proceedAllNew, setProceedAllNew] = useState(false);
+  /**
+   * P6 —— 正式测试。非 null 表示这一轮是**有成绩的考试**，不是自由练习。
+   *
+   * 与自测的三点区别（都由这个状态分支出去）：
+   * - 作答走 /quiz/attempt/answer，**不写 FSRS**（考试是量一下，不是练一次）
+   * - 答错不回炉重考（回炉会让分数失去意义）
+   * - 结束时提交一次，成绩落库
+   */
+  const [formal, setFormal] = useState<{ attemptId: string; total: number } | null>(null);
+  /** 提交结果（成绩）。有值 = 已交卷。 */
+  const [result, setResult] = useState<{ total: number; correct: number; score: number } | null>(null);
+  const submittingRef = useRef(false);
   const feedbackRef = useRef<HTMLDivElement | null>(null);
 
   // 弱网攒下的评分先补传
@@ -129,22 +141,52 @@ export default function MyVocabQuizPage() {
     setSpellResult(null);
     setMissed([]);
     setFirstTryCorrect(0);
-    api
-      .vocabQuiz({ name, studentId: studentId || undefined })
-      .then((r: any) => {
+    setFormal(null);
+    setResult(null);
+    submittingRef.current = false;
+    // P6：先试正式测试。不够格（not_ready / insufficient_items）才退回
+    // 自由练习 —— **同一个入口、同一个页面**，不另开一套。
+    Promise.resolve()
+      .then(() => api.vocabQuizStart({ studentName: name, studentId: studentId || undefined }))
+      .then((a: any) => {
         if (cancelled) return;
-        setPayload(r);
+        const items: any[] = a.items ?? [];
+        setFormal({ attemptId: a.attemptId, total: items.length });
+        setPayload({ questions: items, seenWords: 1, streakDays: 0, totalWords: items.length } as any);
         track('vocab_practice', name, studentId);
-        setQueue(r.questions ?? []);
+        if (a.status === 'submitted') {
+          // 今天已经考过 —— 直接给成绩，不重考
+          setResult({ total: a.total, correct: a.correct, score: a.score ?? 0 });
+          setFirstTryCorrect(a.correct);
+          setQueue([]);
+          setI(0);
+          return;
+        }
+        setQueue(items);
+        // 恢复：落到第一道没作答的题
+        const firstUnanswered = items.findIndex((it) => it.isCorrect == null);
+        setI(firstUnanswered < 0 ? items.length : firstUnanswered);
+        setFirstTryCorrect(items.filter((it) => it.isCorrect === true).length);
       })
-      .catch((e: any) => {
+      .catch(() => {
         if (cancelled) return;
-        // 交卷流程里自测挂了（限流 429 / 网络抖动）绝不能把学生困在错误页
-        // —— 他是来看成绩的，自测只是顺路。直接放行去成绩页。
-        // 主动来练的仍显示错误（他有明确的重试意愿）。
-        if (afterSubmit) navigate(historyUrl, { replace: true });
-        else setError(String(e?.message ?? e));
-      });
+        // 不够格考试 → 自由练习（老行为原样保留，含 FSRS 回写）
+        return api
+          .vocabQuiz({ name, studentId: studentId || undefined })
+          .then((r: any) => {
+            if (cancelled) return;
+            setPayload(r);
+            track('vocab_practice', name, studentId);
+            setQueue(r.questions ?? []);
+          })
+          .catch((e: any) => {
+            if (cancelled) return;
+            if (afterSubmit) navigate(historyUrl, { replace: true });
+            else setError(String(e?.message ?? e));
+          });
+      })
+      .then(() => undefined)
+      .catch(() => { /* 上面已处理 */ });
     return () => {
       cancelled = true;
     };
@@ -159,7 +201,19 @@ export default function MyVocabQuizPage() {
       if (!q || chosen !== null) return;
       setChosen(idx);
       const correct = idx === q.correctIndex;
-      if (!q.retry) {
+      if (formal) {
+        // 正式测试：作答落进成绩单，**不写 FSRS、不回炉**。
+        // 服务端第一次作答为准，重发是 no-op。
+        if (correct) setFirstTryCorrect((c) => c + 1);
+        void api
+          .vocabQuizAnswer({
+            studentName: name,
+            studentId: studentId || undefined,
+            index: i,
+            optionIndex: idx,
+          })
+          .catch(() => { /* 网络抖动：这一题按未作答计，交卷时算错 */ });
+      } else if (!q.retry) {
         if (correct) setFirstTryCorrect((c) => c + 1);
         else {
           setMissed((m) => [...m, q]);
@@ -178,7 +232,7 @@ export default function MyVocabQuizPage() {
       // 读屏用户把焦点带到反馈区
       setTimeout(() => feedbackRef.current?.focus(), 50);
     },
-    [q, chosen, name, studentId],
+    [q, chosen, name, studentId, formal, i],
   );
 
   /** 拼写题结算 —— 与 pick() 的副作用完全对齐：第一遍才计分/回炉/写 FSRS。 */
@@ -186,7 +240,17 @@ export default function MyVocabQuizPage() {
     (correct: boolean) => {
       if (!q || q.qtype !== 'spelling' || spellResult !== null) return;
       setSpellResult(correct);
-      if (!q.retry) {
+      if (formal) {
+        if (correct) setFirstTryCorrect((c) => c + 1);
+        void api
+          .vocabQuizAnswer({
+            studentName: name,
+            studentId: studentId || undefined,
+            index: i,
+            text: typed,
+          })
+          .catch(() => { /* 同上 */ });
+      } else if (!q.retry) {
         if (correct) setFirstTryCorrect((c) => c + 1);
         else {
           setMissed((m) => [...m, q]);
@@ -201,7 +265,7 @@ export default function MyVocabQuizPage() {
       }
       setTimeout(() => feedbackRef.current?.focus(), 50);
     },
-    [q, spellResult, name, studentId],
+    [q, spellResult, name, studentId, formal, i, typed],
   );
 
   const next = useCallback(() => {
@@ -296,14 +360,39 @@ export default function MyVocabQuizPage() {
 
   // ── 完成页 ──────────────────────────────────────────────
   if (!q) {
-    const pct = firstRoundTotal ? Math.round((firstTryCorrect / firstRoundTotal) * 100) : 0;
+    // P6：正式测试走到底 → 提交一次拿成绩。
+    // submittingRef 挡住重复触发（完成页会因 state 变化重渲染多次）；
+    // 服务端本身也是幂等的，两道防线都要有。
+    if (formal && !result && !submittingRef.current) {
+      submittingRef.current = true;
+      void api
+        .vocabQuizSubmit({ studentName: name, studentId: studentId || undefined })
+        .then((r: any) => setResult({ total: r.total, correct: r.correct, score: r.score ?? 0 }))
+        .catch(() => { submittingRef.current = false; });
+    }
+    // 正式测试显示**落库的**成绩（改词库也不会变），自由练习仍显示本地统计
+    const pct = result
+      ? Math.round(result.score)
+      : firstRoundTotal
+        ? Math.round((firstTryCorrect / firstRoundTotal) * 100)
+        : 0;
     return (
       <div className="ui-ios min-h-screen bg-gray-50 flex items-center justify-center px-5 py-8">
         <div className="bg-white rounded-2xl border shadow-sm p-7 max-w-sm w-full text-center enter">
           <div className="text-5xl mb-3">{pct === 100 ? '🏆' : pct >= 60 ? '💪' : '📖'}</div>
           <div className="text-2xl font-bold text-gray-900">
-            {firstTryCorrect} / {firstRoundTotal} <span className="text-base font-normal text-gray-500">一次答对</span>
+            {result ? result.correct : firstTryCorrect} / {result ? result.total : firstRoundTotal}{' '}
+            <span className="text-base font-normal text-gray-500">
+              {result ? '答对' : '一次答对'}
+            </span>
           </div>
+          {/* 正式测试：分数在提交时算一次并落库，这里只是把它读出来 —— 
+              之后改词库、改释义，这个数字都不会变。 */}
+          {result && (
+            <div className="mt-1 text-[15px] font-semibold text-blue-700" data-testid="quiz-score">
+              单词测试成绩 {result.score} 分
+            </div>
+          )}
           {payload.streakDays > 0 && (
             <div className="mt-2 inline-block text-[14px] text-orange-600 bg-orange-50 border border-orange-200 rounded-full px-3 py-1">
               🔥 连续学习 {payload.streakDays} 天

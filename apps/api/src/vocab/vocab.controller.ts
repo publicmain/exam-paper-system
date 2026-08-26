@@ -7,6 +7,7 @@ import { RateLimit } from '../common/rate-limit.guard';
 import { RequireStudentToken, StudentIdentityGuard } from '../common/student-identity.guard';
 import { StudentWordService } from './student-word.service';
 import { VocabQuizService } from './vocab-quiz.service';
+import { VocabQuizAttemptService } from './vocab-quiz-attempt.service';
 import { VocabReviewService, type RatingKey } from './vocab-review.service';
 import { VocabService } from './vocab.service';
 import { VocabTeacherService } from './vocab-teacher.service';
@@ -53,6 +54,7 @@ export class VocabController {
     private readonly mistakes: MistakeService,
     private readonly views: PageViewService,
     private readonly prisma: PrismaService,
+    private readonly attempts: VocabQuizAttemptService,
   ) {}
 
   /** 查单词。查不到返回 { found: false } —— 前端显示「未收录」，绝不猜词义。 */
@@ -379,5 +381,86 @@ export class VocabController {
       role: user.role,
       ip: (req as any).ip ?? null,
     });
+  }
+
+  // ─────────────── P6 · 正式单词测试（有成绩） ───────────────
+  //
+  // 四个端点**一律要求学生令牌**（@RequireStudentToken）。旧的
+  // GET /vocab/quiz 只认请求里的 name 字符串，等于「报个名字就能读
+  // 别人的题」；成绩实体不能重复这个错误 —— 读别人的成绩、替别人交卷
+  // 都必须过身份门。
+
+  /** 开始或恢复当日正式测试。幂等：已有就原样返回。 */
+  @Public()
+  @RequireStudentToken()
+  @RateLimit({ limit: 60, windowSec: 60, scope: 'ip' })
+  @Post('quiz/attempt/start')
+  async quizStart(@Body() body: unknown) {
+    const schema = z.object({
+      name: z.string().min(1).max(120),
+      studentId: z.string().min(1).max(60).optional(),
+    });
+    const p = schema.safeParse(body);
+    if (!p.success) throw new BadRequestException(p.error.flatten());
+    return this.attempts.start({ studentName: p.data.name, studentId: p.data.studentId });
+  }
+
+  /** 回读当日测试（刷新 / 重新登录后恢复）。没有就返回 { attempt: null }。 */
+  @Public()
+  @RequireStudentToken()
+  @RateLimit({ limit: 180, windowSec: 60, scope: 'ip' })
+  @Get('quiz/attempt/current')
+  async quizCurrent(@Query('name') name?: string, @Query('studentId') studentId?: string) {
+    if (!name) throw new BadRequestException({ code: 'name_required' });
+    return this.attempts.current({ studentName: name, studentId: studentId || undefined });
+  }
+
+  /** 记一题的作答。第一次作答为准，重复提交 no-op。 */
+  @Public()
+  @RequireStudentToken()
+  @RateLimit({ limit: 240, windowSec: 60, scope: 'ip' })
+  @Post('quiz/attempt/answer')
+  async quizAnswer(@Body() body: unknown) {
+    const schema = z.object({
+      name: z.string().min(1).max(120),
+      studentId: z.string().min(1).max(60).optional(),
+      index: z.number().int().min(0).max(50),
+      optionIndex: z.number().int().min(0).max(10).optional(),
+      text: z.string().max(80).optional(),
+    });
+    const p = schema.safeParse(body);
+    if (!p.success) throw new BadRequestException(p.error.flatten());
+    return this.attempts.answer({
+      studentName: p.data.name,
+      studentId: p.data.studentId,
+      index: p.data.index,
+      optionIndex: p.data.optionIndex,
+      text: p.data.text,
+    });
+  }
+
+  /** 提交。幂等：双击 / 重试只会有一份成绩。 */
+  @Public()
+  @RequireStudentToken()
+  @RateLimit({ limit: 60, windowSec: 60, scope: 'ip' })
+  @Post('quiz/attempt/submit')
+  async quizSubmit(@Body() body: unknown) {
+    const schema = z.object({
+      name: z.string().min(1).max(120),
+      studentId: z.string().min(1).max(60).optional(),
+    });
+    const p = schema.safeParse(body);
+    if (!p.success) throw new BadRequestException(p.error.flatten());
+    return this.attempts.submit({ studentName: p.data.name, studentId: p.data.studentId });
+  }
+
+  /** 历史成绩（只读）。 */
+  @Public()
+  @RequireStudentToken()
+  @RateLimit({ limit: 120, windowSec: 60, scope: 'ip' })
+  @Get('quiz/attempts')
+  async quizAttempts(@Query('name') name?: string, @Query('studentId') studentId?: string) {
+    if (!name) throw new BadRequestException({ code: 'name_required' });
+    return this.attempts.history({ studentName: name, studentId: studentId || undefined });
   }
 }

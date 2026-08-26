@@ -1,0 +1,346 @@
+import { BadRequestException, ConflictException, Injectable, Logger } from '@nestjs/common';
+import { PrismaService } from '../common/prisma.service';
+import { StudentWordService } from './student-word.service';
+import { VocabQuizService } from './vocab-quiz.service';
+import {
+  MAX_QUIZ_ITEMS,
+  MIN_QUIZ_ITEMS,
+  scoreOf,
+  selectEligible,
+} from './quiz-eligibility';
+
+/**
+ * P6 —— 正式单词测试。
+ *
+ * 与「自测」的区别不在页面，在于**它有成绩**：一份 VocabQuizAttempt，
+ * 一个任务日一份，题目创建时快照冻结。
+ *
+ * 三条硬边界，逐条对应本片的规则：
+ * - **不写 FSRS**：不产生 WordReviewLog，不动 due/reps/stability/
+ *   difficulty/lapses。考试是「量一下」，不是「练一次」；让考试改调度
+ *   等于用尺子把被量的东西压短。复习调度仍然只由翻卡评分驱动。
+ * - **不写阅读答卷**：成绩落在自己的表里，StudentSubmission 一个字段
+ *   都不碰。
+ * - **只考教过的词**：资格判据见 quiz-eligibility.ts，任何情况下都不为
+ *   凑题数放宽。
+ */
+@Injectable()
+export class VocabQuizAttemptService {
+  private readonly logger = new Logger(VocabQuizAttemptService.name);
+
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly words: StudentWordService,
+    private readonly quiz: VocabQuizService,
+  ) {}
+
+  /** 任务日（SGT 日历日的 UTC 午夜）—— 与 DailyLessonCompletion.date 同口径 */
+  private dayKey(now = new Date()): Date {
+    const sgt = new Date(now.getTime() + 8 * 3600_000);
+    return new Date(Date.UTC(sgt.getUTCFullYear(), sgt.getUTCMonth(), sgt.getUTCDate()));
+  }
+
+  /** 真实的 SGT 零点（时间瞬刻）—— 用于「今天刚教过」的比较 */
+  private sgtMidnight(now = new Date()): Date {
+    const k = this.dayKey(now);
+    return new Date(k.getTime() - 8 * 3600_000);
+  }
+
+  private view(a: {
+    id: string;
+    status: string;
+    startedAt: Date;
+    submittedAt: Date | null;
+    total: number;
+    correct: number;
+    score: number;
+    items: unknown;
+  }) {
+    const items = (a.items as any[]) ?? [];
+    const submitted = a.status === 'submitted';
+    return {
+      attemptId: a.id,
+      status: a.status,
+      startedAt: a.startedAt.toISOString(),
+      submittedAt: a.submittedAt ? a.submittedAt.toISOString() : null,
+      total: submitted ? a.total : items.length,
+      correct: submitted ? a.correct : items.filter((it) => it.isCorrect === true).length,
+      score: submitted ? a.score : null,
+      items: items.map((it, index) => ({
+        index,
+        qtype: it.qtype,
+        headword: it.headword,
+        prompt: it.prompt,
+        options: it.options ?? [],
+        phonetic: it.phonetic ?? null,
+        translation: it.translation ?? null,
+        contextSentence: it.contextSentence ?? null,
+        // 作答前**不下发正确答案** —— 下发了等于把答案放进 devtools。
+        // 提交后才连答案一起给，用于结果页逐题回看。
+        correctIndex: submitted ? (it.correctIndex ?? null) : null,
+        answer: submitted ? (it.answer ?? null) : null,
+        studentIndex: it.studentIndex ?? null,
+        studentAnswer: it.studentAnswer ?? null,
+        isCorrect: it.isCorrect ?? null,
+        answeredAt: it.answeredAt ?? null,
+      })),
+    };
+  }
+
+  /**
+   * 开始（或恢复）当日的正式测试。**幂等**。
+   *
+   * 已有记录 → 原样返回（进行中就接着做，已提交就返回成绩）。
+   * 没有 → 按资格挑词、出题、快照落库。
+   *
+   * 并发/双击：靠 (studentId, date) 唯一约束。两个请求同时进来，先到的
+   * 建成，后到的撞约束后回读同一份 —— 不可能产生两份成绩。
+   */
+  async start(input: { studentName: string; studentId?: string }) {
+    const student = await this.words.resolveStudent(input.studentName, input.studentId);
+    const now = new Date();
+    const date = this.dayKey(now);
+
+    const existing = await this.prisma.vocabQuizAttempt.findUnique({
+      where: { studentId_date: { studentId: student.id, date } },
+    });
+    if (existing) return { ...this.view(existing), resumed: true as const };
+
+    // ── 资格 ──
+    const candidates = await this.prisma.studentWord.findMany({
+      where: { studentId: student.id },
+      select: {
+        headword: true,
+        firstTaughtAt: true,
+        due: true,
+        contextSentence: true,
+        reps: true,
+      },
+    });
+    const outcome = selectEligible(candidates, now, this.sgtMidnight(now));
+    if (outcome.kind !== 'ok') {
+      // 明确说不够，**不生成虚假测试**。前端据此退回自由练习或提示。
+      throw new ConflictException({
+        code: outcome.kind,
+        taught: outcome.taught,
+        eligible: outcome.eligible,
+        minItems: MIN_QUIZ_ITEMS,
+      });
+    }
+
+    // ── 出题：固定词表，服务端不再自己补题 ──
+    const built = await this.quiz.buildQuiz({
+      studentName: input.studentName,
+      studentId: input.studentId,
+      limit: MAX_QUIZ_ITEMS,
+      words: outcome.words.map((w: any) => ({
+        headword: w.headword,
+        contextSentence: w.contextSentence ?? null,
+        reps: w.reps ?? 0,
+      })),
+    });
+    const questions = built.questions ?? [];
+    if (questions.length < MIN_QUIZ_ITEMS) {
+      // 词够了但组不出题（干扰项不足 / 释义缺失）—— 同样明说，不糊弄
+      throw new ConflictException({
+        code: 'insufficient_items',
+        taught: outcome.words.length,
+        eligible: questions.length,
+        minItems: MIN_QUIZ_ITEMS,
+      });
+    }
+
+    const items = questions.map((q: any) => ({
+      qtype: q.qtype,
+      headword: q.headword,
+      prompt: q.prompt,
+      options: q.options ?? [],
+      correctIndex: typeof q.correctIndex === 'number' ? q.correctIndex : null,
+      answer: q.answer ?? null,
+      phonetic: q.phonetic ?? null,
+      translation: q.translation ?? null,
+      contextSentence: q.contextSentence ?? null,
+      studentIndex: null,
+      studentAnswer: null,
+      isCorrect: null,
+      answeredAt: null,
+    }));
+
+    const dlc = await this.prisma.dailyLessonCompletion.findUnique({
+      where: { studentId_date: { studentId: student.id, date } },
+      select: { id: true },
+    });
+
+    try {
+      const created = await this.prisma.vocabQuizAttempt.create({
+        data: {
+          studentId: student.id,
+          date,
+          dailyLessonCompletionId: dlc?.id ?? null,
+          status: 'in_progress',
+          items: items as any,
+          total: items.length,
+        },
+      });
+      this.logger.log(
+        `vocab quiz started student=${student.id} attempt=${created.id} items=${items.length}`,
+      );
+      return { ...this.view(created), resumed: false as const };
+    } catch (e: any) {
+      // 并发撞唯一约束 —— 回读那一份，绝不建第二份
+      if (e?.code !== 'P2002') throw e;
+      const winner = await this.prisma.vocabQuizAttempt.findUnique({
+        where: { studentId_date: { studentId: student.id, date } },
+      });
+      if (!winner) throw e;
+      return { ...this.view(winner), resumed: true as const };
+    }
+  }
+
+  /** 回读当日测试（恢复用）。没有就返回 null，不隐式创建。 */
+  async current(input: { studentName: string; studentId?: string }) {
+    const student = await this.words.resolveStudent(input.studentName, input.studentId);
+    const a = await this.prisma.vocabQuizAttempt.findUnique({
+      where: { studentId_date: { studentId: student.id, date: this.dayKey() } },
+    });
+    return a ? this.view(a) : { attempt: null };
+  }
+
+  /**
+   * 记一题的作答。**第一次作答为准**，重复提交同一题是 no-op ——
+   * 网络重试、双击、返回上一题再点，都不会改写已经记下的答案。
+   *
+   * 只写 items，不碰 StudentWord / WordReviewLog。
+   */
+  async answer(input: {
+    studentName: string;
+    studentId?: string;
+    index: number;
+    /** 选择题的选项下标；拼写题传 text */
+    optionIndex?: number;
+    text?: string;
+  }) {
+    const student = await this.words.resolveStudent(input.studentName, input.studentId);
+    const date = this.dayKey();
+    const a = await this.prisma.vocabQuizAttempt.findUnique({
+      where: { studentId_date: { studentId: student.id, date } },
+    });
+    if (!a) throw new ConflictException({ code: 'no_attempt' });
+    if (a.status === 'submitted') {
+      // 交过卷就不再接受作答 —— 成绩已经落定
+      return { ...this.view(a), accepted: false as const, reason: 'already_submitted' as const };
+    }
+
+    const items = (a.items as any[]) ?? [];
+    const idx = Number(input.index);
+    if (!Number.isInteger(idx) || idx < 0 || idx >= items.length) {
+      throw new BadRequestException({ code: 'index_out_of_range' });
+    }
+    const it = items[idx];
+    if (it.isCorrect != null) {
+      // 已经答过 —— 幂等 no-op，保留第一次的答案
+      return { ...this.view(a), accepted: false as const, reason: 'already_answered' as const };
+    }
+
+    let isCorrect = false;
+    let studentAnswer: string | null = null;
+    let studentIndex: number | null = null;
+    if (it.qtype === 'spelling') {
+      const typed = (input.text ?? '').trim();
+      studentAnswer = typed;
+      isCorrect =
+        typed.length > 0 &&
+        typed.toLowerCase() === String(it.answer ?? '').trim().toLowerCase();
+    } else {
+      const oi = Number(input.optionIndex);
+      if (!Number.isInteger(oi) || oi < 0 || oi >= (it.options?.length ?? 0)) {
+        throw new BadRequestException({ code: 'option_out_of_range' });
+      }
+      studentIndex = oi;
+      studentAnswer = it.options[oi] ?? null;
+      isCorrect = oi === it.correctIndex;
+    }
+
+    items[idx] = {
+      ...it,
+      studentIndex,
+      studentAnswer,
+      isCorrect,
+      answeredAt: new Date().toISOString(),
+    };
+
+    // 条件写入：只在这一题仍未作答时落库。两个请求同时打同一题，
+    // 先到的写成，后到的匹配 0 行 —— 第一次作答为准。
+    const updated = await this.prisma.vocabQuizAttempt.updateMany({
+      where: { id: a.id, status: 'in_progress' },
+      data: { items: items as any },
+    });
+    if (updated.count === 0) {
+      const fresh = await this.prisma.vocabQuizAttempt.findUnique({ where: { id: a.id } });
+      return { ...this.view(fresh!), accepted: false as const, reason: 'already_submitted' as const };
+    }
+    const fresh = await this.prisma.vocabQuizAttempt.findUnique({ where: { id: a.id } });
+    return { ...this.view(fresh!), accepted: true as const, isCorrect };
+  }
+
+  /**
+   * 提交。**幂等** —— 双击、重试、并发都只会有一份成绩。
+   *
+   * 分数在这里算一次、落库一次；展示层永远读落库的值，改词库不影响。
+   * 未作答的题按答错计入总数（考试就是这样），但不写任何 FSRS 字段。
+   */
+  async submit(input: { studentName: string; studentId?: string }) {
+    const student = await this.words.resolveStudent(input.studentName, input.studentId);
+    const date = this.dayKey();
+    const a = await this.prisma.vocabQuizAttempt.findUnique({
+      where: { studentId_date: { studentId: student.id, date } },
+    });
+    if (!a) throw new ConflictException({ code: 'no_attempt' });
+    if (a.status === 'submitted') {
+      // 已经交过 —— 原样返回同一份成绩，不重算、不新建
+      return { ...this.view(a), alreadySubmitted: true as const };
+    }
+
+    const items = (a.items as any[]) ?? [];
+    const { total, correct, score } = scoreOf(items);
+
+    // 条件更新：只有仍是 in_progress 的那一次会成功。并发提交里
+    // 后到的匹配 0 行，回读同一份成绩 —— 不可能产生第二份。
+    const done = await this.prisma.vocabQuizAttempt.updateMany({
+      where: { id: a.id, status: 'in_progress' },
+      data: { status: 'submitted', submittedAt: new Date(), total, correct, score },
+    });
+    const fresh = await this.prisma.vocabQuizAttempt.findUnique({ where: { id: a.id } });
+    if (done.count === 0) {
+      return { ...this.view(fresh!), alreadySubmitted: true as const };
+    }
+    this.logger.log(
+      `vocab quiz submitted student=${student.id} attempt=${a.id} ${correct}/${total} (${score})`,
+    );
+    return { ...this.view(fresh!), alreadySubmitted: false as const };
+  }
+
+  /** 历史成绩列表（最近 N 次）。只读，供成绩页用。 */
+  async history(input: { studentName: string; studentId?: string; limit?: number }) {
+    const student = await this.words.resolveStudent(input.studentName, input.studentId);
+    const take = Math.min(Math.max(input.limit ?? 30, 1), 100);
+    const rows = await this.prisma.vocabQuizAttempt.findMany({
+      where: { studentId: student.id, status: 'submitted' },
+      orderBy: [{ date: 'desc' }],
+      take,
+      select: {
+        id: true, date: true, submittedAt: true, total: true, correct: true, score: true,
+      },
+    });
+    return {
+      attempts: rows.map((r) => ({
+        id: r.id,
+        date: r.date.toISOString().slice(0, 10),
+        submittedAt: r.submittedAt ? r.submittedAt.toISOString() : null,
+        total: r.total,
+        correct: r.correct,
+        score: r.score,
+      })),
+    };
+  }
+}

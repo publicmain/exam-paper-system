@@ -145,7 +145,9 @@ export class LessonService {
 
     const segments: LessonSegments = {
       read: readTarget === 0 ? 'none' : readStatus(readNow),
-      vocab: segmentStatus(vocabNow.progress, vTarget),
+      // 交了当天的正式测试就算背段完成 —— 「学完再考一次」本来就是
+      // 这一段的终点。没考的日子仍按复习次数判定（老行为不变）。
+      vocab: vocabNow.quizSubmitted ? 'done' : segmentStatus(vocabNow.progress, vTarget),
       drill: segmentStatus(drillNow.progress, dTarget),
     };
 
@@ -369,6 +371,17 @@ export class LessonService {
     const progress = await this.prisma.wordReviewLog.count({
       where: { studentWord: { studentId }, reviewedAt: { gte: dayStart } },
     });
+    // P6 —— 今天的正式单词测试交了没有。
+    //
+    // 这一条是必须的，不是锦上添花：正式测试**不写 WordReviewLog**
+    // （考试是量一下，不是练一次），而背段的 progress 数的正是当天的
+    // 复习流水。不认这一条的话，一个「教 5 个新词 → 考一次」的日子里
+    // progress 永远是 0、背段永远不完成，stage 就卡死在 vocab_test ——
+    // 和 P5 那次 unlearned 的死锁一模一样。
+    const quizSubmitted = await this.prisma.vocabQuizAttempt.count({
+      where: { studentId, date: this.sgtDayStart(now), status: 'submitted' },
+    });
+
     // 还没**教过**的到期词 —— 阶段判定要靠它区分「该教」还是「该考」。
     //
     // P5 起判据从 reps=0 换成 firstTaughtAt IS NULL AND reps=0（见
@@ -378,7 +391,7 @@ export class LessonService {
     const unlearned = await this.prisma.studentWord.count({
       where: { studentId, due: { lte: now }, firstTaughtAt: null, reps: 0 },
     });
-    return { target, progress, unlearned };
+    return { target, progress, unlearned, quizSubmitted: quizSubmitted > 0 };
   }
 
   // ── ③ 补 ──

@@ -124,6 +124,7 @@ model User {
   vocabWords                   StudentWord[]            @relation("StudentWordOwner")
   pageViews                    StudentPageView[]        @relation("StudentPageViewOwner")
   mistakes                     MistakeEntry[]           @relation("MistakeOwner")
+  vocabQuizAttempts            VocabQuizAttempt[]       @relation("VocabQuizAttemptStudent")
 }
 
 // ============================================================
@@ -2143,6 +2144,48 @@ enum VocabState {
 
 /// 复习流水。FSRS 的参数优化需要完整历史，且这是"生词本到底有没有用"
 /// 的度量依据（见 PRD §7 迁移证据）。
+/// P6 —— 正式单词测试的一次作答（成绩实体）。
+///
+/// 与阅读答卷（StudentSubmission）**分开保存**，与 FSRS 调度也分开：
+/// 这里只记「这次考了什么、答了什么、得了多少分」，一个字段都不参与
+/// 复习调度。改词库不会让历史成绩变化 —— 题干/选项/正确答案在创建时
+/// 就快照进 items。
+model VocabQuizAttempt {
+  id        String @id @default(cuid())
+  studentId String
+  student   User   @relation("VocabQuizAttemptStudent", fields: [studentId], references: [id], onDelete: Cascade)
+
+  /// 任务日（与 DailyLessonCompletion.date 同一口径：SGT 日历日）
+  date                    DateTime               @db.Date
+  /// 当日任务行。可空 —— 学生可能还没打开过课程页（DLC 由 today(freeze) 创建）
+  dailyLessonCompletionId String?
+  dailyLessonCompletion   DailyLessonCompletion? @relation(fields: [dailyLessonCompletionId], references: [id], onDelete: SetNull)
+
+  /// in_progress | submitted
+  status      String    @default("in_progress")
+  startedAt   DateTime  @default(now())
+  submittedAt DateTime?
+
+  total   Int   @default(0)
+  correct Int   @default(0)
+  /// 百分制，提交时算一次并落库 —— 展示层不重算，改词库也不影响
+  score   Float @default(0)
+
+  /// 逐题快照 + 学生作答：
+  /// [{ headword, qtype, prompt, options, correctIndex, answer,
+  ///    translation, phonetic, contextSentence,
+  ///    studentAnswer, studentIndex, isCorrect, answeredAt }]
+  items Json
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  /// 同一任务（studentId + 日）**只能有一份**正式测试。
+  /// 创建走 upsert，双击/重试撞上这条约束就是幂等 no-op。
+  @@unique([studentId, date])
+  @@index([studentId, submittedAt])
+}
+
 model WordReviewLog {
   id            String      @id @default(cuid())
   studentWordId String
@@ -2352,6 +2395,9 @@ model DailyLessonCompletion {
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+
+  /// P6：当日的正式单词测试（0 或 1 份）
+  vocabQuizAttempts VocabQuizAttempt[]
 
   @@unique([studentId, date])
   @@index([date])
