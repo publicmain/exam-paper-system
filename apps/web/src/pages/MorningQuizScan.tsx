@@ -134,6 +134,36 @@ export default function MorningQuizScan() {
   const [meta, setMeta] = useState<RosterMeta | null>(null);
   const [error, setError] = useState<{ code: string; message: string } | null>(null);
   const [name, setName] = useState('');
+  // ── 一键签到（2026-08-26 教师问「为什么还要输入姓名」）──
+  //
+  // 签到页的输名字设计早于账号体系：墙码共享、设备未知，名字是唯一的
+  // 身份机制。现在设备大概率认识主人（30 天登录 token，次之 localStorage
+  // 存过的名字），再让他打全名是纯摩擦。
+  //
+  // 但**不做静默预填**：借手机场景（同学拿别人的手机扫）里预填输入框
+  // 会一键误签成机主。改成显式确认 ——「我是 XX，签到」+「不是我」
+  // 切回手动输入。误签的代价（错考勤+错答卷）远高于多点一下。
+  const knownName = (() => {
+    try {
+      const t = localStorage.getItem('auth_token');
+      if (t) {
+        const p = decodeJwt(t) as any;
+        if (
+          p?.role === 'student' &&
+          p?.name &&
+          p.scope !== 'mq_handoff' &&
+          p.scope !== 'teacher_view' &&
+          (typeof p.exp !== 'number' || p.exp * 1000 > Date.now())
+        ) {
+          return String(p.name);
+        }
+      }
+      return localStorage.getItem('mq:history:name') ?? '';
+    } catch {
+      return '';
+    }
+  })();
+  const [manualEntry, setManualEntry] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   // R10 multi-level: which (class+day+level) sibling session the student
   // wants. null means "not yet picked" — the picker UI is shown when
@@ -189,8 +219,13 @@ export default function MorningQuizScan() {
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
+    return submitWithName(name);
+  }
+
+  // 一键签到与表单共用同一条提交路径 —— 差别只是名字从哪来
+  async function submitWithName(rawName: string) {
     if (submitting || !token) return;
-    const trimmed = name.trim();
+    const trimmed = rawName.trim();
     if (!trimmed) {
       setError({ code: 'empty_name', message: '请输入你的姓名' });
       return;
@@ -403,24 +438,51 @@ export default function MorningQuizScan() {
           </p>
         </header>
         <form onSubmit={handleSubmit} className="space-y-5">
-          <div>
-            <label className="block text-base text-gray-700 mb-2 font-medium">
-              请输入你的姓名(完整真名)
-            </label>
-            <input
-              type="text"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              placeholder=""
-              autoFocus
-              autoComplete="off"
-              autoCorrect="off"
-              autoCapitalize="off"
-              spellCheck={false}
-              disabled={submitting}
-              className="w-full px-4 py-4 text-2xl text-center border-2 border-gray-200 focus:border-blue-500 rounded-lg outline-none disabled:bg-gray-100"
-            />
-          </div>
+          {knownName && !manualEntry && (
+            <div className="space-y-3">
+              <button
+                type="button"
+                disabled={submitting}
+                onClick={() => {
+                  setName(knownName);
+                  void submitWithName(knownName);
+                }}
+                className="w-full px-4 py-4 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-300 text-white text-xl font-semibold rounded-lg transition-colors"
+              >
+                {submitting ? '签到中…' : `我是 ${knownName}，签到`}
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setManualEntry(true);
+                  setName('');
+                }}
+                className="w-full py-2 text-[14px] text-gray-400"
+              >
+                不是{knownName}？点这里输入姓名
+              </button>
+            </div>
+          )}
+          {(!knownName || manualEntry) && (
+            <div>
+              <label className="block text-base text-gray-700 mb-2 font-medium">
+                请输入你的姓名(完整真名)
+              </label>
+              <input
+                type="text"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                placeholder=""
+                autoFocus
+                autoComplete="off"
+                autoCorrect="off"
+                autoCapitalize="off"
+                spellCheck={false}
+                disabled={submitting}
+                className="w-full px-4 py-4 text-2xl text-center border-2 border-gray-200 focus:border-blue-500 rounded-lg outline-none disabled:bg-gray-100"
+              />
+            </div>
+          )}
           {error && (
             <div className="px-4 py-3 bg-rose-50 border border-rose-200 text-rose-700 rounded text-sm text-center">
               {error.message}
@@ -432,13 +494,15 @@ export default function MorningQuizScan() {
           {error && isQuizOver(error.code, error.message) && (
             <AfterQuizPortal code={error.code} raw={error.message} />
           )}
-          <button
-            type="submit"
-            disabled={submitting || !name.trim()}
-            className="w-full px-4 py-4 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-300 text-white text-lg font-semibold rounded-lg transition-colors"
-          >
-            {submitting ? '签到中…' : '签到 · Sign In'}
-          </button>
+          {(!knownName || manualEntry) && (
+            <button
+              type="submit"
+              disabled={submitting || !name.trim()}
+              className="w-full px-4 py-4 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-300 text-white text-lg font-semibold rounded-lg transition-colors"
+            >
+              {submitting ? '签到中…' : '签到 · Sign In'}
+            </button>
+          )}
         </form>
         <footer className="mt-8 text-center text-xs text-gray-400">
           Morning Quiz · ESIC · 名字打错或不在名单?请联系老师
