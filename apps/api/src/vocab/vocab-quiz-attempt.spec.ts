@@ -54,7 +54,14 @@ function makeSvc(opts: {
       }),
     },
     studentWord: {
-      findMany: track('studentWord', 'findMany', async () => opts.words ?? []),
+      // 照着 where 真的过滤 —— 否则测的是假货，headword.in 写错也不会红
+      findMany: track('studentWord', 'findMany', async (args: any) => {
+        let ws = opts.words ?? [];
+        const inList = args?.where?.headword?.in;
+        if (Array.isArray(inList)) ws = ws.filter((w: any) => inList.includes(w.headword));
+        if (args?.where?.firstTaughtAt?.not === null) ws = ws.filter((w: any) => w.firstTaughtAt != null);
+        return ws;
+      }),
       // 考试绝不许碰这些
       update: () => { throw new Error('考试不得改写 FSRS 字段'); },
       updateMany: () => { throw new Error('考试不得改写 FSRS 字段'); },
@@ -70,7 +77,10 @@ function makeSvc(opts: {
       findMany: track('wordReviewLog', 'findMany', async () => opts.reviewedToday ?? []),
     },
     dailyLessonCompletion: {
-      findUnique: track('dlc', 'findUnique', async () => (opts.dlc === null ? null : (opts.dlc ?? { id: 'dlc1' }))),
+      findUnique: track('dlc', 'findUnique', async () =>
+        opts.dlc === null
+          ? null
+          : (opts.dlc ?? { id: 'dlc1', vocabWords: (opts.words ?? []).map((w: any) => w.headword) })),
       update: () => { throw new Error('考试不得直接改任务行'); },
       updateMany: () => { throw new Error('考试不得直接改任务行'); },
     },
@@ -303,50 +313,59 @@ describe('任务绑定（P6 收尾）', () => {
   });
 
   it('**新建的 attempt 一定带任务绑定**', async () => {
-    const { svc, prisma } = makeSvc({ dlc: { id: 'dlc_today' }, words: dueWords(8) });
+    const { svc, prisma } = makeSvc({ dlc: { id: 'dlc_today', vocabWords: ['w0','w1','w2','w3','w4','w5','w6','w7'] }, words: dueWords(8) });
     await svc.start({ studentName: '小明' });
     const c = prisma.__calls.find((x: any) => x.op === 'create');
     expect(c.args.data.dailyLessonCompletionId).toBe('dlc_today');
   });
 
   it('**候选词的 SQL 里就写死了 firstTaughtAt IS NOT NULL**，不靠下游过滤', async () => {
-    const { svc, prisma } = makeSvc({ dlc: { id: 'd' }, words: dueWords(8) });
+    const { svc, prisma } = makeSvc({ dlc: { id: 'd', vocabWords: ['w0','w1','w2','w3','w4','w5','w6','w7'] }, words: dueWords(8) });
     await svc.start({ studentName: '小明' });
     const w = prisma.__calls.find((c: any) => c.model === 'studentWord' && c.op === 'findMany');
     expect(w.args.where.firstTaughtAt).toEqual({ not: null });
     expect(w.args.where.studentId).toBe('stu1');
   });
 
-  it('**任务归属不靠全局 due**：候选只取「今天教过」或「今天复习过」的词', async () => {
-    const { svc, prisma } = makeSvc({ dlc: { id: 'd' }, words: dueWords(8) });
+  it('**任务归属只认任务自己记的队列**：不看 due、不看「今天动过」', async () => {
+    const { svc, prisma } = makeSvc({
+      dlc: { id: 'd', vocabWords: ['w0', 'w1', 'w2', 'w3', 'w4'] },
+      words: dueWords(8),
+    });
     await svc.start({ studentName: '小明' });
     const w = prisma.__calls.find((c: any) => c.model === 'studentWord' && c.op === 'findMany');
     // where 里绝不能出现「due <= now」这种全局条件
     expect(w.args.where.due).toBeUndefined();
-    const or = w.args.where.OR;
-    expect(Array.isArray(or)).toBe(true);
-    expect(or.some((o: any) => o.firstTaughtAt?.gte instanceof Date)).toBe(true);
-    expect(or.some((o: any) => Array.isArray(o.headword?.in))).toBe(true);
+    // 也不再有「今天教过 OR 今天复习过」的日期推断
+    expect(w.args.where.OR).toBeUndefined();
+    // 只剩：这个学生 + 教过 + 在这次任务的队列里
+    expect(w.args.where.headword).toEqual({ in: ['w0', 'w1', 'w2', 'w3', 'w4'] });
+    expect(w.args.where.firstTaughtAt).toEqual({ not: null });
   });
 
-  it('今天复习过的词会被算进本次任务（走复习流水，不是扫全表）', async () => {
+  it('**不再读 WordReviewLog 推断归属** —— 自由练习的日志碰不到出题范围', async () => {
     const { svc, prisma } = makeSvc({
-      dlc: { id: 'd' },
+      dlc: { id: 'd', vocabWords: ['w0', 'w1', 'w2', 'w3'] },
       words: dueWords(8),
-      reviewedToday: [{ studentWord: { headword: 'oldie' } }],
+      reviewedToday: [{ studentWord: { headword: '自由练习的陈年旧词' } }],
     });
     await svc.start({ studentName: '小明' });
+    expect(prisma.__calls.some((c: any) => c.model === 'wordReviewLog')).toBe(false);
     const w = prisma.__calls.find((c: any) => c.model === 'studentWord' && c.op === 'findMany');
-    const inList = w.args.where.OR.find((o: any) => Array.isArray(o.headword?.in));
-    expect(inList.headword.in).toContain('oldie');
-    // 复习流水的查询限定在本人 + 今天
-    const l = prisma.__calls.find((c: any) => c.model === 'wordReviewLog');
-    expect(l.args.where.studentWord.studentId).toBe('stu1');
-    expect(l.args.where.reviewedAt.gte).toBeInstanceOf(Date);
+    expect(w.args.where.headword.in).not.toContain('自由练习的陈年旧词');
   });
 
+  it('旧任务行没有队列快照 → 空集 → insufficient_items，绝不放宽', async () => {
+    const { svc, prisma } = makeSvc({ dlc: { id: 'd', vocabWords: null }, words: dueWords(8) });
+    await expect(svc.start({ studentName: '小明' })).rejects.toThrow(ConflictException);
+    const w = prisma.__calls.find((c: any) => c.model === 'studentWord' && c.op === 'findMany');
+    expect(w.args.where.headword).toEqual({ in: [] });
+    expect(prisma.__calls.filter((c: any) => c.op === 'create')).toHaveLength(0);
+  });
+
+
   it('**User.englishLevel 全程不参与**：任何查询的 where 里都没有它', async () => {
-    const { svc, prisma } = makeSvc({ dlc: { id: 'd' }, words: dueWords(8) });
+    const { svc, prisma } = makeSvc({ dlc: { id: 'd', vocabWords: ['w0','w1','w2','w3','w4','w5','w6','w7'] }, words: dueWords(8) });
     await svc.start({ studentName: '小明' });
     const json = JSON.stringify(prisma.__calls.map((c: any) => c.args));
     expect(json).not.toContain('englishLevel');

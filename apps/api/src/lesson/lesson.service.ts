@@ -109,6 +109,8 @@ export class LessonService {
           readTarget: readNow.hasSession ? 1 : 0,
           vocabTarget: vocabNow.target,
           drillTarget: drillNow.target,
+          // 与 vocabTarget 同一时刻冻结：目标数和被数的那批词必须是同一批
+          vocabWords: vocabNow.queue as any,
           targetsFrozenAt: now,
           rulesVersion: LESSON_RULES_VERSION,
         },
@@ -129,6 +131,7 @@ export class LessonService {
           vocabTarget: vocabNow.target,
           drillTarget: drillNow.target,
           targetsFrozenAt: now,
+          vocabWords: vocabNow.queue as any,
           rulesVersion: LESSON_RULES_VERSION,
         },
       });
@@ -396,7 +399,20 @@ export class LessonService {
     const unlearned = await this.prisma.studentWord.count({
       where: { studentId, due: { lte: now }, firstTaughtAt: null, reps: 0 },
     });
-    return { target, progress, unlearned, quizSubmitted: quizSubmitted > 0 };
+    // 这次任务的词汇队列 —— 冻结目标时一并快照（见 DLC.vocabWords 注释）
+    const queue = await this.prisma.studentWord.findMany({
+      where: { studentId, due: { lte: now } },
+      orderBy: [{ due: 'asc' }, { createdAt: 'asc' }],
+      take: 60,
+      select: { headword: true },
+    });
+    return {
+      target,
+      progress,
+      unlearned,
+      quizSubmitted: quizSubmitted > 0,
+      queue: queue.map((w) => w.headword),
+    };
   }
 
   // ── ③ 补 ──
@@ -501,6 +517,27 @@ export class LessonService {
           select: { id: true },
         });
         if (!exists) throw new NotFoundException({ code: 'word_not_in_notebook' });
+      }
+
+      // ①.5 把这个词记进**这次任务的词汇队列**。
+      //
+      // 冻结时的快照可能没包含它（比如扫码推词发生在冻结之后）。学生是
+      // 通过这次任务的教学卡学的它，它就属于这次任务 —— 这条写入和
+      // firstTaughtAt 在同一个事务里，不会出现「教了但不算这次任务的」。
+      const dlcRow = await tx.dailyLessonCompletion.findUnique({
+        where: { studentId_date: { studentId: student.id, date: day } },
+        select: { id: true, vocabWords: true },
+      });
+      if (dlcRow) {
+        const list: string[] = Array.isArray(dlcRow.vocabWords)
+          ? (dlcRow.vocabWords as string[])
+          : [];
+        if (!list.includes(headword)) {
+          await tx.dailyLessonCompletion.update({
+            where: { id: dlcRow.id },
+            data: { vocabWords: [...list, headword] as any },
+          });
+        }
       }
 
       // ② 单调推进断点 —— 与 saveVocabCursor 同一条件写入语义

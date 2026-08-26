@@ -13,7 +13,7 @@ import { LessonService } from './lesson.service';
  * 请求之类的实现都过不了。
  */
 
-function makeSvc(overrides: Record<string, any> = {}) {
+function makeSvc(overrides: Record<string, any> = {}, opts: { taskWords?: string[] } = {}) {
   const calls: Array<{ model: string; op: string; args: any; inTx: boolean }> = [];
   let inTx = false;
   const track = (model: string, op: string, impl: Function) => (args: any) => {
@@ -28,7 +28,13 @@ function makeSvc(overrides: Record<string, any> = {}) {
     },
     dailyLessonCompletion: {
       updateMany: track('dailyLessonCompletion', 'updateMany', async () => ({ count: 1 })),
-      findUnique: track('dailyLessonCompletion', 'findUnique', async () => ({ vocabCursor: 3 })),
+      // start 里查任务行拿 id + vocabWords；推进断点时回读 vocabCursor
+      findUnique: track('dailyLessonCompletion', 'findUnique', async (args: any) =>
+        args?.select?.vocabWords !== undefined
+          ? { id: 'dlc1', vocabWords: opts.taskWords ?? [] }
+          : { vocabCursor: 3 },
+      ),
+      update: track('dailyLessonCompletion', 'update', async () => ({ id: 'dlc1' })),
     },
   };
   for (const [k, v] of Object.entries(overrides)) base[k] = { ...base[k], ...v };

@@ -109,7 +109,7 @@ export class VocabQuizAttemptService {
     // —— 越权创建会造出 target 全 0 的空任务行。
     const dlc = await this.prisma.dailyLessonCompletion.findUnique({
       where: { studentId_date: { studentId: student.id, date } },
-      select: { id: true },
+      select: { id: true, vocabWords: true },
     });
     if (!dlc) throw new ConflictException({ code: 'no_task' });
 
@@ -122,27 +122,28 @@ export class VocabQuizAttemptService {
 
     // ── 资格：**本次任务的合法词汇集合** ──
     //
-    // 不能拿全局 due <= now 代替任务归属 —— 那会把别的任务留下的到期词
-    // 混进今天的考卷。任务归属的事实来源是**学生在这次任务里真的动过它**：
-    //   · firstTaughtAt 落在今天 → 今天这节课教的（P5 的 /lesson/vocab-taught 写的）
-    //   · 今天有复习流水       → 今天这节课复习过的（翻卡评分写的）
-    // 两者都是本次任务活动留下的记录，不是对词表的一次全局扫描。
-    const reviewedToday = await this.prisma.wordReviewLog.findMany({
-      where: { reviewedAt: { gte: dayStart }, studentWord: { studentId: student.id } },
-      select: { studentWord: { select: { headword: true } } },
-      distinct: ['studentWordId'],
-    });
-    const touchedToday = new Set(reviewedToday.map((r) => r.studentWord.headword));
+    // 事实来源是任务自己记下的队列（DLC.vocabWords），不是任何形式的
+    // 日期推断。
+    //
+    // 上一版用「今天动过这个词」（firstTaughtAt 落在今天，或今天有复习
+    // 流水）推断归属 —— 那是错的：**写复习流水的不止课程内的翻卡**，
+    // 自由练习和生词本里随手复习写的是同一种 WordReviewLog。学生下午
+    // 自由练了几个陈年旧词，晚上的正式测试就会把它们考进去。
+    //
+    // 队列由课程内的动作写（冻结目标时快照 + 教学时补入），自由练习
+    // 碰不到它。旧任务行没有快照 → 空集 → insufficient_items，宁可
+    // 当天不考，也不考不属于这次任务的词。
+    const taskWords: string[] = Array.isArray(dlc.vocabWords)
+      ? (dlc.vocabWords as string[])
+      : [];
 
     const candidates = await this.prisma.studentWord.findMany({
       where: {
         studentId: student.id,
         // 只考教过的词。这一条在 SQL 里就挡住，不依赖下游过滤。
         firstTaughtAt: { not: null },
-        OR: [
-          { firstTaughtAt: { gte: dayStart } },
-          { headword: { in: [...touchedToday] } },
-        ],
+        // 且必须在**这次任务的队列**里
+        headword: { in: taskWords },
       },
       select: {
         headword: true,

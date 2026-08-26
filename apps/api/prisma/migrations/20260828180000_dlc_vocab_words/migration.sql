@@ -1,0 +1,21 @@
+-- P6 收尾：把「这次任务考哪些词」变成任务自己记下的事实。
+--
+-- 原来靠「今天动过这个词」推断归属（firstTaughtAt 落在今天，或今天有
+-- 复习流水）。但**写复习流水的不止课程内的翻卡** —— 自由练习
+-- （MyVocabQuiz 的自由模式）和生词本里随手复习，走的是同一个
+-- POST /vocab/review、写的是同一种 WordReviewLog。学生下午自由练了几个
+-- 陈年旧词，晚上的正式测试就会把它们考进去。
+--
+-- 现在：DailyLessonCompletion.vocabWords 存这次任务的词汇队列。
+--   · 冻结当日目标时快照（与 vocabTarget 同一时刻、同一批词）
+--   · 课程内教学时把新教的词补进来（与 firstTaughtAt 同一个事务）
+--   · **只有课程内的动作能写它**，自由练习碰不到
+--
+-- 纯新增一列，可空、无默认值、不回填：
+--   · 存量任务行没有快照 → 出题时按空集处理 → insufficient_items。
+--     宁可当天不考，也不考不属于这次任务的词；第二天新建的任务行自带
+--     快照，自然自愈。
+--   · 不删除、不改写任何已有成绩或任务行。
+--
+-- 回滚：ALTER TABLE "DailyLessonCompletion" DROP COLUMN "vocabWords";
+ALTER TABLE "DailyLessonCompletion" ADD COLUMN "vocabWords" JSONB;

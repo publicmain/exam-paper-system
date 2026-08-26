@@ -2401,6 +2401,22 @@ model DailyLessonCompletion {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
+  /// P6 收尾 —— **这次任务的词汇队列**（headword 数组）。
+  ///
+  /// 为什么必须显式记下来：正式测试的出题范围原来靠「今天动过这个词」
+  /// 推断（firstTaughtAt 落在今天，或今天有复习流水）。但**写复习流水的
+  /// 不止课程内的翻卡** —— 自由练习、生词本里随手复习，写的是同一种
+  /// WordReviewLog。于是学生下午自由练了几个陈年旧词，晚上的正式测试
+  /// 就会把它们考进去。「今天动过」不等于「属于这次任务」。
+  ///
+  /// 现在改成任务自己记：冻结当日目标时把队列快照进来（与 vocabTarget
+  /// 同一时刻、同一批词），课程内教学时把新教的词补进来。**只有课程内
+  /// 的动作能写它**，自由练习碰不到。
+  ///
+  /// null = P6 收尾之前建的旧任务行，没有快照。出题时按空集处理
+  /// （宁可当天不考，也不考不属于这次任务的词），第二天自然自愈。
+  vocabWords Json?
+
   /// P6：当日的正式单词测试（0 或 1 份）
   vocabQuizAttempts VocabQuizAttempt[]
 
