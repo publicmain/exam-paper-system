@@ -366,7 +366,7 @@ export default function MorningQuizScan() {
   if (!meta) {
     return (
       <Centered>
-        <div className="text-2xl text-gray-500">正在准备签到…</div>
+        <div className="text-2xl text-gray-500">正在准备…</div>
       </Centered>
     );
   }
@@ -414,7 +414,7 @@ export default function MorningQuizScan() {
         <header className="mb-8 text-center">
           <h1 className="text-3xl font-bold">{meta.className}</h1>
           <p className="text-sm text-gray-500 mt-1">
-            早测签到 · 共 {meta.studentCount} 人
+            今天的卷子 · 共 {meta.studentCount} 人
             {chosenSessionId && (() => {
               const sib = meta.siblingSessions.find((s) => s.sessionId === chosenSessionId);
               return sib ? (
@@ -449,7 +449,7 @@ export default function MorningQuizScan() {
                 }}
                 className="w-full px-4 py-4 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-300 text-white text-xl font-semibold rounded-lg transition-colors"
               >
-                {submitting ? '签到中…' : `我是 ${knownName}，签到`}
+                {submitting ? '进入中…' : `我是 ${knownName}，开始答题`}
               </button>
               <button
                 type="button"
@@ -500,7 +500,7 @@ export default function MorningQuizScan() {
               disabled={submitting || !name.trim()}
               className="w-full px-4 py-4 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-300 text-white text-lg font-semibold rounded-lg transition-colors"
             >
-              {submitting ? '签到中…' : '签到 · Sign In'}
+              {submitting ? '进入中…' : '开始答题 · Start'}
             </button>
           )}
         </form>
