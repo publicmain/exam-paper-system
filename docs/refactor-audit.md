@@ -1,173 +1,198 @@
-# 重构审计 —— 现状 vs 线性任务流
+# 重构审计（只读）—— 新学生全链路追踪与七项重点检查
 
-> 2026-08-26。审计阶段，未改任何代码。
+> 2026-08-26 v2。只读审计，未修改任何代码。所有结论均来自实际代码
+> 阅读，证据格式：`文件路径`（函数/标识符/行号）。
 > 目标流程：注册/登录 → 确定难度 → 阅读测试 → 提交并查看阅读结果 →
 > 学习本次单词 → 单词测试 → 查看任务总结。
-> 所有结论来自实际代码阅读，引用为 文件（关键函数/标识符）。
 
-## 0. 一句话结论
+## 一、新学生的真实代码链路（现状）
 
-七个阶段中，**3 个基本就位、2 个存在但违反产品规则、2 个缺失**。
-最大的结构性债不在单个页面，而在两处：**没有任务阶段的概念**（散落的
-布尔状态拼出隐式流程）与**四种令牌 + 匿名姓名直读并存**的身份体系。
+一个新学生今天实际会经历的顺序（与目标流程**顺序不同**）：
 
-## 1. 七阶段逐一对照
+```
+教师建档          Classes 页 → POST /classes/:id/roster
+  ↓
+① 教室扫码        /scan/v2.<classId>.<hmac>（贴墙码）
+    页面   apps/web/src/pages/MorningQuizScan.tsx
+    路由   App.tsx 三处重复注册 /scan/:token（见 §六）
+    API    GET qr 校验 → POST /api/attendance/scan
+    服务   attendance.service.scanQr()：Gate1 姓名对花名册 →
+           Gate3 场次 active → 写 Attendance → findFirst+create
+           StudentSubmission → 推词表(levelPushesWordlist) →
+           签发当天 scanToken(至 23:59) + handoff token
+    库     Attendance / StudentSubmission / StudentWord
+  ↓
+② 选难度          同一页：meta.siblingSessions 五场现选
+    （MorningQuizScan.tsx:193-206 chosenSessionId=useState，不持久化）
+  ↓
+③ 答题→交卷      MorningQuizTake.tsx → student.service.finalSubmit()
+    恢复   600ms 自动保存 + existingAnswers 回填（唯一达标的恢复）
+  ↓
+④ 看结果          结果页（分数门=status；答案门=finalSubmittedAt）
+  ↓
+⑤ 翻卡学词        MyHistoryDetail.tsx:261 → /my-vocab/review?after=submit
+    （MyVocabReview.tsx:91 afterSubmit 分支：新词优先、≥4 张给自测入口）
+  ↓
+⑥ (自愿)自测      MyVocabQuiz.tsx → 结果只写 POST /vocab/review(FSRS)
+  ↓
+⑦ 回家打开 App    此时才弹注册卡（lib/registration.ts checkRegistration:
+                  需 localStorage 已有姓名）→ RegistrationSheet
+  ↓
+（无总结页；/my-lesson 是进行中状态，非总结）
+```
 
-### 阶段 1：注册 / 登录 —— ✅ 就位，有身份债
+**结论**：注册发生在第 ⑦ 步而非第 ① 步；难度是第 ② 步的**当日临时
+选择**；单词测试自愿且无成绩；总结缺失。
 
-| 链路 | 现状 |
-|---|---|
-| 页面 | `RegistrationSheet.tsx`（全屏卡，无跳过）；`Me.tsx` 登录卡 |
-| 触发 | `lib/registration.ts` `checkRegistration()`：本机 localStorage 有姓名 + 服务端未注册 → 弹卡 |
-| API | `POST /student-auth/register`、`GET /student-auth/registration-status`、`POST /student-auth/login` |
-| 服务 | `student-auth.service.ts` `register()`（先到先得，成功即发 30 天 token 带 `av`） |
-| 库 | `User.pinHash/nickname/avatar/studentAuthVersion` |
-| 恢复 | token 存 localStorage，30 天免登录；`reg:done` 本机缓存防重复弹 |
+## 二、七项重点检查
 
-**缺口**：
-- **顺序与目标相反**：新生的第一次接触是教室扫码（输名字），注册卡
-  要等设备存了名字才弹。目标流程是注册在最前。
-- **身份四轨并存**（详见 §3）——违反「避免匿名/临时/设备/正式账户重复绑定」。
+### 1. 重复身份和注册逻辑
 
-### 阶段 2：确定英语难度 —— ❌ 概念缺失
+**同一个学生此刻可以同时持有 7 种身份形态**：
 
-| 链路 | 现状 |
-|---|---|
-| 现实 | **学生没有难度属性**。难度 = 每天早上扫码后在 5 个平行场次里现点一个（`MorningQuizScan.tsx` `chosenSessionId`，useState，不持久化，连 localStorage 都不记） |
-| 库 | `ClassEnglishLevel` 是**班级**开哪几层的配置；`User` 上无 level 字段 |
-
-**缺口**：难度不是学生的属性，是每天的临时选择——可以今天雅思明天
-O-Level 基础地跳；词表跟着当天选择走（`levelPushesWordlist`），跳层
-= 词表混层。目标流程要求「确定难度」是注册后的一次性（教师可改）决定。
-
-### 阶段 3：阅读测试 —— ✅ 就位，入口偏
-
-| 链路 | 现状 |
-|---|---|
-| 页面 | `MorningQuizScan.tsx`（一键开始答题）→ `MorningQuizTake.tsx` |
-| API/服务 | `POST /attendance/scan`（`attendance.service.scanQr`：身份→定层→开卷→推词表→发令牌）|
-| 库 | `MorningQuizSession` / `StudentSubmission` / `AnswerScript` |
-| 恢复 | ✅ 最好的一段：600ms 自动保存 + `existingAnswers` 回填，刷新无损 |
-
-**缺口**：唯一入口是扫码（时间窗 08:30–09:00 / 16:00–17:30）；
-「打开 app → 从任务流进入阅读」不存在（4.0 `MORNING_QUIZ_ALL_DAY`
-机制已建、默认关）。
-
-### 阶段 4：提交并查看阅读结果 —— ⚠️ 就位但成绩混装
-
-| 链路 | 现状 |
-|---|---|
-| 页面 | 交卷 → 结果页（分数门=判分状态；答案门=`finalSubmittedAt`） |
-| 库 | `StudentSubmission.autoScore/manualScore/totalScore` |
-
-**违反产品规则「阅读成绩与单词测试成绩分开」**：轻量两层的卷内 2 道
-词汇题 `marks=1` 直接计入 `totalScore`（实测卷面 6→8 分）。词汇题带
-`snapshotContent.vocabTrack=true` 标记，**分离是可计算的**，但存储和
-展示目前都是混的。
-
-### 阶段 5：学习本次单词 —— ⚠️ 存在但违反教学规则
-
-| 链路 | 现状 |
-|---|---|
-| 页面 | `MyVocabReview.tsx` 翻卡 |
-| 服务 | `vocab-review.service.ts`（FSRS、1.5s 防刷、撤销、连胜） |
-
-**违反产品规则「新词第一次是教学」**：新词（reps=0）与复习词共用同一
-张**回想式挖空卡**——正面是从没读过的文章里挖的空，逻辑上不可回答
-（2026-08-26 教师实测确认）。三步漂移成因已考古：7/31 原设计=挖空+
-中文提示（针对自己收藏的词）；实现丢了中文提示；8/24 词表推送 + 新词
-导流复用了同一卡面。另：来源显示内部编号（`light-02-night-shift-sleep`）。
-
-**恢复**：`idx` 只在 useState，刷新回到第 1 张（已评分的词因 FSRS 不再
-到期，半自愈）；评过的分经 `reviewQueue`（localStorage）弱网补传 ✅。
-
-### 阶段 6：单词测试 —— ⚠️ 存在但自愿、无成绩
-
-| 链路 | 现状 |
-|---|---|
-| 页面 | `MyVocabQuiz.tsx` 四选一自测 |
-| 服务 | `vocab-quiz.service.ts` 本地出题；结果经 `POST /vocab/review` 写 FSRS |
-
-**缺口**：
-1. **自愿**，不是「学完 → 必测」的流程环节；
-2. **没有测试成绩实体**——答题只转成 FSRS 的 good/again 信号
-   （`WordReviewLog`），没有任何一处存「这次测了 N 题对 M 题」，
-   「分开保存和展示」无从谈起；
-3. 卷内词汇题是第二套互不相通的"单词测试"（有分、混在阅读里）。
-
-### 阶段 7：查看任务总结 —— ❌ 缺失
-
-无总结页。`MyLesson.tsx` 是**进行中状态**（三段完成度，影子运行），
-不是「本次任务走完后的总结」。`DailyLessonCompletion` 表（目标冻结、
-分段完成时刻、rulesVersion）可以直接支撑总结页，数据齐。
-
-## 2. 恢复（退出/刷新）现状
-
-| 阶段 | 刷新后 |
-|---|---|
-| 阅读答题 | ✅ 无损（自动保存+回填） |
-| 翻卡 | ⚠️ 回到第 1 张（FSRS 半自愈） |
-| 单词自测 | ❌ 全丢，重新出题 |
-| 整体任务位置 | ❌ 无「你走到第几步」的概念，无法恢复到阶段 |
-
-**没有任务阶段实体**。隐式流程由散落状态拼出（不完全清单）：
-`gate('whatsnew'|'install')`、`pendingQuizUrl`、`revealed`、`manualEntry`、
-`submitted`、`finalSubmittedAt`、`submitSource`、`status`（5 值字符串）、
-`reg:done`、`lesson:launch-redirected`、`mq:history:name`、`alreadyFinalSubmitted`
-——正是章程点名的「大量互相依赖的布尔状态」。
-
-## 3. 身份体系盘点（重复绑定现状）
-
-| 凭证 | 有效期 | 用途 | 备注 |
+| 形态 | 签发处 | 有效期 | 证据 |
 |---|---|---|---|
-| 匿名姓名直读 | 永久 | `?name=` 查成绩/生词/错题 | 完全无凭证 |
-| `mq:history:name` | 永久 | 本机伪身份（预填、弹注册卡、一键答题） | localStorage |
-| 扫码日令牌 | 当天 23:59 | 答题写入 | 无 `av`，不查撤销 |
-| handoff 令牌 | 短 | 跨设备接卷 | `scope:mq_handoff` |
-| 30 天登录令牌 | 30 天 | 正式账户 | 带 `av` 可撤销 |
-| teacher_view | 15 分钟 | 教师只读视角 | 只读闸 |
-| deviceUuid | 永久 | 考勤去重 | 设备身份 |
+| 匿名姓名直读 | 无凭证 | 永久 | `vocab.controller.ts` 各 @Public GET；`morning-quiz.controller.ts` history-by-name |
+| localStorage 伪身份 | 扫码/查询时写 | 永久 | `MorningQuizScan.tsx:236` 写 `mq:history:name`（测试班除外） |
+| deviceUuid | 前端生成 | 永久 | `MorningQuizScan.tsx:121-127`；考勤去重用 |
+| 扫码日令牌 | scanQr | 当天 23:59 | `attendance.service.ts:608-616`，**无 av 不查撤销** |
+| handoff 令牌 | scanQr | 短 | `attendance.service.ts:630-638` scope:mq_handoff |
+| 30 天登录令牌 | register/login | 30 天 | `student-auth.service.ts` register()/login()，带 av 可撤销 |
+| teacher_view | 教师签发 | 15 分钟 | `student-auth.service.ts` issueTeacherViewToken() |
 
-正式账户（30 天）与前四者的**收敛路径不存在**：注册后匿名读路径照旧
-全开（`STUDENT_READ_REQUIRES_AUTH` 从未实现）。
+**重复的注册/设密码逻辑三套并存**：
+- `register()`（现行，2026-08-26）
+- `setPin()`（v1 遗留，**闸已移除、端点仍活**，`student-auth.controller.ts:139`）
+- claim-window 四个端点（v2 遗留，**UI 已撤、API 仍活**，
+  `student-auth.controller.ts:189-230` + `Class.pinClaimOpenUntil` /
+  `User.pinClaimOpenUntil` 两个已无用途的列）
 
-## 4. 产品规则符合性清单
+**收敛缺失**：注册后匿名读路径原样全开（`STUDENT_READ_REQUIRES_AUTH`
+从未实现）；`api.ts token()` 里 teacher_view 优先于学生自己的 token
+（`apps/web/src/lib/api.ts:16-23`）——非核心功能织进了核心取token路径。
 
-| 规则 | 现状 |
-|---|---|
-| 新词先教学 | ❌ 违反（§1 阶段 5） |
-| 学完才测 | ⚠️ 半符合：新词不直接进自测（reps=0 先翻卡），但"测"本身自愿 |
-| 阅读/单词成绩分开 | ❌ 违反两处：卷内词汇分混入 totalScore；自测无成绩实体 |
-| 刷新恢复位置 | ⚠️ 仅阅读答题达标 |
-| 避免身份重复绑定 | ❌ 四轨并存（§3） |
-| 避免布尔状态、用任务阶段 | ❌ 无阶段实体（§2） |
-| 不加积分/排行/徽章/社交 | ✅ 现状即无（连胜 streak 已存在，属存量非新增） |
+### 2. 难度的事实来源 —— 没有单一事实来源
 
-## 5. 风险清单（按爆炸半径排序）
+难度信息散落四处，**无一挂在学生身上**：
 
-1. **动身份体系**风险最高：匿名读路径是在用功能（家长陪看、未注册学生
-   查分），一刀切会把人关在门外——历史上两轮外审都要求"双模式逐人
-   收敛"。应放最后。
-2. **动难度属性**牵连排课模型（一班一天 5 场、74 处 `quizEnd` 引用的
-   前科）；先做「学生持久化偏好 + 扫码预选」，不动排课。
-3. **动成绩分离**牵连判分队列/看板/家长视图的读数口径——展示层分离
-   （按 `vocabTrack` 拆算）零迁移；存储层分离才需要迁移方案。
-4. 每日真实在用（35 人/天），任何切片都必须可独立回滚。
-5. 测试班特例（`【测试】`前缀旋转门/回退）在重构时**必须保留**，
-   否则教师失去验证通道。
+| 位置 | 语义 | 证据 |
+|---|---|---|
+| `ClassEnglishLevel` | 班级今天开哪几层 | schema.prisma（注释明言 single source of truth **for class**） |
+| `MorningQuizSession.level` | 某场次是哪层 | schema.prisma:1549 附近 |
+| 扫码现选 | 学生今天进哪层 | `MorningQuizScan.tsx:193-206` siblingSessions → chosenSessionId（useState，**不写任何存储**） |
+| `Paper.config` / weekly-track | 该层词表 | `weekly-track.ts` resolveWeeklyTrack；`levelPushesWordlist` |
 
-## 6. 建议切片顺序（草案，待批准后写入 refactor-plan.md）
+**后果**：学生可每日跳层；词表跟当日选择走 → 跳层=词表混层；
+`User` 无 level 字段（已 grep 确认 `studentLevel/preferredLevel/lastLevel`
+零命中）。目标流程的「确定难度」阶段在数据模型上不存在。
 
-| # | 切片 | 独立验证方式 | 半径 |
-|---|---|---|---|
-| S1 | 新词教学卡（新词=教学面：词+音标+释义+例句；复习卡补中文提示；来源名过 readablePaperTitle） | 翻卡页真机走查 | 仅前端 1 文件 |
-| S2 | 单词测试成绩实体（新表 VocabQuizAttempt：日期/题数/对数）+ 展示 | 自测一轮 → 成绩可见 | 新增表，零迁移风险 |
-| S3 | 阅读结果页按 `vocabTrack` 拆示「阅读 X 分 + 词汇 Y 分」（存储不动） | 轻量层交卷对账 | 展示层 |
-| S4 | 学→测串联：当日新词翻完 → 自动进自测（`/my-vocab/quiz` 接在翻卡完成后） | 全流程走查 | 前端路由 |
-| S5 | 任务总结页（读 DailyLessonCompletion + S2 数据） | 走完一轮见总结 | 新页面 |
-| S6 | 任务阶段实体（`DailyLessonCompletion` 增 stage 字段或派生），刷新恢复到阶段 | 各阶段刷新测试 | 中 |
-| S7 | 学生难度属性（`User.englishLevel` 偏好：注册后首扫落定，之后预选，教师可改；不动排课） | 跳层被预选拦截 | 中 |
-| S8 | 身份收敛（双模式：注册者走 token，未注册保留姓名读；教师端看未注册名单） | 灰度按班 | 大，最后 |
+### 3. 阅读提交与重复记录
 
-每片一次一交付、可单独回滚；S1–S5 互不依赖可乱序，S6 依赖 S2/S5，
-S8 依赖注册覆盖率。
+**唯一约束已被移除**：`schema.prisma` StudentSubmission 注释（R14
+Feature 16）——为练习模式共存，`@@unique([assignmentId, studentId])`
+被撤，只剩普通索引（:63-72）。唯一性靠「service 约定」维持。
+
+**findFirst+create 竞态点两处**：
+- `attendance.service.ts:501`（scanQr 主路径）
+- `attendance.service.ts:803`（教师手工补登路径）
+
+两设备同时扫码（手机+平板 handoff 场景真实存在）可各自 findFirst 落空
+→ 双 create → **同一学生同一卷两条非 practice 答卷**。下游
+`lesson.service.readState`（已按 finalSubmittedAt desc 排序取一条）、
+判分队列、history-by-name 均假定单条。未发现生产已发生的证据，
+但无防线。
+
+**另**：测试班旋转门会 delete 已交答卷（`attendance.service.ts` 【测试】
+分支）——仅限班名前缀，已有单测钉死真实班不走。
+
+### 4. 单词首次学习和测试是否混在一起
+
+**三处「测」，边界不一致**：
+
+| 环节 | 新词(reps=0)处理 | 证据 |
+|---|---|---|
+| 翻卡（学） | ⚠️ **学的形态是考**：新词与复习词共用回想式挖空卡，正面是从未读过文章的挖空，不可回答；仅加「新词」徽标 | `MyVocabReview.tsx:389` clozeSentence 对所有卡同一处理；:399-403 徽标 |
+| 自测（测） | ✅ 已隔离：出题优先 reps>0；**但兜底会捞 reps=0**（due 不够 limit 时） | `vocab-quiz.service.ts:189`（reps>0）与 **:196（reps:0 兜底）** |
+| 卷内词汇题（考） | ❌ 不看学习状态：本周主线词按天轮转直接进卷，学没学过都考 | `vocab-attach.service.ts` pickWordsForDay，无 reps 过滤 |
+
+即：**「先学后测」只在自测主路径成立**；翻卡的"学"本身长着"测"的脸
+（违反产品规则 1）；自测兜底与卷内题都会考未学的词。原始 PRD
+（vocabulary-notebook.md:161）规定卡片=「挖空+**中文提示**」，实现
+丢了中文提示（正面无任何提示，`MyVocabReview.tsx:448-449`）。
+
+### 5. 任务状态及退出恢复
+
+**无任务阶段实体**。隐式流程由以下状态拼出（实录）：
+
+- 前端瞬时：`gate('whatsnew'|'install')`、`pendingQuizUrl`、`chosenSessionId`、
+  `revealed`、`idx`、`manualEntry`（均 useState，刷新即失）
+- localStorage：`mq:history:name`、`mq:history:studentId`、`auth_token`、
+  `reg:done`、`lesson:launch-redirected`(sessionStorage)、`reviewQueue`、
+  deviceUuid、hasSeenWhatsNew/InstallGuide
+- 服务端：`StudentSubmission.status`（5 值字符串）+ `submittedAt` +
+  `finalSubmittedAt` + `submitSource`（三列组合出 6+ 隐式状态）；
+  `DailyLessonCompletion`（最接近阶段实体：三段 target/progress/doneAt，
+  但**无 stage 字段**，也不含单词测试与总结阶段）
+
+**各阶段刷新恢复实测口径**：
+
+| 阶段 | 刷新后 | 证据 |
+|---|---|---|
+| 阅读答题 | ✅ 无损 | `MorningQuizTake.tsx` existingAnswers + 600ms 自动保存 |
+| 翻卡 | ⚠️ 回第 1 张（已评的因 FSRS 不再到期，半自愈） | `MyVocabReview.tsx:96` idx=useState(0) |
+| 自测 | ❌ 全丢重新出题 | `MyVocabQuiz.tsx` 无持久化 |
+| 扫码三道门 | ⚠️ 引导门重来（whatsnew/install 有已读标记，setpin 门已删） | `MorningQuizScan.tsx` |
+| 整体位置 | ❌ 无「走到第几步」 | 无实体 |
+
+### 6. 重复页面、路由、API 和入口
+
+- **路由重复**：`/scan/:token` 在 App.tsx 注册 **3 次**（:216 公开分支、
+  :241 未登录分支、:294 学生登录分支）——同组件，纯粹为绕过三层路由
+  守卫的复制。
+- **页面级重复实现**：`/me` 的「今天的课」三段是**前端手拼**
+  （`Me.tsx:16-17` 自述"复用既有接口，不新建 lesson API"，:142/175/191
+  三个裸 fetch），与 `lesson.service.today()`（服务端权威口径：目标
+  冻结、submitSource 语义）**并存且口径不同**——/me 不知道 auto_closed、
+  不知道目标冻结。
+- **词汇入口 6 个**：交卷后 after=submit、/my-vocab、/my-vocab/review、
+  /my-vocab/quiz、/my-lesson 背段、/me 背段（已 grep：6 文件引用
+  my-vocab/review）。
+- **"单词测试"两套互不相通**：自测（无成绩实体）与卷内词汇题（分数
+  混入阅读 totalScore，vocabTrack 标记可拆，实测卷面 6→8 分）。
+- **死 API 活着**：set-pin、claim-window×4（见 §1）；死列：
+  `Class.pinClaimOpenUntil/pinClaimOpenedBy`、`User.pinClaimOpenUntil`。
+- **成绩查看入口 4 个**：/my-history、/me 读段、/my-lesson 读段、
+  扫码门厅（AfterQuizPortal）。
+
+### 7. 非核心功能造成的依赖（织进核心路径的）
+
+| 非核心物 | 织进了哪 | 证据 |
+|---|---|---|
+| teacher_view 令牌 | 学生端**所有**请求的 token() 取值首位 | `api.ts:16-23`、`api-student.ts:23`、`Me.tsx tokenStudent()` |
+| 测试班特例 | 生产扫码解析与交卷路径各一处分支 | `qr.service.resolveTodaySession` 回退；`attendance.service` 旋转门 |
+| PWA 迁移跳转 | /my-history 挂载最早处 | `MyHistory.tsx` lessonLaunchRedirect |
+| whatsnew/install 引导门 | 扫码→答题必经序列 | `MorningQuizScan.tsx` gate 链 |
+| 第二作答窗 | 交卷语义一分为二（暂存/最终），答案门由此而生 | `morning-quiz.service.ts` answersReleased |
+| 连胜/冻结 | 翻卡评分路径内 | `vocab-review.service` streakFromDays |
+| 考勤行（已停用的功能） | scanQr 仍写 Attendance，缺勤提醒 cron 仍读 | `attendance.service.ts:446`；absence-alert.cron |
+| 申诉/练习模式 | 挂在 StudentSubmission 上，是 @@unique 被拆的直接原因 | schema R14 注释 |
+
+## 三、风险与建议切片（沿用 v1，据本轮证据修订）
+
+风险排序不变：身份收敛最后（匿名读在用）→ 难度属性不动排课 →
+成绩分离先做展示层（vocabTrack 可拆、零迁移）。
+
+| # | 切片 | 本轮新增依据 |
+|---|---|---|
+| S1 | 新词教学卡 + 复习卡中文提示 + 来源名人话化 | §二.4 |
+| S2 | VocabQuizAttempt 成绩实体 + 展示；**顺手堵自测 reps=0 兜底** | §二.4 |
+| S3 | 阅读结果页按 vocabTrack 拆示 | §二.4 |
+| S4 | 学→测串联（after=submit 翻完 ≥4 张已有入口，改为默认续接） | §一.⑤⑥ |
+| S5 | 任务总结页（DailyLessonCompletion + S2） | §二.5 |
+| S6 | 任务阶段字段 + 各页恢复 | §二.5 |
+| S7 | User.englishLevel 偏好（扫码预选，不动排课）；**顺手给 StudentSubmission 加部分唯一索引堵竞态**（`WHERE status <> 'practice'` 的 partial unique，需迁移+回滚说明） | §二.2/3 |
+| S8 | 身份收敛（双模式灰度）+ 清死 API/死列 | §二.1/6 |
+
+**未验证项**（本审计只读，未运行）：双答卷竞态未在生产复现，仅静态
+推理；/me 与 lesson 口径差异未逐字段比对；死 API 无调用方是按前端
+grep 零引用推断，未查外部脚本。
