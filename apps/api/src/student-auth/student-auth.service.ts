@@ -516,7 +516,16 @@ export class StudentAuthService {
   async me(studentId: string) {
     const user = await this.prisma.user.findUnique({
       where: { id: studentId },
-      select: { id: true, name: true, nickname: true, avatar: true, pinHash: true },
+      select: {
+        id: true,
+        name: true,
+        nickname: true,
+        avatar: true,
+        pinHash: true,
+        // P4: 学生当前难度。前端扫码页据此跳过难度选择器 —— 已经
+        // 定过的人不该每天再被问一次。
+        englishLevel: true,
+      },
     });
     if (!user) throw new UnauthorizedException({ code: 'invalid_credentials' });
     return {
@@ -525,6 +534,7 @@ export class StudentAuthService {
       nickname: user.nickname ?? user.name,
       avatar: user.avatar ?? null,
       pinSet: user.pinHash != null,
+      englishLevel: user.englishLevel ?? null,
     };
   }
 

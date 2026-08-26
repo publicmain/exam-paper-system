@@ -3,6 +3,22 @@ import { Link } from 'react-router-dom';
 import { api, BASE } from '../lib/api';
 import TransferStudentModal from '../components/TransferStudentModal';
 
+/**
+ * P4 —— 学生个人难度（`User.englishLevel`）的可选项。
+ *
+ * 与班级的 `ClassEnglishLevel`（今天开哪几层）是**两件事**：这里改的是
+ * 「这个学生在哪一层」，改完只影响他之后进哪一场，历史答卷和成绩不动。
+ *
+ * 顺序 = 由难到易，与后端 level-registry 的 order 一致。
+ */
+const STUDENT_LEVELS: Array<{ value: string; label: string }> = [
+  { value: 'ielts_authentic', label: '雅思真题' },
+  { value: 'ielts_light', label: '雅思轻量' },
+  { value: 'olevel', label: 'O-Level 标准' },
+  { value: 'olevel_intermediate', label: 'O-Level 进阶' },
+  { value: 'ielts_simplified', label: 'O-Level 基础' },
+];
+
 /** Short English-level labels for the compact list card (R10 multi-level). */
 const LEVEL_SHORT: Record<string, string> = {
   ielts_authentic: '强',
@@ -353,6 +369,20 @@ function ClassDetailModal({
     }
   }
 
+  /** P4 —— 改学生的英语难度。只影响他之后进哪一层，历史一律不动。 */
+  async function setStudentLevel(userId: string, level: string | null) {
+    setBusy(true);
+    setErr(null);
+    try {
+      await api.setStudentEnglishLevel(userId, level);
+      await reload();
+    } catch (e: any) {
+      setErr(String(e?.message ?? e));
+    } finally {
+      setBusy(false);
+    }
+  }
+
   async function renameStudent(userId: string, newName: string) {
     const trimmed = newName.trim();
     if (!trimmed) return;
@@ -457,6 +487,7 @@ function ClassDetailModal({
                     setTransferring({ userId: e.userId, userName: e.user?.name ?? '' })
                   }
                   onArchive={() => archiveStudent(e.userId, e.user?.name ?? e.user?.email ?? '')}
+                  onSetLevel={(lv) => setStudentLevel(e.userId, lv)}
                 />
               ));
             })()}
@@ -547,6 +578,7 @@ function EnrollmentRow({
   onRemove,
   onTransfer,
   onArchive,
+  onSetLevel,
 }: {
   enrollment: any;
   busy: boolean;
@@ -554,6 +586,7 @@ function EnrollmentRow({
   onRemove: () => void;
   onTransfer?: () => void;
   onArchive?: () => void;
+  onSetLevel?: (level: string | null) => void;
 }) {
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState(enrollment.user?.name ?? '');
@@ -594,6 +627,27 @@ function EnrollmentRow({
           <div className="truncate">{enrollment.user?.name}</div>
         )}
         <div className="text-xs text-gray-500 truncate">{enrollment.user?.email}</div>
+        {isStudent && onSetLevel && (
+          <label className="text-xs text-gray-500 flex items-center gap-1 mt-1">
+            <span className="shrink-0">难度</span>
+            <select
+              className="border rounded px-1 py-0.5 text-xs"
+              value={enrollment.user?.englishLevel ?? ''}
+              disabled={busy}
+              aria-label={`english level for ${enrollment.user?.name ?? ''}`}
+              onChange={(ev) => onSetLevel(ev.target.value === '' ? null : ev.target.value)}
+            >
+              {/* 空 = 还没定过。学生下次扫码时自己选一次就落定 —— 这里
+                  不替他猜，猜错的代价是他被锁进错的层。 */}
+              <option value="">未定（下次扫码时选）</option>
+              {STUDENT_LEVELS.map((l) => (
+                <option key={l.value} value={l.value}>
+                  {l.label}
+                </option>
+              ))}
+            </select>
+          </label>
+        )}
       </div>
       <span className="flex gap-1 items-center shrink-0">
         <span className="text-xs text-gray-400 mr-1">{enrollment.role}</span>

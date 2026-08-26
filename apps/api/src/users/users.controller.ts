@@ -1,4 +1,7 @@
-import { Body, Controller, Get, Param, Patch, Post, UseGuards } from '@nestjs/common';
+import { BadRequestException, Body, Controller, Get, Param, Patch, Post, UseGuards } from '@nestjs/common';
+import { z } from 'zod';
+import { CurrentUser } from '../common/current-user.decorator';
+import { EnglishLevel } from '@prisma/client';
 import { IsEmail, IsEnum, IsOptional, IsString, MaxLength, MinLength } from 'class-validator';
 import { UsersService } from './users.service';
 import { AuthGuard, Roles } from '../common/auth.guard';
@@ -37,5 +40,34 @@ export class UsersController {
   @Patch(':id')
   update(@Param('id') id: string, @Body() dto: UpdateUserDto) {
     return this.users.updateProfile(id, dto);
+  }
+
+  /**
+   * P4 —— 教师改学生英语难度。
+   *
+   * 这个 controller 整体是 @Roles('admin')，但改难度是**班主任的日常
+   * 动作**（「小明这层太难了，降一档」），不该要求管理员。handler 上的
+   * @Roles 覆盖 class 级（AuthGuard 用 getAllAndOverride），实际班级归属
+   * 由 service 里的 canActOnClass 判定 —— 普通教师只能改自己带的班。
+   *
+   * level: null = 清空（退回「下次扫码现选」的状态），教师纠错用。
+   */
+  @Patch(':id/english-level')
+  @Roles('admin', 'head_teacher', 'teacher')
+  setEnglishLevel(
+    @Param('id') id: string,
+    @Body() body: unknown,
+    @CurrentUser() user: any,
+  ) {
+    const schema = z.object({
+      level: z.nativeEnum(EnglishLevel).nullable(),
+    });
+    const parsed = schema.safeParse(body);
+    if (!parsed.success) throw new BadRequestException(parsed.error.flatten());
+    return this.users.setEnglishLevel(
+      { id: user.id, role: user.role },
+      id,
+      parsed.data.level,
+    );
   }
 }

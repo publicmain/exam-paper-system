@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { api } from '../lib/api';
 import WhatsNewSheet, { hasSeenWhatsNew, markWhatsNewSeen } from '../components/exam/WhatsNewSheet';
@@ -170,6 +170,13 @@ export default function MorningQuizScan() {
   // meta.siblingSessions.length > 1; auto-set to the only entry when
   // there's just one (single-band class).
   const [chosenSessionId, setChosenSessionId] = useState<string | null>(null);
+  // ── P4：学生已落定的难度（`User.englishLevel`）──
+  //
+  // null 有两种含义，必须分开：`undefined` = 还没查/查不了（没登录），
+  // `null` = 查过了，他确实还没定过。前者要等，后者要显示选择器。
+  const [myLevel, setMyLevel] = useState<Level | null | undefined>(undefined);
+  /** level_locked 重试时要用的场次 id —— setState 在同一 tick 内读不到 */
+  const lockOverrideRef = useRef<string | null>(null);
   /** 签到成功后要去的试卷地址。非 null = 正在显示一次性引导。 */
   const [pendingQuizUrl, setPendingQuizUrl] = useState<string | null>(null);
   /** 当前在放哪道引导。 */
@@ -217,13 +224,57 @@ export default function MorningQuizScan() {
     };
   }, [token]);
 
+  // P4 —— 已经定过难度的学生不该每天再被问一次。
+  //
+  // 扫码页是免登录的，所以这里是**尽力而为**：本机有学生 token 才查得到。
+  // 查不到就退回原来的行为（显示选择器）—— 真正的防线在服务端（扫码时
+  // 的难度门），前端这一层只是省掉一次多余的点击。
+  useEffect(() => {
+    let cancelled = false;
+    const t = (() => {
+      try {
+        const raw = localStorage.getItem('auth_token');
+        if (!raw) return null;
+        const p = decodeJwt(raw) as any;
+        if (p?.role !== 'student' || p?.scope === 'mq_handoff') return null;
+        if (typeof p.exp === 'number' && p.exp * 1000 <= Date.now()) return null;
+        return raw;
+      } catch {
+        return null;
+      }
+    })();
+    if (!t) {
+      setMyLevel(null); // 没登录 —— 按「未落定」处理，显示选择器
+      return;
+    }
+    api
+      .studentAuthMe()
+      .then((r: any) => {
+        if (!cancelled) setMyLevel((r?.englishLevel ?? null) as Level | null);
+      })
+      .catch(() => {
+        // 查不到不是错误（token 过期 / 离线）—— 退回选择器，服务端兜底
+        if (!cancelled) setMyLevel(null);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  // 难度已落定 + 今天开着他那层 → 直接锁定那一场，不再显示选择器。
+  useEffect(() => {
+    if (!meta || !myLevel || chosenSessionId) return;
+    const mine = meta.siblingSessions.find((x) => x.level === myLevel);
+    if (mine) setChosenSessionId(mine.sessionId);
+  }, [meta, myLevel, chosenSessionId]);
+
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     return submitWithName(name);
   }
 
   // 一键签到与表单共用同一条提交路径 —— 差别只是名字从哪来
-  async function submitWithName(rawName: string) {
+  async function submitWithName(rawName: string, retriedForLock = false) {
     if (submitting || !token) return;
     const trimmed = rawName.trim();
     if (!trimmed) {
@@ -240,9 +291,13 @@ export default function MorningQuizScan() {
         // Pass the chosen sessionId only when it's different from the
         // QR's encoded one (server tolerates both, but keeping the
         // payload small avoids confusing future readers).
-        chosenSessionId && chosenSessionId !== meta?.sessionId
-          ? chosenSessionId
-          : undefined,
+        // 锁定重试时 chosenSessionId 的 setState 还没生效（同一个 tick），
+        // 所以显式把覆盖值传进来 —— 依赖闭包里的旧值会原地再撞一次锁。
+        lockOverrideRef.current && retriedForLock
+          ? lockOverrideRef.current
+          : chosenSessionId && chosenSessionId !== meta?.sessionId
+            ? chosenSessionId
+            : undefined,
       );
       // token 保管（2026-08-25 PIN 上线）：若本机已持有**同一学生**的
       // 更长效 token（30 天 PIN token），扫码不把它降级成当天过期的
@@ -310,6 +365,25 @@ export default function MorningQuizScan() {
     } catch (e: any) {
       const raw = e?.message ?? String(e);
       const code = extractCode(raw) ?? 'unknown';
+      // P4 —— 服务端说「你的难度已经定在别的层」。
+      //
+      // 走到这里说明前端那次 /me 没查到（没登录、离线、token 刚过期），
+      // 学生于是看到了选择器并点了别的层。服务端已经把正确的场次告诉
+      // 我们了，直接切过去重试一次 —— 学生不需要理解发生了什么，他只
+      // 会看到自己进了平常那一层。
+      //
+      // 只重试一次：再失败就如实报错，绝不循环。
+      if (code === 'level_locked' && !retriedForLock) {
+        const correct = extractLockedSession(raw);
+        if (correct) {
+          lockOverrideRef.current = correct.sessionId;
+          setChosenSessionId(correct.sessionId);
+          if (correct.level) setMyLevel(correct.level as Level);
+          setSubmitting(false);
+          await submitWithName(rawName, true);
+          return;
+        }
+      }
       setError({ code, message: friendlyMessage(code, raw) });
       setSubmitting(false);
     }
@@ -374,6 +448,16 @@ export default function MorningQuizScan() {
   // R10 multi-level — when more than one band is active for this
   // (class, day) and the student hasn't picked yet, gate the name input
   // behind a level-picker. Single-band classes auto-skip to the form.
+  // P4：myLevel === undefined 表示还在查「我是哪一层」。这一瞬间不能
+  // 渲染选择器 —— 否则已落定的学生会看到选择器闪一下才消失，那正是
+  // 我们要去掉的那次点击。
+  if (meta.siblingSessions.length > 1 && !chosenSessionId && myLevel === undefined) {
+    return (
+      <Centered>
+        <div className="text-2xl text-gray-500">正在准备…</div>
+      </Centered>
+    );
+  }
   if (meta.siblingSessions.length > 1 && !chosenSessionId) {
     return (
       <div className="min-h-screen bg-gray-50 flex flex-col px-4 py-8">
@@ -581,6 +665,28 @@ function AfterQuizPortal({ code, raw }: { code: string; raw: string }) {
       </div>
     </div>
   );
+}
+
+/**
+ * 从 403 level_locked 的报文里取出「你该去的那一场」。
+ *
+ * 后端返回 { code, lockedLevel, lockedLevelLabel, correctSessionId }，但
+ * 到了这里已经被 api client 拍扁成一个字符串。两种形态都要认：JSON 原文
+ * 和被包了一层的文本。取不到就返回 null —— 调用方会退回如实报错。
+ */
+function extractLockedSession(raw: string): { sessionId: string; level: string | null } | null {
+  try {
+    const j = JSON.parse(raw);
+    if (j?.correctSessionId) {
+      return { sessionId: String(j.correctSessionId), level: j.lockedLevel ?? null };
+    }
+  } catch {
+    /* 不是纯 JSON，往下用正则 */
+  }
+  const m = raw.match(/correctSessionId["']?\s*[:=]\s*["']([A-Za-z0-9_-]+)["']/);
+  if (!m) return null;
+  const lv = raw.match(/lockedLevel["']?\s*[:=]\s*["']([a-z_]+)["']/);
+  return { sessionId: m[1], level: lv ? lv[1] : null };
 }
 
 function extractCode(raw: string): string | null {

@@ -61,6 +61,27 @@ model User {
   // by default; admin can un-archive by clearing the column.
   archivedAt        DateTime?
 
+  /// ── 学生当前英语难度的**单一事实来源**（P4，2026-08-26）──
+  ///
+  /// 在此之前难度只存在于「场次」上（`MorningQuizSession.level`），学生
+  /// 每天扫码现选一次 —— 于是可以天天跳层，词表跟着当天的选择走，卡片
+  /// 例句来自他没读过的文章。章程要求的「确定难度」阶段在数据模型上
+  /// 根本不存在。
+  ///
+  /// 语义严格区分（不要混淆）：
+  ///   · `User.englishLevel`         = **学生属性**，他现在在哪一层（本字段）
+  ///   · `MorningQuizSession.level`  = **任务快照**，那一场是哪一层（历史，永不改写）
+  ///   · `ClassEnglishLevel.level`   = **排课配置**，班级今天开哪几层（不归本字段管）
+  ///
+  /// null = 尚未落定（旧用户 / 新生首扫之前）。**不做批量回填、不设默认
+  /// 值** —— 猜错一个人的层比让他再选一次贵得多。null 的兼容路径是沿用
+  /// 旧行为（扫码时现选），首次扫码成功后由服务端条件写入落定。
+  ///
+  /// 改动它的合法路径只有两条：① 学生首次扫码落定（仅当当前为 null）；
+  /// ② 教师在花名册上改（PATCH /admin/users/:id/english-level，走
+  /// canActOnClass）。学生端没有任何接口能改写已落定的值。
+  englishLevel EnglishLevel?
+
   questionsCreated             Question[]               @relation("QuestionCreator")
   templatesOwned               PaperTemplate[]
   papersOwned                  Paper[]

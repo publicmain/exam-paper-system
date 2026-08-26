@@ -476,6 +476,12 @@ export const api = {
       `/lesson/class?classId=${encodeURIComponent(classId)}${date ? `&date=${date}` : ''}`,
     ),
 
+  /** 教师端：改学生英语难度（P4 —— 唯一能改写已落定难度的路径）。
+   *  level=null 清空，退回「下次扫码现选」。只影响后续内容选择，
+   *  历史答卷 / 成绩 / 已建场次一律不动。 */
+  setStudentEnglishLevel: (studentId: string, level: string | null) =>
+    request('PATCH', `/admin/users/${encodeURIComponent(studentId)}/english-level`, { level }),
+
   /** 教师端：重置学生 PIN（忘记时的恢复通道） */
   adminResetStudentPin: (studentId: string) =>
     request('POST', '/student-auth/admin/reset-pin', { studentId }),

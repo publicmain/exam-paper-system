@@ -45,7 +45,19 @@ export class ClassesService {
         englishLevels: { select: { id: true, level: true }, orderBy: { level: 'asc' } },
         enrollments: {
           where: { user: enrollmentUserFilter },
-          include: { user: { select: { id: true, name: true, email: true, role: true, archivedAt: true } as any } },
+          include: {
+            user: {
+              // englishLevel: P4 —— 教师在花名册上看/改学生难度
+              select: {
+                id: true,
+                name: true,
+                email: true,
+                role: true,
+                archivedAt: true,
+                englishLevel: true,
+              } as any,
+            },
+          },
         } as any,
         assignments: {
           include: { paper: { select: { id: true, name: true, subjectId: true } } },

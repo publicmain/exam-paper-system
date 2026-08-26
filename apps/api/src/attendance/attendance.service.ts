@@ -9,12 +9,14 @@ import {
 } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { AttendanceSource, AttendanceStatus, MorningQuizStatus } from '@prisma/client';
+import type { EnglishLevel } from '@prisma/client';
 import { AuditService } from '../audit/audit.service';
 import { PrismaService } from '../common/prisma.service';
 import { createRealSubmissionSafe } from '../common/submission-create';
 import type { StudentSubmission } from '@prisma/client';
 import { isMakeupWindowOpen } from '../morning-quiz/morning-quiz.service';
-import { levelPushesWordlist } from '../morning-quiz/level-registry';
+import { levelLabel, levelPushesWordlist } from '../morning-quiz/level-registry';
+import { decideLevel } from '../morning-quiz/level-lock';
 import { resolveWordlistForPaperConfig } from '../morning-quiz/wordlist-source';
 import { resolveWeeklyTrack } from '../morning-quiz/weekly-track';
 import { canActOnClass } from '../common/roles';
@@ -288,7 +290,12 @@ export class AttendanceService {
         // to sign in or be impersonated even if their name still matches.
         user: { name: trimmedName, role: 'student', isActive: true },
       },
-      include: { user: { select: { id: true, email: true, name: true, role: true } } },
+      include: {
+        user: {
+          // englishLevel: P4 难度门要用（学生属性，不是场次快照）
+          select: { id: true, email: true, name: true, role: true, englishLevel: true },
+        },
+      },
     });
     if (matches.length === 0) {
       // R10 demo bypass — when MORNING_QUIZ_DEMO=true, auto-create the
@@ -316,7 +323,13 @@ export class AttendanceService {
           role: 'student' as any,
           createdAt: new Date(),
           updatedAt: new Date(),
-          user: { id: user.id, email: user.email, name: user.name, role: user.role },
+          user: {
+            id: user.id,
+            email: user.email,
+            name: user.name,
+            role: user.role,
+            englishLevel: user.englishLevel,
+          },
         } as any);
       } else {
         throw new NotFoundException({ code: 'student_not_found', typed: trimmedName });
@@ -330,6 +343,40 @@ export class AttendanceService {
     }
     const student = matches[0].user;
     const studentId = student.id;
+
+    // Gate 4.5 — 难度门（P4）。
+    //
+    // 学生的难度是**学生属性**（`User.englishLevel`），不是每天现选的
+    // 临时输入。已经落定的人不该再被问、也不该因为手滑点错按钮就换层
+    // ——「换层」是教师的动作，不是学生的。
+    //
+    // 放在这里的原因：身份要到 Gate 1 才知道（场次在 Gate 3 就定了，
+    // 那时还不知道扫码的是谁）。放在这里意味着**任何写操作之前**就
+    // 拦下，拒绝时库里干净得像没来过。
+    //
+    // 只在「他那层今天真的开着」时拒绝 —— 见 decideLevel 的注释。
+    const levelDecision = decideLevel({
+      storedLevel: (student as { englishLevel?: EnglishLevel | null }).englishLevel ?? null,
+      session: { id: session.id, level: session.level },
+      activeSiblings: await this.prisma.morningQuizSession.findMany({
+        where: {
+          classId: session.classId,
+          date: session.date,
+          status: MorningQuizStatus.active,
+        },
+        select: { id: true, level: true },
+      }),
+      isTestClass: session.class.name.startsWith('【测试】'),
+    });
+    if (levelDecision.kind === 'locked') {
+      throw new ForbiddenException({
+        code: 'level_locked',
+        lockedLevel: levelDecision.lockedLevel,
+        lockedLevelLabel: levelLabel(levelDecision.lockedLevel),
+        // 前端拿这个 id 自动切到正确的场次重试一次，学生不用理解发生了什么
+        correctSessionId: levelDecision.correctSessionId,
+      });
+    }
 
     // Gate 5 — 时间窗。
     //
@@ -561,6 +608,28 @@ export class AttendanceService {
         where: { id: attendance.id },
         data: { submissionId: submission.id },
       });
+    }
+
+    // P4 —— 首次落定难度。
+    //
+    // 放在这里（答卷已建、扫码已确定成功）而不是 Gate 4.5：中间还有
+    // 时间窗等好几道门会抛，在那之前写就会出现「扫码失败了，难度却
+    // 被定死」。
+    //
+    // **条件写入**：WHERE englishLevel IS NULL 由 PG 在行锁内判定。两个
+    // 标签页/两次重试同时首扫时，先到的那次落定，后到的匹配 0 行直接
+    // no-op —— 不会出现「后一次把前一次改掉」的不确定结果。
+    if (levelDecision.kind === 'land') {
+      const landed = await this.prisma.user.updateMany({
+        where: { id: studentId, englishLevel: null },
+        data: { englishLevel: levelDecision.level },
+      });
+      if (landed.count > 0) {
+        this.logger.log(
+          `englishLevel landed student=${studentId} level=${levelDecision.level} ` +
+            `session=${session.id}`,
+        );
+      }
     }
 
     // 短文层（雅思轻量 / O-Level 基础）的配套词表：**扫码时推给本人**。
