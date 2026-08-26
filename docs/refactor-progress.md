@@ -602,4 +602,141 @@ stability=3`、1 条历史复习流水，P5 全程未增未减。全库「已教
 
 ---
 
-## P6 ⬜ / P7 ⬜ / P8 ⬜ / P9 ⬜ / P10 ⬜
+## P6 ✅ 正式单词测试成绩实体 + 堵未学先考（2026-08-28，commit 68fa372，**本地提交未 push**）
+
+**根因**：出题从来只按「到期」和「加入时间」挑词，**从不问「教过没有」**——
+因为 P5 之前根本没有「教过」这个事实（唯一的近似是 FSRS 的 `reps`，而它
+只在评分时前进）。于是选词长出了两层「凑题数」兜底：
+
+    到期词不够 → 捞 reps = 0 的词（从没学过的）
+    还不够     → 捞任意词（连到期都不要求）
+
+短文层的词表是建场时推给学生的、他从没见过，而一进本子 `due` 就是
+`now()`。两层叠起来的结果是：学生第一次打开自测，考的全是没读过的词，
+全错；答错还回写 FSRS 把它们标成「困难」，往后天天来烦他。
+**「凑够题数」这个目标压倒了「只考教过的东西」。**
+
+### 资格规则
+
+判定收在 `apps/api/src/vocab/quiz-eligibility.ts` 一处。一个词能进正式
+测试，当且仅当：
+
+1. 是这个学生自己的词
+2. `firstTaughtAt != null` —— **教过**。刚教完、`reps` 还是 0 的词完全
+   合格，那正是「先学后测」要考的那批
+3. 属于**当天这次任务**：`due <= now`，或 `firstTaughtAt >= 当日零点`
+   （今天刚教过的，哪怕 due 被别的动作挪走）
+
+不够就明说：一个教过的词都没有 → `not_ready`；教过但当天够格的不足 4 道
+→ `insufficient_items`。**绝不为凑数放宽任何一条** —— 不放宽到未教过的
+词、不放宽到别的任务的词，更不看 `User.englishLevel` 重算一批。
+
+`buildQuiz` 的两层兜底一并删除，**自由练习也只出教过的词**。
+
+### 数据模型与幂等策略
+
+新表 `VocabQuizAttempt`：
+
+| 列 | 含义 |
+|---|---|
+| `studentId` + `date` | **唯一约束** —— 一个任务日只能有一份有效正式测试 |
+| `dailyLessonCompletionId` | 当日任务行（可空：学生可能还没打开过课程页） |
+| `status` / `startedAt` / `submittedAt` | in_progress → submitted |
+| `total` / `correct` / `score` | 提交时算一次并落库，展示层不重算 |
+| `items` (JSONB) | 逐题快照：题干、选项、正确答案、学生作答、是否正确 |
+
+**幂等三处**：
+- **创建**：先查后建，撞唯一约束（P2002）就回读同一份 —— 并发创建不可能
+  产生两份
+- **作答**：第一次作答为准，重复提交 no-op；条件写入 `WHERE status =
+  'in_progress'`
+- **提交**：条件更新 `WHERE status = 'in_progress'`，并发里后到的匹配
+  0 行、回读同一份成绩
+
+**三条硬边界**：
+- **不写 FSRS**：不产生 `WordReviewLog`，不动 `due / reps / stability /
+  difficulty / lapses`。考试是量一下，不是练一次
+- **不写阅读答卷**：成绩落在自己的表里，`StudentSubmission` 一个字段不碰
+- **作答前不下发正确答案**（下发了等于把答案放进 devtools），提交后才连
+  答案一起给，供结果页逐题回看
+
+**授权**：四个端点一律 `@RequireStudentToken`。旧的 `GET /vocab/quiz`
+只认请求里的 `name` 字符串 —— 报个名字就能读别人的题；成绩实体不能重复
+这个错误。
+
+**连带必须改的一处**：背段完成的判据加「今天交了正式测试」。不加就是死锁
+—— 正式测试不写复习流水，而背段进度数的正是当天流水，一个「教 5 个新词
+→ 考一次」的日子里进度永远是 0，`stage` 卡死在 `vocab_test`。（与 P5 的
+`unlearned` 是同一类坑。）
+
+### 修改文件
+
+- **DB**：`schema.prisma` + 迁移 `20260828000000_vocab_quiz_attempt`
+- **API**：新增 `vocab/quiz-eligibility.ts`、`vocab/vocab-quiz-attempt.service.ts`；
+  `vocab-quiz.service.ts`（删两层兜底 + 支持固定词表）；`vocab.controller.ts`
+  （4 个端点）；`vocab.module.ts`；`lesson.service.ts`（背段判据）
+- **Web**：`MyVocabQuiz.tsx`（同一入口先试正式测试，不够格退回自由练习）、
+  `lib/api.ts`
+- **测试**：`quiz-eligibility.spec.ts` 11 条、`vocab-quiz-attempt.spec.ts`
+  18 条、`MyVocabFormalQuiz.test.tsx` 7 条、`MyVocabQuiz.test.tsx` mock 更新
+
+### 实际验证结果
+
+**迁移双场景**（隔离库）：
+| 库 | 场景 | 结果 |
+|---|---|---|
+| `p6_empty` | 空库从零跑全部迁移 | All migrations have been successfully applied |
+| `p6_legacy` | 跑到 P6 前 → 灌旧数据（词/复习流水/阅读答卷/DLC）→ 跑 P6 迁移 | 同上；旧数据 **一条未动**（w1/l1/s1/d1 计数不变，旧词 `reps=6 stab=3 diff=5 lapses=1 state=review` 原样）；新表建成且为空；三个索引齐备 |
+
+**真实浏览器**（API :4320 + Vite :5276 连 `p6_legacy`）：
+
+| 场景 | 结果 |
+|---|---|
+| **A** 未教学词不能进入测试 | `未学生`（5 个词全未教）→ `409 {"code":"not_ready","taught":0,"eligible":0,"minItems":4}`；页面退回自由练习，自由练习**也出不了题**（兜底已删）→「还出不了题」。**一题未出，无 attempt 记录** |
+| **B** 刚教学、reps=0 的词可作答 | `够格生`（8 个词全教过、reps=0）→ 正常出题「选出正确的意思 / harbour」；库里建成 1 份 attempt，8 道题**全部来自教过的词**，快照含正确答案 |
+| **C** 做到一半刷新恢复 | 答完前 2 题后刷新 → **精确恢复到第 3 题（meadow）**，前两题不重考；库里 `[0] harbour 答对 / [1] lantern 答对 / [2..7] 未答` |
+| **D** 双击提交 + 请求重试 | 并发五连发提交 → 五次全 201、成绩全部 `2/8=25`、`alreadySubmitted: true×5`；交卷后再改答案 → `accepted=false reason=already_submitted`。**全库每个学生仍只有 1 份成绩** |
+| **E** 题目快照、答案与分数 | 完成页显示落库成绩「2 / 8 答对 · 单词测试成绩 25 分」。随后**大改词库**（改 3 个词的释义与音标、删 1 个词典条目、删 1 个学生词）→ 成绩与题目选项**一个字符都没变** |
+| **F** 复习日志与 FSRS | 全程 `WordReviewLog` 保持 **1 条**（种子灌的，零新增）；7 个词 `reps=0 lapses=0 state=new stability=0 difficulty=5 lastReview=null` 一字未动；历史阅读答卷 `16/20` 未被写 |
+| 附 · 越权 | 别的学生读我的成绩 → 403 `identity_mismatch`；替我交卷 → 403；无 token → 403 `student_token_required`；本人读自己的 → 200 |
+| 附 · 阶段推进 | 提交后 `vocab=done`，`stage = done` |
+
+**反向对照已做**：给正式模式加回一次 FSRS 写入后，「作答走成绩接口、绝不
+写 FSRS」这条测试**必红** —— 证明它有鉴别力。
+
+**全量复验**：api **757 tests / 70 files** 全过（+29）、web **208 tests /
+33 files** 全过（+7）、双端 `tsc --noEmit` 无错、`nest build` +
+`vite build` 均成功。
+
+**Git diff 范围核查**：只碰 vocab / lesson 的词汇测试链路与自测页。
+未改阅读成绩展示、未创建任务总结页、未进入 P7/P8。
+
+### 尚未验证
+
+- **生产数据库未执行迁移**（按约束禁止）
+- iOS Safari / iPad 未真机验证（仅桌面 Chrome）
+- **弱网下的作答未走队列**：`vocabQuizAnswer` 失败只被 catch 掉，那一题
+  按未作答计、交卷时算错。复习评分有 `reviewQueue` 补传，这里没有 ——
+  取舍是「考试期间不重发」比「补传一个迟到的答案」更接近考试语义，但没有
+  在真实弱网下验证过体感
+- **跨天的 attempt 未验证**：`date` 用 SGT 日历日，学生在 SGT 午夜前后
+  作答时会跨到新的一天（旧 attempt 停在 in_progress、新的一天开新的一份）。
+  逻辑上是对的，但没有真的跑过跨午夜的场景
+- **卷内词汇题（`vocab-attach.service.ts`）仍未加资格过滤**：本周主线词
+  按天轮转直接进卷，学没学过都考。审计 §二.4 把它和自测并列为「未学先考」
+  的三处之一，本片只处理了自测与正式测试两处 —— 它属于出卷链路，动它会
+  碰到排课，按「一次一个垂直切片」留给后续
+- **已提交的当天再想练**：目前页面显示成绩并给「再练一轮」按钮，但那一轮
+  走的仍是正式测试分支（会直接回到成绩页）。自由练习的入口在成绩已存在时
+  实际上够不着 —— 不影响成绩正确性，但体验上有个死角，未修
+- 历史成绩列表端点（`GET /vocab/quiz/attempts`）已实现并有授权，但**前端
+  还没有展示页面**（属 P7「阅读/词汇成绩拆分展示」，本片按约束未做）
+
+**未 push、未部署、未执行生产迁移。**
+
+**清理**：隔离库 `p6_empty` / `p6_legacy`、API/Vite 进程、`dist-p6` 与
+`tsconfig.tsbuildinfo` 已删。
+
+---
+
+## P7 ⬜ / P8 ⬜ / P9 ⬜ / P10 ⬜
