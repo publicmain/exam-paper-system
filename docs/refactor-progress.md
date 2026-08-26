@@ -297,4 +297,97 @@ sessionStorage**（模拟重新登录/换设备）→ 刷新后页面显示「�
 
 ---
 
+---
+
+### P4 产品语义（合并时确立，后续所有阶段必须遵守）
+
+1. **`User.englishLevel` 是学生的长期默认层级。** 它回答「这个学生现在
+   属于哪一层」，会随教师调整而变，全系统只有这一份。它**不是**任何一次
+   具体任务的属性。
+
+2. **`MorningQuizSession.level` 是单次任务的层级快照。** 它回答「那一场
+   是哪一层」，写入即冻结，**永不回填、永不改写**。历史答卷、成绩、面板
+   统计一律挂在它上面 —— 教师今天把学生从雅思真题调成 O-Level，上周那场
+   仍然是雅思真题的成绩。
+
+3. **默认层当天未开时，允许临时参加其他层，但不改变长期层级。** 学校今天
+   没排他那一层时，服务端放行到当天开着的其他层（拒绝就等于把人挡在早测
+   门外），并且**不写 `User.englishLevel`**。那一次的 session.level 记录
+   他实际做了什么，他的长期层级保持不变，明天照旧回自己那层。
+
+4. **本次阅读和词汇内容必须跟随任务快照，不得直接依据
+   `User.englishLevel` 重算。** 出卷、词表推送、卷内词汇题、周主线一律读
+   `session.level`（以及由它选定的 `Paper.config`）。
+   理由：`User.englishLevel` 是会变的，用它重算会让「复习你自己读过的
+   句子」这个承诺在教师调层的那一刻对该学生失效 —— 卡片例句会来自他从没
+   读过的文章，而历史面板上的分数也会对不上当时的卷子。
+   **判断准则**：凡是回答「这次是什么」的，读快照；只有回答「他下次该去
+   哪一层」的，才读 `User.englishLevel`。
+
+---
+
+### P4 合并前验证 · 真实浏览器（2026-08-26）
+
+环境：隔离库 `p4_browser`（迁移 + 种子）、API :4200、Vite :5273、
+Chrome 实际点击。**未碰生产**。
+
+**① 误点其他已开层级 → 自动纠正**
+
+学生林小满（`englishLevel=ielts_authentic`），本机无 token（`/me` 查不到
+自己是哪层）→ 难度选择器如期显示 → **误点「O-Level 标准」** → 输入姓名
+→ 「开始答题」。
+
+网络记录（`POST /api/attendance/scan` 全部请求，共 **2 次**）：
+| # | 结果 | 响应 |
+|---|---|---|
+| 1 | **403** | `{"code":"level_locked","lockedLevel":"ielts_authentic","lockedLevelLabel":"雅思真题","correctSessionId":"sess_authentic"}` |
+| 2 | **201** | `quizUrl: /morning-quiz/sess_authentic#h=…` |
+
+- **只自动重试一次**：第三次请求不存在
+- 页面落在「雅思真题 短文 / The Cambridge harbour has served the town
+  for four centuries.」= `paper_auth`，**正确的卷子**
+- 数据库：答卷 **1 条**（`session=sess_authentic, level=ielts_authentic`）、
+  考勤 **1 条**、`englishLevel` 仍是 `ielts_authentic` —— **无重复答卷、
+  误点未改写长期层级**
+- 无循环请求（scan-roster 的两次 GET 是 React StrictMode 开发模式双渲染，
+  非重试）
+
+**② 教师在花名册改难度**
+
+班主任（`t_home`，本班）打开 G11 英语花名册 → 行内难度下拉正确回显库值
+（林小满=雅思真题、周允行=未定）→ 把周允行改为「O-Level 标准」。
+
+- `PATCH /api/admin/users/stu_zhou/english-level` → **200**
+  `{"ok":true,"id":"stu_zhou","englishLevel":"olevel"}`
+- **刷新页面后保持**：重新打开花名册，下拉仍是「O-Level 标准」
+- **后端回读一致**：`GET /api/classes/cls_g11` 返回 `englishLevel=olevel`；
+  数据库直读 `olevel`；审计留痕
+  `user.english_level_set stu_zhou {"englishLevel":{"from":null,"to":"olevel"}}`
+
+**无权限用户**（生产口径实例，`MOCK_AUTH=false`）：
+| 身份 | 结果 |
+|---|---|
+| 无 token | **401** `Missing token` |
+| 外班教师 | **403** `not_your_class`（连该班花名册都读不到，同样 403） |
+| 学生本人 | **403** `Insufficient role` |
+
+全部越权尝试之后，两名学生的难度未变，难度变更审计**仅 1 条**（教师那次
+合法修改）。
+
+> 说明：本地 `.env` 里 `MOCK_AUTH=true` 会给无凭证请求注入一个假教师，
+> 所以在默认开发实例上「无 token」返回的是 403 `not_your_class` 而不是
+> 401 —— 这是既有的开发开关，与 P4 无关。即使在那个最宽松的设置下，
+> 假教师仍被 `canActOnClass` 挡住，P4 的授权防线成立。
+
+**本轮仍未验证**：
+- 生产数据库仍未执行迁移（按约束禁止）
+- iOS Safari / iPad 上的这两条链路未真机验证（仅桌面 Chrome）
+- 「误点 → 自动纠正」只测了默认层**当天开着**的情形；默认层当天未开时的
+  临时参加（语义 3）只有服务端接口实测，未在浏览器点过
+- 教师把已落定的学生**清空为「未定」**的浏览器路径未点过（接口有测试）
+
+**未 push、未部署、未执行生产迁移。**
+
+---
+
 ## P5 ⬜ / P6 ⬜ / P7 ⬜ / P8 ⬜ / P9 ⬜ / P10 ⬜
