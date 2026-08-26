@@ -27,6 +27,8 @@ import {
   deriveStage,
   clampStage,
   clampCursor,
+  STAGE_ORDER,
+  stageRank,
 } from './lesson-rules';
 
 /**
@@ -172,10 +174,14 @@ export class LessonService {
       drillSettled: isSegmentComplete(segments.drill),
     });
     const stage: LessonStage = clampStage(frozen?.stage, derived);
-    // 只有真的前进了才写库（课程页会被反复打开，不必每次 UPDATE）
+    // 只有真的前进了才写库，且**用条件更新**而不是先读后写
+    // （P3 合并前验证第 4 项）：两个标签页同时打开课程页时，读到旧
+    // 快照的那个不能把阶段写回去。stageRank 比较交给 SQL 的 IN —— 只
+    // 允许从「比目标阶段更早」的状态跃迁，落后的写入匹配 0 行。
     if (frozen && stage !== frozen.stage) {
-      await this.prisma.dailyLessonCompletion.update({
-        where: { id: frozen.id },
+      const earlier = STAGE_ORDER.slice(0, stageRank(stage));
+      await this.prisma.dailyLessonCompletion.updateMany({
+        where: { id: frozen.id, stage: { in: earlier } },
         data: { stage, stageAt: now },
       });
     }
@@ -429,23 +435,39 @@ export class LessonService {
    */
   async saveVocabCursor(input: { studentName: string; studentId?: string; cursor: number }) {
     const student = await this.words.resolveStudent(input.studentName, input.studentId);
-    const now = new Date();
-    const day = this.sgtDayStart(now);
-    const row = await this.prisma.dailyLessonCompletion.findUnique({
-      where: { studentId_date: { studentId: student.id, date: day } },
-      select: { id: true, vocabCursor: true },
+    const day = this.sgtDayStart(new Date());
+    // NaN/Infinity 必须挡在 SQL 之前：Math.max(0, Math.floor(NaN)) 仍是
+    // NaN，会把脏值送进 where/data（服务层单测抓到）。
+    const raw = Number(input.cursor);
+    const wanted = Number.isFinite(raw) ? Math.max(0, Math.floor(raw)) : 0;
+
+    // **条件更新，不是先读后写**（P3 合并前验证第 4 项）。
+    //
+    // 先读后写的写法在双标签页下会互相覆盖：旧标签页读到 5、写 3，
+    // 把新进度冲回去。这里把单调性交给数据库 —— WHERE vocabCursor < ?
+    // 由 PG 在行锁内判定，落后的写入匹配 0 行、直接是 no-op，无论两个
+    // 请求以什么顺序到达。
+    const bumped = await this.prisma.dailyLessonCompletion.updateMany({
+      where: {
+        studentId: student.id,
+        date: day,
+        vocabCursor: { lt: wanted },
+      },
+      data: { vocabCursor: wanted },
     });
-    // 没有当日记录说明学生还没打开过课程页 —— 不在这里创建（创建是
-    // today(freeze:true) 的职责，那里才有完整的目标冻结逻辑）
-    if (!row) return { ok: true as const, cursor: 0, stored: false };
-    const next = Math.max(row.vocabCursor, Math.max(0, Math.floor(input.cursor)));
-    if (next !== row.vocabCursor) {
-      await this.prisma.dailyLessonCompletion.update({
-        where: { id: row.id },
-        data: { vocabCursor: next },
+
+    // 没更新到：要么没有当日记录（学生还没打开过课程页 —— 创建是
+    // today(freeze:true) 的职责，那里才有完整的目标冻结逻辑），要么
+    // 库里已经领先。回读一次把真实值告诉前端。
+    if (bumped.count === 0) {
+      const row = await this.prisma.dailyLessonCompletion.findUnique({
+        where: { studentId_date: { studentId: student.id, date: day } },
+        select: { vocabCursor: true },
       });
+      if (!row) return { ok: true as const, cursor: 0, stored: false };
+      return { ok: true as const, cursor: row.vocabCursor, stored: true };
     }
-    return { ok: true as const, cursor: next, stored: true };
+    return { ok: true as const, cursor: wanted, stored: true };
   }
 
   // ─────────────────── 教师端看板（PRD §4） ───────────────────
