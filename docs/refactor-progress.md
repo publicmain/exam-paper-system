@@ -407,6 +407,10 @@ Chrome 实际点击。**未碰生产**。
 
     needsFirstTeaching = firstTaughtAt IS NULL AND reps = 0
 
+> ⚠️ **别和 P6 的考试资格看串**：这里是「**该教**」的判据（IS **NULL**）；
+> 正式测试「**该考**」的资格是 `firstTaughtAt IS **NOT** NULL`
+> （见下方 P6）。两条方向相反，正反两面都有测试钉着。
+
 两个条件都**不需要回填**：`reps > 0` 的存量词学生一定评过分（当复习词
 处理）；`reps = 0` 的存量词从没被评过分（本来就该补一次教学）。前端只
 读服务端结论（`needsFirstTeaching`），字段缺失时的兜底用同一条式子，
@@ -735,6 +739,125 @@ stability=3`、1 条历史复习流水，P5 全程未增未减。全库「已教
 **未 push、未部署、未执行生产迁移。**
 
 **清理**：隔离库 `p6_empty` / `p6_legacy`、API/Vite 进程、`dist-p6` 与
+`tsconfig.tsbuildinfo` 已删。
+
+---
+
+### P6 收尾 · 三个边界（2026-08-28，commit 063368b）
+
+#### 一、资格条件核对（结论：代码与文档都没写反，但确实容易看串）
+
+复查了实际代码与测试：
+
+| 规则 | 判据 | 位置 |
+|---|---|---|
+| P5 **该教** | `firstTaughtAt IS **NULL** AND reps = 0` | `first-teaching.ts` |
+| P6 **该考** | `firstTaughtAt IS **NOT** NULL` | `quiz-eligibility.ts`；SQL 里也是 `firstTaughtAt: { not: null }` |
+
+两条方向相反，而在本文档里上下相邻 —— 读的时候极易看成同一条。代码没有
+写反。已在 P5 那一段加了显式消歧标注，并补**正反两面**的测试：
+
+- `firstTaughtAt = null` **绝不出题**：全是 null → `not_ready`；与够格的
+  词混在一起时只取够格的（断言结果里一个 `never*` 都没有）
+- `firstTaughtAt != null` **且 `reps = 0` → 可以出题**（刚教完就考，正是
+  设计意图）。`reps` 根本不在资格判据里，这条同时证明它没被偷偷加回去
+
+#### 二、绑定到具体任务
+
+**先说核查结论**，避免在错误前提上改：
+- `DailyLessonCompletion` 自己就是 `@@unique([studentId, date])` →
+  **一个学生一天至多一个任务**，「同日多个任务互相冲突」在当前模型下
+  不可能发生
+- `rulesVersion` 变更时走的是 `update` 而不是重建 → **DLC 的 id 稳定**，
+  可以安全地当作外键
+
+真实风险不在「同日多任务」，而在**口径漂移**：attempt 服务和 lesson 服务
+各算一次「今天」，SGT 午夜前后任何一处算法微调都会让测试挂到另一天的
+任务上；完成条件数的也是「这个学生今天有没有交过某一份测试」而不是
+「这次任务自己的那一份」。
+
+改法：
+- `start()` **先要求当日 DLC 存在**，没有就 `409 no_task`（DLC 由
+  `today(freeze:true)` 创建，这里只读不建 —— 越权创建会造出 target 全 0
+  的空任务行）
+- 查 / 建 / 回读一律按 `dailyLessonCompletionId`
+- **主约束**：partial unique index `VocabQuizAttempt_dlc_key`
+  （`WHERE dailyLessonCompletionId IS NOT NULL` —— Prisma 表达不了 WHERE
+  子句，写在迁移里）
+- `(studentId, date)` **保留**为第二道防线，兼容收尾之前建的、还没有 DLC
+  绑定的存量行
+- 背段完成条件穿过 DLC 关系查，只认**本任务自己的** submitted attempt
+
+**历史兼容**：迁移先把已有成绩按 `(studentId, date)` 回填到那一天的任务
+上；回填不上的（当天没有 DLC 行）保持 NULL，仍受旧约束保护、可正常读取。
+**不删任何成绩**。
+**回滚**：`DROP INDEX "VocabQuizAttempt_dlc_key";`（列留着也无害，没有
+约束时它只是个可空外键）。
+
+#### 三、作答落库前不推进
+
+原来失败被 catch 掉、照样进下一题，交卷时那一题按空白算错 —— 学生真的
+选了答案，成绩单上却是空的。**这是分数造假，不是网络问题。**
+
+现在：保存中禁用「继续」；失败则停在原题、选项保持选中、显示
+「这一题还没存上 · 你的选择还在，点下面重试」+ 重试按钮；重试打**同一个
+幂等接口、同样的参数**（第一次成功持久化的答案为准）。没有做离线队列。
+
+#### 四、题目属于当前任务的事实来源
+
+不再用全局 `due <= now` 代替任务归属。合法词汇集合 =
+**学生在这次任务里真的动过的词**：
+
+| 事实 | 谁写的 |
+|---|---|
+| `firstTaughtAt` 落在今天 | P5 的 `POST /lesson/vocab-taught`（教学卡「下一个」） |
+| 今天有 `WordReviewLog` | 翻卡评分 `POST /vocab/review` |
+
+两者都是本次任务活动留下的记录，不是对词表的一次全局扫描。别的任务留下的
+到期词不再混入。`User.englishLevel` 全程不参与（有测试断言所有查询的
+where 里不含这个字段）。
+
+#### 验收结果（隔离库 + 真实浏览器）
+
+| # | 验收 | 结果 |
+|---|---|---|
+| 1 | 未教学词 409 且不创建 attempt | `409 {"code":"not_ready","taught":0,"eligible":0,"minItems":4}`；库里 `stu_new` 一份 attempt 都没有 |
+| 2 | 已教学 reps=0 正常出题 | `201`，8 道题全部来自本任务教过的词 |
+| 3 | 同日两个不同 DLC 不互相占用 | 同一天、`dlc_ok` 与 `dlc_new` 各建各的，插入均成功 |
+| 4 | 当前 DLC 只能有一份有效 attempt | 同任务再插一份 → 被 `VocabQuizAttempt_studentId_date_key` 拒绝 |
+| 5 | 当前 DLC 的完成只由自己的 attempt 推动 | 给 `dlc_new` 塞一份 submitted 后：`stu_new` 的 vocab=done，`stu_ok` 仍 todo、不受影响 |
+| 6 | **跨午夜不会错误复用或覆盖** | 同一任务、日期改成明天再插 → 被 **`VocabQuizAttempt_dlc_key`** 拒绝（任务级唯一不看日期）|
+| 7 | 作答失败停留原题、不按未作答计分 | 注入 500：出现失败提示与重试按钮、**「继续」按钮不存在**；库里已作答题数 **0**（一题都没被记成空白） |
+| 8 | 重试成功后正常继续 | 恢复网络点重试 → 失败提示消失、「继续」回来；库里该题 `答=n. 草地；牧场 对错=false` 真的落下了 |
+| 9 | 双击/并发/重试不重复写 | 对已答题并发重发 5 次 → 全部 `accepted=false reason=already_answered`，第一次的答案保留 |
+| 10 | 题目全部属于当前任务 | 快照里每个 headword 都在「本任务教过的词」集合里 |
+| 11 | WordReviewLog / FSRS / 阅读答卷不变 | 流水全程 **1 条**（种子灌的）；除旧生 s1 外没有词的 FSRS 字段被动过；阅读答卷 `16/20` 未被写 |
+| 12 | 空库与旧库迁移 | 两个场景均 `All migrations have been successfully applied`；旧数据一条未动；四个索引齐备（含 `VocabQuizAttempt_dlc_key`）|
+
+**反向对照已做**：把「失败照样前进」加回去后，作答持久化那 3 条测试**必红**。
+
+**全量复验**：api **767 tests / 70 files** 全过（+10）、web **211 tests /
+33 files** 全过（+3）、双端 `tsc --noEmit` 无错、`nest build` +
+`vite build` 均成功。**Git diff 只含 P6 收尾。**
+
+#### 尚未验证 / 已知取舍
+
+- **生产迁移未执行**（按约束禁止）
+- **`no_task` 会让没打开过课程页的学生考不了正式测试**：从课程页 /
+  扫码链路进来的学生都有 DLC，但直接从生词本点「自测」进来的可能没有 ——
+  这时会退回自由练习（不计分）。行为正确但没在浏览器里走过那条路径
+- **弱网仍无离线队列**（本阶段按要求不做）：失败靠学生手点重试。真实弱网
+  下的体感未验证
+- **跨午夜只验证了数据库约束层**：真的在 SGT 23:59→00:01 之间作答的完整
+  链路没跑过（需要改系统时钟）
+- iOS Safari / iPad 未真机验证
+- 卷内词汇题（`vocab-attach.service.ts`）仍未加资格过滤 —— 属出卷链路，
+  动它会碰排课，仍留给后续
+- 已提交当天想再自由练习的死角仍在（「再练一轮」会回到成绩页），未修
+
+**未 push、未部署、未执行生产迁移。**
+
+**清理**：隔离库 `p6_empty` / `p6_legacy`、API/Vite 进程、`dist-p6b` 与
 `tsconfig.tsbuildinfo` 已删。
 
 ---
