@@ -1,4 +1,5 @@
-import { BadRequestException, Body, Controller, ForbiddenException, Get, Post, Query, UseGuards } from '@nestjs/common';
+import { BadRequestException, Body, Controller, ForbiddenException, Get, Post, Query, Req, UseGuards } from '@nestjs/common';
+import type { Request } from 'express';
 import { CurrentUser } from '../common/current-user.decorator';
 import { Public } from '../common/auth.guard';
 import { RateLimit } from '../common/rate-limit.guard';
@@ -38,12 +39,20 @@ export class LessonController {
   @RequireStudentToken()
   @RateLimit({ limit: 120, windowSec: 60, scope: 'ip' })
   @Get('today')
-  async today(@Query('name') name?: string, @Query('studentId') studentId?: string) {
-    if (!name?.trim()) throw new BadRequestException({ code: 'name_required' });
+  async today(
+    @Req() req: Request,
+    @Query('name') name?: string,
+    @Query('studentId') studentId?: string,
+  ) {
+    // P9：与 /lesson/start 同一口径 —— 身份来自 token，姓名只是兼容。
+    const auth = (req as unknown as { studentAuth?: { id: string; name: string } }).studentAuth;
+    const sid = auth?.id ?? studentId;
+    const sname = auth?.name ?? name;
+    if (!sid && !sname?.trim()) throw new BadRequestException({ code: 'student_required' });
     // **纯读取**（P8）。原来这个 GET 会创建当日任务、推进阶段、补词汇
     // 队列 —— 一个 GET 有写副作用，教师看板和总结页一读就改数据。
     // 开始/恢复课程改走下面的 POST /lesson/start。
-    return this.svc.getToday({ studentName: name, studentId: studentId || undefined });
+    return this.svc.getToday({ studentName: sname ?? '', studentId: sid || undefined });
   }
 
   /**
@@ -56,16 +65,36 @@ export class LessonController {
   @RequireStudentToken()
   @RateLimit({ limit: 60, windowSec: 60, scope: 'ip' })
   @Post('start')
-  async start(@Body() body: unknown) {
+  async start(@Body() body: unknown, @Req() req: Request) {
     const schema = z.object({
-      name: z.string().min(1).max(120),
+      // P9：姓名只是**兼容字段**，不再是身份来源。账号登录后 token 里
+      // 就有身份，学生不该每天再报一次名字（报名字这条路也意味着「报
+      // 谁的名字就是谁」，那是 P7 修掉的越权读）。
+      name: z.string().min(1).max(120).optional(),
       studentId: z.string().min(1).max(60).optional(),
+      /**
+       * P9：学生明确点了「开始今天的课程」。
+       *
+       * 只有它为 true 时才建正式答卷 —— 打开课程页（begin 缺省）只做
+       * 恢复：建任务行、对齐阶段、并入新到期的词。分开是因为「瞄一眼
+       * 课程页」不该等于「参加了今天的考试」。
+       */
+      begin: z.boolean().optional(),
     });
     const parsed = schema.safeParse(body);
     if (!parsed.success) throw new BadRequestException(parsed.error.flatten());
+    // token 里的身份优先。StudentIdentityGuard 已经保证了：带 token 时
+    // body 里的 name/studentId 必须对得上，对不上直接 403。
+    const auth = (req as unknown as { studentAuth?: { id: string; name: string } }).studentAuth;
+    const studentId = auth?.id ?? parsed.data.studentId;
+    const studentName = auth?.name ?? parsed.data.name;
+    if (!studentId && !studentName?.trim()) {
+      throw new BadRequestException({ code: 'student_required' });
+    }
     return this.svc.startOrResumeToday({
-      studentName: parsed.data.name,
-      studentId: parsed.data.studentId,
+      studentName: studentName ?? '',
+      studentId: studentId || undefined,
+      begin: parsed.data.begin === true,
     });
   }
 

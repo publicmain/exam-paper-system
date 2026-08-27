@@ -55,12 +55,15 @@ interface LessonSeg {
 /** P8：服务端给出的**唯一**下一步 */
 interface NextAction {
   kind:
-    | 'scan_required'
+    | 'ready_to_start'
     | 'resume_reading'
     | 'read_result'
     | 'learn_vocab'
     | 'vocab_test'
     | 'summary'
+    | 'no_content'
+    | 'window_closed'
+    | 'level_not_set'
     | 'none';
   label: string;
   href: string | null;
@@ -156,6 +159,8 @@ export default function MyLessonPage() {
     })();
   const [data, setData] = useState<LessonToday | null>(null);
   const [err, setErr] = useState<string | null>(null);
+  /** P9：「开始今天的课程」在飞。按钮同时禁用 —— 双击不该发两次命令。 */
+  const [starting, setStarting] = useState(false);
   // 网站式注册（2026-08-26）：打开 app 且未注册 → 弹卡，注册完继续
   const [reg, setReg] = useState<RegStatus | null>(null);
   useEffect(() => {
@@ -189,6 +194,30 @@ export default function MyLessonPage() {
     };
   }, [name, studentId]);
 
+  /**
+   * P9 —— 「开始今天的课程」。
+   *
+   * 服务端在这一下里挑场次、建正式答卷、冻结当日目标，然后返回新的
+   * next-action —— 该去哪一场是它算出来的，前端提前拼不出这个地址。
+   *
+   * 幂等由服务端保证（答卷唯一索引 + 撞墙自愈），这里的 `starting`
+   * 只是不让按钮在飞行途中被连点出第二个请求。
+   */
+  const beginLesson = async () => {
+    if (starting) return;
+    setStarting(true);
+    try {
+      const r = (await api.lessonStart(name, studentId || undefined, true)) as LessonToday;
+      setData(r);
+      const next = r.nextAction;
+      if (next?.href) window.location.href = `${next.href}?${qs}`;
+    } catch (e: any) {
+      setErr(e?.message ?? String(e));
+    } finally {
+      setStarting(false);
+    }
+  };
+
   const qs = useMemo(
     () =>
       `name=${encodeURIComponent(name)}${studentId ? `&studentId=${encodeURIComponent(studentId)}` : ''}`,
@@ -201,9 +230,10 @@ export default function MyLessonPage() {
       // （P8：原来这里返回 null，做到一半退出的学生在课程页上找不到
       // 回卷子的路）
       if (seg.submissionId) return `/my-history/submission/${seg.submissionId}?${qs}`;
-      // 卷子还没开出来（没扫码）—— 进去看得到题却存不下答案。主按钮
-      // 已经说了「先去扫码」，这张卡就别再给一个会失败的链接。
-      if (data?.nextAction?.kind === 'scan_required') return null;
+      // 答卷还没建出来 —— 进去看得到题却存不下答案。开始是主按钮的事
+      // （一次 POST），这张卡不给一个会失败的链接。
+      if (data?.nextAction && data.nextAction.kind !== 'resume_reading'
+        && data.nextAction.kind !== 'read_result') return null;
       return seg.sessionId ? `/morning-quiz/${seg.sessionId}?${qs}` : null;
     }
     // 走到「该考」之后，词段的入口是正式测试而不是翻卡（P8）
@@ -274,7 +304,22 @@ export default function MyLessonPage() {
             阶段由服务端判断，页面只显示。在这之前学生要在三张并排的卡片
             里自己挑：没开始的人在课程页上根本找不到「开始阅读」（读段的
             链接只有已交卷才有），走到该考的阶段点词段还是进翻卡。 */}
-        {data.nextAction && data.nextAction.href && (
+        {/* P9 —— 「开始今天的课程」是一次**命令**，不是链接。
+            服务端在这一下里挑场次、建答卷、冻结目标，然后才知道该去
+            哪一场；前端提前拼不出这个地址。 */}
+        {data.nextAction?.kind === 'ready_to_start' && (
+          <button
+            type="button"
+            disabled={starting}
+            onClick={() => void beginLesson()}
+            data-testid="primary-next"
+            data-next-kind="ready_to_start"
+            className="press mb-4 block w-full min-h-[52px] rounded-[14px] bg-blue-600 text-white text-center text-[17px] font-semibold active:bg-blue-700 disabled:opacity-60"
+          >
+            {starting ? '正在准备…' : `${data.nextAction.label} →`}
+          </button>
+        )}
+        {data.nextAction && data.nextAction.kind !== 'ready_to_start' && data.nextAction.href && (
           <a
             href={`${data.nextAction.href}?${qs}`}
             data-testid="primary-next"

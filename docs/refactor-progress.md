@@ -1495,4 +1495,157 @@ D′ / A-3 / 交卷后两条）——这些测试有鉴别力。
 
 ---
 
-## P9 ⬜ / P10 ⬜
+## P9 ✅ 账号制课程入口：解除正式课程对扫码与考勤的依赖
+
+**日期**：2026-08-27　**产品方向变更**：本项目不再是依赖课堂扫码启动的
+早测系统，而是**学生用账号登录、全天可进入和继续学习的英语课程 APP**。
+原 P9「统一扫码入口」目标作废。
+
+### 一、旧扫码依赖如何阻塞账号制课程
+
+追踪出四道闸，每一道都足以让一个已登录的学生上不了课：
+
+| # | 阻塞点 | 位置 | 后果 |
+|---|---|---|---|
+| 1 | **正式答卷只有扫码会建** | `attendance.service.scanQr` 是唯一调用 `createRealSubmissionSafe` 的学生路径 | 登录了也没有答卷 → 答案存不下 |
+| 2 | **拿卷子要有考勤行** | `getStudentView` 的 `no_attendance_record` 闸 | 自助开始的学生 403，看不到题 |
+| 3 | **下一步写着「去扫码」** | `nextActionOf` 的 `scan_required` | 唯一的下一步是一件学生做不到的事 |
+| 4 | **登录后第一眼还是二维码** | `Me.tsx` 三个裸 fetch 手拼的读段：「今天的场次开着 · 扫教室二维码开始」 | 账号登录的意义被抵消 |
+
+另有三处 `/scan/:token` 重复注册：`App.tsx` 的 `startsWith('/scan/')`
+分支**无条件 return**，后两处（未登录分支、学生登录分支）永远不可达。
+
+### 二、新的 canonical 学生入口
+
+```
+账号密码登录（/me）
+  → 今天的课（/my-lesson）
+  → 「开始今天的课程」= POST /lesson/start { begin: true }
+  → 阅读（/morning-quiz/:id）
+  → 学新词（/my-vocab/review）
+  → 正式单词测试（/my-vocab/quiz）
+  → 任务总结（/my-lesson/summary）
+```
+
+身份**只来自登录令牌**：`lesson.controller` 从 `req.studentAuth` 取 id，
+请求体里的 `name`/`studentId` 降级为兼容字段（`StudentIdentityGuard` 仍
+校验两者一致，对不上 403）。服务层新增 `resolveByIdOrName`：**有 id 就按
+id 认人**，姓名分支只留给没登录的公开查询 —— 改过名或同名同学都不该影响
+一个正常登录的学生。
+
+### 三、课程创建与恢复规则
+
+**开始命令**：`POST /lesson/start`
+
+| `begin` | 语义 | 写什么 |
+|---|---|---|
+| 缺省 | 打开课程页 = 恢复 | 建当日任务行、对齐进度与阶段、并入新到期的词 |
+| `true` | 学生点了「开始今天的课程」 | 额外**建正式答卷**、按需首次落定难度 |
+
+分开是因为「瞄一眼课程页」不该等于「参加了今天的考试」。
+`GET /lesson/today` 仍是**纯读**（教师看板、总结页走它）。
+
+**选哪一场**（`pick-session.ts`，纯函数）：
+
+- 只看今天、`status=active`、挂了卷子的场次
+- **确定性挑选**：固定层序 + id 兜底。挑选一旦不确定，同一学生两次请求会
+  落到不同 assignment —— 答卷唯一索引按 assignmentId 建，拦不住，学生
+  会多出一份正式答卷
+- 学生那层开着 → 进那层；没开 → 临时参加别层且**不改写** `englishLevel`
+  （沿用 P4）；还没定难度且只开一层 → 进它并首次落定；开了好几层 →
+  `level_not_set`，**不替他猜**（猜错会被首次落定固化成长期难度）
+- 没挂卷子 → `no_content`；有内容但过了作答时间 → `window_closed`
+  （不谎称没有内容）
+
+**幂等**：答卷走 P1 的 `createRealSubmissionSafe`（partial unique +
+撞墙自愈）；难度落定用 `updateMany WHERE englishLevel: null` 条件写。
+浏览器里连点 5 次、API 并发 4 次，都只有一份答卷 + 一条任务行。
+
+### 四、扫码与考勤的最终处理
+
+- **考勤仍然记录**（扫码那条路照旧写），但**不再是课程开始的必要条件**。
+  `getStudentView` 的闸从「有没有考勤行」改成「**有没有这一场的正式
+  答卷**」—— 同样拦得住「拉别班/别层的卷子」，且对两条入口都成立
+- **账号制开始课程不伪造考勤**：实测全流程走完，`Attendance` 表 0 行
+- **旧二维码：标记 deprecated，暂时保留**。`/scan/:token` 的
+  canonical 分支保留并加注；两处不可达的重复注册已删（零行为变化）。
+  失效的旧码原来是死胡同（「请直接用手机相机扫描大屏」），现在给出
+  「用账号登录，去今天的课 →」
+- 新页面不再引导扫码：`/me` 与 `/my-lesson` 全页无「扫码」「二维码」
+  字样（Me 测试里加了断言钉住）
+
+⚠️ **要真正全天可学，还需打开 `MORNING_QUIZ_ALL_DAY`**（4.0 阶段 B 的
+开关，机制早已就绪，默认关 = 08:30–09:00 + 16:00–17:30）。这是部署配置，
+不在本轮代码范围。窗口关着时 `start` 会诚实返回 `window_closed`。
+
+### 五、next-action 的表达能力
+
+`ready_to_start` / `resume_reading` / `read_result` / `learn_vocab` /
+`vocab_test` / `summary` / `no_content` / `window_closed` /
+`level_not_set` / `none`。`scan_required` **已删除**。
+
+新增事实 `hasAnyTask`：三段目标全 0 时 stage 会直接落到 `done` ——
+那是「没有任何目标」的副产物，不是他做完了。给这种学生一份空总结是骗人，
+现在照实说「今天的课程还没有发布」。
+
+### 六、修改文件
+
+**新增**：`apps/api/src/lesson/pick-session.ts`（+ spec 11 条）
+
+**改**：`lesson.service.ts`（选场次 / 建答卷 / 落定难度 / `resolveByIdOrName` /
+`hasAnyTask`）、`lesson.controller.ts`（身份取自令牌、`begin` 参数）、
+`next-action.ts`（+spec）、`morning-quiz.service.ts`（考勤闸 → 答卷闸）、
+`Me.tsx`（三段收口到 lesson 口径 + 主按钮 + 删 3 个裸 fetch）、
+`MyLesson.tsx`（`ready_to_start` 走 POST）、`MorningQuizScan.tsx`（旧码出路）、
+`MorningQuizTake.tsx`（`attendanceId` 可空）、`App.tsx`（scan 去重 + deprecated）、
+`api.ts`（`lessonStart(begin)`）、`Me.test.tsx`（改为 P9 口径）
+
+### 七、验证结果
+
+**服务端（隔离库 `p9_db`，库里 0 考勤行 / 0 答卷）：26 通过 / 0 失败**
+—— 账号登录、身份取自令牌、GET 纯读、打开页面不建答卷、开始建一份答卷、
+并发 4 次不重复、难度三种情形、`no_content`、参数挑难度被忽略、
+冒用身份 403、阶段守卫仍在、**无考勤也能拿卷子存答案**、教师看板只读、
+改难度不影响已开始的任务。
+
+**反向对照**：关掉「开始时建答卷」后 **6 条必红**。
+
+**真实浏览器**（Vite :5290 → 隔离 API :4390）：
+
+| 场景 | 结果 |
+|---|---|
+| A 无扫码新流程 | 登录 → 开始今天的课程 → 阅读 → 交卷 → 学新词 → 正式测试 → 总结，全程走通 |
+| B 无考勤学生 | 全程结束后 `Attendance` 仍 **0 行** |
+| C 中途退出 | 阅读中写一句 → 清空 localStorage+sessionStorage → 重新登录 → 「继续做题」→ 答案从服务端恢复 |
+| D 重复开始 | 连点 5 次「开始今天的课程」→ 1 份答卷、1 条任务行、难度未改写 |
+| E 没有发布内容 | 「今天的课程还没有发布」，渲染成静态提示而非按钮，无二维码字样 |
+| F 旧扫码链接 | 失效旧码 → 「用账号登录，去今天的课 →」，不建第二套身份/课程 |
+| G 已完成 | 重新进入只给「看今天的总结」 |
+| H 清空存储重登 | 三段与下一步全部从服务端恢复 |
+
+**全量**：api **847 tests / 77 files**、web **236 tests / 36 files** 全过，
+双端 `tsc --noEmit` 无错，`nest build` + `vite build` 均成功。
+**Git diff 只含 P9。**
+
+### 八、尚未验证 / 已知限制
+
+- **`MORNING_QUIZ_ALL_DAY` 未开**：隔离环境的场次窗口是手工放宽的。
+  生产要「全天可学」必须打开这个开关，否则 09:00 之后 `start` 会返回
+  `window_closed`
+- **旧扫码路径本身未改造**：`scanQr` 仍会建考勤 + 答卷（保持明早可用）。
+  真要切断需要用户确认 —— 按要求只做了 deprecated 标记
+- `/me` 与 `/my-lesson` 现在都会拉 lesson 数据，同一次进入有两次查询；
+  没做合并（合并会把两个页面的生命周期绑死）
+- 课程页底部仍留着「大家通常在早上 8:30 做今天的文章」这句旧文案 ——
+  全天开放后要改，但它属于 4.0 阶段 B 的措辞，不在本轮
+- 未跑：iOS / iPad 真机；教师端页面只做了 HTTP 级只读校验
+- 生产迁移未执行（本轮**没有 schema 变更**）
+
+**未 push、未部署、未执行生产迁移、未写生产数据。**
+
+**清理**：隔离库 `p9_db`、API/Vite 进程、`dist-*` 与
+`tsconfig.tsbuildinfo` 已删。
+
+---
+
+## P10 ⬜

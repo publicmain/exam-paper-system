@@ -27,7 +27,8 @@ import type { ExamPaper, EnglishLevel } from '../components/exam/types';
 
 interface SessionView {
   sessionId: string;
-  attendanceId: string;
+  /** P9：账号制入口下没有考勤行 —— 可能为空。前端不读它。 */
+  attendanceId: string | null;
   submissionId: string | null;
   quizEnd: string;
   /** 今天有没有第二作答窗（16:00-17:30）。决定交卷弹窗给一个按钮

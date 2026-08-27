@@ -70,6 +70,13 @@ function makeSvc(opts: { dlc?: any } = {}) {
       findFirst: rec('sess', 'findFirst', async () => null),
       findMany: rec('sess', 'findMany', async () => []),
     },
+    // P9：认人（按 id）与读长期难度都走 user 表。两者都是**读**，
+    // 所以不列进 WRITE_OPS —— 只读不变量照旧成立。
+    user: {
+      findFirst: rec('user', 'findFirst', async () => ({ id: 'stu1', name: '小明' })),
+      findUnique: rec('user', 'findUnique', async () => ({ englishLevel: 'olevel' })),
+      updateMany: rec('user', 'updateMany', async () => ({ count: 0 })),
+    },
     paperQuestion: { count: rec('pq', 'count', async () => 0) },
     classEnrollment: { findMany: rec('enr', 'findMany', async () => []) },
   };

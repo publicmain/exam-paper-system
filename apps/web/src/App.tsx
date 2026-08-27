@@ -216,6 +216,14 @@ export default function App() {
   // 过期" body when the token rotates. Hidden chrome matters because
   // shared-device flows (one iPad shared between students) shouldn't
   // leak the admin nav to whoever picks up the device.
+  //
+  // P9（2026-08-27）—— **扫码不再是正式课程的入口**。产品方向改为账号制
+  // 全天课程 APP：学生用账号登录 → /my-lesson →「开始今天的课程」，
+  // 服务端建答卷。这个分支保留是为了**已经发出去的旧二维码**还能用，
+  // 状态：deprecated。新页面不再引导学生扫码。
+  //
+  // 注意这个 if **无条件 return**，所以下面（未登录分支、学生登录分支）
+  // 里那两处 /scan/:token 注册永远不可达 —— P9 已删，零行为变化。
   if (location.pathname.startsWith('/scan/')) {
     return (
       <Routes>
@@ -244,7 +252,9 @@ export default function App() {
     return (
       <Routes>
         <Route path="/login" element={<LoginPage />} />
-        <Route path="/scan/:token" element={<MorningQuizScanPage />} />
+        {/* P9：这里原来还注册了一次 /scan/:token —— 上面那个
+            `startsWith('/scan/')` 分支已经无条件拦下并 return，
+            所以它永远不可达。删掉，零行为变化。 */}
         <Route path="*" element={<Navigate to="/login" replace />} />
       </Routes>
     );
@@ -297,7 +307,7 @@ export default function App() {
               <Route path="/practice" element={<PracticePage />} />
               {/* ROUND 14 — FE-Student practice-mode (review-by-doing) page */}
               <Route path="/practice/:practiceSubmissionId" element={<PracticeModePage />} />
-              <Route path="/scan/:token" element={<MorningQuizScanPage />} />
+              {/* P9：/scan/:token 的第三次注册也删了 —— 同样不可达 */}
               <Route path="/morning-quiz/:sessionId" element={<MorningQuizTakePage />} />
               <Route path="*" element={<Navigate to="/student" replace />} />
             </Routes>

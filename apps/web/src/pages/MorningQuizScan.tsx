@@ -432,6 +432,19 @@ export default function MorningQuizScan() {
           {error.message}
         </div>
         <div className="text-xs text-gray-400 mt-2 font-mono">code: {error.code}</div>
+        {/* P9（2026-08-27）—— 扫码不再是正式课程的入口。
+            旧二维码失效时这里原来是个死胡同（「请直接用手机相机扫描
+            大屏」），而学生现在根本不需要二维码：用账号登录就能上课。 */}
+        <a
+          href="/me"
+          data-testid="scan-fallback-lesson"
+          className="press mt-6 inline-block px-6 py-3 rounded-[14px] bg-blue-600 text-white text-[16px] font-semibold"
+        >
+          用账号登录，去今天的课 →
+        </a>
+        <div className="text-[13px] text-gray-500 mt-3">
+          现在不用扫码也能上课 —— 登录后点「开始今天的课程」就行。
+        </div>
         <AfterQuizPortal code={error.code} raw={error.message} />
       </Centered>
     );

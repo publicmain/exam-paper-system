@@ -1752,8 +1752,29 @@ export class MorningQuizService {
     // 下午，事后归因于「想保住出勤记录」；真正的原因是走补考分支的学生
     // 压根进不来。判据改成「扫过码没有」而不是「算不算缺席」。
     const everScanned = !!att && (att.scanTime != null || att.makeupAt != null);
-    if (!att || (att.status === AttendanceStatus.absent && !everScanned)) {
-      throw new ForbiddenException({ code: 'no_attendance_record' });
+    //
+    // P9（2026-08-27）—— **课程不再依赖考勤**。
+    //
+    // 产品方向改为账号制全天课程 APP：学生登录后点「开始今天的课程」，
+    // 服务端建答卷。这条路上根本没有考勤行 —— 再用「有没有扫过码」当闸
+    // 就是把所有自助开始的学生挡在卷子外面（实测 403 no_attendance_record）。
+    //
+    // 判据换成**有没有这一场的正式答卷**。它同样能拦住「拉取别班/别层
+    // 卷子」：没有那一场的答卷就进不去。而且它对两条入口都成立 ——
+    // 扫码建的答卷和账号制建的答卷是同一张表、同一条唯一索引。
+    //
+    // 考勤仍然记录（扫码那条路照旧写），只是不再是**必要条件**。
+    const paperAssignmentId = session.paperAssignmentId;
+    const realSubmission = paperAssignmentId
+      ? await this.prisma.studentSubmission.findFirst({
+          where: { assignmentId: paperAssignmentId, studentId, status: { not: 'practice' } },
+          select: { id: true },
+        })
+      : null;
+    const hasRealSubmission = realSubmission != null;
+    const attendanceOk = !!att && !(att.status === AttendanceStatus.absent && !everScanned);
+    if (!hasRealSubmission && !attendanceOk) {
+      throw new ForbiddenException({ code: 'no_lesson_started' });
     }
 
     const paperId = session.paperAssignment.paperId;
@@ -1921,8 +1942,11 @@ export class MorningQuizService {
 
     return {
       sessionId: session.id,
-      attendanceId: att.id,
-      submissionId: att.submissionId,
+      // P9：账号制入口下没有考勤行 —— 这两个字段都要能为空。
+      // submissionId 改从**真实答卷**取（考勤行上的那份只是索引，
+      // 自助开始的学生根本没有考勤行）。前端拿它给本地草稿分桶。
+      attendanceId: att?.id ?? null,
+      submissionId: realSubmission?.id ?? att?.submissionId ?? null,
       // 学生端倒计时**必须**用这个，不是 quizEnd —— 第二窗内 quizEnd
       // 早已过期，Timer 会当场自动交卷（2026-08-24 实测事故）。
       quizEnd: effectiveEndsAt(session),

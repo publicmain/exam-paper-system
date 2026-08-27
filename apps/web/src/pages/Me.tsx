@@ -13,9 +13,10 @@ import { checkRegistration, type RegStatus } from '../lib/registration';
  * 学生登录态的家：未登录给「姓名 + PIN」登录卡；登录后聚合
  * 「今天的课（三段）· 我的数据 · 我的账号」。
  *
- * 三段的数据**全部复用既有接口**（history-by-name / vocab-stats /
- * mistakes-practice-queue），不新建 lesson API —— 那留给 4.0 正式版。
- * 完成判定沿 4.0 PRD §2.3：可达成、只看「做了」。
+ * 三段的数据**一律读服务端的 lesson 口径**（GET /lesson/today，纯读）。
+ * P9 之前这里是三个裸 fetch 前端手拼，与 lesson.service 的权威口径并存
+ * 且不一致 —— /me 不知道「已自动收卷」、不知道目标冻结，读段还写着
+ * 「扫教室二维码开始」。
  */
 
 interface Segment {
@@ -72,6 +73,8 @@ export default function MePage() {
   const [segments, setSegments] = useState<Segment[] | null>(null);
   const [streak, setStreak] = useState(0);
   const [pinSet, setPinSet] = useState<boolean | null>(null);
+  /** P9：服务端算出的唯一下一步 —— 主页的主按钮显示它。 */
+  const [nextAction, setNextAction] = useState<{ kind: string; label: string } | null>(null);
   // 注册时选的昵称/头像（2026-08-26），显示在头部
   const [profile, setProfile] = useState<{ nickname: string; avatar: string | null } | null>(null);
 
@@ -126,79 +129,88 @@ export default function MePage() {
     let cancelled = false;
     (async () => {
       const qs = `name=${encodeURIComponent(me.name)}&studentId=${encodeURIComponent(me.id)}`;
-      const out: Segment[] = [
-        { key: 'read', icon: '📖', title: '读 · 今天的文章', status: 'none', detail: '加载中…', href: null, cta: '' },
-        { key: 'vocab', icon: '🔤', title: '背 · 今日词汇', status: 'none', detail: '加载中…', href: `/my-vocab/review?${qs}`, cta: '去复习' },
-        { key: 'drill', icon: '📕', title: '补 · 错题重练', status: 'none', detail: '加载中…', href: `/my-mistakes/practice?${qs}`, cta: '去重练' },
-      ];
-      const todayIso = (() => {
-        const d = new Date();
-        return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-      })();
 
-      // ① 读
+      // P9（2026-08-27）—— 三段状态**一律读服务端口径**。
+      //
+      // 这里原来是三个裸 fetch 前端手拼（history-by-name / vocab/stats /
+      // mistakes/practice-queue），与 lesson.service 的权威口径并存且不
+      // 一致：/me 不知道「已自动收卷」、不知道目标冻结，读段还写着
+      // 「今天的场次开着 · 扫教室二维码开始」—— 学生账号登录后第一眼
+      // 看到的仍然是去找老师要二维码。
+      //
+      // 现在整段换成 GET /lesson/today（**纯读**，不建任何东西），
+      // 下一步由服务端的 next-action 给出。
       try {
-        const h: any = await fetch(
-          `${(import.meta as any).env?.VITE_API_URL || ''}/api/morning-quiz/history-by-name?name=${encodeURIComponent(me.name)}&studentId=${encodeURIComponent(me.id)}`,
-        ).then((r) => r.json());
-        // date = 场次的 SGT 日历日（UTC 午夜存储），比 submittedAt 的
-        // UTC 时刻切片可靠 —— 后者在午夜边缘会切错天
-        const todays = (h?.submissions ?? []).filter((s: any) =>
-          String(s.date ?? '').slice(0, 10) === todayIso ||
-          String(s.submittedAt ?? '').slice(0, 10) === todayIso,
-        );
-        if (todays.length > 0) {
-          const s = todays[0];
-          out[0] = {
-            ...out[0],
-            status: 'done',
-            detail: s.scoresPending ? '已交 · 等老师批改' : `已交 · ${s.totalScore}/${s.maxScore} 分`,
-            href: s.submissionId ? `/my-history/submission/${s.submissionId}?${qs}` : `/my-history?${qs}`,
-            cta: '看答案',
-          };
-        } else {
-          const up: any = await fetch(
-            `${(import.meta as any).env?.VITE_API_URL || ''}/api/morning-quiz/upcoming-for-name?name=${encodeURIComponent(me.name)}&studentId=${encodeURIComponent(me.id)}`,
-          ).then((r) => r.json());
-          const open = (up?.upcoming ?? []).length > 0;
-          out[0] = open
-            ? { ...out[0], status: 'todo', detail: '今天的场次开着 · 扫教室二维码开始', href: null, cta: '' }
-            : { ...out[0], status: 'none', detail: '今天没有进行中的场次', href: `/my-history?${qs}`, cta: '看历史' };
+        const t: any = await api.lessonToday(me.name, me.id);
+        if (cancelled) return;
+        setStreak(t?.streakDays ?? 0);
+        setNextAction(t?.nextAction ?? null);
+        const segOf = (k: string) => (t?.segments ?? []).find((x: any) => x.key === k);
+        const read = segOf('read');
+        const vocab = segOf('vocab');
+        const drill = segOf('drill');
+        const readDetail = (): string => {
+          if (!read || read.status === 'none') return '今天的课程还没有发布';
+          if (read.status === 'done') {
+            return read.scoresPending ? '已交 · 等老师批改' : `已交 · ${read.score ?? '—'}/${read.maxScore ?? '—'} 分`;
+          }
+          if (read.status === 'auto_closed') return '已自动收卷 —— 今天没有自己交卷';
+          if (read.status === 'partial') return '做了一半 · 还没交卷';
+          return `${read.questionCount ?? 0} 题 · 通常 ${read.typicalMinutes ?? 15} 分钟`;
+        };
+        const out: Segment[] = [
+          {
+            key: 'read', icon: '📖', title: '读 · 今天的文章',
+            status: (read?.status === 'auto_closed' ? 'done' : read?.status) ?? 'none',
+            detail: readDetail(),
+            // 交了卷才去逐题详情；没交的一律回「今天的课」——
+            // 那里有服务端算出的唯一下一步（继续做题 / 开始今天的课程）。
+            href:
+              read?.status === 'done' && read?.submissionId
+                ? `/my-history/submission/${read.submissionId}?${qs}`
+                : `/my-lesson?${qs}`,
+            cta:
+              read?.status === 'done'
+                ? '看答案'
+                : read?.status === 'partial'
+                  ? '继续'
+                  : '去上课',
+          },
+          {
+            key: 'vocab', icon: '🔤', title: '背 · 今日词汇',
+            status: vocab?.status ?? 'none',
+            detail:
+              vocab?.status === 'none'
+                ? '今天没有到期的词'
+                : vocab?.status === 'done'
+                  ? `今天已复习 ${vocab?.progress ?? 0} 次 · 做完了`
+                  : `${vocab?.progress ?? 0}/${vocab?.target ?? 0} · 约 ${vocab?.typicalMinutes ?? 2} 分钟`,
+            href: `/my-vocab/review?${qs}`,
+            cta: vocab?.status === 'done' ? '再练一轮' : '开始',
+          },
+          {
+            key: 'drill', icon: '📕', title: '补 · 错题重练',
+            status: drill?.status ?? 'none',
+            detail:
+              drill?.status === 'none'
+                ? '今天没有待练的错题'
+                : drill?.status === 'done'
+                  ? '错题都练完了'
+                  : `${drill?.progress ?? 0}/${drill?.target ?? 0} 道 · 约 ${drill?.typicalMinutes ?? 3} 分钟`,
+            href: drill?.status === 'none' ? `/my-mistakes?${qs}` : `/my-mistakes/practice?${qs}`,
+            cta: drill?.status === 'none' ? '打开错题本' : '开始',
+          },
+        ];
+        setSegments(out);
+      } catch {
+        if (!cancelled) {
+          setSegments([
+            { key: 'read', icon: '📖', title: '读 · 今天的文章', status: 'none', detail: '暂时取不到 · 稍后再试', href: `/my-lesson?${qs}`, cta: '去上课' },
+            { key: 'vocab', icon: '🔤', title: '背 · 今日词汇', status: 'none', detail: '暂时取不到', href: `/my-vocab?${qs}`, cta: '打开生词本' },
+            { key: 'drill', icon: '📕', title: '补 · 错题重练', status: 'none', detail: '暂时取不到', href: `/my-mistakes?${qs}`, cta: '打开错题本' },
+          ]);
         }
-      } catch {
-        out[0] = { ...out[0], status: 'none', detail: '暂时取不到 · 稍后再试', href: `/my-history?${qs}`, cta: '看历史' };
       }
-
-      // ② 背
-      try {
-        const v: any = await fetch(
-          `${(import.meta as any).env?.VITE_API_URL || ''}/api/vocab/stats?name=${encodeURIComponent(me.name)}&studentId=${encodeURIComponent(me.id)}`,
-        ).then((r) => r.json());
-        setStreak(v?.streakDays ?? 0);
-        const due = v?.totalDue ?? 0;
-        const doneN = v?.reviewedToday ?? 0;
-        if (due === 0 && doneN > 0) out[1] = { ...out[1], status: 'done', detail: `今天已复习 ${doneN} 次 · 到期的都清完了`, cta: '再练一轮' };
-        else if (due === 0) out[1] = { ...out[1], status: 'done', detail: '今天没有到期的词', cta: '自主复习' };
-        else if (doneN > 0) out[1] = { ...out[1], status: 'partial', detail: `已复习 ${doneN} 次 · 还有 ${due} 个词到期`, cta: '继续' };
-        else out[1] = { ...out[1], status: 'todo', detail: `${due} 个词在等你 · 约 ${Math.max(2, Math.ceil(due / 5))} 分钟`, cta: '开始' };
-      } catch {
-        out[1] = { ...out[1], status: 'none', detail: '暂时取不到', cta: '打开生词本', href: `/my-vocab?${qs}` };
-      }
-
-      // ③ 补
-      try {
-        const m: any = await fetch(
-          `${(import.meta as any).env?.VITE_API_URL || ''}/api/vocab/mistakes/practice-queue?name=${encodeURIComponent(me.name)}&studentId=${encodeURIComponent(me.id)}`,
-        ).then((r) => r.json());
-        const n = (m?.items ?? m?.queue ?? []).length;
-        out[2] = n === 0
-          ? { ...out[2], status: 'done', detail: '今天没有待练的错题', cta: '打开错题本', href: `/my-mistakes?${qs}` }
-          : { ...out[2], status: 'todo', detail: `${n} 道待练 · 约 ${Math.max(2, n)} 分钟`, cta: '开始' };
-      } catch {
-        out[2] = { ...out[2], status: 'none', detail: '暂时取不到', cta: '打开错题本', href: `/my-mistakes?${qs}` };
-      }
-
-      if (!cancelled) setSegments([...out]);
       // PIN 状态（修改 PIN 卡片要知道设没设过）
       try {
         const info: any = await api.studentAuthMe();
@@ -350,6 +362,36 @@ export default function MePage() {
             </button>
           )}
         </header>
+
+        {/* P9 —— 登录后的**唯一主要下一步**，服务端算出来的。
+            这里原来什么都没有，三段里的读段写着「扫教室二维码开始」：
+            学生用账号登录进来，第一眼看到的是去找老师要二维码。 */}
+        {nextAction &&
+          (['no_content', 'window_closed', 'level_not_set', 'none'].includes(nextAction.kind) ? (
+            // 没有下一步可走时**不要长得像按钮** —— 一个点了什么都不会
+            // 发生的蓝色大按钮，比直说「今天还没发布」更让人困惑。
+            <div
+              data-testid="me-next"
+              data-next-kind={nextAction.kind}
+              className="mb-3 rounded-[14px] border border-dashed border-gray-300 py-3 text-center text-[14px] text-gray-500"
+            >
+              {nextAction.label}
+            </div>
+          ) : (
+            <button
+              type="button"
+              onClick={() =>
+                navigate(
+                  `/my-lesson?name=${encodeURIComponent(me?.name ?? '')}&studentId=${encodeURIComponent(me?.id ?? '')}`,
+                )
+              }
+              data-testid="me-next"
+              data-next-kind={nextAction.kind}
+              className="press mb-3 block w-full min-h-[52px] rounded-[14px] bg-blue-600 text-white text-center text-[17px] font-semibold active:bg-blue-700"
+            >
+              {nextAction.label} →
+            </button>
+          ))}
 
         <section className="bg-white rounded-2xl border shadow-sm divide-y">
           <div className="px-4 py-3 text-[13px] font-semibold text-gray-500">

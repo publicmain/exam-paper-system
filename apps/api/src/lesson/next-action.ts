@@ -1,7 +1,7 @@
 import type { LessonStage } from './lesson-rules';
 
 /**
- * P8 —— **服务端决定学生的下一步**（纯函数，无 IO）。
+ * P8 / P9 —— **服务端决定学生的下一步**（纯函数，无 IO）。
  *
  * 在这之前，课程页把三段并排铺开、每段各挂一个链接，学生自己判断该点
  * 哪个。于是出现了几处真实的断裂：
@@ -18,12 +18,15 @@ import type { LessonStage } from './lesson-rules';
  */
 
 export type NextActionKind =
-  | 'scan_required'
+  | 'ready_to_start'
   | 'resume_reading'
   | 'read_result'
   | 'learn_vocab'
   | 'vocab_test'
   | 'summary'
+  | 'no_content'
+  | 'window_closed'
+  | 'level_not_set'
   | 'none';
 
 export interface NextAction {
@@ -36,15 +39,24 @@ export interface NextAction {
 
 export interface NextActionFacts {
   stage: LessonStage;
-  /** 今天有没有安排文章 */
-  hasSession: boolean;
   /**
-   * 卷子给他开出来没有（= 有没有 StudentSubmission 行）。
+   * P9 —— 今天这个学生有没有课可上，以及为什么没有。
    *
-   * 这一条同时就是「能不能进阅读页」的判据：答卷是**扫码时**建的，
-   * 没有它，直接打开 `/morning-quiz/:id` 连答案都存不下
-   * （`no_submission` / `no_attendance_record`）。浏览器实测抓到 ——
-   * 先前这里给的是「开始今天的阅读」，点进去看得到题、答完存不上。
+   * `ready`         今天有适合他难度的已发布课程，可以开始
+   * `no_content`    今天没排课，或排了但没挂卷子
+   * `window_closed` 有课，但此刻不在作答时间内
+   * `level_not_set` 他还没定难度，而今天开着好几层 —— 不替他猜
+   */
+  availability: 'ready' | 'no_content' | 'window_closed' | 'level_not_set';
+  /**
+   * 正式答卷建了没有（= 有没有 StudentSubmission 行）。
+   *
+   * 这一条同时就是「能不能进阅读页」的判据 —— 没有答卷，直接打开
+   * `/morning-quiz/:id` 连答案都存不下（`no_submission`）。
+   *
+   * P9 之前答卷**只有扫码才会建**，所以没扫码的学生只能被告知「去扫码」。
+   * 现在 `POST /lesson/start` 也会建（账号登录即可），于是同一个事实
+   * 对应的下一步从「去扫码」变成了「开始今天的课程」。
    */
   opened: boolean;
   /** 交卷了没有 */
@@ -61,6 +73,13 @@ export interface NextActionFacts {
    * 那种断裂。
    */
   vocabTestAvailable: boolean;
+  /**
+   * P9 —— 今天到底有没有事情要做（三段的目标任一 > 0）。
+   *
+   * 全为 0 时三段都被算作「完成」，stage 直接落到 done，学生看到的是
+   * 「看今天的总结」—— 点进去是一份空总结。今天没排课就该照实说没排课。
+   */
+  hasAnyTask: boolean;
 }
 
 /**
@@ -71,14 +90,22 @@ export interface NextActionFacts {
  */
 export function nextActionOf(f: NextActionFacts): NextAction {
   if (f.stage === 'reading' || f.stage === 'reading_done') {
-    if (!f.hasSession) {
-      // 今天没排文章 —— 不给一个点了会失望的按钮
-      return { kind: 'none', label: '今天没有安排文章', href: null };
+    // 没有内容可上时**说清楚是哪一种没有**。三种原因对学生的意义完全
+    // 不同：还没发布（等老师）、过了时间（今天来不及了）、难度没定
+    // （去找老师）。混成一句「今天没有安排文章」等于什么也没说。
+    if (f.availability === 'no_content') {
+      return { kind: 'no_content', label: '今天的课程还没有发布', href: null };
+    }
+    if (f.availability === 'window_closed') {
+      return { kind: 'window_closed', label: '今天的作答时间已经结束了', href: null };
+    }
+    if (f.availability === 'level_not_set') {
+      return { kind: 'level_not_set', label: '还没有分配难度 —— 找老师设置一下', href: null };
     }
     if (!f.opened) {
-      // 卷子还没为他开出来 —— 入口在老师投屏的二维码上，课程页给不出
-      // 一个能替他扫码的链接。给一句实话，不给一个点了会失败的按钮。
-      return { kind: 'scan_required', label: '扫码签到后开始今天的阅读', href: null };
+      // P9 —— 账号制入口：登录本身就是资格，点一下就能开始。
+      // 这里以前是「扫码签到后开始今天的阅读」，因为答卷只有扫码会建。
+      return { kind: 'ready_to_start', label: '开始今天的课程', href: null };
     }
     if (!f.finalSubmitted) {
       return {
@@ -108,5 +135,15 @@ export function nextActionOf(f: NextActionFacts): NextAction {
     return { kind: 'vocab_test', label: '开始单词测试', href: '/my-vocab/quiz' };
   }
 
+  // 今天一件事都没有 —— done 只是「没有任何目标」的副产物，不是他做完了。
+  if (!f.hasAnyTask) {
+    if (f.availability === 'window_closed') {
+      return { kind: 'window_closed', label: '今天的作答时间已经结束了', href: null };
+    }
+    if (f.availability === 'level_not_set') {
+      return { kind: 'level_not_set', label: '还没有分配难度 —— 找老师设置一下', href: null };
+    }
+    return { kind: 'no_content', label: '今天的课程还没有发布', href: null };
+  }
   return { kind: 'summary', label: '看今天的总结', href: '/my-lesson/summary' };
 }

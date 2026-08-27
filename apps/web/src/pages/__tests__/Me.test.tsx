@@ -10,7 +10,8 @@ import { api } from '../../lib/api';
  *
  * 契约：
  *   · 无 token → 登录卡（姓名 + 密码，2026-08-26 起任意字符）
- *   · 登录成功 → 存 token、渲染「今天的课」三段
+ *   · 登录成功 → 存 token、渲染「今天的课」三段（**读服务端 lesson 口径**）
+ *   · 主按钮显示服务端算出的下一步；**任何情况下都不提「扫码」**（P9）
  *   · pin_locked → 显示剩余分钟数
  *   · 同名 → 班级候选按钮
  */
@@ -22,13 +23,35 @@ vi.mock('../../lib/api', async () => {
       studentLogin: vi.fn(),
       studentAuthMe: vi.fn().mockResolvedValue({ id: 's1', name: '张三', pinSet: true }),
       studentChangePin: vi.fn(),
+      // P9：三段与下一步都读服务端的 lesson 口径（纯读）
+      lessonToday: vi.fn(),
     },
   };
 });
 
-// /me 的三段数据用裸 fetch（带 BASE 前缀）—— 全局 mock 掉
+// P9 之前三段是三个裸 fetch —— 现在只剩注册检查还用 fetch，一并 mock 掉
 const fetchMock = vi.fn();
 vi.stubGlobal('fetch', fetchMock);
+
+/** 服务端的今日课程（P9 口径）。 */
+function lessonPayload(over: Record<string, unknown> = {}) {
+  return {
+    student: { id: 's1', name: '张三' },
+    date: '2026-08-27',
+    stage: 'reading',
+    streakDays: 3,
+    completed: 0,
+    total: 3,
+    allDone: false,
+    nextAction: { kind: 'ready_to_start', label: '开始今天的课程', href: null },
+    segments: [
+      { key: 'read', status: 'todo', label: 'Harbour Town', questionCount: 4, typicalMinutes: 15 },
+      { key: 'vocab', status: 'todo', progress: 0, target: 8, typicalMinutes: 2 },
+      { key: 'drill', status: 'todo', progress: 0, target: 1, typicalMinutes: 3 },
+    ],
+    ...over,
+  };
+}
 
 function jsonResponse(data: any) {
   return Promise.resolve({ json: () => Promise.resolve(data) });
@@ -48,6 +71,7 @@ function renderMe() {
 beforeEach(() => {
   vi.clearAllMocks();
   localStorage.clear();
+  (api.lessonToday as any).mockResolvedValue(lessonPayload());
   fetchMock.mockImplementation((url: string) => {
     const u = String(url);
     if (u.includes('history-by-name')) return jsonResponse({ submissions: [] });
@@ -81,8 +105,15 @@ describe('/me 未登录', () => {
     expect(localStorage.getItem('auth_token')).toBe('tok-abc');
     // 三段渲染
     await waitFor(() => expect(screen.getByText(/今日词汇/)).toBeTruthy());
-    expect(screen.getByText(/8 个词在等你/)).toBeTruthy();
-    expect(screen.getByText(/1 道待练/)).toBeTruthy();
+    expect(screen.getByText(/0\/8/)).toBeTruthy();
+    // P9：主按钮是服务端算出来的下一步
+    await waitFor(() => expect(screen.getByTestId('me-next')).toBeTruthy());
+    expect(screen.getByTestId('me-next').textContent).toContain('开始今天的课程');
+    expect(screen.getByTestId('me-next').getAttribute('data-next-kind')).toBe('ready_to_start');
+    // **整页不得出现「扫码」/「二维码」** —— 账号制入口下那是死路
+    expect(document.body.textContent ?? '').not.toContain('扫码');
+    expect(document.body.textContent ?? '').not.toContain('二维码');
+    expect(screen.getByText(/0\/1 道/)).toBeTruthy();
     expect(screen.getByText(/🔥 连续学习 3 天/)).toBeTruthy();
   });
 

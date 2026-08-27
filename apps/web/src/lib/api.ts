@@ -478,8 +478,19 @@ export const api = {
    * 只有课程页调它。它会创建当日任务行、把进度与阶段对齐、把新到期的词
    * 并进任务队列。成绩页、总结页、教师看板一律用下面的 lessonToday（纯读）。
    */
-  lessonStart: (name: string, studentId?: string) =>
-    request('POST', '/lesson/start', { name, ...(studentId ? { studentId } : {}) }),
+  /**
+   * 开始或恢复今天的课。
+   *
+   * begin=true 是学生明确点了「开始今天的课程」—— 服务端这一下才会
+   * 挑场次、建正式答卷。打开课程页时不带它，只做恢复：建任务行、
+   * 对齐阶段、并入新到期的词。
+   */
+  lessonStart: (name: string, studentId?: string, begin?: boolean) =>
+    request('POST', '/lesson/start', {
+      ...(name ? { name } : {}),
+      ...(studentId ? { studentId } : {}),
+      ...(begin ? { begin: true } : {}),
+    }),
   /** **查询**：今天的课。纯读取，不写任何东西。 */
   lessonToday: (name: string, studentId?: string) =>
     request(

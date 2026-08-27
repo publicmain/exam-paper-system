@@ -5,6 +5,10 @@ import { normalizeWord } from '../vocab/vocab.service';
 import { MIN_QUIZ_ITEMS } from '../vocab/quiz-eligibility';
 import { vocabScoreView, type VocabScoreView } from '../vocab/vocab-score';
 import { nextActionOf } from './next-action';
+import type { EnglishLevel } from '@prisma/client';
+import { pickTodaySession, type SessionCandidate } from './pick-session';
+import { isQuizWindowOpen } from '../morning-quiz/morning-quiz.service';
+import { createRealSubmissionSafe } from '../common/submission-create';
 import {
   VocabReviewService,
   reviewBatchSize,
@@ -113,21 +117,76 @@ export class LessonService {
    * 一路传下去，传到某个只想「看一眼」的地方就变成了一次写。教师看板
    * 改写全班 vocabWords 那个缺陷就是这么来的。
    */
-  async startOrResumeToday(input: { studentName: string; studentId?: string }) {
-    return this.today({ ...input, freeze: true });
+  /**
+   * **命令**：开始或恢复今天的课。
+   *
+   * `begin` 区分了两件不同的事：
+   *
+   * - `begin: false`（打开课程页）—— 建当日任务行、对齐进度与阶段、
+   *   把新到期的词并进队列。恢复既有进度需要它落库：阶段门读的是库里
+   *   的 stage，只在返回值里推导的话，学完词的学生开不出正式测试。
+   * - `begin: true`（学生点了「开始今天的课程」）—— 额外**建正式答卷**。
+   *   这一步必须显式：打开页面就建答卷，等于学生瞄一眼课程页就算参加了
+   *   今天的考试。
+   */
+  async startOrResumeToday(input: { studentName: string; studentId?: string; begin?: boolean }) {
+    return this.today({ ...input, freeze: true, begin: input.begin === true });
   }
 
-  private async today(input: { studentName: string; studentId?: string; freeze?: boolean }) {
-    const student = await this.words.resolveStudent(input.studentName, input.studentId);
+  private async today(input: {
+    studentName: string;
+    studentId?: string;
+    freeze?: boolean;
+    /** P9：学生明确点了「开始今天的课程」—— 只有这时才建正式答卷。 */
+    begin?: boolean;
+  }) {
+    const student = await this.resolveByIdOrName(input.studentId, input.studentName);
     const now = new Date();
     const day = this.sgtDayStart(now);
 
+    // P9 —— 学生的长期难度决定他今天进哪一层（`User.englishLevel` 是
+    // 唯一事实来源，P4）。账号制入口下没有人扫码替他指定场次，服务端
+    // 必须自己算。
+    const levelRow = await this.prisma.user.findUnique({
+      where: { id: student.id },
+      select: { englishLevel: true },
+    });
+    const studentLevel = levelRow?.englishLevel ?? null;
+
     // ── 三段的现况 ──
-    const [readNow, vocabNow, drillNow] = await Promise.all([
-      this.readState(student.id, day),
+    let [readNow, vocabNow, drillNow] = await Promise.all([
+      this.readState(student.id, day, studentLevel),
       this.vocabState(student.id, now),
       this.drillState(student.id, now),
     ]);
+
+    // ── P9：账号制的「开始今天的课程」──
+    //
+    // 在这之前，正式答卷**只有扫码会建**（attendance.service.scanQr）。
+    // 于是一个登录了的学生打开课程页，服务端明知道今天有他那层的卷子，
+    // 却只能告诉他「去找老师要二维码」。这是账号制 APP 的根本阻塞点。
+    //
+    // 现在：登录本身就是资格。start 命令负责把答卷建出来 —— 用的是 P1
+    // 的同一个防线（partial unique + 撞墙自愈），所以双击、并发、两台
+    // 设备同时点，都只会有一份。
+    if (input.begin && readNow.availability === 'ready' && !readNow.opened && readNow.assignmentId) {
+      // 首次落定难度（P4）：只在库里仍是 null 时写，条件写保证并发下
+      // 不会互相覆盖，也不会把已落定的人改掉。
+      if (readNow.landLevel) {
+        await this.prisma.user.updateMany({
+          where: { id: student.id, englishLevel: null },
+          data: { englishLevel: readNow.landLevel },
+        });
+      }
+      await createRealSubmissionSafe(this.prisma, {
+        assignmentId: readNow.assignmentId,
+        studentId: student.id,
+        maxScore: readNow.paperMaxScore,
+      });
+      // 答卷建好了，读段的事实变了（opened / sessionId / submissionId）——
+      // 重新读一次，别让这次调用返回一个刚刚过期的快照。
+      readNow = await this.readState(student.id, day, studentLevel);
+    }
 
     // ── 目标：已冻结就用冻结值，否则（且允许时）现在冻结 ──
     let frozen = await this.prisma.dailyLessonCompletion.findUnique({
@@ -251,13 +310,18 @@ export class LessonService {
     // 在三张并排的卡片里自己判断该点哪个。
     const nextAction = nextActionOf({
       stage,
-      hasSession: readNow.hasSession,
+      availability: readNow.availability,
       opened: readNow.opened,
       finalSubmitted: readNow.finalSubmitted,
       sessionId: readNow.sessionId,
       submissionId: readNow.submissionId,
       // 有队列才开得出正式测试（旧任务 vocabWords=NULL → 开不出）
       vocabTestAvailable: frozen != null && frozen.vocabWords != null,
+      // 今天有没有事情要做。三段目标全为 0 = 今天什么都没排。
+      hasAnyTask:
+        readNow.hasSession ||
+        (frozen?.vocabTarget ?? vocabNow.target) > 0 ||
+        (frozen?.drillTarget ?? drillNow.target) > 0,
     });
     return {
       student: { id: student.id, name: student.name },
@@ -358,7 +422,33 @@ export class LessonService {
   }
 
   // ── ① 读 ──
-  private async readState(studentId: string, day: Date) {
+  /**
+   * P9 —— 认人：**有 id 就按 id**，没有才退回姓名。
+   *
+   * 账号制下身份来自登录令牌（里面有 id），姓名不该再参与认人：
+   *
+   * - 学生改过名、或令牌是改名前签发的 → 按姓名查会「找不到这个人」，
+   *   一个正常登录的学生被挡在门外
+   * - 同名同学（35 人的班里真的有过）→ 姓名根本不是身份
+   *
+   * 姓名分支原样保留：没登录的公开查询路径（输名字看成绩）还在用它。
+   */
+  private async resolveByIdOrName(studentId: string | undefined, studentName: string) {
+    if (studentId) {
+      const byId = await this.prisma.user.findFirst({
+        where: {
+          id: studentId,
+          isActive: true,
+          classEnrollments: { some: { role: 'student', class: { archivedAt: null } } },
+        },
+        select: { id: true, name: true },
+      });
+      if (byId) return byId;
+    }
+    return this.words.resolveStudent(studentName, studentId);
+  }
+
+  private async readState(studentId: string, day: Date, studentLevel: EnglishLevel | null = null) {
     // **一个班一天可能有多场**（R10 多层：每个难度层一场）。
     // 第一版用 findFirst 随便挑了一场，于是学生明明交了卷，读段却显示
     // 「未开始」—— 挑中的是他没坐的那一层。生产 E2E 抓到。
@@ -370,14 +460,28 @@ export class LessonService {
       where: {
         date: day,
         class: { enrollments: { some: { userId: studentId, role: 'student' } } },
+        // P9：只有 active 的场次算「已发布」。scheduled / ended 的不该被
+        // 学生自助开出来。
+        status: 'active',
       },
       select: {
         id: true,
+        level: true,
+        // P9 —— 挑场次要看此刻还能不能作答，作答窗判断需要这三个时刻
+        quizEnd: true,
+        makeupStart: true,
+        makeupEnd: true,
+        class: { select: { name: true } },
         paperAssignment: {
           select: {
             id: true,
             paper: {
-              select: { id: true, name: true, _count: { select: { questions: true } } },
+              select: {
+                id: true,
+                name: true,
+                totalMarksActual: true,
+                _count: { select: { questions: true } },
+              },
             },
           },
         },
@@ -387,6 +491,10 @@ export class LessonService {
     if (withAssignment.length === 0) {
       return {
         hasSession: false,
+        availability: 'no_content' as const,
+        landLevel: null as EnglishLevel | null,
+        assignmentId: null as string | null,
+        paperMaxScore: 0,
         finalSubmitted: false,
         submitSource: null as SubmitSource | null,
         opened: false,
@@ -420,13 +528,43 @@ export class LessonService {
         maxScore: true,
       },
     });
+    // P9 —— 没有答卷时由**服务端**挑今天上哪一场（账号制入口：没有人
+    // 扫码替他指定）。已经有答卷的照旧认答卷那一场 —— 历史任务不因为
+    // 学生后来改了难度而变。
+    //
+    // 挑选必须确定性：不同请求挑到不同场次 = 不同 assignment = 两份
+    // 正式答卷，答卷唯一索引（按 assignmentId）拦不住。
+    const nowForWindow = new Date();
+    const candidates: SessionCandidate[] = withAssignment.map((x) => ({
+      id: x.id,
+      level: x.level,
+      hasPaper: true,
+      windowOpen: isQuizWindowOpen(
+        { quizEnd: x.quizEnd, makeupStart: x.makeupStart, makeupEnd: x.makeupEnd },
+        nowForWindow,
+      ),
+    }));
+    const picked = pickTodaySession({
+      storedLevel: studentLevel,
+      candidates,
+      isTestClass: (withAssignment[0].class?.name ?? '').startsWith('【测试】'),
+    });
     const session =
       (sub && withAssignment.find((s) => s.paperAssignment!.id === sub.assignmentId)) ||
+      (picked.kind === 'session' ? withAssignment.find((x) => x.id === picked.sessionId)! : null) ||
       withAssignment[0];
     // 分数门与答案门是两道独立的闸（§9）—— 这里只管分数那道
     const scoresPending = sub != null && !['marked', 'graded', 'returned'].includes(sub.status);
     return {
       hasSession: true,
+      // 已经有答卷的人，「今天有没有课」这个问题早就有答案了 —— 他正在
+      // 上。窗口关了也不该把他的进度说成「没有内容」。
+      availability: sub != null ? ('ready' as const) : (
+        picked.kind === 'session' ? ('ready' as const) : picked.kind
+      ),
+      landLevel: picked.kind === 'session' ? picked.land : null,
+      assignmentId: session.paperAssignment!.id,
+      paperMaxScore: session.paperAssignment!.paper?.totalMarksActual ?? 0,
       finalSubmitted: sub?.finalSubmittedAt != null,
       submitSource: (sub?.submitSource ?? null) as SubmitSource | null,
       opened: sub != null,
