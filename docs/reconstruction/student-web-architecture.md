@@ -457,8 +457,8 @@ if (!sid && !sname?.trim()) throw new BadRequestException({ code: 'student_requi
       另发现第三个选项 **C：Edge Rule 路径重定向到独立源**（重定向 ≠
       反向代理，终点仍是跨源）。详见
       [deployment-spike-preflight.md §2–§3](./deployment-spike-preflight.md)（新增一个 nginx 服务？旧端 nginx 加 proxy_pass？）
-- [ ] **S2** 用一个**空白页面**在 staging 上把选定方案跑通：
-      访问新端路径拿到新端的 HTML，访问旧端路径拿到旧端的 HTML
+- [x] **S2** ✅ **PASS**（2026-08-27）—— 新源（含深层路径）返回 spike 页，
+      旧端 8 条路由零退化，两个源互不串扰
 - [ ] **S3** 验证 Service Worker 行为：在**已装旧 SW** 的浏览器上打开
       新端路径，确认能拿到新版本、不吃旧缓存；确定旧 SW 的退役方式
 - [ ] **S4** 确认灰度判定层（§6 未决项）在选定方案下怎么实现
