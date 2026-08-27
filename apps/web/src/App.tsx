@@ -730,8 +730,18 @@ function ScanQueryRedirect() {
   }
   return (
     <div className="max-w-md mx-auto mt-24 bg-white border rounded-lg p-8 text-center shadow-sm">
-      <div className="text-lg font-medium text-gray-800 mb-2">📱 请用手机相机扫描大屏二维码</div>
-      <div className="text-sm text-gray-500">Use your phone camera to scan the QR on the wall display.</div>
+      {/* P9.5 —— 扫码不再是入口。这里原来只说「去扫大屏二维码」，
+          对一个已经有账号的学生来说是条死路。 */}
+      <div className="text-lg font-medium text-gray-800 mb-2">用账号登录就能上课</div>
+      <div className="text-sm text-gray-500 mb-5">
+        现在不用扫码 —— 登录后点「开始今天的课程」，今天任何时间都可以。
+      </div>
+      <a
+        href="/me"
+        className="press inline-block px-6 py-3 rounded-[14px] bg-blue-600 text-white text-[16px] font-semibold"
+      >
+        去登录 · 今天的课 →
+      </a>
     </div>
   );
 }

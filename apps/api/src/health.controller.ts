@@ -1,5 +1,6 @@
 import { Controller, Get, ServiceUnavailableException } from '@nestjs/common';
 import { Public } from './common/auth.guard';
+import { allDayConfigSummary } from './lesson/all-day';
 import { PrismaService } from './common/prisma.service';
 
 /**
@@ -31,6 +32,16 @@ export class HealthController {
         process.env.SOURCE_COMMIT ??
         null,
       node: process.version,
+      // P9.5 —— 全天课程的**最终生效值**。
+      //
+      // 只回显模式与班级 id，不回显任何密钥：这个端点是公开的
+      // （Railway 健康检查要打它）。班级 id 本身在二维码里就是明文。
+      lessons: {
+        allDay: allDayConfigSummary().mode,
+        allDayRaw: allDayConfigSummary().raw || null,
+        allDayClasses: allDayConfigSummary().classIds,
+        tzOffsetMin: Number(process.env.MORNING_QUIZ_TZ_OFFSET_MIN ?? 8 * 60),
+      },
     };
   }
 

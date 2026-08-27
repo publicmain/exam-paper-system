@@ -672,7 +672,7 @@ export default function MyHistory() {
               <div className="px-5 py-3 border-b font-semibold">📝 答题历史 · Quiz History</div>
               {data.submissions.length === 0 ? (
                 <div className="p-6 text-center text-gray-500 text-sm">
-                  还没有任何提交记录。下次扫码答题提交后，成绩会出现在这里。
+                  还没有任何提交记录。完成一次课程并交卷后，成绩会出现在这里。
                 </div>
               ) : (
                 <ul className="divide-y">
@@ -732,7 +732,7 @@ export default function MyHistory() {
                                     {s.reopenable ? '可继续作答' : '已保存 · 未交卷'}
                                   </div>
                                   <div className="text-[11px] text-amber-700 mt-1">
-                                    {s.reopenable ? '扫码回来即可修改' : '答案交卷后公布'}
+                                    {s.reopenable ? '回「今天的课」即可继续修改' : '答案交卷后公布'}
                                   </div>
                                 </>
                               ) : s.scoresPending ? (

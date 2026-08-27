@@ -1,4 +1,5 @@
 import 'reflect-metadata';
+import { allDayConfigSummary } from './lesson/all-day';
 import { NestFactory } from '@nestjs/core';
 import { ValidationPipe, Logger } from '@nestjs/common';
 import { AppModule } from './app.module';
@@ -173,5 +174,14 @@ async function bootstrap() {
   const port = Number(process.env.API_PORT || process.env.PORT || 4000);
   await app.listen(port, '0.0.0.0');
   bootstrapLogger.log(`API listening on :${port}`);
+  // P9.5 —— 把全天配置的**最终生效值**打在启动日志里。
+  // 这个开关决定学生 09:00 之后还能不能上课；出问题时第一件要确认的事
+  // 就是「它到底开没开」，翻环境变量不如让服务自己说一句。
+  const allDay = allDayConfigSummary();
+  bootstrapLogger.log(
+    `all-day lessons: ${allDay.mode}` +
+      (allDay.mode === 'per-class' ? ` (classes: ${allDay.classIds.join(', ')})` : '') +
+      ` [MORNING_QUIZ_ALL_DAY=${allDay.raw || '(unset)'}]`,
+  );
 }
 bootstrap();

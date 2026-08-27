@@ -33,10 +33,58 @@ export function allDayEnabled(classId?: string | null): boolean {
     .includes(classId);
 }
 
+/**
+ * P9.5 —— 全天模式下，`now` 还在这一场的那一天里吗。
+ *
+ * 全天 = **那一场的日历日整天**（SGT 00:00–23:59），不是「永远开着」。
+ * 昨天的场次今天照样是关的，否则一份卷子会被无限期地续答下去。
+ *
+ * `sessionDate` 是场次的日期列（UTC 午夜存的 SGT 日历日）。
+ */
+export function withinAllDay(
+  sessionDate: Date,
+  now: Date,
+  tzOffsetMin = Number(process.env.MORNING_QUIZ_TZ_OFFSET_MIN ?? 8 * 60),
+): boolean {
+  const dayKey = (d: Date) =>
+    new Date(d.getTime() + tzOffsetMin * 60_000).toISOString().slice(0, 10);
+  // 场次的 date 列本身就是日历日（UTC 午夜），直接取它的 ISO 日期；
+  // now 要先折算到 SGT 再取。
+  return sessionDate.toISOString().slice(0, 10) === dayKey(now);
+}
+
 /** 有没有开（任何形式）—— cron 用它决定要不要跳过第二窗自动开窗。 */
 export function allDayConfigured(): boolean {
   const raw = RAW().toLowerCase();
   return raw !== '' && raw !== 'off' && raw !== 'false' && raw !== '0';
+}
+
+/**
+ * P9.5 —— 当前**最终生效**的全天配置，一句话说清。
+ *
+ * 启动日志和 `GET /api/health` 都读它，两处必须是同一个来源 ——
+ * 「我以为开了」和「它真的开了」之间的距离，是这类开关最常见的事故。
+ * 原始值一并回显（`raw`），因为 `MORNING_QUIZ_ALL_DAY=ture` 这种
+ * 拼写错误会静默地退回旧行为。
+ */
+export function allDayConfigSummary(): {
+  mode: 'off' | 'all' | 'per-class';
+  raw: string;
+  classIds: string[];
+} {
+  const raw = RAW();
+  const lower = raw.toLowerCase();
+  if (!raw || lower === 'off' || lower === 'false' || lower === '0') {
+    return { mode: 'off', raw, classIds: [] };
+  }
+  if (lower === 'on' || lower === 'true' || lower === 'all' || lower === '1') {
+    return { mode: 'all', raw, classIds: [] };
+  }
+  return {
+    mode: 'per-class',
+    raw,
+    classIds: raw.split(',').map((x) => x.trim()).filter(Boolean),
+  };
 }
 
 /** 全天模式下的窗口时刻。**答题窗 = 一整天**。 */

@@ -414,7 +414,7 @@ export default function MyLessonPage() {
             （PRD §6.2）。措辞是「大家通常」，不是「你必须」。 */}
         {data.segments[0]?.status === 'todo' && (
           <p className="mt-4 text-[13px] text-gray-400 text-center leading-relaxed">
-            大家通常在早上 8:30 做今天的文章。
+            你可以在今天任何时间开始或继续课程，学习进度会自动保存。
           </p>
         )}
 

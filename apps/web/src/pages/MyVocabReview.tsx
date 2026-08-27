@@ -266,9 +266,12 @@ export default function MyVocabReviewPage() {
       let feedback: string;
       let canUndo = false;
       if ('needsScan' in r && r.needsScan) {
-        // 没有当天的学生凭证 —— 复习没被记录。说清楚怎么办，
-        // 否则学生会以为背了却没算数（2026-08-25 身份校验上线）。
-        feedback = '没记上 · 今天还没扫码，扫一下再背就能存下来';
+        // 没有有效的学生凭证 —— 复习没被记录。说清楚怎么办，否则学生会
+        // 以为背了却没算数（2026-08-25 身份校验上线）。
+        //
+        // P9.5：账号制之后这句话不能再说「去扫码」—— 学生手上根本没有
+        // 二维码，那是一条走不通的路。登录过期就重新登录。
+        feedback = '没记上 · 登录已过期，回「我的」重新登录一次就能存下来';
       } else if ('queued' in r && r.queued) {
         feedback = '网络不稳，已暂存稍后补传';
       } else if ((r as { tooFast?: boolean }).tooFast) {

@@ -1,6 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { Cron, CronExpression } from '@nestjs/schedule';
-import { allDayConfigured, allDayEnabled } from '../lesson/all-day';
+import { allDayConfigured, allDayEnabled, withinAllDay } from '../lesson/all-day';
 import {
   AttendanceSource,
   AttendanceStatus,
@@ -260,6 +260,17 @@ export class MorningQuizCron {
     });
     const tzOff = Number(process.env.MORNING_QUIZ_TZ_OFFSET_MIN ?? 8 * 60);
     for (const session of expired) {
+      //
+      // P9.5 —— **全天开放的班，当天之内不收卷**。
+      //
+      // 这个 cron 每分钟按 `quizEnd <= now` 收卷。打开全天开关之后，
+      // 场次身上写的 quizEnd 仍然是 09:00（它是建场次时写死的），于是
+      // 09:01 这一分钟：学生正在写字，卷子被强制收走、状态翻成 locked、
+      // 答案当场公布。全天开放会变成「只是让他打得开，写不完」。
+      //
+      // 判据用 `withinAllDay`：还在这一场的那一天 → 放过；过了那一天
+      // → 照常收卷，否则一份卷子会永远悬着不判分。
+      if (allDayEnabled(session.classId) && withinAllDay(session.date, now)) continue;
       const dateIso = session.date.toISOString().slice(0, 10);
       // 这一次收卷，是收成「最终提交」（公布答案）还是「暂存提交」
       // （扣住答案，留着下午改）？

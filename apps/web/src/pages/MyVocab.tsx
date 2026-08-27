@@ -246,9 +246,9 @@ export default function MyVocabPage() {
             <div className="mt-3 text-sm text-gray-600 leading-relaxed space-y-1.5">
               <p className="font-semibold text-gray-700">本子还是空的。词会从三个地方进来：</p>
               <p>① 交卷后在成绩页重读文章，<strong>点任意不认识的单词</strong>即可加入；</p>
-              <p>② 每天扫码进考场时，当天文章的重点词会自动推给你；</p>
+              <p>② 每天开始课程时，当天文章的重点词会自动推给你；</p>
               <p>③ 答错的词义/填空题，批改后那个词会自动收进来。</p>
-              <p className="text-gray-500">先去答一场早测，明天这里就有东西可背了。</p>
+              <p className="text-gray-500">先去上一次今天的课，明天这里就有东西可背了。</p>
             </div>
           )}
           {/* 主按钮跟着本子状态走（修复 #8）：全是没学过的词时，主位给

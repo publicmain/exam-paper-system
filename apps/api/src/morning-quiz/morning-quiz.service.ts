@@ -69,7 +69,7 @@ export interface BatchScheduleInput {
 //
 // lateCutoff is set at 08:59:59 (NOT 09:00:00) so the strict `<` invariant
 // `lateCutoff < quizEnd` still holds and the boundary-second is unambiguous.
-import { windowTimesFor } from '../lesson/all-day';
+import { windowTimesFor, allDayEnabled, withinAllDay } from '../lesson/all-day';
 
 const ATTENDANCE_START_LOCAL = '08:30:00';
 const ATTENDANCE_END_LOCAL = '08:40:00';
@@ -85,9 +85,31 @@ const QUIZ_END_LOCAL = '09:00:00';
  * 一对字段。所有原本判 `now > quizEnd` 的闸门都改走这里。
  */
 export function isQuizWindowOpen(
-  session: { quizEnd: Date; makeupStart?: Date | null; makeupEnd?: Date | null },
+  session: {
+    quizEnd: Date;
+    makeupStart?: Date | null;
+    makeupEnd?: Date | null;
+    /** P9.5：全天模式按班灰度 —— 带上它才判断得出这个班开没开。 */
+    classId?: string | null;
+    /** P9.5：全天 = **这一场那一天**整天，不是永远开着。 */
+    date?: Date | null;
+  },
   now: Date = new Date(),
 ): boolean {
+  //
+  // P9.5 —— 全天开放要在**运行时**生效，不能只在建场次时生效。
+  //
+  // `windowTimesFor` 只参与创建：它把 00:00 / 23:59 写进新场次的
+  // quizStart / quizEnd。可是打开开关那天，今天的场次早就建好了 ——
+  // 它身上写的还是 08:30 / 09:00，学生 09:01 打开 App 照样被拒。
+  // 「改个环境变量就能全天」这句话只有在这里也认了开关之后才成立。
+  //
+  // 仍然要求 now 落在**这一场的那一天**：全天不等于永久，昨天的卷子
+  // 今天不能接着做。
+  if (session.classId !== undefined && allDayEnabled(session.classId)) {
+    if (!session.date) return true;
+    return withinAllDay(session.date, now);
+  }
   if (now <= session.quizEnd) return true;
   return isMakeupWindowOpen(session, now);
 }
@@ -102,9 +124,35 @@ export function isQuizWindowOpen(
  * 规则：第二窗开着就用 makeupEnd，否则用 quizEnd。
  */
 export function effectiveEndsAt(
-  session: { quizEnd: Date; makeupStart?: Date | null; makeupEnd?: Date | null },
+  session: {
+    quizEnd: Date;
+    makeupStart?: Date | null;
+    makeupEnd?: Date | null;
+    /** P9.5：全天模式按班灰度 */
+    classId?: string | null;
+    /** P9.5：全天 = 这一场那一天 */
+    date?: Date | null;
+  },
   now: Date = new Date(),
 ): Date {
+  //
+  // P9.5 —— 全天模式下截止时刻是**当天 23:59**，不是场次身上写的 quizEnd。
+  //
+  // 不改这里的话，全天开放是假的：打开开关后学生 09:01 进得来，但页面
+  // 顶部的倒计时拿到的仍是 09:00，判定「一挂载就已过期」，1.5 秒后触发
+  // 自动交卷 —— 卷子在他读完第一题之前就被收走了（浏览器实测：进页面
+  // 直接显示「00:00 ⏰ 时间到」）。
+  //
+  // 这与 2026-08-24 第二作答窗那次事故是同一个形状：倒计时绑错了截止
+  // 时刻。那次的教训写在下面几行，这次是同一条。
+  if (session.classId !== undefined && allDayEnabled(session.classId) && session.date) {
+    if (withinAllDay(session.date, now)) {
+      const tzOff = Number(process.env.MORNING_QUIZ_TZ_OFFSET_MIN ?? 8 * 60);
+      // 当天 SGT 23:59:00 → UTC 瞬刻
+      const dayIso = session.date.toISOString().slice(0, 10);
+      return new Date(new Date(`${dayIso}T23:59:00.000Z`).getTime() - tzOff * 60_000);
+    }
+  }
   if (isMakeupWindowOpen(session, now) && session.makeupEnd) return session.makeupEnd;
   return session.quizEnd;
 }

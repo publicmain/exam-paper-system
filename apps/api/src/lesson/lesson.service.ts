@@ -467,10 +467,13 @@ export class LessonService {
       select: {
         id: true,
         level: true,
-        // P9 —— 挑场次要看此刻还能不能作答，作答窗判断需要这三个时刻
+        // P9 —— 挑场次要看此刻还能不能作答，作答窗判断需要这几个字段
         quizEnd: true,
         makeupStart: true,
         makeupEnd: true,
+        // P9.5 —— 全天模式按班灰度，且「全天」限于这一场的那一天
+        classId: true,
+        date: true,
         class: { select: { name: true } },
         paperAssignment: {
           select: {
@@ -540,7 +543,13 @@ export class LessonService {
       level: x.level,
       hasPaper: true,
       windowOpen: isQuizWindowOpen(
-        { quizEnd: x.quizEnd, makeupStart: x.makeupStart, makeupEnd: x.makeupEnd },
+        {
+          quizEnd: x.quizEnd,
+          makeupStart: x.makeupStart,
+          makeupEnd: x.makeupEnd,
+          classId: x.classId,
+          date: x.date,
+        },
         nowForWindow,
       ),
     }));
