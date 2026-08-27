@@ -407,6 +407,13 @@ if (!sid && !sname?.trim()) throw new BadRequestException({ code: 'student_requi
 
 同一个域名，`/app/*` 给新端，其余给旧端。
 
+> **[S1 2026-08-27] 这一节的成本已从「未知」变成「已知且确定」**：
+> Railway 平台**不提供**路径级多服务转发，必须自建反向代理。
+> 同时新增了方案 **丙（Edge Rule 重定向到独立源）**。
+> 三方案的重算对比见
+> [deployment-spike-preflight.md §3](./deployment-spike-preflight.md)，
+> 那里是当前权威；本节保留为设计过程记录。
+
 | | |
 |---|---|
 | 优点 | 学生的书签、主屏图标、二维码**全部继续有效**；同源，无 CORS；跳转是站内 |
@@ -439,8 +446,13 @@ if (!sid && !sname?.trim()) throw new BadRequestException({ code: 'student_requi
 
 在写任何页面代码之前，必须先做完并给出结论：
 
-- [ ] **S1** 确认 Railway 能否在一个域名下按路径前缀分流到两个服务；
-      不能则确认反代方案（新增一个 nginx 服务？旧端 nginx 加 proxy_pass？）
+- [x] **S1** ✅ **已完成**（2026-08-27，C1 只读）—— **Railway 不提供**
+      路径级多服务转发：Edge Rules **能按路径匹配**，但五个动作
+      （block / allow / challenge / **redirect** / override cache）
+      **没有一个能转发到另一个服务**。因此**同源分流只能自建反向代理**；
+      另发现第三个选项 **C：Edge Rule 路径重定向到独立源**（重定向 ≠
+      反向代理，终点仍是跨源）。详见
+      [deployment-spike-preflight.md §2–§3](./deployment-spike-preflight.md)（新增一个 nginx 服务？旧端 nginx 加 proxy_pass？）
 - [ ] **S2** 用一个**空白页面**在 staging 上把选定方案跑通：
       访问新端路径拿到新端的 HTML，访问旧端路径拿到旧端的 HTML
 - [ ] **S3** 验证 Service Worker 行为：在**已装旧 SW** 的浏览器上打开
