@@ -203,9 +203,10 @@ describe('部署包', () => {
   const ROOT = path.resolve(SRC, '..');
   // 同 stripComments 的道理：扫的是**指令**，不是解释它们的注释。
   const stripHash = (t: string) =>
-    t.split('
-').filter((l) => !/^\s*#/.test(l)).join('
-');
+    t
+      .split('\n')
+      .filter((l) => !/^\s*#/.test(l))
+      .join('\n');
   const nginx = stripHash(fs.readFileSync(path.join(ROOT, 'nginx.conf'), 'utf8'));
   const docker = stripHash(fs.readFileSync(path.join(ROOT, 'Dockerfile'), 'utf8'));
 
