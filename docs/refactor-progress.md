@@ -1898,4 +1898,86 @@ api **883 tests / 79 files**、web **236 tests / 36 files** 全过，
 
 ---
 
+## RC1.1 ✅（本地）—— 修 staging 人工实机测试抓到的九个问题
+
+功能仍冻结（P1–P9.5 + RC1）。本轮只修人工测试确认的缺陷，**没有新功能、
+没有数据库迁移、没有 schema 改动**。
+
+### 一、九个问题的根因收敛
+
+人工报告列了 A–I 九项，根因只有六处（A 与 C 同源）：
+
+| 编号 | 现象（人工实测） | 根因 |
+|---|---|---|
+| **A + C** | 阅读结果页进去的词卡是「不计分自测」；刷新后从第 1 张重来但**换成了另一个词**，教过的词从教学卡变成挖空复习卡，分母 3 → 2 | 翻卡页的卡片来自 `/vocab/due`（实时到期 + 配额 + 新旧配比），**不是** DLC 冻结的 `vocabWords`。教学写 `firstTaughtAt`、复习改 `due`，都会让这个队列当场变样 |
+| **B** | 先去自由练习做一张，「今日词汇」从 0/4 变 1/3，随后冻结出来的正式考试范围只剩 3 个词 | `vocabState` 的 target 用「此刻仍到期」，progress 数**全部**复习流水，冻结用的 `desiredQueue` 同一口径 |
+| **D** | 正式测试里选对了也标 ✗ | 服务端正确脱敏了 `correctIndex`（防作弊），前端却拿它判即时对错 —— 作答前是 `null`，没有一个选项能"等于正确答案" |
+| **E** | attempt 已 `submitted`、成绩 4/4，`DailyLessonCompletion.stage` 仍停在 `vocab_test` | 提交只写 attempt，不推进阶段 |
+| **F** | 没有内容的账号进课程页看到「🎉 今天的课完成了 · 连续 1 天」 | 三段目标全 0 → `deriveStage` 判三段都 settled → done |
+| **G** | 交卷弹窗仍写着 16:00 / 「先存着」 | 全天模式下 `secondWindowToday` 仍按早测口径计算 |
+| **H** | 复习卡正面只有挖空句，不知道该回忆哪个词 | 卡面没给中文释义 |
+| **I** | 换账号后头部约一秒仍显示上一名学生的姓名 | 退出只清了 `me` 和 `segments` |
+
+### 二、判据提成生产代码里的纯函数
+
+新增 `apps/api/src/lesson/rc11-rules.ts`：`vocabTargetOf` /
+`vocabProgressOf` / `lessonCardOrder` / `shouldRevealAnswer` /
+`stageAfterSubmit` / `hasAnyTask` / `progressForDisplay`。
+
+**服务端真的调用它们**，测试 `rc11-invariants.spec.ts`（18 条）直接
+import 这些函数 —— 不在测试里另抄一份判断，否则改回旧口径也不会红。
+
+**反向对照**：把六条判据逐一改回旧口径 → **9 条必红**，六类缺陷全部
+触发；还原后 `git diff` 无差异。
+
+### 三、隔离库端到端复现
+
+隔离库 `rc11_db`、API `:4311`（`MORNING_QUIZ_ALL_DAY=true`）、Vite `:5311`。
+
+- `rc11-repro.js`：**修复前 11 红 → 修复后 19/19 全绿**
+- `rc11-scenarios.js`（场景 3/6 + 数据库对账）：**19/19 全绿**
+
+### 四、真实浏览器验收（6 个场景）
+
+| 场景 | 证据 |
+|---|---|
+| 1 完整流程 | 登录 → 阅读 4 题 → 交卷（**弹窗无「16:00」、无「先存着」** = G）→ 结果页进词卡，**第一张是队列首词 `harbour`**（修复前是 `pebble`）= C → 4 张学完 → 正式测试标注**「· 计入成绩」**= A → 错选 `meadow` 标 ✗、正确项 `pebble` 标 ✓ 并写「正确答案已标出」= D → 库里 `stage=done` / `attempt=submitted` / 2 题 4 分 · 50 分 = E |
+| 2 新词中断 | 第 2/4 张关页面 → **清空 localStorage + sessionStorage** → 重登 → 仍是 **`今日生词 2 / 4` · `第一次学 lantern`**（修复前回到第 1 张且变成挖空复习卡） |
+| 3 测试中断 | 答完第 1 题换新 token 重登 → **同一 attemptId**（`cmtb0w4h…`）、已答 1 题保留、从第 2 题继续、**attempt 没变成两份**；恢复时**只下发已答那题的答案**（1/1） |
+| 4 自由练习隔离 | 开课前做一张自由练习：词段 **0/4 → 0/4 不变**、DLC **逐字段完全一致**；随后开课冻结出的队列仍是**原本 4 个词** |
+| 5 无内容 | `next=no_content`「今天的课程还没有发布」、完成度 **0/3**、连续天数 **0**、**没有建任务行** |
+| 6 完成后重入 | 刷新 + 重登 + 旧测试链接 + 旧词卡链接：`{subs:5, atts:4, dlcs:5, logs:5}` → **逐项不变**；旧测试链接只回已有成绩（`submitted` / 25 分）；阶段**不倒退** |
+
+另外钉住了阶段门：`stage=reading` 的账号开正式测试 → `409 stage_not_ready`。
+
+### 五、数据库对账（7 项）
+
+重复正式答卷组 0；每个任务最多一份正式 attempt；**代码写出来的
+`submitted` attempt，其 DLC 必为 `done`**；无伪完成任务行；考勤行 0；
+通知配置与日志 0；`vocabWords` 长度与 `vocabTarget` 处处一致。
+
+### 六、遗留数据的诚实说明
+
+种子里有一条**用 SQL 直接插入的 pre-fix 行**（`att_t8`：attempt 已交、
+`stage` 仍 `vocab_test`），专门用来复现 E。E 的修复是**条件写入**
+（`where status='in_progress'`），因此它**不会**回头修已经处于错误状态的
+旧行。
+
+实测这类行**不阻塞学生** —— 展示层仍推导出「看今天的总结」、完成度
+正常。只是 `stage` 列滞后。staging 上若有同类行，需要时可单独对账修补；
+**本轮没有连接也没有修改任何 staging / 生产数据**。
+
+### 七、全量验证
+
+api **902 tests / 80 files**、web **236 tests / 36 files** 全过；
+双端 `tsc --noEmit` 无错；`nest build` + `vite build` 均成功；
+全新库 `prisma migrate deploy` **34 条迁移 0 未完成 / 66 张表**。
+
+`git diff` 17 个文件，**0 个迁移文件、0 处 schema 改动**，工作区干净。
+
+**未 push、未部署、未连接生产库、未改生产环境变量、未进入 P10、
+未删除旧扫码兼容代码、未调用 Anthropic API。**
+
+---
+
 ## P10 ⬜
