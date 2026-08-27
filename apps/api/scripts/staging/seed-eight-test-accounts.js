@@ -7,20 +7,37 @@
  *
  * ## 为什么是 .js 而不是 .ts
  *
- * 它要能在**已部署的容器里**跑（`railway ssh --service stg-api`）——
- * 那里只有编译好的 `dist/` 和 `@prisma/client`，没有 TypeScript 工具链。
- * 同一个文件本地也能跑，指到本地库即可。
+ * 它当初是为了在**已部署的容器里**跑而写的 —— 那里只有编译好的
+ * `dist/` 和 `@prisma/client`，没有 TypeScript 工具链。保持纯 JS，
+ * 将来无论落到哪种执行环境都不需要额外的构建步骤。
+ *
+ * （**但现在还不能在 `stg-api` 容器里跑** —— 那个服务是
+ * `NODE_ENV=production`，第 1 道闸门会拒绝。详见下面「在 staging
+ * 容器里跑不通」一节。）
  *
  * ## 性质
  *
  * - **全部是虚构数据**。八个「测试N号」不对应任何真实学生，
  *   邮箱一律 `@example.invalid`（RFC 6761 保留域，永远解析不出去）。
- * - **幂等**。每次先清掉这八个 id 的当日痕迹，再重建成预期初始态。
- *   测试把数据点乱了，重跑一次就回到起点。
- * - **确定性**：同样的输入产生同样的库状态。时间是唯一的输入
- *   （当天的日期 + 相对偏移），数据里没有任何随机值。
- *   唯一的例外是 bcrypt 的盐 —— 哈希字节每次不同，但校验结果相同，
- *   这是 bcrypt 的设计，不是本脚本的不确定性。
+ * - **测试场景层面可重复（幂等）**，**不是逐字节确定性**。每次先清掉
+ *   这八个 id 的当日痕迹，再重建成预期初始态；测试把数据点乱了，
+ *   重跑一次，八个账号回到 `docs/manual-device-test-plan.md` 第 2 节
+ *   那张表描述的场景。**但落库的字节不完全一样**，见下面两条。
+ *
+ * - **每次运行会变的东西**（不要假设它们稳定）：
+ *
+ *   1. **bcrypt 哈希**。`passwordHash` 与 `pinHash` 的输入是常量，
+ *      但 bcrypt 每次用新的盐，落库的哈希字符串每次都不同。校验结果
+ *      相同 —— 同一个 PIN 照样能登录。
+ *   2. **`studentAuthVersion` 每次 +1**（见下面的 `ON CONFLICT DO
+ *      UPDATE`）。这是**有意为之**：它是令牌撤销计数器，加一就让
+ *      **之前签发的所有学生令牌立刻失效**。所以重新播种 = 把这八个
+ *      账号在所有设备上踢下线，正在测试的人要重新登录。这正是我们
+ *      想要的（重置就该是干净的重置），但**必须知道会发生**。
+ *   3. **相对时间戳**。`due`、`firstTaughtAt`、`submittedAt` 等按
+ *      「此刻减去 N 小时/天」写入，所以两次运行的绝对时刻不同。
+ *      场景语义不变（「一小时前到期」「九天前教过」）。
+ *
  * - **不含任何生产 URL、凭据或密钥**。连接串完全来自 `DATABASE_URL`；
  *   测试 PIN 必须由 `STAGING_SEED_PIN` 显式给出 —— 本文件里没有
  *   任何密码值。
@@ -31,14 +48,37 @@
  * # 本地隔离库
  * ALLOW_TEST_SEED=yes STAGING_SEED_PIN=<6 位测试 PIN> DATABASE_URL=<本地库> \
  *   node apps/api/scripts/staging/seed-eight-test-accounts.js
- *
- * # staging 容器里（文件先送进去）
- * railway ssh --service stg-api \
- *   "cd /app/apps/api && ALLOW_TEST_SEED=yes STAGING_SEED_PIN=<...> node <路径>"
  * ```
  *
  * PIN 的取值见 `docs/manual-device-test-plan.md` 第 2 节 —— 那是给
  * 八个虚构账号用的临时口令，不放进这个文件。
+ *
+ * ## ⚠️ 在 staging 容器里跑不通 —— 而且这是对的
+ *
+ * 直觉的写法是这样：
+ *
+ * ```bash
+ * railway ssh --service stg-api \
+ *   "cd /app/apps/api && ALLOW_TEST_SEED=yes STAGING_SEED_PIN=<...> node <路径>"
+ * ```
+ *
+ * **它会被第 1 道闸门拒绝。** `stg-api` 这个服务的环境变量里
+ * `NODE_ENV=production`（为了让 staging 与生产用同一套运行模式跑，
+ * 这本身是刻意的），而第 1 道闸门看的就是 `NODE_ENV`。
+ *
+ * **不要为此加覆盖开关。** 「production 环境里不许播种」这条规则的
+ * 价值全在于它没有例外 —— 一旦有了 `--force`，它就只是个提示。
+ *
+ * 正确的解法是**为夹具找一个安全的执行环境**，而不是削弱闸门。
+ * 这件事被列为阶段 3 与阶段 14 的前置（见
+ * `docs/reconstruction/migration-plan.md`），在有结论之前
+ * **不得执行本夹具**。可能的方向（都还没验证）：
+ *
+ *   · 一个 `NODE_ENV` 不是 production 的一次性任务容器
+ *   · 给 staging 的 Postgres 开一条临时的外网通道，从本机跑
+ *   · staging 单独用一个非 production 的 `NODE_ENV` 值
+ *
+ * 三条各有代价，选哪条是阶段 3 的事。
  *
  * ## 安全闸门（四道）
  *
@@ -164,7 +204,11 @@ function assertNotProduction() {
 }
 
 /**
- * 第三道闸门 —— 目标库里不能有别人。
+ * 第 4 道闸门 —— 目标库里不能有别人。
+ *
+ * 前三道只看环境变量，在连库之前就拦下了。**这一道需要一次只读
+ * 查询**，所以它是唯一一个「已经连上库」之后才生效的闸门 ——
+ * 但它仍然在任何写操作之前。
  *
  * 不靠「认得出生产库长什么样」（那需要把生产地址写进仓库，正是不能做的
  * 事），靠的是一个更硬的事实：真实名册里有几十个学生，而这个夹具只认识
@@ -201,7 +245,9 @@ async function main() {
 
   await assertOnlyOurStudents(prisma);
 
-  // 当天（SGT）。这是脚本唯一的时间输入。
+  // 当天（SGT）。时间是脚本唯一的外部输入 —— 下面的相对偏移
+  // （「一小时前」「九天前」）每次跑出来的绝对时刻都不同，
+  // 但场景语义不变。
   const day = new Date(Date.now() + 8 * 3600_000).toISOString().slice(0, 10);
   const at = (t) => `('${day}T${t}+08:00')::timestamptz AT TIME ZONE 'UTC'`;
 
@@ -216,7 +262,9 @@ async function main() {
   await run(`DELETE FROM "StudentWord" WHERE "studentId" IN (${idList})`);
   await run(`DELETE FROM "Attendance" WHERE "studentId" IN (${idList})`);
 
-  // 密码哈希的**输入是常量** —— 学生走 PIN 登录，这个字段只是占位。
+  // 两个哈希的**输入都是常量**，但 bcrypt 每次换盐 —— 落库的字符串
+  // 每次都不同，校验结果相同。所以本夹具是「场景可重复」，不是
+  // 「逐字节确定性」，不要拿哈希值做断言。
   const pw = await bcrypt.hash('staging-fixture-placeholder-not-a-login-path', 4);
   const pin = await bcrypt.hash(PIN, 10);
 
@@ -245,6 +293,10 @@ async function main() {
   // ── 八个学生 ──
   for (const [id, name, level, cid] of STUDENTS) {
     const lvl = level ? `${L(level)}::"EnglishLevel"` : 'NULL';
+    // 注意 `studentAuthVersion + 1`：这是令牌撤销计数器。重新播种会
+    // **让这八个账号之前签发的所有令牌立刻失效** —— 正在手机上测试
+    // 的人会被踢回登录页。这是有意的（重置就该是干净的重置），
+    // 但它也意味着本夹具在这一点上不是「无副作用的重放」。
     await run(`INSERT INTO "User"(id,email,name,role,"passwordHash","pinHash","isActive","englishLevel","studentAuthVersion")
                VALUES (${L(id)},${L(id + '@example.invalid')},${L(name)},'student',${L(pw)},${L(pin)},true,${lvl},1)
                ON CONFLICT (id) DO UPDATE
