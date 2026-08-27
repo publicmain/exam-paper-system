@@ -1,6 +1,67 @@
-# Exam Paper System（试卷生成系统）
+# Exam Paper System
 
-国际课程学校（CIE / Edexcel / O-Level / IGCSE / A-Level）试卷生成：老师选科目 / 章节 / 时长 / 总分 / 题型配比 → 从打标签的题库抽题 → 可编辑试卷 → 导出 PDF + 答案卷。GitHub: `publicmain/exam-paper-system`。`docs/PRD` / `README.md` 为准。
+一个仓库，**两个产品面**，共用同一套 API 和同一个数据库。
+GitHub: `publicmain/exam-paper-system`。
+
+## 产品面 1 —— 教师 / 管理后台
+
+国际课程学校（CIE / Edexcel / O-Level / IGCSE / A-Level）试卷生成：老师选
+科目 / 章节 / 时长 / 总分 / 题型配比 → 从打标签的题库抽题 → 可编辑试卷 →
+导出 PDF + 答案卷。另含题库、判分队列、班级管理、排课、看板、家长门户。
+
+权威文档：`README.md` + `docs/PRD/exam-paper-system-overhaul.md`。
+
+## 产品面 2 —— 学生每日英语 App
+
+账号制、全天可进入的英语学习 App。
+
+**正式流程（线性七步）**：
+
+```
+账号登录 / 注册 → 今天的课 → 阅读 → 阅读结果
+  → 学习本次单词 → 正式单词测试 → 今日总结
+```
+
+**同一外壳内的独立页面**：历史成绩、生词本自由练习、错题重练、账号设置。
+
+**身份规则**：
+
+- 身份**只来自服务端验证过的学生令牌**
+- canonical URL **不携带姓名或 studentId**
+- **不依赖**扫码、考勤、姓名查询
+- 令牌失效 → 回登录页，**不是**姓名输入页
+
+### 现状 vs 目标（别混淆这两件事）
+
+**现状**：P1–P9.5 / RC1.1 的学生能力**已经上线、每天在用**。但学生前端
+**还在 `apps/web` 里**，与教师端混在一起，同时存在账号制页面和早期的
+扫码 / 姓名查询 / `/my-history` 旧链路，两套外壳会互相跳。**这不是最终形态。**
+
+**目标**：物理隔离的 **`apps/student-web`**。
+
+> **`apps/student-web` 还不存在。** 重建除文档与冻结基线外**尚未实施**；
+> 阶段 3（部署闭环 spike，阻断项）**未开始**。
+
+### 学生产品的权威顺序（高覆盖低）
+
+1. `docs/reconstruction/product-contract.md` —— 目标产品定义
+2. `docs/reconstruction/product-decisions.md` —— 已定的产品决定 D1–D6
+3. `docs/reconstruction/migration-plan.md` —— 16 阶段迁移计划
+
+支撑文档：`student-route-inventory.md`（入口清单与分类）、
+`legacy-retirement-map.md`（引用矩阵）、`student-web-architecture.md`
+（路由契约 + CI 守卫）、`freeze-manifest.md`（冻结范围）。
+
+**`docs/PRD/*` 里的学生端文档是历史证据** —— 记录当时为什么那样决定，
+**不能覆盖**上面三份。README 同理：它描述现状，学生产品的目标形态以
+上面三份为准。
+
+### 冻结
+
+旧学生代码按 `docs/reconstruction/freeze-manifest.md` **冻结**：只接受
+阻断性缺陷、安全修复、单向兼容适配器。**任何新的学生行为归未来的
+`apps/student-web`**，不写进 `apps/web`。任何旧页面都不得成为新的
+canonical 落点。
 
 ## 技术栈
 monorepo：`apps/api`（NestJS + Prisma + Postgres + Puppeteer/KaTeX 出 PDF）＋ `apps/web`（React 18 + Vite + Tailwind + KaTeX）。Railway 部署（2 service + managed Postgres）。

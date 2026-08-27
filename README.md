@@ -1,8 +1,80 @@
-# Exam Paper System (MVP)
+# Exam Paper System
 
-An exam paper generation system for international curriculum schools (CIE / Edexcel / O-Level / IGCSE / A-Level). Teachers configure subject, chapter, duration, total marks, and question type mix; the system pulls from a tagged question bank, presents an editable paper, and exports PDF + answer key.
+This repository holds **two product surfaces** that share one API and one database.
 
-**Out of scope for this MVP:** automatic grading, student-facing UI, multi-tenant SaaS, past-paper digitization.
+1. **Teacher / admin platform** — exam paper generation and content operations for
+   international curriculum schools (CIE / Edexcel / O-Level / IGCSE / A-Level).
+   Teachers configure subject, chapter, duration, total marks, and question type mix;
+   the system pulls from a tagged question bank, presents an editable paper, and
+   exports PDF + answer key. It also covers the question bank, marking queue,
+   class management, scheduling, dashboards, and the parent portal.
+
+2. **Student daily-English app** — an account-based, all-day English learning flow
+   (reading → vocabulary → formal vocabulary quiz → summary), plus scores,
+   vocabulary practice, mistakes practice, and account settings.
+
+> ⚠️ The second surface **is real and in daily use**, but its frontend is
+> **mid-reconstruction**. Read the next section before changing anything on the
+> student side.
+
+**Still out of scope:** multi-tenant SaaS, bulk past-paper digitization.
+
+---
+
+## Product surfaces: CURRENT vs TARGET
+
+### CURRENT (as of RC1.1)
+
+- The **teacher / admin platform** is stable and is the original product of this repo.
+- **Student capabilities through P1–P9.5 / RC1.1 exist and work.** Students log in with
+  an account, do today's reading, learn the lesson's vocabulary, take a graded
+  vocabulary quiz, and see a summary.
+- **But the student frontend is mixed.** It currently lives inside `apps/web`
+  alongside the teacher UI, and it still contains conflicting routes and two
+  different application shells: the account-based pages (`/me`, `/my-lesson`,
+  `/my-lesson/summary`) and legacy scan / name-query / `/my-history` flows from
+  earlier product eras. Some canonical steps still land on legacy pages.
+- **This is not the final student product.**
+
+### TARGET (planned — not built)
+
+- A **physically separate `apps/student-web`**: an account-based, all-day English
+  learning app.
+- **Canonical student flow (seven steps):**
+  `login / registration → today → reading → reading result → lesson vocabulary →
+  formal vocabulary quiz → summary`
+- **Independent account-based pages:** scores, vocabulary practice, mistakes
+  practice, account.
+- **No scan, no attendance dependency, no name-query identity, and no legacy
+  `/my-history` navigation** anywhere in canonical flows. Identity comes only from
+  a server-verified student token; canonical URLs never carry a name or student id.
+- **Preserved as-is:** teacher / admin capabilities, API business rules, the
+  database, all migrations, and historical data.
+
+> **`apps/student-web` does not exist yet.** Nothing in the reconstruction has been
+> implemented beyond documentation and a frozen baseline. Reconstruction Stage 3
+> (a blocking deployment spike) has not started.
+
+### Where the student product is specified
+
+Authority order — **higher overrides lower**:
+
+1. [`docs/reconstruction/product-contract.md`](docs/reconstruction/product-contract.md) — the target product definition
+2. [`docs/reconstruction/product-decisions.md`](docs/reconstruction/product-decisions.md) — settled product decisions (D1–D6)
+3. [`docs/reconstruction/migration-plan.md`](docs/reconstruction/migration-plan.md) — 16 staged migration plan
+
+Supporting documents: [`student-route-inventory.md`](docs/reconstruction/student-route-inventory.md)
+(every student entry point, classified), [`legacy-retirement-map.md`](docs/reconstruction/legacy-retirement-map.md)
+(reference matrix), [`student-web-architecture.md`](docs/reconstruction/student-web-architecture.md)
+(route contract + CI guards), [`freeze-manifest.md`](docs/reconstruction/freeze-manifest.md)
+(what is frozen and what may still change).
+
+**Legacy student code is frozen** under the freeze manifest: it accepts only
+blockers, security fixes, and one-way compatibility adapters. New student behaviour
+belongs in the future `apps/student-web`, not in `apps/web`.
+
+The `docs/PRD/*` files for the student side are **historical evidence** — they record
+why decisions were made, and they do **not** override the three documents above.
 
 ---
 
@@ -265,8 +337,13 @@ Currently runs `vitest` against `apps/api/test/generation.spec.ts` (preflight ch
 - AI-generated original questions (with mandatory review queue)
 - Past-paper PDF semi-automatic ingestion (cropping tool, metadata-only)
 - Approval workflow (head teacher reviews question bank changes)
-- Student-side: MCQ auto-marking, individualized weak-topic practice
 - Multi-school tenancy (only after copyright due diligence)
+
+> The student-side roadmap is **not** tracked here any more. Auto-marking and
+> weak-topic practice already ship as part of the student app (marking queue,
+> mistakes practice, FSRS vocabulary scheduling). What remains for the student
+> side is the reconstruction — see
+> [`docs/reconstruction/migration-plan.md`](docs/reconstruction/migration-plan.md).
 
 ---
 
