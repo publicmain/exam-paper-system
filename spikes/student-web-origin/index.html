@@ -1,0 +1,35 @@
+<!doctype html>
+<!-- spike-marker: student-web-origin -->
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>STUDENT-WEB ORIGIN SPIKE</title>
+    <style>
+      body {
+        margin: 0;
+        min-height: 100vh;
+        display: grid;
+        place-items: center;
+        background: #0f172a;
+        color: #e2e8f0;
+        font: 16px/1.6 ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+        text-align: center;
+        padding: 24px;
+      }
+      h1 { font-size: clamp(20px, 6vw, 40px); letter-spacing: 0.04em; margin: 0 0 16px; }
+      p  { margin: 4px 0; color: #94a3b8; font-size: 14px; }
+      code { color: #7dd3fc; }
+    </style>
+  </head>
+  <body>
+    <main>
+      <h1>STUDENT-WEB ORIGIN SPIKE</h1>
+      <p>阶段 3B / S2 —— 独立源拓扑验证</p>
+      <p>这是一个**一次性的空白页**。没有产品代码、没有 Service Worker、</p>
+      <p>没有 manifest、不发任何 API 请求、不做认证、不读任何变量。</p>
+      <p>当前路径：<code id="p"></code></p>
+      <script>document.getElementById('p').textContent = location.pathname;</script>
+    </main>
+  </body>
+</html>

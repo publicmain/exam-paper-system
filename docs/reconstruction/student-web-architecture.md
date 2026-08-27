@@ -407,6 +407,10 @@ if (!sid && !sname?.trim()) throw new BadRequestException({ code: 'student_requi
 
 同一个域名，`/app/*` 给新端，其余给旧端。
 
+> **[S2 2026-08-27] 方案 甲（独立源）已在 staging 上验证通过**，
+> 见预检文档的 S2 一节。方案 丙（Edge Rule 重定向）**仍 UNVERIFIED** ——
+> 它并不能绕过旧 Service Worker，理由见预检文档 §3.1。
+>
 > **[S1 2026-08-27] 这一节的成本已从「未知」变成「已知且确定」**：
 > Railway 平台**不提供**路径级多服务转发，必须自建反向代理。
 > 同时新增了方案 **丙（Edge Rule 重定向到独立源）**。
