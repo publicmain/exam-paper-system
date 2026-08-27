@@ -13,27 +13,49 @@ This repository holds **two product surfaces** that share one API and one databa
    (reading → vocabulary → formal vocabulary quiz → summary), plus scores,
    vocabulary practice, mistakes practice, and account settings.
 
-> ⚠️ The second surface **is real and in daily use**, but its frontend is
-> **mid-reconstruction**. Read the next section before changing anything on the
-> student side.
+> ⚠️ The second surface is **implemented on the local branch and under isolated
+> staging / manual-device validation** — it is **not** established as released to
+> production. Its frontend is also **mid-reconstruction**. Read the next section
+> before changing anything on the student side.
 
 **Still out of scope:** multi-tenant SaaS, bulk past-paper digitization.
 
 ---
 
-## Product surfaces: CURRENT vs TARGET
+## Product surfaces: three distinct states
 
-### CURRENT (as of RC1.1)
+Keep these apart. Conflating them is how this repo drifted in the first place.
+
+### PRODUCTION — what the repo can actually prove
+
+- `origin/main` is at **`b72212e`** (`docs: P1 完成登记`).
+- The local `main` branch is **42 commits ahead of it**. Everything from P7 through
+  P8, P8.5, P9, P9.5, RC1 and RC1.1 sits in those unpushed commits.
+- RC1.1 has only ever been pushed to the **`staging-manual-test`** branch.
+- Therefore: **do not claim RC1.1 is deployed, released, or in daily student use.**
+  Which commit production actually runs requires deployment-side evidence that this
+  repository does not contain; this file makes no claim about it.
+- **Historical note:** earlier morning-quiz capabilities did exist and did serve real
+  classes, and the 3.0 / 4.0 business rules were implemented incrementally over
+  time. That history is real — but it does **not** prove that the complete RC1.1
+  student flow is in production.
+
+### LOCAL / STAGING (as of RC1.1)
 
 - The **teacher / admin platform** is stable and is the original product of this repo.
-- **Student capabilities through P1–P9.5 / RC1.1 exist and work.** Students log in with
-  an account, do today's reading, learn the lesson's vocabulary, take a graded
-  vocabulary quiz, and see a summary.
-- **But the student frontend is mixed.** It currently lives inside `apps/web`
-  alongside the teacher UI, and it still contains conflicting routes and two
-  different application shells: the account-based pages (`/me`, `/my-lesson`,
-  `/my-lesson/summary`) and legacy scan / name-query / `/my-history` flows from
-  earlier product eras. Some canonical steps still land on legacy pages.
+- **Student capabilities through P1–P9.5 / RC1.1 are implemented on the local
+  branch** and have passed local verification: account login, today's lesson,
+  reading with server-side draft saving, lesson vocabulary, a graded vocabulary
+  quiz, and the summary.
+- They are deployed to an **isolated staging environment** (a separate Railway
+  project with its own database and eight fictional test accounts) and are
+  **undergoing manual real-device validation** — see
+  [`docs/manual-device-test-plan.md`](docs/manual-device-test-plan.md).
+- **The student frontend is mixed.** It lives inside `apps/web` alongside the
+  teacher UI and still contains conflicting routes and two different application
+  shells: the account-based pages (`/me`, `/my-lesson`, `/my-lesson/summary`) and
+  legacy scan / name-query / `/my-history` flows from earlier product eras. Some
+  canonical steps still land on legacy pages.
 - **This is not the final student product.**
 
 ### TARGET (planned — not built)
@@ -340,9 +362,10 @@ Currently runs `vitest` against `apps/api/test/generation.spec.ts` (preflight ch
 - Multi-school tenancy (only after copyright due diligence)
 
 > The student-side roadmap is **not** tracked here any more. Auto-marking and
-> weak-topic practice already ship as part of the student app (marking queue,
-> mistakes practice, FSRS vocabulary scheduling). What remains for the student
-> side is the reconstruction — see
+> weak-topic practice are **implemented** in the student app (marking queue,
+> mistakes practice, FSRS vocabulary scheduling) — implemented on the branch, not
+> a claim about what is released. What remains for the student side is the
+> reconstruction — see
 > [`docs/reconstruction/migration-plan.md`](docs/reconstruction/migration-plan.md).
 
 ---
