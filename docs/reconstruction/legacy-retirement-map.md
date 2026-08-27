@@ -1,7 +1,11 @@
 # 旧产品引用矩阵与退役地图
 
 > R0 · 2026-08-27 · 审计基线 commit `82b9cb0`
-> **本轮只统计，不删除、不修改。**
+> **R0.1 修订** · 基线 `8303d1e` —— 修正后端 href 的处理方式、
+> 补 token-only 影响面指引、按 D1 调整 `/student/*` 的退役范围。
+> **只统计，不删除、不修改。**
+
+产品决定见 [product-decisions.md](./product-decisions.md)。
 
 「不得只修截图里的一个返回按钮」—— 下面是完整清单。
 
@@ -21,7 +25,7 @@
 | `name=` / `studentId=`（URL 身份） | **前端 30+ 处；`lib/api.ts` 里 13 个端点** | 4 处 | 8 个端点硬性要求 | 见 §2.2 |
 | `then=` | 5 处 / 3 文件 | 1 处 | — | 任意返回 URL |
 | `after=submit` | 6 处 / 4 文件 | 1 处 | — | 链式跳转协议 |
-| `teacher_view` | 6 处 / 4 文件 | 0 | 1（守卫） | 教师以学生视角查看，与本次重建不冲突 |
+| `teacher_view` | 6 处 / 4 文件 | 0 | 1（守卫） | 教师以学生视角查看 —— **新端要迁移**（只读令牌 + 只读横幅） |
 
 ---
 
@@ -33,10 +37,19 @@
 |---|---|---|
 | `apps/api/src/lesson/next-action.ts:114` | `href: /morning-quiz/${sessionId}` | 七步链第 3 步指向旧页面 |
 | `apps/api/src/lesson/next-action.ts:121` | `href: /my-history/submission/${submissionId}` | 第 4 步指向旧页面 |
-| `apps/api/src/lesson/next-action.ts:126,133,135` | `/my-vocab/review`、`/my-lesson/summary`、`/my-vocab/quiz` | 需随新路由契约同步 |
+| `apps/api/src/lesson/next-action.ts:126,133,135` | `/my-vocab/review`、`/my-lesson/summary`、`/my-vocab/quiz` | 旧端在用；新端忽略 |
 
-**后端在给前端指路。** 不改这里，前端怎么改都会被拉回去。
-`next-action.spec.ts:1` 有一条测试把这些地址断言成正确行为。
+**后端在给前端指路** —— 这是根因之一。
+
+**但修法不是「把 href 改成新路由」**（R0.1 修正）。正确做法：
+服务端只负责 `NextActionKind` + 资源 ID，**新端自行映射路由**；
+迁移期 `href` 字段原样保留给旧端，新端忽略它；旧端退役后
+（阶段 16e）才删掉这个字段。**不得**让旧端反向翻译新路由 ——
+那是只为过渡而存在的新耦合。
+
+因此 `next-action.ts` 在整个迁移过程中**一行都不用改**，
+`next-action.spec.ts` 也不用改。见
+[architecture §4.3](./student-web-architecture.md#43-课程阶段--页面--路由映射在新端不在后端)。
 
 其余后端命中为注释或运维脚本：`vocab.controller.ts`（2，注释）、
 `student-word.service.ts`（1，注释）、`student-identity.guard.ts`（1，注释）、
@@ -69,8 +82,16 @@
 ```
 
 身份收口在 `apps/api/src/vocab/student-word.service.ts:26`
-`resolveStudent(rawName, studentId?)` —— **一个函数**，所有 `/vocab/*`
-都走它。这是好消息：加一条「令牌优先」的分支只需要改这一处。
+`resolveStudent(rawName, studentId?)` —— 所有 `/vocab/*` 都走它。
+
+**但只改这一个函数是不够的**（R0.1 修正）。姓名要贯穿
+**Guard → `req.studentAuth` → controller → 校验 schema → service → 测试**
+五层，任何一层漏了新端就还得发姓名。完整清单（19 + 2 + 3 个端点、
+9 个 zod schema、5 个 service、4 类测试）见
+[architecture §5](./student-web-architecture.md#5-token-only-身份--完整影响面)。
+
+参考实现已经存在：`apps/api/src/lesson/lesson.controller.ts:48-51`
+的 `auth?.id ?? studentId` 口径。
 
 **越权已被堵住**（不是安全问题，是耦合问题）：带 A 的令牌请求 B 的数据，
 `lesson/today`、`vocab/words`、`vocab/lesson-cards`、`vocab/mistakes`
@@ -151,7 +172,7 @@
 | `pages/__tests__/MyVocabResume.test.tsx:56` | 注册 `/my-history` 作为跳转目标 | 同上 |
 | `pages/__tests__/MyVocabDwellLock.test.tsx:59` | 同上 | 同上 |
 | `pages/__tests__/ScanLevelSkip.test.tsx` | 扫码定级流程 | 随 `/scan` 一起退役 |
-| `apps/api/src/lesson/next-action.spec.ts` | 断言 `href` 等于 `/my-history/submission/:id` 等旧地址 | **必须随后端路由契约同步改写** |
+| `apps/api/src/lesson/next-action.spec.ts` | 断言 `href` 等于 `/my-history/submission/:id` 等旧地址 | ~~必须改写~~ **不用改**（R0.1）—— 后端 `href` 原样保留给旧端，新端忽略它。等阶段 16e 删字段时一并删这些断言 |
 
 > 注意 `MyVocabReviewRouting.test.tsx:124` 有一条 **反向** 断言
 > （`expect(screen.queryByText('HISTORY PAGE')).toBeNull()`）—— 它已经在
@@ -190,20 +211,24 @@ next-action.ts（后端）
 | **R1** | 改 `README.md` / `CLAUDE.md` / PRD 头部的产品说明；给四份旧 PRD 标「已被 X 取代」 | 无（纯文档） |
 | **R2** | 新端立壳 + 令牌认证，不接任何旧页面 | R1 |
 | **R3** | `resolveStudent` 加令牌优先分支；`/vocab/*` 允许无 `name=` | R2 |
-| **R4** | 后端 `next-action.ts` 改为输出新路由（旧路由由适配层翻译） | R3 + 新端有对应页面 |
+| **R4** | ~~后端改输出新路由~~ **取消** —— 后端不改，新端自行映射 `kind` → 路由，旧 `href` 原样保留 | — |
 | **R5** | 阅读页、阅读结果页在新端重建 | R4 |
 | **R6** | 词卡 / 词测在新端重建，**课程学词与自由练习拆成两条路由**，`then=` 协议删除 | R5 |
 | **R7** | 历史成绩、生词本、错题本在新端重建（账号制，无姓名） | R6 |
 | **R8** | 旧 URL 单向适配：`/my-history`、`/my-history/submission/:id`、`/scan/:token`、旧 PWA `start_url` → 新端对应页；**适配器只出不进** | R7 |
 | **R9** | 停止回写 `mq:history:*`；PWA 改道改为读令牌 | R8 + 全班已迁移 |
 | **R10** | 关闭姓名读通道（`student-identity.guard.ts` 规则 3） | R9 + 观察期通过 |
-| **R11** | 删除 `/my-history*`、`/student/*`、`/practice/:id`、`/scan/*` 及其测试 | R10 + 稳定观察 |
+| **R11** | 删除 `/my-history*`、`/my-vocab*`、`/my-mistakes*`、`/my-lesson*`、`/me`、`/scan/*`、`/practice/:id` 及其测试。**`/student/homework*` 与 `/student/tutor` 不删**（[D1](./product-decisions.md#d1--homework--ai-tutor-暂留旧系统)） | R10 + 整班满 2 周 **且** ≥10 个真实教学日无 P1 |
 
 ---
 
 ## 6. 不动的东西
 
-- `teacher_view`（教师以学生视角查看）—— 与本次重建不冲突，保留。
+- `teacher_view`（教师以学生视角查看）—— 保留，且**新端要迁移**
+  （只读令牌 + 只读横幅 + 写操作拒绝），见
+  [architecture §8-8](./student-web-architecture.md#8-认证与生命周期流程新端必须覆盖)。
+- `/student/homework*`、`/student/tutor` 及其后端 —— [D1](./product-decisions.md#d1--homework--ai-tutor-暂留旧系统)：
+  暂留旧系统，新端不展示、不删除。
 - 教师后台全部路由与页面。
 - 数据库、迁移、`apps/api` 的业务规则（P1–P9.5 + RC1.1 已验证）。
 - `apps/miniprogram`、`apps/ops-dashboard`。

@@ -2,15 +2,19 @@
 
 > R0 · 2026-08-27 · 审计基线 commit `82b9cb0`（工作区干净，本地领先
 > `origin/main` 37 个提交，未 push）
+> **R0.1 修订** · 基线 `8303d1e` —— 按 D1/D2 调整分类与计数。
 > 全部结论有代码位置或实测证据。**未修改任何行为。**
+
+产品决定见 [product-decisions.md](./product-decisions.md)。
 
 分类口径：
 
 | 记号 | 含义 |
 |---|---|
-| **CANONICAL** | 新学生端正式保留 |
+| **CANONICAL** | **能力**在新学生端保留 —— 页面本身仍须按新契约重写，不是搬代码 |
 | **ADAPTER** | 只作旧链接兼容跳转 |
 | **LEGACY** | 过渡期保留，新流程禁止进入 |
+| **LEGACY_RETAINED** | 保留在旧系统，新端不展示，**且没有删除计划**（R0.1 新增，见 [D1](./product-decisions.md#d1--homework--ai-tutor-暂留旧系统)） |
 | **DELETE_LATER** | 稳定切换后删除 |
 | **TEACHER_ONLY** | 教师端专用 |
 
@@ -97,7 +101,7 @@ GET  /api/auth/me  (Bearer token)  →  200
 | 进入路径 | 手输、书签、`/scan/:token` 页的「/me」链接（`MorningQuizScan.tsx:439`） |
 | 出口 | `/my-lesson?name=&studentId=`（`Me.tsx:411,426`）· `/my-history?name=&studentId=`（`:461`）· `/my-vocab?name=`（`:462`）· `/my-mistakes?name=`（`:463`）· **`/my-history` 裸链**（`:353`）· `/my-history/submission/:id?qs`（`:176`） |
 | 新流程使用 | 是 —— 它是登录入口 |
-| 分类 | **CANONICAL**（但必须去掉 URL 身份、停止回写 `mq:history:*`） |
+| 分类 | **CANONICAL 能力**（登录 + 账号设置）—— 页面重写：去掉 URL 身份、停止回写 `mq:history:*`、注册触发条件重设 |
 
 ### `/my-lesson` —— 今天的课
 
@@ -111,7 +115,7 @@ GET  /api/auth/me  (Bearer token)  →  200
 | 出口 | `nextAction.href + ?qs`（五种，见事实二）· 页脚 `/my-history?qs`（`:423`）· 页脚 `/me`（`:426`）· 阅读段卡片 → `/my-history/submission/:id?qs` |
 | 空/错状态 | 无 `name` → 文案「请从个人主页进入」（`:178`）—— **令牌有效也照样报错** |
 | 新流程使用 | 是 —— 主入口 |
-| 分类 | **CANONICAL**（身份必须重做） |
+| 分类 | **CANONICAL 能力** —— 页面重写：身份改令牌、`kind` → 路由映射在新端 |
 
 ### `/my-lesson/summary` —— 今日总结
 
@@ -124,7 +128,7 @@ GET  /api/auth/me  (Bearer token)  →  200
 | 进入路径 | nextAction `summary` |
 | 出口 | `/my-lesson?qs`（`:110`） |
 | 新流程使用 | 是 |
-| 分类 | **CANONICAL** |
+| 分类 | **CANONICAL 能力** —— 页面重写（工作量最小的一个） |
 
 ### `/my-history` —— 我的记录（姓名查询）
 
@@ -244,7 +248,7 @@ GET  /api/auth/me  (Bearer token)  →  200
 | 进入路径 | 该外壳的英文导航；**以及 PIN 学生刷新后任何未白名单 URL 的兜底**（`App.tsx:312`） |
 | 出口 | 各自页面；`*` → `/student` |
 | 新流程使用 | 否 —— 但**会被误落进去** |
-| 分类 | **LEGACY** → **DELETE_LATER**（作业/家教等能力如仍需要，另行归属） |
+| 分类 | **LEGACY_RETAINED**（[D1](./product-decisions.md#d1--homework--ai-tutor-暂留旧系统)：作业与 AI 家教暂留旧系统，新端不展示、不删除）。唯一要修的是那条 `*` 兜底：新端有自己的 404 语义，不再落到 `/student` |
 
 ### `/practice` · `/practice/:practiceSubmissionId`
 
@@ -255,8 +259,8 @@ GET  /api/auth/me  (Bearer token)  →  200
 | 身份来源 | `?name=` |
 | 进入路径 | `/my-history` 的「🔄 重做」（`MyHistory.tsx:336`） |
 | 出口 | `/my-history`（`PracticeMode.tsx` 4 处） |
-| 新流程使用 | 否 |
-| 分类 | `/practice/:id` **LEGACY**；`/practice` **TEACHER_ONLY** |
+| 新流程使用 | 否（[D2](./product-decisions.md#d2--历史成绩第一版的范围)：重做暂不迁移，新端不提供入口） |
+| 分类 | `/practice/:id` **LEGACY**（过渡后自然无人访问，是否删留到阶段 16 再看）；`/practice` **TEACHER_ONLY** |
 
 ### PWA `start_url`
 
@@ -311,13 +315,22 @@ GET  /api/auth/me  (Bearer token)  →  200
 
 | 分类 | 条数 | 明细 |
 |---|---|---|
-| **CANONICAL**（保留） | 3 | `/me`、`/my-lesson`、`/my-lesson/summary` |
-| **CANONICAL 能力 / LEGACY 载体**（须重建） | 6 | 阅读页、阅读结果、生词本、词卡、词测、错题本（含练习） |
-| **LEGACY**（过渡保留，新流程禁入） | 10 | `/my-history`、`/my-history/submission/:id`、`/student` × 7、`/practice/:id` |
+| **CANONICAL 能力**（须在新端重建） | 9 | `/me`（登录+账号）、`/my-lesson`、`/my-lesson/summary`、阅读页、阅读结果、生词本、词卡、词测、错题本（含练习） |
+| **LEGACY**（过渡保留，新流程禁入） | 3 | `/my-history`、`/my-history/submission/:id`、`/practice/:id` |
+| **LEGACY_RETAINED**（保留且不删） | 7 | `/student` × 7（作业、AI 家教等） |
 | **ADAPTER** | 3 | `/scan/:token`、`/scan?token=` 改写、PWA 改道 |
-| **DELETE_LATER** | 11 | 上面 LEGACY 的 10 条 + `/scan/:token` |
+| **DELETE_LATER** | 11 | `/me`、`/my-lesson*`、`/my-history*`、`/my-vocab*`、`/my-mistakes*`、`/scan/*`、`/practice/:id` 的旧载体 |
 | **TEACHER_ONLY** | 40+ | 教师后台全部 + `/display*`、`/qr-print`、`/quick-attendance`、`/practice`、`/login` |
 
-（`DELETE_LATER` 与 `LEGACY` 是同一批路由的两个阶段，不重复计入总数。）
+**R0.1 的两处调整**：
+
+- R0 原稿把三个页面记为「CANONICAL 直接保留」。**改了** —— 它们的
+  身份来源、返回语义、路由假设都建立在旧契约上，**同样要重写**，
+  只有业务判据可以参考。所有现有学生页一律是**待移植能力**。
+- `/student/*` 从 `LEGACY → DELETE_LATER` 改为 **LEGACY_RETAINED**
+  （[D1](./product-decisions.md#d1--homework--ai-tutor-暂留旧系统)）。
+
+（`DELETE_LATER` 是 CANONICAL 旧载体与 LEGACY 在阶段 16 的去向，
+不与上面重复计数。）
 
 **学生端代码体量**：13 个页面文件 **7840 行**。
