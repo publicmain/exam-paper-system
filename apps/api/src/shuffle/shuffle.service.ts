@@ -151,4 +151,21 @@ export class ShuffleService {
     if (displayedIndex < 0 || displayedIndex >= order.length) return null;
     return order[displayedIndex];
   }
+
+  /**
+   * 正向：原始 index → 学生**这次看到的位置**。
+   *
+   * 恢复未交卷的答案要用它。库里存的是原始 key（保存时反查过一次，判分
+   * 才对得上答案），而学生屏幕上的选项被打乱且重新标了 A/B/C/D —— 直接
+   * 把原始 key 发回前端，高亮的会是另一个选项（P8.5 实测：学生点了
+   * 「the school」，恢复后亮的是「the harbour」）。
+   *
+   * 返回 null 表示这题没打乱（非 MCQ 或没有 map 行），照原样用即可。
+   */
+  mapOptionIndex(map: ShuffleMap, paperQuestionId: string, originalIndex: number): number | null {
+    const order = map.optionOrders[paperQuestionId];
+    if (!order) return null;
+    const displayed = order.indexOf(originalIndex);
+    return displayed < 0 ? null : displayed;
+  }
 }

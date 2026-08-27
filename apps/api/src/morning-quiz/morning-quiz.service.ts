@@ -19,6 +19,7 @@ import { PrismaService } from '../common/prisma.service';
 import { closeNames } from '../common/name-suggest';
 import { canActOnClass } from '../common/roles';
 import { pickOnExhaustion } from './bank-exhaustion';
+import { seqWhereClause, displayKeyOf } from './answer-seq';
 import { ShuffleService } from '../shuffle/shuffle.service';
 import { secondWindowAppliesTo } from './second-window';
 import { levelBucket, levelPushesWordlist } from './level-registry';
@@ -1838,7 +1839,10 @@ export class MorningQuizService {
     // has not autosaved anything yet (or if the submission has already
     // been locked / submitted — in which case existingAnswers is empty
     // and the take-paper UI starts blank, matching pre-F1 behaviour).
-    const existingAnswers: Record<string, { content: any; flagged: boolean }> = {};
+    const existingAnswers: Record<
+      string,
+      { content: any; selectedOption: string | null; textAnswer: string | null; clientSeq: number | null; flagged: boolean }
+    > = {};
     const inProgressSub = await this.prisma.studentSubmission.findFirst({
       where: {
         assignmentId: session.paperAssignment.id,
@@ -1854,17 +1858,48 @@ export class MorningQuizService {
           paperQuestionId: true,
           selectedOption: true,
           textAnswer: true,
+          clientSeq: true,
         },
       });
+      // P8.5 —— MCQ 要把**原始 key 翻回学生这次看到的字母**。
+      //
+      // 库里存的是原始 key（保存时反查过一次，判分才对得上答案卷），
+      // 而屏幕上的选项被打乱并重新标了 A/B/C/D。直接把原始 key 发回去，
+      // 恢复后高亮的是另一个选项 —— 实测：学生点了「the school」，
+      // 刷新回来亮的是「the harbour」。等于系统悄悄改了他的答案。
+      const shuffleMap =
+        isPassagePick || scripts.length === 0
+          ? null
+          : await this.shuffle.getOrCreate(studentId, paperId);
+      const toDisplayKey = (pqId: string, originalKey: string): string => {
+        if (!shuffleMap) return originalKey;
+        const src = paperQuestions.find((q) => q.id === pqId);
+        if (!src || src.question.questionType !== 'mcq') return originalKey;
+        const opts = (src.snapshotOptions as Array<{ key: string }> | null) ?? [];
+        // 翻不动就原样返回（没打乱这一题、或 key 不在选项里）——
+        // 宁可保持库里的值，也不猜一个位置。
+        return (
+          displayKeyOf(
+            shuffleMap.optionOrders[pqId],
+            opts.map((o) => o?.key),
+            originalKey,
+          ) ?? originalKey
+        );
+      };
       for (const s of scripts) {
-        // `content` is either the MCQ key the student picked or the
-        // free-text body. `flagged` is reserved for a future "I'll come
-        // back to this one" toggle — wired through here so the API
-        // shape lands intact even before the column exists.
-        const content =
-          s.selectedOption != null ? s.selectedOption : s.textAnswer;
+        const selectedOption =
+          s.selectedOption != null ? toDisplayKey(s.paperQuestionId, s.selectedOption) : null;
         existingAnswers[s.paperQuestionId] = {
-          content,
+          // `content` 是老字段，保留给还没更新的客户端。新客户端读下面
+          // 两个分开的字段 —— 同时有选项和文字的题（passage-pick 的
+          // 双写）在单字段形态里必定丢一半。
+          content: selectedOption != null ? selectedOption : s.textAnswer,
+          selectedOption,
+          textAnswer: s.textAnswer,
+          clientSeq: s.clientSeq,
+          // `flagged` is reserved for a future "I'll come back to this
+          // one" toggle — wired through here so the API shape lands
+          // intact even before the column exists.
           flagged: false,
         };
       }
@@ -2020,9 +2055,25 @@ export class MorningQuizService {
    * Save an answer, reverse-mapping any displayed-key for shuffled MCQs back
    * to the original key before delegating to the standard AnswerScript upsert.
    */
+  /**
+   * 保存一道题的答案（未交卷的草稿）。
+   *
+   * **写入是条件性的**：只有当请求带的 `clientSeq` 比库里那行更大时才落库。
+   * 在这之前它是无条件 upsert，于是乱序到达的旧请求会盖掉新答案 ——
+   * P8.5 实测「旧 → 新 → 延迟到达的旧」，库里留下的是旧答案。重试、
+   * 弱网、双击、debounce 撞车都会走到这一步。
+   *
+   * 被拒的写不是错误：返回 `{ applied: false, superseded: true }`，
+   * 前端据此既不报「保存失败」，也不把它当成「我这次写生效了」。
+   */
   async saveAnswer(
     sessionId: string,
-    body: { paperQuestionId: string; selectedOption?: string | null; textAnswer?: string | null },
+    body: {
+      paperQuestionId: string;
+      selectedOption?: string | null;
+      textAnswer?: string | null;
+      clientSeq?: number;
+    },
     studentId: string,
   ) {
     const session = await this.prisma.morningQuizSession.findUnique({
@@ -2078,34 +2129,98 @@ export class MorningQuizService {
       }
     }
 
-    return this.prisma.answerScript.upsert({
-      where: {
-        submissionId_paperQuestionId: {
-          submissionId: submission.id,
-          paperQuestionId: pq.id,
-        },
-      },
-      create: {
-        submissionId: submission.id,
-        paperQuestionId: pq.id,
-        selectedOption,
-        textAnswer: body.textAnswer ?? null,
-      },
-      update: {
-        selectedOption,
-        textAnswer: body.textAnswer ?? null,
+    const seq = body.clientSeq;
+    const answerData = {
+      selectedOption,
+      textAnswer: body.textAnswer ?? null,
+      clientSeq: seq ?? null,
         // 答案一改，这一题此前的判分就作废 —— 第二作答窗（2026-08-20）
         // 让学生下午能回来改早上写的答案，如果老师上午已经判过、或者
         // 09:00 的自动判分已经写过分，不清掉的话评语和分数会留在一份
         // 已经不存在的答案上：学生看到「你写的 X」配着针对旧答案 Y 的
         // 评语。清空后 finalSubmit / 17:30 收尾会整题重判。
-        awardedMarks: null,
-        autoCorrect: null,
-        markerComment: null,
-        markedById: null,
-        markedAt: null,
+      // 答案一改，这一题此前的判分就作废 —— 第二作答窗（2026-08-20）
+      // 让学生下午能回来改早上写的答案，如果老师上午已经判过、或者
+      // 09:00 的自动判分已经写过分，不清掉的话评语和分数会留在一份
+      // 已经不存在的答案上：学生看到「你写的 X」配着针对旧答案 Y 的
+      // 评语。清空后 finalSubmit / 17:30 收尾会整题重判。
+      awardedMarks: null,
+      autoCorrect: null,
+      markerComment: null,
+      markedById: null,
+      markedAt: null,
+    };
+
+    if (seq == null) {
+      // 不带序号的调用（老客户端、内部调用）—— 保持原来的无条件写入，
+      // 不因为一次升级把还没刷新页面的学生挡在外面。
+      const row = await this.prisma.answerScript.upsert({
+        where: {
+          submissionId_paperQuestionId: { submissionId: submission.id, paperQuestionId: pq.id },
+        },
+        create: { submissionId: submission.id, paperQuestionId: pq.id, ...answerData },
+        update: answerData,
+      });
+      return { applied: true, clientSeq: row.clientSeq, updatedAt: row.updatedAt };
+    }
+
+    // 条件写：库里没有序号（历史行 / 老客户端写的）也放行，否则只接受更大的。
+    const updated = await this.prisma.answerScript.updateMany({
+      where: {
+        submissionId: submission.id,
+        paperQuestionId: pq.id,
+        ...seqWhereClause(seq),
       },
+      data: answerData,
     });
+
+    if (updated.count === 0) {
+      // 要么这题还没有行（下面补建），要么来的是**过期请求**。
+      const existing = await this.prisma.answerScript.findUnique({
+        where: {
+          submissionId_paperQuestionId: { submissionId: submission.id, paperQuestionId: pq.id },
+        },
+        select: { clientSeq: true, updatedAt: true },
+      });
+      if (existing) {
+        return {
+          applied: false,
+          superseded: true,
+          clientSeq: existing.clientSeq,
+          updatedAt: existing.updatedAt,
+        };
+      }
+      try {
+        const row = await this.prisma.answerScript.create({
+          data: { submissionId: submission.id, paperQuestionId: pq.id, ...answerData },
+        });
+        return { applied: true, clientSeq: row.clientSeq, updatedAt: row.updatedAt };
+      } catch {
+        // 并发下另一个请求刚建好这一行 —— 用同样的条件再写一次，
+        // 谁的序号大谁赢。两个请求都不会凭空创建第二行（唯一约束）。
+        const retry = await this.prisma.answerScript.updateMany({
+          where: {
+            submissionId: submission.id,
+            paperQuestionId: pq.id,
+            ...seqWhereClause(seq),
+          },
+          data: answerData,
+        });
+        const now = await this.prisma.answerScript.findUnique({
+          where: {
+            submissionId_paperQuestionId: { submissionId: submission.id, paperQuestionId: pq.id },
+          },
+          select: { clientSeq: true, updatedAt: true },
+        });
+        return {
+          applied: retry.count > 0,
+          superseded: retry.count === 0,
+          clientSeq: now?.clientSeq ?? null,
+          updatedAt: now?.updatedAt ?? null,
+        };
+      }
+    }
+    return { applied: true, clientSeq: seq };
   }
 
   /** R10 — was an upsert that REPLACED the class's single bound level

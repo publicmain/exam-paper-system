@@ -1389,4 +1389,110 @@ F 重复进入不新建、L 只读、I 纯复习日 5 条。
 
 ---
 
+## P8.5 ✅ 未提交阅读答卷的服务端草稿保存与跨设备恢复
+
+**日期**：2026-08-27　**范围**：只动阅读答卷的草稿保存与恢复。
+不碰单词学习、正式单词测试、成绩展示、扫码入口规则。
+
+### 一、追踪：已经有的 vs 缺的
+
+**已经有的**（不需要重做）：
+
+| 项 | 现状 |
+|---|---|
+| 题目级保存 API | `PATCH /morning-quiz/sessions/:id/answer` → `AnswerScript`，`@@unique(submissionId, paperQuestionId)` |
+| 前端三种题型的 state | 都走 `ExamContext.setAnswer(qid, {selectedOption, textAnswer})`，600ms debounce |
+| localStorage | `mq:answers:{sessionId}:{submissionId}` / `mq:flags:…` / `mq:tab-owner:…`，按学生分桶 |
+| 服务端答案随卷子返回 | `existingAnswers`，且合并时**优先于**本地缓存 |
+| 交卷 | `POST …/submit { final }` **不传答案** —— 服务端读 `AnswerScript`（目标 6 本来就成立） |
+| 已提交锁 | `submission.status !== 'in_progress'` → 400 `submission_locked` |
+| 双击交卷 | `submitInflightRef` 同步守卫 + 服务端拒第二次 |
+| 多标签保护 | 次要标签不 autosave，页面明写「这里的输入不会被保存」并给「切回此标签」 |
+
+**缺的**（本轮做的）：
+
+| # | 缺口 | 实测证据 |
+|---|---|---|
+| 1 | 无版本号，**旧请求会覆盖新答案** | 发送「旧 → 新 → 延迟到达的旧」，库里留下的是**旧答案** |
+| 2 | **选择题恢复后高亮的是另一个选项** | 学生点「the school」，刷新回来亮的是「the harbour」—— 等于系统悄悄改了他的答案 |
+| 3 | `existingAnswers` 只回单字段 `content` | 同时有选项和文字的题（passage-pick 的双写）恢复时必丢一半 |
+| 4 | 只在本地、没传上去的草稿**永远不会补传** | 页面显示「4/4 已答」而服务端只有 3 题 —— 交卷时那题是空的 |
+| 5 | 保存失败横幅打印原始 JSON | 学生看到 `{"code":"no_submission"}` |
+
+### 二、做法
+
+**题目级幂等保存**（`submissionId + paperQuestionId + answer + clientSeq`）：
+
+- 迁移 `20260829000000_answer_client_seq`：`AnswerScript.clientSeq Int?`
+- 服务端**条件写入**：`updateMany WHERE clientSeq IS NULL OR clientSeq < :seq`。
+  被拒不是错误 —— 返回 `{ applied:false, superseded:true }`，前端既不报
+  「保存失败」也不当成「我这次写生效了」
+- 序号**在 setAnswer 那一刻分配**，不是发请求时。重试沿用同一个序号 ——
+  换个更大的号重试，等于让这次重试有资格盖掉学生在重试期间写下的新答案
+- 换设备：序号从服务端返回的 `clientSeq` **接着往上数**，新设备的第一次
+  写入不会因为「从 1 开始」被当成过期请求
+- 不带序号的调用（老客户端、内部调用）照常无条件写 —— 升级期间不把还没
+  刷新页面的学生挡在外面
+
+**恢复**：`existingAnswers` 改回 `{selectedOption, textAnswer, clientSeq}`
+三个字段（`content` 保留给老客户端）；MCQ 的原始 key 用
+`shuffle.mapOptionIndex` **翻回学生这次看到的字母**。库里仍存原始 key ——
+判分路径一个字没动。
+
+**本地草稿补传**：打开卷子时按序号合并本地与服务端（`draftMerge.ts`），
+本地更新的那些题加载后自动补传。两个方向都会出事，所以只能按序号判断：
+服务端无条件优先会丢掉还没传上去的输入，本地无条件优先会让旧设备的答案
+盖掉新设备刚写的。序号相同时信服务端（同一次写，服务端那份确定存下来了）。
+
+判据抽成了两个纯函数模块，测试测的是**生产代码本身**，不是在测试里另抄
+一份判断：`apps/api/src/morning-quiz/answer-seq.ts`、
+`apps/web/src/components/exam/draftMerge.ts`。
+
+### 三、验收结果
+
+**服务端（隔离库 `p85_db`、真实 HTTP）：16 通过 / 0 失败**
+
+**反向对照**：把条件写改回无条件 upsert 后，**7 条必红**（D / E-1 / E-2 /
+D′ / A-3 / 交卷后两条）——这些测试有鉴别力。
+
+**单元**：`answer-seq.spec.ts` 13 条、`draft-merge.test.ts` 8 条、
+`ExamProvider.test.tsx` 新增 2 条（序号递增、从服务端序号接着数）。
+
+**真实浏览器**（Vite :5285 → 隔离 API :4385）：
+
+| 验收 | 结果 |
+|---|---|
+| A 做到 2/4 后刷新 | 两题都在，且高亮的是学生点的那个选项 |
+| B 清空 localStorage + sessionStorage 后重新登录 | 本地缓存为空，三题（选择×2 + 文字）全部从服务端恢复 |
+| C 换设备 | 新上下文看到全部答案；在新设备改成 `the mill` → 回原设备刷新看到 `the mill`（服务端盖过本地缓存），**双向都对** |
+| D 连续快改 | 120ms 间隔连打 8 次，库里是「连打第 8 次」 |
+| E 旧请求延迟返回 | 不覆盖；服务端明确回 `superseded` |
+| F 保存失败 | 横幅「⚠️ 这一题还没存上：连不上服务器。你的答案还在这个页面上…」，保存状态停在**保存中**，页面**从未**出现「已保存」；恢复网络后自动补传、横幅消失 |
+| G 已提交后修改 | 400 `submission_locked`，历史答卷一字未动 |
+| H 双击交卷 | 只有一份最终结果（一个 `finalSubmittedAt`） |
+| I 分数与历史 | MCQ 自动判分照常（存的仍是原始 key），结果页「我的答案」标在学生实际点的选项上 |
+| 补传 | 造出「本地有、服务端没有」的一题，重新打开后自动补传落库 |
+
+**全量**：api **831 tests / 76 files**、web **236 tests / 36 files** 全过，
+双端 `tsc --noEmit` 无错，`nest build` + `vite build` 均成功。
+**Git diff 只含 P8.5。**
+
+### 四、尚未验证 / 已知限制
+
+- **两台设备同时作答同一题**不在本轮范围：序号是**按设备**递增的，两边
+  各自从服务端读到的同一个起点往上数，谁后到谁赢。真正要解决得用
+  服务端序号或向量时钟。日常场景（学生换设备接着做）已经正确
+- 补传只在**打开卷子时**做一次。作答途中彻底离线又直接关掉页面，
+  那次输入要等下次打开才补
+- 未跑：iOS / iPad 真机；第二作答窗（16:00–17:30 重开答卷）下的草稿行为
+  沿用既有逻辑，本轮没有专门验证
+- `clientSeq` 迁移只加了一个可空列，**生产迁移未执行**
+
+**未 push、未部署、未执行生产迁移、未写生产数据。**
+
+**清理**：隔离库 `p85_db`、API/Vite 进程、`dist-*` 与
+`tsconfig.tsbuildinfo` 已删。
+
+---
+
 ## P9 ⬜ / P10 ⬜

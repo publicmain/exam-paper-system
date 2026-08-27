@@ -66,7 +66,43 @@ describe('ExamProvider', () => {
     expect(JSON.parse(localStorage.getItem('mq:answers:s3')!).q1.selectedOption).toBe('A');
     // Debounce is 600ms; allow the timer to fire.
     await waitFor(() => expect(persist).toHaveBeenCalledOnce(), { timeout: 2000 });
-    expect(persist).toHaveBeenCalledWith('q1', { selectedOption: 'A', textAnswer: null });
+    // P8.5：每次写都带一个按题单调递增的序号，服务端据此拒绝乱序到达
+    // 的旧请求。第一次写是 1。
+    expect(persist).toHaveBeenCalledWith('q1', { selectedOption: 'A', textAnswer: null, clientSeq: 1 });
+  });
+
+  it('**每改一次答案序号就往上走一格**（P8.5：旧请求不许覆盖新答案）', async () => {
+    const persist = vi.fn().mockResolvedValue(undefined);
+    const user = userEvent.setup();
+    render(
+      <ExamProvider sessionId="s3b" mode="test" onPersistAnswer={persist}>
+        <Probe />
+      </ExamProvider>,
+    );
+    await user.click(screen.getByText('answer'));
+    await waitFor(() => expect(persist).toHaveBeenCalledTimes(1), { timeout: 2000 });
+    await user.click(screen.getByText('answer'));
+    await waitFor(() => expect(persist).toHaveBeenCalledTimes(2), { timeout: 2000 });
+    expect(persist.mock.calls[0][1].clientSeq).toBe(1);
+    expect(persist.mock.calls[1][1].clientSeq).toBe(2);
+  });
+
+  it('**序号从服务端已有的接着数**（换设备时第一次写不会被当成过期请求）', async () => {
+    const persist = vi.fn().mockResolvedValue(undefined);
+    const user = userEvent.setup();
+    render(
+      <ExamProvider
+        sessionId="s3c"
+        mode="test"
+        onPersistAnswer={persist}
+        initialSeqs={{ q1: 7 }}
+      >
+        <Probe />
+      </ExamProvider>,
+    );
+    await user.click(screen.getByText('answer'));
+    await waitFor(() => expect(persist).toHaveBeenCalledTimes(1), { timeout: 2000 });
+    expect(persist.mock.calls[0][1].clientSeq).toBe(8);
   });
 
   it('hydrates from localStorage on mount', () => {

@@ -336,8 +336,19 @@ export const api = {
     request('GET', `/morning-quiz/sessions/${sessionId}`),
   morningQuizSaveAnswer: (
     sessionId: string,
-    body: { paperQuestionId: string; selectedOption?: string | null; textAnswer?: string | null },
-  ) => request('PATCH', `/morning-quiz/sessions/${sessionId}/answer`, body),
+    body: {
+      paperQuestionId: string;
+      selectedOption?: string | null;
+      textAnswer?: string | null;
+      /** P8.5：按题单调递增。服务端只接受比库里更大的值，乱序到达的
+       *  旧请求会被拒（applied:false, superseded:true），不算失败。 */
+      clientSeq?: number;
+    },
+  ) => request('PATCH', `/morning-quiz/sessions/${sessionId}/answer`, body) as Promise<{
+    applied: boolean;
+    superseded?: boolean;
+    clientSeq: number | null;
+  }>,
   // final=false 是「暂存提交」：下午 16:00-17:30 还能回来改，在此之前
   // 看不到答案。省略 = 最终提交（公布答案、放弃续答）。
   morningQuizSubmit: (sessionId: string, opts?: { final?: boolean }) =>

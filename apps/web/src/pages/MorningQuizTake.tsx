@@ -58,7 +58,15 @@ interface SessionView {
   // payloads simply omit the field and we fall back to local cache only.
   existingAnswers?: Record<
     string,
-    { content?: string; selectedOption?: string; textAnswer?: string; flagged?: boolean }
+    {
+      content?: string;
+      selectedOption?: string | null;
+      textAnswer?: string | null;
+      flagged?: boolean;
+      /** P8.5：这题最后一次被接受的写入序号。前端从它接着往上数，
+       *  换设备后新设备的序号不会比服务端已有的小。 */
+      clientSeq?: number | null;
+    }
   >;
 }
 
@@ -149,9 +157,12 @@ export default function MorningQuizTake() {
   }, [submitted]);
 
   const persistAnswer = useCallback(
-    async (qid: string, body: { selectedOption?: string | null; textAnswer?: string | null }) => {
-      if (!sessionId) return;
-      await api.morningQuizSaveAnswer(sessionId, { paperQuestionId: qid, ...body });
+    async (
+      qid: string,
+      body: { selectedOption?: string | null; textAnswer?: string | null; clientSeq?: number },
+    ) => {
+      if (!sessionId) return { applied: true };
+      return api.morningQuizSaveAnswer(sessionId, { paperQuestionId: qid, ...body });
     },
     [sessionId],
   );
@@ -243,14 +254,17 @@ export default function MorningQuizTake() {
   // server might send `content` (legacy single-field) or already split
   // {selectedOption, textAnswer}; handle both.
   const initialAnswers: Record<string, { selectedOption?: string; textAnswer?: string }> = {};
+  /** P8.5：每题服务端已接受的最大序号 —— 本机的序号从这里往上数。 */
+  const initialSeqs: Record<string, number> = {};
   if (view.existingAnswers) {
     for (const [qid, raw] of Object.entries(view.existingAnswers)) {
       if (!raw) continue;
       const qMeta = view.paperQuestions.find((q) => q.id === qid);
-      if (raw.selectedOption || raw.textAnswer) {
+      if (typeof raw.clientSeq === 'number') initialSeqs[qid] = raw.clientSeq;
+      if (raw.selectedOption != null || raw.textAnswer != null) {
         initialAnswers[qid] = {
-          selectedOption: raw.selectedOption,
-          textAnswer: raw.textAnswer,
+          selectedOption: raw.selectedOption ?? undefined,
+          textAnswer: raw.textAnswer ?? undefined,
         };
       } else if (raw.content != null) {
         // Single-field `content` — route by questionType.
@@ -289,6 +303,7 @@ export default function MorningQuizTake() {
       mode={mode}
       onPersistAnswer={persistAnswer}
       initialAnswers={initialAnswers}
+      initialSeqs={initialSeqs}
     >
       <PaperHost view={view} mode={mode} submitted={submitted} onSubmit={handleSubmit} />
     </ExamProvider>
@@ -370,6 +385,29 @@ function isLockedError(saveError: string | null): boolean {
   return !!saveError && LOCKED_ERROR_RE.test(saveError);
 }
 
+/**
+ * P8.5 —— 把保存失败翻成学生看得懂的一句话。
+ *
+ * 在这之前横幅直接把服务端的错误体原样打出来，学生看到的是
+ * `{"code":"no_submission"}` —— 既不知道发生了什么，也不知道该不该
+ * 继续写。原始 code 仍然保留在括号里，出问题时老师截图给我看得出根因。
+ */
+function saveErrorText(raw: string | null): string {
+  if (!raw) return '';
+  const code = /"code"\s*:\s*"([a-z_]+)"/i.exec(raw)?.[1] ?? raw;
+  const known: Record<string, string> = {
+    no_submission: '这台设备还没扫码进这场早测。',
+    paper_question_mismatch: '这道题不属于今天这份卷子。',
+    quiz_window_closed: '今天的作答时段已经结束了。',
+    session_not_found: '找不到今天这场早测。',
+    Failed_to_fetch: '连不上服务器。',
+  };
+  const hit = known[code] ?? known[code.replace(/\s+/g, '_')];
+  if (hit) return hit;
+  if (/failed to fetch|networkerror|load failed/i.test(raw)) return '连不上服务器。';
+  return `保存没成功（${code}）。`;
+}
+
 /** R15-followup-9 — autosave error banner with submission_locked handling.
  *  R15-followup-11 — extended to cover session_ended et al.; banner now
  *  shows a 5-second countdown so students can read the explanation, and
@@ -393,8 +431,11 @@ function SaveState({ pending, answered }: { pending: boolean; answered: number }
     wasPending.current = pending;
   }, [pending]);
   if (answered === 0) return null;
-  if (pending) return <span className="text-[13px] text-gray-400 tabular-nums">保存中…</span>;
-  if (justSaved) return <span className="text-[13px] text-emerald-600">已保存</span>;
+  // P8.5：`pending` 包含「有答案还没被服务端确认」（dirty），保存失败时
+  // dirty 不会被清掉 —— 所以失败期间这里显示的是「保存中…」，绝不会
+  // 跳成「已保存」。这一条是「不得虚假显示已保存」的实现依据。
+  if (pending) return <span data-testid="save-state" data-state="pending" className="text-[13px] text-gray-400 tabular-nums">保存中…</span>;
+  if (justSaved) return <span data-testid="save-state" data-state="saved" className="text-[13px] text-emerald-600">已保存</span>;
   return null;
 }
 
@@ -442,10 +483,11 @@ function SaveErrorBanner({
   return (
     <div
       role="alert"
+      data-testid="save-error"
       className="bg-rose-50 border-b border-rose-200 text-rose-800 text-sm px-4 py-2 text-center"
     >
-      ⚠️ 保存失败 / Save failed: {saveError}.{' '}
-      {hasPendingSaves ? '系统将自动重试 / will retry on reconnect.' : ''}
+      ⚠️ 这一题还没存上：{saveErrorText(saveError)}
+      {hasPendingSaves ? ' 你的答案还在这个页面上，网络恢复后会自动重试 —— 先别关。' : ''}
     </div>
   );
 }

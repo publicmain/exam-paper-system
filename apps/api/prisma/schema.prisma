@@ -317,6 +317,10 @@ model AnswerScript {
   markedAt        DateTime?
   // Auto-grade verdict for MCQ; null for structured.
   autoCorrect     Boolean?
+  /// P8.5 —— 客户端按题单调递增的序号。服务端只接受比库里更大的值，
+  /// 于是乱序到达的旧请求（重试 / 弱网 / 双击 / debounce 撞车）不会
+  /// 覆盖更新的答案。空 = 历史行或不带序号的调用。
+  clientSeq       Int?
   updatedAt       DateTime              @updatedAt
   // Path-B back-relations
   codeResult      CodeSubmissionResult?

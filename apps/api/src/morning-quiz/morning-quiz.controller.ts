@@ -82,6 +82,8 @@ const SaveAnswerSchema = z.object({
   paperQuestionId: z.string(),
   selectedOption: z.string().max(2).nullable().optional(),
   textAnswer: z.string().max(20000).nullable().optional(),
+  /** P8.5：客户端按题单调递增的序号。服务端据此拒绝乱序到达的旧请求。 */
+  clientSeq: z.number().int().nonnegative().optional(),
 });
 
 const SetLevelSchema = z.object({

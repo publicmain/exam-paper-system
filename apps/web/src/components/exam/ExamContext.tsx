@@ -1,4 +1,5 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
+import { mergeDrafts } from './draftMerge';
 import type { ExamAnswer, ExamMode } from './types';
 import { BASE } from '../../lib/api';
 
@@ -84,9 +85,16 @@ interface ProviderProps {
    *  fire setAnswer on every keystroke without spamming the API. */
   onPersistAnswer: (
     qid: string,
-    ans: { selectedOption?: string | null; textAnswer?: string | null },
-  ) => Promise<void>;
+    ans: { selectedOption?: string | null; textAnswer?: string | null; clientSeq?: number },
+  ) => Promise<{ applied?: boolean; superseded?: boolean } | void>;
   initialAnswers?: Record<string, ExamAnswer>;
+  /**
+   * P8.5 —— 每题在服务端已被接受的最大写入序号。
+   *
+   * 本机的序号从这里往上数，于是换设备继续作答时，新设备的第一次写入
+   * 不会因为「序号从 1 开始」而被服务端当成过期请求丢掉。
+   */
+  initialSeqs?: Record<string, number>;
   /** R15-followup-12 — used to scope the localStorage answer/flag caches
    *  per student so a shared device (e.g. school iPad two students take
    *  turns on) doesn't show student A's draft to student B when B scans
@@ -109,6 +117,15 @@ const FLAGS_KEY = (sid: string, submissionId?: string | null) =>
 // into the next student's take page.
 const LEGACY_ANSWERS_KEY = (sid: string) => `mq:answers:${sid}`;
 const LEGACY_FLAGS_KEY = (sid: string) => `mq:flags:${sid}`;
+/**
+ * P8.5 —— 本地缓存里每题的写入序号。
+ *
+ * 光有答案缓存不够：合并本地与服务端时要判断**谁更新**。没有序号只能
+ * 二选一 —— 服务端优先会丢掉还没传上去的输入（弱网、次要标签、页面被
+ * 关掉），本地优先会用旧设备的答案盖掉新设备刚写的。
+ */
+const SEQS_KEY = (sid: string, submissionId?: string | null) =>
+  submissionId ? `mq:seqs:${sid}:${submissionId}` : `mq:seqs:${sid}`;
 const FONT_KEY = 'mq:fontScale';
 const SAVE_DEBOUNCE_MS = 600;
 
@@ -117,6 +134,7 @@ export function ExamProvider({
   mode,
   onPersistAnswer,
   initialAnswers,
+  initialSeqs,
   submissionId,
   children,
 }: ProviderProps) {
@@ -151,13 +169,31 @@ export function ExamProvider({
   // Hydrate from localStorage so a refresh mid-quiz doesn't erase work.
   // Server-side answers (initialAnswers) win when there's a conflict —
   // they survived even without local cache (e.g. switched device).
+  /**
+   * P8.5 —— 本地比服务端更新的那些题，加载后要**补传**。
+   *
+   * 出现的场景：弱网时写的答案还在重试队列里、学生直接关了页面、
+   * 或者这个标签当时是次要标签（不 autosave，只写本地）。不补传的话，
+   * 页面显示「已答」而服务端一无所知 —— 交卷时那一题是空的。
+   */
+  const resendRef = useRef<string[]>([]);
   const [answers, setAnswers] = useState<Record<string, ExamAnswer>>(() => {
     let cached: Record<string, ExamAnswer> = {};
+    let cachedSeqs: Record<string, number> = {};
     try {
       const raw = localStorage.getItem(ANSWERS_KEY(sessionId, submissionId));
       if (raw) cached = JSON.parse(raw);
+      const rawSeqs = localStorage.getItem(SEQS_KEY(sessionId, submissionId));
+      if (rawSeqs) cachedSeqs = JSON.parse(rawSeqs);
     } catch { /* ignore */ }
-    return { ...cached, ...(initialAnswers ?? {}) };
+    const { answers: merged, resend } = mergeDrafts(
+      cached,
+      cachedSeqs,
+      initialAnswers ?? {},
+      initialSeqs ?? {},
+    );
+    resendRef.current = resend;
+    return merged;
   });
 
   const [savingId, setSavingId] = useState<string | null>(null);
@@ -315,6 +351,20 @@ export function ExamProvider({
   // a reconnect, since the closure-captured `ans` in the timer may be
   // stale by the time we actually fire (especially on submit-flush).
   const latestAnswerRef = useRef<Record<string, ExamAnswer>>({});
+  /**
+   * P8.5 —— 每题的写入序号，**在 setAnswer 那一刻就定下来**，不是发请求
+   * 时才取。
+   *
+   * 这是「旧请求不覆盖新答案」的关键：一次 setAnswer 对应一个序号，
+   * 之后无论这个请求什么时候真正发出去、重试几次，它带的都是当时那个
+   * 序号。服务端只接受比库里更大的，所以晚到的旧请求会被原样拒掉。
+   */
+  const seqRef = useRef<Record<string, number>>({ ...(initialSeqs ?? {}) });
+  /** 补传时读它 —— 不把 answers 挂进 effect 依赖，免得每次输入都重跑。 */
+  const answersRef = useRef<Record<string, ExamAnswer>>({});
+  answersRef.current = answers;
+  /** 已经发出去、还没确认的那次写入用的序号 —— 重试要沿用同一个。 */
+  const pendingSeqRef = useRef<Record<string, number>>({});
 
   // Track online / offline. The toolbar surfaces this so a student
   // doesn't lose confidence when WiFi flickers — local cache still has
@@ -398,11 +448,20 @@ export function ExamProvider({
   const persistOne = useCallback(
     async (qid: string, ans: ExamAnswer) => {
       setSavingId(qid);
+      // 重试沿用同一个序号 —— 换个更大的序号重试，等于让这次重试有资格
+      // 盖掉学生在重试期间写下的新答案。
+      const seq = pendingSeqRef.current[qid] ?? seqRef.current[qid] ?? 0;
+      pendingSeqRef.current[qid] = seq;
       try {
-        await onPersistAnswer(qid, {
+        const res = await onPersistAnswer(qid, {
           selectedOption: ans.selectedOption ?? null,
           textAnswer: ans.textAnswer ?? null,
+          clientSeq: seq,
         });
+        // superseded = 服务端已经有更新的答案（这次是迟到的旧请求）。
+        // 不是失败，也不该让它把「有更新未保存」的状态留在那里。
+        delete pendingSeqRef.current[qid];
+        void (res as { superseded?: boolean } | void);
         dirtyRef.current.delete(qid);
         setSaveError(null);
       } catch (e: any) {
@@ -428,6 +487,15 @@ export function ExamProvider({
       return next;
     });
     latestAnswerRef.current[qid] = ans;
+    // 每改一次答案就占一个更大的号。在这里分配（而不是发请求时）才能
+    // 保证「学生先写的那次」永远拿到更小的号。
+    seqRef.current[qid] = (seqRef.current[qid] ?? 0) + 1;
+    delete pendingSeqRef.current[qid];
+    // 序号跟着答案一起进本地缓存 —— 下次打开才判断得出「本地这份比
+    // 服务端新，得补传」。
+    try {
+      localStorage.setItem(SEQS_KEY(sessionId, submissionId), JSON.stringify(seqRef.current));
+    } catch { /* quota — ignore */ }
     // R15-followup-11 — secondary tabs must NOT autosave: a second tab
     // sitting on the same session with no answers typed yet would
     // otherwise clobber the primary tab's progress with empty payloads.
@@ -473,6 +541,25 @@ export function ExamProvider({
 
   const flushPendingSavesRef = useRef<typeof flushPendingSaves | null>(null);
   flushPendingSavesRef.current = flushPendingSaves;
+
+  // P8.5 —— 把「本地比服务端新」的那些题补传上去。只跑一次；次要标签
+  // 不补传（它连自己的输入都不该往服务端写）。
+  const resentRef = useRef(false);
+  useEffect(() => {
+    if (resentRef.current) return;
+    const todo = resendRef.current;
+    if (todo.length === 0) return;
+    if (isSecondaryTab) return;
+    resentRef.current = true;
+    resendRef.current = [];
+    for (const qid of todo) {
+      const ans = answersRef.current[qid];
+      if (!ans) continue;
+      latestAnswerRef.current[qid] = ans;
+      dirtyRef.current.add(qid);
+      persistOne(qid, ans).catch(() => { /* dirty 留着，reconnect 会重试 */ });
+    }
+  }, [isSecondaryTab, persistOne]);
 
   // Cleanup: clearTimeout every still-pending timer when the provider
   // unmounts so a stale fire doesn't run after navigation.
