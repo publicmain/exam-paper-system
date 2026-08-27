@@ -358,6 +358,84 @@ export class VocabReviewService {
   }
 
   /**
+   * RC1.1 —— **按当前任务的固定队列发卡**（课程内词汇学习专用）。
+   *
+   * `due()` 是自由练习的口径：实时到期 + 配额 + 新旧配比，每次调用都可能
+   * 不一样。课程内不能用它 —— 人工测试实测到三种后果：
+   *
+   *   · 教完第 1 张刷新，回到的是**另一张**（发卡顺序与任务队列不同）
+   *   · 教过的词 `firstTaughtAt` 一写，它在 due 队列里的身份就变了，
+   *     教学卡变成挖空复习卡
+   *   · 复习掉一张，due 队列少一个，分母从 3 缩成 2
+   *
+   * 队列一旦冻结（`DailyLessonCompletion.vocabWords`）就是这一天的事实：
+   * 顺序、张数、每张是不是首次教学，全部由它和 `firstTaughtAt` 决定，
+   * 与此刻的 FSRS 调度无关。
+   *
+   * 返回 `null` 表示这个学生今天没有冻结队列（还没开始今天的课，或者是
+   * `vocabWords = NULL` 的旧任务）—— 调用方退回自由练习口径。
+   */
+  async lessonCards(input: { studentName: string; studentId?: string }) {
+    const student = await this.words.resolveStudent(input.studentName, input.studentId);
+    const tzOff = Number(process.env.MORNING_QUIZ_TZ_OFFSET_MIN ?? 8 * 60);
+    const now = new Date();
+    const day = new Date(
+      new Date(now.getTime() + tzOff * 60_000).toISOString().slice(0, 10) + 'T00:00:00.000Z',
+    );
+    const dlc = await this.prisma.dailyLessonCompletion.findUnique({
+      where: { studentId_date: { studentId: student.id, date: day } },
+      select: { vocabWords: true, vocabCursor: true },
+    });
+    const queue = Array.isArray(dlc?.vocabWords) ? (dlc!.vocabWords as string[]) : null;
+    if (!queue || queue.length === 0) return null;
+
+    const rows = await this.prisma.studentWord.findMany({
+      where: { studentId: student.id, headword: { in: queue } },
+    });
+    const byHead = new Map(rows.map((r) => [r.headword, r]));
+    const entries = await this.prisma.dictEntry.findMany({
+      where: { word: { in: queue } },
+    });
+    const byWord = new Map(entries.map((e) => [e.word, e]));
+
+    // **队列顺序就是发卡顺序** —— 不排序、不过滤。队列里有而生词本里
+    // 没有的词（被移除过）跳过，但绝不改动其余的顺序。
+    const cards = queue
+      .map((headword) => {
+        const w = byHead.get(headword);
+        if (!w) return null;
+        const e = byWord.get(headword);
+        return {
+          headword: w.headword,
+          surfaceForm: w.surfaceForm,
+          contextSentence: w.contextSentence,
+          sourcePassageTitle: w.sourcePassageTitle,
+          phonetic: e?.phonetic ?? null,
+          translation: e?.translation ?? '',
+          pos: e?.pos ?? null,
+          definition: e?.definition ?? null,
+          tag: e?.tag ?? [],
+          state: w.state,
+          reps: w.reps,
+          needsFirstTeaching: needsFirstTeaching(w),
+          firstTaughtAt: w.firstTaughtAt ? w.firstTaughtAt.toISOString() : null,
+          sourceType: w.sourceType,
+          addedAt: w.createdAt.toISOString(),
+        };
+      })
+      .filter((x): x is NonNullable<typeof x> => x != null);
+
+    return {
+      student: { id: student.id, name: student.name },
+      lessonContext: true as const,
+      // 断点：服务端说了算。前端不再自己猜"第几张"。
+      cursor: Math.max(0, Math.min(dlc!.vocabCursor ?? 0, cards.length)),
+      totalDue: cards.length,
+      cards,
+    };
+  }
+
+  /**
    * 提交一次复习评分 → FSRS 重新调度 → 落库 + 写流水。
    *
    * 幂等性说明：同一个词短时间内重复提交会被视作两次真实复习（FSRS 会据此

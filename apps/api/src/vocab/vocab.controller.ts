@@ -131,6 +131,26 @@ export class VocabController {
     });
   }
 
+  /**
+   * RC1.1 —— 课程内词汇学习的卡片（**固定队列**）。
+   *
+   * 与 `/due` 的区别：这里按当天任务冻结的 `vocabWords` 发卡，顺序、
+   * 张数、断点都由任务决定，刷新和换设备拿到的完全一样。
+   *
+   * 今天还没有冻结队列时返回 `{ lessonContext: false }`，调用方退回
+   * 自由练习。
+   */
+  @Public()
+  @RateLimit({ limit: 180, windowSec: 60, scope: 'ip' })
+  @Get('lesson-cards')
+  async lessonCards(@Query('name') name?: string, @Query('studentId') studentId?: string) {
+    const r = await this.review.lessonCards({
+      studentName: name ?? '',
+      studentId: studentId || undefined,
+    });
+    return r ?? { lessonContext: false as const, cards: [], cursor: 0, totalDue: 0 };
+  }
+
   /** 提交一次复习评分 → FSRS 重新调度。 */
   @Public()
   @RateLimit({ limit: 480, windowSec: 60, scope: 'ip' })

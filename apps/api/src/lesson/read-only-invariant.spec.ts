@@ -34,7 +34,7 @@ const dlcRow = (over: Record<string, unknown> = {}) => ({
   ...over,
 });
 
-function makeSvc(opts: { dlc?: any } = {}) {
+function makeSvc(opts: { dlc?: any; noContent?: boolean } = {}) {
   const calls: Array<{ model: string; op: string; args: any }> = [];
   const rec = (model: string, op: string, impl: Function) => (args: any) => {
     calls.push({ model, op, args });
@@ -52,12 +52,11 @@ function makeSvc(opts: { dlc?: any } = {}) {
       updateMany: rec('dlc', 'updateMany', async () => ({ count: 1 })),
     },
     studentWord: {
-      count: rec('studentWord', 'count', async () => 0),
-      findMany: rec('studentWord', 'findMany', async () => [
-        { headword: 'a' },
-        { headword: 'b' },
-        { headword: 'c' },
-      ]),
+      // RC1.1：到期词数决定「今天有没有内容」。默认有（与下面 findMany
+      // 的三个词一致）；noContent 时为 0，用来测无内容日。
+      count: rec('studentWord', 'count', async () => (opts.noContent ? 0 : 3)),
+      findMany: rec('studentWord', 'findMany', async () =>
+        opts.noContent ? [] : [{ headword: 'a' }, { headword: 'b' }, { headword: 'c' }]),
     },
     wordReviewLog: { count: rec('wordReviewLog', 'count', async () => 0) },
     vocabQuizAttempt: { findFirst: rec('attempt', 'findFirst', async () => null) },
@@ -172,11 +171,21 @@ describe('startOrResumeToday() —— 明确的学生命令才写', () => {
     expect(w[0].args.data.vocabWords).toEqual(['a', 'b', 'c']);
   });
 
-  it('没有任务行 → 创建，并用当前到期队列初始化', async () => {
+  it('没有任务行 + 今天有内容 → 创建，并用当前到期队列初始化', async () => {
+    // 有到期词就算「今天有任务」（RC1.1：无内容日不再建任务行）
     const { svc, prisma } = makeSvc({ dlc: null });
     await svc.startOrResumeToday({ studentName: '小明', studentId: 'stu1' });
     const created = prisma.__calls.find((c: any) => c.model === 'dlc' && c.op === 'create');
     expect(created).toBeTruthy();
     expect(created.args.data.vocabWords).toEqual(['a', 'b', 'c']);
+  });
+
+  it('**今天什么都没有 → 不创建任务行**（RC1.1）', async () => {
+    // 人工测试实测：无内容账号进课程页会看到「🎉 今天的课完成了 · 连续
+    // 1 天」，库里留下一条 stage=done —— 一个没有内容的日子被算成了学习日。
+    const { svc, prisma } = makeSvc({ dlc: null, noContent: true });
+    await svc.startOrResumeToday({ studentName: '小明', studentId: 'stu1' });
+    const created = prisma.__calls.find((c: any) => c.model === 'dlc' && c.op === 'create');
+    expect(created).toBeUndefined();
   });
 });

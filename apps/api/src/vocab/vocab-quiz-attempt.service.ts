@@ -78,9 +78,15 @@ export class VocabQuizAttemptService {
         translation: it.translation ?? null,
         contextSentence: it.contextSentence ?? null,
         // 作答前**不下发正确答案** —— 下发了等于把答案放进 devtools。
-        // 提交后才连答案一起给，用于结果页逐题回看。
-        correctIndex: submitted ? (it.correctIndex ?? null) : null,
-        answer: submitted ? (it.answer ?? null) : null,
+        //
+        // RC1.1：**这一题已经作答之后**也给。人工测试实测：学生选对了
+        // 却全被标成 ✗ —— 前端拿 correctIndex 判即时对错，而作答前它是
+        // null，于是没有一个选项能"等于正确答案"。
+        //
+        // 已答的题下发答案不构成作弊：这一题的作答是一次性的（服务端
+        // 幂等挡住改答案），学生已经交出了他的选择。未作答的题照旧扣着。
+        correctIndex: submitted || it.isCorrect != null ? (it.correctIndex ?? null) : null,
+        answer: submitted || it.isCorrect != null ? (it.answer ?? null) : null,
         studentIndex: it.studentIndex ?? null,
         studentAnswer: it.studentAnswer ?? null,
         isCorrect: it.isCorrect ?? null,
@@ -355,9 +361,31 @@ export class VocabQuizAttemptService {
 
     // 条件更新：只有仍是 in_progress 的那一次会成功。并发提交里
     // 后到的匹配 0 行，回读同一份成绩 —— 不可能产生第二份。
-    const done = await this.prisma.vocabQuizAttempt.updateMany({
-      where: { id: a.id, status: 'in_progress' },
-      data: { status: 'submitted', submittedAt: new Date(), total, correct, score },
+    //
+    // RC1.1 —— **提交与阶段推进在同一个事务里**。
+    //
+    // 人工测试实测：attempt 已经 submitted、成绩 4/4，而
+    // DailyLessonCompletion.stage 还停在 vocab_test。展示层（总结页现算
+    // 阶段）说"完成了"，持久化层说"没完成" —— cron、统计、恢复和之后
+    // 的身份收敛读到的是两个事实。
+    //
+    // 不能靠总结页那个 GET 去补写：读取路径必须保持只读（P7 的教训）。
+    // 提交是**这一步真的完成了**的唯一时刻，推进就该发生在这里。
+    const done = await this.prisma.$transaction(async (tx) => {
+      const upd = await tx.vocabQuizAttempt.updateMany({
+        where: { id: a.id, status: 'in_progress' },
+        data: { status: 'submitted', submittedAt: new Date(), total, correct, score },
+      });
+      if (upd.count > 0 && a.dailyLessonCompletionId) {
+        // 单调推进：只从 vocab_test 往前走。已经是 done 的不动（重复提交
+        // 幂等），还没走到 vocab_test 的也不越级（那说明前面的步骤没完成，
+        // 这次提交本就不该发生 —— 阶段门会先拦下）。
+        await tx.dailyLessonCompletion.updateMany({
+          where: { id: a.dailyLessonCompletionId, stage: 'vocab_test' },
+          data: { stage: 'done', stageAt: new Date() },
+        });
+      }
+      return upd;
     });
     const fresh = await this.prisma.vocabQuizAttempt.findUnique({ where: { id: a.id } });
     if (done.count === 0) {

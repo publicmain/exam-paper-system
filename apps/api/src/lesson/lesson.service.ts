@@ -153,10 +153,21 @@ export class LessonService {
     });
     const studentLevel = levelRow?.englishLevel ?? null;
 
+    // RC1.1：词段要按**已冻结的队列**算，所以先把任务行读出来。
+    // （下面还会再读一次 frozen —— 那一次在可能的写入之后，拿到的是
+    // 最新值；这一次只用来决定词段的口径。）
+    const frozenForVocab = await this.prisma.dailyLessonCompletion.findUnique({
+      where: { studentId_date: { studentId: student.id, date: day } },
+      select: { vocabWords: true },
+    });
+    const frozenQueue = Array.isArray(frozenForVocab?.vocabWords)
+      ? (frozenForVocab!.vocabWords as string[])
+      : null;
+
     // ── 三段的现况 ──
     let [readNow, vocabNow, drillNow] = await Promise.all([
       this.readState(student.id, day, studentLevel),
-      this.vocabState(student.id, now),
+      this.vocabState(student.id, now, frozenQueue),
       this.drillState(student.id, now),
     ]);
 
@@ -193,7 +204,21 @@ export class LessonService {
       where: { studentId_date: { studentId: student.id, date: day } },
     });
 
-    if (!frozen && input.freeze) {
+    //
+    // RC1.1 —— **今天什么都没有就不要建任务行**。
+    //
+    // 人工测试实测：测试七号（今天没排课、没到期词）主页正确显示
+    // 「今天的课程还没有发布」，进课程页却看到「🎉 今天的课完成了 ·
+    // 连续 1 天」，库里还留下一条 stage=done。
+    //
+    // 根因：三段目标全是 0 → deriveStage 认为三段都 settled → done；
+    // 而连续天数数的正是「三个 target 要么为 0 要么已完成」的行 ——
+    // 一个没有内容的日子被算成了学习日。
+    //
+    // 没有内容就没有任务。等真的排了课再建。
+    const hasAnyTaskToday =
+      readNow.hasSession || vocabNow.target > 0 || drillNow.target > 0;
+    if (!frozen && input.freeze && hasAnyTaskToday) {
       frozen = await this.prisma.dailyLessonCompletion.create({
         data: {
           studentId: student.id,
@@ -305,7 +330,11 @@ export class LessonService {
     }
     const vocabCursor = clampCursor(frozen?.vocabCursor, vocabNow.target);
 
-    const prog = lessonProgress(segments);
+    const progRaw = lessonProgress(segments);
+    // 无内容日：三段目标都是 0，isSegmentComplete 会把它们全算成"完成"。
+    // 那是"没有东西要做"的副产物，不是学生做完了 —— 不能显示 3/3，
+    // 更不能让它进连续天数。
+    const prog = hasAnyTaskToday ? progRaw : { completed: 0, total: progRaw.total };
     // P8 —— **服务端决定唯一的下一步**。前端只负责显示它，不再让学生
     // 在三张并排的卡片里自己判断该点哪个。
     const nextAction = nextActionOf({
@@ -593,17 +622,48 @@ export class LessonService {
   }
 
   // ── ② 背 ──
-  private async vocabState(studentId: string, now: Date) {
-    const dueCount = await this.prisma.studentWord.count({
+  private async vocabState(studentId: string, now: Date, frozenQueue?: string[] | null) {
+    const dayStart = this.sgtMidnight(now);
+    //
+    // RC1.1 —— **正式词段的目标与进度只认当前任务队列**。
+    //
+    // 人工测试实测：测试五号还没开始阅读，直接去自由练习做了一张卡，
+    // 主页的「背 · 今日词汇」就从 0/4 变成 1/3 —— 目标数被自由练习
+    // 改小了，随后冻结出来的正式考试范围也只剩 3 个词。
+    //
+    // 两处根因都在这里：
+    //   · target 用的是**此刻**到期的词数 —— 复习过一张，那张的 due 被
+    //     FSRS 推远，分母就少一个
+    //   · progress 数的是这个学生今天**所有**的复习流水 —— 不管那张卡
+    //     属不属于今天的任务、是不是在课程里做的
+    //
+    // 现在：任务已经冻结 → 一切以 vocabWords 为准；还没冻结 → 分母算
+    // 「今天到期过的」（把今天已经复习掉的加回来，所以复习不会让它缩水），
+    // 进度为 0（还没开始今天的课，谈不上正式进度）。
+    const queue = Array.isArray(frozenQueue) ? frozenQueue : null;
+
+    // 今天到期过的：此刻仍到期的 + 今天已经复习过的（后者的 due 已被推远）
+    const dueNowCount = await this.prisma.studentWord.count({
       where: { studentId, due: { lte: now } },
     });
-    const backlog = dueCount;
-    const target = vocabTarget(dueCount + 0, reviewBatchSize(backlog));
-    // 「今天复习了几次」比的是时间戳 → 用真正的 SGT 零点，不是日期标签
-    const dayStart = this.sgtMidnight(now);
-    const progress = await this.prisma.wordReviewLog.count({
-      where: { studentWord: { studentId }, reviewedAt: { gte: dayStart } },
+    const reviewedTodayWords = await this.prisma.studentWord.count({
+      where: {
+        studentId,
+        due: { gt: now },
+        reviews: { some: { reviewedAt: { gte: dayStart } } },
+      },
     });
+    const dueCount = dueNowCount + reviewedTodayWords;
+    const backlog = dueCount;
+    const target = queue ? queue.length : vocabTarget(dueCount + 0, reviewBatchSize(backlog));
+    const progress = queue
+      ? await this.prisma.wordReviewLog.count({
+          where: {
+            studentWord: { studentId, headword: { in: queue } },
+            reviewedAt: { gte: dayStart },
+          },
+        })
+      : 0;
     // P6 —— 今天的正式单词测试交了没有。
     //
     // 这一条是必须的，不是锦上添花：正式测试**不写 WordReviewLog**
@@ -628,8 +688,12 @@ export class LessonService {
     // first-teaching.ts）。原来的 reps=0 有个致命循环：首次教学不再写
     // 评分之后 reps 永远是 0，unlearned 永远不降，stage 会卡在
     // vocab_learn 出不去 —— 学生天天被教同一批词。
+    // 同上：任务冻结之后，「还有没教过的词吗」只问队列里的那几个。
+    // 不然自由练习加进来的新词会把已经走到「该考」的学生拉回「该教」。
     const unlearned = await this.prisma.studentWord.count({
-      where: { studentId, due: { lte: now }, firstTaughtAt: null, reps: 0 },
+      where: queue
+        ? { studentId, headword: { in: queue }, firstTaughtAt: null, reps: 0 }
+        : { studentId, due: { lte: now }, firstTaughtAt: null, reps: 0 },
     });
     // 当前到期队列 —— **只读**，这里绝不落库。
     //
@@ -640,8 +704,23 @@ export class LessonService {
     //
     // 现在它只**算出**想要的队列，写不写、什么时候写由 today() 的
     // reconcile 决定，而 reconcile 只在明确的学生动作（freeze:true）里跑。
+    //
+    // RC1.1 —— 队列口径与 target 保持一致：**今天到期过的**，而不是
+    // 「此刻仍到期的」。
+    //
+    // 差别在自由练习上：学生在开始今天的课之前先去自由练习做掉一张，
+    // 那个词的 due 就被 FSRS 推到明天 —— 等他真的开始上课、冻结队列的
+    // 那一刻，这个词已经不在「此刻到期」里了。人工测试实测：正式考试
+    // 范围因此从 4 个词缩成 3 个。自由练习改变了正式考试范围。
     const dueQueue = await this.prisma.studentWord.findMany({
-      where: { studentId, due: { lte: now } },
+      where: {
+        studentId,
+        OR: [
+          { due: { lte: now } },
+          // 今天已经复习过的：due 被推远了，但它今天确实到期过
+          { reviews: { some: { reviewedAt: { gte: dayStart } } } },
+        ],
+      },
       orderBy: [{ due: 'asc' }, { createdAt: 'asc' }],
       take: 60,
       select: { headword: true },

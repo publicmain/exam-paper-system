@@ -36,6 +36,11 @@ function makeSvc(opts: {
 
   const prisma: any = {
     __calls: calls,
+    // RC1.1：submit 把「写成绩」和「推进 DLC 阶段」放进同一个事务 ——
+    // 两件事必须一起成立，不能出现「成绩已落库、阶段还停在 vocab_test」。
+    // 这个假实现直接把回调跑在同一个 prisma 上：调用序列照旧被记录，
+    // 只读不变量那几条断言仍然管用。
+    $transaction: async (fn: any) => fn(prisma),
     vocabQuizAttempt: {
       findUnique: track('attempt', 'findUnique', async () => stored),
       findFirst: track('attempt', 'findFirst', async () => stored),
