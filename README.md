@@ -26,15 +26,21 @@ This repository holds **two product surfaces** that share one API and one databa
 
 Keep these apart. Conflating them is how this repo drifted in the first place.
 
-### PRODUCTION — what the repo can actually prove
+### PRODUCTION — UNVERIFIED
 
-- `origin/main` is at **`b72212e`** (`docs: P1 完成登记`).
-- The local `main` branch is **42 commits ahead of it**. Everything from P7 through
-  P8, P8.5, P9, P9.5, RC1 and RC1.1 sits in those unpushed commits.
-- RC1.1 has only ever been pushed to the **`staging-manual-test`** branch.
-- Therefore: **do not claim RC1.1 is deployed, released, or in daily student use.**
-  Which commit production actually runs requires deployment-side evidence that this
-  repository does not contain; this file makes no claim about it.
+- **The reconstruction-era commits (P7 → P8 → P8.5 → P9 → P9.5 → RC1 → RC1.1) are
+  not on `origin/main`.** They exist only on the local branch; RC1.1 has only ever
+  been pushed to the `staging-manual-test` branch.
+- **Production release state is UNKNOWN to this repository.** Determining which
+  commit production runs requires deployment-side evidence (the deploy platform's
+  own record) that the repository does not contain. This file makes no claim
+  either way — it is neither "released" nor "not released" here, it is
+  **unverified**.
+- Therefore: **do not claim RC1.1 is deployed, released, or in daily student use**,
+  and do not claim the opposite either. Check the deployment platform.
+- For a dated snapshot of the exact branch state, see
+  [`docs/reconstruction/deployment-spike-preflight.md`](docs/reconstruction/deployment-spike-preflight.md)
+  and the Stage 1 record in the migration plan.
 - **Historical note:** earlier morning-quiz capabilities did exist and did serve real
   classes, and the 3.0 / 4.0 business rules were implemented incrementally over
   time. That history is real — but it does **not** prove that the complete RC1.1
