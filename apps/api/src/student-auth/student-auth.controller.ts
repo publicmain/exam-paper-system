@@ -92,7 +92,18 @@ export class StudentAuthController {
     }
   }
 
-  /** 网站式注册（2026-08-26）：打开 app 弹卡 → 首次设密码即注册即登录。 */
+  /**
+   * 网站式注册（2026-08-26）：**以姓名为先，公开端点** —— 首次设密码
+   * 即注册即登录。
+   *
+   * **不需要扫码令牌，也不需要任何学生令牌**（`@Public()`）：调用方给
+   * 姓名 + 密码即可，同名时返回 `needDisambiguation` + `candidates`，
+   * 由调用方选一个 `studentId` 再来一次。
+   *
+   * 旧端把它包在「本机已知姓名 + 服务端说未注册 → 弹全屏卡」这个触发
+   * 条件里（`lib/registration.ts`），但**那是旧端的触发方式，不是这个
+   * 端点的要求** —— 新端从登录页的「还没注册？」直接进来即可。
+   */
   @Public()
   @RateLimit({ limit: 10, windowSec: 60, scope: 'ip' })
   @Post('register')

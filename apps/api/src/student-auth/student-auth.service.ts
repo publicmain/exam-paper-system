@@ -18,12 +18,27 @@ import {
   validatePinFormat,
   validatePasswordFormat,
 } from './pin';
+import { studentAppRoutingFromEnv } from './student-app-routing';
+
 /**
  * 学生 PIN 认证（2026-08-25，docs/PRD/student-auth-and-home.md）。
  *
- * 信任根：**首次设置 PIN 必须持有学生 token**（扫码签发或既有登录）——
- * 「能在教室扫到码并选中自己的名字」就是这个体系的身份证明，与
- * scanToken 同源。之后凭「姓名 + PIN」在任何设备换取 30 天 token。
+ * ## 信任根（2026-08-26 起 —— 下面这段是现状，别照旧文档理解）
+ *
+ * 早期的信任根是「首次设置 PIN 必须持有学生 token（扫码签发）」。
+ * **那已经不是现在的行为了。** `student-registration.md` 定案后改成了
+ * **网站式、以姓名为先的公开注册**：
+ *
+ *   · `POST /student-auth/register` 是 `@Public()` 的 —— **不需要扫码
+ *     令牌，也不需要任何学生令牌**。给姓名 + 密码即注册即登录；同名时
+ *     返回 `needDisambiguation` + `candidates`，调用方选一个 studentId
+ *     再来一次。
+ *   · 身份证据换成了「先到先得 + 教师重置兜底」（重置瞬间该生所有登录
+ *     失效，见 `studentAuthVersion`）。
+ *   · `POST /student-auth/change-pin` **仍然要令牌** —— 改密码是持有者
+ *     才能做的事，与注册不是一回事。
+ *
+ * 之后凭「姓名 + 密码」在任何设备换取 30 天 token。
  *
  * 安全（PRD §8）：bcrypt、弱 PIN 黑名单、连错 5 次锁 15 分钟、
  * 失败响应统一 invalid_credentials（不泄露账号是否存在/是否设过 PIN）、
@@ -161,6 +176,11 @@ export class StudentAuthService {
         nickname: user.nickname ?? user.name,
         avatar: user.avatar ?? null,
       },
+      // 学生端版本路由（阶段 4A 新增，**只读、向后兼容**）。
+      // 旧端不读这两个字段，行为零变化；新端读了也只是知道自己该不该
+      // 接管。**本阶段两端都不据此跳转。** 判据见 student-app-routing.ts
+      // ——「学生 id 只有认证之后才知道」正是它必须由服务端算的原因。
+      ...studentAppRoutingFromEnv(user.id),
     };
   }
 
@@ -291,6 +311,8 @@ export class StudentAuthService {
     return {
       token,
       student: { id: user.id, name: user.name, nickname, avatar: avatar ?? null },
+      // 同 login —— 只读、向后兼容，本阶段不据此跳转
+      ...studentAppRoutingFromEnv(user.id),
     };
   }
 
@@ -535,6 +557,9 @@ export class StudentAuthService {
       avatar: user.avatar ?? null,
       pinSet: user.pinHash != null,
       englishLevel: user.englishLevel ?? null,
+      // 与 login/register 同一套只读字段 —— 刷新之后新端要能重新拿到
+      // 结论，不能只在登录那一刻给一次。
+      ...studentAppRoutingFromEnv(user.id),
     };
   }
 

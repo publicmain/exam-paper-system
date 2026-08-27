@@ -146,8 +146,8 @@ apps/
 **代价**：`href` 在过渡期是死字段（对新端而言）。这是刻意接受的 ——
 死字段比双向翻译层便宜得多，删除时机也明确。
 
-**好消息：后端不需要为此改任何代码。** `NextActionKind` 九个取值已经
-齐备（含 `read_result`），资源 ID 也已经在 `/lesson/today` 的
+**好消息：后端不需要为此改任何代码。** `NextActionKind` **十个**取值已经
+齐备（含 `read_result` 与 `none`），资源 ID 也已经在 `/lesson/today` 的
 `segments.read` 里返回（`lesson.service.ts:354-355`：`sessionId`、
 `submissionId`）。
 
@@ -447,7 +447,7 @@ if (!sid && !sname?.trim()) throw new BadRequestException({ code: 'student_requi
 
 **这不是可以边写边试的东西** —— 35 台真机上装着的旧 SW 是既成事实。
 
-### 7.3 部署 spike（阻断阶段）
+### 7.3 部署 spike　**✅ 已收口（2026-08-27）** —— 不再是阻断阶段
 
 在写任何页面代码之前，必须先做完并给出结论：
 
@@ -488,7 +488,7 @@ if (!sid && !sname?.trim()) throw new BadRequestException({ code: 'student_requi
 
 | # | 流程 | 现有实现 | 新端要求 |
 |---|---|---|---|
-| 1 | **首次注册**（设密码） | `POST /student-auth/register`、`GET registration-status`、`lib/registration.ts`、`components/RegistrationSheet.tsx`；触发条件是「本机已知姓名 + 服务端说未注册」，**不可跳过** | `/app/register`。**触发条件要重设** —— 新端不读 `mq:history:name`，改为登录页上「还没注册？」入口 |
+| 1 | **首次注册**（设密码） | `POST /student-auth/register` 是 **`@Public()` 的、以姓名为先的注册** —— **不需要扫码令牌，也不需要任何学生令牌**；成功即登录。旧端把它包在「本机已知姓名 + 服务端说未注册 → 弹卡」这个**触发条件**里（`lib/registration.ts`、`RegistrationSheet.tsx`），但那是旧端的触发方式，不是端点的要求 | `/app/register`。**触发条件要重设** —— 新端不读 `mq:history:name`，改为登录页上「还没注册？」入口 |
 | 2 | **同名消歧** | 登录/注册返回 `needDisambiguation` + `candidates[]`（`student-auth.service.ts:84,207,246`）；`Me.tsx:98` 渲染候选人 | 登录页与注册页都要处理。选中后**只在这一次请求里**带 `studentId`，之后一律用令牌 |
 | 3 | **登录** | `POST /student-auth/login`；错误码 `pin_locked`（含 `retryAfterSec`）、`invalid_credentials` | `/app/login`。错误文案不得出现「姓名或密码不对。还没注册？打开 App 时会引导注册」这类依赖旧触发条件的说法 |
 | 4 | **改密码** | `POST /student-auth/change-pin`；错误码 `pin_too_weak`、`password_too_weak`、`pin_locked` | `/app/account` |
@@ -560,7 +560,7 @@ then=   after=submit   name=   studentId=
 
 ### G9 —— 新端 kind → 路由映射必须完整
 
-断言 `NextActionKind` 的九个取值在新端映射表里**全部有目标**，
+断言 `NextActionKind` 的**十个**取值在新端映射表里**全部有目标**，
 少一个即红。防止后端将来新增 kind 时新端静默落空。
 
 ---

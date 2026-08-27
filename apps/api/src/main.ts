@@ -1,5 +1,6 @@
 import 'reflect-metadata';
 import { allDayConfigSummary, assertAllDayConfig } from './lesson/all-day';
+import { assertStudentAppRoutingConfig } from './student-auth/student-app-routing';
 import { NestFactory } from '@nestjs/core';
 import { ValidationPipe, Logger } from '@nestjs/common';
 import { AppModule } from './app.module';
@@ -76,6 +77,17 @@ async function bootstrap() {
     const allDayCfg = assertAllDayConfig();
     if (!allDayCfg.ok) {
       bootstrapLogger.error(`Refusing to start: ${allDayCfg.reason}`);
+      process.exit(1);
+    }
+
+    // 学生端版本路由的配置同样不许静默回退 —— 与上面那条同一个道理：
+    // `STUDENT_APP_V2=ture` 会被当成一个叫 ture 的学生，于是谁都没开，
+    // 而运维以为灰度已经打开了。另外，点了名却没配 origin 也要拦下来：
+    // 那些学生会拿到 appVersion=v2 却没有可去的地址。
+    try {
+      bootstrapLogger.log(assertStudentAppRoutingConfig(process.env));
+    } catch (e) {
+      bootstrapLogger.error(`Refusing to start: ${(e as Error).message}`);
       process.exit(1);
     }
 
@@ -193,6 +205,12 @@ async function bootstrap() {
   if (!allDayCheck.ok) {
     // 生产环境上面已经拒绝启动了；这里只可能是本地/测试环境。
     bootstrapLogger.warn(`MORNING_QUIZ_ALL_DAY 配置有问题（非生产环境放行）：${allDayCheck.reason}`);
+  }
+  // 学生端版本路由的最终生效值 —— 与全天开关同样，出问题时先确认它
+  try {
+    bootstrapLogger.log(assertStudentAppRoutingConfig(process.env));
+  } catch (e) {
+    bootstrapLogger.warn(`STUDENT_APP_V2 / STUDENT_APP_ORIGIN 配置有问题（非生产放行）：${(e as Error).message}`);
   }
   const allDay = allDayConfigSummary();
   bootstrapLogger.log(
