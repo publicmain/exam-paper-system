@@ -32,14 +32,18 @@ export class HealthController {
         process.env.SOURCE_COMMIT ??
         null,
       node: process.version,
-      // P9.5 —— 全天课程的**最终生效值**。
+      // P9.5 —— 全天课程的最终生效模式。
       //
-      // 只回显模式与班级 id，不回显任何密钥：这个端点是公开的
-      // （Railway 健康检查要打它）。班级 id 本身在二维码里就是明文。
+      // **这个端点是公开的**（Railway 健康检查要打它，@Public）。所以
+      // 只回显一个枚举：off / all / per-class / invalid。
+      //
+      // 原始环境值和班级 id 不出现在这里 —— 发布前审查提出的：原始值可能
+      // 被误配成别的东西（把整串环境变量粘错的事发生过），班级 id 则是
+      // 内部标识，凑齐了能用来枚举/构造深链接。要看完整值去看启动日志，
+      // 那是登录才能看到的地方。
       lessons: {
         allDay: allDayConfigSummary().mode,
-        allDayRaw: allDayConfigSummary().raw || null,
-        allDayClasses: allDayConfigSummary().classIds,
+        allDayClassCount: allDayConfigSummary().classIds.length,
         tzOffsetMin: Number(process.env.MORNING_QUIZ_TZ_OFFSET_MIN ?? 8 * 60),
       },
     };

@@ -1783,4 +1783,119 @@ api **862 tests / 78 files**、web **236 tests / 36 files** 全过，
 
 ---
 
+## RC ✅ Staging 发布候选：发布安全检查（P1–P9.5 功能冻结）
+
+**日期**：2026-08-27　**范围**：只做发布安全检查，**不加功能**。
+不进入 P10。
+
+### 一、非法配置在生产下拒绝启动
+
+原来 `MORNING_QUIZ_ALL_DAY=ture` 会被当成一个叫 `ture` 的班 —— 每个班
+都不开，日志里一切正常，运维以为全天已经打开了。**静默回退是这类开关
+最危险的失败方式**。
+
+- 按班灰度改为**显式前缀** `class:<id>[,<id>]`。不带前缀的班级列表和
+  拼错的布尔值长得一样，分不出来 —— 生产环境不再接受
+- `assertAllDayConfig()` 并入 `main.ts` 既有的生产守卫块（与
+  `JWT_SECRET` / `MOCK_AUTH` / `CORS_ORIGINS` 三道门同处），
+  在服务真正起来**之前**拒绝：`Refusing to start: MORNING_QUIZ_ALL_DAY …`
+- 非生产环境只告警，不挡本地开发与既有脚本
+- 就算有人忽略返回值，行为上也一律按「关」处理，不会误开
+
+**实测**：`NODE_ENV=production MORNING_QUIZ_ALL_DAY=ture` → 进程退出，
+日志给出合法写法；换成 `true` → 正常启动并打印
+`all-day lessons: all [MORNING_QUIZ_ALL_DAY=true]`。
+
+### 二、公开端点不再泄露配置细节
+
+`GET /api/health` 带 `@Public()`（Railway 健康检查要打它）。P9.5 加的
+`allDayRaw`（原始环境值）与 `allDayClasses`（班级 id）已移除，只留：
+
+```json
+{ "allDay": "all", "allDayClassCount": 0, "tzOffsetMin": 480 }
+```
+
+要看完整值去看启动日志 —— 那是登录才能看到的地方。
+`health.controller.spec.ts` 里有一条从另一头钉住的测试：
+把配置设成 `class:cls_secret_a,cls_secret_b`，断言响应体里
+**不含** `cls_secret_a` 和 `class:`。
+
+### 三、上线手册
+
+新增 `docs/runbook-all-day-lessons.md`，含：
+
+- **先设变量再重启**（cron 会在 09:00 锁掉当天场次，锁了就不会因为之后
+  打开开关而复活）
+- 部署时间窗口：傍晚 17:30 之后到次日 00:00 之前
+- 已 locked 场次的处理（**不要简单改回 active** —— 答卷可能已强制提交并
+  判分，改回去会让「已交卷」和「可继续作答」并存）
+- 启动日志与 `/api/health` 的验证方法，含「倒计时不是 00:00」这个关键
+  观察点
+- 回滚：改一个环境变量重启，不涉及数据库；已建数据全部保留
+- 小班试用观察清单（4 个每日检查项 + 扩大/回滚的判断标准）
+- **7 条关键 SQL** —— 全部在 staging 库真跑过（9/9 可执行）
+
+### 四、Staging 完整验证
+
+真实 staging 配置：`NODE_ENV=production`、`MORNING_QUIZ_ALL_DAY=true`、
+`JWT_SECRET` 非默认值、`CORS_ORIGINS` 显式、`MOCK_AUTH=false`；
+场次窗口 **08:30–09:00 生产口径未放宽**，验证跑在 **SGT 09:32–09:36**。
+
+**18 通过 / 0 失败**：
+
+| 项 | 结果 |
+|---|---|
+| 4 完整流程 | 登录 → 开始 → 阅读 4 题 → 交卷 → 学 4 个词 → 正式测试 → 总结（2/4 · 50 分），全程零考勤 |
+| 4-3 | **倒计时截止是当天 23:59**，不是 09:00 |
+| 5 三个时段 | 上午 10:30 / 下午 15:00 / 晚上 21:00 的窗口均可进入 |
+| 6 cron | 等真实 cron 跑一轮后，场次仍 `active`，未交卷的答卷**没有被强制收走** |
+| 7 跨日 | 昨天的卷子今天写不进去（`quiz_window_closed`），昨天的答案原样保留 |
+
+### 五、验证过程中修掉的两个脚本缺陷
+
+都不是产品缺陷，但值得记：
+
+- 种子里 `due = now() - interval '1 hour'` —— `now()` 在
+  `timestamp without time zone` 列里存的是会话时区墙钟（UTC+8），
+  Prisma 按 UTC 读回，词的到期时间变成 **8 小时后**，永远不到期。
+  改用 `timezone('UTC', now())`。这是本项目第三次踩同一个坑
+- `lesson/vocab-taught` 的路径与必填 `cursor` 参数写错，教学请求
+  400 但脚本没检查返回码 —— 表现为「教了 4 个词却仍停在 vocab_learn」。
+  已加返回码检查
+
+### 六、修改文件
+
+**新增**：`docs/runbook-all-day-lessons.md`、
+`apps/api/src/lesson/all-day-config-gate.spec.ts`（20 条）
+
+**改**：`all-day.ts`（显式前缀解析 + `assertAllDayConfig`）、
+`main.ts`（并入生产守卫块）、`health.controller.ts`（不回显原始值与
+班级 id）、`health.controller.spec.ts`（泄露检查）
+
+**没有功能改动** —— 学生看到的东西与 P9.5 完全一致。
+
+### 七、全量
+
+api **883 tests / 79 files**、web **236 tests / 36 files** 全过，
+双端 `tsc --noEmit` 无错，`nest build` + `vite build` 均成功。
+**Git diff 只含本轮发布安全检查。**
+
+### 八、尚未验证 / 上线前仍需人做的事
+
+- **手册的部署步骤没有在真实 Railway 上走过** —— 环境变量面板的操作、
+  重启时长、健康检查的行为都需要实际执行时确认
+- 灰度写法 `class:<真实 classId>` 未在真实班级 id 上验证（staging 用的是
+  `c1` 这种短 id）
+- 回滚路径只做了逻辑验证（关掉开关 → 行为回到 P9.5 之前），**没有在
+  有学生正在作答时演练过**
+- 贴墙二维码物料、教师看板/排课页仍是 08:30/09:00 口径
+- iOS / iPad 真机未验
+
+**未 push、未部署生产、未执行生产迁移、未写生产数据。**
+
+**清理**：隔离库 `stg_db`、API 进程、`dist-*` 与
+`tsconfig.tsbuildinfo` 已删。
+
+---
+
 ## P10 ⬜

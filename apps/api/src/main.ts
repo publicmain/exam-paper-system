@@ -1,5 +1,5 @@
 import 'reflect-metadata';
-import { allDayConfigSummary } from './lesson/all-day';
+import { allDayConfigSummary, assertAllDayConfig } from './lesson/all-day';
 import { NestFactory } from '@nestjs/core';
 import { ValidationPipe, Logger } from '@nestjs/common';
 import { AppModule } from './app.module';
@@ -67,6 +67,18 @@ async function bootstrap() {
       );
       process.exit(1);
     }
+    // 全天课程开关的值必须能被识别。
+    //
+    // 静默回退是这类开关最危险的失败方式：服务照常起来、日志一切正常、
+    // 学生进不去，而没有任何人知道是一个拼写错误造成的 ——
+    // `MORNING_QUIZ_ALL_DAY=ture` 会被当成一个叫 ture 的班，于是每个班
+    // 都不开，而运维以为全天已经打开了。与上面几道门同样处理：宁可起不来。
+    const allDayCfg = assertAllDayConfig();
+    if (!allDayCfg.ok) {
+      bootstrapLogger.error(`Refusing to start: ${allDayCfg.reason}`);
+      process.exit(1);
+    }
+
     const audit: Array<{ name: string; value: string | undefined }> = [
       { name: 'MORNING_QUIZ_DEBUG', value: process.env.MORNING_QUIZ_DEBUG },
       { name: 'ALLOW_PROD_SEED', value: process.env.ALLOW_PROD_SEED },
@@ -177,6 +189,11 @@ async function bootstrap() {
   // P9.5 —— 把全天配置的**最终生效值**打在启动日志里。
   // 这个开关决定学生 09:00 之后还能不能上课；出问题时第一件要确认的事
   // 就是「它到底开没开」，翻环境变量不如让服务自己说一句。
+  const allDayCheck = assertAllDayConfig();
+  if (!allDayCheck.ok) {
+    // 生产环境上面已经拒绝启动了；这里只可能是本地/测试环境。
+    bootstrapLogger.warn(`MORNING_QUIZ_ALL_DAY 配置有问题（非生产环境放行）：${allDayCheck.reason}`);
+  }
   const allDay = allDayConfigSummary();
   bootstrapLogger.log(
     `all-day lessons: ${allDay.mode}` +

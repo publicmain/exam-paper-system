@@ -18,19 +18,74 @@
 
 const RAW = () => (process.env.MORNING_QUIZ_ALL_DAY ?? '').trim();
 
+const TRUTHY = ['on', 'true', 'all', '1'];
+const FALSY = ['off', 'false', '0'];
+/**
+ * 按班灰度必须**显式前缀**。
+ *
+ * 发布前审查发现的坑：光看字符串分不清「拼错的布尔值」和「班级 id」。
+ * `MORNING_QUIZ_ALL_DAY=ture` 会被当成一个叫 ture 的班，于是每个班都
+ * 不开 —— 运维以为打开了全天，学生 09:01 照样进不去，而日志里一切正常。
+ *
+ * 加了前缀之后，非布尔又非 `class:` 的值一律是配置错误，生产环境直接
+ * 拒绝启动（见 assertAllDayConfig）。
+ */
+const CLASS_PREFIX = 'class:';
+
+/** 解析结果。`invalid` 表示这个值既不是布尔也不是合法的班级列表。 */
+function parseRaw(raw: string):
+  | { kind: 'off' }
+  | { kind: 'all' }
+  | { kind: 'classes'; ids: string[] }
+  | { kind: 'invalid' } {
+  if (!raw) return { kind: 'off' };
+  const lower = raw.toLowerCase();
+  if (TRUTHY.includes(lower)) return { kind: 'all' };
+  if (FALSY.includes(lower)) return { kind: 'off' };
+  if (lower.startsWith(CLASS_PREFIX)) {
+    const ids = raw.slice(CLASS_PREFIX.length).split(',').map((x) => x.trim()).filter(Boolean);
+    return ids.length > 0 ? { kind: 'classes', ids } : { kind: 'invalid' };
+  }
+  // 兼容期：不带前缀的逗号列表在**非生产**环境下仍按班级列表解析
+  // （既有的灰度脚本和测试用的是这种写法）。生产环境走 assertAllDayConfig
+  // 那条硬门，根本走不到这里。
+  if (process.env.NODE_ENV !== 'production') {
+    const ids = raw.split(',').map((x) => x.trim()).filter(Boolean);
+    if (ids.length > 0) return { kind: 'classes', ids };
+  }
+  return { kind: 'invalid' };
+}
+
+/**
+ * 启动时的硬门 —— **生产环境下非法值直接拒绝启动**。
+ *
+ * 静默回退是这类开关最危险的失败方式：服务照常起来、日志一切正常、
+ * 学生进不去，而没有任何人知道是一个拼写错误造成的。宁可起不来。
+ *
+ * 非生产环境只告警，不挡住本地开发。
+ */
+export function assertAllDayConfig(): { ok: true } | { ok: false; reason: string } {
+  const raw = RAW();
+  const parsed = parseRaw(raw);
+  if (parsed.kind !== 'invalid') return { ok: true };
+  return {
+    ok: false,
+    reason:
+      `MORNING_QUIZ_ALL_DAY 的值无法识别。` +
+      `合法写法：${[...TRUTHY, ...FALSY].join(' / ')}（全班开或关），` +
+      `或 "class:<classId>[,<classId>...]"（按班灰度）。` +
+      `不带 class: 前缀的班级列表在生产环境不再接受 —— 它和拼错的布尔值` +
+      `（例如 ture）长得一样，分不出来。`,
+  };
+}
+
 /** 这个班今天是不是全天开放。 */
 export function allDayEnabled(classId?: string | null): boolean {
-  const raw = RAW();
-  if (!raw) return false;
-  const lower = raw.toLowerCase();
-  if (lower === 'on' || lower === 'true' || lower === 'all' || lower === '1') return true;
-  if (lower === 'off' || lower === 'false' || lower === '0') return false;
+  const parsed = parseRaw(RAW());
+  if (parsed.kind === 'all') return true;
+  if (parsed.kind !== 'classes') return false; // off / invalid 一律按关
   if (!classId) return false;
-  return raw
-    .split(',')
-    .map((s) => s.trim())
-    .filter(Boolean)
-    .includes(classId);
+  return parsed.ids.includes(classId);
 }
 
 /**
@@ -55,8 +110,8 @@ export function withinAllDay(
 
 /** 有没有开（任何形式）—— cron 用它决定要不要跳过第二窗自动开窗。 */
 export function allDayConfigured(): boolean {
-  const raw = RAW().toLowerCase();
-  return raw !== '' && raw !== 'off' && raw !== 'false' && raw !== '0';
+  const parsed = parseRaw(RAW());
+  return parsed.kind === 'all' || parsed.kind === 'classes';
 }
 
 /**
@@ -68,23 +123,16 @@ export function allDayConfigured(): boolean {
  * 拼写错误会静默地退回旧行为。
  */
 export function allDayConfigSummary(): {
-  mode: 'off' | 'all' | 'per-class';
+  mode: 'off' | 'all' | 'per-class' | 'invalid';
   raw: string;
   classIds: string[];
 } {
   const raw = RAW();
-  const lower = raw.toLowerCase();
-  if (!raw || lower === 'off' || lower === 'false' || lower === '0') {
-    return { mode: 'off', raw, classIds: [] };
-  }
-  if (lower === 'on' || lower === 'true' || lower === 'all' || lower === '1') {
-    return { mode: 'all', raw, classIds: [] };
-  }
-  return {
-    mode: 'per-class',
-    raw,
-    classIds: raw.split(',').map((x) => x.trim()).filter(Boolean),
-  };
+  const parsed = parseRaw(raw);
+  if (parsed.kind === 'all') return { mode: 'all', raw, classIds: [] };
+  if (parsed.kind === 'classes') return { mode: 'per-class', raw, classIds: parsed.ids };
+  if (parsed.kind === 'invalid') return { mode: 'invalid', raw, classIds: [] };
+  return { mode: 'off', raw, classIds: [] };
 }
 
 /** 全天模式下的窗口时刻。**答题窗 = 一整天**。 */
