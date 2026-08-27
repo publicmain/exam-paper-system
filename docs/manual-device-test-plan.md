@@ -68,15 +68,25 @@ staging 库里这张表是**空的**（第 7 节的检查里会再确认一次�
 
 ### 按时间定位日志
 
-API 给每个请求打了关联 ID：
+API 给每个请求打了关联 ID，**已实测确认**：
 
-- 响应头 **`x-request-id`**（你自己带 `x-request-id` 进来它就沿用，
-  否则服务端生成一个 uuid）
-- 同一个 id 会出现在该请求的服务端日志行里
+- 响应头 **`x-request-id`** —— 你自己带一个进来它就沿用，否则服务端
+  生成一个 uuid（实测：带 `smoke-abc-123` 进去，返回的就是它）
 
-手机上不方便看响应头，所以第 5 节的问题记录格式里让你记**时间（精确到
-分钟）+ 账号**，我按时间在 `railway logs` 里捞。如果你用电脑的开发者
-工具，顺手把 `x-request-id` 抄下来最省事。
+**但要说清楚一件事**：这个 id 目前**只在响应头上**，服务端的日志行里
+**没有**它。日志行长这样：
+
+```
+[Nest] 85 - 08/27/2026, 4:58:57 AM  LOG [VocabQuizAttemptService]
+  vocab quiz submitted student=t3_noatt attempt=cmtb1yy83… 1/4 (25)
+```
+
+—— 有**时间戳**和**学号**，没有 request id。所以定位日志靠的是
+**时间 + 账号**，这也是第 5 节让你记这两样的原因。`x-request-id` 的用处
+是：你在电脑上从开发者工具抄下来后，我能确认是不是同一次请求。
+
+（要把 id 打进每一行日志需要加一个请求日志拦截器 —— 那是产品代码改动，
+本轮功能冻结，没做。)
 
 ---
 
@@ -285,7 +295,13 @@ railway ssh --service Postgres "psql \$DATABASE_URL -c 'SELECT u.name, d.\"vocab
 railway logs --service stg-api
 ```
 
-日志里每行都带请求的 `x-request-id`，用你记下的时间或 id 去 grep。
+按**时间**和**学号**去找，例如：
+
+```bash
+railway logs --service stg-api | grep "t1_normal"
+```
+
+（日志行不含 `x-request-id`，原因见第 1 节末尾。）
 
 ---
 
@@ -336,6 +352,10 @@ git branch -D staging-manual-test
 ---
 
 ## 9. 已知边界（不是 bug，测到了不用记）
+
+- **启动日志里有一条 `ContentBootstrap bootstrap failed (continuing)`** ——
+  API 镜像里没打包 `test-fixtures/cambridge-ielts-gt-14/…`，内容自举跳过了。
+  它自己会 continue，服务正常起来，跟这次要测的东西无关
 
 - **还没开始上课时完成度显示 `1/3`** —— 因为今天没有练习题，那一段算
   作已完成。修复前就是这样，RC1.1 没动它。要不要改是产品决定
