@@ -190,3 +190,58 @@ describe('G1 新端不得出现旧路由与旧身份键', () => {
     }
   });
 });
+
+// ─────────────────────────────────────────────────────────────
+// 部署包 —— 静态断言
+//
+// 本机的 Docker 守护进程不可用，跑不了容器级检查；真正的验证在 staging
+// 上做（部署后打真实 URL）。但那是一次性的人工动作，回归靠不住 ——
+// 所以把「部署配置必须具备哪些性质」钉在这里，改坏了 CI 会红。
+// ─────────────────────────────────────────────────────────────
+
+describe('部署包', () => {
+  const ROOT = path.resolve(SRC, '..');
+  // 同 stripComments 的道理：扫的是**指令**，不是解释它们的注释。
+  const stripHash = (t: string) =>
+    t.split('
+').filter((l) => !/^\s*#/.test(l)).join('
+');
+  const nginx = stripHash(fs.readFileSync(path.join(ROOT, 'nginx.conf'), 'utf8'));
+  const docker = stripHash(fs.readFileSync(path.join(ROOT, 'Dockerfile'), 'utf8'));
+
+  it('**SPA 兜底**：任意路径回 index.html', () => {
+    expect(nginx).toMatch(/try_files\s+\$uri\s+\$uri\/\s+\/index\.html/);
+  });
+
+  it('**index.html 不缓存** —— 否则新版发布后学生拿旧 index、引用到已不存在的资源，白屏且刷新无效', () => {
+    const block = nginx.match(/location = \/index\.html\s*\{[^}]*\}/)?.[0] ?? '';
+    expect(block).toMatch(/no-store/);
+  });
+
+  it('**指纹化资源可长期不可变缓存**', () => {
+    const block = nginx.match(/location \/assets\/\s*\{[^}]*\}/)?.[0] ?? '';
+    expect(block).toMatch(/immutable/);
+    expect(block).toMatch(/max-age=31536000/);
+  });
+
+  it('**带 X-Student-App: v2 身份头**', () => {
+    expect(nginx).toMatch(/add_header\s+X-Student-App\s+"v2"/);
+  });
+
+  it('**不沿用 spike 的身份** —— 真应用不该顶着一次性验证件的头', () => {
+    expect(nginx).not.toContain('X-Spike-Service');
+    expect(nginx).not.toContain('student-web-origin');
+  });
+
+  it('**API 地址是构建期参数；新端自己的 origin 不编进镜像**', () => {
+    expect(docker).toMatch(/ARG VITE_API_URL/);
+    expect(docker).not.toMatch(/STUDENT_APP_ORIGIN/);
+  });
+
+  it('**没有 service worker / manifest**（4A/4B1 都不做 PWA）', () => {
+    const pub = path.join(ROOT, 'public');
+    const files = fs.existsSync(pub) ? fs.readdirSync(pub) : [];
+    expect(files.filter((f) => /sw\.js|manifest/.test(f))).toEqual([]);
+    expect(nginx).not.toContain('sw.js');
+  });
+});
