@@ -230,134 +230,108 @@ https://stg-api-production-46cf.up.railway.app/api/health
 
 ## 6. 测试完成后的数据库检查（只读）
 
-以下命令**只读，不写任何东西**。
+staging 的 Postgres **没有对公网开放**（没有 TCP 代理），所以不能从本机
+直接 `psql` 连。走 Railway 的 SSH 进容器执行 —— 这台机器的 SSH key 已经
+注册过，直接就能用。
 
-连接串在 Railway 面板：`exam-staging-manual` 项目 → `Postgres` 服务 →
-Variables → `DATABASE_PUBLIC_URL`。**不要贴进聊天或提交进仓库。**
-
-```bash
-export STG_DB_URL='<从 Railway 面板复制>'
-```
-
-### 每个测试账号做到哪一步了
+先链接到 staging 项目（只需一次）：
 
 ```bash
-psql "$STG_DB_URL" -c "
-SELECT u.name AS 姓名,
-       COALESCE(d.stage, '(今天没有任务)') AS 阶段,
-       COALESCE(d.\"vocabCursor\", 0)              AS 学到第几个词,
-       COALESCE(jsonb_array_length(d.\"vocabWords\"), 0) AS 词队列长度,
-       COALESCE(d.\"vocabTarget\", 0)              AS 词目标
-FROM \"User\" u
-LEFT JOIN \"DailyLessonCompletion\" d ON d.\"studentId\" = u.id
-WHERE u.id LIKE 't_%' OR u.id ~ '^t[1-8]_'
-ORDER BY u.id;"
+railway link --project exam-staging-manual
 ```
 
-### 阅读答卷与词汇测试成绩
+### 一条命令看全部（推荐）
+
+我已经把整套对账放进容器的 `/tmp/check.js`，**纯读取，不写任何东西**：
 
 ```bash
-psql "$STG_DB_URL" -c "
-SELECT u.name AS 姓名, s.status AS 答卷状态, s.score AS 阅读得分,
-       a.status AS 测试状态, a.correct AS 答对, a.total AS 总题, a.score AS 词汇分
-FROM \"User\" u
-LEFT JOIN \"StudentSubmission\" s ON s.\"studentId\" = u.id
-LEFT JOIN \"VocabQuizAttempt\"  a ON a.\"studentId\" = u.id
-WHERE u.id ~ '^t[1-8]_' ORDER BY u.id;"
+railway ssh --service stg-api "cp /tmp/check.js /app/apps/api/_c.js && cd /app/apps/api && node _c.js; rm -f /app/apps/api/_c.js"
 ```
 
-### 五条必须成立的对账（都该返回 0 行）
+它会打出：
+
+1. 每个测试账号今天走到哪一步（阶段 / 学到第几个词 / 队列长度 / 词目标）
+2. 每个账号的阅读答卷状态与词汇测试成绩
+3. **八项必须为 0 行的对账**：
+
+| | 检查 | 说明 |
+|---|---|---|
+| ① | 重复正式答卷 | 同一份卷子不该有两条 |
+| ② | 一个任务两份测试 | 重开测试不该新建 |
+| ③ | 交了卷但阶段没推进 | RC1.1-E。`att_t8` 是故意留的旧坏行，已排除 |
+| ④ | 伪完成任务行 | RC1.1-F。三段目标全 0 却标 done |
+| ⑤ | 启用中的外发通知 | staging 不该给任何人发消息 |
+| ⑥ | 已发出的通知 | 同上 |
+| ⑦ | 考勤行 | 全天课程不产生考勤 |
+| ⑧ | 队列长度 ≠ 目标 | RC1.1-B。自由练习不该改小正式考试范围 |
+
+### 想自己写 SQL
+
+容器里有 `psql`，`$DATABASE_URL` 已经在环境里：
 
 ```bash
-psql "$STG_DB_URL" -c "
--- ① 同一份卷子不该有两条正式答卷
-SELECT '① 重复答卷' AS 检查, \"studentId\", \"assignmentId\", count(*)
-FROM \"StudentSubmission\" WHERE status <> 'practice'
-GROUP BY 2,3 HAVING count(*) > 1;"
-
-psql "$STG_DB_URL" -c "
--- ② 一个任务不该有两份正式词汇测试
-SELECT '② 重复测试' AS 检查, \"dailyLessonCompletionId\", count(*)
-FROM \"VocabQuizAttempt\" WHERE \"dailyLessonCompletionId\" IS NOT NULL
-GROUP BY 2 HAVING count(*) > 1;"
-
-psql "$STG_DB_URL" -c "
--- ③ 交了卷的测试，它的任务阶段必须是 done（测试八号那条旧坏行除外）
-SELECT '③ 阶段没推进' AS 检查, a.id, d.stage
-FROM \"VocabQuizAttempt\" a JOIN \"DailyLessonCompletion\" d ON d.id = a.\"dailyLessonCompletionId\"
-WHERE a.status = 'submitted' AND d.stage <> 'done' AND a.id <> 'att_t8';"
-
-psql "$STG_DB_URL" -c "
--- ④ 不该有「三段目标全是 0 却标记完成」的伪完成行
-SELECT '④ 伪完成' AS 检查, id, \"studentId\"
-FROM \"DailyLessonCompletion\"
-WHERE stage = 'done' AND \"readTarget\" = 0 AND \"vocabTarget\" = 0 AND \"drillTarget\" = 0;"
-
-psql "$STG_DB_URL" -c "
--- ⑤ staging 不该给任何人发消息
-SELECT '⑤ 外发通知' AS 检查, count(*) FROM \"NotificationConfig\" WHERE enabled = true
-UNION ALL SELECT '⑤ 已发日志', count(*) FROM \"NotificationLog\";"
+railway ssh --service Postgres "psql \$DATABASE_URL -c 'SELECT ...'"
 ```
 
-### 词队列有没有被自由练习改小（RC1.1-B）
+例如看词队列有没有被改小：
 
 ```bash
-psql "$STG_DB_URL" -c "
-SELECT u.name AS 姓名,
-       jsonb_array_length(d.\"vocabWords\") AS 队列长度,
-       d.\"vocabTarget\" AS 目标,
-       d.\"vocabWords\" AS 队列
-FROM \"DailyLessonCompletion\" d JOIN \"User\" u ON u.id = d.\"studentId\"
-WHERE d.\"vocabWords\" IS NOT NULL ORDER BY u.id;"
+railway ssh --service Postgres "psql \$DATABASE_URL -c 'SELECT u.name, d.\"vocabWords\", d.\"vocabTarget\" FROM \"DailyLessonCompletion\" d JOIN \"User\" u ON u.id=d.\"studentId\" ORDER BY u.id'"
 ```
-
-**队列长度必须等于目标**，且内容是当初冻结的那几个词 —— 中途去自由
-练习不该让它变短。
 
 ### 按时间捞日志
 
 ```bash
-railway logs --service stg-api | grep "14:2"
+railway logs --service stg-api
 ```
 
-（先 `railway link` 到 `exam-staging-manual` 项目。）
+日志里每行都带请求的 `x-request-id`，用你记下的时间或 id 去 grep。
 
 ---
 
-## 7. staging 清理步骤
+## 7. 重置与清理
 
-测完之后按需要执行。**这些只动 staging，碰不到生产。**
-
-### 只清测试数据，环境留着
+### 把 8 个账号重置回初始状态（测试中随时可用）
 
 ```bash
-node scratchpad/stg-accounts.js      # 幂等重播种：8 个账号回到初始状态
+railway ssh --service stg-api "cp /tmp/seed.js /app/apps/api/_s.js && cd /app/apps/api && node _s.js; rm -f /app/apps/api/_s.js"
 ```
+
+幂等 —— 先清掉这 8 个账号今天的痕迹，再重建成第 3 节表格里的初始态。
+数据点乱了跑一次就回到起点。
 
 ### 整个 staging 环境删掉
 
-Railway 面板 → `exam-staging-manual` 项目 → Settings → Delete Project。
+Railway 面板 → **`exam-staging-manual`** 项目 → Settings → Delete Project。
 
-三个服务和那个数据库一起消失。**生产项目 `exam-paper-system` 完全不受
-影响** —— 它们是两个独立项目。
+三个服务（`stg-api` / `stg-web` / `Postgres`）连同数据库一起消失。
+**生产项目 `exam-paper-system` 完全不受影响** —— 是两个独立项目。
 
 ### 分支清理
 
 ```bash
 git push origin --delete staging-manual-test
 git branch -D staging-manual-test
-git worktree remove <staging worktree 路径>
 ```
 
-`staging-manual-test` 分支上只比 `main` 多一个部署配置提交，**没有任何
-产品代码只存在于这个分支上**，删掉不会丢东西。
+`staging-manual-test` 只比 `main` 多一个部署配置提交（`apps/web/railway.json`）
+和这份文档，**没有任何产品代码只存在于这个分支上**。
 
 ---
 
 ## 8. 部署后的自查（我已经跑过）
 
-上线后我自己跑了一遍 smoke test，结果见对话里的报告。自查**只读**，
-没有改任何产品行为。
+部署完成后我跑了一遍 smoke test，打的是真实 HTTPS 地址，**32 项全过**。
+自查只读 + 一次完整写入路径（用测试三号跑，跑完已重新播种复原）。
+
+| 组 | 内容 |
+|---|---|
+| 1. 服务可达 | health 200、**全天模式已开**（`allDay=all`）、时区 480、`x-request-id` 会生成也会沿用、`/me` HTTPS 200 |
+| 2. 八个账号 | 全部登录成功；一号有课、六号已完成、**七号无内容不显示完成（0/3、连胜 0）**、八号旧坏行不卡人 |
+| 3. RC1.1 新接口 | `/api/vocab/lesson-cards` **200 不是 404**、`lessonContext=true`、**发卡顺序 = 冻结队列 `[harbour, lantern, meadow, pebble]`** |
+| 4. 完整写入路径 | 无考勤能开课 → **`secondWindowToday=false`（G）** → 交阅读卷 → 进学词 → 队列 4 词、首词 `harbour`、全是教学卡 → 正式测试 4 题 → **作答前不下发答案，答完那一题立刻给判定和正确项（D）**，其余题仍扣着 → 交卷得分 → **阶段推进到 done（E）** → 重开只回已有成绩 |
+
+跑完后重新播种，并跑了第 6 节那套对账：**八项全部 0 行**。
 
 ---
 
