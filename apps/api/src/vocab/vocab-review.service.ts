@@ -1,4 +1,5 @@
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
+import { lessonCardOrder } from '../lesson/rc11-rules';
 import { createEmptyCard, fsrs, generatorParameters, Rating, State, type Card } from 'ts-fsrs';
 import { PrismaService } from '../common/prisma.service';
 import { needsFirstTeaching } from './first-teaching';
@@ -398,9 +399,10 @@ export class VocabReviewService {
     });
     const byWord = new Map(entries.map((e) => [e.word, e]));
 
-    // **队列顺序就是发卡顺序** —— 不排序、不过滤。队列里有而生词本里
-    // 没有的词（被移除过）跳过，但绝不改动其余的顺序。
-    const cards = queue
+    // **队列顺序就是发卡顺序** —— 判据在 rc11-rules.lessonCardOrder，
+    // 它同时被测试直接钉住。
+    const ordered = lessonCardOrder(queue, rows.map((r) => r.headword));
+    const cards = ordered
       .map((headword) => {
         const w = byHead.get(headword);
         if (!w) return null;

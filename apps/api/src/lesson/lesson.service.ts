@@ -7,6 +7,12 @@ import { vocabScoreView, type VocabScoreView } from '../vocab/vocab-score';
 import { nextActionOf } from './next-action';
 import type { EnglishLevel } from '@prisma/client';
 import { pickTodaySession, type SessionCandidate } from './pick-session';
+import {
+  vocabTargetOf,
+  vocabProgressOf,
+  hasAnyTask,
+  progressForDisplay,
+} from './rc11-rules';
 import { isQuizWindowOpen } from '../morning-quiz/morning-quiz.service';
 import { createRealSubmissionSafe } from '../common/submission-create';
 import {
@@ -216,8 +222,11 @@ export class LessonService {
     // 一个没有内容的日子被算成了学习日。
     //
     // 没有内容就没有任务。等真的排了课再建。
-    const hasAnyTaskToday =
-      readNow.hasSession || vocabNow.target > 0 || drillNow.target > 0;
+    const hasAnyTaskToday = hasAnyTask({
+      hasSession: readNow.hasSession,
+      vocabTarget: vocabNow.target,
+      drillTarget: drillNow.target,
+    });
     if (!frozen && input.freeze && hasAnyTaskToday) {
       frozen = await this.prisma.dailyLessonCompletion.create({
         data: {
@@ -334,7 +343,7 @@ export class LessonService {
     // 无内容日：三段目标都是 0，isSegmentComplete 会把它们全算成"完成"。
     // 那是"没有东西要做"的副产物，不是学生做完了 —— 不能显示 3/3，
     // 更不能让它进连续天数。
-    const prog = hasAnyTaskToday ? progRaw : { completed: 0, total: progRaw.total };
+    const prog = progressForDisplay(progRaw, hasAnyTaskToday);
     // P8 —— **服务端决定唯一的下一步**。前端只负责显示它，不再让学生
     // 在三张并排的卡片里自己判断该点哪个。
     const nextAction = nextActionOf({
@@ -655,15 +664,28 @@ export class LessonService {
     });
     const dueCount = dueNowCount + reviewedTodayWords;
     const backlog = dueCount;
-    const target = queue ? queue.length : vocabTarget(dueCount + 0, reviewBatchSize(backlog));
-    const progress = queue
-      ? await this.prisma.wordReviewLog.count({
+    void reviewBatchSize(backlog);
+    void vocabTarget;
+    const target = vocabTargetOf({
+      frozenQueue: queue,
+      // 未冻结时用「今天到期过的」——判据见 rc11-rules
+      dueNow: dueNowCount,
+      reviewedTodayCount: reviewedTodayWords,
+    });
+    // 今天复习过的词（去重后的 headword 列表）—— 判据交给 rc11-rules
+    const reviewedRows = queue
+      ? await this.prisma.wordReviewLog.findMany({
           where: {
             studentWord: { studentId, headword: { in: queue } },
             reviewedAt: { gte: dayStart },
           },
+          select: { studentWord: { select: { headword: true } } },
         })
-      : 0;
+      : [];
+    const progress = vocabProgressOf({
+      frozenQueue: queue,
+      reviewedTodayWords: reviewedRows.map((r) => r.studentWord.headword),
+    });
     // P6 —— 今天的正式单词测试交了没有。
     //
     // 这一条是必须的，不是锦上添花：正式测试**不写 WordReviewLog**

@@ -104,7 +104,9 @@ export default function MePage() {
           localStorage.setItem('mq:history:name', r.student.name);
           localStorage.setItem('mq:history:studentId', r.student.id);
         } catch { /* ignore */ }
-        setCandidates(null);
+        // 先把上一个身份的东西清掉，再挂新的 —— 不经过「退出」直接换人
+        // （共用设备、候选人选择）也要走这一步。
+        clearIdentityState();
         setPin('');
         setMe(r.student);
       } catch (e: any) {
@@ -127,6 +129,10 @@ export default function MePage() {
   useEffect(() => {
     if (!me) return;
     let cancelled = false;
+    // 身份一变立刻回到 Loading —— 上一个学生的三段绝不能留在屏幕上
+    // 等新数据慢慢覆盖。
+    setSegments(null);
+    setNextAction(null);
     (async () => {
       const qs = `name=${encodeURIComponent(me.name)}&studentId=${encodeURIComponent(me.id)}`;
 
@@ -225,6 +231,27 @@ export default function MePage() {
 
   const isTeacherView = teacherViewToken() != null;
 
+  /**
+   * RC1.1 —— 把上一个账号的**所有**痕迹清干净。
+   *
+   * 人工测试实测：退出再登录下一个账号，头部会有约一秒显示
+   * 「你好，测试五号」然后才变成「测试六号」。原因是退出只清了 me 和
+   * segments，`profile`（昵称/头像）留着 —— 新身份已经确认，页面顶部
+   * 却还在渲染上一个学生的名字。
+   *
+   * 真实环境里那一秒暴露的是另一名学生的姓名。
+   */
+  const clearIdentityState = () => {
+    setSegments(null);
+    setProfile(null);
+    setNextAction(null);
+    setStreak(0);
+    setPinSet(null);
+    setCandidates(null);
+    setChangeMsg(null);
+    setShowChange(false);
+  };
+
   const logout = () => {
     // 教师视角下这颗按钮是隐藏的。这里再挡一层：真被点到也不能去清
     // localStorage.auth_token —— 那是**教师自己的登录票**，清了他就被
@@ -232,7 +259,7 @@ export default function MePage() {
     if (isTeacherView) return;
     localStorage.removeItem('auth_token');
     setMe(null);
-    setSegments(null);
+    clearIdentityState();
   };
 
   const changePin = async () => {

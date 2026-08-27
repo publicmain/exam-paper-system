@@ -21,6 +21,10 @@ import { api } from '../../lib/api';
 
 vi.mock('../../lib/api', () => ({
   api: {
+    // RC1.1：翻卡页先问课程队列（/vocab/lesson-cards）。这几个用例测的
+    // 是自由练习口径，所以让它回 lessonContext:false —— 页面按设计
+    // 退回 vocabDue，原有断言原样成立。
+    vocabLessonCards: vi.fn(),
     vocabDue: vi.fn(),
     vocabReview: vi.fn().mockResolvedValue({ intervalDays: 2, state: 'review', reps: 1 }),
     // P3 断点恢复：翻卡页会读 today() 拿 vocabCursor、评分后上报 cursor。
@@ -77,7 +81,8 @@ afterEach(() => vi.useRealTimers());
 
 describe('翻卡最小停留锁', () => {
   it('显示答案后按钮先禁用并给出原因，1.5 秒后亮起', async () => {
-    (api.vocabDue as any).mockResolvedValue({ cards: [card(), card({ headword: 'sigh' })] });
+    (api.vocabLessonCards as any).mockResolvedValue({ lessonContext: false, cards: [] });
+  (api.vocabDue as any).mockResolvedValue({ cards: [card(), card({ headword: 'sigh' })] });
     const u = setup();
     await waitFor(() => expect(screen.getByText(/显示答案/)).toBeInTheDocument());
     await u.click(screen.getByText(/显示答案/));
@@ -98,7 +103,8 @@ describe('翻卡最小停留锁', () => {
   });
 
   it('解锁后正常评分并进入下一张（新卡重新上锁）', async () => {
-    (api.vocabDue as any).mockResolvedValue({ cards: [card(), card({ headword: 'sigh' })] });
+    (api.vocabLessonCards as any).mockResolvedValue({ lessonContext: false, cards: [] });
+  (api.vocabDue as any).mockResolvedValue({ cards: [card(), card({ headword: 'sigh' })] });
     const u = setup();
     await waitFor(() => expect(screen.getByText(/显示答案/)).toBeInTheDocument());
     await u.click(screen.getByText(/显示答案/));
@@ -111,7 +117,8 @@ describe('翻卡最小停留锁', () => {
   });
 
   it('服务端判定太快时如实告知，且不给撤销入口', async () => {
-    (api.vocabDue as any).mockResolvedValue({ cards: [card(), card({ headword: 'sigh' })] });
+    (api.vocabLessonCards as any).mockResolvedValue({ lessonContext: false, cards: [] });
+  (api.vocabDue as any).mockResolvedValue({ cards: [card(), card({ headword: 'sigh' })] });
     (api.vocabReview as any).mockResolvedValue({
       headword: 'latch', state: 'learning', due: '2026-08-25T00:00:00.000Z',
       intervalDays: 4, reps: 2, tooFast: true,

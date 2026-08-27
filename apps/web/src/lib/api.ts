@@ -438,6 +438,25 @@ export const api = {
   vocabRemove: (body: { studentName: string; studentId?: string; headword: string }) =>
     request('POST', '/vocab/words/remove', body),
   /** 生词本 P3 — 今日待复习卡片 */
+  /**
+   * RC1.1 —— **课程内**的词卡：按当天任务冻结的队列发，顺序 / 张数 /
+   * 断点都由任务决定，刷新和换设备拿到的完全一样。
+   *
+   * `lessonContext:false` = 今天还没有冻结队列（没开始上课，或旧任务），
+   * 调用方退回 `vocabDue`（自由练习口径）。
+   */
+  vocabLessonCards: (p: { name: string; studentId?: string }) =>
+    request(
+      'GET',
+      '/vocab/lesson-cards?name=' +
+        encodeURIComponent(p.name) +
+        (p.studentId ? '&studentId=' + encodeURIComponent(p.studentId) : ''),
+    ) as Promise<{
+      lessonContext?: boolean;
+      cards: any[];
+      cursor?: number;
+      totalDue?: number;
+    }>,
   vocabDue: (p: { name: string; studentId?: string; limit?: number }) =>
     request(
       'GET',

@@ -15,6 +15,10 @@ import { api } from '../../lib/api';
 
 vi.mock('../../lib/api', () => ({
   api: {
+    // RC1.1：翻卡页先问课程队列（/vocab/lesson-cards）。这几个用例测的
+    // 是自由练习口径，所以让它回 lessonContext:false —— 页面按设计
+    // 退回 vocabDue，原有断言原样成立。
+    vocabLessonCards: vi.fn(),
     vocabDue: vi.fn(),
     vocabReview: vi.fn().mockResolvedValue({ intervalDays: 2, state: 'review', reps: 1 }),
     lessonVocabTaught: vi
@@ -56,6 +60,7 @@ const reviewWord = (headword: string) => ({
 });
 
 function setup(cards: unknown[]) {
+  vi.mocked(api.vocabLessonCards as any).mockResolvedValue({ lessonContext: false, cards: [] });
   vi.mocked(api.vocabDue).mockResolvedValue({
     student: { id: 'stu1', name: '小明' },
     totalDue: cards.length,

@@ -58,7 +58,11 @@ function makeSvc(opts: { dlc?: any; noContent?: boolean } = {}) {
       findMany: rec('studentWord', 'findMany', async () =>
         opts.noContent ? [] : [{ headword: 'a' }, { headword: 'b' }, { headword: 'c' }]),
     },
-    wordReviewLog: { count: rec('wordReviewLog', 'count', async () => 0) },
+    wordReviewLog: {
+      count: rec('wordReviewLog', 'count', async () => 0),
+      // RC1.1：进度改成「队列内今天复习过的词」，需要拿到 headword —— 都是读。
+      findMany: rec('wordReviewLog', 'findMany', async () => []),
+    },
     vocabQuizAttempt: { findFirst: rec('attempt', 'findFirst', async () => null) },
     mistakeEntry: { count: rec('mistakeEntry', 'count', async () => 0) },
     studentSubmission: {

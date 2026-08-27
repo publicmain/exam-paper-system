@@ -1,4 +1,5 @@
 import { BadRequestException, ConflictException, Injectable, Logger } from '@nestjs/common';
+import { shouldRevealAnswer, stageAfterSubmit } from '../lesson/rc11-rules';
 import { PrismaService } from '../common/prisma.service';
 import { StudentWordService } from './student-word.service';
 import { VocabQuizService } from './vocab-quiz.service';
@@ -85,8 +86,12 @@ export class VocabQuizAttemptService {
         //
         // 已答的题下发答案不构成作弊：这一题的作答是一次性的（服务端
         // 幂等挡住改答案），学生已经交出了他的选择。未作答的题照旧扣着。
-        correctIndex: submitted || it.isCorrect != null ? (it.correctIndex ?? null) : null,
-        answer: submitted || it.isCorrect != null ? (it.answer ?? null) : null,
+        correctIndex: shouldRevealAnswer({ submitted, answered: it.isCorrect != null })
+          ? (it.correctIndex ?? null)
+          : null,
+        answer: shouldRevealAnswer({ submitted, answered: it.isCorrect != null })
+          ? (it.answer ?? null)
+          : null,
         studentIndex: it.studentIndex ?? null,
         studentAnswer: it.studentAnswer ?? null,
         isCorrect: it.isCorrect ?? null,
@@ -380,9 +385,12 @@ export class VocabQuizAttemptService {
         // 单调推进：只从 vocab_test 往前走。已经是 done 的不动（重复提交
         // 幂等），还没走到 vocab_test 的也不越级（那说明前面的步骤没完成，
         // 这次提交本就不该发生 —— 阶段门会先拦下）。
+        // 目标阶段由 rc11-rules 决定（单调、幂等、不越级），
+        // where 里的 stage 条件与它表达同一件事。
+        const nextStage = stageAfterSubmit('vocab_test', true);
         await tx.dailyLessonCompletion.updateMany({
           where: { id: a.dailyLessonCompletionId, stage: 'vocab_test' },
-          data: { stage: 'done', stageAt: new Date() },
+          data: { stage: nextStage as any, stageAt: new Date() },
         });
       }
       return upd;

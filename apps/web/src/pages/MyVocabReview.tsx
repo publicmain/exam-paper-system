@@ -111,6 +111,8 @@ export default function MyVocabReviewPage() {
   const [cards, setCards] = useState<Card[] | null>(null);
   /** 到期队列已空（只在学生主动进来时用 —— 交卷流程直接放行） */
   const [emptyQueue, setEmptyQueue] = useState(false);
+  /** RC1.1：这一轮是不是课程内（任务队列）。自由练习要标「不计分」。 */
+  const [lessonMode, setLessonMode] = useState(false);
   const [idx, setIdx] = useState(0);
   const [revealed, setRevealed] = useState(false);
   /** 答案显示后 MIN_DWELL_MS 内不接受评分 —— 掐掉无脑连点 */
@@ -166,12 +168,26 @@ export default function MyVocabReviewPage() {
     // 冷启动实测可达 15 秒（V4 真机验证时遇到过）。周一早上 8:30 的第一个
     // 请求很可能就是冷的 —— 学生刚交完卷却卡在转圈，会以为交卷失败。
     // 5 秒拿不到就直接放行去看成绩：复习是锦上添花，成绩才是他来的目的。
+    //
+    // RC1.1 —— **课程内先用任务队列**，拿不到才退回自由练习口径。
+    //
+    // `vocabDue` 是实时算的（到期 + 配额 + 新旧配比），每次调用都可能
+    // 不一样。人工测试实测到三种后果：教完第 1 张刷新回到的是另一张、
+    // 教学卡变成挖空复习卡、复习掉一张分母就从 3 缩成 2。
+    //
+    // 课程队列一旦冻结就是这一天的事实，顺序和张数都不再变。
     Promise.race([
-      // 不传 limit —— 让服务端按这个学生的实际积压决定给几张（见
-      // vocab-review.service 的 reviewBatchSize）。写死 5 会绕过那套
-      // 动态配额：生产数据里积压最多的学生有 219 词，每次只还 5 张
-      // 永远追不上，而这正是 2798 个词卡在「从没碰过」的原因之一。
-      api.vocabDue({ name, studentId: studentId || undefined }),
+      api
+        .vocabLessonCards({ name, studentId: studentId || undefined })
+        .then((lc: any) =>
+          lc?.lessonContext && (lc.cards?.length ?? 0) > 0
+            ? lc
+            : // 不传 limit —— 让服务端按这个学生的实际积压决定给几张（见
+              // vocab-review.service 的 reviewBatchSize）。写死 5 会绕过
+              // 那套动态配额：生产数据里积压最多的学生有 219 词，每次只
+              // 还 5 张永远追不上。
+              api.vocabDue({ name, studentId: studentId || undefined }),
+        ),
       new Promise((_, rej) => setTimeout(() => rej(new Error('timeout')), 5000)),
     ])
       .then((r: any) => {
@@ -225,17 +241,26 @@ export default function MyVocabReviewPage() {
           return;
         }
         setCards(list);
-        // P3 退出恢复：从服务端拿断点定位（换设备/重新登录也在）。
-        // 越界由 clampCursor 语义兜底 —— 拿不到就从头翻，绝不卡死。
-        void api
-          .lessonToday(name, studentId || undefined)
-          .then((t: any) => {
-            const c = Number(t?.vocabCursor);
-            if (!cancelled && Number.isInteger(c) && c > 0 && c < list.length) {
-              setIdx(c);
-            }
-          })
-          .catch(() => { /* 拿不到断点就从头翻，不打扰学生 */ });
+        setLessonMode(!!r?.lessonContext);
+        // P3 退出恢复：断点由服务端给（换设备/重新登录也在）。
+        //
+        // RC1.1：课程卡自带 cursor，与队列同一份事实、同一次请求 ——
+        // 不再另跑一趟 lessonToday。那样两次请求之间队列可能已经变了，
+        // 断点就会指到别的卡上。
+        if (r?.lessonContext) {
+          const c = Number(r?.cursor);
+          if (!cancelled && Number.isInteger(c) && c > 0 && c < list.length) setIdx(c);
+        } else {
+          void api
+            .lessonToday(name, studentId || undefined)
+            .then((t: any) => {
+              const c = Number(t?.vocabCursor);
+              if (!cancelled && Number.isInteger(c) && c > 0 && c < list.length) {
+                setIdx(c);
+              }
+            })
+            .catch(() => { /* 拿不到断点就从头翻，不打扰学生 */ });
+        }
       })
       .catch(() => {
         // 超时或生词本不可用，绝不能挡住看成绩
@@ -630,7 +655,13 @@ export default function MyVocabReviewPage() {
           </div>
         ) : (
         <div className="bg-white rounded-2xl border shadow-sm p-5 min-h-[300px] flex flex-col">
-          {/* 正面：原句挖空 —— 先想，再翻面 */}
+          {/* 正面：中文提示 + 原句挖空 —— 先想，再翻面。
+              RC1.1：只给挖空句，学生连「要回忆哪个词」都不知道，只能瞎猜
+              （人工测试实测：正面只有 `The ? lay still in the evening light.`）。
+              中文释义是**提示**不是答案 —— 英文拼写仍然扣着，翻面才给。 */}
+          {card.translation && (
+            <div className="text-[15px] font-semibold text-gray-900 mb-2">{card.translation}</div>
+          )}
           <div className="text-[15px] leading-relaxed text-gray-800">{cloze}</div>
           {card.sourcePassageTitle && (
             <div className="text-[11px] text-gray-400 mt-2">来自《{card.sourcePassageTitle}》</div>

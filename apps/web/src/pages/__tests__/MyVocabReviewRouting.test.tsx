@@ -20,7 +20,7 @@ import { api } from '../../lib/api';
  */
 
 vi.mock('../../lib/api', () => ({
-  api: { vocabDue: vi.fn(), vocabReview: vi.fn().mockResolvedValue({}) },
+  api: { vocabLessonCards: vi.fn(), vocabDue: vi.fn(), vocabReview: vi.fn().mockResolvedValue({}) },
 }));
 
 const card = (over: Partial<any> = {}) => ({
@@ -55,7 +55,8 @@ beforeEach(() => vi.clearAllMocks());
 
 describe('交卷后的生词分流', () => {
   it('有没学过的新词 → 先翻卡，不直接考', async () => {
-    (api.vocabDue as any).mockResolvedValue({
+    (api.vocabLessonCards as any).mockResolvedValue({ lessonContext: false, cards: [] });
+  (api.vocabDue as any).mockResolvedValue({
       cards: [card(), card({ headword: 'wavelength', reps: 0 }), card({ headword: 'stack', reps: 0 }),
         card({ headword: 'absorb', reps: 3 })],
     });
@@ -68,13 +69,15 @@ describe('交卷后的生词分流', () => {
   // P5：徽标从「新词」改成「第一次学」—— 语义从「这个词是新的」
   // 变成「这一张是教学卡，不是考你」。意图不变：学生要知道这不是自己忘了。
   it('新词卡片上标「第一次学」—— 学生要知道这不是自己忘了', async () => {
-    (api.vocabDue as any).mockResolvedValue({ cards: [card()] });
+    (api.vocabLessonCards as any).mockResolvedValue({ lessonContext: false, cards: [] });
+  (api.vocabDue as any).mockResolvedValue({ cards: [card()] });
     renderReview(AFTER_SUBMIT);
     await waitFor(() => expect(screen.getByText('第一次学')).toBeInTheDocument());
   });
 
   it('全是复习过的词且够 4 个 → 直接进自测（保持 08-14 的设计）', async () => {
-    (api.vocabDue as any).mockResolvedValue({
+    (api.vocabLessonCards as any).mockResolvedValue({ lessonContext: false, cards: [] });
+  (api.vocabDue as any).mockResolvedValue({
       cards: [card({ reps: 2 }), card({ headword: 'b', reps: 1 }),
         card({ headword: 'c', reps: 5 }), card({ headword: 'd', reps: 3 })],
     });
@@ -83,7 +86,8 @@ describe('交卷后的生词分流', () => {
   });
 
   it('复习过的词不足 4 个 → 翻卡（出不了像样的选择题）', async () => {
-    (api.vocabDue as any).mockResolvedValue({
+    (api.vocabLessonCards as any).mockResolvedValue({ lessonContext: false, cards: [] });
+  (api.vocabDue as any).mockResolvedValue({
       cards: [card({ reps: 2 }), card({ headword: 'b', reps: 1 })],
     });
     renderReview(AFTER_SUBMIT);
@@ -92,7 +96,8 @@ describe('交卷后的生词分流', () => {
   });
 
   it('一个词都没有 → 立刻放行去成绩页，绝不挡路', async () => {
-    (api.vocabDue as any).mockResolvedValue({ cards: [] });
+    (api.vocabLessonCards as any).mockResolvedValue({ lessonContext: false, cards: [] });
+  (api.vocabDue as any).mockResolvedValue({ cards: [] });
     renderReview(AFTER_SUBMIT);
     await waitFor(() => expect(screen.getByText('RESULT PAGE')).toBeInTheDocument());
   });
@@ -110,7 +115,8 @@ describe('学生主动来练（非交卷流程）', () => {
   it('到期队列空时不把人赶走，给一条继续学的路', async () => {
     // 学生是专门点进来背词的。只说「今天没有了」就跳走，等于告诉他
     // 「不用学了」—— 而本子里通常还压着几百个从没碰过的词。
-    (api.vocabDue as any).mockResolvedValue({ cards: [] });
+    (api.vocabLessonCards as any).mockResolvedValue({ lessonContext: false, cards: [] });
+  (api.vocabDue as any).mockResolvedValue({ cards: [] });
     renderReview(SELF);
     await waitFor(() => expect(screen.getByText(/今天到期的都复习完了/)).toBeInTheDocument());
     expect(screen.getByRole('link', { name: /做一轮自测/ })).toBeInTheDocument();
@@ -119,7 +125,8 @@ describe('学生主动来练（非交卷流程）', () => {
   });
 
   it('主动进来且有新词时照常翻卡，不会被送进自测', async () => {
-    (api.vocabDue as any).mockResolvedValue({
+    (api.vocabLessonCards as any).mockResolvedValue({ lessonContext: false, cards: [] });
+  (api.vocabDue as any).mockResolvedValue({
       cards: [card(), card({ headword: 'b', reps: 0 }), card({ headword: 'c', reps: 0 }),
         card({ headword: 'd', reps: 0 }), card({ headword: 'e', reps: 0 })],
     });

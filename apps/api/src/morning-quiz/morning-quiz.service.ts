@@ -1977,7 +1977,14 @@ export class MorningQuizService {
     // 今天有没有第二作答窗（16:00-17:30）。前端拿它决定交卷弹窗是给
     // 一个按钮还是两个 —— 没有第二窗的日子，「先交，下午再改」是个
     // 骗人的选项，点了以后答案要等到 09:00 收卷才出来。
-    const secondWindowToday = secondWindowAppliesTo({
+    //
+    // RC1.1 —— **全天模式下没有「第二作答窗」这回事**：一整天都开着。
+    //
+    // 人工测试实测：MORNING_QUIZ_ALL_DAY=true 的环境里，交卷弹窗仍然写着
+    // 「今天下午 16:00–17:30 还有一个作答时段」「先存着，下午再改」——
+    // 与实际规则冲突（倒计时已经延到 23:59）。文案由这个字段驱动，
+    // 所以在**服务端**关掉它，前端不需要自己猜配置。
+    const secondWindowToday = allDayEnabled(session.classId) ? false : secondWindowAppliesTo({
       secondWindowEnv: process.env.MORNING_QUIZ_SECOND_WINDOW,
       dateIsoLocal: new Date(
         session.date.getTime() +

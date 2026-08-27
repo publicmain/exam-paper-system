@@ -112,6 +112,19 @@ export default function MyVocabQuizPage() {
    */
   const [saving, setSaving] = useState(false);
   const [saveFailed, setSaveFailed] = useState(false);
+  /**
+   * RC1.1 —— 正式测试里**这一题的判定以服务端为准**。
+   *
+   * 人工测试实测：学生选对了却全被标成 ✗。根因是前端拿 `q.correctIndex`
+   * 判对错，而正式测试作答前服务端**不下发正确答案**（防作弊，devtools
+   * 里能看到），那个字段是 null —— 没有一个选项能"等于正确答案"。
+   *
+   * 现在：答完之后服务端回执里带这一题的 isCorrect 与 correctIndex
+   * （已作答的题才给），前端照着显示。自由练习不走这条路，题目自带答案。
+   */
+  const [serverJudge, setServerJudge] = useState<{
+    index: number; isCorrect: boolean; correctIndex: number | null;
+  } | null>(null);
   const feedbackRef = useRef<HTMLDivElement | null>(null);
 
   // 弱网攒下的评分先补传
@@ -162,6 +175,7 @@ export default function MyVocabQuizPage() {
     setQueue([]);
     setI(0);
     setChosen(null);
+    setServerJudge(null);
     setTyped('');
     setSpellResult(null);
     setMissed([]);
@@ -240,9 +254,17 @@ export default function MyVocabQuizPage() {
             index: i,
             optionIndex: idx,
           })
-          .then(() => {
+          .then((res: any) => {
             setSaving(false);
-            if (correct) setFirstTryCorrect((c) => c + 1);
+            // 服务端说了算 —— 它手里才有正确答案
+            const back = (res?.items ?? [])[i];
+            const judged = typeof back?.isCorrect === 'boolean' ? back.isCorrect : correct;
+            setServerJudge({
+              index: i,
+              isCorrect: judged,
+              correctIndex: typeof back?.correctIndex === 'number' ? back.correctIndex : null,
+            });
+            if (judged) setFirstTryCorrect((c) => c + 1);
           })
           .catch(() => {
             // **不静默记为空答案**：停在原题、选项保持选中、给明确重试。
@@ -325,14 +347,25 @@ export default function MyVocabQuizPage() {
     if (!q || !formal || saving) return;
     setSaving(true);
     try {
-      await api.vocabQuizAnswer({
+      const res: any = await api.vocabQuizAnswer({
         studentName: name,
         studentId: studentId || undefined,
         index: i,
         ...(q.qtype === 'spelling' ? { text: typed } : { optionIndex: chosen ?? 0 }),
       });
       setSaveFailed(false);
-      const ok = q.qtype === 'spelling' ? spellResult === true : chosen === q.correctIndex;
+      const back = (res?.items ?? [])[i];
+      const ok =
+        typeof back?.isCorrect === 'boolean'
+          ? back.isCorrect
+          : q.qtype === 'spelling'
+            ? spellResult === true
+            : chosen === q.correctIndex;
+      setServerJudge({
+        index: i,
+        isCorrect: ok,
+        correctIndex: typeof back?.correctIndex === 'number' ? back.correctIndex : null,
+      });
       if (ok) setFirstTryCorrect((c) => c + 1);
     } catch {
       setSaveFailed(true);
@@ -571,7 +604,15 @@ export default function MyVocabQuizPage() {
   // ── 答题页 ──────────────────────────────────────────────
   const isSpelling = q.qtype === 'spelling';
   const answered = isSpelling ? spellResult !== null : chosen !== null;
-  const correct = isSpelling ? spellResult === true : answered && chosen === q.correctIndex;
+  // 这一题服务端怎么判的（正式测试）。自由练习没有回执，用本地比较。
+  const judge = serverJudge?.index === i ? serverJudge : null;
+  const correct = judge
+    ? judge.isCorrect
+    : isSpelling
+      ? spellResult === true
+      : answered && chosen === q.correctIndex;
+  /** 正确项的下标：正式测试作答后由服务端给；自由练习题目自带。 */
+  const correctIdx = judge?.correctIndex ?? q.correctIndex;
 
   return (
     <div className="ui-ios min-h-screen bg-gray-50 flex flex-col">
@@ -683,7 +724,7 @@ export default function MyVocabQuizPage() {
           {q.options.map((opt, idx) => {
             let cls = 'bg-white border-gray-200 text-gray-900';
             if (answered) {
-              if (idx === q.correctIndex) cls = 'bg-emerald-50 border-emerald-500 text-emerald-900';
+              if (correctIdx != null && idx === correctIdx) cls = 'bg-emerald-50 border-emerald-500 text-emerald-900';
               else if (idx === chosen) cls = 'bg-rose-50 border-rose-400 text-rose-900';
               else cls = 'bg-white border-gray-200 text-gray-400';
             }
@@ -696,8 +737,12 @@ export default function MyVocabQuizPage() {
                 className={`press w-full min-h-[52px] rounded-[14px] border-2 px-4 py-3 text-left text-[16px] font-medium transition-colors ${cls}`}
               >
                 {opt}
-                {answered && idx === q.correctIndex && <span className="float-right">✓</span>}
-                {answered && idx === chosen && idx !== q.correctIndex && <span className="float-right">✗</span>}
+                {answered && correctIdx != null && idx === correctIdx && (
+                  <span className="float-right">✓</span>
+                )}
+                {answered && idx === chosen && correctIdx != null && idx !== correctIdx && (
+                  <span className="float-right">✗</span>
+                )}
               </button>
             );
           })}
