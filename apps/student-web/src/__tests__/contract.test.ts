@@ -218,64 +218,141 @@ describe('G1 新端不得出现旧路由与旧身份键', () => {
   });
 
   /**
-   * 身份参数守卫 —— **逐端点白名单，不再整文件豁免**。
+   * 全量清点 —— **不按前缀，按调用点**。
    *
-   * 旧版把整个 `lib/api.ts` 跳过了。那等于说「API 客户端里怎么写都行」——
-   * 而 API 客户端**恰恰是**最可能把 `?name=` 拼进认证后请求的地方。
+   * 旧版只发现 `/student-auth/*`：它拿路径字面量当锚点，凡是别的前缀
+   * （`/lesson/*`、`/vocab/*`、`/morning-quiz/*`）一律看不见。等新端开始
+   * 调这些接口，守卫会**静默地什么都不查**，而测试仍然是绿的。
    *
-   * 正确的分寸：`name` / `studentId` 只在**明确列举的 pre-auth 端点**里
-   * 正当（那时还没有令牌，姓名是凭据）；**认证后的 URL 与请求体里一律
-   * 禁止**。
+   * 现在改成从 `request(...)` 的**调用点**切块：
+   *
+   *   · 前缀无关 —— 任何路径都会被清点到；
+   *   · 边界精确 —— 块就是那一次调用的实参，类型声明落不进来
+   *     （`StudentCandidate.studentId`、`MeResult.name` 是**响应**字段，
+   *     本来就该带身份，禁的是**请求**里带）；
+   *   · 未分类即失败 —— 新加一个端点而没在下面登记，清点表对不上就红。
    */
+
+  /** **只有这三个**是 pre-auth：还没有令牌，姓名是凭据。 */
   const PRE_AUTH_ENDPOINTS = [
     '/student-auth/login',
     '/student-auth/register',
     '/student-auth/registration-status',
   ] as const;
 
-  /** 把 api.ts 按端点切块，返回 {端点, 该块的代码}。 */
-  function apiBlocks(): { endpoint: string; body: string; preAuth: boolean }[] {
+  /**
+   * 已登记的全部端点 —— 新增端点必须同时改这里，否则「未分类」测试会红。
+   * 这正是它存在的意义：让「悄悄加一个带身份的请求」变成一件做不到的事。
+   */
+  const KNOWN_ENDPOINTS = [
+    ...PRE_AUTH_ENDPOINTS,
+    '/student-auth/me',
+    '/student-auth/change-pin',
+  ] as const;
+
+  /** 从 `(` 开始按深度取平衡括号内的实参文本，跳过字符串里的括号。 */
+  function balanced(src: string, open: number): string {
+    let depth = 0;
+    let quote: string | null = null;
+    for (let i = open; i < src.length; i++) {
+      const c = src[i];
+      if (quote) {
+        if (c === '\\') i++;
+        else if (c === quote) quote = null;
+        continue;
+      }
+      if (c === "'" || c === '"' || c === '`') quote = c;
+      else if (c === '(') depth++;
+      else if (c === ')') {
+        depth--;
+        if (depth === 0) return src.slice(open, i + 1);
+      }
+    }
+    return src.slice(open);
+  }
+
+  type ApiCall = { endpoint: string; block: string; preAuth: boolean };
+
+  /**
+   * 清点 api.ts 里的**每一次**请求，与路由前缀无关。
+   *
+   * 扫描范围取**整个方法块**（签名 + 调用），不只是 `request(...)` 的实参：
+   * 身份完全可以藏在签名里再原样传下去（`login: (body: { name: string })`
+   * → `request(..., { body })`），只看调用点就漏了。块从它所属的属性定义
+   * 起算，因此上面那些**响应类型**声明落不进来。
+   */
+  function apiCalls(): ApiCall[] {
     const src = stripComments(fs.readFileSync(path.join(SRC, 'lib', 'api.ts'), 'utf8'));
-    const out: { endpoint: string; body: string; preAuth: boolean }[] = [];
-    // 每个端点从它的路径字面量起，到下一个端点路径为止
-    const marks = [...src.matchAll(/['\`]\/student-auth\/[a-z-]+/g)];
-    for (let i = 0; i < marks.length; i++) {
-      const start = marks[i].index!;
-      const end = i + 1 < marks.length ? marks[i + 1].index! : src.length;
-      const endpoint = marks[i][0].slice(1);
+    const props = [...src.matchAll(/\n {2}(\w+):/g)].map((m) => m.index!);
+    const out: ApiCall[] = [];
+    for (const m of src.matchAll(/\brequest\s*(<[^>]*>)?\s*\(/g)) {
+      const open = m.index! + m[0].length - 1;
+      const call = balanced(src, open);
+      const p = call.match(/['"`](\/[A-Za-z0-9\-_/:]+)/);
+      if (!p) continue; // helper 自身的定义，没有路径字面量
+      const from = props.filter((i) => i < m.index!).pop();
       out.push({
-        endpoint,
-        body: src.slice(start, end),
-        preAuth: (PRE_AUTH_ENDPOINTS as readonly string[]).includes(endpoint),
+        endpoint: p[1],
+        block: src.slice(from ?? m.index!, open + call.length),
+        preAuth: (PRE_AUTH_ENDPOINTS as readonly string[]).includes(p[1]),
       });
     }
     return out;
   }
 
-  it('**api.ts 的每个端点都被清点到**（没有整文件豁免）', () => {
-    const blocks = apiBlocks();
-    const eps = blocks.map((b) => b.endpoint);
-    expect(eps).toContain('/student-auth/login');
-    expect(eps).toContain('/student-auth/register');
-    expect(eps).toContain('/student-auth/registration-status');
-    expect(eps).toContain('/student-auth/me');
-    expect(eps).toContain('/student-auth/change-pin');
+  /** 认证后的调用里，身份只能出现在这两个位置之一 —— 都不允许。 */
+  function identityHits(call: string): string[] {
+    const h: string[] = [];
+    if (/[?&](name|studentId)=/.test(call)) h.push('url');
+    if (/\b(name|studentName|studentId)\s*:/.test(call)) h.push('body');
+    return h;
+  }
+
+  it('**每一次请求都被清点到 —— 与路由前缀无关**', () => {
+    const eps = apiCalls().map((c) => c.endpoint);
+    // 旧版只认 /student-auth/*；这条钉住的是「清点器本身是前缀无关的」
+    expect(eps.length).toBeGreaterThanOrEqual(KNOWN_ENDPOINTS.length);
+    for (const e of KNOWN_ENDPOINTS) expect(eps).toContain(e);
   });
 
-  it('**认证后的端点里不得出现 name / studentId**（URL 或请求体都不行）', () => {
+  it('**没有未分类的端点**（新增一个而不登记就会红）', () => {
+    const unknown = apiCalls()
+      .map((c) => c.endpoint)
+      .filter((e) => !(KNOWN_ENDPOINTS as readonly string[]).includes(e));
+    expect(unknown, '有请求没在 KNOWN_ENDPOINTS 里登记').toEqual([]);
+  });
+
+  it('**恰好三个 pre-auth 端点可以带身份**，多一个都不行', () => {
+    expect(PRE_AUTH_ENDPOINTS).toHaveLength(3);
+    const preAuth = [...new Set(apiCalls().filter((c) => c.preAuth).map((c) => c.endpoint))];
+    expect(preAuth.sort()).toEqual([...PRE_AUTH_ENDPOINTS].sort());
+  });
+
+  it('**其余请求一律按已认证处理：URL 与请求体都不得带身份**', () => {
     const hits: string[] = [];
-    for (const b of apiBlocks()) {
-      if (b.preAuth) continue;
-      if (/[?&]name=|[?&]studentId=/.test(b.body)) hits.push(`${b.endpoint} → URL 拼了身份参数`);
-      if (/name\s*:|studentId\s*:/.test(b.body)) hits.push(`${b.endpoint} → 请求体带了身份字段`);
+    for (const c of apiCalls()) {
+      if (c.preAuth) continue;
+      for (const where of identityHits(c.block)) hits.push(`${c.endpoint} → ${where} 带了身份`);
     }
     expect(hits).toEqual([]);
+  });
+
+  it('**没有绕过 request() 的裸 fetch**（否则清点就是漏的）', () => {
+    let total = 0;
+    for (const { f, text } of readAll()) {
+      const n = (stripComments(text).match(/\bfetch\s*\(/g) ?? []).length;
+      total += n;
+      if (n && !f.endsWith(path.join('lib', 'api.ts'))) {
+        expect.fail(`${path.relative(SRC, f)} 绕过 request() 直接 fetch`);
+      }
+    }
+    expect(total, 'api.ts 里应当只有 request() 内部那一处 fetch').toBe(1);
   });
 
   it('**api.ts 之外的任何文件都不得拼身份参数**', () => {
     const hits: string[] = [];
     for (const { f, text } of readAll()) {
-      if (f.endsWith(path.join('lib', 'api.ts'))) continue; // 上面按端点单独查过
+      if (f.endsWith(path.join('lib', 'api.ts'))) continue; // 上面按调用点单独查过
       if (/[?&]name=|[?&]studentId=/.test(text)) hits.push(path.relative(SRC, f));
     }
     expect(hits).toEqual([]);
@@ -283,32 +360,46 @@ describe('G1 新端不得出现旧路由与旧身份键', () => {
 
   // ── 反向夹具：证明这个守卫抓得住 ──
   describe('反向夹具 —— 身份参数守卫必须抓得住', () => {
-    const scanAuthed = (body: string) => {
-      const h: string[] = [];
-      if (/[?&]name=|[?&]studentId=/.test(body)) h.push('url');
-      if (/name\s*:|studentId\s*:/.test(body)) h.push('body');
-      return h;
-    };
-
-    it('**认证后 URL 里拼 `?name=` 会被抓到**', () => {
-      expect(scanAuthed("request('GET', `/student-auth/me?name=${n}`)")).toContain('url');
+    it('**认证后 URL 里拼 `?name=` 会被抓到**（阶段 5A 的真实反例）', () => {
+      const fake = "request<Lesson>('GET', `/lesson/today?name=${encodeURIComponent(n)}`, { token })";
+      expect(identityHits(fake)).toContain('url');
     });
 
-    it('**认证后请求体里带 studentId 会被抓到**', () => {
-      expect(scanAuthed("request('POST', '/student-auth/change-pin', { body: { studentId: x } })")).toContain('body');
+    it('**vocab 请求体里带 studentId 会被抓到**', () => {
+      const fake = "request('POST', '/vocab/mark-known', { body: { studentId: id, word }, token })";
+      expect(identityHits(fake)).toContain('body');
+    });
+
+    it('**未登记的新端点会被抓到**', () => {
+      const unknown = ['/morning-quiz/history-by-name'];
+      expect(unknown.filter((e) => !(KNOWN_ENDPOINTS as readonly string[]).includes(e))).toEqual([
+        '/morning-quiz/history-by-name',
+      ]);
     });
 
     it('干净的认证后端点不会误报', () => {
-      expect(scanAuthed("request('GET', '/student-auth/me', { token })")).toEqual([]);
+      expect(identityHits("request('GET', '/student-auth/me', { token })")).toEqual([]);
+      expect(identityHits("request('POST', '/vocab/review', { body: { word }, token })")).toEqual([]);
+    });
+
+    it('**不误伤响应类型与 pre-auth 消歧载荷**', () => {
+      // 响应里出现 name / studentId 是正当的：那是服务端**返回**的身份
+      const src = fs.readFileSync(path.join(SRC, 'lib', 'api.ts'), 'utf8');
+      expect(src).toMatch(/interface StudentCandidate[\s\S]*studentId: string/);
+      // 但它落在类型声明里，不在任何 request() 调用块内 —— 所以扫描看不到它
+      const inCalls = apiCalls().some((c) => /interface|StudentCandidate\b/.test(c.block));
+      expect(inCalls, '类型声明被误切进调用块了').toBe(false);
     });
 
     it('pre-auth 端点带 name 是正当的 —— 它们走白名单，不进这条扫描', () => {
       expect((PRE_AUTH_ENDPOINTS as readonly string[])).toContain('/student-auth/login');
       expect((PRE_AUTH_ENDPOINTS as readonly string[])).not.toContain('/student-auth/me');
       expect((PRE_AUTH_ENDPOINTS as readonly string[])).not.toContain('/student-auth/change-pin');
+      // 而且它们**确实**带了身份 —— 否则说明白名单在保护一个空集
+      const login = apiCalls().find((c) => c.endpoint === '/student-auth/login')!;
+      expect(identityHits(login.block).length).toBeGreaterThan(0);
     });
   });
-
   it('**只写一个命名空间下的存储键**，且不碰别人的', () => {
     const writes: string[] = [];
     for (const { f, text } of readAll()) {
