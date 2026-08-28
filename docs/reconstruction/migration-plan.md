@@ -31,7 +31,7 @@
 | **5B2** | **受控写 + API 级还原（实机）** | **✅ PASS**（2026-08-28） | | ✓ | ✓ |
 | **5B3** | **最后三端点实机身份（S5-FINAL v1.1）** | **✅ PASS** —— IDENTITY 3/3、BUSINESS 1/3 | | ✓ | ✓ |
 | **6** | **今天的课（`/today` 枢纽）** | **✅ PASS** —— 6A 本地 + 6B staging 八账号实机 | | ✓ | ✓ |
-| **7** | **阅读页（单独阶段）** | 🔧 **7A 设计** + **7B 状态引擎** + **7C 阅读界面**（均本地完成）；7D–7E 未开始 | | **✓ 单独** | **✓ 单独** |
+| **7** | **阅读页（单独阶段）** | 🔧 **7A 设计** + **7B 状态引擎** + **7C 阅读界面** + **7D 全链集成**（均本地完成）；7E 未开始 | | **✓ 单独** | **✓ 单独** |
 | 8 | 阅读结果页 | ⬜ | | ✓ | ✓ |
 | 9 | 课程学词 + 正式测试 | ⬜ | | ✓ | ✓ |
 | 10 | 今日总结 | ⬜ | | ✓ | ✓ |
@@ -1659,7 +1659,7 @@ Claude **全程未输入、未索取、未显示、未记录、未注入任何�
 手动输入 —— 「不把口令输入任何输入框」是不因授权而改变的规则。
 
 **阶段 6 PASS**（AC-01 ~ AC-09 全部完成，AC-06 的八行均为 Claude 字段级观察）。
-**阶段 7：7A 设计、7B 状态引擎、7C 阅读界面均已本地完成；7D–7E 未开始。**
+**阶段 7：7A 设计、7B 状态引擎、7C 阅读界面、7D 全链集成均已本地完成；7E 未开始。**
 
 ---
 
@@ -1795,9 +1795,49 @@ S7D 本地集成回归 → S7E staging/真机验收。各自的冻结合同另�
 **本地验证**：`apps/student-web` 9 个测试文件 269 条全绿、`tsc --noEmit`
 退出 0、`vite build` 成功；旧端 `apps/web` 9 文件 60 条未受影响。
 
-### 阶段 7D–7E —— 实施（未开始）
+### 阶段 7D —— 全链本地集成回归　**✅ 本地完成**（2026-08-28）
 
-- [ ] S7D 全链本地集成回归
+`task_id: S7D-READING-FULL-CHAIN-LOCAL` · `base_commit: 1461ef7`。
+证据层级 = **jsdom 里的整应用**（真路由 + 真 auth-store + 真 Today / Reading 页
++ 真 API 客户端 + 真状态引擎 + 真渲染器）＋ **仓库里已提交的真实阅读夹具**，
+只有 `fetch` 是打桩的。**没有任何真实浏览器、真实 API、staging、数据库或
+真机的声明。**
+
+**跑通的链路**（真实请求轨迹，逐条断言）：
+
+```
+GET  /student-auth/me
+GET  /lesson/today
+POST /lesson/start            body 恰好 { begin: true }
+GET  /lesson/today            ← 阅读页自己再问一次要 sessionId
+GET  /morning-quiz/sessions/:id
+PATCH /morning-quiz/sessions/:id/answer
+POST /morning-quiz/sessions/:id/submit   body { final: true }
+GET  /lesson/today            ← 交卷后刷新，按 kind 路由到 /lesson/reading/result
+```
+
+**用的是真夹具**：`apps/api/test-fixtures/ielts-authored-2026-v3/test1-passage1.json`
+（13 题、四类 taskType）。测试侧用 `fs.readFileSync` 读它并转成学生端线缆形状，
+**在转换那一步剥掉老师侧字段**（`answer`、选项上的 `correct`、`note`、
+`provenanceTag`）—— 与服务端 `stripSnapshotContent` / `stripOptions` 同口径。
+夹具本身**未被修改**，也**进不了生产包**（打包器看不到 `fs` 这条路径，
+`dist/` 里搜不到夹具正文）。
+
+**验到的接缝**：作答 → 防抖自动保存（字段 / 单调 `clientSeq` / 无重复请求）；
+断网编辑 → 本地已落盘 + 交卷被挡 + 无限重试不存在 → 重连只补传最新那次且
+沿用同一序号；刷新续答 → 本地更新的草稿赢过更旧的服务端答案并补传，
+换账号后别人继承不到；交卷 → 二次确认 / 连点只发一个 / 后端 `href` 被忽略 /
+落到 `/lesson/reading/result`；故障 → 令牌撤销走既有登出、会话加载失败可重试、
+保存失败挡住交卷但不丢答案、非幂等交卷错误留在原页、「已交过」继续按 today 路由。
+
+**本轮零运行时改动** —— 全链一次跑通，没有暴露出需要修的缺陷。
+
+**本地验证**：`apps/student-web` 10 个测试文件 298 条全绿、`tsc --noEmit`
+退出 0、`vite build` 成功；`apps/web` 9 文件 60 条与 API 的 `answer-seq` /
+`answer-diff` 2 文件 25 条均未受影响。
+
+### 阶段 7E —— staging 八账号真机验收（未开始）
+
 - [ ] S7E staging 八账号真机验收
 
 **独立提交**：本阶段**只含阅读页**，不夹带任何其他页面的改动
