@@ -804,15 +804,18 @@ token-only 请求里这两个都是空的 → `today()` 落到
 
 > **证据边界（必须照实引用）**
 >
-> | 文件 | 证明了什么 | **没有**证明什么 |
-> |---|---|---|
-> | `endpoint-matrix.spec.ts` | 端点清单与控制器接线 | 跑起来能不能过 |
-> | `token-only-runtime.spec.ts` | 控制器 → 服务边界的身份与响应 | **服务内部**的调用链 |
-> | `service-identity-chain.spec.ts` | 真服务 + 假 Prisma 的**服务内部**身份链 | 真库、真部署 |
+> | 证据种类 | 文件 | 证明了什么 | **没有**证明什么 |
+> |---|---|---|---|
+> | 端点清单与接线（静态） | `endpoint-matrix.spec.ts` | 26 个端点都在、控制器都接上了 | 跑起来能不能过 |
+> | **控制器 → 服务**（行为） | `token-only-runtime.spec.ts` | 边界上的身份与响应 | **服务内部**的调用链 |
+> | **服务链**（行为） | `service-identity-chain.spec.ts` | 真服务 + 假 Prisma，链确实跑得通 | 真库、真部署 |
+> | **结构性清单**（fail-closed） | `identity-composition-inventory.spec.ts` | 组合点被**枚举并逐条分类**，新增未分类的会红 | 链跑不跑得通（那是上一行的事） |
+> | **实机部署** | —— | —— | **全部未验证**（阶段 5B，未授权） |
 >
-> **26 个端点没有做到端到端的真服务全链覆盖。** 已覆盖的是：两个已知的
-> 服务→服务身份组合点，加上 lesson 的三个入口。其余端点的服务方法都是
-> 「解析一次然后自己干活」的叶子，不存在第二次解析。
+> **26 个端点没有做到端到端的真服务全链覆盖。** 行为证据覆盖的是：两个
+> 曾出缺陷的服务→服务组合点，加上 lesson 的三个入口。其余端点的服务方法
+> 都是「解析一次然后自己干活」的叶子，不存在第二次解析 —— 这一条现在由
+> 结构性清单**逐条枚举证明**，不再是人工断言。
 
 **修复**（业务逻辑一行未动：cursor、firstTaughtAt、stage、队列口径全部照旧）：
 
@@ -835,6 +838,22 @@ token-only 请求里这两个都是空的 → `today()` 落到
 | `LessonService.classBoard` → `getToday({name, id})` | 教师端，传库里查出的 id | 不在学生令牌链上 |
 | vocab 五个服务的其余方法 | 叶子：解析一次后自己干活 | 无二次解析 |
 | morning-quiz 的 `skillProfileByName` / `upcomingForName` / `startPractice` / `getPractice` / `submitPractice` / `historyTrendByName` | 两参数解析 | **范围外，未改**（并由测试钉住不得被顺手改动） |
+
+> **这张表最初是人工审计的结论，并配了一条叫「组合点恰好两处」的测试。
+> 那条测试是假的**：它硬编码两个字符串、检查附近出现过 `authStudentId`，
+> **从不枚举**真实调用点 —— 第三个组合点加进来照样全绿。
+>
+> 现已换成 `identity-composition-inventory.spec.ts`：从八个 in-scope 服务
+> 源码里**推导**出组合调用点（当前 **38 条**），逐条对照一份已审阅的分类
+> 清单。分类取值：`identity_resolution` / `identity_forwarding` /
+> `resolved_id_only` / `non_identity` / `out_of_scope`。
+>
+> 四条 fail-closed 判据：新出现未分类的调用点、清单里的条目消失或挪走、
+> 转发点没带认证身份、`resolved_id_only` 传了请求里的姓名 —— 任一即红。
+> Prisma 与日志走**显式排除**，不是靠正则碰运气。
+>
+> 反向夹具全部作用于**内存里的合成源码**，不改仓库文件：复刻旧守卫的逻辑，
+> 证明它对第三个组合点毫无反应，而新清单把它抓成「未分类」。
 
 #### 一处需要点名的行为变化
 

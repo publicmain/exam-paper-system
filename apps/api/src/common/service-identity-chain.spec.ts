@@ -26,6 +26,15 @@ import { MistakeService } from '../vocab/mistake.service';
  *
  * 所以这个文件的判据是：**同一次请求里的第二次身份解析，仍然按令牌的
  * 精确 id 查人**。
+ *
+ * ## 这是四种证据里的哪一种
+ *
+ * | 证据 | 在哪 | 覆盖 |
+ * |---|---|---|
+ * | 控制器 → 服务 | `token-only-runtime.spec.ts` | 边界上的身份与响应 |
+ * | **服务链行为（本文件）** | 这里 | 真服务 + 假 Prisma，链跑得通 |
+ * | 结构性清单 | `identity-composition-inventory.spec.ts` | 组合点一个不漏、未分类即红 |
+ * | 实机部署 | —— | **仍未验证**（阶段 5B，未授权） |
  */
 
 const ID = 'stu-token-1';
@@ -278,29 +287,13 @@ describe('VocabQuizAttemptService.start 的内部身份传递', () => {
 // 组合点清单 —— 新增一个「服务调服务」的身份点就必须在这里登记
 // ─────────────────────────────────────────────────────────────
 
-describe('内部身份组合点清单', () => {
-  const fs = require('node:fs') as typeof import('node:fs');
-  const path = require('node:path') as typeof import('node:path');
-  const read = (p: string) => fs.readFileSync(path.join(__dirname, '..', p), 'utf8');
-
-  it('**in-scope 服务里，服务调服务的身份点恰好两处，且都带上了 authStudentId**', () => {
-    const points = [
-      ['lesson/lesson.service.ts', 'this.startOrResumeToday({'],
-      ['vocab/vocab-quiz-attempt.service.ts', 'this.quiz.buildQuiz({'],
-    ] as const;
-    for (const [file, marker] of points) {
-      const src = read(file);
-      const at = src.indexOf(marker);
-      expect(at, `${file} 找不到 ${marker}`).toBeGreaterThan(-1);
-      const block = src.slice(at, at + 400);
-      expect(block, `${file} 的 ${marker} 没有把 authStudentId 传下去`).toMatch(/authStudentId/);
-    }
-  });
-
-  it('**范围外的解析点不得被顺手改动**（skill-profile / practice / trend 等）', () => {
-    const src = read('morning-quiz/morning-quiz.service.ts');
-    // 这六处 out-of-scope 的调用仍然是两参数形态
-    const twoArg = [...src.matchAll(/this\.resolveStudentByName\(\s*\w+,\s*\w+\s*\)/g)];
-    expect(twoArg.length).toBeGreaterThanOrEqual(3);
-  });
-});
+/**
+ * 组合点的**结构性清单**已经搬到 `identity-composition-inventory.spec.ts`。
+ *
+ * 原来这里有一条叫「服务调服务的身份点恰好两处」的测试。它是假的：
+ * 硬编码两个字符串、检查附近出现过 `authStudentId`，**从不枚举**真实调用点
+ * —— 第三个组合点加进来照样全绿。标题在说一件测试根本没做的事。
+ *
+ * 真实的枚举是 38 个调用点，逐条分类、未分类即红。**本文件只留行为证据**：
+ * 真服务把链跑通了。两种证据不互相替代。
+ */
