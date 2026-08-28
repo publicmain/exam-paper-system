@@ -25,8 +25,9 @@
 | **4A** | **新端空壳与认证（本地）** | **✅ 已完成** | | ✓ | ✓ |
 | **4B1** | **打包 + staging 部署 + CORS + 单账号 smoke** | **✅ 已完成** | | ✓ | ✓ |
 | **4B2** | **八账号认证验收** | 🔶 **PARTIAL / CONDITIONAL PASS** —— 教师重置链条 BLOCKED，已移交阶段 14 | | ✓ | ✓ |
-| **5** | **token-only 身份（后端五层）** | ⬜ **PENDING** —— 5A 本地已 PASS，5B 部署验证待授权 | | ✓ | ✓ |
+| **5** | **token-only 身份（后端五层）** | ⬜ **PENDING** —— 5A PASS；**5B1 实机只读 PASS**；5B2/5B3 未授权 | | ✓ | ✓ |
 | **5A** | **本地实现（五层接线 + 运行期 + 服务链测试 + G8 加固）** | **✅ PASS**（第三轮更正后） | | ✓ | ✓ |
+| **5B1** | **部署 + 只读令牌面（实机）** | **✅ PASS**（2026-08-28） | | ✓ | ✓ |
 | 6 | 今天的课（`/app/today`） | ⬜ | | ✓ | ✓ |
 | **7** | **阅读页（单独阶段）** | ⬜ | | **✓ 单独** | **✓ 单独** |
 | 8 | 阅读结果页 | ⬜ | | ✓ | ✓ |
@@ -870,10 +871,132 @@ vocab / morning-quiz 一致。受影响的只有一种人：拿着扫码当天�
 **风险**：中 —— 改动面广，但每处都是「加一条快路径」
 **回滚**：`git revert` 本阶段提交（纯增量，旧端不受影响）
 
-### 阶段 5B —— 部署与联调验证　⬜ **未授权**
+### 阶段 5B1 —— 部署 + 只读令牌面　**✅ PASS**（2026-08-28）
 
-设计已成形，**尚未执行、也未申请执行**。以下是本轮更正后的口径。
+授权范围：C1（只读巡检）+ C3（部署 stg-api）+ A-LOGIN（三个虚构账号的
+成功登录）+ L-R（只读 GET）。**未授权** C2、任何业务 POST、L-P/L-W1/L-W2、
+直接读写数据库、夹具执行、生产。
 
+#### 部署
+
+| 项 | 值 |
+|---|---|
+| 本地 HEAD | `a1dbe4a`（工作区干净） |
+| 部署前 `stg-api` 部署 ID（**回滚锚点**） | `e5c49634-7063-4475-a561-9bc2d52e9d75` |
+| 部署后 `stg-api` 部署 ID | `3d6e1cf5-08b9-4a41-84a2-bb5b05ff43ea` |
+| `stg-web` | `c3195dfc-27fa-45bc-bb06-a779064f997b` **未变** |
+| `Postgres` | `f397bc8a-a337-48d0-84d2-b23aef9bf894` **未变** |
+| `stg-student-web-spike` | `68c6aa30-9e19-490a-bf25-1d3bf6955fd1` **未变** |
+| 四个域名 | 全部**未变** |
+
+**迁移不变证明**：`ae906b1..a1dbe4a` 共 9 个提交，**没有一个触碰
+`apps/api/prisma/`**（`git log … -- apps/api/prisma/` 为空）；对
+`82b9cb0` / `ae906b1` / `7786ec6` / `7e5c891` 四个基线的
+`git diff … -- apps/api/prisma/` 全部为空；`schema.prisma` 无差异；
+迁移目录 35 项。启动命令里的 `prisma migrate deploy` 因此无迁移可加。
+
+**健康**：`GET /api/health` 200（`uptimeSec=35`，新进程）；
+`GET /api/health/ready` 200（`db":"up"`，延迟 8ms）。
+
+> **修订对应关系的证据边界（照实记）**：`stg-api` 由 `railway up` 上传，
+> Railway **不记录 git SHA**；`/api/health` 的 `commit` 字段为 `null`。
+> 因此「部署的就是 `a1dbe4a`」的依据是**本地来源**（干净工作区 + 上传时
+> 附的 cliMessage），不是部署侧证明。
+>
+> 部署侧能拿到的是**行为指纹**：`/vocab/quiz/attempt/current` 与
+> `/vocab/quiz/attempts` 带令牌返回 200（在 `e435d6a` 之前它们是
+> `name_required`），`history-by-name` 的 `student.name` 非空且与令牌账号
+> 一致（`3a08e0d` 之前是空串）。**指纹只能证明「至少是 `3a08e0d`」**；
+> `5f893e3` 的改动只在 POST 路径上可见（未授权），而 `a1dbe4a` 相对
+> `5f893e3` **没有任何运行期改动**（纯测试与文档），原则上无法用任何探针
+> 区分这两个提交。
+
+#### 只读令牌矩阵（12 条规范请求，全部零身份参数）
+
+登录三个虚构账号（仅成功路径，未故意输错口令）：`appVersion` 均为 `v1`，
+返回身份与账号一致。**令牌全程只在进程内存**，未打印、未落盘、未入报告。
+
+| # | 账号 | 方法 / 路由 | 期望 | 状态 | 响应形状 | 判定 |
+|---|---|---|---|---|---|---|
+| 1 | 测试五号 | `GET /vocab/words` | 生词表 | 200 | `student{id,name} total:4 dueCount:4 words[4]` | IDENTITY-PASS |
+| 2 | 测试五号 | `GET /vocab/due` | 到期卡 | 200 | `student{} totalDue:4 cards[4]` | IDENTITY-PASS |
+| 3 | 测试五号 | `GET /vocab/lesson-cards` | 教学卡 | 200 | `lessonContext:false cards[0] cursor:0 totalDue:0` | IDENTITY-PASS |
+| 4 | 测试五号 | `GET /vocab/quiz` | 自测题 | 200 | `student{} totalWords:4 seenWords:4 questions[4]` | IDENTITY-PASS |
+| 5 | 测试五号 | `GET /vocab/mistakes` | 错题（预期空） | 200 | `student{} total:0 entries[0]` | IDENTITY-PASS |
+| 6 | 测试五号 | `GET /vocab/mistakes/practice-queue` | 队列（预期空） | 200 | `student{} remaining:0 items[0]` | IDENTITY-PASS |
+| 7 | 测试五号 | `GET /vocab/stats` | 统计 | 200 | `student{} total:4 byState{review} totalDue:4 …` | IDENTITY-PASS |
+| 8 | 测试六号 | `GET /vocab/quiz/attempt/current` | 今日无 attempt | 200 | `attempt:null` | IDENTITY-PASS |
+| 9 | 测试六号 | `GET /vocab/quiz/attempts` | 历史 | 200 | `attempts[1]` | IDENTITY-PASS |
+| 10 | 测试六号 | `GET /morning-quiz/history-by-name` | 成绩列表 | 200 | `student{name,matchedCount:1,classes[1]} submissions[1]` | IDENTITY-PASS |
+| 11 | 测试六号 | 从 #10 **发现**自有 submission id | 不硬编码 | — | 字段名从响应里读出（`submissionId`） | 通过 |
+| 12 | 测试六号 | `GET /morning-quiz/history-detail?submissionId=<自有>` | 成绩详情 | 200 | `sessionId, submissionId, status, items, …` | IDENTITY-PASS |
+| 13 | 测试七号 | `GET /lesson/today` | 今天没内容 | 200 | `nextAction.kind=no_content` 三段 `status=none` | IDENTITY-PASS |
+
+**规范请求 IDENTITY-PASS：12/12。** 全程零 `name_required` /
+`student_required` / `student_token_required` / `identity_mismatch` /
+`student_not_eligible`；`student.name` 与令牌账号一致；没有任何一条需要
+在查询串里给身份。
+
+> **业务观察（不属于 5B1 判据）**：测试七号的 `/lesson/today` 同时给出
+> `nextAction.kind=no_content`（契约正确）与 `allDone:true`、
+> `completed/total = 0/3`。三段的 `status` 都是 `none`、`target` 为 0、
+> `targetsFrozenAt:null`（即没有建当日任务行，符合 RC1.1 的「没有内容就
+> 不建任务行」）。**本轮不评价、也不修**：5B1 只验身份面，且本轮未授权
+> 改运行期代码。留作后续单独确认。
+
+#### 旧式读兼容（带令牌 + 与令牌一致的姓名参数）
+
+| 家族 | 请求 | 状态 | 判定 |
+|---|---|---|---|
+| vocab | `GET /vocab/words?name=测试五号` | 200 | IDENTITY-PASS |
+| lesson | `GET /lesson/today?name=测试七号` | 200 | IDENTITY-PASS |
+| morning-quiz | `GET /morning-quiz/history-by-name?name=测试六号` | 200 | IDENTITY-PASS |
+
+**3/3。** 这只是兼容性证据 —— 规范的 V2 请求仍然一个身份参数都不带。
+
+#### 旧端回归（stg-web，未重新部署）
+
+八条路由部署前后逐项一致：
+
+| 路由 | 状态 | 大小 | sha256 前 16 位 | `X-Student-App` |
+|---|---|---|---|---|
+| `/` `/me` `/my-lesson` `/my-history` `/my-vocab` `/my-mistakes` | 200 | 1162 | `8464755fe5a8de84` | 无 |
+| `/sw.js` | 200 | 3152 | `58c3cf8dffb483c5` | 无 |
+| `/manifest.webmanifest` | 200 | 905 | `6a877534a235db09` | 无 |
+
+`sw.js` 与 `manifest` 的内容指纹**部署前后完全一致**；旧端响应**没有**
+获得 `X-Student-App: v2`。对照：新端 `/login` 返回 `x-student-app: v2` ✓。
+
+#### 最终审计
+
+| 判据 | 结果 |
+|---|---|
+| `stg-api` 变量数 | 23 → 23，**键集合未变** |
+| `CORS_ORIGINS` | 未变（旧端源在第一位 + 学生源） |
+| `STUDENT_APP_ORIGIN` | 未变，等于学生源 |
+| **`STUDENT_APP_V2`** | **仍未设置** —— 无人被重定向，登录返回 `appVersion=v1` |
+| 其余 20 个变量 | **只核对键的存在性，值未读取** |
+| Postgres / stg-web / student-web 部署 ID 与域名 | 全部未变 |
+| 业务 POST | **一个未调**（只调了被授权的 `student-auth/login`） |
+| 数据库 | **未直接访问** |
+| 夹具 / 种子 | **未执行** |
+| 生产 | **未触碰** |
+| 回滚 | **未触发**（无退出条件命中） |
+
+临时目录（含 `railway variables --json` 的转储，其中有机密值）已在收尾时
+整体删除；令牌全程只在探针进程内存里，未打印、未落盘。仓库目录原有的
+Railway 链接（`glorious-motivation` / ops-dashboard）**未被改动** ——
+部署走的是 `railway up -p … -s stg-api`，不重新链接。
+
+**5B1 PASS。这不等于阶段 5B PASS。** 5B2（可逆写）与所有业务 POST 探针
+仍未授权，`BUSINESS-PASS` 一条都未取得。**阶段 5 整体仍为 PENDING。**
+
+---
+
+### 阶段 5B2 / 5B3 —— 后续子阶段　⬜ **未授权**
+
+**5B1 已执行并 PASS（见上）。** 5B2（可逆写）与 5B3（无回滚项）尚未授权，
+下面是它们的既定口径。
 #### 两个判据必须分开记
 
 | 判据 | 含义 |
