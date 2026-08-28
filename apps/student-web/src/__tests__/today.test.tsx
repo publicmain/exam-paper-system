@@ -1,0 +1,355 @@
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
+import { act, render, screen, waitFor } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
+import { MemoryRouter } from 'react-router-dom';
+import App from '../App';
+import { OWNED_STORAGE_KEYS, readToken, writeToken } from '../lib/identity';
+import { __resetForTest } from '../lib/auth-store';
+import { NEXT_ACTION_KINDS, type NextActionKind } from '../routes.contract';
+
+/**
+ * 今天的课 —— **行为测试**。
+ *
+ * 真组件 + 真 auth-store + 真 API 客户端，只把 `fetch` 打桩。
+ * 判据是「跑起来做了什么」：请求里有没有身份、点了按钮发出什么、
+ * 最后停在哪条路由 —— 不是「源码里有没有某个字符串」。
+ */
+
+const PROFILE = { id: 's7', name: '测试七号', nickname: '七号', avatar: null };
+const TOKEN = 'test-token';
+
+function jsonResponse(status: number, body: unknown) {
+  return Promise.resolve({
+    ok: status >= 200 && status < 300,
+    status,
+    text: () => Promise.resolve(JSON.stringify(body)),
+  } as Response);
+}
+const route = (url: string) => url.replace(/^.*\/api/, '');
+
+/** 一份最小但字段齐全的 `/lesson/today` 响应。 */
+function lesson(over: Partial<Record<string, unknown>> = {}) {
+  return {
+    student: { id: PROFILE.id, name: PROFILE.name },
+    date: '2026-08-28',
+    nextAction: { kind: 'ready_to_start', label: '开始今天的课程', href: null },
+    rulesVersion: 2,
+    completed: 0,
+    total: 3,
+    allDone: false,
+    streakDays: 0,
+    targetsFrozenAt: null,
+    stage: 'ready_to_start',
+    stageAt: null,
+    vocabCursor: 0,
+    segments: [
+      { key: 'read', status: 'todo', label: '晨读 A', questionCount: 5, typicalMinutes: 15,
+        score: null, maxScore: 5, scoresPending: false, submissionId: null, sessionId: null, autoClosed: false },
+      { key: 'vocab', status: 'todo', progress: 0, target: 4, typicalMinutes: 2,
+        quizScore: { status: 'not_started' } },
+      { key: 'drill', status: 'none', progress: 0, target: 0, typicalMinutes: 2 },
+    ],
+    ...over,
+  };
+}
+const withKind = (kind: NextActionKind, label: string, over = {}) =>
+  lesson({ nextAction: { kind, label, href: null }, ...over });
+
+let fetchMock: ReturnType<typeof vi.fn>;
+
+beforeEach(() => {
+  __resetForTest();
+  localStorage.clear();
+  writeToken(TOKEN);
+  fetchMock = vi.fn();
+  vi.stubGlobal('fetch', fetchMock);
+});
+afterEach(() => {
+  vi.unstubAllGlobals();
+  vi.restoreAllMocks();
+});
+
+/** 已登录会话：`/student-auth/me` 通过，`/lesson/today` 返回给定内容。 */
+function session(todayBody: unknown, extra?: (r: string, init?: RequestInit) => unknown) {
+  fetchMock.mockImplementation((url: string, init?: RequestInit) => {
+    const r = route(url);
+    const custom = extra?.(r, init);
+    if (custom) return custom;
+    if (r === '/student-auth/me') return jsonResponse(200, { ...PROFILE, appVersion: 'v1' });
+    if (r === '/lesson/today') return jsonResponse(200, todayBody);
+    return jsonResponse(404, { code: 'not_stubbed', r });
+  });
+}
+
+const renderAt = (path: string) =>
+  render(
+    <MemoryRouter initialEntries={[path]}>
+      <App />
+    </MemoryRouter>,
+  );
+
+const callsTo = (r: string) => fetchMock.mock.calls.filter((c) => route(c[0] as string) === r);
+
+// ─────────────────────────────────────────────────────────────
+
+describe('1–2. 载入与请求卫生', () => {
+  it('载入中 → 成功渲染 `/lesson/today`', async () => {
+    // 把 /lesson/today 挂起，确保「载入中」确实是 Today 自己的加载态，
+    // 而不是 App 在 bootstrap 阶段的那一个
+    let release!: () => void;
+    const gate = new Promise<void>((res) => { release = res; });
+    session(lesson(), (r) =>
+      r === '/lesson/today' ? gate.then(() => jsonResponse(200, lesson())) : null);
+    renderAt('/today');
+    await waitFor(() => expect(callsTo('/lesson/today')).toHaveLength(1));
+    expect(screen.getByText('载入中…')).toBeTruthy();
+    await act(async () => { release(); });
+    expect(await screen.findByRole('heading', { name: /你好，七号/ })).toBeTruthy();
+    expect(screen.getByText(/今天完成/)).toBeTruthy();
+  });
+
+  it('**请求带 Bearer 令牌，且零身份参数**', async () => {
+    session(lesson());
+    renderAt('/today');
+    await screen.findByRole('heading', { name: /你好，七号/ });
+    const [url, init] = callsTo('/lesson/today')[0] as [string, RequestInit];
+    expect(url).not.toMatch(/[?&](name|studentId)=/);
+    expect((init.headers as Record<string, string>).Authorization).toBe(`Bearer ${TOKEN}`);
+    expect(init.body).toBeUndefined();
+    expect(init.method).toBe('GET');
+  });
+});
+
+describe('3–5. 开始今天的课', () => {
+  it('`ready_to_start` 只渲染一个主按钮', async () => {
+    session(lesson());
+    renderAt('/today');
+    await screen.findByRole('heading', { name: /你好，七号/ });
+    const buttons = screen.getAllByRole('button');
+    expect(buttons).toHaveLength(1);
+    expect(buttons[0].textContent).toBe('开始今天的课程');
+  });
+
+  it('**开始发送的请求体恰好是 `{begin:true}`**', async () => {
+    session(lesson(), (r) =>
+      r === '/lesson/start' ? jsonResponse(201, withKind('resume_reading', '继续做题')) : null);
+    renderAt('/today');
+    await screen.findByRole('heading', { name: /你好，七号/ });
+    await userEvent.click(screen.getByRole('button', { name: '开始今天的课程' }));
+    await waitFor(() => expect(callsTo('/lesson/start')).toHaveLength(1));
+    const [url, init] = callsTo('/lesson/start')[0] as [string, RequestInit];
+    expect(JSON.parse(init.body as string)).toEqual({ begin: true });
+    expect(url).not.toMatch(/[?&](name|studentId)=/);
+    expect(init.body as string).not.toMatch(/"(name|studentName|studentId)"/);
+  });
+
+  it('**双击只发一次 start**', async () => {
+    let release!: (v: unknown) => void;
+    const pending = new Promise((res) => { release = res; });
+    session(lesson(), (r) =>
+      r === '/lesson/start'
+        ? pending.then(() => jsonResponse(201, withKind('resume_reading', '继续做题')))
+        : null);
+    renderAt('/today');
+    await screen.findByRole('heading', { name: /你好，七号/ });
+    const btn = screen.getByRole('button', { name: '开始今天的课程' });
+    await userEvent.click(btn);
+    await userEvent.click(btn);        // 第二下：按钮此时已 disabled
+    expect(callsTo('/lesson/start')).toHaveLength(1);
+    // 放行并等它落定 —— 否则状态更新会掉在 act 之外
+    await act(async () => { release(null); });
+    expect(await screen.findByRole('heading', { name: '阅读' })).toBeTruthy();
+  });
+});
+
+describe('6–7. 路由映射只认契约', () => {
+  const cases: [NextActionKind, string, string][] = [
+    ['resume_reading', '继续做题', '阅读'],
+    ['read_result', '看阅读结果', '阅读结果'],
+    ['learn_vocab', '学习本次单词', '学习本次单词'],
+    ['vocab_test', '开始单词测试', '正式单词测试'],
+    ['summary', '看今日总结', '今日总结'],
+  ];
+  for (const [kind, label, placeholderTitle] of cases) {
+    it(`\`${kind}\` → 落到对应的占位路由`, async () => {
+      session(withKind(kind, label));
+      renderAt('/today');
+      await screen.findByRole('heading', { name: /你好，七号/ });
+      await userEvent.click(screen.getByRole('button', { name: label }));
+      expect(await screen.findByRole('heading', { name: placeholderTitle })).toBeTruthy();
+      expect(screen.getByRole('link', { name: '回到今天的课' })).toBeTruthy();
+    });
+  }
+
+  it('**后端塞来的恶意 / 旧版 `href` 一律被忽略**', async () => {
+    session(lesson({
+      nextAction: { kind: 'resume_reading', label: '继续做题', href: '/my-history?name=测试七号' },
+    }));
+    renderAt('/today');
+    await screen.findByRole('heading', { name: /你好，七号/ });
+    await userEvent.click(screen.getByRole('button', { name: '继续做题' }));
+    // 去的是契约路由的占位页，不是 href
+    expect(await screen.findByRole('heading', { name: '阅读' })).toBeTruthy();
+    expect(screen.queryByText(/my-history/)).toBeNull();
+  });
+});
+
+describe('8–10. 停留态与摘要', () => {
+  const stays: [NextActionKind, string][] = [
+    ['no_content', '今天的课程还没有发布'],
+    ['level_not_set', '还没有分配难度 —— 找老师设置一下'],
+    ['window_closed', '今天的作答时间已经结束了'],
+    ['none', '今天没有要做的事'],
+  ];
+  for (const [kind, label] of stays) {
+    it(`\`${kind}\` 停在 /today，且没有课程主按钮`, async () => {
+      session(withKind(kind, label));
+      renderAt('/today');
+      expect(await screen.findByText(label)).toBeTruthy();
+      expect(screen.queryAllByRole('button')).toHaveLength(0);
+      expect(screen.getByText(/今天完成/)).toBeTruthy();  // 仍在 /today
+    });
+  }
+
+  it('**`no_content` + `allDone:true` 不得渲染成「完成」**', async () => {
+    session(withKind('no_content', '今天的课程还没有发布', {
+      allDone: true, completed: 0, total: 3,
+      segments: [
+        { key: 'read', status: 'none', label: null, questionCount: null, typicalMinutes: 15,
+          score: null, maxScore: null, scoresPending: false, submissionId: null, sessionId: null, autoClosed: false },
+        { key: 'vocab', status: 'none', progress: 0, target: 0, typicalMinutes: 2, quizScore: { status: 'not_started' } },
+        { key: 'drill', status: 'none', progress: 0, target: 0, typicalMinutes: 2 },
+      ],
+    }));
+    renderAt('/today');
+    expect(await screen.findByText('今天的课程还没有发布')).toBeTruthy();
+    expect(screen.queryByText(/完成了|🎉|恭喜/)).toBeNull();
+    expect(screen.getByText(/今天完成/).textContent).toMatch(/0\s*\/\s*3/);
+  });
+
+  it('段落摘要**保持服务端顺序与取值**', async () => {
+    session(lesson({
+      streakDays: 4,
+      completed: 1,
+      segments: [
+        { key: 'read', status: 'done', label: '晨读 A', questionCount: 5, typicalMinutes: 15,
+          score: 4, maxScore: 5, scoresPending: false, submissionId: 'sub1', sessionId: 'ses1', autoClosed: false },
+        { key: 'vocab', status: 'partial', progress: 2, target: 4, typicalMinutes: 2, quizScore: { status: 'not_started' } },
+        { key: 'drill', status: 'none', progress: 0, target: 0, typicalMinutes: 2 },
+      ],
+    }));
+    renderAt('/today');
+    await screen.findByRole('heading', { name: /你好，七号/ });
+    const items = screen.getAllByRole('listitem').map((li) => li.textContent ?? '');
+    expect(items).toHaveLength(3);
+    expect(items[0]).toContain('阅读');
+    expect(items[0]).toContain('4 / 5 分');
+    expect(items[1]).toContain('单词');
+    expect(items[1]).toContain('2 / 4');
+    expect(items[2]).toContain('错题');
+    expect(items[2]).toContain('今天没有');
+    expect(screen.getByText(/连续学习 4 天/)).toBeTruthy();
+  });
+});
+
+describe('11–14. 故障路径', () => {
+  it('**GET 网络故障：留着票，重试可成功**', async () => {
+    let hit = 0;
+    fetchMock.mockImplementation((url: string) => {
+      const r = route(url);
+      if (r === '/student-auth/me') return jsonResponse(200, { ...PROFILE, appVersion: 'v1' });
+      if (r === '/lesson/today') {
+        hit++;
+        if (hit === 1) return Promise.reject(new TypeError('network down'));
+        return jsonResponse(200, lesson());
+      }
+      return jsonResponse(404, {});
+    });
+    renderAt('/today');
+    expect(await screen.findByRole('alert')).toBeTruthy();
+    expect(readToken()).toBe(TOKEN);   // 票还在
+    await userEvent.click(screen.getByRole('button', { name: '重试' }));
+    expect(await screen.findByRole('heading', { name: /你好，七号/ })).toBeTruthy();
+  });
+
+  it('**GET 认证失败：清票，回登录页**', async () => {
+    session(lesson(), (r) =>
+      r === '/lesson/today' ? jsonResponse(401, { code: 'token_revoked' }) : null);
+    renderAt('/today');
+    await waitFor(() => expect(screen.getByRole('button', { name: '登录' })).toBeTruthy());
+    for (const k of OWNED_STORAGE_KEYS) expect(localStorage.getItem(k)).toBeNull();
+  });
+
+  it('**POST 失败：停在 /today，仍可重试**', async () => {
+    let hit = 0;
+    session(lesson(), (r) => {
+      if (r !== '/lesson/start') return null;
+      hit++;
+      return hit === 1
+        ? Promise.reject(new TypeError('network down'))
+        : jsonResponse(201, withKind('resume_reading', '继续做题'));
+    });
+    renderAt('/today');
+    await screen.findByRole('heading', { name: /你好，七号/ });
+    await userEvent.click(screen.getByRole('button', { name: '开始今天的课程' }));
+    expect(await screen.findByRole('alert')).toBeTruthy();
+    expect(screen.getByText(/今天完成/)).toBeTruthy();          // 还在 /today
+    const btn = screen.getByRole('button', { name: '开始今天的课程' });
+    expect(btn.hasAttribute('disabled')).toBe(false);          // 按钮已恢复
+    await userEvent.click(btn);
+    expect(await screen.findByRole('heading', { name: '阅读' })).toBeTruthy();
+  });
+
+  it('**POST 认证失败：清票，回登录页**', async () => {
+    session(lesson(), (r) =>
+      r === '/lesson/start' ? jsonResponse(401, { code: 'token_revoked' }) : null);
+    renderAt('/today');
+    await screen.findByRole('heading', { name: /你好，七号/ });
+    await userEvent.click(screen.getByRole('button', { name: '开始今天的课程' }));
+    await waitFor(() => expect(screen.getByRole('button', { name: '登录' })).toBeTruthy());
+    for (const k of OWNED_STORAGE_KEYS) expect(localStorage.getItem(k)).toBeNull();
+  });
+});
+
+describe('15–16. 路由兜底与占位页', () => {
+  it('已登录访问未知深层 URL → 回 `/today`', async () => {
+    session(lesson());
+    renderAt('/deep/unknown/route');
+    expect(await screen.findByRole('heading', { name: /你好，七号/ })).toBeTruthy();
+  });
+
+  const placeholders: [string, string][] = [
+    ['/lesson/reading', '阅读'],
+    ['/lesson/reading/result', '阅读结果'],
+    ['/lesson/vocab', '学习本次单词'],
+    ['/lesson/test', '正式单词测试'],
+    ['/lesson/summary', '今日总结'],
+  ];
+  for (const [path, title] of placeholders) {
+    it(`${path} 渲染占位页，并给一条回 /today 的固定链接`, async () => {
+      session(lesson());
+      renderAt(path);
+      expect(await screen.findByRole('heading', { name: title })).toBeTruthy();
+      expect(screen.getByText(/还没有做好/)).toBeTruthy();
+      const link = screen.getByRole('link', { name: '回到今天的课' });
+      expect(link.getAttribute('href')).toBe('/today');
+      // **占位页不发任何课程请求**
+      expect(callsTo('/lesson/today')).toHaveLength(0);
+      expect(callsTo('/lesson/start')).toHaveLength(0);
+    });
+  }
+});
+
+describe('映射穷尽性 —— 十个 kind 页面都能处理', () => {
+  it('每个 kind 都能渲染出一个明确结果，不崩、不空白', async () => {
+    for (const kind of NEXT_ACTION_KINDS) {
+      __resetForTest();
+      writeToken(TOKEN);
+      fetchMock.mockClear();
+      session(withKind(kind, `标签-${kind}`));
+      const { unmount } = renderAt('/today');
+      expect(await screen.findByRole('heading', { name: /你好，七号/ })).toBeTruthy();
+      unmount();
+    }
+  });
+});

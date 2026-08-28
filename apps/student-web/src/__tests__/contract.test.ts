@@ -2,6 +2,8 @@ import { describe, it, expect } from 'vitest';
 import fs from 'node:fs';
 import path from 'node:path';
 import {
+  LESSON_ROUTES,
+  LESSON_STAGE_LABEL,
   NEXT_ACTION_KINDS,
   NEXT_ACTION_ROUTE,
   REGISTERED_PATHS,
@@ -96,10 +98,21 @@ describe('G6 路由契约是单一事实源', () => {
     for (const key of Object.keys(ROUTES)) expect(app).toContain(`ROUTES.${key}`);
   });
 
-  it('阶段 4A 只注册四条：登录 / 注册 / 今天的课 / 账号', () => {
+  it('**阶段 6A 注册九条**：四条外壳 + 五条课程路由', () => {
     expect(new Set(REGISTERED_PATHS)).toEqual(
-      new Set(['/login', '/register', '/today', '/account']),
+      new Set([
+        '/login', '/register', '/today', '/account',
+        '/lesson/reading', '/lesson/reading/result',
+        '/lesson/vocab', '/lesson/test', '/lesson/summary',
+      ]),
     );
+  });
+
+  it('**五条课程路由都在 ROUTES 里**（不再是「计划中」的常量）', () => {
+    for (const p of Object.values(LESSON_ROUTES)) {
+      expect(REGISTERED_PATHS, `${p} 没进注册表`).toContain(p);
+    }
+    expect(Object.keys(LESSON_STAGE_LABEL).sort()).toEqual(Object.keys(LESSON_ROUTES).sort());
   });
 
   it('**没有 `/app` 前缀** —— 独立源拥有根路径（D7）', () => {
@@ -165,16 +178,33 @@ describe('G9 NextActionKind 映射穷尽', () => {
   it('停留态必须给出原因，不能是空话', () => {
     for (const k of NEXT_ACTION_KINDS) {
       const t = NEXT_ACTION_ROUTE[k];
-      if (t.kind === 'stay') expect(t.reason.length).toBeGreaterThan(3);
+      if (t.kind === 'stay' || t.kind === 'start') expect(t.reason.length).toBeGreaterThan(3);
     }
   });
 
-  it('**课程路由在 4A 一律标记为 planned**（还没实现，不许真跳）', () => {
-    for (const k of ['resume_reading', 'read_result', 'learn_vocab', 'vocab_test', 'summary'] as const) {
-      const t = NEXT_ACTION_ROUTE[k];
+  it('**五个可跳转的 kind 都指向已注册的课程路由**（不再是 planned 占位）', () => {
+    const want = {
+      resume_reading: '/lesson/reading',
+      read_result: '/lesson/reading/result',
+      learn_vocab: '/lesson/vocab',
+      vocab_test: '/lesson/test',
+      summary: '/lesson/summary',
+    } as const;
+    for (const [k, path] of Object.entries(want)) {
+      const t = NEXT_ACTION_ROUTE[k as keyof typeof want];
       expect(t.kind).toBe('navigate');
-      if (t.kind === 'navigate') expect(t.planned).toBe(true);
+      if (t.kind === 'navigate') {
+        expect(t.path).toBe(path);
+        expect(REGISTERED_PATHS, `${path} 必须是已注册路由`).toContain(t.path);
+      }
     }
+  });
+
+  it('**只有 ready_to_start 是「留在原地但有主行动」**', () => {
+    const starts = NEXT_ACTION_KINDS.filter((k) => NEXT_ACTION_ROUTE[k].kind === 'start');
+    expect(starts).toEqual(['ready_to_start']);
+    const stays = NEXT_ACTION_KINDS.filter((k) => NEXT_ACTION_ROUTE[k].kind === 'stay');
+    expect(stays.sort()).toEqual(['level_not_set', 'no_content', 'none', 'window_closed']);
   });
 
   it('映射目标不指向任何旧路由', () => {
@@ -248,6 +278,9 @@ describe('G1 新端不得出现旧路由与旧身份键', () => {
     ...PRE_AUTH_ENDPOINTS,
     '/student-auth/me',
     '/student-auth/change-pin',
+    // 阶段 6A：今天的课。两条都是**认证后**端点 —— 零身份参数。
+    '/lesson/today',
+    '/lesson/start',
   ] as const;
 
   /** 从 `(` 开始按深度取平衡括号内的实参文本，跳过字符串里的括号。 */

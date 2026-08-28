@@ -18,6 +18,8 @@
  * （`studentAppOrigin`），换域名不需要重新构建。
  */
 
+import type { NextActionKind } from '../routes.contract';
+
 export const BASE: string = (import.meta as unknown as { env?: Record<string, string> }).env
   ?.VITE_API_URL ?? '';
 
@@ -125,6 +127,82 @@ export type RegistrationStatus =
   | { found: true; registered: boolean };
 
 // ─────────────────────────────────────────────────────────────
+// 今天的课
+//
+// 类型按**服务端实际返回的字段**写，只写页面真的要用的那些。
+// 不用 `any`：这条契约一旦漂移，typecheck 要能先喊。
+// ─────────────────────────────────────────────────────────────
+
+/** 与 `apps/api/src/lesson/lesson-rules.ts` 的 SegmentStatus 逐字对齐。 */
+export type SegmentStatus = 'done' | 'partial' | 'todo' | 'none' | 'auto_closed';
+
+/** 正式词汇成绩视图 —— 与阅读成绩分开（P7）。 */
+export type VocabScoreView =
+  | { status: 'legacy_no_queue' }
+  | { status: 'not_started' }
+  | { status: 'in_progress'; answered: number; total: number }
+  | { status: 'submitted'; correct: number; total: number; score: number };
+
+export type ReadSegment = {
+  key: 'read';
+  status: SegmentStatus;
+  label: string | null;
+  questionCount: number | null;
+  typicalMinutes: number;
+  score: number | null;
+  maxScore: number | null;
+  scoresPending: boolean;
+  submissionId: string | null;
+  sessionId: string | null;
+  autoClosed: boolean;
+};
+export type VocabSegment = {
+  key: 'vocab';
+  status: SegmentStatus;
+  progress: number;
+  target: number;
+  typicalMinutes: number;
+  quizScore: VocabScoreView;
+};
+export type DrillSegment = {
+  key: 'drill';
+  status: SegmentStatus;
+  progress: number;
+  target: number;
+  typicalMinutes: number;
+};
+export type LessonSegment = ReadSegment | VocabSegment | DrillSegment;
+
+/**
+ * 服务端的下一步。
+ *
+ * `href` **是给旧端用的，新端完全忽略**（architecture §4.3）——
+ * 这里保留字段声明只是为了如实描述响应，任何代码都不得读它。
+ */
+export type NextActionPayload = {
+  kind: NextActionKind;
+  label: string;
+  href: string | null;
+};
+
+export type LessonToday = {
+  student: { id: string; name: string };
+  date: string;
+  nextAction: NextActionPayload;
+  rulesVersion: number;
+  completed: number;
+  total: number;
+  allDone: boolean;
+  streakDays: number;
+  targetsFrozenAt: string | null;
+  stage: string;
+  stageAt: string | null;
+  vocabCursor: number;
+  segments: LessonSegment[];
+};
+
+
+// ─────────────────────────────────────────────────────────────
 // 端点
 //
 // 下面四个是 **pre-auth**：姓名 / studentId 出现在**请求体或查询串**里是
@@ -155,4 +233,19 @@ export const api = {
 
   changePassword: (token: string, body: { oldPin: string; newPin: string }) =>
     request<{ ok: true }>('POST', '/student-auth/change-pin', { body, token }),
+
+  // ── 今天的课；**认证后，零身份参数** ──
+
+  /** 权威课程状态。纯读取 —— 服务端保证它一个字都不写（P8）。 */
+  lessonToday: (token: string) => request<LessonToday>('GET', '/lesson/today', { token }),
+
+  /**
+   * 开始今天的课。
+   *
+   * 请求体**恰好是** `{ begin: true }` —— 不带姓名、不带 studentId。
+   * `begin` 必须显式为 true：缺省只是「恢复」，那不等于学生真的开始了
+   * 今天的考试（P9）。
+   */
+  lessonStart: (token: string) =>
+    request<LessonToday>('POST', '/lesson/start', { body: { begin: true }, token }),
 };

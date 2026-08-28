@@ -29,12 +29,44 @@ function route(url: string) {
   return url.replace(/^.*\/api/, '');
 }
 
+/**
+ * 阶段 6A 起，`/today` 会**真的**去拉 `/lesson/today`。
+ *
+ * 本文件验的是认证生命周期，不是课程内容 —— 所以在 fetch 外面套一层，
+ * 把这一个路由统一答掉，其余全部照旧交给各用例自己的 `fetchMock`。
+ * 这样既不用逐个用例改桩，各用例对 `fetchMock.mock.calls` 的断言也不受
+ * 影响（课程请求根本不会走到它上面）。
+ */
+const LESSON_STUB = {
+  student: { id: 's1', name: '测试一号' },
+  date: '2026-08-28',
+  nextAction: { kind: 'no_content', label: '今天的课程还没有发布', href: null },
+  rulesVersion: 2,
+  completed: 0,
+  total: 3,
+  allDone: false,
+  streakDays: 0,
+  targetsFrozenAt: null,
+  stage: 'no_content',
+  stageAt: null,
+  vocabCursor: 0,
+  segments: [
+    { key: 'read', status: 'none', label: null, questionCount: null, typicalMinutes: 15,
+      score: null, maxScore: null, scoresPending: false, submissionId: null, sessionId: null, autoClosed: false },
+    { key: 'vocab', status: 'none', progress: 0, target: 0, typicalMinutes: 2, quizScore: { status: 'not_started' } },
+    { key: 'drill', status: 'none', progress: 0, target: 0, typicalMinutes: 2 },
+  ],
+};
+
 beforeEach(() => {
   // 认证状态是模块级的 —— 不复位的话上一个用例的身份会漏进下一个
   __resetForTest();
   localStorage.clear();
   fetchMock = vi.fn();
-  vi.stubGlobal('fetch', fetchMock);
+  vi.stubGlobal('fetch', (url: string, init?: RequestInit) =>
+    String(url).endsWith('/lesson/today')
+      ? jsonResponse(200, LESSON_STUB)
+      : fetchMock(url, init));
 });
 afterEach(() => {
   vi.unstubAllGlobals();
@@ -69,7 +101,7 @@ describe('3. 登录', () => {
     await userEvent.type(screen.getByLabelText('密码'), 'pw123456');
     await userEvent.click(screen.getByRole('button', { name: '登录' }));
 
-    await screen.findByText('你好，一号');
+    await screen.findByRole('heading', { name: '你好，一号' });
     expect(localStorage.getItem('sw:token')).toBe('TK');
     // **只有令牌** —— 姓名 / studentId / profile 一律不落盘
     expect(Object.keys(localStorage)).toEqual(['sw:token']);
@@ -122,7 +154,7 @@ describe('3. 登录', () => {
 
     await screen.findByText(/哪一个是你/);
     await userEvent.click(screen.getByText('G12'));
-    await screen.findByText('你好，一号');
+    await screen.findByRole('heading', { name: '你好，一号' });
 
     expect((calls[1] as { studentId?: string }).studentId).toBe('a2');
     expect(localStorage.getItem('sw:token')).toBe('TK2');
@@ -142,7 +174,7 @@ describe('1. 首次注册', () => {
     await userEvent.type(await screen.findByLabelText('姓名'), '测试一号');
     await userEvent.type(screen.getByLabelText('设置密码'), 'pw123456');
     await userEvent.click(screen.getByRole('button', { name: '注册并进入' }));
-    await screen.findByText('你好，一号');
+    await screen.findByRole('heading', { name: '你好，一号' });
     expect(localStorage.getItem('sw:token')).toBe('RT');
   });
 
@@ -173,7 +205,7 @@ describe('1. 首次注册', () => {
     await userEvent.click(screen.getByRole('button', { name: '注册并进入' }));
     await screen.findByText(/哪一个是你/);
     await userEvent.click(screen.getByText('G11'));
-    await screen.findByText('你好，一号');
+    await screen.findByRole('heading', { name: '你好，一号' });
   });
 });
 
@@ -184,7 +216,7 @@ describe('6. 刷新恢复 / 令牌撤销', () => {
       route(url) === '/student-auth/me' ? jsonResponse(200, PROFILE) : jsonResponse(404, {}),
     );
     renderAt('/today');
-    await screen.findByText('你好，一号');
+    await screen.findByRole('heading', { name: '你好，一号' });
   });
 
   it('**令牌被撤销（教师重置）→ 清身份、回登录页，并说清下一步是重新设密码**', async () => {
@@ -282,7 +314,7 @@ describe('10. 未知 URL', () => {
       route(url) === '/student-auth/me' ? jsonResponse(200, PROFILE) : jsonResponse(404, {}),
     );
     renderAt('/nope');
-    await screen.findByText('你好，一号');
+    await screen.findByRole('heading', { name: '你好，一号' });
   });
 
   it('已登录访问登录页 → 送回今天的课', async () => {
@@ -291,7 +323,7 @@ describe('10. 未知 URL', () => {
       route(url) === '/student-auth/me' ? jsonResponse(200, PROFILE) : jsonResponse(404, {}),
     );
     renderAt('/login');
-    await screen.findByText('你好，一号');
+    await screen.findByRole('heading', { name: '你好，一号' });
   });
 });
 

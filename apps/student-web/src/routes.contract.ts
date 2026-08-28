@@ -16,12 +16,23 @@
  * （阶段 16e）后才删。见 architecture §4.3。
  */
 
-/** 阶段 4A 真正注册、真正渲染的路由。 */
+/**
+ * 真正注册、真正渲染的路由。
+ *
+ * 阶段 6A 起，五条课程路由**从「计划中」变成「已注册」** —— 它们渲染的是
+ * 统一的占位页（阶段 7–10 逐个替换成真功能）。这样 `nextAction` 才能真的
+ * 把学生送过去，而不是停在 `/today` 说「还没实现」。
+ */
 export const ROUTES = {
   login: '/login',
   register: '/register',
   account: '/account',
   today: '/today',
+  reading: '/lesson/reading',
+  readingResult: '/lesson/reading/result',
+  lessonVocab: '/lesson/vocab',
+  lessonTest: '/lesson/test',
+  summary: '/lesson/summary',
 } as const;
 
 export type RouteKey = keyof typeof ROUTES;
@@ -30,21 +41,30 @@ export type RouteKey = keyof typeof ROUTES;
 export const REGISTERED_PATHS: readonly string[] = Object.values(ROUTES);
 
 /**
- * 课程页的路由**常量占位**。
+ * 五条课程路由 —— 阶段 6A **已注册**，渲染统一占位页。
  *
- * 阶段 4A **只声明、不注册、不渲染任何课程功能**。它们存在的意义是让
- * 下面那张 `kind → 目标` 映射表现在就能写全 —— 否则映射表要么缺项，
- * 要么用魔法字符串。
- *
- * 阶段 6–10 逐个实现时，把它们搬进 `ROUTES` 并注册。
+ * 保留这个具名分组是为了让占位页知道自己代表哪一段，以及让守卫能断言
+ * 「这五条都在 ROUTES 里」。阶段 7–10 各自实现时只替换页面组件，
+ * 路径不动。
  */
-export const PLANNED_LESSON_ROUTES = {
-  reading: '/lesson/reading',
-  readingResult: '/lesson/reading/result',
-  lessonVocab: '/lesson/vocab',
-  lessonTest: '/lesson/test',
-  summary: '/lesson/summary',
+export const LESSON_ROUTES = {
+  reading: ROUTES.reading,
+  readingResult: ROUTES.readingResult,
+  lessonVocab: ROUTES.lessonVocab,
+  lessonTest: ROUTES.lessonTest,
+  summary: ROUTES.summary,
 } as const;
+
+export type LessonStageKey = keyof typeof LESSON_ROUTES;
+
+/** 占位页的标题 —— 明确说出这是哪一段、还没实现。 */
+export const LESSON_STAGE_LABEL: Readonly<Record<LessonStageKey, string>> = {
+  reading: '阅读',
+  readingResult: '阅读结果',
+  lessonVocab: '学习本次单词',
+  lessonTest: '正式单词测试',
+  summary: '今日总结',
+};
 
 /**
  * 服务端 `NextActionKind` 的**全部十个**取值。
@@ -78,23 +98,26 @@ export type NextActionKind = (typeof NEXT_ACTION_KINDS)[number];
  * 「全部完成」，不能再犯。
  */
 export type NextActionTarget =
-  | { kind: 'navigate'; path: string; planned: boolean }
+  /** 跳到某条已注册的课程路由 */
+  | { kind: 'navigate'; path: string }
+  /** 留在 `/today`，但有**一个**主行动（目前只有「开始今天的课程」） */
+  | { kind: 'start'; reason: string }
+  /** 留在 `/today`，**没有**可点的主行动 */
   | { kind: 'stay'; reason: string };
 
 /**
  * **十个取值全部有目标** —— 守卫 G9 断言这张表是穷尽的。
  *
- * `planned: true` 表示目标路由在阶段 4A 还没实现（属于
- * `PLANNED_LESSON_ROUTES`）。新端在 4A 遇到这些 kind 时**停在 `/today`
- * 并说明**，绝不跳到一个不存在的路由。
+ * 阶段 6A 起五条课程路由都已注册，所以 `navigate` 是真跳转，落到占位页。
+ * 目标路径**只能**从这里取；后端的 `nextAction.href` 永远不参与导航。
  */
 export const NEXT_ACTION_ROUTE: Readonly<Record<NextActionKind, NextActionTarget>> = {
-  ready_to_start: { kind: 'stay', reason: '今天的课还没开始' },
-  resume_reading: { kind: 'navigate', path: PLANNED_LESSON_ROUTES.reading, planned: true },
-  read_result: { kind: 'navigate', path: PLANNED_LESSON_ROUTES.readingResult, planned: true },
-  learn_vocab: { kind: 'navigate', path: PLANNED_LESSON_ROUTES.lessonVocab, planned: true },
-  vocab_test: { kind: 'navigate', path: PLANNED_LESSON_ROUTES.lessonTest, planned: true },
-  summary: { kind: 'navigate', path: PLANNED_LESSON_ROUTES.summary, planned: true },
+  ready_to_start: { kind: 'start', reason: '今天的课还没开始' },
+  resume_reading: { kind: 'navigate', path: ROUTES.reading },
+  read_result: { kind: 'navigate', path: ROUTES.readingResult },
+  learn_vocab: { kind: 'navigate', path: ROUTES.lessonVocab },
+  vocab_test: { kind: 'navigate', path: ROUTES.lessonTest },
+  summary: { kind: 'navigate', path: ROUTES.summary },
   no_content: { kind: 'stay', reason: '今天的课程还没有发布' },
   window_closed: { kind: 'stay', reason: '今天的作答时间已经结束了' },
   level_not_set: { kind: 'stay', reason: '还没有分配难度 —— 找老师设置一下' },
