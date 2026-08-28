@@ -1836,9 +1836,24 @@ GET  /lesson/today            ← 交卷后刷新，按 kind 路由到 /lesson/r
 退出 0、`vite build` 成功；`apps/web` 9 文件 60 条与 API 的 `answer-seq` /
 `answer-diff` 2 文件 25 条均未受影响。
 
-### 阶段 7E —— staging 八账号真机验收（未开始）
+### 阶段 7E —— staging 八账号真机验收（**未开始**）
 
-- [ ] S7E staging 八账号真机验收
+- [x] **S7E 夹具准备脚本（本地）** —— `task_id: S7E-READING-FIXTURE-LOCAL`，
+      收尾于本次提交。新增
+      `apps/api/scripts/staging/prepare-s7e-reading.js`：把那八个**虚构**
+      账号重置成「今天可以从头做一次阅读」的状态（两个班当天各一场可作答
+      场次；八个账号没有阅读答卷 / 课程完成度 / 词汇测试记录；凭据、令牌
+      版本、分级、班级关系、生词本一个字都不动）。
+      通用种子 `seed-eight-test-accounts.js` **未被改动**。
+      > ⚠️ **这个脚本从未被执行过。** 本任务是纯本地的夹具准备与验证：
+      > 四道环境闸门（非 production / `ALLOW_S7E_READING_PREP=yes` /
+      > 显式 `DATABASE_URL` / 逐字的 `S7E_CONFIRM_RESET`）与五项只读前置
+      > 检查都只在**假事务客户端**上验过，`apps/api` 全量测试通过。
+      > **没有连过任何数据库，没有碰过 staging。**
+      > **执行它需要另一份带「数据库写权限」的合同**，并且需要先确认
+      > `MORNING_QUIZ_ALL_DAY` 的状态（场次窗口按生产口径 08:30–09:00 写）。
+- [ ] S7E staging 八账号真机验收（**仍未开始** —— 未部署、未登录任何账号、
+      未验证线上 `/lesson/today` 行为、未做任何真机测试）
 
 **独立提交**：本阶段**只含阅读页**，不夹带任何其他页面的改动
 **退出条件**：8 个账号在 staging 手机上各交一次卷；断网中途答题后
