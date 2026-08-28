@@ -100,15 +100,6 @@ export class LessonController {
   }
 
   /**
-   * 上报翻卡断点（P3）。学生退出/刷新/换设备后从这里恢复位置。
-   *
-   * 写操作 → 必须带学生 token（@RequireStudentToken 由 Guard 强制），
-   * 与所有其它学生写接口同一道闸。
-   */
-  @Public()
-  @RequireStudentToken()
-  @RateLimit({ limit: 120, windowSec: 60, scope: 'ip' })
-  /**
    * P5 收尾 —— 教学卡「下一个」：一次调用，事务里标记「教过」+ 推进断点。
    *
    * 取代原来分别打 /vocab/first-taught 与 /lesson/vocab-cursor 的两步 ——
@@ -135,6 +126,15 @@ export class LessonController {
     });
   }
 
+  /**
+   * 上报翻卡断点（P3）。学生退出/刷新/换设备后从这里恢复位置。
+   *
+   * 写操作 → 必须带学生 token（@RequireStudentToken 由 Guard 强制），
+   * 与所有其它学生写接口同一道闸。
+   */
+  @Public()
+  @RequireStudentToken()
+  @RateLimit({ limit: 120, windowSec: 60, scope: 'ip' })
   @Post('vocab-cursor')
   async saveVocabCursor(@Req() req: Request, @Body() body: unknown) {
     const schema = z.object({

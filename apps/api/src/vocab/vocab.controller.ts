@@ -459,7 +459,6 @@ export class VocabController {
   async quizCurrent(
 @Req() req: Request,
 @Query('name') name?: string, @Query('studentId') studentId?: string) {
-    if (!name) throw new BadRequestException({ code: 'name_required' });
     return this.attempts.current(identityOf(req, name, studentId));
   }
 
@@ -509,7 +508,6 @@ export class VocabController {
   async quizAttempts(
 @Req() req: Request,
 @Query('name') name?: string, @Query('studentId') studentId?: string) {
-    if (!name) throw new BadRequestException({ code: 'name_required' });
     return this.attempts.history(identityOf(req, name, studentId));
   }
 }

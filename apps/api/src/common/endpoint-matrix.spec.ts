@@ -9,9 +9,16 @@ import path from 'node:path';
  * 控制器源码把端点数出来，逐条断言范围与接线，任何一条被漏掉或被意外
  * 拉进来都会红。
  *
- * 为什么用源码扫描而不是起 Nest 应用：起应用要连库、要装配全部模块，
- * 而这里要验的是**接线是否齐全**，源码层面就能给出确定答案，且跑得起来
- * 不依赖任何环境。
+ * ## 这个文件的证据等级：**清点与接线，不是执行**
+ *
+ * 它回答的是「26 个端点都在、都接上了吗」，**不能**回答「带令牌的请求
+ * 跑得通吗」。两者的差距是实打实吃过亏的：`GET /vocab/quiz/attempt/current`
+ * 曾经同时满足「方法体里有 `identityOf(`」和「第一行就 `if (!name) throw
+ * name_required`」—— 这里全绿，真实请求 400。
+ *
+ * **执行证据在 `token-only-runtime.spec.ts`**（真的把 handler 调起来）。
+ * 引用本文件的结论时不要说「验证了 token-only 可用」，只能说「验证了
+ * 端点清单与接线完整」。
  */
 
 const SRC = path.resolve(__dirname, '..');
@@ -53,7 +60,7 @@ const wired = (e: { body: string }) =>
   /identityOf\(|resolveIdentity\(|authStudentId|studentAuth/.test(e.body);
 
 describe('端点矩阵 —— 从代码推导', () => {
-  it('vocab 控制器：24 个端点，其中 **19 个是带身份的学生端**', () => {
+  it('vocab 控制器共 24 个端点，其中 **19 个是带身份的学生端**', () => {
     expect(vocab).toHaveLength(24);
     const teacher = vocab.filter((e) => !isStudentFacing(e));
     expect(teacher.map((e) => e.route).sort()).toEqual(
@@ -138,10 +145,14 @@ describe('身份解析逻辑没有被复制成多份', () => {
 });
 
 // ─────────────────────────────────────────────────────────────
-// 逐端点表驱动 —— 每个在范围内的端点各出一条测试
+// 逐端点接线清点 —— **静态证据，不是执行证据**
 //
-// 为什么不是「一条测试扫全部」：一条聚合断言红了只告诉你「有东西错了」，
-// 逐端点则直接把端点名印在失败的测试标题里。19 + 2 + 3 条，漏哪条一目了然。
+// 这一节只回答「接线在不在」。它**不能**证明带令牌的请求跑得通 ——
+// 源码里同时有 identityOf( 和一句 if (!name) throw name_required 时，
+// 这里照样全绿而实际请求 400。执行证据在 token-only-runtime.spec.ts。
+//
+// 逐端点而不是一条聚合断言：聚合断言红了只说「有东西错了」，
+// 逐端点直接把端点名印在失败的测试标题里。26 条，漏哪条一目了然。
 // ─────────────────────────────────────────────────────────────
 
 type Ep = { method: string; route: string; body: string };
@@ -171,8 +182,8 @@ const IN_SCOPE: { group: string; eps: Ep[] }[] = [
   },
 ];
 
-describe('逐端点：带令牌、零身份参数时可用', () => {
-  it('**在范围内的端点恰好 24 个 = 19 + 2 + 3**（今日课的 today/start 另计）', () => {
+describe('逐端点接线清点（静态）', () => {
+  it('**在范围内的端点恰好 26 个 = 19 + 4 + 3**', () => {
     const counts = Object.fromEntries(IN_SCOPE.map((g) => [g.group, g.eps.length]));
     expect(counts).toEqual({ vocab: 19, lesson: 4, 'morning-quiz': 3 });
     // lesson 的 4 = 本轮接线的 2（vocab-taught / vocab-cursor）
@@ -182,7 +193,7 @@ describe('逐端点：带令牌、零身份参数时可用', () => {
   for (const { group, eps } of IN_SCOPE) {
     for (const e of eps) {
       const title = `${e.method} /${group}/${e.route}`;
-      it(`${title} —— 注入 req、读令牌、身份参数可省`, () => {
+      it(`${title} —— 接线齐全：注入 req、读令牌、身份参数可省`, () => {
         expect(injectsReq(e), `${title} 没注入 @Req()，令牌根本进不来`).toBe(true);
         expect(readsToken(e), `${title} 没有读取令牌身份`).toBe(true);
         expect(identityIsOptional(e), `${title} 的身份字段仍是必填 —— 零身份参数会被 400`).toBe(true);
@@ -191,7 +202,7 @@ describe('逐端点：带令牌、零身份参数时可用', () => {
   }
 });
 
-describe('逐端点：旧客户端（无令牌、带姓名）不受影响', () => {
+describe('逐端点接线清点（静态）：姓名入参仍在', () => {
   for (const { group, eps } of IN_SCOPE) {
     for (const e of eps) {
       const title = `${e.method} /${group}/${e.route}`;

@@ -26,7 +26,7 @@
 | **4B1** | **打包 + staging 部署 + CORS + 单账号 smoke** | **✅ 已完成** | | ✓ | ✓ |
 | **4B2** | **八账号认证验收** | 🔶 **PARTIAL / CONDITIONAL PASS** —— 教师重置链条 BLOCKED，已移交阶段 14 | | ✓ | ✓ |
 | **5** | **token-only 身份（后端五层）** | ⬜ **PENDING** —— 5A 本地已 PASS，5B 部署验证待授权 | | ✓ | ✓ |
-| **5A** | **本地实现（五层接线 + 测试 + G8 加固）** | **✅ PASS** | | ✓ | ✓ |
+| **5A** | **本地实现（五层接线 + 运行期测试 + G8 加固）** | **✅ PASS**（更正后；旧 PASS 作废，见 §阶段 5A） | | ✓ | ✓ |
 | 6 | 今天的课（`/app/today`） | ⬜ | | ✓ | ✓ |
 | **7** | **阅读页（单独阶段）** | ⬜ | | **✓ 单独** | **✓ 单独** |
 | 8 | 阅读结果页 | ⬜ | | ✓ | ✓ |
@@ -550,7 +550,14 @@ staging 的 `测试一号` 已不在其种子场景上。**重新播种即可恢
 拆成 **5A（本地实现）** 与 **5B（部署验证）**：5A 只改代码、跑本地测试，
 不碰 staging / 生产 / 数据库；5B 需另行授权。
 
-### 阶段 5A —— 本地实现　**✅ PASS**（2026-08-28）
+### 阶段 5A —— 本地实现　**✅ PASS**（2026-08-28，更正后）
+
+> 本轮 PASS 建立在**运行期**证据上：26 个在范围内端点逐条调起真实
+> handler 通过。
+>
+> 2026-08-28 早些时候的那次 PASS **已作废** —— 它只有源码扫描证据，
+> 放过了两个真实的 token-only 失败，且对 vocab-cursor 的诊断本身是错的。
+> 作废的原因与修复都保留在下面，不删。
 
 - [x] **Guard**：先审计再动手 —— 审计结论是**现有逻辑已经正确，不改**
       （见下「Guard 审计」）
@@ -561,40 +568,45 @@ staging 的 `测试一号` 已不在其种子场景上。**重新播种即可恢
 - [x] **测试**：逐端点表驱动 + 兼容契约 + 反向对照
 - [x] 守卫 **G8** 加固（前缀无关的全量清点）
 
-#### 从代码推导的端点矩阵（26 条，**不采信文档里的 19+2+3**）
+#### 从代码推导的端点矩阵（**在范围内共 26 条**，不采信文档里的 19+2+3）
+
+下表是**清点与接线**证据。每条端点的**执行**证据见
+`apps/api/src/common/token-only-runtime.spec.ts`（逐条调起真实 handler）。
 
 | 方法 / 路径 | 身份来源 | 需令牌 | schema 字段 | 解析器 |
 |---|---|---|---|---|
-| `GET /vocab/words` | query name | 否 | TS 可选 | service(authStudentId) |
-| `POST /vocab/words` | body studentName | 是 | zod .optional() | service(authStudentId) |
-| `POST /vocab/words/remove` | body studentName | 是 | zod .optional() | service(authStudentId) |
-| `GET /vocab/due` | query name | 否 | TS 可选 | service(authStudentId) |
-| `GET /vocab/lesson-cards` | query name | 否 | TS 可选 | service(authStudentId) |
-| `POST /vocab/review` | body studentName | 是 | zod .optional() | service(authStudentId) |
-| `POST /vocab/review/undo` | body studentName | 是 | zod .optional() | service(authStudentId) |
-| `GET /vocab/quiz` | query name | 否 | TS 可选 | service(authStudentId) |
-| `GET /vocab/mistakes` | query name | 否 | TS 可选 | words.resolveStudent |
-| `POST /vocab/mistakes/resolve` | body studentName | 是 | zod .optional() | words.resolveStudent |
-| `GET /vocab/mistakes/practice-queue` | query name | 否 | TS 可选 | words.resolveStudent |
-| `POST /vocab/mistakes/practice-result` | body studentName | 是 | zod .optional() | words.resolveStudent |
-| `POST /vocab/page-view` | body studentName | 是 | zod .optional() | words.resolveStudent |
-| `GET /vocab/stats` | query name | 否 | TS 可选 | service(authStudentId) |
-| `POST /vocab/quiz/attempt/start` | body name | 是 | zod .optional() | service(authStudentId) |
-| `GET /vocab/quiz/attempt/current` | query name | 是 | TS 可选 | service(authStudentId) |
-| `POST /vocab/quiz/attempt/answer` | body name | 是 | zod .optional() | service(authStudentId) |
-| `POST /vocab/quiz/attempt/submit` | body name | 是 | zod .optional() | service(authStudentId) |
-| `GET /vocab/quiz/attempts` | query name | 是 | TS 可选 | service(authStudentId) |
-| `GET /lesson/today` | query name | 是 | TS 可选 | controller 内 id 优先 |
-| `POST /lesson/start` | body studentName | 是 | zod .optional() | controller 内 id 优先 |
-| `POST /lesson/vocab-taught` | body name | 是 | zod .optional() | service(authStudentId) |
-| `POST /lesson/vocab-cursor` | body name | 否 | zod .optional() | service(authStudentId) |
-| `GET /morning-quiz/history-by-name` | query name | 否 | TS 可选 | controller 内 id 优先 |
-| `GET /morning-quiz/history-detail` | query name | 否 | TS 可选 | controller 内 id 优先 |
-| `POST /morning-quiz/appeals` | body studentName | 是 | zod .optional() | service(authStudentId) |
+| `GET /vocab/words` | query name | 否（公开读） | TS 可选 | service(authStudentId) |
+| `POST /vocab/words` | body studentName | **是** | zod .optional() | service(authStudentId) |
+| `POST /vocab/words/remove` | body studentName | **是** | zod .optional() | service(authStudentId) |
+| `GET /vocab/due` | query name | 否（公开读） | TS 可选 | service(authStudentId) |
+| `GET /vocab/lesson-cards` | query name | 否（公开读） | TS 可选 | service(authStudentId) |
+| `POST /vocab/review` | body studentName | **是** | zod .optional() | service(authStudentId) |
+| `POST /vocab/review/undo` | body studentName | **是** | zod .optional() | service(authStudentId) |
+| `GET /vocab/quiz` | query name | 否（公开读） | TS 可选 | service(authStudentId) |
+| `GET /vocab/mistakes` | query name | 否（公开读） | TS 可选 | words.resolveStudent |
+| `POST /vocab/mistakes/resolve` | body studentName | **是** | zod .optional() | words.resolveStudent |
+| `GET /vocab/mistakes/practice-queue` | query name | 否（公开读） | TS 可选 | words.resolveStudent |
+| `POST /vocab/mistakes/practice-result` | body studentName | **是** | zod .optional() | words.resolveStudent |
+| `POST /vocab/page-view` | body studentName | **是** | zod .optional() | words.resolveStudent |
+| `GET /vocab/stats` | query name | 否（公开读） | TS 可选 | service(authStudentId) |
+| `POST /vocab/quiz/attempt/start` | body name | **是** | zod .optional() | service(authStudentId) |
+| `GET /vocab/quiz/attempt/current` | query name | **是** | TS 可选 | service(authStudentId) |
+| `POST /vocab/quiz/attempt/answer` | body name | **是** | zod .optional() | service(authStudentId) |
+| `POST /vocab/quiz/attempt/submit` | body name | **是** | zod .optional() | service(authStudentId) |
+| `GET /vocab/quiz/attempts` | query name | **是** | TS 可选 | service(authStudentId) |
+| `GET /lesson/today` | query name | **是** | TS 可选 | controller 内 id 优先 |
+| `POST /lesson/start` | body studentName | **是** | zod .optional() | controller 内 id 优先 |
+| `POST /lesson/vocab-taught` | body name | **是** | zod .optional() | service(authStudentId) |
+| `POST /lesson/vocab-cursor` | body name | **是** | zod .optional() | service(authStudentId) |
+| `GET /morning-quiz/history-by-name` | query name | 否（公开读） | TS 可选 | controller 内 id 优先 |
+| `GET /morning-quiz/history-detail` | query name | 否（公开读） | TS 可选 | controller 内 id 优先 |
+| `POST /morning-quiz/appeals` | body studentName | **是** | zod .optional() | service(authStudentId) |
 
-数量核对：vocab **19**（控制器 24 个端点 − 4 个教师端 − 无身份的 `lookup`）、
-lesson **4**（计划说 2；`today`/`start` 本就已是 id 优先，本轮只验证不改写）、
-morning-quiz **3**。计划里的 19 与 3 经代码确认无误。
+数量核对：**在范围内 26 = vocab 19 + lesson 4 + morning-quiz 3**。
+vocab 的 19 = `vocab.controller.ts` 里全部 24 个端点 − 4 个教师端
+（`class/:classId/{top,stats,engagement}` + `push`）− 无身份的 `lookup`；
+lesson 4（计划说 2，`today`/`start` 本就已是 id 优先，本轮只验证不改写）；
+morning-quiz 3。计划里的 19 与 3 经代码确认无误，**2 应为 4**。
 
 明确排除、且**已由测试钉住不得被拉进来**：`upcoming-for-name`、`trend`、
 `skill-profile`、`practice`、考勤、`student-auth/*` 的 pre-auth 端点；
@@ -627,41 +639,116 @@ morning-quiz **3**。计划里的 19 与 3 经代码确认无误。
 - 新错误码 `student_not_eligible`（403）**只可能出现在已认证路径上**，
   旧的无令牌路径走不到，因此不影响任何既有客户端的错误契约。
 
-#### 精查中发现的三处与计划不符
+#### 精查中发现的问题（含 2026-08-28 更正轮推翻的两条）
 
-1. **`POST /lesson/vocab-cursor` 既没有 `@Public()` 也没有
-   `@RequireStudentToken()`** —— 全局 `AuthGuard` 因此要求教师 JWT，
-   学生端调用一律 401 `Missing token`。而 `apps/web` 的
-   `MyVocabReview.tsx` 仍在调它，且用 `.catch(() => {})` 把错误吞掉，
-   所以这个失败一直是静默的。**CODE-VERIFIED，属既有缺陷，不在阶段 5A
-   的授权范围内修**（改它等于改端点可达性 = 产品行为）。移交单独授权。
-2. **`lesson.controller.ts` 有一段孤儿装饰器块**（`@Public()` +
-   `@RequireStudentToken()` + `@RateLimit()` 出现两遍，中间夹着一段
-   描述 vocab-cursor 的 JSDoc）。两遍都落在 `vocab-taught` 上，
-   元数据幂等因此无害，但读起来会误判归属。同样属既有问题，未改。
-3. **lesson 在范围内的端点是 4 个不是 2 个** —— `today`/`start` 本就
-   已经是 id 优先（`resolveByIdOrName` 先按 id 查），本轮只做验证，
-   不改写；但它们仍应计入矩阵，否则「2 个」这个数字会让人以为
-   `today`/`start` 不接受令牌身份。
+**1. `POST /lesson/vocab-cursor` 缺学生写接口的元数据。**（已在更正轮修复）
 
-#### G8 加固（本阶段一并做掉）
+它既没有 `@Public()` 也没有 `@RequireStudentToken()`。真实后果是：
 
-旧版 `apiBlocks()` 拿 `/student-auth/` 路径字面量当锚点 —— 换句话说
-**只要新端开始调 `/lesson/*`、`/vocab/*`，守卫就静默地什么都不查，
-而测试仍然是绿的**。现改为：
+- 全局 `AuthGuard` **接受任何角色的有效 JWT**（该 handler 上没有
+  `@Roles`），**不是**「要求教师 JWT」。学生的 PIN 令牌与教师令牌
+  由同一个 `JwtService` 签发校验，两者都能过。
+- 因为缺 `@RequireStudentToken()`，`StudentIdentityGuard` 的第 ② 步与
+  ②b 步都不生效 → **拿一个普通教师 JWT、请求体里写上任意学生姓名，
+  就能替那个学生写断点**；教师的**只读**学生视角令牌（`teacher_view`）
+  同样写得进去。这才是真正的风险，而不是「学生被 401」。
+- 顺带缺限流。
+- 完全不带令牌的旧调用（`apps/web` 的 `MyVocabReview.tsx`，用
+  `.catch(() => {})` 吞错误）确实拿 401，但那只是这个缺陷的一个侧面。
+
+> **上一版本文档在这里写错了**：它称「全局 `AuthGuard` 因此要求教师
+> JWT，学生端调用一律 401」。`AuthGuard` 从不要求特定角色 —— 只要
+> handler 上没有 `@Roles`，任何有效 JWT 都放行。该说法已删除。
+
+**修复**：把本属于它、却飘在 `vocab-taught` 上方的那套装饰器
+（`@Public()` + `@RequireStudentToken()` + `@RateLimit(120/60s)`）
+移回 `vocab-cursor`。**业务逻辑一行未动。**
+
+对现有调用方的影响（`apps/web` 的 `request()` 会带上 localStorage 里的
+`auth_token`）：
+
+| 调用方 | 修复前 | 修复后 |
+|---|---|---|
+| 已用 PIN 登录的学生 | 通过（靠 AuthGuard 收任意 JWT） | 通过（靠学生令牌，且有限流） |
+| 未登录的学生 | 401 `Missing token`（被 `.catch(() => {})` 吞掉） | 403 `student_token_required`（同样被吞掉） |
+| 教师的 `teacher_view` 只读令牌 | **能写进去** | 403 `teacher_view_is_read_only` |
+| 普通教师令牌 + 请求体带姓名 | **能替学生写** | 403 `student_token_required` |
+
+最后两行是这次修复真正堵掉的洞：教师翻看学生视角时，不会再悄悄把
+那个学生的翻卡断点推着走。
+
+**2. `lesson.controller.ts` 的孤儿装饰器块。**（同上，已随 1 一并修复）
+
+那套装饰器夹在「描述 vocab-cursor 的 JSDoc」和「vocab-taught 的 JSDoc」
+之间，于是两套都落在 `vocab-taught` 上（元数据幂等，所以无害），而
+`vocab-cursor` 一套都没有。现在每条路由各自恰好一套，并由测试钉住。
+
+**3. lesson 在范围内是 4 个不是 2 个** —— `today`/`start` 本就已是 id
+优先（`resolveByIdOrName` 先按 id 查），本轮只验证不改写；但它们必须
+计入矩阵，否则「2 个」会让人以为它们不接受令牌身份。
+**在范围内的端点总数是 26 = 19 + 4 + 3。**
+
+#### 2026-08-28 更正轮：静态测试放过去的两个真缺陷
+
+**缺陷**：`GET /vocab/quiz/attempt/current` 与 `GET /vocab/quiz/attempts`
+在 `identityOf()` 之前各有一句无条件的
+
+```ts
+if (!name) throw new BadRequestException({ code: 'name_required' });
+```
+
+带有效令牌、不带姓名的请求因此当场 400 —— **token-only 在这两个端点上
+根本不成立**。已删除；判据交还给 `identityOf()`（有令牌姓名可省，
+无令牌无姓名仍报 `name_required`，旧口径不变）。
+
+**为什么上一轮全绿**：上一轮的端点矩阵是**源码扫描**，判据是「方法体里
+出现了 `identityOf(`」。这两个 handler 同时满足「有 `identityOf(`」和
+「第一行就把请求拒了」，扫描无从分辨。
+
+> **证据分级**：源码扫描只能证明**清点与接线**，不能证明**执行**。
+> 引用 `endpoint-matrix.spec.ts` 的结论时只可说「端点清单与接线完整」，
+> **不可**说「验证了 token-only 请求可用」。
+
+**补救**：新增 `common/token-only-runtime.spec.ts` —— 26 个在范围内端点
+**逐条把真实 handler 调起来**（真实控制器实例 + mock 服务 / Prisma，
+`req.studentAuth` 有值、零身份入参、最小合法非身份载荷），判据是
+**执行确实到达了预期依赖**并带着令牌 id，外加「不抛 `name_required`」。
+另有一条静态兜底：任何 `name_required` 必须写在确认无令牌之后
+（`if (!auth && !name)`），无条件的姓名闸一律判红。
+
+这一组测试在修复前对 `3e5dcb5` 跑出 **12 条红**（两个 GET 各 2 条、
+静态兜底 1 条、vocab-cursor 元数据与守卫 7 条），修复后全绿。
+
+#### G8 加固与后续的 fail-closed 修补
+
+旧版 `apiBlocks()` 拿 `/student-auth/` 路径字面量当锚点 —— 只要新端开始
+调 `/lesson/*`、`/vocab/*`，守卫就静默地什么都不查，而测试仍然是绿的。
+改为：
 
 - 从 `request(...)` 的**调用点**切块，前缀无关；扫描范围取整个方法块
   （签名 + 调用），因为身份可以藏在签名里再原样传下去；
 - 只有三个 pre-auth 端点（`login` / `register` / `registration-status`）
   可以带身份，其余一律按已认证处理，URL 与请求体都不许带；
 - **未在 `KNOWN_ENDPOINTS` 登记的新请求直接判红**；
-- 另加一条「没有绕过 `request()` 的裸 `fetch`」，否则清点本身就是漏的；
+- **路径不是字面量、静态判不出来的调用，上报为 `<dynamic/unclassified>`
+  并判红**。上一版这里是 `if (!p) continue` —— 一句
+  `request('GET', SOME_PATH, …)` 会被静默跳过，守卫等于没有。
+  helper 自身的函数声明单独排除，不会被误报；
+- 一条「没有绕过 `request()` 的裸 `fetch`」，否则清点本身就是漏的；
 - 不误伤**响应类型**与 pre-auth 消歧载荷里的 `name`/`studentId`。
 
-三次变异验证（`/lesson/today?name=`、新增未登记端点、签名里藏
-`studentId`）全部被抓到。
+变异验证全部被抓到：`/lesson/today?name=`、新增未登记端点、签名里藏
+`studentId`、以及路径为变量的请求。
 
-**退出条件（5A）**：`apps/api` / `apps/student-web` / `apps/web` 全量绿 ✅
+#### 已知残留（不在阶段 5A 范围，留给 5B / 阶段 11）
+
+`GET /morning-quiz/history-by-name` 在**只带令牌**时，响应里的
+`student.name` 会是空串（它取的是查询串里的姓名）。执行与鉴权都正确，
+只是回显字段退化。改它会动响应内容，因此本轮不改，已由运行期测试
+把当前行为钉住。
+
+**退出条件（5A）**：`apps/api` / `apps/student-web` / `apps/web` 全量绿；
+26 个端点**逐条运行期**通过
 **风险**：中 —— 改动面广，但每处都是「加一条快路径」
 **回滚**：`git revert` 本阶段提交（纯增量，旧端不受影响）
 

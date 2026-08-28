@@ -281,23 +281,38 @@ describe('G1 新端不得出现旧路由与旧身份键', () => {
    * → `request(..., { body })`），只看调用点就漏了。块从它所属的属性定义
    * 起算，因此上面那些**响应类型**声明落不进来。
    */
-  function apiCalls(): ApiCall[] {
-    const src = stripComments(fs.readFileSync(path.join(SRC, 'lib', 'api.ts'), 'utf8'));
+  /**
+   * 路径不是字面量、静态判不出来的调用，用这个占位**上报**。
+   *
+   * 之前这里是 `if (!p) continue` —— 一次 `request('GET', SOME_PATH, …)`
+   * 会被静默跳过，于是「没有未分类的端点」照样绿。**判不出来必须判红**，
+   * 不能当作没看见：守卫的价值全在这一条上。
+   */
+  const DYNAMIC = '<dynamic/unclassified>';
+
+  function apiCallsIn(rawSrc: string): ApiCall[] {
+    const src = stripComments(rawSrc);
     const props = [...src.matchAll(/\n {2}(\w+):/g)].map((m) => m.index!);
     const out: ApiCall[] = [];
     for (const m of src.matchAll(/\brequest\s*(<[^>]*>)?\s*\(/g)) {
+      // helper 自身的声明不是一次调用 —— 只跳过它，不跳过任何调用点
+      if (/\bfunction\s*$/.test(src.slice(Math.max(0, m.index! - 16), m.index!))) continue;
       const open = m.index! + m[0].length - 1;
       const call = balanced(src, open);
       const p = call.match(/['"`](\/[A-Za-z0-9\-_/:]+)/);
-      if (!p) continue; // helper 自身的定义，没有路径字面量
+      const endpoint = p ? p[1] : DYNAMIC;
       const from = props.filter((i) => i < m.index!).pop();
       out.push({
-        endpoint: p[1],
+        endpoint,
         block: src.slice(from ?? m.index!, open + call.length),
-        preAuth: (PRE_AUTH_ENDPOINTS as readonly string[]).includes(p[1]),
+        preAuth: (PRE_AUTH_ENDPOINTS as readonly string[]).includes(endpoint),
       });
     }
     return out;
+  }
+
+  function apiCalls(): ApiCall[] {
+    return apiCallsIn(fs.readFileSync(path.join(SRC, 'lib', 'api.ts'), 'utf8'));
   }
 
   /** 认证后的调用里，身份只能出现在这两个位置之一 —— 都不允许。 */
@@ -368,6 +383,25 @@ describe('G1 新端不得出现旧路由与旧身份键', () => {
     it('**vocab 请求体里带 studentId 会被抓到**', () => {
       const fake = "request('POST', '/vocab/mark-known', { body: { studentId: id, word }, token })";
       expect(identityHits(fake)).toContain('body');
+    });
+
+    it('**路径是变量、静态判不出来 → 判红为 <dynamic/unclassified>，不是静默跳过**', () => {
+      const fake = [
+        'export const api = {',
+        "  peek: (token: string) => request<unknown>('GET', SOME_PATH, { token }),",
+        '};',
+      ].join('\n');
+      const found = apiCallsIn(fake);
+      expect(found).toHaveLength(1);
+      expect(found[0].endpoint).toBe(DYNAMIC);
+      // 而且它进不了白名单 —— 未分类端点那条断言会因此变红
+      expect((KNOWN_ENDPOINTS as readonly string[]).includes(DYNAMIC)).toBe(false);
+      expect(found[0].preAuth).toBe(false);
+    });
+
+    it('**helper 自身的声明不算调用**（否则它会被误报成 dynamic）', () => {
+      const fake = 'async function request<T>(method: string, path: string) { return null; }';
+      expect(apiCallsIn(fake)).toEqual([]);
     });
 
     it('**未登记的新端点会被抓到**', () => {
