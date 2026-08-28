@@ -553,7 +553,7 @@ staging 的 `测试一号` 已不在其种子场景上。**重新播种即可恢
 ### 阶段 5A —— 本地实现　**✅ PASS**（2026-08-28，更正后）
 
 > 本轮 PASS 建立在**运行期**证据上：26 个在范围内端点逐条调起真实
-> handler 通过。
+> handler 通过 —— 既验执行到达依赖、也验回给调用方的响应。
 >
 > 2026-08-28 早些时候的那次 PASS **已作废** —— 它只有源码扫描证据，
 > 放过了两个真实的 token-only 失败，且对 vocab-cursor 的诊断本身是错的。
@@ -740,15 +740,49 @@ if (!name) throw new BadRequestException({ code: 'name_required' });
 变异验证全部被抓到：`/lesson/today?name=`、新增未登记端点、签名里藏
 `studentId`、以及路径为变量的请求。
 
-#### 已知残留（不在阶段 5A 范围，留给 5B / 阶段 11）
+#### 更正轮之二（同日）：token-only 的响应回显
 
-`GET /morning-quiz/history-by-name` 在**只带令牌**时，响应里的
-`student.name` 会是空串（它取的是查询串里的姓名）。执行与鉴权都正确，
-只是回显字段退化。改它会动响应内容，因此本轮不改，已由运行期测试
-把当前行为钉住。
+**缺陷**：`GET /morning-quiz/history-by-name` 在**只带令牌**时返回
+`student.name === ""`。
+
+链条是：请求不带 `rawName` → 局部 `name` 成了空串 → 已认证候选**已经
+正确地从库里查了出来** → 拼响应时用的却仍是那个空的查询串。
+
+鉴权、解析、资格全都对，**只有回显是错的** —— 这正是上一轮判据的盲区：
+「执行到达了预期依赖」不等于「回给调用方的东西是对的」。
+
+> 上一版文档把它写成「留给 5B / 阶段 11 的已知残留」。**那个定性是错的**：
+> 它不是 UI 问题，是 token-only 路径引入的 **API 响应契约缺陷**，
+> 属于阶段 5A 自己的范围。该段已删除。
+
+**修复**：回显取**解析出来的那条候选**的姓名
+（`auth ? candidates[0].name : name`）。
+
+- 取的是**库里那行**，不是 `auth.name` —— 令牌签发之后姓名可能改过，
+  这一路的唯一事实源是刚刚按 id 查出来的那行；
+- 没有重新引入按姓名查、同名消歧或近似姓名建议：查询仍是
+  `where: authenticatedStudentWhere(auth.id)`，且全程只查一次；
+- **无令牌的旧路径一字未动**，仍回显调用方给的姓名；
+- **响应形状未变**：仍是 `{ student: { name, matchedCount, classes }, submissions }`。
+
+**另外 25 条的同类审查**（先审查再动手，未扩大范围）：只有五个 handler
+会自己拼响应，其余 21 个直接透传依赖返回值。
+
+| 端点 | 响应里有身份吗 | 取自哪里 | 结论 |
+|---|---|---|---|
+| `GET /vocab/mistakes` | `student:{id,name}` | `resolveStudent()` 的库返回值 | 本来就对 |
+| `GET /vocab/mistakes/practice-queue` | `student:{id,name}` | 同上 | 本来就对 |
+| `GET /vocab/lesson-cards` | 无 | 依赖结果 / 固定空壳 | 无此类风险 |
+| `POST /vocab/page-view` | 无 | 固定 `{ ok: true }` | 无此类风险 |
+| `GET /morning-quiz/history-by-name` | `student.name` | **曾取自查询串** | **已修** |
+
+**没有发现第二处响应语义缺陷。** 但前两个的正确性此前**没有测试保护**
+（上一轮只断言了「`resolveStudent` 被用 auth id 调过」，没断言回显值），
+现已补上；21 个透传型端点也补了一条「依赖的返回值原样回给调用方，没被
+吞掉」。
 
 **退出条件（5A）**：`apps/api` / `apps/student-web` / `apps/web` 全量绿；
-26 个端点**逐条运行期**通过
+26 个端点**逐条运行期**通过（含响应回显）
 **风险**：中 —— 改动面广，但每处都是「加一条快路径」
 **回滚**：`git revert` 本阶段提交（纯增量，旧端不受影响）
 

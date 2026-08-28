@@ -784,9 +784,19 @@ export class MorningQuizController {
     // Removing it from the payload (not just the UI) means it can't be read
     // out of the network response either. Teachers use the class dashboards;
     // parents use the separate token-gated /api/parent/portal.
+    // 阶段 5A 更正 —— 回显的姓名取**解析出来的那条候选**，不是查询串。
+    //
+    // token-only 的请求根本不带 `name`，`name` 是空串；直接回显它，前端
+    // 拿到的就是 `student.name === ''`。执行与鉴权都对，回显是空的 ——
+    // 「到达了依赖」不等于「回给调用方的东西是对的」。
+    //
+    // 取库里的那条，不取令牌里的 `auth.name`：令牌签发之后姓名可能改过，
+    // 而这一路的唯一事实源是刚刚按 id 查出来的那行。
+    // 无令牌的旧路径仍然回显调用方给的姓名，一字不改。
+    const displayName = auth ? (candidates[0]?.name ?? name) : name;
     return {
       student: {
-        name,
+        name: displayName,
         matchedCount: candidates.length,
         classes: Array.from(
           new Set(candidates.flatMap((c) => c.classEnrollments.map((e) => e.class.name))),

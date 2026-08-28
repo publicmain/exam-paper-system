@@ -36,18 +36,19 @@ const authedReq = () =>
   ({ studentAuth: { id: ID, name: NAME }, query: {}, body: {}, headers: {} }) as unknown as Request;
 const anonReq = () => ({ query: {}, body: {}, headers: {} }) as unknown as Request;
 
-type Rec = { calls: { m: string; args: unknown[] }[] };
+type Rec = { calls: { m: string; args: unknown[] }[]; result?: unknown };
 
 /** 任何方法都可调、调用即记账的假服务。 */
-function mockDep(rec: Rec, name: string) {
+function mockDep(rec: Rec, name: string, overrides: Record<string, unknown> = {}) {
   const t: Record<string, unknown> = {};
   return new Proxy(t, {
     get(target, k) {
       if (typeof k !== 'string') return undefined;
       if (!(k in target)) {
         target[k] = vi.fn(async (...args: unknown[]) => {
-          rec.calls.push({ m: `${name}.${k}`, args });
-          return { __from: `${name}.${k}` };
+          const key = `${name}.${k}`;
+          rec.calls.push({ m: key, args });
+          return key in overrides ? overrides[key] : { __from: key };
         });
       }
       return target[k];
@@ -74,15 +75,15 @@ function mockPrisma(rec: Rec, results: Record<string, unknown> = {}) {
   }) as never;
 }
 
-function buildVocab(rec: Rec) {
+function buildVocab(rec: Rec, o: Record<string, unknown> = {}) {
   return new VocabController(
-    mockDep(rec, 'svc'), mockDep(rec, 'words'), mockDep(rec, 'review'),
-    mockDep(rec, 'quiz'), mockDep(rec, 'teacher'), mockDep(rec, 'mistakes'),
-    mockDep(rec, 'views'), mockPrisma(rec), mockDep(rec, 'attempts'),
+    mockDep(rec, 'svc', o), mockDep(rec, 'words', o), mockDep(rec, 'review', o),
+    mockDep(rec, 'quiz', o), mockDep(rec, 'teacher', o), mockDep(rec, 'mistakes', o),
+    mockDep(rec, 'views', o), mockPrisma(rec), mockDep(rec, 'attempts', o),
   );
 }
-function buildLesson(rec: Rec) {
-  return new LessonController(mockDep(rec, 'svc'), mockPrisma(rec));
+function buildLesson(rec: Rec, o: Record<string, unknown> = {}) {
+  return new LessonController(mockDep(rec, 'svc', o), mockPrisma(rec));
 }
 function buildMq(rec: Rec, results: Record<string, unknown> = {}) {
   return new MorningQuizController(
@@ -127,37 +128,37 @@ const MQ_HISTORY_RESULTS = {
 
 const CASES: Case[] = [
   // ── vocab：19 个 ──
-  { ep: 'GET /vocab/words', family: 'vocab', run: async (r) => { await buildVocab(r).listWords(authedReq()); return authInArg0(r, 'words.listWords'); } },
-  { ep: 'POST /vocab/words', family: 'vocab', run: async (r) => { await buildVocab(r).addWord(authedReq(), { word: 'ephemeral' }); return authInArg0(r, 'words.addWord'); } },
-  { ep: 'POST /vocab/words/remove', family: 'vocab', run: async (r) => { await buildVocab(r).removeWord(authedReq(), { headword: 'ephemeral' }); return authInArg0(r, 'words.removeWord'); } },
-  { ep: 'GET /vocab/due', family: 'vocab', run: async (r) => { await buildVocab(r).due(authedReq()); return authInArg0(r, 'review.due'); } },
-  { ep: 'GET /vocab/lesson-cards', family: 'vocab', run: async (r) => { await buildVocab(r).lessonCards(authedReq()); return authInArg0(r, 'review.lessonCards'); } },
-  { ep: 'POST /vocab/review', family: 'vocab', run: async (r) => { await buildVocab(r).submitReview(authedReq(), { headword: 'ephemeral', rating: 'good' }); return authInArg0(r, 'review.review'); } },
-  { ep: 'POST /vocab/review/undo', family: 'vocab', run: async (r) => { await buildVocab(r).undoReview(authedReq(), { headword: 'ephemeral' }); return authInArg0(r, 'review.undo'); } },
-  { ep: 'GET /vocab/quiz', family: 'vocab', run: async (r) => { await buildVocab(r).quizBuild(authedReq()); return authInArg0(r, 'quiz.buildQuiz'); } },
-  { ep: 'GET /vocab/mistakes', family: 'vocab', run: async (r) => { await buildVocab(r).listMistakes(authedReq()); return callOf(r, 'words.resolveStudent').args[2] as string; } },
-  { ep: 'POST /vocab/mistakes/resolve', family: 'vocab', run: async (r) => { await buildVocab(r).resolveMistake(authedReq(), { id: 'm1', resolved: true }); return callOf(r, 'words.resolveStudent').args[2] as string; } },
-  { ep: 'GET /vocab/mistakes/practice-queue', family: 'vocab', run: async (r) => { await buildVocab(r).practiceQueue(authedReq()); return callOf(r, 'words.resolveStudent').args[2] as string; } },
-  { ep: 'POST /vocab/mistakes/practice-result', family: 'vocab', run: async (r) => { await buildVocab(r).practiceResult(authedReq(), { id: 'm1', correct: true }); return callOf(r, 'words.resolveStudent').args[2] as string; } },
-  { ep: 'POST /vocab/page-view', family: 'vocab', run: async (r) => { await buildVocab(r).recordPageView(authedReq(), { kind: 'vocab' }); return callOf(r, 'words.resolveStudent').args[2] as string; } },
-  { ep: 'GET /vocab/stats', family: 'vocab', run: async (r) => { await buildVocab(r).stats(authedReq()); return authInArg0(r, 'review.stats'); } },
-  { ep: 'POST /vocab/quiz/attempt/start', family: 'vocab', run: async (r) => { await buildVocab(r).quizStart(authedReq(), {}); return authInArg0(r, 'attempts.start'); } },
-  { ep: 'GET /vocab/quiz/attempt/current', family: 'vocab', run: async (r) => { await buildVocab(r).quizCurrent(authedReq()); return authInArg0(r, 'attempts.current'); } },
-  { ep: 'POST /vocab/quiz/attempt/answer', family: 'vocab', run: async (r) => { await buildVocab(r).quizAnswer(authedReq(), { index: 0, optionIndex: 1 }); return authInArg0(r, 'attempts.answer'); } },
-  { ep: 'POST /vocab/quiz/attempt/submit', family: 'vocab', run: async (r) => { await buildVocab(r).quizSubmit(authedReq(), {}); return authInArg0(r, 'attempts.submit'); } },
-  { ep: 'GET /vocab/quiz/attempts', family: 'vocab', run: async (r) => { await buildVocab(r).quizAttempts(authedReq()); return authInArg0(r, 'attempts.history'); } },
+  { ep: 'GET /vocab/words', family: 'vocab', run: async (r) => { r.result = await buildVocab(r).listWords(authedReq()); return authInArg0(r, 'words.listWords'); } },
+  { ep: 'POST /vocab/words', family: 'vocab', run: async (r) => { r.result = await buildVocab(r).addWord(authedReq(), { word: 'ephemeral' }); return authInArg0(r, 'words.addWord'); } },
+  { ep: 'POST /vocab/words/remove', family: 'vocab', run: async (r) => { r.result = await buildVocab(r).removeWord(authedReq(), { headword: 'ephemeral' }); return authInArg0(r, 'words.removeWord'); } },
+  { ep: 'GET /vocab/due', family: 'vocab', run: async (r) => { r.result = await buildVocab(r).due(authedReq()); return authInArg0(r, 'review.due'); } },
+  { ep: 'GET /vocab/lesson-cards', family: 'vocab', run: async (r) => { r.result = await buildVocab(r).lessonCards(authedReq()); return authInArg0(r, 'review.lessonCards'); } },
+  { ep: 'POST /vocab/review', family: 'vocab', run: async (r) => { r.result = await buildVocab(r).submitReview(authedReq(), { headword: 'ephemeral', rating: 'good' }); return authInArg0(r, 'review.review'); } },
+  { ep: 'POST /vocab/review/undo', family: 'vocab', run: async (r) => { r.result = await buildVocab(r).undoReview(authedReq(), { headword: 'ephemeral' }); return authInArg0(r, 'review.undo'); } },
+  { ep: 'GET /vocab/quiz', family: 'vocab', run: async (r) => { r.result = await buildVocab(r).quizBuild(authedReq()); return authInArg0(r, 'quiz.buildQuiz'); } },
+  { ep: 'GET /vocab/mistakes', family: 'vocab', run: async (r) => { r.result = await buildVocab(r).listMistakes(authedReq()); return callOf(r, 'words.resolveStudent').args[2] as string; } },
+  { ep: 'POST /vocab/mistakes/resolve', family: 'vocab', run: async (r) => { r.result = await buildVocab(r).resolveMistake(authedReq(), { id: 'm1', resolved: true }); return callOf(r, 'words.resolveStudent').args[2] as string; } },
+  { ep: 'GET /vocab/mistakes/practice-queue', family: 'vocab', run: async (r) => { r.result = await buildVocab(r).practiceQueue(authedReq()); return callOf(r, 'words.resolveStudent').args[2] as string; } },
+  { ep: 'POST /vocab/mistakes/practice-result', family: 'vocab', run: async (r) => { r.result = await buildVocab(r).practiceResult(authedReq(), { id: 'm1', correct: true }); return callOf(r, 'words.resolveStudent').args[2] as string; } },
+  { ep: 'POST /vocab/page-view', family: 'vocab', run: async (r) => { r.result = await buildVocab(r).recordPageView(authedReq(), { kind: 'vocab' }); return callOf(r, 'words.resolveStudent').args[2] as string; } },
+  { ep: 'GET /vocab/stats', family: 'vocab', run: async (r) => { r.result = await buildVocab(r).stats(authedReq()); return authInArg0(r, 'review.stats'); } },
+  { ep: 'POST /vocab/quiz/attempt/start', family: 'vocab', run: async (r) => { r.result = await buildVocab(r).quizStart(authedReq(), {}); return authInArg0(r, 'attempts.start'); } },
+  { ep: 'GET /vocab/quiz/attempt/current', family: 'vocab', run: async (r) => { r.result = await buildVocab(r).quizCurrent(authedReq()); return authInArg0(r, 'attempts.current'); } },
+  { ep: 'POST /vocab/quiz/attempt/answer', family: 'vocab', run: async (r) => { r.result = await buildVocab(r).quizAnswer(authedReq(), { index: 0, optionIndex: 1 }); return authInArg0(r, 'attempts.answer'); } },
+  { ep: 'POST /vocab/quiz/attempt/submit', family: 'vocab', run: async (r) => { r.result = await buildVocab(r).quizSubmit(authedReq(), {}); return authInArg0(r, 'attempts.submit'); } },
+  { ep: 'GET /vocab/quiz/attempts', family: 'vocab', run: async (r) => { r.result = await buildVocab(r).quizAttempts(authedReq()); return authInArg0(r, 'attempts.history'); } },
 
   // ── lesson：4 个 ──
-  { ep: 'GET /lesson/today', family: 'lesson', run: async (r) => { await buildLesson(r).today(authedReq()); return (callOf(r, 'svc.getToday').args[0] as { studentId?: string }).studentId; } },
-  { ep: 'POST /lesson/start', family: 'lesson', run: async (r) => { await buildLesson(r).start({ begin: true }, authedReq()); return (callOf(r, 'svc.startOrResumeToday').args[0] as { studentId?: string }).studentId; } },
-  { ep: 'POST /lesson/vocab-taught', family: 'lesson', run: async (r) => { await buildLesson(r).vocabTaught(authedReq(), { headword: 'ephemeral', cursor: 3 }); return authInArg0(r, 'svc.markTaughtAndAdvance'); } },
-  { ep: 'POST /lesson/vocab-cursor', family: 'lesson', run: async (r) => { await buildLesson(r).saveVocabCursor(authedReq(), { cursor: 3 }); return authInArg0(r, 'svc.saveVocabCursor'); } },
+  { ep: 'GET /lesson/today', family: 'lesson', run: async (r) => { r.result = await buildLesson(r).today(authedReq()); return (callOf(r, 'svc.getToday').args[0] as { studentId?: string }).studentId; } },
+  { ep: 'POST /lesson/start', family: 'lesson', run: async (r) => { r.result = await buildLesson(r).start({ begin: true }, authedReq()); return (callOf(r, 'svc.startOrResumeToday').args[0] as { studentId?: string }).studentId; } },
+  { ep: 'POST /lesson/vocab-taught', family: 'lesson', run: async (r) => { r.result = await buildLesson(r).vocabTaught(authedReq(), { headword: 'ephemeral', cursor: 3 }); return authInArg0(r, 'svc.markTaughtAndAdvance'); } },
+  { ep: 'POST /lesson/vocab-cursor', family: 'lesson', run: async (r) => { r.result = await buildLesson(r).saveVocabCursor(authedReq(), { cursor: 3 }); return authInArg0(r, 'svc.saveVocabCursor'); } },
 
   // ── morning-quiz：3 个 ──
   {
     ep: 'GET /morning-quiz/history-by-name', family: 'morning-quiz',
     run: async (r) => {
-      await buildMq(r, MQ_HISTORY_RESULTS).historyByName(authedReq());
+      r.result = await buildMq(r, MQ_HISTORY_RESULTS).historyByName(authedReq());
       const w = (callOf(r, 'prisma.user.findMany').args[0] as { where: Record<string, unknown> }).where;
       expect(w, '已认证路径不该按姓名查').not.toHaveProperty('name');
       return w.id as string;
@@ -166,14 +167,14 @@ const CASES: Case[] = [
   {
     ep: 'GET /morning-quiz/history-detail', family: 'morning-quiz',
     run: async (r) => {
-      await buildMq(r, MQ_DETAIL_RESULTS).historyDetail(authedReq(), 'sub-1');
+      r.result = await buildMq(r, MQ_DETAIL_RESULTS).historyDetail(authedReq(), 'sub-1');
       return callOf(r, 'svc.getStudentResult').args[1] as string;
     },
   },
   {
     ep: 'POST /morning-quiz/appeals', family: 'morning-quiz',
     run: async (r) => {
-      await buildMq(r).createAppeal({ submissionId: 'sub-1', message: '这题我觉得算对' }, authedReq());
+      r.result = await buildMq(r).createAppeal({ submissionId: 'sub-1', message: '这题我觉得算对' }, authedReq());
       return authInArg0(r, 'svc.createAppeal');
     },
   },
@@ -439,5 +440,152 @@ describe('反向对照：把这些修复撤掉就会红', () => {
   it('ForbiddenException 的错误码形状与既有契约一致', () => {
     const e = new ForbiddenException({ code: 'student_token_required' });
     expect(e.getResponse()).toEqual({ code: 'student_token_required' });
+  });
+});
+// ─────────────────────────────────────────────────────────────
+// 响应语义 —— 「到达了依赖」不等于「回给调用方的东西是对的」
+//
+// 上一轮 26 条运行期用例的判据是「执行到达预期依赖并带着令牌 id」。
+// 那挡住了鉴权与解析的问题，却挡不住**响应拼错**：handler 完全可以
+// 正确地查到人，然后把一个空字符串回给前端。history-by-name 就是这样。
+// ─────────────────────────────────────────────────────────────
+
+const DB_NAME = '张三（库里的那条）';
+
+describe('GET /morning-quiz/history-by-name 的响应身份', () => {
+  const withDbName = {
+    'user.findMany': [{ id: ID, name: DB_NAME, email: 's1@school.local', classEnrollments: [] }],
+    'studentSubmission.findMany': [],
+    'morningQuizSession.findMany': [],
+  };
+
+  it('**只带令牌时，回显的是库里查出来的姓名**，不是空的查询串', async () => {
+    const rec: Rec = { calls: [] };
+    const out = (await buildMq(rec, withDbName).historyByName(authedReq())) as {
+      student: { name: string; matchedCount: number; classes: string[] };
+    };
+    expect(out.student.name).toBe(DB_NAME);
+  });
+
+  it('**回显姓名来自数据库，不是来自 JWT** —— 令牌里的名字过时也不影响', async () => {
+    const rec: Rec = { calls: [] };
+    // 令牌里的 name 是 NAME（'张三'），库里已经改成 DB_NAME
+    const out = (await buildMq(rec, withDbName).historyByName(authedReq())) as {
+      student: { name: string };
+    };
+    expect(out.student.name).toBe(DB_NAME);
+    expect(out.student.name).not.toBe(NAME);
+  });
+
+  it('查人仍然只按 id，绝不按姓名 —— 也没有消歧与近似姓名建议', async () => {
+    const rec: Rec = { calls: [] };
+    await buildMq(rec, withDbName).historyByName(authedReq());
+    const w = (callOf(rec, 'prisma.user.findMany').args[0] as { where: Record<string, unknown> }).where;
+    expect(w.id).toBe(ID);
+    expect(w).not.toHaveProperty('name');
+    // 名册查询（近似姓名建议的来源）只在查无此人时才发生 —— 这里只查了一次
+    expect(rec.calls.filter((c) => c.m === 'prisma.user.findMany')).toHaveLength(1);
+  });
+
+  it('**响应形状没变** —— 仍是 { student:{name,matchedCount,classes}, submissions }', async () => {
+    const rec: Rec = { calls: [] };
+    const out = (await buildMq(rec, withDbName).historyByName(authedReq())) as Record<string, unknown>;
+    expect(Object.keys(out).sort()).toEqual(['student', 'submissions']);
+    expect(Object.keys(out.student as object).sort()).toEqual(
+      ['classes', 'matchedCount', 'name'].sort(),
+    );
+    expect((out.student as { matchedCount: number }).matchedCount).toBe(1);
+  });
+
+  it('**旧口径不变**：无令牌 + 姓名时回显的仍是调用方给的姓名', async () => {
+    const rec: Rec = { calls: [] };
+    const legacy = {
+      'user.findMany': [{ id: 'other', name: '李四', email: 's2@school.local', classEnrollments: [] }],
+      'studentSubmission.findMany': [],
+      'morningQuizSession.findMany': [],
+    };
+    const out = (await buildMq(rec, legacy).historyByName(anonReq(), '李四')) as {
+      student: { name: string };
+    };
+    expect(out.student.name).toBe('李四');
+  });
+});
+
+/**
+ * 另外 25 条的同类审查。
+ *
+ * 只有五个 handler 会**自己拼响应**（其余 21 个直接把依赖的返回值透传）：
+ *
+ * | 端点 | 响应里有身份吗 | 取自哪里 |
+ * |---|---|---|
+ * | `GET /vocab/mistakes` | 有 `student:{id,name}` | `resolveStudent()` 的**库返回值** ✅ |
+ * | `GET /vocab/mistakes/practice-queue` | 有 `student:{id,name}` | 同上 ✅ |
+ * | `GET /vocab/lesson-cards` | 无 | 依赖结果，或固定空壳 |
+ * | `POST /vocab/page-view` | 无 | 固定 `{ ok: true }` |
+ * | `GET /morning-quiz/history-by-name` | 有 `student.name` | **曾取自查询串 ✗，已修** |
+ *
+ * 前两个本来就对 —— 它们回显的是解析器从库里拿到的那条，不是入参。
+ * 但上一轮的用例只断言了「`resolveStudent` 被用 auth id 调过」，没有断言
+ * 回显值，所以这个正确性是**没有测试保护的**。下面补上。
+ */
+describe('另外 25 条：自己拼响应的四个，回显必须来自解析结果', () => {
+  const resolved = { 'words.resolveStudent': { id: 'db-id-1', name: DB_NAME } };
+
+  for (const [ep, invoke] of [
+    ['GET /vocab/mistakes', (c: VocabController) => c.listMistakes(authedReq())],
+    ['GET /vocab/mistakes/practice-queue', (c: VocabController) => c.practiceQueue(authedReq())],
+  ] as const) {
+    it(`${ep} —— 回显的 student 就是库里解析出来的那条`, async () => {
+      const rec: Rec = { calls: [] };
+      const out = (await invoke(buildVocab(rec, resolved))) as {
+        student: { id: string; name: string };
+      };
+      expect(out.student).toEqual({ id: 'db-id-1', name: DB_NAME });
+      // 且解析走的是令牌的精确 id 路径
+      expect(callOf(rec, 'words.resolveStudent').args[2]).toBe(ID);
+    });
+  }
+
+  it('GET /vocab/lesson-cards —— 有课时透传依赖结果，无课时给固定空壳', async () => {
+    const recA: Rec = { calls: [] };
+    const withCards = await buildVocab(recA, { 'review.lessonCards': { cards: ['w1'] } }).lessonCards(authedReq());
+    expect(withCards).toEqual({ cards: ['w1'] });
+
+    const recB: Rec = { calls: [] };
+    const none = await buildVocab(recB, { 'review.lessonCards': null }).lessonCards(authedReq());
+    expect(none).toEqual({ lessonContext: false, cards: [], cursor: 0, totalDue: 0 });
+  });
+
+  it('POST /vocab/page-view —— 用解析出来的 id 记账，回 { ok: true }', async () => {
+    const rec: Rec = { calls: [] };
+    const out = await buildVocab(rec, resolved).recordPageView(authedReq(), { kind: 'vocab' });
+    expect(callOf(rec, 'views.record').args[0]).toBe('db-id-1');
+    expect(out).toEqual({ ok: true });
+  });
+});
+
+describe('另外 25 条：透传型端点确实把依赖的结果回给了调用方', () => {
+  /** 自己拼响应的五个单独测（见上），其余必须原样透传。 */
+  const BUILDERS = new Set([
+    'GET /vocab/lesson-cards',
+    'GET /vocab/mistakes',
+    'GET /vocab/mistakes/practice-queue',
+    'POST /vocab/page-view',
+    'GET /morning-quiz/history-by-name',
+  ]);
+
+  for (const c of CASES.filter((x) => !BUILDERS.has(x.ep))) {
+    it(`${c.ep} —— 返回值就是依赖的返回值（没被吞掉）`, async () => {
+      const rec: Rec = { calls: [] };
+      await c.run(rec);
+      const from = (rec.result as { __from?: string } | undefined)?.__from;
+      expect(from, `${c.ep} 没把依赖的结果回给调用方`).toBeDefined();
+      expect(rec.calls.map((x) => x.m)).toContain(from);
+    });
+  }
+
+  it('**五个自己拼响应的端点已单独覆盖**，加起来正好 26', () => {
+    expect(BUILDERS.size + CASES.filter((x) => !BUILDERS.has(x.ep)).length).toBe(26);
+    for (const b of BUILDERS) expect(CASES.map((c) => c.ep)).toContain(b);
   });
 });
