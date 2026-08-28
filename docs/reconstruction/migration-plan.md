@@ -1686,17 +1686,24 @@ Claude **全程未输入、未索取、未显示、未记录、未注入任何�
 - 方案 B（抽共享包）**否决**：抽包的前置恰好是方案 C 的拆耦合工作，
   而消费者只有一个、旧端即将退役（阶段 16）。保留为阶段 16 的可选重构。
 
-**关键发现**：`components/exam/` 这棵 18 文件 4039 行的子树**几乎是纯的**
-—— 对旧端的耦合面只有 `ExamContext.tsx` 里一行 `import { BASE } from
-'../../lib/api'`（用于 `/api/health` 连通性探测）。因此绝大多数渲染器与
-shared 组件可**逐字搬运**，只有 `ExamContext` 与页面壳需要重建。
+**关键发现**（**返工 1/2 更正**）：`components/exam/` 这棵 18 文件 4039 行的
+子树**大部分是纯的** —— 对旧端的耦合面只有一个符号 `BASE`，但有**两个**
+使用点：`ExamContext.tsx:411` 的 `/api/health` 连通性探测，以及
+`ExamWordSheet.tsx:110/121` 的查词与生词本写入。后者还带 `studentName`
+写库，**违反已冻结的身份契约**。
+
+因此 `IELTSReadingPassage` **不是纯组件** —— 它 `import ExamWordSheet`
+（`:9`，挂载于 `:492-503`）。阶段 7 的处置：**搬运并摘掉词表挂点**
+（保留高亮 / 便签 / 分栏），查词记生词本的能力归**阶段 12**，届时先改成
+token-only 再挂回。五个 O-Level 渲染器与 shared 组件仍可逐字搬运，
+`ExamContext` 与页面壳需要重建。详见设计文档 §1.3。
 
 **冻结的契约**（细节见设计文档）：路由 `/lesson/reading` 无 `/app` 前缀；
 会话来源是 `/lesson/today` 的 `segments.read`，不从 URL 取；身份只有
 Bearer 令牌；存储键全部 `sw:reading:*`，按 `submissionId` 分桶，
 **不碰 `mq:*`**；导航只走路由契约与 `NextActionKind`，后端 `href` 永不参与。
 
-**审计结论：`S7B_GO`。** 六个疑点全部有确定答案：
+**审计结论：`S7B_GO`（返工 1/2 后维持）。** 八个疑点全部有确定答案：
 
 | 疑点 | 结论 |
 |---|---|
@@ -1706,6 +1713,8 @@ Bearer 令牌；存储键全部 `sw:reading:*`，按 `submissionId` 分桶，
 | 加载是否够初始化 `clientSeq` | 够 —— 每题 `clientSeq` + `sessionId` + `submissionId` 齐备 |
 | 交卷返回是否够路由 | **不够**（只返回答卷行），因此设计要求交卷后必须刷 `/lesson/today` 再按 `kind` 路由 |
 | 全天倒计时语义 | 不冲突，但**必须**用 `quizEnd` 而非 `regularQuizEnd` —— 用错会当场误交卷 |
+| 六个渲染器能否只改 import 就搬 | **不能** —— `IELTSReadingPassage` 依赖不搬的 `ExamWordSheet`，首版文件计划编译不过。已改为「搬 + 摘挂点」，能力归阶段 12 |
+| 保存返回的 `superseded` 能否当「已同步」 | **不能** —— 它只回序号不回答案内容，直接当干净会让界面「显示未证实的答案却报已保存」。已冻结对账规则（设计文档 §5.4）：本地有更新的写就留在 dirty，否则重载权威会话覆盖，重载失败则阻塞交卷 |
 
 **后续切分**：S7B 地基/API/状态引擎 → S7C 题型渲染与阅读界面 →
 S7D 本地集成回归 → S7E staging/真机验收。各自的冻结合同另行下发。
@@ -1716,7 +1725,7 @@ S7D 本地集成回归 → S7E staging/真机验收。各自的冻结合同另�
 ### 阶段 7B–7E —— 实施（未开始）
 
 - [ ] S7B `/lesson/reading` 的 API 层与状态引擎
-- [ ] S7C 六个题型渲染器搬运 + 阅读页外壳
+- [ ] S7C 题型渲染器搬运（5 个 O-Level 逐字搬 + IELTS 摘掉词表挂点）+ 阅读页外壳
 - [ ] S7D 全链本地集成回归
 - [ ] S7E staging 八账号真机验收
 
@@ -1777,6 +1786,9 @@ S7D 本地集成回归 → S7E staging/真机验收。各自的冻结合同另�
 ## 阶段 12 —— 生词本与错题本
 
 - [ ] `/app/vocab`、`/app/vocab/practice`、`/app/vocab/selftest`
+- [ ] **（阶段 7 移交）** 考试中查词记生词本：把 `ExamWordSheet` 重写成
+      token-only（停发 `studentName`）、`mq:lookedUpOnce` 换 `sw:` 键，
+      再挂回阅读页。阶段 7 起该能力在新端**不存在**
 - [ ] `/app/mistakes`、`/app/mistakes/practice`
 - [ ] 自由练习与课程队列的隔离**用路由表达**
 
