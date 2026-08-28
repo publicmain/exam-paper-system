@@ -19,7 +19,9 @@ import { z } from 'zod';
 import { CurrentUser } from '../common/current-user.decorator';
 import { AllowHandoff, Public } from '../common/auth.guard';
 import { RateLimit } from '../common/rate-limit.guard';
-import { RequireStudentToken, StudentIdentityGuard } from '../common/student-identity.guard';
+import { RequireStudentToken, StudentIdentityGuard , type RequestWithStudentAuth } from '../common/student-identity.guard';
+import { authenticatedStudentWhere, studentNotEligible } from '../common/authenticated-student';
+import { identityOf } from '../common/student-identity-input';
 import { PrismaService } from '../common/prisma.service';
 import { closeNames } from '../common/name-suggest';
 import { StudentService } from '../student/student.service';
@@ -597,12 +599,15 @@ export class MorningQuizController {
   @RateLimit({ limit: HISTORY_RATE_LIMIT.limit, windowSec: HISTORY_RATE_LIMIT.windowSec, scope: 'ip' })
   @Get('history-by-name')
   async historyByName(
+    @Req() req: Request,
     @Query('name') rawName?: string,
     @Query('studentId') studentIdFilter?: string,
   ) {
+    const auth = (req as RequestWithStudentAuth).studentAuth;
     const name = (rawName ?? '').trim();
-    if (!name) throw new BadRequestException({ code: 'name_required' });
-    if (name.length > 50) throw new BadRequestException({ code: 'name_too_long' });
+    // 阶段 5A —— 带令牌时姓名可以不给；没令牌仍必须给（旧口径不变）
+    if (!auth && !name) throw new BadRequestException({ code: 'name_required' });
+    if (name && name.length > 50) throw new BadRequestException({ code: 'name_too_long' });
     // Bug 9: filter out soft-deleted/withdrawn students. They should not
     // appear in name lookups; the PII of a withdrawn student must not leak.
     // R15-Bug B (production 2026-05-12): also filter out PHANTOM students —
@@ -615,7 +620,25 @@ export class MorningQuizController {
     // 500 from downstream history/dashboard queries that assume the
     // student is in a class. The Prisma `some` predicate forces at
     // least one student-role enrollment.
-    const allCandidates = await this.prisma.user.findMany({
+    // 阶段 5A —— **已认证路径**：令牌里有确定的 id，不查姓名、不消歧。
+    // 资格谓词与 vocab / morning-quiz 服务层共用同一份定义。
+    const authCandidates = auth
+      ? await this.prisma.user.findMany({
+          where: authenticatedStudentWhere(auth.id),
+          select: {
+            id: true,
+            name: true,
+            email: true,
+            classEnrollments: {
+              where: { role: 'student', class: { archivedAt: null } },
+              select: { class: { select: { id: true, name: true, classCode: true } } },
+            },
+          },
+        })
+      : null;
+    if (authCandidates && authCandidates.length === 0) throw studentNotEligible();
+
+    const allCandidates = authCandidates ?? await this.prisma.user.findMany({
       where: {
         name: name,
         role: 'student',
@@ -828,12 +851,15 @@ export class MorningQuizController {
   @RateLimit({ limit: HISTORY_RATE_LIMIT.limit, windowSec: HISTORY_RATE_LIMIT.windowSec, scope: 'ip' })
   @Get('history-detail')
   async historyDetail(
+    @Req() req: Request,
     @Query('submissionId') submissionId?: string,
     @Query('name') rawName?: string,
   ) {
+    const auth = (req as RequestWithStudentAuth).studentAuth;
     const name = (rawName ?? '').trim();
     if (!submissionId) throw new BadRequestException({ code: 'submission_id_required' });
-    if (!name) throw new BadRequestException({ code: 'name_required' });
+    // 阶段 5A —— 带令牌时姓名可以不给
+    if (!auth && !name) throw new BadRequestException({ code: 'name_required' });
     const sub = await this.prisma.studentSubmission.findUnique({
       where: { id: submissionId },
       select: {
@@ -843,7 +869,10 @@ export class MorningQuizController {
       },
     });
     if (!sub) throw new NotFoundException({ code: 'submission_not_found' });
-    if (sub.student.name !== name) {
+    // 归属校验：**有令牌就比 id**（姓名可能改过，也可能同名）；
+    // 没令牌沿用姓名比对，旧口径一字不改。
+    const owns = auth ? sub.studentId === auth.id : sub.student.name === name;
+    if (!owns) {
       // Vague message — don't leak whether the submission exists.
       throw new ForbiddenException({ code: 'name_mismatch' });
     }
@@ -889,12 +918,15 @@ export class MorningQuizController {
       submissionId: z.string().min(1),
       paperQuestionId: z.string().optional(),
       message: z.string().min(1).max(4000),
-      studentName: z.string().min(1).max(50),
+      studentName: z.string().min(1).max(50).optional(),
       studentId: z.string().optional(),
     });
     const parsed = schema.safeParse(body);
     if (!parsed.success) throw new BadRequestException(parsed.error.flatten());
-    return this.svc.createAppeal(parsed.data, req.ip ?? null);
+    return this.svc.createAppeal(
+      { ...parsed.data, ...identityOf(req, parsed.data.studentName, parsed.data.studentId) },
+      req.ip ?? null,
+    );
   }
 
   /** Teacher / head_teacher / admin — paginated appeal queue. */

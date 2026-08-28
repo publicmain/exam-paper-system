@@ -4,6 +4,7 @@ import { CurrentUser } from '../common/current-user.decorator';
 import { Public } from '../common/auth.guard';
 import { RateLimit } from '../common/rate-limit.guard';
 import { RequireStudentToken, StudentIdentityGuard } from '../common/student-identity.guard';
+import { identityOf } from '../common/student-identity-input';
 import { PrismaService } from '../common/prisma.service';
 import { canActOnClass } from '../common/roles';
 import { z } from 'zod';
@@ -118,9 +119,9 @@ export class LessonController {
   @RequireStudentToken()
   @RateLimit({ limit: 120, windowSec: 60, scope: 'ip' })
   @Post('vocab-taught')
-  async vocabTaught(@Body() body: unknown) {
+  async vocabTaught(@Req() req: Request, @Body() body: unknown) {
     const schema = z.object({
-      name: z.string().min(1).max(120),
+      name: z.string().min(1).max(120).optional(),
       studentId: z.string().min(1).max(60).optional(),
       headword: z.string().min(1).max(80),
       cursor: z.number().int().min(0).max(500),
@@ -128,25 +129,23 @@ export class LessonController {
     const parsed = schema.safeParse(body);
     if (!parsed.success) throw new BadRequestException(parsed.error.flatten());
     return this.svc.markTaughtAndAdvance({
-      studentName: parsed.data.name,
-      studentId: parsed.data.studentId,
+      ...identityOf(req, parsed.data.name, parsed.data.studentId),
       headword: parsed.data.headword,
       cursor: parsed.data.cursor,
     });
   }
 
   @Post('vocab-cursor')
-  async saveVocabCursor(@Body() body: unknown) {
+  async saveVocabCursor(@Req() req: Request, @Body() body: unknown) {
     const schema = z.object({
-      name: z.string().min(1).max(50),
+      name: z.string().min(1).max(50).optional(),
       studentId: z.string().optional(),
       cursor: z.number().int().min(0).max(500),
     });
     const p = schema.safeParse(body);
     if (!p.success) throw new BadRequestException(p.error.flatten());
     return this.svc.saveVocabCursor({
-      studentName: p.data.name,
-      studentId: p.data.studentId,
+      ...identityOf(req, p.data.name, p.data.studentId),
       cursor: p.data.cursor,
     });
   }

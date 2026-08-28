@@ -25,7 +25,8 @@
 | **4A** | **新端空壳与认证（本地）** | **✅ 已完成** | | ✓ | ✓ |
 | **4B1** | **打包 + staging 部署 + CORS + 单账号 smoke** | **✅ 已完成** | | ✓ | ✓ |
 | **4B2** | **八账号认证验收** | 🔶 **PARTIAL / CONDITIONAL PASS** —— 教师重置链条 BLOCKED，已移交阶段 14 | | ✓ | ✓ |
-| 5 | token-only 身份（后端五层） | ⬜ | | ✓ | ✓ |
+| **5** | **token-only 身份（后端五层）** | ⬜ **PENDING** —— 5A 本地已 PASS，5B 部署验证待授权 | | ✓ | ✓ |
+| **5A** | **本地实现（五层接线 + 测试 + G8 加固）** | **✅ PASS** | | ✓ | ✓ |
 | 6 | 今天的课（`/app/today`） | ⬜ | | ✓ | ✓ |
 | **7** | **阅读页（单独阶段）** | ⬜ | | **✓ 单独** | **✓ 单独** |
 | 8 | 阅读结果页 | ⬜ | | ✓ | ✓ |
@@ -546,29 +547,133 @@ staging 的 `测试一号` 已不在其种子场景上。**重新播种即可恢
 
 **目标**：新端一个请求都不带 `name`/`studentId` 也能跑通。
 
-- [ ] **Guard**：无 `name`/`studentId` 时有令牌即通过；冲突仍 403
-      `identity_mismatch`；`teacher_view` 仍只读；规则 3 暂不动
-- [ ] **Controller + schema**：`vocab.controller.ts` 19 个、
-      `lesson.controller.ts` 2 个（`vocab-taught`/`vocab-cursor`）、
-      `morning-quiz.controller.ts` 3 个（`history-by-name`/`history-detail`/
-      `appeals`）——姓名字段一律 `.optional()`，令牌优先
-- [ ] **Service**：`resolveStudent` 加令牌快路径（**绕开同名消歧与近似
-      姓名建议**）；`vocab-review` / `vocab-quiz-attempt` /
-      `morning-quiz` 同步
-- [ ] **测试**：每个改动端点新增「只带令牌」用例；
-      新建 `student-identity.guard.spec.ts` 覆盖四种情形；
-      **反向对照**（改回姓名口径必须变红）
-- [ ] 守卫 **G8**（新端出站请求不含身份参数）
+拆成 **5A（本地实现）** 与 **5B（部署验证）**：5A 只改代码、跑本地测试，
+不碰 staging / 生产 / 数据库；5B 需另行授权。
 
-**关键约束**：旧端**继续发**姓名，必须继续工作。这一阶段是纯增量。
+### 阶段 5A —— 本地实现　**✅ PASS**（2026-08-28）
 
-**退出条件**：`apps/api` 全量测试绿；用裸令牌手工打通 19+2+3 个端点；
-旧端 staging 行为无变化
+- [x] **Guard**：先审计再动手 —— 审计结论是**现有逻辑已经正确，不改**
+      （见下「Guard 审计」）
+- [x] **Controller + schema**：vocab 19 + lesson 4 + morning-quiz 3，
+      姓名字段一律可选，令牌优先
+- [x] **Service**：`resolveStudent` / `resolveStudentByName` 各加一个
+      令牌快路径（**绕开同名消歧与近似姓名建议**，但不放宽资格）
+- [x] **测试**：逐端点表驱动 + 兼容契约 + 反向对照
+- [x] 守卫 **G8** 加固（前缀无关的全量清点）
+
+#### 从代码推导的端点矩阵（26 条，**不采信文档里的 19+2+3**）
+
+| 方法 / 路径 | 身份来源 | 需令牌 | schema 字段 | 解析器 |
+|---|---|---|---|---|
+| `GET /vocab/words` | query name | 否 | TS 可选 | service(authStudentId) |
+| `POST /vocab/words` | body studentName | 是 | zod .optional() | service(authStudentId) |
+| `POST /vocab/words/remove` | body studentName | 是 | zod .optional() | service(authStudentId) |
+| `GET /vocab/due` | query name | 否 | TS 可选 | service(authStudentId) |
+| `GET /vocab/lesson-cards` | query name | 否 | TS 可选 | service(authStudentId) |
+| `POST /vocab/review` | body studentName | 是 | zod .optional() | service(authStudentId) |
+| `POST /vocab/review/undo` | body studentName | 是 | zod .optional() | service(authStudentId) |
+| `GET /vocab/quiz` | query name | 否 | TS 可选 | service(authStudentId) |
+| `GET /vocab/mistakes` | query name | 否 | TS 可选 | words.resolveStudent |
+| `POST /vocab/mistakes/resolve` | body studentName | 是 | zod .optional() | words.resolveStudent |
+| `GET /vocab/mistakes/practice-queue` | query name | 否 | TS 可选 | words.resolveStudent |
+| `POST /vocab/mistakes/practice-result` | body studentName | 是 | zod .optional() | words.resolveStudent |
+| `POST /vocab/page-view` | body studentName | 是 | zod .optional() | words.resolveStudent |
+| `GET /vocab/stats` | query name | 否 | TS 可选 | service(authStudentId) |
+| `POST /vocab/quiz/attempt/start` | body name | 是 | zod .optional() | service(authStudentId) |
+| `GET /vocab/quiz/attempt/current` | query name | 是 | TS 可选 | service(authStudentId) |
+| `POST /vocab/quiz/attempt/answer` | body name | 是 | zod .optional() | service(authStudentId) |
+| `POST /vocab/quiz/attempt/submit` | body name | 是 | zod .optional() | service(authStudentId) |
+| `GET /vocab/quiz/attempts` | query name | 是 | TS 可选 | service(authStudentId) |
+| `GET /lesson/today` | query name | 是 | TS 可选 | controller 内 id 优先 |
+| `POST /lesson/start` | body studentName | 是 | zod .optional() | controller 内 id 优先 |
+| `POST /lesson/vocab-taught` | body name | 是 | zod .optional() | service(authStudentId) |
+| `POST /lesson/vocab-cursor` | body name | 否 | zod .optional() | service(authStudentId) |
+| `GET /morning-quiz/history-by-name` | query name | 否 | TS 可选 | controller 内 id 优先 |
+| `GET /morning-quiz/history-detail` | query name | 否 | TS 可选 | controller 内 id 优先 |
+| `POST /morning-quiz/appeals` | body studentName | 是 | zod .optional() | service(authStudentId) |
+
+数量核对：vocab **19**（控制器 24 个端点 − 4 个教师端 − 无身份的 `lookup`）、
+lesson **4**（计划说 2；`today`/`start` 本就已是 id 优先，本轮只验证不改写）、
+morning-quiz **3**。计划里的 19 与 3 经代码确认无误。
+
+明确排除、且**已由测试钉住不得被拉进来**：`upcoming-for-name`、`trend`、
+`skill-profile`、`practice`、考勤、`student-auth/*` 的 pre-auth 端点；
+阅读三件套（`sessions/:id`、`answer`、`submit`）已走 JWT，不改写。
+
+#### Guard 审计（先审计后改）
+
+`StudentIdentityGuard` 的四件事逐条对照阶段 5A 的兼容契约：
+
+| 契约 | 现状 | 结论 |
+|---|---|---|
+| 有令牌 + 无姓名 → 放行并置 `req.studentAuth` | 已实现 | 不动 |
+| 令牌与声明身份冲突 → 403 `identity_mismatch` | `identityConflicts()` 已实现 | 不动 |
+| 写操作无有效令牌 → 403 `student_token_required` | `@RequireStudentToken()` 已实现 | 不动 |
+| `teacher_view` 只读，写 → 403 `teacher_view_is_read_only` | 已实现 | 不动 |
+
+**所以本阶段没有改这个文件。** 计划里写着「改 Guard」，但可用的安全逻辑
+不因为计划这么写就该重写 —— 重写只会引入回归。
+
+#### 身份优先级与资格
+
+- 优先级：`req.studentAuth.id` > 请求里的 `studentId` > 姓名。
+  由 `common/student-identity-input.ts::identityOf()` **单点**产出，
+  三个 controller 共用，杜绝各写一份慢慢长出差异。
+- 精确 ID 解析在 `common/authenticated-student.ts`：用 `findFirst({ where: { id } })`，
+  **不查姓名、不消歧、不给近似姓名建议**。
+- **资格不放宽**：取两个旧解析器里更严的一套
+  （`role='student'` + `isActive` + `archivedAt=null` + 在读于未归档班级）。
+  令牌证明「你是谁」，不证明「你还在读」。
+- 新错误码 `student_not_eligible`（403）**只可能出现在已认证路径上**，
+  旧的无令牌路径走不到，因此不影响任何既有客户端的错误契约。
+
+#### 精查中发现的三处与计划不符
+
+1. **`POST /lesson/vocab-cursor` 既没有 `@Public()` 也没有
+   `@RequireStudentToken()`** —— 全局 `AuthGuard` 因此要求教师 JWT，
+   学生端调用一律 401 `Missing token`。而 `apps/web` 的
+   `MyVocabReview.tsx` 仍在调它，且用 `.catch(() => {})` 把错误吞掉，
+   所以这个失败一直是静默的。**CODE-VERIFIED，属既有缺陷，不在阶段 5A
+   的授权范围内修**（改它等于改端点可达性 = 产品行为）。移交单独授权。
+2. **`lesson.controller.ts` 有一段孤儿装饰器块**（`@Public()` +
+   `@RequireStudentToken()` + `@RateLimit()` 出现两遍，中间夹着一段
+   描述 vocab-cursor 的 JSDoc）。两遍都落在 `vocab-taught` 上，
+   元数据幂等因此无害，但读起来会误判归属。同样属既有问题，未改。
+3. **lesson 在范围内的端点是 4 个不是 2 个** —— `today`/`start` 本就
+   已经是 id 优先（`resolveByIdOrName` 先按 id 查），本轮只做验证，
+   不改写；但它们仍应计入矩阵，否则「2 个」这个数字会让人以为
+   `today`/`start` 不接受令牌身份。
+
+#### G8 加固（本阶段一并做掉）
+
+旧版 `apiBlocks()` 拿 `/student-auth/` 路径字面量当锚点 —— 换句话说
+**只要新端开始调 `/lesson/*`、`/vocab/*`，守卫就静默地什么都不查，
+而测试仍然是绿的**。现改为：
+
+- 从 `request(...)` 的**调用点**切块，前缀无关；扫描范围取整个方法块
+  （签名 + 调用），因为身份可以藏在签名里再原样传下去；
+- 只有三个 pre-auth 端点（`login` / `register` / `registration-status`）
+  可以带身份，其余一律按已认证处理，URL 与请求体都不许带；
+- **未在 `KNOWN_ENDPOINTS` 登记的新请求直接判红**；
+- 另加一条「没有绕过 `request()` 的裸 `fetch`」，否则清点本身就是漏的；
+- 不误伤**响应类型**与 pre-auth 消歧载荷里的 `name`/`studentId`。
+
+三次变异验证（`/lesson/today?name=`、新增未登记端点、签名里藏
+`studentId`）全部被抓到。
+
+**退出条件（5A）**：`apps/api` / `apps/student-web` / `apps/web` 全量绿 ✅
 **风险**：中 —— 改动面广，但每处都是「加一条快路径」
-**回滚**：`git revert` 本阶段提交（向后兼容，旧端不受影响）
+**回滚**：`git revert` 本阶段提交（纯增量，旧端不受影响）
+
+### 阶段 5B —— 部署与联调验证　⬜ **待单独授权**
+
+- [ ] 部署到 staging，用裸令牌**实机**打通矩阵里的 26 个端点
+- [ ] 确认旧端在 staging 上行为无变化
+- [ ] 观察 `student_not_eligible` 是否有非预期触发
+
+**5B 未做之前，阶段 5 整体仍为 PENDING。**
 
 ---
-
 ## 阶段 6 —— 今天的课
 
 - [ ] `/app/today`：读 `/lesson/today`（**不带姓名**）

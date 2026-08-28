@@ -259,8 +259,8 @@ export class VocabReviewService {
    * 现在每次先给最多 3 个从没复习过的新词（最新加入优先，趁热），
    * 其余名额还旧债（仍按欠最久优先）。
    */
-  async due(input: { studentName: string; studentId?: string; limit?: number }) {
-    const student = await this.words.resolveStudent(input.studentName, input.studentId);
+  async due(input: { studentName: string; studentId?: string; authStudentId?: string; limit?: number }) {
+    const student = await this.words.resolveStudent(input.studentName, input.studentId, input.authStudentId);
     const now = new Date();
     const backlog = await this.prisma.studentWord.count({
       where: { studentId: student.id, due: { lte: now } },
@@ -376,8 +376,8 @@ export class VocabReviewService {
    * 返回 `null` 表示这个学生今天没有冻结队列（还没开始今天的课，或者是
    * `vocabWords = NULL` 的旧任务）—— 调用方退回自由练习口径。
    */
-  async lessonCards(input: { studentName: string; studentId?: string }) {
-    const student = await this.words.resolveStudent(input.studentName, input.studentId);
+  async lessonCards(input: { studentName: string; studentId?: string; authStudentId?: string }) {
+    const student = await this.words.resolveStudent(input.studentName, input.studentId, input.authStudentId);
     const tzOff = Number(process.env.MORNING_QUIZ_TZ_OFFSET_MIN ?? 8 * 60);
     const now = new Date();
     const day = new Date(
@@ -447,12 +447,14 @@ export class VocabReviewService {
   async review(input: {
     studentName: string;
     studentId?: string;
+    /** 阶段 5A：已认证学生的 id。给了就走精确 ID 路径，不查姓名。 */
+    authStudentId?: string;
     headword: string;
     rating: RatingKey;
     elapsedMs?: number;
     requestId?: string;
   }) {
-    const student = await this.words.resolveStudent(input.studentName, input.studentId);
+    const student = await this.words.resolveStudent(input.studentName, input.studentId, input.authStudentId);
     const rating = RATING_MAP[input.rating];
     if (rating === undefined) throw new BadRequestException({ code: 'invalid_rating' });
 
@@ -589,8 +591,8 @@ export class VocabReviewService {
    * 安全闸：只撤**该词最近的一条**流水、且 10 分钟内、且带快照。
    * 撤别人的词不可能（按 studentId 解析），撤历史记录不可能（时间闸）。
    */
-  async undo(input: { studentName: string; studentId?: string; headword: string }) {
-    const student = await this.words.resolveStudent(input.studentName, input.studentId);
+  async undo(input: { studentName: string; studentId?: string; authStudentId?: string; headword: string }) {
+    const student = await this.words.resolveStudent(input.studentName, input.studentId, input.authStudentId);
     const word = await this.prisma.studentWord.findUnique({
       where: { studentId_headword: { studentId: student.id, headword: input.headword.toLowerCase() } },
     });
@@ -629,8 +631,8 @@ export class VocabReviewService {
   }
 
   /** 我的词汇统计（学生端展示 + PRD §7 效果度量的基础）。 */
-  async stats(input: { studentName: string; studentId?: string }) {
-    const student = await this.words.resolveStudent(input.studentName, input.studentId);
+  async stats(input: { studentName: string; studentId?: string; authStudentId?: string }) {
+    const student = await this.words.resolveStudent(input.studentName, input.studentId, input.authStudentId);
     const rows = await this.prisma.studentWord.groupBy({
       by: ['state'],
       where: { studentId: student.id },

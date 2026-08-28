@@ -109,7 +109,7 @@ export class LessonService {
    * 一个字都不写：不创建当日任务、不推进阶段、不补词汇队列。教师看板、
    * 成绩页、任务总结都走这条。
    */
-  async getToday(input: { studentName: string; studentId?: string }) {
+  async getToday(input: { studentName: string; studentId?: string; authStudentId?: string }) {
     return this.today({ ...input, freeze: false });
   }
 
@@ -135,7 +135,7 @@ export class LessonService {
    *   这一步必须显式：打开页面就建答卷，等于学生瞄一眼课程页就算参加了
    *   今天的考试。
    */
-  async startOrResumeToday(input: { studentName: string; studentId?: string; begin?: boolean }) {
+  async startOrResumeToday(input: { studentName: string; studentId?: string; authStudentId?: string; begin?: boolean }) {
     return this.today({ ...input, freeze: true, begin: input.begin === true });
   }
 
@@ -925,10 +925,12 @@ export class LessonService {
   async markTaughtAndAdvance(input: {
     studentName: string;
     studentId?: string;
+    /** 阶段 5A：已认证学生的 id。给了就走精确 ID 路径，不查姓名。 */
+    authStudentId?: string;
     headword: string;
     cursor: number;
   }) {
-    const student = await this.words.resolveStudent(input.studentName, input.studentId);
+    const student = await this.words.resolveStudent(input.studentName, input.studentId, input.authStudentId);
     const headword = (input.headword ?? '').trim();
     if (!headword) throw new BadRequestException({ code: 'headword_required' });
 
@@ -1025,8 +1027,8 @@ export class LessonService {
    * 单调钳制：只增不减。翻卡评分是并发上报的（弱网重发、快速连翻），
    * 乱序到达时旧值不能把进度冲回去。
    */
-  async saveVocabCursor(input: { studentName: string; studentId?: string; cursor: number }) {
-    const student = await this.words.resolveStudent(input.studentName, input.studentId);
+  async saveVocabCursor(input: { studentName: string; studentId?: string; authStudentId?: string; cursor: number }) {
+    const student = await this.words.resolveStudent(input.studentName, input.studentId, input.authStudentId);
     const day = this.sgtDayStart(new Date());
     // NaN/Infinity 必须挡在 SQL 之前：Math.max(0, Math.floor(NaN)) 仍是
     // NaN，会把脏值送进 where/data（服务层单测抓到）。

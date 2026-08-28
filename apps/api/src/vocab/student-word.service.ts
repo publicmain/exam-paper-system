@@ -1,4 +1,5 @@
 import { BadRequestException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
+import { resolveAuthenticatedStudent } from '../common/authenticated-student';
 import { PrismaService } from '../common/prisma.service';
 import { closeNames } from '../common/name-suggest';
 import { VocabService, normalizeWord } from './vocab.service';
@@ -23,7 +24,13 @@ export class StudentWordService {
    * 姓名 → 唯一学生。与 morning-quiz 的 resolveStudentByName 同口径：
    * 必须是某个未归档班级的在读学生，避免幽灵账号。
    */
-  async resolveStudent(rawName: string, studentId?: string) {
+  async resolveStudent(rawName: string, studentId?: string, authStudentId?: string) {
+    // 阶段 5A —— **已认证路径优先**。令牌里有确定的 id，就不该再走姓名
+    // 查询：不查名、不消歧、不给近似姓名建议。资格校验仍在（取更严的
+    // 一套），见 common/authenticated-student.ts。
+    if (authStudentId) {
+      return resolveAuthenticatedStudent(this.prisma, authStudentId);
+    }
     const name = (rawName ?? '').trim();
     if (!name) throw new BadRequestException({ code: 'name_required' });
     if (name.length > 50) throw new BadRequestException({ code: 'name_too_long' });
@@ -73,12 +80,14 @@ export class StudentWordService {
   async addWord(input: {
     studentName: string;
     studentId?: string;
+    /** 阶段 5A：已认证学生的 id。给了就走精确 ID 路径，不查姓名。 */
+    authStudentId?: string;
     word: string;
     contextSentence?: string;
     sourcePaperQuestionId?: string;
     sourcePassageTitle?: string;
   }) {
-    const student = await this.resolveStudent(input.studentName, input.studentId);
+    const student = await this.resolveStudent(input.studentName, input.studentId, input.authStudentId);
     const hit = await this.vocab.lookup(input.word);
     if (!hit) throw new BadRequestException({ code: 'word_not_in_dictionary' });
 
@@ -103,8 +112,8 @@ export class StudentWordService {
   }
 
   /** 移出生词本（只能删自己的）。 */
-  async removeWord(input: { studentName: string; studentId?: string; headword: string }) {
-    const student = await this.resolveStudent(input.studentName, input.studentId);
+  async removeWord(input: { studentName: string; studentId?: string; authStudentId?: string; headword: string }) {
+    const student = await this.resolveStudent(input.studentName, input.studentId, input.authStudentId);
     const res = await this.prisma.studentWord.deleteMany({
       where: { studentId: student.id, headword: normalizeWord(input.headword) },
     });
@@ -112,8 +121,8 @@ export class StudentWordService {
   }
 
   /** 我的生词本（带词典释义）。 */
-  async listWords(input: { studentName: string; studentId?: string }) {
-    const student = await this.resolveStudent(input.studentName, input.studentId);
+  async listWords(input: { studentName: string; studentId?: string; authStudentId?: string }) {
+    const student = await this.resolveStudent(input.studentName, input.studentId, input.authStudentId);
     const words = await this.prisma.studentWord.findMany({
       where: { studentId: student.id },
       orderBy: { createdAt: 'desc' },

@@ -13,6 +13,7 @@ import {
   Prisma,
 } from '@prisma/client';
 import { randomBytes } from 'crypto';
+import { authenticatedStudentWhere, studentNotEligible } from '../common/authenticated-student';
 import { AuditService } from '../audit/audit.service';
 import { QuickPaperInput, QuickPaperService } from '../ai/quick-paper.service';
 import { PrismaService } from '../common/prisma.service';
@@ -3418,6 +3419,7 @@ export class MorningQuizService {
   private async resolveStudentByName(
     rawName: string,
     studentIdFilter?: string,
+    authStudentId?: string,
   ): Promise<
     | {
         kind: 'one';
@@ -3436,6 +3438,28 @@ export class MorningQuizService {
         }>;
       }
   > {
+    // 阶段 5A —— **已认证路径优先**：用令牌里的 id 精确查，
+    // 不查姓名、不消歧（永远不会返回 kind: 'disambig'）、不给近似姓名建议。
+    // 资格谓词与 vocab 那条共用同一份定义。
+    if (authStudentId) {
+      const row = await this.prisma.user.findFirst({
+        where: authenticatedStudentWhere(authStudentId),
+        select: {
+          id: true,
+          name: true,
+          classEnrollments: {
+            where: { role: 'student', class: { archivedAt: null } },
+            select: { class: { select: { id: true, name: true, classCode: true } } },
+          },
+        },
+      });
+      if (!row) throw studentNotEligible();
+      return {
+        kind: 'one' as const,
+        student: { id: row.id, name: row.name, classes: row.classEnrollments.map((e) => e.class) },
+      };
+    }
+
     const name = (rawName ?? '').trim();
     if (!name) throw new BadRequestException({ code: 'name_required' });
     if (name.length > 50) throw new BadRequestException({ code: 'name_too_long' });
@@ -3603,13 +3627,19 @@ export class MorningQuizService {
       message: string;
       studentName: string;
       studentId?: string;
+      /** 阶段 5A：已认证学生的 id。给了就走精确 ID 路径，不查姓名。 */
+      authStudentId?: string;
     },
     ip: string | null,
   ) {
     const message = (input.message ?? '').trim();
     if (!message) throw new BadRequestException({ code: 'message_required' });
     if (message.length > 4000) throw new BadRequestException({ code: 'message_too_long' });
-    const resolved = await this.resolveStudentByName(input.studentName, input.studentId);
+    const resolved = await this.resolveStudentByName(
+      input.studentName,
+      input.studentId,
+      input.authStudentId,
+    );
     if (resolved.kind === 'disambig') {
       return { needDisambiguation: true, candidates: resolved.candidates };
     }

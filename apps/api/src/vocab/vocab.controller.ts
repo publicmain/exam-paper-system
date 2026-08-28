@@ -4,7 +4,12 @@ import { z } from 'zod';
 import { CurrentUser } from '../common/current-user.decorator';
 import { Public } from '../common/auth.guard';
 import { RateLimit } from '../common/rate-limit.guard';
-import { RequireStudentToken, StudentIdentityGuard } from '../common/student-identity.guard';
+import {
+  RequireStudentToken,
+  StudentIdentityGuard,
+  type RequestWithStudentAuth,
+} from '../common/student-identity.guard';
+import { identityOf } from '../common/student-identity-input';
 import { StudentWordService } from './student-word.service';
 import { VocabQuizService } from './vocab-quiz.service';
 import { VocabQuizAttemptService } from './vocab-quiz-attempt.service';
@@ -57,6 +62,16 @@ export class VocabController {
     private readonly attempts: VocabQuizAttemptService,
   ) {}
 
+  /**
+   * 直接解析出学生（少数端点要的是 id，不是入参对象）。
+   * 身份口径与 identityOf 完全一致 —— 它就是拿 identityOf 的结果去解析。
+   */
+  private resolveIdentity(req: Request, name?: string, studentId?: string) {
+    const i = identityOf(req, name, studentId);
+    return this.words.resolveStudent(i.studentName, i.studentId, i.authStudentId);
+  }
+
+
   /** 查单词。查不到返回 { found: false } —— 前端显示「未收录」，绝不猜词义。 */
   @Public()
   @RateLimit({ limit: 240, windowSec: 60, scope: 'ip' })
@@ -75,8 +90,10 @@ export class VocabController {
   @Public()
   @RateLimit({ limit: 180, windowSec: 60, scope: 'ip' })
   @Get('words')
-  async listWords(@Query('name') name?: string, @Query('studentId') studentId?: string) {
-    return this.words.listWords({ studentName: name ?? '', studentId: studentId || undefined });
+  async listWords(
+@Req() req: Request,
+@Query('name') name?: string, @Query('studentId') studentId?: string) {
+    return this.words.listWords(identityOf(req, name, studentId));
   }
 
   /** 加入生词本。headword 由服务端查词典确定，不信任前端。 */
@@ -84,9 +101,9 @@ export class VocabController {
   @RateLimit({ limit: 60, windowSec: 60, scope: 'ip' })
   @RequireStudentToken()
   @Post('words')
-  async addWord(@Body() body: unknown) {
+  async addWord(@Req() req: Request, @Body() body: unknown) {
     const schema = z.object({
-      studentName: z.string().min(1).max(50),
+      studentName: z.string().min(1).max(50).optional(),
       studentId: z.string().optional(),
       word: z.string().min(1).max(64),
       contextSentence: z.string().max(500).optional(),
@@ -95,7 +112,7 @@ export class VocabController {
     });
     const p = schema.safeParse(body);
     if (!p.success) throw new BadRequestException(p.error.flatten());
-    return this.words.addWord(p.data);
+    return this.words.addWord({ ...p.data, ...identityOf(req, p.data.studentName, p.data.studentId) });
   }
 
   /** 移出生词本。 */
@@ -103,15 +120,15 @@ export class VocabController {
   @RateLimit({ limit: 60, windowSec: 60, scope: 'ip' })
   @RequireStudentToken()
   @Post('words/remove')
-  async removeWord(@Body() body: unknown) {
+  async removeWord(@Req() req: Request, @Body() body: unknown) {
     const schema = z.object({
-      studentName: z.string().min(1).max(50),
+      studentName: z.string().min(1).max(50).optional(),
       studentId: z.string().optional(),
       headword: z.string().min(1).max(64),
     });
     const p = schema.safeParse(body);
     if (!p.success) throw new BadRequestException(p.error.flatten());
-    return this.words.removeWord(p.data);
+    return this.words.removeWord({ ...p.data, ...identityOf(req, p.data.studentName, p.data.studentId) });
   }
   // ─────────────────── P3 间隔重复复习 ───────────────────
 
@@ -120,13 +137,13 @@ export class VocabController {
   @RateLimit({ limit: 180, windowSec: 60, scope: 'ip' })
   @Get('due')
   async due(
-    @Query('name') name?: string,
+@Req() req: Request,
+@Query('name') name?: string,
     @Query('studentId') studentId?: string,
     @Query('limit') limit?: string,
   ) {
     return this.review.due({
-      studentName: name ?? '',
-      studentId: studentId || undefined,
+      ...identityOf(req, name, studentId),
       limit: limit ? parseInt(limit, 10) : undefined,
     });
   }
@@ -143,10 +160,11 @@ export class VocabController {
   @Public()
   @RateLimit({ limit: 180, windowSec: 60, scope: 'ip' })
   @Get('lesson-cards')
-  async lessonCards(@Query('name') name?: string, @Query('studentId') studentId?: string) {
+  async lessonCards(
+@Req() req: Request,
+@Query('name') name?: string, @Query('studentId') studentId?: string) {
     const r = await this.review.lessonCards({
-      studentName: name ?? '',
-      studentId: studentId || undefined,
+      ...identityOf(req, name, studentId),
     });
     return r ?? { lessonContext: false as const, cards: [], cursor: 0, totalDue: 0 };
   }
@@ -156,9 +174,9 @@ export class VocabController {
   @RateLimit({ limit: 480, windowSec: 60, scope: 'ip' })
   @RequireStudentToken()
   @Post('review')
-  async submitReview(@Body() body: unknown) {
+  async submitReview(@Req() req: Request, @Body() body: unknown) {
     const schema = z.object({
-      studentName: z.string().min(1).max(50),
+      studentName: z.string().min(1).max(50).optional(),
       studentId: z.string().optional(),
       headword: z.string().min(1).max(64),
       rating: z.enum(['again', 'hard', 'good', 'easy']),
@@ -168,7 +186,11 @@ export class VocabController {
     });
     const p = schema.safeParse(body);
     if (!p.success) throw new BadRequestException(p.error.flatten());
-    return this.review.review({ ...p.data, rating: p.data.rating as RatingKey });
+    return this.review.review({
+      ...p.data,
+      ...identityOf(req, p.data.studentName, p.data.studentId),
+      rating: p.data.rating as RatingKey,
+    });
   }
 
   /** 撤销该词最近一次评分（10 分钟内）。误触防线 —— 详见 review 服务注释。 */
@@ -176,15 +198,15 @@ export class VocabController {
   @RateLimit({ limit: 120, windowSec: 60, scope: 'ip' })
   @RequireStudentToken()
   @Post('review/undo')
-  async undoReview(@Body() body: unknown) {
+  async undoReview(@Req() req: Request, @Body() body: unknown) {
     const schema = z.object({
-      studentName: z.string().min(1).max(50),
+      studentName: z.string().min(1).max(50).optional(),
       studentId: z.string().optional(),
       headword: z.string().min(1).max(64),
     });
     const p = schema.safeParse(body);
     if (!p.success) throw new BadRequestException(p.error.flatten());
-    return this.review.undo(p.data);
+    return this.review.undo({ ...p.data, ...identityOf(req, p.data.studentName, p.data.studentId) });
   }
 
   /**
@@ -196,13 +218,13 @@ export class VocabController {
   @RateLimit({ limit: 120, windowSec: 60, scope: 'ip' })
   @Get('quiz')
   async quizBuild(
-    @Query('name') name?: string,
+@Req() req: Request,
+@Query('name') name?: string,
     @Query('studentId') studentId?: string,
     @Query('limit') limit?: string,
   ) {
     return this.quiz.buildQuiz({
-      studentName: name ?? '',
-      studentId: studentId || undefined,
+      ...identityOf(req, name, studentId),
       limit: limit ? parseInt(limit, 10) : undefined,
     });
   }
@@ -214,11 +236,12 @@ export class VocabController {
   @RateLimit({ limit: 180, windowSec: 60, scope: 'ip' })
   @Get('mistakes')
   async listMistakes(
-    @Query('name') name?: string,
+@Req() req: Request,
+@Query('name') name?: string,
     @Query('studentId') studentId?: string,
     @Query('includeResolved') includeResolved?: string,
   ) {
-    const student = await this.words.resolveStudent(name ?? '', studentId || undefined);
+    const student = await this.resolveIdentity(req, name, studentId);
     // 这里**不埋点**。成绩页要拿错题数做徽标，也会打这个接口 —— 在
     // 服务端埋点会把"打开成绩页"误记成"打开错题本",而这个区分正是
     // 埋点存在的理由。改由前端 MyMistakes 页面显式 track('mistakes')。
@@ -233,16 +256,16 @@ export class VocabController {
   @RateLimit({ limit: 60, windowSec: 60, scope: 'ip' })
   @RequireStudentToken()
   @Post('mistakes/resolve')
-  async resolveMistake(@Body() body: unknown) {
+  async resolveMistake(@Req() req: Request, @Body() body: unknown) {
     const schema = z.object({
-      studentName: z.string().min(1).max(50),
+      studentName: z.string().min(1).max(50).optional(),
       studentId: z.string().optional(),
       id: z.string().min(1),
       resolved: z.boolean().default(true),
     });
     const p = schema.safeParse(body);
     if (!p.success) throw new BadRequestException(p.error.flatten());
-    const student = await this.words.resolveStudent(p.data.studentName, p.data.studentId);
+    const student = await this.resolveIdentity(req, p.data.studentName, p.data.studentId);
     return this.mistakes.resolve(student.id, p.data.id, p.data.resolved);
   }
 
@@ -254,11 +277,12 @@ export class VocabController {
   @RateLimit({ limit: 120, windowSec: 60, scope: 'ip' })
   @Get('mistakes/practice-queue')
   async practiceQueue(
-    @Query('name') name?: string,
+@Req() req: Request,
+@Query('name') name?: string,
     @Query('studentId') studentId?: string,
     @Query('limit') limit?: string,
   ) {
-    const student = await this.words.resolveStudent(name ?? '', studentId || undefined);
+    const student = await this.resolveIdentity(req, name, studentId);
     const r = await this.mistakes.practiceQueue(
       student.id,
       limit ? parseInt(limit, 10) : undefined,
@@ -271,16 +295,16 @@ export class VocabController {
   @RateLimit({ limit: 360, windowSec: 60, scope: 'ip' })
   @RequireStudentToken()
   @Post('mistakes/practice-result')
-  async practiceResult(@Body() body: unknown) {
+  async practiceResult(@Req() req: Request, @Body() body: unknown) {
     const schema = z.object({
-      studentName: z.string().min(1).max(50),
+      studentName: z.string().min(1).max(50).optional(),
       studentId: z.string().optional(),
       id: z.string().min(1),
       correct: z.boolean(),
     });
     const p = schema.safeParse(body);
     if (!p.success) throw new BadRequestException(p.error.flatten());
-    const student = await this.words.resolveStudent(p.data.studentName, p.data.studentId);
+    const student = await this.resolveIdentity(req, p.data.studentName, p.data.studentId);
     return this.mistakes.practiceResult(student.id, p.data.id, p.data.correct);
   }
 
@@ -294,16 +318,16 @@ export class VocabController {
   @RateLimit({ limit: 240, windowSec: 60, scope: 'ip' })
   @RequireStudentToken()
   @Post('page-view')
-  async recordPageView(@Body() body: unknown) {
+  async recordPageView(@Req() req: Request, @Body() body: unknown) {
     const schema = z.object({
-      studentName: z.string().min(1).max(50),
+      studentName: z.string().min(1).max(50).optional(),
       studentId: z.string().optional(),
       kind: z.enum(['history', 'submission_detail', 'vocab', 'vocab_practice', 'vocab_review', 'vocab_banner', 'mistakes', 'mistake_practice']),
     });
     const p = schema.safeParse(body);
     if (!p.success) throw new BadRequestException(p.error.flatten());
     try {
-      const student = await this.words.resolveStudent(p.data.studentName, p.data.studentId);
+      const student = await this.resolveIdentity(req, p.data.studentName, p.data.studentId);
       await this.views.record(student.id, p.data.kind);
     } catch {
       /* 埋点绝不能影响学生看成绩 */
@@ -335,8 +359,10 @@ export class VocabController {
   @Public()
   @RateLimit({ limit: 180, windowSec: 60, scope: 'ip' })
   @Get('stats')
-  async stats(@Query('name') name?: string, @Query('studentId') studentId?: string) {
-    return this.review.stats({ studentName: name ?? '', studentId: studentId || undefined });
+  async stats(
+@Req() req: Request,
+@Query('name') name?: string, @Query('studentId') studentId?: string) {
+    return this.review.stats(identityOf(req, name, studentId));
   }
 
   // ─────────────────── P4 教师端 ───────────────────
@@ -415,14 +441,14 @@ export class VocabController {
   @RequireStudentToken()
   @RateLimit({ limit: 60, windowSec: 60, scope: 'ip' })
   @Post('quiz/attempt/start')
-  async quizStart(@Body() body: unknown) {
+  async quizStart(@Req() req: Request, @Body() body: unknown) {
     const schema = z.object({
-      name: z.string().min(1).max(120),
+      name: z.string().min(1).max(120).optional(),
       studentId: z.string().min(1).max(60).optional(),
     });
     const p = schema.safeParse(body);
     if (!p.success) throw new BadRequestException(p.error.flatten());
-    return this.attempts.start({ studentName: p.data.name, studentId: p.data.studentId });
+    return this.attempts.start(identityOf(req, p.data.name, p.data.studentId));
   }
 
   /** 回读当日测试（刷新 / 重新登录后恢复）。没有就返回 { attempt: null }。 */
@@ -430,9 +456,11 @@ export class VocabController {
   @RequireStudentToken()
   @RateLimit({ limit: 180, windowSec: 60, scope: 'ip' })
   @Get('quiz/attempt/current')
-  async quizCurrent(@Query('name') name?: string, @Query('studentId') studentId?: string) {
+  async quizCurrent(
+@Req() req: Request,
+@Query('name') name?: string, @Query('studentId') studentId?: string) {
     if (!name) throw new BadRequestException({ code: 'name_required' });
-    return this.attempts.current({ studentName: name, studentId: studentId || undefined });
+    return this.attempts.current(identityOf(req, name, studentId));
   }
 
   /** 记一题的作答。第一次作答为准，重复提交 no-op。 */
@@ -440,9 +468,9 @@ export class VocabController {
   @RequireStudentToken()
   @RateLimit({ limit: 240, windowSec: 60, scope: 'ip' })
   @Post('quiz/attempt/answer')
-  async quizAnswer(@Body() body: unknown) {
+  async quizAnswer(@Req() req: Request, @Body() body: unknown) {
     const schema = z.object({
-      name: z.string().min(1).max(120),
+      name: z.string().min(1).max(120).optional(),
       studentId: z.string().min(1).max(60).optional(),
       index: z.number().int().min(0).max(50),
       optionIndex: z.number().int().min(0).max(10).optional(),
@@ -451,8 +479,7 @@ export class VocabController {
     const p = schema.safeParse(body);
     if (!p.success) throw new BadRequestException(p.error.flatten());
     return this.attempts.answer({
-      studentName: p.data.name,
-      studentId: p.data.studentId,
+      ...identityOf(req, p.data.name, p.data.studentId),
       index: p.data.index,
       optionIndex: p.data.optionIndex,
       text: p.data.text,
@@ -464,14 +491,14 @@ export class VocabController {
   @RequireStudentToken()
   @RateLimit({ limit: 60, windowSec: 60, scope: 'ip' })
   @Post('quiz/attempt/submit')
-  async quizSubmit(@Body() body: unknown) {
+  async quizSubmit(@Req() req: Request, @Body() body: unknown) {
     const schema = z.object({
-      name: z.string().min(1).max(120),
+      name: z.string().min(1).max(120).optional(),
       studentId: z.string().min(1).max(60).optional(),
     });
     const p = schema.safeParse(body);
     if (!p.success) throw new BadRequestException(p.error.flatten());
-    return this.attempts.submit({ studentName: p.data.name, studentId: p.data.studentId });
+    return this.attempts.submit(identityOf(req, p.data.name, p.data.studentId));
   }
 
   /** 历史成绩（只读）。 */
@@ -479,8 +506,10 @@ export class VocabController {
   @RequireStudentToken()
   @RateLimit({ limit: 120, windowSec: 60, scope: 'ip' })
   @Get('quiz/attempts')
-  async quizAttempts(@Query('name') name?: string, @Query('studentId') studentId?: string) {
+  async quizAttempts(
+@Req() req: Request,
+@Query('name') name?: string, @Query('studentId') studentId?: string) {
     if (!name) throw new BadRequestException({ code: 'name_required' });
-    return this.attempts.history({ studentName: name, studentId: studentId || undefined });
+    return this.attempts.history(identityOf(req, name, studentId));
   }
 }

@@ -109,8 +109,8 @@ export class VocabQuizAttemptService {
    * 并发/双击：靠 (studentId, date) 唯一约束。两个请求同时进来，先到的
    * 建成，后到的撞约束后回读同一份 —— 不可能产生两份成绩。
    */
-  async start(input: { studentName: string; studentId?: string }) {
-    const student = await this.words.resolveStudent(input.studentName, input.studentId);
+  async start(input: { studentName: string; studentId?: string; authStudentId?: string }) {
+    const student = await this.words.resolveStudent(input.studentName, input.studentId, input.authStudentId);
     const now = new Date();
     const date = this.dayKey(now);
     const dayStart = this.sgtMidnight(now);
@@ -258,8 +258,8 @@ export class VocabQuizAttemptService {
   }
 
   /** 回读当日测试（恢复用）。没有就返回 null，不隐式创建。 */
-  async current(input: { studentName: string; studentId?: string }) {
-    const student = await this.words.resolveStudent(input.studentName, input.studentId);
+  async current(input: { studentName: string; studentId?: string; authStudentId?: string }) {
+    const student = await this.words.resolveStudent(input.studentName, input.studentId, input.authStudentId);
     const a = await this.prisma.vocabQuizAttempt.findFirst({
       where: { studentId: student.id, date: this.dayKey() },
     });
@@ -275,12 +275,14 @@ export class VocabQuizAttemptService {
   async answer(input: {
     studentName: string;
     studentId?: string;
+    /** 阶段 5A：已认证学生的 id。给了就走精确 ID 路径，不查姓名。 */
+    authStudentId?: string;
     index: number;
     /** 选择题的选项下标；拼写题传 text */
     optionIndex?: number;
     text?: string;
   }) {
-    const student = await this.words.resolveStudent(input.studentName, input.studentId);
+    const student = await this.words.resolveStudent(input.studentName, input.studentId, input.authStudentId);
     const date = this.dayKey();
     const a = await this.prisma.vocabQuizAttempt.findFirst({
       where: { studentId: student.id, date },
@@ -349,8 +351,8 @@ export class VocabQuizAttemptService {
    * 分数在这里算一次、落库一次；展示层永远读落库的值，改词库不影响。
    * 未作答的题按答错计入总数（考试就是这样），但不写任何 FSRS 字段。
    */
-  async submit(input: { studentName: string; studentId?: string }) {
-    const student = await this.words.resolveStudent(input.studentName, input.studentId);
+  async submit(input: { studentName: string; studentId?: string; authStudentId?: string }) {
+    const student = await this.words.resolveStudent(input.studentName, input.studentId, input.authStudentId);
     const date = this.dayKey();
     const a = await this.prisma.vocabQuizAttempt.findFirst({
       where: { studentId: student.id, date },
@@ -406,8 +408,8 @@ export class VocabQuizAttemptService {
   }
 
   /** 历史成绩列表（最近 N 次）。只读，供成绩页用。 */
-  async history(input: { studentName: string; studentId?: string; limit?: number }) {
-    const student = await this.words.resolveStudent(input.studentName, input.studentId);
+  async history(input: { studentName: string; studentId?: string; authStudentId?: string; limit?: number }) {
+    const student = await this.words.resolveStudent(input.studentName, input.studentId, input.authStudentId);
     const take = Math.min(Math.max(input.limit ?? 30, 1), 100);
     const rows = await this.prisma.vocabQuizAttempt.findMany({
       where: { studentId: student.id, status: 'submitted' },

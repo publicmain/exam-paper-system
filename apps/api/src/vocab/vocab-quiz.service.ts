@@ -179,11 +179,13 @@ export class VocabQuizService {
   async buildQuiz(input: {
     studentName: string;
     studentId?: string;
+    /** 阶段 5A：已认证学生的 id。给了就走精确 ID 路径，不查姓名。 */
+    authStudentId?: string;
     limit?: number;
     /** P6：正式测试传进来的**固定词表**。给了就不再自己选词、不再补题。 */
     words?: Array<{ headword: string; contextSentence: string | null; reps: number }>;
   }) {
-    const student = await this.words.resolveStudent(input.studentName, input.studentId);
+    const student = await this.words.resolveStudent(input.studentName, input.studentId, input.authStudentId);
     const limit = Math.min(Math.max(input.limit ?? 8, 1), 15);
     const now = new Date();
 
