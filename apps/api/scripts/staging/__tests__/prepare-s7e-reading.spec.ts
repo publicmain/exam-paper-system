@@ -738,3 +738,55 @@ describe('B-2 安全通道必须是模块自证的，不能被伪造', () => {
     for (const part of SENTINEL_PARTS) expect(out, part).not.toContain(part);
   });
 });
+
+// ─────────────────────────────────────────────────────────────
+// S7E-FIXTURE-TIMEOUT-LIVE —— 事务超时必须显式给足
+//
+// 实测：经公共 TCP 代理，通道往返约 198 ms/语句；本夹具一个事务里有
+// 5 条前置读 + 25 条写 ≈ 5.9 秒，而 Prisma 交互式事务的**默认超时是 5 秒**
+// —— 于是每次都在提交前被关闭，抛 P2028、整体回滚。
+// 这条钉住「超时是显式给的」，免得哪天有人把它删回默认值。
+// ─────────────────────────────────────────────────────────────
+
+describe('事务超时显式化', () => {
+  /** 从源码里抠出 `$transaction(...)` 那一次调用的完整实参文本。 */
+  function transactionCallText(): string {
+    const src = stripComments(fs.readFileSync(SCRIPT_PATH, 'utf8'));
+    const i = src.indexOf('$transaction(');
+    expect(i, '找不到 $transaction 调用').toBeGreaterThan(-1);
+    const open = src.indexOf('(', i);
+    let depth = 0;
+    for (let k = open; k < src.length; k++) {
+      if (src[k] === '(') depth++;
+      else if (src[k] === ')') {
+        depth--;
+        if (depth === 0) return src.slice(open, k + 1);
+      }
+    }
+    throw new Error('括号没配平');
+  }
+
+  it('**`$transaction` 显式传了 timeout: 60_000 与 maxWait: 10_000**', () => {
+    const call = transactionCallText();
+    expect(call).toContain('prepareInTransaction(tx');
+    expect(call).toMatch(/timeout:\s*60_?000/);
+    expect(call).toMatch(/maxWait:\s*10_?000/);
+  });
+
+  it('**仍然只有一个事务，且事务体没被换掉**', () => {
+    const src = stripComments(fs.readFileSync(SCRIPT_PATH, 'utf8'));
+    expect(src.match(/\$transaction\(/g) ?? []).toHaveLength(1);
+    expect(src).not.toMatch(/prisma\.\$executeRaw/);
+    const fn = src.split('async function prepareInTransaction')[1].split('\n}')[0];
+    expect(fn).toContain('runPreflight(tx)');
+    expect(fn).toContain('applyPreparation(tx');
+  });
+
+  it('**超时值足够覆盖实测通道**（198ms × 30 条 ≈ 5.9s，远小于 60s）', () => {
+    const call = transactionCallText();
+    const m = call.match(/timeout:\s*(\d[\d_]*)/);
+    expect(m).toBeTruthy();
+    const timeoutMs = Number(m![1].replace(/_/g, ''));
+    expect(timeoutMs).toBeGreaterThanOrEqual(30_000);
+  });
+});

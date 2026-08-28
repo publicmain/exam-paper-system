@@ -483,7 +483,14 @@ async function main() {
   try {
     const day = singaporeDay();
     // 前置检查与写入**在同一个事务里**：检查过了才写，中途任何失败整体回滚。
-    const result = await prisma.$transaction((tx) => prepareInTransaction(tx, { day }));
+    // 超时**必须显式给**。Prisma 交互式事务默认只有 5 秒，而本夹具一个事务里
+    // 有 5 条前置读 + 25 条写；从本机经公共 TCP 代理连 staging，实测每条语句
+    // 往返约 198 ms，合计约 5.9 秒 —— 每次都在提交前被关掉，抛 P2028 全部回滚。
+    // 放宽的只是时间预算：语句、顺序、原子性一个字都没变。
+    const result = await prisma.$transaction((tx) => prepareInTransaction(tx, { day }), {
+      timeout: 60_000,
+      maxWait: 10_000,
+    });
     printReceipt(result);
   } finally {
     await prisma.$disconnect();

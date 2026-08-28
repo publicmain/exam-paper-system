@@ -1852,8 +1852,45 @@ GET  /lesson/today            ← 交卷后刷新，按 kind 路由到 /lesson/r
       > **没有连过任何数据库，没有碰过 staging。**
       > **执行它需要另一份带「数据库写权限」的合同**，并且需要先确认
       > `MORNING_QUIZ_ALL_DAY` 的状态（场次窗口按生产口径 08:30–09:00 写）。
-- [ ] S7E staging 八账号真机验收（**仍未开始** —— 未部署、未登录任何账号、
-      未验证线上 `/lesson/today` 行为、未做任何真机测试）
+- [x] **staging 环境已就绪（实测）** —— `task_id: S7E-FIXTURE-TIMEOUT-LIVE`。
+      `stg-student-web-spike` 已部署当前 HEAD 的 `apps/student-web`
+      （部署 `241e6a11-2331-41e5-a48a-34adf3ad18f8`，用户明确接受并保留）；
+      夹具已**成功执行一次**（退出码 0，13.0 秒），八个虚构账号的阅读线被重置，
+      `tc1` / `tc2` 当天各有一场 `active` 场次。
+
+      **修的唯一一处运行时**：`$transaction` 显式给了
+      `{ timeout: 60_000, maxWait: 10_000 }`。原因是实测数据：从本机经公共
+      TCP 代理，通道往返约 **198 ms/语句**，而该事务有 5 条前置读 + 25 条写
+      ≈ 5.9 秒，超过 Prisma 交互式事务 **5 秒**的默认超时 —— 之前两次执行都在
+      6.9–7.0 秒时抛 `P2028` 并整体回滚。SQL、闸门、前置规则、八个 id、
+      `s7e_` 资源 id、语句顺序与原子性**一个字都没改**。
+
+      **实测证据**（只读通道，前后对比）：
+      · 受保护状态**逐项相等** —— User 认证/分级字段、ClassEnrollment(10)、
+        StudentWord(28)、WordReviewLog(8)、DictEntry(8) 的聚合指纹与计数前后一致；
+      · 八个 id 的 `StudentSubmission` / `AnswerScript` /
+        `DailyLessonCompletion` / `VocabQuizAttempt` 由 3 / 4 / 3 / 2 **全部清零**；
+      · 当天（SGT）恰好两场：`s7e_sess_tc1`(tc1) 与 `s7e_sess_tc2`(tc2)，均 `active`，
+        分别挂 `s7e_asg_tc1` / `s7e_asg_tc2`；`s7e_paper` 1 份 + 4 道题；孤儿行 0；
+      · 通知仍为 `enabled=0` / `NotificationLog=0`；八个 id 之外无在读学生。
+
+      **八账号只读就绪矩阵**（登录 + token-only `GET /lesson/today`，
+      **没有调用 `POST /lesson/start`**）：八个账号全部 login 201、today 200、
+      无身份错误、`nextAction.kind = ready_to_start`、`read.status = todo`
+      （**都不是 `none`**）、`read.sessionId` 指向本班对应的 S7E 场次、
+      `submissionId` 为 null、`questionCount = 4`。HTTP 探测之后再验一次数据库，
+      受保护指纹与四类行数**未变**（证明 `/lesson/today` 确实是只读的）。
+
+      请求计数：Railway CLI 只读 ~20 次、`railway run` 5 次（前置 1 / 执行 1 /
+      后置 2 / 形状探测 1）、HTTP 24 次（8 登录 + 8 today + 8 健康与路由）、
+      `railway up` **0 次**（部署在上一份合同里完成）。
+      持久变更：数据库的八账号阅读线重置 + `s7e_` 夹具资源；student-web 部署保持不变。
+      连接串、PIN、令牌**从未打印、序列化或落盘**。
+
+- [ ] S7E staging 八账号真机验收（**仍未开始**）
+      > 环境已就绪，但**真机测试本身一次都没做**：没有在任何手机 / iPad 上打开过
+      > 页面，没有开始过课程、没有作答、没有交卷，也没有验过离线 / 重连 /
+      > 返回键 / 结果页。那是下一份合同的事。
 
 **独立提交**：本阶段**只含阅读页**，不夹带任何其他页面的改动
 **退出条件**：8 个账号在 staging 手机上各交一次卷；断网中途答题后
