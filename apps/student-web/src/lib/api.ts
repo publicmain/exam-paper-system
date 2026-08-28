@@ -141,7 +141,17 @@ export type VocabScoreView =
   | { status: 'legacy_no_queue' }
   | { status: 'not_started' }
   | { status: 'in_progress'; answered: number; total: number }
-  | { status: 'submitted'; correct: number; total: number; score: number };
+  /**
+   * 交卷了。`percentage` 直接读落库的值，**不重算** —— 与
+   * `apps/api/src/vocab/vocab-score.ts` 的 DTO 逐字对齐。
+   */
+  | {
+      status: 'submitted';
+      correct: number;
+      total: number;
+      percentage: number;
+      submittedAt: string;
+    };
 
 export type ReadSegment = {
   key: 'read';

@@ -227,6 +227,36 @@ describe('8–10. 停留态与摘要', () => {
     expect(screen.getByText(/今天完成/).textContent).toMatch(/0\s*\/\s*3/);
   });
 
+  it('**交卷后的词汇成绩按真实 DTO 渲染，0 分不是「没有」**', async () => {
+    // 用后端真实形状：percentage + submittedAt，没有 score 字段。
+    // 0 分是**有成绩**，不能因为它是假值就当成缺失渲染成别的东西。
+    session(lesson({
+      segments: [
+        { key: 'read', status: 'done', label: '晨读 A', questionCount: 5, typicalMinutes: 15,
+          score: 4, maxScore: 5, scoresPending: false, submissionId: 'sub1', sessionId: 'ses1', autoClosed: false },
+        {
+          key: 'vocab', status: 'done', progress: 4, target: 4, typicalMinutes: 2,
+          quizScore: {
+            status: 'submitted',
+            correct: 0,
+            total: 4,
+            percentage: 0,
+            submittedAt: '2026-08-28T01:00:00.000Z',
+          },
+        },
+        { key: 'drill', status: 'none', progress: 0, target: 0, typicalMinutes: 2 },
+      ],
+    }));
+    renderAt('/today');
+    await screen.findByRole('heading', { name: /你好，七号/ });
+    const items = screen.getAllByRole('listitem').map((li) => li.textContent ?? '');
+    expect(items[1]).toContain('单词');
+    expect(items[1]).toContain('测试 0 / 4');
+    // 不得退化成「还没考」或进度分数
+    expect(items[1]).not.toContain('0 / 4 ·');
+    expect(items[1]).not.toMatch(/未开始|还没/);
+  });
+
   it('段落摘要**保持服务端顺序与取值**', async () => {
     session(lesson({
       streakDays: 4,
