@@ -75,8 +75,15 @@ function toProfile(me: MeResult): StudentProfile {
   return { id: me.id, name: me.name, nickname: me.nickname, avatar: me.avatar };
 }
 
-/** 登录 / 注册成功后调用。**只存令牌**，profile 放内存。 */
+/**
+ * 登录 / 注册成功后调用。**只存令牌**，profile 放内存。
+ *
+ * 写新票**之前**先把整个 `sw:` 清空 —— 同一台设备上换人登录时，上一个
+ * 学生的阅读草稿必须先没掉，否则新学生打开阅读页会看到别人的答案，
+ * 而且那些草稿还会被当成「本地更新」补传到新学生的答卷上。
+ */
 export function adoptSession(token: string, profile: StudentProfile): void {
+  clearIdentity();
   writeToken(token);
   emit({ status: 'authenticated', profile });
 }

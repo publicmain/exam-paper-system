@@ -20,6 +20,13 @@
  * 键名带命名空间（`sw:` = student-web），避免与将来同源上的任何东西撞名。
  */
 
+/**
+ * 本包拥有的**整个命名空间**。阶段 7B 起这里不止一个键 ——
+ * 阅读页会写 `sw:reading:*`、字号会写 `sw:fontScale`，而且键名里带
+ * sessionId / submissionId，**枚举不出来**。所以清理必须按前缀扫。
+ */
+export const OWNED_STORAGE_PREFIX = 'sw:';
+
 const TOKEN_KEY = 'sw:token';
 
 function safeStorage(): Storage | null {
@@ -57,8 +64,28 @@ export function writeToken(token: string): void {
 export function clearIdentity(): void {
   const s = safeStorage();
   if (!s) return;
-  s.removeItem(TOKEN_KEY);
+  // 前缀扫除：令牌之外，这个学生的阅读草稿 / 序号 / 旗标 / 标签所有权 /
+  // 字号也一起走。留下任何一样，下一个在这台设备上登录的人都可能看见
+  // 上一个人的答案。
+  //
+  // **只扫 `sw:`**。同源上将来可能有别的东西，遍历清空整个 localStorage
+  // 是另一种事故；`mq:*` 是旧端的，更是碰都不碰。
+  const doomed: string[] = [];
+  try {
+    for (let i = 0; i < s.length; i++) {
+      const k = s.key(i);
+      if (k && k.startsWith(OWNED_STORAGE_PREFIX)) doomed.push(k);
+    }
+  } catch {
+    doomed.push(TOKEN_KEY);
+  }
+  for (const k of doomed) {
+    try { s.removeItem(k); } catch { /* 单个键删不掉不该拖垮整轮清理 */ }
+  }
 }
 
-/** 本包写进 storage 的全部键。测试用它断言「登出后一个不剩」。 */
+/**
+ * 本包写进 storage 的**固定**键。带 sessionId 的那些是动态的，
+ * 枚举不出来 —— 它们由 `OWNED_STORAGE_PREFIX` 兜住。
+ */
 export const OWNED_STORAGE_KEYS: readonly string[] = [TOKEN_KEY];

@@ -31,7 +31,7 @@
 | **5B2** | **受控写 + API 级还原（实机）** | **✅ PASS**（2026-08-28） | | ✓ | ✓ |
 | **5B3** | **最后三端点实机身份（S5-FINAL v1.1）** | **✅ PASS** —— IDENTITY 3/3、BUSINESS 1/3 | | ✓ | ✓ |
 | **6** | **今天的课（`/today` 枢纽）** | **✅ PASS** —— 6A 本地 + 6B staging 八账号实机 | | ✓ | ✓ |
-| **7** | **阅读页（单独阶段）** | 🔧 **7A 设计完成**（S7B_GO）；7B–7E 未开始 | | **✓ 单独** | **✓ 单独** |
+| **7** | **阅读页（单独阶段）** | 🔧 **7A 设计完成**（S7B_GO）+ **7B 状态引擎本地完成**；7C–7E 未开始 | | **✓ 单独** | **✓ 单独** |
 | 8 | 阅读结果页 | ⬜ | | ✓ | ✓ |
 | 9 | 课程学词 + 正式测试 | ⬜ | | ✓ | ✓ |
 | 10 | 今日总结 | ⬜ | | ✓ | ✓ |
@@ -1659,7 +1659,7 @@ Claude **全程未输入、未索取、未显示、未记录、未注入任何�
 手动输入 —— 「不把口令输入任何输入框」是不因授权而改变的规则。
 
 **阶段 6 PASS**（AC-01 ~ AC-09 全部完成，AC-06 的八行均为 Claude 字段级观察）。
-**阶段 7（阅读页）未开始。**
+**阶段 7：7A 设计完成、7B 状态引擎本地完成；7C–7E 未开始。**
 
 ---
 
@@ -1723,9 +1723,41 @@ S7D 本地集成回归 → S7E staging/真机验收。各自的冻结合同另�
 > **S7E 的硬前置**：八个账号当前的 `read` 段全是 `none`（2026-08-28 实测），
 > **没有可作答的卷子**。真机验收必须等夹具重建。
 
-### 阶段 7B–7E —— 实施（未开始）
+### 阶段 7B —— API 层与状态引擎　**✅ 本地完成**（2026-08-28）
 
-- [ ] S7B `/lesson/reading` 的 API 层与状态引擎
+`task_id: S7B-READING-STATE-ENGINE-LOCAL` · `base_commit: 29ef99f`。
+证据层级 = **本地行为测试**（真的导出组件 + 打桩 fetch / localStorage /
+计时器 / navigator / 浏览器事件）。**没有任何 staging、真机或数据库声明。**
+
+**落地的文件**（新端内部，未接入任何页面）：
+
+| 文件 | 内容 |
+|---|---|
+| `lib/api.ts` | `request()` 支持 PATCH；新增 `getReadingSession` / `saveReadingAnswer` / `submitReading` 三个方法与阅读相关类型 |
+| `lib/identity.ts` | `clearIdentity()` 改为**按 `sw:` 前缀扫除**（阅读缓存的键带 sessionId，枚举不出来）；新增 `OWNED_STORAGE_PREFIX` |
+| `lib/auth-store.ts` | `adoptSession()` 在写新令牌**之前**先清空 `sw:` —— 换账号时上一个学生的草稿必须先没掉 |
+| `lesson/draftMerge.ts` | 从旧端逐字搬来的纯函数（连同它的八条既有用例） |
+| `lesson/storage.ts` | `sw:reading:*` 作用域键 + 安全失败的读写 |
+| `lesson/ReadingProvider.tsx` | 状态引擎：序号分配、600ms 防抖、离线/重连、多标签所有权、**§5.4 对账**；三个副作用全部注入 |
+
+**三个端点**（与 S7A §4 冻结一致，路径逐字核过 `morning-quiz.controller.ts`）：
+`GET /api/morning-quiz/sessions/:id`（**无子路径**）、
+`PATCH …/answer`、`POST …/submit`。**认证后请求零身份参数。**
+
+**§5.4 对账已按冻结规则实现**：情况 A（本地有更新的写）留在脏且未证实、
+不重载；情况 B 走**单飞**重载覆盖本地并落盘，值有差异才弹一次可关闭的
+提示；重载失败 / 重载回来没有这一题 → `conflict-unverified`，
+**交卷被 `isSubmitBlocked()` 挡住**；401 走既有的登出链路。
+
+**本地验证**：`apps/student-web` 7 个测试文件 196 条全绿、`tsc --noEmit`
+退出 0、`vite build` 成功；旧端 `apps/web` 9 文件 60 条与 API 的
+`answer-seq` / `answer-diff` 2 文件 25 条均未受影响。
+
+> **仍是占位**：`/lesson/reading` 这条路由**没有改动** —— 引擎还没有任何
+> 页面在用它。接线是 S7C 的事。
+
+### 阶段 7C–7E —— 实施（未开始）
+
 - [ ] S7C 题型渲染器搬运（5 个 O-Level 逐字搬 + IELTS 摘掉词表挂点）+ 阅读页外壳
 - [ ] S7D 全链本地集成回归
 - [ ] S7E staging 八账号真机验收

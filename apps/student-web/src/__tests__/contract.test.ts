@@ -232,10 +232,18 @@ describe('未知 URL 的落点', () => {
 describe('G1 新端不得出现旧路由与旧身份键', () => {
   const BANNED = [
     '/my-history', '/my-lesson', '/my-vocab', '/my-mistakes',
-    '/morning-quiz', '/scan', '/student/', '/practice/',
+    '/scan', '/student/', '/practice/',
     'mq:history:name', 'mq:history:studentId',
     'then=', 'after=submit', 'adoptHandoff', '#h=',
   ];
+
+  /**
+   * 阶段 7B 起 `/morning-quiz` 是**服务端 API 的前缀**（阅读三端点），
+   * 不再只是旧端的页面路由。所以它从一刀切黑名单里挪出来，换成一条更准的
+   * 规则：**只有 `lib/api.ts` 可以出现它**。别的文件出现它，就说明有人在
+   * 往旧页面跳、或者绕开 `request()` 自己拼请求。
+   */
+  const API_ONLY_PREFIXES = ['/morning-quiz'];
 
   it('**旧路由与旧身份键一个都不出现**', () => {
     const hits: string[] = [];
@@ -245,6 +253,62 @@ describe('G1 新端不得出现旧路由与旧身份键', () => {
       }
     }
     expect(hits).toEqual([]);
+  });
+
+  it('**`/morning-quiz` 只允许出现在 lib/api.ts 里**（是 API 路径，不是页面路由）', () => {
+    const hits: string[] = [];
+    for (const { f, text } of readAll()) {
+      if (f.endsWith(path.join('lib', 'api.ts'))) continue;
+      for (const b of API_ONLY_PREFIXES) {
+        if (text.includes(b)) hits.push(`${path.relative(SRC, f)} → ${b}`);
+      }
+    }
+    expect(hits).toEqual([]);
+  });
+
+  it('**新端运行时代码一个 `mq:` 存储键都不碰**（阶段 7B 新增）', () => {
+    const hits: string[] = [];
+    for (const { f, text } of readAll()) {
+      if (/['"`]mq:/.test(text)) hits.push(path.relative(SRC, f));
+    }
+    expect(hits).toEqual([]);
+  });
+
+  it('**不消费后端的 href** —— 它不是导航权威（阶段 7B 新增）', () => {
+    const hits: string[] = [];
+    for (const { f, text } of readAll()) {
+      // 类型声明里写 `href: string | null` 是如实描述响应，允许；
+      // **读**它（`.href`）不允许。
+      if (/\.\s*href\b/.test(text)) hits.push(path.relative(SRC, f));
+    }
+    expect(hits).toEqual([]);
+  });
+
+  it('**不从 apps/web 或任何跨应用路径 import**（阶段 7B 新增）', () => {
+    const hits: string[] = [];
+    for (const { f, text } of readAll()) {
+      for (const m of text.matchAll(/from\s+['"]([^'"]+)['"]/g)) {
+        const spec = m[1];
+        if (/apps\/web|components\/exam|\.\.\/\.\.\/\.\.\//.test(spec)) {
+          hits.push(`${path.relative(SRC, f)} → ${spec}`);
+        }
+      }
+    }
+    expect(hits).toEqual([]);
+  });
+
+  it('**阶段 7B 不注册任何页面 / 渲染器** —— lesson/ 只有引擎，不进路由表', () => {
+    const app = fs.readFileSync(path.join(SRC, 'App.tsx'), 'utf8');
+    expect(app).not.toMatch(/lesson\//);
+    expect(fs.readdirSync(path.join(SRC, 'lesson')).sort()).toEqual([
+      'ReadingProvider.tsx',
+      'draftMerge.ts',
+      'storage.ts',
+    ]);
+    for (const { f, text } of readAll()) {
+      if (!f.includes(path.join('src', 'lesson'))) continue;
+      expect(text, `${path.relative(SRC, f)} 不该 import 页面`).not.toMatch(/from '\.\.\/pages/);
+    }
   });
 
   /**
@@ -281,7 +345,33 @@ describe('G1 新端不得出现旧路由与旧身份键', () => {
     // 阶段 6A：今天的课。两条都是**认证后**端点 —— 零身份参数。
     '/lesson/today',
     '/lesson/start',
+    // 阶段 7B：阅读会话。三条都是**认证后**端点 —— 零身份参数。
+    // 加载端点**没有子路径**（S7A 返工 2/2：带子路径的那个变体不存在）。
+    '/morning-quiz/sessions/:id',
+    '/morning-quiz/sessions/:id/answer',
+    '/morning-quiz/sessions/:id/submit',
   ] as const;
+
+  /**
+   * 从一次调用的实参里还原**规范化的端点路径**。
+   *
+   * 阶段 7B 的三个阅读端点写成模板串。旧版正则遇到插值就停，三条会**一起
+   * 塌成** `/morning-quiz/sessions/` —— 清点表看着是绿的，实际上 `/answer`
+   * 与 `/submit` 从来没被登记过。这里把插值段一律换成 `:id`，路径才还原
+   * 成可登记、可比对的形状。
+   */
+  function pathOf(call: string): string {
+    const raw = call.match(/`(\/[^`]*)`/) ?? call.match(/['"](\/[^'"]*)['"]/);
+    if (!raw) return DYNAMIC;
+    // 路径被 `+` 拼接过 → 后半截静态看不到，判不出来。
+    // 例外：本身已经带 `?` 的，拼的是查询串，路径部分仍然是完整的。
+    const after = call.slice(raw.index! + raw[0].length);
+    if (/^\s*\+/.test(after) && !raw[1].includes('?')) return DYNAMIC;
+    // 查询串不参与端点身份（`?name=` 那种由 identityHits 单独查）
+    const normalized = raw[1].replace(/\$\{[^}]*\}/g, ':id').split('?')[0];
+    // 换掉插值之后仍有非路径字符 → 判不出来，按 dynamic 报红
+    return /^[A-Za-z0-9\-_/:.]+$/.test(normalized) ? normalized : DYNAMIC;
+  }
 
   /** 从 `(` 开始按深度取平衡括号内的实参文本，跳过字符串里的括号。 */
   function balanced(src: string, open: number): string {
@@ -332,8 +422,7 @@ describe('G1 新端不得出现旧路由与旧身份键', () => {
       if (/\bfunction\s*$/.test(src.slice(Math.max(0, m.index! - 16), m.index!))) continue;
       const open = m.index! + m[0].length - 1;
       const call = balanced(src, open);
-      const p = call.match(/['"`](\/[A-Za-z0-9\-_/:]+)/);
-      const endpoint = p ? p[1] : DYNAMIC;
+      const endpoint = pathOf(call);
       const from = props.filter((i) => i < m.index!).pop();
       out.push({
         endpoint,
@@ -444,6 +533,84 @@ describe('G1 新端不得出现旧路由与旧身份键', () => {
       ]);
     });
 
+    // ── 阶段 7B 新增的守卫，同样要证明它们抓得住 ──
+
+    it('**模板串路径会被还原成 `/a/:id/b`，不会塌成前缀**', () => {
+      const fake = [
+        'export const api = {',
+        '  a: (t: string, id: string) =>',
+        '    request<X>(\'GET\', `/morning-quiz/sessions/${id}`, { token: t }),',
+        '  b: (t: string, id: string) =>',
+        '    request<X>(\'PATCH\', `/morning-quiz/sessions/${id}/answer`, { token: t }),',
+        '  c: (t: string, id: string) =>',
+        '    request<X>(\'POST\', `/morning-quiz/sessions/${id}/submit`, { token: t }),',
+        '};',
+      ].join('\n');
+      expect(apiCallsIn(fake).map((c) => c.endpoint)).toEqual([
+        '/morning-quiz/sessions/:id',
+        '/morning-quiz/sessions/:id/answer',
+        '/morning-quiz/sessions/:id/submit',
+      ]);
+    });
+
+    it('**拼出来的路径判不出来 → dynamic 报红**', () => {
+      const fake = [
+        'export const api = {',
+        "  x: (t: string, p: string) => request<X>('GET', '/morning-quiz/' + p, { token: t }),",
+        '};',
+      ].join('\n');
+      const found = apiCallsIn(fake);
+      expect(found[0].endpoint).toBe(DYNAMIC);
+      expect((KNOWN_ENDPOINTS as readonly string[]).includes(DYNAMIC)).toBe(false);
+    });
+
+    it('**查询串不影响端点身份**（消歧那条仍然认得出来）', () => {
+      const eps = apiCalls().map((c) => c.endpoint);
+      expect(eps).toContain('/student-auth/registration-status');
+    });
+
+    it('**`/morning-quiz` 出现在 api.ts 之外会被抓到**', () => {
+      const fake = "navigate('/morning-quiz/' + sessionId);";
+      expect(API_ONLY_PREFIXES.some((b) => fake.includes(b))).toBe(true);
+    });
+
+    it('**`mq:` 存储键会被抓到**', () => {
+      expect(/['"`]mq:/.test("localStorage.getItem('mq:answers:' + sid)")).toBe(true);
+      expect(/['"`]mq:/.test("localStorage.setItem(`mq:seqs:${sid}`, v)")).toBe(true);
+      // 不误伤：只是变量名里含 mq
+      expect(/['"`]mq:/.test('const mqLike = 1;')).toBe(false);
+    });
+
+    it('**读后端 href 会被抓到**', () => {
+      expect(/\.\s*href\b/.test('navigate(data.nextAction.href)')).toBe(true);
+      expect(/\.\s*href\b/.test('location.href = x')).toBe(true);
+      // 不误伤：类型声明里如实描述响应字段
+      expect(/\.\s*href\b/.test('href: string | null;')).toBe(false);
+    });
+
+    it('**跨应用 import 会被抓到**', () => {
+      const bad = [
+        "import X from '../../../web/src/components/exam/ExamContext';",
+        "import Y from 'apps/web/src/lib/api';",
+        "import Z from '../components/exam/ExamWordSheet';",
+      ];
+      for (const line of bad) {
+        const spec = line.match(/from\s+['"]([^'"]+)['"]/)![1];
+        expect(/apps\/web|components\/exam|\.\.\/\.\.\/\.\.\//.test(spec), spec).toBe(true);
+      }
+      expect(/apps\/web|components\/exam|\.\.\/\.\.\/\.\.\//.test('../lib/api')).toBe(false);
+    });
+
+    it('**往 lesson/ 里塞一个页面会被抓到**', () => {
+      const dir = ['ReadingProvider.tsx', 'draftMerge.ts', 'storage.ts', 'Reading.tsx'].sort();
+      expect(dir).not.toEqual(['ReadingProvider.tsx', 'draftMerge.ts', 'storage.ts']);
+    });
+
+    it('**往 storage 写的第三个地方会被抓到**', () => {
+      const w = 'pages/Reading.tsx:SOME_KEY';
+      expect(/identity\.ts:(TOKEN_KEY|probe|k)$|storage\.ts:key$/.test(w)).toBe(false);
+    });
+
     it('干净的认证后端点不会误报', () => {
       expect(identityHits("request('GET', '/student-auth/me', { token })")).toEqual([]);
       expect(identityHits("request('POST', '/vocab/review', { body: { word }, token })")).toEqual([]);
@@ -474,9 +641,12 @@ describe('G1 新端不得出现旧路由与旧身份键', () => {
         writes.push(`${path.relative(SRC, f)}:${m[1]}`);
       }
     }
-    // 只允许 identity.ts 里通过 TOKEN_KEY 常量写，外加它自己的探针
+    // 只允许两处写：
+    //   · identity.ts —— TOKEN_KEY 常量、可用性探针、前缀扫除里的 k
+    //   · lesson/storage.ts —— 统一的 key 参数（键名由 READING_KEYS 生成，
+    //     全部在 sw: 下，见 __tests__/reading-storage.test.ts）
     for (const w of writes) {
-      expect(w).toMatch(/identity\.ts:(TOKEN_KEY|probe)/);
+      expect(w).toMatch(/identity\.ts:(TOKEN_KEY|probe|k)$|storage\.ts:key$/);
     }
   });
 

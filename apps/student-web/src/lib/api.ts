@@ -58,7 +58,7 @@ export class NetworkError extends Error {
 }
 
 async function request<T>(
-  method: 'GET' | 'POST',
+  method: 'GET' | 'POST' | 'PATCH',
   path: string,
   opts: { body?: unknown; token?: string | null } = {},
 ): Promise<T> {
@@ -258,4 +258,105 @@ export const api = {
    */
   lessonStart: (token: string) =>
     request<LessonToday>('POST', '/lesson/start', { body: { begin: true }, token }),
+
+  // ── 阅读会话（阶段 7B）；同样是**认证后，零身份参数** ──
+
+  /** 权威会话读取。**这一个端点就是对账重载要打的那个**（S7A §5.4）。 */
+  getReadingSession: (token: string, sessionId: string) =>
+    request<ReadingSessionPayload>('GET', `/morning-quiz/sessions/${encodeURIComponent(sessionId)}`, {
+      token,
+    }),
+
+  saveReadingAnswer: (token: string, sessionId: string, body: ReadingSaveBody) =>
+    request<ReadingSaveResult>(
+      'PATCH',
+      `/morning-quiz/sessions/${encodeURIComponent(sessionId)}/answer`,
+      { body, token },
+    ),
+
+  submitReading: (token: string, sessionId: string, body: { final: boolean }) =>
+    request<ReadingSubmitResult>(
+      'POST',
+      `/morning-quiz/sessions/${encodeURIComponent(sessionId)}/submit`,
+      { body, token },
+    ),
 };
+
+// ─────────────────────────────────────────────────────────────
+// 阅读会话（阶段 7B）
+//
+// 三个端点的路径、方法、请求体形状**取自 S7A 冻结设计**的 §4.1–§4.3，
+// 而设计里的每一条都对着 `apps/api/.../morning-quiz.controller.ts` 核过：
+//
+//   :517  @Get('sessions/:id')            ← 加载 = 权威会话读取，**没有子路径**
+//   :525  @Patch('sessions/:id/answer')   ← 逐题保存
+//   :554  @Post('sessions/:id/submit')    ← 最终交卷
+//
+// 三个都是**认证后**端点：URL 与请求体里一个身份字段都没有。
+// ─────────────────────────────────────────────────────────────
+
+/** 一道题在学生端的可编辑答案形状。两者可**同时**存在（双写题型）。 */
+export interface ReadingAnswer {
+  selectedOption?: string;
+  textAnswer?: string;
+}
+
+/** 服务端已存的那一份。`content` 是给老客户端的兼容字段，新端不读。 */
+export interface ReadingExistingAnswer {
+  content?: unknown;
+  selectedOption: string | null;
+  textAnswer: string | null;
+  clientSeq: number | null;
+  flagged: boolean;
+}
+
+/** 一道题的题面快照。渲染是阶段 7C 的事，这里只如实描述形状。 */
+export interface ReadingQuestion {
+  id: string;
+  sortOrder: number;
+  marks: number;
+  questionType: string;
+  snapshotContent: unknown;
+  snapshotOptions: Array<{ key: string; text: string }> | null;
+}
+
+export interface ReadingSessionPayload {
+  sessionId: string;
+  submissionId: string | null;
+  /** 学生端倒计时**必须**用它，不是 `regularQuizEnd`。 */
+  quizEnd: string | null;
+  regularQuizEnd: string | null;
+  secondWindowToday: boolean;
+  questions: ReadingQuestion[];
+  existingAnswers: Record<string, ReadingExistingAnswer>;
+}
+
+export interface ReadingSaveBody {
+  paperQuestionId: string;
+  selectedOption: string | null;
+  textAnswer: string | null;
+  clientSeq: number;
+}
+
+/**
+ * 保存结果。
+ *
+ * `superseded: true` 表示库里已有更新的写 —— **它不带答案内容**，
+ * 所以客户端无法据此认定本地那份是对的（S7A §5.4）。
+ */
+export interface ReadingSaveResult {
+  applied: boolean;
+  superseded?: boolean;
+  clientSeq: number | null;
+  updatedAt?: string | null;
+}
+
+/**
+ * 交卷结果 —— 就是那一行答卷，**没有 `nextAction`、没有 `href`**。
+ * 「交完去哪」必须由随后的 `/lesson/today` 决定，不能从这里推。
+ */
+export interface ReadingSubmitResult {
+  id: string;
+  status: string;
+  [k: string]: unknown;
+}
