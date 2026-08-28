@@ -25,10 +25,11 @@
 | **4A** | **新端空壳与认证（本地）** | **✅ 已完成** | | ✓ | ✓ |
 | **4B1** | **打包 + staging 部署 + CORS + 单账号 smoke** | **✅ 已完成** | | ✓ | ✓ |
 | **4B2** | **八账号认证验收** | 🔶 **PARTIAL / CONDITIONAL PASS** —— 教师重置链条 BLOCKED，已移交阶段 14 | | ✓ | ✓ |
-| **5** | **token-only 身份（后端五层）** | ⬜ **PENDING** —— 5A PASS；**5B1 + 5B2 实机 PASS（身份 23/26）**；5B3 未授权 | | ✓ | ✓ |
+| **5** | **token-only 身份（后端五层）** | **✅ PASS** —— 身份覆盖 26/26（5A + 5B1 + 5B2 + S5-FINAL） | | ✓ | ✓ |
 | **5A** | **本地实现（五层接线 + 运行期 + 服务链测试 + G8 加固）** | **✅ PASS**（第三轮更正后） | | ✓ | ✓ |
 | **5B1** | **部署 + 只读令牌面（实机）** | **✅ PASS**（2026-08-28） | | ✓ | ✓ |
 | **5B2** | **受控写 + API 级还原（实机）** | **✅ PASS**（2026-08-28） | | ✓ | ✓ |
+| **5B3** | **最后三端点实机身份（S5-FINAL v1.1）** | **✅ PASS** —— IDENTITY 3/3、BUSINESS 1/3 | | ✓ | ✓ |
 | 6 | 今天的课（`/app/today`） | ⬜ | | ✓ | ✓ |
 | **7** | **阅读页（单独阶段）** | ⬜ | | **✓ 单独** | **✓ 单独** |
 | 8 | 阅读结果页 | ⬜ | | ✓ | ✓ |
@@ -1208,7 +1209,150 @@ review/undo、lesson/start、lesson/vocab-cursor）。
 
 ---
 
-### 阶段 5B3 —— 无 API 回滚的三个端点　⬜ **未授权**
+### 阶段 5 收尾 —— 最后三个端点的实机身份证据　**✅ 5B3 范围内 PASS**（2026-08-28）
+
+`task_id: S5-FINAL-THREE-ENDPOINT-LIVE-CLOSEOUT` · `contract_version: 1.1`
+（supersedes 1.0）· `base_commit: 0a572a3` · rework 1/2。
+
+#### 历史事实（原样保留，不改写）
+
+| 轮次 | 结论 | 原因 |
+|---|---|---|
+| S5B3 v1.0 | **NO-GO** | stg-api 的 `DATABASE_URL` 是 `*.railway.internal`，本机 DNS/TCP 均不可达 |
+| S5B3 v1.1 | **NO-GO** | `railway ssh` 落在账号级端点（whoami / list-* / get-logs / create-sandbox），不提供服务容器执行 |
+| S5B3 v1.2 | **NO-GO** | Postgres 服务当时没有 `DATABASE_PUBLIC_URL`，而启用 Public Access 被合同禁止 |
+| `S5B3-UNBLOCK-DATABASE-OBSERVABILITY` | **由人工行政关闭** | **不是** Claude 验证通过的 PASS。通道由用户在外部自行建立并自负其责；Claude 未建立、未验证其来源，也未追查 |
+| 本任务 v1.0 | **NO-GO** | 冻结的 Postgres 部署基线早于人工建立通道的时点：记录基线 `f397bc8a…`，实测 `73871ad2…`（创建于 `2026-08-28T05:49:10.224Z`）。因 AC-09 以 AC-01 通过为前置，即使三条 POST 全成功也无法合法收尾，而 page-view 的 +1 遥测不可回滚 —— 故停在业务 POST 之前 |
+
+**v1.0 操作台账（更正后）**：`railway link` 2、`railway status` 3、
+`railway variables` 3、`railway unlink` 1，Railway CLI 合计 **9**；
+健康 GET 2；数据库连接 1；READ ONLY 事务 1；观测 1；临时文件 1；
+登录 / 功能 GET / 业务 POST **均为 0**。
+v1.0 收尾时曾从**仓库目录**执行过一次 `railway status`，因而读到了
+`glorious-motivation / ops-dashboard`。只读，但**越界**。此事如实留档，
+v1.1 起不再重复：所有 Railway 命令只在仓库之外的临时目录执行。
+
+#### v1.1 人工批准的重定基
+
+用户明确批准三点：Postgres 期望部署改为 `73871ad2-226a-4d7d-9e71-586203275281`；
+接受 Postgres 变量键数 `29 → 33` 是其私下建立可观测性的预期结果；
+其余基线、判据、端点要求全部不变。并确认这就是正确的 staging Postgres 服务。
+
+#### AC-01 基线
+
+HEAD = `0a572a33495dadf015e164867a535031fb327e00`，工作区干净。四服务部署 ID
+与域名**全部等于 v1.1 冻结基线**；Postgres 变量键数 **33**；stg-api 变量 23、
+键集合未变；`CORS_ORIGINS`、`STUDENT_APP_ORIGIN` 未变；`STUDENT_APP_V2` 未设置；
+`/api/health` 200；`/api/health/ready` 200 `db:"up"`。
+
+#### AC-02 观测通道（通道 A）
+
+选用 **Channel A —— Postgres 服务的 `DATABASE_PUBLIC_URL`**，在登录与任何
+业务 POST **之前**选定并验通。未探测、未使用 Channel B / C。
+
+作用域与 URL 护栏 12 项全过：project=`exam-staging-manual`、
+service=`Postgres`、env=`production`、变量键数 33、`DATABASE_PUBLIC_URL` 存在、
+协议 postgres/postgresql、hostname 非空、**非** `.railway.internal`、
+username / password / database / port 齐备。
+
+**安全实现**：Railway JSON 由管道直入探针进程，**从未重定向到磁盘**；
+本地取值白名单在代码里强制（读到白名单外的键直接抛错）；
+`DATABASE_PUBLIC_URL` 在 **`import @prisma/client` 之前**快照，显式经
+`datasources.db.url` 传入；探针运行于仓库之外，无 `.env` 回落；
+未读取 Postgres 的 `DATABASE_URL` / `PGHOST` / `PGPORT` / `PGUSER` / `PGPASSWORD`，
+也未读取 stg-api 的 `DATABASE_URL` / `RAILWAY_SERVICE_POSTGRES_URL`。
+
+**READ ONLY 证明**：每一次观测都在 Prisma 交互式事务里，第一条语句
+`SET TRANSACTION READ ONLY`、第二条 `SHOW transaction_read_only`，
+返回值 **`on`**，其后只有 SELECT / count。共 **6 次** READ ONLY 事务、
+**6 次**观测，无一例外。
+
+> **一次瞬时故障如实记录**：首次执行主探针时 `$connect()` 报 P1001
+> （无法连到数据库）。当时**尚未登录、尚未发任何业务 POST**。单次连通性
+> 重试成功（TCP 可达 + `transaction_read_only=on`），确认为瞬时故障，
+> 随后完整重跑。为避免 page-view 之后因瞬断而无法核验 delta，给**只读**
+> 操作加了重试（连接 ≤3 次、只读事务 ≤2 次）；实际重跑时一次即通。
+
+#### AC-03 ~ AC-06 三条业务 POST
+
+三条 POST 共用同一个测试七号 Bearer 令牌；URL 无身份参数；请求体经正则
+断言不含 `name` / `studentName` / `studentId`；令牌与 PIN 未打印、未落盘。
+
+| 方法 / 路由 | 请求体（脱敏） | 状态 | code | IDENTITY | BUSINESS |
+|---|---|---|---|---|---|
+| `POST /morning-quiz/appeals` | `{"submissionId":"<fresh-uuid>","message":"Stage 5 final token-only identity probe"}` | **404** | `submission_not_found` | **PASS** | 不计（预期业务错误） |
+| `POST /lesson/vocab-taught` | `{"headword":"<fresh-absent>","cursor":0}` | **404** | `word_not_in_notebook` | **PASS** | 不计（预期业务错误） |
+| `POST /vocab/page-view` | `{"kind":"vocab_banner"}` | **201** | — | **PASS** | **PASS** |
+
+**申诉数对比**：前 `0` → 申诉探针后 `0` → 最终 `0`，**全程未变**。
+
+**生词本 / 课程投影对比**（vocab-taught 前后）：
+生词本归一化响应**逐字节相等**；课程投影**逐字节相等**。
+新词由 `zq + UUID` 生成，长度 34、纯字母数字、≤80，且已证明不在生词本里
+（测试七号生词本为 0 条）。`cursor` 用的是实测 `vocabCursor=0`。
+
+**page-view 的库侧 delta**（SGT 日 `2026-08-28`，`kind=vocab_banner`）：
+
+| 指标 | 紧邻前 | 最终 | 判定 |
+|---|---|---|---|
+| 目标行存在 | `false` | `true` | ✓ |
+| 目标 hits | （行不存在） | **1** | ✓ 新行以 hits=1 出现 |
+| 总行数 | 0 | 1 | ✓ 与目标 delta 一致 |
+| 总 hits | 0 | 1 | ✓ 与目标 delta 一致 |
+| 非目标 SHA-256 | `e3b0c44298fc1c14…` | `e3b0c44298fc1c14…` | ✓ **未变** |
+| 该学生申诉数 | 0 | 0 | ✓ 未变 |
+
+**测试七号是唯一发生变化的学生。** HTTP 201 且响应体恰为 `{"ok":true}`。
+学生 id 仅用于内部哈希，未打印。
+
+#### AC-07 覆盖核算
+
+本任务 **IDENTITY-PASS 3/3**；**BUSINESS-PASS 恰好 1/3**（仅 page-view）；
+appeals 与 vocab-taught **明确不计** BUSINESS-PASS。
+
+**阶段 5B 身份覆盖累计 26/26** = 5B1 的 12 + 5B2 的 11 + 本任务的 3。
+
+**阶段 5B：PASS**，并明确记下 BUSINESS 缺口 —— 全阶段的 BUSINESS-PASS 是
+5B2 的 6 条加本轮的 1 条，共 **7 条**；其余端点要么是预期的业务错误路径，
+要么其正常成功路径不在阶段 5 的验收范围内。
+**阶段 5：PASS**，依据其既有的「身份完成度」判据。
+
+#### 持久化效果（仅此两项）
+
+1. 一次成功登录的既有副作用：更新 `lastLogin`、清空登录失败计数。
+   `studentAuthVersion` 未变，既有令牌未作废。
+2. **一次 `vocab_banner` 的 +1 遥测**：测试七号在 `2026-08-28` 新增一行
+   `StudentPageView`，`hits=1`。**有意为之，无回滚路径**，作为 staging
+   测试痕迹留存。
+
+除此之外无任何持久化改动：无部署 / 重启 / 配置变更、未启停 Public Access、
+未写库（除上述被授权的 page-view API 效果）、未跑夹具或种子、未碰生产。
+
+#### 操作计数（取自实际执行记录）
+
+| 类别 | 次数 |
+|---|---|
+| `railway link` | 3 |
+| `railway status` | 2 |
+| `railway variables` | 6 |
+| `railway unlink` | 2（非交互模式需 `--yes`，两次均未生效；临时目录随后整体删除） |
+| **Railway CLI 合计** | **13** |
+| 成功登录 | 1 |
+| 功能 GET | 4 |
+| 基础设施健康 GET | 4 |
+| 业务 POST | 3 |
+| 数据库连接（成功） | 2（含一次重试探针）；另有 **1 次失败连接尝试**（P1001） |
+| READ ONLY 事务 | 6 |
+| 数据库观测 | 6 |
+| 临时文件 | 2（`run.mjs`、`conn.mjs`，仓库之外，已随目录删除） |
+| 临时进程 / 隧道 | 0 |
+
+Prisma 已在 `finally` 中断开（两次运行均打印「Prisma 已断开」）。
+未使用 `railway ssh` / `railway connect` / 任何隧道。
+
+---
+
+### 阶段 5B3（原计划）—— 已由 S5-FINAL 任务覆盖　**✅ 三个端点身份证据已取得**
 
 **5B1、5B2 均已执行并 PASS（见上）。** 5B3（无回滚项）尚未授权，
 下面是它们的既定口径。
