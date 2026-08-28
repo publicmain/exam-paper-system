@@ -194,9 +194,15 @@ export class VocabQuizAttemptService {
     }
 
     // ── 出题：固定词表，服务端不再自己补题 ──
+    // 身份要跟着走：`buildQuiz` 会**再解析一次**学生（它也要按学生取词典
+    // 与复习状态）。之前这里只转了姓名和 studentId —— token-only 请求里
+    // 两者都是空的，于是正式测试在出题这一步就 `name_required`。
+    // 与 lesson 那处不同的是：这一步发生在建 attempt **之前**，所以不会
+    // 留下半截数据，但端点同样是不可用的。
     const built = await this.quiz.buildQuiz({
       studentName: input.studentName,
       studentId: input.studentId,
+      authStudentId: input.authStudentId,
       limit: MAX_QUIZ_ITEMS,
       words: outcome.words.map((w: any) => ({
         headword: w.headword,

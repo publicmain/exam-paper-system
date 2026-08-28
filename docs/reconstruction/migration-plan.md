@@ -26,7 +26,7 @@
 | **4B1** | **打包 + staging 部署 + CORS + 单账号 smoke** | **✅ 已完成** | | ✓ | ✓ |
 | **4B2** | **八账号认证验收** | 🔶 **PARTIAL / CONDITIONAL PASS** —— 教师重置链条 BLOCKED，已移交阶段 14 | | ✓ | ✓ |
 | **5** | **token-only 身份（后端五层）** | ⬜ **PENDING** —— 5A 本地已 PASS，5B 部署验证待授权 | | ✓ | ✓ |
-| **5A** | **本地实现（五层接线 + 运行期测试 + G8 加固）** | **✅ PASS**（更正后；旧 PASS 作废，见 §阶段 5A） | | ✓ | ✓ |
+| **5A** | **本地实现（五层接线 + 运行期 + 服务链测试 + G8 加固）** | **✅ PASS**（第三轮更正后） | | ✓ | ✓ |
 | 6 | 今天的课（`/app/today`） | ⬜ | | ✓ | ✓ |
 | **7** | **阅读页（单独阶段）** | ⬜ | | **✓ 单独** | **✓ 单独** |
 | 8 | 阅读结果页 | ⬜ | | ✓ | ✓ |
@@ -550,7 +550,7 @@ staging 的 `测试一号` 已不在其种子场景上。**重新播种即可恢
 拆成 **5A（本地实现）** 与 **5B（部署验证）**：5A 只改代码、跑本地测试，
 不碰 staging / 生产 / 数据库；5B 需另行授权。
 
-### 阶段 5A —— 本地实现　**✅ PASS**（2026-08-28，更正后）
+### 阶段 5A —— 本地实现　**✅ PASS**（2026-08-28，第三轮更正后）
 
 > 本轮 PASS 建立在**运行期**证据上：26 个在范围内端点逐条调起真实
 > handler 通过 —— 既验执行到达依赖、也验回给调用方的响应。
@@ -781,20 +781,149 @@ if (!name) throw new BadRequestException({ code: 'name_required' });
 现已补上；21 个透传型端点也补了一条「依赖的返回值原样回给调用方，没被
 吞掉」。
 
+#### 更正轮之三（同日）：身份在**服务内部**丢失
+
+**缺陷**：token-only 的 `POST /lesson/vocab-taught` 会**先写一半，再报身份错误**。
+
+链条：控制器把 `authStudentId` 交给 `markTaughtAndAdvance()` → 它正确解析出
+学生 → 事务里写 `firstTaughtAt` / `vocabWords` / `vocabCursor` → **提交** →
+然后调 `startOrResumeToday()`，却只转了 `studentName` 与 `studentId`。
+token-only 请求里这两个都是空的 → `today()` 落到
+`resolveByIdOrName(undefined, '')` → `name_required`。
+**写已经落库，请求却 400。**
+
+根子比这更深：`today()` 的**入参类型里根本没有 `authStudentId`**。
+`getToday` / `startOrResumeToday` 都声明了它、也都 `...input` 传了进来，
+但 `today()` 从不读它。`GET /lesson/today` 之所以能跑通，是因为控制器
+把令牌 id 塞进了 `studentId` 这个槽位 —— 能用，但那是绕过去的，任何
+**直接调服务**的地方都会掉进坑里。
+
+**为什么上一轮的 26 条运行期用例没抓到**：它们用**真控制器 + 假服务**，
+证明的是「控制器把 `authStudentId` 交给了服务」，到此为止。服务内部再调
+另一个身份相关方法时把它丢掉 —— 假服务根本不执行那段代码，于是全绿。
+
+> **证据边界（必须照实引用）**
+>
+> | 文件 | 证明了什么 | **没有**证明什么 |
+> |---|---|---|
+> | `endpoint-matrix.spec.ts` | 端点清单与控制器接线 | 跑起来能不能过 |
+> | `token-only-runtime.spec.ts` | 控制器 → 服务边界的身份与响应 | **服务内部**的调用链 |
+> | `service-identity-chain.spec.ts` | 真服务 + 假 Prisma 的**服务内部**身份链 | 真库、真部署 |
+>
+> **26 个端点没有做到端到端的真服务全链覆盖。** 已覆盖的是：两个已知的
+> 服务→服务身份组合点，加上 lesson 的三个入口。其余端点的服务方法都是
+> 「解析一次然后自己干活」的叶子，不存在第二次解析。
+
+**修复**（业务逻辑一行未动：cursor、firstTaughtAt、stage、队列口径全部照旧）：
+
+1. `today()` 入参加上 `authStudentId`，并**真的用它** ——
+   `resolveAuthenticatedStudent()`，与 vocab / morning-quiz 同一套资格谓词。
+2. `markTaughtAndAdvance()` 把 `authStudentId` 转给 `startOrResumeToday()`。
+3. `VocabQuizAttemptService.start()` 把 `authStudentId` 转给 `buildQuiz()`。
+4. 控制器的 `today` / `start`：有令牌时**只传 `authStudentId`**，不再把
+   令牌里的姓名塞进 `studentName`（令牌签发后姓名可能改过）。
+   `student_required` 这个旧错误码原样保留。
+
+#### 内部身份组合点审计（26 条链，控制器边界之外）
+
+| 位置 | 形态 | 结论 |
+|---|---|---|
+| `LessonService.markTaughtAndAdvance` → `startOrResumeToday` | 服务调服务 + 二次解析 | **缺陷，已修** |
+| `VocabQuizAttemptService.start` → `VocabQuizService.buildQuiz` | 服务调服务 + 二次解析 | **缺陷，已修**（发生在建 attempt **之前**，无脏数据，但端点不可用） |
+| `LessonService.today` → `mistakes.practiceQueue(studentId, …)` | 传的是**已解析的 id** | 安全 |
+| `VocabQuizService.buildQuiz` → `review.streakDays(student.id)` | 传的是**已解析的 id** | 安全 |
+| `LessonService.classBoard` → `getToday({name, id})` | 教师端，传库里查出的 id | 不在学生令牌链上 |
+| vocab 五个服务的其余方法 | 叶子：解析一次后自己干活 | 无二次解析 |
+| morning-quiz 的 `skillProfileByName` / `upcomingForName` / `startPractice` / `getPractice` / `submitPractice` / `historyTrendByName` | 两参数解析 | **范围外，未改**（并由测试钉住不得被顺手改动） |
+
+#### 一处需要点名的行为变化
+
+token-only 的 `GET /lesson/today` 与 `POST /lesson/start`，资格判据从
+**旧的 id 路径**（只查 `isActive` + 在读班级）换成了**阶段 5A 的那一套**
+（另加 `role='student'` + `archivedAt=null`）。**是收紧不是放宽**，且与
+vocab / morning-quiz 一致。受影响的只有一种人：拿着扫码当天令牌
+（不带 `av`、守卫不查库）却已经被归档或改了角色的学生 —— 他们现在会拿到
+`student_not_eligible`。**旧的无令牌路径判据一字未改**，并有测试钉住。
+
 **退出条件（5A）**：`apps/api` / `apps/student-web` / `apps/web` 全量绿；
-26 个端点**逐条运行期**通过（含响应回显）
+26 个端点**逐条运行期**通过（含响应回显）；**服务内部的身份组合点
+全部由真服务测试覆盖**
 **风险**：中 —— 改动面广，但每处都是「加一条快路径」
 **回滚**：`git revert` 本阶段提交（纯增量，旧端不受影响）
 
-### 阶段 5B —— 部署与联调验证　⬜ **待单独授权**
+### 阶段 5B —— 部署与联调验证　⬜ **未授权**
 
-- [ ] 部署到 staging，用裸令牌**实机**打通矩阵里的 26 个端点
-- [ ] 确认旧端在 staging 上行为无变化
-- [ ] 观察 `student_not_eligible` 是否有非预期触发
+设计已成形，**尚未执行、也未申请执行**。以下是本轮更正后的口径。
+
+#### 两个判据必须分开记
+
+| 判据 | 含义 |
+|---|---|
+| **IDENTITY-PASS** | 已部署的请求带令牌、零身份入参地**走到了业务层** —— 没有 `name_required`、`student_token_required`、`identity_mismatch`，也没有触发按姓名查人 |
+| **BUSINESS-PASS** | 端点走完了它**正常的成功路径** |
+
+阶段 5B 验的是 **token-only 身份集成**。因此：**一个由代码可证明的、
+状态依赖的业务错误**（`no_task` / `no_attempt` / `stage_not_ready` /
+`{updated:0}`）**可以记 IDENTITY-PASS，但永远不能记 BUSINESS-PASS。**
+两者分列两栏，不得合并成一个「通过数」。
+
+#### 加词 / 删词往返：`zzqx-probe` 是无效设计
+
+`addWord()` 第二步就是 `vocab.lookup(word)`，查不到直接
+400 `word_not_in_dictionary`（CODE-VERIFIED）。造词永远进不了成功路径。
+
+正确的可逆探针：
+
+1. 先挑一个**真实词典里有**的词；
+2. `GET /vocab/words` 确认它**不在**该学生的生词本里（不确认就做，删除
+   步骤会把学生本来就有的词连同复习历史一起删掉）；
+3. `POST /vocab/words` 加；
+4. `POST /vocab/words/remove` 删；
+5. `GET /vocab/words` 复核已回到第 2 步的状态。
+
+另有一条**零写入**的成功路径：拿一个该学生**已经有**的词去 `addWord`，
+返回 `{created:false}`，不写库。它同时是 IDENTITY-PASS 与 BUSINESS-PASS。
+
+#### 授权不得混用
+
+**C1（Railway 只读）+ C3（部署 stg-api）+ L-R（实机只读 GET）
+不能授权任何 POST 探针** —— 哪怕代码可证明它不写库。
+
+要跑「预期零写入的 POST 身份探针」（`{cursor:0}`、删一个不存在的词、
+拿已有的词 addWord、t7 的 `lesson/start`），需要一项单独的窄授权
+**L-P（expected-no-write POST identity probes）**，逐条列出请求体；
+否则这些探针**不进 5B1**，整体推到 5B2。
+
+#### 阶段 5 不挂靠阶段 14 的夹具重建
+
+除非某条**身份属性**离开夹具就无法验证，否则不得把阶段 5 的完成度绑在
+阶段 14 上。身份属性（令牌解析、精确 id、无消歧、无姓名回落）**不依赖**
+课程状态 —— 状态依赖的只是 BUSINESS-PASS。所以：
+**IDENTITY-PASS 覆盖 26/26 是阶段 5B 的完成判据；BUSINESS-PASS 的缺口
+如实列出，随夹具重建另行补齐，不阻塞阶段 5。**
+
+#### 关于 staging 现况的一切断言均为 UNVERIFIED
+
+以下都是**从代码与夹具脚本推导**的预期，**没有一条被实机观察过**，
+执行时必须先观察再断言：
+
+- 错题本为空（夹具从不建 `MistakeEntry`）
+- 测试七号今天「无内容」
+- 今日 `DailyLessonCompletion` / `VocabQuizAttempt` 不存在
+  （夹具的日期作用域行钉在运行当天）
+- 八个账号仍在其原始场景上（4B2 已观察到 `测试一号` 漂移，其余七个未审计）
+
+#### 执行前仍需先记录的部署事实
+
+`stg-api` 当前部署 ID 与其对应提交 —— **UNVERIFIED**，它同时是回滚锚点。
+迁移不变可离线证明：`git diff <目标> -- apps/api/prisma/migrations/` 为空、
+`schema.prisma` 无差异、迁移目录 35 项。健康检查 `GET /api/health`（liveness）
+与 `GET /api/health/ready`（readiness）。`STUDENT_APP_V2` **全程保持未设**。
 
 **5B 未做之前，阶段 5 整体仍为 PENDING。**
 
 ---
+
 ## 阶段 6 —— 今天的课
 
 - [ ] `/app/today`：读 `/lesson/today`（**不带姓名**）

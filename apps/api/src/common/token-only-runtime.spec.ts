@@ -149,8 +149,8 @@ const CASES: Case[] = [
   { ep: 'GET /vocab/quiz/attempts', family: 'vocab', run: async (r) => { r.result = await buildVocab(r).quizAttempts(authedReq()); return authInArg0(r, 'attempts.history'); } },
 
   // ── lesson：4 个 ──
-  { ep: 'GET /lesson/today', family: 'lesson', run: async (r) => { r.result = await buildLesson(r).today(authedReq()); return (callOf(r, 'svc.getToday').args[0] as { studentId?: string }).studentId; } },
-  { ep: 'POST /lesson/start', family: 'lesson', run: async (r) => { r.result = await buildLesson(r).start({ begin: true }, authedReq()); return (callOf(r, 'svc.startOrResumeToday').args[0] as { studentId?: string }).studentId; } },
+  { ep: 'GET /lesson/today', family: 'lesson', run: async (r) => { r.result = await buildLesson(r).today(authedReq()); const a = callOf(r, 'svc.getToday').args[0] as { studentId?: string; studentName: string; authStudentId?: string }; expect(a.studentName, '把令牌姓名塞进解析器了').toBe(''); expect(a.studentId).toBeUndefined(); return a.authStudentId; } },
+  { ep: 'POST /lesson/start', family: 'lesson', run: async (r) => { r.result = await buildLesson(r).start({ begin: true }, authedReq()); const a = callOf(r, 'svc.startOrResumeToday').args[0] as { studentId?: string; studentName: string; authStudentId?: string }; expect(a.studentName, '把令牌姓名塞进解析器了').toBe(''); expect(a.studentId).toBeUndefined(); return a.authStudentId; } },
   { ep: 'POST /lesson/vocab-taught', family: 'lesson', run: async (r) => { r.result = await buildLesson(r).vocabTaught(authedReq(), { headword: 'ephemeral', cursor: 3 }); return authInArg0(r, 'svc.markTaughtAndAdvance'); } },
   { ep: 'POST /lesson/vocab-cursor', family: 'lesson', run: async (r) => { r.result = await buildLesson(r).saveVocabCursor(authedReq(), { cursor: 3 }); return authInArg0(r, 'svc.saveVocabCursor'); } },
 

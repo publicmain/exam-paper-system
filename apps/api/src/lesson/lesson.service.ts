@@ -15,6 +15,7 @@ import {
 } from './rc11-rules';
 import { isQuizWindowOpen } from '../morning-quiz/morning-quiz.service';
 import { createRealSubmissionSafe } from '../common/submission-create';
+import { resolveAuthenticatedStudent } from '../common/authenticated-student';
 import {
   VocabReviewService,
   reviewBatchSize,
@@ -142,11 +143,30 @@ export class LessonService {
   private async today(input: {
     studentName: string;
     studentId?: string;
+    /**
+     * 阶段 5A 更正（2026-08-28）：**这个字段以前不在这里**。
+     *
+     * `getToday` / `startOrResumeToday` 的入参类型都声明了 `authStudentId`，
+     * 也都 `...input` 传了进来 —— 但 `today()` 从不认它，只按
+     * `resolveByIdOrName(studentId, studentName)` 查人。结果是：
+     *
+     * - 控制器把令牌 id 塞进 `studentId` 才能跑通（能用，但那是绕过去的）；
+     * - 任何**直接调服务**的地方（`markTaughtAndAdvance` 就是一个）
+     *   一旦只传 `authStudentId`，这里就拿到空姓名 + 空 id → `name_required`。
+     *
+     * 现在真的认它。
+     */
+    authStudentId?: string;
     freeze?: boolean;
     /** P9：学生明确点了「开始今天的课程」—— 只有这时才建正式答卷。 */
     begin?: boolean;
   }) {
-    const student = await this.resolveByIdOrName(input.studentId, input.studentName);
+    // **令牌优先**：与 vocab / morning-quiz 同一套资格谓词（阶段 5A），
+    // 不查姓名、不消歧、不给近似姓名建议。没有令牌才走原来的 id/姓名路径，
+    // 那条路径的判据一字未改。
+    const student = input.authStudentId
+      ? await resolveAuthenticatedStudent(this.prisma, input.authStudentId)
+      : await this.resolveByIdOrName(input.studentId, input.studentName);
     const now = new Date();
     const day = this.sgtDayStart(now);
 
@@ -1006,9 +1026,17 @@ export class LessonService {
     //
     // 副作用可控：走到这一步说明学生正在上今天的课，创建/对齐当日任务行
     // 本来就是应该的。
+    // **身份要跟着走完整条链。**
+    //
+    // 上面那个事务已经提交了（`firstTaughtAt` / `vocabWords` / `vocabCursor`）。
+    // 这一步只是把课程状态对齐，却要重新解析一次学生 —— 之前这里只转了
+    // `studentName` / `studentId`，token-only 请求里这两个都是空的，于是
+    // **写已经落库、请求却报 `name_required`**。半截写入配一个身份错误，
+    // 是这条链上最糟的一种失败。
     const t = await this.startOrResumeToday({
       studentName: input.studentName,
       studentId: input.studentId,
+      authStudentId: input.authStudentId,
     });
     return {
       ok: true as const,

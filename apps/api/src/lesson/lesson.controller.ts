@@ -47,13 +47,22 @@ export class LessonController {
   ) {
     // P9：与 /lesson/start 同一口径 —— 身份来自 token，姓名只是兼容。
     const auth = (req as unknown as { studentAuth?: { id: string; name: string } }).studentAuth;
-    const sid = auth?.id ?? studentId;
-    const sname = auth?.name ?? name;
-    if (!sid && !sname?.trim()) throw new BadRequestException({ code: 'student_required' });
+    if (!auth?.id && !(name ?? '').trim() && !studentId) {
+      // 旧错误码，一字不改 —— 这个端点从来报的就是 student_required
+      throw new BadRequestException({ code: 'student_required' });
+    }
     // **纯读取**（P8）。原来这个 GET 会创建当日任务、推进阶段、补词汇
     // 队列 —— 一个 GET 有写副作用，教师看板和总结页一读就改数据。
     // 开始/恢复课程改走下面的 POST /lesson/start。
-    return this.svc.getToday({ studentName: sname ?? '', studentId: sid || undefined });
+    //
+    // 阶段 5A 更正：有令牌时**只传 authStudentId**，不再把令牌里的姓名
+    // 塞进 studentName。令牌签发后姓名可能改过，把它当查询条件传下去，
+    // 等于用一个可疑的等价物冒充精确查询。
+    return this.svc.getToday(
+      auth?.id
+        ? { studentName: '', authStudentId: auth.id }
+        : { studentName: name ?? '', studentId: studentId || undefined },
+    );
   }
 
   /**
@@ -87,14 +96,15 @@ export class LessonController {
     // token 里的身份优先。StudentIdentityGuard 已经保证了：带 token 时
     // body 里的 name/studentId 必须对得上，对不上直接 403。
     const auth = (req as unknown as { studentAuth?: { id: string; name: string } }).studentAuth;
-    const studentId = auth?.id ?? parsed.data.studentId;
-    const studentName = auth?.name ?? parsed.data.name;
-    if (!studentId && !studentName?.trim()) {
+    if (!auth?.id && !(parsed.data.name ?? '').trim() && !parsed.data.studentId) {
       throw new BadRequestException({ code: 'student_required' });
     }
+    // 阶段 5A 更正：与 GET /today 同一口径 —— 有令牌就只传 authStudentId，
+    // 服务端按精确 id 查人；令牌里的姓名不参与解析。
     return this.svc.startOrResumeToday({
-      studentName: studentName ?? '',
-      studentId: studentId || undefined,
+      ...(auth?.id
+        ? { studentName: '', authStudentId: auth.id }
+        : { studentName: parsed.data.name ?? '', studentId: parsed.data.studentId || undefined }),
       begin: parsed.data.begin === true,
     });
   }
