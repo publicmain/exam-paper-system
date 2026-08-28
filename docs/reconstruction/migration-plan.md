@@ -31,7 +31,7 @@
 | **5B2** | **受控写 + API 级还原（实机）** | **✅ PASS**（2026-08-28） | | ✓ | ✓ |
 | **5B3** | **最后三端点实机身份（S5-FINAL v1.1）** | **✅ PASS** —— IDENTITY 3/3、BUSINESS 1/3 | | ✓ | ✓ |
 | **6** | **今天的课（`/today` 枢纽）** | **✅ PASS** —— 6A 本地 + 6B staging 八账号实机 | | ✓ | ✓ |
-| **7** | **阅读页（单独阶段）** | ⬜ | | **✓ 单独** | **✓ 单独** |
+| **7** | **阅读页（单独阶段）** | 🔧 **7A 设计完成**（S7B_GO）；7B–7E 未开始 | | **✓ 单独** | **✓ 单独** |
 | 8 | 阅读结果页 | ⬜ | | ✓ | ✓ |
 | 9 | 课程学词 + 正式测试 | ⬜ | | ✓ | ✓ |
 | 10 | 今日总结 | ⬜ | | ✓ | ✓ |
@@ -1671,18 +1671,60 @@ Claude **全程未输入、未索取、未显示、未记录、未注入任何�
 > 倒计时、交卷幂等。这每一条都在阅读的关键路径上 —— 任何一条坏掉，
 > 学生当天就交不了卷或丢答案，都是 P1。
 
-- [ ] `/app/lesson/reading`
-- [ ] 题型渲染（复用 `components/exam/*` 或重建 —— spike 时确定）
-- [ ] 逐题自动保存 + `clientSeq` 乱序拒绝
-- [ ] 离线态与重连补传
-- [ ] 返回键拦截与「确认离开」
-- [ ] 交卷幂等，交卷后按 `kind` 走（此时下游是阶段 8 的占位）
+### 阶段 7A —— 迁移设计　**✅ 完成**（2026-08-28）
+
+`task_id: S7A-READING-MIGRATION-DESIGN` · 设计全文见
+**[reading-migration-design.md](./reading-migration-design.md)**。
+证据层级 = **源码 + 既有自动化测试**，无任何 staging / 真机 / 数据库声明。
+
+**复用边界定案：方案 C —— 选择性重建进 student-web。**
+
+- 方案 A（跨应用直接 import）**否决，硬性不可行**：学生端的 Docker 构建
+  上下文只有 `apps/student-web` 一个目录（`railway up … --path-as-root`），
+  `apps/web` 源码不在上下文里；`tsconfig` 无 `paths`、无 project
+  references；依赖只有 react 三件套。这不是不优雅，是构建会直接失败。
+- 方案 B（抽共享包）**否决**：抽包的前置恰好是方案 C 的拆耦合工作，
+  而消费者只有一个、旧端即将退役（阶段 16）。保留为阶段 16 的可选重构。
+
+**关键发现**：`components/exam/` 这棵 18 文件 4039 行的子树**几乎是纯的**
+—— 对旧端的耦合面只有 `ExamContext.tsx` 里一行 `import { BASE } from
+'../../lib/api'`（用于 `/api/health` 连通性探测）。因此绝大多数渲染器与
+shared 组件可**逐字搬运**，只有 `ExamContext` 与页面壳需要重建。
+
+**冻结的契约**（细节见设计文档）：路由 `/lesson/reading` 无 `/app` 前缀；
+会话来源是 `/lesson/today` 的 `segments.read`，不从 URL 取；身份只有
+Bearer 令牌；存储键全部 `sw:reading:*`，按 `submissionId` 分桶，
+**不碰 `mq:*`**；导航只走路由契约与 `NextActionKind`，后端 `href` 永不参与。
+
+**审计结论：`S7B_GO`。** 六个疑点全部有确定答案：
+
+| 疑点 | 结论 |
+|---|---|
+| `getStudentView` 的考勤依赖 | 仍在，但判据是「有正式答卷 **或** 考勤合格」，账号制路径经 `lesson/start` 建卷后可通过 —— 不阻断 |
+| `lesson/start` 如何建卷 | `begin:true` 且读段 ready 时调 `createRealSubmissionSafe`，`sessionId`/`submissionId` 随后回填进 `segments.read` |
+| 会话所有权是否 token-only | **不是** —— 阅读三端点走全局 `AuthGuard`（任意有效 JWT + role 检查），与阶段 5A 的 token-only 是两套闸。可用，但记入 BACKLOG |
+| 加载是否够初始化 `clientSeq` | 够 —— 每题 `clientSeq` + `sessionId` + `submissionId` 齐备 |
+| 交卷返回是否够路由 | **不够**（只返回答卷行），因此设计要求交卷后必须刷 `/lesson/today` 再按 `kind` 路由 |
+| 全天倒计时语义 | 不冲突，但**必须**用 `quizEnd` 而非 `regularQuizEnd` —— 用错会当场误交卷 |
+
+**后续切分**：S7B 地基/API/状态引擎 → S7C 题型渲染与阅读界面 →
+S7D 本地集成回归 → S7E staging/真机验收。各自的冻结合同另行下发。
+
+> **S7E 的硬前置**：八个账号当前的 `read` 段全是 `none`（2026-08-28 实测），
+> **没有可作答的卷子**。真机验收必须等夹具重建。
+
+### 阶段 7B–7E —— 实施（未开始）
+
+- [ ] S7B `/lesson/reading` 的 API 层与状态引擎
+- [ ] S7C 六个题型渲染器搬运 + 阅读页外壳
+- [ ] S7D 全链本地集成回归
+- [ ] S7E staging 八账号真机验收
 
 **独立提交**：本阶段**只含阅读页**，不夹带任何其他页面的改动
 **退出条件**：8 个账号在 staging 手机上各交一次卷；断网中途答题后
 重连，答案不丢；返回键不丢答案
 **风险**：**最高**
-**回滚**：单独 `git revert` 本阶段提交 —— 阶段 6 的 `/app/today` 仍可用，
+**回滚**：单独 `git revert` 本阶段提交 —— 阶段 6 的 `/today` 仍可用，
 `kind=resume_reading` 时改为跳回旧端阅读页（跳转目标可配置，见
 [architecture §4.5](./student-web-architecture.md)）
 
