@@ -297,17 +297,37 @@ describe('G1 新端不得出现旧路由与旧身份键', () => {
     expect(hits).toEqual([]);
   });
 
-  it('**阶段 7B 不注册任何页面 / 渲染器** —— lesson/ 只有引擎，不进路由表', () => {
-    const app = fs.readFileSync(path.join(SRC, 'App.tsx'), 'utf8');
-    expect(app).not.toMatch(/lesson\//);
+  it('**lesson/ 里只有引擎与渲染层，不含页面**（阶段 7C 起 Reading.tsx 是唯一消费者）', () => {
     expect(fs.readdirSync(path.join(SRC, 'lesson')).sort()).toEqual([
+      'ExamContext.tsx',
+      'QuestionTypeRegistry.tsx',
       'ReadingProvider.tsx',
       'draftMerge.ts',
+      'examTypes.ts',
+      'questions',
+      'sessionToEngine.ts',
+      'shared',
       'storage.ts',
+      'useFollowRequestedQuestion.ts',
     ]);
+    expect(fs.readdirSync(path.join(SRC, 'lesson', 'questions')).sort()).toEqual([
+      'IELTSReadingPassage.tsx',
+      'OLevelCloze.tsx',
+      'OLevelComprehension.tsx',
+      'OLevelMcqList.tsx',
+      'OLevelSentenceTransformation.tsx',
+      'OLevelVocabInContext.tsx',
+    ]);
+    // lesson/ 不许反向依赖页面
     for (const { f, text } of readAll()) {
       if (!f.includes(path.join('src', 'lesson'))) continue;
       expect(text, `${path.relative(SRC, f)} 不该 import 页面`).not.toMatch(/from '\.\.\/pages/);
+    }
+    // **只有阅读页**消费 lesson/**；别的页面一个都不许碰
+    for (const { f, text } of readAll()) {
+      if (!f.includes(path.join('src', 'pages'))) continue;
+      if (f.endsWith(path.join('pages', 'Reading.tsx'))) continue;
+      expect(text, `${path.relative(SRC, f)} 不该 import lesson/`).not.toMatch(/from '\.\.\/lesson/);
     }
   });
 
@@ -645,9 +665,26 @@ describe('G1 新端不得出现旧路由与旧身份键', () => {
     //   · identity.ts —— TOKEN_KEY 常量、可用性探针、前缀扫除里的 k
     //   · lesson/storage.ts —— 统一的 key 参数（键名由 READING_KEYS 生成，
     //     全部在 sw: 下，见 __tests__/reading-storage.test.ts）
+    // 阶段 7C 起多了三处写：高亮 / 便笺 / 分栏比例。它们的键是**调用方传进来的**，
+    // 而调用方（IELTSReadingPassage）写的全是 sw: 前缀 —— 下一条单独钉住。
     for (const w of writes) {
-      expect(w).toMatch(/identity\.ts:(TOKEN_KEY|probe|k)$|storage\.ts:key$/);
+      expect(w).toMatch(
+        /identity\.ts:(TOKEN_KEY|probe|k)$|storage\.ts:key$|(Highlighter|StickyNote|DraggableSplit)\.tsx:(storageKey|key)$/,
+      );
     }
+  });
+
+  it('**阅读端传给共享组件的存储键全部是 sw: 前缀**（阶段 7C 新增）', () => {
+    const src = stripComments(
+      fs.readFileSync(path.join(SRC, 'lesson', 'questions', 'IELTSReadingPassage.tsx'), 'utf8'),
+    );
+    const keys = [...src.matchAll(/[`'"]((?:sw|mq):[^`'"]*)/g)].map((m) => m[1]);
+    expect(keys.length).toBeGreaterThanOrEqual(3);
+    for (const k of keys) expect(k.startsWith('sw:'), k).toBe(true);
+    // 反向夹具：写成 mq: 的键会被这条抓到
+    const hostile = [...'const k = "mq:hl:x";'.matchAll(/[`'"]((?:sw|mq):[^`'"]*)/g)].map((m) => m[1]);
+    expect(hostile).toEqual(['mq:hl:x']);
+    expect(hostile.every((k) => k.startsWith('sw:'))).toBe(false);
   });
 
   it('**没有注册 Service Worker**（4A 不做 PWA 缓存）', () => {

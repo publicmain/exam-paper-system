@@ -90,6 +90,18 @@ const renderAt = (path: string) =>
 
 const callsTo = (r: string) => fetchMock.mock.calls.filter((c) => route(c[0] as string) === r);
 
+/**
+ * 阶段 7C 起 `/lesson/reading` 是**真页面**，不再是占位页。
+ *
+ * 它一挂载就自己去问一次 `/lesson/today` 要 sessionId —— 所以「第二次
+ * today 请求」就是「确实落到了阅读页」的可观测证据。这些用例里的
+ * `read` 段没有 sessionId，阅读页随后会 replace 回 `/today`，
+ * 那是它应有的行为，与本文件要测的路由映射无关。
+ */
+async function landedOnReading(before: number) {
+  await waitFor(() => expect(callsTo('/lesson/today').length).toBeGreaterThan(before));
+}
+
 // ─────────────────────────────────────────────────────────────
 
 describe('1–2. 载入与请求卫生', () => {
@@ -157,14 +169,14 @@ describe('3–5. 开始今天的课', () => {
     await userEvent.click(btn);        // 第二下：按钮此时已 disabled
     expect(callsTo('/lesson/start')).toHaveLength(1);
     // 放行并等它落定 —— 否则状态更新会掉在 act 之外
+    const before = callsTo('/lesson/today').length;
     await act(async () => { release(null); });
-    expect(await screen.findByRole('heading', { name: '阅读' })).toBeTruthy();
+    await landedOnReading(before);
   });
 });
 
 describe('6–7. 路由映射只认契约', () => {
   const cases: [NextActionKind, string, string][] = [
-    ['resume_reading', '继续做题', '阅读'],
     ['read_result', '看阅读结果', '阅读结果'],
     ['learn_vocab', '学习本次单词', '学习本次单词'],
     ['vocab_test', '开始单词测试', '正式单词测试'],
@@ -181,15 +193,27 @@ describe('6–7. 路由映射只认契约', () => {
     });
   }
 
+  it('`resume_reading` → 落到**真的阅读页**（阶段 7C 起不再是占位页）', async () => {
+    session(withKind('resume_reading', '继续做题'));
+    renderAt('/today');
+    await screen.findByRole('heading', { name: /你好，七号/ });
+    const before = callsTo('/lesson/today').length;
+    await userEvent.click(screen.getByRole('button', { name: '继续做题' }));
+    await landedOnReading(before);
+    // 占位页的字样不该再出现
+    expect(screen.queryByText(/还没有做好/)).toBeNull();
+  });
+
   it('**后端塞来的恶意 / 旧版 `href` 一律被忽略**', async () => {
     session(lesson({
       nextAction: { kind: 'resume_reading', label: '继续做题', href: '/my-history?name=测试七号' },
     }));
     renderAt('/today');
     await screen.findByRole('heading', { name: /你好，七号/ });
+    const before = callsTo('/lesson/today').length;
     await userEvent.click(screen.getByRole('button', { name: '继续做题' }));
-    // 去的是契约路由的占位页，不是 href
-    expect(await screen.findByRole('heading', { name: '阅读' })).toBeTruthy();
+    // 去的是契约路由，不是 href
+    await landedOnReading(before);
     expect(screen.queryByText(/my-history/)).toBeNull();
   });
 });
@@ -326,8 +350,9 @@ describe('11–14. 故障路径', () => {
     expect(screen.getByText(/今天完成/)).toBeTruthy();          // 还在 /today
     const btn = screen.getByRole('button', { name: '开始今天的课程' });
     expect(btn.hasAttribute('disabled')).toBe(false);          // 按钮已恢复
+    const before = callsTo('/lesson/today').length;
     await userEvent.click(btn);
-    expect(await screen.findByRole('heading', { name: '阅读' })).toBeTruthy();
+    await landedOnReading(before);
   });
 
   it('**POST 认证失败：清票，回登录页**', async () => {
@@ -342,6 +367,14 @@ describe('11–14. 故障路径', () => {
 });
 
 describe('15–16. 路由兜底与占位页', () => {
+  it('**`/lesson/reading` 是真页面**：没有 sessionId 时 replace 回 /today', async () => {
+    session(lesson()); // read 段的 sessionId 是 null
+    renderAt('/lesson/reading');
+    await waitFor(() => expect(callsTo('/lesson/today').length).toBeGreaterThan(0));
+    expect(await screen.findByRole('heading', { name: /你好，七号/ })).toBeTruthy();
+    expect(screen.queryByText(/还没有做好/)).toBeNull();
+  });
+
   it('已登录访问未知深层 URL → 回 `/today`', async () => {
     session(lesson());
     renderAt('/deep/unknown/route');
@@ -349,7 +382,6 @@ describe('15–16. 路由兜底与占位页', () => {
   });
 
   const placeholders: [string, string][] = [
-    ['/lesson/reading', '阅读'],
     ['/lesson/reading/result', '阅读结果'],
     ['/lesson/vocab', '学习本次单词'],
     ['/lesson/test', '正式单词测试'],

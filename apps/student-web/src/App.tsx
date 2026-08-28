@@ -17,6 +17,7 @@ import RegisterPage from './pages/Register';
 import TodayPage from './pages/Today';
 import AccountPage from './pages/Account';
 import LessonPlaceholder from './pages/LessonPlaceholder';
+import ReadingPage from './pages/Reading';
 import { Screen } from './ui';
 
 export default function App() {
@@ -57,7 +58,8 @@ export default function App() {
         五条课程路由 —— 阶段 6A 起**真的注册**，渲染统一占位页。
         阶段 7–10 各自实现时只替换这里的组件，路径不动。
       */}
-      <Route path={ROUTES.reading} element={<LessonPlaceholder stage="reading" />} />
+      {/* 阶段 7C 起 `/lesson/reading` 是真页面；其余四条仍是占位。 */}
+      <Route path={ROUTES.reading} element={<ReadingPage />} />
       <Route path={ROUTES.readingResult} element={<LessonPlaceholder stage="readingResult" />} />
       <Route path={ROUTES.lessonVocab} element={<LessonPlaceholder stage="lessonVocab" />} />
       <Route path={ROUTES.lessonTest} element={<LessonPlaceholder stage="lessonTest" />} />

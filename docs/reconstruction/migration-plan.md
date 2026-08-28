@@ -31,7 +31,7 @@
 | **5B2** | **受控写 + API 级还原（实机）** | **✅ PASS**（2026-08-28） | | ✓ | ✓ |
 | **5B3** | **最后三端点实机身份（S5-FINAL v1.1）** | **✅ PASS** —— IDENTITY 3/3、BUSINESS 1/3 | | ✓ | ✓ |
 | **6** | **今天的课（`/today` 枢纽）** | **✅ PASS** —— 6A 本地 + 6B staging 八账号实机 | | ✓ | ✓ |
-| **7** | **阅读页（单独阶段）** | 🔧 **7A 设计完成**（S7B_GO）+ **7B 状态引擎本地完成**；7C–7E 未开始 | | **✓ 单独** | **✓ 单独** |
+| **7** | **阅读页（单独阶段）** | 🔧 **7A 设计** + **7B 状态引擎** + **7C 阅读界面**（均本地完成）；7D–7E 未开始 | | **✓ 单独** | **✓ 单独** |
 | 8 | 阅读结果页 | ⬜ | | ✓ | ✓ |
 | 9 | 课程学词 + 正式测试 | ⬜ | | ✓ | ✓ |
 | 10 | 今日总结 | ⬜ | | ✓ | ✓ |
@@ -1659,7 +1659,7 @@ Claude **全程未输入、未索取、未显示、未记录、未注入任何�
 手动输入 —— 「不把口令输入任何输入框」是不因授权而改变的规则。
 
 **阶段 6 PASS**（AC-01 ~ AC-09 全部完成，AC-06 的八行均为 Claude 字段级观察）。
-**阶段 7：7A 设计完成、7B 状态引擎本地完成；7C–7E 未开始。**
+**阶段 7：7A 设计、7B 状态引擎、7C 阅读界面均已本地完成；7D–7E 未开始。**
 
 ---
 
@@ -1756,9 +1756,47 @@ S7D 本地集成回归 → S7E staging/真机验收。各自的冻结合同另�
 > **仍是占位**：`/lesson/reading` 这条路由**没有改动** —— 引擎还没有任何
 > 页面在用它。接线是 S7C 的事。
 
-### 阶段 7C–7E —— 实施（未开始）
+### 阶段 7C —— 题型渲染与阅读界面　**✅ 本地完成**（2026-08-28）
 
-- [ ] S7C 题型渲染器搬运（5 个 O-Level 逐字搬 + IELTS 摘掉词表挂点）+ 阅读页外壳
+`task_id: S7C-READING-UI-LOCAL` · `base_commit: e1468df`。
+证据层级 = **本地组件 / API 行为测试 + typecheck + 生产构建**。
+**没有任何 staging、真机或数据库声明。**
+
+`/lesson/reading` 不再是占位页：真页面接到 S7B 的状态引擎上。
+
+| 落地的文件 | 内容 |
+|---|---|
+| `pages/Reading.tsx` | 阅读页外壳：取资源、倒计时、字号、离线角标、题号条、冲突/未证实/次要标签提示、交卷序列 |
+| `lesson/examTypes.ts` | 渲染层类型（**卷子载荷里的姓名字段不搬**） |
+| `lesson/ExamContext.tsx` | 渲染器 ↔ 引擎的适配层 + `mode` + 「跳到某题」通道 |
+| `lesson/QuestionTypeRegistry.tsx` | 六个渲染器的注册与选择顺序 |
+| `lesson/shared/*`（10 个） | 逐字搬；`Highlighter` 去掉单击查词 |
+| `lesson/questions/OLevel*`（5 个） | 逐字搬 + 改 import 路径 + 补 `aria-label` |
+| `lesson/questions/IELTSReadingPassage.tsx` | **搬 + 摘掉词表挂点**（S7A §1.3）：不 import / 不挂载词表面板，删掉取词状态与「填进填空题」快捷路径，存储键换 `sw:reading:*` |
+| `lesson/sessionToEngine.ts` · `lesson/useFollowRequestedQuestion.ts` | 两个小工具：服务端已存答案 → 引擎初值；分页渲染器跟随题号条 |
+
+**归一化补齐**：`getReadingSession` 现在还把 `level` / `paperMode` /
+`mode` / `rendererKey` 一并透出（渲染要用），`paperQuestions → questions`
+仍是唯一的一次改名。
+
+**交卷序列**（AC-07 逐条实现）：二次确认 → `flushPendingSaves()` →
+仍有未落盘 / 报错 / 未证实就**不发请求** → 一次
+`POST …/submit {final:true}` → 只有「已交 / 已判 / 已锁定」的 400 算已完成
+→ 刷 `/lesson/today` → 按 `NEXT_ACTION_ROUTE[kind]` 路由。
+**后端 `href` 全程不参与**；连点由同步的 ref 闸门挡住，只发一个请求。
+
+**倒计时用 `quizEnd`**，不是 `regularQuizEnd`；`secondWindowToday`
+单独驱动确认弹窗的措辞。
+
+> **移交阶段 12**：考试中查词与生词本在新端**不存在**。届时要把
+> `/vocab/lookup` 与 `/vocab/words` 的客户端调用改成 token-only、
+> 键换 `sw:`，再把面板挂回阅读页。
+
+**本地验证**：`apps/student-web` 9 个测试文件 269 条全绿、`tsc --noEmit`
+退出 0、`vite build` 成功；旧端 `apps/web` 9 文件 60 条未受影响。
+
+### 阶段 7D–7E —— 实施（未开始）
+
 - [ ] S7D 全链本地集成回归
 - [ ] S7E staging 八账号真机验收
 

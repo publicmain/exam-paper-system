@@ -281,6 +281,10 @@ export const api = {
       quizEnd: wire.quizEnd ?? null,
       regularQuizEnd: wire.regularQuizEnd ?? null,
       secondWindowToday: wire.secondWindowToday ?? false,
+      level: wire.level ?? null,
+      paperMode: wire.paperMode ?? null,
+      mode: wire.mode === 'practice' ? 'practice' : 'test',
+      rendererKey: wire.rendererKey ?? null,
       questions: wire.paperQuestions ?? [],
       existingAnswers: wire.existingAnswers ?? {},
     };
@@ -352,6 +356,11 @@ export interface ReadingSessionWire {
   quizEnd: string | null;
   regularQuizEnd: string | null;
   secondWindowToday: boolean;
+  /** 渲染要用：分级、卷型、考试口味、以及出卷时写死的渲染器 key。 */
+  level: string | null;
+  paperMode: 'passage_pick' | 'standard' | null;
+  mode: 'practice' | 'test';
+  rendererKey?: string | null;
   paperQuestions: ReadingQuestion[];
   existingAnswers: Record<string, ReadingExistingAnswer>;
 }
@@ -364,6 +373,11 @@ export interface ReadingSessionPayload {
   quizEnd: string | null;
   regularQuizEnd: string | null;
   secondWindowToday: boolean;
+  level: string | null;
+  paperMode: 'passage_pick' | 'standard' | null;
+  /** 阅读页永远是 `test`。服务端也按白名单删了答案键，两道闸都要在。 */
+  mode: 'practice' | 'test';
+  rendererKey?: string | null;
   questions: ReadingQuestion[];
   existingAnswers: Record<string, ReadingExistingAnswer>;
 }

@@ -1,3 +1,55 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+/*
+ * 阶段 7C —— 阅读页的三条移动端 / 无障碍下限。
+ *
+ * 只加这三条：它们是 AC-09 的硬要求，不是重新做一套视觉。
+ */
+
+/* 1. 键盘焦点必须看得见。浏览器默认在部分控件上会把它抹掉。 */
+:focus-visible {
+  outline: 2px solid #2563eb;
+  outline-offset: 2px;
+}
+
+/* 2. 触控目标下限 44px（Apple HIG / WCAG 2.5.5）。 */
+.hit {
+  min-height: 44px;
+  min-width: 44px;
+}
+button,
+[role='tab'],
+[role='button'] {
+  touch-action: manipulation;
+}
+
+/* 3. 阅读内容再宽也不许把整页顶出横向滚动条 —— 该滚的是内容自己。 */
+html,
+body,
+#root {
+  overflow-x: hidden;
+}
+
+/* 手机上的原文 / 题目分段控件。 */
+.seg {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.25rem;
+  padding: 0.1875rem;
+  background: #f1f5f9;
+  border-radius: 0.75rem;
+}
+.seg > button {
+  min-height: 40px;
+  border-radius: 0.625rem;
+  font-size: 0.9375rem;
+  font-weight: 500;
+  color: #475569;
+}
+.seg > button[data-on='true'] {
+  background: #fff;
+  color: #0f172a;
+  box-shadow: 0 1px 2px rgb(15 23 42 / 0.12);
+}

@@ -27,6 +27,9 @@ function payload(existing: ReadingSessionPayload['existingAnswers']): ReadingSes
     quizEnd: '2026-08-28T23:59:00.000Z',
     regularQuizEnd: null,
     secondWindowToday: false,
+    level: 'olevel',
+    paperMode: null,
+    mode: 'test',
     questions: [],
     existingAnswers: existing,
   };
