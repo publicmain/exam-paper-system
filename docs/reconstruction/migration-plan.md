@@ -1845,13 +1845,16 @@ GET  /lesson/today            ← 交卷后刷新，按 kind 路由到 /lesson/r
       场次；八个账号没有阅读答卷 / 课程完成度 / 词汇测试记录；凭据、令牌
       版本、分级、班级关系、生词本一个字都不动）。
       通用种子 `seed-eight-test-accounts.js` **未被改动**。
-      > ⚠️ **这个脚本从未被执行过。** 本任务是纯本地的夹具准备与验证：
-      > 四道环境闸门（非 production / `ALLOW_S7E_READING_PREP=yes` /
-      > 显式 `DATABASE_URL` / 逐字的 `S7E_CONFIRM_RESET`）与五项只读前置
-      > 检查都只在**假事务客户端**上验过，`apps/api` 全量测试通过。
-      > **没有连过任何数据库，没有碰过 staging。**
-      > **执行它需要另一份带「数据库写权限」的合同**，并且需要先确认
-      > `MORNING_QUIZ_ALL_DAY` 的状态（场次窗口按生产口径 08:30–09:00 写）。
+      > 📌 **以下是该任务收尾当时（S7E-READING-FIXTURE-LOCAL 结束那一刻）的
+      > 状态记录，保留作历史上下文，不代表现状。**
+      > 那时脚本**尚未被执行过**：验证是纯本地的 —— 四道环境闸门
+      > （非 production / `ALLOW_S7E_READING_PREP=yes` / 显式 `DATABASE_URL` /
+      > 逐字的 `S7E_CONFIRM_RESET`）与五项只读前置检查都只在**假事务客户端**
+      > 上验过，`apps/api` 全量测试通过；当时没有连过任何数据库、没有碰过
+      > staging，执行它还需要一份带数据库写权限的授权。
+      >
+      > **该授权随后已给出，脚本也已在 `S7E-FIXTURE-TIMEOUT-LIVE` 中成功执行
+      > 一次** —— 实测证据见紧接着的下一条。
 - [x] **staging 环境已就绪（实测）** —— `task_id: S7E-FIXTURE-TIMEOUT-LIVE`。
       `stg-student-web-spike` 已部署当前 HEAD 的 `apps/student-web`
       （部署 `241e6a11-2331-41e5-a48a-34adf3ad18f8`，用户明确接受并保留）；
@@ -1881,9 +1884,13 @@ GET  /lesson/today            ← 交卷后刷新，按 kind 路由到 /lesson/r
       `submissionId` 为 null、`questionCount = 4`。HTTP 探测之后再验一次数据库，
       受保护指纹与四类行数**未变**（证明 `/lesson/today` 确实是只读的）。
 
-      请求计数：Railway CLI 只读 ~20 次、`railway run` 5 次（前置 1 / 执行 1 /
-      后置 2 / 形状探测 1）、HTTP 24 次（8 登录 + 8 today + 8 健康与路由）、
-      `railway up` **0 次**（部署在上一份合同里完成）。
+      请求计数（照实分类）：`railway deployment list --json` 8 次、
+      `railway domain --json` 3 次、`railway variables --json` 1 次
+      （只读出 3 个非密钥值与键数）、`railway link` / `unlink` 各 1 次；
+      `railway run --service Postgres` 5 次（只读前置 1 / 夹具执行 1 /
+      只读后置 2 / 登录响应形状探测 1）；HTTP 24 次
+      （8 次登录 + 8 次 `/lesson/today` + 4 次健康与就绪 + 4 次路由与资产）；
+      **`railway up` 0 次**（部署在上一份合同里完成）。
       持久变更：数据库的八账号阅读线重置 + `s7e_` 夹具资源；student-web 部署保持不变。
       连接串、PIN、令牌**从未打印、序列化或落盘**。
 
