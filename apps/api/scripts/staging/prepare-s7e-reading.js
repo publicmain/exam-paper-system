@@ -125,6 +125,52 @@ const S7E_STEMS = [
 
 const DESTRUCTIVE_CONFIRMATION = 'reset-eight-reading-progress';
 
+// -------------------------------------------------------------
+// 失败上报 —— fail-closed
+//
+// 未知错误（Prisma、连接、SQL、任何运行时异常）的 message 里**可能带着
+// 连接串**：Prisma 的初始化错误会把完整的数据源 URL（协议、账号、口令、
+// 主机、端口、库名）原样写进 message。把它直接打出去，等于把库的账号
+// 口令写进日志或工单。
+//
+// 所以规则反过来：**默认什么都不说**，只有本文件自己构造的、内容完全
+// 由仓库常量与夹具 id 组成的错误，才被显式标记为可以照原样显示。
+// -------------------------------------------------------------
+
+/**
+ * 「这条错误是我们自己写的，内容可控」的显式标记。
+ *
+ * 只有闸门与前置检查用它 —— 它们的 message 只由本文件里的常量、
+ * 环境变量的**名字**（不是取值）和夹具 id 组成。
+ */
+class S7eSafeError extends Error {
+  constructor(message) {
+    super(message);
+    this.name = 'S7eSafeError';
+    /** 上报器认这个标记，不认类名 —— 跨 realm 时 instanceof 会失效。 */
+    this.s7eSafe = true;
+  }
+}
+
+/** 未知失败一律用这一句，不带任何细节。 */
+const GENERIC_FAILURE = [
+  'S7E 阅读夹具未执行：运行期失败。',
+  '细节被刻意隐去 —— 底层错误（Prisma / 连接 / SQL）的文本里可能含有',
+  '数据库连接串、账号或主机名。请在你自己的终端里排查，不要把它写进日志或工单。',
+].join('\n');
+
+/**
+ * 顶层失败上报。**任何未被显式标记为安全的错误都只输出固定文案** ——
+ * 不打印 message、不打印 stack、不打印 cause、不做任何序列化。
+ */
+function reportFailure(e, log = console.error) {
+  if (e && e.s7eSafe === true && typeof e.message === 'string') {
+    log(['', 'S7E 阅读夹具未执行：', e.message, ''].join('\n'));
+    return;
+  }
+  log(['', GENERIC_FAILURE, ''].join('\n'));
+}
+
 // ─────────────────────────────────────────────────────────────
 // SQL 字面量
 //
@@ -150,27 +196,27 @@ const ID_LIST = S7E_STUDENT_IDS.map(L).join(',');
  */
 function assertEnvGates(env = ENV_AT_STARTUP) {
   if (String(env.NODE_ENV || '').toLowerCase() === 'production') {
-    throw new Error(
+    throw new S7eSafeError(
       '拒绝执行：NODE_ENV=production。\n' +
         '本脚本会删除八个虚构账号的阅读与课程进度，只能跑在 staging 或本地隔离库上。\n' +
         '没有覆盖开关 —— 需要在 production 模式的进程里跑，说明目标选错了。',
     );
   }
   if (String(env.ALLOW_S7E_READING_PREP || '').toLowerCase() !== 'yes') {
-    throw new Error(
+    throw new S7eSafeError(
       '拒绝执行：需要显式 ALLOW_S7E_READING_PREP=yes。\n' +
         '这道闸门让「跑到哪个库上」成为一个有意识的动作。',
     );
   }
   if (!env.DATABASE_URL) {
-    throw new Error(
+    throw new S7eSafeError(
       '拒绝执行：没有显式传入 DATABASE_URL。\n' +
         '仓库根的 .env 里有一个开发库连接串，@prisma/client 会自动加载它；\n' +
         '本脚本刻意**不接受**那个来源 —— 目标库必须由你在命令行里指定。',
     );
   }
   if (env.S7E_CONFIRM_RESET !== DESTRUCTIVE_CONFIRMATION) {
-    throw new Error(
+    throw new S7eSafeError(
       '拒绝执行：这是一次破坏性重置，需要逐字确认。\n' +
         `请设置 S7E_CONFIRM_RESET=${DESTRUCTIVE_CONFIRMATION}\n` +
         '它会删除这八个虚构账号当前的阅读答卷、课程完成度与词汇测试记录。',
@@ -186,7 +232,7 @@ function singaporeDay(nowMs = Date.now()) {
 /** 拼进 SQL 之前把日期钉死成 `YYYY-MM-DD`，杜绝任何非常量成分。 */
 function assertDayShape(day) {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(String(day))) {
-    throw new Error('内部错误：日期格式必须是 YYYY-MM-DD');
+    throw new S7eSafeError('内部错误：日期格式必须是 YYYY-MM-DD');
   }
   return day;
 }
@@ -210,7 +256,7 @@ async function runPreflight(tx) {
      LIMIT 5`,
   );
   if (foreign.length > 0) {
-    throw new Error(
+    throw new S7eSafeError(
       `拒绝执行：目标库里有 ${foreign.length}+ 个不属于本夹具的在读学生。\n` +
         `例如：${foreign.map((r) => r.id).join(', ')}\n` +
         '这几乎一定意味着 DATABASE_URL 指错了库。',
@@ -225,7 +271,7 @@ async function runPreflight(tx) {
   const have = new Set(present.map((r) => r.id));
   const missing = S7E_STUDENT_IDS.filter((id) => !have.has(id));
   if (missing.length > 0) {
-    throw new Error(
+    throw new S7eSafeError(
       `拒绝执行：这八个虚构账号里缺了 ${missing.length} 个：${missing.join(', ')}\n` +
         '请先跑通用种子 seed-eight-test-accounts.js 把它们建起来。',
     );
@@ -238,7 +284,7 @@ async function runPreflight(tx) {
   const haveClasses = new Set(classes.map((r) => r.id));
   const missingClasses = S7E_CLASS_IDS.filter((id) => !haveClasses.has(id));
   if (missingClasses.length > 0) {
-    throw new Error(
+    throw new S7eSafeError(
       `拒绝执行：缺少夹具班级 ${missingClasses.join(', ')}。先跑通用种子。`,
     );
   }
@@ -248,7 +294,7 @@ async function runPreflight(tx) {
      SELECT u.id AS id FROM "User" u WHERE u.id = ${L(S7E_TEACHER_ID)} AND u.role = 'teacher'`,
   );
   if (teacher.length === 0) {
-    throw new Error(`拒绝执行：缺少夹具班主任 ${S7E_TEACHER_ID}。先跑通用种子。`);
+    throw new S7eSafeError(`拒绝执行：缺少夹具班主任 ${S7E_TEACHER_ID}。先跑通用种子。`);
   }
 
   const notify = await tx.$queryRawUnsafe(
@@ -258,13 +304,13 @@ async function runPreflight(tx) {
   );
   const g = notify[0] || {};
   if (Number(g.enabled_configs) !== 0) {
-    throw new Error(
+    throw new S7eSafeError(
       `拒绝执行：目标库里有 ${g.enabled_configs} 条启用的 NotificationConfig。\n` +
         '夹具库不该往外发任何通知 —— 先把它们关掉。',
     );
   }
   if (Number(g.sent_logs) !== 0) {
-    throw new Error(
+    throw new S7eSafeError(
       `拒绝执行：目标库里已有 ${g.sent_logs} 条 NotificationLog。\n` +
         '这说明它不是一个干净的夹具库。',
     );
@@ -456,11 +502,16 @@ module.exports = {
   prepareInTransaction,
   printReceipt,
   main,
+  S7eSafeError,
+  reportFailure,
+  GENERIC_FAILURE,
 };
 
 if (require.main === module) {
   main().catch((e) => {
-    console.error('\nS7E 阅读夹具未执行 / 失败：\n' + (e && e.message ? e.message : e) + '\n');
+    // 走统一的上报器 —— 未知错误只会得到固定文案，绝不回显 message / stack /
+    // cause，也绝不序列化错误对象。
+    reportFailure(e);
     process.exit(1);
   });
 }

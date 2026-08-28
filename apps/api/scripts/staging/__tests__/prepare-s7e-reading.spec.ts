@@ -37,6 +37,9 @@ const prep = requireCjs(SCRIPT_PATH) as {
     o: { day: string },
   ): Promise<{ day: string; sessionIds: string[]; students: number }>;
   printReceipt(r: { day: string; sessionIds: string[]; students: number }): void;
+  reportFailure(e: unknown, log?: (s: string) => void): void;
+  GENERIC_FAILURE: string;
+  S7eSafeError: new (m: string) => Error;
 };
 
 const GOOD_ENV = {
@@ -516,5 +519,145 @@ describe('AC-06/AC-08.11 事务体：先检查、后写入', () => {
     await prep.prepareInTransaction(a, { day: DAY });
     await prep.prepareInTransaction(b, { day: DAY });
     expect(a.writes).toEqual(b.writes);
+  });
+});
+
+// ─────────────────────────────────────────────────────────────
+// 返工 1/2 —— B-1：顶层失败上报必须 fail-closed
+//
+// 未知错误（Prisma / 连接 / SQL / 任何运行时异常）的 message 里可能带着
+// 完整的数据源 URL。原来的入口把 `e.message` 原样打了出去。
+// ─────────────────────────────────────────────────────────────
+
+const SENTINEL_URL = 'postgresql://sentinel-user:sentinel-password@sentinel-host:6789/sentinel-db';
+const SENTINEL_PARTS = [
+  SENTINEL_URL,
+  'sentinel-user',
+  'sentinel-password',
+  'sentinel-host',
+  '6789',
+  'sentinel-db',
+  'postgresql://',
+];
+
+/** 造一个「未知错误」：message / stack / cause 里全都埋着哨兵。 */
+function unknownErrorWithSecrets(): Error {
+  const e = new Error(`Can't reach database server at ${SENTINEL_URL}`);
+  e.stack = `Error: connect ECONNREFUSED ${SENTINEL_URL}\n    at PrismaClient.connect`;
+  (e as Error & { cause?: unknown }).cause = new Error(`upstream: ${SENTINEL_URL}`);
+  return e;
+}
+
+function capture(fn: (log: (s: string) => void) => void): string {
+  const lines: string[] = [];
+  fn((s: string) => lines.push(String(s)));
+  return lines.join('\n');
+}
+
+describe('B-1 未知失败只输出固定文案', () => {
+  it('**未知错误：message / stack / cause 里的哨兵一个都不出现**', () => {
+    const out = capture((log) => prep.reportFailure(unknownErrorWithSecrets(), log));
+    for (const part of SENTINEL_PARTS) {
+      expect(out, part).not.toContain(part);
+    }
+    expect(out).toContain(prep.GENERIC_FAILURE);
+    // 也不能把错误对象整个序列化出去
+    expect(out).not.toContain('ECONNREFUSED');
+    expect(out).not.toContain('PrismaClient');
+    expect(out).not.toContain('[object');
+  });
+
+  it('**非 Error 的抛出物（字符串 / 对象）同样只得到固定文案**', () => {
+    for (const thrown of [
+      SENTINEL_URL,
+      { message: SENTINEL_URL },
+      { toString: () => SENTINEL_URL },
+      null,
+      undefined,
+      42,
+    ]) {
+      const out = capture((log) => prep.reportFailure(thrown, log));
+      for (const part of SENTINEL_PARTS) expect(out, String(part)).not.toContain(part);
+      expect(out).toContain(prep.GENERIC_FAILURE);
+    }
+  });
+
+  it('**伪造 s7eSafe 标记也带不出哨兵** —— 标记只由本文件的构造函数打', () => {
+    // 这条钉住的是「安全通道确实存在」，同时确认它需要 message 是字符串
+    const forged = Object.assign(new Error('x'), { s7eSafe: true, message: 12345 });
+    const out = capture((log) => prep.reportFailure(forged, log));
+    expect(out).toContain(prep.GENERIC_FAILURE);
+  });
+
+  it('**刻意的闸门失败仍然看得懂，且不回显传入的取值**', () => {
+    let caught: unknown;
+    try {
+      prep.assertEnvGates({ ...GOOD_ENV, S7E_CONFIRM_RESET: SENTINEL_URL });
+    } catch (e) {
+      caught = e;
+    }
+    expect((caught as { s7eSafe?: boolean }).s7eSafe).toBe(true);
+    const out = capture((log) => prep.reportFailure(caught, log));
+    expect(out).toContain('S7E_CONFIRM_RESET');
+    for (const part of SENTINEL_PARTS) expect(out, part).not.toContain(part);
+  });
+
+  it('**刻意的前置检查失败仍然看得懂**（只回显夹具 id）', async () => {
+    const tx = fakeTx({ notify: [{ enabled_configs: 3, sent_logs: 0 }] });
+    let caught: unknown;
+    await prep.runPreflight(tx).catch((e) => {
+      caught = e;
+    });
+    expect((caught as { s7eSafe?: boolean }).s7eSafe).toBe(true);
+    const out = capture((log) => prep.reportFailure(caught, log));
+    expect(out).toContain('NotificationConfig');
+    for (const part of SENTINEL_PARTS) expect(out, part).not.toContain(part);
+  });
+
+  it('**入口的 catch 用的就是这个上报器**，没有别的输出路径', () => {
+    const src = stripComments(fs.readFileSync(SCRIPT_PATH, 'utf8'));
+    const entry = src.split('if (require.main === module)')[1];
+    expect(entry).toContain('reportFailure(e)');
+    // 入口里不得再出现任何直接回显错误的写法
+    expect(entry).not.toContain('e.message');
+    expect(entry).not.toContain('e.stack');
+    expect(entry).not.toContain('String(e)');
+    expect(entry).not.toContain('JSON.stringify');
+    // 全文的 console 只出现在 printReceipt 与 reportFailure 两个函数体里 ——
+    // 入口、main、闸门、前置检查、写入计划里一个都没有
+    const total = (src.match(/console\.(log|error|warn|info)/g) ?? []).length;
+    const inReceipt = (
+      (src.split('function printReceipt')[1] ?? '').split('\n}')[0].match(/console\./g) ?? []
+    ).length;
+    const inReporter = (
+      (src.split('function reportFailure')[1] ?? '').split('\n}')[0].match(/console\./g) ?? []
+    ).length;
+    expect(total).toBeGreaterThan(0);
+    expect(inReceipt + inReporter).toBe(total);
+    // reportFailure 的 console 只是默认参数，真正的输出走注入的 log
+    expect(inReporter).toBe(1);
+    // reportFailure 确实被用上了（不是个没人调的 helper）
+    expect((src.match(/reportFailure\(/g) ?? []).length).toBeGreaterThanOrEqual(2);
+  });
+
+  it('**上报器不碰 stack / cause / 序列化**（源码层面也钉一次）', () => {
+    const src = stripComments(fs.readFileSync(SCRIPT_PATH, 'utf8'));
+    const fn = src.split('function reportFailure')[1].split('\n}')[0];
+    expect(fn).not.toContain('.stack');
+    expect(fn).not.toContain('.cause');
+    expect(fn).not.toContain('JSON.stringify');
+    expect(fn).not.toContain('String(e)');
+  });
+
+  it('**反向夹具**：返工前那种「原样打 message」的写法确实会泄密', () => {
+    // 这就是 328cbd4 的入口逻辑，逐字照抄 —— 证明上面几条不是空断言
+    const unsafeReporter = (e: unknown, log: (s: string) => void) => {
+      const err = e as { message?: string };
+      log('\nS7E 阅读夹具未执行 / 失败：\n' + (err && err.message ? err.message : String(e)) + '\n');
+    };
+    const leaked = capture((log) => unsafeReporter(unknownErrorWithSecrets(), log));
+    expect(leaked).toContain('sentinel-password');
+    expect(leaked).toContain('sentinel-host');
+    expect(leaked).toContain('6789');
   });
 });
