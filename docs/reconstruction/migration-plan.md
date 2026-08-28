@@ -25,9 +25,10 @@
 | **4A** | **新端空壳与认证（本地）** | **✅ 已完成** | | ✓ | ✓ |
 | **4B1** | **打包 + staging 部署 + CORS + 单账号 smoke** | **✅ 已完成** | | ✓ | ✓ |
 | **4B2** | **八账号认证验收** | 🔶 **PARTIAL / CONDITIONAL PASS** —— 教师重置链条 BLOCKED，已移交阶段 14 | | ✓ | ✓ |
-| **5** | **token-only 身份（后端五层）** | ⬜ **PENDING** —— 5A PASS；**5B1 实机只读 PASS**；5B2/5B3 未授权 | | ✓ | ✓ |
+| **5** | **token-only 身份（后端五层）** | ⬜ **PENDING** —— 5A PASS；**5B1 + 5B2 实机 PASS（身份 23/26）**；5B3 未授权 | | ✓ | ✓ |
 | **5A** | **本地实现（五层接线 + 运行期 + 服务链测试 + G8 加固）** | **✅ PASS**（第三轮更正后） | | ✓ | ✓ |
 | **5B1** | **部署 + 只读令牌面（实机）** | **✅ PASS**（2026-08-28） | | ✓ | ✓ |
+| **5B2** | **受控写 + API 级还原（实机）** | **✅ PASS**（2026-08-28） | | ✓ | ✓ |
 | 6 | 今天的课（`/app/today`） | ⬜ | | ✓ | ✓ |
 | **7** | **阅读页（单独阶段）** | ⬜ | | **✓ 单独** | **✓ 单独** |
 | 8 | 阅读结果页 | ⬜ | | ✓ | ✓ |
@@ -1029,9 +1030,155 @@ Railway 链接（`glorious-motivation` / ops-dashboard）**未被改动** ——
 
 ---
 
-### 阶段 5B2 / 5B3 —— 后续子阶段　⬜ **未授权**
+### 阶段 5B2 —— 受控写与 API 级还原　**✅ PASS**（2026-08-28）
 
-**5B1 已执行并 PASS（见上）。** 5B2（可逆写）与 5B3（无回滚项）尚未授权，
+`task_id: S5B2-STAGING-SAFE-WRITES` · `contract_version: 1.0` ·
+`base_commit: 1680b64`。授权：C1（只读巡检）+ A-LOGIN（三个虚构账号）+
+L-R（只读 GET）+ L-P（七条预期无写的 POST 探针）+ L-W1（两对可逆 POST）。
+**未授权且未执行**：L-W2 三个端点、重新部署、改配置、直接读写数据库、
+夹具、生产、push。
+
+#### AC-01 基线
+
+HEAD = `1680b64d06702f756cc8702c93023fc06cb716af`，工作区干净。
+
+| 服务 | 部署 ID |
+|---|---|
+| stg-web | `c3195dfc-27fa-45bc-bb06-a779064f997b` |
+| Postgres | `f397bc8a-a337-48d0-84d2-b23aef9bf894` |
+| stg-student-web-spike | `68c6aa30-9e19-490a-bf25-1d3bf6955fd1` |
+| **stg-api** | `3d6e1cf5-08b9-4a41-84a2-bb5b05ff43ea`（与 5B1 一致 ✓） |
+
+`/api/health` 200；`/api/health/ready` 200 `db:"up"`。变量 23 个、键集合与
+5B1 完全一致；`CORS_ORIGINS`、`STUDENT_APP_ORIGIN` 未变；
+**`STUDENT_APP_V2` 未设置**。变量通过管道读取，**未落盘**。
+
+#### AC-02 请求卫生
+
+11 条 POST 全部：带 Bearer 学生令牌、URL 无 `name`/`studentId`、请求体经
+正则断言**不含** `name` / `studentName` / `studentId`。令牌与口令只在探针
+进程内存里，未打印、未落盘、未入本文档。
+
+#### AC-03 五条只验身份的探针（测试七号）
+
+前置：`/lesson/today` → `nextAction.kind=no_content`、`targetsFrozenAt=null`；
+`/vocab/quiz/attempt/current` → `{"attempt":null}`。
+
+| # | 路由 | 请求体 | 状态 | 响应 |
+|---|---|---|---|---|
+| 1 | `POST /vocab/mistakes/resolve` | `{id:<新 UUID>,resolved:false}` | 201 | `{"updated":0}` |
+| 2 | `POST /vocab/mistakes/practice-result` | `{id:<同一 UUID>,correct:true}` | 201 | `{"ok":false}` |
+| 3 | `POST /vocab/quiz/attempt/start` | `{}` | 409 | `no_task` |
+| 4 | `POST /vocab/quiz/attempt/answer` | `{index:0,optionIndex:0}` | 409 | `no_attempt` |
+| 5 | `POST /vocab/quiz/attempt/submit` | `{}` | 409 | `no_attempt` |
+
+五条**均无身份错误码 → IDENTITY-PASS**；**均不计 BUSINESS-PASS**。
+五条跑完后，两个前置投影**逐字节未变**。
+
+#### AC-04 零写入 `POST /lesson/start`（测试七号）
+
+前置：`no_content`、`targetsFrozenAt=null`、三段 `status=none`。
+结果 **201**，返回 `student.id`/`student.name` **等于登录响应**。
+
+```
+投影 前 = {"kind":"no_content","targetsFrozenAt":null,"stage":"done",
+           "vocabCursor":0,"completed":0,"total":3,
+           "segs":["read:none","vocab:none","drill:none"]}
+投影 后 = 完全相同
+```
+
+未推断出任务行被创建。**IDENTITY-PASS + BUSINESS-PASS。**
+
+#### AC-05 零写入 `POST /lesson/vocab-cursor`（测试五号）
+
+前置 `vocabCursor=0` → 请求 `{cursor:0}` → **201**
+`{"ok":true,"cursor":0,"stored":false}` → 事后 `vocabCursor=0`。
+返回 `cursor` 与前置观测值相等；`stored` 按实际观测记录为 `false`，未硬编码。
+**IDENTITY-PASS + BUSINESS-PASS。**
+
+#### AC-06 加词 / 删词（测试三号）
+
+前置生词本：`pebble, meadow, lantern, harbour`（4 个）。
+候选顺序 anchor → ripple → vessel → willow；**anchor** 不在本子里且
+`GET /vocab/lookup?word=anchor` 命中 → 选中。
+
+| 步骤 | 结果 |
+|---|---|
+| `POST /vocab/words {word:"anchor"}` | 201 `{"created":true,"headword":"anchor"}` |
+| `GET /vocab/words` | 5 个，恰好多出 `anchor` |
+| `POST /vocab/words/remove {headword:"anchor"}`（finally 内，第 1 次） | 201 `{"deleted":1}` |
+| `GET /vocab/words` | 归一化响应**与前置快照逐字节相等** |
+
+清理尝试 **1 次即成功**。两个端点 **IDENTITY-PASS + BUSINESS-PASS。**
+
+#### AC-07 评分 / 撤销（测试五号）
+
+前置快照后选中 `words[0]` = **anchor**（`state=review, reps=4`）。
+> 与 AC-06 用的是同一个单词形，但**属于不同学生的不同行**，互不影响。
+
+| 步骤 | 结果 |
+|---|---|
+| `POST /vocab/review {headword,rating:"good",elapsedMs:2000,requestId:<新 UUID>}` | 201，无身份错误 |
+| `GET /vocab/words` | 可观察排程变化：`state review→learning`、`reps 4→5`、`due` 改变 |
+| `POST /vocab/review/undo {headword}`（finally 内，第 1 次） | 201 `{"undone":true,"reps":4,"state":"review"}` |
+| `GET /vocab/words` | 归一化响应**与前置快照逐字节相等** |
+
+review→undo 在同一分钟内完成，远在 10 分钟窗口内。清理尝试 **1 次即成功**。
+两个端点 **IDENTITY-PASS + BUSINESS-PASS。**
+
+> 归一化定义：按 `headword` 排序，保留 `student/total/dueCount/words` 全部
+> 字段。`/vocab/words` 的词对象为
+> `headword, surfaceForm, sourceType, sourcePassageTitle, contextSentence,
+> state, reps, lapses, due, createdAt, phonetic, translation, tag` ——
+> **没有 `updatedAt` 之类的易变字段**，因此「逐字节相等」是完整比较，
+> 没有排除任何字段。
+
+#### AC-08 覆盖核算
+
+| 路由 | 账号 | 状态 | IDENTITY | BUSINESS |
+|---|---|---|---|---|
+| `POST /vocab/mistakes/resolve` | 测试七号 | 201 | PASS | 不计（预期无写） |
+| `POST /vocab/mistakes/practice-result` | 测试七号 | 201 | PASS | 不计（预期无写） |
+| `POST /vocab/quiz/attempt/start` | 测试七号 | 409 `no_task` | PASS | 不计（预期无写） |
+| `POST /vocab/quiz/attempt/answer` | 测试七号 | 409 `no_attempt` | PASS | 不计（预期无写） |
+| `POST /vocab/quiz/attempt/submit` | 测试七号 | 409 `no_attempt` | PASS | 不计（预期无写） |
+| `POST /lesson/start` | 测试七号 | 201 | PASS | **PASS** |
+| `POST /lesson/vocab-cursor` | 测试五号 | 201 | PASS | **PASS** |
+| `POST /vocab/words` | 测试三号 | 201 | PASS | **PASS** |
+| `POST /vocab/words/remove` | 测试三号 | 201 | PASS | **PASS** |
+| `POST /vocab/review` | 测试五号 | 201 | PASS | **PASS** |
+| `POST /vocab/review/undo` | 测试五号 | 201 | PASS | **PASS** |
+
+**IDENTITY-PASS 11/11。BUSINESS-PASS 6/6**（words、words/remove、review、
+review/undo、lesson/start、lesson/vocab-cursor）。
+
+**阶段 5B 身份覆盖累计 23/26** = 5B1 的 12 + 5B2 的 11。
+**剩余 3 个具名保留在矩阵里，未删除**：`POST /vocab/page-view`、
+`POST /lesson/vocab-taught`、`POST /morning-quiz/appeals` —— 归单独授权的
+5B3（本轮不申请）。
+
+#### AC-09 收尾不变量
+
+四服务部署 ID 与域名**全部未变**；`stg-api` 仍健康且就绪（`db:"up"`）；
+变量 23 个、键集合未变；`STUDENT_APP_V2` 仍未设置；CORS 与学生源未变。
+
+**学生可观察状态还原**：测试三号与测试五号的生词本各自与前置快照逐字节
+相等；测试七号的课程与 attempt 投影全程未变。
+
+**请求计数：登录 3 次、GET 14 次、POST 11 次。**
+
+> **登录的既有副作用**（与业务状态分开记）：每次成功登录会更新
+> `lastLogin` 并清空登录失败计数。这三条记录被本轮改变了，**不属于**
+> 本合同所说的「学生可观察业务状态」，也无法通过 API 还原。
+> `studentAuthVersion` 未变，既有令牌未被作废。
+
+**5B2 PASS。阶段 5B 与阶段 5 仍为 PENDING。**
+
+---
+
+### 阶段 5B3 —— 无 API 回滚的三个端点　⬜ **未授权**
+
+**5B1、5B2 均已执行并 PASS（见上）。** 5B3（无回滚项）尚未授权，
 下面是它们的既定口径。
 #### 两个判据必须分开记
 
