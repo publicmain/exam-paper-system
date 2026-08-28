@@ -257,6 +257,9 @@ GET /api/morning-quiz/sessions/:id
 | 所有权 | `getStudentView(id, user.id)`，全程按 `user.id` 查 | `morning-quiz.service.ts:1778` |
 | **考勤依赖** | **有闸，但可绕过**：`hasRealSubmission || attendanceOk` 二选一；有正式答卷即放行 | `service.ts:1815-1828` |
 | 返回 `clientSeq` | **是** —— `existingAnswers[pqId].clientSeq` | `service.ts:1969` |
+| 返回学生已存答案 | **是** —— `existingAnswers[pqId]` 含 `{content, selectedOption, textAnswer, clientSeq, flagged}`；`selectedOption` 已按本次打乱翻成学生看到的字母 | 声明 `service.ts:1912-1915`；赋值 `:1959-1975`；返回 `:2029` |
+| **填充条件** | 只有该生这份答卷 `status === 'in_progress'` 时才有内容，否则是**空对象** | `service.ts:1916-1924` |
+| 是否即对账重载端点 | **是** —— §5.4 的权威重载打的就是这一个端点，**没有别的会话读取路由** | `controller.ts:517`（学生端仅 `sessions/:id` / `/answer` / `/check` / `/submit`，行 517/525/539/554） |
 | 返回 `submissionId` | **是**，取自真实答卷（考勤行只是回退） | `service.ts:2004-2005` |
 | 倒计时字段 | `quizEnd = effectiveEndsAt(session)`；另有仅供展示的 `regularQuizEnd` | `service.ts:2007-2010` |
 | **是否泄露答案** | **否** —— 显式白名单脱敏：`stripOptions` 只留 `{key,text}`，`redactSnapshotForStudent` 处理 snapshotContent | `service.ts:1883-1895` |
@@ -402,11 +405,20 @@ active-clean ──点交卷──▶ submitting ──成功──▶ submitted
 
 1. 该题标 `verified = false`、`dirty = false`（再重发只会再被拒），
    进入 `reconciling`；
-2. 触发一次**权威重载** `GET /api/morning-quiz/sessions/:id/student-view`
-   —— **单飞**：多题同时冲突只发一个请求，同一时刻只允许一个在途，
+2. 触发一次**权威重载** —— 就是 §4.1 那个**唯一的**会话加载端点
+   **`GET /api/morning-quiz/sessions/:id`**（`controller.ts:517` 的
+   `@Get('sessions/:id')` → `getStudentView(id, user.id)`）。
+   **该端点没有任何子路径** —— 返工 1/2 在这里写了一个带子路径的变体，
+   而 `controller.ts` 的学生端只注册了 `sessions/:id`、`sessions/:id/answer`、
+   `sessions/:id/check`、`sessions/:id/submit`。写错的那个打过去只会 404，
+   该题会永远停在 `conflict-unverified` 并把交卷锁死。
+   重载**单飞**：多题同时冲突只发一个请求，同一时刻只允许一个在途，
    在途期间新冲突的题挂在同一个 promise 上；
-3. 回来后按题取 `existingAnswers[qid]`（`{selectedOption, textAnswer,
-   clientSeq}`，`service.ts:1963-1975`）覆盖本地：
+3. 回来后按题取 `existingAnswers[qid]`（`{content, selectedOption,
+   textAnswer, clientSeq, flagged}`，声明见 `service.ts:1912-1915`、
+   赋值见 `service.ts:1962-1975`、随响应返回见 `service.ts:2029`）
+   覆盖本地 —— 对账只用 `selectedOption` / `textAnswer` / `clientSeq`
+   三个字段，**不读兼容用的 `content`**：
    `answers[qid] ← 服务端值`、`seqs[qid] ← existingAnswers[qid].clientSeq ?? S`、
    `verified[qid] = true`，该题回 `active-clean`，同时落盘到
    `sw:reading:answers:*` 与 `sw:reading:seqs:*`；
@@ -415,7 +427,19 @@ active-clean ──点交卷──▶ submitting ──成功──▶ submitted
    相同则不打扰；
 5. 重载失败（401 以外）→ 该题停在 `conflict-unverified`：横幅常显、
    提供「重试同步」、**交卷被阻塞**。401 交给既有的 `handleAuthFailure`
-   走登出。
+   走登出。该端点自身的错误码见 §4.1（`session_not_found` 404 /
+   `session_cancelled` 400 / `no_lesson_started` 403 / `paper_archived` 400）
+   —— 全部按「重载失败」处理，**不得**因为拿到 4xx 就把该题当成干净。
+
+**两条来自源码的前提**（`service.ts:1916-1924`、`:1959-1975`）：
+
+- `existingAnswers` **只在该生这份答卷 `status === 'in_progress'` 时才有内容**；
+  已交卷 / 已锁定时是空对象。对账只发生在作答中，因此前提成立；但实现上
+  **必须把「重载回来 `existingAnswers[qid]` 不存在」当成重载失败**
+  （进 `conflict-unverified`），而不是当成「服务端没有答案 → 本地就是对的」。
+- MCQ 的 `selectedOption` 在返回前经 `toDisplayKey()` 翻成**学生这次看到的
+  字母**（`service.ts:1959-1961`），与客户端发出去的是同一套 key，**可以直接
+  覆盖本地值**，不需要再翻一次。
 
 `L < N` 不可能（`N` 取自 `L`）。若真出现，**按情况 B 处理**（fail-closed）。
 
@@ -628,10 +652,19 @@ active-clean ──点交卷──▶ submitting ──成功──▶ submitted
 | U-3 | `TimeUpMakeup` 的产品语义 | 绑第二作答窗；全天模式下是否还需要**未决**。阶段 7 不搬，先不显示。**记为未决** | `TimeUpMakeup.tsx` |
 | Q7 | 六个渲染器是否都能只改 import 路径就搬走？ | **否** —— `IELTSReadingPassage` import 了 `ExamWordSheet`，而后者不搬且自带旧端耦合与 `studentName` 写入。**首版的文件计划编译不过**。已按 §1.3 改为「搬 + 摘掉词表挂点」，能力归阶段 12。**不阻断阶段 7** | `IELTSReadingPassage.tsx:9, 492-503`；`ExamWordSheet.tsx:2, 110, 121-129` |
 | Q8 | 保存接口的 `superseded` 能否直接当成「已同步」？ | **否** —— 它只回序号不回答案内容，直接接回 `active-clean` 会让界面「显示未证实的答案却报已保存」。已按 §5.4 冻结对账规则（本地更新 / 真冲突两种情况 + 权威重载 + 交卷阻塞）。**不阻断阶段 7** | `service.ts:2266-2270`；`answer-seq.ts:39-43` |
+| Q9 | 对账重载该打哪个端点？ | **`GET /api/morning-quiz/sessions/:id`，即 §4.1 的加载端点本身。** 学生端只有四条会话路由（`sessions/:id` / `/answer` / `/check` / `/submit`），**没有任何用于读会话的子路径**。返工 1/2 写的带子路径变体不存在，会 404 并把交卷永久锁死 —— 返工 2/2 已更正。**不阻断阶段 7** | `controller.ts:517, 525, 539, 554`；返回字段 `service.ts:1912-1915, 1959-1975, 2029` |
 
-**S7B 判定：`S7B_GO`（返工 1/2 后维持）。** 上述八个问题全部有确定答案，
-无未解决的实现依赖。Q7 / Q8 是本轮评审提出、并在本轮**在设计内**解决的，
-不是延后项。U-1 / U-2 / U-3 是记录项，不构成阻断。
+**S7B 判定：`S7B_GO`（返工 2/2 复核后维持）。** 上述九个问题全部有确定答案，
+无未解决的实现依赖。Q7 / Q8 是返工 1/2 评审提出、并**在设计内**解决的，
+不是延后项。
+
+**返工 2/2 的复核前提**：Q8 的对账规则在返工 1/2 里引了一个**不存在的**
+带子路径的会话读取端点，实现出来会 404、把交卷永久锁死。该路由已按
+`controller.ts:517` 更正为 §4.1 的 `GET /api/morning-quiz/sessions/:id`，
+并逐条核对了它确实返回 `existingAnswers[qid]` 的 `selectedOption` /
+`textAnswer` / `clientSeq`（`service.ts:1912-1915, 1959-1975, 2029`）。
+**`S7B_GO` 是在路由更正之后才重新给出的**，不是沿用旧结论。
+U-1 / U-2 / U-3 仍是记录项，不构成阻断。
 
 ---
 
@@ -657,8 +690,11 @@ active-clean ──点交卷──▶ submitting ──成功──▶ submitted
      重载给出不同答案 → 断言本地答案与 seq **被服务端值覆盖**、已落盘、
      弹出一次冲突提示、该题回干净；
   3. **情况 B 无差异**（重试撞上自己已落盘的写）→ 断言覆盖后**不弹**提示；
-  4. **重载失败**：`student-view` 返回 500 → 断言该题停在 `conflict-unverified`、
-     横幅可见、**点交卷不发出 submit 请求**。
+  4. **重载失败**：打桩让 `GET /api/morning-quiz/sessions/:id` 返回 500 →
+     断言该题停在 `conflict-unverified`、横幅可见、**点交卷不发出 submit 请求**。
+  另加一条**路由断言**：对账重载打的 URL 必须与 §4.1 的加载端点**完全一致**
+  （`/api/morning-quiz/sessions/:id`，无任何子路径）—— 返工 2/2 修的正是
+  这个错。
 - **回滚边界**：单个提交；不触碰路由与页面，`/lesson/reading` 仍是占位。
 - **前置**：无（本设计即前置）。
 
