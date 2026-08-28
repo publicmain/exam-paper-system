@@ -39,7 +39,6 @@ const prep = requireCjs(SCRIPT_PATH) as {
   printReceipt(r: { day: string; sessionIds: string[]; students: number }): void;
   reportFailure(e: unknown, log?: (s: string) => void): void;
   GENERIC_FAILURE: string;
-  S7eSafeError: new (m: string) => Error;
 };
 
 const GOOD_ENV = {
@@ -582,10 +581,9 @@ describe('B-1 未知失败只输出固定文案', () => {
     }
   });
 
-  it('**伪造 s7eSafe 标记也带不出哨兵** —— 标记只由本文件的构造函数打', () => {
-    // 这条钉住的是「安全通道确实存在」，同时确认它需要 message 是字符串
-    const forged = Object.assign(new Error('x'), { s7eSafe: true, message: 12345 });
-    const out = capture((log) => prep.reportFailure(forged, log));
+  it('**message 不是字符串时也走固定文案**', () => {
+    const weird = Object.assign(new Error('x'), { message: 12345 });
+    const out = capture((log) => prep.reportFailure(weird, log));
     expect(out).toContain(prep.GENERIC_FAILURE);
   });
 
@@ -596,9 +594,10 @@ describe('B-1 未知失败只输出固定文案', () => {
     } catch (e) {
       caught = e;
     }
-    expect((caught as { s7eSafe?: boolean }).s7eSafe).toBe(true);
+    // 真伪不再由对象上的公开字段表达 —— 判据就是「上报器认不认它」
     const out = capture((log) => prep.reportFailure(caught, log));
     expect(out).toContain('S7E_CONFIRM_RESET');
+    expect(out).not.toContain(prep.GENERIC_FAILURE);
     for (const part of SENTINEL_PARTS) expect(out, part).not.toContain(part);
   });
 
@@ -608,9 +607,9 @@ describe('B-1 未知失败只输出固定文案', () => {
     await prep.runPreflight(tx).catch((e) => {
       caught = e;
     });
-    expect((caught as { s7eSafe?: boolean }).s7eSafe).toBe(true);
     const out = capture((log) => prep.reportFailure(caught, log));
     expect(out).toContain('NotificationConfig');
+    expect(out).not.toContain(prep.GENERIC_FAILURE);
     for (const part of SENTINEL_PARTS) expect(out, part).not.toContain(part);
   });
 
@@ -659,5 +658,83 @@ describe('B-1 未知失败只输出固定文案', () => {
     expect(leaked).toContain('sentinel-password');
     expect(leaked).toContain('sentinel-host');
     expect(leaked).toContain('6789');
+  });
+});
+
+// ─────────────────────────────────────────────────────────────
+// 返工 2/2 —— B-2：可伪造的结构标记
+//
+// 「带 s7eSafe: true 就照原样打」是**任何对象都能满足**的条件。
+// 一个来自别处、恰好带这个字段的对象（或被下游库改过的错误）就能把
+// 整条 message 带出来。真伪必须由本模块自己记账，不能由数据自称。
+// ─────────────────────────────────────────────────────────────
+
+describe('B-2 安全通道必须是模块自证的，不能被伪造', () => {
+  it('**伪造 { s7eSafe: true, message: <连接串> } → 只输出固定文案**', () => {
+    const forged = { s7eSafe: true, message: SENTINEL_URL };
+    const out = capture((log) => prep.reportFailure(forged, log));
+    expect(out).toContain(prep.GENERIC_FAILURE);
+    for (const part of SENTINEL_PARTS) expect(out, part).not.toContain(part);
+  });
+
+  it('**真的 Error 上挂 s7eSafe 也不行**（继承自 Error 不代表出身可信）', () => {
+    const forged = Object.assign(new Error(SENTINEL_URL), { s7eSafe: true });
+    const out = capture((log) => prep.reportFailure(forged, log));
+    expect(out).toContain(prep.GENERIC_FAILURE);
+    for (const part of SENTINEL_PARTS) expect(out, part).not.toContain(part);
+  });
+
+  it('**别处造的同名类也不行** —— 认的是实例，不是形状或类名', () => {
+    class S7eSafeError extends Error {
+      constructor(m: string) {
+        super(m);
+        this.name = 'S7eSafeError';
+        (this as unknown as { s7eSafe: boolean }).s7eSafe = true;
+      }
+    }
+    const out = capture((log) => prep.reportFailure(new S7eSafeError(SENTINEL_URL), log));
+    expect(out).toContain(prep.GENERIC_FAILURE);
+    for (const part of SENTINEL_PARTS) expect(out, part).not.toContain(part);
+  });
+
+  it('**模块不导出任何可以往名册里塞东西的把手**', () => {
+    expect((prep as Record<string, unknown>).SAFE_ERRORS).toBeUndefined();
+    for (const v of Object.values(prep as Record<string, unknown>)) {
+      expect(v instanceof WeakSet).toBe(false);
+    }
+    const src = stripComments(fs.readFileSync(SCRIPT_PATH, 'utf8'));
+    const exportsBlock = src.split('module.exports = {')[1].split('};')[0];
+    expect(exportsBlock).not.toContain('SAFE_ERRORS');
+    expect(exportsBlock).not.toContain('S7eSafeError');
+  });
+
+  it('**源码里不再依赖公开的 s7eSafe 布尔**', () => {
+    const src = stripComments(fs.readFileSync(SCRIPT_PATH, 'utf8'));
+    expect(src).not.toContain('s7eSafe');
+  });
+
+  it('**本模块自己造的闸门错误仍然看得懂**（真身走得通）', () => {
+    let caught: unknown;
+    try {
+      prep.assertEnvGates({ ...GOOD_ENV, ALLOW_S7E_READING_PREP: SENTINEL_URL });
+    } catch (e) {
+      caught = e;
+    }
+    const out = capture((log) => prep.reportFailure(caught, log));
+    expect(out).toContain('ALLOW_S7E_READING_PREP');
+    expect(out).not.toContain(prep.GENERIC_FAILURE);
+    for (const part of SENTINEL_PARTS) expect(out, part).not.toContain(part);
+  });
+
+  it('**本模块自己造的前置检查错误仍然看得懂**', async () => {
+    const tx = fakeTx({ foreign: [{ id: 'real_student_001' }] });
+    let caught: unknown;
+    await prep.runPreflight(tx).catch((e) => {
+      caught = e;
+    });
+    const out = capture((log) => prep.reportFailure(caught, log));
+    expect(out).toContain('real_student_001');
+    expect(out).not.toContain(prep.GENERIC_FAILURE);
+    for (const part of SENTINEL_PARTS) expect(out, part).not.toContain(part);
   });
 });

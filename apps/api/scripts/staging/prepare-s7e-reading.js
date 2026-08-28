@@ -138,17 +138,34 @@ const DESTRUCTIVE_CONFIRMATION = 'reset-eight-reading-progress';
 // -------------------------------------------------------------
 
 /**
- * 「这条错误是我们自己写的，内容可控」的显式标记。
+ * 「本模块自己造的、内容可控的错误」名册。
  *
- * 只有闸门与前置检查用它 —— 它们的 message 只由本文件里的常量、
- * 环境变量的**名字**（不是取值）和夹具 id 组成。
+ * **模块私有，不导出，也没有任何往里塞东西的入口** —— 唯一的写入点是
+ * 下面那个构造函数。上报器认的是「这个对象在不在名册里」，而不是对象
+ * 自称什么。
+ *
+ * 为什么不能用公开的布尔字段：`{ s7eSafe: true, message: <连接串> }`
+ * 这种对象**任何人都造得出来**，被下游库改过的错误也可能恰好带上它。
+ * 数据自称的身份不是身份。
+ *
+ * 为什么不用 `instanceof`：同一个类在不同 realm（vm、worker、被打包两次）
+ * 下会有两个不同的构造函数，`instanceof` 会漏判；而伪造一个原型链却不难。
+ * WeakSet 认的是**对象本体**，两头都不吃亏，且不阻止垃圾回收。
+ */
+const SAFE_ERRORS = new WeakSet();
+
+/**
+ * 本模块自己构造的错误 —— 只有闸门、日期形状校验与前置检查用它。
+ * 它们的 message 只由本文件里的常量、环境变量的**名字**（不是取值）
+ * 和夹具 id 组成。
+ *
+ * 构造时把实例登记进 `SAFE_ERRORS`；这是名册的唯一写入点。
  */
 class S7eSafeError extends Error {
   constructor(message) {
     super(message);
     this.name = 'S7eSafeError';
-    /** 上报器认这个标记，不认类名 —— 跨 realm 时 instanceof 会失效。 */
-    this.s7eSafe = true;
+    SAFE_ERRORS.add(this);
   }
 }
 
@@ -164,7 +181,10 @@ const GENERIC_FAILURE = [
  * 不打印 message、不打印 stack、不打印 cause、不做任何序列化。
  */
 function reportFailure(e, log = console.error) {
-  if (e && e.s7eSafe === true && typeof e.message === 'string') {
+  // 只认名册里的**那个对象本体**。形状、类名、自称的标记一概不作数。
+  // `WeakSet.has` 对非对象直接返回 false，所以字符串 / null / 数字
+  // 天然走固定文案这一支。
+  if (SAFE_ERRORS.has(e) && typeof e.message === 'string') {
     log(['', 'S7E 阅读夹具未执行：', e.message, ''].join('\n'));
     return;
   }
@@ -502,7 +522,6 @@ module.exports = {
   prepareInTransaction,
   printReceipt,
   main,
-  S7eSafeError,
   reportFailure,
   GENERIC_FAILURE,
 };
