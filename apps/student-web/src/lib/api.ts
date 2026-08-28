@@ -261,11 +261,30 @@ export const api = {
 
   // ── 阅读会话（阶段 7B）；同样是**认证后，零身份参数** ──
 
-  /** 权威会话读取。**这一个端点就是对账重载要打的那个**（S7A §5.4）。 */
-  getReadingSession: (token: string, sessionId: string) =>
-    request<ReadingSessionPayload>('GET', `/morning-quiz/sessions/${encodeURIComponent(sessionId)}`, {
-      token,
-    }),
+  /**
+   * 权威会话读取。**这一个端点就是对账重载要打的那个**（S7A §5.4）。
+   *
+   * 服务端把题目数组叫 `paperQuestions`（`morning-quiz.service.ts:2020`），
+   * 新端对外叫 `questions`。**归一化只做这一次、只做在这里** ——
+   * 之前直接把响应原样返回，真实响应里 `questions` 永远是 undefined，
+   * 而测试用捏造的 `questions` 喂进去，所以谁都没发现。
+   */
+  getReadingSession: async (token: string, sessionId: string): Promise<ReadingSessionPayload> => {
+    const wire = await request<ReadingSessionWire>(
+      'GET',
+      `/morning-quiz/sessions/${encodeURIComponent(sessionId)}`,
+      { token },
+    );
+    return {
+      sessionId: wire.sessionId,
+      submissionId: wire.submissionId ?? null,
+      quizEnd: wire.quizEnd ?? null,
+      regularQuizEnd: wire.regularQuizEnd ?? null,
+      secondWindowToday: wire.secondWindowToday ?? false,
+      questions: wire.paperQuestions ?? [],
+      existingAnswers: wire.existingAnswers ?? {},
+    };
+  },
 
   saveReadingAnswer: (token: string, sessionId: string, body: ReadingSaveBody) =>
     request<ReadingSaveResult>(
@@ -274,7 +293,7 @@ export const api = {
       { body, token },
     ),
 
-  submitReading: (token: string, sessionId: string, body: { final: boolean }) =>
+  submitReading: (token: string, sessionId: string, body: { final: boolean } = { final: true }) =>
     request<ReadingSubmitResult>(
       'POST',
       `/morning-quiz/sessions/${encodeURIComponent(sessionId)}/submit`,
@@ -320,6 +339,24 @@ export interface ReadingQuestion {
   snapshotOptions: Array<{ key: string; text: string }> | null;
 }
 
+/**
+ * **线上真实返回的形状**。
+ *
+ * 题目数组在服务端叫 `paperQuestions`（`morning-quiz.service.ts:2020`），
+ * 不叫 `questions`。这个接口如实描述它；对外的公共形状见下面的
+ * `ReadingSessionPayload`，两者之间的归一化在 `getReadingSession` 里做。
+ */
+export interface ReadingSessionWire {
+  sessionId: string;
+  submissionId: string | null;
+  quizEnd: string | null;
+  regularQuizEnd: string | null;
+  secondWindowToday: boolean;
+  paperQuestions: ReadingQuestion[];
+  existingAnswers: Record<string, ReadingExistingAnswer>;
+}
+
+/** 新端对外的公共形状 —— 题目字段叫 `questions`（S7A 冻结）。 */
 export interface ReadingSessionPayload {
   sessionId: string;
   submissionId: string | null;

@@ -62,7 +62,10 @@ describe('AC-02 加载会话', () => {
       quizEnd: '2026-08-28T23:59:00.000Z',
       regularQuizEnd: '2026-08-28T09:00:00.000Z',
       secondWindowToday: false,
-      questions: [{ id: 'q1', sortOrder: 1, marks: 1, questionType: 'mcq', snapshotContent: {}, snapshotOptions: [] }],
+      // **服务端真实字段名**：paperQuestions（morning-quiz.service.ts:2020）
+      paperQuestions: [
+        { id: 'q1', sortOrder: 1, marks: 1, questionType: 'mcq', snapshotContent: {}, snapshotOptions: [] },
+      ],
       existingAnswers: {
         q1: { content: 'A', selectedOption: 'A', textAnswer: null, clientSeq: 3, flagged: false },
       },
@@ -76,6 +79,53 @@ describe('AC-02 加载会话', () => {
     expect(r.existingAnswers.q1.textAnswer).toBeNull();
     expect(r.existingAnswers.q1.clientSeq).toBe(3);
     expect(r.existingAnswers.q1.flagged).toBe(false);
+  });
+
+  it('**归一化：线缆上的 paperQuestions → 公共契约的 questions**', async () => {
+    stubFetch(200, {
+      sessionId: SID,
+      submissionId: 'sub-1',
+      quizEnd: null,
+      regularQuizEnd: null,
+      secondWindowToday: false,
+      paperQuestions: [
+        { id: 'q1', sortOrder: 1, marks: 2, questionType: 'short_answer', snapshotContent: { stem: 's' }, snapshotOptions: null },
+        { id: 'q2', sortOrder: 2, marks: 1, questionType: 'mcq', snapshotContent: {}, snapshotOptions: [{ key: 'A', text: 'a' }] },
+      ],
+      existingAnswers: {},
+    });
+    const r = await api.getReadingSession('TK', SID);
+    expect(r.questions.map((q) => q.id)).toEqual(['q1', 'q2']);
+    expect(r.questions[1].snapshotOptions).toEqual([{ key: 'A', text: 'a' }]);
+    // 公共形状里**没有** paperQuestions —— 归一化只做一次，就在这里
+    expect((r as unknown as Record<string, unknown>).paperQuestions).toBeUndefined();
+  });
+
+  it('**不要求服务端返回一个捏造的 questions 字段**', async () => {
+    // 响应里**只有** paperQuestions，一个 questions 都没有
+    stubFetch(200, {
+      sessionId: SID,
+      submissionId: null,
+      quizEnd: null,
+      regularQuizEnd: null,
+      secondWindowToday: false,
+      paperQuestions: [
+        { id: 'only', sortOrder: 1, marks: 1, questionType: 'mcq', snapshotContent: {}, snapshotOptions: [] },
+      ],
+      existingAnswers: {},
+    });
+    const r = await api.getReadingSession('TK', SID);
+    expect(r.questions).toHaveLength(1);
+    expect(r.questions[0].id).toBe('only');
+  });
+
+  it('服务端连 paperQuestions 都没给 → 空数组，不是 undefined', async () => {
+    stubFetch(200, { sessionId: SID, existingAnswers: {} });
+    const r = await api.getReadingSession('TK', SID);
+    expect(r.questions).toEqual([]);
+    expect(r.existingAnswers).toEqual({});
+    expect(r.submissionId).toBeNull();
+    expect(r.secondWindowToday).toBe(false);
   });
 
   it('403 no_lesson_started → ApiError，不是静默空会话', async () => {
@@ -156,6 +206,20 @@ describe('AC-02 交卷', () => {
     expect(calls[0].url).toBe('/api/morning-quiz/sessions/sess-1/submit');
     expect(calls[0].init.method).toBe('POST');
     expect(JSON.parse(String(calls[0].init.body))).toEqual({ final: true });
+  });
+
+  it('**不传第三个参数时默认交最终卷** —— 体仍是 { final: true }', async () => {
+    const calls = stubFetch(200, { id: 'sub-1', status: 'submitted' });
+    await api.submitReading('TK', SID);
+    expect(calls[0].init.method).toBe('POST');
+    expect(calls[0].url).toBe('/api/morning-quiz/sessions/sess-1/submit');
+    expect(JSON.parse(String(calls[0].init.body))).toEqual({ final: true });
+  });
+
+  it('显式传 { final: false } 时不会被默认值覆盖', async () => {
+    const calls = stubFetch(200, { id: 'sub-1', status: 'in_progress' });
+    await api.submitReading('TK', SID, { final: false });
+    expect(JSON.parse(String(calls[0].init.body))).toEqual({ final: false });
   });
 
   it('**交卷响应里没有 nextAction / href** —— 它不是导航权威', async () => {

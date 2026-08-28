@@ -167,7 +167,20 @@ export function ReadingProvider({
   // ── 内部账本 ──
   const timersRef = useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map());
   const dirtyRef = useRef<Set<string>>(new Set());
-  const inflightRef = useRef<Set<string>>(new Set());
+  /**
+   * 每题**正在飞的那次尝试**用的序号（qid → seq）。
+   *
+   * 原来是 `Set<qid>`，表示不了「这一题现在飞的是哪一号」，于是一次迟到的
+   * 旧响应会把新写的状态一起清掉。改成记号之后，完成回调才判得出
+   * 「我是不是仍然是这题最新的那次未确认写入」。
+   */
+  const inflightRef = useRef<Map<string, number>>(new Map());
+  /**
+   * 每题的**串行队列**。同一题同一时刻只允许一次请求在途 —— 新的写排在
+   * 上一次后面，而不是并发发出去。这样就不存在「两次请求同时飞、谁先回
+   * 谁说了算」的窗口，也让 flush 有一个确定的 promise 可以等。
+   */
+  const chainRef = useRef<Map<string, Promise<void>>>(new Map());
   /** 未证实的题：superseded 之后、对账确认之前都算。**不落盘。** */
   const unverifiedRef = useRef<Set<string>>(new Set());
   const latestAnswerRef = useRef<Record<string, ReadingAnswer>>({});
@@ -321,9 +334,17 @@ export function ReadingProvider({
       // 盖掉学生在重试期间写下的新答案。
       const seq = pendingSeqRef.current[qid] ?? seqRef.current[qid] ?? 0;
       pendingSeqRef.current[qid] = seq;
-      inflightRef.current.add(qid);
+      inflightRef.current.set(qid, seq);
       setSavingId(qid);
       syncStatus();
+      /**
+       * 这次尝试回来时，它还是这题**最新的那次未确认写入**吗？
+       *
+       * 只有「是」的时候才有资格清 dirty / unverified / saveError。
+       * 否则就是一次迟到的旧响应 —— 它成功与否都不能替新写入表态，
+       * 那正是原实现丢答案的路径。
+       */
+      const stillLatest = () => (seqRef.current[qid] ?? 0) === seq;
       try {
         const res = await depsRef.current.saveAnswer(qid, {
           selectedOption: ans.selectedOption ?? null,
@@ -340,26 +361,51 @@ export function ReadingProvider({
             return;
           }
           // 情况 B（L === seq；以及 fail-closed 的 L < seq）
-          dirtyRef.current.delete(qid);
+          if (stillLatest()) dirtyRef.current.delete(qid);
           await reconcile(qid, res.clientSeq ?? null);
           return;
         }
-        delete pendingSeqRef.current[qid];
-        dirtyRef.current.delete(qid);
-        unverifiedRef.current.delete(qid);
-        setSaveError(null);
+        if (pendingSeqRef.current[qid] === seq) delete pendingSeqRef.current[qid];
+        if (stillLatest()) {
+          dirtyRef.current.delete(qid);
+          unverifiedRef.current.delete(qid);
+          setSaveError(null);
+        }
+        // 不是最新的那次 → 什么都不清。新的写自己会回来表态。
       } catch (e) {
-        // 脏行留着；靠「重连」与「交卷前强刷」两个时机重来，
+        // 脏行留着；靠「重连」「探测恢复」「交卷前强刷」三个时机重来，
         // **不做无限自动重试**。
         setSaveError((e as Error)?.message ?? String(e ?? 'save_failed'));
         throw e;
       } finally {
-        inflightRef.current.delete(qid);
+        if (inflightRef.current.get(qid) === seq) inflightRef.current.delete(qid);
         setSavingId((cur) => (cur === qid ? null : cur));
         syncStatus();
       }
     },
     [reconcile, syncStatus],
+  );
+
+  /**
+   * 把一次保存排进该题的串行队列。
+   *
+   * 返回的 promise 在**这一次**尝试结束时兑现（成功或失败都兑现，不抛）
+   * —— flush 拿它来等，而不是自己再发一个重复请求。
+   */
+  const enqueueSave = useCallback(
+    (qid: string, ans: ReadingAnswer): Promise<void> => {
+      const prev = chainRef.current.get(qid) ?? Promise.resolve();
+      const next = prev
+        .catch(() => undefined)
+        .then(() => persistOne(qid, ans))
+        .catch(() => undefined)
+        .finally(() => {
+          if (chainRef.current.get(qid) === next) chainRef.current.delete(qid);
+        });
+      chainRef.current.set(qid, next);
+      return next;
+    },
+    [persistOne],
   );
 
   const setAnswer = useCallback(
@@ -388,14 +434,12 @@ export function ReadingProvider({
         timersRef.current.delete(qid);
         // 到点时取**最新值**，不是闭包里捕获的那份。
         const latest = latestAnswerRef.current[qid] ?? ans;
-        void persistOne(qid, latest).catch(() => {
-          /* 脏行留着，saveError 已经设了 */
-        });
+        void enqueueSave(qid, latest);
       }, debounceMs);
       timersRef.current.set(qid, t);
       syncStatus();
     },
-    [ANSWERS_KEY, debounceMs, persistOne, persistSeqs, syncStatus],
+    [ANSWERS_KEY, debounceMs, enqueueSave, persistSeqs, syncStatus],
   );
 
   const flushPendingSaves = useCallback(async () => {
@@ -404,21 +448,36 @@ export function ReadingProvider({
       clearTimeout(timer);
       timersRef.current.delete(qid);
     }
-    // 2. 并行落盘每一条脏行的最新值。
-    const todo = Array.from(dirtyRef.current);
-    if (todo.length > 0) {
-      await Promise.allSettled(
-        todo.map((qid) => {
-          const ans = latestAnswerRef.current[qid];
-          return ans ? persistOne(qid, ans) : Promise.resolve();
-        }),
-      );
+    // 2. 逐题处理。**已经在飞、而且飞的就是最新那号**的，只等它，
+    //    不再发一次重复请求；其余的排进队列。
+    const todo = new Set<string>([...dirtyRef.current, ...inflightRef.current.keys()]);
+    const waits: Array<Promise<unknown>> = [];
+    for (const qid of todo) {
+      const inflightSeq = inflightRef.current.get(qid);
+      const latestSeq = seqRef.current[qid] ?? 0;
+      const covered = inflightSeq != null && inflightSeq === latestSeq;
+      const tail = chainRef.current.get(qid);
+      if (covered) {
+        // 这一题最新的写正在飞 —— 等它就够了。
+        if (tail) waits.push(tail.catch(() => undefined));
+        continue;
+      }
+      if (!dirtyRef.current.has(qid)) {
+        // 不脏但有旧请求在飞（比如已被更新的写取代）—— 也要等它结束，
+        // 否则 flush 返回时还有请求在外面。
+        if (tail) waits.push(tail.catch(() => undefined));
+        continue;
+      }
+      const ans = latestAnswerRef.current[qid];
+      if (ans) waits.push(enqueueSave(qid, ans));
+      else if (tail) waits.push(tail.catch(() => undefined));
     }
+    if (waits.length > 0) await Promise.allSettled(waits);
     // 3. 交卷前不仅要等在途保存，**还要等在途的对账重载**。
     const inflightReload = reloadRef.current;
     if (inflightReload) await inflightReload.catch(() => undefined);
     syncStatus();
-  }, [persistOne, syncStatus]);
+  }, [enqueueSave, syncStatus]);
 
   const flushRef = useRef(flushPendingSaves);
   flushRef.current = flushPendingSaves;
@@ -454,6 +513,14 @@ export function ReadingProvider({
     if (!probe) return;
     let cancelled = false;
     let consecutiveFailures = 0;
+    /**
+     * 探测**自己**判定过离线吗？
+     *
+     * 这一位是补传的触发条件。API 恢复时 `navigator.onLine` 可能一直是
+     * true（设备从没断过网，是服务端那头挂了），浏览器不会发 `online`
+     * 事件 —— 只靠 `online` 监听，脏答案会一直躺在本地没人补。
+     */
+    let offlineByProbe = false;
     async function run() {
       if (cancelled) return;
       let ok = false;
@@ -466,9 +533,22 @@ export function ReadingProvider({
       if (ok) {
         consecutiveFailures = 0;
         if (typeof navigator === 'undefined' || navigator.onLine) setIsOffline(false);
+        // **只在「探测判过离线 → 探测判为在线」这一次跳变上补传。**
+        // 每次探测成功都补一遍，就成了变相的无限重试。
+        if (offlineByProbe) {
+          offlineByProbe = false;
+          if (dirtyRef.current.size > 0) {
+            void flushRef.current().catch(() => {
+              /* 通过 saveError 暴露 */
+            });
+          }
+        }
       } else {
         consecutiveFailures += 1;
-        if (consecutiveFailures >= 2) setIsOffline(true);
+        if (consecutiveFailures >= 2) {
+          setIsOffline(true);
+          offlineByProbe = true;
+        }
       }
     }
     const first = setTimeout(run, probeFirstMs);
@@ -554,12 +634,10 @@ export function ReadingProvider({
       if (!ans) continue;
       latestAnswerRef.current[qid] = ans;
       dirtyRef.current.add(qid);
-      void persistOne(qid, ans).catch(() => {
-        /* 脏行留着，重连时会重试 */
-      });
+      void enqueueSave(qid, ans);
     }
     syncStatus();
-  }, [isSecondaryTab, persistOne, syncStatus]);
+  }, [enqueueSave, isSecondaryTab, syncStatus]);
 
   // 卸载时清掉还挂着的防抖定时器。
   useEffect(

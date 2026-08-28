@@ -49,6 +49,8 @@ function Probe() {
       <span data-testid="font">{String(r.fontScale)}</span>
       <span data-testid="blocked">{String(isSubmitBlocked(r))}</span>
       <button onClick={() => r.setAnswer('q1', { textAnswer: 'x' })}>edit</button>
+      <button onClick={() => r.setAnswer('q1', { textAnswer: 'A' })}>editA</button>
+      <button onClick={() => r.setAnswer('q1', { textAnswer: 'B' })}>editB</button>
       <button onClick={() => void r.flushPendingSaves()}>flush</button>
       <button onClick={() => r.claimTabOwnership()}>claim</button>
       <button onClick={() => r.dismissConflictNotice()}>dismiss</button>
@@ -129,10 +131,9 @@ async function tick(ms: number) {
 }
 
 async function settle() {
+  // 串行队列是靠 promise 链拼起来的 —— 一次 microtask 不够，多冲几轮。
   await act(async () => {
-    await Promise.resolve();
-    await Promise.resolve();
-    await Promise.resolve();
+    for (let i = 0; i < 8; i++) await Promise.resolve();
   });
 }
 
@@ -843,5 +844,254 @@ describe('AC-09 公共契约', () => {
     mount(h, { initialAnswers: { q1: { textAnswer: '旧' } }, initialSeqs: { q1: 1 } });
     await settle();
     expect(h.saves).toHaveLength(0);
+  });
+});
+
+// ─────────────────────────────────────────────────────────────
+// 返工 1/2 —— B2：重叠的保存请求
+//
+// 原实现只有一个 `pendingSeqRef[qid]` 和一个 `Set<qid>`：一次**迟到的旧
+// 响应**会无条件清掉 dirty / pending，把学生刚写的新答案标成「已保存」。
+// 下面四条钉住的就是这个。
+// ─────────────────────────────────────────────────────────────
+
+describe('B2 重叠保存：旧响应不得替新写入表态', () => {
+  /** 每个 seq 一个闸门，测试自己决定谁什么时候回来。 */
+  function gated() {
+    const gates = new Map<number, (v: ReadingSaveResult) => void>();
+    const rejects = new Map<number, (e: unknown) => void>();
+    const h = makeDeps({
+      save: (call) =>
+        new Promise<ReadingSaveResult>((res, rej) => {
+          gates.set(call.body.clientSeq, res);
+          rejects.set(call.body.clientSeq, rej);
+        }),
+    });
+    return { h, gates, rejects };
+  }
+
+  it('**seq=1 在飞时学生改成 seq=2；seq=1 成功 → seq=2 仍然是脏的、未确认**', async () => {
+    const { h, gates } = gated();
+    mount(h);
+    await click('edit');
+    await tick(600); // 发出 seq=1，卡住
+    expect(h.saves.map((s) => s.body.clientSeq)).toEqual([1]);
+
+    await click('edit'); // 本地拿到 seq=2，进入脏 + 防抖
+    await act(async () => {
+      gates.get(1)!({ applied: true, clientSeq: 1 });
+    });
+    await settle();
+
+    // **旧响应成功了，但它不是最新那次** —— 不许清掉新写入的状态
+    expect(txt('pending')).toBe('true');
+    expect(txt('blocked')).toBe('true');
+    expect(h.saves).toHaveLength(1); // seq=2 的防抖还没到点
+
+    // 用 flush 来**证明 dirty 真的还在**：它会先取消防抖定时器，
+    // 所以「还有请求发出去」只可能来自那条没被清掉的脏行。
+    // （光看 hasPendingSaves 不算数 —— 防抖定时器本身也会让它是 true。）
+    await click('flush');
+    await settle();
+    expect(h.saves.map((s) => s.body.clientSeq)).toEqual([1, 2]);
+    expect(txt('pending')).toBe('true'); // seq=2 在飞
+
+    await act(async () => {
+      gates.get(2)!({ applied: true, clientSeq: 2 });
+    });
+    await settle();
+    expect(txt('pending')).toBe('false');
+    expect(txt('blocked')).toBe('false');
+  });
+
+  it('**同样的局面，seq=2 失败 → 仍被挡住；flush 用同一个 seq=2 重试**', async () => {
+    const { h, gates, rejects } = gated();
+    mount(h);
+    await click('edit');
+    await tick(600);
+    await click('edit');
+    await act(async () => {
+      gates.get(1)!({ applied: true, clientSeq: 1 });
+    });
+    await settle();
+    await tick(600); // 发出 seq=2
+    await act(async () => {
+      rejects.get(2)!(new Error('down'));
+    });
+    await settle();
+
+    expect(txt('saveError')).not.toBe('-');
+    expect(txt('pending')).toBe('true');
+    expect(txt('blocked')).toBe('true');
+
+    await click('flush');
+    await settle();
+    // 重试沿用同一个号，**不是** 3
+    expect(h.saves.map((s) => s.body.clientSeq)).toEqual([1, 2, 2]);
+  });
+
+  it('**自动保存在飞时点 flush → 只等它，不再发一份重复请求**', async () => {
+    const { h, gates } = gated();
+    mount(h);
+    await click('edit');
+    await tick(600);
+    expect(h.saves).toHaveLength(1);
+
+    let flushed = false;
+    await act(async () => {
+      void screen.getByText('flush').click();
+    });
+    await settle();
+    expect(h.saves).toHaveLength(1); // **没有重复请求**
+
+    await act(async () => {
+      gates.get(1)!({ applied: true, clientSeq: 1 });
+      flushed = true;
+    });
+    await settle();
+    expect(flushed).toBe(true);
+    expect(h.saves).toHaveLength(1);
+    expect(txt('pending')).toBe('false');
+  });
+
+  it('**旧响应不能把 hasPendingSaves 抹成 false**（B2 的核心）', async () => {
+    const { h, gates } = gated();
+    mount(h);
+    await click('edit');
+    await tick(600);
+    await click('edit'); // seq=2 未落盘
+    await act(async () => {
+      gates.get(1)!({ applied: true, clientSeq: 1 });
+    });
+    await settle();
+    // flush 先清掉所有防抖定时器 —— 之后 hasPendingSaves 若还是 true，
+    // 那只能是因为脏行与在途请求确实还在。
+    await click('flush');
+    await settle();
+    expect(h.saves).toHaveLength(2);
+    expect(txt('pending')).toBe('true');
+    expect(txt('blocked')).toBe('true');
+  });
+
+  it('**同一题不会有两个请求同时在飞**（按题串行）', async () => {
+    let concurrent = 0;
+    let maxConcurrent = 0;
+    const h = makeDeps({
+      save: async () => {
+        concurrent += 1;
+        maxConcurrent = Math.max(maxConcurrent, concurrent);
+        await Promise.resolve();
+        concurrent -= 1;
+        return { applied: true, clientSeq: 1 };
+      },
+    });
+    mount(h);
+    await click('edit');
+    await tick(600);
+    await click('edit');
+    await tick(600);
+    await click('flush');
+    await settle();
+    expect(maxConcurrent).toBe(1);
+  });
+});
+
+// ─────────────────────────────────────────────────────────────
+// 返工 1/2 —— B3：探测恢复也要补传
+//
+// API 恢复时 `navigator.onLine` 可能一直是 true（设备从没断网，是服务端
+// 那头挂了），浏览器根本不发 `online` 事件。只挂 `online` 监听的话，
+// 脏答案会一直躺在本地没人补。
+// ─────────────────────────────────────────────────────────────
+
+describe('B3 探测恢复后的补传', () => {
+  it('**探测两次失败后再成功 → 恰好补传一次，用的是最新答案与同一个 seq**', async () => {
+    let ok = false;
+    let failSave = true;
+    const h = makeDeps({
+      save: async (call) => {
+        if (failSave) throw new Error('api down');
+        return { applied: true, clientSeq: call.body.clientSeq };
+      },
+      probe: async () => ok,
+    });
+    mount(h, { options: { probeFirstMs: 100, probeIntervalMs: 250 } });
+
+    // 两次编辑，两次保存都失败 —— 最新的是 seq=2 / 'B'
+    await click('editA');
+    await tick(600);
+    await click('editB');
+    await tick(600);
+    await settle();
+    expect(h.saves.map((s) => s.body.clientSeq)).toEqual([1, 2]);
+    expect(txt('blocked')).toBe('true');
+
+    // 设备**一直在线**，只有 API 挂了 —— 不会有 online 事件
+    expect(navigator.onLine).toBe(true);
+    await tick(100); // 探测失败 1
+    await tick(250); // 探测失败 2 → 离线
+    expect(txt('offline')).toBe('true');
+    expect(h.saves).toHaveLength(2);
+
+    ok = true;
+    failSave = false;
+    await tick(250); // 探测成功 → 跳变，补传一次
+    await settle();
+    expect(h.saves).toHaveLength(3);
+    expect(h.saves[2].body.clientSeq).toBe(2); // 同一个 seq
+    expect(h.saves[2].body.textAnswer).toBe('B'); // 最新答案
+    expect(txt('offline')).toBe('false');
+    expect(txt('pending')).toBe('false');
+    expect(txt('saveError')).toBe('-');
+    expect(txt('blocked')).toBe('false');
+
+    // 之后每一次探测成功都不该再发请求
+    await tick(250);
+    await tick(250);
+    await tick(250);
+    await settle();
+    expect(h.saves).toHaveLength(3);
+  });
+
+  it('**没有脏答案时，探测恢复什么都不发**', async () => {
+    let ok = false;
+    const h = makeDeps({ probe: async () => ok });
+    mount(h, { options: { probeFirstMs: 100, probeIntervalMs: 250 } });
+    await click('edit');
+    await tick(600);
+    await settle();
+    expect(h.saves).toHaveLength(1);
+    await tick(100);
+    await tick(250);
+    expect(txt('offline')).toBe('true');
+    ok = true;
+    await tick(250);
+    await settle();
+    expect(h.saves).toHaveLength(1);
+  });
+
+  it('**探测一直成功 → 从头到尾不触发补传**（成功探测不是重试时机）', async () => {
+    let failSave = true;
+    const h = makeDeps({
+      save: async () => {
+        if (failSave) throw new Error('down');
+        return { applied: true, clientSeq: 1 };
+      },
+      probe: async () => true,
+    });
+    mount(h, { options: { probeFirstMs: 100, probeIntervalMs: 250 } });
+    await click('edit');
+    await tick(600);
+    await settle();
+    expect(h.saves).toHaveLength(1);
+    failSave = false;
+    await tick(100);
+    await tick(250);
+    await tick(250);
+    await tick(250);
+    await settle();
+    // 探测从没判过离线 → 没有「恢复」这回事，脏行留着等 online / flush
+    expect(h.saves).toHaveLength(1);
+    expect(txt('blocked')).toBe('true');
   });
 });

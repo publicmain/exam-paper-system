@@ -1733,12 +1733,12 @@ S7D 本地集成回归 → S7E staging/真机验收。各自的冻结合同另�
 
 | 文件 | 内容 |
 |---|---|
-| `lib/api.ts` | `request()` 支持 PATCH；新增 `getReadingSession` / `saveReadingAnswer` / `submitReading` 三个方法与阅读相关类型 |
+| `lib/api.ts` | `request()` 支持 PATCH；新增 `getReadingSession` / `saveReadingAnswer` / `submitReading` 三个方法与阅读相关类型。**服务端把题目数组叫 `paperQuestions`**（`morning-quiz.service.ts:2020`），归一化成公共契约的 `questions` 就在 `getReadingSession` 里做一次；`submitReading` 的请求体默认 `{ final: true }` |
 | `lib/identity.ts` | `clearIdentity()` 改为**按 `sw:` 前缀扫除**（阅读缓存的键带 sessionId，枚举不出来）；新增 `OWNED_STORAGE_PREFIX` |
 | `lib/auth-store.ts` | `adoptSession()` 在写新令牌**之前**先清空 `sw:` —— 换账号时上一个学生的草稿必须先没掉 |
 | `lesson/draftMerge.ts` | 从旧端逐字搬来的纯函数（连同它的八条既有用例） |
 | `lesson/storage.ts` | `sw:reading:*` 作用域键 + 安全失败的读写 |
-| `lesson/ReadingProvider.tsx` | 状态引擎：序号分配、600ms 防抖、离线/重连、多标签所有权、**§5.4 对账**；三个副作用全部注入 |
+| `lesson/ReadingProvider.tsx` | 状态引擎：序号分配、600ms 防抖、离线/重连、多标签所有权、**§5.4 对账**；三个副作用全部注入。保存**按题串行**并记录在飞的序号 —— 一次迟到的旧响应不得清掉更新的脏行；探测从「判过离线」跳回在线时补传一次 |
 
 **三个端点**（与 S7A §4 冻结一致，路径逐字核过 `morning-quiz.controller.ts`）：
 `GET /api/morning-quiz/sessions/:id`（**无子路径**）、
@@ -1749,7 +1749,7 @@ S7D 本地集成回归 → S7E staging/真机验收。各自的冻结合同另�
 提示；重载失败 / 重载回来没有这一题 → `conflict-unverified`，
 **交卷被 `isSubmitBlocked()` 挡住**；401 走既有的登出链路。
 
-**本地验证**：`apps/student-web` 7 个测试文件 196 条全绿、`tsc --noEmit`
+**本地验证**：`apps/student-web` 7 个测试文件 209 条全绿、`tsc --noEmit`
 退出 0、`vite build` 成功；旧端 `apps/web` 9 文件 60 条与 API 的
 `answer-seq` / `answer-diff` 2 文件 25 条均未受影响。
 
