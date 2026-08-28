@@ -448,20 +448,120 @@ describe('AC-05 IELTS 迁移后的排除项', () => {
     expect(screen.getByRole('button', { name: /便笺/ })).toBeInTheDocument();
   });
 
-  it('**手机上是上下堆叠的两个分页，不是窄屏分栏**', () => {
-    mount(
-      paper({
-        paperMode: 'passage_pick',
-        questions: [
-          q({
-            id: 'a',
-            snapshotContent: { taskType: 'multiple_choice', passage: 'P', stem: 'Do.\n\nItem' },
-            snapshotOptions: [{ key: 'A', text: 'aa' }],
-          }),
-        ],
-      }),
+  // 「窄屏两块同时可见」的断言见文件末尾的 B2 组 —— 返工 1/2 把原来那条
+  // 「两个分页」的断言整体换掉了：分页切换本身就是要被拆掉的东西。
+});
+
+// ─────────────────────────────────────────────────────────────
+// 返工 1/2 —— B1：阅读页恒为 test 模式
+//
+// 线缆上写着 `mode:'practice'` 也不算数。那是一份畸形（或被篡改）的载荷，
+// 而阅读是**正式考试**：一旦按 practice 渲染，答案键与解析会当场露出来。
+// ─────────────────────────────────────────────────────────────
+
+describe('B1 阅读永远是 test 模式', () => {
+  const withKey = (mode: 'practice' | 'test') =>
+    paper({
+      mode,
+      questions: [
+        q({
+          id: 'a',
+          snapshotContent: { stem: 'Pick', correctOption: 'B', explanation: '因为 B 最合适' },
+          snapshotOptions: [
+            { key: 'A', text: 'aa' },
+            { key: 'B', text: 'bb' },
+          ],
+        }),
+      ],
+    });
+
+  it('**载荷说 practice，渲染器也不给对错反馈与解析**', async () => {
+    render(
+      <ReadingProvider sessionId="s1" submissionId="sub1" deps={deps as never}>
+        {/* 页面**恒定**传 test —— 这里照页面的做法写死 */}
+        <ExamModeProvider mode="test">
+          <ExamRenderer paper={withKey('practice')} />
+        </ExamModeProvider>
+      </ReadingProvider>,
     );
-    const tabs = screen.getAllByRole('tab');
-    expect(tabs.map((t) => t.textContent)).toEqual(['原文', '题目']);
+    await act(async () => {
+      (screen.getAllByRole('radio')[0] as HTMLInputElement).click();
+    });
+    expect(screen.queryByText(/因为 B 最合适/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/Correct/)).not.toBeInTheDocument();
+  });
+
+  it('**反向夹具**：真按 practice 渲染时反馈确实会出现（证明上一条不是空断言）', async () => {
+    render(
+      <ReadingProvider sessionId="s1" submissionId="sub1" deps={deps as never}>
+        <ExamModeProvider mode="practice">
+          <ExamRenderer paper={withKey('practice')} />
+        </ExamModeProvider>
+      </ReadingProvider>,
+    );
+    await act(async () => {
+      (screen.getAllByRole('radio')[0] as HTMLInputElement).click();
+    });
+    expect(screen.getByText(/因为 B 最合适/)).toBeInTheDocument();
+  });
+});
+
+// ─────────────────────────────────────────────────────────────
+// 返工 1/2 —— B2：窄屏是**上下堆叠**，不是二选一
+// ─────────────────────────────────────────────────────────────
+
+describe('B2 窄屏两块同时在文档流里', () => {
+  const ieltsPaper = () =>
+    paper({
+      paperMode: 'passage_pick',
+      questions: [
+        q({
+          id: 'a',
+          snapshotContent: {
+            taskType: 'true_false_not_given',
+            passageTitle: 'The Nile',
+            passage: 'The Nile is long.',
+            stem: 'Decide.\n\nThe Nile is short.',
+          },
+          snapshotOptions: [],
+        }),
+      ],
+    });
+
+  it('**原文与题目同时可见** —— 没有「只显示一边」的切换', () => {
+    mount(ieltsPaper());
+    expect(screen.getByText('The Nile')).toBeInTheDocument();
+    expect(screen.getByText(/The Nile is long/)).toBeInTheDocument();
+    // 题目区也在同一棵树里
+    expect(screen.getAllByRole('radio').length).toBeGreaterThan(0);
+    // 两块都不在 `hidden` 容器里
+    const passage = screen.getByText(/The Nile is long/);
+    const radio = screen.getAllByRole('radio')[0];
+    for (const el of [passage, radio]) {
+      let n: HTMLElement | null = el as HTMLElement;
+      while (n) {
+        expect(n.className.toString(), n.outerHTML.slice(0, 80)).not.toMatch(/(^| )hidden( |$)/);
+        n = n.parentElement;
+      }
+    }
+  });
+
+  it('**没有原文 / 题目的分页切换控件**', () => {
+    mount(ieltsPaper());
+    expect(screen.queryAllByRole('tab')).toHaveLength(0);
+    expect(screen.queryByText('原文')).not.toBeInTheDocument();
+    expect(screen.queryByText('题目')).not.toBeInTheDocument();
+  });
+
+  it('**窄屏是纵向堆叠**：原文块排在题目块前面，且都占满宽', () => {
+    mount(ieltsPaper());
+    const passageHost = screen.getByText(/The Nile is long/).closest('aside');
+    const questionHost = screen.getAllByRole('radio')[0].closest('section');
+    expect(passageHost).toBeTruthy();
+    expect(questionHost).toBeTruthy();
+    // DOM 顺序：原文在前
+    expect(
+      passageHost!.compareDocumentPosition(questionHost!) & Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
   });
 });

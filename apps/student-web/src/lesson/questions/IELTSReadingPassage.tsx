@@ -112,20 +112,12 @@ export function IELTSReadingPassage({ paper }: { paper: ExamPaper }) {
   // so the first non-empty render after a refetch reordered them and
   // React threw the "Rules of Hooks" violation.
   const { fontScale } = useExam();
-  // Mobile pane toggle — below lg the split collapses to a stack and only
-  // ONE side is shown at a time; the student switches with the segmented
-  // control below.
+  // 阶段 7C 返工 —— **窄屏不再是「原文 / 题目」二选一**。
   //
-  // 2026-07-24 incident: on 07-24 the ielts_authentic session ran a real
-  // Cambridge reading passage (cambridge_ielts_8/Test1/P1). Students on
-  // phones reported "扫码后看不到文章，只能看到题目" — the split defaulted
-  // to the Questions pane and the old toggle (grey text, no border) didn't
-  // read as tappable, so they never found the passage. iPad-landscape
-  // users (lg+, both panes visible) were unaffected, which is why "not
-  // everyone" hit it. Fix: default to the PASSAGE side so the first thing
-  // a student sees is the text they're worried about missing, and make the
-  // toggle an unmistakable segmented control (see the tablist below).
-  const [mobileSide, setMobileSide] = useState<'left' | 'right'>('left');
+  // 旧端在窄屏上把另一块 hidden 掉，靠一个分段控件切换。2026-07-24 的事故
+  // 就出在它身上：默认停在题目那一页，学生在手机上「看不到文章」。冻结的
+  // 移动端要求是两块都在文档流里、原文在上题目在下 —— 那就没有可切换的
+  // 状态，控件本身也一并去掉。
   const passageContent = paper?.questions?.[0]?.snapshotContent ?? {};
   const passageTitle = clean(passageContent.passageTitle ?? 'Reading Passage');
   const passageBody = useMemo(() => reflowPassage(clean(passageContent.passage ?? '')), [passageContent.passage]);
@@ -165,48 +157,9 @@ export function IELTSReadingPassage({ paper }: { paper: ExamPaper }) {
       className="ui-ios lg:h-[calc(100dvh-9rem)]"
       style={{ ['--mq-fs' as any]: String(fontScale) }}
     >
-      {/* Mobile pane switch — only visible below lg.  On lg+ the split
-          renders both panes side-by-side (no toggle needed).
-
-          Rendered as a full-width segmented control: a filled container
-          with two equal tabs and a white "pill" on the active one. The
-          old version was two loose buttons where the inactive one was
-          plain grey text with no border, so it didn't look tappable and
-          students missed the passage (2026-07-24 incident). Both tabs now
-          clearly read as a two-way switch, with an icon for instant
-          recognition. */}
-      {/* 2026-08-11 触屏可用性：这个切换原来只有 36px 高,低于 Apple HIG 的
-          44pt 最小触控目标 —— 而它是全页后果最严重的控件（点不中就整场
-          只做题不看原文）。改用 .seg 分段控件,内含 40px 按钮 + 外层 padding
-          正好到 46px,并去掉了描边改用浮起的白色药丸表示当前页。 */}
-      <div className="ui-ios lg:hidden sticky top-14 z-10 glass glass-top px-3 py-2">
-        <div className="seg" role="tablist" aria-label="切换原文 / 题目">
-          <button
-            type="button"
-            role="tab"
-            aria-selected={mobileSide === 'left'}
-            data-on={mobileSide === 'left'}
-            onClick={() => setMobileSide('left')}
-            className="press"
-          >
-            原文
-          </button>
-          <button
-            type="button"
-            role="tab"
-            aria-selected={mobileSide === 'right'}
-            data-on={mobileSide === 'right'}
-            onClick={() => setMobileSide('right')}
-            className="press"
-          >
-            题目
-          </button>
-        </div>
-      </div>
 
       <DraggableSplit
         storageKey={`sw:reading:split:${paper.sessionId}`}
-        mobileSide={mobileSide}
         left={
           // R15-Audit#2 — same hidden-scrollbar pattern as the OLEVEL bug.
           // On iPad-landscape (1024×768 exactly at lg) the inner scrollbar

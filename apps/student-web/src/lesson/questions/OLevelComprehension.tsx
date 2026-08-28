@@ -1,7 +1,6 @@
 import { useMemo, useState } from 'react';
 import type { ExamPaper, ExamQuestion } from '../examTypes';
-import { useExam } from '../ExamContext';
-import { useFollowRequestedQuestion } from '../useFollowRequestedQuestion';
+import { useExam, useFollowRequestedQuestion } from '../ExamContext';
 import { clean, reflowPassage } from '../shared/textUtils';
 import { QuestionFlag } from '../shared/QuestionFlag';
 

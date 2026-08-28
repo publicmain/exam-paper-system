@@ -29,8 +29,8 @@ import { NEXT_ACTION_ROUTE, ROUTES } from '../routes.contract';
 import { ReadingProvider, isSubmitBlocked, useReading } from '../lesson/ReadingProvider';
 import { ExamFocusProvider, ExamModeProvider } from '../lesson/ExamContext';
 import { ExamRenderer } from '../lesson/QuestionTypeRegistry';
-import type { ExamPaper } from '../lesson/examTypes';
-import { initialAnswersOf, initialSeqsOf } from '../lesson/sessionToEngine';
+import type { ExamAnswer, ExamPaper } from '../lesson/examTypes';
+import type { ReadingExistingAnswer } from '../lib/api';
 import { FontSizeAdjuster } from '../lesson/shared/FontSizeAdjuster';
 import { OfflineBadge } from '../lesson/shared/OfflineBadge';
 import { QuestionNavBar } from '../lesson/shared/QuestionNavBar';
@@ -49,6 +49,33 @@ type Phase =
  * 不该弹一个红色报错 —— 但**只有这几种**算已完成，别的 400
  * （比如 `quiz_window_closed`）必须照实报出来。
  */
+/**
+ * 服务端已存答案 → 引擎初值。
+ *
+ * 只取两个可编辑字段；`content` 是给老客户端的兼容字段，不读。
+ * 序号原样递进去 —— 它是引擎的概念，页面不对它做任何运算。
+ */
+function initialAnswersOf(
+  existing: Record<string, ReadingExistingAnswer>,
+): Record<string, ExamAnswer> {
+  const out: Record<string, ExamAnswer> = {};
+  for (const [qid, a] of Object.entries(existing ?? {})) {
+    const ans: ExamAnswer = {};
+    if (a?.selectedOption != null) ans.selectedOption = a.selectedOption;
+    if (a?.textAnswer != null) ans.textAnswer = a.textAnswer;
+    out[qid] = ans;
+  }
+  return out;
+}
+
+function initialSeqsOf(existing: Record<string, ReadingExistingAnswer>): Record<string, number> {
+  const out: Record<string, number> = {};
+  for (const [qid, a] of Object.entries(existing ?? {})) {
+    if (typeof a?.clientSeq === 'number') out[qid] = a.clientSeq;
+  }
+  return out;
+}
+
 function looksAlreadyDone(e: unknown): boolean {
   if (!(e instanceof ApiError) || e.status !== 400) return false;
   const text = `${e.body.code ?? ''} ${e.body.message ?? ''}`.toLowerCase();
@@ -136,7 +163,13 @@ export default function ReadingPage() {
         onAuthFailure: handleAuthFailure,
       }}
     >
-      <ExamModeProvider mode={session.mode ?? 'test'}>
+      {/*
+        **恒定 test。**
+        载荷里的 `mode` 只是如实描述服务端返回了什么；阅读是正式考试，
+        一份畸形（或被篡改）的 `mode:'practice'` 不该让答案键与解析当场
+        露出来。这里不读它 —— 服务端的白名单脱敏是第一道闸，这行是第二道。
+      */}
+      <ExamModeProvider mode="test">
         <ReadingShell session={session} />
       </ExamModeProvider>
     </ReadingProvider>
@@ -166,7 +199,7 @@ function ReadingShell({ session }: { session: ReadingSessionPayload }) {
       quizEnd: session.quizEnd,
       level: session.level ?? 'olevel',
       paperMode: session.paperMode ?? null,
-      mode: session.mode ?? 'test',
+      mode: 'test', // 见上：阅读页恒定 test，不读载荷里的 mode
       rendererKey: session.rendererKey ?? null,
       questions: session.questions,
     }),
@@ -174,6 +207,9 @@ function ReadingShell({ session }: { session: ReadingSessionPayload }) {
   );
 
   const blocked = isSubmitBlocked(r);
+  /** 供事件监听器同步读取 —— 监听器只注册一次，不能靠闭包里的旧值判断。 */
+  const blockedRef = useRef(blocked);
+  blockedRef.current = blocked;
 
   // 有没保存 / 没证实的东西时，关标签页要拦一下。
   useEffect(() => {
@@ -192,6 +228,30 @@ function ReadingShell({ session }: { session: ReadingSessionPayload }) {
    * 分页的渲染器（一屏一题）需要先翻页，所以先把题号广播下去，
    * 再滚 —— 只滚不广播的话，目标元素根本不在 DOM 里。
    */
+  /**
+   * 浏览器返回键。
+   *
+   * `beforeunload` 只管**页面卸载**，SPA 里按返回是一次路由切换，它一声不吭。
+   * 学生用返回键退出考试是最常见的动作之一，判据必须和「退出」按钮同一套。
+   *
+   * 做法：进页面时压一条哨兵历史记录，返回时先落到它上面 —— 这时如果还有
+   * 没保存好的东西，就把哨兵再压回去（人留在阅读页）并弹确认；干净的话
+   * 就正常回 `/today`。卸载时把监听器摘干净。
+   */
+  useEffect(() => {
+    window.history.pushState({ swReadingGuard: true }, '');
+    const onPop = () => {
+      if (blockedRef.current) {
+        window.history.pushState({ swReadingGuard: true }, '');
+        setExiting(true);
+        return;
+      }
+      navigate(ROUTES.today);
+    };
+    window.addEventListener('popstate', onPop);
+    return () => window.removeEventListener('popstate', onPop);
+  }, [navigate]);
+
   const jumpTo = useCallback((qid: string) => {
     setFocusedQid(qid);
     document.getElementById(`q-${qid}`)?.scrollIntoView({ block: 'center' });

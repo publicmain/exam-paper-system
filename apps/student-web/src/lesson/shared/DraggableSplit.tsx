@@ -4,9 +4,13 @@ import { useCallback, useEffect, useRef, useState } from 'react';
  * Two-column layout with a draggable vertical divider in the middle.
  *
  * The split percentage is persisted in localStorage so it survives both a
- * page refresh and a fresh login on the same device. Below `mobileBreakpoint`
- * (default 1024px) the split collapses into a stack — the host controls
- * whether the left or right pane is currently visible via `mobileSide`.
+ * page refresh and a fresh login on the same device.
+ *
+ * 阶段 7C 返工 —— **窄屏是上下堆叠，两块都在文档流里**。
+ * 旧端在这里做的是「二选一 + 分页切换」：宽度不够时把另一块 `hidden` 掉，
+ * 学生一次只能看见原文或题目。那是 2026-07-24 事故的根源（默认停在题目
+ * 那一页，学生找不到原文），也不符合已冻结的移动端要求。现在低于
+ * `mobileBreakpoint` 时两块顺序排开：原文在上、题目在下，都占满宽。
  *
  * Why not a library? react-resizable-panels et al. pull a few KB and a peer
  * dep tree we don't need; this primitive is ~40 lines.
@@ -28,7 +32,6 @@ export function DraggableSplit({
   initial = 0.5,
   min = 0.25,
   max = 0.75,
-  mobileSide = 'right',
   mobileBreakpoint = 1024,
 }: {
   left: React.ReactNode;
@@ -37,7 +40,6 @@ export function DraggableSplit({
   initial?: number;
   min?: number;
   max?: number;
-  mobileSide?: 'left' | 'right';
   mobileBreakpoint?: number;
 }) {
   const [pct, setPct] = useState<number>(() => {
@@ -112,20 +114,13 @@ export function DraggableSplit({
   const leftPct = `${pct * 100}%`;
   const rightPct = `${(1 - pct) * 100}%`;
 
-  // Host can hide the pane it doesn't want shown on mobile.
-  const showLeftMobile = mobileSide === 'left';
-  const showRightMobile = mobileSide === 'right';
-
   return (
     <div
       ref={containerRef}
       className="lg:flex lg:items-stretch lg:h-full lg:relative"
       style={{ minHeight: 0 }}
     >
-      <div
-        className={`${showLeftMobile ? 'block' : 'hidden'} lg:block`}
-        style={{ width: isWide ? leftPct : '100%' }}
-      >
+      <div className="block lg:block" style={{ width: isWide ? leftPct : '100%' }}>
         {left}
       </div>
       <div
@@ -156,10 +151,7 @@ export function DraggableSplit({
       >
         <div className="w-0.5 h-12 bg-gray-300 group-hover:bg-blue-500 rounded" />
       </div>
-      <div
-        className={`${showRightMobile ? 'block' : 'hidden'} lg:block`}
-        style={{ width: isWide ? rightPct : '100%' }}
-      >
+      <div className="block lg:block" style={{ width: isWide ? rightPct : '100%' }}>
         {right}
       </div>
     </div>

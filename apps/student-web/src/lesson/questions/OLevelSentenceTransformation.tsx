@@ -1,7 +1,6 @@
 import { useState, useEffect } from 'react';
 import type { ExamPaper, ExamQuestion } from '../examTypes';
-import { useExam } from '../ExamContext';
-import { useFollowRequestedQuestion } from '../useFollowRequestedQuestion';
+import { useExam, useFollowRequestedQuestion } from '../ExamContext';
 import { clean } from '../shared/textUtils';
 import { QuestionFlag } from '../shared/QuestionFlag';
 

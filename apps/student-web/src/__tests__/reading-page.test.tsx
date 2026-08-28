@@ -373,9 +373,20 @@ describe('AC-06 页面状态', () => {
       path.resolve(__dirname, '..', 'pages', 'Reading.tsx'),
       'utf8',
     );
-    for (const banned of ['clientSeq', 'superseded', 'setTimeout(', 'navigator.onLine']) {
+    // 页面**可以**把服务端给的序号原样递给引擎（返工 1/2 把这两个映射函数
+    // 搬回本文件），但**不许对它做任何运算**，也不许自己实现防抖 / 离线 /
+    // 对账。禁的是那些动作，不是字面量。
+    for (const banned of [
+      'superseded',
+      'setTimeout(',
+      'navigator.onLine',
+      "addEventListener('online'",
+      "addEventListener('offline'",
+    ]) {
       expect(src, banned).not.toContain(banned);
     }
+    // 序号只被读取与转发 —— 没有自增、没有比较、没有算术
+    expect(src).not.toMatch(/clientSeq\s*(\+\+|--|[-+*/]=|=[^=]|[<>]=?|\+\s*\d)/);
   });
 });
 
@@ -649,5 +660,135 @@ describe('AC-09 可访问性', () => {
     await settle();
     const submit = screen.getByTestId('submit');
     expect(submit.className).toMatch(/min-h-\[44px\]|hit/);
+  });
+});
+
+// ─────────────────────────────────────────────────────────────
+// 返工 1/2 —— B1：页面**恒定**用 test 模式
+// ─────────────────────────────────────────────────────────────
+
+describe('B1 页面恒定 test 模式', () => {
+  const keyedWire = (mode: string) =>
+    sessionWire({
+      mode,
+      paperQuestions: [
+        {
+          id: 'q1',
+          sortOrder: 1,
+          marks: 1,
+          questionType: 'mcq',
+          snapshotContent: { stem: 'Question one', correctOption: 'B', explanation: '因为 B 最合适' },
+          snapshotOptions: [
+            { key: 'A', text: 'Alpha' },
+            { key: 'B', text: 'Beta' },
+          ],
+        },
+      ],
+    });
+
+  it('**线缆说 mode:practice，页面也不给对错反馈与解析**', async () => {
+    routes['/api/morning-quiz/sessions/sess-1'] = { body: keyedWire('practice') };
+    mount();
+    await settle();
+    await act(async () => {
+      (screen.getAllByRole('radio')[0] as HTMLInputElement).click();
+    });
+    await settle();
+    expect(screen.queryByText(/因为 B 最合适/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/Correct/)).not.toBeInTheDocument();
+  });
+
+  it('**线缆里 mode 是垃圾值也一样**（不是靠 ?? 兜底才成立）', async () => {
+    routes['/api/morning-quiz/sessions/sess-1'] = { body: keyedWire('whatever') };
+    mount();
+    await settle();
+    await act(async () => {
+      (screen.getAllByRole('radio')[0] as HTMLInputElement).click();
+    });
+    await settle();
+    expect(screen.queryByText(/因为 B 最合适/)).not.toBeInTheDocument();
+  });
+});
+
+// ─────────────────────────────────────────────────────────────
+// 返工 1/2 —— B3：浏览器返回键
+//
+// 只挂 `beforeunload` 挡不住 SPA 的返回 —— 那不是页面卸载，是路由切换。
+// 学生用返回键退出考试是最常见的动作之一，必须与「退出」按钮同一套判据。
+// ─────────────────────────────────────────────────────────────
+
+describe('B3 浏览器返回键', () => {
+  const back = async () => {
+    await act(async () => {
+      window.dispatchEvent(new PopStateEvent('popstate'));
+    });
+  };
+
+  it('**有未保存内容时返回 → 留在阅读页并弹确认，不导航**', async () => {
+    vi.useFakeTimers();
+    routes['/api/morning-quiz/sessions/sess-1/answer'] = { status: 500, body: {} };
+    mount();
+    await settle();
+    await act(async () => {
+      (screen.getAllByRole('radio')[0] as HTMLInputElement).click();
+    });
+    await act(async () => {
+      vi.advanceTimersByTime(700);
+    });
+    await settle();
+    navigate.mockClear();
+    await back();
+    expect(navigate).not.toHaveBeenCalled();
+    expect(screen.getByTestId('exit-confirm')).toBeInTheDocument();
+    // 题目还在 —— 学生没被踢走
+    expect(screen.getByText('Question one')).toBeInTheDocument();
+  });
+
+  it('**确认之后才去 /today**', async () => {
+    vi.useFakeTimers();
+    routes['/api/morning-quiz/sessions/sess-1/answer'] = { status: 500, body: {} };
+    mount();
+    await settle();
+    await act(async () => {
+      (screen.getAllByRole('radio')[0] as HTMLInputElement).click();
+    });
+    await act(async () => {
+      vi.advanceTimersByTime(700);
+    });
+    await settle();
+    navigate.mockClear();
+    await back();
+    await act(async () => {
+      screen.getByRole('button', { name: /仍然退出/ }).click();
+    });
+    expect(navigate).toHaveBeenLastCalledWith('/today');
+  });
+
+  it('**没有未保存内容时返回 → 直接安全回 /today**', async () => {
+    mount();
+    await settle();
+    navigate.mockClear();
+    await back();
+    expect(navigate).toHaveBeenLastCalledWith('/today');
+    expect(screen.queryByTestId('exit-confirm')).not.toBeInTheDocument();
+  });
+
+  it('**返回键永远不去旧路由**', async () => {
+    mount();
+    await settle();
+    navigate.mockClear();
+    await back();
+    for (const c of navigate.mock.calls) {
+      expect(String(c[0])).not.toMatch(/my-history|morning-quiz|scan|student\//);
+    }
+  });
+
+  it('**卸载后不再响应 popstate**（监听器要摘干净）', async () => {
+    const { unmount } = mount();
+    await settle();
+    unmount();
+    navigate.mockClear();
+    await back();
+    expect(navigate).not.toHaveBeenCalled();
   });
 });

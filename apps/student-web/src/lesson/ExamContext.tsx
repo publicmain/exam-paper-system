@@ -9,10 +9,10 @@
  * 唯一新增的是 `mode`：引擎不管它（它是卷子的属性，不是保存状态），
  * 由页面从会话载荷里取出来往下传。阅读页永远传 `test`。
  */
-import { createContext, useContext, useMemo } from 'react';
+import { createContext, useContext, useEffect, useMemo } from 'react';
 import type { ReactNode } from 'react';
 import { useReading } from './ReadingProvider';
-import type { ExamAnswer, ExamMode } from './examTypes';
+import type { ExamAnswer, ExamMode, ExamQuestion } from './examTypes';
 
 const ModeCtx = createContext<ExamMode>('test');
 
@@ -45,6 +45,27 @@ export function useRequestedQuestion(): string | null {
 
 export function useRequestFocus(): (qid: string) => void {
   return useContext(FocusCtx).request;
+}
+
+/**
+ * 分页渲染器的「跳到某题」。
+ *
+ * 一屏一题的 O-Level 渲染器自己持有页码，而题号条在外壳里。学生点了
+ * 第 7 题，如果渲染器不翻页，`scrollIntoView` 找的是一个根本不在 DOM
+ * 里的元素 —— 表现就是「点题号没反应」。
+ */
+export function useFollowRequestedQuestion(
+  questions: ExamQuestion[] | undefined,
+  setIdx: (n: number) => void,
+): void {
+  const qid = useRequestedQuestion();
+  useEffect(() => {
+    if (!qid || !questions) return;
+    const i = questions.findIndex((q) => q.id === qid);
+    if (i >= 0) setIdx(i);
+    // setIdx 是 useState 的 setter，身份稳定，不进依赖数组
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [qid, questions]);
 }
 
 export function ExamModeProvider({ mode, children }: { mode: ExamMode; children: ReactNode }) {

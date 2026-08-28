@@ -305,10 +305,8 @@ describe('G1 新端不得出现旧路由与旧身份键', () => {
       'draftMerge.ts',
       'examTypes.ts',
       'questions',
-      'sessionToEngine.ts',
       'shared',
       'storage.ts',
-      'useFollowRequestedQuestion.ts',
     ]);
     expect(fs.readdirSync(path.join(SRC, 'lesson', 'questions')).sort()).toEqual([
       'IELTSReadingPassage.tsx',
