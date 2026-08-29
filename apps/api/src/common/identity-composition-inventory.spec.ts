@@ -215,7 +215,8 @@ const MANIFEST: Entry[] = [
   { key: `${F_LESSON} :: resolveByIdOrName -> words.resolveStudent`, klass: 'identity_resolution', expectAuth: false, note: '旧路径专用，两参数是有意的；这里出现 authStudentId 说明分支写错了' },
   { key: `${F_LESSON} :: markTaughtAndAdvance -> words.resolveStudent`, klass: 'identity_resolution', expectAuth: true, note: '第一次解析' },
   { key: `${F_LESSON} :: markTaughtAndAdvance -> startOrResumeToday`, klass: 'identity_forwarding', note: '**曾经在这里丢身份**：事务已提交、请求却 name_required' },
-  { key: `${F_LESSON} :: saveVocabCursor -> words.resolveStudent`, klass: 'identity_resolution', expectAuth: true, note: '叶子，无二次解析' },
+  { key: `${F_LESSON} :: saveVocabCursor -> words.resolveStudent`, klass: 'identity_resolution', expectAuth: true, note: '第一次解析' },
+  { key: `${F_LESSON} :: saveVocabCursor -> startOrResumeToday`, klass: 'identity_forwarding', note: 'S9D1：落完断点后对齐阶段，与 markTaughtAndAdvance 同一刀；漏传 authStudentId 会让 token-only 请求在这一步 name_required' },
   { key: `${F_LESSON} :: classBoard -> getToday`, klass: 'resolved_id_only', note: '教师看板：姓名与 id 都取自库里那行，不在学生令牌链上' },
 
   // ── student-word ──
@@ -334,10 +335,11 @@ describe('身份组合点：结构性清单（fail-closed）', () => {
 
   it('分类分布与阶段 5 的范围一致', () => {
     const count = (k: Klass) => MANIFEST.filter((e) => e.klass === k).length;
-    // 四个转发点：getToday→today、startOrResumeToday→today，外加曾经
-    // 出过缺陷的那两处（markTaughtAndAdvance→startOrResumeToday、
-    // attempt.start→buildQuiz）。范围外的九条只钉不改。
-    expect(count('identity_forwarding')).toBe(4);
+    // 五个转发点：getToday→today、startOrResumeToday→today，曾经出过缺陷的
+    // 那两处（markTaughtAndAdvance→startOrResumeToday、attempt.start→buildQuiz），
+    // 以及 S9D1 补的 saveVocabCursor→startOrResumeToday（复习路径的阶段对齐，
+    // 与教学路径同一刀）。范围外的九条只钉不改。
+    expect(count('identity_forwarding')).toBe(5);
     expect(count('out_of_scope')).toBe(9);
     expect(count('identity_resolution')).toBeGreaterThanOrEqual(18);
   });

@@ -9,19 +9,51 @@ import { LessonService } from './lesson.service';
  * 先读后写的实现无法通过这些断言。
  */
 
+/**
+ * S9D1：`saveVocabCursor` 落完断点之后会调 `startOrResumeToday`（与教学路径
+ * 同一刀，把阶段写库）。所以这个假 Prisma 要能撑起 `today()` 的只读面 ——
+ * **本片的断言仍然只看断点那一条写**，见下面的 `cursorWrites` / `cursorReads`。
+ */
 function makeSvc(opts: { updatedCount?: number; existingRow?: { vocabCursor: number } | null } = {}) {
   const updateMany = vi.fn().mockResolvedValue({ count: opts.updatedCount ?? 1 });
-  const findUnique = vi.fn().mockResolvedValue(
-    opts.existingRow === undefined ? { vocabCursor: 0 } : opts.existingRow,
-  );
+  const row = opts.existingRow === undefined ? { vocabCursor: 0 } : opts.existingRow;
+  const findUnique = vi.fn().mockImplementation(async (args: any) => {
+    // 断点回读：只给 vocabCursor（saveVocabCursor 自己那一次）
+    if (args?.select?.vocabCursor && Object.keys(args.select).length === 1) return row;
+    // today() 的两次读：没有当日任务行就让它什么都不写
+    return null;
+  });
   const prisma: any = {
-    dailyLessonCompletion: { updateMany, findUnique },
+    dailyLessonCompletion: { updateMany, findUnique, findMany: vi.fn().mockResolvedValue([]) },
+    user: {
+      findUnique: vi.fn().mockResolvedValue({ englishLevel: 'olevel' }),
+      findFirst: vi.fn().mockResolvedValue(null),
+      updateMany: vi.fn().mockResolvedValue({ count: 0 }),
+    },
+    morningQuizSession: { findMany: vi.fn().mockResolvedValue([]) },
+    studentSubmission: { findFirst: vi.fn().mockResolvedValue(null) },
+    mistakeEntry: { count: vi.fn().mockResolvedValue(0) },
+    wordReviewLog: { findMany: vi.fn().mockResolvedValue([]) },
+    vocabQuizAttempt: { findFirst: vi.fn().mockResolvedValue(null) },
+    studentWord: {
+      findMany: vi.fn().mockResolvedValue([]),
+      count: vi.fn().mockResolvedValue(0),
+    },
   };
   const words: any = {
     resolveStudent: vi.fn().mockResolvedValue({ id: 'stu-1', name: '张三' }),
   };
-  const svc = new LessonService(prisma, words, {} as any, {} as any);
-  return { svc, updateMany, findUnique, words };
+  const svc = new LessonService(prisma, words, {} as any,
+    { practiceQueue: vi.fn().mockResolvedValue({ items: [] }) } as any);
+  /** 只数**断点**那一条条件写（today() 的阶段写不算在内）。 */
+  const cursorWrites = () =>
+    updateMany.mock.calls.filter((c: any[]) => c[0]?.data?.vocabCursor !== undefined);
+  /** 只数断点回读（today() 自己的两次读不算）。 */
+  const cursorReads = () =>
+    findUnique.mock.calls.filter(
+      (c: any[]) => c[0]?.select?.vocabCursor && Object.keys(c[0].select).length === 1,
+    );
+  return { svc, updateMany, findUnique, words, cursorWrites, cursorReads };
 }
 
 describe('saveVocabCursor —— 单调写入（数据库条件更新）', () => {
@@ -39,15 +71,16 @@ describe('saveVocabCursor —— 单调写入（数据库条件更新）', () =>
 
   it('**旧标签页较小 cursor 不覆盖较新进度**：匹配 0 行 → 回读真实值', async () => {
     // 库里已经是 7；旧标签页上报 3 → WHERE vocabCursor < 3 匹配不到
-    const { svc, updateMany, findUnique } = makeSvc({
+    const { svc, cursorWrites, cursorReads } = makeSvc({
       updatedCount: 0,
       existingRow: { vocabCursor: 7 },
     });
     const r = await svc.saveVocabCursor({ studentName: '张三', cursor: 3 });
 
     expect(r).toEqual({ ok: true, cursor: 7, stored: true });
-    expect(updateMany).toHaveBeenCalledTimes(1);
-    expect(findUnique).toHaveBeenCalledTimes(1);
+    // 断点这条链仍然是「一次条件写 + 一次回读」，不做读改写
+    expect(cursorWrites()).toHaveLength(1);
+    expect(cursorReads()).toHaveLength(1);
   });
 
   it('相等 cursor（重复上报）不写库', async () => {
@@ -72,11 +105,11 @@ describe('saveVocabCursor —— 单调写入（数据库条件更新）', () =>
 
   it('没有当日记录（学生还没打开过课程页）→ stored:false，**不创建**', async () => {
     // 创建是 today(freeze:true) 的职责（那里才有目标冻结逻辑）
-    const { svc, updateMany } = makeSvc({ updatedCount: 0, existingRow: null });
+    const { svc, cursorWrites } = makeSvc({ updatedCount: 0, existingRow: null });
     const r = await svc.saveVocabCursor({ studentName: '张三', cursor: 4 });
     expect(r).toEqual({ ok: true, cursor: 0, stored: false });
-    // 只发了条件更新，没有任何 create
-    expect(updateMany).toHaveBeenCalledTimes(1);
+    // 只发了条件更新，没有任何 create（也没有走到 today —— 没有任务行就直接返回）
+    expect(cursorWrites()).toHaveLength(1);
     expect((svc as any).prisma?.dailyLessonCompletion?.create).toBeUndefined();
   });
 

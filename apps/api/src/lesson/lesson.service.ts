@@ -1119,15 +1119,49 @@ export class LessonService {
     // 没更新到：要么没有当日记录（学生还没打开过课程页 —— 创建是
     // today(freeze:true) 的职责，那里才有完整的目标冻结逻辑），要么
     // 库里已经领先。回读一次把真实值告诉前端。
+    let cursor = wanted;
+    let stored = true;
     if (bumped.count === 0) {
       const row = await this.prisma.dailyLessonCompletion.findUnique({
         where: { studentId_date: { studentId: student.id, date: day } },
         select: { vocabCursor: true },
       });
-      if (!row) return { ok: true as const, cursor: 0, stored: false };
-      return { ok: true as const, cursor: row.vocabCursor, stored: true };
+      if (!row) {
+        // 没有当日任务行 —— **什么都不建**，行为与从前逐字一致。
+        return { ok: true as const, cursor: 0, stored: false };
+      }
+      cursor = row.vocabCursor;
     }
-    return { ok: true as const, cursor: wanted, stored: true };
+
+    // ── 阶段对齐（S9D1）——与教学路径同一刀 ──
+    //
+    // 正式测试的阶段门读的是**落库**的 `DailyLessonCompletion.stage`，而
+    // `/lesson/today` 返回的是推导 + 钳制之后的值。两者只有在有人把推导值
+    // 写回库时才一致，而写回只发生在 `today(freeze:true)`。
+    //
+    // 教学路径早就补过这一刀（见 `markTaughtAndAdvance` 结尾的注释：
+    // 「不落库的话学生教完最后一张卡也开不了正式测试」）。复习路径一直没有 ——
+    // 于是纯复习日走完四张卡之后，`/lesson/today` 说 `vocab_test`、UI 显示
+    // 「开始单词测试」，点下去 `attempt/start` 读到落库的 `reading`，
+    // 409 `stage_not_ready`，弹回今天的课。学生靠自己出不去。
+    // staging 上的 t5_review 实测就是这样。
+    //
+    // 三条边界：
+    //   · **只有任务行确实存在时才走**（上面已经 return 掉 stored=false），
+    //     所以这里不会凭空创建任务行；
+    //   · 阶段规则**不在这里重写一份** —— 推导、单调钳制、写不写，全部沿用
+    //     `today()` 那一套；
+    //   · 身份**整条链传下去**，含 `authStudentId`。token-only 请求里
+    //     `studentName` / `studentId` 都是空的，漏传会让这一步报
+    //     `name_required`（教学路径踩过同一个坑）。
+    await this.startOrResumeToday({
+      studentName: input.studentName,
+      studentId: input.studentId,
+      authStudentId: input.authStudentId,
+    });
+
+    // 响应形状与从前**逐字一致**：{ ok, cursor, stored }
+    return { ok: true as const, cursor, stored };
   }
 
   // ─────────────────── 教师端看板（PRD §4） ───────────────────
