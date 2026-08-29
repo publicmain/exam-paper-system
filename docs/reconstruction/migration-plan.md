@@ -33,7 +33,7 @@
 | **6** | **今天的课（`/today` 枢纽）** | **✅ PASS** —— 6A 本地 + 6B staging 八账号实机 | | ✓ | ✓ |
 | **7** | **阅读页（单独阶段）** | 🔧 **7A–7D 均本地完成**；7E 环境就绪，**真机验收由用户跳过并接受残余风险**（不是 PASS） | | **✓ 单独** | **✓ 单独** |
 | **8** | **阅读结果页** | 🔧 **8A 本地完成**（未部署、未真机） | | ✓ | ✓ |
-| **9** | **课程学词 + 正式测试** | 🔧 **9A** + **9B0** + **9B1 正式测试** 均本地完成（未部署、未真机）；staging / 真机验收**未做** | | ✓ | ✓ |
+| **9** | **课程学词 + 正式测试** | 🔧 **9A 已在 staging 实机验证**（新词日 + 纯复习日）；**9B0/9B1 仅本地**，正式测试实机验证**未做** | | ✓ | ✓ |
 | 10 | 今日总结 | ⬜ | | ✓ | ✓ |
 | 11 | 账号制历史成绩 | ⬜ | | ✓ | ✓ |
 | 12 | 生词本与错题本 | ⬜ | | ✓ | ✓ |
@@ -2222,6 +2222,120 @@ GET  /lesson/today            ← 交卷后刷新，按 kind 路由到 /lesson/r
 阶段 9 的 staging 与真机验收**都没有做过**，阶段 9 整体仍未完成。
 
 **回滚**：`git revert` 9B1 这一个提交。
+
+### 阶段 9C2 —— 纯复习日入口修复 + staging 实机验证　**已执行**（2026-08-29）
+
+`task_id: S9C2-PURE-REVIEW-ENTRY-FIX-LIVE` · base `4c8bea1`。
+证据层级 = **本地运行时测试 + 已部署的 staging API + staging 浏览器/API 投影**。
+**无真机、无生产**；数据库只做只读观察。
+
+#### 根因
+
+阶段机进入学词段的唯一条件是 `hasUnlearnedWords`（当天还有没教过的新词）。
+它只看**新词**，于是队列全是教过的复习词时它从一开始就是 false —— 阶段从
+「读完」直接跳到 `vocab_test`，`/lesson/vocab` 永远进不去，那些复习卡一次都
+发不出来。9A 实现的整套复习卡体验（遮词、显示答案、1500ms 停留锁、两档评分、
+撤销、弱网队列）在纯复习日**没有入口**。混合日同样中招：最后一个新词教完的
+那一刻新词就没了，剩下的复习卡被整段跳过。
+
+staging 上的 `t5_review` 就是活样本：四张 `state: review` 的卡摆在队列里，
+`nextAction.kind` 却是 `vocab_test`。
+
+#### 规则改动
+
+判据换成 `coursePendingOf`（lesson-rules.ts）：**断点走到队列尽头没有**。
+
+```
+剩余 = 冻结队列 ∩ 学生仍然拥有的词（顺序由 lessonCardOrder 决定，不重排）
+还有卡 = 断点 < 剩余张数
+```
+
+教学与复习推的是**同一个断点**，所以纯新词、纯复习、混合三种日子共用这一条。
+三条边界：已经开考一律 false（不把人从考试拉回学词段）；没有冻结队列的旧任务行
+沿用旧信号 `legacyHasUnlearnedWords`，行为一个字不改；脏断点当 0。
+
+**刻意没有用 `!vocabSettled` 当入口条件** —— 背段 progress 数的是当天的复习
+流水，而首次教学不写 FSRS，那样会把纯新词日的学生永远关在学词段里（P5 那次
+unlearned 死锁的翻版）。
+
+`LESSON_RULES_VERSION` 2 → 3。**无 schema / 迁移改动，无新写路径，端点请求与
+响应形状一个字段没动。**
+
+#### 本地 RED → GREEN
+
+RED（对着 base，三条全红，各自 `expected 'vocab_test' to be 'vocab_learn'`）：
+纯复习日应进 vocab_learn / 混合日不该跳过剩余复习卡 / 过早跳段后刷新仍应回得去。
+GREEN：新增 `src/lesson/course-card-entry.spec.ts`（18 项，覆盖 AC-03 ~ AC-06），
+六个受影响的 lesson 测试文件 114 项全绿。
+全量退出码均为 0：`apps/api` **1217** 项 + tsc + build；
+`apps/student-web` **542** 项 + tsc；`apps/web` **247** 项 + tsc。
+运行时修复提交 `0dfcb41`。
+
+#### 部署
+
+只部署 `stg-api`：回滚锚点 `bddcc427-01e8-455c-b661-65d85b4dd5d5` →
+**`28405280-2973-48ce-aeee-b7320f38bf74`**。其余三个服务部署 ID、四个域名、
+三个服务的变量键集合、`STUDENT_APP_V2`（未设）、CORS 全部未变；
+health 200、ready 200、学生源预检 204 且 allow-origin 逐字正确。
+部署前已证 `apps/api/prisma/` 对 base 零差异（35 个迁移、schema blob SHA 不变）。
+
+#### t5 的状态：**授权的那次数据库写入没有发生**
+
+AC-09 授权了一次受保护的 `DailyLessonCompletion` 写。**实际不需要，因此没写。**
+只读快照发现：t5 的**落库** stage 一直是 `reading`（之前投影里的 `vocab_test`
+是每次读取时推导出来的，`clampStage` 只在 freeze 写入时落库），`vocabCursor`
+已经是 0。新规则下推导即为 `vocab_learn`，`clampStage('reading','vocab_learn')`
+不会被钳制 —— 部署完成后账号自己就进得去了。
+**因此这一轮的实机验证跑在完全未被改动的夹具状态上，证据更强。**
+（顺带记一个坑：DLC 的 `date` 存的是 SGT 零点的 UTC 瞬刻 `…T16:00:00Z`，
+不是 UTC 午夜；按 UTC 午夜查会查不到行。）
+
+#### staging 实机：纯复习日全链（测试五号）
+
+入口 `GET /lesson/today` → `GET /vocab/lesson-cards`，两者**无查询串**；
+`lessonContext: true`，四张复习卡按冻结顺序 ripple → vessel → willow → anchor。
+
+- **正面不泄词**：中文提示 + 挖空例句（`The ______ lay still…`），无 headword 元素；
+- **显示答案**后出现 `ripple`，恰好两档评分（again / good）；
+- **停留锁精确测得**：1409ms 仍锁、2405ms 仍锁、2513ms 解锁 ⇒ 满足「至少 1500ms」；
+- **一次 good** ⇒ 恰好 1 次 `POST /vocab/review`（体 `elapsedMs / headword /
+  rating / requestId`，**无身份字段**）→ 1 次 `POST /lesson/vocab-cursor`（体 `cursor`）
+  → 出队；回执「下次 4 天后再见」；
+- **撤销**：1 次 POST（体只有 `headword`）⇒ 回到同一张卡、进度 2/4 → 1/4、
+  背面重新藏起、**仍在 `/lesson/vocab`**，没有跳去自由练习；随后重评成功；
+- **中途整页刷新**后直接进 `/lesson/vocab` ⇒ 恢复到 willow、进度 2/4，不是第一张；
+- 四张走完 ⇒ 完成页、`sw:vocab:pending` = `[]`、无待同步横幅。
+
+**最终投影**：`stage = vocab_test`、`nextAction.kind = vocab_test`、
+课程断点 4 = 总卡数 4、待补传队列为空。
+`segments.vocab` 为 `partial`（progress 4/4）—— 按**已批准的 AC-08 口径**记录：
+课程卡完成由「断点 = 总卡数 + 队列为空 + 阶段推进」证明，`segments.vocab.status`
+在正式测试交卷前允许停在 `todo` / `partial`，不算失败。
+**全程零次** `/vocab/due`、自由练习出题、错题、正式测试端点；未进入 `/lesson/test`。
+
+#### 回归与不变量
+
+`t4_newwords` 仍是 `stage: vocab_test` / `cursor: 4`，与本任务开始前逐字一致，
+无阶段回退、无新的课程或测试写入。其余六个夹具账号 `stage: reading` /
+`cursor: 0`，**一个都没碰**。全库 `VocabQuizAttempt` 计数为 **0**。
+近 90 分钟的复习流水只有 `t5_review` 的 **4** 条。所有账号 `rulesVersion` 仍是 2
+（本轮没有触发过 reconcile，队列一个字没改）。
+两个账号均已登出，浏览器 `localStorage` 为空。
+
+#### 持久化影响
+
+仅 `t5_review`：`vocabCursor` 0 → 4、4 条 `WordReviewLog`、四个 `StudentWord`
+被 FSRS 重新调度（`reps` 4 → 5、`state` review → learning）。**全部经由正常的
+课程 API 产生，Claude 没有直接写过任何一行数据库。**
+
+#### 仍然缺的
+
+**阶段 9 未完成** —— 正式单词测试（9B1）的实机验证还没做过：没有开考、没有作答、
+没有交卷。`/lesson/summary` 仍是占位页。两个账号现在都停在 `vocab_test`，
+可供下一份单独授权的合同使用。
+
+**回滚**：运行时改动 `git revert 0dfcb41`；stg-api 重新部署
+`bddcc427-01e8-455c-b661-65d85b4dd5d5` 即可。
 
 ### 阶段 9C1 —— staging 部署与传输冒烟　**已执行**（2026-08-29）
 
