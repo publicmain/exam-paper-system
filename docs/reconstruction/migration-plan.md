@@ -33,7 +33,7 @@
 | **6** | **今天的课（`/today` 枢纽）** | **✅ PASS** —— 6A 本地 + 6B staging 八账号实机 | | ✓ | ✓ |
 | **7** | **阅读页（单独阶段）** | 🔧 **7A–7D 均本地完成**；7E 环境就绪，**真机验收由用户跳过并接受残余风险**（不是 PASS） | | **✓ 单独** | **✓ 单独** |
 | **8** | **阅读结果页** | 🔧 **8A 本地完成**（未部署、未真机） | | ✓ | ✓ |
-| **9** | **课程学词 + 正式测试** | 🔧 **9A 已在 staging 实机验证**（新词日 + 纯复习日）；**9B0/9B1 仅本地**，正式测试实机验证**未做** | | ✓ | ✓ |
+| **9** | **课程学词 + 正式测试** | 🔧 **9A 已在 staging 实机验证**（新词日 + 纯复习日）；9D 发现纯复习日开不了考、9D1 已修并部署；**正式测试实机链路仍未跑过，阶段 9 PENDING** | | ✓ | ✓ |
 | 10 | 今日总结 | ⬜ | | ✓ | ✓ |
 | 11 | 账号制历史成绩 | ⬜ | | ✓ | ✓ |
 | 12 | 生词本与错题本 | ⬜ | | ✓ | ✓ |
@@ -2358,6 +2358,79 @@ AC-09 授权了一次受保护的 `DailyLessonCompletion` 写。**实际不需�
 > 复习流水会被会话时区带偏 —— 裸 `timestamp` 与 `timestamptz` 比较时按会话时区
 > 解释，8 小时前的行会落进「30 分钟内」。可靠证据是**时间戳本身**：t5 的四条
 > 流水是 `05:40–05:43 UTC`（S9C2 那次会话），返工这一轮零新增。
+
+### 阶段 9D / 9D1 —— 正式测试实机验证**未通过**，先修复入口（2026-08-29）
+
+#### S9D：NO-GO，撞到真实缺陷
+
+`task_id: S9D-FORMAL-QUIZ-STAGING-LIVE`。用 t5 走正式测试全链，在第一步就停了：
+
+```
+POST /api/vocab/quiz/attempt/start {}  → 409
+{ "code": "stage_not_ready", "stage": "reading" }
+```
+
+三次尝试全部 409，**一份 attempt 都没建**；数据库前后逐字节未变。
+
+根因：`/lesson/today` 返回的是**推导 + 钳制之后**的阶段（`vocab_test`），
+而 `attempt/start` 的阶段门读的是**落库**的 `DailyLessonCompletion.stage`
+（`reading`）。两者只有在有人把推导值写回库时才一致，而写回只发生在
+`today(freeze:true)`。
+
+教学路径早就补过这一刀 —— `markTaughtAndAdvance()` 结尾调
+`startOrResumeToday()`，它自己的注释写着「不落库的话学生教完最后一张卡也
+开不了正式测试」。**复习路径一直没有这一刀。** 于是 S9C2 让纯复习日
+**进得去**学词段，却没让它**走得出去**：学生把四张复习卡做完、看到
+「开始单词测试」、点下去被服务端拒绝，弹回今天的课，靠自己出不来。
+
+#### S9D1：补上同一刀（提交 `387576a`，部署 `9236058d-46e4-4330-bfbe-87100a932980`）
+
+`saveVocabCursor()` 在**确认当日任务行确实存在之后**（`stored:false` 已提前
+return，所以不会凭空创建任务行）走同一个 `startOrResumeToday`，身份整条链
+传下去含 `authStudentId`。阶段规则不在这里重写一份；响应形状
+`{ ok, cursor, stored }` 逐字未变；cursor 的直接写仍然只有那一条条件更新。
+
+**RED（对着 `aff17a5`）**：新增 `vocab-cursor-stage.spec.ts` 跑出 6 failed /
+6 passed，三条必需项全中 —— cursor 3→4 后落库阶段停在 `reading`、重复上报
+cursor 4 也不对齐、以及把那一行喂给**原样未改**的 `VocabQuizAttemptService`
+阶段门确实抛 `stage_not_ready`。修复后 12/12 全绿。
+
+连带改了两处测试（均未放松断言）：`lesson.service.spec.ts` 的假 Prisma 要
+撑起 `today()` 的只读面，断点相关的次数断言改成只数断点那一条；
+`identity-composition-inventory.spec.ts` 登记新的转发点
+`saveVocabCursor -> startOrResumeToday` 并把转发点计数 4 → 5 —— 那是
+fail-closed 注册表，新增转发点按设计必须登记。
+**范围说明**：后者不在 S9D1 合同的 ALLOWED_SCOPE 里，是被守卫强制要求的
+登记，已在交接里单独声明。
+
+本地退出码均为 0：`apps/api` **1234** 项 + tsc + build；
+`apps/student-web` **542** 项 + tsc；`apps/web` **247** 项 + tsc；prisma 零差异。
+
+**t5 实机对账**（一次 `POST /lesson/vocab-cursor`，体恰好 `{cursor:4}`，
+无查询串、无身份字段 → 201 `{ok,cursor:4,stored:true}`）：
+
+| 项 | 前 | 后 |
+|---|---|---|
+| 落库 `stage` | `reading` | **`vocab_test`** ✓ |
+| `vocabCursor` | 4 | 4 |
+| `rulesVersion` | 2 | 3（既有 reconcile 规则） |
+| `VocabQuizAttempt` | 0 | **0**（未开考） |
+| t5 四词 FSRS 字段 | — | **逐字节未变** |
+| WordReviewLog 计数 | t1=8 / t5=4 | **未变** |
+| t4 与其余六个账号 | — | **未变** |
+
+`/lesson/today` 前后都是 `stage / kind = vocab_test`，与落库值**现在一致**。
+全程未调用 `attempt/start` / `answer` / `submit`。
+
+**阶段 9 仍为 PENDING** —— 正式测试的实机链路（开考 → 逐题作答 → 交卷 →
+路由到总结）**一次都没跑过**。这一轮只是把入口修通。
+`/lesson/summary` 仍是占位页，阶段 10 未开始。
+
+**回滚**：`git revert 387576a`；stg-api 重新部署
+`73298a43-16af-484a-bb98-114764e01fe3`。断点调用是幂等的，不需要也不应该
+用 SQL 去撤销那次预期内的阶段对齐。
+
+---
 
 **回滚**：运行时改动 `git revert 0dfcb41`；stg-api 重新部署
 `bddcc427-01e8-455c-b661-65d85b4dd5d5` 即可。
