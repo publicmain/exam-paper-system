@@ -19,6 +19,7 @@ import AccountPage from './pages/Account';
 import LessonPlaceholder from './pages/LessonPlaceholder';
 import ReadingPage from './pages/Reading';
 import ReadingResultPage from './pages/ReadingResult';
+import LessonVocabPage from './pages/LessonVocab';
 import { Screen } from './ui';
 
 export default function App() {
@@ -59,10 +60,10 @@ export default function App() {
         五条课程路由 —— 阶段 6A 起**真的注册**，渲染统一占位页。
         阶段 7–10 各自实现时只替换这里的组件，路径不动。
       */}
-      {/* 阶段 7C / 8A 起阅读与阅读结果是真页面；其余三条仍是占位。 */}
+      {/* 阶段 7C / 8A / 9A 起阅读、阅读结果、课程学词是真页面；其余两条仍是占位。 */}
       <Route path={ROUTES.reading} element={<ReadingPage />} />
       <Route path={ROUTES.readingResult} element={<ReadingResultPage />} />
-      <Route path={ROUTES.lessonVocab} element={<LessonPlaceholder stage="lessonVocab" />} />
+      <Route path={ROUTES.lessonVocab} element={<LessonVocabPage />} />
       <Route path={ROUTES.lessonTest} element={<LessonPlaceholder stage="lessonTest" />} />
       <Route path={ROUTES.summary} element={<LessonPlaceholder stage="summary" />} />
       <Route path="*" element={<Navigate to={fallbackPath(authed)} replace />} />

@@ -329,7 +329,129 @@ export const api = {
     token: string,
     body: { submissionId: string; paperQuestionId?: string; message: string },
   ) => request<AppealCreated>('POST', '/morning-quiz/appeals', { body, token }),
+
+  // ── 课程学词（阶段 9A）；五条全是**认证后，零身份参数** ──
+  //
+  // 后端这几条的 schema 里都还留着 `name` / `studentName` / `studentId`
+  // 这些**可选**字段（旧端在用），`identityOf()` 会优先认令牌。新端
+  // **一个都不传** —— 传了就等于给自己开一个「指定别人身份」的口子。
+  //
+  // `GET /vocab/lesson-cards` 同样**不带任何查询串**：它的 `?name=` /
+  // `?studentId=` 是旧端的入口，新端只靠 Bearer。
+
+  lessonCards: (token: string) =>
+    request<LessonCardsResult>('GET', '/vocab/lesson-cards', { token }),
+
+  /**
+   * 教学卡「下一个」——**一次调用**同时标记「教过」并推进断点。
+   *
+   * 后端刻意把这两件事合成一个事务（见 lesson.controller 注释）：分两步时
+   * 中间有「cursor 前进了但 firstTaughtAt 没写」的窗口，会把阶段永久锁死在
+   * 学词那一段。所以新端也**只走这一条**，不再拼两个请求。
+   */
+  vocabTaught: (token: string, body: { headword: string; cursor: number }) =>
+    request<VocabTaughtResult>('POST', '/lesson/vocab-taught', { body, token }),
+
+  vocabReview: (
+    token: string,
+    body: { headword: string; rating: CourseRating; elapsedMs: number; requestId: string },
+  ) => request<VocabReviewResult>('POST', '/vocab/review', { body, token }),
+
+  vocabReviewUndo: (token: string, body: { headword: string }) =>
+    request<VocabUndoResult>('POST', '/vocab/review/undo', { body, token }),
+
+  vocabCursor: (token: string, body: { cursor: number }) =>
+    request<VocabCursorResult>('POST', '/lesson/vocab-cursor', { body, token }),
 };
+
+// ─────────────────────────────────────────────────────────────
+// 课程学词（阶段 9A）
+//
+// 类型按**服务端实际返回的字段**写：
+//   · `vocab-review.service.ts` 的 `lessonCards` / `review` / `undo`
+//   · `lesson.service.ts` 的 `markTaughtAndAdvance` / `saveVocabCursor`
+// ─────────────────────────────────────────────────────────────
+
+/**
+ * 课程评分**只有两档**。
+ *
+ * 后端的 schema 收四档（`again|hard|good|easy`，自由练习线在用），课程线
+ * 刻意只发两档 —— 四档降两档是 RC1.1 的既有产品决定，手机上四个按钮挨在
+ * 一起时误触是常态。类型在这里就收窄，别指望 UI 自觉。
+ */
+export type CourseRating = 'again' | 'good';
+
+export interface LessonCard {
+  headword: string;
+  /** 文章里的原形（可能是变位形式）；遮词时两个都要遮。 */
+  surfaceForm: string | null;
+  contextSentence: string | null;
+  sourcePassageTitle: string | null;
+  phonetic: string | null;
+  translation: string;
+  pos: string | null;
+  definition: string | null;
+  tag: string[];
+  state: string;
+  reps: number;
+  /** 服务端说的：这个词还没教过，该走教学卡而不是复习卡。 */
+  needsFirstTeaching: boolean;
+  firstTaughtAt: string | null;
+  sourceType: string;
+  addedAt: string;
+}
+
+/**
+ * 有课时返回队列，没课时返回 `{ lessonContext: false, cards: [], … }`。
+ *
+ * 响应里其实还有一个 `student: { id, name }`。**这里刻意不声明它** ——
+ * 声明了就会有人去读，读了就会有人拿它当身份。身份只有令牌一个来源，
+ * 页面上要显示谁，问 `/student-auth/me`。
+ */
+export interface LessonCardsResult {
+  lessonContext: boolean;
+  /** 服务端的断点。前端**不自己猜**「第几张」。 */
+  cursor: number;
+  totalDue: number;
+  /** **发卡顺序就是这个数组的顺序**，前端不得重排、不得过滤。 */
+  cards: LessonCard[];
+}
+
+export interface VocabTaughtResult {
+  ok: true;
+  headword: string;
+  /** 服务端确认的断点 —— 可能比我们请求的更靠前（别的标签页推过了）。 */
+  cursor: number;
+  /** false = 当日任务行不存在，断点**没有落库**。 */
+  stored: boolean;
+  alreadyTaught: boolean;
+  stage: string;
+}
+
+export interface VocabReviewResult {
+  headword: string;
+  state: string;
+  due: string;
+  intervalDays: number;
+  reps: number;
+  /** 同一个 requestId 已经记过 —— 这次是弱网重发，不是第二次复习。 */
+  duplicate?: true;
+  /** 停留太短，服务端**没有写调度**：这张卡下次还会回来。 */
+  tooFast?: true;
+}
+
+export interface VocabUndoResult {
+  headword: string;
+  undone: true;
+  reps: number;
+  state: string;
+}
+
+export interface VocabCursorResult {
+  ok: true;
+  cursor: number;
+  stored: boolean;
+}
 
 // ─────────────────────────────────────────────────────────────
 // 阅读会话（阶段 7B）

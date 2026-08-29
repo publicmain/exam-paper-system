@@ -373,6 +373,14 @@ describe('G1 新端不得出现旧路由与旧身份键', () => {
     // 后端 schema 虽然还收 studentName / studentId，新端一个都不传。
     '/morning-quiz/student-result/:id',
     '/morning-quiz/appeals',
+    // 阶段 9A：课程学词。五条都是**认证后**端点 —— 零身份参数。
+    // `/vocab/lesson-cards` 后端还收 `?name=` / `?studentId=`（旧端入口），
+    // 新端**一个查询串都不带**。
+    '/vocab/lesson-cards',
+    '/lesson/vocab-taught',
+    '/vocab/review',
+    '/vocab/review/undo',
+    '/lesson/vocab-cursor',
   ] as const;
 
   /**
@@ -672,7 +680,7 @@ describe('G1 新端不得出现旧路由与旧身份键', () => {
     // 而调用方（IELTSReadingPassage）写的全是 sw: 前缀 —— 下一条单独钉住。
     for (const w of writes) {
       expect(w).toMatch(
-        /identity\.ts:(TOKEN_KEY|probe|k)$|storage\.ts:key$|(Highlighter|StickyNote|DraggableSplit)\.tsx:(storageKey|key)$/,
+        /identity\.ts:(TOKEN_KEY|probe|k)$|storage\.ts:key$|(Highlighter|StickyNote|DraggableSplit)\.tsx:(storageKey|key)$|review-queue\.ts:(QUEUE_KEY|probe)$/,
       );
     }
   });
@@ -911,6 +919,206 @@ describe('G-8A 阅读结果只读且零身份', () => {
 
     it('**注释里提到旧路由不算违规**（守卫剥注释，否则没人敢写理由）', () => {
       expect(resultSurfaceHits('// 我们不跳 /my-history\nnavigate(ROUTES.today);')).toEqual([]);
+    });
+  });
+});
+
+// ─────────────────────────────────────────────────────────────
+// G-9A —— 课程学词这一面的静态守卫
+//
+// 这一屏最容易坏的方式不是崩，是**悄悄换了词表**：拿不到课程队列时退回
+// `/vocab/due` 的自由练习。学生以为在上今天的课，实际在刷另一个词表，
+// 课程完成度永远不动 —— 旧端就是这么写的。所以这条单独立规矩，而且要有
+// 反向夹具证明它抓得住。
+//
+// 「课程学词面」= 页面 + 队列 + 纯逻辑三个文件。api.ts 是共享的，
+// 不在这一面里（它由全局的端点清点守着）。
+// ─────────────────────────────────────────────────────────────
+describe('G-9A 课程学词只走课程线', () => {
+  const SURFACE = [
+    path.join(SRC, 'pages', 'LessonVocab.tsx'),
+    path.join(SRC, 'lib', 'review-queue.ts'),
+    path.join(SRC, 'lib', 'vocab-card.ts'),
+  ];
+  const readSurface = () =>
+    SURFACE.map((f) => ({ f, text: stripComments(fs.readFileSync(f, 'utf8')) }));
+
+  const VOCAB_FORBIDDEN: Array<{ why: string; re: RegExp }> = [
+    { why: '退回自由练习队列 /vocab/due', re: /\/vocab\/due/ },
+    { why: '旧历史页', re: /\/my-history/ },
+    { why: '旧生词本页', re: /\/my-vocab/ },
+    { why: '旧错题页', re: /\/my-mistakes/ },
+    { why: '扫码入口', re: /\/scan\b/ },
+    { why: '旧学生外壳', re: /\/student(?![-\w])/ },
+    { why: '请求体里带身份字段', re: /\b(name|studentName|studentId)\s*:/ },
+    { why: 'URL 里带身份', re: /[?&](name|studentId)=/ },
+    { why: 'then / after 协议', re: /\bthen=|\bafter=/ },
+    { why: '拿后端 href 当导航权威', re: /\.\s*href\b/ },
+    { why: '自测 / 错题端点', re: /\/vocab\/quiz|\/vocab\/mistakes/ },
+    { why: '在这一屏里做早测 / 正式测试', re: /\/morning-quiz\// },
+    { why: '非 sw: 的持久化键', re: /['"`](?!sw:)[A-Za-z_][\w-]*:[A-Za-z_]/ },
+  ];
+
+  function vocabHits(code: string): string[] {
+    const text = stripComments(code);
+    return VOCAB_FORBIDDEN.filter(({ re }) => re.test(text)).map(({ why }) => why);
+  }
+
+  /** 抽出一个顶层 `function X(...) { … }` 的正文。 */
+  function blockOf(src: string, name: string): string {
+    const start = src.indexOf(`function ${name}(`);
+    if (start < 0) return '';
+    // 找**顶层**的收尾花括号。只找 `\n}` 会撞上参数类型注解里的 `}: {`，
+    // 把函数体截成一小段 —— 那样守卫看起来是绿的，其实什么都没查。
+    const end = src.indexOf('\n}\n', start);
+    return src.slice(start, end < 0 ? undefined : end);
+  }
+
+  /** 完成页里 `pending > 0 ? ( … ) : ( … )` 的**待同步**那一支。 */
+  function pendingBranch(src: string): string {
+    const from = src.indexOf('{pending > 0 ? (');
+    if (from < 0) return '';
+    const to = src.indexOf(') : (', from);
+    return to < 0 ? '' : src.slice(from, to);
+  }
+
+  it('页面真的存在，占位页已经被替换掉', () => {
+    for (const f of SURFACE) expect(fs.existsSync(f), f).toBe(true);
+    const app = stripComments(fs.readFileSync(path.join(SRC, 'App.tsx'), 'utf8'));
+    expect(app).toMatch(/ROUTES\.lessonVocab\}\s*element=\{<LessonVocabPage/);
+    expect(app).not.toMatch(/lessonVocab\}\s*element=\{<LessonPlaceholder/);
+  });
+
+  it('**这一面干净**：没有自由练习回退、旧路由、身份、href、非 sw: 键', () => {
+    const hits: string[] = [];
+    for (const { f, text } of readSurface()) {
+      for (const why of vocabHits(text)) hits.push(`${path.relative(SRC, f)} → ${why}`);
+    }
+    expect(hits).toEqual([]);
+  });
+
+  it('**只调这六个课程端点**，一个都不多', () => {
+    const called = new Set<string>();
+    for (const { text } of readSurface()) {
+      for (const m of text.matchAll(/\bapi\.(\w+)\s*\(/g)) called.add(m[1]);
+    }
+    expect([...called].sort()).toEqual([
+      'lessonCards',
+      'lessonToday',
+      'vocabCursor',
+      'vocabReview',
+      'vocabReviewUndo',
+      'vocabTaught',
+    ]);
+  });
+
+  it('**不从 apps/web 或跨应用路径 import**', () => {
+    for (const { f, text } of readSurface()) {
+      for (const m of text.matchAll(/from\s+['"]([^'"]+)['"]/g)) {
+        expect(/apps\/web|components\/exam|\.\.\/\.\.\/\.\.\//.test(m[1]), `${f} → ${m[1]}`).toBe(
+          false,
+        );
+      }
+    }
+  });
+
+  it('**不实现正式测试** —— 只按 kind 跳过去，这一屏不注册路由、不组卷', () => {
+    const page = stripComments(fs.readFileSync(SURFACE[0], 'utf8'));
+    expect(page).not.toMatch(/<Route\b/);
+    expect(page).not.toMatch(/quizAttempt|submitQuiz/);
+    // 唯一一次提到正式测试路由，是完成之后按 kind 导航
+    expect([...page.matchAll(/ROUTES\.lessonTest/g)]).toHaveLength(1);
+  });
+
+  it('**教学卡上没有任何评分动作**', () => {
+    const teaching = blockOf(stripComments(fs.readFileSync(SURFACE[0], 'utf8')), 'TeachingCard');
+    expect(teaching.length).toBeGreaterThan(100);
+    expect(teaching).not.toMatch(/onRate|rate-again|rate-good|submitCourseReview|vocabReview/);
+  });
+
+  it('**还有待同步时，完成页那一支里没有「下一步」**', () => {
+    const page = stripComments(fs.readFileSync(SURFACE[0], 'utf8'));
+    const branch = pendingBranch(page);
+    expect(branch.length).toBeGreaterThan(50);
+    expect(branch).toMatch(/sync-now/);
+    expect(branch).not.toMatch(/"finish"/);
+  });
+
+  it('**队列记录里没有身份字段**（结构上就没有这个位置）', () => {
+    const q = stripComments(fs.readFileSync(SURFACE[1], 'utf8'));
+    const iface = q.slice(
+      q.indexOf('export interface PendingReview'),
+      q.indexOf('function safeStorage'),
+    );
+    expect(iface).toMatch(/headword/);
+    expect(iface).not.toMatch(/\bstudentName\b|\bstudentId\b|\bname\b/);
+  });
+
+  // ── 反向夹具：证明这一面的守卫真的会红 ──
+  describe('反向夹具 —— 课程学词守卫必须抓得住', () => {
+    it('**拿不到课程队列就退回自由练习会被抓到**（旧端的真实写法）', () => {
+      expect(
+        vocabHits("if (!res.lessonContext) return request('GET', '/vocab/due', { token });"),
+      ).toContain('退回自由练习队列 /vocab/due');
+    });
+
+    it('**请求体里塞 studentName / studentId 会被抓到**', () => {
+      expect(vocabHits('api.vocabReview(t, { studentName: nm, headword });')).toContain(
+        '请求体里带身份字段',
+      );
+      expect(vocabHits('fetch(`/api/vocab/lesson-cards?studentId=${id}`)')).toContain(
+        'URL 里带身份',
+      );
+    });
+
+    it('**跳回旧生词本 / 旧历史页会被抓到**', () => {
+      expect(vocabHits("navigate('/my-vocab');")).toContain('旧生词本页');
+      expect(vocabHits("location.assign('/my-history');")).toContain('旧历史页');
+    });
+
+    it('**then / after 协议会被抓到**', () => {
+      expect(vocabHits("navigate('/lesson/test?then=summary');")).toContain('then / after 协议');
+      expect(vocabHits("const u = '/x?after=submit';")).toContain('then / after 协议');
+    });
+
+    it('**非 sw: 的持久化键会被抓到**', () => {
+      expect(vocabHits("localStorage.setItem('vocab:pendingReviews', v)")).toContain(
+        '非 sw: 的持久化键',
+      );
+      expect(vocabHits("localStorage.setItem('mq:cursor', v)")).toContain('非 sw: 的持久化键');
+      // 不误伤：sw: 下的键是正当的
+      expect(vocabHits("localStorage.setItem('sw:vocab:pending', v)")).toEqual([]);
+    });
+
+    it('**照后端 href 跳转会被抓到**', () => {
+      expect(vocabHits('navigate(today.nextAction.href);')).toContain('拿后端 href 当导航权威');
+    });
+
+    it('**在教学卡上给评分按钮会被抓到**', () => {
+      const hostile = [
+        'function TeachingCard({ card }) {',
+        '  return <button data-testid="rate-good" onClick={() => onRate("good")} />;',
+        '}',
+        '',
+      ].join('\n');
+      expect(blockOf(hostile, 'TeachingCard')).toMatch(/onRate|rate-good/);
+    });
+
+    it('**队列还没清空就放人进正式测试会被抓到**', () => {
+      const hostile = [
+        '          {pending > 0 ? (',
+        '            <button data-testid="finish" onClick={onFinish} />',
+        '          ) : (',
+        '            <button data-testid="finish" onClick={onFinish} />',
+        '          )}',
+      ].join('\n');
+      expect(pendingBranch(hostile)).toMatch(/"finish"/);
+    });
+
+    it('**注释里提到这些名字不算违规**（守卫剥注释）', () => {
+      expect(
+        vocabHits('// 我们不退回 /vocab/due，也不跳 /my-vocab\nnavigate(ROUTES.today);'),
+      ).toEqual([]);
     });
   });
 });

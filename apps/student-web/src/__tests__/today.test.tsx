@@ -140,6 +140,31 @@ const RESULT_BODY = {
 const stubResult = (r: string) =>
   r === `/morning-quiz/student-result/${RESULT_SID}` ? jsonResponse(200, RESULT_BODY) : null;
 
+/**
+ * 阶段 9A 起 `/lesson/vocab` 也是**真页面**。
+ *
+ * 它的链路：`/lesson/today`（必须是 `learn_vocab`）→ `/vocab/lesson-cards`
+ * （必须有冻结的课程队列）。两条都得桩上，页面才走得完 —— 否则它会
+ * （正确地）replace 回 `/today`，路由断言就落空了。
+ */
+const VOCAB_CARDS_BODY = {
+  lessonContext: true,
+  cursor: 0,
+  totalDue: 1,
+  cards: [
+    {
+      headword: 'delta', surfaceForm: 'delta', contextSentence: 'A delta forms here.',
+      sourcePassageTitle: '晨读 A', phonetic: 'ˈdeltə', translation: '三角洲', pos: 'n.',
+      definition: 'Land at a river mouth.', tag: [], state: 'new', reps: 0,
+      needsFirstTeaching: true, firstTaughtAt: null, sourceType: 'passage',
+      addedAt: '2026-08-28T00:00:00.000Z',
+    },
+  ],
+};
+
+const stubVocab = (r: string) =>
+  r === '/vocab/lesson-cards' ? jsonResponse(200, VOCAB_CARDS_BODY) : null;
+
 // ─────────────────────────────────────────────────────────────
 
 describe('1–2. 载入与请求卫生', () => {
@@ -215,7 +240,6 @@ describe('3–5. 开始今天的课', () => {
 
 describe('6–7. 路由映射只认契约', () => {
   const cases: [NextActionKind, string, string][] = [
-    ['learn_vocab', '学习本次单词', '学习本次单词'],
     ['vocab_test', '开始单词测试', '正式单词测试'],
     ['summary', '看今日总结', '今日总结'],
   ];
@@ -229,6 +253,16 @@ describe('6–7. 路由映射只认契约', () => {
       expect(screen.getByRole('link', { name: '回到今天的课' })).toBeTruthy();
     });
   }
+
+  it('`learn_vocab` → 落到**真的课程学词页**（阶段 9A 起不再是占位页）', async () => {
+    session(withKind('learn_vocab', '学习本次单词'), stubVocab);
+    renderAt('/today');
+    await screen.findByRole('heading', { name: /你好，七号/ });
+    await userEvent.click(screen.getByRole('button', { name: '学习本次单词' }));
+    expect(await screen.findByTestId('teaching-card')).toBeTruthy();
+    // 占位页的字样不该再出现
+    expect(screen.queryByText(/还没有做好/)).toBeNull();
+  });
 
   it('`read_result` → 落到**真的结果页**（阶段 8A 起不再是占位页）', async () => {
     session(resultLesson(), stubResult);
@@ -430,7 +464,6 @@ describe('15–16. 路由兜底与占位页', () => {
   });
 
   const placeholders: [string, string][] = [
-    ['/lesson/vocab', '学习本次单词'],
     ['/lesson/test', '正式单词测试'],
     ['/lesson/summary', '今日总结'],
   ];
@@ -447,6 +480,17 @@ describe('15–16. 路由兜底与占位页', () => {
       expect(callsTo('/lesson/start')).toHaveLength(0);
     });
   }
+
+  it('**直接打开 `/lesson/vocab` 也走完整链路**（阶段 9A 起不是占位页）', async () => {
+    session(withKind('learn_vocab', '学习本次单词'), stubVocab);
+    renderAt('/lesson/vocab');
+    expect(await screen.findByTestId('teaching-card')).toBeTruthy();
+    expect(screen.queryByText(/还没有做好/)).toBeNull();
+    // 队列从服务端来，不从 URL 来
+    expect(callsTo('/lesson/today')).toHaveLength(1);
+    expect(callsTo('/lesson/start')).toHaveLength(0);
+    expect(callsTo('/vocab/due')).toHaveLength(0);
+  });
 
   it('**直接打开 `/lesson/reading/result` 也走完整链路**（阶段 8A 起不是占位页）', async () => {
     session(resultLesson(), stubResult);
