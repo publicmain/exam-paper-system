@@ -2265,16 +2265,17 @@ unlearned 死锁的翻版）。
 
 RED（对着 base，三条全红，各自 `expected 'vocab_test' to be 'vocab_learn'`）：
 纯复习日应进 vocab_learn / 混合日不该跳过剩余复习卡 / 过早跳段后刷新仍应回得去。
-GREEN：新增 `src/lesson/course-card-entry.spec.ts`（18 项，覆盖 AC-03 ~ AC-06），
+GREEN：新增 `src/lesson/course-card-entry.spec.ts`（17 项，覆盖 AC-03 ~ AC-06），
 六个受影响的 lesson 测试文件 114 项全绿。
-全量退出码均为 0：`apps/api` **1217** 项 + tsc + build；
+全量退出码均为 0：`apps/api` **1217** 项 + tsc + build（返工 1/2 后为 **1222**）；
 `apps/student-web` **542** 项 + tsc；`apps/web` **247** 项 + tsc。
 运行时修复提交 `0dfcb41`。
 
 #### 部署
 
 只部署 `stg-api`：回滚锚点 `bddcc427-01e8-455c-b661-65d85b4dd5d5` →
-**`28405280-2973-48ce-aeee-b7320f38bf74`**。其余三个服务部署 ID、四个域名、
+`28405280-2973-48ce-aeee-b7320f38bf74` →（返工 1/2）
+**`73298a43-16af-484a-bb98-114764e01fe3`**。其余三个服务部署 ID、四个域名、
 三个服务的变量键集合、`STUDENT_APP_V2`（未设）、CORS 全部未变；
 health 200、ready 200、学生源预检 204 且 allow-origin 逐字正确。
 部署前已证 `apps/api/prisma/` 对 base 零差异（35 个迁移、schema blob SHA 不变）。
@@ -2333,6 +2334,30 @@ AC-09 授权了一次受保护的 `DailyLessonCompletion` 写。**实际不需�
 **阶段 9 未完成** —— 正式单词测试（9B1）的实机验证还没做过：没有开考、没有作答、
 没有交卷。`/lesson/summary` 仍是占位页。两个账号现在都停在 `vocab_test`，
 可供下一份单独授权的合同使用。
+
+#### 返工 1/2 —— 课程卡必须用同一份快照算（提交 `71770e5`）
+
+第一版把两份快照拼在了一起：`vocabState()` 跑在可能的创建 / 重新冻结**之前**，
+课程卡张数却用写入**之后**的 `vocabWords`。当日任务行还不存在时前者看到的队列
+是 null，owned 因此是空数组 —— 和刚创建出来的四词队列一交集算出 **0 张卡**，
+阶段当场落成 `vocab_test`；`clampStage` 单调，学生再也回不到学词段。
+纯复习日撞上这一条等于整个修复失效。
+
+现在 owned 在 `today()` 的写入之后**按最终队列重新查一次**，队列 / owned / 断点
+三者同源；`vocabState()` 不再返回那份会误导人的 `ownedHeadwords`（已无消费者）。
+规则本身、`LESSON_RULES_VERSION=3`、API 形状、写边界一个字没动。
+
+补 5 条 **service 级**回归（走真的 `LessonService.today()`，只把 Prisma 换成有
+状态的假实现）—— 纯规则单测那一层看不出这个缺陷，因为它根本不经过写入。
+其中两条在 `1455b95` 上是红的（`expected 'vocab_test' to be 'vocab_learn'`）：
+没有当日任务行的纯复习日开课、以及 reconcile 扩队列而 cursor 停在旧张数；
+另外三条（走完最后一张仍进 `vocab_test`、已开考不被拉回、落库 `vocab_test`/`done`
+不倒退）本来就绿，是防回归。`course-card-entry.spec.ts` 因此 17 → **22** 项。
+
+> **记一个自己踩的坑**：用 `where "reviewedAt" > now() - interval '…'` 统计
+> 复习流水会被会话时区带偏 —— 裸 `timestamp` 与 `timestamptz` 比较时按会话时区
+> 解释，8 小时前的行会落进「30 分钟内」。可靠证据是**时间戳本身**：t5 的四条
+> 流水是 `05:40–05:43 UTC`（S9C2 那次会话），返工这一轮零新增。
 
 **回滚**：运行时改动 `git revert 0dfcb41`；stg-api 重新部署
 `bddcc427-01e8-455c-b661-65d85b4dd5d5` 即可。
