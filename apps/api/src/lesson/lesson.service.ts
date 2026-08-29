@@ -12,6 +12,7 @@ import {
   vocabProgressOf,
   hasAnyTask,
   progressForDisplay,
+  lessonCardOrder,
 } from './rc11-rules';
 import { isQuizWindowOpen } from '../morning-quiz/morning-quiz.service';
 import { createRealSubmissionSafe } from '../common/submission-create';
@@ -40,6 +41,7 @@ import {
   readablePaperTitle,
   type LessonStage,
   deriveStage,
+  coursePendingOf,
   clampStage,
   clampCursor,
   STAGE_ORDER,
@@ -327,10 +329,27 @@ export class LessonService {
     // ── 任务阶段（P3）──
     // 从事实推导，再与库里存的做单调钳制（只前进不后退）。stage 是
     // 缓存：即使与事实短暂不一致，下一次读就会被事实纠正。
+    // ── 课程卡还剩没剩 ──
+    //
+    // 用**写入之后**的那一份 frozen：队列和断点必须同源，否则 reconcile 刚
+    // 扩过队列时会按旧队列少算张数，把人提前放出学词段。
+    const frozenQueueNow = Array.isArray(frozen?.vocabWords)
+      ? (frozen!.vocabWords as string[])
+      : null;
+    const courseCards = frozenQueueNow
+      ? lessonCardOrder(frozenQueueNow, vocabNow.ownedHeadwords)
+      : null;
+
     const derived = deriveStage({
       readSettled: isSegmentComplete(segments.read),
       vocabSettled: isSegmentComplete(segments.vocab),
-      hasUnlearnedWords: vocabNow.unlearned > 0,
+      hasPendingCourseCards: coursePendingOf({
+        courseCards,
+        // **原始断点**，不是 clampCursor 的结果（它把「走完」也压成 0）
+        cursor: frozen?.vocabCursor,
+        hasAttempt: vocabNow.attempt != null,
+        legacyHasUnlearnedWords: vocabNow.unlearned > 0,
+      }),
       drillSettled: isSegmentComplete(segments.drill),
     });
     const stage: LessonStage = clampStage(frozen?.stage, derived);
@@ -767,10 +786,22 @@ export class LessonService {
       take: 60,
       select: { headword: true },
     });
+    // 队列里学生**真正拥有**的词。课程卡张数只能按它算 ——
+    // 队列里可能有已经被移出生词本的词，那些发不出卡（见 lessonCardOrder）。
+    // 只读一次列表，阶段判定与 `/vocab/lesson-cards` 因此用同一套事实。
+    const ownedInQueue = queue
+      ? await this.prisma.studentWord.findMany({
+          where: { studentId, headword: { in: queue } },
+          select: { headword: true },
+        })
+      : [];
+
     return {
       target,
       progress,
       unlearned,
+      /** 冻结队列里学生仍然拥有的词（未排序；顺序由 `lessonCardOrder` 决定） */
+      ownedHeadwords: ownedInQueue.map((w) => w.headword),
       quizSubmitted: quizSubmitted > 0,
       /** 这一刻的到期队列（规范化去重）。调用方决定要不要落库 */
       desiredQueue: [

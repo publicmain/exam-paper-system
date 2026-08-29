@@ -20,7 +20,7 @@
  * 完成率是拿来做决策的指标。口径改过而历史数据不标版本，改口径前后的
  * 数字就不可比 —— 会得出「参与率涨了 8 个点」这种其实是尺子变了的结论。
  */
-export const LESSON_RULES_VERSION = 2;
+export const LESSON_RULES_VERSION = 3;
 
 /** 谁最终提交的。只有 student / teacher 计入完成。 */
 export type SubmitSource = 'student' | 'teacher' | 'system_eod';
@@ -311,16 +311,75 @@ export function deriveStage(facts: {
   readSettled: boolean;
   /** 背段目标是否已达成（含 target=0 的 none） */
   vocabSettled: boolean;
-  /** 当天是否还有没学过的新词（reps=0）要教 */
-  hasUnlearnedWords: boolean;
+  /**
+   * 这次任务的**课程卡还没走完**（教学卡或复习卡，任意一种都算）。
+   * 判据见 `coursePendingOf` —— 那里有完整的不变量说明。
+   */
+  hasPendingCourseCards: boolean;
   /** 补段是否已达成 */
   drillSettled: boolean;
 }): LessonStage {
   if (!facts.readSettled) return 'reading';
-  if (facts.hasUnlearnedWords) return 'vocab_learn';
+  if (facts.hasPendingCourseCards) return 'vocab_learn';
   if (!facts.vocabSettled) return 'vocab_test';
   if (!facts.drillSettled) return 'vocab_test';
   return 'done';
+}
+
+/**
+ * 这次任务的**课程卡还剩没剩**。学词段的入口与出口都只认这一条。
+ *
+ * ## 为什么不能再用「还有没教过的新词」
+ *
+ * 老判据是 `hasUnlearnedWords`。它只看**新词**，于是一整天的队列如果全是
+ * 教过的复习词，`hasUnlearnedWords` 从一开始就是 false —— 阶段直接从
+ * 「读完」跳到 `vocab_test`，`/lesson/vocab` 永远进不去，那四张复习卡
+ * 一次都不会发出来。混合日也一样：最后一个新词教完的那一刻新词就没了，
+ * 剩下的复习卡被整段跳过。
+ *
+ * ## 为什么也不能用 `!vocabSettled`
+ *
+ * 背段的 progress 数的是**当天的复习流水**，而首次教学**刻意不写 FSRS**。
+ * 拿 `!vocabSettled` 当入口条件的话，纯新词日教完四张之后 progress 仍是 0，
+ * 学生会被永远关在学词段里出不去 —— 那是 P5 那次 unlearned 死锁的翻版。
+ *
+ * ## 所以判据是「断点走到队列尽头没有」
+ *
+ * 三种队列共用同一条规则，不分新词旧词：
+ *
+ *   剩余 = 冻结队列 ∩ 学生真正拥有的词（保持队列顺序）
+ *   还有卡 = 断点 < 剩余张数
+ *
+ * 教学与复习**都会推进断点**（`/lesson/vocab-taught` 与
+ * `/lesson/vocab-cursor` 是同一个字段的两条写路径），所以这一条对纯新词、
+ * 纯复习、混合三种日子都成立。
+ *
+ * ## 三条边界
+ *
+ * - **已经开考就不再回头**：这次任务名下已有 `VocabQuizAttempt` 时一律返回
+ *   false。正式测试开出来之后把人拉回学词段，等于让他边考边学。
+ * - **没有冻结队列的旧任务行**沿用旧信号（`legacyHasUnlearnedWords`），
+ *   行为一个字不改 —— 那些行没有可信的队列快照，谈不上「课程卡」。
+ * - **顺序是服务端的**：调用方传进来的 `courseCards` 已经由
+ *   `lessonCardOrder` 按冻结队列排好，这里不重排、不过滤。
+ */
+export function coursePendingOf(input: {
+  /** 冻结队列 ∩ 学生拥有的词，**已按队列顺序排好**（`lessonCardOrder` 的产物） */
+  courseCards: readonly string[] | null;
+  /** 落库的断点（原始值，不要传 `clampCursor` 的结果 —— 它把「走完」也压成 0） */
+  cursor: number | null | undefined;
+  /** 这次任务名下已经有正式测试了 */
+  hasAttempt: boolean;
+  /** 没有冻结队列时的兜底信号：当天还有没教过的新词 */
+  legacyHasUnlearnedWords: boolean;
+}): boolean {
+  if (input.hasAttempt) return false;
+  if (input.courseCards == null) return input.legacyHasUnlearnedWords;
+  const total = input.courseCards.length;
+  if (total === 0) return false;
+  const raw = Number(input.cursor);
+  const cursor = Number.isFinite(raw) && raw > 0 ? Math.floor(raw) : 0;
+  return cursor < total;
 }
 
 /**

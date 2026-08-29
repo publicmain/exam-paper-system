@@ -237,7 +237,7 @@ describe('deriveStage —— 从事实推导阶段', () => {
   const F = {
     readSettled: false,
     vocabSettled: false,
-    hasUnlearnedWords: false,
+    hasPendingCourseCards: false,
     drillSettled: false,
   };
 
@@ -245,11 +245,11 @@ describe('deriveStage —— 从事实推导阶段', () => {
     expect(deriveStage(F)).toBe('reading');
   });
 
-  it('交了卷、当天有新词 → vocab_learn（先教后测）', () => {
-    expect(deriveStage({ ...F, readSettled: true, hasUnlearnedWords: true })).toBe('vocab_learn');
+  it('交了卷、课程卡还没走完 → vocab_learn（先学后测）', () => {
+    expect(deriveStage({ ...F, readSettled: true, hasPendingCourseCards: true })).toBe('vocab_learn');
   });
 
-  it('新词学完、背段还没达标 → vocab_test', () => {
+  it('课程卡走完、背段还没达标 → vocab_test', () => {
     expect(deriveStage({ ...F, readSettled: true })).toBe('vocab_test');
   });
 
@@ -259,12 +259,12 @@ describe('deriveStage —— 从事实推导阶段', () => {
 
   it('三段都达标 → done', () => {
     expect(
-      deriveStage({ readSettled: true, vocabSettled: true, hasUnlearnedWords: false, drillSettled: true }),
+      deriveStage({ readSettled: true, vocabSettled: true, hasPendingCourseCards: false, drillSettled: true }),
     ).toBe('done');
   });
 
   it('今天没场次（readSettled=true 由 target=0 得来）→ 直接进词汇阶段', () => {
-    expect(deriveStage({ ...F, readSettled: true, hasUnlearnedWords: true })).toBe('vocab_learn');
+    expect(deriveStage({ ...F, readSettled: true, hasPendingCourseCards: true })).toBe('vocab_learn');
   });
 });
 
