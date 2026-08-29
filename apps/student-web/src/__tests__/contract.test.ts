@@ -368,6 +368,11 @@ describe('G1 新端不得出现旧路由与旧身份键', () => {
     '/morning-quiz/sessions/:id',
     '/morning-quiz/sessions/:id/answer',
     '/morning-quiz/sessions/:id/submit',
+    // 阶段 8A：阅读结果与申诉。同样是**认证后**端点 —— 零身份参数。
+    // 申诉体里**只有** submissionId / paperQuestionId / message；
+    // 后端 schema 虽然还收 studentName / studentId，新端一个都不传。
+    '/morning-quiz/student-result/:id',
+    '/morning-quiz/appeals',
   ] as const;
 
   /**
@@ -798,5 +803,114 @@ describe('依赖可复现性', () => {
   it('lockfile 是 npm v3 格式（npm ci 需要）', () => {
     const lock = JSON.parse(fs.readFileSync(lockPath, 'utf8'));
     expect(lock.lockfileVersion).toBeGreaterThanOrEqual(3);
+  });
+});
+
+// ─────────────────────────────────────────────────────────────
+// G-8A —— 阅读结果这一屏的静态守卫
+//
+// 全局守卫已经管住了「整包不得出现旧路由 / 旧身份键 / 读 href」。这里再对
+// **结果页这个面**单独收一道，理由是：结果页历史上正是旧端泄漏得最厉害的
+// 地方 —— `/my-history?name=…` 就是一个「按姓名翻成绩」的页面。所以这一屏
+// 的规矩要写成独立、可读、可反证的一条，而不是混在全局清单里让人事后
+// 考古。
+//
+// 另外多两条只对这一屏成立的规矩：
+//   · **只读** —— 不得调用任何写答案 / 交卷 / 开课的端点；
+//   · **调用面收敛** —— 只允许 lessonToday / getReadingResult / createAppeal。
+// ─────────────────────────────────────────────────────────────
+describe('G-8A 阅读结果只读且零身份', () => {
+  const RESULT_FILE = path.join(SRC, 'pages', 'ReadingResult.tsx');
+
+  /** 结果页禁止出现的东西。导出成函数，反向夹具才能直接喂假代码验证。 */
+  const RESULT_FORBIDDEN: Array<{ why: string; re: RegExp }> = [
+    { why: '旧历史页 /my-history', re: /\/my-history/ },
+    { why: '旧学生外壳 /student', re: /\/student(?![-\w])/ },
+    { why: '扫码入口 /scan', re: /\/scan\b/ },
+    { why: '旧命名空间 mq: 存储键', re: /['"`]mq:/ },
+    { why: '按姓名查询', re: /[?&]name=|history-by-name|studentName/ },
+    { why: 'URL 里带 studentId', re: /[?&]studentId=/ },
+    { why: '请求体里带身份字段', re: /\b(studentName|studentId)\s*:/ },
+    { why: '拿后端 href 当导航权威', re: /\.\s*href\b/ },
+    // 只读：这四个都是写操作，结果页一个都不该碰。
+    { why: '调用了写答案端点', re: /\bsaveReadingAnswer\b/ },
+    { why: '调用了交卷端点', re: /\bsubmitReading\b/ },
+    { why: '调用了开课端点', re: /\blessonStart\b/ },
+    { why: '调用了改密码端点', re: /\bchangePassword\b/ },
+  ];
+
+  function resultSurfaceHits(code: string): string[] {
+    const text = stripComments(code);
+    return RESULT_FORBIDDEN.filter(({ re }) => re.test(text)).map(({ why }) => why);
+  }
+
+  it('结果页文件真的存在（占位页已经被替换掉）', () => {
+    expect(fs.existsSync(RESULT_FILE)).toBe(true);
+    const app = stripComments(fs.readFileSync(path.join(SRC, 'App.tsx'), 'utf8'));
+    expect(app).toMatch(/ROUTES\.readingResult\}\s*element=\{<ReadingResultPage/);
+    expect(app).not.toMatch(/readingResult\}\s*element=\{<LessonPlaceholder/);
+  });
+
+  it('**结果页干净**：没有旧路由、没有身份、没有 href 导航、没有写操作', () => {
+    expect(resultSurfaceHits(fs.readFileSync(RESULT_FILE, 'utf8'))).toEqual([]);
+  });
+
+  it('**结果页只调这三个端点**：今天的课 / 取结果 / 提申诉', () => {
+    const text = stripComments(fs.readFileSync(RESULT_FILE, 'utf8'));
+    const called = [...text.matchAll(/\bapi\.(\w+)\s*\(/g)].map((m) => m[1]);
+    expect([...new Set(called)].sort()).toEqual(['createAppeal', 'getReadingResult', 'lessonToday']);
+  });
+
+  it('**申诉体只有那三个字段**，不得夹带身份', () => {
+    const text = stripComments(fs.readFileSync(RESULT_FILE, 'utf8'));
+    const call = text.match(/api\.createAppeal\([\s\S]*?\n\s*\}\);/);
+    expect(call, '没找到 createAppeal 调用').not.toBeNull();
+    const body = call![0];
+    for (const need of ['submissionId', 'paperQuestionId', 'message']) {
+      expect(body, `申诉体少了 ${need}`).toContain(need);
+    }
+    // 后端 schema 还收这些（旧端在用），新端**一个都不传**。
+    for (const banned of ['studentName', 'studentId', 'nickname', 'sessionId']) {
+      expect(body, `申诉体夹带了 ${banned}`).not.toContain(banned);
+    }
+  });
+
+  // ── 反向夹具：证明这一屏的守卫真的会红 ──
+  describe('反向夹具 —— 结果页守卫必须抓得住', () => {
+    it('**跳回 /my-history 会被抓到**（旧端结果页的真实形态）', () => {
+      expect(resultSurfaceHits("navigate('/my-history');")).toContain('旧历史页 /my-history');
+    });
+
+    it('**按姓名取结果会被抓到**', () => {
+      expect(
+        resultSurfaceHits('const r = await fetch(`/api/x?name=${encodeURIComponent(nm)}`);'),
+      ).toContain('按姓名查询');
+    });
+
+    it('**申诉体夹带 studentName 会被抓到**', () => {
+      expect(
+        resultSurfaceHits('api.createAppeal(t, { submissionId, studentName: nm, message });'),
+      ).toContain('请求体里带身份字段');
+    });
+
+    it('**照后端 href 跳转会被抓到**', () => {
+      expect(resultSurfaceHits('navigate(today.nextAction.href!);')).toContain(
+        '拿后端 href 当导航权威',
+      );
+    });
+
+    it('**在结果页上保存答案会被抓到**（只读被破坏）', () => {
+      expect(resultSurfaceHits('await api.saveReadingAnswer(t, sid, body);')).toContain(
+        '调用了写答案端点',
+      );
+    });
+
+    it('**在结果页上重新交卷会被抓到**', () => {
+      expect(resultSurfaceHits('await api.submitReading(t, sid);')).toContain('调用了交卷端点');
+    });
+
+    it('**注释里提到旧路由不算违规**（守卫剥注释，否则没人敢写理由）', () => {
+      expect(resultSurfaceHits('// 我们不跳 /my-history\nnavigate(ROUTES.today);')).toEqual([]);
+    });
   });
 });

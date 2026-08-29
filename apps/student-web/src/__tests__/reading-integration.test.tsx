@@ -104,6 +104,45 @@ function sessionWire(over: Record<string, unknown> = {}) {
   };
 }
 
+/**
+ * 阶段 8A 的结果线缆 —— 用同一份夹具，保证「做题时看到的题」和「回顾时
+ * 看到的题」是同一批，链路测试才真的是端到端。
+ */
+function resultWire(over: Record<string, unknown> = {}) {
+  return {
+    sessionId: SESSION_ID,
+    paperName: FX.passageTitle,
+    submissionId: SUBMISSION_ID,
+    status: 'submitted',
+    finalSubmittedAt: '2026-08-29T01:00:00.000Z',
+    autoScore: 1,
+    manualScore: 0,
+    totalScore: 1,
+    maxScore: WIRE_QUESTIONS.length,
+    submittedAt: '2026-08-29T01:00:00.000Z',
+    items: WIRE_QUESTIONS.map((q, i) => ({
+      paperQuestionId: q.id,
+      sortOrder: q.sortOrder,
+      marks: q.marks,
+      questionType: q.questionType,
+      snapshotContent: q.snapshotContent,
+      snapshotOptions: q.snapshotOptions,
+      studentAnswer: i === 0 ? 'A' : null,
+      correctAnswer: 'A',
+      referenceAnswer: null,
+      explanation: null,
+      awardedMarks: i === 0 ? q.marks : 0,
+      autoCorrect: i === 0,
+      isCorrect: i === 0,
+      markerComment: null,
+      commentSource: null,
+    })),
+    scoresPending: false,
+    answersPending: false,
+    ...over,
+  };
+}
+
 function installFetch() {
   reqs = [];
   vi.stubGlobal(
@@ -149,6 +188,7 @@ function defaultReply(req: Req): { status?: number; body: unknown } {
   if (req.path === `/morning-quiz/sessions/${SESSION_ID}/submit`) {
     return { body: { id: SUBMISSION_ID, status: 'submitted' } };
   }
+  if (req.path === `/morning-quiz/student-result/${SESSION_ID}`) return { body: resultWire() };
   return { status: 404, body: { code: 'not_stubbed', path: req.path } };
 }
 
@@ -550,12 +590,18 @@ describe('AC-08 交卷 → 刷 today → 按 kind 路由', () => {
     expect(submitCalls()[0].method).toBe('POST');
     expect(JSON.parse(submitCalls()[0].body!)).toEqual({ final: true });
 
-    // 交卷之后又刷了一次 today
-    expect(paths('/lesson/today').length).toBe(beforeToday + 1);
+    // 交卷之后又刷了一次 today，落到结果页之后**结果页自己又刷了一次** ——
+    // 两次都是必要的：前一次决定往哪跳，后一次是结果页自己的资源链路起点。
+    expect(paths('/lesson/today').length).toBe(beforeToday + 2);
 
     // 按 kind 路由 —— href 被忽略
+    // 阶段 8A 起这里是**真的结果页**，不再是占位：它按同一条链路自己
+    // 又问了一次 today，然后去取结果。
     expect(at()).toBe('/lesson/reading/result');
-    expect(screen.getByRole('heading', { name: '阅读结果' })).toBeInTheDocument();
+    await settle();
+    expect(paths(`/morning-quiz/student-result/${SESSION_ID}`)).toHaveLength(1);
+    expect(screen.getByTestId('summary')).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: FX.passageTitle })).toBeInTheDocument();
     for (const r of reqs) {
       expect(r.path).not.toMatch(/my-history|scan/);
     }

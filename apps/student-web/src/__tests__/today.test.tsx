@@ -102,6 +102,44 @@ async function landedOnReading(before: number) {
   await waitFor(() => expect(callsTo('/lesson/today').length).toBeGreaterThan(before));
 }
 
+/**
+ * 阶段 8A 起 `/lesson/reading/result` 同样是**真页面**。
+ *
+ * 它的资源链路和阅读页一样：先问 `/lesson/today` 拿 sessionId，再去取结果。
+ * 所以这里得把 `read` 段填上 sessionId、并把结果端点也桩上，页面才走得完
+ * 一整条链 —— 否则它会（正确地）replace 回 `/today`，路由断言就落空了。
+ */
+const RESULT_SID = 'sess-result';
+
+function resultLesson(kind: NextActionKind = 'read_result', label = '看阅读结果') {
+  const l = lesson({ nextAction: { kind, label, href: null } });
+  Object.assign(l.segments[0] as Record<string, unknown>, {
+    status: 'done',
+    sessionId: RESULT_SID,
+    submissionId: 'sub-result',
+  });
+  return l;
+}
+
+const RESULT_BODY = {
+  sessionId: RESULT_SID,
+  paperName: '晨读 A',
+  submissionId: 'sub-result',
+  status: 'submitted',
+  finalSubmittedAt: '2026-08-28T01:00:00.000Z',
+  autoScore: 4,
+  manualScore: 0,
+  totalScore: 4,
+  maxScore: 5,
+  submittedAt: '2026-08-28T01:00:00.000Z',
+  items: [],
+  scoresPending: false,
+  answersPending: false,
+};
+
+const stubResult = (r: string) =>
+  r === `/morning-quiz/student-result/${RESULT_SID}` ? jsonResponse(200, RESULT_BODY) : null;
+
 // ─────────────────────────────────────────────────────────────
 
 describe('1–2. 载入与请求卫生', () => {
@@ -177,7 +215,6 @@ describe('3–5. 开始今天的课', () => {
 
 describe('6–7. 路由映射只认契约', () => {
   const cases: [NextActionKind, string, string][] = [
-    ['read_result', '看阅读结果', '阅读结果'],
     ['learn_vocab', '学习本次单词', '学习本次单词'],
     ['vocab_test', '开始单词测试', '正式单词测试'],
     ['summary', '看今日总结', '今日总结'],
@@ -192,6 +229,17 @@ describe('6–7. 路由映射只认契约', () => {
       expect(screen.getByRole('link', { name: '回到今天的课' })).toBeTruthy();
     });
   }
+
+  it('`read_result` → 落到**真的结果页**（阶段 8A 起不再是占位页）', async () => {
+    session(resultLesson(), stubResult);
+    renderAt('/today');
+    await screen.findByRole('heading', { name: /你好，七号/ });
+    await userEvent.click(screen.getByRole('button', { name: '看阅读结果' }));
+    expect(await screen.findByTestId('summary')).toBeTruthy();
+    expect(screen.getByTestId('score').textContent).toBe('4');
+    // 占位页的字样不该再出现
+    expect(screen.queryByText(/还没有做好/)).toBeNull();
+  });
 
   it('`resume_reading` → 落到**真的阅读页**（阶段 7C 起不再是占位页）', async () => {
     session(withKind('resume_reading', '继续做题'));
@@ -382,7 +430,6 @@ describe('15–16. 路由兜底与占位页', () => {
   });
 
   const placeholders: [string, string][] = [
-    ['/lesson/reading/result', '阅读结果'],
     ['/lesson/vocab', '学习本次单词'],
     ['/lesson/test', '正式单词测试'],
     ['/lesson/summary', '今日总结'],
@@ -400,6 +447,16 @@ describe('15–16. 路由兜底与占位页', () => {
       expect(callsTo('/lesson/start')).toHaveLength(0);
     });
   }
+
+  it('**直接打开 `/lesson/reading/result` 也走完整链路**（阶段 8A 起不是占位页）', async () => {
+    session(resultLesson(), stubResult);
+    renderAt('/lesson/reading/result');
+    expect(await screen.findByTestId('summary')).toBeTruthy();
+    expect(screen.queryByText(/还没有做好/)).toBeNull();
+    // 资源从服务端来，不从 URL 来
+    expect(callsTo('/lesson/today')).toHaveLength(1);
+    expect(callsTo('/lesson/start')).toHaveLength(0);
+  });
 });
 
 describe('映射穷尽性 —— 十个 kind 页面都能处理', () => {

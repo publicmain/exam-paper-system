@@ -303,6 +303,32 @@ export const api = {
       `/morning-quiz/sessions/${encodeURIComponent(sessionId)}/submit`,
       { body, token },
     ),
+
+  // ── 阅读结果（阶段 8A）；同样是**认证后，零身份参数** ──
+
+  /**
+   * 交卷后的成绩与逐题回顾。
+   *
+   * 服务端自己判归属，也自己决定「分数放不放、答案放不放」
+   * （`stripUnreleasedScores`）—— 前端**不做**任何补算或兜底显示。
+   * 交卷之前调它会拿到 403 `result_locked_until_submit`。
+   */
+  getReadingResult: (token: string, sessionId: string) =>
+    request<ReadingResult>(
+      'GET',
+      `/morning-quiz/student-result/${encodeURIComponent(sessionId)}`,
+      { token },
+    ),
+
+  /**
+   * 申诉。整卷申诉不传 `paperQuestionId`，逐题申诉才传。
+   *
+   * 请求体**恰好三个字段** —— 身份来自 Bearer 令牌，不带姓名 / studentId。
+   */
+  createAppeal: (
+    token: string,
+    body: { submissionId: string; paperQuestionId?: string; message: string },
+  ) => request<AppealCreated>('POST', '/morning-quiz/appeals', { body, token }),
 };
 
 // ─────────────────────────────────────────────────────────────
@@ -410,4 +436,65 @@ export interface ReadingSubmitResult {
   id: string;
   status: string;
   [k: string]: unknown;
+}
+
+
+// ─────────────────────────────────────────────────────────────
+// 阅读结果（阶段 8A）
+//
+// 类型按**服务端实际返回的字段**写（`morning-quiz.service.ts` 的
+// `getStudentResult` + `stripUnreleasedScores`）。两道门是**服务端**的：
+//
+//   · `scoresPending` —— 还没判分：`totalScore` / `awardedMarks` /
+//     `isCorrect` / `markerComment` 全是 null；
+//   · `answersPending` —— 还没最终提交：`correctAnswer` /
+//     `referenceAnswer` / `explanation` 全是 null。
+//
+// 前端只按这两面旗子决定**显示什么**，绝不自己补一个 0 分或猜答案。
+// ─────────────────────────────────────────────────────────────
+
+export interface ReadingResultItem {
+  paperQuestionId: string;
+  sortOrder: number;
+  marks: number;
+  questionType: string;
+  snapshotContent: unknown;
+  snapshotOptions: Array<{ key: string; text: string }> | null;
+  /** 学生当时写下的答案；没答过就是 null。 */
+  studentAnswer: string | null;
+  /** 答案门未开时为 null。 */
+  correctAnswer: string | null;
+  /** 非选择题的参考答案 / 评分要点；答案门未开时为 null。 */
+  referenceAnswer: string | null;
+  /** 答案门未开时为 null。 */
+  explanation: string | null;
+  /** 分数门未开时为 null。 */
+  awardedMarks: number | null;
+  autoCorrect: boolean | null;
+  isCorrect: boolean | null;
+  markerComment: string | null;
+  commentSource: 'ai' | 'teacher' | null;
+}
+
+export interface ReadingResult {
+  sessionId: string;
+  paperName: string;
+  submissionId: string;
+  status: string;
+  finalSubmittedAt: string | null;
+  autoScore: number | null;
+  manualScore: number | null;
+  totalScore: number | null;
+  maxScore: number | null;
+  submittedAt: string | null;
+  items: ReadingResultItem[];
+  /** 服务端说的：分数还没放出来。 */
+  scoresPending: boolean;
+  /** 服务端说的：答案还没放出来。 */
+  answersPending: boolean;
+}
+
+export interface AppealCreated {
+  appealId: string;
+  status: string;
 }
