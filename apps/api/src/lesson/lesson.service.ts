@@ -331,13 +331,29 @@ export class LessonService {
     // 缓存：即使与事实短暂不一致，下一次读就会被事实纠正。
     // ── 课程卡还剩没剩 ──
     //
-    // 用**写入之后**的那一份 frozen：队列和断点必须同源，否则 reconcile 刚
-    // 扩过队列时会按旧队列少算张数，把人提前放出学词段。
+    // **队列、owned、断点三者必须取自同一份快照。**
+    //
+    // `vocabState()` 跑在可能的创建 / 重新冻结**之前**：当日任务行还不存在
+    // 时它看到的队列是 null，重新冻结扩过队列时它看到的是旧队列。拿那时的
+    // owned 去配现在的 `vocabWords`，交集必然偏小 —— 最狠的一种是「刚创建
+    // 的四词纯复习任务算出 0 张卡」，阶段当场落成 `vocab_test`，而
+    // `clampStage` 是单调的，学生再也回不到学词段。
+    //
+    // 所以 owned 在这里**按最终队列重新查一次**，不复用 vocabState 的结果。
     const frozenQueueNow = Array.isArray(frozen?.vocabWords)
       ? (frozen!.vocabWords as string[])
       : null;
+    const ownedForCourse = frozenQueueNow
+      ? await this.prisma.studentWord.findMany({
+          where: { studentId: student.id, headword: { in: frozenQueueNow } },
+          select: { headword: true },
+        })
+      : [];
     const courseCards = frozenQueueNow
-      ? lessonCardOrder(frozenQueueNow, vocabNow.ownedHeadwords)
+      ? lessonCardOrder(
+          frozenQueueNow,
+          ownedForCourse.map((w) => w.headword),
+        )
       : null;
 
     const derived = deriveStage({
@@ -786,22 +802,13 @@ export class LessonService {
       take: 60,
       select: { headword: true },
     });
-    // 队列里学生**真正拥有**的词。课程卡张数只能按它算 ——
-    // 队列里可能有已经被移出生词本的词，那些发不出卡（见 lessonCardOrder）。
-    // 只读一次列表，阶段判定与 `/vocab/lesson-cards` 因此用同一套事实。
-    const ownedInQueue = queue
-      ? await this.prisma.studentWord.findMany({
-          where: { studentId, headword: { in: queue } },
-          select: { headword: true },
-        })
-      : [];
-
+    // 注意：**这里不再算「队列里学生拥有哪些词」**。
+    // vocabState 跑在可能的创建 / 重新冻结之前，它手里的 `queue` 未必是最终
+    // 队列；课程卡的张数由 today() 在写入之后按最终队列自己查一次。
     return {
       target,
       progress,
       unlearned,
-      /** 冻结队列里学生仍然拥有的词（未排序；顺序由 `lessonCardOrder` 决定） */
-      ownedHeadwords: ownedInQueue.map((w) => w.headword),
       quizSubmitted: quizSubmitted > 0,
       /** 这一刻的到期队列（规范化去重）。调用方决定要不要落库 */
       desiredQueue: [
