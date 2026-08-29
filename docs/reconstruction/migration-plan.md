@@ -2005,7 +2005,7 @@ GET  /lesson/today            ← 交卷后刷新，按 kind 路由到 /lesson/r
 > 测试）尚未开始**。在 9B 落地之前，`kind=vocab_test` 落到的
 > `/lesson/test` 仍然是占位页。
 
-### 阶段 9A —— 课程学词　**✅ 本地完成**（2026-08-29）
+### 阶段 9A —— 课程学词　**✅ 本地完成**（2026-08-29，含返工 1/2）
 
 `task_id: S9A-COURSE-VOCAB-LEARNING-LOCAL`。`/lesson/vocab` 上的占位页被
 换成真页面：`apps/student-web/src/pages/LessonVocab.tsx`，配两个新模块
@@ -2051,14 +2051,31 @@ GET  /lesson/today            ← 交卷后刷新，按 kind 路由到 /lesson/r
       进正式测试**；同步干净之后重新问 `/lesson/today`，按 `kind` 走
       （`vocab_test` → `/lesson/test`，`summary` → `/lesson/summary`，
       其余 → `/today`），**后端 `href` 一律无视**。
+- [x] **返工 1/2 修正的三处**（初版把「没成」当成了「成了」）：
+      · **`tooFast` 不推进任何持久进度** —— 不打 `/lesson/vocab-cursor`，
+        并且**把记录出队**。留着的话补传会拿到 `duplicate: true`（那条
+        tooFast 流水同样带 requestId），一路走到落断点那一步，把学生根本
+        没学会的卡永久推过去；
+      · **落盘失败必须说实话** —— 入队之后回读确认这条真的在盘上，
+        确认不了就**一个请求都不发**，返回 `unstored`，页面停在同一张卡并
+        提示「没能存下来」，**绝不说「已经存下来了」**。顺带修掉同一条路径上
+        的一个死锁：令牌读不到时闸门已经上了却直接 return，`release()` 在
+        `finally` 里永远走不到，这一屏从此点不动 —— 改成**先取令牌再上闸**；
+      · **断点四种结局各归各位** —— 只有 `stored: true` 才出队并算持久成功；
+        `stored: false`（当日任务行不存在，响应是 200 但没落库）与
+        网络 / 5xx / 429 一律留队且 requestId 不变；非认证类 4xx 按既有规矩
+        丢弃；认证失败抛给调用方走既有登出，记录留到身份被清掉那一刻。
+        队里还留着这样的记录时，完成页**不出现进正式测试的入口**。
 - [ ] `/lesson/test`（正式，计入成绩，**退出需二次确认**）—— **未开始**
 - [ ] 删除 `then=` / `after=submit` 协议（旧端侧）—— 不在 9A 范围
 - [ ] 守卫 **G3 / G4** —— 9A 落的是 G-9A，G3 / G4 随 9B 一起
 
 **本地验证**（全部在本机执行，退出码均为 0）：
-`apps/student-web` 全量 `vitest run` **460 项**通过 —— 其中本阶段新增
-`lesson-vocab.test.tsx` 46 项、`review-queue.test.ts` 25 项、
-`vocab-card.test.ts` 16 项、`contract.test.ts` 的 G-9A 守卫 17 项；
+`apps/student-web` 全量 `vitest run` **474 项**通过 —— 其中本阶段新增
+`lesson-vocab.test.tsx` 48 项、`review-queue.test.ts` 37 项、
+`vocab-card.test.ts` 16 项、`contract.test.ts` 的 G-9A 守卫 17 项。
+返工 1/2 新增的 14 项回归**在修之前逐条验过是红的**（把两个源码文件退回
+`d0c7956` 再跑，11 项失败）；
 `tsc --noEmit`；`vite build`。
 `apps/api` 侧的 `first-teaching` / `vocab-taught` / `rc11-invariants` /
 `vocab-review.service` / `too-fast` / `lesson.service` / `token-only-runtime` /

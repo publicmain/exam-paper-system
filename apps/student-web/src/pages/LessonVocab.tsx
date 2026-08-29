@@ -89,6 +89,10 @@ export default function LessonVocabPage() {
    * 同步闸门。`busy` 是 React 状态，同一帧里连点两下时第二下看到的还是
    * 上一帧的 `null` —— 两个请求就都发出去了。闸必须同步生效。
    */
+  //
+  // 顺序也重要：**先取令牌再上闸**。反过来的话，令牌恰好读不到时（比如
+  // localStorage 整个不可用）闸已经上了却直接 return，`release()` 在 try 的
+  // finally 里永远走不到 —— 这一屏从此谁也点不动。
   const busyRef = useRef<Busy>(null);
   const gate = (kind: Exclude<Busy, null>): boolean => {
     if (busyRef.current) return false;
@@ -187,9 +191,8 @@ export default function LessonVocabPage() {
 
   // ── 教学卡「下一个」 ──
   const onTaught = useCallback(async () => {
-    if (!card || !gate('teach')) return;
     const token = readToken();
-    if (!token) return;
+    if (!card || !token || !gate('teach')) return;
     setStepError(null);
     try {
       const res = await api.vocabTaught(token, { headword: card.headword, cursor: cursor + 1 });
@@ -210,9 +213,8 @@ export default function LessonVocabPage() {
   // ── 复习卡评分 ──
   const onRate = useCallback(
     async (rating: CourseRating) => {
-      if (!card || revealedAt == null || !dwellOk || !gate('review')) return;
       const token = readToken();
-      if (!token) return;
+      if (!card || !token || revealedAt == null || !dwellOk || !gate('review')) return;
       setStepError(null);
       const elapsedMs = elapsedFrom(revealedAt, Date.now());
       try {
@@ -223,6 +225,12 @@ export default function LessonVocabPage() {
           cursor: cursor + 1,
         });
         syncPending();
+        if (out.status === 'unstored') {
+          // 队列没能落盘，所以**一个请求都没发出去**。这一票是真的没了 ——
+          // 必须停在这张卡上让学生再点一次，绝不能说「已经存下来了」。
+          setStepError('这次没能存下来（手机存储可能满了）—— 再点一次。');
+          return;
+        }
         if (out.status === 'invalid') {
           setStepError('这个词现在评不了分 —— 先跳过，回头找老师看看。');
           return;
@@ -261,9 +269,8 @@ export default function LessonVocabPage() {
 
   // ── 撤销 ──
   const onUndo = useCallback(async () => {
-    if (!receipt || receipt.kind !== 'ok' || !receipt.canUndo || !gate('undo')) return;
     const token = readToken();
-    if (!token) return;
+    if (!token || !receipt || receipt.kind !== 'ok' || !receipt.canUndo || !gate('undo')) return;
     try {
       await api.vocabReviewUndo(token, { headword: receipt.headword });
       // 回到那张卡。**不跳转、不离开课程路由。**
@@ -281,9 +288,8 @@ export default function LessonVocabPage() {
 
   // ── 完成页的「继续同步」 ──
   const onSync = useCallback(async () => {
-    if (!gate('sync')) return;
     const token = readToken();
-    if (!token) return;
+    if (!token || !gate('sync')) return;
     try {
       await flushPending(token);
     } catch (e) {
@@ -296,9 +302,8 @@ export default function LessonVocabPage() {
 
   // ── 全部处理完之后去哪：**按 kind，不看 href** ──
   const onFinish = useCallback(async () => {
-    if (!gate('sync')) return;
     const token = readToken();
-    if (!token) return;
+    if (!token || !gate('sync')) return;
     try {
       const today = await api.lessonToday(token);
       const kind = today.nextAction.kind;

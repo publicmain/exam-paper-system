@@ -172,6 +172,9 @@ beforeEach(() => {
 afterEach(() => {
   vi.useRealTimers();
   vi.unstubAllGlobals();
+  // 用例里会 spy 掉 `Storage.prototype.setItem` —— 断言一失败就走不到用例末尾，
+  // 必须在这里统一还原，否则后面每个用例都顶着坏掉的 localStorage 跑。
+  vi.restoreAllMocks();
 });
 
 // ─────────────────────────────────────────────────────────────
@@ -320,7 +323,12 @@ describe('AC-04 顺序、张数、断点都听服务端的', () => {
     expect(screen.getByTestId('progress').textContent).toBe('2 / 3');
   });
 
-  it('**服务端返回落后的断点时不倒退**', async () => {
+  // 「服务端给了更小的断点也不倒退」由 vocab-card.test.ts 的 advanceCursor
+  // 单测钉住；页面这边留住「更靠前时跟进」那一条即可。
+  //
+  // 原来这里还有一条用 `stored:false` 跑到 3/3 就收工的用例 —— 它把
+  // 「断点没落库」当成了完成，正是返工 1/2 的 B-3。换成下面这条。
+  it('**断点 stored:false 不算完成**：记录留着，完成页不放人走（B-3）', async () => {
     routes['/api/vocab/lesson-cards'] = () => ({ body: cardsPayload({ cursor: 2 }) });
     routes['/api/vocab/review'] = () => ({ body: { headword: 'silt', state: 'review', due: 'd', intervalDays: 2, reps: 1 } });
     routes['/api/lesson/vocab-cursor'] = () => ({ body: { ok: true, cursor: 0, stored: false } });
@@ -329,7 +337,10 @@ describe('AC-04 顺序、张数、断点都听服务端的', () => {
     await revealAndWait();
     fireEvent.click(screen.getByTestId('rate-good'));
     await settle();
-    expect(screen.getByTestId('progress').textContent).toBe('3 / 3');
+    expect(readQueue()).toHaveLength(1);
+    expect(screen.getByTestId('complete')).toBeInTheDocument();
+    expect(screen.getByTestId('pending-sync')).toBeInTheDocument();
+    expect(screen.queryByTestId('finish')).toBeNull();
   });
 });
 
@@ -547,6 +558,10 @@ describe('AC-06 复习卡', () => {
     expect(screen.queryByTestId('receipt-ok')).toBeNull();
     expect(screen.queryByTestId('undo')).toBeNull();
     expect(screen.getByTestId('progress').textContent).toBe('1 / 3');
+    // B-1：既不落断点，也不留在队里 —— 否则补传会拿 duplicate 把它推过去
+    expect(calls('/vocab-cursor')).toHaveLength(0);
+    expect(readQueue()).toEqual([]);
+    expect(screen.queryByTestId('pending-badge')).toBeNull();
   });
 
   it('**撤销回到那张卡，且不离开课程路由**', async () => {
@@ -621,6 +636,57 @@ describe('AC-07 弱网评分在页面上的表现', () => {
     expect(screen.queryByTestId('receipt-ok')).toBeNull();
     expect(readQueue()).toHaveLength(1);
     expect(screen.getByTestId('pending-badge').textContent).toContain('1');
+  });
+
+  it('**存不下就说存不下**（B-2）：不发请求、不推进、不说「已经存下来了」', async () => {
+    mount();
+    await settle();
+    await revealAndWait();
+    const before = reqs.length;
+    const real = Storage.prototype.setItem;
+    vi.spyOn(Storage.prototype, 'setItem').mockImplementation(function (
+      this: Storage,
+      k: string,
+      v: string,
+    ) {
+      if (k === QUEUE_KEY) throw new Error('QuotaExceeded');
+      real.call(this, k, v);
+    });
+    fireEvent.click(screen.getByTestId('rate-good'));
+    await settle();
+    expect(reqs).toHaveLength(before); // 一个请求都没发
+    expect(screen.queryByTestId('receipt-queued')).toBeNull();
+    expect(screen.queryByTestId('receipt-ok')).toBeNull();
+    expect(document.body.textContent).not.toContain('已经存下来了');
+    expect(screen.getByTestId('step-error')).toBeInTheDocument();
+    // 还停在同一张卡上，可以再试
+    expect(screen.getByTestId('progress').textContent).toBe('1 / 3');
+    expect(screen.getByTestId('review-card').getAttribute('data-headword')).toBe('nile');
+  });
+
+  it('**存不下之后还能接着点** —— 闸门没有被卡死', async () => {
+    mount();
+    await settle();
+    await revealAndWait();
+    const real = Storage.prototype.setItem;
+    const spy = vi.spyOn(Storage.prototype, 'setItem').mockImplementation(function (
+      this: Storage,
+      k: string,
+      v: string,
+    ) {
+      if (k === QUEUE_KEY) throw new Error('QuotaExceeded');
+      real.call(this, k, v);
+    });
+    fireEvent.click(screen.getByTestId('rate-good'));
+    await settle();
+    expect(screen.getByTestId('step-error')).toBeInTheDocument();
+
+    // 存储恢复 —— 同一张卡再评一次，这回该成
+    spy.mockRestore();
+    fireEvent.click(screen.getByTestId('rate-good'));
+    await settle();
+    expect(calls('/vocab/review')).toHaveLength(1);
+    expect(screen.getByTestId('progress').textContent).toBe('2 / 3');
   });
 
   it('**队列里的记录带着下一个断点**', async () => {

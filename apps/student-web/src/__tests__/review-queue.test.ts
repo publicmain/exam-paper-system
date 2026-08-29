@@ -64,6 +64,10 @@ beforeEach(() => {
 
 afterEach(() => {
   vi.unstubAllGlobals();
+  // 用例里会 spy 掉 `Storage.prototype.setItem`。**必须在这里统一还原** ——
+  // 只在用例末尾 restore 的话，断言一失败就永远走不到那一行，后面每个
+  // 用例都会顶着一个坏掉的 localStorage 跑。
+  vi.restoreAllMocks();
 });
 
 const input = (over: Partial<PendingReview> = {}) => ({
@@ -173,6 +177,131 @@ describe('AC-07 失败与重试', () => {
     const ids = calls('/vocab/review').map((r) => bodyOf(r).requestId);
     expect(new Set(ids).size).toBe(1);
     expect(ids[0]).toBe(id);
+  });
+});
+
+describe('AC-06/07 tooFast 不推进任何持久进度（返工 1/2 · B-1）', () => {
+  const tooFast = { headword: 'nile', state: 'review', due: 'd', intervalDays: 0, reps: 2, tooFast: true };
+
+  it('**tooFast 不落断点**，一次 vocab-cursor 都不发', async () => {
+    routes['/api/vocab/review'] = () => ({ body: tooFast });
+    const out = await submitCourseReview('TK', input());
+    expect(out.status).toBe('ok');
+    expect(out.status === 'ok' && out.result.tooFast).toBe(true);
+    expect(calls('/vocab-cursor')).toHaveLength(0);
+  });
+
+  it('**tooFast 出队** —— 否则补传会拿 duplicate 把断点推过去', async () => {
+    routes['/api/vocab/review'] = () => ({ body: tooFast });
+    await submitCourseReview('TK', input());
+    expect(readQueue()).toEqual([]);
+
+    // 再补传一次：队里已经没有它了，什么都不该发
+    reqs = [];
+    __resetFlushGuardForTest();
+    await flushPending('TK');
+    expect(reqs).toHaveLength(0);
+  });
+
+  it('**补传时撞上 tooFast 也不落断点**', async () => {
+    routes['/api/vocab/review'] = () => ({ body: tooFast });
+    localStorage.setItem(
+      QUEUE_KEY,
+      JSON.stringify([{ ...input(), requestId: 'r1', ts: Date.now() }]),
+    );
+    await flushPending('TK');
+    expect(calls('/vocab-cursor')).toHaveLength(0);
+    expect(readQueue()).toEqual([]);
+  });
+});
+
+describe('AC-07 落盘失败必须说实话（返工 1/2 · B-2）', () => {
+  it('**storage 整个不可用 → 不发请求**，返回 unstored', async () => {
+    const spy = vi.spyOn(Storage.prototype, 'setItem').mockImplementation(() => {
+      throw new Error('QuotaExceeded');
+    });
+    const out = await submitCourseReview('TK', input());
+    expect(out.status).toBe('unstored');
+    expect(reqs).toHaveLength(0);
+    spy.mockRestore();
+  });
+
+  it('**只有写队列那一次 setItem 失败 → 也不发请求**', async () => {
+    const real = Storage.prototype.setItem;
+    const spy = vi.spyOn(Storage.prototype, 'setItem').mockImplementation(function (
+      this: Storage,
+      k: string,
+      v: string,
+    ) {
+      if (k === QUEUE_KEY) throw new Error('QuotaExceeded');
+      real.call(this, k, v);
+    });
+    const out = await submitCourseReview('TK', input());
+    expect(out.status).toBe('unstored');
+    expect(calls('/vocab/review')).toHaveLength(0);
+    expect(calls('/vocab-cursor')).toHaveLength(0);
+    spy.mockRestore();
+  });
+
+  it('**回读不到自己刚写的那条也算没存下**', async () => {
+    const spy = vi.spyOn(Storage.prototype, 'setItem').mockImplementation(() => {
+      /* 假装写成功，其实什么都没写 */
+    });
+    const out = await submitCourseReview('TK', input());
+    expect(out.status).toBe('unstored');
+    expect(reqs).toHaveLength(0);
+    spy.mockRestore();
+  });
+});
+
+describe('AC-07 断点落库的四种结局（返工 1/2 · B-3）', () => {
+  it('**stored:true 才算完** —— 出队，返回持久成功', async () => {
+    const out = await submitCourseReview('TK', input());
+    expect(out.status).toBe('ok');
+    expect(readQueue()).toEqual([]);
+  });
+
+  it('**stored:false 记录留着**，requestId 不变，不算完成', async () => {
+    routes['/api/lesson/vocab-cursor'] = () => ({ body: { ok: true, cursor: 0, stored: false } });
+    const out = await submitCourseReview('TK', input());
+    expect(out.status).toBe('queued');
+    const q = readQueue();
+    expect(q).toHaveLength(1);
+    const id = q[0].requestId;
+
+    // 断点这次落成了 —— 重放同一个 requestId，然后才出队
+    routes['/api/lesson/vocab-cursor'] = () => ({ body: { ok: true, cursor: 1, stored: true } });
+    routes['/api/vocab/review'] = () => ({ body: { ...reviewOk, duplicate: true } });
+    reqs = [];
+    __resetFlushGuardForTest();
+    await flushPending('TK');
+    expect(bodyOf(calls('/vocab/review')[0]).requestId).toBe(id);
+    expect(readQueue()).toEqual([]);
+  });
+
+  for (const status of [500, 429] as const) {
+    it(`**断点 ${status} → 留在队里**`, async () => {
+      routes['/api/lesson/vocab-cursor'] = () => ({ status, body: { code: 'x' } });
+      const out = await submitCourseReview('TK', input());
+      expect(out.status).toBe('queued');
+      expect(readQueue()).toHaveLength(1);
+    });
+  }
+
+  it('**断点是非认证类 4xx → 按既有规矩丢弃**', async () => {
+    routes['/api/lesson/vocab-cursor'] = () => ({ status: 400, body: { code: 'bad_cursor' } });
+    const out = await submitCourseReview('TK', input());
+    expect(out.status).toBe('invalid');
+    expect(readQueue()).toEqual([]);
+  });
+
+  it('**断点认证失败 → 抛给调用方走既有登出，记录留着**', async () => {
+    routes['/api/lesson/vocab-cursor'] = () => ({ status: 401, body: { code: 'token_revoked' } });
+    await expect(submitCourseReview('TK', input())).rejects.toBeTruthy();
+    expect(readQueue()).toHaveLength(1);
+    // 登出会走 sw: 前缀扫除，那时才清
+    clearIdentity();
+    expect(readQueue()).toEqual([]);
   });
 });
 

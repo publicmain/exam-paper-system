@@ -41,7 +41,14 @@
  *
  * 断点落库失败而评分成功时记录留着 —— 重放是安全的，因为 requestId 没变。
  */
-import { ApiError, NetworkError, api, type CourseRating, type VocabReviewResult } from './api';
+import {
+  ApiError,
+  NetworkError,
+  api,
+  type CourseRating,
+  type VocabCursorResult,
+  type VocabReviewResult,
+} from './api';
 
 /** 本包命名空间下的唯一一个队列键。清理由 `identity.ts` 的前缀扫除负责。 */
 export const QUEUE_KEY = 'sw:vocab:pending';
@@ -107,14 +114,22 @@ function isRecord(x: unknown): x is PendingReview {
   );
 }
 
-function writeQueue(q: PendingReview[]): void {
+/**
+ * 落盘，**并如实报告成没成**。
+ *
+ * 原来这里把失败静默吞了 —— 于是「队列写不进去」和「队列写进去了」在调用
+ * 方看来一模一样，学生会拿到一句「已经存下来了」，而盘上什么都没有。
+ * 存储满、隐私模式、被扩展禁掉都会走到这里，它必须是可观测的。
+ */
+function writeQueue(q: PendingReview[]): boolean {
   const s = safeStorage();
-  if (!s) return;
+  if (!s) return false;
   try {
     // 超长时丢**最旧的**：新的评分对调度更有价值，旧的多半已经过时。
     s.setItem(QUEUE_KEY, JSON.stringify(q.slice(-MAX_QUEUE)));
+    return true;
   } catch {
-    /* 存储满 / 被禁：只能放弃排队，行为退回「发失败就是失败」 */
+    return false;
   }
 }
 
@@ -140,8 +155,16 @@ export function newRequestId(): string {
   }
 }
 
-function enqueue(rec: PendingReview): void {
-  writeQueue([...readQueue(), rec]);
+/**
+ * 入队，**并回读确认这条真的在盘上**。
+ *
+ * 只看 `setItem` 有没有抛是不够的：有的环境（隐私模式、被扩展劫持的
+ * storage）写了不抛也不存。这条评分的全部保障就是「它在盘上」，所以
+ * 这里必须亲眼看见它才算数。
+ */
+function enqueue(rec: PendingReview): boolean {
+  if (!writeQueue([...readQueue(), rec])) return false;
+  return readQueue().some((p) => p.requestId === rec.requestId);
 }
 
 function dequeue(requestId: string): void {
@@ -169,7 +192,14 @@ export type ReviewOutcome =
   /** 还在队里 —— 已经落盘，会补传，但**不能说服务端已经记下了**。 */
   | { status: 'queued' }
   /** 这条评分本身不合法，已经丢弃。 */
-  | { status: 'invalid'; error: unknown };
+  | { status: 'invalid'; error: unknown }
+  /**
+   * **没能落盘，所以一个请求都没发。**
+   *
+   * 这是「存不下」，不是「存下了等补传」—— 两者对学生的意思完全相反，
+   * 绝不能合并成一个状态。
+   */
+  | { status: 'unstored' };
 
 /**
  * 走完一条记录：评分 → 断点 → 出队。
@@ -196,12 +226,34 @@ async function drive(token: string, rec: PendingReview): Promise<ReviewOutcome> 
     return { status: 'queued' };
   }
 
+  if (result.tooFast) {
+    // 服务端**没有写调度** —— 这一张根本没算数，断点自然也不能落。
+    //
+    // 而且必须**出队**：那条 tooFast 流水同样带着 requestId，留在队里的话
+    // 下次补传会拿到 `duplicate: true`，于是一路走到落断点那一步 ——
+    // 把一张学生根本没学会的卡永久地推过去。
+    dequeue(rec.requestId);
+    return { status: 'ok', result };
+  }
+
+  let cursorRes: VocabCursorResult;
   try {
-    await api.vocabCursor(token, { cursor: rec.cursor });
+    cursorRes = await api.vocabCursor(token, { cursor: rec.cursor });
   } catch (e) {
     if (e instanceof ApiError && e.isAuthFailure) throw e;
+    if (isPermanentlyInvalid(e)) {
+      // 这个断点本身服务端就不收，重试多少次都一样。
+      dequeue(rec.requestId);
+      return { status: 'invalid', error: e };
+    }
     // 评分成了、断点没成 —— **记录留着**。重放评分是安全的（requestId 没变，
     // 服务端会回 duplicate），而断点必须补上，否则刷新后重做已评过的卡。
+    return { status: 'queued' };
+  }
+
+  if (!cursorRes.stored) {
+    // `stored: false` = 当日任务行不存在，**断点没有落库**。响应是 200，
+    // 但这件事没成 —— 当成完成就等于把进度丢了。记录留着，requestId 不变。
     return { status: 'queued' };
   }
 
@@ -212,8 +264,9 @@ async function drive(token: string, rec: PendingReview): Promise<ReviewOutcome> 
 /**
  * 提交一次课程评分。
  *
- * 无论成败都**先落盘再发**：调用方拿到 `queued` 时，这条评分已经在盘上，
- * 不会因为关页面而消失。
+ * **落盘成功之前一个请求都不发。** 这条评分的全部保障就是「它在盘上」——
+ * 盘上没有它却把请求发出去，失败时就真的凭空消失了，而学生已经看到
+ * 「存下来了」。存不下就如实说存不下，让学生再点一次。
  */
 export async function submitCourseReview(
   token: string,
@@ -227,7 +280,7 @@ export async function submitCourseReview(
     cursor: input.cursor,
     ts: Date.now(),
   };
-  enqueue(rec);
+  if (!enqueue(rec)) return { status: 'unstored' };
   return drive(token, rec);
 }
 
