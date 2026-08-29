@@ -964,12 +964,28 @@ describe('G-9A 课程学词只走课程线', () => {
     return VOCAB_FORBIDDEN.filter(({ re }) => re.test(text)).map(({ why }) => why);
   }
 
+  /**
+   * 行尾统一成 LF。
+   *
+   * 仓库里 `core.autocrlf=true`，Windows 检出的源码是 CRLF，而测试文件本身
+   * 可能是 LF —— 同一个仓库里两种行尾并存是常态。任何**按行尾定位**的
+   * 分析都必须先归一化，否则守卫会在一台机器上绿、在另一台上红，
+   * 或者更糟：**静默地量错范围**。
+   */
+  const lf = (src: string) => src.replace(/\r\n?/g, '\n');
+
   /** 抽出一个顶层 `function X(...) { … }` 的正文。 */
-  function blockOf(src: string, name: string): string {
+  function blockOf(raw: string, name: string): string {
+    const src = lf(raw);
     const start = src.indexOf(`function ${name}(`);
     if (start < 0) return '';
-    // 找**顶层**的收尾花括号。只找 `\n}` 会撞上参数类型注解里的 `}: {`，
-    // 把函数体截成一小段 —— 那样守卫看起来是绿的，其实什么都没查。
+    // 找**顶层**的收尾花括号。
+    //
+    // 只找 `\n}` 会撞上参数类型注解里的 `}: {`，把函数体截成一小段；
+    // 而如果不先归一化行尾，CRLF 的源码里根本没有 `\n}\n`，`indexOf` 返回
+    // -1，函数体就一路切到文件末尾 —— 把**下一个组件**也算了进来。
+    // 两种错法都让守卫失去意义（一个永远绿，一个永远红），所以
+    // 上面的 `lf()` 不是整洁，是正确性的一部分。
     const end = src.indexOf('\n}\n', start);
     return src.slice(start, end < 0 ? undefined : end);
   }
@@ -1032,7 +1048,14 @@ describe('G-9A 课程学词只走课程线', () => {
 
   it('**教学卡上没有任何评分动作**', () => {
     const teaching = blockOf(stripComments(fs.readFileSync(SURFACE[0], 'utf8')), 'TeachingCard');
+    // 先证明切出来的确实**只是**教学卡：切多了（把 ReviewCard 也吞进来）
+    // 这条断言会假红，切少了会假绿 —— 两头都得先钉住，下面那句才有意义。
     expect(teaching.length).toBeGreaterThan(100);
+    expect(teaching).toContain('teaching-card');
+    expect(teaching).toContain('taught-next');
+    expect(teaching).not.toContain('function ReviewCard');
+    expect(teaching).not.toContain('review-card');
+
     expect(teaching).not.toMatch(/onRate|rate-again|rate-good|submitCourseReview|vocabReview/);
   });
 
@@ -1094,15 +1117,43 @@ describe('G-9A 课程学词只走课程线', () => {
       expect(vocabHits('navigate(today.nextAction.href);')).toContain('拿后端 href 当导航权威');
     });
 
-    it('**在教学卡上给评分按钮会被抓到**', () => {
-      const hostile = [
-        'function TeachingCard({ card }) {',
-        '  return <button data-testid="rate-good" onClick={() => onRate("good")} />;',
-        '}',
-        '',
-      ].join('\n');
-      expect(blockOf(hostile, 'TeachingCard')).toMatch(/onRate|rate-good/);
-    });
+    // 行尾必须两种都试。仓库里 `core.autocrlf=true`，Windows 检出的
+    // `LessonVocab.tsx` 是 CRLF，而这个测试文件是 LF —— 只用 LF 夹具的话，
+    // `blockOf` 找不到 `\n}\n`、一路切到文件末尾，把 ReviewCard 的评分按钮
+    // 也算进教学卡里，守卫**在真实检出上永远是红的**（这一条真的发生过）。
+    const HOSTILE_LINES = [
+      'function TeachingCard({ card }) {',
+      '  return <button data-testid="rate-good" onClick={() => onRate("good")} />;',
+      '}',
+      '',
+      'function ReviewCard({ card }) {',
+      '  return <button data-testid="rate-again" />;',
+      '}',
+      '',
+    ];
+    const CLEAN_LINES = [
+      'function TeachingCard({ card }) {',
+      '  return <button data-testid="taught-next" />;',
+      '}',
+      '',
+      'function ReviewCard({ card }) {',
+      '  return <button data-testid="rate-good" onClick={() => onRate("good")} />;',
+      '}',
+      '',
+    ];
+
+    for (const [label, eol] of [['LF', '\n'], ['CRLF', '\r\n']] as const) {
+      it(`**${label}：在教学卡上给评分按钮会被抓到**`, () => {
+        expect(blockOf(HOSTILE_LINES.join(eol), 'TeachingCard')).toMatch(/onRate|rate-good/);
+      });
+
+      it(`**${label}：干净的教学卡不会被隔壁 ReviewCard 连累**`, () => {
+        const block = blockOf(CLEAN_LINES.join(eol), 'TeachingCard');
+        expect(block).toContain('taught-next');
+        expect(block).not.toContain('function ReviewCard');
+        expect(block).not.toMatch(/onRate|rate-good/);
+      });
+    }
 
     it('**队列还没清空就放人进正式测试会被抓到**', () => {
       const hostile = [

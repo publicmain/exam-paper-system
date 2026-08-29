@@ -2071,11 +2071,17 @@ GET  /lesson/today            ← 交卷后刷新，按 kind 路由到 /lesson/r
 - [ ] 守卫 **G3 / G4** —— 9A 落的是 G-9A，G3 / G4 随 9B 一起
 
 **本地验证**（全部在本机执行，退出码均为 0）：
-`apps/student-web` 全量 `vitest run` **474 项**通过 —— 其中本阶段新增
+`apps/student-web` 全量 `vitest run` **477 项**通过 —— 其中本阶段新增
 `lesson-vocab.test.tsx` 48 项、`review-queue.test.ts` 37 项、
-`vocab-card.test.ts` 16 项、`contract.test.ts` 的 G-9A 守卫 17 项。
+`vocab-card.test.ts` 16 项、`contract.test.ts` 的 G-9A 守卫 20 项。
 返工 1/2 新增的 14 项回归**在修之前逐条验过是红的**（把两个源码文件退回
-`d0c7956` 再跑，11 项失败）；
+`d0c7956` 再跑，11 项失败）。
+返工 2/2 修的是守卫自己的一个缺陷：`blockOf()` 按 `\n}\n` 找函数收尾，而
+仓库 `core.autocrlf=true`，Windows 检出的 `LessonVocab.tsx` 是 CRLF ——
+找不到就一路切到文件末尾，把 `ReviewCard` 的评分按钮也算进教学卡里，
+于是「教学卡上没有任何评分动作」这条**在真实检出上永远是红的**（474 项里
+红 1 项）。现在 `blockOf()` 先归一化行尾，并补了 LF / CRLF 两套夹具证明
+它既抓得住越界、也不会误伤；
 `tsc --noEmit`；`vite build`。
 `apps/api` 侧的 `first-teaching` / `vocab-taught` / `rc11-invariants` /
 `vocab-review.service` / `too-fast` / `lesson.service` / `token-only-runtime` /
