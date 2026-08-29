@@ -381,6 +381,11 @@ describe('G1 新端不得出现旧路由与旧身份键', () => {
     '/vocab/review',
     '/vocab/review/undo',
     '/lesson/vocab-cursor',
+    // 阶段 9B1：正式单词测试。三条都是**认证后**端点 —— 零身份参数，
+    // 请求体分别是 {} / {index, optionIndex|text} / {}。
+    '/vocab/quiz/attempt/start',
+    '/vocab/quiz/attempt/answer',
+    '/vocab/quiz/attempt/submit',
   ] as const;
 
   /**
@@ -1170,6 +1175,190 @@ describe('G-9A 课程学词只走课程线', () => {
       expect(
         vocabHits('// 我们不退回 /vocab/due，也不跳 /my-vocab\nnavigate(ROUTES.today);'),
       ).toEqual([]);
+    });
+  });
+});
+
+// ─────────────────────────────────────────────────────────────
+// G-9B1 —— 正式单词测试这一面的静态守卫
+//
+// 这一屏和学词那一屏的失败方式不一样：学词坏了是「少记一次复习」，
+// 考试坏了是**成绩单上写错了分**。所以除了老三样（旧路由 / 身份 / href），
+// 这里还要额外钉住三条：
+//
+//   · **不许碰自由练习那条线**（`/vocab/due`、`GET /vocab/quiz`、复习、
+//     错题、学词写入）—— 旧端在考不了的时候 fallback 到自由练习，学生
+//     以为在考试，成绩单上什么都没有；
+//   · **出口只有 `/today` 和 `/lesson/summary`**（G4）；
+//   · **回执没到就不许显示对错** —— 作答前服务端不下发答案，本地判出来的
+//     必然是编的。
+//
+// G3（生词本 / 错题本独立路由）**没有完成**，那几条路由还不存在。
+// ─────────────────────────────────────────────────────────────
+describe('G-9B1 正式测试只走成绩线', () => {
+  const TEST_FILE = path.join(SRC, 'pages', 'LessonTest.tsx');
+  const testSource = () => stripComments(fs.readFileSync(TEST_FILE, 'utf8'));
+
+  const QUIZ_FORBIDDEN: Array<{ why: string; re: RegExp }> = [
+    { why: '旧历史页', re: /\/my-history/ },
+    { why: '旧生词本页', re: /\/my-vocab/ },
+    { why: '旧错题页', re: /\/my-mistakes/ },
+    { why: '扫码入口', re: /\/scan\b/ },
+    { why: '旧学生外壳', re: /\/student(?![-\w])/ },
+    { why: '请求体里带身份字段', re: /\b(name|studentName|studentId)\s*:/ },
+    { why: 'URL 里带身份', re: /[?&](name|studentId)=/ },
+    { why: 'then / after 协议', re: /\bthen=|\bafter=/ },
+    { why: '拿后端 href 当导航权威', re: /\.\s*href\b/ },
+    // 自由练习那条线，一条都不许碰
+    { why: '自由练习到期队列', re: /\/vocab\/due/ },
+    { why: '自由练习出题端点', re: /\/vocab\/quiz['"`]|\/vocab\/quiz\?/ },
+    { why: '复习 / 撤销（FSRS）', re: /\/vocab\/review/ },
+    { why: '错题本', re: /\/vocab\/mistakes/ },
+    { why: '课程学词的写入', re: /\/lesson\/vocab-(taught|cursor)/ },
+    { why: '弱网复习队列', re: /review-queue|submitCourseReview|flushPending/ },
+    { why: '非 sw: 的持久化键', re: /['"`](?!sw:)[A-Za-z_][\w-]*:[A-Za-z_]/ },
+  ];
+
+  function quizHits(code: string): string[] {
+    const text = stripComments(code);
+    return QUIZ_FORBIDDEN.filter(({ re }) => re.test(text)).map(({ why }) => why);
+  }
+
+  /** G4 —— 这一屏允许去的地方，只有这两个。 */
+  const G4 = ['ROUTES.today', 'ROUTES.summary'];
+
+  /**
+   * 抽出每个 `navigate(...)` 里出现的所有 `ROUTES.x`。
+   *
+   * 取第一个实参的原文是不够的 —— 目的地常常写成三元
+   * （`kind === 'summary' ? ROUTES.summary : ROUTES.today`），那样整段
+   * 都对不上白名单。真正要管的是「它可能去哪」，所以按 ROUTES 常量抽。
+   */
+  function navTargets(src: string): string[] {
+    const out: string[] = [];
+    for (const m of stripComments(src).matchAll(/navigate\(([\s\S]*?)\)\s*;/g)) {
+      for (const r of m[1].matchAll(/ROUTES\.\w+/g)) out.push(r[0]);
+    }
+    return out;
+  }
+
+  it('页面真的存在，占位页已经被替换掉', () => {
+    expect(fs.existsSync(TEST_FILE)).toBe(true);
+    const app = stripComments(fs.readFileSync(path.join(SRC, 'App.tsx'), 'utf8'));
+    expect(app).toMatch(/ROUTES\.lessonTest\}\s*element=\{<LessonTestPage/);
+    expect(app).not.toMatch(/lessonTest\}\s*element=\{<LessonPlaceholder/);
+  });
+
+  it('**注册的路由集合一个没多、一个没少**（只换了实现）', () => {
+    expect([...REGISTERED_PATHS].sort()).toEqual([...Object.values(ROUTES)].sort());
+  });
+
+  it('**这一面干净**：没有旧路由、身份、href、自由练习、FSRS', () => {
+    expect(quizHits(fs.readFileSync(TEST_FILE, 'utf8'))).toEqual([]);
+  });
+
+  it('**只调这四个端点**：今天的课 + 开考 / 作答 / 交卷', () => {
+    const called = [...new Set(
+      [...testSource().matchAll(/\bapi\.(\w+)\s*\(/g)].map((m) => m[1]),
+    )].sort();
+    expect(called).toEqual(['lessonToday', 'quizAnswer', 'quizStart', 'quizSubmit']);
+  });
+
+  it('**不从 apps/web 或跨应用路径 import**，也不 import 自由练习模块', () => {
+    for (const m of testSource().matchAll(/from\s+['"]([^'"]+)['"]/g)) {
+      const spec = m[1];
+      expect(/apps\/web|components\/exam|\.\.\/\.\.\/\.\.\//.test(spec), spec).toBe(false);
+      expect(/review-queue|vocab-card/.test(spec), spec).toBe(false);
+    }
+  });
+
+  it('**G4：出口只有 /today 和 /lesson/summary**', () => {
+    const targets = navTargets(testSource());
+    expect(targets.length).toBeGreaterThan(0);
+    for (const t of targets) expect(G4, `navigate(${t})`).toContain(t);
+  });
+
+  it('**判定字样只出现在「已作答」分支里**（回执没到不说对错）', () => {
+    const src = testSource();
+    // 判定卡整段挂在 `{answered && (` 下面 —— 找到它，确认字样在里面
+    const at = src.indexOf('{answered && (');
+    expect(at).toBeGreaterThan(0);
+    const before = src.slice(0, at);
+    for (const w of ['答对了', '答错了']) {
+      expect(before, `「${w}」出现在了 answered 分支之外`).not.toContain(w);
+    }
+    expect(src.slice(at)).toContain('答对了');
+  });
+
+  it('**没有错题回炉 / 再练一轮 / 不计分模式**', () => {
+    const src = testSource();
+    for (const w of ['再练一轮', '不计分', '回炉', '自由练习', '自测', 'retry: true']) {
+      expect(src, `出现了「${w}」`).not.toContain(w);
+    }
+  });
+
+  // ── 反向夹具：证明这一面的守卫真的会红 ──
+  describe('反向夹具 —— 正式测试守卫必须抓得住', () => {
+    it('**考不了就退回自由练习会被抓到**（旧端的真实写法）', () => {
+      expect(quizHits("if (code === 'not_ready') return api.request('GET', '/vocab/quiz');")).toContain(
+        '自由练习出题端点',
+      );
+      expect(quizHits("const due = await request('GET', '/vocab/due', { token });")).toContain(
+        '自由练习到期队列',
+      );
+    });
+
+    it('**写 FSRS / 用弱网复习队列会被抓到**', () => {
+      expect(quizHits("await request('POST', '/vocab/review', { body, token });")).toContain(
+        '复习 / 撤销（FSRS）',
+      );
+      expect(quizHits("import { submitCourseReview } from '../lib/review-queue';")).toContain(
+        '弱网复习队列',
+      );
+    });
+
+    it('**请求体里塞 studentName / URL 带 studentId 会被抓到**', () => {
+      expect(quizHits('api.quizAnswer(t, { studentName: nm, index });')).toContain(
+        '请求体里带身份字段',
+      );
+      expect(quizHits('fetch(`/api/vocab/quiz/attempt/start?studentId=${id}`)')).toContain(
+        'URL 里带身份',
+      );
+    });
+
+    it('**跳回旧页面 / then / after 会被抓到**', () => {
+      expect(quizHits("navigate('/my-vocab/quiz');")).toContain('旧生词本页');
+      expect(quizHits("navigate('/lesson/summary?then=/my-history');")).toContain('then / after 协议');
+    });
+
+    it('**照后端 href 跳转会被抓到**', () => {
+      expect(quizHits('navigate(today.nextAction.href);')).toContain('拿后端 href 当导航权威');
+    });
+
+    it('**G4：跳到第三个地方会被抓到**', () => {
+      const hostile = "navigate(ROUTES.today);\nnavigate(ROUTES.account);";
+      const targets = navTargets(hostile);
+      expect(targets).toEqual(['ROUTES.today', 'ROUTES.account']);
+      expect(targets.filter((t) => !G4.includes(t))).toEqual(['ROUTES.account']);
+    });
+
+    it('**把占位页换回去会被抓到**', () => {
+      const hostile = '<Route path={ROUTES.lessonTest} element={<LessonPlaceholder stage="lessonTest" />} />';
+      expect(hostile).toMatch(/lessonTest\}\s*element=\{<LessonPlaceholder/);
+      expect(hostile).not.toMatch(/ROUTES\.lessonTest\}\s*element=\{<LessonTestPage/);
+    });
+
+    it('**回执没到就显示对错会被抓到**', () => {
+      const hostile = [
+        'const verdict = chosen === guess ? "答对了" : "答错了";',
+        '{answered && (<p>{item.isCorrect}</p>)}',
+      ].join('\n');
+      const at = hostile.indexOf('{answered && (');
+      expect(hostile.slice(0, at)).toContain('答对了');
+    });
+
+    it('**注释里提到这些名字不算违规**（守卫剥注释）', () => {
+      expect(quizHits('// 我们不退回 /vocab/due，也不跳 /my-vocab\nnavigate(ROUTES.today);')).toEqual([]);
     });
   });
 });

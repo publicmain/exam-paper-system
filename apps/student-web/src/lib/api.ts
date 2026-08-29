@@ -362,7 +362,93 @@ export const api = {
 
   vocabCursor: (token: string, body: { cursor: number }) =>
     request<VocabCursorResult>('POST', '/lesson/vocab-cursor', { body, token }),
+
+  // ── 正式单词测试（阶段 9B1）；三条全是**认证后，零身份参数** ──
+  //
+  // 后端这三条的 schema 同样留着可选的 `name` / `studentId`（旧端在用），
+  // `identityOf()` 优先认令牌。新端一个都不传 —— 正式测试是**记成绩**的，
+  // 允许请求指定身份就等于允许替别人考试。
+  //
+  // 开考是幂等的：已有这次任务的 attempt 就原样返回（带 `resumed: true`），
+  // 所以「进入」和「恢复」是同一个调用，**不需要**另一条 current 端点。
+
+  quizStart: (token: string) =>
+    request<QuizAttemptStart>('POST', '/vocab/quiz/attempt/start', { body: {}, token }),
+
+  /** 记一题。选择题传 `optionIndex`，拼写题传 `text`，**二选一**。 */
+  quizAnswer: (
+    token: string,
+    body: { index: number; optionIndex: number } | { index: number; text: string },
+  ) => request<QuizAnswerResult>('POST', '/vocab/quiz/attempt/answer', { body, token }),
+
+  quizSubmit: (token: string) =>
+    request<QuizSubmitResult>('POST', '/vocab/quiz/attempt/submit', { body: {}, token }),
 };
+
+// ─────────────────────────────────────────────────────────────
+// 正式单词测试（阶段 9B1）
+//
+// 类型按**服务端实际返回的字段**写（`vocab-quiz-attempt.service.ts` 的
+// `view()`，S9B0 之后的形状）。
+//
+// 关键是那几个可空字段**不是「可能没有」，而是「还没轮到你看」**：
+// 未作答的题只下发 `index` / `qtype` / `prompt` / `options`，
+// `headword` / `phonetic` / `translation` / `contextSentence` /
+// `correctIndex` / `answer` 一律是 null，作答成功的回执里才揭开**这一题**。
+// 前端不得推断、不得重建 —— 这是 S9B0 的整个用意。
+// ─────────────────────────────────────────────────────────────
+
+export type QuizQType = 'word_to_meaning' | 'meaning_to_word' | 'cloze' | 'spelling';
+
+export interface QuizItem {
+  index: number;
+  qtype: QuizQType;
+  /** 看词选义时是单词，看义选词时是释义，cloze / spelling 时是挖空句。 */
+  prompt: string;
+  /** 拼写题恒为空数组 —— 那道题渲染输入框，不渲染选项。 */
+  options: string[];
+
+  /** ↓ 作答（或交卷）之前一律是 null。 */
+  headword: string | null;
+  phonetic: string | null;
+  translation: string | null;
+  contextSentence: string | null;
+  correctIndex: number | null;
+  answer: string | null;
+
+  /** ↓ 这一题存下来的作答状态。 */
+  studentIndex: number | null;
+  studentAnswer: string | null;
+  isCorrect: boolean | null;
+  answeredAt: string | null;
+}
+
+export interface QuizAttempt {
+  attemptId: string;
+  status: 'in_progress' | 'submitted';
+  startedAt: string;
+  submittedAt: string | null;
+  total: number;
+  correct: number;
+  /** 只有交卷之后才有分数。 */
+  score: number | null;
+  items: QuizItem[];
+}
+
+export interface QuizAttemptStart extends QuizAttempt {
+  /** true = 这次任务本来就有一份，原样接着做（或看成绩）。 */
+  resumed: boolean;
+}
+
+export type QuizAnswerResult = QuizAttempt &
+  (
+    | { accepted: true; isCorrect: boolean; reason?: undefined }
+    | { accepted: false; reason: 'already_answered' | 'already_submitted'; isCorrect?: undefined }
+  );
+
+export interface QuizSubmitResult extends QuizAttempt {
+  alreadySubmitted: boolean;
+}
 
 // ─────────────────────────────────────────────────────────────
 // 课程学词（阶段 9A）
