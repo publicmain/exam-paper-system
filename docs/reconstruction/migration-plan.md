@@ -1939,20 +1939,37 @@ GET  /lesson/today            ← 交卷后刷新，按 kind 路由到 /lesson/r
 
 ## 阶段 8 —— 阅读结果页
 
-### 阶段 8A —— 阅读结果页　**✅ 本地完成**（2026-08-29）
+### 阶段 8A —— 阅读结果页　**✅ 本地完成**（2026-08-29，含返工 1/2）
 
 `task_id: S8A-READING-RESULT-LOCAL`。`/lesson/reading/result` 上的占位页
 被换成真页面：`apps/student-web/src/pages/ReadingResult.tsx`。
+
+> **返工 1/2（BLOCKER B-1）**：初版只看了 `read.sessionId`，既没要
+> `submissionId`、没判阅读段是否真的做完，也没核对结果响应回来的两个 id，
+> 而申诉却直接用了响应里的 `submissionId`。已按上一条补齐，并加了 10 项
+> 行为回归（含逐条突变验证：把闸门拆掉，对应用例确实变红）。
 
 **证据层级 = 源码 + 本地自动化测试。没有任何 staging、真机或数据库声明。**
 这一屏**从未在 staging 上部署过，也从未在任何真实设备上打开过**。
 
 - [x] `/lesson/reading/result`：总览 + 逐题回顾
       资源链路与阅读页同源：认证 → `GET /lesson/today` → 从 `segments.read`
-      取 `sessionId` → `GET /morning-quiz/student-result/:sessionId`。
+      取 **`sessionId` 和 `submissionId` 两个标识** →
+      `GET /morning-quiz/student-result/:sessionId`。
       **URL 不带姓名 / studentId / sessionId，不读后端 `href`，不读
-      localStorage 里的身份。** 拿不到标识或课程状态不允许 → `replace` 回
-      `/today`，**绝不落到 `/my-history` 等任何旧页面**。
+      localStorage 里的身份。**
+- [x] **资源标识成对校验，失败一律 fail-closed**（返工 1/2 修正）：
+      · 只有 `read.status` 为 `done` 或 `auto_closed` 才算「有结果可看」——
+        `todo` / `partial` / `none` 一律回 `/today`；
+      · `sessionId` 与 `submissionId` **缺一个就不算数**；
+      · 结果响应回来之后还要核对
+        `result.sessionId === read.sessionId` 且
+        `result.submissionId === read.submissionId`，对不上就回 `/today`，
+        **不渲染任何答卷内容、不给申诉入口**；
+      · 申诉用的 `submissionId` **来自这条校验过的链，不读结果响应自己报的
+        那个** —— 否则结果响应就成了另一个可以指定写入目标的入口。
+      以上任何一条不满足 → `replace` 回 `/today`，
+      **绝不落到 `/my-history` 等任何旧页面**。
 - [x] **两道门都由服务端说了算**：`scoresPending` → 显示「还在判分」，
       **不补 0 分**；`answersPending` → 显示「答案未公布」，且
       `correctAnswer` / `referenceAnswer` / `explanation` **一个字都不渲染**
@@ -1966,8 +1983,9 @@ GET  /lesson/today            ← 交卷后刷新，按 kind 路由到 /lesson/r
 - [x] **不接**趋势图、技能画像、重做（静态守卫 + 行为测试各钉一次）。
 
 **本地验证**（全部在本机执行，退出码均为 0）：
-`apps/student-web` 全量 `vitest run` 346 项通过（其中本阶段新增
-`reading-result.test.tsx` 37 项、`contract.test.ts` 的 G-8A 守卫 11 项）；
+`apps/student-web` 全量 `vitest run` 356 项通过（其中本阶段新增
+`reading-result.test.tsx` 47 项 —— 含返工 1/2 补的 10 项资源标识回归，
+`contract.test.ts` 的 G-8A 守卫 11 项）；
 `tsc --noEmit`；`vite build`；`apps/api` 侧的
 `score-visibility` / `token-only-identity` / `token-only-runtime` /
 `endpoint-matrix` / `auth.guard` 共 200 项通过（**`apps/api` 未改动一行**）。

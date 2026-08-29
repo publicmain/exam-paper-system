@@ -30,8 +30,10 @@ import { useNavigate } from 'react-router-dom';
 import {
   ApiError,
   api,
+  type LessonToday,
   type ReadingResult,
   type ReadingResultItem,
+  type SegmentStatus,
 } from '../lib/api';
 import { handleAuthFailure } from '../lib/auth-store';
 import { readToken } from '../lib/identity';
@@ -108,11 +110,39 @@ function stemOf(item: ReadingResultItem): string {
 // 页面
 // ─────────────────────────────────────────────────────────────
 
+/**
+ * 「这一段阅读有结果可看」的状态。
+ *
+ * `todo` / `partial` 是还在做，`none` 是今天压根没有阅读 —— 这三种状态下
+ * **没有可回顾的答卷**，来了也只能空手而归。真正做完的只有两种：学生自己
+ * 交了卷（`done`），或者作答窗关闭时被系统收走（`auto_closed`）。
+ *
+ * 这个判断刻意**只认服务端下发的状态**，不去猜「有 submissionId 大概就是
+ * 做完了」—— 阅读做到一半也有 submissionId。
+ */
+const RESULT_READY: ReadonlySet<SegmentStatus> = new Set<SegmentStatus>(['done', 'auto_closed']);
+
+/** 从今天的课里取出这一屏需要的两个标识；任何一个缺就是「没有结果可看」。 */
+export function readingResultRef(
+  today: LessonToday,
+): { sessionId: string; submissionId: string } | null {
+  const read = today.segments.find((s) => s.key === 'read');
+  if (!read || read.key !== 'read') return null;
+  if (!RESULT_READY.has(read.status)) return null;
+  if (!read.sessionId || !read.submissionId) return null;
+  return { sessionId: read.sessionId, submissionId: read.submissionId };
+}
+
 type Phase =
   | { s: 'loading' }
   | { s: 'error'; message: string }
   | { s: 'locked' }
-  | { s: 'ready'; result: ReadingResult };
+  /**
+   * `submissionId` 单独带着，**不从 `result` 里读**。申诉是写操作，它认的那
+   * 个 id 必须来自认证过的 `/lesson/today` 这条链，而不是结果响应自己说的
+   * 那个 —— 否则「结果响应」就成了另一个可以指定写入目标的入口。
+   */
+  | { s: 'ready'; result: ReadingResult; submissionId: string };
 
 export default function ReadingResultPage() {
   const navigate = useNavigate();
@@ -124,15 +154,20 @@ export default function ReadingResultPage() {
     setPhase({ s: 'loading' });
     try {
       const today = await api.lessonToday(token);
-      const read = today.segments.find((s) => s.key === 'read');
-      const sessionId = read && read.key === 'read' ? read.sessionId : null;
-      if (!sessionId) {
+      const ref = readingResultRef(today);
+      if (!ref) {
         // 今天没有可看的阅读结果 —— 回枢纽，由它决定下一步。
         navigate(ROUTES.today, { replace: true });
         return;
       }
-      const result = await api.getReadingResult(token, sessionId);
-      setPhase({ s: 'ready', result });
+      const result = await api.getReadingResult(token, ref.sessionId);
+      // 拿回来的必须**就是**我们问的那一份。对不上就是链路错位（换了一天、
+      // 卷子被换、响应串了）—— 一个字都不显示，更不能让申诉挂到别人的答卷上。
+      if (result.sessionId !== ref.sessionId || result.submissionId !== ref.submissionId) {
+        navigate(ROUTES.today, { replace: true });
+        return;
+      }
+      setPhase({ s: 'ready', result, submissionId: ref.submissionId });
     } catch (e) {
       if (handleAuthFailure(e)) return;
       if (e instanceof ApiError && e.body.code === 'result_locked_until_submit') {
@@ -189,7 +224,14 @@ export default function ReadingResultPage() {
     );
   }
 
-  return <ResultView result={phase.result} navigate={navigate} onReload={() => void load()} />;
+  return (
+    <ResultView
+      result={phase.result}
+      submissionId={phase.submissionId}
+      navigate={navigate}
+      onReload={() => void load()}
+    />
+  );
 }
 
 function Shell({ children }: { children: React.ReactNode }) {
@@ -215,10 +257,13 @@ function BackToToday({ navigate }: { navigate: ReturnType<typeof useNavigate> })
 
 function ResultView({
   result,
+  submissionId,
   navigate,
   onReload,
 }: {
   result: ReadingResult;
+  /** 来自 `/lesson/today` 且与响应核对过的那一个 —— 申诉只认它。 */
+  submissionId: string;
   navigate: ReturnType<typeof useNavigate>;
   onReload: () => void;
 }) {
@@ -277,13 +322,13 @@ function ResultView({
             index={i + 1}
             scoresPending={result.scoresPending}
             answersPending={result.answersPending}
-            submissionId={result.submissionId}
+            submissionId={submissionId}
             onAuthLost={onReload}
           />
         ))}
       </ol>
 
-      <WholeAppeal submissionId={result.submissionId} onAuthLost={onReload} />
+      <WholeAppeal submissionId={submissionId} onAuthLost={onReload} />
       <BackToToday navigate={navigate} />
     </Shell>
   );

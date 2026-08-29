@@ -153,6 +153,13 @@ function resultPayload(over: Partial<ReadingResult> = {}): ReadingResult {
   };
 }
 
+/** 改写今天的课里的 `read` 段 —— 两个标识和状态都从这里来。 */
+function todayWithRead(over: Record<string, unknown>) {
+  const t = todayPayload();
+  Object.assign(t.segments[0] as Record<string, unknown>, over);
+  return t;
+}
+
 type Route = { status?: number; body: unknown } | ((req: Req) => { status?: number; body: unknown });
 
 let reqs: Req[] = [];
@@ -239,9 +246,7 @@ describe('AC-03 资源只来自 /lesson/today，URL 不带身份', () => {
   });
 
   it('**read 段没有 sessionId → replace 回 /today**，不去取结果', async () => {
-    const t = todayPayload();
-    (t.segments[0] as Record<string, unknown>).sessionId = null;
-    routes['/api/lesson/today'] = { body: t };
+    routes['/api/lesson/today'] = { body: todayWithRead({ sessionId: null }) };
     mount();
     await settle();
     expect(navigate).toHaveBeenCalledWith('/today', { replace: true });
@@ -299,6 +304,105 @@ describe('AC-03 资源只来自 /lesson/today，URL 不带身份', () => {
     expect(calls('/submit')).toHaveLength(0);
     expect(calls('/lesson/start')).toHaveLength(0);
     for (const r of reqs) expect(r.init.method === 'PATCH').toBe(false);
+  });
+});
+
+// ─────────────────────────────────────────────────────────────
+// AC-03（返工 1/2）—— 两个标识都必须来自认证过的 /lesson/today，
+// 并且必须和结果响应对得上。
+//
+// 这一组的共同点：**失败一律 fail-closed** —— 回 `/today`，不取结果、
+// 不渲染任何答卷内容、不给申诉入口。申诉是写操作，它认的 submissionId
+// 只能来自这条链，不能来自结果响应自己。
+// ─────────────────────────────────────────────────────────────
+
+describe('AC-03 资源标识必须成对且经过核对', () => {
+  const noResultUi = () => {
+    expect(screen.queryByTestId('summary')).toBeNull();
+    expect(screen.queryByTestId('items')).toBeNull();
+    expect(screen.queryByTestId('appeal-whole-open')).toBeNull();
+  };
+
+  it('**read 段没有 submissionId → 回 /today**，不去取结果', async () => {
+    routes['/api/lesson/today'] = { body: todayWithRead({ submissionId: null }) };
+    mount();
+    await settle();
+    expect(navigate).toHaveBeenCalledWith('/today', { replace: true });
+    expect(calls('student-result')).toHaveLength(0);
+    noResultUi();
+  });
+
+  it('**根本没有 read 段 → 回 /today**', async () => {
+    const t = todayPayload();
+    t.segments = t.segments.filter((seg) => (seg as { key: string }).key !== 'read');
+    routes['/api/lesson/today'] = { body: t };
+    mount();
+    await settle();
+    expect(navigate).toHaveBeenCalledWith('/today', { replace: true });
+    expect(calls('student-result')).toHaveLength(0);
+  });
+
+  // 还在做题 / 今天没有阅读 —— 这三种状态下没有可回顾的答卷。
+  for (const status of ['todo', 'partial', 'none'] as const) {
+    it(`**read 段还是 \`${status}\` → 回 /today**，不去取结果`, async () => {
+      routes['/api/lesson/today'] = { body: todayWithRead({ status }) };
+      mount();
+      await settle();
+      expect(navigate).toHaveBeenCalledWith('/today', { replace: true });
+      expect(calls('student-result')).toHaveLength(0);
+      noResultUi();
+    });
+  }
+
+  // 真正做完只有两种：自己交的，和窗口关闭时被系统收走的。
+  for (const status of ['done', 'auto_closed'] as const) {
+    it(`**read 段是 \`${status}\` → 放行**，结果正常显示`, async () => {
+      routes['/api/lesson/today'] = { body: todayWithRead({ status }) };
+      mount();
+      await settle();
+      expect(calls('student-result')).toHaveLength(1);
+      expect(screen.getByTestId('summary')).toBeInTheDocument();
+      expect(navigate).not.toHaveBeenCalled();
+    });
+  }
+
+  it('**响应的 sessionId 对不上 → 回 /today**，一个字都不显示', async () => {
+    routes[RESULT_URL] = { body: resultPayload({ sessionId: 'sess-somebody-else' }) };
+    mount();
+    await settle();
+    expect(navigate).toHaveBeenCalledWith('/today', { replace: true });
+    noResultUi();
+  });
+
+  it('**响应的 submissionId 对不上 → 回 /today**，也不给申诉入口', async () => {
+    routes[RESULT_URL] = { body: resultPayload({ submissionId: 'sub-somebody-else' }) };
+    mount();
+    await settle();
+    expect(navigate).toHaveBeenCalledWith('/today', { replace: true });
+    noResultUi();
+    expect(calls('/appeals')).toHaveLength(0);
+  });
+
+  it('**核对通过之后，申诉用的是这条链上的 submissionId**', async () => {
+    // 两边一致，但换成一个与默认值不同的 id —— 证明发出去的确实是取回来的
+    // 那一个，不是测试里恰好写死的常量。
+    const verified = 'sub-verified';
+    routes['/api/lesson/today'] = { body: todayWithRead({ submissionId: verified }) };
+    routes[RESULT_URL] = { body: resultPayload({ submissionId: verified }) };
+    mount();
+    await settle();
+    fireEvent.click(screen.getByTestId('appeal-whole-open'));
+    fireEvent.change(screen.getByTestId('appeal-whole-input'), {
+      target: { value: '核对之后再申诉' },
+    });
+    fireEvent.click(screen.getByTestId('appeal-whole-submit'));
+    await settle();
+    const sent = calls('/appeals');
+    expect(sent).toHaveLength(1);
+    expect(JSON.parse(String(sent[0].init.body))).toEqual({
+      submissionId: verified,
+      message: '核对之后再申诉',
+    });
   });
 });
 
