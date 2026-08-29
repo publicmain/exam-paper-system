@@ -2223,6 +2223,109 @@ GET  /lesson/today            ← 交卷后刷新，按 kind 路由到 /lesson/r
 
 **回滚**：`git revert` 9B1 这一个提交。
 
+### 阶段 9C1 —— staging 部署与传输冒烟　**已执行**（2026-08-29）
+
+`task_id: S9C1-STAGING-DEPLOYMENT-SMOKE` · base `5eae41e`（工作区干净）。
+
+> **这是什么，不是什么。**
+> 证据层级 = **部署元数据 + 实机只读 HTTP 传输/静态路由观察**。
+> 它证明的是「这三个服务能从 `5eae41e` 构建、启动、把页面发出来，
+> 而且配置没漂」。**它不证明任何业务流程**：没有登录、没有开考、
+> 没有作答、没有交卷、没有读写数据库、没有真机。
+> **阶段 9 仍未完成**，这一条不构成 Stage 9 PASS。
+
+#### 部署（三个既有服务，未新建任何东西）
+
+| 服务 | 部署前（**回滚锚点**） | 部署后 |
+|---|---|---|
+| `stg-web` | `c3195dfc-27fa-45bc-bb06-a779064f997b` | **`33fce087-c424-4080-9d23-76ac23165e10`** |
+| `stg-api` | `3d6e1cf5-08b9-4a41-84a2-bb5b05ff43ea` | **`bddcc427-01e8-455c-b661-65d85b4dd5d5`** |
+| `stg-student-web-spike` | `241e6a11-2331-41e5-a48a-34adf3ad18f8` | **`3c262d98-0acb-4b81-aa90-fddf3ebce387`** |
+| `Postgres` | `73871ad2-226a-4d7d-9e71-586203275281` | **未变** ✓ |
+
+部署顺序 **stg-web → stg-api → stg-student-web-spike**：旧端的新客户端对
+新旧两版 API 都成立（作答回执里的 `items[].isCorrect` 两版都有），先发它
+就不存在「API 已遮、旧端还在本地判」的中间态。
+
+**两次失败的部署尝试，照实记**（都**没有**替换掉正在跑的部署，四个服务
+全程 200）：
+
+1. `stg-web` 第一次用 `apps/web` 当归档根 → `230e3545-…` FAILED，且
+   `railway logs --build` 回「Deployment does not have an associated build」
+   —— 构建**根本没开始**，是配置解析阶段就失败。改用**仓库根**当归档根后
+   成功。原因：该服务的配置文件路径是仓库相对的 `/apps/web/railway.json`，
+   归档根是 `apps/web` 时那个路径不存在。
+2. `stg-student-web-spike` 用仓库根当归档根 → 它读到了**仓库根的
+   `railway.json`（那是 API 的配置）**，于是给学生端服务构建了 API 镜像，
+   健康检查打 `/api/health` 失败（`3c262d98` 之前的那一次）。改回
+   `apps/student-web` 当归档根后成功 —— 该服务的配置文件是
+   `/railway.json`，按它自己的根目录解析。
+
+> 这条差异值得留着：**三个服务的归档根不一样**。`stg-api` 与 `stg-web` 用
+> 仓库根，`stg-student-web-spike` 用 `apps/student-web`。下次照抄。
+
+**迁移安全（部署前证明）**：`apps/api/prisma/` 对**全部五个**已记录的
+后 Stage-5 API 部署基线（`82b9cb0` / `ae906b1` / `7786ec6` / `7e5c891` /
+`a1dbe4a`）`git diff` **全为空**；迁移目录 35 项、`schema.prisma` 的 blob
+SHA（`515318e1…`）在六个提交上**逐一相同**；`a1dbe4a..5eae41e` 没有任何
+提交碰过 `apps/api/prisma/`。因此启动命令里的 `prisma migrate deploy`
+**无迁移可加**。
+
+> **证据边界**：`railway up` 不记录 git SHA，`/api/health` 的 `commit` 是
+> `null` —— 「当前部署的就是某个提交」**无法从部署侧证明**，所以上面是对
+> **每一个**已记录基线都比一遍，而不是只比一个。
+
+#### 发布前本地闸门（全部退出码 0）
+
+`apps/api` 88 文件 / **1200** 项、`apps/web` 37 文件 / **247** 项、
+`apps/student-web` 16 文件 / **542** 项；三个应用的 `tsc --noEmit` 与
+production build 各自退出 0；`git diff --check` 退出 0。
+
+#### 冒烟（全部只读）
+
+**API**：`/api/health` 200（`uptimeSec=242`，新进程）；`/api/health/ready`
+200 `db:"up"`（2ms）；学生源的 CORS 预检 **204** 且
+`access-control-allow-origin` **逐字等于**学生源；未认证打受保护的学生端点
+`GET /api/student-auth/me` → **403 `{"code":"student_token_required"}`**，
+且 CORS 头仍在。**没有登录，没有任何业务写。**
+
+**学生端**：`/login` `/today` `/lesson/vocab` `/lesson/test`
+`/lesson/reading/result` 与一条未知深链 `/deep/unknown/route` **全部 200**、
+同一份 418B SPA 外壳（未知路由走 SPA 兜底）、全部带 `X-Student-App: v2`；
+HTML `no-store, no-cache, must-revalidate`；指纹资源
+`public, max-age=31536000, immutable`。
+**内容指纹**：线上 JS 里含 `计入成绩` / `确认交卷`（9B1）、`稍后再学`（9A）、
+`还在判分`（8A）—— 回滚锚点 `241e6a11` 那一版**一个都没有**；线上 CSS 的
+sha256（`d6e9f945deed88a4…`）与本机 `5eae41e` 构建产物**完全相同**。
+JS 哈希与本机不同是预期的：staging 构建把 `VITE_API_URL` 编进了产物。
+
+**旧端**：`/` `/me` `/my-lesson` `/my-history` `/my-vocab` `/my-mistakes`
+全部 200 且是同一份 1162B 外壳（sha `ae9c1860…`）、`/sw.js` 3061B、
+`/manifest.webmanifest` 867B 内容有效；**一条都不带 `X-Student-App`**。
+旧端首页引用的资源从 `index-B1HWidXy.js`（锚点）变成
+`index-CpNJ8o0e.js`（新部署）—— 这是新旧两版的部署指纹。
+**这只证明页面能发出来，不证明旧端正式测试的业务行为。**
+
+#### 不变量（部署前后逐项比对）
+
+四个服务、四个域名**全部未变**；`Postgres` 部署未变；三个服务的变量
+**键集合与键数未变**（23 / 15 / 15，键集合 sha 逐一相同）；
+`CORS_ORIGINS` 与 `STUDENT_APP_ORIGIN` **逐字未变**；
+**`STUDENT_APP_V2` 三个服务上全都不存在**（= 保持任务前的「未设」状态，
+没有任何学生被重定向）。仓库目录的 Railway 关联仍是
+`glorious-motivation`，**未被重新链接**（部署全部从临时目录发起）。
+
+#### 仍然缺的东西（Stage 9 实机验证缺口）
+
+这一轮**没有**：登录、开考、作答、交卷、读写数据库、执行夹具、
+真机 / 真实浏览器验证、生产。也就是说，9A / 9B0 / 9B1 的**业务行为**
+在 staging 上**一次都没有被验证过** —— 现有证据只到「页面发得出来、
+API 健康、CORS 正确、配置没漂」。
+`/lesson/summary` 仍是占位页（阶段 10）。**阶段 9 未完成。**
+
+**回滚**：三个服务各自重新部署上表的锚点 ID 即可；本地只有一个文档提交，
+`git revert` 可撤。
+
 ---
 
 ## 阶段 10 —— 今日总结
