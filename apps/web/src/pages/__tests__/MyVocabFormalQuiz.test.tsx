@@ -58,6 +58,36 @@ function attempt(over: Partial<any> = {}) {
   };
 }
 
+/**
+ * 服务端作答回执（S9B0 之后的真实形状）。
+ *
+ * `view()` 永远把整份 items 一起回，**只有作答过的那一题是揭开的**；
+ * 判定（`isCorrect` / `correctIndex`）只在这里出现 —— 前端不再自己比。
+ * 旧夹具只回 `{ accepted: true }`，那是服务端从来不会返回的形状。
+ */
+function answerReceipt(index: number, optionIndex: number | null, over: Partial<any> = {}) {
+  return {
+    accepted: true,
+    items: attempt().items.map((it, n) =>
+      n === index
+        ? {
+            ...it,
+            headword: it.prompt,
+            translation: 'n. 港口',
+            phonetic: null,
+            contextSentence: null,
+            correctIndex: 0,
+            studentIndex: optionIndex,
+            studentAnswer: optionIndex == null ? null : it.options[optionIndex],
+            isCorrect: optionIndex === 0,
+            answeredAt: '2026-08-28T02:01:00.000Z',
+          }
+        : it,
+    ),
+    ...over,
+  };
+}
+
 function setup() {
   return render(
     <MemoryRouter initialEntries={['/my-vocab/quiz?name=%E5%B0%8F%E6%98%8E&studentId=stu1']}>
@@ -72,7 +102,11 @@ function setup() {
 describe('P6 正式测试', () => {
   beforeEach(() => {
     vi.mocked(api.vocabQuizStart).mockReset();
-    vi.mocked(api.vocabQuizAnswer).mockClear();
+    vi.mocked(api.vocabQuizAnswer).mockReset();
+    // 默认按真实服务端的形状回执：整份 items，只有这一题揭开。
+    vi.mocked(api.vocabQuizAnswer).mockImplementation(async (args: any) =>
+      answerReceipt(args.index, typeof args.optionIndex === 'number' ? args.optionIndex : null) as any,
+    );
     vi.mocked(api.vocabQuizSubmit).mockReset();
     vi.mocked(api.vocabReview).mockClear();
     vi.mocked(api.vocabQuiz).mockClear();
@@ -236,7 +270,7 @@ describe('P6 收尾 · 作答持久化', () => {
     const user = userEvent.setup();
     vi.mocked(api.vocabQuizAnswer)
       .mockRejectedValueOnce(new Error('offline'))
-      .mockResolvedValue({ accepted: true } as any);
+      .mockResolvedValue(answerReceipt(0, 0) as any);
     setup();
     await waitFor(() => expect(screen.getByText('harbour')).toBeTruthy());
 

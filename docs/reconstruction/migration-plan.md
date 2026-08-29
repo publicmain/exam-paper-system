@@ -33,7 +33,7 @@
 | **6** | **今天的课（`/today` 枢纽）** | **✅ PASS** —— 6A 本地 + 6B staging 八账号实机 | | ✓ | ✓ |
 | **7** | **阅读页（单独阶段）** | 🔧 **7A–7D 均本地完成**；7E 环境就绪，**真机验收由用户跳过并接受残余风险**（不是 PASS） | | **✓ 单独** | **✓ 单独** |
 | **8** | **阅读结果页** | 🔧 **8A 本地完成**（未部署、未真机） | | ✓ | ✓ |
-| **9** | **课程学词 + 正式测试** | 🔧 **9A 课程学词本地完成**（未部署、未真机）；**9B 正式测试未开始** | | ✓ | ✓ |
+| **9** | **课程学词 + 正式测试** | 🔧 **9A 课程学词** + **9B0 答案隐私前置** 本地完成（未部署、未真机）；**9B 正式测试未开始** | | ✓ | ✓ |
 | 10 | 今日总结 | ⬜ | | ✓ | ✓ |
 | 11 | 账号制历史成绩 | ⬜ | | ✓ | ✓ |
 | 12 | 生词本与错题本 | ⬜ | | ✓ | ✓ |
@@ -2094,6 +2094,59 @@ GET  /lesson/today            ← 交卷后刷新，按 kind 路由到 /lesson/r
 **退出条件（阶段 9 整体）**：RC1.1 的九个修复点在新端逐条复验（词序、
 教学卡、即时判定、阶段推进、自由练习隔离…）—— **9B 未做，因此整体未达成**。
 **回滚**：`git revert` 9A 这一个提交；`learn_vocab` 暂跳旧端
+
+### 阶段 9B0 —— 正式测试答案隐私（前置）　**✅ 本地完成**（2026-08-29）
+
+`task_id: S9B0-FORMAL-QUIZ-ANSWER-PRIVACY-LOCAL`。**这是 9B 的安全前置，
+不是 9B 本身** —— canonical `/lesson/test` 一行都没写。
+
+**问题**：`VocabQuizAttemptService.view()` 一直只扣着 `correctIndex` /
+`answer` 两个字段，却把 `headword` / `translation` / `phonetic` /
+`contextSentence` 对**未作答**的题原样下发。而这几个字段对四种题型来说
+本身就是答案：
+
+| 题型 | 题干 | 选项 | 泄答案的字段 |
+|---|---|---|---|
+| `word_to_meaning` | 单词 | 四个释义 | `translation` = 正确选项原文 |
+| `meaning_to_word` | 释义 | 四个单词 | `headword` = 正确选项原文 |
+| `cloze` | 挖空句 | 四个单词 | `headword`；`contextSentence` 是**没挖空的原句** |
+| `spelling` | 挖空句 | （无） | `headword` ≈ 要拼的词；`contextSentence` 同上 |
+
+也就是说：打开 devtools 看一眼 `start` 的响应，整份卷子的答案都在里面。
+新的 `/lesson/test` 会照样消费这个响应，所以必须先堵住。
+
+- [x] **未作答的题只下发 `index` / `qtype` / `prompt` / `options`**；
+      上面四个字段连同 `correctIndex` / `answer` 一起走同一道闸
+      （`shouldRevealAnswer`），作答状态字段仍为 null。
+      `start` 与 `current` / resume 用的是同一段代码，遮法一致。
+- [x] **作答成功只揭开这一题**：选择题给服务端的 `correctIndex`，拼写题给
+      `answer`，`isCorrect` 以服务端为准；同一响应里其余的题照旧遮着。
+      `accepted:false / already_answered` 原样返回已存的那次答案，不覆盖。
+- [x] **交卷后全部揭开**，逐题回看不受影响；落库的 `total` / `correct` /
+      `score` 仍是权威，提交幂等与阶段推进一个字没动。
+- [x] **遮的是下发，不是存储** —— 落库的题目快照一个字段都没改。
+- [x] **旧端 `MyVocabQuiz` 的正式分支跟上**：回执到了才给反馈（以前点一下
+      就靠本地比较判对错，而本地根本没有答案）；反馈内容来自回执里的那道
+      题；保存失败留住选择、给重试、不往下走、**不自己编一个判定**；
+      重试与 `already_answered` 都从回执恢复。**自由练习 / 自测那条线一个字
+      没改**（题目自带答案，仍然点一下即时判、仍然写 FSRS）。
+- [x] **无回归**：没有新端点、没有请求/响应身份参数变化、没有作答/提交/
+      资格/算分/阶段写入的行为变化，没有新增 StudentWord / WordReviewLog /
+      阅读答卷的写入。
+
+**本地验证**（退出码均为 0）：`apps/api` 全量 **1200 项**通过（新增
+`vocab-quiz-answer-privacy.spec.ts` 12 项，用四个哨兵值证明序列化后的
+未作答响应里搜不到任何带答案的元数据）+ tsc + build；`apps/web` 全量
+**247 项**通过（新增 `MyVocabFormalQuizPrivacy.test.tsx` 11 项）+ tsc；
+`apps/student-web` 全量 **477 项**通过 + tsc（**未改动一行**）。
+新增的隐私回归在修之前逐条验过是红的（对着 `dee9ff9`：API 红 5 项、
+旧端红 6 项）。
+
+**边界**：不部署、不碰数据库、不做真机验证、**不实现 canonical
+`/lesson/test`**、不改路由 / NextAction / 课程规则 / 资格规则 / 算分规则、
+不碰自由练习与 FSRS 行为。阶段 9 整体仍未完成。
+
+**回滚**：`git revert` 9B0 这一个提交。
 
 ---
 

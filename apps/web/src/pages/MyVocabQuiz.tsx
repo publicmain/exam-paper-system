@@ -237,6 +237,24 @@ export default function MyVocabQuizPage() {
   const total = queue.length;
   const firstRoundTotal = payload?.questions.length ?? 0;
 
+  /**
+   * 把服务端回执里的这一题**替换到本地队列上**。
+   *
+   * S9B0 起，正式测试的未作答题只下发 `index / qtype / prompt / options`
+   * —— `headword` / 音标 / 释义 / 原句 / `correctIndex` / `answer` 全是 null，
+   * 作答成功的回执里才揭开**这一题**。反馈区要显示的正是这些字段，所以
+   * 必须先用回执覆盖本地那份，再去渲染反馈。
+   *
+   * 只动第 `i` 题：回执里其余的题仍然是遮着的，覆盖上去等于把已经揭开的
+   * 那些又抹回 null。
+   */
+  const adoptServerItem = useCallback((res: any) => {
+    const back = (res?.items ?? [])[i];
+    if (!back) return null;
+    setQueue((qq) => qq.map((item, n) => (n === i ? { ...item, ...back } : item)));
+    return back;
+  }, [i]);
+
   const pick = useCallback(
     (idx: number) => {
       if (!q || chosen !== null) return;
@@ -256,15 +274,20 @@ export default function MyVocabQuizPage() {
           })
           .then((res: any) => {
             setSaving(false);
-            // 服务端说了算 —— 它手里才有正确答案
-            const back = (res?.items ?? [])[i];
-            const judged = typeof back?.isCorrect === 'boolean' ? back.isCorrect : correct;
+            // 服务端说了算 —— 它手里才有正确答案。先把这一题换成回执里的
+            // 那份（音标 / 释义 / 原句 / 正确项都在里面），再显示反馈。
+            const back = adoptServerItem(res);
+            if (typeof back?.isCorrect !== 'boolean') {
+              // 回执里没有服务端的判定 —— **不自己编一个**。当成没存上，给重试。
+              setSaveFailed(true);
+              return;
+            }
             setServerJudge({
               index: i,
-              isCorrect: judged,
-              correctIndex: typeof back?.correctIndex === 'number' ? back.correctIndex : null,
+              isCorrect: back.isCorrect,
+              correctIndex: typeof back.correctIndex === 'number' ? back.correctIndex : null,
             });
-            if (judged) setFirstTryCorrect((c) => c + 1);
+            if (back.isCorrect) setFirstTryCorrect((c) => c + 1);
           })
           .catch(() => {
             // **不静默记为空答案**：停在原题、选项保持选中、给明确重试。
@@ -290,13 +313,16 @@ export default function MyVocabQuizPage() {
       // 读屏用户把焦点带到反馈区
       setTimeout(() => feedbackRef.current?.focus(), 50);
     },
-    [q, chosen, name, studentId, formal, i],
+    [q, chosen, name, studentId, formal, i, adoptServerItem],
   );
 
   /** 拼写题结算 —— 与 pick() 的副作用完全对齐：第一遍才计分/回炉/写 FSRS。 */
   const settleSpelling = useCallback(
     (correct: boolean) => {
       if (!q || q.qtype !== 'spelling' || spellResult !== null) return;
+      // 正式测试里这个 `correct` 是本地比出来的，而本地**没有答案**
+      // （`q.answer` 被遮着，恒为 null）—— 它只用来标记「学生已经交了」，
+      // 判定一律以服务端回执为准。自由练习那条线才真的用它。
       setSpellResult(correct);
       if (formal) {
         setSaving(true);
@@ -308,9 +334,19 @@ export default function MyVocabQuizPage() {
             index: i,
             text: typed,
           })
-          .then(() => {
+          .then((res: any) => {
             setSaving(false);
-            if (correct) setFirstTryCorrect((c) => c + 1);
+            const back = adoptServerItem(res);
+            if (typeof back?.isCorrect !== 'boolean') {
+              setSaveFailed(true);
+              return;
+            }
+            setServerJudge({
+              index: i,
+              isCorrect: back.isCorrect,
+              correctIndex: typeof back.correctIndex === 'number' ? back.correctIndex : null,
+            });
+            if (back.isCorrect) setFirstTryCorrect((c) => c + 1);
           })
           .catch(() => {
             setSaving(false);
@@ -331,7 +367,7 @@ export default function MyVocabQuizPage() {
       }
       setTimeout(() => feedbackRef.current?.focus(), 50);
     },
-    [q, spellResult, name, studentId, formal, i, typed],
+    [q, spellResult, name, studentId, formal, i, typed, adoptServerItem],
   );
 
   const next = useCallback(() => {
@@ -353,26 +389,25 @@ export default function MyVocabQuizPage() {
         index: i,
         ...(q.qtype === 'spelling' ? { text: typed } : { optionIndex: chosen ?? 0 }),
       });
+      const back = adoptServerItem(res);
+      if (typeof back?.isCorrect !== 'boolean') {
+        // 同 pick()：没有服务端判定就**不编一个**，继续给重试。
+        setSaveFailed(true);
+        return;
+      }
       setSaveFailed(false);
-      const back = (res?.items ?? [])[i];
-      const ok =
-        typeof back?.isCorrect === 'boolean'
-          ? back.isCorrect
-          : q.qtype === 'spelling'
-            ? spellResult === true
-            : chosen === q.correctIndex;
       setServerJudge({
         index: i,
-        isCorrect: ok,
-        correctIndex: typeof back?.correctIndex === 'number' ? back.correctIndex : null,
+        isCorrect: back.isCorrect,
+        correctIndex: typeof back.correctIndex === 'number' ? back.correctIndex : null,
       });
-      if (ok) setFirstTryCorrect((c) => c + 1);
+      if (back.isCorrect) setFirstTryCorrect((c) => c + 1);
     } catch {
       setSaveFailed(true);
     } finally {
       setSaving(false);
     }
-  }, [q, formal, saving, name, studentId, i, typed, chosen, spellResult]);
+  }, [q, formal, saving, name, studentId, i, typed, chosen, adoptServerItem]);
 
   if (!name) {
     return (
@@ -603,9 +638,21 @@ export default function MyVocabQuizPage() {
 
   // ── 答题页 ──────────────────────────────────────────────
   const isSpelling = q.qtype === 'spelling';
-  const answered = isSpelling ? spellResult !== null : chosen !== null;
+  /** 学生已经作出选择 / 提交了拼写。**不等于**已经有判定。 */
+  const submitted = isSpelling ? spellResult !== null : chosen !== null;
   // 这一题服务端怎么判的（正式测试）。自由练习没有回执，用本地比较。
   const judge = serverJudge?.index === i ? serverJudge : null;
+  /**
+   * 正式测试：**回执到了才算答完**。
+   *
+   * 以前点一下就显示对错，靠的是本地拿 `q.correctIndex` 比较 —— 而正式
+   * 测试作答前服务端不下发答案，那个字段是 null，比出来的对错是假的
+   * （人工测试里表现为「选对了却全被标成 ✗」）。现在没有回执就什么都
+   * 不说，宁可让学生多等半秒。
+   */
+  const answered = formal ? judge != null : submitted;
+  /** 已经交出选择、还在等服务端（或等重试）的那一段。 */
+  const awaitingServer = Boolean(formal) && submitted && judge == null;
   const correct = judge
     ? judge.isCorrect
     : isSpelling
@@ -673,7 +720,7 @@ export default function MyVocabQuizPage() {
             显著强于四选一辨认，且自家数据显示自评「记得」的词客观一考
             大面积倒下。首字母+字数提示压低手机输入摩擦；「不会写」是
             诚实的出口 —— 按答错记（again），绝不困住学生。 */}
-        {isSpelling && !answered && (
+        {isSpelling && !answered && !awaitingServer && (
           <form
             className="mt-5"
             onSubmit={(e) => {
@@ -682,10 +729,15 @@ export default function MyVocabQuizPage() {
               settleSpelling(normalizeSpelling(typed) === normalizeSpelling(q.answer ?? ''));
             }}
           >
-            <div className="text-[13px] text-gray-500 mb-2">
-              首字母 <b className="text-gray-800">{q.hint}</b>
-              {q.answer ? <> · 共 {q.answer.length} 个字母</> : null} · 意思：{q.translation}
-            </div>
+            {/* 提示逐项可选 —— 正式测试里首字母 / 字数 / 释义都被服务端遮着，
+                有什么给什么，没有就整条不出现，绝不渲染成空壳。 */}
+            {(q.hint || q.answer || q.translation) && (
+              <div className="text-[13px] text-gray-500 mb-2">
+                {q.hint && <>首字母 <b className="text-gray-800">{q.hint}</b></>}
+                {q.answer ? <> · 共 {q.answer.length} 个字母</> : null}
+                {q.translation ? <> · 意思：{q.translation}</> : null}
+              </div>
+            )}
             <input
               type="text"
               value={typed}
@@ -727,12 +779,17 @@ export default function MyVocabQuizPage() {
               if (correctIdx != null && idx === correctIdx) cls = 'bg-emerald-50 border-emerald-500 text-emerald-900';
               else if (idx === chosen) cls = 'bg-rose-50 border-rose-400 text-rose-900';
               else cls = 'bg-white border-gray-200 text-gray-400';
+            } else if (awaitingServer) {
+              // 还在等服务端判：**只显示他选了哪个**，一个字的对错都不说。
+              cls = idx === chosen
+                ? 'bg-blue-50 border-blue-400 text-blue-900'
+                : 'bg-white border-gray-200 text-gray-400';
             }
             return (
               <button
                 key={idx}
                 type="button"
-                disabled={answered}
+                disabled={answered || awaitingServer}
                 onClick={() => pick(idx)}
                 className={`press w-full min-h-[52px] rounded-[14px] border-2 px-4 py-3 text-left text-[16px] font-medium transition-colors ${cls}`}
               >
@@ -749,14 +806,18 @@ export default function MyVocabQuizPage() {
         </div>
 
         {/* 反馈 + 继续。节奏在学生手里，不自动跳。 */}
-        {answered && (
+        {(answered || awaitingServer) && (
           <div
             ref={feedbackRef}
             tabIndex={-1}
             className={`mt-auto pt-4 outline-none enter`}
             aria-live="polite"
           >
+            {/* 判定卡**只在服务端说了话之后**出现。等回执的那一段这里是空的
+                —— 下面的「保存中…」按钮就是这段的全部反馈。 */}
+            {answered && (
             <div
+              data-testid="quiz-feedback"
               className={`rounded-[14px] px-4 py-3 ${
                 correct ? 'bg-emerald-50 border border-emerald-200' : 'bg-rose-50 border border-rose-200'
               }`}
@@ -794,6 +855,7 @@ export default function MyVocabQuizPage() {
                 </div>
               )}
             </div>
+            )}
             {/* 正式测试：答案没存进服务器之前不许往下走。往下走等于把
                 学生真的选了的答案记成空白，交卷时按答错算进成绩。 */}
             {saveFailed ? (
@@ -815,11 +877,11 @@ export default function MyVocabQuizPage() {
             <button
               type="button"
               onClick={next}
-              disabled={saving}
+              disabled={saving || awaitingServer}
               data-testid="quiz-continue"
               className="press mt-3 w-full min-h-[52px] rounded-[14px] bg-blue-600 text-white text-[17px] font-semibold active:bg-blue-700 disabled:opacity-50"
             >
-              {saving ? '保存中…' : '继续'}
+              {saving || awaitingServer ? '保存中…' : '继续'}
             </button>
             )}
           </div>

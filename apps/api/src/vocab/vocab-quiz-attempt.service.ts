@@ -69,15 +69,7 @@ export class VocabQuizAttemptService {
       total: submitted ? a.total : items.length,
       correct: submitted ? a.correct : items.filter((it) => it.isCorrect === true).length,
       score: submitted ? a.score : null,
-      items: items.map((it, index) => ({
-        index,
-        qtype: it.qtype,
-        headword: it.headword,
-        prompt: it.prompt,
-        options: it.options ?? [],
-        phonetic: it.phonetic ?? null,
-        translation: it.translation ?? null,
-        contextSentence: it.contextSentence ?? null,
+      items: items.map((it, index) => {
         // 作答前**不下发正确答案** —— 下发了等于把答案放进 devtools。
         //
         // RC1.1：**这一题已经作答之后**也给。人工测试实测：学生选对了
@@ -86,17 +78,44 @@ export class VocabQuizAttemptService {
         //
         // 已答的题下发答案不构成作弊：这一题的作答是一次性的（服务端
         // 幂等挡住改答案），学生已经交出了他的选择。未作答的题照旧扣着。
-        correctIndex: shouldRevealAnswer({ submitted, answered: it.isCorrect != null })
-          ? (it.correctIndex ?? null)
-          : null,
-        answer: shouldRevealAnswer({ submitted, answered: it.isCorrect != null })
-          ? (it.answer ?? null)
-          : null,
-        studentIndex: it.studentIndex ?? null,
-        studentAnswer: it.studentAnswer ?? null,
-        isCorrect: it.isCorrect ?? null,
-        answeredAt: it.answeredAt ?? null,
-      })),
+        const reveal = shouldRevealAnswer({ submitted, answered: it.isCorrect != null });
+        return {
+          index,
+          qtype: it.qtype,
+          prompt: it.prompt,
+          options: it.options ?? [],
+
+          // ── S9B0：**带答案的元数据和答案本身同一道闸** ──
+          //
+          // 原来这里只扣着 `correctIndex` / `answer`，下面这四个照发。
+          // 可对四种题型来说，它们本身就是答案：
+          //
+          //   word_to_meaning  题干是词、选项是释义 → `translation` 就是正确选项
+          //   meaning_to_word  题干是释义、选项是词 → `headword` 就是正确选项
+          //   cloze            选项是词 → `headword` 是答案，
+          //                    而 `contextSentence` 是**没挖空的原句**
+          //   spelling         `headword` ≈ 要拼的词，`contextSentence` 同上
+          //
+          // `phonetic` 一样 —— 音标就是那个词的读法。
+          //
+          // 也就是说：打开 devtools 看一眼响应，整份卷子的答案都在里面。
+          // 未作答的题只留渲染题目必需的 index / qtype / prompt / options。
+          //
+          // **遮的是下发，不是存储**：落库的快照一个字都不动，交卷后
+          // 逐题回看仍然拿得到全部信息。
+          headword: reveal ? (it.headword ?? null) : null,
+          phonetic: reveal ? (it.phonetic ?? null) : null,
+          translation: reveal ? (it.translation ?? null) : null,
+          contextSentence: reveal ? (it.contextSentence ?? null) : null,
+          correctIndex: reveal ? (it.correctIndex ?? null) : null,
+          answer: reveal ? (it.answer ?? null) : null,
+
+          studentIndex: it.studentIndex ?? null,
+          studentAnswer: it.studentAnswer ?? null,
+          isCorrect: it.isCorrect ?? null,
+          answeredAt: it.answeredAt ?? null,
+        };
+      }),
     };
   }
 
