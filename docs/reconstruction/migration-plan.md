@@ -4948,7 +4948,7 @@ gradingSummary: { autoGraded; marked; pendingMarking; notAnswered; total }
 > **没有加 `LessonStage` 枚举值** —— `stageRank` 的单调性与 `clampStage`
 > 是承重的，加一档的爆炸半径远大于收紧一次推进条件。
 
-##### 未接线（下一份合同的事，**必须记住**）
+##### （v1.0 当时）未接线 —— **返工 1/2 已经接上，见下一小节**
 
 两个新能力现在都是**惰性**的：
 
@@ -4968,7 +4968,111 @@ gradingSummary: { autoGraded; marked; pendingMarking; notAnswered; total }
 「正确答案 / 参考答案」当两行独立渲染。**七个现象里，现在一个都还没在
 界面上消失。** S12H 只是把服务端这一半做对了。
 
-##### 验证
+##### 返工 1/2 —— 三个阻断项，全是「测了但没接上」这一类（2026-08-31）
+
+v1.0 复审 **NO-GO**，三条：
+
+  **B-1** drill 的两个纯函数写好了、测好了，**没有一个真实调用点传事实进去**
+  —— 能力是惰性的，用户看到的那个缺陷原样还在。
+  **B-2** 出身判据是**反面**的（「不是老师判的，且评语不以 `[ai-grade]` 开头」），
+  而 `getStudentResult` 在交给投影**之前**就把那个前缀擦掉了（本来就是为了
+  不让学生看见内部标记）。于是 **AI 判的题被当成确定性判分，分数提前放了出去**。
+  我上一轮的纯函数桩是自己手写的、前缀还在，所以测不出来。
+  **B-3** `markedById` 被 `...it` 展开进了学生响应，**老师的 id 直接落到客户端**。
+
+三条都只有走**真实构造路径**才看得见。所以这一轮的 RED 全部从真实入口进。
+
+###### 量出来的集成 RED（对着 `0fd75b5`）
+
+```
+npx vitest run src/morning-quiz/result-projection-integration.spec.ts \
+               src/lesson/drill-integration.spec.ts
+→ exit 1 ·  14 failed | 15 passed (29)   两份 spec 都正常收集执行
+```
+
+| 入口 | 失败断言 |
+| --- | --- |
+| 真实 `getStudentResult()` | AI 判的题被当成了确定性判分：expected `'auto_graded'` to be `'pending_marking'` |
+| 真实 `getStudentResult()` | 精确匹配的简答题同样被提前放行 |
+| 真实 `getStudentResult()` ×4 | `markedById` 这个键泄漏了；老师 id 的**值**也在响应里（未定稿 / 已定稿 / AI / 确定性 四种夹具各一条） |
+| 真实 `LessonService.today()` | 真实路径仍然没给出补段：expected `'vocab_test'` to be `'drill'` |
+| 真实 `LessonService.today()` | 库里已被错写成 `done` 时：expected `'summary'` to be `'drill'` |
+| 真实 `LessonService.today()` | `href` 仍是 `/my-vocab/quiz`（旧端路由） |
+| 真实交卷事务 ×3 | 交卷把没做完的一天推成了 done：expected `'done'` to be `'vocab_test'`（0/5、2/5、以及「请求体塞了 drillSettled」那一条） |
+
+###### B-2 的修法：改成**正面**判据，失败关闭
+
+```ts
+questionType === 'mcq'          // ← 唯一被证明是确定性的那条路
+&& markedById == null           // ← 全仓库只有 marker.service 写它
+&& typeof autoCorrect === 'boolean'
+&& awardedMarks != null
+```
+
+为什么 MCQ 是安全的正面判据：`autoGradeScripts` 里
+`questionType === 'mcq'` 走共享的 `gradeMcq` 然后**直接 `continue`** ——
+它永远不会进 AI 那一支。而阅读卷里的判断题 / 选择题 / 选项配对题都是以 MCQ
+形式入库的，**用户报的那一题正在这个集合里**。
+
+**代价说清楚**：精确匹配的简答题（Path 1）客观上也是确定性的，但它与 AI
+判的那些**共用同一组持久化字段**，没有 schema 改动就区分不了。宁可让它继续
+等老师，也不能把概率判断当确定结论发出去。这是有意选的一边。
+
+不再依赖 `[ai-grade]` 前缀 —— 那是反面证据，上游多洗一道就失效。
+
+###### B-3 的修法：显式抹去，不是换个名字
+
+`stripUnreleasedScores` 里把 `markedById` 解构掉再拼公开对象。
+**没有**换一个内部字段顶上：出身本身就不是学生该知道的事。
+四种夹具 × 「键不在」+「值不在」两条断言钉死，未定稿与已定稿都测了。
+
+###### B-1 的修法：两个真实调用点，各接一根线
+
+  · `lesson.service.ts` 的 `today()` 把 `dTarget` / `drillNow.progress` /
+    `vocabNow.quizSubmitted` 传进 `nextActionOf` —— 与 `deriveStage` 用的是
+    **同一组值**，不另起炉灶；请求体与查询串里没有任何一个能影响它们。
+  · `vocab-quiz-attempt.service.ts` 的交卷事务里，**在同一个事务内**读回
+    那一行任务的 `drillTarget` / `drillProgress`，用 lesson-rules 的
+    `segmentStatus` + `isSegmentComplete` 算完成度（不写第二套算术），
+    再传给 `stageAfterSubmit`。**读不到任务行就按「没做完」处理** ——
+    宁可多停一天，不可静默收尾。
+
+顺带补上 v1.0 漏掉的一条区分：**光把阶段停在 `vocab_test` 是不够的**。
+那样主按钮会变成「开始单词测试」，把已经考过的学生又送回考场。
+所以 `NextActionFacts` 多了 `vocabQuizSubmitted`，用来分开
+「还没考」与「考完了在等补段」。
+
+###### GREEN
+
+| 命令 | exit | 结果 |
+| --- | --- | --- |
+| 两份集成 spec | 0 | **29 passed**（RED 时 14 failed / 15 passed） |
+| `result-grading-projection` + `score-visibility` + `drill-flow` + `next-action` + `rc11-invariants` + `lesson.service` + `vocab-quiz-attempt` | 0 | **125 passed** |
+| api 全量 | 0 | 100 files / **1545** passed（98 / 1516 → +2 files / +29） |
+| api `tsc --noEmit` / `nest build` | 0 / 0 | 干净 |
+| student-web 全量 + tsc | 0 | 26 / **919**（运行时一行没改） |
+| web 全量 + tsc | 0 | 37 / **247** |
+| `git diff --check` · `git status --porcelain` | 0 · 空 | 干净 |
+
+一处既有桩跟着口径改了：`score-visibility.spec.ts` 的 `item()` 补上
+`questionType: 'mcq'`。新判据是正面的，**不说自己是哪种题就不算确定性** ——
+这正是失败关闭该有的样子。
+
+###### 现在是什么状态
+
+服务端这一半**真的接上了**：真实的 `today()` 会给出 `drill`，真实的交卷事务
+不会再把欠着补段的一天推成 `done`，AI 判的题不会再提前放分，老师 id 不会再
+外泄。
+
+**客户端仍然没有消费任何新东西** —— `NEXT_ACTION_ROUTE` 里还没有 `drill`
+这个键，`ResultView` 还按整卷旗子算逐题状态。所以：
+
+> **服务端现在会发出 `kind: 'drill'`，而客户端的路由表还没有它。**
+> 这是 S12I 的**第一件事**，在那之前不要把这一版部署到学生用得到的地方。
+
+**没有部署、没有 staging、没有数据库访问、没有碰 S12F 验收账号。**
+
+##### v1.0 的验证（当时）
 
 | 命令 | exit | 结果 |
 | --- | --- | --- |
