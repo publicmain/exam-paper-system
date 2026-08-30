@@ -46,7 +46,7 @@
 | **8** | **阅读结果页** | 🔧 **8A 本地完成**（未部署、未真机） | | ✓ | ✓ |
 | **9** | **课程学词 + 正式测试** | **✅ PASS**（2026-08-30）—— 9A/9D1/9D2A/9D2B 逐项修复后，9D2C 实跑发现正式测试只出两种题型，9D2D 修复并用 t6_done 实机验证**四种题型各一道 + 隐私 + 恢复 + 算分 + 数据隔离**，全链跑到 `/lesson/summary` | | ✓ | ✓ |
 | **10** | **今日总结** | **✅ PASS**（2026-08-30）—— 占位页换成只读真页面，本地 RED 19/25 → 25/25，t6_done 实机验证只读与服务端权威 | | ✓ | ✓ |
-| **11** | **账号制历史成绩** | **✅ PASS**（2026-08-30）—— `/scores` + `/scores/:submissionId`，token-only、阅读与词测两段分开、practice 不进列表、零分照实；t6_done 实机走通规范导航，拿 t5 的 submissionId 直闯被 403 挡住且不渲染任何答案，一条授权的合成申诉写入，其余库状态逐字节不变 | | ✓ | ✓ |
+| **11** | **账号制历史成绩** | **✅ PASS**（2026-08-30，含返工 1/2）—— `/scores` + `/scores/:submissionId`，token-only、阅读与词测两段分开、practice 不进列表、零分照实；t6_done 实机走通规范导航，拿 t5 的 submissionId 直闯被 403 挡住且不渲染任何答案，一条授权的合成申诉写入，其余库状态逐字节不变。返工 1/2 拿掉了详情页那个服务端没给过的派生百分比 | | ✓ | ✓ |
 | 12 | 生词本与错题本 | ⬜ | | ✓ | ✓ |
 | 13 | 旧 URL 单向适配 | ⬜ | | ✓ | ✓ |
 | 14 | staging 八账号实机验收 | ⬜ | | — | — |
@@ -2960,6 +2960,10 @@ diff 为空，schema blob 仍是 `515318e1…`）。
 base `834691e` · 实现提交 `b78b298` · 文档提交见本节末 ·
 部署 `e13ea27f-ad5c-4174-98e2-194b39e0097c`
 （回滚锚点 `0f2f5090-ee2b-4bde-aaba-e7db237eb7c3`）。
+**返工 1/2**（B-1，派生百分比）：基线 `0197e69` · 修复提交 `0eb82c3` ·
+部署 `bf619d91-315d-4ca4-bcbb-39b60bf3a452`
+（回滚锚点 `e13ea27f-ad5c-4174-98e2-194b39e0097c`）—— 详见本节末的
+[返工 1/2](#返工-12--b-1详情页不再显示派生百分比)。
 
 - [x] `/scores`、`/scores/:submissionId`
 - [x] 只做 [D2](./product-decisions.md#d2--历史成绩第一版的范围) 六项：
@@ -3173,6 +3177,85 @@ DLC / 答卷 / AnswerScript / VocabQuizAttempt（含 items 的 md5）/
 StudentWord / WordReviewLog / Attendance / `studentAuthVersion`
 **逐字节相同**，另外七个学生一个字段都没动。除那一条申诉与它自身的审计
 记录之外，**没有任何持久化副作用**。全程**没有直接 SQL 写入**。
+
+### 返工 1/2 —— B-1：详情页不再显示派生百分比
+
+**缺陷。** `history-detail` 的响应里**没有百分比字段**（服务端只给
+`totalScore` / `maxScore`），而共享的 `ResultView` 里 `percentageOf()`
+照样 `Math.round(totalScore / maxScore * 100)` 除了一个出来。于是历史成绩
+详情页显示了一个**服务端从没说过的数字** —— 这正是阶段 10 为今日总结立过
+规矩要避免的那件事（用服务端的 `percentage`，不拿 `correct / total` 重算），
+阶段 11 不能例外。
+
+**修法（最小面）。** `ResultView` 新增一个窄开关 `showDerivedPercentage`，
+**默认 `false`**：
+
+  · `/lesson/reading/result` 在调用点**显式打开** —— 那一屏一直显示得分率，
+    是冻结过的既有行为，一个像素都没动；
+  · `/scores/:submissionId` **不传** —— 于是不显示。
+
+默认关是**故意的**：将来接进来的第三个调用方只会少一个派生数字，不会悄悄
+多一个；要显示就得在调用点写明白，那一行本身就是决定。
+
+**RED（对着返工基线 `0197e69`，行为红）**
+
+```
+npx vitest run src/__tests__/score-detail.test.tsx
+→ exit 1 ·  Tests 1 failed | 27 passed (28)
+   AC-06 **不显示任何自己算出来的百分比** → expected <span …(2)></span> to be null
+```
+
+夹具是**故意好算的** `totalScore: 1 / maxScore: 4` —— 真去除的话屏幕上会
+冒出 25%。判据两条：服务端给的 `1` 与 `/ 4 分` 照常显示；
+`[data-testid="percentage"]` 不存在，正文里 `/\d+\s*%/` 一个都匹配不到。
+
+同批加的「分数还没放出来时同样没有百分比」在基线上本来就绿（`scoresPending`
+那一支早就返回 null）—— 它是**防回归**的，不算这次 RED 的判据。
+
+另加一条静态守卫（G-8A 内）：`ResultView` 的默认值必须是 `false`、
+只有结果页出现 `showDerivedPercentage`、详情页不许出现，而且
+`ScoreDetail.tsx` / `Scores.tsx` 里不许出现 `percentageOf` / `* 100` /
+`toFixed` —— 堵住「绕过组件自己再算一个」。
+
+**GREEN（`0eb82c3`）**
+
+| 命令 | exit | 结果 |
+| --- | --- | --- |
+| `score-detail` + `reading-result` + `contract`（聚焦） | 0 | 3 files / **191** passed |
+| `vitest run`（student-web 全量） | 0 | 20 files / **646** passed（643 → +3） |
+| `npm run typecheck` / `npm run build`（student-web） | 0 | 干净 · 290.49 kB |
+| `vitest run` + `typecheck`（api 全量） | 0 | 93 files / **1334** passed |
+| `vitest run` + `typecheck`（web 全量） | 0 | 37 files / **247** passed |
+| `git diff --check` | 0 | 无空白错误 |
+
+**既有行为未变的证据**：`reading-result.test.tsx` **一行没改**，47 项全绿，
+其中第 419 行仍然断言那一屏显示 `60%`。
+
+**重新部署（仍然只动学生端）**
+
+| 服务 | 部署 ID | 变化 |
+| --- | --- | --- |
+| stg-student-web-spike | `bf619d91-315d-4ca4-bcbb-39b60bf3a452` | **新**（回滚锚点 `e13ea27f-ad5c-4174-98e2-194b39e0097c`） |
+| stg-api / stg-web / Postgres | `f089519e-…` / `33fce087-…` / `73871ad2-…` | 未变 |
+
+域名未变、变量键指纹未变、`STUDENT_APP_V2` 仍未设；health / ready 200；
+`/`、`/today`、`/scores`、`/scores/:id`、`/lesson/summary`、
+`/lesson/reading/result` 六条 SPA 路由 200；CORS 预检 204。
+线上产物里能搜到 `showDerivedPercentage:s=!1`（默认关）与**唯一一处**
+`showDerivedPercentage:!0`（结果页显式打开）—— 部署的确是这个提交。
+
+**实机复核**：t6_done 打开自己那份详情 ——
+`[data-testid="percentage"]` 不存在，正文里没有任何 `%`，逐题回顾照常渲染，
+整个会话 `appeals` 请求数 **0**。
+
+> ⚠️ 诚实说明：t6 的两份答卷都是 `submitted` 未定稿（`scoresPending`），
+> **旧代码在这份真实数据上本来也不会显示百分比** —— 分数放出来那一支
+> 线上够不着。真正证明这次修复的是上面那条用 `1 / 4` 夹具的组件测试。
+
+**库状态**：申诉前后对账再跑一次 —— 八个账号指纹 **0 / 8 变化**，
+`GradeAppeal` 仍是 1 条、`AuditLog` 仍是 1 条，且
+`cmtfh9a5800n4dbifzcoqvpkn` 与 `cmtfh9a6z00n5dbifnhdixrun` **逐字段相同**
+（未删、未改）。这一轮**没有发出任何 POST**，也没有直接 SQL 写入。
 
 ### 这一阶段没做什么
 
