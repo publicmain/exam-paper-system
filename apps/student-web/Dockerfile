@@ -28,6 +28,17 @@ COPY . ./
 #     **绝不编进这里** —— 换域名不该要求重新构建前端。
 ARG VITE_API_URL=
 ENV VITE_API_URL=$VITE_API_URL
+
+# ⚠️ 临时：staging 的一键夹具登录开关（上生产前必须随通道一起删掉）。
+#
+# 必须在这里显式 `ARG` —— Railway 只把**Dockerfile 声明过的**服务变量
+# 当作构建参数传进来。不声明的话变量在服务上设了也到不了 `npm run build`，
+# `import.meta.env` 里就没有它，按钮永远不渲染（2026-08-30 实测：第一次
+# 部署漏了这两行，线上产物里连 flag 的值都没有）。
+#
+# 缺省是空串 = 关闭，所以任何没有显式设这个变量的构建都不会带上按钮。
+ARG VITE_STAGING_FIXTURE_LOGIN=
+ENV VITE_STAGING_FIXTURE_LOGIN=$VITE_STAGING_FIXTURE_LOGIN
 RUN npm run build
 
 FROM nginx:alpine
