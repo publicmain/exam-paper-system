@@ -47,7 +47,7 @@
 | **9** | **课程学词 + 正式测试** | **✅ PASS**（2026-08-30）—— 9A/9D1/9D2A/9D2B 逐项修复后，9D2C 实跑发现正式测试只出两种题型，9D2D 修复并用 t6_done 实机验证**四种题型各一道 + 隐私 + 恢复 + 算分 + 数据隔离**，全链跑到 `/lesson/summary` | | ✓ | ✓ |
 | **10** | **今日总结** | **✅ PASS**（2026-08-30）—— 占位页换成只读真页面，本地 RED 19/25 → 25/25，t6_done 实机验证只读与服务端权威 | | ✓ | ✓ |
 | **11** | **账号制历史成绩** | **✅ PASS**（2026-08-30，含返工 1/2）—— `/scores` + `/scores/:submissionId`，token-only、阅读与词测两段分开、practice 不进列表、零分照实；t6_done 实机走通规范导航，拿 t5 的 submissionId 直闯被 403 挡住且不渲染任何答案，一条授权的合成申诉写入，其余库状态逐字节不变。返工 1/2 拿掉了详情页那个服务端没给过的派生百分比 | | ✓ | ✓ |
-| **12** | **生词本与错题本** | 🔧 **12A + 12B 本地完成**（2026-08-30）—— 五页 token-only：`/vocab` + 两条自由练习（12A，含返工 1/2 与 2/2）、`/mistakes` + `/mistakes/practice`（12B）。与课程线 / 成绩线用路由和端点分开（G-12A / G-12B）。**`ExamWordSheet` token-only 重写、staging 实机验证、仿生产合成验收账号三项仍未开始**，整阶段未完成；全程**未部署、未真机、未碰数据库** | | ✓ | ✓ |
+| **12** | **生词本与错题本** | 🔧 **12A + 12B + 12C 本地完成**（2026-08-30）—— 五页 token-only（12A 三页含返工 1/2 与 2/2、12B 两页）＋ 阶段 7 移交的考试中查词按 token-only 重写并挂回阅读页（12C）。四条线用路由和端点分开（G-12A / G-12B / G-12C）。**staging 实机验证、账号设置扩展、仿生产合成验收账号三项仍未开始**，整阶段未完成；全程**未部署、未真机、未碰数据库** | | ✓ | ✓ |
 | 13 | 旧 URL 单向适配 | ⬜ | | ✓ | ✓ |
 | 14 | staging 八账号实机验收 | ⬜ | | — | — |
 | 15 | 灰度切换（1 → 5 → 整班） | ⬜ | | — | 开关 |
@@ -3269,7 +3269,7 @@ npx vitest run src/__tests__/score-detail.test.tsx
 
 ---
 
-## 阶段 12 —— 生词本与错题本　🔧 **12A + 12B 本地完成**（2026-08-30），**整阶段仍未完成**
+## 阶段 12 —— 生词本与错题本　🔧 **12A + 12B + 12C 本地完成**（2026-08-30），**整阶段仍未完成**
 
 **12A**（生词本与自由练习）`task_id: S12A-VOCAB-BOOK-AND-FREE-PRACTICE-LOCAL`
 · base `7c9fd6e` · 第一轮实现 `c41de57` ·
@@ -3278,6 +3278,9 @@ npx vitest run src/__tests__/score-detail.test.tsx
 
 **12B**（错题本与错题重练）`task_id: S12B-MISTAKE-BOOK-AND-RE-PRACTICE-LOCAL`
 · base `4d4ef87` · 实现提交 `4e5f3a9`。
+
+**12C**（考试中查词 token-only 重写）`task_id: S12C-EXAM-WORD-SHEET-TOKEN-ONLY-LOCAL`
+· base `61602ac` · 实现提交 `0ec6e54`。
 
 **两次都是纯本地任务：没有部署、没有 staging 执行、没有任何数据库断言。**
 
@@ -3290,9 +3293,9 @@ npx vitest run src/__tests__/score-detail.test.tsx
 - [x] `/vocab`、`/vocab/practice`、`/vocab/selftest`（去掉 `/app` 前缀，D7）
 - [x] 自由练习与课程队列的隔离**用路由表达**
 - [x] `/mistakes`、`/mistakes/practice`（错题本与错题重练，12B）
-- [ ] **（阶段 7 移交）** 考试中查词记生词本：把 `ExamWordSheet` 重写成
-      token-only（停发 `studentName`）、`mq:lookedUpOnce` 换 `sw:` 键，
-      再挂回阅读页。阶段 7 起该能力在新端**不存在** —— **仍然必做**
+- [x] **（阶段 7 移交）** 考试中查词记生词本：`ExamWordSheet` 已按
+      token-only 重写、`mq:lookedUpOnce` 换成 `sw:reading:looked-up-once`，
+      已挂回阅读页（12C）
 
 **退出条件**：G3 覆盖这五页的完成/跳过/出错/刷新 ——
 **本地覆盖到了**（12A 三页 + 12B 两页）。但退出条件里没写、而实际必须做完的
@@ -3737,18 +3740,192 @@ G-12A 里那条「错题本」禁令的**规则一字未动**（生词本那一�
 只属于该字段的尾巴。**改的是夹具，不是判据。**
 
 
+### 12C —— 考试中查词（`ExamWordSheet` token-only 重写）　**本地完成**（2026-08-30）
+
+`task_id: S12C-EXAM-WORD-SHEET-TOKEN-ONLY-LOCAL` · contract v1.0 ·
+base `61602ac` · 实现提交 `0ec6e54`。
+**同样是纯本地任务：没有部署、没有 Railway、没有 staging、没有数据库、
+没有夹具、没有任何凭据。**
+
+- [x] **（阶段 7 移交）** 考试中查词记生词本：`ExamWordSheet` 重写成
+      token-only、`mq:lookedUpOnce` 换 `sw:` 键，挂回阅读页
+
+#### 它当初为什么被摘掉
+
+阶段 7C 把这块整体移除，**不是因为功能不该有** —— 而是旧实现
+**把学生姓名当身份写生词本**，违反已冻结的身份契约。12C 只重写那条边界，
+功能本身按旧端的成熟行为复现（手势阈值、屏蔽规则、语境句、填空取词都是
+真机反馈打磨出来的，没有理由重新发明）。
+
+#### token-only 的请求边界
+
+| | 方法与路径 | 查询串 | 请求体 |
+| --- | --- | --- | --- |
+| 查词 | `GET /vocab/lookup` | **只有 `word`**（URL 编码） | 无 |
+| 写生词本 | `POST /vocab/words` | 无 | `word` + 非空时的 `contextSentence` + 非空时的 `sourcePassageTitle` |
+
+两条都带 `Authorization: Bearer`；**URL、查询串、请求体、存储里都没有
+`name` / `studentName` / `studentId` / `then` / `after`**。
+`ExamPaper`、阅读会话响应、组件 props 里也**没有**加任何身份字段。
+
+> 查词那条后端是 `@Public()` 且**不解析身份**（词典查询与谁在问无关）。
+> 新端仍然带令牌 —— 「认证后的请求一律带 Bearer」这条口径不为一个端点
+> 开例外，而且这一页本来就登录着。
+
+#### 考点词：不是「查了不显示」，是**连查都不发**
+
+早测有词义题（「'shadow' 这个词暗示什么」），考试中能查词等于送答案。
+但这个顾虑**只对被考的那几个词成立**，对文章里另外七百多个词不成立 ——
+所以做的是精确屏蔽，判定与后端 `extractQuotedWord` 同一套（必须是
+「问这个词什么意思」的问法，叙事引语不算），外加显式的
+`snapshotContent.targetWord`。
+
+**屏蔽落在发请求之前**：`blocked` 为真时 `lookup` 根本不执行。
+「查了不显示」是不够的 —— 那时答案材料已经躺在浏览器里，任何人打开网络
+面板就能看见。测试用**请求计数**钉住这一点（`reqs` 必须是空数组），
+而不只是断言页面上没有那几个字。
+
+考点词**仍然可以填进填空题** —— 屏蔽的是「释义」，不是「这个词出现在
+原文里」（它就印在学生眼前）。
+
+#### 写生词本要说实话
+
+旧实现是「发了就当成了」（成功回调置位、失败回调空着），失败静默，
+学生以为存上了。现在三种结果分开说：
+
+  · `created: true`  → 已存入生词本
+  · `created: false` → 本来就在本子里（**不是失败**）
+  · 失败 / **回执形状不对** → 明说没存上，并给一个重试
+
+**重试原样重发同一个请求体**。依据是服务端按「学生 + headword」查重
+（`student-word.service.ts` 先查 `studentId_headword` 唯一行），同一个词
+提交两次只会拿到 `created: false` —— 所以**不需要 requestId，也不该发明
+一个新的 API 字段**。重试期间连点两下只发一条。
+
+任何一条请求的 401 / `token_revoked` / `student_token_required`
+都走共用的 `handleAuthFailure`，清票回登录页。
+
+#### 过期响应画不上新卡
+
+一个请求代次（`gen`）管住三件事：**换词、关卡、卸载**。
+没有它的话，上一个词的迟到释义会画到这一张卡上 —— 学生看到的是
+**张冠李戴的答案**，而且完全没有迹象说明它错了。写入回执同理：
+迟到的 `created: true` 不许挂到另一个词上。四条用**手动控制的 Promise**
+钉住（不靠时序碰运气）。
+
+#### 手势与分工
+
+手势回到 `Highlighter`，藏在**可选**的 `onWordTap` 后面：不传就连事件都
+不挂，阅读页之外的用法一个字都不受影响。判定沿用旧端调过的阈值 ——
+鼠标 8px、**触屏 18px**（指腹按下到抬起在 iPad 上常晃 10-15px，8px 会让
+绝大多数「点词」被当成拖动丢弃，表现为「触屏查词没反应」），超过 500ms
+算长按，抬起时已有选区就让路给高亮流程。
+
+分工是刻意的：**手势层不认识身份、不发请求、不知道什么是生词本**
+（守卫钉住它没有 `readToken` / `Authorization` / `fetch(`），
+查词卡不碰导航，渲染器只负责「点到了哪个词」。
+
+#### 填空取词
+
+登记的是**最后聚焦过的那道单行填空**（`BlankAwareInput` 的 `onFocus`），
+不是弹卡时读 `document.activeElement` —— 手机上点文章会先让输入框 blur，
+那时活动元素早就不是它了。空答案直接填入，非空则追加一个空格加词，
+走既有的 `setAnswer`（持久化仍归 `ReadingProvider`，查词卡**不自己发保存
+请求**）。**多行的 O-Level 长答题走 `DebouncedTextarea`，根本不经过登记
+那条路**，所以不会被误当成填空目标。
+
+#### 存储
+
+`mq:lookedUpOnce` → **`sw:reading:looked-up-once`**，只存一个 `'1'`。
+它只是个**发现性提示**的开关。**不存**词条、身份、令牌副本、答案、
+待写队列 —— 测试逐个键查过（会话令牌那个键是 `identity.ts` 自己的登录态，
+不在这条的范围里）。
+
+#### RED（对着 base `61602ac`，行为红不是收集红）
+
+```
+npx vitest run src/__tests__/exam-word-sheet.test.tsx
+→ exit 1 ·  Tests 33 failed | 12 passed (45)
+```
+
+代表性失败：
+
+```
+Unable to find [data-testid="word-sheet"]          点词不弹卡
+expected [] to have a length of 1 but got +0        没发查词请求
+expected '' to contain 'self-reliant'               没写生词本
+Unable to find [data-testid="word-sheet-sentence"]  没有语境句
+Unable to find [data-testid="word-sheet-failed"]    没有失败态与重试
+Unable to find [data-testid="word-sheet-fill"]      没有填空取词
+expect(keys).toContain('sw:reading:looked-up-once') 没有发现性标记
+```
+
+那 12 项通过的是「挂载不发请求」「考点词零请求」这类**否定断言** ——
+在功能不存在时本来就成立，**不算**这次 RED 的判据。
+
+#### GREEN（`0ec6e54`）
+
+| 命令 | exit | 结果 |
+| --- | --- | --- |
+| `exam-word-sheet.test.tsx`（新增） | 0 | **45** |
+| `reading-renderers.test.tsx` | 0 | **30** |
+| `reading-integration.test.tsx`（**一行未改**） | 0 | **24** |
+| `contract.test.ts` | 0 | **159**（147 → +12：G-12C 整块） |
+| `npx vitest run`（student-web 全量） | 0 | 26 files / **898** passed（886 → +12） |
+| `npx tsc --noEmit` / `npx vite build`（student-web） | 0 | 干净 · 334.59 kB |
+| `npx vitest run` + `tsc`（api 全量） | 0 | 93 files / **1334** passed |
+| `npx vitest run` + `tsc`（web 全量） | 0 | 37 files / **247** passed |
+| `git diff --check` | 0 | 无空白错误 |
+
+**改动的文件**：新增 `lesson/ExamWordSheet.tsx` 与
+`__tests__/exam-word-sheet.test.tsx`；修改 `lesson/shared/Highlighter.tsx`、
+`lesson/questions/IELTSReadingPassage.tsx`、`lib/api.ts`、
+`__tests__/contract.test.ts`、`__tests__/reading-renderers.test.tsx`。
+`reading-integration.test.tsx` **不需要改**。
+`apps/api`、`apps/web`、Prisma、依赖、Dockerfile、Railway 配置、
+路由与页面、S12A / S12B 的文件**全部未动**。
+
+**阶段 7C 排除项的窄化**（AC-07 授权，逐条说明）：
+
+  · 「阅读端代码里没有 ExamWordSheet 的任何痕迹」→ 窄化成
+    **「只许出现在它自己那两个文件里」**，并加一条「它确实存在」的断言，
+    免得这条退化成一句空话；
+  · 「不发任何查词 / 生词本请求」**规则一字未改** —— 只把标题改成
+    「阅读端源码里没有任何词汇端点的路径字面量」，因为它现在测的正是
+    「路径只许住在 `lib/api.ts`」。查词卡走的是具名方法，所以照样绿；
+  · **「不读 studentName」一字未动**，而且现在**多覆盖了新加的查词卡**
+    —— 真正要守的东西没有被放宽，放宽的只是「这个功能存不存在」；
+  · 「只写 `sw:` 键」一字未动。
+
+新增守卫 **G-12C**（12 条 + 6 条反向夹具）：整面不许出现身份 / 旧存储键 /
+跨端 import / 后端 href / `dangerouslySetInnerHTML` / 课程进度 / 正式测试 /
+自由练习 / 错题本 / 历史 / 埋点 / 旧路由；**只有查词卡发请求且只发那两条**；
+**写生词本只有一个发送点**；手势层不认识身份。
+G1 / G-8A / G-9A / G-9B1 / G-12A / G-12B **一条都没有被削弱**。
+
+#### 两处测试环境的处理（诚实说明）
+
+1. **jsdom 没有 `caretRangeFromPoint`** —— 那是浏览器给的「屏幕坐标 →
+   文本落点」。测试里给它打桩，**手势判定（位移 / 时长 / 选区 / 词边界
+   扩展）走的仍然是真实代码**。
+2. **jsdom 没有 `PointerEvent`**（实测 `typeof window.PointerEvent ===
+   'undefined'`），testing-library 只好退回普通 `Event`，坐标就丢了 ——
+   于是「拖动 / 滚动不算点」在测试里**恒真，等于没测**（第一版正是这样
+   绿的，两条负向断言都是假绿）。改成自己派发带坐标的事件之后，那两条
+   才真的在测阈值。
+
+
 ### 这一阶段没做什么
 
-> · **`ExamWordSheet`（考试中查词记生词本）的 token-only 重写一行未写** ——
->   那是阶段 7 明确移交过来的，**仍然必做**：停发 `studentName`、
->   `mq:lookedUpOnce` 换 `sw:` 键，再挂回阅读页；
-> · **账号设置扩展**仍是后续强制任务；
+> · **账号设置扩展**仍是后续强制任务，一行未开始；
 > · **没有部署、没有 staging 执行、没有任何数据库读写** ——
->   12A 与 12B 的一切结论都只到「本地自动化验证」这一级。
->   这五个页面**从来没有对着真 API 跑过**：所有响应形状来自读后端源码
->   加上照着写的夹具。线上行为、真机行为、移动端 / PWA 行为**都未验证**，
+>   12A / 12B / 12C 的一切结论都只到「本地自动化验证」这一级。
+>   这五个页面与这块查词能力**从来没有对着真 API 跑过**：所有响应形状
+>   来自读后端源码加上照着写的夹具。线上行为、真机行为、移动端 / PWA
+>   行为**都未验证** —— 尤其查词是个**触屏手势**功能，jsdom 里连
+>   `PointerEvent` 和 `caretRangeFromPoint` 都没有，
 >   **staging / 实机验证仍然是强制的后续工作**；
-> · **阶段 12 整体仍未完成**（`ExamWordSheet` + 实机验证两项未了）；
+> · **阶段 12 整体仍未完成**（实机验证未做）；
 > · 所有阶段 12 的实现与自动化 / 实机验证都做完之后，
 >   **还要新建一个仿生产的合成验收账号**做端到端验收 —— 那一项**同样是
 >   强制的**，现在一步都没开始；
