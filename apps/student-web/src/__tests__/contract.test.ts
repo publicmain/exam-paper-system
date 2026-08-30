@@ -98,7 +98,7 @@ describe('G6 路由契约是单一事实源', () => {
     for (const key of Object.keys(ROUTES)) expect(app).toContain(`ROUTES.${key}`);
   });
 
-  it('**阶段 12A 注册十四条**：四条外壳 + 五条课程 + 两条成绩 + 三条生词本', () => {
+  it('**阶段 12B 注册十六条**：四条外壳 + 五条课程 + 两条成绩 + 三条生词本 + 两条错题本', () => {
     expect(new Set(REGISTERED_PATHS)).toEqual(
       new Set([
         '/login', '/register', '/today', '/account',
@@ -108,8 +108,25 @@ describe('G6 路由契约是单一事实源', () => {
         '/scores', '/scores/:submissionId',
         // 阶段 12A —— 生词本与两条自由练习，同样是独立页面
         '/vocab', '/vocab/practice', '/vocab/selftest',
+        // 阶段 12B —— 错题本与错题重练
+        '/mistakes', '/mistakes/practice',
       ]),
     );
+  });
+
+  /**
+   * 错题重练与「今天的课」里的错题段（`drill`）**是两回事**：
+   * 那一段算当天完成度，这一条是学生自己回来重做。用路由说死。
+   */
+  it('**错题本自成一条路由线**，不挂在课程线下面', () => {
+    expect(ROUTES.mistakes).toBe('/mistakes');
+    expect(ROUTES.mistakePractice).toBe('/mistakes/practice');
+    expect(ROUTES.mistakePractice.startsWith(`${ROUTES.mistakes}/`)).toBe(true);
+    for (const p of [ROUTES.mistakes, ROUTES.mistakePractice]) {
+      expect(p.startsWith('/lesson/')).toBe(false);
+      expect(p.startsWith('/vocab')).toBe(false);
+      expect(p.startsWith('/app/')).toBe(false);
+    }
   });
 
   /**
@@ -456,6 +473,13 @@ describe('G1 新端不得出现旧路由与旧身份键', () => {
     '/vocab/stats',
     '/vocab/due',
     '/vocab/quiz',
+    // 阶段 12B：错题本与错题重练。四条都是**认证后**端点 —— 零身份参数。
+    // 列表那条唯一允许的查询串是 `includeResolved=1`：它是**视图开关**
+    // （已销账的要不要一起给），与「谁在问」无关。
+    '/vocab/mistakes',
+    '/vocab/mistakes/resolve',
+    '/vocab/mistakes/practice-queue',
+    '/vocab/mistakes/practice-result',
   ] as const;
 
   /**
@@ -1536,7 +1560,9 @@ describe('G-12A 生词本与自由练习只走自己那条线', () => {
     { why: '读课程状态 /lesson/today', re: /lesson\/today|\blessonToday\b/ },
     { why: '开课 /lesson/start', re: /lesson\/start|\blessonStart\b/ },
     { why: '接到正式测试的 attempt 上', re: /quiz\/attempt|quizStart|quizAnswer|quizSubmit/ },
-    { why: '错题本（阶段 12 剩下的那半，还没实现）', re: /\/vocab\/mistakes|\/mistakes/ },
+    // 阶段 12B 起错题本真的存在了，但它是**另一条线**：生词本这一面
+    // 仍然一个字都不该提它（要去错题本就走路由，不是在这里发请求）。
+    { why: '错题本（另一条线，生词本这一面不许碰）', re: /\/vocab\/mistakes|\/mistakes/ },
     { why: '埋点', re: /page-view/ },
     { why: '旧生词本页', re: /\/my-vocab/ },
     { why: '旧历史页', re: /\/my-history/ },
@@ -1646,12 +1672,152 @@ describe('G-12A 生词本与自由练习只走自己那条线', () => {
       expect(vocabHits('navigate(data.nextAction.href);')).toContain('拿后端 href 当导航权威');
     });
 
-    it('**跳错题本会被抓到**（阶段 12 剩下的那半还没实现）', () => {
-      expect(vocabHits("navigate('/mistakes');")).toContain('错题本（阶段 12 剩下的那半，还没实现）');
+    it('**跳错题本会被抓到**（那是另一条线）', () => {
+      expect(vocabHits("navigate('/mistakes');")).toContain('错题本（另一条线，生词本这一面不许碰）');
     });
 
     it('**注释里提到这些名字不算违规**（守卫剥注释）', () => {
       expect(vocabHits('// 我们不退回 lesson-cards，也不碰 vocab-cursor\nnavigate(ROUTES.vocab);')).toEqual([]);
+    });
+  });
+});
+
+// ─────────────────────────────────────────────────────────────
+// G-12B —— 错题本与错题重练这一面的静态守卫
+//
+// 与 G-9A / G-9B1 / G-12A 同一套思路：这一面最容易坏的方式不是崩，是
+// **悄悄串线**。错题重练和「今天的课」里的错题段（drill）长得很像 ——
+// 一旦它去读 `/lesson/today` 或者写课程断点，学生自己回来重做几道题，
+// 当天的完成度就动了，而没有任何地方会报错。
+//
+// 另外两条只对这一面成立的规矩：
+//   · **不落盘** —— 这一面一个 storage 键都不写；
+//   · **写入只有那一条** —— `practice-result` 没有幂等键，页面里发它的
+//     地方必须**只有一处**，否则「绝不盲目重发」就无从谈起。
+// ─────────────────────────────────────────────────────────────
+describe('G-12B 错题本只走自己那条线', () => {
+  const SURFACE = [
+    path.join(SRC, 'pages', 'Mistakes.tsx'),
+    path.join(SRC, 'pages', 'MistakePractice.tsx'),
+    path.join(SRC, 'components', 'mistakes', 'answer-check.ts'),
+  ];
+
+  const MISTAKE_FORBIDDEN: Array<{ why: string; re: RegExp }> = [
+    // 页面里看不到路径字面量（路径住在 api.ts），所以每条都盯**方法名**
+    { why: '读课程状态 /lesson/today', re: /lesson\/today|\blessonToday\b/ },
+    { why: '开课 /lesson/start', re: /lesson\/start|\blessonStart\b/ },
+    { why: '推进课程断点', re: /vocab-cursor|\bvocabCursor\b/ },
+    { why: '课程学词队列', re: /lesson-cards|\blessonCards\b/ },
+    { why: '正式测试的 attempt', re: /quiz\/attempt|\bquizStart\b|\bquizAnswer\b|\bquizSubmit\b/ },
+    { why: '生词本 / 自由练习的端点', re: /\bvocabWords\b|\bvocabDue\b|\bvocabStats\b|\bvocabPracticeReview\b|\bvocabSelfTestQuiz\b|\bvocabReviewUndo\b/ },
+    { why: '成绩线（按姓名查历史）', re: /history-by-name|\breadingHistory\b/ },
+    { why: '早测 / 阅读答卷端点', re: /\/morning-quiz\/|\bsubmitReading\b|\bsaveReadingAnswer\b/ },
+    { why: '埋点', re: /page-view/ },
+    { why: '旧错题页', re: /\/my-mistakes/ },
+    { why: '旧历史页', re: /\/my-history/ },
+    { why: '旧生词本页', re: /\/my-vocab/ },
+    { why: '旧课程页', re: /\/my-lesson/ },
+    { why: '扫码入口', re: /\/scan\b/ },
+    { why: '旧学生外壳', re: /\/student(?![-\w])/ },
+    { why: '请求体里带身份字段', re: /\b(name|studentName|studentId)\s*:/ },
+    { why: 'URL 里带身份', re: /[?&](name|studentId)=/ },
+    { why: 'then / after 协议', re: /\bthen=|\bafter=/ },
+    { why: '拿后端 href 当导航权威', re: /\.\s*href\b/ },
+    { why: '把服务端文本当 HTML 塞进去', re: /dangerouslySetInnerHTML/ },
+    { why: '写本地存储', re: /localStorage|sessionStorage/ },
+  ];
+
+  function mistakeHits(code: string): string[] {
+    const text = stripComments(code);
+    return MISTAKE_FORBIDDEN.filter(({ re }) => re.test(text)).map(({ why }) => why);
+  }
+
+  it('两个页面与判定小工具都存在，而且都注册了', () => {
+    for (const f of SURFACE) expect(fs.existsSync(f), f).toBe(true);
+    const app = stripComments(fs.readFileSync(path.join(SRC, 'App.tsx'), 'utf8'));
+    expect(app).toMatch(/ROUTES\.mistakes\}\s*element=\{<MistakesPage/);
+    expect(app).toMatch(/ROUTES\.mistakePractice\}\s*element=\{<MistakePracticePage/);
+  });
+
+  it('**整面干净**：不碰课程线、生词本、成绩线、正式测试、旧路由、身份、存储', () => {
+    for (const f of SURFACE) {
+      expect(mistakeHits(fs.readFileSync(f, 'utf8')), path.relative(SRC, f)).toEqual([]);
+    }
+  });
+
+  it('**两个页面各自只调自己那几个端点**', () => {
+    const called = (file: string) =>
+      [...new Set(
+        [...stripComments(fs.readFileSync(path.join(SRC, 'pages', file), 'utf8'))
+          .matchAll(/\bapi\.(\w+)\s*\(/g)].map((m) => m[1]),
+      )].sort();
+    expect(called('Mistakes.tsx')).toEqual(['mistakeList', 'mistakeResolve']);
+    expect(called('MistakePractice.tsx')).toEqual(['mistakePracticeQueue', 'mistakePracticeResult']);
+  });
+
+  /**
+   * `practice-result` **没有幂等键**。页面里发它的地方只能有一处 ——
+   * 有第二处，就一定会有人在某条错误分支上「顺手再发一次」，而那正是
+   * 会把 practiceCount 和连胜算歪的那件事。
+   */
+  it('**重练结果只有一个发送点**', () => {
+    const src = stripComments(fs.readFileSync(path.join(SRC, 'pages', 'MistakePractice.tsx'), 'utf8'));
+    expect((src.match(/api\.mistakePracticeResult\(/g) ?? []).length).toBe(1);
+    // 对账用的是**只读**的队列端点，而且不止一处（提交失败与「再查一次」）
+    expect((src.match(/api\.mistakePracticeQueue\(/g) ?? []).length).toBeGreaterThanOrEqual(2);
+  });
+
+  it('**销账走的是同一个发送点**，失败分支里没有第二个写', () => {
+    const src = stripComments(fs.readFileSync(path.join(SRC, 'pages', 'Mistakes.tsx'), 'utf8'));
+    expect((src.match(/api\.mistakeResolve\(/g) ?? []).length).toBe(1);
+  });
+
+  it('**阶段 12A 那一面没有被改动**：生词本仍然不碰错题端点', () => {
+    for (const f of ['VocabBook.tsx', 'VocabPractice.tsx', 'VocabSelfTest.tsx']) {
+      const src = stripComments(fs.readFileSync(path.join(SRC, 'pages', f), 'utf8'));
+      expect(src, f).not.toMatch(/mistake/i);
+    }
+  });
+
+  it('**课程线与正式测试那两面也没有被改动**', () => {
+    for (const f of ['LessonVocab.tsx', 'LessonTest.tsx']) {
+      const src = stripComments(fs.readFileSync(path.join(SRC, 'pages', f), 'utf8'));
+      expect(src, f).not.toMatch(/mistake/i);
+    }
+  });
+
+  // ── 反向夹具：证明这一面的守卫抓得住 ──
+  describe('反向夹具 —— 错题本守卫必须抓得住', () => {
+    it('**读课程状态会被抓到**（重练不许知道今天的课）', () => {
+      expect(mistakeHits('const today = await api.lessonToday(token);'))
+        .toContain('读课程状态 /lesson/today');
+    });
+
+    it('**推进课程断点会被抓到**', () => {
+      expect(mistakeHits('await api.vocabCursor(token, { cursor: 3 });'))
+        .toContain('推进课程断点');
+    });
+
+    it('**顺手写一次 FSRS 会被抓到**（那是生词本那条线）', () => {
+      expect(mistakeHits('await api.vocabPracticeReview(token, w);'))
+        .toContain('生词本 / 自由练习的端点');
+    });
+
+    it('**把服务端文本当 HTML 会被抓到**', () => {
+      expect(mistakeHits('<p dangerouslySetInnerHTML={{ __html: entry.stem }} />'))
+        .toContain('把服务端文本当 HTML 塞进去');
+    });
+
+    it('**落盘会被抓到**', () => {
+      expect(mistakeHits("localStorage.setItem('mistake:last', id);")).toContain('写本地存储');
+    });
+
+    it('**请求体里带身份会被抓到**', () => {
+      expect(mistakeHits('api.mistakeList(token, { studentId: id })')).toContain('请求体里带身份字段');
+    });
+
+    it('**注释里提到这些名字不算违规**（守卫剥注释）', () => {
+      expect(mistakeHits('// 我们不读 lesson/today，也不碰 vocab-cursor\nnavigate(ROUTES.mistakes);')).toEqual([]);
     });
   });
 });

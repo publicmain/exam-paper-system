@@ -70,6 +70,18 @@ export const ROUTES = {
    * 记成绩、进历史）。同样用路由把两者分开。
    */
   vocabSelfTest: '/vocab/selftest',
+  /**
+   * 错题本（阶段 12B）。与生词本同一类：**同一外壳里的独立页面**，
+   * 随时能进，进了也不改变今天的课走到哪一步。
+   */
+  mistakes: '/mistakes',
+  /**
+   * 错题重练。
+   *
+   * 与「今天的课」里的错题段（`drill`）**不是一回事**：那一段算当天完成度，
+   * 这一条是学生自己回来重做，不推进任何课程状态。同样用路由说死。
+   */
+  mistakePractice: '/mistakes/practice',
 } as const;
 
 /** `/scores/:submissionId` 的具体地址。**只有这一个地方拼它。** */

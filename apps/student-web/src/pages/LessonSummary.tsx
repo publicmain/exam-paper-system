@@ -27,10 +27,11 @@
  * ## 出口只有两个
  *
  * `/today`、**有答卷时**的 `/lesson/reading/result`、`/scores`
- * （历史成绩，阶段 11）以及 `/vocab`（生词本，阶段 12A）。
+ * （历史成绩，阶段 11）、`/vocab`（生词本，阶段 12A）以及 `/mistakes`
+ * （错题本，阶段 12B）。
  *
- * 错题本还没实现（阶段 12 剩下的那半），**这里不放它的入口** ——
- * 指向不存在的页面比没有入口更糟。
+ * 「指向不存在的页面比没有入口更糟」这条规矩仍然有效：新加一个出口之前，
+ * 那一页得先真的存在。
  */
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
@@ -261,6 +262,14 @@ export default function LessonSummaryPage() {
         >
           生词本 →
         </Link>
+        {/* 错题本（阶段 12B） */}
+        <Link
+          data-testid="go-mistakes"
+          to={ROUTES.mistakes}
+          className="block mt-2 text-blue-600 underline text-sm"
+        >
+          错题本 →
+        </Link>
 
         <BackToToday />
       </Card>
@@ -268,7 +277,7 @@ export default function LessonSummaryPage() {
   );
 }
 
-/** 主出口。错题本还没实现（阶段 12 剩下的那半），这里不放它的入口。 */
+/** 主出口。 */
 function BackToToday() {
   const navigate = useNavigate();
   return (

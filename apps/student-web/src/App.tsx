@@ -26,6 +26,8 @@ import ScoreDetailPage from './pages/ScoreDetail';
 import VocabBookPage from './pages/VocabBook';
 import VocabPracticePage from './pages/VocabPractice';
 import VocabSelfTestPage from './pages/VocabSelfTest';
+import MistakesPage from './pages/Mistakes';
+import MistakePracticePage from './pages/MistakePractice';
 import { Screen } from './ui';
 
 export default function App() {
@@ -86,6 +88,13 @@ export default function App() {
       <Route path={ROUTES.vocab} element={<VocabBookPage />} />
       <Route path={ROUTES.vocabPractice} element={<VocabPracticePage />} />
       <Route path={ROUTES.vocabSelfTest} element={<VocabSelfTestPage />} />
+      {/*
+        错题本与错题重练（阶段 12B）—— 同样是独立页面。
+        与「今天的课」里的错题段（drill）不是一回事：那一段算当天完成度，
+        这两条是学生自己回来重做，不推进任何课程状态。
+      */}
+      <Route path={ROUTES.mistakes} element={<MistakesPage />} />
+      <Route path={ROUTES.mistakePractice} element={<MistakePracticePage />} />
       <Route path="*" element={<Navigate to={fallbackPath(authed)} replace />} />
     </Routes>
   );

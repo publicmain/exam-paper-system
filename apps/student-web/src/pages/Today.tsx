@@ -225,6 +225,14 @@ export default function TodayPage() {
         >
           生词本 →
         </Link>
+        {/* 错题本（阶段 12B） */}
+        <Link
+          data-testid="go-mistakes"
+          to={ROUTES.mistakes}
+          className="block mt-3 text-blue-600 underline text-sm"
+        >
+          错题本 →
+        </Link>
         <Link to={ROUTES.account} className="block mt-3 text-blue-600 underline text-sm">
           账号设置 →
         </Link>

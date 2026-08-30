@@ -474,7 +474,171 @@ export const api = {
 
   /** 生词自测出题。**不是** `/vocab/quiz/attempt/*`（那条记成绩）。 */
   vocabSelfTestQuiz: (token: string) => request<VocabSelfTestQuiz>('GET', '/vocab/quiz', { token }),
+
+  // ── 错题本与错题重练（阶段 12B）；四条全是**认证后，零身份参数** ──
+  //
+  // 后端这四条同样还收 `?name=` / `?studentId=`（旧端入口），
+  // `resolveIdentity()` → `identityOf()` 优先认令牌。新端一个都不传。
+  //
+  // 唯一允许出现的查询串是 `includeResolved=1` —— 它是**视图开关**，
+  // 不是身份：服务端拿它决定「已销账的那些要不要一起给」，与谁在问无关。
+
+  /**
+   * 我的错题本。**一次取全**（含已销账的），前端自己分两段显示。
+   *
+   * 为什么不分两次取：`total` 与 `byTaskType` 是服务端按「未销账」算的，
+   * 分两次取就会出现两份快照拼在一起的窗口 —— 上半屏的总数和下半屏的
+   * 列表来自不同时刻。
+   */
+  mistakeList: (token: string) =>
+    request<MistakeListResult>('GET', '/vocab/mistakes?includeResolved=1', { token }),
+
+  /**
+   * 标记「已弄懂」/ 撤销。请求体**恰好两个字段**。
+   *
+   * 返回 `{ updated }` 是**受影响的行数**：`0` 表示没有一行匹配
+   * （不是我的、或者已经不在了）—— 那是**失败**，不是「成功但没变化」。
+   */
+  mistakeResolve: (token: string, body: { id: string; resolved: boolean }) =>
+    request<MistakeResolved>('POST', '/vocab/mistakes/resolve', { body, token }),
+
+  /** 今天的错题重练队列（带原文）。 */
+  mistakePracticeQueue: (token: string) =>
+    request<MistakePracticeQueue>('GET', '/vocab/mistakes/practice-queue', { token }),
+
+  /**
+   * 提交一次重练结果。请求体**恰好两个字段**。
+   *
+   * ⚠️ **这条没有 `requestId`**，服务端也没有幂等键 —— 它每收到一次就
+   * `practiceCount + 1` 并重算连胜。所以网络失败时**绝不能盲目重发**：
+   * 调用方必须先把队列读回来，看这道题还在不在（见 `MistakePractice.tsx`）。
+   */
+  mistakePracticeResult: (token: string, body: { id: string; correct: boolean }) =>
+    request<MistakePracticeResult>('POST', '/vocab/mistakes/practice-result', { body, token }),
 };
+
+// ─────────────────────────────────────────────────────────────
+// 错题本与错题重练（阶段 12B）
+//
+// 类型按**服务端实际返回的字段**写（`mistake.service.ts` 的
+// `listForStudent()` / `practiceQueue()` / `resolve()` / `practiceResult()`）。
+// ─────────────────────────────────────────────────────────────
+
+/** 收录原因。服务端是三选一的枚举；认不出来的原样显示。 */
+export type MistakeReason = 'long_answer' | 'vocabulary' | 'repeated_tasktype';
+
+/**
+ * 错题本里的一条。
+ *
+ * 响应里还有 `studentId`（行的原样字段）。**刻意不声明** —— 与别处同理：
+ * 声明了就会有人拿它当身份。
+ */
+export interface MistakeEntry {
+  id: string;
+  submissionId: string | null;
+  paperQuestionId: string | null;
+  taskType: string;
+  passageTitle: string;
+  quizDay: string;
+  stem: string;
+  /** 学生当时写的答案（空白记为空串）。 */
+  studentAnswer: string;
+  correctAnswer: string;
+  /** 客观题的判分流水服务端已经洗掉了；空串就是「没有评语」。 */
+  markerComment: string;
+  awarded: number;
+  maxMarks: number;
+  reason: MistakeReason | string;
+  resolved: boolean;
+  resolvedAt: string | null;
+  /** 隔天连对两次自动销账 —— 这个数由服务端算，前端只显示。 */
+  correctStreak: number;
+  practiceCount: number;
+  lastPracticedAt: string | null;
+  /** 答案要点（服务端已去掉判分指令）。可能是空数组。 */
+  answerPoints: string[];
+  /** 范文，长答题才有。空串就是没有。 */
+  answerModel: string;
+  explanation: string;
+  evidence: string;
+  createdAt: string;
+}
+
+export interface MistakeListResult {
+  /** **未销账**的条数 —— 与 `entries.length` 不是一回事。 */
+  total: number;
+  /** 也只统计未销账的。 */
+  byTaskType: Array<{ taskType: string; count: number }>;
+  /** 顺序就是服务端的顺序（按天倒序、同天按收录原因排）；前端不重排。 */
+  entries: MistakeEntry[];
+}
+
+export interface MistakeResolved {
+  /** 受影响行数。`0` = 失败。 */
+  updated: number;
+}
+
+/**
+ * 重练时的作答方式，由服务端按题型定（`practiceKindOf` + snapshotOptions）。
+ *
+ *   tfng    固定三键（TRUE/FALSE/NOT GIVEN 或 YES/NO/NOT GIVEN）
+ *   letters 段落字母键（从原文的 "Paragraph X" 推出来）
+ *   options 题库里存了完整选项（MCQ 之类），能真正重选
+ *   reveal  主观题：想好再翻卡，自评对错
+ */
+export type MistakePracticeKind = 'tfng' | 'letters' | 'options' | 'reveal';
+
+/** `options` 那一路可能是纯字符串，也可能是 `{key,text}`。**原样渲染**。 */
+export type MistakeOption = string | { key: string; text: string };
+
+/**
+ * 重练队列里的一道题。
+ *
+ * ⚠️ 这份响应**自带答案材料**（`correctAnswer` / `answerPoints` /
+ * `answerModel` / `explanation` / `evidence`）—— 这是**自由重练**，不是考试，
+ * 服务端不做遮挡。**遮挡是这一屏的责任**：作答（或翻卡）之前，
+ * 这几样一个字都不许进 DOM。
+ */
+export interface MistakePracticeItem {
+  id: string;
+  taskType: string;
+  reason: MistakeReason | string;
+  passageTitle: string;
+  quizDay: string;
+  stem: string;
+  /** 学生当时写的那个答案 —— 只在反馈里显示。 */
+  myOldAnswer: string;
+  markerComment: string;
+  correctAnswer: string;
+  answerPoints: string[];
+  answerModel: string;
+  explanation: string;
+  evidence: string;
+  practiceKind: MistakePracticeKind;
+  options: MistakeOption[];
+  correctStreak: number;
+  /** 完整原文 —— 段落匹配 / 判断题离开原文没法真正重做。 */
+  passage: string;
+  submissionId: string | null;
+  paperQuestionId: string | null;
+}
+
+export interface MistakePracticeQueue {
+  /** 今天还有多少道到期未练的（含队列之外的）。 */
+  remaining: number;
+  /** 发题顺序就是这个数组的顺序；前端不重排、不过滤。 */
+  items: MistakePracticeItem[];
+}
+
+/**
+ * 一次重练结果的回执。
+ *
+ * `ok: false` = 这道题不是你的、或者已经不在了 —— **失败**，不是「记上了」。
+ * `correctStreak` / `resolved` 由服务端算，前端**不自己推**。
+ */
+export type MistakePracticeResult =
+  | { ok: true; correctStreak: number; resolved: boolean }
+  | { ok: false };
 
 // ─────────────────────────────────────────────────────────────
 // 生词本与自由练习（阶段 12A）
