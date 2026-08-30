@@ -420,16 +420,18 @@ describe('AC-05 路由与守卫', () => {
     expect(at()).toBe(ROUTES.today);
   });
 
-  it('**这一屏不给任何还没实现的出口**（阶段 11/12 的路由一个都没有）', async () => {
+  it('**这一屏不给任何还没实现的出口**（阶段 12 的路由一个都没有）', async () => {
     mount();
     await settle();
     const hrefs = Array.from(document.querySelectorAll('a')).map((a) => a.getAttribute('href') ?? '');
-    const allowed = [ROUTES.today, ROUTES.readingResult];
+    // 阶段 11 起 `/scores` 真的存在了 —— 它从「不该有的出口」变成允许的一个。
+    // 生词本与错题本仍然没有（阶段 12），指向它们仍旧是错的。
+    const allowed = [ROUTES.today, ROUTES.readingResult, ROUTES.scores];
     for (const h of hrefs) {
       expect(allowed, `出现了不该有的出口 ${h}`).toContain(h);
     }
     for (const h of hrefs) {
-      expect(h).not.toMatch(/my-history|my-vocab|my-mistakes|my-lesson|scan|\/scores|\/history/);
+      expect(h).not.toMatch(/my-history|my-vocab|my-mistakes|my-lesson|scan|\/vocab-book|\/mistakes/);
     }
   });
 

@@ -26,9 +26,11 @@
  *
  * ## 出口只有两个
  *
- * `/today`，以及**有答卷时**的 `/lesson/reading/result`。
- * 历史成绩、生词本、错题本都还没实现（阶段 11 / 12），
- * **这里不放它们的入口** —— 指向不存在的页面比没有入口更糟。
+ * `/today`、**有答卷时**的 `/lesson/reading/result`，以及 `/scores`
+ * （历史成绩，阶段 11 起有了）。
+ *
+ * 生词本与错题本还没实现（阶段 12），**这里不放它们的入口** ——
+ * 指向不存在的页面比没有入口更糟。
  */
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
@@ -243,13 +245,22 @@ export default function LessonSummaryPage() {
           </li>
         </ul>
 
+        {/* 历史成绩（阶段 11）—— 今天看完了，也能回头看以前的 */}
+        <Link
+          data-testid="go-scores"
+          to={ROUTES.scores}
+          className="block mt-5 text-blue-600 underline text-sm"
+        >
+          历史成绩 →
+        </Link>
+
         <BackToToday />
       </Card>
     </Screen>
   );
 }
 
-/** 唯一的常驻出口。历史 / 生词本 / 错题本还没实现，这里不放它们的入口。 */
+/** 主出口。生词本 / 错题本还没实现（阶段 12），这里不放它们的入口。 */
 function BackToToday() {
   const navigate = useNavigate();
   return (

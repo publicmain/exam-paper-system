@@ -98,14 +98,23 @@ describe('G6 路由契约是单一事实源', () => {
     for (const key of Object.keys(ROUTES)) expect(app).toContain(`ROUTES.${key}`);
   });
 
-  it('**阶段 6A 注册九条**：四条外壳 + 五条课程路由', () => {
+  it('**阶段 11 注册十一条**：四条外壳 + 五条课程路由 + 两条历史成绩', () => {
     expect(new Set(REGISTERED_PATHS)).toEqual(
       new Set([
         '/login', '/register', '/today', '/account',
         '/lesson/reading', '/lesson/reading/result',
         '/lesson/vocab', '/lesson/test', '/lesson/summary',
+        // 阶段 11 —— 同一外壳里的独立页面，不属于七步链
+        '/scores', '/scores/:submissionId',
       ]),
     );
+  });
+
+  it('**历史成绩详情的路径参数只有一个**，而且是 submissionId', () => {
+    const params = [...ROUTES.scoreDetail.matchAll(/:(\w+)/g)].map((m) => m[1]);
+    expect(params).toEqual(['submissionId']);
+    // 列表页是它的父路径 —— 详情不许挂到别的段下面去
+    expect(ROUTES.scoreDetail.startsWith(`${ROUTES.scores}/`)).toBe(true);
   });
 
   it('**五条课程路由都在 ROUTES 里**（不再是「计划中」的常量）', () => {
@@ -404,6 +413,13 @@ describe('G1 新端不得出现旧路由与旧身份键', () => {
     '/vocab/quiz/attempt/start',
     '/vocab/quiz/attempt/answer',
     '/vocab/quiz/attempt/submit',
+    // 阶段 11：历史成绩。三条都是**认证后**端点 —— 零身份参数。
+    // `history-by-name` 的名字是旧端留下的：后端阶段 5A 起「带令牌就不查
+    // 姓名」，所以新端**不带查询串**，服务端按令牌里的 id 取。
+    // `history-detail` 的查询串里**只有** submissionId（资源标识，不是身份）。
+    '/morning-quiz/history-by-name',
+    '/morning-quiz/history-detail',
+    '/vocab/quiz/attempts',
   ] as const;
 
   /**
@@ -595,9 +611,12 @@ describe('G1 新端不得出现旧路由与旧身份键', () => {
     });
 
     it('**未登记的新端点会被抓到**', () => {
-      const unknown = ['/morning-quiz/history-by-name'];
+      // 换成一条**真实存在但新端不该碰**的后端路由（成绩趋势，D2 之外）。
+      // 阶段 11 起 `/morning-quiz/history-by-name` 本身已登记，拿它当反例
+      // 就永远绿了 —— 反向夹具必须挑一条还没登记的。
+      const unknown = ['/morning-quiz/history-by-name/trend'];
       expect(unknown.filter((e) => !(KNOWN_ENDPOINTS as readonly string[]).includes(e))).toEqual([
-        '/morning-quiz/history-by-name',
+        '/morning-quiz/history-by-name/trend',
       ]);
     });
 
@@ -866,6 +885,17 @@ describe('依赖可复现性', () => {
 // ─────────────────────────────────────────────────────────────
 describe('G-8A 阅读结果只读且零身份', () => {
   const RESULT_FILE = path.join(SRC, 'pages', 'ReadingResult.tsx');
+  /**
+   * 阶段 11 —— 呈现层与申诉搬到了 `components/ResultView.tsx`，历史成绩
+   * 详情页（`pages/ScoreDetail.tsx`）是它的第二个调用方。**守卫跟着搬**：
+   * 只盯着 `ReadingResult.tsx` 的话，同一份呈现逻辑换个文件就不设防了。
+   */
+  const RESULT_SURFACE = [
+    RESULT_FILE,
+    path.join(SRC, 'components', 'ResultView.tsx'),
+    path.join(SRC, 'pages', 'ScoreDetail.tsx'),
+  ];
+  const APPEAL_FILE = path.join(SRC, 'components', 'ResultView.tsx');
 
   /** 结果页禁止出现的东西。导出成函数，反向夹具才能直接喂假代码验证。 */
   const RESULT_FORBIDDEN: Array<{ why: string; re: RegExp }> = [
@@ -896,18 +926,39 @@ describe('G-8A 阅读结果只读且零身份', () => {
     expect(app).not.toMatch(/readingResult\}\s*element=\{<LessonPlaceholder/);
   });
 
-  it('**结果页干净**：没有旧路由、没有身份、没有 href 导航、没有写操作', () => {
-    expect(resultSurfaceHits(fs.readFileSync(RESULT_FILE, 'utf8'))).toEqual([]);
+  it('**整个结果面都干净**：没有旧路由、没有身份、没有 href 导航、没有写操作', () => {
+    for (const f of RESULT_SURFACE) {
+      expect(fs.existsSync(f), `${path.relative(SRC, f)} 不存在`).toBe(true);
+      expect(resultSurfaceHits(fs.readFileSync(f, 'utf8')), path.relative(SRC, f)).toEqual([]);
+    }
   });
 
-  it('**结果页只调这三个端点**：今天的课 / 取结果 / 提申诉', () => {
-    const text = stripComments(fs.readFileSync(RESULT_FILE, 'utf8'));
-    const called = [...text.matchAll(/\bapi\.(\w+)\s*\(/g)].map((m) => m[1]);
-    expect([...new Set(called)].sort()).toEqual(['createAppeal', 'getReadingResult', 'lessonToday']);
+  it('**整个结果面只调这四个端点**：今天的课 / 取结果 / 取历史那一份 / 提申诉', () => {
+    const called = RESULT_SURFACE.flatMap((f) =>
+      [...stripComments(fs.readFileSync(f, 'utf8')).matchAll(/\bapi\.(\w+)\s*\(/g)].map((m) => m[1]),
+    );
+    expect([...new Set(called)].sort()).toEqual([
+      'createAppeal',
+      'getReadingResult',
+      'lessonToday',
+      'readingHistoryDetail',
+    ]);
+  });
+
+  it('**今天那条链与历史那条链各走各的**：定位方式不许串', () => {
+    const reading = stripComments(fs.readFileSync(RESULT_FILE, 'utf8'));
+    const detail = stripComments(fs.readFileSync(path.join(SRC, 'pages', 'ScoreDetail.tsx'), 'utf8'));
+    // 交完卷那一屏由 /lesson/today 定位，不碰历史端点
+    expect(reading).toMatch(/api\.lessonToday\(/);
+    expect(reading).not.toMatch(/api\.readingHistoryDetail\(/);
+    // 历史详情由路径参数定位，**不许**依赖今天的课
+    expect(detail).toMatch(/api\.readingHistoryDetail\(/);
+    expect(detail).not.toMatch(/api\.lessonToday\(/);
+    expect(detail).toMatch(/useParams/);
   });
 
   it('**申诉体只有那三个字段**，不得夹带身份', () => {
-    const text = stripComments(fs.readFileSync(RESULT_FILE, 'utf8'));
+    const text = stripComments(fs.readFileSync(APPEAL_FILE, 'utf8'));
     const call = text.match(/api\.createAppeal\([\s\S]*?\n\s*\}\);/);
     expect(call, '没找到 createAppeal 调用').not.toBeNull();
     const body = call![0];

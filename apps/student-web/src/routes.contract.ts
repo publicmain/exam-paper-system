@@ -33,7 +33,28 @@ export const ROUTES = {
   lessonVocab: '/lesson/vocab',
   lessonTest: '/lesson/test',
   summary: '/lesson/summary',
+  /**
+   * 历史成绩（阶段 11）。**同一外壳里的独立页面**，不是七步链的一环 ——
+   * 学生随时能进，进了也不改变今天的课走到哪一步。
+   *
+   * 设计文档里写作 `/app/scores`；与其他路由同理，独立源实现**去掉
+   * `/app` 前缀**（见文件头）。
+   */
+  scores: '/scores',
+  /**
+   * 单次阅读答卷的逐题回顾。
+   *
+   * **`:submissionId` 是唯一的选择器** —— 不带姓名、不带 studentId，
+   * 归属由服务端按令牌判定。放进路径而不是查询串，是为了让它只可能是
+   * 「一份答卷的标识」，而不是一个可以塞任何东西的参数袋。
+   */
+  scoreDetail: '/scores/:submissionId',
 } as const;
+
+/** `/scores/:submissionId` 的具体地址。**只有这一个地方拼它。** */
+export function scoreDetailPath(submissionId: string): string {
+  return `/scores/${encodeURIComponent(submissionId)}`;
+}
 
 export type RouteKey = keyof typeof ROUTES;
 

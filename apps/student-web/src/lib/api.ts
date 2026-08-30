@@ -396,7 +396,107 @@ export const api = {
 
   quizSubmit: (token: string) =>
     request<QuizSubmitResult>('POST', '/vocab/quiz/attempt/submit', { body: {}, token }),
+
+  // ── 历史成绩（阶段 11）；三条全是**认证后，零身份参数** ──
+  //
+  // 端点名字里的 `by-name` 是**旧端留下的名字**，不是这里的用法：后端
+  // 阶段 5A 起「带令牌就不查姓名」（`morning-quiz.controller.ts` 的
+  // `historyByName`），所以新端一个查询串都不带，服务端按令牌里的 id 取。
+  //
+  // 三条都是只读的。**列表两条互不相干** —— 一条是阅读答卷，一条是正式
+  // 单词测试，页面把它们分成两段显示，绝不按日期拼成一条记录。
+
+  /** 阅读历史。**不带查询串** —— 带了就等于允许请求指定看谁的成绩。 */
+  readingHistory: (token: string) =>
+    request<ReadingHistory>('GET', '/morning-quiz/history-by-name', { token }),
+
+  /** 正式单词测试历史。同样不带查询串。 */
+  vocabQuizAttempts: (token: string) =>
+    request<VocabAttemptHistory>('GET', '/vocab/quiz/attempts', { token }),
+
+  /**
+   * 一份阅读答卷的逐题回顾。
+   *
+   * 查询串里**只有** `submissionId`，而且它来自路由的路径参数 ——
+   * 归属校验在服务端（令牌里的 id 必须等于这份答卷的 studentId），
+   * 客户端另外再核一次「回来的就是我问的那一份」。
+   *
+   * 返回形状与 `/morning-quiz/student-result/:id` **完全一致**：后端两条
+   * 路由共用 `getStudentResult`，所以这里复用 `ReadingResult` 类型。
+   */
+  readingHistoryDetail: (token: string, submissionId: string) =>
+    request<ReadingResult>(
+      'GET',
+      `/morning-quiz/history-detail?submissionId=${encodeURIComponent(submissionId)}`,
+      { token },
+    ),
 };
+
+// ─────────────────────────────────────────────────────────────
+// 历史成绩（阶段 11）
+//
+// 类型按**服务端实际返回的字段**写：
+//   · `morning-quiz.controller.ts` 的 `historyByName()` 返回体
+//   · `vocab-quiz-attempt.service.ts` 的 `history()` 返回体
+// ─────────────────────────────────────────────────────────────
+
+/**
+ * 阅读历史里的一行。
+ *
+ * 三面旗子决定这一行怎么显示，**全部由服务端给**：
+ *   · `scoresPending` —— 还没判分：`totalScore` / `autoScore` 是 null；
+ *   · `answersPending` —— 还没最终交卷；
+ *   · `reopenable` —— 第二作答窗还开着，现在回去还能改。
+ *
+ * `status` 里可能出现 `practice`（旧端要看练习回放）。**新端一律不显示
+ * 它们** —— 那是另一条产品线，混进成绩列表会让学生把练习当成绩。
+ */
+export interface ReadingHistoryRow {
+  submissionId: string;
+  answersPending: boolean;
+  reopenable: boolean;
+  sessionId: string | null;
+  /** `MorningQuizSession.date`，`@db.Date` → UTC 零点的 ISO 串。 */
+  date: string | null;
+  level: string | null;
+  paperName: string;
+  className: string;
+  autoScore: number | null;
+  totalScore: number | null;
+  maxScore: number | null;
+  submittedAt: string | null;
+  status: string;
+  scoresPending: boolean;
+}
+
+/**
+ * 响应里还有一个 `student: { name, matchedCount, classes }`。
+ *
+ * **这里刻意不声明它** —— 与 `LessonCardsResult` 同理：声明了就会有人拿它
+ * 当身份。要显示「我是谁」，问 `/student-auth/me`。
+ *
+ * 同名消歧那一支（`needDisambiguation`）只可能出现在**无令牌**的旧端调用
+ * 上；新端永远带令牌，服务端走的是精确 id 路径，不会返回它。
+ */
+export interface ReadingHistory {
+  submissions: ReadingHistoryRow[];
+}
+
+/** 正式单词测试的一次成绩。服务端只下发已交卷（`status: 'submitted'`）的。 */
+export interface VocabAttemptRow {
+  id: string;
+  /** 已经是 `YYYY-MM-DD`（服务端切好的）。 */
+  date: string;
+  submittedAt: string | null;
+  total: number;
+  correct: number;
+  /** 交卷时算一次就冻住的分数。**前端不重算。** */
+  score: number;
+}
+
+export interface VocabAttemptHistory {
+  attempts: VocabAttemptRow[];
+}
 
 // ─────────────────────────────────────────────────────────────
 // 正式单词测试（阶段 9B1）

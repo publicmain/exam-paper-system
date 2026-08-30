@@ -21,6 +21,8 @@ import ReadingResultPage from './pages/ReadingResult';
 import LessonVocabPage from './pages/LessonVocab';
 import LessonTestPage from './pages/LessonTest';
 import LessonSummaryPage from './pages/LessonSummary';
+import ScoresPage from './pages/Scores';
+import ScoreDetailPage from './pages/ScoreDetail';
 import { Screen } from './ui';
 
 export default function App() {
@@ -67,6 +69,12 @@ export default function App() {
       <Route path={ROUTES.lessonVocab} element={<LessonVocabPage />} />
       <Route path={ROUTES.lessonTest} element={<LessonTestPage />} />
       <Route path={ROUTES.summary} element={<LessonSummaryPage />} />
+      {/*
+        历史成绩（阶段 11）—— **同一外壳里的独立页面**，不是七步链的一环。
+        详情页的 `:submissionId` 是唯一的选择器；归属由服务端按令牌判定。
+      */}
+      <Route path={ROUTES.scores} element={<ScoresPage />} />
+      <Route path={ROUTES.scoreDetail} element={<ScoreDetailPage />} />
       <Route path="*" element={<Navigate to={fallbackPath(authed)} replace />} />
     </Routes>
   );

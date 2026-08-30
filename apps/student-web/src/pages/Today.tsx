@@ -209,7 +209,15 @@ export default function TodayPage() {
           </p>
         )}
 
-        <Link to={ROUTES.account} className="block mt-6 text-blue-600 underline text-sm">
+        {/* 历史成绩（阶段 11）—— 随时能进，与今天走到哪一步无关 */}
+        <Link
+          data-testid="go-scores"
+          to={ROUTES.scores}
+          className="block mt-6 text-blue-600 underline text-sm"
+        >
+          历史成绩 →
+        </Link>
+        <Link to={ROUTES.account} className="block mt-3 text-blue-600 underline text-sm">
           账号设置 →
         </Link>
       </Card>
