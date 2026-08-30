@@ -47,7 +47,7 @@
 | **9** | **课程学词 + 正式测试** | **✅ PASS**（2026-08-30）—— 9A/9D1/9D2A/9D2B 逐项修复后，9D2C 实跑发现正式测试只出两种题型，9D2D 修复并用 t6_done 实机验证**四种题型各一道 + 隐私 + 恢复 + 算分 + 数据隔离**，全链跑到 `/lesson/summary` | | ✓ | ✓ |
 | **10** | **今日总结** | **✅ PASS**（2026-08-30）—— 占位页换成只读真页面，本地 RED 19/25 → 25/25，t6_done 实机验证只读与服务端权威 | | ✓ | ✓ |
 | **11** | **账号制历史成绩** | **✅ PASS**（2026-08-30，含返工 1/2）—— `/scores` + `/scores/:submissionId`，token-only、阅读与词测两段分开、practice 不进列表、零分照实；t6_done 实机走通规范导航，拿 t5 的 submissionId 直闯被 403 挡住且不渲染任何答案，一条授权的合成申诉写入，其余库状态逐字节不变。返工 1/2 拿掉了详情页那个服务端没给过的派生百分比 | | ✓ | ✓ |
-| **12** | **生词本与错题本** | 🔧 **12A + 12B + 12C 本地完成**（2026-08-30）—— 五页 token-only（12A 三页含返工 1/2 与 2/2、12B 两页）＋ 阶段 7 移交的考试中查词按 token-only 重写并挂回阅读页（12C，含返工 1/2）。四条线用路由和端点分开（G-12A / G-12B / G-12C）。**staging 实机验证、账号设置扩展、仿生产合成验收账号三项仍未开始**，整阶段未完成；全程**未部署、未真机、未碰数据库** | | ✓ | ✓ |
+| **12** | **生词本与错题本** | 🔧 **12A + 12B + 12C + 12D 本地完成**（2026-08-30）—— 五页 token-only（12A 三页含返工 1/2 与 2/2、12B 两页）＋ 考试中查词 token-only 重写并挂回阅读页（12C，含返工 1/2）＋ 判分定稿接上错题采集（12D，补一条 API 路径上从来没被调用过的断链）。四条线用路由和端点分开（G-12A / G-12B / G-12C）。**staging 实机验证、账号设置扩展、仿生产合成验收账号三项仍未开始**，整阶段未完成；全程**未部署、未真机、未碰数据库** | | ✓ | ✓ |
 | 13 | 旧 URL 单向适配 | ⬜ | | ✓ | ✓ |
 | 14 | staging 八账号实机验收 | ⬜ | | — | — |
 | 15 | 灰度切换（1 → 5 → 整班） | ⬜ | | — | 开关 |
@@ -3269,7 +3269,7 @@ npx vitest run src/__tests__/score-detail.test.tsx
 
 ---
 
-## 阶段 12 —— 生词本与错题本　🔧 **12A + 12B + 12C 本地完成**（2026-08-30），**整阶段仍未完成**
+## 阶段 12 —— 生词本与错题本　🔧 **12A + 12B + 12C + 12D 本地完成**（2026-08-30），**整阶段仍未完成**
 
 **12A**（生词本与自由练习）`task_id: S12A-VOCAB-BOOK-AND-FREE-PRACTICE-LOCAL`
 · base `7c9fd6e` · 第一轮实现 `c41de57` ·
@@ -3281,6 +3281,11 @@ npx vitest run src/__tests__/score-detail.test.tsx
 
 **12C**（考试中查词 token-only 重写）`task_id: S12C-EXAM-WORD-SHEET-TOKEN-ONLY-LOCAL`
 · base `61602ac` · 实现提交 `0ec6e54` · 返工 1/2 修复提交 `1ade3dd`。
+
+**12D**（判分定稿触发错题采集）`task_id: S12D-MISTAKE-COLLECTION-FINALIZE-LOCAL`
+· base `85e18ed` · 实现提交 `07493f7`。**这一条补的是后端的一段断链** ——
+前面 12B 把错题本的页面做出来了，但生成错题的那一步在 API 路径上从来没被
+调用过。
 
 **两次都是纯本地任务：没有部署、没有 staging 执行、没有任何数据库断言。**
 
@@ -4025,15 +4030,141 @@ B-3  带标记重新挂载直接是小字        → Unable to find [data-testid
 > 没有夹具与凭据**。
 
 
+### 12D —— 判分定稿触发错题采集　**本地完成**（2026-08-30）
+
+`task_id: S12D-MISTAKE-COLLECTION-FINALIZE-LOCAL` · contract v1.0 ·
+base `85e18ed` · 实现提交 `07493f7`。
+**同样是纯本地任务：没有部署、没有 staging、没有数据库访问。**
+
+#### 发现的是一条**断掉的生产调用链**
+
+`MistakeService.collectFromSubmission()` 早就写好了 —— 收录门槛
+（`shouldCollect`）、快照冻结、`student+submission+question` 唯一键幂等，
+连专门的 spec 都有 18 条。**但在这次改动之前，整个 `src/` 里没有一个
+调用点**：
+
+```
+$ grep -rn "collectFromSubmission" --include=*.ts apps/
+  apps/api/scripts/backfill-mistakes.ts      ← 脚本
+  apps/api/scripts/finalize-stragglers.ts    ← 脚本
+  apps/api/scripts/marker-apply.ts           ← 脚本
+  apps/api/src/vocab/mistake.service.ts      ← 定义本身
+```
+
+也就是说：**走真实 API 判完分的答卷，分数会更新、生词本会采集，
+错题本一条都不会生成** —— 而且没有任何地方会报错。阶段 12B 那两页
+（`/mistakes` 与 `/mistakes/practice`）因此可能永远是空的，学生看到的是
+「我没有错题」，而不是「采集没接上」。
+
+> 这条链之所以能一直断着不被发现，正是因为日常判分走的是
+> `scripts/marker-apply.ts` —— **脚本自己补了这一步**。所以线上有数据，
+> 而 API 路径没有。两条路不一致，本身就是这次要消掉的东西。
+
+#### 最小接线
+
+`MarkerService` 多注入一个 `MistakeService`。**模块层一行没改** ——
+`VocabModule` 早就 `exports` 了它，`MarkerModule` 也早就 `imports` 了
+`VocabModule`；这次只是把一个**已经注册好、却从来没人调用**的服务接进来。
+
+在 `finalize()` 里，**分数落库、认领释放之后**（与生词本采集并排）：
+
+```ts
+try {
+  const quizDay = await this.quizDayOf(submissionId);
+  if (quizDay) {
+    const r = await this.mistakes.collectFromSubmission(submissionId, quizDay);
+    …
+  }
+  // 没有场次 = 不是早测卷，什么都不做
+} catch (e) { this.logger.warn(…) }
+```
+
+**采集规则、阈值、快照、幂等一个字都没动**；端点、请求 / 响应体、鉴权、
+分数计算、schema、事务边界同样一个字都没动。没有新端点、没有 cron、
+没有队列 / outbox、没有回填任务。
+
+#### 日期只能来自场次
+
+`quizDay` 取 `PaperAssignment.morningQuizSession.date`，**绝不取「今天」**。
+
+补判上周的卷子时，把错题记到今天名下 —— 学生的错题时间线是错的，而且
+「隔天连对两次自动销账」那套规则会跟着算歪（它比的就是
+`lastPracticedAt` 与 `quizDay` 的自然日）。
+
+那一列是 `@db.Date`，Prisma 给回 UTC 零点的 `Date`，所以
+`toISOString().slice(0, 10)` 取到的**就是库里存的那个日历日** ——
+不做时区换算，也就不会因为跑在哪台机器上而算出不同的日子。
+
+**没有场次就跳过采集**（课堂作业之类不是早测卷）。这一点与既有脚本
+**故意不同**：脚本用 `(d ?? new Date())` 兜底成今天，运行时路径不许这么做
+—— 猜一个日期比不采集更糟。
+
+#### best-effort 隔离
+
+与生词本采集同一条哲学，也是同一条边界：
+
+  · **事务之外** —— 分数已经落库、认领已经释放，这里只是副作用；
+  · **各自 try/catch** —— 它挂了不能连累生词本，反过来也一样；
+  · **失败只记 warn** —— 判分绝不回滚，`finalize()` 的返回值一个字不变。
+
+日志里只有 `submissionId` / `day` / `added` 三个数 ——
+**不记学生答案、不记正确答案、不记老师评语、不记任何凭据或连接串**。
+
+#### RED（对着 base `85e18ed`）
+
+```
+npx vitest run src/marker/marker-mistake-collection.spec.ts
+→ exit 1 ·  Tests 5 failed | 6 passed (11)
+   **定稿成功 → 恰好采集一次**            → expected "spy" to be called 1 times, but got 0 times
+   **日期取的是场次那一天，不是今天**      → undefined is not iterable（根本没调用过）
+   **日期格式恒为 YYYY-MM-DD**            → 同上
+   **生词本采集炸了也不许连累错题采集**    → expected "spy" to be called 1 times, but got 0 times
+   **采集在事务之外**（顺序）              → expected ['update','release'] to equal ['update','release','mistakes']
+```
+
+那 6 项通过的是「没场次不采集」「预检拒绝 / 并发冲突时不采集」这类**否定
+断言** —— 在调用链断着的时候本来就成立，**不算**这次 RED 的判据。
+
+#### GREEN（`07493f7`）
+
+| 命令 | exit | 结果 |
+| --- | --- | --- |
+| `src/marker/`（聚焦） | 0 | marker.service **4** · marker-mistake-collection **11** |
+| `src/vocab/mistake.service.spec.ts` | 0 | **18**（采集规则一字未动） |
+| `npx vitest run`（api 全量） | 0 | 94 files / **1345** passed（93 / 1334 → +1 file / +11） |
+| `npx tsc --noEmit -p tsconfig.json`（api） | 0 | 干净 |
+| `npm run build`（api，`nest build`） | 0 | 干净 |
+| `npx vitest run` + `tsc`（student-web 全量） | 0 | 26 files / **919** passed |
+| `npx vitest run` + `tsc`（web 全量） | 0 | 37 files / **247** passed |
+| `git diff --check` | 0 | 无空白错误 |
+
+**改动的文件**：`marker.service.ts`（+56）、`marker.service.spec.ts`（+21 −6）、
+新增 `marker-mistake-collection.spec.ts`。
+`apps/api/src/vocab`、Prisma、`marker.controller.ts`、`apps/student-web`、
+`apps/web`、依赖、Dockerfile、Railway 配置**全部未动**。
+
+#### 一处顺手修掉的「绿得不对」
+
+既有的 `marker.service.spec.ts` 用 `new MarkerService(prisma, studentWords)`
+两个参数构造。多一个依赖之后，`this.mistakes` 会是 `undefined`，那一句调用
+会抛 —— 而它在 `try/catch` 里，**四条分数记账测试照样绿，但测的其实是
+「采集失败」那条分支**。绿得不对比红更难发现，所以把第三个桩补上了。
+
+> 这一节的一切结论只到「本地自动化验证」这一级。
+> **staging / 实机验证一步都没开始** —— 这条链在真库上到底采到几条、
+> 采得对不对，本地测不出来。
+
+
 ### 这一阶段没做什么
 
 > · **账号设置扩展**仍是后续强制任务，一行未开始；
 > · **没有部署、没有 staging 执行、没有任何数据库读写** ——
->   12A / 12B / 12C 的一切结论都只到「本地自动化验证」这一级。
->   这五个页面与这块查词能力**从来没有对着真 API 跑过**：所有响应形状
->   来自读后端源码加上照着写的夹具。线上行为、真机行为、移动端 / PWA
->   行为**都未验证** —— 尤其查词是个**触屏手势**功能，jsdom 里连
->   `PointerEvent` 和 `caretRangeFromPoint` 都没有，
+>   12A / 12B / 12C / 12D 的一切结论都只到「本地自动化验证」这一级。
+>   这五个页面、这块查词能力、以及 12D 那条采集链**从来没有对着真 API 或
+>   真库跑过**：所有响应形状来自读后端源码加上照着写的夹具。线上行为、
+>   真机行为、移动端 / PWA 行为**都未验证** —— 尤其查词是个**触屏手势**
+>   功能，jsdom 里连 `PointerEvent` 和 `caretRangeFromPoint` 都没有；
+>   12D 那条链在真库上到底采到几条、采得对不对，同样只有实机能回答。
 >   **staging / 实机验证仍然是强制的后续工作**；
 > · **阶段 12 整体仍未完成**（实机验证未做）；
 > · 所有阶段 12 的实现与自动化 / 实机验证都做完之后，
