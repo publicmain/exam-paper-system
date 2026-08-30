@@ -10,6 +10,7 @@ import { PrismaService } from '../common/prisma.service';
 import { canActOnClass, isAdminOrHead } from '../common/roles';
 import { ClaimDto, QueueQueryDto, ScoreScriptDto } from './dto';
 import { StudentWordService } from '../vocab/student-word.service';
+import { MistakeService } from '../vocab/mistake.service';
 
 interface ActorCtx {
   id: string;
@@ -47,7 +48,37 @@ export class MarkerService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly studentWords: StudentWordService,
+    /**
+     * 错题本采集（阶段 12D）。
+     *
+     * `VocabModule` 已经导出它，`MarkerModule` 也已经 import 了那个模块 ——
+     * 所以这里只是把一个**早就注册好、却从来没人调用**的服务接进来。
+     */
+    private readonly mistakes: MistakeService,
   ) {}
+
+  /**
+   * 这份答卷属于哪一个早测「自然日」。
+   *
+   * 权威来源只有一个：`PaperAssignment.morningQuizSession.date`。
+   * 那一列是 `@db.Date`，Prisma 给回 UTC 零点的 `Date`，所以
+   * `toISOString().slice(0, 10)` 取到的**就是库里存的那个日历日** ——
+   * 不做时区换算，也就不会因为跑在哪台机器上而算出不同的日子。
+   *
+   * **没有场次就返回 null**（课堂作业之类不是早测卷）。调用方据此
+   * 跳过采集 —— 拿「今天」凑一个日期，会把补判旧卷的错题记到今天名下，
+   * 学生的错题时间线与「隔天连对两次销账」那套规则会一起算歪。
+   */
+  private async quizDayOf(submissionId: string): Promise<string | null> {
+    const row = await this.prisma.studentSubmission.findUnique({
+      where: { id: submissionId },
+      select: {
+        assignment: { select: { morningQuizSession: { select: { date: true } } } },
+      },
+    });
+    const d = row?.assignment?.morningQuizSession?.date;
+    return d ? d.toISOString().slice(0, 10) : null;
+  }
 
   /**
    * List submissions with at least one ungraded structured script.
@@ -441,6 +472,31 @@ export class MarkerService {
       }
     } catch (e: any) {
       this.logger.warn(`vocab harvest failed for ${submissionId}: ${e?.message ?? e}`);
+    }
+
+    // 错题本 P6 —— 「批改即采集」的另一半（阶段 12D）。
+    //
+    // `collectFromSubmission()` 一直存在、也一直有测试，但在这次改动之前
+    // **整个 `src/` 里没有一个调用点**：只有几个 `scripts/` 脚本调它。
+    // 于是走真实 API 判完分的答卷，分数更新了、生词本采集了，
+    // **错题本一条都不会生成** —— 而且没有任何地方会报错，学生只会看到
+    // 一个永远空着的错题本。
+    //
+    // 与生词本采集同一条哲学，也是同一条边界：
+    //   · **事务之外** —— 分数已经落库、认领已经释放，这里只是副作用；
+    //   · **各自 try/catch** —— 它挂了不能连累生词本，反过来也一样；
+    //   · **失败只记 warn** —— 判分绝不回滚，接口返回一个字都不变。
+    try {
+      const quizDay = await this.quizDayOf(submissionId);
+      if (quizDay) {
+        const r = await this.mistakes.collectFromSubmission(submissionId, quizDay);
+        if (r.added > 0) {
+          this.logger.log(`mistake harvest: submission=${submissionId} day=${quizDay} added=${r.added}`);
+        }
+      }
+      // 没有场次 = 不是早测卷，**什么都不做**（见 quizDayOf 的注释）。
+    } catch (e: any) {
+      this.logger.warn(`mistake harvest failed for ${submissionId}: ${e?.message ?? e}`);
     }
 
     return this.prisma.studentSubmission.findUnique({ where: { id: submissionId } });

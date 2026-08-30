@@ -61,15 +61,24 @@ function mockPrisma(opts: {
 }
 
 function makeSvc(prisma: any) {
-  // MarkerService takes prisma + StudentWordService. finalize() doesn't write
-  // an audit log directly (the claim+release is the audit trail).
-  // 生词本 P2：finalize 末尾会调 harvestFromSubmission 自动采集错词。这里注入
-  // 一个 no-op 桩 —— 采集是 best-effort 的副作用，绝不能影响分数记账，
-  // 本 spec 测的正是分数记账。
+  // MarkerService takes prisma + StudentWordService + MistakeService.
+  // finalize() doesn't write an audit log directly (the claim+release is the
+  // audit trail).
+  // 生词本 P2：finalize 末尾会调 harvestFromSubmission 自动采集错词。
+  // 错题本 P6（阶段 12D）：紧接着还会调 collectFromSubmission。
+  // 两个都注入 no-op 桩 —— 它们是 best-effort 的副作用，绝不能影响分数
+  // 记账，而本 spec 测的正是分数记账。
+  //
+  // **两个桩都必须给**：漏掉的话 `this.mistakes` 是 undefined，调用会抛，
+  // 而那一句在 try/catch 里 —— 测试照样绿，但它测的其实是采集失败那条
+  // 分支。绿得不对，比红更难发现。
   const studentWords = {
     harvestFromSubmission: vi.fn().mockResolvedValue({ added: 0, candidates: 0 }),
   } as any;
-  return new MarkerService(prisma, studentWords);
+  const mistakes = {
+    collectFromSubmission: vi.fn().mockResolvedValue({ added: 0 }),
+  } as any;
+  return new MarkerService(prisma, studentWords, mistakes);
 }
 
 describe('MarkerService.finalize — score accounting', () => {
