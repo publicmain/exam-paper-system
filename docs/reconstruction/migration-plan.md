@@ -47,7 +47,7 @@
 | **9** | **课程学词 + 正式测试** | **✅ PASS**（2026-08-30）—— 9A/9D1/9D2A/9D2B 逐项修复后，9D2C 实跑发现正式测试只出两种题型，9D2D 修复并用 t6_done 实机验证**四种题型各一道 + 隐私 + 恢复 + 算分 + 数据隔离**，全链跑到 `/lesson/summary` | | ✓ | ✓ |
 | **10** | **今日总结** | **✅ PASS**（2026-08-30）—— 占位页换成只读真页面，本地 RED 19/25 → 25/25，t6_done 实机验证只读与服务端权威 | | ✓ | ✓ |
 | **11** | **账号制历史成绩** | **✅ PASS**（2026-08-30，含返工 1/2）—— `/scores` + `/scores/:submissionId`，token-only、阅读与词测两段分开、practice 不进列表、零分照实；t6_done 实机走通规范导航，拿 t5 的 submissionId 直闯被 403 挡住且不渲染任何答案，一条授权的合成申诉写入，其余库状态逐字节不变。返工 1/2 拿掉了详情页那个服务端没给过的派生百分比 | | ✓ | ✓ |
-| 12 | 生词本与错题本 | ⬜ | | ✓ | ✓ |
+| **12** | **生词本与错题本** | 🔧 **12A 本地完成**（2026-08-30）—— `/vocab` + `/vocab/practice` + `/vocab/selftest` 三页 token-only，与课程线 / 成绩线用路由和端点分开（G-12A）。**错题本、错题重练、ExamWordSheet token-only 重写仍未开始**，整阶段未完成；本轮**未部署、未真机** | | ✓ | ✓ |
 | 13 | 旧 URL 单向适配 | ⬜ | | ✓ | ✓ |
 | 14 | staging 八账号实机验收 | ⬜ | | — | — |
 | 15 | 灰度切换（1 → 5 → 整班） | ⬜ | | — | 开关 |
@@ -3269,16 +3269,151 @@ npx vitest run src/__tests__/score-detail.test.tsx
 
 ---
 
-## 阶段 12 —— 生词本与错题本
+## 阶段 12 —— 生词本与错题本　🔧 **12A 本地完成**（2026-08-30），**整阶段仍未完成**
 
-- [ ] `/app/vocab`、`/app/vocab/practice`、`/app/vocab/selftest`
+`task_id: S12A-VOCAB-BOOK-AND-FREE-PRACTICE-LOCAL` · contract v1.0 ·
+base `7c9fd6e` · 实现提交 `c41de57`。
+**这是一次纯本地任务：没有部署、没有 staging 执行、没有任何数据库断言。**
+
+- [x] `/vocab`、`/vocab/practice`、`/vocab/selftest`（去掉 `/app` 前缀，D7）
+- [x] 自由练习与课程队列的隔离**用路由表达**
 - [ ] **（阶段 7 移交）** 考试中查词记生词本：把 `ExamWordSheet` 重写成
       token-only（停发 `studentName`）、`mq:lookedUpOnce` 换 `sw:` 键，
-      再挂回阅读页。阶段 7 起该能力在新端**不存在**
-- [ ] `/app/mistakes`、`/app/mistakes/practice`
-- [ ] 自由练习与课程队列的隔离**用路由表达**
+      再挂回阅读页。阶段 7 起该能力在新端**不存在** —— **仍然必做**
+- [ ] `/mistakes`、`/mistakes/practice`（错题本与错题重练）—— **仍然必做**
 
-**退出条件**：G3 覆盖这四页的完成/跳过/出错/刷新
+**退出条件**：G3 覆盖这四页的完成/跳过/出错/刷新 ——
+**只覆盖到了三页**，错题本那两页还不存在。
+
+### 这一阶段最要紧的一件事：两条线不许串
+
+新端现在有**四组**词汇相关的路由，它们**是四条线，不是四个入口**：
+
+| 路由 | 取卡端点 | 算课程完成度？ | 记成绩？ |
+| --- | --- | --- | --- |
+| `/lesson/vocab`（课程学词） | `/vocab/lesson-cards` | **是** | 否 |
+| `/lesson/test`（正式测试） | `/vocab/quiz/attempt/*` | 是 | **是** |
+| `/vocab/practice`（自由练习） | `/vocab/due` | **否** | 否 |
+| `/vocab/selftest`（生词自测） | `/vocab/quiz` | 否 | **否** |
+
+**串线是这一面唯一真正危险的失败**，而且它不会报错：
+
+  · 自由练习拿不到到期卡时退回课程队列 —— 学生以为在刷自己的生词本，
+    其实在做今天的课程词表，课程完成度还被推着走（旧端的原病灶，
+    G-9A 就是为它立的）；
+  · 自测接到正式测试的 attempt 上 —— 随手一测就在成绩单上留一条记录。
+
+所以 `/vocab/review`（FSRS 调度）**是四条线里唯一共用的端点**，
+取卡端点一个都不共用。守卫 G-12A 静态钉住这一点。
+
+> **守卫的一个实现要点**：页面代码里**看不到路径字面量**（路径住在
+> `lib/api.ts`），所以 G-12A 的每一条禁令都同时匹配**客户端方法名**
+> （`lessonCards` / `vocabCursor` / `quizStart` …）。只匹配路径的话，
+> 这一整块守卫就是摆设 —— 第一版正是这么写的，反向夹具当场把它照红了。
+
+### 三屏各自的规矩
+
+**生词本 `/vocab`** —— 两个 GET，**分开取**：词表是主角，
+`GET /vocab/stats` 挂了**不连累**词表（词照常显示，统计那一块单独说
+「暂时取不到」）。统计里任何一项没给就**不显示那一项** ——
+「今天复习了 0 次」和「不知道今天复习了几次」对学生是两件事。
+移出是**两步**（点一下变确认，再点才发），而且**服务端成功之后才**
+把行拿掉：失败时行原样留着、可以再试，绝不做乐观删除。
+
+**自由练习 `/vocab/practice`** —— 只吃 `GET /vocab/due`。
+四档评分（课程线只发两档，那是课程内的产品决定；自由练习是学生主动来练，
+给全四档）。`requestId` **在第一次尝试之前就定好，重发一直用同一个**，
+而且**没成功就不翻页** —— 卡片翻过去但 FSRS 什么都没记，是学生最没法
+察觉、也最挫败的失败。回执照搬：`tooFast` / `duplicate` 就照说，不假装
+成功。跳过**一个请求都不发**。撤销**服务端确认之后**才把卡放回来。
+
+**自测 `/vocab/selftest`** —— 只吃 `GET /vocab/quiz`，四种题型全支持
+（选择三种按 `correctIndex`，拼写按 `answer`，只抹首尾空白与大小写）。
+第一遍对 → `good`，错 → `again`，**每题第一遍最多写一次**；
+末尾可以重做错题，**重做那一轮一条 FSRS 都不写**（同一题写两次会把
+间隔算歪）。写失败时判定照常显示（那是本地算的），但明说「还没记进复习
+计划」并给重试，重试用同一个 `requestId`。
+
+**自由练习这一面一个 storage 键都不写**（守卫钉住）。课程线要落盘是因为
+它有「今天必须完成」的语义；自由练习没有 —— 没评上就是没评上，那张卡
+下次还在到期队列里。少一个键，就少一处可能残留在共用设备上的学习痕迹。
+
+### RED（对着 base `7c9fd6e`，行为红不是收集红）
+
+三份新测试**都不 import 页面组件**，路径写字面量，全部挂真 `App`。
+
+```
+npx vitest run src/__tests__/vocab-book.test.tsx \
+               src/__tests__/vocab-practice.test.tsx \
+               src/__tests__/vocab-selftest.test.tsx
+→ exit 1 ·  Test Files 3 failed (3) ·  Tests 69 failed | 10 passed (79)
+   vocab-book      22 failed / 28
+   vocab-practice  23 failed / 25
+   vocab-selftest  24 failed / 26
+```
+
+代表性失败：
+
+```
+AC-03 契约里有三条生词本路由        → expected undefined to be '/vocab'
+AC-03 /today 上有生词本入口          → Unable to find [data-testid="go-vocab"]
+AC-04 恰好两个 GET                   → expected [] to have a length of 1 but got +0
+AC-05 只吃 /vocab/due                → expected [] to have a length of 1 but got +0
+AC-06 第一遍答对 → 一条 rating=good  → expected [] to have a length of 1 but got +0
+AC-08 401 清票回登录页               → expected 'selftest-token' to be null
+```
+
+那 10 项通过的是「没票时不发请求」「不碰 `mq:` 键」这类**否定断言**，
+在不存在的页面上本来就成立 —— **不是**这次 RED 的判据。
+
+### GREEN（`c41de57`）
+
+| 命令 | exit | 结果 |
+| --- | --- | --- |
+| 三份新测试（聚焦） | 0 | vocab-book 28 · vocab-practice 25 · vocab-selftest 26 |
+| `contract.test.ts` | 0 | **132**（115 → +17：G-12A 十四条 + 路由线两条 + 反向夹具） |
+| `today` / `lesson-summary` | 0 | 29 / 25 |
+| `lesson-vocab` / `lesson-test` / `review-queue`（**一行未改**） | 0 | 48 / 45 / 37 |
+| `vitest run`（student-web 全量） | 0 | 23 files / **741** passed（646 → +95） |
+| `npm run typecheck` / `npm run build`（student-web） | 0 | 干净 · 308.33 kB |
+| `vitest run` + `typecheck`（api 全量） | 0 | 93 files / **1334** passed |
+| `vitest run` + `typecheck`（web 全量） | 0 | 37 files / **247** passed |
+| `git diff --check` | 0 | 无空白错误 |
+
+**授权的配套测试改动**（逐条列出）：
+
+  · `contract.test.ts` —— 注册路由集合十一条 → 十四条；`KNOWN_ENDPOINTS`
+    登记五条新端点（`/vocab/words`、`/vocab/words/remove`、`/vocab/stats`、
+    `/vocab/due`、`/vocab/quiz`，其中 `/vocab/quiz` 与既有的
+    `/vocab/quiz/attempt/*` **分开列**）；新增 G-12A 整块与「课程学词与
+    自由练习是两条路由线」一条。
+  · `lesson-summary.test.tsx` —— 阶段 10 那条「不给还没实现的出口」把
+    `/vocab` 列为禁止项；阶段 12A 起它真的存在了，改为允许 `/vocab`，
+    **仍然禁止错题本**（`/mistakes`）。
+
+`apps/api`、`apps/web`、Prisma、seed、依赖、Dockerfile、Railway 配置
+**一律未动**（`git status --porcelain` 对这些路径为空）。
+既有的 `lesson-vocab` / `lesson-test` / `review-queue` 三份测试**一行没改**
+而且全绿 —— 课程线与成绩线的守卫没有被削弱。
+
+### 后端没有改一行
+
+七个端点的 token-only 通路在改之前逐个核过（`vocab.controller.ts`）：
+`words` / `words/remove` / `stats` / `due` / `review` / `review/undo` /
+`quiz` 全部走 `identityOf(req, name, studentId)` —— 带令牌就按令牌里的 id
+精确查，不查姓名、不消歧。新端一个查询串都不带。**没有触发 NO-GO。**
+
+### 这一阶段没做什么
+
+> · **错题本与错题重练（`/mistakes`、`/mistakes/practice`）一行未写** ——
+>   仍是阶段 12 的**强制任务**，没有被跳过、也没有被降级；
+> · **`ExamWordSheet`（考试中查词记生词本）的 token-only 重写一行未写** ——
+>   那是阶段 7 明确移交过来的，同样**仍然必做**；
+> · **账号设置扩展**仍是后续强制任务；
+> · **没有部署、没有 staging 执行、没有任何数据库读写** ——
+>   本节的一切结论都只到「本地自动化验证」这一级，
+>   线上行为、真机行为、移动端 / PWA 行为**都未验证**；
+> · staging 的免密夹具登录仍开着且**未改动**，退役期限见本文档开头的表。
 
 ---
 
