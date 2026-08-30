@@ -44,7 +44,7 @@
 | **6** | **今天的课（`/today` 枢纽）** | **✅ PASS** —— 6A 本地 + 6B staging 八账号实机 | | ✓ | ✓ |
 | **7** | **阅读页（单独阶段）** | 🔧 **7A–7D 均本地完成**；7E 环境就绪，**真机验收由用户跳过并接受残余风险**（不是 PASS） | | **✓ 单独** | **✓ 单独** |
 | **8** | **阅读结果页** | 🔧 **8A 本地完成**（未部署、未真机） | | ✓ | ✓ |
-| **9** | **课程学词 + 正式测试** | 🔧 **9A 已在 staging 实机验证**（新词日 + 纯复习日）；9D 发现纯复习日开不了考、9D1 已修并部署；9D2 因任务日翻页 NO-GO，9D2A 已用真页面把 t5 重新走到 `vocab_test`；9D2B 修好「交卷跳过阅读结果页」并实机验证；**正式测试实机链路仍未跑过，阶段 9 PENDING** | | ✓ | ✓ |
+| **9** | **课程学词 + 正式测试** | **✅ PASS**（2026-08-30）—— 9A/9D1/9D2A/9D2B 逐项修复后，9D2C 实跑发现正式测试只出两种题型，9D2D 修复并用 t6_done 实机验证**四种题型各一道 + 隐私 + 恢复 + 算分 + 数据隔离**，全链跑到 `/lesson/summary` | | ✓ | ✓ |
 | 10 | 今日总结 | ⬜ | | ✓ | ✓ |
 | 11 | 账号制历史成绩 | ⬜ | | ✓ | ✓ |
 | 12 | 生词本与错题本 | ⬜ | | ✓ | ✓ |
@@ -2994,6 +2994,139 @@ API 健康、CORS 正确、配置没漂」。
 （[D1](./product-decisions.md#d1--homework--ai-tutor-暂留旧系统)）
 
 **退出条件**：`grep -r "my-history" apps/` 只剩 CHANGELOG 与本目录文档
+
+---
+
+
+### 阶段 9D2C / 9D2D —— 正式测试实机收口　**Stage 9 完成**（2026-08-30）
+
+#### 9D2C：第一次实跑，NO-GO
+
+`task_id: S9D2C-FORMAL-QUIZ-LIVE` · base `71352b7`。整条链（开考 → 四题 →
+恢复 → 交卷 → `/lesson/summary`）跑通了，FSRS 逐字节未动，全库只有那一份
+attempt —— 但**四道题只有两种题型**（`word_to_meaning` ×2 +
+`meaning_to_word` ×2），`cloze` 与 `spelling` 一次都没出现。按合同报 NO-GO，
+未修、未提交文档。
+
+留下的审计记录：t5 的 attempt `cmtf6upw500o9134tz3lw4bl5`
+（submitted，4 题，correct 2，score 50，items md5
+`3d830a9edf8c8784c7e67494c36d12a8`）。**它是证据，此后所有任务都不得改动它。**
+
+#### 9D2D：修好四种题型（提交 `3aa21b5`）
+
+**根因不是数据不巧，是链路断了。** `VocabQuizAttemptService.start()`
+把选中的词投影成 `{headword, contextSentence, reps}` 交给 `buildQuiz`，
+`surfaceForm` 在这一步被丢掉；而挖空位置靠
+`findClozeSpan(contextSentence, surfaceForm)` 定位 —— 少了词形它恒返回
+`null`，于是 `spelling` 与 `cloze` 两个分支**对任何学生、任何一天都走不到**，
+「每轮最多 2 道拼写题」那段预算是死代码。自由练习不传固定词表，
+`chosen` 直接来自完整的 `StudentWord` 行，所以**它一直是好的** ——
+缺陷只在正式测试这条路上。
+
+**光把词形传下去还不够**：通用算法会把四个全能词出成「2 道拼写 + 2 道填空」，
+两种选择题一道都没有。所以正式路径多了一条显式的、确定性的分配策略
+（`formalTypePlan`）：按服务端词序走，`spelling` 给第一个撑得起的词
+（复习过、定位得到、4–12 纯字母），`cloze` 给剩下里第一个挖得了空的，
+其余按两种选择题交替。四个全能词 ⇒ 恰好四种各一道，**词序一步不挪**。
+撑不起时由 `resolveFormalType` **具名降级**（拼写 → 填空 → 看词选义），
+**绝不为了凑题型编答案**。`surfaceForm` 在 `buildQuiz` 的入参类型里改成
+**必填**，再忘一次就编译不过。
+
+RED（对着 `71352b7`）：20 项里 11 项红，题型多重集回来的正是
+`{word_to_meaning: 2, meaning_to_word: 2}`，以及「没有 cloze 题」「没有
+spelling 题」、正式投影只有三个键。修复后 20/20 绿。
+本地：`apps/api` **1313** 项 + tsc + build；`apps/student-web` 548 + tsc +
+build；`apps/web` 247 + tsc。**学生端一行未改** —— 它本来就渲染四种题型。
+
+部署：只发 stg-api，`9236058d-…` → **`4823cb16-…`** →（后续任务）
+`f089519e-a65e-425d-a222-e38a105a6d59`。
+
+#### 9D2D 收口：t6_done 的实机全链（`task_id: S9D2D-FORMAL-QUIZ-LIVE-CLOSEOUT`）
+
+换一个**没有考过试**的账号做最终验证：`t6_done`（tc1、历史 0 份 attempt、
+四个词教过且到期、`surfaceForm` 齐全、原句含词形、4–12 纯字母）。
+登录走 staging 的临时免密按钮，**全程没有输入任何 PIN**。
+
+canonical 路径，一步不绕：
+
+```
+/login ──一键登录──▶ /today ──开始今天的课程──▶ /lesson/reading
+   ──四题 + 确认交卷──▶ /lesson/reading/result ──继续今天的课──▶ /lesson/vocab
+   ──四张复习卡──▶（下一步）──▶ /lesson/test ──四题 + 交卷──▶（下一步）──▶ /lesson/summary
+```
+
+**四种题型，各一道**（开考响应的 qtype 多重集）：
+
+| qtype | 数量 |
+|---|---|
+| `spelling` | 1 |
+| `cloze` | 1 |
+| `word_to_meaning` | 1 |
+| `meaning_to_word` | 1 |
+
+attempt `cmtfe75y600n1dbifsz6894ij`，挂在当天任务行
+`cmtfe2lde00mcdbifmz4m9v4f` 上，`in_progress` → `submitted`，4 题。
+
+**未作答隐私**：开考响应里**四道题的六个答案字段全部为 null**
+（`headword` / `phonetic` / `translation` / `contextSentence` /
+`correctIndex` / `answer`），题干与选项仍足以渲染（拼写题 0 选项、
+其余各 4 选项）。答一道只揭开那一道，其余继续全遮。
+
+**服务端权威**：作答前屏幕上没有任何「答对了 / 答错了」；每次回执里的
+`isCorrect` 与 UI 显示逐次一致（本轮四题按合同固定选第一项、拼写固定输
+`zzzz`，四题全错）。作答前 `correctIndex` 是 null，客户端**没有可比对的
+东西**，本地判不出对错。
+
+**中途恢复**：答完两题后新开同源标签页进 `/lesson/test` —— 同一个
+`attemptId`、`resumed: true`，已答两题及其判定保持，未答两题继续全遮，
+UI 落在第一道未答题（3 / 4），**没有第二份 attempt**。
+
+**交卷与算分**：一次 `POST …/attempt/submit`，请求体 `{}` → 201。
+
+| | total | correct | score |
+|---|---|---|---|
+| API 回执 | 4 | 0 | 0 |
+| 数据库 | 4 | 0 | 0 |
+| UI | 答对 0 / 4 | | 0 分 |
+
+交卷后四题都揭示服务端字段（`answer` 只有拼写题非空，符合设计）。
+
+**路由**：交卷后按 canonical「下一步」落到 `/lesson/summary`；后端仍下发
+旧 href `/my-lesson/summary`，学生端**一次都没读它**；重新打开
+`/lesson/test` 由 `/lesson/today` 判定 `summary` 并**重定向到总结页，
+不开第二份 attempt**（`LessonTest` 在 `kind === 'summary'` 时提前返回，
+连 `quizStart` 都不调）。全程 `my-*` / `morning-quiz`（非会话/结果）/
+`scan` **一条都没请求**。
+
+#### 数据隔离（三份只读快照）
+
+| 边界 | 谁变了 |
+|---|---|
+| 任务开始 → 开考前 | **只有 t6**（dlc / 答卷 / 生词 / 复习流水）—— 阅读与课程复习的合法前置写 |
+| 开考前 → 交卷后 | **只有 t6 的 `dlc_hash` / `att_n` / `att_hash`** |
+| 任务开始 → 交卷后 | 另外七个账号**逐项未变** |
+
+正式测试期间：`StudentWord` 的 FSRS 字段 **byte-equal**
+（word_hash `2dec9eae812ad5604e3c75b5e37a016b` 前后相同）；
+`WordReviewLog` **4 条未增未改**；阅读 submission 与 8 条 `AnswerScript`
+未变；当天任务行只动了 `stage`（`vocab_test` → `done`）与两个时间戳。
+**t5 的审计 attempt 逐字节未变**（items md5 仍是
+`3d830a9edf8c8784c7e67494c36d12a8`）。
+`NotificationConfig` / `NotificationLog` / `Attendance` 全程 0 / 0 / 0。
+全库 attempt 恰好两条：t5 的审计那份 + t6 这份。
+
+#### 结论
+
+**阶段 9 完成（PASS）** —— 课程学词与正式单词测试的实机链路，
+从登录到今日总结，四种题型、隐私、服务端判定、恢复、算分、路由与数据
+隔离全部实测通过。
+
+> **同时明确没做的事**：
+> · **阶段 10 未开始** —— `/lesson/summary` 仍是占位页，本轮只观察它，
+>   不实现、不评价；
+> · **历史成绩、生词本（自由练习）、错题本（错题重练）、账号设置**
+>   仍是**后续强制任务**，一件都没有被跳过或降级；
+> · staging 的免密夹具登录仍开着，退役期限见本文档开头的表。
 
 ---
 
