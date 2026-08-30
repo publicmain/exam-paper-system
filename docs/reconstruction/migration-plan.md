@@ -33,7 +33,7 @@
 | **6** | **今天的课（`/today` 枢纽）** | **✅ PASS** —— 6A 本地 + 6B staging 八账号实机 | | ✓ | ✓ |
 | **7** | **阅读页（单独阶段）** | 🔧 **7A–7D 均本地完成**；7E 环境就绪，**真机验收由用户跳过并接受残余风险**（不是 PASS） | | **✓ 单独** | **✓ 单独** |
 | **8** | **阅读结果页** | 🔧 **8A 本地完成**（未部署、未真机） | | ✓ | ✓ |
-| **9** | **课程学词 + 正式测试** | 🔧 **9A 已在 staging 实机验证**（新词日 + 纯复习日）；9D 发现纯复习日开不了考、9D1 已修并部署；**正式测试实机链路仍未跑过，阶段 9 PENDING** | | ✓ | ✓ |
+| **9** | **课程学词 + 正式测试** | 🔧 **9A 已在 staging 实机验证**（新词日 + 纯复习日）；9D 发现纯复习日开不了考、9D1 已修并部署；9D2 因任务日翻页 NO-GO，9D2A 已用真页面把 t5 重新走到 `vocab_test`；**正式测试实机链路仍未跑过，阶段 9 PENDING** | | ✓ | ✓ |
 | 10 | 今日总结 | ⬜ | | ✓ | ✓ |
 | 11 | 账号制历史成绩 | ⬜ | | ✓ | ✓ |
 | 12 | 生词本与错题本 | ⬜ | | ✓ | ✓ |
@@ -2429,6 +2429,153 @@ fail-closed 注册表，新增转发点按设计必须登记。
 **回滚**：`git revert 387576a`；stg-api 重新部署
 `73298a43-16af-484a-bb98-114764e01fe3`。断点调用是幂等的，不需要也不应该
 用 SQL 去撤销那次预期内的阶段对齐。
+
+---
+
+### 阶段 9D2 —— 正式测试实机链路：**在前置检查上 NO-GO**（2026-08-30）
+
+`task_id: S9D2-FORMAL-QUIZ-STAGING-LIVE` · base `c17401c`（工作区干净）。
+**零业务写入，零副作用，未登录、未开浏览器。**
+
+根因是**任务日翻页**，不是代码缺陷：stg-api 自报 `tzOffsetMin=480`、
+`ts=2026-08-30T00:42Z` → SGT 08:42 → `lessonDayKey = 2026-08-30`；而库里
+`max(DailyLessonCompletion.date) = 2026-08-29`，`WHERE date='2026-08-30'`
+**零行**，最新的 `MorningQuizSession` 也停在 2026-08-29（两场均 `locked`）。
+S9D1 留下的那份前置态（`stage=vocab_test` / `vocabCursor=4` / 队列 4 词 /
+`rulesVersion=3`）逐字仍在，只是它属于**昨天那一课**。
+
+合同禁止在该份合同里修任何东西（不得改夹具、不得直连写库、允许的业务写
+只有 `attempt/start|answer|submit`），因此按 STOP_CONDITIONS 停在 AC-02，
+未调用 `/lesson/today`、未请求凭据。
+
+**教训**：任何把夹具钉在「今天」的合同都会在下一个 SGT 午夜失效。前置态
+要么当场重建，要么把日期显式写进合同。
+
+### 阶段 9D2A —— 当天前置重建　**已执行**（2026-08-30）
+
+`task_id: S9D2A-CURRENT-DAY-T5-PREPARATION` · base `c17401c`。
+**只准备，不考试** —— 本轮一次都没调用 `attempt/start` / `answer` /
+`submit`，全库 `VocabQuizAttempt` 前后都是 **0**。
+
+> **这是什么，不是什么。**
+> 证据层级 = **夹具脚本一次执行 + 真页面完整走一遍读段与课程学词段 +
+> 只读数据库前后对账**。它证明的是「当天的阅读与课程复习两段，在
+> staging 上用真页面能从零走到 `vocab_test`」。**它不证明正式测试的任何
+> 环节**。**阶段 9 仍为 PENDING。**
+
+#### 夹具脚本（提交 `1de132d`）
+
+`apps/api/scripts/staging/prepare-s9d2a-t5.js` —— **只认 `t5_review`
+一个学生**，与八账号夹具互不调用、互不覆盖。
+
+七道闸门：① `NODE_ENV≠production`（**无覆盖开关**，测试扫源码断言不存在
+`force/override/bypass`）；② 显式 `ALLOW_S9D2A_T5_PREP=yes`；③ `DATABASE_URL`
+**必须在进程启动快照里就存在**（require Prisma 之前取快照，杜绝 dotenv
+悄悄补上开发库）；④ 逐字 `S9D2A_CONFIRM=reset-t5-current-day`；⑤ **Railway
+身份三元组**（project / environment / database service）必须由调用方复述
+且与写死的 staging 常量逐字相等；⑥ 同一事务内九项只读前置检查；⑦ 写完
+提交前**回读校验**，任何一条不符即整体回滚。
+
+只读前置检查九项：非本夹具的在读学生为 0；t5 在且 `englishLevel=olevel`；
+`tc1` / t5 的学生注册 / `t_stgteacher` / `stg_sub` 齐备；t5 名下正好四个
+复习词；`NotificationConfig(enabled)=0` 且 `NotificationLog=0`；
+`s9d2_sess_tc1` 上无考勤行；`s9d2_asg_tc1` 上无**别人**的答卷；
+**t5 当天无正式测试**（有则拒绝执行 —— 那是成绩证据，夹具不删）；
+t5 的班当天无别的场次。
+
+写入范围（一个事务，`timeout: 60_000` / `maxWait: 10_000`）：
+
+| 类别 | 写了什么 |
+|---|---|
+| 自有夹具资源（11 个固定 `s9d2_` id） | `s9d2_paper` + `s9d2_q1..q4` + `s9d2_pq1..pq4` + `s9d2_asg_tc1` + `s9d2_sess_tc1`（2026-08-30 / tc1 / `active` / `olevel`） |
+| t5 当天场景 | 删 t5 在 `s9d2_asg_tc1` 上的答卷与逐题答案、删 t5 **当天**的任务行（执行时两者都不存在，实际是空操作） |
+| t5 四个复习词 | `UPDATE` 回「教过、已到期」：`due=now-1h`、`state=review`、`reps=4`、`stability=3`、`difficulty=5`、`lastReview=NULL`、`firstTaughtAt=now-9d` |
+
+**永不写**（测试逐条断言）：`User` / `Class` / `ClassEnrollment` /
+`WordReviewLog` / `DictEntry` / `Attendance` / `VocabQuizAttempt`。
+**从不创建任务行** —— 更不会创建 `stage='vocab_test'` 的任务行；
+回读校验里专门有一条「当天任务行必须为 0」。阶段只能**走出来**，不能写出来。
+
+科目、考试局、班级、班主任一律沿用既有夹具资源，脚本不新建。
+`stg_p` 已被 `stg_asg` 占用（`PaperAssignment` 上有 `@@unique(paperId,classId)`，
+且 t6/t8 的存量答卷挂在它上面），所以另起一份 `s9d2_paper`；文章长度
+> 200 字符是硬要求 —— 低于它新端会掉进没有选项的 MCQ 壳
+（`QuestionTypeRegistry.pickRenderer` 规则 3）。
+
+**59 项聚焦测试**跑真的导出函数 + 假事务客户端，覆盖闸门 / 范围 / 幂等 /
+回滚四条主线，含反向夹具。RED（脚本缺席时）= 整个套件收集失败；
+GREEN = 59/59。本地退出码均为 0：`apps/api` **1293** 项 + tsc + build；
+`apps/student-web` **542** 项 + tsc；`apps/web` **247** 项 + tsc。
+
+#### 一次执行（2026-08-30T01:09Z，exit 0）
+
+回执只吐日期、学生 id、夹具 id 与词数。执行后、学生登录前的只读对账：
+当天恰好一场 `s9d2_sess_tc1`（active，挂 `s9d2_asg_tc1` → `s9d2_paper` 四题）；
+t5 当天**无**任务行、**无**答卷、**无**正式测试；四个复习词都到期且教过；
+另外七个账号的指纹（任务行 / 答卷 / 测试 / 生词 / 复习流水 / 考勤 /
+令牌版本 / 分级）**逐项未变**，t5 自己也只有 `word_hash` 变了。
+
+#### 真页面走读段与课程学词段
+
+登录由用户手动完成（Claude 不碰凭据）。全程 canonical URL，
+**一次都没进旧页面**；每个认证请求都带 Bearer、**请求体零身份字段**；
+后端下发的 `nextAction.href`（`/my-vocab/review`、`/my-vocab/quiz`）
+**新端一次都没读**。
+
+| 步骤 | 观察 |
+|---|---|
+| `/today` | `kind=ready_to_start`，`read.sessionId=s9d2_sess_tc1`，`targetsFrozenAt=null`（GET today 不写库，P8 成立） |
+| 开始今天的课程 | `POST /lesson/start` 体恰好 `{begin:true}` → 201；任务行随之建出 |
+| 阅读页 | `OLevelComprehension` 分页壳渲染正常，四题四次 `PATCH …/answer` 全 200 |
+| **刷新恢复** | 整页重载后答案与题号勾选状态原样回来（1✓2✓3○4○）；多标签锁提示出现后自行释放 |
+| 交卷 | `POST …/submit {final:true}` → 201 |
+| 阅读结果页 | **不在交卷后的自动路由上**（见下）；直接打开 canonical 路由 `/lesson/reading/result` 渲染正常：状态 submitted、四题逐题回顾、判分中、申诉入口 |
+| 课程学词 | `GET /vocab/lesson-cards` 恰好四张，顺序 = 冻结队列 `[ripple, vessel, willow, anchor]`，四张全是复习卡（`needsFirstTeaching=false`） |
+| 四张卡 | 每张一次 `POST /vocab/review {elapsedMs, headword, rating, requestId}` + 一次 `POST /lesson/vocab-cursor {cursor:n}`，断点 **1→2→3→4** 全 201 |
+| **中途重进** | 答完第二张后整页重载，正确停在 `2 / 4` 第三张（willow） |
+| 收尾 | 「这一课的单词都过完了」；**没有点「下一步」** —— 那会开考 |
+
+#### 结束态（只读对账）
+
+当天任务行 `cmtf48mpn00mv134tl7xmwn3i`（2026-08-30）：
+`stage=vocab_test`、**落库 `vocabCursor=4`**、`rulesVersion=3`、
+读段 1/1（`readSource=student`）、词段 4/4、
+`vocabWords=[ripple,vessel,willow,anchor]`（4 个）。
+答卷 `cmtf48mog00mt134tguvs8jy5`（`s9d2_asg_tc1`，`submitted`，
+`finalSubmittedAt` 已写，`submitSource=student`）+ 四条逐题答案。
+t5 四个词各多一次复习效果（`reps` 4→5、`lastReview` 落今天、`due` 推四天），
+`WordReviewLog` 4 → 8（新增四条，一词一条，`requestId` 互不相同）。
+**全库 `VocabQuizAttempt` 仍为 0。** 另外七个账号指纹**逐项未变**；
+通知 0/0、考勤 0。
+
+> **口径提示**：`/lesson/today` 投影里的 `vocabCursor` 是 `clampCursor`
+> 之后的值 —— 断点走到队列尽头会被压回 `0`（「不是走到一半」）。
+> **落库值是 4**。两者不矛盾，是同一条既有规则（见 S9C2）。
+
+#### 本轮暴露的两件事（都不是本合同能修的）
+
+1. **交卷后的自动路由跳过阅读结果页。** `nextActionOf` 只在
+   `stage ∈ {reading, reading_done}` 且已交卷时才给 `read_result`；有词汇
+   任务的日子里交卷那一刻阶段已推进到 `vocab_learn`，于是
+   `Reading.tsx` 按 `kind` 直接跳 `/lesson/vocab`。页面本身完好（直接
+   打开 canonical 路由渲染正常），但**学生在正常流程里看不到自己的
+   阅读结果**。这是产品/路由决定，需要单独立项。
+2. **刷新阅读页会先弹「已在另一个标签页打开」。** 同一个标签重载即触发，
+   提示带「在这个标签继续」，且心跳过期后自行释放 —— 不阻断，但读起来
+   像出错了。
+
+**阶段 9 仍为 PENDING**：正式测试的实机链路（开考 → 逐题作答 → 中途恢复
+→ 交卷 → 路由到总结）**一次都没跑过**。`/lesson/summary` 仍是占位页，
+**阶段 10 未开始**；历史成绩、生词本自由练习、错题重练三页仍是后续必做项，
+**没有被跳过**。
+
+**回滚**：夹具产生的行是**预期证据**，不自动删除。若需要清掉本轮的当天
+夹具，顺序为：`AnswerScript`（挂 t5 那份答卷）→ `StudentSubmission`
+（`s9d2_asg_tc1` / t5）→ `DailyLessonCompletion`（t5 / 2026-08-30）→
+`MorningQuizSession s9d2_sess_tc1` → `PaperAssignment s9d2_asg_tc1` →
+`PaperQuestion s9d2_pq1..4` → `Question s9d2_q1..4` → `Paper s9d2_paper`；
+t5 四个词的 FSRS 回退需要人工决定（本轮那四次复习是真实发生的学习行为）。
+代码侧 `git revert 1de132d` 即可，运行时代码一行未动。
 
 ---
 
