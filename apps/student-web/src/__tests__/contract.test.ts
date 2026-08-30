@@ -1902,6 +1902,35 @@ describe('G-12C 考试中查词只走 token-only 那条线', () => {
     expect((src.match(/api\.vocabAddWord\(/g) ?? []).length).toBe(1);
   });
 
+  /**
+   * 返工 1/2 B-2 —— **显示可以兜底，落库不许兜底**。
+   *
+   * 「Reading Passage」是没有标题时给屏幕看的占位。把它当成来源写进生词本，
+   * 那条记录就永远指向一个不存在的篇目。这条钉住两者是**两个变量**，
+   * 而且传给查词卡的是真的那个。
+   */
+  it('**传给查词卡的是真标题，不是显示用的兜底**', () => {
+    const src = stripComments(fs.readFileSync(PASSAGE, 'utf8'));
+    expect(src).toMatch(/passageTitle=\{sourceTitle\}/);
+    expect(src).not.toMatch(/passageTitle=\{passageTitle\}/);
+    // 兜底只出现在「显示用」那个变量的定义里
+    expect(src).toMatch(/const passageTitle = sourceTitle \|\| 'Reading Passage';/);
+  });
+
+  /**
+   * 返工 1/2 B-3 —— 那个键**写了就要读**。
+   *
+   * 只写不读的话，提示条前后一模一样，它就不是「一次性发现提示」，
+   * 只是一个没人看的写操作。
+   */
+  it('**发现标记既被写也被读**，而且两种提示都在', () => {
+    const src = stripComments(fs.readFileSync(PASSAGE, 'utf8'));
+    expect(src).toMatch(/localStorage\.getItem\(LOOKED_UP_KEY\)/);
+    expect(src).toMatch(/localStorage\.setItem\(LOOKED_UP_KEY, '1'\)/);
+    expect(src).toMatch(/data-testid="lookup-hint-prominent"/);
+    expect(src).toMatch(/data-testid="lookup-hint-compact"/);
+  });
+
   it('**这一面只写一个发现性标记**，值是固定的 `sw:` 键', () => {
     const passage = stripComments(fs.readFileSync(PASSAGE, 'utf8'));
     expect(passage).toMatch(/const LOOKED_UP_KEY = 'sw:reading:looked-up-once';/);

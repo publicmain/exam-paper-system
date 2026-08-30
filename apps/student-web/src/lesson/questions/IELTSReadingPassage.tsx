@@ -188,7 +188,19 @@ export function IELTSReadingPassage({ paper }: { paper: ExamPaper }) {
   // 移动端要求是两块都在文档流里、原文在上题目在下 —— 那就没有可切换的
   // 状态，控件本身也一并去掉。
   const passageContent = paper?.questions?.[0]?.snapshotContent ?? {};
-  const passageTitle = clean(passageContent.passageTitle ?? 'Reading Passage');
+  /**
+   * **真的**篇目标题，没有就是空串（返工 1/2 B-2）。
+   *
+   * 它和下面那个显示用的标题是两件事：屏幕上没标题时摆一个「Reading
+   * Passage」是善意的兜底，但把那个兜底**存进生词本**，那条记录就永远指向
+   * 一个不存在的篇目 —— 学生复习时点进去什么都找不到，而且没有任何办法
+   * 分辨「这卷真叫 Reading Passage」和「这卷根本没标题」。
+   *
+   * **显示可以兜底，落库不许兜底。**
+   */
+  const sourceTitle = clean(passageContent.passageTitle ?? '').trim();
+  /** 只给屏幕看的标题。 */
+  const passageTitle = sourceTitle || 'Reading Passage';
   const passageBody = useMemo(() => reflowPassage(clean(passageContent.passage ?? '')), [passageContent.passage]);
   const groups = useMemo(() => groupQuestions(paper?.questions ?? []), [paper?.questions]);
 
@@ -206,6 +218,22 @@ export function IELTSReadingPassage({ paper }: { paper: ExamPaper }) {
   const [pickedSentence, setPickedSentence] = useState<string | null>(null);
   /** 最后聚焦过的那道单行填空题。见 `FillFocusCtx` 的注释。 */
   const [fillTargetId, setFillTargetId] = useState<string | null>(null);
+
+  /**
+   * 这台设备上从没查过词 —— 决定那行提示是**显眼版**还是常态小字
+   * （返工 1/2 B-3：第一版写了这个键却从来不读，提示前后一模一样，
+   * 等于一个没人看的写操作）。
+   *
+   * 情境化提示的全部价值就在「第一次显眼、之后收起」这个对比上：
+   * 不收起，它就从「帮你发现功能」退化成长期占版面的噪音。
+   */
+  const [neverLookedUp, setNeverLookedUp] = useState(() => {
+    try {
+      return localStorage.getItem(LOOKED_UP_KEY) !== '1';
+    } catch {
+      return true; // 隐私模式：当作没查过，大不了每场再提示一次
+    }
+  });
 
   const blockedWords = useMemo(() => blockedWordsOf(paper?.questions ?? []), [paper?.questions]);
 
@@ -225,10 +253,13 @@ export function IELTSReadingPassage({ paper }: { paper: ExamPaper }) {
     (w: string) => {
       setPickedSentence(sentenceContaining(passageBody, w));
       setPickedWord(w);
+      // 提示条**这一场内一定收起**（本地 state），落盘只是为了下一场也记得。
+      // 所以写失败不影响任何东西 —— 尤其不影响查词本身。
+      setNeverLookedUp(false);
       try {
         localStorage.setItem(LOOKED_UP_KEY, '1');
       } catch {
-        /* 隐私模式：提示条这场考试内仍会收起，只是下场再出现一次 */
+        /* 隐私模式：这场内仍然收起，只是下场再出现一次 */
       }
     },
     [passageBody],
@@ -286,9 +317,29 @@ export function IELTSReadingPassage({ paper }: { paper: ExamPaper }) {
                   所以这行字在学生**还没查过任何词**时是一个显眼的蓝色
                   提示条,查过一次就永久缩回原来的小灰字 —— 它的任务是
                   被发现一次,不是长期占着版面。 */}
-              <div className="text-[13px] text-gray-600 mb-3 leading-relaxed">
-                轻点一个单词可以查词；拖选文字可以加高亮，点高亮可移除。
-              </div>
+              {/*
+                情境化提示（just-in-time）。签到那一屏只让学生「知道有这回事」，
+                真正的操作提示要落在用到它的地方。所以这行字在学生**还没查过
+                任何词**时是一个显眼的蓝色提示条，查过一次就永久缩回小灰字 ——
+                它的任务是被发现一次，不是长期占着版面。
+              */}
+              {neverLookedUp ? (
+                <div
+                  data-testid="lookup-hint-prominent"
+                  className="mb-3 rounded-xl bg-blue-50 px-4 py-3 text-[14px] text-blue-800 leading-relaxed"
+                >
+                  <div className="font-medium">不认识的词，轻轻一点就能查</div>
+                  <div className="text-[13px] text-blue-700/90 mt-0.5">
+                    不用长按
+                    {fillTargetId ? '，还能直接填进正在作答的填空题' : ''}
+                    ；拖选文字可以加高亮。
+                  </div>
+                </div>
+              ) : (
+                <div data-testid="lookup-hint-compact" className="text-[13px] text-gray-600 mb-3 leading-relaxed">
+                  轻点一个单词可以查词；拖选文字可以加高亮，点高亮可移除。
+                </div>
+              )}
               <Highlighter
                 body={passageBody}
                 highlights={highlights}
@@ -336,7 +387,8 @@ export function IELTSReadingPassage({ paper }: { paper: ExamPaper }) {
       <ExamWordSheet
         word={pickedWord}
         contextSentence={pickedSentence}
-        passageTitle={passageTitle}
+        /* **真标题**，不是屏幕上那个兜底 —— 见 sourceTitle 的注释 */
+        passageTitle={sourceTitle}
         blocked={!!pickedWord && blockedWords.has(pickedWord.toLowerCase())}
         fillTarget={fillTarget}
         onFill={(qid, w, append) => {

@@ -483,6 +483,124 @@ describe('AC-02 token-only 请求边界', () => {
 });
 
 // ─────────────────────────────────────────────────────────────
+// 返工 1/2 B-2 —— 落库的来源必须是**真的**来源
+//
+// 「Reading Passage」是**没有标题时给屏幕看的占位**。把它当成来源写进
+// 生词本，那条记录就永远指向一个不存在的篇目 —— 学生复习时点进去
+// 什么都找不到，而且没有任何办法分辨「这卷真叫 Reading Passage」和
+// 「这卷根本没标题」。显示可以兜底，**存下来的东西不许兜底**。
+// ─────────────────────────────────────────────────────────────
+
+describe('B-2 落库的来源必须是真的来源', () => {
+  it('**有真标题就带上**', async () => {
+    mount();
+    await settle();
+    await tap('resilient');
+    expect(bodies('/vocab/words')[0].sourcePassageTitle).toBe('The River Ferry');
+  });
+
+  it('**没有标题：屏幕上可以显示占位，请求体里没有这个键**', async () => {
+    const p = paper();
+    delete (p.questions[0].snapshotContent as Record<string, unknown>).passageTitle;
+    mount(p);
+    await settle();
+    expect(text()).toContain('Reading Passage');
+    await tap('resilient');
+    const b = bodies('/vocab/words')[0];
+    expect(Object.keys(b).sort()).toEqual(['contextSentence', 'word']);
+    expect('sourcePassageTitle' in b).toBe(false);
+  });
+
+  it('**标题只有空白：同样不带这个键**', async () => {
+    const p = paper();
+    (p.questions[0].snapshotContent as Record<string, unknown>).passageTitle = '   ';
+    mount(p);
+    await settle();
+    await tap('resilient');
+    expect('sourcePassageTitle' in bodies('/vocab/words')[0]).toBe(false);
+  });
+
+  it('**这两种情况都不许因此多出身份字段**', async () => {
+    const p = paper();
+    delete (p.questions[0].snapshotContent as Record<string, unknown>).passageTitle;
+    mount(p);
+    await settle();
+    await tap('resilient');
+    for (const r of reqs) {
+      expect(r.path).not.toMatch(/[?&](name|studentName|studentId)=/);
+      if (r.body) expect(r.body).not.toMatch(/"name"|"studentName"|"studentId"/);
+    }
+  });
+});
+
+// ─────────────────────────────────────────────────────────────
+// 返工 1/2 B-3 —— 发现性提示必须真的会变
+//
+// 这个键写了却从来不读，提示条前后一模一样 —— 那它就不是「一次性发现
+// 提示」，只是一个没人看的写操作。情境化提示的价值全在「第一次显眼、
+// 之后收起」这个对比上；不收起，它就变成长期占版面的噪音。
+// ─────────────────────────────────────────────────────────────
+
+describe('B-3 一次性的发现提示', () => {
+  it('**没有标记时：显眼的提示**', async () => {
+    mount();
+    await settle();
+    expect(screen.getByTestId('lookup-hint-prominent')).toBeTruthy();
+    expect(screen.queryByTestId('lookup-hint-compact')).toBeNull();
+  });
+
+  it('**第一次点词之后：写标记并换成常态小字**', async () => {
+    mount();
+    await settle();
+    await tap('resilient');
+    expect(localStorage.getItem('sw:reading:looked-up-once')).toBe('1');
+    expect(screen.getByTestId('lookup-hint-compact')).toBeTruthy();
+    expect(screen.queryByTestId('lookup-hint-prominent')).toBeNull();
+  });
+
+  it('**已经有标记时重新挂载：直接就是常态小字**', async () => {
+    localStorage.setItem('sw:reading:looked-up-once', '1');
+    mount();
+    await settle();
+    expect(screen.getByTestId('lookup-hint-compact')).toBeTruthy();
+    expect(screen.queryByTestId('lookup-hint-prominent')).toBeNull();
+  });
+
+  it('**这个标记写不进去也不许影响查词**（隐私模式）', async () => {
+    // 只让**这一个键**写失败 —— 阅读页本来就有别的写（标签页归属、
+    // 高亮…），把它们一起打挂就不是在测这条了。
+    const orig = Storage.prototype.setItem;
+    Storage.prototype.setItem = function patched(this: Storage, k: string, v: string) {
+      if (k === 'sw:reading:looked-up-once') throw new Error('QuotaExceededError');
+      return orig.call(this, k, v);
+    };
+    try {
+      mount();
+      await settle();
+      await tap('resilient');
+      expect(calls('/vocab/lookup')).toHaveLength(1);
+      expect(screen.getByTestId('word-sheet-translation')).toBeTruthy();
+    } finally {
+      Storage.prototype.setItem = orig;
+    }
+  });
+
+  it('**点词只多出那一个键**，别的什么都不存', async () => {
+    mount();
+    await settle();
+    // 阅读页本来就会写标签页归属 / 高亮 / 分栏这些键 —— 那是既有行为。
+    // 这条测的是**点词这一下**多写了什么。
+    const before = new Set(Object.keys(localStorage));
+    await tap('resilient');
+    const added = Object.keys(localStorage).filter(
+      (k) => !before.has(k) && !(OWNED_STORAGE_KEYS as readonly string[]).includes(k),
+    );
+    expect(added).toEqual(['sw:reading:looked-up-once']);
+    expect(localStorage.getItem('sw:reading:looked-up-once')).toBe('1');
+  });
+});
+
+// ─────────────────────────────────────────────────────────────
 // AC-04 —— 卡片状态与考点保护
 // ─────────────────────────────────────────────────────────────
 
@@ -674,6 +792,55 @@ describe('AC-05 写生词本', () => {
     await tap('resilient');
     expect(screen.getByTestId('word-sheet-save-failed')).toBeTruthy();
     expect(screen.queryByTestId('word-sheet-saved')).toBeNull();
+  });
+
+  /**
+   * 返工 1/2 —— B-1。
+   *
+   * 回执**整条**都要验，不是只验 `created`。
+   * `{created:true}` 少了 `headword`：那意味着服务端根本没走到「查词典定
+   * headword」那一步，这次到底记的是哪个词无从谈起 —— 报成功就是在替一次
+   * 半截的响应背书。学生下次翻生词本找不到那个词，只会以为系统丢了东西。
+   */
+  const malformed: Array<[string, unknown]> = [
+    ['缺 headword（created:true）', { created: true }],
+    ['缺 headword（created:false）', { created: false }],
+    ['headword 不是字符串', { created: true, headword: 123 }],
+    ['headword 是 null', { created: false, headword: null }],
+    ['headword 是空串', { created: true, headword: '' }],
+    ['headword 只有空白', { created: true, headword: '   ' }],
+    ['created 不是布尔', { created: 'yes', headword: 'resilient' }],
+    ['整个是 null', null],
+  ];
+  for (const [label, body] of malformed) {
+    it(`**回执不完整就算失败**：${label}`, async () => {
+      addReply = () => jsonResponse(200, body);
+      mount();
+      await settle();
+      await tap('resilient');
+      // 释义照常显示 —— 查词是成功的
+      expect(screen.getByTestId('word-sheet-translation')).toBeTruthy();
+      expect(screen.getByTestId('word-sheet-save-failed')).toBeTruthy();
+      expect(screen.queryByTestId('word-sheet-saved')).toBeNull();
+    });
+  }
+
+  it('**完整的 created:true 才算存进去了**', async () => {
+    addReply = () => jsonResponse(200, { created: true, headword: 'resilient' });
+    mount();
+    await settle();
+    await tap('resilient');
+    expect(screen.getByTestId('word-sheet-saved').textContent).toContain('已存入');
+    expect(screen.queryByTestId('word-sheet-save-failed')).toBeNull();
+  });
+
+  it('**完整的 created:false 才算本来就在本子里**', async () => {
+    addReply = () => jsonResponse(200, { created: false, headword: 'resilient' });
+    mount();
+    await settle();
+    await tap('resilient');
+    expect(screen.getByTestId('word-sheet-saved').textContent).toContain('已经在');
+    expect(screen.queryByTestId('word-sheet-save-failed')).toBeNull();
   });
 
   it('**重试连点两下只发一条**', async () => {

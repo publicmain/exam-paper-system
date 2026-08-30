@@ -81,9 +81,22 @@ export function highlightWord(sentence: string, surface: string): React.ReactNod
   );
 }
 
-/** 服务端回执长得对不对。形状不对一律按**没存上**处理。 */
+/**
+ * 服务端回执长得对不对。**整条都验**，形状不对一律按「没存上」处理。
+ *
+ * `headword` 不是可有可无的装饰：它是服务端**查过词典之后**定下来的那个
+ * 词条（`looked` → `look`）。回执里没有它，说明服务端根本没走到那一步 ——
+ * 这次到底记的是哪个词无从谈起。这种半截响应报成功，学生下次翻生词本
+ * 找不到那个词，只会以为系统把东西弄丢了。
+ *
+ * 返工 1/2（B-1）：第一版只验了 `created`，于是 `{created:true}`、
+ * `{created:true, headword:123}` 这些都被当成成功。
+ */
 export function addSucceeded(r: unknown): r is { created: boolean; headword: string } {
-  return !!r && typeof r === 'object' && typeof (r as { created?: unknown }).created === 'boolean';
+  if (!r || typeof r !== 'object') return false;
+  const { created, headword } = r as { created?: unknown; headword?: unknown };
+  if (typeof created !== 'boolean') return false;
+  return typeof headword === 'string' && headword.trim().length > 0;
 }
 
 export type FillTarget = { questionId: string; label: string; hasValue: boolean } | null;
