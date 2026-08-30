@@ -366,6 +366,127 @@ describe('AC-06 FSRS 写入', () => {
 });
 
 // ─────────────────────────────────────────────────────────────
+// AC-06 / AC-08 —— 返工 1/2 B-2：在途写入期间不许下一题
+//
+// 与自由练习那条同源：答完题 FSRS 的 POST 还在路上时「下一题」就能点，
+// 于是这一题的写入和界面脱钩 —— 失败了也没人知道，重试按钮挂在一道已经
+// 翻过去的题上。第一遍的题**只有写成功了才能往下走**。
+//
+// 重做那一轮不写 FSRS，所以不受这条约束。
+// ─────────────────────────────────────────────────────────────
+
+describe('AC-06 在途写入期间的闭锁（B-2）', () => {
+  function heldReview() {
+    let resolve!: (v: Response) => void;
+    let reject!: (e: unknown) => void;
+    const p = new Promise<Response>((res, rej) => {
+      resolve = res;
+      reject = rej;
+    });
+    reviewReply = () => p;
+    return {
+      ok: () =>
+        resolve({ ok: true, status: 200, text: () => Promise.resolve(JSON.stringify(receipt())) } as Response),
+      fail: () => reject(new TypeError('network down')),
+    };
+  }
+
+  const twoQuestions = () =>
+    jsonResponse(200, quiz([
+      mcq({ headword: 'ferry', prompt: 'ferry' }),
+      mcq({ headword: 'bridge', prompt: 'bridge', translation: '桥梁', options: ['桥梁', '渡船'], correctIndex: 0 }),
+    ]));
+
+  it('**写入在途时点下一题：题不许动**', async () => {
+    quizReply = twoQuestions;
+    const held = heldReview();
+    mount();
+    await settle();
+    await click(screen.getByTestId('option-0'));
+
+    expect(calls('/vocab/review')).toHaveLength(1);
+    expect(screen.getByTestId('question-prompt').textContent).toContain('ferry');
+
+    await click(screen.getByTestId('next'));
+    expect(screen.getByTestId('question-prompt').textContent).toContain('ferry');
+    expect(screen.getByTestId('verdict').textContent).toContain('答对');
+
+    await act(async () => {
+      held.ok();
+    });
+    await settle();
+    // 成功之后才可以走
+    await click(screen.getByTestId('next'));
+    expect(screen.getByTestId('question-prompt').textContent).toContain('bridge');
+  });
+
+  it('**失败之后：同一题、判定还在、requestId 不变、重试之后才走得掉**', async () => {
+    quizReply = twoQuestions;
+    const held = heldReview();
+    mount();
+    await settle();
+    await click(screen.getByTestId('option-1')); // 故意答错
+    const first = bodies('/vocab/review')[0].requestId;
+
+    await act(async () => {
+      held.fail();
+    });
+    await settle();
+
+    expect(screen.getByTestId('question-prompt').textContent).toContain('ferry');
+    expect(screen.getByTestId('verdict').textContent).toContain('答错');
+    expect(screen.getByTestId('correct-answer')).toBeTruthy();
+    expect(screen.getByTestId('write-error')).toBeTruthy();
+
+    // 没写成功之前走不掉
+    await click(screen.getByTestId('next'));
+    expect(screen.getByTestId('question-prompt').textContent).toContain('ferry');
+
+    reviewReply = () => jsonResponse(200, receipt());
+    await click(screen.getByTestId('retry-write'));
+    expect(bodies('/vocab/review')[1].requestId).toBe(first);
+
+    await click(screen.getByTestId('next'));
+    expect(screen.getByTestId('question-prompt').textContent).toContain('bridge');
+  });
+
+  it('**一道题只算一次写入**（在途 + 迟到成功也不多发）', async () => {
+    quizReply = twoQuestions;
+    const held = heldReview();
+    mount();
+    await settle();
+    await click(screen.getByTestId('option-0'));
+    await click(screen.getByTestId('next'));
+    await click(screen.getByTestId('next'));
+    await act(async () => {
+      held.ok();
+    });
+    await settle();
+    expect(calls('/vocab/review')).toHaveLength(1);
+    // 迟到的成功**不自己翻页** —— 翻页仍然是学生点出来的
+    expect(screen.getByTestId('question-prompt').textContent).toContain('ferry');
+  });
+
+  it('**重做那一轮不写 FSRS，所以照常能走**', async () => {
+    quizReply = twoQuestions;
+    mount();
+    await settle();
+    await click(screen.getByTestId('option-1')); // 第一题错
+    await click(screen.getByTestId('next'));
+    await click(screen.getByTestId('option-0')); // 第二题对
+    await click(screen.getByTestId('next'));
+    expect(calls('/vocab/review')).toHaveLength(2);
+
+    await click(screen.getByTestId('redo-wrong'));
+    // 重做轮里答题**不发请求**，下一题立刻可用
+    await click(screen.getByTestId('option-0'));
+    expect(calls('/vocab/review')).toHaveLength(2);
+    await click(screen.getByTestId('next'));
+    expect(screen.getByTestId('selftest-done')).toBeTruthy();
+  });
+});
+
+// ─────────────────────────────────────────────────────────────
 // AC-08 —— 空态 / 题目不够 / 完成 / 刷新
 // ─────────────────────────────────────────────────────────────
 

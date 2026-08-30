@@ -14,6 +14,11 @@
  * 统计那一块单独说「暂时取不到」。反过来（一个失败整页报错）是最气人的
  * 一种失败 —— 学生要看的是自己的词，不是那几个数字。
  *
+ * **但「统计挂了」和「票没了」是两回事**（返工 1/2 B-3）：401 说明令牌在
+ * 这两次请求之间失效了（老师重置了 PIN、学生在另一台设备登出）。把它也
+ * 吞掉，学生就停在一个**看着正常、其实已经登出**的页面上，直到下一次交互
+ * 才莫名其妙被踢走。掉票一律走统一登出，其余才算「少几个数字」。
+ *
  * ## 缺失不等于 0
  *
  * 统计里任何一项没给，就**不显示那一项**。「今天复习了 0 次」和「不知道
@@ -25,6 +30,17 @@
  * 自己曾经有过它。所以「移出」是两步：点一下变成「确认移出 / 取消」，
  * 再点一下才发请求。而且**服务端成功之后才**把那一行拿掉 —— 失败时行
  * 原样留着、可以再试，绝不做「乐观删除」：那会让一次断网看起来像一次成功。
+ *
+ * ## 删完要重新对账
+ *
+ * 删掉一个词，`total` 变了，`dueCount` 和统计**也变了** —— 但那两个数字
+ * 是服务端按整本词表算出来的，本地减一减只能算对其中一个（返工 1/2 B-4）。
+ * 「还有 9 个待复习」而实际只剩 8 个，是学生**没法察觉**的错：他不会去数，
+ * 只会照着那个数字安排自己。
+ *
+ * 所以删除成功之后**重新取一次权威数字**（词表 + 统计）。如果这次对账也
+ * 失败了 —— 那一行确实已经从库里没了，界面照删，但**所有聚合数字一律
+ * 藏起来**并说明「对不上账了，刷新一下」。宁可少显示，不显示错的。
  */
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
@@ -80,8 +96,11 @@ export function dayOf(iso: string | null | undefined): string | null {
 type Phase =
   | { s: 'loading' }
   | { s: 'error'; message: string }
-  /** `stats` 为 null = 统计那一次取失败了（词表照常显示）。 */
-  | { s: 'ready'; data: VocabWordsResult; stats: VocabStats | null };
+  /**
+   * `stats` 为 null = 统计那一次取失败了（词表照常显示）。
+   * `aggregatesStale` = 删除成功但对账失败 —— 数字**一个都不显示**。
+   */
+  | { s: 'ready'; data: VocabWordsResult; stats: VocabStats | null; aggregatesStale: boolean };
 
 export default function VocabBookPage() {
   const navigate = useNavigate();
@@ -103,12 +122,12 @@ export default function VocabBookPage() {
       try {
         stats = await api.vocabStats(token);
       } catch (e) {
-        // 统计失败**不**走 handleAuthFailure：词表刚刚才成功，说明票是好的；
-        // 真掉票了下一次交互自然会撞上。这里只是少显示几个数字。
+        // **掉票要立刻登出**（B-3）；其余（500 / 断网）才是「少几个数字」。
+        if (handleAuthFailure(e)) return;
         stats = null;
       }
       if (mine !== gen.current) return;
-      setPhase({ s: 'ready', data, stats });
+      setPhase({ s: 'ready', data, stats, aggregatesStale: false });
     } catch (e) {
       if (mine !== gen.current) return;
       if (handleAuthFailure(e)) return;
@@ -123,22 +142,42 @@ export default function VocabBookPage() {
     };
   }, [load]);
 
-  /** 本地摘掉一行 —— **只在服务端确认删除之后**调用。 */
-  const dropRow = useCallback((headword: string) => {
-    setPhase((p) => {
-      if (p.s !== 'ready') return p;
-      const words = p.data.words.filter((w) => w.headword !== headword);
-      const removed = p.data.words.length - words.length;
-      return {
-        ...p,
-        data: {
-          ...p.data,
-          words,
-          total: Math.max(0, p.data.total - removed),
-          dueCount: p.data.dueCount,
-        },
-      };
-    });
+  /**
+   * 删除成功之后的**对账**（B-4）。
+   *
+   * 重新取权威的词表与统计。对账本身失败时：那一行确实已经从库里没了，
+   * 界面照删，但把**所有聚合数字藏起来** —— 宁可少显示，不显示错的。
+   */
+  const reconcile = useCallback(async (headword: string) => {
+    const token = readToken();
+    if (!token) return;
+    const mine = ++gen.current;
+    try {
+      const data = await api.vocabWords(token);
+      if (mine !== gen.current) return;
+      let stats: VocabStats | null = null;
+      try {
+        stats = await api.vocabStats(token);
+      } catch (e) {
+        if (handleAuthFailure(e)) return;
+        stats = null;
+      }
+      if (mine !== gen.current) return;
+      setPhase({ s: 'ready', data, stats, aggregatesStale: false });
+    } catch (e) {
+      if (mine !== gen.current) return;
+      if (handleAuthFailure(e)) return;
+      setPhase((p) =>
+        p.s !== 'ready'
+          ? p
+          : {
+              ...p,
+              data: { ...p.data, words: p.data.words.filter((w) => w.headword !== headword) },
+              stats: null,
+              aggregatesStale: true,
+            },
+      );
+    }
   }, []);
 
   if (phase.s === 'loading') {
@@ -163,23 +202,32 @@ export default function VocabBookPage() {
     );
   }
 
-  const { data, stats } = phase;
+  const { data, stats, aggregatesStale } = phase;
 
   return (
     <Screen>
       <Card>
         <h1 className="text-xl font-semibold mb-1">生词本</h1>
-        <p className="text-sm text-slate-600 mb-1">
-          一共 <span data-testid="vocab-total" className="font-medium tabular-nums">{data.total}</span> 个词
-          ·{' '}
-          <span data-testid="vocab-due-count" className="tabular-nums">
-            {data.dueCount}
-          </span>{' '}
-          个待复习
-        </p>
+        {/*
+          聚合数字。对不上账时**一个都不显示** —— 见文件头「删完要重新对账」。
+        */}
+        {aggregatesStale ? (
+          <p data-testid="aggregates-stale" className="text-sm text-amber-800">
+            那个词已经移出去了，但这些数字暂时对不上账 —— 刷新一下再看。
+          </p>
+        ) : (
+          <p className="text-sm text-slate-600 mb-1">
+            一共 <span data-testid="vocab-total" className="font-medium tabular-nums">{data.total}</span> 个词
+            ·{' '}
+            <span data-testid="vocab-due-count" className="tabular-nums">
+              {data.dueCount}
+            </span>{' '}
+            个待复习
+          </p>
+        )}
 
         {/* 统计 —— 缺哪一项就不显示哪一项 */}
-        {stats ? (
+        {aggregatesStale ? null : stats ? (
           <div data-testid="vocab-stats" className="mt-2 flex flex-wrap gap-x-5 gap-y-1 text-sm text-slate-500">
             {stats.progress ? (
               <span data-testid="vocab-progress">
@@ -225,7 +273,7 @@ export default function VocabBookPage() {
         ) : (
           <ul className="mt-5 flex flex-col gap-2">
             {data.words.map((w) => (
-              <WordRow key={w.headword} word={w} onRemoved={() => dropRow(w.headword)} />
+              <WordRow key={w.headword} word={w} onRemoved={() => void reconcile(w.headword)} />
             ))}
           </ul>
         )}

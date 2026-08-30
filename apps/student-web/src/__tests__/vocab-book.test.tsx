@@ -451,14 +451,18 @@ describe('AC-04 移出生词本', () => {
     expect(JSON.parse(c.body ?? '{}').headword).toBe('ferry');
   });
 
-  it('**服务端成功之后才把行拿掉**，而且不重新拉整张表', async () => {
+  it('**服务端成功之后才把行拿掉**，并且重新取一次权威数字', async () => {
     mount();
     await settle();
     reqs = [];
+    wordsReply = () => jsonResponse(200, words([], { total: 0, dueCount: 0 }));
+    statsReply = () => jsonResponse(200, stats({ total: 11, totalDue: 2 }));
     await click(screen.getByTestId('remove-ferry'));
     await click(screen.getByTestId('confirm-remove-ferry'));
     expect(screen.queryByTestId('word-row-ferry')).toBeNull();
-    expect(calls('/vocab/words')).toHaveLength(0);
+    // 删完**重新对一次账**：总数 / 待复习数 / 统计都不许停在删之前那一份
+    expect(calls('/vocab/words')).toHaveLength(1);
+    expect(calls('/vocab/stats')).toHaveLength(1);
   });
 
   it('**失败时行原样留着，还能再试**', async () => {
@@ -471,6 +475,8 @@ describe('AC-04 移出生词本', () => {
     expect(screen.getByTestId('remove-error-ferry')).toBeTruthy();
 
     removeReply = () => jsonResponse(200, { deleted: 1 });
+    // 删成功之后页面会重新对账 —— 权威快照里那个词已经没了
+    wordsReply = () => jsonResponse(200, words([], { total: 0, dueCount: 0 }));
     await click(screen.getByTestId('confirm-remove-ferry'));
     expect(calls('/vocab/words/remove')).toHaveLength(2);
     expect(screen.queryByTestId('word-row-ferry')).toBeNull();
@@ -497,5 +503,145 @@ describe('AC-04 移出生词本', () => {
     await click(screen.getByTestId('confirm-remove-ferry'));
     expect(readToken()).toBeNull();
     expect(at()).toBe(ROUTES.login);
+  });
+});
+
+// ─────────────────────────────────────────────────────────────
+// 返工 1/2 B-3 —— 统计那一次单独掉票
+//
+// 词表成功、统计 401，说明令牌**在这两次请求之间失效了**（老师重置了 PIN、
+// 学生在另一台设备登出）。把它和「统计服务抖了一下」当成同一件事吞掉，
+// 学生就会停在一个**看着正常、其实已经登出**的页面上，直到下一次交互
+// 才莫名其妙被踢走。掉票必须立刻走统一登出。
+// ─────────────────────────────────────────────────────────────
+
+describe('B-3 统计单独失败的两种含义', () => {
+  it('**统计 401 → 清票回登录页**（不许当成「统计抖了一下」）', async () => {
+    statsReply = () => jsonResponse(401, { code: 'token_revoked' });
+    mount();
+    await settle();
+    expect(readToken()).toBeNull();
+    expect(at()).toBe(ROUTES.login);
+  });
+
+  it('**统计 401（student_token_required）同样清票**', async () => {
+    statsReply = () => jsonResponse(401, { code: 'student_token_required' });
+    mount();
+    await settle();
+    expect(readToken()).toBeNull();
+    expect(at()).toBe(ROUTES.login);
+  });
+
+  it('**统计 500 → 词表照常显示，票不丢**', async () => {
+    statsReply = () => jsonResponse(500, { code: 'boom' });
+    mount();
+    await settle();
+    expect(screen.getByTestId('word-row-ferry')).toBeTruthy();
+    expect(screen.getByTestId('stats-error')).toBeTruthy();
+    expect(readToken()).toBe(TOKEN);
+    expect(at()).toBe(VOCAB);
+  });
+
+  it('**统计网络故障 → 同样只是少几个数字**', async () => {
+    statsReply = () => Promise.reject(new TypeError('network down'));
+    mount();
+    await settle();
+    expect(screen.getByTestId('word-row-ferry')).toBeTruthy();
+    expect(screen.getByTestId('stats-error')).toBeTruthy();
+    expect(readToken()).toBe(TOKEN);
+  });
+});
+
+// ─────────────────────────────────────────────────────────────
+// 返工 1/2 B-4 —— 删完之后屏幕上的数字必须还是真的
+//
+// 删掉一个词，`total` 变了，`dueCount` 和统计却停在删之前那一份。
+// 「还有 9 个待复习」而实际只剩 8 个，是学生**没法察觉**的错 ——
+// 他不会去数，只会照着那个数字安排自己。
+// ─────────────────────────────────────────────────────────────
+
+describe('B-4 删除之后的聚合数字', () => {
+  const twoWords = () =>
+    words(
+      [
+        word({ headword: 'ferry', due: '2026-08-01T00:00:00.000Z' }),   // 早就到期
+        word({ headword: 'lighthouse', due: '2099-01-01T00:00:00.000Z' }), // 还没到期
+      ],
+      { total: 2, dueCount: 1 },
+    );
+
+  it('**删掉一个到期词 → 待复习数跟着降**', async () => {
+    wordsReply = () => jsonResponse(200, twoWords());
+    mount();
+    await settle();
+    expect(screen.getByTestId('vocab-due-count').textContent).toContain('1');
+
+    // 服务端删掉之后的权威快照
+    wordsReply = () =>
+      jsonResponse(200, words([word({ headword: 'lighthouse', due: '2099-01-01T00:00:00.000Z' })], { total: 1, dueCount: 0 }));
+    await click(screen.getByTestId('remove-ferry'));
+    await click(screen.getByTestId('confirm-remove-ferry'));
+
+    expect(screen.getByTestId('vocab-total').textContent).toContain('1');
+    expect(screen.getByTestId('vocab-due-count').textContent).toContain('0');
+  });
+
+  it('**删掉一个没到期的词 → 待复习数不许乱降**', async () => {
+    wordsReply = () => jsonResponse(200, twoWords());
+    mount();
+    await settle();
+
+    wordsReply = () =>
+      jsonResponse(200, words([word({ headword: 'ferry', due: '2026-08-01T00:00:00.000Z' })], { total: 1, dueCount: 1 }));
+    await click(screen.getByTestId('remove-lighthouse'));
+    await click(screen.getByTestId('confirm-remove-lighthouse'));
+
+    expect(screen.getByTestId('vocab-total').textContent).toContain('1');
+    expect(screen.getByTestId('vocab-due-count').textContent).toContain('1');
+  });
+
+  it('**统计也跟着刷新**，不停在删之前那一份', async () => {
+    mount();
+    await settle();
+    expect(screen.getByTestId('vocab-progress').textContent).toContain('已掌握 4');
+
+    wordsReply = () => jsonResponse(200, words([], { total: 0, dueCount: 0 }));
+    statsReply = () => jsonResponse(200, stats({ progress: { mastered: 3, learning: 5, untouched: 3 }, streakDays: 6 }));
+    await click(screen.getByTestId('remove-ferry'));
+    await click(screen.getByTestId('confirm-remove-ferry'));
+    expect(screen.getByTestId('vocab-progress').textContent).toContain('已掌握 3');
+  });
+
+  it('**对不上账时宁可不显示**：删成功了但重新取数失败 → 数字藏起来', async () => {
+    mount();
+    await settle();
+    wordsReply = () => jsonResponse(500, { code: 'boom' });
+    await click(screen.getByTestId('remove-ferry'));
+    await click(screen.getByTestId('confirm-remove-ferry'));
+
+    // 那一行确实没了（服务端已经删了），但旧数字**不许**继续挂着
+    expect(screen.queryByTestId('word-row-ferry')).toBeNull();
+    expect(screen.getByTestId('aggregates-stale')).toBeTruthy();
+    expect(screen.queryByTestId('vocab-due-count')).toBeNull();
+    expect(screen.queryByTestId('vocab-stats')).toBeNull();
+    expect(readToken()).toBe(TOKEN);
+  });
+
+  it('**删除失败时行与数字都不动**', async () => {
+    wordsReply = () => jsonResponse(200, twoWords());
+    removeReply = () => jsonResponse(500, { code: 'boom' });
+    mount();
+    await settle();
+    reqs = [];
+    await click(screen.getByTestId('remove-ferry'));
+    await click(screen.getByTestId('confirm-remove-ferry'));
+
+    expect(screen.getByTestId('word-row-ferry')).toBeTruthy();
+    expect(screen.getByTestId('vocab-total').textContent).toContain('2');
+    expect(screen.getByTestId('vocab-due-count').textContent).toContain('1');
+    expect(screen.getByTestId('remove-error-ferry')).toBeTruthy();
+    // 失败不该触发对账
+    expect(calls('/vocab/words')).toHaveLength(0);
+    expect(calls('/vocab/stats')).toHaveLength(0);
   });
 });

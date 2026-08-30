@@ -18,10 +18,15 @@
  * **末尾重做错题不再写** —— 同一道题写两次，FSRS 会把间隔算歪；而重做的
  * 意义是「再看一眼」，不是「再评一次」。
  *
- * ## 写失败不吞
+ * ## 写失败不吞，而且走不掉
  *
  * 判定照常显示（那是本地算的，跟网络无关），但下面明说「这一次还没记上」
  * 并给一个重试；重试**用同一个 `requestId`**，服务端据此去重。
+ *
+ * 而且这一题**闭锁**（返工 1/2 B-2）：写入还在路上、或者失败了，
+ * 「下一题」一律不接受。否则那次写入就和界面脱了钩 —— 重试按钮挂在一道
+ * 已经翻过去的题上，学生也无从知道自己刚才那题到底算没算。
+ * 重做那一轮不写 FSRS，所以不受这条约束。
  */
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
@@ -88,7 +93,11 @@ export default function VocabSelfTestPage() {
   const [verdict, setVerdict] = useState<Verdict | null>(null);
   const [typed, setTyped] = useState('');
   const [correctCount, setCorrectCount] = useState(0);
-  const [writeError, setWriteError] = useState(false);
+  /**
+   * 这一题的写入走到哪一步了。`idle` 之外**闭锁这一题**。
+   * 状态那份是给按钮变灰用的；同步判据看 `settled()`。
+   */
+  const [writeState, setWriteState] = useState<'idle' | 'sending' | 'failed'>('idle');
 
   const pending = useRef<PendingWrite<PracticeRating> | null>(null);
   const busy = useRef(false);
@@ -109,7 +118,7 @@ export default function VocabSelfTestPage() {
       setVerdict(null);
       setTyped('');
       setCorrectCount(0);
-      setWriteError(false);
+      setWriteState('idle');
       startedAt.current = Date.now();
       setPhase({
         s: 'ready',
@@ -142,6 +151,14 @@ export default function VocabSelfTestPage() {
   const qIndex = order[index];
   const q = quiz && qIndex != null ? quiz.questions[qIndex] : null;
 
+  /**
+   * 这一题还能不能往下走。
+   *
+   * 判据用 **`pending` 这个 ref**（同步生效），不是 `writeState` 那个状态：
+   * 同一个 tick 里连点两下时，第二次回调看到的状态还是上一帧的。
+   */
+  const settled = () => pending.current == null && !busy.current;
+
   /** 发出（或重发）这一题的 FSRS 写入。 */
   const send = useCallback(async () => {
     const write = pending.current;
@@ -150,16 +167,18 @@ export default function VocabSelfTestPage() {
     if (!token) return;
     if (busy.current) return;
     busy.current = true;
-    setWriteError(false);
+    setWriteState('sending');
     try {
       await api.vocabPracticeReview(token, write);
       busy.current = false;
       pending.current = null;
+      // **成功不自己翻页** —— 翻页仍然是学生点出来的
+      setWriteState('idle');
     } catch (e) {
       busy.current = false;
       if (handleAuthFailure(e)) return;
-      // `pending` 不清 —— 重试用同一个 requestId
-      setWriteError(true);
+      // `pending` 不清 —— 重试用同一个 requestId，这一题仍然闭锁
+      setWriteState('failed');
     }
   }, []);
 
@@ -184,9 +203,11 @@ export default function VocabSelfTestPage() {
   );
 
   const next = useCallback(() => {
+    // **写入没落定就走不掉**（重做轮没有写入，`settled()` 恒真）
+    if (!settled()) return;
     setVerdict(null);
     setTyped('');
-    setWriteError(false);
+    setWriteState('idle');
     pending.current = null;
     startedAt.current = Date.now();
     setIndex((i) => i + 1);
@@ -197,7 +218,7 @@ export default function VocabSelfTestPage() {
     setIndex(0);
     setVerdict(null);
     setTyped('');
-    setWriteError(false);
+    setWriteState('idle');
     pending.current = null;
     startedAt.current = Date.now();
   }, []);
@@ -329,7 +350,7 @@ export default function VocabSelfTestPage() {
             {q.contextSentence ? (
               <p className="mt-1 text-sm text-slate-600">{q.contextSentence}</p>
             ) : null}
-            {writeError ? (
+            {writeState === 'failed' ? (
               <>
                 <p role="alert" data-testid="write-error" className="mt-2 text-sm text-rose-700">
                   这一次还没记进复习计划 —— 网络不太好。
@@ -344,7 +365,7 @@ export default function VocabSelfTestPage() {
                 </button>
               </>
             ) : null}
-            <Button onClick={next}>
+            <Button disabled={writeState !== 'idle'} onClick={next}>
               <span data-testid="next">下一题</span>
             </Button>
           </>

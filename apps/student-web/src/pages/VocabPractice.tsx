@@ -21,8 +21,15 @@
  * 服务端对 `WordReviewLog.requestId` 有唯一约束，「POST 到了但响应丢了」
  * 的重发会拿到 `duplicate: true` —— 绝不会被算成两次复习。
  *
- * **② 没成功就不翻页。** 卡片翻过去了但 FSRS 什么都没记，是学生最没法
- * 察觉、也最挫败的失败：第二天同一个词又出现，他的结论是「系统坏了」。
+ * **② 没成功就不翻页 —— 而且是整屏闭锁。** 卡片翻过去了但 FSRS 什么都没记，
+ * 是学生最没法察觉、也最挫败的失败：第二天同一个词又出现，他的结论是
+ * 「系统坏了」。
+ *
+ * 光让「评分按钮」等一等是不够的（返工 1/2 B-1）：写入在路上时，**跳过**
+ * 同样能把卡翻过去 —— 于是那次写入和界面脱了钩，迟到的成功又翻一次
+ * （一次评分吃掉两张卡），迟到的失败则挂在一张已经不在屏幕上的卡上，
+ * 「重试」什么都不会发。所以规矩是：**评过分之后，只有服务端成功能往下走**；
+ * 在途与失败两种状态下，跳过和评分一律不接受。评分之前的跳过一切照旧。
  *
  * **③ 回执照搬。** 服务端说 `tooFast`（停留太短，没写调度）就照说，
  * 说 `duplicate` 也照说。把这两种情况显示成「记住了」，是在骗学生。
@@ -94,8 +101,16 @@ export default function VocabPracticePage() {
   const [revealedAt, setRevealedAt] = useState<number | null>(null);
   const [receipt, setReceipt] = useState<VocabReviewResult | null>(null);
   const [last, setLast] = useState<LastGraded | null>(null);
-  const [ratingError, setRatingError] = useState(false);
   const [undoError, setUndoError] = useState(false);
+
+  /**
+   * 这张卡的写入走到哪一步了。
+   *
+   * `idle` 之外的任何状态都**闭锁这张卡**：不接受跳过、不接受再评一次。
+   * 用状态（而不是只用 ref）是因为按钮要真的变灰 —— 一个点了没反应的
+   * 按钮，学生只会再点几下。
+   */
+  const [writeState, setWriteState] = useState<'idle' | 'sending' | 'failed'>('idle');
 
   /**
    * 待写入的那一次评分。**`requestId` 属于这次评分，不属于这次请求** ——
@@ -141,14 +156,29 @@ export default function VocabPracticePage() {
     [current],
   );
 
+  /**
+   * 这张卡还能不能动。
+   *
+   * 判据用的是 **`pending` 这个 ref**，不是 `writeState` 那个状态：
+   * 同一个 tick 里连点两下时，第二次回调看到的状态还是上一帧的，
+   * 只有 ref 是同步生效的。状态那份是给按钮变灰用的。
+   */
+  const settled = () => pending.current == null && !busy.current;
+
   const advance = useCallback(() => {
     setIndex((i) => i + 1);
     setRevealedAt(null);
-    setRatingError(false);
+    setWriteState('idle');
     pending.current = null;
   }, []);
 
-  /** 发出（或重发）待写入的那一次评分。成功才翻页。 */
+  /** 跳过 —— **只在还没评分的时候**可用（见文件头第 ② 条）。 */
+  const skip = useCallback(() => {
+    if (!settled()) return;
+    advance();
+  }, [advance]);
+
+  /** 发出（或重发）待写入的那一次评分。**成功才翻页。** */
   const send = useCallback(async () => {
     const write = pending.current;
     if (!write) return;
@@ -156,7 +186,7 @@ export default function VocabPracticePage() {
     if (!token) return;
     if (busy.current) return;
     busy.current = true;
-    setRatingError(false);
+    setWriteState('sending');
     try {
       const r = await api.vocabPracticeReview(token, write);
       busy.current = false;
@@ -167,14 +197,15 @@ export default function VocabPracticePage() {
     } catch (e) {
       busy.current = false;
       if (handleAuthFailure(e)) return;
-      // **留在原地**，`pending` 不清 —— 重试用同一个 requestId
-      setRatingError(true);
+      // **留在原地**，`pending` 不清 —— 重试用同一个 requestId，
+      // 而且这张卡仍然是闭锁的（`pending` 非空 → `settled()` 为假）。
+      setWriteState('failed');
     }
   }, [advance, current, index]);
 
   const rate = useCallback(
     (rating: PracticeRating) => {
-      if (!current || busy.current) return;
+      if (!current || !settled()) return;
       pending.current = {
         headword: current.headword,
         rating,
@@ -280,6 +311,8 @@ export default function VocabPracticePage() {
   }
 
   const revealed = revealedAt != null;
+  /** 界面上的闭锁（按钮变灰）。同步判据见上面的 `settled()`。 */
+  const locked = writeState !== 'idle';
 
   return (
     <Screen>
@@ -317,8 +350,9 @@ export default function VocabPracticePage() {
             <button
               type="button"
               data-testid="skip"
-              onClick={advance}
-              className="min-h-[44px] w-full rounded-xl border border-slate-300 py-3 text-sm text-slate-600"
+              disabled={locked}
+              onClick={skip}
+              className="min-h-[44px] w-full rounded-xl border border-slate-300 py-3 text-sm text-slate-600 disabled:opacity-50"
             >
               跳过这个（不算）
             </button>
@@ -331,8 +365,9 @@ export default function VocabPracticePage() {
                   key={r.key}
                   type="button"
                   data-testid={`rate-${r.key}`}
+                  disabled={locked}
                   onClick={() => rate(r.key)}
-                  className="min-h-[44px] rounded-xl border border-slate-300 py-3 text-base"
+                  className="min-h-[44px] rounded-xl border border-slate-300 py-3 text-base disabled:opacity-50"
                 >
                   {r.label}
                 </button>
@@ -341,15 +376,16 @@ export default function VocabPracticePage() {
             <button
               type="button"
               data-testid="skip"
-              onClick={advance}
-              className="mt-2 min-h-[44px] w-full rounded-xl border border-slate-300 py-3 text-sm text-slate-600"
+              disabled={locked}
+              onClick={skip}
+              className="mt-2 min-h-[44px] w-full rounded-xl border border-slate-300 py-3 text-sm text-slate-600 disabled:opacity-50"
             >
               跳过这个（不算）
             </button>
           </>
         )}
 
-        {ratingError ? (
+        {writeState === 'failed' ? (
           <>
             <p role="alert" data-testid="rating-error" className="mt-3 text-sm text-rose-700">
               没记上 —— 网络不太好。**这一张还没算**，再试一次。

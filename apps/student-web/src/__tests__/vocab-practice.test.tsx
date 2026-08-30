@@ -368,6 +368,139 @@ describe('AC-05 评分与跳过', () => {
 });
 
 // ─────────────────────────────────────────────────────────────
+// AC-05 / AC-08 —— 返工 1/2 B-1：在途写入期间不许翻页
+//
+// 这是最难看见的一类 bug：评分的 POST 还在路上，学生（或者一次误触）点了
+// 「跳过」，卡片就翻过去了；等响应回来，成功那一支又翻一次 —— 一次评分
+// 吃掉两张卡，而且失败那一支已经和原来那张卡、原来那个 requestId 脱钩，
+// 「重试」什么都不会发。
+//
+// 判据是**失败关闭**的：评过分之后，**只有服务端成功**才能翻页。
+// ─────────────────────────────────────────────────────────────
+
+describe('AC-05 在途写入期间的闭锁（B-1）', () => {
+  /** 手动控制的 review 响应 —— 测试自己决定什么时候回、回什么。 */
+  function heldReview() {
+    let resolve!: (v: Response) => void;
+    let reject!: (e: unknown) => void;
+    const p = new Promise<Response>((res, rej) => {
+      resolve = res;
+      reject = rej;
+    });
+    reviewReply = () => p;
+    return {
+      ok: (body: unknown = receipt({ headword: 'zebra' })) =>
+        resolve({ ok: true, status: 200, text: () => Promise.resolve(JSON.stringify(body)) } as Response),
+      fail: () => reject(new TypeError('network down')),
+    };
+  }
+
+  const threeCards = () =>
+    jsonResponse(200, due([
+      card({ headword: 'zebra' }),
+      card({ headword: 'apple' }),
+      card({ headword: 'melon' }),
+    ]));
+
+  it('**写入在途时点跳过：卡不许动**', async () => {
+    dueReply = threeCards;
+    const held = heldReview();
+    mount();
+    await settle();
+    await reveal();
+    await click(screen.getByTestId('rate-good'));
+
+    // 请求已经发出去了，但还没回
+    expect(calls('/vocab/review')).toHaveLength(1);
+    expect(screen.getByTestId('card-headword').textContent).toContain('zebra');
+
+    await click(screen.getByTestId('skip'));
+    expect(screen.getByTestId('card-headword').textContent).toContain('zebra');
+
+    // 收尾：让它成功，恰好前进一张
+    await act(async () => {
+      held.ok();
+    });
+    await settle();
+    expect(screen.getByTestId('card-headword').textContent).toContain('apple');
+  });
+
+  it('**在途时再点评分也不许多发一条**', async () => {
+    dueReply = threeCards;
+    const held = heldReview();
+    mount();
+    await settle();
+    await reveal();
+    await click(screen.getByTestId('rate-good'));
+    await click(screen.getByTestId('rate-again'));
+    expect(calls('/vocab/review')).toHaveLength(1);
+    await act(async () => {
+      held.ok();
+    });
+    await settle();
+  });
+
+  it('**失败之后：同一张卡、同一个 requestId、还能重试**', async () => {
+    dueReply = threeCards;
+    const held = heldReview();
+    mount();
+    await settle();
+    await reveal();
+    await click(screen.getByTestId('rate-good'));
+    const first = bodies('/vocab/review')[0].requestId;
+
+    await act(async () => {
+      held.fail();
+    });
+    await settle();
+
+    // 卡没动，错误在，重试在
+    expect(screen.getByTestId('card-headword').textContent).toContain('zebra');
+    expect(screen.getByTestId('rating-error')).toBeTruthy();
+    expect(screen.getByTestId('retry-rating')).toBeTruthy();
+
+    // **失败之后跳过也不许翻页** —— 评过分就只有成功能往下走
+    await click(screen.getByTestId('skip'));
+    expect(screen.getByTestId('card-headword').textContent).toContain('zebra');
+
+    reviewReply = () => jsonResponse(200, receipt({ headword: 'zebra' }));
+    await click(screen.getByTestId('retry-rating'));
+    expect(bodies('/vocab/review')[1].requestId).toBe(first);
+    expect(screen.getByTestId('card-headword').textContent).toContain('apple');
+  });
+
+  it('**迟到的成功只前进一张**，不会因为中途点过跳过而连跳两张', async () => {
+    dueReply = threeCards;
+    const held = heldReview();
+    mount();
+    await settle();
+    await reveal();
+    await click(screen.getByTestId('rate-good'));
+    // 在途期间连点跳过三下
+    await click(screen.getByTestId('skip'));
+    await click(screen.getByTestId('skip'));
+    await click(screen.getByTestId('skip'));
+    await act(async () => {
+      held.ok();
+    });
+    await settle();
+    // 恰好第二张 —— 不是第三张、更不是完成页
+    expect(screen.getByTestId('card-headword').textContent).toContain('apple');
+    expect(screen.queryByTestId('practice-done')).toBeNull();
+    expect(calls('/vocab/review')).toHaveLength(1);
+  });
+
+  it('**评分之前的跳过一切照旧**', async () => {
+    dueReply = threeCards;
+    mount();
+    await settle();
+    await click(screen.getByTestId('skip'));
+    expect(screen.getByTestId('card-headword').textContent).toContain('apple');
+    expect(calls('/vocab/review')).toHaveLength(0);
+  });
+});
+
+// ─────────────────────────────────────────────────────────────
 // AC-08 —— 进度 / 完成 / 失败 / 刷新
 // ─────────────────────────────────────────────────────────────
 
