@@ -350,6 +350,9 @@ describe('G1 新端不得出现旧路由与旧身份键', () => {
   it('**lesson/ 里只有引擎与渲染层，不含页面**（阶段 7C 起 Reading.tsx 是唯一消费者）', () => {
     expect(fs.readdirSync(path.join(SRC, 'lesson')).sort()).toEqual([
       'ExamContext.tsx',
+      // 阶段 12C —— 考试中查词卡。它是**渲染层的一块**（只被 IELTS 渲染器
+      // 用），不是页面：没有路由、不认识 NextAction、不做导航。
+      'ExamWordSheet.tsx',
       'QuestionTypeRegistry.tsx',
       'ReadingProvider.tsx',
       'draftMerge.ts',
@@ -480,6 +483,10 @@ describe('G1 新端不得出现旧路由与旧身份键', () => {
     '/vocab/mistakes/resolve',
     '/vocab/mistakes/practice-queue',
     '/vocab/mistakes/practice-result',
+    // 阶段 12C：考试中查词。查询串里**只有 word**（词典查询与谁在问无关，
+    // 但仍然带 Bearer —— 「认证后的请求一律带令牌」不为一个端点开例外）。
+    // 写生词本走的是**已经登记过的** `/vocab/words`（阶段 12A 就在表里）。
+    '/vocab/lookup',
   ] as const;
 
   /**
@@ -794,9 +801,14 @@ describe('G1 新端不得出现旧路由与旧身份键', () => {
     //     全部在 sw: 下，见 __tests__/reading-storage.test.ts）
     // 阶段 7C 起多了三处写：高亮 / 便笺 / 分栏比例。它们的键是**调用方传进来的**，
     // 而调用方（IELTSReadingPassage）写的全是 sw: 前缀 —— 下一条单独钉住。
+    // 阶段 12C 再多一处：查词的**发现性提示**标记（LOOKED_UP_KEY），
+    // 常量就定义在 IELTSReadingPassage 里、值是固定的 `sw:reading:looked-up-once`。
+    // 它只存一个 '1'，不存词条 / 身份 / 令牌 / 答案 / 待写队列。
     for (const w of writes) {
       expect(w).toMatch(
-        /identity\.ts:(TOKEN_KEY|probe|k)$|storage\.ts:key$|(Highlighter|StickyNote|DraggableSplit)\.tsx:(storageKey|key)$|review-queue\.ts:(QUEUE_KEY|probe)$/,
+        // 只匹配文件名，不匹配目录分隔符 —— Windows 上是 `\`、别处是 `/`，
+        // 把分隔符写进正则会让这条守卫只在一种机器上成立。
+        /identity\.ts:(TOKEN_KEY|probe|k)$|storage\.ts:key$|(Highlighter|StickyNote|DraggableSplit)\.tsx:(storageKey|key)$|review-queue\.ts:(QUEUE_KEY|probe)$|IELTSReadingPassage\.tsx:LOOKED_UP_KEY$/,
       );
     }
   });
@@ -1818,6 +1830,124 @@ describe('G-12B 错题本只走自己那条线', () => {
 
     it('**注释里提到这些名字不算违规**（守卫剥注释）', () => {
       expect(mistakeHits('// 我们不读 lesson/today，也不碰 vocab-cursor\nnavigate(ROUTES.mistakes);')).toEqual([]);
+    });
+  });
+});
+
+// ─────────────────────────────────────────────────────────────
+// G-12C —— 考试中查词这一面的静态守卫
+//
+// 这一块的历史很具体：它在阶段 7C 被**整体摘掉**，原因不是功能不该有，
+// 而是旧实现把学生姓名当身份写生词本。12C 按 token-only 重写后挂回来，
+// 所以这里要钉住的正是「重写掉的那件事没有偷偷回来」。
+//
+// 另外两条只对这一面成立：
+//   · **不点就不查** —— 发请求的地方只能是查词卡自己，而且只有那两个方法；
+//   · **不落盘学习内容** —— 这一面只允许写一个发现性标记。
+// ─────────────────────────────────────────────────────────────
+describe('G-12C 考试中查词只走 token-only 那条线', () => {
+  const SHEET = path.join(SRC, 'lesson', 'ExamWordSheet.tsx');
+  const PASSAGE = path.join(SRC, 'lesson', 'questions', 'IELTSReadingPassage.tsx');
+  const HIGHLIGHTER = path.join(SRC, 'lesson', 'shared', 'Highlighter.tsx');
+  const SURFACE = [SHEET, PASSAGE, HIGHLIGHTER];
+
+  const WORD_FORBIDDEN: Array<{ why: string; re: RegExp }> = [
+    // 这一条就是当初摘掉它的理由 —— 一个字都不许回来
+    { why: '把姓名当身份', re: /\bstudentName\b|\bstudentId\b/ },
+    { why: 'URL 里带身份', re: /[?&](name|studentId)=/ },
+    { why: '旧命名空间的存储键', re: /['"`]mq:/ },
+    { why: '从旧端 / components/exam 里 import', re: /from\s+['"][^'"]*(apps\/web|components\/exam)/ },
+    { why: '拿后端 href 当导航权威', re: /\.\s*href\b/ },
+    { why: '把服务端文本当 HTML 塞进去', re: /dangerouslySetInnerHTML/ },
+    { why: '课程进度', re: /\blessonToday\b|\blessonStart\b|vocab-cursor|\bvocabCursor\b|lesson-cards|\blessonCards\b/ },
+    { why: '正式测试', re: /quiz\/attempt|\bquizStart\b|\bquizAnswer\b|\bquizSubmit\b/ },
+    { why: '自由练习复习', re: /\bvocabPracticeReview\b|\bvocabDue\b|\bvocabSelfTestQuiz\b|\bvocabReviewUndo\b/ },
+    { why: '错题本', re: /\bmistake[A-Z]\w*\(|\/mistakes/ },
+    { why: '历史成绩', re: /history-by-name|\breadingHistory\b|\breadingHistoryDetail\b/ },
+    { why: '埋点', re: /page-view/ },
+    { why: '旧路由', re: /\/my-history|\/my-vocab|\/my-mistakes|\/my-lesson|\/scan\b/ },
+  ];
+
+  function wordHits(code: string): string[] {
+    const text = stripComments(code);
+    return WORD_FORBIDDEN.filter(({ re }) => re.test(text)).map(({ why }) => why);
+  }
+
+  it('三个文件都在，而且渲染器真的挂了这张卡', () => {
+    for (const f of SURFACE) expect(fs.existsSync(f), f).toBe(true);
+    const passage = stripComments(fs.readFileSync(PASSAGE, 'utf8'));
+    expect(passage).toMatch(/<ExamWordSheet/);
+    expect(passage).toMatch(/onWordTap=/);
+  });
+
+  it('**整面干净**：没有身份、没有旧存储、没有跨端 import、没有别条线的端点', () => {
+    for (const f of SURFACE) {
+      expect(wordHits(fs.readFileSync(f, 'utf8')), path.relative(SRC, f)).toEqual([]);
+    }
+  });
+
+  it('**只有查词卡自己发请求，而且只发那两条**', () => {
+    const called = (f: string) =>
+      [...new Set(
+        [...stripComments(fs.readFileSync(f, 'utf8')).matchAll(/\bapi\.(\w+)\s*\(/g)].map((m) => m[1]),
+      )].sort();
+    expect(called(SHEET)).toEqual(['vocabAddWord', 'vocabLookup']);
+    // 渲染器与手势层**一个 api 调用都没有** —— 它们只负责「点到了哪个词」
+    expect(called(PASSAGE)).toEqual([]);
+    expect(called(HIGHLIGHTER)).toEqual([]);
+  });
+
+  it('**写生词本只有一个发送点**（重试走同一个，不另开一条）', () => {
+    const src = stripComments(fs.readFileSync(SHEET, 'utf8'));
+    expect((src.match(/api\.vocabAddWord\(/g) ?? []).length).toBe(1);
+  });
+
+  it('**这一面只写一个发现性标记**，值是固定的 `sw:` 键', () => {
+    const passage = stripComments(fs.readFileSync(PASSAGE, 'utf8'));
+    expect(passage).toMatch(/const LOOKED_UP_KEY = 'sw:reading:looked-up-once';/);
+    // **查词卡自己一个存储调用都没有** —— 词条、身份、待写队列一律不落盘。
+    //
+    // 手势层（Highlighter）不在这条里：它的 `useStoredHighlights` 是阶段 7C
+    // 就有的高亮持久化，与查词无关，而且已经被上面「只写一个命名空间下的
+    // 存储键」那条守着。把它算进来只会让这条断言测错东西。
+    const sheet = stripComments(fs.readFileSync(SHEET, 'utf8'));
+    expect(sheet).not.toMatch(/localStorage|sessionStorage/);
+  });
+
+  it('**手势层不认识身份，也不发请求**（分工是刻意的）', () => {
+    const src = stripComments(fs.readFileSync(HIGHLIGHTER, 'utf8'));
+    expect(src).not.toMatch(/readToken|Authorization|fetch\(/);
+    expect(src).toMatch(/onWordTap\?:/);
+  });
+
+  // ── 反向夹具：证明这一面的守卫抓得住 ──
+  describe('反向夹具 —— 查词守卫必须抓得住', () => {
+    it('**把姓名塞回请求体会被抓到**（这正是它当年被摘掉的原因）', () => {
+      expect(wordHits("api.vocabAddWord(token, { studentName: name, word: w })"))
+        .toContain('把姓名当身份');
+    });
+
+    it('**旧存储键会被抓到**', () => {
+      expect(wordHits("localStorage.setItem('mq:lookedUpOnce', '1');"))
+        .toContain('旧命名空间的存储键');
+    });
+
+    it('**从旧端 import 会被抓到**', () => {
+      expect(wordHits("import ExamWordSheet from '../../../web/src/components/exam/ExamWordSheet';"))
+        .toContain('从旧端 / components/exam 里 import');
+    });
+
+    it('**把语境句当 HTML 渲染会被抓到**', () => {
+      expect(wordHits('<p dangerouslySetInnerHTML={{ __html: sentence }} />'))
+        .toContain('把服务端文本当 HTML 塞进去');
+    });
+
+    it('**顺手推一下课程进度会被抓到**', () => {
+      expect(wordHits('await api.vocabCursor(token, { cursor: 2 });')).toContain('课程进度');
+    });
+
+    it('**注释里提到这些名字不算违规**（守卫剥注释）', () => {
+      expect(wordHits('// 旧实现带 studentName、写 mq:lookedUpOnce\nconst x = 1;')).toEqual([]);
     });
   });
 });

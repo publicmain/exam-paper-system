@@ -387,13 +387,35 @@ describe('AC-05 IELTS 迁移后的排除项', () => {
     return out;
   })();
 
-  it('**阅读端代码里没有 ExamWordSheet 的任何痕迹**', () => {
+  /**
+   * 阶段 12C —— 查词卡**回来了**，所以这条从「不许存在」窄化成
+   * 「只许出现在它自己那两个文件里」。
+   *
+   * 它当初被摘掉不是因为功能不该有，而是因为旧实现把学生姓名当身份写生词本。
+   * 那条禁令（下面「不读 studentName」）**一字未动**，而且现在覆盖到新加的
+   * 查词卡本身 —— 真正要守的东西没有被放宽，放宽的只是「这个功能存不存在」。
+   */
+  it('**查词卡只出现在它自己那两个文件里**（阶段 12C 起功能回归）', () => {
+    const allowed = [
+      path.join('lesson', 'ExamWordSheet.tsx'),
+      path.join('lesson', 'questions', 'IELTSReadingPassage.tsx'),
+    ];
     for (const { f, text } of READING_SRC) {
-      expect(text, f).not.toContain('ExamWordSheet');
+      if (!text.includes('ExamWordSheet')) continue;
+      expect(allowed.some((a) => f.endsWith(a)), `${f} 不该提到 ExamWordSheet`).toBe(true);
     }
+    // 它确实存在 —— 否则这条会退化成一句空话
+    expect(READING_SRC.some(({ text }) => text.includes('ExamWordSheet'))).toBe(true);
   });
 
-  it('**不发任何查词 / 生词本请求**', () => {
+  /**
+   * 路径**仍然只许住在 `lib/api.ts`**（阶段 12C 一字未改）。
+   *
+   * 查词卡走的是 `api.vocabLookup` / `api.vocabAddWord` 这两个具名方法，
+   * 阅读端源码里一个路径字面量都不该出现 —— 这样「谁在发请求」永远只有
+   * 一处可查，也堵住了绕过 `request()` 自己拼 URL 的那条路。
+   */
+  it('**阅读端源码里没有任何词汇端点的路径字面量**', () => {
     for (const { f, text } of READING_SRC) {
       expect(text, f).not.toContain('/vocab/lookup');
       expect(text, f).not.toContain('/vocab/words');

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 import type { ExamPaper, ExamQuestion, ExamOption } from '../examTypes';
 import { useExam } from '../ExamContext';
 import { clean, reflowPassage, splitStem } from '../shared/textUtils';
@@ -6,6 +6,7 @@ import { Highlighter, useStoredHighlights } from '../shared/Highlighter';
 import { useStoredNotes, StickyNoteRail } from '../shared/StickyNote';
 import { DraggableSplit } from '../shared/DraggableSplit';
 import { QuestionFlag } from '../shared/QuestionFlag';
+import { ExamWordSheet, type FillTarget } from '../ExamWordSheet';
 
 /**
  * IELTS Computer-Delivered-style reading shell.
@@ -106,6 +107,74 @@ function groupQuestions(qs: ExamQuestion[]): TaskGroup[] {
   return groups;
 }
 
+/**
+ * 「这台设备已经查过词了」的标记（阶段 12C）。
+ *
+ * 只是一个**发现性提示**的开关：那行提示要被看见一次，不该长期占版面。
+ * 用 localStorage 而不是本场次的 state —— 一个学生只需要被提醒一次，
+ * 下周再考时不该又被当成新手。
+ *
+ * 旧端这个键叫 `mq:lookedUpOnce`。新端**一律 `sw:` 前缀**，这样
+ * `identity.ts` 的前缀扫除能一次清干净（守卫 G1 钉住）。
+ * 这里**只存这一个 '1'** —— 不存词条、不存身份、不存令牌、不存答案、
+ * 不存待写队列。
+ */
+const LOOKED_UP_KEY = 'sw:reading:looked-up-once';
+
+/**
+ * 把「我是当前的填空目标」登记上来。
+ *
+ * 用**记住**而不是等弹卡时读 `document.activeElement`：手机上点文章会先
+ * 让输入框 blur，等卡片弹出来时活动元素早就不是它了。
+ */
+const FillFocusCtx = createContext<((id: string | null) => void) | null>(null);
+
+/**
+ * 找出目标词所在的那句原文。
+ *
+ * 找不到就返回 null —— **不编**。段落标记行（`Paragraph A`）跳过。
+ */
+export function sentenceContaining(passage: string, word: string): string | null {
+  if (!passage || !word) return null;
+  const safe = word.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const re = new RegExp(`(^|[^A-Za-z])${safe}([^A-Za-z]|$)`, 'i');
+  for (const line of passage.split(/\n+/)) {
+    const t = line.trim();
+    if (!t || /^Paragraph\s+[0-9A-H]+$/i.test(t)) continue;
+    for (const raw of t.split(/(?<=[.!?]['"’”]?)\s+/)) {
+      const sen = raw.trim();
+      if (sen && re.test(sen)) return sen.length > 260 ? sen.slice(0, 257) + '…' : sen;
+    }
+  }
+  return null;
+}
+
+/**
+ * 本卷考点词 —— 点到这些词**连查都不查**。
+ *
+ * 1.x 一刀切禁止考试中查词，理由是早测有词义题（「'shadow' 这个词暗示
+ * 什么」），能查词等于送答案。这个顾虑**只对被考的那几个词成立**，对文章
+ * 里另外七百多个词不成立 —— 所以这里做精确屏蔽。
+ *
+ * 判定与后端 `extractQuotedWord` 同一套：必须是「问这个词什么意思」的
+ * 问法，叙事引语不算（否则《The Uniform》Q6 的 'good' 也会被误判成考点）。
+ */
+export function blockedWordsOf(questions: ExamQuestion[]): Set<string> {
+  const out = new Set<string>();
+  for (const q of questions ?? []) {
+    const stem = String(q.snapshotContent?.stem ?? '');
+    const asks =
+      /\bwhat does\b/i.test(stem) && /\b(suggest|mean|means|imply|convey)\b/i.test(stem);
+    if (asks || /\bthe word\s*['‘’"“”]/i.test(stem)) {
+      const m = stem.match(/['‘’"“”]([A-Za-z][A-Za-z'’-]{1,30})['‘’"“”]/);
+      if (m) out.add(m[1].toLowerCase());
+    }
+    const tw = q.snapshotContent?.targetWord;
+    if (typeof tw === 'string' && tw.trim()) out.add(tw.trim().toLowerCase());
+  }
+  return out;
+}
+
 export function IELTSReadingPassage({ paper }: { paper: ExamPaper }) {
   // All hooks run on every render — round-7 C-E2. The empty-paper early
   // return previously sat between useState and useMemo / useStoredX hooks,
@@ -128,11 +197,47 @@ export function IELTSReadingPassage({ paper }: { paper: ExamPaper }) {
   const [highlights, setHighlights] = useStoredHighlights(hlKey);
   const [notes, addNote, editNote, removeNote] = useStoredNotes(noteKey);
 
-  // 阶段 7C —— **考试中查词 / 生词本挂点已摘除**（S7A §1.3）。
-  // 旧端在这里挂着一个查词面板：它带姓名写生词本，违反已冻结的
-  // 身份契约。该能力整体移交**阶段 12（生词本与错题本）**，届时先改成
-  // token-only 再挂回来。这里保留高亮 / 便笺 / 分栏，只是点词不弹面板；
-  // 随之丢掉的是「点原文里的词直接填进填空题」这一项便利，学生手打即可。
+  // ── 阶段 12C：考试中查词 / 填空取词 ──────────────────────────
+  //
+  // 阶段 7C 曾把这一块整体摘掉，因为旧实现带姓名写生词本。12C 按
+  // token-only 重写后挂回来 —— 请求边界见 `../ExamWordSheet.tsx`。
+  const { answers, setAnswer } = useExam();
+  const [pickedWord, setPickedWord] = useState<string | null>(null);
+  const [pickedSentence, setPickedSentence] = useState<string | null>(null);
+  /** 最后聚焦过的那道单行填空题。见 `FillFocusCtx` 的注释。 */
+  const [fillTargetId, setFillTargetId] = useState<string | null>(null);
+
+  const blockedWords = useMemo(() => blockedWordsOf(paper?.questions ?? []), [paper?.questions]);
+
+  /** 「填入第 N 题」只有当前确实有一道单行填空被聚焦过才出现。 */
+  const fillTarget: FillTarget = useMemo(() => {
+    if (!fillTargetId) return null;
+    const q = (paper?.questions ?? []).find((x) => x.id === fillTargetId);
+    if (!q) return null;
+    return {
+      questionId: fillTargetId,
+      label: `第 ${q.sortOrder} 题`,
+      hasValue: Boolean(answers[fillTargetId]?.textAnswer?.trim()),
+    };
+  }, [fillTargetId, paper?.questions, answers]);
+
+  const onWordTap = useCallback(
+    (w: string) => {
+      setPickedSentence(sentenceContaining(passageBody, w));
+      setPickedWord(w);
+      try {
+        localStorage.setItem(LOOKED_UP_KEY, '1');
+      } catch {
+        /* 隐私模式：提示条这场考试内仍会收起，只是下场再出现一次 */
+      }
+    },
+    [passageBody],
+  );
+
+  const closeWordSheet = useCallback(() => {
+    setPickedWord(null);
+    setPickedSentence(null);
+  }, []);
 
   if (!paper?.questions?.length) {
     return (
@@ -157,7 +262,7 @@ export function IELTSReadingPassage({ paper }: { paper: ExamPaper }) {
       className="ui-ios lg:h-[calc(100dvh-9rem)]"
       style={{ ['--mq-fs' as any]: String(fontScale) }}
     >
-
+      <FillFocusCtx.Provider value={setFillTargetId}>
       <DraggableSplit
         storageKey={`sw:reading:split:${paper.sessionId}`}
         left={
@@ -182,12 +287,14 @@ export function IELTSReadingPassage({ paper }: { paper: ExamPaper }) {
                   提示条,查过一次就永久缩回原来的小灰字 —— 它的任务是
                   被发现一次,不是长期占着版面。 */}
               <div className="text-[13px] text-gray-600 mb-3 leading-relaxed">
-                拖选文字可以加高亮，点高亮可移除。
+                轻点一个单词可以查词；拖选文字可以加高亮，点高亮可移除。
               </div>
               <Highlighter
                 body={passageBody}
                 highlights={highlights}
                 onChange={setHighlights}
+                onWordTap={onWordTap}
+                testId="passage-body"
                 className="text-gray-800 leading-[1.75] font-serif"
                 // Apply the user-controlled font scale via inline style
                 // (overrides any inherited text-* class). 1.125rem is the
@@ -224,7 +331,22 @@ export function IELTSReadingPassage({ paper }: { paper: ExamPaper }) {
           </div>
         }
       />
+      </FillFocusCtx.Provider>
 
+      <ExamWordSheet
+        word={pickedWord}
+        contextSentence={pickedSentence}
+        passageTitle={passageTitle}
+        blocked={!!pickedWord && blockedWords.has(pickedWord.toLowerCase())}
+        fillTarget={fillTarget}
+        onFill={(qid, w, append) => {
+          // 走既有的 `setAnswer` —— 持久化仍然归 ReadingProvider 管，
+          // 查词卡**不自己发保存请求**。
+          const cur = answers[qid]?.textAnswer ?? '';
+          setAnswer(qid, { textAnswer: append && cur ? `${cur.trim()} ${w}` : w });
+        }}
+        onClose={closeWordSheet}
+      />
     </div>
   );
 }
@@ -545,6 +667,7 @@ function QuestionItem({
         <BlankAwareInput
           item={q.itemText}
           value={answer?.textAnswer ?? ''}
+          questionId={q.id}
           onChange={(v) => setAnswer(q.id, { textAnswer: v })}
         />
       );
@@ -740,11 +863,19 @@ function BlankAwareInput({
   item,
   value,
   onChange,
+  questionId,
 }: {
   item: string;
   value: string;
   onChange: (v: string) => void;
+  /** 给了才可能成为「填空取词」的目标（阶段 12C）。 */
+  questionId?: string;
 }) {
+  // 聚焦时把自己登记为取词目标。**必须记住**而不是等弹卡时读
+  // `document.activeElement`：手机上点文章会先让本框 blur，那时活动元素
+  // 早就不是它了。多行的 O-Level 长答题走的是 DebouncedTextarea，
+  // 根本不经过这里 —— 所以它不会被误当成填空目标。
+  const registerFill = useContext(FillFocusCtx);
   const cleaned = clean(item);
   const hasBlank = /\[BLANK\]/i.test(cleaned);
   const [local, setLocal] = useState(value);
@@ -767,6 +898,7 @@ function BlankAwareInput({
       <input
         type="text"
         value={local}
+        onFocus={() => { if (questionId) registerFill?.(questionId); }}
         onChange={(e) => {
           // R15-followup-6 — live save (see LetterInput comment).
           const v = e.target.value;

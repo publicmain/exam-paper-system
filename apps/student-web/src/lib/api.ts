@@ -515,7 +515,81 @@ export const api = {
    */
   mistakePracticeResult: (token: string, body: { id: string; correct: boolean }) =>
     request<MistakePracticeResult>('POST', '/vocab/mistakes/practice-result', { body, token }),
+
+  // ── 考试中查词（阶段 12C）；两条都是**认证后，零身份参数** ──
+  //
+  // 这两条是阶段 7 从旧端摘下来的能力（旧实现带姓名写生词本，违反身份
+  // 契约），阶段 12C 按 token-only 重写后挂回阅读页。
+  //
+  // 查词那条后端是 `@Public()` 且**不解析身份**（它只查词典，与谁在问
+  // 无关）。新端仍然带上令牌 —— 一是这一页本来就登录着，二是「认证后的
+  // 请求一律带 Bearer」这条口径不该为了一个端点开例外。
+
+  /**
+   * 查一个词。查不到返回 `{ found: false }` —— 前端显示「未收录」，
+   * **绝不猜、绝不编**。
+   *
+   * 查询串里**只有 `word`**。
+   */
+  vocabLookup: (token: string, word: string) =>
+    request<VocabLookupResult>('GET', `/vocab/lookup?word=${encodeURIComponent(word)}`, { token }),
+
+  /**
+   * 把这个词记进**当前登录学生**的生词本。
+   *
+   * 请求体里**没有任何身份字段** —— 记给谁由令牌决定。后端的 schema 还
+   * 收 `studentName` / `studentId`（旧端在用），新端一个都不传。
+   *
+   * `headword` 由服务端查词典确定（不信任前端），所以同一个学生同一个词
+   * 反复提交是**幂等**的：已存在时返回 `{ created: false }` 而不是报错。
+   * 这正是失败重试可以直接原样重发的依据 —— 不需要 requestId。
+   */
+  vocabAddWord: (
+    token: string,
+    body: { word: string; contextSentence?: string; sourcePassageTitle?: string },
+  ) => request<VocabWordAdded>('POST', '/vocab/words', { body, token }),
 };
+
+// ─────────────────────────────────────────────────────────────
+// 词典查询（阶段 12C）
+//
+// 类型按**服务端实际返回的字段**写（`vocab.service.ts` 的 `LookupHit`
+// 与 `student-word.service.ts` 的 `addWord()`）。
+// ─────────────────────────────────────────────────────────────
+
+/** 词典里的一条。`translation` 之外的都可能为 null —— 没有就不显示。 */
+export interface DictEntry {
+  /** 实际命中的词典词条（可能与点的词形不同：looked → look）。 */
+  word: string;
+  /** 学生点的那个原词形。 */
+  query: string;
+  phonetic: string | null;
+  translation: string;
+  definition: string | null;
+  pos: string | null;
+  collins: number | null;
+  oxford: boolean;
+  tag: string[];
+  /** 命中方式，便于排查。 */
+  via: 'direct' | 'possessive' | 'hyphen';
+}
+
+/**
+ * 查词结果。
+ *
+ * **两支都要处理**：`found: false` 是正常结果（本地词典就是没收录），
+ * 不是错误 —— 把它当错误显示成「查询失败」会让学生一直重试一个永远查不到
+ * 的词。
+ */
+export type VocabLookupResult =
+  | { found: true; entry: DictEntry }
+  | { found: false; query: string };
+
+/** `created: false` = 本来就在本子里（不是失败）。 */
+export interface VocabWordAdded {
+  created: boolean;
+  headword: string;
+}
 
 // ─────────────────────────────────────────────────────────────
 // 错题本与错题重练（阶段 12B）
