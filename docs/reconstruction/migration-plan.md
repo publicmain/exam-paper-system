@@ -3269,7 +3269,7 @@ npx vitest run src/__tests__/score-detail.test.tsx
 
 ---
 
-## 阶段 12 —— 生词本与错题本　🔧 **12A–12D 本地完成 · 12E staging 实机验证完成 · 12F 验收账号就绪，等用户走查**（2026-08-30），**整阶段 `AWAITING_USER_ACCEPTANCE`**
+## 阶段 12 —— 生词本与错题本　🔧 **12A–12D 本地完成 · 12E staging 实机验证完成 · 12F 账号就绪 · 12G/12H 首次真人验收失败，改设计进行中**（2026-08-30），**整阶段 `USER_ACCEPTANCE_FAILED / REDESIGN_IN_PROGRESS`**
 
 **12A**（生词本与自由练习）`task_id: S12A-VOCAB-BOOK-AND-FREE-PRACTICE-LOCAL`
 · base `7c9fd6e` · 第一轮实现 `c41de57` ·
@@ -4842,6 +4842,160 @@ GET  /api/lesson/today         -> 200
     正常副作用，也是唯一一处）；
   · t1–t8 与其余全局数据**逐字节未变**。
 
+### 12G / 12H —— 首次真人验收失败，以及服务端那一半的修复　**进行中**（2026-08-30）
+
+阶段 12 的人工走查**第一次真跑就失败了**。这不是坏消息 —— 它一次性抓出了
+七个问题，而且其中三个是自动化测试**结构上测不到**的：它们只在
+「一个真人按顺序走完七步」的时候才显形。
+
+#### 用户看到的七件事
+
+1. 结果页把一道**有确定答案的选择题**写成「还在判分」；
+   「正确答案」和「参考答案」两行**一模一样**。
+2. 课程内的背词第一张卡（`0 / 21`）**把词藏起来**，只给中文释义和一句挖空 ——
+   而这个词从没在这块屏幕上教过。
+3. 历史成绩点得进去，但**没有原文**，题目脱离上下文读不懂。
+4. 屏幕上方写着 `10 / 10`，完成语却说「**四道题**都答完了」。
+5. 错题重练显示的是**一句合成的上下文**，不是原文。
+6. 错题本一屏堆满：篇目标题重复、`true_false_not_given` 这类**内部枚举串**
+   直接打到界面上、「正确答案 / 要点 / 评语」互相重复。
+7. 主页明明写着 `2 / 3`、补段 `还没开始 · 0 / 5`，主按钮却是「看今天的总结」。
+
+#### 12G —— 只读排查（`task_id: S12G-USER-ACCEPTANCE-REDESIGN-PREFLIGHT`）
+
+七件事**只有五个根因**，而且**没有一个需要改 schema**：
+
+| # | 根因 | 类别 |
+| --- | --- | --- |
+| 1 | `stripUnreleasedScores` 只有一道**整卷级**分数门；`ResultView.questionOutcome` 先看整卷旗子再看逐题；`correctKey` 与 `referenceAnswer` 都取自 `answerContent.text` | 判分策略 + 前端 |
+| 2 | 夹具把 40 个词标成「教过」；`lessonCardOrder` 不把教学卡排前；复习卡没有「复习」标识 | 夹具数据 + 信息架构 |
+| 3 | **数据早就发出来了** —— `redactSnapshotForStudent` 的白名单里就有 `passage`，前端从没渲染 | 信息架构 |
+| 4 | `LessonTest.tsx` 里一句写死的中文 | 运行时缺陷 |
+| 5 | **API 早就给了完整原文**；渲染的是 S12F 夹具那句占位原文 | 夹具数据 |
+| 6 | `TASK_TEXT` 少了 `multiple_choice` / `matching_features` 等键，而兜底是 `?? taskType`（把内部标识符原样打出去） | 信息架构 + 运行时 |
+| 7 | `stageAfterSubmit` 在测试交卷时无条件推进到 `done`；`NextActionKind` **压根没有 drill 这个取值** | 运行时 |
+
+一条**失败关闭**的结论：**证据句高亮现在做不了**。
+`answerContent.evidence` 有读的地方（`answerExtras`），**全仓库没有一处写它**；
+也不存在任何偏移量 / 段落号。所以「高亮相关段落」不能被当成可实现项 ——
+要么先补写入方（纯 JSON，无迁移），要么另立模型（要迁移）。**本轮不选。**
+
+#### 12H —— 服务端那一半（`task_id: S12H-SERVER-GRADING-AND-FLOW-CORRECTNESS`）
+
+base `acf62eb` · 实现提交 `262d2bb`。**没有 schema、没有迁移、没有部署、
+没有碰 staging**，也没有动前端。
+
+##### 判分出身：只认服务端自己写的字段
+
+```
+markedById != null                          → 老师判的
+markedById == null && autoCorrect != null   → 服务端判分路径写的
+其中 markerComment 以 [ai-grade] 开头        → AI 判的，不算确定性
+```
+
+`markedById` 全仓库**只有 `marker.service.ts:343` 写**，`marker.service`
+自己的分数拆分也早就靠它区分自动与人工 —— 这条判据不是新发明的，是把既有
+的权威字段用在了新地方。AI 那一档必须排除：它是概率判断，不是「答案就是 A」。
+**没有任何客户端字段参与。**
+
+##### 放行边界改了什么、没改什么
+
+| 情形 | 逐题分数 | 老师评语 | 答案材料 | 整卷总分 |
+| --- | --- | --- | --- | --- |
+| 还在作答（未最终提交） | 不给 | 不给 | 不给 | 不给 |
+| 已最终提交 · 确定性判完 | **给**（新） | 不给 | 给（旧口径） | 不给 |
+| 已最终提交 · 等人判 | 不给 | 不给 | 给（旧口径） | 不给 |
+| 已最终提交 · 老师草稿分 | 不给 | 不给 | 给（旧口径） | 不给 |
+| 整卷定稿 | 给 | 给 | 给 | 给 |
+
+**只有第二行是新的。** 答案门（`answersReleased`）一字未动；整卷
+`autoScore` / `manualScore` / `totalScore` 的发布口径一字未动。
+
+##### 新增的 API 契约
+
+逐题多两个字段：
+
+```ts
+gradingStatus: 'auto_graded' | 'marked' | 'pending_marking' | 'not_answered'
+answerDisplay: { primaryKind: 'correct' | 'reference';
+                 primaryValue: string;
+                 rubricValue?: string } | null
+```
+
+整卷多一个（**最终提交之后才给，之前是 `null`**）：
+
+```ts
+gradingSummary: { autoGraded; marked; pendingMarking; notAnswered; total }
+```
+
+三条硬规矩：计数**取自同一份响应里的逐题状态**且四项之和恒等于 `total`；
+**不从部分逐题分数派生任何整卷分数或百分比**；
+**API 里不出现「正确答案 / 参考答案 / 评分要点」这类中文** —— 措辞归客户端。
+
+`answerDisplay` 的去重用一个**只服务于比较**的归一化
+（NFKC → 去首尾 → 折叠空白 → casefold），**不动展示值**，也不删标点或词。
+两个值归一化后相等就只发一个 —— 用户看到的那两行重复，根因就在这里。
+
+##### 补段终于是流程的一部分
+
+  · `stageAfterSubmit(stage, applied, drill?)` 多一个**服务端事实**参数：
+    补段没做完就停在 `vocab_test`，不许进 `done`；
+  · `NextActionKind` 多一个 `'drill'`，label 按进度是「开始错题重练」或
+    「继续错题重练」，`href` 给 `null`（路由归客户端的 `NEXT_ACTION_ROUTE`，
+    不塞旧端路径）；
+  · summary 从**兜底**变回**最后一步**：三段里还欠着的那一段才是主行动。
+
+> **没有加 `LessonStage` 枚举值** —— `stageRank` 的单调性与 `clampStage`
+> 是承重的，加一档的爆炸半径远大于收紧一次推进条件。
+
+##### 未接线（下一份合同的事，**必须记住**）
+
+两个新能力现在都是**惰性**的：
+
+  · `apps/api/src/lesson/lesson.service.ts:404` 调 `nextActionOf` 时
+    **还没传** `drillTarget` / `drillProgress`；
+  · `apps/api/src/vocab/vocab-quiz-attempt.service.ts:436` 调
+    `stageAfterSubmit` 时**还没传**补段事实。
+
+两个文件都**不在 S12H 的授权范围内**，所以没动。两处的省略参数都被设计成
+「保持既有语义」：不传就完全按接线前的行为走。因此
+
+  · 用户看到的那个「补段 0/5 却写着看总结」**目前仍然存在**；
+  · 但服务端**也绝不会**发出客户端还不认识的 `kind: 'drill'`
+    （`drillPending` 恒为 false）—— 新取值不可能在客户端加映射之前漏出去。
+
+前端同样**还没消费**新字段：`ResultView` 仍按整卷旗子算逐题状态、仍把
+「正确答案 / 参考答案」当两行独立渲染。**七个现象里，现在一个都还没在
+界面上消失。** S12H 只是把服务端这一半做对了。
+
+##### 验证
+
+| 命令 | exit | 结果 |
+| --- | --- | --- |
+| RED（对着 `acf62eb`） | 1 | **25 failed / 11 passed**，两份 spec 都正常收集执行 |
+| 聚焦 spec（判分投影 21 + 补段流程 15） | 0 | 36 passed |
+| api 全量 | 0 | 98 files / **1516** passed（97 / 1477 → +1 file / +39） |
+| api `tsc --noEmit` / `nest build` | 0 / 0 | 干净 |
+| student-web 全量 + tsc | 0 | 26 / **919**（运行时一行没改） |
+| web 全量 + tsc | 0 | 37 / **247** |
+| `git diff --check` | 0 | 干净 |
+
+RED 里那 11 项「通过」不算证据：其中既有本来就成立的否定断言，也有
+「未接线时保持既有行为」这种**故意钉住现状**的用例。
+
+一处既有断言按新口径改了：`score-visibility.spec.ts` 里
+「未定稿 → 每题判分信息全部置空」拆成了四条 —— 整卷总分照旧置空、
+**老师判的题仍然全部置空**、确定性判的题放行分数但评语仍不给、
+未最终提交时连确定性判分也不给。改的是口径，**不是把断言放松**。
+
+#### 阶段 12 的状态
+
+**`USER_ACCEPTANCE_FAILED / REDESIGN_IN_PROGRESS`** —— 不是 PASS，也不再是
+「等用户走查」。要重新走查，得先做完客户端那一半与夹具那一半。
+**阶段 13 一行未开始。**
+
+---
+
 #### 阶段 12 的状态
 
 **`AWAITING_USER_ACCEPTANCE`** —— 不是 PASS。实现与自动化验证做完了，
@@ -4863,7 +5017,10 @@ GET  /api/lesson/today         -> 200
 > · **用户的 23 步人工走查一步都没开始**，而且**不该由我开始** ——
 >   今天那一课的第一个动作必须是用户本人的；
 > · **账号设置扩展**仍是强制的后续任务，一行未开始；
-> · **阶段 12 是 `AWAITING_USER_ACCEPTANCE`，不是 PASS**；
+> · **阶段 12 是 `USER_ACCEPTANCE_FAILED / REDESIGN_IN_PROGRESS`**
+>   —— 首次真人走查失败，七个现象见 12G/12H 小节；
+> · **客户端与夹具那两半都还没做** —— S12H 只修了服务端，
+>   而且两个新能力尚未接线，界面上一个现象都还没消失；
 > · **阶段 13 一行未开始**；
 > · staging 的免密夹具登录仍开着且**未改动**，退役期限见本文档开头的表。
 
