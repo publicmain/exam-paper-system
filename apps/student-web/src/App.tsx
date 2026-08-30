@@ -23,6 +23,9 @@ import LessonTestPage from './pages/LessonTest';
 import LessonSummaryPage from './pages/LessonSummary';
 import ScoresPage from './pages/Scores';
 import ScoreDetailPage from './pages/ScoreDetail';
+import VocabBookPage from './pages/VocabBook';
+import VocabPracticePage from './pages/VocabPractice';
+import VocabSelfTestPage from './pages/VocabSelfTest';
 import { Screen } from './ui';
 
 export default function App() {
@@ -75,6 +78,14 @@ export default function App() {
       */}
       <Route path={ROUTES.scores} element={<ScoresPage />} />
       <Route path={ROUTES.scoreDetail} element={<ScoreDetailPage />} />
+      {/*
+        生词本与两条自由练习（阶段 12A）—— 同样是独立页面，不属于七步链。
+        自由练习与课程学词是**两条线**：词表不同、发卡规则不同、算不算
+        课程完成度也不同，所以用两组路由说死（见 routes.contract.ts）。
+      */}
+      <Route path={ROUTES.vocab} element={<VocabBookPage />} />
+      <Route path={ROUTES.vocabPractice} element={<VocabPracticePage />} />
+      <Route path={ROUTES.vocabSelfTest} element={<VocabSelfTestPage />} />
       <Route path="*" element={<Navigate to={fallbackPath(authed)} replace />} />
     </Routes>
   );

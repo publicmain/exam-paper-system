@@ -217,6 +217,14 @@ export default function TodayPage() {
         >
           历史成绩 →
         </Link>
+        {/* 生词本（阶段 12A）—— 同样随时能进 */}
+        <Link
+          data-testid="go-vocab"
+          to={ROUTES.vocab}
+          className="block mt-3 text-blue-600 underline text-sm"
+        >
+          生词本 →
+        </Link>
         <Link to={ROUTES.account} className="block mt-3 text-blue-600 underline text-sm">
           账号设置 →
         </Link>

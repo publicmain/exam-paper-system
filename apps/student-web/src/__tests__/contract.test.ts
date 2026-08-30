@@ -98,7 +98,7 @@ describe('G6 路由契约是单一事实源', () => {
     for (const key of Object.keys(ROUTES)) expect(app).toContain(`ROUTES.${key}`);
   });
 
-  it('**阶段 11 注册十一条**：四条外壳 + 五条课程路由 + 两条历史成绩', () => {
+  it('**阶段 12A 注册十四条**：四条外壳 + 五条课程 + 两条成绩 + 三条生词本', () => {
     expect(new Set(REGISTERED_PATHS)).toEqual(
       new Set([
         '/login', '/register', '/today', '/account',
@@ -106,8 +106,32 @@ describe('G6 路由契约是单一事实源', () => {
         '/lesson/vocab', '/lesson/test', '/lesson/summary',
         // 阶段 11 —— 同一外壳里的独立页面，不属于七步链
         '/scores', '/scores/:submissionId',
+        // 阶段 12A —— 生词本与两条自由练习，同样是独立页面
+        '/vocab', '/vocab/practice', '/vocab/selftest',
       ]),
     );
+  });
+
+  /**
+   * 课程学词与自由练习**必须是两条路由线**。
+   *
+   * 这不是排版洁癖：旧端把两者混在一个页面里，课程队列取不到时悄悄换成
+   * 自由练习的词表，学生以为在上今天的课，课程完成度却永远不动。
+   * 用路由把它们分开，这种「悄悄换词表」就再也写不出来了。
+   */
+  it('**课程学词与自由练习是两条路由线**，前缀互不包含', () => {
+    expect(ROUTES.lessonVocab).toBe('/lesson/vocab');
+    expect(ROUTES.vocab).toBe('/vocab');
+    expect(ROUTES.lessonVocab.startsWith(`${ROUTES.vocab}/`)).toBe(false);
+    expect(ROUTES.vocab.startsWith(`${ROUTES.lessonVocab}/`)).toBe(false);
+    // 自测与正式测试同理
+    expect(ROUTES.lessonTest).toBe('/lesson/test');
+    expect(ROUTES.vocabSelfTest).toBe('/vocab/selftest');
+    expect(ROUTES.vocabSelfTest).not.toBe(ROUTES.lessonTest);
+    // 两条自由练习都挂在生词本下面
+    for (const p of [ROUTES.vocabPractice, ROUTES.vocabSelfTest]) {
+      expect(p.startsWith(`${ROUTES.vocab}/`)).toBe(true);
+    }
   });
 
   it('**历史成绩详情的路径参数只有一个**，而且是 submissionId', () => {
@@ -420,6 +444,18 @@ describe('G1 新端不得出现旧路由与旧身份键', () => {
     '/morning-quiz/history-by-name',
     '/morning-quiz/history-detail',
     '/vocab/quiz/attempts',
+    // 阶段 12A：生词本与自由练习。五条都是**认证后**端点 —— 零身份参数。
+    // 后端这几条同样还收 `?name=` / `?studentId=`（旧端入口），新端一个
+    // 查询串都不带。
+    //
+    // 注意 `/vocab/quiz` 与 `/vocab/quiz/attempt/*` 是**两回事**：
+    // 前者是自测出题（自由练习），后者是正式测试（记成绩）。清点表里
+    // 两者分开列，就是要让「把自测接到正式测试上」这件事写不出来。
+    '/vocab/words',
+    '/vocab/words/remove',
+    '/vocab/stats',
+    '/vocab/due',
+    '/vocab/quiz',
   ] as const;
 
   /**
@@ -1463,6 +1499,159 @@ describe('G-9B1 正式测试只走成绩线', () => {
 
     it('**注释里提到这些名字不算违规**（守卫剥注释）', () => {
       expect(quizHits('// 我们不退回 /vocab/due，也不跳 /my-vocab\nnavigate(ROUTES.today);')).toEqual([]);
+    });
+  });
+});
+
+// ─────────────────────────────────────────────────────────────
+// G-12A —— 生词本与自由练习这一面的静态守卫
+//
+// 这一面最容易坏的两种方式，都不是崩，是**悄悄串线**：
+//
+//   ① 自由练习拿不到到期卡时退回课程队列（`/vocab/lesson-cards`）——
+//      学生以为在刷自己的生词本，其实在做今天的课程词表；
+//   ② 自测接到正式测试的 attempt 上（`/vocab/quiz/attempt/*`）——
+//      随手一测就在成绩单上留下一条记录。
+//
+// 两者都是 G-9A / G-9B1 那两条规矩的**镜像面**：那边禁课程线碰自由练习，
+// 这边禁自由练习碰课程线与成绩线。所以这里单独立一块，并且给反向夹具。
+//
+// 「生词本面」= 三个页面 + 它自己的写入小工具。api.ts 是共享的，
+// 不在这一面里（它由全局的端点清点守着）。
+// ─────────────────────────────────────────────────────────────
+describe('G-12A 生词本与自由练习只走自己那条线', () => {
+  const SURFACE = [
+    path.join(SRC, 'pages', 'VocabBook.tsx'),
+    path.join(SRC, 'pages', 'VocabPractice.tsx'),
+    path.join(SRC, 'pages', 'VocabSelfTest.tsx'),
+    path.join(SRC, 'components', 'vocab', 'practice-write.ts'),
+  ];
+
+  const VOCAB_FORBIDDEN: Array<{ why: string; re: RegExp }> = [
+    // 页面代码里**看不到路径字面量**（路径住在 api.ts），所以每一条都要
+    // 同时盯住**客户端方法名** —— 只匹配路径的话这一整块就是摆设。
+    { why: '退回课程队列 /vocab/lesson-cards', re: /lesson-cards|\blessonCards\b/ },
+    { why: '推进课程断点 /lesson/vocab-cursor', re: /vocab-cursor|\bvocabCursor\b/ },
+    { why: '标记课程教过 /lesson/vocab-taught', re: /vocab-taught|\bvocabTaught\b/ },
+    { why: '读课程状态 /lesson/today', re: /lesson\/today|\blessonToday\b/ },
+    { why: '开课 /lesson/start', re: /lesson\/start|\blessonStart\b/ },
+    { why: '接到正式测试的 attempt 上', re: /quiz\/attempt|quizStart|quizAnswer|quizSubmit/ },
+    { why: '错题本（阶段 12 剩下的那半，还没实现）', re: /\/vocab\/mistakes|\/mistakes/ },
+    { why: '埋点', re: /page-view/ },
+    { why: '旧生词本页', re: /\/my-vocab/ },
+    { why: '旧历史页', re: /\/my-history/ },
+    { why: '旧错题页', re: /\/my-mistakes/ },
+    { why: '旧课程页', re: /\/my-lesson/ },
+    { why: '扫码入口', re: /\/scan\b/ },
+    { why: '旧学生外壳', re: /\/student(?![-\w])/ },
+    { why: '请求体里带身份字段', re: /\b(name|studentName|studentId)\s*:/ },
+    { why: 'URL 里带身份', re: /[?&](name|studentId)=/ },
+    { why: 'then / after 协议', re: /\bthen=|\bafter=/ },
+    { why: '拿后端 href 当导航权威', re: /\.\s*href\b/ },
+    { why: '早测 / 成绩线', re: /\/morning-quiz\// },
+    { why: '非 sw: 的持久化键', re: /['"`](?!sw:)[A-Za-z_][\w-]*:[A-Za-z_]/ },
+  ];
+
+  function vocabHits(code: string): string[] {
+    const text = stripComments(code);
+    return VOCAB_FORBIDDEN.filter(({ re }) => re.test(text)).map(({ why }) => why);
+  }
+
+  it('三个页面与写入小工具都真的存在，而且都注册了', () => {
+    for (const f of SURFACE) expect(fs.existsSync(f), f).toBe(true);
+    const app = stripComments(fs.readFileSync(path.join(SRC, 'App.tsx'), 'utf8'));
+    expect(app).toMatch(/ROUTES\.vocab\}\s*element=\{<VocabBookPage/);
+    expect(app).toMatch(/ROUTES\.vocabPractice\}\s*element=\{<VocabPracticePage/);
+    expect(app).toMatch(/ROUTES\.vocabSelfTest\}\s*element=\{<VocabSelfTestPage/);
+  });
+
+  it('**整面干净**：不碰课程线、成绩线、正式测试、错题本、旧路由、身份', () => {
+    for (const f of SURFACE) {
+      expect(vocabHits(fs.readFileSync(f, 'utf8')), path.relative(SRC, f)).toEqual([]);
+    }
+  });
+
+  it('**三个页面各自只调自己那几个端点**', () => {
+    const called = (file: string) =>
+      [...stripComments(fs.readFileSync(path.join(SRC, 'pages', file), 'utf8'))
+        .matchAll(/\bapi\.(\w+)\s*\(/g)].map((m) => m[1]).sort();
+    expect([...new Set(called('VocabBook.tsx'))]).toEqual([
+      'vocabStats', 'vocabWordRemove', 'vocabWords',
+    ]);
+    expect([...new Set(called('VocabPractice.tsx'))]).toEqual([
+      'vocabDue', 'vocabPracticeReview', 'vocabReviewUndo',
+    ]);
+    expect([...new Set(called('VocabSelfTest.tsx'))]).toEqual([
+      'vocabPracticeReview', 'vocabSelfTestQuiz',
+    ]);
+  });
+
+  it('**课程学词那一面没有被改动**：它仍然不碰自由练习的端点', () => {
+    const course = stripComments(fs.readFileSync(path.join(SRC, 'pages', 'LessonVocab.tsx'), 'utf8'));
+    expect(course).not.toMatch(/\/vocab\/due|vocabDue/);
+    expect(course).not.toMatch(/vocabPracticeReview|vocabSelfTestQuiz/);
+    expect(course).toMatch(/api\.lessonCards\(/);
+  });
+
+  it('**正式测试那一面没有被改动**：它仍然走 attempt 那三条', () => {
+    const formal = stripComments(fs.readFileSync(path.join(SRC, 'pages', 'LessonTest.tsx'), 'utf8'));
+    expect(formal).not.toMatch(/vocabSelfTestQuiz|vocabDue|vocabPracticeReview/);
+    expect(formal).toMatch(/api\.quizStart\(/);
+  });
+
+  it('**自由练习不落盘**：这一面一个 storage 键都不写', () => {
+    for (const f of SURFACE) {
+      const text = stripComments(fs.readFileSync(f, 'utf8'));
+      expect(text, path.relative(SRC, f)).not.toMatch(/localStorage|sessionStorage/);
+    }
+  });
+
+  it('**requestId 在评分对象里，不是每次请求现生成的**', () => {
+    for (const f of ['VocabPractice.tsx', 'VocabSelfTest.tsx']) {
+      const text = stripComments(fs.readFileSync(path.join(SRC, 'pages', f), 'utf8'));
+      // 生成点只有一处：构造 pending 的那一次
+      expect((text.match(/newRequestId\(\)/g) ?? []).length, f).toBe(1);
+      // 重发走的是同一个对象
+      expect(text, f).toMatch(/pending\.current/);
+    }
+  });
+
+  // ── 反向夹具：证明这一面的守卫真的抓得住 ──
+  describe('反向夹具 —— 生词本守卫必须抓得住', () => {
+    it('**退回课程队列会被抓到**（旧端的真实病灶）', () => {
+      // 页面里写不出路径字面量，真实的病灶长这样 —— 守卫必须认得方法名
+      expect(vocabHits('if (!cards.length) return api.lessonCards(token);'))
+        .toContain('退回课程队列 /vocab/lesson-cards');
+    });
+
+    it('**推进课程断点会被抓到**', () => {
+      expect(vocabHits('await api.vocabCursor(token, { cursor: 3 });'))
+        .toContain('推进课程断点 /lesson/vocab-cursor');
+    });
+
+    it('**读课程状态会被抓到**', () => {
+      expect(vocabHits('const today = await api.lessonToday(token);'))
+        .toContain('读课程状态 /lesson/today');
+    });
+
+    it('**接到正式测试的 attempt 上会被抓到**', () => {
+      expect(vocabHits("await api.quizStart(token);")).toContain('接到正式测试的 attempt 上');
+    });
+
+    it('**请求体里带身份会被抓到**', () => {
+      expect(vocabHits("api.vocabWords(token, { studentId: id })")).toContain('请求体里带身份字段');
+    });
+
+    it('**读后端 href 会被抓到**', () => {
+      expect(vocabHits('navigate(data.nextAction.href);')).toContain('拿后端 href 当导航权威');
+    });
+
+    it('**跳错题本会被抓到**（阶段 12 剩下的那半还没实现）', () => {
+      expect(vocabHits("navigate('/mistakes');")).toContain('错题本（阶段 12 剩下的那半，还没实现）');
+    });
+
+    it('**注释里提到这些名字不算违规**（守卫剥注释）', () => {
+      expect(vocabHits('// 我们不退回 lesson-cards，也不碰 vocab-cursor\nnavigate(ROUTES.vocab);')).toEqual([]);
     });
   });
 });

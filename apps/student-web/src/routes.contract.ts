@@ -49,6 +49,27 @@ export const ROUTES = {
    * 「一份答卷的标识」，而不是一个可以塞任何东西的参数袋。
    */
   scoreDetail: '/scores/:submissionId',
+  /**
+   * 生词本（阶段 12A）。与历史成绩一样是**同一外壳里的独立页面** ——
+   * 随时能进，进了也不改变今天的课走到哪一步。
+   */
+  vocab: '/vocab',
+  /**
+   * 生词本自由练习 —— 到期卡复习（`/vocab/due`）。
+   *
+   * 它与课程学词（`/lesson/vocab`）**是两条线，不是两个入口**：
+   * 词表不同、发卡规则不同、算不算课程完成度也不同。用路由把这件事
+   * 说死，是 D5 的原话 —— 旧端把两者混在一个页面里，学生以为在上课，
+   * 其实在刷另一个词表。
+   */
+  vocabPractice: '/vocab/practice',
+  /**
+   * 生词自测 —— 自由练习的选择/拼写题（`/vocab/quiz`）。
+   *
+   * **不是**正式单词测试（`/lesson/test`，走 `/vocab/quiz/attempt/*`、
+   * 记成绩、进历史）。同样用路由把两者分开。
+   */
+  vocabSelfTest: '/vocab/selftest',
 } as const;
 
 /** `/scores/:submissionId` 的具体地址。**只有这一个地方拼它。** */

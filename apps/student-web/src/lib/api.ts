@@ -430,7 +430,172 @@ export const api = {
       `/morning-quiz/history-detail?submissionId=${encodeURIComponent(submissionId)}`,
       { token },
     ),
+
+  // ── 生词本与自由练习（阶段 12A）；六条全是**认证后，零身份参数** ──
+  //
+  // 后端这几条同样留着可选的 `?name=` / `?studentId=`（旧端入口），
+  // `identityOf()` 优先认令牌。新端**一个都不传**。
+  //
+  // 与课程线的关系：`/vocab/review` 这一条**两条线共用**（同一套 FSRS
+  // 调度），但**取卡的端点完全不同** ——
+  //
+  //   课程学词  `/vocab/lesson-cards`  当天冻结的固定队列，算课程完成度
+  //   自由练习  `/vocab/due`           实时到期 + 配额，**不算**课程完成度
+  //   生词自测  `/vocab/quiz`          自由练习的出题，**不是**正式测试
+  //
+  // 混用取卡端点正是旧端的病（见 `routes.contract.ts` 的 vocabPractice
+  // 注释）；守卫 G-12A 静态钉住这一点。
+
+  /** 我的生词本。**不带查询串** —— 带了就等于允许请求指定看谁的本子。 */
+  vocabWords: (token: string) => request<VocabWordsResult>('GET', '/vocab/words', { token }),
+
+  /** 我的词汇统计。与词表分开取：统计挂了不该连累词表。 */
+  vocabStats: (token: string) => request<VocabStats>('GET', '/vocab/stats', { token }),
+
+  /** 移出生词本。请求体**恰好一个字段**。 */
+  vocabWordRemove: (token: string, body: { headword: string }) =>
+    request<VocabWordRemoved>('POST', '/vocab/words/remove', { body, token }),
+
+  /** 自由练习的到期卡。**顺序由服务端决定**，前端不重排、不过滤。 */
+  vocabDue: (token: string) => request<VocabDueResult>('GET', '/vocab/due', { token }),
+
+  /**
+   * 自由练习的一次评分。
+   *
+   * 与课程线的 `vocabReview` 打同一个端点，差别有两处，都是刻意的：
+   *   · **四档**（课程线只发两档 —— 手机上四个按钮挨着，误触是常态，
+   *     那是课程内的产品决定；自由练习是学生自己主动来练，给全四档）；
+   *   · **不跟 `/lesson/vocab-cursor`** —— 自由练习不推进课程断点。
+   */
+  vocabPracticeReview: (
+    token: string,
+    body: { headword: string; rating: PracticeRating; elapsedMs: number; requestId: string },
+  ) => request<VocabReviewResult>('POST', '/vocab/review', { body, token }),
+
+  /** 生词自测出题。**不是** `/vocab/quiz/attempt/*`（那条记成绩）。 */
+  vocabSelfTestQuiz: (token: string) => request<VocabSelfTestQuiz>('GET', '/vocab/quiz', { token }),
 };
+
+// ─────────────────────────────────────────────────────────────
+// 生词本与自由练习（阶段 12A）
+//
+// 类型按**服务端实际返回的字段**写：
+//   · `student-word.service.ts` 的 `listWords()` / `removeWord()`
+//   · `vocab-review.service.ts` 的 `due()` / `stats()`
+//   · `vocab-quiz.service.ts` 的 `buildQuiz()`（自由练习那一路）
+// ─────────────────────────────────────────────────────────────
+
+/** 自由练习的四档评分。课程线只发两档（见 `CourseRating`）。 */
+export type PracticeRating = 'again' | 'hard' | 'good' | 'easy';
+
+export interface VocabWordRow {
+  headword: string;
+  /** 文章里出现的形式（可能是变位形式）。 */
+  surfaceForm: string | null;
+  sourceType: string;
+  sourcePassageTitle: string | null;
+  contextSentence: string | null;
+  state: string;
+  reps: number;
+  lapses: number;
+  due: string;
+  createdAt: string;
+  phonetic: string | null;
+  /** 词典没释义时是空串 —— 服务端就这么给，前端**不编**。 */
+  translation: string;
+  tag: string[];
+}
+
+/**
+ * 生词本。
+ *
+ * 响应里还有 `student: { id, name }`。**刻意不声明** —— 与
+ * `LessonCardsResult` 同理：声明了就会有人拿它当身份。
+ */
+export interface VocabWordsResult {
+  total: number;
+  dueCount: number;
+  /** **顺序就是服务端的顺序**（createdAt desc），前端不重排。 */
+  words: VocabWordRow[];
+}
+
+export interface VocabWordRemoved {
+  deleted: number;
+}
+
+/**
+ * 词汇统计。
+ *
+ * **每一项都是可选的**，而且这不是偷懒：服务端换了口径、或者某一项算不
+ * 出来时，前端要能「这一项不显示」，而不是拿 `?? 0` 把缺失渲染成 0。
+ * 「今天复习了 0 次」和「不知道今天复习了几次」对学生是两件事。
+ */
+export interface VocabStats {
+  total?: number;
+  totalDue?: number;
+  totalReviews?: number;
+  reviewedToday?: number;
+  knownCount?: number;
+  streakDays?: number;
+  progress?: { mastered: number; learning: number; untouched: number };
+  byState?: Record<string, number>;
+  bySource?: Record<string, number>;
+}
+
+export interface VocabDueCard {
+  headword: string;
+  surfaceForm: string | null;
+  contextSentence: string | null;
+  sourcePassageTitle: string | null;
+  phonetic: string | null;
+  translation: string;
+  pos: string | null;
+  definition: string | null;
+  tag: string[];
+  state: string;
+  reps: number;
+  needsFirstTeaching: boolean;
+  firstTaughtAt: string | null;
+  sourceType: string;
+  addedAt: string;
+}
+
+export interface VocabDueResult {
+  totalDue: number;
+  /** **发卡顺序就是这个数组的顺序**，前端不得重排、不得过滤。 */
+  cards: VocabDueCard[];
+}
+
+/**
+ * 自测的一道题。
+ *
+ * 与正式测试（`QuizItem`）**形状不同、语义也不同**：这里的 `correctIndex`
+ * / `answer` 是**当场就下发**的 —— 自测是自由练习，判定在本地做，不记
+ * 成绩。正式测试恰恰相反（答案要等作答回执才揭开），别把两者的类型混用。
+ */
+export interface VocabSelfTestQuestion {
+  qtype: QuizQType;
+  headword: string;
+  prompt: string;
+  /** 拼写题恒为空数组。 */
+  options: string[];
+  /** 拼写题是 -1。 */
+  correctIndex: number;
+  phonetic: string | null;
+  translation: string;
+  contextSentence: string | null;
+  /** 只有拼写题有。 */
+  answer?: string;
+}
+
+export interface VocabSelfTestQuiz {
+  streakDays: number;
+  /** 生词本里一共多少词。 */
+  totalWords: number;
+  /** 其中「教过的」有多少 —— 为 0 说明该先去学，而不是先来考。 */
+  seenWords: number;
+  questions: VocabSelfTestQuestion[];
+}
 
 // ─────────────────────────────────────────────────────────────
 // 历史成绩（阶段 11）
