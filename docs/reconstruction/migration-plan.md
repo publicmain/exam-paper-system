@@ -3269,7 +3269,7 @@ npx vitest run src/__tests__/score-detail.test.tsx
 
 ---
 
-## 阶段 12 —— 生词本与错题本　🔧 **12A + 12B + 12C + 12D 本地完成**（2026-08-30），**整阶段仍未完成**
+## 阶段 12 —— 生词本与错题本　🔧 **12A–12D 本地完成 + 12E staging 实机验证完成**（2026-08-30），**整阶段仍未完成**
 
 **12A**（生词本与自由练习）`task_id: S12A-VOCAB-BOOK-AND-FREE-PRACTICE-LOCAL`
 · base `7c9fd6e` · 第一轮实现 `c41de57` ·
@@ -3288,7 +3288,12 @@ npx vitest run src/__tests__/score-detail.test.tsx
 前面 12B 把错题本的页面做出来了，但生成错题的那一步在 API 路径上从来没被
 调用过。
 
-**两次都是纯本地任务：没有部署、没有 staging 执行、没有任何数据库断言。**
+**12E**（staging 实机验证）`task_id: S12E-VOCAB-MISTAKES-STAGING-LIVE`
+· base `b138b97` · **本节唯一一个动了 staging 与真库的任务**，
+证据见本节末尾的 **12E** 小节。
+
+**12A–12D 四个都是纯本地任务：没有部署、没有 staging 执行、没有任何数据库
+断言。第一次离开本地是 12E。**
 
 > **第一轮不该被当成完成**：复审在三屏里找出四个缺陷（两个在途写入竞态、
 > 一个被吞掉的掉票、一处删除后的陈旧聚合数字），逐条修复与实测证据见
@@ -4240,23 +4245,169 @@ EMITTED_WARNING >>> ["mistake harvest failed for submission=sub-1"]
 > 这一节的一切结论只到「本地自动化验证」这一级。
 > **staging / 实机验证一步都没开始** —— 这条链在真库上到底采到几条、
 > 采得对不对，本地测不出来。
+>
+> （**这个空缺由下一节 12E 补上**：在 staging 真库上跑真实判分，
+> 服务端自己打出 `added=3`，与 `shouldCollect` 的事前预测一致。）
 
+
+### 12E —— staging 实机验证（生词本 / 自由练习 / 自测 / 错题采集 / 错题本 / 重练）　**已完成**（2026-08-30）
+
+`task_id: S12E-VOCAB-MISTAKES-STAGING-LIVE` · contract v1.0 · base `b138b97`。
+**这是 12A–12D 第一次离开本地** —— 在此之前那五页与那条采集链
+从来没有对着真 API、真库跑过。
+
+#### 部署（只动两个服务）
+
+| 服务 | 旧（回滚锚点） | 新 |
+| --- | --- | --- |
+| stg-api | `f089519e-a65e-425d-a222-e38a105a6d59` | **`6f08ca63-e2ec-4f99-9379-39e12c9c35ff`** |
+| stg-student-web-spike | `bf619d91-315d-4ca4-bcbb-39b60bf3a452` | **`5323fc0e-7acc-4419-ac2e-eaa1c117adf2`** |
+| stg-web | `33fce087-c424-4080-9d23-76ac23165e10` | 未动 |
+| Postgres | `73871ad2-226a-4d7d-9e71-586203275281` | 未动 |
+
+四个域名逐字未变；三个服务的变量键指纹未变
+（stg-api 24 / `07be3f969d68ed69`、stg-web 15 / `88aacb8df46d64cc`、
+spike 16 / `3bb70497d1de0647`）；**`STUDENT_APP_V2` 三处仍未设**；
+免密夹具开关仍然只在 stg-api 与 stg-student-web-spike 上。
+health / ready 200；六条 SPA 路由 200；CORS 预检 204 且 allow-origin
+正是学生端源。`apps/api/prisma` 与在跑的那版 API 之间**无差异**。
+
+本地全绿：api 94 files / **1350**、student-web 26 / **919**、web 37 / **247**，
+三个 typecheck 与两个 build 全部 exit 0。
+
+#### 阶段 12D 的采集链，在真库上成立
+
+用一个**仓库之外、用完即删**的一次性运行器，加载**真实服务源码**
+（`PrismaService` / `VocabService` / `StudentWordService` / `MistakeService` /
+`MarkerService`），对 staging 跑了一次真实判分。三道闸缺一不启动：确认串、
+Railway 项目 id、**库里必须正好是那八个虚构学生**（生产库不可能长这样）。
+先只读预览，再写；只打印 id / 计数 / 类别。
+
+> 第一版的闸门是「连接串主机名 == Postgres 服务域名」，实测直接拒绝 ——
+> `DATABASE_PUBLIC_URL` 走的是 Railway 的 **TCP 代理域**，跟服务自己的
+> HTTP 域名不是一回事。改成上面那两条，既绑得住身份，又不用把连接目标
+> 抄进脚本。
+
+写入全部经由**真实服务方法**（无一条 ad-hoc SQL）：
+`claim()` → 四条 structured 脚本各 `scoreScript({awardedMarks: 0, 合成评语})`
+→ `finalize()` 一次。
+
+服务端自己打出来的那行日志：
+
+```
+[MarkerService] mistake harvest: submission=cmtfe2lch00madbifqk83zqpg day=2026-08-30 added=3
+```
+
+—— 正好是 12D 返工之后允许的那三样（id / 日期 / 条数），没有异常内容。
+
+结果逐项核对：
+
+| 判据 | 实测 |
+| --- | --- |
+| 答卷状态 | `submitted` → **`marked`**，autoScore 0 / manualScore 0 / totalScore 0 / maxScore 4 |
+| 三处一致 | 数据库、`history-by-name`、`/scores/:id` 详情页**都是** marked · 0 / 4 · `scoresPending:false` |
+| 认领 | **released**，markerId `t_stgteacher` |
+| `quizDay` | **`2026-08-30`** —— 正是 `MorningQuizSession.date`，不是「今天恰好一样」之外的任何来源 |
+| 采集条数 | **3 条**（事前按 `shouldCollect` 预测也是 3：四道同题型、非空、满分 1 分、判 0 分，第一道不收、后三道命中「反复错」） |
+| 归属 | 三条全部只属于 t6 与这一份答卷 |
+| 幂等 | 再调一次采集 `added=0`，总数仍是 3 |
+| 生词本 | StudentWord 4 → 4（这四道不是词义题，本就不该采词） |
+
+#### token-only 与请求账目
+
+免密按钮登录：**一个 POST、请求体 `{}`**、201，**没有 PIN**；
+存储里**只有 `sw:token`**；`/student-auth/me` 认出 `t6_done`。
+
+整场会话逐条记账（在页面里挂 `fetch` 钩子抓的，含请求体**键名**）：
+
+| 屏 | 请求 |
+| --- | --- |
+| `/vocab` 挂载 | `GET /vocab/words`、`GET /vocab/stats` —— **各一次，无查询串** |
+| 加词 | `POST /vocab/words` 体键 `[contextSentence, sourcePassageTitle, word]` |
+| `/vocab/practice` 挂载 | `GET /vocab/due` 一次 |
+| 评分 | `POST /vocab/review` 体键 `[elapsedMs, headword, rating, requestId]` |
+| 撤销 | `POST /vocab/review/undo` 体键 `[headword]` |
+| `/vocab/selftest` 挂载 | `GET /vocab/quiz` 一次 |
+| 自测第一遍 | `POST /vocab/review` **恰好四条**（四道题） |
+| 移除 | `POST /vocab/words/remove` 体键 `[headword]` + 两条权威重取 |
+| `/mistakes` 挂载 | `GET /vocab/mistakes?includeResolved=1` 一次 |
+| 销账 / 恢复 | `POST /vocab/mistakes/resolve` 体键 `[id, resolved]`，各随一次权威重取 |
+| `/mistakes/practice` 挂载 | `GET /vocab/mistakes/practice-queue` 一次 |
+| 重练结果 | `POST /vocab/mistakes/practice-result` 体键 `[correct, id]` —— **一条** |
+
+**没有任何一条**带 `name` / `studentName` / `studentId` / `role`，
+也没有查询串身份；`/vocab/quiz/attempt/*` **零次**；
+`/lesson/vocab-cursor`、lesson-cards、`history-by-name`（错题那几屏）、
+`page-view` **零次**；旧端 `/my-*`、`/scan` 零次；`mq:` 存储键零个；
+后端 `href` 未用于导航。
+
+#### 逐屏实测
+
+**生词本** —— 四条既有词按服务端返回的顺序渲染（词形不抄进文档 —— 它们
+同时是自测那一屏的答案），每条显示音标、词性、释义、状态、来源、到期日、
+语境句；
+统计「已掌握 0 · 学习中 4 · 待开始 0 / 连续学习 1 天 / 今天复习 4 次」。
+用 ExamWordSheet 那套**同样的认证请求形状**加了一个临时词
+`anchor`（词典里有、t6 本来没有，来源与语境都打了合成标记）：
+`{created:true}`，总数 4 → 5、待复习 0 → 1，都是服务端重取来的。
+
+> 这一条**只证明了 token-only 的查词 / 加词边界**，
+> **不能**当成 ExamWordSheet 那个点词手势本身通过了。
+
+**自由练习** —— 只打 `/vocab/due`；**跳过不写**（跳过后完成页，请求数 0）、
+**揭开不写**；停留 2.6 秒后评「记住了」，恰好一条 review，回执是服务端的
+「隔 2 天再复习」（不是 tooFast）。撤销一条 undo 之后，
+**FSRS 调度字段与复习流水与评分前逐字节相同**（`diff` 无输出）。
+
+**自测** —— 只打 `/vocab/quiz`，四道题（服务端只考教过的词，所以新加的
+`anchor` 不在其中）。每题停留 ≥2.1 秒；第一遍**恰好四条 review**，
+完成页「答对 2 / 4」。点「再看一遍答错的 2 个」重做一轮，
+**review 请求数仍是 4** —— 重做不写。随后按词逐个 undo 四条，
+**又与自测前逐字节相同**。
+
+**错题本** —— 三条新采集的错题全部可见，页面上的 id 与库里逐个相同；
+总数 3、题型统计「unknown 3」与库一致；每条显示篇目、日期、题型、
+收录原因（这类题反复错）、题干、当时的答案、0 / 1 分、老师评语、重练连对
+次数、以及到那次整份成绩的入口。挑一条销账 → 库里 `resolved:true`、
+UI 移到「已经弄懂」段、总数 3 → 2；再恢复 → 库里 `resolved:false`、
+回到未销账段、总数回到 3。**这一条没有被删除或改写。**
+
+**错题重练** —— 队列来自服务端（`reveal` 型，带完整原文）；
+**作答前答案材料一个字都不在 DOM 里**；揭开不写；自评「还没掌握」之后
+**恰好一条** `practice-result`。库里：`practiceCount` 0 → **1**、
+`lastPracticedAt` 落一次、**`correctStreak` 仍是 0**（答错不许涨）、
+`resolved` 仍是 false；另外两条错题的计数一动没动。回到错题本，
+「重练连对 0 次」与库一致，且没有产生任何额外写。
+
+#### 最终数据隔离（AC-01 → AC-11 全量对账）
+
+**八个学生里只有 t6_done 变了**，其余七个逐字节相同。t6 的变化正好是
+授权范围：
+
+  · 那一份阅读答卷与它的四条 AnswerScript 变成 marked / 判 0 分；
+  · 一条 **released** 的 MarkerAssignment；
+  · 真实采集器产生的 **3 条** MistakeEntry；
+  · 其中一条上的**一次**重练结果。
+
+**临时效果全部按支持的 API 还原**：
+`t6words` 与 `t6logs` 两组快照与实测开始时**逐字节相同** ——
+临时词 `anchor` 已移除、自由练习那一次评分已撤销、自测那四次评分已撤销。
+
+生词本采集：StudentWord 4 → 4（这几道题不是词义题，本就不该采）。
+`GradeAppeal` 1 条、`AuditLog` 1 条**原样保留**（阶段 11 的合成申诉）；
+t5 的正式测试 attempt 未动；通知 0 / 0、出勤 0 **未变**。
+**全程没有一条直接 SQL 写入**，没有重置 / 删除 / 改写任何既有审计证据。
 
 ### 这一阶段没做什么
 
+> · **`ExamWordSheet` 的实机点词手势仍未验证** —— 12E 只走通了它的
+>   **token-only 请求边界**（查词 / 加词的形状与鉴权），那个**触屏手势本身**
+>   只有真设备能回答：jsdom 里连 `PointerEvent` 和 `caretRangeFromPoint`
+>   都没有，本地测试里两者都是手工桩。移动端 / PWA 行为同样未验证；
 > · **账号设置扩展**仍是后续强制任务，一行未开始；
-> · **没有部署、没有 staging 执行、没有任何数据库读写** ——
->   12A / 12B / 12C / 12D 的一切结论都只到「本地自动化验证」这一级。
->   这五个页面、这块查词能力、以及 12D 那条采集链**从来没有对着真 API 或
->   真库跑过**：所有响应形状来自读后端源码加上照着写的夹具。线上行为、
->   真机行为、移动端 / PWA 行为**都未验证** —— 尤其查词是个**触屏手势**
->   功能，jsdom 里连 `PointerEvent` 和 `caretRangeFromPoint` 都没有；
->   12D 那条链在真库上到底采到几条、采得对不对，同样只有实机能回答。
->   **staging / 实机验证仍然是强制的后续工作**；
-> · **阶段 12 整体仍未完成**（实机验证未做）；
-> · 所有阶段 12 的实现与自动化 / 实机验证都做完之后，
->   **还要新建一个仿生产的合成验收账号**做端到端验收 —— 那一项**同样是
->   强制的**，现在一步都没开始；
+> · **仿生产的合成验收账号一个都还没建** —— 阶段 12 收尾前的强制项，
+>   属于下一份独立合同，现在一步都没开始；
+> · **阶段 12 整体仍是 PENDING**，12E 不关闭它；
 > · **阶段 13 一行未开始**；
 > · staging 的免密夹具登录仍开着且**未改动**，退役期限见本文档开头的表。
 
