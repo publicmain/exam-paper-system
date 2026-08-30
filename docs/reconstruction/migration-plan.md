@@ -47,7 +47,7 @@
 | **9** | **课程学词 + 正式测试** | **✅ PASS**（2026-08-30）—— 9A/9D1/9D2A/9D2B 逐项修复后，9D2C 实跑发现正式测试只出两种题型，9D2D 修复并用 t6_done 实机验证**四种题型各一道 + 隐私 + 恢复 + 算分 + 数据隔离**，全链跑到 `/lesson/summary` | | ✓ | ✓ |
 | **10** | **今日总结** | **✅ PASS**（2026-08-30）—— 占位页换成只读真页面，本地 RED 19/25 → 25/25，t6_done 实机验证只读与服务端权威 | | ✓ | ✓ |
 | **11** | **账号制历史成绩** | **✅ PASS**（2026-08-30，含返工 1/2）—— `/scores` + `/scores/:submissionId`，token-only、阅读与词测两段分开、practice 不进列表、零分照实；t6_done 实机走通规范导航，拿 t5 的 submissionId 直闯被 403 挡住且不渲染任何答案，一条授权的合成申诉写入，其余库状态逐字节不变。返工 1/2 拿掉了详情页那个服务端没给过的派生百分比 | | ✓ | ✓ |
-| **12** | **生词本与错题本** | 🔧 **12A + 12B + 12C + 12D 本地完成**（2026-08-30）—— 五页 token-only（12A 三页含返工 1/2 与 2/2、12B 两页）＋ 考试中查词 token-only 重写并挂回阅读页（12C，含返工 1/2）＋ 判分定稿接上错题采集（12D，补一条 API 路径上从来没被调用过的断链）。四条线用路由和端点分开（G-12A / G-12B / G-12C）。**staging 实机验证、账号设置扩展、仿生产合成验收账号三项仍未开始**，整阶段未完成；全程**未部署、未真机、未碰数据库** | | ✓ | ✓ |
+| **12** | **生词本与错题本** | 🔧 **12A + 12B + 12C + 12D 本地完成**（2026-08-30）—— 五页 token-only（12A 三页含返工 1/2 与 2/2、12B 两页）＋ 考试中查词 token-only 重写并挂回阅读页（12C，含返工 1/2）＋ 判分定稿接上错题采集（12D，含返工 1/2，补一条 API 路径上从来没被调用过的断链）。四条线用路由和端点分开（G-12A / G-12B / G-12C）。**staging 实机验证、账号设置扩展、仿生产合成验收账号三项仍未开始**，整阶段未完成；全程**未部署、未真机、未碰数据库** | | ✓ | ✓ |
 | 13 | 旧 URL 单向适配 | ⬜ | | ✓ | ✓ |
 | 14 | staging 八账号实机验收 | ⬜ | | — | — |
 | 15 | 灰度切换（1 → 5 → 整班） | ⬜ | | — | 开关 |
@@ -3283,7 +3283,8 @@ npx vitest run src/__tests__/score-detail.test.tsx
 · base `61602ac` · 实现提交 `0ec6e54` · 返工 1/2 修复提交 `1ade3dd`。
 
 **12D**（判分定稿触发错题采集）`task_id: S12D-MISTAKE-COLLECTION-FINALIZE-LOCAL`
-· base `85e18ed` · 实现提交 `07493f7`。**这一条补的是后端的一段断链** ——
+· base `85e18ed` · 实现提交 `07493f7` ·
+**返工 1/2**（失败日志泄漏异常内容）基线 `6125263` · 修复提交 `675aaff`。**这一条补的是后端的一段断链** ——
 前面 12B 把错题本的页面做出来了，但生成错题的那一步在 API 路径上从来没被
 调用过。
 
@@ -4030,7 +4031,7 @@ B-3  带标记重新挂载直接是小字        → Unable to find [data-testid
 > 没有夹具与凭据**。
 
 
-### 12D —— 判分定稿触发错题采集　**本地完成**（2026-08-30）
+### 12D —— 判分定稿触发错题采集　**本地完成**（2026-08-30，含返工 1/2）
 
 `task_id: S12D-MISTAKE-COLLECTION-FINALIZE-LOCAL` · contract v1.0 ·
 base `85e18ed` · 实现提交 `07493f7`。
@@ -4107,8 +4108,17 @@ try {
   · **各自 try/catch** —— 它挂了不能连累生词本，反过来也一样；
   · **失败只记 warn** —— 判分绝不回滚，`finalize()` 的返回值一个字不变。
 
-日志里只有 `submissionId` / `day` / `added` 三个数 ——
-**不记学生答案、不记正确答案、不记老师评语、不记任何凭据或连接串**。
+两条日志，各自能出现什么：
+
+| | 内容 | 说明 |
+| --- | --- | --- |
+| **采集成功** | `submissionId` / `day` / `added` | 三个数，没有别的 |
+| **采集失败** | 一句**固定文本** + `submissionId` | **不看那个异常** |
+
+失败那一条**根本不绑异常变量**（`catch { … }`），所以 `message` /
+`stack` / `cause` 拼不进去，也没有「下次顺手加个 `e.code`」的口子。
+
+两条都**不记学生答案、不记正确答案、不记老师评语、不记任何凭据或连接串**。
 
 #### RED（对着 base `85e18ed`）
 
@@ -4149,6 +4159,83 @@ npx vitest run src/marker/marker-mistake-collection.spec.ts
 两个参数构造。多一个依赖之后，`this.mistakes` 会是 `undefined`，那一句调用
 会抛 —— 而它在 `try/catch` 里，**四条分数记账测试照样绿，但测的其实是
 「采集失败」那条分支**。绿得不对比红更难发现，所以把第三个桩补上了。
+
+#### 返工 1/2 —— 失败日志把异常内容原样印了出来
+
+基线 `6125263` · 修复提交 `675aaff`。
+
+**缺陷。** 第一版的 catch 是 `catch (e: any) { …: ${e?.message ?? e} }`。
+这一步**直接压在 Prisma 上**，而 Prisma 的异常会把连接串写进 `message`
+（`postgresql://user:password@host:port/db`），驱动层的错误还会在
+`stack` / `cause` 里带查询片段。复审在聚焦测试的输出里**直接看到了**
+喂进去的异常文本。
+
+日志的留存期、可见范围、导出路径跟数据库**完全不是一套** —— 把库的凭据
+写进日志，等于让它离开原本受管的边界。
+
+**修法（失败关闭）。** catch **根本不绑那个变量**：
+
+```ts
+} catch {
+  this.logger.warn(`mistake harvest failed for submission=${submissionId}`);
+}
+```
+
+不绑正是重点：拼不进去，也没有「下次顺手加个 `e.code`」的口子。
+**没有做「过滤敏感词」** —— 黑名单永远漏一种形状，换个驱动就换一种格式。
+
+代价是这行日志只说「哪一份没采集上」。要查为什么，去 Prisma 自己的日志
+或 APM 里按 `submissionId` 找 —— 那些地方本来就按敏感数据的规矩管着。
+
+**RED（对着 `6125263`）**
+
+```
+npx vitest run src/marker/marker-mistake-collection.spec.ts
+→ exit 1 ·  Tests 3 failed | 13 passed (16)
+```
+
+哨兵是一条完整的连接串，同时塞进 `message`、`stack`、`cause`：
+
+```
+Prisma 式异常          → 日志里泄漏了「postgresql://sentinel-user:sentinel-password@…」
+扔的不是 Error         → 同上（模板串把 toString() 拼了进去）
+扔字符串               → expected … not to contain 'sentinel-password'
+```
+
+第一条的实际输出是
+`mistake harvest failed for sub-1: Can't reach database server at postgresql://…`
+—— 整串凭据一字不差。
+
+**GREEN（`675aaff`）**
+
+修好之后同一份哨兵实测输出（直接抓 `Logger.warn` 的入参）：
+
+```
+EMITTED_WARNING >>> ["mistake harvest failed for submission=sub-1"]
+```
+
+七个哨兵片段（完整 URL、`postgresql://`、用户名、口令、主机、端口、库名）
+以及 stack / cause 标记**一个都不出现**；同时断言它确实还记了
+`mistake harvest failed` 与 `sub-1` —— 不能靠「什么都不记」来通过。
+
+| 命令 | exit | 结果 |
+| --- | --- | --- |
+| `src/marker/`（聚焦） | 0 | marker.service **4** · marker-mistake-collection **16**（11 → +5） |
+| `src/vocab/mistake.service.spec.ts` | 0 | **18**（未改） |
+| `npx vitest run`（api 全量） | 0 | 94 files / **1350** passed（1345 → +5） |
+| `npx tsc --noEmit -p tsconfig.json` / `npm run build`（api） | 0 | 干净 |
+| `npx vitest run` + `tsc`（student-web 全量） | 0 | 26 files / **919** |
+| `npx vitest run` + `tsc`（web 全量） | 0 | 37 files / **247** |
+| `git diff --check` | 0 | 无空白错误 |
+
+判分、采集时机、采集参数、best-effort 边界**一个字都没动**（同一批测试
+里逐条复验：状态仍是 `marked`、分数仍是 1/2/3、认领仍释放一次、生词本
+仍采集一次、错题仍采集一次且参数仍是 `('sub-1','2026-08-27')`）。
+
+**这一轮只动了两个文件**：`marker.service.ts` 与它的新 spec。
+
+> 既有的**生词本采集**那条 warn 是同样的写法，但它在这次的冻结范围之外，
+> 按合同**未改动** —— 记在这里，免得被当成「查过了没问题」。
 
 > 这一节的一切结论只到「本地自动化验证」这一级。
 > **staging / 实机验证一步都没开始** —— 这条链在真库上到底采到几条、
