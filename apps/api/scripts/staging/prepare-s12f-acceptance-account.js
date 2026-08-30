@@ -265,6 +265,21 @@ function sgtInstant(dayIso, hhmmss) {
   return new Date(Date.parse(`${dayIso}T${hhmmss}.000Z`) - 8 * 3600_000);
 }
 
+/**
+ * 「N 天前的那个钟点」——历史事实的时间戳**只能**用它算。
+ *
+ * 不能用 `now - N*24h`：那算出来的是一个**相对此刻**的瞬刻，
+ * 晚上跑脚本时它会落进**今天的 SGT 日历日**。
+ *
+ * 2026-08-30 22:18 SGT 实测：`now - 1 天 + 3 小时` = 昨天 17:18Z，
+ * 而今天的 SGT 零点是昨天 16:00Z —— 14 条复习流水因此落进了今天，
+ * 学生还没动手就会看到「今天复习 14 次」，那几个词还会被拉进
+ * 今天的队列。钉在日历日的钟点上就永远不会。
+ */
+function dayBefore(todayIso, daysAgo, hhmmss) {
+  return sgtInstant(dayMinus(todayIso, Math.max(1, Math.round(daysAgo))), hhmmss);
+}
+
 // ─────────────────────────────────────────────────────────────
 // 拥有的 id
 // ─────────────────────────────────────────────────────────────
@@ -643,6 +658,7 @@ function buildPlan(input) {
       reviewLogs.push({
         id: `${OWNED_PREFIX}rl_${String(logSeq).padStart(4, '0')}`,
         wordId: w.id,
+        seq: logSeq,
         daysAgo,
         // 掉回学习态的那批一定有 again；其余轮换
         rating: w.relearning && k === 0 ? 'again' : RATINGS[(i + k) % RATINGS.length],
@@ -973,9 +989,14 @@ async function runPreflight(tx, plan) {
        (SELECT count(*) FROM "Attendance" WHERE "studentId" = '${ACCOUNT.id}')::int AS "attendanceToday",
        (SELECT count(*) FROM "VocabQuizAttempt" WHERE "studentId" = '${ACCOUNT.id}'
           AND date = '${day}')::int AS "attemptsToday",
+       -- 夹具自己造的行不算「用户活动」（重建时它们本就会被删掉），
+       -- 否则一旦夹具自己写错了时间，它就再也修不好自己。
+       -- 夹具自己写错时间这件事由 verifyAfterWrite 那一道拦。
        (SELECT count(*) FROM "WordReviewLog" l JOIN "StudentWord" w ON w.id = l."studentWordId"
-          WHERE w."studentId" = '${ACCOUNT.id}' AND l."reviewedAt" >= '${day}T00:00:00.000Z'::timestamptz - interval '8 hours')::int AS "reviewLogsToday",
+          WHERE w."studentId" = '${ACCOUNT.id}' AND l.id NOT LIKE '${OWNED_PREFIX}%'
+          AND l."reviewedAt" >= '${day}T00:00:00.000Z'::timestamptz - interval '8 hours')::int AS "reviewLogsToday",
        (SELECT count(*) FROM "MistakeEntry" WHERE "studentId" = '${ACCOUNT.id}'
+          AND id NOT LIKE '${OWNED_PREFIX}%'
           AND "lastPracticedAt" >= '${day}T00:00:00.000Z'::timestamptz - interval '8 hours')::int AS "mistakePracticeToday",
        (SELECT count(*) FROM "GradeAppeal" g JOIN "StudentSubmission" s ON s.id = g."submissionId"
           WHERE s."studentId" = '${ACCOUNT.id}' AND g."createdAt" >= '${day}T00:00:00.000Z'::timestamptz - interval '8 hours')::int AS "appealsToday"`,
@@ -1355,6 +1376,7 @@ async function writeAll(tx, plan, pinHash, placeholderPasswordHash) {
         sourcePassageTitle: w.sourcePassageTitle,
         contextSentence: w.contextSentence,
         state: w.state,
+        // `due` 是**调度**字段，相对此刻算才对（到期 / 未到期）。
         due: new Date(now.getTime() + w.dueHours * 3600_000),
         stability: w.stability,
         difficulty: w.difficulty,
@@ -1362,11 +1384,11 @@ async function writeAll(tx, plan, pinHash, placeholderPasswordHash) {
         scheduledDays: w.scheduledDays,
         reps: w.reps,
         lapses: w.lapses,
-        lastReview: w.taught ? new Date(now.getTime() - (1 + (w.reps % 5)) * 86_400_000) : null,
+        // 下面两个是**历史事实**，必须钉在某个过去的日历日的钟点上。
+        // 用 `now - N 天` 会在傍晚跑脚本时落进**今天**（见 dayBefore 的注释）。
+        lastReview: w.taught ? dayBefore(plan.todayIso, 1 + (w.reps % 5), '19:00:00') : null,
         firstTaughtAt:
-          w.firstTaughtDaysAgo == null
-            ? null
-            : new Date(now.getTime() - w.firstTaughtDaysAgo * 86_400_000),
+          w.firstTaughtDaysAgo == null ? null : dayBefore(plan.todayIso, w.firstTaughtDaysAgo, '08:45:00'),
       },
     });
   }
@@ -1378,7 +1400,11 @@ async function writeAll(tx, plan, pinHash, placeholderPasswordHash) {
         id: r.id,
         studentWordId: r.wordId,
         rating: r.rating,
-        reviewedAt: new Date(now.getTime() - r.daysAgo * 86_400_000 + 3 * 3600_000),
+        // 复习流水必须整条落在**过去的日历日**里 —— 一条落进今天，学生
+        // 还没动手就会看到「今天复习 N 次」，而且那些词会被拉进今天的队列。
+        reviewedAt: new Date(
+          dayBefore(plan.todayIso, r.daysAgo, '19:00:00').getTime() + (r.seq % 3600) * 1000,
+        ),
         elapsedMs: r.elapsedMs,
       },
     });
@@ -1406,14 +1432,14 @@ async function writeAll(tx, plan, pinHash, placeholderPasswordHash) {
         vocabWord: m.vocabWord,
         reason: m.reason,
         resolved: m.resolved,
-        resolvedAt: m.resolvedDaysAgo ? new Date(now.getTime() - m.resolvedDaysAgo * 86_400_000) : null,
+        resolvedAt: m.resolvedDaysAgo ? dayBefore(plan.todayIso, m.resolvedDaysAgo, '17:40:00') : null,
         practiceCount: m.practiceCount,
         correctStreak: m.correctStreak,
         lastPracticedAt: m.practicedDaysAgo
-          ? new Date(now.getTime() - m.practicedDaysAgo * 86_400_000)
+          ? dayBefore(plan.todayIso, m.practicedDaysAgo, '17:20:00')
           : null,
         quizDay: m.quizDay,
-        createdAt: new Date(now.getTime() - (day.offset - 0) * 86_400_000),
+        createdAt: sgtInstant(day.dayIso, '16:30:00'),
       },
     });
   }
@@ -1432,8 +1458,8 @@ async function writeAll(tx, plan, pinHash, placeholderPasswordHash) {
           ap.status === 'accepted'
             ? '【STAGING SYNTHETIC · S12F】说得对，这个说法也成立，已补分。'
             : '【STAGING SYNTHETIC · S12F】原文说的是「大部分」，不是「全部」，维持原判。',
-        reviewedAt: new Date(now.getTime() - (ap.daysAgo - 0.5) * 86_400_000),
-        createdAt: new Date(now.getTime() - ap.daysAgo * 86_400_000),
+        reviewedAt: dayBefore(plan.todayIso, ap.daysAgo, '20:30:00'),
+        createdAt: dayBefore(plan.todayIso, ap.daysAgo, '18:00:00'),
       },
     });
   }
@@ -1551,6 +1577,13 @@ async function verifyAfterWrite(tx, plan) {
        (SELECT count(*) FROM "DailyLessonCompletion" WHERE "studentId" = '${A}' AND date = '${day}T00:00:00.000Z')::int AS dlc_today,
        (SELECT count(*) FROM "VocabQuizAttempt" WHERE "studentId" = '${A}' AND date = '${day}')::int AS attempts_today,
        (SELECT count(*) FROM "Attendance" WHERE "studentId" = '${A}')::int AS attendance,
+       (SELECT count(*) FROM "WordReviewLog" l JOIN "StudentWord" w ON w.id = l."studentWordId"
+          WHERE w."studentId" = '${A}'
+          AND l."reviewedAt" >= '${day}T00:00:00.000Z'::timestamptz - interval '8 hours')::int AS logs_today,
+       (SELECT count(*) FROM "MistakeEntry" WHERE "studentId" = '${A}'
+          AND "lastPracticedAt" >= '${day}T00:00:00.000Z'::timestamptz - interval '8 hours')::int AS practice_today,
+       (SELECT count(*) FROM "StudentWord" WHERE "studentId" = '${A}'
+          AND "lastReview" >= '${day}T00:00:00.000Z'::timestamptz - interval '8 hours')::int AS lastreview_today,
        (SELECT count(*) FROM "MorningQuizSession" WHERE id = '${plan.today.sessionId}' AND status = 'active')::int AS today_session,
        (SELECT count(*) FROM "PaperQuestion" WHERE "paperId" = '${plan.today.paperId}')::int AS today_questions`,
   );
@@ -1572,6 +1605,11 @@ async function verifyAfterWrite(tx, plan) {
     ['申诉数', Number(r.appeals) === expect.appeals],
     ['当天没有任务行', Number(r.dlc_today) === 0],
     ['当天没有正式测试', Number(r.attempts_today) === 0],
+    // 下面三条盯的是**夹具自己**有没有把历史时间戳写进今天。
+    // 2026-08-30 22:18 SGT 的实跑就是这里漏了：14 条复习流水落进了今天。
+    ['当天没有复习流水', Number(r.logs_today) === 0],
+    ['当天没有错题重练', Number(r.practice_today) === 0],
+    ['没有一个词的 lastReview 落在今天', Number(r.lastreview_today) === 0],
     ['一条考勤都没有', Number(r.attendance) === 0],
     ['今天的场次是 active', Number(r.today_session) === 1],
     ['今天的卷子题数', Number(r.today_questions) === expect.todayQuestions],
@@ -1675,6 +1713,7 @@ module.exports = {
   dayMinus,
   dayLabel,
   sgtInstant,
+  dayBefore,
   ownedIdsOf,
   assertOwnedPrefix,
   buildPlan,

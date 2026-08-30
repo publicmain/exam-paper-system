@@ -43,6 +43,8 @@ type Prep = {
   assertEnvGates(env: Record<string, string>): void;
   singaporeDay(nowMs?: number): string;
   dayMinus(iso: string, n: number): string;
+  sgtInstant(iso: string, hhmmss: string): Date;
+  dayBefore(todayIso: string, daysAgo: number, hhmmss: string): Date;
   ownedIdsOf(plan: Plan): string[];
   assertOwnedPrefix(ids: string[]): boolean;
   buildPlan(input: { todayIso: string; words: string[] }): Plan;
@@ -873,6 +875,9 @@ describe('S12F —— 前置检查与事务顺序', () => {
           appeals: d.appeals,
           dlc_today: 0,
           attempts_today: 0,
+          logs_today: 0,
+          practice_today: 0,
+          lastreview_today: 0,
           attendance: 0,
           today_session: 1,
           today_questions: d.todayQuestions,
@@ -880,5 +885,115 @@ describe('S12F —— 前置检查与事务顺序', () => {
       ],
     });
     await expect(p.verifyAfterWrite(tx, plan)).resolves.toBeTruthy();
+  });
+});
+
+// ─────────────────────────────────────────────────────────────
+// 11. 历史时间戳必须落在过去的日历日里
+//
+// 2026-08-30 22:18 SGT 的 staging 实跑抓到的缺陷：所有「N 天前」都是按
+// `now - N*24h` 算的，那是个**相对此刻**的瞬刻。晚上跑脚本时
+// `now - 1 天 + 3 小时` 落在昨天 17:18Z，而今天的 SGT 零点是昨天 16:00Z
+// —— 14 条复习流水因此落进了「今天」，学生还没动手就会看到
+// 「今天复习 14 次」，那些词还会被拉进今天的队列。
+// ─────────────────────────────────────────────────────────────
+
+describe('S12F —— 历史时间戳的日历日归属', () => {
+  /** 今天的 SGT 零点对应的真实 UTC 瞬刻。 */
+  const sgtMidnight = (todayIso: string) => Date.parse(`${todayIso}T00:00:00.000Z`) - 8 * 3600_000;
+
+  it('dayBefore 永远落在指定的那个过去日历日里', () => {
+    const p = mod();
+    for (const n of [1, 2, 5, 14]) {
+      const t = p.dayBefore(DAY, n, '19:00:00');
+      expect(t.getTime()).toBeLessThan(sgtMidnight(DAY));
+      expect(t.toISOString()).toBe(p.sgtInstant(p.dayMinus(DAY, n), '19:00:00').toISOString());
+    }
+  });
+
+  it('复习流水没有一条落在今天（这条就是实跑抓到的那个缺陷）', async () => {
+    const p = mod();
+    const plan = planOf();
+    const { tx, events } = fakeTx();
+    await p.writeAll(tx, plan, 'H', 'P');
+    const rows = events.filter((e) => e.what === 'wordReviewLog.create');
+    expect(rows.length).toBe(198);
+    const cutoff = sgtMidnight(DAY);
+    for (const r of rows) {
+      const t: Date = r.args.data.reviewedAt;
+      expect(t.getTime(), `复习流水 ${r.args.data.id} 落在了今天`).toBeLessThan(cutoff);
+    }
+    // 而且要真的散布在多天上，不是全挤在一天
+    const days = new Set(rows.map((r) => (r.args.data.reviewedAt as Date).toISOString().slice(0, 10)));
+    expect(days.size).toBeGreaterThanOrEqual(10);
+  });
+
+  it('生词的 lastReview / firstTaughtAt 也都在今天之前', async () => {
+    const p = mod();
+    const { tx, events } = fakeTx();
+    await p.writeAll(tx, planOf(), 'H', 'P');
+    const cutoff = sgtMidnight(DAY);
+    for (const e of events.filter((x) => x.what === 'studentWord.create')) {
+      const { lastReview, firstTaughtAt, due } = e.args.data;
+      if (lastReview) expect(lastReview.getTime(), `${e.args.data.headword} 的 lastReview 落在今天`).toBeLessThan(cutoff);
+      if (firstTaughtAt) expect(firstTaughtAt.getTime()).toBeLessThan(cutoff);
+      // `due` 是调度字段，**故意**允许落在今天甚至将来
+      expect(due instanceof Date).toBe(true);
+    }
+  });
+
+  it('错题的 lastPracticedAt / resolvedAt / createdAt 都在今天之前', async () => {
+    const p = mod();
+    const { tx, events } = fakeTx();
+    await p.writeAll(tx, planOf(), 'H', 'P');
+    const cutoff = sgtMidnight(DAY);
+    for (const e of events.filter((x) => x.what === 'mistakeEntry.create')) {
+      const { lastPracticedAt, resolvedAt, createdAt } = e.args.data;
+      if (lastPracticedAt) expect(lastPracticedAt.getTime()).toBeLessThan(cutoff);
+      if (resolvedAt) expect(resolvedAt.getTime()).toBeLessThan(cutoff);
+      expect(createdAt.getTime()).toBeLessThan(cutoff);
+    }
+  });
+
+  it('申诉的时间也在今天之前，且批注晚于提交', async () => {
+    const p = mod();
+    const { tx, events } = fakeTx();
+    await p.writeAll(tx, planOf(), 'H', 'P');
+    const cutoff = sgtMidnight(DAY);
+    for (const e of events.filter((x) => x.what === 'gradeAppeal.create')) {
+      const { createdAt, reviewedAt } = e.args.data;
+      expect(createdAt.getTime()).toBeLessThan(cutoff);
+      expect(reviewedAt.getTime()).toBeLessThan(cutoff);
+      expect(reviewedAt.getTime()).toBeGreaterThan(createdAt.getTime());
+    }
+  });
+
+  it('回读校验会拦住「自己把历史写进了今天」', async () => {
+    const p = mod();
+    const plan = planOf();
+    const d = p.distributionsOf(plan);
+    const good = {
+      submissions: d.readingSubmissions, marked: d.markedSubmissions, pending: d.pendingSubmissions,
+      scripts: d.readingSubmissions * 6, dlc: d.lessonDays, attempts: d.attempts, words: d.words,
+      words_due: 21, words_quizzable: 19, review_logs: d.reviewLogs, mistakes: d.mistakes,
+      mistakes_open: d.mistakesUnresolved, appeals: d.appeals, dlc_today: 0, attempts_today: 0,
+      logs_today: 0, practice_today: 0, lastreview_today: 0, attendance: 0, today_session: 1,
+      today_questions: d.todayQuestions,
+    };
+    for (const k of ['logs_today', 'practice_today', 'lastreview_today']) {
+      const { tx } = fakeTx({ readback: [{ ...good, [k]: 1 }] });
+      await expect(p.verifyAfterWrite(tx, plan), `${k} 不为零却没被拦住`).rejects.toThrow();
+    }
+  });
+
+  it('前置检查把「夹具自己的当天行」和「用户造的当天行」分开看', () => {
+    const src = fs.readFileSync(
+      path.resolve(__dirname, '..', 'prepare-s12f-acceptance-account.js'),
+      'utf8',
+    );
+    // 当天的复习流水 / 错题重练这两项要排除 s12f_ 前缀的行 ——
+    // 否则夹具一旦自己写错时间，它就再也修不好自己。
+    expect(src).toContain('l.id NOT LIKE');
+    expect(src).toContain('AND id NOT LIKE');
   });
 });
