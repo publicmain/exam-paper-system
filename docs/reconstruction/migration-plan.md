@@ -3289,8 +3289,9 @@ npx vitest run src/__tests__/score-detail.test.tsx
 调用过。
 
 **12E**（staging 实机验证）`task_id: S12E-VOCAB-MISTAKES-STAGING-LIVE`
-· base `b138b97` · **本节唯一一个动了 staging 与真库的任务**，
-证据见本节末尾的 **12E** 小节。
+· base `b138b97` · 文档提交 `94edb48` ·
+**返工 1/2**（连接目标的身份证据不够硬）基线 `94edb48`。
+**本节唯一一个动了 staging 与真库的任务**，证据见本节末尾的 **12E** 小节。
 
 **12A–12D 四个都是纯本地任务：没有部署、没有 staging 执行、没有任何数据库
 断言。第一次离开本地是 12E。**
@@ -4285,8 +4286,14 @@ Railway 项目 id、**库里必须正好是那八个虚构学生**（生产库�
 
 > 第一版的闸门是「连接串主机名 == Postgres 服务域名」，实测直接拒绝 ——
 > `DATABASE_PUBLIC_URL` 走的是 Railway 的 **TCP 代理域**，跟服务自己的
-> HTTP 域名不是一回事。改成上面那两条，既绑得住身份，又不用把连接目标
-> 抄进脚本。
+> HTTP 域名不是一回事。当时改成了上面那两条，既绑得住身份，又不用把连接
+> 目标抄进脚本。
+>
+> **但那两条比冻结合同要求的「精确域名绑定」弱**：项目 id 加夹具集合能
+> 证明「这个库是 staging 那个库」，**证明不了「连过去的那个地址就是这个
+> 项目的 Postgres TCP 代理」**。这个缺口由**返工 1/2** 单独补上，
+> 见下面一小节。**那次写入就是在较弱的闸门下发生的** —— 这一点如实留在
+> 这里，不追改。
 
 写入全部经由**真实服务方法**（无一条 ad-hoc SQL）：
 `claim()` → 四条 structured 脚本各 `scoreScript({awardedMarks: 0, 合成评语})`
@@ -4312,6 +4319,67 @@ Railway 项目 id、**库里必须正好是那八个虚构学生**（生产库�
 | 归属 | 三条全部只属于 t6 与这一份答卷 |
 | 幂等 | 再调一次采集 `added=0`，总数仍是 3 |
 | 生词本 | StudentWord 4 → 4（这四道不是词义题，本就不该采词） |
+
+#### 返工 1/2 —— 补上连接目标的身份证据（**只读，没有重跑任何写**）
+
+`rework_round: 1/2` · contract v1.1 · 基线 `94edb48`。复审只留了一个阻断项：
+上面那个较弱的闸门。补法是**再跑一次一次性运行器，但这次一个字节都不写**。
+
+先把 Postgres 服务的变量取进内存（**只在进程里，不落盘、不打印**），
+在**加载 Prisma 之前**逐条比对：
+
+| 判据 | 结果 |
+| --- | --- |
+| `RAILWAY_PROJECT_ID` == `ed8c31c0-…` | true |
+| `RAILWAY_PROJECT_NAME` == `exam-staging-manual` | true |
+| `RAILWAY_ENVIRONMENT_NAME` == `production` | true |
+| `RAILWAY_SERVICE_NAME` == `Postgres` | true |
+| `DATABASE_PUBLIC_URL` 是合法 PostgreSQL URL | true |
+| **`new URL(...).hostname` == `RAILWAY_TCP_PROXY_DOMAIN`** | **true** |
+| **URL 端口 == `RAILWAY_TCP_PROXY_PORT`** | **true** |
+| 显式确认串在场 | true |
+
+—— 这就是 12E 当时缺的那一条：**连过去的主机与端口，正是这个项目、这个
+环境、这个 Postgres 服务自己声明的 TCP 代理。** 表里**只有布尔值**：
+主机名、端口、用户名、口令、URL 一个都没有落进文档或日志，
+连它们的哈希都没有。
+
+闸门**先证明会拒**，八类各来一次（全部在连接之前）：
+
+```
+refused  wrong project id        :: RAILWAY_PROJECT_ID
+refused  wrong project name      :: RAILWAY_PROJECT_NAME
+refused  wrong environment       :: RAILWAY_ENVIRONMENT_NAME
+refused  wrong service           :: RAILWAY_SERVICE_NAME
+refused  wrong proxy hostname    :: PROXY_HOSTNAME
+refused  wrong proxy port        :: PROXY_PORT
+refused  missing confirmation    :: CONFIRMATION
+refused  malformed database url  :: DATABASE_PUBLIC_URL_SYNTAX
+```
+
+其中「缺确认串」那一类还**整跑了一遍**：闸门在 `GATE OPEN :: false` 处
+停住，退出码 2，**根本没有加载数据库客户端**。
+
+闸门全开之后**开一个事务，第一句就是 `SET TRANSACTION READ ONLY`**
+（事务内自查 `show transaction_read_only` = `on`），只读地核对：
+
+  · student 角色的用户集合**正好是那八个夹具 id**；
+  · 答卷 `cmtfe2lch00madbifqk83zqpg` 仍属于 `t6_done`、仍是 marked、仍是 0 / 4；
+  · 它的认领仍是 released；
+  · 12E 采到的**三条错题都在**，且都属于 t6 与这份答卷；
+  · 其中**恰好一条** `practiceCount = 1`（`cmtfsiaxq0007rziizgp21xjr`），
+    另外两条仍是 0；
+  · t6 的 StudentWord 仍是 **4**、WordReviewLog 仍是 **4**；
+  · 阶段 11 的 GradeAppeal（1 条）与 AuditLog（1 条）仍在；
+  · t5 的正式测试 attempt 仍在；
+  · 全库 MistakeEntry 总数仍是 **3**。
+
+十七项全过，事务提交，运行器与它的临时 Railway 链接目录**当场删掉**。
+
+> **为什么这样就够**：12E 全程**没有部署 Postgres、没有改它的任何变量**
+> （部署 ID 仍是 `73871ad2-…`，变量键指纹未变），所以**今天量到的代理
+> 主机与端口，就是那次写入时连的那一个**。这条证据链因此不需要重跑任何
+> 业务写入 —— 事实上这一轮**一个写都没有**。
 
 #### token-only 与请求账目
 
