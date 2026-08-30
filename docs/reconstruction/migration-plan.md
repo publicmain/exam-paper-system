@@ -3269,7 +3269,7 @@ npx vitest run src/__tests__/score-detail.test.tsx
 
 ---
 
-## 阶段 12 —— 生词本与错题本　🔧 **12A–12D 本地完成 + 12E staging 实机验证完成**（2026-08-30），**整阶段仍未完成**
+## 阶段 12 —— 生词本与错题本　🔧 **12A–12D 本地完成 · 12E staging 实机验证完成 · 12F 验收账号夹具就绪但被词典拦住**（2026-08-30），**整阶段 `AWAITING_USER_ACCEPTANCE`**
 
 **12A**（生词本与自由练习）`task_id: S12A-VOCAB-BOOK-AND-FREE-PRACTICE-LOCAL`
 · base `7c9fd6e` · 第一轮实现 `c41de57` ·
@@ -3292,6 +3292,10 @@ npx vitest run src/__tests__/score-detail.test.tsx
 · base `b138b97` · 文档提交 `94edb48` ·
 **返工 1/2**（连接目标的身份证据不够硬）基线 `94edb48`。
 **本节唯一一个动了 staging 与真库的任务**，证据见本节末尾的 **12E** 小节。
+
+**12F**（仿生产的合成验收账号）`task_id: S12F-PRODUCTION-LIKE-ACCEPTANCE-ACCOUNT`
+· base `801c164` · 实现提交 `adbf675`。夹具与 72 项本地测试就绪，
+**但在 staging 上被前置检查拦在写入之前** —— 见本节末尾的 **12F** 小节。
 
 **12A–12D 四个都是纯本地任务：没有部署、没有 staging 执行、没有任何数据库
 断言。第一次离开本地是 12E。**
@@ -4466,16 +4470,159 @@ UI 移到「已经弄懂」段、总数 3 → 2；再恢复 → 库里 `resolved
 t5 的正式测试 attempt 未动；通知 0 / 0、出勤 0 **未变**。
 **全程没有一条直接 SQL 写入**，没有重置 / 删除 / 改写任何既有审计证据。
 
+### 12F —— 仿生产的合成验收账号　**夹具就绪，staging 上 NO-GO**（2026-08-30）
+
+`task_id: S12F-PRODUCTION-LIKE-ACCEPTANCE-ACCOUNT` · contract v1.0 ·
+base `801c164` · 实现提交 `adbf675`。
+
+阶段 12 的收尾项：用户要**亲手**从头到尾走一遍线性七步流程，走之前需要一个
+**看起来已经用了两周**的账号。这个账号与 t1–t8 有两点根本不同 ——
+**走普通的姓名 + PIN 登录**（不碰免密端点、不加任何鉴权旁路），
+而且**数据是厚的**，不是只钉一个边界的薄夹具。
+
+#### 结论先写：**NO-GO，一行都没写**
+
+夹具在 staging 上被**自己的前置检查**拦住，事务回滚，零写入：
+
+```
+S12F 验收账号夹具未执行：
+拒绝执行：候选词表里只有 0 个词在词典里，撑不起 50 个生词。
+```
+
+只读复查坐实了原因：**staging 的 `DictEntry` 里总共只有 8 个词**
+（`anchor / harbour / lantern / meadow / pebble / ripple / vessel / willow`
+—— 八账号夹具当年只播了这些，正好够 t4 / t5 / t6 那几个场景）。
+合同 AC-07 要的是 **40–60 个有真实音标 / 释义的生词**，还要能撑起正式测试的
+四种题型和四选一的干扰项。8 个词撑不起来。
+
+这正是合同 STOP 条件里点名的那一条（「所选词典撑不起 50 个词」），
+所以**不绕**：不把词数降到 8（那违反 AC-07），也不顺手往 `DictEntry` 里补词
+—— 词典是**共享参考数据**，主键就是单词本身、没法带 `s12f_` 前缀，
+因此既不在本合同授权的写入范围里，也过不了「可替换的行必须带前缀」这道闸。
+**解阻需要用户单独授权补词典。**
+
+零写入是量出来的：八个学生的完整指纹快照**前后逐字节相同**，
+`User / Class / Paper / Question / PaperQuestion / PaperAssignment /
+MorningQuizSession / StudentSubmission / AnswerScript /
+DailyLessonCompletion / VocabQuizAttempt / StudentWord / WordReviewLog /
+MistakeEntry / GradeAppeal` **十五张表里 `s12f_` 开头的行都是 0**。
+全局计数也没变：申诉 1 / 审计 1 / 通知 0-0 / 出勤 0 / 错题 3。
+
+#### 夹具本身已经就绪
+
+两个文件，**没有任何运行时 / schema / 迁移 / 依赖 / 部署改动**：
+`apps/api/scripts/staging/prepare-s12f-acceptance-account.js` 与它的 spec。
+
+**十一道闸门**，前八道在加载 Prisma **之前**跑完：
+Railway 项目 id / 项目名 / 环境 / 服务，`DATABASE_PUBLIC_URL` 是合法
+PostgreSQL URL，**它的主机名等于 `RAILWAY_TCP_PROXY_DOMAIN`、端口等于
+`RAILWAY_TCP_PROXY_PORT`**（这一条正是 12E 返工补上的那个身份缺口），
+逐字确认串，以及 `S12F_ACCEPTANCE_PIN` 恰好八位数字。
+另外三道要读库，放在事务里、任何写之前：通知全关、在读学生正好是
+t1–t8（或加上本账号）、每一个可替换的 id 都带 `s12f_` 前缀。
+
+**十一类反例在 staging 上逐个跑过，全部拒绝执行，且错误信息里
+一个取值都没有**（连接串 / 主机 / 端口 / 用户名 / 口令 / PIN 全部不回显）：
+
+```
+refused  wrong project id / wrong project name / wrong environment / wrong service
+refused  wrong proxy hostname / wrong proxy port
+refused  missing confirmation / malformed database url
+refused  missing pin / 7-digit pin / sequential pin
+all negative gates refused :: true      leak=false（逐条核对过）
+```
+
+**PIN**：仓库里**没有默认值、没有回退**。由调用方在内存里随机生成后经环境
+变量传入，脚本只把它交给 bcrypt（cost 10，与普通注册同一条路径）。
+源码里没有八位数字字面量、没有 bcrypt 摘要；回执里每一处插值都被测试扫过、
+确认与 PIN 无关。
+
+#### 计划里的数据（本地已钉死，尚未落库）
+
+| 项 | 数量 |
+| --- | --- |
+| 历史课程日 | 13（其中 4 天只走了一半） |
+| 阅读答卷 | 12 —— **10 份已判**（0 / 4 / 4 / 5 / 5 / 5 / 5 / 5 / 6 / 8），**2 份诚实待判** |
+| 逐题答案 | 72（对 38 · 半对 10 · 错但非空 21 · 空白 3） |
+| 正式单词测试 | 11（含一次 0 分、两次满分），四种题型都出现过 |
+| 生词 | 50 —— 新 10 / 学习中 12 / 复习中 20 / 已掌握 8；**到期 21 · 将来 29** |
+| 其中「重新学习」 | 5（`state=learning` 且 `lapses ≥ 1`） |
+| 复习流水 | 198 条，跨 14 天，四种评分都有 |
+| 错题 | 20 —— 未销账 16 / 已销账 4；6 种题型；三种收录原因齐 |
+| 合成申诉 | 2（正文与批注都带 `STAGING SYNTHETIC` 标记） |
+| 今天的卷子 | 10 题 · 4 种 IELTS 任务类型 · `rendererKey=ielts_reading` · `config.mode=passage_pick` |
+
+> **「重新学习」是怎么表达的**：`VocabState` 这个枚举只有
+> `new / learning / review / known` 四个取值，没有 `relearning`。
+> FSRS 里「复习失败掉回学习态」的那一批，在这个模型里就是
+> **`state=learning` 且 `lapses ≥ 1`**。加枚举值属于 schema 改动，
+> 本合同禁止 —— 所以这是**如实映射**，不是凑数。
+
+今天那份卷子里留了 **`blossom`** 给用户做查词测试（词典里有、这个账号的
+本子里没有、**也不是任何一道题的答案**），第 4 题是单行填空，专门用来试
+词卡的「填入第 N 题」。作答窗按 **00:01–23:59** 写死 ——
+**不依赖 `MORNING_QUIZ_ALL_DAY` 这个环境变量**，因为本合同不许改 Railway 配置，
+而用户什么时候做验收是他自己的事。
+
+#### 本地验证
+
+先把实现挪出仓库，让 spec 对着冻结基线跑，**RED 是量出来的**：
+`57 failed | 15 passed (72)`，套件正常收集并执行。
+那 15 项「通过」是**假绿** —— 它们是 `expect(...).toThrow()` 形式的否定断言，
+在模块缺失时因为取模块那一步自己抛而通过，**不计入 RED 证据**
+（与 12D 同一条纪律）。
+
+实现回来之后：
+
+| 命令 | exit | 结果 |
+| --- | --- | --- |
+| 聚焦 spec | 0 | **72 passed** |
+| `node --check`（夹具脚本） | 0 | 干净 |
+| api 全量 `vitest run` | 0 | 95 files / **1422** passed（94 / 1350 → +1 file / +72） |
+| api `tsc --noEmit` / `nest build` | 0 / 0 | 干净 |
+| student-web 全量 + tsc + build | 0 | 26 files / **919** passed |
+| web 全量 + tsc | 0 | 37 files / **247** passed |
+| `git diff --check` | 0 | 无空白错误 |
+
+#### 部署与配置基线（本任务**没有部署任何东西**）
+
+四个服务的部署 ID 与 12E 记录的**逐字相同**，状态全部 SUCCESS：
+stg-api `6f08ca63-…` · spike `5323fc0e-…` · stg-web `33fce087-…` ·
+Postgres `73871ad2-…`。变量键数未变（stg-api 24 / stg-web 15 / spike 16 /
+Postgres 33），`STUDENT_APP_V2` 四个服务上仍然都不存在。
+`/api/health` 与 `/api/health/ready` 都是 200，六条 SPA 路由都是 200。
+
+> 顺带更正一处记录：12E 那一节写的「ready 200」指的是
+> **`/api/health/ready`**；`/api/ready` 这个路径并不存在（404）。
+
+#### 用户走查清单
+
+[`docs/manual-s12f-acceptance-test-plan.md`](../manual-s12f-acceptance-test-plan.md)
+—— 23 步，每步都写了预期路由、该看到什么、**失败长什么样**、
+以及**会不会留下永久的 staging 证据**。开头第一屏就是那条 NO-GO 警告：
+账号还没建成，**在解阻之前一步都不要开始**。文档里**没有勾掉任何一项**。
+
+#### 阶段 12 的状态
+
+**`AWAITING_USER_ACCEPTANCE`** —— 不是 PASS。实现与自动化验证做完了，
+但阶段 12 要等**用户本人走完那 23 步**才谈得上通过。
+当前还多一道阻断：**验收账号本身还没建成**。
+
+---
+
 ### 这一阶段没做什么
 
 > · **`ExamWordSheet` 的实机点词手势仍未验证** —— 12E 只走通了它的
 >   **token-only 请求边界**（查词 / 加词的形状与鉴权），那个**触屏手势本身**
 >   只有真设备能回答：jsdom 里连 `PointerEvent` 和 `caretRangeFromPoint`
 >   都没有，本地测试里两者都是手工桩。移动端 / PWA 行为同样未验证；
-> · **账号设置扩展**仍是后续强制任务，一行未开始；
-> · **仿生产的合成验收账号一个都还没建** —— 阶段 12 收尾前的强制项，
->   属于下一份独立合同，现在一步都没开始；
-> · **阶段 12 整体仍是 PENDING**，12E 不关闭它；
+> · **仿生产的合成验收账号仍然没建成** —— 12F 把夹具写好了，
+>   但被 staging 只有 8 个词的 `DictEntry` 拦在写入之前（见 12F 小节）。
+>   解阻要用户单独授权补词典；
+> · **用户的 23 步人工走查一步都没开始**，而且**不该由我开始** ——
+>   今天那一课的第一个动作必须是用户本人的；
+> · **账号设置扩展**仍是强制的后续任务，一行未开始；
+> · **阶段 12 是 `AWAITING_USER_ACCEPTANCE`，不是 PASS**；
 > · **阶段 13 一行未开始**；
 > · staging 的免密夹具登录仍开着且**未改动**，退役期限见本文档开头的表。
 
