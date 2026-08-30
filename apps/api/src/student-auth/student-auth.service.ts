@@ -3,6 +3,7 @@ import {
   ForbiddenException,
   Injectable,
   Logger,
+  NotFoundException,
   UnauthorizedException,
 } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
@@ -19,6 +20,7 @@ import {
   validatePasswordFormat,
 } from './pin';
 import { studentAppRoutingFromEnv } from './student-app-routing';
+import { STAGING_FIXTURE_STUDENT_ID } from './staging-fixture-login';
 
 /**
  * 学生 PIN 认证（2026-08-25，docs/PRD/student-auth-and-home.md）。
@@ -180,6 +182,71 @@ export class StudentAuthService {
       // 旧端不读这两个字段，行为零变化；新端读了也只是知道自己该不该
       // 接管。**本阶段两端都不据此跳转。** 判据见 student-app-routing.ts
       // ——「学生 id 只有认证之后才知道」正是它必须由服务端算的原因。
+      ...studentAppRoutingFromEnv(user.id),
+    };
+  }
+
+  // ─────────────── ⚠️ 临时：staging 免密夹具登录（上生产前必须拆） ───────────────
+
+  /**
+   * 只给**一个虚构账号**（`t6_done`）签发正常的学生令牌，**不校验任何凭据**。
+   *
+   * 闸门与退役步骤见 `staging-fixture-login.ts` 的文件头。这里只负责两件事：
+   *
+   *   · **账号是写死的**。`STAGING_FIXTURE_STUDENT_ID` 是常量，方法**不收
+   *     任何入参** —— 调用方（控制器）也不接收请求体。「换个 id 就能登别人」
+   *     这条路在类型层面就不存在。
+   *   · **资格照常查**。`role/isActive/archivedAt/在读注册` 与
+   *     `login()` 用的是同一组条件，`av` 取当下的 `studentAuthVersion`
+   *     —— 教师一旦重置该账号，已签发的令牌照常立刻失效。
+   *
+   * **不写库**：不动 PIN、不动注册状态、不动 `studentAuthVersion`、
+   * 连 `lastLogin` 都不写（免密登录不是「学生登录」这个事实）。
+   */
+  async stagingFixtureSession() {
+    const user = await this.prisma.user.findFirst({
+      where: {
+        id: STAGING_FIXTURE_STUDENT_ID,
+        role: 'student',
+        isActive: true,
+        archivedAt: null,
+        classEnrollments: { some: { role: 'student', class: { archivedAt: null } } },
+      },
+      select: {
+        id: true,
+        email: true,
+        name: true,
+        nickname: true,
+        avatar: true,
+        studentAuthVersion: true,
+      },
+    });
+    if (!user) {
+      // 夹具账号不在（换了库、被停用、班级归档）—— 明说，不糊弄出一个令牌
+      throw new NotFoundException({ code: 'fixture_student_unavailable' });
+    }
+
+    const token = await this.jwt.signAsync(
+      {
+        id: user.id,
+        email: user.email,
+        role: 'student',
+        name: user.name,
+        av: user.studentAuthVersion,
+      },
+      { expiresIn: StudentAuthService.TOKEN_TTL },
+    );
+    this.logger.warn(
+      `⚠️ staging fixture passwordless session issued for ${user.id} — this channel must be retired before production`,
+    );
+    return {
+      token,
+      student: {
+        id: user.id,
+        name: user.name,
+        nickname: user.nickname ?? user.name,
+        avatar: user.avatar ?? null,
+      },
       ...studentAppRoutingFromEnv(user.id),
     };
   }

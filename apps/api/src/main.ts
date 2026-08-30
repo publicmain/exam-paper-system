@@ -1,6 +1,7 @@
 import 'reflect-metadata';
 import { allDayConfigSummary, assertAllDayConfig } from './lesson/all-day';
 import { assertStudentAppRoutingConfig } from './student-auth/student-app-routing';
+import { assertStagingFixtureLoginConfig } from './student-auth/staging-fixture-login';
 import { NestFactory } from '@nestjs/core';
 import { ValidationPipe, Logger } from '@nestjs/common';
 import { AppModule } from './app.module';
@@ -91,9 +92,23 @@ async function bootstrap() {
       process.exit(1);
     }
 
+    // ⚠️ 临时的 staging 免密夹具登录。**同一条原则的最强用法**：这个开关
+    // 打开的是一个免密入口，所以它不但不许静默回退，还必须证明自己在
+    // staging —— project id 与公开域名逐字对不上就拒绝启动。
+    //
+    // 生产的价值正在这里：**生产即使误配了这个开关也起不来**，而不是
+    // 悄悄多出一个谁都能进的账号。见 student-auth/staging-fixture-login.ts。
+    const fixtureCfg = assertStagingFixtureLoginConfig(process.env);
+    if (!fixtureCfg.ok) {
+      bootstrapLogger.error(`Refusing to start: ${fixtureCfg.reason}`);
+      process.exit(1);
+    }
+    bootstrapLogger.warn(fixtureCfg.summary);
+
     const audit: Array<{ name: string; value: string | undefined }> = [
       { name: 'MORNING_QUIZ_DEBUG', value: process.env.MORNING_QUIZ_DEBUG },
       { name: 'ALLOW_PROD_SEED', value: process.env.ALLOW_PROD_SEED },
+      { name: 'STAGING_FIXTURE_LOGIN', value: process.env.STAGING_FIXTURE_LOGIN },
     ];
     const noisy = audit.filter((d) => d.value === 'true' || d.value === '1');
     for (const f of noisy) {

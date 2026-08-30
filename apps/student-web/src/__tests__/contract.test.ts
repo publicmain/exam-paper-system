@@ -345,11 +345,29 @@ describe('G1 新端不得出现旧路由与旧身份键', () => {
    *   · 未分类即失败 —— 新加一个端点而没在下面登记，清点表对不上就红。
    */
 
-  /** **只有这三个**是 pre-auth：还没有令牌，姓名是凭据。 */
-  const PRE_AUTH_ENDPOINTS = [
+  /** **只有这三个**是 pre-auth 且**允许带身份**：还没有令牌，姓名是凭据。 */
+  const PRE_AUTH_IDENTITY_ENDPOINTS = [
     '/student-auth/login',
     '/student-auth/register',
     '/student-auth/registration-status',
+  ] as const;
+
+  /**
+   * pre-auth 但**连凭据都不带**的端点。
+   *
+   * ⚠️ 目前只有一个：临时的 staging 夹具登录。它没有令牌（所以是 pre-auth），
+   * 但请求体恒为 `{}`、URL 没有查询串 —— 登谁由服务端写死。单列一类而不是
+   * 塞进上面那三个，是为了让「**恰好三个**端点可以带身份」这条断言**保持
+   * 原样**：新增一个免密通道不该顺带把「谁可以带身份」的名额放宽。
+   *
+   * **上生产前必须随通道一起拆掉。**
+   */
+  const PRE_AUTH_CREDENTIAL_FREE_ENDPOINTS = ['/student-auth/staging-fixture-session'] as const;
+
+  /** 清点器用的并集：这些调用不按「认证后」那套查身份。 */
+  const PRE_AUTH_ENDPOINTS = [
+    ...PRE_AUTH_IDENTITY_ENDPOINTS,
+    ...PRE_AUTH_CREDENTIAL_FREE_ENDPOINTS,
   ] as const;
 
   /**
@@ -496,9 +514,23 @@ describe('G1 新端不得出现旧路由与旧身份键', () => {
   });
 
   it('**恰好三个 pre-auth 端点可以带身份**，多一个都不行', () => {
-    expect(PRE_AUTH_ENDPOINTS).toHaveLength(3);
+    expect(PRE_AUTH_IDENTITY_ENDPOINTS).toHaveLength(3);
     const preAuth = [...new Set(apiCalls().filter((c) => c.preAuth).map((c) => c.endpoint))];
     expect(preAuth.sort()).toEqual([...PRE_AUTH_ENDPOINTS].sort());
+  });
+
+  it('**免密的 pre-auth 端点一个身份字段都不许带**（临时的 staging 通道）', () => {
+    const calls = apiCalls().filter((c) =>
+      (PRE_AUTH_CREDENTIAL_FREE_ENDPOINTS as readonly string[]).includes(c.endpoint),
+    );
+    expect(calls).toHaveLength(PRE_AUTH_CREDENTIAL_FREE_ENDPOINTS.length);
+    for (const c of calls) {
+      // 与「认证后」那套用同一个检查器：URL 与请求体都不许出现身份
+      expect(identityHits(c.block), `${c.endpoint} 带了身份`).toEqual([]);
+      // 而且请求体就是空对象 —— 不是「碰巧没带」，是根本没有可带的
+      expect(c.block).toMatch(/body:\s*\{\s*\}/);
+      expect(c.block).not.toMatch(/pin|password/i);
+    }
   });
 
   it('**其余请求一律按已认证处理：URL 与请求体都不得带身份**', () => {

@@ -4,6 +4,7 @@ import {
   Controller,
   ForbiddenException,
   Get,
+  NotFoundException,
   Post,
   Query,
   Req,
@@ -16,6 +17,7 @@ import { Public } from '../common/auth.guard';
 import { PrismaService } from '../common/prisma.service';
 import { RateLimit } from '../common/rate-limit.guard';
 import { StudentAuthService } from './student-auth.service';
+import { readStagingFixtureLoginConfig } from './staging-fixture-login';
 
 /**
  * 学生 PIN 认证端点（2026-08-25，docs/PRD/student-auth-and-home.md §5）。
@@ -143,6 +145,30 @@ export class StudentAuthController {
     const p = schema.safeParse(body);
     if (!p.success) throw new BadRequestException(p.error.flatten());
     return this.svc.login(p.data);
+  }
+
+  /**
+   * ⚠️ **临时的 staging 免密夹具登录 —— 上生产前必须拆掉。**
+   *
+   * 只签发 `t6_done`（虚构账号）的令牌，**不收任何请求参数**：没有姓名、
+   * 没有 studentId、没有 PIN、没有角色、没有候选选择。方法签名里就没有
+   * `@Body()` —— 「换个参数登别人」这条路在类型层面不存在。
+   *
+   * 关着的时候（`STAGING_FIXTURE_LOGIN` 不设）**表现为不存在**（404），
+   * 不是 403 —— 关掉的通道不该告诉外面「我在这儿，只是没开」。
+   *
+   * 限流沿用现成的 IP 闸门，且比登录更紧（10 次/分钟）：它不需要试错，
+   * 一次就成，高频只可能是脚本在刷。
+   *
+   * 闸门全貌与退役步骤见 `staging-fixture-login.ts` 的文件头。
+   */
+  @Public()
+  @RateLimit({ limit: 10, windowSec: 60, scope: 'ip' })
+  @Post('staging-fixture-session')
+  async stagingFixtureSession() {
+    const cfg = readStagingFixtureLoginConfig(process.env);
+    if (!cfg.enabled) throw new NotFoundException();
+    return this.svc.stagingFixtureSession();
   }
 
   @Public()

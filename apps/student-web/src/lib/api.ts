@@ -230,6 +230,19 @@ export const api = {
     nickname?: string;
   }) => request<AuthResult>('POST', '/student-auth/register', { body }),
 
+  /**
+   * ⚠️ **临时的 staging 免密夹具登录 —— 上生产前必须拆掉。**
+   *
+   * **请求体恒为空**：不带姓名、不带 studentId、不带 PIN。服务端那一侧
+   * 的账号是写死的（只可能是虚构账号 `t6_done`），所以这里也**没有任何
+   * 可传的参数** —— 客户端指定不了登谁。
+   *
+   * 服务端关掉这条通道时返回 404，调用方据此当作「按钮不该存在」。
+   * 闸门全貌与退役步骤见 `apps/api/src/student-auth/staging-fixture-login.ts`。
+   */
+  stagingFixtureSession: () =>
+    request<AuthResult>('POST', '/student-auth/staging-fixture-session', { body: {} }),
+
   registrationStatus: (params: { name: string; studentId?: string }) =>
     request<RegistrationStatus>(
       'GET',
