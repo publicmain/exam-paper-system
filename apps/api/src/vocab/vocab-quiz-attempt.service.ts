@@ -198,6 +198,9 @@ export class VocabQuizAttemptService {
         firstTaughtAt: true,
         due: true,
         contextSentence: true,
+        // S9D2D —— **必须选出来**。挖空位置靠 findClozeSpan(原句, 词形)
+        // 定位，少了它 cloze 与 spelling 在正式测试里直接绝迹。
+        surfaceForm: true,
         reps: true,
       },
     });
@@ -218,16 +221,32 @@ export class VocabQuizAttemptService {
     // 两者都是空的，于是正式测试在出题这一步就 `name_required`。
     // 与 lesson 那处不同的是：这一步发生在建 attempt **之前**，所以不会
     // 留下半截数据，但端点同样是不可用的。
+    //
+    // S9D2D —— 投影**必须**把 `surfaceForm` 带上，而且 `mix: 'balanced'`。
+    //
+    // 原来这里丢了 `surfaceForm`（类型也只声明了三个字段），于是
+    // `findClozeSpan(原句, 词形)` 恒返回 null，`cloze` 与 `spelling`
+    // 两种题型对任何学生、任何一天都出不来 —— 2026-08-30 的 staging 实跑
+    // 四道题全是选择题，就是这一行的后果。
+    //
+    // 光补上词形还不够：通用算法会把四个全能词出成「2 道拼写 + 2 道填空」。
+    // 正式测试要四种各一道，所以显式要一份 `balanced` 计划
+    // （见 vocab-quiz.service 的 formalTypePlan）。
+    const formalWords = outcome.words.map(
+      (w: { headword: string; surfaceForm?: string | null; contextSentence?: string | null; reps?: number }) => ({
+        headword: w.headword,
+        surfaceForm: w.surfaceForm ?? null,
+        contextSentence: w.contextSentence ?? null,
+        reps: w.reps ?? 0,
+      }),
+    );
     const built = await this.quiz.buildQuiz({
       studentName: input.studentName,
       studentId: input.studentId,
       authStudentId: input.authStudentId,
       limit: MAX_QUIZ_ITEMS,
-      words: outcome.words.map((w: any) => ({
-        headword: w.headword,
-        contextSentence: w.contextSentence ?? null,
-        reps: w.reps ?? 0,
-      })),
+      words: formalWords,
+      mix: 'balanced',
     });
     const questions = built.questions ?? [];
     if (questions.length < MIN_QUIZ_ITEMS) {

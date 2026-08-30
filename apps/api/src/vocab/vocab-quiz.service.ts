@@ -34,8 +34,10 @@ import { VocabReviewService } from './vocab-review.service';
  * 候选池够大。
  */
 
+export type QuizQType = 'word_to_meaning' | 'meaning_to_word' | 'cloze' | 'spelling';
+
 export interface QuizQuestion {
-  qtype: 'word_to_meaning' | 'meaning_to_word' | 'cloze' | 'spelling';
+  qtype: QuizQType;
   headword: string;
   /** 看词选义时 = headword；看义选词时 = 中文释义；cloze/spelling 时 = 挖空句 */
   prompt: string;
@@ -64,6 +66,88 @@ export interface QuizQuestion {
  */
 export function isSpellable(token: string): boolean {
   return /^[A-Za-z]{4,12}$/.test(token);
+}
+
+// ─────────────────────────────────────────────────────────────
+// S9D2D —— 正式测试的**题型分配**
+//
+// 自由练习那条路是「能出什么就出什么」：有挖空位就出 cloze，先占满两道
+// spelling。学生自己点进来练，题型分布怎么歪都无所谓。
+//
+// 正式测试不行 —— 它是**成绩**。同一份任务应该同时量到四种能力：
+// 认（看词选义）、产（看义选词）、用（原句填空）、写（拼写）。把这件事
+// 交给通用算法的结果是：四个全能词会变成「2 道拼写 + 2 道填空」，两种
+// 选择题一道都没有（2026-08-30 修复前的实际行为是另一个极端 —— 因为
+// surfaceForm 丢了，四道题全是选择题）。
+//
+// 所以正式路径有一条**显式的、确定性的**分配策略，与自由练习分开。
+// ─────────────────────────────────────────────────────────────
+
+/** 一个词**撑不撑得起**产出型题目。两条都由词本身的事实决定，不掷骰子。 */
+export interface WordTypeCapability {
+  /** 能出拼写题：复习过（reps>0）、原句里定位得到词形、token 是 4–12 纯字母 */
+  canSpell: boolean;
+  /** 能出填空题：原句里定位得到词形 */
+  canCloze: boolean;
+}
+
+/**
+ * 正式测试的题型分配。**纯函数、确定性、不改词序。**
+ *
+ * 规则（按优先级填槽，词的位置一步都不挪）：
+ *
+ *   1. `spelling` → **第一个**撑得起拼写的词；
+ *   2. `cloze`    → 剩下的词里**第一个**挖得了空的；
+ *   3. 其余的词按 `word_to_meaning` / `meaning_to_word` **交替**补齐。
+ *
+ * 四个全能词 ⇒ 恰好四种各一道。
+ *
+ * **撑不起就不出**：没有词能拼写时不硬出（那只能靠瞎猜一个 token），
+ * 该槽直接让给交替的选择题；一个都挖不了空时同理。降级是有名字的
+ * （见 `resolveFormalType`），不是悄悄换一道题。
+ *
+ * 多于四个词时，前两槽照旧，其余全部按选择题交替 —— 正式测试目前
+ * 恒为四题，这一条只是让函数对更长的队列也有定义。
+ */
+export function formalTypePlan(caps: ReadonlyArray<WordTypeCapability>): QuizQType[] {
+  const plan: Array<QuizQType | null> = caps.map(() => null);
+  const firstFree = (ok: (c: WordTypeCapability) => boolean): number => {
+    for (let i = 0; i < caps.length; i++) if (plan[i] == null && ok(caps[i])) return i;
+    return -1;
+  };
+
+  const s = firstFree((c) => c.canSpell);
+  if (s >= 0) plan[s] = 'spelling';
+  const c = firstFree((x) => x.canCloze);
+  if (c >= 0) plan[c] = 'cloze';
+
+  let alt = 0;
+  for (let i = 0; i < plan.length; i++) {
+    if (plan[i] == null) plan[i] = alt++ % 2 === 0 ? 'word_to_meaning' : 'meaning_to_word';
+  }
+  return plan as QuizQType[];
+}
+
+/**
+ * 分配下来的题型这个词到底出不出得了 —— **出不了就明说降到哪一档**。
+ *
+ * 计划是在 `buildQuiz` 拿到词典释义之前算的（能力只看词本身的事实），
+ * 所以真正出题时还要再确认一次。降级顺序：拼写 → 填空 → 看词选义。
+ * **绝不为了凑题型而编答案。**
+ */
+export function resolveFormalType(
+  planned: QuizQType,
+  caps: WordTypeCapability,
+): { qtype: QuizQType; degradedFrom: QuizQType | null } {
+  if (planned === 'spelling' && !caps.canSpell) {
+    return caps.canCloze
+      ? { qtype: 'cloze', degradedFrom: 'spelling' }
+      : { qtype: 'word_to_meaning', degradedFrom: 'spelling' };
+  }
+  if (planned === 'cloze' && !caps.canCloze) {
+    return { qtype: 'word_to_meaning', degradedFrom: 'cloze' };
+  }
+  return { qtype: planned, degradedFrom: null };
 }
 
 /** 取释义第一行并截断 —— 做选项时太长会把手机屏挤爆。 */
@@ -182,8 +266,28 @@ export class VocabQuizService {
     /** 阶段 5A：已认证学生的 id。给了就走精确 ID 路径，不查姓名。 */
     authStudentId?: string;
     limit?: number;
-    /** P6：正式测试传进来的**固定词表**。给了就不再自己选词、不再补题。 */
-    words?: Array<{ headword: string; contextSentence: string | null; reps: number }>;
+    /**
+     * P6：正式测试传进来的**固定词表**。给了就不再自己选词、不再补题。
+     *
+     * S9D2D —— `surfaceForm` 是**必填**的，不是可选的锦上添花：挖空位置
+     * 靠 `findClozeSpan(contextSentence, surfaceForm)` 定位，少了它
+     * `cloze` 与 `spelling` 两种题型在这条路上直接绝迹（2026-08-30 实测）。
+     * 类型里写死它，就是为了让「投影时忘了带」在编译期就红，而不是
+     * 等到线上少两种题型才发现。
+     */
+    words?: Array<{
+      headword: string;
+      surfaceForm: string | null;
+      contextSentence: string | null;
+      reps: number;
+    }>;
+    /**
+     * S9D2D：题型分配策略。
+     *
+     * 缺省（自由练习）= 老规则，一个字都没变。
+     * `'balanced'`（正式测试）= `formalTypePlan` 的四种各一道。
+     */
+    mix?: 'balanced';
   }) {
     const student = await this.words.resolveStudent(input.studentName, input.studentId, input.authStudentId);
     const limit = Math.min(Math.max(input.limit ?? 8, 1), 15);
@@ -281,7 +385,21 @@ export class VocabQuizService {
     // 手机打字摩擦大，混太多会把弱生劝退。盯着跳过率（「不会写」
     // 即 again）决定是否加码。
     let spellingLeft = 2;
-    for (const w of chosen) {
+
+    // 挖空位置对**每个**词各算一次 —— 它既决定能力（能不能出填空 / 拼写），
+    // 又是真正出题时挖空要用的坐标。算两遍没必要，而且两遍不一致就是 bug。
+    const spans = chosen.map((w: any) =>
+      w.contextSentence && w.surfaceForm ? findClozeSpan(w.contextSentence, w.surfaceForm) : null,
+    );
+    const caps: WordTypeCapability[] = chosen.map((w: any, i: number) => ({
+      canCloze: spans[i] != null,
+      canSpell: (w.reps ?? 0) > 0 && spans[i] != null && isSpellable(spans[i]!.token),
+    }));
+    // 正式测试才有计划；自由练习恒为 null，走下面那条老路。
+    const plan: QuizQType[] | null = input.mix === 'balanced' ? formalTypePlan(caps) : null;
+
+    for (let wi = 0; wi < chosen.length; wi++) {
+      const w = chosen[wi] as any;
       const e = dict.get(w.headword.toLowerCase());
       const translation = e?.translation ?? '';
       if (!translation.trim()) continue; // 词典没释义的词出不了选择题
@@ -290,12 +408,17 @@ export class VocabQuizService {
       // 挖空，26% 的例句里词形只是子串（agree ⊂ agreed），会挖出
       // 「＿＿＿d」这种残缺提示。定位不到就放弃 cloze 改出词义题，
       // 绝不硬挖。
-      const clozeSpan =
-        w.contextSentence && w.surfaceForm ? findClozeSpan(w.contextSentence, w.surfaceForm) : null;
+      const clozeSpan = spans[wi];
+      // 计划里这个词该出什么（正式路径）；出不了就按 resolveFormalType 降级。
+      const planned = plan ? resolveFormalType(plan[wi], caps[wi]).qtype : null;
 
       // 拼写题优先于选择题（不需要干扰项，所以在 pickDistractors 之前判）
-      if (spellingLeft > 0 && (w.reps ?? 0) > 0 && clozeSpan && isSpellable(clozeSpan.token)) {
-        spellingLeft--;
+      //
+      // `clozeSpan &&` 在语义上是多余的（`caps[wi].canSpell` 与 `spellable`
+      // 都已经蕴含它），写出来是给类型收窄用的：拼写题必须有挖空坐标。
+      const spellable = (w.reps ?? 0) > 0 && clozeSpan != null && isSpellable(clozeSpan.token);
+      if (clozeSpan && (planned ? planned === 'spelling' : spellingLeft > 0 && spellable)) {
+        if (!planned) spellingLeft--;
         const win = windowAroundSpan(w.contextSentence!, clozeSpan, 180);
         questions.push({
           qtype: 'spelling',
@@ -317,12 +440,18 @@ export class VocabQuizService {
       // 学生自己的词优先做干扰项，不足由词典池续上（pickDistractors 内部逐个过滤）
       const distractors = pickDistractors(answer, [...poolMine, ...poolDict], seed);
       if (!distractors) continue;
-      // 有原句 → 原句填空（独有资产，优先）；否则看词选义 / 看义选词交替
-      const qtype: QuizQuestion['qtype'] = clozeSpan
-        ? 'cloze'
-        : questions.length % 2 === 0
-          ? 'word_to_meaning'
-          : 'meaning_to_word';
+      // 正式测试按计划走（拼写那一档已经在上面处理掉了，落到这里的只剩
+      // 填空 / 两种选择题）；自由练习照旧：有原句 → 原句填空（独有资产，
+      // 优先），否则看词选义 / 看义选词交替。
+      const qtype: QuizQType = planned
+        ? planned === 'spelling'
+          ? 'word_to_meaning' // 兜底：计划说拼写但这里没出成（无挖空坐标）
+          : planned
+        : clozeSpan
+          ? 'cloze'
+          : questions.length % 2 === 0
+            ? 'word_to_meaning'
+            : 'meaning_to_word';
 
       const wordOptions = qtype !== 'word_to_meaning';
       const raw = [answer, ...distractors].map((c) =>
