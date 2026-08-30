@@ -46,7 +46,7 @@
 | **8** | **阅读结果页** | 🔧 **8A 本地完成**（未部署、未真机） | | ✓ | ✓ |
 | **9** | **课程学词 + 正式测试** | **✅ PASS**（2026-08-30）—— 9A/9D1/9D2A/9D2B 逐项修复后，9D2C 实跑发现正式测试只出两种题型，9D2D 修复并用 t6_done 实机验证**四种题型各一道 + 隐私 + 恢复 + 算分 + 数据隔离**，全链跑到 `/lesson/summary` | | ✓ | ✓ |
 | **10** | **今日总结** | **✅ PASS**（2026-08-30）—— 占位页换成只读真页面，本地 RED 19/25 → 25/25，t6_done 实机验证只读与服务端权威 | | ✓ | ✓ |
-| 11 | 账号制历史成绩 | ⬜ | | ✓ | ✓ |
+| **11** | **账号制历史成绩** | **✅ PASS**（2026-08-30）—— `/scores` + `/scores/:submissionId`，token-only、阅读与词测两段分开、practice 不进列表、零分照实；t6_done 实机走通规范导航，拿 t5 的 submissionId 直闯被 403 挡住且不渲染任何答案，一条授权的合成申诉写入，其余库状态逐字节不变 | | ✓ | ✓ |
 | 12 | 生词本与错题本 | ⬜ | | ✓ | ✓ |
 | 13 | 旧 URL 单向适配 | ⬜ | | ✓ | ✓ |
 | 14 | staging 八账号实机验收 | ⬜ | | — | — |
@@ -2944,7 +2944,8 @@ diff 为空，schema blob 仍是 `515318e1…`）。
 
 ### 明确没做的事
 
-> · **阶段 11 未开始** —— 账号制历史成绩（`/app/scores`）一行未写；
+> · **阶段 11 当时未开始** —— 账号制历史成绩（本文档「阶段 11」一节，
+>   最终落地为 `/scores`，无 `/app` 前缀）在 2026-08-30 晚些时候才实现；
 > · **历史成绩、生词本（自由练习）、错题本（错题重练）、账号设置扩展**
 >   仍是**后续强制任务**，一件都没有被跳过或降级 —— 总结页刻意不给它们
 >   放入口，正是因为它们还不存在；
@@ -2953,14 +2954,235 @@ diff 为空，schema blob 仍是 `515318e1…`）。
 ---
 
 
-## 阶段 11 —— 账号制历史成绩
+## 阶段 11 —— 账号制历史成绩　**✅ PASS**（2026-08-30）
 
-- [ ] `/app/scores`、`/app/scores/:submissionId`
-- [ ] 只做 [D2](./product-decisions.md#d2--历史成绩第一版的范围) 六项：
+`task_id: S11-ACCOUNT-HISTORY-IMPLEMENT-AND-LIVE` · contract v1.0 ·
+base `834691e` · 实现提交 `b78b298` · 文档提交见本节末 ·
+部署 `e13ea27f-ad5c-4174-98e2-194b39e0097c`
+（回滚锚点 `0f2f5090-ee2b-4bde-aaba-e7db237eb7c3`）。
+
+- [x] `/scores`、`/scores/:submissionId`
+- [x] 只做 [D2](./product-decisions.md#d2--历史成绩第一版的范围) 六项：
       日期 / 文章 / 阅读分 / 正式词测分 / 完成状态 / 逐题解析 + 申诉
-- [ ] **砍掉**姓名输入框、候选人「输名字」入口、IP 门禁那一整套
+- [x] **砍掉**姓名输入框、候选人「输名字」入口、IP 门禁那一整套
 
-**退出条件**：不输姓名能看到自己全部历史；看不到别人的
+> 路径**没有 `/app` 前缀**：架构文档为了跟旧矩阵对照写作 `/app/scores`，
+> 独立源实现整体去掉（D7，与已落地的九条路由同一口径）。
+
+**退出条件（不输姓名能看到自己全部历史；看不到别人的）—— 两条都在
+staging 上真机验过**，见下面的「实机验证」。
+
+### 两段分开，是这一阶段最要紧的产品决定
+
+`/scores` 上有两个互不相干的区块：
+
+  · **阅读** —— `GET /morning-quiz/history-by-name`
+  · **正式单词测试** —— `GET /vocab/quiz/attempts`
+
+**绝不按日期把两边拼成一条「那天的成绩」。** 拼起来好看，但那是前端凭
+日期臆造的关联：一天可能只考了阅读没做单词，补做的单词测试也可能落在另
+一天。拼错了，学生看到的是一份从来不存在的成绩单，而且没有任何办法发现
+它错了。分开显示是**不好看但诚实**的那一种。
+
+正式单词测试**这一版没有详情页** —— 那一段里一个链接都没有（有测试钉
+住）。指向不存在的页面比没有入口更糟，与阶段 10 同一条规矩。
+
+### 端点名字里的 `by-name` 不是「按姓名查」
+
+后端阶段 5A 起：**带令牌就不查姓名、不消歧、不给近似姓名建议**
+（`morning-quiz.controller.ts` 的 `historyByName`，走
+`authenticatedStudentWhere(auth.id)`）。所以新端**一个查询串都不带**，
+名字只是那条旧路由留下的招牌。`history-detail` 的查询串里**只有**
+`submissionId` —— 那是资源标识，不是身份。
+
+### 三条硬规矩
+
+**① 分数照搬。** 服务端说「还在判分」就说还在判分，**绝不补一个 0**；
+真的 0 分要如实显示成 0。正式测试用服务端的 `score`（交卷时算一次就
+冻住），**不拿 `correct / total` 重算** —— 测试里专门喂了一份故意对不上
+的数据（2/4 却说 99 分），断言屏幕上是 99 不是 50。
+
+**② 练习不是成绩。** `history-by-name` 会带上 `status: 'practice'` 的行
+（旧端要做练习回放），新端**一条都不显示**。
+
+**③ 完成状态只由 `status` / `answersPending` / `reopenable` 推出**，
+不造「今天全部完成」那种服务端从没说过的合并语义。
+
+### 详情页：路径参数是唯一的选择器
+
+`/scores/:submissionId` **不问 `/lesson/today`**（那是「今天」，与「历史」
+无关），不读姓名、不读 localStorage、不读后端 `href`。只有一个请求。
+
+归属由**服务端**判定（带令牌时比对 `submission.studentId === token.id`，
+不是我的就 403）。客户端**再核一道**：`response.submissionId` 必须等于
+路由里的那个，否则一个字都不显示。这不是不信任服务端 —— 而是这一页上挂
+着**申诉**（唯一的写操作），申诉认的那个 `submissionId` 必须来自这条校验
+过的链，否则「结果响应」就成了另一个可以指定写入目标的入口。响应形状不对
+（少 `submissionId`、`items` 不是数组）同样按「不显示」处理。
+
+**拒绝态是停在原地的安全空态，不是悄悄跳走** —— 跳走会让人以为「点错了」，
+而这里真正发生的是「这份不是你的」。出口另给一条按钮。
+
+### 呈现层提取（行为不变）
+
+成绩摘要、逐题回顾、申诉那一整块从 `pages/ReadingResult.tsx` **原样搬到**
+`components/ResultView.tsx`，`/lesson/reading/result` 与
+`/scores/:submissionId` 共用同一份。两条链的区别只在「这份答卷是怎么定位
+到的」；定位之后要显示什么、什么时候能显示，规则一模一样，所以只能有一份
+实现 —— 复制一份出来，迟早会出现「历史页把还没公布的答案显示出来了」这种
+只在一边修好的洞。
+
+三个纯函数（`questionOutcome` / `percentageOf` / `validateAppealMessage`）
+从 `ReadingResult.tsx` **再导出**一次，既有的 `reading-result.test.tsx`
+一行没改就全绿 —— 这本身就是「行为没变」的证据。
+
+守卫跟着搬：**G-8A 现在盯三个文件**（`ReadingResult.tsx` +
+`ResultView.tsx` + `ScoreDetail.tsx`）而不是一个，否则同一份呈现逻辑换个
+文件就不设防了。新增一条断言钉住「两条链各走各的」：结果页必须调
+`lessonToday` 且不得调 `readingHistoryDetail`，详情页反之且必须用
+`useParams`。
+
+### RED（对着 base `834691e`，行为红不是收集红）
+
+两份新测试**都不 import 页面组件**，全部挂真 `App` 到那两条路由上，
+所以路由不存在时也跑得起来。
+
+```
+npx vitest run src/__tests__/scores.test.tsx src/__tests__/score-detail.test.tsx
+→ exit 1 ·  Tests  44 failed | 11 passed (55) ·  Test Files 2 failed (2)
+```
+
+代表性失败（全是行为，不是「文件不存在」）：
+
+```
+AC-04 恰好一次 GET history-detail        → expected [] to have a length of 1 but got +0
+AC-04 不依赖 /lesson/today               → expected [ { path: '/lesson/today' } ] to have a length of +0 but got 1
+AC-06 拿 t5 的 submissionId 直闯          → Unable to find an element by: [data-testid="detail-denied"]
+AC-06 题干/我的答案/正确答案/得分/评语     → expected '没能拿到今天的课…' to contain 'The River Ferry'
+AC-05 每一行都链到 /scores/:submissionId  → Unable to find an element by: [data-testid="reading-link-sub-a"]
+AC-03 /today 上有历史成绩入口             → Unable to find an element by: [data-testid="go-scores"]
+```
+
+那 11 项通过的是「没有写请求 / 没有身份参数」这类**否定断言**，在空页面
+上本来就成立 —— 它们不是这次 RED 的判据。
+
+### GREEN（`b78b298`）
+
+| 命令 | exit | 结果 |
+| --- | --- | --- |
+| `vitest run`（student-web 全量） | 0 | 20 files / **643** passed（586 → +57） |
+| `npm run typecheck`（student-web） | 0 | 干净 |
+| `npm run build`（student-web） | 0 | 75 modules，290.43 kB |
+| `vitest run`（api 全量） | 0 | 93 files / **1334** passed |
+| `npm run typecheck`（api） | 0 | 干净 |
+| `vitest run`（web 全量） | 0 | 37 files / **247** passed |
+| `npm run typecheck`（web） | 0 | 干净 |
+| `git diff --check` | 0 | 无空白错误 |
+
+**授权的配套测试改动**（AC-03 明说不算越界，逐条列出）：
+
+  · `contract.test.ts` —— 注册路由集合九条 → 十一条；`KNOWN_ENDPOINTS`
+    登记三条新端点；反向夹具的「未登记端点」样本换成
+    `/morning-quiz/history-by-name/trend`（旧样本已被登记，再拿它当反例
+    就永远绿）；G-8A 扩到三个文件 + 新增一条「两条链不许串」。
+  · `lesson-summary.test.tsx` —— 阶段 10 那条「不给还没实现的出口」把
+    `/scores` 列为禁止项；阶段 11 起它真的存在了，改为允许 `/scores`，
+    仍然禁止阶段 12 的生词本 / 错题本。
+
+`apps/api`、`apps/web`、Prisma、Dockerfile、依赖、Railway 配置**一律未动**。
+
+### 部署（只动学生端）
+
+| 服务 | 部署 ID | 变化 |
+| --- | --- | --- |
+| stg-student-web-spike | `e13ea27f-ad5c-4174-98e2-194b39e0097c` | **新** |
+| stg-api | `f089519e-a65e-425d-a222-e38a105a6d59` | 未变 |
+| stg-web | `33fce087-c424-4080-9d23-76ac23165e10` | 未变 |
+| Postgres | `73871ad2-226a-4d7d-9e71-586203275281` | 未变 |
+
+四个域名未变；变量键集合未变（stg-api 24 / stg-web 15 /
+stg-student-web-spike 16，指纹前后一致）；**`STUDENT_APP_V2` 三个服务上
+仍然一个都没有**。`/api/health` 与 `/api/health/ready` 均 200；
+`/`、`/today`、`/scores`、`/scores/:id`、`/lesson/summary` 五条 SPA 路由
+均 200；从学生端源发起的 CORS 预检 204，`allow-origin` 正是学生端源。
+线上产物里能搜到 `/scores/:submissionId`、`history-by-name`、
+`history-detail`、`quiz/attempts` 各一处 —— 部署的确是这个提交。
+
+### 实机验证（t6_done 免密夹具登录，未输入任何 PIN）
+
+走的是可见的规范导航：`/login → /today → /scores → 自己的
+/scores/:submissionId → /scores → /lesson/summary → /scores → 退出`。
+
+**请求账目**（`performance.getEntriesByType('resource')` 的实测，不是叙述）：
+
+```
+登录 + /today   /student-auth/staging-fixture-session, /lesson/today
+/scores         /morning-quiz/history-by-name          ← 无查询串
+                /vocab/quiz/attempts                    ← 无查询串
+详情            /morning-quiz/history-detail?submissionId=cmtfe2lch00madbifqk83zqpg
+回 /scores      /morning-quiz/history-by-name, /vocab/quiz/attempts
+```
+
+没有第三个业务请求，没有任何请求带 `name` / `studentId`，
+没有一条旧端路由，重进 / 刷新仍然只读。
+
+**真实数据**：阅读两行 ——「The River Ferry（S9D2A 阅读夹具）」2026-08-30
+与「Lighthouse Point（S7E 阅读夹具）」2026-08-29，两份都是 `submitted`
+未定稿，所以都如实显示**「还在判分」**（不是 0 分）。正式测试一行 ——
+**答对 0 / 4、得分 0、已交卷**，零分照实显示，没有被藏起来。
+页面上出现的三个 `data-row-id` 恰好是 t6 自己的两份答卷 + 一次测试，
+**没有任何别人的数据**。
+
+**归属反证（这一阶段最关键的一条）**：带着 t6 的令牌直接访问 t5 的
+`/scores/cmtf67yno00nk134toqbscrpw` ——
+
+```
+GET /morning-quiz/history-detail?submissionId=cmtf67yno00nk134toqbscrpw → 403
+页面：detail-denied ✓ ／ items ✗ ／ appeal ✗ ／ 令牌未清 ✓
+```
+
+服务端拒绝，客户端**一个字的答案材料都没渲染，也没有申诉入口**，
+而且**没有**回落到姓名查询。
+
+**退出登录**之后再直接访问 `/scores`：落到 `/login`，
+localStorage 键为空，**零个 API 请求** —— 不是姓名输入页。
+
+### 申诉写入：一条，且只有一条
+
+在自己那份答卷上通过新详情页提交了**一条**整卷申诉，正文是明确标注的
+合成文本（`[STAGING SYNTHETIC — S11 acceptance probe, not a real appeal]`）。
+
+```
+POST /morning-quiz/appeals → 201        （整场会话里 appeals 请求数 = 1）
+appealId  cmtfh9a5800n4dbifzcoqvpkn    submissionId cmtfe2lch00madbifqk83zqpg
+                                        paperQuestionId null   status open
+AuditLog  cmtfh9a6z00n5dbifnhdixrun    morning_quiz.appeal.create · actor t6_done
+```
+
+提交成功后表单变成回执，**提交按钮不复存在** —— 再点也没有第二条。
+**这条申诉是审计证据，不得删除、不得改写。**
+
+**读写前后的只读库对账**（八个虚构账号的全量指纹）：
+
+| 阶段 | changed_students | GradeAppeal | AuditLog |
+| --- | --- | --- | --- |
+| AC-01 → 只读导航之后 | **0 / 8** | 0 → 0 | 0 → 0 |
+| 申诉之前 → 申诉之后 | **0 / 8** | 0 → **1** | 0 → **1** |
+
+DLC / 答卷 / AnswerScript / VocabQuizAttempt（含 items 的 md5）/
+StudentWord / WordReviewLog / Attendance / `studentAuthVersion`
+**逐字节相同**，另外七个学生一个字段都没动。除那一条申诉与它自身的审计
+记录之外，**没有任何持久化副作用**。全程**没有直接 SQL 写入**。
+
+### 这一阶段没做什么
+
+> · **阶段 12 未开始** —— 生词本（自由练习）与错题本（错题重练）一行未写；
+> · **历史成绩、生词本、错题本、账号设置扩展**里，后三项仍是**后续强制
+>   任务**，一件都没有被跳过或降级；
+> · 正式单词测试**没有逐题详情页**（D2 第一版范围之外），成绩趋势 /
+>   能力画像 / 练习回放 / 上课预告 / 出勤同样都不在这一版里；
+> · staging 的免密夹具登录仍开着，**退役期限见本文档开头的表**（阶段 15
+>   之前、任何生产部署之前，必须随通道一起拆掉）。
 
 ---
 
