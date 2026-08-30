@@ -24,6 +24,17 @@
  * ## 这一页是只读的
  *
  * 不存草稿、不保存答案、不交卷、不重做。唯一的写操作是**申诉**。
+ *
+ * ## 主行动：接下来做什么（S9D2B）
+ *
+ * 阅读页交完卷**固定**送到这一屏（见 `Reading.tsx` 文件头），所以「往下走」
+ * 这一步落在这里：点主行动时**再问一次** `/lesson/today`，按当下的
+ * `nextAction.kind` 走 `NEXT_ACTION_ROUTE`。不用交卷那一刻的答案 ——
+ * 学生可能在这一页停了很久，中途状态早就变了。
+ *
+ * 有一条自环必须挡住：`kind` 仍是 `read_result` 时（交了卷但阶段没推进，
+ * 比如被系统收尾的那种日子）照跳就是原地打转 —— 那种情况落回枢纽。
+ * `stay` 类的 kind（今天没内容 / 窗口关了 / 没分级）同样落回枢纽。
  */
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
@@ -37,7 +48,7 @@ import {
 } from '../lib/api';
 import { handleAuthFailure } from '../lib/auth-store';
 import { readToken } from '../lib/identity';
-import { ROUTES } from '../routes.contract';
+import { NEXT_ACTION_ROUTE, ROUTES } from '../routes.contract';
 
 // ─────────────────────────────────────────────────────────────
 // 纯逻辑（导出给测试直接驱动）
@@ -242,6 +253,54 @@ function Shell({ children }: { children: React.ReactNode }) {
   );
 }
 
+/**
+ * 「接下来做什么」——**当下**的 `nextAction` 说了算（见文件头）。
+ *
+ * 顺序有讲究：**先取令牌、后上闸**。反过来写的话，没令牌那一支会在闸门
+ * 已经锁上之后 return，按钮就永久卡在「正在打开…」——S9A 踩过一次。
+ */
+function ContinueLesson({ navigate }: { navigate: ReturnType<typeof useNavigate> }) {
+  const [busy, setBusy] = useState(false);
+  const busyRef = useRef(false);
+
+  const go = useCallback(async () => {
+    const token = readToken();
+    if (!token) return; // 没票不该在这一页，路由守卫会送走
+    if (busyRef.current) return;
+    busyRef.current = true;
+    setBusy(true);
+    try {
+      const today = await api.lessonToday(token);
+      const target = NEXT_ACTION_ROUTE[today.nextAction.kind];
+      // 自环挡一道：kind 还是 read_result 就是「就在这一页」，照跳原地打转。
+      const path =
+        target.kind === 'navigate' && target.path !== ROUTES.readingResult
+          ? target.path
+          : ROUTES.today;
+      navigate(path);
+      // 走成功就不复位了 —— 这个组件随即卸载，复位只会打到已卸载的树上。
+    } catch (e) {
+      busyRef.current = false;
+      setBusy(false);
+      if (handleAuthFailure(e)) return;
+      // 问不到「下一步」不该把学生困在成绩页上 —— 回枢纽，它自己会再问一次。
+      navigate(ROUTES.today);
+    }
+  }, [navigate]);
+
+  return (
+    <button
+      type="button"
+      data-testid="continue-lesson"
+      disabled={busy}
+      onClick={() => void go()}
+      className="mt-6 w-full rounded-xl bg-blue-600 text-white py-3 text-base font-medium min-h-[44px] disabled:opacity-60"
+    >
+      {busy ? '正在打开…' : '继续今天的课'}
+    </button>
+  );
+}
+
 function BackToToday({ navigate }: { navigate: ReturnType<typeof useNavigate> }) {
   return (
     <button
@@ -329,7 +388,8 @@ function ResultView({
       </ol>
 
       <WholeAppeal submissionId={submissionId} onAuthLost={onReload} />
-      <BackToToday navigate={navigate} />
+      {/* 主行动 —— 看完成绩之后往下走。「往哪走」现问现答。 */}
+      <ContinueLesson navigate={navigate} />
     </Shell>
   );
 }

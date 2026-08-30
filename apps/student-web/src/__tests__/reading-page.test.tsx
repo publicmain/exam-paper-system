@@ -409,8 +409,10 @@ describe('AC-07 交卷序列', () => {
     expect(screen.getByRole('dialog')).toBeInTheDocument();
   });
 
-  it('**确认后：flush → submit(final:true) → 刷 today → 按 kind 路由**', async () => {
-    routes['/api/lesson/today'] = { body: todayPayload({ nextAction: { kind: 'read_result', label: '看结果', href: '/my-history?name=x' } }) };
+  it('**确认后：flush → submit(final:true) → 直接去阅读结果页**（S9D2B）', async () => {
+    // 服务端此刻已经把阶段推到了背单词 —— 真机上的常态。老写法会照着这个
+    // kind 跳去 /lesson/vocab，把结果页整个跳过去。
+    routes['/api/lesson/today'] = { body: todayPayload({ nextAction: { kind: 'learn_vocab', label: '学今天的新词', href: '/my-vocab/review?name=x' } }) };
     mount();
     await settle();
     await openConfirm();
@@ -422,8 +424,8 @@ describe('AC-07 交卷序列', () => {
     expect(submits).toHaveLength(1);
     expect(submits[0].init.method).toBe('POST');
     expect(JSON.parse(String(submits[0].init.body))).toEqual({ final: true });
-    // 交卷之后又刷了一次 today
-    expect(calls('/lesson/today')).toHaveLength(2);
+    // 交卷之后**不再问 today** —— 只剩进页面时那一次
+    expect(calls('/lesson/today')).toHaveLength(1);
     expect(navigate).toHaveBeenLastCalledWith('/lesson/reading/result');
   });
 
@@ -436,13 +438,14 @@ describe('AC-07 交卷序列', () => {
       screen.getByRole('button', { name: /确认交卷/ }).click();
     });
     await settle();
-    expect(navigate).toHaveBeenLastCalledWith('/lesson/summary');
+    // S9D2B：出口定死是结果页 —— kind 说什么都不改变它，href 更不参与。
+    expect(navigate).toHaveBeenLastCalledWith('/lesson/reading/result');
     for (const c of navigate.mock.calls) {
       expect(String(c[0])).not.toMatch(/my-history|morning-quiz/);
     }
   });
 
-  it('**「已交过」的 400 视为已完成，仍然刷 today 并路由**', async () => {
+  it('**「已交过」的 400 视为已完成，照样去结果页**', async () => {
     routes['/api/morning-quiz/sessions/sess-1/submit'] = {
       status: 400,
       body: { message: 'submission already submitted' },
@@ -454,8 +457,8 @@ describe('AC-07 交卷序列', () => {
       screen.getByRole('button', { name: /确认交卷/ }).click();
     });
     await settle();
-    expect(calls('/lesson/today')).toHaveLength(2);
-    expect(navigate).toHaveBeenCalled();
+    expect(calls('/lesson/today')).toHaveLength(1);
+    expect(navigate).toHaveBeenLastCalledWith('/lesson/reading/result');
     expect(screen.queryByTestId('submit-error')).not.toBeInTheDocument();
   });
 

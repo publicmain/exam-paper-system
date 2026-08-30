@@ -7,7 +7,7 @@
  *    `submissionId`，再按 `sessionId` 取会话。**URL、查询串、hash 里
  *    一个字都不读** —— 身份只有令牌，资源只有服务端说了算。
  * 2. **摆外壳**：倒计时、字号、离线角标、题号条、交卷。
- * 3. **交卷序列**：二次确认 → 强刷 → 交卷 → 刷 today → 按 `kind` 路由。
+ * 3. **交卷序列**：二次确认 → 强刷 → 交卷 → 去阅读结果页。
  *
  * ## 这一页**不**负责的事
  *
@@ -17,15 +17,29 @@
  *
  * ## 后端的 href
  *
- * `/lesson/today` 的 `nextAction.href` 指向旧端。这一页**永远不读它**，
- * 去哪只由 `NEXT_ACTION_ROUTE[kind]` 决定。
+ * `/lesson/today` 的 `nextAction.href` 指向旧端。这一页**永远不读它**。
+ *
+ * ## 交卷之后去哪（S9D2B）
+ *
+ * **固定去 `/lesson/reading/result`**，不问 `nextAction`。
+ *
+ * 原来这里是「交完卷再刷一次 today，按 `kind` 跳」。看着更「服从服务端」，
+ * 实际上把阅读结果页从正常流程里整个抹掉了：有词汇任务的日子，交卷那一刻
+ * 服务端就把阶段推到了 `vocab_learn`，紧接着的 today 回的是 `learn_vocab`
+ * —— 于是学生从「确认交卷」直接被送去背单词，**永远看不到自己刚交的那份
+ * 卷子**（2026-08-30 staging 实测；`read_result` 那个 kind 只在「交了卷但
+ * 阶段没推进」的收尾场景里才出现，正常日子根本轮不到它）。
+ *
+ * 所以出口在这里定死：交卷成功 = 去看这次的结果。**「接下来做什么」由结果
+ * 页自己的主行动再问一次 today** —— 那时学生已经看过成绩了，往下走才有意义。
+ * 结果页若发现今天没有可看的结果（被撤卷、换了一天），它自己会回枢纽。
  */
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { api, ApiError, type LessonToday, type ReadingSessionPayload } from '../lib/api';
+import { api, ApiError, type ReadingSessionPayload } from '../lib/api';
 import { handleAuthFailure } from '../lib/auth-store';
 import { readToken } from '../lib/identity';
-import { NEXT_ACTION_ROUTE, ROUTES } from '../routes.contract';
+import { ROUTES } from '../routes.contract';
 import { ReadingProvider, isSubmitBlocked, useReading } from '../lesson/ReadingProvider';
 import { ExamFocusProvider, ExamModeProvider } from '../lesson/ExamContext';
 import { ExamRenderer } from '../lesson/QuestionTypeRegistry';
@@ -284,11 +298,9 @@ function ReadingShell({ session }: { session: ReadingSessionPayload }) {
       } catch (e) {
         if (!looksAlreadyDone(e)) throw e;
       }
-      // ④ 去哪由随后的 today 说了算 —— 后端的 href 永不参与
-      const today: LessonToday = await api.lessonToday(token);
-      const target = NEXT_ACTION_ROUTE[today.nextAction.kind];
-      if (target.kind === 'navigate') navigate(target.path);
-      else navigate(ROUTES.today);
+      // ④ 交卷成功 → **固定**去看这次的结果（理由见文件头「交卷之后去哪」）。
+      //    不再问 today：那一问的答案此刻已经是「去背单词」，会把结果页跳过去。
+      navigate(ROUTES.readingResult);
     } catch (e) {
       if (handleAuthFailure(e)) return;
       setSubmitError('交卷没成功 —— 再试一次；答案还在本机上，不会丢。');

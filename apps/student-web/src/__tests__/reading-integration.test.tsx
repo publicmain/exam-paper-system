@@ -196,8 +196,12 @@ function defaultReply(req: Req): { status?: number; body: unknown } {
 // 挂载真应用
 // ─────────────────────────────────────────────────────────────
 
+/** 走过的每一个路径，按顺序 —— 「有没有中途去过别处」只能靠它回答。 */
+let visited: string[] = [];
+
 function LocationProbe() {
   const loc = useLocation();
+  if (visited[visited.length - 1] !== loc.pathname) visited.push(loc.pathname);
   return <span data-testid="loc">{loc.pathname}</span>;
 }
 
@@ -247,6 +251,7 @@ beforeEach(() => {
   Object.defineProperty(navigator, 'onLine', { value: true, configurable: true });
   todayBody = lessonToday();
   overrides = {};
+  visited = [];
   installFetch();
   // **只播一个令牌** —— 身份不从别处来
   writeToken(TOKEN);
@@ -590,13 +595,13 @@ describe('AC-08 交卷 → 刷 today → 按 kind 路由', () => {
     expect(submitCalls()[0].method).toBe('POST');
     expect(JSON.parse(submitCalls()[0].body!)).toEqual({ final: true });
 
-    // 交卷之后又刷了一次 today，落到结果页之后**结果页自己又刷了一次** ——
-    // 两次都是必要的：前一次决定往哪跳，后一次是结果页自己的资源链路起点。
-    expect(paths('/lesson/today').length).toBe(beforeToday + 2);
+    // S9D2B 起交卷之后**不再问 today**（出口定死是结果页），所以这里只多
+    // 一次 —— 结果页自己那一次，它是结果页资源链路的起点。
+    expect(paths('/lesson/today').length).toBe(beforeToday + 1);
 
-    // 按 kind 路由 —— href 被忽略
+    // 出口固定是结果页 —— 后端的 href 依旧被忽略。
     // 阶段 8A 起这里是**真的结果页**，不再是占位：它按同一条链路自己
-    // 又问了一次 today，然后去取结果。
+    // 问了一次 today，然后去取结果。
     expect(at()).toBe('/lesson/reading/result');
     await settle();
     expect(paths(`/morning-quiz/student-result/${SESSION_ID}`)).toHaveLength(1);
@@ -702,5 +707,154 @@ describe('AC-09 故障边界', () => {
     await click(screen.getByRole('button', { name: /确认交卷/ }));
     expect(at()).toBe('/lesson/reading/result');
     expect(screen.queryByTestId('submit-error')).not.toBeInTheDocument();
+  });
+});
+
+// ─────────────────────────────────────────────────────────────
+// S9D2B —— 交卷之后必须**先**落到阅读结果页
+//
+// 上面那组只覆盖了「交完卷 today 说 `read_result`」这一种回答。真机上
+// 那一种**几乎不会出现**：有词汇任务的日子里，交卷那一刻服务端就把阶段
+// 推到了 `vocab_learn`，于是紧接着的 today 回的是 `learn_vocab`，
+// 阅读页按 kind 直接跳去背单词 —— **学生在正常流程里根本看不到自己
+// 刚交的那份卷子**（2026-08-30 staging 实测）。
+//
+// 所以这一屏的出口不能再由 today 决定：交卷成功 → 结果页，是**固定**的
+// 一步。「接下来去哪」由结果页自己的主行动再问一次 today。
+// ─────────────────────────────────────────────────────────────
+
+describe('S9D2B 交卷 → 阅读结果页 → 按当下的 nextAction 继续', () => {
+  /** 交完卷之后服务端的真实回答：阶段已经推到背单词。 */
+  function todayAfterSubmit(kind: string) {
+    return lessonToday(
+      { nextAction: { kind, label: 'x', href: '/my-vocab/review?name=测试七号' }, stage: 'vocab_learn' },
+      { sessionId: SESSION_ID, submissionId: SUBMISSION_ID, status: 'done' },
+    );
+  }
+
+  /**
+   * 背单词那一屏的最小线缆 —— 这里只关心「走到了没有」。
+   *
+   * 队列**必须非空**：空队列时那一屏自己会回枢纽（「今天没有要背的词」），
+   * 于是 `at()` 停在 `/today`，测的就不是「有没有走到背单词」了。
+   */
+  function stubLessonCards() {
+    overrides['/vocab/lesson-cards'] = () => ({
+      body: {
+        student: { id: PROFILE.id, name: PROFILE.name },
+        lessonContext: true,
+        cursor: 0,
+        totalDue: 1,
+        cards: [
+          {
+            headword: 'ripple',
+            surfaceForm: 'ripple',
+            contextSentence: 'The ripple spread across the water.',
+            sourcePassageTitle: FX.passageTitle,
+            phonetic: 'ˈrɪpl',
+            translation: 'n. 涟漪',
+            pos: 'n.',
+            definition: 'A small wave.',
+            tag: [],
+            state: 'review',
+            reps: 4,
+            needsFirstTeaching: false,
+            firstTaughtAt: '2026-08-21T00:00:00.000Z',
+            sourceType: 'click',
+            addedAt: '2026-08-21T00:00:00.000Z',
+          },
+        ],
+      },
+    });
+  }
+
+  async function submitAndLand(kind = 'learn_vocab') {
+    await openReading();
+    todayBody = todayAfterSubmit(kind);
+    await click(screen.getByTestId('submit'));
+    await click(screen.getByRole('button', { name: /确认交卷/ }));
+    await settle();
+  }
+
+  it('**today 已经指向背单词，交卷后仍然先去结果页**', async () => {
+    stubLessonCards();
+    await submitAndLand('learn_vocab');
+
+    // 中途**一步都没绕开** —— 阅读页之后直接就是结果页
+    expect(visited).toEqual(['/today', '/lesson/reading', '/lesson/reading/result']);
+    expect(at()).toBe('/lesson/reading/result');
+    // 结果页真的把这份卷子取回来了 —— 不是空壳
+    expect(paths(`/morning-quiz/student-result/${SESSION_ID}`)).toHaveLength(1);
+    expect(screen.getByTestId('summary')).toBeInTheDocument();
+    // 一路没有经过背单词页，也没有经过枢纽
+    expect(paths('/vocab/lesson-cards')).toHaveLength(0);
+    // 后端塞的旧 href 一次都没被采纳
+    for (const r of reqs) expect(r.path).not.toMatch(/my-vocab|my-history|scan/);
+  });
+
+  it('**结果页的主行动按当下的 nextAction 走：learn_vocab → /lesson/vocab**', async () => {
+    stubLessonCards();
+    await submitAndLand('learn_vocab');
+
+    const before = reqs.length;
+    await click(screen.getByTestId('continue-lesson'));
+    await settle();
+
+    // 主行动**先问了一次 today** —— 用的是当下的答案，不是交卷那一刻的。
+    // （之后背单词页自己也会问一次，所以这里钉的是「点击后的第一条请求」，
+    //   不是总次数。）
+    expect(reqs.slice(before).map((r) => `${r.method} ${r.path}`)[0]).toBe('GET /lesson/today');
+    expect(at()).toBe('/lesson/vocab');
+    for (const r of reqs) expect(r.path).not.toMatch(/my-vocab|my-history|scan/);
+  });
+
+  it('**主行动绝不绕回结果页自己**（read_result 的自环要被挡住）', async () => {
+    await submitAndLand('learn_vocab');
+    // 回到结果页之后服务端仍然说「去看结果」—— 照跳就是死循环
+    todayBody = todayAfterSubmit('read_result');
+
+    await click(screen.getByTestId('continue-lesson'));
+    await settle();
+
+    expect(at()).not.toBe('/lesson/reading/result');
+    expect(at()).toBe('/today');
+  });
+
+  it('**stay 类的 kind（今天没内容）落回枢纽**', async () => {
+    await submitAndLand('learn_vocab');
+    todayBody = todayAfterSubmit('no_content');
+
+    await click(screen.getByTestId('continue-lesson'));
+    await settle();
+    expect(at()).toBe('/today');
+  });
+
+  it('**交卷失败就不许去结果页**', async () => {
+    stubLessonCards();
+    await openReading();
+    overrides[`/morning-quiz/sessions/${SESSION_ID}/submit`] = () => ({
+      status: 500,
+      body: { message: 'boom' },
+    });
+    todayBody = todayAfterSubmit('learn_vocab');
+
+    await click(screen.getByTestId('submit'));
+    await click(screen.getByRole('button', { name: /确认交卷/ }));
+    await settle();
+
+    expect(at()).toBe('/lesson/reading');
+    expect(screen.getByTestId('submit-error')).toBeInTheDocument();
+    expect(paths(`/morning-quiz/student-result/${SESSION_ID}`)).toHaveLength(0);
+  });
+
+  it('**刷新结果页还留在结果页**（不会被 today 的 kind 冲走）', async () => {
+    stubLessonCards();
+    todayBody = todayAfterSubmit('learn_vocab');
+    mountApp('/lesson/reading/result');
+    await settle();
+
+    expect(at()).toBe('/lesson/reading/result');
+    expect(screen.getByTestId('summary')).toBeInTheDocument();
+    expect(paths(`/morning-quiz/student-result/${SESSION_ID}`)).toHaveLength(1);
   });
 });
