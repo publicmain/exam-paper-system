@@ -236,6 +236,8 @@ describe('AC-10 全链：进考场 → 四种题型 → 交卷 → 今日总结'
       'POST /vocab/quiz/attempt/answer',
       'POST /vocab/quiz/attempt/submit',
       'GET /lesson/today',
+      // 阶段 10 起总结页是**真页面**了，它自己再问一次 today（只读）
+      'GET /lesson/today',
     ]);
 
     // ── 请求体逐字 ──

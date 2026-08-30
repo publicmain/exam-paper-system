@@ -16,11 +16,11 @@ import LoginPage from './pages/Login';
 import RegisterPage from './pages/Register';
 import TodayPage from './pages/Today';
 import AccountPage from './pages/Account';
-import LessonPlaceholder from './pages/LessonPlaceholder';
 import ReadingPage from './pages/Reading';
 import ReadingResultPage from './pages/ReadingResult';
 import LessonVocabPage from './pages/LessonVocab';
 import LessonTestPage from './pages/LessonTest';
+import LessonSummaryPage from './pages/LessonSummary';
 import { Screen } from './ui';
 
 export default function App() {
@@ -66,7 +66,7 @@ export default function App() {
       <Route path={ROUTES.readingResult} element={<ReadingResultPage />} />
       <Route path={ROUTES.lessonVocab} element={<LessonVocabPage />} />
       <Route path={ROUTES.lessonTest} element={<LessonTestPage />} />
-      <Route path={ROUTES.summary} element={<LessonPlaceholder stage="summary" />} />
+      <Route path={ROUTES.summary} element={<LessonSummaryPage />} />
       <Route path="*" element={<Navigate to={fallbackPath(authed)} replace />} />
     </Routes>
   );

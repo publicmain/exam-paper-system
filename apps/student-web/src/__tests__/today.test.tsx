@@ -260,19 +260,16 @@ describe('3–5. 开始今天的课', () => {
 });
 
 describe('6–7. 路由映射只认契约', () => {
-  const cases: [NextActionKind, string, string][] = [
-    ['summary', '看今日总结', '今日总结'],
-  ];
-  for (const [kind, label, placeholderTitle] of cases) {
-    it(`\`${kind}\` → 落到对应的占位路由`, async () => {
-      session(withKind(kind, label));
-      renderAt('/today');
-      await screen.findByRole('heading', { name: /你好，七号/ });
-      await userEvent.click(screen.getByRole('button', { name: label }));
-      expect(await screen.findByRole('heading', { name: placeholderTitle })).toBeTruthy();
-      expect(screen.getByRole('link', { name: '回到今天的课' })).toBeTruthy();
-    });
-  }
+  it('`summary` → 落到**真的今日总结页**（阶段 10 起不再是占位页）', async () => {
+    session(withKind('summary', '看今日总结'));
+    renderAt('/today');
+    await screen.findByRole('heading', { name: /你好，七号/ });
+    await userEvent.click(screen.getByRole('button', { name: '看今日总结' }));
+    expect(await screen.findByRole('heading', { name: '今日总结' })).toBeTruthy();
+    expect(screen.getByTestId('summary-date')).toBeTruthy();
+    expect(screen.getByTestId('back-to-today')).toBeTruthy();
+    expect(screen.queryByText(/还没有做好/)).toBeNull();
+  });
 
   it('`vocab_test` → 落到**真的正式测试页**（阶段 9B1 起不再是占位页）', async () => {
     session(withKind('vocab_test', '开始单词测试'), stubQuiz);
@@ -493,23 +490,16 @@ describe('15–16. 路由兜底与占位页', () => {
     expect(await screen.findByRole('heading', { name: /你好，七号/ })).toBeTruthy();
   });
 
-  // 阶段 9B1 之后**只剩今日总结还是占位页**。
-  const placeholders: [string, string][] = [
-    ['/lesson/summary', '今日总结'],
-  ];
-  for (const [path, title] of placeholders) {
-    it(`${path} 渲染占位页，并给一条回 /today 的固定链接`, async () => {
-      session(lesson());
-      renderAt(path);
-      expect(await screen.findByRole('heading', { name: title })).toBeTruthy();
-      expect(screen.getByText(/还没有做好/)).toBeTruthy();
-      const link = screen.getByRole('link', { name: '回到今天的课' });
-      expect(link.getAttribute('href')).toBe('/today');
-      // **占位页不发任何课程请求**
-      expect(callsTo('/lesson/today')).toHaveLength(0);
-      expect(callsTo('/lesson/start')).toHaveLength(0);
-    });
-  }
+  // 阶段 10 起**五条课程路由一条占位页都不剩了**。
+  it('**直接打开 `/lesson/summary` 也走完整链路**（阶段 10 起不是占位页）', async () => {
+    session(withKind('summary', '看今日总结'));
+    renderAt('/lesson/summary');
+    expect(await screen.findByRole('heading', { name: '今日总结' })).toBeTruthy();
+    expect(screen.queryByText(/还没有做好/)).toBeNull();
+    // 状态从服务端来，不从 URL 来；而且这一屏**只读**
+    expect(callsTo('/lesson/today')).toHaveLength(1);
+    expect(callsTo('/lesson/start')).toHaveLength(0);
+  });
 
   it('**直接打开 `/lesson/test` 也走完整链路**（阶段 9B1 起不是占位页）', async () => {
     session(withKind('vocab_test', '开始单词测试'), stubQuiz);
