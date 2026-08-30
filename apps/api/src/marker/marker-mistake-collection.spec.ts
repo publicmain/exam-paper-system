@@ -1,5 +1,5 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { BadRequestException, ConflictException } from '@nestjs/common';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import { BadRequestException, ConflictException, Logger } from '@nestjs/common';
 import { MarkerService } from './marker.service';
 
 /**
@@ -245,5 +245,146 @@ describe('阶段 12D —— best-effort 隔离', () => {
     const { svc } = makeSvc(prisma, s);
     await svc.finalize('sub-1', MARKER);
     expect(order).toEqual(['update', 'release', 'mistakes']);
+  });
+});
+
+// ─────────────────────────────────────────────────────────────
+// 返工 1/2 —— 采集失败的那行日志不许泄漏异常内容
+//
+// 采集这一步直接压在 Prisma 上。Prisma 的异常**会把连接串写进 message**
+// （`postgresql://user:password@host:port/db`），驱动层的错误还会在
+// `stack` / `cause` 里带上查询片段。把 `e.message` 插进日志，等于把生产库
+// 的凭据写进日志系统 —— 而日志的留存期、可见范围、导出路径都和数据库
+// 完全不是一套。
+//
+// 所以这条判据是**失败关闭**的：catch 里**根本不看**那个异常。
+// 不是「过滤掉敏感词」——过滤永远漏，而且下一种驱动会换一种格式。
+// ─────────────────────────────────────────────────────────────
+
+/** 只要日志里出现其中任何一段，就说明异常内容漏出来了。 */
+const SENTINEL_URL = 'postgresql://sentinel-user:sentinel-password@sentinel-host:6789/sentinel-db';
+const SENTINEL_PARTS = [
+  SENTINEL_URL,
+  'postgresql://',
+  'sentinel-user',
+  'sentinel-password',
+  'sentinel-host',
+  '6789',
+  'sentinel-db',
+  'SENTINEL-STACK',
+  'SENTINEL-CAUSE',
+];
+
+/** 一个「长得像 Prisma 异常」的错误：message / stack / cause 全带哨兵。 */
+function sentinelError(): Error {
+  const cause = new Error(`cause frame SENTINEL-CAUSE ${SENTINEL_URL}`);
+  const e = new Error(`Can't reach database server at ${SENTINEL_URL}`) as Error & { cause?: unknown };
+  e.stack = `Error: ${e.message}\n    at SENTINEL-STACK (${SENTINEL_URL})`;
+  e.cause = cause;
+  return e;
+}
+
+describe('阶段 12D 返工 —— 采集失败的日志必须失败关闭', () => {
+  let warns: string[];
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    warns = [];
+    vi.spyOn(Logger.prototype, 'warn').mockImplementation((...args: unknown[]) => {
+      // 把**每一个**参数都收进来 —— 泄漏可能藏在 context 参数里
+      warns.push(args.map((a) => (typeof a === 'string' ? a : JSON.stringify(a) ?? String(a))).join(' '));
+    });
+    vi.spyOn(Logger.prototype, 'log').mockImplementation(() => undefined);
+  });
+
+  afterEach(() => vi.restoreAllMocks());
+
+  it('**Prisma 式异常：日志里一个哨兵片段都没有**', async () => {
+    const prisma = mockPrisma();
+    const s = stubs();
+    s.mistakes.collectFromSubmission = vi.fn().mockRejectedValue(sentinelError());
+    const { svc } = makeSvc(prisma, s);
+
+    await svc.finalize('sub-1', MARKER);
+
+    const all = warns.join('\n');
+    expect(warns).toHaveLength(1); // 只有错题采集那一条
+    for (const part of SENTINEL_PARTS) {
+      expect(all, `日志里泄漏了「${part}」`).not.toContain(part);
+    }
+    // 而且确实记了点什么 —— 不能靠「什么都不记」来通过这条
+    expect(all).toContain('mistake harvest failed');
+    expect(all).toContain('sub-1');
+  });
+
+  it('**扔的不是 Error 也不许被隐式字符串化**', async () => {
+    const prisma = mockPrisma();
+    const s = stubs();
+    // 一个 toString 会吐出连接串的对象 —— 模板串拼接会立刻中招
+    const hostile = {
+      toString: () => SENTINEL_URL,
+      url: SENTINEL_URL,
+    };
+    s.mistakes.collectFromSubmission = vi.fn().mockRejectedValue(hostile);
+    const { svc } = makeSvc(prisma, s);
+
+    await svc.finalize('sub-1', MARKER);
+
+    const all = warns.join('\n');
+    for (const part of SENTINEL_PARTS) {
+      expect(all, `日志里泄漏了「${part}」`).not.toContain(part);
+    }
+    expect(all).toContain('mistake harvest failed');
+  });
+
+  it('**扔字符串同样不许漏**', async () => {
+    const prisma = mockPrisma();
+    const s = stubs();
+    s.mistakes.collectFromSubmission = vi.fn().mockRejectedValue(SENTINEL_URL);
+    const { svc } = makeSvc(prisma, s);
+    await svc.finalize('sub-1', MARKER);
+    expect(warns.join('\n')).not.toContain('sentinel-password');
+  });
+
+  it('**日志失败关闭之后，判分与两个采集器的行为一个字都没变**', async () => {
+    const prisma = mockPrisma();
+    const s = stubs();
+    s.mistakes.collectFromSubmission = vi.fn().mockRejectedValue(sentinelError());
+    const { svc } = makeSvc(prisma, s);
+
+    const out = await svc.finalize('sub-1', MARKER);
+
+    const data = prisma._captured.updateManyArgs[0].data;
+    expect(data.status).toBe('marked');
+    expect(data.autoScore).toBe(1);
+    expect(data.manualScore).toBe(2);
+    expect(data.totalScore).toBe(3);
+    expect(prisma.markerAssignment.update).toHaveBeenCalledTimes(1);
+    expect(s.studentWords.harvestFromSubmission).toHaveBeenCalledTimes(1);
+    expect(s.mistakes.collectFromSubmission).toHaveBeenCalledTimes(1);
+    expect(s.mistakes.collectFromSubmission).toHaveBeenCalledWith('sub-1', '2026-08-27');
+    expect(out).toBeTruthy();
+  });
+
+  it('**成功那条日志仍然只有 id / 日期 / 条数**', async () => {
+    const logs: string[] = [];
+    (Logger.prototype.log as unknown as { mockImplementation: (f: (...a: unknown[]) => void) => void })
+      .mockImplementation((...args: unknown[]) => {
+        logs.push(args.map(String).join(' '));
+      });
+    const prisma = mockPrisma();
+    const s = stubs();
+    s.mistakes.collectFromSubmission = vi.fn().mockResolvedValue({ added: 3 });
+    const { svc } = makeSvc(prisma, s);
+
+    await svc.finalize('sub-1', MARKER);
+
+    const line = logs.find((l) => l.includes('mistake harvest')) ?? '';
+    expect(line).toContain('sub-1');
+    expect(line).toContain('2026-08-27');
+    expect(line).toContain('3');
+    // 成功路径上没有异常可谈，更不该出现任何连接串片段
+    for (const part of SENTINEL_PARTS) expect(line).not.toContain(part);
+    expect(warns).toEqual([]);
   });
 });

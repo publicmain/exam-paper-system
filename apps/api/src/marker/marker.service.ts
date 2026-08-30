@@ -495,8 +495,23 @@ export class MarkerService {
         }
       }
       // 没有场次 = 不是早测卷，**什么都不做**（见 quizDayOf 的注释）。
-    } catch (e: any) {
-      this.logger.warn(`mistake harvest failed for ${submissionId}: ${e?.message ?? e}`);
+    } catch {
+      // **不看那个异常，一个字段都不看。**
+      //
+      // 这一步直接压在 Prisma 上，而 Prisma 的异常会把连接串写进
+      // `message`（`postgresql://user:password@host:port/db`），驱动层的
+      // 错误还会在 `stack` / `cause` 里带查询片段。把它插进日志，等于把
+      // 生产库的凭据写进日志系统 —— 日志的留存期、可见范围、导出路径
+      // 跟数据库完全不是一套。
+      //
+      // 做法是**失败关闭**：catch 不绑变量，所以拼不进去，也没有「下次
+      // 顺手加个 e.code」的口子。不做「过滤敏感词」—— 过滤永远漏一种，
+      // 而且换个驱动就换一种格式。
+      //
+      // 代价是这行日志只说「哪一份没采集上」。要查为什么，去 Prisma 自己
+      // 的日志或 APM 里按 submissionId 找 —— 那些地方本来就按敏感数据的
+      // 规矩管着。
+      this.logger.warn(`mistake harvest failed for submission=${submissionId}`);
     }
 
     return this.prisma.studentSubmission.findUnique({ where: { id: submissionId } });
