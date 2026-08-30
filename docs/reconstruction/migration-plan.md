@@ -45,7 +45,7 @@
 | **7** | **阅读页（单独阶段）** | 🔧 **7A–7D 均本地完成**；7E 环境就绪，**真机验收由用户跳过并接受残余风险**（不是 PASS） | | **✓ 单独** | **✓ 单独** |
 | **8** | **阅读结果页** | 🔧 **8A 本地完成**（未部署、未真机） | | ✓ | ✓ |
 | **9** | **课程学词 + 正式测试** | **✅ PASS**（2026-08-30）—— 9A/9D1/9D2A/9D2B 逐项修复后，9D2C 实跑发现正式测试只出两种题型，9D2D 修复并用 t6_done 实机验证**四种题型各一道 + 隐私 + 恢复 + 算分 + 数据隔离**，全链跑到 `/lesson/summary` | | ✓ | ✓ |
-| 10 | 今日总结 | ⬜ | | ✓ | ✓ |
+| **10** | **今日总结** | **✅ PASS**（2026-08-30）—— 占位页换成只读真页面，本地 RED 19/25 → 25/25，t6_done 实机验证只读与服务端权威 | | ✓ | ✓ |
 | 11 | 账号制历史成绩 | ⬜ | | ✓ | ✓ |
 | 12 | 生词本与错题本 | ⬜ | | ✓ | ✓ |
 | 13 | 旧 URL 单向适配 | ⬜ | | ✓ | ✓ |
@@ -2831,13 +2831,127 @@ API 健康、CORS 正确、配置没漂」。
 
 ---
 
-## 阶段 10 —— 今日总结
+## 阶段 10 —— 今日总结　**✅ PASS**（2026-08-30）
 
-- [ ] `/app/lesson/summary`（纯读 `/lesson/today`）
+`task_id: S10-TODAY-SUMMARY-IMPLEMENT-AND-LIVE` · base `2f5d0dc` ·
+实现提交 `04df7c8` · 部署 `0f2f5090-ee2b-4bde-aaba-e7db237eb7c3`。
 
-**至此七步链在新端跑通。**
+- [x] `/lesson/summary`（纯读 `/lesson/today`）—— 占位页已删除
+
+**至此七步链在新端跑通，五条课程路由一条占位页都不剩。**
+
+### 这一屏的三条规矩
+
+**① 只读。** 挂载只打一个 `GET /lesson/today`，此外**一个请求都没有** ——
+尤其不碰 `/lesson/start`。它是回顾，不是流程节点；总结页偷偷写一次库，
+就等于「看一眼成绩把今天又开了一遍」。刷新、重试、从别处再进来都一样。
+
+**② 服务端说了算，这一屏不做任何算术。**
+
+  · 服务端说「还在判分」或者没给分数 —— 就照说，**绝不补一个 0**。
+    对学生来说「0 分」和「还没判」是两件完全不同的事；
+  · 百分比用服务端的 `percentage`，**不拿 `correct / total` 重算**。
+    权威是交卷时算一次就冻住的那一份（`vocab-score.ts`），前端重算只会
+    造出第二套成绩。测试里专门喂了一份**故意对不上**的数据
+    （1/4 却说 42%），断言屏幕上是 42 不是 25。
+
+**③ 只认 `kind`，不看 `href`。** 后端仍下发 `/my-lesson/summary`，
+这一屏一次都不读。`kind` 不是 `summary` 就 replace 回 `/today` ——
+学生还没走到这一步，显示半截总结不如让枢纽决定下一步。
+
+**出口只有两个**：`/today`，以及**有答卷时**的 `/lesson/reading/result`。
+历史成绩、生词本、错题本属于阶段 11 / 12，**这里不放它们的入口** ——
+指向不存在的页面比没有入口更糟。
+
+### RED（对着占位页 `2f5d0dc`，行为红不是收集红）
+
+新增 `lesson-summary.test.tsx` **不 import 页面组件**，全部挂真 `App` 到
+那条路由上，所以对占位页也跑得起来。25 项里 **19 项红**，关键几条：
+
+```
+挂载只打一次 GET /lesson/today   → expected [] to have a length of 1 but got +0
+载入中说得清楚                    → expected '今日总结这一段还没有做好。…' to match /载入中/
+除 summary 外每个 kind 回 /today  → ready_to_start: expected '/lesson/summary' to be '/today'
+认证失败走统一登出                → expected 'summary-token' to be null
+```
+
+即：占位页**一个课程请求都不发**、页面上就是那句「这一段还没有做好」、
+没有路由守卫、没有认证失败处理。修复后 25/25 绿。
+
+### 本地验证（退出码全 0）
+
+`apps/student-web` 18 文件 / **586** 项 + tsc + build；
+`apps/api` 93 文件 / **1334** 项 + tsc；`apps/web` 37 文件 / **247** 项 + tsc；
+`git diff --check` 0。**API 一行未改**（`apps/api/prisma` 对全部已记录基线
+diff 为空，schema blob 仍是 `515318e1…`）。
+
+连带改了两处**既有**测试 —— 与阶段 8A / 9A / 9B1 每次「占位页换真页面」
+时的做法一致：`today.test.tsx` 的两条占位页断言改成真页面断言；
+`lesson-test-integration.test.tsx` 的请求序列多一条总结页自己的只读
+`GET /lesson/today`。**没有放松任何断言。**
+
+### 部署（只发学生端）
+
+| 服务 | 部署前（**回滚锚点**） | 部署后 |
+|---|---|---|
+| `stg-student-web-spike` | `ab57a4eb-7c91-4940-a8b3-29135601d938` | **`0f2f5090-ee2b-4bde-aaba-e7db237eb7c3`** |
+| `stg-api` | `f089519e-a65e-425d-a222-e38a105a6d59` | **未变** ✓ |
+| `stg-web` | `33fce087-c424-4080-9d23-76ac23165e10` | **未变** ✓ |
+| `Postgres` | `73871ad2-226a-4d7d-9e71-586203275281` | **未变** ✓ |
+
+四个域名未变；三个服务的变量键集合未变（24 / 15 / 16）；
+**`STUDENT_APP_V2` 仍然都不存在**；health / ready 200，CORS 预检 204。
+线上产物指纹：含「今日总结」「今天的课完成了」「还在判分」，
+**「这一段还没有做好」= 0 次**。
+
+### 实机验证（`t6_done`，全程免密、全程只读）
+
+清空 localStorage → 一键登录 → `/today` →「看今天的总结」→
+**`/lesson/summary`**。点进去**只多了一个 `GET /lesson/today`**，写请求 0。
+
+屏幕上逐项与服务端逐项对齐：
+
+| 屏幕 | 服务端 |
+|---|---|
+| `2026-08-30` | `date: 2026-08-30` |
+| 今天完成 3 / 3 | `completed 3 / total 3` |
+| （不显示连续天数） | `streakDays: 0` —— 大于 0 才显示，不编「连续 0 天」 |
+| 阅读 · 完成 · The River Ferry（S9D2A 阅读夹具）· **已交卷 · 还在判分** | `status done` / `scoresPending true` / `score null` —— **没有补 0** |
+| 看阅读解析 → | `href="/lesson/reading/result"`（canonical，无身份参数） |
+| 单词 · 完成 · 正式测试：**答对 0 / 4 · 0%** | `submitted / correct 0 / total 4 / percentage 0` |
+| 课程学词：4 / 4 | `progress 4 / target 4` |
+| 错题 · 今天没有 · 今天没有要重练的错题 | `status none / target 0` |
+
+后端同时下发 `nextAction.href = /my-lesson/summary`，**页面一次都没读它**。
+
+点「看阅读解析」→ `/lesson/reading/result`（无查询串、无身份参数）；
+回到总结页 → 点「回到今天的课」→ `/today`。
+**整页重开**一次总结页：仍然渲染同一份内容，
+`performance.getEntriesByType('resource')` 里只有
+`/api/student-auth/me` 与 `/api/lesson/today` 两条。
+退出登录 → 令牌清空、回登录页。
+
+**整场实机验证里唯一的非 GET 请求是登录本身**
+（`POST /student-auth/staging-fixture-session`）。
+
+### 数据隔离（只读前后快照）
+
+看总结页前后两份快照：**八个账号的指纹逐项相同**；t6 的
+`DailyLessonCompletion` / `StudentWord` / `WordReviewLog` / 阅读答卷 /
+`AnswerScript` 五组对象**逐字节相同**；全库两条 attempt 逐字节相同
+（t5 `3d830a9edf8c8784c7e67494c36d12a8`、t6 `2755c8ebd60405e180d19efc5cb5c744`）；
+通知与考勤全程 0 / 0 / 0。**看一眼总结，库里什么都没变。**
+
+### 明确没做的事
+
+> · **阶段 11 未开始** —— 账号制历史成绩（`/app/scores`）一行未写；
+> · **历史成绩、生词本（自由练习）、错题本（错题重练）、账号设置扩展**
+>   仍是**后续强制任务**，一件都没有被跳过或降级 —— 总结页刻意不给它们
+>   放入口，正是因为它们还不存在；
+> · staging 的免密夹具登录仍开着，退役期限见本文档开头的表。
 
 ---
+
 
 ## 阶段 11 —— 账号制历史成绩
 
