@@ -47,7 +47,7 @@
 | **9** | **课程学词 + 正式测试** | **✅ PASS**（2026-08-30）—— 9A/9D1/9D2A/9D2B 逐项修复后，9D2C 实跑发现正式测试只出两种题型，9D2D 修复并用 t6_done 实机验证**四种题型各一道 + 隐私 + 恢复 + 算分 + 数据隔离**，全链跑到 `/lesson/summary` | | ✓ | ✓ |
 | **10** | **今日总结** | **✅ PASS**（2026-08-30）—— 占位页换成只读真页面，本地 RED 19/25 → 25/25，t6_done 实机验证只读与服务端权威 | | ✓ | ✓ |
 | **11** | **账号制历史成绩** | **✅ PASS**（2026-08-30，含返工 1/2）—— `/scores` + `/scores/:submissionId`，token-only、阅读与词测两段分开、practice 不进列表、零分照实；t6_done 实机走通规范导航，拿 t5 的 submissionId 直闯被 403 挡住且不渲染任何答案，一条授权的合成申诉写入，其余库状态逐字节不变。返工 1/2 拿掉了详情页那个服务端没给过的派生百分比 | | ✓ | ✓ |
-| **12** | **生词本与错题本** | 🔧 **12A + 12B + 12C 本地完成**（2026-08-30）—— 五页 token-only（12A 三页含返工 1/2 与 2/2、12B 两页）＋ 阶段 7 移交的考试中查词按 token-only 重写并挂回阅读页（12C）。四条线用路由和端点分开（G-12A / G-12B / G-12C）。**staging 实机验证、账号设置扩展、仿生产合成验收账号三项仍未开始**，整阶段未完成；全程**未部署、未真机、未碰数据库** | | ✓ | ✓ |
+| **12** | **生词本与错题本** | 🔧 **12A + 12B + 12C 本地完成**（2026-08-30）—— 五页 token-only（12A 三页含返工 1/2 与 2/2、12B 两页）＋ 阶段 7 移交的考试中查词按 token-only 重写并挂回阅读页（12C，含返工 1/2）。四条线用路由和端点分开（G-12A / G-12B / G-12C）。**staging 实机验证、账号设置扩展、仿生产合成验收账号三项仍未开始**，整阶段未完成；全程**未部署、未真机、未碰数据库** | | ✓ | ✓ |
 | 13 | 旧 URL 单向适配 | ⬜ | | ✓ | ✓ |
 | 14 | staging 八账号实机验收 | ⬜ | | — | — |
 | 15 | 灰度切换（1 → 5 → 整班） | ⬜ | | — | 开关 |
@@ -3280,7 +3280,7 @@ npx vitest run src/__tests__/score-detail.test.tsx
 · base `4d4ef87` · 实现提交 `4e5f3a9`。
 
 **12C**（考试中查词 token-only 重写）`task_id: S12C-EXAM-WORD-SHEET-TOKEN-ONLY-LOCAL`
-· base `61602ac` · 实现提交 `0ec6e54`。
+· base `61602ac` · 实现提交 `0ec6e54` · 返工 1/2 修复提交 `1ade3dd`。
 
 **两次都是纯本地任务：没有部署、没有 staging 执行、没有任何数据库断言。**
 
@@ -3740,10 +3740,15 @@ G-12A 里那条「错题本」禁令的**规则一字未动**（生词本那一�
 只属于该字段的尾巴。**改的是夹具，不是判据。**
 
 
-### 12C —— 考试中查词（`ExamWordSheet` token-only 重写）　**本地完成**（2026-08-30）
+### 12C —— 考试中查词（`ExamWordSheet` token-only 重写）　**本地完成**（2026-08-30，含返工 1/2）
 
 `task_id: S12C-EXAM-WORD-SHEET-TOKEN-ONLY-LOCAL` · contract v1.0 ·
-base `61602ac` · 实现提交 `0ec6e54`。
+base `61602ac` · 实现提交 `0ec6e54` ·
+**返工 1/2**（复审的三个阻断项）基线 `d63e073` · 修复提交 `1ade3dd`。
+
+> **第一轮不该被当成完成**：复审指出三处「说了要做、实际没做」——
+> 回执只验了一半、把显示兜底当成来源写进库、发现标记写了却从来不读。
+> 逐条修复与实测证据见本节末的[返工 1/2](#返工-12--复审提出的三个阻断项)。
 **同样是纯本地任务：没有部署、没有 Railway、没有 staging、没有数据库、
 没有夹具、没有任何凭据。**
 
@@ -3913,6 +3918,111 @@ G1 / G-8A / G-9A / G-9B1 / G-12A / G-12B **一条都没有被削弱**。
    于是「拖动 / 滚动不算点」在测试里**恒真，等于没测**（第一版正是这样
    绿的，两条负向断言都是假绿）。改成自己派发带坐标的事件之后，那两条
    才真的在测阈值。
+
+
+#### 返工 1/2 —— 复审提出的三个阻断项
+
+基线 `d63e073` · 修复提交 `1ade3dd`。三条都是**「说了要做、实际没做」**：
+注释与文档写的是一回事，代码做的是另一回事。
+
+##### B-1 回执只验了一半
+
+`addSucceeded()` 的类型谓词写着
+`r is { created: boolean; headword: string }`，实际只查了 `created`。
+于是这些**半截响应全部被报成「已存入生词本」**：
+
+```
+{ created: true }                      { created: false }
+{ created: true, headword: 123 }       { created: false, headword: null }
+```
+
+**`headword` 不是装饰**：它是服务端**查过词典之后**定下来的那个词条
+（`looked` → `look`）。回执里没有它，说明服务端根本没走到那一步 ——
+这次到底记的是哪个词无从谈起。报成功的后果是学生下次翻生词本找不到那个
+词，只会以为系统把东西弄丢了。
+
+**修法**：整条都验 —— 非空对象、`created` 是布尔、`headword` 是**非空
+字符串**。任何不完整的形状都走既有的「没存上 + 重试」那一支；
+`created` 两种取值的正常 UI 一个字没改；**没有新增字段、没有新增端点**。
+
+##### B-2 把显示用的兜底当成了来源写进库
+
+渲染器用 `Reading Passage` 作为**没有标题时的显示兜底**，然后把这个兜底
+原样传给查词卡当 `sourcePassageTitle`。冻结规则是「**真的来源非空时才
+带上**」。
+
+后果是：没标题的卷子，每一条收录记录都指向一个**不存在的篇目**，而且
+没有任何办法分辨「这卷真叫 Reading Passage」和「这卷根本没标题」。
+
+**修法**：拆成两个变量 —— `sourceTitle`（真的，可能是空串）与
+`passageTitle`（`sourceTitle || 'Reading Passage'`，只给屏幕看）。
+查词卡拿到的是 `sourceTitle`，空就整个不带这个键。
+**显示可以兜底，落库不许兜底。**
+
+##### B-3 那个键写了却从来不读
+
+`sw:reading:looked-up-once` 只有 `setItem`，没有 `getItem` —— 提示条前后
+一模一样。那它就不是「一次性发现提示」，只是一个没人看的写操作。
+情境化提示的全部价值就在「第一次显眼、之后收起」这个对比上；不收起，
+它就从「帮你发现功能」退化成长期占版面的噪音。
+
+**修法**：状态从这个键初始化；没查过时显示**显眼的蓝色提示条**
+（`lookup-hint-prominent`），第一次点词之后写 `'1'` 并换成常态小字
+（`lookup-hint-compact`）；带着标记重新挂载**直接就是小字**。
+提示条的收起走**本地 state**，落盘只是为了下一场也记得 —— 所以
+**写失败不影响查词**（隐私模式下这一场照样收起，下一场再提示一次）。
+**没有多写任何键**，也不存词、响应、令牌、身份、答案或待写队列。
+
+##### 返工的 RED（对着 `d63e073`）
+
+```
+npx vitest run src/__tests__/exam-word-sheet.test.tsx
+→ exit 1 ·  Tests 13 failed | 51 passed (64)
+```
+
+三条各自的代表性失败：
+
+```
+B-1  回执不完整就算失败（六种形状）  → Unable to find [data-testid="word-sheet-save-failed"]
+B-2  没有标题时不带这个键            → expected ['contextSentence',…(2)] to equal ['contextSentence','word']
+B-2  空白标题同样不带                → expected true to be false
+B-3  没有标记时显眼提示              → Unable to find [data-testid="lookup-hint-prominent"]
+B-3  点过之后换成小字                → Unable to find [data-testid="lookup-hint-compact"]
+B-3  带标记重新挂载直接是小字        → Unable to find [data-testid="lookup-hint-compact"]
+```
+
+##### 返工的 GREEN（`1ade3dd`）
+
+| 命令 | exit | 结果 |
+| --- | --- | --- |
+| `exam-word-sheet.test.tsx` | 0 | **64**（45 → +19） |
+| `reading-renderers` + `reading-integration` + `contract` | 0 | 3 files / **215**（30 / 24 / 161） |
+| `npx vitest run`（student-web 全量） | 0 | 26 files / **919**（898 → +21） |
+| `npx tsc --noEmit` / `npx vite build`（student-web） | 0 | 干净 · 335.14 kB |
+| `npx vitest run` + `tsc`（api 全量） | 0 | 93 files / **1334** passed |
+| `npx vitest run` + `tsc`（web 全量） | 0 | 37 files / **247** passed |
+| `git diff --check` | 0 | 无空白错误 |
+
+这一轮**只动了四个文件**：`ExamWordSheet.tsx`、`IELTSReadingPassage.tsx`
+与它们的两份测试。**`Highlighter.tsx` 一行未改**（三条阻断项都不需要动
+手势层），`lib/api.ts`、`reading-renderers.test.tsx`、
+`reading-integration.test.tsx` 同样未改。
+
+新增两条**窄守卫**（G-12C 内，不放宽任何既有断言）：查词卡拿到的必须是
+`sourceTitle` 而不是显示用的兜底；发现标记必须**既写又读**、两种提示都在。
+它们钉住的正是行为测试从外面看不见、而且最容易被后人「顺手简化」回去的
+那两处。
+
+##### 一处测试夹具的更正
+
+「除了那一个标记什么都不存」第一版把**整个 localStorage** 拿来比对，于是
+撞上 `sw:reading:tab-owner:s1` —— 那是 `ReadingProvider` 本来就写的键，
+与查词无关。同批的「存储写失败」也因为把**所有** `setItem` 都打挂而让
+挂载本身就崩了。两条都改成只针对**这一个键、这一下点击**。
+**改的是夹具，不是判据。**
+
+> 这一轮同样**没有部署、没有 Railway、没有 staging、没有数据库、
+> 没有夹具与凭据**。
 
 
 ### 这一阶段没做什么
