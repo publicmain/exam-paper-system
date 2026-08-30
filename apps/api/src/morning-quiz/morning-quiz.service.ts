@@ -437,9 +437,6 @@ export interface GradingSummary {
   total: number;
 }
 
-/** AI 判分的痕迹：`finalSubmit` 把理由写成 `[ai-grade] …`。 */
-const AI_GRADE_PREFIX = '[ai-grade]';
-
 /**
  * 只用于**比较**的归一化：NFKC → 去首尾 → 折叠内部空白 → casefold。
  *
@@ -456,25 +453,37 @@ export function normalizeForAnswerCompare(raw: unknown): string {
 /**
  * 这一题是不是**服务端的确定性判分路径**写的。
  *
- * 判据全部是持久化字段，**不看任何客户端传来的东西**：
+ * ## 为什么是四条**正面**判据
  *
- *   · `markedById != null`        → 老师判的（全仓库只有 marker.service 写它）
- *   · `autoCorrect == null`       → 判分路径根本没碰过
- *   · `markerComment` 以 `[ai-grade]` 开头 → AI 判的，**不算确定性**
+ * v1.0 用的是反面判据：「不是老师判的、且评语不以 `[ai-grade]`
+ * 开头」。复审当场拆穿：`getStudentResult` 在交给本函数**之前**就把
+ * 那个前缀擦掉了（为了不把内部标记给学生看）—— 于是 AI 判的题看起来
+ * 就像确定性判的，分数被提前放了出去。靠「看起来不像 AI」当证据，
+ * 只要上游多洗一道就失效。
  *
- * AI 那一档必须排除：它是概率判断，不是「答案就是 A」。
+ * 现在只认**已经被证明是确定性的那一条路**：MCQ。
+ * `autoGradeScripts` 里 `questionType === 'mcq'` 走的是共享的 `gradeMcq`，
+ * 然后直接 `continue` —— 它**永远不会**进 AI 那一支。而阅读卷里的
+ * 判断题 / 选择题 / 选项配对题都是以 MCQ 形式入库的，用户报的那一题
+ * 正在这个集合里。
+ *
+ * 精确匹配的简答题（Path 1）客观上也是确定性的，但它与 AI 判的那些
+ * 共用同一组持久化字段，**没有 schema 改动就区分不了**。宁可让它继续
+ * 等老师，也不能把 AI 的判断当成确定结论发出去。**失败关闭。**
  */
 export function deterministicallyGraded(item: {
+  questionType?: string | null;
   awardedMarks: number | null;
   autoCorrect: boolean | null;
-  markerComment: string | null;
   markedById?: string | null;
 }): boolean {
+  // 正面判据一：只有 MCQ 这条路被证明是确定性的。
+  if (item.questionType !== 'mcq') return false;
+  // 正面判据二：没有老师插手（全仓库只有 marker.service 写这个字段）。
   if (item.markedById != null) return false;
-  if (item.autoCorrect == null) return false;
+  // 正面判据三 / 四：判分路径确实落了结论。
+  if (typeof item.autoCorrect !== 'boolean') return false;
   if (item.awardedMarks == null) return false;
-  const c = item.markerComment;
-  if (typeof c === 'string' && c.trimStart().startsWith(AI_GRADE_PREFIX)) return false;
   return true;
 }
 
@@ -492,9 +501,9 @@ function answeredOf(item: { studentAnswer?: string | null }): boolean {
  */
 export function classifyItemGrading(
   item: {
+    questionType?: string | null;
     awardedMarks: number | null;
     autoCorrect: boolean | null;
-    markerComment: string | null;
     markedById?: string | null;
     studentAnswer?: string | null;
   },
@@ -604,8 +613,14 @@ export function stripUnreleasedScores<
     // 评语永远只跟整卷的分数门走 —— 老师的草稿反馈不提前给。
     const releaseComment = showScores;
 
+    // **内部字段显式抑去**。`markedById` 只用来判出身，绝不能随
+    // 展开进学生响应 —— v1.0 就是这么把老师 id 漏出去的。
+    // 也不换一个内部字段顶上：出身本身不是学生该知道的事。
+    const { markedById: _provenance, ...publicItem } = it as typeof it & {
+      markedById?: string | null;
+    };
     const next = {
-      ...it,
+      ...publicItem,
       ...(releaseItemScore
         ? {}
         : { awardedMarks: null, autoCorrect: null, isCorrect: null }),

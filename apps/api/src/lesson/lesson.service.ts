@@ -415,6 +415,17 @@ export class LessonService {
         readNow.hasSession ||
         (frozen?.vocabTarget ?? vocabNow.target) > 0 ||
         (frozen?.drillTarget ?? drillNow.target) > 0,
+      // S12H 返工 1/2 —— **补段的事实必须真的传进去**。
+      //
+      // v1.0 把 drill 分支写好了却没接线，那个能力因此是惰性的，
+      // 用户看到的「补段 0/5 却写着看总结」原样还在。
+      //
+      // 三个值全部来自**服务端自己算好的事实**，与 `deriveStage`
+      // 用的是同一组（`dTarget` / `drillNow.progress`），不另起炉灶；
+      // 请求体与查询串里没有任何一个能影响它们。
+      drillTarget: dTarget,
+      drillProgress: drillNow.progress,
+      vocabQuizSubmitted: vocabNow.quizSubmitted,
     });
     return {
       student: { id: student.id, name: student.name },

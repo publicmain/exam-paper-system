@@ -91,6 +91,15 @@ export interface NextActionFacts {
    */
   drillTarget?: number;
   drillProgress?: number;
+
+  /**
+   * S12H 返工 1/2 —— **这次任务的正式单词测试交过了没有**。
+   *
+   * 光把阶段停在 `vocab_test` 是不够的：那样主按钮会变成
+   * 「开始单词测试」，把已经考过的学生又送回考场。
+   * 要分得出「还没考」与「考完了在等补段」，就必须有这一条事实。
+   */
+  vocabQuizSubmitted?: boolean;
 }
 
 /**
@@ -169,6 +178,9 @@ export function nextActionOf(f: NextActionFacts): NextAction {
       if (drillPending(f)) return drillAction(f);
       return { kind: 'summary', label: '看今天的总结', href: '/my-lesson/summary' };
     }
+    // 已经考过了，但阶段还停在 vocab_test（因为补段没做完）——
+    // 这时候下一步是补段，**不是再考一次**。
+    if (f.vocabQuizSubmitted && drillPending(f)) return drillAction(f);
     return { kind: 'vocab_test', label: '开始单词测试', href: '/my-vocab/quiz' };
   }
 

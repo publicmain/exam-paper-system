@@ -18,6 +18,9 @@ import { answersReleased, scoresReleased, stripUnreleasedScores } from './mornin
 const item = (over: Partial<Record<string, unknown>> = {}) => ({
   // S12H —— 「有没有作答」只看持久化的作答内容，所以桩里要有它。
   studentAnswer: 'B',
+  // S12H 返工 1/2 —— 确定性判分的判据改成了**正面的** MCQ，
+  // 所以桩必须说清楚自己是哪种题。不说 = 不算确定性（失败关闭）。
+  questionType: 'mcq',
   awardedMarks: 1,
   autoCorrect: true,
   isCorrect: true,

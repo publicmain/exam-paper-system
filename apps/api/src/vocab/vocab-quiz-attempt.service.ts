@@ -1,5 +1,6 @@
 import { BadRequestException, ConflictException, Injectable, Logger } from '@nestjs/common';
 import { shouldRevealAnswer, stageAfterSubmit } from '../lesson/rc11-rules';
+import { isSegmentComplete, segmentStatus } from '../lesson/lesson-rules';
 import { PrismaService } from '../common/prisma.service';
 import { StudentWordService } from './student-word.service';
 import { VocabQuizService } from './vocab-quiz.service';
@@ -433,7 +434,24 @@ export class VocabQuizAttemptService {
         // 这次提交本就不该发生 —— 阶段门会先拦下）。
         // 目标阶段由 rc11-rules 决定（单调、幂等、不越级），
         // where 里的 stage 条件与它表达同一件事。
-        const nextStage = stageAfterSubmit('vocab_test', true);
+        //
+        // S12H 返工 1/2 —— **交卷不得越过补段**。
+        //
+        // 用户验收实测：阅读完成、背词完成、补段 0/5，主按钮却写着
+        // 「看今天的总结」—— 就是这一行无条件推成 done 造成的。
+        //
+        // 补段事实只从**任务行**读（请求体里塞什么都不作数），完成判据
+        // 直接用 lesson-rules 那一套（`segmentStatus` + `isSegmentComplete`），
+        // **不另写一套算术** —— 两套口径早晚会分岔。
+        // 读不到任务行时按**未完成**处理：宁可多停一天，不可静默收尾。
+        const dlc = await tx.dailyLessonCompletion.findUnique({
+          where: { id: a.dailyLessonCompletionId },
+          select: { drillTarget: true, drillProgress: true },
+        });
+        const drillSettled = dlc
+          ? isSegmentComplete(segmentStatus(dlc.drillProgress, dlc.drillTarget))
+          : false;
+        const nextStage = stageAfterSubmit('vocab_test', true, { drillSettled });
         await tx.dailyLessonCompletion.updateMany({
           where: { id: a.dailyLessonCompletionId, stage: 'vocab_test' },
           data: { stage: nextStage as any, stageAt: new Date() },
