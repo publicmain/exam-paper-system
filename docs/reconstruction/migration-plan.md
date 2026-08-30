@@ -33,7 +33,7 @@
 | **6** | **今天的课（`/today` 枢纽）** | **✅ PASS** —— 6A 本地 + 6B staging 八账号实机 | | ✓ | ✓ |
 | **7** | **阅读页（单独阶段）** | 🔧 **7A–7D 均本地完成**；7E 环境就绪，**真机验收由用户跳过并接受残余风险**（不是 PASS） | | **✓ 单独** | **✓ 单独** |
 | **8** | **阅读结果页** | 🔧 **8A 本地完成**（未部署、未真机） | | ✓ | ✓ |
-| **9** | **课程学词 + 正式测试** | 🔧 **9A 已在 staging 实机验证**（新词日 + 纯复习日）；9D 发现纯复习日开不了考、9D1 已修并部署；9D2 因任务日翻页 NO-GO，9D2A 已用真页面把 t5 重新走到 `vocab_test`；**正式测试实机链路仍未跑过，阶段 9 PENDING** | | ✓ | ✓ |
+| **9** | **课程学词 + 正式测试** | 🔧 **9A 已在 staging 实机验证**（新词日 + 纯复习日）；9D 发现纯复习日开不了考、9D1 已修并部署；9D2 因任务日翻页 NO-GO，9D2A 已用真页面把 t5 重新走到 `vocab_test`；9D2B 修好「交卷跳过阅读结果页」并实机验证；**正式测试实机链路仍未跑过，阶段 9 PENDING** | | ✓ | ✓ |
 | 10 | 今日总结 | ⬜ | | ✓ | ✓ |
 | 11 | 账号制历史成绩 | ⬜ | | ✓ | ✓ |
 | 12 | 生词本与错题本 | ⬜ | | ✓ | ✓ |
@@ -2576,6 +2576,139 @@ t5 四个词各多一次复习效果（`reps` 4→5、`lastReview` 落今天、`
 `PaperQuestion s9d2_pq1..4` → `Question s9d2_q1..4` → `Paper s9d2_paper`；
 t5 四个词的 FSRS 回退需要人工决定（本轮那四次复习是真实发生的学习行为）。
 代码侧 `git revert 1de132d` 即可，运行时代码一行未动。
+
+---
+
+### 阶段 9D2B —— 交卷之后先看阅读结果　**已执行**（2026-08-30）
+
+`task_id: S9D2B-READING-RESULT-TRANSITION` · base `bac864e`。
+修的是 S9D2A 报出来的 B-1：**正常流程里学生看不到自己刚交的那份卷子**。
+
+> **这是什么，不是什么。**
+> 证据层级 = **本地行为测试（真页面 + 真路由边界）+ 只部署学生端 +
+> 真浏览器把 canonical 链路走一遍 + 只读数据库对账**。
+> 它证明的是「交卷之后会先落到阅读结果页，再从那里按当下的 nextAction
+> 走到课程学词」。**它不证明正式测试的任何环节** —— 本轮一次都没调用
+> `attempt/start` / `answer` / `submit`，全库 `VocabQuizAttempt` 仍是 **0**。
+> **阶段 9 仍为 PENDING。**
+
+#### 缺陷长什么样
+
+`nextActionOf`（`apps/api/src/lesson/next-action.ts`）只在
+`stage ∈ {reading, reading_done}` 且已最终交卷时才给 `read_result` ——
+那是「交了卷但阶段没推进」的收尾场景。**有词汇任务的日子里**，交卷那一刻
+服务端就把阶段推到了 `vocab_learn`，紧接着的 `/lesson/today` 回的是
+`learn_vocab`；而 `Reading.tsx` 交完卷会「再刷一次 today、按 `kind` 跳」，
+于是学生从「确认交卷」被直接送去背单词，**阅读结果页整段被跳过**。
+
+RED（对着 `bac864e`，真 `App` + 真路由）：把交卷后的 today 设成
+`learn_vocab`，走过的路径序列是
+
+```
+期望  ['/today', '/lesson/reading', '/lesson/reading/result']
+实际  ['/today', '/lesson/reading', '/lesson/vocab', '/today']
+```
+
+#### 改了什么（提交 `ed695e9`，只动学生端两页）
+
+**`Reading.tsx`** —— 交卷成功后**固定** `navigate(ROUTES.readingResult)`，
+不再问 today、不再读 `nextAction`。副作用：这一页现在连
+`NEXT_ACTION_ROUTE` 都不 import 了，**结构上不可能**再跟着后端的 href 走。
+
+**`ReadingResult.tsx`** —— 新增主行动「继续今天的课」
+（`data-testid="continue-lesson"`）：点的时候**再问一次** `/lesson/today`，
+按当下的 `NEXT_ACTION_ROUTE[kind]` 走。两条边界：
+`kind` 仍是 `read_result` 时（自环）落回枢纽；`stay` 类的 kind
+（今天没内容 / 窗口关了 / 没分级）同样落回枢纽。
+闸门顺序照 S9A 的教训写：**先取令牌、后上闸**，否则没令牌那一支会把按钮
+永久卡在「正在打开…」。这一页的调用面仍然只有那三个端点，G-8A 守卫未放宽。
+
+**API 一行未改** —— 客户端侧就够了，没有碰 `next-action.ts`。
+交卷请求形状、判分、答案落盘、阶段规则、词队列、FSRS、身份口径、
+`STUDENT_APP_V2` 一律未动。
+
+连带更新了三条**既有**单测（它们钉的是旧的「再刷 today、按 kind 跳」序列）：
+交卷后 `/lesson/today` 的调用次数 2 → 1，落点断言改成结果页。其中一条顺手
+把 `learn_vocab` 这个真机常态钉进去了 —— 正是原来漏掉的那一格。**没有放松
+任何断言。**
+
+本地全绿，退出码均为 0：`apps/student-web` 16 文件 / **548** 项 + tsc + build；
+`apps/web` 37 文件 / **247** 项 + tsc；`git diff --check` 0。API 未改，未跑。
+
+#### 部署（只发学生端一个服务）
+
+| 服务 | 部署前（**回滚锚点**） | 部署后 |
+|---|---|---|
+| `stg-student-web-spike` | `3c262d98-0acb-4b81-aa90-fddf3ebce387` | **`b9025a8f-7e92-45fb-9688-ab1921c5ccbc`** |
+| `stg-api` | `9236058d-46e4-4330-bfbe-87100a932980` | **未变** ✓ |
+| `stg-web` | `33fce087-c424-4080-9d23-76ac23165e10` | **未变** ✓ |
+| `Postgres` | `73871ad2-226a-4d7d-9e71-586203275281` | **未变** ✓ |
+
+归档根照 S9C1 记下的那条差异走：学生端用 **`apps/student-web`** 当根，
+从一个**临时目录**发起（`git archive HEAD apps/student-web` 解出来的干净
+副本），仓库目录的 Railway 关联仍是 `glorious-motivation`，**没有被重新
+链接**。四个域名未变；三个服务的变量键集合与键数未变（23 / 15 / 15，
+键集合 sha 逐一相同）；**`STUDENT_APP_V2` 三个服务上仍然不存在**。
+`/api/health` 200、`/api/health/ready` 200 `db:"up"`；学生源的 CORS 预检
+**204** 且 `access-control-allow-origin` 逐字等于学生源。
+**线上产物指纹**：新 bundle 里含「继续今天的课」「正在打开」（本轮新增）
+以及「还在判分」「确认交卷」「稍后再学」（既有）；`x-student-app: v2` 仍在。
+
+#### 真机 canonical 链路（测试五号，2026-08-30）
+
+夹具按合同允许**执行了一次** `prepare-s9d2a-t5.js`（七道闸门全过，
+回执正常），把 t5 当天推回「可以从头走一遍」。随后全程真浏览器、真 UI：
+
+```
+/today  ── 开始今天的课程 ──▶ /lesson/reading ── 四题 + 确认交卷 ──▶ /lesson/reading/result
+                                                              ── 刷新 ──▶ /lesson/reading/result
+                                                              ── 继续今天的课 ──▶ /lesson/vocab
+```
+
+走过的路径序列**逐条如上，没有中间站**。请求序列：
+
+| 位置 | 请求 |
+|---|---|
+| `/today` | `POST /lesson/start` `{begin:true}` → 201 |
+| `/lesson/reading` | `GET /lesson/today`、`GET /morning-quiz/sessions/s9d2_sess_tc1`、4 × `PATCH …/answer` → 200 |
+| `/lesson/reading` | `POST …/submit` `{final:true}` → 201 |
+| `/lesson/reading/result` | `GET /lesson/today`、**`GET /morning-quiz/student-result/s9d2_sess_tc1` → 200** |
+| 点「继续今天的课」 | `GET /lesson/today` → 200，随后跳 `/lesson/vocab` |
+
+**交卷与结果页之间没有第二次 today** —— 出口是定死的，不是问出来的。
+结果页那一条 `student-result` 是**应用自己发的**，不是我手敲 URL 换来的。
+零身份字段、零查询串、每条都带 Bearer；`my-history` / `my-vocab` /
+`my-mistakes` / `scan` / `my-lesson` **一条都没出现**；
+`attempt/start|answer|submit` **一条都没有**。
+
+#### 结束态（只读对账）
+
+当天答卷 `cmtf67yno00nk134toqbscrpw`（`s9d2_asg_tc1`，`submitted`，
+`finalSubmittedAt` 已写，`submitSource=student`）+ **四条**逐题答案
+（`s9d2_pq1..pq4`）。`/lesson/today` 投影：`kind=learn_vocab`、
+派生 `stage=vocab_learn`、读段 `done`。
+**全库 `VocabQuizAttempt` = 0**；通知 0/0、考勤 0；
+另外七个账号的指纹相对**本任务基线**逐项未变。
+
+> **两条口径提示，免得读成缺陷。**
+> ① 当天任务行落库的 `stage` 仍是 `reading`、`readProgress` 仍是 0 ——
+> `GET /lesson/today` 是只读的（P8），落库的 `stage` 是缓存不是真相
+> （见 schema 注释），要等下一次**写路径**（例如学词推进断点）才回填。
+> 这与本次改动无关：改动前那一次 today 同样不写。
+> ② 词段显示 `partial 4/4` 而断点是 0 —— 夹具脚本**从不删
+> `WordReviewLog`**，今天早些时候 S9D2A 那四条复习流水仍然计入当天进度。
+> 卡片本身是没做过的（`cursor=0`）。
+
+#### 本轮**没有**做的事
+
+没有正式测试的任何调用、没有 Stage 10 / 历史 / 生词本 / 错题本、
+没有改 schema / 迁移 / 依赖 / 锁文件、没有动旧端路由、没有重设计
+`NextAction`、没有碰同标签锁提示（S9D2A 的 B-2，仍在 BACKLOG）、
+没有动另外七个夹具账号、没有生产、没有 push。
+
+**回滚**：`git revert ed695e9`；`stg-student-web-spike` 重新部署
+`3c262d98-0acb-4b81-aa90-fddf3ebce387`。夹具产生的行是预期证据，
+不做破坏性 SQL 清理。
 
 ---
 
