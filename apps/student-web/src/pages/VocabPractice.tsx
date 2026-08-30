@@ -31,6 +31,11 @@
  * 「重试」什么都不会发。所以规矩是：**评过分之后，只有服务端成功能往下走**；
  * 在途与失败两种状态下，跳过和评分一律不接受。评分之前的跳过一切照旧。
  *
+ * **「撤销上一个」也算翻页**（返工 2/2）：它把屏幕换成上一张，而 `pending`
+ * 绑的是这一张 —— 这一张失败时允许撤销，错误提示、可见的词、重试要发的词
+ * 会指向三个不同的东西。所以这三个动作（跳过 / 评分 / 撤销）**共用同一个
+ * 同步判据 `settled()`**，一个都不能只靠按钮变灰。
+ *
  * **③ 回执照搬。** 服务端说 `tooFast`（停留太短，没写调度）就照说，
  * 说 `duplicate` 也照说。把这两种情况显示成「记住了」，是在骗学生。
  *
@@ -165,6 +170,15 @@ export default function VocabPracticePage() {
    */
   const settled = () => pending.current == null && !busy.current;
 
+  /**
+   * 界面上的闭锁（按钮变灰）。同步判据见上面的 `settled()`。
+   *
+   * 声明在这里而不是渲染分支旁边：完成页那一支是**提前 return** 的，
+   * 它里面也有一个撤销按钮 —— 声明放在它后面会踩进暂时性死区，
+   * 整个组件直接抛错（返工 2/2 的第一版就是这么错的）。
+   */
+  const locked = writeState !== 'idle';
+
   const advance = useCallback(() => {
     setIndex((i) => i + 1);
     setRevealedAt(null);
@@ -217,8 +231,19 @@ export default function VocabPracticePage() {
     [current, revealedAt, send],
   );
 
+  /**
+   * 撤销上一张。
+   *
+   * **它也是一个「翻页」动作**，所以和跳过 / 评分共用同一个同步判据
+   * （返工 2/2）：`last` 指的是**上一张**，而 `pending` 绑的是**这一张**。
+   * 这一张的写入还没落定就允许撤销，屏幕会跳回上一张，可重试的载荷却还是
+   * 这一张的 —— 错误提示、可见的词、重试要发的词，三者指向三个不同的东西。
+   *
+   * 只查 `busy.current` 挡不住这一条：评分失败时 `busy` 已经复位了，
+   * 闭锁的证据在 `pending` 上。
+   */
   const undo = useCallback(async () => {
-    if (!last || busy.current) return;
+    if (!last || !settled()) return;
     const token = readToken();
     if (!token) return;
     busy.current = true;
@@ -292,8 +317,9 @@ export default function VocabPracticePage() {
               <button
                 type="button"
                 data-testid="undo"
+                disabled={locked}
                 onClick={() => void undo()}
-                className="mt-3 min-h-[44px] px-3 rounded-lg border border-slate-300 text-sm"
+                className="mt-3 min-h-[44px] px-3 rounded-lg border border-slate-300 text-sm disabled:opacity-50"
               >
                 撤销上一个（{last.card.headword}）
               </button>
@@ -311,8 +337,6 @@ export default function VocabPracticePage() {
   }
 
   const revealed = revealedAt != null;
-  /** 界面上的闭锁（按钮变灰）。同步判据见上面的 `settled()`。 */
-  const locked = writeState !== 'idle';
 
   return (
     <Screen>
@@ -412,8 +436,9 @@ export default function VocabPracticePage() {
             <button
               type="button"
               data-testid="undo"
+              disabled={locked}
               onClick={() => void undo()}
-              className="mt-2 min-h-[44px] px-3 rounded-lg border border-slate-300 text-sm"
+              className="mt-2 min-h-[44px] px-3 rounded-lg border border-slate-300 text-sm disabled:opacity-50"
             >
               撤销上一个（{last.card.headword}）
             </button>

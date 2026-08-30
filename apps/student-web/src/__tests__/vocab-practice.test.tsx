@@ -498,6 +498,83 @@ describe('AC-05 在途写入期间的闭锁（B-1）', () => {
     expect(screen.getByTestId('card-headword').textContent).toContain('apple');
     expect(calls('/vocab/review')).toHaveLength(0);
   });
+
+  /**
+   * 返工 2/2 —— 撤销也是一个「翻页」动作。
+   *
+   * 前一张评成功之后，「撤销上一个」一直挂在屏幕上。可是**这一张**的评分
+   * 失败时，`pending` 绑的是这一张，`last` 绑的是上一张 —— 这时候撤销
+   * 一点，可见的卡跳回上一张，而重试的载荷还是这一张的：
+   * **错误提示、屏幕上的词、重试要发的词，三者指的是三个不同的东西。**
+   *
+   * 所以撤销必须和跳过 / 评分**共用同一个同步判据**：这一张的写入没落定
+   * 之前，一律不接受。
+   */
+  it('**当前卡写入失败时，撤销一律不接受**（错误、可见卡、重试必须指同一个词）', async () => {
+    dueReply = threeCards;
+    reviewReply = () => jsonResponse(200, receipt({ headword: 'zebra' }));
+    mount();
+    await settle();
+
+    // 第一张评成功 —— 现在「撤销上一个」是 zebra
+    await reveal();
+    await click(screen.getByTestId('rate-good'));
+    expect(screen.getByTestId('card-headword').textContent).toContain('apple');
+    expect(screen.getByTestId('undo')).toBeTruthy();
+
+    // 第二张评分失败
+    const held = heldReview();
+    await reveal();
+    await click(screen.getByTestId('rate-good'));
+    const appleReq = bodies('/vocab/review')[1].requestId;
+    await act(async () => {
+      held.fail();
+    });
+    await settle();
+    expect(screen.getByTestId('card-headword').textContent).toContain('apple');
+    expect(screen.getByTestId('rating-error')).toBeTruthy();
+
+    // **撤销不许把卡换掉，也不许发请求**
+    await click(screen.getByTestId('undo'));
+    expect(screen.getByTestId('card-headword').textContent).toContain('apple');
+    expect(calls('/vocab/review/undo')).toHaveLength(0);
+    expect(screen.getByTestId('rating-error')).toBeTruthy();
+
+    // 重试仍然是这一张的那个 requestId
+    reviewReply = () => jsonResponse(200, receipt({ headword: 'apple' }));
+    await click(screen.getByTestId('retry-rating'));
+    expect(bodies('/vocab/review')[2].requestId).toBe(appleReq);
+    expect(screen.getByTestId('card-headword').textContent).toContain('melon');
+
+    // 落定之后撤销恢复正常 —— 撤的是刚评过的 apple
+    await click(screen.getByTestId('undo'));
+    expect(calls('/vocab/review/undo')).toHaveLength(1);
+    expect(JSON.parse(calls('/vocab/review/undo')[0].body ?? '{}').headword).toBe('apple');
+    expect(screen.getByTestId('card-headword').textContent).toContain('apple');
+  });
+
+  it('**写入在途（还没失败）时，撤销同样不接受**', async () => {
+    dueReply = threeCards;
+    reviewReply = () => jsonResponse(200, receipt({ headword: 'zebra' }));
+    mount();
+    await settle();
+    await reveal();
+    await click(screen.getByTestId('rate-good'));
+
+    const held = heldReview();
+    await reveal();
+    await click(screen.getByTestId('rate-good'));
+
+    await click(screen.getByTestId('undo'));
+    expect(screen.getByTestId('card-headword').textContent).toContain('apple');
+    expect(calls('/vocab/review/undo')).toHaveLength(0);
+
+    await act(async () => {
+      held.ok(receipt({ headword: 'apple' }));
+    });
+    await settle();
+    expect(screen.getByTestId('card-headword').textContent).toContain('melon');
+  });
 });
 
 // ─────────────────────────────────────────────────────────────
