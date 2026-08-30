@@ -13,6 +13,17 @@
 
 ---
 
+## ⚠️ 未退役的临时能力（上生产前必须逐项清掉）
+
+| 能力 | 开关 | 现状 | 退役期限 |
+|---|---|---|---|
+| **staging 免密夹具登录**（只进虚构账号 `t6_done`） | API `STAGING_FIXTURE_LOGIN=t6_done`；前端构建 `VITE_STAGING_FIXTURE_LOGIN=t6_done` | **已开启**（2026-08-30，仅 stg-api + stg-student-web-spike） | **阶段 15 之前，且任何一次生产部署之前** |
+
+细节、风险与退役步骤见
+[「临时：staging 免密夹具登录」](#临时staging-免密夹具登录必须退役)。
+
+---
+
 ## 阶段总览
 
 | # | 阶段 | 状态 | 阻断？ | 独立提交 | 独立回滚 |
@@ -2983,6 +2994,121 @@ API 健康、CORS 正确、配置没漂」。
 （[D1](./product-decisions.md#d1--homework--ai-tutor-暂留旧系统)）
 
 **退出条件**：`grep -r "my-history" apps/` 只剩 CHANGELOG 与本目录文档
+
+---
+
+## 临时：staging 免密夹具登录（必须退役）
+
+`task_id: STG-T6-PASSWORDLESS-FIXTURE-LOGIN` · base `3aa21b5` ·
+运行时提交 `5fad4f8` + `046e1fd`（2026-08-30）。
+
+> **这是一条真的认证旁路。** 它只对**一个虚构账号**、在**一个虚构环境**
+> 里成立，但它就是一条旁路 —— 所以下面每一条都要照做，尤其是最后的
+> 退役那一节。
+
+### 为什么有它
+
+staging 的验证要反复走「登录 → 上课 → 考试」这条链，而自动化那一侧
+不经手 PIN。与其把口令搬来搬去，不如让一个虚构账号免密登录：
+**没有 PIN 参与，就没有 PIN 会泄漏。**
+
+### 用户已书面接受的风险
+
+开着的时候，**任何能打开 staging 登录页的人都能进 `t6_done`**，并改动
+它那份虚构数据（`t6_done@example.invalid`，隔离库里的八个虚构账号之一）。
+用户明确接受了这一条。
+
+**它不延伸到**：生产、教师或管理员登录、真实学生、Railway 凭据、
+数据库凭据、另外七个夹具账号。
+
+### 开关（两个，值都必须逐字是 `t6_done`）
+
+| 面 | 变量 | 设在哪 |
+|---|---|---|
+| API | `STAGING_FIXTURE_LOGIN=t6_done` | 只在 **stg-api** |
+| 学生端（构建期） | `VITE_STAGING_FIXTURE_LOGIN=t6_done` | 只在 **stg-student-web-spike** |
+
+不设 = 关闭（端点 404、按钮不渲染）。设成**别的值 = 拒绝启动**。
+
+> 前端那个变量必须同时在 `apps/student-web/Dockerfile` 里 `ARG` 声明 ——
+> Railway 只把声明过的服务变量当构建参数传进去。第一次部署漏了这两行，
+> 变量设了却到不了 `npm run build`，线上按钮不出现（已修，见
+> `046e1fd`）。
+
+### 四道闸门（没有 force / override / bypass）
+
+1. `STAGING_FIXTURE_LOGIN` 逐字等于 `t6_done`；
+2. `RAILWAY_PROJECT_ID` 逐字等于 `ed8c31c0-6499-4611-830a-64043189f7d0`；
+3. `RAILWAY_PUBLIC_DOMAIN` 逐字等于 `stg-api-production-46cf.up.railway.app`；
+4. 签发前再查库：`role=student`、`isActive`、`archivedAt=null`、
+   有未归档班级的在读注册、`av` 取当下的 `studentAuthVersion`。
+
+**第 2、3 条是整套设计的支点：生产即使误配了第 1 条也起不来** ——
+它的 project id 与域名不可能等于 staging 的。所以「忘了拆」的最坏后果是
+**生产拒绝启动**（响亮地失败），不是生产多出一个免密入口（静默地失败）。
+
+### 端点本身
+
+`POST /api/student-auth/staging-fixture-session`
+
+- **不收任何请求参数**：没有姓名、studentId、PIN、角色、候选选择。
+  控制器方法签名是空的，账号是模块常量 —— 「换个参数登别人」这条路
+  在类型层面不存在。
+- 关着时返回 **404**（不是 403：关掉的通道不该告诉外面「我在这儿」）。
+- **一次库写都没有**：不动 PIN、注册状态、`studentAuthVersion`，
+  连 `lastLogin` 都不写。
+- 令牌的签名、有效期、claims、撤销版本与正常登录**完全一致**。
+- IP 限流比登录更紧（10 次/分钟）。
+
+**实机反证**（2026-08-30）：往这个端点塞
+`{studentId:'t5_review', name:'测试五号', role:'teacher', id:'t1_normal'}`，
+返回的仍然是 `t6_done` / 测试六号。
+
+### 实机验证（全程没有输入任何 PIN）
+
+登录页出现「Staging：一键登录测试六号」+ 一行「临时的 staging 测试通道，
+上线前会撤掉。」→ 点一下 → 唯一一个请求
+`POST /api/student-auth/staging-fixture-session`，请求体 `{}` → 201 →
+落到 `/today`（「你好，测试六号」）→ `localStorage` **只有 `sw:token`**
+→ `/student-auth/me` 回 `t6_done`。
+`账号设置 → 退出登录` 清票回登录页，按钮仍在，**再点一次同样成功**。
+
+全程**没有创建任何业务数据**：八个账号的指纹逐项未变，
+t5 的审计 attempt `cmtf6upw500o9134tz3lw4bl5` 逐字节未变，
+t6 当天仍然没有任务行。
+
+### 部署
+
+| 服务 | 部署前（**回滚锚点**） | 部署后 |
+|---|---|---|
+| `stg-api` | `4823cb16-2b41-4a23-ae61-2ad09f04881b` | **`f089519e-a65e-425d-a222-e38a105a6d59`** |
+| `stg-student-web-spike` | `b9025a8f-7e92-45fb-9688-ab1921c5ccbc` | `9f6ffbac-…`（漏 ARG）→ **`ab57a4eb-7c91-4940-a8b3-29135601d938`** |
+| `stg-web` | `33fce087-c424-4080-9d23-76ac23165e10` | **未变** ✓ |
+| `Postgres` | `73871ad2-226a-4d7d-9e71-586203275281` | **未变** ✓ |
+
+四个域名未变；`stg-web` 的变量键集合未变（15 / sha `2c2c350c072c16ca`）；
+`stg-api` 23 → 24 键、`stg-student-web-spike` 15 → 16 键（各多那一个开关）；
+**`STUDENT_APP_V2` 三个服务上仍然都不存在**。
+
+### ⚠️ 退役步骤（阶段 15 之前、任何生产部署之前，必须做完）
+
+1. **删变量**（是删掉，不是设成空串）：
+   `railway variables --service stg-api --remove STAGING_FIXTURE_LOGIN`；
+   `railway variables --service stg-student-web-spike --remove VITE_STAGING_FIXTURE_LOGIN`；
+   两个服务各重新部署一次。
+2. **删代码**：`git revert 5fad4f8`（连同 `046e1fd`）。
+   涉及 `apps/api/src/student-auth/staging-fixture-login.ts`、
+   控制器的 `staging-fixture-session` 端点、
+   `StudentAuthService.stagingFixtureSession()`、`main.ts` 的启动自检、
+   `apps/student-web` 的按钮与 api 客户端、
+   `contract.test.ts` 里 `PRE_AUTH_CREDENTIAL_FREE_ENDPOINTS` 那一类、
+   以及 `apps/student-web/Dockerfile` 的两行 `ARG`/`ENV`。
+3. **回滚（如需）**：两个服务分别重新部署上表的锚点 ID。
+4. **验收**：登录页没有按钮；
+   `POST /api/student-auth/staging-fixture-session` 返回 404。
+
+**生产的启动自检必须永远认不出 staging 的项目身份** —— 上面第 2、3 道闸
+就是这条保证的实现，任何改动都不得削弱它。
 
 ---
 
