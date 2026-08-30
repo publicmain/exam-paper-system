@@ -945,6 +945,27 @@ describe('G-8A 阅读结果只读且零身份', () => {
     ]);
   });
 
+  /**
+   * 返工 1/2 —— B-1 的静态防线。
+   *
+   * 得分率是**前端除出来的**（`history-detail` 的响应里没有这个字段）。
+   * 开关必须**默认关**：这样将来接进来的第三个调用方只会少一个派生数字，
+   * 不会悄悄多一个。要显示就得在调用点写明白。
+   */
+  it('**派生百分比默认关**，只有交完卷那一屏显式打开', () => {
+    const view = stripComments(fs.readFileSync(path.join(SRC, 'components', 'ResultView.tsx'), 'utf8'));
+    expect(view).toMatch(/showDerivedPercentage\s*=\s*false/);
+    const reading = stripComments(fs.readFileSync(RESULT_FILE, 'utf8'));
+    const detail = stripComments(fs.readFileSync(path.join(SRC, 'pages', 'ScoreDetail.tsx'), 'utf8'));
+    expect(reading).toMatch(/showDerivedPercentage/);
+    expect(detail).not.toMatch(/showDerivedPercentage/);
+    // 页面自己也不许绕过组件另算一个
+    for (const f of ['pages/ScoreDetail.tsx', 'pages/Scores.tsx']) {
+      const src = stripComments(fs.readFileSync(path.join(SRC, ...f.split('/')), 'utf8'));
+      expect(src, `${f} 不该自己算百分比`).not.toMatch(/percentageOf|\*\s*100|toFixed/);
+    }
+  });
+
   it('**今天那条链与历史那条链各走各的**：定位方式不许串', () => {
     const reading = stripComments(fs.readFileSync(RESULT_FILE, 'utf8'));
     const detail = stripComments(fs.readFileSync(path.join(SRC, 'pages', 'ScoreDetail.tsx'), 'utf8'));

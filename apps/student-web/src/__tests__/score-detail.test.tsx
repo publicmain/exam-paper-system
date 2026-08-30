@@ -344,6 +344,47 @@ describe('AC-06 逐题回顾', () => {
     expect(text()).toContain('/ 4 分');
   });
 
+  /**
+   * 返工 1/2 —— B-1。
+   *
+   * `history-detail` **不返回百分比**（服务端只给 totalScore / maxScore）。
+   * 那么这一页就不能显示百分比：显示出来的那个数是前端自己除出来的，
+   * 服务端从没说过。今日总结那一屏为此立过同一条规矩（用服务端的
+   * `percentage`，不拿 `correct / total` 重算），历史成绩不能例外。
+   *
+   * 交完卷那一屏（`/lesson/reading/result`）的既有行为**不动** ——
+   * 那是冻结过的，`reading-result.test.tsx` 仍然断言它显示 60%。
+   */
+  it('**不显示任何自己算出来的百分比**（服务端没给，就没有）', async () => {
+    detailReply = () =>
+      jsonResponse(200, detail({
+        // 故意让 1/4 这个比例好算 —— 真去除的话屏幕上会冒出 25%
+        totalScore: 1,
+        autoScore: 1,
+        maxScore: 4,
+        items: [item({ awardedMarks: 1, isCorrect: true, studentAnswer: 'B' })],
+      }));
+    mount();
+    await settle();
+
+    // 服务端给的两个数照常显示
+    expect(screen.getByTestId('score').textContent).toBe('1');
+    expect(text()).toContain('/ 4 分');
+    // 派生出来的那个数一个都不许出现
+    expect(screen.queryByTestId('percentage')).toBeNull();
+    expect(text()).not.toContain('25%');
+    expect(text()).not.toMatch(/\d+\s*%/);
+  });
+
+  it('**分数还没放出来时同样没有百分比**', async () => {
+    detailReply = () =>
+      jsonResponse(200, detail({ scoresPending: true, totalScore: null, autoScore: null }));
+    mount();
+    await settle();
+    expect(screen.queryByTestId('percentage')).toBeNull();
+    expect(text()).not.toMatch(/\d+\s*%/);
+  });
+
   it('**还在判分**：不显示分数、不补 0、不显示 marks', async () => {
     detailReply = () =>
       jsonResponse(200, detail({

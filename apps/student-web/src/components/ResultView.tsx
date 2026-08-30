@@ -70,7 +70,16 @@ export function questionOutcome(item: ReadingResultItem, scoresPending: boolean)
   return 'pending';
 }
 
-/** 得分率。分数没放出来、或没有满分基数时**不算**，返回 null。 */
+/**
+ * 得分率 —— **前端自己除出来的数**。
+ *
+ * ⚠️ 服务端**不下发**这个字段。所以它只能显示在「产品明确要求、而且大家
+ * 都知道它是派生值」的地方；换个页面就照抄，等于凭空多出一份服务端从没
+ * 说过的成绩。渲染与否由 `ResultView` 的 `showDerivedPercentage` 决定，
+ * 而那个开关**默认关**（见组件注释）。
+ *
+ * 分数没放出来、或没有满分基数时**不算**，返回 null。
+ */
 export function percentageOf(result: ReadingResult): number | null {
   if (result.scoresPending) return null;
   if (typeof result.totalScore !== 'number' || typeof result.maxScore !== 'number') return null;
@@ -117,6 +126,7 @@ export function ResultView({
   submissionId,
   onAuthLost,
   footer,
+  showDerivedPercentage = false,
 }: {
   result: ReadingResult;
   /** 调用方校验过的那一个 —— 申诉只认它。 */
@@ -124,8 +134,23 @@ export function ResultView({
   onAuthLost: () => void;
   /** 底部动作。交完卷那一屏与历史成绩那一屏要的不是同一个。 */
   footer?: React.ReactNode;
+  /**
+   * 显不显示得分率。**默认不显示，必须显式打开。**
+   *
+   * 服务端在这份响应里**没有**百分比字段 —— 显示出来的那个数是
+   * `percentageOf()` 除出来的。交完卷那一屏历史上一直显示它（既有行为，
+   * 冻结不动），历史成绩详情页**不显示**：翻旧账时凭空多一个服务端没说过
+   * 的数字，学生分不清哪个是真成绩。
+   *
+   * 默认关是**故意的**：将来第三个调用方接进来，只会少一个派生数字，
+   * 不会悄悄多一个。要显示就得在调用点写明白，那一行就是决定本身。
+   */
+  showDerivedPercentage?: boolean;
 }) {
-  const pct = useMemo(() => percentageOf(result), [result]);
+  const pct = useMemo(
+    () => (showDerivedPercentage ? percentageOf(result) : null),
+    [result, showDerivedPercentage],
+  );
   return (
     <>
       <h1 className="text-xl font-semibold mb-1">{result.paperName}</h1>

@@ -25,6 +25,12 @@
  *
  * 见 `components/ResultView.tsx`：分数门与答案门都是服务端的，
  * 这里不重算分数、不判对错、不补 0、不猜答案。
+ *
+ * **唯一的例外是得分率**：`history-detail` 的响应里没有百分比字段，那个
+ * 数只能由前端 `totalScore / maxScore` 除出来。翻旧账的时候凭空多一个
+ * 服务端没说过的数字，学生分不清哪个才是真成绩 —— 所以这一屏**不显示
+ * 它**（`showDerivedPercentage` 默认就是关的，这里连传都不用传）。
+ * 交完卷那一屏显示它是既有行为，冻结不动，由它自己在调用点显式打开。
  */
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';

@@ -194,6 +194,12 @@ export default function ReadingResultPage() {
         result={phase.result}
         submissionId={phase.submissionId}
         onAuthLost={() => void load()}
+        /*
+          得分率是**前端除出来的**（服务端不下发）。这一屏历史上一直显示
+          它，是冻结过的既有行为，所以在这里显式打开 —— 开关默认关，
+          历史成绩详情页就不会跟着多出一个服务端没说过的数字。
+        */
+        showDerivedPercentage
         /* 主行动 —— 看完成绩之后往下走。「往哪走」现问现答。 */
         footer={<ContinueLesson navigate={navigate} />}
       />
