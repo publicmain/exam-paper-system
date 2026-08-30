@@ -99,9 +99,27 @@ export function shouldRevealAnswer(input: { submitted: boolean; answered: boolea
  * 单调：只从 vocab_test 往前走。已经是 done 的不动（重复提交幂等），
  * 还没走到 vocab_test 的也不越级（那说明前面的步骤没完成，阶段门会先拦）。
  */
-export function stageAfterSubmit(currentStage: string, applied: boolean): string {
+export function stageAfterSubmit(
+  currentStage: string,
+  applied: boolean,
+  /**
+   * S12H —— **补段的事实**。由服务端自己算好传进来；请求体里的任何字段
+   * 都不许充当它（学生不能自称「错题练完了」）。
+   *
+   * 省略 = 调用方还没接线。此时保持**既有语义**（照旧推进到 `done`）——
+   * 悄悄改成「不推进」会把 P6 那次死锁原样搬回来：正式测试不写
+   * `WordReviewLog`，背段的 progress 因此可能永远达不到 target，
+   * `deriveStage` 就再也算不出 `done`，那一天永远收不了尾。
+   * 接线是下一份合同的事，见迁移计划里 S12H 的「未接线」一节。
+   */
+  drill?: { drillSettled: boolean },
+): string {
   if (!applied) return currentStage;
-  return currentStage === 'vocab_test' ? 'done' : currentStage;
+  if (currentStage !== 'vocab_test') return currentStage;
+  // 补段没做完就不许收尾 —— 用户验收实测：阅读完成、背词完成、
+  // 补段 0 / 5，主页却写着「看今天的总结」。根因就是这里无条件推进。
+  if (drill && !drill.drillSettled) return 'vocab_test';
+  return 'done';
 }
 
 // ─────────────────────────────────────────────────────────────

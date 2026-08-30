@@ -16,6 +16,8 @@ import { answersReleased, scoresReleased, stripUnreleasedScores } from './mornin
  */
 
 const item = (over: Partial<Record<string, unknown>> = {}) => ({
+  // S12H —— 「有没有作答」只看持久化的作答内容，所以桩里要有它。
+  studentAnswer: 'B',
   awardedMarks: 1,
   autoCorrect: true,
   isCorrect: true,
@@ -28,14 +30,21 @@ const item = (over: Partial<Record<string, unknown>> = {}) => ({
 });
 
 /** finalSubmittedAt 默认给值 = 最终提交；传 null 就是暂存提交。 */
-const payload = (status: string, finalSubmittedAt: Date | null = new Date('2026-08-25T01:00:00Z')) => ({
+const payload = (
+  status: string,
+  finalSubmittedAt: Date | null = new Date('2026-08-25T01:00:00Z'),
+  items: Array<Record<string, unknown>> = [
+    item(),
+    item({ awardedMarks: 0, autoCorrect: false, isCorrect: false }),
+  ],
+) => ({
   status,
   finalSubmittedAt,
   autoScore: 5,
   manualScore: 4,
   totalScore: 9,
   maxScore: 13,
-  items: [item(), item({ awardedMarks: 0, autoCorrect: false, isCorrect: false })],
+  items,
 });
 
 describe('scoresReleased —— 分数发布口径', () => {
@@ -69,19 +78,57 @@ describe('answersReleased —— 答案发布口径', () => {
 });
 
 describe('stripUnreleasedScores', () => {
-  it('未定稿：三个分数字段和每题的判分信息全部置空', () => {
+  // S12H 起这一条**按判分出身拆成两半**。
+  //
+  // 原来它断言「未定稿 → 每题的判分信息全部置空」。用户第一次真人验收
+  // 发现那条口径把**确定性判完的选择题**也说成「还在判分」。新口径：
+  // 整卷总分照旧等定稿，但已最终提交的那些**服务端确定性判分**放行；
+  // 老师的草稿分与评语一个字都不提前给。
+  it('未定稿：整卷三个分数字段照旧置空', () => {
     const r = stripUnreleasedScores(payload('submitted') as any);
     expect(r.scoresPending).toBe(true);
     expect(r.autoScore).toBeNull();
     expect(r.manualScore).toBeNull();
     expect(r.totalScore).toBeNull();
+  });
+
+  it('未定稿：老师判的题**全部置空**（含草稿分与评语）', () => {
+    const r = stripUnreleasedScores(
+      payload('submitted', new Date('2026-08-25T01:00:00Z'), [
+        item({ markedById: 't_teacher' }),
+        item({ awardedMarks: 0, autoCorrect: false, isCorrect: false, markedById: 't_teacher' }),
+      ]) as any,
+    );
     for (const it2 of r.items) {
       expect(it2.awardedMarks).toBeNull();
       expect(it2.autoCorrect).toBeNull();
       expect(it2.isCorrect).toBeNull();
       expect(it2.markerComment).toBeNull();
       expect(it2.commentSource).toBeNull();
+      expect((it2 as any).gradingStatus).toBe('pending_marking');
     }
+  });
+
+  it('未定稿：服务端确定性判的题放行分数，但评语仍然不给', () => {
+    const r = stripUnreleasedScores(payload('submitted') as any);
+    for (const it2 of r.items) {
+      expect(it2.awardedMarks).not.toBeNull();
+      expect(it2.autoCorrect).not.toBeNull();
+      expect(it2.markerComment, '老师评语不该提前给').toBeNull();
+      expect(it2.commentSource).toBeNull();
+      expect((it2 as any).gradingStatus).toBe('auto_graded');
+    }
+  });
+
+  it('还没最终提交：连确定性判分也不给 —— 隐私边界没松', () => {
+    const r = stripUnreleasedScores(payload('submitted', null) as any);
+    for (const it2 of r.items) {
+      expect(it2.awardedMarks).toBeNull();
+      expect(it2.autoCorrect).toBeNull();
+      expect(it2.isCorrect).toBeNull();
+      expect((it2 as any).answerDisplay).toBeNull();
+    }
+    expect((r as any).gradingSummary).toBeNull();
   });
 
   it('最终提交但未判分：答案给，分数不给 —— 这是最常见的一种状态', () => {

@@ -23,6 +23,8 @@ export type NextActionKind =
   | 'read_result'
   | 'learn_vocab'
   | 'vocab_test'
+  /** S12H —— 补段（错题重练）。它一直是三段之一，却从来没有过自己的主行动。 */
+  | 'drill'
   | 'summary'
   | 'no_content'
   | 'window_closed'
@@ -80,6 +82,40 @@ export interface NextActionFacts {
    * 「看今天的总结」—— 点进去是一份空总结。今天没排课就该照实说没排课。
    */
   hasAnyTask: boolean;
+
+  /**
+   * S12H —— 补段的目标与进度。**服务端事实**，请求体不参与。
+   *
+   * 两个都省略 = 调用方还没接线，行为与接线前完全一致（不会凭空冒出
+   * 一个 drill 主行动）。接线是下一份合同的事。
+   */
+  drillTarget?: number;
+  drillProgress?: number;
+}
+
+/**
+ * 补段还没做完吗。
+ *
+ * 只有**两个事实都给了**才作数 —— 缺一个就当作「不知道」，宁可维持既有
+ * 行为，也不猜一个学生没做过的任务出来。
+ */
+export function drillPending(f: {
+  drillTarget?: number;
+  drillProgress?: number;
+}): boolean {
+  if (typeof f.drillTarget !== 'number' || typeof f.drillProgress !== 'number') return false;
+  if (f.drillTarget <= 0) return false;
+  return f.drillProgress < f.drillTarget;
+}
+
+/** 补段的主行动。零进度是「开始」，做过一点是「继续」。 */
+function drillAction(f: { drillProgress?: number }): NextAction {
+  return {
+    kind: 'drill',
+    label: (f.drillProgress ?? 0) > 0 ? '继续错题重练' : '开始错题重练',
+    // 目标路由由客户端的 NEXT_ACTION_ROUTE 决定 —— 这里不给旧端路径。
+    href: null,
+  };
 }
 
 /**
@@ -128,8 +164,9 @@ export function nextActionOf(f: NextActionFacts): NextAction {
 
   if (f.stage === 'vocab_test') {
     if (!f.vocabTestAvailable) {
-      // 旧任务：没有正式测试可开。给他今天能看的东西（阅读成绩），
-      // 而不是一个点了会失败的按钮。
+      // 旧任务：没有正式测试可开。补段还欠着的话，那才是真正的下一步；
+      // 否则给他今天能看的东西（阅读成绩），而不是一个点了会失败的按钮。
+      if (drillPending(f)) return drillAction(f);
       return { kind: 'summary', label: '看今天的总结', href: '/my-lesson/summary' };
     }
     return { kind: 'vocab_test', label: '开始单词测试', href: '/my-vocab/quiz' };
@@ -145,5 +182,8 @@ export function nextActionOf(f: NextActionFacts): NextAction {
     }
     return { kind: 'no_content', label: '今天的课程还没有发布', href: null };
   }
+  // S12H —— summary 是**最后一步**，不是兜底。三段里还有没做完的，
+  // 主行动就该是那一段。补段以前没有自己的 kind，于是全部落进这里。
+  if (drillPending(f)) return drillAction(f);
   return { kind: 'summary', label: '看今天的总结', href: '/my-lesson/summary' };
 }

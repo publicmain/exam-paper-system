@@ -395,6 +395,165 @@ export function answersReleased(input: {
  * 两道门互相独立：最终提交但没判分 → 有答案没分数（这是常态，也正是
  * 学生要的即时反馈）；判了分但没最终提交在流程上不会出现。
  */
+// ─────────────────────────────────────────────────────────────
+// S12H —— 逐题判分状态 / 答案展示契约
+//
+// 阶段 12 首次真人验收抓到的：一道**有确定答案的选择题**在结果页显示
+// 「还在判分」。根因是这里只有一道**整卷级别**的分数门 —— 卷子没判完就把
+// 每一道题的分数与对错一起抹掉，包括交卷那一刻 `autoGradeScripts` 已经
+// 确定性判完的那些。
+//
+// 新口径：**分数门仍然管整卷总分，但逐题的确定性判分在最终提交之后就放行。**
+// 需要人判的题、老师的草稿分与评语，一个字都不提前给。
+// ─────────────────────────────────────────────────────────────
+
+/** 一道题此刻的判分状态。**只由服务端自己写的持久化字段推出**。 */
+export type ItemGradingStatus =
+  /** 服务端的确定性判分路径判完了（选择题、精确匹配、空白判 0） */
+  | 'auto_graded'
+  /** 老师判完且整卷已按既有口径发布 */
+  | 'marked'
+  /** 有作答，但确实需要人来判 */
+  | 'pending_marking'
+  /** 持久化状态就是「没作答」 */
+  | 'not_answered';
+
+/**
+ * 答案展示 —— **语义，不是文案**。API 里不出现「正确答案 / 参考答案 /
+ * 评分要点」这类中文标签，措辞归客户端。
+ */
+export interface AnswerDisplay {
+  primaryKind: 'correct' | 'reference';
+  primaryValue: string;
+  /** 只有在**确实不同**时才有 —— 同一句话不许挂两个名字。 */
+  rubricValue?: string;
+}
+
+export interface GradingSummary {
+  autoGraded: number;
+  marked: number;
+  pendingMarking: number;
+  notAnswered: number;
+  total: number;
+}
+
+/** AI 判分的痕迹：`finalSubmit` 把理由写成 `[ai-grade] …`。 */
+const AI_GRADE_PREFIX = '[ai-grade]';
+
+/**
+ * 只用于**比较**的归一化：NFKC → 去首尾 → 折叠内部空白 → casefold。
+ *
+ * **不动展示值**，也不删标点或词 —— 归一化只回答「这两行是不是同一句话」。
+ */
+export function normalizeForAnswerCompare(raw: unknown): string {
+  return String(raw ?? '')
+    .normalize('NFKC')
+    .trim()
+    .replace(/\s+/g, ' ')
+    .toLowerCase();
+}
+
+/**
+ * 这一题是不是**服务端的确定性判分路径**写的。
+ *
+ * 判据全部是持久化字段，**不看任何客户端传来的东西**：
+ *
+ *   · `markedById != null`        → 老师判的（全仓库只有 marker.service 写它）
+ *   · `autoCorrect == null`       → 判分路径根本没碰过
+ *   · `markerComment` 以 `[ai-grade]` 开头 → AI 判的，**不算确定性**
+ *
+ * AI 那一档必须排除：它是概率判断，不是「答案就是 A」。
+ */
+export function deterministicallyGraded(item: {
+  awardedMarks: number | null;
+  autoCorrect: boolean | null;
+  markerComment: string | null;
+  markedById?: string | null;
+}): boolean {
+  if (item.markedById != null) return false;
+  if (item.autoCorrect == null) return false;
+  if (item.awardedMarks == null) return false;
+  const c = item.markerComment;
+  if (typeof c === 'string' && c.trimStart().startsWith(AI_GRADE_PREFIX)) return false;
+  return true;
+}
+
+/** 有没有作答 —— 只看持久化的作答内容，不从「客户端没传」推出「没作答」。 */
+function answeredOf(item: { studentAnswer?: string | null }): boolean {
+  return item.studentAnswer != null && String(item.studentAnswer).trim() !== '';
+}
+
+/**
+ * 一道题的判分状态。
+ *
+ * 顺序有讲究：**没最终提交就什么都不说**（这一屏此时本来就不该有判分信息）；
+ * 提交之后确定性判分优先于「整卷发布」—— 它在整卷判完前后都是同一件事实，
+ * 状态不该因为老师什么时候点定稿而跳变。
+ */
+export function classifyItemGrading(
+  item: {
+    awardedMarks: number | null;
+    autoCorrect: boolean | null;
+    markerComment: string | null;
+    markedById?: string | null;
+    studentAnswer?: string | null;
+  },
+  o: { finallySubmitted: boolean; scoresShown: boolean },
+): ItemGradingStatus {
+  const answered = answeredOf(item);
+  if (!o.finallySubmitted) return answered ? 'pending_marking' : 'not_answered';
+  // 确定性判 0 的空白题仍然是 auto_graded —— 0 分是结论，不是「没判」。
+  if (deterministicallyGraded(item)) return 'auto_graded';
+  if (o.scoresShown && item.awardedMarks != null) return 'marked';
+  if (!answered) return 'not_answered';
+  return 'pending_marking';
+}
+
+/**
+ * 这一题该展示哪一个答案值。
+ *
+ * · 客观题用 `correct`，主观题用 `reference` —— 这是**题型**决定的语义；
+ * · 展示值优先取 `correctAnswer`（那是规范答案），退到 `referenceAnswer`；
+ * · 另一个值只有在**归一化后确实不同**时才作为 `rubricValue` 出现。
+ *
+ * 用户验收看到的「正确答案 / 参考答案 两行一模一样」，就是这里缺了最后一条。
+ */
+export function answerDisplayOf(item: {
+  questionType?: string | null;
+  correctAnswer?: string | null;
+  referenceAnswer?: string | null;
+}): AnswerDisplay | null {
+  const pick = (v: unknown): string | null =>
+    typeof v === 'string' && v.trim() !== '' ? v : null;
+  const correct = pick(item.correctAnswer);
+  const reference = pick(item.referenceAnswer);
+  if (!correct && !reference) return null;
+
+  const primaryValue = (correct ?? reference) as string;
+  const other = correct ? reference : null;
+  const rubricValue =
+    other != null &&
+    normalizeForAnswerCompare(other) !== normalizeForAnswerCompare(primaryValue)
+      ? other
+      : undefined;
+
+  return {
+    primaryKind: item.questionType === 'mcq' ? 'correct' : 'reference',
+    primaryValue,
+    ...(rubricValue == null ? {} : { rubricValue }),
+  };
+}
+
+export function gradingSummaryOf(statuses: ReadonlyArray<ItemGradingStatus>): GradingSummary {
+  return {
+    autoGraded: statuses.filter((s) => s === 'auto_graded').length,
+    marked: statuses.filter((s) => s === 'marked').length,
+    pendingMarking: statuses.filter((s) => s === 'pending_marking').length,
+    notAnswered: statuses.filter((s) => s === 'not_answered').length,
+    total: statuses.length,
+  };
+}
+
 export function stripUnreleasedScores<
   T extends {
     status: string;
@@ -408,43 +567,62 @@ export function stripUnreleasedScores<
       isCorrect: boolean | null;
       markerComment: string | null;
       commentSource: string | null;
+      /** S12H —— 判分出身。全仓库只有 marker.service 写它。 */
+      markedById?: string | null;
+      /** S12H —— 「有没有作答」只看它。 */
+      studentAnswer?: string | null;
+      questionType?: string | null;
       correctAnswer?: string | null;
       referenceAnswer?: string | null;
       explanation?: string | null;
     }>;
   },
->(result: T): T & { scoresPending: boolean; answersPending: boolean } {
+>(
+  result: T,
+): T & {
+  scoresPending: boolean;
+  answersPending: boolean;
+  gradingSummary: GradingSummary | null;
+} {
   const showScores = scoresReleased(result.status);
-  const showAnswers = answersReleased({
-    status: result.status,
-    // 迁移前的历史答卷已回填 finalSubmittedAt；真为 undefined 的只有
-    // 未经本函数以外路径构造的测试桩，按「已发布」处理更安全 —— 旧行为
-    // 就是交卷即给答案，不能因为加了一道门把历史成绩页的答案弄没。
-    finalSubmittedAt:
-      result.finalSubmittedAt === undefined ? new Date(0) : result.finalSubmittedAt,
-  });
+  // 迁移前的历史答卷已回填 finalSubmittedAt；真为 undefined 的只有
+  // 未经本函数以外路径构造的测试桩，按「已发布」处理更安全 —— 旧行为
+  // 就是交卷即给答案，不能因为加了一道门把历史成绩页的答案弄没。
+  const finalAt =
+    result.finalSubmittedAt === undefined ? new Date(0) : result.finalSubmittedAt;
+  const showAnswers = answersReleased({ status: result.status, finalSubmittedAt: finalAt });
+  // 「最终提交了没有」与答案门同源：练习卷（practice）也算已交。
+  const finallySubmitted = result.status === 'practice' || finalAt != null;
 
-  const items = result.items.map((it) => ({
-    ...it,
-    ...(showScores
-      ? {}
-      : {
-          awardedMarks: null,
-          autoCorrect: null,
-          isCorrect: null,
-          markerComment: null,
-          commentSource: null,
-        }),
-    ...(showAnswers
-      ? {}
-      : { correctAnswer: null, referenceAnswer: null, explanation: null }),
-  }));
+  const statuses: ItemGradingStatus[] = [];
+  const items = result.items.map((it) => {
+    const status = classifyItemGrading(it, { finallySubmitted, scoresShown: showScores });
+    statuses.push(status);
+
+    // 逐题分数的放行条件：整卷已发布，**或者**已最终提交且这一题是确定性判的。
+    const releaseItemScore = showScores || (finallySubmitted && deterministicallyGraded(it));
+    // 评语永远只跟整卷的分数门走 —— 老师的草稿反馈不提前给。
+    const releaseComment = showScores;
+
+    const next = {
+      ...it,
+      ...(releaseItemScore
+        ? {}
+        : { awardedMarks: null, autoCorrect: null, isCorrect: null }),
+      ...(releaseComment ? {} : { markerComment: null, commentSource: null }),
+      ...(showAnswers ? {} : { correctAnswer: null, referenceAnswer: null, explanation: null }),
+      gradingStatus: status,
+    };
+    return { ...next, answerDisplay: showAnswers ? answerDisplayOf(next) : null };
+  });
 
   return {
     ...result,
     ...(showScores ? {} : { autoScore: null, manualScore: null, totalScore: null }),
     scoresPending: !showScores,
     answersPending: !showAnswers,
+    // 交卷之前不给 —— 那时「几题判完了」本身就不是学生该看到的信息。
+    gradingSummary: finallySubmitted ? gradingSummaryOf(statuses) : null,
     items,
   };
 }
@@ -3239,6 +3417,9 @@ export class MorningQuizService {
             textAnswer: true,
             awardedMarks: true,
             autoCorrect: true,
+            // S12H —— 判分出身。逐题状态靠它区分「服务端判的」与「老师判的」，
+            // 全仓库只有 marker.service 写这个字段。
+            markedById: true,
             // R10 follow-up — surface the AI grader's rationale to students
             // so when the AI credits a paraphrase or denies a sounds-right
             // wrong answer they can see why. finalSubmit writes
@@ -3365,6 +3546,9 @@ export class MorningQuizService {
         explanation,
         awardedMarks: script?.awardedMarks ?? null,
         autoCorrect: script?.autoCorrect ?? null,
+        // S12H —— 只喂给 stripUnreleasedScores 做出身判定；它会在返回前
+        // 连同判分状态一起处理，不作为对外字段的新增语义。
+        markedById: script?.markedById ?? null,
         isCorrect,
         // Strip the internal `[ai-grade] ` prefix before showing students;
         // they don't need the marker tag, only the rationale itself.
