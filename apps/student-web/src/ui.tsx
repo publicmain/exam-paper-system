@@ -212,10 +212,18 @@ export function LevelPicker(props: {
               on ? 'border-blue-500 bg-blue-50' : 'border-slate-300'
             }`}
           >
+            {/*
+              `aria-label` 是显式的，不靠外面那层 <label> 的文字。
+              两个理由：① 包住的 label 里既有档名又有整句说明，读屏会把
+              两段连起来念一长串；② 不加时，有些辅助树会退回用 `value`
+              报名字 —— 那正好是学生绝不该听到的内部标识 `olevel`。
+            */}
             <input
               type="radio"
               name={props.name}
               value={c.id}
+              aria-label={c.label}
+              aria-describedby={`${props.name}-${c.id}-blurb`}
               checked={on}
               disabled={props.disabled}
               onChange={() => props.onChange(c.id)}
@@ -223,7 +231,9 @@ export function LevelPicker(props: {
             />
             <span>
               <span className="block font-medium">{c.label}</span>
-              <span className="block text-sm text-slate-600 mt-0.5">{c.blurb}</span>
+              <span id={`${props.name}-${c.id}-blurb`} className="block text-sm text-slate-600 mt-0.5">
+                {c.blurb}
+              </span>
             </span>
           </label>
         );

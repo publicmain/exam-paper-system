@@ -411,3 +411,33 @@ describe('S12O —— 账号页改难度', () => {
     expect(within(shell as HTMLElement).getByText('退出登录')).toBeTruthy();
   });
 });
+
+// ─────────────────────────────────────────────────────────────
+// 5. 读屏听到的是中文，不是枚举值
+// ─────────────────────────────────────────────────────────────
+
+describe('S12O —— 三档的可访问名字', () => {
+  it('每个 radio 的**可访问名字恰好是那句中文**，而且不含内部标识', async () => {
+    fetchMock.mockImplementation(() => jsonResponse(404, {}));
+    renderAt('/register');
+    await screen.findByLabelText('班级码');
+    const radios = screen.getAllByRole('radio');
+    const names = radios.map((r) => r.getAttribute('aria-label'));
+    expect(names).toEqual(['O-Level 基础', '雅思 · 简化版', '雅思 · 真题型']);
+    for (const r of radios) {
+      // 不加 aria-label 时，有些辅助树会退回用 value 报名字
+      expect(r.getAttribute('aria-label')).not.toBe(r.getAttribute('value'));
+      expect(r.getAttribute('aria-label')).not.toMatch(/olevel|ielts_/);
+    }
+  });
+
+  it('说明那一句挂在 `aria-describedby` 上 —— 听得到，但不混进名字里', async () => {
+    fetchMock.mockImplementation(() => jsonResponse(404, {}));
+    renderAt('/register');
+    await screen.findByLabelText('班级码');
+    for (const r of screen.getAllByRole('radio')) {
+      const id = r.getAttribute('aria-describedby')!;
+      expect(document.getElementById(id)?.textContent?.length).toBeGreaterThan(8);
+    }
+  });
+});
