@@ -170,9 +170,18 @@ export function cueFor(
     const lower = s.toLowerCase();
     return banned.some((b) => lower.includes(b)) ? null : s;
   };
+  const translation = safe(src.translation);
+  let pos = safe(src.pos);
+  //
+  // S12M —— 词典的行文惯例（ECDICT）是把词性写进释义里：`adj. 粗心的`。
+  // 而 `pos` 又是单独一列。两个都渲染出来就是「adj.adj. 粗心的」——
+  // 学生第一眼看到的就是这个。词性已经在释义里时就不再单发一份。
+  if (pos && translation && translation.toLowerCase().startsWith(pos.toLowerCase())) {
+    pos = null;
+  }
   const cue: QuizCue = {
-    pos: safe(src.pos),
-    translation: safe(src.translation),
+    pos,
+    translation,
     definition: safe(src.definition),
     instruction,
   };

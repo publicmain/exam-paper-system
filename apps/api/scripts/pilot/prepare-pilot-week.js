@@ -253,8 +253,18 @@ async function upsertClassAndQa(tx, report) {
     report.bump('ClassEnglishLevel');
   }
 
-  // 内部冒烟账号。**没有 PIN** —— 它由跑冒烟的人自己在注册页设一个，
-  // 脚本不碰任何凭据。
+  // 内部冒烟账号。
+  //
+  // **没有 PIN** —— `pinHash` 留空，跑冒烟的人自己去注册页设一个，走的是
+  // 与真学生完全一样的那条路（`register` 认领的正是「有名字、还没设 PIN」
+  // 的账号）。脚本从头到尾不碰任何凭据。
+  //
+  // `passwordHash` 是 schema 的必填项（那是**教师端**的密码字段，学生端
+  // 用不到）。塞一个随机字节的 bcrypt —— 没有人知道它的原文，因此这个
+  // 账号在密码这条路上是**登不进去的**。
+  const crypto = require('crypto');
+  const bcrypt = require('bcryptjs');
+  const unusablePassword = await bcrypt.hash(crypto.randomBytes(24).toString('hex'), 10);
   await tx.user.upsert({
     where: { id: QA_STUDENT.id },
     update: {},
@@ -265,6 +275,7 @@ async function upsertClassAndQa(tx, report) {
       role: 'student',
       englishLevel: QA_STUDENT.level,
       isActive: true,
+      passwordHash: unusablePassword,
     },
   });
   report.bump('User');
@@ -682,7 +693,14 @@ if (require.main === module) {
     if (e instanceof PilotError) {
       console.error(`\n试点内容未发布：\n${e.message}\n`);
     } else {
-      console.error('\n试点内容未发布：脚本出错（细节故意不回显，避免带出连接串）。\n');
+      // 只回显**错误名与第一行**，并把任何连接串抹掉。一个字都不给的话
+      // 调试无从下手；原样打出来又可能把凭据带到日志里。
+      const raw = String((e && e.message) || '').replace(/\s+/g, ' ').trim().slice(0, 900);
+      const safe = raw
+        // 连接串与「主机:端口」都算连接元数据 —— 一个都不许进日志
+        .replace(/postgres(ql)?:\/\/\S*/gi, '[redacted-connection-string]')
+        .replace(/[A-Za-z0-9.-]+\.(rlwy\.net|railway\.app|up\.railway\.app):\d+/g, '[redacted-host]');
+      console.error(`\n试点内容未发布：${(e && e.name) || 'Error'} — ${safe}\n`);
     }
     process.exit(1);
   });

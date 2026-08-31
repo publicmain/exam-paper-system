@@ -186,3 +186,31 @@ describe('S12L —— 拼写 / 填空题的安全线索', () => {
     expect(cueFor('spelling', { pos: '', translation: '  ', definition: null }, ['x'])).toBeNull();
   });
 });
+
+// ─────────────────────────────────────────────────────────────
+// 5. S12M —— 词性别说两遍
+// ─────────────────────────────────────────────────────────────
+
+describe('S12M —— 线索里的词性不重复', () => {
+  it('释义已经带了词性 → 不再单发一份（否则学生看到「adj.adj. 粗心的」）', () => {
+    const cue = cueFor('cloze', { pos: 'adj.', translation: 'adj. 粗心的，不在乎的' }, ['careless']);
+    expect(cue!.pos).toBeNull();
+    expect(cue!.translation).toBe('adj. 粗心的，不在乎的');
+  });
+
+  it('大小写不同也算带了', () => {
+    expect(cueFor('cloze', { pos: 'VT.', translation: 'vt. 实现' }, ['achieve'])!.pos).toBeNull();
+  });
+
+  it('释义里没有词性时照发 —— 那是学生真正需要的一条信息', () => {
+    const cue = cueFor('spelling', { pos: 'n.', translation: '预算' }, ['budget']);
+    expect(cue!.pos).toBe('n.');
+    expect(cue!.translation).toBe('预算');
+  });
+
+  it('只剩词性一样的情况下线索仍然成立', () => {
+    const cue = cueFor('spelling', { pos: 'n.', translation: 'budget 的意思' }, ['budget']);
+    expect(cue!.pos).toBe('n.');
+    expect(cue!.translation).toBeNull();
+  });
+});
