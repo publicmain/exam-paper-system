@@ -132,7 +132,7 @@ export default function LoginPage() {
             </Button>
             <p className="text-center text-sm text-slate-500 mt-5">
               <Link to={ROUTES.register} className="text-blue-600 underline">
-                还没注册？
+                第一次使用？注册
               </Link>
             </p>
           </form>

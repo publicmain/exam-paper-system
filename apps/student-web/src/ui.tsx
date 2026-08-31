@@ -15,6 +15,7 @@
  * `center` 保留原样。
  */
 import type { ReactNode } from 'react';
+import { PILOT_LEVEL_CHOICES, type PilotLevelId } from './lib/levels';
 
 /** 正文最大宽度。`narrow` 是登录这类单卡页面，其余一律跟着屏幕放宽。 */
 const WIDTH = {
@@ -180,6 +181,53 @@ export function CandidatePicker(props: {
           </button>
         ))}
       </div>
+    </div>
+  );
+}
+
+/**
+ * 三档难度的选择器 —— 注册页和账号页共用同一个。
+ *
+ * 用**原生 radio**，不是一排 `<button>`：键盘的上下键、读屏软件的
+ * 「三选一，当前第几个」、以及「必须显式选一个」这三件事，原生控件
+ * 免费给，手搓的按钮组要一件件补回来。
+ *
+ * 每张卡都带一句「这一档是给谁的」—— 一个十五岁的人不该靠猜内部枚举
+ * 决定自己上哪一层。标签是中文，`id` 只出现在 `value` 里。
+ */
+export function LevelPicker(props: {
+  name: string;
+  value: PilotLevelId | null;
+  onChange: (v: PilotLevelId) => void;
+  disabled?: boolean;
+}) {
+  return (
+    <div role="radiogroup" aria-label="英语难度" className="flex flex-col gap-2 mb-4">
+      {PILOT_LEVEL_CHOICES.map((c) => {
+        const on = props.value === c.id;
+        return (
+          <label
+            key={c.id}
+            className={`flex gap-3 rounded-xl border px-4 py-3 cursor-pointer ${
+              on ? 'border-blue-500 bg-blue-50' : 'border-slate-300'
+            }`}
+          >
+            <input
+              type="radio"
+              name={props.name}
+              value={c.id}
+              checked={on}
+              disabled={props.disabled}
+              onChange={() => props.onChange(c.id)}
+              className="mt-1 shrink-0"
+            />
+            <span>
+              <span className="block font-medium">{c.label}</span>
+              <span className="block text-sm text-slate-600 mt-0.5">{c.blurb}</span>
+            </span>
+          </label>
+        );
+      })}
     </div>
   );
 }

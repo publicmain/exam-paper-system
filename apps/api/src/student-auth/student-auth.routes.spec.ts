@@ -32,6 +32,9 @@ const KEPT = [
   'login',
   'change-pin',
   'me',
+  // S12O —— 学生自助注册与自助改难度
+  'self-register',
+  'me/english-level',
   'admin/reset-pin',
   'admin/claim-status',
   'admin/view-token',

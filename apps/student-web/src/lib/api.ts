@@ -19,6 +19,7 @@
  */
 
 import type { NextActionKind } from '../routes.contract';
+import type { PilotLevelId } from './levels';
 
 export const BASE: string = (import.meta as unknown as { env?: Record<string, string> }).env
   ?.VITE_API_URL ?? '';
@@ -119,6 +120,14 @@ export type MeResult = {
   nickname: string;
   avatar: string | null;
   pinSet?: boolean;
+  englishLevel?: PilotLevelId | null;
+} & AppRouting;
+
+/** 自助注册的回执 —— 和 login 同构，外加服务端确认下来的那一档。 */
+export type SelfRegisterResult = {
+  token: string;
+  student: StudentProfile;
+  englishLevel: PilotLevelId;
 } & AppRouting;
 
 export type RegistrationStatus =
@@ -235,12 +244,32 @@ export const api = {
   login: (body: { name: string; studentId?: string; pin: string }) =>
     request<AuthResult>('POST', '/student-auth/login', { body }),
 
+  /**
+   * ⚠️ **学生端的页面已经不走这条路了**（S12O）。
+   *
+   * 它**认领**教师已经建好的一行 —— 那正是自助注册要取消的前提。留着
+   * 是因为服务端端点没删、教师端仍在用；新端如果哪天又需要「认领」，
+   * 契约在这里。别把它当成注册入口。
+   */
   register: (body: {
     name: string;
     studentId?: string;
     password: string;
     nickname?: string;
   }) => request<AuthResult>('POST', '/student-auth/register', { body }),
+
+  /**
+   * S12O —— **自助注册**：班级码 + 姓名 + 自设 PIN + 自选难度。
+   *
+   * pre-auth，姓名在这里是**凭据字段**而不是 URL 里的身份；请求体里
+   * **没有 studentId**（服务端也用 `.strict()` 直接拒收）。
+   */
+  selfRegister: (body: {
+    classCode: string;
+    name: string;
+    pin: string;
+    englishLevel: PilotLevelId;
+  }) => request<SelfRegisterResult>('POST', '/student-auth/self-register', { body }),
 
   /**
    * ⚠️ **临时的 staging 免密夹具登录 —— 上生产前必须拆掉。**
@@ -268,6 +297,16 @@ export const api = {
 
   changePassword: (token: string, body: { oldPin: string; newPin: string }) =>
     request<{ ok: true }>('POST', '/student-auth/change-pin', { body, token }),
+
+  /**
+   * S12O —— 自己改难度。**身份只靠 Bearer**，体里只有一个字段。
+   */
+  setEnglishLevel: (token: string, englishLevel: PilotLevelId) =>
+    request<{ englishLevel: PilotLevelId; effective: string }>(
+      'PATCH',
+      '/student-auth/me/english-level',
+      { body: { englishLevel }, token },
+    ),
 
   // ── 今天的课；**认证后，零身份参数** ──
 

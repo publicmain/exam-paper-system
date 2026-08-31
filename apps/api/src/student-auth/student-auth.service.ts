@@ -1,5 +1,6 @@
 import {
   BadRequestException,
+  ConflictException,
   ForbiddenException,
   Injectable,
   Logger,
@@ -8,6 +9,7 @@ import {
 } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import * as bcrypt from 'bcryptjs';
+import * as crypto from 'node:crypto';
 import { PrismaService } from '../common/prisma.service';
 import { canActOnClass } from '../common/roles';
 import {
@@ -21,6 +23,14 @@ import {
 } from './pin';
 import { studentAppRoutingFromEnv } from './student-app-routing';
 import { STAGING_FIXTURE_STUDENT_ID } from './staging-fixture-login';
+import {
+  displayName,
+  isPilotLevel,
+  levelOffered,
+  normalizeClassCode,
+  normalizeName,
+  type PilotLevel,
+} from './pilot-levels';
 
 /**
  * 学生 PIN 认证（2026-08-25，docs/PRD/student-auth-and-home.md）。
@@ -381,6 +391,187 @@ export class StudentAuthService {
       // 同 login —— 只读、向后兼容，本阶段不据此跳转
       ...studentAppRoutingFromEnv(user.id),
     };
+  }
+
+  // ───────────────── S12O：自助注册 + 自助改难度 ─────────────────
+
+  /**
+   * **学生自己注册** —— 班级码 + 姓名 + 自设 PIN + 自选难度。
+   *
+   * ## 和上面那个 `register` 是两件事
+   *
+   * `register` 干的是**认领**：花名册上必须已经有他这一行（教师先建好、
+   * 且难度也由教师设好），学生只是给那一行补一个密码。`student_not_found`
+   * 就是这个前提的回声。试点要请真人进来，这个前提站不住 —— 老师不该
+   * 为每个想试的人先建一行，更不该替他决定上哪一层。
+   *
+   * 所以这条路**真的建号**。它仍然不是公开注册：没有班级码就进不来，
+   * 班级码由老师私下发给他要请的人。
+   *
+   * ## 唯一性靠哪一条
+   *
+   * 「同一个班里同名」这件事，光靠先查一遍是拦不住并发的（双击、
+   * 手抖连点、弱网重发都会产生两个几乎同时到达的请求）。所以真正的
+   * 防线是 `User.email` 上的唯一索引：email 由 `(classId, 归一后的姓名)`
+   * 确定性地算出来，两个请求算出同一个值，数据库让其中一个 P2002。
+   * 先查那一遍只是为了给出一句人话的错误。
+   */
+  async selfRegister(input: {
+    classCode: string;
+    name: string;
+    pin: string;
+    englishLevel: string;
+  }) {
+    const code = normalizeClassCode(input.classCode);
+    if (!code) throw new BadRequestException({ code: 'class_code_invalid' });
+
+    const shown = displayName(input.name);
+    if (!shown) throw new BadRequestException({ code: 'name_required' });
+
+    // 难度白名单先于班级查询 —— 一个瞎编的难度不该换来「这个班存不存在」
+    // 的信息。
+    if (!isPilotLevel(input.englishLevel)) {
+      throw new BadRequestException({ code: 'level_not_allowed' });
+    }
+    const level = input.englishLevel as PilotLevel;
+
+    const pinErr = validatePinFormat(input.pin ?? '');
+    if (pinErr) throw new BadRequestException({ code: pinErr });
+
+    const klass = await this.prisma.class.findFirst({
+      where: { classCode: code, archivedAt: null },
+      select: { id: true, name: true, englishLevels: { select: { level: true } } },
+    });
+    // 归档的班和不存在的班给**同一个**回答 —— 否则这就成了一个班级码
+    // 探测器。
+    if (!klass) throw new BadRequestException({ code: 'class_code_invalid' });
+
+    const offered = (klass.englishLevels ?? []).map((l) => String(l.level));
+    if (offered.length === 0) throw new BadRequestException({ code: 'class_not_open' });
+    if (!levelOffered(level, offered)) {
+      throw new BadRequestException({ code: 'level_not_offered' });
+    }
+
+    const key = normalizeName(shown);
+    const taken = await this.prisma.user.findMany({
+      where: { classEnrollments: { some: { classId: klass.id } } },
+      select: { id: true, name: true },
+    });
+    if (taken.some((u) => normalizeName(u.name) === key)) {
+      throw new ConflictException({ code: 'name_taken_in_class' });
+    }
+
+    const email = this.selfRegisterEmail(klass.id, key);
+    const pinHash = await bcrypt.hash(input.pin, 10);
+    // 教师端的密码位是必填的，而学生根本不走那条登录路 —— 放一个谁也
+    // 打不出来的随机串的哈希，等于把那扇门焊死。
+    const passwordHash = await bcrypt.hash(crypto.randomBytes(24).toString('hex'), 10);
+
+    let created: { id: string; name: string; nickname: string | null; avatar: string | null; studentAuthVersion: number };
+    try {
+      created = await this.prisma.$transaction(async (tx: any) => {
+        const user = await tx.user.create({
+          data: {
+            email,
+            name: shown,
+            nickname: shown,
+            passwordHash,
+            role: 'student',
+            pinHash,
+            pinSetAt: new Date(),
+            englishLevel: level,
+          },
+        });
+        await tx.classEnrollment.create({
+          data: { classId: klass.id, userId: user.id, role: 'student' },
+        });
+        return user;
+      });
+    } catch (e: any) {
+      // 并发的那一个。数据库刚刚替我们做完了「同名」的判断。
+      if (e?.code === 'P2002') throw new ConflictException({ code: 'name_taken_in_class' });
+      throw e;
+    }
+
+    // 日志里只有 id —— 姓名、PIN、令牌、班级码一个都不落。
+    this.logger.log(`student self-registered: ${created.id}`);
+
+    const token = await this.jwt.signAsync(
+      {
+        id: created.id,
+        email,
+        role: 'student',
+        name: created.name,
+        av: created.studentAuthVersion ?? 0,
+      },
+      { expiresIn: StudentAuthService.TOKEN_TTL },
+    );
+    return {
+      token,
+      student: {
+        id: created.id,
+        name: created.name,
+        nickname: created.nickname ?? created.name,
+        avatar: created.avatar ?? null,
+      },
+      englishLevel: level,
+      ...studentAppRoutingFromEnv(created.id),
+    };
+  }
+
+  /**
+   * 自助注册用的 email。
+   *
+   * 学生自己没有校邮箱，而 `User.email` 是必填且唯一的 —— 于是它在这里
+   * 承担了第二个职责：**「同一个班 + 同一个名字」的唯一索引**。
+   *
+   * 用哈希而不是把名字拼进去，是因为 email 会出现在日志、导出、错误
+   * 信息里；把学生姓名写进一个到处流动的字段等于白送一份花名册。
+   * `.invalid` 是 RFC 2606 保留后缀，永远不会有人真的收到信。
+   */
+  private selfRegisterEmail(classId: string, nameKey: string): string {
+    const h = crypto.createHash('sha256').update(`${classId}|${nameKey}`).digest('hex');
+    return `selfreg-${h.slice(0, 32)}@pilot.invalid`;
+  }
+
+  /**
+   * 学生**自己**改难度。身份只来自令牌 —— 调用方给不了 studentId。
+   *
+   * ## 只写一个字段，是有意的
+   *
+   * 难度是「他现在在哪一层」这个**学生属性**，不是任何一份历史任务的
+   * 属性。已经交的卷子记在 `MorningQuizSession.level` 上、当天的课程
+   * 目标冻结在 `DailyLessonCompletion` 里 —— 改这里一个字都碰不到它们。
+   * 生效时机因此是自然的：**下一次还没冻结的课**按新难度挑场次
+   * （见 `pickTodaySession`），已经开始的那一天原样不动。
+   *
+   * 也**不动** `studentAuthVersion` —— 改难度不是改凭据，没有理由把他
+   * 手里的令牌作废、把他踢回登录页。
+   */
+  async setEnglishLevel(studentId: string, level: string) {
+    if (!isPilotLevel(level)) throw new BadRequestException({ code: 'level_not_allowed' });
+
+    const rows = await this.prisma.classEnrollment.findMany({
+      where: { userId: studentId, role: 'student' },
+      select: { classId: true, class: { select: { englishLevels: { select: { level: true } } } } },
+    });
+    const offered = [
+      ...new Set(
+        rows.flatMap((r: any) => (r.class?.englishLevels ?? []).map((l: any) => String(l.level))),
+      ),
+    ];
+    // 一个班都没有（或者班里一档都没开）—— 说不清该允许什么，就不允许。
+    if (offered.length === 0) throw new BadRequestException({ code: 'class_not_open' });
+    if (!levelOffered(level, offered)) {
+      throw new BadRequestException({ code: 'level_not_offered' });
+    }
+
+    await this.prisma.user.update({
+      where: { id: studentId },
+      data: { englishLevel: level as PilotLevel },
+    });
+    this.logger.log(`student level changed: ${studentId}`);
+    return { englishLevel: level, effective: 'next_unfrozen_lesson' as const };
   }
 
   /**

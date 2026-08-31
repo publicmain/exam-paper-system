@@ -53,6 +53,56 @@ export function registerErrorText(e: unknown): string {
   }
 }
 
+/**
+ * S12O —— 自助注册的错误。
+ *
+ * 和上面那个 `registerErrorText` 分开写，因为**同一个词在两条路上说的
+ * 不是一件事**：老的 `student_not_found` 是「花名册里没有你」，而自助
+ * 注册根本不查花名册。混用会让学生按着一句不适用的话去找老师。
+ */
+export function selfRegisterErrorText(e: unknown): string {
+  if (e instanceof NetworkError) return '连不上服务器 —— 检查一下网络，然后再试一次。';
+  if (!(e instanceof ApiError)) return '出了点问题，再试一次。';
+  switch (e.body.code) {
+    case 'class_code_invalid':
+      return '班级码不对 —— 跟老师确认一下，注意别把 0 和 O 看混。';
+    case 'class_not_open':
+      return '这个班还没开课 —— 找老师问一下。';
+    case 'level_not_offered':
+      return '这个班没有开这一档 —— 换一档试试。';
+    case 'level_not_allowed':
+      return '请从上面三档里挑一档。';
+    case 'name_taken_in_class':
+      return '这个班里已经有这个名字了 —— 如果那是你，直接去登录；不是的话找老师。';
+    case 'pin_must_be_6_digits':
+      return '密码要正好 6 位数字。';
+    case 'pin_too_weak':
+      return '这个密码太好猜了（别用顺子或者六个一样的），换一个。';
+    case 'name_required':
+      return '请填姓名。';
+    case 'rate_limited':
+      return '试得太快了 —— 等一分钟再来。';
+    default:
+      return '出了点问题，再试一次。';
+  }
+}
+
+/** S12O —— 改难度失败时说人话。 */
+export function levelChangeErrorText(e: unknown): string {
+  if (e instanceof NetworkError) return '连不上服务器 —— 检查一下网络，然后再试一次。';
+  if (!(e instanceof ApiError)) return '没改成，再试一次。';
+  switch (e.body.code) {
+    case 'level_not_offered':
+      return '这个班没有开这一档 —— 换一档，或者找老师。';
+    case 'level_not_allowed':
+      return '只能在上面三档里挑。';
+    case 'class_not_open':
+      return '你现在不在任何一个开课的班里 —— 找老师。';
+    default:
+      return '没改成，再试一次。';
+  }
+}
+
 export function changePasswordErrorText(e: unknown): string {
   if (e instanceof NetworkError) return '连不上服务器 —— 检查一下网络，然后再试一次。';
   if (!(e instanceof ApiError)) return '出了点问题，再试一次。';

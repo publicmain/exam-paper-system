@@ -406,6 +406,9 @@ describe('G1 新端不得出现旧路由与旧身份键', () => {
     '/student-auth/login',
     '/student-auth/register',
     '/student-auth/registration-status',
+    // S12O —— 自助注册。姓名在这里同样是**请求体里的凭据**，不是 URL
+    // 里的身份；请求体里没有 studentId（服务端 `.strict()` 直接拒收）。
+    '/student-auth/self-register',
   ] as const;
 
   /**
@@ -434,6 +437,8 @@ describe('G1 新端不得出现旧路由与旧身份键', () => {
     ...PRE_AUTH_ENDPOINTS,
     '/student-auth/me',
     '/student-auth/change-pin',
+    // S12O —— 自己改难度。**认证后**端点，零身份参数，体里只有 englishLevel。
+    '/student-auth/me/english-level',
     // 阶段 6A：今天的课。两条都是**认证后**端点 —— 零身份参数。
     '/lesson/today',
     '/lesson/start',
@@ -600,7 +605,7 @@ describe('G1 新端不得出现旧路由与旧身份键', () => {
   });
 
   it('**恰好三个 pre-auth 端点可以带身份**，多一个都不行', () => {
-    expect(PRE_AUTH_IDENTITY_ENDPOINTS).toHaveLength(3);
+    expect(PRE_AUTH_IDENTITY_ENDPOINTS).toHaveLength(4);
     const preAuth = [...new Set(apiCalls().filter((c) => c.preAuth).map((c) => c.endpoint))];
     expect(preAuth.sort()).toEqual([...PRE_AUTH_ENDPOINTS].sort());
   });
@@ -2002,5 +2007,44 @@ describe('G-12C 考试中查词只走 token-only 那条线', () => {
     it('**注释里提到这些名字不算违规**（守卫剥注释）', () => {
       expect(wordHits('// 旧实现带 studentName、写 mq:lookedUpOnce\nconst x = 1;')).toEqual([]);
     });
+  });
+});
+
+
+// ─────────────────────────────────────────────────────────────
+// S12O —— 三档难度：两端必须逐字一致
+// ─────────────────────────────────────────────────────────────
+
+describe('S12O 难度白名单不许漂', () => {
+  /**
+   * 界面上少一档 = 学生选不到；多一档 = 他选了之后服务端 400。
+   * 两边各写一份迟早会分家，所以这里**直接读服务端那个文件**。
+   */
+  const API_FILE = path.resolve(SRC, '../../api/src/student-auth/pilot-levels.ts');
+
+  it('服务端那个文件在', () => {
+    expect(fs.existsSync(API_FILE)).toBe(true);
+  });
+
+  it('前端的三档和服务端的白名单**逐字一致，顺序也一致**', async () => {
+    const src = fs.readFileSync(API_FILE, 'utf8');
+    const m = src.match(/PILOT_LEVELS\s*=\s*\[([^\]]+)\]/);
+    expect(m, '服务端的 PILOT_LEVELS 读不出来').toBeTruthy();
+    const server = m![1]
+      .split(',')
+      .map((x) => x.trim().replace(/^['"]|['"]$/g, ''))
+      .filter(Boolean);
+    const { PILOT_LEVEL_CHOICES } = await import('../lib/levels');
+    expect(PILOT_LEVEL_CHOICES.map((c) => c.id)).toEqual(server);
+  });
+
+  it('界面上**一个内部标识都不露** —— 标签与说明里都不能出现枚举值', async () => {
+    const { PILOT_LEVEL_CHOICES } = await import('../lib/levels');
+    for (const c of PILOT_LEVEL_CHOICES) {
+      for (const other of PILOT_LEVEL_CHOICES) {
+        expect(c.label).not.toContain(other.id);
+        expect(c.blurb).not.toContain(other.id);
+      }
+    }
   });
 });

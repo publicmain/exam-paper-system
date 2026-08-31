@@ -5,6 +5,7 @@ import {
   ForbiddenException,
   Get,
   NotFoundException,
+  Patch,
   Post,
   Query,
   Req,
@@ -18,6 +19,7 @@ import { PrismaService } from '../common/prisma.service';
 import { RateLimit } from '../common/rate-limit.guard';
 import { StudentAuthService } from './student-auth.service';
 import { readStagingFixtureLoginConfig } from './staging-fixture-login';
+import { PILOT_LEVELS } from './pilot-levels';
 
 /**
  * 学生 PIN 认证端点（2026-08-25，docs/PRD/student-auth-and-home.md §5）。
@@ -120,6 +122,59 @@ export class StudentAuthController {
     const p = schema.safeParse(body);
     if (!p.success) throw new BadRequestException(p.error.flatten());
     return this.svc.register(p.data);
+  }
+
+  /**
+   * S12O —— **学生自助注册**：班级码 + 姓名 + 自设 PIN + 自选难度。
+   *
+   * 与上面那个 `register` 的区别是「认领 vs 建号」，见 service 的注释。
+   * 这条路仍然不是公开注册 —— 没有班级码就进不来。
+   *
+   * `.strict()` 不是装饰：它让「客户端偷偷塞一个 studentId」变成
+   * **400，而不是被悄悄忽略**。身份必须由服务端决定，多一个字段都不行。
+   *
+   * 限流比 `register` 更紧（每分钟 5 次）—— 这条路会**建行**，
+   * 而 `register` 只会改一行已经存在的。
+   */
+  @Public()
+  @RateLimit({ limit: 5, windowSec: 60, scope: 'ip' })
+  @Post('self-register')
+  async selfRegister(@Body() body: unknown) {
+    const schema = z
+      .object({
+        classCode: z.string().min(1).max(32),
+        name: z.string().min(1).max(50),
+        // 长度在这里只做粗筛，6 位 / 弱 PIN 的判断归 validatePinFormat，
+        // 与 change-pin 同一套规则 —— 两处各写一份迟早会漂。
+        pin: z.string().min(1).max(16),
+        englishLevel: z.enum(PILOT_LEVELS),
+      })
+      .strict();
+    const p = schema.safeParse(body);
+    if (!p.success) throw new BadRequestException(p.error.flatten());
+    return this.svc.selfRegister(p.data);
+  }
+
+  /**
+   * S12O —— 学生**自己**改难度。
+   *
+   * 身份**只**来自 Bearer：不收 name、不收 studentName、不收 studentId、
+   * 不看任何查询串。`allowTeacherView` 保持默认的关 —— 教师的只读视角
+   * 不能替学生改他的层。
+   */
+  // `@Public()` 在这里的意思是「**不走 AuthGuard**」，不是「不用登录」——
+  // 下一行的 requireStudent 才是这条路的闸。与 change-pin / me 同构：
+  // AuthGuard 会把 handoff 这类窄凭证也放进来，而改自己的难度必须是
+  // 完整的学生令牌。
+  @Public()
+  @Patch('me/english-level')
+  @RateLimit({ limit: 20, windowSec: 60, scope: 'ip' })
+  async setEnglishLevel(@Body() body: unknown, @Req() req: Request) {
+    const me = await this.requireStudent(req);
+    const schema = z.object({ englishLevel: z.enum(PILOT_LEVELS) }).strict();
+    const p = schema.safeParse(body);
+    if (!p.success) throw new BadRequestException(p.error.flatten());
+    return this.svc.setEnglishLevel(me.id, p.data.englishLevel);
   }
 
   /** 打开 app 要不要弹注册卡。 */

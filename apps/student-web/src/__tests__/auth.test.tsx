@@ -163,49 +163,57 @@ describe('3. 登录', () => {
   });
 });
 
+/**
+ * S12O 起，`/register` 是**自助注册**：班级码 + 姓名 + 自设 PIN + 自选难度，
+ * 走 `/student-auth/self-register`。
+ *
+ * 原来这里三条用例走的是 `/student-auth/register` —— 那条路**认领**教师
+ * 已经建好的一行（`already_registered` / 同名消歧都是那条路的语义）。
+ * 学生端不再有那个入口，所以那三条用例连同它们验的行为一起搬去了
+ * `self-signup.test.tsx`。**服务端那个端点没有删**，教师端仍在用。
+ *
+ * 这里只留一条：注册成功之后，身份落在该落的地方 —— 那是认证生命周期
+ * 的事，正是本文件的题目。
+ */
 describe('1. 首次注册', () => {
-  it('成功 → 即注册即登录', async () => {
+  it('自助注册成功 → 即注册即登录，且**只有令牌**落盘', async () => {
     fetchMock.mockImplementation((url: string) =>
-      route(url) === '/student-auth/register'
-        ? jsonResponse(201, { token: 'RT', student: PROFILE })
+      route(url) === '/student-auth/self-register'
+        ? jsonResponse(201, { token: 'RT', student: PROFILE, englishLevel: 'olevel' })
         : jsonResponse(404, {}),
     );
     renderAt('/register');
-    await userEvent.type(await screen.findByLabelText('姓名'), '测试一号');
-    await userEvent.type(screen.getByLabelText('设置密码'), 'pw123456');
+    await userEvent.type(await screen.findByLabelText('班级码'), 'PILOTW1');
+    await userEvent.type(screen.getByLabelText('姓名'), '测试一号');
+    await userEvent.type(screen.getByLabelText('设置 6 位数字密码'), '280519');
+    await userEvent.type(screen.getByLabelText('再输一次'), '280519');
+    await userEvent.click(screen.getByRole('radio', { name: /O-Level/ }));
     await userEvent.click(screen.getByRole('button', { name: '注册并进入' }));
+
     await screen.findByRole('heading', { name: '你好，一号' });
     expect(localStorage.getItem('sw:token')).toBe('RT');
+    expect(Object.keys(localStorage)).toEqual(['sw:token']);
   });
 
-  it('已注册过 → 指去登录', async () => {
-    fetchMock.mockImplementation(() => jsonResponse(400, { code: 'already_registered' }));
+  it('学生端**不再走认领那条路** —— 一个 `/student-auth/register` 都不发', async () => {
+    fetchMock.mockImplementation((url: string) =>
+      route(url) === '/student-auth/self-register'
+        ? jsonResponse(201, { token: 'RT', student: PROFILE, englishLevel: 'olevel' })
+        : jsonResponse(404, {}),
+    );
     renderAt('/register');
-    await userEvent.type(await screen.findByLabelText('姓名'), '测试一号');
-    await userEvent.type(screen.getByLabelText('设置密码'), 'pw123456');
+    await userEvent.type(await screen.findByLabelText('班级码'), 'PILOTW1');
+    await userEvent.type(screen.getByLabelText('姓名'), '测试一号');
+    await userEvent.type(screen.getByLabelText('设置 6 位数字密码'), '280519');
+    await userEvent.type(screen.getByLabelText('再输一次'), '280519');
+    await userEvent.click(screen.getByRole('radio', { name: /O-Level/ }));
     await userEvent.click(screen.getByRole('button', { name: '注册并进入' }));
-    expect((await screen.findByRole('alert')).textContent).toContain('已经注册过');
-  });
-
-  it('注册同名消歧', async () => {
-    let n = 0;
-    fetchMock.mockImplementation((url: string) => {
-      if (route(url) !== '/student-auth/register') return jsonResponse(404, {});
-      n += 1;
-      return n === 1
-        ? jsonResponse(200, {
-            needDisambiguation: true,
-            candidates: [{ studentId: 'b1', name: '测试一号', classes: ['G11'] }],
-          })
-        : jsonResponse(201, { token: 'RT2', student: PROFILE });
-    });
-    renderAt('/register');
-    await userEvent.type(await screen.findByLabelText('姓名'), '测试一号');
-    await userEvent.type(screen.getByLabelText('设置密码'), 'pw123456');
-    await userEvent.click(screen.getByRole('button', { name: '注册并进入' }));
-    await screen.findByText(/哪一个是你/);
-    await userEvent.click(screen.getByText('G11'));
     await screen.findByRole('heading', { name: '你好，一号' });
+
+    const legacy = fetchMock.mock.calls.filter(
+      (c) => route(String(c[0])) === '/student-auth/register',
+    );
+    expect(legacy).toHaveLength(0);
   });
 });
 
@@ -232,7 +240,7 @@ describe('6. 刷新恢复 / 令牌撤销', () => {
     expect(alert.textContent).toContain('重新设一次密码');
     expect(localStorage.getItem('sw:token')).toBeNull();
     // 登录页上要能看到注册入口 —— 重置之后学生的下一步是重新注册
-    expect(screen.getByText('还没注册？')).toBeInTheDocument();
+    expect(screen.getByText('第一次使用？注册')).toBeInTheDocument();
   });
 
   it('401 同样清身份回登录页', async () => {
