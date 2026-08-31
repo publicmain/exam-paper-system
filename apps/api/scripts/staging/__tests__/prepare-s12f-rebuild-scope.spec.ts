@@ -27,6 +27,7 @@ const {
   FIXTURE_STUDENT_IDS,
   CONFIRMATION,
   EXPECTED_RAILWAY,
+  ENV_SNAPSHOT_KEYS,
   wipeStatements,
   exportScopes,
   redactRow,
@@ -38,6 +39,7 @@ const {
   FIXTURE_STUDENT_IDS: string[];
   CONFIRMATION: string;
   EXPECTED_RAILWAY: Record<string, string>;
+  ENV_SNAPSHOT_KEYS: string[];
   wipeStatements: (opts?: { includeStray?: boolean }) => string[];
   exportScopes: () => Array<{ table: string; kind: string; where: string }>;
   redactRow: (row: Record<string, unknown>) => Record<string, unknown>;
@@ -286,6 +288,19 @@ describe('S12J —— 导出目录是一道闸门', () => {
 
   it('导出目录是空串也拒绝', () => {
     expect(() => assertEnvGates({ ...env(), S12F_EXPORT_DIR: '' })).toThrow(/S12F_EXPORT_DIR/);
+  });
+
+  it('闸门读到的每一个变量，都在启动快照的白名单里', () => {
+    // S12J 踩过：`S12F_EXPORT_DIR` 加进了闸门却没加进快照，于是传了值也
+    // 报「没给」。这条把快照与闸门的源码对起来，下次漏写当场就红。
+    const src = String(assertEnvGates);
+    const read = new Set(
+      [...src.matchAll(/env\.([A-Z][A-Z0-9_]+)/g)].map((m) => m[1]),
+    );
+    expect(read.size).toBeGreaterThan(3);
+    for (const key of read) {
+      expect(ENV_SNAPSHOT_KEYS, `${key} 被闸门读到，却不在启动快照里`).toContain(key);
+    }
   });
 
   it('这道闸排在确认串之前 —— 目录缺了就不会先报确认串的错', () => {

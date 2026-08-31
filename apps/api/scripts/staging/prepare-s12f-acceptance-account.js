@@ -59,6 +59,7 @@
  * RAILWAY_PROJECT_ID=… RAILWAY_PROJECT_NAME=… RAILWAY_ENVIRONMENT_NAME=… \
  * RAILWAY_SERVICE_NAME=Postgres DATABASE_PUBLIC_URL=… \
  * RAILWAY_TCP_PROXY_DOMAIN=… RAILWAY_TCP_PROXY_PORT=… \
+ * S12F_EXPORT_DIR=<仓库之外的一个目录> \
  * S12F_CONFIRM=S12F_CREATE_PRODUCTION_LIKE_ACCEPTANCE_ACCOUNT \
  * S12F_ACCEPTANCE_PIN=<内存里随机生成的八位数字> \
  *   node apps/api/scripts/staging/prepare-s12f-acceptance-account.js
@@ -71,17 +72,29 @@
 
 // ⚠️ 顺序有意义：先拍环境快照，再加载任何会碰 dotenv 的东西。
 // 本文件在闸门通过之前**不 require @prisma/client**。
-const ENV_AT_STARTUP = {
-  RAILWAY_PROJECT_ID: process.env.RAILWAY_PROJECT_ID || '',
-  RAILWAY_PROJECT_NAME: process.env.RAILWAY_PROJECT_NAME || '',
-  RAILWAY_ENVIRONMENT_NAME: process.env.RAILWAY_ENVIRONMENT_NAME || '',
-  RAILWAY_SERVICE_NAME: process.env.RAILWAY_SERVICE_NAME || '',
-  DATABASE_PUBLIC_URL: process.env.DATABASE_PUBLIC_URL || '',
-  RAILWAY_TCP_PROXY_DOMAIN: process.env.RAILWAY_TCP_PROXY_DOMAIN || '',
-  RAILWAY_TCP_PROXY_PORT: process.env.RAILWAY_TCP_PROXY_PORT || '',
-  S12F_CONFIRM: process.env.S12F_CONFIRM || '',
-  S12F_ACCEPTANCE_PIN: process.env.S12F_ACCEPTANCE_PIN || '',
-};
+/**
+ * 闸门会读的环境变量 —— 这是一张**白名单**。
+ *
+ * S12J 踩过一次：`S12F_EXPORT_DIR` 加进了闸门却忘了加进这张表，于是
+ * 明明传了值，脚本还是报「没给」。所以现在快照由这张表生成，
+ * 并且有一条 spec 拿 `assertEnvGates` 的源码反过来核对它。
+ */
+const ENV_SNAPSHOT_KEYS = [
+  'RAILWAY_PROJECT_ID',
+  'RAILWAY_PROJECT_NAME',
+  'RAILWAY_ENVIRONMENT_NAME',
+  'RAILWAY_SERVICE_NAME',
+  'DATABASE_PUBLIC_URL',
+  'RAILWAY_TCP_PROXY_DOMAIN',
+  'RAILWAY_TCP_PROXY_PORT',
+  'S12F_EXPORT_DIR',
+  'S12F_CONFIRM',
+  'S12F_ACCEPTANCE_PIN',
+];
+
+const ENV_AT_STARTUP = Object.fromEntries(
+  ENV_SNAPSHOT_KEYS.map((k) => [k, process.env[k] || '']),
+);
 
 // ─────────────────────────────────────────────────────────────
 // 常量
@@ -1936,6 +1949,7 @@ module.exports = {
   dayLabel,
   sgtInstant,
   dayBefore,
+  ENV_SNAPSHOT_KEYS,
   ownedIdsOf,
   assertOwnedPrefix,
   exportScopes,
