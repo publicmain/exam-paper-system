@@ -32,6 +32,8 @@ const {
   assertPrefixed,
   assertEnvGates,
   parseDay,
+  isOursToFix,
+  dictDrift,
 } = prep as {
   CONFIRMATION: string;
   PREFIX: string;
@@ -55,6 +57,11 @@ const {
   assertPrefixed: (ids: string[]) => boolean;
   assertEnvGates: (env: Record<string, string>) => void;
   parseDay: (argv: string[]) => string;
+  isOursToFix: (row: { tag?: unknown }) => boolean;
+  dictDrift: (
+    row: Record<string, unknown>,
+    w: Record<string, unknown>,
+  ) => Record<string, unknown> | null;
 };
 
 const LEVELS = Object.keys(content.LEVELS as Record<string, unknown>);
@@ -272,5 +279,61 @@ describe('S12M —— 脚本与内容包对得上', () => {
     const e = new PilotError('x');
     expect(e).toBeInstanceOf(Error);
     expect(e.name).toBe('PilotError');
+  });
+});
+
+// ─────────────────────────────────────────────────────────────
+// 6. 词典：能纠自己的错，碰不到别人的
+// ─────────────────────────────────────────────────────────────
+
+describe('S12M —— 词典改写的边界', () => {
+  const ours = { word: 'complaint', tag: ['pilot_w1'] };
+
+  it('只有自己打过 `pilot_w1` 的行才允许改写', () => {
+    expect(isOursToFix(ours)).toBe(true);
+  });
+
+  it('**staging 原有的 59 条一条都碰不到** —— 它们不带这个标签', () => {
+    expect(isOursToFix({ tag: [] })).toBe(false);
+    expect(isOursToFix({ tag: ['ecdict'] })).toBe(false);
+    expect(isOursToFix({ tag: ['pilot_w2'] })).toBe(false);
+    expect(isOursToFix({})).toBe(false);
+    expect(isOursToFix({ tag: null })).toBe(false);
+    // 字符串不是数组 —— 不能靠 `includes` 在字符串上误判成真
+    expect(isOursToFix({ tag: 'pilot_w1' as unknown })).toBe(false);
+  });
+
+  it('一模一样就不写 —— 幂等重跑不会产生一次多余的 UPDATE', () => {
+    const w = { phonetic: '/a/', pos: 'n.', translation: 'n. 投诉', definition: 'd' };
+    expect(dictDrift({ ...w }, w)).toBeNull();
+  });
+
+  it('只把**真的变了的那几个字段**放进 patch', () => {
+    const w = { phonetic: '/a/', pos: 'n.', translation: 'n. 投诉，抱怨', definition: 'd' };
+    const patch = dictDrift({ ...w, translation: 'n. 投诉，抄怨' }, w);
+    expect(patch).toEqual({ translation: 'n. 投诉，抱怨' });
+  });
+
+  it('`word` 与 `tag` 永远不在 patch 里 —— 主键和归属不由这条路径改', () => {
+    const w = {
+      phonetic: '/b/',
+      pos: 'v.',
+      translation: 't',
+      definition: 'd',
+      headword: 'x',
+      tag: ['whatever'],
+    };
+    const patch = dictDrift({ phonetic: null, pos: null, translation: null, definition: null }, w);
+    expect(Object.keys(patch as object).sort()).toEqual([
+      'definition',
+      'phonetic',
+      'pos',
+      'translation',
+    ]);
+  });
+
+  it('那两个错别字确实已经从内容包里消失了', () => {
+    const all = content.allWords() as Array<{ translation: string }>;
+    expect(all.filter((w) => /抄怨|浹死/.test(w.translation))).toHaveLength(0);
   });
 });

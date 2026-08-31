@@ -91,7 +91,7 @@
 | 3 | drift | drifting | /drɪft/ | v. | v. 漂流，随风飘动 |
 | 4 | careless | careless | /ˈkeələs/ | adj. | adj. 粗心的，不在乎的 |
 | 5 | rubbish | rubbish | /ˈrʌbɪʃ/ | n. | n. 垃圾，废物 |
-| 6 | complaint | complaint | /kəmˈpleɪnt/ | n. | n. 投诉，抄怨 |
+| 6 | complaint | complaint | /kəmˈpleɪnt/ | n. | n. 投诉，抱怨 |
 | 7 | retired | retired | /rɪˈtaɪəd/ | adj. | adj. 退休的 |
 | 8 | council | council | /ˈkaʊnsl/ | n. | n. 市政厅，议会 |
 | 9 | monsoon | monsoon | /mɒnˈsuːn/ | n. | n. 季风；雨季 |
@@ -362,7 +362,7 @@
 | 17 | uneven | uneven | /ʌnˈiːvn/ | adj. | adj. 不均匀的，时快时慢的 |
 | 18 | reservoir | reservoir | /ˈrezəvwɑː/ | n. | n. 水库 |
 | 19 | insist | insists | /ɪnˈsɪst/ | v. | v. 坚持说 |
-| 20 | drown | drown | /draʊn/ | v. | v. 溺水，浹死 |
+| 20 | drown | drown | /draʊn/ | v. | v. 溺水，淹死 |
 | 21 | hobby | hobby | /ˈhɒbi/ | n. | n. 爱好 |
 
 ## O-Level 基础（ielts_simplified） —— 《Birds on the Eleventh Floor》

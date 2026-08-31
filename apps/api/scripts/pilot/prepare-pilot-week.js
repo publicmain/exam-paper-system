@@ -287,13 +287,47 @@ async function upsertClassAndQa(tx, report) {
   report.bump('ClassEnrollment');
 }
 
+/**
+ * 一条词典记录**是不是这个脚本自己写进去的**。
+ *
+ * 判据只有 `pilot_w1` 这个标签 —— 它只由下面那个 `create` 打上。别人的
+ * 词条（包括 staging 原有的 59 条）永远不带它，所以永远落不进「可以改」
+ * 的那一边。
+ */
+function isOursToFix(existing) {
+  return Array.isArray(existing.tag) && existing.tag.includes('pilot_w1');
+}
+
+/**
+ * 需要改写的字段，以及**为什么值得改**。
+ *
+ * 释义里出现过错别字（`抄怨` / `浹死`）。学生看到的就是这一行，一个只能
+ * 插不能改的发布脚本没法把它纠回来 —— 所以这里允许改，但**只改自己那些
+ * 带 `pilot_w1` 的行**。
+ */
+function dictDrift(existing, w) {
+  const fields = ['phonetic', 'pos', 'translation', 'definition'];
+  const patch = {};
+  for (const f of fields) {
+    if (existing[f] !== w[f]) patch[f] = w[f];
+  }
+  return Object.keys(patch).length ? patch : null;
+}
+
 async function upsertDictionary(tx, report) {
-  // **只在没有时才插**。已经在词典里的词一个字都不改 —— 那可能是别的
-  // 内容在用的释义，而这个脚本没有资格替它决定。
+  // **别人的词条一个字都不改** —— 那可能是别的内容在用的释义，而这个脚本
+  // 没有资格替它决定。自己写的那些则要能纠错，否则错别字就永久留在
+  // 学生眼前。
   for (const w of content.allWords()) {
     const existing = await tx.dictEntry.findUnique({ where: { word: w.headword } });
     if (existing) {
-      report.bump('DictEntry.kept');
+      const patch = isOursToFix(existing) ? dictDrift(existing, w) : null;
+      if (patch) {
+        await tx.dictEntry.update({ where: { word: w.headword }, data: patch });
+        report.bump('DictEntry.corrected');
+      } else {
+        report.bump('DictEntry.kept');
+      }
       continue;
     }
     await tx.dictEntry.create({
@@ -686,6 +720,8 @@ module.exports = {
   assertPrefixed,
   assertEnvGates,
   parseDay,
+  isOursToFix,
+  dictDrift,
 };
 
 if (require.main === module) {
