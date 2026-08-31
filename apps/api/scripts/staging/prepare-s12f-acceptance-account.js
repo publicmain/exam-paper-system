@@ -219,6 +219,13 @@ function assertEnvGates(env = ENV_AT_STARTUP) {
     );
   }
 
+  if (typeof env.S12F_EXPORT_DIR !== 'string' || env.S12F_EXPORT_DIR.length === 0) {
+    throw new S12fSafeError(
+      '拒绝执行：S12F_EXPORT_DIR 没给。\n' +
+        '重建之前要把现有账号整个导出成证据，没地方放就不该开始。',
+    );
+  }
+
   if (env.S12F_CONFIRM !== CONFIRMATION) {
     throw new S12fSafeError(
       `拒绝执行：需要逐字确认 S12F_CONFIRM=${CONFIRMATION}\n` +
@@ -381,6 +388,10 @@ const SCRIPT_KIND_PATTERNS = [
   ['wrong', 'correct', 'wrong', 'correct', 'partial', 'correct'],
 ];
 
+// S12J —— 十二篇历史阅读的**真文章**（原文 / 题干 / 答案 / 证据句）。
+// 夹具专用模块，不参与任何运行时路径。
+const { HISTORICAL_PAPERS } = require('./s12f-reading-content');
+
 const TFNG_OPTIONS = [
   { key: 'A', text: 'TRUE' },
   { key: 'B', text: 'FALSE' },
@@ -392,51 +403,49 @@ const FEATURE_OPTIONS = [
   { key: 'C', text: 'the city council' },
   { key: 'D', text: 'the neighbouring school' },
 ];
-const MCQ_OPTIONS = [
-  { key: 'A', text: 'It cost less than the old plan.' },
-  { key: 'B', text: 'It needed fewer volunteers.' },
-  { key: 'C', text: 'It produced food all year round.' },
-  { key: 'D', text: 'It was easier to explain to visitors.' },
-];
+/** 十二天的篇目名 —— 取自内容模块，永远与原文对得上。 */
+const HIST_TITLES = HISTORICAL_PAPERS.map((p) => p.title);
 
-/** 十二天的合成篇目名 —— 各不相同，看得出是不同的卷子。 */
-const HIST_TITLES = [
-  'The Rooftop Garden Project',
-  'How Cities Cool Themselves',
-  'Reading the Night Sky',
-  'The Return of the Wetland',
-  'Paper, Ink and Memory',
-  'Why Bridges Sing in the Wind',
-  'The Quiet Work of Bees',
-  'Maps Before Satellites',
-  'The School That Grew a Forest',
-  'Rain, Rivers and Rice',
-  'Small Machines, Long Journeys',
-  'When the Library Moved House',
-];
-
-/** 十道题的今日卷 —— 首题必须带 IELTS taskType（渲染器推断的兜底）。 */
+/**
+ * 十道题的今日卷 —— 首题必须带 IELTS taskType（渲染器推断的兜底）。
+ *
+ * S12J：每题带一句 `evidence` —— 它必须是 `TODAY_PASSAGE` 里**逐字**
+ * 存在的一段话，否则错题重练的高亮定位不上。同时修正了两道
+ * 与原文对不上的题（花园是地理老师提的，不是学生；市政厅「除了批准
+ * 什么都没出」是 FALSE 而不是 NOT GIVEN），改的是题干 —— 改答案键会让
+ * 头三题都变成 FALSE。第 10 题的参考答案也换成原文真给得出的两条理由。
+ */
 const TODAY_QUESTIONS = [
   { taskType: 'true_false_not_given', questionType: 'mcq', marks: 1, options: TFNG_OPTIONS,
-    stem: 'Do the following statements agree with the information in the passage? Write TRUE, FALSE or NOT GIVEN.\nThe rooftop garden was first suggested by a student.', answer: 'A' },
+    stem: 'Do the following statements agree with the information in the passage? Write TRUE, FALSE or NOT GIVEN.\nThe idea of using the roof came from a teacher.', answer: 'A',
+    evidence: 'A teacher of geography, looking for somewhere to measure wind speed, asked whether her class might use it for a single term.' },
   { taskType: 'true_false_not_given', questionType: 'mcq', marks: 1, options: TFNG_OPTIONS,
-    stem: 'The garden produced enough vegetables for the whole school in its first year.', answer: 'B' },
+    stem: 'The garden produced enough vegetables for the whole school in its first year.', answer: 'B',
+    evidence: 'In a good season it supplies the school kitchen for perhaps two weeks — never, as one report claimed, for the whole year.' },
   { taskType: 'true_false_not_given', questionType: 'mcq', marks: 1, options: TFNG_OPTIONS,
-    stem: 'The city council paid for the new water tanks.', answer: 'C' },
+    stem: 'The school kitchen pays the garden for the vegetables it receives.', answer: 'C',
+    evidence: '' },
   { taskType: 'sentence_completion', questionType: 'short_answer', marks: 1, options: null,
-    stem: 'Complete the sentence with ONE WORD ONLY from the passage.\nThe first beds were built from wood taken from an old ______.', answer: 'stage' },
+    stem: 'Complete the sentence with ONE WORD ONLY from the passage.\nThe first beds were built from wood taken from an old ______.', answer: 'stage',
+    evidence: 'from timber salvaged from an old stage that the drama club no longer used' },
   { taskType: 'sentence_completion', questionType: 'short_answer', marks: 1, options: null,
-    stem: 'The gardeners water the beds early in the ______ to lose less water.', answer: 'morning' },
+    stem: 'The gardeners water the beds early in the ______ to lose less water.', answer: 'morning',
+    evidence: 'The gardeners now water early in the morning, when less is lost' },
   { taskType: 'sentence_completion', questionType: 'short_answer', marks: 1, options: null,
-    stem: 'Each class keeps a written ______ of what it plants.', answer: 'record' },
+    stem: 'Each class keeps a written ______ of what it plants.', answer: 'record',
+    evidence: 'Every class keeps a record of what it plants, when it waters and what survives' },
   { taskType: 'matching_features', questionType: 'mcq', marks: 1, options: FEATURE_OPTIONS,
-    stem: 'Match the statement with the correct group.\nThey measured the temperature on the roof for a whole term.', answer: 'B' },
+    stem: 'Match the statement with the correct group.\nThey measured the temperature on the roof for a whole term.', answer: 'B',
+    evidence: 'The science club began measuring the temperature on the roof every hour for a whole term' },
   { taskType: 'matching_features', questionType: 'mcq', marks: 1, options: FEATURE_OPTIONS,
-    stem: 'They lent the school a set of rainwater barrels.', answer: 'D' },
+    stem: 'They lent the school a set of rainwater barrels.', answer: 'D',
+    evidence: 'A neighbouring school, which had abandoned a similar plan, lent the students a set of rainwater barrels' },
   { taskType: 'short_answer', questionType: 'short_answer', marks: 2, options: null,
-    stem: 'Answer in NO MORE THAN THREE WORDS.\nWhat did the students plant along the north wall to block the wind?', answer: 'a row of hedges' },
+    stem: 'Answer in NO MORE THAN THREE WORDS.\nWhat did the students plant along the north wall to block the wind?', answer: 'a row of hedges',
+    evidence: 'a row of hedges was planted along the north wall to break the wind' },
   { taskType: 'short_answer', questionType: 'short_answer', marks: 2, options: null,
-    stem: 'Give TWO reasons the writer gives for keeping a written record.', answer: 'to plan the next season; to show visitors what works' },
+    stem: 'Give TWO reasons the writer gives for keeping a written record.', answer: 'later classes consult them; a new group starts from earlier mistakes',
+    evidence: 'those notebooks are now consulted by classes that have not yet set foot on the roof' },
 ];
 
 const TODAY_TITLE = 'The Rooftop Garden, Two Years On';
@@ -479,22 +488,45 @@ function buildPlan(input) {
     const n = pad2(idx + 1);
     // idx 0/1 = 昨天与前天：老师还没判到，**诚实地留在待判**。
     const marked = idx >= 2;
-    const questions = HIST_TASK_TYPES.map((tt, qi) => ({
-      questionId: `${OWNED_PREFIX}q_h${n}_${qi + 1}`,
-      paperQuestionId: `${OWNED_PREFIX}pq_h${n}_${qi + 1}`,
-      sortOrder: qi + 1,
-      taskType: tt,
-      questionType: HIST_QUESTION_TYPES[qi],
-      marks: HIST_MARKS[qi],
-      options:
+    // S12J —— 内容来自 `s12f-reading-content`，**题型与分值的形状不变**
+    // （总分与逐题记账都建立在这个形状上）。
+    const paper = HISTORICAL_PAPERS[idx];
+    const questions = HIST_TASK_TYPES.map((tt, qi) => {
+      const src = paper.questions[qi];
+      const options =
         tt === 'true_false_not_given'
           ? TFNG_OPTIONS
           : tt === 'matching_features'
-            ? FEATURE_OPTIONS
+            ? paper.features.map((text, k) => ({ key: 'ABCD'[k], text }))
             : tt === 'multiple_choice'
-              ? MCQ_OPTIONS
-              : null,
-    }));
+              ? paper.choices.map((text, k) => ({ key: 'ABCD'[k], text }))
+              : null;
+      // 选择题的「写错」= 同一道题里另一个**真实的干扰项**，
+      // 不是凭空造的字串；换篇目就换一个，不会十二天都错同一个。
+      const wrongKey = options
+        ? options.filter((o) => o.key !== src.answer)[(idx + qi) % (options.length - 1)].key
+        : null;
+      const textOf = (key) => (options.find((o) => o.key === key) || {}).text || '';
+      return {
+        questionId: `${OWNED_PREFIX}q_h${n}_${qi + 1}`,
+        paperQuestionId: `${OWNED_PREFIX}pq_h${n}_${qi + 1}`,
+        sortOrder: qi + 1,
+        taskType: tt,
+        questionType: HIST_QUESTION_TYPES[qi],
+        marks: HIST_MARKS[qi],
+        options,
+        stem: src.stem,
+        /** 选项键（选择题）；主观题为 null。 */
+        optionKey: options ? src.answer : null,
+        wrongOptionKey: wrongKey,
+        /** 展示用的正确答案文本。 */
+        answerText: options ? textOf(src.answer) : src.answer,
+        partialText: options ? textOf(src.answer) : src.partial || src.answer,
+        wrongText: options ? textOf(wrongKey) : src.wrong,
+        /** 本篇原文里的**逐字子串**；空串 = 没存定位。 */
+        evidence: src.evidence || '',
+      };
+    });
 
     // 答案形态先定，得分由形态**推**出来 —— 反过来（先定总分再往回摊）
     // 会算出「半对却拿了满分」这种自相矛盾的逐题记账。
@@ -523,7 +555,8 @@ function buildPlan(input) {
       dayIso,
       offset: off,
       index: idx,
-      title: HIST_TITLES[idx],
+      title: paper.title,
+      passage: paper.passage,
       paperId: `${OWNED_PREFIX}paper_h${n}`,
       assignmentId: `${OWNED_PREFIX}asg_h${n}`,
       sessionId: `${OWNED_PREFIX}sess_h${n}`,
@@ -551,6 +584,11 @@ function buildPlan(input) {
       partial,
       readTarget: hasReading ? 1 : 0,
       readProgress: hasReading ? 1 : 0,
+      // S12J —— **连续天数只认 `student` / `teacher`**（见 lesson-rules 的
+      // `countsAsStudentDone`）。以前这里写的是 `lesson`，于是主页的连续
+      // 天数恒为 0 —— 一个「用了两周」的账号看起来一天都没学过。
+      // 学生自己交卷走完的那一天，来源就是 `student`。
+      readSource: hasReading ? 'student' : null,
       vocabTarget: 4,
       vocabProgress: partial ? 2 : 4,
       drillTarget: 3,
@@ -612,10 +650,19 @@ function buildPlan(input) {
     const taught = state !== 'new';
 
     // 到期分布：21 个此刻到期，29 个排在将来
+    // S12J —— **到期队列里必须真的有没教过的词**。
+    //
+    // 之前只有两个，而服务端按 due 升序发卡 —— 学生开头碰到的
+    // 几乎全是复习卡，S12I 刚做好的教学卡一次都验不到。
+    // 现在前六个新词欠得最久（dueHours 最负），因此排在队列最前。
+    //
+    // 到期 / 将来的总数仍是 21 / 29：新词多出的四个到期名额，
+    // 从 learning 那一档里同数量地让出去。
     let dueHours;
-    if (i < 8) dueHours = 24 * (2 + (i % 10)); // new：将来
-    else if (i < 10) dueHours = -1 - i; // new：今天该教
-    else if (i < 22) dueHours = -2 - (i % 12) * 2; // learning：全部到期
+    if (i < 6) dueHours = -30 - i; // new：**没教过且最早到期**（六个）
+    else if (i < 10) dueHours = 24 * (2 + (i % 10)); // new：将来（四个）
+    else if (i < 18) dueHours = -2 - (i % 12) * 2; // learning：八个到期
+    else if (i < 22) dueHours = 24 * (3 + (i % 4)); // learning：四个将来
     else if (i < 27) dueHours = -1 - (i % 5); // review：5 个到期
     else if (i < 42) dueHours = 24 * (1 + (i % 15)); // review：将来
     else if (i < 44) dueHours = -6 - (i % 2); // known：2 个到期
@@ -668,14 +715,6 @@ function buildPlan(input) {
   });
 
   // ── 错题本：20 条 ──
-  const MISTAKE_TASK_TYPES = [
-    'true_false_not_given',
-    'matching_features',
-    'sentence_completion',
-    'summary_completion',
-    'short_answer',
-    'multiple_choice',
-  ];
   const mistakes = [];
   for (let i = 0; i < 20; i++) {
     // 挂到历史卷的某一道题上；每条错题一个不同的 (submission, paperQuestion)
@@ -685,7 +724,10 @@ function buildPlan(input) {
     const day = readingDays[i % readingDays.length];
     const qIdx = (Math.floor(i / readingDays.length) + (i % readingDays.length)) % 6;
     const q = day.questions[qIdx];
-    const taskType = MISTAKE_TASK_TYPES[i % MISTAKE_TASK_TYPES.length];
+    // S12J —— 错题的题型必须就是**它挂的那道题的题型**。
+    // 以前按 i 轮换，于是一条实际是填空题的错题会标成「选择题」——
+    // 错题本里的标签与展开的题目当场矛盾。
+    const taskType = q.taskType;
     // 三种收录原因：长答题 → long_answer；词义题 → vocabulary；其余 → 反复错
     const reason = q.marks >= 2 ? 'long_answer' : i % 5 === 1 ? 'vocabulary' : 'repeated_tasktype';
     const resolved = i % 5 === 4; // 4 条已销账
@@ -911,10 +953,22 @@ function assertCurrentDayPristine(counts, where) {
 function assertRerunSafe(state) {
   if (!state.accountExists) return true; // 全新创建，没什么可保护的
   if (Number(state.foreignOwnedRows || 0) !== 0) {
-    throw new S12fSafeError(
-      `拒绝执行：这个账号名下有 ${state.foreignOwnedRows} 行不带 ${OWNED_PREFIX} 前缀的业务数据。\n` +
-        '那是用户自己造出来的验收证据 —— 重建会毁掉它。',
-    );
+    // S12J —— 用户那次失败的验收真的造出了不带前缀的行。
+    // 以前这里无条件拒绝（于是账号根本重建不了）；现在改成：
+    // **先把它导出去、并且写完读回来哈希对得上**，才允许删。
+    // 导不出来就继续拒绝 —— 失败关闭，不是「尽量导一下」。
+    const ev = state.evidenceExport;
+    if (!ev || ev.verified !== true || typeof ev.sha256 !== 'string' || ev.sha256.length !== 64) {
+      throw new S12fSafeError(
+        `拒绝执行：这个账号名下有 ${state.foreignOwnedRows} 行不带 ${OWNED_PREFIX} 前缀的业务数据，\n` +
+          '而它们还没被导出成一份验过哈希的证据文件。重建会毁掉它。',
+      );
+    }
+    if (Number(ev.accountRows) < Number(state.foreignOwnedRows)) {
+      throw new S12fSafeError(
+        `拒绝执行：导出里只有 ${ev.accountRows} 行账号数据，少于要删的 ${state.foreignOwnedRows} 行。`,
+      );
+    }
   }
   assertCurrentDayPristine(state.currentDay, '拒绝重跑');
   return true;
@@ -924,7 +978,7 @@ function assertRerunSafe(state) {
 // 只读前置检查（事务内，任何写之前）
 // ─────────────────────────────────────────────────────────────
 
-async function runPreflight(tx, plan) {
+async function runPreflight(tx, plan, evidenceExport = null) {
   const reads = [];
 
   const notify = await tx.$queryRawUnsafe(
@@ -1021,14 +1075,11 @@ async function runPreflight(tx, plan) {
   );
   reads.push('stray-rows');
 
-  assertRerunSafe({
-    accountExists,
-    foreignOwnedRows: Number(strayRows[0].foreignOwnedRows),
-    currentDay,
-  });
+  const foreignOwnedRows = Number(strayRows[0].foreignOwnedRows);
+  assertRerunSafe({ accountExists, foreignOwnedRows, currentDay, evidenceExport });
   assertCurrentDayPristine(currentDay, '前置检查');
 
-  return { accountExists, currentDay, reads };
+  return { accountExists, currentDay, foreignOwnedRows, reads };
 }
 
 /** 词典能不能撑起这 50 个词 + 那个留给查词的词。 */
@@ -1065,59 +1116,207 @@ async function selectWords(tx) {
 }
 
 // ─────────────────────────────────────────────────────────────
+// 证据导出（S12J AC-06）
+// ─────────────────────────────────────────────────────────────
+
+/**
+ * 要导出的范围。
+ *
+ * 分两类：`account` 是**挂在验收账号名下的业务行**（不看前缀 ——
+ * 用户那次失败验收造出来的行恰恰一个前缀都没带）；`shared` 是夹具
+ * 自己建的共享资源（卷子 / 题目 / 场次……），按 `s12f_` 前缀认。
+ *
+ * 这张表与删除语句是**配对的**：凡是重建会删的表，都得先在这里
+ * 导出去（spec 里钉住了这个不变式）。
+ */
+function exportScopes(accountId = ACCOUNT.id, prefix = OWNED_PREFIX) {
+  const A = accountId;
+  const sub = (t) => `SELECT id FROM "${t}" WHERE "studentId" = '${A}'`;
+  return [
+    { table: 'User', kind: 'account', where: `id = '${A}'` },
+    { table: 'DailyLessonCompletion', kind: 'account', where: `"studentId" = '${A}'` },
+    { table: 'StudentSubmission', kind: 'account', where: `"studentId" = '${A}'` },
+    { table: 'AnswerScript', kind: 'account', where: `"submissionId" IN (${sub('StudentSubmission')})` },
+    { table: 'GradeAppeal', kind: 'account', where: `"submissionId" IN (${sub('StudentSubmission')})` },
+    { table: 'VocabQuizAttempt', kind: 'account', where: `"studentId" = '${A}'` },
+    { table: 'StudentWord', kind: 'account', where: `"studentId" = '${A}'` },
+    { table: 'WordReviewLog', kind: 'account', where: `"studentWordId" IN (${sub('StudentWord')})` },
+    { table: 'MistakeEntry', kind: 'account', where: `"studentId" = '${A}'` },
+    { table: 'Attendance', kind: 'account', where: `"studentId" = '${A}'` },
+    { table: 'StudentPageView', kind: 'account', where: `"studentId" = '${A}'` },
+    { table: 'MorningQuizSession', kind: 'shared', where: `id LIKE '${prefix}%'` },
+    { table: 'PaperAssignment', kind: 'shared', where: `id LIKE '${prefix}%'` },
+    { table: 'PaperQuestion', kind: 'shared', where: `id LIKE '${prefix}%'` },
+    { table: 'Paper', kind: 'shared', where: `id LIKE '${prefix}%'` },
+    { table: 'Question', kind: 'shared', where: `id LIKE '${prefix}%'` },
+  ];
+}
+
+/**
+ * 凭据形状的字段一律遮掉。
+ *
+ * 导出文件是给人看的证据，不是备份 —— 密码哈希 / PIN 哈希 /
+ * 令牌 / 二维码密钥一个都不能落到盘上。
+ */
+const CREDENTIAL_KEY = /(password|pin|token|secret|salt)/i;
+
+function redactRow(row) {
+  const out = {};
+  for (const k of Object.keys(row)) {
+    const v = row[k];
+    if (CREDENTIAL_KEY.test(k)) out[k] = v == null ? null : '[redacted]';
+    else if (typeof v === 'bigint') out[k] = v.toString();
+    else out[k] = v;
+  }
+  return out;
+}
+
+/**
+ * 把现有账号整个导出成一个 JSON 文件，**写完再读回来对哈希**。
+ *
+ * 回执里只有路径 / 哈希 / 行数 —— 内容不进回执，也不进命令行输出
+ * （合同：不得打印学生答案内容）。
+ */
+async function exportAccountEvidence(tx, dir, stamp) {
+  const fs = require('fs');
+  const path = require('path');
+  const crypto = require('crypto');
+
+  if (typeof dir !== 'string' || dir.length === 0) {
+    throw new S12fSafeError('拒绝执行：S12F_EXPORT_DIR 没给 —— 没地方放导出就不该开始删。');
+  }
+  fs.mkdirSync(dir, { recursive: true });
+
+  const tables = {};
+  const counts = {};
+  let accountRows = 0;
+  let sharedRows = 0;
+  for (const scope of exportScopes()) {
+    const rows = await tx.$queryRawUnsafe(
+      `/* s12f:export */ SELECT * FROM "${scope.table}" WHERE ${scope.where} ORDER BY id`,
+    );
+    const clean = rows.map(redactRow);
+    tables[scope.table] = clean;
+    counts[scope.table] = clean.length;
+    if (scope.kind === 'account') accountRows += clean.length;
+    else sharedRows += clean.length;
+  }
+
+  const payload = {
+    what: 'S12F acceptance account, exported before the S12J rebuild',
+    accountId: ACCOUNT.id,
+    exportedAt: stamp,
+    railwayProject: EXPECTED_RAILWAY.RAILWAY_PROJECT_NAME,
+    note: 'Credential-shaped fields are [redacted]. This file is evidence, not a backup.',
+    counts,
+    tables,
+  };
+  const json = JSON.stringify(payload, null, 1);
+  const file = path.join(dir, `s12f-account-export-${stamp.replace(/[:.]/g, '-')}.json`);
+  fs.writeFileSync(file, json, 'utf8');
+
+  // 读回来再算一遍 —— 写出去了不等于落盘了。
+  const back = fs.readFileSync(file, 'utf8');
+  const sha = (t) => crypto.createHash('sha256').update(t, 'utf8').digest('hex');
+  const sha256 = sha(json);
+  if (sha(back) !== sha256) {
+    throw new S12fSafeError('拒绝执行：导出文件读回来哈希对不上。');
+  }
+  const parsed = JSON.parse(back);
+  const backRows = Object.values(parsed.counts).reduce((a, b) => a + Number(b), 0);
+  if (backRows !== accountRows + sharedRows) {
+    throw new S12fSafeError('拒绝执行：导出文件读回来行数对不上。');
+  }
+
+  return {
+    verified: true,
+    path: file,
+    sha256,
+    bytes: Buffer.byteLength(json, 'utf8'),
+    counts,
+    accountRows,
+    sharedRows,
+    exportedAt: stamp,
+  };
+}
+
+// ─────────────────────────────────────────────────────────────
 // 写入
 // ─────────────────────────────────────────────────────────────
 
-/** 只删本脚本自己拥有的行；顺序照外键从叶到根。 */
-async function wipeOwned(tx) {
+/**
+ * 重建要删的行。纯函数 —— spec 不连库就能把它管住。
+ *
+ * 两种范围：
+ *
+ *   · `includeStray = false`（默认）—— 只删带 `s12f_` 前缀的行。
+ *     交给用户之前的重跑走这一支，它碰不到用户造的任何行。
+ *   · `includeStray = true` —— 按**学生 id** 删干净，不看前缀。
+ *     只有在证据已导出并验过哈希之后才开（见 `assertRerunSafe`）。
+ *
+ * 两种范围都**只认验收账号自己的 id 与 `s12f_` 前缀**：
+ * t1–t8 的行不可能被匹到。
+ */
+function wipeStatements(opts = {}) {
+  const includeStray = opts.includeStray === true;
   const P = `${OWNED_PREFIX}%`;
   const A = ACCOUNT.id;
-  const stmts = [
-    `DELETE FROM "WordReviewLog" WHERE id LIKE '${P}'`,
-    `DELETE FROM "StudentWord" WHERE "studentId" = '${A}' AND id LIKE '${P}'`,
-    `DELETE FROM "MistakeEntry" WHERE "studentId" = '${A}' AND id LIKE '${P}'`,
-    `DELETE FROM "GradeAppeal" WHERE id LIKE '${P}'`,
-    `DELETE FROM "VocabQuizAttempt" WHERE "studentId" = '${A}' AND id LIKE '${P}'`,
-    `DELETE FROM "DailyLessonCompletion" WHERE "studentId" = '${A}' AND id LIKE '${P}'`,
-    `DELETE FROM "AnswerScript" WHERE id LIKE '${P}'`,
-    `DELETE FROM "StudentSubmission" WHERE "studentId" = '${A}' AND id LIKE '${P}'`,
+  const subSub = `SELECT id FROM "StudentSubmission" WHERE "studentId" = '${A}'`;
+  const subWord = `SELECT id FROM "StudentWord" WHERE "studentId" = '${A}'`;
+
+  // 挂在学生名下的业务行（叶 → 根）。
+  const owned = includeStray
+    ? [
+        `DELETE FROM "WordReviewLog" WHERE "studentWordId" IN (${subWord})`,
+        `DELETE FROM "StudentWord" WHERE "studentId" = '${A}'`,
+        `DELETE FROM "MistakeEntry" WHERE "studentId" = '${A}'`,
+        `DELETE FROM "GradeAppeal" WHERE "submissionId" IN (${subSub})`,
+        `DELETE FROM "VocabQuizAttempt" WHERE "studentId" = '${A}'`,
+        `DELETE FROM "DailyLessonCompletion" WHERE "studentId" = '${A}'`,
+        `DELETE FROM "StudentPageView" WHERE "studentId" = '${A}'`,
+        `DELETE FROM "Attendance" WHERE "studentId" = '${A}'`,
+        `DELETE FROM "AnswerScript" WHERE "submissionId" IN (${subSub})`,
+        `DELETE FROM "StudentSubmission" WHERE "studentId" = '${A}'`,
+      ]
+    : [
+        `DELETE FROM "WordReviewLog" WHERE id LIKE '${P}'`,
+        `DELETE FROM "StudentWord" WHERE "studentId" = '${A}' AND id LIKE '${P}'`,
+        `DELETE FROM "MistakeEntry" WHERE "studentId" = '${A}' AND id LIKE '${P}'`,
+        `DELETE FROM "GradeAppeal" WHERE id LIKE '${P}'`,
+        `DELETE FROM "VocabQuizAttempt" WHERE "studentId" = '${A}' AND id LIKE '${P}'`,
+        `DELETE FROM "DailyLessonCompletion" WHERE "studentId" = '${A}' AND id LIKE '${P}'`,
+        `DELETE FROM "AnswerScript" WHERE id LIKE '${P}'`,
+        `DELETE FROM "StudentSubmission" WHERE "studentId" = '${A}' AND id LIKE '${P}'`,
+      ];
+
+  // 夹具自己建的共享资源 —— 永远按前缀。
+  return owned.concat([
     `DELETE FROM "MorningQuizSession" WHERE id LIKE '${P}'`,
     `DELETE FROM "PaperAssignment" WHERE id LIKE '${P}'`,
     `DELETE FROM "PaperQuestion" WHERE id LIKE '${P}'`,
     `DELETE FROM "Paper" WHERE id LIKE '${P}'`,
     `DELETE FROM "Question" WHERE id LIKE '${P}'`,
-  ];
-  for (const s of stmts) await tx.$executeRawUnsafe(`/* s12f:wipe */ ${s}`);
+  ]);
 }
 
-const ANSWER_BY_KIND = {
-  correct: (q) => q.answerText,
-  partial: (q) => q.partialText,
-  wrong: (q) => q.wrongText,
-  blank: () => '',
-};
+/** 只删验收账号自己的行；顺序照外键从叶到根。 */
+async function wipeOwned(tx, opts = {}) {
+  for (const s of wipeStatements(opts)) await tx.$executeRawUnsafe(`/* s12f:wipe */ ${s}`);
+}
 
-function histAnswerTexts(taskType, dayTitle) {
-  switch (taskType) {
-    case 'true_false_not_given':
-      return { answerText: 'TRUE', partialText: 'TRUE', wrongText: 'NOT GIVEN', option: 'A', wrongOption: 'C' };
-    case 'matching_features':
-      return { answerText: 'the science club', partialText: 'the science club', wrongText: 'the city council', option: 'B', wrongOption: 'C' };
-    case 'multiple_choice':
-      return { answerText: 'It produced food all year round.', partialText: 'It produced food all year round.', wrongText: 'It cost less than the old plan.', option: 'C', wrongOption: 'A' };
-    case 'sentence_completion':
-      return { answerText: 'rainwater', partialText: 'rain', wrongText: 'sunlight', option: null, wrongOption: null };
-    case 'summary_completion':
-      return { answerText: 'wind and heat', partialText: 'wind', wrongText: 'rain and snow', option: null, wrongOption: null };
-    default:
-      return {
-        answerText: `two seasons of records from ${dayTitle}`,
-        partialText: 'two seasons of records',
-        wrongText: 'because the teacher said so',
-        option: null,
-        wrongOption: null,
-      };
-  }
+/**
+ * 学生当时写下的答案文本。
+ *
+ * S12J 之前这里是一张**按题型**查的硬表：不管哪一天、哪一篇，
+ * 只要是填空题，正确答案就是 `rainwater`。于是错题本里十几条的
+ * 「正确答案」一模一样，而且跟它自己的题目根本对不上。
+ * 现在每一道题都带着自己的三个文本，这里只负责挑。
+ */
+function answerTextForKind(q, kind) {
+  if (kind === 'correct') return q.answerText;
+  if (kind === 'partial') return q.partialText;
+  if (kind === 'wrong') return q.wrongText;
+  return '';
 }
 
 const MARKER_COMMENTS = {
@@ -1205,11 +1404,12 @@ async function writeAll(tx, plan, pinHash, placeholderPasswordHash) {
       const content = {
         taskType: q.taskType,
         passageTitle: d.title,
-        passage: `【S12F 合成阅读 · ${d.title}】学生在这一天读到的就是这段文字。`,
-        stem: `${d.title} —— 第 ${q.sortOrder} 题（${q.taskType}）。`,
+        passage: d.passage,
+        stem: q.stem,
       };
-      const texts = histAnswerTexts(q.taskType, d.title);
-      const answer = { text: texts.answerText };
+      // `evidence` 是错题重练的定位依据（`answerExtras` 读它）。
+      // 空串就不写 —— 客户端对「没存定位」有诚实的兜底支。
+      const answer = q.evidence ? { text: q.answerText, evidence: q.evidence } : { text: q.answerText };
       await tx.question.create({
         data: {
           id: q.questionId,
@@ -1219,7 +1419,7 @@ async function writeAll(tx, plan, pinHash, placeholderPasswordHash) {
           sourceType: 'original_school',
           content,
           answerContent: answer,
-          options: q.options ? q.options.map((o) => ({ ...o, correct: o.key === texts.option })) : undefined,
+          options: q.options ? q.options.map((o) => ({ ...o, correct: o.key === q.optionKey })) : undefined,
           marks: q.marks,
           estimatedTimeMin: q.marks * 1.5,
           difficulty: 3,
@@ -1293,15 +1493,14 @@ async function writeAll(tx, plan, pinHash, placeholderPasswordHash) {
     });
     for (const s of d.scripts) {
       const q = d.questions.find((x) => x.paperQuestionId === s.paperQuestionId);
-      const texts = histAnswerTexts(q.taskType, d.title);
       const isMcq = s.questionType === 'mcq';
-      const text = ANSWER_BY_KIND[s.kind]({ ...texts });
+      const text = answerTextForKind(q, s.kind);
       await tx.answerScript.create({
         data: {
           id: s.id,
           submissionId: d.submissionId,
           paperQuestionId: s.paperQuestionId,
-          selectedOption: isMcq && !s.blank ? (s.kind === 'correct' ? texts.option : texts.wrongOption) : null,
+          selectedOption: isMcq && !s.blank ? (s.kind === 'correct' ? q.optionKey : q.wrongOptionKey) : null,
           textAnswer: text,
           awardedMarks: d.marked ? s.awarded : isMcq ? s.awarded ?? 0 : null,
           markerComment: d.marked && !isMcq ? MARKER_COMMENTS[s.kind] : null,
@@ -1323,7 +1522,7 @@ async function writeAll(tx, plan, pinHash, placeholderPasswordHash) {
         readTarget: l.readTarget,
         readProgress: l.readProgress,
         readDoneAt: l.readTarget ? sgtInstant(l.dayIso, '08:51:00') : null,
-        readSource: l.readTarget ? 'lesson' : null,
+        readSource: l.readSource,
         vocabTarget: l.vocabTarget,
         vocabProgress: l.vocabProgress,
         vocabDoneAt: l.partial ? null : sgtInstant(l.dayIso, '09:05:00'),
@@ -1414,7 +1613,6 @@ async function writeAll(tx, plan, pinHash, placeholderPasswordHash) {
   for (const m of plan.mistakes) {
     const day = plan.readingDays.find((d) => d.submissionId === m.submissionId);
     const q = day.questions.find((x) => x.paperQuestionId === m.paperQuestionId);
-    const texts = histAnswerTexts(q.taskType, day.title);
     await tx.mistakeEntry.create({
       data: {
         id: m.id,
@@ -1423,9 +1621,9 @@ async function writeAll(tx, plan, pinHash, placeholderPasswordHash) {
         paperQuestionId: m.paperQuestionId,
         taskType: m.taskType,
         passageTitle: m.passageTitle,
-        stem: `${m.passageTitle} —— 第 ${q.sortOrder} 题（${m.taskType}）。`,
-        studentAnswer: texts.wrongText,
-        correctAnswer: texts.answerText,
+        stem: q.stem,
+        studentAnswer: q.wrongText,
+        correctAnswer: q.answerText,
         markerComment: MARKER_COMMENTS[m.awarded > 0 ? 'partial' : 'wrong'],
         awarded: m.awarded,
         maxMarks: m.maxMarks,
@@ -1488,7 +1686,8 @@ async function writeAll(tx, plan, pinHash, placeholderPasswordHash) {
       passage: t.passage,
       stem: q.stem,
     };
-    const answer = { text: q.answer };
+    // 第 3 题是 NOT GIVEN —— 原文里本就**没有**那句话可引，所以它没有证据句。
+    const answer = q.evidence ? { text: q.answer, evidence: q.evidence } : { text: q.answer };
     await tx.question.create({
       data: {
         id: q.questionId,
@@ -1650,15 +1849,30 @@ async function main() {
         const plan = buildPlan({ todayIso, words });
         assertDistributions(plan);
         assertOwnedPrefix(ownedIdsOf(plan));
-        const pre = await runPreflight(tx, plan);
+        // ② 先把现有账号导出成证据（写盘 + 读回来对哈希）。
+        //     导出失败 = 整个事务滞回，一行也不删。
+        const evidenceExport = await exportAccountEvidence(
+          tx,
+          ENV_AT_STARTUP.S12F_EXPORT_DIR,
+          new Date().toISOString(),
+        );
 
-        // ② 写
-        await wipeOwned(tx);
+        const pre = await runPreflight(tx, plan, evidenceExport);
+
+        // ③ 写。账号名下有用户造的行时，按**学生 id** 删干净；
+        //     否则维持只删 `s12f_` 前缀的保守路径。
+        await wipeOwned(tx, { includeStray: pre.foreignOwnedRows > 0 });
         await writeAll(tx, plan, pinHash, placeholderPasswordHash);
 
         // ③ 回读
         const after = await verifyAfterWrite(tx, plan);
-        return { accountExisted: pre.accountExists, counts: after, plan };
+        return {
+          accountExisted: pre.accountExists,
+          counts: after,
+          plan,
+          evidenceExport,
+          strayRowsRemoved: pre.foreignOwnedRows,
+        };
       },
       { maxWait: 30_000, timeout: 300_000 },
     );
@@ -1675,7 +1889,15 @@ async function main() {
       `  登录姓名        : ${ACCOUNT.name}`,
       `  班级            : ${ACCOUNT.classId} / ${ACCOUNT.className}`,
       `  分级            : ${ACCOUNT.englishLevel}`,
-      `  之前是否已存在  : ${receipt.accountExisted ? '是（已按 s12f_ 前缀重建）' : '否（全新）'}`,
+      `  之前是否已存在  : ${receipt.accountExisted ? '是（已重建）' : '否（全新）'}`,
+      `  删掉的无前缀行: ${receipt.strayRowsRemoved}（用户那次失败验收留下的）`,
+      '',
+      '  删之前的证据导出（内容不进这份输出）：',
+      `    路径            : ${receipt.evidenceExport.path}`,
+      `    SHA-256         : ${receipt.evidenceExport.sha256}`,
+      `    字节            : ${receipt.evidenceExport.bytes}`,
+      `    账号行 / 共享行 : ${receipt.evidenceExport.accountRows} / ${receipt.evidenceExport.sharedRows}`,
+      `    导出时刻        : ${receipt.evidenceExport.exportedAt}`,
       '',
       `  阅读答卷        : ${d.readingSubmissions}（判完 ${d.markedSubmissions} · 待判 ${d.pendingSubmissions}）`,
       `  历史任务行      : ${d.lessonDays}`,
@@ -1716,6 +1938,9 @@ module.exports = {
   dayBefore,
   ownedIdsOf,
   assertOwnedPrefix,
+  exportScopes,
+  redactRow,
+  wipeStatements,
   buildPlan,
   distributionsOf,
   assertDistributions,

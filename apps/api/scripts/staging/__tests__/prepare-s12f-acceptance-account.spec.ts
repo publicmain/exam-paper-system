@@ -164,6 +164,8 @@ const GOOD_ENV = () => ({
   DATABASE_PUBLIC_URL: 'postgresql://sentinel-user:sentinel-secret@proxy.sentinel.example:47111/railway',
   RAILWAY_TCP_PROXY_DOMAIN: 'proxy.sentinel.example',
   RAILWAY_TCP_PROXY_PORT: '47111',
+  // S12J：重建之前必须先把现有账号导出成证据，所以导出目录也成了一道闸。
+  S12F_EXPORT_DIR: 'C:/tmp/s12j-export',
   S12F_CONFIRM: mod().CONFIRMATION,
   S12F_ACCEPTANCE_PIN: '40718253',
 });
@@ -226,6 +228,7 @@ describe('S12F —— 环境与确认闸门', () => {
     ['服务不对', { RAILWAY_SERVICE_NAME: 'stg-api' }],
     ['代理主机名不对', { RAILWAY_TCP_PROXY_DOMAIN: 'somewhere.else.example' }],
     ['代理端口不对', { RAILWAY_TCP_PROXY_PORT: '1' }],
+    ['缺导出目录', { S12F_EXPORT_DIR: '' }],
     ['缺确认串', { S12F_CONFIRM: '' }],
     ['确认串写错', { S12F_CONFIRM: 'yes' }],
     ['连接串畸形', { DATABASE_PUBLIC_URL: 'not-a-postgres-url' }],
