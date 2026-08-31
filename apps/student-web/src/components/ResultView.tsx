@@ -37,7 +37,7 @@
  * 这份组件不猜，`footer` 谁传谁负责。
  */
 import { useCallback, useMemo, useRef, useState } from 'react';
-import { api, type ReadingResult, type ReadingResultItem } from '../lib/api';
+import { api, type AnswerDisplay, type ReadingResult, type ReadingResultItem } from '../lib/api';
 import { handleAuthFailure } from '../lib/auth-store';
 import { readToken } from '../lib/identity';
 
@@ -60,6 +60,40 @@ export type QuestionOutcome =
  */
 export function questionOutcome(item: ReadingResultItem, scoresPending: boolean): QuestionOutcome {
   const answered = item.studentAnswer != null && String(item.studentAnswer).trim() !== '';
+
+  // ── S12I —— **逐题状态以服务端为准** ──
+  //
+  // 旧写法是 `if (scoresPending) return 'pending'`，把**整卷**的旗子刷到每一题上。
+  // 用户第一次真人验收的第一个报告就是它：一道有确定答案的选择题显示
+  // 「还在判分」。现在服务端会逐题告诉我们到底判了没有。
+  //
+  // **不在浏览器里算对错**：下面只看 `isCorrect` / `awardedMarks`，
+  // 那两个同样是服务端算好的。
+  if (item.gradingStatus) {
+    switch (item.gradingStatus) {
+      case 'not_answered':
+        return 'unanswered';
+      case 'pending_marking':
+        return 'pending';
+      case 'auto_graded':
+      case 'marked':
+        if (item.isCorrect === true) return 'correct';
+        if (
+          typeof item.awardedMarks === 'number' &&
+          item.awardedMarks > 0 &&
+          item.awardedMarks < item.marks
+        ) {
+          return 'partial';
+        }
+        if (item.isCorrect === false) return 'incorrect';
+        // 判了却既不对也不错（服务端只给了分）—— 按分数说话。
+        if (item.awardedMarks === 0) return 'incorrect';
+        if (typeof item.awardedMarks === 'number' && item.awardedMarks >= item.marks) return 'correct';
+        return 'pending';
+    }
+  }
+
+  // 旧服务端（不发 `gradingStatus`）的向后兼容路径 —— 原行为一字不改。
   if (!answered) return 'unanswered';
   if (scoresPending) return 'pending';
   if (item.isCorrect === true) return 'correct';
@@ -68,6 +102,85 @@ export function questionOutcome(item: ReadingResultItem, scoresPending: boolean)
   }
   if (item.isCorrect === false) return 'incorrect';
   return 'pending';
+}
+
+/**
+ * 只用于**比较**的归一化（NFKC → 去首尾 → 折叠空白 → casefold）。
+ * 与服务端 `normalizeForAnswerCompare` 同一口径，**不改展示值**。
+ */
+export function normalizeAnswerForCompare(raw: unknown): string {
+  return String(raw ?? '').normalize('NFKC').trim().replace(/\s+/g, ' ').toLowerCase();
+}
+
+/**
+ * 这一题该显示哪几行答案。
+ *
+ * 优先用服务端的语义 `answerDisplay`；旧服务端没有时用
+ * `correctAnswer` / `referenceAnswer` 自己拼一份 —— **并且同样去重**。
+ * 用户看到的「两行一模一样」就是这里以前没比过。
+ */
+export function answerRowsOf(item: ReadingResultItem): Array<{
+  kind: 'correct' | 'reference' | 'rubric';
+  value: string;
+}> {
+  const d: AnswerDisplay | null | undefined = item.answerDisplay;
+  if (d && typeof d.primaryValue === 'string' && d.primaryValue.trim() !== '') {
+    const rows: Array<{ kind: 'correct' | 'reference' | 'rubric'; value: string }> = [
+      { kind: d.primaryKind, value: d.primaryValue },
+    ];
+    if (
+      typeof d.rubricValue === 'string' &&
+      d.rubricValue.trim() !== '' &&
+      normalizeAnswerForCompare(d.rubricValue) !== normalizeAnswerForCompare(d.primaryValue)
+    ) {
+      rows.push({ kind: 'rubric', value: d.rubricValue });
+    }
+    return rows;
+  }
+  if (d === null) return [];
+
+  // 兜底：旧服务端。
+  const pick = (v: unknown) => (typeof v === 'string' && v.trim() !== '' ? v : null);
+  const correct = pick(item.correctAnswer);
+  const reference = pick(item.referenceAnswer);
+  if (!correct && !reference) return [];
+  const primary = (correct ?? reference) as string;
+  const rows: Array<{ kind: 'correct' | 'reference' | 'rubric'; value: string }> = [
+    { kind: item.questionType === 'mcq' ? 'correct' : 'reference', value: primary },
+  ];
+  if (
+    correct &&
+    reference &&
+    normalizeAnswerForCompare(reference) !== normalizeAnswerForCompare(primary)
+  ) {
+    rows.push({ kind: 'rubric', value: reference });
+  }
+  return rows;
+}
+
+const ANSWER_ROW_LABEL: Record<'correct' | 'reference' | 'rubric', string> = {
+  correct: '正确答案',
+  reference: '参考答案',
+  rubric: '评分要点',
+};
+
+/**
+ * 这份卷子的原文—— **整份只有一段**，从第一道带原文的题里取。
+ *
+ * `passage_pick` 的卷子把同一段原文存在**每一道题**的快照里，所以这里
+ * 取第一份就够了；拿不到就**不显示**，绝不造一段出来。
+ */
+export function passageOf(result: ReadingResult): { title: string; body: string } | null {
+  for (const it of result.items ?? []) {
+    const c = (it.snapshotContent ?? {}) as { passage?: unknown; passageTitle?: unknown };
+    const body = typeof c.passage === 'string' ? c.passage.trim() : '';
+    if (body.length === 0) continue;
+    const title = typeof c.passageTitle === 'string' && c.passageTitle.trim() !== ''
+      ? c.passageTitle.trim()
+      : result.paperName;
+    return { title, body };
+  }
+  return null;
 }
 
 /**
@@ -177,6 +290,34 @@ export function ResultView({
           </p>
         )}
 
+        {result.gradingSummary && result.gradingSummary.total > 0 && (
+          <p data-testid="grading-summary" className="mt-2 text-sm text-slate-600">
+            {result.gradingSummary.autoGraded + result.gradingSummary.marked > 0 && (
+              <span>
+                已自动判分{' '}
+                <span className="tabular-nums font-medium">
+                  {result.gradingSummary.autoGraded + result.gradingSummary.marked}
+                </span>{' '}
+                题
+              </span>
+            )}
+            {result.gradingSummary.pendingMarking > 0 && (
+              <span>
+                {result.gradingSummary.autoGraded + result.gradingSummary.marked > 0 ? ' · ' : ''}
+                <span className="tabular-nums font-medium">{result.gradingSummary.pendingMarking}</span>{' '}
+                题等老师批改
+              </span>
+            )}
+            {result.gradingSummary.notAnswered > 0 && (
+              <span>
+                {' · '}
+                <span className="tabular-nums font-medium">{result.gradingSummary.notAnswered}</span>{' '}
+                题没作答
+              </span>
+            )}
+          </p>
+        )}
+
         {result.answersPending && (
           <p data-testid="answers-pending" className="mt-3 text-sm text-amber-800 bg-amber-50 rounded-xl px-3 py-2">
             答案还没有公布 —— 你还可以回去修改这份卷子；最终交卷之后才会显示答案。
@@ -196,6 +337,8 @@ export function ResultView({
           )}
         </dl>
       </section>
+
+      <PassageReview result={result} />
 
       <ol data-testid="items" className="flex flex-col gap-4">
         {result.items.map((item, i) => (
@@ -248,9 +391,11 @@ function ResultItemCard({
           {OUTCOME_LABEL[outcome]}
         </span>
         <div className="flex-1" />
-        {!scoresPending && (
+        {/* S12I —— 分数跟着**这一题**的判分状态走，不再跟整卷的旗子。
+            已经确定性判完的选择题在整卷还在等老师时也该显示自己的分。 */}
+        {item.awardedMarks != null && (
           <span data-testid={`marks-${item.paperQuestionId}`} className="text-sm text-slate-500 tabular-nums">
-            {item.awardedMarks == null ? '—' : item.awardedMarks} / {item.marks} 分
+            {item.awardedMarks} / {item.marks} 分
           </span>
         )}
       </header>
@@ -279,21 +424,22 @@ function ResultItemCard({
         </span>
       </p>
 
-      {/* 答案门未开时，服务端已经把这三样置空；这里再挡一道，双保险。 */}
-      {!answersPending && item.correctAnswer && (
-        <p className="text-sm mb-1">
-          <span className="text-slate-500">正确答案：</span>
-          <span data-testid={`correct-answer-${item.paperQuestionId}`} className="font-medium">
-            {item.correctAnswer}
-          </span>
-        </p>
-      )}
-      {!answersPending && item.referenceAnswer && (
-        <p data-testid={`reference-${item.paperQuestionId}`} className="text-sm text-slate-700 mb-1">
-          <span className="text-slate-500">参考答案：</span>
-          {item.referenceAnswer}
-        </p>
-      )}
+      {/* 答案门未开时，服务端已经把这几样置空；这里再挡一道，双保险。
+
+          S12I —— 行数由 `answerRowsOf` 决定。服务端说一行就一行：
+          以前「正确答案」与「参考答案」是两个独立的 `<p>`，
+          而两者都取自 `answerContent.text`，于是同一句话挂了两个名字。 */}
+      {!answersPending &&
+        answerRowsOf(item).map((row) => (
+          <p
+            key={row.kind}
+            data-testid={`answer-row-${row.kind}-${item.paperQuestionId}`}
+            className="text-sm mb-1"
+          >
+            <span className="text-slate-500">{ANSWER_ROW_LABEL[row.kind]}：</span>
+            <span className="font-medium">{row.value}</span>
+          </p>
+        ))}
       {!answersPending && item.explanation && (
         <p data-testid={`explanation-${item.paperQuestionId}`} className="text-sm text-slate-600 mb-1">
           {item.explanation}
@@ -448,5 +594,45 @@ function AppealForm({
         {phase.s === 'sending' ? '提交中…' : '提交申诉'}
       </button>
     </div>
+  );
+}
+
+/**
+ * 原文回看 —— **整份卷子只有一段**，默认收起。
+ *
+ * 用户验收的第三条：历史成绩点得进去，但没有原文，题目脱离上下文读不懂。
+ * 数据一直都在（`snapshotContent.passage` 早就随响应发过来了），只是从来
+ * 没有渲染过。
+ *
+ * 规矩：
+ *   · 只从服务端的快照取，**没有就不显示**，绝不造一段；
+ *   · 纯文本渲染，不用 `dangerouslySetInnerHTML`；
+ *   · 自己的滚动容器 + 高度上限 —— 手机上不能把整页顶出横向滚动。
+ */
+function PassageReview({ result }: { result: ReadingResult }) {
+  const [open, setOpen] = useState(false);
+  const passage = useMemo(() => passageOf(result), [result]);
+  if (!passage) return null;
+  return (
+    <section className="rounded-2xl bg-white border border-slate-200 p-4 mb-5">
+      <button
+        type="button"
+        data-testid="passage-toggle"
+        aria-expanded={open}
+        onClick={() => setOpen((v) => !v)}
+        className="w-full text-left text-sm font-medium text-slate-700 min-h-[44px]"
+      >
+        {open ? '收起原文' : '查看原文'}
+        <span className="ml-2 text-slate-400 font-normal">{passage.title}</span>
+      </button>
+      {open && (
+        <div
+          data-testid="passage-body"
+          className="mt-3 max-h-[60vh] overflow-y-auto overflow-x-hidden break-words whitespace-pre-wrap text-[0.95rem] leading-relaxed text-slate-800"
+        >
+          {passage.body}
+        </div>
+      )}
+    </section>
   );
 }

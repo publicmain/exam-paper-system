@@ -132,8 +132,20 @@ export default function LessonSummaryPage() {
     try {
       const data = await api.lessonToday(token);
       if (mine !== gen.current) return;
-      // **只认 kind**：还没走到总结这一步就回枢纽，不显示半截总结
-      if (data.nextAction.kind !== 'summary') {
+      // **三个服务端字段要同时同意**，少一个就回枢纽，不显示半截总结。
+      //
+      // S12I —— 只认 `kind` 是不够的。用户验收实测：主页写着 `2 / 3`、
+      // 补段 `0 / 5`，而服务端（当时）还是给了 `summary` —— 于是这一屏
+      // 把一份没做完的一天当成总结渲染了出来。现在还要 `allDone` 与
+      // `completed === total` 一起点头；任何不一致都当作「还没完」。
+      //
+      // **不闪一下**：`setPhase({ s: 'ready' })` 在这一判断之后，
+      // 不合格时根本进不到 ready，总结的 DOM 一帧都不会出现。
+      const done =
+        data.nextAction.kind === 'summary' &&
+        data.allDone === true &&
+        data.completed === data.total;
+      if (!done) {
         navigate(ROUTES.today, { replace: true });
         return;
       }

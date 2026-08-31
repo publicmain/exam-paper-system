@@ -14,7 +14,7 @@
  *   · **含糊的失败不许盲目重发** —— 先把列表读回来看看到底成没成。
  */
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import { act, render, screen } from '@testing-library/react';
+import { act, fireEvent, render, screen } from '@testing-library/react';
 import { MemoryRouter, useLocation } from 'react-router-dom';
 import App from '../App';
 import { writeToken, readToken } from '../lib/identity';
@@ -341,12 +341,16 @@ describe('AC-05 两段与字段', () => {
   it('一条错题的**每个字段都来自服务端**', async () => {
     mount();
     await settle();
-    const row = screen.getByTestId('entry-m1');
-    expect(row.textContent).toContain('The River Ferry');
-    expect(row.textContent).toContain('2026-08-29');
+    // S12I —— 篇目标题与日期现在在**组头**上（每组一次），不再逐条重复。
+    expect(screen.getByTestId('group-head-0').textContent).toContain('The River Ferry');
+    expect(screen.getByTestId('group-head-0').textContent).toContain('2026-08-29');
     expect(screen.getByTestId('stem-m1').textContent).toContain('The ferry ran after dark');
     expect(screen.getByTestId('old-answer-m1').textContent).toContain('TRUE');
     expect(screen.getByTestId('correct-answer-m1').textContent).toContain('FALSE');
+    // 分数归入「展开详情」—— 默认卡片只回答「哪一题、错在哪」。
+    await act(async () => {
+      fireEvent.click(screen.getByTestId('detail-toggle-m1'));
+    });
     expect(screen.getByTestId('marks-m1').textContent).toContain('0 / 1');
     expect(screen.getByTestId('comment-m1').textContent).toContain('第三段说天黑之后就停了');
     expect(screen.getByTestId('points-m1').textContent).toContain('FALSE');
@@ -377,6 +381,9 @@ describe('AC-05 两段与字段', () => {
       ]));
     mount();
     await settle();
+    await act(async () => {
+      fireEvent.click(screen.getByTestId('detail-toggle-m2'));
+    });
     expect(screen.getByTestId('points-m2').textContent).toContain('提到渡船停运');
     expect(screen.getByTestId('model-m2').textContent).toContain('桥建成之后渡船就停了');
     expect(screen.getByTestId('marks-m2').textContent).toContain('1 / 3');

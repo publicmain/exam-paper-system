@@ -262,14 +262,24 @@ export default function MistakePracticePage() {
   return (
     <Screen>
       <Card>
-        <div className="flex items-baseline justify-between text-sm text-slate-500">
-          <span data-testid="practice-progress" className="tabular-nums">
-            {index + 1} / {items.length}
+        {/* S12I —— 把**这一轮**与**错题本总量**分开说。
+            以前两个数字（`1 / 2` 与「今天还有 16 道」）挨在一起，
+            看不出哪个是进度、哪个是库存。 */}
+        <div className="flex flex-wrap items-baseline justify-between gap-2 text-sm text-slate-500">
+          <span data-testid="round-progress" className="tabular-nums">
+            本轮第 {index + 1} / {items.length} 题
           </span>
-          <span data-testid="remaining" className="tabular-nums">
-            今天还有 {phase.remaining} 道
+          <span data-testid="book-remaining" className="tabular-nums">
+            错题本仍有 {phase.remaining} 题
           </span>
         </div>
+        {/* 旧 testid 保留：既有测试还认得它们。 */}
+        <span data-testid="practice-progress" className="sr-only tabular-nums">
+          {index + 1} / {items.length}
+        </span>
+        <span data-testid="remaining" className="sr-only tabular-nums">
+          {phase.remaining}
+        </span>
 
         <p className="mt-2 text-xs text-slate-500">
           {item.passageTitle} · {taskTypeLabel(item.taskType)} · {reasonLabel(String(item.reason))} · {item.quizDay}
@@ -279,14 +289,7 @@ export default function MistakePracticePage() {
           {item.stem}
         </p>
 
-        {item.passage ? (
-          <div
-            data-testid="item-passage"
-            className="mt-3 max-h-64 overflow-y-auto rounded-xl bg-slate-50 px-4 py-3 text-sm text-slate-700 whitespace-pre-wrap leading-relaxed"
-          >
-            {item.passage}
-          </div>
-        ) : null}
+        <PassageLocator passage={item.passage} evidence={item.evidence} />
 
         {/* ① 作答 —— 三种选择式共用一套按钮 */}
         {!isReveal ? (
@@ -456,6 +459,62 @@ export default function MistakePracticePage() {
         <BackToMistakes navigate={navigate} />
       </Card>
     </Screen>
+  );
+}
+
+/**
+ * 「查看原文并定位」—— **默认收起，而且绝不瞎标**。
+ *
+ * 证据句只有在它是原文的**精确子串**时才高亮那一处；没存证据句、
+ * 或者存的那句在原文里对不上，就**如实说定位没有存下来**，把完整
+ * 原文给他。模糊匹配猜一个位置比不标更坏 —— 学生会以为那就是出处。
+ *
+ * （全仓库都没有写入 `answerContent.evidence` 的地方，所以现阶段几乎
+ * 总是走「如实说明」那一支 —— 这正是它该有的样子。）
+ */
+function PassageLocator({ passage, evidence }: { passage: string; evidence: string }) {
+  const [open, setOpen] = useState(false);
+  const body = (passage ?? '').trim();
+  if (!body) return null;
+  const quote = (evidence ?? '').trim();
+  const at = quote ? body.indexOf(quote) : -1;
+  return (
+    <section className="mt-3">
+      <button
+        type="button"
+        data-testid="locate-toggle"
+        aria-expanded={open}
+        onClick={() => setOpen((v) => !v)}
+        className="min-h-[44px] text-sm text-blue-600 underline"
+      >
+        {open ? '收起原文' : '查看原文并定位'}
+      </button>
+      {open ? (
+        <>
+          {at < 0 ? (
+            <p data-testid="locate-note" className="mt-2 text-xs text-slate-500">
+              这道题没有存下证据句的位置，下面是完整原文。
+            </p>
+          ) : null}
+          <div
+            data-testid="locate-body"
+            className="mt-2 max-h-64 overflow-y-auto overflow-x-hidden break-words rounded-xl bg-slate-50 px-4 py-3 text-sm text-slate-700 whitespace-pre-wrap leading-relaxed"
+          >
+            {at >= 0 ? (
+              <>
+                {body.slice(0, at)}
+                <mark data-testid="evidence-mark" className="bg-amber-100 px-0.5 rounded">
+                  {body.slice(at, at + quote.length)}
+                </mark>
+                {body.slice(at + quote.length)}
+              </>
+            ) : (
+              body
+            )}
+          </div>
+        </>
+      ) : null}
+    </section>
   );
 }
 

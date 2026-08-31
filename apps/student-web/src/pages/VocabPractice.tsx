@@ -152,8 +152,31 @@ export default function VocabPracticePage() {
     };
   }, [load]);
 
-  const cards = phase.s === 'ready' ? phase.cards : [];
+  // ── S12I —— **没教过的词先教，再考** ──
+  //
+  // 服务端已经告诉我们 `needsFirstTeaching`（判据见 api 的
+  // `first-teaching.ts`），以前这一屏根本没用它 —— 于是第一次见面的词
+  // 直接进了「想不想得起来」那一套。
+  //
+  // **稳定分区**：教学卡在前、复习卡在后，**组内保持服务端顺序**。
+  // 不过滤、不去重、不重排组内顺序 —— 发卡总数与每张卡都不变。
+  const cards = useMemo(() => {
+    const all = phase.s === 'ready' ? phase.cards : [];
+    const teach = all.filter((c) => c.needsFirstTeaching);
+    const review = all.filter((c) => !c.needsFirstTeaching);
+    return [...teach, ...review];
+  }, [phase]);
   const current = cards[index] ?? null;
+
+  /**
+   * 这一场里已经点过「我看过了」的词。
+   *
+   * **纯本地 UI 状态，不发任何请求**。真正写库的只有后面那一次
+   * 正常评分（`/vocab/review`）。用 headword 做键：撤销跳回上一张时
+   * 不会又被教一遍。
+   */
+  const [acked, setAcked] = useState<readonly string[]>([]);
+  const teaching = current != null && current.needsFirstTeaching && !acked.includes(current.headword);
 
   /** 遮掉例句里的目标词 —— 正面把答案印出来就没得练了。 */
   const masked = useMemo(
@@ -338,11 +361,30 @@ export default function VocabPracticePage() {
 
   const revealed = revealedAt != null;
 
+  if (teaching) {
+    return (
+      <Screen>
+        <Card>
+          <p data-testid="practice-progress" className="text-sm text-slate-500 mb-2 tabular-nums">
+            {index + 1} / {cards.length}
+          </p>
+          <TeachingCard card={current} onAck={() => setAcked((a) => [...a, current.headword])} />
+          <BackToVocab navigate={navigate} />
+        </Card>
+      </Screen>
+    );
+  }
+
   return (
     <Screen>
       <Card>
         <p data-testid="practice-progress" className="text-sm text-slate-500 mb-2 tabular-nums">
           {index + 1} / {cards.length}
+        </p>
+
+        <div data-testid="review-card">
+        <p data-testid="card-mode" className="mb-1 inline-block rounded-md bg-slate-100 px-2 py-0.5 text-xs text-slate-600">
+          复习
         </p>
 
         <h1 data-testid="card-headword" className="text-2xl font-semibold">
@@ -449,10 +491,78 @@ export default function VocabPracticePage() {
             ) : null}
           </>
         ) : null}
+        </div>
 
         <BackToVocab navigate={navigate} />
       </Card>
     </Screen>
+  );
+}
+
+/**
+ * 教学卡 —— **摊开给人看**。
+ *
+ * 不遮词、不让猜、没有评分按钮。第一次见这个词的人被要求
+ * 「评价自己记得多牢」是没有意义的。
+ *
+ * 「我看过了」**不发请求** —— 它只把同一个词切到回忆模式，
+ * 真正写库的只有随后那一次正常评分。
+ */
+function TeachingCard({
+  card,
+  onAck,
+}: {
+  card: VocabDueCard;
+  onAck: () => void;
+}) {
+  const target = (card.surfaceForm || card.headword || '').trim();
+  const sentence = card.contextSentence ?? '';
+  // **只在精确命中时才标** —— 匹配不上就原句照旧显示，
+  // 绝不模糊猜一个位置出来。
+  const at = target ? sentence.toLowerCase().indexOf(target.toLowerCase()) : -1;
+  return (
+    <section data-testid="teaching-card">
+      <p
+        data-testid="card-mode"
+        className="mb-1 inline-block rounded-md bg-emerald-100 px-2 py-0.5 text-xs text-emerald-800"
+      >
+        学习
+      </p>
+      <h1 className="text-2xl font-semibold">{card.headword}</h1>
+      {card.phonetic ? <p className="text-sm text-slate-500">{card.phonetic}</p> : null}
+      <div className="mt-3 rounded-xl bg-slate-50 px-4 py-3">
+        <p className="text-base text-slate-900">
+          {card.translation || card.definition || '（词典里没有释义）'}
+        </p>
+        {card.pos ? <p className="mt-1 text-sm text-slate-500">{card.pos}</p> : null}
+        {card.translation && card.definition ? (
+          <p className="mt-1 text-sm text-slate-600">{card.definition}</p>
+        ) : null}
+      </div>
+      {sentence ? (
+        <p data-testid="teaching-context" className="mt-3 text-base leading-relaxed text-slate-700">
+          {at >= 0 ? (
+            <>
+              {sentence.slice(0, at)}
+              <mark data-testid="teaching-highlight" className="bg-amber-100 px-0.5 rounded">
+                {sentence.slice(at, at + target.length)}
+              </mark>
+              {sentence.slice(at + target.length)}
+            </>
+          ) : (
+            sentence
+          )}
+        </p>
+      ) : null}
+      {card.sourcePassageTitle ? (
+        <p className="mt-2 text-xs text-slate-400">来自：{card.sourcePassageTitle}</p>
+      ) : null}
+      <div className="mt-5">
+        <Button onClick={onAck}>
+          <span data-testid="teaching-ack">我看过了，开始记忆</span>
+        </Button>
+      </div>
+    </section>
   );
 }
 

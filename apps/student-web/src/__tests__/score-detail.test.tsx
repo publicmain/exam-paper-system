@@ -331,7 +331,7 @@ describe('AC-06 逐题回顾', () => {
     expect(text()).toContain('The River Ferry');
     expect(text()).toContain('Why did the ferry stop?');
     expect(screen.getByTestId('student-answer-pq-1').textContent).toBe('A');
-    expect(screen.getByTestId('correct-answer-pq-1').textContent).toBe('B');
+    expect(screen.getByTestId('answer-row-correct-pq-1').textContent).toContain('B');
     expect(screen.getByTestId('marks-pq-1').textContent).toContain('0 / 1');
     expect(screen.getByTestId('comment-pq-1').textContent).toContain('再读一遍第三段');
     expect(screen.getByTestId('explanation-pq-1').textContent).toContain('第三段说是天气');
@@ -410,7 +410,7 @@ describe('AC-06 逐题回顾', () => {
     mount();
     await settle();
     expect(screen.getByTestId('answers-pending')).toBeTruthy();
-    expect(screen.queryByTestId('correct-answer-pq-1')).toBeNull();
+    expect(screen.queryByTestId('answer-row-correct-pq-1')).toBeNull();
     expect(screen.queryByTestId('explanation-pq-1')).toBeNull();
   });
 });

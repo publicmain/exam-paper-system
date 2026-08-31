@@ -13,7 +13,7 @@
  *   · **销账与连胜由服务端说了算**，前端不自己算。
  */
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import { act, render, screen } from '@testing-library/react';
+import { act, fireEvent, render, screen } from '@testing-library/react';
 import { MemoryRouter, useLocation } from 'react-router-dom';
 import App from '../App';
 import { writeToken, readToken } from '../lib/identity';
@@ -258,7 +258,11 @@ describe('AC-06 作答之前不漏答案', () => {
     mount();
     await settle();
     expect(screen.getByTestId('item-stem').textContent).toContain('The ferry ran after dark');
-    expect(screen.getByTestId('item-passage').textContent).toContain('The ferry crossed at dawn');
+    // S12I —— 原文收进了「查看原文并定位」（默认收起）。
+    await act(async () => {
+      fireEvent.click(screen.getByTestId('locate-toggle'));
+    });
+    expect(screen.getByTestId('locate-body').textContent).toContain('The ferry crossed at dawn');
     expectNoAnswerMaterial();
   });
 

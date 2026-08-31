@@ -40,20 +40,41 @@ export function optionIsCorrect(o: MistakeOption, correctAnswer: string): boolea
   return answerMatches(optionValue(o), correctAnswer);
 }
 
-/** 题型的人话。认不出来的**原样显示**，不猜。 */
+/**
+ * 题型的人话。
+ *
+ * S12I —— 这张表以前只有八个键，而兵库里的阅读题型远不止八种
+ * （完整列表见阅读渲染器的 `TASK_TITLES`）。漏掉的那几个又碰上了
+ * 「认不出来就原样显示」的兑底 —— 于是 `multiple_choice` /
+ * `matching_features` 这种**内部标识符直接打到了学生眼前**。
+ *
+ * 两处一起改：表补齐，兑底换成**中性中文**。
+ * 宁可说「其他题型」，也不把数据库枚举值给人看。
+ */
 const TASK_TEXT: Readonly<Record<string, string>> = {
   true_false_not_given: '判断题',
   yes_no_not_given: '判断题',
   matching_information: '段落匹配',
   matching_headings: '标题匹配',
+  matching_features: '特征配对',
+  classification: '归类题',
+  multi_match: '多文本匹配',
+  multiple_choice: '选择题',
   short_answer: '简答题',
+  olevel_short_answer: '简答题',
+  olevel_comprehension: '阅读理解',
   mcq: '选择题',
   summary_completion: '摘要填空',
   sentence_completion: '完成句子',
+  note_completion: '笔记填空',
+  table_completion: '表格填空',
+  flow_chart_completion: '流程图填空',
+  diagram_label_completion: '图表标注',
 };
 
+/** 认不出来的一律叫「其他题型」—— **原始标识符永远不上屏**。 */
 export function taskTypeLabel(taskType: string): string {
-  return TASK_TEXT[taskType] ?? taskType;
+  return TASK_TEXT[taskType] ?? '其他题型';
 }
 
 /** 为什么这道题会进错题本。同样，认不出来的原样显示。 */

@@ -121,10 +121,11 @@ export const LESSON_STAGE_LABEL: Readonly<Record<LessonStageKey, string>> = {
 };
 
 /**
- * 服务端 `NextActionKind` 的**全部十个**取值。
+ * 服务端 `NextActionKind` 的**全部十一个**取值。
  *
- * 与 `apps/api/src/lesson/next-action.ts` 的类型联合逐字对齐 ——
- * 那里是 10 个（含 `none`），不是 9 个。少一个，下面的映射表就会漏。
+ * 与 `apps/api/src/lesson/next-action.ts` 的类型联合逐字对齐。
+ * S12H 加了 `drill`（错题重练）—— 补段一直是三段之一，却一直
+ * 没有自己的主行动，于是全都落进了 summary。少一个，下面的映射表就会漏。
  */
 export const NEXT_ACTION_KINDS = [
   'ready_to_start',
@@ -132,6 +133,7 @@ export const NEXT_ACTION_KINDS = [
   'read_result',
   'learn_vocab',
   'vocab_test',
+  'drill',
   'summary',
   'no_content',
   'window_closed',
@@ -160,7 +162,7 @@ export type NextActionTarget =
   | { kind: 'stay'; reason: string };
 
 /**
- * **十个取值全部有目标** —— 守卫 G9 断言这张表是穷尽的。
+ * **十一个取值全部有目标** —— 守卫 G9 断言这张表是穷尽的。
  *
  * 阶段 6A 起五条课程路由都已注册，所以 `navigate` 是真跳转，落到占位页。
  * 目标路径**只能**从这里取；后端的 `nextAction.href` 永远不参与导航。
@@ -171,6 +173,8 @@ export const NEXT_ACTION_ROUTE: Readonly<Record<NextActionKind, NextActionTarget
   read_result: { kind: 'navigate', path: ROUTES.readingResult },
   learn_vocab: { kind: 'navigate', path: ROUTES.lessonVocab },
   vocab_test: { kind: 'navigate', path: ROUTES.lessonTest },
+  // S12I —— 补段落到**已有的**错题重练页，不新开页、不新开端点。
+  drill: { kind: 'navigate', path: ROUTES.mistakePractice },
   summary: { kind: 'navigate', path: ROUTES.summary },
   no_content: { kind: 'stay', reason: '今天的课程还没有发布' },
   window_closed: { kind: 'stay', reason: '今天的作答时间已经结束了' },

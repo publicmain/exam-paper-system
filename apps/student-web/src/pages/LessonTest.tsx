@@ -384,7 +384,10 @@ export default function LessonTestPage() {
         />
       ) : (
         <section className="rounded-2xl bg-white border border-slate-200 p-6 text-center">
-          <p className="text-lg font-medium">四道题都答完了。</p>
+          {/* S12I —— 题数取自服务端的那份卷子。以前这里写死着「四道题」，
+              而头部的进度早就是 `items.length` —— 十题的卷子头上写 10 / 10，
+              下面却说「四道题都答完了」。 */}
+          <p className="text-lg font-medium">{items.length} 道题都答完了。</p>
           <p className="mt-1 text-sm text-slate-500">交卷之后答案就不能再改了。</p>
         </section>
       )}

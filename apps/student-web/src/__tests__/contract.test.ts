@@ -207,12 +207,14 @@ describe('G6 路由契约是单一事实源', () => {
 // ─────────────────────────────────────────────────────────────
 
 describe('G9 NextActionKind 映射穷尽', () => {
-  it('**恰好十个取值**（与后端类型联合一致，不是九个）', () => {
-    expect(NEXT_ACTION_KINDS).toHaveLength(10);
+  // S12H 给服务端加了 `drill`（错题重练）。数字从 10 变 11 是**跟着
+  // 后端联合走**，不是把守卫放松 —— 下面那条「一个不漏」依旧。
+  it('**恰好十一个取值**（与后端类型联合一致，含 drill）', () => {
+    expect(NEXT_ACTION_KINDS).toHaveLength(11);
     expect(new Set(NEXT_ACTION_KINDS)).toEqual(
       new Set([
         'ready_to_start', 'resume_reading', 'read_result', 'learn_vocab',
-        'vocab_test', 'summary', 'no_content', 'window_closed',
+        'vocab_test', 'drill', 'summary', 'no_content', 'window_closed',
         'level_not_set', 'none',
       ]),
     );
@@ -232,12 +234,13 @@ describe('G9 NextActionKind 映射穷尽', () => {
     }
   });
 
-  it('**五个可跳转的 kind 都指向已注册的课程路由**（不再是 planned 占位）', () => {
+  it('**六个可跳转的 kind 都指向已注册的路由**（含 drill → 错题重练）', () => {
     const want = {
       resume_reading: '/lesson/reading',
       read_result: '/lesson/reading/result',
       learn_vocab: '/lesson/vocab',
       vocab_test: '/lesson/test',
+      drill: '/mistakes/practice',
       summary: '/lesson/summary',
     } as const;
     for (const [k, path] of Object.entries(want)) {

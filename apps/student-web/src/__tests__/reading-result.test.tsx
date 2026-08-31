@@ -459,9 +459,10 @@ describe('AC-04 成绩总览按服务端的两道门显示', () => {
     mount();
     await settle();
     expect(screen.getByTestId('answers-pending')).toBeInTheDocument();
-    expect(screen.queryByTestId('correct-answer-q1')).toBeNull();
+    // S12I —— 答案行现在由 `answerRowsOf` 统一渲染（testid 改名），
+    // 答案门未开时一行都不该有 —— 断言的严格程度没变。
+    expect(screen.queryAllByTestId(/^answer-row-/)).toHaveLength(0);
     expect(screen.queryByTestId('explanation-q1')).toBeNull();
-    expect(screen.queryByTestId('reference-q3')).toBeNull();
     expect(document.body.textContent).not.toContain('LEAKED-EXPLANATION');
     expect(document.body.textContent).not.toContain('LEAKED-REFERENCE');
   });
@@ -509,7 +510,7 @@ describe('AC-05 逐题回顾', () => {
     expect(screen.getByText('Question one')).toBeInTheDocument();
     expect(screen.getByTestId('options-q1').textContent).toContain('Alpha');
     expect(screen.getByTestId('student-answer-q1').textContent).toBe('A');
-    expect(screen.getByTestId('correct-answer-q1').textContent).toBe('A');
+    expect(screen.getByTestId('answer-row-correct-q1').textContent).toContain('A');
     expect(screen.getByTestId('explanation-q1').textContent).toContain('Because Alpha.');
     // 只读 = 选项里没有任何可勾选的控件
     expect(screen.getByTestId('options-q1').querySelectorAll('input,button')).toHaveLength(0);
@@ -518,7 +519,7 @@ describe('AC-05 逐题回顾', () => {
   it('简答题：显示参考答案与老师评语', async () => {
     mount();
     await settle();
-    expect(screen.getByTestId('reference-q3').textContent).toContain('The longest river');
+    expect(screen.getByTestId('answer-row-reference-q3').textContent).toContain('The longest river');
     expect(screen.getByTestId('comment-q3').textContent).toContain('答到一半');
     expect(screen.getByTestId('comment-q3').textContent).toContain('老师评语');
   });
@@ -555,7 +556,10 @@ describe('AC-05 逐题回顾', () => {
     mount();
     await settle();
     expect(screen.getByTestId('item-q3').getAttribute('data-outcome')).toBe('pending');
-    expect(screen.getByTestId('marks-q3').textContent).toBe('— / 2 分');
+    // S12I —— 没判的题**整行不出现**，比一个破折号更诚实；
+    // 关键断言（不得显示 0 分）依旧成立。
+    expect(screen.queryByTestId('marks-q3')).toBeNull();
+    expect(screen.getByTestId('item-q3').textContent).not.toContain('0 / 2');
   });
 
   it('分数没放出来时**逐题分数整块不显示**', async () => {

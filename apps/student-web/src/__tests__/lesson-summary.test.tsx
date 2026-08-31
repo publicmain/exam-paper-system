@@ -387,7 +387,8 @@ describe('AC-05 路由与守卫', () => {
 
   it('**除 summary 外的每一个 kind 都 replace 回 `/today`**', async () => {
     const others = NEXT_ACTION_KINDS.filter((k) => k !== 'summary');
-    expect(others).toHaveLength(9);
+    // S12H 加了 `drill`（错题重练）—— 非 summary 的 kind 从 9 变 10。
+    expect(others).toHaveLength(10);
     for (const kind of others as NextActionKind[]) {
       todayReply = () => jsonResponse(200, lesson({ nextAction: { kind, label: 'x', href: '/my-lesson/summary' } }));
       const view = mount();

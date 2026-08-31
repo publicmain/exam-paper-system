@@ -65,7 +65,13 @@ function lessonToday(kind: string) {
     // 每一次 today 都塞一个旧端 href —— 整条链一次都不该看它
     nextAction: { kind, label: 'x', href: '/my-vocab/quiz?name=测试七号' },
     rulesVersion: 4,
-    completed: 2, total: 3, allDone: false, streakDays: 3,
+    // S12I —— 总结页现在要求 `kind` / `allDone` / `completed === total`
+    // 三者同时同意。这条全链的终点就是总结页，所以走到
+    // `summary` 那一步时这一天必须真的是做完的。
+    ...(kind === 'summary'
+      ? { completed: 3, total: 3, allDone: true }
+      : { completed: 2, total: 3, allDone: false }),
+    streakDays: 3,
     targetsFrozenAt: null, stage: kind, stageAt: null, vocabCursor: 4,
     segments: [
       { key: 'read', status: 'done', label: 'The Nile', questionCount: 4, typicalMinutes: 20,

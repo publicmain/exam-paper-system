@@ -261,7 +261,10 @@ describe('3–5. 开始今天的课', () => {
 
 describe('6–7. 路由映射只认契约', () => {
   it('`summary` → 落到**真的今日总结页**（阶段 10 起不再是占位页）', async () => {
-    session(withKind('summary', '看今日总结'));
+    // S12I —— 总结页现在要求 `kind` / `allDone` / `completed === total`
+    // 三者同时同意。只给 kind 的一天会被退回 `/today` —— 那正是用户
+    // 验收时看到的那个缺陷（`2 / 3` 却能看总结）。
+    session(withKind('summary', '看今日总结', { allDone: true, completed: 3, total: 3 }));
     renderAt('/today');
     await screen.findByRole('heading', { name: /你好，七号/ });
     await userEvent.click(screen.getByRole('button', { name: '看今日总结' }));
@@ -492,7 +495,10 @@ describe('15–16. 路由兜底与占位页', () => {
 
   // 阶段 10 起**五条课程路由一条占位页都不剩了**。
   it('**直接打开 `/lesson/summary` 也走完整链路**（阶段 10 起不是占位页）', async () => {
-    session(withKind('summary', '看今日总结'));
+    // S12I —— 总结页现在要求 `kind` / `allDone` / `completed === total`
+    // 三者同时同意。只给 kind 的一天会被退回 `/today` —— 那正是用户
+    // 验收时看到的那个缺陷（`2 / 3` 却能看总结）。
+    session(withKind('summary', '看今日总结', { allDone: true, completed: 3, total: 3 }));
     renderAt('/lesson/summary');
     expect(await screen.findByRole('heading', { name: '今日总结' })).toBeTruthy();
     expect(screen.queryByText(/还没有做好/)).toBeNull();

@@ -245,18 +245,13 @@ export default function MistakesPage() {
               这里空着 —— 目前没有还没弄懂的错题。
             </p>
           ) : (
-            <ul className="flex flex-col gap-3">
-              {unresolved.map((e) => (
-                <EntryCard
-                  key={e.id}
-                  entry={e}
-                  action={action?.id === e.id ? action : null}
-                  onAsk={() => setAction({ id: e.id, resolved: true, s: 'confirming' })}
-                  onCancel={() => setAction(null)}
-                  onSend={() => void send(e.id, true)}
-                />
-              ))}
-            </ul>
+            <GroupedList
+              entries={unresolved}
+              action={action}
+              onAsk={(e) => setAction({ id: e.id, resolved: true, s: 'confirming' })}
+              onCancel={() => setAction(null)}
+              onSend={(e) => void send(e.id, true)}
+            />
           )}
         </section>
 
@@ -267,24 +262,82 @@ export default function MistakesPage() {
               还没有标记过「已弄懂」的错题。
             </p>
           ) : (
-            <ul className="flex flex-col gap-3">
-              {resolved.map((e) => (
-                <EntryCard
-                  key={e.id}
-                  entry={e}
-                  action={action?.id === e.id ? action : null}
-                  onAsk={() => void send(e.id, false)}
-                  onCancel={() => setAction(null)}
-                  onSend={() => void send(e.id, false)}
-                />
-              ))}
-            </ul>
+            <GroupedList
+              entries={resolved}
+              action={action}
+              onAsk={(e) => void send(e.id, false)}
+              onCancel={() => setAction(null)}
+              onSend={(e) => void send(e.id, false)}
+            />
           )}
         </section>
 
         <BackToToday navigate={navigate} />
       </Card>
     </Screen>
+  );
+}
+
+/**
+ * 按**卷子 + 日期**分组。顺序完全跟着服务端（它已经按天倒序、
+ * 同天按收录原因排好了）—— 这里只把相邻的同组合并，不重排、不过滤。
+ *
+ * 为什么要分组：用户验收看到的是同一份卷子的标题在每一张卡上重复
+ * 一遍，一屏堆满了一样的字。标题与日期现在**每组只出一次**。
+ */
+/** 一条错题此刻的状态 —— 一眼能看出「要不要再练」。 */
+function statusLabel(entry: MistakeEntry): string {
+  if (entry.resolved) return '已掌握';
+  if (entry.practiceCount > 0) return `重练中 · 连对 ${entry.correctStreak}`;
+  return '未掌握';
+}
+
+function GroupedList({
+  entries,
+  action,
+  onAsk,
+  onCancel,
+  onSend,
+}: {
+  entries: MistakeEntry[];
+  action: Action | null;
+  onAsk: (e: MistakeEntry) => void;
+  onCancel: () => void;
+  onSend: (e: MistakeEntry) => void;
+}) {
+  const groups: Array<{ key: string; title: string; day: string; items: MistakeEntry[] }> = [];
+  for (const e of entries) {
+    const key = `${e.passageTitle}__${e.quizDay}`;
+    const tail = groups[groups.length - 1];
+    if (tail && tail.key === key) tail.items.push(e);
+    else groups.push({ key, title: e.passageTitle, day: e.quizDay, items: [e] });
+  }
+  return (
+    <div className="flex flex-col gap-5">
+      {groups.map((g, gi) => (
+        <section key={`${g.key}-${gi}`} data-testid={`group-${gi}`}>
+          <div
+            data-testid={`group-head-${gi}`}
+            className="mb-2 flex flex-wrap items-baseline justify-between gap-2 text-sm"
+          >
+            <span className="font-medium">{g.title}</span>
+            <span className="text-slate-500 tabular-nums">{dayOf(g.day)}</span>
+          </div>
+          <ul className="flex flex-col gap-3">
+            {g.items.map((e) => (
+              <EntryCard
+                key={e.id}
+                entry={e}
+                action={action?.id === e.id ? action : null}
+                onAsk={() => onAsk(e)}
+                onCancel={onCancel}
+                onSend={() => onSend(e)}
+              />
+            ))}
+          </ul>
+        </section>
+      ))}
+    </div>
   );
 }
 
@@ -302,19 +355,16 @@ function EntryCard({
   onSend: () => void;
 }) {
   const id = entry.id;
-  const day = dayOf(entry.quizDay);
+  const [open, setOpen] = useState(false);
   const sending = action?.s === 'sending';
   const failed = action?.s === 'failed';
   const confirming = action?.s === 'confirming' || failed;
 
   return (
     <li data-testid={`entry-${id}`} data-entry-id={id} className="rounded-xl bg-slate-50 px-4 py-3">
-      <div className="flex flex-wrap items-baseline justify-between gap-2 text-sm">
-        <span className="font-medium">{entry.passageTitle}</span>
-        <span className="text-slate-500 tabular-nums">{day}</span>
-      </div>
-      <p className="mt-1 text-xs text-slate-500">
-        {taskTypeLabel(entry.taskType)} · {reasonLabel(String(entry.reason))}
+      {/* S12I —— 篇目标题与日期已经在**组头**上，卡片里不再重复一遍。 */}
+      <p className="text-xs text-slate-500">
+        {taskTypeLabel(entry.taskType)} · {statusLabel(entry)}
       </p>
 
       <p data-testid={`stem-${id}`} className="mt-2 text-sm text-slate-900 whitespace-pre-wrap">
@@ -335,6 +385,23 @@ function EntryCard({
           </span>
         </p>
       ) : null}
+      {/* S12I —— 下面这一堆（分数 / 要点 / 范文 / 评语 / 解析 / 依据）以前
+          全部摊开，一屏堆满。默认收起 —— 列表只回答「哪一题、错在哪」。 */}
+      <button
+        type="button"
+        data-testid={`detail-toggle-${id}`}
+        aria-expanded={open}
+        onClick={() => setOpen((v) => !v)}
+        className="mt-2 min-h-[44px] text-sm text-blue-600 underline"
+      >
+        {open ? '收起详情' : '展开详情'}
+      </button>
+
+      {open ? (
+      <div data-testid={`detail-${id}`}>
+      <p data-testid={`reason-${id}`} className="mt-1 text-xs text-slate-500">
+        收录原因：{reasonLabel(String(entry.reason))}
+      </p>
       <p data-testid={`marks-${id}`} className="mt-1 text-sm text-slate-500 tabular-nums">
         {entry.awarded} / {entry.maxMarks} 分
       </p>
@@ -367,6 +434,8 @@ function EntryCard({
           <span className="text-slate-500">原文依据：</span>
           {entry.evidence}
         </p>
+      ) : null}
+      </div>
       ) : null}
 
       <p data-testid={`streak-${id}`} className="mt-1 text-xs text-slate-500 tabular-nums">

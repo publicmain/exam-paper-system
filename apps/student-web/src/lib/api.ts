@@ -1198,6 +1198,39 @@ export interface ReadingResultItem {
   isCorrect: boolean | null;
   markerComment: string | null;
   commentSource: 'ai' | 'teacher' | null;
+
+  // ── S12H 的**服务端权威**字段 ──
+  //
+  // 之前这一屏拿整卷的 `scoresPending` 去算每一题的状态，于是一道
+  // 已经确定性判完的选择题也被说成「还在判分」。现在逐题状态由服务端给。
+  /**
+   * 这一题此刻的判分状态。旧服务端不发时为 `undefined`，
+   * 届时回退到旧的推断（见 `ResultView.questionOutcome`）。
+   */
+  gradingStatus?: 'auto_graded' | 'marked' | 'pending_marking' | 'not_answered';
+  /**
+   * 答案展示 —— **语义，不是文案**。措辞（「正确答案」/「参考答案」）
+   * 归客户端；服务端只说这是哪一种、值是什么，且两个值归一化后
+   * 相等时**只发一个**。
+   */
+  answerDisplay?: AnswerDisplay | null;
+}
+
+/** S12H 的语义答案展示。 */
+export interface AnswerDisplay {
+  primaryKind: 'correct' | 'reference';
+  primaryValue: string;
+  /** 只有与 `primaryValue` 确实不同时才有。 */
+  rubricValue?: string;
+}
+
+/** S12H 的逐题判分计数 —— 四项之和恒等于 `total`。 */
+export interface GradingSummary {
+  autoGraded: number;
+  marked: number;
+  pendingMarking: number;
+  notAnswered: number;
+  total: number;
 }
 
 export interface ReadingResult {
@@ -1216,6 +1249,11 @@ export interface ReadingResult {
   scoresPending: boolean;
   /** 服务端说的：答案还没放出来。 */
   answersPending: boolean;
+  /**
+   * S12H —— 几题已经自动判完、几题等老师。
+   * 最终提交之前为 `null`；旧服务端不发时为 `undefined`。
+   */
+  gradingSummary?: GradingSummary | null;
 }
 
 export interface AppealCreated {
