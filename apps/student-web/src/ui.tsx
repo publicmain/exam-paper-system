@@ -1,13 +1,113 @@
-/** 移动优先的最小外壳。**不是最终视觉设计** —— 阶段 4A 只求能用、能读。 */
+/**
+ * 移动优先的最小外壳。
+ *
+ * ## S12L —— 宽屏不再只用中间那一条
+ *
+ * 原来是死的 `max-w-md`（448px）。手机上正好，iPad 上剩 320px 空白，
+ * 1366 的笔记本上左右各空 459px —— 正文只占三分之一屏。学生的原话是
+ * 「电脑上只有中间一条」。
+ *
+ * 现在按断点放宽：448 → 672（md）→ 896（lg）→ 1024（xl）。375px 一个字
+ * 都没变，仍然单列、仍然不横向溢出。
+ *
+ * `justify-center` 也去掉了：它让一张短卡片在 900px 高的屏幕上飘在正中，
+ * 内容一多又突然跳到顶部。登录 / 注册那种只有一张卡的页面显式传
+ * `center` 保留原样。
+ */
 import type { ReactNode } from 'react';
 
-export function Screen({ children }: { children: ReactNode }) {
+/** 正文最大宽度。`narrow` 是登录这类单卡页面，其余一律跟着屏幕放宽。 */
+const WIDTH = {
+  wide: 'max-w-md md:max-w-2xl lg:max-w-4xl xl:max-w-5xl',
+  narrow: 'max-w-md',
+} as const;
+
+export function Screen({
+  children,
+  center = false,
+  width = 'wide',
+}: {
+  children: ReactNode;
+  /** 垂直居中（登录 / 注册 / 空状态这类只有一张卡的页面） */
+  center?: boolean;
+  width?: keyof typeof WIDTH;
+}) {
   return (
     <div className="min-h-[100dvh] bg-slate-50 text-slate-900 flex flex-col">
-      <main className="flex-1 w-full max-w-md mx-auto px-5 py-8 flex flex-col justify-center">
+      <main
+        className={`flex-1 w-full ${WIDTH[width]} mx-auto px-4 sm:px-5 py-6 sm:py-8 flex flex-col${
+          center ? ' justify-center' : ''
+        }`}
+      >
         {children}
       </main>
     </div>
+  );
+}
+
+/**
+ * 顶部返回条。
+ *
+ * S12L —— 「返回」以前挂在长页面的**最底部**：生词本 50 个词要滚到底才
+ * 找得到出口。常用的动作必须在顶部够得着。
+ */
+export function TopBar({
+  title,
+  onBack,
+  backLabel = '返回',
+  right,
+}: {
+  title?: string;
+  onBack?: () => void;
+  backLabel?: string;
+  right?: ReactNode;
+}) {
+  return (
+    <div className="mb-4 flex items-center gap-3">
+      {onBack ? (
+        <button
+          type="button"
+          data-testid="top-back"
+          onClick={onBack}
+          className="min-h-[44px] -ml-2 px-2 rounded-lg text-sm text-blue-600 focus-visible:outline focus-visible:outline-2 focus-visible:outline-blue-600"
+        >
+          ← {backLabel}
+        </button>
+      ) : null}
+      {title ? <h1 className="text-lg font-semibold truncate">{title}</h1> : null}
+      {right ? <div className="ml-auto">{right}</div> : null}
+    </div>
+  );
+}
+
+/**
+ * 「这个功能暂时不开放」。
+ *
+ * 一个空页面比一个报错更让人不安 —— 学生会以为自己的数据没了。所以这里
+ * 明说三件事：为什么进不来、你的东西还在、它不影响今天的完成度。
+ */
+export function Unavailable({
+  title,
+  note,
+  actions,
+}: {
+  title: string;
+  note?: ReactNode;
+  actions?: ReactNode;
+}) {
+  return (
+    <Screen center width="narrow">
+      <Card>
+        <div className="text-center">
+          <p className="text-3xl mb-3" aria-hidden="true">🛠</p>
+          <h1 data-testid="unavailable-title" className="text-lg font-semibold mb-2">
+            {title}
+          </h1>
+          {note ? <div className="text-sm text-slate-600 leading-relaxed">{note}</div> : null}
+          {actions ? <div className="mt-5 flex flex-col gap-2">{actions}</div> : null}
+        </div>
+      </Card>
+    </Screen>
   );
 }
 

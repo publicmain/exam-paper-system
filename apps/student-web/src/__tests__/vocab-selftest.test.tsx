@@ -124,6 +124,25 @@ function mount(at: string = SELFTEST) {
   );
 }
 
+/**
+ * S12L —— 自测现在**先有一屏设置**（题量 5 / 10 / 20 / 全部），选完才出题。
+ *
+ * 下面这些用例测的是出题之后的行为，所以统一走这个 helper：挂载 →
+ * 选「全部」→ 等出题。设置屏本身由 `s12l-pilot.test.tsx` 覆盖。
+ */
+async function mountAndStart(at: string = SELFTEST) {
+  const r = mount(at);
+  await settle();
+  const go = screen.queryByTestId('selftest-count-all');
+  if (go) {
+    await act(async () => {
+      go.click();
+    });
+    await settle();
+  }
+  return r;
+}
+
 async function settle(rounds = 14) {
   await act(async () => {
     for (let i = 0; i < rounds; i++) await Promise.resolve();
@@ -170,22 +189,23 @@ afterEach(() => {
 // ─────────────────────────────────────────────────────────────
 
 describe('AC-06 只吃 /vocab/quiz', () => {
-  it('**挂载只打一个 GET /vocab/quiz**，零查询串、零请求体、零写', async () => {
-    mount();
-    await settle();
+  // S12L —— 查询串里现在**只允许一个 `limit`**（学生自己选的题量）。
+  // 身份仍然一个字都不许出现 —— 那才是这条守卫真正在守的东西。
+  it('**只打一个 GET /vocab/quiz**，查询串里只有 limit、零请求体、零写', async () => {
+    await mountAndStart();
     expect(at()).toBe(SELFTEST);
     expect(calls('/vocab/quiz')).toHaveLength(1);
     const c = calls('/vocab/quiz')[0];
     expect(c.method).toBe('GET');
     expect(c.headers.Authorization).toBe(`Bearer ${TOKEN}`);
-    expect(c.path).toBe('/vocab/quiz');
+    expect(c.path).toMatch(/^\/vocab\/quiz(\?limit=\d+)?$/);
+    expect(c.path).not.toMatch(/name=|studentId=/);
     expect(c.body).toBeNull();
     expect(reqs.filter((r) => r.method !== 'GET')).toEqual([]);
   });
 
   it('**一次 `/vocab/quiz/attempt/*` 都不碰**（那是正式测试）', async () => {
-    mount();
-    await settle();
+    await mountAndStart();
     await click(screen.getByTestId('option-0'));
     await click(screen.getByTestId('next'));
     for (const r of reqs) {
@@ -196,8 +216,7 @@ describe('AC-06 只吃 /vocab/quiz', () => {
   });
 
   it('**零身份参数**', async () => {
-    mount();
-    await settle();
+    await mountAndStart();
     await click(screen.getByTestId('option-0'));
     await click(screen.getByTestId('next'));
     for (const r of reqs) {
@@ -209,8 +228,7 @@ describe('AC-06 只吃 /vocab/quiz', () => {
   it('**没票时进来去登录页，不发任何词汇请求**', async () => {
     localStorage.clear();
     __resetForTest();
-    mount();
-    await settle();
+    await mountAndStart();
     expect(at()).toBe(ROUTES.login);
     expect(calls('/vocab/quiz')).toHaveLength(0);
   });
@@ -222,8 +240,7 @@ describe('AC-06 只吃 /vocab/quiz', () => {
 
 describe('AC-06 题型与判定', () => {
   it('**选择题按 correctIndex 判**，选对当场说对', async () => {
-    mount();
-    await settle();
+    await mountAndStart();
     expect(screen.getByTestId('question-prompt').textContent).toContain('ferry');
     expect(document.querySelectorAll('[data-testid^="option-"]')).toHaveLength(4);
     await click(screen.getByTestId('option-0'));
@@ -231,8 +248,7 @@ describe('AC-06 题型与判定', () => {
   });
 
   it('**选错当场说错，并给出正确选项**', async () => {
-    mount();
-    await settle();
+    await mountAndStart();
     await click(screen.getByTestId('option-1'));
     expect(screen.getByTestId('verdict').textContent).toContain('答错');
     expect(screen.getByTestId('correct-answer').textContent).toContain('渡船');
@@ -241,8 +257,7 @@ describe('AC-06 题型与判定', () => {
   it('**看义选词也走 correctIndex**', async () => {
     quizReply = () =>
       jsonResponse(200, quiz([mcq({ qtype: 'meaning_to_word', prompt: '渡船', options: ['ferry', 'bridge'], correctIndex: 0 })]));
-    mount();
-    await settle();
+    await mountAndStart();
     expect(screen.getByTestId('question-prompt').textContent).toContain('渡船');
     await click(screen.getByTestId('option-0'));
     expect(screen.getByTestId('verdict').textContent).toContain('答对');
@@ -251,8 +266,7 @@ describe('AC-06 题型与判定', () => {
   it('**挖空题渲染挖空句**', async () => {
     quizReply = () =>
       jsonResponse(200, quiz([mcq({ qtype: 'cloze', prompt: 'The ＿＿＿ stopped running after dark.' })]));
-    mount();
-    await settle();
+    await mountAndStart();
     expect(screen.getByTestId('question-prompt').textContent).toContain('＿＿＿');
     await click(screen.getByTestId('option-0'));
     expect(screen.getByTestId('verdict').textContent).toContain('答对');
@@ -260,8 +274,7 @@ describe('AC-06 题型与判定', () => {
 
   it('**拼写题用输入框 + `answer` 判定**（大小写与首尾空白不计）', async () => {
     quizReply = () => jsonResponse(200, quiz([spelling()]));
-    mount();
-    await settle();
+    await mountAndStart();
     expect(document.querySelectorAll('[data-testid^="option-"]')).toHaveLength(0);
     await type(screen.getByTestId('spelling-input') as HTMLInputElement, '  LightHouse ');
     await click(screen.getByTestId('spelling-submit'));
@@ -270,8 +283,7 @@ describe('AC-06 题型与判定', () => {
 
   it('**拼写错了给出正确拼法**', async () => {
     quizReply = () => jsonResponse(200, quiz([spelling()]));
-    mount();
-    await settle();
+    await mountAndStart();
     await type(screen.getByTestId('spelling-input') as HTMLInputElement, 'litehouse');
     await click(screen.getByTestId('spelling-submit'));
     expect(screen.getByTestId('verdict').textContent).toContain('答错');
@@ -285,8 +297,7 @@ describe('AC-06 题型与判定', () => {
 
 describe('AC-06 FSRS 写入', () => {
   it('**第一遍答对 → 一条 rating=good**', async () => {
-    mount();
-    await settle();
+    await mountAndStart();
     await click(screen.getByTestId('option-0'));
     expect(calls('/vocab/review')).toHaveLength(1);
     const b = bodies('/vocab/review')[0];
@@ -296,16 +307,14 @@ describe('AC-06 FSRS 写入', () => {
   });
 
   it('**第一遍答错 → 一条 rating=again**', async () => {
-    mount();
-    await settle();
+    await mountAndStart();
     await click(screen.getByTestId('option-1'));
     expect(calls('/vocab/review')).toHaveLength(1);
     expect(bodies('/vocab/review')[0].rating).toBe('again');
   });
 
   it('**每道题第一遍最多写一次**（连点也一样）', async () => {
-    mount();
-    await settle();
+    await mountAndStart();
     const opt = screen.getByTestId('option-0');
     await act(async () => {
       opt.click();
@@ -321,8 +330,7 @@ describe('AC-06 FSRS 写入', () => {
         mcq({ headword: 'ferry' }),
         mcq({ headword: 'bridge', prompt: 'bridge', translation: '桥梁', options: ['桥梁', '渡船'], correctIndex: 0 }),
       ]));
-    mount();
-    await settle();
+    await mountAndStart();
     // 第一题故意答错
     await click(screen.getByTestId('option-1'));
     await click(screen.getByTestId('next'));
@@ -342,8 +350,7 @@ describe('AC-06 FSRS 写入', () => {
 
   it('**写入失败时答案与判定还在，重试用同一个 requestId**', async () => {
     reviewReply = () => jsonResponse(500, { code: 'boom' });
-    mount();
-    await settle();
+    await mountAndStart();
     await click(screen.getByTestId('option-0'));
     expect(screen.getByTestId('verdict').textContent).toContain('答对');
     expect(screen.getByTestId('write-error')).toBeTruthy();
@@ -357,8 +364,7 @@ describe('AC-06 FSRS 写入', () => {
 
   it('**掉票 → 清票回登录页**', async () => {
     reviewReply = () => jsonResponse(401, { code: 'token_revoked' });
-    mount();
-    await settle();
+    await mountAndStart();
     await click(screen.getByTestId('option-0'));
     expect(readToken()).toBeNull();
     expect(at()).toBe(ROUTES.login);
@@ -400,8 +406,7 @@ describe('AC-06 在途写入期间的闭锁（B-2）', () => {
   it('**写入在途时点下一题：题不许动**', async () => {
     quizReply = twoQuestions;
     const held = heldReview();
-    mount();
-    await settle();
+    await mountAndStart();
     await click(screen.getByTestId('option-0'));
 
     expect(calls('/vocab/review')).toHaveLength(1);
@@ -423,8 +428,7 @@ describe('AC-06 在途写入期间的闭锁（B-2）', () => {
   it('**失败之后：同一题、判定还在、requestId 不变、重试之后才走得掉**', async () => {
     quizReply = twoQuestions;
     const held = heldReview();
-    mount();
-    await settle();
+    await mountAndStart();
     await click(screen.getByTestId('option-1')); // 故意答错
     const first = bodies('/vocab/review')[0].requestId;
 
@@ -453,8 +457,7 @@ describe('AC-06 在途写入期间的闭锁（B-2）', () => {
   it('**一道题只算一次写入**（在途 + 迟到成功也不多发）', async () => {
     quizReply = twoQuestions;
     const held = heldReview();
-    mount();
-    await settle();
+    await mountAndStart();
     await click(screen.getByTestId('option-0'));
     await click(screen.getByTestId('next'));
     await click(screen.getByTestId('next'));
@@ -469,8 +472,7 @@ describe('AC-06 在途写入期间的闭锁（B-2）', () => {
 
   it('**重做那一轮不写 FSRS，所以照常能走**', async () => {
     quizReply = twoQuestions;
-    mount();
-    await settle();
+    await mountAndStart();
     await click(screen.getByTestId('option-1')); // 第一题错
     await click(screen.getByTestId('next'));
     await click(screen.getByTestId('option-0')); // 第二题对
@@ -493,16 +495,14 @@ describe('AC-06 在途写入期间的闭锁（B-2）', () => {
 describe('AC-08 空态与完成', () => {
   it('**一道题都出不了时如实说**，并给出去处', async () => {
     quizReply = () => jsonResponse(200, quiz([], { totalWords: 0, seenWords: 0 }));
-    mount();
-    await settle();
+    await mountAndStart();
     expect(screen.getByTestId('selftest-empty')).toBeTruthy();
     expect(calls('/vocab/review')).toHaveLength(0);
   });
 
   it('**有词但一个都没学过时，提示先去学**', async () => {
     quizReply = () => jsonResponse(200, quiz([], { totalWords: 12, seenWords: 0 }));
-    mount();
-    await settle();
+    await mountAndStart();
     expect(screen.getByTestId('selftest-empty').textContent).toContain('还没学过');
   });
 
@@ -512,8 +512,7 @@ describe('AC-08 空态与完成', () => {
         mcq({ headword: 'ferry' }),
         mcq({ headword: 'bridge', prompt: 'bridge', translation: '桥梁', options: ['桥梁', '渡船'], correctIndex: 0 }),
       ]));
-    mount();
-    await settle();
+    await mountAndStart();
     await click(screen.getByTestId('option-0'));
     await click(screen.getByTestId('next'));
     await click(screen.getByTestId('option-1'));
@@ -522,8 +521,7 @@ describe('AC-08 空态与完成', () => {
   });
 
   it('完成页能回生词本', async () => {
-    mount();
-    await settle();
+    await mountAndStart();
     await click(screen.getByTestId('option-0'));
     await click(screen.getByTestId('next'));
     await click(screen.getByTestId('back-to-vocab'));
@@ -532,8 +530,7 @@ describe('AC-08 空态与完成', () => {
 
   it('**进度照服务端的题数**', async () => {
     quizReply = () => jsonResponse(200, quiz([mcq(), mcq({ headword: 'b' })]));
-    mount();
-    await settle();
+    await mountAndStart();
     expect(screen.getByTestId('selftest-progress').textContent).toContain('1 / 2');
   });
 
@@ -543,8 +540,7 @@ describe('AC-08 空态与完成', () => {
       new Promise<Response>((res) => {
         release = () => res({ ok: true, status: 200, text: () => Promise.resolve(JSON.stringify(quiz())) } as Response);
       });
-    mount();
-    await settle();
+    await mountAndStart();
     expect(text()).toContain('载入中');
     await act(async () => {
       release?.();
@@ -555,8 +551,7 @@ describe('AC-08 空态与完成', () => {
 
   it('**载入失败 → 错误态 + 重试，票不丢**', async () => {
     quizReply = () => jsonResponse(500, { code: 'boom' });
-    mount();
-    await settle();
+    await mountAndStart();
     expect(screen.getByTestId('retry')).toBeTruthy();
     expect(readToken()).toBe(TOKEN);
     quizReply = () => jsonResponse(200, quiz());
@@ -566,8 +561,7 @@ describe('AC-08 空态与完成', () => {
 
   it('**401 清票回登录页**', async () => {
     quizReply = () => jsonResponse(401, { code: 'token_revoked' });
-    mount();
-    await settle();
+    await mountAndStart();
     expect(readToken()).toBeNull();
     expect(at()).toBe(ROUTES.login);
   });
@@ -590,8 +584,7 @@ describe('AC-08 空态与完成', () => {
     await settle();
     first.unmount();
     reqs = [];
-    mount();
-    await settle();
+    await mountAndStart();
     expect(calls('/vocab/quiz')).toHaveLength(1);
     expect(reqs.filter((r) => r.method !== 'GET')).toEqual([]);
   });

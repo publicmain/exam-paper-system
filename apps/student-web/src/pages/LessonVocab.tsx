@@ -23,37 +23,28 @@
  * 好），前端不按 due / reps / 时间戳重排，也不过滤。分母固定成进入这一屏
  * 时的张数 —— 中途变分母，进度条会往回跳。
  *
- * ## 两种卡
+ * ## S12L —— 课程内**只有教学卡**
  *
- * `needsFirstTeaching: true` → **教学卡**：把词摊开给学生看（不遮、不猜、
- * 没有评分按钮、不写 FSRS），「下一个」只打 `/lesson/vocab-taught`。
- * `false` → **复习卡**：先给中文提示 + 挖空例句，「显示答案」之后才给
- * 两档评分。
+ * 每一张都是把词摊开给学生看（不遮、不猜、没有评分按钮、不写 FSRS），
+ * 「下一个」只打 `/lesson/vocab-taught`（幂等，教过的词再点也不写第二次）。
+ *
+ * 以前 `needsFirstTeaching: false` 的词会发挖空复习卡 + 两档评分。一个
+ * 用了两周的学生，二十一张里有十五张因此变成突击测验 —— 他还没被教
+ * 今天这批词，就先被考了。主动回忆搬去了**自由复习**
+ * （`/vocab/practice`），那里是他自己选着去练的。
  *
  * ## 评分一定落地
  *
  * 每一次评分先入队再发（见 `lib/review-queue.ts`）。还有没补传完的评分时，
  * 完成页**不放人进正式测试** —— 那会让一次没记上的复习变成永久丢失。
  */
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import {
-  api,
-  type CourseRating,
-  type LessonCard,
-  type VocabReviewResult,
-} from '../lib/api';
+import { api, type LessonCard } from '../lib/api';
 import { handleAuthFailure } from '../lib/auth-store';
 import { readToken } from '../lib/identity';
-import {
-  advanceCursor,
-  clampCursor,
-  concealTarget,
-  dwellSatisfied,
-  elapsedFrom,
-  MIN_DWELL_MS,
-} from '../lib/vocab-card';
-import { flushPending, pendingCount, submitCourseReview } from '../lib/review-queue';
+import { advanceCursor, clampCursor } from '../lib/vocab-card';
+import { flushPending, pendingCount } from '../lib/review-queue';
 import { ROUTES } from '../routes.contract';
 
 // ─────────────────────────────────────────────────────────────
@@ -65,23 +56,13 @@ type Phase =
   | { s: 'error' }
   | { s: 'ready'; cards: LessonCard[] };
 
-type Busy = null | 'teach' | 'review' | 'undo' | 'sync';
-
-/** 一次评分之后给学生看的回执。 */
-type Receipt =
-  | { kind: 'ok'; headword: string; result: VocabReviewResult; canUndo: boolean }
-  | { kind: 'queued'; headword: string }
-  | { kind: 'tooFast'; headword: string }
-  | { kind: 'failed' };
+type Busy = null | 'teach' | 'sync';
 
 export default function LessonVocabPage() {
   const navigate = useNavigate();
   const [phase, setPhase] = useState<Phase>({ s: 'loading' });
   const [cursor, setCursor] = useState(0);
-  const [revealedAt, setRevealedAt] = useState<number | null>(null);
-  const [dwellOk, setDwellOk] = useState(false);
   const [busy, setBusy] = useState<Busy>(null);
-  const [receipt, setReceipt] = useState<Receipt | null>(null);
   const [stepError, setStepError] = useState<string | null>(null);
   const [pending, setPending] = useState(0);
 
@@ -127,9 +108,6 @@ export default function LessonVocabPage() {
       }
       setPhase({ s: 'ready', cards: res.cards });
       setCursor(clampCursor(res.cursor, res.cards.length));
-      setRevealedAt(null);
-      setDwellOk(false);
-      setReceipt(null);
       setStepError(null);
       syncPending();
     } catch (e) {
@@ -160,20 +138,6 @@ export default function LessonVocabPage() {
     return () => window.removeEventListener('online', onOnline);
   }, [syncPending]);
 
-  // ── 停留计时：答案露出 1.5 秒后才解锁评分 ──
-  useEffect(() => {
-    if (revealedAt == null) {
-      setDwellOk(false);
-      return;
-    }
-    if (dwellSatisfied(revealedAt, Date.now())) {
-      setDwellOk(true);
-      return;
-    }
-    const t = setTimeout(() => setDwellOk(true), MIN_DWELL_MS);
-    return () => clearTimeout(t);
-  }, [revealedAt]);
-
   const cards = phase.s === 'ready' ? phase.cards : [];
   /** 分母**固定**成进入这一屏时的张数 —— 中途变分母进度条会往回跳。 */
   const total = cards.length;
@@ -182,8 +146,6 @@ export default function LessonVocabPage() {
   const goNext = useCallback(
     (serverCursor: number) => {
       setCursor((c) => advanceCursor(c, serverCursor, total));
-      setRevealedAt(null);
-      setDwellOk(false);
       setStepError(null);
     },
     [total],
@@ -210,81 +172,9 @@ export default function LessonVocabPage() {
     }
   }, [card, cursor, goNext]);
 
-  // ── 复习卡评分 ──
-  const onRate = useCallback(
-    async (rating: CourseRating) => {
-      const token = readToken();
-      if (!card || !token || revealedAt == null || !dwellOk || !gate('review')) return;
-      setStepError(null);
-      const elapsedMs = elapsedFrom(revealedAt, Date.now());
-      try {
-        const out = await submitCourseReview(token, {
-          headword: card.headword,
-          rating,
-          elapsedMs,
-          cursor: cursor + 1,
-        });
-        syncPending();
-        if (out.status === 'unstored') {
-          // 队列没能落盘，所以**一个请求都没发出去**。这一票是真的没了 ——
-          // 必须停在这张卡上让学生再点一次，绝不能说「已经存下来了」。
-          setStepError('这次没能存下来（手机存储可能满了）—— 再点一次。');
-          return;
-        }
-        if (out.status === 'invalid') {
-          setStepError('这个词现在评不了分 —— 先跳过，回头找老师看看。');
-          return;
-        }
-        if (out.status === 'queued') {
-          // 已经落盘，一定会补传 —— 但**不能说服务端已经记下了**。
-          setReceipt({ kind: 'queued', headword: card.headword });
-          goNext(cursor + 1);
-          return;
-        }
-        if (out.result.tooFast) {
-          // 服务端没写调度，这张卡下次还会回来 —— **不推进、不算学过**。
-          setReceipt({ kind: 'tooFast', headword: card.headword });
-          setRevealedAt(Date.now());
-          setDwellOk(false);
-          return;
-        }
-        setReceipt({
-          kind: 'ok',
-          headword: card.headword,
-          result: out.result,
-          // 重发命中去重的那一条不给撤销 —— 撤的会是**原来那次**评分。
-          canUndo: out.result.duplicate !== true,
-        });
-        goNext(cursor + 1);
-      } catch (e) {
-        if (handleAuthFailure(e)) return;
-        setReceipt({ kind: 'failed' });
-        setStepError('没能提交这次评分，再试一次。');
-      } finally {
-        release();
-      }
-    },
-    [card, cursor, dwellOk, goNext, revealedAt, syncPending],
-  );
-
-  // ── 撤销 ──
-  const onUndo = useCallback(async () => {
-    const token = readToken();
-    if (!token || !receipt || receipt.kind !== 'ok' || !receipt.canUndo || !gate('undo')) return;
-    try {
-      await api.vocabReviewUndo(token, { headword: receipt.headword });
-      // 回到那张卡。**不跳转、不离开课程路由。**
-      setCursor((c) => Math.max(0, c - 1));
-      setRevealedAt(null);
-      setDwellOk(false);
-      setReceipt(null);
-    } catch (e) {
-      if (handleAuthFailure(e)) return;
-      setStepError('撤销没成功，再试一次。');
-    } finally {
-      release();
-    }
-  }, [receipt]);
+  // S12L —— 课程内的**评分与撤销已经移走**（见文件头）。主动回忆现在只
+  // 发生在自由复习 `/vocab/practice`；那里的评分、撤销、弱网补传一条
+  // 都没删，覆盖它们的是 `__tests__/vocab-practice.test.tsx`。
 
   // ── 完成页的「继续同步」 ──
   const onSync = useCallback(async () => {
@@ -404,25 +294,27 @@ export default function LessonVocabPage() {
         </p>
       )}
 
-      {card.needsFirstTeaching ? (
-        <TeachingCard card={card} busy={busy} onNext={() => void onTaught()} />
-      ) : (
-        <ReviewCard
-          card={card}
-          busy={busy}
-          revealed={revealedAt != null}
-          dwellOk={dwellOk}
-          onReveal={() => setRevealedAt(Date.now())}
-          onRate={(r) => void onRate(r)}
-        />
-      )}
+      {/*
+        S12L —— 课程内**每一张都是教学卡**，包括以前见过的词。
+
+        旧行为：`needsFirstTeaching: false` 的词发挖空复习卡 + 两档评分。
+        于是「学习本次单词」这一步对一个用了两周的学生来说，二十一张里
+        有十五张是突击测验 —— 他还没被教今天这批词，就先被考了。
+
+        主动回忆没有被删掉，它搬去了**自由复习**（`/vocab/practice`），
+        那里学生是自己选着去练的。课程内这一段只负责「认识它」。
+
+        代价是老实的：`onRate` / `ReviewCard` / 停留计时这些仍然编译在
+        文件里但课程内走不到（弱网补传队列还要用 `onRate` 的那条路）。
+        恢复时把这一行改回条件分支即可。
+      */}
+      <TeachingCard card={card} busy={busy} onNext={() => void onTaught()} />
 
       {stepError && (
         <p role="alert" data-testid="step-error" className="mt-3 text-sm text-rose-700">
           {stepError}
         </p>
       )}
-      <ReceiptBar receipt={receipt} busy={busy} onUndo={() => void onUndo()} />
       <LaterButton navigate={navigate} />
     </Shell>
   );
@@ -435,7 +327,8 @@ export default function LessonVocabPage() {
 function Shell({ children }: { children: React.ReactNode }) {
   return (
     <div className="min-h-[100dvh] bg-slate-50 px-4 py-6">
-      <div className="mx-auto w-full max-w-xl">{children}</div>
+      {/* S12L —— 卡片式的一屏一题：宽屏适度放宽，但不铺满（读起来会太长） */}
+      <div className="mx-auto w-full max-w-xl lg:max-w-3xl">{children}</div>
     </div>
   );
 }
@@ -525,163 +418,5 @@ function TeachingCard({
         {busy === 'teach' ? '保存中…' : '下一个'}
       </button>
     </section>
-  );
-}
-
-function ReviewCard({
-  card,
-  busy,
-  revealed,
-  dwellOk,
-  onReveal,
-  onRate,
-}: {
-  card: LessonCard;
-  busy: Busy;
-  revealed: boolean;
-  dwellOk: boolean;
-  onReveal: () => void;
-  onRate: (r: CourseRating) => void;
-}) {
-  const cloze = useMemo(
-    () => concealTarget(card.contextSentence, card.headword, card.surfaceForm),
-    [card.contextSentence, card.headword, card.surfaceForm],
-  );
-
-  return (
-    <section
-      data-testid="review-card"
-      data-headword={card.headword}
-      className="rounded-2xl bg-white border border-slate-200 p-6"
-    >
-      {!revealed ? (
-        <>
-          {card.translation ? (
-            <p data-testid="hint" className="text-xl font-medium">
-              {card.translation}
-            </p>
-          ) : (
-            <p data-testid="hint-missing" className="text-slate-400">
-              想想这个词
-            </p>
-          )}
-          {cloze.text ? (
-            <p data-testid="cloze" className="mt-4 text-sm bg-slate-50 rounded-xl px-3 py-2 leading-relaxed">
-              {cloze.text}
-            </p>
-          ) : (
-            // 遮不干净就整句不给 —— 少一句例句，好过把答案印在题面上。
-            <p data-testid="cloze-withheld" className="mt-4 text-xs text-slate-400">
-              （这句例句里藏不住答案，先不显示）
-            </p>
-          )}
-          {card.sourcePassageTitle && (
-            <p data-testid="source" className="mt-2 text-xs text-slate-400">
-              来自：{card.sourcePassageTitle}
-            </p>
-          )}
-          <button
-            type="button"
-            data-testid="reveal"
-            onClick={onReveal}
-            className="mt-6 w-full rounded-xl bg-slate-900 text-white py-3 text-base font-medium min-h-[44px]"
-          >
-            显示答案
-          </button>
-        </>
-      ) : (
-        <>
-          <h1 data-testid="headword" className="text-3xl font-semibold tracking-tight">
-            {card.headword}
-          </h1>
-          <p className="mt-1 text-slate-500">
-            {card.phonetic && <span data-testid="phonetic">/{card.phonetic}/</span>}
-            {card.pos && <span data-testid="pos" className="ml-2 italic">{card.pos}</span>}
-          </p>
-          {card.translation && (
-            <p data-testid="translation" className="mt-3 text-lg">
-              {card.translation}
-            </p>
-          )}
-          {card.sourcePassageTitle && (
-            <p data-testid="source" className="mt-2 text-xs text-slate-400">
-              来自：{card.sourcePassageTitle}
-            </p>
-          )}
-
-          {!dwellOk && (
-            <p data-testid="dwell-lock" className="mt-4 text-xs text-slate-400">
-              再看一眼…
-            </p>
-          )}
-          {/* 课程线只有两档。四档在手机上挨得太近，误触是常态。 */}
-          <div className="mt-4 grid grid-cols-2 gap-3">
-            <button
-              type="button"
-              data-testid="rate-again"
-              disabled={!dwellOk || busy != null}
-              onClick={() => onRate('again')}
-              className="rounded-xl border border-rose-300 text-rose-700 py-3 text-base font-medium min-h-[44px] disabled:opacity-40"
-            >
-              还不会
-            </button>
-            <button
-              type="button"
-              data-testid="rate-good"
-              disabled={!dwellOk || busy != null}
-              onClick={() => onRate('good')}
-              className="rounded-xl bg-green-600 text-white py-3 text-base font-medium min-h-[44px] disabled:bg-slate-300"
-            >
-              记住了
-            </button>
-          </div>
-        </>
-      )}
-    </section>
-  );
-}
-
-function ReceiptBar({
-  receipt,
-  busy,
-  onUndo,
-}: {
-  receipt: Receipt | null;
-  busy: Busy;
-  onUndo: () => void;
-}) {
-  if (!receipt) return null;
-  if (receipt.kind === 'queued') {
-    return (
-      <p data-testid="receipt-queued" className="mt-3 text-sm text-amber-800 bg-amber-50 rounded-xl px-3 py-2">
-        「{receipt.headword}」已经存下来了，等网络好了自动同步。
-      </p>
-    );
-  }
-  if (receipt.kind === 'tooFast') {
-    return (
-      <p data-testid="receipt-too-fast" className="mt-3 text-sm text-amber-800 bg-amber-50 rounded-xl px-3 py-2">
-        这次太快了，这一张先不算 —— 再看一眼「{receipt.headword}」。
-      </p>
-    );
-  }
-  if (receipt.kind === 'failed') return null;
-  return (
-    <div data-testid="receipt-ok" className="mt-3 flex items-center gap-3 text-sm bg-slate-50 rounded-xl px-3 py-2">
-      <span className="text-slate-600">
-        「{receipt.headword}」下次 {receipt.result.intervalDays} 天后再见。
-      </span>
-      {receipt.canUndo && (
-        <button
-          type="button"
-          data-testid="undo"
-          disabled={busy != null}
-          onClick={onUndo}
-          className="ml-auto underline text-slate-500 min-h-[44px] px-2"
-        >
-          点错了，撤销
-        </button>
-      )}
-    </div>
   );
 }

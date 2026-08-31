@@ -1197,7 +1197,10 @@ describe('G-9A 课程学词只走课程线', () => {
     expect(hits).toEqual([]);
   });
 
-  it('**只调这六个课程端点**，一个都不多', () => {
+  // S12L —— 课程学词只教不测，`vocabReview` / `vocabReviewUndo` 这两个写
+  // 端点整个从这一面移走了（主动回忆搬去了自由复习 `/vocab/practice`）。
+  // 少两个是**变严**：课程内现在一条 FSRS 都写不出去。
+  it('**只调这五个课程端点**，一个都不多', () => {
     const called = new Set<string>();
     for (const { text } of readSurface()) {
       for (const m of text.matchAll(/\bapi\.(\w+)\s*\(/g)) called.add(m[1]);
@@ -1206,10 +1209,19 @@ describe('G-9A 课程学词只走课程线', () => {
       'lessonCards',
       'lessonToday',
       'vocabCursor',
+      // `vocabReview` 只剩**补传队列**那一处（`review-queue.ts`）：把上一个
+      // 版本或另一台设备留下的评分补上去。页面本身一次都不调 —— 下面
+      // 那条单独钉住它。
       'vocabReview',
-      'vocabReviewUndo',
       'vocabTaught',
     ]);
+  });
+
+  it('**课程学词一个评分端点都不调**（S12L：只教不测）', () => {
+    const page = stripComments(fs.readFileSync(path.join(SRC, 'pages', 'LessonVocab.tsx'), 'utf8'));
+    expect(page).not.toMatch(/api\.vocabReview\b/);
+    expect(page).not.toMatch(/api\.vocabReviewUndo\b/);
+    expect(page).not.toMatch(/submitCourseReview/);
   });
 
   it('**不从 apps/web 或跨应用路径 import**', () => {
@@ -1760,14 +1772,25 @@ describe('G-12B 错题本只走自己那条线', () => {
     }
   });
 
-  it('**两个页面各自只调自己那几个端点**', () => {
+  // S12L —— 错题本在试点期暂停：两个页面换成占位页，**一个端点都不调**。
+  // 空集是最干净的那种「只走自己那条线」。
+  it('**两个页面一个端点都不调**（S12L 暂停期）', () => {
     const called = (file: string) =>
       [...new Set(
         [...stripComments(fs.readFileSync(path.join(SRC, 'pages', file), 'utf8'))
           .matchAll(/\bapi\.(\w+)\s*\(/g)].map((m) => m[1]),
       )].sort();
-    expect(called('Mistakes.tsx')).toEqual(['mistakeList', 'mistakeResolve']);
-    expect(called('MistakePractice.tsx')).toEqual(['mistakePracticeQueue', 'mistakePracticeResult']);
+    expect(called('Mistakes.tsx')).toEqual([]);
+    expect(called('MistakePractice.tsx')).toEqual([]);
+  });
+
+  it('**两个页面都明说暂未开放**，不是空白页', () => {
+    const mk = fs.readFileSync(path.join(SRC, 'pages', 'Mistakes.tsx'), 'utf8');
+    const mp = fs.readFileSync(path.join(SRC, 'pages', 'MistakePractice.tsx'), 'utf8');
+    expect(mk).toContain('错题本暂未开放');
+    expect(mp).toContain('错题重练暂未开放');
+    // 而且要说清楚数据还在 —— 学生最怕的是「我的错题没了」
+    expect(mk).toMatch(/都还在|没有删/);
   });
 
   /**
@@ -1775,16 +1798,14 @@ describe('G-12B 错题本只走自己那条线', () => {
    * 有第二处，就一定会有人在某条错误分支上「顺手再发一次」，而那正是
    * 会把 practiceCount 和连胜算歪的那件事。
    */
-  it('**重练结果只有一个发送点**', () => {
-    const src = stripComments(fs.readFileSync(path.join(SRC, 'pages', 'MistakePractice.tsx'), 'utf8'));
-    expect((src.match(/api\.mistakePracticeResult\(/g) ?? []).length).toBe(1);
-    // 对账用的是**只读**的队列端点，而且不止一处（提交失败与「再查一次」）
-    expect((src.match(/api\.mistakePracticeQueue\(/g) ?? []).length).toBeGreaterThanOrEqual(2);
-  });
-
-  it('**销账走的是同一个发送点**，失败分支里没有第二个写', () => {
-    const src = stripComments(fs.readFileSync(path.join(SRC, 'pages', 'Mistakes.tsx'), 'utf8'));
-    expect((src.match(/api\.mistakeResolve\(/g) ?? []).length).toBe(1);
+  // 原来这里钉的是「重练结果只有一个发送点」「销账只有一个发送点」——
+  // 暂停期两个页面一个写都没有，那两条已经被上面的空集断言覆盖。
+  // 恢复功能时把它们从 Git 历史里取回来。
+  it('**暂停期两个页面一个写都没有**', () => {
+    for (const f of ['Mistakes.tsx', 'MistakePractice.tsx']) {
+      const src = stripComments(fs.readFileSync(path.join(SRC, 'pages', f), 'utf8'));
+      expect((src.match(/api\.\w+\(/g) ?? []).length, f).toBe(0);
+    }
   });
 
   it('**阶段 12A 那一面没有被改动**：生词本仍然不碰错题端点', () => {

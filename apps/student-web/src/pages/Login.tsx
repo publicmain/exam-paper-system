@@ -104,7 +104,7 @@ export default function LoginPage() {
   }
 
   return (
-    <Screen>
+    <Screen center width="narrow">
       <Card>
         <Title>每日英语</Title>
         {notice ? <Notice kind="info">{notice}</Notice> : null}

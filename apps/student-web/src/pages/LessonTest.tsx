@@ -362,14 +362,29 @@ export default function LessonTestPage() {
         >
           ✕
         </button>
+        {/* 旧 testid 保留（既有测试认它）；`quiz-progress` 是 S12L 的新名字。 */}
         <p data-testid="progress" className="text-sm text-slate-500 tabular-nums">
-          {Math.min(cursor + 1, items.length)} / {items.length}
+          <span data-testid="quiz-progress">
+            {/* 分母用服务端的 `total` —— 与开考那句话是同一个数 */}
+            {Math.min(cursor + 1, items.length)} / {attempt?.total ?? items.length}
+          </span>
         </p>
         <div className="flex-1" />
         <span data-testid="scored-badge" className="text-xs text-blue-700 bg-blue-50 rounded-md px-2 py-1">
           计入成绩
         </span>
       </header>
+
+      {/*
+        S12L —— **开考前就把题数说清楚**。
+        以前学了 21 个词、考出来 10 道，界面上一个字都没提；现在题数恒等于
+        今天学的词数，那就把这句话摆在最上面，学生不用自己数。
+      */}
+      <p data-testid="quiz-intro" className="mb-3 text-sm text-slate-600">
+        {/* 题数照服务端的 `total`（= 今天学的词数），不自己数手里有几道 */}
+        今天学习 {attempt?.total ?? items.length} 个词，本次测试{' '}
+        {attempt?.total ?? items.length} 题。
+      </p>
 
       {item ? (
         <Question
@@ -472,7 +487,8 @@ export default function LessonTestPage() {
 function Shell({ children }: { children: React.ReactNode }) {
   return (
     <div className="min-h-[100dvh] bg-slate-50 px-4 py-6">
-      <div className="mx-auto w-full max-w-xl">{children}</div>
+      {/* S12L —— 卡片式的一屏一题：宽屏适度放宽，但不铺满（读起来会太长） */}
+      <div className="mx-auto w-full max-w-xl lg:max-w-3xl">{children}</div>
     </div>
   );
 }
@@ -575,6 +591,23 @@ function Question({
         data-qtype={item.qtype}
         className="rounded-2xl bg-white border border-slate-200 p-6"
       >
+        {/*
+          S12L —— 拼写 / 填空题的**安全线索**。
+          没有它，学生看到的只是一句挖了空的英文。服务端保证线索里不含
+          答案；这里原样显示，不推断、不拼接。
+        */}
+        {item.cue ? (
+          <div data-testid="question-cue" className="mb-3 rounded-xl bg-slate-50 px-4 py-3">
+            <p className="text-xs text-slate-500">{item.cue.instruction}</p>
+            <p className="mt-1 text-base text-slate-800">
+              {item.cue.pos ? <span className="text-slate-500 mr-2">{item.cue.pos}</span> : null}
+              {item.cue.translation}
+            </p>
+            {item.cue.definition ? (
+              <p className="mt-1 text-sm text-slate-500">{item.cue.definition}</p>
+            ) : null}
+          </div>
+        ) : null}
         <p
           className={
             item.qtype === 'word_to_meaning'

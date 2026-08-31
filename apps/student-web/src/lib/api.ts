@@ -153,7 +153,19 @@ export type VocabScoreView =
       submittedAt: string;
     };
 
-export type ReadSegment = {
+/**
+ * S12L —— 这一段今天**算不算数**。
+ *
+ * 与 `status: 'none'` 不是一回事：`none` 是「有这一段，今天没内容」，
+ * 仍然进分母；`available: false` 是「这个能力现在整个关着」，一段都不算。
+ * 服务端负责判定并给出人话理由，前端只负责显示。
+ */
+export type SegmentAvailability = {
+  available?: boolean;
+  unavailableReason?: string | null;
+};
+
+export type ReadSegment = SegmentAvailability & {
   key: 'read';
   status: SegmentStatus;
   label: string | null;
@@ -166,7 +178,7 @@ export type ReadSegment = {
   sessionId: string | null;
   autoClosed: boolean;
 };
-export type VocabSegment = {
+export type VocabSegment = SegmentAvailability & {
   key: 'vocab';
   status: SegmentStatus;
   progress: number;
@@ -174,7 +186,7 @@ export type VocabSegment = {
   typicalMinutes: number;
   quizScore: VocabScoreView;
 };
-export type DrillSegment = {
+export type DrillSegment = SegmentAvailability & {
   key: 'drill';
   status: SegmentStatus;
   progress: number;
@@ -473,7 +485,19 @@ export const api = {
   ) => request<VocabReviewResult>('POST', '/vocab/review', { body, token }),
 
   /** 生词自测出题。**不是** `/vocab/quiz/attempt/*`（那条记成绩）。 */
-  vocabSelfTestQuiz: (token: string) => request<VocabSelfTestQuiz>('GET', '/vocab/quiz', { token }),
+  /**
+   * S12L —— 自测出题时带上题量。
+   *
+   * 服务端本来就收 `?limit=`（`buildQuiz` 的第一个参数），只是新端一直
+   * 没传，于是学生进来就是固定的一份。**这是这条路上最小的改动** ——
+   * 不新增端点、不做持久化会话。
+   */
+  vocabSelfTestQuiz: (token: string, limit?: number) =>
+    request<VocabSelfTestQuiz>(
+      'GET',
+      limit ? `/vocab/quiz?limit=${encodeURIComponent(String(limit))}` : '/vocab/quiz',
+      { token },
+    ),
 
   // ── 错题本与错题重练（阶段 12B）；四条全是**认证后，零身份参数** ──
   //
@@ -923,6 +947,20 @@ export interface QuizItem {
   prompt: string;
   /** 拼写题恒为空数组 —— 那道题渲染输入框，不渲染选项。 */
   options: string[];
+
+  /**
+   * S12L —— 作答**之前**就下发的安全线索（只有拼写 / 填空题有）。
+   *
+   * 它不属于下面那一组「作答前一律 null」：那些字段本身就是答案，
+   * 这一个恰恰相反 —— 没有它，一道拼写题就只是一句挖了空的英文，
+   * 学生根本不知道要拼哪个词。服务端保证它不含答案（见 `cueFor`）。
+   */
+  cue: {
+    pos: string | null;
+    translation: string | null;
+    definition: string | null;
+    instruction: string;
+  } | null;
 
   /** ↓ 作答（或交卷）之前一律是 null。 */
   headword: string | null;

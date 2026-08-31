@@ -42,7 +42,7 @@
  * 失败了 —— 那一行确实已经从库里没了，界面照删，但**所有聚合数字一律
  * 藏起来**并说明「对不上账了，刷新一下」。宁可少显示，不显示错的。
  */
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import {
   api,
@@ -53,7 +53,7 @@ import {
 import { handleAuthFailure } from '../lib/auth-store';
 import { readToken } from '../lib/identity';
 import { ROUTES } from '../routes.contract';
-import { Button, Card, Notice, Screen } from '../ui';
+import { Button, Card, Notice, Screen, TopBar } from '../ui';
 
 // ─────────────────────────────────────────────────────────────
 // 纯逻辑（导出给测试直接驱动）
@@ -87,6 +87,42 @@ export function sourceLabel(sourceType: string): string {
 /** 到期日。ISO 串取前十位就是那一天，不做时区换算。 */
 export function dayOf(iso: string | null | undefined): string | null {
   return iso ? iso.slice(0, 10) : null;
+}
+
+/**
+ * S12L —— 生词本 MVP 的**四档筛选**。
+ *
+ * 50 个词一条列表铺到底、没有搜索也没有筛选，学生找一个词只能滚。
+ * 试点先给最小的一套：按词头搜 + 四档过滤，全部在**已经取回来的那份
+ * 列表上**做（不新增端点、不做服务端分页 —— 那是试点之后的事）。
+ *
+ * 「到期」按服务端给的 `due` 与当下时间比，不重算 FSRS。
+ */
+export type VocabFilter = 'all' | 'learning' | 'due' | 'mastered';
+
+export const VOCAB_FILTER_LABEL: Readonly<Record<VocabFilter, string>> = {
+  all: '全部',
+  learning: '学习中',
+  due: '待复习',
+  mastered: '已掌握',
+};
+
+export function matchesFilter(
+  w: { state: string; due?: string | null },
+  f: VocabFilter,
+  now: number,
+): boolean {
+  if (f === 'all') return true;
+  if (f === 'mastered') return w.state === 'known';
+  if (f === 'learning') return w.state === 'learning' || w.state === 'review' || w.state === 'relearning';
+  // due：服务端给的到期时刻已经过了
+  return w.due != null && Date.parse(w.due) <= now;
+}
+
+/** 按词头搜。空串 = 不过滤；大小写与首尾空白都不计较。 */
+export function matchesQuery(w: { headword: string }, q: string): boolean {
+  const k = q.trim().toLowerCase();
+  return k === '' || w.headword.toLowerCase().includes(k);
 }
 
 // ─────────────────────────────────────────────────────────────
@@ -202,12 +238,37 @@ export default function VocabBookPage() {
     );
   }
 
+  return <VocabBookReady phase={phase} navigate={navigate} reconcile={reconcile} />;
+}
+
+/**
+ * 载入完之后的那一屏。
+ *
+ * 单独抽出来只有一个原因：搜索与筛选是 hook 状态，而上面那个组件里
+ * `phase` 还可能是 loading / error —— hook 不能写在提前 return 后面。
+ */
+function VocabBookReady({
+  phase,
+  navigate,
+  reconcile,
+}: {
+  phase: { s: 'ready'; data: VocabWordsResult; stats: VocabStats | null; aggregatesStale: boolean };
+  navigate: ReturnType<typeof useNavigate>;
+  reconcile: (headword: string) => void;
+}) {
   const { data, stats, aggregatesStale } = phase;
+  const [query, setQuery] = useState('');
+  const [filter, setFilter] = useState<VocabFilter>('all');
+
+  const shown = useMemo(() => {
+    const now = Date.now();
+    return data.words.filter((w) => matchesQuery(w, query) && matchesFilter(w, filter, now));
+  }, [data.words, filter, query]);
 
   return (
     <Screen>
       <Card>
-        <h1 className="text-xl font-semibold mb-1">生词本</h1>
+        <TopBar title="生词本" onBack={() => navigate(ROUTES.today)} backLabel="今天的课" />
         {/*
           聚合数字。对不上账时**一个都不显示** —— 见文件头「删完要重新对账」。
         */}
@@ -266,19 +327,57 @@ export default function VocabBookPage() {
           </Link>
         </div>
 
+        {/* S12L —— 最小的一套「找得到」：按词头搜 + 四档筛选 */}
+        {data.words.length > 0 ? (
+          <div className="mt-5">
+            <input
+              data-testid="vocab-search"
+              type="search"
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              placeholder="搜一个词"
+              aria-label="按单词搜索"
+              className="w-full min-h-[44px] rounded-xl border border-slate-300 px-4 py-2.5 text-base outline-none focus:border-blue-500"
+            />
+            <div role="group" aria-label="按状态筛选" className="mt-2 flex flex-wrap gap-2">
+              {(['all', 'learning', 'due', 'mastered'] as const).map((f) => (
+                <button
+                  key={f}
+                  type="button"
+                  data-testid={`vocab-filter-${f}`}
+                  aria-pressed={filter === f}
+                  onClick={() => setFilter(f)}
+                  className={`min-h-[44px] rounded-lg px-3 text-sm ${
+                    filter === f ? 'bg-blue-600 text-white' : 'bg-slate-100 text-slate-700'
+                  }`}
+                >
+                  {VOCAB_FILTER_LABEL[f]}
+                </button>
+              ))}
+            </div>
+          </div>
+        ) : null}
+
         {data.words.length === 0 ? (
           <p data-testid="vocab-empty" className="mt-5 rounded-xl bg-slate-50 px-4 py-3 text-sm text-slate-500">
             生词本还是空的 —— 做阅读答错的词会自动收进来。
           </p>
+        ) : shown.length === 0 ? (
+          <p data-testid="vocab-filter-empty" className="mt-4 rounded-xl bg-slate-50 px-4 py-3 text-sm text-slate-500">
+            这个条件下一个词都没有 —— 换个词试试，或者点「全部」。
+          </p>
         ) : (
-          <ul className="mt-5 flex flex-col gap-2">
-            {data.words.map((w) => (
-              <WordRow key={w.headword} word={w} onRemoved={() => void reconcile(w.headword)} />
-            ))}
-          </ul>
+          <>
+            <p className="mt-4 text-xs text-slate-500">
+              显示 <span data-testid="vocab-shown-count">{shown.length}</span> / {data.words.length}
+            </p>
+            <ul className="mt-2 grid gap-2 lg:grid-cols-2">
+              {shown.map((w) => (
+                <WordRow key={w.headword} word={w} onRemoved={() => void reconcile(w.headword)} />
+              ))}
+            </ul>
+          </>
         )}
-
-        <BackToToday navigate={navigate} />
       </Card>
     </Screen>
   );

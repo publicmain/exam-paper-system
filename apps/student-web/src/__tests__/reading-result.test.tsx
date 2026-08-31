@@ -467,11 +467,17 @@ describe('AC-04 成绩总览按服务端的两道门显示', () => {
     expect(document.body.textContent).not.toContain('LEAKED-REFERENCE');
   });
 
-  it('显示状态与交卷时间', async () => {
+  // S12L —— 状态与时间都翻成学生看得懂的话：`submitted` 是内部枚举，
+  // `2026-08-29T00:55:00.000Z` 是 UTC 的 ISO 串（学生在新加坡，那其实是
+  // 早上八点五十五）。两个都不该原样上屏。
+  it('显示状态与交卷时间（学生看得懂的写法）', async () => {
     mount();
     await settle();
-    expect(screen.getByTestId('status').textContent).toBe('submitted');
-    expect(screen.getByTestId('submitted-at').textContent).toBe('2026-08-29T00:55:00.000Z');
+    expect(screen.getByTestId('status').textContent).toBe('等老师批改');
+    expect(screen.getByTestId('submitted-at').textContent).toBe('8月29日 08:55');
+    const text = document.body.textContent ?? '';
+    expect(text).not.toContain('submitted');
+    expect(text).not.toContain('2026-08-29T00:55:00.000Z');
   });
 
   it('**措辞是账号制的** —— 不出现扫码 / 考勤 / 早测窗 / 姓名查询那一套', async () => {

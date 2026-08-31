@@ -49,7 +49,7 @@ export default function RegisterPage() {
   }
 
   return (
-    <Screen>
+    <Screen center width="narrow">
       <Card>
         <Title>第一次使用</Title>
         {err ? <Notice kind="error">{err}</Notice> : null}

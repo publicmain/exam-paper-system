@@ -38,7 +38,7 @@ import {
 import { handleAuthFailure } from '../lib/auth-store';
 import { readToken } from '../lib/identity';
 import { ROUTES, scoreDetailPath } from '../routes.contract';
-import { Button, Card, Notice, Screen } from '../ui';
+import { Button, Card, Notice, Screen, TopBar } from '../ui';
 
 // ─────────────────────────────────────────────────────────────
 // 纯逻辑（导出给测试直接驱动）
@@ -168,7 +168,8 @@ export default function ScoresPage() {
   return (
     <Screen>
       <Card>
-        <h1 className="text-xl font-semibold mb-1">历史成绩</h1>
+        {/* S12L —— 返回挪到顶部；原来只有页面最底下才有一个 */}
+        <TopBar title="历史成绩" onBack={() => navigate(ROUTES.today)} backLabel="今天的课" />
         <p className="text-sm text-slate-500 mb-5">阅读和单词测试是两份记录，分开看。</p>
 
         {/* ① 阅读 */}

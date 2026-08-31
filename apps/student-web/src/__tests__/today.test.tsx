@@ -217,13 +217,19 @@ describe('1–2. 载入与请求卫生', () => {
 });
 
 describe('3–5. 开始今天的课', () => {
-  it('`ready_to_start` 只渲染一个主按钮', async () => {
+  // S12L —— 三段现在是**可点的卡片**（导航，不推进状态），所以页面上
+  // 不再只有一个按钮。规矩变成：**主行动区仍然只有一个**，而且它的
+  // 文案来自服务端的 `nextAction.label`。
+  it('`ready_to_start` 主行动区只有一个按钮', async () => {
     session(lesson());
     renderAt('/today');
     await screen.findByRole('heading', { name: /你好，七号/ });
     const buttons = screen.getAllByRole('button');
-    expect(buttons).toHaveLength(1);
-    expect(buttons[0].textContent).toBe('开始今天的课程');
+    const cards = buttons.filter((b) => b.getAttribute('data-testid')?.startsWith('segment-card-'));
+    const primary = buttons.filter((b) => !b.getAttribute('data-testid')?.startsWith('segment-card-'));
+    expect(cards).toHaveLength(3);
+    expect(primary).toHaveLength(1);
+    expect(primary[0].textContent).toBe('开始今天的课程');
   });
 
   it('**开始发送的请求体恰好是 `{begin:true}`**', async () => {
@@ -342,7 +348,12 @@ describe('8–10. 停留态与摘要', () => {
       session(withKind(kind, label));
       renderAt('/today');
       expect(await screen.findByText(label)).toBeTruthy();
+      // S12L —— 停留态下三张卡也不是按钮（`aria-disabled`，点不动），
+      // 所以整页仍然一个按钮都没有。
       expect(screen.queryAllByRole('button')).toHaveLength(0);
+      for (const k of ['read', 'vocab', 'drill']) {
+        expect(screen.getByTestId(`segment-card-${k}`).getAttribute('aria-disabled')).toBe('true');
+      }
       expect(screen.getByText(/今天完成/)).toBeTruthy();  // 仍在 /today
     });
   }

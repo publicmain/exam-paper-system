@@ -40,6 +40,7 @@ import { useCallback, useMemo, useRef, useState } from 'react';
 import { api, type AnswerDisplay, type ReadingResult, type ReadingResultItem } from '../lib/api';
 import { handleAuthFailure } from '../lib/auth-store';
 import { readToken } from '../lib/identity';
+import { dateTimeLabel, statusLabel } from '../lib/format';
 
 // ─────────────────────────────────────────────────────────────
 // 纯逻辑（导出给测试直接驱动）
@@ -337,32 +338,49 @@ export function ResultView({
         <dl className="mt-4 text-sm text-slate-500 flex flex-wrap gap-x-6 gap-y-1">
           <div>
             <dt className="inline">状态：</dt>
-            <dd data-testid="status" className="inline">{result.status}</dd>
+            {/* S12L —— 学生不该看到 `marked` / `submitted` 这类内部枚举 */}
+            <dd data-testid="status" className="inline">{statusLabel(result.status)}</dd>
           </div>
           {result.submittedAt && (
             <div>
               <dt className="inline">交卷时间：</dt>
-              <dd data-testid="submitted-at" className="inline">{result.submittedAt}</dd>
+              {/* S12L —— ISO 串换成新加坡本地时间 */}
+              <dd data-testid="submitted-at" className="inline">
+                {dateTimeLabel(result.submittedAt)}
+              </dd>
             </div>
           )}
         </dl>
       </section>
 
-      <PassageReview result={result} />
+      {/*
+        S12L —— 宽屏**左原文 / 右题目**。
+        1024 以下照旧堆叠（原文默认收起的折叠块在上、题目在下），
+        1024 及以上两栏并排、各自滚动 —— 桌面上边看原文边对题是这一页
+        最主要的用法，而它以前在任何宽度下都只有一列 672px。
+      */}
+      <div
+        data-testid="result-split"
+        className="lg:grid lg:grid-cols-[minmax(0,5fr)_minmax(0,7fr)] lg:gap-6 lg:items-start"
+      >
+        <div className="lg:sticky lg:top-4 lg:max-h-[calc(100dvh-2rem)] lg:overflow-y-auto">
+          <PassageReview result={result} />
+        </div>
 
-      <ol data-testid="items" className="flex flex-col gap-4">
-        {result.items.map((item, i) => (
-          <ResultItemCard
-            key={item.paperQuestionId}
-            item={item}
-            index={i + 1}
-            scoresPending={result.scoresPending}
-            answersPending={result.answersPending}
-            submissionId={submissionId}
-            onAuthLost={onAuthLost}
-          />
-        ))}
-      </ol>
+        <ol data-testid="items" className="flex flex-col gap-4">
+          {result.items.map((item, i) => (
+            <ResultItemCard
+              key={item.paperQuestionId}
+              item={item}
+              index={i + 1}
+              scoresPending={result.scoresPending}
+              answersPending={result.answersPending}
+              submissionId={submissionId}
+              onAuthLost={onAuthLost}
+            />
+          ))}
+        </ol>
+      </div>
 
       <WholeAppeal submissionId={submissionId} onAuthLost={onAuthLost} />
       {footer}
@@ -621,6 +639,8 @@ function AppealForm({
  */
 function PassageReview({ result }: { result: ReadingResult }) {
   const [open, setOpen] = useState(false);
+  // 注：宽屏也默认收起 —— 「默认收起」是 S12I 的既有验收项，
+  // 这里只改**排版**，不改默认状态。
   const passage = useMemo(() => passageOf(result), [result]);
   if (!passage) return null;
   return (

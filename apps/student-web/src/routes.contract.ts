@@ -174,6 +174,8 @@ export const NEXT_ACTION_ROUTE: Readonly<Record<NextActionKind, NextActionTarget
   learn_vocab: { kind: 'navigate', path: ROUTES.lessonVocab },
   vocab_test: { kind: 'navigate', path: ROUTES.lessonTest },
   // S12I —— 补段落到**已有的**错题重练页，不新开页、不新开端点。
+  // S12L —— 错题本暂停期间服务端不再产出 `drill`；这条映射留着，
+  // 是为了恢复功能时不用再动契约表（守卫要求十一个 kind 全有目标）。
   drill: { kind: 'navigate', path: ROUTES.mistakePractice },
   summary: { kind: 'navigate', path: ROUTES.summary },
   no_content: { kind: 'stay', reason: '今天的课程还没有发布' },
@@ -181,6 +183,15 @@ export const NEXT_ACTION_ROUTE: Readonly<Record<NextActionKind, NextActionTarget
   level_not_set: { kind: 'stay', reason: '还没有分配难度 —— 找老师设置一下' },
   none: { kind: 'stay', reason: '今天没有要做的事' },
 };
+
+/**
+ * S12L —— 错题本的开关，与服务端 `apps/api/src/lesson/pilot-flags.ts`
+ * **逐字对应**（守卫测试断言两边相等）。
+ *
+ * 前端拿它做两件事：错题入口标成「暂未开放」，以及今天的完成度不把
+ * 补段算进去（分母其实由服务端给，这里只用于文案）。
+ */
+export const MISTAKES_FEATURE: 'available' | 'paused' = 'paused';
 
 /** 未知 URL 的落点：已登录 → `/today`；未登录 → `/login`。**不是姓名页。** */
 export function fallbackPath(authenticated: boolean): string {

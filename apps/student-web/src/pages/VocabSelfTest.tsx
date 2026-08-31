@@ -44,7 +44,7 @@ import {
   spellingMatches,
   type PendingWrite,
 } from '../components/vocab/practice-write';
-import { Button, Card, Notice, Screen } from '../ui';
+import { Button, Card, Notice, Screen, TopBar } from '../ui';
 
 // ─────────────────────────────────────────────────────────────
 // 纯逻辑（导出给测试直接驱动）
@@ -75,16 +75,34 @@ export function emptyReason(totalWords: number, seenWords: number): string {
 type Quiz = { streakDays: number; totalWords: number; seenWords: number; questions: VocabSelfTestQuestion[] };
 
 type Phase =
+  /**
+   * S12L —— **先设置，后出题**。
+   *
+   * 以前进来直接就是第一题，题量由服务端拍板。学生想「只练 5 个」
+   * 或者「今天到期的全做完」都做不到。现在第一屏是一个设置：选题量，
+   * 然后才发 `/vocab/quiz`。
+   *
+   * 刻意**不做持久化会话** —— 刷新会重新开一份自测，这一点在设置页
+   * 上明说。正式测试（`/lesson/test`）不受影响，它仍然断点续答。
+   */
+  | { s: 'setup' }
   | { s: 'loading' }
   | { s: 'error'; message: string }
   | { s: 'ready'; quiz: Quiz };
+
+/** 可选题量。`all` = 全部可用（仍受服务端上限约束）。 */
+export const SELF_TEST_COUNTS = [5, 10, 20] as const;
+/** 与服务端 `SELF_TEST_MAX_ITEMS` 同一个数：安全封顶，不出成马拉松。 */
+export const SELF_TEST_MAX = 30;
 
 /** 这一题作答之后的本地判定。`graded` = 这一遍算不算 FSRS。 */
 type Verdict = { correct: boolean; graded: boolean };
 
 export default function VocabSelfTestPage() {
   const navigate = useNavigate();
-  const [phase, setPhase] = useState<Phase>({ s: 'loading' });
+  const [phase, setPhase] = useState<Phase>({ s: 'setup' });
+  /** 生词本统计 —— 只用来在设置页显示「今天有几个到期」，取不到就不显示。 */
+  const [available, setAvailable] = useState<{ total: number; due: number } | null>(null);
 
   /** 第一遍的题号；`redo` 打开后走 `wrongQueue`。 */
   const [index, setIndex] = useState(0);
@@ -104,13 +122,13 @@ export default function VocabSelfTestPage() {
   const startedAt = useRef<number>(Date.now());
   const gen = useRef(0);
 
-  const load = useCallback(async () => {
+  const load = useCallback(async (limit?: number) => {
     const token = readToken();
     if (!token) return;
     const mine = ++gen.current;
     setPhase({ s: 'loading' });
     try {
-      const data = await api.vocabSelfTestQuiz(token);
+      const data = await api.vocabSelfTestQuiz(token, limit);
       if (mine !== gen.current) return;
       setIndex(0);
       setRedo(false);
@@ -136,12 +154,25 @@ export default function VocabSelfTestPage() {
     }
   }, []);
 
+  // 设置页只取一次统计（可用词数）。**不出题** —— 出题要等学生选完。
   useEffect(() => {
-    void load();
+    const token = readToken();
+    if (!token) return;
+    let alive = true;
+    void api
+      .vocabStats(token)
+      .then((st) => {
+        if (!alive) return;
+        setAvailable({ total: Number(st.total ?? 0), due: Number(st.totalDue ?? 0) });
+      })
+      .catch(() => {
+        // 统计取不到不影响出题 —— 设置页少显示两个数字而已
+      });
     return () => {
+      alive = false;
       gen.current++;
     };
-  }, [load]);
+  }, []);
 
   const quiz = phase.s === 'ready' ? phase.quiz : null;
   const order = useMemo(
@@ -222,6 +253,57 @@ export default function VocabSelfTestPage() {
     pending.current = null;
     startedAt.current = Date.now();
   }, []);
+
+  if (phase.s === 'setup') {
+    const cap = available ? Math.min(available.total, SELF_TEST_MAX) : SELF_TEST_MAX;
+    return (
+      <Screen>
+        <Card>
+          <TopBar title="考考自己" onBack={() => navigate(ROUTES.vocab)} backLabel="生词本" />
+          <div data-testid="selftest-setup">
+            {available ? (
+              <p data-testid="selftest-available" className="text-sm text-slate-600">
+                生词本里有 {available.total} 个词，今天到期 {available.due} 个。
+              </p>
+            ) : null}
+            <p className="mt-4 text-sm font-medium">这次考几题？</p>
+            <div role="group" aria-label="选择题量" className="mt-2 grid grid-cols-2 gap-2 sm:grid-cols-4">
+              {SELF_TEST_COUNTS.map((n) => (
+                <button
+                  key={n}
+                  type="button"
+                  data-testid={`selftest-count-${n}`}
+                  disabled={available != null && available.total < n}
+                  onClick={() => void load(n)}
+                  className="min-h-[44px] rounded-xl border border-slate-300 px-3 py-3 text-base disabled:opacity-40"
+                >
+                  {n} 题
+                </button>
+              ))}
+              <button
+                type="button"
+                data-testid="selftest-count-all"
+                onClick={() => void load(cap)}
+                className="min-h-[44px] rounded-xl border border-slate-300 px-3 py-3 text-base"
+              >
+                全部{available ? `（${cap}）` : ''}
+              </button>
+            </div>
+            {available != null && available.total < 5 ? (
+              <p data-testid="selftest-few" className="mt-3 text-sm text-amber-800">
+                生词本里只有 {available.total} 个词，这次最多考这么多。
+              </p>
+            ) : null}
+            <p className="mt-4 text-xs text-slate-500">
+              自测不计成绩。<strong>刷新会重新开一份</strong> —— 想要记成绩的那一份在
+              「今天的课」里。
+            </p>
+          </div>
+          <BackToVocab navigate={navigate} />
+        </Card>
+      </Screen>
+    );
+  }
 
   if (phase.s === 'loading') {
     return (

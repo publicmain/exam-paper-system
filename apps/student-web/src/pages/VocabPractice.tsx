@@ -61,7 +61,7 @@ import {
   newRequestId,
   type PendingWrite,
 } from '../components/vocab/practice-write';
-import { Button, Card, Notice, Screen } from '../ui';
+import { Button, Card, Notice, Screen, TopBar } from '../ui';
 
 // ─────────────────────────────────────────────────────────────
 // 纯逻辑（导出给测试直接驱动）
@@ -365,6 +365,8 @@ export default function VocabPracticePage() {
     return (
       <Screen>
         <Card>
+          {/* S12L —— 返回挪到顶部；原来只有页面最底下才有一个 */}
+          <TopBar onBack={() => navigate(ROUTES.vocab)} backLabel="生词本" />
           <p data-testid="practice-progress" className="text-sm text-slate-500 mb-2 tabular-nums">
             {index + 1} / {cards.length}
           </p>

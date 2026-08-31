@@ -131,14 +131,7 @@ const mount = () =>
 const calls = (frag: string) => reqs.filter((r) => r.url.includes(frag));
 const bodyOf = (r: Req) => JSON.parse(String(r.init.body)) as Record<string, unknown>;
 
-/** 显示答案 → 熬过 1.5 秒停留锁。 */
-async function revealAndWait() {
-  fireEvent.click(screen.getByTestId('reveal'));
-  await act(async () => {
-    vi.advanceTimersByTime(1600);
-  });
-  await settle();
-}
+
 
 beforeEach(() => {
   vi.useFakeTimers({ shouldAdvanceTime: true });
@@ -277,9 +270,9 @@ describe('AC-04 顺序、张数、断点都听服务端的', () => {
     });
     mount();
     await settle();
-    expect(screen.getByTestId('review-card').getAttribute('data-headword')).toBe('zulu');
-    await revealAndWait();
-    fireEvent.click(screen.getByTestId('rate-good'));
+    expect(screen.getByTestId('teaching-card').getAttribute('data-headword')).toBe('zulu');
+    // S12L —— 往下翻用教学卡的「下一个」，课程内已经没有评分那条路了
+    fireEvent.click(screen.getByTestId('taught-next'));
     await settle();
     expect(screen.getByTestId('teaching-card').getAttribute('data-headword')).toBe('alpha');
   });
@@ -298,7 +291,7 @@ describe('AC-04 顺序、张数、断点都听服务端的', () => {
     mount();
     await settle();
     expect(screen.getByTestId('progress').textContent).toBe('2 / 3');
-    expect(screen.getByTestId('review-card').getAttribute('data-headword')).toBe('silt');
+    expect(screen.getByTestId('teaching-card').getAttribute('data-headword')).toBe('silt');
   });
 
   it('**断点是脏值时安全钳制**，不崩、不白屏', async () => {
@@ -328,14 +321,19 @@ describe('AC-04 顺序、张数、断点都听服务端的', () => {
   //
   // 原来这里还有一条用 `stored:false` 跑到 3/3 就收工的用例 —— 它把
   // 「断点没落库」当成了完成，正是返工 1/2 的 B-3。换成下面这条。
-  it('**断点 stored:false 不算完成**：记录留着，完成页不放人走（B-3）', async () => {
-    routes['/api/vocab/lesson-cards'] = () => ({ body: cardsPayload({ cursor: 2 }) });
-    routes['/api/vocab/review'] = () => ({ body: { headword: 'silt', state: 'review', due: 'd', intervalDays: 2, reps: 1 } });
-    routes['/api/lesson/vocab-cursor'] = () => ({ body: { ok: true, cursor: 0, stored: false } });
+  // S12L —— 原来这一条靠「评分 + cursor stored:false」制造场景。课程内
+  // 不再评分，闸门本身照留：只要还有一条没补传上去的评分，完成页就
+  // 不放人进正式测试。这里直接把记录塞进队列来验闸门。
+  it('**还有没补传的评分时，完成页不放人走**（B-3 的闸门仍在）', async () => {
+    routes['/api/vocab/lesson-cards'] = () => ({ body: cardsPayload({ cursor: 3 }) });
+    routes['/api/vocab/review'] = () => new Error('offline');
+    localStorage.setItem(
+      QUEUE_KEY,
+      JSON.stringify([
+        { headword: 'silt', rating: 'good', elapsedMs: 2000, requestId: 'r9', cursor: 3, ts: Date.now() },
+      ]),
+    );
     mount();
-    await settle();
-    await revealAndWait();
-    fireEvent.click(screen.getByTestId('rate-good'));
     await settle();
     expect(readQueue()).toHaveLength(1);
     expect(screen.getByTestId('complete')).toBeInTheDocument();
@@ -457,280 +455,63 @@ describe('AC-05 首次教学卡', () => {
 // AC-06 复习卡
 // ─────────────────────────────────────────────────────────────
 
-describe('AC-06 复习卡', () => {
+describe('S12L 课程内**每一张都是教学卡**', () => {
+  //
+  // 这一组取代了原来的 AC-06（复习卡）与 AC-07（弱网评分）。
+  //
+  // 那两组测的是**课程内**的主动回忆：挖空、两档评分、1.5 秒停留锁、
+  // 撤销、弱网入队。那条路整个搬去了自由复习 `/vocab/practice`，
+  // 逐条覆盖它的是 `vocab-practice.test.tsx`（评分四档、requestId 复用、
+  // tooFast / duplicate、撤销、在途连点、掉票）——**能力没有被放弃**。
+  //
+  // 课程内剩下的规矩只有一条：不管这个词以前见没见过，都先教一遍。
+
   beforeEach(() => {
     routes['/api/vocab/lesson-cards'] = () => ({ body: cardsPayload({ cursor: 1 }) });
   });
 
-  it('正面：中文提示 + 挖空例句 + 出处 + 显示答案；**不露词**', async () => {
+  it('**教过的词也是教学卡** —— 不遮词、不让猜、没有评分', async () => {
     mount();
     await settle();
-    expect(screen.getByTestId('hint').textContent).toBe('尼罗河');
-    expect(screen.getByTestId('cloze').textContent).toContain(BLANK);
-    expect(screen.getByTestId('cloze').textContent!.toLowerCase()).not.toContain('nile');
-    expect(screen.getByTestId('source')).toBeInTheDocument();
-    expect(screen.getByTestId('reveal')).toBeInTheDocument();
-    expect(screen.queryByTestId('headword')).toBeNull();
+    // cursor=1 落在第二张：needsFirstTeaching=false、reps=2 的老词
+    expect(screen.getByTestId('teaching-card').getAttribute('data-headword')).toBe('nile');
+    expect(screen.queryByTestId('review-card')).toBeNull();
+    expect(screen.queryByTestId('reveal')).toBeNull();
+    expect(screen.queryByTestId('rate-again')).toBeNull();
+    expect(screen.queryByTestId('rate-good')).toBeNull();
+    // 词就摆在那儿，不挖空
+    expect(screen.getByTestId('teaching-card').textContent).toContain('尼罗河');
   });
 
-  it('**遮不干净的例句整句不显示**', async () => {
-    routes['/api/vocab/lesson-cards'] = () => ({
-      body: cardsPayload({ cursor: 0, cards: [card({ headword: 'run', surfaceForm: 'run', contextSentence: 'The runaway train.' })] }),
+  it('**往下翻只打 vocab-taught**，一条复习流水都不写', async () => {
+    mount();
+    await settle();
+    fireEvent.click(screen.getByTestId('taught-next'));
+    await settle();
+    expect(calls('/lesson/vocab-taught')).toHaveLength(1);
+    expect(calls('/vocab/review')).toHaveLength(0);
+    expect(readQueue()).toHaveLength(0);
+  });
+
+  it('**教过的词再教一次是幂等的**：服务端说 alreadyTaught 也照常前进', async () => {
+    routes['/api/lesson/vocab-taught'] = () => ({
+      body: { ok: true, cursor: 2, stored: true, alreadyTaught: true },
     });
     mount();
     await settle();
-    expect(screen.getByTestId('cloze-withheld')).toBeInTheDocument();
-    expect(document.body.textContent).not.toContain('runaway');
-  });
-
-  it('背面：拼写、音标、翻译、出处 + **恰好两档评分**', async () => {
-    mount();
+    fireEvent.click(screen.getByTestId('taught-next'));
     await settle();
-    await revealAndWait();
-    expect(screen.getByTestId('headword').textContent).toBe('nile');
-    expect(screen.getByTestId('phonetic')).toBeInTheDocument();
-    expect(screen.getByTestId('translation')).toBeInTheDocument();
-    expect(screen.getByTestId('rate-again')).toBeInTheDocument();
-    expect(screen.getByTestId('rate-good')).toBeInTheDocument();
-    expect(screen.queryByTestId('rate-hard')).toBeNull();
-    expect(screen.queryByTestId('rate-easy')).toBeNull();
-  });
-
-  it('**1.5 秒之内不给评分**', async () => {
-    mount();
-    await settle();
-    fireEvent.click(screen.getByTestId('reveal'));
-    await settle();
-    expect((screen.getByTestId('rate-good') as HTMLButtonElement).disabled).toBe(true);
-    expect(screen.getByTestId('dwell-lock')).toBeInTheDocument();
-    await act(async () => { vi.advanceTimersByTime(1499); });
-    expect((screen.getByTestId('rate-good') as HTMLButtonElement).disabled).toBe(true);
-    await act(async () => { vi.advanceTimersByTime(1); });
-    expect((screen.getByTestId('rate-good') as HTMLButtonElement).disabled).toBe(false);
-    expect(screen.queryByTestId('dwell-lock')).toBeNull();
-  });
-
-  it('**评分请求体精确**，elapsedMs 从显示答案算起', async () => {
-    mount();
-    await settle();
-    await revealAndWait();
-    fireEvent.click(screen.getByTestId('rate-good'));
-    await settle();
-    const b = bodyOf(calls('/vocab/review')[0]);
-    expect(Object.keys(b).sort()).toEqual(['elapsedMs', 'headword', 'rating', 'requestId']);
-    expect(b.headword).toBe('nile');
-    expect(b.rating).toBe('good');
-    expect(Number(b.elapsedMs)).toBeGreaterThanOrEqual(1500);
-    expect(Number(b.elapsedMs)).toBeLessThanOrEqual(600000);
-  });
-
-  it('**成功后前进一张，并显示服务端的回执**', async () => {
-    mount();
-    await settle();
-    await revealAndWait();
-    fireEvent.click(screen.getByTestId('rate-good'));
-    await settle();
-    expect(screen.getByTestId('receipt-ok').textContent).toContain('4 天');
     expect(screen.getByTestId('progress').textContent).toBe('2 / 3');
   });
 
-  it('**连点两下只算一次复习**', async () => {
+  it('**整条链一次 /vocab/review 都不发**', async () => {
     mount();
     await settle();
-    await revealAndWait();
-    const btn = screen.getByTestId('rate-good');
-    fireEvent.click(btn);
-    fireEvent.click(btn);
+    fireEvent.click(screen.getByTestId('taught-next'));
     await settle();
-    expect(calls('/vocab/review')).toHaveLength(1);
-  });
-
-  it('**tooFast 不算学会**：不前进、不给撤销、说清楚', async () => {
-    routes['/api/vocab/review'] = () => ({
-      body: { headword: 'nile', state: 'review', due: 'd', intervalDays: 0, reps: 2, tooFast: true },
-    });
-    mount();
-    await settle();
-    await revealAndWait();
-    fireEvent.click(screen.getByTestId('rate-good'));
-    await settle();
-    expect(screen.getByTestId('receipt-too-fast')).toBeInTheDocument();
-    expect(screen.queryByTestId('receipt-ok')).toBeNull();
-    expect(screen.queryByTestId('undo')).toBeNull();
-    expect(screen.getByTestId('progress').textContent).toBe('1 / 3');
-    // B-1：既不落断点，也不留在队里 —— 否则补传会拿 duplicate 把它推过去
-    expect(calls('/vocab-cursor')).toHaveLength(0);
-    expect(readQueue()).toEqual([]);
-    expect(screen.queryByTestId('pending-badge')).toBeNull();
-  });
-
-  it('**撤销回到那张卡，且不离开课程路由**', async () => {
-    mount();
-    await settle();
-    await revealAndWait();
-    fireEvent.click(screen.getByTestId('rate-good'));
-    await settle();
-    fireEvent.click(screen.getByTestId('undo'));
-    await settle();
-    const u = calls('/vocab/review/undo');
-    expect(u).toHaveLength(1);
-    expect(bodyOf(u[0])).toEqual({ headword: 'nile' });
-    expect(screen.getByTestId('progress').textContent).toBe('1 / 3');
-    expect(screen.getByTestId('review-card').getAttribute('data-headword')).toBe('nile');
-    expect(navigate).not.toHaveBeenCalled();
-  });
-
-  it('**重发命中去重的那条不给撤销**', async () => {
-    routes['/api/vocab/review'] = () => ({
-      body: { headword: 'nile', state: 'review', due: 'd', intervalDays: 4, reps: 3, duplicate: true },
-    });
-    mount();
-    await settle();
-    await revealAndWait();
-    fireEvent.click(screen.getByTestId('rate-good'));
-    await settle();
-    expect(screen.getByTestId('receipt-ok')).toBeInTheDocument();
-    expect(screen.queryByTestId('undo')).toBeNull();
-  });
-
-  it('**撤销失败给提示**，可以再点', async () => {
-    routes['/api/vocab/review/undo'] = () => new Error('offline');
-    mount();
-    await settle();
-    await revealAndWait();
-    fireEvent.click(screen.getByTestId('rate-good'));
-    await settle();
-    fireEvent.click(screen.getByTestId('undo'));
-    await settle();
-    expect(screen.getByTestId('step-error')).toBeInTheDocument();
-    expect(screen.getByTestId('undo')).toBeInTheDocument();
-  });
-
-  it('没有中文释义时给一句替代提示，不留空白', async () => {
-    routes['/api/vocab/lesson-cards'] = () => ({
-      body: cardsPayload({ cursor: 0, cards: [card({ translation: '' })] }),
-    });
-    mount();
-    await settle();
-    expect(screen.getByTestId('hint-missing')).toBeInTheDocument();
+    for (const r of reqs) expect(r.url).not.toContain('/vocab/review');
   });
 });
-
-// ─────────────────────────────────────────────────────────────
-// AC-07 弱网在页面上的表现
-// ─────────────────────────────────────────────────────────────
-
-describe('AC-07 弱网评分在页面上的表现', () => {
-  beforeEach(() => {
-    routes['/api/vocab/lesson-cards'] = () => ({ body: cardsPayload({ cursor: 1 }) });
-  });
-
-  it('**发不出去时说「已存下、待同步」**，不说服务端记下了', async () => {
-    routes['/api/vocab/review'] = () => new Error('offline');
-    mount();
-    await settle();
-    await revealAndWait();
-    fireEvent.click(screen.getByTestId('rate-good'));
-    await settle();
-    expect(screen.getByTestId('receipt-queued')).toBeInTheDocument();
-    expect(screen.queryByTestId('receipt-ok')).toBeNull();
-    expect(readQueue()).toHaveLength(1);
-    expect(screen.getByTestId('pending-badge').textContent).toContain('1');
-  });
-
-  it('**存不下就说存不下**（B-2）：不发请求、不推进、不说「已经存下来了」', async () => {
-    mount();
-    await settle();
-    await revealAndWait();
-    const before = reqs.length;
-    const real = Storage.prototype.setItem;
-    vi.spyOn(Storage.prototype, 'setItem').mockImplementation(function (
-      this: Storage,
-      k: string,
-      v: string,
-    ) {
-      if (k === QUEUE_KEY) throw new Error('QuotaExceeded');
-      real.call(this, k, v);
-    });
-    fireEvent.click(screen.getByTestId('rate-good'));
-    await settle();
-    expect(reqs).toHaveLength(before); // 一个请求都没发
-    expect(screen.queryByTestId('receipt-queued')).toBeNull();
-    expect(screen.queryByTestId('receipt-ok')).toBeNull();
-    expect(document.body.textContent).not.toContain('已经存下来了');
-    expect(screen.getByTestId('step-error')).toBeInTheDocument();
-    // 还停在同一张卡上，可以再试
-    expect(screen.getByTestId('progress').textContent).toBe('1 / 3');
-    expect(screen.getByTestId('review-card').getAttribute('data-headword')).toBe('nile');
-  });
-
-  it('**存不下之后还能接着点** —— 闸门没有被卡死', async () => {
-    mount();
-    await settle();
-    await revealAndWait();
-    const real = Storage.prototype.setItem;
-    const spy = vi.spyOn(Storage.prototype, 'setItem').mockImplementation(function (
-      this: Storage,
-      k: string,
-      v: string,
-    ) {
-      if (k === QUEUE_KEY) throw new Error('QuotaExceeded');
-      real.call(this, k, v);
-    });
-    fireEvent.click(screen.getByTestId('rate-good'));
-    await settle();
-    expect(screen.getByTestId('step-error')).toBeInTheDocument();
-
-    // 存储恢复 —— 同一张卡再评一次，这回该成
-    spy.mockRestore();
-    fireEvent.click(screen.getByTestId('rate-good'));
-    await settle();
-    expect(calls('/vocab/review')).toHaveLength(1);
-    expect(screen.getByTestId('progress').textContent).toBe('2 / 3');
-  });
-
-  it('**队列里的记录带着下一个断点**', async () => {
-    routes['/api/vocab/review'] = () => new Error('offline');
-    mount();
-    await settle();
-    await revealAndWait();
-    fireEvent.click(screen.getByTestId('rate-good'));
-    await settle();
-    expect(readQueue()[0].cursor).toBe(2);
-  });
-
-  it('**进页面就先补传一次**', async () => {
-    localStorage.setItem(
-      QUEUE_KEY,
-      JSON.stringify([{ headword: 'old', rating: 'good', elapsedMs: 2000, requestId: 'r1', cursor: 1, ts: Date.now() }]),
-    );
-    mount();
-    await settle();
-    expect(bodyOf(calls('/vocab/review')[0]).requestId).toBe('r1');
-    expect(readQueue()).toEqual([]);
-  });
-
-  it('**浏览器回到线上时自动补传**', async () => {
-    routes['/api/vocab/review'] = () => new Error('offline');
-    mount();
-    await settle();
-    await revealAndWait();
-    fireEvent.click(screen.getByTestId('rate-good'));
-    await settle();
-    expect(readQueue()).toHaveLength(1);
-
-    routes['/api/vocab/review'] = () => ({ body: { headword: 'nile', state: 'review', due: 'd', intervalDays: 4, reps: 3 } });
-    __resetFlushGuardForTest();
-    await act(async () => { window.dispatchEvent(new Event('online')); });
-    await settle();
-    expect(readQueue()).toEqual([]);
-    expect(screen.queryByTestId('pending-badge')).toBeNull();
-  });
-});
-
-// ─────────────────────────────────────────────────────────────
-// AC-08 出口与完成
-// ─────────────────────────────────────────────────────────────
 
 describe('AC-08 出口与完成', () => {
   it('**「稍后再学」回 /today，且一个写请求都不发**', async () => {
@@ -747,13 +528,19 @@ describe('AC-08 出口与完成', () => {
     expect(document.body.textContent).not.toContain('返回我的记录');
   });
 
+  // S12L —— 课程内不再评分，所以待同步的记录只可能是**上一个版本或另一台
+  // 设备留下的**。闸门照留：一条没补传上去的评分，放人进正式测试就等于
+  // 永久丢失。这里直接把记录塞进队列来验闸门本身。
   it('**还有待同步就不放人进正式测试**', async () => {
-    routes['/api/vocab/lesson-cards'] = () => ({ body: cardsPayload({ cursor: 2 }) });
+    routes['/api/vocab/lesson-cards'] = () => ({ body: cardsPayload({ cursor: 3 }) });
+    localStorage.setItem(
+      QUEUE_KEY,
+      JSON.stringify([
+        { headword: 'silt', rating: 'good', elapsedMs: 2000, requestId: 'r1', cursor: 3, ts: Date.now() },
+      ]),
+    );
     routes['/api/vocab/review'] = () => new Error('offline');
     mount();
-    await settle();
-    await revealAndWait();
-    fireEvent.click(screen.getByTestId('rate-good'));
     await settle();
     expect(screen.getByTestId('complete')).toBeInTheDocument();
     expect(screen.getByTestId('pending-sync')).toBeInTheDocument();
@@ -762,13 +549,17 @@ describe('AC-08 出口与完成', () => {
   });
 
   it('**同步完之后才出现下一步**', async () => {
-    routes['/api/vocab/lesson-cards'] = () => ({ body: cardsPayload({ cursor: 2 }) });
+    routes['/api/vocab/lesson-cards'] = () => ({ body: cardsPayload({ cursor: 3 }) });
+    localStorage.setItem(
+      QUEUE_KEY,
+      JSON.stringify([
+        { headword: 'silt', rating: 'good', elapsedMs: 2000, requestId: 'r1', cursor: 3, ts: Date.now() },
+      ]),
+    );
     routes['/api/vocab/review'] = () => new Error('offline');
     mount();
     await settle();
-    await revealAndWait();
-    fireEvent.click(screen.getByTestId('rate-good'));
-    await settle();
+    expect(screen.getByTestId('pending-sync')).toBeInTheDocument();
 
     routes['/api/vocab/review'] = () => ({ body: { headword: 'silt', state: 'review', due: 'd', intervalDays: 2, reps: 1 } });
     __resetFlushGuardForTest();
