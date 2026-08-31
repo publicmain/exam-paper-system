@@ -158,6 +158,33 @@ export function answerRowsOf(item: ReadingResultItem): Array<{
   return rows;
 }
 
+/**
+ * 判分摘要的文案段 —— **四件事分开说**。
+ *
+ * 返工 1/2 修的就是这里：第一版把 `autoGraded + marked` 加起来说成
+ * 「已自动判分 N 题」。只要 `marked > 0`，那句话就是假的 ——
+ * **老师亲手批的题被说成了机器判的**。服务端把它们分开发，展示就不该合并。
+ * （原来的用例恰好用 `marked: 0`，所以照不出这个缺陷。）
+ *
+ * 计数为 0 的整段不出现；分隔符由调用方按下标加，所以**开头与结尾都不会
+ * 挂一个孤零零的点**（第一版的「没作答」那一段是无条件加前缀的）。
+ *
+ * 这里只排版：**不算判分状态、不算对错、不算分数、不算总数。**
+ */
+export function gradingSummaryParts(s: {
+  autoGraded: number;
+  marked: number;
+  pendingMarking: number;
+  notAnswered: number;
+}): Array<{ key: string; text: string }> {
+  const parts: Array<{ key: string; text: string }> = [];
+  if (s.autoGraded > 0) parts.push({ key: 'auto', text: `已自动判分 ${s.autoGraded} 题` });
+  if (s.marked > 0) parts.push({ key: 'marked', text: `老师已批改 ${s.marked} 题` });
+  if (s.pendingMarking > 0) parts.push({ key: 'pending', text: `${s.pendingMarking} 题等老师批改` });
+  if (s.notAnswered > 0) parts.push({ key: 'unanswered', text: `${s.notAnswered} 题没作答` });
+  return parts;
+}
+
 const ANSWER_ROW_LABEL: Record<'correct' | 'reference' | 'rubric', string> = {
   correct: '正确答案',
   reference: '参考答案',
@@ -291,30 +318,13 @@ export function ResultView({
         )}
 
         {result.gradingSummary && result.gradingSummary.total > 0 && (
-          <p data-testid="grading-summary" className="mt-2 text-sm text-slate-600">
-            {result.gradingSummary.autoGraded + result.gradingSummary.marked > 0 && (
-              <span>
-                已自动判分{' '}
-                <span className="tabular-nums font-medium">
-                  {result.gradingSummary.autoGraded + result.gradingSummary.marked}
-                </span>{' '}
-                题
+          <p data-testid="grading-summary" className="mt-2 text-sm text-slate-600 tabular-nums">
+            {gradingSummaryParts(result.gradingSummary).map((part, i) => (
+              <span key={part.key} data-testid={`grading-part-${part.key}`}>
+                {i > 0 ? ' · ' : ''}
+                {part.text}
               </span>
-            )}
-            {result.gradingSummary.pendingMarking > 0 && (
-              <span>
-                {result.gradingSummary.autoGraded + result.gradingSummary.marked > 0 ? ' · ' : ''}
-                <span className="tabular-nums font-medium">{result.gradingSummary.pendingMarking}</span>{' '}
-                题等老师批改
-              </span>
-            )}
-            {result.gradingSummary.notAnswered > 0 && (
-              <span>
-                {' · '}
-                <span className="tabular-nums font-medium">{result.gradingSummary.notAnswered}</span>{' '}
-                题没作答
-              </span>
-            )}
+            ))}
           </p>
         )}
 

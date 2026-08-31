@@ -697,3 +697,143 @@ describe('S12I —— 总结页只在真的做完时才渲染', () => {
     expect(screen.getByTestId('summary-completion')).toBeTruthy();
   });
 });
+
+// ─────────────────────────────────────────────────────────────
+// 7. 返工 1/2 —— B-1：判分摘要不许把人判的说成机器判的
+//
+// 第一版把 `autoGraded + marked` 合并成「已自动判分 N 题」。只要
+// `marked > 0`，那句话就是假的：老师亲手批的题被说成自动判分。
+// 原来的用例恰好用 `marked: 0`，所以照不出这个缺陷。
+// ─────────────────────────────────────────────────────────────
+
+describe('S12I/1 —— 判分摘要如实分开说', () => {
+  const withSummary = (s: Record<string, number>) =>
+    stubFetch([
+      [
+        /\/morning-quiz\/history-detail/,
+        () => readingResult({ gradingSummary: s }),
+      ],
+    ]);
+
+  it('全是老师批的（autoGraded 0 · marked 2）→ **一个字都不许说「自动判分」**', async () => {
+    withSummary({ autoGraded: 0, marked: 2, pendingMarking: 0, notAnswered: 0, total: 2 });
+    mount('/scores/sub-1');
+    await settle();
+    const s = screen.getByTestId('grading-summary').textContent ?? '';
+    expect(s, '老师批的题被说成自动判分了').not.toContain('自动判分');
+    expect(s.replace(/\s+/g, '')).toContain('老师已批改2题');
+  });
+
+  it('四种都有时，四件事分开说，互不吞并', async () => {
+    withSummary({ autoGraded: 3, marked: 2, pendingMarking: 4, notAnswered: 1, total: 10 });
+    mount('/scores/sub-1');
+    await settle();
+    const s = (screen.getByTestId('grading-summary').textContent ?? '').replace(/\s+/g, '');
+    expect(s).toContain('已自动判分3题');
+    expect(s).toContain('老师已批改2题');
+    expect(s).toContain('4题等老师批改');
+    expect(s).toContain('1题没作答');
+    // 合并过的话会出现 5 —— 那正是第一版的错法
+    expect(s).not.toContain('已自动判分5题');
+  });
+
+  it('只有「没作答」时，开头不许挂一个分隔符', async () => {
+    withSummary({ autoGraded: 0, marked: 0, pendingMarking: 0, notAnswered: 2, total: 2 });
+    mount('/scores/sub-1');
+    await settle();
+    const s = (screen.getByTestId('grading-summary').textContent ?? '').trim();
+    expect(s.startsWith('·'), `摘要以分隔符开头：${JSON.stringify(s)}`).toBe(false);
+    expect(s.endsWith('·')).toBe(false);
+    expect(s.replace(/\s+/g, '')).toBe('2题没作答');
+  });
+
+  it('计数为 0 的那几项整段不出现', async () => {
+    withSummary({ autoGraded: 2, marked: 0, pendingMarking: 0, notAnswered: 0, total: 2 });
+    mount('/scores/sub-1');
+    await settle();
+    const s = screen.getByTestId('grading-summary').textContent ?? '';
+    expect(s).not.toContain('老师已批改');
+    expect(s).not.toContain('等老师批改');
+    expect(s).not.toContain('没作答');
+  });
+});
+
+// ─────────────────────────────────────────────────────────────
+// 8. 返工 1/2 —— B-2：错题本要**全局**按卷子 + 日期分组
+//
+// 第一版只合并**相邻**的同组。而服务端是按天倒序、同天按收录原因排的，
+// **不是按卷子排** —— 于是同一份卷子的两条错题中间夹着别的卷子时，
+// 标题会重复出现，分组等于没做。
+// ─────────────────────────────────────────────────────────────
+
+describe('S12I/1 —— 分组是全局的，不是只合并相邻', () => {
+  /** 交错的服务端顺序：A/day1、B/day1、A/day1、A/day2 */
+  const INTERLEAVED = [
+    mistake({ id: 'a1', passageTitle: 'Paper A', quizDay: '2026-08-25', stem: 'A-1' }),
+    mistake({ id: 'b1', passageTitle: 'Paper B', quizDay: '2026-08-25', stem: 'B-1' }),
+    mistake({ id: 'a2', passageTitle: 'Paper A', quizDay: '2026-08-25', stem: 'A-2' }),
+    mistake({ id: 'a3', passageTitle: 'Paper A', quizDay: '2026-08-24', stem: 'A-3' }),
+  ];
+
+  const mountList = () => {
+    stubFetch([
+      [/\/vocab\/mistakes\?/, () => ({ total: INTERLEAVED.length, byTaskType: [], entries: INTERLEAVED })],
+    ]);
+    return mount('/mistakes');
+  };
+
+  it('**恰好三组**：A/day1、B/day1、A/day2', async () => {
+    mountList();
+    await settle();
+    const section = screen.getByTestId('unresolved-section');
+    expect(within(section).queryAllByTestId(/^group-head-/).length).toBe(3);
+  });
+
+  it('A/day1 的标题**只出现一次**', async () => {
+    mountList();
+    await settle();
+    const heads = within(screen.getByTestId('unresolved-section'))
+      .queryAllByTestId(/^group-head-/)
+      .map((h) => h.textContent ?? '');
+    const aDay1 = heads.filter((h) => h.includes('Paper A') && h.includes('08-25'));
+    expect(aDay1.length, 'Paper A / 8-25 的标题重复了').toBe(1);
+  });
+
+  it('A/day1 里是 A-1 在前、A-2 在后（组内保持服务端顺序）', async () => {
+    mountList();
+    await settle();
+    const stems = within(screen.getByTestId('unresolved-section'))
+      .queryAllByTestId(/^stem-/)
+      .map((n) => n.textContent ?? '');
+    expect(stems.indexOf('A-1')).toBeLessThan(stems.indexOf('A-2'));
+  });
+
+  it('组的顺序按**首次出现**：A/day1 → B/day1 → A/day2', async () => {
+    mountList();
+    await settle();
+    const heads = within(screen.getByTestId('unresolved-section'))
+      .queryAllByTestId(/^group-head-/)
+      .map((h) => (h.textContent ?? '').replace(/\s+/g, ''));
+    expect(heads[0]).toContain('PaperA');
+    expect(heads[0]).toContain('08-25');
+    expect(heads[1]).toContain('PaperB');
+    expect(heads[2]).toContain('PaperA');
+    expect(heads[2]).toContain('08-24');
+  });
+
+  it('一条都不许丢 —— 四条错题全在', async () => {
+    mountList();
+    await settle();
+    for (const id of ['a1', 'b1', 'a2', 'a3']) {
+      expect(screen.getByTestId(`entry-${id}`), `${id} 不见了`).toBeTruthy();
+    }
+  });
+
+  it('标题相同但**不同天**的绝不合并', async () => {
+    mountList();
+    await settle();
+    const heads = within(screen.getByTestId('unresolved-section')).queryAllByTestId(/^group-head-/);
+    const aHeads = heads.filter((h) => (h.textContent ?? '').includes('Paper A'));
+    expect(aHeads.length, '两天的 Paper A 被并成了一组').toBe(2);
+  });
+});

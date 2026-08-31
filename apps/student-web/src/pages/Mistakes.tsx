@@ -305,12 +305,26 @@ function GroupedList({
   onCancel: () => void;
   onSend: (e: MistakeEntry) => void;
 }) {
+  // **全局分组，不是只合并相邻的。**
+  //
+  // 返工 1/2 修的就是这一点：服务端是按天倒序、同天按收录原因排的，
+  // **不是按卷子排**。所以同一份卷子的两条错题中间完全可能夹着别的卷子；
+  // 只合并相邻的话（第一版），标题照样重复，分组等于没做。
+  //
+  // 组的顺序 = 它**第一次出现**的位置；组内顺序 = 服务端顺序。
+  // 不过滤、不去重；标题相同但**不同天**的绝不合并（键里带着 quizDay）。
+  const byKey = new Map<string, { key: string; title: string; day: string; items: MistakeEntry[] }>();
   const groups: Array<{ key: string; title: string; day: string; items: MistakeEntry[] }> = [];
   for (const e of entries) {
-    const key = `${e.passageTitle}__${e.quizDay}`;
-    const tail = groups[groups.length - 1];
-    if (tail && tail.key === key) tail.items.push(e);
-    else groups.push({ key, title: e.passageTitle, day: e.quizDay, items: [e] });
+    const key = `${e.passageTitle}␟${e.quizDay}`;
+    const hit = byKey.get(key);
+    if (hit) {
+      hit.items.push(e);
+      continue;
+    }
+    const fresh = { key, title: e.passageTitle, day: e.quizDay, items: [e] };
+    byKey.set(key, fresh);
+    groups.push(fresh);
   }
   return (
     <div className="flex flex-col gap-5">
