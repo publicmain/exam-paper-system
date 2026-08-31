@@ -53,6 +53,15 @@ export function countsAsStudentDone(source: SubmitSource | null | undefined): bo
  * 配额就是现有的 reviewBatchSize（5–20 张）。积压 200 词的学生今天过完
  * 20 张就是 100% 完成 —— 目标可达成是完成度能起作用的前提。
  */
+/**
+ * S12L —— **新建**的每日词汇队列最多几个词。
+ *
+ * 到期 60 个词的学生今天要被教 60 张卡、再考 60 道题；那不是学习计划，
+ * 是劝退。已经冻结过的队列不受影响 —— 截断一个跑到一半的队列，学生
+ * 会看到分母凭空变小，比长一点更糟。
+ */
+export const COURSE_QUEUE_MAX = 30;
+
 export function vocabTarget(dueCount: number, batchSize: number): number {
   const safeBatch = Number.isFinite(batchSize) && batchSize > 0 ? Math.floor(batchSize) : 20;
   return Math.max(0, Math.min(Math.floor(dueCount), safeBatch));
@@ -94,19 +103,44 @@ export interface LessonSegments {
 }
 
 /**
- * 今天这一课完成了几段 / 共几段。
+ * 哪几段**今天算数**。
  *
- * `total` 恒为 3 —— 「今天没有错题」显示的是 3/3 而不是 2/2。学生看到
- * 分母跳来跳去会以为系统坏了；而「今天没有这一段」本来就该算做完。
+ * S12L —— 与「今天没有这一段」（`status: 'none'`）是两回事：
+ * `none` 是「有这一段，但今天没内容」，仍然进分母、算完成；
+ * `available: false` 是「这个能力现在整个关着」，**根本不该出现在分母里**。
+ * 错题本暂停期间学生看到的必须是 `1 / 2`，不是 `2 / 3` —— 后者会让他
+ * 以为自己漏做了什么。
+ *
+ * 缺省全开：不传这个参数时行为与 S12L 之前一个字不差。
  */
-export function lessonProgress(seg: LessonSegments): { completed: number; total: number } {
-  const all = [seg.read, seg.vocab, seg.drill];
-  return { completed: all.filter(isSegmentComplete).length, total: all.length };
+export interface SegmentAvailability {
+  read: boolean;
+  vocab: boolean;
+  drill: boolean;
 }
 
-/** 整节课完成 = 三段都完成。连续天数只认这个。 */
-export function lessonComplete(seg: LessonSegments): boolean {
-  const { completed, total } = lessonProgress(seg);
+const ALL_AVAILABLE: SegmentAvailability = { read: true, vocab: true, drill: true };
+
+/**
+ * 今天这一课完成了几段 / 共几段。
+ *
+ * 分母 = **可用**的段数。「今天没有错题」（target=0）仍然算一段并算完成，
+ * 学生看到的是 3/3；「错题本暂未开放」则一段都不算，看到的是 2/2。
+ */
+export function lessonProgress(
+  seg: LessonSegments,
+  avail: SegmentAvailability = ALL_AVAILABLE,
+): { completed: number; total: number } {
+  const keys = (['read', 'vocab', 'drill'] as const).filter((k) => avail[k]);
+  return { completed: keys.filter((k) => isSegmentComplete(seg[k])).length, total: keys.length };
+}
+
+/** 整节课完成 = **可用的**每一段都完成。连续天数只认这个。 */
+export function lessonComplete(
+  seg: LessonSegments,
+  avail: SegmentAvailability = ALL_AVAILABLE,
+): boolean {
+  const { completed, total } = lessonProgress(seg, avail);
   return completed === total;
 }
 
@@ -318,11 +352,17 @@ export function deriveStage(facts: {
   hasPendingCourseCards: boolean;
   /** 补段是否已达成 */
   drillSettled: boolean;
+  /**
+   * S12L —— 补段这个能力今天开不开放。关着的时候它**不参与阶段推进**：
+   * 读完 + 背完就是 done，学生不会卡在一个进不去的段落前面。
+   * 缺省 `true`，老行为不变。
+   */
+  drillAvailable?: boolean;
 }): LessonStage {
   if (!facts.readSettled) return 'reading';
   if (facts.hasPendingCourseCards) return 'vocab_learn';
   if (!facts.vocabSettled) return 'vocab_test';
-  if (!facts.drillSettled) return 'vocab_test';
+  if (facts.drillAvailable !== false && !facts.drillSettled) return 'vocab_test';
   return 'done';
 }
 

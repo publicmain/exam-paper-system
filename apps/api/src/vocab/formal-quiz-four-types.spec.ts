@@ -289,29 +289,33 @@ describe('S9D2D-3 分配策略与降级', () => {
     );
   });
 
-  it('**没有词能出拼写** → 不硬出，剩下的按选择题交替补齐', () => {
+  // S12L —— 分配改成**按位置轮转**。
+  //
+  // 旧规则是「第一个能拼的出拼写、第一个能挖的出填空、其余选择题交替」。
+  // 对四道题它是对的，对二十一道题就垮了：一道拼写 + 一道填空 + 十九道
+  // 选择题。轮转对任意长度都给出四种均分，而**能力不足的降级仍然由
+  // `resolveFormalType` 负责**（计划只说想考什么，不说考得成）。
+  it('**计划只看位置，不看能力** —— 降级是出题那一步的事', () => {
     expect(formalTypePlan([cap(false, true), cap(false, true), cap(false, true), cap(false, true)])).toEqual(
-      ['cloze', 'word_to_meaning', 'meaning_to_word', 'word_to_meaning'],
+      ['spelling', 'cloze', 'word_to_meaning', 'meaning_to_word'],
     );
+    expect(formalTypePlan([cap(false, false), cap(false, false)])).toEqual(['spelling', 'cloze']);
   });
 
-  it('**一个都挖不了空** → 两种选择题交替，绝不凭空造答案', () => {
-    const plan = formalTypePlan([cap(false, false), cap(false, false), cap(false, false), cap(false, false)]);
-    expect(plan).toEqual(['word_to_meaning', 'meaning_to_word', 'word_to_meaning', 'meaning_to_word']);
-    expect(plan).not.toContain('spelling');
-    expect(plan).not.toContain('cloze');
+  it('**降级之后才是学生看到的题型**：全都拼不了 / 挖不了 → 只剩选择题', () => {
+    const caps = [cap(false, false), cap(false, false), cap(false, false), cap(false, false)];
+    const actual = formalTypePlan(caps).map((planned, i) => resolveFormalType(planned, caps[i]).qtype);
+    expect(actual).toEqual(['word_to_meaning', 'word_to_meaning', 'word_to_meaning', 'meaning_to_word']);
+    expect(actual).not.toContain('spelling');
+    expect(actual).not.toContain('cloze');
   });
 
-  it('**只有第三个词能拼写** → 拼写落在它身上，位置不挪', () => {
-    expect(formalTypePlan([cap(false, true), cap(false, true), cap(true, true), cap(false, false)])).toEqual(
-      ['cloze', 'word_to_meaning', 'spelling', 'meaning_to_word'],
-    );
-  });
-
-  it('**超过四个词**：前四种排完之后按选择题交替续', () => {
-    const plan = formalTypePlan([cap(true, true), cap(true, true), cap(true, true), cap(true, true), cap(true, true), cap(true, true)]);
-    expect(plan.slice(0, 2)).toEqual(['spelling', 'cloze']);
-    expect(plan.slice(2)).toEqual(['word_to_meaning', 'meaning_to_word', 'word_to_meaning', 'meaning_to_word']);
+  it('**二十一个词**：四种题型各自至少五道，不再是「一道拼写打天下」', () => {
+    const plan = formalTypePlan(Array.from({ length: 21 }, () => cap(true, true)));
+    expect(plan).toHaveLength(21);
+    for (const t of ['spelling', 'cloze', 'word_to_meaning', 'meaning_to_word']) {
+      expect(plan.filter((x) => x === t).length, t).toBeGreaterThanOrEqual(5);
+    }
   });
 
   it('**能力不足时的降级是有名字的**，不是悄悄换题', () => {

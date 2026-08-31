@@ -38,11 +38,11 @@ describe('selectEligible —— 资格', () => {
       ],
       NOW, DAY_START,
     );
-    // 教过的只有 3 个 < MIN(4) → 明说不够，绝不用未教过的补
-    expect(r.kind).toBe('insufficient_items');
-    if (r.kind === 'insufficient_items') {
-      expect(r.taught).toBe(3);
-      expect(r.eligible).toBe(3);
+    // S12L —— 下限降到 1 之后，3 个教过的词是一份合法的卷子；
+    // 不变的是**未教过的三个一个都不许混进来**。
+    expect(r.kind).toBe('ok');
+    if (r.kind === 'ok') {
+      expect(r.words.map((x) => x.headword)).toEqual(['taught1', 'taught2', 'taught3']);
     }
   });
 
@@ -83,16 +83,19 @@ describe('selectEligible —— 资格', () => {
     }
   });
 
-  it('刚好 MIN 个 → ok；少一个 → insufficient_items', () => {
+  it('刚好 MIN 个 → ok；一个都没教过 → not_ready', () => {
     const mk = (n: number) => Array.from({ length: n }, (_, i) => w('w' + i));
     expect(selectEligible(mk(MIN_QUIZ_ITEMS), NOW, DAY_START).kind).toBe('ok');
-    expect(selectEligible(mk(MIN_QUIZ_ITEMS - 1), NOW, DAY_START).kind).toBe('insufficient_items');
+    expect(selectEligible([], NOW, DAY_START).kind).toBe('not_ready');
   });
 
-  it('封顶 MAX：词很多也不出成一场马拉松', () => {
+  // S12L —— **不再封顶**。教了几个就考几个：`taught.slice(0, 10)` 是一个
+  // 静默的产品谎言（学了 21 个词只考 10 道，界面上一个字都没说）。
+  // 队列长度本身已经在 `COURSE_QUEUE_MAX` 那里封过顶了。
+  it('教了多少就考多少 —— 不截断', () => {
     const r = selectEligible(Array.from({ length: 40 }, (_, i) => w('w' + i)), NOW, DAY_START);
     expect(r.kind).toBe('ok');
-    if (r.kind === 'ok') expect(r.words.length).toBeLessThanOrEqual(10);
+    if (r.kind === 'ok') expect(r.words).toHaveLength(40);
   });
 
   it('ISO 字符串形态的时间同样能判（跨 API 边界后是字符串）', () => {

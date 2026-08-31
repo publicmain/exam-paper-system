@@ -40,11 +40,19 @@ export function vocabTargetOf(input: {
  */
 export function vocabProgressOf(input: {
   frozenQueue: readonly string[] | null;
-  reviewedTodayWords: readonly string[];
+  /**
+   * S12L —— 队列里**已经教过**的词。
+   *
+   * 旧口径数的是「今天这批词复习了几个」。课程学词改成只教不测之后，
+   * 课程里一条复习流水都不写，那个数永远是 0 —— 学生翻完二十一张卡，
+   * 主页仍然显示 0/21。「教过」才是这一段真正在推进的事实，而且它
+   * 单调、幂等，刷新与重进都不会倒退。
+   */
+  taughtWords: readonly string[];
 }): number {
   if (!input.frozenQueue) return 0;
   const q = new Set(input.frozenQueue);
-  return input.reviewedTodayWords.filter((w) => q.has(w)).length;
+  return [...new Set(input.taughtWords)].filter((w) => q.has(w)).length;
 }
 
 // ─────────────────────────────────────────────────────────────

@@ -136,10 +136,6 @@ const CASES: Case[] = [
   { ep: 'POST /vocab/review', family: 'vocab', run: async (r) => { r.result = await buildVocab(r).submitReview(authedReq(), { headword: 'ephemeral', rating: 'good' }); return authInArg0(r, 'review.review'); } },
   { ep: 'POST /vocab/review/undo', family: 'vocab', run: async (r) => { r.result = await buildVocab(r).undoReview(authedReq(), { headword: 'ephemeral' }); return authInArg0(r, 'review.undo'); } },
   { ep: 'GET /vocab/quiz', family: 'vocab', run: async (r) => { r.result = await buildVocab(r).quizBuild(authedReq()); return authInArg0(r, 'quiz.buildQuiz'); } },
-  { ep: 'GET /vocab/mistakes', family: 'vocab', run: async (r) => { r.result = await buildVocab(r).listMistakes(authedReq()); return callOf(r, 'words.resolveStudent').args[2] as string; } },
-  { ep: 'POST /vocab/mistakes/resolve', family: 'vocab', run: async (r) => { r.result = await buildVocab(r).resolveMistake(authedReq(), { id: 'm1', resolved: true }); return callOf(r, 'words.resolveStudent').args[2] as string; } },
-  { ep: 'GET /vocab/mistakes/practice-queue', family: 'vocab', run: async (r) => { r.result = await buildVocab(r).practiceQueue(authedReq()); return callOf(r, 'words.resolveStudent').args[2] as string; } },
-  { ep: 'POST /vocab/mistakes/practice-result', family: 'vocab', run: async (r) => { r.result = await buildVocab(r).practiceResult(authedReq(), { id: 'm1', correct: true }); return callOf(r, 'words.resolveStudent').args[2] as string; } },
   { ep: 'POST /vocab/page-view', family: 'vocab', run: async (r) => { r.result = await buildVocab(r).recordPageView(authedReq(), { kind: 'vocab' }); return callOf(r, 'words.resolveStudent').args[2] as string; } },
   { ep: 'GET /vocab/stats', family: 'vocab', run: async (r) => { r.result = await buildVocab(r).stats(authedReq()); return authInArg0(r, 'review.stats'); } },
   { ep: 'POST /vocab/quiz/attempt/start', family: 'vocab', run: async (r) => { r.result = await buildVocab(r).quizStart(authedReq(), {}); return authInArg0(r, 'attempts.start'); } },
@@ -180,13 +176,15 @@ const CASES: Case[] = [
   },
 ];
 
-describe('运行期：26 个在范围内端点，带令牌 + 零身份入参', () => {
-  it('**用例表覆盖满 26 条**（少一条就说明有端点没被真的跑过）', () => {
-    expect(CASES).toHaveLength(26);
-    expect(CASES.filter((c) => c.family === 'vocab')).toHaveLength(19);
+describe('运行期：22 个在范围内端点，带令牌 + 零身份入参', () => {
+  // S12L —— 26 减去暂停的四个错题端点。它们没有被放弃覆盖：见上面那一组
+  // 「在解析身份之前就拒绝」，那是一条比 token-only 更强的性质。
+  it('**用例表覆盖满 22 条**（少一条就说明有端点没被真的跑过）', () => {
+    expect(CASES).toHaveLength(22);
+    expect(CASES.filter((c) => c.family === 'vocab')).toHaveLength(15);
     expect(CASES.filter((c) => c.family === 'lesson')).toHaveLength(4);
     expect(CASES.filter((c) => c.family === 'morning-quiz')).toHaveLength(3);
-    expect(new Set(CASES.map((c) => c.ep)).size).toBe(26);
+    expect(new Set(CASES.map((c) => c.ep)).size).toBe(22);
   });
 
   for (const c of CASES) {
@@ -528,23 +526,38 @@ describe('GET /morning-quiz/history-by-name 的响应身份', () => {
  * 但上一轮的用例只断言了「`resolveStudent` 被用 auth id 调过」，没有断言
  * 回显值，所以这个正确性是**没有测试保护的**。下面补上。
  */
-describe('另外 25 条：自己拼响应的四个，回显必须来自解析结果', () => {
-  const resolved = { 'words.resolveStudent': { id: 'db-id-1', name: DB_NAME } };
+// ─────────────────────────────────────────────────────────────
+// S12L —— 暂停的四个错题端点
+//
+// 它们从「26 条 token-only 扫描」里移出来，改成钉一条**更强**的性质：
+// 暂停期间它们**在任何身份解析、任何 IO 之前**就拒绝。碰不到身份，就
+// 谈不上泄漏身份 —— 这比「身份取自令牌」更强，不是更弱。
+//
+// 恢复错题本时把这一组挪回上面的 CASES，26 那个数字会跟着变回 30。
+// ─────────────────────────────────────────────────────────────
 
-  for (const [ep, invoke] of [
-    ['GET /vocab/mistakes', (c: VocabController) => c.listMistakes(authedReq())],
-    ['GET /vocab/mistakes/practice-queue', (c: VocabController) => c.practiceQueue(authedReq())],
-  ] as const) {
-    it(`${ep} —— 回显的 student 就是库里解析出来的那条`, async () => {
+describe('S12L —— 错题端点暂停：在解析身份之前就拒绝', () => {
+  const PAUSED: ReadonlyArray<readonly [string, (c: VocabController) => unknown]> = [
+    ['GET /vocab/mistakes', (c) => c.listMistakes(authedReq())],
+    ['POST /vocab/mistakes/resolve', (c) => c.resolveMistake(authedReq(), { id: 'm1', resolved: true })],
+    ['GET /vocab/mistakes/practice-queue', (c) => c.practiceQueue(authedReq())],
+    ['POST /vocab/mistakes/practice-result', (c) => c.practiceResult(authedReq(), { id: 'm1', correct: true })],
+  ];
+
+  for (const [ep, invoke] of PAUSED) {
+    it(`${ep} —— 503 feature_paused，且一次依赖都没碰`, async () => {
       const rec: Rec = { calls: [] };
-      const out = (await invoke(buildVocab(rec, resolved))) as {
-        student: { id: string; name: string };
-      };
-      expect(out.student).toEqual({ id: 'db-id-1', name: DB_NAME });
-      // 且解析走的是令牌的精确 id 路径
-      expect(callOf(rec, 'words.resolveStudent').args[2]).toBe(ID);
+      const c = buildVocab(rec);
+      await expect(Promise.resolve().then(() => invoke(c))).rejects.toMatchObject({
+        response: { code: 'feature_paused', feature: 'mistakes' },
+      });
+      expect(rec.calls.map((x) => x.m)).toEqual([]);
     });
   }
+});
+
+describe('另外 21 条：自己拼响应的三个，回显必须来自解析结果', () => {
+  const resolved = { 'words.resolveStudent': { id: 'db-id-1', name: DB_NAME } };
 
   it('GET /vocab/lesson-cards —— 有课时透传依赖结果，无课时给固定空壳', async () => {
     const recA: Rec = { calls: [] };
@@ -568,8 +581,6 @@ describe('另外 25 条：透传型端点确实把依赖的结果回给了调用
   /** 自己拼响应的五个单独测（见上），其余必须原样透传。 */
   const BUILDERS = new Set([
     'GET /vocab/lesson-cards',
-    'GET /vocab/mistakes',
-    'GET /vocab/mistakes/practice-queue',
     'POST /vocab/page-view',
     'GET /morning-quiz/history-by-name',
   ]);
@@ -584,8 +595,8 @@ describe('另外 25 条：透传型端点确实把依赖的结果回给了调用
     });
   }
 
-  it('**五个自己拼响应的端点已单独覆盖**，加起来正好 26', () => {
-    expect(BUILDERS.size + CASES.filter((x) => !BUILDERS.has(x.ep)).length).toBe(26);
+  it('**三个自己拼响应的端点已单独覆盖**，加起来正好 22（26 减去暂停的 4 条）', () => {
+    expect(BUILDERS.size + CASES.filter((x) => !BUILDERS.has(x.ep)).length).toBe(22);
     for (const b of BUILDERS) expect(CASES.map((c) => c.ep)).toContain(b);
   });
 });

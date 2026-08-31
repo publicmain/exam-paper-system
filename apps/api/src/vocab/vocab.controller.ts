@@ -1,4 +1,4 @@
-import { BadRequestException, Body, Controller, ForbiddenException, Get, Param, Post, Query, Req, UseGuards } from '@nestjs/common';
+import { BadRequestException, Body, Controller, ForbiddenException, Get, Param, Post, Query, Req, ServiceUnavailableException, UseGuards } from '@nestjs/common';
 import type { Request } from 'express';
 import { z } from 'zod';
 import { CurrentUser } from '../common/current-user.decorator';
@@ -18,6 +18,7 @@ import { VocabService } from './vocab.service';
 import { VocabTeacherService } from './vocab-teacher.service';
 import { MistakeService } from './mistake.service';
 import { PageViewService } from './page-view.service';
+import { MISTAKES_UNAVAILABLE_REASON, mistakesAvailable } from '../lesson/pilot-flags';
 import { PrismaService } from '../common/prisma.service';
 import { canActOnClass } from '../common/roles';
 
@@ -230,6 +231,24 @@ export class VocabController {
   }
 
   // ─────────────────── P6 错题本 ───────────────────
+  //
+  // S12L —— **错题本在试点期整个暂停**（见 `lesson/pilot-flags.ts`）。
+  //
+  // 四个读写端点一律 503 `feature_paused`；**采集侧不动**（判分时照常
+  // 收录错题），学生已经攒下的错题一行不少，恢复只需改回那一个常量。
+  //
+  // 为什么是 503 而不是 404：功能存在、只是暂时不可用。404 会让客户端
+  // 与运维都以为是路由错了。
+
+  /** 暂停期的统一出口。**在任何 IO 之前**抛，一次库都不查。 */
+  private assertMistakesAvailable(): void {
+    if (mistakesAvailable()) return;
+    throw new ServiceUnavailableException({
+      code: 'feature_paused',
+      feature: 'mistakes',
+      message: MISTAKES_UNAVAILABLE_REASON,
+    });
+  }
 
   /** 我的错题本。收录门槛见 mistake.service 顶部注释（不是每道错题都进）。 */
   @Public()
@@ -241,6 +260,7 @@ export class VocabController {
     @Query('studentId') studentId?: string,
     @Query('includeResolved') includeResolved?: string,
   ) {
+    this.assertMistakesAvailable();
     const student = await this.resolveIdentity(req, name, studentId);
     // 这里**不埋点**。成绩页要拿错题数做徽标，也会打这个接口 —— 在
     // 服务端埋点会把"打开成绩页"误记成"打开错题本",而这个区分正是
@@ -257,6 +277,7 @@ export class VocabController {
   @RequireStudentToken()
   @Post('mistakes/resolve')
   async resolveMistake(@Req() req: Request, @Body() body: unknown) {
+    this.assertMistakesAvailable();
     const schema = z.object({
       studentName: z.string().min(1).max(50).optional(),
       studentId: z.string().optional(),
@@ -282,6 +303,7 @@ export class VocabController {
     @Query('studentId') studentId?: string,
     @Query('limit') limit?: string,
   ) {
+    this.assertMistakesAvailable();
     const student = await this.resolveIdentity(req, name, studentId);
     const r = await this.mistakes.practiceQueue(
       student.id,
@@ -296,6 +318,7 @@ export class VocabController {
   @RequireStudentToken()
   @Post('mistakes/practice-result')
   async practiceResult(@Req() req: Request, @Body() body: unknown) {
+    this.assertMistakesAvailable();
     const schema = z.object({
       studentName: z.string().min(1).max(50).optional(),
       studentId: z.string().optional(),

@@ -14,7 +14,12 @@ import {
   progressForDisplay,
   lessonCardOrder,
 } from './rc11-rules';
+import { COURSE_QUEUE_MAX } from './lesson-rules';
 import { isQuizWindowOpen } from '../morning-quiz/morning-quiz.service';
+import {
+  MISTAKES_UNAVAILABLE_REASON,
+  mistakesAvailable,
+} from './pilot-flags';
 import { createRealSubmissionSafe } from '../common/submission-create';
 import { resolveAuthenticatedStudent } from '../common/authenticated-student';
 import {
@@ -181,6 +186,10 @@ export class LessonService {
     });
     const studentLevel = levelRow?.englishLevel ?? null;
 
+    /** S12L —— 补段这个能力今天开不开放（产品开关，不是「今天有没有错题」）。 */
+    const drillAvailable = mistakesAvailable();
+    const availability = { read: true, vocab: true, drill: drillAvailable };
+
     // RC1.1：词段要按**已冻结的队列**算，所以先把任务行读出来。
     // （下面还会再读一次 frozen —— 那一次在可能的写入之后，拿到的是
     // 最新值；这一次只用来决定词段的口径。）
@@ -196,7 +205,11 @@ export class LessonService {
     let [readNow, vocabNow, drillNow] = await Promise.all([
       this.readState(student.id, day, studentLevel),
       this.vocabState(student.id, now, frozenQueue),
-      this.drillState(student.id, now),
+      // S12L —— 补段暂停时**连查都不查**。给学生看一个他进不去的段落，
+      // 还为它跑一次错题队列查询，是两件都不该做的事。
+      drillAvailable
+        ? this.drillState(student.id, now)
+        : Promise.resolve({ target: 0, progress: 0 }),
     ]);
 
     // ── P9：账号制的「开始今天的课程」──
@@ -300,7 +313,9 @@ export class LessonService {
     // 行为与冻结后一致，只是不写库
     const readTarget = frozen?.readTarget ?? (readNow.hasSession ? 1 : 0);
     const vTarget = frozen?.vocabTarget ?? vocabNow.target;
-    const dTarget = frozen?.drillTarget ?? drillNow.target;
+    // S12L —— 暂停时目标恒为 0，连历史上冻结过的目标也不认（否则今天
+    // 打开课程页的学生会顶着一个进不去的 0/5）。
+    const dTarget = drillAvailable ? (frozen?.drillTarget ?? drillNow.target) : 0;
 
     // 考试范围以**任务记下的队列**为准（不是此刻的到期集合）——
     // 旧任务 vocabWords=NULL 时它是空的，考不起来，正是 legacy 的语义。
@@ -367,6 +382,7 @@ export class LessonService {
         legacyHasUnlearnedWords: vocabNow.unlearned > 0,
       }),
       drillSettled: isSegmentComplete(segments.drill),
+      drillAvailable,
     });
     const stage: LessonStage = clampStage(frozen?.stage, derived);
 
@@ -394,7 +410,7 @@ export class LessonService {
     }
     const vocabCursor = clampCursor(frozen?.vocabCursor, vocabNow.target);
 
-    const progRaw = lessonProgress(segments);
+    const progRaw = lessonProgress(segments, availability);
     // 无内容日：三段目标都是 0，isSegmentComplete 会把它们全算成"完成"。
     // 那是"没有东西要做"的副产物，不是学生做完了 —— 不能显示 3/3，
     // 更不能让它进连续天数。
@@ -434,7 +450,7 @@ export class LessonService {
       rulesVersion: LESSON_RULES_VERSION,
       completed: prog.completed,
       total: prog.total,
-      allDone: lessonComplete(segments),
+      allDone: lessonComplete(segments, availability),
       streakDays: await this.lessonStreak(student.id, day),
       targetsFrozenAt: frozen?.targetsFrozenAt ?? null,
       // P3：当前阶段 + 翻卡断点（纯新增字段，旧前端忽略即可）
@@ -455,6 +471,7 @@ export class LessonService {
           submissionId: readNow.submissionId,
           sessionId: readNow.sessionId,
           autoClosed: segments.read === 'auto_closed',
+          available: true,
         },
         {
           key: 'vocab' as const,
@@ -473,6 +490,7 @@ export class LessonService {
             frozen != null && frozen.vocabWords != null,
             vocabNow.attempt,
           ),
+          available: true,
         },
         {
           key: 'drill' as const,
@@ -480,6 +498,12 @@ export class LessonService {
           progress: drillNow.progress,
           target: dTarget,
           typicalMinutes: Math.max(2, dTarget),
+          //
+          // S12L —— `available: false` 与 `status: 'none'` 不是一回事。
+          // 前者是「这个能力现在整个关着」，后者是「有这一段，今天没内容」。
+          // 只有前者会被踢出分母。
+          available: drillAvailable,
+          unavailableReason: drillAvailable ? null : MISTAKES_UNAVAILABLE_REASON,
         },
       ],
     };
@@ -738,19 +762,21 @@ export class LessonService {
       dueNow: dueNowCount,
       reviewedTodayCount: reviewedTodayWords,
     });
-    // 今天复习过的词（去重后的 headword 列表）—— 判据交给 rc11-rules
-    const reviewedRows = queue
-      ? await this.prisma.wordReviewLog.findMany({
-          where: {
-            studentWord: { studentId, headword: { in: queue } },
-            reviewedAt: { gte: dayStart },
-          },
-          select: { studentWord: { select: { headword: true } } },
+    //
+    // S12L —— 词段的进度是**今天这批词教了几个**，不再是「今天复习了几次」。
+    //
+    // 课程学词现在只教不测（教学卡刻意不写 WordReviewLog），旧口径下
+    // 进度会永远停在 0/21 —— 学生翻完二十一张卡，主页还写着一个都没做。
+    // 「教过」是单调、幂等、且正是这一段在做的那件事。
+    const taughtRows = queue
+      ? await this.prisma.studentWord.findMany({
+          where: { studentId, headword: { in: queue }, firstTaughtAt: { not: null } },
+          select: { headword: true },
         })
       : [];
     const progress = vocabProgressOf({
       frozenQueue: queue,
-      reviewedTodayWords: reviewedRows.map((r) => r.studentWord.headword),
+      taughtWords: taughtRows.map((r) => r.headword),
     });
     // P6 —— 今天的正式单词测试交了没有。
     //
@@ -821,10 +847,16 @@ export class LessonService {
       progress,
       unlearned,
       quizSubmitted: quizSubmitted > 0,
-      /** 这一刻的到期队列（规范化去重）。调用方决定要不要落库 */
+      /**
+       * 这一刻的到期队列（规范化去重）。调用方决定要不要落库。
+       *
+       * S12L —— **封顶 30**。到期 60 个词的学生今天要被教 60 张卡、
+       * 然后考 60 道题；那不是学习计划，是劝退。已经冻结过的队列不受
+       * 这一条影响（`take` 只作用于新队列），旧任务照原样跑完。
+       */
       desiredQueue: [
         ...new Set(dueQueue.map((w) => normalizeWord(w.headword)).filter(Boolean)),
-      ],
+      ].slice(0, COURSE_QUEUE_MAX),
       /** 当日正式测试那一行（可能没有）—— 成绩视图与阶段判定都要用 */
       attempt,
     };
@@ -961,7 +993,10 @@ export class LessonService {
         (r) =>
           (r.readTarget === 0 || (r.readDoneAt != null && countsAsStudentDone(r.readSource as any))) &&
           (r.vocabTarget === 0 || r.vocabDoneAt != null) &&
-          (r.drillTarget === 0 || r.drillDoneAt != null),
+          // S12L —— 补段关着的时候它不参与连续天数。历史行里存着
+          // drillTarget=3 而 drillDoneAt 为空的日子，不该因为一个已经
+          // 关掉的功能把学生的连胜清零。
+          (!mistakesAvailable() || r.drillTarget === 0 || r.drillDoneAt != null),
       )
       .map((r) => r.date.toISOString().slice(0, 10));
     return streakFromDays(doneDays, today.toISOString().slice(0, 10));
@@ -1197,13 +1232,17 @@ export class LessonService {
         // freeze=false —— 教师看一眼不能给全班创建当日记录，否则
         // 「学生今天来过」这个信号就被教师的浏览污染了
         const t = await this.getToday({ studentName: r.user.name, studentId: r.user.id });
-        const read = t.segments[0] as any;
+        // S12L —— **按 key 找，不按下标**。段落数组一旦增删（比如补段
+        // 暂停后被拿掉），下标就会静默错位到别的段上。
+        const seg = (k: 'read' | 'vocab' | 'drill') =>
+          (t.segments.find((x) => x.key === k) ?? null) as any;
+        const read = seg('read');
         return {
           studentId: r.user.id,
           name: r.user.name,
-          read: t.segments[0].status,
-          vocab: t.segments[1].status,
-          drill: t.segments[2].status,
+          read: read?.status ?? 'none',
+          vocab: seg('vocab')?.status ?? 'none',
+          drill: seg('drill')?.status ?? 'none',
           completed: t.completed,
           total: t.total,
           allDone: t.allDone,
@@ -1212,7 +1251,7 @@ export class LessonService {
           maxScore: read.maxScore ?? null,
           scoresPending: read.scoresPending ?? false,
           // P7：正式词汇成绩，与上面三个字段**分开**，互不覆盖
-          vocabScore: (t.segments[1] as any).quizScore as VocabScoreView,
+          vocabScore: seg('vocab')?.quizScore as VocabScoreView,
         };
       }),
     );

@@ -31,14 +31,17 @@ describe('B. 自由练习与正式课程的隔离', () => {
     expect(after).toBe(4);
   });
 
+  // S12L —— 进度的口径从「今天复习了队列里的几个」换成「队列里教过几个」
+  // （课程学词只教不测，课程内一条复习流水都不写）。隔离这条不变式没变：
+  // 自由练习既不推进它，队列外的词也不算数。
   it('**自由练习不推进正式进度**（没有任务就没有正式进度）', () => {
-    expect(vocabProgressOf({ frozenQueue: null, reviewedTodayWords: ['ripple'] })).toBe(0);
+    expect(vocabProgressOf({ frozenQueue: null, taughtWords: ['ripple'] })).toBe(0);
   });
 
   it('任务冻结后，只有队列内的词算进度', () => {
     const queue = ['a', 'b', 'c', 'd'];
-    // 学生今天复习了队列里的 a、b，还在自由练习里做了个 zzz
-    expect(vocabProgressOf({ frozenQueue: queue, reviewedTodayWords: ['a', 'b', 'zzz'] })).toBe(2);
+    // 队列里的 a、b 教过了；zzz 是队列外的词，不算
+    expect(vocabProgressOf({ frozenQueue: queue, taughtWords: ['a', 'b', 'zzz'] })).toBe(2);
   });
 
   it('**目标数以冻结队列为准，不因 due 变化而浮动**', () => {

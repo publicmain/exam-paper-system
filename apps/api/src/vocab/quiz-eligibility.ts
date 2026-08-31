@@ -34,10 +34,24 @@
  * 重新算一批。宁可今天不考，也不考他没学过的东西。
  */
 
-/** 一份正式测试至少要几道题才算得上一次测试 */
-export const MIN_QUIZ_ITEMS = 4;
-/** 一份正式测试最多几道题 —— 与自测同量级，保证几分钟做得完 */
-export const MAX_QUIZ_ITEMS = 10;
+/**
+ * 一份正式测试至少要几道题。
+ *
+ * S12L —— 从 4 降到 1。「今天学了 2 个词」是一个完全正常的日子（阅读里
+ * 只冒出两个生词），而旧的下限会让那一天**根本考不了**，学生卡在
+ * `insufficient_items` 上过不去。教了几个就考几个，一个也算一次。
+ */
+export const MIN_QUIZ_ITEMS = 1;
+
+/**
+ * 自由**自测**的题量上限（学生自己选 5/10/20/全部时的安全封顶）。
+ *
+ * S12L —— 这个数**不再作用于正式测试**。以前叫 `MAX_QUIZ_ITEMS`，
+ * 被正式路径拿去 `taught.slice(0, 10)`：教了 21 个词只考 10 个，
+ * 而且界面上没有任何地方说被截断了。正式测试的题数现在恒等于
+ * 今天课程队列里教过的词数。
+ */
+export const SELF_TEST_MAX_ITEMS = 30;
 
 export interface EligibilityWord {
   headword: string;
@@ -73,12 +87,18 @@ export function selectEligible(
   // 里的词一个都不满足**，正式测试永远开不了（实测 taught=4 eligible=0）。
   //
   // 现在这里只回答一件事：这些词够不够开一场正式测试。
+  //
+  // S12L —— **一词一题**。这里不再截断。
+  //
+  // `taught.slice(0, 10)` 是一个静默的产品谎言：学生在课程里被教了 21 个
+  // 词，卷子只出 10 道，而界面从头到尾没说过一个字。要么全考，要么明说
+  // 考不了 —— 没有第三种。
   const taught = words.filter((w) => w.firstTaughtAt != null);
   if (taught.length === 0) return { kind: 'not_ready', taught: 0, eligible: 0 };
   if (taught.length < MIN_QUIZ_ITEMS) {
     return { kind: 'insufficient_items', taught: taught.length, eligible: taught.length };
   }
-  return { kind: 'ok', words: taught.slice(0, MAX_QUIZ_ITEMS) };
+  return { kind: 'ok', words: [...taught] };
 }
 
 /** 一份 items 快照算分 —— 展示层不重算，改词库也不影响历史成绩。 */

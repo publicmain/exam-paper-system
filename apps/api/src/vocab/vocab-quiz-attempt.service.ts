@@ -5,7 +5,6 @@ import { PrismaService } from '../common/prisma.service';
 import { StudentWordService } from './student-word.service';
 import { VocabQuizService } from './vocab-quiz.service';
 import {
-  MAX_QUIZ_ITEMS,
   MIN_QUIZ_ITEMS,
   scoreOf,
   selectEligible,
@@ -108,6 +107,13 @@ export class VocabQuizAttemptService {
           phonetic: reveal ? (it.phonetic ?? null) : null,
           translation: reveal ? (it.translation ?? null) : null,
           contextSentence: reveal ? (it.contextSentence ?? null) : null,
+          //
+          // S12L —— `cue` **不受 reveal 约束**，作答前就要给。
+          //
+          // 它是「这道题在考哪个词」的唯一线索：拼写题的题干只是一句挖了
+          // 空的英文，没有它学生根本不知道要拼什么。构造时已经保证它不含
+          // 答案本身（见 `cueFor`）。
+          cue: it.cue ?? null,
           correctIndex: reveal ? (it.correctIndex ?? null) : null,
           answer: reveal ? (it.answer ?? null) : null,
 
@@ -245,13 +251,19 @@ export class VocabQuizAttemptService {
       studentName: input.studentName,
       studentId: input.studentId,
       authStudentId: input.authStudentId,
-      limit: MAX_QUIZ_ITEMS,
+      // S12L —— 题数 = 今天课程队列里教过的词数。不截断、不补题。
+      limit: formalWords.length,
       words: formalWords,
       mix: 'balanced',
     });
     const questions = built.questions ?? [];
-    if (questions.length < MIN_QUIZ_ITEMS) {
-      // 词够了但组不出题（干扰项不足 / 释义缺失）—— 同样明说，不糊弄
+    //
+    // S12L —— **一词一题是硬约束**。
+    //
+    // 组不出题的原因只有两种（干扰项不足 / 词典没释义），两种都不该由
+    // 学生承担成一份「少了几道的卷子」——他不会知道少了，只会看到一个
+    // 比昨天短的测试。要么全出，要么明说出不了。
+    if (questions.length !== formalWords.length) {
       throw new ConflictException({
         code: 'insufficient_items',
         taught: outcome.words.length,
@@ -270,6 +282,8 @@ export class VocabQuizAttemptService {
       phonetic: q.phonetic ?? null,
       translation: q.translation ?? null,
       contextSentence: q.contextSentence ?? null,
+      /** S12L —— 安全线索随快照存下来，作答前照发（见下面的投影）。 */
+      cue: q.cue ?? null,
       studentIndex: null,
       studentAnswer: null,
       isCorrect: null,

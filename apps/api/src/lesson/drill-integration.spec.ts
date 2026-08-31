@@ -31,6 +31,8 @@ function lessonSvc(o: {
   drillProgress?: number;
   quizSubmitted?: boolean;
   vocabWords?: string[] | null;
+  /** S12L —— 队列里的词教过没有（词段进度的新口径）。 */
+  taught?: boolean;
 }) {
   const drillQueued = Math.max(0, (o.drillTarget ?? 5) - (o.drillProgress ?? 0));
   const frozen = {
@@ -106,9 +108,20 @@ function lessonSvc(o: {
       ),
     },
     studentWord: {
-      findMany: vi.fn().mockResolvedValue(
-        ['alpha', 'beta', 'gamma', 'delta'].map((headword) => ({ headword })),
-      ),
+      // S12L —— 照 where 真的过滤。词段进度现在数的是「队列里教过几个」，
+      // 假实现若无视 `firstTaughtAt: { not: null }`，测的就是假货：一批
+      // 从没教过的词会被算成全教过，背段直接跳成 done。
+      findMany: vi.fn(async (args: any) => {
+        const all = ['alpha', 'beta', 'gamma', 'delta'].map((headword) => ({
+          headword,
+          firstTaughtAt: o.taught === false ? null : new Date(),
+        }));
+        const rows = args?.where?.firstTaughtAt?.not === null
+          ? all.filter((w) => w.firstTaughtAt != null)
+          : all;
+        const inList = args?.where?.headword?.in;
+        return Array.isArray(inList) ? rows.filter((w) => inList.includes(w.headword)) : rows;
+      }),
       count: vi.fn().mockResolvedValue(0),
     },
   };
@@ -130,26 +143,30 @@ const today = (svc: LessonService) =>
 // ─────────────────────────────────────────────────────────────
 
 describe('S12H/1 —— 真实 LessonService.today() 的主行动', () => {
-  it('测试交过了 + 补段 0 / 5 → drill（开始错题重练），不是 vocab_test 也不是 summary', async () => {
+  //
+  // S12L —— **错题本在试点期整个暂停**（`lesson/pilot-flags.ts`）。
+  //
+  // 这一组原本钉的是「补段欠着就该给 drill」。那条路由规则本身没被删，
+  // 仍然由 `drill-flow.spec.ts` 与 `next-action.spec.ts` 逐条覆盖（纯函数
+  // 层）。这里改成钉**暂停之后真实服务的行为**：补段不出现、不挡路、
+  // 不进分母 —— 一个学生绝不该被引导去一个进不去的段落。
+  //
+  // 恢复错题本时把 `MISTAKES_FEATURE` 改回 `available`，这一组要跟着
+  // 改回去；那正是它存在的意义。
+
+  it('补段暂停：测试交过了 + 库里还欠着 5 道 → 直接给总结，不给 drill', async () => {
     const r: any = await today(lessonSvc({ stage: 'vocab_test', drillTarget: 5, drillProgress: 0 }));
-    expect(r.nextAction.kind, '真实路径仍然没给出补段').toBe('drill');
-    expect(r.nextAction.label).toBe('开始错题重练');
+    expect(r.nextAction.kind).toBe('summary');
   });
 
-  it('测试交过了 + 补段 2 / 5 → drill（继续错题重练）', async () => {
-    const r: any = await today(lessonSvc({ stage: 'vocab_test', drillTarget: 5, drillProgress: 2 }));
-    expect(r.nextAction.kind).toBe('drill');
-    expect(r.nextAction.label).toBe('继续错题重练');
-  });
-
-  it('测试**还没交** → 仍然是 vocab_test，不许跳过考试去练错题', async () => {
+  it('补段暂停：测试**还没交** → 仍然是 vocab_test，考试这一关没被顺带跳过', async () => {
     const r: any = await today(
-      lessonSvc({ stage: 'vocab_test', drillTarget: 5, drillProgress: 0, quizSubmitted: false }),
+      lessonSvc({ stage: 'vocab_test', drillTarget: 5, drillProgress: 0, quizSubmitted: false, taught: false }),
     );
     expect(r.nextAction.kind).toBe('vocab_test');
   });
 
-  it('补段做完 5 / 5 → summary', async () => {
+  it('补段做完 5 / 5 → summary（暂停与否都一样）', async () => {
     const r: any = await today(lessonSvc({ stage: 'vocab_test', drillTarget: 5, drillProgress: 5 }));
     expect(r.nextAction.kind).toBe('summary');
   });
@@ -159,27 +176,36 @@ describe('S12H/1 —— 真实 LessonService.today() 的主行动', () => {
     expect(r.nextAction.kind).toBe('summary');
   });
 
-  it('库里已经被错误地写成 done，但补段还欠着 → 仍然给 drill', async () => {
-    const r: any = await today(lessonSvc({ stage: 'done', drillTarget: 5, drillProgress: 0 }));
-    expect(r.nextAction.kind).toBe('drill');
-  });
-
-  it('drill 的 href 是 null —— 不给旧端路由、不带身份、不带查询串', async () => {
+  it('补段段落标成不可用，且**不进分母**（今天是 2 段不是 3 段）', async () => {
     const r: any = await today(lessonSvc({ stage: 'vocab_test', drillTarget: 5, drillProgress: 0 }));
-    expect(r.nextAction.href).toBeNull();
+    const drill = r.segments.find((x: any) => x.key === 'drill');
+    expect(drill.available).toBe(false);
+    expect(drill.unavailableReason).toContain('暂未开放');
+    expect(drill.target).toBe(0);
+    expect(r.total).toBe(2);
   });
 
-  it('主行动只由服务端事实决定 —— 请求里没有任何补段字段可传', async () => {
+  it('暂停期间**一次错题查询都不发**', async () => {
+    const svc = lessonSvc({ stage: 'vocab_test', drillTarget: 5, drillProgress: 0 });
+    const mistakes = (svc as any).mistakes;
+    await today(svc);
+    expect(mistakes.practiceQueue).not.toHaveBeenCalled();
+  });
+
+  it('主行动只由服务端事实决定 —— 请求里塞补段字段也改不了结论', async () => {
     const svc = lessonSvc({ stage: 'vocab_test', drillTarget: 5, drillProgress: 0 });
     const r: any = await (svc as any).getToday({
       studentName: '',
       authStudentId: STUDENT,
       // 这些都不是合法入参；就算硬塞也不能改变结论
-      drillTarget: 0,
-      drillProgress: 99,
-      drillSettled: true,
+      drillTarget: 99,
+      drillProgress: 0,
+      drillSettled: false,
     });
-    expect(r.nextAction.kind).toBe('drill');
+    expect(r.nextAction.kind).toBe('summary');
+    // href 从来不参与新端导航（前端只认 kind），但它绝不能带身份
+    expect(String(r.nextAction.href ?? '')).not.toContain(STUDENT);
+    expect(String(r.nextAction.href ?? '')).not.toContain('name=');
   });
 });
 

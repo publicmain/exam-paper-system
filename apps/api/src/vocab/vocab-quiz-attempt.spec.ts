@@ -26,6 +26,8 @@ function makeSvc(opts: {
   updateManyCount?: number;
   dlc?: any;
   reviewedToday?: any[];
+  /** S12L —— 强制让出题器少出几道，用来验「凑不齐就明说」那一支。 */
+  buildShort?: number;
 } = {}) {
   const calls: Array<{ model: string; op: string; args: any }> = [];
   const track = (model: string, op: string, impl: Function) => (args: any) => {
@@ -92,7 +94,16 @@ function makeSvc(opts: {
   };
   const words = { resolveStudent: vi.fn(async () => ({ id: 'stu1', name: '小明' })) } as any;
   const quiz = {
-    buildQuiz: vi.fn(async () => ({ questions: ITEMS.map((i) => ({ ...i })) })),
+    // S12L —— 一词一题是硬约束，假出题器也得守：给几个词就出几道题。
+    buildQuiz: vi.fn(async (input: any) => {
+      const n = Array.isArray(input?.words) ? input.words.length : ITEMS.length;
+      return {
+        questions: Array.from({ length: opts.buildShort ?? n }, (_, i) => ({
+          ...ITEMS[i % ITEMS.length],
+          headword: input?.words?.[i]?.headword ?? ITEMS[i % ITEMS.length].headword,
+        })),
+      };
+    }),
   } as any;
   return { svc: new VocabQuizAttemptService(prisma, words, quiz), prisma, quiz };
 }
@@ -117,17 +128,25 @@ describe('start —— 创建与恢复', () => {
     expect(prisma.__calls.filter((c: any) => c.op === 'create')).toHaveLength(0);
   });
 
-  it('教过的词不足 → insufficient_items，**不生成虚假测试**', async () => {
-    const { svc, prisma } = makeSvc({ words: dueWords(3) });
+  // S12L —— 下限从 4 降到 1：「今天只学了 2 个词」是个正常的日子，
+  // 旧下限会让那一天根本考不了，学生卡在 insufficient_items 上过不去。
+  it('只教过 3 个词 → 就考 3 道，不再拒绝', async () => {
+    const { svc } = makeSvc({ words: dueWords(3) });
+    const r = await svc.start({ studentName: '小明' });
+    expect(r.items).toHaveLength(3);
+  });
+
+  it('题凑不齐（干扰项不足 / 没释义）→ insufficient_items，**不生成半份卷子**', async () => {
+    const { svc, prisma } = makeSvc({ words: dueWords(5), buildShort: 3 });
     await expect(svc.start({ studentName: '小明' })).rejects.toThrow(ConflictException);
     expect(prisma.__calls.filter((c: any) => c.op === 'create')).toHaveLength(0);
   });
 
-  it('够格 → 建一份，题目快照落库', async () => {
+  it('够格 → 建一份，题目快照落库（教了几个考几个）', async () => {
     const { svc, quiz } = makeSvc({ words: dueWords(5) });
     const r = await svc.start({ studentName: '小明' });
     expect(r.status).toBe('in_progress');
-    expect(r.items).toHaveLength(4);
+    expect(r.items).toHaveLength(5);
     expect(r.resumed).toBe(false);
     // 出题必须用固定词表，服务端不再自己补题
     expect(quiz.buildQuiz).toHaveBeenCalledWith(

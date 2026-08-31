@@ -3,6 +3,7 @@ import { PrismaService } from '../common/prisma.service';
 import { findClozeSpan, windowAroundSpan } from './cloze';
 import { StudentWordService } from './student-word.service';
 import { VocabReviewService } from './vocab-review.service';
+import { SELF_TEST_MAX_ITEMS } from './quiz-eligibility';
 
 /**
  * 生词自测（P5）—— 百词斩式的客观选择题。
@@ -53,6 +54,11 @@ export interface QuizQuestion {
   answer?: string;
   /** spelling 专用：首字母提示（降低手机输入摩擦，半产出而非全产出） */
   hint?: string;
+  /**
+   * S12L —— **作答前就下发**的安全线索（词性 / 中文释义 / 英文释义）。
+   * 只有拼写与填空题有；选择题恒为 null（选项本身就是释义，给了等于给答案）。
+   */
+  cue?: QuizCue | null;
 }
 
 /**
@@ -94,38 +100,85 @@ export interface WordTypeCapability {
 /**
  * 正式测试的题型分配。**纯函数、确定性、不改词序。**
  *
- * 规则（按优先级填槽，词的位置一步都不挪）：
+ * 规则：四种题型**按位置轮转**（拼写 → 填空 → 看词选义 → 看义选词），
+ * 词的位置一步都不挪。
  *
- *   1. `spelling` → **第一个**撑得起拼写的词；
- *   2. `cloze`    → 剩下的词里**第一个**挖得了空的；
- *   3. 其余的词按 `word_to_meaning` / `meaning_to_word` **交替**补齐。
+ * 四个全能词 ⇒ 恰好四种各一道；二十一个词 ⇒ 四种各五六道。
  *
- * 四个全能词 ⇒ 恰好四种各一道。
- *
- * **撑不起就不出**：没有词能拼写时不硬出（那只能靠瞎猜一个 token），
- * 该槽直接让给交替的选择题；一个都挖不了空时同理。降级是有名字的
- * （见 `resolveFormalType`），不是悄悄换一道题。
- *
- * 多于四个词时，前两槽照旧，其余全部按选择题交替 —— 正式测试目前
- * 恒为四题，这一条只是让函数对更长的队列也有定义。
+ * **撑不起就不出**：拼不了 / 挖不了空的词由 `resolveFormalType` 在出题
+ * 那一步降级。降级是有名字的，不是悄悄换一道题。
  */
 export function formalTypePlan(caps: ReadonlyArray<WordTypeCapability>): QuizQType[] {
-  const plan: Array<QuizQType | null> = caps.map(() => null);
-  const firstFree = (ok: (c: WordTypeCapability) => boolean): number => {
-    for (let i = 0; i < caps.length; i++) if (plan[i] == null && ok(caps[i])) return i;
-    return -1;
+  //
+  // S12L —— 四种题型**轮转**，不再是「第一个能拼的出拼写、第一个能挖的
+  // 出填空、剩下全是选择题交替」。
+  //
+  // 旧规则对四道题是对的（四个全能词恰好四种各一道），对二十一道题就
+  // 垮了：一道拼写 + 一道填空 + 十九道选择题。学生的体感是「这卷子只有
+  // 选择题」，而拼写与填空恰恰是唯一需要他真的产出的两种。
+  //
+  // 轮转是纯位置函数：确定性、不改词序、对任意长度都有定义。
+  // 拼不出 / 挖不了空的词由 `resolveFormalType` 在出题那一步降级 ——
+  // 降级是有名字的，不是悄悄换一道题。
+  const ROTATION: QuizQType[] = ['spelling', 'cloze', 'word_to_meaning', 'meaning_to_word'];
+  return caps.map((_, i) => ROTATION[i % ROTATION.length]);
+}
+
+/**
+ * 作答前就能给学生看的**安全线索**。
+ *
+ * ## 为什么需要它
+ *
+ * 拼写题的题干是一句挖空的英文；作答前服务端把 `headword` /
+ * `translation` / `phonetic` / `contextSentence` / `answer` 全遮了（那些
+ * 确实都是答案）。于是学生看到的只有一句挖了空的句子 —— **不知道要拼
+ * 哪个词**。这不是防作弊，这是出错了题。
+ *
+ * ## 什么是安全的
+ *
+ * 中文释义、词性、英文释义**指向**那个词，但不产出它的拼写。选择题
+ * 不给线索：`word_to_meaning` 的选项就是释义，给了等于给答案。
+ *
+ * 最后再兜一道：线索里若混进了答案本身（词典释义偶尔夹带英文原词），
+ * 整条线索作废。宁可不给，也不给漏答案的。
+ */
+export interface QuizCue {
+  pos: string | null;
+  translation: string | null;
+  definition: string | null;
+  instruction: string;
+}
+
+const CUE_INSTRUCTION: Partial<Record<QuizQType, string>> = {
+  spelling: '按下面的意思，把这个英文单词拼出来',
+  cloze: '按下面的意思，选出填进空格的那个词',
+};
+
+export function cueFor(
+  qtype: QuizQType,
+  src: { pos?: string | null; translation?: string | null; definition?: string | null },
+  answerTokens: ReadonlyArray<string | null | undefined>,
+): QuizCue | null {
+  const instruction = CUE_INSTRUCTION[qtype];
+  if (!instruction) return null; // 选择题本身就点名了目标
+  const banned = answerTokens
+    .map((t) => String(t ?? '').trim().toLowerCase())
+    .filter((t) => t.length >= 2);
+  const safe = (v: string | null | undefined): string | null => {
+    const s = String(v ?? '').trim();
+    if (!s) return null;
+    const lower = s.toLowerCase();
+    return banned.some((b) => lower.includes(b)) ? null : s;
   };
-
-  const s = firstFree((c) => c.canSpell);
-  if (s >= 0) plan[s] = 'spelling';
-  const c = firstFree((x) => x.canCloze);
-  if (c >= 0) plan[c] = 'cloze';
-
-  let alt = 0;
-  for (let i = 0; i < plan.length; i++) {
-    if (plan[i] == null) plan[i] = alt++ % 2 === 0 ? 'word_to_meaning' : 'meaning_to_word';
-  }
-  return plan as QuizQType[];
+  const cue: QuizCue = {
+    pos: safe(src.pos),
+    translation: safe(src.translation),
+    definition: safe(src.definition),
+    instruction,
+  };
+  // 三样全被判掉就没有线索可给 —— 明说没有，不给一个空壳
+  if (!cue.pos && !cue.translation && !cue.definition) return null;
+  return cue;
 }
 
 /**
@@ -290,7 +343,11 @@ export class VocabQuizService {
     mix?: 'balanced';
   }) {
     const student = await this.words.resolveStudent(input.studentName, input.studentId, input.authStudentId);
-    const limit = Math.min(Math.max(input.limit ?? 8, 1), 15);
+    // S12L —— **正式测试不夹紧**。调用方直接给定词表（`input.words`）时，
+    // 题数就是词数：教了 21 个就考 21 道。自由自测仍然夹到安全上限。
+    const limit = input.words
+      ? Math.max(input.limit ?? input.words.length, 1)
+      : Math.min(Math.max(input.limit ?? 8, 1), SELF_TEST_MAX_ITEMS);
     const now = new Date();
 
     // ## P6 —— 只考教过的词
@@ -431,6 +488,10 @@ export class VocabQuizService {
           contextSentence: w.contextSentence || null,
           answer: clozeSpan.token,
           hint: clozeSpan.token[0],
+          // S12L —— 作答前就能给的安全线索。没它的话，学生看到的
+          // 只是一句挖了空的英文，不知道要拼哪个词。
+          cue: cueFor('spelling', { pos: e?.pos, translation: optionText(translation), definition: e?.definition },
+            [w.headword, clozeSpan.token]),
         });
         continue;
       }
@@ -483,6 +544,8 @@ export class VocabQuizService {
         phonetic: e?.phonetic ?? null,
         translation: optionText(translation),
         contextSentence: w.contextSentence || null,
+        cue: cueFor(qtype, { pos: e?.pos, translation: optionText(translation), definition: e?.definition },
+          [w.headword, clozeSpan?.token]),
       });
     }
 
