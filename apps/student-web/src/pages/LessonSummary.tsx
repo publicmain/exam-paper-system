@@ -250,10 +250,20 @@ export default function LessonSummaryPage() {
           <li className="rounded-xl bg-slate-50 px-4 py-3">
             <div className="flex items-center justify-between text-sm">
               <span className="font-medium">错题</span>
-              <span className="text-slate-500">{drill ? STATUS_TEXT[drill.status] : STATUS_TEXT.none}</span>
+              <span className="text-slate-500">
+                {/* S12L —— 与今天的课同一套说法。「暂未开放」和「今天没有」
+                    是两件事，两页说得不一样，学生会以为其中一页坏了。 */}
+                {drill?.available === false
+                  ? '暂未开放'
+                  : drill
+                    ? STATUS_TEXT[drill.status]
+                    : STATUS_TEXT.none}
+              </span>
             </div>
             <p data-testid="drill-state" className="mt-1 text-sm text-slate-600">
-              {(drill && progressLine(drill)) ?? '今天没有要重练的错题'}
+              {drill?.available === false
+                ? drill.unavailableReason || '错题重练暂未开放 · 不计入今日完成'
+                : ((drill && progressLine(drill)) ?? '今天没有要重练的错题')}
             </p>
           </li>
         </ul>
