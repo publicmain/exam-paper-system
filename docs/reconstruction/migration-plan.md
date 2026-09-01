@@ -5693,15 +5693,17 @@ health / ready 都是 200；手机 390×844 和 iPad 1024×768 的真实浏览�
    词频/考纲信号、而原形有可靠信号时，改用 `bump` 的「撞击 / 碰撞」释义。
    `learned` 这类有独立词频与标签的词仍保留自己的释义。
 
-代码提交 `b827b7b`。staging API 回滚锚点
-`20df78f5-39a5-4a5d-8e0d-fb9c96ea96cb`，新部署
-`0fb033c8-9af7-41c5-adb7-575ab87b6141`（SUCCESS）；学生端、旧 web 与
+代码提交 `b827b7b`、`9cc8b63`。staging API 回滚锚点
+`20df78f5-39a5-4a5d-8e0d-fb9c96ea96cb`，先部署
+`0fb033c8-9af7-41c5-adb7-575ab87b6141`，抽查发现 `cupped` 同类问题后再部署
+`79df9649-bcec-48ac-831a-906d9e8c155c`（SUCCESS）；学生端、旧 web 与
 Postgres **服务部署**未变，生产未读取、写入或部署。
 
-验证：修复前新增行为测试 2 项失败，修复后 API **107 文件 / 2,158 项**、
+验证：修复前新增行为测试 2 项失败，修复后 API **107 文件 / 2,159 项**、
 student-web **29 文件 / 916 项**全绿，双方 typecheck 与 build 通过。
 线上 `/api/vocab/lookup?word=bumped` 返回 `found:true`、`word:'bump'`、
-`via:'lemma'` 和「撞击 / 碰撞」；`learned`、`morning` 仍 direct 命中，
+`via:'lemma'` 和「撞击 / 碰撞」；同文的 `cupped` 也回退到 `cup`，而
+`gathered`、`learned` 仍 direct 命中，
 故意构造的乱码仍诚实返回未收录。health / ready 都为 200。
 
 ---
