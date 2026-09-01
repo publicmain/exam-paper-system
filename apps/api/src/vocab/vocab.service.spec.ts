@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { candidateForms, normalizeWord } from './vocab.service';
+import { VocabService, candidateForms, normalizeWord, verbLemmaForms } from './vocab.service';
 
 /**
  * 解析链的回归测试。
@@ -54,5 +54,89 @@ describe('candidateForms', () => {
 
   it('过短的所有格不再剥离（避免把 a’s 之类拆成单字母）', () => {
     expect(candidateForms("a's").length).toBe(1);
+  });
+});
+
+describe('verbLemmaForms', () => {
+  it('常见过去式可回退原形（bumped → bump）', () => {
+    expect(verbLemmaForms('bumped')).toEqual(['bump', 'bumpe']);
+    expect(verbLemmaForms('stopped')).toContain('stop');
+    expect(verbLemmaForms('studied')).toEqual(['study']);
+  });
+
+  it('不把普通名词和 -ing 名词乱拆成另一个词', () => {
+    for (const word of ['mother', 'class', 'this', 'morning', 'axis']) {
+      expect(verbLemmaForms(word)).toEqual([]);
+    }
+  });
+});
+
+describe('VocabService.lookup', () => {
+  const row = {
+    word: 'bump',
+    phonetic: '/bʌmp/',
+    translation: 'v. 碰，撞',
+    definition: 'to hit something by accident',
+    pos: 'v.',
+    collins: 2,
+    oxford: true,
+    tag: ['zk'],
+  };
+
+  it('直查没有 bumped 时会命中词典里的 bump，而不是误报未收录', async () => {
+    const prisma = {
+      dictEntry: {
+        findMany: async ({ where }: any) =>
+          where.word.in.includes('bump') ? [row] : [],
+      },
+    };
+    const svc = new VocabService(prisma as any);
+
+    await expect(svc.lookup('bumped')).resolves.toMatchObject({
+      word: 'bump',
+      query: 'bumped',
+      translation: 'v. 碰，撞',
+      via: 'lemma',
+    });
+  });
+
+  it('若词典本身有 bumped，必须优先显示它自己的释义', async () => {
+    const inflected = { ...row, word: 'bumped', translation: 'adj. 被撞到的' };
+    const prisma = {
+      dictEntry: { findMany: async () => [row, inflected] },
+    };
+    const svc = new VocabService(prisma as any);
+
+    await expect(svc.lookup('bumped')).resolves.toMatchObject({
+      word: 'bumped',
+      translation: 'adj. 被撞到的',
+      via: 'direct',
+    });
+  });
+
+  it('低质量 bumped 变形条目不盖过可靠的 bump 释义', async () => {
+    const weakInflected = {
+      ...row,
+      word: 'bumped',
+      translation: 'a. 凸起的；凸状的',
+      collins: null,
+      oxford: false,
+      tag: [],
+      bnc: null,
+      frq: null,
+    };
+    const prisma = {
+      dictEntry: {
+        findMany: async ({ where }: any) =>
+          where.word.in.includes('bumped') ? [weakInflected] : [row],
+      },
+    };
+    const svc = new VocabService(prisma as any);
+
+    await expect(svc.lookup('bumped')).resolves.toMatchObject({
+      word: 'bump',
+      translation: 'v. 碰，撞',
+      via: 'lemma',
+    });
   });
 });

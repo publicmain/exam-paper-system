@@ -11,11 +11,11 @@ import { PrismaService } from '../common/prisma.service';
  *   1. 直查                    —— ECDICT 已把 went/coaxed/shattered 等变形收作
  *                                 独立词条，实测 95.7% 的词形一次命中
  *   2. 剥离所有格 's / s'      —— Singapore's → singapore
- *   3. 按连字符拆分逐段查      —— public-housing → public / housing
- * 三步合计覆盖真实语料 99.4% 的词次。
+ *   3. 常见动词屈折回退        —— bumped → bump / stopped → stop
+ *   4. 按连字符拆分逐段查      —— public-housing → public / housing
  *
- * 刻意**不实现**词形还原引擎：P0 实测 exchange / lemma 两条路径各只多命中
- * 1 个词形，收益为零，而自造后缀规则会把 mother→moth、class→clas 判错。
+ * 第 3 步只处理形态明确的 -ed，不做宽泛的「去 s / 去 ing」；这样能覆盖
+ * bumped 这类真实漏词，同时不会把 mother→moth、class→clas、this→thi。
  */
 
 export interface LookupHit {
@@ -30,8 +30,8 @@ export interface LookupHit {
   collins: number | null;
   oxford: boolean;
   tag: string[];
-  /** 命中方式，便于前端与排查（direct | possessive | hyphen） */
-  via: 'direct' | 'possessive' | 'hyphen';
+  /** 命中方式，便于前端与排查（direct | possessive | lemma | hyphen） */
+  via: 'direct' | 'possessive' | 'lemma' | 'hyphen';
 }
 
 /** 与前端分词器一致的归一化。 */
@@ -48,6 +48,37 @@ export function candidateForms(raw: string): Array<{ form: string; via: LookupHi
   if (w.endsWith("'s") && w.length > 3) out.push({ form: w.slice(0, -2), via: 'possessive' });
   else if (w.endsWith("s'") && w.length > 3) out.push({ form: w.slice(0, -1), via: 'possessive' });
   return out;
+}
+
+/**
+ * 直查失败后才使用的保守动词过去式候选。刻意不处理普通 -s / -ing，避免
+ * this→thi、morning→morn 这类“查到了但翻错了”比未收录更糟的结果。
+ */
+export function verbLemmaForms(raw: string): string[] {
+  const w = normalizeWord(raw).replace(/^[^a-z']+|[^a-z']+$/g, '');
+  if (!w || w.length <= 4) return [];
+  const out = new Set<string>();
+  const add = (form: string) => {
+    if (form.length >= 3 && form !== w) out.add(form);
+  };
+  if (w.endsWith('ied')) add(w.slice(0, -3) + 'y');
+  else if (w.endsWith('ed')) {
+    add(w.slice(0, -2));
+    add(w.slice(0, -1));
+    if (/(.)\1ed$/.test(w)) add(w.slice(0, -3));
+  }
+  return [...out];
+}
+
+/** ECDICT 中有词频/考纲/核心词信号的条目，优先视为可靠的独立词条。 */
+function hasLexicalSignal(row: any): boolean {
+  return !!(
+    row?.oxford ||
+    row?.collins ||
+    row?.bnc ||
+    row?.frq ||
+    (Array.isArray(row?.tag) && row.tag.length > 0)
+  );
 }
 
 @Injectable()
@@ -68,9 +99,53 @@ export class VocabService {
     const rows = await this.prisma.dictEntry.findMany({
       where: { word: { in: forms } },
     });
-    for (const c of cands) {
-      const hit = rows.find((r) => r.word === c.form);
-      if (hit) return this.toHit(hit, raw, c.via);
+    const lemmaForms = verbLemmaForms(raw);
+    const directCandidate = cands
+      .map((c) => ({ candidate: c, row: rows.find((r) => r.word === c.form) }))
+      .find((item) => item.row);
+
+    if (
+      directCandidate &&
+      (directCandidate.candidate.via !== 'direct' || hasLexicalSignal(directCandidate.row))
+    ) {
+      return this.toHit(
+        directCandidate.row,
+        raw,
+        directCandidate.candidate.via,
+      );
+    }
+
+    // ECDICT 有少数低质量变形词条：例如 bumped 的中文是「凸起的」，但英文
+    // definition 与 exchange 都明确指向 bump。若变形本身没有任何词频/考纲
+    // 信号，而原形有，就优先采用可靠原形。learned 这类有独立词频和标签的
+    // 词条仍保留自己的释义。
+    if (lemmaForms.length) {
+      const lemmaRows = await this.prisma.dictEntry.findMany({
+        where: { word: { in: lemmaForms } },
+      });
+      const strongLemma = lemmaForms
+        .map((form) => lemmaRows.find((r) => r.word === form))
+        .find((row) => row && hasLexicalSignal(row));
+      if (
+        strongLemma &&
+        (!directCandidate ||
+          (directCandidate.candidate.via === 'direct' && !hasLexicalSignal(directCandidate.row)))
+      ) {
+        return this.toHit(strongLemma, raw, 'lemma');
+      }
+      if (!directCandidate) {
+        const anyLemma = lemmaForms
+          .map((form) => lemmaRows.find((r) => r.word === form))
+          .find(Boolean);
+        if (anyLemma) return this.toHit(anyLemma, raw, 'lemma');
+      }
+    }
+    if (directCandidate) {
+      return this.toHit(
+        directCandidate.row,
+        raw,
+        directCandidate.candidate.via,
+      );
     }
 
     // 连字符：拆段再查

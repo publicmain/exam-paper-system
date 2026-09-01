@@ -643,7 +643,7 @@ export interface DictEntry {
   oxford: boolean;
   tag: string[];
   /** 命中方式，便于排查。 */
-  via: 'direct' | 'possessive' | 'hyphen';
+  via: 'direct' | 'possessive' | 'lemma' | 'hyphen';
 }
 
 /**
