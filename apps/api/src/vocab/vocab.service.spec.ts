@@ -139,4 +139,34 @@ describe('VocabService.lookup', () => {
       via: 'lemma',
     });
   });
+
+  it('有词频但英中词性冲突的 cupped 也回退到 cup', async () => {
+    const cup = {
+      ...row,
+      word: 'cup',
+      translation: 'n. 杯子；vt. 使成杯状',
+      definition: 'to form into the shape of a cup',
+    };
+    const misleadingCupped = {
+      ...row,
+      word: 'cupped',
+      translation: 'a. 杯形的；凹的',
+      definition: 'v form into the shape of a cup\nv put into a cup',
+      bnc: 25263,
+      frq: 21849,
+    };
+    const prisma = {
+      dictEntry: {
+        findMany: async ({ where }: any) =>
+          where.word.in.includes('cupped') ? [misleadingCupped] : [cup],
+      },
+    };
+    const svc = new VocabService(prisma as any);
+
+    await expect(svc.lookup('cupped')).resolves.toMatchObject({
+      word: 'cup',
+      translation: 'n. 杯子；vt. 使成杯状',
+      via: 'lemma',
+    });
+  });
 });

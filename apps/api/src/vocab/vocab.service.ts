@@ -81,6 +81,21 @@ function hasLexicalSignal(row: any): boolean {
   );
 }
 
+/**
+ * ECDICT 少数变形行的英中词性互相打架：英文 definition 全是动词，中文却
+ * 只有形容词（bumped / cupped）。在阅读里的过去式语境中，这种直查会给出
+ * 看似存在、实际误导的答案。若中文已经明确写了过去式/过去分词则不拦。
+ */
+function hasInflectionTranslationMismatch(row: any): boolean {
+  const definition = String(row?.definition ?? '');
+  const translation = String(row?.translation ?? '');
+  const englishHasVerb = /(?:^|\n)\s*v\b/i.test(definition);
+  const chineseHasVerb = /(?:^|\n)\s*(?:v|vi|vt)\./i.test(translation);
+  const explainsInflection = /过去式|过去分词/.test(translation);
+  const chineseStartsAdjective = /^\s*(?:a|adj)\./i.test(translation);
+  return englishHasVerb && chineseStartsAdjective && !chineseHasVerb && !explainsInflection;
+}
+
 @Injectable()
 export class VocabService {
   constructor(private readonly prisma: PrismaService) {}
@@ -106,7 +121,9 @@ export class VocabService {
 
     if (
       directCandidate &&
-      (directCandidate.candidate.via !== 'direct' || hasLexicalSignal(directCandidate.row))
+      (directCandidate.candidate.via !== 'direct' ||
+        (hasLexicalSignal(directCandidate.row) &&
+          !hasInflectionTranslationMismatch(directCandidate.row)))
     ) {
       return this.toHit(
         directCandidate.row,
@@ -129,7 +146,9 @@ export class VocabService {
       if (
         strongLemma &&
         (!directCandidate ||
-          (directCandidate.candidate.via === 'direct' && !hasLexicalSignal(directCandidate.row)))
+          (directCandidate.candidate.via === 'direct' &&
+            (!hasLexicalSignal(directCandidate.row) ||
+              hasInflectionTranslationMismatch(directCandidate.row))))
       ) {
         return this.toHit(strongLemma, raw, 'lemma');
       }
