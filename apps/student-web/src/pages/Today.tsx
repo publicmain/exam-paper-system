@@ -104,7 +104,13 @@ export function segmentTarget(
   return { kind: 'navigate', path: ROUTES.mistakes };
 }
 
-const STAY_KINDS = new Set<NextActionKind>(['no_content', 'window_closed', 'level_not_set', 'none']);
+const STAY_KINDS = new Set<NextActionKind>([
+  'no_content',
+  'window_closed',
+  'level_not_set',
+  'vocab_waiting',
+  'none',
+]);
 /**
  * 停留态下**卡片上**那一句。
  *
@@ -116,6 +122,7 @@ const STAY_REASON: Partial<Record<NextActionKind, string>> = {
   no_content: '今天还没有课程',
   window_closed: '作答时间已结束',
   level_not_set: '还没分配难度',
+  vocab_waiting: '明天开放测试',
   none: '今天没有要做的',
 };
 

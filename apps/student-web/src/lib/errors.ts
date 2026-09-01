@@ -71,7 +71,7 @@ export function selfRegisterErrorText(e: unknown): string {
     case 'level_not_offered':
       return '这个班没有开这一档 —— 换一档试试。';
     case 'level_not_allowed':
-      return '请从上面三档里挑一档。';
+      return '请从上面五档里挑一档。';
     case 'name_taken_in_class':
       return '这个班里已经有这个名字了 —— 如果那是你，直接去登录；不是的话找老师。';
     case 'pin_must_be_6_digits':
@@ -95,7 +95,7 @@ export function levelChangeErrorText(e: unknown): string {
     case 'level_not_offered':
       return '这个班没有开这一档 —— 换一档，或者找老师。';
     case 'level_not_allowed':
-      return '只能在上面三档里挑。';
+      return '只能在上面五档里挑。';
     case 'class_not_open':
       return '你现在不在任何一个开课的班里 —— 找老师。';
     default:

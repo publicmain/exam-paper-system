@@ -2404,6 +2404,10 @@ model DailyLessonCompletion {
   /// 翻卡断点：已翻到第几张。越界由 clampCursor 兜底回 0。
   vocabCursor     Int       @default(0)
 
+  /// 学生学完当天词汇后主动选择“明天再考”的日期闸门。
+  /// null = 未延期；非 null 时，正式测试最早可在该 SGT 日历日开始。
+  vocabQuizDeferredUntil DateTime?
+
   /// 读段若被系统收尾，记原因（课程页据此显示「已自动收卷」而非 ✅）
   autoFinalizeReason String?
 

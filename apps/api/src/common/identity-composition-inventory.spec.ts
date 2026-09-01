@@ -220,6 +220,7 @@ const MANIFEST: Entry[] = [
   { key: `${F_LESSON} :: replaceKnownLessonWord -> words.resolveStudent`, klass: 'identity_resolution', expectAuth: true, note: '替换课程词前先确定令牌学生' },
   { key: `${F_LESSON} :: replaceKnownLessonWord -> review.lessonCards`, klass: 'identity_forwarding', note: '替换后按同一身份刷新课程卡；幂等返回同样走这里' },
   { key: `${F_LESSON} :: replaceKnownLessonWord -> translation.translate`, klass: 'non_identity', note: '只传备用词或文章原句，与学生身份无关' },
+  { key: `${F_LESSON} :: deferVocabQuiz -> words.resolveStudent`, klass: 'identity_resolution', expectAuth: true, note: '延期考试前按令牌确定学生，不能接受请求指定别人' },
   { key: `${F_LESSON} :: classBoard -> getToday`, klass: 'resolved_id_only', note: '教师看板：姓名与 id 都取自库里那行，不在学生令牌链上' },
 
   // ── student-word ──

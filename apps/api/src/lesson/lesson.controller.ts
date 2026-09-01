@@ -157,6 +157,15 @@ export class LessonController {
     });
   }
 
+  /** 学完今天的词后主动选择“明天再考”。 */
+  @Public()
+  @RequireStudentToken()
+  @RateLimit({ limit: 20, windowSec: 60, scope: 'ip' })
+  @Post('vocab-test/defer')
+  async deferVocabTest(@Req() req: Request) {
+    return this.svc.deferVocabQuiz(identityOf(req));
+  }
+
   /**
    * 上报翻卡断点（P3）。学生退出/刷新/换设备后从这里恢复位置。
    *

@@ -20,7 +20,19 @@
  * 完成率是拿来做决策的指标。口径改过而历史数据不标版本，改口径前后的
  * 数字就不可比 —— 会得出「参与率涨了 8 个点」这种其实是尺子变了的结论。
  */
-export const LESSON_RULES_VERSION = 3;
+/**
+ * v4 freezes the vocabulary segment from the published lesson manifest.
+ *
+ * Older versions built the queue from every word that happened to be due when
+ * the student opened the page.  That made a twelve-word lesson become 13, 21
+ * or any other backlog-dependent number.  Version 4 deliberately invalidates
+ * those snapshots so an open task is rebuilt from the same published list on
+ * every device.
+ */
+export const LESSON_RULES_VERSION = 4;
+
+/** One published lesson teaches and tests exactly twelve final words. */
+export const DAILY_VOCAB_TARGET = 12;
 
 /** 谁最终提交的。只有 student / teacher 计入完成。 */
 export type SubmitSource = 'student' | 'teacher' | 'system_eod';

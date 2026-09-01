@@ -209,12 +209,12 @@ describe('G6 路由契约是单一事实源', () => {
 describe('G9 NextActionKind 映射穷尽', () => {
   // S12H 给服务端加了 `drill`（错题重练）。数字从 10 变 11 是**跟着
   // 后端联合走**，不是把守卫放松 —— 下面那条「一个不漏」依旧。
-  it('**恰好十一个取值**（与后端类型联合一致，含 drill）', () => {
-    expect(NEXT_ACTION_KINDS).toHaveLength(11);
+  it('**恰好十二个取值**（与后端类型联合一致，含延期等待）', () => {
+    expect(NEXT_ACTION_KINDS).toHaveLength(12);
     expect(new Set(NEXT_ACTION_KINDS)).toEqual(
       new Set([
         'ready_to_start', 'resume_reading', 'read_result', 'learn_vocab',
-        'vocab_test', 'drill', 'summary', 'no_content', 'window_closed',
+        'vocab_test', 'vocab_waiting', 'drill', 'summary', 'no_content', 'window_closed',
         'level_not_set', 'none',
       ]),
     );
@@ -257,7 +257,7 @@ describe('G9 NextActionKind 映射穷尽', () => {
     const starts = NEXT_ACTION_KINDS.filter((k) => NEXT_ACTION_ROUTE[k].kind === 'start');
     expect(starts).toEqual(['ready_to_start']);
     const stays = NEXT_ACTION_KINDS.filter((k) => NEXT_ACTION_ROUTE[k].kind === 'stay');
-    expect(stays.sort()).toEqual(['level_not_set', 'no_content', 'none', 'window_closed']);
+    expect(stays.sort()).toEqual(['level_not_set', 'no_content', 'none', 'vocab_waiting', 'window_closed']);
   });
 
   it('映射目标不指向任何旧路由', () => {
@@ -464,6 +464,7 @@ describe('G1 新端不得出现旧路由与旧身份键', () => {
     '/vocab/review/undo',
     '/lesson/vocab-cursor',
     '/lesson/vocab-replace',
+    '/lesson/vocab-test/defer',
     // 阶段 9B1：正式单词测试。三条都是**认证后**端点 —— 零身份参数，
     // 请求体分别是 {} / {index, optionIndex|text} / {}。
     '/vocab/quiz/attempt/start',
@@ -1215,12 +1216,13 @@ describe('G-9A 课程学词只走课程线', () => {
   // S12L —— 课程学词只教不测，`vocabReview` / `vocabReviewUndo` 这两个写
   // 端点整个从这一面移走了（主动回忆搬去了自由复习 `/vocab/practice`）。
   // 少两个是**变严**：课程内现在一条 FSRS 都写不出去。
-  it('**只调这六个课程端点**，一个都不多', () => {
+  it('**课程学词只调登记过的七个端点**，一个都不多', () => {
     const called = new Set<string>();
     for (const { text } of readSurface()) {
       for (const m of text.matchAll(/\bapi\.(\w+)\s*\(/g)) called.add(m[1]);
     }
     expect([...called].sort()).toEqual([
+      'deferVocabTest',
       'lessonCards',
       'lessonToday',
       'vocabCursor',

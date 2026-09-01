@@ -234,6 +234,7 @@ export type LessonToday = {
   stage: string;
   stageAt: string | null;
   vocabCursor: number;
+  pendingVocabTest?: { date: string; total: number } | null;
   segments: LessonSegment[];
 };
 
@@ -427,6 +428,12 @@ export const api = {
 
   vocabReplace: (token: string, body: { headword: string; cursor: number }) =>
     request<VocabReplacementResult>('POST', '/lesson/vocab-replace', { body, token }),
+
+  deferVocabTest: (token: string) =>
+    request<{ ok: true; deferredUntil: string }>('POST', '/lesson/vocab-test/defer', {
+      body: {},
+      token,
+    }),
 
   vocabReview: (
     token: string,

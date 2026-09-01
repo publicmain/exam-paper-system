@@ -133,6 +133,7 @@ export const NEXT_ACTION_KINDS = [
   'read_result',
   'learn_vocab',
   'vocab_test',
+  'vocab_waiting',
   'drill',
   'summary',
   'no_content',
@@ -173,6 +174,7 @@ export const NEXT_ACTION_ROUTE: Readonly<Record<NextActionKind, NextActionTarget
   read_result: { kind: 'navigate', path: ROUTES.readingResult },
   learn_vocab: { kind: 'navigate', path: ROUTES.lessonVocab },
   vocab_test: { kind: 'navigate', path: ROUTES.lessonTest },
+  vocab_waiting: { kind: 'stay', reason: '单词已学完，明天再考' },
   // S12I —— 补段落到**已有的**错题重练页，不新开页、不新开端点。
   // S12L —— 错题本暂停期间服务端不再产出 `drill`；这条映射留着，
   // 是为了恢复功能时不用再动契约表（守卫要求十一个 kind 全有目标）。

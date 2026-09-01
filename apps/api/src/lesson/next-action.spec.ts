@@ -103,6 +103,13 @@ describe('nextActionOf', () => {
     expect(a.href).not.toBe('/my-vocab/review');
   });
 
+  it('选择明天再考后，当天不再暴露考试入口', () => {
+    const a = nextActionOf(f({ stage: 'vocab_test', vocabQuizDeferred: true }));
+    expect(a.kind).toBe('vocab_waiting');
+    expect(a.href).toBeNull();
+    expect(a.label).toContain('明天');
+  });
+
   it('**旧任务：stage=vocab_test 但开不出测试 → 给总结，不给死按钮**', () => {
     const a = nextActionOf(f({ stage: 'vocab_test', vocabTestAvailable: false }));
     expect(a.kind).toBe('summary');

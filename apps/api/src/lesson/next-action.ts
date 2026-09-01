@@ -23,6 +23,7 @@ export type NextActionKind =
   | 'read_result'
   | 'learn_vocab'
   | 'vocab_test'
+  | 'vocab_waiting'
   /** S12H —— 补段（错题重练）。它一直是三段之一，却从来没有过自己的主行动。 */
   | 'drill'
   | 'summary'
@@ -100,6 +101,8 @@ export interface NextActionFacts {
    * 要分得出「还没考」与「考完了在等补段」，就必须有这一条事实。
    */
   vocabQuizSubmitted?: boolean;
+  /** 学生已经选择明天再考；今天不再给可点击的考试入口。 */
+  vocabQuizDeferred?: boolean;
 }
 
 /**
@@ -181,6 +184,9 @@ export function nextActionOf(f: NextActionFacts): NextAction {
     // 已经考过了，但阶段还停在 vocab_test（因为补段没做完）——
     // 这时候下一步是补段，**不是再考一次**。
     if (f.vocabQuizSubmitted && drillPending(f)) return drillAction(f);
+    if (!f.vocabQuizSubmitted && f.vocabQuizDeferred) {
+      return { kind: 'vocab_waiting', label: '单词已学完，明天再考', href: null };
+    }
     return { kind: 'vocab_test', label: '开始单词测试', href: '/my-vocab/quiz' };
   }
 

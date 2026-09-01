@@ -19,10 +19,10 @@
 | --- | --- |
 | 学生入口 | `https://stg-student-web-spike-production.up.railway.app` |
 | 班级 | 学生从服务端提供的开放班级列表中选择 |
-| 分级 | O-Level · 雅思简化 · 雅思真题型，**三档同时开** |
+| 分级 | O-Level 基础 · O-Level 进阶 · 雅思简化 · 雅思进阶 · 雅思真题型，**五档同时开** |
 | 内容包 | `2026-08-31` 至 `2026-09-04`，周一到周五全部备齐 |
-| 已实际写入 staging | 周一、周二；周三到周五仍按当天早上运行发布脚本 |
-| 每天 | 每档一篇文章 · 10 题 · 21 个目标词 |
+| 内容发布 | 五天内容均已备齐；每天早上按当天花名册幂等发布 |
+| 每天 | 每档一篇文章 · 10 题 · 12 个今日词 + 同文备用词 |
 | 每天要老师批的 | 每人 **4 题**（其余 6 题服务端当场判） |
 | 环境 | Railway 项目 `exam-staging-manual` / `production`，**独立库** |
 
@@ -30,19 +30,20 @@
 
 ## 2. 每天的内容
 
-| 日期 | O-Level | 雅思简化 | 雅思真题型 |
-| --- | --- | --- | --- |
-| 2026-08-31 | 《The Night Market Cleans Up》 | 《The Bicycle Doctor》 | 《The Slow Science of Coral》 |
-| 2026-09-01 | 《Learning to Swim at Forty》 | 《Birds on the Eleventh Floor》 | 《What the Ice Remembers》 |
-| 2026-09-02 | 《The Bus Stop Garden》 | 《The Library of Things》 | 《Planning Corridors of Darkness》 |
-| 2026-09-03 | 《A Map Made from Sound》 | 《The School That Saved the Rain》 | 《The Complicated Promise of Cool Pavements》 |
-| 2026-09-04 | 《The Seeds Kept for Tomorrow》 | 《Friday at the Repair Café》 | 《When a River Is Given More Room》 |
+| 日期 | O-Level 基础 | O-Level 进阶 | 雅思简化 | 雅思进阶 | 雅思真题型 |
+| --- | --- | --- | --- | --- | --- |
+| 2026-08-31 | 《The Night Market Cleans Up》 | 《Auntie Lim's Bee Hoon》 | 《The Bicycle Doctor》 | 《Bees in the City》 | 《The Slow Science of Coral》 |
+| 2026-09-01 | 《Learning to Swim at Forty》 | 《The Frog at MacRitchie》 | 《Birds on the Eleventh Floor》 | 《Working Against the Clock》 | 《What the Ice Remembers》 |
+| 2026-09-02 | 《The Bus Stop Garden》 | 《The Drawing on the Wall》 | 《The Library of Things》 | 《Roads Made of Rubbish》 | 《Planning Corridors of Darkness》 |
+| 2026-09-03 | 《A Map Made from Sound》 | 《The Library Card》 | 《The School That Saved the Rain》 | 《The Last Speakers》 | 《The Complicated Promise of Cool Pavements》 |
+| 2026-09-04 | 《The Seeds Kept for Tomorrow》 | 《The Last Runner》 | 《Friday at the Repair Café》 | 《Farming Upwards》 | 《When a River Is Given More Room》 |
 
 每篇都是**原创**的，不是往届真题的原文 —— 版权上干净，题干与依据都能在
 文章里指到具体那一句。
 
-每天每档固定：**10 题 = 6 道客观题 + 4 道主观题**，**21 个目标词**。
-三档五天合计 **15 篇文章 / 150 题 / 298 个不重复的词**。
+每天每档固定：**10 题 = 6 道客观题 + 4 道主观题**，**12 个今日词**；
+同一篇文章的其余候选词只在学生点「这个词我会了，换一个」时按原位补入。
+五档五天合计 **25 篇文章 / 250 题 / 300 个今日词位 / 393 个不重复候选词**。
 
 ---
 
@@ -59,7 +60,7 @@ cd apps/api && P1_CONFIRM=S12M_PUBLISH_PILOT_WEEK railway run -p ed8c31c0-6499-4
 > ### ⚠️ 顺序很重要：**先让学生注册，再跑脚本**
 >
 > 单词是**按当天的花名册**发的 —— 脚本只会给「跑的那一刻已经在班里的
-> 人」排当天的 21 个词。所以：
+> 人」排当天的 12 个今日词。所以：
 >
 > · **第一天**：先把网址发出去、等学生选择班级并注册完，**再**跑脚本。
 > · **中途有人加入**：当天**再跑一次同一天的**脚本，他就拿到词了。
@@ -73,7 +74,7 @@ cd apps/api && P1_CONFIRM=S12M_PUBLISH_PILOT_WEEK railway run -p ed8c31c0-6499-4
 
 - **幂等**。同一天跑第二遍不会多写一行，输出会直接告诉你
   「没有任何计数发生变化 —— 这次是幂等重跑」。跑重了不要紧。
-- **它会顺手排期**。当天的 21 个词排到今天到期；**前一天那批还没复习过的
+- **它会顺手排期**。当天的 12 个词排到今天到期；**前一天那批还没复习过的
   词，推到 2026-09-14**。这是故意的 —— 否则周二的队列会是 42 个词，
   学生一开课就被劝退。已经复习过的词**不动**（它们归 FSRS 管）。
 - 脚本**只写自己那套 `p1_` 前缀的东西**，并在结束前逐条断言：答卷指纹、
@@ -128,9 +129,9 @@ cd apps/api && P1_CONFIRM=S12M_PUBLISH_PILOT_WEEK railway run -p ed8c31c0-6499-4
 - [ ] 先把网址发出去，等大家选择班级并注册完。
 - [ ] 每个学生都能**自己注册、自己进来**（不用你代劳，也不用你先建号）。
 - [ ] **等人齐了再**跑当天的发布脚本，确认输出里六条「不该动的」全是 ✓，
-      而且 `StudentWord.created` 的数量 ≈ 人数 × 21。
+      而且 `StudentWord.created` 的数量至少 ≈ 人数 × 12（备用词也会预备入库）。
 - [ ] 他选的那一档，和「今天的课」上显示的文章标题对得上。
-- [ ] 「今天的课」上显示 `0 / 2`、`阅读 10 题`、`单词 0 / 21`、
+- [ ] 「今天的课」上显示 `0 / 2`、`阅读 10 题`、`单词 0 / 12`、
       `错题 暂未开放`。
 - [ ] 至少一个学生走完：阅读 → 交卷 → 学词 → 单词测试 → 今日总结。
 - [ ] 交卷后成绩页写的是「已自动判分 6 题 · 4 题等老师批改」，
@@ -140,7 +141,7 @@ cd apps/api && P1_CONFIRM=S12M_PUBLISH_PILOT_WEEK railway run -p ed8c31c0-6499-4
 **第 2 天**
 
 - [ ] 早上先跑脚本，再让学生进。
-- [ ] 确认单词队列是 **21**，不是 42 —— 昨天没复习的词应该已被推走。
+- [ ] 确认单词队列是 **12**，不是 24 —— 昨天没复习的词应该已被推走。
 - [ ] 确认昨天的成绩在「历史成绩」里能查到，且已变成「已批改」。
 - [ ] 如果有人在账号设置里换过难度：确认他**昨天那一份**还是原来那一档，
       **今天这一份**才是新的那一档。
@@ -157,8 +158,8 @@ cd apps/api && P1_CONFIRM=S12M_PUBLISH_PILOT_WEEK railway run -p ed8c31c0-6499-4
 - **错题重练是关的**。「今天的课」和「今日总结」里都会写「暂未开放」，
   且**不计入今日完成**（分母是 2 不是 3）。四个错题接口一律返回
   `feature_paused`。这是这一期故意的取舍。
-- **第一天不会出拼写题**。拼写题要求这个词至少复习过一次；第一天所有词
-  都是刚教的，所以那些题会降级成完形填空。第二天起才有拼写。
+- **正式单词测试只用两种透明题型**：中文释义 / 词性提示拼英文，或英文选中文。
+  一课 12 个词就考 12 题；干扰项只来自同一课，不用生僻陌生词诱导猜答案。
 - **主观题没批完就没有分数。** 学生看到的是「等老师批改」。这是设计，
   不是卡住了 —— 所以当天必须批完。
 - **词汇卡的内容来自词典表**。这周的 124 个词是这次补录的；释义如果有错，

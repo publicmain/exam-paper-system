@@ -1,4 +1,4 @@
-import { Injectable, Logger, BadRequestException, NotFoundException, Optional } from '@nestjs/common';
+import { Injectable, Logger, BadRequestException, ConflictException, NotFoundException, Optional } from '@nestjs/common';
 import { PrismaService } from '../common/prisma.service';
 import { StudentWordService } from '../vocab/student-word.service';
 import { normalizeWord } from '../vocab/vocab.service';
@@ -14,7 +14,7 @@ import {
   progressForDisplay,
   lessonCardOrder,
 } from './rc11-rules';
-import { COURSE_QUEUE_MAX } from './lesson-rules';
+import { COURSE_QUEUE_MAX, DAILY_VOCAB_TARGET } from './lesson-rules';
 import { isQuizWindowOpen } from '../morning-quiz/morning-quiz.service';
 import {
   MISTAKES_UNAVAILABLE_REASON,
@@ -100,7 +100,7 @@ export function lessonWordsFromConfig(config: unknown): Array<{
     const contextTranslation = String((item as any).contextTranslation ?? '').trim();
     seen.add(headword);
     out.push({ headword, surfaceForm, context, contextTranslation });
-    if (out.length >= COURSE_QUEUE_MAX) break;
+    if (out.length >= DAILY_VOCAB_TARGET) break;
   }
   return out;
 }
@@ -271,8 +271,12 @@ export class LessonService {
     if (input.freeze && readNow.lessonWords.length > 0) {
       await this.ensureLessonWords(student.id, readNow.paperName, readNow.lessonWords, now);
     }
+    const publishedQueue = readNow.lessonWords
+      .map((word) => normalizeWord(word.headword))
+      .filter(Boolean)
+      .slice(0, DAILY_VOCAB_TARGET);
     let [vocabNow, drillNow] = await Promise.all([
-      this.vocabState(student.id, now, frozenQueue),
+      this.vocabState(student.id, now, frozenQueue, publishedQueue),
       // S12L —— 补段暂停时**连查都不查**。给学生看一个他进不去的段落，
       // 还为它跑一次错题队列查询，是两件都不该做的事。
       drillAvailable
@@ -361,8 +365,16 @@ export class LessonService {
           vocabTarget: vocabNow.target,
           drillTarget: drillNow.target,
           targetsFrozenAt: now,
-          // 已经冻结的队列原样保留。规则升级只能重算目标与判定口径，
-          // 不能把学生后来查进生词本的词追加到今天的课程里。
+          // v4 is the one intentional exception to the old "preserve queue"
+          // rule: pre-v4 queues were not manifests at all; they were a live
+          // due-word backlog. Rebuild them from the published twelve words.
+          ...(frozen.rulesVersion < 4 && publishedQueue.length > 0
+            ? {
+                vocabWords: publishedQueue as any,
+                vocabTarget: publishedQueue.length,
+                vocabCursor: Math.min(frozen.vocabCursor, publishedQueue.length),
+              }
+            : {}),
           rulesVersion: LESSON_RULES_VERSION,
         },
       });
@@ -502,11 +514,40 @@ export class LessonService {
       drillTarget: dTarget,
       drillProgress: drillNow.progress,
       vocabQuizSubmitted: vocabNow.quizSubmitted,
+      vocabQuizDeferred:
+        frozen?.vocabQuizDeferredUntil != null &&
+        frozen.vocabQuizDeferredUntil.getTime() > day.getTime(),
     });
+    // 延期的旧任务优先于今天的新课。学生明确选择“明天再考”后，第二天
+    // 先把昨天那份固定 12 词测完，再开始今天的新词；考试范围仍绑定旧任务，
+    // 不会与今天的文章混在一起。
+    const completionRepo = this.prisma.dailyLessonCompletion as any;
+    const pendingVocabTask = typeof completionRepo.findFirst === 'function'
+      ? await completionRepo.findFirst({
+          where: {
+            studentId: student.id,
+            date: { lt: day },
+            stage: 'vocab_test',
+            vocabQuizDeferredUntil: { lte: day },
+            vocabQuizAttempts: { none: {} },
+          },
+          orderBy: { date: 'asc' },
+          select: { id: true, date: true, vocabWords: true },
+        })
+      : null;
+    const effectiveNextAction = pendingVocabTask
+      ? { kind: 'vocab_test' as const, label: '完成延期的单词测试', href: '/my-vocab/quiz' }
+      : nextAction;
     return {
       student: { id: student.id, name: student.name },
       date: day.toISOString().slice(0, 10),
-      nextAction,
+      nextAction: effectiveNextAction,
+      pendingVocabTest: pendingVocabTask
+        ? {
+            date: pendingVocabTask.date.toISOString().slice(0, 10),
+            total: Array.isArray(pendingVocabTask.vocabWords) ? pendingVocabTask.vocabWords.length : 0,
+          }
+        : null,
       rulesVersion: LESSON_RULES_VERSION,
       completed: prog.completed,
       total: prog.total,
@@ -567,6 +608,40 @@ export class LessonService {
         },
       ],
     };
+  }
+
+  /** 学完今天的固定词包后，明确把正式测试延期到下一个 SGT 日历日。 */
+  async deferVocabQuiz(input: {
+    studentName: string;
+    studentId?: string;
+    authStudentId?: string;
+  }) {
+    const student = await this.words.resolveStudent(
+      input.studentName,
+      input.studentId,
+      input.authStudentId,
+    );
+    const day = this.sgtDayStart(new Date());
+    const tomorrow = new Date(day.getTime() + 24 * 60 * 60 * 1000);
+    const task = await this.prisma.dailyLessonCompletion.findUnique({
+      where: { studentId_date: { studentId: student.id, date: day } },
+      select: { id: true, stage: true, vocabWords: true, vocabQuizAttempts: { select: { id: true }, take: 1 } },
+    });
+    if (!task) throw new ConflictException({ code: 'no_task' });
+    if (task.stage !== 'vocab_test') {
+      throw new ConflictException({ code: 'stage_not_ready', stage: task.stage });
+    }
+    if (!Array.isArray(task.vocabWords) || task.vocabWords.length === 0) {
+      throw new ConflictException({ code: 'insufficient_items' });
+    }
+    if (task.vocabQuizAttempts.length > 0) {
+      throw new ConflictException({ code: 'attempt_already_started' });
+    }
+    await this.prisma.dailyLessonCompletion.update({
+      where: { id: task.id },
+      data: { vocabQuizDeferredUntil: tomorrow },
+    });
+    return { ok: true as const, deferredUntil: tomorrow.toISOString().slice(0, 10) };
   }
 
   /** 只在有变化时写库 —— 课程页会被反复打开，不必每次都 UPDATE。 */
@@ -809,7 +884,12 @@ export class LessonService {
   }
 
   // ── ② 背 ──
-  private async vocabState(studentId: string, now: Date, frozenQueue?: string[] | null) {
+  private async vocabState(
+    studentId: string,
+    now: Date,
+    frozenQueue?: string[] | null,
+    publishedQueue: string[] = [],
+  ) {
     const dayStart = this.sgtMidnight(now);
     //
     // RC1.1 —— **正式词段的目标与进度只认当前任务队列**。
@@ -828,6 +908,8 @@ export class LessonService {
     // 「今天到期过的」（把今天已经复习掉的加回来，所以复习不会让它缩水），
     // 进度为 0（还没开始今天的课，谈不上正式进度）。
     const queue = Array.isArray(frozenQueue) ? frozenQueue : null;
+    const planned = [...new Set(publishedQueue.map(normalizeWord).filter(Boolean))]
+      .slice(0, DAILY_VOCAB_TARGET);
 
     // 今天到期过的：此刻仍到期的 + 今天已经复习过的（后者的 due 已被推远）
     const dueNowCount = await this.prisma.studentWord.count({
@@ -845,7 +927,7 @@ export class LessonService {
     void reviewBatchSize(backlog);
     void vocabTarget;
     const target = vocabTargetOf({
-      frozenQueue: queue,
+      frozenQueue: queue ?? (planned.length > 0 ? planned : null),
       // 未冻结时用「今天到期过的」——判据见 rc11-rules
       dueNow: dueNowCount,
       reviewedTodayCount: reviewedTodayWords,
@@ -942,9 +1024,11 @@ export class LessonService {
        * 然后考 60 道题；那不是学习计划，是劝退。已经冻结过的队列不受
        * 这一条影响（`take` 只作用于新队列），旧任务照原样跑完。
        */
-      desiredQueue: [
-        ...new Set(dueQueue.map((w) => normalizeWord(w.headword)).filter(Boolean)),
-      ].slice(0, COURSE_QUEUE_MAX),
+      desiredQueue: planned.length > 0
+        ? planned
+        : [
+            ...new Set(dueQueue.map((w) => normalizeWord(w.headword)).filter(Boolean)),
+          ].slice(0, COURSE_QUEUE_MAX),
       /** 当日正式测试那一行（可能没有）—— 成绩视图与阶段判定都要用 */
       attempt,
     };
@@ -1120,27 +1204,9 @@ export class LessonService {
         if (!exists) throw new NotFoundException({ code: 'word_not_in_notebook' });
       }
 
-      // ①.5 把这个词记进**这次任务的词汇队列**。
-      //
-      // 冻结时的快照可能没包含它（比如扫码推词发生在冻结之后）。学生是
-      // 通过这次任务的教学卡学的它，它就属于这次任务 —— 这条写入和
-      // firstTaughtAt 在同一个事务里，不会出现「教了但不算这次任务的」。
-      const dlcRow = await tx.dailyLessonCompletion.findUnique({
-        where: { studentId_date: { studentId: student.id, date: day } },
-        select: { id: true, vocabWords: true },
-      });
-      if (dlcRow) {
-        const list: string[] = Array.isArray(dlcRow.vocabWords)
-          ? (dlcRow.vocabWords as string[]).map((w) => normalizeWord(String(w)))
-          : [];
-        const key = normalizeWord(headword);
-        if (key && !list.includes(key)) {
-          await tx.dailyLessonCompletion.update({
-            where: { id: dlcRow.id },
-            data: { vocabWords: [...list, key] as any },
-          });
-        }
-      }
+      // The task manifest is frozen before teaching starts.  Teaching records
+      // progress only; it must never append a looked-up or newly-due word and
+      // silently change both the denominator and the formal exam scope.
 
       // ② 单调推进断点 —— 与 saveVocabCursor 同一条件写入语义
       const bumped = await tx.dailyLessonCompletion.updateMany({

@@ -138,7 +138,7 @@ export class VocabQuizAttemptService {
   async start(input: { studentName: string; studentId?: string; authStudentId?: string }) {
     const student = await this.words.resolveStudent(input.studentName, input.studentId, input.authStudentId);
     const now = new Date();
-    const date = this.dayKey(now);
+    const today = this.dayKey(now);
     const dayStart = this.sgtMidnight(now);
 
     // ── 先要有「当前任务」──
@@ -146,11 +146,28 @@ export class VocabQuizAttemptService {
     // 正式测试属于一次任务，没有任务就没有正式测试。DLC 行由
     // today(freeze:true) 创建（那里才有完整的目标冻结逻辑），这里只读不建
     // —— 越权创建会造出 target 全 0 的空任务行。
-    const dlc = await this.prisma.dailyLessonCompletion.findUnique({
-      where: { studentId_date: { studentId: student.id, date } },
-      select: { id: true, vocabWords: true, stage: true },
+    // “明天再考”的旧任务先于今天的新任务。考试范围、成绩归属和历史日期
+    // 都继续绑定旧 DLC；绝不把两天的词合成一张卷。
+    const dlcRepo = this.prisma.dailyLessonCompletion as any;
+    const pending = typeof dlcRepo.findFirst === 'function'
+      ? await dlcRepo.findFirst({
+          where: {
+            studentId: student.id,
+            date: { lt: today },
+            stage: 'vocab_test',
+            vocabQuizDeferredUntil: { lte: today },
+            vocabQuizAttempts: { none: {} },
+          },
+          orderBy: { date: 'asc' },
+          select: { id: true, date: true, vocabWords: true, stage: true, vocabQuizDeferredUntil: true },
+        })
+      : null;
+    const dlc = pending ?? await this.prisma.dailyLessonCompletion.findUnique({
+      where: { studentId_date: { studentId: student.id, date: today } },
+      select: { id: true, date: true, vocabWords: true, stage: true, vocabQuizDeferredUntil: true },
     });
     if (!dlc) throw new ConflictException({ code: 'no_task' });
+    const date = dlc.date;
 
     // 已有这次任务的测试 → 原样返回。按**任务**查，不按「学生 + 今天」查：
     // 前者是 attempt 真正归属的东西，后者只是它恰好落在的那一天。
@@ -161,6 +178,13 @@ export class VocabQuizAttemptService {
       where: { dailyLessonCompletionId: dlc.id },
     });
     if (existing) return { ...this.view(existing), resumed: true as const };
+
+    if (dlc.vocabQuizDeferredUntil && dlc.vocabQuizDeferredUntil.getTime() > today.getTime()) {
+      throw new ConflictException({
+        code: 'vocab_quiz_deferred',
+        deferredUntil: dlc.vocabQuizDeferredUntil.toISOString().slice(0, 10),
+      });
+    }
 
     // ── 阶段门：**没走到该考的阶段就不许开考** ──
     //
@@ -323,7 +347,8 @@ export class VocabQuizAttemptService {
   async current(input: { studentName: string; studentId?: string; authStudentId?: string }) {
     const student = await this.words.resolveStudent(input.studentName, input.studentId, input.authStudentId);
     const a = await this.prisma.vocabQuizAttempt.findFirst({
-      where: { studentId: student.id, date: this.dayKey() },
+      where: { studentId: student.id },
+      orderBy: { startedAt: 'desc' },
     });
     return a ? this.view(a) : { attempt: null };
   }
@@ -345,9 +370,9 @@ export class VocabQuizAttemptService {
     text?: string;
   }) {
     const student = await this.words.resolveStudent(input.studentName, input.studentId, input.authStudentId);
-    const date = this.dayKey();
     const a = await this.prisma.vocabQuizAttempt.findFirst({
-      where: { studentId: student.id, date },
+      where: { studentId: student.id, status: 'in_progress' },
+      orderBy: { startedAt: 'desc' },
     });
     if (!a) throw new ConflictException({ code: 'no_attempt' });
     if (a.status === 'submitted') {
@@ -415,9 +440,9 @@ export class VocabQuizAttemptService {
    */
   async submit(input: { studentName: string; studentId?: string; authStudentId?: string }) {
     const student = await this.words.resolveStudent(input.studentName, input.studentId, input.authStudentId);
-    const date = this.dayKey();
     const a = await this.prisma.vocabQuizAttempt.findFirst({
-      where: { studentId: student.id, date },
+      where: { studentId: student.id },
+      orderBy: { startedAt: 'desc' },
     });
     if (!a) throw new ConflictException({ code: 'no_attempt' });
     if (a.status === 'submitted') {

@@ -9,7 +9,8 @@
  *
  * ## 队列从哪来：只有一个入口
  *
- * `GET /lesson/today`（必须是 `learn_vocab`）→ `GET /vocab/lesson-cards`
+ * `GET /lesson/today`（必须是 `learn_vocab`，或刚学完后的 `vocab_test`）
+ * → `GET /vocab/lesson-cards`
  * （必须 `lessonContext: true` 且有卡）。任何一条不满足就 replace 回
  * `/today`，**绝不退回 `/vocab/due` 的自由练习队列**。
  *
@@ -56,7 +57,7 @@ type Phase =
   | { s: 'error' }
   | { s: 'ready'; cards: LessonCard[] };
 
-type Busy = null | 'teach' | 'replace' | 'sync';
+type Busy = null | 'teach' | 'replace' | 'sync' | 'finish' | 'defer';
 
 export default function LessonVocabPage() {
   const navigate = useNavigate();
@@ -96,7 +97,7 @@ export default function LessonVocabPage() {
     setPhase({ s: 'loading' });
     try {
       const today = await api.lessonToday(token);
-      if (today.nextAction.kind !== 'learn_vocab') {
+      if (today.nextAction.kind !== 'learn_vocab' && today.nextAction.kind !== 'vocab_test') {
         // 今天这一段不该在这里 —— 回枢纽，由它决定下一步。**不看 href。**
         navigate(ROUTES.today, { replace: true });
         return;
@@ -225,7 +226,7 @@ export default function LessonVocabPage() {
   // ── 全部处理完之后去哪：**按 kind，不看 href** ──
   const onFinish = useCallback(async () => {
     const token = readToken();
-    if (!token || !gate('sync')) return;
+    if (!token || !gate('finish')) return;
     try {
       const today = await api.lessonToday(token);
       const kind = today.nextAction.kind;
@@ -235,6 +236,21 @@ export default function LessonVocabPage() {
     } catch (e) {
       if (handleAuthFailure(e)) return;
       setStepError('没能确认下一步 —— 再试一次。');
+    } finally {
+      release();
+    }
+  }, [navigate]);
+
+  const onDefer = useCallback(async () => {
+    const token = readToken();
+    if (!token || !gate('defer')) return;
+    setStepError(null);
+    try {
+      await api.deferVocabTest(token);
+      navigate(ROUTES.today, { replace: true });
+    } catch (e) {
+      if (handleAuthFailure(e)) return;
+      setStepError('暂时没能保存“明天再考”，请再试一次。');
     } finally {
       release();
     }
@@ -296,15 +312,26 @@ export default function LessonVocabPage() {
               </button>
             </>
           ) : (
-            <button
-              type="button"
-              data-testid="finish"
-              disabled={busy != null}
-              onClick={() => void onFinish()}
-              className="w-full rounded-xl bg-blue-600 text-white py-3 text-base font-medium min-h-[44px] disabled:bg-slate-300"
-            >
-              下一步
-            </button>
+            <div className="grid gap-3">
+              <button
+                type="button"
+                data-testid="finish"
+                disabled={busy != null}
+                onClick={() => void onFinish()}
+                className="w-full rounded-xl bg-blue-600 text-white py-3 text-base font-medium min-h-[44px] disabled:bg-slate-300"
+              >
+                {busy === 'finish' ? '正在打开…' : '立即考试'}
+              </button>
+              <button
+                type="button"
+                data-testid="defer-test"
+                disabled={busy != null}
+                onClick={() => void onDefer()}
+                className="w-full rounded-xl border border-slate-300 bg-white text-slate-700 py-3 text-base font-medium min-h-[44px] disabled:text-slate-300"
+              >
+                {busy === 'defer' ? '正在保存…' : '明天再考'}
+              </button>
+            </div>
           )}
           {stepError && (
             <p role="alert" data-testid="step-error" className="mt-3 text-sm text-rose-700">

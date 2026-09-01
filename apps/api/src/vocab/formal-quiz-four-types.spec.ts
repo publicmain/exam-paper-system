@@ -194,21 +194,19 @@ describe('S9D2D-1 正式路径的固定词表契约', () => {
 });
 
 // ─────────────────────────────────────────────────────────────
-// 2 —— 四种题型各一道（本片的主张）
+// 2 —— 两种清晰题型各占一半（正式测试）
 // ─────────────────────────────────────────────────────────────
 
-describe('S9D2D-2 四个全能词 → 四种题型各一道', () => {
-  it('**qtype 多重集恰好是 {word_to_meaning, meaning_to_word, cloze, spelling} 各一**', async () => {
+describe('v4 正式测试只保留拼写与看词选义', () => {
+  it('四个词 → 两道拼写 + 两道看词选义', async () => {
     const prisma = fakePrisma();
     const { attempts } = makeService(prisma);
     const view = await attempts.start(START_INPUT);
 
     expect(view.items).toHaveLength(4);
     expect(countTypes(view.items as any)).toEqual({
-      word_to_meaning: 1,
-      meaning_to_word: 1,
-      cloze: 1,
-      spelling: 1,
+      spelling: 2,
+      word_to_meaning: 2,
     });
   });
 
@@ -228,21 +226,16 @@ describe('S9D2D-2 四个全能词 → 四种题型各一道', () => {
     expect((vb.items as any[]).map((i) => i.qtype)).toEqual((va.items as any[]).map((i) => i.qtype));
   });
 
-  it('**cloze 真的挖了空**，而且挖的是那个词', async () => {
+  it('正式测试不再重复展示很长的原文填空', async () => {
     const prisma = fakePrisma();
     const { attempts } = makeService(prisma);
     await attempts.start(START_INPUT);
     const items = prisma.created[0].items as any[];
-    const cz = items.find((i) => i.qtype === 'cloze')!;
-    expect(cz, '没有 cloze 题').toBeTruthy();
-    expect(cz.prompt).toContain('＿＿＿');
-    expect(cz.prompt.toLowerCase()).not.toContain(cz.headword.toLowerCase());
-    expect(cz.options).toHaveLength(4);
-    expect(cz.correctIndex).toBeGreaterThanOrEqual(0);
-    expect(cz.options[cz.correctIndex]).toBe(cz.headword);
+    expect(items.some((i) => i.qtype === 'cloze')).toBe(false);
+    expect(items.every((i) => i.contextSentence == null)).toBe(true);
   });
 
-  it('**spelling 有服务端答案、没有选项**，题干挖了空', async () => {
+  it('拼写题给中文/词性线索，不泄露答案，也不塞整段原文', async () => {
     const prisma = fakePrisma();
     const { attempts } = makeService(prisma);
     await attempts.start(START_INPUT);
@@ -253,19 +246,23 @@ describe('S9D2D-2 四个全能词 → 四种题型各一道', () => {
     expect(sp.correctIndex).toBe(-1);
     expect(typeof sp.answer).toBe('string');
     expect(String(sp.answer).toLowerCase()).toBe(sp.headword.toLowerCase());
-    expect(sp.prompt).toContain('＿＿＿');
+    expect(sp.prompt).toBe('请根据提示拼写英文单词');
+    expect(sp.contextSentence).toBeNull();
+    expect(sp.cue?.translation).toBeTruthy();
   });
 
-  it('**两道选择题各有四个选项与合法 correctIndex**', async () => {
+  it('两道看词选义各有四个选项，且干扰项全部来自本课', async () => {
     const prisma = fakePrisma();
     const { attempts } = makeService(prisma);
     await attempts.start(START_INPUT);
     const items = prisma.created[0].items as any[];
-    for (const it of items.filter((i) => i.qtype === 'word_to_meaning' || i.qtype === 'meaning_to_word')) {
+    const lessonMeanings = new Set(WORDS.map((word) => word.translation));
+    for (const it of items.filter((i) => i.qtype === 'word_to_meaning')) {
       expect(it.options).toHaveLength(4);
       expect(it.correctIndex).toBeGreaterThanOrEqual(0);
       expect(it.correctIndex).toBeLessThan(4);
       expect(it.answer ?? null).toBeNull();
+      expect(it.options.every((option: string) => lessonMeanings.has(option))).toBe(true);
     }
   });
 
@@ -285,9 +282,9 @@ describe('S9D2D-2 四个全能词 → 四种题型各一道', () => {
 describe('S9D2D-3 分配策略与降级', () => {
   const cap = (canSpell: boolean, canCloze: boolean) => ({ canSpell, canCloze });
 
-  it('四个全能词 → 拼写、填空、看词选义、看义选词', () => {
+  it('四个词 → 拼写、看词选义轮转', () => {
     expect(formalTypePlan([cap(true, true), cap(true, true), cap(true, true), cap(true, true)])).toEqual(
-      ['spelling', 'cloze', 'word_to_meaning', 'meaning_to_word'],
+      ['spelling', 'word_to_meaning', 'spelling', 'word_to_meaning'],
     );
   });
 
@@ -299,25 +296,24 @@ describe('S9D2D-3 分配策略与降级', () => {
   // `resolveFormalType` 负责**（计划只说想考什么，不说考得成）。
   it('**计划只看位置，不看能力** —— 降级是出题那一步的事', () => {
     expect(formalTypePlan([cap(false, true), cap(false, true), cap(false, true), cap(false, true)])).toEqual(
-      ['spelling', 'cloze', 'word_to_meaning', 'meaning_to_word'],
+      ['spelling', 'word_to_meaning', 'spelling', 'word_to_meaning'],
     );
-    expect(formalTypePlan([cap(false, false), cap(false, false)])).toEqual(['spelling', 'cloze']);
+    expect(formalTypePlan([cap(false, false), cap(false, false)])).toEqual(['spelling', 'word_to_meaning']);
   });
 
   it('**降级之后才是学生看到的题型**：全都拼不了 / 挖不了 → 只剩选择题', () => {
     const caps = [cap(false, false), cap(false, false), cap(false, false), cap(false, false)];
     const actual = formalTypePlan(caps).map((planned, i) => resolveFormalType(planned, caps[i]).qtype);
-    expect(actual).toEqual(['word_to_meaning', 'word_to_meaning', 'word_to_meaning', 'meaning_to_word']);
+    expect(actual).toEqual(['word_to_meaning', 'word_to_meaning', 'word_to_meaning', 'word_to_meaning']);
     expect(actual).not.toContain('spelling');
     expect(actual).not.toContain('cloze');
   });
 
-  it('**二十一个词**：四种题型各自至少五道，不再是「一道拼写打天下」', () => {
-    const plan = formalTypePlan(Array.from({ length: 21 }, () => cap(true, true)));
-    expect(plan).toHaveLength(21);
-    for (const t of ['spelling', 'cloze', 'word_to_meaning', 'meaning_to_word']) {
-      expect(plan.filter((x) => x === t).length, t).toBeGreaterThanOrEqual(5);
-    }
+  it('十二个词：两种题型各六道', () => {
+    const plan = formalTypePlan(Array.from({ length: 12 }, () => cap(true, true)));
+    expect(plan).toHaveLength(12);
+    expect(plan.filter((x) => x === 'spelling')).toHaveLength(6);
+    expect(plan.filter((x) => x === 'word_to_meaning')).toHaveLength(6);
   });
 
   it('**能力不足时的降级是有名字的**，不是悄悄换题', () => {
@@ -352,28 +348,27 @@ describe('S9D2D-4 词撑不起指定题型时的整链降级', () => {
       .toContain('实时翻译');
   });
 
-  it('**reps=0（刚教过的新词）→ 不出拼写题**，也不凭空造答案', async () => {
+  it('刚教过的新词也能按中文线索拼写，不依赖复习次数', async () => {
     const prisma = fakePrisma({ words: studentWordRows({ reps: 0 }) });
     const { attempts } = makeService(prisma);
     const view = await attempts.start(START_INPUT);
     const types = countTypes(view.items as any);
-    expect(types.spelling ?? 0).toBe(0);
+    expect(types.spelling ?? 0).toBe(2);
     expect(view.items).toHaveLength(4);
     for (const it of view.items as any[]) {
-      if (it.qtype !== 'spelling') continue;
-      throw new Error('不该有拼写题');
+      if (it.qtype === 'spelling') expect(it.answer).toBe(it.headword);
     }
   });
 
-  it('**原句里定位不到词形 → 既不出填空也不出拼写**，退回选择题', async () => {
+  it('原句里定位不到词形也不影响中文线索拼写', async () => {
     const rows = studentWordRows().map((r) => ({ ...r, contextSentence: 'A sentence without the target token.' }));
     const prisma = fakePrisma({ words: rows });
     const { attempts } = makeService(prisma);
     const view = await attempts.start(START_INPUT);
     const types = countTypes(view.items as any);
-    expect(types.spelling ?? 0).toBe(0);
+    expect(types.spelling ?? 0).toBe(2);
     expect(types.cloze ?? 0).toBe(0);
-    expect((types.word_to_meaning ?? 0) + (types.meaning_to_word ?? 0)).toBe(4);
+    expect(types.word_to_meaning ?? 0).toBe(2);
   });
 
   it('**没有原句** → 同样退回选择题，题数不减', async () => {
@@ -413,6 +408,6 @@ describe('S9D2D-5 自由练习不受影响', () => {
     const free = countTypes((await quiz.buildQuiz({ studentName: STUDENT.name, authStudentId: STUDENT.id })).questions as any);
     const formal = countTypes((await attempts.start(START_INPUT)).items as any);
     expect(free).not.toEqual(formal);
-    expect(formal).toEqual({ word_to_meaning: 1, meaning_to_word: 1, cloze: 1, spelling: 1 });
+    expect(formal).toEqual({ spelling: 2, word_to_meaning: 2 });
   });
 });

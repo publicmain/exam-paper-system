@@ -109,18 +109,12 @@ export interface WordTypeCapability {
  * 那一步降级。降级是有名字的，不是悄悄换一道题。
  */
 export function formalTypePlan(caps: ReadonlyArray<WordTypeCapability>): QuizQType[] {
-  //
-  // S12L —— 四种题型**轮转**，不再是「第一个能拼的出拼写、第一个能挖的
-  // 出填空、剩下全是选择题交替」。
-  //
-  // 旧规则对四道题是对的（四个全能词恰好四种各一道），对二十一道题就
-  // 垮了：一道拼写 + 一道填空 + 十九道选择题。学生的体感是「这卷子只有
-  // 选择题」，而拼写与填空恰恰是唯一需要他真的产出的两种。
-  //
-  // 轮转是纯位置函数：确定性、不改词序、对任意长度都有定义。
-  // 拼不出 / 挖不了空的词由 `resolveFormalType` 在出题那一步降级 ——
-  // 降级是有名字的，不是悄悄换一道题。
-  const ROTATION: QuizQType[] = ['spelling', 'cloze', 'word_to_meaning', 'meaning_to_word'];
+  // v4 deliberately uses only two transparent question types:
+  //   1. Chinese meaning/POS -> type the English word;
+  //   2. English word -> choose a Chinese meaning from this same lesson.
+  // Long passage cloze questions made several consecutive cards look identical,
+  // while meaning-to-word MCQs rewarded recognising the one familiar option.
+  const ROTATION: QuizQType[] = ['spelling', 'word_to_meaning'];
   return caps.map((_, i) => ROTATION[i % ROTATION.length]);
 }
 
@@ -307,6 +301,40 @@ export function pickDistractors(
   return null;
 }
 
+/**
+ * Formal-test distractors come only from the frozen lesson manifest.  Every
+ * option is therefore a word the student has just studied; no random GRE word
+ * can make the answer obvious.  Exact duplicate meanings are removed, while
+ * same-POS candidates are preferred where possible.
+ */
+export function pickLessonDistractors(
+  answer: Candidate,
+  pool: Candidate[],
+  seed: number,
+): Candidate[] | null {
+  const answerWord = answer.headword.toLowerCase();
+  const answerMeaning = optionText(answer.translation);
+  const seenWords = new Set<string>([answerWord]);
+  const seenMeanings = new Set<string>([answerMeaning]);
+  const targetPos = posOf(answer.translation);
+  const shuffled = shuffle(pool, seed);
+  const ordered = targetPos
+    ? [...shuffled.filter((c) => posOf(c.translation) === targetPos), ...shuffled.filter((c) => posOf(c.translation) !== targetPos)]
+    : shuffled;
+  const out: Candidate[] = [];
+  for (const candidate of ordered) {
+    const word = candidate.headword.toLowerCase();
+    const meaning = optionText(candidate.translation);
+    if (seenWords.has(word) || seenMeanings.has(meaning)) continue;
+    if (!isSafeDistractor(candidate.headword) || !meaning) continue;
+    seenWords.add(word);
+    seenMeanings.add(meaning);
+    out.push(candidate);
+    if (out.length === 3) return out;
+  }
+  return null;
+}
+
 @Injectable()
 export class VocabQuizService {
   constructor(
@@ -421,6 +449,9 @@ export class VocabQuizService {
     const poolMine: Candidate[] = mine
       .map((w) => ({ headword: w.headword, translation: translationOf(w) }))
       .filter((c) => c.translation);
+    const poolLesson: Candidate[] = chosen
+      .map((w) => ({ headword: w.headword, translation: translationOf(w) }))
+      .filter((c) => c.translation);
 
     // 干扰项池 2：词典兜底。
     //
@@ -452,8 +483,13 @@ export class VocabQuizService {
         AND bnc BETWEEN ${lo} AND ${hi}
         AND word NOT IN (SELECT unnest(${allWords}::text[]))
       ORDER BY random() LIMIT 80`;
-    let poolDictRows = await dictPoolQuery(loBnc, hiBnc);
-    if (poolDictRows.length < 12) poolDictRows = await dictPoolQuery(3000, 20000);
+    let poolDictRows: Array<{ word: string; translation: string }> = [];
+    // The global dictionary is only a fallback for optional self-tests.  A
+    // formal test is closed-book over the frozen twelve-word lesson.
+    if (input.mix !== 'balanced') {
+      poolDictRows = await dictPoolQuery(loBnc, hiBnc);
+      if (poolDictRows.length < 12) poolDictRows = await dictPoolQuery(3000, 20000);
+    }
     const poolDict: Candidate[] = poolDictRows.map((r) => ({ headword: r.word, translation: r.translation }));
 
     const questions: QuizQuestion[] = [];
@@ -470,7 +506,9 @@ export class VocabQuizService {
     );
     const caps: WordTypeCapability[] = chosen.map((w: any, i: number) => ({
       canCloze: spans[i] != null,
-      canSpell: (w.reps ?? 0) > 0 && spans[i] != null && isSpellable(spans[i]!.token),
+      canSpell: input.mix === 'balanced'
+        ? isSpellable(w.headword)
+        : (w.reps ?? 0) > 0 && spans[i] != null && isSpellable(spans[i]!.token),
     }));
     // 正式测试才有计划；自由练习恒为 null，走下面那条老路。
     const plan: QuizQType[] | null = input.mix === 'balanced' ? formalTypePlan(caps) : null;
@@ -494,7 +532,24 @@ export class VocabQuizService {
       // `clozeSpan &&` 在语义上是多余的（`caps[wi].canSpell` 与 `spellable`
       // 都已经蕴含它），写出来是给类型收窄用的：拼写题必须有挖空坐标。
       const spellable = (w.reps ?? 0) > 0 && clozeSpan != null && isSpellable(clozeSpan.token);
-      if (clozeSpan && (planned ? planned === 'spelling' : spellingLeft > 0 && spellable)) {
+      if (planned === 'spelling' && isSpellable(w.headword)) {
+        questions.push({
+          qtype: 'spelling',
+          headword: w.headword,
+          prompt: '请根据提示拼写英文单词',
+          options: [],
+          correctIndex: -1,
+          phonetic: e?.phonetic ?? null,
+          translation: optionText(translation),
+          contextSentence: null,
+          answer: w.headword,
+          hint: w.headword[0],
+          cue: cueFor('spelling', { pos: e?.pos, translation: optionText(translation), definition: e?.definition },
+            [w.headword]),
+        });
+        continue;
+      }
+      if (clozeSpan && (!planned && spellingLeft > 0 && spellable)) {
         if (!planned) spellingLeft--;
         const win = windowAroundSpan(w.contextSentence!, clozeSpan, 180);
         questions.push({
@@ -519,7 +574,9 @@ export class VocabQuizService {
       const answer: Candidate = { headword: w.headword, translation };
       seed = (seed * 48271) % 2147483647;
       // 学生自己的词优先做干扰项，不足由词典池续上（pickDistractors 内部逐个过滤）
-      const distractors = pickDistractors(answer, [...poolMine, ...poolDict], seed);
+      const distractors = input.mix === 'balanced'
+        ? pickLessonDistractors(answer, poolLesson, seed)
+        : pickDistractors(answer, [...poolMine, ...poolDict], seed);
       if (!distractors) continue;
       // 正式测试按计划走（拼写那一档已经在上面处理掉了，落到这里的只剩
       // 填空 / 两种选择题）；自由练习照旧：有原句 → 原句填空（独有资产，
@@ -563,7 +620,9 @@ export class VocabQuizService {
         correctIndex,
         phonetic: e?.phonetic ?? null,
         translation: optionText(translation),
-        contextSentence: w.contextSentence || null,
+        // Formal-test review stays compact; the student already saw the full
+        // source sentence on the learning card. Optional self-tests keep it.
+        contextSentence: input.mix === 'balanced' ? null : w.contextSentence || null,
         cue: cueFor(qtype, { pos: e?.pos, translation: optionText(translation), definition: e?.definition },
           [w.headword, clozeSpan?.token]),
       });

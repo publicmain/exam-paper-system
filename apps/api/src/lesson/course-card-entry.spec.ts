@@ -1,7 +1,7 @@
 import { describe, it, expect, vi } from 'vitest';
 import { LESSON_RULES_VERSION, clampStage, coursePendingOf, deriveStage } from './lesson-rules';
 import { lessonCardOrder } from './rc11-rules';
-import { LessonService } from './lesson.service';
+import { LessonService, lessonWordsFromConfig } from './lesson.service';
 
 /**
  * S9C2 —— **课程卡入口**：纯复习日必须先过复习卡，再进正式测试。
@@ -187,7 +187,18 @@ describe('AC-05 阶段安全（一条都不许回归）', () => {
 
 describe('AC-06 规则版本', () => {
   it('**阶段语义变了，版本必须 +1**', () => {
-    expect(LESSON_RULES_VERSION).toBe(3);
+    expect(LESSON_RULES_VERSION).toBe(4);
+  });
+
+  it('发布内容再多也只冻结前 12 个词', () => {
+    const lessonWords = Array.from({ length: 21 }, (_, i) => ({
+      headword: `word${i + 1}`,
+      surfaceForm: `word${i + 1}`,
+      context: `Example ${i + 1}.`,
+      contextTranslation: `例句 ${i + 1}。`,
+    }));
+    expect(lessonWordsFromConfig({ lessonWords })).toHaveLength(12);
+    expect(lessonWordsFromConfig({ lessonWords }).at(-1)?.headword).toBe('word12');
   });
 });
 

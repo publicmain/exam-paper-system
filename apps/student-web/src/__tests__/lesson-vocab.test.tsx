@@ -171,6 +171,9 @@ beforeEach(() => {
         ],
       },
     }),
+    '/api/lesson/vocab-test/defer': () => ({
+      body: { ok: true, deferredUntil: '2026-08-30' },
+    }),
     '/api/vocab/review/undo': () => ({ body: { headword: 'nile', undone: true, reps: 1, state: 'review' } }),
     '/api/vocab/review': () => ({ body: { headword: 'nile', state: 'review', due: 'd', intervalDays: 4, reps: 3 } }),
     '/api/lesson/vocab-cursor': ({ init }) => ({
@@ -222,12 +225,22 @@ describe('AC-03 队列只来自课程线', () => {
     }
   });
 
-  it('**今天这一段不是 learn_vocab → 回 /today**，不取卡', async () => {
-    routes['/api/lesson/today'] = () => ({ body: todayPayload('vocab_test') });
+  it('**今天这一段不是 learn_vocab/vocab_test → 回 /today**，不取卡', async () => {
+    routes['/api/lesson/today'] = () => ({ body: todayPayload('summary') });
     mount();
     await settle();
     expect(navigate).toHaveBeenCalledWith('/today', { replace: true });
     expect(calls('/vocab/lesson-cards')).toHaveLength(0);
+  });
+
+  it('刷新学完页面时 vocab_test 仍显示“立即考试 / 明天再考”', async () => {
+    routes['/api/lesson/today'] = () => ({ body: todayPayload('vocab_test') });
+    routes['/api/vocab/lesson-cards'] = () => ({ body: cardsPayload({ cursor: 3 }) });
+    mount();
+    await settle();
+    expect(navigate).not.toHaveBeenCalledWith('/today', { replace: true });
+    expect(screen.getByTestId('finish')).toHaveTextContent('立即考试');
+    expect(screen.getByTestId('defer-test')).toHaveTextContent('明天再考');
   });
 
   it('**lessonContext=false → 回 /today**，绝不退回自由练习', async () => {
@@ -641,6 +654,18 @@ describe('AC-08 出口与完成', () => {
     fireEvent.click(screen.getByTestId('finish'));
     await settle();
     expect(navigate).toHaveBeenCalledWith('/lesson/test');
+  });
+
+  it('学完后可明确选择明天再考，并返回今天主页', async () => {
+    routes['/api/vocab/lesson-cards'] = () => ({ body: cardsPayload({ cursor: 3 }) });
+    mount();
+    await settle();
+    expect(screen.getByTestId('finish')).toHaveTextContent('立即考试');
+    expect(screen.getByTestId('defer-test')).toHaveTextContent('明天再考');
+    fireEvent.click(screen.getByTestId('defer-test'));
+    await settle();
+    expect(calls('/lesson/vocab-test/defer')).toHaveLength(1);
+    expect(navigate).toHaveBeenCalledWith('/today', { replace: true });
   });
 
   it('kind=summary → /lesson/summary', async () => {

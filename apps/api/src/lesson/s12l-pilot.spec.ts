@@ -115,24 +115,22 @@ describe('S12L —— 正式测试一词一题', () => {
 const cap = (n: number, all = true): WordTypeCapability[] =>
   Array.from({ length: n }, () => ({ canSpell: all, canCloze: all }));
 
-describe('S12L —— 二十一题里四种题型都要出现', () => {
-  it('21 个全能词：四种题型各自至少出现 4 次', () => {
-    const plan = formalTypePlan(cap(21));
-    const count = (t: string) => plan.filter((p) => p === t).length;
-    for (const t of ['spelling', 'cloze', 'word_to_meaning', 'meaning_to_word']) {
-      expect(count(t), `${t} 只出现了 ${count(t)} 次`).toBeGreaterThanOrEqual(4);
-    }
-    expect(plan).toHaveLength(21);
+describe('正式测试只用两种清晰题型', () => {
+  it('12 个词：拼写与英选中各 6 道，一词一题', () => {
+    const plan = formalTypePlan(cap(12));
+    expect(plan.filter((p) => p === 'spelling')).toHaveLength(6);
+    expect(plan.filter((p) => p === 'word_to_meaning')).toHaveLength(6);
+    expect(plan).toHaveLength(12);
   });
 
-  it('四个全能词仍然是四种各一道（既有行为不变）', () => {
-    expect([...formalTypePlan(cap(4))].sort()).toEqual(
-      ['cloze', 'meaning_to_word', 'spelling', 'word_to_meaning'].sort(),
-    );
+  it('四个词是两道拼写 + 两道英选中', () => {
+    expect(formalTypePlan(cap(4))).toEqual([
+      'spelling', 'word_to_meaning', 'spelling', 'word_to_meaning',
+    ]);
   });
 
   it('确定性：同样的输入永远同样的计划', () => {
-    expect(formalTypePlan(cap(21))).toEqual(formalTypePlan(cap(21)));
+    expect(formalTypePlan(cap(12))).toEqual(formalTypePlan(cap(12)));
   });
 
   it('拼不出 / 挖不了空的词不硬出，降级由下游处理', () => {
