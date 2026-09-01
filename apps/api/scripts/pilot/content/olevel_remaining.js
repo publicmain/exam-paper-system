@@ -1,0 +1,152 @@
+'use strict';
+
+const { P, tf, choice, written, wordsFor } = require('./remaining-week-helpers');
+
+const WED_PASSAGE = P(
+  'For years, the bus stop outside Meranti Estate was a place people tried to leave as quickly as possible. Its metal roof trapped heat, the bench faced a blank wall, and a strip of hard soil beside it collected cigarette ends. Residents had complained about the litter, but nobody regarded the stop itself as worth improving.',
+  'That changed when the number 67 service was diverted for roadworks. During the six-week diversion, an elderly resident named Mrs Goh began watering the empty soil because, she said, an unused bus stop looked even sadder than a busy one. She planted four cuttings from her balcony. Two died, but a purple flowering plant survived the heat.',
+  'When the buses returned, other commuters noticed the flowers. A delivery rider brought a wooden box for compost, and the coffee shop across the road agreed to save its used coffee grounds. Children from the nearby primary school painted signs asking people not to step on the soil. The town council supplied a water butt, but it refused to build a fence because the narrow pavement had to remain accessible.',
+  'The lack of a fence shaped the garden. Instead of delicate plants, volunteers chose hardy herbs that could survive being brushed by bags and umbrellas. They left a clear gap beside the bench for wheelchairs. Each plant was labelled in four languages, not because every translation was necessary, but because residents enjoyed adding the names used by their grandparents.',
+  'The garden has not solved every problem. Litter still appears after Friday nights, and the coffee grounds sometimes arrive in wet plastic bags that cannot be composted. Yet a council survey found that passengers now reach the stop an average of three minutes earlier. Mrs Goh thinks this is because people have turned waiting from lost time into a brief daily visit.',
+);
+
+const WED = {
+  date: '2026-09-02',
+  title: 'The Bus Stop Garden',
+  passage: WED_PASSAGE,
+  questions: [
+    tf('B', 'Residents had always viewed the bus stop as a place worth improving.', 'nobody regarded the stop itself as worth improving.', '原文说过去没人觉得车站值得改善。'),
+    tf('A', 'Mrs Goh began gardening while buses were temporarily using another route.', 'That changed when the number 67 service was diverted for roadworks.', 'diverted 表示巴士因道路施工临时改道。'),
+    tf('C', 'The primary school paid for the water butt.', '', '文章说市政厅提供水桶，没有交代谁付款。'),
+    choice('matching_features', 'B', 'Who provided material for compost?', 'the coffee shop across the road agreed to save its used coffee grounds.', '咖啡店留下咖啡渣做堆肥。', ['the delivery rider', 'the coffee shop', 'the primary school', 'the town council']),
+    choice('matching_features', 'D', 'Who decided that a fence could not be built?', 'it refused to build a fence because the narrow pavement had to remain accessible.', '代词 it 指上一句的 town council。', ['Mrs Goh', 'the commuters', 'the volunteers', 'the town council']),
+    choice('multiple_choice', 'C', 'Why did volunteers choose hardy herbs?', 'volunteers chose hardy herbs that could survive being brushed by bags and umbrellas.', '无围栏的狭窄环境要求植物能承受碰撞。', ['They needed less sunlight.', 'They produced the best compost.', 'They could survive contact with passers-by.', 'They had names in four languages.']),
+    written('sentence_completion', 1, 'purple', 'The first plant to survive produced ______ flowers.', 'a purple flowering plant survived the heat.', '只能填写原文中的 purple。', '第二段给出幸存植物的颜色。', ['purple']),
+    written('sentence_completion', 1, 'wheelchairs', 'Volunteers kept a gap next to the bench for ______.', 'They left a clear gap beside the bench for wheelchairs.', '只认 wheelchairs。', '通道是为轮椅使用者保留的。', ['wheelchairs']),
+    written('summary_completion', 2, 'three minutes earlier', 'A survey found that passengers now arrive about ______.', 'passengers now reach the stop an average of three minutes earlier.', '写出 three minutes earlier 得 2 分；只写 three minutes 得 1 分。', '最后一段给出平均提前时间。'),
+    written('short_answer', 2, 'because the pavement had to remain accessible', 'Why did the council refuse to build a fence?', 'the narrow pavement had to remain accessible.', '答出保持人行道无障碍得 2 分；只答道路窄得 1 分。', '市政厅担心围栏会阻碍狭窄的人行道。'),
+  ],
+  words: wordsFor(WED_PASSAGE, [
+    ['trap', 'trapped', '/træp/', 'v.', 'v. 困住；聚积', 'to prevent heat, air or a person from escaping'],
+    ['blank', 'blank', '/blæŋk/', 'adj.', 'adj. 空白的', 'empty and without any marks or features'],
+    ['regard', 'regarded', '/rɪˈɡɑːd/', 'v.', 'v. 看待', 'to think about someone or something in a particular way'],
+    ['divert', 'diverted', '/daɪˈvɜːt/', 'v.', 'v. 改道', 'to make traffic use a different route'],
+    ['elderly', 'elderly', '/ˈeldəli/', 'adj.', 'adj. 年长的', 'old or becoming old'],
+    ['cutting', 'cuttings', '/ˈkʌtɪŋ/', 'n.', 'n. 插条', 'a piece cut from a plant to grow a new one'],
+    ['survive', 'survived', '/səˈvaɪv/', 'v.', 'v. 存活', 'to continue living through a difficult situation'],
+    ['commuter', 'commuters', '/kəˈmjuːtə/', 'n.', 'n. 通勤者', 'a person who travels regularly to work or school'],
+    ['compost', 'compost', '/ˈkɒmpɒst/', 'n.', 'n. 堆肥', 'decayed plant material used to improve soil'],
+    ['ground', 'grounds', '/ɡraʊndz/', 'n.', 'n. 咖啡渣', 'small pieces left after coffee has been prepared'],
+    ['supply', 'supplied', '/səˈplaɪ/', 'v.', 'v. 提供', 'to give something that is needed'],
+    ['accessible', 'accessible', '/əkˈsesəbl/', 'adj.', 'adj. 无障碍可进入的', 'easy for everyone, including disabled people, to reach'],
+    ['shape', 'shaped', '/ʃeɪp/', 'v.', 'v. 塑造；影响', 'to influence how something develops'],
+    ['delicate', 'delicate', '/ˈdelɪkət/', 'adj.', 'adj. 娇嫩的', 'easily damaged or broken'],
+    ['hardy', 'hardy', '/ˈhɑːdi/', 'adj.', 'adj. 耐寒耐受的', 'strong enough to survive difficult conditions'],
+    ['herb', 'herbs', '/hɜːb/', 'n.', 'n. 香草植物', 'a plant used for food, medicine or its smell'],
+    ['brush', 'brushed', '/brʌʃ/', 'v.', 'v. 轻擦', 'to touch lightly while moving past'],
+    ['label', 'labelled', '/ˈleɪbl/', 'v.', 'v. 加标签', 'to attach information or a name to something'],
+    ['translation', 'translation', '/trænzˈleɪʃn/', 'n.', 'n. 翻译', 'words changed from one language into another'],
+    ['litter', 'Litter', '/ˈlɪtə/', 'n.', 'n. 垃圾', 'small pieces of waste left in a public place'],
+    ['average', 'average', '/ˈævərɪdʒ/', 'n.', 'n. 平均数', 'a typical amount found from several values'],
+  ]),
+};
+
+const THU_PASSAGE = P(
+  'When teacher Nadia Rahman asked her class to draw a map of the town centre, she banned them from using street names. Instead, they had to map what could be heard. The assignment sounded simple, but the first group returned with a page that said only traffic, people and birds. Nadia sent them out again with recording equipment and a more precise question: how does one street sound different from the next?',
+  'The students divided the centre into twenty squares and visited each square at breakfast time, lunchtime and after dark. They measured volume, but they also described rhythm and direction. Delivery vans produced short bursts of engine noise behind the market. Under the railway bridge, footsteps formed a sharp echo. In the pedestrian lane, restaurant fans made a steady low hum that the class had never noticed before.',
+  'Human voices were harder to record responsibly. The students did not keep conversations. They noted only the number of speakers, the languages they could identify and whether voices sounded hurried or relaxed. At the hospital entrance, for example, speech was quieter than its volume would suggest because people stood close together. Outside the stadium, a smaller crowd created more noise by chanting in unison.',
+  'The finished sound map used colours for volume and arrows for movement. Clicking a square played a ten-second sample with private speech removed. A local group for people with visual impairments tested the map and suggested adding descriptions of safe crossing signals, construction work and places where parked bicycles narrowed the pavement.',
+  'Nadia had planned the project as a lesson about data. It became a lesson about attention instead. Several students changed the route they walked home because they had discovered calmer streets. The council has asked to use the map when planning road repairs, although it has warned that a living town cannot be captured permanently: every building site and closed shop changes its voice.',
+);
+
+const THU = {
+  date: '2026-09-03',
+  title: 'A Map Made from Sound',
+  passage: THU_PASSAGE,
+  questions: [
+    tf('B', 'The first group produced the level of detail that Nadia wanted.', 'Nadia sent them out again with recording equipment and a more precise question', '老师让他们重新出去，说明第一次的结果不够具体。'),
+    tf('A', 'Each part of the town was visited at three different times.', 'visited each square at breakfast time, lunchtime and after dark.', '三个时间分别是早餐、午餐和天黑后。'),
+    tf('C', 'The council has promised to update the map every month.', '', '原文只说市政厅想用于道路维修，没有更新频率。'),
+    choice('matching_features', 'B', 'Where did footsteps create a clear echo?', 'Under the railway bridge, footsteps formed a sharp echo.', '脚步回声出现在铁路桥下。', ['behind the market', 'under the railway bridge', 'in the pedestrian lane', 'outside the stadium']),
+    choice('matching_features', 'D', 'Where did people make noise by speaking together?', 'Outside the stadium, a smaller crowd created more noise by chanting in unison.', '体育场外的人群齐声呼喊。', ['at the hospital', 'behind the market', 'in the pedestrian lane', 'outside the stadium']),
+    choice('multiple_choice', 'A', 'What did the visual-impairment group add to the project?', 'suggested adding descriptions of safe crossing signals, construction work and places where parked bicycles narrowed the pavement.', '他们提出补充影响安全通行的声音与障碍信息。', ['information useful for safe movement', 'longer recordings of conversations', 'street names for every square', 'music from local restaurants']),
+    written('sentence_completion', 1, 'hum', 'Restaurant fans produced a steady low ______.', 'restaurant fans made a steady low hum', '只能填写原文中的 hum。', '第二段用 hum 描述风扇持续的低声。', ['hum']),
+    written('sentence_completion', 1, 'arrows', 'The map used colours for loudness and ______ for movement.', 'The finished sound map used colours for volume and arrows for movement.', '只能填写原文中的 arrows。', '第四段说明地图的两套视觉符号。', ['arrows']),
+    written('summary_completion', 2, 'ten-second sample', 'Selecting a square played a ______ with private speech removed.', 'Clicking a square played a ten-second sample with private speech removed.', '写 ten-second sample 得 2 分；只写 sample 得 1 分。', '地图提供经过隐私处理的十秒音频。'),
+    written('short_answer', 2, 'because a living town keeps changing', 'Why can the map never capture the town permanently?', 'a living town cannot be captured permanently: every building site and closed shop changes its voice.', '答出城镇声音持续变化得 2 分；举出建筑工地或关店之一得 1 分。', '最后一句说明声音地图会随城镇变化而过时。'),
+  ],
+  words: wordsFor(THU_PASSAGE, [
+    ['ban', 'banned', '/bæn/', 'v.', 'v. 禁止', 'to officially say that something must not be done'],
+    ['assignment', 'assignment', '/əˈsaɪnmənt/', 'n.', 'n. 作业任务', 'a piece of work given to a student'],
+    ['equipment', 'equipment', '/ɪˈkwɪpmənt/', 'n.', 'n. 设备', 'the tools needed for a particular activity'],
+    ['precise', 'precise', '/prɪˈsaɪs/', 'adj.', 'adj. 精确的', 'exact and clearly expressed'],
+    ['divide', 'divided', '/dɪˈvaɪd/', 'v.', 'v. 划分', 'to separate something into parts'],
+    ['volume', 'volume', '/ˈvɒljuːm/', 'n.', 'n. 音量', 'the degree of loudness of a sound'],
+    ['rhythm', 'rhythm', '/ˈrɪðəm/', 'n.', 'n. 节奏', 'a regular pattern of sounds or movement'],
+    ['burst', 'bursts', '/bɜːst/', 'n.', 'n. 突发声', 'a short sudden period of activity or sound'],
+    ['echo', 'echo', '/ˈekəʊ/', 'n.', 'n. 回声', 'a sound heard again after it hits a surface'],
+    ['pedestrian', 'pedestrian', '/pəˈdestriən/', 'adj.', 'adj. 行人使用的', 'intended for people who are walking'],
+    ['hum', 'hum', '/hʌm/', 'n.', 'n. 嗡嗡声', 'a continuous low steady sound'],
+    ['responsibly', 'responsibly', '/rɪˈspɒnsəbli/', 'adv.', 'adv. 负责任地', 'in a careful way that avoids harming others'],
+    ['identify', 'identify', '/aɪˈdentɪfaɪ/', 'v.', 'v. 识别', 'to recognise and name something'],
+    ['hurried', 'hurried', '/ˈhʌrid/', 'adj.', 'adj. 匆忙的', 'done quickly because there is little time'],
+    ['chant', 'chanting', '/tʃɑːnt/', 'v.', 'v. 齐声呼喊', 'to repeat words together in a steady rhythm'],
+    ['unison', 'unison', '/ˈjuːnɪsn/', 'n.', 'n. 齐声', 'the act of doing or saying something together'],
+    ['impairment', 'impairments', '/ɪmˈpeəmənt/', 'n.', 'n. 功能障碍', 'a condition that reduces an ability such as seeing'],
+    ['construction', 'construction', '/kənˈstrʌkʃn/', 'n.', 'n. 施工', 'the work of building something'],
+    ['narrow', 'narrowed', '/ˈnærəʊ/', 'v.', 'v. 使变窄', 'to make a space less wide'],
+    ['attention', 'attention', '/əˈtenʃn/', 'n.', 'n. 注意力', 'careful thought or observation'],
+    ['permanently', 'permanently', '/ˈpɜːmənəntli/', 'adv.', 'adv. 永久地', 'in a way that lasts for all future time'],
+  ]),
+};
+
+const FRI_PASSAGE = P(
+  'Behind two locked doors at the National Botanic Centre is a room kept at minus eighteen degrees Celsius. It contains no rare paintings or government papers. Its shelves hold seeds: millions of them, sealed in silver packets and arranged by species. The room is a seed bank, a library whose books are living but asleep.',
+  'Seeds arrive from farms, forests and wild grasslands. Collectors do not simply take the largest plants. They gather from many individuals across a wide area so that the sample preserves genetic variation. Each collection is cleaned, dried slowly and tested. Seeds that contain too much moisture can be destroyed when ice forms inside their cells.',
+  'A packet is not put away and forgotten. A small number of seeds are removed at regular intervals and planted under controlled conditions. If too few germinate, the remaining stock may also be losing its ability to grow. Staff then plant a larger batch, allow the new plants to produce fresh seed and return that new generation to storage.',
+  'The bank has two purposes. The first is insurance against catastrophe: a crop disease, fire or conflict may destroy a local variety that farmers still need. The second is research. Plant breeders can request seeds carrying useful traits, such as tolerance of salty soil or resistance to a particular insect.',
+  'Storage is not equally successful for every species. Many tropical trees produce seeds that are damaged by drying, while some crops can remain viable for decades. For difficult plants, the centre keeps tissue in liquid nitrogen or maintains living collections outdoors. The cold room is therefore not a complete answer, but it buys time while other methods improve.',
+);
+
+const FRI = {
+  date: '2026-09-04',
+  title: 'The Seeds Kept for Tomorrow',
+  passage: FRI_PASSAGE,
+  questions: [
+    tf('A', 'The seed bank keeps its main room below freezing.', 'a room kept at minus eighteen degrees Celsius.', '零下十八摄氏度低于冰点。'),
+    tf('B', 'Collectors choose only the biggest plants in an area.', 'Collectors do not simply take the largest plants.', '原文明确否定只挑最大植株。'),
+    tf('C', 'The bank has already replaced seeds lost in a major war.', '', '文章说种子库可应对冲突，但没有给出实际战争案例。'),
+    choice('matching_features', 'C', 'Which step reveals whether stored seed is still able to grow?', 'A small number of seeds are removed at regular intervals and planted under controlled conditions.', '定期取样种植用于检测发芽能力。', ['cleaning', 'drying', 'germination testing', 'freezing']),
+    choice('matching_features', 'D', 'Which method may be used for seeds damaged by drying?', 'the centre keeps tissue in liquid nitrogen or maintains living collections outdoors.', '难以干燥保存的植物可用液氮组织或活体收藏。', ['silver packets only', 'warm shelves', 'salty soil', 'liquid nitrogen']),
+    choice('multiple_choice', 'B', 'Why are seeds gathered from many plants?', 'They gather from many individuals across a wide area so that the sample preserves genetic variation.', '广泛采样是为了保留遗传差异。', ['to fill the cold room quickly', 'to preserve genetic variation', 'to select the largest seeds', 'to reduce cleaning time']),
+    written('sentence_completion', 1, 'moisture', 'Ice may damage seeds that still contain too much ______.', 'Seeds that contain too much moisture can be destroyed when ice forms inside their cells.', '只认 moisture。', '第二段解释了入库前缓慢干燥的原因。', ['moisture']),
+    written('sentence_completion', 1, 'germinate', 'A stock may be weakening if too few test seeds ______.', 'If too few germinate, the remaining stock may also be losing its ability to grow.', '只认 germinate。', '发芽率下降提示整批种子活力降低。', ['germinate']),
+    written('summary_completion', 2, 'insurance against catastrophe', 'One purpose of the bank is to provide ______.', 'The first is insurance against catastrophe', '写出 insurance against catastrophe 得 2 分；只写 insurance 得 1 分。', '第四段直接概括第一项用途。'),
+    written('short_answer', 2, 'because drying damages their seeds', 'Why can many tropical trees not be stored in the usual cold room?', 'Many tropical trees produce seeds that are damaged by drying', '答出种子会被干燥损坏得 2 分；只答不耐低温不给分。', '问题不在低温本身，而在入库前必需的干燥步骤。'),
+  ],
+  words: wordsFor(FRI_PASSAGE, [
+    ['seal', 'sealed', '/siːl/', 'v.', 'v. 密封', 'to close something so air cannot enter'],
+    ['species', 'species', '/ˈspiːʃiːz/', 'n.', 'n. 物种', 'a group of living things of the same kind'],
+    ['collector', 'Collectors', '/kəˈlektə/', 'n.', 'n. 采集者', 'a person who gathers objects or samples'],
+    ['individual', 'individuals', '/ˌɪndɪˈvɪdʒuəl/', 'n.', 'n. 个体', 'one single member of a group'],
+    ['preserve', 'preserves', '/prɪˈzɜːv/', 'v.', 'v. 保存', 'to keep something safe from loss or damage'],
+    ['genetic', 'genetic', '/dʒəˈnetɪk/', 'adj.', 'adj. 遗传的', 'connected with information passed between generations'],
+    ['variation', 'variation', '/ˌveəriˈeɪʃn/', 'n.', 'n. 差异', 'differences among members of the same group'],
+    ['moisture', 'moisture', '/ˈmɔɪstʃə/', 'n.', 'n. 水分', 'a small amount of water in something'],
+    ['interval', 'intervals', '/ˈɪntəvl/', 'n.', 'n. 间隔', 'a period of time between two events'],
+    ['germinate', 'germinate', '/ˈdʒɜːmɪneɪt/', 'v.', 'v. 发芽', 'to begin to grow from a seed'],
+    ['stock', 'stock', '/stɒk/', 'n.', 'n. 储备', 'a supply kept for future use'],
+    ['generation', 'generation', '/ˌdʒenəˈreɪʃn/', 'n.', 'n. 一代', 'a group born or produced at about the same time'],
+    ['insurance', 'insurance', '/ɪnˈʃʊərəns/', 'n.', 'n. 保障', 'protection against possible future loss'],
+    ['catastrophe', 'catastrophe', '/kəˈtæstrəfi/', 'n.', 'n. 灾难', 'a sudden event causing very great damage'],
+    ['variety', 'variety', '/vəˈraɪəti/', 'n.', 'n. 品种', 'a particular type within a plant species'],
+    ['trait', 'traits', '/treɪt/', 'n.', 'n. 特征', 'a particular quality of a living thing'],
+    ['tolerance', 'tolerance', '/ˈtɒlərəns/', 'n.', 'n. 耐受性', 'the ability to survive difficult conditions'],
+    ['resistance', 'resistance', '/rɪˈzɪstəns/', 'n.', 'n. 抵抗力', 'the ability not to be harmed by something'],
+    ['viable', 'viable', '/ˈvaɪəbl/', 'adj.', 'adj. 能存活生长的', 'able to live, grow or develop successfully'],
+    ['tissue', 'tissue', '/ˈtɪʃuː/', 'n.', 'n. 组织', 'a group of similar cells in a plant or animal'],
+    ['maintain', 'maintains', '/meɪnˈteɪn/', 'v.', 'v. 维持', 'to keep something in good condition over time'],
+  ]),
+};
+
+module.exports = { LEVEL: 'olevel', DAYS: [WED, THU, FRI] };

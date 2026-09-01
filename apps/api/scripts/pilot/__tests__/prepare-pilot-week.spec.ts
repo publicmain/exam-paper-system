@@ -271,8 +271,9 @@ describe('S12M —— 脚本与内容包对得上', () => {
 
   it('要补录的词条数是**可数的**，不是把整本词典搬过来', () => {
     const n = content.allWords().length;
-    expect(n).toBeGreaterThan(100);
-    expect(n).toBeLessThan(200);
+    // 三档 × 五天 × 21 = 315 个词位；跨天去重后仍是一套有限的周词表。
+    expect(n).toBeGreaterThan(250);
+    expect(n).toBeLessThanOrEqual(315);
   });
 
   it('PilotError 是自己的错误类型 —— 好让 main 只回显它的话', () => {

@@ -20,7 +20,8 @@
 | 学生入口 | `https://stg-student-web-spike-production.up.railway.app` |
 | 班级 | `试点班 W1`（班级码 `PILOTW1`） |
 | 分级 | O-Level · 雅思简化 · 雅思真题型，**三档同时开** |
-| 已发布的天 | `2026-08-31`（周一）、`2026-09-01`（周二） |
+| 内容包 | `2026-08-31` 至 `2026-09-04`，周一到周五全部备齐 |
+| 已实际写入 staging | 周一、周二；周三到周五仍按当天早上运行发布脚本 |
 | 每天 | 每档一篇文章 · 10 题 · 21 个目标词 |
 | 每天要老师批的 | 每人 **4 题**（其余 6 题服务端当场判） |
 | 环境 | Railway 项目 `exam-staging-manual` / `production`，**独立库** |
@@ -33,12 +34,15 @@
 | --- | --- | --- | --- |
 | 2026-08-31 | 《The Night Market Cleans Up》 | 《The Bicycle Doctor》 | 《The Slow Science of Coral》 |
 | 2026-09-01 | 《Learning to Swim at Forty》 | 《Birds on the Eleventh Floor》 | 《What the Ice Remembers》 |
+| 2026-09-02 | 《The Bus Stop Garden》 | 《The Library of Things》 | 《Planning Corridors of Darkness》 |
+| 2026-09-03 | 《A Map Made from Sound》 | 《The School That Saved the Rain》 | 《The Complicated Promise of Cool Pavements》 |
+| 2026-09-04 | 《The Seeds Kept for Tomorrow》 | 《Friday at the Repair Café》 | 《When a River Is Given More Room》 |
 
 每篇都是**原创**的，不是往届真题的原文 —— 版权上干净，题干与依据都能在
 文章里指到具体那一句。
 
 每天每档固定：**10 题 = 6 道客观题 + 4 道主观题**，**21 个目标词**。
-三档两天合计 **6 篇文章 / 60 题 / 124 个不重复的词**。
+三档五天合计 **15 篇文章 / 150 题 / 298 个不重复的词**。
 
 ---
 

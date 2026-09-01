@@ -1,5 +1,5 @@
 /**
- * 试点第一周的课程内容 —— **三档 × 两天**。
+ * 试点第一周的课程内容 —— **三档 × 五天**。
  *
  * ## 为什么是三档
  *
@@ -10,11 +10,6 @@
  * 引擎本来就支持这件事：一个班可以挂多个 `ClassEnglishLevel`，同一天
  * 每一档各开一场 `MorningQuizSession`，`pickTodaySession` 按学生的
  * `User.englishLevel` 挑他那一场。所以三档共用一个试点班。
- *
- * ## 为什么只有周一周二
- *
- * 用户的决定：**先做今天和明天**。周三到周五的内容按同一形状追加即可 ——
- * 每一档的 `DAYS` 数组多两三项，其余（脚本、测试、发布流程）一个字不用改。
  *
  * ## 一天的形状（三档一致）
  *
@@ -32,16 +27,19 @@
 const olevel = require('./olevel');
 const simplified = require('./ielts_simplified');
 const authentic = require('./ielts_authentic');
+const olevelRemaining = require('./olevel_remaining');
+const simplifiedRemaining = require('./ielts_simplified_remaining');
+const authenticRemaining = require('./ielts_authentic_remaining');
 
 /** 三档的内容包。key 就是 `EnglishLevel` 枚举值。 */
 const LEVELS = {
-  [olevel.LEVEL]: olevel.DAYS,
-  [simplified.LEVEL]: simplified.DAYS,
-  [authentic.LEVEL]: authentic.DAYS,
+  [olevel.LEVEL]: [...olevel.DAYS, ...olevelRemaining.DAYS],
+  [simplified.LEVEL]: [...simplified.DAYS, ...simplifiedRemaining.DAYS],
+  [authentic.LEVEL]: [...authentic.DAYS, ...authenticRemaining.DAYS],
 };
 
 /** 这一周实际发布的日期（新加坡日历日）。 */
-const DATES = ['2026-08-31', '2026-09-01'];
+const DATES = ['2026-08-31', '2026-09-01', '2026-09-02', '2026-09-03', '2026-09-04'];
 
 /** 每天的目标词数 —— 学习卡与正式测试的题数都等于它。 */
 const WORDS_PER_DAY = 21;

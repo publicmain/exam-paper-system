@@ -1,0 +1,152 @@
+'use strict';
+
+const { P, tf, choice, written, wordsFor } = require('./remaining-week-helpers');
+
+const WED_PASSAGE = P(
+  'Beside the public library in Pine Street, there is a smaller room called the Library of Things. People do not borrow books there. They borrow useful objects from a long shelf: a drill, a sewing machine, a tent, cake tins and simple garden tools. A member can take one object home for seven days.',
+  'The room opened after a neighbourhood survey found that many families needed tools only once or twice a year. They could not afford to buy every object, and their flats had little space. A retired engineer named Mr Lee suggested that the community should share them. He donated the first drill and taught two volunteers how to inspect it safely.',
+  'Borrowing is free, but each person pays a small deposit. The money is returned when the object comes back. Every object has a label with a picture and a short set of instructions. If something is damaged, borrowers are asked to report it instead of hiding the problem. Volunteers then repair the object or send it to a specialist.',
+  'The sewing machine is the most popular item. It is reserved almost every weekend, often by parents making costumes for school events. The tent is collected mainly before public holidays. The cake tins are busy in December, although nobody has explained why one tin shaped like a train is requested more than all the others.',
+  'After one year, the room had made 1,840 loans and thrown away only six objects. Mr Lee says the practical result is less waste, but the social result matters too. People return things because they trust the next borrower to do the same. The room is now adding wheelchairs and walking frames, which may be borrowed for a month.',
+);
+
+const WED = {
+  date: '2026-09-02',
+  title: 'The Library of Things',
+  passage: WED_PASSAGE,
+  questions: [
+    tf('B', 'People visit the Library of Things mainly to borrow books.', 'People do not borrow books there.', '原文明确说这里不借书，所以题干与原文相反。'),
+    tf('A', 'The idea began after local families were asked what they needed.', 'The room opened after a neighbourhood survey found that many families needed tools only once or twice a year.', 'survey 表明项目先调查了居民的需要。'),
+    tf('C', 'Mr Lee is paid for every object that he repairs.', '', '原文没有提到 Mr Lee 因维修物品得到报酬。'),
+    choice('matching_features', 'B', 'Which object is especially busy before public holidays?', 'The tent is collected mainly before public holidays.', '原文直接指出公共假期前主要有人来取帐篷。', ['the drill', 'the tent', 'the sewing machine', 'the train-shaped tin']),
+    choice('matching_features', 'C', 'Which object is most often borrowed at weekends?', 'It is reserved almost every weekend', '上一句的主语是 sewing machine。', ['the drill', 'the tent', 'the sewing machine', 'the walking frame']),
+    choice('multiple_choice', 'A', 'Why does Mr Lee value the project?', 'Mr Lee says the practical result is less waste, but the social result matters too.', '他同时看重减少浪费和邻里之间的信任。', ['It reduces waste and builds trust.', 'It earns money for the library.', 'It teaches people to buy better tools.', 'It gives retired people full-time jobs.']),
+    written('sentence_completion', 1, 'deposit', 'Complete with ONE WORD from the passage.\nBorrowers pay a small ______ which they receive back later.', 'Borrowing is free, but each person pays a small deposit.', '只认 deposit。', '第三段说明押金会在归还物品时退回。', ['deposit']),
+    written('sentence_completion', 1, 'label', 'Each object carries a ______ with a picture and instructions.', 'Every object has a label with a picture and a short set of instructions.', '只能填写原文中的 label。', '物品上的图片和说明写在标签上。', ['label']),
+    written('summary_completion', 2, '1,840 loans', 'Complete the summary.\nDuring its first year, the room recorded ______ and discarded only six objects.', 'After one year, the room had made 1,840 loans and thrown away only six objects.', '写出 1,840 loans 得 2 分；只写 1,840 得 1 分。', '最后一段给出了第一年的借用次数。'),
+    written('short_answer', 2, 'because flats had little space', 'Why did some families not want to own every tool they needed?', 'They could not afford to buy every object, and their flats had little space.', '答出住房空间小得 2 分；只答买不起得 1 分。', '第二段给出价格和空间两个原因，本题问的是不愿全部拥有。'),
+  ],
+  words: wordsFor(WED_PASSAGE, [
+    ['borrow', 'borrow', '/ˈbɒrəʊ/', 'v.', 'v. 借用', 'to take something for a time and return it later'],
+    ['shelf', 'shelf', '/ʃelf/', 'n.', 'n. 架子', 'a flat board used for keeping objects'],
+    ['drill', 'drill', '/drɪl/', 'n.', 'n. 电钻', 'a tool used for making round holes'],
+    ['sewing', 'sewing', '/ˈsəʊɪŋ/', 'n.', 'n. 缝纫', 'the activity of joining cloth with thread'],
+    ['member', 'member', '/ˈmembə/', 'n.', 'n. 成员', 'a person who belongs to a group'],
+    ['survey', 'survey', '/ˈsɜːveɪ/', 'n.', 'n. 调查', 'a set of questions used to collect information'],
+    ['afford', 'afford', '/əˈfɔːd/', 'v.', 'v. 负担得起', 'to have enough money to pay for something'],
+    ['share', 'share', '/ʃeə/', 'v.', 'v. 共享', 'to use something together with other people'],
+    ['donate', 'donated', '/dəʊˈneɪt/', 'v.', 'v. 捐赠', 'to give something to help a person or group'],
+    ['inspect', 'inspect', '/ɪnˈspekt/', 'v.', 'v. 检查', 'to look at something carefully for problems'],
+    ['deposit', 'deposit', '/dɪˈpɒzɪt/', 'n.', 'n. 押金', 'money kept until a borrowed item is returned'],
+    ['label', 'label', '/ˈleɪbl/', 'n.', 'n. 标签', 'a small piece of information attached to an object'],
+    ['damage', 'damaged', '/ˈdæmɪdʒ/', 'v.', 'v. 损坏', 'to harm something so it works less well'],
+    ['repair', 'repair', '/rɪˈpeə/', 'v.', 'v. 修理', 'to make a broken object work again'],
+    ['specialist', 'specialist', '/ˈspeʃəlɪst/', 'n.', 'n. 专业人员', 'a person with expert knowledge of one subject'],
+    ['popular', 'popular', '/ˈpɒpjələ/', 'adj.', 'adj. 受欢迎的', 'liked or used by many people'],
+    ['reserve', 'reserved', '/rɪˈzɜːv/', 'v.', 'v. 预订', 'to arrange to use something at a later time'],
+    ['collect', 'collected', '/kəˈlekt/', 'v.', 'v. 领取', 'to go somewhere and take something away'],
+    ['practical', 'practical', '/ˈpræktɪkl/', 'adj.', 'adj. 实际的', 'connected with real action rather than ideas'],
+    ['waste', 'waste', '/weɪst/', 'n.', 'n. 浪费；废物', 'material or resources that are not used well'],
+    ['trust', 'trust', '/trʌst/', 'v.', 'v. 信任', 'to believe that someone will act honestly'],
+  ]),
+};
+
+const THU_PASSAGE = P(
+  'At Green Hill School, rain used to create two problems. Water rushed off the hall roof and flooded the basketball court, while the garden became dry again only a few days later. The school paid to clean the drains after every storm and then paid again to water the plants during hot weeks.',
+  'A science class measured the roof and made a simple plan. They asked for four large tanks beside the hall. Gutters would carry rainwater into the tanks, and a filter would stop leaves and dirt from entering. The stored water would not be safe to drink, but it could supply the garden and wash outdoor floors.',
+  'The principal worried that the system would be expensive. The students therefore built a small model from bottles and plastic tubes. During one heavy shower, their model collected twelve litres in twenty minutes. They displayed the results at assembly and persuaded a local building company to donate two tanks. Parents paid for the other two.',
+  'The finished system holds 8,000 litres. A clear gauge on each tank shows the water level. Garden club members open a valve to fill their watering cans, and the caretaker uses a separate hose. Bright signs remind everyone that the water is untreated and must never be used for drinking.',
+  'The first wet season brought an unexpected lesson. The tanks filled faster than the students had predicted, so an overflow pipe was added to lead extra water into a shallow pond. Frogs appeared there within three months. The school still cleans its drains, but the court no longer floods after an ordinary storm.',
+);
+
+const THU = {
+  date: '2026-09-03',
+  title: 'The School That Saved the Rain',
+  passage: THU_PASSAGE,
+  questions: [
+    tf('A', 'Before the project, the school paid both to clear drains and to water plants.', 'The school paid to clean the drains after every storm and then paid again to water the plants during hot weeks.', '原文列出了这两笔开支。'),
+    tf('B', 'The water in the tanks is suitable for students to drink.', 'The stored water would not be safe to drink', '原文明确说储水不能饮用。'),
+    tf('C', 'The building company installed all four tanks without help.', '', '原文只说公司捐了两只水箱，没有说明由谁安装。'),
+    choice('matching_features', 'A', 'What keeps leaves out of the tanks?', 'a filter would stop leaves and dirt from entering', '过滤器负责阻挡叶子和泥土。', ['a filter', 'a valve', 'a gauge', 'a hose']),
+    choice('matching_features', 'C', 'What shows how much water remains?', 'A clear gauge on each tank shows the water level.', 'gauge 显示水位。', ['a filter', 'a valve', 'a gauge', 'a sign']),
+    choice('multiple_choice', 'D', 'Why was an overflow pipe added?', 'The tanks filled faster than the students had predicted, so an overflow pipe was added', '水箱装满速度超过预期，需要把多余的水导走。', ['The garden needed drinking water.', 'The filters were blocked by leaves.', 'The basketball court needed washing.', 'The tanks filled more quickly than expected.']),
+    written('sentence_completion', 1, 'twelve litres', 'The bottle model collected ______ during one heavy shower.', 'During one heavy shower, their model collected twelve litres in twenty minutes.', '写 twelve litres。', '第三段给出模型的收集量。', ['twelve litres', '12 litres']),
+    written('sentence_completion', 1, 'valve', 'Garden club members open a ______ before filling their cans.', 'Garden club members open a valve to fill their watering cans', '只能填写原文中的 valve。', '阀门控制水从水箱流出。', ['valve']),
+    written('summary_completion', 2, 'a shallow pond', 'Extra water now travels through a pipe into ______.', 'an overflow pipe was added to lead extra water into a shallow pond.', '写 shallow pond 得 2 分；只写 pond 得 1 分。', '最后一段说明溢出的水被引到浅池塘。'),
+    written('short_answer', 2, 'to prove the plan could collect rainwater', 'Why did the students build a small model?', 'The students therefore built a small model from bottles and plastic tubes.', '答出用模型证明方案可行得 2 分；只答为了说服校长得 1 分。', '模型把抽象计划变成了可测量的结果。'),
+  ],
+  words: wordsFor(THU_PASSAGE, [
+    ['rush', 'rushed', '/rʌʃ/', 'v.', 'v. 奔流', 'to move very quickly and with force'],
+    ['flood', 'flooded', '/flʌd/', 'v.', 'v. 淹没', 'to cover a place with too much water'],
+    ['drain', 'drains', '/dreɪn/', 'n.', 'n. 排水沟', 'a pipe or channel that carries water away'],
+    ['measure', 'measured', '/ˈmeʒə/', 'v.', 'v. 测量', 'to find the size or amount of something'],
+    ['gutter', 'Gutters', '/ˈɡʌtə/', 'n.', 'n. 檐沟', 'a channel along a roof that collects rain'],
+    ['filter', 'filter', '/ˈfɪltə/', 'n.', 'n. 过滤器', 'a device that removes unwanted material'],
+    ['stored', 'stored', '/stɔːd/', 'adj.', 'adj. 储存的', 'kept for use at a later time'],
+    ['supply', 'supply', '/səˈplaɪ/', 'v.', 'v. 供应', 'to provide something that is needed'],
+    ['principal', 'principal', '/ˈprɪnsəpl/', 'n.', 'n. 校长', 'the person in charge of a school'],
+    ['model', 'model', '/ˈmɒdl/', 'n.', 'n. 模型', 'a small copy used to show how something works'],
+    ['shower', 'shower', '/ˈʃaʊə/', 'n.', 'n. 阵雨', 'a short period of rain'],
+    ['display', 'displayed', '/dɪˈspleɪ/', 'v.', 'v. 展示', 'to show something where people can see it'],
+    ['persuade', 'persuaded', '/pəˈsweɪd/', 'v.', 'v. 说服', 'to make someone agree by giving reasons'],
+    ['donate', 'donate', '/dəʊˈneɪt/', 'v.', 'v. 捐赠', 'to give money or goods to help'],
+    ['gauge', 'gauge', '/ɡeɪdʒ/', 'n.', 'n. 测量表', 'an instrument that shows an amount or level'],
+    ['valve', 'valve', '/vælv/', 'n.', 'n. 阀门', 'a device that controls the flow of liquid'],
+    ['caretaker', 'caretaker', '/ˈkeəteɪkə/', 'n.', 'n. 校舍管理员', 'a person who looks after a building'],
+    ['untreated', 'untreated', '/ˌʌnˈtriːtɪd/', 'adj.', 'adj. 未处理的', 'not cleaned or made safe by a process'],
+    ['predict', 'predicted', '/prɪˈdɪkt/', 'v.', 'v. 预测', 'to say what you think will happen'],
+    ['overflow', 'overflow', '/ˈəʊvəfləʊ/', 'n.', 'n. 溢流', 'extra liquid that flows over the edge'],
+    ['ordinary', 'ordinary', '/ˈɔːdnri/', 'adj.', 'adj. 普通的', 'normal and not unusual'],
+  ]),
+};
+
+const FRI_PASSAGE = P(
+  'Every Friday afternoon, the meeting room at West Park Community Centre becomes a repair café. It does not sell coffee, although a volunteer usually makes tea. People bring lamps, fans, toys, bags and small kitchen machines that have stopped working. The aim is to repair them together rather than throw them away.',
+  'Visitors first meet a guide who writes the object and its fault on a card. They then join the correct table: electrical, clothing, wood or bicycles. A skilled volunteer examines the object, but the owner is expected to watch and help. The café says that a repair is more useful when the owner understands what went wrong.',
+  'Not every object can be saved. Spare parts may be unavailable, and some sealed machines are dangerous to open. In those cases, volunteers explain the reason and show the owner where the object can be recycled. They never promise success, and they refuse to repair anything that could be unsafe afterwards.',
+  'The youngest regular visitor is eleven-year-old Hana. She first came with a broken desk lamp. A loose wire was the only fault, and she learned to replace it in fifteen minutes. She now helps at the toy table, where missing screws and dirty battery contacts cause many of the problems.',
+  'During its first six months, the café received 312 objects and repaired 219 of them. The organisers are pleased with that number, but they also count conversations. Strangers lend one another tools, compare old appliances and share memories of the people who owned them. An object may leave still broken, yet its owner often leaves knowing what to do next.',
+);
+
+const FRI = {
+  date: '2026-09-04',
+  title: 'Friday at the Repair Café',
+  passage: FRI_PASSAGE,
+  questions: [
+    tf('B', 'The repair café earns money by selling drinks.', 'It does not sell coffee, although a volunteer usually makes tea.', '这里不卖咖啡，茶也是志愿者提供的。'),
+    tf('A', 'Owners are expected to take part in repairing their objects.', 'the owner is expected to watch and help', '原文明确要求物主观看并帮忙。'),
+    tf('C', 'Hana plans to become an electrical engineer.', '', '文章没有提到 Hana 将来的职业计划。'),
+    choice('matching_features', 'B', 'Where should a torn bag be taken?', 'They then join the correct table: electrical, clothing, wood or bicycles.', '破损的布袋应去 clothing table。', ['electrical', 'clothing', 'wood', 'bicycles']),
+    choice('matching_features', 'A', 'Which problem stopped Hana’s desk lamp from working?', 'A loose wire was the only fault', 'Hana 的台灯只有一根松动电线的问题。', ['a loose wire', 'a missing screw', 'a dirty contact', 'a sealed case']),
+    choice('multiple_choice', 'C', 'What do the organisers count in addition to successful repairs?', 'they also count conversations', '除了修好的物件，他们还重视人与人的交流。', ['cups of tea', 'new spare parts', 'conversations', 'hours of training']),
+    written('sentence_completion', 1, 'fault', 'A guide records each object and its ______ on a card.', 'a guide who writes the object and its fault on a card', '只能填写原文中的 fault。', '第二段说明向导先登记故障。', ['fault']),
+    written('sentence_completion', 1, 'recycled', 'Objects that cannot be repaired may still be ______ correctly.', 'show the owner where the object can be recycled', '只认 recycled。', '志愿者会说明无法维修的物件应去哪里回收。', ['recycled']),
+    written('summary_completion', 2, '219', 'In the first six months, volunteers successfully repaired ______ objects.', 'the café received 312 objects and repaired 219 of them.', '写 219 得 2 分。', '最后一段给出收到和修好的物件数量。'),
+    written('short_answer', 2, 'so the owner understands what went wrong', 'Why does the café ask owners to watch and help?', 'The café says that a repair is more useful when the owner understands what went wrong.', '答出让物主理解故障原因得 2 分；只答学习维修得 1 分。', '咖啡馆希望学生带走的不只是修好的物件。'),
+  ],
+  words: wordsFor(FRI_PASSAGE, [
+    ['repair', 'repair', '/rɪˈpeə/', 'v.', 'v. 修理', 'to make a damaged thing work again'],
+    ['volunteer', 'volunteer', '/ˌvɒlənˈtɪə/', 'n.', 'n. 志愿者', 'a person who works without being paid'],
+    ['throw', 'throw', '/θrəʊ/', 'v.', 'v. 扔掉', 'to send something away with your hand'],
+    ['fault', 'fault', '/fɔːlt/', 'n.', 'n. 故障', 'a problem that stops something working'],
+    ['skilled', 'skilled', '/skɪld/', 'adj.', 'adj. 熟练的', 'having the ability to do something well'],
+    ['examine', 'examines', '/ɪɡˈzæmɪn/', 'v.', 'v. 检查', 'to look at something carefully'],
+    ['owner', 'owner', '/ˈəʊnə/', 'n.', 'n. 物主', 'the person that something belongs to'],
+    ['spare', 'Spare', '/speə/', 'adj.', 'adj. 备用的', 'kept as an extra for when it is needed'],
+    ['unavailable', 'unavailable', '/ˌʌnəˈveɪləbl/', 'adj.', 'adj. 无法获得的', 'not able to be obtained or used'],
+    ['sealed', 'sealed', '/siːld/', 'adj.', 'adj. 密封的', 'closed so that it cannot easily be opened'],
+    ['dangerous', 'dangerous', '/ˈdeɪndʒərəs/', 'adj.', 'adj. 危险的', 'likely to cause harm'],
+    ['recycle', 'recycled', '/ˌriːˈsaɪkl/', 'v.', 'v. 回收利用', 'to process waste so it can be used again'],
+    ['promise', 'promise', '/ˈprɒmɪs/', 'v.', 'v. 保证', 'to say that something will certainly happen'],
+    ['refuse', 'refuse', '/rɪˈfjuːz/', 'v.', 'v. 拒绝', 'to say that you will not do something'],
+    ['regular', 'regular', '/ˈreɡjələ/', 'adj.', 'adj. 经常来的', 'happening or coming again and again'],
+    ['loose', 'loose', '/luːs/', 'adj.', 'adj. 松动的', 'not firmly fixed in place'],
+    ['replace', 'replace', '/rɪˈpleɪs/', 'v.', 'v. 更换', 'to put a new thing where an old one was'],
+    ['contact', 'contacts', '/ˈkɒntækt/', 'n.', 'n. 接触片', 'a metal part that carries electricity when touching another part'],
+    ['organiser', 'organisers', '/ˈɔːɡənaɪzə/', 'n.', 'n. 组织者', 'a person who plans an activity'],
+    ['stranger', 'Strangers', '/ˈstreɪndʒə/', 'n.', 'n. 陌生人', 'a person you have not met before'],
+    ['appliance', 'appliances', '/əˈplaɪəns/', 'n.', 'n. 家用电器', 'a machine used for a job in the home'],
+  ]),
+};
+
+module.exports = { LEVEL: 'ielts_simplified', DAYS: [WED, THU, FRI] };

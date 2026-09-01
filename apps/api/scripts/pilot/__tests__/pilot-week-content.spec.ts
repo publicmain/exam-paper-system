@@ -69,7 +69,7 @@ const {
 
 const LEVEL_KEYS = Object.keys(LEVELS);
 /**
- * 三档 × 两天 = 六个 (档, 天) 组合。每一条断言都对它们逐一跑。
+ * 三档 × 五天 = 十五个 (档, 天) 组合。每一条断言都对它们逐一跑。
  *
  * 第一个元素是**给测试名用的短标签** —— 直接把 Day 对象丢给 `describe.each`
  * 的话，vitest 会把整篇原文打进测试名里，失败时几十 KB 全是文章。
@@ -126,8 +126,13 @@ describe('S12M —— 这一周有什么', () => {
   });
 
   it('日期是新加坡日历日，且连续', () => {
-    // 用户的决定：先做今天（周一）和明天（周二）
-    expect(DATES).toEqual(['2026-08-31', '2026-09-01']);
+    expect(DATES).toEqual([
+      '2026-08-31',
+      '2026-09-01',
+      '2026-09-02',
+      '2026-09-03',
+      '2026-09-04',
+    ]);
     for (const d of DATES) expect(d).toMatch(/^\d{4}-\d{2}-\d{2}$/);
     const ms = DATES.map((d) => Date.parse(`${d}T00:00:00+08:00`));
     for (let i = 1; i < ms.length; i++) {
@@ -300,7 +305,7 @@ describe.each(EVERY)('S12M —— %s 的生词', (_label, level, day) => {
 // ─────────────────────────────────────────────────────────────
 
 describe('S12M —— 全周', () => {
-  it('六篇原文各不相同，标题也各不相同', () => {
+  it('十五篇原文各不相同，标题也各不相同', () => {
     const titles = EVERY.map(([, , d]) => d.title);
     const passages = EVERY.map(([, , d]) => d.passage);
     expect(new Set(titles).size).toBe(titles.length);

@@ -1,0 +1,152 @@
+'use strict';
+
+const { P, tf, choice, written, wordsFor } = require('./remaining-week-helpers');
+
+const WED_PASSAGE = P(
+  'Conservation maps traditionally describe habitat in daylight terms: where an animal feeds, shelters and reproduces. Yet for nocturnal species, darkness is itself part of the habitat. A forest divided by a brightly illuminated road may remain physically continuous while becoming behaviourally fragmented. The trees are still there, but an animal unwilling to cross the light experiences two smaller forests rather than one large one.',
+  'The effect is not uniform. Some insects are attracted to lamps and circle them until exhaustion, concentrating prey around a source that certain bats exploit. Other bat species avoid illuminated edges entirely. Newly hatched turtles can be drawn inland by hotel lighting that competes with the brighter horizon over the sea. Migrating birds may alter their routes near luminous cities, especially under low cloud, when artificial glow is reflected back towards the ground.',
+  'These differences make a simple instruction to use less light inadequate. A hospital entrance, railway platform and pedestrian crossing cannot be treated like an empty warehouse yard. The emerging alternative is to plan dark corridors: connected routes along rivers, hedges, parks and building edges where lighting is absent, shielded or activated only when people are present. Connectivity matters because a single dark park is of limited use if every route leading to it is exposed.',
+  'Measuring darkness is also less straightforward than it appears. A light meter records intensity at one point, but animals respond to spectrum, direction, duration and contrast. Blue-rich white light can disrupt biological clocks more strongly than amber light of the same measured brightness. A lamp hidden from human view may still illuminate the sky, while a low, well-shielded lamp can make a path visible without casting light into neighbouring vegetation.',
+  'The practical argument for dark corridors is that they do not require cities to choose between people and wildlife everywhere. They require priorities to be stated spatially and temporally. Light can be concentrated where and when it serves a clear human purpose, while darkness is protected as deliberately as a pond or a line of mature trees. The harder task is administrative: transport, housing and conservation teams must agree on a network whose value disappears if any one department fills its gap with permanent light.',
+);
+
+const WED = {
+  date: '2026-09-02',
+  title: 'Planning Corridors of Darkness',
+  passage: WED_PASSAGE,
+  questions: [
+    tf('A', 'A lit road can divide habitat even when the vegetation remains physically connected.', 'A forest divided by a brightly illuminated road may remain physically continuous while becoming behaviourally fragmented.', '物理连续并不代表动物愿意穿越光带。'),
+    tf('B', 'All bat species benefit from insects gathering around street lamps.', 'Other bat species avoid illuminated edges entirely.', '有些蝙蝠利用聚集的昆虫，另一些则完全躲避亮处。'),
+    tf('C', 'Amber lighting is cheaper to install than blue-rich white lighting.', '', '文章比较的是生物影响，没有比较安装成本。'),
+    choice('matching_features', 'C', 'Which animals may travel in the wrong direction after hatching?', 'Newly hatched turtles can be drawn inland by hotel lighting', '新孵化的海龟可能被灯光吸引向内陆。', ['insects', 'bats', 'turtles', 'migrating birds']),
+    choice('matching_features', 'D', 'Which animals may change their path when cloud is low?', 'Migrating birds may alter their routes near luminous cities, especially under low cloud', '低云时城市光晕会影响迁徙鸟类路线。', ['insects', 'bats', 'turtles', 'migrating birds']),
+    choice('multiple_choice', 'B', 'Why is one isolated dark park insufficient?', 'Connectivity matters because a single dark park is of limited use if every route leading to it is exposed.', '动物需要一条连续的黑暗路线才能到达公园。', ['Its plants cannot grow without artificial light.', 'Animals may be unable to reach it through lit surroundings.', 'Light meters cannot measure a whole park.', 'Hospitals and stations must be built inside it.']),
+    written('sentence_completion', 1, 'spectrum', 'Animals respond not only to intensity but also to ______, direction, duration and contrast.', 'animals respond to spectrum, direction, duration and contrast.', '只认 spectrum。', '第四段列出光的多个生物相关属性。', ['spectrum']),
+    written('sentence_completion', 1, 'contrast', 'A point measurement does not describe spectrum, direction, duration or ______.', 'animals respond to spectrum, direction, duration and contrast.', '只认 contrast。', '同一句列出最后一个属性。', ['contrast']),
+    written('summary_completion', 2, 'spatially and temporally', 'Successful policy must state its lighting priorities both ______.', 'They require priorities to be stated spatially and temporally.', '完整写出 spatially and temporally 得 2 分；只写其一得 1 分。', '最后一段强调地点与时间两个维度。'),
+    written('short_answer', 2, 'because one lit gap destroys the connected network', 'Why must different city departments cooperate on dark corridors?', 'transport, housing and conservation teams must agree on a network whose value disappears if any one department fills its gap with permanent light.', '答出任何部门留下永久亮点都会破坏网络连续性得 2 分；只答需要统一规划得 1 分。', '暗廊的价值依赖跨部门维持完整连接。'),
+  ],
+  words: wordsFor(WED_PASSAGE, [
+    ['nocturnal', 'nocturnal', '/nɒkˈtɜːnl/', 'adj.', 'adj. 夜行的', 'active mainly during the night'],
+    ['illuminate', 'illuminated', '/ɪˈluːmɪneɪt/', 'v.', 'v. 照亮', 'to shine light on something'],
+    ['continuous', 'continuous', '/kənˈtɪnjuəs/', 'adj.', 'adj. 连续的', 'forming an unbroken whole'],
+    ['fragment', 'fragmented', '/fræɡˈment/', 'v.', 'v. 使碎片化', 'to divide something into separate smaller parts'],
+    ['uniform', 'uniform', '/ˈjuːnɪfɔːm/', 'adj.', 'adj. 一致的', 'the same in all cases or areas'],
+    ['exhaustion', 'exhaustion', '/ɪɡˈzɔːstʃn/', 'n.', 'n. 精疲力尽', 'a state of extreme tiredness'],
+    ['exploit', 'exploit', '/ɪkˈsplɔɪt/', 'v.', 'v. 利用', 'to use a situation to gain an advantage'],
+    ['luminous', 'luminous', '/ˈluːmɪnəs/', 'adj.', 'adj. 发光的', 'shining or giving off light'],
+    ['inadequate', 'inadequate', '/ɪnˈædɪkwət/', 'adj.', 'adj. 不充分的', 'not enough or not good enough'],
+    ['emerging', 'emerging', '/ɪˈmɜːdʒɪŋ/', 'adj.', 'adj. 新出现的', 'beginning to develop or become important'],
+    ['corridor', 'corridors', '/ˈkɒrɪdɔː/', 'n.', 'n. 生态廊道', 'a connected route through which animals can move'],
+    ['shield', 'shielded', '/ʃiːld/', 'v.', 'v. 遮挡', 'to protect an area from light or harm'],
+    ['connectivity', 'Connectivity', '/ˌkɒnekˈtɪvəti/', 'n.', 'n. 连通性', 'the state of being linked together'],
+    ['intensity', 'intensity', '/ɪnˈtensəti/', 'n.', 'n. 强度', 'the strength or power of something'],
+    ['spectrum', 'spectrum', '/ˈspektrəm/', 'n.', 'n. 光谱', 'the range of different wavelengths of light'],
+    ['duration', 'duration', '/djʊəˈreɪʃn/', 'n.', 'n. 持续时间', 'the length of time something continues'],
+    ['disrupt', 'disrupt', '/dɪsˈrʌpt/', 'v.', 'v. 扰乱', 'to prevent a system from continuing normally'],
+    ['amber', 'amber', '/ˈæmbə/', 'adj.', 'adj. 琥珀色的', 'yellow-orange in colour'],
+    ['vegetation', 'vegetation', '/ˌvedʒəˈteɪʃn/', 'n.', 'n. 植被', 'plants considered together in an area'],
+    ['spatially', 'spatially', '/ˈspeɪʃəli/', 'adv.', 'adv. 在空间上', 'in relation to places and positions'],
+    ['administrative', 'administrative', '/ədˈmɪnɪstrətɪv/', 'adj.', 'adj. 行政管理的', 'connected with organising and managing work'],
+  ]),
+};
+
+const THU_PASSAGE = P(
+  'On a hot afternoon, conventional asphalt can become far warmer than the air above it. This stored heat is later released after sunset, contributing to the urban heat island that prevents city neighbourhoods from cooling overnight. One increasingly visible response is the cool pavement: a road or footpath designed to absorb less solar energy, usually because its surface is lighter in colour or reflects infrared radiation.',
+  'The principle is sound, but the outcome is not automatically comfortable. A reflective surface remains cooler itself, yet some of the energy it rejects travels towards pedestrians and nearby walls. At midday, a person standing above a bright pavement may experience more radiant heat even while a thermometer touching the ground records a lower temperature. Glare can also make an unshaded route unpleasant and difficult for people with limited vision.',
+  'Performance changes with age. Dust, tyre rubber and organic material darken a new coating, reducing its reflectance. Conversely, ordinary asphalt may become slightly lighter as its darkest oils wear away. Laboratory measurements made on clean samples therefore reveal less than long-term monitoring on busy streets. Maintenance has its own environmental cost if a coating must be washed frequently or renewed every few years.',
+  'Climate adds another complication. In a dry city, reducing stored heat can be valuable because nights are clear and cooling is otherwise limited by hot surfaces. In a colder region, the same pavement may increase winter heating demand in adjacent buildings and slow the melting of ice in shaded places. Rainfall, street width, tree cover and building height all alter where reflected energy goes.',
+  'Researchers are consequently moving away from asking whether cool pavements work and towards asking where they work. A school courtyard with shade trees, a wide industrial road and a narrow residential canyon are different thermal systems. Surface temperature is one measurement within those systems, not a verdict. The useful comparison is the combined effect on air temperature, human exposure, drainage, durability, energy use and cost over the pavement’s full life.',
+);
+
+const THU = {
+  date: '2026-09-03',
+  title: 'The Complicated Promise of Cool Pavements',
+  passage: THU_PASSAGE,
+  questions: [
+    tf('A', 'Heat stored by asphalt can keep urban areas warmer after the sun goes down.', 'This stored heat is later released after sunset, contributing to the urban heat island', '沥青在日落后释放储存热量。'),
+    tf('B', 'A cooler pavement surface always makes pedestrians feel cooler.', 'a person standing above a bright pavement may experience more radiant heat even while a thermometer touching the ground records a lower temperature.', '表面更冷时，行人仍可能承受更多反射辐射。'),
+    tf('C', 'Cool-pavement coatings are cheaper to produce than standard asphalt.', '', '文章讨论维护成本，但没有比较生产价格。'),
+    choice('matching_features', 'A', 'What tends to reduce the reflectance of a new coating?', 'Dust, tyre rubber and organic material darken a new coating, reducing its reflectance.', '灰尘、轮胎橡胶和有机物会让涂层变暗。', ['street dirt', 'winter ice', 'clear nights', 'shade trees']),
+    choice('matching_features', 'B', 'What may increase because a pale surface sends energy upward?', 'Glare can also make an unshaded route unpleasant', '向上的反射会带来眩光。', ['drainage', 'glare', 'durability', 'rainfall']),
+    choice('multiple_choice', 'D', 'What is the writer’s main criticism of using surface temperature alone?', 'Surface temperature is one measurement within those systems, not a verdict.', '单一表面温度无法代表整套热环境和长期效果。', ['It can be recorded only in laboratories.', 'It is impossible to compare across seasons.', 'It ignores the colour of the pavement.', 'It does not capture the whole system’s effects.']),
+    written('sentence_completion', 1, 'infrared radiation', 'Some cool surfaces work by reflecting ______.', 'reflects infrared radiation.', '完整写 infrared radiation。', '第一段给出浅色之外的另一机制。', ['infrared radiation']),
+    written('sentence_completion', 1, 'tyre rubber', 'Together with dust and organic material, ______ can darken a coating.', 'Dust, tyre rubber and organic material darken a new coating', '完整写 tyre rubber。', '第三段列出让涂层变暗的物质。', ['tyre rubber', 'tire rubber']),
+    written('summary_completion', 2, 'long-term monitoring', 'Clean laboratory samples are less informative than ______ on working streets.', 'Laboratory measurements made on clean samples therefore reveal less than long-term monitoring on busy streets.', '写 long-term monitoring 得 2 分；只写 monitoring 得 1 分。', '真实街道的长期监测更能反映老化效果。'),
+    written('short_answer', 2, 'because climate and street form change the outcome', 'Why are researchers asking where cool pavements work rather than whether they work?', 'Rainfall, street width, tree cover and building height all alter where reflected energy goes.', '答出气候或街道条件会改变效果得 2 分；只列一个因素得 1 分。', '同一种材料在不同热系统中的总体影响不同。'),
+  ],
+  words: wordsFor(THU_PASSAGE, [
+    ['conventional', 'conventional', '/kənˈvenʃənl/', 'adj.', 'adj. 传统的', 'following the usual or established method'],
+    ['asphalt', 'asphalt', '/ˈæsfælt/', 'n.', 'n. 沥青', 'a black material used for road surfaces'],
+    ['contribute', 'contributing', '/kənˈtrɪbjuːt/', 'v.', 'v. 促成', 'to help cause a particular result'],
+    ['absorb', 'absorb', '/əbˈzɔːb/', 'v.', 'v. 吸收', 'to take in energy such as heat or light'],
+    ['infrared', 'infrared', '/ˌɪnfrəˈred/', 'adj.', 'adj. 红外线的', 'connected with radiation beyond visible red light'],
+    ['outcome', 'outcome', '/ˈaʊtkʌm/', 'n.', 'n. 结果', 'the final result of an action or process'],
+    ['reflective', 'reflective', '/rɪˈflektɪv/', 'adj.', 'adj. 反射的', 'able to send light or heat back from a surface'],
+    ['radiant', 'radiant', '/ˈreɪdiənt/', 'adj.', 'adj. 辐射的', 'transmitted in the form of radiation'],
+    ['glare', 'Glare', '/ɡleə/', 'n.', 'n. 眩光', 'strong bright light that makes seeing difficult'],
+    ['organic', 'organic', '/ɔːˈɡænɪk/', 'adj.', 'adj. 有机物的', 'coming from living or once-living material'],
+    ['reflectance', 'reflectance', '/rɪˈflektəns/', 'n.', 'n. 反射率', 'the amount of light a surface reflects'],
+    ['conversely', 'Conversely', '/ˈkɒnvɜːsli/', 'adv.', 'adv. 相反地', 'used to introduce the opposite situation'],
+    ['monitoring', 'monitoring', '/ˈmɒnɪtərɪŋ/', 'n.', 'n. 监测', 'regular observation over a period of time'],
+    ['renew', 'renewed', '/rɪˈnjuː/', 'v.', 'v. 翻新', 'to replace or make new again'],
+    ['complication', 'complication', '/ˌkɒmplɪˈkeɪʃn/', 'n.', 'n. 复杂因素', 'something that makes a situation harder'],
+    ['adjacent', 'adjacent', '/əˈdʒeɪsnt/', 'adj.', 'adj. 相邻的', 'next to or very near something'],
+    ['alter', 'alter', '/ˈɔːltə/', 'v.', 'v. 改变', 'to make something different'],
+    ['consequently', 'consequently', '/ˈkɒnsɪkwəntli/', 'adv.', 'adv. 因此', 'as a result of what has just been described'],
+    ['courtyard', 'courtyard', '/ˈkɔːtjɑːd/', 'n.', 'n. 庭院', 'an open area surrounded by buildings'],
+    ['thermal', 'thermal', '/ˈθɜːml/', 'adj.', 'adj. 热的；热学的', 'connected with heat'],
+    ['durability', 'durability', '/ˌdjʊərəˈbɪləti/', 'n.', 'n. 耐久性', 'the ability to remain in good condition for a long time'],
+  ]),
+};
+
+const FRI_PASSAGE = P(
+  'For much of the twentieth century, flood engineering treated a river as a problem of conveyance. Channels were straightened, banks raised and floodplains separated by embankments so that water would pass through a town as quickly as possible. The approach protected many places from frequent floods, but it also transferred water downstream faster and encouraged construction on land that appeared to have become safe.',
+  'A different strategy, often described as giving the river room, starts by asking where floodwater can spread without causing catastrophic damage. An embankment may be moved back from the channel, reconnecting part of the former floodplain. Fields can be planted with crops that tolerate occasional inundation, while the most vulnerable buildings are relocated or raised. During ordinary conditions, the land remains productive; during a flood, it temporarily stores water.',
+  'The storage is shallow but extensive. Ten centimetres of water spread across one square kilometre represents one hundred thousand cubic metres that is not moving through a town at the flood peak. Wetlands and rough vegetation also slow the return of that water to the channel. The aim is not to prevent every flood, which no landscape can guarantee, but to reduce the height and speed of the most damaging ones.',
+  'Implementation is socially harder than the engineering diagram suggests. The community receiving the benefit may be kilometres downstream from the farmers who provide the storage. Compensation must reflect not only lost crops after a flood but restrictions on buildings, drainage and future land value. Voluntary agreements can take years, yet compulsory purchase may destroy the local trust needed to maintain gates, paths and warning systems.',
+  'Monitoring has therefore become central to such projects. Gauges record when water enters and leaves the floodplain; satellite images reveal how widely it spreads; ecological surveys track changes in birds and plants. A successful scheme may deliver flood protection, habitat and recreation together, but those benefits should not be assumed. Giving a river room is not the withdrawal of management. It is a decision to manage a larger, more variable space.',
+);
+
+const FRI = {
+  date: '2026-09-04',
+  title: 'When a River Is Given More Room',
+  passage: FRI_PASSAGE,
+  questions: [
+    tf('A', 'Earlier flood engineering often aimed to move water through towns rapidly.', 'water would pass through a town as quickly as possible.', '传统做法强调快速排水。'),
+    tf('B', 'Room-for-river schemes are designed to stop every possible flood.', 'The aim is not to prevent every flood, which no landscape can guarantee', '原文明确否定能防止所有洪水。'),
+    tf('C', 'Farmers generally receive compensation within one month.', '', '文章讨论补偿复杂性，没有给出支付时间。'),
+    choice('matching_features', 'B', 'Which action restores access to land beside the channel?', 'An embankment may be moved back from the channel, reconnecting part of the former floodplain.', '后移堤坝可重新连接旧洪泛平原。', ['straightening the channel', 'moving an embankment back', 'raising every building', 'deepening town drains']),
+    choice('matching_features', 'D', 'Which tool can show the total area covered by floodwater?', 'satellite images reveal how widely it spreads', '卫星图像显示洪水扩散范围。', ['crop records', 'warning gates', 'river paths', 'satellite images']),
+    choice('multiple_choice', 'C', 'What is the central social difficulty described?', 'The community receiving the benefit may be kilometres downstream from the farmers who provide the storage.', '付出土地的一方和受益的一方可能不是同一群人。', ['Farmers cannot grow any crops on floodplains.', 'Town residents refuse to use warning systems.', 'Costs and benefits fall on different communities.', 'Ecological surveys are too slow to complete.']),
+    written('sentence_completion', 1, 'inundation', 'Farmers may choose crops that can survive occasional ______.', 'Fields can be planted with crops that tolerate occasional inundation', '只认 inundation。', '第二段说明适合洪泛区的作物特征。', ['inundation', 'flooding']),
+    written('sentence_completion', 1, 'vegetation', 'Wetlands and rough ______ slow water returning to the river.', 'Wetlands and rough vegetation also slow the return of that water to the channel.', '只认 vegetation。', '第三段说明植被的减速作用。', ['vegetation']),
+    written('summary_completion', 2, 'one hundred thousand cubic metres', 'A ten-centimetre layer over one square kilometre stores ______ of water.', 'represents one hundred thousand cubic metres', '完整写 one hundred thousand cubic metres 得 2 分；只写数字得 1 分。', '第三段把浅层大面积储水换算成体积。', ['one hundred thousand cubic metres', '100,000 cubic metres']),
+    written('short_answer', 2, 'because trust is needed to maintain the scheme', 'Why can compulsory purchase make a project harder to operate later?', 'compulsory purchase may destroy the local trust needed to maintain gates, paths and warning systems.', '答出强制收购会破坏维护所需信任得 2 分；只答农民不满意得 1 分。', '工程长期运行依赖当地合作，而不只是取得土地。'),
+  ],
+  words: wordsFor(FRI_PASSAGE, [
+    ['conveyance', 'conveyance', '/kənˈveɪəns/', 'n.', 'n. 输送', 'the process of moving something from one place to another'],
+    ['channel', 'Channels', '/ˈtʃænl/', 'n.', 'n. 河道', 'the bed through which a river flows'],
+    ['embankment', 'embankments', '/ɪmˈbæŋkmənt/', 'n.', 'n. 堤坝', 'a raised bank built to control water'],
+    ['transfer', 'transferred', '/trænsˈfɜː/', 'v.', 'v. 转移', 'to move something from one place to another'],
+    ['strategy', 'strategy', '/ˈstrætədʒi/', 'n.', 'n. 策略', 'a planned method for achieving a result'],
+    ['catastrophic', 'catastrophic', '/ˌkætəˈstrɒfɪk/', 'adj.', 'adj. 灾难性的', 'causing extremely serious damage'],
+    ['reconnect', 'reconnecting', '/ˌriːkəˈnekt/', 'v.', 'v. 重新连接', 'to join something again after separation'],
+    ['inundation', 'inundation', '/ˌɪnʌnˈdeɪʃn/', 'n.', 'n. 淹水', 'the covering of land by floodwater'],
+    ['vulnerable', 'vulnerable', '/ˈvʌlnərəbl/', 'adj.', 'adj. 易受损的', 'easily harmed or damaged'],
+    ['relocate', 'relocated', '/ˌriːləʊˈkeɪt/', 'v.', 'v. 搬迁', 'to move to a different place'],
+    ['extensive', 'extensive', '/ɪkˈstensɪv/', 'adj.', 'adj. 广阔的', 'covering a large area'],
+    ['vegetation', 'vegetation', '/ˌvedʒəˈteɪʃn/', 'n.', 'n. 植被', 'plants growing together in an area'],
+    ['guarantee', 'guarantee', '/ˌɡærənˈtiː/', 'v.', 'v. 保证', 'to promise that a result will certainly happen'],
+    ['implementation', 'Implementation', '/ˌɪmplɪmenˈteɪʃn/', 'n.', 'n. 实施', 'the process of putting a plan into action'],
+    ['compensation', 'Compensation', '/ˌkɒmpenˈseɪʃn/', 'n.', 'n. 补偿', 'money given for loss or damage'],
+    ['restriction', 'restrictions', '/rɪˈstrɪkʃn/', 'n.', 'n. 限制', 'a rule that limits what can be done'],
+    ['voluntary', 'Voluntary', '/ˈvɒləntri/', 'adj.', 'adj. 自愿的', 'done by choice rather than by force'],
+    ['compulsory', 'compulsory', '/kəmˈpʌlsəri/', 'adj.', 'adj. 强制的', 'required by law or authority'],
+    ['monitoring', 'Monitoring', '/ˈmɒnɪtərɪŋ/', 'n.', 'n. 监测', 'regular observation and recording over time'],
+    ['ecological', 'ecological', '/ˌiːkəˈlɒdʒɪkl/', 'adj.', 'adj. 生态的', 'connected with relationships among living things'],
+    ['withdrawal', 'withdrawal', '/wɪðˈdrɔːəl/', 'n.', 'n. 撤离；退出', 'the act of stopping involvement in something'],
+  ]),
+};
+
+module.exports = { LEVEL: 'ielts_authentic', DAYS: [WED, THU, FRI] };
