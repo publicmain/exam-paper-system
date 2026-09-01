@@ -60,6 +60,7 @@ interface WordRow {
   headword: string;
   surfaceForm: string | null;
   contextSentence: string | null;
+  translationSnapshot: string;
   reps: number;
   firstTaughtAt: Date | null;
   due: Date;
@@ -72,6 +73,7 @@ function studentWordRows(over: Partial<{ reps: number; surfaceForm: string | nul
     headword: w.headword,
     surfaceForm: over.surfaceForm !== undefined ? over.surfaceForm : w.surfaceForm,
     contextSentence: ctx(w.headword) as string | null,
+    translationSnapshot: '',
     reps: over.reps !== undefined ? over.reps : 3,
     firstTaughtAt: new Date('2026-08-20T00:00:00Z') as Date | null,
     due: new Date('2026-08-29T00:00:00Z'),
@@ -173,7 +175,7 @@ describe('S9D2D-1 正式路径的固定词表契约', () => {
     expect(handed!).toHaveLength(4);
     for (const w of handed!) {
       expect(Object.keys(w).sort()).toEqual(
-        ['contextSentence', 'headword', 'reps', 'surfaceForm'].sort(),
+        ['contextSentence', 'headword', 'reps', 'surfaceForm', 'translationSnapshot'].sort(),
       );
       expect(typeof w.surfaceForm, `${w.headword} 的 surfaceForm 丢了`).toBe('string');
       expect(String(w.surfaceForm).length).toBeGreaterThan(0);
@@ -333,6 +335,23 @@ describe('S9D2D-3 分配策略与降级', () => {
 // ─────────────────────────────────────────────────────────────
 
 describe('S9D2D-4 词撑不起指定题型时的整链降级', () => {
+  it('**本地词典漏词但有 Azure 翻译快照 → 仍然一词一题**', async () => {
+    const rows = studentWordRows().map((r, i) => i === 0
+      ? { ...r, translationSnapshot: 'n. 海港（实时翻译）' }
+      : r);
+    const prisma = fakePrisma({ words: rows });
+    const original = prisma.dictEntry.findMany;
+    prisma.dictEntry.findMany = async () => (await original())
+      .filter((e: any) => e.word !== WORDS[0].headword);
+    const { attempts } = makeService(prisma);
+
+    const view = await attempts.start(START_INPUT);
+
+    expect(view.items).toHaveLength(4);
+    expect((prisma.created[0].items as any[]).find((i) => i.headword === WORDS[0].headword)?.translation)
+      .toContain('实时翻译');
+  });
+
   it('**reps=0（刚教过的新词）→ 不出拼写题**，也不凭空造答案', async () => {
     const prisma = fakePrisma({ words: studentWordRows({ reps: 0 }) });
     const { attempts } = makeService(prisma);

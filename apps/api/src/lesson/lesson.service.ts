@@ -361,14 +361,8 @@ export class LessonService {
           vocabTarget: vocabNow.target,
           drillTarget: drillNow.target,
           targetsFrozenAt: now,
-          // 队列跟着目标一起重算 —— 但**只补不删**（并集），已经在里面的
-          // 词不会因为重新冻结而消失
-          vocabWords: [
-            ...new Set([
-              ...(Array.isArray(frozen.vocabWords) ? (frozen.vocabWords as string[]) : []),
-              ...vocabNow.desiredQueue,
-            ]),
-          ] as any,
+          // 已经冻结的队列原样保留。规则升级只能重算目标与判定口径，
+          // 不能把学生后来查进生词本的词追加到今天的课程里。
           rulesVersion: LESSON_RULES_VERSION,
         },
       });
@@ -471,8 +465,6 @@ export class LessonService {
         readNow,
         vocabProgress: vocabNow.progress,
         drillProgress: drillNow.progress,
-        desiredQueue: vocabNow.desiredQueue,
-        hasAttempt: vocabNow.attempt != null,
         stage,
       });
     }
@@ -974,17 +966,6 @@ export class LessonService {
   }
 
   /**
-   * 队列还能不能扩充。
-   *
-   * 走到「该考」或已经开了卷之后就冻住 —— 考试范围一旦成立就不该再变，
-   * 否则学生做题做到一半，考纲还在长。
-   */
-  private queueStillOpen(frozen: { stage?: string | null } | null, hasAttempt: boolean): boolean {
-    if (!frozen || hasAttempt) return false;
-    return stageRank(String(frozen.stage ?? STAGE_ORDER[0])) < stageRank('vocab_test');
-  }
-
-  /**
    * **写**：把这次任务的进度、阶段、词汇队列对齐到事实。
    *
    * 只有明确的学生动作才调用它 —— 打开课程页（today freeze:true）、
@@ -999,8 +980,6 @@ export class LessonService {
     readNow: { submitSource?: string | null; autoFinalizeReason?: string | null };
     vocabProgress: number;
     drillProgress: number;
-    desiredQueue: string[];
-    hasAttempt: boolean;
     stage: LessonStage;
   }) {
     const { frozen, now } = input;
@@ -1027,23 +1006,9 @@ export class LessonService {
       });
     }
 
-    // 词汇队列：并集、只增不减，且走到「该考」之后就不再扩充。
-    //
-    // vocabWords 为 NULL 的旧任务**不在这里自愈** —— 见 initTaskQueue 的
-    // 注释：普通读取不许把 NULL 变成「此刻的到期集合」，那是拿部署时刻的
-    // 数据伪造历史任务的考试范围。
-    if (frozen.vocabWords != null && this.queueStillOpen(frozen, input.hasAttempt)) {
-      const prev = Array.isArray(frozen.vocabWords)
-        ? (frozen.vocabWords as string[]).map((w) => normalizeWord(String(w))).filter(Boolean)
-        : [];
-      const next = [...new Set([...prev, ...input.desiredQueue])];
-      if (next.length !== prev.length) {
-        await this.prisma.dailyLessonCompletion.update({
-          where: { id: frozen.id },
-          data: { vocabWords: next as any },
-        });
-      }
-    }
+    // vocabWords 在创建任务时已经与 vocabTarget 同批冻结。此后普通课程
+    // 动作只能更新进度与阶段；查词加入生词本不能改变今天的课程或考试
+    // 范围。唯一合法的队列写入是显式的“一换一”换词事务。
   }
 
   // ── ③ 补 ──

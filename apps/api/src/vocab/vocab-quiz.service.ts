@@ -341,6 +341,8 @@ export class VocabQuizService {
       headword: string;
       surfaceForm: string | null;
       contextSentence: string | null;
+      /** 本地词典未收录时使用学生查词时取得的 Azure 中文释义。 */
+      translationSnapshot: string | null;
       reps: number;
     }>;
     /**
@@ -399,7 +401,7 @@ export class VocabQuizService {
       where: { studentId: student.id },
       // firstTaughtAt：seenWords 的判据（P6）。干扰项池不看这个 ——
       // 拿没教过的词当**干扰项**没问题，它不是被考的那一个。
-      select: { headword: true, reps: true, firstTaughtAt: true },
+      select: { headword: true, reps: true, firstTaughtAt: true, translationSnapshot: true },
     });
     const allWords = [...new Set([...mine.map((w) => w.headword), ...chosen.map((w) => w.headword)])];
     const dictRows = await this.prisma.dictEntry.findMany({
@@ -407,8 +409,17 @@ export class VocabQuizService {
     });
     const dict = new Map(dictRows.map((e) => [e.word.toLowerCase(), e]));
 
+    const snapshotByHead = new Map(
+      mine.map((w) => [w.headword.toLowerCase(), String(w.translationSnapshot ?? '').trim()]),
+    );
+    const translationOf = (w: { headword: string; translationSnapshot?: string | null }): string =>
+      dict.get(w.headword.toLowerCase())?.translation
+      || String(w.translationSnapshot ?? '').trim()
+      || snapshotByHead.get(w.headword.toLowerCase())
+      || '';
+
     const poolMine: Candidate[] = mine
-      .map((w) => ({ headword: w.headword, translation: dict.get(w.headword.toLowerCase())?.translation ?? '' }))
+      .map((w) => ({ headword: w.headword, translation: translationOf(w) }))
       .filter((c) => c.translation);
 
     // 干扰项池 2：词典兜底。
@@ -467,8 +478,8 @@ export class VocabQuizService {
     for (let wi = 0; wi < chosen.length; wi++) {
       const w = chosen[wi] as any;
       const e = dict.get(w.headword.toLowerCase());
-      const translation = e?.translation ?? '';
-      if (!translation.trim()) continue; // 词典没释义的词出不了选择题
+      const translation = translationOf(w);
+      if (!translation.trim()) continue; // 本地词典和翻译快照都没有时才无法出题
 
       // 挖空定位走 findClozeSpan —— 原来用 `includes` 判定 + `indexOf`
       // 挖空，26% 的例句里词形只是子串（agree ⊂ agreed），会挖出

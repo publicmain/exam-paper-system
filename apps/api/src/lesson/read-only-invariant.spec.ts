@@ -167,12 +167,10 @@ describe('startOrResumeToday() —— 明确的学生命令才写', () => {
     expect(queueWrites()).toHaveLength(0);
   });
 
-  it('还没开始（stage=reading）且队列有值 → 并入新到期的词（只增不减）', async () => {
+  it('还没开始但队列已冻结 → 后来新到期的词也不能扩充今天任务', async () => {
     const { svc, queueWrites } = makeSvc();
     await svc.startOrResumeToday({ studentName: '小明', studentId: 'stu1' });
-    const w = queueWrites();
-    expect(w).toHaveLength(1);
-    expect(w[0].args.data.vocabWords).toEqual(['a', 'b', 'c']);
+    expect(queueWrites()).toHaveLength(0);
   });
 
   it('没有任务行 + 今天有内容 → 创建，并用当前到期队列初始化', async () => {

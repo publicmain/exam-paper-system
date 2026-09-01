@@ -315,16 +315,16 @@ describe('返工 1/2 —— today() 必须用同一份快照算课程卡', () =>
     expect(storedRow()!.stage).toBe('vocab_learn');
   });
 
-  it('**reconcile 扩了队列而 cursor 停在旧张数：新加的那张卡要把人留住**', async () => {
-    // 旧队列 3 张、cursor 3（按旧队列算已走完）；rulesVersion 落后 → 触发 reconcile
+  it('**rulesVersion 升级也不能扩充冻结队列**：后来到期的词留到以后', async () => {
+    // 旧队列 3 张、cursor 3（已经走完）；规则升级只能换判定口径，不能
+    // 把第四个词偷偷追加到今天。
     const { svc } = makeToday({
       row: { vocabWords: ['ripple', 'vessel', 'willow'], vocabCursor: 3, rulesVersion: 1, stage: 'reading' },
       owned: QUEUE4.map(taught), // 学生现在拥有四个词
     });
     const t: any = await svc.startOrResumeToday({ studentName: '测试五号' });
-    // 队列被扩到 4 张之后，cursor=3 仍然差一张
-    expect(t.stage).toBe('vocab_learn');
-    expect(t.nextAction.kind).toBe('learn_vocab');
+    expect(t.stage).toBe('vocab_test');
+    expect(t.nextAction.kind).toBe('vocab_test');
   });
 
   it('**走完最后一张仍然推进到 vocab_test**', async () => {

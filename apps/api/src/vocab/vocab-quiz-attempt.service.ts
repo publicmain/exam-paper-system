@@ -205,6 +205,8 @@ export class VocabQuizAttemptService {
         firstTaughtAt: true,
         due: true,
         contextSentence: true,
+        // 本地词典漏词时，学生查词取得的 Azure 中文释义仍能支撑出题。
+        translationSnapshot: true,
         // S9D2D —— **必须选出来**。挖空位置靠 findClozeSpan(原句, 词形)
         // 定位，少了它 cloze 与 spelling 在正式测试里直接绝迹。
         surfaceForm: true,
@@ -240,10 +242,11 @@ export class VocabQuizAttemptService {
     // 正式测试要四种各一道，所以显式要一份 `balanced` 计划
     // （见 vocab-quiz.service 的 formalTypePlan）。
     const formalWords = outcome.words.map(
-      (w: { headword: string; surfaceForm?: string | null; contextSentence?: string | null; reps?: number }) => ({
+      (w: { headword: string; surfaceForm?: string | null; contextSentence?: string | null; translationSnapshot?: string | null; reps?: number }) => ({
         headword: w.headword,
         surfaceForm: w.surfaceForm ?? null,
         contextSentence: w.contextSentence ?? null,
+        translationSnapshot: w.translationSnapshot ?? null,
         reps: w.reps ?? 0,
       }),
     );
