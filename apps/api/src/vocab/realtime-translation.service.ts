@@ -5,7 +5,8 @@ type Cached = { text: string; expiresAt: number };
 
 /**
  * 实时英→简中翻译：Azure 优先；其次复用已有 Anthropic；两者都没配置时
- * 用 MyMemory 的免密公共接口支撑小规模试点。只做 24 小时进程内缓存，
+ * 用 MyMemory + Google 网页翻译的免密链路支撑小规模试点。后者不是正式
+ * Cloud Translation API，只在 MyMemory 被共享出口限流时兜底。只做 24 小时进程内缓存，
  * 不建翻译数据库。生产应配置 Azure，不能把公共免费额度当长期基础设施。
  */
 @Injectable()
@@ -31,12 +32,22 @@ export class RealtimeTranslationService {
         ? await this.azure(source)
         : this.anthropic
           ? await this.anthropicFallback(source)
-          : await this.myMemory(source);
+          : await this.pilotFallback(source);
     } catch (e) {
       this.logger.warn(`translation_failed:${String((e as Error)?.message ?? e).slice(0, 120)}`);
     }
     if (translated) this.cache.set(key, { text: translated, expiresAt: Date.now() + 86_400_000 });
     return translated;
+  }
+
+  private async pilotFallback(text: string): Promise<string | null> {
+    try {
+      const translated = await this.myMemory(text);
+      if (translated) return translated;
+    } catch (e) {
+      this.logger.warn(`mymemory_fallback:${String((e as Error)?.message ?? e).slice(0, 120)}`);
+    }
+    return this.googleWeb(text);
   }
 
   private async azure(text: string): Promise<string | null> {
@@ -91,5 +102,17 @@ export class RealtimeTranslationService {
     const translated = String(body.responseData?.translatedText ?? '').trim();
     if (!translated || /^MYMEMORY WARNING/i.test(translated)) return null;
     return translated;
+  }
+
+  private async googleWeb(text: string): Promise<string | null> {
+    const query = new URLSearchParams({ client: 'gtx', sl: 'en', tl: 'zh-CN', dt: 't', q: text });
+    const response = await fetch(`https://translate.googleapis.com/translate_a/single?${query.toString()}`, {
+      signal: AbortSignal.timeout(4_000),
+      headers: { Accept: 'application/json' },
+    });
+    if (!response.ok) throw new Error(`google_web_${response.status}`);
+    const body = await response.json() as [Array<[string?]>?];
+    const translated = (body?.[0] ?? []).map((segment) => String(segment?.[0] ?? '')).join('').trim();
+    return translated || null;
   }
 }

@@ -70,4 +70,21 @@ describe('RealtimeTranslationService', () => {
     expect(new URL(url).searchParams.get('langpair')).toBe('en|zh-CN');
     expect(new URL(url).searchParams.get('q')).toBe('We are only visitors.');
   });
+
+  it('MyMemory 在共享出口限流时才退到 staging 网页翻译通道', async () => {
+    delete process.env.AZURE_TRANSLATOR_KEY;
+    delete process.env.ANTHROPIC_API_KEY;
+    const fetchMock = vi.fn(async (url: string) => {
+      if (url.includes('mymemory')) return { ok: false, status: 429 };
+      return { ok: true, json: async () => [[['我们只是访客。']]] };
+    });
+    vi.stubGlobal('fetch', fetchMock);
+    const svc = new RealtimeTranslationService();
+
+    await expect(svc.translate('We are only visitors.')).resolves.toBe('我们只是访客。');
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    const fallbackUrl = new URL(String((fetchMock.mock.calls[1] as unknown as [string])[0]));
+    expect(fallbackUrl.hostname).toBe('translate.googleapis.com');
+    expect(fallbackUrl.searchParams.get('q')).toBe('We are only visitors.');
+  });
 });
