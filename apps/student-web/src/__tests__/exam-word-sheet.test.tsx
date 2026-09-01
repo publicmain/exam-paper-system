@@ -620,10 +620,21 @@ describe('B-3 一次性的发现提示', () => {
 // ─────────────────────────────────────────────────────────────
 
 describe('AC-04 卡片状态', () => {
-  it('**语境句在最上面，目标词被安全地标出来**', async () => {
+  it('**卡片是正式对话框，词义 / 原句 / 整句翻译分层清楚**', async () => {
+    lookupReply = () => jsonResponse(200, {
+      found: true,
+      entry: {
+        ...ENTRY,
+        contextTranslation: '一个坚韧的社区在风暴后重建了码头。',
+      },
+    });
     mount();
     await settle();
     await tap('resilient');
+    expect(screen.getByRole('dialog')).toHaveAttribute('aria-modal', 'true');
+    expect(screen.getByText('词义')).toBeTruthy();
+    expect(screen.getByText('所在原句')).toBeTruthy();
+    expect(screen.getByText('整句翻译')).toBeTruthy();
     const s = screen.getByTestId('word-sheet-sentence');
     expect(s.textContent).toContain('A resilient community rebuilt the pier');
     expect(s.querySelector('mark')?.textContent).toBe('resilient');

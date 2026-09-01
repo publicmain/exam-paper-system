@@ -513,16 +513,20 @@ describe('AC-07 交卷序列', () => {
 // AC-08 时间、导航与退出
 // ─────────────────────────────────────────────────────────────
 
-describe('AC-08 时间与退出', () => {
-  it('**倒计时用 quizEnd，不是 regularQuizEnd**', async () => {
-    vi.useFakeTimers();
-    const end = new Date(Date.now() + 5 * 60_000).toISOString();
+describe('AC-08 难度与退出', () => {
+  it('**顶栏显示学生本次难度，不再显示倒计时**', async () => {
     routes['/api/morning-quiz/sessions/sess-1'] = {
-      body: sessionWire({ quizEnd: end, regularQuizEnd: new Date(Date.now() - 3600_000).toISOString() }),
+      body: sessionWire({
+        level: 'ielts_light',
+        quizEnd: new Date(Date.now() + 5 * 60_000).toISOString(),
+        regularQuizEnd: new Date(Date.now() - 3600_000).toISOString(),
+      }),
     };
     mount();
     await settle();
-    expect(screen.getByTestId('timer').textContent).toMatch(/0[45]:\d\d/);
+    expect(screen.getByTestId('reading-level').textContent).toContain('雅思轻量');
+    expect(screen.queryByTestId('timer')).toBeNull();
+    expect(screen.queryByLabelText(/Remaining time/i)).toBeNull();
   });
 
   it('**secondWindowToday=false → 确认文案里没有「下午再改」**', async () => {

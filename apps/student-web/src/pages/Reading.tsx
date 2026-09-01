@@ -6,7 +6,7 @@
  * 1. **拿资源**：`GET /lesson/today` → `segments.read` 给出 `sessionId` /
  *    `submissionId`，再按 `sessionId` 取会话。**URL、查询串、hash 里
  *    一个字都不读** —— 身份只有令牌，资源只有服务端说了算。
- * 2. **摆外壳**：倒计时、字号、离线角标、题号条、交卷。
+ * 2. **摆外壳**：本次难度、字号、离线角标、题号条、交卷。
  * 3. **交卷序列**：二次确认 → 强刷 → 交卷 → 去阅读结果页。
  *
  * ## 这一页**不**负责的事
@@ -48,7 +48,7 @@ import type { ReadingExistingAnswer } from '../lib/api';
 import { FontSizeAdjuster } from '../lesson/shared/FontSizeAdjuster';
 import { OfflineBadge } from '../lesson/shared/OfflineBadge';
 import { QuestionNavBar } from '../lesson/shared/QuestionNavBar';
-import { Timer } from '../lesson/shared/Timer';
+import { levelLabel } from '../lib/levels';
 
 type Phase =
   | { s: 'loading' }
@@ -206,6 +206,7 @@ function ReadingShell({ session }: { session: ReadingSessionPayload }) {
   const submittingRef = useRef(false);
   const [focusedQid, setFocusedQid] = useState<string | null>(null);
   const [submitError, setSubmitError] = useState<string | null>(null);
+  const displayLevel = levelLabel(session.level) ?? '难度未设置';
 
   const paper: ExamPaper = useMemo(
     () => ({
@@ -313,7 +314,7 @@ function ReadingShell({ session }: { session: ReadingSessionPayload }) {
     <div className="ui-ios min-h-[100dvh] flex flex-col">
       <OfflineBadge />
 
-      <header className="app-glass safe-top sticky top-0 z-20 border-x-0 border-t-0 px-3 py-2 flex items-center gap-3">
+      <header className="app-glass safe-top sticky top-0 z-20 border-x-0 border-t-0 px-3 py-2 grid grid-cols-[auto_1fr_auto] items-center gap-2 sm:gap-3">
         <button
           type="button"
           onClick={() => (blocked ? setExiting(true) : navigate(ROUTES.today))}
@@ -321,12 +322,16 @@ function ReadingShell({ session }: { session: ReadingSessionPayload }) {
         >
           ← 退出
         </button>
-        <div className="flex-1" />
-        <span data-testid="timer">
-          {/* 倒计时**必须**用 quizEnd —— regularQuizEnd 在第二作答窗内早已过期 */}
-          {session.quizEnd ? <Timer endsAt={session.quizEnd} /> : null}
-        </span>
-        <div className="flex-1" />
+        <div className="min-w-0 flex justify-center px-1">
+          <span
+            data-testid="reading-level"
+            aria-label={`本次难度：${displayLevel}`}
+            className="max-w-full truncate rounded-full border border-blue-100 bg-blue-50 px-3 py-1.5 text-[13px] sm:text-sm font-medium text-blue-700"
+          >
+            <span className="hidden sm:inline text-blue-500">本次难度 · </span>
+            {displayLevel}
+          </span>
+        </div>
         <FontSizeAdjuster />
       </header>
 

@@ -30,11 +30,13 @@
  * 重试**原样重发同一个请求体**：服务端按「学生 + headword」查重，同一个
  * 词提交两次只会拿到 `created: false`，所以不需要 requestId，也不该发明一个。
  *
- * ## 语境句放最上面
+ * ## 词义与语境分层
  *
- * 卡片贴底会盖住正在读的那句话，而查词恰恰是为了读懂那句话。所以把那句
- * 原文直接印在卡片顶部并标出该词 —— Kindle 的生词卡也是这么做的。
- * 标注用 React 节点拼，**不用 `dangerouslySetInnerHTML`**：那句话是服务端
+ * 先让学生一眼看到「这个词是什么意思」，再用单独的「所在原句 / 整句翻译」
+ * 区域帮他回到文章语境。英文词典释义收进可展开区，避免它与中文主词义
+ * 抢视线。桌面 / iPad 是居中卡片，手机仍是好单手操作的底部抽屉。
+ *
+ * 原句中的标注用 React 节点拼，**不用 `dangerouslySetInnerHTML`**：那句话是服务端
  * 来的文本，不是可信标记。
  */
 import { useCallback, useEffect, useRef, useState } from 'react';
@@ -239,109 +241,149 @@ export function ExamWordSheet({
   const tags = phase.s === 'ok' ? usefulTags(phase.entry.tag) : [];
 
   return (
-    <div data-testid="word-sheet" className="fixed inset-0 z-50 flex items-end" onClick={onClose}>
-      <div className="absolute inset-0 bg-black/25" />
+    <div
+      data-testid="word-sheet"
+      className="fixed inset-0 z-50 flex items-end sm:items-center sm:justify-center sm:p-6"
+      onClick={onClose}
+    >
+      <div className="absolute inset-0 bg-slate-950/35 backdrop-blur-[2px]" />
       <div
-        className="relative w-full bg-white rounded-t-[24px] shadow-2xl max-h-[58vh] overflow-y-auto"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="word-sheet-title"
+        className="relative flex max-h-[88dvh] w-full flex-col overflow-hidden rounded-t-[28px] bg-white shadow-2xl sm:max-w-2xl sm:rounded-[28px] lg:max-w-3xl"
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="sticky top-0 bg-white pt-2.5 pb-1 flex justify-center">
-          <div className="w-9 h-1 rounded-full bg-gray-300" />
+        <div className="h-5 shrink-0 sm:hidden flex items-center justify-center">
+          <div className="h-1 w-10 rounded-full bg-slate-300" />
         </div>
 
-        <div className="px-5 pb-7">
-          {/* 语境句放最上面：查词是为了读懂这句话 */}
-          {contextSentence ? (
-            <p data-testid="word-sheet-sentence" className="text-[15px] text-gray-600 leading-relaxed mb-3 font-serif">
-              {highlightWord(contextSentence, word)}
-            </p>
-          ) : null}
-          {phase.s === 'ok' && phase.entry.contextTranslation ? (
-            <p data-testid="word-sheet-sentence-translation" className="-mt-1 mb-3 text-[14px] text-gray-500 leading-relaxed">
-              句意：{phase.entry.contextTranslation}
-            </p>
-          ) : null}
-
-          <div className="flex items-baseline justify-between gap-3">
+        <header className="shrink-0 border-b border-slate-100 px-5 pb-4 pt-1 sm:px-7 sm:pb-5 sm:pt-6">
+          <div className="flex items-start justify-between gap-4">
             <div className="min-w-0">
-              <span data-testid="word-sheet-word" className="text-[26px] font-semibold text-gray-900 break-words">
-                {word}
-              </span>
-              {phase.s === 'ok' && phase.entry.phonetic ? (
-                <span data-testid="word-sheet-phonetic" className="ml-2 text-[15px] text-gray-500">
-                  /{phase.entry.phonetic}/
-                </span>
+              {passageTitle ? (
+                <div className="mb-1.5 truncate text-xs font-medium text-slate-400">
+                  来自 · {passageTitle}
+                </div>
               ) : null}
+              <h2 id="word-sheet-title" className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
+                <span data-testid="word-sheet-word" className="break-words text-[30px] font-semibold tracking-tight text-slate-950 sm:text-[34px]">
+                  {word}
+                </span>
+                {phase.s === 'ok' && phase.entry.phonetic ? (
+                  <span data-testid="word-sheet-phonetic" className="text-[15px] font-normal text-slate-500 sm:text-base">
+                    /{phase.entry.phonetic}/
+                  </span>
+                ) : null}
+              </h2>
             </div>
             <button
               type="button"
               data-testid="word-sheet-close"
               onClick={onClose}
-              className="shrink-0 text-gray-400 text-2xl leading-none -mr-2 min-h-[44px] px-2"
+              className="grid size-11 shrink-0 place-items-center rounded-full bg-slate-100 text-2xl leading-none text-slate-500 transition-colors hover:bg-slate-200 hover:text-slate-800"
               aria-label="关闭"
             >
               ×
             </button>
           </div>
+        </header>
 
+        <div className="min-h-0 flex-1 overflow-y-auto px-5 py-5 sm:px-7 sm:py-6">
           <div className="min-h-[96px]">
             {blocked ? (
               <div
                 data-testid="word-sheet-blocked"
-                className="mt-3 rounded-[14px] bg-amber-50 px-4 py-3.5 text-[15px] text-amber-900"
+                className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-4 text-[15px] text-amber-950"
               >
-                这个词是本卷的考点，考试期间不显示释义。
-                <div className="text-[13px] text-amber-700 mt-1">交卷后在成绩详情里可以看。</div>
+                <div className="font-medium">这个词是本卷的考点，考试期间不显示释义。</div>
+                <div className="mt-1 text-[13px] text-amber-700">交卷后在成绩详情里可以看。</div>
               </div>
             ) : (
               <>
                 {phase.s === 'loading' ? (
-                  <div data-testid="word-sheet-loading" className="mt-3 text-[15px] text-gray-400">
-                    查询中…
+                  <div data-testid="word-sheet-loading" className="rounded-2xl bg-slate-50 px-4 py-5 text-[15px] text-slate-500">
+                    正在查词和翻译原句…
                   </div>
                 ) : null}
                 {phase.s === 'notFound' ? (
-                  <div data-testid="word-sheet-not-found" className="mt-3 text-[15px] text-gray-500">
+                  <div data-testid="word-sheet-not-found" className="rounded-2xl bg-slate-50 px-4 py-5 text-[15px] text-slate-600">
                     本词典未收录这个词。
                   </div>
                 ) : null}
                 {phase.s === 'failed' ? (
-                  <>
-                    <div data-testid="word-sheet-failed" className="mt-3 text-[15px] text-gray-500">
+                  <div className="rounded-2xl border border-rose-100 bg-rose-50 px-4 py-4">
+                    <div data-testid="word-sheet-failed" className="text-[15px] text-rose-700">
                       查询失败 —— 网络不太好。
                     </div>
                     <button
                       type="button"
                       data-testid="word-sheet-retry-lookup"
                       onClick={() => void lookup(word)}
-                      className="mt-2 min-h-[44px] px-4 rounded-xl bg-blue-600 text-white text-sm"
+                      className="mt-3 min-h-[44px] rounded-xl bg-blue-600 px-4 text-sm font-medium text-white"
                     >
                       重试
                     </button>
-                  </>
+                  </div>
                 ) : null}
                 {phase.s === 'ok' ? (
-                  <>
-                    <div
-                      data-testid="word-sheet-translation"
-                      className="mt-3 text-[17px] text-gray-900 whitespace-pre-wrap leading-relaxed"
-                    >
-                      {phase.entry.translation}
-                    </div>
-                    {phase.entry.definition ? (
+                  <div className="space-y-5">
+                    <section className="rounded-2xl border border-blue-100 bg-blue-50/70 px-4 py-4 sm:px-5">
+                      <div className="mb-1.5 text-xs font-semibold tracking-wide text-blue-600">词义</div>
                       <div
-                        data-testid="word-sheet-definition"
-                        className="mt-3 pt-3 border-t border-gray-200 text-[15px] text-gray-600 whitespace-pre-wrap leading-relaxed"
+                        data-testid="word-sheet-translation"
+                        className="whitespace-pre-wrap text-[18px] font-medium leading-relaxed text-slate-950 sm:text-[19px]"
                       >
-                        {phase.entry.definition}
+                        {phase.entry.translation}
+                      </div>
+                    </section>
+
+                    {contextSentence ? (
+                      <section aria-label="所在原句" className="rounded-2xl border border-slate-200 bg-white px-4 py-4 sm:px-5">
+                        <div className="mb-2 text-xs font-semibold tracking-wide text-slate-500">所在原句</div>
+                        <p data-testid="word-sheet-sentence" className="font-serif text-[16px] leading-7 text-slate-800 sm:text-[17px]">
+                          {highlightWord(contextSentence, word)}
+                        </p>
+                        {phase.entry.contextTranslation ? (
+                          <div className="mt-3 border-t border-slate-100 pt-3">
+                            <div className="mb-1 text-xs font-semibold tracking-wide text-slate-400">整句翻译</div>
+                            <p data-testid="word-sheet-sentence-translation" className="text-[15px] leading-7 text-slate-700 sm:text-base">
+                              {phase.entry.contextTranslation}
+                            </p>
+                          </div>
+                        ) : null}
+                      </section>
+                    ) : null}
+
+                    {phase.entry.definition ? (
+                      <details className="rounded-2xl border border-slate-200 bg-slate-50/70 px-4 py-3 sm:px-5">
+                        <summary className="cursor-pointer select-none text-sm font-medium text-slate-600">查看英文词典释义</summary>
+                        <div
+                          data-testid="word-sheet-definition"
+                          className="mt-3 whitespace-pre-wrap border-t border-slate-200 pt-3 text-[14px] leading-relaxed text-slate-600 sm:text-[15px]"
+                        >
+                          {phase.entry.definition}
+                        </div>
+                      </details>
+                    ) : null}
+
+                    {tags.length > 0 ? (
+                      <div data-testid="word-sheet-tags" className="flex flex-wrap gap-2">
+                        {tags.map((tag) => (
+                          <span key={tag} className="rounded-full bg-slate-100 px-2.5 py-1 text-xs font-medium text-slate-500">
+                            {tag}
+                          </span>
+                        ))}
                       </div>
                     ) : null}
-                  </>
+                  </div>
                 ) : null}
               </>
             )}
           </div>
+        </div>
 
+        <footer className="shrink-0 border-t border-slate-100 bg-white px-5 pb-[calc(1rem+env(safe-area-inset-bottom))] pt-3 sm:px-7 sm:pb-5">
           {/* 填空取词。屏蔽的是「释义」，不是「这个词存在于原文」，
               所以考点词也允许填。 */}
           {fillTarget ? (
@@ -352,7 +394,7 @@ export function ExamWordSheet({
                 onFill(fillTarget.questionId, word, fillTarget.hasValue);
                 onClose();
               }}
-              className="w-full mt-4 min-h-[48px] rounded-[14px] bg-blue-600 text-white text-[17px] font-semibold"
+              className="mb-2 min-h-[48px] w-full rounded-[14px] bg-blue-600 text-[17px] font-semibold text-white shadow-sm"
             >
               {fillTarget.hasValue ? `追加到${fillTarget.label}` : `填入${fillTarget.label}`}
             </button>
@@ -360,12 +402,13 @@ export function ExamWordSheet({
 
           {/* 写本子的结果 —— 三种分开说，失败绝不静默 */}
           {save.s === 'created' || save.s === 'already' ? (
-            <div data-testid="word-sheet-saved" className="mt-4 text-[13px] text-emerald-600">
-              {save.s === 'created' ? '已存入生词本' : '已经在生词本里了'}
+            <div data-testid="word-sheet-saved" className="flex items-center gap-2 text-[13px] font-medium text-emerald-700">
+              <span aria-hidden="true" className="grid size-5 place-items-center rounded-full bg-emerald-100 text-[11px]">✓</span>
+              {save.s === 'created' ? '已存入生词本 · 以后会安排复习' : '已经在生词本里了'}
             </div>
           ) : null}
           {save.s === 'failed' ? (
-            <div className="mt-4 text-[13px]">
+            <div className="flex items-center justify-between gap-3 text-[13px]">
               <span data-testid="word-sheet-save-failed" className="text-rose-600">
                 没能存进生词本
               </span>
@@ -373,18 +416,13 @@ export function ExamWordSheet({
                 type="button"
                 data-testid="word-sheet-retry-save"
                 onClick={() => void sendAdd(gen.current)}
-                className="ml-2 min-h-[44px] px-3 rounded-lg border border-gray-300"
+                className="min-h-[44px] rounded-lg border border-slate-300 px-3 font-medium"
               >
                 重试
               </button>
             </div>
           ) : null}
-          {tags.length > 0 ? (
-            <div data-testid="word-sheet-tags" className="mt-2 text-[13px] text-gray-400">
-              {tags.join(' / ')}
-            </div>
-          ) : null}
-        </div>
+        </footer>
       </div>
     </div>
   );
