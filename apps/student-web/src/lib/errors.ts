@@ -64,8 +64,8 @@ export function selfRegisterErrorText(e: unknown): string {
   if (e instanceof NetworkError) return '连不上服务器 —— 检查一下网络，然后再试一次。';
   if (!(e instanceof ApiError)) return '出了点问题，再试一次。';
   switch (e.body.code) {
-    case 'class_code_invalid':
-      return '班级码不对 —— 跟老师确认一下，注意别把 0 和 O 看混。';
+    case 'class_not_available':
+      return '这个班现在不能注册 —— 请重新选择，或者问老师。';
     case 'class_not_open':
       return '这个班还没开课 —— 找老师问一下。';
     case 'level_not_offered':

@@ -58,15 +58,25 @@ const LESSON_STUB = {
   ],
 };
 
+const CLASS_STUB = {
+  classes: [{
+    id: 'p1_class', name: '试点班 W1',
+    levels: ['olevel', 'ielts_simplified', 'ielts_authentic'],
+  }],
+};
+
 beforeEach(() => {
   // 认证状态是模块级的 —— 不复位的话上一个用例的身份会漏进下一个
   __resetForTest();
   localStorage.clear();
   fetchMock = vi.fn();
-  vi.stubGlobal('fetch', (url: string, init?: RequestInit) =>
-    String(url).endsWith('/lesson/today')
-      ? jsonResponse(200, LESSON_STUB)
-      : fetchMock(url, init));
+  vi.stubGlobal('fetch', (url: string, init?: RequestInit) => {
+    if (String(url).endsWith('/lesson/today')) return jsonResponse(200, LESSON_STUB);
+    if (String(url).endsWith('/student-auth/registration-classes')) {
+      return jsonResponse(200, CLASS_STUB);
+    }
+    return fetchMock(url, init);
+  });
 });
 afterEach(() => {
   vi.unstubAllGlobals();
@@ -164,7 +174,7 @@ describe('3. 登录', () => {
 });
 
 /**
- * S12O 起，`/register` 是**自助注册**：班级码 + 姓名 + 自设 PIN + 自选难度，
+ * S12O 起，`/register` 是**自助注册**：选班级 + 姓名 + 自设 PIN + 自选难度，
  * 走 `/student-auth/self-register`。
  *
  * 原来这里三条用例走的是 `/student-auth/register` —— 那条路**认领**教师
@@ -183,7 +193,7 @@ describe('1. 首次注册', () => {
         : jsonResponse(404, {}),
     );
     renderAt('/register');
-    await userEvent.type(await screen.findByLabelText('班级码'), 'PILOTW1');
+    await userEvent.selectOptions(await screen.findByLabelText('选择班级'), 'p1_class');
     await userEvent.type(screen.getByLabelText('姓名'), '测试一号');
     await userEvent.type(screen.getByLabelText('设置 6 位数字密码'), '280519');
     await userEvent.type(screen.getByLabelText('再输一次'), '280519');
@@ -202,7 +212,7 @@ describe('1. 首次注册', () => {
         : jsonResponse(404, {}),
     );
     renderAt('/register');
-    await userEvent.type(await screen.findByLabelText('班级码'), 'PILOTW1');
+    await userEvent.selectOptions(await screen.findByLabelText('选择班级'), 'p1_class');
     await userEvent.type(screen.getByLabelText('姓名'), '测试一号');
     await userEvent.type(screen.getByLabelText('设置 6 位数字密码'), '280519');
     await userEvent.type(screen.getByLabelText('再输一次'), '280519');

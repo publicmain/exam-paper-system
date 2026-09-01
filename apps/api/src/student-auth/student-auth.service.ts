@@ -396,7 +396,7 @@ export class StudentAuthService {
   // ───────────────── S12O：自助注册 + 自助改难度 ─────────────────
 
   /**
-   * **学生自己注册** —— 班级码 + 姓名 + 自设 PIN + 自选难度。
+   * **学生自己注册** —— 选择班级 + 姓名 + 自设 PIN + 自选难度。
    *
    * ## 和上面那个 `register` 是两件事
    *
@@ -405,8 +405,9 @@ export class StudentAuthService {
    * 就是这个前提的回声。试点要请真人进来，这个前提站不住 —— 老师不该
    * 为每个想试的人先建一行，更不该替他决定上哪一层。
    *
-   * 所以这条路**真的建号**。它仍然不是公开注册：没有班级码就进不来，
-   * 班级码由老师私下发给他要请的人。
+   * 所以这条路**真的建号**。学生从服务端给出的开放班级中选择，客户端
+   * 只提交不可读的 classId；服务端仍会重新校验班级存在、未归档且开着
+   * 所选难度，不能靠伪造 id 混进一个关闭的班。
    *
    * ## 唯一性靠哪一条
    *
@@ -416,15 +417,31 @@ export class StudentAuthService {
    * 确定性地算出来，两个请求算出同一个值，数据库让其中一个 P2002。
    * 先查那一遍只是为了给出一句人话的错误。
    */
+  async registrationClasses() {
+    const rows = await this.prisma.class.findMany({
+      where: { archivedAt: null, englishLevels: { some: {} } },
+      select: { id: true, name: true, englishLevels: { select: { level: true } } },
+      orderBy: { name: 'asc' },
+    });
+    return {
+      classes: rows
+        .map((klass: any) => ({
+          id: klass.id,
+          name: klass.name,
+          levels: (klass.englishLevels ?? [])
+            .map((row: any) => String(row.level))
+            .filter(isPilotLevel),
+        }))
+        .filter((klass: { levels: PilotLevel[] }) => klass.levels.length > 0),
+    };
+  }
+
   async selfRegister(input: {
-    classCode: string;
+    classId: string;
     name: string;
     pin: string;
     englishLevel: string;
   }) {
-    const code = normalizeClassCode(input.classCode);
-    if (!code) throw new BadRequestException({ code: 'class_code_invalid' });
-
     const shown = displayName(input.name);
     if (!shown) throw new BadRequestException({ code: 'name_required' });
 
@@ -439,12 +456,10 @@ export class StudentAuthService {
     if (pinErr) throw new BadRequestException({ code: pinErr });
 
     const klass = await this.prisma.class.findFirst({
-      where: { classCode: code, archivedAt: null },
+      where: { id: input.classId, archivedAt: null },
       select: { id: true, name: true, englishLevels: { select: { level: true } } },
     });
-    // 归档的班和不存在的班给**同一个**回答 —— 否则这就成了一个班级码
-    // 探测器。
-    if (!klass) throw new BadRequestException({ code: 'class_code_invalid' });
+    if (!klass) throw new BadRequestException({ code: 'class_not_available' });
 
     const offered = (klass.englishLevels ?? []).map((l) => String(l.level));
     if (offered.length === 0) throw new BadRequestException({ code: 'class_not_open' });
@@ -493,7 +508,7 @@ export class StudentAuthService {
       throw e;
     }
 
-    // 日志里只有 id —— 姓名、PIN、令牌、班级码一个都不落。
+    // 日志里只有 id —— 姓名、PIN、令牌、班级 id 一个都不落。
     this.logger.log(`student self-registered: ${created.id}`);
 
     const token = await this.jwt.signAsync(

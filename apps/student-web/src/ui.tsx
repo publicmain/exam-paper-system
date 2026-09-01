@@ -200,10 +200,12 @@ export function LevelPicker(props: {
   value: PilotLevelId | null;
   onChange: (v: PilotLevelId) => void;
   disabled?: boolean;
+  allowed?: readonly PilotLevelId[];
 }) {
   return (
     <div role="radiogroup" aria-label="英语难度" className="flex flex-col gap-2 mb-4">
       {PILOT_LEVEL_CHOICES.map((c) => {
+        if (props.allowed && !props.allowed.includes(c.id)) return null;
         const on = props.value === c.id;
         return (
           <label

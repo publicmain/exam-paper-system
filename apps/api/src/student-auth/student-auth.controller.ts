@@ -124,12 +124,18 @@ export class StudentAuthController {
     return this.svc.register(p.data);
   }
 
+  /** 学生注册页可选择的班级。只返回班级 id、名称和开放难度。 */
+  @Public()
+  @RateLimit({ limit: 30, windowSec: 60, scope: 'ip' })
+  @Get('registration-classes')
+  registrationClasses() {
+    return this.svc.registrationClasses();
+  }
+
   /**
-   * S12O —— **学生自助注册**：班级码 + 姓名 + 自设 PIN + 自选难度。
+   * S12O —— **学生自助注册**：班级 + 姓名 + 自设 PIN + 自选难度。
    *
    * 与上面那个 `register` 的区别是「认领 vs 建号」，见 service 的注释。
-   * 这条路仍然不是公开注册 —— 没有班级码就进不来。
-   *
    * `.strict()` 不是装饰：它让「客户端偷偷塞一个 studentId」变成
    * **400，而不是被悄悄忽略**。身份必须由服务端决定，多一个字段都不行。
    *
@@ -142,7 +148,7 @@ export class StudentAuthController {
   async selfRegister(@Body() body: unknown) {
     const schema = z
       .object({
-        classCode: z.string().min(1).max(32),
+        classId: z.string().min(1).max(64),
         name: z.string().min(1).max(50),
         // 长度在这里只做粗筛，6 位 / 弱 PIN 的判断归 validatePinFormat，
         // 与 change-pin 同一套规则 —— 两处各写一份迟早会漂。

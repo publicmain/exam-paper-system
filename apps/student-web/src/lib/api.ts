@@ -130,6 +130,12 @@ export type SelfRegisterResult = {
   englishLevel: PilotLevelId;
 } & AppRouting;
 
+export type RegistrationClass = {
+  id: string;
+  name: string;
+  levels: PilotLevelId[];
+};
+
 export type RegistrationStatus =
   | { found: false; registered: false }
   | { needDisambiguation: true; candidates: StudentCandidate[] }
@@ -258,14 +264,18 @@ export const api = {
     nickname?: string;
   }) => request<AuthResult>('POST', '/student-auth/register', { body }),
 
+  /** 注册页只读班级列表：不带身份，也不返回班级码或花名册。 */
+  registrationClasses: () =>
+    request<{ classes: RegistrationClass[] }>('GET', '/student-auth/registration-classes'),
+
   /**
-   * S12O —— **自助注册**：班级码 + 姓名 + 自设 PIN + 自选难度。
+   * S12O —— **自助注册**：班级 + 姓名 + 自设 PIN + 自选难度。
    *
    * pre-auth，姓名在这里是**凭据字段**而不是 URL 里的身份；请求体里
    * **没有 studentId**（服务端也用 `.strict()` 直接拒收）。
    */
   selfRegister: (body: {
-    classCode: string;
+    classId: string;
     name: string;
     pin: string;
     englishLevel: PilotLevelId;

@@ -33,6 +33,7 @@ const KEPT = [
   'change-pin',
   'me',
   // S12O —— 学生自助注册与自助改难度
+  'registration-classes',
   'self-register',
   'me/english-level',
   'admin/reset-pin',
@@ -70,7 +71,7 @@ describe('student-auth 路由契约（P2）', () => {
     }
   });
 
-  it('当前身份流程的 8 个端点全部保留', async () => {
+  it('当前身份流程的端点全部保留', async () => {
     const paths = await routePaths();
     for (const r of KEPT) {
       expect(paths, `${r} 应保留`).toContain(`/api/student-auth/${r}`);

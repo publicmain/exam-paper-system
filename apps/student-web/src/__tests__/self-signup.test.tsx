@@ -43,6 +43,14 @@ const LESSON_STUB = {
   ],
 };
 
+const CLASS_STUB = {
+  classes: [{
+    id: 'p1_class',
+    name: '试点班 W1',
+    levels: ['olevel', 'ielts_simplified', 'ielts_authentic'],
+  }],
+};
+
 let fetchMock: ReturnType<typeof vi.fn>;
 const route = (url: string) => url.replace(/^.*\/api/, '');
 
@@ -50,10 +58,13 @@ beforeEach(() => {
   __resetForTest();
   localStorage.clear();
   fetchMock = vi.fn();
-  vi.stubGlobal('fetch', (url: string, init?: RequestInit) =>
-    String(url).endsWith('/lesson/today')
-      ? jsonResponse(200, LESSON_STUB)
-      : fetchMock(url, init));
+  vi.stubGlobal('fetch', (url: string, init?: RequestInit) => {
+    if (String(url).endsWith('/lesson/today')) return jsonResponse(200, LESSON_STUB);
+    if (String(url).endsWith('/student-auth/registration-classes')) {
+      return jsonResponse(200, CLASS_STUB);
+    }
+    return fetchMock(url, init);
+  });
 });
 afterEach(() => {
   vi.unstubAllGlobals();
@@ -107,17 +118,17 @@ describe('S12O —— 注册页', () => {
   }
 
   async function fillForm(level = '雅思 · 简化版') {
-    await userEvent.type(await screen.findByLabelText('班级码'), 'PILOTW1');
+    await userEvent.selectOptions(await screen.findByLabelText('选择班级'), 'p1_class');
     await userEvent.type(screen.getByLabelText('姓名'), '林小雨');
     await userEvent.type(screen.getByLabelText('设置 6 位数字密码'), '280519');
     await userEvent.type(screen.getByLabelText('再输一次'), '280519');
     await userEvent.click(screen.getByRole('radio', { name: new RegExp(level) }));
   }
 
-  it('四个输入 + 三张难度卡都在，且必须自己选一档', async () => {
+  it('班级选择 + 三个输入 + 三张难度卡都在，且必须自己选一档', async () => {
     stubOk();
     renderAt('/register');
-    expect(await screen.findByLabelText('班级码')).toBeTruthy();
+    expect(await screen.findByLabelText('选择班级')).toBeTruthy();
     expect(screen.getByLabelText('姓名')).toBeTruthy();
     expect(screen.getByLabelText('设置 6 位数字密码')).toBeTruthy();
     expect(screen.getByLabelText('再输一次')).toBeTruthy();
@@ -128,12 +139,12 @@ describe('S12O —— 注册页', () => {
     }
   });
 
-  it('页面上解释了班级码是什么', async () => {
+  it('页面让学生直接选择班级，不再出现班级码', async () => {
     stubOk();
     renderAt('/register');
-    const t = (await screen.findByLabelText('班级码')).closest('form')!.textContent ?? '';
-    expect(t).toMatch(/班级码/);
-    expect(t).toMatch(/老师/);
+    const t = (await screen.findByLabelText('选择班级')).closest('form')!.textContent ?? '';
+    expect(t).toMatch(/选择.*班级/);
+    expect(t).not.toMatch(/班级码/);
   });
 
   it('填全 → 一次请求 → 进今天的课', async () => {
@@ -146,7 +157,7 @@ describe('S12O —— 注册页', () => {
     const calls = fetchMock.mock.calls.filter((c) => route(String(c[0])) === '/student-auth/self-register');
     expect(calls).toHaveLength(1);
     expect(bodyOf(calls[0])).toEqual({
-      classCode: 'PILOTW1',
+      classId: 'p1_class',
       name: '林小雨',
       pin: '280519',
       englishLevel: 'ielts_simplified',
@@ -164,14 +175,14 @@ describe('S12O —— 注册页', () => {
     const call = fetchMock.mock.calls.find((c) => route(String(c[0])) === '/student-auth/self-register')!;
     expect(String(call[0])).not.toContain('?');
     expect(Object.keys(bodyOf(call)).sort()).toEqual([
-      'classCode', 'englishLevel', 'name', 'pin',
+      'classId', 'englishLevel', 'name', 'pin',
     ]);
   });
 
   it('两次密码不一样 —— **客户端就拦下来**，一个请求都不发', async () => {
     stubOk();
     renderAt('/register');
-    await userEvent.type(await screen.findByLabelText('班级码'), 'PILOTW1');
+    await userEvent.selectOptions(await screen.findByLabelText('选择班级'), 'p1_class');
     await userEvent.type(screen.getByLabelText('姓名'), '林小雨');
     await userEvent.type(screen.getByLabelText('设置 6 位数字密码'), '280519');
     await userEvent.type(screen.getByLabelText('再输一次'), '280518');
@@ -185,7 +196,7 @@ describe('S12O —— 注册页', () => {
   it('一档都没选 → 就地报错，不发请求', async () => {
     stubOk();
     renderAt('/register');
-    await userEvent.type(await screen.findByLabelText('班级码'), 'PILOTW1');
+    await userEvent.selectOptions(await screen.findByLabelText('选择班级'), 'p1_class');
     await userEvent.type(screen.getByLabelText('姓名'), '林小雨');
     await userEvent.type(screen.getByLabelText('设置 6 位数字密码'), '280519');
     await userEvent.type(screen.getByLabelText('再输一次'), '280519');
@@ -197,7 +208,7 @@ describe('S12O —— 注册页', () => {
   it('PIN 不是 6 位数字 → 就地报错，不发请求', async () => {
     stubOk();
     renderAt('/register');
-    await userEvent.type(await screen.findByLabelText('班级码'), 'PILOTW1');
+    await userEvent.selectOptions(await screen.findByLabelText('选择班级'), 'p1_class');
     await userEvent.type(screen.getByLabelText('姓名'), '林小雨');
     await userEvent.type(screen.getByLabelText('设置 6 位数字密码'), '2805');
     await userEvent.type(screen.getByLabelText('再输一次'), '2805');
@@ -227,15 +238,15 @@ describe('S12O —— 注册页', () => {
     await screen.findByRole('heading', { name: '你好，林小雨' });
   });
 
-  it('服务端说班级码不对 → 说人话，且不落任何东西', async () => {
+  it('服务端说班级不可注册 → 说人话，且不落任何东西', async () => {
     fetchMock.mockImplementation((url: string) =>
       route(url) === '/student-auth/self-register'
-        ? jsonResponse(400, { code: 'class_code_invalid' })
+        ? jsonResponse(400, { code: 'class_not_available' })
         : jsonResponse(404, {}));
     renderAt('/register');
     await fillForm();
     await userEvent.click(screen.getByRole('button', { name: '注册并进入' }));
-    expect((await screen.findByRole('alert')).textContent).toMatch(/班级码/);
+    expect((await screen.findByRole('alert')).textContent).toMatch(/班|选择/);
     expect(localStorage.getItem('sw:token')).toBeNull();
   });
 
@@ -256,7 +267,7 @@ describe('S12O —— 注册页', () => {
       if (route(url) !== '/student-auth/self-register') return jsonResponse(404, {});
       n += 1;
       return n === 1
-        ? jsonResponse(400, { code: 'class_code_invalid' })
+        ? jsonResponse(400, { code: 'class_not_available' })
         : jsonResponse(201, { token: 'TK', student: PROFILE, englishLevel: 'olevel' });
     });
     renderAt('/register');
@@ -420,7 +431,7 @@ describe('S12O —— 三档的可访问名字', () => {
   it('每个 radio 的**可访问名字恰好是那句中文**，而且不含内部标识', async () => {
     fetchMock.mockImplementation(() => jsonResponse(404, {}));
     renderAt('/register');
-    await screen.findByLabelText('班级码');
+    await screen.findByLabelText('选择班级');
     const radios = screen.getAllByRole('radio');
     const names = radios.map((r) => r.getAttribute('aria-label'));
     expect(names).toEqual(['O-Level 基础', '雅思 · 简化版', '雅思 · 真题型']);
@@ -434,7 +445,7 @@ describe('S12O —— 三档的可访问名字', () => {
   it('说明那一句挂在 `aria-describedby` 上 —— 听得到，但不混进名字里', async () => {
     fetchMock.mockImplementation(() => jsonResponse(404, {}));
     renderAt('/register');
-    await screen.findByLabelText('班级码');
+    await screen.findByLabelText('选择班级');
     for (const r of screen.getAllByRole('radio')) {
       const id = r.getAttribute('aria-describedby')!;
       expect(document.getElementById(id)?.textContent?.length).toBeGreaterThan(8);

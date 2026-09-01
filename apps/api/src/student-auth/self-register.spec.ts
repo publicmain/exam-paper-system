@@ -6,7 +6,8 @@
  * （`student_not_found` 就是这个前提的回声）。试点要请真人进来，这个
  * 前提站不住 —— 所以这里定义两件新事：
  *
- *   · `selfRegister`     班级码 + 姓名 + PIN + 难度 → 账号 + 在册 + 令牌
+ *   · `registrationClasses`  可注册班级的最小公开列表
+ *   · `selfRegister`     班级 + 姓名 + PIN + 难度 → 账号 + 在册 + 令牌
  *   · `setEnglishLevel`  已登录的学生自己改难度，身份只来自令牌
  *
  * 全部用假 Prisma，不连库。
@@ -68,13 +69,19 @@ function makeDb(seed: { classes?: FakeClass[]; users?: FakeUser[]; enrollments?:
         findFirst: vi.fn(async ({ where, select }: any) => {
           const c = store.classes.find(
             (x) =>
-              x.classCode === where.classCode &&
+              x.id === where.id &&
               (where.archivedAt === null ? x.archivedAt === null : true),
           );
           if (!c) return null;
           void select;
           return JSON.parse(JSON.stringify(c));
         }),
+        findMany: vi.fn(async () =>
+          store.classes
+            .filter((x) => x.archivedAt === null && x.englishLevels.length > 0)
+            .sort((a, b) => a.name.localeCompare(b.name))
+            .map((x) => JSON.parse(JSON.stringify(x))),
+        ),
       },
       user: {
         // 两个调用点共用它：selfRegister 的重名预检（按班筛），以及
@@ -192,7 +199,7 @@ function makeSvc(seed?: Parameters<typeof makeDb>[0]) {
   return { svc: new StudentAuthService(db.prisma, jwt), ...db, jwt };
 }
 
-const GOOD = { classCode: 'PILOTW1', name: '林小雨', pin: '280519', englishLevel: 'olevel' as const };
+const GOOD = { classId: 'p1_class', name: '林小雨', pin: '280519', englishLevel: 'olevel' as const };
 
 // ─────────────────────────────────────────────────────────────
 // 0. 旧世界的前提 —— 这一条正是本任务要推翻的东西
@@ -207,12 +214,41 @@ describe('S12O —— 教师预建这个前提', () => {
   });
 });
 
+describe('注册页班级列表', () => {
+  it('只给 id、名称和允许学生选择的难度，不泄露班级码', async () => {
+    const { svc } = makeSvc({
+      classes: [
+        PILOT_CLASS,
+        { ...PILOT_CLASS, id: 'legacy', name: '旧档班', classCode: 'SECRET', englishLevels: [{ level: 'ielts_light' }] },
+      ],
+    });
+    const out: any = await svc.registrationClasses();
+    expect(out.classes).toEqual([{
+      id: 'p1_class',
+      name: '试点班 W1',
+      levels: ['olevel', 'ielts_simplified', 'ielts_authentic'],
+    }]);
+    expect(JSON.stringify(out)).not.toContain('PILOTW1');
+    expect(JSON.stringify(out)).not.toContain('SECRET');
+  });
+
+  it('归档班和没有开放难度的班不出现', async () => {
+    const { svc } = makeSvc({
+      classes: [
+        { ...PILOT_CLASS, id: 'archived', archivedAt: new Date('2026-01-01') },
+        { ...PILOT_CLASS, id: 'closed', englishLevels: [] },
+      ],
+    });
+    await expect(svc.registrationClasses()).resolves.toEqual({ classes: [] });
+  });
+});
+
 // ─────────────────────────────────────────────────────────────
 // 1. 自助注册的正路
 // ─────────────────────────────────────────────────────────────
 
 describe('S12O —— 自助注册', () => {
-  it('班级码 + 姓名 + PIN + 难度 → 建账号、入班、存难度、发令牌', async () => {
+  it('班级 + 姓名 + PIN + 难度 → 建账号、入班、存难度、发令牌', async () => {
     const { svc, state, jwt } = makeSvc();
     const out: any = await svc.selfRegister(GOOD);
 
@@ -259,9 +295,9 @@ describe('S12O —— 自助注册', () => {
     expect(state.users[0].name).toBe('林 小雨');
   });
 
-  it('班级码大小写与空白不敏感', async () => {
+  it('班级由服务端 id 精确选择', async () => {
     const { svc, state } = makeSvc();
-    await svc.selfRegister({ ...GOOD, classCode: ' pilotw1 ' });
+    await svc.selfRegister({ ...GOOD, classId: 'p1_class' });
     expect(state.enrollments[0].classId).toBe('p1_class');
   });
 
@@ -279,8 +315,8 @@ describe('S12O —— 自助注册', () => {
 
 describe('S12O —— 注册的拒绝路径都是零副作用', () => {
   const bad: Array<[string, any, string]> = [
-    ['班级码不存在', { classCode: 'NOPE' }, 'class_code_invalid'],
-    ['班级码为空', { classCode: '   ' }, 'class_code_invalid'],
+    ['班级不存在', { classId: 'NOPE' }, 'class_not_available'],
+    ['班级为空', { classId: '' }, 'class_not_available'],
     ['难度不是这三档之一', { englishLevel: 'ielts_light' }, 'level_not_allowed'],
     ['难度是瞎编的', { englishLevel: 'wizard' }, 'level_not_allowed'],
     ['PIN 不是 6 位', { pin: '12345' }, 'pin_must_be_6_digits'],
@@ -299,12 +335,12 @@ describe('S12O —— 注册的拒绝路径都是零副作用', () => {
     });
   }
 
-  it('班级归档了 = 班级码无效（不泄露「这个码存在过」）', async () => {
+  it('班级归档了 = 班级不可注册', async () => {
     const { svc, state } = makeSvc({
       classes: [{ ...PILOT_CLASS, archivedAt: new Date('2026-01-01') }],
     });
     await expect(svc.selfRegister(GOOD)).rejects.toMatchObject({
-      response: { code: 'class_code_invalid' },
+      response: { code: 'class_not_available' },
     });
     expect(state.users).toHaveLength(0);
   });
@@ -413,7 +449,7 @@ describe('S12O —— 同一个班里的重名', () => {
     const other = { ...PILOT_CLASS, id: 'c2', classCode: 'OTHER' };
     const { svc, state } = makeSvc({ classes: [PILOT_CLASS, other] });
     await svc.selfRegister(GOOD);
-    await svc.selfRegister({ ...GOOD, classCode: 'OTHER' });
+    await svc.selfRegister({ ...GOOD, classId: 'c2' });
     expect(state.users).toHaveLength(2);
     expect(state.enrollments).toHaveLength(2);
   });
@@ -600,9 +636,9 @@ describe('S12O —— 试点说明书讲的是自助注册', () => {
     expect(fs.existsSync(DOC)).toBe(true);
   });
 
-  it('学生自己填班级码、自己设 PIN、自己选难度', () => {
+  it('学生自己选班级、自己设 PIN、自己选难度', () => {
     const t = read();
-    expect(t).toContain('PILOTW1');
+    expect(t).toMatch(/选择.*班级/);
     expect(t).toMatch(/自己选|自己挑/);
     expect(t).toMatch(/账号设置/);
   });

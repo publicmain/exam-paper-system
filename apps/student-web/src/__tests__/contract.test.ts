@@ -414,14 +414,17 @@ describe('G1 新端不得出现旧路由与旧身份键', () => {
   /**
    * pre-auth 但**连凭据都不带**的端点。
    *
-   * ⚠️ 目前只有一个：临时的 staging 夹具登录。它没有令牌（所以是 pre-auth），
+   * 班级列表与临时 staging 夹具登录都不带凭据。
    * 但请求体恒为 `{}`、URL 没有查询串 —— 登谁由服务端写死。单列一类而不是
    * 塞进上面那三个，是为了让「**恰好三个**端点可以带身份」这条断言**保持
    * 原样**：新增一个免密通道不该顺带把「谁可以带身份」的名额放宽。
    *
    * **上生产前必须随通道一起拆掉。**
    */
-  const PRE_AUTH_CREDENTIAL_FREE_ENDPOINTS = ['/student-auth/staging-fixture-session'] as const;
+  const PRE_AUTH_CREDENTIAL_FREE_ENDPOINTS = [
+    '/student-auth/registration-classes',
+    '/student-auth/staging-fixture-session',
+  ] as const;
 
   /** 清点器用的并集：这些调用不按「认证后」那套查身份。 */
   const PRE_AUTH_ENDPOINTS = [
@@ -610,7 +613,7 @@ describe('G1 新端不得出现旧路由与旧身份键', () => {
     expect(preAuth.sort()).toEqual([...PRE_AUTH_ENDPOINTS].sort());
   });
 
-  it('**免密的 pre-auth 端点一个身份字段都不许带**（临时的 staging 通道）', () => {
+  it('**免凭据的 pre-auth 端点一个身份字段都不许带**', () => {
     const calls = apiCalls().filter((c) =>
       (PRE_AUTH_CREDENTIAL_FREE_ENDPOINTS as readonly string[]).includes(c.endpoint),
     );
@@ -618,8 +621,13 @@ describe('G1 新端不得出现旧路由与旧身份键', () => {
     for (const c of calls) {
       // 与「认证后」那套用同一个检查器：URL 与请求体都不许出现身份
       expect(identityHits(c.block), `${c.endpoint} 带了身份`).toEqual([]);
-      // 而且请求体就是空对象 —— 不是「碰巧没带」，是根本没有可带的
-      expect(c.block).toMatch(/body:\s*\{\s*\}/);
+      if (c.endpoint === '/student-auth/staging-fixture-session') {
+        expect(c.block).toMatch(/body:\s*\{\s*\}/);
+      } else {
+        // 班级列表是 GET，连空请求体都不发。
+        expect(c.block).toMatch(/['"]GET['"]/);
+        expect(c.block).not.toMatch(/body\s*:/);
+      }
       expect(c.block).not.toMatch(/pin|password/i);
     }
   });
