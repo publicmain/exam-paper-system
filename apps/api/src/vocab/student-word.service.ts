@@ -148,6 +148,7 @@ export class StudentWordService {
           sourceType: w.sourceType,
           sourcePassageTitle: w.sourcePassageTitle,
           contextSentence: w.contextSentence,
+          contextTranslation: w.contextTranslation,
           state: w.state,
           reps: w.reps,
           lapses: w.lapses,

@@ -219,16 +219,16 @@ describe('S12M —— 线索里的词性不重复', () => {
 describe('小范围上线 —— 新注册学生第一次开课就拿到当天生词', () => {
   const payload = {
     lessonWords: [
-      { headword: 'Emerges', surfaceForm: 'emerges', context: 'A pattern emerges slowly.' },
-      { headword: 'emerge', surfaceForm: 'emerge', context: 'duplicate lemma' },
+      { headword: 'Emerges', surfaceForm: 'emerges', context: 'A pattern emerges slowly.', contextTranslation: '一种规律慢慢显现。' },
+      { headword: 'emerge', surfaceForm: 'emerge', context: 'duplicate lemma', contextTranslation: '重复的词元。' },
       { headword: '', surfaceForm: '', context: '' },
     ],
   };
 
   it('只接受发布卷 config 里的合法、去重词条', () => {
     expect(lessonWordsFromConfig(payload)).toEqual([
-      { headword: 'emerges', surfaceForm: 'emerges', context: 'A pattern emerges slowly.' },
-      { headword: 'emerge', surfaceForm: 'emerge', context: 'duplicate lemma' },
+      { headword: 'emerges', surfaceForm: 'emerges', context: 'A pattern emerges slowly.', contextTranslation: '一种规律慢慢显现。' },
+      { headword: 'emerge', surfaceForm: 'emerge', context: 'duplicate lemma', contextTranslation: '重复的词元。' },
     ]);
     expect(lessonWordsFromConfig({})).toEqual([]);
   });
@@ -253,6 +253,7 @@ describe('小范围上线 —— 新注册学生第一次开课就拿到当天�
           sourceType: 'teacher_push',
           sourcePassageTitle: 'A pattern',
           contextSentence: 'A pattern emerges slowly.',
+          contextTranslation: '一种规律慢慢显现。',
         }),
       ]),
     }));

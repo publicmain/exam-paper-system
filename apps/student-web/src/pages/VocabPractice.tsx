@@ -556,6 +556,11 @@ function TeachingCard({
           )}
         </p>
       ) : null}
+      {card.contextTranslation ? (
+        <p data-testid="teaching-context-translation" className="mt-2 text-sm leading-relaxed text-slate-600">
+          句意：{card.contextTranslation}
+        </p>
+      ) : null}
       {card.sourcePassageTitle ? (
         <p className="mt-2 text-xs text-slate-400">来自：{card.sourcePassageTitle}</p>
       ) : null}

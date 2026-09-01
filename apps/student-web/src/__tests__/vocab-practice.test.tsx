@@ -47,6 +47,7 @@ const card = (over: Record<string, unknown> = {}) => ({
   headword: 'ferry',
   surfaceForm: 'ferries',
   contextSentence: 'The ferries stopped running after dark.',
+  contextTranslation: '天黑以后，渡船就停运了。',
   sourcePassageTitle: 'The River Ferry',
   phonetic: '/ˈferi/',
   translation: '渡船',
@@ -163,6 +164,14 @@ afterEach(() => {
 // ─────────────────────────────────────────────────────────────
 
 describe('AC-05 只吃 /vocab/due', () => {
+  it('首次教学卡同时显示英文例句和中文句意', async () => {
+    dueReply = () => jsonResponse(200, due([card({ needsFirstTeaching: true, firstTaughtAt: null, reps: 0 })]));
+    mount();
+    await settle();
+    expect(screen.getByTestId('teaching-context').textContent).toContain('The ferries stopped');
+    expect(screen.getByTestId('teaching-context-translation').textContent).toBe('句意：天黑以后，渡船就停运了。');
+  });
+
   it('**挂载只打一个 GET /vocab/due**，零查询串、零请求体、零写', async () => {
     mount();
     await settle();

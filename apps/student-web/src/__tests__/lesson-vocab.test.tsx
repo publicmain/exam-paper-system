@@ -58,6 +58,7 @@ function card(over: Record<string, unknown> = {}) {
     headword: 'nile',
     surfaceForm: 'Nile',
     contextSentence: 'The Nile is the longest river.',
+    contextTranslation: '尼罗河是最长的河流。',
     sourcePassageTitle: 'Rivers of Africa',
     phonetic: 'naɪl',
     translation: '尼罗河',
@@ -358,6 +359,7 @@ describe('AC-05 首次教学卡', () => {
     // 教学卡**不挖空** —— 看词怎么用才是这张卡的意义
     expect(screen.getByTestId('context').textContent).toContain('delta');
     expect(screen.getByTestId('context').textContent).not.toContain(BLANK);
+    expect(screen.getByTestId('context-translation').textContent).toBe('句意：尼罗河是最长的河流。');
     expect(screen.getByTestId('source').textContent).toContain('Rivers of Africa');
   });
 
@@ -374,7 +376,7 @@ describe('AC-05 首次教学卡', () => {
   it('可选字段缺了也不崩', async () => {
     routes['/api/vocab/lesson-cards'] = () => ({
       body: cardsPayload({
-        cards: [card({ headword: 'bare', needsFirstTeaching: true, phonetic: null, pos: null, definition: null, contextSentence: null, sourcePassageTitle: null, translation: '' })],
+        cards: [card({ headword: 'bare', needsFirstTeaching: true, phonetic: null, pos: null, definition: null, contextSentence: null, contextTranslation: null, sourcePassageTitle: null, translation: '' })],
       }),
     });
     mount();
@@ -382,6 +384,7 @@ describe('AC-05 首次教学卡', () => {
     expect(screen.getByTestId('headword').textContent).toBe('bare');
     expect(screen.queryByTestId('phonetic')).toBeNull();
     expect(screen.queryByTestId('context')).toBeNull();
+    expect(screen.queryByTestId('context-translation')).toBeNull();
     expect(screen.queryByTestId('source')).toBeNull();
   });
 

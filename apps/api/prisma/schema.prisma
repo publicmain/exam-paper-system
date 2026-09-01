@@ -2100,6 +2100,8 @@ model StudentWord {
   sourcePassageTitle    String?
   /// 该词所在的原句 —— 复习卡片必须显示它
   contextSentence       String      @default("")
+  /// 原句的中文句意。课程内容必须提供；学生手动查词等旧来源可为空。
+  contextTranslation    String      @default("")
   state                 VocabState  @default(new)
 
   // ── FSRS 调度状态（P3 启用；P2 先落库，默认值即"从未复习"）──

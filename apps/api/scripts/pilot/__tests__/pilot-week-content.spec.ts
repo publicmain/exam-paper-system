@@ -26,6 +26,7 @@ type Word = {
   translation: string;
   definition: string;
   context: string;
+  contextTranslation: string;
 };
 type Question = {
   taskType: string;
@@ -293,6 +294,8 @@ describe.each(EVERY)('S12M —— %s 的生词', (_label, level, day) => {
       expect(w.pos, `${w.headword} 没有词性`).toMatch(/\.$/);
       expect(w.translation, `${w.headword} 没有中文释义`).toMatch(/[一-鿿]/);
       expect(w.definition.trim().length, `${w.headword} 没有英文释义`).toBeGreaterThan(10);
+      expect(w.contextTranslation, `${w.headword} 的例句没有中文句意`).toMatch(/[一-鿿]/);
+      expect(w.contextTranslation.trim().length, `${w.headword} 的例句翻译太短`).toBeGreaterThan(3);
     }
   });
 

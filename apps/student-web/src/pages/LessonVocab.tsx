@@ -403,6 +403,11 @@ function TeachingCard({
           {card.contextSentence}
         </p>
       )}
+      {card.contextTranslation && (
+        <p data-testid="context-translation" className="mt-2 text-sm text-slate-600 leading-relaxed">
+          句意：{card.contextTranslation}
+        </p>
+      )}
       {card.sourcePassageTitle && (
         <p data-testid="source" className="mt-2 text-xs text-slate-400">
           来自：{card.sourcePassageTitle}

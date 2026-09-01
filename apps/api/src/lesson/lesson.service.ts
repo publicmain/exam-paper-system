@@ -83,20 +83,22 @@ export function lessonWordsFromConfig(config: unknown): Array<{
   headword: string;
   surfaceForm: string;
   context: string;
+  contextTranslation: string;
 }> {
   if (!config || typeof config !== 'object') return [];
   const raw = (config as any).lessonWords;
   if (!Array.isArray(raw)) return [];
   const seen = new Set<string>();
-  const out: Array<{ headword: string; surfaceForm: string; context: string }> = [];
+  const out: Array<{ headword: string; surfaceForm: string; context: string; contextTranslation: string }> = [];
   for (const item of raw) {
     if (!item || typeof item !== 'object') continue;
     const headword = normalizeWord(String((item as any).headword ?? ''));
     if (!headword || seen.has(headword)) continue;
     const surfaceForm = String((item as any).surfaceForm ?? headword).trim() || headword;
     const context = String((item as any).context ?? '').trim();
+    const contextTranslation = String((item as any).contextTranslation ?? '').trim();
     seen.add(headword);
-    out.push({ headword, surfaceForm, context });
+    out.push({ headword, surfaceForm, context, contextTranslation });
     if (out.length >= COURSE_QUEUE_MAX) break;
   }
   return out;
@@ -609,7 +611,7 @@ export class LessonService {
   private async ensureLessonWords(
     studentId: string,
     passageTitle: string | null,
-    words: Array<{ headword: string; surfaceForm: string; context: string }>,
+    words: Array<{ headword: string; surfaceForm: string; context: string; contextTranslation: string }>,
     due: Date,
   ) {
     if (words.length === 0) return;
@@ -621,6 +623,7 @@ export class LessonService {
         sourceType: 'teacher_push' as const,
         sourcePassageTitle: passageTitle,
         contextSentence: word.context,
+        contextTranslation: word.contextTranslation,
         state: 'new' as const,
         due,
       })),
@@ -690,7 +693,7 @@ export class LessonService {
         submissionId: null as string | null,
         autoFinalizeReason: null as string | null,
         sessionId: null as string | null,
-        lessonWords: [] as Array<{ headword: string; surfaceForm: string; context: string }>,
+        lessonWords: [] as Array<{ headword: string; surfaceForm: string; context: string; contextTranslation: string }>,
       };
     }
 

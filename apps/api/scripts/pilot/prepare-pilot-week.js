@@ -557,6 +557,7 @@ async function scheduleWordsFor(tx, student, dayIso, report) {
           sourceType: 'teacher_push',
           sourcePassageTitle: lesson.title,
           contextSentence: w.context,
+          contextTranslation: w.contextTranslation,
           state: 'new',
           due: dueAt,
         },
@@ -564,11 +565,19 @@ async function scheduleWordsFor(tx, student, dayIso, report) {
       report.bump('StudentWord.created');
       continue;
     }
-    // 已经有了。**只把到期时间拉回今天**，其余（FSRS 状态、复习历史、
-    // 学生自己加的语境）一个字不动。
+    // 已经有了。到期时间按试点日程调整；这批脚本自己创建的课程词还要
+    // 同步例句翻译。学生自己加的语境、FSRS 状态和复习历史一个字不动。
+    const translationPatch = existing.id.startsWith(`${PREFIX}w_`) &&
+      existing.contextSentence === w.context &&
+      existing.contextTranslation !== w.contextTranslation
+      ? { contextTranslation: w.contextTranslation }
+      : {};
     if (existing.due.getTime() !== dueAt.getTime()) {
-      await tx.studentWord.update({ where: { id: existing.id }, data: { due: dueAt } });
+      await tx.studentWord.update({ where: { id: existing.id }, data: { due: dueAt, ...translationPatch } });
       report.bump('StudentWord.rescheduled');
+    } else if (Object.keys(translationPatch).length > 0) {
+      await tx.studentWord.update({ where: { id: existing.id }, data: translationPatch });
+      report.bump('StudentWord.translationBackfilled');
     } else {
       report.bump('StudentWord.unchanged');
     }

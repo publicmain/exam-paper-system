@@ -438,6 +438,11 @@ function WordRow({ word, onRemoved }: { word: VocabWordRow; onRemoved: () => voi
           {word.contextSentence}
         </p>
       ) : null}
+      {word.contextTranslation ? (
+        <p data-testid={`word-context-translation-${word.headword}`} className="mt-1 text-sm text-slate-500">
+          句意：{word.contextTranslation}
+        </p>
+      ) : null}
 
       {rm.s === 'idle' ? (
         <button

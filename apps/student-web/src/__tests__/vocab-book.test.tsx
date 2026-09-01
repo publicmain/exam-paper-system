@@ -50,6 +50,7 @@ const word = (over: Record<string, unknown> = {}) => ({
   sourceType: 'auto_wrong_answer',
   sourcePassageTitle: 'The River Ferry',
   contextSentence: 'The ferries stopped running after dark.',
+  contextTranslation: '天黑以后，渡船就停运了。',
   state: 'learning',
   reps: 2,
   lapses: 0,
@@ -312,6 +313,7 @@ describe('AC-04 列表与统计', () => {
     expect(row.textContent).toContain('/ˈferi/');
     expect(row.textContent).toContain('渡船');
     expect(screen.getByTestId('word-context-ferry').textContent).toContain('The ferries stopped running after dark.');
+    expect(screen.getByTestId('word-context-translation-ferry').textContent).toContain('天黑以后，渡船就停运了。');
     expect(screen.getByTestId('word-state-ferry').textContent).toBeTruthy();
     expect(screen.getByTestId('word-due-ferry').textContent).toContain('2026-08-30');
   });

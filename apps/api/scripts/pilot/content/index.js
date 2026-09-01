@@ -20,6 +20,8 @@
 
 'use strict';
 
+const { createHash } = require('node:crypto');
+
 const olevel = require('./olevel');
 const simplified = require('./ielts_simplified');
 const authentic = require('./ielts_authentic');
@@ -27,14 +29,42 @@ const olevelRemaining = require('./olevel_remaining');
 const simplifiedRemaining = require('./ielts_simplified_remaining');
 const authenticRemaining = require('./ielts_authentic_remaining');
 const { IELTS_LIGHT_DAYS, OLEVEL_INTERMEDIATE_DAYS } = require('./fixture-levels');
+const contextTranslations = {
+  ...require('./context-translations-ielts_simplified'),
+  ...require('./context-translations-olevel_intermediate'),
+  ...require('./context-translations-olevel'),
+  ...require('./context-translations-ielts_light'),
+  ...require('./context-translations-ielts_authentic'),
+};
+
+function contextDigest(sentence) {
+  return createHash('sha256').update(sentence, 'utf8').digest('hex');
+}
+
+/**
+ * 每一张学习卡在发布前就必须有中文句意。这里故意 fail closed：以后内容
+ * 编辑者改了英文原句却忘记同步翻译，测试和发布脚本都会立即失败。
+ */
+function withContextTranslations(days, level) {
+  return days.map((day) => ({
+    ...day,
+    words: day.words.map((word) => {
+      const contextTranslation = contextTranslations[contextDigest(word.context)];
+      if (!contextTranslation || !/[\u3400-\u9fff]/u.test(contextTranslation)) {
+        throw new Error(`missing_context_translation:${level}:${day.date}:${word.headword}`);
+      }
+      return { ...word, contextTranslation };
+    }),
+  }));
+}
 
 /** 五档的内容包。key 就是 `EnglishLevel` 枚举值。 */
 const LEVELS = {
-  [simplified.LEVEL]: [...simplified.DAYS, ...simplifiedRemaining.DAYS],
-  olevel_intermediate: OLEVEL_INTERMEDIATE_DAYS,
-  [olevel.LEVEL]: [...olevel.DAYS, ...olevelRemaining.DAYS],
-  ielts_light: IELTS_LIGHT_DAYS,
-  [authentic.LEVEL]: [...authentic.DAYS, ...authenticRemaining.DAYS],
+  [simplified.LEVEL]: withContextTranslations([...simplified.DAYS, ...simplifiedRemaining.DAYS], simplified.LEVEL),
+  olevel_intermediate: withContextTranslations(OLEVEL_INTERMEDIATE_DAYS, 'olevel_intermediate'),
+  [olevel.LEVEL]: withContextTranslations([...olevel.DAYS, ...olevelRemaining.DAYS], olevel.LEVEL),
+  ielts_light: withContextTranslations(IELTS_LIGHT_DAYS, 'ielts_light'),
+  [authentic.LEVEL]: withContextTranslations([...authentic.DAYS, ...authenticRemaining.DAYS], authentic.LEVEL),
 };
 
 /** 这一周实际发布的日期（新加坡日历日）。 */

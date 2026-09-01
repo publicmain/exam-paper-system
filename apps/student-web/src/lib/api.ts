@@ -805,6 +805,7 @@ export interface VocabWordRow {
   sourceType: string;
   sourcePassageTitle: string | null;
   contextSentence: string | null;
+  contextTranslation: string | null;
   state: string;
   reps: number;
   lapses: number;
@@ -856,6 +857,7 @@ export interface VocabDueCard {
   headword: string;
   surfaceForm: string | null;
   contextSentence: string | null;
+  contextTranslation: string | null;
   sourcePassageTitle: string | null;
   phonetic: string | null;
   translation: string;
@@ -1074,6 +1076,7 @@ export interface LessonCard {
   /** 文章里的原形（可能是变位形式）；遮词时两个都要遮。 */
   surfaceForm: string | null;
   contextSentence: string | null;
+  contextTranslation: string | null;
   sourcePassageTitle: string | null;
   phonetic: string | null;
   translation: string;
