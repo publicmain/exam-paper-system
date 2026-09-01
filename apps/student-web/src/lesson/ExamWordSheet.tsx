@@ -18,6 +18,12 @@
  * 注意「不查」和「查了不显示」是两件事：后者的答案材料已经到了浏览器，
  * 任何人打开网络面板就能看见。所以屏蔽必须落在**发请求之前**。
  *
+ * ## 查词与收藏是两件事
+ *
+ * 学生点词只代表「我想看看是什么意思」，不代表「我要把它加入生词本」。
+ * 查词成功后只准备好收藏内容，必须由学生明确点「加入生词本」才写入；
+ * 加入后也可以在同一张卡里移出。
+ *
  * ## 写生词本要说实话
  *
  * 旧实现是「发了就当成了」（成功回调直接置位、失败回调空着）
@@ -118,9 +124,12 @@ type LookupPhase =
 type SavePhase =
   | { s: 'idle' }
   | { s: 'saving' }
-  | { s: 'created' }
-  | { s: 'already' }
-  | { s: 'failed' };
+  | { s: 'created'; headword: string }
+  | { s: 'already'; headword: string }
+  | { s: 'failed' }
+  | { s: 'removing'; headword: string }
+  | { s: 'removed' }
+  | { s: 'removeFailed'; headword: string };
 
 export function ExamWordSheet({
   word,
@@ -158,7 +167,7 @@ export function ExamWordSheet({
   /** 待重发的写入体 —— 重试原样重发，不重新组装。 */
   const pendingAdd = useRef<{ word: string; contextSentence?: string; contextTranslation?: string; sourcePassageTitle?: string } | null>(null);
 
-  /** 记进生词本。考试中查的词就是真正卡住学生的词，也正是他该背的。 */
+  /** 学生明确选择之后才记进生词本。 */
   const sendAdd = useCallback(async (mine: number) => {
     const body = pendingAdd.current;
     if (!body) return;
@@ -172,12 +181,35 @@ export function ExamWordSheet({
       saving.current = false;
       if (mine !== gen.current) return;
       // **形状不对 = 没存上**，不因为 fetch resolve 了就报成功
-      setSave(addSucceeded(r) ? (r.created ? { s: 'created' } : { s: 'already' }) : { s: 'failed' });
+      setSave(
+        addSucceeded(r)
+          ? (r.created ? { s: 'created', headword: r.headword } : { s: 'already', headword: r.headword })
+          : { s: 'failed' },
+      );
     } catch (e) {
       saving.current = false;
       if (handleAuthFailure(e)) return;
       if (mine !== gen.current) return;
       setSave({ s: 'failed' });
+    }
+  }, []);
+
+  /** 已确认在本子里的词，学生也可以当场移出。 */
+  const sendRemove = useCallback(async (mine: number, headword: string) => {
+    const token = readToken();
+    if (!token || saving.current) return;
+    saving.current = true;
+    setSave({ s: 'removing', headword });
+    try {
+      const r = await api.vocabWordRemove(token, { headword });
+      saving.current = false;
+      if (mine !== gen.current) return;
+      setSave(r?.deleted === 1 ? { s: 'removed' } : { s: 'removeFailed', headword });
+    } catch (e) {
+      saving.current = false;
+      if (handleAuthFailure(e)) return;
+      if (mine !== gen.current) return;
+      setSave({ s: 'removeFailed', headword });
     }
   }, []);
 
@@ -197,21 +229,20 @@ export function ExamWordSheet({
           return;
         }
         setPhase({ s: 'ok', entry: r.entry });
-        // 查到了才记本子 —— 词典里没有的词记进去也没有释义可复习
+        // 查到了才准备收藏内容；**这里不写库**，等学生自己点按钮。
         pendingAdd.current = {
           word: w,
           ...(contextSentence ? { contextSentence } : {}),
           ...(r.entry.contextTranslation ? { contextTranslation: r.entry.contextTranslation } : {}),
           ...(passageTitle ? { sourcePassageTitle: passageTitle } : {}),
         };
-        void sendAdd(mine);
       } catch (e) {
         if (handleAuthFailure(e)) return;
         if (mine !== gen.current) return;
         setPhase({ s: 'failed' });
       }
     },
-    [contextSentence, passageTitle, sendAdd],
+    [contextSentence, passageTitle],
   );
 
   useEffect(() => {
@@ -400,12 +431,50 @@ export function ExamWordSheet({
             </button>
           ) : null}
 
-          {/* 写本子的结果 —— 三种分开说，失败绝不静默 */}
-          {save.s === 'created' || save.s === 'already' ? (
-            <div data-testid="word-sheet-saved" className="flex items-center gap-2 text-[13px] font-medium text-emerald-700">
-              <span aria-hidden="true" className="grid size-5 place-items-center rounded-full bg-emerald-100 text-[11px]">✓</span>
-              {save.s === 'created' ? '已存入生词本 · 以后会安排复习' : '已经在生词本里了'}
+          {/* 查词不自动收藏。加入、移出都必须是学生自己的明确动作。 */}
+          {(save.s === 'idle' || save.s === 'removed') && phase.s === 'ok' ? (
+            <div className="space-y-2">
+              {save.s === 'removed' ? (
+                <div data-testid="word-sheet-removed" className="text-[13px] font-medium text-slate-600">
+                  已移出生词本
+                </div>
+              ) : null}
+              <button
+                type="button"
+                data-testid="word-sheet-add"
+                onClick={() => void sendAdd(gen.current)}
+                className="min-h-[48px] w-full rounded-[14px] bg-blue-600 text-[16px] font-semibold text-white shadow-sm transition-colors hover:bg-blue-700"
+              >
+                {save.s === 'removed' ? '重新加入生词本' : '加入生词本'}
+              </button>
+              {save.s === 'idle' ? (
+                <div className="text-center text-xs text-slate-400">只查词不会自动收藏</div>
+              ) : null}
             </div>
+          ) : null}
+          {save.s === 'saving' ? (
+            <button type="button" disabled className="min-h-[48px] w-full rounded-[14px] bg-slate-200 text-[15px] font-medium text-slate-500">
+              正在加入…
+            </button>
+          ) : null}
+          {save.s === 'created' || save.s === 'already' ? (
+            <div className="flex items-center justify-between gap-3">
+              <div data-testid="word-sheet-saved" className="flex items-center gap-2 text-[13px] font-medium text-emerald-700">
+                <span aria-hidden="true" className="grid size-5 place-items-center rounded-full bg-emerald-100 text-[11px]">✓</span>
+                {save.s === 'created' ? '已存入生词本 · 以后会安排复习' : '已经在生词本里了'}
+              </div>
+              <button
+                type="button"
+                data-testid="word-sheet-remove"
+                onClick={() => void sendRemove(gen.current, save.headword)}
+                className="min-h-[44px] shrink-0 rounded-xl border border-slate-200 px-3 text-[13px] font-medium text-slate-600"
+              >
+                移出
+              </button>
+            </div>
+          ) : null}
+          {save.s === 'removing' ? (
+            <div className="text-[13px] font-medium text-slate-500">正在移出…</div>
           ) : null}
           {save.s === 'failed' ? (
             <div className="flex items-center justify-between gap-3 text-[13px]">
@@ -416,6 +485,19 @@ export function ExamWordSheet({
                 type="button"
                 data-testid="word-sheet-retry-save"
                 onClick={() => void sendAdd(gen.current)}
+                className="min-h-[44px] rounded-lg border border-slate-300 px-3 font-medium"
+              >
+                重试
+              </button>
+            </div>
+          ) : null}
+          {save.s === 'removeFailed' ? (
+            <div className="flex items-center justify-between gap-3 text-[13px]">
+              <span data-testid="word-sheet-remove-failed" className="text-rose-600">没能移出生词本</span>
+              <button
+                type="button"
+                data-testid="word-sheet-retry-remove"
+                onClick={() => void sendRemove(gen.current, save.headword)}
                 className="min-h-[44px] rounded-lg border border-slate-300 px-3 font-medium"
               >
                 重试

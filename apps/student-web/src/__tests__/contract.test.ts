@@ -1882,7 +1882,8 @@ describe('G-12B 错题本只走自己那条线', () => {
 // 所以这里要钉住的正是「重写掉的那件事没有偷偷回来」。
 //
 // 另外两条只对这一面成立：
-//   · **不点就不查** —— 发请求的地方只能是查词卡自己，而且只有那两个方法；
+//   · **不点就不查** —— 发请求的地方只能是查词卡自己；查词只读，
+//     加入 / 移出都必须是学生明确点击；
 //   · **不落盘学习内容** —— 这一面只允许写一个发现性标记。
 // ─────────────────────────────────────────────────────────────
 describe('G-12C 考试中查词只走 token-only 那条线', () => {
@@ -1926,12 +1927,12 @@ describe('G-12C 考试中查词只走 token-only 那条线', () => {
     }
   });
 
-  it('**只有查词卡自己发请求，而且只发那两条**', () => {
+  it('**只有查词卡自己发请求，而且只发查词、加入、移出三条**', () => {
     const called = (f: string) =>
       [...new Set(
         [...stripComments(fs.readFileSync(f, 'utf8')).matchAll(/\bapi\.(\w+)\s*\(/g)].map((m) => m[1]),
       )].sort();
-    expect(called(SHEET)).toEqual(['vocabAddWord', 'vocabLookup']);
+    expect(called(SHEET)).toEqual(['vocabAddWord', 'vocabLookup', 'vocabWordRemove']);
     // 渲染器与手势层**一个 api 调用都没有** —— 它们只负责「点到了哪个词」
     expect(called(PASSAGE)).toEqual([]);
     expect(called(HIGHLIGHTER)).toEqual([]);
@@ -1940,6 +1941,13 @@ describe('G-12C 考试中查词只走 token-only 那条线', () => {
   it('**写生词本只有一个发送点**（重试走同一个，不另开一条）', () => {
     const src = stripComments(fs.readFileSync(SHEET, 'utf8'));
     expect((src.match(/api\.vocabAddWord\(/g) ?? []).length).toBe(1);
+  });
+
+  it('**查词成功不自动收藏**：写入只挂在明确的按钮点击上', () => {
+    const src = stripComments(fs.readFileSync(SHEET, 'utf8'));
+    expect(src).toMatch(/data-testid="word-sheet-add"/);
+    expect(src).toMatch(/onClick=\{\(\) => void sendAdd\(gen\.current\)\}/);
+    expect(src).not.toMatch(/setPhase\(\{ s: 'ok',[\s\S]{0,600}void sendAdd/);
   });
 
   /**

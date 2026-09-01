@@ -128,6 +128,7 @@ function paperWithVocabQuestion(): ExamPaper {
 
 let lookupReply: () => Promise<Response>;
 let addReply: () => Promise<Response>;
+let removeReply: () => Promise<Response>;
 
 function installFetch() {
   reqs = [];
@@ -142,6 +143,7 @@ function installFetch() {
     });
     if (path === '/vocab/lookup') return lookupReply();
     if (path === '/vocab/words') return addReply();
+    if (path === '/vocab/words/remove') return removeReply();
     return jsonResponse(404, { code: 'not_stubbed', path: full });
   });
   vi.stubGlobal('fetch', fetchMock);
@@ -179,6 +181,10 @@ async function click(el: HTMLElement) {
     el.click();
   });
   await settle();
+}
+
+async function addCurrentWord() {
+  await click(screen.getByTestId('word-sheet-add'));
 }
 
 // ─────────────────────────────────────────────────────────────
@@ -310,6 +316,7 @@ beforeEach(() => {
   deps.saveAnswer.mockClear();
   lookupReply = () => jsonResponse(200, { found: true, entry: ENTRY });
   addReply = () => jsonResponse(200, { created: true, headword: 'resilient' });
+  removeReply = () => jsonResponse(200, { deleted: 1 });
   installFetch();
 });
 
@@ -392,6 +399,7 @@ describe('AC-03 点词手势', () => {
     mount(p);
     await settle();
     await tap('self-reliant');
+    await addCurrentWord();
     expect(bodies('/vocab/words')[0]?.word ?? '').toContain('self-reliant');
   });
 
@@ -450,6 +458,8 @@ describe('AC-02 token-only 请求边界', () => {
     mount();
     await settle();
     await tap('resilient');
+    expect(calls('/vocab/words')).toHaveLength(0);
+    await addCurrentWord();
     const c = calls('/vocab/words')[0];
     expect(c.method).toBe('POST');
     expect(c.headers.Authorization).toBe(`Bearer ${TOKEN}`);
@@ -470,6 +480,7 @@ describe('AC-02 token-only 请求边界', () => {
     await settle();
     await tap('resilient');
     expect(screen.getByTestId('word-sheet-sentence-translation').textContent).toContain('更有韧性');
+    await addCurrentWord();
     const body = bodies('/vocab/words')[0];
     expect(body.contextSentence).toContain('resilient');
     expect(body.contextTranslation).toContain('更有韧性');
@@ -479,6 +490,7 @@ describe('AC-02 token-only 请求边界', () => {
     mount();
     await settle();
     await tap('resilient');
+    await addCurrentWord();
     for (const r of reqs) {
       expect(r.path).not.toMatch(/[?&](name|studentName|studentId|then|after)=/);
       if (r.body) expect(r.body).not.toMatch(/"name"|"studentName"|"studentId"|"role"/);
@@ -511,6 +523,7 @@ describe('B-2 落库的来源必须是真的来源', () => {
     mount();
     await settle();
     await tap('resilient');
+    await addCurrentWord();
     expect(bodies('/vocab/words')[0].sourcePassageTitle).toBe('The River Ferry');
   });
 
@@ -521,6 +534,7 @@ describe('B-2 落库的来源必须是真的来源', () => {
     await settle();
     expect(text()).toContain('Reading Passage');
     await tap('resilient');
+    await addCurrentWord();
     const b = bodies('/vocab/words')[0];
     expect(Object.keys(b).sort()).toEqual(['contextSentence', 'word']);
     expect('sourcePassageTitle' in b).toBe(false);
@@ -532,6 +546,7 @@ describe('B-2 落库的来源必须是真的来源', () => {
     mount(p);
     await settle();
     await tap('resilient');
+    await addCurrentWord();
     expect('sourcePassageTitle' in bodies('/vocab/words')[0]).toBe(false);
   });
 
@@ -541,6 +556,7 @@ describe('B-2 落库的来源必须是真的来源', () => {
     mount(p);
     await settle();
     await tap('resilient');
+    await addCurrentWord();
     for (const r of reqs) {
       expect(r.path).not.toMatch(/[?&](name|studentName|studentId)=/);
       if (r.body) expect(r.body).not.toMatch(/"name"|"studentName"|"studentId"/);
@@ -779,10 +795,20 @@ describe('AC-04 考点词零请求', () => {
 // ─────────────────────────────────────────────────────────────
 
 describe('AC-05 写生词本', () => {
+  it('**查词成功也不自动收藏**，由学生自己决定', async () => {
+    mount();
+    await settle();
+    await tap('resilient');
+    expect(screen.getByTestId('word-sheet-translation')).toBeTruthy();
+    expect(screen.getByTestId('word-sheet-add')).toBeTruthy();
+    expect(calls('/vocab/words')).toHaveLength(0);
+  });
+
   it('**created:true → 说存进去了**，而且只发一条', async () => {
     mount();
     await settle();
     await tap('resilient');
+    await addCurrentWord();
     expect(calls('/vocab/words')).toHaveLength(1);
     expect(screen.getByTestId('word-sheet-saved').textContent).toContain('已存入');
   });
@@ -792,6 +818,7 @@ describe('AC-05 写生词本', () => {
     mount();
     await settle();
     await tap('resilient');
+    await addCurrentWord();
     expect(screen.getByTestId('word-sheet-saved').textContent).toContain('已经在');
   });
 
@@ -800,6 +827,7 @@ describe('AC-05 写生词本', () => {
     mount();
     await settle();
     await tap('resilient');
+    await addCurrentWord();
     expect(screen.getByTestId('word-sheet-translation')).toBeTruthy();
     expect(screen.getByTestId('word-sheet-save-failed')).toBeTruthy();
     expect(screen.queryByTestId('word-sheet-saved')).toBeNull();
@@ -816,6 +844,7 @@ describe('AC-05 写生词本', () => {
     mount();
     await settle();
     await tap('resilient');
+    await addCurrentWord();
     expect(screen.getByTestId('word-sheet-save-failed')).toBeTruthy();
     expect(screen.queryByTestId('word-sheet-saved')).toBeNull();
   });
@@ -844,6 +873,7 @@ describe('AC-05 写生词本', () => {
       mount();
       await settle();
       await tap('resilient');
+      await addCurrentWord();
       // 释义照常显示 —— 查词是成功的
       expect(screen.getByTestId('word-sheet-translation')).toBeTruthy();
       expect(screen.getByTestId('word-sheet-save-failed')).toBeTruthy();
@@ -856,6 +886,7 @@ describe('AC-05 写生词本', () => {
     mount();
     await settle();
     await tap('resilient');
+    await addCurrentWord();
     expect(screen.getByTestId('word-sheet-saved').textContent).toContain('已存入');
     expect(screen.queryByTestId('word-sheet-save-failed')).toBeNull();
   });
@@ -865,6 +896,7 @@ describe('AC-05 写生词本', () => {
     mount();
     await settle();
     await tap('resilient');
+    await addCurrentWord();
     expect(screen.getByTestId('word-sheet-saved').textContent).toContain('已经在');
     expect(screen.queryByTestId('word-sheet-save-failed')).toBeNull();
   });
@@ -874,6 +906,7 @@ describe('AC-05 写生词本', () => {
     mount();
     await settle();
     await tap('resilient');
+    await addCurrentWord();
     addReply = () => jsonResponse(200, { created: true, headword: 'resilient' });
     const btn = screen.getByTestId('word-sheet-retry-save');
     await act(async () => {
@@ -897,7 +930,34 @@ describe('AC-05 写生词本', () => {
     mount();
     await settle();
     await tap('resilient');
+    await addCurrentWord();
     expect(readToken()).toBeNull();
+  });
+
+  it('**加入后可以自由移出**，成功后还能重新加入', async () => {
+    mount();
+    await settle();
+    await tap('resilient');
+    await addCurrentWord();
+    await click(screen.getByTestId('word-sheet-remove'));
+    expect(calls('/vocab/words/remove')).toHaveLength(1);
+    expect(bodies('/vocab/words/remove')[0]).toEqual({ headword: 'resilient' });
+    expect(screen.getByTestId('word-sheet-removed')).toBeTruthy();
+    expect(screen.getByTestId('word-sheet-add').textContent).toContain('重新加入');
+  });
+
+  it('**移出失败明确提示并可重试**', async () => {
+    removeReply = () => jsonResponse(500, { code: 'boom' });
+    mount();
+    await settle();
+    await tap('resilient');
+    await addCurrentWord();
+    await click(screen.getByTestId('word-sheet-remove'));
+    expect(screen.getByTestId('word-sheet-remove-failed')).toBeTruthy();
+    removeReply = () => jsonResponse(200, { deleted: 1 });
+    await click(screen.getByTestId('word-sheet-retry-remove'));
+    expect(calls('/vocab/words/remove')).toHaveLength(2);
+    expect(screen.getByTestId('word-sheet-removed')).toBeTruthy();
   });
 });
 
@@ -931,10 +991,14 @@ describe('AC-05 过期响应画不上新卡', () => {
     mount();
     await settle();
     await tap('resilient');
+    await act(async () => {
+      screen.getByTestId('word-sheet-add').click();
+    });
 
     addReply = () => jsonResponse(200, { created: false, headword: 'community' });
     lookupReply = () => jsonResponse(200, { found: true, entry: { ...ENTRY, word: 'community' } });
     await tap('community');
+    await addCurrentWord();
     expect(screen.getByTestId('word-sheet-saved').textContent).toContain('已经在');
 
     await act(async () => {
