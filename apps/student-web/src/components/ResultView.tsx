@@ -41,6 +41,7 @@ import { api, type AnswerDisplay, type ReadingResult, type ReadingResultItem } f
 import { handleAuthFailure } from '../lib/auth-store';
 import { readToken } from '../lib/identity';
 import { dateTimeLabel, statusLabel } from '../lib/format';
+import { DraggableSplit } from '../lesson/shared/DraggableSplit';
 
 // ─────────────────────────────────────────────────────────────
 // 纯逻辑（导出给测试直接驱动）
@@ -353,33 +354,30 @@ export function ResultView({
         </dl>
       </section>
 
-      {/*
-        S12L —— 宽屏**左原文 / 右题目**。
-        1024 以下照旧堆叠（原文默认收起的折叠块在上、题目在下），
-        1024 及以上两栏并排、各自滚动 —— 桌面上边看原文边对题是这一页
-        最主要的用法，而它以前在任何宽度下都只有一列 672px。
-      */}
       <div
         data-testid="result-split"
-        className="lg:grid lg:grid-cols-[minmax(0,5fr)_minmax(0,7fr)] lg:gap-6 lg:items-start"
+        className="ui-ios lg:h-[calc(100dvh-15rem)] lg:min-h-[34rem]"
       >
-        <div className="lg:sticky lg:top-4 lg:max-h-[calc(100dvh-2rem)] lg:overflow-y-auto">
-          <PassageReview result={result} />
-        </div>
-
-        <ol data-testid="items" className="flex flex-col gap-4">
-          {result.items.map((item, i) => (
-            <ResultItemCard
-              key={item.paperQuestionId}
-              item={item}
-              index={i + 1}
-              scoresPending={result.scoresPending}
-              answersPending={result.answersPending}
-              submissionId={submissionId}
-              onAuthLost={onAuthLost}
-            />
-          ))}
-        </ol>
+        <DraggableSplit
+          storageKey="sw:reading:result-split"
+          initial={0.46}
+          left={<PassageReview result={result} />}
+          right={(
+            <ol data-testid="items" className="flex flex-col gap-4 lg:h-full lg:overflow-y-auto lg:px-4 lg:pb-4 [scrollbar-gutter:stable]">
+              {result.items.map((item, i) => (
+                <ResultItemCard
+                  key={item.paperQuestionId}
+                  item={item}
+                  index={i + 1}
+                  scoresPending={result.scoresPending}
+                  answersPending={result.answersPending}
+                  submissionId={submissionId}
+                  onAuthLost={onAuthLost}
+                />
+              ))}
+            </ol>
+          )}
+        />
       </div>
 
       <WholeAppeal submissionId={submissionId} onAuthLost={onAuthLost} />
@@ -409,7 +407,7 @@ function ResultItemCard({
     <li
       data-testid={`item-${item.paperQuestionId}`}
       data-outcome={outcome}
-      className="rounded-2xl bg-white border border-slate-200 p-5"
+      className="app-glass rounded-[20px] p-5"
     >
       <header className="flex items-center gap-3 mb-2">
         <span className="inline-flex items-center justify-center min-w-[28px] h-7 px-2 rounded-md bg-slate-100 font-mono text-sm tabular-nums">
@@ -626,7 +624,7 @@ function AppealForm({
 }
 
 /**
- * 原文回看 —— **整份卷子只有一段**，默认收起。
+ * 原文回看 —— 与作答页保持同一结构：窄屏原文在题目上方，iPad/桌面左文右题。
  *
  * 用户验收的第三条：历史成绩点得进去，但没有原文，题目脱离上下文读不懂。
  * 数据一直都在（`snapshotContent.passage` 早就随响应发过来了），只是从来
@@ -638,19 +636,17 @@ function AppealForm({
  *   · 自己的滚动容器 + 高度上限 —— 手机上不能把整页顶出横向滚动。
  */
 function PassageReview({ result }: { result: ReadingResult }) {
-  const [open, setOpen] = useState(false);
-  // 注：宽屏也默认收起 —— 「默认收起」是 S12I 的既有验收项，
-  // 这里只改**排版**，不改默认状态。
+  const [open, setOpen] = useState(true);
   const passage = useMemo(() => passageOf(result), [result]);
   if (!passage) return null;
   return (
-    <section className="rounded-2xl bg-white border border-slate-200 p-4 mb-5">
+    <section className="app-glass rounded-[20px] p-4 mb-5 lg:mb-0 lg:h-full lg:overflow-y-auto [scrollbar-gutter:stable]">
       <button
         type="button"
         data-testid="passage-toggle"
         aria-expanded={open}
         onClick={() => setOpen((v) => !v)}
-        className="w-full text-left text-sm font-medium text-slate-700 min-h-[44px]"
+        className="sticky top-0 z-10 w-full min-h-[44px] rounded-xl bg-white/90 px-2 text-left text-sm font-medium text-[#007aff] backdrop-blur"
       >
         {open ? '收起原文' : '查看原文'}
         <span className="ml-2 text-slate-400 font-normal">{passage.title}</span>
@@ -658,7 +654,7 @@ function PassageReview({ result }: { result: ReadingResult }) {
       {open && (
         <div
           data-testid="passage-body"
-          className="mt-3 max-h-[60vh] overflow-y-auto overflow-x-hidden break-words whitespace-pre-wrap text-[0.95rem] leading-relaxed text-slate-800"
+          className="mt-3 overflow-x-hidden break-words whitespace-pre-wrap font-serif text-[1.05rem] leading-[1.75] text-slate-800"
         >
           {passage.body}
         </div>

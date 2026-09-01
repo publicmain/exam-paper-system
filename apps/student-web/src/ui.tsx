@@ -19,7 +19,7 @@ import { PILOT_LEVEL_CHOICES, type PilotLevelId } from './lib/levels';
 
 /** 正文最大宽度。`narrow` 是登录这类单卡页面，其余一律跟着屏幕放宽。 */
 const WIDTH = {
-  wide: 'max-w-md md:max-w-2xl lg:max-w-4xl xl:max-w-5xl',
+  wide: 'max-w-md md:max-w-3xl lg:max-w-5xl xl:max-w-6xl',
   narrow: 'max-w-md',
 } as const;
 
@@ -34,9 +34,9 @@ export function Screen({
   width?: keyof typeof WIDTH;
 }) {
   return (
-    <div className="min-h-[100dvh] bg-slate-50 text-slate-900 flex flex-col">
+    <div className="ui-ios min-h-[100dvh] text-slate-900 flex flex-col">
       <main
-        className={`flex-1 w-full ${WIDTH[width]} mx-auto px-4 sm:px-5 py-6 sm:py-8 flex flex-col${
+        className={`flex-1 w-full ${WIDTH[width]} mx-auto px-4 sm:px-6 py-5 sm:py-8 safe-top safe-bottom flex flex-col${
           center ? ' justify-center' : ''
         }`}
       >
@@ -64,18 +64,18 @@ export function TopBar({
   right?: ReactNode;
 }) {
   return (
-    <div className="mb-4 flex items-center gap-3">
+    <div className="mb-5 flex min-h-[44px] items-center gap-3">
       {onBack ? (
         <button
           type="button"
           data-testid="top-back"
           onClick={onBack}
-          className="min-h-[44px] -ml-2 px-2 rounded-lg text-sm text-blue-600 focus-visible:outline focus-visible:outline-2 focus-visible:outline-blue-600"
+          className="min-h-[44px] -ml-2 px-2 rounded-xl text-[15px] font-medium text-[#007aff] hover:bg-white/70"
         >
           ← {backLabel}
         </button>
       ) : null}
-      {title ? <h1 className="text-lg font-semibold truncate">{title}</h1> : null}
+      {title ? <h1 className="text-xl font-semibold tracking-[-0.015em] truncate">{title}</h1> : null}
       {right ? <div className="ml-auto">{right}</div> : null}
     </div>
   );
@@ -113,7 +113,7 @@ export function Unavailable({
 }
 
 export function Card({ children }: { children: ReactNode }) {
-  return <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-6">{children}</div>;
+  return <div className="app-glass rounded-[22px] p-5 sm:p-7">{children}</div>;
 }
 
 export function Title({ children }: { children: ReactNode }) {
@@ -131,7 +131,7 @@ export function Field(props: {
     <label className="block mb-4">
       <span className="block text-sm text-slate-600 mb-1.5">{props.label}</span>
       <input
-        className="w-full rounded-xl border border-slate-300 px-4 py-3 text-base outline-none focus:border-blue-500"
+        className="w-full min-h-[50px] rounded-[14px] border border-slate-300/80 bg-white/90 px-4 py-3 text-base outline-none focus:border-[#007aff] focus:ring-4 focus:ring-blue-500/10"
         type={props.type ?? 'text'}
         value={props.value}
         autoComplete={props.autoComplete}
@@ -147,7 +147,7 @@ export function Button(props: { children: ReactNode; disabled?: boolean; onClick
       type={props.type ?? 'button'}
       disabled={props.disabled}
       onClick={props.onClick}
-      className="w-full rounded-xl bg-blue-600 text-white py-3 text-base font-medium disabled:bg-slate-300"
+      className="app-primary w-full px-5 py-3 text-base disabled:bg-slate-300 disabled:shadow-none"
     >
       {props.children}
     </button>
@@ -186,10 +186,10 @@ export function CandidatePicker(props: {
 }
 
 /**
- * 三档难度的选择器 —— 注册页和账号页共用同一个。
+ * 五档难度的选择器 —— 注册页和账号页共用同一个。
  *
  * 用**原生 radio**，不是一排 `<button>`：键盘的上下键、读屏软件的
- * 「三选一，当前第几个」、以及「必须显式选一个」这三件事，原生控件
+ * 「五选一，当前第几个」、以及「必须显式选一个」这三件事，原生控件
  * 免费给，手搓的按钮组要一件件补回来。
  *
  * 每张卡都带一句「这一档是给谁的」—— 一个十五岁的人不该靠猜内部枚举
@@ -200,18 +200,16 @@ export function LevelPicker(props: {
   value: PilotLevelId | null;
   onChange: (v: PilotLevelId) => void;
   disabled?: boolean;
-  allowed?: readonly PilotLevelId[];
 }) {
   return (
     <div role="radiogroup" aria-label="英语难度" className="flex flex-col gap-2 mb-4">
       {PILOT_LEVEL_CHOICES.map((c) => {
-        if (props.allowed && !props.allowed.includes(c.id)) return null;
         const on = props.value === c.id;
         return (
           <label
             key={c.id}
-            className={`flex gap-3 rounded-xl border px-4 py-3 cursor-pointer ${
-              on ? 'border-blue-500 bg-blue-50' : 'border-slate-300'
+            className={`flex min-h-[62px] gap-3 rounded-2xl border px-4 py-3 cursor-pointer transition-colors ${
+              on ? 'border-[#007aff] bg-blue-50/80 shadow-[0_0_0_1px_rgba(0,122,255,.08)]' : 'border-slate-200 bg-white/70 hover:bg-white'
             }`}
           >
             {/*

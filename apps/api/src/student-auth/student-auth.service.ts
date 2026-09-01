@@ -29,6 +29,7 @@ import {
   levelOffered,
   normalizeClassCode,
   normalizeName,
+  PILOT_LEVELS,
   type PilotLevel,
 } from './pilot-levels';
 
@@ -420,7 +421,7 @@ export class StudentAuthService {
   async registrationClasses() {
     const rows = await this.prisma.class.findMany({
       where: { archivedAt: null, englishLevels: { some: {} } },
-      select: { id: true, name: true, englishLevels: { select: { level: true } } },
+      select: { id: true, name: true, classCode: true, englishLevels: { select: { level: true } } },
       orderBy: { name: 'asc' },
     });
     return {
@@ -428,11 +429,17 @@ export class StudentAuthService {
         .map((klass: any) => ({
           id: klass.id,
           name: klass.name,
-          levels: (klass.englishLevels ?? [])
-            .map((row: any) => String(row.level))
-            .filter(isPilotLevel),
+          classCode: klass.classCode,
+          offered: new Set<string>(
+            (klass.englishLevels ?? []).map((row: any) => String(row.level)).filter(isPilotLevel),
+          ),
         }))
-        .filter((klass: { levels: PilotLevel[] }) => klass.levels.length > 0),
+        // 学生不需要知道「班级对应哪些难度」。只有五档全部准备好的班级
+        // 才出现在注册页，因此选完班以后五档永远都可选，不会进空课程。
+        .filter((klass: { classCode: string; offered: Set<string> }) =>
+          klass.classCode !== 'PILOTW1' && PILOT_LEVELS.every((level) => klass.offered.has(level)),
+        )
+        .map(({ id, name }: { id: string; name: string }) => ({ id, name })),
     };
   }
 
@@ -457,9 +464,12 @@ export class StudentAuthService {
 
     const klass = await this.prisma.class.findFirst({
       where: { id: input.classId, archivedAt: null },
-      select: { id: true, name: true, englishLevels: { select: { level: true } } },
+      select: { id: true, name: true, classCode: true, englishLevels: { select: { level: true } } },
     });
     if (!klass) throw new BadRequestException({ code: 'class_not_available' });
+    if (klass.classCode === 'PILOTW1') {
+      throw new BadRequestException({ code: 'class_not_available' });
+    }
 
     const offered = (klass.englishLevels ?? []).map((l) => String(l.level));
     if (offered.length === 0) throw new BadRequestException({ code: 'class_not_open' });

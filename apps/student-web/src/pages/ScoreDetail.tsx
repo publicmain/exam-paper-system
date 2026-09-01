@@ -179,7 +179,7 @@ export default function ScoreDetailPage() {
 
 function Shell({ children }: { children: React.ReactNode }) {
   return (
-    <div className="min-h-[100dvh] bg-slate-50 px-4 py-6">
+    <div className="ui-ios min-h-[100dvh] px-4 py-6 safe-top safe-bottom">
       {/* S12L —— 宽屏放宽到 1280，给「左原文 / 右题目」腾出地方 */}
       <div className="mx-auto w-full max-w-2xl lg:max-w-6xl xl:max-w-7xl">{children}</div>
     </div>

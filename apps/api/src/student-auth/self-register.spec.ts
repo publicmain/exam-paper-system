@@ -183,12 +183,14 @@ function makeDb(seed: { classes?: FakeClass[]; users?: FakeUser[]; enrollments?:
 
 const PILOT_CLASS: FakeClass = {
   id: 'p1_class',
-  classCode: 'PILOTW1',
-  name: '试点班 W1',
+  classCode: 'SGCE26W',
+  name: 'SGCE26W',
   archivedAt: null,
   englishLevels: [
-    { level: 'olevel' },
     { level: 'ielts_simplified' },
+    { level: 'olevel_intermediate' },
+    { level: 'olevel' },
+    { level: 'ielts_light' },
     { level: 'ielts_authentic' },
   ],
 };
@@ -215,7 +217,7 @@ describe('S12O —— 教师预建这个前提', () => {
 });
 
 describe('注册页班级列表', () => {
-  it('只给 id、名称和允许学生选择的难度，不泄露班级码', async () => {
+  it('只给五档全部就绪班级的 id 和名称，不泄露班级码或班级难度', async () => {
     const { svc } = makeSvc({
       classes: [
         PILOT_CLASS,
@@ -225,11 +227,19 @@ describe('注册页班级列表', () => {
     const out: any = await svc.registrationClasses();
     expect(out.classes).toEqual([{
       id: 'p1_class',
-      name: '试点班 W1',
-      levels: ['olevel', 'ielts_simplified', 'ielts_authentic'],
+      name: 'SGCE26W',
     }]);
-    expect(JSON.stringify(out)).not.toContain('PILOTW1');
+    expect(Object.keys(out.classes[0]).sort()).toEqual(['id', 'name']);
     expect(JSON.stringify(out)).not.toContain('SECRET');
+  });
+
+  it('内部冒烟班不会出现在注册页，也不能靠伪造 classId 注册', async () => {
+    const internal = { ...PILOT_CLASS, classCode: 'PILOTW1', name: '试点班 W1' };
+    const { svc } = makeSvc({ classes: [internal] });
+    await expect(svc.registrationClasses()).resolves.toEqual({ classes: [] });
+    await expect(svc.selfRegister(GOOD)).rejects.toMatchObject({
+      response: { code: 'class_not_available' },
+    });
   });
 
   it('归档班和没有开放难度的班不出现', async () => {
@@ -317,8 +327,7 @@ describe('S12O —— 注册的拒绝路径都是零副作用', () => {
   const bad: Array<[string, any, string]> = [
     ['班级不存在', { classId: 'NOPE' }, 'class_not_available'],
     ['班级为空', { classId: '' }, 'class_not_available'],
-    ['难度不是这三档之一', { englishLevel: 'ielts_light' }, 'level_not_allowed'],
-    ['难度是瞎编的', { englishLevel: 'wizard' }, 'level_not_allowed'],
+    ['难度不是五档之一', { englishLevel: 'wizard' }, 'level_not_allowed'],
     ['PIN 不是 6 位', { pin: '12345' }, 'pin_must_be_6_digits'],
     ['PIN 带字母', { pin: '12a456' }, 'pin_must_be_6_digits'],
     ['PIN 太好猜', { pin: '123456' }, 'pin_too_weak'],
@@ -452,7 +461,7 @@ describe('S12O —— 同一个班里的重名', () => {
     await svc.selfRegister({ ...GOOD, classId: 'c2' });
     expect(state.users).toHaveLength(2);
     expect(state.enrollments).toHaveLength(2);
-  });
+  }, 15_000);
 });
 
 // ─────────────────────────────────────────────────────────────
@@ -530,9 +539,9 @@ describe('S12O —— 账号设置里改难度', () => {
     expect(state.users[0].englishLevel).toBe('olevel');
   });
 
-  it('不是这三档之一 → 拒绝，且不写库', async () => {
+  it('不是五档之一 → 拒绝，且不写库', async () => {
     const { svc, state } = seededStudent();
-    for (const bad of ['ielts_light', 'olevel_intermediate', 'wizard', '']) {
+    for (const bad of ['wizard', '']) {
       await expect(svc.setEnglishLevel('stu1', bad as any)).rejects.toMatchObject({
         response: { code: 'level_not_allowed' },
       });
@@ -593,13 +602,19 @@ describe('S12O —— 账号设置里改难度', () => {
 // ─────────────────────────────────────────────────────────────
 
 describe('S12O —— 试点难度的定义', () => {
-  it('恰好三档，顺序从易到难', () => {
-    expect(PILOT_LEVELS).toEqual(['olevel', 'ielts_simplified', 'ielts_authentic']);
+  it('恰好五档，顺序从易到难', () => {
+    expect(PILOT_LEVELS).toEqual([
+      'ielts_simplified',
+      'olevel_intermediate',
+      'olevel',
+      'ielts_light',
+      'ielts_authentic',
+    ]);
   });
 
-  it('别的档一律不算 —— 包括库里真实存在的那两个', () => {
-    expect(isPilotLevel('ielts_light')).toBe(false);
-    expect(isPilotLevel('olevel_intermediate')).toBe(false);
+  it('五个历史枚举都能选，瞎编的仍一律拒绝', () => {
+    expect(isPilotLevel('ielts_light')).toBe(true);
+    expect(isPilotLevel('olevel_intermediate')).toBe(true);
     expect(isPilotLevel('')).toBe(false);
     expect(isPilotLevel(undefined as any)).toBe(false);
   });

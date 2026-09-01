@@ -11,7 +11,7 @@
  * 全部是纯函数，不连库。
  */
 
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import {
   deriveStage,
   lessonComplete,
@@ -20,6 +20,7 @@ import {
 } from './lesson-rules';
 import { selectEligible, type EligibilityWord } from '../vocab/quiz-eligibility';
 import { cueFor, formalTypePlan, type WordTypeCapability } from '../vocab/vocab-quiz.service';
+import { LessonService, lessonWordsFromConfig } from './lesson.service';
 
 // ─────────────────────────────────────────────────────────────
 // 1. 错题段暂停
@@ -212,5 +213,48 @@ describe('S12M —— 线索里的词性不重复', () => {
     const cue = cueFor('spelling', { pos: 'n.', translation: 'budget 的意思' }, ['budget']);
     expect(cue!.pos).toBe('n.');
     expect(cue!.translation).toBeNull();
+  });
+});
+
+describe('小范围上线 —— 新注册学生第一次开课就拿到当天生词', () => {
+  const payload = {
+    lessonWords: [
+      { headword: 'Emerges', surfaceForm: 'emerges', context: 'A pattern emerges slowly.' },
+      { headword: 'emerge', surfaceForm: 'emerge', context: 'duplicate lemma' },
+      { headword: '', surfaceForm: '', context: '' },
+    ],
+  };
+
+  it('只接受发布卷 config 里的合法、去重词条', () => {
+    expect(lessonWordsFromConfig(payload)).toEqual([
+      { headword: 'emerges', surfaceForm: 'emerges', context: 'A pattern emerges slowly.' },
+      { headword: 'emerge', surfaceForm: 'emerge', context: 'duplicate lemma' },
+    ]);
+    expect(lessonWordsFromConfig({})).toEqual([]);
+  });
+
+  it('补词是幂等批量写，保留原文语境，不覆盖学生已有词', async () => {
+    const createMany = vi.fn().mockResolvedValue({ count: 1 });
+    const svc = new LessonService(
+      { studentWord: { createMany } } as any,
+      {} as any,
+      {} as any,
+      {} as any,
+    );
+    const words = lessonWordsFromConfig(payload);
+    await (svc as any).ensureLessonWords('student-new', 'A pattern', words, new Date('2026-09-01T00:00:00Z'));
+    expect(createMany).toHaveBeenCalledTimes(1);
+    expect(createMany).toHaveBeenCalledWith(expect.objectContaining({
+      skipDuplicates: true,
+      data: expect.arrayContaining([
+        expect.objectContaining({
+          studentId: 'student-new',
+          headword: 'emerges',
+          sourceType: 'teacher_push',
+          sourcePassageTitle: 'A pattern',
+          contextSentence: 'A pattern emerges slowly.',
+        }),
+      ]),
+    }));
   });
 });

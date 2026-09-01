@@ -133,7 +133,6 @@ export type SelfRegisterResult = {
 export type RegistrationClass = {
   id: string;
   name: string;
-  levels: PilotLevelId[];
 };
 
 export type RegistrationStatus =

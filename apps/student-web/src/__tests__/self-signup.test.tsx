@@ -47,7 +47,6 @@ const CLASS_STUB = {
   classes: [{
     id: 'p1_class',
     name: '试点班 W1',
-    levels: ['olevel', 'ielts_simplified', 'ielts_authentic'],
   }],
 };
 
@@ -84,14 +83,16 @@ function bodyOf(call: unknown[]): any {
 }
 
 // ─────────────────────────────────────────────────────────────
-// 1. 三档难度的说法
+// 1. 五档难度的说法
 // ─────────────────────────────────────────────────────────────
 
-describe('S12O —— 三档难度怎么写给学生看', () => {
-  it('恰好三档，和服务端的白名单逐字一致', () => {
+describe('S12O —— 五档难度怎么写给学生看', () => {
+  it('恰好五档，和服务端的白名单逐字一致', () => {
     expect(PILOT_LEVEL_CHOICES.map((c) => c.id)).toEqual([
-      'olevel',
       'ielts_simplified',
+      'olevel_intermediate',
+      'olevel',
+      'ielts_light',
       'ielts_authentic',
     ]);
   });
@@ -117,7 +118,7 @@ describe('S12O —— 注册页', () => {
         : jsonResponse(404, { code: 'not_stubbed' }));
   }
 
-  async function fillForm(level = '雅思 · 简化版') {
+  async function fillForm(level = 'O-Level 基础') {
     await userEvent.selectOptions(await screen.findByLabelText('选择班级'), 'p1_class');
     await userEvent.type(screen.getByLabelText('姓名'), '林小雨');
     await userEvent.type(screen.getByLabelText('设置 6 位数字密码'), '280519');
@@ -125,14 +126,14 @@ describe('S12O —— 注册页', () => {
     await userEvent.click(screen.getByRole('radio', { name: new RegExp(level) }));
   }
 
-  it('班级选择 + 三个输入 + 三张难度卡都在，且必须自己选一档', async () => {
+  it('班级选择 + 三个输入 + 五张难度卡都在，且必须自己选一档', async () => {
     stubOk();
     renderAt('/register');
     expect(await screen.findByLabelText('选择班级')).toBeTruthy();
     expect(screen.getByLabelText('姓名')).toBeTruthy();
     expect(screen.getByLabelText('设置 6 位数字密码')).toBeTruthy();
     expect(screen.getByLabelText('再输一次')).toBeTruthy();
-    expect(screen.getAllByRole('radio')).toHaveLength(3);
+    expect(screen.getAllByRole('radio')).toHaveLength(5);
     // 一进来一档都没选中 —— 不替他默认一个
     for (const r of screen.getAllByRole('radio')) {
       expect((r as HTMLInputElement).checked).toBe(false);
@@ -186,7 +187,7 @@ describe('S12O —— 注册页', () => {
     await userEvent.type(screen.getByLabelText('姓名'), '林小雨');
     await userEvent.type(screen.getByLabelText('设置 6 位数字密码'), '280519');
     await userEvent.type(screen.getByLabelText('再输一次'), '280518');
-    await userEvent.click(screen.getByRole('radio', { name: /O-Level/ }));
+    await userEvent.click(screen.getByRole('radio', { name: 'O-Level 基础' }));
     await userEvent.click(screen.getByRole('button', { name: '注册并进入' }));
 
     expect((await screen.findByRole('alert')).textContent).toMatch(/两次.*不一样|不一致/);
@@ -212,7 +213,7 @@ describe('S12O —— 注册页', () => {
     await userEvent.type(screen.getByLabelText('姓名'), '林小雨');
     await userEvent.type(screen.getByLabelText('设置 6 位数字密码'), '2805');
     await userEvent.type(screen.getByLabelText('再输一次'), '2805');
-    await userEvent.click(screen.getByRole('radio', { name: /O-Level/ }));
+    await userEvent.click(screen.getByRole('radio', { name: 'O-Level 基础' }));
     await userEvent.click(screen.getByRole('button', { name: '注册并进入' }));
     expect((await screen.findByRole('alert')).textContent).toMatch(/6 位/);
     expect(fetchMock.mock.calls.filter((c) => route(String(c[0])) === '/student-auth/self-register')).toHaveLength(0);
@@ -320,14 +321,14 @@ describe('S12O —— 账号页改难度', () => {
     expect(cur.textContent).not.toContain('olevel');
   });
 
-  it('三档都在，当前那档是选中的', async () => {
+  it('五档都在，当前那档是选中的', async () => {
     authed({ englishLevel: 'ielts_simplified' });
     renderAt('/account');
     await screen.findByTestId('current-level');
     const radios = screen.getAllByRole('radio') as HTMLInputElement[];
-    expect(radios).toHaveLength(3);
+    expect(radios).toHaveLength(5);
     expect(radios.filter((r) => r.checked)).toHaveLength(1);
-    expect(radios[1].checked).toBe(true);
+    expect(radios[0].checked).toBe(true);
   });
 
   it('**要确认一步才真的改** —— 选中不等于提交', async () => {
@@ -427,14 +428,20 @@ describe('S12O —— 账号页改难度', () => {
 // 5. 读屏听到的是中文，不是枚举值
 // ─────────────────────────────────────────────────────────────
 
-describe('S12O —— 三档的可访问名字', () => {
+describe('S12O —— 五档的可访问名字', () => {
   it('每个 radio 的**可访问名字恰好是那句中文**，而且不含内部标识', async () => {
     fetchMock.mockImplementation(() => jsonResponse(404, {}));
     renderAt('/register');
     await screen.findByLabelText('选择班级');
     const radios = screen.getAllByRole('radio');
     const names = radios.map((r) => r.getAttribute('aria-label'));
-    expect(names).toEqual(['O-Level 基础', '雅思 · 简化版', '雅思 · 真题型']);
+    expect(names).toEqual([
+      'O-Level 基础',
+      'O-Level 进阶',
+      'O-Level 标准',
+      '雅思轻量',
+      '雅思 · 真题型',
+    ]);
     for (const r of radios) {
       // 不加 aria-label 时，有些辅助树会退回用 value 报名字
       expect(r.getAttribute('aria-label')).not.toBe(r.getAttribute('value'));

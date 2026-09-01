@@ -2,6 +2,71 @@
 @tailwind components;
 @tailwind utilities;
 
+:root {
+  color-scheme: light;
+  font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "SF Pro Display",
+    "PingFang SC", "Helvetica Neue", Arial, sans-serif;
+  font-synthesis: none;
+  --app-bg: #f5f5f7;
+  --app-card: rgb(255 255 255 / 0.92);
+  --app-border: rgb(15 23 42 / 0.08);
+  --app-label: #6e6e73;
+  --app-blue: #007aff;
+  --app-blue-pressed: #0062cc;
+  --app-radius: 22px;
+  -webkit-tap-highlight-color: transparent;
+}
+
+html {
+  background: var(--app-bg);
+  text-size-adjust: 100%;
+  -webkit-text-size-adjust: 100%;
+}
+
+body {
+  margin: 0;
+  min-width: 320px;
+  min-height: 100dvh;
+  background:
+    radial-gradient(circle at 50% -15%, rgb(0 122 255 / 0.08), transparent 34rem),
+    var(--app-bg);
+  color: #1d1d1f;
+  font-size: 17px;
+  line-height: 1.47;
+  -webkit-font-smoothing: antialiased;
+}
+
+button,
+input,
+select,
+textarea {
+  font: inherit;
+}
+
+button,
+a {
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+button {
+  transition: transform 120ms ease, opacity 120ms ease, background-color 160ms ease,
+    border-color 160ms ease, box-shadow 160ms ease;
+}
+
+button:not(:disabled):active,
+a[role='button']:active {
+  transform: scale(0.985);
+}
+
+button:disabled {
+  cursor: not-allowed;
+}
+
+::selection {
+  background: rgb(0 122 255 / 0.2);
+}
+
 /*
  * 阶段 7C —— 阅读页的三条移动端 / 无障碍下限。
  *
@@ -10,8 +75,8 @@
 
 /* 1. 键盘焦点必须看得见。浏览器默认在部分控件上会把它抹掉。 */
 :focus-visible {
-  outline: 2px solid #2563eb;
-  outline-offset: 2px;
+  outline: 3px solid rgb(0 122 255 / 0.55);
+  outline-offset: 3px;
 }
 
 /* 2. 触控目标下限 44px（Apple HIG / WCAG 2.5.5）。 */
@@ -30,6 +95,60 @@ html,
 body,
 #root {
   overflow-x: hidden;
+}
+
+/* iPhone notch / home-indicator and iPad rounded-window safe areas. */
+.safe-top {
+  padding-top: max(0.5rem, env(safe-area-inset-top));
+}
+.safe-bottom {
+  padding-bottom: max(0.5rem, env(safe-area-inset-bottom));
+}
+
+/* Shared premium surfaces. Kept as semantic classes so exam renderers can opt in. */
+.app-glass {
+  background: var(--app-card);
+  border: 1px solid var(--app-border);
+  box-shadow: 0 1px 2px rgb(0 0 0 / 0.04), 0 14px 44px rgb(15 23 42 / 0.07);
+  backdrop-filter: saturate(180%) blur(20px);
+  -webkit-backdrop-filter: saturate(180%) blur(20px);
+}
+
+.app-primary {
+  min-height: 50px;
+  border-radius: 14px;
+  background: var(--app-blue);
+  color: white;
+  box-shadow: 0 8px 22px rgb(0 122 255 / 0.2);
+  font-weight: 600;
+}
+.app-primary:not(:disabled):hover { background: #087ff5; }
+.app-primary:not(:disabled):active { background: var(--app-blue-pressed); }
+
+.app-secondary {
+  min-height: 48px;
+  border-radius: 14px;
+  border: 1px solid rgb(15 23 42 / 0.12);
+  background: rgb(255 255 255 / 0.76);
+}
+
+.ui-ios input,
+.ui-ios textarea,
+.ui-ios select {
+  border-radius: 12px;
+}
+
+@media (min-width: 768px) {
+  body { font-size: 17px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    scroll-behavior: auto !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
 }
 
 /* 手机上的原文 / 题目分段控件。 */

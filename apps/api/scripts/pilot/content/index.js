@@ -1,21 +1,17 @@
 /**
- * 试点第一周的课程内容 —— **三档 × 五天**。
+ * 试点第一周的课程内容 —— **五档 × 五天**。
  *
- * ## 为什么是三档
- *
- * staging 里**没有**试点班，也没有任何一个班配好了分级可以直接接这一周
- * （唯一配了分级的是 S12F 验收班，不能复用）。用户的决定是：
- * **三档全做**，学生按自己的水平各读各的。
+ * 学生先选班，再独立选择五档中的任意一档；班级不替学生决定难度。
  *
  * 引擎本来就支持这件事：一个班可以挂多个 `ClassEnglishLevel`，同一天
  * 每一档各开一场 `MorningQuizSession`，`pickTodaySession` 按学生的
- * `User.englishLevel` 挑他那一场。所以三档共用一个试点班。
+ * `User.englishLevel` 挑他那一场。所以五档共用一个试点班。
  *
- * ## 一天的形状（三档一致）
+ * ## 一天的形状（五档一致）
  *
  *   · 一篇原创原文；
  *   · 十道题 = 六道 `mcq`（服务端当场判） + 四道 `short_answer`（等老师批）；
- *   · 二十一个目标词，每个都真的出现在当天那篇原文里。
+ *   · 12–21 个目标词，每个都真的出现在当天那篇原文里。
  *
  * 六 / 四这个比例来自 `GradeService`：零 AI 模式下只有 `mcq` 有确定性
  * 判定，其余一律 `needsHumanReview`。六道保证学生交卷立刻看得到东西，
@@ -30,19 +26,23 @@ const authentic = require('./ielts_authentic');
 const olevelRemaining = require('./olevel_remaining');
 const simplifiedRemaining = require('./ielts_simplified_remaining');
 const authenticRemaining = require('./ielts_authentic_remaining');
+const { IELTS_LIGHT_DAYS, OLEVEL_INTERMEDIATE_DAYS } = require('./fixture-levels');
 
-/** 三档的内容包。key 就是 `EnglishLevel` 枚举值。 */
+/** 五档的内容包。key 就是 `EnglishLevel` 枚举值。 */
 const LEVELS = {
-  [olevel.LEVEL]: [...olevel.DAYS, ...olevelRemaining.DAYS],
   [simplified.LEVEL]: [...simplified.DAYS, ...simplifiedRemaining.DAYS],
+  olevel_intermediate: OLEVEL_INTERMEDIATE_DAYS,
+  [olevel.LEVEL]: [...olevel.DAYS, ...olevelRemaining.DAYS],
+  ielts_light: IELTS_LIGHT_DAYS,
   [authentic.LEVEL]: [...authentic.DAYS, ...authenticRemaining.DAYS],
 };
 
 /** 这一周实际发布的日期（新加坡日历日）。 */
 const DATES = ['2026-08-31', '2026-09-01', '2026-09-02', '2026-09-03', '2026-09-04'];
 
-/** 每天的目标词数 —— 学习卡与正式测试的题数都等于它。 */
-const WORDS_PER_DAY = 21;
+/** 每天的目标词范围 —— 学习卡与正式测试都使用当天完整词表。 */
+const MIN_WORDS_PER_DAY = 12;
+const MAX_WORDS_PER_DAY = 21;
 
 /** 每天的题数与自动 / 人工判分的配比。 */
 const QUESTIONS_PER_DAY = 10;
@@ -72,7 +72,8 @@ function allWords() {
 module.exports = {
   LEVELS,
   DATES,
-  WORDS_PER_DAY,
+  MIN_WORDS_PER_DAY,
+  MAX_WORDS_PER_DAY,
   QUESTIONS_PER_DAY,
   MIN_AUTO_PER_DAY,
   MAX_HUMAN_PER_DAY,

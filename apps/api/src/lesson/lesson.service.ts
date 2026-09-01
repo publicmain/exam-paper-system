@@ -79,6 +79,29 @@ function capAtPartial(st: SegmentStatus): SegmentStatus {
   return st === 'done' ? 'partial' : st;
 }
 
+export function lessonWordsFromConfig(config: unknown): Array<{
+  headword: string;
+  surfaceForm: string;
+  context: string;
+}> {
+  if (!config || typeof config !== 'object') return [];
+  const raw = (config as any).lessonWords;
+  if (!Array.isArray(raw)) return [];
+  const seen = new Set<string>();
+  const out: Array<{ headword: string; surfaceForm: string; context: string }> = [];
+  for (const item of raw) {
+    if (!item || typeof item !== 'object') continue;
+    const headword = normalizeWord(String((item as any).headword ?? ''));
+    if (!headword || seen.has(headword)) continue;
+    const surfaceForm = String((item as any).surfaceForm ?? headword).trim() || headword;
+    const context = String((item as any).context ?? '').trim();
+    seen.add(headword);
+    out.push({ headword, surfaceForm, context });
+    if (out.length >= COURSE_QUEUE_MAX) break;
+  }
+  return out;
+}
+
 @Injectable()
 export class LessonService {
   private readonly logger = new Logger('Lesson');
@@ -202,8 +225,15 @@ export class LessonService {
       : null;
 
     // ── 三段的现况 ──
-    let [readNow, vocabNow, drillNow] = await Promise.all([
-      this.readState(student.id, day, studentLevel),
+    // 先认定今天的阅读卷。发布器把这份课应教的词存在 Paper.config 里；
+    // 新注册学生不在发布时的花名册中，所以第一次明确打开课程时必须在
+    // 服务器补齐这些词，否则会出现「阅读做完了，学词却是空的」。纯读取
+    // getToday 不写，只有 startOrResumeToday(freeze=true) 会补。
+    let readNow = await this.readState(student.id, day, studentLevel);
+    if (input.freeze && readNow.lessonWords.length > 0) {
+      await this.ensureLessonWords(student.id, readNow.paperName, readNow.lessonWords, now);
+    }
+    let [vocabNow, drillNow] = await Promise.all([
       this.vocabState(student.id, now, frozenQueue),
       // S12L —— 补段暂停时**连查都不查**。给学生看一个他进不去的段落，
       // 还为它跑一次错题队列查询，是两件都不该做的事。
@@ -576,6 +606,28 @@ export class LessonService {
     return this.words.resolveStudent(studentName, studentId);
   }
 
+  private async ensureLessonWords(
+    studentId: string,
+    passageTitle: string | null,
+    words: Array<{ headword: string; surfaceForm: string; context: string }>,
+    due: Date,
+  ) {
+    if (words.length === 0) return;
+    await this.prisma.studentWord.createMany({
+      data: words.map((word) => ({
+        studentId,
+        headword: word.headword,
+        surfaceForm: word.surfaceForm,
+        sourceType: 'teacher_push' as const,
+        sourcePassageTitle: passageTitle,
+        contextSentence: word.context,
+        state: 'new' as const,
+        due,
+      })),
+      skipDuplicates: true,
+    });
+  }
+
   private async readState(studentId: string, day: Date, studentLevel: EnglishLevel | null = null) {
     // **一个班一天可能有多场**（R10 多层：每个难度层一场）。
     // 第一版用 findFirst 随便挑了一场，于是学生明明交了卷，读段却显示
@@ -610,6 +662,7 @@ export class LessonService {
               select: {
                 id: true,
                 name: true,
+                config: true,
                 totalMarksActual: true,
                 _count: { select: { questions: true } },
               },
@@ -637,6 +690,7 @@ export class LessonService {
         submissionId: null as string | null,
         autoFinalizeReason: null as string | null,
         sessionId: null as string | null,
+        lessonWords: [] as Array<{ headword: string; surfaceForm: string; context: string }>,
       };
     }
 
@@ -710,6 +764,7 @@ export class LessonService {
       // P8：课程页要能直接把学生送进今天这一场（原来读段只有「已交卷
       // 才有的逐题详情」链接，没开始的学生在课程页上找不到入口）
       sessionId: session.id,
+      lessonWords: lessonWordsFromConfig(session.paperAssignment!.paper?.config),
       paperName: readablePaperTitle(session.paperAssignment!.paper?.name),
       questionCount: session.paperAssignment!.paper?._count.questions ?? 0,
       score: sub?.totalScore ?? null,

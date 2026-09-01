@@ -197,7 +197,7 @@ describe('1. 首次注册', () => {
     await userEvent.type(screen.getByLabelText('姓名'), '测试一号');
     await userEvent.type(screen.getByLabelText('设置 6 位数字密码'), '280519');
     await userEvent.type(screen.getByLabelText('再输一次'), '280519');
-    await userEvent.click(screen.getByRole('radio', { name: /O-Level/ }));
+    await userEvent.click(screen.getByRole('radio', { name: 'O-Level 标准' }));
     await userEvent.click(screen.getByRole('button', { name: '注册并进入' }));
 
     await screen.findByRole('heading', { name: '你好，一号' });
@@ -216,7 +216,7 @@ describe('1. 首次注册', () => {
     await userEvent.type(screen.getByLabelText('姓名'), '测试一号');
     await userEvent.type(screen.getByLabelText('设置 6 位数字密码'), '280519');
     await userEvent.type(screen.getByLabelText('再输一次'), '280519');
-    await userEvent.click(screen.getByRole('radio', { name: /O-Level/ }));
+    await userEvent.click(screen.getByRole('radio', { name: 'O-Level 标准' }));
     await userEvent.click(screen.getByRole('button', { name: '注册并进入' }));
     await screen.findByRole('heading', { name: '你好，一号' });
 

@@ -292,30 +292,26 @@ describe('S12I —— 结果页要认服务端的逐题判分', () => {
 });
 
 describe('S12I —— 结果页要能看到原文', () => {
-  it('有「查看原文」控件，展开后能看到完整原文', async () => {
+  it('默认就能看到完整原文，也能主动收起再展开', async () => {
     stubFetch([[/\/morning-quiz\/history-detail/, () => readingResult()]]);
     mount('/scores/sub-1');
     await settle();
-    const toggle = screen.getByTestId('passage-toggle');
-    expect(screen.queryByTestId('passage-body'), '原文默认就展开了').toBeNull();
-    await act(async () => {
-      fireEvent.click(toggle);
-    });
     const body = screen.getByTestId('passage-body');
     expect(body.textContent).toContain('busiest classroom');
     await act(async () => {
       fireEvent.click(screen.getByTestId('passage-toggle'));
     });
     expect(screen.queryByTestId('passage-body'), '收不回去').toBeNull();
+    await act(async () => {
+      fireEvent.click(screen.getByTestId('passage-toggle'));
+    });
+    expect(screen.getByTestId('passage-body').textContent).toContain('busiest classroom');
   });
 
   it('原文**整份只渲染一次**，不是每题一份', async () => {
     stubFetch([[/\/morning-quiz\/history-detail/, () => readingResult()]]);
     mount('/scores/sub-1');
     await settle();
-    await act(async () => {
-      fireEvent.click(screen.getByTestId('passage-toggle'));
-    });
     expect(screen.queryAllByTestId('passage-body').length).toBe(1);
   });
 

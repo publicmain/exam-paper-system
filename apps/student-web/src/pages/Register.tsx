@@ -15,7 +15,7 @@
  * 确认框**只在客户端比对**。两次都发给服务端不会更安全（服务端拿它做
  * 不了任何新判断），却会让 PIN 在网络与日志里多出现一次。
  */
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { api, type RegistrationClass } from '../lib/api';
 import { adoptSession } from '../lib/auth-store';
@@ -39,11 +39,6 @@ export default function RegisterPage() {
   const [level, setLevel] = useState<PilotLevelId | null>(null);
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
-
-  const selectedClass = useMemo(
-    () => classes.find((klass) => klass.id === classId) ?? null,
-    [classes, classId],
-  );
 
   async function loadClasses() {
     setClassesBusy(true);
@@ -122,9 +117,8 @@ export default function RegisterPage() {
               disabled={classesBusy || busy}
               onChange={(e) => {
                 setClassId(e.target.value);
-                setLevel(null);
               }}
-              className="w-full rounded-xl border border-slate-300 px-4 py-3 text-base bg-white outline-none focus:border-blue-500"
+              className="w-full min-h-[50px] rounded-[14px] border border-slate-300/80 px-4 py-3 text-base bg-white/90 outline-none focus:border-[#007aff] focus:ring-4 focus:ring-blue-500/10"
             >
               <option value="">{classesBusy ? '正在载入班级…' : '请选择班级'}</option>
               {classes.map((klass) => (
@@ -163,8 +157,7 @@ export default function RegisterPage() {
             name="register-level"
             value={level}
             onChange={setLevel}
-            disabled={busy || !selectedClass}
-            allowed={selectedClass?.levels}
+            disabled={busy}
           />
           <Button type="submit" disabled={busy || classesBusy || classes.length === 0}>
             {busy ? '注册中…' : '注册并进入'}

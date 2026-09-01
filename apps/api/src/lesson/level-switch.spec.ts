@@ -21,10 +21,12 @@ import { PILOT_LEVELS } from '../student-auth/pilot-levels';
 const open = (id: string, level: string): SessionCandidate =>
   ({ id, level, hasPaper: true, windowOpen: true }) as SessionCandidate;
 
-/** 试点班：三档同时开着。 */
-const THREE = [
+/** 试点班：五档同时开着。 */
+const FIVE = [
+  open('s_base', 'ielts_simplified'),
+  open('s_intermediate', 'olevel_intermediate'),
   open('s_olevel', 'olevel'),
-  open('s_simpl', 'ielts_simplified'),
+  open('s_light', 'ielts_light'),
   open('s_auth', 'ielts_authentic'),
 ];
 
@@ -32,17 +34,17 @@ describe('S12O —— 换了难度之后，还没开始的那一天走新的', (
   it('改成雅思真题型 → 挑到的就是真题型那一场', () => {
     const r = pickTodaySession({
       storedLevel: 'ielts_authentic' as any,
-      candidates: THREE,
+      candidates: FIVE,
       isTestClass: false,
     });
     expect(r).toMatchObject({ kind: 'session', sessionId: 's_auth', level: 'ielts_authentic' });
   });
 
-  it('三档都试一遍 —— 每一档都挑到自己那一场', () => {
+  it('五档都试一遍 —— 每一档都挑到自己那一场', () => {
     for (const lv of PILOT_LEVELS) {
       const r: any = pickTodaySession({
         storedLevel: lv as any,
-        candidates: THREE,
+        candidates: FIVE,
         isTestClass: false,
       });
       expect(r.kind).toBe('session');
@@ -54,7 +56,7 @@ describe('S12O —— 换了难度之后，还没开始的那一天走新的', (
     for (const lv of PILOT_LEVELS) {
       const r: any = pickTodaySession({
         storedLevel: lv as any,
-        candidates: THREE,
+        candidates: FIVE,
         isTestClass: false,
       });
       // land != null 意味着服务端要写回 User.englishLevel。学生自己刚
@@ -68,10 +70,10 @@ describe('S12O —— 换了难度之后，还没开始的那一天走新的', (
     const last = seq[seq.length - 1];
     const r: any = pickTodaySession({
       storedLevel: last as any,
-      candidates: THREE,
+      candidates: FIVE,
       isTestClass: false,
     });
-    expect(r.sessionId).toBe('s_simpl');
+    expect(r.sessionId).toBe('s_base');
   });
 
   it('换到一档今天没开的 → 临时上开着的那一场，**但不改写他的难度**', () => {
@@ -91,13 +93,13 @@ describe('S12O —— 换了难度之后，还没开始的那一天走新的', (
         const r: any = pickTodaySession({
           storedLevel: 'ielts_simplified' as any,
           // 顺序打乱：结论不能依赖数据库的返回顺序
-          candidates: [...THREE].reverse(),
+          candidates: [...FIVE].reverse(),
           isTestClass: false,
         });
         return r.sessionId;
       }),
     );
-    expect([...ids]).toEqual(['s_simpl']);
+    expect([...ids]).toEqual(['s_base']);
   });
 });
 

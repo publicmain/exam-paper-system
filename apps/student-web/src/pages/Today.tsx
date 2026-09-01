@@ -249,7 +249,7 @@ export default function TodayPage() {
           今天完成 <span className="font-medium">{d.completed}</span> / {d.total}
         </p>
 
-        <ul className="mb-6 grid gap-2 md:grid-cols-2">
+        <ul className="mb-6 grid gap-3 md:grid-cols-3">
           {d.segments.map((s) => (
             <SegmentCard
               key={s.key}
@@ -279,32 +279,12 @@ export default function TodayPage() {
         )}
 
         {/* 历史成绩（阶段 11）—— 随时能进，与今天走到哪一步无关 */}
-        <Link
-          data-testid="go-scores"
-          to={ROUTES.scores}
-          className="block mt-6 text-blue-600 underline text-sm"
-        >
-          历史成绩 →
-        </Link>
-        {/* 生词本（阶段 12A）—— 同样随时能进 */}
-        <Link
-          data-testid="go-vocab"
-          to={ROUTES.vocab}
-          className="block mt-3 text-blue-600 underline text-sm"
-        >
-          生词本 →
-        </Link>
-        {/* 错题本（阶段 12B） */}
-        <Link
-          data-testid="go-mistakes"
-          to={ROUTES.mistakes}
-          className="block mt-3 text-blue-600 underline text-sm"
-        >
-          错题本 →
-        </Link>
-        <Link to={ROUTES.account} className="block mt-3 text-blue-600 underline text-sm">
-          账号设置 →
-        </Link>
+        <nav aria-label="常用功能" className="mt-6 grid grid-cols-2 gap-2 sm:grid-cols-4">
+          <QuickLink testId="go-scores" to={ROUTES.scores} icon="▤" label="历史成绩" />
+          <QuickLink testId="go-vocab" to={ROUTES.vocab} icon="Aa" label="生词本" />
+          <QuickLink testId="go-mistakes" to={ROUTES.mistakes} icon="!" label="错题本" />
+          <QuickLink to={ROUTES.account} icon="⚙" label="账号设置" />
+        </nav>
       </Card>
     </Screen>
   );
@@ -367,10 +347,25 @@ function SegmentCard({
         data-testid={`segment-card-${seg.key}`}
         disabled={busy}
         onClick={() => (target.kind === 'start' ? onStart() : onGo(target.path))}
-        className="w-full min-h-[44px] text-left rounded-xl bg-slate-50 hover:bg-slate-100 px-4 py-3 text-sm disabled:opacity-60 focus-visible:outline focus-visible:outline-2 focus-visible:outline-blue-600"
+        className="app-secondary w-full min-h-[76px] text-left px-4 py-3 text-sm hover:bg-white disabled:opacity-60"
       >
         {body}
       </button>
     </li>
+  );
+}
+
+function QuickLink({ to, icon, label, testId }: { to: string; icon: string; label: string; testId?: string }) {
+  return (
+    <Link
+      data-testid={testId}
+      to={to}
+      className="min-h-[68px] rounded-2xl border border-slate-200/80 bg-white/70 px-3 py-3 text-center text-sm font-medium text-slate-700 no-underline transition hover:bg-white hover:shadow-sm"
+    >
+      <span aria-hidden="true" className="mx-auto mb-1 grid h-7 w-7 place-items-center rounded-lg bg-blue-50 text-[13px] font-semibold text-[#007aff]">
+        {icon}
+      </span>
+      {label}
+    </Link>
   );
 }

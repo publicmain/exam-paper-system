@@ -1,5 +1,5 @@
 /**
- * S12O —— 三档难度**写给学生看的样子**。
+ * 五档难度**写给学生看的样子**。
  *
  * 内部标识（`olevel` / `ielts_simplified` / `ielts_authentic`）只在请求
  * 体里出现，界面上一个都不露 —— 一个十五岁的人不该靠猜内部枚举来决定
@@ -9,7 +9,12 @@
  * `src/__tests__/contract.test.ts` 里有一条守卫直接读服务端那个文件比对。
  */
 
-export type PilotLevelId = 'olevel' | 'ielts_simplified' | 'ielts_authentic';
+export type PilotLevelId =
+  | 'ielts_simplified'
+  | 'olevel_intermediate'
+  | 'olevel'
+  | 'ielts_light'
+  | 'ielts_authentic';
 
 export interface PilotLevelChoice {
   id: PilotLevelId;
@@ -22,14 +27,24 @@ export interface PilotLevelChoice {
 /** 从易到难。界面按这个顺序排，不重新排序。 */
 export const PILOT_LEVEL_CHOICES: readonly PilotLevelChoice[] = [
   {
-    id: 'olevel',
+    id: 'ielts_simplified',
     label: 'O-Level 基础',
-    blurb: '文章短一些、句子直白，题目问的是文章里明说过的事。拿不准就先选这一档。',
+    blurb: '精简短文和基础题型，适合先建立完整阅读习惯。拿不准可以从这一档开始。',
   },
   {
-    id: 'ielts_simplified',
-    label: '雅思 · 简化版',
-    blurb: '题型和雅思一样，但文章改写过、生词更少。适合读得懂大意、但长文章会累的人。',
+    id: 'olevel_intermediate',
+    label: 'O-Level 进阶',
+    blurb: '文章更长、推理更多，适合已经能稳定完成基础阅读的人。',
+  },
+  {
+    id: 'olevel',
+    label: 'O-Level 标准',
+    blurb: '按 O-Level 标准阅读强度训练，包含理解、推断和语言效果题。',
+  },
+  {
+    id: 'ielts_light',
+    label: '雅思轻量',
+    blurb: '保留雅思题型，但篇幅和词汇负担较轻，适合开始接触雅思阅读。',
   },
   {
     id: 'ielts_authentic',

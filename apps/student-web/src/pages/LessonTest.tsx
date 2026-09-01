@@ -486,7 +486,7 @@ export default function LessonTestPage() {
 
 function Shell({ children }: { children: React.ReactNode }) {
   return (
-    <div className="min-h-[100dvh] bg-slate-50 px-4 py-6">
+    <div className="ui-ios min-h-[100dvh] px-4 py-6 safe-top safe-bottom">
       {/* S12L —— 卡片式的一屏一题：宽屏适度放宽，但不铺满（读起来会太长） */}
       <div className="mx-auto w-full max-w-xl lg:max-w-3xl">{children}</div>
     </div>

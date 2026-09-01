@@ -209,7 +209,7 @@ export default function ReadingResultPage() {
 
 function Shell({ children }: { children: React.ReactNode }) {
   return (
-    <div className="min-h-[100dvh] bg-slate-50 px-4 py-6">
+    <div className="ui-ios min-h-[100dvh] px-4 py-6 safe-top safe-bottom">
       {/* S12L —— 与 ScoreDetail 同一套宽度：宽屏才放得下左原文 / 右题目 */}
       <div className="mx-auto w-full max-w-2xl lg:max-w-6xl xl:max-w-7xl">{children}</div>
     </div>

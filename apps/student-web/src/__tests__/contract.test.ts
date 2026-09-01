@@ -2020,7 +2020,7 @@ describe('G-12C 考试中查词只走 token-only 那条线', () => {
 
 
 // ─────────────────────────────────────────────────────────────
-// S12O —— 三档难度：两端必须逐字一致
+// S12O —— 五档难度：两端必须逐字一致
 // ─────────────────────────────────────────────────────────────
 
 describe('S12O 难度白名单不许漂', () => {
@@ -2034,7 +2034,7 @@ describe('S12O 难度白名单不许漂', () => {
     expect(fs.existsSync(API_FILE)).toBe(true);
   });
 
-  it('前端的三档和服务端的白名单**逐字一致，顺序也一致**', async () => {
+  it('前端的五档和服务端的白名单**逐字一致，顺序也一致**', async () => {
     const src = fs.readFileSync(API_FILE, 'utf8');
     const m = src.match(/PILOT_LEVELS\s*=\s*\[([^\]]+)\]/);
     expect(m, '服务端的 PILOT_LEVELS 读不出来').toBeTruthy();

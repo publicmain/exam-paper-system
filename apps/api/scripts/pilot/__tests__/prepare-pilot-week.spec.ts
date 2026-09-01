@@ -21,6 +21,8 @@ const {
   EXPECTED_RAILWAY,
   REUSED,
   CLASS,
+  REGISTRATION_CLASSES,
+  ALL_CLASSES,
   QA_STUDENT,
   PilotError,
   writeScopes,
@@ -28,6 +30,7 @@ const {
   dayLabel,
   sgtInstant,
   idsFor,
+  deliveryIdsFor,
   studentWordId,
   assertPrefixed,
   assertEnvGates,
@@ -40,6 +43,8 @@ const {
   EXPECTED_RAILWAY: Record<string, string>;
   REUSED: { subjectId: string; teacherId: string };
   CLASS: { id: string; name: string; classCode: string };
+  REGISTRATION_CLASSES: Array<{ id: string; name: string; classCode: string }>;
+  ALL_CLASSES: Array<{ id: string; name: string; classCode: string }>;
   QA_STUDENT: { id: string; name: string; level: string };
   PilotError: new (m: string) => Error;
   writeScopes: () => Array<{ table: string; kind: string }>;
@@ -52,6 +57,10 @@ const {
     sessionId: string;
     questionId: (n: number) => string;
     paperQuestionId: (n: number) => string;
+  };
+  deliveryIdsFor: (level: string, day: string, klass: { id: string }) => {
+    assignmentId: string;
+    sessionId: string;
   };
   studentWordId: (s: string, h: string) => string;
   assertPrefixed: (ids: string[]) => boolean;
@@ -117,6 +126,19 @@ describe('S12M —— 命名空间', () => {
     expect(QA_STUDENT.id.startsWith(PREFIX)).toBe(true);
   });
 
+  it('注册页所需的九个真实班级齐全，且每个班都有独立的投放 id', () => {
+    expect(REGISTRATION_CLASSES.map((klass) => klass.name)).toEqual([
+      'SGCE26W', 'SEC27W', 'OL26W', 'IAL27W', 'IAL27M',
+      'IAL26W', 'IAL26S2', 'IAL26S1', 'IAL28S',
+    ]);
+    expect(ALL_CLASSES).toHaveLength(10);
+    const deliveries = ALL_CLASSES.map((klass) =>
+      deliveryIdsFor('olevel', DATES[0], klass).assignmentId,
+    );
+    expect(new Set(deliveries).size).toBe(deliveries.length);
+    expect(assertPrefixed(deliveries)).toBe(true);
+  });
+
   it('**不复用验收班，也不复用任何夹具账号**', () => {
     expect(CLASS.id).not.toBe('s12f_class');
     expect(CLASS.classCode).not.toBe('S12FACC');
@@ -125,7 +147,7 @@ describe('S12M —— 命名空间', () => {
     }
   });
 
-  it('三档两天的每一个 id 都带前缀，而且互不相同', () => {
+  it('五档两天的每一个 id 都带前缀，而且互不相同', () => {
     const all: string[] = [];
     for (const lv of LEVELS) {
       for (const d of DATES) {
@@ -136,7 +158,7 @@ describe('S12M —— 命名空间', () => {
     }
     expect(assertPrefixed(all)).toBe(true);
     expect(new Set(all).size, '有 id 撞车').toBe(all.length);
-    // 三档两天 × (3 + 20) = 138
+    // 五档两天 × (3 + 20)
     expect(all.length).toBe(LEVELS.length * DATES.length * 23);
   });
 
@@ -260,8 +282,8 @@ describe('S12M —— 环境闸门', () => {
 // ─────────────────────────────────────────────────────────────
 
 describe('S12M —— 脚本与内容包对得上', () => {
-  it('脚本认识的档就是内容包里的那三档', () => {
-    expect(LEVELS.sort()).toEqual(['ielts_authentic', 'ielts_simplified', 'olevel']);
+  it('脚本认识的档就是内容包里的五档', () => {
+    expect(LEVELS.sort()).toEqual(['ielts_authentic', 'ielts_light', 'ielts_simplified', 'olevel', 'olevel_intermediate']);
   });
 
   it('冒烟账号的分级必须真有内容，否则它进去看到的是空的一天', () => {
@@ -271,9 +293,9 @@ describe('S12M —— 脚本与内容包对得上', () => {
 
   it('要补录的词条数是**可数的**，不是把整本词典搬过来', () => {
     const n = content.allWords().length;
-    // 三档 × 五天 × 21 = 315 个词位；跨天去重后仍是一套有限的周词表。
-    expect(n).toBeGreaterThan(250);
-    expect(n).toBeLessThanOrEqual(315);
+    // 五档 × 五天、每天最多 21 个词位；跨天去重后仍是一套有限周词表。
+    expect(n).toBeGreaterThan(350);
+    expect(n).toBeLessThanOrEqual(525);
   });
 
   it('PilotError 是自己的错误类型 —— 好让 main 只回显它的话', () => {

@@ -1,18 +1,24 @@
 /**
- * S12O —— 试点允许学生**自己选**的那几档难度，以及两个归一函数。
+ * 学生允许自己选择的五档难度，以及两个归一函数。
  *
  * ## 为什么是白名单，而不是直接用 `EnglishLevel` 枚举
  *
- * 库里的枚举有五个值（还有 `ielts_light` 与 `olevel_intermediate`），
- * 它们是排课侧的历史遗留，没有对应的试点内容。学生自助选到那两档 =
- * 打开一天空白的课。所以「学生能选什么」是一个**独立的、更小的**集合，
- * 与库里存得下什么无关。
+ * 这里必须覆盖 `EnglishLevel` 的五个值。过去为了赶三档试点，把
+ * `ielts_light` 与 `olevel_intermediate` 从注册白名单里删掉，造成迁移后
+ * 的学生端比原系统少两档；更糟的是客户端又把剩下的枚举写成了错误中文名。
+ * 五档的对外语义以 `LEVEL_REGISTRY` 为准，客户端有契约测试逐项对齐。
  *
  * 顺序有意义：从易到难，界面按这个顺序排。
  */
 
-/** 学生自助注册与自助改难度时，**唯一**允许的三档。 */
-export const PILOT_LEVELS = ['olevel', 'ielts_simplified', 'ielts_authentic'] as const;
+/** 从易到难；注册页与账号设置都按这个顺序展示。 */
+export const PILOT_LEVELS = [
+  'ielts_simplified',
+  'olevel_intermediate',
+  'olevel',
+  'ielts_light',
+  'ielts_authentic',
+] as const;
 
 export type PilotLevel = (typeof PILOT_LEVELS)[number];
 

@@ -50,7 +50,8 @@ type Day = {
 const {
   LEVELS,
   DATES,
-  WORDS_PER_DAY,
+  MIN_WORDS_PER_DAY,
+  MAX_WORDS_PER_DAY,
   QUESTIONS_PER_DAY,
   MIN_AUTO_PER_DAY,
   MAX_HUMAN_PER_DAY,
@@ -59,7 +60,8 @@ const {
 } = content as {
   LEVELS: Record<string, Day[]>;
   DATES: string[];
-  WORDS_PER_DAY: number;
+  MIN_WORDS_PER_DAY: number;
+  MAX_WORDS_PER_DAY: number;
   QUESTIONS_PER_DAY: number;
   MIN_AUTO_PER_DAY: number;
   MAX_HUMAN_PER_DAY: number;
@@ -69,7 +71,7 @@ const {
 
 const LEVEL_KEYS = Object.keys(LEVELS);
 /**
- * 三档 × 五天 = 十五个 (档, 天) 组合。每一条断言都对它们逐一跑。
+ * 五档 × 五天 = 二十五个 (档, 天) 组合。每一条断言都对它们逐一跑。
  *
  * 第一个元素是**给测试名用的短标签** —— 直接把 Day 对象丢给 `describe.each`
  * 的话，vitest 会把整篇原文打进测试名里，失败时几十 KB 全是文章。
@@ -115,8 +117,8 @@ const PLACEHOLDER_MARKERS = [
 // ─────────────────────────────────────────────────────────────
 
 describe('S12M —— 这一周有什么', () => {
-  it('三档都在，key 就是 EnglishLevel 的枚举值', () => {
-    expect(LEVEL_KEYS.sort()).toEqual(['ielts_authentic', 'ielts_simplified', 'olevel']);
+  it('五档都在，key 就是 EnglishLevel 的枚举值', () => {
+    expect(LEVEL_KEYS.sort()).toEqual(['ielts_authentic', 'ielts_light', 'ielts_simplified', 'olevel', 'olevel_intermediate']);
   });
 
   it('每一档都恰好覆盖公布的那几天，一天不多一天不少', () => {
@@ -148,15 +150,16 @@ describe('S12M —— 这一周有什么', () => {
 });
 
 // ─────────────────────────────────────────────────────────────
-// 2. 形状：一篇原文 + 十道题 + 二十一个词
+// 2. 形状：一篇原文 + 十道题 + 完整的当日词表
 // ─────────────────────────────────────────────────────────────
 
 describe.each(EVERY)('S12M —— %s 的形状', (_label, _level, day) => {
-  it('一篇原文、十道题、二十一个词', () => {
+  it('一篇原文、十道题、12–21 个真正来自原文的词', () => {
     expect(day.passage.length, '原文太短').toBeGreaterThan(900);
     expect(day.passage.split(/\n\s*\n/).filter((p) => p.trim().length > 40).length).toBeGreaterThanOrEqual(4);
     expect(day.questions).toHaveLength(QUESTIONS_PER_DAY);
-    expect(day.words).toHaveLength(WORDS_PER_DAY);
+    expect(day.words.length).toBeGreaterThanOrEqual(MIN_WORDS_PER_DAY);
+    expect(day.words.length).toBeLessThanOrEqual(MAX_WORDS_PER_DAY);
   });
 
   it('六道自动判、四道人工判 —— 学生交卷立刻看得到东西，老师每天只批四题', () => {
@@ -305,7 +308,7 @@ describe.each(EVERY)('S12M —— %s 的生词', (_label, level, day) => {
 // ─────────────────────────────────────────────────────────────
 
 describe('S12M —— 全周', () => {
-  it('十五篇原文各不相同，标题也各不相同', () => {
+  it('二十五篇原文各不相同，标题也各不相同', () => {
     const titles = EVERY.map(([, , d]) => d.title);
     const passages = EVERY.map(([, , d]) => d.passage);
     expect(new Set(titles).size).toBe(titles.length);
@@ -337,8 +340,7 @@ describe('S12M —— 全周', () => {
 
   it('词典补录的规模是**可数的**，不是把整本词典塞进来', () => {
     const all = allWords();
-    // 三档 × 两天 × 21 = 126，去重后必然更少
-    expect(all.length).toBeLessThanOrEqual(WORDS_PER_DAY * DATES.length * LEVEL_KEYS.length);
+    expect(all.length).toBeLessThanOrEqual(MAX_WORDS_PER_DAY * DATES.length * LEVEL_KEYS.length);
     expect(all.length).toBeGreaterThan(100);
   });
 

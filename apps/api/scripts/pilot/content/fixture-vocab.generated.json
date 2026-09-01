@@ -1,0 +1,1106 @@
+{
+  "ielts_light": {
+    "light-01-city-bees.json": [
+      {
+        "headword": "emerge",
+        "surfaceForm": "emerge",
+        "phonetic": "/i'mә:dʒ/",
+        "pos": "vi.",
+        "translation": "vi. 浮现, 形成, 出现, (事实)显露",
+        "definition": "v. come out into view, as from concealment\\nv. become known or apparent\\nv. come up to the surface of or rise",
+        "context": "Bees emerge earlier in spring and remain active later into the autumn, which lengthens the season in which they can collect nectar."
+      },
+      {
+        "headword": "urban",
+        "surfaceForm": "urban",
+        "phonetic": "/'ә:bәn/",
+        "pos": "word.",
+        "translation": "a. 都市的, 住在都市的, 习惯于都市的；[法] 城市的, 都市的, 市区的",
+        "definition": "a. relating to or concerned with a city or densely populated area\\na. located in or characteristic of a city or city life",
+        "context": "Even so, the number of urban hives continues to rise, and the honey they produce is often sold within a few streets of where it was made."
+      },
+      {
+        "headword": "absorb",
+        "surfaceForm": "absorb",
+        "phonetic": "/әb'sɒ:b/",
+        "pos": "vt.",
+        "translation": "vt. 吸收, 使全神贯注, 同化, 买进, 理解, 承受, 忍受, 承担；[医] 吸收",
+        "definition": "v. become imbued\\nv. take up mentally\\nv. take up, as of debts or payments\\nv. take in, also metaphorically",
+        "context": "Buildings, roads and pavements absorb heat during the day and release it slowly at night, keeping cities warmer than the land around them."
+      },
+      {
+        "headword": "inspect",
+        "surfaceForm": "inspect",
+        "phonetic": "/in'spekt/",
+        "pos": "vt.",
+        "translation": "vt. 检查, 检阅, 检验；vi. 检查",
+        "definition": "v. look over carefully",
+        "context": "Space is limited, and a hive on a rooftop can be hard to reach and hard to inspect."
+      },
+      {
+        "headword": "weaken",
+        "surfaceForm": "weaken",
+        "phonetic": "/'wi:kәn/",
+        "pos": "vt.",
+        "translation": "vt. 削弱, 减弱, 使虚弱；vi. 变弱, 变软弱",
+        "definition": "v. lessen the strength of\\nv. become weaker",
+        "context": "Farmers spray chemicals to protect their crops, and these treatments can weaken or kill bees."
+      },
+      {
+        "headword": "species",
+        "surfaceForm": "species",
+        "phonetic": "/'spi:ʃiz/",
+        "pos": "n.",
+        "translation": "n. 种, 类, 外形；[医] 茶剂; 种",
+        "definition": "n. (biology) taxonomic group whose members can interbreed\\nn. a specific kind of something",
+        "context": "A city, by contrast, is a patchwork of small gardens, parks, balconies and roadside trees, and these are planted with many different species."
+      },
+      {
+        "headword": "overturn",
+        "surfaceForm": "overturned",
+        "phonetic": "/.әuvә'tә:n/",
+        "pos": "n.",
+        "translation": "n. 倾覆, 破灭, 革命；vt. 推翻, 颠倒；vi. 翻倒",
+        "definition": "n. an improbable and unexpected victory\\nv. turn from an upright or normal position\\nv. cause to overturn from an upright or normal position",
+        "context": "Recent studies have overturned that idea."
+      },
+      {
+        "headword": "pesticide",
+        "surfaceForm": "Pesticides",
+        "phonetic": "/'pestisaid/",
+        "pos": "n.",
+        "translation": "n. 杀虫剂；[化] 农药",
+        "definition": "n. a chemical used to kill pests (as rodents or insects)",
+        "context": "Pesticides are the third factor."
+      },
+      {
+        "headword": "bloom",
+        "surfaceForm": "bloom",
+        "phonetic": "/blu:m/",
+        "pos": "n.",
+        "translation": "n. 花, 开花, 青春, 钢块；vi. 开花, 焕发青春, 茂盛；vt. 使茂盛, 把...轧成钢坯",
+        "definition": "n. the best time of youth\\nn. a rosy color (especially in the cheeks) taken as a sign of good health\\nv. produce or yield flowers",
+        "context": "Something is almost always in bloom, so the supply of food is steady rather than sudden."
+      },
+      {
+        "headword": "nectar",
+        "surfaceForm": "nectar",
+        "phonetic": "/'nektә/",
+        "pos": "n.",
+        "translation": "n. 神酒, 甜美饮料, 甘露",
+        "definition": "n. a sweet liquid secretion that is attractive to pollinators\\nn. fruit juice especially when undiluted",
+        "context": "Bees emerge earlier in spring and remain active later into the autumn, which lengthens the season in which they can collect nectar."
+      },
+      {
+        "headword": "pavement",
+        "surfaceForm": "pavements",
+        "phonetic": "/'peivmәnt/",
+        "pos": "n.",
+        "translation": "n. 路面, 人行道, 铺面路, 铺路材料",
+        "definition": "n. the paved surface of a thoroughfare",
+        "context": "Buildings, roads and pavements absorb heat during the day and release it slowly at night, keeping cities warmer than the land around them."
+      },
+      {
+        "headword": "hive",
+        "surfaceForm": "hives",
+        "phonetic": "/haiv/",
+        "pos": "n.",
+        "translation": "n. 蜂房, 闹区, 蜜蜂群；vi. 进入蜂房, 储藏蜜于蜂房, 如蜂般群居；vt. 使进蜂房, 储备；[计] 蜂巢",
+        "definition": "n. a teeming multitude\\nv. store, like bees\\nv. move together in a hive or as if in a hive\\nv. gather into a hive",
+        "context": "In several European cities, hives placed on rooftops have produced more honey per year than hives in nearby farmland."
+      }
+    ],
+    "light-02-night-shift-sleep.json": [
+      {
+        "headword": "colleague",
+        "surfaceForm": "colleagues",
+        "phonetic": "/'kɒli:g/",
+        "pos": "n.",
+        "translation": "n. 同事, 同僚",
+        "definition": "n. an associate that one works with\\nn. a person who is member of one's class or profession",
+        "context": "Age matters as well: workers over forty generally find night shifts harder than younger colleagues do."
+      },
+      {
+        "headword": "minority",
+        "surfaceForm": "minority",
+        "phonetic": "/mai'nɒriti/",
+        "pos": "n.",
+        "translation": "n. 少数, 未成年, 少数民族；a. 少数的, 属于少数派的",
+        "definition": "n. a group of people who differ racially or politically from a larger group of which it is a part\\nn. being or relating to the smaller in number of two parts\\nn. any age prior to the legal age",
+        "context": "People differ in how easily they adjust, and a minority cope well for years."
+      },
+      {
+        "headword": "conflict",
+        "surfaceForm": "conflict",
+        "phonetic": "/'kɒnflikt/",
+        "pos": "n.",
+        "translation": "n. 战斗, 冲突, 矛盾, 争执；vi. 争执, 战斗, 冲突, 抵触；[计] 冲突",
+        "definition": "n. an open clash between two opposing groups (or individuals)\\nn. opposition between two simultaneous but incompatible feelings\\nn. a state of opposition between persons or ideas or interests\\nn. an incompatibility of dates or events",
+        "context": "Night-shift workers live in conflict with this system."
+      },
+      {
+        "headword": "rhythm",
+        "surfaceForm": "rhythm",
+        "phonetic": "/'riðәm/",
+        "pos": "n.",
+        "translation": "n. 旋律, 节奏, 韵律, 匀称, 张弛节律；[医] 节律",
+        "definition": "n. the basic rhythmic unit in a piece of music\\nn. recurring at regular intervals\\nn. the arrangement of spoken words alternating stressed and unstressed elements",
+        "context": "This rhythm repeats roughly every twenty-four hours, and it is set mainly by light."
+      },
+      {
+        "headword": "curtain",
+        "surfaceForm": "curtains",
+        "phonetic": "/'kә:tәn/",
+        "pos": "n.",
+        "translation": "n. 帐, 幕, 窗帘；vt. 装帘子于, 遮蔽",
+        "definition": "n. hanging cloth used as a blind (especially for a window)\\nn. any barrier to communication or vision\\nv. provide with drapery",
+        "context": "Bright lighting in the workplace during the shift, and dark curtains at home afterwards, can shift the clock a little."
+      },
+      {
+        "headword": "illness",
+        "surfaceForm": "illnesses",
+        "phonetic": "/'ilnis/",
+        "pos": "n.",
+        "translation": "n. 疾病, 恶意；[医] 病",
+        "definition": "n. impairment of normal physiological function affecting part or all of an organism",
+        "context": "Studies have linked long-term night work with digestive complaints, heart problems and a higher risk of certain illnesses."
+      },
+      {
+        "headword": "internal",
+        "surfaceForm": "internal",
+        "phonetic": "/in'tә:nәl/",
+        "pos": "word.",
+        "translation": "a. 内在的, 国内的；[医] 内的, 内部的",
+        "definition": "a. happening or arising or located within some limits or especially surface\\ns. occurring within an institution or community",
+        "context": "Deep in the brain sits a small cluster of cells that acts as an internal clock, telling us when to feel alert and when to feel tired."
+      },
+      {
+        "headword": "adjust",
+        "surfaceForm": "adjust",
+        "phonetic": "/ә'dʒʌst/",
+        "pos": "vt.",
+        "translation": "vt. 调整, 使适应于, 校准；vi. 适应于, 被调节, 相互熟悉而适应",
+        "definition": "v. alter or regulate so as to achieve accuracy or conform to a standard\\nv. adapt or conform oneself to new or different conditions\\nv. make correspondent or conformable\\nv. decide how much is to be paid on an insurance claim",
+        "context": "People differ in how easily they adjust, and a minority cope well for years."
+      },
+      {
+        "headword": "alert",
+        "surfaceForm": "alert",
+        "phonetic": "/ә'lә:t/",
+        "pos": "word.",
+        "translation": "a. 警觉的, 灵敏的, 留心的；n. 警报；vt. 使警觉, 通知, 使意识到",
+        "definition": "n. condition of heightened watchfulness or preparation for action\\nn. a warning serves to make you more alert to danger\\na. engaged in or accustomed to close observation\\ns. quick and energetic",
+        "context": "Deep in the brain sits a small cluster of cells that acts as an internal clock, telling us when to feel alert and when to feel tired."
+      },
+      {
+        "headword": "hormone",
+        "surfaceForm": "hormone",
+        "phonetic": "/'hɒ:mәun/",
+        "pos": "n.",
+        "translation": "n. 荷尔蒙；[化] 激素(旧称荷尔蒙)",
+        "definition": "n. the secretion of an endocrine gland that is transmitted by the blood to the tissue on which it has a specific effect",
+        "context": "When morning light reaches the eye, the clock resets; when darkness falls, the body begins producing a hormone called melatonin, which prepares it for sleep."
+      },
+      {
+        "headword": "cluster",
+        "surfaceForm": "cluster",
+        "phonetic": "/'klʌstә/",
+        "pos": "n.",
+        "translation": "n. 串, 丛, 群, 簇；vi. 成串, 丛生；vt. 使聚集；[计] 簇",
+        "definition": "v. come together as in a cluster or flock",
+        "context": "Deep in the brain sits a small cluster of cells that acts as an internal clock, telling us when to feel alert and when to feel tired."
+      },
+      {
+        "headword": "digestive",
+        "surfaceForm": "digestive",
+        "phonetic": "/di'dʒestiv/",
+        "pos": "word.",
+        "translation": "a. 消化的, 助消化的；n. 助消化药",
+        "definition": "n. any substance that promotes digestion\\na. relating to or having the power to cause or promote digestion",
+        "context": "Studies have linked long-term night work with digestive complaints, heart problems and a higher risk of certain illnesses."
+      }
+    ],
+    "light-03-plastic-roads.json": [
+      {
+        "headword": "waste",
+        "surfaceForm": "waste",
+        "phonetic": "/weist/",
+        "pos": "n.",
+        "translation": "n. 浪费, 废物, 损耗, 消耗, 荒地, 垃圾, 地面风化物；a. 废弃的, 荒芜的, 多余的；vt. 浪费, 消耗, 使荒芜；vi. 浪费, 消耗, 变消瘦",
+        "definition": "n. any materials unused and rejected as worthless or unwanted\\nn. useless or profitless activity; using or expending or consuming thoughtlessly or carelessly\\nn. (law) reduction in the value of an estate caused by act or neglect\\nv. spend thoughtlessly; throw away",
+        "context": "At the same time, governments everywhere are struggling to dispose of waste plastic."
+      },
+      {
+        "headword": "resistance",
+        "surfaceForm": "resistance",
+        "phonetic": "/ri'zistәns/",
+        "pos": "n.",
+        "translation": "n. 抵抗力, 反抗, 耐力, 阻力, 电阻；[化] 抵抗; 抗性; 阻力; 抗药性; 电阻",
+        "definition": "n. the action of opposing something that you disapprove or disagree with\\nn. any mechanical force that tends to retard or oppose motion\\nn. the military action of resisting the enemy's advance\\nn. the capacity of an organism to defend itself against harmful environmental agents",
+        "context": "Roads containing plastic have shown better resistance to water, which is the main cause of potholes."
+      },
+      {
+        "headword": "mixture",
+        "surfaceForm": "mixture",
+        "phonetic": "/'mikstʃә/",
+        "pos": "n.",
+        "translation": "n. 混合, 混淆, 混合物；[化] 混合物",
+        "definition": "n. (chemistry) a substance consisting of two or more substances mixed together (not in fixed proportions and not with chemical bonding)",
+        "context": "Most roads are built from asphalt, a mixture of stone and a thick black substance left over from refining oil."
+      },
+      {
+        "headword": "engineer",
+        "surfaceForm": "engineers",
+        "phonetic": "/.endʒi'niә/",
+        "pos": "n.",
+        "translation": "n. 工程师, 工兵；vt. 设计, 监造, 精明地处理, 策划",
+        "definition": "n. a person who uses scientific knowledge to solve practical problems\\nn. the operator of a railway locomotive\\nv. design as an engineer",
+        "context": "A number of engineers have asked an obvious question: why not combine the two problems?"
+      },
+      {
+        "headword": "combine",
+        "surfaceForm": "combine",
+        "phonetic": "/kәm'bain/",
+        "pos": "v.",
+        "translation": "v. (使)联合, (使)结合；n. (企业的)联合, 联合收割机",
+        "definition": "n. harvester that heads and threshes and cleans grain while moving across the field\\nv. add together from different sources\\nv. join for a common purpose or in a common action",
+        "context": "A number of engineers have asked an obvious question: why not combine the two problems?"
+      },
+      {
+        "headword": "shred",
+        "surfaceForm": "shredded",
+        "phonetic": "/ʃred/",
+        "pos": "n.",
+        "translation": "n. 碎布条, 细片, 少量；v. 撕碎",
+        "definition": "n. a tiny or scarcely detectable amount\\nv. tear into shreds",
+        "context": "Waste plastic is shredded into small flakes and added to the hot stone before the asphalt binder is mixed in."
+      },
+      {
+        "headword": "dispose",
+        "surfaceForm": "dispose",
+        "phonetic": "/dis'pәuz/",
+        "pos": "vt.",
+        "translation": "vt. 处理, 排列, 布置；vi. 处置",
+        "definition": "v. give, sell, or transfer to another\\nv. make receptive or willing towards an action or attitude or belief\\nv. place or put in a particular order",
+        "context": "At the same time, governments everywhere are struggling to dispose of waste plastic."
+      },
+      {
+        "headword": "objection",
+        "surfaceForm": "objection",
+        "phonetic": "/әb'dʒekʃәn/",
+        "pos": "n.",
+        "translation": "n. 异议, 反对, 不喜欢, 缺点, 缺陷, 妨碍, 拒绝之理由；[法] 异议, 反对, 抗议",
+        "definition": "n. the speech act of objecting\\nn. (law) a procedure whereby a party to a suit says that a particular line of questioning or a particular witness or a piece of evidence or other matter is improper and should not be continued and asks the court to rule on its impropriety or illegality",
+        "context": "Critics raise a serious objection."
+      },
+      {
+        "headword": "fragment",
+        "surfaceForm": "fragments",
+        "phonetic": "/'frægmәnt/",
+        "pos": "n.",
+        "translation": "n. 碎片, 破片, 片段；[计] 段落; 片段; 分段",
+        "definition": "n. a piece broken off or cut off of something else\\nn. an incomplete piece",
+        "context": "As tyres wear the surface away, the plastic does not disappear; it breaks into tiny fragments that wash into rivers and eventually the sea."
+      },
+      {
+        "headword": "flake",
+        "surfaceForm": "flakes",
+        "phonetic": "/fleik/",
+        "pos": "n.",
+        "translation": "n. 小薄片, 扁薄的一层, 火星, 晒鱼架子；vt. 使成薄片；vi. 剥落",
+        "definition": "v. form into flakes\\nv. cover with flakes or as if with flakes",
+        "context": "Waste plastic is shredded into small flakes and added to the hot stone before the asphalt binder is mixed in."
+      },
+      {
+        "headword": "refine",
+        "surfaceForm": "refining",
+        "phonetic": "/ri'fain/",
+        "pos": "vt.",
+        "translation": "vt. 精炼, 净化, 使优雅, 使精炼；vi. 被精炼, 被净化",
+        "definition": "v. treat or prepare so as to put in a usable condition\\nv. reduce to a fine, unmixed, or pure state; separate from extraneous matter or cleanse from impurities\\nv. attenuate or reduce in vigor, strength, or validity by polishing or purifying\\nv. make more precise or increase the discriminatory powers of",
+        "context": "Most roads are built from asphalt, a mixture of stone and a thick black substance left over from refining oil."
+      },
+      {
+        "headword": "gravel",
+        "surfaceForm": "gravel",
+        "phonetic": "/'grævәl/",
+        "pos": "n.",
+        "translation": "n. 砂砾, 碎石；[医] 沙砾, 尿沙",
+        "definition": "n. rock fragments and pebbles\\nv. cover with gravel",
+        "context": "Producing it requires a great deal of energy, and the world is running short of the sand and gravel that go into it."
+      }
+    ],
+    "light-04-lost-languages.json": [
+      {
+        "headword": "generation",
+        "surfaceForm": "generation",
+        "phonetic": "/.dʒenә'reiʃәn/",
+        "pos": "n.",
+        "translation": "n. 一代, 一世, 产生；[医] 生殖, 世代",
+        "definition": "n. group of genetically related organisms constituting a single step in the line of descent\\nn. the normal time between successive generations\\nn. a stage of technological development or innovation\\nn. the production of heat or electricity",
+        "context": "A language is considered to be in danger when children stop learning it, because once a generation is skipped the chain is almost impossible to repair."
+      },
+      {
+        "headword": "estimate",
+        "surfaceForm": "estimate",
+        "phonetic": "/'estimeit/",
+        "pos": "n.",
+        "translation": "n. 估计, 判断；vt. 估计, 评价, 判断；vi. 估计",
+        "definition": "n. an approximate calculation of quantity or degree or worth\\nn. a judgment of the qualities of something or somebody\\nn. a statement indicating the likely cost of some job\\nn. the respect with which a person is held",
+        "context": "Linguists estimate that half of them will fall silent before the end of this century."
+      },
+      {
+        "headword": "gradual",
+        "surfaceForm": "gradual",
+        "phonetic": "/'grædʒuәl/",
+        "pos": "word.",
+        "translation": "a. 逐渐的, 渐增的；n. 弥撒升阶圣歌",
+        "definition": "n. (Roman Catholic Church) an antiphon (usually from the Book of Psalms) immediately after the epistle at Mass\\na. proceeding in small stages\\na. (of a topographical gradient) not steep or abrupt",
+        "context": "More often the shift is gradual and voluntary."
+      },
+      {
+        "headword": "sensible",
+        "surfaceForm": "sensible",
+        "phonetic": "/'sensәbl/",
+        "pos": "word.",
+        "translation": "a. 有感觉的, 敏感的, 明智的；[医] 可感觉的",
+        "definition": "a. able to feel or perceive\\ns. readily perceived by the senses\\ns. aware intuitively or intellectually of something sensed",
+        "context": "Each family makes a sensible decision, and the sum of those decisions is the loss of a language."
+      },
+      {
+        "headword": "preserve",
+        "surfaceForm": "preserve",
+        "phonetic": "/pri'zә:v/",
+        "pos": "vt.",
+        "translation": "vt. 保护, 保持, 保存, 维持, 腌, 禁猎；vi. 加工食品, 禁猎；n. 加工成的食品, 禁猎地, 保护区, 防护物",
+        "definition": "n. a domain that seems to be specially reserved for someone\\nn. a reservation where animals are protected\\nv. prevent (food) from rotting\\nv. keep undisturbed for personal or private use for hunting, shooting, or fishing",
+        "context": "Recordings preserve a language but do not keep it alive."
+      },
+      {
+        "headword": "abandon",
+        "surfaceForm": "abandon",
+        "phonetic": "/ә'bændәn/",
+        "pos": "vt.",
+        "translation": "vt. 放弃, 抛弃, 遗弃, 使屈从, 沉溺, 放纵；n. 放任, 无拘束, 狂热",
+        "definition": "n. the trait of lacking restraint or control; reckless freedom from inhibition or worry\\nv. forsake, leave behind\\nv. give up with the intent of never claiming again\\nv. stop maintaining or insisting on; of ideas or claims",
+        "context": "Languages rarely vanish because speakers are forced to abandon them, although that has happened."
+      },
+      {
+        "headword": "chain",
+        "surfaceForm": "chain",
+        "phonetic": "/tʃein/",
+        "pos": "n.",
+        "translation": "n. 链, 枷锁, 束缚；vt. 用铁练锁住, 束缚, 囚禁",
+        "definition": "n. a series of things depending on each other as if linked together\\nn. (chemistry) a series of linked atoms (generally in an organic molecule)\\nn. a series of (usually metal) rings or links fitted into one another to make a flexible ligament\\nn. (business) a number of similar establishments (stores or restaurants or banks or hotels or theaters) under one ownership",
+        "context": "A language is considered to be in danger when children stop learning it, because once a generation is skipped the chain is almost impossible to repair."
+      },
+      {
+        "headword": "vocabulary",
+        "surfaceForm": "vocabulary",
+        "phonetic": "/vә'kæbjulәri/",
+        "pos": "n.",
+        "translation": "n. 词汇(量), 词汇表；[计] 词表",
+        "definition": "n. a listing of the words used in some enterprise\\nn. a language user's knowledge of words\\nn. the system of techniques or symbols serving as a means of expression (as in arts or crafts)",
+        "context": "What disappears with it is not only vocabulary."
+      },
+      {
+        "headword": "voluntary",
+        "surfaceForm": "voluntary",
+        "phonetic": "/'vɒlәntәri/",
+        "pos": "word.",
+        "translation": "a. 自动的, 自愿的, 故意的, 志愿的, 自发的；n. 自愿行动, 志愿者, 自由调",
+        "definition": "n. composition (often improvised) for a solo instrument (especially solo organ) and not a regular part of a religious service or musical performance\\na. of your own free will or design; done by choice; not forced or compelled\\na. controlled by individual volition",
+        "context": "More often the shift is gradual and voluntary."
+      },
+      {
+        "headword": "endanger",
+        "surfaceForm": "endangered",
+        "phonetic": "/in'deindʒә/",
+        "pos": "vt.",
+        "translation": "vt. 危及；[法] 使危险, 危及",
+        "definition": "v. pose a threat to; present a danger to",
+        "context": "Most endangered languages will not follow that path."
+      },
+      {
+        "headword": "revive",
+        "surfaceForm": "revived",
+        "phonetic": "/ri'vaiv/",
+        "pos": "vt.",
+        "translation": "vt. 使苏醒, 使复兴, 使振奋, 回想起, 重播；vi. 苏醒, 复活, 复兴, 恢复精神",
+        "definition": "v. be brought back to life, consciousness, or strength\\nv. restore from a depressed, inactive, or unused state",
+        "context": "Hebrew, revived after centuries with almost no native speakers, remains the outstanding success."
+      },
+      {
+        "headword": "vanish",
+        "surfaceForm": "vanish",
+        "phonetic": "/'væniʃ/",
+        "pos": "vi.",
+        "translation": "vi. 消失, 不见, 成为零",
+        "definition": "v. become invisible or unnoticeable\\nv. cease to exist\\nv. decrease rapidly and disappear",
+        "context": "Languages rarely vanish because speakers are forced to abandon them, although that has happened."
+      }
+    ],
+    "light-05-vertical-farms.json": [
+      {
+        "headword": "conventional",
+        "surfaceForm": "conventional",
+        "phonetic": "/kәn'venʃәnl/",
+        "pos": "word.",
+        "translation": "a. 传统的, 习惯的, 约定的；[经] 惯例的, 常规的, 传统的",
+        "definition": "a. following accepted customs and proprieties\\ns. conforming with accepted standards\\na. (weapons) using energy for propulsion or destruction that is not nuclear energy\\na. unimaginative and conformist",
+        "context": "Where power is generated by burning fossil fuels, a vertical farm can end up responsible for more carbon than a conventional farm, even after transport is counted."
+      },
+      {
+        "headword": "dissolve",
+        "surfaceForm": "dissolved",
+        "phonetic": "/di'zɒlv/",
+        "pos": "v.",
+        "translation": "v. 溶解, 解散",
+        "definition": "n. (film) a gradual transition from one scene to the next; the next scene is gradually superimposed as the former scene fades out\\nv. become weaker\\nv. cause to go into a solution\\nv. come to an end",
+        "context": "The roots sit in a thin film of water carrying dissolved nutrients, and above each tray a panel of red and blue lamps provides exactly the wavelengths the plants use."
+      },
+      {
+        "headword": "vertical",
+        "surfaceForm": "vertical",
+        "phonetic": "/'vә:tikl/",
+        "pos": "word.",
+        "translation": "a. 垂直的, 直立的；[医] 垂直的, 顶的, 头顶的",
+        "definition": "n. something that is oriented vertically\\na. at right angles to the plane of the horizon or a base line\\na. relating to or involving all stages of a business from production to distribution\\ns. of or relating to different levels in a hierarchy (as levels of social class or income group)",
+        "context": "This is vertical farming, and its supporters argue that it solves several problems at once."
+      },
+      {
+        "headword": "absorb",
+        "surfaceForm": "absorb",
+        "phonetic": "/әb'sɒ:b/",
+        "pos": "vt.",
+        "translation": "vt. 吸收, 使全神贯注, 同化, 买进, 理解, 承受, 忍受, 承担；[医] 吸收",
+        "definition": "v. become imbued\\nv. take up mentally\\nv. take up, as of debts or payments\\nv. take in, also metaphorically",
+        "context": "Because the system is closed, water that the plants do not absorb is collected and used again; such farms typically consume a small fraction of what an ordinary field needs."
+      },
+      {
+        "headword": "supplement",
+        "surfaceForm": "supplement",
+        "phonetic": "/'sʌplimәnt/",
+        "pos": "n.",
+        "translation": "n. 补充物, 增刊, 补充, 补遗, 补编, 附录, 补角；vt. 补充, 增补",
+        "definition": "n. a quantity added (e.g. to make up for a deficiency)\\nv. add as a supplement to what seems insufficient\\nv. serve as a supplement to",
+        "context": "Vertical farms are therefore a supplement rather than a replacement."
+      },
+      {
+        "headword": "warehouse",
+        "surfaceForm": "warehouse",
+        "phonetic": "/'wєәhaus/",
+        "pos": "n.",
+        "translation": "n. 仓库, 货栈, 大商店；vt. 储入仓库",
+        "definition": "n. a storehouse for goods and merchandise\\nv. store in a warehouse",
+        "context": "In a warehouse on the edge of Singapore, lettuce grows in trays stacked twelve levels high."
+      },
+      {
+        "headword": "nutrient",
+        "surfaceForm": "nutrients",
+        "phonetic": "/'nju:triәnt/",
+        "pos": "word.",
+        "translation": "a. 营养的, 滋养的；n. 营养物, 滋养物",
+        "definition": "n. any substance (such as a chemical element or inorganic compound) that can be taken in by a green plant and used in organic synthesis",
+        "context": "The roots sit in a thin film of water carrying dissolved nutrients, and above each tray a panel of red and blue lamps provides exactly the wavelengths the plants use."
+      },
+      {
+        "headword": "fossil",
+        "surfaceForm": "fossil",
+        "phonetic": "/'fɒsәl/",
+        "pos": "n.",
+        "translation": "n. 化石, 古物；a. 化石的, 陈腐的, 守旧的",
+        "definition": "n. the remains (or an impression) of a plant or animal that existed in a past geological age and that has been excavated from the soil\\na. characteristic of a fossil",
+        "context": "Where power is generated by burning fossil fuels, a vertical farm can end up responsible for more carbon than a conventional farm, even after transport is counted."
+      },
+      {
+        "headword": "fraction",
+        "surfaceForm": "fraction",
+        "phonetic": "/'frækʃәn/",
+        "pos": "n.",
+        "translation": "n. 小部分, 破片, 分数；[医] 部分, 成分, 分散",
+        "definition": "n. a component of a mixture that has been separated by a fractional process\\nn. a small part or item forming a piece of a whole\\nn. the quotient of two rational numbers",
+        "context": "Because the system is closed, water that the plants do not absorb is collected and used again; such farms typically consume a small fraction of what an ordinary field needs."
+      },
+      {
+        "headword": "stack",
+        "surfaceForm": "stacked",
+        "phonetic": "/stæk/",
+        "pos": "n.",
+        "translation": "n. 堆叠, 堆, 大量, 书库, 枪架, 烟囱, 堆积, 存贮栈；vt. 堆积, 堆满, 暗中对...做手脚；vi. 堆起；[计] 堆积, 堆栈",
+        "definition": "n. an orderly pile\\nv. load or cover with stacks\\nv. arrange in stacks\\nv. arrange the order of so as to increase one's winning chances",
+        "context": "In a warehouse on the edge of Singapore, lettuce grows in trays stacked twelve levels high."
+      },
+      {
+        "headword": "consume",
+        "surfaceForm": "consume",
+        "phonetic": "/kәn'sju:m/",
+        "pos": "vt.",
+        "translation": "vt. 消耗, 消费, 消灭；vi. 耗尽, 毁灭",
+        "definition": "v. serve oneself to, or consume regularly\\nv. spend extravagantly\\nv. destroy completely\\nv. use up (resources or materials)",
+        "context": "Because the system is closed, water that the plants do not absorb is collected and used again; such farms typically consume a small fraction of what an ordinary field needs."
+      },
+      {
+        "headword": "tray",
+        "surfaceForm": "trays",
+        "phonetic": "/trei/",
+        "pos": "n.",
+        "translation": "n. 托盘, 公文盘, 满盘, 发射箱；[化] 淋盘",
+        "definition": "n. an open receptacle for holding or displaying or serving articles or food",
+        "context": "In a warehouse on the edge of Singapore, lettuce grows in trays stacked twelve levels high."
+      }
+    ]
+  },
+  "olevel_intermediate": {
+    "ai-authored-25-hawker-auntie-simplified.json": [
+      {
+        "headword": "promise",
+        "surfaceForm": "promised",
+        "phonetic": "/'prɒmis/",
+        "pos": "n.",
+        "translation": "n. 诺言, 约定的事情, 有指望；vt. 允诺, 约定, 预示；vi. 允诺, 有前途, 有指望",
+        "definition": "n. a verbal commitment by one person to another agreeing to do (or not to do) something in the future\\nn. grounds for feeling hopeful about the future\\nv. make a promise or commitment\\nv. promise to undertake or give",
+        "context": "I promised myself, quietly, that I would."
+      },
+      {
+        "headword": "memory",
+        "surfaceForm": "memory",
+        "phonetic": "/'memәri/",
+        "pos": "n.",
+        "translation": "n. 记忆, 记忆力, 回忆, 纪念, 存储；n. 内存；[计] 存储器, 内存, 查看内存实用程序",
+        "definition": "n. something that is remembered\\nn. the cognitive processes whereby past experience is remembered\\nn. the power of retaining and recalling past experience\\nn. an electronic memory device",
+        "context": "Auntie Lim could recite it from memory every morning."
+      },
+      {
+        "headword": "counter",
+        "surfaceForm": "counter",
+        "phonetic": "/'kauntә/",
+        "pos": "n.",
+        "translation": "n. 计算器, 计算者, 柜台, 筹码；a. 反方向的, 相反的；adv. 反方向地, 相反地；[计] 计数器; 计数字",
+        "definition": "n. table consisting of a horizontal surface over which business is transacted\\nn. game equipment (as a piece of wood, plastic, or ivory) used for keeping a count or reserving a space in various card or board games\\nn. a calculator that keeps a record of the number of times something happens\\nn. a person who counts things",
+        "context": "When I came to the counter she would simply nod, scoop the bee hoon, place the fishcake on top, and add the extra spring onion without me saying a word."
+      },
+      {
+        "headword": "container",
+        "surfaceForm": "container",
+        "phonetic": "/kәn'teinә/",
+        "pos": "n.",
+        "translation": "n. 容器, 集装箱；[化] 集装箱; 贮存箱; 容器(任何一种)",
+        "definition": "n. any object that can be used to hold things (especially a large metal boxlike object of standardized dimensions that can be loaded from one form of transport to another)",
+        "context": "Then, without looking up, she opened a small container and added a second fishball to my plate."
+      },
+      {
+        "headword": "scoop",
+        "surfaceForm": "scoop",
+        "phonetic": "/sku:p/",
+        "pos": "n.",
+        "translation": "n. 铲子, 勺子, 穴, 口, 独家新闻；vt. 汲取, 舀取, 挖空, 抢先报道",
+        "definition": "n. the quantity a scoop will hold\\nn. a hollow concave shape made by removing something\\nn. the shovel or bucket of a dredge or backhoe\\nn. a large ladle",
+        "context": "When I came to the counter she would simply nod, scoop the bee hoon, place the fishcake on top, and add the extra spring onion without me saying a word."
+      },
+      {
+        "headword": "stall",
+        "surfaceForm": "stall",
+        "phonetic": "/stɒ:l/",
+        "pos": "n.",
+        "translation": "n. 厩, 停车处, 牧师职位, 货摊, 托辞, 拖延；vt. 关入厩, 停顿, 推托, 支吾, 使陷于泥中；vi. 被关在厩内, 陷于泥中, 停止, 支吾",
+        "definition": "n. a compartment in a stable where a single animal is confined and fed\\nn. a booth where articles are displayed for sale\\nn. a malfunction in the flight of an aircraft in which there is a sudden loss of lift that results in a downward plunge\\nn. seating in the forward part of the main level of a theater",
+        "context": "Her stall sold fried bee hoon."
+      },
+      {
+        "headword": "peel",
+        "surfaceForm": "peeled",
+        "phonetic": "/pi:l/",
+        "pos": "n.",
+        "translation": "n. 皮, 外壳；vt. 削...皮, 剥去...的壳；vi. 蜕皮, 剥落, 脱皮, 脱去衣服",
+        "definition": "n. British politician (1788-1850)\\nn. the rind of a fruit or vegetable",
+        "context": "The signboard was old and the red paint had peeled."
+      },
+      {
+        "headword": "weekday",
+        "surfaceForm": "weekday",
+        "phonetic": "/'wi:kdei/",
+        "pos": "n.",
+        "translation": "n. 周日, 平日；[计] 工作日",
+        "definition": "n. any day except Sunday (and sometimes except Saturday)",
+        "context": "For two years, I had eaten breakfast at the same hawker centre at Tampines every weekday before school."
+      },
+      {
+        "headword": "apron",
+        "surfaceForm": "apron",
+        "phonetic": "/'eiprәn/",
+        "pos": "n.",
+        "translation": "n. 围裙；[医] 围裙",
+        "definition": "n. a garment of cloth or leather or plastic that is tied about the waist and worn to protect your clothing\\nn. (golf) the part of the fairway leading onto the green\\nn. a paved surface where aircraft stand while not being used",
+        "context": "She wore a faded blue apron and tied her hair in a small bun."
+      },
+      {
+        "headword": "recite",
+        "surfaceForm": "recite",
+        "phonetic": "/ri'sait/",
+        "pos": "v.",
+        "translation": "v. 背诵, 朗读, 叙述",
+        "definition": "v. repeat aloud from memory\\nv. render verbally, \"recite a poem\"",
+        "context": "Auntie Lim could recite it from memory every morning."
+      },
+      {
+        "headword": "realise",
+        "surfaceForm": "realised",
+        "phonetic": "/'riәlaiz,'ri:-/",
+        "pos": "vt.",
+        "translation": "vt. 实现, 认识到, 体会到, 了解, 认清, 使显得逼真, 变卖财产为现钱",
+        "definition": "v earn on some commercial or business transaction; earn as salary or wages\\nv convert into cash; of goods and property\\nv expand or complete (a part in a piece of baroque music) by supplying the harmonies indicated in the figured bass\\nv make real or concrete; give reality or substance to\\nv be fully aware or cognizant of\\nv perceive (an idea or situation) mentally",
+        "context": "The extra fishball, I realised, had been a promise — and now mine was too."
+      },
+      {
+        "headword": "quietly",
+        "surfaceForm": "quietly",
+        "phonetic": "/'kwaiәtli/",
+        "pos": "adv.",
+        "translation": "adv. 安静地, 沉着地, 秘密地",
+        "definition": "r. with little or no sound\\nr. with little or no activity or no agitation (`quiet' is a nonstandard variant for `quietly')",
+        "context": "I promised myself, quietly, that I would."
+      }
+    ],
+    "ai-authored-22-macritchie-frog-simplified.json": [
+      {
+        "headword": "gather",
+        "surfaceForm": "gathered",
+        "phonetic": "/'gæðә/",
+        "pos": "n.",
+        "translation": "n. 集合, 聚集；vi. 聚集, 集合, 渐增；vt. 使聚集, 搜集, 积聚",
+        "definition": "n. sewing consisting of small folds or puckers made by pulling tight a thread in a line of stitching\\nn. the act of gathering something\\nv. assemble or get together\\nv. conclude from evidence",
+        "context": "Before the walk, Mrs Tan, our form teacher, gathered us under a Tembusu tree and reminded us that the forest was a home."
+      },
+      {
+        "headword": "whisper",
+        "surfaceForm": "whispered",
+        "phonetic": "/'hwispә/",
+        "pos": "n.",
+        "translation": "n. 耳语, 密谈, 谣传, 沙沙声；vi. 耳语, 密谈, 沙沙地响；vt. 低声说",
+        "definition": "n. speaking softly without vibration of the vocal cords\\nv. speak softly; in a low voice",
+        "context": "'We can put it inside,' she whispered."
+      },
+      {
+        "headword": "visitor",
+        "surfaceForm": "visitors",
+        "phonetic": "/'vizitә/",
+        "pos": "n.",
+        "translation": "n. 参观者, 游客, 访客；[法] 视察人, 检视人, 检查员",
+        "definition": "n. someone who visits",
+        "context": "We are only visitors today."
+      },
+      {
+        "headword": "steal",
+        "surfaceForm": "stealing",
+        "phonetic": "/sti:l/",
+        "pos": "vt.",
+        "translation": "vt. 剽窃；偷偷地做；偷窃；vi. 窃取；偷偷地行动；[棒球]偷垒；n. [口]偷窃；便宜货；偷垒；[篮球]断球",
+        "definition": "n. a stolen base; an instance in which a base runner advances safely during the delivery of a pitch (without the help of a hit or walk or passed ball or wild pitch)\\nv. take without the owner's consent\\nv. move stealthily\\nv. steal a base",
+        "context": "If we put it in the bottle, we are stealing from its house."
+      },
+      {
+        "headword": "forest",
+        "surfaceForm": "forest",
+        "phonetic": "/'fɒrist/",
+        "pos": "n.",
+        "translation": "n. 森林, 林区；vt. 植树于",
+        "definition": "n. the trees and other plants in a large densely wooded area\\nn. land that is covered with trees and shrubs",
+        "context": "Before the walk, Mrs Tan, our form teacher, gathered us under a Tembusu tree and reminded us that the forest was a home."
+      },
+      {
+        "headword": "bush",
+        "surfaceForm": "bushes",
+        "phonetic": "/buʃ/",
+        "pos": "n.",
+        "translation": "n. 矮树丛；[化] 管衬",
+        "definition": "n. a large wilderness area\\nn. 43rd President of the United States; son of George Herbert Walker Bush (born in 1946)\\nn. United States electrical engineer who designed an early analogue computer and who led the scientific program of the United States during World War II (1890-1974)\\nn. vice president under Reagan and 41st President of the United States (born in 1924)",
+        "context": "The frog blinked once and hopped into the bushes below."
+      },
+      {
+        "headword": "gently",
+        "surfaceForm": "gently",
+        "phonetic": "/'dʒentli/",
+        "pos": "adv.",
+        "translation": "adv. 温和地, 温柔地, 轻轻地, 逐渐地",
+        "definition": "r. in a gradual manner\\nr. in a gentle manner",
+        "context": "Priya found a wide green leaf on the railing and gently nudged the frog onto it."
+      },
+      {
+        "headword": "reservoir",
+        "surfaceForm": "Reservoir",
+        "phonetic": "/'rezәvwɑ:/",
+        "pos": "n.",
+        "translation": "n. 贮水池, 贮藏处, 贮备, 水库；vt. 储藏",
+        "definition": "n. a large or extra supply of something\\nn. lake used to store water for community use\\nn. tank used for collecting and storing a liquid (as water or oil)\\nn. anything (a person or animal or plant or substance) in which an infectious agent normally lives and multiplies",
+        "context": "On a Tuesday in March, our Sec 1 class went to MacRitchie Reservoir for Geography fieldwork."
+      },
+      {
+        "headword": "suspension",
+        "surfaceForm": "suspension",
+        "phonetic": "/sә'spenʃәn/",
+        "pos": "n.",
+        "translation": "n. 悬挂, 暂停, 中止；[化] 悬浮; 悬浮体; 悬浮液",
+        "definition": "n. a mixture in which fine particles are suspended in a fluid where they are supported by buoyancy\\nn. an interruption in the intensity or amount of something\\nn. a mechanical system of springs or shock absorbers connecting the wheels and axles to the chassis of a wheeled vehicle\\nn. the act of suspending something (hanging it from above so it moves freely)",
+        "context": "By the time we reached the suspension bridge of the Treetop Walk, my water bottle was almost empty."
+      },
+      {
+        "headword": "sway",
+        "surfaceForm": "swayed",
+        "phonetic": "/swei/",
+        "pos": "n.",
+        "translation": "n. 摇摆, 影响力, 支配；vt. 摇动, 支配, 弄歪, 使倾斜, 使动摇, 影响；vi. 摇动, 摇摆, 倾斜, 动摇, 统治, 转向",
+        "definition": "n. controlling influence",
+        "context": "The bridge swayed a little."
+      },
+      {
+        "headword": "railing",
+        "surfaceForm": "railing",
+        "phonetic": "/'reiliŋ/",
+        "pos": "n.",
+        "translation": "n. 扶手, 栏杆, 抱怨；[电] 高重回率的雷达脉冲排挤",
+        "definition": "n. a barrier consisting of a horizontal bar and supports\\nn. material for making rails or rails collectively",
+        "context": "Priya pointed at the wooden railing."
+      },
+      {
+        "headword": "nudge",
+        "surfaceForm": "nudged",
+        "phonetic": "/nʌdʒ/",
+        "pos": "n.",
+        "translation": "n. 用肘轻推, 推动, 讨厌家伙",
+        "definition": "n. a slight push or shake\\nv. to push against gently\\nv. push into action by pestering or annoying gently",
+        "context": "Priya found a wide green leaf on the railing and gently nudged the frog onto it."
+      }
+    ],
+    "ai-authored-21-drawing-simplified.json": [
+      {
+        "headword": "announce",
+        "surfaceForm": "announced",
+        "phonetic": "/ә'nauns/",
+        "pos": "vt.",
+        "translation": "vt. 宣布, 声称, 显示, 预告；vi. 当报幕员, 宣布参加竞选",
+        "definition": "v. make known; make an announcement\\nv. announce publicly or officially\\nv. give the names of\\nv. foreshadow or presage",
+        "context": "I was in Sec 2, and the school had announced an Art Day mural exhibition."
+      },
+      {
+        "headword": "painting",
+        "surfaceForm": "painting",
+        "phonetic": "/'peintiŋ/",
+        "pos": "n.",
+        "translation": "n. 画, 绘画, 油漆；[化] 涂漆",
+        "definition": "n. graphic art consisting of an artistic composition made by applying paints to a surface\\nn. creating a picture with paints\\nn. the act of applying paint to a surface\\nn. the occupation of a house painter",
+        "context": "For three weeks in April, I had been painting the void deck below my block."
+      },
+      {
+        "headword": "exhibition",
+        "surfaceForm": "exhibition",
+        "phonetic": "/.eksi'biʃәn/",
+        "pos": "n.",
+        "translation": "n. 表现, 展览会, 展览品；[医] 投药, 展览, 展出",
+        "definition": "n. the act of exhibiting\\nn. a collection of things (goods or works of art etc.) for public display",
+        "context": "I was in Sec 2, and the school had announced an Art Day mural exhibition."
+      },
+      {
+        "headword": "neat",
+        "surfaceForm": "neat",
+        "phonetic": "/ni:t/",
+        "pos": "word.",
+        "translation": "a. 整洁的, 巧妙的, 匀称的, 简洁的；n. 牛",
+        "definition": "s. clean or organized\\ns. showing care in execution\\ns. free from what is tawdry or unbecoming\\ns. without water",
+        "context": "The paintings hung on the corridor wall outside the staff room — forty in a neat row, each with a small white label beneath."
+      },
+      {
+        "headword": "smooth",
+        "surfaceForm": "smoothed",
+        "phonetic": "/smu:ð/",
+        "pos": "word.",
+        "translation": "a. 平滑的, 平稳的, 流畅的, 和蔼的, 安祥的, 圆滑的, 调匀的, 无毛的；vt. 使光滑, 烫平, 使平和, 消除；vi. 变平滑, 变平静；n. 一块平地, 平滑部分",
+        "definition": "n. the act of smoothing\\nv. make smooth or smoother, as if by rubbing\\nv. free from obstructions\\na. having a surface free from roughness or bumps or ridges or irregularities",
+        "context": "Then she pressed the label back and smoothed it with her thumb."
+      },
+      {
+        "headword": "beneath",
+        "surfaceForm": "beneath",
+        "phonetic": "/bi'ni:θ/",
+        "pos": "prep.",
+        "translation": "prep. 在...下方；adv. 在...下方",
+        "definition": "r in or to a place that is lower",
+        "context": "The paintings hung on the corridor wall outside the staff room — forty in a neat row, each with a small white label beneath."
+      },
+      {
+        "headword": "label",
+        "surfaceForm": "label",
+        "phonetic": "/'leibl/",
+        "pos": "n.",
+        "translation": "n. 标签, 称号, 商标, 标志；vt. 贴标签于, 标注；[计] 标志; 标注; DOS外部命令:用于建立改变或删除磁盘卷标号",
+        "definition": "n. a brief description given for purposes of identification\\nn. trade name of a company that produces musical recordings\\nn. a radioactive isotope that is used in a compound in order to trace the mechanism of a chemical reaction\\nn. an identifying or descriptive marker that is attached to an object",
+        "context": "The paintings hung on the corridor wall outside the staff room — forty in a neat row, each with a small white label beneath."
+      },
+      {
+        "headword": "swap",
+        "surfaceForm": "swapped",
+        "phonetic": "/swɒp/",
+        "pos": "n.",
+        "translation": "n. 以货易货；v. 交换, 替换, 交易；[计] 交换",
+        "definition": "v. move (a piece of a program) into memory, in computer science",
+        "context": "The labels must have been swapped."
+      },
+      {
+        "headword": "corridor",
+        "surfaceForm": "corridor",
+        "phonetic": "/'kɒridɒ:/",
+        "pos": "n.",
+        "translation": "n. 走廊, 回廊, 人口密集地带",
+        "definition": "n. an enclosed passageway; rooms usually open onto it",
+        "context": "The paintings hung on the corridor wall outside the staff room — forty in a neat row, each with a small white label beneath."
+      },
+      {
+        "headword": "mailbox",
+        "surfaceForm": "mailbox",
+        "phonetic": "/'meilbɒks/",
+        "pos": "n.",
+        "translation": "n. 邮筒, 邮箱；[计] 邮箱, 电子邮箱",
+        "definition": "n. a private box for delivery of mail",
+        "context": "I painted the red mailbox, the green metal tables, and the old uncle who slept on the bench."
+      },
+      {
+        "headword": "mural",
+        "surfaceForm": "mural",
+        "phonetic": "/'mjuәrәl/",
+        "pos": "word.",
+        "translation": "a. 壁的, 壁上的, 壁似的；n. 壁画",
+        "definition": "n. a painting that is applied to a wall surface\\na. of or relating to walls",
+        "context": "I was in Sec 2, and the school had announced an Art Day mural exhibition."
+      },
+      {
+        "headword": "chopstick",
+        "surfaceForm": "chopsticks",
+        "phonetic": "/'tʃɔpstik/",
+        "pos": "n.",
+        "translation": "n. 筷子",
+        "definition": "n. one of a pair of slender sticks used as oriental tableware to eat food with",
+        "context": "She put down her chopsticks."
+      }
+    ],
+    "ai-authored-18-library-card-simplified.json": [
+      {
+        "headword": "slip",
+        "surfaceForm": "slipped",
+        "phonetic": "/slip/",
+        "pos": "n.",
+        "translation": "n. 滑, 滑行, 事故, 溜, 差错, 滑台, 下降, 插条, 后裔, 板条, 瘦长的年轻人；vi. 滑动, 滑倒, 失足, 溜走, 滑落, 犯错, 变坏；vt. 使滑动, 滑过, 摆脱, 闪开, 塞入, 从...取接枝；a. 滑动的, 滑移的, 活络的, 有活结的；[计] 串行线接口协议",
+        "definition": "n. a minor inadvertent mistake usually observed in speech or writing or in small accidents or memory lapses etc.\\nn. potter's clay that is thinned and used for coating or decorating ceramics\\nn. a young and slender person\\nn. an accidental misstep threatening (or causing) a fall",
+        "context": "I opened my wallet to keep my EZ-Link card, and the library card must have slipped out."
+      },
+      {
+        "headword": "due",
+        "surfaceForm": "due",
+        "phonetic": "/dju:/",
+        "pos": "n.",
+        "translation": "n. 应得的东西, 应付款；a. 到期的, 应得的, 应付的, 约定的",
+        "definition": "n. that which is deserved or owed\\nn. a payment that is due (e.g., as the price of membership)\\na. owed and payable immediately or on demand\\ns. scheduled to arrive",
+        "context": "The three borrowed books were due on Saturday."
+      },
+      {
+        "headword": "borrow",
+        "surfaceForm": "borrowed",
+        "phonetic": "/'bɒrәu/",
+        "pos": "vt.",
+        "translation": "vt. 借, 借入, 借用；vi. 借；[计] 借位; 借位数",
+        "definition": "v. get temporarily",
+        "context": "Last Tuesday, I borrowed three books."
+      },
+      {
+        "headword": "ordinary",
+        "surfaceForm": "ordinary",
+        "phonetic": "/'ɒ:dinәri/",
+        "pos": "word.",
+        "translation": "a. 平常的, 普通的, 平凡的；n. 平常的人(或事)",
+        "definition": "n. a judge of a probate court\\nn. the expected or commonplace condition or situation\\nn. a clergyman appointed to prepare condemned prisoners for death\\nn. an early bicycle with a very large front wheel and small back wheel",
+        "context": "My NLB library card is the most ordinary thing in my schoolbag, but I cannot do without it."
+      },
+      {
+        "headword": "embarrass",
+        "surfaceForm": "embarrass",
+        "phonetic": "/im'bærәs/",
+        "pos": "vt.",
+        "translation": "vt. 使困窘, 使局促不安, 阻碍",
+        "definition": "v. cause to be embarrassed; cause to feel self-conscious",
+        "context": "The thought, strangely, did not embarrass me."
+      },
+      {
+        "headword": "crowded",
+        "surfaceForm": "crowded",
+        "phonetic": "/'kraudid/",
+        "pos": "word.",
+        "translation": "a. 拥挤的, 塞满的",
+        "definition": "a. overfilled or compacted or concentrated",
+        "context": "On the way home, the bus was crowded."
+      },
+      {
+        "headword": "drawer",
+        "surfaceForm": "drawer",
+        "phonetic": "/'drɒ:ә/",
+        "pos": "n.",
+        "translation": "n. 抽屉, 开票人；[计] 抽屉",
+        "definition": "n. a boxlike container in a piece of furniture; made so as to slide in and out\\nn. the person who writes a check or draft instructing the drawee to pay someone else",
+        "context": "Before I could speak, she opened a drawer and held up my card."
+      },
+      {
+        "headword": "stranger",
+        "surfaceForm": "strangers",
+        "phonetic": "/'streindʒә/",
+        "pos": "n.",
+        "translation": "n. 陌生人, 门外汉；[法] 局外人, 非当事人, 第三者",
+        "definition": "n. anyone who does not belong in the environment in which they are found\\nn. an individual that one is not acquainted with",
+        "context": "For the first time, I thought about how much strangers see that we do not realise they see."
+      },
+      {
+        "headword": "wallet",
+        "surfaceForm": "wallet",
+        "phonetic": "/'wɒlit/",
+        "pos": "n.",
+        "translation": "n. 皮夹；[法] 皮包, 皮夹, 钱袋",
+        "definition": "n. a pocket-size case for holding papers and paper money",
+        "context": "I opened my wallet to keep my EZ-Link card, and the library card must have slipped out."
+      },
+      {
+        "headword": "cushion",
+        "surfaceForm": "cushions",
+        "phonetic": "/'kuʃәn/",
+        "pos": "n.",
+        "translation": "n. 垫子, 橡皮软垫；vt. 加垫褥, 缓冲, 掩盖",
+        "definition": "n. the layer of air that supports a hovercraft or similar vehicle\\nn. a soft bag filled with air or a mass of padding such as feathers or foam rubber etc.\\nv. protect from impact",
+        "context": "Under the bed, inside my school bag, behind the cushions of the sofa."
+      },
+      {
+        "headword": "invisible",
+        "surfaceForm": "invisible",
+        "phonetic": "/in'vizәbl/",
+        "pos": "word.",
+        "translation": "a. 看不见的, 无形的；[经] 无形的, 表面上看不见的, 未列在公开帐目的",
+        "definition": "a. impossible or nearly impossible to see; imperceptible by the eye",
+        "context": "I had been moving through Singapore as if I were invisible, and I was not."
+      },
+      {
+        "headword": "shrug",
+        "surfaceForm": "shrugged",
+        "phonetic": "/ʃrʌg/",
+        "pos": "n.",
+        "translation": "n. 耸肩；v. 耸肩",
+        "definition": "n. a gesture involving the shoulders\\nv. raise one's shoulders to indicate indifference or resignation",
+        "context": "The auntie shrugged."
+      }
+    ],
+    "ai-authored-17-relay-simplified.json": [
+      {
+        "headword": "effort",
+        "surfaceForm": "Effort",
+        "phonetic": "/'efәt/",
+        "pos": "n.",
+        "translation": "n. 努力, 成就",
+        "definition": "n. use of physical or mental energy; hard work",
+        "context": "He said one sentence: 'Effort is also a result."
+      },
+      {
+        "headword": "impossible",
+        "surfaceForm": "impossible",
+        "phonetic": "/im'pɒsәbl/",
+        "pos": "word.",
+        "translation": "a. 不可能的, 难以置信的, 令人无法忍受的",
+        "definition": "n. something that cannot be done\\na. not capable of occurring or being accomplished or dealt with\\ns. totally unlikely\\ns. used of persons or their behavior",
+        "context": "But I had done something that I, last Wednesday, would have said was impossible."
+      },
+      {
+        "headword": "refuse",
+        "surfaceForm": "refuse",
+        "phonetic": "/ri'fju:z/",
+        "pos": "vt.",
+        "translation": "vt. 拒绝, 谢绝；vi. 拒绝；n. 废物；a. 扔掉的, 无用的",
+        "definition": "v. show unwillingness towards\\nv. refuse to accept",
+        "context": "In the end I nodded, because I did not know how to refuse him politely."
+      },
+      {
+        "headword": "sport",
+        "surfaceForm": "sports",
+        "phonetic": "/spɒ:t/",
+        "pos": "n.",
+        "translation": "n. 运动, 游戏, 娱乐, 消遣, 玩笑；a. 运动的, 户外穿戴的；vi. 游戏, 参加体育运动, 戏弄, 产生变种；vt. 炫耀, 使产生变种",
+        "definition": "n. an active diversion requiring physical exertion and competition\\nn. the occupation of athletes who compete for pay\\nn. (Maine colloquial) a temporary summer resident of Maine\\nn. a person known for the way she (or he) behaves when teased or defeated or subjected to trying circumstances",
+        "context": "I have never been good at sports."
+      },
+      {
+        "headword": "runner",
+        "surfaceForm": "runner",
+        "phonetic": "/'rʌnә/",
+        "pos": "n.",
+        "translation": "n. 跑步者, 赛跑者, 送信人, 走私船, 操作者, 滑槽；[化] 碾碎机; 压碎机",
+        "definition": "n. someone who travels on foot by running\\nn. a person who is employed to deliver messages or documents\\nn. a trained athlete who competes in foot races\\nn. a long narrow carpet",
+        "context": "He needed a fourth runner."
+      },
+      {
+        "headword": "breathe",
+        "surfaceForm": "breathing",
+        "phonetic": "/bri:ð/",
+        "pos": "vi.",
+        "translation": "vi. 呼吸, 生存, 低语；vt. 呼吸, 使喘息, 发散, 低声说",
+        "definition": "v. draw air into, and expel out of, the lungs\\nv. be alive\\nv. impart as if by breathing\\nv. allow the passage of air through",
+        "context": "I only remember the sound of my own breathing, very loud in my ears, and the white line on the track moving past my feet."
+      },
+      {
+        "headword": "awake",
+        "surfaceForm": "awake",
+        "phonetic": "/ә'weik/",
+        "pos": "word.",
+        "translation": "a. 醒着的；vt. 唤醒, 唤起, 使意识到；vi. 醒来, 被唤起, 意识到",
+        "definition": "a. not in a state of sleep; completely conscious",
+        "context": "At three in the morning I was still awake, listening to the MRT trains starting up."
+      },
+      {
+        "headword": "ceiling",
+        "surfaceForm": "ceiling",
+        "phonetic": "/'si:liŋ/",
+        "pos": "n.",
+        "translation": "n. 天花板；[经] 顶点, 顶线, 上限",
+        "definition": "n. the overhead upper surface of a covered space\\nn. (meteorology) altitude of the lowest layer of clouds\\nn. an upper limit on what is allowed\\nn. maximum altitude at which a plane can fly (under specified conditions)",
+        "context": "I lay in bed in our HDB flat in Yishun and stared at the ceiling fan."
+      },
+      {
+        "headword": "overseas",
+        "surfaceForm": "overseas",
+        "phonetic": "/'әuvә'si:z/",
+        "pos": "word.",
+        "translation": "a. 海外的, 国外的；adv. 在海外, 在国外",
+        "definition": "r. in a place across an ocean",
+        "context": "He told me that two boys in my class were down with fever and one had gone on an overseas school trip."
+      },
+      {
+        "headword": "grip",
+        "surfaceForm": "gripped",
+        "phonetic": "/grip/",
+        "pos": "n.",
+        "translation": "n. 紧握, 柄, 握力, 握手方式, 手提包, 掌握, 支配, 控制；vt. 抓紧, 抱住, 吸住, 掌握；vi. 握牢, 有吸引力",
+        "definition": "n. the friction between a body and the surface on which it moves (as between an automobile tire and the road)\\nn. worker who moves the camera around while a film or television show is being made\\nn. an intellectual hold or understanding\\nv. hold fast or firmly",
+        "context": "I gripped the baton so tightly that my fingers hurt."
+      },
+      {
+        "headword": "relay",
+        "surfaceForm": "relay",
+        "phonetic": "/'ri:lei/",
+        "pos": "n.",
+        "translation": "n. 驿马, 替班, 中继, 接力；vt. 分程传递, 转播, 使接替；vi. 接力传送, 转播",
+        "definition": "n. the act of passing something along from one person or group to another\\nn. a crew of workers who relieve another crew\\nn. a fresh team to relieve weary draft animals\\nn. a race between teams; each member runs or swims part of the distance",
+        "context": "The inter-class relay was on Friday."
+      },
+      {
+        "headword": "kindly",
+        "surfaceForm": "kindly",
+        "phonetic": "/'kaindli/",
+        "pos": "word.",
+        "translation": "a. 和蔼的, 温和的, 爽快的；adv. 温和地, 亲切地",
+        "definition": "s. pleasant and agreeable\\nr. in a kind manner or out of kindness",
+        "context": "He looked at me kindly and asked if I would try."
+      }
+    ]
+  }
+}

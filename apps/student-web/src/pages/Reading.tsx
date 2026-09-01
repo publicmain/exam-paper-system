@@ -310,10 +310,10 @@ function ReadingShell({ session }: { session: ReadingSessionPayload }) {
   }, [navigate, r, session.sessionId]);
 
   return (
-    <div className="min-h-[100dvh] bg-slate-50 flex flex-col">
+    <div className="ui-ios min-h-[100dvh] flex flex-col">
       <OfflineBadge />
 
-      <header className="sticky top-0 z-20 bg-white border-b border-slate-200 px-3 py-2 flex items-center gap-3">
+      <header className="app-glass safe-top sticky top-0 z-20 border-x-0 border-t-0 px-3 py-2 flex items-center gap-3">
         <button
           type="button"
           onClick={() => (blocked ? setExiting(true) : navigate(ROUTES.today))}
@@ -390,7 +390,7 @@ function ReadingShell({ session }: { session: ReadingSessionPayload }) {
         </ExamFocusProvider>
       </main>
 
-      <footer className="sticky bottom-0 z-20 bg-white border-t border-slate-200">
+      <footer className="app-glass safe-bottom sticky bottom-0 z-20 border-x-0 border-b-0">
         <QuestionNavBar questions={paper.questions} onJumpTo={(qid) => jumpTo(qid)} />
         <div className="px-3 py-2 flex items-center gap-3">
           <span data-testid="flag-count" className="text-sm text-slate-500 tabular-nums">
@@ -407,7 +407,7 @@ function ReadingShell({ session }: { session: ReadingSessionPayload }) {
             data-testid="submit"
             disabled={blocked || submitting}
             onClick={() => setConfirming(true)}
-            className="min-h-[44px] px-5 rounded-xl bg-blue-600 text-white font-medium disabled:bg-slate-300"
+            className="app-primary min-h-[44px] px-5 disabled:bg-slate-300 disabled:shadow-none"
           >
             交卷
           </button>
@@ -419,9 +419,9 @@ function ReadingShell({ session }: { session: ReadingSessionPayload }) {
           role="dialog"
           aria-modal="true"
           aria-label="确认交卷"
-          className="fixed inset-0 z-40 bg-black/40 grid place-items-center px-6"
+          className="fixed inset-0 z-40 bg-black/30 backdrop-blur-sm grid place-items-center px-6"
         >
-          <div className="w-full max-w-sm bg-white rounded-2xl p-6">
+          <div className="app-glass w-full max-w-sm rounded-[22px] p-6">
             <h2 className="text-lg font-semibold mb-2">确定要交卷吗？</h2>
             <p className="text-sm text-slate-600 mb-5">
               {session.secondWindowToday
@@ -455,9 +455,9 @@ function ReadingShell({ session }: { session: ReadingSessionPayload }) {
           role="dialog"
           aria-modal="true"
           aria-label="确认退出"
-          className="fixed inset-0 z-40 bg-black/40 grid place-items-center px-6"
+          className="fixed inset-0 z-40 bg-black/30 backdrop-blur-sm grid place-items-center px-6"
         >
-          <div className="w-full max-w-sm bg-white rounded-2xl p-6">
+          <div className="app-glass w-full max-w-sm rounded-[22px] p-6">
             <h2 className="text-lg font-semibold mb-2">还有答案没保存好</h2>
             <p className="text-sm text-slate-600 mb-5">
               现在离开，这些答案只留在这台设备上。建议等网络恢复、保存完成再走。

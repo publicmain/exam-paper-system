@@ -326,7 +326,7 @@ export default function LessonVocabPage() {
 
 function Shell({ children }: { children: React.ReactNode }) {
   return (
-    <div className="min-h-[100dvh] bg-slate-50 px-4 py-6">
+    <div className="ui-ios min-h-[100dvh] px-4 py-6 safe-top safe-bottom">
       {/* S12L —— 卡片式的一屏一题：宽屏适度放宽，但不铺满（读起来会太长） */}
       <div className="mx-auto w-full max-w-xl lg:max-w-3xl">{children}</div>
     </div>
@@ -375,7 +375,7 @@ function TeachingCard({
     <section
       data-testid="teaching-card"
       data-headword={card.headword}
-      className="rounded-2xl bg-white border border-slate-200 p-6"
+      className="app-glass rounded-[22px] p-6 sm:p-8"
     >
       <p className="text-xs text-blue-700 bg-blue-50 rounded-md px-2 py-1 inline-block mb-3">
         新词 · 先认识一下
@@ -413,7 +413,7 @@ function TeachingCard({
         data-testid="taught-next"
         disabled={busy != null}
         onClick={onNext}
-        className="mt-6 w-full rounded-xl bg-blue-600 text-white py-3 text-base font-medium min-h-[44px] disabled:bg-slate-300"
+        className="app-primary mt-6 w-full py-3 text-base disabled:bg-slate-300 disabled:shadow-none"
       >
         {busy === 'teach' ? '保存中…' : '下一个'}
       </button>

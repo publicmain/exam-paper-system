@@ -18,7 +18,7 @@
  * 一切都带 `p1_` 前缀（见 `writeScopes()`），外加两类按学生 id 限定的行：
  *
  *   · `StudentWord`：只给**试点班在册学生**建，id 恒为 `p1_w_<学生>_<词>`；
- *   · `DictEntry`：**只补录这一周用到的那些词**（三档两天去重后 ~120 条），
+ *   · `DictEntry`：**只补录这一周五档内容实际用到的词**，
  *     而且**只在词典里没有时才插**，已有的一个字都不改。
  *     这不是「把生产词典导进 staging」—— 那是被明令禁止的另一件事。
  *
@@ -77,6 +77,26 @@ const CLASS = {
   name: '试点班 W1',
   classCode: 'PILOTW1',
 };
+
+/** 学生实际选择的班级。班级与英语难度彼此独立；每个班都发布完整五档。 */
+const REGISTRATION_CLASSES = [
+  'SGCE26W',
+  'SEC27W',
+  'OL26W',
+  'IAL27W',
+  'IAL27M',
+  'IAL26W',
+  'IAL26S2',
+  'IAL26S1',
+  'IAL28S',
+].map((code) => ({
+  id: `${PREFIX}class_${code.toLowerCase()}`,
+  name: code,
+  classCode: code,
+}));
+
+/** 旧的内部冒烟班保留给既有账号；注册页会隐藏它。 */
+const ALL_CLASSES = [CLASS, ...REGISTRATION_CLASSES];
 
 /** 内部冒烟账号。**不是真学生**，也不是任何人的共用凭据。 */
 const QA_STUDENT = {
@@ -164,6 +184,18 @@ function idsFor(level, dayIso) {
   };
 }
 
+/** 同一份卷可发给多个班；旧冒烟班沿用历史 id，真实班使用稳定后缀。 */
+function deliveryIdsFor(level, dayIso, klass) {
+  const ids = idsFor(level, dayIso);
+  if (klass.id === CLASS.id) return ids;
+  const suffix = klass.id.slice(PREFIX.length).replace(/[^a-z0-9_]/gi, '_');
+  return {
+    ...ids,
+    assignmentId: `${ids.assignmentId}_${suffix}`,
+    sessionId: `${ids.sessionId}_${suffix}`,
+  };
+}
+
 /** 一个学生的一个词的 id。 */
 function studentWordId(studentId, headword) {
   return `${PREFIX}w_${studentId}_${headword}`;
@@ -232,25 +264,28 @@ function parseDay(argv) {
 // ─────────────────────────────────────────────────────────────
 
 async function upsertClassAndQa(tx, report) {
-  await tx.class.upsert({
-    where: { id: CLASS.id },
-    update: { name: CLASS.name },
-    create: { id: CLASS.id, name: CLASS.name, classCode: CLASS.classCode },
-  });
-  report.bump('Class');
-
-  for (const level of Object.keys(content.LEVELS)) {
-    await tx.classEnglishLevel.upsert({
-      where: { id: `${PREFIX}lvl_${level}` },
-      update: {},
-      create: {
-        id: `${PREFIX}lvl_${level}`,
-        classId: CLASS.id,
-        level,
-        effectiveFrom: sgtInstant(content.DATES[0], '00:00:00'),
-      },
+  for (const klass of ALL_CLASSES) {
+    await tx.class.upsert({
+      where: { id: klass.id },
+      update: { name: klass.name },
+      create: { id: klass.id, name: klass.name, classCode: klass.classCode },
     });
-    report.bump('ClassEnglishLevel');
+    report.bump('Class');
+
+    for (const level of Object.keys(content.LEVELS)) {
+      const classKey = klass.id === CLASS.id ? '' : `_${klass.id.slice(PREFIX.length)}`;
+      await tx.classEnglishLevel.upsert({
+        where: { id: `${PREFIX}lvl${classKey}_${level}` },
+        update: {},
+        create: {
+          id: `${PREFIX}lvl${classKey}_${level}`,
+          classId: klass.id,
+          level,
+          effectiveFrom: sgtInstant(content.DATES[0], '00:00:00'),
+        },
+      });
+      report.bump('ClassEnglishLevel');
+    }
   }
 
   // 内部冒烟账号。
@@ -358,9 +393,16 @@ async function upsertLesson(tx, level, dayIso, report) {
     ...lesson.questions.map((_, i) => ids.paperQuestionId(i + 1)),
   ]);
 
+  const paperConfig = {
+    mode: 'passage_pick',
+    passageTitle: lesson.title,
+    pilotWeek: 'W1',
+    level,
+    lessonWords: lesson.words,
+  };
   await tx.paper.upsert({
     where: { id: ids.paperId },
-    update: { name: lesson.title },
+    update: { name: lesson.title, config: paperConfig },
     create: {
       id: ids.paperId,
       name: lesson.title,
@@ -372,7 +414,7 @@ async function upsertLesson(tx, level, dayIso, report) {
       totalMarksActual: maxScore,
       generatedSeed: 1,
       rendererKey: 'ielts_reading',
-      config: { mode: 'passage_pick', passageTitle: lesson.title, pilotWeek: 'W1', level },
+      config: paperConfig,
     },
   });
   report.bump('Paper');
@@ -439,43 +481,47 @@ async function upsertLesson(tx, level, dayIso, report) {
     report.bump('PaperQuestion');
   }
 
-  await tx.paperAssignment.upsert({
-    where: { id: ids.assignmentId },
-    update: { status: 'open' },
-    create: {
-      id: ids.assignmentId,
-      paperId: ids.paperId,
-      classId: CLASS.id,
-      assignedById: REUSED.teacherId,
-      assignedAt: sgtInstant(dayIso, '00:01:00'),
-      startAt: sgtInstant(dayIso, '00:05:00'),
-      dueAt: sgtInstant(dayIso, '23:59:00'),
-      status: 'open',
-    },
-  });
-  report.bump('PaperAssignment');
+  for (const klass of ALL_CLASSES) {
+    const delivery = deliveryIdsFor(level, dayIso, klass);
+    assertPrefixed([delivery.assignmentId, delivery.sessionId]);
+    await tx.paperAssignment.upsert({
+      where: { id: delivery.assignmentId },
+      update: { status: 'open' },
+      create: {
+        id: delivery.assignmentId,
+        paperId: ids.paperId,
+        classId: klass.id,
+        assignedById: REUSED.teacherId,
+        assignedAt: sgtInstant(dayIso, '00:01:00'),
+        startAt: sgtInstant(dayIso, '00:05:00'),
+        dueAt: sgtInstant(dayIso, '23:59:00'),
+        status: 'open',
+      },
+    });
+    report.bump('PaperAssignment');
 
-  await tx.morningQuizSession.upsert({
-    where: { id: ids.sessionId },
-    update: { status: 'active' },
-    create: {
-      id: ids.sessionId,
-      date: dayLabel(dayIso),
-      classId: CLASS.id,
-      paperAssignmentId: ids.assignmentId,
-      scheduledById: REUSED.teacherId,
-      status: 'active',
-      level,
-      // 试点是全天开放的 —— 学生什么时候有空什么时候做。
-      attendanceStart: sgtInstant(dayIso, '00:05:00'),
-      attendanceEnd: sgtInstant(dayIso, '23:59:00'),
-      lateCutoff: sgtInstant(dayIso, '23:59:00'),
-      quizStart: sgtInstant(dayIso, '00:05:00'),
-      quizEnd: sgtInstant(dayIso, '23:59:00'),
-      qrSecret: `${PREFIX}not-used-account-login-only`,
-    },
-  });
-  report.bump('MorningQuizSession');
+    await tx.morningQuizSession.upsert({
+      where: { id: delivery.sessionId },
+      update: { status: 'active' },
+      create: {
+        id: delivery.sessionId,
+        date: dayLabel(dayIso),
+        classId: klass.id,
+        paperAssignmentId: delivery.assignmentId,
+        scheduledById: REUSED.teacherId,
+        status: 'active',
+        level,
+        // 试点是全天开放的 —— 学生什么时候有空什么时候做。
+        attendanceStart: sgtInstant(dayIso, '00:05:00'),
+        attendanceEnd: sgtInstant(dayIso, '23:59:00'),
+        lateCutoff: sgtInstant(dayIso, '23:59:00'),
+        quizStart: sgtInstant(dayIso, '00:05:00'),
+        quizEnd: sgtInstant(dayIso, '23:59:00'),
+        qrSecret: `${PREFIX}not-used-account-login-only`,
+      },
+    });
+    report.bump('MorningQuizSession');
+  }
 }
 
 /**
@@ -584,23 +630,30 @@ async function snapshot(tx) {
 
 /** 这一天的范围里有没有**不是我们造的**东西占着位置。 */
 async function assertScopeFree(tx, dayIso) {
-  const label = dayLabel(dayIso).toISOString();
-  const rows = await tx.$queryRawUnsafe(
-    `/* p1:scope-check */ SELECT
-      (SELECT count(*) FROM "MorningQuizSession"
-         WHERE "classId" = '${CLASS.id}' AND date = '${label}'::timestamptz
-           AND id NOT LIKE '${PREFIX}%')::int AS foreign_sessions,
-      (SELECT count(*) FROM "PaperAssignment"
-         WHERE "classId" = '${CLASS.id}' AND id NOT LIKE '${PREFIX}%')::int AS foreign_assignments,
-      (SELECT count(*) FROM "ClassEnrollment" e JOIN "User" u ON u.id = e."userId"
-         WHERE e."classId" = '${CLASS.id}' AND e.role = 'student'
-           AND (u.id LIKE 's12f%' OR u.id ~ '^t[0-9]_'))::int AS foreign_students`,
-  );
-  const c = rows[0];
+  const classIds = ALL_CLASSES.map((klass) => klass.id);
+  const [foreignSessions, foreignAssignments, foreignStudents] = await Promise.all([
+    tx.morningQuizSession.count({
+      where: {
+        classId: { in: classIds },
+        date: dayLabel(dayIso),
+        NOT: { id: { startsWith: PREFIX } },
+      },
+    }),
+    tx.paperAssignment.count({
+      where: { classId: { in: classIds }, NOT: { id: { startsWith: PREFIX } } },
+    }),
+    tx.classEnrollment.count({
+      where: {
+        classId: { in: classIds },
+        role: 'student',
+        OR: [{ userId: { startsWith: 's12f' } }, { userId: { startsWith: 't' } }],
+      },
+    }),
+  ]);
   const bad = [];
-  if (Number(c.foreign_sessions) > 0) bad.push(`这一天已经有 ${c.foreign_sessions} 场不是试点造的场次`);
-  if (Number(c.foreign_assignments) > 0) bad.push(`试点班上挂着 ${c.foreign_assignments} 份不是试点造的作业`);
-  if (Number(c.foreign_students) > 0) bad.push(`试点班里混进了 ${c.foreign_students} 个夹具 / 验收账号`);
+  if (foreignSessions > 0) bad.push(`这一天已经有 ${foreignSessions} 场不是试点造的场次`);
+  if (foreignAssignments > 0) bad.push(`试点班上挂着 ${foreignAssignments} 份不是试点造的作业`);
+  if (foreignStudents > 0) bad.push(`试点班里混进了 ${foreignStudents} 个夹具 / 验收账号`);
   if (bad.length > 0) {
     throw new PilotError(`拒绝执行：目标范围被别的东西占着 —— \n  · ${bad.join('\n  · ')}`);
   }
@@ -647,7 +700,7 @@ async function main() {
 
         // ③ 给试点班在册的每一个学生排今天的词
         const roster = await tx.classEnrollment.findMany({
-          where: { classId: CLASS.id, role: 'student' },
+          where: { classId: { in: ALL_CLASSES.map((klass) => klass.id) }, role: 'student' },
           select: { user: { select: { id: true, name: true, englishLevel: true } } },
         });
         for (const r of roster) await scheduleWordsFor(tx, r.user, day, report);
@@ -670,7 +723,7 @@ async function main() {
     [
       '',
       `试点第一周 · ${day} 已发布。`,
-      `  班级        : ${CLASS.id} / ${CLASS.name}（分级：${Object.keys(content.LEVELS).join(' · ')}）`,
+      `  班级        : ${REGISTRATION_CLASSES.map((klass) => klass.name).join(' · ')}（另保留内部冒烟班；每班五档齐全）`,
       `  在册学生    : ${roster.length}（${roster.map((r) => `${r.name}[${r.englishLevel ?? '未设置'}]`).join('、') || '无'}）`,
       '',
       '  写入统计（按类别）：',
@@ -708,6 +761,8 @@ module.exports = {
   EXPECTED_RAILWAY,
   REUSED,
   CLASS,
+  REGISTRATION_CLASSES,
+  ALL_CLASSES,
   QA_STUDENT,
   PARK_UNTIL,
   PilotError,
@@ -716,6 +771,7 @@ module.exports = {
   dayLabel,
   sgtInstant,
   idsFor,
+  deliveryIdsFor,
   studentWordId,
   assertPrefixed,
   assertEnvGates,
