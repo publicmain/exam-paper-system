@@ -60,22 +60,22 @@ const wired = (e: { body: string }) =>
   /identityOf\(|resolveIdentity\(|authStudentId|studentAuth/.test(e.body);
 
 describe('端点矩阵 —— 从代码推导', () => {
-  it('vocab 控制器共 24 个端点，其中 **19 个是带身份的学生端**', () => {
-    expect(vocab).toHaveLength(24);
+  it('vocab 控制器共 25 个端点，其中 **20 个是带身份的学生端**', () => {
+    expect(vocab).toHaveLength(25);
     const teacher = vocab.filter((e) => !isStudentFacing(e));
     expect(teacher.map((e) => e.route).sort()).toEqual(
       ['class/:classId/engagement', 'class/:classId/stats', 'class/:classId/top', 'push'].sort(),
     );
     const student = vocab.filter(isStudentFacing);
-    expect(student).toHaveLength(20); // 含 lookup
+    expect(student).toHaveLength(21); // 含 lookup
     const withIdentity = student.filter(takesIdentity);
-    expect(withIdentity).toHaveLength(19);
+    expect(withIdentity).toHaveLength(20);
     // lookup 是纯查词典，没有身份 —— 因此不在范围内
     expect(student.find((e) => e.route === 'lookup')).toBeDefined();
     expect(takesIdentity(student.find((e) => e.route === 'lookup')!)).toBe(false);
   });
 
-  it('**vocab 的 19 个带身份端点全部已接线**（一个不漏）', () => {
+  it('**vocab 的 20 个带身份端点全部已接线**（一个不漏）', () => {
     const unwired = vocab.filter(isStudentFacing).filter(takesIdentity).filter((e) => !wired(e));
     expect(unwired.map((e) => `${e.method} /vocab/${e.route}`)).toEqual([]);
   });
@@ -86,7 +86,7 @@ describe('端点矩阵 —— 从代码推导', () => {
       expect(byRoute[r], `缺 ${r}`).toBeDefined();
       expect(wired(byRoute[r])).toBe(true);
     }
-    for (const r of ['vocab-taught', 'vocab-cursor']) {
+    for (const r of ['vocab-taught', 'vocab-cursor', 'vocab-replace']) {
       expect(byRoute[r], `缺 ${r}`).toBeDefined();
       expect(wired(byRoute[r])).toBe(true);
     }
@@ -171,7 +171,7 @@ const injectsReq = (e: Ep) => /@Req\(\)/.test(e.body);
 
 const IN_SCOPE: { group: string; eps: Ep[] }[] = [
   { group: 'vocab', eps: vocab.filter(isStudentFacing).filter(takesIdentity) },
-  { group: 'lesson', eps: lesson.filter((e) => ['today', 'start', 'vocab-taught', 'vocab-cursor'].includes(e.route)) },
+  { group: 'lesson', eps: lesson.filter((e) => ['today', 'start', 'vocab-taught', 'vocab-cursor', 'vocab-replace'].includes(e.route)) },
   {
     group: 'morning-quiz',
     // 按「方法 + 路径」精确取三个 —— morning-quiz 下另有一个教师端的
@@ -183,11 +183,9 @@ const IN_SCOPE: { group: string; eps: Ep[] }[] = [
 ];
 
 describe('逐端点接线清点（静态）', () => {
-  it('**在范围内的端点恰好 26 个 = 19 + 4 + 3**', () => {
+  it('**在范围内的端点恰好 28 个 = 20 + 5 + 3**', () => {
     const counts = Object.fromEntries(IN_SCOPE.map((g) => [g.group, g.eps.length]));
-    expect(counts).toEqual({ vocab: 19, lesson: 4, 'morning-quiz': 3 });
-    // lesson 的 4 = 本轮接线的 2（vocab-taught / vocab-cursor）
-    //            + 本就已是 id 优先、只做验证不改写的 2（today / start）
+    expect(counts).toEqual({ vocab: 20, lesson: 5, 'morning-quiz': 3 });
   });
 
   for (const { group, eps } of IN_SCOPE) {

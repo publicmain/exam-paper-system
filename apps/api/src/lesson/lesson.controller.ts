@@ -136,6 +136,27 @@ export class LessonController {
     });
   }
 
+  /** 学生已经会当前词：服务端原位补一个同课备用词，且同步改考试范围。 */
+  @Public()
+  @RequireStudentToken()
+  @RateLimit({ limit: 60, windowSec: 60, scope: 'ip' })
+  @Post('vocab-replace')
+  async vocabReplace(@Req() req: Request, @Body() body: unknown) {
+    const schema = z.object({
+      name: z.string().min(1).max(120).optional(),
+      studentId: z.string().min(1).max(60).optional(),
+      headword: z.string().min(1).max(80),
+      cursor: z.number().int().min(0).max(500),
+    });
+    const parsed = schema.safeParse(body);
+    if (!parsed.success) throw new BadRequestException(parsed.error.flatten());
+    return this.svc.replaceKnownLessonWord({
+      ...identityOf(req, parsed.data.name, parsed.data.studentId),
+      headword: parsed.data.headword,
+      cursor: parsed.data.cursor,
+    });
+  }
+
   /**
    * 上报翻卡断点（P3）。学生退出/刷新/换设备后从这里恢复位置。
    *

@@ -217,6 +217,9 @@ const MANIFEST: Entry[] = [
   { key: `${F_LESSON} :: markTaughtAndAdvance -> startOrResumeToday`, klass: 'identity_forwarding', note: '**曾经在这里丢身份**：事务已提交、请求却 name_required' },
   { key: `${F_LESSON} :: saveVocabCursor -> words.resolveStudent`, klass: 'identity_resolution', expectAuth: true, note: '第一次解析' },
   { key: `${F_LESSON} :: saveVocabCursor -> startOrResumeToday`, klass: 'identity_forwarding', note: 'S9D1：落完断点后对齐阶段，与 markTaughtAndAdvance 同一刀；漏传 authStudentId 会让 token-only 请求在这一步 name_required' },
+  { key: `${F_LESSON} :: replaceKnownLessonWord -> words.resolveStudent`, klass: 'identity_resolution', expectAuth: true, note: '替换课程词前先确定令牌学生' },
+  { key: `${F_LESSON} :: replaceKnownLessonWord -> review.lessonCards`, klass: 'identity_forwarding', note: '替换后按同一身份刷新课程卡；幂等返回同样走这里' },
+  { key: `${F_LESSON} :: replaceKnownLessonWord -> translation.translate`, klass: 'non_identity', note: '只传备用词或文章原句，与学生身份无关' },
   { key: `${F_LESSON} :: classBoard -> getToday`, klass: 'resolved_id_only', note: '教师看板：姓名与 id 都取自库里那行，不在学生令牌链上' },
 
   // ── student-word ──
@@ -224,6 +227,7 @@ const MANIFEST: Entry[] = [
   { key: `${F_WORD} :: addWord -> resolveStudent`, klass: 'identity_resolution', expectAuth: true, note: '' },
   { key: `${F_WORD} :: addWord -> vocab.lookup`, klass: 'non_identity', note: '查词典，传的是单词不是人' },
   { key: `${F_WORD} :: removeWord -> resolveStudent`, klass: 'identity_resolution', expectAuth: true, note: '' },
+  { key: `${F_WORD} :: setWordState -> resolveStudent`, klass: 'identity_resolution', expectAuth: true, note: '' },
   { key: `${F_WORD} :: listWords -> resolveStudent`, klass: 'identity_resolution', expectAuth: true, note: '' },
 
   // ── vocab-review ──
@@ -335,11 +339,11 @@ describe('身份组合点：结构性清单（fail-closed）', () => {
 
   it('分类分布与阶段 5 的范围一致', () => {
     const count = (k: Klass) => MANIFEST.filter((e) => e.klass === k).length;
-    // 五个转发点：getToday→today、startOrResumeToday→today，曾经出过缺陷的
+    // 六个转发点：getToday→today、startOrResumeToday→today，曾经出过缺陷的
     // 那两处（markTaughtAndAdvance→startOrResumeToday、attempt.start→buildQuiz），
-    // 以及 S9D1 补的 saveVocabCursor→startOrResumeToday（复习路径的阶段对齐，
-    // 与教学路径同一刀）。范围外的九条只钉不改。
-    expect(count('identity_forwarding')).toBe(5);
+    // S9D1 的 saveVocabCursor→startOrResumeToday，以及课程换词后刷新卡片。
+    // 范围外的九条只钉不改。
+    expect(count('identity_forwarding')).toBe(6);
     expect(count('out_of_scope')).toBe(9);
     expect(count('identity_resolution')).toBeGreaterThanOrEqual(18);
   });

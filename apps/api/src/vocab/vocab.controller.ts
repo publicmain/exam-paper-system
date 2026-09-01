@@ -77,11 +77,14 @@ export class VocabController {
   @Public()
   @RateLimit({ limit: 240, windowSec: 60, scope: 'ip' })
   @Get('lookup')
-  async lookup(@Query('word') word?: string) {
+  async lookup(@Query('word') word?: string, @Query('contextSentence') contextSentence?: string) {
     const w = (word ?? '').trim();
     if (!w) throw new BadRequestException({ code: 'word_required' });
     if (w.length > 64) throw new BadRequestException({ code: 'word_too_long' });
-    const hit = await this.svc.lookup(w);
+    if (contextSentence && contextSentence.length > 500) {
+      throw new BadRequestException({ code: 'context_too_long' });
+    }
+    const hit = await this.svc.lookup(w, contextSentence);
     return hit ? { found: true as const, entry: hit } : { found: false as const, query: w };
   }
 
@@ -108,6 +111,7 @@ export class VocabController {
       studentId: z.string().optional(),
       word: z.string().min(1).max(64),
       contextSentence: z.string().max(500).optional(),
+      contextTranslation: z.string().max(500).optional(),
       sourcePaperQuestionId: z.string().optional(),
       sourcePassageTitle: z.string().max(200).optional(),
     });
@@ -130,6 +134,23 @@ export class VocabController {
     const p = schema.safeParse(body);
     if (!p.success) throw new BadRequestException(p.error.flatten());
     return this.words.removeWord({ ...p.data, ...identityOf(req, p.data.studentName, p.data.studentId) });
+  }
+
+  /** 在生词本里标为已掌握，或重新放回学习队列。 */
+  @Public()
+  @RateLimit({ limit: 120, windowSec: 60, scope: 'ip' })
+  @RequireStudentToken()
+  @Post('words/state')
+  async setWordState(@Req() req: Request, @Body() body: unknown) {
+    const schema = z.object({
+      studentName: z.string().min(1).max(50).optional(),
+      studentId: z.string().optional(),
+      headword: z.string().min(1).max(64),
+      state: z.enum(['known', 'learning']),
+    });
+    const p = schema.safeParse(body);
+    if (!p.success) throw new BadRequestException(p.error.flatten());
+    return this.words.setWordState({ ...p.data, ...identityOf(req, p.data.studentName, p.data.studentId) });
   }
   // ─────────────────── P3 间隔重复复习 ───────────────────
 

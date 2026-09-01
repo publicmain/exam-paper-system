@@ -338,7 +338,7 @@ export class VocabReviewService {
           contextTranslation: w.contextTranslation,
           sourcePassageTitle: w.sourcePassageTitle,
           phonetic: e?.phonetic ?? null,
-          translation: e?.translation ?? '',
+          translation: e?.translation ?? w.translationSnapshot ?? '',
           // P5 教学面用：词性 / 英文释义。字典里没有就是 null ——
           // **绝不编**，前端按 null 隐藏那一行。
           pos: e?.pos ?? null,
@@ -415,7 +415,7 @@ export class VocabReviewService {
           contextTranslation: w.contextTranslation,
           sourcePassageTitle: w.sourcePassageTitle,
           phonetic: e?.phonetic ?? null,
-          translation: e?.translation ?? '',
+          translation: e?.translation ?? w.translationSnapshot ?? '',
           pos: e?.pos ?? null,
           definition: e?.definition ?? null,
           tag: e?.tag ?? [],

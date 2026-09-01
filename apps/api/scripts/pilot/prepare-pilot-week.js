@@ -4,10 +4,10 @@
  * ## 一次只发一天，这是有原因的
  *
  * S12L 之后课程学词**只教不考**，而教学卡刻意不写 FSRS。于是周一教过的
- * 21 个词到了周二**仍然「到期」** —— 队列会变成 42 个、被 `COURSE_QUEUE_MAX`
+ * 12 个词到了周二**仍然「到期」** —— 队列会叠加、被 `COURSE_QUEUE_MAX`
  * 截到 30，周一的词被重教，「今天 21 个词」从周二开始就不成立了。
  *
- * 所以这个脚本按天跑：发某一天时，把**那一天**的 21 个词设成当天到期，
+ * 所以这个脚本按天跑：发某一天时，把**那一天**的 12 个主词设成当天到期，
  * 同时把**学生从没复习过的**往日试点词推到试点结束之后。
  *
  *   · 学生真的练过的词一个都不动 —— 那是 FSRS 自己的排期，比我们更懂；
@@ -61,6 +61,17 @@ const content = require('./content');
 const CONFIRMATION = 'S12M_PUBLISH_PILOT_WEEK';
 /** 这个脚本写的每一行都带它。 */
 const PREFIX = 'p1_';
+/** 每天真正教学、真正进入正式单词考试的固定数量。 */
+const DAILY_WORD_TARGET = 12;
+/** 同一篇文章里最多准备多少个可替换词。 */
+const RESERVE_WORD_TARGET = 12;
+
+const RESERVE_STOP_WORDS = new Set((
+  'about after again against almost along also among another around because before being below between both ' +
+  'could every first from have into itself more most other over same should some such than that their them ' +
+  'then there these they this those through under very were what when where which while will with would your ' +
+  'paragraph section question answer teacher school students people years today'
+).split(/\s+/));
 
 const EXPECTED_RAILWAY = {
   RAILWAY_PROJECT_ID: 'ed8c31c0-6499-4611-830a-64043189f7d0',
@@ -199,6 +210,53 @@ function deliveryIdsFor(level, dayIso, klass) {
 /** 一个学生的一个词的 id。 */
 function studentWordId(studentId, headword) {
   return `${PREFIX}w_${studentId}_${headword}`;
+}
+
+/**
+ * 一篇文章的「今日 12 词 + 同文备用词」。
+ *
+ * 内容包里多出来的人工词优先；不够时只从**当天这篇文章**挖词，绝不拿
+ * 别篇文章凑数。自动挖出的词等学生真正换到时才实时翻译。
+ */
+function lessonWordPlan(lesson) {
+  const primary = lesson.words.slice(0, DAILY_WORD_TARGET);
+  const blocked = new Set(primary.map((w) => w.headword.toLowerCase()));
+  const reserves = [];
+  for (const w of lesson.words.slice(DAILY_WORD_TARGET)) {
+    const key = w.headword.toLowerCase();
+    if (!blocked.has(key)) {
+      blocked.add(key);
+      reserves.push(w);
+    }
+  }
+
+  const sentences = String(lesson.passage || '')
+    .replace(/\bParagraph\s+\d+\s*/gi, '')
+    .split(/(?<=[.!?])\s+/)
+    .map((s) => s.trim())
+    .filter(Boolean);
+  const candidates = [];
+  const seen = new Set();
+  for (const sentence of sentences) {
+    for (const surfaceForm of sentence.match(/[A-Za-z][A-Za-z'’-]{4,}/g) || []) {
+      const headword = surfaceForm.toLowerCase().replace(/[’]/g, "'");
+      if (blocked.has(headword) || seen.has(headword) || RESERVE_STOP_WORDS.has(headword)) continue;
+      seen.add(headword);
+      candidates.push({
+        headword,
+        surfaceForm,
+        context: sentence.slice(0, 500),
+        contextTranslation: '',
+      });
+    }
+  }
+  candidates.sort((a, b) => b.headword.length - a.headword.length || a.headword.localeCompare(b.headword));
+  for (const w of candidates) {
+    if (reserves.length >= RESERVE_WORD_TARGET) break;
+    blocked.add(w.headword);
+    reserves.push(w);
+  }
+  return { primary, reserves: reserves.slice(0, RESERVE_WORD_TARGET) };
 }
 
 /** 每一个 id 都必须带前缀 —— 漏一个就是一行没有归属的数据。 */
@@ -393,12 +451,14 @@ async function upsertLesson(tx, level, dayIso, report) {
     ...lesson.questions.map((_, i) => ids.paperQuestionId(i + 1)),
   ]);
 
+  const wordPlan = lessonWordPlan(lesson);
   const paperConfig = {
     mode: 'passage_pick',
     passageTitle: lesson.title,
     pilotWeek: 'W1',
     level,
-    lessonWords: lesson.words,
+    lessonWords: wordPlan.primary,
+    lessonWordReserves: wordPlan.reserves,
   };
   await tx.paper.upsert({
     where: { id: ids.paperId },
@@ -528,7 +588,7 @@ async function upsertLesson(tx, level, dayIso, report) {
  * 给一个学生排今天的词。
  *
  * 三件事，顺序有意义：
- *   ① 今天这一档的 21 个词：没有就建，有就把 `due` 拉回今天；
+ *   ① 今天这一档的 12 个主词：没有就建，有就把 `due` 拉回今天；
  *   ② 往日的试点词：**只有学生从没复习过的**才推到试点结束之后；
  *   ③ 学生自己的词（查词加入、答错收录）**一个都不碰**。
  */
@@ -539,9 +599,10 @@ async function scheduleWordsFor(tx, student, dayIso, report) {
     return;
   }
   const dueAt = sgtInstant(dayIso, '00:05:00');
-  const todayHeads = new Set(lesson.words.map((w) => w.headword));
+  const { primary } = lessonWordPlan(lesson);
+  const todayHeads = new Set(primary.map((w) => w.headword));
 
-  for (const w of lesson.words) {
+  for (const w of primary) {
     const id = studentWordId(student.id, w.headword);
     assertPrefixed([id]);
     const existing = await tx.studentWord.findUnique({
@@ -773,6 +834,8 @@ module.exports = {
   REGISTRATION_CLASSES,
   ALL_CLASSES,
   QA_STUDENT,
+  DAILY_WORD_TARGET,
+  RESERVE_WORD_TARGET,
   PARK_UNTIL,
   PilotError,
   writeScopes,
@@ -782,6 +845,7 @@ module.exports = {
   idsFor,
   deliveryIdsFor,
   studentWordId,
+  lessonWordPlan,
   assertPrefixed,
   assertEnvGates,
   parseDay,

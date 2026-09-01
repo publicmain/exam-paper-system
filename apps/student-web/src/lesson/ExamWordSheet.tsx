@@ -154,7 +154,7 @@ export function ExamWordSheet({
   const gen = useRef(0);
   const saving = useRef(false);
   /** 待重发的写入体 —— 重试原样重发，不重新组装。 */
-  const pendingAdd = useRef<{ word: string; contextSentence?: string; sourcePassageTitle?: string } | null>(null);
+  const pendingAdd = useRef<{ word: string; contextSentence?: string; contextTranslation?: string; sourcePassageTitle?: string } | null>(null);
 
   /** 记进生词本。考试中查的词就是真正卡住学生的词，也正是他该背的。 */
   const sendAdd = useCallback(async (mine: number) => {
@@ -188,7 +188,7 @@ export function ExamWordSheet({
       setSave({ s: 'idle' });
       pendingAdd.current = null;
       try {
-        const r = await api.vocabLookup(token, w);
+        const r = await api.vocabLookup(token, w, contextSentence);
         if (mine !== gen.current) return;
         if (!r || r.found !== true || !r.entry) {
           setPhase({ s: 'notFound' });
@@ -199,6 +199,7 @@ export function ExamWordSheet({
         pendingAdd.current = {
           word: w,
           ...(contextSentence ? { contextSentence } : {}),
+          ...(r.entry.contextTranslation ? { contextTranslation: r.entry.contextTranslation } : {}),
           ...(passageTitle ? { sourcePassageTitle: passageTitle } : {}),
         };
         void sendAdd(mine);
@@ -253,6 +254,11 @@ export function ExamWordSheet({
           {contextSentence ? (
             <p data-testid="word-sheet-sentence" className="text-[15px] text-gray-600 leading-relaxed mb-3 font-serif">
               {highlightWord(contextSentence, word)}
+            </p>
+          ) : null}
+          {phase.s === 'ok' && phase.entry.contextTranslation ? (
+            <p data-testid="word-sheet-sentence-translation" className="-mt-1 mb-3 text-[14px] text-gray-500 leading-relaxed">
+              句意：{phase.entry.contextTranslation}
             </p>
           ) : null}
 

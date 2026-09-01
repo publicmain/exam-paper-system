@@ -118,6 +118,7 @@ const lessonToday = {
 let wordsReply: () => Promise<Response>;
 let statsReply: () => Promise<Response>;
 let removeReply: () => Promise<Response>;
+let stateReply: () => Promise<Response>;
 
 function installFetch() {
   reqs = [];
@@ -135,6 +136,7 @@ function installFetch() {
     if (path === '/vocab/words') return wordsReply();
     if (path === '/vocab/stats') return statsReply();
     if (path === '/vocab/words/remove') return removeReply();
+    if (path === '/vocab/words/state') return stateReply();
     return jsonResponse(404, { code: 'not_stubbed', path: full });
   });
   vi.stubGlobal('fetch', fetchMock);
@@ -179,6 +181,7 @@ beforeEach(() => {
   wordsReply = () => jsonResponse(200, words());
   statsReply = () => jsonResponse(200, stats());
   removeReply = () => jsonResponse(200, { deleted: 1 });
+  stateReply = () => jsonResponse(200, { updated: true, headword: 'ferry', state: 'known', due: '2100-01-01T00:00:00.000Z' });
   installFetch();
 });
 
@@ -505,6 +508,35 @@ describe('AC-04 移出生词本', () => {
     await click(screen.getByTestId('confirm-remove-ferry'));
     expect(readToken()).toBeNull();
     expect(at()).toBe(ROUTES.login);
+  });
+});
+
+describe('成熟生词本：掌握状态与长列表', () => {
+  it('“我已经会了”只发送 headword + state，成功后重新取权威词表', async () => {
+    mount();
+    await settle();
+    reqs = [];
+    wordsReply = () => jsonResponse(200, words([word({ state: 'known', due: '2100-01-01T00:00:00.000Z' })]));
+    await click(screen.getByTestId('state-ferry'));
+
+    expect(calls('/vocab/words/state')).toHaveLength(1);
+    expect(JSON.parse(calls('/vocab/words/state')[0].body!)).toEqual({ headword: 'ferry', state: 'known' });
+    expect(calls('/vocab/words')).toHaveLength(1);
+    expect(screen.getByTestId('word-state-ferry').textContent).toContain('已掌握');
+    expect(screen.getByTestId('state-ferry').textContent).toContain('重新学习');
+  });
+
+  it('长列表先显示 20 个，学生需要时再展开下一批', async () => {
+    const rows = Array.from({ length: 21 }, (_, i) => word({
+      headword: `word${String(i).padStart(2, '0')}`,
+      createdAt: new Date(Date.UTC(2026, 7, 1, 0, i)).toISOString(),
+    }));
+    wordsReply = () => jsonResponse(200, words(rows));
+    mount();
+    await settle();
+    expect(screen.getAllByTestId(/^word-row-/)).toHaveLength(20);
+    await click(screen.getByTestId('vocab-show-more'));
+    expect(screen.getAllByTestId(/^word-row-/)).toHaveLength(21);
   });
 });
 

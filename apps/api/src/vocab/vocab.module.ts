@@ -9,10 +9,11 @@ import { PageViewService } from './page-view.service';
 import { VocabReviewService } from './vocab-review.service';
 import { VocabService } from './vocab.service';
 import { VocabTeacherService } from './vocab-teacher.service';
+import { RealtimeTranslationService } from './realtime-translation.service';
 
 @Module({
   controllers: [VocabController],
-  providers: [PrismaService, VocabService, StudentWordService, VocabReviewService, VocabQuizService, VocabQuizAttemptService, VocabTeacherService, MistakeService, PageViewService],
-  exports: [VocabService, StudentWordService, VocabReviewService, VocabQuizService, VocabQuizAttemptService, VocabTeacherService, MistakeService, PageViewService],
+  providers: [PrismaService, RealtimeTranslationService, VocabService, StudentWordService, VocabReviewService, VocabQuizService, VocabQuizAttemptService, VocabTeacherService, MistakeService, PageViewService],
+  exports: [RealtimeTranslationService, VocabService, StudentWordService, VocabReviewService, VocabQuizService, VocabQuizAttemptService, VocabTeacherService, MistakeService, PageViewService],
 })
 export class VocabModule {}

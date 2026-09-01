@@ -463,6 +463,7 @@ describe('G1 新端不得出现旧路由与旧身份键', () => {
     '/vocab/review',
     '/vocab/review/undo',
     '/lesson/vocab-cursor',
+    '/lesson/vocab-replace',
     // 阶段 9B1：正式单词测试。三条都是**认证后**端点 —— 零身份参数，
     // 请求体分别是 {} / {index, optionIndex|text} / {}。
     '/vocab/quiz/attempt/start',
@@ -484,6 +485,7 @@ describe('G1 新端不得出现旧路由与旧身份键', () => {
     // 两者分开列，就是要让「把自测接到正式测试上」这件事写不出来。
     '/vocab/words',
     '/vocab/words/remove',
+    '/vocab/words/state',
     '/vocab/stats',
     '/vocab/due',
     '/vocab/quiz',
@@ -1213,7 +1215,7 @@ describe('G-9A 课程学词只走课程线', () => {
   // S12L —— 课程学词只教不测，`vocabReview` / `vocabReviewUndo` 这两个写
   // 端点整个从这一面移走了（主动回忆搬去了自由复习 `/vocab/practice`）。
   // 少两个是**变严**：课程内现在一条 FSRS 都写不出去。
-  it('**只调这五个课程端点**，一个都不多', () => {
+  it('**只调这六个课程端点**，一个都不多', () => {
     const called = new Set<string>();
     for (const { text } of readSurface()) {
       for (const m of text.matchAll(/\bapi\.(\w+)\s*\(/g)) called.add(m[1]);
@@ -1222,6 +1224,7 @@ describe('G-9A 课程学词只走课程线', () => {
       'lessonCards',
       'lessonToday',
       'vocabCursor',
+      'vocabReplace',
       // `vocabReview` 只剩**补传队列**那一处（`review-queue.ts`）：把上一个
       // 版本或另一台设备留下的评分补上去。页面本身一次都不调 —— 下面
       // 那条单独钉住它。
@@ -1642,7 +1645,7 @@ describe('G-12A 生词本与自由练习只走自己那条线', () => {
       [...stripComments(fs.readFileSync(path.join(SRC, 'pages', file), 'utf8'))
         .matchAll(/\bapi\.(\w+)\s*\(/g)].map((m) => m[1]).sort();
     expect([...new Set(called('VocabBook.tsx'))]).toEqual([
-      'vocabStats', 'vocabWordRemove', 'vocabWords',
+      'vocabStats', 'vocabWordRemove', 'vocabWordState', 'vocabWords',
     ]);
     expect([...new Set(called('VocabPractice.tsx'))]).toEqual([
       'vocabDue', 'vocabPracticeReview', 'vocabReviewUndo',

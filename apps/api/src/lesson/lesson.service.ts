@@ -1,4 +1,4 @@
-import { Injectable, Logger, BadRequestException, NotFoundException } from '@nestjs/common';
+import { Injectable, Logger, BadRequestException, NotFoundException, Optional } from '@nestjs/common';
 import { PrismaService } from '../common/prisma.service';
 import { StudentWordService } from '../vocab/student-word.service';
 import { normalizeWord } from '../vocab/vocab.service';
@@ -28,6 +28,7 @@ import {
   streakFromDays,
 } from '../vocab/vocab-review.service';
 import { MistakeService } from '../vocab/mistake.service';
+import { RealtimeTranslationService } from '../vocab/realtime-translation.service';
 import {
   LESSON_RULES_VERSION,
   type LessonSegments,
@@ -104,6 +105,40 @@ export function lessonWordsFromConfig(config: unknown): Array<{
   return out;
 }
 
+/**
+ * 当天教学词的有序备用池。
+ *
+ * 主队列与备用池刻意分开：`lessonWords` 是默认要学、要考的词，
+ * `lessonWordReserves` 只有在学生明确说「这个词我已经会了」时才会补位。
+ * 两边使用同一份教学卡元数据。旧内容已经带句意就直接用；由文章自动
+ * 挖出的备用词可以先不带句意，学生真正换到它时再走实时翻译。
+ */
+export function lessonWordReservesFromConfig(config: unknown): Array<{
+  headword: string;
+  surfaceForm: string;
+  context: string;
+  contextTranslation: string;
+}> {
+  if (!config || typeof config !== 'object') return [];
+  const raw = (config as any).lessonWordReserves;
+  if (!Array.isArray(raw)) return [];
+  const seen = new Set<string>();
+  const out: Array<{ headword: string; surfaceForm: string; context: string; contextTranslation: string }> = [];
+  for (const item of raw) {
+    if (!item || typeof item !== 'object') continue;
+    const headword = normalizeWord(String((item as any).headword ?? ''));
+    if (!headword || seen.has(headword)) continue;
+    const surfaceForm = String((item as any).surfaceForm ?? headword).trim() || headword;
+    const context = String((item as any).context ?? '').trim();
+    const contextTranslation = String((item as any).contextTranslation ?? '').trim();
+    if (!context) continue;
+    seen.add(headword);
+    out.push({ headword, surfaceForm, context, contextTranslation });
+    if (out.length >= COURSE_QUEUE_MAX) break;
+  }
+  return out;
+}
+
 @Injectable()
 export class LessonService {
   private readonly logger = new Logger('Lesson');
@@ -113,6 +148,7 @@ export class LessonService {
     private readonly words: StudentWordService,
     private readonly review: VocabReviewService,
     private readonly mistakes: MistakeService,
+    @Optional() private readonly translation: RealtimeTranslationService = new RealtimeTranslationService(),
   ) {}
 
   /**
@@ -694,6 +730,7 @@ export class LessonService {
         autoFinalizeReason: null as string | null,
         sessionId: null as string | null,
         lessonWords: [] as Array<{ headword: string; surfaceForm: string; context: string; contextTranslation: string }>,
+        lessonWordReserves: [] as Array<{ headword: string; surfaceForm: string; context: string; contextTranslation: string }>,
       };
     }
 
@@ -768,6 +805,7 @@ export class LessonService {
       // 才有的逐题详情」链接，没开始的学生在课程页上找不到入口）
       sessionId: session.id,
       lessonWords: lessonWordsFromConfig(session.paperAssignment!.paper?.config),
+      lessonWordReserves: lessonWordReservesFromConfig(session.paperAssignment!.paper?.config),
       paperName: readablePaperTitle(session.paperAssignment!.paper?.name),
       questionCount: session.paperAssignment!.paper?._count.questions ?? 0,
       score: sub?.totalScore ?? null,
@@ -1188,6 +1226,166 @@ export class LessonService {
       alreadyTaught: result.alreadyTaught,
       stage: t.stage,
     };
+  }
+
+  /**
+   * 学生明确确认「这个词我已经会了」后，原位换入一个备用词。
+   *
+   * 旧词从当天任务队列移出，新词在同一位置补入，cursor 与 target 均不变。
+   * 因为正式测试只认 `DailyLessonCompletion.vocabWords`，所以这次事务也
+   * 同时决定了考试范围：旧词不考，新词在学生点「下一个」完成教学后才考。
+   */
+  async replaceKnownLessonWord(input: {
+    studentName: string;
+    studentId?: string;
+    authStudentId?: string;
+    headword: string;
+    cursor: number;
+  }) {
+    const student = await this.words.resolveStudent(input.studentName, input.studentId, input.authStudentId);
+    const headword = normalizeWord(input.headword);
+    const cursor = Number.isFinite(input.cursor) ? Math.max(0, Math.floor(input.cursor)) : -1;
+    if (!headword || cursor < 0) throw new BadRequestException({ code: 'invalid_vocab_replacement' });
+
+    const user = await this.prisma.user.findUnique({
+      where: { id: student.id },
+      select: { englishLevel: true },
+    });
+    const day = this.sgtDayStart(new Date());
+    const readNow = await this.readState(student.id, day, user?.englishLevel ?? null);
+    const reserves = readNow.lessonWordReserves;
+
+    // 先在事务外挑候选并补句意，绝不把外部翻译请求关在数据库事务里。
+    const before = await this.prisma.dailyLessonCompletion.findUnique({
+      where: { studentId_date: { studentId: student.id, date: day } },
+      select: { id: true, stage: true, vocabWords: true, vocabCursor: true },
+    });
+    if (!before || before.stage !== 'vocab_learn' || !Array.isArray(before.vocabWords)) {
+      throw new BadRequestException({ code: 'vocab_replacement_closed' });
+    }
+    const beforeQueue = (before.vocabWords as string[]).map((w) => normalizeWord(String(w))).filter(Boolean);
+    if (cursor !== before.vocabCursor) {
+      throw new BadRequestException({ code: 'vocab_replacement_stale_cursor' });
+    }
+
+    // 弱网重发：第一次已经替换成功。直接回当前卡，不消耗第二个备用词。
+    if (beforeQueue[cursor] !== headword) {
+      const old = await this.prisma.studentWord.findUnique({
+        where: { studentId_headword: { studentId: student.id, headword } },
+        select: { state: true },
+      });
+      if (old?.state === 'known' && beforeQueue[cursor]) {
+        const refreshed = await this.review.lessonCards({
+          studentName: input.studentName,
+          studentId: input.studentId,
+          authStudentId: input.authStudentId,
+        });
+        if (!refreshed) throw new BadRequestException({ code: 'vocab_replacement_refresh_failed' });
+        return {
+          ok: true as const,
+          oldHeadword: headword,
+          replacementHeadword: beforeQueue[cursor],
+          alreadyReplaced: true,
+          ...refreshed,
+        };
+      }
+      throw new BadRequestException({ code: 'vocab_replacement_wrong_card' });
+    }
+
+    const knownBefore = await this.prisma.studentWord.findMany({
+      where: { studentId: student.id, state: 'known' },
+      select: { headword: true },
+    });
+    const blockedBefore = new Set([...beforeQueue, ...knownBefore.map((w) => normalizeWord(w.headword))]);
+    const rawReplacement = reserves.find((w) => !blockedBefore.has(w.headword));
+    if (!rawReplacement) throw new BadRequestException({ code: 'vocab_replacement_unavailable' });
+    const dict = await this.prisma.dictEntry.findUnique({
+      where: { word: rawReplacement.headword },
+      select: { word: true, translation: true },
+    });
+    const [translatedWord, translatedContext] = await Promise.all([
+      dict?.translation ? Promise.resolve(dict.translation) : this.translation.translate(rawReplacement.headword),
+      rawReplacement.contextTranslation
+        ? Promise.resolve(rawReplacement.contextTranslation)
+        : this.translation.translate(rawReplacement.context),
+    ]);
+    if (!translatedWord || !translatedContext) {
+      throw new BadRequestException({ code: 'vocab_replacement_translation_unavailable' });
+    }
+    const replacement = { ...rawReplacement, translation: translatedWord, contextTranslation: translatedContext };
+
+    const outcome = await this.prisma.$transaction(async (tx) => {
+      const dlc = await tx.dailyLessonCompletion.findUnique({
+        where: { studentId_date: { studentId: student.id, date: day } },
+        select: { id: true, stage: true, vocabWords: true, vocabCursor: true },
+      });
+      if (!dlc || dlc.stage !== 'vocab_learn' || !Array.isArray(dlc.vocabWords)) {
+        throw new BadRequestException({ code: 'vocab_replacement_closed' });
+      }
+      const queue = (dlc.vocabWords as string[]).map((w) => normalizeWord(String(w))).filter(Boolean);
+      if (cursor !== dlc.vocabCursor) {
+        throw new BadRequestException({ code: 'vocab_replacement_stale_cursor' });
+      }
+
+      // 弱网重发：第一次已经把这个位置换掉了。返回现有结果，不再消耗
+      // 第二个备用词。
+      if (queue[cursor] !== headword) {
+        const old = await tx.studentWord.findUnique({
+          where: { studentId_headword: { studentId: student.id, headword } },
+          select: { state: true },
+        });
+        if (old?.state === 'known' && queue[cursor]) {
+          return { oldHeadword: headword, replacementHeadword: queue[cursor], alreadyReplaced: true };
+        }
+        throw new BadRequestException({ code: 'vocab_replacement_wrong_card' });
+      }
+
+      // 候选是在事务外选的；进事务后必须重新确认它没被另一标签页占掉。
+      const collision = await tx.studentWord.findUnique({
+        where: { studentId_headword: { studentId: student.id, headword: replacement.headword } },
+        select: { state: true },
+      });
+      if (queue.includes(replacement.headword) || collision?.state === 'known') {
+        throw new BadRequestException({ code: 'vocab_replacement_conflict_retry' });
+      }
+
+      const marked = await tx.studentWord.updateMany({
+        where: { studentId: student.id, headword },
+        data: { state: 'known' },
+      });
+      if (marked.count !== 1) throw new BadRequestException({ code: 'word_not_in_notebook' });
+      await tx.studentWord.upsert({
+        where: { studentId_headword: { studentId: student.id, headword: replacement.headword } },
+        update: {},
+        create: {
+          studentId: student.id,
+          headword: replacement.headword,
+          surfaceForm: replacement.surfaceForm,
+          sourceType: 'teacher_push',
+          sourcePassageTitle: readNow.paperName,
+          contextSentence: replacement.context,
+          contextTranslation: replacement.contextTranslation,
+          translationSnapshot: dict ? '' : replacement.translation.slice(0, 1000),
+          state: 'new',
+          due: new Date(),
+        },
+      });
+      const next = [...queue];
+      next[cursor] = replacement.headword;
+      await tx.dailyLessonCompletion.update({
+        where: { id: dlc.id },
+        data: { vocabWords: next as any },
+      });
+      return { oldHeadword: headword, replacementHeadword: replacement.headword, alreadyReplaced: false };
+    });
+
+    const refreshed = await this.review.lessonCards({
+      studentName: input.studentName,
+      studentId: input.studentId,
+      authStudentId: input.authStudentId,
+    });
+    if (!refreshed) throw new BadRequestException({ code: 'vocab_replacement_refresh_failed' });
+    return { ok: true as const, ...outcome, ...refreshed };
   }
 
   /**

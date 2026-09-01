@@ -155,6 +155,22 @@ beforeEach(() => {
         stage: 'vocab_learn',
       },
     }),
+    '/api/lesson/vocab-replace': () => ({
+      body: {
+        ok: true,
+        oldHeadword: 'delta',
+        replacementHeadword: 'estuary',
+        alreadyReplaced: false,
+        lessonContext: true,
+        cursor: 0,
+        totalDue: 3,
+        cards: [
+          card({ headword: 'estuary', surfaceForm: 'estuary', translation: '河口', contextSentence: 'An estuary meets the sea.', contextTranslation: '河口与海洋相接。' }),
+          card(),
+          card({ headword: 'silt', surfaceForm: 'silt', translation: '淤泥', contextSentence: 'The silt makes soil rich.' }),
+        ],
+      },
+    }),
     '/api/vocab/review/undo': () => ({ body: { headword: 'nile', undone: true, reps: 1, state: 'review' } }),
     '/api/vocab/review': () => ({ body: { headword: 'nile', state: 'review', due: 'd', intervalDays: 4, reps: 3 } }),
     '/api/lesson/vocab-cursor': ({ init }) => ({
@@ -363,7 +379,7 @@ describe('AC-05 首次教学卡', () => {
     expect(screen.getByTestId('source').textContent).toContain('Rivers of Africa');
   });
 
-  it('**不藏词、不让猜、没有评分、没有跳过**', async () => {
+  it('**不藏词、不让猜、没有评分、没有无记录跳过**', async () => {
     mount();
     await settle();
     expect(screen.queryByTestId('reveal')).toBeNull();
@@ -371,6 +387,7 @@ describe('AC-05 首次教学卡', () => {
     expect(screen.queryByTestId('rate-good')).toBeNull();
     expect(screen.queryByTestId('skip')).toBeNull();
     expect(screen.getByTestId('teaching-card').textContent).not.toContain('跳过');
+    expect(screen.getByTestId('replace-known').textContent).toContain('这个词我已经会了');
   });
 
   it('可选字段缺了也不崩', async () => {
@@ -451,6 +468,50 @@ describe('AC-05 首次教学卡', () => {
     fireEvent.click(screen.getByTestId('taught-next'));
     await settle();
     expect(screen.getByTestId('complete')).toBeInTheDocument();
+  });
+
+  it('**会了就换一个**：原位换卡、分母不变、断点不前进', async () => {
+    mount();
+    await settle();
+    fireEvent.click(screen.getByTestId('replace-known'));
+    await settle();
+    const callsMade = calls('/lesson/vocab-replace');
+    expect(callsMade).toHaveLength(1);
+    expect(bodyOf(callsMade[0])).toEqual({ headword: 'delta', cursor: 0 });
+    expect(screen.getByTestId('headword').textContent).toBe('estuary');
+    expect(screen.getByTestId('context-translation').textContent).toContain('河口与海洋相接');
+    expect(screen.getByTestId('progress').textContent).toBe('0 / 3');
+    expect(screen.getByTestId('replacement-notice').textContent).toContain('仍然学习 3 个词');
+    expect(calls('/lesson/vocab-taught')).toHaveLength(0);
+  });
+
+  it('换词**连点两下只发一个请求**', async () => {
+    let resolve!: (v: unknown) => void;
+    routes['/api/lesson/vocab-replace'] = () => ({
+      body: new Promise((r) => { resolve = r; }),
+    } as unknown as Reply);
+    // 用 fetch 层的手动 Promise 不便包成 Response body；这里让首个请求永不
+    // 结束也足够验证同步闸门，同一帧第二次点击不会再发请求。
+    routes['/api/lesson/vocab-replace'] = () => new Error('held');
+    mount();
+    await settle();
+    const btn = screen.getByTestId('replace-known');
+    fireEvent.click(btn);
+    fireEvent.click(btn);
+    await settle();
+    expect(calls('/lesson/vocab-replace')).toHaveLength(1);
+    void resolve;
+  });
+
+  it('没有备用词时停在原卡，并把原因说清楚', async () => {
+    routes['/api/lesson/vocab-replace'] = () => ({ status: 400, body: { code: 'vocab_replacement_unavailable' } });
+    mount();
+    await settle();
+    fireEvent.click(screen.getByTestId('replace-known'));
+    await settle();
+    expect(screen.getByTestId('headword').textContent).toBe('delta');
+    expect(screen.getByTestId('progress').textContent).toBe('0 / 3');
+    expect(screen.getByTestId('step-error').textContent).toContain('没有合适的新词');
   });
 });
 

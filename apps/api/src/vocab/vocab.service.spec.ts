@@ -169,4 +169,25 @@ describe('VocabService.lookup', () => {
       via: 'lemma',
     });
   });
+
+  it('本地词典查不到时调用实时翻译兜底', async () => {
+    const prisma = { dictEntry: { findMany: async () => [] } };
+    const realtime = { translate: async (text: string) => text === 'unmapped' ? '未映射的' : null };
+    const svc = new VocabService(prisma as any, realtime as any);
+    await expect(svc.lookup('unmapped')).resolves.toMatchObject({
+      word: 'unmapped',
+      translation: '未映射的',
+      via: 'remote',
+    });
+  });
+
+  it('本地词义零等待，只有原句调用实时翻译', async () => {
+    const prisma = { dictEntry: { findMany: async () => [row] } };
+    const seen: string[] = [];
+    const realtime = { translate: async (text: string) => { seen.push(text); return '我撞到了桌子。'; } };
+    const svc = new VocabService(prisma as any, realtime as any);
+    const out = await svc.lookup('bump', 'I bumped the table.');
+    expect(out).toMatchObject({ translation: 'v. 碰，撞', contextTranslation: '我撞到了桌子。' });
+    expect(seen).toEqual(['I bumped the table.']);
+  });
 });

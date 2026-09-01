@@ -11,7 +11,8 @@ import { VocabService, normalizeWord } from './vocab.service';
  * studentId 消歧），学生不需要登录。所有写操作都必须先把姓名解析成
  * 唯一学生，解析不出来就拒绝 —— 绝不允许凭姓名字符串直接写库。
  *
- * 铁律：本服务不调用任何 LLM。释义来自 DictEntry（本地词典）。
+ * 释义先来自 DictEntry；查不到时由 VocabService 的实时翻译兜底。远程词义
+ * 只存进学生自己的卡片快照，不另建一套公共翻译库。
  */
 @Injectable()
 export class StudentWordService {
@@ -84,6 +85,7 @@ export class StudentWordService {
     authStudentId?: string;
     word: string;
     contextSentence?: string;
+    contextTranslation?: string;
     sourcePaperQuestionId?: string;
     sourcePassageTitle?: string;
   }) {
@@ -104,6 +106,8 @@ export class StudentWordService {
         surfaceForm: normalizeWord(input.word),
         sourceType: 'click',
         contextSentence: (input.contextSentence ?? '').slice(0, 500),
+        contextTranslation: (input.contextTranslation ?? '').slice(0, 500),
+        translationSnapshot: hit.via === 'remote' ? hit.translation.slice(0, 1000) : '',
         sourcePaperQuestionId: input.sourcePaperQuestionId ?? null,
         sourcePassageTitle: input.sourcePassageTitle ?? null,
       },
@@ -118,6 +122,27 @@ export class StudentWordService {
       where: { studentId: student.id, headword: normalizeWord(input.headword) },
     });
     return { deleted: res.count };
+  }
+
+  /** 学生自己确认「已掌握」或「重新学习」。只改自己的卡。 */
+  async setWordState(input: {
+    studentName: string;
+    studentId?: string;
+    authStudentId?: string;
+    headword: string;
+    state: 'known' | 'learning';
+  }) {
+    const student = await this.resolveStudent(input.studentName, input.studentId, input.authStudentId);
+    const headword = normalizeWord(input.headword);
+    const due = input.state === 'known'
+      ? new Date('2100-01-01T00:00:00.000Z')
+      : new Date();
+    const updated = await this.prisma.studentWord.updateMany({
+      where: { studentId: student.id, headword },
+      data: { state: input.state, due },
+    });
+    if (updated.count !== 1) throw new NotFoundException({ code: 'word_not_found' });
+    return { updated: true as const, headword, state: input.state, due: due.toISOString() };
   }
 
   /** 我的生词本（带词典释义）。 */
@@ -155,7 +180,7 @@ export class StudentWordService {
           due: w.due.toISOString(),
           createdAt: w.createdAt.toISOString(),
           phonetic: e?.phonetic ?? null,
-          translation: e?.translation ?? '',
+          translation: e?.translation ?? w.translationSnapshot ?? '',
           tag: e?.tag ?? [],
         };
       }),

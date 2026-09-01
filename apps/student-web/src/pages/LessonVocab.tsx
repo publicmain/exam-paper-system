@@ -40,7 +40,7 @@
  */
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { api, type LessonCard } from '../lib/api';
+import { ApiError, api, type LessonCard } from '../lib/api';
 import { handleAuthFailure } from '../lib/auth-store';
 import { readToken } from '../lib/identity';
 import { advanceCursor, clampCursor } from '../lib/vocab-card';
@@ -56,7 +56,7 @@ type Phase =
   | { s: 'error' }
   | { s: 'ready'; cards: LessonCard[] };
 
-type Busy = null | 'teach' | 'sync';
+type Busy = null | 'teach' | 'replace' | 'sync';
 
 export default function LessonVocabPage() {
   const navigate = useNavigate();
@@ -65,6 +65,7 @@ export default function LessonVocabPage() {
   const [busy, setBusy] = useState<Busy>(null);
   const [stepError, setStepError] = useState<string | null>(null);
   const [pending, setPending] = useState(0);
+  const [replacementNotice, setReplacementNotice] = useState<string | null>(null);
 
   /**
    * 同步闸门。`busy` 是 React 状态，同一帧里连点两下时第二下看到的还是
@@ -109,6 +110,7 @@ export default function LessonVocabPage() {
       setPhase({ s: 'ready', cards: res.cards });
       setCursor(clampCursor(res.cursor, res.cards.length));
       setStepError(null);
+      setReplacementNotice(null);
       syncPending();
     } catch (e) {
       if (handleAuthFailure(e)) return;
@@ -171,6 +173,36 @@ export default function LessonVocabPage() {
       release();
     }
   }, [card, cursor, goNext]);
+
+  // ── 「这个词我会了」：不推进，只在同一位置换一张完整的新卡 ──
+  const onReplace = useCallback(async () => {
+    const token = readToken();
+    if (!card || !token || !gate('replace')) return;
+    setStepError(null);
+    setReplacementNotice(null);
+    try {
+      const res = await api.vocabReplace(token, { headword: card.headword, cursor });
+      if (!res.lessonContext || !Array.isArray(res.cards) || res.cards.length !== total) {
+        setStepError('新单词没有完整换进来，请再试一次。');
+        return;
+      }
+      setPhase({ s: 'ready', cards: res.cards });
+      setCursor(clampCursor(res.cursor, res.cards.length));
+      setReplacementNotice(`已换成 ${res.replacementHeadword}，今天仍然学习 ${res.cards.length} 个词。`);
+    } catch (e) {
+      if (handleAuthFailure(e)) return;
+      if (e instanceof ApiError && e.body.code === 'vocab_replacement_unavailable') {
+        setStepError('这篇文章暂时没有合适的新词可以替换。你可以继续看这个词，或稍后再学。');
+      } else if (e instanceof ApiError && e.body.code === 'vocab_replacement_stale_cursor') {
+        setStepError('另一台设备已经更新了进度，正在重新载入。');
+        void load();
+      } else {
+        setStepError('没能换词 —— 网络不太好，再点一次。');
+      }
+    } finally {
+      release();
+    }
+  }, [card, cursor, load, total]);
 
   // S12L —— 课程内的**评分与撤销已经移走**（见文件头）。主动回忆现在只
   // 发生在自由复习 `/vocab/practice`；那里的评分、撤销、弱网补传一条
@@ -308,7 +340,18 @@ export default function LessonVocabPage() {
         文件里但课程内走不到（弱网补传队列还要用 `onRate` 的那条路）。
         恢复时把这一行改回条件分支即可。
       */}
-      <TeachingCard card={card} busy={busy} onNext={() => void onTaught()} />
+      <TeachingCard
+        card={card}
+        busy={busy}
+        onNext={() => void onTaught()}
+        onReplace={() => void onReplace()}
+      />
+
+      {replacementNotice && (
+        <p role="status" data-testid="replacement-notice" className="mt-3 text-sm text-emerald-800 bg-emerald-50 rounded-xl px-3 py-2">
+          {replacementNotice}
+        </p>
+      )}
 
       {stepError && (
         <p role="alert" data-testid="step-error" className="mt-3 text-sm text-rose-700">
@@ -366,10 +409,12 @@ function TeachingCard({
   card,
   busy,
   onNext,
+  onReplace,
 }: {
   card: LessonCard;
   busy: Busy;
   onNext: () => void;
+  onReplace: () => void;
 }) {
   return (
     <section
@@ -421,6 +466,15 @@ function TeachingCard({
         className="app-primary mt-6 w-full py-3 text-base disabled:bg-slate-300 disabled:shadow-none"
       >
         {busy === 'teach' ? '保存中…' : '下一个'}
+      </button>
+      <button
+        type="button"
+        data-testid="replace-known"
+        disabled={busy != null}
+        onClick={onReplace}
+        className="mt-3 w-full min-h-[44px] rounded-xl border border-slate-300 bg-white py-3 text-sm font-medium text-slate-700 disabled:text-slate-400"
+      >
+        {busy === 'replace' ? '正在换一个…' : '这个词我已经会了，换一个'}
       </button>
     </section>
   );

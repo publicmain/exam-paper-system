@@ -24,6 +24,8 @@ const {
   REGISTRATION_CLASSES,
   ALL_CLASSES,
   QA_STUDENT,
+  DAILY_WORD_TARGET,
+  RESERVE_WORD_TARGET,
   PilotError,
   writeScopes,
   neverTouched,
@@ -32,6 +34,7 @@ const {
   idsFor,
   deliveryIdsFor,
   studentWordId,
+  lessonWordPlan,
   assertPrefixed,
   assertEnvGates,
   parseDay,
@@ -46,6 +49,8 @@ const {
   REGISTRATION_CLASSES: Array<{ id: string; name: string; classCode: string }>;
   ALL_CLASSES: Array<{ id: string; name: string; classCode: string }>;
   QA_STUDENT: { id: string; name: string; level: string };
+  DAILY_WORD_TARGET: number;
+  RESERVE_WORD_TARGET: number;
   PilotError: new (m: string) => Error;
   writeScopes: () => Array<{ table: string; kind: string }>;
   neverTouched: () => string[];
@@ -63,6 +68,10 @@ const {
     sessionId: string;
   };
   studentWordId: (s: string, h: string) => string;
+  lessonWordPlan: (lesson: { passage: string; words: Array<Record<string, string>> }) => {
+    primary: Array<Record<string, string>>;
+    reserves: Array<Record<string, string>>;
+  };
   assertPrefixed: (ids: string[]) => boolean;
   assertEnvGates: (env: Record<string, string>) => void;
   parseDay: (argv: string[]) => string;
@@ -296,6 +305,25 @@ describe('S12M —— 脚本与内容包对得上', () => {
     // 五档 × 五天、每天最多 21 个词位；跨天去重后仍是一套有限周词表。
     expect(n).toBeGreaterThan(350);
     expect(n).toBeLessThanOrEqual(525);
+  });
+
+  it('每一档每天都是 12 个主词，备用词只来自同一篇文章', () => {
+    expect(DAILY_WORD_TARGET).toBe(12);
+    expect(RESERVE_WORD_TARGET).toBe(12);
+    for (const level of LEVELS) {
+      for (const date of DATES) {
+        const lesson = content.lessonFor(level, date);
+        const plan = lessonWordPlan(lesson);
+        expect(plan.primary, `${level}/${date}`).toHaveLength(12);
+        expect(plan.reserves.length, `${level}/${date}`).toBeGreaterThanOrEqual(9);
+        const primary = new Set(plan.primary.map((w) => w.headword));
+        for (const word of plan.reserves) {
+          expect(primary.has(word.headword), `${level}/${date}/${word.headword}`).toBe(false);
+          expect(lesson.passage.toLowerCase()).toContain(word.surfaceForm.toLowerCase());
+          expect(lesson.passage.replace(/\bParagraph\s+\d+\s*/gi, '')).toContain(word.context);
+        }
+      }
+    }
   });
 
   it('PilotError 是自己的错误类型 —— 好让 main 只回显它的话', () => {

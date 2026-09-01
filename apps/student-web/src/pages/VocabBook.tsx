@@ -74,10 +74,14 @@ export function stateLabel(state: string): string {
 
 /** 这词怎么进本子的。认不出来的来源**原样显示**，不猜。 */
 const SOURCE_TEXT: Readonly<Record<string, string>> = {
+  wrong_answer: '答错自动收录',
+  click: '阅读查词加入',
+  teacher_push: '今日课程词',
+  // 兼容早期夹具与旧数据，只用于展示。
   auto_wrong_answer: '答错自动收录',
   manual: '自己加的',
-  lookup: '查词加入',
-  teacher: '老师加的',
+  lookup: '阅读查词加入',
+  teacher: '今日课程词',
 };
 
 export function sourceLabel(sourceType: string): string {
@@ -123,6 +127,29 @@ export function matchesFilter(
 export function matchesQuery(w: { headword: string }, q: string): boolean {
   const k = q.trim().toLowerCase();
   return k === '' || w.headword.toLowerCase().includes(k);
+}
+
+export type VocabSort = 'recent' | 'word' | 'due' | 'mastery';
+
+export const VOCAB_SORT_LABEL: Readonly<Record<VocabSort, string>> = {
+  recent: '最近加入',
+  word: 'A–Z',
+  due: '最先复习',
+  mastery: '学习状态',
+};
+
+export function sortWords<T extends { headword: string; createdAt: string; due?: string | null; state: string }>(
+  words: T[],
+  sort: VocabSort,
+): T[] {
+  const stateOrder: Record<string, number> = { new: 0, learning: 1, relearning: 2, review: 3, known: 4 };
+  return [...words].sort((a, b) => {
+    if (sort === 'word') return a.headword.localeCompare(b.headword);
+    if (sort === 'due') return Date.parse(a.due ?? '9999-12-31') - Date.parse(b.due ?? '9999-12-31');
+    if (sort === 'mastery') return (stateOrder[a.state] ?? 99) - (stateOrder[b.state] ?? 99)
+      || a.headword.localeCompare(b.headword);
+    return Date.parse(b.createdAt) - Date.parse(a.createdAt);
+  });
 }
 
 // ─────────────────────────────────────────────────────────────
@@ -184,7 +211,7 @@ export default function VocabBookPage() {
    * 重新取权威的词表与统计。对账本身失败时：那一行确实已经从库里没了，
    * 界面照删，但把**所有聚合数字藏起来** —— 宁可少显示，不显示错的。
    */
-  const reconcile = useCallback(async (headword: string) => {
+  const reconcile = useCallback(async (headword: string, dropRowOnFailure = true) => {
     const token = readToken();
     if (!token) return;
     const mine = ++gen.current;
@@ -208,7 +235,10 @@ export default function VocabBookPage() {
           ? p
           : {
               ...p,
-              data: { ...p.data, words: p.data.words.filter((w) => w.headword !== headword) },
+              data: {
+                ...p.data,
+                words: dropRowOnFailure ? p.data.words.filter((w) => w.headword !== headword) : p.data.words,
+              },
               stats: null,
               aggregatesStale: true,
             },
@@ -254,16 +284,23 @@ function VocabBookReady({
 }: {
   phase: { s: 'ready'; data: VocabWordsResult; stats: VocabStats | null; aggregatesStale: boolean };
   navigate: ReturnType<typeof useNavigate>;
-  reconcile: (headword: string) => void;
+  reconcile: (headword: string, dropRowOnFailure?: boolean) => void;
 }) {
   const { data, stats, aggregatesStale } = phase;
   const [query, setQuery] = useState('');
   const [filter, setFilter] = useState<VocabFilter>('all');
+  const [sort, setSort] = useState<VocabSort>('recent');
+  const [visible, setVisible] = useState(20);
 
   const shown = useMemo(() => {
     const now = Date.now();
-    return data.words.filter((w) => matchesQuery(w, query) && matchesFilter(w, filter, now));
-  }, [data.words, filter, query]);
+    return sortWords(
+      data.words.filter((w) => matchesQuery(w, query) && matchesFilter(w, filter, now)),
+      sort,
+    );
+  }, [data.words, filter, query, sort]);
+
+  useEffect(() => setVisible(20), [filter, query, sort]);
 
   return (
     <Screen>
@@ -355,6 +392,19 @@ function VocabBookReady({
                 </button>
               ))}
             </div>
+            <label className="mt-3 flex items-center gap-2 text-sm text-slate-600">
+              排序
+              <select
+                data-testid="vocab-sort"
+                value={sort}
+                onChange={(e) => setSort(e.target.value as VocabSort)}
+                className="min-h-[44px] rounded-lg border border-slate-300 bg-white px-3"
+              >
+                {(Object.keys(VOCAB_SORT_LABEL) as VocabSort[]).map((key) => (
+                  <option key={key} value={key}>{VOCAB_SORT_LABEL[key]}</option>
+                ))}
+              </select>
+            </label>
           </div>
         ) : null}
 
@@ -372,10 +422,25 @@ function VocabBookReady({
               显示 <span data-testid="vocab-shown-count">{shown.length}</span> / {data.words.length}
             </p>
             <ul className="mt-2 grid gap-2 lg:grid-cols-2">
-              {shown.map((w) => (
-                <WordRow key={w.headword} word={w} onRemoved={() => void reconcile(w.headword)} />
+              {shown.slice(0, visible).map((w) => (
+                <WordRow
+                  key={w.headword}
+                  word={w}
+                  onRemoved={() => void reconcile(w.headword)}
+                  onChanged={() => void reconcile(w.headword, false)}
+                />
               ))}
             </ul>
+            {visible < shown.length ? (
+              <button
+                type="button"
+                data-testid="vocab-show-more"
+                onClick={() => setVisible((n) => n + 20)}
+                className="mt-3 min-h-[44px] w-full rounded-xl border border-slate-300 text-sm"
+              >
+                再显示 {Math.min(20, shown.length - visible)} 个
+              </button>
+            ) : null}
           </>
         )}
       </Card>
@@ -389,10 +454,38 @@ type RemoveState =
   | { s: 'sending' }
   | { s: 'failed' };
 
-function WordRow({ word, onRemoved }: { word: VocabWordRow; onRemoved: () => void }) {
+function WordRow({
+  word,
+  onRemoved,
+  onChanged,
+}: {
+  word: VocabWordRow;
+  onRemoved: () => void;
+  onChanged: () => void;
+}) {
   const [rm, setRm] = useState<RemoveState>({ s: 'idle' });
   /** 连点守卫。同一个 tick 里连点两下，两次回调看到的都是上一帧的状态。 */
   const sendingRef = useRef(false);
+  const stateSendingRef = useRef(false);
+  const [stateMessage, setStateMessage] = useState<string | null>(null);
+
+  const changeState = useCallback(async (state: 'known' | 'learning') => {
+    if (stateSendingRef.current) return;
+    const token = readToken();
+    if (!token) return;
+    stateSendingRef.current = true;
+    setStateMessage(state === 'known' ? '正在标记…' : '正在放回学习队列…');
+    try {
+      await api.vocabWordState(token, { headword: word.headword, state });
+      stateSendingRef.current = false;
+      setStateMessage(state === 'known' ? '已标为掌握，不再安排近期复习。' : '已放回学习队列。');
+      onChanged();
+    } catch (e) {
+      stateSendingRef.current = false;
+      if (handleAuthFailure(e)) return;
+      setStateMessage('没能保存，请再试一次。');
+    }
+  }, [onChanged, word.headword]);
 
   const confirm = useCallback(async () => {
     if (sendingRef.current) return;
@@ -441,6 +534,20 @@ function WordRow({ word, onRemoved }: { word: VocabWordRow; onRemoved: () => voi
       {word.contextTranslation ? (
         <p data-testid={`word-context-translation-${word.headword}`} className="mt-1 text-sm text-slate-500">
           句意：{word.contextTranslation}
+        </p>
+      ) : null}
+
+      <button
+        type="button"
+        data-testid={`state-${word.headword}`}
+        onClick={() => void changeState(word.state === 'known' ? 'learning' : 'known')}
+        className="mt-2 mr-2 min-h-[44px] rounded-lg border border-blue-200 px-3 text-sm text-blue-700"
+      >
+        {word.state === 'known' ? '重新学习' : '我已经会了'}
+      </button>
+      {stateMessage ? (
+        <p role="status" data-testid={`state-message-${word.headword}`} className="mt-1 text-sm text-slate-600">
+          {stateMessage}
         </p>
       ) : null}
 

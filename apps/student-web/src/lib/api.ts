@@ -425,6 +425,9 @@ export const api = {
   vocabTaught: (token: string, body: { headword: string; cursor: number }) =>
     request<VocabTaughtResult>('POST', '/lesson/vocab-taught', { body, token }),
 
+  vocabReplace: (token: string, body: { headword: string; cursor: number }) =>
+    request<VocabReplacementResult>('POST', '/lesson/vocab-replace', { body, token }),
+
   vocabReview: (
     token: string,
     body: { headword: string; rating: CourseRating; elapsedMs: number; requestId: string },
@@ -516,6 +519,14 @@ export const api = {
   vocabWordRemove: (token: string, body: { headword: string }) =>
     request<VocabWordRemoved>('POST', '/vocab/words/remove', { body, token }),
 
+  /** 学生主动标记已掌握，或重新开始学习。 */
+  vocabWordState: (token: string, body: { headword: string; state: 'known' | 'learning' }) =>
+    request<{ updated: true; headword: string; state: 'known' | 'learning'; due: string }>(
+      'POST',
+      '/vocab/words/state',
+      { body, token },
+    ),
+
   /** 自由练习的到期卡。**顺序由服务端决定**，前端不重排、不过滤。 */
   vocabDue: (token: string) => request<VocabDueResult>('GET', '/vocab/due', { token }),
 
@@ -603,8 +614,13 @@ export const api = {
    *
    * 查询串里**只有 `word`**。
    */
-  vocabLookup: (token: string, word: string) =>
-    request<VocabLookupResult>('GET', `/vocab/lookup?word=${encodeURIComponent(word)}`, { token }),
+  vocabLookup: (token: string, word: string, contextSentence?: string | null) =>
+    request<VocabLookupResult>(
+      'GET',
+      `/vocab/lookup?word=${encodeURIComponent(word)}` +
+        (contextSentence ? `&contextSentence=${encodeURIComponent(contextSentence)}` : ''),
+      { token },
+    ),
 
   /**
    * 把这个词记进**当前登录学生**的生词本。
@@ -618,7 +634,7 @@ export const api = {
    */
   vocabAddWord: (
     token: string,
-    body: { word: string; contextSentence?: string; sourcePassageTitle?: string },
+    body: { word: string; contextSentence?: string; contextTranslation?: string; sourcePassageTitle?: string },
   ) => request<VocabWordAdded>('POST', '/vocab/words', { body, token }),
 };
 
@@ -642,6 +658,8 @@ export interface DictEntry {
   collins: number | null;
   oxford: boolean;
   tag: string[];
+  /** 学生点击位置的整句翻译；实时翻译暂不可用时为空。 */
+  contextTranslation?: string | null;
   /** 命中方式，便于排查。 */
   via: 'direct' | 'possessive' | 'lemma' | 'hyphen';
 }
@@ -1117,6 +1135,13 @@ export interface VocabTaughtResult {
   stored: boolean;
   alreadyTaught: boolean;
   stage: string;
+}
+
+export interface VocabReplacementResult extends LessonCardsResult {
+  ok: true;
+  oldHeadword: string;
+  replacementHeadword: string;
+  alreadyReplaced: boolean;
 }
 
 export interface VocabReviewResult {

@@ -1,11 +1,13 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Optional } from '@nestjs/common';
 import { PrismaService } from '../common/prisma.service';
+import { RealtimeTranslationService } from './realtime-translation.service';
 
 /**
  * 生词本 —— 词典查询服务。
  *
- * 铁律：**零 Anthropic API 调用**。查词只走本地 DictEntry 表（ECDICT 导入），
- * 不调用任何 LLM 或联网翻译接口。
+ * 本地 DictEntry（ECDICT）永远优先；只有本地确实查不到时才走实时翻译。
+ * 文章原句的句意也由同一翻译服务按需返回。密钥只在 API 服务端，浏览器
+ * 永远接触不到供应商凭据。
  *
  * 解析链（P0 实测定型，见 docs/PRD/vocabulary-notebook-p0-report.md）：
  *   1. 直查                    —— ECDICT 已把 went/coaxed/shattered 等变形收作
@@ -30,8 +32,9 @@ export interface LookupHit {
   collins: number | null;
   oxford: boolean;
   tag: string[];
-  /** 命中方式，便于前端与排查（direct | possessive | lemma | hyphen） */
-  via: 'direct' | 'possessive' | 'lemma' | 'hyphen';
+  /** 命中方式，便于前端与排查（本地四种 + remote 实时兜底） */
+  via: 'direct' | 'possessive' | 'lemma' | 'hyphen' | 'remote';
+  contextTranslation?: string | null;
 }
 
 /** 与前端分词器一致的归一化。 */
@@ -98,7 +101,38 @@ function hasInflectionTranslationMismatch(row: any): boolean {
 
 @Injectable()
 export class VocabService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    @Optional() private readonly realtime?: RealtimeTranslationService,
+  ) {}
+
+  /** 本地词典优先；缺词才联网。点词带原句时，同时返回中文句意。 */
+  async lookup(raw: string, contextSentence?: string): Promise<LookupHit | null> {
+    let hit = await this.lookupLocal(raw);
+    if (!hit && this.realtime) {
+      const translation = await this.realtime.translate(raw);
+      const word = normalizeWord(raw).replace(/^[^a-z']+|[^a-z']+$/g, '');
+      if (translation && word) {
+        hit = {
+          word,
+          query: raw,
+          phonetic: null,
+          translation,
+          definition: null,
+          pos: null,
+          collins: null,
+          oxford: false,
+          tag: [],
+          via: 'remote',
+        };
+      }
+    }
+    if (!hit) return null;
+    const contextTranslation = contextSentence?.trim() && this.realtime
+      ? await this.realtime.translate(contextSentence)
+      : null;
+    return { ...hit, contextTranslation };
+  }
 
   /**
    * 查一个词。查不到返回 null（前端显示「本词典未收录」，不猜、不编）。
@@ -106,7 +140,7 @@ export class VocabService {
    * 连字符词单独处理：整体查不到时逐段查，返回第一个查得到的段
    * （public-housing → public）。
    */
-  async lookup(raw: string): Promise<LookupHit | null> {
+  private async lookupLocal(raw: string): Promise<LookupHit | null> {
     const cands = candidateForms(raw);
     if (!cands.length) return null;
 

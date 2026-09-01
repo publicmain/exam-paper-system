@@ -420,7 +420,7 @@ describe('AC-03 点词手势', () => {
 // ─────────────────────────────────────────────────────────────
 
 describe('AC-02 token-only 请求边界', () => {
-  it('**查词：Bearer + 只有一个 word 查询串 + 无请求体**', async () => {
+  it('**查词：Bearer + word/原句查询串 + 无请求体**', async () => {
     mount();
     await settle();
     await tap('resilient');
@@ -429,8 +429,9 @@ describe('AC-02 token-only 请求边界', () => {
     expect(c.headers.Authorization).toBe(`Bearer ${TOKEN}`);
     expect(c.body).toBeNull();
     const query = new URLSearchParams(c.path.split('?')[1] ?? '');
-    expect([...query.keys()]).toEqual(['word']);
+    expect([...query.keys()]).toEqual(['word', 'contextSentence']);
     expect(query.get('word')).toBe('resilient');
+    expect(query.get('contextSentence')).toContain('resilient');
   });
 
   it('**查词的词经过 URL 编码**', async () => {
@@ -458,6 +459,20 @@ describe('AC-02 token-only 请求边界', () => {
     expect(b.word).toBe('resilient');
     expect(b.sourcePassageTitle).toBe('The River Ferry');
     expect(b.contextSentence).toContain('resilient');
+  });
+
+  it('实时句意会显示，并和原句一起写进生词本', async () => {
+    lookupReply = () => jsonResponse(200, {
+      found: true,
+      entry: { ...ENTRY, contextTranslation: '守门人说，这个村庄比洪水更有韧性。' },
+    });
+    mount();
+    await settle();
+    await tap('resilient');
+    expect(screen.getByTestId('word-sheet-sentence-translation').textContent).toContain('更有韧性');
+    const body = bodies('/vocab/words')[0];
+    expect(body.contextSentence).toContain('resilient');
+    expect(body.contextTranslation).toContain('更有韧性');
   });
 
   it('**两条请求都不带任何身份字段**', async () => {
