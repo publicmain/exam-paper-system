@@ -34,6 +34,7 @@ const {
   idsFor,
   deliveryIdsFor,
   studentWordId,
+  isManagedStudentWord,
   lessonWordPlan,
   assertPrefixed,
   assertEnvGates,
@@ -68,6 +69,7 @@ const {
     sessionId: string;
   };
   studentWordId: (s: string, h: string) => string;
+  isManagedStudentWord: (row: { id?: unknown }) => boolean;
   lessonWordPlan: (lesson: { passage: string; words: Array<Record<string, string>> }) => {
     primary: Array<Record<string, string>>;
     reserves: Array<Record<string, string>>;
@@ -191,6 +193,13 @@ describe('S12M —— 命名空间', () => {
     expect(a.startsWith(PREFIX)).toBe(true);
     expect(a).not.toBe(studentWordId('p1_qa_student', 'stiff'));
     expect(a).not.toBe(studentWordId('someone_else', 'rubbish'));
+  });
+
+  it('发布脚本只重排自己创建的词，学生自己的生词永远保留', () => {
+    expect(isManagedStudentWord({ id: 'p1_w_student_word' })).toBe(true);
+    expect(isManagedStudentWord({ id: 'cuid_from_lookup' })).toBe(false);
+    expect(isManagedStudentWord({ id: '' })).toBe(false);
+    expect(isManagedStudentWord({})).toBe(false);
   });
 
   it('没带前缀的 id 一律拒绝', () => {

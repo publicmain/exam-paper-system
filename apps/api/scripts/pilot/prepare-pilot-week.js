@@ -212,6 +212,11 @@ function studentWordId(studentId, headword) {
   return `${PREFIX}w_${studentId}_${headword}`;
 }
 
+/** 只有发布脚本自己创建的词，才允许改例句或排期。 */
+function isManagedStudentWord(row) {
+  return typeof row?.id === 'string' && row.id.startsWith(`${PREFIX}w_`);
+}
+
 /**
  * 一篇文章的「今日 12 词 + 同文备用词」。
  *
@@ -626,10 +631,17 @@ async function scheduleWordsFor(tx, student, dayIso, report) {
       report.bump('StudentWord.created');
       continue;
     }
+    // 学生自己查词、答错收录或由新课程引擎按需创建的词，可能恰好与
+    // 今天的主词同名。它仍属于学生自己的长期词本：发布脚本既不改 due，
+    // 也不覆盖原来的语境。今天的固定 12 词范围来自课程 manifest，已经
+    // 不再依赖 due 队列，因此完全没有必要为了开课去改这行。
+    if (!isManagedStudentWord(existing)) {
+      report.bump('StudentWord.personalKept');
+      continue;
+    }
     // 已经有了。到期时间按试点日程调整；这批脚本自己创建的课程词还要
     // 同步例句翻译。学生自己加的语境、FSRS 状态和复习历史一个字不动。
-    const translationPatch = existing.id.startsWith(`${PREFIX}w_`) &&
-      existing.contextSentence === w.context &&
+    const translationPatch = existing.contextSentence === w.context &&
       existing.contextTranslation !== w.contextTranslation
       ? { contextTranslation: w.contextTranslation }
       : {};
@@ -845,6 +857,7 @@ module.exports = {
   idsFor,
   deliveryIdsFor,
   studentWordId,
+  isManagedStudentWord,
   lessonWordPlan,
   assertPrefixed,
   assertEnvGates,
