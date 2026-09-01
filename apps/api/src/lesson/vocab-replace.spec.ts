@@ -6,7 +6,12 @@ const RESERVES = [
   { headword: 'tributary', surfaceForm: 'tributary', context: 'A tributary joins the river.', contextTranslation: '支流汇入河流。' },
 ];
 
-function makeSvc(opts: { reserves?: typeof RESERVES; known?: string[] } = {}) {
+function makeSvc(opts: {
+  reserves?: typeof RESERVES;
+  known?: string[];
+  persistedStage?: 'reading' | 'vocab_learn';
+  finalSubmitted?: boolean;
+} = {}) {
   let queue = ['delta', 'nile', 'silt'];
   const calls = { queueWrites: [] as string[][], oldStates: [] as unknown[], creates: [] as unknown[] };
   const config = { lessonWords: [], lessonWordReserves: opts.reserves ?? RESERVES };
@@ -19,9 +24,16 @@ function makeSvc(opts: { reserves?: typeof RESERVES; known?: string[] } = {}) {
         paperAssignment: { id: 'asg', paper: { id: 'paper', name: 'River Study', config, totalMarksActual: 10, _count: { questions: 10 } } },
       }]),
     },
-    studentSubmission: { findFirst: vi.fn(async () => null) },
+    studentSubmission: {
+      findFirst: vi.fn(async () => opts.finalSubmitted ? ({
+        id: 'sub', assignmentId: 'asg', finalSubmittedAt: new Date(), submitSource: 'student',
+        autoFinalizeReason: null, status: 'submitted', totalScore: null, maxScore: 10,
+      }) : null),
+    },
     dailyLessonCompletion: {
-      findUnique: vi.fn(async () => ({ id: 'dlc', stage: 'vocab_learn', vocabWords: queue, vocabCursor: 0 })),
+      findUnique: vi.fn(async () => ({
+        id: 'dlc', stage: opts.persistedStage ?? 'vocab_learn', vocabWords: queue, vocabCursor: 0,
+      })),
       update: vi.fn(async ({ data }: any) => {
         if (data.vocabWords) { queue = [...data.vocabWords]; calls.queueWrites.push([...queue]); }
         return { id: 'dlc' };
@@ -70,6 +82,24 @@ describe('replaceKnownLessonWord', () => {
     expect(calls.creates[0]).toMatchObject({ create: { headword: 'estuary', contextTranslation: '河口与海洋相接。' } });
     expect(out).toMatchObject({ ok: true, oldHeadword: 'delta', replacementHeadword: 'estuary', cursor: 0, totalDue: 3 });
     expect(review.lessonCards).toHaveBeenCalledTimes(1);
+  });
+
+  it('阅读已交卷但阶段缓存仍是 reading 时允许替换，并顺手推进缓存', async () => {
+    const { svc, prisma, getQueue } = makeSvc({ persistedStage: 'reading', finalSubmitted: true });
+    await expect(svc.replaceKnownLessonWord({
+      studentName: '', authStudentId: 'student', headword: 'delta', cursor: 0,
+    })).resolves.toMatchObject({ replacementHeadword: 'estuary' });
+    expect(getQueue()[0]).toBe('estuary');
+    expect(prisma.dailyLessonCompletion.update).toHaveBeenCalledWith(expect.objectContaining({
+      data: expect.objectContaining({ stage: 'vocab_learn', stageAt: expect.any(Date) }),
+    }));
+  });
+
+  it('阅读尚未交卷时仍然不能借缓存滞后闯进换词', async () => {
+    const { svc } = makeSvc({ persistedStage: 'reading', finalSubmitted: false });
+    await expect(svc.replaceKnownLessonWord({
+      studentName: '', authStudentId: 'student', headword: 'delta', cursor: 0,
+    })).rejects.toMatchObject({ response: { code: 'vocab_replacement_closed' } });
   });
 
   it('学生已掌握的备用词不会再塞回来', async () => {

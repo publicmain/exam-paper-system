@@ -1254,13 +1254,18 @@ export class LessonService {
     const day = this.sgtDayStart(new Date());
     const readNow = await this.readState(student.id, day, user?.englishLevel ?? null);
     const reserves = readNow.lessonWordReserves;
+    // `stage` 只是缓存。阅读交卷后的纯读取已经可能权威算出
+    // vocab_learn，而这一列仍暂时是 reading。只在阅读确实已交卷时接受
+    // 这一个单调滞后，并在换词事务里顺手把缓存推进。
+    const readingSettled = readNow.finalSubmitted;
 
     // 先在事务外挑候选并补句意，绝不把外部翻译请求关在数据库事务里。
     const before = await this.prisma.dailyLessonCompletion.findUnique({
       where: { studentId_date: { studentId: student.id, date: day } },
       select: { id: true, stage: true, vocabWords: true, vocabCursor: true },
     });
-    if (!before || before.stage !== 'vocab_learn' || !Array.isArray(before.vocabWords)) {
+    const beforeStageOpen = before?.stage === 'vocab_learn' || (before?.stage === 'reading' && readingSettled);
+    if (!before || !beforeStageOpen || !Array.isArray(before.vocabWords)) {
       throw new BadRequestException({ code: 'vocab_replacement_closed' });
     }
     const beforeQueue = (before.vocabWords as string[]).map((w) => normalizeWord(String(w))).filter(Boolean);
@@ -1319,7 +1324,8 @@ export class LessonService {
         where: { studentId_date: { studentId: student.id, date: day } },
         select: { id: true, stage: true, vocabWords: true, vocabCursor: true },
       });
-      if (!dlc || dlc.stage !== 'vocab_learn' || !Array.isArray(dlc.vocabWords)) {
+      const transactionStageOpen = dlc?.stage === 'vocab_learn' || (dlc?.stage === 'reading' && readingSettled);
+      if (!dlc || !transactionStageOpen || !Array.isArray(dlc.vocabWords)) {
         throw new BadRequestException({ code: 'vocab_replacement_closed' });
       }
       const queue = (dlc.vocabWords as string[]).map((w) => normalizeWord(String(w))).filter(Boolean);
@@ -1374,7 +1380,10 @@ export class LessonService {
       next[cursor] = replacement.headword;
       await tx.dailyLessonCompletion.update({
         where: { id: dlc.id },
-        data: { vocabWords: next as any },
+        data: {
+          vocabWords: next as any,
+          ...(dlc.stage === 'reading' ? { stage: 'vocab_learn' as const, stageAt: new Date() } : {}),
+        },
       });
       return { oldHeadword: headword, replacementHeadword: replacement.headword, alreadyReplaced: false };
     });
