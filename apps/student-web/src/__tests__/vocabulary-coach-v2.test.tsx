@@ -61,18 +61,30 @@ describe('个人词汇教练 V2 学习流', () => {
     expect(fetchMock).toHaveBeenCalledTimes(2);
   });
 
-  it('学习阶段只提供释义和真实语境，不混入看中文考英文的题', async () => {
+  it('每个词只显示一个完整学习页面，不增加第二步或混入考题', async () => {
     vi.stubGlobal('fetch', vi.fn((url: string) => pathOf(url) === '/vocab-v2/daily' ? response(learning()) : response({}, 404)));
-    const user = userEvent.setup();
     render(<MemoryRouter><VocabularyCoachLearnPage /></MemoryRouter>);
 
     expect(await screen.findByText('Sales may decline when customers lose confidence.')).toBeInTheDocument();
-    expect(screen.queryByText('常见搭配')).not.toBeInTheDocument();
-    await user.click(screen.getByRole('button', { name: '查看用法' }));
+    expect(screen.queryByRole('button', { name: '查看用法' })).not.toBeInTheDocument();
     expect(screen.getByText('decline sharply')).toBeInTheDocument();
     expect(screen.getByText('de- 向下 + cline- 倾斜')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: '学完这个词' })).toBeInTheDocument();
-    expect(document.body.textContent).not.toMatch(/主动回忆|补全短句|核对答案/);
+    expect(document.body.textContent).not.toMatch(/第 1 阶段|主动回忆|补全短句|核对答案/);
+  });
+
+  it('扩展内容为空时直接隐藏栏目，不显示无信息占位卡片', async () => {
+    const sparse = learning('belong');
+    sparse.items[0].card = { ...sparse.items[0].card, collocations: [], wordFamily: [], confusionWords: [], memoryHint: '' };
+    vi.stubGlobal('fetch', vi.fn((url: string) => pathOf(url) === '/vocab-v2/daily' ? response(sparse) : response({}, 404)));
+    render(<MemoryRouter><VocabularyCoachLearnPage /></MemoryRouter>);
+
+    expect(await screen.findByText('belong')).toBeInTheDocument();
+    expect(screen.queryByText('这一项暂时没有可靠内容')).not.toBeInTheDocument();
+    expect(screen.queryByText('常见搭配')).not.toBeInTheDocument();
+    expect(screen.queryByText('词族')).not.toBeInTheDocument();
+    expect(screen.queryByText('易混词')).not.toBeInTheDocument();
+    expect(screen.queryByText('记忆提示')).not.toBeInTheDocument();
   });
 
   it('会的词一对一替换，冻结任务仍保持 12 项', async () => {
