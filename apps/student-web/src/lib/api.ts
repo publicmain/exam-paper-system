@@ -257,6 +257,21 @@ export type V2Center = {
 export type V2Overview = {
   dailyTarget: number;
   today: V2LearningSession | null;
+  readingBacklog?: Array<{
+    assignmentId: string;
+    sessionId: string;
+    submissionId: string | null;
+    date: string;
+    title: string;
+    status: 'not_started' | 'in_progress';
+  }>;
+  learningBacklog?: Array<{
+    sessionId: string;
+    date: string;
+    completed: number;
+    target: number;
+    status: 'not_started' | 'in_progress';
+  }>;
   pendingTests: Array<{
     dailySessionId: string;
     testSessionId: string | null;
@@ -397,9 +412,9 @@ export const api = {
     if (filters.dateTo) query.set('dateTo', filters.dateTo);
     return request<V2Center>('GET', '/vocab-v2/center?' + query.toString(), { token });
   },
-  vocabV2Daily: (token: string) => request<V2LearningSession | null>('GET', '/vocab-v2/daily', { token }),
+  vocabV2Daily: (token: string, date?: string) => request<V2LearningSession | null>('GET', date ? '/vocab-v2/daily?date=' + encodeURIComponent(date) : '/vocab-v2/daily', { token }),
   vocabV2Overview: (token: string) => request<V2Overview>('GET', '/vocab-v2/overview', { token }),
-  vocabV2StartDaily: (token: string) => request<V2LearningSession>('POST', '/vocab-v2/daily/start', { token, body: {} }),
+  vocabV2StartDaily: (token: string, date?: string) => request<V2LearningSession>('POST', '/vocab-v2/daily/start', { token, body: date ? { date } : {} }),
   vocabV2LearnAction: (token: string, body: { sessionId: string; itemId: string; action: 'mastered' | 'normal' | 'hard' | 'skip'; responseMs?: number }) =>
     request<V2LearningSession>('POST', '/vocab-v2/daily/item', { token, body }),
   vocabV2Replace: (token: string, body: { sessionId: string; itemId: string }) =>
@@ -517,6 +532,10 @@ export const api = {
    */
   lessonStart: (token: string) =>
     request<LessonToday>('POST', '/lesson/start', { body: { begin: true }, token }),
+
+  /** 打开或恢复一份按原日期冻结的阅读作业。 */
+  openReadingSession: (token: string, sessionId: string) =>
+    request<{ id: string; status: string }>('POST', `/morning-quiz/sessions/${encodeURIComponent(sessionId)}/open`, { body: {}, token }),
 
   // ── 阅读会话（阶段 7B）；同样是**认证后，零身份参数** ──
 

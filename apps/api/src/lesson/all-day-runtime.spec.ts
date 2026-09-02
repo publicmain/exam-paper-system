@@ -79,9 +79,15 @@ describe('isQuizWindowOpen 认全天开关', () => {
     }
   });
 
-  it('**全天不等于永久** —— 第二天就关了，昨天的卷子不能接着做', () => {
+  it('**历史欠交可补做** —— 第二天仍能打开昨天的卷子', () => {
     set('true');
-    expect(isQuizWindowOpen(session, new Date('2026-08-28T04:00:00Z'))).toBe(false);
+    expect(isQuizWindowOpen(session, new Date('2026-08-28T04:00:00Z'))).toBe(true);
+  });
+
+  it('未来的卷子不能提前打开', () => {
+    set('true');
+    const futureSession = { ...session, date: new Date('2026-08-29T00:00:00Z') };
+    expect(isQuizWindowOpen(futureSession, new Date('2026-08-28T04:00:00Z'))).toBe(false);
   });
 
   it('按班灰度：没开的班照旧按时刻判断', () => {
@@ -112,10 +118,10 @@ describe('effectiveEndsAt —— 倒计时绑的截止时刻', () => {
     expect(effectiveEndsAt(session, evening).toISOString()).toBe(session.quizEnd.toISOString());
   });
 
-  it('第二天 → 不再顺延（全天不等于永久）', () => {
+  it('历史欠交返回不会触发自动交卷的截止时刻', () => {
     set('true');
     const tomorrow = new Date('2026-08-28T04:00:00Z');
-    expect(effectiveEndsAt(session, tomorrow).toISOString()).toBe(session.quizEnd.toISOString());
+    expect(effectiveEndsAt(session, tomorrow).toISOString()).toBe('9999-12-31T23:59:59.000Z');
   });
 });
 

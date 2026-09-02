@@ -1,6 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { Cron, CronExpression } from '@nestjs/schedule';
-import { allDayConfigured, allDayEnabled, withinAllDay } from '../lesson/all-day';
+import { allDayConfigured, allDayEnabled } from '../lesson/all-day';
 import {
   AttendanceSource,
   AttendanceStatus,
@@ -268,9 +268,9 @@ export class MorningQuizCron {
       // 09:01 这一分钟：学生正在写字，卷子被强制收走、状态翻成 locked、
       // 答案当场公布。全天开放会变成「只是让他打得开，写不完」。
       //
-      // 判据用 `withinAllDay`：还在这一场的那一天 → 放过；过了那一天
-      // → 照常收卷，否则一份卷子会永远悬着不判分。
-      if (allDayEnabled(session.classId) && withinAllDay(session.date, now)) continue;
+      // 账号制课程的历史任务就是学生的补做队列；不能在午夜替学生交卷。
+      // 只有学生主动最终提交才算完成，未完成答卷跨日保持可编辑。
+      if (allDayEnabled(session.classId)) continue;
       const dateIso = session.date.toISOString().slice(0, 10);
       // 这一次收卷，是收成「最终提交」（公布答案）还是「暂存提交」
       // （扣住答案，留着下午改）？

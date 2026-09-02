@@ -138,6 +138,8 @@ export default function VocabularyCoachPage() {
         </Card>
       </section>
 
+      {(overview.learningBacklog ?? []).length ? <Card><h2 className="text-lg font-semibold">新词补做</h2><p className="mt-1 text-sm text-slate-600">每一天的词包单独保留，从上次停下的位置继续。</p><div className="mt-4 grid gap-2 sm:grid-cols-2">{(overview.learningBacklog ?? []).map((task) => <button key={task.sessionId} onClick={() => navigate(`${ROUTES.coachLearn}?date=${encodeURIComponent(task.date)}`)} className="app-secondary flex min-h-[58px] items-center justify-between px-4 text-left"><span>{shortDate(task.date)}新词 · {task.completed}/{task.target}</span><span className="text-[#007aff]">{task.status === 'in_progress' ? '继续' : '开始'} →</span></button>)}</div></Card> : null}
+
       {overview.pendingTests.length ? <Card><h2 className="text-lg font-semibold">测试待办</h2><p className="mt-1 text-sm text-slate-600">没有截止时间。多天未完成时，每一天都单独保留。</p><div className="mt-4 grid gap-2 sm:grid-cols-2">{overview.pendingTests.map((task) => <button key={task.dailySessionId} disabled={busy} onClick={() => void openPendingTest(task)} className="app-secondary flex min-h-[58px] items-center justify-between px-4 text-left"><span>{taskDate(task.date)} · {task.total} 题</span><span className="text-[#007aff]">{task.status === 'in_progress' ? '继续' : '开始'} →</span></button>)}</div></Card> : null}
 
       <Card>
@@ -159,6 +161,10 @@ function Metric({ label, value, note }: { label: string; value: number; note: st
 }
 
 function taskDate(date: string) {
+  return `${shortDate(date)}单词测试`;
+}
+
+function shortDate(date: string) {
   const [, month, day] = date.split('-').map(Number);
-  return `${month}月${day}日单词测试`;
+  return `${month}月${day}日`;
 }

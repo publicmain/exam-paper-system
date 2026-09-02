@@ -133,8 +133,10 @@ export class VocabularyV2Controller {
   @Public()
   @RequireStudentToken()
   @Get('daily')
-  daily(@Req() req: Request) {
-    return this.service.dailySession(studentIdOf(req));
+  daily(@Req() req: Request, @Query('date') date = '') {
+    const parsed = z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional().safeParse(date || undefined);
+    if (!parsed.success) throw new BadRequestException({ code: 'bad_task_date' });
+    return this.service.dailySession(studentIdOf(req), new Date(), parsed.data);
   }
 
   @Public()
@@ -148,8 +150,10 @@ export class VocabularyV2Controller {
   @RequireStudentToken()
   @RateLimit({ limit: 30, windowSec: 60, scope: 'ip' })
   @Post('daily/start')
-  startDaily(@Req() req: Request) {
-    return this.service.startDailySession(studentIdOf(req));
+  startDaily(@Req() req: Request, @Body() body: unknown) {
+    const parsed = z.object({ date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional() }).strict().safeParse(body ?? {});
+    if (!parsed.success) throw new BadRequestException({ code: 'bad_task_date' });
+    return this.service.startDailySession(studentIdOf(req), new Date(), parsed.data.date);
   }
 
   @Public()

@@ -514,6 +514,27 @@ export class MorningQuizController {
   // ─────────────────── Student endpoints ───────────────────
 
   /** Student fetches the day's questions (shuffle applied). */
+  @Post('sessions/:id/open')
+  @AllowHandoff()
+  async openSession(
+    @Param('id') id: string,
+    @CurrentUser() user: any,
+    @Req() req: Request,
+  ) {
+    if (user.role !== 'student') throw new ForbiddenException('student_only');
+    const session = await this.prisma.morningQuizSession.findUnique({
+      where: { id },
+      select: { paperAssignmentId: true },
+    });
+    if (!session) throw new NotFoundException({ code: 'session_not_found' });
+    return this.student.openSubmission(session.paperAssignmentId, {
+      id: user.id,
+      role: user.role,
+      ip: req.ip ?? null,
+    });
+  }
+
+  /** Student fetches the day's questions (shuffle applied). */
   @Get('sessions/:id')
   @AllowHandoff()
   getSession(@Param('id') id: string, @CurrentUser() user: any) {

@@ -526,6 +526,38 @@ describe('15–16. 路由兜底与占位页', () => {
   });
 });
 
+describe('跨日欠交任务', () => {
+  it('旧阅读和旧新词同时保留，并且不会被今天的任务覆盖', async () => {
+    const overview = {
+      dailyTarget: 12,
+      today: V2_DAILY,
+      pendingTests: [],
+      readingBacklog: [{
+        assignmentId: 'assignment-old', sessionId: 'reading-old', submissionId: null,
+        date: '2026-08-27', title: '旧阅读', status: 'not_started',
+      }],
+      learningBacklog: [{
+        sessionId: 'words-old', date: '2026-08-27', completed: 5, target: 12, status: 'in_progress',
+      }],
+    };
+    session(lesson(), (r) => {
+      if (r === '/vocab-v2/overview') return jsonResponse(200, overview);
+      if (r === '/morning-quiz/sessions/reading-old/open') return jsonResponse(201, { id: 'submission-old' });
+      return null;
+    });
+    renderAt('/today');
+
+    expect(await screen.findByRole('heading', { name: /你好，七号/ })).toBeTruthy();
+    expect(screen.getByRole('region', { name: '待补做任务' })).toBeTruthy();
+    expect(screen.getByText('8月27日阅读')).toBeTruthy();
+    expect(screen.getByText('8月27日新词')).toBeTruthy();
+    expect(screen.getByText('5 / 12')).toBeTruthy();
+
+    await userEvent.click(screen.getByRole('button', { name: /8月27日新词/ }));
+    await waitFor(() => expect(callsTo('/vocab-v2/daily?date=2026-08-27')).toHaveLength(1));
+  });
+});
+
 describe('映射穷尽性 —— 十个 kind 页面都能处理', () => {
   it('每个 kind 都能渲染出一个明确结果，不崩、不空白', async () => {
     for (const kind of NEXT_ACTION_KINDS) {

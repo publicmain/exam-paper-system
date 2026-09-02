@@ -109,7 +109,11 @@ export function isQuizWindowOpen(
   // 今天不能接着做。
   if (session.classId !== undefined && allDayEnabled(session.classId)) {
     if (!session.date) return true;
-    return withinAllDay(session.date, now);
+    const tzOff = Number(process.env.MORNING_QUIZ_TZ_OFFSET_MIN ?? 8 * 60);
+    const todayKey = new Date(now.getTime() + tzOff * 60_000).toISOString().slice(0, 10);
+    // Course-app assignments do not expire.  Past papers remain writable as
+    // dated backlog; future papers are still closed until their calendar day.
+    return session.date.toISOString().slice(0, 10) <= todayKey;
   }
   if (now <= session.quizEnd) return true;
   return isMakeupWindowOpen(session, now);
@@ -147,11 +151,18 @@ export function effectiveEndsAt(
   // 这与 2026-08-24 第二作答窗那次事故是同一个形状：倒计时绑错了截止
   // 时刻。那次的教训写在下面几行，这次是同一条。
   if (session.classId !== undefined && allDayEnabled(session.classId) && session.date) {
+    const tzOff = Number(process.env.MORNING_QUIZ_TZ_OFFSET_MIN ?? 8 * 60);
     if (withinAllDay(session.date, now)) {
-      const tzOff = Number(process.env.MORNING_QUIZ_TZ_OFFSET_MIN ?? 8 * 60);
       // 当天 SGT 23:59:00 → UTC 瞬刻
       const dayIso = session.date.toISOString().slice(0, 10);
       return new Date(new Date(`${dayIso}T23:59:00.000Z`).getTime() - tzOff * 60_000);
+    }
+    const todayKey = new Date(now.getTime() + tzOff * 60_000).toISOString().slice(0, 10);
+    if (session.date.toISOString().slice(0, 10) < todayKey) {
+      // Historical backlog has no deadline.  Current student UI does not show
+      // a countdown, while older clients receive a non-expiring timestamp and
+      // therefore cannot auto-submit the paper immediately on mount.
+      return new Date('9999-12-31T23:59:59.000Z');
     }
   }
   if (isMakeupWindowOpen(session, now) && session.makeupEnd) return session.makeupEnd;

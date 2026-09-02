@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { api, type V2LearningSession } from '../lib/api';
 import { handleAuthFailure } from '../lib/auth-store';
 import { readToken } from '../lib/identity';
@@ -14,6 +14,8 @@ type Phase = { s: 'loading' } | { s: 'error'; message: string } | { s: 'ready'; 
 
 export default function VocabularyCoachLearnPage() {
   const navigate = useNavigate();
+  const [params] = useSearchParams();
+  const taskDate = params.get('date') ?? undefined;
   const [phase, setPhase] = useState<Phase>({ s: 'loading' });
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
@@ -24,14 +26,14 @@ export default function VocabularyCoachLearnPage() {
     if (!token) return;
     setPhase({ s: 'loading' });
     try {
-      const current = await api.vocabV2Daily(token);
+      const current = await api.vocabV2Daily(token, taskDate);
       // Nest serializes a missing daily session as an empty 200 response.  The
       // shared client intentionally parses an empty success body as `{}`, so a
       // nullish-only check would mistake that object for a real session and the
       // render path would crash on `session.items.find(...)`.
       const session = current && Array.isArray(current.items)
         ? current
-        : await api.vocabV2StartDaily(token);
+        : await api.vocabV2StartDaily(token, taskDate);
       if (session.status === 'completed') {
         navigate(ROUTES.today, { replace: true });
         return;
@@ -42,7 +44,7 @@ export default function VocabularyCoachLearnPage() {
       if (handleAuthFailure(error)) return;
       setPhase({ s: 'error', message: '今天的词汇任务暂时无法生成。系统不会用低质量词凑数，请稍后重试。' });
     }
-  }, [navigate]);
+  }, [navigate, taskDate]);
   useEffect(() => { void load(); }, [load]);
 
   if (phase.s === 'loading') return <Screen><p className="text-center text-slate-500">正在按你的进度准备词汇…</p></Screen>;
@@ -109,7 +111,7 @@ export default function VocabularyCoachLearnPage() {
   ].filter((connection) => connection.value.trim().length > 0);
   return (
     <Screen>
-      <TopBar title="今天的新词" onBack={() => navigate(ROUTES.vocab)} backLabel="我的单词" right={<span className="text-sm tabular-nums text-slate-500">{session.completed + 1} / {session.target}</span>} />
+      <TopBar title={taskDate ? `${Number(taskDate.slice(5, 7))}月${Number(taskDate.slice(8, 10))}日新词补做` : '今天的新词'} onBack={() => navigate(ROUTES.vocab)} backLabel="我的单词" right={<span className="text-sm tabular-nums text-slate-500">{session.completed + 1} / {session.target}</span>} />
       <div className="mx-auto w-full max-w-4xl">
         <div className="mb-4 h-2 overflow-hidden rounded-full bg-slate-200"><div className="h-full rounded-full bg-blue-500 transition-all" style={{ width: `${(session.completed / session.target) * 100}%` }} /></div>
         <Card>

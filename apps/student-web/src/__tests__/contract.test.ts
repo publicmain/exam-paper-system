@@ -451,6 +451,7 @@ describe('G1 新端不得出现旧路由与旧身份键', () => {
     // 阶段 7B：阅读会话。三条都是**认证后**端点 —— 零身份参数。
     // 加载端点**没有子路径**（S7A 返工 2/2：带子路径的那个变体不存在）。
     '/morning-quiz/sessions/:id',
+    '/morning-quiz/sessions/:id/open',
     '/morning-quiz/sessions/:id/answer',
     '/morning-quiz/sessions/:id/submit',
     // 阶段 8A：阅读结果与申诉。同样是**认证后**端点 —— 零身份参数。

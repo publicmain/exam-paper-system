@@ -234,6 +234,24 @@ export default function TodayPage() {
 
   const d = phase.data;
   const vocabOverview = phase.vocabOverview;
+  const readingBacklog = vocabOverview?.readingBacklog ?? [];
+  const learningBacklog = vocabOverview?.learningBacklog ?? [];
+  const hasBacklog = readingBacklog.length > 0 || learningBacklog.length > 0;
+  const openReadingBacklog = async (task: (typeof readingBacklog)[number]) => {
+    if (starting) return;
+    const token = readToken();
+    if (!token) return;
+    setStarting(true);
+    setStartError(null);
+    try {
+      await api.openReadingSession(token, task.sessionId);
+      navigate(`${ROUTES.reading}?sessionId=${encodeURIComponent(task.sessionId)}&date=${encodeURIComponent(task.date)}&backlog=1`);
+    } catch (error) {
+      if (handleAuthFailure(error)) return;
+      setStartError('这份补做阅读暂时打不开，请再试一次。');
+      setStarting(false);
+    }
+  };
   const displayedSegments = d.segments.map((segment): LessonSegment => {
     if (segment.key !== 'vocab' || !vocabOverview) return segment;
     const daily = vocabOverview.today;
@@ -293,6 +311,27 @@ export default function TodayPage() {
         <p data-testid="lesson-progress" className="text-sm text-slate-600 mb-4">
           今天完成 <span className="font-medium">{displayedCompleted}</span> / {displayedTotal}
         </p>
+
+        {hasBacklog ? (
+          <section className="mb-6 rounded-2xl border border-orange-200 bg-orange-50/80 p-4" aria-label="待补做任务">
+            <h2 className="font-semibold text-orange-950">待补做任务</h2>
+            <p className="mt-1 text-sm text-orange-800">旧任务不会被今天的任务覆盖。可以先补旧任务，也可以先做今天的。</p>
+            <div className="mt-3 grid gap-2 sm:grid-cols-2">
+              {readingBacklog.map((task) => (
+                <button key={`reading-${task.assignmentId}`} disabled={starting} onClick={() => void openReadingBacklog(task)} className="app-secondary flex min-h-[58px] items-center justify-between bg-white px-4 text-left">
+                  <span><strong>{formatTaskDate(task.date)}阅读</strong><small className="mt-1 block text-slate-500">{task.status === 'in_progress' ? '继续上次进度' : '未开始'}</small></span>
+                  <span className="text-[#007aff]">{task.status === 'in_progress' ? '继续' : '开始'} →</span>
+                </button>
+              ))}
+              {learningBacklog.map((task) => (
+                <button key={`words-${task.sessionId}`} disabled={starting} onClick={() => navigate(`${ROUTES.coachLearn}?date=${encodeURIComponent(task.date)}`)} className="app-secondary flex min-h-[58px] items-center justify-between bg-white px-4 text-left">
+                  <span><strong>{formatTaskDate(task.date)}新词</strong><small className="mt-1 block text-slate-500">{task.completed} / {task.target}</small></span>
+                  <span className="text-[#007aff]">{task.status === 'in_progress' ? '继续' : '开始'} →</span>
+                </button>
+              ))}
+            </div>
+          </section>
+        ) : null}
 
         <ul className="mb-6 grid gap-3 md:grid-cols-3">
           {displayedSegments.map((s) => (
@@ -363,7 +402,7 @@ export default function TodayPage() {
 
 function formatTaskDate(date: string) {
   const [, month, day] = date.split('-').map(Number);
-  return `${month}月${day}日单词测试`;
+  return `${month}月${day}日`;
 }
 
 /**

@@ -5,6 +5,7 @@ import type { StudentSubmission } from '@prisma/client';
 import { gradeMcq } from '../grading/grade';
 import { redactSnapshotForStudent } from '../morning-quiz/morning-quiz.service';
 import { WechatNotifyService } from '../wechat-notify/wechat-notify.service';
+import { allDayEnabled } from '../lesson/all-day';
 
 interface ActorCtx { id: string; role: string; ip?: string | null }
 
@@ -499,12 +500,16 @@ export class StudentService {
   async openSubmission(assignmentId: string, student: ActorCtx) {
     const assignment = await this.prisma.paperAssignment.findUnique({
       where: { id: assignmentId },
-      include: { class: { include: { enrollments: { where: { userId: student.id } } } } },
+      include: {
+        class: { include: { enrollments: { where: { userId: student.id } } } },
+        morningQuizSession: { select: { id: true, date: true } },
+      },
     });
     if (!assignment) throw new NotFoundException('assignment not found');
     const enrolled = assignment.class.enrollments.some(e => e.role === 'student');
     if (!enrolled) throw new ForbiddenException('not enrolled in this class');
-    if (assignment.dueAt && assignment.dueAt < new Date()) {
+    const datedCourseBacklog = Boolean(assignment.morningQuizSession && allDayEnabled(assignment.classId));
+    if (assignment.dueAt && assignment.dueAt < new Date() && !datedCourseBacklog) {
       throw new ForbiddenException('assignment is closed');
     }
     // R14 — the (assignmentId, studentId) @@unique was dropped to let
@@ -518,7 +523,28 @@ export class StudentService {
         status: { not: 'practice' },
       },
     });
-    if (existing) return existing;
+    if (existing) {
+      // The former end-of-day cron could lock a partially answered paper and
+      // mark it system_eod.  A system action is not student completion.  In
+      // the all-day course app, reopen that exact dated paper with its saved
+      // answers so the student can genuinely finish it later.
+      if (datedCourseBacklog && existing.submitSource === 'system_eod') {
+        return this.prisma.studentSubmission.update({
+          where: { id: existing.id },
+          data: {
+            status: 'in_progress',
+            submittedAt: null,
+            finalSubmittedAt: null,
+            submitSource: null,
+            autoFinalizeReason: null,
+            autoScore: null,
+            manualScore: null,
+            totalScore: null,
+          },
+        });
+      }
+      return existing;
+    }
     const paper = await this.prisma.paper.findUnique({ where: { id: assignment.paperId } });
     // P1 防线：partial unique + 撞墙自愈（并发打开作业时输家拿赢家那条）
     return createRealSubmissionSafe<StudentSubmission>(this.prisma, {

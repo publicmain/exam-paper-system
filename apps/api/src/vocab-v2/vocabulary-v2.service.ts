@@ -210,7 +210,7 @@ export class VocabularyV2Service {
           morningQuizSession: { select: { date: true, level: true } },
           submissions: {
             where: { studentId: { in: studentIds } },
-            select: { studentId: true, finalSubmittedAt: true, status: true },
+            select: { studentId: true, finalSubmittedAt: true, status: true, submitSource: true },
           },
         },
       }),
@@ -230,14 +230,16 @@ export class VocabularyV2Service {
     ]);
 
     const formalByKey = new Map(formalSessions.map((row) => [row.sessionKey, row]));
-    const rows = enrollments.map(({ user }) => {
+    const rows = enrollments.map(({ user, joinedAt }) => {
+      const firstAssignedDay = sgtDay(joinedAt).date;
       const assignedReading = readingAssignments.filter((assignment) =>
         assignment.morningQuizSession &&
+        assignment.morningQuizSession.date.getTime() >= firstAssignedDay.getTime() &&
         assignment.morningQuizSession.date.getTime() <= day.date.getTime() &&
         assignment.morningQuizSession.level === user.englishLevel,
       );
       const readingDone = assignedReading.filter((assignment) =>
-        assignment.submissions.some((submission) => submission.studentId === user.id && submission.finalSubmittedAt != null),
+        assignment.submissions.some((submission) => submission.studentId === user.id && submission.finalSubmittedAt != null && submission.submitSource !== 'system_eod'),
       ).length;
       const awaitingMarking = assignedReading.filter((assignment) =>
         assignment.submissions.some((submission) => submission.studentId === user.id && submission.status === 'submitted'),
@@ -263,7 +265,7 @@ export class VocabularyV2Service {
           overdue: Math.max(0, assignedReading.length - readingDone),
           awaitingMarking,
           today: assignedReading.some((assignment) => assignment.morningQuizSession?.date.getTime() === day.date.getTime())
-            ? assignedReading.some((assignment) => assignment.morningQuizSession?.date.getTime() === day.date.getTime() && assignment.submissions.some((submission) => submission.studentId === user.id && submission.finalSubmittedAt != null)) ? 'completed' : 'pending'
+            ? assignedReading.some((assignment) => assignment.morningQuizSession?.date.getTime() === day.date.getTime() && assignment.submissions.some((submission) => submission.studentId === user.id && submission.finalSubmittedAt != null && submission.submitSource !== 'system_eod')) ? 'completed' : 'pending'
             : 'none',
         },
         vocabulary: {
@@ -274,7 +276,7 @@ export class VocabularyV2Service {
           completedDailySets: completedLearning.length,
           pendingTests: pendingTests.length,
           pendingTestWords: pendingTests.reduce((sum, session) => sum + session.items.filter((item) => item.status === 'completed').length, 0),
-          todayLearning: !todayLearning ? 'not_started' : todayLearning.status,
+          todayLearning: !todayLearning || todayLearning.items.every((item) => item.status === 'pending') ? 'not_started' : todayLearning.status,
           todayTest: !todayLearning || todayLearning.status !== 'completed' ? 'locked' : todayFormal?.status ?? 'pending',
         },
       };
@@ -753,8 +755,18 @@ export class VocabularyV2Service {
     };
   }
 
-  async dailySession(studentId: string, now = new Date()) {
-    const day = sgtDay(now);
+  private taskDay(now: Date, dateKey?: string) {
+    const today = sgtDay(now);
+    if (!dateKey) return today;
+    const date = new Date(`${dateKey}T00:00:00.000Z`);
+    if (Number.isNaN(date.getTime()) || dateKey > today.key) {
+      throw new BadRequestException({ code: 'bad_task_date' });
+    }
+    return { key: dateKey, date };
+  }
+
+  async dailySession(studentId: string, now = new Date(), dateKey?: string) {
+    const day = this.taskDay(now, dateKey);
     const session = await this.prisma.vocabularyV2Session.findUnique({
       where: { sessionKey: `v2:${studentId}:${day.key}:daily` },
       include: { items: { orderBy: { position: 'asc' } } },
@@ -764,21 +776,31 @@ export class VocabularyV2Service {
 
   async overview(studentId: string, now = new Date()) {
     const day = sgtDay(now);
-    const [profile, today, recentDaily] = await Promise.all([
+    const [profile, today, dailySessions, user] = await Promise.all([
       this.profile(studentId),
       this.dailySession(studentId, now),
       this.prisma.vocabularyV2Session.findMany({
         where: {
           studentId,
           sessionType: 'daily_learning',
-          status: 'completed',
           date: { lte: day.date },
         },
         orderBy: { date: 'asc' },
         take: 2000,
         include: { items: { orderBy: { position: 'asc' } } },
       }),
+      this.prisma.user.findUnique({
+        where: { id: studentId },
+        select: {
+          englishLevel: true,
+          classEnrollments: {
+            where: { role: 'student', class: { archivedAt: null } },
+            select: { classId: true, joinedAt: true },
+          },
+        },
+      }),
     ]);
+    const recentDaily = dailySessions.filter((session) => session.status === 'completed');
     const formalKeys = recentDaily.map((session) => `${session.sessionKey}:formal`);
     const formal = formalKeys.length
       ? await this.prisma.vocabularyV2Session.findMany({
@@ -801,7 +823,68 @@ export class VocabularyV2Service {
           status: test?.status ?? 'not_started',
         };
       });
-    return { dailyTarget: profile.dailyTarget, today, pendingTests };
+    const learningBacklog = dailySessions
+      .filter((session) => session.status === 'in_progress' && session.date.getTime() < day.date.getTime())
+      .map((session) => ({
+        sessionId: session.id,
+        date: session.date.toISOString().slice(0, 10),
+        completed: session.items.filter((item) => item.status === 'completed').length,
+        target: session.target,
+        status: session.items.every((item) => item.status === 'pending') ? 'not_started' : 'in_progress',
+      }));
+    const activeEnrollments = user?.classEnrollments ?? [];
+    const joinedByClass = new Map(activeEnrollments.map((enrollment) => [enrollment.classId, sgtDay(enrollment.joinedAt).date]));
+    const readingRows = user?.englishLevel && activeEnrollments.length
+      ? await this.prisma.paperAssignment.findMany({
+          where: {
+            classId: { in: activeEnrollments.map((enrollment) => enrollment.classId) },
+            morningQuizSession: {
+              is: {
+                date: { lt: day.date },
+                level: user.englishLevel,
+                status: { not: 'cancelled' },
+              },
+            },
+          },
+          orderBy: { morningQuizSession: { date: 'asc' } },
+          select: {
+            id: true,
+            classId: true,
+            paper: { select: { name: true } },
+            morningQuizSession: { select: { id: true, date: true } },
+            submissions: {
+              where: { studentId, status: { not: 'practice' } },
+              select: {
+                id: true,
+                status: true,
+                finalSubmittedAt: true,
+                submitSource: true,
+                _count: { select: { scripts: true } },
+              },
+              take: 1,
+            },
+          },
+        })
+      : [];
+    const readingBacklog = readingRows
+      .filter((assignment) => {
+        const joinedAt = joinedByClass.get(assignment.classId);
+        if (!joinedAt || assignment.morningQuizSession!.date.getTime() < joinedAt.getTime()) return false;
+        const submission = assignment.submissions[0];
+        return !submission || submission.finalSubmittedAt == null || submission.submitSource === 'system_eod';
+      })
+      .map((assignment) => {
+        const submission = assignment.submissions[0];
+        return {
+          assignmentId: assignment.id,
+          sessionId: assignment.morningQuizSession!.id,
+          submissionId: submission?.id ?? null,
+          date: assignment.morningQuizSession!.date.toISOString().slice(0, 10),
+          title: assignment.paper.name,
+          status: submission && submission._count.scripts > 0 ? 'in_progress' : 'not_started',
+        };
+      });
+    return { dailyTarget: profile.dailyTarget, today, readingBacklog, learningBacklog, pendingTests };
   }
 
   private async teacherAssignmentForStudent(studentId: string, date: Date) {
@@ -876,8 +959,8 @@ export class VocabularyV2Service {
     return this.sessionView(created);
   }
 
-  async startDailySession(studentId: string, now = new Date()) {
-    const day = sgtDay(now);
+  async startDailySession(studentId: string, now = new Date(), dateKey?: string) {
+    const day = this.taskDay(now, dateKey);
     const sessionKey = `v2:${studentId}:${day.key}:daily`;
     const existing = await this.prisma.vocabularyV2Session.findUnique({
       where: { sessionKey },

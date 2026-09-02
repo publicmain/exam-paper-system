@@ -35,11 +35,11 @@
  * 结果页若发现今天没有可看的结果（被撤卷、换了一天），它自己会回枢纽。
  */
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { api, ApiError, type ReadingSessionPayload } from '../lib/api';
 import { handleAuthFailure } from '../lib/auth-store';
 import { readToken } from '../lib/identity';
-import { ROUTES } from '../routes.contract';
+import { ROUTES, scoreDetailPath } from '../routes.contract';
 import { ReadingProvider, isSubmitBlocked, useReading } from '../lesson/ReadingProvider';
 import { ExamFocusProvider, ExamModeProvider } from '../lesson/ExamContext';
 import { ExamRenderer } from '../lesson/QuestionTypeRegistry';
@@ -98,6 +98,8 @@ function looksAlreadyDone(e: unknown): boolean {
 
 export default function ReadingPage() {
   const navigate = useNavigate();
+  const [params] = useSearchParams();
+  const requestedSessionId = params.get('sessionId');
   const [phase, setPhase] = useState<Phase>({ s: 'loading' });
 
   const load = useCallback(async () => {
@@ -105,9 +107,9 @@ export default function ReadingPage() {
     if (!token) return;
     setPhase({ s: 'loading' });
     try {
-      const today = await api.lessonToday(token);
-      const read = today.segments.find((s) => s.key === 'read');
-      const sessionId = read && read.key === 'read' ? read.sessionId : null;
+      const today = requestedSessionId ? null : await api.lessonToday(token);
+      const read = today?.segments.find((s) => s.key === 'read');
+      const sessionId = requestedSessionId ?? (read && read.key === 'read' ? read.sessionId : null);
       const submissionId = read && read.key === 'read' ? read.submissionId : null;
       if (!sessionId) {
         // 今天没有可作答的卷子 —— 回枢纽，由它决定下一步。
@@ -118,9 +120,9 @@ export default function ReadingPage() {
       setPhase({ s: 'ready', session, submissionId: session.submissionId ?? submissionId });
     } catch (e) {
       if (handleAuthFailure(e)) return;
-      setPhase({ s: 'error', message: '没能打开今天的阅读 —— 网络不太好，重试一下。' });
+      setPhase({ s: 'error', message: '没能打开这份阅读 —— 网络不太好，重试一下。' });
     }
-  }, [navigate]);
+  }, [navigate, requestedSessionId]);
 
   useEffect(() => {
     void load();
@@ -184,13 +186,13 @@ export default function ReadingPage() {
         露出来。这里不读它 —— 服务端的白名单脱敏是第一道闸，这行是第二道。
       */}
       <ExamModeProvider mode="test">
-        <ReadingShell session={session} />
+        <ReadingShell session={session} submissionId={submissionId} historical={Boolean(requestedSessionId)} />
       </ExamModeProvider>
     </ReadingProvider>
   );
 }
 
-function ReadingShell({ session }: { session: ReadingSessionPayload }) {
+function ReadingShell({ session, submissionId, historical }: { session: ReadingSessionPayload; submissionId: string | null; historical: boolean }) {
   const navigate = useNavigate();
   const r = useReading();
   const [confirming, setConfirming] = useState(false);
@@ -294,21 +296,23 @@ function ReadingShell({ session }: { session: ReadingSessionPayload }) {
         return;
       }
       // ③ 交卷。**不**用它的返回值决定去哪。
+      let submittedId = submissionId;
       try {
-        await api.submitReading(token, session.sessionId, { final: true });
+        const submitted = await api.submitReading(token, session.sessionId, { final: true });
+        submittedId = submitted.id ?? submissionId;
       } catch (e) {
         if (!looksAlreadyDone(e)) throw e;
       }
       // ④ 交卷成功 → **固定**去看这次的结果（理由见文件头「交卷之后去哪」）。
       //    不再问 today：那一问的答案此刻已经是「去背单词」，会把结果页跳过去。
-      navigate(ROUTES.readingResult);
+      navigate(historical && submittedId ? scoreDetailPath(submittedId) : ROUTES.readingResult);
     } catch (e) {
       if (handleAuthFailure(e)) return;
       setSubmitError('交卷没成功 —— 再试一次；答案还在本机上，不会丢。');
       submittingRef.current = false;
       setSubmitting(false);
     }
-  }, [navigate, r, session.sessionId]);
+  }, [historical, navigate, r, session.sessionId, submissionId]);
 
   return (
     <div className="ui-ios min-h-[100dvh] flex flex-col">

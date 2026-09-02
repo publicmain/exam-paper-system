@@ -61,6 +61,24 @@ describe('个人词汇教练 V2 学习流', () => {
     expect(fetchMock).toHaveBeenCalledTimes(2);
   });
 
+  it('从欠交入口进入时，读取并创建指定日期的同一份任务', async () => {
+    const fetchMock = vi.fn((url: string) => {
+      const path = pathOf(url);
+      if (path === '/vocab-v2/daily?date=2026-09-01') return response(learning());
+      return response({}, 404);
+    });
+    vi.stubGlobal('fetch', fetchMock);
+    render(
+      <MemoryRouter initialEntries={['/coach/learn?date=2026-09-01']}>
+        <VocabularyCoachLearnPage />
+      </MemoryRouter>,
+    );
+
+    expect(await screen.findByText('9月1日新词补做')).toBeInTheDocument();
+    expect(screen.getByText('Sales may decline when customers lose confidence.')).toBeInTheDocument();
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+
   it('每个词只显示一个完整学习页面，不增加第二步或混入考题', async () => {
     vi.stubGlobal('fetch', vi.fn((url: string) => pathOf(url) === '/vocab-v2/daily' ? response(learning()) : response({}, 404)));
     render(<MemoryRouter><VocabularyCoachLearnPage /></MemoryRouter>);
