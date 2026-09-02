@@ -140,6 +140,132 @@ export type RegistrationStatus =
   | { needDisambiguation: true; candidates: StudentCandidate[] }
   | { found: true; registered: boolean };
 
+export type V2Card = {
+  headword: string;
+  phonetic: string | null;
+  pos: string;
+  senseKey: string;
+  translation: string;
+  definition: string;
+  sentence: string | null;
+  sentenceTranslation: string | null;
+  collocations: string[];
+  wordFamily: string[];
+  confusionWords: string[];
+  memoryHint: string | null;
+  imageUrl: string | null;
+  audioText: string;
+  list: string;
+  rank: number;
+  attribution: string;
+};
+
+export type V2LearningSession = {
+  id: string;
+  version: string;
+  date: string;
+  type: string;
+  mode: string;
+  status: string;
+  target: number;
+  cursor: number;
+  completed: number;
+  /** 真正点过“学完”的数量；`completed` 还包含“稍后再学”的已处理卡。 */
+  learned: number;
+  sourceSummary: Record<string, number>;
+  settings: Record<string, unknown>;
+  deferredUntil: string | null;
+  items: Array<{
+    id: string;
+    position: number;
+    source: string;
+    masteryBefore: number;
+    status: string;
+    card: V2Card;
+  }>;
+};
+
+export type V2PublicQuestion =
+  | { type: 'spelling'; prompt: string; cue: { pos: string; translation: string; audioText: string }; options: string[]; answer?: string }
+  | { type: 'meaning_choice'; prompt: string; cue: null; options: string[]; answer?: number }
+  | { type: 'word_choice'; prompt: string; cue: { pos: string; translation: string }; options: string[]; answer?: number }
+  | { type: 'cloze'; prompt: string; cue: { sentence: string; translation: string }; options: string[]; answer?: string }
+  | { type: 'listening_spelling'; prompt: string; cue: { audioText: string; pos: string }; options: string[]; answer?: string }
+  | { type: 'active_use'; prompt: string; cue: { headword: string; translation: string }; options: string[]; answer?: string }
+  | { type: 'collocation'; prompt: string; cue: { headword: string }; options: string[]; answer?: number }
+  | { type: 'word_family'; prompt: string; cue: { headword: string; pos: string }; options: string[]; answer?: string[] };
+
+export type V2TestSession = {
+  id: string;
+  version: string;
+  date: string;
+  type: string;
+  status: string;
+  total: number;
+  answered: number;
+  correct: number | null;
+  retry?: { id: string; total: number; label: string } | null;
+  items: Array<{
+    id: string;
+    position: number;
+    status: string;
+    question: V2PublicQuestion;
+    response: { value: string | number } | null;
+    isCorrect: boolean | null;
+    card: V2Card | null;
+  }>;
+};
+
+export type V2Center = {
+  stats: {
+    total: number;
+    totalLearned: number;
+    removed: number;
+    new: number;
+    learning: number;
+    mastered: number;
+    due: number;
+    weak: number;
+    spellingWeak: number;
+    listeningWeak: number;
+    speakingWeak: number;
+  };
+  growth: Array<{ date: string; added: number; total: number }>;
+  filters: { sources: string[]; stages: string[]; articles: string[]; topics: string[]; lists: string[] };
+  total: number;
+  page: number;
+  pageSize: number;
+  items: Array<{
+    studentSenseId: string;
+    senseId: string;
+    headword: string;
+    phonetic: string | null;
+    pos: string;
+    translation: string;
+    definition: string;
+    masteryStage: number;
+    due: string;
+    source: string;
+    sourceTitle: string | null;
+    firstSeenAt: string;
+    inNotebook: boolean;
+    skills: Record<string, number>;
+    context: { sentence: string; translation: string } | null;
+  }>;
+};
+
+export type V2Overview = {
+  dailyTarget: number;
+  today: V2LearningSession | null;
+  pendingTests: Array<{
+    dailySessionId: string;
+    testSessionId: string | null;
+    date: string;
+    total: number;
+    status: string;
+  }>;
+};
+
 // ─────────────────────────────────────────────────────────────
 // 今天的课
 //
@@ -249,6 +375,65 @@ export type LessonToday = {
 export const api = {
   login: (body: { name: string; studentId?: string; pin: string }) =>
     request<AuthResult>('POST', '/student-auth/login', { body }),
+
+  vocabV2Profile: (token: string) =>
+    request<{ dailyTarget: number; taskMinutes: number; audioAccent: 'en-GB' | 'en-US'; allowedDailyTargets: number[] }>(
+      'GET', '/vocab-v2/profile', { token },
+    ),
+  vocabV2UpdateProfile: (token: string, body: { dailyTarget?: number; audioAccent?: 'en-GB' | 'en-US' }) =>
+    request<{ dailyTarget: number; taskMinutes: number; audioAccent: 'en-GB' | 'en-US' }>(
+      'POST', '/vocab-v2/profile', { token, body },
+    ),
+  vocabV2Center: (token: string, filters: { q?: string; source?: string; stage?: string; page?: number; article?: string; topic?: string; list?: string; dateFrom?: string; dateTo?: string } = {}) => {
+    const query = new URLSearchParams();
+    if (filters.q) query.set('q', filters.q);
+    if (filters.source) query.set('source', filters.source);
+    if (filters.stage) query.set('stage', filters.stage);
+    if (filters.page) query.set('page', String(filters.page));
+    if (filters.article) query.set('article', filters.article);
+    if (filters.topic) query.set('topic', filters.topic);
+    if (filters.list) query.set('list', filters.list);
+    if (filters.dateFrom) query.set('dateFrom', filters.dateFrom);
+    if (filters.dateTo) query.set('dateTo', filters.dateTo);
+    return request<V2Center>('GET', '/vocab-v2/center?' + query.toString(), { token });
+  },
+  vocabV2Daily: (token: string) => request<V2LearningSession | null>('GET', '/vocab-v2/daily', { token }),
+  vocabV2Overview: (token: string) => request<V2Overview>('GET', '/vocab-v2/overview', { token }),
+  vocabV2StartDaily: (token: string) => request<V2LearningSession>('POST', '/vocab-v2/daily/start', { token, body: {} }),
+  vocabV2LearnAction: (token: string, body: { sessionId: string; itemId: string; action: 'mastered' | 'normal' | 'hard' | 'skip'; responseMs?: number }) =>
+    request<V2LearningSession>('POST', '/vocab-v2/daily/item', { token, body }),
+  vocabV2Replace: (token: string, body: { sessionId: string; itemId: string }) =>
+    request<V2LearningSession & { replacement: { position: number; oldHeadword: string; newHeadword: string } }>(
+      'POST', '/vocab-v2/daily/replace', { token, body },
+    ),
+  vocabV2StartTest: (token: string, dailySessionId: string) =>
+    request<V2TestSession>('POST', '/vocab-v2/test/start', { token, body: { dailySessionId } }),
+  vocabV2Test: (token: string, sessionId: string) =>
+    request<V2TestSession>('GET', `/vocab-v2/test?sessionId=${encodeURIComponent(sessionId)}`, { token }),
+  vocabV2Answer: (token: string, body: { sessionId: string; itemId: string; response: string | number; responseMs?: number }) =>
+    request<V2TestSession>('POST', '/vocab-v2/test/answer', { token, body }),
+  vocabV2Submit: (token: string, sessionId: string) =>
+    request<V2TestSession>('POST', '/vocab-v2/test/submit', { token, body: { sessionId } }),
+  vocabV2CustomTest: (token: string, body: { count: 5 | 10 | 20 | 'all'; scope: 'all' | 'week' | 'weak' | 'mastered' | 'spelling' | 'listening'; sourceTitle?: string }) =>
+    request<V2TestSession>('POST', '/vocab-v2/custom-test/start', { token, body }),
+  vocabV2Collect: (token: string, body: {
+    headword: string;
+    action: 'learn' | 'known' | 'lookup_only' | 'later';
+    contextSentence?: string;
+    contextTranslation?: string;
+    sourceTitle?: string;
+    sourceRef?: string;
+    source?: 'reading_lookup' | 'reading_error' | 'search' | 'teacher_list';
+  }) => request<{ ok: true; action: string; added: boolean; sense: { id: string; headword: string; senseKey: string; pos: string; phonetic: string | null; translation: string; definition: string } }>(
+    'POST', '/vocab-v2/collect', { token, body },
+  ),
+  vocabV2SetMembership: (token: string, senseId: string, inNotebook: boolean) => inNotebook
+    ? request<{ ok: true; senseId: string; headword: string; inNotebook: boolean }>(
+        'POST', '/vocab-v2/notebook/relearn', { token, body: { senseId } },
+      )
+    : request<{ ok: true; senseId: string; headword: string; inNotebook: boolean }>(
+        'POST', '/vocab-v2/notebook/remove', { token, body: { senseId } },
+      ),
 
   /**
    * ⚠️ **学生端的页面已经不走这条路了**（S12O）。

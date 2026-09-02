@@ -17,6 +17,8 @@ import { describe, expect, it } from 'vitest';
 
 // eslint-disable-next-line @typescript-eslint/no-var-requires
 const content = require('../content');
+// eslint-disable-next-line @typescript-eslint/no-var-requires
+const { findNearDuplicate } = require('../content-similarity');
 
 type Word = {
   headword: string;
@@ -316,6 +318,13 @@ describe('S12M —— 全周', () => {
     const passages = EVERY.map(([, , d]) => d.passage);
     expect(new Set(titles).size).toBe(titles.length);
     expect(new Set(passages).size).toBe(passages.length);
+  });
+
+  it('二十五篇文章与全部题干都通过近似重复扫描', () => {
+    const passages = EVERY.map(([, level, day]) => ({ id: `${level}/${day.date}`, text: day.passage }));
+    const questions = EVERY.flatMap(([, level, day]) => day.questions.map((question, index) => ({ id: `${level}/${day.date}/q${index + 1}`, text: question.stem })));
+    expect(findNearDuplicate(passages, passages, 0.25, 5)).toBeNull();
+    expect(findNearDuplicate(questions, questions, 0.8, 4)).toBeNull();
   });
 
   it('学生看得到的每一个字里都没有占位 / 测试标记', () => {

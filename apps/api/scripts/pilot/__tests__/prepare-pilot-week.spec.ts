@@ -17,9 +17,11 @@ const content = require('../content');
 
 const {
   CONFIRMATION,
+  PRODUCTION_CONFIRMATION,
   PREFIX,
   EXPECTED_RAILWAY,
-  REUSED,
+  EXPECTED_PRODUCTION_RAILWAY,
+  PUBLISHER,
   CLASS,
   REGISTRATION_CLASSES,
   ALL_CLASSES,
@@ -43,9 +45,11 @@ const {
   dictDrift,
 } = prep as {
   CONFIRMATION: string;
+  PRODUCTION_CONFIRMATION: string;
   PREFIX: string;
   EXPECTED_RAILWAY: Record<string, string>;
-  REUSED: { subjectId: string; teacherId: string };
+  EXPECTED_PRODUCTION_RAILWAY: Record<string, string>;
+  PUBLISHER: { examBoardId: string; subjectId: string; teacherId: string };
   CLASS: { id: string; name: string; classCode: string };
   REGISTRATION_CLASSES: Array<{ id: string; name: string; classCode: string }>;
   ALL_CLASSES: Array<{ id: string; name: string; classCode: string }>;
@@ -119,10 +123,12 @@ describe('S12M —— 这个脚本能碰什么', () => {
     for (const t of must) expect(neverTouched()).toContain(t);
   });
 
-  it('复用的科目与教师是**引用**，不在写入范围里', () => {
-    expect(REUSED.subjectId).toBe('stg_sub');
-    expect(REUSED.teacherId).toBe('t_stgteacher');
-    expect(writeScopes().map((s) => s.table)).not.toContain('Subject');
+  it('发布科目与不可登录的发布者都在独立命名空间内', () => {
+    expect(PUBLISHER.examBoardId.startsWith(PREFIX)).toBe(true);
+    expect(PUBLISHER.subjectId.startsWith(PREFIX)).toBe(true);
+    expect(PUBLISHER.teacherId.startsWith(PREFIX)).toBe(true);
+    expect(writeScopes().map((s) => s.table)).toContain('ExamBoard');
+    expect(writeScopes().map((s) => s.table)).toContain('Subject');
   });
 });
 
@@ -257,6 +263,17 @@ describe('S12M —— 环境闸门', () => {
     expect(() => assertEnvGates(env())).not.toThrow();
   });
 
+  it('只有指定生产项目加生产专用确认串才能过', () => {
+    const production = {
+      ...env(),
+      ...EXPECTED_PRODUCTION_RAILWAY,
+      P1_CONFIRM: PRODUCTION_CONFIRMATION,
+    };
+    expect(() => assertEnvGates(production)).not.toThrow();
+    expect(() => assertEnvGates({ ...production, P1_CONFIRM: CONFIRMATION })).toThrow();
+    expect(() => assertEnvGates({ ...production, RAILWAY_PROJECT_ID: 'wrong' })).toThrow();
+  });
+
   const cases: Array<[string, Record<string, string>]> = [
     ['项目 id 不对', { RAILWAY_PROJECT_ID: '00000000-0000-0000-0000-000000000000' }],
     ['项目名不对', { RAILWAY_PROJECT_NAME: 'exam-paper-system' }],
@@ -287,7 +304,7 @@ describe('S12M —— 环境闸门', () => {
     expect(msg).not.toContain('postgresql://');
   });
 
-  it('生产项目的取值一个都过不去', () => {
+  it('不能只改项目名就绕过 staging 闸门', () => {
     expect(EXPECTED_RAILWAY.RAILWAY_PROJECT_NAME).toBe('exam-staging-manual');
     expect(() =>
       assertEnvGates({ ...env(), RAILWAY_PROJECT_NAME: 'glorious-motivation' }),

@@ -98,7 +98,7 @@ describe('G6 路由契约是单一事实源', () => {
     for (const key of Object.keys(ROUTES)) expect(app).toContain(`ROUTES.${key}`);
   });
 
-  it('**阶段 12B 注册十六条**：四条外壳 + 五条课程 + 两条成绩 + 三条生词本 + 两条错题本', () => {
+  it('**阶段 12B + 词汇教练 V2 的路由全部注册**', () => {
     expect(new Set(REGISTERED_PATHS)).toEqual(
       new Set([
         '/login', '/register', '/today', '/account',
@@ -108,6 +108,8 @@ describe('G6 路由契约是单一事实源', () => {
         '/scores', '/scores/:submissionId',
         // 阶段 12A —— 生词本与两条自由练习，同样是独立页面
         '/vocab', '/vocab/practice', '/vocab/selftest',
+        // 独立的个人词汇教练 V2
+        '/coach', '/coach/learn', '/coach/test',
         // 阶段 12B —— 错题本与错题重练
         '/mistakes', '/mistakes/practice',
       ]),
@@ -234,12 +236,13 @@ describe('G9 NextActionKind 映射穷尽', () => {
     }
   });
 
-  it('**六个可跳转的 kind 都指向已注册的路由**（含 drill → 错题重练）', () => {
+  it('**所有可跳转的 kind 都指向已注册的路由**（词汇统一进“我的单词”）', () => {
     const want = {
       resume_reading: '/lesson/reading',
       read_result: '/lesson/reading/result',
-      learn_vocab: '/lesson/vocab',
-      vocab_test: '/lesson/test',
+      learn_vocab: '/coach/learn',
+      vocab_test: '/vocab',
+      vocab_waiting: '/vocab',
       drill: '/mistakes/practice',
       summary: '/lesson/summary',
     } as const;
@@ -257,7 +260,7 @@ describe('G9 NextActionKind 映射穷尽', () => {
     const starts = NEXT_ACTION_KINDS.filter((k) => NEXT_ACTION_ROUTE[k].kind === 'start');
     expect(starts).toEqual(['ready_to_start']);
     const stays = NEXT_ACTION_KINDS.filter((k) => NEXT_ACTION_ROUTE[k].kind === 'stay');
-    expect(stays.sort()).toEqual(['level_not_set', 'no_content', 'none', 'vocab_waiting', 'window_closed']);
+    expect(stays.sort()).toEqual(['level_not_set', 'no_content', 'none', 'window_closed']);
   });
 
   it('映射目标不指向任何旧路由', () => {
@@ -501,6 +504,22 @@ describe('G1 新端不得出现旧路由与旧身份键', () => {
     // 但仍然带 Bearer —— 「认证后的请求一律带令牌」不为一个端点开例外）。
     // 写生词本走的是**已经登记过的** `/vocab/words`（阶段 12A 就在表里）。
     '/vocab/lookup',
+    // 个人词汇教练 V2：全部认证后、身份仅来自 Bearer token。
+    '/vocab-v2/profile',
+    '/vocab-v2/center',
+    '/vocab-v2/daily',
+    '/vocab-v2/overview',
+    '/vocab-v2/daily/start',
+    '/vocab-v2/daily/item',
+    '/vocab-v2/daily/replace',
+    '/vocab-v2/test/start',
+    '/vocab-v2/test',
+    '/vocab-v2/test/answer',
+    '/vocab-v2/test/submit',
+    '/vocab-v2/custom-test/start',
+    '/vocab-v2/collect',
+    '/vocab-v2/notebook/remove',
+    '/vocab-v2/notebook/relearn',
   ] as const;
 
   /**
@@ -1201,7 +1220,7 @@ describe('G-9A 课程学词只走课程线', () => {
   it('页面真的存在，占位页已经被替换掉', () => {
     for (const f of SURFACE) expect(fs.existsSync(f), f).toBe(true);
     const app = stripComments(fs.readFileSync(path.join(SRC, 'App.tsx'), 'utf8'));
-    expect(app).toMatch(/ROUTES\.lessonVocab\}\s*element=\{<LessonVocabPage/);
+    expect(app).toMatch(/ROUTES\.lessonVocab\}\s*element=\{<VocabularyCoachLearnPage/);
     expect(app).not.toMatch(/lessonVocab\}\s*element=\{<LessonPlaceholder/);
   });
 
@@ -1454,7 +1473,7 @@ describe('G-9B1 正式测试只走成绩线', () => {
   it('页面真的存在，占位页已经被替换掉', () => {
     expect(fs.existsSync(TEST_FILE)).toBe(true);
     const app = stripComments(fs.readFileSync(path.join(SRC, 'App.tsx'), 'utf8'));
-    expect(app).toMatch(/ROUTES\.lessonTest\}\s*element=\{<LessonTestPage/);
+    expect(app).toMatch(/ROUTES\.lessonTest\}\s*element=\{<Navigate to=\{ROUTES\.vocab\}/);
     expect(app).not.toMatch(/lessonTest\}\s*element=\{<LessonPlaceholder/);
   });
 
@@ -1631,9 +1650,9 @@ describe('G-12A 生词本与自由练习只走自己那条线', () => {
   it('三个页面与写入小工具都真的存在，而且都注册了', () => {
     for (const f of SURFACE) expect(fs.existsSync(f), f).toBe(true);
     const app = stripComments(fs.readFileSync(path.join(SRC, 'App.tsx'), 'utf8'));
-    expect(app).toMatch(/ROUTES\.vocab\}\s*element=\{<VocabBookPage/);
-    expect(app).toMatch(/ROUTES\.vocabPractice\}\s*element=\{<VocabPracticePage/);
-    expect(app).toMatch(/ROUTES\.vocabSelfTest\}\s*element=\{<VocabSelfTestPage/);
+    expect(app).toMatch(/ROUTES\.vocab\}\s*element=\{<VocabularyCoachPage/);
+    expect(app).toMatch(/ROUTES\.vocabPractice\}\s*element=\{<Navigate to=\{ROUTES\.vocab\}/);
+    expect(app).toMatch(/ROUTES\.vocabSelfTest\}\s*element=\{<Navigate to=\{ROUTES\.vocab\}/);
   });
 
   it('**整面干净**：不碰课程线、成绩线、正式测试、错题本、旧路由、身份', () => {
@@ -1929,27 +1948,29 @@ describe('G-12C 考试中查词只走 token-only 那条线', () => {
     }
   });
 
-  it('**只有查词卡自己发请求，而且只发查词、加入、移出三条**', () => {
+  it('**只有查词卡自己发请求，而且只发查词与 V2 收词两条**', () => {
     const called = (f: string) =>
       [...new Set(
         [...stripComments(fs.readFileSync(f, 'utf8')).matchAll(/\bapi\.(\w+)\s*\(/g)].map((m) => m[1]),
       )].sort();
-    expect(called(SHEET)).toEqual(['vocabAddWord', 'vocabLookup', 'vocabWordRemove']);
+    expect(called(SHEET)).toEqual(['vocabLookup', 'vocabV2Collect']);
     // 渲染器与手势层**一个 api 调用都没有** —— 它们只负责「点到了哪个词」
     expect(called(PASSAGE)).toEqual([]);
     expect(called(HIGHLIGHTER)).toEqual([]);
   });
 
-  it('**写生词本只有一个发送点**（重试走同一个，不另开一条）', () => {
+  it('**收词只有一个 V2 发送点**，旧生词本端点已移除', () => {
     const src = stripComments(fs.readFileSync(SHEET, 'utf8'));
-    expect((src.match(/api\.vocabAddWord\(/g) ?? []).length).toBe(1);
+    expect((src.match(/api\.vocabV2Collect\(/g) ?? []).length).toBe(1);
+    expect(src).not.toMatch(/api\.vocabAddWord\(|api\.vocabWordRemove\(/);
   });
 
-  it('**查词成功不自动收藏**：写入只挂在明确的按钮点击上', () => {
+  it('**查词成功不自动收录**：四个选择都是明确的按钮点击', () => {
     const src = stripComments(fs.readFileSync(SHEET, 'utf8'));
-    expect(src).toMatch(/data-testid="word-sheet-add"/);
-    expect(src).toMatch(/onClick=\{\(\) => void sendAdd\(gen\.current\)\}/);
-    expect(src).not.toMatch(/setPhase\(\{ s: 'ok',[\s\S]{0,600}void sendAdd/);
+    for (const id of ['learn', 'known', 'later', 'lookup']) {
+      expect(src).toContain(`data-testid="word-sheet-coach-${id}"`);
+    }
+    expect(src).not.toMatch(/setPhase\(\{ s: 'ok',[\s\S]{0,600}void chooseCoachAction/);
   });
 
   /**

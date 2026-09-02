@@ -1,217 +1,139 @@
 import { useCallback, useEffect, useState } from 'react';
 import { api } from '../lib/api';
 
-/**
- * 班级生词看板（生词本 P4，教师端）。
- *
- * 回答老师每天早上真正关心的问题：**今天该讲哪几个词**。
- * 数据来自学生自己的生词本，其中 wrong_answer 是判分时自动收录的
- * 确凿失分证据（权重更高），不是猜的。
- */
+type Progress = {
+  date: string;
+  totals: { students: number; readingOverdue?: number; unfinishedWords?: number; pendingTests?: number; notebookWords?: number };
+  students: Array<{
+    studentId: string;
+    name: string;
+    englishLevel: string | null;
+    reading: { assigned: number; completed: number; overdue: number; awaitingMarking: number; today: string };
+    vocabulary: {
+      notebookCount: number;
+      totalLearned: number;
+      masteredOrRemoved: number;
+      unfinishedWords: number;
+      completedDailySets: number;
+      pendingTests: number;
+      pendingTestWords: number;
+      todayLearning: string;
+      todayTest: string;
+    };
+  }>;
+};
 
-interface TopItem {
-  headword: string;
-  studentCount: number;
-  wrongAnswer: number;
-  clicked: number;
-  mastered: number;
-  contextSentence: string;
-  passages: string[];
-  phonetic: string | null;
-  translation: string;
-  tag: string[];
-}
+const LEVEL_LABEL: Record<string, string> = {
+  olevel: 'O-Level 基础', olevel_intermediate: 'O-Level 进阶', ielts_light: '雅思入门', ielts_authentic: '雅思进阶', ielts_simplified: '雅思强化',
+};
 
 export default function VocabClassPage() {
   const [classes, setClasses] = useState<Array<{ id: string; name: string }>>([]);
   const [classId, setClassId] = useState('');
-  const [days, setDays] = useState(30);
-  const [data, setData] = useState<{ totalDistinctWords: number; items: TopItem[] } | null>(null);
-  const [stats, setStats] = useState<any>(null);
-  const [err, setErr] = useState('');
-  const [selected, setSelected] = useState<Set<string>>(new Set());
-  const [pushing, setPushing] = useState(false);
-  const [pushMsg, setPushMsg] = useState('');
+  const [progress, setProgress] = useState<Progress | null>(null);
+  const [assignments, setAssignments] = useState<any[]>([]);
+  const [assignmentDate, setAssignmentDate] = useState(() => new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Singapore' }));
+  const [assignmentWords, setAssignmentWords] = useState('');
+  const [publishing, setPublishing] = useState(false);
+  const [message, setMessage] = useState('');
+  const [error, setError] = useState('');
 
   useEffect(() => {
-    api
-      .listClasses()
-      .then((r: any) => {
-        const list = (r?.items ?? r ?? []).map((c: any) => ({ id: c.id, name: c.name }));
-        setClasses(list);
-        if (list.length && !classId) setClassId(list[0].id);
-      })
-      .catch((e: any) => setErr(String(e?.message ?? e)));
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    api.listClasses().then((result: any) => {
+      const list = (result?.items ?? result ?? []).map((item: any) => ({ id: item.id, name: item.name }));
+      setClasses(list);
+      if (list.length) setClassId((current) => current || list[0].id);
+    }).catch((reason: any) => setError(String(reason?.message ?? reason)));
   }, []);
 
-  const load = useCallback(() => {
+  const load = useCallback(async () => {
     if (!classId) return;
-    setErr('');
-    api
-      .vocabClassTop(classId, { days, limit: 40 })
-      .then((r: any) => setData(r))
-      .catch((e: any) => setErr(String(e?.message ?? e)));
-    api
-      .vocabClassStats(classId)
-      .then((r: any) => setStats(r))
-      .catch(() => setStats(null));
-  }, [classId, days]);
-
-  useEffect(load, [load]);
-
-  const togglePick = (w: string) =>
-    setSelected((prev) => {
-      const n = new Set(prev);
-      if (n.has(w)) n.delete(w);
-      else n.add(w);
-      return n;
-    });
-
-  const push = async () => {
-    if (!selected.size || !classId) return;
-    setPushing(true);
-    setPushMsg('');
+    setError('');
     try {
-      const r: any = await api.vocabPush({ classId, words: [...selected] });
-      setPushMsg(
-        `已推送给 ${r.students} 名学生:新增 ${r.created} 条,跳过 ${r.skipped} 条(已在本子里)` +
-          (r.notFound?.length ? `;词典未收录:${r.notFound.join('、')}` : ''),
-      );
-      setSelected(new Set());
-      load();
-    } catch (e: any) {
-      setPushMsg('推送失败:' + String(e?.message ?? e));
-    } finally {
-      setPushing(false);
+      const [nextProgress, nextAssignments] = await Promise.all([
+        api.vocabV2ClassProgress(classId), api.vocabV2Assignments(classId),
+      ]);
+      setProgress(nextProgress as Progress);
+      setAssignments((nextAssignments as any)?.assignments ?? []);
+    } catch (reason: any) {
+      setError(String(reason?.message ?? reason));
     }
+  }, [classId]);
+
+  useEffect(() => { void load(); }, [load]);
+
+  const publish = async () => {
+    if (!classId || publishing) return;
+    const words = assignmentWords.split(/[\s,，;；]+/).map((word) => word.trim()).filter(Boolean);
+    if (words.length !== 12 || new Set(words.map((word) => word.toLowerCase())).size !== 12) {
+      setMessage(`每日词表必须正好是 12 个不重复单词；现在识别到 ${words.length} 个。`);
+      return;
+    }
+    setPublishing(true); setMessage('');
+    try {
+      await api.vocabV2PublishAssignment({ classId, date: assignmentDate, words });
+      setAssignmentWords('');
+      setMessage(`${assignmentDate} 的 12 个新词已经发布。学生开始后词单会冻结。`);
+      await load();
+    } catch (reason: any) {
+      setMessage(`发布失败：${String(reason?.message ?? reason)}`);
+    } finally { setPublishing(false); }
   };
 
   return (
-    <div className="max-w-4xl mx-auto space-y-4">
-      <div>
-        <h1 className="text-2xl font-bold text-[#2D3B45]">📒 班级生词</h1>
-        <p className="text-sm text-gray-500 mt-1">
-          学生生词本的汇总。<strong>答错自动收录</strong>的词是确凿的失分证据 —— 优先讲这些。
-        </p>
+    <div className="mx-auto max-w-7xl space-y-5">
+      <header>
+        <h1 className="text-2xl font-bold text-[#2D3B45]">学生学习总表</h1>
+        <p className="mt-1 text-sm text-gray-500">阅读、每日新词、生词本和单词测试使用同一张学生进度表，不再分别查看两套生词数据。</p>
+      </header>
+
+      <div className="flex flex-wrap items-center gap-3">
+        <label className="text-sm text-gray-600">班级 <select value={classId} onChange={(event) => setClassId(event.target.value)} className="ml-2 rounded-md border px-3 py-2">{classes.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</select></label>
+        <button className="rounded-md border bg-white px-4 py-2 text-sm" onClick={() => void load()}>刷新记录</button>
+        {progress ? <span className="text-sm text-gray-500">统计日期：{progress.date}</span> : null}
       </div>
+      {error ? <p role="alert" className="rounded-lg border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-800">{error}</p> : null}
+      {message ? <p role="status" className="rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-800">{message}</p> : null}
 
-      <div className="flex flex-wrap gap-3 items-center">
-        <select
-          value={classId}
-          onChange={(e) => setClassId(e.target.value)}
-          className="border rounded-md px-3 py-2 text-sm"
-        >
-          {classes.map((c) => (
-            <option key={c.id} value={c.id}>
-              {c.name}
-            </option>
-          ))}
-        </select>
-        <select
-          value={days}
-          onChange={(e) => setDays(Number(e.target.value))}
-          className="border rounded-md px-3 py-2 text-sm"
-        >
-          <option value={7}>最近 7 天</option>
-          <option value={30}>最近 30 天</option>
-          <option value={90}>最近 90 天</option>
-        </select>
-        {selected.size > 0 && (
-          <button
-            type="button"
-            onClick={push}
-            disabled={pushing}
-            className="px-4 py-2 rounded-md bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white text-sm font-medium"
-          >
-            {pushing ? '推送中…' : `推送选中的 ${selected.size} 个词给全班`}
-          </button>
-        )}
-      </div>
+      {progress ? <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5" aria-label="班级汇总">
+        <Metric label="学生账号" value={progress.totals.students} />
+        <Metric label="未完成文章" value={progress.totals.readingOverdue ?? 0} />
+        <Metric label="未背单词" value={progress.totals.unfinishedWords ?? 0} />
+        <Metric label="待做单词测试" value={progress.totals.pendingTests ?? 0} />
+        <Metric label="生词本总词数" value={progress.totals.notebookWords ?? 0} />
+      </section> : null}
 
-      {pushMsg && (
-        <div className="text-sm rounded-lg bg-blue-50 border border-blue-200 text-blue-800 px-3 py-2">
-          {pushMsg}
+      <section className="overflow-hidden rounded-xl border bg-white">
+        <div className="border-b px-4 py-3"><h2 className="font-bold">每个学生的完整记录</h2><p className="mt-1 text-xs text-gray-500">“未完成文章”按已经发布且符合该学生难度的阅读任务计算；没有打开过任务也会显示。</p></div>
+        <div className="overflow-x-auto">
+          <table className="min-w-[1180px] w-full text-left text-sm">
+            <thead className="bg-gray-50 text-xs text-gray-500"><tr><th className="px-4 py-3">学生</th><th className="px-3 py-3">难度</th><th className="px-3 py-3">今日阅读</th><th className="px-3 py-3">未完成文章</th><th className="px-3 py-3">今日新词</th><th className="px-3 py-3">未背单词</th><th className="px-3 py-3">测试待办</th><th className="px-3 py-3">生词本</th><th className="px-3 py-3">累计学过</th><th className="px-3 py-3">待批</th></tr></thead>
+            <tbody className="divide-y">{(progress?.students ?? []).map((student) => <tr key={student.studentId} className="hover:bg-gray-50"><td className="px-4 py-3 font-medium">{student.name}</td><td className="px-3 py-3">{LEVEL_LABEL[student.englishLevel ?? ''] ?? student.englishLevel ?? '未选择'}</td><td className="px-3 py-3"><Status value={student.reading.today} /></td><td className="px-3 py-3 tabular-nums">{student.reading.overdue}</td><td className="px-3 py-3"><Status value={student.vocabulary.todayLearning} /></td><td className="px-3 py-3 tabular-nums">{student.vocabulary.unfinishedWords}</td><td className="px-3 py-3"><strong>{student.vocabulary.pendingTests}</strong><span className="text-xs text-gray-400"> / {student.vocabulary.pendingTestWords} 词</span></td><td className="px-3 py-3 tabular-nums">{student.vocabulary.notebookCount}</td><td className="px-3 py-3 tabular-nums">{student.vocabulary.totalLearned}</td><td className="px-3 py-3 tabular-nums">{student.reading.awaitingMarking}</td></tr>)}</tbody>
+          </table>
         </div>
-      )}
-      {err && (
-        <div className="text-sm rounded-lg bg-rose-50 border border-rose-200 text-rose-800 px-3 py-2">
-          ⚠️ {err}
-        </div>
-      )}
+        {progress && progress.students.length === 0 ? <p className="p-8 text-center text-sm text-gray-500">这个班还没有学生账号。</p> : null}
+      </section>
 
-      {stats && (
-        <div className="bg-white border rounded-xl p-4 text-sm">
-          <div className="flex gap-6 flex-wrap">
-            <div>
-              <div className="text-gray-500 text-xs">学生数</div>
-              <div className="text-xl font-bold">{stats.students}</div>
-            </div>
-            <div>
-              <div className="text-gray-500 text-xs">累计复习次数</div>
-              <div className="text-xl font-bold">{stats.totalReviews}</div>
-            </div>
-            <div>
-              <div className="text-gray-500 text-xs">不同生词数</div>
-              <div className="text-xl font-bold">{data?.totalDistinctWords ?? '—'}</div>
-            </div>
-          </div>
+      <section className="rounded-xl border bg-white p-4">
+        <h2 className="text-lg font-bold text-gray-900">发布每日 12 个新词</h2>
+        <p className="mt-1 text-sm text-gray-500">词语会自动进入学生的“我的单词”。学完即自动生成测试待办，不再让学生选择今天考或明天考。</p>
+        <div className="mt-3 grid gap-3 lg:grid-cols-[170px_1fr_auto]">
+          <input type="date" value={assignmentDate} onChange={(event) => setAssignmentDate(event.target.value)} className="rounded-md border px-3 py-2" />
+          <textarea value={assignmentWords} onChange={(event) => setAssignmentWords(event.target.value)} placeholder="输入 12 个不重复英文单词，可用空格、逗号或换行分隔" rows={3} className="rounded-md border px-3 py-2 text-sm" />
+          <button type="button" disabled={publishing} onClick={() => void publish()} className="rounded-md bg-blue-600 px-5 py-2 font-medium text-white disabled:opacity-50">{publishing ? '发布中…' : '发布词表'}</button>
         </div>
-      )}
-
-      <div className="bg-white border rounded-xl divide-y">
-        {(data?.items ?? []).map((it) => (
-          <label
-            key={it.headword}
-            className="flex items-start gap-3 p-4 cursor-pointer hover:bg-gray-50"
-          >
-            <input
-              type="checkbox"
-              checked={selected.has(it.headword)}
-              onChange={() => togglePick(it.headword)}
-              className="mt-1.5"
-            />
-            <div className="min-w-0 flex-1">
-              <div className="flex items-baseline gap-2 flex-wrap">
-                <span className="text-lg font-bold text-gray-900">{it.headword}</span>
-                {it.phonetic && <span className="text-xs text-gray-500">/{it.phonetic}/</span>}
-                {it.tag.includes('ielts') && (
-                  <span className="text-[11px] px-1.5 py-0.5 rounded bg-purple-100 text-purple-700 font-semibold">
-                    雅思
-                  </span>
-                )}
-                <span className="text-xs text-gray-500">{it.studentCount} 名学生</span>
-                {it.wrongAnswer > 0 && (
-                  <span className="text-[11px] px-1.5 py-0.5 rounded bg-rose-50 text-rose-700 border border-rose-200">
-                    答错 {it.wrongAnswer}
-                  </span>
-                )}
-                {it.mastered > 0 && (
-                  <span className="text-[11px] px-1.5 py-0.5 rounded bg-emerald-50 text-emerald-700 border border-emerald-200">
-                    已掌握 {it.mastered}
-                  </span>
-                )}
-              </div>
-              <div className="text-sm text-gray-700 mt-0.5">
-                {it.translation.split('\n')[0]}
-              </div>
-              {it.contextSentence && (
-                <div className="text-xs text-gray-500 mt-1 line-clamp-2">{it.contextSentence}</div>
-              )}
-              {it.passages.length > 0 && (
-                <div className="text-[11px] text-gray-400 mt-1">
-                  出自:{it.passages.map((p) => `《${p}》`).join(' ')}
-                </div>
-              )}
-            </div>
-          </label>
-        ))}
-        {data && data.items.length === 0 && (
-          <div className="p-8 text-center text-sm text-gray-500">
-            该时间段内还没有生词。学生在成绩页点词、或判分后自动收录后就会出现在这里。
-          </div>
-        )}
-      </div>
+        {assignments.length ? <div className="mt-4 grid gap-2">{assignments.slice(0, 7).map((assignment) => <div key={assignment.id} className="rounded-lg bg-gray-50 px-3 py-2 text-sm"><div className="flex justify-between gap-3"><strong>{assignment.date} · {assignment.title}</strong><span>版本 {assignment.version}</span></div><p className="mt-1 text-gray-600">{assignment.words.map((word: any) => word.headword).join(' · ')}</p></div>)}</div> : null}
+      </section>
     </div>
   );
+}
+
+function Metric({ label, value }: { label: string; value: number }) {
+  return <div className="rounded-xl border bg-white p-4"><p className="text-xs text-gray-500">{label}</p><p className="mt-1 text-2xl font-bold tabular-nums">{value}</p></div>;
+}
+
+function Status({ value }: { value: string }) {
+  const labels: Record<string, string> = { completed: '已完成', pending: '待完成', in_progress: '进行中', not_started: '未开始', submitted: '已完成', locked: '待学词', none: '无任务' };
+  const good = value === 'completed' || value === 'submitted';
+  return <span className={`rounded-full px-2 py-1 text-xs ${good ? 'bg-emerald-50 text-emerald-700' : value === 'none' ? 'bg-gray-100 text-gray-500' : 'bg-amber-50 text-amber-700'}`}>{labels[value] ?? value}</span>;
 }

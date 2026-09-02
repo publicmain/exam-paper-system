@@ -16,6 +16,10 @@
     "ingest:local": "ts-node scripts/ingest-local.ts",
     "backfill:page-bytes": "ts-node scripts/backfill-page-bytes.ts",
     "migrate:9618": "ts-node scripts/migrate-9618-to-target.ts",
+    "vocab-v2:build-wordlists": "node scripts/vocab-v2/build-official-wordlists.js",
+    "vocab-v2:import-wordlists": "ts-node scripts/vocab-v2/import-official-wordlists.ts",
+    "vocab-v2:produce-content": "ts-node scripts/vocab-v2/produce-content.ts",
+    "vocab-v2:migrate-legacy": "ts-node scripts/vocab-v2/migrate-legacy-student-words.ts",
     "test": "vitest run",
     "test:watch": "vitest"
   },

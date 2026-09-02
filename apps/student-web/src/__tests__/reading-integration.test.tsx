@@ -172,6 +172,7 @@ function installFetch() {
 function defaultReply(req: Req): { status?: number; body: unknown } {
   if (req.path === '/student-auth/me') return { body: { ...PROFILE, appVersion: 'v2' } };
   if (req.path === '/lesson/today') return { body: todayBody };
+  if (req.path === '/vocab-v2/overview') return { body: { dailyTarget: 12, today: null, pendingTests: [] } };
   if (req.path === '/lesson/start') {
     // 服务端建卷 —— 之后 today 的 read 段就带上 sessionId / submissionId
     todayBody = lessonToday(
@@ -273,9 +274,10 @@ describe('AC-02/03/04/10 全链：启动 → today → 开课 → 阅读页 → 
 
     expect(at()).toBe('/lesson/reading');
     const trace = reqs.map((r) => `${r.method} ${r.path}`);
-    expect(trace.slice(0, 5)).toEqual([
+    expect(trace.slice(0, 6)).toEqual([
       'GET /student-auth/me',
       'GET /lesson/today',
+      'GET /vocab-v2/overview',
       'POST /lesson/start',
       'GET /lesson/today',
       `GET /morning-quiz/sessions/${SESSION_ID}`,
@@ -792,7 +794,7 @@ describe('S9D2B 交卷 → 阅读结果页 → 按当下的 nextAction 继续', 
     for (const r of reqs) expect(r.path).not.toMatch(/my-vocab|my-history|scan/);
   });
 
-  it('**结果页的主行动按当下的 nextAction 走：learn_vocab → /lesson/vocab**', async () => {
+  it('**结果页的主行动按当下的 nextAction 走：learn_vocab → 统一学习页**', async () => {
     stubLessonCards();
     await submitAndLand('learn_vocab');
 
@@ -804,7 +806,7 @@ describe('S9D2B 交卷 → 阅读结果页 → 按当下的 nextAction 继续', 
     // （之后背单词页自己也会问一次，所以这里钉的是「点击后的第一条请求」，
     //   不是总次数。）
     expect(reqs.slice(before).map((r) => `${r.method} ${r.path}`)[0]).toBe('GET /lesson/today');
-    expect(at()).toBe('/lesson/vocab');
+    expect(at()).toBe('/coach/learn');
     for (const r of reqs) expect(r.path).not.toMatch(/my-vocab|my-history|scan/);
   });
 

@@ -40,6 +40,7 @@ import { WatermarkModule } from './watermark/watermark.module';
 import { AdminCleanupModule } from './admin-cleanup/admin-cleanup.module';
 import { ClassifierModule } from './classifier/classifier.module';
 import { VocabModule } from './vocab/vocab.module';
+import { VocabularyV2Module } from './vocab-v2/vocabulary-v2.module';
 import { LessonModule } from './lesson/lesson.module';
 import { PracticeModule } from './practice/practice.module';
 // Morning attendance + quiz (feature/morning-attendance-quiz)
@@ -99,6 +100,7 @@ import { HealthController } from './health.controller';
     ClassifierModule,
 
     VocabModule,
+    VocabularyV2Module,
     LessonModule,
     StudentAuthModule,
     PracticeModule,

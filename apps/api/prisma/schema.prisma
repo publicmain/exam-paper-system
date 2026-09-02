@@ -82,49 +82,55 @@ model User {
   /// canActOnClass）。学生端没有任何接口能改写已落定的值。
   englishLevel EnglishLevel?
 
-  questionsCreated             Question[]               @relation("QuestionCreator")
+  questionsCreated             Question[]                  @relation("QuestionCreator")
   templatesOwned               PaperTemplate[]
   papersOwned                  Paper[]
   versionsAuthored             PaperVersion[]
   questionVersions             QuestionVersion[]
-  reposAdded                   SourceRepository[]       @relation("RepoAddedBy")
-  questionItemReviewed         QuestionItem[]           @relation("QuestionItemReviewer")
-  teacherReviews               TeacherReview[]          @relation("ReviewActor")
+  reposAdded                   SourceRepository[]          @relation("RepoAddedBy")
+  questionItemReviewed         QuestionItem[]              @relation("QuestionItemReviewer")
+  teacherReviews               TeacherReview[]             @relation("ReviewActor")
   classEnrollments             ClassEnrollment[]
   dailyLessonCompletions       DailyLessonCompletion[]
-  paperAssignmentsMade         PaperAssignment[]        @relation("PaperAssignedBy")
+  paperAssignmentsMade         PaperAssignment[]           @relation("PaperAssignedBy")
   submissions                  StudentSubmission[]
   // Path-B back-relations
-  markerAssignments            MarkerAssignment[]       @relation("MarkerAssignmentMarker")
-  paperVariants                PaperVariantAssignment[] @relation("PaperVariantStudent")
+  markerAssignments            MarkerAssignment[]          @relation("MarkerAssignmentMarker")
+  paperVariants                PaperVariantAssignment[]    @relation("PaperVariantStudent")
   tutorSessions                TutorSession[]
-  watermarkTokens              WatermarkToken[]         @relation("WatermarkTokenStudent")
+  watermarkTokens              WatermarkToken[]            @relation("WatermarkTokenStudent")
   // Morning quiz back-relations
-  morningQuizSessionsScheduled MorningQuizSession[]     @relation("MorningQuizScheduledBy")
-  morningQuizMakeupsOpened     MorningQuizSession[]     @relation("MorningQuizMakeupOpenedBy")
-  attendances                  Attendance[]             @relation("AttendanceStudent")
-  attendancesCorrected         Attendance[]             @relation("AttendanceCorrectedBy")
-  shuffleMaps                  QuestionShuffleMap[]     @relation("ShuffleMapStudent")
+  morningQuizSessionsScheduled MorningQuizSession[]        @relation("MorningQuizScheduledBy")
+  morningQuizMakeupsOpened     MorningQuizSession[]        @relation("MorningQuizMakeupOpenedBy")
+  attendances                  Attendance[]                @relation("AttendanceStudent")
+  attendancesCorrected         Attendance[]                @relation("AttendanceCorrectedBy")
+  shuffleMaps                  QuestionShuffleMap[]        @relation("ShuffleMapStudent")
   // R14 back-relations — Features 10, 12, 14, 15
-  appealsReviewed              GradeAppeal[]            @relation("AppealReviewer")
-  classTransfers               ClassTransferLog[]       @relation("TransferStudent")
-  classTransfersActed          ClassTransferLog[]       @relation("TransferActor")
-  parentLinks                  ParentLink[]             @relation("ParentLinkStudent")
-  parentLinksCreated           ParentLink[]             @relation("ParentLinkCreator")
-  questionRetractions          QuestionRetraction[]     @relation("RetractionActor")
+  appealsReviewed              GradeAppeal[]               @relation("AppealReviewer")
+  classTransfers               ClassTransferLog[]          @relation("TransferStudent")
+  classTransfersActed          ClassTransferLog[]          @relation("TransferActor")
+  parentLinks                  ParentLink[]                @relation("ParentLinkStudent")
+  parentLinksCreated           ParentLink[]                @relation("ParentLinkCreator")
+  questionRetractions          QuestionRetraction[]        @relation("RetractionActor")
   // Homework M1 back-relations
-  coursesCreated               Course[]                 @relation("CourseCreator")
-  homeworksCreated             Homework[]               @relation("HomeworkCreator")
-  homeworkAssignmentsMade      HomeworkAssignment[]     @relation("HomeworkAssignedBy")
-  homeworkSubmissions          HomeworkSubmission[]     @relation("HomeworkSubmissionStudent")
-  homeworkGraded               HomeworkGrade[]          @relation("HomeworkGradedBy")
-  regradeRequests              RegradeRequest[]         @relation("RegradeStudent")
-  regradeReplies               RegradeRequest[]         @relation("RegradeRepliedBy")
-  notifications                Notification[]           @relation("UserNotifications")
-  vocabWords                   StudentWord[]            @relation("StudentWordOwner")
-  pageViews                    StudentPageView[]        @relation("StudentPageViewOwner")
-  mistakes                     MistakeEntry[]           @relation("MistakeOwner")
-  vocabQuizAttempts            VocabQuizAttempt[]       @relation("VocabQuizAttemptStudent")
+  coursesCreated               Course[]                    @relation("CourseCreator")
+  homeworksCreated             Homework[]                  @relation("HomeworkCreator")
+  homeworkAssignmentsMade      HomeworkAssignment[]        @relation("HomeworkAssignedBy")
+  homeworkSubmissions          HomeworkSubmission[]        @relation("HomeworkSubmissionStudent")
+  homeworkGraded               HomeworkGrade[]             @relation("HomeworkGradedBy")
+  regradeRequests              RegradeRequest[]            @relation("RegradeStudent")
+  regradeReplies               RegradeRequest[]            @relation("RegradeRepliedBy")
+  notifications                Notification[]              @relation("UserNotifications")
+  vocabWords                   StudentWord[]               @relation("StudentWordOwner")
+  pageViews                    StudentPageView[]           @relation("StudentPageViewOwner")
+  mistakes                     MistakeEntry[]              @relation("MistakeOwner")
+  vocabQuizAttempts            VocabQuizAttempt[]          @relation("VocabQuizAttemptStudent")
+  vocabV2Profile               StudentVocabularyProfile?
+  vocabV2Cursors               StudentVocabularyCursor[]
+  vocabV2Senses                StudentVocabularySense[]
+  vocabV2Events                VocabularyCollectionEvent[]
+  vocabV2Sessions              VocabularyV2Session[]
+  vocabV2AssignmentsMade       VocabularyV2Assignment[]    @relation("VocabularyV2AssignedBy")
 }
 
 // ============================================================
@@ -174,10 +180,11 @@ model Class {
   // A class can now register multiple difficulty bands at once.
   englishLevels       ClassEnglishLevel[]
   // R14 — Feature 12: class-transfer audit trail back-relations.
-  transfersFrom       ClassTransferLog[]   @relation("TransferFrom")
-  transfersTo         ClassTransferLog[]   @relation("TransferTo")
+  transfersFrom       ClassTransferLog[]       @relation("TransferFrom")
+  transfersTo         ClassTransferLog[]       @relation("TransferTo")
   // Homework M1 back-relation
   homeworkAssignments HomeworkAssignment[]
+  vocabV2Assignments  VocabularyV2Assignment[]
 }
 
 model ClassEnrollment {
@@ -2136,6 +2143,291 @@ model StudentWord {
   @@unique([studentId, headword])
   @@index([studentId, due])
   @@index([studentId, state])
+}
+
+// ═══════════════════════════════════════════════════════════════
+// Vocabulary Coach V2
+//
+// The legacy StudentWord model above is intentionally headword-based. V2 is
+// sense-based: `still` (adv. 仍然) and `still` (adj. 静止的) are different
+// learning assets, schedules and mastery records. V2 lives beside the legacy
+// module until one-class rollout proves the migration safe.
+// ═══════════════════════════════════════════════════════════════
+
+model VocabularyLexeme {
+  id          String   @id @default(cuid())
+  listName    String
+  listVersion String
+  rank        Int
+  headword    String
+  phonetic    String?
+  attribution String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  senses VocabularySense[]
+
+  @@unique([listName, listVersion, headword])
+  @@index([listName, listVersion, rank])
+  @@index([headword])
+}
+
+model VocabularySense {
+  id             String           @id @default(cuid())
+  lexemeId       String
+  lexeme         VocabularyLexeme @relation(fields: [lexemeId], references: [id], onDelete: Cascade)
+  /// Stable within a lexeme, normally `pos:01`; never derived from Chinese text.
+  senseKey       String
+  pos            String
+  definition     String
+  translation    String
+  collocations   Json?
+  wordFamily     Json?
+  confusionWords Json?
+  memoryHint     String?
+  imageUrl       String?
+  contentVersion Int              @default(1)
+  qualityStatus  String           @default("ready")
+  createdAt      DateTime         @default(now())
+  updatedAt      DateTime         @updatedAt
+
+  contexts        VocabularyContext[]
+  students        StudentVocabularySense[]
+  events          VocabularyCollectionEvent[]
+  items           VocabularyV2SessionItem[]
+  contentJobs     VocabularyContentJob[]
+  assignmentItems VocabularyV2AssignmentItem[]
+
+  @@unique([lexemeId, senseKey])
+  @@index([qualityStatus])
+}
+
+/// One teacher-owned, date-frozen class list. Creating the list never mutates
+/// an already started student session: each learner copies these exact senses
+/// into their own VocabularyV2Session when they begin.
+model VocabularyV2Assignment {
+  id           String   @id @default(cuid())
+  classId      String
+  class        Class    @relation(fields: [classId], references: [id], onDelete: Cascade)
+  assignedById String
+  assignedBy   User     @relation("VocabularyV2AssignedBy", fields: [assignedById], references: [id], onDelete: Restrict)
+  date         DateTime @db.Date
+  title        String
+  status       String   @default("published")
+  version      Int      @default(1)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  items VocabularyV2AssignmentItem[]
+
+  @@unique([classId, date])
+  @@index([assignedById, date])
+}
+
+model VocabularyV2AssignmentItem {
+  id           String                 @id @default(cuid())
+  assignmentId String
+  assignment   VocabularyV2Assignment @relation(fields: [assignmentId], references: [id], onDelete: Cascade)
+  senseId      String
+  sense        VocabularySense        @relation(fields: [senseId], references: [id], onDelete: Restrict)
+  position     Int
+  createdAt    DateTime               @default(now())
+
+  @@unique([assignmentId, position])
+  @@unique([assignmentId, senseId])
+  @@index([senseId])
+}
+
+model VocabularyContentJob {
+  id               String          @id @default(cuid())
+  senseId          String
+  sense            VocabularySense @relation(fields: [senseId], references: [id], onDelete: Cascade)
+  /// queued | running | published | rejected | failed
+  status           String          @default("queued")
+  provider         String
+  requestedVersion Int
+  attempts         Int             @default(0)
+  candidate        Json?
+  validation       Json?
+  errorCode        String?
+  startedAt        DateTime?
+  completedAt      DateTime?
+  createdAt        DateTime        @default(now())
+  updatedAt        DateTime        @updatedAt
+
+  @@unique([senseId, requestedVersion])
+  @@index([status, createdAt])
+}
+
+model VocabularyContext {
+  id            String          @id @default(cuid())
+  senseId       String
+  sense         VocabularySense @relation(fields: [senseId], references: [id], onDelete: Cascade)
+  /// article_original | short_same_meaning | alternate_topic | listening | active_use
+  kind          String
+  position      Int             @default(1)
+  sentence      String
+  translation   String
+  topic         String?
+  difficulty    Int             @default(1)
+  sourceTitle   String?
+  sourceRef     String?
+  provider      String?
+  attribution   String?
+  license       String?
+  externalId    String?
+  qualityStatus String          @default("ready")
+  createdAt     DateTime        @default(now())
+
+  sessionItems VocabularyV2SessionItem[] @relation("V2ItemContext")
+
+  @@unique([senseId, kind, position])
+  @@index([senseId, difficulty])
+}
+
+model StudentVocabularyProfile {
+  studentId   String   @id
+  student     User     @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  /// 5 | 10 | 15 | 20 for adaptive mode. Teacher-list lessons may freeze 12.
+  dailyTarget Int      @default(10)
+  taskMinutes Int      @default(8)
+  mode        String   @default("adaptive_coach")
+  audioAccent String   @default("en-GB")
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model StudentVocabularyCursor {
+  id          String   @id @default(cuid())
+  studentId   String
+  student     User     @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  listName    String
+  listVersion String
+  nextRank    Int      @default(1)
+  updatedAt   DateTime @updatedAt
+
+  @@unique([studentId, listName, listVersion])
+}
+
+model StudentVocabularySense {
+  id             String          @id @default(cuid())
+  studentId      String
+  student        User            @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  senseId        String
+  sense          VocabularySense @relation(fields: [senseId], references: [id], onDelete: Cascade)
+  /// 1 seen, 2 recognise, 3 understand in context, 4 recall, 5 spell,
+  /// 6 listen/pronounce, 7 actively use, 8 stable mastery.
+  masteryStage   Int             @default(1)
+  confidence     Int             @default(0)
+  recognition    Float           @default(0)
+  contextSkill   Float           @default(0)
+  recallSkill    Float           @default(0)
+  spellingSkill  Float           @default(0)
+  listeningSkill Float           @default(0)
+  speakingSkill  Float           @default(0)
+  usageSkill     Float           @default(0)
+  due            DateTime        @default(now())
+  stability      Float           @default(0)
+  difficulty     Float           @default(0)
+  elapsedDays    Int             @default(0)
+  scheduledDays  Int             @default(0)
+  reps           Int             @default(0)
+  lapses         Int             @default(0)
+  lastReview     DateTime?
+  firstSeenAt    DateTime        @default(now())
+  masteredAt     DateTime?
+  /// Canonical "我的单词" membership. Removing a word never erases its
+  /// history or lets it silently return as a new daily word.
+  inNotebook     Boolean         @default(true)
+  removedAt      DateTime?
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
+
+  events VocabularyCollectionEvent[]
+
+  @@unique([studentId, senseId])
+  @@index([studentId, due])
+  @@index([studentId, masteryStage])
+  @@index([studentId, inNotebook])
+}
+
+model VocabularyCollectionEvent {
+  id             String                  @id @default(cuid())
+  studentId      String
+  student        User                    @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  senseId        String
+  sense          VocabularySense         @relation(fields: [senseId], references: [id], onDelete: Cascade)
+  studentSenseId String?
+  studentSense   StudentVocabularySense? @relation(fields: [studentSenseId], references: [id], onDelete: SetNull)
+  /// reading_lookup | reading_error | level_gap | search | review | teacher_list
+  source         String
+  action         String
+  sourceTitle    String?
+  sourceRef      String?
+  contextText    String?
+  metadata       Json?
+  createdAt      DateTime                @default(now())
+
+  @@index([studentId, createdAt])
+  @@index([studentId, source])
+}
+
+model VocabularyV2Session {
+  id               String    @id @default(cuid())
+  /// Stable idempotency key, e.g. `student:2026-09-01:daily`.
+  sessionKey       String    @unique
+  studentId        String
+  student          User      @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  date             DateTime  @db.Date
+  /// daily_learning | formal_test | custom_test | retry
+  sessionType      String
+  mode             String
+  status           String    @default("in_progress")
+  version          String
+  target           Int
+  cursor           Int       @default(0)
+  deferredUntil    DateTime? @db.Date
+  settingsSnapshot Json
+  sourceSummary    Json
+  startedAt        DateTime  @default(now())
+  completedAt      DateTime?
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+
+  items VocabularyV2SessionItem[]
+
+  @@index([studentId, date])
+  @@index([studentId, status])
+}
+
+model VocabularyV2SessionItem {
+  id               String              @id @default(cuid())
+  sessionId        String
+  session          VocabularyV2Session @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  senseId          String
+  sense            VocabularySense     @relation(fields: [senseId], references: [id], onDelete: Restrict)
+  position         Int
+  source           String
+  contextId        String?
+  context          VocabularyContext?  @relation("V2ItemContext", fields: [contextId], references: [id], onDelete: SetNull)
+  masteryBefore    Int
+  contentVersion   Int
+  /// Complete immutable card/question payload. Later dictionary edits cannot
+  /// change an active session or a historical result.
+  contentSnapshot  Json
+  questionSnapshot Json?
+  status           String              @default("pending")
+  response         Json?
+  isCorrect        Boolean?
+  attempts         Int                 @default(0)
+  responseMs       Int?
+  completedAt      DateTime?
+  createdAt        DateTime            @default(now())
+  updatedAt        DateTime            @updatedAt
+
+  @@unique([sessionId, position])
+  @@index([sessionId, status])
+  @@index([senseId])
 }
 
 enum VocabSource {

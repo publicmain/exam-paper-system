@@ -140,51 +140,30 @@ const RESULT_BODY = {
 const stubResult = (r: string) =>
   r === `/morning-quiz/student-result/${RESULT_SID}` ? jsonResponse(200, RESULT_BODY) : null;
 
-/**
- * 阶段 9A 起 `/lesson/vocab` 也是**真页面**。
- *
- * 它的链路：`/lesson/today`（必须是 `learn_vocab`）→ `/vocab/lesson-cards`
- * （必须有冻结的课程队列）。两条都得桩上，页面才走得完 —— 否则它会
- * （正确地）replace 回 `/today`，路由断言就落空了。
- */
-const VOCAB_CARDS_BODY = {
-  lessonContext: true,
-  cursor: 0,
-  totalDue: 1,
-  cards: [
-    {
-      headword: 'delta', surfaceForm: 'delta', contextSentence: 'A delta forms here.',
-      sourcePassageTitle: '晨读 A', phonetic: 'ˈdeltə', translation: '三角洲', pos: 'n.',
-      definition: 'Land at a river mouth.', tag: [], state: 'new', reps: 0,
-      needsFirstTeaching: true, firstTaughtAt: null, sourceType: 'passage',
-      addedAt: '2026-08-28T00:00:00.000Z',
-    },
-  ],
+const V2_CARD = {
+  headword: 'delta', phonetic: '/ˈdeltə/', pos: 'noun', senseKey: 'delta:noun:1', translation: '三角洲',
+  definition: 'land at a river mouth', sentence: 'A delta forms here.', sentenceTranslation: '这里形成三角洲。',
+  collocations: ['river delta'], wordFamily: [], confusionWords: [], memoryHint: null, imageUrl: null,
+  audioText: 'delta', list: 'ngsl', rank: 100, attribution: 'test',
 };
-
-const stubVocab = (r: string) =>
-  r === '/vocab/lesson-cards' ? jsonResponse(200, VOCAB_CARDS_BODY) : null;
-
-/**
- * 阶段 9B1 起 `/lesson/test` 也是**真页面**。
- *
- * 它的链路：`/lesson/today`（必须是 `vocab_test`）→ 幂等开考。两条都得
- * 桩上，页面才走得完 —— 否则它会（正确地）replace 走。
- */
-const QUIZ_ITEM = {
-  index: 0, qtype: 'word_to_meaning', prompt: 'harbour',
-  options: ['n. 港口', 'n. 灯笼', 'n. 草地', 'n. 卵石'],
-  headword: null, phonetic: null, translation: null, contextSentence: null,
-  correctIndex: null, answer: null,
-  studentIndex: null, studentAnswer: null, isCorrect: null, answeredAt: null,
+const V2_DAILY = {
+  id: 'daily-v2', version: 'V2-test', date: '2026-08-28', type: 'daily_learning', mode: 'level_gap',
+  status: 'in_progress', target: 1, cursor: 0, completed: 0, learned: 0, sourceSummary: { level_gap: 1 },
+  settings: { audioAccent: 'en-GB' }, deferredUntil: null,
+  items: [{ id: 'v2-item', position: 1, source: 'level_gap', masteryBefore: 1, status: 'pending', card: V2_CARD }],
 };
-const QUIZ_ATTEMPT_BODY = {
-  attemptId: 'att1', status: 'in_progress', startedAt: '2026-08-28T02:00:00.000Z',
-  submittedAt: null, total: 1, correct: 0, score: null, items: [QUIZ_ITEM], resumed: false,
+const V2_CENTER = {
+  stats: { total: 1, totalLearned: 1, removed: 0 }, growth: [],
+  filters: { sources: ['level_gap'], stages: [], articles: [], topics: [], lists: ['ngsl'] },
+  total: 1, page: 1, pageSize: 30,
+  items: [{ studentSenseId: 'owned', senseId: 'sense-delta', headword: 'delta', phonetic: '/ˈdeltə/', pos: 'noun', translation: '三角洲', definition: 'land at a river mouth', masteryStage: 1, due: '2026-08-28T00:00:00.000Z', source: 'level_gap', sourceTitle: null, firstSeenAt: '2026-08-28T00:00:00.000Z', inNotebook: true, skills: {}, context: { sentence: 'A delta forms here.', translation: '这里形成三角洲。' } }],
 };
-
-const stubQuiz = (r: string) =>
-  r === '/vocab/quiz/attempt/start' ? jsonResponse(200, QUIZ_ATTEMPT_BODY) : null;
+const stubUnifiedCenter = (r: string) => {
+  if (r.startsWith('/vocab-v2/center?')) return jsonResponse(200, V2_CENTER);
+  if (r === '/vocab-v2/overview') return jsonResponse(200, { dailyTarget: 12, today: V2_DAILY, pendingTests: [] });
+  return null;
+};
+const stubUnifiedLearning = (r: string) => r === '/vocab-v2/daily' ? jsonResponse(200, V2_DAILY) : null;
 
 // ─────────────────────────────────────────────────────────────
 
@@ -280,22 +259,21 @@ describe('6–7. 路由映射只认契约', () => {
     expect(screen.queryByText(/还没有做好/)).toBeNull();
   });
 
-  it('`vocab_test` → 落到**真的正式测试页**（阶段 9B1 起不再是占位页）', async () => {
-    session(withKind('vocab_test', '开始单词测试'), stubQuiz);
+  it('`vocab_test` → 落到统一“我的单词”待办中心', async () => {
+    session(withKind('vocab_test', '开始单词测试'), stubUnifiedCenter);
     renderAt('/today');
     await screen.findByRole('heading', { name: /你好，七号/ });
-    await userEvent.click(screen.getByRole('button', { name: '开始单词测试' }));
-    expect(await screen.findByTestId('question')).toBeTruthy();
-    expect(screen.getByTestId('scored-badge').textContent).toContain('计入成绩');
+    await userEvent.click(screen.getByRole('button', { name: '查看单词测试待办' }));
+    expect(await screen.findByRole('heading', { name: '我的单词' })).toBeTruthy();
     expect(screen.queryByText(/还没有做好/)).toBeNull();
   });
 
-  it('`learn_vocab` → 落到**真的课程学词页**（阶段 9A 起不再是占位页）', async () => {
-    session(withKind('learn_vocab', '学习本次单词'), stubVocab);
+  it('`learn_vocab` → 落到统一的新词学习页', async () => {
+    session(withKind('learn_vocab', '学习本次单词'), stubUnifiedLearning);
     renderAt('/today');
     await screen.findByRole('heading', { name: /你好，七号/ });
     await userEvent.click(screen.getByRole('button', { name: '学习本次单词' }));
-    expect(await screen.findByTestId('teaching-card')).toBeTruthy();
+    expect(await screen.findByRole('heading', { name: 'delta' })).toBeTruthy();
     // 占位页的字样不该再出现
     expect(screen.queryByText(/还没有做好/)).toBeNull();
   });
@@ -518,22 +496,21 @@ describe('15–16. 路由兜底与占位页', () => {
     expect(callsTo('/lesson/start')).toHaveLength(0);
   });
 
-  it('**直接打开 `/lesson/test` 也走完整链路**（阶段 9B1 起不是占位页）', async () => {
-    session(withKind('vocab_test', '开始单词测试'), stubQuiz);
+  it('**直接打开旧 `/lesson/test` 会进入统一待办中心**', async () => {
+    session(withKind('vocab_test', '开始单词测试'), stubUnifiedCenter);
     renderAt('/lesson/test');
-    expect(await screen.findByTestId('question')).toBeTruthy();
+    expect(await screen.findByRole('heading', { name: '我的单词' })).toBeTruthy();
     expect(screen.queryByText(/还没有做好/)).toBeNull();
-    expect(callsTo('/lesson/today')).toHaveLength(1);
-    expect(callsTo('/vocab/quiz/attempt/start')).toHaveLength(1);
+    expect(callsTo('/vocab/quiz/attempt/start')).toHaveLength(0);
   });
 
-  it('**直接打开 `/lesson/vocab` 也走完整链路**（阶段 9A 起不是占位页）', async () => {
-    session(withKind('learn_vocab', '学习本次单词'), stubVocab);
+  it('**直接打开旧 `/lesson/vocab` 会进入统一学习页**', async () => {
+    session(withKind('learn_vocab', '学习本次单词'), stubUnifiedLearning);
     renderAt('/lesson/vocab');
-    expect(await screen.findByTestId('teaching-card')).toBeTruthy();
+    expect(await screen.findByRole('heading', { name: 'delta' })).toBeTruthy();
     expect(screen.queryByText(/还没有做好/)).toBeNull();
     // 队列从服务端来，不从 URL 来
-    expect(callsTo('/lesson/today')).toHaveLength(1);
+    expect(callsTo('/vocab-v2/daily')).toHaveLength(1);
     expect(callsTo('/lesson/start')).toHaveLength(0);
     expect(callsTo('/vocab/due')).toHaveLength(0);
   });

@@ -49,27 +49,19 @@ export const ROUTES = {
    * 「一份答卷的标识」，而不是一个可以塞任何东西的参数袋。
    */
   scoreDetail: '/scores/:submissionId',
-  /**
-   * 生词本（阶段 12A）。与历史成绩一样是**同一外壳里的独立页面** ——
-   * 随时能进，进了也不改变今天的课走到哪一步。
-   */
+  /** 「我的单词」统一入口。 */
   vocab: '/vocab',
-  /**
-   * 生词本自由练习 —— 到期卡复习（`/vocab/due`）。
-   *
-   * 它与课程学词（`/lesson/vocab`）**是两条线，不是两个入口**：
-   * 词表不同、发卡规则不同、算不算课程完成度也不同。用路由把这件事
-   * 说死，是 D5 的原话 —— 旧端把两者混在一个页面里，学生以为在上课，
-   * 其实在刷另一个词表。
-   */
+  /** 旧路由别名；运行时统一重定向 `/vocab`。 */
   vocabPractice: '/vocab/practice',
-  /**
-   * 生词自测 —— 自由练习的选择/拼写题（`/vocab/quiz`）。
-   *
-   * **不是**正式单词测试（`/lesson/test`，走 `/vocab/quiz/attempt/*`、
-   * 记成绩、进历史）。同样用路由把两者分开。
-   */
+  /** 旧路由别名；自主随机练习已收入 `/vocab`。 */
   vocabSelfTest: '/vocab/selftest',
+  /**
+   * “我的单词”的学习与测试子页。旧 `/coach` 只作为历史链接别名，
+   * 不再代表第二套词汇产品。
+   */
+  coach: '/coach',
+  coachLearn: '/coach/learn',
+  coachTest: '/coach/test',
   /**
    * 错题本（阶段 12B）。与生词本同一类：**同一外壳里的独立页面**，
    * 随时能进，进了也不改变今天的课走到哪一步。
@@ -172,9 +164,10 @@ export const NEXT_ACTION_ROUTE: Readonly<Record<NextActionKind, NextActionTarget
   ready_to_start: { kind: 'start', reason: '今天的课还没开始' },
   resume_reading: { kind: 'navigate', path: ROUTES.reading },
   read_result: { kind: 'navigate', path: ROUTES.readingResult },
-  learn_vocab: { kind: 'navigate', path: ROUTES.lessonVocab },
-  vocab_test: { kind: 'navigate', path: ROUTES.lessonTest },
-  vocab_waiting: { kind: 'stay', reason: '单词已学完，明天再考' },
+  learn_vocab: { kind: 'navigate', path: ROUTES.coachLearn },
+  // 旧课程状态没有 V2 sessionId，先进入统一中心，由待办卡打开正确日期的卷子。
+  vocab_test: { kind: 'navigate', path: ROUTES.vocab },
+  vocab_waiting: { kind: 'navigate', path: ROUTES.vocab },
   // S12I —— 补段落到**已有的**错题重练页，不新开页、不新开端点。
   // S12L —— 错题本暂停期间服务端不再产出 `drill`；这条映射留着，
   // 是为了恢复功能时不用再动契约表（守卫要求十一个 kind 全有目标）。

@@ -1,5 +1,5 @@
 /**
- * S12M —— 把**试点第一周某一天**的课程发布到 staging。
+ * S12M —— 把**试点第一周某一天**的课程发布到已批准的 staging / production。
  *
  * ## 一次只发一天，这是有原因的
  *
@@ -53,12 +53,14 @@ const ENV_KEYS = [
 const ENV_AT_STARTUP = Object.fromEntries(ENV_KEYS.map((k) => [k, process.env[k] || '']));
 
 const content = require('./content');
+const { findNearDuplicate } = require('./content-similarity');
 
 // ─────────────────────────────────────────────────────────────
 // 常量
 // ─────────────────────────────────────────────────────────────
 
 const CONFIRMATION = 'S12M_PUBLISH_PILOT_WEEK';
+const PRODUCTION_CONFIRMATION = 'S12M_PUBLISH_PILOT_WEEK_PRODUCTION';
 /** 这个脚本写的每一行都带它。 */
 const PREFIX = 'p1_';
 /** 每天真正教学、真正进入正式单词考试的固定数量。 */
@@ -80,8 +82,32 @@ const EXPECTED_RAILWAY = {
   RAILWAY_SERVICE_NAME: 'Postgres',
 };
 
-/** 复用的既有资源 —— **只读引用，绝不改写**。 */
-const REUSED = { subjectId: 'stg_sub', teacherId: 't_stgteacher' };
+/**
+ * 生产发布是另一把钥匙：项目 id、项目名和逐字确认串均与 staging 不同。
+ * 这里不接受“任意 Railway 项目”，因此即使有人复制脚本到别处也无法执行。
+ */
+const EXPECTED_PRODUCTION_RAILWAY = {
+  RAILWAY_PROJECT_ID: 'c634fa12-fa7f-460b-a113-3bf4b9566c99',
+  RAILWAY_PROJECT_NAME: 'glorious-motivation',
+  RAILWAY_ENVIRONMENT_NAME: 'production',
+  RAILWAY_SERVICE_NAME: 'Postgres',
+};
+
+const ALLOWED_TARGETS = [
+  { name: 'staging', railway: EXPECTED_RAILWAY, confirmation: CONFIRMATION },
+  {
+    name: 'production',
+    railway: EXPECTED_PRODUCTION_RAILWAY,
+    confirmation: PRODUCTION_CONFIRMATION,
+  },
+];
+
+/** 独立发布身份；密码为运行时随机值，任何人都无法用它登录。 */
+const PUBLISHER = {
+  examBoardId: `${PREFIX}board`,
+  subjectId: `${PREFIX}subject`,
+  teacherId: `${PREFIX}publisher`,
+};
 
 const CLASS = {
   id: `${PREFIX}class`,
@@ -141,6 +167,8 @@ class PilotError extends Error {
 function writeScopes() {
   return [
     { table: 'Class', kind: 'byPrefix' },
+    { table: 'ExamBoard', kind: 'byPrefix' },
+    { table: 'Subject', kind: 'byPrefix' },
     { table: 'ClassEnglishLevel', kind: 'byPrefix' },
     { table: 'ClassEnrollment', kind: 'byPrefix' },
     { table: 'User', kind: 'byPrefix' },
@@ -275,13 +303,14 @@ function assertPrefixed(ids) {
 
 /** 八道环境闸门。抛出的错误里**只出现变量名，绝不出现取值**。 */
 function assertEnvGates(env = ENV_AT_STARTUP) {
-  for (const key of Object.keys(EXPECTED_RAILWAY)) {
-    if (env[key] !== EXPECTED_RAILWAY[key]) {
-      throw new PilotError(
-        `拒绝执行：${key} 与 staging 的固定取值不符。\n` +
-          '这道闸门保证脚本只可能打到 exam-staging-manual / production / Postgres 上。',
-      );
-    }
+  const target = ALLOWED_TARGETS.find(({ railway }) =>
+    Object.entries(railway).every(([key, value]) => env[key] === value),
+  );
+  if (!target) {
+    throw new PilotError(
+      '拒绝执行：Railway 项目 / 环境 / 服务不属于已批准的固定目标。\n' +
+        '这道闸门只允许 exam-staging-manual 或 glorious-motivation 的 production / Postgres。',
+    );
   }
   let url = null;
   try {
@@ -302,9 +331,9 @@ function assertEnvGates(env = ENV_AT_STARTUP) {
   if (!env.RAILWAY_TCP_PROXY_PORT || String(url.port) !== String(env.RAILWAY_TCP_PROXY_PORT)) {
     throw new PilotError('拒绝执行：DATABASE_PUBLIC_URL 的端口不等于 RAILWAY_TCP_PROXY_PORT。');
   }
-  if (env.P1_CONFIRM !== CONFIRMATION) {
+  if (env.P1_CONFIRM !== target.confirmation) {
     throw new PilotError(
-      `拒绝执行：需要逐字确认 P1_CONFIRM=${CONFIRMATION}\n` +
+      `拒绝执行：${target.name} 需要它自己的逐字确认串。\n` +
         '这个脚本会给试点班发布一天的课程内容。',
     );
   }
@@ -326,7 +355,43 @@ function parseDay(argv) {
 // 写入
 // ─────────────────────────────────────────────────────────────
 
-async function upsertClassAndQa(tx, report) {
+async function upsertPublisherClassesAndQa(tx, report) {
+  const crypto = require('crypto');
+  const bcrypt = require('bcryptjs');
+  const unusablePassword = await bcrypt.hash(crypto.randomBytes(24).toString('hex'), 10);
+
+  await tx.examBoard.upsert({
+    where: { id: PUBLISHER.examBoardId },
+    update: { code: 'P1ENG', name: 'Pilot English' },
+    create: { id: PUBLISHER.examBoardId, code: 'P1ENG', name: 'Pilot English' },
+  });
+  report.bump('ExamBoard');
+  await tx.subject.upsert({
+    where: { id: PUBLISHER.subjectId },
+    update: { name: 'English Reading', code: 'ENG', level: 'MULTI_LEVEL' },
+    create: {
+      id: PUBLISHER.subjectId,
+      examBoardId: PUBLISHER.examBoardId,
+      code: 'ENG',
+      name: 'English Reading',
+      level: 'MULTI_LEVEL',
+    },
+  });
+  report.bump('Subject');
+  await tx.user.upsert({
+    where: { id: PUBLISHER.teacherId },
+    update: {},
+    create: {
+      id: PUBLISHER.teacherId,
+      name: '试点内容发布器',
+      email: 'p1.publisher@example.invalid',
+      role: 'teacher',
+      isActive: false,
+      passwordHash: unusablePassword,
+    },
+  });
+  report.bump('User');
+
   for (const klass of ALL_CLASSES) {
     await tx.class.upsert({
       where: { id: klass.id },
@@ -360,9 +425,6 @@ async function upsertClassAndQa(tx, report) {
   // `passwordHash` 是 schema 的必填项（那是**教师端**的密码字段，学生端
   // 用不到）。塞一个随机字节的 bcrypt —— 没有人知道它的原文，因此这个
   // 账号在密码这条路上是**登不进去的**。
-  const crypto = require('crypto');
-  const bcrypt = require('bcryptjs');
-  const unusablePassword = await bcrypt.hash(crypto.randomBytes(24).toString('hex'), 10);
   await tx.user.upsert({
     where: { id: QA_STUDENT.id },
     update: {},
@@ -471,8 +533,8 @@ async function upsertLesson(tx, level, dayIso, report) {
     create: {
       id: ids.paperId,
       name: lesson.title,
-      subjectId: REUSED.subjectId,
-      ownerId: REUSED.teacherId,
+      subjectId: PUBLISHER.subjectId,
+      ownerId: PUBLISHER.teacherId,
       status: 'published',
       durationMin: 30,
       totalMarksTarget: maxScore,
@@ -514,8 +576,8 @@ async function upsertLesson(tx, level, dayIso, report) {
       update: { content: snapshotContent, answerContent, options, marks: q.marks },
       create: {
         id: ids.questionId(n),
-        subjectId: REUSED.subjectId,
-        createdById: REUSED.teacherId,
+        subjectId: PUBLISHER.subjectId,
+        createdById: PUBLISHER.teacherId,
         questionType: q.questionType,
         sourceType: 'original_school',
         content: snapshotContent,
@@ -556,7 +618,7 @@ async function upsertLesson(tx, level, dayIso, report) {
         id: delivery.assignmentId,
         paperId: ids.paperId,
         classId: klass.id,
-        assignedById: REUSED.teacherId,
+        assignedById: PUBLISHER.teacherId,
         assignedAt: sgtInstant(dayIso, '00:01:00'),
         startAt: sgtInstant(dayIso, '00:05:00'),
         dueAt: sgtInstant(dayIso, '23:59:00'),
@@ -573,7 +635,7 @@ async function upsertLesson(tx, level, dayIso, report) {
         date: dayLabel(dayIso),
         classId: klass.id,
         paperAssignmentId: delivery.assignmentId,
-        scheduledById: REUSED.teacherId,
+        scheduledById: PUBLISHER.teacherId,
         status: 'active',
         level,
         // 试点是全天开放的 —— 学生什么时候有空什么时候做。
@@ -741,6 +803,63 @@ async function assertScopeFree(tx, dayIso) {
   }
 }
 
+function allBundleTexts() {
+  const passages = [];
+  const questions = [];
+  for (const [level, days] of Object.entries(content.LEVELS)) {
+    for (const day of days) {
+      passages.push({ id: `${level}/${day.date}`, text: day.passage });
+      for (let index = 0; index < day.questions.length; index += 1) {
+        questions.push({ id: `${level}/${day.date}/q${index + 1}`, text: day.questions[index].stem });
+      }
+    }
+  }
+  return { passages, questions };
+}
+
+function assertBundleHasNoNearDuplicates() {
+  const { passages, questions } = allBundleTexts();
+  const passageHit = findNearDuplicate(passages, passages, 0.25, 5);
+  if (passageHit) throw new PilotError(`内容包文章近似重复：${passageHit.candidateId} / ${passageHit.previousId}`);
+  const questionHit = findNearDuplicate(questions, questions, 0.8, 4);
+  if (questionHit) throw new PilotError(`内容包题目近似重复：${questionHit.candidateId} / ${questionHit.previousId}`);
+}
+
+async function assertNoHistoricalNearDuplicates(tx, dayIso) {
+  const existing = await tx.question.findMany({
+    where: { NOT: { id: { startsWith: PREFIX } } },
+    select: { id: true, content: true },
+    take: 10000,
+  });
+  const historicalPassages = new Map();
+  const historicalQuestions = [];
+  for (const row of existing) {
+    const body = row.content && typeof row.content === 'object' ? row.content : {};
+    const passage = typeof body.passage === 'string' ? body.passage : '';
+    const stem = typeof body.stem === 'string' ? body.stem : '';
+    if (passage && !historicalPassages.has(passage)) historicalPassages.set(passage, { id: row.id, text: passage });
+    if (stem) historicalQuestions.push({ id: row.id, text: stem });
+  }
+  const candidates = Object.entries(content.LEVELS).map(([level]) => {
+    const day = content.lessonFor(level, dayIso);
+    return { level, day };
+  }).filter((row) => row.day);
+  const passageHit = findNearDuplicate(
+    candidates.map(({ level, day }) => ({ id: `${level}/${dayIso}`, text: day.passage })),
+    [...historicalPassages.values()],
+    0.25,
+    5,
+  );
+  if (passageHit) throw new PilotError(`文章与历史内容近似重复：${passageHit.candidateId}`);
+  const questionHit = findNearDuplicate(
+    candidates.flatMap(({ level, day }) => day.questions.map((question, index) => ({ id: `${level}/${dayIso}/q${index + 1}`, text: question.stem }))),
+    historicalQuestions,
+    0.8,
+    4,
+  );
+  if (questionHit) throw new PilotError(`题目与历史内容近似重复：${questionHit.candidateId}`);
+}
+
 // ─────────────────────────────────────────────────────────────
 // main
 // ─────────────────────────────────────────────────────────────
@@ -759,6 +878,7 @@ function makeReport() {
 async function main() {
   assertEnvGates();
   const day = parseDay(process.argv.slice(2));
+  assertBundleHasNoNearDuplicates();
 
   process.env.DATABASE_URL = ENV_AT_STARTUP.DATABASE_PUBLIC_URL;
   const { PrismaClient } = require('@prisma/client');
@@ -771,10 +891,11 @@ async function main() {
         // ① 只读前置
         const before = await snapshot(tx);
         await assertScopeFree(tx, day);
+        await assertNoHistoricalNearDuplicates(tx, day);
 
         // ② 写
         const report = makeReport();
-        await upsertClassAndQa(tx, report);
+        await upsertPublisherClassesAndQa(tx, report);
         await upsertDictionary(tx, report);
         for (const level of Object.keys(content.LEVELS)) {
           await upsertLesson(tx, level, day, report);
@@ -839,9 +960,11 @@ async function main() {
 
 module.exports = {
   CONFIRMATION,
+  PRODUCTION_CONFIRMATION,
   PREFIX,
   EXPECTED_RAILWAY,
-  REUSED,
+  EXPECTED_PRODUCTION_RAILWAY,
+  PUBLISHER,
   CLASS,
   REGISTRATION_CLASSES,
   ALL_CLASSES,
@@ -864,6 +987,9 @@ module.exports = {
   parseDay,
   isOursToFix,
   dictDrift,
+  allBundleTexts,
+  assertBundleHasNoNearDuplicates,
+  assertNoHistoricalNearDuplicates,
 };
 
 if (require.main === module) {

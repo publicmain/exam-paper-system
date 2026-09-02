@@ -41,6 +41,7 @@ import {
   type LessonSegment,
   type LessonToday,
   type SegmentStatus,
+  type V2Overview,
 } from '../lib/api';
 import { getState, handleAuthFailure } from '../lib/auth-store';
 import { readToken } from '../lib/identity';
@@ -94,12 +95,8 @@ export function segmentTarget(
     return { kind: 'navigate', path: finished ? ROUTES.readingResult : ROUTES.reading };
   }
   if (seg.key === 'vocab') {
-    // 考过了 → 去看那份卷子；该考了 → 去考；还在学 → 回学词
-    if (seg.quizScore?.status === 'submitted') return { kind: 'navigate', path: ROUTES.lessonTest };
-    if (ctx.stage === 'vocab_test' || ctx.stage === 'done') {
-      return { kind: 'navigate', path: ROUTES.lessonTest };
-    }
-    return { kind: 'navigate', path: ROUTES.lessonVocab };
+    // 单词卡与待办都由“我的单词”统一管理；学习未完成时直接续学。
+    return { kind: 'navigate', path: seg.status === 'done' ? ROUTES.vocab : ROUTES.coachLearn };
   }
   return { kind: 'navigate', path: ROUTES.mistakes };
 }
@@ -108,7 +105,6 @@ const STAY_KINDS = new Set<NextActionKind>([
   'no_content',
   'window_closed',
   'level_not_set',
-  'vocab_waiting',
   'none',
 ]);
 /**
@@ -122,7 +118,6 @@ const STAY_REASON: Partial<Record<NextActionKind, string>> = {
   no_content: '今天还没有课程',
   window_closed: '作答时间已结束',
   level_not_set: '还没分配难度',
-  vocab_waiting: '明天开放测试',
   none: '今天没有要做的',
 };
 
@@ -145,7 +140,7 @@ function segmentDetail(s: LessonSegment): string | null {
 
 type Phase =
   | { s: 'loading' }
-  | { s: 'ready'; data: LessonToday }
+  | { s: 'ready'; data: LessonToday; vocabOverview: V2Overview | null }
   | { s: 'error'; message: string };
 
 export default function TodayPage() {
@@ -171,8 +166,11 @@ export default function TodayPage() {
     setPhase({ s: 'loading' });
     try {
       const data = await api.lessonToday(token);
+      const vocabOverview = typeof api.vocabV2Overview === 'function'
+        ? await api.vocabV2Overview(token).catch(() => null)
+        : null;
       if (mine !== gen.current) return;
-      setPhase({ s: 'ready', data });
+      setPhase({ s: 'ready', data, vocabOverview });
     } catch (e) {
       if (mine !== gen.current) return;
       // 认证失败 → 走统一的登出，回登录页
@@ -206,14 +204,14 @@ export default function TodayPage() {
       }
       // 仍是停留态 —— 就把新状态渲染出来
       gen.current++;
-      setPhase({ s: 'ready', data });
+      setPhase({ s: 'ready', data, vocabOverview: phase.s === 'ready' ? phase.vocabOverview : null });
       setStarting(false);
     } catch (e) {
       if (handleAuthFailure(e)) return;
       setStartError('没能开始今天的课 —— 再试一次。');
       setStarting(false);
     }
-  }, [navigate, starting]);
+  }, [navigate, phase, starting]);
 
   if (phase.s === 'loading') {
     return (
@@ -235,8 +233,48 @@ export default function TodayPage() {
   }
 
   const d = phase.data;
+  const vocabOverview = phase.vocabOverview;
+  const displayedSegments = d.segments.map((segment): LessonSegment => {
+    if (segment.key !== 'vocab' || !vocabOverview) return segment;
+    const daily = vocabOverview.today;
+    const progress = daily?.completed ?? 0;
+    const target = daily?.target ?? vocabOverview.dailyTarget;
+    const status: SegmentStatus = daily?.status === 'completed'
+      ? 'done'
+      : progress > 0
+        ? 'partial'
+        : 'todo';
+    return {
+      ...segment,
+      status,
+      progress,
+      target,
+      typicalMinutes: Math.max(2, Math.ceil(target / 5)),
+      quizScore: { status: 'not_started' },
+    };
+  });
+  const countable = displayedSegments.filter((segment) => segment.available !== false);
+  const displayedCompleted = countable.filter((segment) => segment.status === 'done' || segment.status === 'auto_closed').length;
+  const displayedTotal = countable.length;
   const who = auth.status === 'authenticated' ? auth.profile.nickname || auth.profile.name : '';
-  const target = NEXT_ACTION_ROUTE[d.nextAction.kind];
+  const serverTarget = NEXT_ACTION_ROUTE[d.nextAction.kind];
+  const learningAction = d.nextAction.kind === 'learn_vocab';
+  const testingAction = d.nextAction.kind === 'vocab_test' || d.nextAction.kind === 'vocab_waiting';
+  const dailyFinished = vocabOverview?.today?.status === 'completed';
+  const target = testingAction
+    ? { kind: 'navigate' as const, path: ROUTES.vocab }
+    : learningAction && vocabOverview
+      ? dailyFinished
+        ? { kind: 'navigate' as const, path: ROUTES.summary }
+        : { kind: 'navigate' as const, path: ROUTES.coachLearn }
+    : serverTarget;
+  const targetLabel = testingAction
+    ? '查看单词测试待办'
+    : learningAction && vocabOverview
+      ? dailyFinished
+        ? '查看今天的总结'
+        : vocabOverview.today ? '继续学习今天的新词' : '学习今天的新词'
+    : d.nextAction.label;
 
   return (
     <Screen>
@@ -253,11 +291,11 @@ export default function TodayPage() {
           数段数，否则两边一旦不一致，学生看到的就是一个永远差一段的进度。
         */}
         <p data-testid="lesson-progress" className="text-sm text-slate-600 mb-4">
-          今天完成 <span className="font-medium">{d.completed}</span> / {d.total}
+          今天完成 <span className="font-medium">{displayedCompleted}</span> / {displayedTotal}
         </p>
 
         <ul className="mb-6 grid gap-3 md:grid-cols-3">
-          {d.segments.map((s) => (
+          {displayedSegments.map((s) => (
             <SegmentCard
               key={s.key}
               seg={s}
@@ -278,23 +316,54 @@ export default function TodayPage() {
             </Button>
           </>
         ) : target.kind === 'navigate' ? (
-          <Button onClick={() => navigate(target.path)}>{d.nextAction.label}</Button>
+          <Button onClick={() => navigate(target.path)}>{targetLabel}</Button>
         ) : (
           <p className="rounded-xl bg-slate-100 px-4 py-3 text-sm text-slate-600">
             {d.nextAction.label}
           </p>
         )}
 
+        {vocabOverview?.pendingTests.length ? (
+          <section className="mt-6 rounded-2xl border border-amber-200 bg-amber-50/80 p-4" aria-label="单词测试待办">
+            <h2 className="font-semibold text-amber-950">单词测试待办</h2>
+            <p className="mt-1 text-sm text-amber-800">没有截止时间；未完成的任务会按日期一直保留。</p>
+            <div className="mt-3 grid gap-2">
+              {vocabOverview.pendingTests.map((task) => (
+                <button
+                  key={task.dailySessionId}
+                  className="app-secondary flex min-h-[52px] items-center justify-between bg-white px-4 text-left"
+                  onClick={async () => {
+                    const token = readToken();
+                    if (!token) return;
+                    const test = task.testSessionId
+                      ? { id: task.testSessionId }
+                      : await api.vocabV2StartTest(token, task.dailySessionId);
+                    navigate(`${ROUTES.coachTest}?sessionId=${encodeURIComponent(test.id)}`);
+                  }}
+                >
+                  <span>{formatTaskDate(task.date)} · {task.total} 个词</span>
+                  <span className="text-[#007aff]">{task.status === 'in_progress' ? '继续' : '开始'} →</span>
+                </button>
+              ))}
+            </div>
+          </section>
+        ) : null}
+
         {/* 历史成绩（阶段 11）—— 随时能进，与今天走到哪一步无关 */}
         <nav aria-label="常用功能" className="mt-6 grid grid-cols-2 gap-2 sm:grid-cols-4">
           <QuickLink testId="go-scores" to={ROUTES.scores} icon="▤" label="历史成绩" />
-          <QuickLink testId="go-vocab" to={ROUTES.vocab} icon="Aa" label="生词本" />
+          <QuickLink testId="go-vocab" to={ROUTES.vocab} icon="Aa" label="我的单词" />
           <QuickLink testId="go-mistakes" to={ROUTES.mistakes} icon="!" label="错题本" />
           <QuickLink to={ROUTES.account} icon="⚙" label="账号设置" />
         </nav>
       </Card>
     </Screen>
   );
+}
+
+function formatTaskDate(date: string) {
+  const [, month, day] = date.split('-').map(Number);
+  return `${month}月${day}日单词测试`;
 }
 
 /**

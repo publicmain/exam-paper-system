@@ -6,7 +6,7 @@
  * 旧端有过这张卡，阶段 7C 整体摘除 —— **不是因为功能不该有，而是因为它
  * 把学生姓名当身份写进生词本**，违反已冻结的身份契约。
  * 阶段 12C 把身份边界重写成 token-only 之后挂回来：
- * 查词与写本子都只带 Bearer，请求里**一个身份字段都没有**。
+ * 查词与加入「我的单词」都只带 Bearer，请求里**一个身份字段都没有**。
  *
  * ## 考试中查词，只屏蔽被考的那几个词
  *
@@ -18,23 +18,12 @@
  * 注意「不查」和「查了不显示」是两件事：后者的答案材料已经到了浏览器，
  * 任何人打开网络面板就能看见。所以屏蔽必须落在**发请求之前**。
  *
- * ## 查词与收藏是两件事
+ * ## 查词与收录是两件事
  *
- * 学生点词只代表「我想看看是什么意思」，不代表「我要把它加入生词本」。
- * 查词成功后只准备好收藏内容，必须由学生明确点「加入生词本」才写入；
- * 加入后也可以在同一张卡里移出。
- *
- * ## 写生词本要说实话
- *
- * 旧实现是「发了就当成了」（成功回调直接置位、失败回调空着）
- * —— 失败静默，学生以为存上了。这里三种结果分开说：
- *
- *   · `created: true`  → 存进去了
- *   · `created: false` → 本来就在本子里（**不是失败**）
- *   · 失败 / 形状不对  → 明说没存上，并给一个重试
- *
- * 重试**原样重发同一个请求体**：服务端按「学生 + headword」查重，同一个
- * 词提交两次只会拿到 `created: false`，所以不需要 requestId，也不该发明一个。
+ * 学生点词只代表「我想看看是什么意思」，不代表「我要把它加入我的单词」。
+ * 查词成功后只展示结果，必须由学生明确选择「加入我的单词」、
+ * 「我已经会了」、「稍后再学」或「只查一下」。所有收录都通过 V2 统一数据，
+ * 不再同时写入旧生词本。
  *
  * ## 词义与语境分层
  *
@@ -89,24 +78,6 @@ export function highlightWord(sentence: string, surface: string): React.ReactNod
   );
 }
 
-/**
- * 服务端回执长得对不对。**整条都验**，形状不对一律按「没存上」处理。
- *
- * `headword` 不是可有可无的装饰：它是服务端**查过词典之后**定下来的那个
- * 词条（`looked` → `look`）。回执里没有它，说明服务端根本没走到那一步 ——
- * 这次到底记的是哪个词无从谈起。这种半截响应报成功，学生下次翻生词本
- * 找不到那个词，只会以为系统把东西弄丢了。
- *
- * 返工 1/2（B-1）：第一版只验了 `created`，于是 `{created:true}`、
- * `{created:true, headword:123}` 这些都被当成成功。
- */
-export function addSucceeded(r: unknown): r is { created: boolean; headword: string } {
-  if (!r || typeof r !== 'object') return false;
-  const { created, headword } = r as { created?: unknown; headword?: unknown };
-  if (typeof created !== 'boolean') return false;
-  return typeof headword === 'string' && headword.trim().length > 0;
-}
-
 export type FillTarget = { questionId: string; label: string; hasValue: boolean } | null;
 
 // ─────────────────────────────────────────────────────────────
@@ -119,17 +90,6 @@ type LookupPhase =
   | { s: 'ok'; entry: DictEntry }
   | { s: 'notFound' }
   | { s: 'failed' };
-
-/** 写本子的三种结果 —— 与「查词」分开，因为查成功了写失败是常见组合。 */
-type SavePhase =
-  | { s: 'idle' }
-  | { s: 'saving' }
-  | { s: 'created'; headword: string }
-  | { s: 'already'; headword: string }
-  | { s: 'failed' }
-  | { s: 'removing'; headword: string }
-  | { s: 'removed' }
-  | { s: 'removeFailed'; headword: string };
 
 export function ExamWordSheet({
   word,
@@ -144,7 +104,7 @@ export function ExamWordSheet({
   word: string | null;
   /** 该词在原文里所处的那句话。没有就不显示这一块。 */
   contextSentence?: string | null;
-  /** 收录来源，只在写本子时带上；空串就不带。 */
+  /** 收录来源，只在学生选择加入时带上；空串就不带。 */
   passageTitle?: string | null;
   /** 本卷考点词 —— **连查都不查**。 */
   blocked: boolean;
@@ -153,7 +113,7 @@ export function ExamWordSheet({
   onClose: () => void;
 }) {
   const [phase, setPhase] = useState<LookupPhase>({ s: 'idle' });
-  const [save, setSave] = useState<SavePhase>({ s: 'idle' });
+  const [coachChoice, setCoachChoice] = useState<'idle' | 'saving' | 'learn' | 'known' | 'later' | 'lookup_only' | 'failed'>('idle');
 
   /**
    * 请求代次。
@@ -164,54 +124,35 @@ export function ExamWordSheet({
    */
   const gen = useRef(0);
   const saving = useRef(false);
-  /** 待重发的写入体 —— 重试原样重发，不重新组装。 */
-  const pendingAdd = useRef<{ word: string; contextSentence?: string; contextTranslation?: string; sourcePassageTitle?: string } | null>(null);
-
-  /** 学生明确选择之后才记进生词本。 */
-  const sendAdd = useCallback(async (mine: number) => {
-    const body = pendingAdd.current;
-    if (!body) return;
-    const token = readToken();
-    if (!token) return;
-    if (saving.current) return;
-    saving.current = true;
-    setSave({ s: 'saving' });
-    try {
-      const r = await api.vocabAddWord(token, body);
-      saving.current = false;
-      if (mine !== gen.current) return;
-      // **形状不对 = 没存上**，不因为 fetch resolve 了就报成功
-      setSave(
-        addSucceeded(r)
-          ? (r.created ? { s: 'created', headword: r.headword } : { s: 'already', headword: r.headword })
-          : { s: 'failed' },
-      );
-    } catch (e) {
-      saving.current = false;
-      if (handleAuthFailure(e)) return;
-      if (mine !== gen.current) return;
-      setSave({ s: 'failed' });
-    }
-  }, []);
-
-  /** 已确认在本子里的词，学生也可以当场移出。 */
-  const sendRemove = useCallback(async (mine: number, headword: string) => {
+  /** 查词之后由学生明确决定是否进入 V2；查询本身绝不自动收藏。 */
+  const chooseCoachAction = useCallback(async (
+    mine: number,
+    action: 'learn' | 'known' | 'later' | 'lookup_only',
+    entry: DictEntry,
+  ) => {
     const token = readToken();
     if (!token || saving.current) return;
     saving.current = true;
-    setSave({ s: 'removing', headword });
+    setCoachChoice('saving');
     try {
-      const r = await api.vocabWordRemove(token, { headword });
+      const result = await api.vocabV2Collect(token, {
+        headword: entry.word || word || '',
+        action,
+        source: 'reading_lookup',
+        ...(contextSentence ? { contextSentence } : {}),
+        ...(entry.contextTranslation ? { contextTranslation: entry.contextTranslation } : {}),
+        ...(passageTitle ? { sourceTitle: passageTitle } : {}),
+      });
       saving.current = false;
       if (mine !== gen.current) return;
-      setSave(r?.deleted === 1 ? { s: 'removed' } : { s: 'removeFailed', headword });
-    } catch (e) {
+      setCoachChoice(result?.ok === true ? action : 'failed');
+    } catch (error) {
       saving.current = false;
-      if (handleAuthFailure(e)) return;
+      if (handleAuthFailure(error)) return;
       if (mine !== gen.current) return;
-      setSave({ s: 'removeFailed', headword });
+      setCoachChoice('failed');
     }
-  }, []);
+  }, [contextSentence, passageTitle, word]);
 
   const lookup = useCallback(
     async (w: string) => {
@@ -219,8 +160,7 @@ export function ExamWordSheet({
       if (!token) return;
       const mine = ++gen.current;
       setPhase({ s: 'loading' });
-      setSave({ s: 'idle' });
-      pendingAdd.current = null;
+      setCoachChoice('idle');
       try {
         const r = await api.vocabLookup(token, w, contextSentence);
         if (mine !== gen.current) return;
@@ -229,36 +169,26 @@ export function ExamWordSheet({
           return;
         }
         setPhase({ s: 'ok', entry: r.entry });
-        // 查到了才准备收藏内容；**这里不写库**，等学生自己点按钮。
-        pendingAdd.current = {
-          word: w,
-          ...(contextSentence ? { contextSentence } : {}),
-          ...(r.entry.contextTranslation ? { contextTranslation: r.entry.contextTranslation } : {}),
-          ...(passageTitle ? { sourcePassageTitle: passageTitle } : {}),
-        };
       } catch (e) {
         if (handleAuthFailure(e)) return;
         if (mine !== gen.current) return;
         setPhase({ s: 'failed' });
       }
     },
-    [contextSentence, passageTitle],
+    [contextSentence],
   );
 
   useEffect(() => {
     // 关掉 / 换词 / 卸载 —— 在途响应一律作废
     gen.current++;
     saving.current = false;
-    pendingAdd.current = null;
     if (!word) {
       setPhase({ s: 'idle' });
-      setSave({ s: 'idle' });
       return;
     }
     if (blocked) {
       // **考点词：一个请求都不发**
       setPhase({ s: 'idle' });
-      setSave({ s: 'idle' });
       return;
     }
     void lookup(word);
@@ -431,78 +361,22 @@ export function ExamWordSheet({
             </button>
           ) : null}
 
-          {/* 查词不自动收藏。加入、移出都必须是学生自己的明确动作。 */}
-          {(save.s === 'idle' || save.s === 'removed') && phase.s === 'ok' ? (
-            <div className="space-y-2">
-              {save.s === 'removed' ? (
-                <div data-testid="word-sheet-removed" className="text-[13px] font-medium text-slate-600">
-                  已移出生词本
-                </div>
-              ) : null}
-              <button
-                type="button"
-                data-testid="word-sheet-add"
-                onClick={() => void sendAdd(gen.current)}
-                className="min-h-[48px] w-full rounded-[14px] bg-blue-600 text-[16px] font-semibold text-white shadow-sm transition-colors hover:bg-blue-700"
-              >
-                {save.s === 'removed' ? '重新加入生词本' : '加入生词本'}
-              </button>
-              {save.s === 'idle' ? (
-                <div className="text-center text-xs text-slate-400">只查词不会自动收藏</div>
-              ) : null}
-            </div>
-          ) : null}
-          {save.s === 'saving' ? (
-            <button type="button" disabled className="min-h-[48px] w-full rounded-[14px] bg-slate-200 text-[15px] font-medium text-slate-500">
-              正在加入…
-            </button>
-          ) : null}
-          {save.s === 'created' || save.s === 'already' ? (
-            <div className="flex items-center justify-between gap-3">
-              <div data-testid="word-sheet-saved" className="flex items-center gap-2 text-[13px] font-medium text-emerald-700">
-                <span aria-hidden="true" className="grid size-5 place-items-center rounded-full bg-emerald-100 text-[11px]">✓</span>
-                {save.s === 'created' ? '已存入生词本 · 以后会安排复习' : '已经在生词本里了'}
+          {/* 查词不自动收录；四个选择只写入统一的「我的单词」数据。 */}
+          {phase.s === 'ok' ? (
+            <section aria-label="我的单词选择" className="mb-3">
+              <p className="mb-2 text-xs text-slate-500">查词不会自动加入，你可以自己决定：</p>
+              <div className="grid grid-cols-2 gap-2">
+                <button type="button" data-testid="word-sheet-coach-learn" disabled={coachChoice === 'saving'} onClick={() => void chooseCoachAction(gen.current, 'learn', phase.entry)} className="min-h-[44px] rounded-xl bg-blue-600 px-3 text-sm font-semibold text-white">加入我的单词</button>
+                <button type="button" data-testid="word-sheet-coach-known" disabled={coachChoice === 'saving'} onClick={() => void chooseCoachAction(gen.current, 'known', phase.entry)} className="min-h-[44px] rounded-xl border border-slate-200 px-3 text-sm">我已经会了</button>
+                <button type="button" data-testid="word-sheet-coach-later" disabled={coachChoice === 'saving'} onClick={() => void chooseCoachAction(gen.current, 'later', phase.entry)} className="min-h-[44px] rounded-xl border border-slate-200 px-3 text-sm">稍后再学</button>
+                <button type="button" data-testid="word-sheet-coach-lookup" disabled={coachChoice === 'saving'} onClick={() => void chooseCoachAction(gen.current, 'lookup_only', phase.entry)} className="min-h-[44px] rounded-xl border border-slate-200 px-3 text-sm">只查一下</button>
               </div>
-              <button
-                type="button"
-                data-testid="word-sheet-remove"
-                onClick={() => void sendRemove(gen.current, save.headword)}
-                className="min-h-[44px] shrink-0 rounded-xl border border-slate-200 px-3 text-[13px] font-medium text-slate-600"
-              >
-                移出
-              </button>
-            </div>
-          ) : null}
-          {save.s === 'removing' ? (
-            <div className="text-[13px] font-medium text-slate-500">正在移出…</div>
-          ) : null}
-          {save.s === 'failed' ? (
-            <div className="flex items-center justify-between gap-3 text-[13px]">
-              <span data-testid="word-sheet-save-failed" className="text-rose-600">
-                没能存进生词本
-              </span>
-              <button
-                type="button"
-                data-testid="word-sheet-retry-save"
-                onClick={() => void sendAdd(gen.current)}
-                className="min-h-[44px] rounded-lg border border-slate-300 px-3 font-medium"
-              >
-                重试
-              </button>
-            </div>
-          ) : null}
-          {save.s === 'removeFailed' ? (
-            <div className="flex items-center justify-between gap-3 text-[13px]">
-              <span data-testid="word-sheet-remove-failed" className="text-rose-600">没能移出生词本</span>
-              <button
-                type="button"
-                data-testid="word-sheet-retry-remove"
-                onClick={() => void sendRemove(gen.current, save.headword)}
-                className="min-h-[44px] rounded-lg border border-slate-300 px-3 font-medium"
-              >
-                重试
-              </button>
-            </div>
+              {coachChoice !== 'idle' && coachChoice !== 'saving' ? (
+                <p role="status" data-testid="word-sheet-coach-status" className={`mt-2 text-xs ${coachChoice === 'failed' ? 'text-rose-600' : 'text-emerald-700'}`}>
+                  {coachChoice === 'learn' ? '已加入我的单词。' : coachChoice === 'known' ? '已标记为会，以后不会作为新词推送。' : coachChoice === 'later' ? '已加入我的单词，之后可以再学。' : coachChoice === 'lookup_only' ? '本次只查询，没有加入。' : '没有保存，请重试。'}
+                </p>
+              ) : coachChoice === 'saving' ? <p className="mt-2 text-xs text-slate-500">正在保存选择…</p> : null}
+            </section>
           ) : null}
         </footer>
       </div>

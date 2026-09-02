@@ -18,16 +18,14 @@ import TodayPage from './pages/Today';
 import AccountPage from './pages/Account';
 import ReadingPage from './pages/Reading';
 import ReadingResultPage from './pages/ReadingResult';
-import LessonVocabPage from './pages/LessonVocab';
-import LessonTestPage from './pages/LessonTest';
 import LessonSummaryPage from './pages/LessonSummary';
 import ScoresPage from './pages/Scores';
 import ScoreDetailPage from './pages/ScoreDetail';
-import VocabBookPage from './pages/VocabBook';
-import VocabPracticePage from './pages/VocabPractice';
-import VocabSelfTestPage from './pages/VocabSelfTest';
 import MistakesPage from './pages/Mistakes';
 import MistakePracticePage from './pages/MistakePractice';
+import VocabularyCoachPage from './pages/VocabularyCoach';
+import VocabularyCoachLearnPage from './pages/VocabularyCoachLearn';
+import VocabularyCoachTestPage from './pages/VocabularyCoachTest';
 import { Screen } from './ui';
 
 export default function App() {
@@ -71,8 +69,9 @@ export default function App() {
       {/* 阶段 7C / 8A / 9A / 9B1 起只剩「今日总结」是占位。 */}
       <Route path={ROUTES.reading} element={<ReadingPage />} />
       <Route path={ROUTES.readingResult} element={<ReadingResultPage />} />
-      <Route path={ROUTES.lessonVocab} element={<LessonVocabPage />} />
-      <Route path={ROUTES.lessonTest} element={<LessonTestPage />} />
+      {/* 旧课程词汇地址保留为兼容入口，但统一落到“我的单词”这一套数据。 */}
+      <Route path={ROUTES.lessonVocab} element={<VocabularyCoachLearnPage />} />
+      <Route path={ROUTES.lessonTest} element={<Navigate to={ROUTES.vocab} replace />} />
       <Route path={ROUTES.summary} element={<LessonSummaryPage />} />
       {/*
         历史成绩（阶段 11）—— **同一外壳里的独立页面**，不是七步链的一环。
@@ -80,14 +79,13 @@ export default function App() {
       */}
       <Route path={ROUTES.scores} element={<ScoresPage />} />
       <Route path={ROUTES.scoreDetail} element={<ScoreDetailPage />} />
-      {/*
-        生词本与两条自由练习（阶段 12A）—— 同样是独立页面，不属于七步链。
-        自由练习与课程学词是**两条线**：词表不同、发卡规则不同、算不算
-        课程完成度也不同，所以用两组路由说死（见 routes.contract.ts）。
-      */}
-      <Route path={ROUTES.vocab} element={<VocabBookPage />} />
-      <Route path={ROUTES.vocabPractice} element={<VocabPracticePage />} />
-      <Route path={ROUTES.vocabSelfTest} element={<VocabSelfTestPage />} />
+      {/* 「我的单词」是唯一入口；旧自由练习地址只作历史链接兼容。 */}
+      <Route path={ROUTES.vocab} element={<VocabularyCoachPage />} />
+      <Route path={ROUTES.vocabPractice} element={<Navigate to={ROUTES.vocab} replace />} />
+      <Route path={ROUTES.vocabSelfTest} element={<Navigate to={ROUTES.vocab} replace />} />
+      <Route path={ROUTES.coach} element={<Navigate to={ROUTES.vocab} replace />} />
+      <Route path={ROUTES.coachLearn} element={<VocabularyCoachLearnPage />} />
+      <Route path={ROUTES.coachTest} element={<VocabularyCoachTestPage />} />
       {/*
         错题本与错题重练（阶段 12B）—— 同样是独立页面。
         与「今天的课」里的错题段（drill）不是一回事：那一段算当天完成度，

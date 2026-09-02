@@ -675,6 +675,16 @@ export const api = {
     request('GET', '/vocab/class/' + encodeURIComponent(classId) + '/stats'),
   vocabPush: (body: { classId: string; words: string[]; contextSentence?: string }) =>
     request('POST', '/vocab/push', body),
+  vocabV2Assignments: (classId: string, dateFrom?: string, dateTo?: string) => {
+    const query = new URLSearchParams();
+    if (dateFrom) query.set('dateFrom', dateFrom);
+    if (dateTo) query.set('dateTo', dateTo);
+    return request('GET', `/vocab-v2/teacher/class/${encodeURIComponent(classId)}/assignments?${query.toString()}`);
+  },
+  vocabV2ClassProgress: (classId: string) =>
+    request('GET', `/vocab-v2/teacher/class/${encodeURIComponent(classId)}/progress`),
+  vocabV2PublishAssignment: (body: { classId: string; date: string; title?: string; words: string[] }) =>
+    request('POST', '/vocab-v2/teacher/assignments', body),
   morningQuizBatchSchedule: (items: Array<{ date: string; classId: string; paperId: string }>) =>
     request('POST', '/morning-quiz/batch', { items }),
   morningQuizBatchGenerate: (body: {

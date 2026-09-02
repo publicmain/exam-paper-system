@@ -1,10 +1,9 @@
 import { Injectable, Logger } from '@nestjs/common';
-import Anthropic from '@anthropic-ai/sdk';
 
 type Cached = { text: string; expiresAt: number };
 
 /**
- * 实时英→简中翻译：Azure 优先；其次复用已有 Anthropic；两者都没配置时
+ * 实时英→简中翻译：Azure 优先；两者都没配置时
  * 用 MyMemory + Google 网页翻译的免密链路支撑小规模试点。后者不是正式
  * Cloud Translation API，只在 MyMemory 被共享出口限流时兜底。只做 24 小时进程内缓存，
  * 不建翻译数据库。生产应配置 Azure，不能把公共免费额度当长期基础设施。
@@ -13,12 +12,6 @@ type Cached = { text: string; expiresAt: number };
 export class RealtimeTranslationService {
   private readonly logger = new Logger('RealtimeTranslation');
   private readonly cache = new Map<string, Cached>();
-  private readonly anthropic: Anthropic | null;
-
-  constructor() {
-    const key = process.env.ANTHROPIC_API_KEY;
-    this.anthropic = key ? new Anthropic({ apiKey: key, maxRetries: 1 }) : null;
-  }
 
   async translate(text: string): Promise<string | null> {
     const source = text.trim();
@@ -30,9 +23,7 @@ export class RealtimeTranslationService {
     try {
       translated = process.env.AZURE_TRANSLATOR_KEY
         ? await this.azure(source)
-        : this.anthropic
-          ? await this.anthropicFallback(source)
-          : await this.pilotFallback(source);
+        : await this.pilotFallback(source);
     } catch (e) {
       this.logger.warn(`translation_failed:${String((e as Error)?.message ?? e).slice(0, 120)}`);
     }
@@ -66,19 +57,6 @@ export class RealtimeTranslationService {
     if (!response.ok) throw new Error(`azure_${response.status}`);
     const body = await response.json() as Array<{ translations?: Array<{ text?: string }> }>;
     return String(body?.[0]?.translations?.[0]?.text ?? '').trim() || null;
-  }
-
-  private async anthropicFallback(text: string): Promise<string | null> {
-    if (!this.anthropic) return null;
-    const response = await this.anthropic.messages.create({
-      model: process.env.TRANSLATION_MODEL || 'claude-3-5-haiku-20241022',
-      max_tokens: 300,
-      temperature: 0,
-      system: 'Translate English learning material into concise, natural Simplified Chinese. Return only the translation, with no labels or explanation.',
-      messages: [{ role: 'user', content: text }],
-    });
-    const block = response.content.find((x) => x.type === 'text');
-    return block?.type === 'text' ? block.text.trim() || null : null;
   }
 
   private async myMemory(text: string): Promise<string | null> {

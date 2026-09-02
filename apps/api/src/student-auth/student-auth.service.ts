@@ -33,6 +33,12 @@ import {
   type PilotLevel,
 } from './pilot-levels';
 
+/** 公开自助注册只开放给用户确认过的九个班级；旧班历史仍完整保留。 */
+export const SELF_REGISTRATION_CLASS_CODES = new Set([
+  'SGCE26W', 'SEC27W', 'OL26W', 'IAL27W', 'IAL27M',
+  'IAL26W', 'IAL26S2', 'IAL26S1', 'IAL28S',
+]);
+
 /**
  * 学生 PIN 认证（2026-08-25，docs/PRD/student-auth-and-home.md）。
  *
@@ -437,7 +443,8 @@ export class StudentAuthService {
         // 学生不需要知道「班级对应哪些难度」。只有五档全部准备好的班级
         // 才出现在注册页，因此选完班以后五档永远都可选，不会进空课程。
         .filter((klass: { classCode: string; offered: Set<string> }) =>
-          klass.classCode !== 'PILOTW1' && PILOT_LEVELS.every((level) => klass.offered.has(level)),
+          SELF_REGISTRATION_CLASS_CODES.has(klass.classCode) &&
+          PILOT_LEVELS.every((level) => klass.offered.has(level)),
         )
         .map(({ id, name }: { id: string; name: string }) => ({ id, name })),
     };
@@ -467,7 +474,7 @@ export class StudentAuthService {
       select: { id: true, name: true, classCode: true, englishLevels: { select: { level: true } } },
     });
     if (!klass) throw new BadRequestException({ code: 'class_not_available' });
-    if (klass.classCode === 'PILOTW1') {
+    if (!SELF_REGISTRATION_CLASS_CODES.has(klass.classCode)) {
       throw new BadRequestException({ code: 'class_not_available' });
     }
 

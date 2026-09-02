@@ -181,25 +181,6 @@ const todayPayload = (over: Record<string, unknown> = {}) => ({
   ...over,
 });
 
-const dueCard = (over: Record<string, unknown> = {}) => ({
-  headword: 'meadow',
-  surfaceForm: 'meadow',
-  contextSentence: 'A meadow of wild flowers grew behind the water tanks.',
-  sourcePassageTitle: 'The Rooftop Garden',
-  phonetic: '/ˈmedəʊ/',
-  translation: 'n. 草地，牧场',
-  pos: 'n.',
-  definition: 'a field of grass and flowers',
-  tag: [],
-  state: 'review',
-  reps: 3,
-  needsFirstTeaching: false,
-  firstTaughtAt: '2026-08-20T00:00:00.000Z',
-  sourceType: 'click',
-  addedAt: '2026-08-20T00:00:00.000Z',
-  ...over,
-});
-
 // ─────────────────────────────────────────────────────────────
 // 1. 结果页：逐题判分状态 + 答案去重 + 原文
 // ─────────────────────────────────────────────────────────────
@@ -329,100 +310,6 @@ describe('S12I —— 结果页要能看到原文', () => {
     mount('/scores/sub-1');
     await settle();
     expect(screen.queryByTestId('passage-toggle')).toBeNull();
-  });
-});
-
-// ─────────────────────────────────────────────────────────────
-// 2. 正式测试完成文案
-// ─────────────────────────────────────────────────────────────
-
-describe('S12I —— 正式测试的完成文案随题数走', () => {
-  const attempt = (n: number) => ({
-    attemptId: 'att-1',
-    status: 'in_progress',
-    startedAt: '2026-08-31T01:00:00.000Z',
-    submittedAt: null,
-    total: n,
-    correct: 0,
-    score: null,
-    resumed: false,
-    items: Array.from({ length: n }, (_, i) => ({
-      index: i,
-      qtype: 'word_to_meaning',
-      prompt: `第 ${i + 1} 题`,
-      options: ['甲', '乙', '丙', '丁'],
-      headword: null,
-      phonetic: null,
-      translation: null,
-      contextSentence: null,
-      correctIndex: null,
-      answer: null,
-      studentIndex: i,
-      studentAnswer: '甲',
-      // 已作答的判据是 `isCorrect != null`（见 LessonTest.isAnswered）
-      isCorrect: true,
-    })),
-  });
-
-  for (const n of [4, 10]) {
-    it(`${n} 题的卷子全答完时说的是「${n} 道题」`, async () => {
-      stubFetch([
-        [/\/lesson\/today$/, () => todayPayload({ nextAction: { kind: 'vocab_test', label: '开始单词测试', href: null } })],
-        [/\/vocab\/quiz\/attempt\/start/, () => attempt(n)],
-      ]);
-      mount('/lesson/test');
-      await settle();
-      const body = document.body.textContent ?? '';
-      expect(body, `写死的「四道题」还在（本卷 ${n} 题）`).toContain(`${n} 道题都答完了`);
-      if (n !== 4) expect(body).not.toContain('四道题都答完了');
-    });
-  }
-});
-
-// ─────────────────────────────────────────────────────────────
-// 3. 自由练习：没教过的词先教
-// ─────────────────────────────────────────────────────────────
-
-describe('S12I —— 自由练习先教后考', () => {
-  const dueWith = (cards: unknown[]) => [[/\/vocab\/due/, () => ({ totalDue: cards.length, cards })]] as any;
-
-  it('没教过的词先出**教学卡**：词、音标、释义、来源、完整例句都摊开', async () => {
-    stubFetch(
-      dueWith([
-        dueCard(),
-        dueCard({ headword: 'trellis', surfaceForm: 'trellis', needsFirstTeaching: true, reps: 0, state: 'new', firstTaughtAt: null, contextSentence: 'They fixed a trellis to the south wall.' }),
-      ]),
-    );
-    mount('/vocab/practice');
-    await settle();
-    const card = screen.getByTestId('teaching-card');
-    expect(card.textContent).toContain('trellis');
-    expect(card.textContent).toContain('学习');
-    expect(screen.queryByTestId('review-card'), '没教过的词被直接拿来考了').toBeNull();
-  });
-
-  it('教学卡上的「我看过了」**不发任何请求**，只切到回忆模式', async () => {
-    stubFetch(
-      dueWith([
-        dueCard({ headword: 'trellis', needsFirstTeaching: true, reps: 0, state: 'new', firstTaughtAt: null }),
-      ]),
-    );
-    mount('/vocab/practice');
-    await settle();
-    const before = reqs.filter((r) => r.method === 'POST').length;
-    await act(async () => {
-      fireEvent.click(screen.getByTestId('teaching-ack'));
-    });
-    expect(reqs.filter((r) => r.method === 'POST').length, '确认看过居然写了库').toBe(before);
-    expect(screen.getByTestId('review-card')).toBeTruthy();
-  });
-
-  it('复习卡带「复习」标识，且教过的词不会退回教学卡', async () => {
-    stubFetch(dueWith([dueCard()]));
-    mount('/vocab/practice');
-    await settle();
-    expect(screen.queryByTestId('teaching-card')).toBeNull();
-    expect(screen.getByTestId('review-card').textContent).toContain('复习');
   });
 });
 

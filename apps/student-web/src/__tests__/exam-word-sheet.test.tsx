@@ -4,16 +4,16 @@
  * 挂的是**真的 IELTS 渲染器**（真 `ReadingProvider`、真 `ExamContext`、
  * 真 `Highlighter`），只在 `fetch` 和 `caretRangeFromPoint` 两处打桩 ——
  * 后者 jsdom 没有实现，它是**环境**，不是被测行为。被测的是手势判定、
- * 请求边界、屏蔽规则、写入诚实度与填空取词。
+ * 请求边界、屏蔽规则、统一收词流程与填空取词。
  *
  * 这一屏的规矩：
  *
  *   · **不点就不查** —— 挂载、拖选高亮、滚动都不许发一个词汇请求；
- *   · **token-only** —— 查词与写生词本都只带 Bearer，
+ *   · **token-only** —— 查词与加入「我的单词」都只带 Bearer，
  *     `studentName` / `studentId` 一个字都不出现；
  *   · **考点词零请求** —— 本卷考的那几个词，连查都不查（不是「查了不显示」）；
- *   · **写入说实话** —— `created:false` 就说「已经在本子里」，
- *     失败就说没存上，绝不因为 fetch resolve 了就报成功；
+ *   · **一份数据** —— 只向 V2 收词端点写入，不再调用旧生词本端点；
+ *   · **四个选择** —— 加入、会了、稍后、只查都是学生的明确动作；
  *   · **换词之后，旧响应画不上新卡**。
  */
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
@@ -127,8 +127,7 @@ function paperWithVocabQuestion(): ExamPaper {
 // ─────────────────────────────────────────────────────────────
 
 let lookupReply: () => Promise<Response>;
-let addReply: () => Promise<Response>;
-let removeReply: () => Promise<Response>;
+let collectReply: () => Promise<Response>;
 
 function installFetch() {
   reqs = [];
@@ -142,8 +141,7 @@ function installFetch() {
       body: init.body ? String(init.body) : null,
     });
     if (path === '/vocab/lookup') return lookupReply();
-    if (path === '/vocab/words') return addReply();
-    if (path === '/vocab/words/remove') return removeReply();
+    if (path === '/vocab-v2/collect') return collectReply();
     return jsonResponse(404, { code: 'not_stubbed', path: full });
   });
   vi.stubGlobal('fetch', fetchMock);
@@ -183,8 +181,8 @@ async function click(el: HTMLElement) {
   await settle();
 }
 
-async function addCurrentWord() {
-  await click(screen.getByTestId('word-sheet-add'));
+async function collectCurrentWord(action: 'learn' | 'known' | 'later' | 'lookup' = 'learn') {
+  await click(screen.getByTestId(`word-sheet-coach-${action}`));
 }
 
 // ─────────────────────────────────────────────────────────────
@@ -315,8 +313,7 @@ beforeEach(() => {
   writeToken(TOKEN);
   deps.saveAnswer.mockClear();
   lookupReply = () => jsonResponse(200, { found: true, entry: ENTRY });
-  addReply = () => jsonResponse(200, { created: true, headword: 'resilient' });
-  removeReply = () => jsonResponse(200, { deleted: 1 });
+  collectReply = () => jsonResponse(200, { ok: true });
   installFetch();
 });
 
@@ -335,7 +332,7 @@ describe('AC-03 点词手势', () => {
     mount();
     await settle();
     expect(calls('/vocab/lookup')).toHaveLength(0);
-    expect(calls('/vocab/words')).toHaveLength(0);
+    expect(calls('/vocab-v2/collect')).toHaveLength(0);
     expect(reqs).toEqual([]);
   });
 
@@ -396,11 +393,15 @@ describe('AC-03 点词手势', () => {
     const p = paper();
     (p.questions[0].snapshotContent as Record<string, unknown>).passage =
       "The keeper's self-reliant habit saved the pier.";
+    lookupReply = () => jsonResponse(200, {
+      found: true,
+      entry: { ...ENTRY, word: 'self-reliant', query: 'self-reliant' },
+    });
     mount(p);
     await settle();
     await tap('self-reliant');
-    await addCurrentWord();
-    expect(bodies('/vocab/words')[0]?.word ?? '').toContain('self-reliant');
+    await collectCurrentWord();
+    expect(bodies('/vocab-v2/collect')[0]?.headword ?? '').toContain('self-reliant');
   });
 
   it('**拖选高亮仍然照常工作**，而且不发查词请求', async () => {
@@ -454,24 +455,26 @@ describe('AC-02 token-only 请求边界', () => {
     expect(c.path).not.toContain("keeper's?");
   });
 
-  it('**写生词本：Bearer + 无查询串 + 请求体只有约定的键**', async () => {
+  it('**加入我的单词：Bearer + 无查询串 + 请求体只有约定的键**', async () => {
     mount();
     await settle();
     await tap('resilient');
-    expect(calls('/vocab/words')).toHaveLength(0);
-    await addCurrentWord();
-    const c = calls('/vocab/words')[0];
+    expect(calls('/vocab-v2/collect')).toHaveLength(0);
+    await collectCurrentWord();
+    const c = calls('/vocab-v2/collect')[0];
     expect(c.method).toBe('POST');
     expect(c.headers.Authorization).toBe(`Bearer ${TOKEN}`);
-    expect(c.path).toBe('/vocab/words');
+    expect(c.path).toBe('/vocab-v2/collect');
     const b = JSON.parse(c.body ?? '{}');
-    expect(Object.keys(b).sort()).toEqual(['contextSentence', 'sourcePassageTitle', 'word']);
-    expect(b.word).toBe('resilient');
-    expect(b.sourcePassageTitle).toBe('The River Ferry');
+    expect(Object.keys(b).sort()).toEqual(['action', 'contextSentence', 'headword', 'source', 'sourceTitle']);
+    expect(b.headword).toBe('resilient');
+    expect(b.action).toBe('learn');
+    expect(b.source).toBe('reading_lookup');
+    expect(b.sourceTitle).toBe('The River Ferry');
     expect(b.contextSentence).toContain('resilient');
   });
 
-  it('实时句意会显示，并和原句一起写进生词本', async () => {
+  it('实时句意会显示，并和原句一起写进我的单词', async () => {
     lookupReply = () => jsonResponse(200, {
       found: true,
       entry: { ...ENTRY, contextTranslation: '守门人说，这个村庄比洪水更有韧性。' },
@@ -480,8 +483,8 @@ describe('AC-02 token-only 请求边界', () => {
     await settle();
     await tap('resilient');
     expect(screen.getByTestId('word-sheet-sentence-translation').textContent).toContain('更有韧性');
-    await addCurrentWord();
-    const body = bodies('/vocab/words')[0];
+    await collectCurrentWord();
+    const body = bodies('/vocab-v2/collect')[0];
     expect(body.contextSentence).toContain('resilient');
     expect(body.contextTranslation).toContain('更有韧性');
   });
@@ -490,7 +493,7 @@ describe('AC-02 token-only 请求边界', () => {
     mount();
     await settle();
     await tap('resilient');
-    await addCurrentWord();
+    await collectCurrentWord();
     for (const r of reqs) {
       expect(r.path).not.toMatch(/[?&](name|studentName|studentId|then|after)=/);
       if (r.body) expect(r.body).not.toMatch(/"name"|"studentName"|"studentId"|"role"/);
@@ -513,8 +516,8 @@ describe('AC-02 token-only 请求边界', () => {
 // 返工 1/2 B-2 —— 落库的来源必须是**真的**来源
 //
 // 「Reading Passage」是**没有标题时给屏幕看的占位**。把它当成来源写进
-// 生词本，那条记录就永远指向一个不存在的篇目 —— 学生复习时点进去
-// 什么都找不到，而且没有任何办法分辨「这卷真叫 Reading Passage」和
+// 我的单词，那条记录就永远指向一个不存在的篇目，而且无法分辨
+// 「这卷真叫 Reading Passage」和
 // 「这卷根本没标题」。显示可以兜底，**存下来的东西不许兜底**。
 // ─────────────────────────────────────────────────────────────
 
@@ -523,8 +526,8 @@ describe('B-2 落库的来源必须是真的来源', () => {
     mount();
     await settle();
     await tap('resilient');
-    await addCurrentWord();
-    expect(bodies('/vocab/words')[0].sourcePassageTitle).toBe('The River Ferry');
+    await collectCurrentWord();
+    expect(bodies('/vocab-v2/collect')[0].sourceTitle).toBe('The River Ferry');
   });
 
   it('**没有标题：屏幕上可以显示占位，请求体里没有这个键**', async () => {
@@ -534,10 +537,10 @@ describe('B-2 落库的来源必须是真的来源', () => {
     await settle();
     expect(text()).toContain('Reading Passage');
     await tap('resilient');
-    await addCurrentWord();
-    const b = bodies('/vocab/words')[0];
-    expect(Object.keys(b).sort()).toEqual(['contextSentence', 'word']);
-    expect('sourcePassageTitle' in b).toBe(false);
+    await collectCurrentWord();
+    const b = bodies('/vocab-v2/collect')[0];
+    expect(Object.keys(b).sort()).toEqual(['action', 'contextSentence', 'headword', 'source']);
+    expect('sourceTitle' in b).toBe(false);
   });
 
   it('**标题只有空白：同样不带这个键**', async () => {
@@ -546,8 +549,8 @@ describe('B-2 落库的来源必须是真的来源', () => {
     mount(p);
     await settle();
     await tap('resilient');
-    await addCurrentWord();
-    expect('sourcePassageTitle' in bodies('/vocab/words')[0]).toBe(false);
+    await collectCurrentWord();
+    expect('sourceTitle' in bodies('/vocab-v2/collect')[0]).toBe(false);
   });
 
   it('**这两种情况都不许因此多出身份字段**', async () => {
@@ -556,7 +559,7 @@ describe('B-2 落库的来源必须是真的来源', () => {
     mount(p);
     await settle();
     await tap('resilient');
-    await addCurrentWord();
+    await collectCurrentWord();
     for (const r of reqs) {
       expect(r.path).not.toMatch(/[?&](name|studentName|studentId)=/);
       if (r.body) expect(r.body).not.toMatch(/"name"|"studentName"|"studentId"/);
@@ -791,130 +794,56 @@ describe('AC-04 考点词零请求', () => {
 });
 
 // ─────────────────────────────────────────────────────────────
-// AC-05 —— 写生词本要说实话
+// AC-05 —— 查词只写统一的「我的单词」
 // ─────────────────────────────────────────────────────────────
 
-describe('AC-05 写生词本', () => {
-  it('**查词成功也不自动收藏**，由学生自己决定', async () => {
+describe('AC-05 统一收词流程', () => {
+  it('**查词成功也不自动加入**，只显示四个选择', async () => {
     mount();
     await settle();
     await tap('resilient');
     expect(screen.getByTestId('word-sheet-translation')).toBeTruthy();
-    expect(screen.getByTestId('word-sheet-add')).toBeTruthy();
+    expect(screen.getByTestId('word-sheet-coach-learn').textContent).toContain('加入我的单词');
+    expect(screen.getByTestId('word-sheet-coach-known')).toBeTruthy();
+    expect(screen.getByTestId('word-sheet-coach-later')).toBeTruthy();
+    expect(screen.getByTestId('word-sheet-coach-lookup').textContent).toContain('只查一下');
+    expect(calls('/vocab-v2/collect')).toHaveLength(0);
     expect(calls('/vocab/words')).toHaveLength(0);
+    expect(screen.queryByTestId('word-sheet-add')).toBeNull();
   });
 
-  it('**created:true → 说存进去了**，而且只发一条', async () => {
-    mount();
-    await settle();
-    await tap('resilient');
-    await addCurrentWord();
-    expect(calls('/vocab/words')).toHaveLength(1);
-    expect(screen.getByTestId('word-sheet-saved').textContent).toContain('已存入');
-  });
-
-  it('**created:false → 说本来就在本子里**', async () => {
-    addReply = () => jsonResponse(200, { created: false, headword: 'resilient' });
-    mount();
-    await settle();
-    await tap('resilient');
-    await addCurrentWord();
-    expect(screen.getByTestId('word-sheet-saved').textContent).toContain('已经在');
-  });
-
-  it('**写失败 → 释义还在，但明说没存上，并给重试**', async () => {
-    addReply = () => jsonResponse(500, { code: 'boom' });
-    mount();
-    await settle();
-    await tap('resilient');
-    await addCurrentWord();
-    expect(screen.getByTestId('word-sheet-translation')).toBeTruthy();
-    expect(screen.getByTestId('word-sheet-save-failed')).toBeTruthy();
-    expect(screen.queryByTestId('word-sheet-saved')).toBeNull();
-
-    addReply = () => jsonResponse(200, { created: true, headword: 'resilient' });
-    await click(screen.getByTestId('word-sheet-retry-save'));
-    expect(calls('/vocab/words')).toHaveLength(2);
-    expect(bodies('/vocab/words')[1]).toEqual(bodies('/vocab/words')[0]);
-    expect(screen.getByTestId('word-sheet-saved')).toBeTruthy();
-  });
-
-  it('**响应形状不对也算失败**，不因为 fetch 成功就报成功', async () => {
-    addReply = () => jsonResponse(200, { nope: true });
-    mount();
-    await settle();
-    await tap('resilient');
-    await addCurrentWord();
-    expect(screen.getByTestId('word-sheet-save-failed')).toBeTruthy();
-    expect(screen.queryByTestId('word-sheet-saved')).toBeNull();
-  });
-
-  /**
-   * 返工 1/2 —— B-1。
-   *
-   * 回执**整条**都要验，不是只验 `created`。
-   * `{created:true}` 少了 `headword`：那意味着服务端根本没走到「查词典定
-   * headword」那一步，这次到底记的是哪个词无从谈起 —— 报成功就是在替一次
-   * 半截的响应背书。学生下次翻生词本找不到那个词，只会以为系统丢了东西。
-   */
-  const malformed: Array<[string, unknown]> = [
-    ['缺 headword（created:true）', { created: true }],
-    ['缺 headword（created:false）', { created: false }],
-    ['headword 不是字符串', { created: true, headword: 123 }],
-    ['headword 是 null', { created: false, headword: null }],
-    ['headword 是空串', { created: true, headword: '' }],
-    ['headword 只有空白', { created: true, headword: '   ' }],
-    ['created 不是布尔', { created: 'yes', headword: 'resilient' }],
-    ['整个是 null', null],
-  ];
-  for (const [label, body] of malformed) {
-    it(`**回执不完整就算失败**：${label}`, async () => {
-      addReply = () => jsonResponse(200, body);
+  for (const [testId, action, statusText] of [
+    ['word-sheet-coach-learn', 'learn', '已加入我的单词'],
+    ['word-sheet-coach-known', 'known', '以后不会作为新词推送'],
+    ['word-sheet-coach-later', 'later', '之后可以再学'],
+    ['word-sheet-coach-lookup', 'lookup_only', '本次只查询'],
+  ] as const) {
+    it(`选择 ${action} 只写 V2 端点并给出明确反馈`, async () => {
       mount();
       await settle();
       await tap('resilient');
-      await addCurrentWord();
-      // 释义照常显示 —— 查词是成功的
-      expect(screen.getByTestId('word-sheet-translation')).toBeTruthy();
-      expect(screen.getByTestId('word-sheet-save-failed')).toBeTruthy();
-      expect(screen.queryByTestId('word-sheet-saved')).toBeNull();
+      await click(screen.getByTestId(testId));
+      expect(calls('/vocab-v2/collect')).toHaveLength(1);
+      expect(bodies('/vocab-v2/collect')[0]).toMatchObject({
+        headword: 'resilient',
+        action,
+        source: 'reading_lookup',
+        sourceTitle: 'The River Ferry',
+      });
+      expect(calls('/vocab/words')).toHaveLength(0);
+      expect(calls('/vocab/words/remove')).toHaveLength(0);
+      expect(screen.getByTestId('word-sheet-coach-status').textContent).toContain(statusText);
     });
   }
 
-  it('**完整的 created:true 才算存进去了**', async () => {
-    addReply = () => jsonResponse(200, { created: true, headword: 'resilient' });
+  it('**收词失败不影响查词结果**，而且明确告知没有保存', async () => {
+    collectReply = () => jsonResponse(500, { code: 'boom' });
     mount();
     await settle();
     await tap('resilient');
-    await addCurrentWord();
-    expect(screen.getByTestId('word-sheet-saved').textContent).toContain('已存入');
-    expect(screen.queryByTestId('word-sheet-save-failed')).toBeNull();
-  });
-
-  it('**完整的 created:false 才算本来就在本子里**', async () => {
-    addReply = () => jsonResponse(200, { created: false, headword: 'resilient' });
-    mount();
-    await settle();
-    await tap('resilient');
-    await addCurrentWord();
-    expect(screen.getByTestId('word-sheet-saved').textContent).toContain('已经在');
-    expect(screen.queryByTestId('word-sheet-save-failed')).toBeNull();
-  });
-
-  it('**重试连点两下只发一条**', async () => {
-    addReply = () => jsonResponse(500, { code: 'boom' });
-    mount();
-    await settle();
-    await tap('resilient');
-    await addCurrentWord();
-    addReply = () => jsonResponse(200, { created: true, headword: 'resilient' });
-    const btn = screen.getByTestId('word-sheet-retry-save');
-    await act(async () => {
-      btn.click();
-      btn.click();
-    });
-    await settle();
-    expect(calls('/vocab/words')).toHaveLength(2); // 首次 + 一次重试
+    await click(screen.getByTestId('word-sheet-coach-learn'));
+    expect(screen.getByTestId('word-sheet-translation')).toBeTruthy();
+    expect(screen.getByTestId('word-sheet-coach-status').textContent).toContain('没有保存');
   });
 
   it('**查词掉票 → 清票**', async () => {
@@ -925,39 +854,13 @@ describe('AC-05 写生词本', () => {
     expect(readToken()).toBeNull();
   });
 
-  it('**写生词本掉票 → 清票**', async () => {
-    addReply = () => jsonResponse(401, { code: 'student_token_required' });
+  it('**加入我的单词掉票 → 清票**', async () => {
+    collectReply = () => jsonResponse(401, { code: 'student_token_required' });
     mount();
     await settle();
     await tap('resilient');
-    await addCurrentWord();
+    await click(screen.getByTestId('word-sheet-coach-learn'));
     expect(readToken()).toBeNull();
-  });
-
-  it('**加入后可以自由移出**，成功后还能重新加入', async () => {
-    mount();
-    await settle();
-    await tap('resilient');
-    await addCurrentWord();
-    await click(screen.getByTestId('word-sheet-remove'));
-    expect(calls('/vocab/words/remove')).toHaveLength(1);
-    expect(bodies('/vocab/words/remove')[0]).toEqual({ headword: 'resilient' });
-    expect(screen.getByTestId('word-sheet-removed')).toBeTruthy();
-    expect(screen.getByTestId('word-sheet-add').textContent).toContain('重新加入');
-  });
-
-  it('**移出失败明确提示并可重试**', async () => {
-    removeReply = () => jsonResponse(500, { code: 'boom' });
-    mount();
-    await settle();
-    await tap('resilient');
-    await addCurrentWord();
-    await click(screen.getByTestId('word-sheet-remove'));
-    expect(screen.getByTestId('word-sheet-remove-failed')).toBeTruthy();
-    removeReply = () => jsonResponse(200, { deleted: 1 });
-    await click(screen.getByTestId('word-sheet-retry-remove'));
-    expect(calls('/vocab/words/remove')).toHaveLength(2);
-    expect(screen.getByTestId('word-sheet-removed')).toBeTruthy();
   });
 });
 
@@ -985,27 +888,27 @@ describe('AC-05 过期响应画不上新卡', () => {
     expect(text()).not.toContain('有韧性的');
   });
 
-  it('**迟到的写入回执不许挂到另一个词上**', async () => {
-    const firstAdd = held();
-    addReply = () => firstAdd.promise;
+  it('**迟到的收词回执不许挂到另一个词上**', async () => {
+    const firstCollect = held();
+    collectReply = () => firstCollect.promise;
     mount();
     await settle();
     await tap('resilient');
     await act(async () => {
-      screen.getByTestId('word-sheet-add').click();
+      screen.getByTestId('word-sheet-coach-learn').click();
     });
 
-    addReply = () => jsonResponse(200, { created: false, headword: 'community' });
+    collectReply = () => jsonResponse(200, { ok: true });
     lookupReply = () => jsonResponse(200, { found: true, entry: { ...ENTRY, word: 'community' } });
     await tap('community');
-    await addCurrentWord();
-    expect(screen.getByTestId('word-sheet-saved').textContent).toContain('已经在');
+    await click(screen.getByTestId('word-sheet-coach-known'));
+    expect(screen.getByTestId('word-sheet-coach-status').textContent).toContain('以后不会作为新词推送');
 
     await act(async () => {
-      firstAdd.ok({ created: true, headword: 'resilient' });
+      firstCollect.ok({ ok: true });
     });
     await settle();
-    expect(screen.getByTestId('word-sheet-saved').textContent).toContain('已经在');
+    expect(screen.getByTestId('word-sheet-coach-status').textContent).toContain('以后不会作为新词推送');
   });
 
   it('**关掉卡片之后回来的响应不许再动界面**', async () => {

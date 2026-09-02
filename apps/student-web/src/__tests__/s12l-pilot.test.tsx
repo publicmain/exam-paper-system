@@ -160,7 +160,7 @@ describe('S12L —— 今天的课是仪表盘', () => {
     render(<MemoryRouter><TodayPage /></MemoryRouter>);
     await settle();
     fireEvent.click(screen.getByTestId('segment-card-vocab'));
-    expect(navigate).toHaveBeenCalledWith('/lesson/vocab');
+    expect(navigate).toHaveBeenCalledWith('/coach/learn');
   });
 
   it('错题卡明说暂未开放，也说清不计入今天', async () => {

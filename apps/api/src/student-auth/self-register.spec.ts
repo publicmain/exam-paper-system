@@ -222,6 +222,7 @@ describe('注册页班级列表', () => {
       classes: [
         PILOT_CLASS,
         { ...PILOT_CLASS, id: 'legacy', name: '旧档班', classCode: 'SECRET', englishLevels: [{ level: 'ielts_light' }] },
+        { ...PILOT_CLASS, id: 'old-full', name: 'G11 IELTS Test', classCode: 'MORNINGQUIZ' },
       ],
     });
     const out: any = await svc.registrationClasses();
@@ -238,6 +239,15 @@ describe('注册页班级列表', () => {
     const { svc } = makeSvc({ classes: [internal] });
     await expect(svc.registrationClasses()).resolves.toEqual({ classes: [] });
     await expect(svc.selfRegister(GOOD)).rejects.toMatchObject({
+      response: { code: 'class_not_available' },
+    });
+  });
+
+  it('旧班即使五档齐全也不进入公开注册，伪造 id 同样被拒绝', async () => {
+    const old = { ...PILOT_CLASS, id: 'old-full', name: 'G11 IELTS Test', classCode: 'MORNINGQUIZ' };
+    const { svc } = makeSvc({ classes: [old] });
+    await expect(svc.registrationClasses()).resolves.toEqual({ classes: [] });
+    await expect(svc.selfRegister({ ...GOOD, classId: old.id })).rejects.toMatchObject({
       response: { code: 'class_not_available' },
     });
   });
@@ -455,7 +465,7 @@ describe('S12O —— 同一个班里的重名', () => {
   });
 
   it('不同班的同名互不影响', async () => {
-    const other = { ...PILOT_CLASS, id: 'c2', classCode: 'OTHER' };
+    const other = { ...PILOT_CLASS, id: 'c2', classCode: 'SEC27W', name: 'SEC27W' };
     const { svc, state } = makeSvc({ classes: [PILOT_CLASS, other] });
     await svc.selfRegister(GOOD);
     await svc.selfRegister({ ...GOOD, classId: 'c2' });
