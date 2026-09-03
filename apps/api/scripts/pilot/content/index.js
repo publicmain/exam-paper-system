@@ -30,6 +30,7 @@ const olevelRemaining = require('./olevel_remaining');
 const simplifiedRemaining = require('./ielts_simplified_remaining');
 const authenticRemaining = require('./ielts_authentic_remaining');
 const { IELTS_LIGHT_DAYS, OLEVEL_INTERMEDIATE_DAYS } = require('./fixture-levels');
+const week2 = require('./week2');
 const contextTranslations = {
   ...require('./context-translations-ielts_simplified'),
   ...require('./context-translations-olevel_intermediate'),
@@ -59,8 +60,8 @@ function withContextTranslations(days, level) {
   }));
 }
 
-/** 五档的内容包。key 就是 `EnglishLevel` 枚举值。 */
-const LEVELS = {
+/** 试点第一周（2026-08-31 ~ 09-04）。 */
+const WEEK1 = {
   [simplified.LEVEL]: withContextTranslations([...simplified.DAYS, ...simplifiedRemaining.DAYS], simplified.LEVEL),
   olevel_intermediate: withContextTranslations(OLEVEL_INTERMEDIATE_DAYS, 'olevel_intermediate'),
   [olevel.LEVEL]: withContextTranslations([...olevel.DAYS, ...olevelRemaining.DAYS], olevel.LEVEL),
@@ -68,8 +69,38 @@ const LEVELS = {
   [authentic.LEVEL]: withContextTranslations([...authentic.DAYS, ...authenticRemaining.DAYS], authentic.LEVEL),
 };
 
-/** 这一周实际发布的日期（新加坡日历日）。 */
-const DATES = ['2026-08-31', '2026-09-01', '2026-09-02', '2026-09-03', '2026-09-04'];
+const WEEK1_DATES = ['2026-08-31', '2026-09-01', '2026-09-02', '2026-09-03', '2026-09-04'];
+
+/**
+ * 内容包按**周**累加，不是每周替换。
+ *
+ * 发布脚本一次只发一天（`--day=`），而学生的历史答卷、冻结的正式测试和
+ * 跨日待办都指向他做过的那一天。把上一周从内容包里拿掉，等于让那些记录
+ * 指向不存在的课 —— 所以旧的周只增不删。
+ *
+ * 首发周（2026-09-07 起）在 `week2/` 目录下自成一套：五档全部改编自库里
+ * **从未发到学生手上**的文章，加上必要的原创。它的词表与例句中文由
+ * `build-week2-vocab.js` / `build-week2-context-translations.js` 生成并已
+ * 提交，所以这里直接取装配好的结果。
+ */
+const WEEKS = [
+  { dates: WEEK1_DATES, levels: WEEK1 },
+  { dates: week2.DATES, levels: week2.LEVELS },
+];
+
+/** 五档的内容包。key 就是 `EnglishLevel` 枚举值，值是按日期升序的全部教学日。 */
+const LEVELS = {};
+for (const week of WEEKS) {
+  for (const [level, days] of Object.entries(week.levels)) {
+    LEVELS[level] = [...(LEVELS[level] ?? []), ...days];
+  }
+}
+for (const level of Object.keys(LEVELS)) {
+  LEVELS[level].sort((a, b) => a.date.localeCompare(b.date));
+}
+
+/** 已经发布或准备发布的全部日期（新加坡日历日，升序）。 */
+const DATES = WEEKS.flatMap((w) => w.dates).sort();
 
 /** 内容包每天提供的候选词范围；发布脚本从中切主词与备用词。 */
 const MIN_WORDS_PER_DAY = 12;
@@ -83,6 +114,25 @@ const MAX_HUMAN_PER_DAY = 4;
 /** 取某一档某一天。找不到返回 null —— 调用方必须自己决定怎么办。 */
 function lessonFor(level, date) {
   return (LEVELS[level] ?? []).find((d) => d.date === date) ?? null;
+}
+
+/**
+ * **某一天**用到的词条（跨档去重）。
+ *
+ * 发布脚本一次只发一天，只需要把那一天的词补进词典。原来它遍历
+ * `allWords()`（内容包全部日期），第一周时是四百多条还跑得动；内容包按周
+ * 累加到两周就是七百多条，每条一次 findUnique 往返，把 Prisma 的事务
+ * 预算跑爆了 —— 报错是「Transaction not found」，看着像连接问题，其实是超时。
+ */
+function wordsForDay(dayIso) {
+  const byHead = new Map();
+  for (const days of Object.values(LEVELS)) {
+    for (const d of days) {
+      if (d.date !== dayIso) continue;
+      for (const w of d.words) if (!byHead.has(w.headword)) byHead.set(w.headword, w);
+    }
+  }
+  return [...byHead.values()];
 }
 
 /** 这一周用到的全部词条（跨档跨天去重），给词典补录用。 */
@@ -103,6 +153,7 @@ function allWords() {
 module.exports = {
   LEVELS,
   DATES,
+  WEEKS,
   MIN_WORDS_PER_DAY,
   MAX_WORDS_PER_DAY,
   QUESTIONS_PER_DAY,
@@ -110,4 +161,5 @@ module.exports = {
   MAX_HUMAN_PER_DAY,
   lessonFor,
   allWords,
+  wordsForDay,
 };

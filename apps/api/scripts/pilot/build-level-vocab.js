@@ -208,19 +208,30 @@ function loadLight(file) {
   return { passage: raw.passage, preferred: LIGHT_PREFERRED[file] };
 }
 
-const arg = process.argv.find((a) => a.startsWith('--csv='));
-const split = process.argv.indexOf('--csv');
-const csv = arg ? arg.slice(6) : split >= 0 ? process.argv[split + 1] : '';
-if (!csv || !fs.existsSync(csv)) throw new Error('Pass --csv <ecdict.csv>');
-const dict = dictionary(csv);
-const output = { ielts_light: {}, olevel_intermediate: {} };
-for (const file of LIGHT) {
-  const x = loadLight(file);
-  output.ielts_light[file] = choose(x.passage, dict, x.preferred, 12);
+/**
+ * 命令行入口。**只在直接执行本文件时跑** —— 首发周的
+ * `build-week2-vocab.js` 要复用上面的 `dictionary` / `choose`，
+ * 而 require 一个会顺手写文件的模块是不能接受的。
+ */
+function main() {
+  const arg = process.argv.find((a) => a.startsWith('--csv='));
+  const split = process.argv.indexOf('--csv');
+  const csv = arg ? arg.slice(6) : split >= 0 ? process.argv[split + 1] : '';
+  if (!csv || !fs.existsSync(csv)) throw new Error('Pass --csv <ecdict.csv>');
+  const dict = dictionary(csv);
+  const output = { ielts_light: {}, olevel_intermediate: {} };
+  for (const file of LIGHT) {
+    const x = loadLight(file);
+    output.ielts_light[file] = choose(x.passage, dict, x.preferred, 12);
+  }
+  for (const file of INTERMEDIATE) {
+    const x = loadIntermediate(file);
+    output.olevel_intermediate[file] = choose(x.passage, dict, x.preferred, 12);
+  }
+  fs.writeFileSync(OUT, `${JSON.stringify(output, null, 2)}\n`, 'utf8');
+  console.log(`wrote ${OUT}: ${LIGHT.length + INTERMEDIATE.length} lessons / 120 teaching words`);
 }
-for (const file of INTERMEDIATE) {
-  const x = loadIntermediate(file);
-  output.olevel_intermediate[file] = choose(x.passage, dict, x.preferred, 12);
-}
-fs.writeFileSync(OUT, `${JSON.stringify(output, null, 2)}\n`, 'utf8');
-console.log(`wrote ${OUT}: ${LIGHT.length + INTERMEDIATE.length} lessons / 120 teaching words`);
+
+if (require.main === module) main();
+
+module.exports = { dictionary, choose, sentences, posOf, STOP, parseCsv };

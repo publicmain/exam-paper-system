@@ -21,6 +21,26 @@ function containmentSimilarity(left, right, size = 5) {
   return overlap / Math.min(a.size, b.size);
 }
 
+/**
+ * 题干里**真正属于这道题**的那一段。
+ *
+ * 题干的形状是「指令 + 换行 + 题目」，而同一个题组里的指令是**故意完全相同**的
+ * ——「Do the following statements agree with…」这段雅思标准指令，一天里
+ * 三道判断题共用一份，这是题型格式，不是抄袭。
+ *
+ * 拿整条题干去查重，量到的其实是这段模板：实测第一周的判断题两两相似度
+ * 0.788，首发周 0.818，一个刚好在 0.8 阈值下、一个刚好在上 —— 通没通过
+ * 取决于题面长了几个词，与内容是否重复无关。而真正该拦的「同一道题换个
+ * 指令再发一次」反倒量不出来。
+ *
+ * 所以查重只看指令之后的部分。没有换行的题干原样返回。
+ */
+function questionItem(stem) {
+  const text = String(stem || '');
+  const cut = text.lastIndexOf('\n');
+  return cut >= 0 ? text.slice(cut + 1).trim() : text.trim();
+}
+
 function findNearDuplicate(candidates, history, threshold, shingleSize = 5) {
   for (const candidate of candidates) {
     for (const previous of history) {
@@ -32,4 +52,4 @@ function findNearDuplicate(candidates, history, threshold, shingleSize = 5) {
   return null;
 }
 
-module.exports = { tokens, shingles, containmentSimilarity, findNearDuplicate };
+module.exports = { tokens, shingles, containmentSimilarity, findNearDuplicate, questionItem };

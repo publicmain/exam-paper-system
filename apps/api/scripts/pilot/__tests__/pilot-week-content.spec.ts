@@ -18,7 +18,7 @@ import { describe, expect, it } from 'vitest';
 // eslint-disable-next-line @typescript-eslint/no-var-requires
 const content = require('../content');
 // eslint-disable-next-line @typescript-eslint/no-var-requires
-const { findNearDuplicate } = require('../content-similarity');
+const { findNearDuplicate, questionItem } = require('../content-similarity');
 
 type Word = {
   headword: string;
@@ -106,7 +106,9 @@ const PLACEHOLDER_MARKERS = [
   'S12L',
   'S12M',
   '合成阅读',
-  'synthetic',
+  // 曾经这里还有一条裸的 'synthetic'。它会误伤正常词典释义 ——
+  // `plastic` 的释义就是「generic name for certain synthetic or
+  // semisynthetic materials…」。真正要挡的是下面这条 staging 夹具标记。
   'STAGING SYNTHETIC',
   'placeholder',
   'TODO',
@@ -130,18 +132,29 @@ describe('S12M —— 这一周有什么', () => {
     }
   });
 
-  it('日期是新加坡日历日，且连续', () => {
+  it('日期是新加坡日历日，按周连续（周末跳过）', () => {
+    // 内容包按周累加：试点第一周 + 首发周。旧的周只增不删 —— 学生的历史
+    // 答卷、冻结的正式测试和跨日待办都指向他做过的那一天，把上一周从包里
+    // 拿掉等于让那些记录指向不存在的课。
     expect(DATES).toEqual([
-      '2026-08-31',
-      '2026-09-01',
-      '2026-09-02',
-      '2026-09-03',
-      '2026-09-04',
+      '2026-08-31', '2026-09-01', '2026-09-02', '2026-09-03', '2026-09-04',
+      '2026-09-07', '2026-09-08', '2026-09-09', '2026-09-10', '2026-09-11',
     ]);
     for (const d of DATES) expect(d).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+    const DAY = 86_400_000;
     const ms = DATES.map((d) => Date.parse(`${d}T00:00:00+08:00`));
     for (let i = 1; i < ms.length; i++) {
-      expect(ms[i] - ms[i - 1], `${DATES[i - 1]} → ${DATES[i]} 不是相邻的一天`).toBe(86_400_000);
+      const gap = ms[i] - ms[i - 1];
+      // 教学日只排周一到周五：同一周内相邻一天，跨周相隔三天。
+      expect([DAY, 3 * DAY], `${DATES[i - 1]} → ${DATES[i]} 的间隔不是 1 天或 3 天`).toContain(gap);
+    }
+    for (const d of DATES) {
+      // 星期要按**新加坡日历日**算。写成 `new Date(d + 'T00:00:00+08:00').getUTCDay()`
+      // 会先折回 UTC（8 月 31 日周一 → UTC 8 月 30 日周日），把每个周一都误判成周末。
+      const [y, m, day] = d.split('-').map(Number);
+      const weekday = new Date(Date.UTC(y, m - 1, day)).getUTCDay();
+      expect(weekday, `${d} 落在周末`).toBeGreaterThanOrEqual(1);
+      expect(weekday, `${d} 落在周末`).toBeLessThanOrEqual(5);
     }
   });
 
@@ -295,7 +308,27 @@ describe.each(EVERY)('S12M —— %s 的生词', (_label, level, day) => {
       expect(w.phonetic, `${w.headword} 没有音标`).toMatch(/^\/.+\/$/);
       expect(w.pos, `${w.headword} 没有词性`).toMatch(/\.$/);
       expect(w.translation, `${w.headword} 没有中文释义`).toMatch(/[一-鿿]/);
-      expect(w.definition.trim().length, `${w.headword} 没有英文释义`).toBeGreaterThan(10);
+      // 这一条要挡的是**没有释义**，不是「释义太短」。原来卡 >10 字符，是
+      // 手写释义时代留下的门槛；而 `twice` → “two times”、`extraordinarily`
+      // → “extremely”、`hardly` → “almost not” 都是好释义，只是短。为了凑
+      // 长度换成一句拖泥带水的解释，对学生是净损失。
+      expect(w.definition.trim().length, `${w.headword} 没有英文释义`).toBeGreaterThan(3);
+
+      // 一词一义 —— 首发周（2026-09-07）起的新内容适用。
+      //
+      // ECDICT 会把一个词的所有义项、所有词性塞进同一个字段：`umbrella` 的
+      // 英文释义里带着「在地面作战上空维持的军用机编队」，`cleaning` 的中文
+      // 里带着「家畜的胞衣」。学习卡第一屏原样显示，中一学生看到的就是这些。
+      //
+      // 为什么不追溯到第一周：第一周的两个改编档（ielts_light /
+      // olevel_intermediate）用的是未加裁剪的旧生成器，词表已经提交。而第一周
+      // 在 09-04 结束、真实上线是 09-07，那批卡片不会发到真学生手上，所以
+      // 只立标准、不回改历史内容 —— 回改会让已有的 StudentWord 记录与内容包
+      // 对不上，代价大于收益。
+      if (day.date >= '2026-09-07') {
+        expect(w.definition, `${w.headword} 的英文释义堆了多个义项`).not.toMatch(/\\n|\n/);
+        expect(w.translation, `${w.headword} 的中文释义堆了多个词性`).not.toMatch(/[；;]/);
+      }
       expect(w.contextTranslation, `${w.headword} 的例句没有中文句意`).toMatch(/[一-鿿]/);
       expect(w.contextTranslation.trim().length, `${w.headword} 的例句翻译太短`).toBeGreaterThan(3);
     }
@@ -313,16 +346,19 @@ describe.each(EVERY)('S12M —— %s 的生词', (_label, level, day) => {
 // ─────────────────────────────────────────────────────────────
 
 describe('S12M —— 全周', () => {
-  it('二十五篇原文各不相同，标题也各不相同', () => {
+  it('每一篇原文各不相同，标题也各不相同', () => {
     const titles = EVERY.map(([, , d]) => d.title);
     const passages = EVERY.map(([, , d]) => d.passage);
     expect(new Set(titles).size).toBe(titles.length);
     expect(new Set(passages).size).toBe(passages.length);
   });
 
-  it('二十五篇文章与全部题干都通过近似重复扫描', () => {
+  it('全部文章与题干都通过近似重复扫描', () => {
     const passages = EVERY.map(([, level, day]) => ({ id: `${level}/${day.date}`, text: day.passage }));
-    const questions = EVERY.flatMap(([, level, day]) => day.questions.map((question, index) => ({ id: `${level}/${day.date}/q${index + 1}`, text: question.stem })));
+    // 只比题干里**真正属于这道题**的那一段。同一题组的指令是故意完全相同的
+    // （雅思标准指令一天三道判断题共用一份），拿整条题干去比量到的是模板，
+    // 不是内容 —— 详见 content-similarity.js 的 questionItem。
+    const questions = EVERY.flatMap(([, level, day]) => day.questions.map((question, index) => ({ id: `${level}/${day.date}/q${index + 1}`, text: questionItem(question.stem) })));
     expect(findNearDuplicate(passages, passages, 0.25, 5)).toBeNull();
     expect(findNearDuplicate(questions, questions, 0.8, 4)).toBeNull();
   });

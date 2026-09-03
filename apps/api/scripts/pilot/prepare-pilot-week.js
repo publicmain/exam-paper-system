@@ -53,7 +53,7 @@ const ENV_KEYS = [
 const ENV_AT_STARTUP = Object.fromEntries(ENV_KEYS.map((k) => [k, process.env[k] || '']));
 
 const content = require('./content');
-const { findNearDuplicate } = require('./content-similarity');
+const { findNearDuplicate, questionItem } = require('./content-similarity');
 
 // ─────────────────────────────────────────────────────────────
 // 常量
@@ -143,8 +143,20 @@ const QA_STUDENT = {
   level: 'olevel',
 };
 
-/** 往日试点词被推到哪一天（试点结束之后）。 */
-const PARK_UNTIL = '2026-09-14';
+/**
+ * 往日试点词被推到哪一天 —— **内容包最后一个教学日之后**。
+ *
+ * 原来写死成 `2026-09-14`。当时内容包只有第一周（到 09-04），这个日期在
+ * 教学日之外，没问题。内容包按周累加之后，写死的日期迟早会落进某一周的
+ * 教学日里 —— 那时「推到以后」会把词推到一个学生正在上课的日子，而且没有
+ * 任何报错。改成从内容包实际的最后一天推算，加三天避开周末。
+ */
+const PARK_UNTIL = (() => {
+  const last = content.DATES[content.DATES.length - 1];
+  const d = new Date(`${last}T00:00:00.000Z`);
+  d.setUTCDate(d.getUTCDate() + 3);
+  return d.toISOString().slice(0, 10);
+})();
 
 class PilotError extends Error {
   constructor(msg) {
@@ -474,12 +486,31 @@ function dictDrift(existing, w) {
   return Object.keys(patch).length ? patch : null;
 }
 
-async function upsertDictionary(tx, report) {
+/**
+ * 只补录**这一天**用到的词。
+ *
+ * 原来遍历 `content.allWords()`（内容包所有日期）。第一周四百多条还跑得动；
+ * 内容包按周累加到两周就是七百多条，加上每条一次 `findUnique` 往返，
+ * 直接把 Prisma 事务的五分钟预算跑爆 —— 抛出来的是
+ * 「Transaction not found. Transaction ID is invalid…」，看着像连接问题，
+ * 其实是超时。发一天只需要那一天的词，现在是一百条上下。
+ *
+ * 存在性检查也从「一词一次往返」改成一次 `findMany` 批量取回。
+ */
+async function upsertDictionary(tx, report, dayIso) {
+  const words = content.wordsForDay(dayIso);
+  const known = new Map(
+    (
+      await tx.dictEntry.findMany({
+        where: { word: { in: words.map((w) => w.headword) } },
+      })
+    ).map((row) => [row.word, row]),
+  );
   // **别人的词条一个字都不改** —— 那可能是别的内容在用的释义，而这个脚本
   // 没有资格替它决定。自己写的那些则要能纠错，否则错别字就永久留在
   // 学生眼前。
-  for (const w of content.allWords()) {
-    const existing = await tx.dictEntry.findUnique({ where: { word: w.headword } });
+  for (const w of words) {
+    const existing = known.get(w.headword);
     if (existing) {
       const patch = isOursToFix(existing) ? dictDrift(existing, w) : null;
       if (patch) {
@@ -810,7 +841,7 @@ function allBundleTexts() {
     for (const day of days) {
       passages.push({ id: `${level}/${day.date}`, text: day.passage });
       for (let index = 0; index < day.questions.length; index += 1) {
-        questions.push({ id: `${level}/${day.date}/q${index + 1}`, text: day.questions[index].stem });
+        questions.push({ id: `${level}/${day.date}/q${index + 1}`, text: questionItem(day.questions[index].stem) });
       }
     }
   }
@@ -825,12 +856,38 @@ function assertBundleHasNoNearDuplicates() {
   if (questionHit) throw new PilotError(`内容包题目近似重复：${questionHit.candidateId} / ${questionHit.previousId}`);
 }
 
-async function assertNoHistoricalNearDuplicates(tx, dayIso) {
-  const existing = await tx.question.findMany({
-    where: { NOT: { id: { startsWith: PREFIX } } },
-    select: { id: true, content: true },
+/**
+ * 查重的对照面是「**学生读过的**」，不是「题库里有的」。
+ *
+ * 原来对照的是全部非试点 Question。那口径答错了它想回答的问题：这道门
+ * 存在的意义是「别让同一个学生把同一篇文章读两遍」，而题库里躺着一篇
+ * 从没挂过作业的文章，对学生来说就是全新的。
+ *
+ * 实测差别很大：仓库的 fixture 库约一百篇，按「题库里有」算只剩 3 篇可用，
+ * 按「学生读过」算有 17 篇 —— 差的那十几篇是历年出好了却从未发出去的。
+ * 首发周的五档内容正是建立在这十几篇上。
+ *
+ * 判据是**这份卷子挂过作业，且那份作业下真有学生答卷**。答卷行在学生
+ * 开卷时就建出来，所以「开了没交」也算读过。
+ *
+ * 保守的一面仍然保留：曾经发给任何一个学生（包括早已毕业的班）都算读过，
+ * 不按人分别计算。真要做到「按学生查重」，需要在发课时按人挑内容，那是
+ * 另一件事；在那之前，宁可拦多。
+ */
+async function deliveredHistory(tx) {
+  const rows = await tx.paperQuestion.findMany({
+    where: {
+      NOT: { paperId: { startsWith: PREFIX } },
+      paper: { assignments: { some: { submissions: { some: {} } } } },
+    },
+    select: { id: true, snapshotContent: true },
     take: 10000,
   });
+  return rows.map((row) => ({ id: row.id, content: row.snapshotContent }));
+}
+
+async function assertNoHistoricalNearDuplicates(tx, dayIso) {
+  const existing = await deliveredHistory(tx);
   const historicalPassages = new Map();
   const historicalQuestions = [];
   for (const row of existing) {
@@ -838,7 +895,7 @@ async function assertNoHistoricalNearDuplicates(tx, dayIso) {
     const passage = typeof body.passage === 'string' ? body.passage : '';
     const stem = typeof body.stem === 'string' ? body.stem : '';
     if (passage && !historicalPassages.has(passage)) historicalPassages.set(passage, { id: row.id, text: passage });
-    if (stem) historicalQuestions.push({ id: row.id, text: stem });
+    if (stem) historicalQuestions.push({ id: row.id, text: questionItem(stem) });
   }
   const candidates = Object.entries(content.LEVELS).map(([level]) => {
     const day = content.lessonFor(level, dayIso);
@@ -852,7 +909,7 @@ async function assertNoHistoricalNearDuplicates(tx, dayIso) {
   );
   if (passageHit) throw new PilotError(`文章与历史内容近似重复：${passageHit.candidateId}`);
   const questionHit = findNearDuplicate(
-    candidates.flatMap(({ level, day }) => day.questions.map((question, index) => ({ id: `${level}/${dayIso}/q${index + 1}`, text: question.stem }))),
+    candidates.flatMap(({ level, day }) => day.questions.map((question, index) => ({ id: `${level}/${dayIso}/q${index + 1}`, text: questionItem(question.stem) }))),
     historicalQuestions,
     0.8,
     4,
@@ -896,7 +953,7 @@ async function main() {
         // ② 写
         const report = makeReport();
         await upsertPublisherClassesAndQa(tx, report);
-        await upsertDictionary(tx, report);
+        await upsertDictionary(tx, report, day);
         for (const level of Object.keys(content.LEVELS)) {
           await upsertLesson(tx, level, day, report);
         }
@@ -912,7 +969,10 @@ async function main() {
         const after = await snapshot(tx);
         return { before, after, report, roster: roster.map((r) => r.user) };
       },
-      { maxWait: 30_000, timeout: 300_000 },
+      // 事务预算：跨洋公网代理连库，一次往返几百毫秒，而这里有几百次
+      // 顺序写。原来是 5 分钟，内容包变成两周后正好卡在边界上炸掉。
+      // 词典补录已改成按天 + 批量取，这里再留一倍余量。
+      { maxWait: 30_000, timeout: 900_000 },
     );
   } finally {
     await prisma.$disconnect();
@@ -925,7 +985,8 @@ async function main() {
   console.log(
     [
       '',
-      `试点第一周 · ${day} 已发布。`,
+      // 内容包已经不止一周了，别再把每一天都报成「试点第一周」。
+      `${day} 已发布（内容包第 ${content.DATES.indexOf(day) + 1} / ${content.DATES.length} 天）。`,
       `  班级        : ${REGISTRATION_CLASSES.map((klass) => klass.name).join(' · ')}（另保留内部冒烟班；每班五档齐全）`,
       `  在册学生    : ${roster.length}（${roster.map((r) => `${r.name}[${r.englishLevel ?? '未设置'}]`).join('、') || '无'}）`,
       '',

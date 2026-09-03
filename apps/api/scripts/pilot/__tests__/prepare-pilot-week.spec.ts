@@ -328,9 +328,13 @@ describe('S12M —— 脚本与内容包对得上', () => {
 
   it('要补录的词条数是**可数的**，不是把整本词典搬过来', () => {
     const n = content.allWords().length;
-    // 五档 × 五天、每天最多 21 个词位；跨天去重后仍是一套有限周词表。
-    expect(n).toBeGreaterThan(350);
-    expect(n).toBeLessThanOrEqual(525);
+    // 上限按内容包**实际有多少天**算，不能写死。原来钉的是 525
+    // （五档 × 五天 × 每天 21 个词位）；内容包按周累加之后，第二周一并进来
+    // 就会撞上这个数字 —— 而它拦的本来是「有人把整本词典塞进来」，不是
+    // 「内容包变长了」。
+    const ceiling = (content.MAX_WORDS_PER_DAY as number) * DATES.length * LEVELS.length;
+    expect(n).toBeGreaterThan(70 * LEVELS.length);
+    expect(n).toBeLessThanOrEqual(ceiling);
   });
 
   it('每一档每天都是 12 个主词，备用词只来自同一篇文章', () => {
