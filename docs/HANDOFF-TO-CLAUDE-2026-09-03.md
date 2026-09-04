@@ -110,7 +110,25 @@ independently"），会原样显示给学生，已换成自己写的短指令。
    把「推到以后」的词推到学生正在上课的那天，且不会报错。已改成从内容包
    最后一天推算（今天算出来仍是 09-14，等价）。
 
-### 2026-09-04 审查后修掉的三处（已提交，待部署）
+### 2026-09-04 部署记录（叶老师批准后执行，19:52–19:54 SGT）
+
+| 服务 | 来源 | 部署 ID | commit | 回滚点 |
+| --- | --- | --- | --- | --- |
+| exam-paper-system（API） | GitHub `main` 自动 | `ae3c6d33` | `732b3a4` | 部署 `ff94f50a` / `0c17ab1` |
+| nurturing-radiance（教师端） | GitHub `main` 自动 | `1fa57a51` | `732b3a4` | `5e232f1d` / `0c17ab1` |
+| pdf-worker | GitHub `main` 自动 | `9d1bd571` | `732b3a4` | `368c48aa` / `0c17ab1` |
+| student-web | `railway up` 手动（apps/student-web） | `68aa63e5` | `732b3a4` | `7807354b` |
+
+烟测：`/api/health` 回报 commit `732b3a4`；注册页班级列表 9 个班；学生端首页
+200，线上 bundle `index-BHn-mTX-.js` 含新文案；API 启动后 cron 正常 tick
+（`daily tasks ready for 6/6`）。无数据库迁移。
+
+启动日志里有一条 **`[ContentBootstrap] bootstrap failed (continuing): ENOENT
+…cambridge-ielts-gt-14/test1-section1.json`** —— 这是本次之前就有的：那批
+剑桥原文在提交 `4ce1184` 因版权被移出仓库并 .gitignore，镜像里自然没有，
+服务照常启动。与本次改动无关，也不影响学生端。
+
+### 2026-09-04 审查后修掉的三处（已部署，见上表）
 
 按「周一真学生会撞上什么」逐段追代码，修了三处，均带回归测试：
 
@@ -173,7 +191,7 @@ Claude 读取资料时按以下优先级处理冲突：
 
 ### 1.1 代码与部署
 
-- 当前 Git：`main` 与 `origin/main` 都在 `0c17ab1`，工作树在编写本日志前是干净的。
+- 当前 Git：`main` / `origin/main` 在 `732b3a4`（2026-09-04 部署基线；原文写本日志时是 `0c17ab1`）。
 - Railway 项目：`glorious-motivation`，环境：`production`。
 - 学生正式入口：`https://student-web-production-5a21.up.railway.app`
 - API：`https://exam-paper-system-production.up.railway.app`
@@ -181,7 +199,7 @@ Claude 读取资料时按以下优先级处理冲突：
 - 运营后台：`https://ops-dashboard-production-9b67.up.railway.app`
 - 数据库：Railway managed Postgres。
 - 学生端、API、教师端均有成功的 production 部署记录；API/旧 Web 对应当前 Git 基线。
-- 学生端最后一次 production 部署记录显示为 CLI deploy，提交信息是 `Preserve missed student tasks across days`，部署平台没有记录 Git commit SHA。因此以后部署学生端时必须额外保存 commit SHA 与部署 ID，避免只能靠描述猜版本。
+- 学生端由 CLI 部署，平台不记录 commit SHA，所以每次部署都要像上面的「部署记录」那样把 commit 与部署 ID 写进本文件。当前学生端 = `68aa63e5` / `732b3a4`。
 
 ### 1.2 绝对不能混用的地址
 
