@@ -45,6 +45,25 @@ describe('VocabularyV2DailyTaskCron', () => {
     ]);
   });
 
+  it('does not create word tasks on Saturday or Sunday (Singapore time)', async () => {
+    process.env.STUDENT_APP_V2 = 'on';
+    const findMany = vi.fn().mockResolvedValue([{ id: 's1' }]);
+    const startDailySession = vi.fn().mockResolvedValue({ id: 'daily' });
+    const cron = new VocabularyV2DailyTaskCron(
+      { user: { findMany } } as never,
+      { startDailySession } as never,
+    );
+
+    // 2026-09-05 是周六；02:00 UTC 已是新加坡上午 10:00。
+    await cron.provision(new Date('2026-09-05T02:00:00.000Z'));
+    // 2026-09-06 周日深夜 UTC 17:00 = 新加坡周一 01:00 —— 这时该跑。
+    await cron.provision(new Date('2026-09-06T17:00:00.000Z'));
+
+    expect(findMany).toHaveBeenCalledOnce();
+    expect(startDailySession).toHaveBeenCalledTimes(1);
+    expect(startDailySession.mock.calls[0][1]).toEqual(new Date('2026-09-06T17:00:00.000Z'));
+  });
+
   it('keeps provisioning other students when one account cannot receive a task', async () => {
     process.env.STUDENT_APP_V2 = 'on';
     const findMany = vi.fn().mockResolvedValue([{ id: 's1' }, { id: 's2' }]);

@@ -2,6 +2,7 @@ import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
 import { Cron } from '@nestjs/schedule';
 import { PrismaService } from '../common/prisma.service';
 import { VocabularyV2Service } from './vocabulary-v2.service';
+import { isTeachingDay, sgtDateKey } from './unified-vocabulary-rules';
 
 /**
  * Materialises every active student's dated word task independently of page
@@ -26,6 +27,9 @@ export class VocabularyV2DailyTaskCron implements OnModuleInit {
   @Cron('*/10 * * * *', { name: 'vocabulary-v2-daily-task-provisioner', timeZone: 'Asia/Singapore' })
   async provision(now = new Date()) {
     if (this.running || process.env.STUDENT_APP_V2 !== 'on') return;
+    // School days only.  Left unguarded, every weekend produced two unfinished
+    // tasks per student that surfaced as backlog on Monday.
+    if (!isTeachingDay(sgtDateKey(now))) return;
     this.running = true;
     try {
       const students = await this.prisma.user.findMany({

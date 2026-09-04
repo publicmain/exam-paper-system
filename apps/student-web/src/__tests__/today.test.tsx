@@ -244,6 +244,29 @@ describe('3–5. 开始今天的课', () => {
   });
 });
 
+describe('单词测试待办', () => {
+  it('打开失败时给出提示，按钮不会像死了一样', async () => {
+    session(lesson(), (r) => {
+      if (r === '/vocab-v2/overview') {
+        return jsonResponse(200, {
+          dailyTarget: 10,
+          today: null,
+          readingBacklog: [],
+          learningBacklog: [],
+          pendingTests: [{ dailySessionId: 'd-0907', testSessionId: null, date: '2026-09-07', total: 3, status: 'not_started' }],
+        });
+      }
+      if (r === '/vocab-v2/test/start') return jsonResponse(503, { code: 'v2_unavailable' });
+      return null;
+    });
+    renderAt('/today');
+    await screen.findByRole('heading', { name: /你好，七号/ });
+    await userEvent.click(screen.getByRole('button', { name: /9月7日 · 3 个词/ }));
+    expect(await screen.findByText(/这份单词测试暂时打不开/)).toBeTruthy();
+    expect(callsTo('/vocab-v2/test/start')).toHaveLength(1);
+  });
+});
+
 describe('6–7. 路由映射只认契约', () => {
   it('`summary` → 落到**真的今日总结页**（阶段 10 起不再是占位页）', async () => {
     // S12I —— 总结页现在要求 `kind` / `allDone` / `completed === total`

@@ -61,6 +61,22 @@ describe('个人词汇教练 V2 学习流', () => {
     expect(fetchMock).toHaveBeenCalledTimes(2);
   });
 
+  it('周末打开学习页：说清楚没有任务，而不是报「无法生成」', async () => {
+    const fetchMock = vi.fn((url: string) => {
+      const path = pathOf(url);
+      if (path === '/vocab-v2/daily') {
+        return Promise.resolve({ ok: true, status: 200, text: () => Promise.resolve('') } as Response);
+      }
+      if (path === '/vocab-v2/daily/start') return response({ code: 'v2_no_task_on_weekend' }, 400);
+      return response({}, 404);
+    });
+    vi.stubGlobal('fetch', fetchMock);
+    render(<MemoryRouter><VocabularyCoachLearnPage /></MemoryRouter>);
+
+    expect(await screen.findByText(/周六周日没有新词任务/)).toBeInTheDocument();
+    expect(screen.queryByText(/无法生成/)).toBeNull();
+  });
+
   it('从欠交入口进入时，读取并创建指定日期的同一份任务', async () => {
     const fetchMock = vi.fn((url: string) => {
       const path = pathOf(url);

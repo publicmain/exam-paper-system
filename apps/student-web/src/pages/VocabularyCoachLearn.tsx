@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { api, type V2LearningSession } from '../lib/api';
+import { api, ApiError, type V2LearningSession } from '../lib/api';
 import { handleAuthFailure } from '../lib/auth-store';
 import { readToken } from '../lib/identity';
 import { ROUTES } from '../routes.contract';
@@ -42,7 +42,14 @@ export default function VocabularyCoachLearnPage() {
       startedAt.current = Date.now();
     } catch (error) {
       if (handleAuthFailure(error)) return;
-      setPhase({ s: 'error', message: '今天的词汇任务暂时无法生成。系统不会用低质量词凑数，请稍后重试。' });
+      // 周末没有新词任务是规则，不是故障 —— 别用「无法生成」吓学生。
+      const weekend = error instanceof ApiError && error.body?.code === 'v2_no_task_on_weekend';
+      setPhase({
+        s: 'error',
+        message: weekend
+          ? '周六周日没有新词任务，周一再来。有欠着的任务可以在首页补做。'
+          : '今天的词汇任务暂时无法生成。系统不会用低质量词凑数，请稍后重试。',
+      });
     }
   }, [navigate, taskDate]);
   useEffect(() => { void load(); }, [load]);

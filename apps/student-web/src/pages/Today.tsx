@@ -149,6 +149,7 @@ export default function TodayPage() {
   const [phase, setPhase] = useState<Phase>({ s: 'loading' });
   const [starting, setStarting] = useState(false);
   const [startError, setStartError] = useState<string | null>(null);
+  const [testError, setTestError] = useState<string | null>(null);
 
   /**
    * 请求代次。
@@ -366,6 +367,7 @@ export default function TodayPage() {
           <section className="mt-6 rounded-2xl border border-amber-200 bg-amber-50/80 p-4" aria-label="单词测试待办">
             <h2 className="font-semibold text-amber-950">单词测试待办</h2>
             <p className="mt-1 text-sm text-amber-800">没有截止时间；未完成的任务会按日期一直保留。</p>
+            {testError ? <Notice kind="error">{testError}</Notice> : null}
             <div className="mt-3 grid gap-2">
               {vocabOverview.pendingTests.map((task) => (
                 <button
@@ -374,10 +376,18 @@ export default function TodayPage() {
                   onClick={async () => {
                     const token = readToken();
                     if (!token) return;
-                    const test = task.testSessionId
-                      ? { id: task.testSessionId }
-                      : await api.vocabV2StartTest(token, task.dailySessionId);
-                    navigate(`${ROUTES.coachTest}?sessionId=${encodeURIComponent(test.id)}`);
+                    setTestError(null);
+                    try {
+                      const test = task.testSessionId
+                        ? { id: task.testSessionId }
+                        : await api.vocabV2StartTest(token, task.dailySessionId);
+                      navigate(`${ROUTES.coachTest}?sessionId=${encodeURIComponent(test.id)}`);
+                    } catch (error) {
+                      // 没有 catch 的话，一次失败就是一个未处理的 rejection：按钮看着像死了，
+                      // 学生不知道发生了什么。
+                      if (handleAuthFailure(error)) return;
+                      setTestError('这份单词测试暂时打不开，请稍后再试。');
+                    }
                   }}
                 >
                   <span>{formatTaskDate(task.date)} · {task.total} 个词</span>

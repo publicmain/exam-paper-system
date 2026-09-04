@@ -24,6 +24,8 @@ import {
   pendingDailySessions,
   testableDailyItems,
   unseenCandidates,
+  deferredSenseIds,
+  isTeachingDay,
 } from './unified-vocabulary-rules';
 
 export type CollectionAction = 'learn' | 'known' | 'lookup_only' | 'later';
@@ -246,8 +248,9 @@ export class VocabularyV2Service {
       ).length;
       const learning = dailySessions.filter((session) => session.studentId === user.id);
       const completedLearning = learning.filter((session) => session.status === 'completed');
-      const pendingTests = completedLearning.filter((session) =>
-        formalByKey.get(`${session.sessionKey}:formal`)?.status !== 'submitted',
+      const pendingTests = pendingDailySessions(
+        completedLearning,
+        new Map(formalSessions.filter((row) => row.studentId === user.id).map((row) => [row.sessionKey, row.status])),
       );
       const openWords = learning
         .filter((session) => session.status === 'in_progress')
@@ -967,6 +970,9 @@ export class VocabularyV2Service {
       include: { items: { orderBy: { position: 'asc' } } },
     });
     if (existing) return this.sessionView(existing);
+    // 每日新词只在教学日（周一到周五）生成。已存在的会话照常返回（上面），
+    // 所以这条只挡新建：周末打开 App 不会凭空多出一天的欠账。
+    if (!isTeachingDay(day.key)) throw new BadRequestException({ code: 'v2_no_task_on_weekend' });
 
     const teacherAssignment = await this.teacherAssignmentForStudent(studentId, day.date);
     if (teacherAssignment?.items.length) {
@@ -1030,6 +1036,35 @@ export class VocabularyV2Service {
       candidates.push({ senseId: sense.id, source: 'level_gap', quality: sense.qualityStatus === 'ready' && asset.publishable ? 1 : 0.5, rank: listPriority * 1_000_000 + lexeme.rank });
     }
 
+    // 「稍后再学」过、后来一直没学完的词，排到今天任务的最前面。
+    //
+    // 它们的归属行在第一次推送时就建了，所以上面的 unseenCandidates 会把
+    // 它们永久排除；词表游标也早已越过它们。不在这里显式捞回来，「稍后」
+    // 就等于「再也不」。仍在「我的单词」里、且没被学生移出的才回来；
+    // 学生点过「我会了」（mastered / 换词）的不回来 —— 那是他明确的决定。
+    const deferredIds = deferredSenseIds(
+      await this.prisma.vocabularyV2SessionItem.findMany({
+        where: { session: { studentId, sessionType: 'daily_learning' }, status: { in: ['skipped', 'completed'] } },
+        select: { senseId: true, status: true },
+      }),
+    );
+    const deferredSenseSet = new Set<string>();
+    if (deferredIds.length) {
+      const owned = await this.prisma.studentVocabularySense.findMany({
+        where: { studentId, senseId: { in: deferredIds }, inNotebook: true, removedAt: null, masteryStage: { lt: 8 } },
+        include: { sense: { include: { lexeme: true, contexts: { where: { qualityStatus: 'ready' } } } } },
+      });
+      for (const row of owned) {
+        const sense = row.sense;
+        if (!sense?.lexeme || rows.has(sense.id)) continue;
+        const asset = learningAssetQuality({ headword: sense.lexeme.headword, translation: sense.translation, definition: sense.definition, contexts: sense.contexts });
+        rows.set(sense.id, { sense, owned: row });
+        deferredSenseSet.add(sense.id);
+        // rank 0：排在任何词表词之前；同一来源 level_gap，学生端标签不变。
+        candidates.push({ senseId: sense.id, source: 'level_gap', quality: sense.qualityStatus === 'ready' && asset.publishable ? 1 : 0.5, rank: 0 });
+      }
+    }
+
     const plan = planDailyTask(candidates, profile.dailyTarget);
     if (!plan.length) throw new ServiceUnavailableException({ code: 'no_publishable_vocabulary' });
     const sourceSummary = Object.fromEntries(
@@ -1040,6 +1075,8 @@ export class VocabularyV2Service {
     for (const item of plan.filter((candidate) => candidate.source === 'level_gap')) {
       const row = rows.get(item.senseId);
       if (!row?.sense?.lexeme) continue;
+      // 捞回来的「稍后再学」词 rank 在游标之前，不能让它把游标拉回去。
+      if (deferredSenseSet.has(item.senseId)) continue;
       const listName = String(row.sense.lexeme.listName);
       nextRankByList.set(listName, Math.max(nextRankByList.get(listName) ?? 1, Number(row.sense.lexeme.rank) + 1));
     }
