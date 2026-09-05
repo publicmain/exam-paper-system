@@ -6,8 +6,12 @@ describe('formatPhonetic —— 2026-09-05 盲测 P2-9', () => {
     expect(formatPhonetic("kә'tæstrәfi")).toBe('/kəˈtæstrəfi/');
     expect(formatPhonetic("/kә'tæstrәfi/")).toBe('/kəˈtæstrəfi/');
   });
-  it("老式记号 'dʒә:mineit 也能看", () => {
-    expect(formatPhonetic("'dʒә:mineit")).toBe('/ˈdʒə:mineit/');
+  it("老式记号 'dʒә:mineit 也能看：重音、长音都换成 IPA", () => {
+    expect(formatPhonetic("'dʒә:mineit")).toBe('/ˈdʒəːmineit/');
+  });
+  it('剑桥式音节点去掉，两套词典数据风格一致（复测新发现 6）', () => {
+    expect(formatPhonetic('ˈsɪl.vər')).toBe('/ˈsɪlvər/');
+    expect(formatPhonetic('/ˈæs.ɪd/')).toBe('/ˈæsɪd/');
   });
   it('空的不显示', () => {
     expect(formatPhonetic('')).toBeNull();

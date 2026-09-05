@@ -13,9 +13,10 @@ export function formatPhonetic(raw: string | null | undefined): string | null {
   if (!s) return null;
   s = s
     .replace(/ә/g, 'ə') // 西里尔 ә → 拉丁 ə
-    .replace(/ə/g, 'ə')
     .replace(/[\[\]/]/g, '') // 去掉原有的 / 与 [ ]，下面统一加
     .replace(/'/g, 'ˈ') // 老式重音记号 ' → ˈ
+    .replace(/:/g, 'ː') // 老式长音 : → ː
+    .replace(/(?<=[^\s])\.(?=[^\s])/g, '') // 剑桥式音节点 ˈsɪl.vər → ˈsɪlvər，两套数据看起来一样
     .replace(/\s+/g, ' ')
     .trim();
   return s ? `/${s}/` : null;
