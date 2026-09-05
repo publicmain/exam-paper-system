@@ -1,12 +1,31 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { api, type V2TestSession } from '../lib/api';
+import { api, type V2PublicQuestion, type V2TestSession } from '../lib/api';
 import { handleAuthFailure } from '../lib/auth-store';
 import { readToken } from '../lib/identity';
 import { ROUTES } from '../routes.contract';
 import { Button, Card, Notice, Screen, TopBar } from '../ui';
+import { cleanTranslation, posPrefixFor } from '../lib/word-display';
 
 type Phase = { s: 'loading' } | { s: 'error'; message: string } | { s: 'ready'; session: V2TestSession };
+
+type TestItem = V2TestSession['items'][number];
+
+/** 把一道题的标准答案翻成人话（选项题给选项文字，拼写题给单词）。 */
+export function answerText(q: V2PublicQuestion): string {
+  const a = q.answer;
+  if (a == null) return '';
+  if (typeof a === 'number') return q.options[a] ?? String(a);
+  if (Array.isArray(a)) return a.join(' / ');
+  return String(a);
+}
+
+export function responseText(item: TestItem): string {
+  const v = item.response?.value;
+  if (v == null) return '（没答）';
+  if (typeof v === 'number') return item.question.options[v] ?? String(v);
+  return String(v).trim() || '（没答）';
+}
 
 export default function VocabularyCoachTestPage() {
   const navigate = useNavigate();
@@ -16,6 +35,11 @@ export default function VocabularyCoachTestPage() {
   const [value, setValue] = useState('');
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
+  /**
+   * 刚答完的那一题：先给对错反馈，学生点「下一题」再往下走
+   * （2026-09-05 盲测 P1-8：原来提交即跳，答错了也不知道）。
+   */
+  const [feedback, setFeedback] = useState<TestItem | null>(null);
   const startedAt = useRef(Date.now());
 
   const load = useCallback(async () => {
@@ -35,6 +59,7 @@ export default function VocabularyCoachTestPage() {
     try {
       const next = await api.vocabV2Answer(token, { sessionId: session.id, itemId: item.id, response, responseMs: Date.now() - startedAt.current });
       setPhase({ s: 'ready', session: next }); setValue(''); startedAt.current = Date.now();
+      setFeedback(next.items.find((candidate) => candidate.id === item.id) ?? null);
     } catch (error) { if (handleAuthFailure(error)) return; setMessage('这题没有保存，请重试。'); }
     finally { setBusy(false); }
   };
@@ -60,8 +85,37 @@ export default function VocabularyCoachTestPage() {
       <Card>
         <p className="text-center text-sm text-blue-600">测试完成</p><h1 className="mt-3 text-center text-4xl font-semibold tabular-nums">{session!.correct} / {session!.total}</h1>
         <p className="mt-3 text-center text-sm text-slate-500">{session!.type === 'custom_test' ? '这是个人练习，不进入正式成绩，也不会生成后续任务。' : '这份每日单词测试已经完成并保存。'}</p>
+        {/* 逐题回顾（2026-09-05 盲测 P1-8）：答错的排前面，一眼看到该记什么 */}
+        <ul data-testid="test-review" className="mt-6 divide-y divide-slate-100 text-left">
+          {[...session!.items].sort((a, b) => Number(a.isCorrect === true) - Number(b.isCorrect === true) || a.position - b.position).map((it) => (
+            <li key={it.id} className="py-3">
+              <div className="flex items-baseline gap-2">
+                <span className={it.isCorrect ? 'text-emerald-600' : 'text-rose-600'} aria-label={it.isCorrect ? '答对' : '答错'}>{it.isCorrect ? '✓' : '✗'}</span>
+                <span className="font-semibold">{it.card?.headword ?? `第 ${it.position} 题`}</span>
+                {it.card ? <span className="text-sm text-slate-500">{posPrefixFor(it.card.pos, it.card.translation)}{cleanTranslation(it.card.translation).split('\n')[0]}</span> : null}
+              </div>
+              {!it.isCorrect ? (
+                <p className="mt-1 text-sm text-slate-600">你写的：{responseText(it)} · 正确答案：<span className="font-medium text-slate-900">{answerText(it.question)}</span></p>
+              ) : null}
+            </li>
+          ))}
+        </ul>
         <button className="app-secondary mt-6 w-full" onClick={() => navigate(ROUTES.vocab)}>回到我的单词</button>
       </Card>
+    </Screen>
+  );
+  if (feedback) return (
+    <Screen>
+      <TopBar title={session!.type === 'custom_test' ? '自定义抽查' : `${formatTaskDate(session!.date)}`} onBack={() => navigate(ROUTES.vocab)} backLabel="退出" right={<span className="text-sm tabular-nums text-slate-500">{session!.answered} / {session!.total}</span>} />
+      <div className="mx-auto w-full max-w-3xl">
+        <Card>
+          <p data-testid="test-feedback" className={`text-2xl font-semibold ${feedback.isCorrect ? 'text-emerald-600' : 'text-rose-600'}`}>{feedback.isCorrect ? '✓ 答对了' : '✗ 不对'}</p>
+          {feedback.card ? <p className="mt-3 text-xl font-semibold">{feedback.card.headword} <span className="text-base font-normal text-slate-500">{posPrefixFor(feedback.card.pos, feedback.card.translation)}{cleanTranslation(feedback.card.translation).split('\n')[0]}</span></p> : null}
+          {!feedback.isCorrect ? <p className="mt-2 text-slate-700">你写的：{responseText(feedback)}<br />正确答案：<span className="font-semibold">{answerText(feedback.question)}</span></p> : null}
+          {feedback.card?.sentence ? <p className="mt-3 font-serif text-slate-600">{feedback.card.sentence}</p> : null}
+          <div className="mt-6"><Button onClick={() => setFeedback(null)}>{session!.items.some((it) => it.status !== 'answered') ? '下一题' : '看总结'}</Button></div>
+        </Card>
+      </div>
     </Screen>
   );
   if (!item) return <Screen center><Card><h1 className="text-center text-2xl font-semibold">所有题都答完了</h1><p className="mt-2 text-center text-sm text-slate-500">确认交卷后才会更新记忆计划。</p>{message ? <Notice kind="error">{message}</Notice> : null}<div className="mt-6"><Button disabled={busy} onClick={() => void submit()}>交卷</Button></div></Card></Screen>;
@@ -89,11 +143,11 @@ function formatTaskDate(date: string) {
 
 function QuestionCue({ question: q, onSpeak }: { question: V2TestSession['items'][number]['question']; onSpeak: (text: string) => void }) {
   if (q.type === 'meaning_choice') return <h1 className="mt-5 text-4xl font-semibold">{q.prompt}</h1>;
-  if (q.type === 'spelling') return <div className="mt-5 rounded-2xl bg-slate-50 p-5"><p className="text-2xl font-semibold">{q.cue.pos}. {q.cue.translation}</p><button className="mt-3 min-h-[44px] text-sm text-blue-600" onClick={() => onSpeak(q.cue.audioText)}>▶ 播放发音</button></div>;
-  if (q.type === 'word_choice') return <div className="mt-5 rounded-2xl bg-slate-50 p-5 text-2xl font-semibold">{q.cue.pos}. {q.cue.translation}</div>;
+  if (q.type === 'spelling') return <div className="mt-5 rounded-2xl bg-slate-50 p-5"><p className="text-2xl font-semibold whitespace-pre-wrap">{posPrefixFor(q.cue.pos, q.cue.translation)}{cleanTranslation(q.cue.translation)}</p><button className="mt-3 min-h-[44px] text-sm text-blue-600" onClick={() => onSpeak(q.cue.audioText)}>▶ 播放发音</button></div>;
+  if (q.type === 'word_choice') return <div className="mt-5 rounded-2xl bg-slate-50 p-5 text-2xl font-semibold whitespace-pre-wrap">{posPrefixFor(q.cue.pos, q.cue.translation)}{cleanTranslation(q.cue.translation)}</div>;
   if (q.type === 'cloze') return <div className="mt-5 rounded-2xl bg-slate-50 p-5"><p className="font-serif text-xl leading-8">{q.cue.sentence}</p>{q.cue.translation ? <p className="mt-2 text-sm text-slate-500">{q.cue.translation}</p> : null}</div>;
   if (q.type === 'listening_spelling') return <button className="app-secondary mt-5 w-full" onClick={() => onSpeak(q.cue.audioText)}>▶ 播放发音</button>;
   if (q.type === 'active_use') return <div className="mt-5 rounded-2xl bg-slate-50 p-5"><p className="text-3xl font-semibold">{q.cue.headword}</p><p className="mt-2 text-slate-500">{q.cue.translation}</p></div>;
   if (q.type === 'collocation') return <div className="mt-5 text-3xl font-semibold">{q.cue.headword}</div>;
-  return <div className="mt-5 rounded-2xl bg-slate-50 p-5"><p className="text-3xl font-semibold">{q.cue.headword}</p><p className="mt-2 text-sm text-slate-500">写出另一个词族成员（{q.cue.pos}）</p></div>;
+  return <div className="mt-5 rounded-2xl bg-slate-50 p-5"><p className="text-3xl font-semibold">{q.cue.headword}</p><p className="mt-2 text-sm text-slate-500">写出另一个词族成员{posPrefixFor(q.cue.pos, '') ? `（${posPrefixFor(q.cue.pos, '').trim()}）` : ''}</p></div>;
 }

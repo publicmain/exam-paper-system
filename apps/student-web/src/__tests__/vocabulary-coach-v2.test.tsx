@@ -161,9 +161,63 @@ describe('个人词汇教练 V2 正式测试', () => {
 
     expect(await screen.findByText('9月1日单词测试')).toBeInTheDocument();
     expect(screen.getByText('1 / 12')).toBeInTheDocument();
-    expect(screen.getByText('verb. 下降；减少')).toBeInTheDocument();
+    expect(screen.getByText('v. 下降；减少')).toBeInTheDocument();
     const wireBody = await (await fetchMock.mock.results[0].value).clone?.().text?.();
     expect(JSON.stringify(session)).not.toContain('"answer"');
     expect(wireBody ?? '').not.toContain('"answer"');
+  });
+});
+
+describe('抽查 / 测试的逐题反馈与回顾（2026-09-05 盲测 P1-8）', () => {
+  const card = { headword: 'decline', phonetic: null, pos: 'verb', senseKey: 'verb:01', translation: '下降；减少', definition: 'to become less', sentence: 'Sales may decline.', sentenceTranslation: '销量可能下降。', collocations: [], wordFamily: [], confusionWords: [], memoryHint: null, imageUrl: null, audioText: 'decline', list: 'ngsl', rank: 1, attribution: '' };
+  const base = {
+    id: 'test-2', version: 'V2-CUSTOM-1', date: '2026-09-05', type: 'custom_test', status: 'in_progress', total: 2, answered: 0, correct: null, retry: null,
+    items: [
+      { id: 'q-1', position: 1, status: 'pending', response: null, isCorrect: null, card: null, question: { type: 'spelling', prompt: '写出英文单词。', cue: { pos: 'verb', translation: '下降；减少', audioText: 'decline' }, options: [] } },
+      { id: 'q-2', position: 2, status: 'pending', response: null, isCorrect: null, card: null, question: { type: 'meaning_choice', prompt: 'belong', cue: null, options: ['属于', '拒绝', '下降', '增加'] } },
+    ],
+  };
+  const afterFirst = {
+    ...base, answered: 1,
+    items: [
+      { ...base.items[0], status: 'answered', response: { value: 'decLine' }, isCorrect: false, card, question: { ...base.items[0].question, answer: 'decline' } },
+      base.items[1],
+    ],
+  };
+  const submitted = {
+    ...afterFirst, status: 'submitted', answered: 2, correct: 1,
+    items: [
+      afterFirst.items[0],
+      { ...base.items[1], status: 'answered', response: { value: 0 }, isCorrect: true, card: { ...card, headword: 'belong', translation: '属于' }, question: { ...base.items[1].question, answer: 0 } },
+    ],
+  };
+
+  it('答错一题 → 立刻看到正确答案，点「下一题」才继续；交卷后有逐题回顾', async () => {
+    let state: any = base;
+    vi.stubGlobal('fetch', vi.fn((url: string) => {
+      const path = pathOf(url);
+      if (path.startsWith('/vocab-v2/test?')) return response(state);
+      if (path === '/vocab-v2/test/answer') { state = state === base ? afterFirst : { ...submitted, status: 'in_progress', correct: null }; return response(state); }
+      if (path === '/vocab-v2/test/submit') { state = submitted; return response(state); }
+      return response({}, 404);
+    }));
+    const user = userEvent.setup();
+    render(<MemoryRouter initialEntries={['/coach/test?sessionId=test-2']}><VocabularyCoachTestPage /></MemoryRouter>);
+
+    await user.type(await screen.findByPlaceholderText('输入答案'), 'decLine');
+    await user.click(screen.getByRole('button', { name: '提交这题' }));
+    expect((await screen.findByTestId('test-feedback')).textContent).toContain('不对');
+    expect(screen.getByText(/正确答案/).textContent).toContain('decline');
+    await user.click(screen.getByRole('button', { name: '下一题' }));
+    expect(await screen.findByText('属于')).toBeInTheDocument();
+
+    await user.click(screen.getByRole('button', { name: '属于' }));
+    expect((await screen.findByTestId('test-feedback')).textContent).toContain('答对了');
+    await user.click(screen.getByRole('button', { name: '看总结' }));
+    await user.click(await screen.findByRole('button', { name: '交卷' }));
+    const review = await screen.findByTestId('test-review');
+    expect(review.textContent).toContain('decline');
+    expect(review.textContent).toContain('你写的：decLine');
+    expect(review.textContent).toContain('belong');
   });
 });

@@ -170,14 +170,15 @@ describe('S12H/1 —— 真实 getStudentResult：AI 判的题保持 pending', (
     expect(it0.markerComment).toBeNull();
   });
 
-  it('精确匹配判对的简答题在没有正面证据时同样保持 pending', async () => {
+  it('精确匹配判对的简答题（没有 AI 痕迹）算确定性判分，分数放行（2026-09-05 盲测）', async () => {
     const { svc } = makeSvc({
       questions: [saQuestion()],
       scripts: [saScript({ textAnswer: 'a row of hedges', awardedMarks: 2, autoCorrect: true })],
     });
     const r: any = await svc.getStudentResult(SESSION, STUDENT);
-    expect(itemOf(r, 'pq-sa').gradingStatus).toBe('pending_marking');
-    expect(itemOf(r, 'pq-sa').awardedMarks).toBeNull();
+    expect(itemOf(r, 'pq-sa').gradingStatus).toBe('auto_graded');
+    expect(itemOf(r, 'pq-sa').awardedMarks).toBe(2);
+    expect(r.releasedScore).toEqual({ earned: 2, max: 2, count: 1 });
   });
 
   it('确定性选择题照常放行（正分与 0 分都是结论）', async () => {

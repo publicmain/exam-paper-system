@@ -280,7 +280,7 @@ describe('4 + 7. 改密码与退出', () => {
     await screen.findByText('账号');
   }
 
-  it('**改密码成功 → 令牌当场作废，清掉并回登录页 + 成功提示**', async () => {
+  it('**改密码成功但老服务端没发新票 → 清票回登录页 + 成功提示**', async () => {
     await loggedIn();
     fetchMock.mockImplementation((url: string) =>
       route(url) === '/student-auth/change-pin'
@@ -294,6 +294,22 @@ describe('4 + 7. 改密码与退出', () => {
     await screen.findByText('每日英语');
     expect(localStorage.getItem('sw:token')).toBeNull();
     expect((await screen.findByRole('alert')).textContent).toContain('密码已经改好了');
+  });
+
+  it('**改密码成功且服务端发了新票 → 换票、留在账号页、不用重新登录**（2026-09-05 盲测 P2-16）', async () => {
+    await loggedIn();
+    fetchMock.mockImplementation((url: string) =>
+      route(url) === '/student-auth/change-pin'
+        ? jsonResponse(200, { ok: true, token: 'TK-NEW' })
+        : jsonResponse(200, PROFILE),
+    );
+    await userEvent.type(screen.getByLabelText('当前密码'), 'old12345');
+    await userEvent.type(screen.getByLabelText('新密码'), 'new12345');
+    await userEvent.click(screen.getByRole('button', { name: '修改密码' }));
+
+    expect((await screen.findByRole('alert')).textContent).toContain('密码已经改好了');
+    expect(localStorage.getItem('sw:token')).toBe('TK-NEW');
+    expect(screen.getByText('账号')).toBeInTheDocument();
   });
 
   it('当前密码错 → 停在原地，不清票', async () => {

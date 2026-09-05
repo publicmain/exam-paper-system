@@ -72,7 +72,10 @@ const SUBMITTED: ReadonlySet<SegmentStatus> = new Set<SegmentStatus>(['done', 'a
 export function readingLine(read: ReadSegment): string {
   if (read.status === 'none') return '今天没有阅读';
   if (!SUBMITTED.has(read.status)) return '还没做完';
-  if (read.scoresPending) return '已交卷 · 还在判分';
+  if (read.scoresPending) {
+    const r = read.releasedScore;
+    return r && r.count > 0 ? `已交卷 · 客观题 ${r.earned} / ${r.max} · 其余等老师批` : '已交卷 · 还在判分';
+  }
   if (read.score == null || read.maxScore == null) return '已交卷 · 还没有分数';
   return `${read.score} / ${read.maxScore} 分`;
 }

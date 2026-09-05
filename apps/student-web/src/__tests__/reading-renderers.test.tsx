@@ -229,6 +229,47 @@ describe('AC-04 渲染器的字段语义', () => {
     expect(labels.some((l) => /NOT GIVEN/.test(l))).toBe(true);
   });
 
+  it('**配对题组：选项一致才共享选项库；不一致就各题各显示自己的选项**（2026-09-05 盲测 P0）', () => {
+    const bank = [
+      { key: 'A', text: 'cleaning' },
+      { key: 'B', text: 'drying' },
+      { key: 'C', text: 'testing' },
+      { key: 'D', text: 'freezing' },
+    ];
+    const other = [
+      { key: 'A', text: 'packets' },
+      { key: 'B', text: 'shelves' },
+      { key: 'C', text: 'soil' },
+      { key: 'D', text: 'nitrogen' },
+    ];
+    const { unmount } = mount(
+      paper({
+        paperMode: 'passage_pick',
+        questions: [
+          q({ id: 'a', snapshotContent: { taskType: 'matching_features', stem: 'Which step?', passage: 'P' }, snapshotOptions: bank }),
+          q({ id: 'b', snapshotContent: { taskType: 'matching_features', stem: 'Which method?', passage: 'P' }, snapshotOptions: other }),
+        ],
+      }),
+    );
+    // 不一致 → 没有共享的选项库，两题的选项文字都出现在各自题下
+    expect(screen.queryByText(/选项库/)).toBeNull();
+    expect(screen.getAllByText(/nitrogen/).length).toBeGreaterThan(0);
+    expect(screen.getAllByText(/freezing/).length).toBeGreaterThan(0);
+    unmount();
+
+    mount(
+      paper({
+        paperMode: 'passage_pick',
+        questions: [
+          q({ id: 'a', snapshotContent: { taskType: 'matching_features', stem: 'Which step?', passage: 'P' }, snapshotOptions: bank }),
+          q({ id: 'b', snapshotContent: { taskType: 'matching_features', stem: 'Which method?', passage: 'P' }, snapshotOptions: bank }),
+        ],
+      }),
+    );
+    // 一致 → 共享一次选项库
+    expect(screen.getByText(/选项库/)).toBeInTheDocument();
+  });
+
   it('**五个冻结的 IELTS case 都双写 selectedOption + textAnswer**', async () => {
     const cases = [
       'true_false_not_given',

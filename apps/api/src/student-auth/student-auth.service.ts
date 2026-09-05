@@ -115,20 +115,41 @@ export class StudentAuthService {
       },
     });
 
+    let user = candidates[0];
     if (candidates.length > 1) {
-      // 同名：让前端展示班级候选再带 studentId 重试。
-      // 绝不「拿 PIN 逐个试哪个对得上」—— 那会让 PIN 碰撞变成串号通道。
-      return {
-        needDisambiguation: true as const,
-        candidates: candidates.map((c) => ({
-          studentId: c.id,
-          name: c.name,
-          classes: c.classEnrollments.map((e) => e.class.name),
-        })),
-      };
+      // 同名：**先核对密码，再决定要不要给候选**（2026-09-05 盲测 P2-15）。
+      //
+      // 原来是输个名字就把这个名字在哪几个班全列出来 —— 任何人都能这样
+      // 打听。现在密码对得上的才算候选：对上一个 → 直接登录；对上几个
+      // （同名 + 同密码，极少）→ 只列这几个让他挑；一个都对不上 → 统一
+      // invalid_credentials，什么都不透露，并给每个没锁的同名账号记一次失败
+      // （和「选中再试」是同一个代价，挡不住的枚举本来也挡不住）。
+      const now0 = new Date();
+      const matched: typeof candidates = [];
+      for (const c of candidates) {
+        if (!c.pinHash || isLocked(c, now0)) continue;
+        if (await bcrypt.compare(input.pin, c.pinHash)) matched.push(c);
+      }
+      if (matched.length === 0) {
+        await this.prisma.user.updateMany({
+          where: { id: { in: candidates.filter((c) => c.pinHash && !isLocked(c, now0)).map((c) => c.id) } },
+          data: { pinFailedCount: { increment: 1 } },
+        });
+        throw new UnauthorizedException({ code: 'invalid_credentials' });
+      }
+      if (matched.length > 1) {
+        return {
+          needDisambiguation: true as const,
+          candidates: matched.map((c) => ({
+            studentId: c.id,
+            name: c.name,
+            classes: c.classEnrollments.map((e) => e.class.name),
+          })),
+        };
+      }
+      user = matched[0];
     }
 
-    const user = candidates[0];
     // 查无此人 / 未设 PIN：统一口径，不帮枚举者区分
     if (!user?.pinHash) {
       throw new UnauthorizedException({ code: 'invalid_credentials' });
@@ -811,7 +832,7 @@ export class StudentAuthService {
       }
       throw new UnauthorizedException({ code: 'invalid_credentials' });
     }
-    await this.prisma.user.update({
+    const updated = await this.prisma.user.update({
       where: { id: studentId },
       data: {
         pinHash: await bcrypt.hash(newPin, 10),
@@ -820,8 +841,15 @@ export class StudentAuthService {
         // 改 PIN = 登出所有其它设备（复审 P0-2）
         studentAuthVersion: { increment: 1 },
       },
+      select: { id: true, email: true, name: true, studentAuthVersion: true },
     });
-    return { ok: true as const };
+    // 2026-09-05 盲测 P2-16：改完密码把本机也踢下线体验很差。其它设备的旧票
+    // 因版本号递增照样作废；**这台**设备当场换一张新票，保持登录。
+    const token = await this.jwt.signAsync(
+      { id: updated.id, email: updated.email, role: 'student', name: updated.name, av: updated.studentAuthVersion },
+      { expiresIn: StudentAuthService.TOKEN_TTL },
+    );
+    return { ok: true as const, token };
   }
 
   /** 主页用：我是谁、PIN 设了没。 */

@@ -136,7 +136,7 @@ const HUMAN = {
   'light-07-tidal-power.json': [
     [
       'summary_completion',
-      'Complete the sentence with information from the passage.\nTides are caused by ______, which is why their timing can be worked out centuries ahead.',
+      'Complete the sentence with information from the passage.\n\nTides are caused by ______, which is why their timing can be worked out centuries ahead.',
       'the pull of the moon',
       'They are produced by the pull of the moon, and their timing can be calculated centuries in advance.',
       '两分：写出「月球引力」给 2 分；只写「月亮」给 1 分。',
@@ -166,7 +166,7 @@ const HUMAN = {
   'light-08-libraries.json': [
     [
       'summary_completion',
-      'Complete the sentence with information from the passage.\nThe prediction about libraries was wrong even though the number of books lent each year has ______.',
+      'Complete the sentence with information from the passage.\n\nThe prediction about libraries was wrong even though the number of books lent each year has ______.',
       'fallen in most countries',
       'In most countries the number of books lent each year has indeed fallen.',
       '两分：写出「大多数国家借书量确实下降」给 2 分；只写「下降」给 1 分。',
@@ -196,7 +196,7 @@ const HUMAN = {
   'light-09-salt.json': [
     [
       'summary_completion',
-      'Complete the sentence with information from the passage.\nSalt preserves meat and fish by pulling water out of their cells and out of the ______.',
+      'Complete the sentence with information from the passage.\n\nSalt preserves meat and fish by pulling water out of their cells and out of the ______.',
       'bacteria that would otherwise multiply in them',
       'Salt draws water out of the cells of meat and fish, and out of the bacteria that would otherwise multiply in them.',
       '两分：写出「细菌」并说明细菌因此无法繁殖给 2 分；只写「细菌」给 1 分。',
@@ -226,7 +226,7 @@ const HUMAN = {
   'original-rail-time': [
     [
       'summary_completion',
-      'Complete the sentence with information from the passage.\nTwo trains on a single track could be cleared by clocks that ______, and several crashes in the 1840s were traced to this.',
+      'Complete the sentence with information from the passage.\n\nTwo trains on a single track could be cleared by clocks that ______, and several crashes in the 1840s were traced to this.',
       'disagreed with each other',
       'Worse, two trains sharing a single track could be given clearance by clocks that disagreed, and in the 1840s several collisions were traced to exactly that.',
       '两分：写出「两地时钟不一致」给 2 分；只写「时钟不准」给 1 分。',
@@ -256,7 +256,7 @@ const HUMAN = {
   'original-smell-of-rain': [
     [
       'summary_completion',
-      'Complete the sentence with information from the passage.\nHuman sensitivity to geosmin is remarkable: a concentration of ______ is enough for a person to notice it.',
+      'Complete the sentence with information from the passage.\n\nHuman sensitivity to geosmin is remarkable: a concentration of ______ is enough for a person to notice it.',
       'five parts per trillion',
       'Human beings are extraordinarily sensitive to it: a concentration of five parts per trillion is enough to notice, which makes the nose better at detecting geosmin than at detecting almost anything else.',
       '两分：写出「万亿分之五 / five parts per trillion」给 2 分；只写「极低浓度」给 1 分。',
@@ -306,7 +306,7 @@ function buildDay(entry, dayIndex) {
   const auto = raw.questions.map((q) => {
     const instruction = q.instruction
       ?? (q.taskType === 'true_false_not_given' ? TFNG_INSTRUCTION : COMPLETION_INSTRUCTION);
-    const stem = `${instruction}\n${q.item}`;
+    const stem = `${instruction}\n\n${q.item}`;
     if (q.taskType === 'true_false_not_given') {
       const evidence = q.answer === 'NOT GIVEN' ? '' : TF_EVIDENCE[key][tfIndex];
       tfIndex += 1;

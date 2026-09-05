@@ -54,6 +54,7 @@ function makeSvc(users: any[]) {
         if (u) applyData(u, data);
         return Promise.resolve(u);
       }),
+      updateMany: vi.fn().mockResolvedValue({ count: 0 }),
     },
     classEnrollment: {
       findFirst: vi.fn().mockResolvedValue({ classId: 'c1' }),
@@ -135,15 +136,38 @@ describe('login', () => {
     });
   });
 
-  it('同名多人：返回候选班级，不试 PIN', async () => {
+  it('同名多人、密码只对得上一个 → 直接登录那一个，不露班级（2026-09-05）', async () => {
+    const other = bcrypt.hashSync('999999', 4);
+    const { svc, jwt } = makeSvc([
+      makeStudent({ id: 'a', pinHash: other }),
+      makeStudent({ id: 'b', classEnrollments: [{ class: { id: 'c2', name: 'G12' } }] }),
+    ]);
+    const out: any = await svc.login({ name: '张三', pin: '280519' });
+    expect(out.needDisambiguation).toBeUndefined();
+    expect(out.student.id).toBe('b');
+    expect(jwt.signAsync).toHaveBeenCalled();
+  });
+
+  it('同名多人、密码一个都不对 → invalid_credentials，不列班级', async () => {
     const { svc, prisma } = makeSvc([
       makeStudent({ id: 'a' }),
       makeStudent({ id: 'b', classEnrollments: [{ class: { id: 'c2', name: 'G12' } }] }),
     ]);
+    await expect(svc.login({ name: '张三', pin: '000000' })).rejects.toMatchObject({
+      response: { code: 'invalid_credentials' },
+    });
+    expect(prisma.user.updateMany).toHaveBeenCalled(); // 失败计入每个同名账号
+  });
+
+  it('同名多人、密码碰巧都对 → 只列对得上的候选让他挑', async () => {
+    const { svc } = makeSvc([
+      makeStudent({ id: 'a' }),
+      makeStudent({ id: 'b', classEnrollments: [{ class: { id: 'c2', name: 'G12' } }] }),
+      makeStudent({ id: 'c', pinHash: bcrypt.hashSync('999999', 4) }),
+    ]);
     const out: any = await svc.login({ name: '张三', pin: '280519' });
     expect(out.needDisambiguation).toBe(true);
-    expect(out.candidates).toHaveLength(2);
-    expect(prisma.user.update).not.toHaveBeenCalled(); // 没有任何登录尝试被计
+    expect(out.candidates.map((c: any) => c.studentId)).toEqual(['a', 'b']);
   });
 });
 

@@ -38,21 +38,19 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { api, type DictEntry } from '../lib/api';
 import { handleAuthFailure } from '../lib/auth-store';
 import { readToken } from '../lib/identity';
+import { cleanTranslation, formatPhonetic } from '../lib/word-display';
 
 // ─────────────────────────────────────────────────────────────
 // 纯逻辑（导出给测试直接驱动）
 // ─────────────────────────────────────────────────────────────
 
 /** 考试标签的人话。认不出来的**不显示** —— 做题当下多一个陌生缩写没帮助。 */
+// 2026-09-05 盲测 P2-11：这批学生考的是 O-Level / IAL / 雅思，
+// 「高考 六级 考研」这类标签对他们只是噪音，只留国际考试的。
 const EXAM_TAGS: Readonly<Record<string, string>> = {
   ielts: '雅思',
   toefl: '托福',
   gre: 'GRE',
-  cet4: '四级',
-  cet6: '六级',
-  gk: '高考',
-  zk: '中考',
-  ky: '考研',
 };
 
 export function usefulTags(tag: string[] | undefined): string[] {
@@ -231,9 +229,9 @@ export function ExamWordSheet({
                 <span data-testid="word-sheet-word" className="break-words text-[30px] font-semibold tracking-tight text-slate-950 sm:text-[34px]">
                   {word}
                 </span>
-                {phase.s === 'ok' && phase.entry.phonetic ? (
+                {phase.s === 'ok' && formatPhonetic(phase.entry.phonetic) ? (
                   <span data-testid="word-sheet-phonetic" className="text-[15px] font-normal text-slate-500 sm:text-base">
-                    /{phase.entry.phonetic}/
+                    {formatPhonetic(phase.entry.phonetic)}
                   </span>
                 ) : null}
               </h2>
@@ -295,7 +293,7 @@ export function ExamWordSheet({
                         data-testid="word-sheet-translation"
                         className="whitespace-pre-wrap text-[18px] font-medium leading-relaxed text-slate-950 sm:text-[19px]"
                       >
-                        {phase.entry.translation}
+                        {cleanTranslation(phase.entry.translation)}
                       </div>
                     </section>
 
@@ -357,7 +355,7 @@ export function ExamWordSheet({
               }}
               className="mb-2 min-h-[48px] w-full rounded-[14px] bg-blue-600 text-[17px] font-semibold text-white shadow-sm"
             >
-              {fillTarget.hasValue ? `追加到${fillTarget.label}` : `填入${fillTarget.label}`}
+              {fillTarget.hasValue ? `把 “${word}” 加到${fillTarget.label}的答案后面` : `把 “${word}” 填进${fillTarget.label}的空`}
             </button>
           ) : null}
 
@@ -373,7 +371,7 @@ export function ExamWordSheet({
               </div>
               {coachChoice !== 'idle' && coachChoice !== 'saving' ? (
                 <p role="status" data-testid="word-sheet-coach-status" className={`mt-2 text-xs ${coachChoice === 'failed' ? 'text-rose-600' : 'text-emerald-700'}`}>
-                  {coachChoice === 'learn' ? '已加入我的单词。' : coachChoice === 'known' ? '已标记为会，以后不会作为新词推送。' : coachChoice === 'later' ? '已加入我的单词，之后可以再学。' : coachChoice === 'lookup_only' ? '本次只查询，没有加入。' : '没有保存，请重试。'}
+                  {coachChoice === 'learn' ? '已加入我的单词，今天就算学过一次，复习时会先排它。' : coachChoice === 'known' ? '已标记为会，以后不会作为新词推送。' : coachChoice === 'later' ? '先收进我的单词，不算学过；下次复习或抽查时再练。' : coachChoice === 'lookup_only' ? '本次只查询，没有加入。' : '没有保存，请重试。'}
                 </p>
               ) : coachChoice === 'saving' ? <p className="mt-2 text-xs text-slate-500">正在保存选择…</p> : null}
             </section>

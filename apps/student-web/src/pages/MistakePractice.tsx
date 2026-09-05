@@ -18,8 +18,7 @@ export default function MistakePracticePage() {
         <>
           <p>这部分正在重做，暂时进不来。</p>
           <p className="mt-2">
-            今天的课只有<strong>阅读</strong>和<strong>单词</strong>两段，
-            不用等错题重练。
+            今天的课只有<strong>阅读</strong>和<strong>单词</strong>两段，不用等错题重练。
           </p>
         </>
       }

@@ -303,7 +303,15 @@ export function ResultView({
       >
         {result.scoresPending ? (
           <p data-testid="scores-pending" className="text-base text-slate-700">
-            这份卷子还在判分，分数出来之后就能在这里看到。
+            {result.releasedScore && result.releasedScore.count > 0 ? (
+              <>
+                <span className="text-3xl font-semibold tabular-nums">{result.releasedScore.earned}</span>
+                <span className="text-slate-500"> / {result.releasedScore.max} 分 · 客观题已判</span>
+                <span className="block mt-1 text-sm text-slate-600">主观题等老师批改，批完总分会在这里更新。</span>
+              </>
+            ) : (
+              '这份卷子还在判分，分数出来之后就能在这里看到。'
+            )}
           </p>
         ) : (
           <p className="text-base">

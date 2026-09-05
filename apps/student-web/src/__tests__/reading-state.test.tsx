@@ -32,6 +32,8 @@ function payload(existing: ReadingSessionPayload['existingAnswers']): ReadingSes
     mode: 'test',
     questions: [],
     existingAnswers: existing,
+    submissionStatus: 'in_progress',
+    finalSubmitted: false,
   };
 }
 

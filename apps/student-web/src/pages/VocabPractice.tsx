@@ -62,6 +62,7 @@ import {
   type PendingWrite,
 } from '../components/vocab/practice-write';
 import { Button, Card, Notice, Screen, TopBar } from '../ui';
+import { formatPhonetic, posPrefixFor } from '../lib/word-display';
 
 // ─────────────────────────────────────────────────────────────
 // 纯逻辑（导出给测试直接驱动）
@@ -392,7 +393,7 @@ export default function VocabPracticePage() {
         <h1 data-testid="card-headword" className="text-2xl font-semibold">
           {current.headword}
         </h1>
-        {current.phonetic ? <p className="text-sm text-slate-500">{current.phonetic}</p> : null}
+        {formatPhonetic(current.phonetic) ? <p className="text-sm text-slate-500">{formatPhonetic(current.phonetic)}</p> : null}
 
         {masked?.text ? (
           <p data-testid="card-context" className="mt-3 text-base text-slate-700 leading-relaxed">
@@ -403,7 +404,7 @@ export default function VocabPracticePage() {
         {revealed ? (
           <div data-testid="card-answer" className="mt-4 rounded-xl bg-slate-50 px-4 py-3">
             <p className="text-base text-slate-900">{current.translation || '（词典里没有释义）'}</p>
-            {current.pos ? <p className="mt-1 text-sm text-slate-500">{current.pos}</p> : null}
+            {posPrefixFor(current.pos, '') ? <p className="mt-1 text-sm text-slate-500">{posPrefixFor(current.pos, '').trim()}</p> : null}
             {current.definition ? (
               <p className="mt-1 text-sm text-slate-600">{current.definition}</p>
             ) : null}
@@ -531,12 +532,12 @@ function TeachingCard({
         学习
       </p>
       <h1 className="text-2xl font-semibold">{card.headword}</h1>
-      {card.phonetic ? <p className="text-sm text-slate-500">{card.phonetic}</p> : null}
+      {formatPhonetic(card.phonetic) ? <p className="text-sm text-slate-500">{formatPhonetic(card.phonetic)}</p> : null}
       <div className="mt-3 rounded-xl bg-slate-50 px-4 py-3">
         <p className="text-base text-slate-900">
           {card.translation || card.definition || '（词典里没有释义）'}
         </p>
-        {card.pos ? <p className="mt-1 text-sm text-slate-500">{card.pos}</p> : null}
+        {posPrefixFor(card.pos, '') ? <p className="mt-1 text-sm text-slate-500">{posPrefixFor(card.pos, '').trim()}</p> : null}
         {card.translation && card.definition ? (
           <p className="mt-1 text-sm text-slate-600">{card.definition}</p>
         ) : null}

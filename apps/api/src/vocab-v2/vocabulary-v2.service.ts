@@ -12,7 +12,7 @@ import {
   type OfficialListName,
   type OfficialWord,
 } from './official-wordlists';
-import { canonicalPos, senseKey, translationForPos } from './sense-content';
+import { canonicalPos, inferPosFromTranslation, senseKey, translationForPos } from './sense-content';
 import { normaliseDailyTarget, planDailyTask, type PlannerCandidate, type V2Source } from './daily-planner';
 import { contextForEncounter } from './context-progression';
 import { initialStageForAction, type LearningCardAction } from './learning-card';
@@ -550,7 +550,8 @@ export class VocabularyV2Service {
     const user = await this.prisma.user.findUnique({ where: { id: studentId }, select: { englishLevel: true } });
     const published = exactOfficial(headword, user?.englishLevel ?? null);
     const dict = await this.prisma.dictEntry.findUnique({ where: { word: headword } });
-    const pos = canonicalPos(published?.pos || dict?.pos);
+    const rawPos = canonicalPos(published?.pos || dict?.pos);
+    const pos = rawPos === 'other' ? (inferPosFromTranslation(dict?.translation) ?? rawPos) : rawPos;
     const translation = translationForPos(dict?.translation, pos) || await this.translator.translate(headword) || '';
     if (!translation) throw new ServiceUnavailableException({ code: 'translation_unavailable' });
 
@@ -616,7 +617,16 @@ export class VocabularyV2Service {
       const existing = await this.prisma.studentVocabularySense.findUnique({
         where: { studentId_senseId: { studentId, senseId: sense.id } },
       });
-      const desiredStage = input.action === 'known' ? 8 : Math.max(existing?.masteryStage ?? 1, 1);
+      // 2026-09-05 盲测 P2-12：「加入我的单词」和「稍后再学」原来落库一模一样。
+      // 现在：加入 = 学生已经认识它了，起步就是第 2 阶（认得），马上可复习；
+      // 稍后 = 只收着（第 1 阶，见过），到期日推到明天，今天的复习不排它。
+      const desiredStage = input.action === 'known'
+        ? 8
+        : input.action === 'learn'
+          ? Math.max(existing?.masteryStage ?? 1, 2)
+          : Math.max(existing?.masteryStage ?? 1, 1);
+      const tomorrow = new Date(new Date(`${sgtDay().key}T00:00:00.000Z`).getTime() + 86_400_000 - 8 * 3600_000);
+      const dueForAction = input.action === 'later' ? { due: tomorrow } : input.action === 'learn' ? { due: new Date() } : {};
       const owned = await this.prisma.studentVocabularySense.upsert({
         where: { studentId_senseId: { studentId, senseId: sense.id } },
         create: {
@@ -626,10 +636,11 @@ export class VocabularyV2Service {
           inNotebook: input.action !== 'known',
           removedAt: input.action === 'known' ? new Date() : null,
           ...(desiredStage === 8 ? { masteredAt: new Date() } : {}),
+          ...dueForAction,
         },
         update: input.action === 'known'
           ? { masteryStage: 8, masteredAt: new Date(), inNotebook: false, removedAt: new Date() }
-          : { inNotebook: true, removedAt: null },
+          : { inNotebook: true, removedAt: null, masteryStage: desiredStage, ...dueForAction },
       });
       studentSenseId = owned.id;
     }

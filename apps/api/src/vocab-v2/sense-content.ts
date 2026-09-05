@@ -36,3 +36,16 @@ export function translationForPos(translation: string | null | undefined, pos: s
   const selected = matching.length ? matching.join('；') : lines[0];
   return selected.replace(/\s+/g, ' ').slice(0, 500);
 }
+
+/**
+ * ECDICT 很多词条 `pos` 字段是空的，但中文释义开头带着「n. / vt. / adj.」。
+ * 词性拿不到时从释义第一行推一下，别让 `other` 落库再被当标签打出来
+ * （2026-09-05 盲测 P2-10：「other. n. 大灾难」）。
+ */
+export function inferPosFromTranslation(translation: string | null | undefined): string | null {
+  const text = String(translation ?? '').replace(/\\n/g, '\n').trim();
+  const label = text.match(/^([a-z]{1,5})\.\s/i)?.[1]?.toLowerCase();
+  if (!label) return null;
+  const pos = canonicalPos(label);
+  return pos === 'other' ? null : pos;
+}

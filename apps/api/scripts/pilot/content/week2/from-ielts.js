@@ -85,7 +85,7 @@ function buildDay(spec, date) {
       marks: 1,
       options: PARAGRAPH_BANK,
       answer: letter,
-      stem: `${MATCHING_INSTRUCTION}\n${q.item}`,
+      stem: `${MATCHING_INSTRUCTION}\n\n${q.item}`,
       evidence: paragraphByLetter(passage, letter),
       explanation: `这条信息出现在 Paragraph ${letter}。`,
     };
@@ -102,7 +102,7 @@ function buildDay(spec, date) {
       marks: 1,
       options: TFNG,
       answer: key,
-      stem: `${TFNG_INSTRUCTION}\n${q.item}`,
+      stem: `${TFNG_INSTRUCTION}\n\n${q.item}`,
       evidence: key === 'C' ? '' : evidence,
       explanation:
         key === 'C'
@@ -126,7 +126,7 @@ function buildDay(spec, date) {
       options: null,
       answer,
       accept: [answer, answer.toLowerCase()].filter((v, i, a) => a.indexOf(v) === i),
-      stem: `Complete the sentence. Choose ${limit} from the passage.\n${String(q.item).replace(/\[BLANK\]|\/\d+\//g, '______')}`,
+      stem: `Complete the sentence. Choose ${limit} from the passage.\n\n${String(q.item).replace(/\[BLANK\]|\/\d+\//g, '______')}`,
       evidence: bestEvidence(passage, answer, q.item),
       rubric: `一分：只认原文里的 “${answer}”（大小写不计）。同义词不给分 —— 题目要求用原文的词。`,
       explanation: `原文在这个位置用的词是 “${answer}”。`,

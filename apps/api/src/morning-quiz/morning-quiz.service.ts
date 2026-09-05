@@ -528,9 +528,20 @@ export function deterministicallyGraded(item: {
   awardedMarks: number | null;
   autoCorrect: boolean | null;
   markedById?: string | null;
+  markerComment?: string | null;
+  commentSource?: string | null;
 }): boolean {
-  // 正面判据一：只有 MCQ 这条路被证明是确定性的。
-  if (item.questionType !== 'mcq') return false;
+  // 正面判据一：MCQ，或者短答里**字符串精确匹配**判出来的那条路
+  // （autoGradeScripts Path 1 / Path 2：一致 → 满分，空白 → 0）。
+  // 2026-09-05 盲测：学生填 `Moisture`，库里已经自动判对给了 1 分，结果页
+  // 却说「还在判分」—— 因为这里只认 MCQ。AI 判的仍然不算确定性：AI 路径
+  // 一定在 markerComment 写 `[ai-grade]` 前缀（getStudentResult 剥掉前缀后
+  // 以 commentSource='ai' 留痕），两种形态都看。本部署 AI 判分是关的。
+  if (item.questionType !== 'mcq' && item.questionType !== 'short_answer') return false;
+  if (item.questionType === 'short_answer') {
+    if (item.commentSource === 'ai') return false;
+    if (/^\[ai-grade\]/.test(item.markerComment ?? '')) return false;
+  }
   // 正面判据二：没有老师插手（全仓库只有 marker.service 写这个字段）。
   if (item.markedById != null) return false;
   // 正面判据三 / 四：判分路径确实落了结论。
@@ -645,6 +656,7 @@ export function stripUnreleasedScores<
   scoresPending: boolean;
   answersPending: boolean;
   gradingSummary: GradingSummary | null;
+  releasedScore: { earned: number; max: number; count: number } | null;
 } {
   const showScores = scoresReleased(result.status);
   // 迁移前的历史答卷已回填 finalSubmittedAt；真为 undefined 的只有
@@ -657,9 +669,20 @@ export function stripUnreleasedScores<
   const finallySubmitted = result.status === 'practice' || finalAt != null;
 
   const statuses: ItemGradingStatus[] = [];
+  // 整卷分数发布前，先把确定性判出来的那部分算个小计给学生看
+  // （「客观题 6 / 6 · 主观题等老师批」）—— 盲测时学生交完卷只看到
+  // 「还在判分」，连已经判对的 6 题都不知道。
+  let releasedEarned = 0;
+  let releasedMax = 0;
+  let releasedCount = 0;
   const items = result.items.map((it) => {
     const status = classifyItemGrading(it, { finallySubmitted, scoresShown: showScores });
     statuses.push(status);
+    if (finallySubmitted && deterministicallyGraded(it)) {
+      releasedEarned += it.awardedMarks ?? 0;
+      releasedMax += typeof (it as { marks?: unknown }).marks === 'number' ? ((it as { marks?: number }).marks as number) : 0;
+      releasedCount += 1;
+    }
 
     // 逐题分数的放行条件：整卷已发布，**或者**已最终提交且这一题是确定性判的。
     const releaseItemScore = showScores || (finallySubmitted && deterministicallyGraded(it));
@@ -693,6 +716,8 @@ export function stripUnreleasedScores<
     answersPending: !showAnswers,
     // 交卷之前不给 —— 那时「几题判完了」本身就不是学生该看到的信息。
     gradingSummary: finallySubmitted ? gradingSummaryOf(statuses) : null,
+    // 已确定性判出的小计；没交卷或一题都没判到时为 null。
+    releasedScore: finallySubmitted && releasedCount > 0 ? { earned: releasedEarned, max: releasedMax, count: releasedCount } : null,
     items,
   };
 }
@@ -2167,7 +2192,7 @@ export class MorningQuizService {
         studentId,
         status: { not: 'practice' },
       },
-      select: { id: true, status: true },
+      select: { id: true, status: true, finalSubmittedAt: true },
     });
     if (inProgressSub && inProgressSub.status === 'in_progress') {
       const scripts = await this.prisma.answerScript.findMany({
@@ -2275,6 +2300,11 @@ export class MorningQuizService {
       })),
       // F1 — keyed by paperQuestionId; empty object if nothing autosaved.
       existingAnswers,
+      // 2026-09-05 盲测：交完卷后再打开答题页，学生看到的是一张空白可编辑的
+      // 卷子（existingAnswers 只在 in_progress 时回填），再点交卷才被 409 拒绝。
+      // 把答卷状态告诉客户端，让它直接跳去结果页。
+      submissionStatus: inProgressSub?.status ?? null,
+      finalSubmitted: Boolean(inProgressSub && (inProgressSub.finalSubmittedAt || inProgressSub.status !== 'in_progress')),
     };
   }
 

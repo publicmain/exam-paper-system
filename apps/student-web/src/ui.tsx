@@ -126,6 +126,12 @@ export function Field(props: {
   value: string;
   onChange: (v: string) => void;
   autoComplete?: string;
+  /**
+   * 数字密码：手机上先弹数字键盘（2026-09-05 盲测 P2-18）。只是键盘提示，
+   * 不过滤字符 —— 旧账号的密码允许字母，登录时不能把它们吃掉。
+   */
+  numericPin?: boolean;
+  maxLength?: number;
 }) {
   return (
     <label className="block mb-4">
@@ -135,6 +141,8 @@ export function Field(props: {
         type={props.type ?? 'text'}
         value={props.value}
         autoComplete={props.autoComplete}
+        {...(props.numericPin ? { inputMode: 'numeric' as const } : {})}
+        {...(props.maxLength ? { maxLength: props.maxLength } : {})}
         onChange={(e) => props.onChange(e.target.value)}
       />
     </label>
@@ -176,7 +184,10 @@ export function CandidatePicker(props: {
           >
             <span className="font-medium">{c.name}</span>
             {c.classes?.length ? (
-              <span className="text-sm text-slate-500 ml-2">{c.classes.join(' · ')}</span>
+              <>
+                <span aria-hidden className="text-slate-400 mx-1">·</span>
+                <span className="text-sm text-slate-500">{c.classes.join(' · ')}</span>
+              </>
             ) : null}
           </button>
         ))}

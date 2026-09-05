@@ -538,6 +538,37 @@ describe('AC-08 难度与退出', () => {
     expect(screen.getByRole('dialog').textContent).not.toMatch(/下午|第二/);
   });
 
+  it('**已交过卷的会话 → 不摆空白卷，直接 replace 去结果页**（2026-09-05 盲测 P0）', async () => {
+    routes['/api/morning-quiz/sessions/sess-1'] = { body: sessionWire({ submissionStatus: 'submitted', finalSubmitted: true }) };
+    mount();
+    await settle();
+    expect(navigate).toHaveBeenCalledWith('/lesson/reading/result', { replace: true });
+    expect(screen.queryByTestId('submit')).toBeNull();
+  });
+
+  it('**确认框说清楚还有几题没答、几题标记了**（2026-09-05 盲测 P1）', async () => {
+    mount();
+    await settle();
+    // 两题都没答
+    await act(async () => {
+      screen.getByTestId('submit').click();
+    });
+    expect(screen.getByTestId('submit-warning').textContent).toMatch(/还有 2 题没作答/);
+    await act(async () => {
+      screen.getByRole('button', { name: /再想想/ }).click();
+    });
+    // 标记一题（不答，免得等自动保存）
+    await act(async () => {
+      screen.getAllByRole('button', { name: /Flag for review/ })[0].click();
+    });
+    await act(async () => {
+      screen.getByTestId('submit').click();
+    });
+    const warning = screen.getByTestId('submit-warning').textContent ?? '';
+    expect(warning).toMatch(/还有 2 题没作答/);
+    expect(warning).toMatch(/1 题还标着/);
+  });
+
   it('**secondWindowToday=true → 确认文案提到第二作答时段**', async () => {
     routes['/api/morning-quiz/sessions/sess-1'] = { body: sessionWire({ secondWindowToday: true }) };
     mount();

@@ -176,7 +176,7 @@ function buildDay(spec, date) {
       marks,
       options: bank,
       answer: keys[i],
-      stem: `${MATCHING_INSTRUCTION}\n${tidyStem(q.stem)}`,
+      stem: `${MATCHING_INSTRUCTION}\n\n${tidyStem(q.stem)}`,
       evidence: paragraphAt(passage, spec.matchingParas[i]),
       explanation: `这一段里主导的情绪与选项 ${keys[i]}（${answerTexts[i]}）最吻合。`,
     };
@@ -191,7 +191,7 @@ function buildDay(spec, date) {
     marks: 1,
     options: choice.options,
     answer: choice.answer,
-    stem: `Choose the correct letter.\n${tidyStem(src.stem)}`,
+    stem: `Choose the correct letter.\n\n${tidyStem(src.stem)}`,
     evidence: paragraphAt(passage, spec.multipleChoice.para),
     explanation: spec.multipleChoice.explanation,
   };
@@ -204,7 +204,7 @@ function buildDay(spec, date) {
     marks: 1,
     options: gap.options,
     answer: gap.answer,
-    stem: `Complete the sentence with ONE WORD ONLY from the passage.\n${spec.gapFill.stem}`,
+    stem: `Complete the sentence with ONE WORD ONLY from the passage.\n\n${spec.gapFill.stem}`,
     evidence: spec.gapFill.evidence,
     explanation: `原文在这个位置用的词是 “${spec.gapFill.answer}”。`,
   };

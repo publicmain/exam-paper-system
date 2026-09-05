@@ -387,7 +387,7 @@ function buildDay(spec, date) {
           marks: 1,
           options: choice.options,
           answer: choice.answer,
-          stem: `Choose the correct letter.\n${q.stem}`,
+          stem: `Choose the correct letter.\n\n${q.stem}`,
           evidence: q.evidence,
           explanation: q.explanation,
         };
@@ -398,7 +398,7 @@ function buildDay(spec, date) {
         marks: q.marks ?? 1,
         options: q.options.map((o) => ({ key: o.key, text: o.text })),
         answer: q.answer,
-        stem: `Choose the correct letter.\n${tidyStem(q.stem)}`,
+        stem: `Choose the correct letter.\n\n${tidyStem(q.stem)}`,
         evidence: spec.mcqEvidence?.[q.n] ?? '',
         explanation: `原文支持选项 ${q.answer}：“${q.options.find((o) => o.key === q.answer).text}”。`,
       }));
@@ -410,7 +410,7 @@ function buildDay(spec, date) {
     marks: 1,
     options: TFNG,
     answer: TFNG_KEY[q.answer],
-    stem: `${TFNG_INSTRUCTION}\n${q.item}`,
+    stem: `${TFNG_INSTRUCTION}\n\n${q.item}`,
     evidence: q.evidence,
     explanation:
       q.answer === 'NOT GIVEN'
@@ -426,7 +426,7 @@ function buildDay(spec, date) {
     marks: 1,
     options: gap.options,
     answer: gap.answer,
-    stem: `Complete the sentence with ONE WORD ONLY from the passage.\n${spec.gapFill.stem}`,
+    stem: `Complete the sentence with ONE WORD ONLY from the passage.\n\n${spec.gapFill.stem}`,
     evidence: spec.gapFill.evidence,
     explanation: `原文在这个位置用的词是 “${spec.gapFill.answer}”。`,
   };

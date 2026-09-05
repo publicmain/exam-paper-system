@@ -2,7 +2,8 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { api, ApiError } from '../lib/api';
-import { afterPasswordChanged, getState, handleAuthFailure, logout } from '../lib/auth-store';
+import { getState, handleAuthFailure, logout } from '../lib/auth-store';
+import { writeToken } from '../lib/identity';
 import { changePasswordErrorText, levelChangeErrorText } from '../lib/errors';
 import { readToken } from '../lib/identity';
 import { levelLabel, type PilotLevelId } from '../lib/levels';
@@ -25,6 +26,7 @@ export default function AccountPage() {
   const [levelBusy, setLevelBusy] = useState(false);
   const [levelErr, setLevelErr] = useState<string | null>(null);
   const [levelOk, setLevelOk] = useState<string | null>(null);
+  const [pwOk, setPwOk] = useState<string | null>(null);
 
   useEffect(() => {
     const token = readToken();
@@ -85,10 +87,18 @@ export default function AccountPage() {
     setBusy(true);
     setErr(null);
     try {
-      await api.changePassword(token, { oldPin: oldPw, newPin: newPw });
-      // 服务端递增了 studentAuthVersion —— 手里这张票当场作废。
-      // 必须清掉并回登录页，否则学生会卡在「要我登录，但我明明登录了」。
-      afterPasswordChanged();
+      const r = await api.changePassword(token, { oldPin: oldPw, newPin: newPw });
+      // 服务端递增了 studentAuthVersion —— 旧票作废，其它设备被登出；
+      // 本机拿服务端一并发回的新票换上，不用重新登录（2026-09-05 盲测 P2-16）。
+      // 老服务端不发新票时才回登录页。
+      if (r.token) {
+        writeToken(r.token);
+        setOldPw('');
+        setNewPw('');
+        setPwOk('密码已经改好了。其它设备上需要用新密码重新登录。');
+      } else {
+        logout('密码已经改好了 —— 用新密码重新登录一次。');
+      }
     } catch (e) {
       // **顺序有意义。** `invalid_credentials` 在这个端点上意味着
       //「当前密码打错了」，会话是好的；而在 `/student-auth/me` 上同一个码
@@ -137,24 +147,24 @@ export default function AccountPage() {
           <Button type="button" disabled={levelBusy || !picked || picked === current} onClick={() => void changeLevel()}>
             {levelBusy ? '正在换…' : '确认换难度'}
           </Button>
+          {/* 中文句子不在标点后换行 —— JSX 换行会渲染出多余空格（2026-09-05 盲测 P2-14） */}
           <p className="text-sm text-slate-500 mt-3">
-            换了之后，<strong>已经开始的那一天不会中途变</strong> —— 今天的文章、题目和单词表
-            都按你开始时的那一档走完。新难度从<strong>下一次还没开始的课</strong>起生效。
-            以前的成绩也不会动，历史里看到的还是你当时做的那一份。
+            换了之后，<strong>已经开始的那一天不会中途变</strong>{' '}—— 今天的文章、题目和单词表都按你开始时的那一档走完。新难度从<strong>下一次还没开始的课</strong>起生效。以前的成绩也不会动，历史里看到的还是你当时做的那一份。
           </p>
         </section>
 
         <section>
           <h2 className="text-base font-medium mb-3">改密码</h2>
           {err ? <Notice kind="error">{err}</Notice> : null}
+          {pwOk ? <Notice kind="info">{pwOk}</Notice> : null}
           <form
             onSubmit={(e) => {
               e.preventDefault();
               void change();
             }}
           >
-            <Field label="当前密码" type="password" value={oldPw} onChange={setOldPw} autoComplete="current-password" />
-            <Field label="新密码" type="password" value={newPw} onChange={setNewPw} autoComplete="new-password" />
+            <Field label="当前密码" type="password" numericPin value={oldPw} onChange={setOldPw} autoComplete="current-password" />
+            <Field label="新密码" type="password" numericPin value={newPw} onChange={setNewPw} autoComplete="new-password" />
             <Button type="submit" disabled={busy}>
               {busy ? '修改中…' : '修改密码'}
             </Button>

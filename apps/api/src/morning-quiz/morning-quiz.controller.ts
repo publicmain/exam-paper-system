@@ -31,6 +31,7 @@ import { MorningQuizWeeklyCron } from './morning-quiz-weekly-cron';
 import {
   MorningQuizService,
   answersReleased,
+  deterministicallyGraded,
   isMakeupWindowOpen,
   scoresReleased,
 } from './morning-quiz.service';
@@ -784,6 +785,13 @@ export class MorningQuizController {
             class: { select: { id: true, name: true, classCode: true } },
           },
         },
+        // 分数发布前给学生看「客观题 6 / 6」的小计要用（2026-09-05 盲测）。
+        scripts: {
+          select: {
+            awardedMarks: true, autoCorrect: true, markedById: true, markerComment: true,
+            paperQuestion: { select: { marks: true, question: { select: { questionType: true } } } },
+          },
+        },
       },
     });
     const assignmentIds = submissions.map((s) => s.assignment.id);
@@ -858,6 +866,23 @@ export class MorningQuizController {
           submittedAt: s.submittedAt,
           status: s.status,
           scoresPending: !released,
+          // 已确定性判出的小计（MCQ + 精确匹配的短答）；只在最终提交后给。
+          releasedScore: (() => {
+            if (answersPending) return null;
+            let earned = 0; let max = 0; let count = 0;
+            for (const sc of s.scripts) {
+              const det = deterministicallyGraded({
+                questionType: sc.paperQuestion.question.questionType,
+                awardedMarks: sc.awardedMarks,
+                autoCorrect: sc.autoCorrect,
+                markedById: sc.markedById,
+                markerComment: sc.markerComment,
+              });
+              if (!det) continue;
+              earned += sc.awardedMarks ?? 0; max += sc.paperQuestion.marks; count += 1;
+            }
+            return count > 0 ? { earned, max, count } : null;
+          })(),
         };
       }),
     };

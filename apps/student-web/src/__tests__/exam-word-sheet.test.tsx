@@ -815,7 +815,7 @@ describe('AC-05 统一收词流程', () => {
   for (const [testId, action, statusText] of [
     ['word-sheet-coach-learn', 'learn', '已加入我的单词'],
     ['word-sheet-coach-known', 'known', '以后不会作为新词推送'],
-    ['word-sheet-coach-later', 'later', '之后可以再学'],
+    ['word-sheet-coach-later', 'later', '不算学过'],
     ['word-sheet-coach-lookup', 'lookup_only', '本次只查询'],
   ] as const) {
     it(`选择 ${action} 只写 V2 端点并给出明确反馈`, async () => {

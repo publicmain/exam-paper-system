@@ -68,9 +68,15 @@ describe('统一正式单词测试整链', () => {
     expect(screen.getByRole('heading', { name: '9月2日单词测试' })).toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: '火山的' }));
     await settle();
+    // 2026-09-05 盲测 P1-8：每题先给对错反馈，点「下一题」再继续
+    expect(screen.getByTestId('test-feedback')).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: '下一题' }));
+    await settle();
     const input = screen.getByPlaceholderText('输入答案');
     fireEvent.change(input, { target: { value: 'decline' } });
     fireEvent.click(screen.getByRole('button', { name: '提交这题' }));
+    await settle();
+    fireEvent.click(screen.getByRole('button', { name: '看总结' }));
     await settle();
     expect(screen.getByRole('heading', { name: '所有题都答完了' })).toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: '交卷' }));

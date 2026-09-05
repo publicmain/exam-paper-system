@@ -105,10 +105,8 @@ export default function RegisterPage() {
             void submit();
           }}
         >
-          <p className="text-sm text-slate-600 mb-4">
-            先选择你正在上的班级，再填写姓名和密码。密码由你自己设置，
-            不要告诉别人。
-          </p>
+          {/* 中文句子写在一行里 —— JSX 换行会在标点后面渲染出一个空格（2026-09-05 盲测 P2-14） */}
+          <p className="text-sm text-slate-600 mb-4">先选择你正在上的班级，再填写姓名和密码。密码由你自己设置，不要告诉别人。</p>
           <label className="block mb-4">
             <span className="block text-sm text-slate-600 mb-1.5">选择班级</span>
             <select
@@ -141,6 +139,8 @@ export default function RegisterPage() {
           <Field
             label="设置 6 位数字密码"
             type="password"
+            numericPin
+            maxLength={6}
             value={pin}
             onChange={setPin}
             autoComplete="new-password"
@@ -148,6 +148,8 @@ export default function RegisterPage() {
           <Field
             label="再输一次"
             type="password"
+            numericPin
+            maxLength={6}
             value={pin2}
             onChange={setPin2}
             autoComplete="new-password"

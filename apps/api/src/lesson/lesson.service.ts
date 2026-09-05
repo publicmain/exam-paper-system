@@ -15,7 +15,7 @@ import {
   lessonCardOrder,
 } from './rc11-rules';
 import { COURSE_QUEUE_MAX, DAILY_VOCAB_TARGET } from './lesson-rules';
-import { isQuizWindowOpen } from '../morning-quiz/morning-quiz.service';
+import { deterministicallyGraded, isQuizWindowOpen } from '../morning-quiz/morning-quiz.service';
 import {
   MISTAKES_UNAVAILABLE_REASON,
   mistakesAvailable,
@@ -569,6 +569,7 @@ export class LessonService {
           score: readNow.scoresPending ? null : readNow.score,
           maxScore: readNow.maxScore,
           scoresPending: readNow.scoresPending,
+          releasedScore: readNow.releasedScore,
           submissionId: readNow.submissionId,
           sessionId: readNow.sessionId,
           autoClosed: segments.read === 'auto_closed',
@@ -793,6 +794,7 @@ export class LessonService {
         score: null as number | null,
         maxScore: null as number | null,
         scoresPending: false,
+        releasedScore: null as { earned: number; max: number; count: number } | null,
         submissionId: null as string | null,
         autoFinalizeReason: null as string | null,
         sessionId: null as string | null,
@@ -818,6 +820,13 @@ export class LessonService {
         status: true,
         totalScore: true,
         maxScore: true,
+        // 分数发布前给「客观题 6 / 6」的小计用（2026-09-05 盲测）。
+        scripts: {
+          select: {
+            awardedMarks: true, autoCorrect: true, markedById: true, markerComment: true,
+            paperQuestion: { select: { marks: true, question: { select: { questionType: true } } } },
+          },
+        },
       },
     });
     // P9 —— 没有答卷时由**服务端**挑今天上哪一场（账号制入口：没有人
@@ -853,6 +862,23 @@ export class LessonService {
       withAssignment[0];
     // 分数门与答案门是两道独立的闸（§9）—— 这里只管分数那道
     const scoresPending = sub != null && !['marked', 'graded', 'returned'].includes(sub.status);
+    // 已确定性判出的小计（只在最终提交后给）
+    let releasedScore: { earned: number; max: number; count: number } | null = null;
+    if (sub?.finalSubmittedAt) {
+      let earned = 0; let max = 0; let count = 0;
+      // 测试桩里的答卷可能没有 scripts —— 缺就当没有，别炸。
+      for (const sc of sub.scripts ?? []) {
+        if (!deterministicallyGraded({
+          questionType: sc.paperQuestion.question.questionType,
+          awardedMarks: sc.awardedMarks,
+          autoCorrect: sc.autoCorrect,
+          markedById: sc.markedById,
+          markerComment: sc.markerComment,
+        })) continue;
+        earned += sc.awardedMarks ?? 0; max += sc.paperQuestion.marks; count += 1;
+      }
+      if (count > 0) releasedScore = { earned, max, count };
+    }
     return {
       hasSession: true,
       // 已经有答卷的人，「今天有没有课」这个问题早就有答案了 —— 他正在
@@ -878,6 +904,7 @@ export class LessonService {
       score: sub?.totalScore ?? null,
       maxScore: sub?.maxScore ?? null,
       scoresPending,
+      releasedScore,
       submissionId: sub?.id ?? null,
       autoFinalizeReason: sub?.autoFinalizeReason ?? null,
     };

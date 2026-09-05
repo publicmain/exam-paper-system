@@ -47,6 +47,7 @@ import { readToken } from '../lib/identity';
 import { advanceCursor, clampCursor } from '../lib/vocab-card';
 import { flushPending, pendingCount } from '../lib/review-queue';
 import { ROUTES } from '../routes.contract';
+import { formatPhonetic, posPrefixFor } from '../lib/word-display';
 
 // ─────────────────────────────────────────────────────────────
 // 状态
@@ -456,8 +457,8 @@ function TeachingCard({
         {card.headword}
       </h1>
       <p className="mt-1 text-slate-500">
-        {card.phonetic && <span data-testid="phonetic">/{card.phonetic}/</span>}
-        {card.pos && <span data-testid="pos" className="ml-2 italic">{card.pos}</span>}
+        {formatPhonetic(card.phonetic) && <span data-testid="phonetic">{formatPhonetic(card.phonetic)}</span>}
+        {posPrefixFor(card.pos, '') && <span data-testid="pos" className="ml-2 italic">{posPrefixFor(card.pos, '').trim()}</span>}
       </p>
       {card.translation && (
         <p data-testid="translation" className="mt-3 text-lg">

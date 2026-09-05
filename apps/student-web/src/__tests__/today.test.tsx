@@ -286,7 +286,7 @@ describe('6–7. 路由映射只认契约', () => {
     session(withKind('vocab_test', '开始单词测试'), stubUnifiedCenter);
     renderAt('/today');
     await screen.findByRole('heading', { name: /你好，七号/ });
-    await userEvent.click(screen.getByRole('button', { name: '查看单词测试待办' }));
+    await userEvent.click(screen.getByRole('button', { name: '去做单词小测' }));
     expect(await screen.findByRole('heading', { name: '我的单词' })).toBeTruthy();
     expect(screen.queryByText(/还没有做好/)).toBeNull();
   });

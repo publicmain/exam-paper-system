@@ -54,6 +54,7 @@ import { handleAuthFailure } from '../lib/auth-store';
 import { readToken } from '../lib/identity';
 import { ROUTES } from '../routes.contract';
 import { Button, Card, Notice, Screen, TopBar } from '../ui';
+import { cleanTranslation, formatPhonetic } from '../lib/word-display';
 
 // ─────────────────────────────────────────────────────────────
 // 纯逻辑（导出给测试直接驱动）
@@ -510,9 +511,9 @@ function WordRow({
     <li data-testid={`word-row-${word.headword}`} data-word-id={word.headword} className="rounded-xl bg-slate-50 px-4 py-3">
       <div className="flex items-baseline justify-between gap-3">
         <span className="text-base font-medium">{word.headword}</span>
-        {word.phonetic ? <span className="text-sm text-slate-500">{word.phonetic}</span> : null}
+        {formatPhonetic(word.phonetic) ? <span className="text-sm text-slate-500">{formatPhonetic(word.phonetic)}</span> : null}
       </div>
-      {word.translation ? <p className="mt-1 text-sm text-slate-700">{word.translation}</p> : null}
+      {word.translation ? <p className="mt-1 text-sm text-slate-700 whitespace-pre-wrap">{cleanTranslation(word.translation)}</p> : null}
       <p className="mt-1 text-sm text-slate-500">
         <span data-testid={`word-state-${word.headword}`}>{stateLabel(word.state)}</span>
         {' · '}

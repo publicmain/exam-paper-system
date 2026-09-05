@@ -69,7 +69,11 @@ export function rowDay(row: ReadingHistoryRow): string | null {
  * 分数那一句。**五种情况，一种都不许含混过去**（与今日总结同一套口径）。
  */
 export function scoreLine(row: ReadingHistoryRow): string {
-  if (row.scoresPending) return '还在判分';
+  if (row.scoresPending) {
+    // 客观题已经判出来的部分先给学生看，别让他只看到「还在判分」。
+    const r = row.releasedScore;
+    return r && r.count > 0 ? `客观题 ${r.earned} / ${r.max} · 其余等老师批` : '还在判分';
+  }
   if (row.totalScore == null || row.maxScore == null) return '还没有分数';
   return `${row.totalScore} / ${row.maxScore} 分`;
 }

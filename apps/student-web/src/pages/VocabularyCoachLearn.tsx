@@ -5,12 +5,13 @@ import { handleAuthFailure } from '../lib/auth-store';
 import { readToken } from '../lib/identity';
 import { ROUTES } from '../routes.contract';
 import { Button, Card, Notice, Screen, TopBar } from '../ui';
+import { cleanTranslation, formatPhonetic, posPrefixFor } from '../lib/word-display';
 
 const SOURCE_LABEL: Record<string, string> = {
   teacher_list: '老师布置', level_gap: '每日新词',
 };
 
-type Phase = { s: 'loading' } | { s: 'error'; message: string } | { s: 'ready'; session: V2LearningSession };
+type Phase = { s: 'loading' } | { s: 'error'; message: string; weekend?: boolean } | { s: 'ready'; session: V2LearningSession };
 
 export default function VocabularyCoachLearnPage() {
   const navigate = useNavigate();
@@ -46,6 +47,7 @@ export default function VocabularyCoachLearnPage() {
       const weekend = error instanceof ApiError && error.body?.code === 'v2_no_task_on_weekend';
       setPhase({
         s: 'error',
+        weekend,
         message: weekend
           ? '周六周日没有新词任务，周一再来。有欠着的任务可以在首页补做。'
           : '今天的词汇任务暂时无法生成。系统不会用低质量词凑数，请稍后重试。',
@@ -55,7 +57,20 @@ export default function VocabularyCoachLearnPage() {
   useEffect(() => { void load(); }, [load]);
 
   if (phase.s === 'loading') return <Screen><p className="text-center text-slate-500">正在按你的进度准备词汇…</p></Screen>;
-  if (phase.s === 'error') return <Screen><Card><Notice kind="error">{phase.message}</Notice><Button onClick={() => void load()}>重试</Button></Card></Screen>;
+  if (phase.s === 'error') {
+    // 盲测（2026-09-05）：周末这一页只有一句红字和「重试」，没有回去的路。
+    return (
+      <Screen>
+        <Card>
+          <Notice kind={phase.weekend ? 'info' : 'error'}>{phase.message}</Notice>
+          <div className="mt-4 grid gap-2">
+            {!phase.weekend && <Button onClick={() => void load()}>重试</Button>}
+            <Button onClick={() => navigate(ROUTES.today, { replace: true })}>回首页</Button>
+          </div>
+        </Card>
+      </Screen>
+    );
+  }
 
   const session = phase.session;
   const item = session.items.find((candidate) => candidate.status === 'pending');
@@ -125,8 +140,8 @@ export default function VocabularyCoachLearnPage() {
           <span className="rounded-full bg-blue-50 px-3 py-1 text-xs font-medium text-blue-700">{SOURCE_LABEL[item.source] ?? item.source}</span>
           <section className="mt-6">
             <p className="text-xs font-medium uppercase tracking-wider text-slate-400">理解并学习</p>
-            <div className="mt-3 flex flex-wrap items-baseline gap-3"><h1 className="text-4xl font-semibold tracking-tight sm:text-5xl">{card.headword}</h1><button className="hit rounded-full bg-blue-50 px-3 text-blue-700" onClick={() => speak(card.audioText)} aria-label="播放发音">▶</button><span className="text-slate-500">{card.phonetic}</span></div>
-            <p className="mt-5 text-xl">{card.pos}. {card.translation}</p><p className="mt-2 text-base leading-7 text-slate-600">{card.definition}</p>
+            <div className="mt-3 flex flex-wrap items-baseline gap-3"><h1 className="text-4xl font-semibold tracking-tight sm:text-5xl">{card.headword}</h1><button className="hit rounded-full bg-blue-50 px-3 text-blue-700" onClick={() => speak(card.audioText)} aria-label="播放发音">▶</button><span className="text-slate-500">{formatPhonetic(card.phonetic)}</span></div>
+            <p className="mt-5 text-xl whitespace-pre-wrap">{posPrefixFor(card.pos, card.translation)}{cleanTranslation(card.translation)}</p><p className="mt-2 text-base leading-7 text-slate-600">{card.definition}</p>
             <div className="mt-5 rounded-2xl bg-slate-50 p-5"><p className="font-serif text-lg leading-8">{card.sentence}</p><p className="mt-3 text-sm leading-6 text-slate-500">{card.sentenceTranslation}</p></div>
             {card.imageUrl ? <img src={card.imageUrl} alt={`${card.headword} 的辅助图片`} className="mt-5 max-h-56 w-full rounded-2xl object-cover" /> : null}
             {connections.length > 0 ? <div className="mt-5 grid gap-3 sm:grid-cols-2">{connections.map((connection) => <Connection key={connection.label} {...connection} />)}</div> : null}

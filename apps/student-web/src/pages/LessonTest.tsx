@@ -30,6 +30,7 @@ import { ApiError, api, type QuizAttempt, type QuizItem } from '../lib/api';
 import { handleAuthFailure } from '../lib/auth-store';
 import { readToken } from '../lib/identity';
 import { ROUTES } from '../routes.contract';
+import { formatPhonetic, posPrefixFor } from '../lib/word-display';
 
 // ─────────────────────────────────────────────────────────────
 // 纯逻辑（导出给测试直接驱动）
@@ -600,7 +601,7 @@ function Question({
           <div data-testid="question-cue" className="mb-3 rounded-xl bg-slate-50 px-4 py-3">
             <p className="text-xs text-slate-500">{item.cue.instruction}</p>
             <p className="mt-1 text-base text-slate-800">
-              {item.cue.pos ? <span className="text-slate-500 mr-2">{item.cue.pos}</span> : null}
+              {posPrefixFor(item.cue.pos, item.cue.translation) ? <span className="text-slate-500 mr-2">{posPrefixFor(item.cue.pos, item.cue.translation).trim()}</span> : null}
               {item.cue.translation}
             </p>
             {item.cue.definition ? (
@@ -709,7 +710,7 @@ function Question({
           )}
           <p className="mt-1 text-sm text-slate-700">
             {item.headword && <span className="font-semibold">{item.headword}</span>}
-            {item.phonetic && <span className="text-slate-500 ml-2">/{item.phonetic}/</span>}
+            {formatPhonetic(item.phonetic) && <span className="text-slate-500 ml-2">{formatPhonetic(item.phonetic)}</span>}
             {item.translation && <span className="ml-2">{item.translation}</span>}
           </p>
           {!item.isCorrect && item.contextSentence && (

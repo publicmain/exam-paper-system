@@ -107,7 +107,8 @@ export default function LoginPage() {
     <Screen center width="narrow">
       <Card>
         <Title>每日英语</Title>
-        {notice ? <Notice kind="info">{notice}</Notice> : null}
+        {/* 报错时只显示错误，别和上一条提示叠在一起（2026-09-05 盲测 P2-16） */}
+        {notice && !err ? <Notice kind="info">{notice}</Notice> : null}
         {err ? <Notice kind="error">{err}</Notice> : null}
 
         {candidates ? (
@@ -123,6 +124,7 @@ export default function LoginPage() {
             <Field
               label="密码"
               type="password"
+              numericPin
               value={password}
               onChange={setPassword}
               autoComplete="current-password"

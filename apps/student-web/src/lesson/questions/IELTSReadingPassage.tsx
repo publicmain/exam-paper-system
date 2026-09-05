@@ -1,4 +1,4 @@
-import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import type { ExamPaper, ExamQuestion, ExamOption } from '../examTypes';
 import { useExam } from '../ExamContext';
 import { clean, reflowPassage, splitStem } from '../shared/textUtils';
@@ -104,6 +104,17 @@ function groupQuestions(qs: ExamQuestion[]): TaskGroup[] {
     }
     cur!.questions.push({ ...pq, itemText: item, localIdx: idx + 1 });
   });
+  // 2026-09-05 盲测 P0：一组配对题共用「第一题的选项库」，可第二题的
+  // 选项根本是另外四个 —— 学生按第一题的库选，字母碰巧对上才算对。
+  // 组里只要有一题的选项和库不一样，就不共享，各题各显示自己的选项。
+  for (const group of groups) {
+    if (!group.bank || group.taskType !== 'matching_features') continue;
+    const bankKey = JSON.stringify(group.bank.map((o) => [o.key, o.text]));
+    const consistent = group.questions.every(
+      (q) => JSON.stringify((q.snapshotOptions ?? []).map((o) => [o.key, o.text])) === bankKey,
+    );
+    if (!consistent) group.bank = null;
+  }
   return groups;
 }
 
@@ -218,6 +229,23 @@ export function IELTSReadingPassage({ paper }: { paper: ExamPaper }) {
   const [pickedSentence, setPickedSentence] = useState<string | null>(null);
   /** 最后聚焦过的那道单行填空题。见 `FillFocusCtx` 的注释。 */
   const [fillTargetId, setFillTargetId] = useState<string | null>(null);
+  /**
+   * 目标会过期（2026-09-05 盲测 P2-11）：学生在第 7 题的空里点过一下，
+   * 转头去做第 10 题，再点文章查词时弹出来的还是「追加到第 7 题」。
+   * 学生一答别的题，这个目标就作废。
+   */
+  const prevAnswersRef = useRef(answers);
+  useEffect(() => {
+    const prev = prevAnswersRef.current;
+    prevAnswersRef.current = answers;
+    if (!fillTargetId) return;
+    for (const [qid, a] of Object.entries(answers)) {
+      if (qid !== fillTargetId && prev[qid] !== a) {
+        setFillTargetId(null);
+        return;
+      }
+    }
+  }, [answers, fillTargetId]);
 
   /**
    * 这台设备上从没查过词 —— 决定那行提示是**显眼版**还是常态小字
@@ -793,6 +821,9 @@ function RadioGroup({
               key={opt.key}
               type="button"
               onClick={() => onChange(opt.key)}
+              // 读屏能听出「选中 / 未选中」，不只靠颜色（2026-09-05 盲测 P2-19）
+              aria-pressed={checked}
+              aria-label={`${opt.key}${opt.text && opt.text !== opt.key ? ` ${opt.text}` : ''}`}
               className={`min-w-[44px] min-h-[44px] px-4 py-2 rounded-lg border font-semibold transition-colors touch-manipulation ${
                 checked
                   ? 'border-blue-500 bg-blue-50 text-blue-700 shadow-sm'

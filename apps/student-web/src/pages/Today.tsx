@@ -46,6 +46,7 @@ import {
 import { getState, handleAuthFailure } from '../lib/auth-store';
 import { readToken } from '../lib/identity';
 import { NEXT_ACTION_ROUTE, ROUTES, type NextActionKind } from '../routes.contract';
+import { WEEKEND_VOCAB_NOTE, isTeachingDay } from '../lib/teaching-day';
 import { Button, Card, Notice, Screen } from '../ui';
 
 const SEGMENT_LABEL: Record<LessonSegment['key'], string> = {
@@ -124,7 +125,12 @@ const STAY_REASON: Partial<Record<NextActionKind, string>> = {
 /** 每段右侧的一句细节 —— 有就显示，没有就留空，不编造。 */
 function segmentDetail(s: LessonSegment): string | null {
   if (s.key === 'read') {
-    if (s.scoresPending) return '成绩还没出来';
+    if (s.scoresPending) {
+      // 还没交卷就谈不上「成绩」—— 盲测时没交卷的卡片写着「成绩还没出来」。
+      if (s.status === 'partial' || s.status === 'todo') return '还没交卷';
+      const r = s.releasedScore;
+      return r && r.count > 0 ? `客观题 ${r.earned} / ${r.max} · 其余等老师批` : '成绩还没出来';
+    }
     if (s.score != null && s.maxScore != null) return `${s.score} / ${s.maxScore} 分`;
     if (s.questionCount != null) return `${s.questionCount} 题`;
     return s.label;
@@ -253,8 +259,15 @@ export default function TodayPage() {
       setStarting(false);
     }
   };
+  // 周末：没有当天的新词会话时，单词卡不再显示「0 / 10 · 还没开始」，
+  // 主按钮也不再把学生送进只有一句「周一再来」的页面（2026-09-05 盲测）。
+  const teachingDay = isTeachingDay();
+  const weekendNoVocab = !teachingDay && !vocabOverview?.today;
   const displayedSegments = d.segments.map((segment): LessonSegment => {
     if (segment.key !== 'vocab' || !vocabOverview) return segment;
+    if (weekendNoVocab) {
+      return { ...segment, status: 'none', progress: 0, target: 0, available: false, unavailableReason: `${WEEKEND_VOCAB_NOTE} · 不计入今日完成` };
+    }
     const daily = vocabOverview.today;
     const progress = daily?.completed ?? 0;
     const target = daily?.target ?? vocabOverview.dailyTarget;
@@ -285,15 +298,18 @@ export default function TodayPage() {
     : learningAction && vocabOverview
       ? dailyFinished
         ? { kind: 'navigate' as const, path: ROUTES.summary }
-        : { kind: 'navigate' as const, path: ROUTES.coachLearn }
+        : weekendNoVocab
+          ? { kind: 'stay' as const }
+          : { kind: 'navigate' as const, path: ROUTES.coachLearn }
     : serverTarget;
   const targetLabel = testingAction
-    ? '查看单词测试待办'
+    ? '去做单词小测'
     : learningAction && vocabOverview
       ? dailyFinished
         ? '查看今天的总结'
         : vocabOverview.today ? '继续学习今天的新词' : '学习今天的新词'
     : d.nextAction.label;
+  const stayLabel = learningAction && weekendNoVocab ? `今天的阅读做完了。${WEEKEND_VOCAB_NOTE}。` : d.nextAction.label;
 
   return (
     <Screen>
@@ -359,14 +375,14 @@ export default function TodayPage() {
           <Button onClick={() => navigate(target.path)}>{targetLabel}</Button>
         ) : (
           <p className="rounded-xl bg-slate-100 px-4 py-3 text-sm text-slate-600">
-            {d.nextAction.label}
+            {stayLabel}
           </p>
         )}
 
         {vocabOverview?.pendingTests.length ? (
-          <section className="mt-6 rounded-2xl border border-amber-200 bg-amber-50/80 p-4" aria-label="单词测试待办">
-            <h2 className="font-semibold text-amber-950">单词测试待办</h2>
-            <p className="mt-1 text-sm text-amber-800">没有截止时间；未完成的任务会按日期一直保留。</p>
+          <section className="mt-6 rounded-2xl border border-amber-200 bg-amber-50/80 p-4" aria-label="还没做的单词小测">
+            <h2 className="font-semibold text-amber-950">还没做的单词小测</h2>
+            <p className="mt-1 text-sm text-amber-800">没有截止时间；没做的会按日期一直留着。</p>
             {testError ? <Notice kind="error">{testError}</Notice> : null}
             <div className="mt-3 grid gap-2">
               {vocabOverview.pendingTests.map((task) => (
@@ -438,6 +454,9 @@ function SegmentCard({
 }) {
   const detail = segmentDetail(seg);
   const label = SEGMENT_LABEL[seg.key];
+  // 读屏用的完整名字（2026-09-05 盲测 P2-19）
+  const statusText = seg.available === false ? '暂未开放' : STATUS_TEXT[seg.status];
+  const accessibleName = `${label}：${statusText}${seg.available !== false && detail ? `，${detail}` : ''}`;
   const body = (
     <>
       <span className="flex items-baseline justify-between gap-3">
@@ -470,6 +489,7 @@ function SegmentCard({
       <button
         type="button"
         data-testid={`segment-card-${seg.key}`}
+        aria-label={accessibleName}
         disabled={busy}
         onClick={() => (target.kind === 'start' ? onStart() : onGo(target.path))}
         className="app-secondary w-full min-h-[76px] text-left px-4 py-3 text-sm hover:bg-white disabled:opacity-60"

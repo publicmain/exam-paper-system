@@ -329,6 +329,8 @@ export type ReadSegment = SegmentAvailability & {
   score: number | null;
   maxScore: number | null;
   scoresPending: boolean;
+  /** 分数发布前的客观题小计；老服务端不发时为 undefined。 */
+  releasedScore?: { earned: number; max: number; count: number } | null;
   submissionId: string | null;
   sessionId: string | null;
   autoClosed: boolean;
@@ -506,7 +508,7 @@ export const api = {
   me: (token: string) => request<MeResult>('GET', '/student-auth/me', { token }),
 
   changePassword: (token: string, body: { oldPin: string; newPin: string }) =>
-    request<{ ok: true }>('POST', '/student-auth/change-pin', { body, token }),
+    request<{ ok: true; token?: string }>('POST', '/student-auth/change-pin', { body, token }),
 
   /**
    * S12O —— 自己改难度。**身份只靠 Bearer**，体里只有一个字段。
@@ -565,6 +567,8 @@ export const api = {
       rendererKey: wire.rendererKey ?? null,
       questions: wire.paperQuestions ?? [],
       existingAnswers: wire.existingAnswers ?? {},
+      submissionStatus: wire.submissionStatus ?? null,
+      finalSubmitted: Boolean(wire.finalSubmitted),
     };
   },
 
@@ -1173,6 +1177,8 @@ export interface ReadingHistoryRow {
   submittedAt: string | null;
   status: string;
   scoresPending: boolean;
+  /** 分数发布前的客观题小计；老服务端不发时为 undefined。 */
+  releasedScore?: { earned: number; max: number; count: number } | null;
 }
 
 /**
@@ -1438,6 +1444,10 @@ export interface ReadingSessionWire {
   rendererKey?: string | null;
   paperQuestions: ReadingQuestion[];
   existingAnswers: Record<string, ReadingExistingAnswer>;
+  /** 答卷状态；老服务端不发时为 undefined。 */
+  submissionStatus?: string | null;
+  /** 已最终提交（或已判分）—— 答题页应直接去结果页。 */
+  finalSubmitted?: boolean;
 }
 
 /** 新端对外的公共形状 —— 题目字段叫 `questions`（S7A 冻结）。 */
@@ -1455,6 +1465,9 @@ export interface ReadingSessionPayload {
   rendererKey?: string | null;
   questions: ReadingQuestion[];
   existingAnswers: Record<string, ReadingExistingAnswer>;
+  submissionStatus: string | null;
+  /** 已交卷：答题页不再展示空白卷，直接去结果页。 */
+  finalSubmitted: boolean;
 }
 
 export interface ReadingSaveBody {
@@ -1584,6 +1597,11 @@ export interface ReadingResult {
    * 最终提交之前为 `null`；旧服务端不发时为 `undefined`。
    */
   gradingSummary?: GradingSummary | null;
+  /**
+   * 分数发布前，已确定性判出（选择题 + 精确匹配的填空）的小计。
+   * 没交卷、一题都没判到、或老服务端不发时为 null / undefined。
+   */
+  releasedScore?: { earned: number; max: number; count: number } | null;
 }
 
 export interface AppealCreated {

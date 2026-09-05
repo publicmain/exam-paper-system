@@ -117,6 +117,13 @@ export default function ReadingPage() {
         return;
       }
       const session = await api.getReadingSession(token, sessionId);
+      // 已经交过卷了（后退键 / 直接敲地址回到答题页）：不再摆一张空白卷让
+      // 学生以为答案丢了，直接去看结果。
+      if (session.finalSubmitted) {
+        const sid = session.submissionId ?? submissionId;
+        navigate(requestedSessionId && sid ? scoreDetailPath(sid) : ROUTES.readingResult, { replace: true });
+        return;
+      }
       setPhase({ s: 'ready', session, submissionId: session.submissionId ?? submissionId });
     } catch (e) {
       if (handleAuthFailure(e)) return;
@@ -224,6 +231,11 @@ function ReadingShell({ session, submissionId, historical }: { session: ReadingS
   );
 
   const blocked = isSubmitBlocked(r);
+  /** 交卷确认框要说清楚还有几题空着 —— 盲测时留空一题直接交，弹窗一声不吭。 */
+  const unansweredCount = paper.questions.filter((q) => {
+    const ans = r.answers[q.id];
+    return !(ans?.selectedOption || (ans?.textAnswer && ans.textAnswer.trim()));
+  }).length;
   /** 供事件监听器同步读取 —— 监听器只注册一次，不能靠闭包里的旧值判断。 */
   const blockedRef = useRef(blocked);
   blockedRef.current = blocked;
@@ -362,11 +374,26 @@ function ReadingShell({ session, submissionId, historical }: { session: ReadingS
           role="alert"
           className="bg-rose-50 border-b border-rose-200 px-4 py-2.5 text-sm text-rose-800"
         >
-          有一道题的答案还没跟服务器对上 —— 网络恢复后会自动重试，这之前不能交卷。
+          有一道题的答案还没保存成功 —— 网络恢复后会自动重试，这之前不能交卷。
         </div>
       )}
 
-      {r.saveError && (
+      {r.saveError && /submission_locked|quiz_window_closed/.test(r.saveError) ? (
+        <div
+          data-testid="save-locked"
+          role="alert"
+          className="bg-amber-50 border-b border-amber-200 px-4 py-2.5 text-sm text-amber-900 flex items-center gap-3"
+        >
+          <span className="flex-1">这份卷子已经交了，答案不能再改。</span>
+          <button
+            type="button"
+            onClick={() => navigate(historical && submissionId ? scoreDetailPath(submissionId) : ROUTES.readingResult)}
+            className="shrink-0 min-h-[36px] px-3 rounded-lg bg-white border border-amber-300 text-amber-900"
+          >
+            看结果
+          </button>
+        </div>
+      ) : r.saveError ? (
         <div
           data-testid="save-error"
           role="alert"
@@ -374,7 +401,7 @@ function ReadingShell({ session, submissionId, historical }: { session: ReadingS
         >
           刚才有一次保存没成功 —— 答案还在本机上，联网后会自动补传。
         </div>
-      )}
+      ) : null}
 
       {r.conflictNotice && (
         <div
@@ -432,6 +459,15 @@ function ReadingShell({ session, submissionId, historical }: { session: ReadingS
         >
           <div className="app-glass w-full max-w-sm rounded-[22px] p-6">
             <h2 className="text-lg font-semibold mb-2">确定要交卷吗？</h2>
+            {(unansweredCount > 0 || r.flaggedCount > 0) && (
+              <p data-testid="submit-warning" className="text-sm text-rose-700 font-medium mb-2">
+                {[
+                  unansweredCount > 0 ? `还有 ${unansweredCount} 题没作答` : null,
+                  r.flaggedCount > 0 ? `${r.flaggedCount} 题还标着「再看看」` : null,
+                ].filter(Boolean).join('，')}
+                。
+              </p>
+            )}
             <p className="text-sm text-slate-600 mb-5">
               {session.secondWindowToday
                 ? '交卷之后，今天还有第二个作答时段可以再改。'
