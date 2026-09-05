@@ -1517,6 +1517,11 @@ export interface ReadingResultItem {
   referenceAnswer: string | null;
   /** 答案门未开时为 null。 */
   explanation: string | null;
+  /**
+   * 原文依据（证据句）。与 `explanation` 同一道答案门；旧服务端不发时
+   * 为 `undefined`。解析里已经引了这一句时服务端会置 null，不会重复。
+   */
+  evidence?: string | null;
   /** 分数门未开时为 null。 */
   awardedMarks: number | null;
   autoCorrect: boolean | null;

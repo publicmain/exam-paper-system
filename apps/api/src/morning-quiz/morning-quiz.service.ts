@@ -282,6 +282,47 @@ export function redactSnapshotForStudent(sc: unknown): unknown {
 }
 
 /**
+ * 结果页的「解析」与「原文依据」—— 三级回退。
+ *
+ * 发布脚本（`scripts/pilot/prepare-pilot-week.js`）把 `explanation` /
+ * `evidence` 写在 `Question.answerContent` 与 `PaperQuestion.snapshotAnswer`
+ * 里，`snapshotContent` 只有题干与原文。旧代码只读 `snapshotContent.explanation`，
+ * 于是首发周 250 道题在结果页一条解析都没有（2026-09-05 复核时发现）。
+ *
+ * 顺序：snapshotContent → snapshotAnswer → question.answerContent。
+ * 三处都是老师侧字段，调用方必须只在答案门已开（已最终提交 / 窗口已关）
+ * 之后使用；`stripUnreleasedScores` 会在门没开时把两项一起置空。
+ */
+export function resolveResultExplanation(pq: {
+  snapshotContent?: unknown;
+  snapshotAnswer?: unknown;
+  question?: { answerContent?: unknown } | null;
+}): { explanation: string | null; evidence: string | null } {
+  const sources = [pq.snapshotContent, pq.snapshotAnswer, pq.question?.answerContent];
+  const pick = (field: 'explanation' | 'evidence', cap: number): string | null => {
+    for (const src of sources) {
+      if (!src || typeof src !== 'object' || Array.isArray(src)) continue;
+      const v = (src as Record<string, unknown>)[field];
+      if (typeof v === 'string' && v.trim().length > 0) {
+        return v.length > cap ? v.slice(0, cap) + '…' : v;
+      }
+    }
+    return null;
+  };
+  const explanation = pick('explanation', 600);
+  let evidence = pick('evidence', Number.MAX_SAFE_INTEGER);
+  // 证据只给「一两句」。段落配对 / 部分主观题的 evidence 是整段原文
+  // （几百字），学生屏幕上原文就在旁边，再贴一遍只碍事 —— 截断又没用，
+  // 干脆不给。
+  if (evidence && evidence.length > 320) evidence = null;
+  // 部分解析已经把证据句写进去了（「答案依据原文这一句：…」），不重复给。
+  if (evidence && explanation && explanation.includes(evidence.slice(0, 80))) {
+    evidence = null;
+  }
+  return { explanation, evidence };
+}
+
+/**
  * Story identity of a paperKey / passageRef — strips the `_vN` version
  * suffix so a fixture recalibrated from `_v1` to `_v2` (or any later bump)
  * dedups as the SAME story. Without this, the §B `_v1→_v2` recalibration
@@ -595,6 +636,7 @@ export function stripUnreleasedScores<
       correctAnswer?: string | null;
       referenceAnswer?: string | null;
       explanation?: string | null;
+      evidence?: string | null;
     }>;
   },
 >(
@@ -636,7 +678,9 @@ export function stripUnreleasedScores<
         ? {}
         : { awardedMarks: null, autoCorrect: null, isCorrect: null }),
       ...(releaseComment ? {} : { markerComment: null, commentSource: null }),
-      ...(showAnswers ? {} : { correctAnswer: null, referenceAnswer: null, explanation: null }),
+      ...(showAnswers
+        ? {}
+        : { correctAnswer: null, referenceAnswer: null, explanation: null, evidence: null }),
       gradingStatus: status,
     };
     return { ...next, answerDisplay: showAnswers ? answerDisplayOf(next) : null };
@@ -3511,10 +3555,7 @@ export class MorningQuizService {
           correctKey = ac.text;
         }
       }
-      const explanation =
-        typeof sc.explanation === 'string'
-          ? (sc.explanation as string).slice(0, 600)
-          : null;
+      const { explanation, evidence } = resolveResultExplanation(pq);
       // Reference answer for non-MCQ review (short_answer / structured /
       // essay), pulled from Question.answerContent (text or markScheme).
       // Kept SEPARATE from correctKey on purpose: correctKey stays capped
@@ -3570,6 +3611,8 @@ export class MorningQuizService {
         studentAnswer: studentChoice,
         correctAnswer: correctKey,
         explanation,
+        // 原文依据（证据句）。与 explanation 同一道答案门。
+        evidence,
         awardedMarks: script?.awardedMarks ?? null,
         autoCorrect: script?.autoCorrect ?? null,
         // S12H —— 只喂给 stripUnreleasedScores 做出身判定；它会在返回前
@@ -4516,8 +4559,7 @@ export class MorningQuizService {
           awardedMarks: s?.awardedMarks ?? 0,
           studentAnswer,
           correctAnswer: correctKey,
-          explanation:
-            typeof sc.explanation === 'string' ? sc.explanation.slice(0, 600) : null,
+          ...resolveResultExplanation(pq),
           aiReason,
         };
       });
@@ -4725,8 +4767,7 @@ export class MorningQuizService {
           awardedMarks,
           studentAnswer: s?.selectedOption ?? s?.textAnswer ?? null,
           correctAnswer: correctKey,
-          explanation:
-            typeof sc.explanation === 'string' ? sc.explanation.slice(0, 600) : null,
+          ...resolveResultExplanation(pq),
           aiReason: u?.aiReason ?? null,
         };
       }),

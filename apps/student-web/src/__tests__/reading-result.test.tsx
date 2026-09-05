@@ -445,7 +445,7 @@ describe('AC-04 成绩总览按服务端的两道门显示', () => {
         // 故意把三样答案材料塞进夹具 —— 真服务端会置空，这里要证明**前端自己
         // 也挡得住**，不是靠上游好心。
         items: [
-          item({ correctAnswer: 'A', explanation: 'LEAKED-EXPLANATION' }),
+          item({ correctAnswer: 'A', explanation: 'LEAKED-EXPLANATION', evidence: 'LEAKED-EVIDENCE' }),
           item({
             paperQuestionId: 'q3',
             snapshotContent: { stem: 'Question three' },
@@ -465,6 +465,25 @@ describe('AC-04 成绩总览按服务端的两道门显示', () => {
     expect(screen.queryByTestId('explanation-q1')).toBeNull();
     expect(document.body.textContent).not.toContain('LEAKED-EXPLANATION');
     expect(document.body.textContent).not.toContain('LEAKED-REFERENCE');
+    expect(screen.queryByTestId('evidence-q1')).toBeNull();
+    expect(document.body.textContent).not.toContain('LEAKED-EVIDENCE');
+  });
+
+  it('答案放出来了 → 解析下面带「原文依据」；服务端没发 evidence 就不渲染那一行', async () => {
+    routes[RESULT_URL] = {
+      body: resultPayload({
+        items: [
+          item({ explanation: '原文的对应句与题干一致，所以选 TRUE。', evidence: 'Tea is made with boiled water.' }),
+          item({ paperQuestionId: 'q2', sortOrder: 2, explanation: '只有解析。' }),
+        ],
+      }),
+    };
+    mount();
+    await settle();
+    expect(screen.getByTestId('explanation-q1')).toHaveTextContent('所以选 TRUE');
+    expect(screen.getByTestId('evidence-q1')).toHaveTextContent('原文依据：Tea is made with boiled water.');
+    expect(screen.getByTestId('explanation-q2')).toHaveTextContent('只有解析。');
+    expect(screen.queryByTestId('evidence-q2')).toBeNull();
   });
 
   // S12L —— 状态与时间都翻成学生看得懂的话：`submitted` 是内部枚举，

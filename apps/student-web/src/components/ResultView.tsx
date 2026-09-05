@@ -471,6 +471,15 @@ function ResultItemCard({
           {item.explanation}
         </p>
       )}
+      {!answersPending && item.evidence && (
+        <p
+          data-testid={`evidence-${item.paperQuestionId}`}
+          className="text-sm text-slate-600 mb-1 pl-3 border-l-2 border-slate-200 italic"
+        >
+          <span className="not-italic text-slate-500">原文依据：</span>
+          {item.evidence}
+        </p>
+      )}
 
       {!scoresPending && item.markerComment && (
         <p data-testid={`comment-${item.paperQuestionId}`} className="mt-2 text-sm bg-slate-50 rounded-xl px-3 py-2">

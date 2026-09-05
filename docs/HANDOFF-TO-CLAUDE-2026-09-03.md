@@ -5,6 +5,62 @@
 > 当前基线：`main` / `0c17ab1` / tag `production-backlog-2026-09-02`  
 > 文档目的：让 Claude 在不重新猜产品、不退回旧流程的前提下，直接继续维护和完善已经上线的学生每日英语 App。
 
+## 后续决定 —— 2026-09-05（首发前最后一轮修复）
+
+叶老师原话：「判完直接推」「旧账清掉」「现在开始修复所有问题」。据此做了
+下面几件事，全部已在本机验证；**push / 部署仍需叶老师批准**（见文末部署记录）。
+
+1. **判分改成一步直推。** 每晚叶老师在聊天说「判分」→ Claude 倒出待批
+   队列（`marker-dump.ts --dates=… --json=…`，匿名代号）→ 按 rubric 判 →
+   写判分文件 `.local/grades/<日期>.json` → `marker-apply.ts --file=…` 写回、
+   重算总分、submitted → marked。**不再等「确认发布」**。回聊天的是汇总 +
+   拿不准的题。`marker-apply.ts` 不再内嵌 GRADES 表（历史表在 git 里）。
+2. **旧账已清。** 旧早测班 `G11 IELTS Test (morning-quiz)`
+   （classId `cmoux0jj900m9oc28r4sptjj0`）08-24 ~ 09-04 仍是 `submitted` 的
+   **31 份**答卷，用 `marker-apply.ts --close-legacy --class-id=… --dates=…`
+   翻成 `marked`：未判的主观题**不给分**，只写评语「旧早测已停用，本题未判分
+   （不计分）」，总分按已判部分算。答卷 ID 见 `.local/grades/legacy-close-2026-09-05.log`
+   （本机，不进仓库）。清完后判分队列只剩 1 份 09-01 IAL28S 的归档测试号
+   （`cmtjkuijk0150utrzmzjlt1tq`），故意没动。
+3. **答案位置修复。** 首发周内容包里四选一题的正确项原来固定在最后一个
+   选项（生产里 30/30 填空题答案都是 D）。`week2/adapters.js` 的 `mcqOptions`
+   改成按选项文字做确定性打乱；重发后分布 multiple_choice A8/B4/C11/D2、
+   sentence_completion A7/B6/C9/D8。判断题（A/B/C 固定映射 TRUE/FALSE/NG）
+   与段落配对（答案即段落字母）不打乱，这是题型本身的规矩。
+4. **250 题盖住答案全部重做。** 五档 × 5 天，客观题 150 道盲答与答案键
+   0 不一致；主观题 100 道与要点吻合。工具在会话 scratchpad
+   （`blind-dump.js` / `blind-diff.js`），不进仓库。
+5. **结果页解析。** 发布脚本把 `explanation` / `evidence` 写在
+   `answerContent` 与 `snapshotAnswer`，而 `getStudentResult` 只读
+   `snapshotContent.explanation` —— 首发周 250 题在结果页一条解析都没有。
+   新增 `resolveResultExplanation`（snapshotContent → snapshotAnswer →
+   question.answerContent 三级回退），结果页 / 历史详情 / 练习卷三条路径共用，
+   并多发一个 `evidence`（原文依据）字段，与 `explanation` 同一道答案门。
+   学生端 `ResultView` 在解析下面渲染「原文依据：…」。
+6. **老师批卷页参考答案。** `MarkerScript.tsx` 原来只有原文 / 题干 / 学生
+   答案 / 打分框。现在主观题上方有「参考答案 · 评分标准」块：参考答案、
+   也算对（accept 里与参考答案不只差大小写的写法）、评分标准（rubric，兼容
+   旧 markScheme）、原文依据。
+7. **发布脚本的答卷指纹门是真的会拦。** 重发 09-08 那天，我同时在清旧账
+   （写 `StudentSubmission`），脚本比对前后指纹发现变了，整天回滚、退出码 1。
+   这是它该做的事。教训：**发布期间不要对生产库做任何写操作**，一天发完
+   再做别的。09-08 之后单独重发了一次。
+
+### 2026-09-05 生产记录
+
+| 时间（SGT） | 动作 | 结果 |
+|---|---|---|
+| 15:30–15:37 | 重发 09-07 | ✓ |
+| 15:37–15:45 | 重发 09-08 | ✗ 答卷指纹变了（我同时在清旧账），整天回滚 |
+| 15:45 | 清 G11 旧账 31 份（`--close-legacy`） | ✓ 队列只剩 1 份归档测试号 |
+| 15:45–16:10 | 重发 09-09 / 09-10 / 09-11 | ✓ |
+| 16:10–16:17 | 单独重发 09-08 | ✓ 指纹未变 |
+| 16:18 | 只读核验 | 25 组合齐；250 题快照与内容包逐题一致、都有解析；四选一答案位置 A8/B4/C11/D2 + A7/B6/C9/D8 |
+
+代码改动（结果页解析、批卷页参考答案、判分脚本）**尚未 push / 部署**，
+等叶老师批准：push `main` 触发 API + 教师端自动部署；学生端另跑
+`cd apps/student-web && railway up -s student-web -e production --detach`。
+
 ## 后续决定 —— 2026-09-04
 
 **每日新词只来自档位词表（NGSL / NAWL），与当天文章无关。这是设计，不要改。**
@@ -536,18 +592,32 @@ Claude 读取资料时按以下优先级处理冲突：
 - `apps/api/src/marker/marker.controller.ts`
 - `apps/api/src/marker/marker.service.ts`
 
-### 7.2 用户在聊天里说“判分”时
+### 7.2 用户在聊天里说“判分”时（2026-09-05 定稿：判完直接推）
 
-目标工作流：
+「判分」= 授权读队列、判、写回、发布成绩，一步到位。全程零 Anthropic API。
+在仓库根目录跑：
 
-1. 使用有权限的教师/管理员身份读取 `/api/marker/queue`；
-2. 读取一份答卷的文章、题目、学生答案和评分点；
-3. Claude 在当前会话中给出拟判分与理由；
-4. 叶老师说“确认发布”；
-5. 再 claim 答卷、逐题写入分数/评语并 finalize；
-6. 返回已发布的总分和仍待批数量。
+```bash
+# 1. 倒出待批队列（只读；匿名代号 S-xxxx；默认今天，补判加 --dates=2026-09-07,2026-09-08）
+railway run -s Postgres -e production -- npx ts-node apps/api/scripts/marker-dump.ts --json=.local/grades/2026-09-07.dump.json
 
-“判分”本身只授权读取并拟判，不等于静默发布成绩。切换到另一个 Claude 对话也不会自动拥有系统连接；必须在那个环境配置认证的 API/CLI 访问方式。
+# 2. Claude 在聊天里按 rubric / accept / evidence 判，写判分文件 .local/grades/2026-09-07.json：
+#    { "dates": ["2026-09-07"], "grades": { "<scriptId>": { "awardedMarks": 2, "reason": "…" } } }
+
+# 3. 先 dry-run 看一眼，再真写（写回 + 重算 + submitted→marked + 生词本/错题本采集）
+railway run -s Postgres -e production -- npx ts-node apps/api/scripts/marker-apply.ts --file=.local/grades/2026-09-07.json --dry-run
+railway run -s Postgres -e production -- npx ts-node apps/api/scripts/marker-apply.ts --file=.local/grades/2026-09-07.json
+
+# 4. 复核：再跑一次 marker-dump，应为 0 份
+```
+
+判分文件里的评语会引学生原话，所以放 `.local/`（已 gitignore），不进仓库。
+`dates` 让脚本把那几天**所有**非练习答卷都收尾（全客观题、空白卷也翻成
+marked）；没判完主观题的那份只写分数、状态不动，第二天补判再收。
+
+回聊天的内容：每档几份、平均分、拿不准的题（附匿名代号 + 学生原话 + 我的判法），
+不贴姓名。切换到另一个 Claude 对话不会自动拥有 Railway 连接；要在那个
+环境先 `railway login` + link 到 `glorious-motivation`。
 
 ### 7.3 后台与学生端显示
 

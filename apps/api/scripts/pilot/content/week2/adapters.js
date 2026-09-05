@@ -116,6 +116,38 @@ function paragraphEvidence(stem, passage) {
  * 去重后固定四项；答案键由去重后的实际位置算出来，不写死 —— 写死是
  * 「一道题永远判错」最常见的来源。
  */
+/** 字符串 → 32 位种子（FNV-1a）。同一道题永远得到同一个选项顺序，可重放。 */
+function seedOf(text) {
+  let h = 2166136261;
+  for (let i = 0; i < text.length; i += 1) {
+    h ^= text.charCodeAt(i);
+    h = Math.imul(h, 16777619);
+  }
+  return h >>> 0;
+}
+
+function shuffled(items, seed) {
+  let s = seed || 1;
+  const out = [...items];
+  for (let i = out.length - 1; i > 0; i -= 1) {
+    s ^= s << 13; s >>>= 0;
+    s ^= s >> 17;
+    s ^= s << 5; s >>>= 0;
+    const j = s % (i + 1);
+    [out[i], out[j]] = [out[j], out[i]];
+  }
+  return out;
+}
+
+/**
+ * 从「正确答案 + 若干干扰项」造一道四选一。
+ *
+ * **选项顺序按题目内容确定性打乱。** 原来的写法（沿用自第一周的
+ * `options()`）把正确项固定放在末尾 —— 结果首发周 30 道填空转四选一的
+ * 答案全是 D，四选一 25 道里 16 道是 D。学生做到第二天就会发现
+ * 「填空题选最后一个」。打乱的种子取自答案与干扰项本身，所以同一道题
+ * 每次生成的顺序一致，重发布不会让已冻结的卷子对不上。
+ */
 function mcqOptions(answer, distractors) {
   const seen = new Set();
   const texts = [];
@@ -126,7 +158,7 @@ function mcqOptions(answer, distractors) {
     texts.push(t.trim());
   }
   if (texts.length < 3) throw new Error(`mcqOptions: 干扰项不够（${texts.length}）：${answer}`);
-  const ordered = [...texts.slice(1), texts[0]].slice(0, 4);
+  const ordered = shuffled(texts.slice(0, 4), seedOf(texts.slice(0, 4).join('|')));
   const answerIndex = ordered.findIndex((t) => t.toLowerCase() === String(answer).trim().toLowerCase());
   if (answerIndex < 0) throw new Error(`mcqOptions: 答案被挤出选项：${answer}`);
   return {

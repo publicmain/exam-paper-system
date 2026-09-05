@@ -97,17 +97,20 @@
 **背景**：短答题不走 AI，由人判。系统提供两条路径，日常用脚本路径。
 
 ```bash
-# 1. 导出今天待判队列（只读，不改数据）
-railway run -- npx ts-node apps/api/scripts/marker-dump.ts > dump.txt
+# 1. 导出今天待判队列（只读，不改数据；匿名代号；补判加 --dates=2026-09-07,2026-09-08）
+railway run -s Postgres -e production -- npx ts-node apps/api/scripts/marker-dump.ts --json=.local/grades/2026-09-07.dump.json
 
-# 2. 人工判分，把结果写进 marker-apply.ts 顶部的 GRADES_<日期> 映射
-#    格式：{ scriptId: { awardedMarks: number, reason: string } }
+# 2. 人工判分，写判分文件 .local/grades/2026-09-07.json（已 gitignore，评语会引学生原话）
+#    { "dates": ["2026-09-07"], "grades": { "<scriptId>": { "awardedMarks": 2, "reason": "…" } } }
 
-# 3. 写回
-railway run -- npx ts-node apps/api/scripts/marker-apply.ts
+# 3. 写回（先 --dry-run 看一眼）
+railway run -s Postgres -e production -- npx ts-node apps/api/scripts/marker-apply.ts --file=.local/grades/2026-09-07.json
 
-# 4. 复核：待判条数应为 0
+# 4. 复核：再跑一次 marker-dump，待判条数应为 0
 ```
+
+> 2026-09-05 起 `marker-apply.ts` 改为读判分文件，不再内嵌 GRADES 表；
+> `dates` 里的场次会整体收尾（全客观题 / 空白卷也翻成 marked）。
 
 `marker-apply.ts` 的行为（对齐 `marker.service.finalize`）：
 

@@ -9,6 +9,53 @@ import { clean } from '../components/exam/shared/textUtils';
 import { prettifyPaperName } from '../lib/paperName';
 
 /**
+ * 老师判主观题要看的答案材料 —— 从 `snapshotAnswer`（发卷时的快照）
+ * 与 `question.answerContent`（题库现值）里取，快照优先。
+ *
+ * 2026-09-05 首发前复核：这一页原来只渲染原文 / 题干 / 学生答案 / 打分框，
+ * 老师判一道两分的理解题得自己回原文找答案。首发周的内容包把
+ * `text`（参考答案）、`accept`（可接受写法）、`rubric`（评分标准）、
+ * `evidence`（原文依据）都写进了 answerContent，这里把它们摆出来。
+ * 旧 fixture 的 `markScheme` / `exampleAnswer` 也一并兼容。
+ */
+export function referenceOf(pq: any): {
+  text: string | null;
+  accept: string[];
+  rubric: string | null;
+  evidence: string | null;
+  example: string | null;
+} {
+  const str = (v: unknown) => (typeof v === 'string' && v.trim().length > 0 ? v : null);
+  const sources = [pq?.snapshotAnswer, pq?.question?.answerContent].filter(
+    (x) => x && typeof x === 'object' && !Array.isArray(x),
+  ) as Array<Record<string, unknown>>;
+  const first = (...keys: string[]) => {
+    for (const src of sources) for (const k of keys) {
+      const v = str(src[k]);
+      if (v) return v;
+    }
+    return null;
+  };
+  const text = first('text', 'correctAnswer');
+  let accept: string[] = [];
+  for (const src of sources) {
+    if (Array.isArray(src.accept)) {
+      accept = src.accept.map((a) => String(a)).filter((a) => a.trim().length > 0);
+      break;
+    }
+  }
+  // 与参考答案只差大小写的写法不单列 —— 那是给自动判分用的，老师不用看。
+  accept = accept.filter((a) => text == null || a.toLowerCase() !== text.toLowerCase());
+  return {
+    text,
+    accept,
+    rubric: first('rubric', 'markScheme'),
+    evidence: first('evidence'),
+    example: first('exampleAnswer'),
+  };
+}
+
+/**
  * Marker script page. Per-submission view: each structured Q with the
  * student's textAnswer, plus an input for awardedMarks and a textarea for
  * markerComment. Save button calls PATCH per script. When all structured
@@ -234,6 +281,8 @@ export default function MarkerScriptPage() {
         const retractedReason: string | null =
           pq.retractedReason ?? localRetracted[pq.id] ?? null;
         const isRetracted = !!retractedReason || !!pq.retractedAt;
+        const ref = referenceOf(pq);
+        const hasRef = !!(ref.text || ref.rubric || ref.evidence || ref.example || ref.accept.length);
 
         return (
           <div key={pq.id} className="card">
@@ -299,6 +348,47 @@ export default function MarkerScriptPage() {
                     <span className="text-xs text-gray-500 ml-2">[{p.marks}]</span>
                   </div>
                 ))}
+              </div>
+            )}
+
+            {!isMcq && hasRef && (
+              <div
+                data-testid={`reference-${pq.id}`}
+                className="mt-3 bg-green-50 border border-green-200 rounded px-3 py-2 text-sm space-y-1"
+              >
+                <div className="text-xs uppercase tracking-wide text-green-800 font-semibold">
+                  参考答案 · 评分标准
+                </div>
+                {ref.text && (
+                  <div>
+                    <span className="text-gray-500">参考答案：</span>
+                    <span className="font-medium whitespace-pre-wrap">{clean(ref.text)}</span>
+                  </div>
+                )}
+                {ref.accept.length > 0 && (
+                  <div>
+                    <span className="text-gray-500">也算对：</span>
+                    <span className="whitespace-pre-wrap">{ref.accept.map(clean).join(' / ')}</span>
+                  </div>
+                )}
+                {ref.example && (
+                  <div>
+                    <span className="text-gray-500">示例答案：</span>
+                    <span className="whitespace-pre-wrap">{clean(ref.example)}</span>
+                  </div>
+                )}
+                {ref.rubric && (
+                  <div>
+                    <span className="text-gray-500">评分标准：</span>
+                    <span className="whitespace-pre-wrap">{clean(ref.rubric)}</span>
+                  </div>
+                )}
+                {ref.evidence && (
+                  <div className="text-gray-700 italic">
+                    <span className="not-italic text-gray-500">原文依据：</span>
+                    {clean(ref.evidence)}
+                  </div>
+                )}
               </div>
             )}
 

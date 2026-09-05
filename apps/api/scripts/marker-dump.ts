@@ -1,4 +1,6 @@
 import { PrismaClient } from '@prisma/client';
+import { mkdirSync, writeFileSync } from 'fs';
+import { dirname, resolve } from 'path';
 import { diffAnswer } from '../src/morning-quiz/answer-diff';
 import { anonId } from '../src/common/anon-id';
 
@@ -17,7 +19,12 @@ import { anonId } from '../src/common/anon-id';
  * surfaces the data; pair with marker-apply.ts to write back.
  */
 
-const prisma = new PrismaClient();
+// 本机通过 `railway run -s Postgres -e production` 跑：那里只有公网代理地址
+// （DATABASE_PUBLIC_URL）能连上，DATABASE_URL 指向的 postgres.railway.internal
+// 只在 Railway 内网可达。与 prepare-pilot-week.js 同一口径。
+const prisma = new PrismaClient({
+  datasources: { db: { url: process.env.DATABASE_PUBLIC_URL || process.env.DATABASE_URL } },
+});
 
 /**
  * 去标识化开关。默认**不输出真实姓名** —— 这份 dump 要交给外部对话
@@ -25,6 +32,42 @@ const prisma = new PrismaClient();
  * 需要人工核对身份时加 --with-names。
  */
 const SHOW_NAMES = process.argv.includes('--with-names');
+
+/**
+ * `--json=<path>`：把同一份队列再写成 JSON（scriptId / 匿名代号 / 题干 /
+ * 参考答案 / rubric / accept / 原文依据 / 学生答案），判分文件
+ * （marker-apply.ts 的 --file）就照着它的 scriptId 写。默认只打印文本。
+ */
+const JSON_OUT = (() => {
+  const hit = process.argv.find((a) => a.startsWith('--json='));
+  if (hit) return hit.slice('--json='.length);
+  const i = process.argv.indexOf('--json');
+  return i >= 0 && process.argv[i + 1] && !process.argv[i + 1].startsWith('--')
+    ? process.argv[i + 1]
+    : undefined;
+})();
+
+type DumpScript = {
+  scriptId: string;
+  questionType: string;
+  maxMarks: number;
+  stem: string;
+  reference: string | null;
+  accept: string[];
+  rubric: string | null;
+  evidence: string | null;
+  studentAnswer: string | null;
+};
+type DumpSubmission = {
+  submissionId: string;
+  student: string;
+  className: string;
+  level: string | null;
+  paper: string;
+  autoScore: number;
+  maxScore: number;
+  scripts: DumpScript[];
+};
 
 
 (async () => {
@@ -111,6 +154,12 @@ const SHOW_NAMES = process.argv.includes('--with-names');
   console.log(`Submissions awaiting marker: ${submissions.length}`);
   console.log('═══════════════════════════════════════════════════════════\n');
 
+  const jsonOut: { dates: string[]; passages: Record<string, string>; submissions: DumpSubmission[] } = {
+    dates: dateList,
+    passages: {},
+    submissions: [],
+  };
+
   for (const sub of submissions) {
     const sess = sessions.find((s) => s.paperAssignmentId === sub.assignmentId);
     const ungraded = sub.scripts.filter(
@@ -137,6 +186,17 @@ const SHOW_NAMES = process.argv.includes('--with-names');
     console.log(`  Scripts to grade: ${ungraded.length}`);
     console.log('');
 
+    const dumpSub: DumpSubmission = {
+      submissionId: sub.id,
+      student: SHOW_NAMES ? sub.student.name : anonId(sub.studentId),
+      className: sess?.class.name ?? '?',
+      level: sess?.level ?? null,
+      paper: sub.assignment.paper.name,
+      autoScore: sub.autoScore ?? 0,
+      maxScore: sub.maxScore,
+      scripts: [],
+    };
+
     for (const sc of ungraded) {
       const pq = sc.paperQuestion as any;
       const q = pq.question;
@@ -149,24 +209,61 @@ const SHOW_NAMES = process.argv.includes('--with-names');
         pq.snapshotContent?.passage ??
         q.content?.passage ??
         null;
+      // 答案材料：快照优先，题库现值兜底。首发周内容包写的是
+      // text / accept / rubric / evidence（见 prepare-pilot-week.js）；
+      // 旧 fixture 只有 text / markScheme。
+      const ansSrc = [pq.snapshotAnswer, q.answerContent].filter(
+        (x) => x && typeof x === 'object' && !Array.isArray(x),
+      ) as Array<Record<string, unknown>>;
+      const pickStr = (...keys: string[]) => {
+        for (const src of ansSrc) {
+          for (const k of keys) {
+            const v = src[k];
+            if (typeof v === 'string' && v.trim()) return v;
+          }
+        }
+        return null;
+      };
       const markScheme =
-        pq.snapshotAnswer?.text ??
-        pq.snapshotAnswer?.markScheme ??
-        q.answerContent?.text ??
-        q.answerContent?.markScheme ??
+        pickStr('text', 'markScheme') ??
         JSON.stringify(pq.snapshotAnswer ?? q.answerContent ?? {}).slice(0, 200);
+      const rubric = pickStr('rubric');
+      const evidence = pickStr('evidence');
+      const accept = (() => {
+        for (const src of ansSrc) {
+          if (Array.isArray(src.accept)) return src.accept.map(String);
+        }
+        return [] as string[];
+      })();
       const studentAns = sc.textAnswer ?? sc.selectedOption ?? '<blank>';
 
       console.log(`  ── Script ${sc.id}  [${q.questionType}]  maxMarks=${pq.marks}`);
       if (passage) {
         const trimmed = String(passage).replace(/\s+/g, ' ').trim();
+        if (!jsonOut.passages[sub.assignment.paper.name]) {
+          jsonOut.passages[sub.assignment.paper.name] = String(passage);
+        }
         console.log(
           `    Passage: ${trimmed.length > 300 ? trimmed.slice(0, 300) + '…' : trimmed}`,
         );
       }
       console.log(`    Stem:        ${String(stem).replace(/\s+/g, ' ').trim()}`);
       console.log(`    Mark scheme: ${String(markScheme).replace(/\s+/g, ' ').trim()}`);
+      if (accept.length > 1) console.log(`    Accept:      ${accept.join(' / ')}`);
+      if (rubric) console.log(`    Rubric:      ${rubric.replace(/\s+/g, ' ').trim()}`);
+      if (evidence) console.log(`    Evidence:    ${evidence.replace(/\s+/g, ' ').trim()}`);
       console.log(`    Student ans: ${String(studentAns).replace(/\s+/g, ' ').trim()}`);
+      dumpSub.scripts.push({
+        scriptId: sc.id,
+        questionType: q.questionType,
+        maxMarks: pq.marks,
+        stem: String(stem),
+        reference: typeof markScheme === 'string' ? markScheme : null,
+        accept,
+        rubric,
+        evidence,
+        studentAnswer: sc.textAnswer ?? sc.selectedOption ?? null,
+      });
       // 机械差异分析（2026-08-24）。只对短答案有意义 —— 雅思填空里
       // 「culture / cultures」这类差异，人逐条肉眼比对既慢又容易看漏。
       // 它**只说差在哪，不给分**：雅思真考里单复数错就是错，让机器自动
@@ -182,9 +279,16 @@ const SHOW_NAMES = process.argv.includes('--with-names');
       }
       console.log('');
     }
+    jsonOut.submissions.push(dumpSub);
   }
 
   console.log('═══════════════════════════════════════════════════════════');
   console.log(`END DUMP — ${submissions.length} submission(s)`);
+  if (JSON_OUT) {
+    const target = resolve(process.cwd(), JSON_OUT);
+    mkdirSync(dirname(target), { recursive: true });
+    writeFileSync(target, JSON.stringify(jsonOut, null, 2) + '\n', 'utf8');
+    console.log(`JSON 已写到 ${target}（${jsonOut.submissions.length} 份答卷）`);
+  }
   await prisma.$disconnect();
 })();

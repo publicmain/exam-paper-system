@@ -74,3 +74,6 @@ backups/
 # 版权：剑桥雅思原文只留在本地，绝不入库（铁律）
 apps/api/test-fixtures/cambridge-ielts-gt-14/
 apps/api/test-fixtures/cambridge-ielts-*/
+
+# 判分文件（评语会引学生原话）与其它本机私有工作文件
+.local/

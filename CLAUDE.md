@@ -98,7 +98,7 @@ demo 账户：`teacher@school.local` / `teacher123`。
 
 ## ⚠️ 铁律（最重要）
 - **零 Anthropic API 调用**：用户 Anthropic 额度已空、且按 flat-fee Cowork 计费 → 出题 / QA 审核 / 短答评分**全部由我（Claude）在 chat 里做**，不走代码里的 AI 路径。
-- 用户说 **「判分 / 批今天的早测 / grade 早测 / 人工判分」** → 走 `/api/marker/*` 排空 marker 队列；**绝不触发 AI grader / `regradeSession`（会调 Claude API）**。
+- 用户说 **「判分 / 批今天的早测 / grade 早测 / 人工判分」** → `marker-dump.ts --json` 倒队列 → 在聊天里判 → 写 `.local/grades/<日>.json` → `marker-apply.ts --file` 写回并发布，**判完直接推，不再等「确认发布」**（2026-09-05 定稿，SOP 见 `docs/HANDOFF-TO-CLAUDE-2026-09-03.md` §7.2）；**绝不触发 AI grader / `regradeSession`（会调 Claude API）**。
 - 新 PDF→fixture **必须过 10 项 AI 审计**（passage / stem / mark-scheme / schema / AI-grader 精确+改写+拒答 / UI 渲染）才能 push，无例外。
 - **未经当前对话明确批准，不得 git push、部署或执行生产迁移**。
 - 版权：past-paper 只存元数据（如 `9702/22/M/J/19/Q3`）不存原文；seed 题 `source_type=original_school`。
