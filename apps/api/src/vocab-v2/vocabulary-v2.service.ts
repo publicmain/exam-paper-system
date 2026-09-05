@@ -20,12 +20,15 @@ import { answerFormalQuestion, buildFormalQuestion, hideFormalAnswer, type Forma
 import { answerAdaptiveQuestion, buildAdaptiveQuestion, hideAdaptiveAnswer, type AdaptiveCard, type AdaptiveQuestion } from './adaptive-test';
 import { learningAssetQuality } from './content-quality';
 import {
+  collectUnseenFromList,
   countActuallyLearned,
-  pendingDailySessions,
-  testableDailyItems,
-  unseenCandidates,
   deferredSenseIds,
+  headwordKey,
   isTeachingDay,
+  pendingDailySessions,
+  seenHeadwordSet,
+  teacherItemsForStudent,
+  testableDailyItems,
 } from './unified-vocabulary-rules';
 
 export type CollectionAction = 'learn' | 'known' | 'lookup_only' | 'later';
@@ -103,9 +106,18 @@ export class VocabularyV2Service {
     });
   }
 
+  /**
+   * 老师给一个班发一天的词。
+   *
+   * 2026-09-05 放宽的三堵墙：不再必须 12 个（1–20 个都行）；不再必须在
+   * NGSL / NAWL 里 —— 库里已有可发布 sense 的任何拼写都收（词表外的词由
+   * `scripts/vocab-v2/publish-word-list.ts` 先把释义例句灌进去）；每个词可带
+   * `force`，见过的学生也照推。按拼写去重发生在学生开始当天任务时
+   * （`createTeacherDailySession`），不在这里。
+   */
   async publishTeacherAssignment(
     actor: { id: string; role: string },
-    input: { classId: string; date: string; title?: string; words: string[] },
+    input: { classId: string; date: string; title?: string; words: Array<string | { headword: string; force?: boolean }> },
   ) {
     if (!(await canActOnClass(this.prisma, actor, input.classId))) {
       throw new ForbiddenException({ code: 'not_your_class' });
@@ -113,30 +125,22 @@ export class VocabularyV2Service {
     if (!/^\d{4}-\d{2}-\d{2}$/.test(input.date)) {
       throw new BadRequestException({ code: 'v2_assignment_date_invalid' });
     }
-    if (input.words.length !== 12) {
-      throw new BadRequestException({ code: 'v2_assignment_requires_12_words', expected: 12 });
+    const requested = input.words
+      .map((word) => (typeof word === 'string' ? { headword: word, force: false } : { headword: word.headword, force: Boolean(word.force) }))
+      .map((word) => ({ ...word, headword: headwordKey(word.headword) }))
+      .filter((word) => word.headword);
+    if (requested.length < 1 || requested.length > 20) {
+      throw new BadRequestException({ code: 'v2_assignment_word_count', min: 1, max: 20, received: requested.length });
     }
-    const normalized = input.words.map((word) => word.trim().toLowerCase()).filter(Boolean);
-    if (new Set(normalized).size !== 12) {
+    if (new Set(requested.map((word) => word.headword)).size !== requested.length) {
       throw new BadRequestException({ code: 'v2_assignment_words_must_be_unique' });
     }
-    const resolved = [] as Array<Awaited<ReturnType<VocabularyV2Service['ensureOfficialSense']>>>;
+    const resolved: Array<{ sense: { id: string }; force: boolean }> = [];
     const notFound: string[] = [];
-    for (const headword of normalized) {
-      const official = exactOfficial(headword, null);
-      if (!official) {
-        notFound.push(headword);
-        continue;
-      }
-      const row = await this.ensureOfficialSense(official);
-      const quality = learningAssetQuality({
-        headword: row.lexeme.headword,
-        translation: row.sense.translation,
-        definition: row.sense.definition,
-        contexts: row.sense.contexts,
-      });
-      if (row.sense.qualityStatus !== 'ready' || !quality.publishable) notFound.push(headword);
-      else resolved.push(row);
+    for (const word of requested) {
+      const row = await this.publishableSenseFor(word.headword);
+      if (!row) notFound.push(word.headword);
+      else resolved.push({ sense: row, force: word.force });
     }
     if (notFound.length) {
       throw new BadRequestException({ code: 'v2_assignment_words_not_publishable', words: notFound });
@@ -166,7 +170,7 @@ export class VocabularyV2Service {
           });
       await tx.vocabularyV2AssignmentItem.deleteMany({ where: { assignmentId: saved.id } });
       await tx.vocabularyV2AssignmentItem.createMany({
-        data: resolved.map((row, index) => ({ assignmentId: saved.id, senseId: row.sense.id, position: index + 1 })),
+        data: resolved.map((row, index) => ({ assignmentId: saved.id, senseId: row.sense.id, position: index + 1, force: row.force })),
       });
       return tx.vocabularyV2Assignment.findUnique({
         where: { id: saved.id },
@@ -312,6 +316,7 @@ export class VocabularyV2Service {
         headword: item.sense.lexeme.headword,
         pos: item.sense.pos,
         translation: item.sense.translation,
+        force: Boolean(item.force),
       })),
     };
   }
@@ -690,6 +695,41 @@ export class VocabularyV2Service {
     };
   }
 
+  /**
+   * 一个拼写对应的可发布 sense：官方词表里的走 ensureOfficialSense（会补建），
+   * 词表外的只认库里已经 ready 且有例句的（任何 listName）。找不到返回 null。
+   */
+  private async publishableSenseFor(headword: string) {
+    const publishable = (row: { lexeme: { headword: string }; sense: { qualityStatus: string; translation: string; definition: string; contexts: Array<{ sentence: string; translation: string; qualityStatus?: string }> } }) =>
+      row.sense.qualityStatus === 'ready'
+      && learningAssetQuality({ headword: row.lexeme.headword, translation: row.sense.translation, definition: row.sense.definition, contexts: row.sense.contexts }).publishable;
+    const official = exactOfficial(headword, null);
+    if (official) {
+      const row = await this.ensureOfficialSense(official);
+      return publishable(row) ? row.sense : null;
+    }
+    const lexemes = await this.prisma.vocabularyLexeme.findMany({
+      where: { headword },
+      include: { senses: { where: { qualityStatus: 'ready' }, include: { contexts: { where: { qualityStatus: 'ready' } } } } },
+      orderBy: [{ rank: 'asc' }, { createdAt: 'asc' }],
+    });
+    for (const lexeme of lexemes) {
+      for (const sense of lexeme.senses) {
+        if (publishable({ lexeme, sense })) return sense;
+      }
+    }
+    return null;
+  }
+
+  /** 学生名下所有归属行的拼写 —— 学过、加过、移出过、会了的全算见过。 */
+  private async seenHeadwords(studentId: string): Promise<Set<string>> {
+    const rows = await this.prisma.studentVocabularySense.findMany({
+      where: { studentId },
+      select: { sense: { select: { lexeme: { select: { headword: true } } } } },
+    });
+    return seenHeadwordSet(rows.map((row) => ({ headword: row.sense.lexeme.headword })));
+  }
+
   private async ensureOfficialSense(word: OfficialWord) {
     const version = officialListVersion(word.list);
     const existingLexeme = await this.prisma.vocabularyLexeme.findUnique({
@@ -907,15 +947,26 @@ export class VocabularyV2Service {
     });
   }
 
+  /**
+   * 老师词表落到一个学生头上。见过的拼写跳过（force 的除外）；一个都不剩
+   * 时返回 null，调用方回到档位词表照常推 —— 老师的词他全学过，不等于
+   * 今天没词可学。
+   */
   private async createTeacherDailySession(
     studentId: string,
     day: { key: string; date: Date },
     sessionKey: string,
     assignment: NonNullable<Awaited<ReturnType<VocabularyV2Service['teacherAssignmentForStudent']>>>,
+    seen: ReadonlySet<string>,
   ) {
-    const rows = assignment.items.map((item) => ({ sense: item.sense, owned: null }));
+    const { kept, skipped } = teacherItemsForStudent(
+      assignment.items.map((item) => ({ ...item, headword: item.sense.lexeme.headword, force: item.force })),
+      seen,
+    );
+    if (!kept.length) return null;
+    const rows = kept.map((item) => ({ sense: item.sense, owned: null }));
     const created = await this.prisma.$transaction(async (tx) => {
-      for (const item of assignment.items) {
+      for (const item of kept) {
         await tx.studentVocabularySense.upsert({
           where: { studentId_senseId: { studentId, senseId: item.senseId } },
           create: { studentId, senseId: item.senseId, inNotebook: true },
@@ -931,18 +982,20 @@ export class VocabularyV2Service {
           mode: 'teacher_list',
           status: 'in_progress',
           version: `V2-TEACHER-${assignment.id}-${assignment.version}`,
-          target: assignment.items.length,
+          target: kept.length,
           settingsSnapshot: {
             requestedTarget: assignment.items.length,
             taskMinutes: 8,
             assignmentId: assignment.id,
             assignmentVersion: assignment.version,
             classId: assignment.classId,
-            listName: assignment.items[0]?.sense.lexeme.listName ?? 'ngsl',
+            listName: kept[0]?.sense.lexeme.listName ?? 'ngsl',
+            // 按拼写去重跳过的词：记下来，教师端和排查都看得见。
+            skippedSeen: skipped.map((item) => item.headword),
           },
-          sourceSummary: { teacher_list: assignment.items.length },
+          sourceSummary: { teacher_list: kept.length },
           items: {
-            create: assignment.items.map((item, index) => {
+            create: kept.map((item, index) => {
               const context = contextForEncounter(item.sense.contexts, 1, 5);
               return {
                 senseId: item.senseId,
@@ -974,10 +1027,15 @@ export class VocabularyV2Service {
     // 所以这条只挡新建：周末打开 App 不会凭空多出一天的欠账。
     if (!isTeachingDay(day.key)) throw new BadRequestException({ code: 'v2_no_task_on_weekend' });
 
+    // 「见过」只看拼写：换词表、升版本、阅读时自己加过的词，都不再当新词推。
+    const seen = await this.seenHeadwords(studentId);
+
     const teacherAssignment = await this.teacherAssignmentForStudent(studentId, day.date);
     if (teacherAssignment?.items.length) {
       try {
-        return await this.createTeacherDailySession(studentId, day, sessionKey, teacherAssignment);
+        const teacherSession = await this.createTeacherDailySession(studentId, day, sessionKey, teacherAssignment, seen);
+        if (teacherSession) return teacherSession;
+        // 老师这天的词他全学过 → 往下走档位词表。
       } catch (error) {
         if ((error as { code?: string }).code !== 'P2002') throw error;
         const raced = await this.prisma.vocabularyV2Session.findUnique({
@@ -997,9 +1055,10 @@ export class VocabularyV2Service {
     const listOrder = [policy.primary, policy.fallback].filter((value, index, values): value is OfficialListName => Boolean(value) && values.indexOf(value) === index);
     const listCursors: Array<{ listName: OfficialListName; listVersion: string; startRank: number; exhausted: boolean }> = [];
     const sourceWords: OfficialWord[] = [];
-    // Read ahead far enough to step over words the student met through
-    // articles/search before the official-list cursor reached them.
-    let wanted = profile.dailyTarget * 10;
+    // 顺着词表从游标往后读，凑够「没见过」的词就停（见过 = 拼写在学生
+    // 名下出现过，不管来自哪张表）。多凑几个给规划器挑，免得个别词没有
+    // 可发布的例句时那天不足额；主表读完还不够就去备用表接着凑。
+    let wanted = profile.dailyTarget + 5;
     for (const [listIndex, listName] of listOrder.entries()) {
       if (wanted <= 0) break;
       const listVersion = officialListVersion(listName);
@@ -1007,28 +1066,20 @@ export class VocabularyV2Service {
       const configuredStart = listIndex === 0 ? policy.startRank : 1;
       const startRank = Math.max(configuredStart, cursor?.nextRank ?? configuredStart);
       const allWords = officialList(listName);
-      const selected = allWords.slice(startRank - 1, startRank - 1 + wanted);
-      sourceWords.push(...selected);
+      const { picked, exhausted } = collectUnseenFromList(allWords, startRank, seen, wanted);
+      sourceWords.push(...picked);
       listCursors.push({ listName, listVersion, startRank, exhausted: startRank > allWords.length });
-      wanted -= selected.length;
+      if (!exhausted) break;
+      wanted -= picked.length;
     }
-    const levelRows = await Promise.all(sourceWords.map((word) => this.ensureOfficialSense(word)));
+    const unseenLevelRows = await Promise.all(sourceWords.map((word) => this.ensureOfficialSense(word)));
 
     const rows = new Map<string, any>();
     const candidates: PlannerCandidate[] = [];
-    // A daily push contains new words only.  A sense is globally excluded as
-    // soon as the student has ever collected, learned, removed, mastered or
-    // replaced it.  Article/search words stay in the notebook and remain
-    // available for personal practice, but are never silently recycled as a
-    // "new" daily word.
-    const previouslySeen = new Set((await this.prisma.studentVocabularySense.findMany({
-      where: { studentId, senseId: { in: levelRows.map((row) => row.sense.id) } },
-      select: { senseId: true },
-    })).map((row) => row.senseId));
-    const unseenLevelRows = unseenCandidates(
-      levelRows.map((row) => ({ ...row, senseId: row.sense.id })),
-      previouslySeen,
-    );
+    // A daily push contains new words only.  Article/search words stay in the
+    // notebook and remain available for personal practice, but are never
+    // silently recycled as a "new" daily word — the headword filter above
+    // already removed everything the student has ever owned.
     for (const { lexeme, sense } of unseenLevelRows) {
       rows.set(sense.id, { sense: { ...sense, lexeme }, owned: null });
       const asset = learningAssetQuality({ headword: lexeme.headword, translation: sense.translation, definition: sense.definition, contexts: sense.contexts });
@@ -1038,7 +1089,7 @@ export class VocabularyV2Service {
 
     // 「稍后再学」过、后来一直没学完的词，排到今天任务的最前面。
     //
-    // 它们的归属行在第一次推送时就建了，所以上面的 unseenCandidates 会把
+    // 它们的归属行在第一次推送时就建了，所以上面按拼写的「见过」过滤会把
     // 它们永久排除；词表游标也早已越过它们。不在这里显式捞回来，「稍后」
     // 就等于「再也不」。仍在「我的单词」里、且没被学生移出的才回来；
     // 学生点过「我会了」（mastered / 换词）的不回来 —— 那是他明确的决定。

@@ -2231,6 +2231,9 @@ model VocabularyV2AssignmentItem {
   senseId      String
   sense        VocabularySense        @relation(fields: [senseId], references: [id], onDelete: Restrict)
   position     Int
+  /// 老师明确要求全班重学：学生已经见过这个拼写也照推。默认 false =
+  /// 见过的学生跳过（按拼写去重，2026-09-05）。
+  force        Boolean                @default(false)
   createdAt    DateTime               @default(now())
 
   @@unique([assignmentId, position])

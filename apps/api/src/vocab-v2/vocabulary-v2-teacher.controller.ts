@@ -33,7 +33,11 @@ export class VocabularyV2TeacherController {
       classId: z.string().min(1).max(80),
       date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
       title: z.string().min(1).max(120).optional(),
-      words: z.array(z.string().min(1).max(80)).length(12),
+      // 2026-09-05：1–20 个；每个词可以是字符串，也可以带 force（见过的学生也照推）。
+      words: z.array(z.union([
+        z.string().min(1).max(80),
+        z.object({ headword: z.string().min(1).max(80), force: z.boolean().optional() }).strict(),
+      ])).min(1).max(20),
     }).strict().safeParse(body);
     if (!parsed.success) throw new BadRequestException(parsed.error.flatten());
     return this.service.publishTeacherAssignment(user, parsed.data);

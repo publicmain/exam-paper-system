@@ -77,3 +77,8 @@ apps/api/test-fixtures/cambridge-ielts-*/
 
 # 判分文件（评语会引学生原话）与其它本机私有工作文件
 .local/
+
+# 老师词表流水线的生成物
+apps/api/scripts/vocab-v2/wordlists/*/preview.md
+apps/api/scripts/vocab-v2/wordlists/*/confirm.md
+apps/api/scripts/vocab-v2/wordlists/*/needs-content.json

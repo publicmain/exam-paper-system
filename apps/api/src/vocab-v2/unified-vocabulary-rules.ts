@@ -72,3 +72,63 @@ export function deferredSenseIds(
   }
   return [...deferred];
 }
+
+// ─────────────────────────────────────────────────────────────
+// 按拼写去重（2026-09-05）
+//
+// 词的身份原来是「词表名 + 版本 + 拼写」（VocabularyLexeme 的唯一键）：
+// 换词表、升版本、或者学生阅读时自己加过的 personal 词，都会生出另一个
+// lexeme / sense，于是同一个拼写会被当成「新词」再推一遍。叶老师的要求是
+// 一个学生这学期学的词不重复 —— 判「见没见过」只看拼写。
+// ─────────────────────────────────────────────────────────────
+
+/** 拼写归一：小写、去首尾空白；比较用，不改数据。 */
+export function headwordKey(headword: string): string {
+  return String(headword ?? '').trim().toLowerCase();
+}
+
+/** 学生名下所有归属行的拼写集合 —— 学过、加过、移出过、会了的全算「见过」。 */
+export function seenHeadwordSet(rows: readonly { headword: string }[]): Set<string> {
+  return new Set(rows.map((row) => headwordKey(row.headword)).filter(Boolean));
+}
+
+/**
+ * 顺着词表从 `startRank` 往后走，凑够 `want` 个没见过的词就停。
+ *
+ * 原来是「读前 100 个再去掉见过的」：学生学到词表后半段、或者阅读时自己
+ * 加过很多词之后，100 个里可能剩不下 10 个，那天就少推。现在读到凑够为止，
+ * 表尾读完还不够就 `exhausted`，由调用方去下一张表接着凑。
+ */
+export function collectUnseenFromList<T extends { headword: string; rank: number }>(
+  list: readonly T[],
+  startRank: number,
+  seen: ReadonlySet<string>,
+  want: number,
+): { picked: T[]; exhausted: boolean } {
+  const picked: T[] = [];
+  const from = Math.max(1, Math.floor(startRank));
+  for (let index = from - 1; index < list.length && picked.length < want; index += 1) {
+    const word = list[index];
+    if (!word || seen.has(headwordKey(word.headword))) continue;
+    picked.push(word);
+  }
+  return { picked, exhausted: from > list.length || picked.length < want };
+}
+
+/**
+ * 老师词表落到一个学生头上时：见过的拼写跳过，除非老师给这个词打了
+ * `force`（明确要求全班重学）。返回空数组 = 这天老师的词他全学过，
+ * 调用方回到档位词表照常推。
+ */
+export function teacherItemsForStudent<T extends { headword: string; force?: boolean | null }>(
+  items: readonly T[],
+  seen: ReadonlySet<string>,
+): { kept: T[]; skipped: T[] } {
+  const kept: T[] = [];
+  const skipped: T[] = [];
+  for (const item of items) {
+    if (item.force || !seen.has(headwordKey(item.headword))) kept.push(item);
+    else skipped.push(item);
+  }
+  return { kept, skipped };
+}

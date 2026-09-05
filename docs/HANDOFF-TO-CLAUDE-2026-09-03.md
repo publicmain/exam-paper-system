@@ -46,6 +46,25 @@
    这是它该做的事。教训：**发布期间不要对生产库做任何写操作**，一天发完
    再做别的。09-08 之后单独重发了一次。
 
+叶老师下午追加「单词这块今天全部完成」，于是同一天又做了三件（见 §4.10）：
+
+8. **去重只看拼写。** 「见过」= 这个拼写在学生名下任何归属行里出现过
+   （不管来自 NGSL / NAWL / 老师词表 / 阅读时自己加的 personal 词）。原来
+   按 senseId 判，换词表、升版本、或者学生阅读时加过同一个词，都会再推一遍。
+   `seenHeadwords()` + `collectUnseenFromList()`。
+9. **每日新词凑够 10 个才停。** 原来读词表前 100 个再去掉见过的，学生学到
+   词表后半段、或阅读时加过很多词之后，那天会不足 10 个。现在顺着游标读到
+   凑够（多凑 5 个给规划器挑），主表读完去备用表接着凑。
+10. **老师词表流水线 `scripts/vocab-v2/publish-word-list.ts`。** 叶老师只给
+    词表 + 周次 +（可选）班级，其余全由脚本 + 我完成。三堵墙拆掉：每天 1–20
+    个（默认往 10 凑）、词表外的词允许（我在 content.json 里补释义例句）、
+    发布前有预览与按班查重报告。新增 `VocabularyV2AssignmentItem.force`
+    列（migration `20260905160000_vocabulary_assignment_force`）：老师标
+    `*word` 的词，见过的学生也照推；其余见过的学生在开始当天任务时各自跳过，
+    老师的词全学过的学生当天回到档位词表。**本地空库跑通了 publish → verify
+    → 三种历史的学生各开任务（跳过 / force / 回退档位词表）**；生产库要等
+    迁移随部署上去之后才能发（`force` 列现在还不存在）。
+
 ### 2026-09-05 生产记录
 
 | 时间（SGT） | 动作 | 结果 |
@@ -411,9 +430,10 @@ Claude 读取资料时按以下优先级处理冲突：
 
 “阅读加入/主动搜索加入”会进入个人单词集合，可用于自助抽查，但不能在以后又伪装成“从未学过的每日新词”。
 
-### 4.3 全局去重
+### 4.3 全局去重（2026-09-05 起只看拼写）
 
-生成每日新词前，排除这个学生曾经以任何来源见过的 sense，包括：
+生成每日新词前，排除这个学生曾经以任何来源见过的**拼写**（2026-09-05 起
+不再按 sense / lexeme 判 —— 换词表、升版本、阅读时加的 personal 词都算同一个词），包括：
 
 - 待学习；
 - 学习中；
@@ -425,7 +445,9 @@ Claude 读取资料时按以下优先级处理冲突：
 
 唯一例外是老师明确强制布置；强制布置可重新激活以前学过或移出的词。除此之外，“新词”绝不能重复推送。
 
-代码入口：`apps/api/src/vocab-v2/unified-vocabulary-rules.ts` 的 `unseenCandidates`，以及 `VocabularyV2Service` 创建 daily session 时查询该学生已有 sense 的逻辑。
+代码入口：`apps/api/src/vocab-v2/unified-vocabulary-rules.ts` 的 `seenHeadwordSet` /
+`collectUnseenFromList` / `teacherItemsForStudent`，以及 `VocabularyV2Service.seenHeadwords()`
+（`startDailySession` 与 `createTeacherDailySession` 共用）。
 
 ### 4.4 换词
 
@@ -504,6 +526,40 @@ Claude 读取资料时按以下优先级处理冲突：
 最终确认的简化方案明确“不需要安排任何复习任务”。仓库里仍有 `FSRS`、`review` source、`due`、`stability`、`difficulty` 和旧复习服务，是历史兼容结构。
 
 当前 daily session 的实际创建路径只把未见过的 `level_gap` 词放入候选；`daily-planner.ts` 里仍保留带 `review` 权重的通用旧算法。Claude 不得因为看到这些字段就把“到期复习”重新放进首页或每日推送。若要清理旧代码，先证明没有迁移/历史读取依赖，再另做安全任务。
+
+### 4.10 老师词表流水线（2026-09-05）
+
+叶老师发来「词表 + 哪一周 +（可选）哪几个班」→ 我做完下面这些 → 回一页确认单。
+全程在仓库根目录，零 Anthropic API。
+
+```bash
+# 0. 把词表存进仓库：apps/api/scripts/vocab-v2/wordlists/<周一日期>/words.txt
+#    一行一个词；# 注释；word, 备注；*word 或 word! = force（见过的也推）。样例见 wordlists/_sample/
+
+# 1. 预览（只读）：清洗、查词、按班按拼写查重、按词性排天；缺释义例句的词写进 needs-content.json
+railway run -s Postgres -e production -- npx ts-node apps/api/scripts/vocab-v2/publish-word-list.ts \
+  --week=2026-09-14 --words=apps/api/scripts/vocab-v2/wordlists/2026-09-14/words.txt --preview
+
+# 2. 我把 needs-content.json 补成 content.json（词性 / 音标 / 英释 / 中释 / 两句例句 + 中文），再预览一次直到「缺内容 0 个」
+#    格式见 wordlists/_sample/content.json。官方词表里的词也可以放进去，用来覆盖库里质量差的 Tatoeba 例句。
+
+# 3. 发布（写库；两道门：确认串 + railway 目标必须是 glorious-motivation/production）
+WORDLIST_CONFIRM=PUBLISH_WORD_LIST_PRODUCTION railway run -s Postgres -e production -- npx ts-node \
+  apps/api/scripts/vocab-v2/publish-word-list.ts --week=2026-09-14 --words=… --content=… --publish
+#    发完自动 --verify：从库里读回，写 confirm.md（每天哪些词、各班少了哪些、每个词是否可发布、有无重复）
+
+# 可选：--classes=IAL26S1,IAL27W（默认九个注册班）、--per-day=8（默认 auto 往 10 凑）、--title=…
+```
+
+口径：
+- 排天：12 个词 → 周一周二各 6，其余三天回到档位词表；37 个 → 四天 10/9/9/9；
+  最多一周 100 个；只排今天及以后的教学日。词性混排，同词性内保持老师顺序。
+- 查重：一个班**所有**在册学生都见过、且不 force 的词，这个班不发（预览里列出）；
+  部分学生见过的照发，学生开始当天任务时各自跳过（`settingsSnapshot.skippedSeen` 记着）；
+  老师的词全学过的学生当天回到档位词表，不会「今天没词」。
+- 重发同一周会原地更新（version +1），已开始的学生会话不受影响（会话是快照）；
+  天数缩短时多出来的旧布置（标题以「老师词表 <周>」开头的）自动删掉。
+- 老师词表那几天档位词表暂停（游标不动），词表发完自动接回。
 
 ## 5. 实时翻译与收词
 

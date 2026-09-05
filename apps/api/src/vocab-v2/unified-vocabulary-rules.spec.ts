@@ -1,5 +1,17 @@
 import { describe, expect, it } from 'vitest';
-import { countActuallyLearned, deferredSenseIds, isTeachingDay, pendingDailySessions, sgtDateKey, testableDailyItems, unseenCandidates } from './unified-vocabulary-rules';
+import {
+  collectUnseenFromList,
+  countActuallyLearned,
+  deferredSenseIds,
+  headwordKey,
+  isTeachingDay,
+  pendingDailySessions,
+  seenHeadwordSet,
+  sgtDateKey,
+  teacherItemsForStudent,
+  testableDailyItems,
+  unseenCandidates,
+} from './unified-vocabulary-rules';
 
 describe('unified vocabulary rules', () => {
   it('tests only actually learned words', () => {
@@ -69,5 +81,70 @@ describe('unified vocabulary rules', () => {
       { senseId: 'pending', status: 'pending' },
     ];
     expect(deferredSenseIds(items)).toEqual(['later-a']);
+  });
+});
+
+// ── 按拼写去重（2026-09-05）──────────────────────────────────
+
+describe('seenHeadwordSet / headwordKey', () => {
+  it('大小写与首尾空白不算区别；空的丢掉', () => {
+    const seen = seenHeadwordSet([{ headword: ' Plantation ' }, { headword: 'tide' }, { headword: '' }]);
+    expect(seen.has(headwordKey('plantation'))).toBe(true);
+    expect(seen.has('tide')).toBe(true);
+    expect(seen.size).toBe(2);
+  });
+});
+
+describe('collectUnseenFromList —— 凑够为止', () => {
+  const list = Array.from({ length: 30 }, (_, i) => ({ rank: i + 1, headword: `w${i + 1}` }));
+
+  it('前面一大片都见过也能凑够 10 个（老逻辑读前 100 个就会不足）', () => {
+    const seen = new Set(Array.from({ length: 15 }, (_, i) => `w${i + 1}`));
+    const r = collectUnseenFromList(list, 1, seen, 10);
+    expect(r.picked.map((w) => w.headword)).toEqual(['w16', 'w17', 'w18', 'w19', 'w20', 'w21', 'w22', 'w23', 'w24', 'w25']);
+    expect(r.exhausted).toBe(false);
+  });
+
+  it('从游标处开始读，不回头', () => {
+    const r = collectUnseenFromList(list, 28, new Set(), 10);
+    expect(r.picked.map((w) => w.rank)).toEqual([28, 29, 30]);
+    expect(r.exhausted).toBe(true);
+  });
+
+  it('游标已越过表尾 → 空 + exhausted', () => {
+    const r = collectUnseenFromList(list, 31, new Set(), 10);
+    expect(r.picked).toEqual([]);
+    expect(r.exhausted).toBe(true);
+  });
+
+  it('见过的按拼写比，不看它来自哪张表', () => {
+    const seen = new Set(['w2']);
+    const r = collectUnseenFromList(list, 1, seen, 3);
+    expect(r.picked.map((w) => w.headword)).toEqual(['w1', 'w3', 'w4']);
+  });
+});
+
+describe('teacherItemsForStudent', () => {
+  const items = [
+    { headword: 'tide', force: false },
+    { headword: 'barrage', force: false },
+    { headword: 'estuary', force: true },
+  ];
+
+  it('见过的跳过，force 的照给', () => {
+    const r = teacherItemsForStudent(items, new Set(['tide', 'estuary']));
+    expect(r.kept.map((i) => i.headword)).toEqual(['barrage', 'estuary']);
+    expect(r.skipped.map((i) => i.headword)).toEqual(['tide']);
+  });
+
+  it('全见过且都不 force → kept 为空（调用方回到档位词表）', () => {
+    const r = teacherItemsForStudent(items.map((i) => ({ ...i, force: false })), new Set(['tide', 'barrage', 'estuary']));
+    expect(r.kept).toEqual([]);
+    expect(r.skipped).toHaveLength(3);
+  });
+
+  it('没见过任何词 → 原样保序', () => {
+    const r = teacherItemsForStudent(items, new Set());
+    expect(r.kept).toEqual(items);
   });
 });

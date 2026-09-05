@@ -1,0 +1,142 @@
+{
+  "plantation": {
+    "pos": "noun",
+    "phonetic": "plænˈteɪʃən",
+    "definition": "a large farm, usually in a hot country, where one crop such as tea or rubber is grown",
+    "translation": "n. 种植园",
+    "examples": [
+      { "sentence": "Tea plantations covered the hills of Assam within forty years.", "translation": "不到四十年，阿萨姆的山坡上就布满了茶园。" },
+      { "sentence": "Workers on the plantation were bound by contracts they could not leave.", "translation": "种植园里的工人被合同捆住，走不了。" }
+    ]
+  },
+  "tide": {
+    "pos": "noun",
+    "phonetic": "taɪd",
+    "definition": "the regular rise and fall of the sea caused by the pull of the moon",
+    "translation": "n. 潮汐；潮水",
+    "examples": [
+      { "sentence": "The tide comes in twice a day, and nobody has to predict it.", "translation": "潮水一天涨两次，谁也不用去预测。" },
+      { "sentence": "At low tide the mudflats stretch for a kilometre.", "translation": "退潮时，泥滩绵延一公里。" }
+    ]
+  },
+  "estuary": {
+    "pos": "noun",
+    "phonetic": "ˈestʃuəri",
+    "definition": "the wide part of a river where it meets the sea",
+    "translation": "n. 河口；入海口",
+    "examples": [
+      { "sentence": "A barrage across the estuary would trap the water at high tide.", "translation": "在河口筑一道拦河坝，涨潮时就能把水拦住。" },
+      { "sentence": "Thousands of birds feed in the estuary every winter.", "translation": "每年冬天，成千上万只鸟在河口觅食。" }
+    ]
+  },
+  "turbine": {
+    "pos": "noun",
+    "phonetic": "ˈtɜːbaɪn",
+    "definition": "a machine with blades that are turned by water, steam or wind to produce power",
+    "translation": "n. 涡轮机",
+    "examples": [
+      { "sentence": "The water is released through turbines as the tide falls.", "translation": "退潮时，水经由涡轮机放出。" },
+      { "sentence": "Salt water destroys the turbine blades within a few years.", "translation": "海水几年之内就会毁掉涡轮机的叶片。" }
+    ]
+  },
+  "monopoly": {
+    "pos": "noun",
+    "phonetic": "məˈnɒpəli",
+    "definition": "complete control of the supply of a product or service by one company or country",
+    "translation": "n. 垄断；专卖权",
+    "examples": [
+      { "sentence": "For two centuries China held a monopoly on tea.", "translation": "两个世纪里，中国垄断着茶叶。" },
+      { "sentence": "Breaking the monopoly meant growing the plant somewhere else.", "translation": "要打破垄断，就得在别处把这种植物种出来。" }
+    ]
+  },
+  "commodity": {
+    "pos": "noun",
+    "phonetic": "kəˈmɒdəti",
+    "definition": "a product or raw material that can be bought and sold, especially in large amounts",
+    "translation": "n. 商品；大宗货物",
+    "examples": [
+      { "sentence": "A commodity that a country cannot produce must be paid for somehow.", "translation": "一个国家自己产不出的商品，总得有办法付钱买。" },
+      { "sentence": "Salt was once the most valuable commodity on the caravan routes.", "translation": "盐曾是商队路线上最值钱的商品。" }
+    ]
+  },
+  "predictable": {
+    "pos": "adjective",
+    "phonetic": "prɪˈdɪktəbl",
+    "definition": "happening in a way that can be known in advance",
+    "translation": "adj. 可预测的",
+    "examples": [
+      { "sentence": "Tidal power is predictable in a way that wind never is.", "translation": "潮汐能的可预测性是风能永远比不上的。" },
+      { "sentence": "The timetable is predictable, so the grid can plan around it.", "translation": "时间表可以预测，电网就能据此安排。" }
+    ]
+  },
+  "submerge": {
+    "pos": "verb",
+    "phonetic": "səbˈmɜːdʒ",
+    "definition": "to go or put something under the surface of water",
+    "translation": "v. 淹没；浸入水中",
+    "examples": [
+      { "sentence": "The barrage keeps the mudflats submerged for most of the day.", "translation": "拦河坝让泥滩一天中大部分时间都被淹着。" },
+      { "sentence": "Engineers had to submerge the machinery ten metres below the surface.", "translation": "工程师们不得不把机器沉到水面以下十米。" }
+    ]
+  },
+  "mudflat": {
+    "pos": "noun",
+    "phonetic": "ˈmʌdflæt",
+    "definition": "a wide area of muddy land near the sea that is covered by water at high tide",
+    "translation": "n. 泥滩；滩涂",
+    "examples": [
+      { "sentence": "Birds feed on the mudflats when the tide goes out.", "translation": "退潮时，鸟儿在泥滩上觅食。" },
+      { "sentence": "If the mudflats stay under water, the birds lose their food.", "translation": "泥滩一直淹在水下，鸟就没了吃的。" }
+    ]
+  },
+  "barrage": {
+    "pos": "noun",
+    "phonetic": "ˈbærɑːʒ",
+    "definition": "a wall built across a river or bay to control the water",
+    "translation": "n. 拦河坝；堰",
+    "examples": [
+      { "sentence": "The barrage traps water at high tide and releases it later.", "translation": "拦河坝在涨潮时蓄水，稍后再放出。" },
+      { "sentence": "Supporters say a barrage would power a whole city.", "translation": "支持者说一道拦河坝就能给整座城市供电。" }
+    ]
+  },
+  "oxidation": {
+    "pos": "noun",
+    "phonetic": "ˌɒksɪˈdeɪʃən",
+    "definition": "the chemical process in which a substance combines with oxygen",
+    "translation": "n. 氧化",
+    "examples": [
+      { "sentence": "What separates green tea from black tea is oxidation.", "translation": "绿茶和红茶的区别在于氧化。" },
+      { "sentence": "Heating the leaf early stops the oxidation.", "translation": "尽早加热茶叶就能终止氧化。" }
+    ]
+  },
+  "astringent": {
+    "pos": "adjective",
+    "phonetic": "əˈstrɪndʒənt",
+    "definition": "having a sharp, slightly bitter taste that makes the mouth feel dry",
+    "translation": "adj. 涩的；收敛性的",
+    "examples": [
+      { "sentence": "Green tea tastes more astringent than black tea.", "translation": "绿茶比红茶更涩。" },
+      { "sentence": "The enzymes turn the astringent compounds into darker, softer ones.", "translation": "酶把涩味物质转化成颜色更深、口感更柔和的物质。" }
+    ]
+  },
+  "quiescence": {
+    "pos": "noun",
+    "phonetic": "kwiˈesns",
+    "definition": "a period of inactivity or quiet",
+    "translation": "n. 静止期；沉寂",
+    "examples": [
+      { "sentence": "The background level has to be measured during quiescence.", "translation": "背景水平必须在静止期测量。" },
+      { "sentence": "Years of quiescence can end in a single week.", "translation": "多年的沉寂可能在一周之内结束。" }
+    ]
+  },
+  "tiltmeter": {
+    "pos": "noun",
+    "phonetic": "ˈtɪltˌmiːtə",
+    "definition": "an instrument that measures very small changes in the slope of the ground",
+    "translation": "n. 倾斜仪",
+    "examples": [
+      { "sentence": "A tiltmeter on the flank records the ground swelling by a few millimetres.", "translation": "山坡上的倾斜仪记录下地面隆起了几毫米。" },
+      { "sentence": "Scientists fixed tiltmeters and satellite receivers to the volcano.", "translation": "科学家在火山上装了倾斜仪和卫星接收器。" }
+    ]
+  }
+}

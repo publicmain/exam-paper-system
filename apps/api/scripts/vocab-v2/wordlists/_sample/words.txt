@@ -1,0 +1,16 @@
+# 样例词表（格式示范，不发布）：环境专题 + 几个词表外的词
+1. plantation, 种植园
+2. tide
+3. estuary
+4. turbine
+*monopoly
+commodity!
+predictable
+submerge
+mudflat
+barrage
+oxidation
+astringent
+quiescence
+tiltmeter
+sea level

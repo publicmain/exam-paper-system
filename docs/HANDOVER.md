@@ -112,6 +112,12 @@ railway run -s Postgres -e production -- npx ts-node apps/api/scripts/marker-app
 > 2026-09-05 起 `marker-apply.ts` 改为读判分文件，不再内嵌 GRADES 表；
 > `dates` 里的场次会整体收尾（全客观题 / 空白卷也翻成 marked）。
 
+### 3.3 老师词表（按周）
+
+叶老师给「词表 + 周一日期 +（可选）班级」，跑
+`apps/api/scripts/vocab-v2/publish-word-list.ts`（--preview → 补 content.json → --publish，
+发完自动 verify 出 confirm.md）。细则见 `docs/HANDOFF-TO-CLAUDE-2026-09-03.md` §4.10。
+
 `marker-apply.ts` 的行为（对齐 `marker.service.finalize`）：
 
 1. 写 `awardedMarks` / `markerComment` / `markedById` / `markedAt`
