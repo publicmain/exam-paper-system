@@ -47,7 +47,12 @@ export function posPrefixFor(pos: string | null | undefined, translation: string
   const label = posLabel(pos);
   if (!label) return '';
   const text = String(translation ?? '').trimStart();
-  return /^[a-z]{1,5}\.\s/i.test(text) ? '' : `${label} `;
+  return /^[a-z]{1,7}\.\s/i.test(text) ? '' : `${label} `;
+}
+
+/** 英文释义偶尔也带 "n. " 这类开头（ECDICT 原样），显示时去掉。 */
+export function cleanDefinition(raw: string | null | undefined): string {
+  return String(raw ?? '').replace(/\\n/g, '\n').replace(/^\s*[a-z]{1,7}\.\s+/i, '').trim();
 }
 
 const DOMAIN_TAG = /^\s*[\[【][^\]】]{1,6}[\]】]/;

@@ -113,12 +113,12 @@ export default function VocabularyCoachTestPage() {
           {feedback.card ? <p className="mt-3 text-xl font-semibold">{feedback.card.headword} <span className="text-base font-normal text-slate-500">{posPrefixFor(feedback.card.pos, feedback.card.translation)}{cleanTranslation(feedback.card.translation).split('\n')[0]}</span></p> : null}
           {!feedback.isCorrect ? <p className="mt-2 text-slate-700">你写的：{responseText(feedback)}<br />正确答案：<span className="font-semibold">{answerText(feedback.question)}</span></p> : null}
           {feedback.card?.sentence ? <p className="mt-3 font-serif text-slate-600">{feedback.card.sentence}</p> : null}
-          <div className="mt-6"><Button onClick={() => setFeedback(null)}>{session!.items.some((it) => it.status !== 'answered') ? '下一题' : '看总结'}</Button></div>
+          <div className="mt-6"><Button onClick={() => setFeedback(null)}>{session!.items.some((it) => it.status !== 'answered') ? '下一题' : '去交卷'}</Button></div>
         </Card>
       </div>
     </Screen>
   );
-  if (!item) return <Screen center><Card><h1 className="text-center text-2xl font-semibold">所有题都答完了</h1><p className="mt-2 text-center text-sm text-slate-500">确认交卷后才会更新记忆计划。</p>{message ? <Notice kind="error">{message}</Notice> : null}<div className="mt-6"><Button disabled={busy} onClick={() => void submit()}>交卷</Button></div></Card></Screen>;
+  if (!item) return <Screen center><Card><h1 className="text-center text-2xl font-semibold">所有题都答完了</h1><p className="mt-2 text-center text-sm text-slate-500">{session!.type === 'custom_test' ? '交卷后能看逐题回顾。这是个人练习，不记正式成绩。' : '交卷后能看逐题回顾，这次成绩会记入每日单词测试。'}</p>{message ? <Notice kind="error">{message}</Notice> : null}<div className="mt-6"><Button disabled={busy} onClick={() => void submit()}>交卷</Button></div><button className="mt-3 w-full min-h-[44px] text-sm text-slate-500" onClick={() => navigate(ROUTES.vocab)}>先不交，回我的单词</button></Card></Screen>;
 
   const q = item.question;
   return (
@@ -143,7 +143,8 @@ function formatTaskDate(date: string) {
 
 function QuestionCue({ question: q, onSpeak }: { question: V2TestSession['items'][number]['question']; onSpeak: (text: string) => void }) {
   if (q.type === 'meaning_choice') return <h1 className="mt-5 text-4xl font-semibold">{q.prompt}</h1>;
-  if (q.type === 'spelling') return <div className="mt-5 rounded-2xl bg-slate-50 p-5"><p className="text-2xl font-semibold whitespace-pre-wrap">{posPrefixFor(q.cue.pos, q.cue.translation)}{cleanTranslation(q.cue.translation)}</p><button className="mt-3 min-h-[44px] text-sm text-blue-600" onClick={() => onSpeak(q.cue.audioText)}>▶ 播放发音</button></div>;
+  // 拼写题不给发音 —— 听一遍就等于把答案念给他（2026-09-05 复测新发现 4）。听写另有 listening_spelling。
+  if (q.type === 'spelling') return <div className="mt-5 rounded-2xl bg-slate-50 p-5"><p className="text-2xl font-semibold whitespace-pre-wrap">{posPrefixFor(q.cue.pos, q.cue.translation)}{cleanTranslation(q.cue.translation)}</p></div>;
   if (q.type === 'word_choice') return <div className="mt-5 rounded-2xl bg-slate-50 p-5 text-2xl font-semibold whitespace-pre-wrap">{posPrefixFor(q.cue.pos, q.cue.translation)}{cleanTranslation(q.cue.translation)}</div>;
   if (q.type === 'cloze') return <div className="mt-5 rounded-2xl bg-slate-50 p-5"><p className="font-serif text-xl leading-8">{q.cue.sentence}</p>{q.cue.translation ? <p className="mt-2 text-sm text-slate-500">{q.cue.translation}</p> : null}</div>;
   if (q.type === 'listening_spelling') return <button className="app-secondary mt-5 w-full" onClick={() => onSpeak(q.cue.audioText)}>▶ 播放发音</button>;

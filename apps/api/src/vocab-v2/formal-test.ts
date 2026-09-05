@@ -23,7 +23,7 @@ export function buildFormalQuestion(card: FrozenCard, index: number, allCards: r
   if (index % 2 === 0) {
     return {
       type: 'spelling',
-      prompt: '根据中文、词性或发音，写出英文单词。',
+      prompt: '根据中文和词性，写出英文单词。',
       cue: { pos: card.pos, translation: card.translation, audioText: card.audioText },
       options: [],
       answer: card.headword,
@@ -37,7 +37,7 @@ export function buildFormalQuestion(card: FrozenCard, index: number, allCards: r
   if (distractors.length < 3) {
     return {
       type: 'spelling',
-      prompt: '根据中文、词性或发音，写出英文单词。',
+      prompt: '根据中文和词性，写出英文单词。',
       cue: { pos: card.pos, translation: card.translation, audioText: card.audioText },
       options: [],
       answer: card.headword,

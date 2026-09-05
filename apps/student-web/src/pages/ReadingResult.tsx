@@ -58,6 +58,7 @@ import {
 import { handleAuthFailure } from '../lib/auth-store';
 import { readToken } from '../lib/identity';
 import { NEXT_ACTION_ROUTE, ROUTES } from '../routes.contract';
+import { isTeachingDay } from '../lib/teaching-day';
 
 /**
  * 纯逻辑现在住在共享组件里。**从这里再导出一次**，既有的
@@ -236,8 +237,11 @@ function ContinueLesson({ navigate }: { navigate: ReturnType<typeof useNavigate>
       const today = await api.lessonToday(token);
       const target = NEXT_ACTION_ROUTE[today.nextAction.kind];
       // 自环挡一道：kind 还是 read_result 就是「就在这一页」，照跳原地打转。
+      // 周末没有新词任务：别把学生送进只有一句「周一再来」的页面，回首页
+      //（2026-09-05 复测新发现 2）。
+      const weekendLearn = !isTeachingDay() && today.nextAction.kind === 'learn_vocab';
       const path =
-        target.kind === 'navigate' && target.path !== ROUTES.readingResult
+        target.kind === 'navigate' && target.path !== ROUTES.readingResult && !weekendLearn
           ? target.path
           : ROUTES.today;
       navigate(path);
@@ -259,7 +263,7 @@ function ContinueLesson({ navigate }: { navigate: ReturnType<typeof useNavigate>
       onClick={() => void go()}
       className="mt-6 w-full rounded-xl bg-blue-600 text-white py-3 text-base font-medium min-h-[44px] disabled:opacity-60"
     >
-      {busy ? '正在打开…' : '继续今天的课'}
+      {busy ? '正在打开…' : isTeachingDay() ? '继续今天的课' : '回首页'}
     </button>
   );
 }

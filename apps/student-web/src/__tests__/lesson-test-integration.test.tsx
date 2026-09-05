@@ -76,7 +76,7 @@ describe('统一正式单词测试整链', () => {
     fireEvent.change(input, { target: { value: 'decline' } });
     fireEvent.click(screen.getByRole('button', { name: '提交这题' }));
     await settle();
-    fireEvent.click(screen.getByRole('button', { name: '看总结' }));
+    fireEvent.click(screen.getByRole('button', { name: '去交卷' }));
     await settle();
     expect(screen.getByRole('heading', { name: '所有题都答完了' })).toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: '交卷' }));

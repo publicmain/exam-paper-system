@@ -84,6 +84,10 @@ export default function AccountPage() {
       setErr('两个密码都要填。');
       return;
     }
+    if (!/^\d{6}$/.test(newPw)) {
+      setErr('新密码要正好 6 位数字。');
+      return;
+    }
     setBusy(true);
     setErr(null);
     try {
@@ -164,7 +168,7 @@ export default function AccountPage() {
             }}
           >
             <Field label="当前密码" type="password" numericPin value={oldPw} onChange={setOldPw} autoComplete="current-password" />
-            <Field label="新密码" type="password" numericPin value={newPw} onChange={setNewPw} autoComplete="new-password" />
+            <Field label="新密码（6 位数字）" type="password" numericPin maxLength={6} value={newPw} onChange={setNewPw} autoComplete="new-password" />
             <Button type="submit" disabled={busy}>
               {busy ? '修改中…' : '修改密码'}
             </Button>

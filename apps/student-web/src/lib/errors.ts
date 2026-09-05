@@ -117,6 +117,8 @@ export function changePasswordErrorText(e: unknown): string {
     case 'password_too_short':
     case 'pin_too_short':
       return '新密码太短了。';
+    case 'pin_must_be_6_digits':
+      return '新密码要正好 6 位数字。';
     default:
       return '出了点问题，再试一次。';
   }

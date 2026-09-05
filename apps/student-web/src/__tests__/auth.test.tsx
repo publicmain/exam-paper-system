@@ -288,7 +288,7 @@ describe('4 + 7. 改密码与退出', () => {
         : jsonResponse(200, PROFILE),
     );
     await userEvent.type(screen.getByLabelText('当前密码'), 'old12345');
-    await userEvent.type(screen.getByLabelText('新密码'), 'new12345');
+    await userEvent.type(screen.getByLabelText(/^新密码/), '731842');
     await userEvent.click(screen.getByRole('button', { name: '修改密码' }));
 
     await screen.findByText('每日英语');
@@ -304,7 +304,7 @@ describe('4 + 7. 改密码与退出', () => {
         : jsonResponse(200, PROFILE),
     );
     await userEvent.type(screen.getByLabelText('当前密码'), 'old12345');
-    await userEvent.type(screen.getByLabelText('新密码'), 'new12345');
+    await userEvent.type(screen.getByLabelText(/^新密码/), '731842');
     await userEvent.click(screen.getByRole('button', { name: '修改密码' }));
 
     expect((await screen.findByRole('alert')).textContent).toContain('密码已经改好了');
@@ -320,7 +320,7 @@ describe('4 + 7. 改密码与退出', () => {
         : jsonResponse(200, PROFILE),
     );
     await userEvent.type(screen.getByLabelText('当前密码'), 'wrong');
-    await userEvent.type(screen.getByLabelText('新密码'), 'new12345');
+    await userEvent.type(screen.getByLabelText(/^新密码/), '731842');
     await userEvent.click(screen.getByRole('button', { name: '修改密码' }));
     expect((await screen.findByRole('alert')).textContent).toContain('当前密码不对');
     expect(localStorage.getItem('sw:token')).toBe('TK');
@@ -374,7 +374,7 @@ describe('认证后的请求不带任何身份参数', () => {
     renderAt('/account');
     await screen.findByText('账号');
     await userEvent.type(screen.getByLabelText('当前密码'), 'old12345');
-    await userEvent.type(screen.getByLabelText('新密码'), 'new12345');
+    await userEvent.type(screen.getByLabelText(/^新密码/), '731842');
     await userEvent.click(screen.getByRole('button', { name: '修改密码' }));
     await waitFor(() => expect(seen.length).toBeGreaterThan(1));
 

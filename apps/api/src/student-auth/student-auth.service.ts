@@ -801,6 +801,9 @@ export class StudentAuthService {
   }
 
   async changePin(studentId: string, oldPin: string, newPin: string) {
+    // 新密码按注册页同一条规矩：正好 6 位数字（2026-09-05 复测：账号页能改成 7 位）。
+    const pinErr = validatePinFormat(newPin);
+    if (pinErr) throw new BadRequestException({ code: pinErr });
     // 2026-08-26 网站式注册：新密码走密码规则（6-32 任意字符），不再限 6 位数字
     const err = validatePasswordFormat(newPin);
     if (err) throw new BadRequestException({ code: err });

@@ -359,6 +359,28 @@ describe('8–10. 停留态与摘要', () => {
     });
   }
 
+  it('**周末 + 没有课：阅读 / 单词卡都说清是周末，分母不算它们，主行动说周一见**（2026-09-05 复测）', async () => {
+    globalThis.__teachingDay = false;
+    try {
+      session(withKind('no_content', '今天的课程还没有发布', {
+        allDone: false, completed: 0, total: 1,
+        segments: [
+          { key: 'read', status: 'none', label: null, questionCount: null, typicalMinutes: 15,
+            score: null, maxScore: null, scoresPending: false, submissionId: null, sessionId: null, autoClosed: false },
+          { key: 'vocab', status: 'todo', progress: 0, target: 10, typicalMinutes: 2, quizScore: { status: 'not_started' } },
+        ],
+      }), (r) => (r === '/vocab-v2/overview' ? jsonResponse(200, { dailyTarget: 10, today: null, pendingTests: [] }) : undefined));
+      renderAt('/today');
+      expect(await screen.findByText(/周六周日没有课，周一见/)).toBeTruthy();
+      expect(screen.getByTestId('segment-card-read').textContent).toMatch(/周六周日没有阅读/);
+      expect(screen.getByTestId('segment-card-vocab').textContent).toMatch(/周六周日不推新词/);
+      expect(screen.getByTestId('lesson-progress').textContent).toMatch(/今天没有要完成的任务/);
+      expect(screen.queryByText('今天的课程还没有发布')).toBeNull();
+    } finally {
+      globalThis.__teachingDay = undefined;
+    }
+  });
+
   it('**`no_content` + `allDone:true` 不得渲染成「完成」**', async () => {
     session(withKind('no_content', '今天的课程还没有发布', {
       allDone: true, completed: 0, total: 3,

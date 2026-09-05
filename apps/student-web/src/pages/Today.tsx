@@ -264,6 +264,11 @@ export default function TodayPage() {
   const teachingDay = isTeachingDay();
   const weekendNoVocab = !teachingDay && !vocabOverview?.today;
   const displayedSegments = d.segments.map((segment): LessonSegment => {
+    // 周末没有阅读场次：说清楚是周末，并且不进「今天完成 x / y」的分母
+    //（2026-09-05 复测新发现 3：新账号周六看到「0 / 1」和「课程还没有发布」）。
+    if (segment.key === 'read' && !teachingDay && segment.status === 'none') {
+      return { ...segment, available: false, unavailableReason: '周六周日没有阅读，周一再来 · 不计入今日完成' };
+    }
     if (segment.key !== 'vocab' || !vocabOverview) return segment;
     if (weekendNoVocab) {
       return { ...segment, status: 'none', progress: 0, target: 0, available: false, unavailableReason: `${WEEKEND_VOCAB_NOTE} · 不计入今日完成` };
@@ -309,7 +314,11 @@ export default function TodayPage() {
         ? '查看今天的总结'
         : vocabOverview.today ? '继续学习今天的新词' : '学习今天的新词'
     : d.nextAction.label;
-  const stayLabel = learningAction && weekendNoVocab ? `今天的阅读做完了。${WEEKEND_VOCAB_NOTE}。` : d.nextAction.label;
+  const stayLabel = learningAction && weekendNoVocab
+    ? `今天的阅读做完了。${WEEKEND_VOCAB_NOTE}。`
+    : !teachingDay && (d.nextAction.kind === 'no_content' || d.nextAction.kind === 'none')
+      ? '周六周日没有课，周一见。想练的话可以去「我的单词」抽查。'
+      : d.nextAction.label;
 
   return (
     <Screen>
@@ -325,9 +334,13 @@ export default function TodayPage() {
           分母**照搬服务端的 `total`**。错题本暂停期间它是 2 —— 前端不自己
           数段数，否则两边一旦不一致，学生看到的就是一个永远差一段的进度。
         */}
-        <p data-testid="lesson-progress" className="text-sm text-slate-600 mb-4">
-          今天完成 <span className="font-medium">{displayedCompleted}</span> / {displayedTotal}
-        </p>
+        {displayedTotal > 0 ? (
+          <p data-testid="lesson-progress" className="text-sm text-slate-600 mb-4">
+            今天完成 <span className="font-medium">{displayedCompleted}</span> / {displayedTotal}
+          </p>
+        ) : (
+          <p data-testid="lesson-progress" className="text-sm text-slate-600 mb-4">今天没有要完成的任务</p>
+        )}
 
         {hasBacklog ? (
           <section className="mb-6 rounded-2xl border border-orange-200 bg-orange-50/80 p-4" aria-label="待补做任务">

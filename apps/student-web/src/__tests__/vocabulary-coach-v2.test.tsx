@@ -213,7 +213,7 @@ describe('抽查 / 测试的逐题反馈与回顾（2026-09-05 盲测 P1-8）', 
 
     await user.click(screen.getByRole('button', { name: '属于' }));
     expect((await screen.findByTestId('test-feedback')).textContent).toContain('答对了');
-    await user.click(screen.getByRole('button', { name: '看总结' }));
+    await user.click(screen.getByRole('button', { name: '去交卷' }));
     await user.click(await screen.findByRole('button', { name: '交卷' }));
     const review = await screen.findByTestId('test-review');
     expect(review.textContent).toContain('decline');
