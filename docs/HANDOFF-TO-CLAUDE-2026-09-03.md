@@ -181,6 +181,17 @@ nest build 绿；失败部署的日志 CLI 拿不到，用 GraphQL `buildLogs(de
 首页「做了一部分」在零作答时的措辞、两版首进提示、acid 例句像定义 —— 都是 P2，
 首发后再排。
 
+**部署记录（周日 20:46–20:52，叶老师说「push」后执行）**：push `main`
+`36918ff..d735442`（推之前本地 `npm run build -w @app/api` 已过）→ API `/api/health`
+20:51 报 `d735442`，教师端 / pdf-worker 同批成功；学生端 `railway up`（部署 `c89a45db`）
+→ 20:51 新包 `index-MiMoD_dD.js` 生效。部署后在生产核过：`HDB` → 「建屋发展局」；
+`was` 两条查词路径（阅读页 `vocab/lookup`、我的单词页 `vocab-v2/collect`）都返回
+「was 是 be 的过去式 + be 的释义」。随后收尾：`QA盲测甲`、`盲测丙` 已归档，
+`smoke-session-today.js --day=2026-09-06 --remove` 删了 QA 班的 5 个场次与布置
+（含复测员那 1 份答卷）；QA 班（`p1_class_qa` / QASMOKE）本身保留，成员都已归档，
+下次盲测直接 `smoke-session-today.js --source=<借哪天> --day=<今天>` 再挂。
+回滚点：API/教师端回 `36918ff`，学生端回 `index-B2S2eY6V.js` 那一版。
+
 ## 后续决定 —— 2026-09-05（首发前最后一轮修复）
 
 叶老师原话：「判完直接推」「旧账清掉」「现在开始修复所有问题」。据此做了
@@ -442,7 +453,7 @@ Claude 读取资料时按以下优先级处理冲突：
 
 ### 1.1 代码与部署
 
-- 当前 Git：`main` / `origin/main` 在 `36918ff`（2026-09-06 晚部署基线；之前是 `ef0c642`、`bac89fb`、`732b3a4`，原文写本日志时是 `0c17ab1`）。
+- 当前 Git：`main` / `origin/main` 在 `d735442`（2026-09-06 晚部署基线；之前是 `36918ff`、`ef0c642`、`bac89fb`、`732b3a4`，原文写本日志时是 `0c17ab1`）。
 - Railway 项目：`glorious-motivation`，环境：`production`。
 - 学生正式入口：`https://student-web-production-5a21.up.railway.app`
 - API：`https://exam-paper-system-production.up.railway.app`
@@ -450,7 +461,7 @@ Claude 读取资料时按以下优先级处理冲突：
 - 运营后台：`https://ops-dashboard-production-9b67.up.railway.app`
 - 数据库：Railway managed Postgres。
 - 学生端、API、教师端均有成功的 production 部署记录；API/旧 Web 对应当前 Git 基线。
-- 学生端由 CLI 部署，平台不记录 commit SHA，所以每次部署都要像上面的「部署记录」那样把 commit 与部署 ID 写进本文件。当前学生端 = `ad798c2f` / `0bcf119`（包 `index-B2S2eY6V.js`）。
+- 学生端由 CLI 部署，平台不记录 commit SHA，所以每次部署都要像上面的「部署记录」那样把 commit 与部署 ID 写进本文件。当前学生端 = `c89a45db` / `d735442`（包 `index-MiMoD_dD.js`）。
 
 ### 1.2 绝对不能混用的地址
 
