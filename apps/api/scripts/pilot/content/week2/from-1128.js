@@ -87,12 +87,12 @@ const EMOTION_ZH = {
 function emotionExplanation(key, word) {
   const zh = EMOTION_ZH[String(word).toLowerCase()];
   return zh
-    ? `这个时刻叙述者的主导情绪是 “${word}”（${zh}），对应选项 ${key}。`
+    ? `这个时刻主人公的主导情绪是 “${word}”（${zh}），对应选项 ${key}。`
     : `这一段里主导的情绪与选项 ${key}（${word}）最吻合。`;
 }
 
 const MATCHING_INSTRUCTION =
-  'The narrator’s dominant feeling changes as the story goes on. For each moment below, choose the word from the list that best describes it.';
+  'The main character’s dominant feeling changes as the story goes on. For each moment below, choose the word from the list that best describes it.';
 
 /** 字符串 → 32 位种子。同一篇文章永远得到同一个排列，可重放。 */
 function seedOf(text) {

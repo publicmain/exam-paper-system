@@ -95,12 +95,17 @@ const DEF_POS: Readonly<Record<string, string>> = {
  * 中学生看不懂（2026-09-06 第五轮复测 15）。按行换成 adj. / n. / v. / adv.；
  * 行与行之间保留换行，显示层用 whitespace-pre-wrap。
  */
+/** WordNet 里的人名 / 地名义项，中学生用不上（2026-09-06 上线验收 中级档 B-5）。 */
+const PROPER_NOUN_GLOSS = /\((?:born|\d{4}-\d{4}|\d{4}\))|\b(?:born in|United States (?:\w+ )?(?:poet|playwright|lyricist|composer|novelist|writer|actor|actress|singer|politician|painter|general|president)|(?:English|American|British|French|German|Italian|Scottish|Irish) (?:\w+ )?(?:poet|playwright|lyricist|composer|novelist|writer|actor|actress|singer|politician|painter|general|philosopher))\b|\ba (?:region|city|town|state|river|province|country|port|village|county|district) (?:in|of)\b|\bcapital of\b/i;
+
 export function cleanDefinition(raw: string | null | undefined): string {
-  return String(raw ?? '')
+  const lines = String(raw ?? '')
     .replace(/\\n/g, '\n')
     .split(/\n+/)
     .map((line) => line.trim())
-    .filter(Boolean)
+    .filter(Boolean);
+  const kept = lines.filter((line) => !PROPER_NOUN_GLOSS.test(line));
+  return (kept.length ? kept : lines)
     .map((line) =>
       line.replace(/^([a-z]{1,4})\.?\s+(?=\S)/i, (m, p: string) => {
         const k = p.toLowerCase();

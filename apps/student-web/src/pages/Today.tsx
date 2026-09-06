@@ -348,13 +348,13 @@ export default function TodayPage() {
             <p className="mt-1 text-sm text-orange-800">旧任务不会被今天的任务覆盖。可以先补旧任务，也可以先做今天的。</p>
             <div className="mt-3 grid gap-2 sm:grid-cols-2">
               {readingBacklog.map((task) => (
-                <button key={`reading-${task.assignmentId}`} disabled={starting} onClick={() => void openReadingBacklog(task)} className="app-secondary flex min-h-[58px] items-center justify-between bg-white px-4 text-left">
+                <button key={`reading-${task.assignmentId}`} aria-label={`${formatTaskDate(task.date)}阅读补做`} disabled={starting} onClick={() => void openReadingBacklog(task)} className="app-secondary flex min-h-[58px] items-center justify-between bg-white px-4 text-left">
                   <span><strong>{formatTaskDate(task.date)}阅读</strong><small className="mt-1 block text-slate-500">{task.status === 'in_progress' ? '继续上次进度' : '未开始'}</small></span>
                   <span className="text-[#007aff]">{task.status === 'in_progress' ? '继续' : '开始'} →</span>
                 </button>
               ))}
               {learningBacklog.map((task) => (
-                <button key={`words-${task.sessionId}`} disabled={starting} onClick={() => navigate(`${ROUTES.coachLearn}?date=${encodeURIComponent(task.date)}`)} className="app-secondary flex min-h-[58px] items-center justify-between bg-white px-4 text-left">
+                <button key={`words-${task.sessionId}`} aria-label={`${formatTaskDate(task.date)}新词补做，已学 ${task.completed} / ${task.target}`} disabled={starting} onClick={() => navigate(`${ROUTES.coachLearn}?date=${encodeURIComponent(task.date)}`)} className="app-secondary flex min-h-[58px] items-center justify-between bg-white px-4 text-left">
                   <span><strong>{formatTaskDate(task.date)}新词</strong><small className="mt-1 block text-slate-500">{task.completed} / {task.target}</small></span>
                   <span className="text-[#007aff]">{task.status === 'in_progress' ? '继续' : '开始'} →</span>
                 </button>

@@ -22,6 +22,14 @@ describe('难度上限内没有例句时（2026-09-06 上线验收）', () => {
     ];
     expect(contextForEncounter(mixed, 1, 1)?.id).toBe('short');
   });
+  it('真句优先于释义模板句', () => {
+    const mixed = [
+      { id: 'tpl', kind: 'short_same_meaning', position: 1, sentence: 'The word "x" refers to y.', translation: 'x', difficulty: 2, provider: 'definition_template+azure_translator' },
+      { id: 'real', kind: 'alternate_topic', position: 1, sentence: 'A real sentence.', translation: '真句。', difficulty: 3, provider: 'tatoeba+azure_translator' },
+    ];
+    expect(contextForEncounter(mixed, 2, 5)?.id).toBe('real');
+  });
+
   it('一条都没有才是 null', () => {
     expect(contextForEncounter([], 1, 1)).toBeNull();
   });

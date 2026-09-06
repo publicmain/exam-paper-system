@@ -14,7 +14,7 @@ import {
 } from './official-wordlists';
 import { canonicalPos, inferPosFromTranslation, senseKey, translationForPos } from './sense-content';
 import { normaliseDailyTarget, planDailyTask, type PlannerCandidate, type V2Source } from './daily-planner';
-import { contextForEncounter } from './context-progression';
+import { contextForEncounter, isTemplateContext } from './context-progression';
 import { initialStageForAction, type LearningCardAction } from './learning-card';
 import { answerFormalQuestion, buildFormalQuestion, hideFormalAnswer, type FormalQuestion, type FrozenCard } from './formal-test';
 import { answerAdaptiveQuestion, buildAdaptiveQuestion, hideAdaptiveAnswer, type AdaptiveCard, type AdaptiveQuestion } from './adaptive-test';
@@ -821,7 +821,11 @@ export class VocabularyV2Service {
       translation: row.sense.translation,
       definition: row.sense.definition,
       sentence: context?.sentence ?? null,
-      sentenceTranslation: context?.translation ?? null,
+      // 释义模板句的机翻会把词本身译错（objective →「客观」）；中文直接按所教词义写
+      //（2026-09-06 上线验收 中级档 B-2）。
+      sentenceTranslation: context && isTemplateContext(context)
+        ? `“${row.sense.lexeme.headword}” 在这里的意思：${String(row.sense.translation ?? '').split(/\n+/)[0].replace(/^[a-z]{1,5}\.\s*/i, '').trim()}`
+        : (context?.translation ?? null),
       contextKind: context?.kind ?? null,
       collocations: asStrings(row.sense.collocations),
       wordFamily: asStrings(row.sense.wordFamily),

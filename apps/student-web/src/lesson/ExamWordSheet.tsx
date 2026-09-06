@@ -110,6 +110,14 @@ export function ExamWordSheet({
   onFill: (questionId: string, word: string, append: boolean) => void;
   onClose: () => void;
 }) {
+  // Esc 关卡片（2026-09-06 上线验收 B-6）
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onClose();
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [onClose]);
   const [phase, setPhase] = useState<LookupPhase>({ s: 'idle' });
   const [coachChoice, setCoachChoice] = useState<'idle' | 'saving' | 'learn' | 'known' | 'later' | 'lookup_only' | 'failed'>('idle');
 

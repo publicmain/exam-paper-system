@@ -127,7 +127,10 @@ export default function AccountPage() {
         {/* 页头就有回去的路（2026-09-06 第五轮盲测 22） */}
         <Link to={ROUTES.today} className="inline-block mb-3 text-sm text-blue-600">← 首页</Link>
         <h1 className="text-xl font-semibold mb-1">账号</h1>
-        <p className="text-sm text-slate-500 mb-6">{who}</p>
+        <p className="text-sm text-slate-500 mb-3">{who}</p>
+        <button type="button" onClick={() => logout()} className="mb-6 min-h-[44px] rounded-xl border border-slate-300 px-4 text-sm text-slate-700">
+          退出登录
+        </button>
 
         <section data-testid="level-box" className="mb-8">
           <h2 className="text-base font-medium mb-1">英语难度</h2>
@@ -182,9 +185,7 @@ export default function AccountPage() {
           <Link to={ROUTES.today} className="text-blue-600 underline">
             ← 首页
           </Link>
-          <button onClick={() => logout()} className="text-slate-500 underline">
-            退出登录
-          </button>
+
         </div>
       </Card>
     </Screen>

@@ -366,8 +366,11 @@ export function IELTSReadingPassage({ paper }: { paper: ExamPaper }) {
                   </div>
                 </div>
               ) : (
-                <div data-testid="lookup-hint-compact" className="text-[13px] text-gray-600 mb-3 leading-relaxed">
-                  轻点一个单词可以查词；拖选文字可以加高亮，点高亮可移除。
+                // 和上面的蓝条同样的内外边距、同样两行 —— 缩回时正文不上移
+                //（2026-09-06 上线验收：提示条在学生点词时收成一行，点到了下一行的词）
+                <div data-testid="lookup-hint-compact" className="mb-3 rounded-xl bg-gray-50 px-4 py-3 text-[14px] text-gray-600 leading-relaxed">
+                  <div>轻点一个单词可以查词</div>
+                  <div className="text-[13px] text-gray-500 mt-0.5">拖选文字可以加高亮，点高亮可移除。</div>
                 </div>
               )}
               <Highlighter

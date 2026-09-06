@@ -50,11 +50,16 @@ describe('posLabel / posPrefixFor —— 2026-09-05 盲测 P2-10', () => {
 describe('cleanDefinition —— 2026-09-06 第五轮复测 15', () => {
   it('每行开头的 a. / s. / n / v / r 换成学生认识的缩写，行保留', () => {
     expect(cleanDefinition('a. acting or arriving exactly at the time appointed')).toBe('adj. acting or arriving exactly at the time appointed');
-    expect(cleanDefinition('n a state in the US\\nv have the quality of being\\ns. very light colored\\nr in a pale manner'))
-      .toBe('n. a state in the US\nv. have the quality of being\nadj. very light colored\nadv. in a pale manner');
+    expect(cleanDefinition('n a piece of land\\nv have the quality of being\\ns. very light colored\\nr in a pale manner'))
+      .toBe('n. a piece of land\nv. have the quality of being\nadj. very light colored\nadv. in a pale manner');
   });
   it('不认识的开头原样保留', () => {
     expect(cleanDefinition('to hit something')).toBe('to hit something');
+  });
+  it('人名 / 地名义项去掉；全是这种时保留原文（2026-09-06 上线验收）', () => {
+    expect(cleanDefinition('n grains used as food\\nn English lyricist who frequently worked with Andrew Lloyd Webber (born in 1944)\\nn United States playwright (1892-1967)'))
+      .toBe('n. grains used as food');
+    expect(cleanDefinition('n a low-lying region in central France')).toBe('n. a low-lying region in central France');
   });
 });
 
