@@ -195,6 +195,15 @@ export type V2PublicQuestion =
   | { type: 'collocation'; prompt: string; cue: { headword: string }; options: string[]; answer?: number }
   | { type: 'word_family'; prompt: string; cue: { headword: string; pos: string }; options: string[]; answer?: string[] };
 
+/** 历史成绩页用：一次已交卷的正式单词测试。 */
+export type V2FormalTestRow = {
+  sessionId: string;
+  date: string;
+  total: number;
+  correct: number;
+  completedAt: string | null;
+};
+
 export type V2TestSession = {
   id: string;
   version: string;
@@ -691,6 +700,10 @@ export const api = {
   /** 正式单词测试历史。同样不带查询串。 */
   vocabQuizAttempts: (token: string) =>
     request<VocabAttemptHistory>('GET', '/vocab/quiz/attempts', { token }),
+
+  /** 新版正式单词测试的历史（已交卷的 formal_test），每条能点开逐题回顾。 */
+  vocabV2Tests: (token: string) =>
+    request<{ tests: V2FormalTestRow[] }>('GET', '/vocab-v2/tests', { token }),
 
   /**
    * 一份阅读答卷的逐题回顾。

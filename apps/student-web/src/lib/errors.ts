@@ -131,5 +131,4 @@ export function changePasswordErrorText(e: unknown): string {
  *（`token_revoked`）。学生的下一步是**重新注册**（重置清掉了密码），
  * 所以这句话要把人指向注册，而不是让他反复试密码。
  */
-export const REVOKED_NOTICE =
-  '你的登录已失效 —— 可能是老师重置了你的密码。重新设一次密码就好。';
+export const REVOKED_NOTICE = '你的登录已失效。如果老师重置了你的密码，重新设一次密码就好；不然直接重新登录。';

@@ -120,6 +120,7 @@ const lessonToday = {
 
 let historyReply: () => Promise<Response>;
 let attemptsReply: () => Promise<Response>;
+let testsReply: () => Promise<Response>;
 let fetchMock: ReturnType<typeof vi.fn>;
 
 function installFetch() {
@@ -136,6 +137,7 @@ function installFetch() {
     if (path === '/lesson/today') return jsonResponse(200, lessonToday);
     if (path.split('?')[0] === '/morning-quiz/history-by-name') return historyReply();
     if (path.split('?')[0] === '/vocab/quiz/attempts') return attemptsReply();
+    if (path.split('?')[0] === '/vocab-v2/tests') return testsReply();
     return jsonResponse(404, { code: 'not_stubbed', path });
   });
   vi.stubGlobal('fetch', fetchMock);
@@ -179,6 +181,7 @@ beforeEach(() => {
   writeToken(TOKEN);
   historyReply = () => jsonResponse(200, history([sub()]));
   attemptsReply = () => jsonResponse(200, { attempts: [attempt()] });
+  testsReply = () => jsonResponse(200, { tests: [] });
   installFetch();
 });
 
@@ -198,15 +201,30 @@ describe('AC-03 路由契约', () => {
   });
 });
 
+describe('新版正式单词测试（2026-09-06 上线验收 P0）', () => {
+  it('已交卷的 formal_test 出现在「正式单词测试」，带逐题回顾入口', async () => {
+    testsReply = () => jsonResponse(200, { tests: [{ sessionId: 'v2s1', date: '2026-09-04', total: 9, correct: 8, completedAt: '2026-09-06T06:18:59.974Z' }] });
+    attemptsReply = () => jsonResponse(200, { attempts: [] });
+    mount();
+    await settle();
+    const row = screen.getByTestId('v2-test-v2s1');
+    expect(row.textContent).toContain('答对 8 / 9');
+    expect(row.textContent).toContain('2026-09-04');
+    expect(row.querySelector('a')?.getAttribute('href')).toBe('/coach/test?sessionId=v2s1');
+    expect(screen.queryByTestId('quiz-empty')).toBeNull();
+  });
+});
+
 describe('AC-04 API 与身份边界', () => {
-  it('**恰好两个 GET**：history-by-name 与 vocab/quiz/attempts，各一次', async () => {
+  it('**恰好三个 GET**：history-by-name、vocab/quiz/attempts、vocab-v2/tests，各一次', async () => {
     mount();
     await settle();
 
     expect(at()).toBe(SCORES);
     expect(calls('/morning-quiz/history-by-name')).toHaveLength(1);
     expect(calls('/vocab/quiz/attempts')).toHaveLength(1);
-    for (const p of ['/morning-quiz/history-by-name', '/vocab/quiz/attempts']) {
+    expect(calls('/vocab-v2/tests')).toHaveLength(1);
+    for (const p of ['/morning-quiz/history-by-name', '/vocab/quiz/attempts', '/vocab-v2/tests']) {
       const c = calls(p)[0];
       expect(c.method).toBe('GET');
       expect(c.headers.Authorization).toBe(`Bearer ${TOKEN}`);

@@ -39,6 +39,7 @@ import { handleAuthFailure } from '../lib/auth-store';
 import { readToken } from '../lib/identity';
 import { ROUTES, scoreDetailPath } from '../routes.contract';
 import { Button, Card, Notice, Screen, TopBar } from '../ui';
+import type { V2FormalTestRow } from '../lib/api';
 
 // ─────────────────────────────────────────────────────────────
 // 纯逻辑（导出给测试直接驱动）
@@ -96,7 +97,7 @@ export function stateLine(row: ReadingHistoryRow): string {
 // 页面
 // ─────────────────────────────────────────────────────────────
 
-type Data = { reading: ReadingHistoryRow[]; attempts: VocabAttemptRow[] };
+type Data = { reading: ReadingHistoryRow[]; attempts: VocabAttemptRow[]; tests: V2FormalTestRow[] };
 
 type Phase =
   | { s: 'loading' }
@@ -116,10 +117,12 @@ export default function ScoresPage() {
     const mine = ++gen.current;
     setPhase({ s: 'loading' });
     try {
-      // 两条互不依赖 —— 并发发，各一次。
-      const [history, quiz] = await Promise.all([
+      // 三条互不依赖 —— 并发发，各一次。新版正式单词测试走 /vocab-v2/tests
+      //（2026-09-06 上线验收 P0：只读旧版 attempts，新版测试在这页看不见）。
+      const [history, quiz, v2] = await Promise.all([
         api.readingHistory(token),
         api.vocabQuizAttempts(token),
+        api.vocabV2Tests(token),
       ]);
       if (mine !== gen.current) return;
       setPhase({
@@ -127,6 +130,7 @@ export default function ScoresPage() {
         data: {
           reading: formalRows(history.submissions ?? []),
           attempts: quiz.attempts ?? [],
+          tests: v2.tests ?? [],
         },
       });
     } catch (e) {
@@ -167,7 +171,7 @@ export default function ScoresPage() {
     );
   }
 
-  const { reading, attempts } = phase.data;
+  const { reading, attempts, tests } = phase.data;
 
   return (
     <Screen>
@@ -217,14 +221,32 @@ export default function ScoresPage() {
           )}
         </section>
 
-        {/* ② 正式单词测试 —— 这一版没有逐题回顾，所以没有详情入口 */}
+        {/* ② 正式单词测试 —— 新版（可点开逐题回顾）在前，旧版测验在后 */}
         <section data-testid="quiz-section">
           <h2 className="text-base font-medium mb-2">正式单词测试</h2>
-          {attempts.length === 0 ? (
+          {tests.length > 0 && (
+            <ul data-testid="v2-test-list" className="flex flex-col gap-2 mb-2">
+              {tests.map((t) => (
+                <li key={t.sessionId} data-testid={`v2-test-${t.sessionId}`} className="rounded-xl bg-slate-50 px-4 py-3">
+                  <div className="flex items-baseline justify-between gap-3 text-sm">
+                    <span className="font-medium tabular-nums">答对 {t.correct} / {t.total}</span>
+                    <span className="text-slate-500 tabular-nums shrink-0">{t.date}</span>
+                  </div>
+                  <Link
+                    to={`${ROUTES.coachTest}?sessionId=${encodeURIComponent(t.sessionId)}`}
+                    className="mt-1 inline-block text-sm text-blue-600"
+                  >
+                    看逐题回顾 →
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          )}
+          {attempts.length === 0 && tests.length === 0 ? (
             <p data-testid="quiz-empty" className="rounded-xl bg-slate-50 px-4 py-3 text-sm text-slate-500">
               还没有单词测试成绩。
             </p>
-          ) : (
+          ) : attempts.length === 0 ? null : (
             <ul className="flex flex-col gap-2">
               {attempts.map((a) => (
                 <li

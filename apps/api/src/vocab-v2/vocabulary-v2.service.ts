@@ -1588,6 +1588,28 @@ export class VocabularyV2Service {
     return this.testSessionView(session);
   }
 
+  /**
+   * 历史成绩页的「正式单词测试」：已交卷的 formal_test 会话，按日期倒序。
+   *（2026-09-06 上线验收 P0：那页原来读旧版 VocabQuizAttempt，新版测试根本不出现。）
+   */
+  async listFormalTests(studentId: string) {
+    const rows = await this.prisma.vocabularyV2Session.findMany({
+      where: { studentId, sessionType: 'formal_test', status: 'submitted' },
+      orderBy: [{ date: 'desc' }, { completedAt: 'desc' }],
+      take: 60,
+      include: { items: { select: { isCorrect: true } } },
+    });
+    return {
+      tests: rows.map((row) => ({
+        sessionId: row.id,
+        date: row.date.toISOString().slice(0, 10),
+        total: row.target,
+        correct: row.items.filter((item) => item.isCorrect === true).length,
+        completedAt: row.completedAt ? row.completedAt.toISOString() : null,
+      })),
+    };
+  }
+
   private testSessionView(session: any) {
     const submitted = session.status === 'submitted';
     const answered = session.items.filter((item: any) => item.status === 'answered').length;

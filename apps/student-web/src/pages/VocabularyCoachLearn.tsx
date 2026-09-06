@@ -142,7 +142,7 @@ export default function VocabularyCoachLearnPage() {
             <p className="text-xs font-medium uppercase tracking-wider text-slate-400">理解并学习</p>
             <div className="mt-3 flex flex-wrap items-baseline gap-3"><h1 className="text-4xl font-semibold tracking-tight sm:text-5xl">{card.headword}</h1><button className="hit rounded-full bg-blue-50 px-3 text-blue-700" onClick={() => speak(card.audioText)} aria-label="播放发音">▶</button><span className="text-slate-500">{formatPhonetic(card.phonetic)}</span></div>
             <p className="mt-5 text-xl whitespace-pre-wrap">{posPrefixFor(card.pos, card.translation)}{cleanTranslation(card.translation)}</p><p className="mt-2 text-base leading-7 text-slate-600">{card.definition}</p>
-            <div className="mt-5 rounded-2xl bg-slate-50 p-5"><p className="font-serif text-lg leading-8">{card.sentence}</p><p className="mt-3 text-sm leading-6 text-slate-500">{card.sentenceTranslation}</p></div>
+            {card.sentence ? <div className="mt-5 rounded-2xl bg-slate-50 p-5"><p className="font-serif text-lg leading-8">{card.sentence}</p>{card.sentenceTranslation ? <p className="mt-3 text-sm leading-6 text-slate-500">{card.sentenceTranslation}</p> : null}</div> : null}
             {card.imageUrl ? <img src={card.imageUrl} alt={`${card.headword} 的辅助图片`} className="mt-5 max-h-56 w-full rounded-2xl object-cover" /> : null}
             {connections.length > 0 ? <div className="mt-5 grid gap-3 sm:grid-cols-2">{connections.map((connection) => <Connection key={connection.label} {...connection} />)}</div> : null}
           </section>

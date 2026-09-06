@@ -146,6 +146,14 @@ export class VocabularyV2Controller {
     return this.service.overview(studentIdOf(req));
   }
 
+  /** 历史成绩页：已交卷的正式单词测试（2026-09-06 上线验收 P0：原来只读旧版测验表）。 */
+  @Public()
+  @RequireStudentToken()
+  @Get('tests')
+  tests(@Req() req: Request) {
+    return this.service.listFormalTests(studentIdOf(req));
+  }
+
   @Public()
   @RequireStudentToken()
   @RateLimit({ limit: 30, windowSec: 60, scope: 'ip' })

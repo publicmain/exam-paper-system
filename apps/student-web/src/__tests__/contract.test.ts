@@ -510,6 +510,7 @@ describe('G1 新端不得出现旧路由与旧身份键', () => {
     '/vocab-v2/center',
     '/vocab-v2/daily',
     '/vocab-v2/overview',
+    '/vocab-v2/tests',
     '/vocab-v2/daily/start',
     '/vocab-v2/daily/item',
     '/vocab-v2/daily/replace',

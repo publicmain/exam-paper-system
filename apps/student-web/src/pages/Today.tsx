@@ -315,7 +315,7 @@ export default function TodayPage() {
         : vocabOverview.today ? '继续学习今天的新词' : '学习今天的新词'
     : d.nextAction.label;
   const stayLabel = learningAction && weekendNoVocab
-    ? `今天的阅读做完了。${WEEKEND_VOCAB_NOTE}。`
+    ? `今天的阅读做完了。${WEEKEND_VOCAB_NOTE}。${learningBacklog.length > 0 ? '上面的补做任务可以先做。' : ''}`
     : !teachingDay && (d.nextAction.kind === 'no_content' || d.nextAction.kind === 'none')
       ? '周六周日没有课，周一见。想练的话可以去「我的单词」抽查。'
       : d.nextAction.label;
