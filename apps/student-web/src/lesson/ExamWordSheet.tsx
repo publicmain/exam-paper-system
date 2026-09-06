@@ -381,7 +381,7 @@ export function ExamWordSheet({
               )}
               {coachChoice !== 'idle' && coachChoice !== 'saving' ? (
                 <p role="status" data-testid="word-sheet-coach-status" className={`mt-2 text-xs ${coachChoice === 'failed' ? 'text-rose-600' : 'text-emerald-700'}`}>
-                  {coachChoice === 'learn' ? '已加入我的单词，今天就算学过一次，复习时会先排它。' : coachChoice === 'known' ? '已标记为会，以后不会作为新词推送。' : coachChoice === 'later' ? '先收进我的单词，不算学过；下次复习或抽查时再练。' : coachChoice === 'lookup_only' ? '本次只查询，没有加入。' : '没有保存，请重试。'}
+                  {coachChoice === 'learn' ? '已加入我的单词，复习时会先排它。' : coachChoice === 'known' ? '已标记为会，以后不会作为新词推送。' : coachChoice === 'later' ? '先收进我的单词，不算学过；下次复习或抽查时再练。' : coachChoice === 'lookup_only' ? '本次只查询，没有加入。' : '没有保存，请重试。'}
                 </p>
               ) : coachChoice === 'saving' ? <p className="mt-2 text-xs text-slate-500">正在保存选择…</p> : null}
             </section>

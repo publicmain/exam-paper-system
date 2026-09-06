@@ -470,9 +470,28 @@ const INSTRUCTION_GIST: Record<string, string> = {
  * 随时可看，但不再默认占据四分之一屏。没有对应摘要的题型（含未来新增的）
  * 直接照旧显示英文全文，不做任何猜测。
  */
+/**
+ * 中文概括要跟英文原文一致：原文说 ONE WORD ONLY，概括不能写「不超过两个词」
+ *（2026-09-06 复测：学生按中文填两个词会被判错）。
+ */
+export function gistFor(taskType: string | undefined, text: string): string | undefined {
+  const base = taskType ? INSTRUCTION_GIST[taskType] : undefined;
+  if (!base) return undefined;
+  const limit = /ONE\s+WORD\s+ONLY/i.test(text)
+    ? '只填一个词'
+    : /NO\s+MORE\s+THAN\s+TWO\s+WORDS/i.test(text)
+      ? '不超过两个词'
+      : /NO\s+MORE\s+THAN\s+THREE\s+WORDS/i.test(text)
+        ? '不超过三个词'
+        : null;
+  const number = /AND\s*\/\s*OR\s+A\s+NUMBER/i.test(text) ? '（可以是数字）' : '';
+  if (!limit) return base;
+  return base.replace(/，不超过两个词$/, `，${limit}${number}`);
+}
+
 function InstructionBlock({ text, taskType }: { text: string; taskType?: string }) {
   const [open, setOpen] = useState(false);
-  const gist = taskType ? INSTRUCTION_GIST[taskType] : undefined;
+  const gist = gistFor(taskType, text);
   const fs = { fontSize: `calc(0.9375rem * var(--mq-fs, 1))` };
 
   if (!gist) {
@@ -510,9 +529,14 @@ function TaskGroupView({ group, gi }: { group: TaskGroup; gi: number }) {
           <span className="text-gray-300">·</span>
           <span className="font-mono text-gray-500">Q{range}</span>
         </div>
-        {group.instruction && (
+        {group.instruction ? (
           <InstructionBlock text={clean(group.instruction)} taskType={group.taskType} />
-        )}
+        ) : group.taskType === 'short_answer' ? (
+          // 简答段没有英文指令行时也给一句中文（2026-09-06 复测：四段里只有它光秃秃的）
+          <p className="mt-2 text-gray-700 leading-relaxed" style={{ fontSize: `calc(0.9375rem * var(--mq-fs, 1))` }}>
+            用自己的话回答，写完整的句子
+          </p>
+        ) : null}
       </header>
       {group.bank && (
         <div className="px-4 lg:px-5 py-3 bg-amber-50/60 border-b border-amber-100">
@@ -720,6 +744,31 @@ function QuestionItem({
     case 'flow_chart_completion':
     case 'diagram_label_completion':
     case 'short_answer': {
+      // 2026-09-06 复测 P0：首发周的 O-Level / 简化雅思填空是「填空转四选一」
+      // （questionType=mcq、带四个选项），这里却按 completion 渲染成文本框，
+      // 学生填了原文原词、判分端拿字母比对 → 判错。有选项就渲染选项。
+      if (q.questionType === 'mcq' && Array.isArray(q.snapshotOptions) && q.snapshotOptions.length > 0) {
+        const opts = q.snapshotOptions;
+        return (
+          <>
+            <div
+              className="text-gray-800 mb-2.5 whitespace-pre-wrap leading-snug"
+              style={{ fontSize: `calc(1rem * var(--mq-fs, 1))` }}
+            >
+              {itemNode}
+            </div>
+            <RadioGroup
+              name={`q-${q.id}`}
+              options={opts}
+              value={answer?.selectedOption}
+              onChange={(opt) => {
+                const text = opts.find((o) => o.key === opt)?.text ?? '';
+                setAnswer(q.id, { selectedOption: opt, textAnswer: text });
+              }}
+            />
+          </>
+        );
+      }
       // 2.0 —— 单行框 vs 多行框。
       //
       // 雅思的 completion / short_answer 答案是「不超过两个词」，单行框正好；

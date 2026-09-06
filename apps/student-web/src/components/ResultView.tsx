@@ -42,6 +42,7 @@ import { handleAuthFailure } from '../lib/auth-store';
 import { readToken } from '../lib/identity';
 import { dateTimeLabel, statusLabel } from '../lib/format';
 import { DraggableSplit } from '../lesson/shared/DraggableSplit';
+import { splitStem } from '../lesson/shared/textUtils';
 
 // ─────────────────────────────────────────────────────────────
 // 纯逻辑（导出给测试直接驱动）
@@ -259,6 +260,12 @@ function stemOf(item: ReadingResultItem): string {
   return typeof c.stem === 'string' ? c.stem : '';
 }
 
+/** 题干 = 指令（空行以上）+ 题目（空行以下）；与作答页 `splitStem` 同一口径。 */
+export function stemPartsOf(item: ReadingResultItem): { instruction: string; text: string } {
+  const { instruction, item: text } = splitStem(stemOf(item));
+  return { instruction, text };
+}
+
 // ─────────────────────────────────────────────────────────────
 // 组件
 // ─────────────────────────────────────────────────────────────
@@ -382,6 +389,12 @@ export function ResultView({
                   key={item.paperQuestionId}
                   item={item}
                   index={i + 1}
+                  // 段指令只在本段第一题上方出现一次（2026-09-06 复测：结果页每题都重复）
+                  instruction={(() => {
+                    const cur = stemPartsOf(item).instruction;
+                    const prev = i > 0 ? stemPartsOf(result.items[i - 1]).instruction : '';
+                    return cur && cur !== prev ? cur : null;
+                  })()}
                   scoresPending={result.scoresPending}
                   answersPending={result.answersPending}
                   submissionId={submissionId}
@@ -402,6 +415,7 @@ export function ResultView({
 function ResultItemCard({
   item,
   index,
+  instruction = null,
   scoresPending,
   answersPending,
   submissionId,
@@ -409,6 +423,8 @@ function ResultItemCard({
 }: {
   item: ReadingResultItem;
   index: number;
+  /** 本段指令；只有段首那一题才传。 */
+  instruction?: string | null;
   scoresPending: boolean;
   answersPending: boolean;
   submissionId: string;
@@ -439,8 +455,11 @@ function ResultItemCard({
         )}
       </header>
 
-      {stemOf(item) && (
-        <p className="text-base text-slate-900 whitespace-pre-wrap leading-relaxed mb-3">{stemOf(item)}</p>
+      {instruction && (
+        <p data-testid={`instruction-${item.paperQuestionId}`} className="text-sm text-slate-500 whitespace-pre-wrap leading-relaxed mb-2 pl-3 border-l-2 border-slate-200">{instruction}</p>
+      )}
+      {stemPartsOf(item).text && (
+        <p className="text-base text-slate-900 whitespace-pre-wrap leading-relaxed mb-3">{stemPartsOf(item).text}</p>
       )}
 
       {item.snapshotOptions && item.snapshotOptions.length > 0 && (

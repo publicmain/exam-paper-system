@@ -100,7 +100,7 @@ export function StickyNoteRail({
             if (t !== null) onAdd(t);
           }}
         >
-          + Add
+          + 添加
         </button>
       </div>
       {open && notes.length > 0 && (

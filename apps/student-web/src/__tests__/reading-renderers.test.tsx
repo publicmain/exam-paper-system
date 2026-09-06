@@ -628,3 +628,62 @@ describe('B2 窄屏两块同时在文档流里', () => {
     ).toBeTruthy();
   });
 });
+
+describe('2026-09-06 复测：填空转四选一、指令概括、段落标签', () => {
+  it('**completion 题带选项（questionType=mcq）→ 渲染选项，不是文本框**', async () => {
+    mount(
+      paper({
+        paperMode: 'passage_pick',
+        questions: [
+          q({
+            id: 'gap',
+            questionType: 'mcq',
+            snapshotContent: { taskType: 'sentence_completion', stem: 'Complete the sentence with ONE WORD ONLY from the passage.\n\nHe carried a ______.', passage: 'P' },
+            snapshotOptions: [
+              { key: 'A', text: 'briefcase' },
+              { key: 'B', text: 'umbrella' },
+              { key: 'C', text: 'folder' },
+              { key: 'D', text: 'notebook' },
+            ],
+          }),
+        ],
+      }),
+    );
+    expect(screen.queryByPlaceholderText(/Your answer/i)).toBeNull();
+    const radios = screen.getAllByRole('radio');
+    expect(radios).toHaveLength(4);
+    expect(radios.every((r) => (r as HTMLInputElement).name === 'q-gap')).toBe(true);
+    await act(async () => {
+      fireEvent.click(radios[0]);
+    });
+    expect((radios[0] as HTMLInputElement).checked).toBe(true);
+    // 中文概括跟英文一致：ONE WORD ONLY → 只填一个词
+    expect(screen.getByText(/只填一个词/)).toBeInTheDocument();
+    expect(screen.queryByText(/不超过两个词/)).toBeNull();
+  });
+
+  it('**completion 题没有选项 → 仍是文本框**', () => {
+    mount(
+      paper({
+        paperMode: 'passage_pick',
+        questions: [
+          q({ id: 'sa', questionType: 'short_answer', snapshotContent: { taskType: 'sentence_completion', stem: 'Complete the sentence. Choose NO MORE THAN TWO WORDS from the passage.\n\nTea was made with ______ water.', passage: 'P' } }),
+        ],
+      }),
+    );
+    expect(screen.queryAllByRole('radio')).toHaveLength(0);
+    expect(screen.getByText(/不超过两个词/)).toBeInTheDocument();
+  });
+
+  it('**简答段没有指令行 → 段头仍有一句中文提示**', () => {
+    mount(
+      paper({
+        paperMode: 'passage_pick',
+        questions: [
+          q({ id: 's1', questionType: 'short_answer', marks: 2, snapshotContent: { taskType: 'short_answer', stem: 'Explain why he left.', passage: 'P' } }),
+        ],
+      }),
+    );
+    expect(screen.getByText(/用自己的话回答/)).toBeInTheDocument();
+  });
+});

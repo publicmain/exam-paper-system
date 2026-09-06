@@ -29,7 +29,14 @@ export function reflowPassage(s: string): string {
   if (!s) return '';
   const blocks = s.replace(/\r\n/g, '\n').split(/\n\s*\n/);
   const out = blocks
-    .map((b) => b.replace(/\n+/g, ' ').replace(/\s{2,}/g, ' ').trim())
+    .map((b) => {
+      // 内容包每段第一行是「Paragraph 1」这类标签，单换行会被下面折成空格、
+      // 和正文粘成一行（2026-09-06 复测）。标签留在自己那一行。
+      const m = b.match(/^\s*(Paragraph\s+[0-9A-H]+)\s*\n([\s\S]*)$/i);
+      const label = m ? m[1] : null;
+      const body = (m ? m[2] : b).replace(/\n+/g, ' ').replace(/\s{2,}/g, ' ').trim();
+      return label ? `${label}\n${body}` : body;
+    })
     .filter(Boolean)
     .join('\n\n');
   // Conservative re-injection of IELTS paragraph labels: ONLY when the

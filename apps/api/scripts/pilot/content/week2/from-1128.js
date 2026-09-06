@@ -56,6 +56,20 @@ const FIXTURES = path.resolve(__dirname, '..', '..', '..', '..', 'test-fixtures'
  * 换成一句短指令，两个问题一起消失。选项库本来就由 IELTS 外壳单独渲染
  * 一次，指令里不必再列一遍。
  */
+/**
+ * 配对题题干只写「时刻」：段指令已经说了「为每个时刻选最贴切的词」，题干再来一遍
+ * "What best describes the narrator's dominant feeling …" 是重复（2026-09-06 复测）。
+ * "…feeling at the end of Paragraph 3, when he tells himself…?" → "At the end of
+ * Paragraph 3, when he tells himself…"
+ */
+function momentOnly(stem) {
+  const m = String(stem).match(/^What best describes (?:the )?[\w']+ dominant feeling\s+((?:in|at the end of|at the start of|at)\s+Paragraph\s+\d+)[,:]?\s*(.*)$/i);
+  if (!m) return stem;
+  const where = m[1].charAt(0).toUpperCase() + m[1].slice(1);
+  const rest = m[2].replace(/\?\s*$/, '').trim();
+  return rest ? `${where}, ${rest.replace(/\.?$/, '.')}` : `${where}.`;
+}
+
 const MATCHING_INSTRUCTION =
   'The narrator’s dominant feeling changes as the story goes on. For each moment below, choose the word from the list that best describes it.';
 
@@ -176,7 +190,7 @@ function buildDay(spec, date) {
       marks,
       options: bank,
       answer: keys[i],
-      stem: `${MATCHING_INSTRUCTION}\n\n${tidyStem(q.stem)}`,
+      stem: `${MATCHING_INSTRUCTION}\n\n${momentOnly(tidyStem(q.stem))}`,
       evidence: paragraphAt(passage, spec.matchingParas[i]),
       explanation: `这一段里主导的情绪与选项 ${keys[i]}（${answerTexts[i]}）最吻合。`,
     };

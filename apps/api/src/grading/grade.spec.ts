@@ -70,3 +70,25 @@ describe('gradeMcq (deterministic core)', () => {
     expect(r.awardedMarks).toBe(0);
   });
 });
+
+describe('gradeMcq —— 文本框里填了选项文字（2026-09-06 复测 P0）', () => {
+  const opts = [
+    { key: 'A', text: 'briefcase', correct: true },
+    { key: 'B', text: 'umbrella', correct: false },
+    { key: 'C', text: 'folder', correct: false },
+    { key: 'D', text: 'notebook', correct: false },
+  ];
+  it('填的词等于正确选项的文字 → 算选了它，给分', () => {
+    const r = gradeMcq({ marks: 1, selectedOption: null, textAnswer: 'Briefcase.', snapshotOptions: opts, snapshotContent: {}, questionOptions: null, answerContent: null } as any);
+    expect(r.isCorrect).toBe(true);
+    expect(r.awardedMarks).toBe(1);
+  });
+  it('填的词等于错误选项的文字 → 0 分', () => {
+    const r = gradeMcq({ marks: 1, selectedOption: null, textAnswer: 'umbrella', snapshotOptions: opts, snapshotContent: {}, questionOptions: null, answerContent: null } as any);
+    expect(r.isCorrect).toBe(false);
+  });
+  it('填的词哪个选项都不是 → 0 分，不猜', () => {
+    const r = gradeMcq({ marks: 1, selectedOption: null, textAnswer: 'bag', snapshotOptions: opts, snapshotContent: {}, questionOptions: null, answerContent: null } as any);
+    expect(r.isCorrect).toBe(false);
+  });
+});

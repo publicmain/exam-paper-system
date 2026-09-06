@@ -104,6 +104,14 @@ export function gradeMcq(input: McqGradeInput): GradeOutcome {
       const matchedKey = optKeys.find((k) => k.toUpperCase() === cu);
       if (matchedKey) selected = matchedKey;
     }
+    // 2026-09-06 复测 P0：填空转四选一的题在旧客户端上是文本框，学生填的是
+    // 选项**文字**（"briefcase"），不是字母。文字对上唯一一个选项就算选了它。
+    if (selected == null && candidate.length > 0) {
+      const textNorm = (s: unknown) => String(s ?? '').trim().toLowerCase().replace(/[.,;:!?'"()]+$/g, '').replace(/\s+/g, ' ');
+      const wanted = textNorm(candidate);
+      const byText = (Array.isArray(opts) ? opts : []).filter((o: any) => textNorm(o?.text) === wanted);
+      if (byText.length === 1) selected = String((byText[0] as any).key);
+    }
   }
 
   const selectedN = norm(selected);
