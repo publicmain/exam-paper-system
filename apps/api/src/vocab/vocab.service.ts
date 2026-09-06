@@ -128,10 +128,47 @@ export class VocabService {
       }
     }
     if (!hit) return null;
-    const contextTranslation = contextSentence?.trim() && this.realtime
-      ? await this.realtime.translate(contextSentence)
-      : null;
+    const sentence = contextSentence?.trim() ?? '';
+    // 内容包里人工过过的整句翻译优先；机翻只兜底
+    //（2026-09-06 复测：机翻把 "the remaining stock" 译成「剩余的菌株」）。
+    const curated = sentence ? await this.curatedSentenceTranslation(sentence) : null;
+    const contextTranslation = curated ?? (sentence && this.realtime ? await this.realtime.translate(sentence) : null);
     return { ...hit, contextTranslation };
+  }
+
+  private curatedCache: { at: number; map: Map<string, string> } | null = null;
+
+  /**
+   * 试点内容包每篇文章带 12 个主词 + 备用词的例句与人工翻译
+   * （`Paper.config.lessonWords[].context / contextTranslation`）。学生点到
+   * 这些句子时用人工翻译，不用机翻。十分钟缓存一次，卷子不多。
+   */
+  private async curatedSentenceTranslation(sentence: string): Promise<string | null> {
+    const norm = (s: string) => s.replace(/\s+/g, ' ').trim().toLowerCase();
+    if (!this.curatedCache || Date.now() - this.curatedCache.at > 10 * 60_000) {
+      const map = new Map<string, string>();
+      try {
+        const papers = await this.prisma.paper.findMany({
+          where: { id: { startsWith: 'p1_' } },
+          select: { config: true },
+        });
+        for (const paper of papers) {
+          const cfg = (paper.config ?? {}) as { lessonWords?: unknown; lessonWordReserves?: unknown };
+          for (const list of [cfg.lessonWords, cfg.lessonWordReserves]) {
+            if (!Array.isArray(list)) continue;
+            for (const w of list as Array<{ context?: unknown; contextTranslation?: unknown }>) {
+              if (typeof w?.context === 'string' && typeof w?.contextTranslation === 'string' && w.contextTranslation.trim()) {
+                map.set(norm(w.context), w.contextTranslation.trim());
+              }
+            }
+          }
+        }
+      } catch {
+        /* 读不到就只用机翻 */
+      }
+      this.curatedCache = { at: Date.now(), map };
+    }
+    return this.curatedCache.map.get(norm(sentence)) ?? null;
   }
 
   /**

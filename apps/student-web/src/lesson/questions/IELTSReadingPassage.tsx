@@ -424,6 +424,10 @@ export function IELTSReadingPassage({ paper }: { paper: ExamPaper }) {
           // 查词卡**不自己发保存请求**。
           const cur = answers[qid]?.textAnswer ?? '';
           setAnswer(qid, { textAnswer: append && cur ? `${cur.trim()} ${w}` : w });
+          // 焦点回到那道题的输入框，键盘用户不用重新找（2026-09-06 复测新发现 7）
+          setTimeout(() => {
+            document.querySelector<HTMLElement>(`#q-${CSS.escape(qid)} input, #q-${CSS.escape(qid)} textarea`)?.focus();
+          }, 0);
         }}
         onClose={closeWordSheet}
       />
@@ -657,6 +661,7 @@ function QuestionItem({
             {itemNode}
           </div>
           <RadioGroup
+            name={`q-${q.id}`}
             options={opts}
             value={answer?.selectedOption}
             onChange={(opt) => {
@@ -771,6 +776,7 @@ function QuestionItem({
               {itemNode}
             </div>
             <RadioGroup
+            name={`q-${q.id}`}
               options={q.snapshotOptions}
               value={answer?.selectedOption}
               onChange={(opt) => setAnswer(q.id, { selectedOption: opt })}
@@ -801,11 +807,14 @@ function RadioGroup({
   value,
   onChange,
   compact = false,
+  name,
 }: {
   options: ExamOption[];
   value: string | undefined;
   onChange: (key: string) => void;
   compact?: boolean;
+  /** 同一题的单选要成组：方向键能切、读屏能报「第几个 / 共几个」（2026-09-06 复测）。 */
+  name?: string;
 }) {
   // R10 follow-up — option text scales with the user's A+/A− setting via
   // the same `--mq-fs` CSS variable used elsewhere on this page. Default
@@ -848,6 +857,7 @@ function RadioGroup({
               checked={checked}
               onChange={() => onChange(opt.key)}
               className="mt-1 w-5 h-5"
+              name={name}
             />
             <span className="font-mono text-gray-500 w-6">{opt.key}.</span>
             <span className="flex-1 leading-snug">{clean(opt.text)}</span>

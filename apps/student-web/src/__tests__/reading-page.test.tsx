@@ -264,19 +264,24 @@ describe('AC-06 页面状态', () => {
     expect((screen.getByTestId('submit') as HTMLButtonElement).disabled).toBe(true);
   });
 
-  it('**有未落盘的写时交卷按钮是禁用的**', async () => {
+  it('**有未落盘的写时点交卷：先冲掉再弹确认，按钮不变灰**（2026-09-06 复测新发现 5）', async () => {
     vi.useFakeTimers();
     mount();
     await settle();
     await act(async () => {
       (screen.getAllByRole('radio')[0] as HTMLInputElement).click();
     });
-    expect((screen.getByTestId('submit') as HTMLButtonElement).disabled).toBe(true);
+    // 刚答完、自动保存还没发出去：按钮照样能点
+    expect((screen.getByTestId('submit') as HTMLButtonElement).disabled).toBe(false);
+    await act(async () => {
+      screen.getByTestId('submit').click();
+    });
     await act(async () => {
       vi.advanceTimersByTime(700);
     });
     await settle();
-    expect((screen.getByTestId('submit') as HTMLButtonElement).disabled).toBe(false);
+    expect(screen.getByRole('dialog')).toBeInTheDocument();
+    expect(calls('/answer')).toHaveLength(1);
   });
 
   it('**superseded → 冲突提示可关闭；重载失败 → 未证实且挡住交卷**', async () => {

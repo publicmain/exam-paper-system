@@ -362,6 +362,8 @@ export function ExamWordSheet({
           {/* 查词不自动收录；四个选择只写入统一的「我的单词」数据。 */}
           {phase.s === 'ok' ? (
             <section aria-label="我的单词选择" className="mb-3">
+              {coachChoice === 'idle' || coachChoice === 'saving' || coachChoice === 'failed' ? (
+              <>
               <p className="mb-2 text-xs text-slate-500">查词不会自动加入，你可以自己决定：</p>
               <div className="grid grid-cols-2 gap-2">
                 <button type="button" data-testid="word-sheet-coach-learn" disabled={coachChoice === 'saving'} onClick={() => void chooseCoachAction(gen.current, 'learn', phase.entry)} className="min-h-[44px] rounded-xl bg-blue-600 px-3 text-sm font-semibold text-white">加入我的单词</button>
@@ -369,6 +371,14 @@ export function ExamWordSheet({
                 <button type="button" data-testid="word-sheet-coach-later" disabled={coachChoice === 'saving'} onClick={() => void chooseCoachAction(gen.current, 'later', phase.entry)} className="min-h-[44px] rounded-xl border border-slate-200 px-3 text-sm">稍后再学</button>
                 <button type="button" data-testid="word-sheet-coach-lookup" disabled={coachChoice === 'saving'} onClick={() => void chooseCoachAction(gen.current, 'lookup_only', phase.entry)} className="min-h-[44px] rounded-xl border border-slate-200 px-3 text-sm">只查一下</button>
               </div>
+              </>
+              ) : (
+                // 选过了就不再摆四个活按钮 —— 让人看不出选没选（2026-09-06 复测新发现 4）
+                <p data-testid="word-sheet-coach-chosen" className="text-sm font-medium text-emerald-700">
+                  {coachChoice === 'learn' ? '✓ 已加入我的单词' : coachChoice === 'known' ? '✓ 已标记为会' : coachChoice === 'later' ? '✓ 已收进我的单词，稍后再学' : '✓ 只查了一下，没有加入'}
+                  <button type="button" className="ml-3 text-xs font-normal text-slate-500 underline" onClick={() => setCoachChoice('idle')}>改选</button>
+                </p>
+              )}
               {coachChoice !== 'idle' && coachChoice !== 'saving' ? (
                 <p role="status" data-testid="word-sheet-coach-status" className={`mt-2 text-xs ${coachChoice === 'failed' ? 'text-rose-600' : 'text-emerald-700'}`}>
                   {coachChoice === 'learn' ? '已加入我的单词，今天就算学过一次，复习时会先排它。' : coachChoice === 'known' ? '已标记为会，以后不会作为新词推送。' : coachChoice === 'later' ? '先收进我的单词，不算学过；下次复习或抽查时再练。' : coachChoice === 'lookup_only' ? '本次只查询，没有加入。' : '没有保存，请重试。'}

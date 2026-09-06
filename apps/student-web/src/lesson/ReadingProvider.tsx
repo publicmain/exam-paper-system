@@ -611,9 +611,18 @@ export function ReadingProvider({
       setIsSecondaryTab(!!c && c.tabId !== me);
     };
     window.addEventListener('storage', onStorage);
+    // 刷新 / 关闭时 React 的清理不一定跑得到，锁会留到过期（10 秒），
+    // 同一个标签刷新回来就被当成「另一个标签页」（2026-09-06 复测新发现 3）。
+    // pagehide 时自己持有的锁立刻放掉。
+    const onPageHide = () => {
+      const c = readOwner();
+      if (c && c.tabId === me) removeKey(OWNER_KEY);
+    };
+    window.addEventListener('pagehide', onPageHide);
     return () => {
       clearInterval(heartbeat);
       window.removeEventListener('storage', onStorage);
+      window.removeEventListener('pagehide', onPageHide);
       // 只在**自己还持有**时释放 —— 否则会把别人的所有权删掉。
       const c = readOwner();
       if (c && c.tabId === me) removeKey(OWNER_KEY);

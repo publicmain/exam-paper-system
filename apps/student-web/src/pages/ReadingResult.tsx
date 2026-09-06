@@ -191,6 +191,10 @@ export default function ReadingResultPage() {
 
   return (
     <Shell>
+      {/* 页头就有回去的路，不用滚到最底（2026-09-06 复测新发现 8） */}
+      <div className="mb-3">
+        <button type="button" onClick={() => navigate(ROUTES.today)} className="hit -ml-1 px-1 text-sm text-blue-600">← 首页</button>
+      </div>
       <ResultView
         result={phase.result}
         submissionId={phase.submissionId}

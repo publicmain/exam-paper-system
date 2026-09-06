@@ -441,8 +441,16 @@ function ReadingShell({ session, submissionId, historical }: { session: ReadingS
           <button
             type="button"
             data-testid="submit"
-            disabled={blocked || submitting}
-            onClick={() => setConfirming(true)}
+            // 刚在输入框里打完字就点交卷，失焦触发的自动保存会让按钮在那 0.7 秒里
+            // 变灰、第一下没反应（2026-09-06 复测新发现 5）。改成：点了先把没落盘
+            // 的写冲出去，再弹确认；真正的闸门在 doSubmit 里。
+            disabled={submitting || r.saveError != null || r.hasUnverifiedAnswers}
+            onClick={() => {
+              void (async () => {
+                if (r.hasPendingSaves) await r.flushPendingSaves();
+                setConfirming(true);
+              })();
+            }}
             className="app-primary min-h-[44px] px-5 disabled:bg-slate-300 disabled:shadow-none"
           >
             交卷

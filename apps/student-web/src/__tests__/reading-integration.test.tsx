@@ -562,12 +562,12 @@ describe('AC-08 交卷 → 刷 today → 按 kind 路由', () => {
   it('**二次确认 → 一个 submit → 刷 today → 落到结果页占位**', async () => {
     await openReading();
 
-    // 先答一题并落盘 —— 页面在有待办写入时**根本不让点交卷**（按钮 disabled），
-    // 所以「先落盘、后交卷」这条顺序在 UI 层是硬约束，下面再用请求顺序钉一次。
+    // 先答一题并落盘。2026-09-06 起有待办写入时按钮不再变灰 —— 点了会先把
+    // 写冲出去再弹确认（doSubmit 里仍有闸门），「先落盘、后交卷」的顺序
+    // 靠下面的请求顺序钉住。
     await act(async () => {
       (screen.getAllByRole('radio')[0] as HTMLInputElement).click();
     });
-    expect((screen.getByTestId('submit') as HTMLButtonElement).disabled).toBe(true);
     await tick(700);
     await settle();
     expect((screen.getByTestId('submit') as HTMLButtonElement).disabled).toBe(false);

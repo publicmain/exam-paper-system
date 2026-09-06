@@ -305,9 +305,14 @@ export function ResultView({
           <p data-testid="scores-pending" className="text-base text-slate-700">
             {result.releasedScore && result.releasedScore.count > 0 ? (
               <>
+                <span className="text-slate-500">客观题 </span>
                 <span className="text-3xl font-semibold tabular-nums">{result.releasedScore.earned}</span>
-                <span className="text-slate-500"> / {result.releasedScore.max} 分 · 客观题已判</span>
-                <span className="block mt-1 text-sm text-slate-600">主观题等老师批改，批完总分会在这里更新。</span>
+                <span className="text-slate-500"> / {result.releasedScore.max} 分</span>
+                <span className="block mt-1 text-sm text-slate-600">
+                  {result.maxScore != null && result.maxScore > result.releasedScore.max
+                    ? `整卷 ${result.maxScore} 分，另外 ${result.maxScore - result.releasedScore.max} 分的主观题等老师批改，批完总分会在这里更新。`
+                    : '主观题等老师批改，批完总分会在这里更新。'}
+                </span>
               </>
             ) : (
               '这份卷子还在判分，分数出来之后就能在这里看到。'
