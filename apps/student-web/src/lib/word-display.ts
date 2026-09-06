@@ -18,7 +18,8 @@
 export function formatPhonetic(raw: string | null | undefined): string | null {
   let s = String(raw ?? '').trim();
   if (!s) return null;
-  const oldStyle = /[ә:']/.test(s);
+  // 老式标记：西里尔 ә、冒号长音、撇号重音，或老式双元音 ei / ai / ɔi / au / ou（新式写 eɪ / aɪ …）
+  const oldStyle = /[ә:']|ei|ai|ɔi|au|ou|[εɛ]ə/.test(s); // iə / uə 新式里也会出现（rɪˈzɪliənt），不当标记
   s = s
     .replace(/ә/g, 'ə') // 西里尔 ә → 拉丁 ə
     .replace(/[\[\]/]/g, '') // 去掉原有的 / 与 [ ]，下面统一加
@@ -84,9 +85,29 @@ export function posPrefixFor(pos: string | null | undefined, translation: string
   return /^[a-z]{1,7}\.\s/i.test(text) ? '' : `${label} `;
 }
 
-/** 英文释义偶尔也带 "n. " 这类开头（ECDICT 原样），显示时去掉。 */
+const DEF_POS: Readonly<Record<string, string>> = {
+  a: 'adj.', s: 'adj.', adj: 'adj.', n: 'n.', v: 'v.', vi: 'vi.', vt: 'vt.', r: 'adv.', adv: 'adv.',
+  prep: 'prep.', conj: 'conj.', pron: 'pron.', int: 'int.',
+};
+
+/**
+ * 英文释义（ECDICT / WordNet 原样）：每行开头是 "a." "s." "n" "v" "r" 这类缩写，
+ * 中学生看不懂（2026-09-06 第五轮复测 15）。按行换成 adj. / n. / v. / adv.；
+ * 行与行之间保留换行，显示层用 whitespace-pre-wrap。
+ */
 export function cleanDefinition(raw: string | null | undefined): string {
-  return String(raw ?? '').replace(/\\n/g, '\n').replace(/^\s*[a-z]{1,7}\.\s+/i, '').trim();
+  return String(raw ?? '')
+    .replace(/\\n/g, '\n')
+    .split(/\n+/)
+    .map((line) => line.trim())
+    .filter(Boolean)
+    .map((line) =>
+      line.replace(/^([a-z]{1,4})\.?\s+(?=\S)/i, (m, p: string) => {
+        const k = p.toLowerCase();
+        return DEF_POS[k] ? `${DEF_POS[k]} ` : m;
+      }),
+    )
+    .join('\n');
 }
 
 const DOMAIN_TAG = /^\s*[\[【][^\]】]{1,6}[\]】]/;

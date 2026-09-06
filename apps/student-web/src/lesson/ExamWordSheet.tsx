@@ -38,7 +38,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { api, type DictEntry } from '../lib/api';
 import { handleAuthFailure } from '../lib/auth-store';
 import { readToken } from '../lib/identity';
-import { cleanTranslation, formatPhonetic } from '../lib/word-display';
+import { cleanDefinition, cleanTranslation, formatPhonetic } from '../lib/word-display';
 
 // ─────────────────────────────────────────────────────────────
 // 纯逻辑（导出给测试直接驱动）
@@ -321,7 +321,7 @@ export function ExamWordSheet({
                           data-testid="word-sheet-definition"
                           className="mt-3 whitespace-pre-wrap border-t border-slate-200 pt-3 text-[14px] leading-relaxed text-slate-600 sm:text-[15px]"
                         >
-                          {phase.entry.definition}
+                          {cleanDefinition(phase.entry.definition)}
                         </div>
                       </details>
                     ) : null}

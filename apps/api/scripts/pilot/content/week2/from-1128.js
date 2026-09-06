@@ -87,7 +87,7 @@ const EMOTION_ZH = {
 function emotionExplanation(key, word) {
   const zh = EMOTION_ZH[String(word).toLowerCase()];
   return zh
-    ? `这个时刻叙述者的主导情绪是 “${word}”（${zh}），对应选项 ${key}。下面的原文段落里能看出来。`
+    ? `这个时刻叙述者的主导情绪是 “${word}”（${zh}），对应选项 ${key}。`
     : `这一段里主导的情绪与选项 ${key}（${word}）最吻合。`;
 }
 

@@ -80,7 +80,8 @@ export function StickyNoteRail({
   onEdit: (id: string, text: string) => void;
   onRemove: (id: string) => void;
 }) {
-  const [open, setOpen] = useState(false);
+  // 有便笺就默认展开 —— 刷新后收着，学生以为丢了（2026-09-06 第五轮复测）
+  const [open, setOpen] = useState(notes.length > 0);
   /** 正在编辑的便笺：`id` 为空表示新建。 */
   const [draft, setDraft] = useState<{ id: string | null; text: string } | null>(null);
 
@@ -171,6 +172,7 @@ export function StickyNoteRail({
               <button
                 type="button"
                 className="w-full text-left text-sm bg-yellow-50 border border-yellow-200 rounded-lg px-3 py-2 touch-manipulation whitespace-pre-wrap"
+                aria-label={`便笺：${n.text}（点击编辑）`}
                 onClick={() => setDraft({ id: n.id, text: n.text })}
                 title="点击编辑/删除"
               >

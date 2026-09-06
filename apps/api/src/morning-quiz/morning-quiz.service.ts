@@ -309,7 +309,7 @@ export function resolveResultExplanation(pq: {
     }
     return null;
   };
-  const explanation = pick('explanation', 600);
+  let explanation = pick('explanation', 600);
   let evidence = pick('evidence', Number.MAX_SAFE_INTEGER);
   // 证据只给「一两句」。段落配对 / 部分主观题的 evidence 是整段原文
   // （几百字），学生屏幕上原文就在旁边，再贴一遍只碍事 —— 截断又没用，
@@ -318,6 +318,11 @@ export function resolveResultExplanation(pq: {
   // 部分解析已经把证据句写进去了（「答案依据原文这一句：…」），不重复给。
   if (evidence && explanation && explanation.includes(evidence.slice(0, 80))) {
     evidence = null;
+  }
+  // 配对题解析末尾「下面的原文段落里能看出来。」以整段原文为前提；证据在上面被
+  // 丢掉时这句就是空口无凭（2026-09-06 第五轮复测 B-1），一并去掉。
+  if (!evidence && explanation) {
+    explanation = explanation.replace(/\s*下面的原文段落里能看出来。?\s*$/, '').trim() || null;
   }
   return { explanation, evidence };
 }

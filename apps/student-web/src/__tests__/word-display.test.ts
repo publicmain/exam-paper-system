@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { cleanTranslation, formatPhonetic, posLabel, posPrefixFor } from '../lib/word-display';
+import { cleanDefinition, cleanTranslation, formatPhonetic, posLabel, posPrefixFor } from '../lib/word-display';
 
 describe('formatPhonetic —— 2026-09-05 盲测 P2-9', () => {
   it('西里尔 ә 换成 ə，统一带斜杠', () => {
@@ -11,6 +11,9 @@ describe('formatPhonetic —— 2026-09-05 盲测 P2-9', () => {
     expect(formatPhonetic("'hæpi")).toBe('/ˈhæpi/'); // 词尾 i 不动
     expect(formatPhonetic('put')).toBe('/put/'); // 没有老式标记的不碰
     expect(formatPhonetic("'æsid")).toBe('/ˈæsɪd/');
+    // 没有 ә / : / ' 但有老式双元音的也要转（2026-09-06 第五轮复测 16：pale 显示成 /peil/）
+    expect(formatPhonetic('peil')).toBe('/peɪl/');
+    expect(formatPhonetic('haus')).toBe('/haʊs/');
   });
   it('剑桥式音节点去掉，两套词典数据风格一致（复测新发现 6）', () => {
     expect(formatPhonetic('ˈsɪl.vər')).toBe('/ˈsɪlvər/');
@@ -41,6 +44,17 @@ describe('posLabel / posPrefixFor —— 2026-09-05 盲测 P2-10', () => {
   it('释义已经带 n. 开头 → 不重复', () => {
     expect(posPrefixFor('noun', 'n. 大灾难')).toBe('');
     expect(posPrefixFor('verb', 'vi. 发芽, 萌芽')).toBe('');
+  });
+});
+
+describe('cleanDefinition —— 2026-09-06 第五轮复测 15', () => {
+  it('每行开头的 a. / s. / n / v / r 换成学生认识的缩写，行保留', () => {
+    expect(cleanDefinition('a. acting or arriving exactly at the time appointed')).toBe('adj. acting or arriving exactly at the time appointed');
+    expect(cleanDefinition('n a state in the US\\nv have the quality of being\\ns. very light colored\\nr in a pale manner'))
+      .toBe('n. a state in the US\nv. have the quality of being\nadj. very light colored\nadv. in a pale manner');
+  });
+  it('不认识的开头原样保留', () => {
+    expect(cleanDefinition('to hit something')).toBe('to hit something');
   });
 });
 

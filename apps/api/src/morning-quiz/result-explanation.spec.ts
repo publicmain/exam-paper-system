@@ -109,6 +109,17 @@ describe('evidence 与 explanation 走同一道答案门', () => {
     ],
   };
 
+  it('证据因太长被丢掉时，解析末尾「下面的原文段落里能看出来。」也去掉（2026-09-06 第五轮复测 B-1）', () => {
+    const r = resolveResultExplanation({
+      snapshotContent: {
+        explanation: '这个时刻叙述者的主导情绪是 “confused”（困惑），对应选项 B。下面的原文段落里能看出来。',
+        evidence: 'x'.repeat(400),
+      },
+    });
+    expect(r.evidence).toBeNull();
+    expect(r.explanation).toBe('这个时刻叙述者的主导情绪是 “confused”（困惑），对应选项 B。');
+  });
+
   it('暂存提交（还能改）→ evidence 也置空', () => {
     const r = stripUnreleasedScores({ ...base, finalSubmittedAt: null } as any);
     expect(r.answersPending).toBe(true);

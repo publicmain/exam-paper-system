@@ -73,6 +73,22 @@ export function verbLemmaForms(raw: string): string[] {
   return [...out];
 }
 
+/**
+ * 新加坡本地词表：文章里常见、ECDICT 没有或释义离谱的词。键是小写。
+ */
+const LOCAL_GLOSSARY: Readonly<Record<string, { translation: string; definition?: string; pos?: string; phonetic?: string }>> = {
+  hdb: { translation: 'n. 建屋发展局（Housing & Development Board）；口语里指政府组屋', definition: "Singapore's public housing authority; informally, the flats it builds", pos: 'n.' },
+  mrt: { translation: 'n. 新加坡地铁（Mass Rapid Transit）', definition: "Singapore's rapid transit railway", pos: 'n.' },
+  tekong: { translation: 'n. 德光岛（新加坡新兵训练营所在地）', definition: 'Pulau Tekong, the island where Singapore’s basic military training takes place', pos: 'n.' },
+  kopitiam: { translation: 'n. 咖啡店（新马传统饮食店）', definition: 'a traditional coffee shop in Singapore and Malaysia', pos: 'n.', phonetic: 'ˈkɒpɪtiːæm' },
+  ns: { translation: 'n. 国民服役（National Service）', definition: 'compulsory national service in Singapore', pos: 'n.' },
+  psle: { translation: 'n. 小六会考（Primary School Leaving Examination）', definition: 'the national examination taken at the end of primary school in Singapore', pos: 'n.' },
+  cca: { translation: 'n. 课外活动（Co-Curricular Activity）', definition: 'a school co-curricular activity', pos: 'n.' },
+  cpf: { translation: 'n. 公积金（Central Provident Fund）', definition: "Singapore's compulsory savings scheme", pos: 'n.' },
+  nric: { translation: 'n. 身份证（National Registration Identity Card）', definition: "Singapore's national identity card", pos: 'n.' },
+  bto: { translation: 'n. 预购组屋（Build-To-Order）', definition: 'a new public flat bought before it is built', pos: 'n.' },
+};
+
 /** ECDICT 中有词频/考纲/核心词信号的条目，优先视为可靠的独立词条。 */
 function hasLexicalSignal(row: any): boolean {
   return !!(
@@ -180,6 +196,22 @@ export class VocabService {
   private async lookupLocal(raw: string): Promise<LookupHit | null> {
     const cands = candidateForms(raw);
     if (!cands.length) return null;
+    // 新加坡本地词：词典没有、机翻会瞎译（HDB →「组屋银行」，2026-09-06 第五轮复测 B-2）
+    const local = LOCAL_GLOSSARY[cands[0].form];
+    if (local) {
+      return {
+        word: cands[0].form,
+        query: raw,
+        phonetic: local.phonetic ?? null,
+        translation: local.translation,
+        definition: local.definition ?? null,
+        pos: local.pos ?? null,
+        collins: null,
+        oxford: false,
+        tag: [],
+        via: 'direct',
+      };
+    }
 
     const forms = cands.map((c) => c.form);
     const rows = await this.prisma.dictEntry.findMany({

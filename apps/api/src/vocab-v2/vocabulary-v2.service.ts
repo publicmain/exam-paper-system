@@ -544,16 +544,42 @@ export class VocabularyV2Service {
     return this.testSessionView(session);
   }
 
+  /**
+   * ECDICT 的变形词条有一类中文只写「be的过去式」这种指针，英文 definition 还混进了
+   * 别的条目（was 的第一行是华盛顿州）。指向谁就用谁的释义，中文前面标一句
+   *（2026-09-06 第五轮盲测 4；阅读页查词走 VocabService，这里是「我的单词」页和收词）。
+   */
+  private async inflectionPointer(dict: { word: string; translation: string | null } | null) {
+    if (!dict) return null;
+    const m = String(dict.translation ?? '').trim()
+      .match(/^([a-z]+)\s*的\s*(过去式|过去分词|现在分词|复数|第三人称单数|比较级|最高级)$/i);
+    if (!m) return null;
+    const base = await this.prisma.dictEntry.findUnique({ where: { word: m[1].toLowerCase() } });
+    if (!base) return null;
+    return { base, note: `${dict.word} 是 ${base.word} 的${m[2]}` };
+  }
+
   async collect(studentId: string, input: CollectWordInput) {
     const headword = input.headword.trim().toLowerCase().replace(/^[^a-z'-]+|[^a-z'-]+$/g, '');
     if (!headword) throw new BadRequestException({ code: 'headword_required' });
     const user = await this.prisma.user.findUnique({ where: { id: studentId }, select: { englishLevel: true } });
     const published = exactOfficial(headword, user?.englishLevel ?? null);
-    const dict = await this.prisma.dictEntry.findUnique({ where: { word: headword } });
+    const dictRaw = await this.prisma.dictEntry.findUnique({ where: { word: headword } });
+    const pointer = await this.inflectionPointer(dictRaw);
+    const dict = pointer && dictRaw
+      ? {
+          ...dictRaw,
+          translation: pointer.base.translation,
+          definition: pointer.base.definition ?? dictRaw.definition,
+          pos: dictRaw.pos ?? pointer.base.pos,
+          phonetic: dictRaw.phonetic ?? pointer.base.phonetic,
+        }
+      : dictRaw;
     const rawPos = canonicalPos(published?.pos || dict?.pos);
     const pos = rawPos === 'other' ? (inferPosFromTranslation(dict?.translation) ?? rawPos) : rawPos;
-    const translation = translationForPos(dict?.translation, pos) || await this.translator.translate(headword) || '';
+    let translation = translationForPos(dict?.translation, pos) || await this.translator.translate(headword) || '';
     if (!translation) throw new ServiceUnavailableException({ code: 'translation_unavailable' });
+    if (pointer) translation = `${pointer.note}；${translation}`;
 
     const listName: OfficialListName | 'personal' = published?.list ?? 'personal';
     const listVersion = published ? officialListVersion(published.list) : '1';

@@ -127,6 +127,14 @@ describe('VocabService.lookup', () => {
     expect(hit?.definition).not.toContain('United States');
   });
 
+  it('新加坡本地词（HDB）不查词典、不机翻（2026-09-06 第五轮复测 B-2）', async () => {
+    const prisma = { dictEntry: { findMany: async () => [], findUnique: async () => null } };
+    const svc = new VocabService(prisma as any);
+    await expect(svc.lookup('HDB')).resolves.toMatchObject({ word: 'hdb', via: 'direct' });
+    const hit = await svc.lookup('HDB,');
+    expect(hit?.translation).toContain('建屋发展局');
+  });
+
   it('若词典本身有 bumped，必须优先显示它自己的释义', async () => {
     const inflected = { ...row, word: 'bumped', translation: 'adj. 被撞到的' };
     const prisma = {

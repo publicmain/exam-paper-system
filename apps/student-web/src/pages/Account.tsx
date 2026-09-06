@@ -180,7 +180,7 @@ export default function AccountPage() {
 
         <div className="mt-6 flex items-center justify-between text-sm">
           <Link to={ROUTES.today} className="text-blue-600 underline">
-            ← 今天的课
+            ← 首页
           </Link>
           <button onClick={() => logout()} className="text-slate-500 underline">
             退出登录

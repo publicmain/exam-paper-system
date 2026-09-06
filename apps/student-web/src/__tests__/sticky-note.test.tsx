@@ -56,13 +56,13 @@ describe('StickyNoteRail —— 不用 window.prompt', () => {
         onRemove={onRemove}
       />,
     );
-    fireEvent.click(screen.getByRole('button', { name: /便笺/ }));
-    fireEvent.click(screen.getByRole('button', { name: '旧内容' }));
+    // 有便笺时列表默认展开（第五轮复测），不用先点「便笺 (1)」
+    fireEvent.click(screen.getByRole('button', { name: /旧内容/ }));
     fireEvent.change(screen.getByLabelText('便笺内容'), { target: { value: '新内容' } });
     fireEvent.click(screen.getByTestId('sticky-save'));
     expect(onEdit).toHaveBeenCalledWith('n1', '新内容');
 
-    fireEvent.click(screen.getByRole('button', { name: '旧内容' }));
+    fireEvent.click(screen.getByRole('button', { name: /旧内容/ }));
     fireEvent.click(screen.getByTestId('sticky-delete'));
     expect(onRemove).toHaveBeenCalledWith('n1');
     expect(window.prompt).not.toHaveBeenCalled();
