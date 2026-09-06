@@ -167,6 +167,10 @@ export default function ScoreDetailPage() {
 
   return (
     <Shell>
+      {/* 页头就有回去的路，不用滚到 7000 字的最底（2026-09-06 上线验收 标准档 B-8） */}
+      <div className="mb-3">
+        <button type="button" onClick={() => navigate(ROUTES.scores)} className="hit -ml-1 px-1 text-sm text-blue-600">← 历史成绩</button>
+      </div>
       <ResultView
         result={phase.result}
         submissionId={phase.submissionId}
