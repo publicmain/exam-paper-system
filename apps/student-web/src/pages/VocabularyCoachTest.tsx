@@ -100,7 +100,7 @@ export default function VocabularyCoachTestPage() {
             </li>
           ))}
         </ul>
-        <button className="app-secondary mt-6 w-full" onClick={() => navigate(ROUTES.vocab)}>回到我的单词</button>
+        <button className="app-secondary mt-6 w-full" onClick={() => navigate(ROUTES.vocab)}>回到我的单词</button><button className="mt-3 w-full min-h-[44px] text-sm text-slate-500" onClick={() => navigate(ROUTES.today)}>回首页</button>
       </Card>
     </Screen>
   );

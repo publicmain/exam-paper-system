@@ -274,6 +274,8 @@ export function IELTSReadingPassage({ paper }: { paper: ExamPaper }) {
       questionId: fillTargetId,
       label: `第 ${q.sortOrder} 题`,
       hasValue: Boolean(answers[fillTargetId]?.textAnswer?.trim()),
+      // 只填一个词的题，取词是「替换」不是「追加」（2026-09-06 上线验收：追加成了三个词）
+      singleWord: isOneWordOnly(instructionOf(q)),
     };
   }, [fillTargetId, paper?.questions, answers]);
 
@@ -470,6 +472,25 @@ const INSTRUCTION_GIST: Record<string, string> = {
  * 随时可看，但不再默认占据四分之一屏。没有对应摘要的题型（含未来新增的）
  * 直接照旧显示英文全文，不做任何猜测。
  */
+/** 题目快照里的指令行（空行以上）与题型 —— ExamQuestion 本身没有这两个字段。 */
+function instructionOf(q: ExamQuestion): string {
+  const stem = (q.snapshotContent as { stem?: unknown } | undefined)?.stem;
+  return typeof stem === 'string' ? splitStem(stem).instruction : '';
+}
+
+/** 指令是不是「只填一个词」。 */
+export function isOneWordOnly(instruction: string | null | undefined): boolean {
+  return /ONE\s+WORD\s+ONLY/i.test(String(instruction ?? ''));
+}
+
+/** 内容包标错的题型按指令内容纠正（只影响标题与中文概括，不动判分）。 */
+export function effectiveTaskType(taskType: string, instruction: string | null | undefined): string {
+  if (taskType === 'matching_features' && /which\s+paragraph\s+contains/i.test(String(instruction ?? ''))) {
+    return 'matching_information';
+  }
+  return taskType;
+}
+
 /**
  * 中文概括要跟英文原文一致：原文说 ONE WORD ONLY，概括不能写「不超过两个词」
  *（2026-09-06 复测：学生按中文填两个词会被判错）。
@@ -520,7 +541,10 @@ function TaskGroupView({ group, gi }: { group: TaskGroup; gi: number }) {
   const firstNum = group.questions[0].localIdx;
   const lastNum = group.questions[group.questions.length - 1].localIdx;
   const range = firstNum === lastNum ? `${firstNum}` : `${firstNum}–${lastNum}`;
-  const taskTitle = TASK_TITLES[group.taskType] ?? 'Question';
+  // 内容包把「找信息在哪一段」标成了 matching_features（2026-09-06 上线验收 雅思真题档 B-5）：
+  // 标题和中文概括按指令的实际内容来，不改内容包。
+  const effectiveType = effectiveTaskType(group.taskType, group.instruction);
+  const taskTitle = TASK_TITLES[effectiveType] ?? 'Question';
   return (
     <section className="bg-white rounded-md border border-gray-200 overflow-hidden">
       <header className="bg-gray-50 border-b border-gray-200 px-4 lg:px-5 py-3">
@@ -534,13 +558,14 @@ function TaskGroupView({ group, gi }: { group: TaskGroup; gi: number }) {
         {group.instruction ? (
           <InstructionBlock
             text={clean(group.instruction)}
-            taskType={group.taskType}
+            taskType={effectiveType}
             hasOptions={group.questions.some((q) => Array.isArray(q.snapshotOptions) && q.snapshotOptions.length > 0)}
           />
         ) : group.taskType === 'short_answer' ? (
           // 简答段没有英文指令行时也给一句中文（2026-09-06 复测：四段里只有它光秃秃的）
           <p className="mt-2 text-gray-700 leading-relaxed" style={{ fontSize: `calc(0.9375rem * var(--mq-fs, 1))` }}>
             用自己的话回答，写完整的句子
+            <span className="block mt-0.5 text-gray-400">Answer in your own words. Write complete sentences.</span>
           </p>
         ) : null}
       </header>
@@ -808,6 +833,7 @@ function QuestionItem({
           item={q.itemText}
           value={answer?.textAnswer ?? ''}
           questionId={q.id}
+          singleWord={isOneWordOnly(instructionOf(q))}
           onChange={(v) => setAnswer(q.id, { textAnswer: v })}
         />
       );
@@ -1012,12 +1038,15 @@ function BlankAwareInput({
   value,
   onChange,
   questionId,
+  singleWord = false,
 }: {
   item: string;
   value: string;
   onChange: (v: string) => void;
   /** 给了才可能成为「填空取词」的目标（阶段 12C）。 */
   questionId?: string;
+  /** 指令是 ONE WORD ONLY：写了多个词要提醒（2026-09-06 上线验收）。 */
+  singleWord?: boolean;
 }) {
   // 聚焦时把自己登记为取词目标。**必须记住**而不是等弹卡时读
   // `document.activeElement`：手机上点文章会先让本框 blur，那时活动元素
@@ -1058,6 +1087,11 @@ function BlankAwareInput({
         aria-label="Your answer"
         className="border rounded-lg px-4 py-3 text-base w-full max-w-md min-h-[48px] focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-200"
       />
+      {singleWord && local.trim().split(/\s+/).filter(Boolean).length > 1 ? (
+        <p data-testid="one-word-hint" role="status" className="mt-1.5 text-sm text-amber-700">
+          这题只填一个词 —— 现在写了 {local.trim().split(/\s+/).filter(Boolean).length} 个。
+        </p>
+      ) : null}
     </>
   );
 }

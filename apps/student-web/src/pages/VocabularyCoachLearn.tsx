@@ -133,7 +133,7 @@ export default function VocabularyCoachLearnPage() {
   ].filter((connection) => connection.value.trim().length > 0);
   return (
     <Screen>
-      <TopBar title={taskDate ? `${Number(taskDate.slice(5, 7))}月${Number(taskDate.slice(8, 10))}日新词补做` : '今天的新词'} onBack={() => navigate(ROUTES.vocab)} backLabel="我的单词" right={<span className="text-sm tabular-nums text-slate-500">{session.completed + 1} / {session.target}</span>} />
+      <TopBar title={taskDate ? `${Number(taskDate.slice(5, 7))}月${Number(taskDate.slice(8, 10))}日新词补做` : '今天的新词'} onBack={() => navigate(ROUTES.today)} backLabel="首页" right={<span className="text-sm tabular-nums text-slate-500">{session.completed + 1} / {session.target}</span>} />
       <div className="mx-auto w-full max-w-4xl">
         <div className="mb-4 h-2 overflow-hidden rounded-full bg-slate-200"><div className="h-full rounded-full bg-blue-500 transition-all" style={{ width: `${(session.completed / session.target) * 100}%` }} /></div>
         <Card>

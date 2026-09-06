@@ -76,7 +76,7 @@ export function highlightWord(sentence: string, surface: string): React.ReactNod
   );
 }
 
-export type FillTarget = { questionId: string; label: string; hasValue: boolean } | null;
+export type FillTarget = { questionId: string; label: string; hasValue: boolean; singleWord?: boolean } | null;
 
 // ─────────────────────────────────────────────────────────────
 // 组件
@@ -350,12 +350,17 @@ export function ExamWordSheet({
               type="button"
               data-testid="word-sheet-fill"
               onClick={() => {
-                onFill(fillTarget.questionId, word, fillTarget.hasValue);
+                // 只填一个词的题永远是替换；简答题才追加（2026-09-06 上线验收）
+                onFill(fillTarget.questionId, word, fillTarget.hasValue && !fillTarget.singleWord);
                 onClose();
               }}
               className="mb-2 min-h-[48px] w-full rounded-[14px] bg-blue-600 text-[17px] font-semibold text-white shadow-sm"
             >
-              {fillTarget.hasValue ? `把 “${word}” 加到${fillTarget.label}的答案后面` : `把 “${word}” 填进${fillTarget.label}的空`}
+              {!fillTarget.hasValue
+                ? `把 “${word}” 填进${fillTarget.label}的空`
+                : fillTarget.singleWord
+                  ? `用 “${word}” 换掉${fillTarget.label}的答案`
+                  : `把 “${word}” 加到${fillTarget.label}的答案后面`}
             </button>
           ) : null}
 

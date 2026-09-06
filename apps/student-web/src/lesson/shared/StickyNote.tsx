@@ -167,7 +167,7 @@ export function StickyNoteRail({
       )}
       {open && notes.length > 0 && (
         <ul className="space-y-2">
-          {notes.map((n) => (
+          {notes.filter((n) => n.id !== draft?.id).map((n) => (
             <li key={n.id}>
               <button
                 type="button"

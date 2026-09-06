@@ -387,9 +387,22 @@ export default function TodayPage() {
         ) : target.kind === 'navigate' ? (
           <Button onClick={() => navigate(target.path)}>{targetLabel}</Button>
         ) : (
-          <p className="rounded-xl bg-slate-100 px-4 py-3 text-sm text-slate-600">
-            {stayLabel}
-          </p>
+          <>
+            <p className="rounded-xl bg-slate-100 px-4 py-3 text-sm text-slate-600">
+              {stayLabel}
+            </p>
+            {d.segments.some((s) => s.key === 'read' && s.status === 'done') ? (
+              // 做完了也留一个入口，不用去找卡片（2026-09-06 上线验收 雅思真题档 B-4/10）
+              <button
+                type="button"
+                data-testid="see-reading-result"
+                onClick={() => navigate(ROUTES.readingResult)}
+                className="mt-3 w-full min-h-[44px] rounded-xl border border-slate-300 text-sm text-slate-700"
+              >
+                看今天的阅读结果
+              </button>
+            ) : null}
+          </>
         )}
 
         {vocabOverview?.pendingTests.length ? (
