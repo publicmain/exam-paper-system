@@ -437,7 +437,7 @@ describe('S12O —— 五档的可访问名字', () => {
     const names = radios.map((r) => r.getAttribute('aria-label'));
     expect(names).toEqual([
       'O-Level 基础',
-      'O-Level 进阶',
+      'O-Level 中级',
       'O-Level 标准',
       '雅思轻量',
       '雅思 · 真题型',

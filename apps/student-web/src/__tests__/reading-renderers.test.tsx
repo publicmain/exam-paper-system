@@ -657,8 +657,8 @@ describe('2026-09-06 复测：填空转四选一、指令概括、段落标签',
       fireEvent.click(radios[0]);
     });
     expect((radios[0] as HTMLInputElement).checked).toBe(true);
-    // 中文概括跟英文一致：ONE WORD ONLY → 只填一个词
-    expect(screen.getByText(/只填一个词/)).toBeInTheDocument();
+    // 有选项的填空：中文概括跟着控件走（2026-09-06 第五轮盲测 2）
+    expect(screen.getByText(/选出原文里用的那个词/)).toBeInTheDocument();
     expect(screen.queryByText(/不超过两个词/)).toBeNull();
   });
 

@@ -14,6 +14,7 @@
  * 内容一多又突然跳到顶部。登录 / 注册那种只有一张卡的页面显式传
  * `center` 保留原样。
  */
+import { useId } from 'react';
 import type { ReactNode } from 'react';
 import { PILOT_LEVEL_CHOICES, type PilotLevelId } from './lib/levels';
 
@@ -133,10 +134,13 @@ export function Field(props: {
   numericPin?: boolean;
   maxLength?: number;
 }) {
+  // label 与输入框显式关联，读屏能报出「姓名」「密码」（2026-09-06 第五轮盲测 21）
+  const id = useId();
   return (
-    <label className="block mb-4">
+    <label htmlFor={id} className="block mb-4">
       <span className="block text-sm text-slate-600 mb-1.5">{props.label}</span>
       <input
+        id={id}
         className="w-full min-h-[50px] rounded-[14px] border border-slate-300/80 bg-white/90 px-4 py-3 text-base outline-none focus:border-[#007aff] focus:ring-4 focus:ring-blue-500/10"
         type={props.type ?? 'text'}
         value={props.value}

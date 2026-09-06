@@ -426,7 +426,7 @@ function buildDay(spec, date) {
     marks: 1,
     options: gap.options,
     answer: gap.answer,
-    stem: `Complete the sentence with ONE WORD ONLY from the passage.\n\n${spec.gapFill.stem}`,
+    stem: `Complete the sentence. Choose the word the passage uses.\n\n${spec.gapFill.stem}`,
     evidence: spec.gapFill.evidence,
     explanation: `原文在这个位置用的词是 “${spec.gapFill.answer}”。`,
   };

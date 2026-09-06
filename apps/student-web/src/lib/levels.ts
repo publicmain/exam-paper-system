@@ -33,8 +33,8 @@ export const PILOT_LEVEL_CHOICES: readonly PilotLevelChoice[] = [
   },
   {
     id: 'olevel_intermediate',
-    label: 'O-Level 进阶',
-    blurb: '文章更长、推理更多，适合已经能稳定完成基础阅读的人。',
+    label: 'O-Level 中级',
+    blurb: '介于基础和标准之间：文章更长、推理更多，适合已经能稳定完成基础阅读的人。',
   },
   {
     id: 'olevel',

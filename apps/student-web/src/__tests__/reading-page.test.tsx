@@ -624,7 +624,7 @@ describe('AC-08 难度与退出', () => {
     mount();
     await settle();
     await act(async () => {
-      screen.getByRole('button', { name: /退出/ }).click();
+      screen.getByRole('button', { name: /首页/ }).click();
     });
     expect(navigate).toHaveBeenLastCalledWith('/today');
   });
@@ -643,7 +643,7 @@ describe('AC-08 难度与退出', () => {
     await settle();
     navigate.mockClear();
     await act(async () => {
-      screen.getByRole('button', { name: /退出/ }).click();
+      screen.getByRole('button', { name: /首页/ }).click();
     });
     expect(navigate).not.toHaveBeenCalled();
     expect(screen.getByTestId('exit-confirm')).toBeInTheDocument();

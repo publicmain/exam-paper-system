@@ -100,6 +100,33 @@ describe('VocabService.lookup', () => {
     });
   });
 
+  it('「be的过去式」这种指针词条 → 用原形的释义，不念 ECDICT 混进来的华盛顿州（2026-09-06 第五轮盲测 4）', async () => {
+    const was = {
+      word: 'was',
+      phonetic: 'wɒz',
+      translation: 'be的过去式',
+      definition: 'n a state in northwestern United States on the Pacific' + String.fromCharCode(10) + 'v have the quality of being',
+      pos: null,
+      collins: null,
+      oxford: false,
+      tag: [],
+      bnc: 41040,
+    };
+    const be = { ...row, word: 'be', phonetic: 'bi:', translation: 'v. 是, 表示, 在', definition: 'v. have the quality of being' };
+    const prisma = {
+      dictEntry: {
+        findMany: async ({ where }: any) => (where.word.in.includes('was') ? [was] : []),
+        findUnique: async ({ where }: any) => (where.word === 'be' ? be : null),
+      },
+    };
+    const svc = new VocabService(prisma as any);
+    const hit = await svc.lookup('was');
+    expect(hit).toMatchObject({ word: 'was', phonetic: 'wɒz', via: 'lemma', definition: 'v. have the quality of being' });
+    expect(hit?.translation).toContain('was 是 be 的过去式');
+    expect(hit?.translation).toContain('v. 是, 表示, 在');
+    expect(hit?.definition).not.toContain('United States');
+  });
+
   it('若词典本身有 bumped，必须优先显示它自己的释义', async () => {
     const inflected = { ...row, word: 'bumped', translation: 'adj. 被撞到的' };
     const prisma = {

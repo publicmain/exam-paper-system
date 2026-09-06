@@ -7,10 +7,18 @@
  * 用不上。这里统一在**显示层**清一遍，数据不动。
  */
 
-/** 音标：统一成 /…/，修掉 ECDICT 里的西里尔 ә 与老式记号。 */
+/**
+ * 音标：统一成 /…/。
+ *
+ * ECDICT 用的是老式 Jones 记号（ә、ә:、ei、ai、i、u、ɔ …），课本用的是新式
+ * IPA（ə、ɜː、eɪ、aɪ、ɪ、ʊ、ɒ …）。看到老式标记（西里尔 ә、冒号长音、
+ * 撇号重音）就整套转成新式（2026-09-06 第五轮盲测 16：germinate 显示成
+ * /ˈdʒəːmineit/，课本是 /ˈdʒɜːmɪneɪt/）。剑桥式的新式音标不动。
+ */
 export function formatPhonetic(raw: string | null | undefined): string | null {
   let s = String(raw ?? '').trim();
   if (!s) return null;
+  const oldStyle = /[ә:']/.test(s);
   s = s
     .replace(/ә/g, 'ə') // 西里尔 ә → 拉丁 ə
     .replace(/[\[\]/]/g, '') // 去掉原有的 / 与 [ ]，下面统一加
@@ -19,7 +27,29 @@ export function formatPhonetic(raw: string | null | undefined): string | null {
     .replace(/(?<=[^\s])\.(?=[^\s])/g, '') // 剑桥式音节点 ˈsɪl.vər → ˈsɪlvər，两套数据看起来一样
     .replace(/\s+/g, ' ')
     .trim();
+  if (oldStyle) s = jonesToIpa(s);
   return s ? `/${s}/` : null;
+}
+
+/** 老式 Jones 记号 → 新式 IPA。先处理双元音和长音，再换剩下的短元音。 */
+function jonesToIpa(s: string): string {
+  return s
+    .replace(/əː/g, 'ɜː')
+    .replace(/aː/g, 'ɑː')
+    .replace(/ei/g, 'eɪ')
+    .replace(/ai/g, 'aɪ')
+    .replace(/ɔi/g, 'ɔɪ')
+    .replace(/au/g, 'aʊ')
+    .replace(/əu/g, 'əʊ')
+    .replace(/ou/g, 'əʊ')
+    .replace(/iə/g, 'ɪə')
+    .replace(/[εɛ]ə/g, 'eə')
+    .replace(/uə/g, 'ʊə')
+    // 短 i / u 只在后面跟辅音时换成 ɪ / ʊ；词尾的 i（happy、catastrophe）
+    // 新式音标也写 i，不动。iː / uː 不动。
+    .replace(/i(?![ːaeiouəɜɑæʌɒɔʊɪ\s]|$)/g, 'ɪ')
+    .replace(/u(?![ːaeiouəɜɑæʌɒɔʊɪ\s]|$)/g, 'ʊ')
+    .replace(/ɔ(?!ː|ɪ)/g, 'ɒ'); // 短 ɔ → ɒ
 }
 
 const POS_LABEL: Readonly<Record<string, string>> = {
@@ -38,6 +68,9 @@ export function posLabel(pos: string | null | undefined): string | null {
   const key = String(pos ?? '').trim().toLowerCase();
   if (!key || key === 'other') return null;
   if (POS_LABEL[key]) return POS_LABEL[key];
+  // ECDICT 的 a. / ad. 中学生看不懂（2026-09-06 第五轮盲测 15）
+  if (key === 'a' || key === 'a.') return 'adj.';
+  if (key === 'ad' || key === 'ad.') return 'adv.';
   // 已经是 "n." / "vt." 这类缩写就原样用
   if (/^[a-z]{1,5}\.?$/.test(key)) return key.endsWith('.') ? key : `${key}.`;
   return null;
@@ -65,7 +98,12 @@ const DOMAIN_TAG = /^\s*[\[【][^\]】]{1,6}[\]】]/;
 export function cleanTranslation(raw: string | null | undefined): string {
   const text = String(raw ?? '').replace(/\\n/g, '\n').trim();
   if (!text) return '';
-  const lines = text.split(/\n+/).map((line) => line.trim()).filter(Boolean);
+  const lines = text
+    .split(/\n+/)
+    .map((line) => line.trim())
+    .filter(Boolean)
+    // 行首的 a. / ad. 换成学生认识的 adj. / adv.（2026-09-06 第五轮盲测 15）
+    .map((line) => line.replace(/^a\.\s*/, 'adj. ').replace(/^ad\.\s*/, 'adv. '));
   const kept = lines.filter((line) => !DOMAIN_TAG.test(line));
   return (kept.length ? kept : lines).join('\n');
 }

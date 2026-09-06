@@ -192,7 +192,7 @@ describe('S12I —— 结果页要认服务端的逐题判分', () => {
     await settle();
     const card = screen.getByTestId('item-pq-1');
     expect(card.getAttribute('data-outcome'), '客观题被整卷 pending 盖住了').toBe('correct');
-    expect(within(card).queryByText('还在判分')).toBeNull();
+    expect(within(card).queryByText('等老师批改')).toBeNull();
     expect(within(card).getByText('答对')).toBeTruthy();
   });
 
@@ -209,7 +209,7 @@ describe('S12I —— 结果页要认服务端的逐题判分', () => {
     await settle();
     const card = screen.getByTestId('item-pq-2');
     expect(card.getAttribute('data-outcome')).toBe('pending');
-    expect(within(card).getByText('还在判分')).toBeTruthy();
+    expect(within(card).getByText('等老师批改')).toBeTruthy();
   });
 
   it('服务端给了 gradingSummary 就照它说 —— 几题判完、几题等老师', async () => {

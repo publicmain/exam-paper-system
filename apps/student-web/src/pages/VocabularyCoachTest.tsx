@@ -113,12 +113,12 @@ export default function VocabularyCoachTestPage() {
           {feedback.card ? <p className="mt-3 text-xl font-semibold">{feedback.card.headword} <span className="text-base font-normal text-slate-500">{posPrefixFor(feedback.card.pos, feedback.card.translation)}{cleanTranslation(feedback.card.translation).split('\n')[0]}</span></p> : null}
           {!feedback.isCorrect ? <p className="mt-2 text-slate-700">你写的：{responseText(feedback)}<br />正确答案：<span className="font-semibold">{answerText(feedback.question)}</span></p> : null}
           {feedback.card?.sentence ? <p className="mt-3 font-serif text-slate-600">{feedback.card.sentence}</p> : null}
-          <div className="mt-6"><Button onClick={() => setFeedback(null)}>{session!.items.some((it) => it.status !== 'answered') ? '下一题' : '去交卷'}</Button></div>
+          <div className="mt-6"><Button onClick={() => setFeedback(null)}>{session!.items.some((it) => it.status !== 'answered') ? '下一题' : session!.type === 'custom_test' ? '看回顾' : '去交卷'}</Button></div>
         </Card>
       </div>
     </Screen>
   );
-  if (!item) return <Screen center><Card><h1 className="text-center text-2xl font-semibold">所有题都答完了</h1><p className="mt-2 text-center text-sm text-slate-500">{session!.type === 'custom_test' ? '交卷后能看逐题回顾。这是个人练习，不记正式成绩。' : '交卷后能看逐题回顾，这次成绩会记入每日单词测试。'}</p>{message ? <Notice kind="error">{message}</Notice> : null}<div className="mt-6"><Button disabled={busy} onClick={() => void submit()}>交卷</Button></div><button className="mt-3 w-full min-h-[44px] text-sm text-slate-500" onClick={() => navigate(ROUTES.vocab)}>先不交，回我的单词</button></Card></Screen>;
+  if (!item) return <Screen center><Card><h1 className="text-center text-2xl font-semibold">所有题都答完了</h1><p className="mt-2 text-center text-sm text-slate-500">{session!.type === 'custom_test' ? '点一下就能看逐题回顾。这是个人练习，不记正式成绩。' : '交卷后能看逐题回顾，这次成绩会记入每日单词测试。'}</p>{message ? <Notice kind="error">{message}</Notice> : null}<div className="mt-6"><Button disabled={busy} onClick={() => void submit()}>{session!.type === 'custom_test' ? '看本次回顾' : '交卷'}</Button></div><button className="mt-3 w-full min-h-[44px] text-sm text-slate-500" onClick={() => navigate(ROUTES.vocab)}>{session!.type === 'custom_test' ? '不看了，回我的单词' : '先不交，回我的单词'}</button></Card></Screen>;
 
   const q = item.question;
   return (
@@ -128,7 +128,7 @@ export default function VocabularyCoachTestPage() {
         <Card>
           <p className="text-sm text-slate-500">{q.prompt}</p>
           <QuestionCue question={q} onSpeak={speak} />
-          {q.options.length ? <div className="mt-6 grid gap-3">{q.options.map((option, index) => <button key={`${index}-${option}`} disabled={busy} onClick={() => void answer(index)} className="app-secondary min-h-[58px] px-5 text-left">{option}</button>)}</div> : <><textarea autoFocus value={value} onChange={(event) => setValue(event.target.value)} onKeyDown={(event) => { if (event.key === 'Enter' && !event.shiftKey && value.trim()) { event.preventDefault(); void answer(value); } }} placeholder={q.type === 'active_use' ? '写一个包含目标词的完整英文句子' : '输入答案'} autoCapitalize="none" autoCorrect="off" spellCheck={q.type === 'active_use'} rows={q.type === 'active_use' ? 3 : 1} className="mt-5 min-h-[58px] w-full resize-none border border-slate-300 bg-white px-4 py-3 text-lg" /><button className="app-primary mt-3 w-full" disabled={!value.trim() || busy} onClick={() => void answer(value)}>提交这题</button></>}
+          {q.options.length ? <div className="mt-6 grid gap-3">{q.options.map((option, index) => <button key={`${index}-${option}`} disabled={busy} onClick={() => void answer(index)} className="app-secondary min-h-[58px] px-5 text-left">{option}</button>)}</div> : <form onSubmit={(event) => { event.preventDefault(); if (value.trim() && !busy) void answer(value); }}>{q.type === 'active_use' ? <textarea autoFocus value={value} onChange={(event) => setValue(event.target.value)} onKeyDown={(event) => { if (event.key === 'Enter' && !event.shiftKey && value.trim()) { event.preventDefault(); void answer(value); } }} placeholder="写一个包含目标词的完整英文句子" autoCapitalize="none" autoCorrect="off" spellCheck rows={3} className="mt-5 min-h-[58px] w-full resize-none border border-slate-300 bg-white px-4 py-3 text-lg" /> : <input autoFocus type="text" value={value} onChange={(event) => setValue(event.target.value)} placeholder="输入答案" autoCapitalize="none" autoCorrect="off" spellCheck={false} className="mt-5 min-h-[52px] w-full border border-slate-300 bg-white px-4 py-3 text-lg" />}<button type="submit" className="app-primary mt-3 w-full" disabled={!value.trim() || busy}>提交这题</button></form>}
           {message ? <p role="alert" className="mt-4 text-sm text-rose-600">{message}</p> : null}
         </Card>
       </div>

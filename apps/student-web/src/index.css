@@ -95,6 +95,9 @@ html,
 body,
 #root {
   overflow-x: hidden;
+  /* hidden 会把这三层变成滚动容器，阅读页 sticky 的顶栏 / 交卷栏就贴不住
+     （2026-09-06 第五轮盲测 1：1280×720 下交卷栏整条在屏幕外）。clip 只裁不滚。 */
+  overflow-x: clip;
 }
 
 /* iPhone notch / home-indicator and iPad rounded-window safe areas. */

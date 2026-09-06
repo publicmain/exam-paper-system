@@ -175,10 +175,18 @@ function focusedOriginal(headword: string, sentence: string | null, translation:
   } : null;
 }
 
-function compactDefinition(definition: string) {
+export function compactDefinition(definition: string) {
   const clause = definition.replace(/\s+/g, ' ').trim().split(/[;.]/)[0].replace(/^to\s+/i, '').trim();
   const words = clause.split(/\s+/).filter(Boolean);
-  return (words.length > 10 ? words.slice(0, 10) : words).join(' ') || 'the stated meaning';
+  let meaning = (words.length > 10 ? words.slice(0, 10) : words).join(' ');
+  // 截到 10 个词可能停在逗号或连词上（"…reacts with metals and carbonates,"），
+  // 拼进句子就成了 ",."（2026-09-06 第五轮盲测 17）。把尾巴修干净。
+  meaning = meaning
+    .replace(/[,;:]+$/, '')
+    .replace(/\s+(and|or|of|to|with|by|in|on|for|the|a|an|that|which)$/i, '')
+    .replace(/[,;:]+$/, '')
+    .trim();
+  return meaning || 'the stated meaning';
 }
 
 function definitionTemplates(headword: string, pos: string, definition: string): [CorpusExample, CorpusExample] {

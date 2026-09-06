@@ -326,8 +326,16 @@ function ReadingShell({ session, submissionId, historical }: { session: ReadingS
     }
   }, [historical, navigate, r, session.sessionId, submissionId]);
 
+  // 交卷确认里点名是第几题（2026-09-06 第五轮盲测 9：只说「1 题」不说哪题）
+  const flaggedNumbers = paper.questions
+    .map((q, i) => (r.isFlagged(q.id) ? i + 1 : null))
+    .filter((n): n is number => n != null)
+    .join('、');
+
   return (
-    <div className="ui-ios min-h-[100dvh] flex flex-col">
+    // 桌面 / iPad 横屏：整页锁在一屏高，只有两栏内部滚，交卷栏永远看得见
+    //（2026-09-06 第五轮盲测 1）。手机维持原来的整页滚 + sticky 底栏。
+    <div className="ui-ios min-h-[100dvh] lg:h-[100dvh] flex flex-col">
       <OfflineBadge />
 
       <header className="app-glass safe-top sticky top-0 z-20 border-x-0 border-t-0 px-3 py-2 grid grid-cols-[auto_1fr_auto] items-center gap-2 sm:gap-3">
@@ -336,7 +344,7 @@ function ReadingShell({ session, submissionId, historical }: { session: ReadingS
           onClick={() => (blocked ? setExiting(true) : navigate(ROUTES.today))}
           className="min-h-[44px] px-3 rounded-lg text-slate-600 hover:bg-slate-50 text-sm"
         >
-          ← 退出
+          ← 首页
         </button>
         <div className="min-w-0 flex justify-center px-1">
           <span
@@ -420,7 +428,7 @@ function ReadingShell({ session, submissionId, historical }: { session: ReadingS
         </div>
       )}
 
-      <main className="flex-1 pb-28">
+      <main className="flex-1 pb-28 lg:pb-0 lg:min-h-0 lg:overflow-auto">
         <ExamFocusProvider value={focus}>
           <ExamRenderer paper={paper} />
         </ExamFocusProvider>
@@ -471,7 +479,7 @@ function ReadingShell({ session, submissionId, historical }: { session: ReadingS
               <p data-testid="submit-warning" className="text-sm text-rose-700 font-medium mb-2">
                 {[
                   unansweredCount > 0 ? `还有 ${unansweredCount} 题没作答` : null,
-                  r.flaggedCount > 0 ? `${r.flaggedCount} 题还标着「再看看」` : null,
+                  r.flaggedCount > 0 ? `第 ${flaggedNumbers} 题还标着「标记」` : null,
                 ].filter(Boolean).join('，')}
                 。
               </p>

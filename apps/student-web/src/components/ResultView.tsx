@@ -243,7 +243,7 @@ const OUTCOME_LABEL: Record<QuestionOutcome, string> = {
   correct: '答对',
   incorrect: '答错',
   partial: '部分得分',
-  pending: '还在判分',
+  pending: '等老师批改',
   unanswered: '没有作答',
 };
 
@@ -463,7 +463,12 @@ function ResultItemCard({
       )}
 
       {item.snapshotOptions && item.snapshotOptions.length > 0 && (
-        <ul data-testid={`options-${item.paperQuestionId}`} className="mb-3 flex flex-col gap-1 text-sm">
+        <ul
+          data-testid={`options-${item.paperQuestionId}`}
+          // 配对题的 8 个词库选项每题重复一遍太占地方（2026-09-06 第五轮盲测 12）：
+          // 超过 5 个就横排，四选一仍然竖排。
+          className={item.snapshotOptions.length > 5 ? 'mb-3 flex flex-wrap gap-x-4 gap-y-1 text-sm' : 'mb-3 flex flex-col gap-1 text-sm'}
+        >
           {item.snapshotOptions.map((o) => (
             <li key={o.key} className="text-slate-700">
               <span className="font-mono text-slate-500 mr-2">{o.key}.</span>

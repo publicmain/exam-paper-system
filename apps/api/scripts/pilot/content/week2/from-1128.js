@@ -70,6 +70,27 @@ function momentOnly(stem) {
   return rest ? `${where}, ${rest.replace(/\.?$/, '.')}` : `${where}.`;
 }
 
+/**
+ * 词库里情绪词的中文 —— 解析里给学生一个抓手（2026-09-06 第五轮盲测 12：
+ * 四题解析只换字母、没解释为什么）。没收录的词退回原来的句式。
+ */
+const EMOTION_ZH = {
+  absorbed: '专注、沉浸其中', accepting: '接受、认了', alarmed: '惊慌', amused: '觉得好笑',
+  annoyed: '恼火', awkward: '尴尬', boastful: '爱吹嘘', bored: '无聊', casual: '随意、不当回事',
+  changed: '变了', cheerful: '开心', confused: '困惑', curious: '好奇', detached: '置身事外',
+  determined: '下定决心', disappointed: '失望', fearful: '害怕', grateful: '感激',
+  'grief-stricken': '悲痛欲绝', helpless: '无助', honest: '坦诚', irritated: '烦躁', jealous: '嫉妒',
+  protective: '想保护对方', proud: '自豪', realising: '恍然明白', reassured: '安心了', regretful: '后悔',
+  reluctant: '不情愿', resentful: '愤懑', shaken: '受到震动', suspicious: '起疑', tactful: '得体、顾及对方感受',
+  tempted: '动心、想去做', understood: '被理解', uninterested: '不感兴趣',
+};
+function emotionExplanation(key, word) {
+  const zh = EMOTION_ZH[String(word).toLowerCase()];
+  return zh
+    ? `这个时刻叙述者的主导情绪是 “${word}”（${zh}），对应选项 ${key}。下面的原文段落里能看出来。`
+    : `这一段里主导的情绪与选项 ${key}（${word}）最吻合。`;
+}
+
 const MATCHING_INSTRUCTION =
   'The narrator’s dominant feeling changes as the story goes on. For each moment below, choose the word from the list that best describes it.';
 
@@ -192,7 +213,7 @@ function buildDay(spec, date) {
       answer: keys[i],
       stem: `${MATCHING_INSTRUCTION}\n\n${momentOnly(tidyStem(q.stem))}`,
       evidence: paragraphAt(passage, spec.matchingParas[i]),
-      explanation: `这一段里主导的情绪与选项 ${keys[i]}（${answerTexts[i]}）最吻合。`,
+      explanation: emotionExplanation(keys[i], answerTexts[i]),
     };
   });
 
@@ -218,7 +239,7 @@ function buildDay(spec, date) {
     marks: 1,
     options: gap.options,
     answer: gap.answer,
-    stem: `Complete the sentence with ONE WORD ONLY from the passage.\n\n${spec.gapFill.stem}`,
+    stem: `Complete the sentence. Choose the word the passage uses.\n\n${spec.gapFill.stem}`,
     evidence: spec.gapFill.evidence,
     explanation: `原文在这个位置用的词是 “${spec.gapFill.answer}”。`,
   };

@@ -318,7 +318,7 @@ export function IELTSReadingPassage({ paper }: { paper: ExamPaper }) {
       // ui-ios：学生端统一的界面语言（44pt 触控目标、按压回弹、iOS 字阶）。
       // 这里只加作用域，不改本页既有的字号类 —— 考试页的正文字号由学生自己
       // 用 A± 控制（--mq-fs），不能被外部统一值覆盖。
-      className="ui-ios lg:h-[calc(100dvh-9rem)]"
+      className="ui-ios lg:h-full"
       style={{ ['--mq-fs' as any]: String(fontScale) }}
     >
       <FillFocusCtx.Provider value={setFillTargetId}>
@@ -440,7 +440,7 @@ export function IELTSReadingPassage({ paper }: { paper: ExamPaper }) {
 const INSTRUCTION_GIST: Record<string, string> = {
   matching_information: '找出下列信息各在哪一段，填段落字母',
   matching_headings: '给每段配一个小标题，填标题编号',
-  matching_features: '把下列内容与选项库里的对象对应起来',
+  matching_features: '为下面每一项从选项库里选出最贴切的一个词',
   classification: '按题目给的类别给每一项归类，填字母',
   true_false_not_given: '判断与原文是否一致：TRUE / FALSE / NOT GIVEN',
   yes_no_not_given: '判断与作者观点是否一致：YES / NO / NOT GIVEN',
@@ -474,9 +474,11 @@ const INSTRUCTION_GIST: Record<string, string> = {
  * 中文概括要跟英文原文一致：原文说 ONE WORD ONLY，概括不能写「不超过两个词」
  *（2026-09-06 复测：学生按中文填两个词会被判错）。
  */
-export function gistFor(taskType: string | undefined, text: string): string | undefined {
+export function gistFor(taskType: string | undefined, text: string, hasOptions = false): string | undefined {
   const base = taskType ? INSTRUCTION_GIST[taskType] : undefined;
   if (!base) return undefined;
+  // 填空转四选一（有选项）：控件是选项，概括不能再说「取词填空」（2026-09-06 第五轮盲测 2）
+  if (hasOptions && /_completion$/.test(taskType ?? '')) return '选出原文里用的那个词，补全句子';
   const limit = /ONE\s+WORD\s+ONLY/i.test(text)
     ? '只填一个词'
     : /NO\s+MORE\s+THAN\s+TWO\s+WORDS/i.test(text)
@@ -489,9 +491,9 @@ export function gistFor(taskType: string | undefined, text: string): string | un
   return base.replace(/，不超过两个词$/, `，${limit}${number}`);
 }
 
-function InstructionBlock({ text, taskType }: { text: string; taskType?: string }) {
+function InstructionBlock({ text, taskType, hasOptions = false }: { text: string; taskType?: string; hasOptions?: boolean }) {
   const [open, setOpen] = useState(false);
-  const gist = gistFor(taskType, text);
+  const gist = gistFor(taskType, text, hasOptions);
   const fs = { fontSize: `calc(0.9375rem * var(--mq-fs, 1))` };
 
   if (!gist) {
@@ -530,7 +532,11 @@ function TaskGroupView({ group, gi }: { group: TaskGroup; gi: number }) {
           <span className="font-mono text-gray-500">Q{range}</span>
         </div>
         {group.instruction ? (
-          <InstructionBlock text={clean(group.instruction)} taskType={group.taskType} />
+          <InstructionBlock
+            text={clean(group.instruction)}
+            taskType={group.taskType}
+            hasOptions={group.questions.some((q) => Array.isArray(q.snapshotOptions) && q.snapshotOptions.length > 0)}
+          />
         ) : group.taskType === 'short_answer' ? (
           // 简答段没有英文指令行时也给一句中文（2026-09-06 复测：四段里只有它光秃秃的）
           <p className="mt-2 text-gray-700 leading-relaxed" style={{ fontSize: `calc(0.9375rem * var(--mq-fs, 1))` }}>
@@ -884,7 +890,7 @@ function RadioGroup({
               aria-label={`${opt.key}${opt.text && opt.text !== opt.key ? ` ${opt.text}` : ''}`}
               className={`min-w-[44px] min-h-[44px] px-4 py-2 rounded-lg border font-semibold transition-colors touch-manipulation ${
                 checked
-                  ? 'border-blue-500 bg-blue-50 text-blue-700 shadow-sm'
+                  ? 'border-blue-600 bg-blue-600 text-white shadow-sm'
                   : 'border-gray-300 text-gray-700 hover:bg-gray-50 active:bg-blue-50'
               }`}
               style={optStyle}

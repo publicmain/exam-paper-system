@@ -335,7 +335,7 @@ export default function TodayPage() {
           数段数，否则两边一旦不一致，学生看到的就是一个永远差一段的进度。
         */}
         {displayedTotal > 0 ? (
-          <p data-testid="lesson-progress" className="text-sm text-slate-600 mb-4">
+          <p data-testid="lesson-progress" aria-label={`今天完成 ${displayedCompleted} / ${displayedTotal}`} className="text-sm text-slate-600 mb-4">
             今天完成 <span className="font-medium">{displayedCompleted}</span> / {displayedTotal}
           </p>
         ) : (

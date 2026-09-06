@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
+  compactDefinition,
   enqueueVocabularyContent,
   runVocabularyContentBatch,
   vocabularyContentProviderConfigured,
@@ -243,5 +244,15 @@ describe('vocabulary content publication', () => {
     expect(jobUpdate).toHaveBeenLastCalledWith(expect.objectContaining({
       data: expect.objectContaining({ status: 'rejected', errorCode: 'publication_gate_failed' }),
     }));
+  });
+});
+
+describe('compactDefinition —— 2026-09-06 第五轮盲测 17', () => {
+  it('截到 10 个词停在逗号上时，尾巴要修干净，不能拼出 ",."', () => {
+    const acid = 'any of various water-soluble compounds having a sour taste and capable of turning litmus red';
+    expect(compactDefinition(acid)).toBe('any of various water-soluble compounds having a sour taste');
+    expect(compactDefinition('a substance that tastes sour, reacts with metals and carbonates, and turns litmus red'))
+      .toBe('a substance that tastes sour, reacts with metals and carbonates');
+    expect(compactDefinition('to hit something by accident')).toBe('hit something by accident');
   });
 });

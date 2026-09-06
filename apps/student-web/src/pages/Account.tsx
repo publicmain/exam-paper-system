@@ -124,6 +124,8 @@ export default function AccountPage() {
   return (
     <Screen>
       <Card>
+        {/* 页头就有回去的路（2026-09-06 第五轮盲测 22） */}
+        <Link to={ROUTES.today} className="inline-block mb-3 text-sm text-blue-600">← 首页</Link>
         <h1 className="text-xl font-semibold mb-1">账号</h1>
         <p className="text-sm text-slate-500 mb-6">{who}</p>
 
@@ -138,6 +140,7 @@ export default function AccountPage() {
               {levelOk}
             </div>
           ) : null}
+          <p className="text-xs text-slate-500 mb-2">下面五档从上到下由易到难。</p>
           <LevelPicker
             name="account-level"
             value={picked}

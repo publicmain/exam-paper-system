@@ -375,13 +375,13 @@ export function ExamWordSheet({
               ) : (
                 // 选过了就不再摆四个活按钮 —— 让人看不出选没选（2026-09-06 复测新发现 4）
                 <p data-testid="word-sheet-coach-chosen" className="text-sm font-medium text-emerald-700">
-                  {coachChoice === 'learn' ? '✓ 已加入我的单词' : coachChoice === 'known' ? '✓ 已标记为会' : coachChoice === 'later' ? '✓ 已收进我的单词，稍后再学' : '✓ 只查了一下，没有加入'}
+                  {coachChoice === 'learn' ? '✓ 已选「加入我的单词」' : coachChoice === 'known' ? '✓ 已选「我已经会了」' : coachChoice === 'later' ? '✓ 已选「稍后再学」' : '✓ 已选「只查一下」'}
                   <button type="button" className="ml-3 text-xs font-normal text-slate-500 underline" onClick={() => setCoachChoice('idle')}>改选</button>
                 </p>
               )}
               {coachChoice !== 'idle' && coachChoice !== 'saving' ? (
                 <p role="status" data-testid="word-sheet-coach-status" className={`mt-2 text-xs ${coachChoice === 'failed' ? 'text-rose-600' : 'text-emerald-700'}`}>
-                  {coachChoice === 'learn' ? '已加入我的单词，复习时会先排它。' : coachChoice === 'known' ? '已标记为会，以后不会作为新词推送。' : coachChoice === 'later' ? '先收进我的单词，不算学过；下次复习或抽查时再练。' : coachChoice === 'lookup_only' ? '本次只查询，没有加入。' : '没有保存，请重试。'}
+                  {coachChoice === 'learn' ? '已加入我的单词，复习时会优先安排它。' : coachChoice === 'known' ? '已标记为会，以后不会作为新词推送。' : coachChoice === 'later' ? '先收进我的单词，不算学过；下次复习或抽查时再练。' : coachChoice === 'lookup_only' ? '本次只查询，没有加入。' : '没有保存，请重试。'}
                 </p>
               ) : coachChoice === 'saving' ? <p className="mt-2 text-xs text-slate-500">正在保存选择…</p> : null}
             </section>

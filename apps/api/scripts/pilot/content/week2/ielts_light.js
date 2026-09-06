@@ -85,7 +85,7 @@ const RAIN = {
 
 const TFNG_INSTRUCTION =
   'Do the following statements agree with the information given in the passage? Write TRUE if the statement agrees with the information, FALSE if the statement contradicts the information, or NOT GIVEN if there is no information on this.';
-const COMPLETION_INSTRUCTION = 'Complete the sentence with ONE WORD ONLY from the passage.';
+const COMPLETION_INSTRUCTION = 'Complete the sentence. Choose the word the passage uses.';
 
 /** 五个教学日：字符串 = 从库里读，对象 = 原创（形状与库文件一致）。 */
 const PLAN = [
@@ -304,8 +304,11 @@ function buildDay(entry, dayIndex) {
 
   let tfIndex = 0;
   const auto = raw.questions.map((q) => {
-    const instruction = q.instruction
-      ?? (q.taskType === 'true_false_not_given' ? TFNG_INSTRUCTION : COMPLETION_INSTRUCTION);
+    // 填空全转成了四选一，指令跟着控件走 —— 库里自带的 "ONE WORD ONLY" 不能用
+    //（2026-09-06 第五轮盲测 2：指令说只填一个词，控件却是四个选项）。
+    const instruction = q.taskType === 'true_false_not_given'
+      ? (q.instruction ?? TFNG_INSTRUCTION)
+      : COMPLETION_INSTRUCTION;
     const stem = `${instruction}\n\n${q.item}`;
     if (q.taskType === 'true_false_not_given') {
       const evidence = q.answer === 'NOT GIVEN' ? '' : TF_EVIDENCE[key][tfIndex];

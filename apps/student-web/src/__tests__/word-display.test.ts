@@ -6,8 +6,11 @@ describe('formatPhonetic —— 2026-09-05 盲测 P2-9', () => {
     expect(formatPhonetic("kә'tæstrәfi")).toBe('/kəˈtæstrəfi/');
     expect(formatPhonetic("/kә'tæstrәfi/")).toBe('/kəˈtæstrəfi/');
   });
-  it("老式记号 'dʒә:mineit 也能看：重音、长音都换成 IPA", () => {
-    expect(formatPhonetic("'dʒә:mineit")).toBe('/ˈdʒəːmineit/');
+  it("老式记号 'dʒә:mineit → 新式 IPA（2026-09-06 第五轮盲测 16）", () => {
+    expect(formatPhonetic("'dʒә:mineit")).toBe('/ˈdʒɜːmɪneɪt/');
+    expect(formatPhonetic("'hæpi")).toBe('/ˈhæpi/'); // 词尾 i 不动
+    expect(formatPhonetic('put')).toBe('/put/'); // 没有老式标记的不碰
+    expect(formatPhonetic("'æsid")).toBe('/ˈæsɪd/');
   });
   it('剑桥式音节点去掉，两套词典数据风格一致（复测新发现 6）', () => {
     expect(formatPhonetic('ˈsɪl.vər')).toBe('/ˈsɪlvər/');
@@ -29,6 +32,11 @@ describe('posLabel / posPrefixFor —— 2026-09-05 盲测 P2-10', () => {
     expect(posLabel('noun')).toBe('n.');
     expect(posLabel('adjective')).toBe('adj.');
     expect(posPrefixFor('verb', '发芽')).toBe('v. ');
+  });
+  it('a. / ad. 换成学生认识的 adj. / adv.（2026-09-06 第五轮盲测 15）', () => {
+    expect(posLabel('a')).toBe('adj.');
+    expect(cleanTranslation('a. 准时的, 守时的')).toBe('adj. 准时的, 守时的');
+    expect(cleanTranslation('ad. 不典型地')).toBe('adv. 不典型地');
   });
   it('释义已经带 n. 开头 → 不重复', () => {
     expect(posPrefixFor('noun', 'n. 大灾难')).toBe('');

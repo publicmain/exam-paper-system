@@ -190,6 +190,26 @@ export class VocabService {
       .map((c) => ({ candidate: c, row: rows.find((r) => r.word === c.form) }))
       .find((item) => item.row);
 
+    // ECDICT 的变形词条有一类中文只写「be的过去式」这种指针，英文 definition
+    // 还混进了别的条目（was 的第一行是华盛顿州；2026-09-06 第五轮盲测 4）。
+    // 指针指向谁就用谁的释义，中文前面标一句「was 是 be 的过去式」。
+    if (directCandidate && directCandidate.candidate.via === 'direct') {
+      const pointer = String(directCandidate.row.translation ?? '').trim()
+        .match(/^([a-z]+)\s*的\s*(过去式|过去分词|现在分词|复数|第三人称单数|比较级|最高级)$/i);
+      if (pointer) {
+        const base = await this.prisma.dictEntry.findUnique({ where: { word: pointer[1].toLowerCase() } });
+        if (base) {
+          const hit = this.toHit(base, raw, 'lemma');
+          return {
+            ...hit,
+            word: directCandidate.row.word,
+            phonetic: directCandidate.row.phonetic ?? hit.phonetic,
+            translation: `${directCandidate.row.word} 是 ${base.word} 的${pointer[2]}\n${hit.translation ?? ''}`.trim(),
+          };
+        }
+      }
+    }
+
     if (
       directCandidate &&
       (directCandidate.candidate.via !== 'direct' ||
