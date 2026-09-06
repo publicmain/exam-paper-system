@@ -143,6 +143,18 @@ O-Level / 简化雅思 09-07 卷第 6 题 `question.questionType = mcq`、带四
 缺解析 0、25 个组合齐，答卷 / 复习流水 / 错题 / V2 会话计数未变。教训：一天一条
 后台命令（工具有 10 分钟上限，循环会被掐）；发布进程被杀 = 整天事务回滚，不会留半截。
 
+**部署记录（周日 19:30–20:24，叶老师第二次说「推」后执行）**：push `main`
+`ef0c642..0bcf119`（633fef7 第五轮 24 条 + 0bcf119 文档）→ 教师端、pdf-worker 成功，
+**API 构建失败**（`vocab.service.ts:197` TS18048，本地 vitest 走 esbuild 不做类型检查
+所以没拦住；`railway redeploy` 同样失败）。修成 `36918ff`（本地 `npm run build -w @app/api`
+过了再推）→ API `/api/health` 20:24 报 `36918ff`。学生端 `railway up`（部署 `ad798c2f`）
+→ 19:52 新包 `index-B2S2eY6V.js` 生效。部署后在生产查 `was`：中文「was 是 be 的过去式」
++ be 的释义，英文不再有华盛顿州。QA 班两份 09-07 答卷已删，让复测员用 `QA盲测甲`
+按 24 条逐条复测。教训：**推之前跑一次 `npm run build -w @app/api`**，vitest 绿不等于
+nest build 绿；失败部署的日志 CLI 拿不到，用 GraphQL `buildLogs(deploymentId)` +
+`~/.railway/config.json` 里的 `accessToken`（不是 `token`）。
+回滚点：API/教师端回 `ef0c642`，学生端回 `index-CxdeIcZe.js` 那一版。
+
 ## 后续决定 —— 2026-09-05（首发前最后一轮修复）
 
 叶老师原话：「判完直接推」「旧账清掉」「现在开始修复所有问题」。据此做了
@@ -404,7 +416,7 @@ Claude 读取资料时按以下优先级处理冲突：
 
 ### 1.1 代码与部署
 
-- 当前 Git：`main` / `origin/main` 在 `ef0c642`（2026-09-06 部署基线；之前是 `bac89fb`、`732b3a4`，原文写本日志时是 `0c17ab1`）。
+- 当前 Git：`main` / `origin/main` 在 `36918ff`（2026-09-06 晚部署基线；之前是 `ef0c642`、`bac89fb`、`732b3a4`，原文写本日志时是 `0c17ab1`）。
 - Railway 项目：`glorious-motivation`，环境：`production`。
 - 学生正式入口：`https://student-web-production-5a21.up.railway.app`
 - API：`https://exam-paper-system-production.up.railway.app`
@@ -412,7 +424,7 @@ Claude 读取资料时按以下优先级处理冲突：
 - 运营后台：`https://ops-dashboard-production-9b67.up.railway.app`
 - 数据库：Railway managed Postgres。
 - 学生端、API、教师端均有成功的 production 部署记录；API/旧 Web 对应当前 Git 基线。
-- 学生端由 CLI 部署，平台不记录 commit SHA，所以每次部署都要像上面的「部署记录」那样把 commit 与部署 ID 写进本文件。当前学生端 = `f4ab87da` / `ef0c642`（包 `index-CxdeIcZe.js`）。
+- 学生端由 CLI 部署，平台不记录 commit SHA，所以每次部署都要像上面的「部署记录」那样把 commit 与部署 ID 写进本文件。当前学生端 = `ad798c2f` / `0bcf119`（包 `index-B2S2eY6V.js`）。
 
 ### 1.2 绝对不能混用的地址
 
