@@ -228,6 +228,16 @@ provisioner 每 10 分钟按 Asia/Singapore 跑，只在教学日建任务；`ST
 
 **没改的（记下）**：「稍后再学」的词从当天词包里拿掉、计数减一（设计：进生词本「待学习」）；学完第 10 个词回首页而不是过场页（首页主行动就是「开始单词测试」）；简答题精确匹配才自动判、其余等老师；配对题解析没有逐题「为什么不是别的词」；`pale` / `foolscap` 义项顺序、`uncharacteristic` 缺音标、人名译法不一（ECDICT / 机翻数据）；便签删除无撤销；申诉不能选题号。
 
+**验收后的部署与收尾（周一 00:40–02:00）**：三批修复分别推为 `5b1a09e`（历史成绩接新版测试、
+例句退档）、`66fc4a3`（只填一个词提示、取词替换、Matching Information、交卷按钮保存中等）、
+`a1b2247`（真句优先、模板句中文按词义、释义过滤人名地名、Esc、提示条、退出按钮）、`14bd12b` +
+`35c8f39`（成绩详情页返回、本记录）；API `/api/health` 01:2x 报 `35c8f39`，学生端 `railway up`
+（部署 `8bc073d8`）新包生效。**第五次重发**（01:22–01:53，五天各 5–7 分钟全部 exit=0）：
+250 题快照与内容包一致、缺解析 0、25 个组合齐。收尾：QA 班 5 条档位设置已删、五个验收号已归档、
+`smoke-session-today.js --day=2026-09-06 --remove` 删了 5 个场次（含 5 份验收答卷），答卷计数回到
+632。G11 旧班保持归档。周一早上不需要再做任何生产操作。
+回滚点：API/教师端回 `a1b2247`（或更早 `d735442`），学生端回上一个部署。
+
 ## 后续决定 —— 2026-09-05（首发前最后一轮修复）
 
 叶老师原话：「判完直接推」「旧账清掉」「现在开始修复所有问题」。据此做了
@@ -489,7 +499,7 @@ Claude 读取资料时按以下优先级处理冲突：
 
 ### 1.1 代码与部署
 
-- 当前 Git：`main` / `origin/main` 在 `d735442`（2026-09-06 晚部署基线；之前是 `36918ff`、`ef0c642`、`bac89fb`、`732b3a4`，原文写本日志时是 `0c17ab1`）。
+- 当前 Git：`main` / `origin/main` 在 `35c8f39`（2026-09-07 凌晨首发基线；之前是 `a1b2247`、`d735442`、`36918ff`、`ef0c642`、`bac89fb`、`732b3a4`，原文写本日志时是 `0c17ab1`）。
 - Railway 项目：`glorious-motivation`，环境：`production`。
 - 学生正式入口：`https://student-web-production-5a21.up.railway.app`
 - API：`https://exam-paper-system-production.up.railway.app`
@@ -497,7 +507,7 @@ Claude 读取资料时按以下优先级处理冲突：
 - 运营后台：`https://ops-dashboard-production-9b67.up.railway.app`
 - 数据库：Railway managed Postgres。
 - 学生端、API、教师端均有成功的 production 部署记录；API/旧 Web 对应当前 Git 基线。
-- 学生端由 CLI 部署，平台不记录 commit SHA，所以每次部署都要像上面的「部署记录」那样把 commit 与部署 ID 写进本文件。当前学生端 = `c89a45db` / `d735442`（包 `index-MiMoD_dD.js`）。
+- 学生端由 CLI 部署，平台不记录 commit SHA，所以每次部署都要像上面的「部署记录」那样把 commit 与部署 ID 写进本文件。当前学生端 = `8bc073d8` / `35c8f39`。
 
 ### 1.2 绝对不能混用的地址
 
