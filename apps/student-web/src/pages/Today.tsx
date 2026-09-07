@@ -408,7 +408,6 @@ export default function TodayPage() {
         {vocabOverview?.pendingTests.length ? (
           <section className="mt-6 rounded-2xl border border-amber-200 bg-amber-50/80 p-4" aria-label="还没做的单词小测">
             <h2 className="font-semibold text-amber-950">还没做的单词小测</h2>
-            <p className="mt-1 text-sm text-amber-800">没有截止时间；没做的会按日期一直留着。</p>
             {testError ? <Notice kind="error">{testError}</Notice> : null}
             <div className="mt-3 grid gap-2">
               {vocabOverview.pendingTests.map((task) => (
