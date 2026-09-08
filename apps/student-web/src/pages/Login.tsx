@@ -17,7 +17,7 @@ import { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { api, type StudentCandidate } from '../lib/api';
 import { adoptSession, getState } from '../lib/auth-store';
-import { loginErrorText } from '../lib/errors';
+import { loginErrorText, registerErrorText } from '../lib/errors';
 import { ROUTES } from '../routes.contract';
 import { Button, Card, CandidatePicker, Field, Notice, Screen, Title } from '../ui';
 
@@ -51,6 +51,45 @@ export default function LoginPage() {
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
   const [candidates, setCandidates] = useState<StudentCandidate[] | null>(null);
+  /**
+   * 老师在教师端点了「重置密码」之后，账号的密码被清空：登录会 invalid_credentials，
+   * 重新注册会 name_taken_in_class —— 学生自己在页面上出不来（2026-09-08 实测）。
+   * 这里补一条设新密码的通道，走 `/student-auth/register`（未设密码的账号才认）。
+   */
+  const [mode, setMode] = useState<'login' | 'setnew'>('login');
+  const [confirmPw, setConfirmPw] = useState('');
+
+  async function setNewPassword(studentId?: string) {
+    if (busy) return;
+    if (!name.trim() || !password) {
+      setErr('姓名和新密码都要填。');
+      return;
+    }
+    if (!/^\d{6}$/.test(password)) {
+      setErr('新密码要正好 6 位数字。');
+      return;
+    }
+    if (password !== confirmPw) {
+      setErr('两次输入的新密码不一样。');
+      return;
+    }
+    setBusy(true);
+    setErr(null);
+    try {
+      const r = await api.register({ name: name.trim(), studentId, password });
+      if ('needDisambiguation' in r && r.needDisambiguation) {
+        setCandidates(r.candidates);
+        return;
+      }
+      adoptSession(r.token, r.student);
+      nav(ROUTES.today, { replace: true });
+    } catch (e) {
+      setErr(registerErrorText(e));
+      setCandidates(null);
+    } finally {
+      setBusy(false);
+    }
+  }
   const notice = st.status === 'anonymous' ? st.notice : undefined;
 
   /**
@@ -112,31 +151,86 @@ export default function LoginPage() {
         {err ? <Notice kind="error">{err}</Notice> : null}
 
         {candidates ? (
-          <CandidatePicker candidates={candidates} onPick={(id) => void submit(id)} />
+          <CandidatePicker
+            candidates={candidates}
+            onPick={(id) => void (mode === 'setnew' ? setNewPassword(id) : submit(id))}
+          />
         ) : (
           <form
             onSubmit={(e) => {
               e.preventDefault();
-              void submit();
+              void (mode === 'setnew' ? setNewPassword() : submit());
             }}
           >
+            {mode === 'setnew' ? (
+              <p className="mb-4 rounded-xl bg-blue-50 px-4 py-3 text-sm leading-6 text-blue-900">
+                老师帮你重置密码之后，在这里设一个新的。要是老师没重置过，这一步会提示你直接去登录。
+              </p>
+            ) : null}
             <Field label="姓名" value={name} onChange={setName} autoComplete="username" />
             <Field
-              label="密码"
+              label={mode === 'setnew' ? '新密码（6 位数字）' : '密码'}
               type="password"
               numericPin
+              maxLength={mode === 'setnew' ? 6 : undefined}
               value={password}
               onChange={setPassword}
-              autoComplete="current-password"
+              autoComplete={mode === 'setnew' ? 'new-password' : 'current-password'}
             />
+            {mode === 'setnew' ? (
+              <Field
+                label="再输一次新密码"
+                type="password"
+                numericPin
+                maxLength={6}
+                value={confirmPw}
+                onChange={setConfirmPw}
+                autoComplete="new-password"
+              />
+            ) : null}
             <Button type="submit" disabled={busy}>
-              {busy ? '登录中…' : '登录'}
+              {busy ? (mode === 'setnew' ? '设置中…' : '登录中…') : mode === 'setnew' ? '设新密码并登录' : '登录'}
             </Button>
-            <p className="text-center text-sm text-slate-500 mt-5">
-              <Link to={ROUTES.register} className="text-blue-600 underline">
-                第一次使用？注册
-              </Link>
-            </p>
+            {mode === 'login' ? (
+              <>
+                <p className="text-center text-sm text-slate-500 mt-5">
+                  <Link to={ROUTES.register} className="text-blue-600 underline">
+                    第一次使用？注册
+                  </Link>
+                </p>
+                <p className="text-center text-sm text-slate-500 mt-2">
+                  <button
+                    type="button"
+                    data-testid="forgot-password"
+                    className="text-blue-600 underline"
+                    onClick={() => {
+                      setMode('setnew');
+                      setErr(null);
+                      setPassword('');
+                      setConfirmPw('');
+                    }}
+                  >
+                    忘了密码？先找老师重置，再点这里
+                  </button>
+                </p>
+              </>
+            ) : (
+              <p className="text-center text-sm text-slate-500 mt-5">
+                <button
+                  type="button"
+                  data-testid="back-to-login"
+                  className="text-blue-600 underline"
+                  onClick={() => {
+                    setMode('login');
+                    setErr(null);
+                    setPassword('');
+                    setConfirmPw('');
+                  }}
+                >
+                  ← 回登录
+                </button>
+              </p>
+            )}
           </form>
         )}
 
