@@ -844,11 +844,13 @@ describe('G1 新端不得出现旧路由与旧身份键', () => {
     // 阶段 12C 再多一处：查词的**发现性提示**标记（LOOKED_UP_KEY），
     // 常量就定义在 IELTSReadingPassage 里、值是固定的 `sw:reading:looked-up-once`。
     // 它只存一个 '1'，不存词条 / 身份 / 令牌 / 答案 / 待写队列。
+    // 2026-09-09 再多一处：首页「单词小测没做」提醒的当天记号（REMINDER_KEY），
+    // 常量定义在 Today.tsx、值固定为 `sw:vocab-test-reminded`，只存一个日期串。
     for (const w of writes) {
       expect(w).toMatch(
         // 只匹配文件名，不匹配目录分隔符 —— Windows 上是 `\`、别处是 `/`，
         // 把分隔符写进正则会让这条守卫只在一种机器上成立。
-        /identity\.ts:(TOKEN_KEY|probe|k)$|storage\.ts:key$|(Highlighter|StickyNote|DraggableSplit)\.tsx:(storageKey|key)$|review-queue\.ts:(QUEUE_KEY|probe)$|IELTSReadingPassage\.tsx:LOOKED_UP_KEY$/,
+        /identity\.ts:(TOKEN_KEY|probe|k)$|storage\.ts:key$|(Highlighter|StickyNote|DraggableSplit)\.tsx:(storageKey|key)$|review-queue\.ts:(QUEUE_KEY|probe)$|IELTSReadingPassage\.tsx:LOOKED_UP_KEY$|Today\.tsx:REMINDER_KEY$/,
       );
     }
   });

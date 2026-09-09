@@ -156,6 +156,17 @@ export default function TodayPage() {
   const [starting, setStarting] = useState(false);
   const [startError, setStartError] = useState<string | null>(null);
   const [testError, setTestError] = useState<string | null>(null);
+  /**
+   * 「还有单词小测没做」的提醒弹窗（2026-09-09 叶老师提的）。
+   *
+   * 首页本来就有一张橙色卡片，但三天下来有 8 个学生词学完了、测试一次没做 ——
+   * 卡片在页面下方，学生点完「开始今天的课程」就走了，根本没看见。所以改成
+   * 进首页时弹一次。
+   *
+   * 一天只弹一次：记号写在 localStorage，key 带当天日期。关掉之后当天不再打扰，
+   * 第二天还没做就再提醒一次。localStorage 读写一律 try/catch —— 无痕模式下会抛。
+   */
+  const [remindTest, setRemindTest] = useState<PendingTest | null>(null);
 
   /**
    * 请求代次。
@@ -178,6 +189,11 @@ export default function TodayPage() {
         : null;
       if (mine !== gen.current) return;
       setPhase({ s: 'ready', data, vocabOverview });
+      const pending = vocabOverview?.pendingTests ?? [];
+      if (pending.length > 0 && !remindedToday()) {
+        // 最早那一份 —— 欠得最久的先提醒
+        setRemindTest([...pending].sort((a, b) => a.date.localeCompare(b.date))[0]);
+      }
     } catch (e) {
       if (mine !== gen.current) return;
       // 认证失败 → 走统一的登出，回登录页
@@ -194,6 +210,26 @@ export default function TodayPage() {
       gen.current++;
     };
   }, [load]);
+
+  const openTest = useCallback(
+    async (task: PendingTest) => {
+      const token = readToken();
+      if (!token) return;
+      setTestError(null);
+      try {
+        const test = task.testSessionId
+          ? { id: task.testSessionId }
+          : await api.vocabV2StartTest(token, task.dailySessionId);
+        navigate(`${ROUTES.coachTest}?sessionId=${encodeURIComponent(test.id)}`);
+      } catch (error) {
+        // 没有 catch 的话，一次失败就是一个未处理的 rejection：按钮看着像死了，
+        // 学生不知道发生了什么。
+        if (handleAuthFailure(error)) return;
+        setTestError('这份单词测试暂时打不开，请稍后再试。');
+      }
+    },
+    [navigate],
+  );
 
   const onStart = useCallback(async () => {
     if (starting) return; // 双击只算一次
@@ -414,22 +450,7 @@ export default function TodayPage() {
                 <button
                   key={task.dailySessionId}
                   className="app-secondary flex min-h-[52px] items-center justify-between bg-white px-4 text-left"
-                  onClick={async () => {
-                    const token = readToken();
-                    if (!token) return;
-                    setTestError(null);
-                    try {
-                      const test = task.testSessionId
-                        ? { id: task.testSessionId }
-                        : await api.vocabV2StartTest(token, task.dailySessionId);
-                      navigate(`${ROUTES.coachTest}?sessionId=${encodeURIComponent(test.id)}`);
-                    } catch (error) {
-                      // 没有 catch 的话，一次失败就是一个未处理的 rejection：按钮看着像死了，
-                      // 学生不知道发生了什么。
-                      if (handleAuthFailure(error)) return;
-                      setTestError('这份单词测试暂时打不开，请稍后再试。');
-                    }
-                  }}
+                  onClick={() => void openTest(task)}
                 >
                   <span>{formatTaskDate(task.date)} · {task.total} 个词</span>
                   <span className="text-[#007aff]">{task.status === 'in_progress' ? '继续' : '开始'} →</span>
@@ -447,9 +468,97 @@ export default function TodayPage() {
           <QuickLink to={ROUTES.account} icon="⚙" label="账号设置" />
         </nav>
       </Card>
+
+      {remindTest ? (
+        <PendingTestReminder
+          task={remindTest}
+          onGo={() => {
+            markRemindedToday();
+            const task = remindTest;
+            setRemindTest(null);
+            void openTest(task);
+          }}
+          onClose={() => {
+            markRemindedToday();
+            setRemindTest(null);
+          }}
+        />
+      ) : null}
     </Screen>
   );
 }
+
+/** 首页的「还有单词小测没做」提醒。一天一次，可以关掉。 */
+function PendingTestReminder({
+  task,
+  onGo,
+  onClose,
+}: {
+  task: PendingTest;
+  onGo: () => void;
+  onClose: () => void;
+}) {
+  return (
+    <div
+      role="dialog"
+      aria-modal="true"
+      aria-label="还有单词小测没做"
+      data-testid="pending-test-reminder"
+      className="fixed inset-0 z-40 grid place-items-center bg-black/30 px-6 backdrop-blur-sm"
+    >
+      <div className="app-glass w-full max-w-sm rounded-[22px] p-6">
+        <h2 className="mb-2 text-lg font-semibold">还有一份单词小测没做</h2>
+        <p className="mb-5 text-sm leading-6 text-slate-600">
+          {formatTaskDate(task.date)}学的 {task.total} 个词还没测。测一次这些词才会进复习计划，两三分钟就够。
+        </p>
+        <div className="flex gap-3">
+          <button
+            type="button"
+            data-testid="reminder-later"
+            onClick={onClose}
+            className="min-h-[44px] flex-1 rounded-xl border border-slate-300"
+          >
+            待会儿
+          </button>
+          <button
+            type="button"
+            data-testid="reminder-go"
+            onClick={onGo}
+            className="min-h-[44px] flex-1 rounded-xl bg-blue-600 font-medium text-white"
+          >
+            现在去测
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+const REMINDER_KEY = 'sw:vocab-test-reminded';
+
+/** 今天提醒过了吗。localStorage 在无痕模式下会抛，读写都兜住。 */
+function remindedToday(): boolean {
+  try {
+    return localStorage.getItem(REMINDER_KEY) === todayKey();
+  } catch {
+    return false;
+  }
+}
+
+function markRemindedToday(): void {
+  try {
+    localStorage.setItem(REMINDER_KEY, todayKey());
+  } catch {
+    /* 无痕模式：记不住就每次都提醒，总比不提醒好 */
+  }
+}
+
+function todayKey(): string {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
+
+type PendingTest = V2Overview['pendingTests'][number];
 
 function formatTaskDate(date: string) {
   const [, month, day] = date.split('-').map(Number);
