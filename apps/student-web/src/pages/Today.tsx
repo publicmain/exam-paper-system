@@ -498,6 +498,20 @@ function PendingTestReminder({
   onGo: () => void;
   onClose: () => void;
 }) {
+  // 打开时把焦点放到主按钮：键盘和读屏用户不用自己找（2026-09-09 验收 P2-2）。
+  const goRef = useRef<HTMLButtonElement>(null);
+  useEffect(() => {
+    goRef.current?.focus();
+  }, []);
+  // Esc 当作「待会儿」——和点按钮一样记下今天已提醒，不会刷一次弹一次。
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onClose();
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [onClose]);
+
   return (
     <div
       role="dialog"
@@ -522,6 +536,7 @@ function PendingTestReminder({
           </button>
           <button
             type="button"
+            ref={goRef}
             data-testid="reminder-go"
             onClick={onGo}
             className="min-h-[44px] flex-1 rounded-xl bg-blue-600 font-medium text-white"

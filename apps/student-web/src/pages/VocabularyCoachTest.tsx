@@ -106,7 +106,7 @@ export default function VocabularyCoachTestPage() {
   );
   if (feedback) return (
     <Screen>
-      <TopBar title={session!.type === 'custom_test' ? '自定义抽查' : `${formatTaskDate(session!.date)}`} onBack={() => navigate(ROUTES.vocab)} backLabel="退出" right={<span className="text-sm tabular-nums text-slate-500">{session!.answered} / {session!.total}</span>} />
+      <TopBar title={session!.type === 'custom_test' ? '自定义抽查' : `${formatTaskDate(session!.date)}`} onBack={() => navigate(ROUTES.today)} backLabel="首页" right={<span className="text-sm tabular-nums text-slate-500">{session!.answered} / {session!.total}</span>} />
       <div className="mx-auto w-full max-w-3xl">
         <Card>
           <p data-testid="test-feedback" className={`text-2xl font-semibold ${feedback.isCorrect ? 'text-emerald-600' : 'text-rose-600'}`}>{feedback.isCorrect ? '✓ 答对了' : '✗ 不对'}</p>
@@ -123,7 +123,7 @@ export default function VocabularyCoachTestPage() {
   const q = item.question;
   return (
     <Screen>
-      <TopBar title={session!.type === 'custom_test' ? '自定义抽查' : `${formatTaskDate(session!.date)}`} onBack={() => navigate(ROUTES.vocab)} backLabel="退出" right={<span className="text-sm tabular-nums text-slate-500">{session!.answered + 1} / {session!.total}</span>} />
+      <TopBar title={session!.type === 'custom_test' ? '自定义抽查' : `${formatTaskDate(session!.date)}`} onBack={() => navigate(ROUTES.today)} backLabel="首页" right={<span className="text-sm tabular-nums text-slate-500">{session!.answered + 1} / {session!.total}</span>} />
       <div className="mx-auto w-full max-w-3xl"><div className="mb-4 h-2 overflow-hidden rounded-full bg-slate-200"><div className="h-full rounded-full bg-blue-500" style={{ width: `${(session!.answered / session!.total) * 100}%` }} /></div>
         <Card>
           <p className="text-sm text-slate-500">{q.type === 'meaning_choice' ? '选出这个词的中文意思。' : q.prompt}</p>

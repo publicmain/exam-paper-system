@@ -117,6 +117,24 @@ describe('首页单词小测提醒', () => {
     expect(screen.queryByTestId('pending-test-reminder')).toBeNull();
   });
 
+  it('弹出时焦点落在「现在去测」上（2026-09-09 验收 P2-2）', async () => {
+    mount();
+    await settle();
+    expect(document.activeElement).toBe(screen.getByTestId('reminder-go'));
+  });
+
+  it('按 Esc 等于「待会儿」：关掉且当天不再弹', async () => {
+    const first = mount();
+    await settle();
+    fireEvent.keyDown(window, { key: 'Escape' });
+    await settle();
+    expect(screen.queryByTestId('pending-test-reminder')).toBeNull();
+    first.unmount();
+    mount();
+    await settle();
+    expect(screen.queryByTestId('pending-test-reminder')).toBeNull();
+  });
+
   it('没有待做的小测 → 不弹', async () => {
     pendingTests = [];
     mount();
