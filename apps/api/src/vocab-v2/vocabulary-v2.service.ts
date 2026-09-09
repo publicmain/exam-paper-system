@@ -812,7 +812,12 @@ export class VocabularyV2Service {
   }
 
   private cardSnapshot(row: any, maximumDifficulty: number, encounter: number) {
-    const context = contextForEncounter(row.sense.contexts ?? [], encounter, maximumDifficulty);
+    const context = contextForEncounter(
+      row.sense.contexts ?? [],
+      encounter,
+      maximumDifficulty,
+      row.sense.lexeme.headword,
+    );
     return {
       headword: row.sense.lexeme.headword,
       phonetic: row.sense.lexeme.phonetic,

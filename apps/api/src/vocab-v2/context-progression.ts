@@ -1,3 +1,5 @@
+import { sentenceFitsLevel } from './cefr-difficulty';
+
 export interface ContextCandidate {
   id: string;
   kind: string;
@@ -27,13 +29,19 @@ export function contextForEncounter(
   contexts: readonly ContextCandidate[],
   encounter: number,
   maximumDifficulty: number,
+  /** 正在教的词 —— 它自己超纲不算数。 */
+  headword?: string,
 ): ContextCandidate | null {
   // 有翻译的优先（article_original 里 544 条 needs_translation 会把没翻译的天文句推给基础档）
   const ready = contexts.filter((row) => !row.qualityStatus || row.qualityStatus === 'ready');
   const readyPool = ready.length ? ready : [...contexts];
   // 真句（Tatoeba 等）优先；只有模板句时才用模板句
   const real = readyPool.filter((row) => !isTemplateContext(row));
-  const pool = real.length ? real : readyPool;
+  const realPool = real.length ? real : readyPool;
+  // CEFR 闸门：把对这个档位超纲的句子往后放（2026-09-09 接入 CEFR-J 词表）。
+  // 只是排序偏好，不是硬过滤 —— 全都超纲时照样得给一句，空例句框更糟。
+  const fits = realPool.filter((row) => sentenceFitsLevel(row.sentence, maximumDifficulty, headword));
+  const pool = fits.length ? fits : realPool;
   if (!pool.length) return null;
   // 难度上限内优先；一条都没有（基础档策略只放难度 1，生成的例句是 2 / 3）就退到
   // 最容易的那条 —— 空框比略难的句子更糟（2026-09-06 上线验收：10 个词 8 个空框）。
