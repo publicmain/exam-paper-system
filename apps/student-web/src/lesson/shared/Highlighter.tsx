@@ -223,6 +223,12 @@ export function Highlighter({
     const s = tapRef.current;
     tapRef.current = null;
     if (!s) return;
+    // 点在已有高亮上 = 想取消它，不是想查词（2026-09-09 叶老师报「高亮取消不了」）。
+    //
+    // pointerup 比 click 早，查词卡一弹出来就盖在正文上，接着的 click 落到遮罩上，
+    // <mark> 的移除处理器根本收不到 —— 学生看到的是「点高亮弹出查词卡，高亮还在」。
+    // 这里让路，click 自然会走到 mark 的 onClick。
+    if ((e.target as Element | null)?.closest?.('mark')) return;
     const slop = s.touch ? TAP_SLOP_TOUCH : TAP_SLOP_MOUSE;
     if (Math.abs(e.clientX - s.x) > slop || Math.abs(e.clientY - s.y) > slop) return; // 拖动 / 滚动
     if (Date.now() - s.t > TAP_MAX_MS) return;                                        // 长按

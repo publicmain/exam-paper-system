@@ -5,7 +5,7 @@
  * 服务不可用时完全静默不挡答题。
  */
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import { act, render, screen, fireEvent } from '@testing-library/react';
+import { act, render, screen } from '@testing-library/react';
 import { WritingHints, __resetWritingCheckCache, useWritingCheckEnabled } from '../lesson/shared/WritingHints';
 import { writeToken } from '../lib/identity';
 
