@@ -57,7 +57,11 @@ type DumpScript = {
   rubric: string | null;
   evidence: string | null;
   studentAnswer: string | null;
+  /** 与参考答案的语义相似度，0–1。**只用来排序，不是分数。** */
+  similarity?: number | null;
 };
+import { scoreSimilarity, similarityBand } from './lib/answer-similarity';
+
 type DumpSubmission = {
   submissionId: string;
   student: string;
@@ -281,6 +285,58 @@ type DumpSubmission = {
     }
     jsonOut.submissions.push(dumpSub);
   }
+
+  // ── 相似度：给队列排序，不给分 ─────────────────────────────
+  //
+  // 本地跑 all-MiniLM-L6-v2，零 API 调用。装不上就静默跳过，判分照常。
+  const simItems = jsonOut.submissions.flatMap((sub) =>
+    sub.scripts.map((sc) => ({
+      id: sc.scriptId,
+      studentAnswer: String(sc.studentAnswer ?? ''),
+      references: [sc.reference ?? '', ...(sc.accept ?? [])].filter(Boolean),
+    })),
+  );
+  const sims = await scoreSimilarity(simItems);
+  if (sims.size > 0) {
+    for (const sub of jsonOut.submissions) {
+      for (const sc of sub.scripts) sc.similarity = sims.get(sc.scriptId) ?? null;
+    }
+
+    // 按**题目**重排一遍打印：同一道题的所有答案排在一起，相似度从高到低。
+    // 判同一道题的 20 份比判 20 个学生的 4 道题快得多 —— 标准只需校准一次。
+    console.log('');
+    console.log('='.repeat(60));
+    console.log('按题分组（同题排在一起，相似度从高到低）');
+    console.log('相似度只用于排序，不是分数 —— 判几分仍然由人定。');
+    console.log('='.repeat(60));
+    type Row = { who: string; scriptId: string; sim: number | null; ans: string; marks: number };
+    const byStem = new Map<string, { stem: string; reference: string | null; rows: Row[] }>();
+    for (const sub of jsonOut.submissions) {
+      for (const sc of sub.scripts) {
+        const key = `${sub.paper}||${sc.stem}`;
+        if (!byStem.has(key)) byStem.set(key, { stem: sc.stem, reference: sc.reference, rows: [] });
+        byStem.get(key)!.rows.push({
+          who: sub.student,
+          scriptId: sc.scriptId,
+          sim: sc.similarity ?? null,
+          ans: String(sc.studentAnswer ?? ''),
+          marks: sc.maxMarks,
+        });
+      }
+    }
+    for (const group of byStem.values()) {
+      group.rows.sort((a, b) => (b.sim ?? -1) - (a.sim ?? -1));
+      console.log('');
+      console.log(`【${group.rows[0].marks} 分】${group.stem.replace(/\s+/g, ' ').trim()}`);
+      if (group.reference) console.log(`  参考：${group.reference.replace(/\s+/g, ' ').trim()}`);
+      for (const r of group.rows) {
+        console.log(`  ${String(r.sim ?? '-').padStart(5)} ${similarityBand(r.sim).padEnd(4)} ${r.scriptId}  ${r.who}`);
+        console.log(`        ${r.ans.replace(/\s+/g, ' ').trim() || '（空着）'}`);
+      }
+    }
+    console.log('');
+  }
+
 
   console.log('═══════════════════════════════════════════════════════════');
   console.log(`END DUMP — ${submissions.length} submission(s)`);
