@@ -28,4 +28,5 @@ ENV JAVA_OPTS="-Xms256m -Xmx768m"
 EXPOSE 8010
 
 # --public 让容器外能访问；Railway 内网访问也走这个。
-CMD ["sh", "-c", "exec java $JAVA_OPTS -cp languagetool-server.jar org.languagetool.server.HTTPServer --port 8010 --public --allow-origin '*'"]
+# 起来之前先把 jar 列出来，万一包结构变了日志里看得见
+CMD ["sh", "-c", "ls -la /opt/languagetool/*.jar; exec java $JAVA_OPTS -cp languagetool-server.jar org.languagetool.server.HTTPServer --port ${PORT:-8010} --public --allow-origin '*'"]
