@@ -204,6 +204,16 @@ export type V2FormalTestRow = {
   completedAt: string | null;
 };
 
+/** 写作自查里的一条提示。**只讲英文对不对，不讲答得对不对。** */
+export type WritingIssue = {
+  offset: number;
+  length: number;
+  text: string;
+  kind: 'spelling' | 'grammar';
+  message: string;
+  suggestions: string[];
+};
+
 export type V2TestSession = {
   id: string;
   version: string;
@@ -702,6 +712,13 @@ export const api = {
     request<VocabAttemptHistory>('GET', '/vocab/quiz/attempts', { token }),
 
   /** 新版正式单词测试的历史（已交卷的 formal_test），每条能点开逐题回顾。 */
+  /** 写作自查开着没有 —— 关着就不显示提示区，也不用每次白跑一趟。 */
+  writingCheckEnabled: (token: string) =>
+    request<{ enabled: boolean }>('GET', '/writing-check/status', { token }),
+
+  writingCheck: (token: string, text: string) =>
+    request<{ issues: WritingIssue[] }>('POST', '/writing-check', { token, body: { text } }),
+
   vocabV2Tests: (token: string) =>
     request<{ tests: V2FormalTestRow[] }>('GET', '/vocab-v2/tests', { token }),
 

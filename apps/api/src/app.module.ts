@@ -42,6 +42,7 @@ import { ClassifierModule } from './classifier/classifier.module';
 import { VocabModule } from './vocab/vocab.module';
 import { VocabularyV2Module } from './vocab-v2/vocabulary-v2.module';
 import { LessonModule } from './lesson/lesson.module';
+import { WritingCheckModule } from './writing-check/writing-check.module';
 import { PracticeModule } from './practice/practice.module';
 // Morning attendance + quiz (feature/morning-attendance-quiz)
 import { ShuffleModule } from './shuffle/shuffle.module';
@@ -102,6 +103,7 @@ import { HealthController } from './health.controller';
     VocabModule,
     VocabularyV2Module,
     LessonModule,
+    WritingCheckModule,
     StudentAuthModule,
     PracticeModule,
     // Morning attendance + quiz

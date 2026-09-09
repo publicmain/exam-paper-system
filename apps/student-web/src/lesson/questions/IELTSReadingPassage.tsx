@@ -7,6 +7,7 @@ import { useStoredNotes, StickyNoteRail } from '../shared/StickyNote';
 import { DraggableSplit } from '../shared/DraggableSplit';
 import { QuestionFlag } from '../shared/QuestionFlag';
 import { ExamWordSheet, type FillTarget } from '../ExamWordSheet';
+import { WritingHints, useWritingCheckEnabled } from '../shared/WritingHints';
 
 /**
  * IELTS Computer-Delivered-style reading shell.
@@ -1004,6 +1005,7 @@ function DebouncedTextarea({
   minRows?: number;
   showWordCount?: boolean;
 }) {
+  const writingCheckOn = useWritingCheckEnabled();
   const [local, setLocal] = useState(value);
   useEffect(() => { setLocal(value); }, [value]);
   // R15-followup-6 — save on every keystroke (same fix as LetterInput).
@@ -1025,6 +1027,7 @@ function DebouncedTextarea({
         placeholder="Your answer…"
         className="w-full border rounded-lg px-4 py-3 text-base focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-200"
       />
+      <WritingHints text={local} enabled={writingCheckOn} />
       {/* 8 分摘要题有 80 词上限，写的时候看得见才好控制 —— 只提示不拦截，
           超了由老师按 SEAB 的口径扣分，前端不替考官做判断。 */}
       {showWordCount && (
