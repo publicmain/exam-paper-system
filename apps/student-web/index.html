@@ -4,6 +4,17 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
     <title>每日英语</title>
+    <!--
+      可安装（2026-09-10）。只为一件事：iPhone / iPad 上的浏览器推送
+      **必须**把网页加到主屏幕才收得到。manifest 里没有任何缓存策略，
+      Service Worker 也只管推送 —— 见 public/sw.js 头注释。
+    -->
+    <link rel="manifest" href="/manifest.webmanifest" />
+    <meta name="theme-color" content="#007aff" />
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+    <meta name="apple-mobile-web-app-title" content="每日英语" />
   </head>
   <body>
     <div id="root"></div>

@@ -794,6 +794,52 @@ WORDLIST_CONFIRM=PUBLISH_WORD_LIST_PRODUCTION railway run -s Postgres -e product
   天数缩短时多出来的旧布置（标题以「老师词表 <周>」开头的）自动删掉。
 - 老师词表那几天档位词表暂停（游标不动），词表发完自动接回。
 
+### 4.11 报错收集、浏览器推送、词汇发音（2026-09-10）
+
+三项都是「没配环境变量 / 没上传数据就静默关着」，少任何一项服务照常起来。
+
+**报错收集（Sentry）**
+
+- API：`apps/api/src/instrument.ts` 是 `main.ts` 的第一个 import；`SENTRY_DSN`
+  为空则不 init。`GlobalExceptionFilter.catch` 上挂了 `@SentryExceptionCaptured()`，
+  只上报 5xx 与未建模异常。`/api/health` 的 `monitoring` 字段回 `sentry` / `off`。
+- 学生端：`apps/student-web/src/lib/sentry.ts`；DSN 走构建期 `VITE_SENTRY_DSN`
+  （Dockerfile 里有 `ARG`，服务变量设了才会进构建）。`main.tsx` 用
+  `Sentry.ErrorBoundary` 兜底整页崩溃。**没有上传 source map**，堆栈是压缩后的。
+- 隐私：两边都 `sendDefaultPii: false`；URL 本来不带姓名 / studentId。
+
+**浏览器推送（Web Push，不经第三方平台）**
+
+- 环境变量：`VAPID_PUBLIC_KEY` / `VAPID_PRIVATE_KEY`（`npx web-push generate-vapid-keys`）、
+  `VAPID_SUBJECT`（`mailto:` 或站点 https 地址）、`PUSH_REMINDER_TIME`（`HH:MM` SGT，
+  默认 `16:30`，改了要重启）。
+- 表：`PushSubscription`，一台设备一行，`endpoint` 唯一。推送服务回 404/410 即删行。
+- 端点：`GET /push/config`（开没开、公钥、时刻）、`POST /push/subscribe`、
+  `POST /push/unsubscribe`，都要学生令牌。
+- cron `push-daily-reminder`：工作日到点，推给**订阅了 + 今天有 active 场次 +
+  没最终交阅读卷 + 今天没推过**的人（`push-reminder.rules.ts`）。
+- 学生端：`lib/push.ts` 是**唯一**注册 Service Worker 的地方，只在学生点「开启提醒」
+  时注册；`public/sw.js` 只处理 push / notificationclick，**没有 fetch 监听**，
+  契约测试守着。iPhone / iPad 必须先「添加到主屏幕」（manifest + apple meta 已加）。
+  账号页有开关（`push/PushSettings.tsx`），首页有一次性提示（`push/PushNudge.tsx`）。
+
+**词汇发音（Piper，英式 `en_GB-alba-medium`）**
+
+- 表：`WordAudio`，主键 headword（小写），MP3 48 kbps 单声道，约 5 KB/词。
+- 端点：`GET /audio/word/:headword`，**公开**（`<audio src>` 带不了令牌），
+  一年 immutable 缓存；404 也缓存一小时。
+- 学生端 `lib/speak.ts`：先放服务端音频，放不了再退回 `speechSynthesis`。
+- 生成 → 转码 → 上传（都在这台机器）：
+
+  ```bash
+  python apps/api/scripts/vendor/build-audio.py --words .local/piper/words.txt --out .local/piper/out
+  npm i --no-save lamejs@1.2.1
+  node apps/api/scripts/vendor/encode-audio.js --in .local/piper/out --out .local/piper/mp3
+  railway run -s Postgres -e production -- npx ts-node apps/api/scripts/vendor/upload-audio.ts --dir=.local/piper/mp3
+  ```
+
+  上传幂等（已有的跳过）；换音色加 `--force`。词库加了新词就重跑三步。
+
 ## 5. 实时翻译与收词
 
 ### 5.1 翻译链路

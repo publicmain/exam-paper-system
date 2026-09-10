@@ -131,6 +131,39 @@ model User {
   vocabV2Events                VocabularyCollectionEvent[]
   vocabV2Sessions              VocabularyV2Session[]
   vocabV2AssignmentsMade       VocabularyV2Assignment[]    @relation("VocabularyV2AssignedBy")
+  pushSubscriptions            PushSubscription[]          @relation("PushSubscriptionOwner")
+}
+
+/// 浏览器推送订阅（Web Push，2026-09-10）。
+///
+/// 一台设备一行，同一个学生几台设备就几行。`endpoint` 是推送服务给的地址，
+/// 全球唯一 —— 同一台设备重复订阅只会覆盖这一行，不会越积越多。
+/// 推送服务回 404 / 410 就是「这台设备已经退订」，那一行直接删。
+model PushSubscription {
+  id         String    @id @default(cuid())
+  studentId  String
+  student    User      @relation("PushSubscriptionOwner", fields: [studentId], references: [id], onDelete: Cascade)
+  endpoint   String    @unique
+  p256dh     String
+  auth       String
+  userAgent  String?
+  createdAt  DateTime  @default(now())
+  /// 上一次成功送达 —— 每天只提醒一次靠它
+  lastSentAt DateTime?
+
+  @@index([studentId])
+}
+
+/// 词汇发音（2026-09-10）。Piper `en_GB-alba-medium` 一次生成、到处播，
+/// 音色永远一致 —— 不再看学生手机装了什么语音包。存 MP3，一个词约 5 KB。
+/// 主键就是 headword（小写），学生端按词直接取。
+model WordAudio {
+  headword    String   @id
+  voice       String
+  contentType String   @default("audio/mpeg")
+  bytes       Bytes
+  byteLength  Int
+  createdAt   DateTime @default(now())
 }
 
 // ============================================================

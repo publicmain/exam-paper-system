@@ -32,6 +32,8 @@ export class HealthController {
         process.env.SOURCE_COMMIT ??
         null,
       node: process.version,
+      // 2026-09-10：报错收集接上没有。只回显开关，不回显 DSN。
+      monitoring: process.env.SENTRY_DSN?.trim() ? 'sentry' : 'off',
       // P9.5 —— 全天课程的最终生效模式。
       //
       // **这个端点是公开的**（Railway 健康检查要打它，@Public）。所以

@@ -6,6 +6,7 @@ import { readToken } from '../lib/identity';
 import { ROUTES } from '../routes.contract';
 import { Button, Card, Notice, Screen, TopBar } from '../ui';
 import { cleanTranslation, posPrefixFor } from '../lib/word-display';
+import { sayWord } from '../lib/speak';
 
 type Phase = { s: 'loading' } | { s: 'error'; message: string } | { s: 'ready'; session: V2TestSession };
 
@@ -71,13 +72,8 @@ export default function VocabularyCoachTestPage() {
     catch (error) { if (handleAuthFailure(error)) return; setMessage('交卷失败，请重试。'); }
     finally { setBusy(false); }
   };
-  const speak = (text: string) => {
-    if (!('speechSynthesis' in window)) return;
-    speechSynthesis.cancel();
-    const utterance = new SpeechSynthesisUtterance(text);
-    utterance.lang = 'en-GB';
-    speechSynthesis.speak(utterance);
-  };
+  // 先放服务端的 Piper 音频，放不了再退回系统语音（lib/speak.ts）
+  const speak = (text: string) => sayWord(text, { lang: 'en-GB' });
   if (phase.s === 'loading') return <Screen><p className="text-center text-slate-500">正在恢复测试…</p></Screen>;
   if (phase.s === 'error') return <Screen><Card><Notice kind="error">{phase.message}</Notice><Button onClick={() => void load()}>重试</Button></Card></Screen>;
   if (session!.status === 'submitted') return (

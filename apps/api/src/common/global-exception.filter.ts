@@ -7,6 +7,7 @@ import {
   Logger,
 } from '@nestjs/common';
 import { Request, Response } from 'express';
+import { SentryExceptionCaptured } from '@sentry/nestjs';
 
 /**
  * Global error filter.
@@ -30,6 +31,9 @@ import { Request, Response } from 'express';
 export class GlobalExceptionFilter implements ExceptionFilter {
   private readonly logger = new Logger('ExceptionFilter');
 
+  // Sentry（2026-09-10）：只上报 5xx 和未建模的异常，4xx 的 HttpException
+  // 它自己会过滤掉。没配 SENTRY_DSN 时这个装饰器是 no-op，下面的行为一字不变。
+  @SentryExceptionCaptured()
   catch(exception: unknown, host: ArgumentsHost) {
     const ctx = host.switchToHttp();
     const res = ctx.getResponse<Response>();

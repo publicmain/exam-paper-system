@@ -6,6 +6,7 @@ import { readToken } from '../lib/identity';
 import { ROUTES } from '../routes.contract';
 import { Button, Card, Notice, Screen, TopBar } from '../ui';
 import { cleanTranslation, formatPhonetic, posPrefixFor } from '../lib/word-display';
+import { sayWord } from '../lib/speak';
 
 const SOURCE_LABEL: Record<string, string> = {
   teacher_list: '老师布置', level_gap: '每日新词',
@@ -108,13 +109,8 @@ export default function VocabularyCoachLearnPage() {
       setMessage('没有找到符合等级和质量要求的新词，原词没有被移除。');
     } finally { setBusy(false); }
   };
-  const speak = (text: string) => {
-    if (!('speechSynthesis' in window)) return;
-    speechSynthesis.cancel();
-    const utterance = new SpeechSynthesisUtterance(text);
-    utterance.lang = String(session.settings.audioAccent ?? 'en-GB');
-    speechSynthesis.speak(utterance);
-  };
+  // 先放服务端的 Piper 音频，放不了再退回系统语音（lib/speak.ts）
+  const speak = (text: string) => sayWord(text, { lang: String(session.settings.audioAccent ?? 'en-GB') });
   if (!item) return <Recite session={session} speak={speak} message={message} />;
 
   const card = item.card;

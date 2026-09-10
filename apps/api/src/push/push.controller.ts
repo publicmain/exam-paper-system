@@ -1,0 +1,58 @@
+import { BadRequestException, Body, Controller, Get, Post, Req, UseGuards } from '@nestjs/common';
+import type { Request } from 'express';
+import { z } from 'zod';
+import { Public } from '../common/auth.guard';
+import { RateLimit } from '../common/rate-limit.guard';
+import { RequireStudentToken, StudentIdentityGuard } from '../common/student-identity.guard';
+import { PushService } from './push.service';
+
+function studentIdOf(req: Request): string {
+  const id = (req as Request & { studentAuth?: { id?: string } }).studentAuth?.id;
+  if (!id) throw new BadRequestException({ code: 'student_required' });
+  return id;
+}
+
+const SubscribeBody = z
+  .object({
+    endpoint: z.string().url().max(2000),
+    keys: z.object({ p256dh: z.string().min(1).max(300), auth: z.string().min(1).max(100) }).strict(),
+  })
+  .strict();
+
+@UseGuards(StudentIdentityGuard)
+@Controller('push')
+export class PushController {
+  constructor(private readonly service: PushService) {}
+
+  /** 开没开、公钥、几点提醒。学生端据此决定显不显示开关 —— 公钥不编进前端。 */
+  @Public()
+  @RequireStudentToken()
+  @Get('config')
+  config(@Req() req: Request) {
+    studentIdOf(req);
+    return this.service.config();
+  }
+
+  /** 登记这台设备。限流按学生不按 IP —— 全班共用学校出口 IP。 */
+  @Public()
+  @RequireStudentToken()
+  @RateLimit({ limit: 10, windowSec: 60, scope: 'user' })
+  @Post('subscribe')
+  async subscribe(@Req() req: Request, @Body() body: unknown) {
+    const studentId = studentIdOf(req);
+    const parsed = SubscribeBody.safeParse(body ?? {});
+    if (!parsed.success) throw new BadRequestException({ code: 'bad_subscription' });
+    return this.service.subscribe(studentId, parsed.data, req.headers['user-agent']);
+  }
+
+  @Public()
+  @RequireStudentToken()
+  @RateLimit({ limit: 10, windowSec: 60, scope: 'user' })
+  @Post('unsubscribe')
+  async unsubscribe(@Req() req: Request, @Body() body: unknown) {
+    const studentId = studentIdOf(req);
+    const parsed = z.object({ endpoint: z.string().url().max(2000) }).strict().safeParse(body ?? {});
+    if (!parsed.success) throw new BadRequestException({ code: 'bad_subscription' });
+    return this.service.unsubscribe(studentId, parsed.data.endpoint);
+  }
+}

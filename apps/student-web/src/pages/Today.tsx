@@ -36,6 +36,7 @@
  */
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
+import { PushNudge } from '../push/PushNudge';
 import {
   api,
   type LessonSegment,
@@ -377,6 +378,8 @@ export default function TodayPage() {
         ) : (
           <p data-testid="lesson-progress" className="text-sm text-slate-600 mb-4">今天没有要完成的任务</p>
         )}
+
+        <PushNudge />
 
         {hasBacklog ? (
           <section className="mb-6 rounded-2xl border border-orange-200 bg-orange-50/80 p-4" aria-label="待补做任务">

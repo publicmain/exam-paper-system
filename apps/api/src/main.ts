@@ -1,3 +1,5 @@
+// Sentry 必须是第一个 import —— 它要在其它模块加载之前挂钩子。没配 DSN 时是 no-op。
+import './instrument';
 import 'reflect-metadata';
 import { allDayConfigSummary, assertAllDayConfig } from './lesson/all-day';
 import { assertStudentAppRoutingConfig } from './student-auth/student-app-routing';

@@ -206,6 +206,13 @@ export type V2FormalTestRow = {
   completedAt: string | null;
 };
 
+/** 推送开没开、公钥、几点提醒（HH:MM，新加坡时间）。 */
+export type PushConfig = {
+  enabled: boolean;
+  publicKey: string | null;
+  reminderTime: string;
+};
+
 /** 写作自查里的一条提示。**只讲英文对不对，不讲答得对不对。** */
 export type WritingIssue = {
   offset: number;
@@ -446,6 +453,13 @@ export const api = {
     ),
   vocabV2StartTest: (token: string, dailySessionId: string) =>
     request<V2TestSession>('POST', '/vocab-v2/test/start', { token, body: { dailySessionId } }),
+
+  // ── 浏览器推送（2026-09-10）。公钥由服务端下发，不编进前端。 ──
+  pushConfig: (token: string) => request<PushConfig>('GET', '/push/config', { token }),
+  pushSubscribe: (token: string, body: { endpoint: string; keys: { p256dh: string; auth: string } }) =>
+    request<{ ok: true }>('POST', '/push/subscribe', { token, body }),
+  pushUnsubscribe: (token: string, body: { endpoint: string }) =>
+    request<{ ok: true }>('POST', '/push/unsubscribe', { token, body }),
   vocabV2Test: (token: string, sessionId: string) =>
     request<V2TestSession>('GET', `/vocab-v2/test?sessionId=${encodeURIComponent(sessionId)}`, { token }),
   vocabV2Answer: (token: string, body: { sessionId: string; itemId: string; response: string | number; responseMs?: number }) =>

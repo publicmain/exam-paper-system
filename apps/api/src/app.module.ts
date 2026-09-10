@@ -58,6 +58,8 @@ import { ParentPortalModule } from './parent-portal/parent-portal.module';
 import { HomeworkModule } from './homework/homework.module';
 import { StudentAuthModule } from './student-auth/student-auth.module';
 import { HealthController } from './health.controller';
+import { PushModule } from './push/push.module';
+import { AudioModule } from './audio/audio.module';
 
 @Module({
   imports: [
@@ -104,6 +106,10 @@ import { HealthController } from './health.controller';
     VocabularyV2Module,
     LessonModule,
     WritingCheckModule,
+    // 2026-09-10：浏览器推送 + 词汇发音。都是「没配环境变量 / 没上传音频
+    // 就静默关着」的模块，不影响其它路径。
+    PushModule,
+    AudioModule,
     StudentAuthModule,
     PracticeModule,
     // Morning attendance + quiz

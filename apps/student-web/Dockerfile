@@ -39,6 +39,11 @@ ENV VITE_API_URL=$VITE_API_URL
 # 缺省是空串 = 关闭，所以任何没有显式设这个变量的构建都不会带上按钮。
 ARG VITE_STAGING_FIXTURE_LOGIN=
 ENV VITE_STAGING_FIXTURE_LOGIN=$VITE_STAGING_FIXTURE_LOGIN
+
+# Sentry 的 DSN（2026-09-10）。同样必须显式 ARG 才能从服务变量进到构建；
+# 缺省空串 = 不接报错收集，产物里一个字都不多。
+ARG VITE_SENTRY_DSN=
+ENV VITE_SENTRY_DSN=$VITE_SENTRY_DSN
 RUN npm run build
 
 FROM nginx:alpine

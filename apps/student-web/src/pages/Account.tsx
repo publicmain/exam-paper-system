@@ -9,6 +9,7 @@ import { readToken } from '../lib/identity';
 import { levelLabel, type PilotLevelId } from '../lib/levels';
 import { ROUTES } from '../routes.contract';
 import { Button, Card, Field, LevelPicker, Notice, Screen } from '../ui';
+import { PushSettings } from '../push/PushSettings';
 
 export default function AccountPage() {
   const st = getState();
@@ -162,6 +163,8 @@ export default function AccountPage() {
             换了之后，<strong>已经开始的那一天不会中途变</strong>{' '}—— 今天的文章、题目和单词表都按你开始时的那一档走完。新难度从<strong>下一次还没开始的课</strong>起生效。以前的成绩也不会动，历史里看到的还是你当时做的那一份。
           </p>
         </section>
+
+        <PushSettings />
 
         <section>
           <h2 className="text-base font-medium mb-3">改密码</h2>

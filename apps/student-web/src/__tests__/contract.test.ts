@@ -513,6 +513,10 @@ describe('G1 新端不得出现旧路由与旧身份键', () => {
     '/vocab-v2/tests',
     '/writing-check',
     '/writing-check/status',
+    // 2026-09-10 浏览器推送：公钥由服务端下发，订阅 / 退订都要学生令牌
+    '/push/config',
+    '/push/subscribe',
+    '/push/unsubscribe',
     '/vocab-v2/daily/start',
     '/vocab-v2/daily/item',
     '/vocab-v2/daily/replace',
@@ -848,11 +852,13 @@ describe('G1 新端不得出现旧路由与旧身份键', () => {
     // 它只存一个 '1'，不存词条 / 身份 / 令牌 / 答案 / 待写队列。
     // 2026-09-09 再多一处：首页「单词小测没做」提醒的当天记号（REMINDER_KEY），
     // 常量定义在 Today.tsx、值固定为 `sw:vocab-test-reminded`，只存一个日期串。
+    // 2026-09-10 再多一处：首页「开启提醒」提示的「不用了」记号（PUSH_NUDGE_KEY），
+    // 常量定义在 PushNudge.tsx、值固定为 `sw:push-nudge-dismissed`，只存一个 '1'。
     for (const w of writes) {
       expect(w).toMatch(
         // 只匹配文件名，不匹配目录分隔符 —— Windows 上是 `\`、别处是 `/`，
         // 把分隔符写进正则会让这条守卫只在一种机器上成立。
-        /identity\.ts:(TOKEN_KEY|probe|k)$|storage\.ts:key$|(Highlighter|StickyNote|DraggableSplit)\.tsx:(storageKey|key)$|review-queue\.ts:(QUEUE_KEY|probe)$|IELTSReadingPassage\.tsx:LOOKED_UP_KEY$|Today\.tsx:REMINDER_KEY$/,
+        /identity\.ts:(TOKEN_KEY|probe|k)$|storage\.ts:key$|(Highlighter|StickyNote|DraggableSplit)\.tsx:(storageKey|key)$|review-queue\.ts:(QUEUE_KEY|probe)$|IELTSReadingPassage\.tsx:LOOKED_UP_KEY$|Today\.tsx:REMINDER_KEY$|PushNudge\.tsx:PUSH_NUDGE_KEY$/,
       );
     }
   });
@@ -870,10 +876,19 @@ describe('G1 新端不得出现旧路由与旧身份键', () => {
     expect(hostile.every((k) => k.startsWith('sw:'))).toBe(false);
   });
 
-  it('**没有注册 Service Worker**（4A 不做 PWA 缓存）', () => {
-    for (const { text } of readAll()) {
-      expect(text).not.toContain('serviceWorker.register');
+  it('**Service Worker 只在 lib/push.ts 里注册**，且只为推送（4A 不做 PWA 缓存）', () => {
+    // 2026-09-10 之前这条是「一处都不许注册」。浏览器推送必须有一个 worker，
+    // 所以放开**一处**：学生自己点「开启提醒」时才注册。缓存那条线没变 ——
+    // 下面另一条守着 sw.js 不许碰 fetch。
+    let registrations = 0;
+    for (const { f, text } of readAll()) {
+      const rel = path.relative(SRC, f).replace(/\\/g, '/');
+      if (text.includes('serviceWorker.register')) {
+        expect(rel).toBe('lib/push.ts');
+        registrations += 1;
+      }
     }
+    expect(registrations).toBe(1);
   });
 
   it('**不把自己的公开 origin 写死** —— 它由服务端运行期下发', () => {
@@ -936,11 +951,21 @@ describe('部署包', () => {
     expect(docker).not.toMatch(/STUDENT_APP_ORIGIN/);
   });
 
-  it('**没有 service worker / manifest**（4A/4B1 都不做 PWA）', () => {
-    const pub = path.join(ROOT, 'public');
-    const files = fs.existsSync(pub) ? fs.readdirSync(pub) : [];
-    expect(files.filter((f) => /sw\.js|manifest/.test(f))).toEqual([]);
+  it('**sw.js 只管推送，不缓存任何东西**（4A/4B1 的「不做 PWA 缓存」没变）', () => {
+    // 2026-09-10 起有 sw.js 和 manifest 了 —— 为了 iPhone 上的推送（必须装到
+    // 主屏幕）。旧端那套 cache-first + 离线兜底指向旧路由是重建里最大的
+    // 单点风险，所以这里守的是：worker 不许碰请求。
+    const sw = fs.readFileSync(path.join(ROOT, 'public', 'sw.js'), 'utf8');
+    expect(sw).not.toMatch(/addEventListener\(\s*['"]fetch['"]/);
+    expect(sw).not.toContain('respondWith');
+    expect(sw).not.toContain('caches.');
+    expect(sw).toMatch(/addEventListener\(\s*['"]push['"]/);
+    // nginx 不需要为 sw.js 单开规则：`location /` 本来就是 no-store，
+    // worker 更新不会被缓存卡住
     expect(nginx).not.toContain('sw.js');
+    const manifest = JSON.parse(fs.readFileSync(path.join(ROOT, 'public', 'manifest.webmanifest'), 'utf8'));
+    expect(manifest.start_url).toBe('/today');
+    expect(manifest.display).toBe('standalone');
   });
 });
 
