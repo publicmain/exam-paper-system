@@ -181,6 +181,8 @@ export type V2LearningSession = {
     source: string;
     masteryBefore: number;
     status: string;
+    /** 学生翻这张卡时点的：hard / normal / mastered / skip。没翻过是 null。 */
+    action: string | null;
     card: V2Card;
   }>;
 };

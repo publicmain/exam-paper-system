@@ -31,6 +31,16 @@ import {
   testableDailyItems,
 } from './unified-vocabulary-rules';
 
+/**
+ * 正式测试里除了今天学的词，再抽查几个以前学过的。
+ *
+ * 2026-09-10 叶老师定的 3 个。为什么要有：在这之前，一个词的一生就是
+ * 「被推送一次、当天被考一次、再也不见」—— 生产实测 1569 个词只在一天
+ * 出现过，被推过两天的只有 23 个。抽查让旧词自己轮着回来，不用另造一条
+ * 复习队列。
+ */
+export const REVIEW_SAMPLE_SIZE = 3;
+
 export type CollectionAction = 'learn' | 'known' | 'lookup_only' | 'later';
 
 export interface CollectWordInput {
@@ -1446,7 +1456,25 @@ export class VocabularyV2Service {
 
     const tested = testableDailyItems(daily.items);
     if (!tested.length) throw new BadRequestException({ code: 'v2_no_testable_items' });
-    const cards = tested.map((item) => item.contentSnapshot as unknown as FrozenCard);
+
+    // 今天学的排在前面，抽查的旧词跟在后面 —— 学生先答熟悉的，节奏不被打断。
+    const sampled = await this.sampleReviewItems(
+      studentId,
+      tested.map((item) => item.senseId),
+      REVIEW_SAMPLE_SIZE,
+    );
+    const paper = [
+      ...tested.map((item) => ({
+        senseId: item.senseId,
+        source: item.source,
+        contextId: item.contextId,
+        masteryBefore: item.masteryBefore,
+        contentVersion: item.contentVersion,
+        contentSnapshot: item.contentSnapshot as any,
+      })),
+      ...sampled,
+    ];
+    const cards = paper.map((item) => item.contentSnapshot as unknown as FrozenCard);
     const created = await this.prisma.vocabularyV2Session.create({
       data: {
         sessionKey,
@@ -1456,18 +1484,17 @@ export class VocabularyV2Service {
         mode: 'teacher_list',
         status: 'in_progress',
         version: `${daily.version}-TEST-001`,
-        target: tested.length,
+        target: paper.length,
         settingsSnapshot: { dailySessionId: daily.id, questionTypes: ['spelling', 'meaning_choice'] },
-        sourceSummary: { dailySessionId: daily.id, frozenItemCount: tested.length },
+        sourceSummary: {
+          dailySessionId: daily.id,
+          frozenItemCount: tested.length,
+          reviewSampleCount: sampled.length,
+        },
         items: {
-          create: tested.map((item, index) => ({
-            senseId: item.senseId,
+          create: paper.map((item, index) => ({
+            ...item,
             position: index + 1,
-            source: item.source,
-            contextId: item.contextId,
-            masteryBefore: item.masteryBefore,
-            contentVersion: item.contentVersion,
-            contentSnapshot: item.contentSnapshot as any,
             questionSnapshot: buildFormalQuestion(cards[index], index, cards) as any,
           })),
         },
@@ -1475,6 +1502,87 @@ export class VocabularyV2Service {
       include: { items: { orderBy: { position: 'asc' } } },
     });
     return this.testSessionView(created);
+  }
+
+  /**
+   * 抽查题：从学生**学过**的词里挑最久没被考过的几个。
+   *
+   * 规矩：
+   *   · `reps > 0` —— 只挑真学过的。被推送过但一张卡都没翻的不算，
+   *     那些由「稍后再学」那条路捞回学词队列，不该直接进考卷。
+   *   · `masteryStage < 8` —— 学生自己点过「我会了」的不再打扰。
+   *   · 排除今天这份卷子里已有的词，免得同一个词考两遍。
+   *   · 例句按 `reps + 1` 取 —— 复习时看到的是**换过的**句子，不是背过的
+   *     那一句（`contextForEncounter`，2026-09-08 加的）。
+   *
+   * 没有可抽的（新生第一天、词全掌握了）就返回空数组，考卷照常只考今天的。
+   */
+  private async sampleReviewItems(studentId: string, excludeSenseIds: string[], size: number) {
+    if (size <= 0) return [];
+    const owned = await this.prisma.studentVocabularySense.findMany({
+      where: {
+        studentId,
+        inNotebook: true,
+        removedAt: null,
+        reps: { gt: 0 },
+        masteryStage: { lt: 8 },
+        senseId: { notIn: excludeSenseIds },
+      },
+      include: { sense: { include: { lexeme: true, contexts: { where: { qualityStatus: 'ready' } } } } },
+      // 挑 3 个不需要把整本单词本读进来；200 个足够排出「最久没考」的头部
+      take: 200,
+      orderBy: { updatedAt: 'asc' },
+    });
+    const usable = owned.filter(
+      (row) => row.sense?.lexeme?.headword && String(row.sense.translation ?? '').trim(),
+    );
+    if (!usable.length) return [];
+
+    // 「最久没被考过」—— 查这些词上一次出现在正式测试里是什么时候。
+    // 从没考过的排最前（时间当 0）。
+    const lastTested = new Map<string, number>();
+    const prior = await this.prisma.vocabularyV2SessionItem.findMany({
+      where: {
+        senseId: { in: usable.map((row) => row.senseId) },
+        session: { studentId, sessionType: 'formal_test' },
+      },
+      select: { senseId: true, createdAt: true },
+    });
+    for (const row of prior) {
+      const at = row.createdAt.getTime();
+      if (at > (lastTested.get(row.senseId) ?? 0)) lastTested.set(row.senseId, at);
+    }
+
+    const user = await this.prisma.user.findUnique({
+      where: { id: studentId },
+      select: { englishLevel: true },
+    });
+    const policy = LEVEL_WORD_POLICY[user?.englishLevel ?? 'olevel'];
+
+    return usable
+      .sort(
+        (a, b) =>
+          (lastTested.get(a.senseId) ?? 0) - (lastTested.get(b.senseId) ?? 0) ||
+          a.senseId.localeCompare(b.senseId),
+      )
+      .slice(0, size)
+      .map((row) => {
+        const encounter = (row.reps ?? 0) + 1;
+        const context = contextForEncounter(
+          row.sense.contexts ?? [],
+          encounter,
+          policy.contextDifficulty,
+          row.sense.lexeme.headword,
+        );
+        return {
+          senseId: row.senseId,
+          source: 'review' as V2Source,
+          contextId: context?.id ?? null,
+          masteryBefore: row.masteryStage,
+          contentVersion: row.sense.contentVersion,
+          contentSnapshot: this.cardSnapshot({ sense: row.sense, owned: row }, policy.contextDifficulty, encounter) as any,
+        };
+      });
   }
 
   async answerTestItem(studentId: string, sessionId: string, itemId: string, response: unknown, responseMs?: number) {
@@ -1674,6 +1782,9 @@ export class VocabularyV2Service {
         source: item.source,
         masteryBefore: item.masteryBefore,
         status: item.status,
+        // 学生翻这张卡时点的是「有点难 / 记住了 / 我会了」——「背一背」页
+        // 据此把难词排到前面（2026-09-10）。
+        action: (item.response as any)?.action ?? null,
         card: item.contentSnapshot,
       })),
     };
