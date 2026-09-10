@@ -97,9 +97,12 @@ function makeSvc(opts: {
       findFirst: async () => ({ id: 'stu-1', name: '测试五号' }),
       updateMany: async () => ({ count: 0 }),
     },
+    // 连胜从事实算（2026-09-10）：today() 会读这两张表
+    vocabularyV2Session: { findMany: async () => [] },
     morningQuizSession: { findMany: async () => [] },
     studentSubmission: {
       findFirst: async () => null,
+      findMany: async () => [],
       create: () => { throw new Error('保存断点不得写阅读答卷'); },
       update: () => { throw new Error('保存断点不得写阅读答卷'); },
     },

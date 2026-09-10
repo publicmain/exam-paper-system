@@ -69,6 +69,8 @@ function makeSvc(opts: { dlc?: any; noContent?: boolean } = {}) {
       findFirst: rec('sub', 'findFirst', async () => null),
       findMany: rec('sub', 'findMany', async () => []),
     },
+    // 连胜从事实算（2026-09-10）：today() 会读这两张表
+    vocabularyV2Session: { findMany: rec('v2sess', 'findMany', async () => []) },
     morningQuizSession: {
       findFirst: rec('sess', 'findFirst', async () => null),
       findMany: rec('sess', 'findMany', async () => []),

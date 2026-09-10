@@ -30,8 +30,13 @@ function makeSvc(opts: { updatedCount?: number; existingRow?: { vocabCursor: num
       findFirst: vi.fn().mockResolvedValue(null),
       updateMany: vi.fn().mockResolvedValue({ count: 0 }),
     },
+    // 连胜从事实算（2026-09-10）：today() 会读这两张表
+    vocabularyV2Session: { findMany: vi.fn().mockResolvedValue([]) },
     morningQuizSession: { findMany: vi.fn().mockResolvedValue([]) },
-    studentSubmission: { findFirst: vi.fn().mockResolvedValue(null) },
+    studentSubmission: {
+      findFirst: vi.fn().mockResolvedValue(null),
+      findMany: vi.fn().mockResolvedValue([]),
+    },
     mistakeEntry: { count: vi.fn().mockResolvedValue(0) },
     wordReviewLog: { findMany: vi.fn().mockResolvedValue([]) },
     vocabQuizAttempt: { findFirst: vi.fn().mockResolvedValue(null) },

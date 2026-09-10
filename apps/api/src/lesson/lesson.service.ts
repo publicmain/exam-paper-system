@@ -1143,8 +1143,105 @@ export class LessonService {
   /**
    * 连续完成天数 —— **只认整节课完成的日子**，口径沿用上学日算法
    * （周末不断）。与「连续复习天数」不同：那个只要背了词就算。
+   *
+   * ## 2026-09-10：为什么改成从事实算
+   *
+   * 首发三天，这个数字对**每一个**学生恒为 0，「已经连续学习 N 天」那行
+   * 字从上线到现在一次都没显示过 —— 它只在 `streakDays > 0` 时渲染。
+   *
+   * 根因不在这里，在 `DailyLessonCompletion`：那张表只在学生按「开始」
+   * （`POST /lesson/start`，freeze:true）时写一次，写下的是当时的实况
+   * —— 阅读还没做，于是 `readDoneAt` / `vocabDoneAt` 全是 NULL。此后
+   * 学生走的是 V2 词汇模块（`VocabularyCoachLearn` → `vocabV2*`），它
+   * 一个字都不回写 DLC；`GET /lesson/today` 又是**故意**只读的。原来
+   * 负责推进 DLC 的 `POST /lesson/vocab-taught` 只有 `LessonVocab.tsx`
+   * 调，而那个页面已经没有任何路由能到达。生产实测：95 行里 92 行的
+   * `updatedAt` 距 `createdAt` 不到 5 秒，首发周一行都没被推进过。
+   *
+   * 把 DLC 补成真相是另一件事（要动写路径，风险大得多）。这里先让这个
+   * 数字**别再靠那两个空列**：直接数事实 —— 当天自己交了阅读卷、并且
+   * 交了当天的正式单词测试。
+   *
+   * 两个来源取**并集**而不是替换：老行里真写过 `readDoneAt` 的日子
+   * （V2 接管之前的试点期）仍然算数，不让任何人凭空掉一天。
    */
   private async lessonStreak(studentId: string, today: Date): Promise<number> {
+    const [legacy, factual] = await Promise.all([
+      this.legacyDoneDays(studentId, today),
+      this.factualDoneDays(studentId, today),
+    ]);
+    // streakFromDays 要求由近及远
+    const doneDays = [...new Set([...legacy, ...factual])].sort().reverse();
+    return streakFromDays(doneDays, today.toISOString().slice(0, 10));
+  }
+
+  /**
+   * 事实口径的「整节课完成」：当天**自己**交了阅读卷 + 当天的正式单词
+   * 测试交了。
+   *
+   * 两条都要，不做「今天没有这一段就算完成」的宽免 —— 那需要知道当天
+   * 到底有没有排课、有没有到期词，而这个方法的作用是**往并集里加**，
+   * 严一点只会少加，不会误加。唯一的例外是系统根本没给出正式测试
+   * （队列太短考不起来）：那时学完当天的卡就算完成，否则学生会因为一件
+   * 他做不到的事掉连胜。
+   *
+   * 系统自动收卷（`submitSource='system_eod'`）**不算**，与 `readStatus`
+   * 同一条规矩：完成度一旦能被系统凭空发放，它就不再能回答「这孩子今天
+   * 到底学没学」。
+   */
+  private async factualDoneDays(studentId: string, today: Date): Promise<string[]> {
+    const from = new Date(today.getTime() - 60 * 24 * 60 * 60 * 1000);
+    const [reads, vocab] = await Promise.all([
+      this.prisma.studentSubmission.findMany({
+        where: {
+          studentId,
+          // 练习卷不是当天的课
+          status: { not: 'practice' },
+          finalSubmittedAt: { not: null },
+          submitSource: { in: ['student', 'teacher'] },
+          assignment: { morningQuizSession: { is: { date: { gte: from, lte: today } } } },
+        },
+        select: {
+          assignment: { select: { morningQuizSession: { select: { date: true } } } },
+        },
+      }),
+      this.prisma.vocabularyV2Session.findMany({
+        where: {
+          studentId,
+          date: { gte: from, lte: today },
+          sessionType: { in: ['daily_learning', 'formal_test'] },
+        },
+        select: { date: true, sessionType: true, status: true },
+      }),
+    ]);
+
+    const dayKey = (d: Date) => d.toISOString().slice(0, 10);
+    const readDone = new Set<string>();
+    for (const r of reads) {
+      const d = r.assignment?.morningQuizSession?.date;
+      if (d) readDone.add(dayKey(d));
+    }
+
+    const testSubmitted = new Set<string>();
+    const testExists = new Set<string>();
+    const learnDone = new Set<string>();
+    for (const s of vocab) {
+      const d = dayKey(s.date);
+      if (s.sessionType === 'formal_test') {
+        testExists.add(d);
+        if (s.status === 'submitted') testSubmitted.add(d);
+      } else if (s.status === 'completed') {
+        learnDone.add(d);
+      }
+    }
+
+    return [...readDone].filter(
+      (d) => testSubmitted.has(d) || (learnDone.has(d) && !testExists.has(d)),
+    );
+  }
+
+  /** 老口径：`DailyLessonCompletion` 上写过的完成日。见 `lessonStreak` 的说明。 */
+  private async legacyDoneDays(studentId: string, today: Date): Promise<string[]> {
     const rows = await this.prisma.dailyLessonCompletion.findMany({
       where: { studentId, date: { lte: today } },
       orderBy: { date: 'desc' },
@@ -1160,7 +1257,7 @@ export class LessonService {
         readSource: true,
       },
     });
-    const doneDays = rows
+    return rows
       .filter(
         (r) =>
           (r.readTarget === 0 || (r.readDoneAt != null && countsAsStudentDone(r.readSource as any))) &&
@@ -1171,7 +1268,6 @@ export class LessonService {
           (!mistakesAvailable() || r.drillTarget === 0 || r.drillDoneAt != null),
       )
       .map((r) => r.date.toISOString().slice(0, 10));
-    return streakFromDays(doneDays, today.toISOString().slice(0, 10));
   }
 
   /**

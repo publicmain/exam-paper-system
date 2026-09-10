@@ -268,8 +268,10 @@ function makeToday(opts: {
       findFirst: async () => null,
       updateMany: async () => ({ count: 0 }),
     },
+    // 连胜从事实算（2026-09-10）：today() 会读这两张表
+    vocabularyV2Session: { findMany: async () => [] },
     morningQuizSession: { findMany: async () => [] },
-    studentSubmission: { findFirst: async () => null },
+    studentSubmission: { findFirst: async () => null, findMany: async () => [] },
     mistakeEntry: { count: async () => 0 },
     wordReviewLog: { findMany: async () => [] },
     vocabQuizAttempt: { findFirst: async () => opts.attempt ?? null },

@@ -86,7 +86,10 @@ function lessonSvc(o: {
         },
       ]),
     },
+    // 连胜从事实算（2026-09-10）：today() 会读这两张表
+    vocabularyV2Session: { findMany: vi.fn().mockResolvedValue([]) },
     studentSubmission: {
+      findMany: vi.fn().mockResolvedValue([]),
       findFirst: vi.fn().mockResolvedValue({
         id: 'sub-1',
         assignmentId: 'asg-1',
