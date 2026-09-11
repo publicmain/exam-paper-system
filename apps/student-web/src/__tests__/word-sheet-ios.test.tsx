@@ -133,6 +133,24 @@ describe('IOS-06 查词面板', () => {
     expect(reqs.length).toBe(before + 1);
   });
 
+  it('**翻译重试也没用（服务端说 retryable:false）→ 如实说没有，不给永远无效的「再取一次」**（VOC15 / IOS-11）', async () => {
+    lookupBody = { found: true, entry: { ...ENTRY, contextTranslation: null, contextTranslationStatus: { status: 'no_chinese', retryable: false } } };
+    render(<Harness />);
+    await userEvent.click(screen.getByRole('button', { name: '正文里的 resilient' }));
+    await settle();
+    expect(screen.getByTestId('word-sheet-sentence-translation-missing').textContent).toBe('这句暂时没有可靠的中文翻译。');
+    expect(screen.queryByRole('button', { name: '再取一次' })).toBeNull();
+  });
+
+  it('**翻译服务限流 → 写几秒后再取，仍给「再取一次」**', async () => {
+    lookupBody = { found: true, entry: { ...ENTRY, contextTranslation: null, contextTranslationStatus: { status: 'rate_limited', retryable: true, retryAfterSec: 20 } } };
+    render(<Harness />);
+    await userEvent.click(screen.getByRole('button', { name: '正文里的 resilient' }));
+    await settle();
+    expect(screen.getByTestId('word-sheet-sentence-translation-missing').textContent).toContain('约 20 秒后再取');
+    expect(screen.getByRole('button', { name: '再取一次' })).toBeTruthy();
+  });
+
   it('**发音放不出来 → 按钮上说清楚**', async () => {
     class FailingAudio {
       addEventListener(type: string, cb: () => void) {

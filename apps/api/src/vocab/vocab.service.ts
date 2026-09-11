@@ -35,6 +35,11 @@ export interface LookupHit {
   /** 命中方式，便于前端与排查（本地四种 + remote 实时兜底） */
   via: 'direct' | 'possessive' | 'lemma' | 'hyphen' | 'remote';
   contextTranslation?: string | null;
+  /**
+   * 整句翻译没取到时，为什么没取到、能不能再试（VOC15 同一口径）。有译文时不给。
+   * 前端据此决定给不给「再取一次」、要不要写「N 秒后再试」，不把报错当译文。
+   */
+  contextTranslationStatus?: { status: string; retryable: boolean; retryAfterSec?: number };
 }
 
 /** 与前端分词器一致的归一化。 */
@@ -148,8 +153,15 @@ export class VocabService {
     // 内容包里人工过过的整句翻译优先；机翻只兜底
     //（2026-09-06 复测：机翻把 "the remaining stock" 译成「剩余的菌株」）。
     const curated = sentence ? await this.curatedSentenceTranslation(sentence) : null;
-    const contextTranslation = curated ?? (sentence && this.realtime ? await this.realtime.translate(sentence) : null);
-    return { ...hit, contextTranslation };
+    if (curated || !sentence || !this.realtime) return { ...hit, contextTranslation: curated };
+    // VOC15：用带状态的翻译 —— 没取到时如实告诉前端原因与能否重试
+    const r = await this.realtime.translateDetailed(sentence);
+    if (r.text) return { ...hit, contextTranslation: r.text };
+    return {
+      ...hit,
+      contextTranslation: null,
+      contextTranslationStatus: { status: r.status, retryable: r.retryable, ...(r.retryAfterSec ? { retryAfterSec: r.retryAfterSec } : {}) },
+    };
   }
 
   private curatedCache: { at: number; map: Map<string, string> } | null = null;

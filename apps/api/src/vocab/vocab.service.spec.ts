@@ -219,10 +219,26 @@ describe('VocabService.lookup', () => {
   it('本地词义零等待，只有原句调用实时翻译', async () => {
     const prisma = { dictEntry: { findMany: async () => [row] } };
     const seen: string[] = [];
-    const realtime = { translate: async (text: string) => { seen.push(text); return '我撞到了桌子。'; } };
+    const realtime = {
+      translate: async (text: string) => { seen.push(text); return '我撞到了桌子。'; },
+      translateDetailed: async (text: string) => { seen.push(text); return { text: '我撞到了桌子。', status: 'ok', retryable: false, provider: 'azure' }; },
+    };
     const svc = new VocabService(prisma as any, realtime as any);
     const out = await svc.lookup('bump', 'I bumped the table.');
     expect(out).toMatchObject({ translation: 'v. 碰，撞', contextTranslation: '我撞到了桌子。' });
+    expect(out).not.toHaveProperty('contextTranslationStatus');
     expect(seen).toEqual(['I bumped the table.']);
+  });
+
+  it('**VOC15：原句翻译没取到 → 如实给原因与能否重试**，不把报错当译文', async () => {
+    const prisma = { dictEntry: { findMany: async () => [row] } };
+    for (const [result, expected] of [
+      [{ text: null, status: 'rate_limited', retryable: true, retryAfterSec: 20, provider: 'azure' }, { status: 'rate_limited', retryable: true, retryAfterSec: 20 }],
+      [{ text: null, status: 'no_chinese', retryable: false, provider: 'azure' }, { status: 'no_chinese', retryable: false }],
+    ] as const) {
+      const realtime = { translate: async () => null, translateDetailed: async () => result };
+      const out = await new VocabService(prisma as any, realtime as any).lookup('bump', 'I bumped the table.');
+      expect(out).toMatchObject({ translation: 'v. 碰，撞', contextTranslation: null, contextTranslationStatus: expected });
+    }
   });
 });

@@ -100,6 +100,17 @@ type LookupPhase =
   | { s: 'notFound' }
   | { s: 'failed' };
 
+/**
+ * 整句翻译没取到时说什么（VOC15）：能重试的写「暂时没取到」（服务端给了等待时间就写几秒后），
+ * 重试也没用的（翻出来不是中文、服务配置问题）如实说没有，不给一个永远无效的「再取一次」（IOS-11）。
+ */
+export function missingTranslationText(status?: { status: string; retryable: boolean; retryAfterSec?: number }): string {
+  if (!status) return '这句的翻译暂时没取到。';
+  if (!status.retryable) return '这句暂时没有可靠的中文翻译。';
+  if (status.retryAfterSec) return `翻译服务有点忙，约 ${status.retryAfterSec} 秒后再取。`;
+  return '这句的翻译暂时没取到。';
+}
+
 export function ExamWordSheet({
   word,
   contextSentence,
@@ -393,10 +404,12 @@ export function ExamWordSheet({
                         </p>
                       ) : (
                         <p data-testid="word-sheet-sentence-translation-missing" className="flex flex-wrap items-center gap-x-2 text-callout text-ink-3">
-                          这句的翻译暂时没取到。
-                          <button type="button" onClick={() => void lookup(word)} className="min-h-[44px] font-medium text-accent">
-                            再取一次
-                          </button>
+                          {missingTranslationText(phase.entry.contextTranslationStatus)}
+                          {phase.entry.contextTranslationStatus?.retryable === false ? null : (
+                            <button type="button" onClick={() => void lookup(word)} className="min-h-[44px] font-medium text-accent">
+                              再取一次
+                            </button>
+                          )}
                         </p>
                       )}
                     </div>

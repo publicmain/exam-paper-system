@@ -1129,6 +1129,8 @@ export interface DictEntry {
   tag: string[];
   /** 学生点击位置的整句翻译；实时翻译暂不可用时为空。 */
   contextTranslation?: string | null;
+  /** 整句翻译没取到时的原因与能否重试（VOC15）。老服务端不发。 */
+  contextTranslationStatus?: { status: string; retryable: boolean; retryAfterSec?: number };
   /** 命中方式，便于排查。 */
   via: 'direct' | 'possessive' | 'lemma' | 'hyphen';
 }
