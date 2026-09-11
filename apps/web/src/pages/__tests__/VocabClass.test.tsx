@@ -154,3 +154,39 @@ describe('VocabClass 词表数量规则（UI06 / T04）：1–20 合法，0/21/�
     await waitFor(() => expect(screen.getByText(/zzznotaword/)).toBeTruthy());
   });
 });
+
+describe('VocabClass 进度口径跟上词汇后端（T01 / VOC06 / VOC08 / IOS-10）', () => {
+  function withStudent(reading: Record<string, unknown>, vocabulary: Record<string, unknown>) {
+    const s = mkStudent('s-1', 'olevel');
+    return mockProgress({ students: [{ ...s, reading: { ...s.reading, ...reading }, vocabulary: { ...s.vocabulary, ...vocabulary } }] });
+  }
+
+  it('欠阅读能追到按日期的明细；已取消的另注「不算欠」', async () => {
+    (api.vocabV2ClassProgress as any).mockResolvedValue(
+      withStudent({ overdue: 2, overdueDates: ['2026-09-08', '2026-09-09'], cancelledArchived: 1 }, {}),
+    );
+    await open();
+    expect(screen.getByText('9/8、9/9')).toBeTruthy();
+    expect(screen.getByText('另有 1 份已取消（不算欠）')).toBeTruthy();
+    expect(screen.getByText('欠阅读（今天以前）')).toBeTruthy();
+  });
+
+  it('全部延后的一天：今日测试写「不需要」，老师不用等一份不存在的卷子（VOC08）', async () => {
+    (api.vocabV2ClassProgress as any).mockResolvedValue(
+      withStudent({}, { todayLearning: 'completed', todayTest: 'not_needed', todayLearned: 0, todayDeferred: 10 }),
+    );
+    await open();
+    expect(screen.getByText('不需要')).toBeTruthy();
+    expect(screen.getByText('学完 0 · 延后 10')).toBeTruthy();
+  });
+
+  it('测试待办按题数写，卷子没生成的份数单独说（VOC06）', async () => {
+    (api.vocabV2ClassProgress as any).mockResolvedValue(
+      withStudent({}, { pendingTests: 2, pendingTestWords: 21, pendingTestsNotGenerated: 1, todayLearning: 'completed', todayTest: 'pending', todayTestQuestions: 13, todayLearned: 10 }),
+    );
+    await open();
+    expect(screen.getByText(/份 \/ 21 题/)).toBeTruthy();
+    expect(screen.getByText('其中 1 份卷子还没生成')).toBeTruthy();
+    expect(screen.getByText('13 题')).toBeTruthy();
+  });
+});
