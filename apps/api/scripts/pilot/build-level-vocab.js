@@ -120,7 +120,9 @@ function dictionary(csvPath) {
 
 function sentences(passage) {
   return passage
-    .replace(/^Paragraph \d+\s*/gm, '')
+    // 数字段号（Paragraph 3）和字母段号（Paragraph C，雅思真题档）都要剥掉，
+    // 否则学习卡的例句会以「Paragraph C」开头（2026-09-11 第三周生成时发现）。
+    .replace(/^Paragraph (?:\d+|[A-Z])\s*/gm, '')
     .split(/\n\s*\n/)
     .flatMap((p) => p.match(/[^.!?]+[.!?]/g) || [p])
     .map((s) => s.trim())
@@ -234,4 +236,4 @@ function main() {
 
 if (require.main === module) main();
 
-module.exports = { dictionary, choose, sentences, posOf, STOP, parseCsv };
+module.exports = { dictionary, choose, sentences, posOf, STOP, parseCsv, lemmaCandidates };

@@ -23,7 +23,12 @@ const fs = require('fs');
 const path = require('path');
 const { dictionary, choose } = require('./build-level-vocab');
 
-const WEEK2 = path.join(__dirname, 'content', 'week2');
+/**
+ * 哪一周。默认 week2（首发周）—— 那一周的词表已经发布，不带参数重跑结果不变。
+ * 第三周起：`--week=week3`。每周的档位模块、偏好表、输出都在各自目录里。
+ */
+const WEEK_NAME = (process.argv.find((a) => a.startsWith('--week=')) ?? '--week=week2').slice('--week='.length);
+const WEEK2 = path.join(__dirname, 'content', WEEK_NAME);
 const OUT = path.join(WEEK2, 'vocab.generated.json');
 
 /** 目标词数与可以退让到的下限。短文章（O-Level 基础档只有两百多词）取不满 20。 */
@@ -35,7 +40,9 @@ const FLOOR = 12;
  * 柯林斯星级、牛津核心词和词频自己排序；给了偏好表只是把这一篇真正
  * 值得教的词顶到前面去（前 12 个才是当天主词）。
  */
-const PREFERRED = require('./content/week2/preferred-words.js');
+const PREFERRED = fs.existsSync(path.join(WEEK2, 'preferred-words.js'))
+  ? require(path.join(WEEK2, 'preferred-words.js'))
+  : {};
 
 /**
  * 按偏好表重排选出来的词 —— **前 12 个才是学生当天的主词**，这一步决定

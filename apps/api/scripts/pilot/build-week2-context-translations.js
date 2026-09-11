@@ -34,18 +34,28 @@ const fs = require('fs');
 const path = require('path');
 const { createHash } = require('node:crypto');
 
-const WEEK2 = path.join(__dirname, 'content', 'week2');
-const OUT = path.join(__dirname, 'content', 'context-translations-week2.js');
+/**
+ * 哪一周。默认 week2（首发周）。第三周起 `--week=week3`，输出到
+ * `content/context-translations-week3.js`。
+ *
+ * 第三周起**不再人工复核**（2026-09-11 叶老师定）：这批「文章词」学生端已经
+ * 不展示了（每日单词改从档位词表推），它们只剩发布脚本的完整性门槛。有需要
+ * 时仍可在周目录下放 `context-translation-overrides*.js`，覆盖永远赢。
+ */
+const WEEK_NAME = (process.argv.find((a) => a.startsWith('--week=')) ?? '--week=week2').slice('--week='.length);
+const WEEK2 = path.join(__dirname, 'content', WEEK_NAME);
+const OUT = path.join(__dirname, 'content', `context-translations-${WEEK_NAME}.js`);
 const VOCAB = path.join(WEEK2, 'vocab.generated.json');
 
-/**
- * 人工复核过的译文。覆盖永远赢 —— 重跑生成器不得把审过的句子冲回机翻。
- * 分两个文件只是为了好读：第一批是雅思轻量档，第二批是其余四档。
- */
-const OVERRIDES = {
-  ...require('./content/week2/context-translation-overrides.js'),
-  ...require('./content/week2/context-translation-overrides-2.js'),
-};
+/** 人工复核过的译文。覆盖永远赢 —— 重跑生成器不得把审过的句子冲回机翻。 */
+const OVERRIDES = Object.assign(
+  {},
+  ...fs
+    .readdirSync(WEEK2)
+    .filter((f) => /^context-translation-overrides.*\.js$/.test(f))
+    .sort()
+    .map((f) => require(path.join(WEEK2, f))),
+);
 
 const ENDPOINT = (process.env.AZURE_TRANSLATOR_ENDPOINT || 'https://api.cognitive.microsofttranslator.com').replace(/\/$/, '');
 const KEY = process.env.AZURE_TRANSLATOR_KEY;

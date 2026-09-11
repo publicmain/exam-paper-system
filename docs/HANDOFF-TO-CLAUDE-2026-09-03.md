@@ -909,6 +909,46 @@ WORDLIST_CONFIRM=PUBLISH_WORD_LIST_PRODUCTION railway run -s Postgres -e product
 
 不能向叶老师或学生承诺“绝对准确、永远不重复”；可以承诺可执行的质量门、发现问题后的可追溯修复和不篡改历史。
 
+### 6.4 第三周起的出文章流程（2026-09-11 起用）
+
+题库里「没发给学生过」的文章在首发周用完，第三周（09-14）起**全部原创**。
+铁律不变：写文章、出题、审题都在聊天里做，下面的脚本只负责找素材、卡规格、
+查错、量效果，**没有任何一步调用模型**。
+
+**没有自动出卷**：`MORNING_QUIZ_DAILY_FALLBACK` 已于 09-11 关掉（`false`）。它开着
+的时候，某天没发布内容，周二到周五 06:30 就会用旧早测题库按班轮换自动补卷 ——
+不走「学生读没读过」查重，从 G11 迁过来的学生会读到做过的文章。**所以某天没写完
+就是没有课，学生会看到「今天的课程还没有发布」，不会被静默塞旧卷。**
+
+一天的流水线（`<wk>` = `week3`，脚本都在仓库根跑）：
+
+| 步 | 做什么 | 命令 |
+|---|---|---|
+| 1 | 找素材（可选；原创就跳过） | `content/voa-candidates.ts`、`content/wiki-candidates.ts --titles=…`（维基是 CC BY-SA，改编稿要署名并同样方式共享） |
+| 2 | 写：一档一个模块，整天写明 | `pilot/content/<wk>/<档位>.js`，用 `../authored.js` 装配；写完一天把日期加进 `<wk>/dates.js` |
+| 3 | 边写边体检：篇幅、超纲词 | `npx ts-node apps/api/scripts/content/level-check.ts --week=<wk>`（门槛在 `pilot/content/level-gates.js`） |
+| 4 | 生成文章词（全自动，不再人工复核） | `build-auto-preferred.ts --week=<wk> --csv <ecdict>` → `node build-week2-vocab.js --week=<wk> --csv <ecdict>` → `railway run -s exam-paper-system -e production -- node build-week2-context-translations.js --week=<wk>` |
+| 5 | 内容测试 | `npx vitest run --root apps/api scripts/pilot/__tests__/` |
+| 6 | 拼写语法 | `content/lint-language.ts --week=<wk>`（公共 LanguageTool；已关掉逐条核过的误报规则） |
+| 7 | 语义查重 | `railway run -s Postgres -e production -- npx ts-node apps/api/scripts/content/semantic-check.ts --week=<wk>`；**≥ 0.62 必须把对方原文调出来读** |
+| 8 | 盲做 | `content/blind-sheet.ts --week=<wk> --out=<目录>` 出卷面 → 冷做 → `--check=<答案.json>` 比对 |
+| 9 | 发布（一次一天） | `P1_CONFIRM=S12M_PUBLISH_PILOT_WEEK_PRODUCTION railway run -s Postgres -e production -- node apps/api/scripts/pilot/prepare-pilot-week.js --day=<日期>`；**挑没人在做题的时候跑**，事务里答卷 / 流水 / 当日任务行变了就整体回滚 |
+| 10 | 判完分后每周体检 | `railway run -s Postgres -e production -- npx ts-node apps/api/scripts/content/item-report.ts --from=… --to=…`，报告在 `.local/reports/` |
+
+第 3 步之后还有两个辅助：`content/draft-gapfill.ts` 给「找细节 / 原文填空」出算法
+草稿（只是草稿，逐条人审）。
+
+内容测试里第三周起多了五道硬门（`pilot-week-content.spec.ts` 第 6 节）：评分标准
+写的分数 = 满分（09-09 甘地那道题就是满分 1、评分写两分）；「Paragraph N」的依据
+真在第 N 段；判断题答案不全一样；配对题答案不排成 ABCD；选择题正确项不比干扰项
+长 50% 以上；篇幅与超纲词合档。
+
+**语义查重的教训（09-11）**：第一版阈值 0.75，第三周两篇从缝里过去 ——
+「Grandpa's Radio」与旧早测「The Old Radio」0.65（外公、棕色收音机、银色旋钮、
+华语老歌全撞），「The Piano Through the Wall」与「The Piano Upstairs」0.72（同一个
+桥段）。两篇都已换掉。自己写的新加坡家庭记叙文会不自觉地落回旧题库的套路
+（外公外婆的老物件、组屋、熟食中心），写之前先想清楚这个桥段旧题库里有没有。
+
 ## 7. 判分与成绩
 
 ### 7.1 当前判分逻辑

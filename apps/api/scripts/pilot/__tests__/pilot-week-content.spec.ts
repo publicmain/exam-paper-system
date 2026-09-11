@@ -133,10 +133,13 @@ describe('S12M —— 这一周有什么', () => {
   });
 
   it('日期是新加坡日历日，按周连续（周末跳过）', () => {
-    // 内容包按周累加：试点第一周 + 首发周。旧的周只增不删 —— 学生的历史
-    // 答卷、冻结的正式测试和跨日待办都指向他做过的那一天，把上一周从包里
-    // 拿掉等于让那些记录指向不存在的课。
-    expect(DATES).toEqual([
+    // 内容包按周累加：试点第一周 + 首发周 + 第三周起逐日追加。旧的周只增不删
+    // —— 学生的历史答卷、冻结的正式测试和跨日待办都指向他做过的那一天，把
+    // 上一周从包里拿掉等于让那些记录指向不存在的课。
+    //
+    // 前两周钉死；第三周起每写完一天追加一天（week3/dates.js），不再在这里
+    // 逐个列 —— 下面的「相邻间隔 1 或 3 天、只落在工作日」管住它们。
+    expect(DATES.slice(0, 10)).toEqual([
       '2026-08-31', '2026-09-01', '2026-09-02', '2026-09-03', '2026-09-04',
       '2026-09-07', '2026-09-08', '2026-09-09', '2026-09-10', '2026-09-11',
     ]);
@@ -404,5 +407,163 @@ describe('S12M —— 全周', () => {
         ).toBe(false);
       }
     }
+  });
+});
+
+// ─────────────────────────────────────────────────────────────
+// 6. 第三周起的新门槛（2026-09-11）
+//
+// 每一条都对应一个已经真实发生过、而上面的检查全部放过去的问题：
+//
+//   · 评分标准写的分数和满分对不上 —— 09-09 雅思轻量档甘地那道题，满分设
+//     1 分，评分标准写「两分：行为 1 分、违法原因 1 分」。老师批到它时两个
+//     依据互相打架；
+//   · 题目说「From Paragraph 4」，依据句却在别的段 —— 学生照着段号去找，
+//     找不到；
+//   · 判断题三道答案一样 —— 学生全填 TRUE 就拿满；
+//   · 正确选项明显比干扰项长 —— 不读文章也能蒙对（首发周体检：两成题
+//     全班都对，其中大半是选择题）；
+//   · 篇幅和超纲词不合档 —— 从报告升级成硬门，数字见 content/level-gates.js。
+//
+// 只管第三周起：前两周已经发布、学生做过了，回头挑刺改不了任何东西。
+// ─────────────────────────────────────────────────────────────
+
+// eslint-disable-next-line @typescript-eslint/no-var-requires
+const { GATES_FROM, LEVEL_GATES } = require('../content/level-gates');
+import { difficultyProfile } from '../../../src/vocab-v2/cefr-difficulty';
+import { wordPolicyFor } from '../../../src/vocab-v2/level-policy';
+
+const GATED: Array<[string, string, Day]> = EVERY.filter(([, , d]) => d.date >= GATES_FROM);
+
+const CN_MARKS: Record<string, number> = { 一: 1, 二: 2, 两: 2, 三: 3, 四: 4 };
+
+/** 评分标准开头声明的分数：「两分：…」「1 分：…」。认不出返回 null。 */
+function declaredMarks(rubric: string): number | null {
+  const m = String(rubric).trim().match(/^(一|二|两|三|四|\d)\s*分/);
+  if (!m) return null;
+  return CN_MARKS[m[1]] ?? Number(m[1]);
+}
+
+/** 按段号或段字母取段落正文（去掉 `Paragraph X` 前缀后的部分）。 */
+function paragraphMap(passage: string): Map<string, string> {
+  const out = new Map<string, string>();
+  passage.split(/\n\s*\n/).forEach((block, i) => {
+    const b = block.trim();
+    const label = b.match(/^Paragraph\s+(\S+)/)?.[1];
+    const body = b.replace(/^Paragraph\s+\S+\s*/, '').trim();
+    out.set(String(i + 1), body);
+    if (label) out.set(label, body);
+  });
+  return out;
+}
+
+/** 题目本身（不含整组共用的指令）里提到的段：`Paragraph 4` / `Paragraphs 2–3` / `Paragraph C`。 */
+function referencedParagraphs(stem: string): string[] {
+  const item = questionItem(stem);
+  const refs: string[] = [];
+  for (const m of item.matchAll(/Paragraphs?\s+(\d+|[A-H])\b(?:\s*[-–]\s*(\d+|[A-H])\b)?/g)) {
+    const from = m[1];
+    const to = m[2];
+    if (to && /^\d+$/.test(from) && /^\d+$/.test(to)) {
+      for (let n = Number(from); n <= Number(to); n += 1) refs.push(String(n));
+    } else if (to) {
+      for (let c = from.charCodeAt(0); c <= to.charCodeAt(0); c += 1) refs.push(String.fromCharCode(c));
+    } else {
+      refs.push(from);
+    }
+  }
+  return refs;
+}
+
+describe.each(GATED.length ? GATED : [['（还没有第三周内容）', '', null as unknown as Day]])(
+  '第三周门槛 —— %s',
+  (_label, level, day) => {
+    if (!day) {
+      it.skip('没有需要检查的日子', () => undefined);
+      return;
+    }
+
+    it('评分标准开头写的分数就是这道题的满分', () => {
+      for (const q of day.questions.filter((x) => x.questionType === 'short_answer')) {
+        const declared = declaredMarks(q.rubric ?? '');
+        expect(declared, `评分标准没有以「N 分：」开头：${q.stem.slice(0, 50)}`).not.toBeNull();
+        expect(declared, `满分 ${q.marks}，评分标准却写 ${declared} 分：${q.stem.slice(0, 50)}`).toBe(q.marks);
+      }
+    });
+
+    it('题目说「Paragraph N」，依据句就真在那一段', () => {
+      const paras = paragraphMap(day.passage);
+      for (const q of day.questions) {
+        if (!q.evidence) continue;
+        const refs = referencedParagraphs(q.stem);
+        if (!refs.length) continue;
+        const bodies = refs.map((r) => paras.get(r));
+        expect(bodies.every(Boolean), `题目引用了不存在的段：${refs.join(',')}`).toBe(true);
+        expect(
+          bodies.some((b) => b!.includes(q.evidence)),
+          `题目指向 Paragraph ${refs.join('/')}，依据句不在那里：${q.stem.slice(0, 50)}`,
+        ).toBe(true);
+      }
+    });
+
+    it('判断题的答案不全一样：两道不同，三道 TRUE / FALSE / NOT GIVEN 各一', () => {
+      const keys = day.questions.filter((q) => q.taskType === 'true_false_not_given').map((q) => q.answer);
+      if (keys.length === 2) expect(new Set(keys).size).toBe(2);
+      if (keys.length >= 3) expect(new Set(keys)).toEqual(new Set(['A', 'B', 'C']));
+    });
+
+    it('配对题的答案不排成 ABCD / AAAA 这种一眼可猜的序列', () => {
+      const keys = day.questions.filter((q) => q.taskType === 'matching_features').map((q) => q.answer);
+      if (keys.length < 3) return;
+      const codes = keys.map((k) => k.charCodeAt(0));
+      const diffs = codes.slice(1).map((c, i) => c - codes[i]);
+      expect(diffs.every((d) => d === diffs[0]), `配对题答案序列 ${keys.join('')} 可猜`).toBe(false);
+    });
+
+    it('选择题的正确项不能明显比干扰项长（长 50% 以上就是送分）', () => {
+      for (const q of day.questions.filter((x) => x.taskType === 'multiple_choice')) {
+        const correct = q.options!.find((o) => o.key === q.answer)!.text.length;
+        const longestOther = Math.max(...q.options!.filter((o) => o.key !== q.answer).map((o) => o.text.length));
+        expect(correct / longestOther, `正确项比干扰项长太多：${q.stem.slice(0, 50)}`).toBeLessThanOrEqual(1.5);
+      }
+    });
+
+    it('篇幅与超纲词在这一档的范围内', () => {
+      const gate = LEVEL_GATES[level];
+      expect(gate, `level-gates.js 里没有 ${level}`).toBeTruthy();
+      const text = day.passage.replace(/^Paragraph \S+\s*/gm, '');
+      const p = difficultyProfile(text, wordPolicyFor(level as never).contextDifficulty);
+      expect(p.words, `${level} 要 ${gate.words[0]}–${gate.words[1]} 词`).toBeGreaterThanOrEqual(gate.words[0]);
+      expect(p.words, `${level} 要 ${gate.words[0]}–${gate.words[1]} 词`).toBeLessThanOrEqual(gate.words[1]);
+      if (gate.maxHard != null) {
+        expect(p.hardRatio, `超纲词：${[...new Set(p.hardWords)].join(', ')}`).toBeLessThanOrEqual(gate.maxHard);
+      }
+    });
+  },
+);
+
+describe('第三周门槛本身 —— 反向夹具', () => {
+  it('declaredMarks 认得出中文和数字两种写法', () => {
+    expect(declaredMarks('两分：写出…')).toBe(2);
+    expect(declaredMarks('一分：答…')).toBe(1);
+    expect(declaredMarks('2 分：…')).toBe(2);
+    expect(declaredMarks('写出…给分')).toBeNull();
+  });
+
+  it('09-09 甘地那道题会被抓到 —— 满分 1，评分标准写两分', () => {
+    // 同一天还有一道提到甘地的判断题，按题型把简答那道挑出来
+    const gandhi = lessonFor('ielts_light', '2026-09-09')!.questions.find(
+      (q) => q.questionType === 'short_answer' && /Gandhi/.test(q.stem),
+    )!;
+    expect(gandhi.marks).toBe(1);
+    expect(declaredMarks(gandhi.rubric ?? '')).toBe(2);
+  });
+
+  it('referencedParagraphs 读得出单段、区间和字母段，读不到整组指令', () => {
+    expect(referencedParagraphs('From Paragraph 4, how much…')).toEqual(['4']);
+    expect(referencedParagraphs('Paragraphs 2–3 — when…')).toEqual(['2', '3']);
+    expect(referencedParagraphs('in Paragraph 2 and in Paragraph 9')).toEqual(['2', '9']);
+    expect(referencedParagraphs('According to Paragraph E, how…')).toEqual(['E']);
+    expect(referencedParagraphs('The passage has 8 paragraphs, A–H. Which paragraph…\n\na calculation')).toEqual([]);
   });
 });

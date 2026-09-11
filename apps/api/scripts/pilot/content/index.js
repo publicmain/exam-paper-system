@@ -31,6 +31,7 @@ const simplifiedRemaining = require('./ielts_simplified_remaining');
 const authenticRemaining = require('./ielts_authentic_remaining');
 const { IELTS_LIGHT_DAYS, OLEVEL_INTERMEDIATE_DAYS } = require('./fixture-levels');
 const week2 = require('./week2');
+const week3 = require('./week3');
 const contextTranslations = {
   ...require('./context-translations-ielts_simplified'),
   ...require('./context-translations-olevel_intermediate'),
@@ -86,6 +87,8 @@ const WEEK1_DATES = ['2026-08-31', '2026-09-01', '2026-09-02', '2026-09-03', '20
 const WEEKS = [
   { dates: WEEK1_DATES, levels: WEEK1 },
   { dates: week2.DATES, levels: week2.LEVELS },
+  // 第三周（2026-09-14 起）：全原创，写完一天加一天（见 week3/dates.js）。
+  { dates: week3.DATES, levels: week3.LEVELS },
 ];
 
 /** 五档的内容包。key 就是 `EnglishLevel` 枚举值，值是按日期升序的全部教学日。 */

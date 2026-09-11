@@ -54,7 +54,10 @@ commit 与 `main` 一致。下文若还有「student-web 不存在」「重建�
 
 **内容**：五档 × 十天已发布到生产（试点第一周 08-31~09-04，首发周
 09-07~09-11）。首发周的内容包在 `scripts/pilot/content/week2/`。
-仓库自带的 fixture 题库**基本用尽**，第三周起的文章必须新写。
+仓库自带的 fixture 题库**基本用尽**，第三周起的文章必须新写 ——
+在 `scripts/pilot/content/week3/`，全原创，**流程与工具见 handoff §6.4**。
+每日兜底自动出卷（`MORNING_QUIZ_DAILY_FALLBACK`）09-11 起关掉：某天没写完
+就是没有课，不会被静默塞旧题库的卷子。
 
 **旧早测（`G11 IELTS Test (morning-quiz)` 班）要停掉**，那 35 名学生迁到
 新 App。他们读过的文章不能再发给他们 —— 发布查重门已按「学生读没读过」
