@@ -1,3 +1,4 @@
+import { scoreResultPath } from '../common/student-links';
 import { BadRequestException, ForbiddenException, Injectable, Logger, NotFoundException, Optional } from '@nestjs/common';
 import { PrismaService } from '../common/prisma.service';
 import { createRealSubmissionSafe } from '../common/submission-create';
@@ -643,9 +644,8 @@ export class StudentService {
             paper: { select: { totalMarksActual: true, name: true } },
           },
         },
-        // F3: pull the student's display name so the score_ready payload
-        // can deep-link `/my-history?name=<encodeURIComponent(name)>` and
-        // render a useful WeChat card body.
+        // F3: pull the student's display name for a useful WeChat card body.
+        // 链接是 /scores/:submissionId，不带姓名（common/student-links.ts）。
         student: { select: { name: true } },
         // R10: pull question.answerContent so autoGradeScripts can grade
         // short_answer items against the canonical text answer.
@@ -825,7 +825,8 @@ export class StudentService {
             autoScore: result?.autoScore ?? null,
             maxScore: correctMax,
             submittedAt: (result?.submittedAt ?? new Date()).toISOString(),
-            resultUrl: `/my-history?name=${encodeURIComponent(studentName)}`,
+            // 学生端 canonical 路由；URL 里不带姓名（旧 /my-history?name= 已退役）
+            resultUrl: scoreResultPath(submissionId),
           });
         }
       } catch (e: any) {

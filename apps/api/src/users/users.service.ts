@@ -1,4 +1,4 @@
-import { BadRequestException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, ForbiddenException, Injectable, Logger, NotFoundException } from '@nestjs/common';
 import * as bcrypt from 'bcryptjs';
 import { PrismaService } from '../common/prisma.service';
 import { AuditService } from '../audit/audit.service';
@@ -97,6 +97,17 @@ export class UsersService {
       data: { englishLevel: level },
       select: { id: true, name: true, englishLevel: true },
     });
+    // UI01：记一笔「哪天起在哪档」，历史欠阅读按那天实际的档位算（与学生自己改档同一张表）。
+    // 清空成 null 不记（没有新档位）；写失败不挡改档 —— 词汇模块 10 分钟一次的任务会补记。
+    if (level !== null && before !== level) {
+      try {
+        await this.prisma.studentLevelChange.create({
+          data: { studentId, fromLevel: before, toLevel: level, source: 'teacher_roster' },
+        });
+      } catch (error) {
+        new Logger(UsersService.name).warn(`level change not recorded (cron will observe it): ${studentId} ${String((error as Error)?.message ?? error).slice(0, 120)}`);
+      }
+    }
     await this.audit.log({
       actorId: actor.id,
       actorRole: actor.role,

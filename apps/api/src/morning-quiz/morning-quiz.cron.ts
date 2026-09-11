@@ -1,3 +1,4 @@
+import { scoreResultPath } from '../common/student-links';
 import { Injectable, Logger } from '@nestjs/common';
 import { Cron, CronExpression } from '@nestjs/schedule';
 import { allDayConfigured, allDayEnabled } from '../lesson/all-day';
@@ -601,8 +602,8 @@ export class MorningQuizCron {
         const sub = await this.prisma.studentSubmission.findUnique({
           where: { id: subId },
           include: {
-            // F3 — pull student name so the score_ready payload can build
-            // the `/my-history?name=...` deeplink without an extra query.
+            // F3 — pull student name for the score_ready card body（链接本身不带姓名，
+            // 见 common/student-links.ts）.
             student: { select: { name: true } },
             scripts: {
               include: {
@@ -716,7 +717,8 @@ export class MorningQuizCron {
               autoScore,
               maxScore: sub.maxScore,
               submittedAt: (sub.submittedAt ?? new Date()).toISOString(),
-              resultUrl: `/my-history?name=${encodeURIComponent(studentName)}`,
+              // 学生端 canonical 路由；URL 里不带姓名（旧 /my-history?name= 已退役）
+              resultUrl: scoreResultPath(sub.id),
             });
           }
         } catch (e: any) {

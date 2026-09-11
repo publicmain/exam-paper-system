@@ -33,6 +33,10 @@ function makePrisma(overrides: Record<string, any> = {}) {
         englishLevel: data.englishLevel,
       })),
     },
+    // UI01：改档记录（哪天起在哪档）—— 唯一允许的第二笔写
+    studentLevelChange: {
+      create: track('studentLevelChange', 'create', async ({ data }: any) => ({ id: 'lc1', ...data })),
+    },
     classEnrollment: {
       findMany: track('classEnrollment', 'findMany', async () => [{ classId: 'c1' }]),
       // canActOnClass 用它判断老师是不是这个班的
@@ -126,7 +130,7 @@ describe('setEnglishLevel — 授权', () => {
 describe('setEnglishLevel — 副作用边界', () => {
   beforeEach(() => audit.log.mockClear());
 
-  it('**只写 User 一行**：历史答卷 / 场次 / 当日任务全程未被触碰', async () => {
+  it('**只写 User 一行 + 一条改档记录**：历史答卷 / 场次 / 当日任务全程未被触碰', async () => {
     const prisma = makePrisma();
     const svc = new UsersService(prisma, audit);
     await svc.setEnglishLevel(TEACHER, 'stu1', 'ielts_simplified');
@@ -134,10 +138,26 @@ describe('setEnglishLevel — 副作用边界', () => {
     const writes = prisma.__calls.filter((c: any) =>
       ['update', 'updateMany', 'create', 'delete', 'deleteMany'].includes(c.op),
     );
-    expect(writes).toHaveLength(1);
-    expect(writes[0].model).toBe('user');
-    // 写进去的字段也只有难度一个
+    // 精确清单：多一条少一条都红（与 lesson/level-switch.spec 同一口径）
+    expect(writes.map((w: any) => `${w.model}.${w.op}`)).toEqual(['user.update', 'studentLevelChange.create']);
+    // 写进 User 的字段也只有难度一个
     expect(Object.keys(writes[0].args.data)).toEqual(['englishLevel']);
+    // UI01：记下从哪档到哪档、是老师在花名册改的
+    expect(writes[1].args.data).toEqual({ studentId: 'stu1', fromLevel: 'ielts_authentic', toLevel: 'ielts_simplified', source: 'teacher_roster' });
+  });
+
+  it('改成同一档 / 清空成 null：不记改档（没有新的「哪天起在哪档」）', async () => {
+    for (const level of ['ielts_authentic', null] as const) {
+      const prisma = makePrisma();
+      await new UsersService(prisma, audit).setEnglishLevel(TEACHER, 'stu1', level as any);
+      expect(prisma.__calls.some((c: any) => c.model === 'studentLevelChange')).toBe(false);
+    }
+  });
+
+  it('改档记录写失败也不挡改档（词汇模块的定时任务会补记）', async () => {
+    const prisma = makePrisma({ studentLevelChange: { create: async () => { throw new Error('db hiccup'); } } });
+    const r = await new UsersService(prisma, audit).setEnglishLevel(TEACHER, 'stu1', 'olevel');
+    expect(r).toEqual({ ok: true, id: 'stu1', englishLevel: 'olevel' });
   });
 
   it('留审计：改了谁、从哪层到哪层', async () => {
