@@ -35,6 +35,23 @@
  * railway run -p <projectId> -s Postgres -e production -- \
  *   node apps/api/scripts/pilot/prepare-pilot-week.js --day=2026-08-31
  * ```
+ *
+ * ## 已发布内容冻结、检查在提交之前（2026-09-11 审计 PUB01 / PUB02）
+ *
+ *   · 重跑同一天：库里已有的卷子 / 题 / 场次逐字段与内容包比对。
+ *       - 一模一样 → 一行都不写（幂等）；
+ *       - 不一样、而那份卷子**已经有学生开卷 / 交卷** → 拒绝，列出改了哪些题、
+ *         影响几份答卷。已被使用的版本只能走人工纠错流程（见
+ *         docs/audit-2026-09-11/ledger-pub.md），脚本不改；
+ *       - 不一样、还没有任何学生开卷 → 默认拒绝；确认要改就加
+ *         `--revise-unstarted` 重跑，改了哪些题会逐条打印。
+ *     已有场次 / 作业的状态（例如老师取消了某一场）一律不动。
+ *   · 发布前的内容门禁（`publish-gates.js`）、查重、发布后的全部约束
+ *     （五档卷子与题、每班每档场次、词典、每个学生今天的词）和「不该动的
+ *     没动」都在**同一个事务里、提交之前**核对；任何一条不过就整笔回滚。
+ *     「已发布」只在事务提交之后打印。
+ *   · `--check`：只读核对某一天是否已经完整发布（事务设为 READ ONLY，不需要
+ *     确认串）。发布断线、不确定有没有成功时先跑它。
  */
 
 'use strict';
@@ -54,6 +71,7 @@ const ENV_AT_STARTUP = Object.fromEntries(ENV_KEYS.map((k) => [k, process.env[k]
 
 const content = require('./content');
 const { findNearDuplicate, questionItem } = require('./content-similarity');
+const gates = require('./publish-gates');
 
 // ─────────────────────────────────────────────────────────────
 // 常量
@@ -333,8 +351,13 @@ function assertPrefixed(ids) {
   return true;
 }
 
-/** 八道环境闸门。抛出的错误里**只出现变量名，绝不出现取值**。 */
-function assertEnvGates(env = ENV_AT_STARTUP) {
+/**
+ * 八道环境闸门。抛出的错误里**只出现变量名，绝不出现取值**。
+ *
+ * `requireConfirmation: false` 只给 `--check`（只读核对）用：它不写库，
+ * 不需要逐字确认串，其余七道一道不少。
+ */
+function assertEnvGates(env = ENV_AT_STARTUP, { requireConfirmation = true } = {}) {
   const target = ALLOWED_TARGETS.find(({ railway }) =>
     Object.entries(railway).every(([key, value]) => env[key] === value),
   );
@@ -363,7 +386,7 @@ function assertEnvGates(env = ENV_AT_STARTUP) {
   if (!env.RAILWAY_TCP_PROXY_PORT || String(url.port) !== String(env.RAILWAY_TCP_PROXY_PORT)) {
     throw new PilotError('拒绝执行：DATABASE_PUBLIC_URL 的端口不等于 RAILWAY_TCP_PROXY_PORT。');
   }
-  if (env.P1_CONFIRM !== target.confirmation) {
+  if (requireConfirmation && env.P1_CONFIRM !== target.confirmation) {
     throw new PilotError(
       `拒绝执行：${target.name} 需要它自己的逐字确认串。\n` +
         '这个脚本会给试点班发布一天的课程内容。',
@@ -555,7 +578,48 @@ async function upsertDictionary(tx, report, dayIso) {
   }
 }
 
-async function upsertLesson(tx, level, dayIso, report) {
+// ─────────────────────────────────────────────────────────────
+// 课程内容：先算出「应该是什么样」，再和库里「现在是什么样」比
+// （PUB01，2026-09-11）
+//
+// 原来这里对每一行 upsert，重跑同一天就把题面、答案、评分标准原样再写
+// 一遍 —— 内容包在发布之后改过的话，已经开卷、交卷、判过分的学生手里那份
+// 冻结快照就被悄悄换掉了；老师取消的场次也会被 `status: 'active'` 改回来。
+//
+// 现在分三步：`lessonRows` 算出应有的行（纯函数），`loadExisting` 一次性
+// 读出库里已有的行和使用情况，`planDay` 逐字段比对、分出「新建 / 未变 /
+// 改了」，`assertPlanAllowed` 按「有没有学生用过」决定放不放行。写入只写
+// 新建的行（批量），以及 `--revise-unstarted` 明确放行的修订。
+// ─────────────────────────────────────────────────────────────
+
+/** 写进 Json 列、再读回来的样子：值为 undefined 的键消失。比较前两边都过一遍。 */
+function asStored(value) {
+  return value === undefined ? null : JSON.parse(JSON.stringify(value));
+}
+
+function stableStringify(value) {
+  if (Array.isArray(value)) return `[${value.map(stableStringify).join(',')}]`;
+  if (value && typeof value === 'object') {
+    return `{${Object.keys(value)
+      .sort()
+      .map((k) => `${JSON.stringify(k)}:${stableStringify(value[k])}`)
+      .join(',')}}`;
+  }
+  return JSON.stringify(value);
+}
+
+/** 与键顺序无关的 JSON 相等（jsonb 会重排键）。 */
+function sameJson(a, b) {
+  return stableStringify(asStored(a)) === stableStringify(asStored(b));
+}
+
+/**
+ * 一档一天**应该**落库的全部行。纯函数 —— 同样的内容包永远得到同样的行。
+ *
+ * 字段口径与原来的 upsert 一字不差：客观题的正确项写在 options[].correct；
+ * 主观题不写任何自动分依据，options 为空。
+ */
+function lessonRows(level, dayIso) {
   const lesson = content.lessonFor(level, dayIso);
   if (!lesson) throw new PilotError(`内部错误：${level} 没有 ${dayIso} 的课`);
   const ids = idsFor(level, dayIso);
@@ -570,35 +634,23 @@ async function upsertLesson(tx, level, dayIso, report) {
   ]);
 
   const wordPlan = lessonWordPlan(lesson);
-  const paperConfig = {
-    mode: 'passage_pick',
-    passageTitle: lesson.title,
-    pilotWeek: 'W1',
-    level,
-    lessonWords: wordPlan.primary,
-    lessonWordReserves: wordPlan.reserves,
-  };
-  await tx.paper.upsert({
-    where: { id: ids.paperId },
-    update: { name: lesson.title, config: paperConfig },
-    create: {
-      id: ids.paperId,
-      name: lesson.title,
-      subjectId: PUBLISHER.subjectId,
-      ownerId: PUBLISHER.teacherId,
-      status: 'published',
-      durationMin: 30,
-      totalMarksTarget: maxScore,
-      totalMarksActual: maxScore,
-      generatedSeed: 1,
-      rendererKey: 'ielts_reading',
-      config: paperConfig,
+  const paper = {
+    id: ids.paperId,
+    name: lesson.title,
+    totalMarks: maxScore,
+    config: {
+      mode: 'passage_pick',
+      passageTitle: lesson.title,
+      pilotWeek: 'W1',
+      level,
+      lessonWords: wordPlan.primary,
+      lessonWordReserves: wordPlan.reserves,
     },
-  });
-  report.bump('Paper');
+  };
 
-  for (let i = 0; i < lesson.questions.length; i++) {
-    const q = lesson.questions[i];
+  const questions = [];
+  const paperQuestions = [];
+  lesson.questions.forEach((q, i) => {
     const n = i + 1;
     const snapshotContent = {
       taskType: q.taskType,
@@ -608,9 +660,7 @@ async function upsertLesson(tx, level, dayIso, report) {
     };
     // 客观题：正确项写在 options[].correct 上（`gradeMcq` 的第一顺位判据）。
     // 主观题：**不写任何自动分依据** —— 它必须诚实地进人工队列。
-    const options = q.options
-      ? q.options.map((o) => ({ ...o, correct: o.key === q.answer }))
-      : undefined;
+    const options = q.options ? q.options.map((o) => ({ ...o, correct: o.key === q.answer })) : null;
     const answerContent =
       q.questionType === 'mcq'
         ? { text: (q.options.find((o) => o.key === q.answer) || {}).text ?? q.answer, evidence: q.evidence || undefined, explanation: q.explanation }
@@ -621,84 +671,414 @@ async function upsertLesson(tx, level, dayIso, report) {
             evidence: q.evidence || undefined,
             explanation: q.explanation,
           };
+    questions.push({
+      id: ids.questionId(n),
+      questionType: q.questionType,
+      content: snapshotContent,
+      answerContent,
+      options,
+      marks: q.marks,
+    });
+    paperQuestions.push({
+      id: ids.paperQuestionId(n),
+      paperId: ids.paperId,
+      questionId: ids.questionId(n),
+      sortOrder: n,
+      snapshotContent,
+      snapshotAnswer: answerContent,
+      snapshotOptions: options,
+      marks: q.marks,
+    });
+  });
 
-    await tx.question.upsert({
-      where: { id: ids.questionId(n) },
-      update: { content: snapshotContent, answerContent, options, marks: q.marks },
-      create: {
-        id: ids.questionId(n),
+  const deliveries = ALL_CLASSES.map((klass) => {
+    const delivery = deliveryIdsFor(level, dayIso, klass);
+    assertPrefixed([delivery.assignmentId, delivery.sessionId]);
+    return { classId: klass.id, assignmentId: delivery.assignmentId, sessionId: delivery.sessionId };
+  });
+
+  return { level, dayIso, paper, questions, paperQuestions, deliveries };
+}
+
+/** 这一天五档应有的行。 */
+function dayRows(dayIso) {
+  return Object.keys(content.LEVELS).map((level) => lessonRows(level, dayIso));
+}
+
+/**
+ * 一次性读出这一天在库里已有的行，以及每份卷子**被学生用过没有**。
+ *
+ * 「用过」= 这份卷子挂的任何一份作业下有答卷（开卷就建答卷行，所以做到
+ * 一半也算），或者卷子里任何一题有作答行。与去重口径「学生读过」一致。
+ */
+async function loadExisting(tx, plans) {
+  const paperIds = plans.map((p) => p.paper.id);
+  const questionIds = plans.flatMap((p) => p.questions.map((q) => q.id));
+  const pqIds = plans.flatMap((p) => p.paperQuestions.map((q) => q.id));
+  const asgIds = plans.flatMap((p) => p.deliveries.map((d) => d.assignmentId));
+  const sessIds = plans.flatMap((p) => p.deliveries.map((d) => d.sessionId));
+
+  const [papers, questions, paperQuestions, assignments, sessions, submissions] = await Promise.all([
+    tx.paper.findMany({
+      where: { id: { in: paperIds } },
+      select: { id: true, name: true, config: true, totalMarksTarget: true, totalMarksActual: true },
+    }),
+    tx.question.findMany({
+      where: { id: { in: questionIds } },
+      select: { id: true, questionType: true, content: true, answerContent: true, options: true, marks: true },
+    }),
+    tx.paperQuestion.findMany({
+      where: { OR: [{ id: { in: pqIds } }, { paperId: { in: paperIds } }] },
+      select: {
+        id: true,
+        paperId: true,
+        questionId: true,
+        sortOrder: true,
+        snapshotContent: true,
+        snapshotAnswer: true,
+        snapshotOptions: true,
+        marks: true,
+      },
+    }),
+    tx.paperAssignment.findMany({
+      where: { id: { in: asgIds } },
+      select: { id: true, paperId: true, classId: true, status: true },
+    }),
+    tx.morningQuizSession.findMany({
+      where: { id: { in: sessIds } },
+      select: { id: true, date: true, classId: true, level: true, status: true, paperAssignmentId: true },
+    }),
+    tx.studentSubmission.findMany({
+      where: { assignment: { paperId: { in: paperIds } } },
+      select: { status: true, assignment: { select: { paperId: true } } },
+    }),
+  ]);
+
+  const allPqIds = [...new Set([...pqIds, ...paperQuestions.map((r) => r.id)])];
+  const scriptGroups = allPqIds.length
+    ? await tx.answerScript.groupBy({
+        by: ['paperQuestionId'],
+        where: { paperQuestionId: { in: allPqIds } },
+        _count: { _all: true },
+      })
+    : [];
+
+  return {
+    papers: new Map(papers.map((r) => [r.id, r])),
+    questions: new Map(questions.map((r) => [r.id, r])),
+    paperQuestions: new Map(paperQuestions.map((r) => [r.id, r])),
+    paperQuestionsByPaper: paperQuestions.reduce((m, r) => m.set(r.paperId, [...(m.get(r.paperId) ?? []), r]), new Map()),
+    assignments: new Map(assignments.map((r) => [r.id, r])),
+    sessions: new Map(sessions.map((r) => [r.id, r])),
+    submissions,
+    scriptsByPaperQuestion: new Map(scriptGroups.map((g) => [g.paperQuestionId, g._count._all])),
+  };
+}
+
+const PAPER_FIELDS = ['name', 'config', 'totalMarksTarget', 'totalMarksActual'];
+const QUESTION_FIELDS = ['questionType', 'content', 'answerContent', 'options', 'marks'];
+const PAPER_QUESTION_FIELDS = ['paperId', 'questionId', 'sortOrder', 'snapshotContent', 'snapshotAnswer', 'snapshotOptions', 'marks'];
+
+function changedFields(expected, row, fields) {
+  return fields.filter((f) => !sameJson(expected[f], row[f]));
+}
+
+/**
+ * 逐档、逐行比对，分出每一档是「新建 / 未变 / 改了」，以及每份卷子的使用情况。
+ *
+ * 纯函数（输入是 `lessonRows` 与 `loadExisting` 的结果），spec 直接驱动。
+ */
+function planDay(plans, existing) {
+  const levels = plans.map((p) => {
+    const paperRow = existing.papers.get(p.paper.id) ?? null;
+    const expectedPaper = { ...p.paper, totalMarksTarget: p.paper.totalMarks, totalMarksActual: p.paper.totalMarks };
+    const changes = [];
+    const create = { paper: null, questions: [], paperQuestions: [] };
+    const update = { paper: null, questions: [], paperQuestions: [] };
+
+    if (!paperRow) create.paper = p.paper;
+    else {
+      const fields = changedFields(expectedPaper, paperRow, PAPER_FIELDS);
+      if (fields.length) {
+        changes.push({ table: 'Paper', id: p.paper.id, fields });
+        update.paper = p.paper;
+      }
+    }
+    for (const q of p.questions) {
+      const row = existing.questions.get(q.id);
+      if (!row) {
+        create.questions.push(q);
+        if (paperRow) changes.push({ table: 'Question', id: q.id, fields: ['(缺行)'] });
+        continue;
+      }
+      const fields = changedFields(q, row, QUESTION_FIELDS);
+      if (fields.length) {
+        changes.push({ table: 'Question', id: q.id, fields });
+        update.questions.push(q);
+      }
+    }
+    for (const pq of p.paperQuestions) {
+      const row = existing.paperQuestions.get(pq.id);
+      if (!row) {
+        create.paperQuestions.push(pq);
+        if (paperRow) changes.push({ table: 'PaperQuestion', id: pq.id, fields: ['(缺行)'] });
+        continue;
+      }
+      const fields = changedFields(pq, row, PAPER_QUESTION_FIELDS);
+      if (fields.length) {
+        changes.push({ table: 'PaperQuestion', id: pq.id, fields });
+        update.paperQuestions.push(pq);
+      }
+    }
+    const expectedPqIds = new Set(p.paperQuestions.map((pq) => pq.id));
+    const extra = (existing.paperQuestionsByPaper.get(p.paper.id) ?? [])
+      .map((r) => r.id)
+      .filter((id) => !expectedPqIds.has(id));
+
+    const byStatus = {};
+    for (const s of existing.submissions) {
+      if (s.assignment?.paperId !== p.paper.id) continue;
+      byStatus[s.status] = (byStatus[s.status] ?? 0) + 1;
+    }
+    const pqIdsOfPaper = new Set([...expectedPqIds, ...extra]);
+    let scripts = 0;
+    for (const [pqId, n] of existing.scriptsByPaperQuestion) if (pqIdsOfPaper.has(pqId)) scripts += n;
+    const submissions = Object.values(byStatus).reduce((a, b) => a + b, 0);
+
+    const nothingExisted = !paperRow && create.questions.length === p.questions.length && create.paperQuestions.length === p.paperQuestions.length;
+    // 卷子没了、题却还在：不是新的一天，也不是未变 —— 按「改了」处理
+    if (!paperRow && !nothingExisted) changes.unshift({ table: 'Paper', id: p.paper.id, fields: ['(缺行)'] });
+    const state = nothingExisted ? 'new' : changes.length === 0 && extra.length === 0 ? 'unchanged' : 'changed';
+    return {
+      level: p.level,
+      paperId: p.paper.id,
+      state,
+      changes,
+      extra,
+      create,
+      update,
+      usage: { submissions, byStatus, scripts, used: submissions > 0 || scripts > 0 },
+    };
+  });
+
+  const deliveries = { createAssignments: [], createSessions: [], keptAssignments: 0, keptSessions: 0, mismatched: [], notActive: [] };
+  const dayDate = plans[0] ? dayLabel(plans[0].dayIso).getTime() : null;
+  for (const p of plans) {
+    for (const d of p.deliveries) {
+      const asg = existing.assignments.get(d.assignmentId);
+      if (!asg) deliveries.createAssignments.push({ ...d, paperId: p.paper.id, level: p.level, dayIso: p.dayIso });
+      else {
+        deliveries.keptAssignments += 1;
+        if (asg.paperId !== p.paper.id || asg.classId !== d.classId) deliveries.mismatched.push(`作业 ${d.assignmentId} 挂在别的卷子 / 班上`);
+      }
+      const sess = existing.sessions.get(d.sessionId);
+      if (!sess) deliveries.createSessions.push({ ...d, paperId: p.paper.id, level: p.level, dayIso: p.dayIso });
+      else {
+        deliveries.keptSessions += 1;
+        const sameDay = new Date(sess.date).getTime() === dayDate;
+        if (!sameDay || sess.classId !== d.classId || sess.level !== p.level || sess.paperAssignmentId !== d.assignmentId) {
+          deliveries.mismatched.push(`场次 ${d.sessionId} 的日期 / 班 / 档 / 作业对不上`);
+        }
+        if (sess.status !== 'active') deliveries.notActive.push({ id: d.sessionId, status: sess.status });
+      }
+    }
+  }
+  return { levels, deliveries };
+}
+
+/**
+ * 放不放行。任何一条不过都**在写第一行之前**抛出。
+ *
+ *   · 已被学生使用（开卷 / 交卷 / 有作答）的卷子，内容一个字都不许改 ——
+ *     `--revise-unstarted` 也不行；
+ *   · 没人用过的卷子，改了也要明确说 `--revise-unstarted`；
+ *   · 卷子里多出内容包没有的题、作业 / 场次挂错了地方：脚本不删不挪，停下来。
+ */
+function assertPlanAllowed(plan, { revise = false } = {}) {
+  const errors = [];
+  const describe = (l) =>
+    l.changes
+      .slice(0, 12)
+      .map((c) => `${c.id}（${c.fields.join('、')}）`)
+      .join('；') + (l.changes.length > 12 ? ` …共 ${l.changes.length} 处` : '');
+  for (const l of plan.levels) {
+    if (l.extra.length) errors.push(`${l.paperId} 里有内容包没有的题：${l.extra.join('、')}。发布脚本不删题，需人工处理。`);
+    if (l.state !== 'changed' || l.changes.length === 0) continue;
+    if (l.usage.used) {
+      const status = Object.entries(l.usage.byStatus).map(([k, v]) => `${k} ${v}`).join('、') || '无';
+      errors.push(
+        `${l.paperId} 已被学生使用（答卷 ${l.usage.submissions} 份：${status}；作答 ${l.usage.scripts} 条），` +
+          `内容却与库里的冻结版本不同：${describe(l)}。已被使用的版本不能由发布脚本改写 —— ` +
+          '需要纠错请走修订流程（先 dry-run 列出受影响答卷，经授权后单独执行并留审计），见 docs/audit-2026-09-11/ledger-pub.md。',
+      );
+    } else if (!revise) {
+      errors.push(
+        `${l.paperId} 的内容与已发布版本不同（尚无学生开始）：${describe(l)}。` +
+          '确认要改，加 --revise-unstarted 重跑；否则先把内容包改回去。',
+      );
+    }
+  }
+  for (const m of plan.deliveries.mismatched) errors.push(m);
+  if (errors.length) throw new PilotError(`拒绝执行：已发布的内容受保护 ——\n  · ${errors.join('\n  · ')}`);
+}
+
+/**
+ * 按计划写：新建的行一次批量建，`--revise-unstarted` 放行的修订逐行改。
+ * 未变的一行不写；已有作业 / 场次的状态一律不动。
+ *
+ * 原来每一档每一行一次 upsert（一天约 205 次往返）；新的一天现在是
+ * 五条 createMany，重跑一天是零写入。
+ */
+async function writeDay(tx, plan, report, progress = () => {}) {
+  const dbNull = () => require('@prisma/client').Prisma.DbNull;
+  const levels = plan.levels;
+
+  const papers = levels.flatMap((l) => (l.create.paper ? [l.create.paper] : []));
+  if (papers.length) {
+    await tx.paper.createMany({
+      data: papers.map((p) => ({
+        id: p.id,
+        name: p.name,
+        subjectId: PUBLISHER.subjectId,
+        ownerId: PUBLISHER.teacherId,
+        status: 'published',
+        durationMin: 30,
+        totalMarksTarget: p.totalMarks,
+        totalMarksActual: p.totalMarks,
+        generatedSeed: 1,
+        rendererKey: 'ielts_reading',
+        config: p.config,
+      })),
+    });
+  }
+  report.bump('Paper.created', papers.length);
+
+  const questions = levels.flatMap((l) => l.create.questions);
+  if (questions.length) {
+    await tx.question.createMany({
+      data: questions.map((q) => ({
+        id: q.id,
         subjectId: PUBLISHER.subjectId,
         createdById: PUBLISHER.teacherId,
         questionType: q.questionType,
         sourceType: 'original_school',
-        content: snapshotContent,
-        answerContent,
-        options,
+        content: q.content,
+        answerContent: q.answerContent,
+        options: q.options ?? undefined,
         marks: q.marks,
         estimatedTimeMin: q.marks * 1.5,
         difficulty: 3,
         status: 'active',
-      },
+      })),
     });
-    report.bump('Question');
-
-    await tx.paperQuestion.upsert({
-      where: { id: ids.paperQuestionId(n) },
-      update: { snapshotContent, snapshotAnswer: answerContent, snapshotOptions: options, marks: q.marks },
-      create: {
-        id: ids.paperQuestionId(n),
-        paperId: ids.paperId,
-        questionId: ids.questionId(n),
-        sortOrder: n,
-        snapshotContent,
-        snapshotAnswer: answerContent,
-        snapshotOptions: options,
-        marks: q.marks,
-      },
-    });
-    report.bump('PaperQuestion');
   }
+  report.bump('Question.created', questions.length);
 
-  for (const klass of ALL_CLASSES) {
-    const delivery = deliveryIdsFor(level, dayIso, klass);
-    assertPrefixed([delivery.assignmentId, delivery.sessionId]);
-    await tx.paperAssignment.upsert({
-      where: { id: delivery.assignmentId },
-      update: { status: 'open' },
-      create: {
-        id: delivery.assignmentId,
-        paperId: ids.paperId,
-        classId: klass.id,
-        assignedById: PUBLISHER.teacherId,
-        assignedAt: sgtInstant(dayIso, '00:01:00'),
-        startAt: sgtInstant(dayIso, '00:05:00'),
-        dueAt: sgtInstant(dayIso, '23:59:00'),
-        status: 'open',
-      },
+  const paperQuestions = levels.flatMap((l) => l.create.paperQuestions);
+  if (paperQuestions.length) {
+    await tx.paperQuestion.createMany({
+      data: paperQuestions.map((pq) => ({
+        id: pq.id,
+        paperId: pq.paperId,
+        questionId: pq.questionId,
+        sortOrder: pq.sortOrder,
+        snapshotContent: pq.snapshotContent,
+        snapshotAnswer: pq.snapshotAnswer,
+        snapshotOptions: pq.snapshotOptions ?? undefined,
+        marks: pq.marks,
+      })),
     });
-    report.bump('PaperAssignment');
+  }
+  report.bump('PaperQuestion.created', paperQuestions.length);
 
-    await tx.morningQuizSession.upsert({
-      where: { id: delivery.sessionId },
-      update: { status: 'active' },
-      create: {
-        id: delivery.sessionId,
-        date: dayLabel(dayIso),
-        classId: klass.id,
-        paperAssignmentId: delivery.assignmentId,
+  // 修订：只有 assertPlanAllowed 放行（没人用过 + --revise-unstarted）才会走到这里
+  for (const l of levels) {
+    if (l.state !== 'changed') continue;
+    if (l.update.paper) {
+      const p = l.update.paper;
+      await tx.paper.update({
+        where: { id: p.id },
+        data: { name: p.name, config: p.config, totalMarksTarget: p.totalMarks, totalMarksActual: p.totalMarks },
+      });
+      report.bump('Paper.revised');
+    }
+    for (const q of l.update.questions) {
+      await tx.question.update({
+        where: { id: q.id },
+        data: {
+          questionType: q.questionType,
+          content: q.content,
+          answerContent: q.answerContent,
+          options: q.options ?? dbNull(),
+          marks: q.marks,
+          estimatedTimeMin: q.marks * 1.5,
+        },
+      });
+      report.bump('Question.revised');
+    }
+    for (const pq of l.update.paperQuestions) {
+      await tx.paperQuestion.update({
+        where: { id: pq.id },
+        data: {
+          paperId: pq.paperId,
+          questionId: pq.questionId,
+          sortOrder: pq.sortOrder,
+          snapshotContent: pq.snapshotContent,
+          snapshotAnswer: pq.snapshotAnswer,
+          snapshotOptions: pq.snapshotOptions ?? dbNull(),
+          marks: pq.marks,
+        },
+      });
+      report.bump('PaperQuestion.revised');
+      report.note(`修订 ${pq.id}`);
+    }
+  }
+  report.bump('Paper.unchanged', levels.filter((l) => l.state === 'unchanged').length);
+  progress(
+    `课程内容：新建 ${levels.filter((l) => l.state === 'new').length} 档 / 未变 ${levels.filter((l) => l.state === 'unchanged').length} 档 / 修订 ${levels.filter((l) => l.state === 'changed').length} 档`,
+  );
+
+  const { createAssignments, createSessions, notActive } = plan.deliveries;
+  if (createAssignments.length) {
+    await tx.paperAssignment.createMany({
+      data: createAssignments.map((d) => ({
+        id: d.assignmentId,
+        paperId: d.paperId,
+        classId: d.classId,
+        assignedById: PUBLISHER.teacherId,
+        assignedAt: sgtInstant(d.dayIso, '00:01:00'),
+        startAt: sgtInstant(d.dayIso, '00:05:00'),
+        dueAt: sgtInstant(d.dayIso, '23:59:00'),
+        status: 'open',
+      })),
+    });
+  }
+  report.bump('PaperAssignment.created', createAssignments.length);
+  report.bump('PaperAssignment.kept', plan.deliveries.keptAssignments);
+  if (createSessions.length) {
+    await tx.morningQuizSession.createMany({
+      data: createSessions.map((d) => ({
+        id: d.sessionId,
+        date: dayLabel(d.dayIso),
+        classId: d.classId,
+        paperAssignmentId: d.assignmentId,
         scheduledById: PUBLISHER.teacherId,
         status: 'active',
-        level,
+        level: d.level,
         // 试点是全天开放的 —— 学生什么时候有空什么时候做。
-        attendanceStart: sgtInstant(dayIso, '00:05:00'),
-        attendanceEnd: sgtInstant(dayIso, '23:59:00'),
-        lateCutoff: sgtInstant(dayIso, '23:59:00'),
-        quizStart: sgtInstant(dayIso, '00:05:00'),
-        quizEnd: sgtInstant(dayIso, '23:59:00'),
+        attendanceStart: sgtInstant(d.dayIso, '00:05:00'),
+        attendanceEnd: sgtInstant(d.dayIso, '23:59:00'),
+        lateCutoff: sgtInstant(d.dayIso, '23:59:00'),
+        quizStart: sgtInstant(d.dayIso, '00:05:00'),
+        quizEnd: sgtInstant(d.dayIso, '23:59:00'),
         qrSecret: `${PREFIX}not-used-account-login-only`,
-      },
+      })),
     });
-    report.bump('MorningQuizSession');
+  }
+  report.bump('MorningQuizSession.created', createSessions.length);
+  report.bump('MorningQuizSession.kept', plan.deliveries.keptSessions);
+  if (notActive.length) {
+    report.note(`${notActive.length} 场已有场次不是 active（${notActive.slice(0, 5).map((s) => `${s.id}=${s.status}`).join('、')}${notActive.length > 5 ? ' …' : ''}），保持原状`);
   }
 }
 
@@ -881,13 +1261,50 @@ function allBundleTexts() {
   return { passages, questions };
 }
 
+/** 拒绝原因里说清楚：谁撞了谁、相似度多少、按什么规则。 */
+function describeHit(hit, extra = '') {
+  return (
+    `${hit.candidateId} ≈ ${hit.previousId}（相似度 ${hit.similarity.toFixed(2)} ≥ ${hit.threshold}，` +
+    `${hit.shingleSize} 词片段，${hit.algorithm}${extra}）`
+  );
+}
+
 function assertBundleHasNoNearDuplicates() {
   const { passages, questions } = allBundleTexts();
   const passageHit = findNearDuplicate(passages, passages, 0.25, 5);
-  if (passageHit) throw new PilotError(`内容包文章近似重复：${passageHit.candidateId} / ${passageHit.previousId}`);
+  if (passageHit) throw new PilotError(`内容包文章近似重复：${describeHit(passageHit)}`);
   const questionHit = findNearDuplicate(questions, questions, 0.8, 4);
-  if (questionHit) throw new PilotError(`内容包题目近似重复：${questionHit.candidateId} / ${questionHit.previousId}`);
+  if (questionHit) throw new PilotError(`内容包题目近似重复：${describeHit(questionHit)}`);
 }
+
+/** 这一天的内容门禁（`publish-gates.js`）。有问题就在连库之前拒绝。 */
+function dayContentProblems(dayIso, levelTools) {
+  return Object.keys(content.LEVELS).flatMap((level) => {
+    const lesson = content.lessonFor(level, dayIso);
+    return lesson ? gates.lessonProblems(level, lesson, { levelTools }) : [`${level}：没有 ${dayIso} 的课`];
+  });
+}
+
+/** 第三周起的日子要篇幅 / 超纲词检查器；加载失败就拒绝发布，不当作通过。 */
+function levelToolsFor(dayIso, provided) {
+  if (provided) return provided;
+  if (dayIso < gates.GATES_FROM) return null;
+  try {
+    return gates.loadLevelTools();
+  } catch (e) {
+    throw new PilotError(`内容门禁：篇幅 / 超纲词检查器加载失败（${String(e && e.message).slice(0, 200)}），拒绝发布。`);
+  }
+}
+
+function assertDayContentGates(dayIso, levelTools) {
+  const problems = dayContentProblems(dayIso, levelToolsFor(dayIso, levelTools));
+  if (problems.length) {
+    throw new PilotError(`内容门禁没通过（一行都没写）：\n  · ${problems.slice(0, 30).join('\n  · ')}`);
+  }
+}
+
+/** 一页取多少条历史。只影响往返次数，不影响比较范围。 */
+const HISTORY_PAGE_SIZE = 2000;
 
 /**
  * 查重的对照面是「**学生读过的**」，不是「题库里有的」。
@@ -901,26 +1318,48 @@ function assertBundleHasNoNearDuplicates() {
  * 首发周的五档内容正是建立在这十几篇上。
  *
  * 判据是**这份卷子挂过作业，且那份作业下真有学生答卷**。答卷行在学生
- * 开卷时就建出来，所以「开了没交」也算读过。
+ * 开卷时就建出来，所以「开了没交」也算读过。卷子后来归档（status /
+ * archivedAt）不影响 —— 读过就是读过。
  *
  * 保守的一面仍然保留：曾经发给任何一个学生（包括早已毕业的班）都算读过，
  * 不按人分别计算。真要做到「按学生查重」，需要在发课时按人挑内容，那是
  * 另一件事；在那之前，宁可拦多。
+ *
+ * 2026-09-11（PUB03）两处改动：
+ *
+ *   · 原来 `take: 10000` 一次取完、不排序 —— 历史超过一万条之后，多出来的
+ *     那些（按物理顺序，往往正是最新的）根本不参与比较。现在按 id 分页取完。
+ *     生产当时 1,286 条，还没撞到上限，这是预防。
+ *   · 原来整个排除 `p1_` 卷子，靠内容包自己两两比较来覆盖 —— 可内容包里
+ *     改掉了的旧版本（发出去以后才换的）就谁都不比了。现在只排除**正在发布
+ *     的这一天**自己的五份卷子，其余学生读过的 p1 卷子一并对照。
  */
-async function deliveredHistory(tx) {
-  const rows = await tx.paperQuestion.findMany({
-    where: {
-      NOT: { paperId: { startsWith: PREFIX } },
-      paper: { assignments: { some: { submissions: { some: {} } } } },
-    },
-    select: { id: true, snapshotContent: true },
-    take: 10000,
-  });
-  return rows.map((row) => ({ id: row.id, content: row.snapshotContent }));
+async function deliveredHistory(tx, { excludePaperIds = [], pageSize = HISTORY_PAGE_SIZE } = {}) {
+  const base = {
+    ...(excludePaperIds.length ? { paperId: { notIn: excludePaperIds } } : {}),
+    paper: { assignments: { some: { submissions: { some: {} } } } },
+  };
+  const rows = [];
+  let pages = 0;
+  let after = null;
+  for (;;) {
+    const page = await tx.paperQuestion.findMany({
+      where: after ? { ...base, id: { gt: after } } : base,
+      select: { id: true, snapshotContent: true },
+      orderBy: { id: 'asc' },
+      take: pageSize,
+    });
+    pages += 1;
+    for (const row of page) rows.push({ id: row.id, content: row.snapshotContent });
+    if (page.length < pageSize) break;
+    after = page[page.length - 1].id;
+  }
+  return { rows, pages };
 }
 
-async function assertNoHistoricalNearDuplicates(tx, dayIso) {
-  const existing = await deliveredHistory(tx);
+async function assertNoHistoricalNearDuplicates(tx, dayIso, { pageSize } = {}) {
+  const ownPapers = Object.keys(content.LEVELS).map((level) => idsFor(level, dayIso).paperId);
+  const { rows: existing, pages } = await deliveredHistory(tx, { excludePaperIds: ownPapers, pageSize });
   const historicalPassages = new Map();
   const historicalQuestions = [];
   for (const row of existing) {
@@ -930,6 +1369,7 @@ async function assertNoHistoricalNearDuplicates(tx, dayIso) {
     if (passage && !historicalPassages.has(passage)) historicalPassages.set(passage, { id: row.id, text: passage });
     if (stem) historicalQuestions.push({ id: row.id, text: questionItem(stem) });
   }
+  const scope = `；对照学生读过的 ${existing.length} 条历史（${historicalPassages.size} 篇文章、${historicalQuestions.length} 道题）`;
   const candidates = Object.entries(content.LEVELS).map(([level]) => {
     const day = content.lessonFor(level, dayIso);
     return { level, day };
@@ -940,14 +1380,123 @@ async function assertNoHistoricalNearDuplicates(tx, dayIso) {
     0.25,
     5,
   );
-  if (passageHit) throw new PilotError(`文章与历史内容近似重复：${passageHit.candidateId}`);
+  if (passageHit) throw new PilotError(`文章与历史内容近似重复：${describeHit(passageHit, scope)}`);
   const questionHit = findNearDuplicate(
     candidates.flatMap(({ level, day }) => day.questions.map((question, index) => ({ id: `${level}/${dayIso}/q${index + 1}`, text: questionItem(question.stem) }))),
     historicalQuestions,
     0.8,
     4,
   );
-  if (questionHit) throw new PilotError(`题目与历史内容近似重复：${questionHit.candidateId}`);
+  if (questionHit) throw new PilotError(`题目与历史内容近似重复：${describeHit(questionHit, scope)}`);
+  return { rows: existing.length, pages, passages: historicalPassages.size, questions: historicalQuestions.length };
+}
+
+// ─────────────────────────────────────────────────────────────
+// 发布后的约束：在事务里、提交之前核对（PUB02，2026-09-11）
+//
+// 原来的硬断言写在 `$transaction(...)` 返回、`$disconnect()` 之后 —— 断言
+// 失败时事务早已提交，日志说「动了不该动的东西」，库却已经改了。现在所有
+// 断言都在事务回调里，抛出即回滚。
+// ─────────────────────────────────────────────────────────────
+
+/** 发布完这一天，库里应当成立的全部约束。返回问题清单（空 = 通过）。 */
+async function verifyDayPublished(tx, dayIso, plans, roster) {
+  const problems = [];
+  const paperIds = plans.map((p) => p.paper.id);
+  const asgIds = plans.flatMap((p) => p.deliveries.map((d) => d.assignmentId));
+  const sessIds = plans.flatMap((p) => p.deliveries.map((d) => d.sessionId));
+  const [papers, pqs, asgs, sessions] = await Promise.all([
+    tx.paper.findMany({ where: { id: { in: paperIds } }, select: { id: true, name: true, config: true, totalMarksActual: true } }),
+    tx.paperQuestion.findMany({
+      where: { paperId: { in: paperIds } },
+      select: { id: true, paperId: true, questionId: true, sortOrder: true, snapshotContent: true, snapshotAnswer: true, snapshotOptions: true, marks: true },
+    }),
+    tx.paperAssignment.findMany({ where: { id: { in: asgIds } }, select: { id: true, paperId: true, classId: true } }),
+    tx.morningQuizSession.findMany({
+      where: { id: { in: sessIds } },
+      select: { id: true, date: true, classId: true, level: true, paperAssignmentId: true },
+    }),
+  ]);
+  const paperById = new Map(papers.map((r) => [r.id, r]));
+  const pqById = new Map(pqs.map((r) => [r.id, r]));
+  const asgById = new Map(asgs.map((r) => [r.id, r]));
+  const sessById = new Map(sessions.map((r) => [r.id, r]));
+  const dayTime = dayLabel(dayIso).getTime();
+
+  for (const p of plans) {
+    const paper = paperById.get(p.paper.id);
+    if (!paper) {
+      problems.push(`缺卷子 ${p.paper.id}`);
+      continue;
+    }
+    if (paper.name !== p.paper.name || !sameJson(paper.config, p.paper.config)) problems.push(`卷子 ${p.paper.id} 的标题 / 词表与内容包不符`);
+    const mine = pqs.filter((r) => r.paperId === p.paper.id);
+    if (mine.length !== p.paperQuestions.length) problems.push(`卷子 ${p.paper.id} 有 ${mine.length} 题，应为 ${p.paperQuestions.length} 题`);
+    const sum = mine.reduce((a, r) => a + r.marks, 0);
+    if (sum !== paper.totalMarksActual || sum !== p.paper.totalMarks) {
+      problems.push(`卷子 ${p.paper.id} 的总分对不上（题目合计 ${sum}，卷面 ${paper.totalMarksActual}，内容包 ${p.paper.totalMarks}）`);
+    }
+    for (const expected of p.paperQuestions) {
+      const row = pqById.get(expected.id);
+      if (!row) problems.push(`缺题 ${expected.id}`);
+      else if (changedFields(expected, row, PAPER_QUESTION_FIELDS).length) problems.push(`题 ${expected.id} 的快照与内容包不符`);
+    }
+    for (const d of p.deliveries) {
+      const asg = asgById.get(d.assignmentId);
+      if (!asg) problems.push(`缺作业 ${d.assignmentId}`);
+      else if (asg.paperId !== p.paper.id || asg.classId !== d.classId) problems.push(`作业 ${d.assignmentId} 挂错了卷子 / 班`);
+      const sess = sessById.get(d.sessionId);
+      if (!sess) problems.push(`缺场次 ${d.sessionId}`);
+      else if (new Date(sess.date).getTime() !== dayTime || sess.classId !== d.classId || sess.level !== p.level || sess.paperAssignmentId !== d.assignmentId) {
+        problems.push(`场次 ${d.sessionId} 的日期 / 班 / 档 / 作业对不上`);
+      }
+    }
+  }
+
+  // 词典：这一天用到的词都查得到
+  const heads = content.wordsForDay(dayIso).map((w) => w.headword);
+  if (heads.length) {
+    const found = new Set((await tx.dictEntry.findMany({ where: { word: { in: heads } }, select: { word: true } })).map((r) => r.word));
+    const missing = heads.filter((h) => !found.has(h));
+    if (missing.length) problems.push(`词典缺 ${missing.length} 个今天的词：${missing.slice(0, 8).join(', ')}`);
+  }
+
+  // 每个有档位的在册学生：今天那一档的 12 个主词都在他的词本里（学生自己同名的词也算）
+  const learners = roster.filter((s) => s && content.lessonFor(s.englishLevel, dayIso));
+  if (learners.length) {
+    const primaryByLevel = new Map();
+    for (const s of learners) {
+      if (!primaryByLevel.has(s.englishLevel)) {
+        primaryByLevel.set(s.englishLevel, lessonWordPlan(content.lessonFor(s.englishLevel, dayIso)).primary.map((w) => w.headword));
+      }
+    }
+    const allPrimary = [...new Set([...primaryByLevel.values()].flat())];
+    const have = new Map();
+    for (const r of await tx.studentWord.findMany({
+      where: { studentId: { in: learners.map((s) => s.id) }, headword: { in: allPrimary } },
+      select: { studentId: true, headword: true },
+    })) {
+      if (!have.has(r.studentId)) have.set(r.studentId, new Set());
+      have.get(r.studentId).add(r.headword);
+    }
+    for (const s of learners) {
+      const got = have.get(s.id) ?? new Set();
+      const missing = primaryByLevel.get(s.englishLevel).filter((h) => !got.has(h));
+      if (missing.length) problems.push(`学生 ${s.id}（${s.englishLevel}）缺今天的 ${missing.length} 个词：${missing.slice(0, 5).join(', ')}`);
+    }
+  }
+  return problems;
+}
+
+/** 前后快照里「不该动的」有没有动。返回动了的项（空 = 没动）。 */
+function foreignChanges(before, after) {
+  const violations = [];
+  if (before.submissions_hash !== after.submissions_hash) violations.push('StudentSubmission');
+  if (before.other_words_hash !== after.other_words_hash) violations.push('非试点 StudentWord');
+  for (const k of ['submissions', 'scripts', 'attempts', 'reviews', 'mistakes', 'appeals', 'dlc', 's12f_words', 'fixture_words']) {
+    if (before[k] !== after[k]) violations.push(k);
+  }
+  return violations;
 }
 
 // ─────────────────────────────────────────────────────────────
@@ -965,10 +1514,160 @@ function makeReport() {
   };
 }
 
-async function main() {
-  assertEnvGates();
-  const day = parseDay(process.argv.slice(2));
+/**
+ * 发布一天。**一切检查都在返回之前完成**：返回了就是完整成功、已提交；
+ * 抛出了就是整笔回滚、库里什么都没变。
+ *
+ * `prisma` 只需要 `$transaction`。
+ */
+async function publishDay(prisma, day, { revise = false, progress = () => {}, historyPageSize, levelTools } = {}) {
+  // ① 不连库的前置：内容包自身查重 + 这一天的内容门禁
   assertBundleHasNoNearDuplicates();
+  assertDayContentGates(day, levelTools);
+
+  return prisma.$transaction(
+    async (tx) => {
+      // ② 只读前置
+      progress('事务已开始');
+      const before = await snapshot(tx);
+      await assertScopeFree(tx, day);
+      const history = await assertNoHistoricalNearDuplicates(tx, day, { pageSize: historyPageSize });
+      const plans = dayRows(day);
+      const plan = planDay(plans, await loadExisting(tx, plans));
+      assertPlanAllowed(plan, { revise });
+      progress(`前置检查完成（查重对照 ${history.rows} 条历史）`);
+
+      // ③ 写
+      const report = makeReport();
+      await upsertPublisherClassesAndQa(tx, report);
+      progress('班级与档位就绪');
+      await upsertDictionary(tx, report, day);
+      progress('词典补录完成');
+      await writeDay(tx, plan, report, progress);
+      progress('卷子与场次就绪');
+
+      // ④ 给试点班在册的每一个学生排今天的词
+      const roster = await tx.classEnrollment.findMany({
+        where: { classId: { in: ALL_CLASSES.map((klass) => klass.id) }, role: 'student' },
+        select: { user: { select: { id: true, name: true, englishLevel: true } } },
+      });
+      progress(`开始给 ${roster.length} 个学生排词`);
+      for (const [i, r] of roster.entries()) {
+        await scheduleWordsFor(tx, r.user, day, report);
+        if ((i + 1) % 20 === 0) progress(`已排 ${i + 1} / ${roster.length}`);
+      }
+      progress('排词完成');
+
+      // ⑤ 发布后约束 + 不该动的没动 —— 都在提交之前；任何一条不过就整笔回滚
+      const problems = await verifyDayPublished(tx, day, plans, roster.map((r) => r.user));
+      if (problems.length) {
+        throw new PilotError(`发布后核对没通过（整笔回滚，库里什么都没变）：\n  · ${problems.slice(0, 30).join('\n  · ')}`);
+      }
+      const after = await snapshot(tx);
+      const violations = foreignChanges(before, after);
+      if (violations.length) {
+        throw new PilotError(`脚本动了不该动的东西：${violations.join(', ')}（整笔回滚，库里什么都没变）`);
+      }
+      progress('发布后核对通过，提交');
+      return { before, after, report, roster: roster.map((r) => r.user), plan, history };
+    },
+    // 事务预算：跨洋公网代理连库，一次往返几百毫秒，而这里有几百次
+    // 顺序写。原来是 5 分钟，内容包变成两周后正好卡在边界上炸掉。
+    // 词典补录已改成按天 + 批量取，这里再留一倍余量。
+    { maxWait: 30_000, timeout: 900_000 },
+  );
+}
+
+/**
+ * 只读核对某一天发布得全不全（`--check`）。事务第一条就是 READ ONLY ——
+ * 这条路径上即使有人误加了写，数据库也会拒绝。
+ */
+async function checkDay(prisma, day, { progress = () => {}, levelTools } = {}) {
+  let contentProblems = [];
+  try {
+    contentProblems = dayContentProblems(day, levelToolsFor(day, levelTools));
+  } catch (e) {
+    contentProblems = [String(e && e.message)];
+  }
+  return prisma.$transaction(
+    async (tx) => {
+      await tx.$executeRawUnsafe('SET TRANSACTION READ ONLY');
+      progress('只读事务已开始');
+      const plans = dayRows(day);
+      const plan = planDay(plans, await loadExisting(tx, plans));
+      const roster = await tx.classEnrollment.findMany({
+        where: { classId: { in: ALL_CLASSES.map((klass) => klass.id) }, role: 'student' },
+        select: { user: { select: { id: true, englishLevel: true } } },
+      });
+      const problems = await verifyDayPublished(tx, day, plans, roster.map((r) => r.user));
+      return { plan, problems, contentProblems, roster: roster.length };
+    },
+    { maxWait: 30_000, timeout: 120_000 },
+  );
+}
+
+function printPublished(day, out, t0, queries) {
+  const { before, after, report, roster, plan, history } = out;
+  const changed = Object.keys(after).filter((k) => String(before[k]) !== String(after[k]));
+  const line = (k) => `    ${k.padEnd(22)} ${String(before[k]).padEnd(34)} → ${after[k]}`;
+  const count = (state) => plan.levels.filter((l) => l.state === state).length;
+  console.log(
+    [
+      '',
+      // 内容包已经不止一周了，别再把每一天都报成「试点第一周」。
+      `${day} 已发布（内容包第 ${content.DATES.indexOf(day) + 1} / ${content.DATES.length} 天；用时 ${Math.round((Date.now() - t0) / 1000)} 秒，${queries} 次查询）。`,
+      `  班级        : ${REGISTRATION_CLASSES.map((klass) => klass.name).join(' · ')}（另保留内部冒烟班；每班五档齐全）`,
+      `  在册学生    : ${roster.length}（${roster.map((r) => `${r.name}[${r.englishLevel ?? '未设置'}]`).join('、') || '无'}）`,
+      `  课程内容    : 新建 ${count('new')} 档 · 未变 ${count('unchanged')} 档 · 修订 ${count('changed')} 档`,
+      `  查重        : 对照学生读过的 ${history.rows} 条历史（${history.passages} 篇文章 / ${history.questions} 道题，${history.pages} 页）`,
+      '',
+      '  写入统计（按类别）：',
+      ...Object.entries(report.counts).sort().map(([k, v]) => `    ${k.padEnd(26)} ${v}`),
+      ...(report.notes.length ? ['', '  备注：', ...report.notes.map((n) => `    · ${n}`)] : []),
+      '',
+      '  前 → 后（只列变了的）：',
+      ...(changed.length ? changed.map(line) : ['    （没有任何计数发生变化 —— 这次是幂等重跑）']),
+      '',
+      '  发布后核对（均在事务内、提交之前完成）：',
+      '    五档卷子与题、每班每档场次、词典、每个学生今天的词   齐 ✓',
+      '    答卷指纹 / 非试点生词 / 复习流水 / 错题申诉 / 当日任务行   未变 ✓',
+      '',
+    ].join('\n'),
+  );
+}
+
+function printCheck(day, out) {
+  const { plan, problems, contentProblems, roster } = out;
+  const count = (state) => plan.levels.filter((l) => l.state === state).length;
+  const used = plan.levels.filter((l) => l.usage.used);
+  console.log(
+    [
+      '',
+      `${day} 只读核对（没有写库）：`,
+      `  课程内容    : 库里没有 ${count('new')} 档 · 与内容包一致 ${count('unchanged')} 档 · 与内容包不同 ${count('changed')} 档`,
+      ...plan.levels
+        .filter((l) => l.state === 'changed')
+        .map((l) => `    · ${l.paperId}：${l.changes.slice(0, 6).map((c) => `${c.id}（${c.fields.join('、')}）`).join('；')}`),
+      `  已被学生使用 : ${used.length ? used.map((l) => `${l.level}（答卷 ${l.usage.submissions}，作答 ${l.usage.scripts}）`).join('、') : '无'}`,
+      `  场次        : 已有 ${plan.deliveries.keptSessions} / 缺 ${plan.deliveries.createSessions.length}` +
+        (plan.deliveries.notActive.length ? `（${plan.deliveries.notActive.length} 场不是 active）` : ''),
+      `  在册学生    : ${roster}`,
+      `  内容门禁    : ${contentProblems.length ? `${contentProblems.length} 条问题` : '通过 ✓'}`,
+      ...contentProblems.slice(0, 10).map((p) => `    · ${p}`),
+      `  发布完整性  : ${problems.length ? `${problems.length} 条问题` : '完整 ✓'}`,
+      ...problems.slice(0, 20).map((p) => `    · ${p}`),
+      '',
+    ].join('\n'),
+  );
+}
+
+async function main() {
+  const argv = process.argv.slice(2);
+  const check = argv.includes('--check');
+  const revise = argv.includes('--revise-unstarted');
+  assertEnvGates(ENV_AT_STARTUP, { requireConfirmation: !check });
+  const day = parseDay(argv);
+  if (check && revise) throw new PilotError('拒绝执行：--check 是只读核对，不能和 --revise-unstarted 一起用。');
 
   process.env.DATABASE_URL = publishConnectionUrl(ENV_AT_STARTUP.DATABASE_PUBLIC_URL);
   const { PrismaClient } = require('@prisma/client');
@@ -983,91 +1682,18 @@ async function main() {
 
   let out;
   try {
-    out = await prisma.$transaction(
-      async (tx) => {
-        // ① 只读前置
-        progress('事务已开始');
-        const before = await snapshot(tx);
-        await assertScopeFree(tx, day);
-        await assertNoHistoricalNearDuplicates(tx, day);
-        progress('前置检查完成');
-
-        // ② 写
-        const report = makeReport();
-        await upsertPublisherClassesAndQa(tx, report);
-        progress('班级与档位就绪');
-        await upsertDictionary(tx, report, day);
-        progress('词典补录完成');
-        for (const level of Object.keys(content.LEVELS)) {
-          await upsertLesson(tx, level, day, report);
-          progress(`${level} 已写入`);
-        }
-
-        // ③ 给试点班在册的每一个学生排今天的词
-        const roster = await tx.classEnrollment.findMany({
-          where: { classId: { in: ALL_CLASSES.map((klass) => klass.id) }, role: 'student' },
-          select: { user: { select: { id: true, name: true, englishLevel: true } } },
-        });
-        progress(`开始给 ${roster.length} 个学生排词`);
-        for (const [i, r] of roster.entries()) {
-          await scheduleWordsFor(tx, r.user, day, report);
-          if ((i + 1) % 20 === 0) progress(`已排 ${i + 1} / ${roster.length}`);
-        }
-        progress('排词完成');
-
-        // ④ 只读后置
-        const after = await snapshot(tx);
-        progress('后置快照完成，提交');
-        return { before, after, report, roster: roster.map((r) => r.user) };
-      },
-      // 事务预算：跨洋公网代理连库，一次往返几百毫秒，而这里有几百次
-      // 顺序写。原来是 5 分钟，内容包变成两周后正好卡在边界上炸掉。
-      // 词典补录已改成按天 + 批量取，这里再留一倍余量。
-      { maxWait: 30_000, timeout: 900_000 },
-    );
+    out = check ? await checkDay(prisma, day, { progress }) : await publishDay(prisma, day, { revise, progress });
   } finally {
     await prisma.$disconnect();
   }
 
-  const { before, after, report, roster } = out;
-  const changed = Object.keys(after).filter((k) => String(before[k]) !== String(after[k]));
-  const line = (k) => `    ${k.padEnd(22)} ${String(before[k]).padEnd(34)} → ${after[k]}`;
-
-  console.log(
-    [
-      '',
-      // 内容包已经不止一周了，别再把每一天都报成「试点第一周」。
-      `${day} 已发布（内容包第 ${content.DATES.indexOf(day) + 1} / ${content.DATES.length} 天；用时 ${Math.round((Date.now() - t0) / 1000)} 秒，${queries} 次查询）。`,
-      `  班级        : ${REGISTRATION_CLASSES.map((klass) => klass.name).join(' · ')}（另保留内部冒烟班；每班五档齐全）`,
-      `  在册学生    : ${roster.length}（${roster.map((r) => `${r.name}[${r.englishLevel ?? '未设置'}]`).join('、') || '无'}）`,
-      '',
-      '  写入统计（按类别）：',
-      ...Object.entries(report.counts).sort().map(([k, v]) => `    ${k.padEnd(26)} ${v}`),
-      ...(report.notes.length ? ['', '  备注：', ...report.notes.map((n) => `    · ${n}`)] : []),
-      '',
-      '  前 → 后（只列变了的）：',
-      ...(changed.length ? changed.map(line) : ['    （没有任何计数发生变化 —— 这次是幂等重跑）']),
-      '',
-      '  不该动的：',
-      `    答卷指纹    ${before.submissions_hash === after.submissions_hash ? '未变 ✓' : '**变了** ✗'}`,
-      `    非试点生词  ${before.other_words_hash === after.other_words_hash ? '未变 ✓' : '**变了** ✗'}`,
-      `    复习流水    ${before.reviews === after.reviews ? '未变 ✓' : '**变了** ✗'}`,
-      `    错题 / 申诉 ${before.mistakes === after.mistakes && before.appeals === after.appeals ? '未变 ✓' : '**变了** ✗'}`,
-      `    当日任务行  ${before.dlc === after.dlc ? '未变 ✓' : '**变了** ✗'}`,
-      '',
-    ].join('\n'),
-  );
-
-  // 硬断言：不该动的真的没动
-  const violations = [];
-  if (before.submissions_hash !== after.submissions_hash) violations.push('StudentSubmission');
-  if (before.other_words_hash !== after.other_words_hash) violations.push('非试点 StudentWord');
-  for (const k of ['submissions', 'scripts', 'attempts', 'reviews', 'mistakes', 'appeals', 'dlc', 's12f_words', 'fixture_words']) {
-    if (before[k] !== after[k]) violations.push(k);
+  // 走到这里：发布 = 事务已提交且全部核对通过；核对 = 只读结果
+  if (check) {
+    printCheck(day, out);
+    if (out.problems.length || out.contentProblems.length) process.exitCode = 2;
+    return;
   }
-  if (violations.length > 0) {
-    throw new PilotError(`脚本动了不该动的东西：${violations.join(', ')}`);
-  }
+  printPublished(day, out, t0, queries);
 }
 
 module.exports = {
@@ -1084,6 +1710,7 @@ module.exports = {
   DAILY_WORD_TARGET,
   RESERVE_WORD_TARGET,
   PARK_UNTIL,
+  HISTORY_PAGE_SIZE,
   PilotError,
   writeScopes,
   neverTouched,
@@ -1102,9 +1729,23 @@ module.exports = {
   allBundleTexts,
   assertBundleHasNoNearDuplicates,
   assertNoHistoricalNearDuplicates,
+  deliveredHistory,
+  dayContentProblems,
+  assertDayContentGates,
   scheduleWordsFor,
   makeReport,
   publishConnectionUrl,
+  sameJson,
+  lessonRows,
+  dayRows,
+  loadExisting,
+  planDay,
+  assertPlanAllowed,
+  writeDay,
+  verifyDayPublished,
+  foreignChanges,
+  publishDay,
+  checkDay,
 };
 
 if (require.main === module) {
