@@ -891,7 +891,9 @@ export class MorningQuizController {
   async upcomingForName(@Req() req: Request, @Query('name') rawName?: string) {
     // 查询串里的 studentId 由守卫核对（与令牌不一致 → 403），这里不用它
     const who = tokenBoundIdentity(req, rawName);
-    return this.svc.upcomingForName(who.name, who.studentId);
+    // S02 收尾：把验签后的 id 当 authStudentId 传下去 —— 服务层只按 id 查，不再按姓名解析
+    const authStudentId = who.studentId;
+    return this.svc.upcomingForName(who.name, who.studentId, authStudentId);
   }
 
   // ─────────────────── F10 — AI-grade appeals ───────────────────
@@ -1036,7 +1038,7 @@ export class MorningQuizController {
     const who = tokenBoundIdentity(req, parsed.data.studentName);
     return this.svc.startPractice(
       submissionId,
-      { ...parsed.data, studentName: who.name, studentId: who.studentId },
+      { ...parsed.data, studentName: who.name, studentId: who.studentId, authStudentId: who.studentId },
       req.ip ?? null,
     );
   }
@@ -1058,6 +1060,7 @@ export class MorningQuizController {
     return this.svc.getPractice(practiceSubmissionId, {
       studentName: who.name,
       studentId: who.studentId,
+      authStudentId: who.studentId,
     });
   }
 
@@ -1091,7 +1094,7 @@ export class MorningQuizController {
     const who = tokenBoundIdentity(req, parsed.data.studentName);
     return this.svc.submitPractice(
       practiceSubmissionId,
-      { ...parsed.data, studentName: who.name, studentId: who.studentId },
+      { ...parsed.data, studentName: who.name, studentId: who.studentId, authStudentId: who.studentId },
       req.ip ?? null,
     );
   }
@@ -1114,7 +1117,8 @@ export class MorningQuizController {
     // S02：身份取令牌；查询串里的 studentId 由守卫核对，这里不用它
     const who = tokenBoundIdentity(req, name);
     const w = weeks ? parseInt(weeks, 10) : undefined;
-    return this.svc.historyTrendByName(who.name, who.studentId, w);
+    const authStudentId = who.studentId; // S02 收尾：服务层只按验签后的 id 查
+    return this.svc.historyTrendByName(who.name, who.studentId, w, authStudentId);
   }
 
   // ─────────────────── F18 — Wrong-rate stats ───────────────────
@@ -1197,6 +1201,7 @@ export class MorningQuizController {
     if (who.name.length > 50) throw new BadRequestException({ code: 'name_too_long' });
     return this.svc.skillProfileByName(who.name, who.studentId, {
       windowDays: days ? Math.min(Math.max(parseInt(days, 10) || 60, 7), 365) : undefined,
+      authStudentId: who.studentId,
     });
   }
 

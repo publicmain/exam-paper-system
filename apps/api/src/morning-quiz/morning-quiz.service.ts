@@ -782,9 +782,10 @@ export class MorningQuizService {
   async skillProfileByName(
     rawName: string,
     studentIdFilter?: string,
-    opts?: { windowDays?: number },
+    /** authStudentId：验签后的学生 id —— 给了就只按 id 查，不看姓名（S02 收尾） */
+    opts?: { windowDays?: number; authStudentId?: string },
   ) {
-    const resolved = await this.resolveStudentByName(rawName, studentIdFilter);
+    const resolved = await this.resolveStudentByName(rawName, studentIdFilter, opts?.authStudentId);
     if (resolved.kind === 'disambig') {
       return { needDisambiguation: true, candidates: resolved.candidates };
     }
@@ -3844,8 +3845,8 @@ export class MorningQuizService {
    * MorningQuizSession.date at UTC-00:00 of the school-local day, so
    * we floor `now + tzOffset` to a UTC midnight to match.
    */
-  async upcomingForName(rawName: string, studentIdFilter?: string) {
-    const resolved = await this.resolveStudentByName(rawName, studentIdFilter);
+  async upcomingForName(rawName: string, studentIdFilter?: string, authStudentId?: string) {
+    const resolved = await this.resolveStudentByName(rawName, studentIdFilter, authStudentId);
     if (resolved.kind === 'disambig') {
       return { needDisambiguation: true, candidates: resolved.candidates };
     }
@@ -4393,10 +4394,10 @@ export class MorningQuizService {
    */
   async startPractice(
     submissionId: string,
-    body: { studentName: string; studentId?: string },
+    body: { studentName: string; studentId?: string; authStudentId?: string },
     ip: string | null,
   ) {
-    const resolved = await this.resolveStudentByName(body.studentName, body.studentId);
+    const resolved = await this.resolveStudentByName(body.studentName, body.studentId, body.authStudentId);
     if (resolved.kind === 'disambig') {
       return { needDisambiguation: true, candidates: resolved.candidates };
     }
@@ -4480,9 +4481,9 @@ export class MorningQuizService {
    */
   async getPractice(
     practiceSubmissionId: string,
-    body: { studentName: string; studentId?: string },
+    body: { studentName: string; studentId?: string; authStudentId?: string },
   ) {
-    const resolved = await this.resolveStudentByName(body.studentName, body.studentId);
+    const resolved = await this.resolveStudentByName(body.studentName, body.studentId, body.authStudentId);
     if (resolved.kind === 'disambig') {
       return { needDisambiguation: true, candidates: resolved.candidates };
     }
@@ -4636,6 +4637,7 @@ export class MorningQuizService {
     body: {
       studentName: string;
       studentId?: string;
+      authStudentId?: string;
       answers: Array<{
         paperQuestionId: string;
         selectedOption?: string | null;
@@ -4644,7 +4646,7 @@ export class MorningQuizService {
     },
     ip: string | null,
   ) {
-    const resolved = await this.resolveStudentByName(body.studentName, body.studentId);
+    const resolved = await this.resolveStudentByName(body.studentName, body.studentId, body.authStudentId);
     if (resolved.kind === 'disambig') {
       return { needDisambiguation: true, candidates: resolved.candidates };
     }
@@ -4821,8 +4823,9 @@ export class MorningQuizService {
     rawName: string,
     studentIdFilter?: string,
     rawWeeks?: number,
+    authStudentId?: string,
   ) {
-    const resolved = await this.resolveStudentByName(rawName, studentIdFilter);
+    const resolved = await this.resolveStudentByName(rawName, studentIdFilter, authStudentId);
     if (resolved.kind === 'disambig') {
       return { needDisambiguation: true, candidates: resolved.candidates };
     }

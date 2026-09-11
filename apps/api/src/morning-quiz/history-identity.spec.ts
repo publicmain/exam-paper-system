@@ -226,24 +226,25 @@ describe('S02 · 同类的按姓名读：身份一律取令牌，同名时不给
     const rec: Rec = [];
     await (build(rec) as any).upcomingForName(reqOf('stu-a'), SAME);
     const c = lastCall(rec, 'svc.upcomingForName');
-    expect(c.args).toEqual([SAME, 'stu-a']);
+    // 第三个参数 = authStudentId：服务层只按令牌里的 id 查，不再按姓名解析（S02 收尾）
+    expect(c.args).toEqual([SAME, 'stu-a', 'stu-a']);
   });
 
   it('upcoming-for-name：不带姓名（新学生端只带 Bearer）→ 用令牌里的姓名与 id', async () => {
     const rec: Rec = [];
     await (build(rec) as any).upcomingForName(reqOf('stu-a'));
-    expect(lastCall(rec, 'svc.upcomingForName').args).toEqual([SAME, 'stu-a']);
+    expect(lastCall(rec, 'svc.upcomingForName').args).toEqual([SAME, 'stu-a', 'stu-a']);
   });
 
   it('practice 回看 / 开练 / 交练：服务层拿到的都是令牌里的 id', async () => {
     const rec: Rec = [];
     const c = build(rec) as any;
     await c.getPractice('ps-1', reqOf('stu-a'), SAME, undefined);
-    expect(lastCall(rec, 'svc.getPractice').args[1]).toEqual({ studentName: SAME, studentId: 'stu-a' });
+    expect(lastCall(rec, 'svc.getPractice').args[1]).toEqual({ studentName: SAME, studentId: 'stu-a', authStudentId: 'stu-a' });
     await c.startPractice('sub-1', { studentName: SAME }, reqOf('stu-a'));
-    expect(lastCall(rec, 'svc.startPractice').args[1]).toMatchObject({ studentName: SAME, studentId: 'stu-a' });
+    expect(lastCall(rec, 'svc.startPractice').args[1]).toMatchObject({ studentName: SAME, studentId: 'stu-a', authStudentId: 'stu-a' });
     await c.submitPractice('ps-1', { studentName: SAME, answers: [] }, reqOf('stu-a'));
-    expect(lastCall(rec, 'svc.submitPractice').args[1]).toMatchObject({ studentName: SAME, studentId: 'stu-a' });
+    expect(lastCall(rec, 'svc.submitPractice').args[1]).toMatchObject({ studentName: SAME, studentId: 'stu-a', authStudentId: 'stu-a' });
   });
 
   it('直接调用（绕过守卫）且无令牌 → 403 student_token_required，服务一次都没调', async () => {

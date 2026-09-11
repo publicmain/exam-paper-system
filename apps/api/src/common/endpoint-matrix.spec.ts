@@ -92,17 +92,21 @@ describe('端点矩阵 —— 从代码推导', () => {
     }
   });
 
-  it('**morning-quiz：只接 D2 范围内的三个**，其余不得被拉进来', () => {
+  /**
+   * 阶段 5A 当时只接 D2 的三个，并明确把 upcoming / trend / skill-profile 排除在那一阶段之外。
+   * 2026-09-11 审计 S02 把这几条也改成「必须带学生令牌、身份一律取令牌」（身份与安全组），
+   * 合并后把验签后的 id 作为 authStudentId 传到服务层（不再按姓名解析）—— 范围随之扩大。
+   * 断言从「不得接线」改为「必须接线」：任何一条掉回按姓名解析都会红。
+   */
+  it('**morning-quiz：D2 三个 + S02 收进来的按姓名读，全部走已认证接线**', () => {
     const byRoute = Object.fromEntries(mq.map((e) => [`${e.method} ${e.route}`, e]));
     for (const k of ['GET history-by-name', 'GET history-detail', 'POST appeals']) {
       expect(byRoute[k], `缺 ${k}`).toBeDefined();
       expect(wired(byRoute[k]), `${k} 未接线`).toBe(true);
     }
-    // 明确排除的：范围外，不得出现已认证接线
-    for (const k of ['GET upcoming-for-name', 'GET history-by-name/trend', 'GET skill-profile']) {
-      const e = byRoute[k];
-      if (!e) continue;
-      expect(wired(e), `${k} 不在阶段 5A 范围内，却被接线了`).toBe(false);
+    for (const k of ['GET upcoming-for-name', 'GET history-by-name/trend', 'GET skill-profile', 'GET practice/:practiceSubmissionId', 'POST practice/:submissionId', 'POST practice/:practiceSubmissionId/submit']) {
+      expect(byRoute[k], `缺 ${k}`).toBeDefined();
+      expect(wired(byRoute[k]), `${k} 没把令牌里的 id 当 authStudentId 传下去`).toBe(true);
     }
   });
 
