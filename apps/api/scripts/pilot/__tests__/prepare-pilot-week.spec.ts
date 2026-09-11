@@ -418,3 +418,177 @@ describe('S12M —— 词典改写的边界', () => {
     expect(all.filter((w) => /抄怨|浹死/.test(w.translation))).toHaveLength(0);
   });
 });
+
+// ─────────────────────────────────────────────────────────────
+// 排词批量化（2026-09-11）：09-14 发布整笔超时回滚后改的
+// ─────────────────────────────────────────────────────────────
+
+/**
+ * 一个只记账的假事务：记下每一次调用，按给定的已有行回答 findMany。
+ * 真库一次往返约 0.44 秒，所以「调用了几次」就是这一步的耗时。
+ */
+function fakeTx(existing: Array<Record<string, unknown>>, parkedCount = 0) {
+  const calls: Array<{ op: string; args: any }> = [];
+  const tx = {
+    studentWord: {
+      findMany: async (args: any) => {
+        calls.push({ op: 'findMany', args });
+        const heads = new Set(args.where.headword.in);
+        return existing.filter((r) => r.studentId === args.where.studentId && heads.has(r.headword));
+      },
+      findUnique: async (args: any) => {
+        calls.push({ op: 'findUnique', args });
+        return null;
+      },
+      create: async (args: any) => {
+        calls.push({ op: 'create', args });
+        return args.data;
+      },
+      createMany: async (args: any) => {
+        calls.push({ op: 'createMany', args });
+        return { count: args.data.length };
+      },
+      update: async (args: any) => {
+        calls.push({ op: 'update', args });
+        return args.data;
+      },
+      updateMany: async (args: any) => {
+        calls.push({ op: 'updateMany', args });
+        return { count: parkedCount };
+      },
+    },
+  };
+  return { tx, calls };
+}
+
+describe('排词 —— 一个学生固定几次往返，判断规则不变', () => {
+  const scheduleWordsFor = prep.scheduleWordsFor as (
+    tx: unknown,
+    student: { id: string; englishLevel: string | null },
+    day: string,
+    report: unknown,
+  ) => Promise<void>;
+  const makeReport = prep.makeReport as () => {
+    bump: (k: string, n?: number) => void;
+    note: (s: string) => void;
+    counts: Record<string, number>;
+    notes: string[];
+  };
+  const PARK_UNTIL = prep.PARK_UNTIL as string;
+  const LEVEL = 'olevel';
+  const DAY = DATES[DATES.length - 1];
+  const student = { id: 'stu_batch_1', englishLevel: LEVEL };
+  const lesson = content.lessonFor(LEVEL, DAY);
+  const { primary } = lessonWordPlan(lesson);
+  const dueAt = sgtInstant(DAY, '00:05:00');
+
+  it('新学生：一次读、一次批量建、一次让路 —— 不逐词往返', async () => {
+    const { tx, calls } = fakeTx([], 37);
+    const report = makeReport();
+    await scheduleWordsFor(tx, student, DAY, report);
+
+    expect(calls.map((c) => c.op)).toEqual(['findMany', 'createMany', 'updateMany']);
+    const rows = calls[1].args.data as Array<Record<string, any>>;
+    expect(rows).toHaveLength(DAILY_WORD_TARGET);
+    expect(rows.map((r) => r.headword)).toEqual(primary.map((w) => w.headword));
+    for (const r of rows) {
+      expect(r.id).toBe(studentWordId(student.id, r.headword));
+      expect(r.id.startsWith(`${PREFIX}w_`)).toBe(true);
+      expect(r.due.getTime()).toBe(dueAt.getTime());
+      expect(r.state).toBe('new');
+      expect(r.sourceType).toBe('teacher_push');
+    }
+    expect(report.counts).toEqual({ 'StudentWord.created': DAILY_WORD_TARGET, 'StudentWord.parked': 37 });
+  });
+
+  it('让路的条件与原来逐行版一模一样：只动脚本自己的、不是今天的、到期的、没复习过的', async () => {
+    const { tx, calls } = fakeTx([]);
+    await scheduleWordsFor(tx, student, DAY, makeReport());
+    const park = calls.find((c) => c.op === 'updateMany')!.args;
+    expect(park.where.studentId).toBe(student.id);
+    expect(park.where.id).toEqual({ startsWith: `${PREFIX}w_` });
+    expect([...park.where.headword.notIn].sort()).toEqual(primary.map((w) => w.headword).sort());
+    expect(park.where.due.lte.getTime()).toBe(sgtInstant(DAY, '23:59:59').getTime());
+    expect(park.where.reviews).toEqual({ none: {} });
+    expect(park.data).toEqual({ due: sgtInstant(PARK_UNTIL, '00:05:00') });
+  });
+
+  it('已有的词：该改期的改期、该补翻译的补、学生自己的不碰、其余不动；只对这两行单独 update', async () => {
+    const [a, b, c, d] = primary;
+    const earlier = sgtInstant('2026-09-01', '00:05:00');
+    const existing = [
+      // 脚本自己的、到期不对 → 改期
+      { id: studentWordId(student.id, a.headword), studentId: student.id, headword: a.headword, due: earlier, contextSentence: a.context, contextTranslation: a.contextTranslation },
+      // 脚本自己的、到期对、同一句的翻译旧了 → 只补翻译
+      { id: studentWordId(student.id, b.headword), studentId: student.id, headword: b.headword, due: dueAt, contextSentence: b.context, contextTranslation: '旧翻译' },
+      // 学生自己查的词，恰好同名 → 一个字不动
+      { id: 'own_lookup_1', studentId: student.id, headword: c.headword, due: earlier, contextSentence: 'mine', contextTranslation: '我的' },
+      // 脚本自己的、什么都对 → 不动
+      { id: studentWordId(student.id, d.headword), studentId: student.id, headword: d.headword, due: dueAt, contextSentence: d.context, contextTranslation: d.contextTranslation },
+    ];
+    const { tx, calls } = fakeTx(existing);
+    const report = makeReport();
+    await scheduleWordsFor(tx, student, DAY, report);
+
+    const updates = calls.filter((u) => u.op === 'update').map((u) => u.args);
+    expect(updates).toHaveLength(2);
+    expect(updates[0].where.id).toBe(existing[0].id);
+    expect(updates[0].data.due.getTime()).toBe(dueAt.getTime());
+    expect(updates[1]).toEqual({ where: { id: existing[1].id }, data: { contextTranslation: b.contextTranslation } });
+    expect(updates.some((u) => u.where.id === 'own_lookup_1')).toBe(false);
+
+    const created = calls.find((u) => u.op === 'createMany')!.args.data as Array<{ headword: string }>;
+    expect(created.map((r) => r.headword)).toEqual(primary.slice(4).map((w) => w.headword));
+    expect(calls.some((u) => u.op === 'findUnique' || u.op === 'create')).toBe(false);
+    expect(report.counts).toEqual({
+      'StudentWord.rescheduled': 1,
+      'StudentWord.translationBackfilled': 1,
+      'StudentWord.personalKept': 1,
+      'StudentWord.unchanged': 1,
+      'StudentWord.created': DAILY_WORD_TARGET - 4,
+    });
+  });
+
+  it('今天的词全都已经有了：不发空的 createMany', async () => {
+    const existing = primary.map((w) => ({
+      id: studentWordId(student.id, w.headword),
+      studentId: student.id,
+      headword: w.headword,
+      due: dueAt,
+      contextSentence: w.context,
+      contextTranslation: w.contextTranslation,
+    }));
+    const { tx, calls } = fakeTx(existing);
+    const report = makeReport();
+    await scheduleWordsFor(tx, student, DAY, report);
+    expect(calls.map((u) => u.op)).toEqual(['findMany', 'updateMany']);
+    expect(report.counts).toEqual({ 'StudentWord.unchanged': DAILY_WORD_TARGET });
+  });
+
+  it('没设分级的学生：一次库都不碰，只记一条备注', async () => {
+    const { tx, calls } = fakeTx([]);
+    const report = makeReport();
+    await scheduleWordsFor(tx, { id: 'stu_nolevel', englishLevel: null }, DAY, report);
+    expect(calls).toHaveLength(0);
+    expect(report.notes).toHaveLength(1);
+  });
+
+  it('85 个学生、新的一天：往返总数是学生数的三倍，不再随往日词数增长', async () => {
+    let total = 0;
+    for (let i = 0; i < 85; i += 1) {
+      const { tx, calls } = fakeTx([], 32);
+      await scheduleWordsFor(tx, { id: `stu_${i}`, englishLevel: LEVEL }, DAY, makeReport());
+      total += calls.length;
+    }
+    // 0.44 秒一次往返 × 255 ≈ 两分钟；原来逐行版在 09-14 要四千多次
+    expect(total).toBe(85 * 3);
+  });
+
+  it('report.bump(k, 0) 不在报表里留一个 0', () => {
+    const r = makeReport();
+    r.bump('StudentWord.parked', 0);
+    r.bump('StudentWord.created');
+    r.bump('StudentWord.created', 3);
+    expect(r.counts).toEqual({ 'StudentWord.created': 4 });
+  });
+});

@@ -700,28 +700,42 @@ async function scheduleWordsFor(tx, student, dayIso, report) {
   const { primary } = lessonWordPlan(lesson);
   const todayHeads = new Set(primary.map((w) => w.headword));
 
+  // 往返次数是这一步的全部成本。跨洋公网连库一次往返约 0.44 秒（2026-09-11
+  // 实测），原来逐词 findUnique / create、逐行 update，85 个学生光这一步就
+  // 要三十多分钟，超过事务预算整笔回滚。现在一个学生固定三次往返：一次读出
+  // 今天的词里已经有的，一次批量建缺的，一次整批让路；只有确实要改的行才
+  // 单独 update（新的一天通常一行都没有）。判断规则与原来逐行版一字不差。
+  const existingRows = await tx.studentWord.findMany({
+    where: { studentId: student.id, headword: { in: [...todayHeads] } },
+  });
+  const existingByHead = new Map(existingRows.map((row) => [row.headword, row]));
+
+  const toCreate = [];
+  const queued = new Set();
   for (const w of primary) {
     const id = studentWordId(student.id, w.headword);
     assertPrefixed([id]);
-    const existing = await tx.studentWord.findUnique({
-      where: { studentId_headword: { studentId: student.id, headword: w.headword } },
-    });
+    const existing = existingByHead.get(w.headword);
     if (!existing) {
-      await tx.studentWord.create({
-        data: {
-          id,
-          studentId: student.id,
-          headword: w.headword,
-          surfaceForm: w.surfaceForm,
-          sourceType: 'teacher_push',
-          sourcePassageTitle: lesson.title,
-          contextSentence: w.context,
-          contextTranslation: w.contextTranslation,
-          state: 'new',
-          due: dueAt,
-        },
+      // 同一个主词在清单里出现两次：原来逐行版第二次会读到刚建的那行、
+      // 算作 unchanged；批量版照此处理，不重复建。
+      if (queued.has(w.headword)) {
+        report.bump('StudentWord.unchanged');
+        continue;
+      }
+      queued.add(w.headword);
+      toCreate.push({
+        id,
+        studentId: student.id,
+        headword: w.headword,
+        surfaceForm: w.surfaceForm,
+        sourceType: 'teacher_push',
+        sourcePassageTitle: lesson.title,
+        contextSentence: w.context,
+        contextTranslation: w.contextTranslation,
+        state: 'new',
+        due: dueAt,
       });
-      report.bump('StudentWord.created');
       continue;
     }
     // 学生自己查词、答错收录或由新课程引擎按需创建的词，可能恰好与
@@ -748,9 +762,14 @@ async function scheduleWordsFor(tx, student, dayIso, report) {
       report.bump('StudentWord.unchanged');
     }
   }
+  if (toCreate.length > 0) {
+    const created = await tx.studentWord.createMany({ data: toCreate });
+    report.bump('StudentWord.created', created.count);
+  }
 
   // ② 往日的试点词让路 —— 只动这个脚本自己造的、且学生从没复习过的。
-  const parked = await tx.studentWord.findMany({
+  //    条件与原来的「先 findMany 再逐行 update」完全相同，只是合成一条语句。
+  const parked = await tx.studentWord.updateMany({
     where: {
       studentId: student.id,
       id: { startsWith: `${PREFIX}w_` },
@@ -758,15 +777,9 @@ async function scheduleWordsFor(tx, student, dayIso, report) {
       due: { lte: sgtInstant(dayIso, '23:59:59') },
       reviews: { none: {} },
     },
-    select: { id: true },
+    data: { due: sgtInstant(PARK_UNTIL, '00:05:00') },
   });
-  for (const p of parked) {
-    await tx.studentWord.update({
-      where: { id: p.id },
-      data: { due: sgtInstant(PARK_UNTIL, '00:05:00') },
-    });
-    report.bump('StudentWord.parked');
-  }
+  report.bump('StudentWord.parked', parked.count);
 }
 
 // ─────────────────────────────────────────────────────────────
@@ -925,7 +938,7 @@ function makeReport() {
   const counts = {};
   const notes = [];
   return {
-    bump: (k) => { counts[k] = (counts[k] ?? 0) + 1; },
+    bump: (k, n = 1) => { if (n > 0) counts[k] = (counts[k] ?? 0) + n; },
     note: (s) => notes.push(s),
     counts,
     notes,
@@ -1051,6 +1064,8 @@ module.exports = {
   allBundleTexts,
   assertBundleHasNoNearDuplicates,
   assertNoHistoricalNearDuplicates,
+  scheduleWordsFor,
+  makeReport,
 };
 
 if (require.main === module) {
