@@ -374,6 +374,8 @@ const NEW_WRITES: Route[] = [
 
 /** 已核实**零写库**的 GET —— 教师只读视角可以读（S08）。 */
 const READ_ONLY_GETS: Route[] = [
+  // 答题页：getStudentView 改用 shuffle.peek 之后零写库（shuffle-peek.spec 在真实服务上证明）
+  { method: 'GET', path: '/morning-quiz/sessions/s1' },
   // profile / overview：词汇组拆成纯读之后放开（620a59b）
   { method: 'GET', path: '/vocab-v2/profile' },
   { method: 'GET', path: '/vocab-v2/overview' },
@@ -397,12 +399,13 @@ const READ_ONLY_GETS: Route[] = [
 ];
 
 /**
- * 会**隐式写库**的 GET —— 教师只读视角必须继续拒绝，直到服务层拆成真正
- * 的只读查询（交给词汇组 / 主线，见台账「留给其他组的端点」）。
+ * 会**隐式写库**的 GET —— 教师只读视角必须继续拒绝，直到服务层拆成真正的只读查询。
+ *
+ * 2026-09-11 合并后已清空：词汇 profile / overview 由词汇组拆成纯读（620a59b），
+ * 答题页 GET sessions/:id 改用 shuffle.peek（shuffle-peek.spec）。清单留着，
+ * 以后再出现这类 GET 就往这里登记。
  */
-const IMPLICIT_WRITE_GETS: Route[] = [
-  { method: 'GET', path: '/morning-quiz/sessions/s1', label: 'getStudentView() → shuffle.getOrCreate 建乱序表' },
-];
+const IMPLICIT_WRITE_GETS: Array<Route & { label: string }> = [];
 
 const title = (r: Route) => `${r.method} ${r.path.split('?')[0]}`;
 
@@ -653,11 +656,20 @@ describe('S08 —— 读身份与本人写入分开：教师只读视角能浏�
     }
   });
 
+  it('不带令牌：答题页（登录守卫那一路）一律 401，业务一次都没被调', async () => {
+    const res = await call(h, 'GET', '/morning-quiz/sessions/s1');
+    expect(res.status).toBe(401);
+    expect(h.calls).toEqual([]);
+    expect(h.prisma.__log.writes).toEqual([]);
+  });
+
   it('不带令牌：@Public 那一路读身份的 GET 一律 403 student_token_required', async () => {
     const publicReads = READ_ONLY_GETS.filter(
       (x) =>
         !x.path.startsWith('/student/') &&
         !x.path.startsWith('/morning-quiz/student-result') &&
+        // 答题页走的是登录守卫（不是 @Public）：不带令牌是 401，见下一个用例
+        !x.path.startsWith('/morning-quiz/sessions/') &&
         !x.path.startsWith('/student-auth'),
     );
     for (const r of publicReads) {

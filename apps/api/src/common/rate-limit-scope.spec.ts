@@ -25,8 +25,8 @@ import { StudentAuthController } from '../student-auth/student-auth.controller';
  *     请求在限流守卫里落 IP 桶（rate-limit.guard 的 userScopeId），匿名暴力
  *     仍受 IP 防护；
  *   · 本来就匿名的入口（登录、注册、注册状态、班级列表、staging 夹具）保持 IP；
- *   · `PATCH /student-auth/me/english-level` 属于词汇组 UI01 的方法，本组不动，
- *     仍是 IP（台账「留给其他组」里写明）。
+ *   · `PATCH /student-auth/me/english-level`：原来留给词汇组（UI01 的方法），两组合并后
+ *     改为按学生分桶（2026-09-11）。
  *
  * 从控制器元数据推导，新加一条学生接口忘了按用户分桶，这里当场红。
  */
@@ -66,9 +66,10 @@ describe('S06 · 学生身份那一路的限流一律按用户分桶', () => {
 describe('S06 · student-auth：带令牌的按用户，匿名入口按 IP', () => {
   const rows = Object.fromEntries(limitedRoutes(StudentAuthController).map((r) => [r.key, r.scope]));
 
-  it('改密码、我的主页：user scope', () => {
+  it('改密码、我的主页、改难度：user scope', () => {
     expect(rows['POST /student-auth/change-pin']).toBe('user');
     expect(rows['GET /student-auth/me']).toBe('user');
+    expect(rows['PATCH /student-auth/me/english-level']).toBe('user');
   });
 
   it('登录 / 注册 / 注册状态 / 班级列表 / staging 夹具：仍是 IP（匿名入口，防暴力）', () => {
@@ -84,7 +85,4 @@ describe('S06 · student-auth：带令牌的按用户，匿名入口按 IP', () 
     }
   });
 
-  it('改难度（UI01 的方法，本组不动）：仍是 IP —— 已记入台账', () => {
-    expect(rows['PATCH /student-auth/me/english-level']).toBe('ip');
-  });
 });

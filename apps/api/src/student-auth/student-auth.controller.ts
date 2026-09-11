@@ -162,7 +162,8 @@ export class StudentAuthController {
   // 完整的学生令牌。
   @Public()
   @Patch('me/english-level')
-  @RateLimit({ limit: 20, windowSec: 60, scope: 'ip' })
+  // S06：按学生分桶（同一教室共用出口 IP，按 IP 会互相挤掉）；与 change-pin / me 一致
+  @RateLimit({ limit: 20, windowSec: 60, scope: 'user' })
   async setEnglishLevel(@Body() body: unknown, @Req() req: Request) {
     const me = await this.requireStudent(req);
     const schema = z.object({ englishLevel: z.enum(PILOT_LEVELS) }).strict();

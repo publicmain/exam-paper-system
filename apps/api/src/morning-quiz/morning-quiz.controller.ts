@@ -562,7 +562,13 @@ export class MorningQuizController {
     return submissionRowView(row);
   }
 
-  /** Student fetches the day's questions (shuffle applied). */
+  /**
+   * Student fetches the day's questions (shuffle applied).
+   *
+   * S08：getStudentView() 现在只读 —— 乱序用 shuffle.peek()（确定性算法，不落库），
+   * 所以教师只读视角可以打开。作答 / 交卷仍走 getOrCreate 落库，顺序与这里一致。
+   */
+  @AllowTeacherView()
   @Get('sessions/:id')
   @AllowHandoff()
   getSession(@Param('id') id: string, @CurrentUser() user: any) {
@@ -630,8 +636,7 @@ export class MorningQuizController {
    *  answer + explanation. Server enforces the "submitted-or-window-
    *  closed" gate; pre-submit calls return 403 result_locked_until_submit. */
   // S08：getStudentResult() 纯读取（只 findUnique / findFirst / findMany）——
-  // 教师只读视角可读。答题页 GET sessions/:id **不在此列**：getStudentView()
-  // 会 shuffle.getOrCreate 建乱序表，是隐式写。
+  // 教师只读视角可读。答题页 GET sessions/:id 也已拆成纯读（shuffle.peek）。
   @AllowTeacherView()
   @Get('student-result/:sessionId')
   studentResult(@Param('sessionId') sessionId: string, @CurrentUser() user: any) {

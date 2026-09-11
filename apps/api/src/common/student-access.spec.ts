@@ -214,6 +214,8 @@ const TEACHER_VIEW_READABLE = [
   'GET /vocab/mistakes/practice-queue',
   'GET /vocab/stats',
   'GET /morning-quiz/student-result/:sessionId',
+  // 答题页：乱序改用 shuffle.peek（确定性、不落库）之后放开（证据见 shuffle-peek.spec）
+  'GET /morning-quiz/sessions/:id',
   'GET /morning-quiz/history-by-name',
   'GET /morning-quiz/history-detail',
   'GET /morning-quiz/upcoming-for-name',

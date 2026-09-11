@@ -2138,7 +2138,7 @@ export class MorningQuizService {
     if (isPassagePick) {
       ordered = paperQuestions;
     } else {
-      const map = await this.shuffle.getOrCreate(studentId, paperId);
+      const map = await this.shuffle.peek(studentId, paperId);
       ordered = this.shuffle.applyToPaper(paperQuestions, map);
     }
 
@@ -2218,7 +2218,7 @@ export class MorningQuizService {
       const shuffleMap =
         isPassagePick || scripts.length === 0
           ? null
-          : await this.shuffle.getOrCreate(studentId, paperId);
+          : await this.shuffle.peek(studentId, paperId);
       const toDisplayKey = (pqId: string, originalKey: string): string => {
         if (!shuffleMap) return originalKey;
         const src = paperQuestions.find((q) => q.id === pqId);
