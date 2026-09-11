@@ -25,7 +25,7 @@ export function Section({
   testId?: string;
 }) {
   return (
-    <section aria-labelledby={title && id ? `${id}-title` : undefined} data-testid={testId} className="mb-7">
+    <section aria-labelledby={title && id ? `${id}-title` : undefined} data-testid={testId} className="mb-7 min-w-0">
       {title || trailing ? (
         <div className="mb-2 flex min-h-[28px] items-end justify-between gap-3 px-1">
           {title ? (
@@ -75,7 +75,8 @@ function Body({ icon, iconTone = 'accent', title, subtitle, value, chevron }: Ro
         </span>
       ) : null}
       <span className="min-w-0 flex-1 py-0.5">
-        <span className="block text-body text-ink">{title}</span>
+        {/* 放大字号时长英文词也能断开，不把整行撑出视口 */}
+        <span className="block text-body text-ink [overflow-wrap:anywhere]">{title}</span>
         {subtitle ? <span className="mt-0.5 block text-footnote text-ink-3">{subtitle}</span> : null}
       </span>
       {/* 值最多占半行：长徽标在窄屏折行，不把整页撑出横向滚动（320px 截图量出来的） */}

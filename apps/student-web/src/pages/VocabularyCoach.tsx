@@ -385,7 +385,7 @@ export default function VocabularyCoachPage() {
           <>
             {view === 'words' ? (
               <div className="mb-3 flex flex-wrap items-center gap-2">
-                <label className="relative min-w-[12rem] flex-[1_1_16rem]">
+                <label className="relative min-w-0 flex-[1_1_16rem]">
                   <span className="sr-only">搜索我的单词</span>
                   <Icon name="search" size={18} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-ink-3" />
                   <input

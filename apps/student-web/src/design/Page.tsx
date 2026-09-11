@@ -45,8 +45,9 @@ export function Page({
       className={`safe-x mx-auto w-full ${WIDTH[width]} pb-10 pt-[max(0.75rem,env(safe-area-inset-top))]`}
     >
       {leading ? <div className="-ml-2 mb-1 flex min-h-[44px] items-center">{leading}</div> : <div className="h-2" />}
-      <header className={`mb-5 flex items-end justify-between gap-3 ${titleHidden ? 'sr-only' : ''}`}>
-        <div className="min-w-0">
+      {/* 文字放大（200%）时右侧动作折到下一行，标题保住宽度 —— 不能把标题挤成一字一行（WCAG 1.4.4 / 1.4.10） */}
+      <header className={`mb-5 flex flex-wrap items-end justify-between gap-x-3 gap-y-2 ${titleHidden ? 'sr-only' : ''}`}>
+        <div className="min-w-0 flex-[1_1_8rem]">
           <h1 className="text-title1 text-ink md:text-large">{title}</h1>
           {subtitle ? <div className="mt-1 text-callout text-ink-3">{subtitle}</div> : null}
         </div>

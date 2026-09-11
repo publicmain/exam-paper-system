@@ -617,10 +617,10 @@ export default function TodayPage() {
       </p>
 
       {/* 三项任务（主体） */}
-      <ul className="mb-6 grid gap-3 md:grid-cols-3" aria-label="今天的三项任务">
+      <ul className="mb-6 grid grid-cols-1 gap-3 md:grid-cols-3" aria-label="今天的三项任务">
         {cards.map(({ key, view }) =>
           typeof view === 'string' ? (
-            <li key={key} data-testid={`task-${key}`} data-state={view} className="flex flex-col rounded-group bg-surface p-4">
+            <li key={key} data-testid={`task-${key}`} data-state={view} className="flex min-w-0 flex-col rounded-group bg-surface p-4">
               <div className="mb-3 flex items-center gap-2">
                 <TaskIcon icon={TASK_META[key].icon} tone="neutral" />
                 <h2 className="text-headline text-ink">{TASK_META[key].title}</h2>
@@ -773,12 +773,12 @@ function TaskCard({ view, primary, busy, error, onAction }: { view: TaskView; pr
     <li
       data-testid={`task-${view.key}`}
       data-state={view.done ? 'done' : view.applicable ? 'todo' : 'not_applicable'}
-      className="flex flex-col rounded-group bg-surface p-4"
+      className="flex min-w-0 flex-col rounded-group bg-surface p-4"
     >
-      <div className="mb-2 flex items-start justify-between gap-3">
+      <div className="mb-2 flex flex-wrap items-start justify-between gap-x-3 gap-y-1">
         <div className="flex min-w-0 items-center gap-2">
           <TaskIcon icon={view.icon} tone={view.done ? 'done' : view.applicable ? 'todo' : 'neutral'} />
-          <h2 className="truncate text-headline text-ink">{view.title}</h2>
+          <h2 className="min-w-0 text-headline text-ink">{view.title}</h2>
         </div>
         <Badge tone={view.badge.tone} testId={`task-${view.key}-badge`} icon={view.done ? 'check' : null}>
           {view.badge.text}
