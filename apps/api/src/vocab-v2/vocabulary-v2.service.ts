@@ -1,4 +1,4 @@
-import { BadRequestException, ForbiddenException, Injectable, ServiceUnavailableException } from '@nestjs/common';
+import { BadRequestException, ConflictException, ForbiddenException, Injectable, ServiceUnavailableException } from '@nestjs/common';
 import { EnglishLevel } from '@prisma/client';
 import { PrismaService } from '../common/prisma.service';
 import { canActOnClass } from '../common/roles';
@@ -1266,20 +1266,57 @@ export class VocabularyV2Service {
     }
   }
 
+  /**
+   * 学生翻完一张卡（学完 / 有点难 / 我会了 / 稍后再学）。
+   *
+   * VOC01（2026-09-11 审计）：原来用事务外读到的 `session.items` 算「还剩几张」，
+   * 两个标签页同时点最后两张时各自都看见另一张没学 → 会话永远 in_progress、
+   * 正式卷不生成；重复请求还会把 reps 再加一次。现在：
+   *
+   *   1. 这张卡从 pending 改成 completed / skipped 是**条件更新**
+   *      （`where status = 'pending' AND senseId = 读到的那个`）。Postgres 里
+   *      同一行的并发条件更新会排队、后到的按最新值重判 where —— 只有一次成功。
+   *   2. 学习次数、掌握阶段、来源事件只在「真的转换了」的那一次写。
+   *   3. cursor 只前进不后退（`where cursor < position`）。
+   *   4. 事务**提交之后**再数还剩几张：两个请求各自提交后各数一次，后数的那个
+   *      一定看得见双方的提交（READ COMMITTED 下每条语句看见此前已提交的数据）。
+   *      结束会话本身也是条件更新（`where status = 'in_progress'`），只结一次。
+   *   5. 正式卷由 sessionKey 唯一约束保证只有一份（`startFormalTest` 撞 P2002
+   *      就回读已建好的那份）。
+   *
+   * 已经处理过的卡再来一次（双击、重试、旧页面迟到）→ 原样返回当前会话，不报错、
+   * 不加学习量。
+   */
   async actOnLearningItem(studentId: string, sessionId: string, itemId: string, action: LearningCardAction, responseMs?: number) {
+    if (action === 'replace') throw new BadRequestException({ code: 'use_replace_endpoint' });
     const session = await this.prisma.vocabularyV2Session.findFirst({
       where: { id: sessionId, studentId, sessionType: 'daily_learning' },
       include: { items: { orderBy: { position: 'asc' } } },
     });
     if (!session) throw new BadRequestException({ code: 'v2_session_not_found' });
-    if (session.status !== 'in_progress') throw new BadRequestException({ code: 'v2_session_closed' });
     const item = session.items.find((candidate) => candidate.id === itemId);
     if (!item) throw new BadRequestException({ code: 'v2_item_not_found' });
-    if (action === 'replace') throw new BadRequestException({ code: 'use_replace_endpoint' });
+    if (item.status !== 'pending') return this.learningActionResult(studentId, session.id, true);
+    if (session.status !== 'in_progress') throw new BadRequestException({ code: 'v2_session_closed' });
 
     const desiredStage = initialStageForAction(action, item.masteryBefore);
-    await this.prisma.$transaction(async (tx) => {
-      await tx.studentVocabularySense.upsert({
+    const previousResponse = item.response && typeof item.response === 'object' && !Array.isArray(item.response)
+      ? item.response as Record<string, unknown>
+      : {};
+    const transitioned = await this.prisma.$transaction(async (tx) => {
+      const claim = await tx.vocabularyV2SessionItem.updateMany({
+        where: { id: item.id, sessionId: session.id, status: 'pending', senseId: item.senseId },
+        data: {
+          status: action === 'skip' ? 'skipped' : 'completed',
+          // 换词记录（replacedFrom）要留着：计数「换了几个」靠它（VOC08）。
+          response: { ...previousResponse, action } as any,
+          responseMs: responseMs == null ? null : Math.max(0, Math.floor(responseMs)),
+          attempts: { increment: 1 },
+          completedAt: new Date(),
+        },
+      });
+      if (claim.count === 0) return false;
+      const owned = await tx.studentVocabularySense.upsert({
         where: { studentId_senseId: { studentId, senseId: item.senseId } },
         create: {
           studentId,
@@ -1300,38 +1337,60 @@ export class VocabularyV2Service {
         data: {
           studentId,
           senseId: item.senseId,
+          // 带上归属行：来源筛选和来源标签走同一条关系（VOC09）。
+          studentSenseId: owned.id,
           source: item.source,
           action,
           metadata: { sessionId: session.id, itemId: item.id },
         },
       });
-      await tx.vocabularyV2SessionItem.update({
-        where: { id: item.id },
-        data: {
-          status: action === 'skip' ? 'skipped' : 'completed',
-          response: { action },
-          responseMs: responseMs == null ? null : Math.max(0, Math.floor(responseMs)),
-          attempts: { increment: 1 },
-          completedAt: new Date(),
-        },
+      await tx.vocabularyV2Session.updateMany({
+        where: { id: session.id, cursor: { lt: item.position } },
+        data: { cursor: item.position },
       });
-      const cursor = Math.max(session.cursor, item.position);
-      const remaining = session.items.filter((candidate) => candidate.id !== item.id && !['completed', 'skipped'].includes(candidate.status));
-      await tx.vocabularyV2Session.update({
-        where: { id: session.id },
-        data: remaining.length ? { cursor } : { cursor: session.target, status: 'completed', completedAt: new Date() },
-      });
+      return true;
     });
+    if (!transitioned) {
+      const current = await this.prisma.vocabularyV2SessionItem.findUnique({ where: { id: item.id } });
+      // 被别的请求处理掉了 → 幂等；还是 pending 但换了词 → 学生点的是旧卡。
+      if (current && current.status === 'pending') {
+        throw new ConflictException({ code: 'v2_item_changed', message: '这张卡刚被换成了新词，请看新卡。' });
+      }
+      return this.learningActionResult(studentId, session.id, true);
+    }
+    await this.settleLearningSession(session.id);
+    return this.learningActionResult(studentId, session.id, false);
+  }
+
+  /**
+   * 每日学习会话还有没有没处理的卡；没有了就结束它（只结一次）。
+   * 必须在处理卡片的事务**提交之后**调用 —— 理由见 `actOnLearningItem`。
+   */
+  private async settleLearningSession(sessionId: string) {
+    const remaining = await this.prisma.vocabularyV2SessionItem.count({ where: { sessionId, status: 'pending' } });
+    if (remaining > 0) return false;
+    const session = await this.prisma.vocabularyV2Session.findUnique({ where: { id: sessionId }, select: { target: true } });
+    const closed = await this.prisma.vocabularyV2Session.updateMany({
+      where: { id: sessionId, status: 'in_progress' },
+      data: { status: 'completed', cursor: session?.target ?? 0, completedAt: new Date() },
+    });
+    return closed.count > 0;
+  }
+
+  /** 学完动作的统一返回：最新会话 + 当天那份正式卷（学完且至少学会一个词才有）。 */
+  private async learningActionResult(studentId: string, sessionId: string, replayed: boolean) {
     const refreshed = await this.prisma.vocabularyV2Session.findUnique({
-      where: { id: session.id },
+      where: { id: sessionId },
       include: { items: { orderBy: { position: 'asc' } } },
     });
     let generatedTestId: string | null = null;
+    let generatedTest: { id: string; total: number; newWords: number; reviewWords: number } | null = null;
     if (refreshed?.status === 'completed' && refreshed.items.some((candidate) => candidate.status === 'completed')) {
       const test = await this.startFormalTest(studentId, refreshed.id);
       generatedTestId = test.id;
+      generatedTest = { id: test.id, total: test.total, newWords: test.newWords, reviewWords: test.reviewWords };
     }
-    return { ...this.sessionView(refreshed!), generatedTestId };
+    return { ...this.sessionView(refreshed!), generatedTestId, generatedTest, replayed };
   }
 
   async replaceDailyItem(studentId: string, sessionId: string, itemId: string) {
@@ -1475,7 +1534,9 @@ export class VocabularyV2Service {
       ...sampled,
     ];
     const cards = paper.map((item) => item.contentSnapshot as unknown as FrozenCard);
-    const created = await this.prisma.vocabularyV2Session.create({
+    let created: any;
+    try {
+      created = await this.prisma.vocabularyV2Session.create({
       data: {
         sessionKey,
         studentId,
@@ -1500,7 +1561,17 @@ export class VocabularyV2Service {
         },
       },
       include: { items: { orderBy: { position: 'asc' } } },
-    });
+      });
+    } catch (error) {
+      // 学完回调和首页「开始测试」同时到：sessionKey 唯一，后到的回读那一份（VOC01）。
+      if ((error as { code?: string }).code !== 'P2002') throw error;
+      const raced = await this.prisma.vocabularyV2Session.findUnique({
+        where: { sessionKey },
+        include: { items: { orderBy: { position: 'asc' } } },
+      });
+      if (!raced) throw error;
+      return this.testSessionView(raced);
+    }
     return this.testSessionView(created);
   }
 
@@ -1738,6 +1809,9 @@ export class VocabularyV2Service {
       type: session.sessionType,
       status: session.status,
       total: session.target,
+      // 冻结卷里「当天实际学完的新词」与「旧词抽查」各几题（VOC06：各页面只认这份冻结数字）
+      newWords: session.items.filter((item: any) => item.source !== 'review').length,
+      reviewWords: session.items.filter((item: any) => item.source === 'review').length,
       answered,
       correct: submitted ? correct : null,
       items: session.items.map((item: any) => {
