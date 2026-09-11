@@ -310,7 +310,7 @@ describe('AC-02/03/04/10 全链：启动 → today → 开课 → 阅读页 → 
       expect(screen.getAllByText(new RegExp(title, 'i')).length, title).toBeGreaterThan(0);
     }
     // 题号条的格子数 === 夹具题数
-    expect(screen.getAllByRole('button', { name: /^Question \d+,/ })).toHaveLength(
+    expect(screen.getAllByRole('button', { name: /^第 \d+ 题，/ })).toHaveLength(
       WIRE_QUESTIONS.length,
     );
     expect(WIRE_QUESTIONS).toHaveLength(13);

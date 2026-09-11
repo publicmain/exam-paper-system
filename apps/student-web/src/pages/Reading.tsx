@@ -379,7 +379,8 @@ function ReadingShell({ session, submissionId, historical }: { session: ReadingS
         meta={
           <>
             <span data-testid="reading-level" aria-label={`本次难度：${displayLevel}`}>
-              本次难度 · {displayLevel}
+              <span className="hidden sm:inline">本次难度 · </span>
+              {displayLevel}
             </span>
             <span aria-hidden="true"> · </span>
             <span data-testid="save-state" role="status" aria-live="polite">
@@ -431,13 +432,15 @@ function ReadingShell({ session, submissionId, historical }: { session: ReadingS
         </ExamFocusProvider>
       </main>
 
+      {/* 一条底栏：题号（横向滑）+ 已标记 + 交卷 —— 手机上不再折成两行占掉半屏 */}
       <footer className="material-bar safe-bottom sticky bottom-0 z-20 border-t border-line">
-        <QuestionNavBar questions={paper.questions} onJumpTo={(qid) => jumpTo(qid)} />
-        <div className="safe-x flex items-center gap-3 py-2">
-          <span data-testid="flag-count" className="text-footnote text-ink-3 tabular-nums">
+        <div className="safe-x mx-auto flex max-w-[1400px] items-center gap-3 py-1.5">
+          <div className="min-w-0 flex-1">
+            <QuestionNavBar questions={paper.questions} onJumpTo={(qid) => jumpTo(qid)} />
+          </div>
+          <span data-testid="flag-count" className="hidden shrink-0 text-footnote text-ink-3 tabular-nums sm:inline">
             已标记 {r.flaggedCount}
           </span>
-          <div className="flex-1" />
           <Button
             data-testid="submit"
             size="md"

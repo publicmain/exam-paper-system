@@ -377,7 +377,7 @@ describe('AC-06 页面状态', () => {
     expect(screen.getByTestId('flag-count').textContent).toContain('1');
     // 字号
     await act(async () => {
-      screen.getByRole('button', { name: /Increase font size/ }).click();
+      screen.getByRole('button', { name: /放大字号/ }).click();
     });
     expect(localStorage.getItem('sw:fontScale')).toBe('1.1');
   });
@@ -633,7 +633,7 @@ describe('AC-08 难度与退出', () => {
   it('**题号导航可用，旗标计数会变**', async () => {
     mount();
     await settle();
-    const cells = screen.getAllByRole('button', { name: /^Question \d/ });
+    const cells = screen.getAllByRole('button', { name: /^第 \d+ 题/ });
     expect(cells).toHaveLength(2);
     await act(async () => {
       cells[1].click();
