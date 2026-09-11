@@ -123,13 +123,24 @@ export class VocabularyV2Controller {
     return this.service.setNotebookMembership(studentIdOf(req), parsed.data.senseId, false);
   }
 
+  /** VOC13：「重新加入我的单词」—— 只恢复成员关系，不开始教学、不算新词。 */
+  @Public()
+  @RequireStudentToken()
+  @Post('notebook/restore')
+  restore(@Req() req: Request, @Body() body: unknown) {
+    const parsed = z.object({ senseId: z.string().min(1).max(80) }).strict().safeParse(body);
+    if (!parsed.success) throw new BadRequestException(parsed.error.flatten());
+    return this.service.restoreToNotebook(studentIdOf(req), parsed.data.senseId);
+  }
+
+  /** 旧名字（VOC13 之前）。保留给还没更新的前端，做的是「重新加入」。 */
   @Public()
   @RequireStudentToken()
   @Post('notebook/relearn')
   relearn(@Req() req: Request, @Body() body: unknown) {
     const parsed = z.object({ senseId: z.string().min(1).max(80) }).strict().safeParse(body);
     if (!parsed.success) throw new BadRequestException(parsed.error.flatten());
-    return this.service.setNotebookMembership(studentIdOf(req), parsed.data.senseId, true);
+    return this.service.restoreToNotebook(studentIdOf(req), parsed.data.senseId);
   }
 
   @Public()

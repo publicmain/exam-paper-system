@@ -18,8 +18,6 @@ const TUE = sgtNoon('2026-09-08');
 async function populated() {
   const db = newDb();
   const stu = seedStudent(db, { level: 'olevel', dailyTarget: 5, classId: 'class-1' });
-  // 故意不建 StudentVocabularyProfile：原来 GET 会顺手建出来
-  db.tables.get('studentVocabularyProfile')!.clear();
   seedOfficialWords(db, 'ngsl', 1801, 40);
   db.seed('wordAudio', { headword: 'x', bytes: new Uint8Array([1, 2, 3]) });
   db.seed('paper', { id: 'paper-1', name: 'Mon reading' });
@@ -40,6 +38,8 @@ async function populated() {
   const custom = await svc.startCustomTest(stu, { count: 5, scope: 'all' });
   // 老师
   db.seed('user', { id: 't1', email: 't1@test.invalid', name: 'T', passwordHash: 'x', role: 'admin' });
+  // 故意删掉 StudentVocabularyProfile（写接口会建它）：原来 GET 会顺手再建出来
+  db.tables.get('studentVocabularyProfile')!.clear();
   return { db, svc, stu, testId: test.id, customId: custom.id, customItemId: custom.items[0].id };
 }
 
