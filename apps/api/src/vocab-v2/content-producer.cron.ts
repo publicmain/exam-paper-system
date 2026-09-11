@@ -1,7 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { Cron } from '@nestjs/schedule';
 import { PrismaService } from '../common/prisma.service';
-import { runVocabularyContentBatch, vocabularyContentProviderConfigured } from './content-producer';
+import { CONTENT_JOB_POLICY, runVocabularyContentBatch, vocabularyContentProviderConfigured } from './content-producer';
 
 @Injectable()
 export class VocabularyV2ContentCron {
@@ -16,7 +16,14 @@ export class VocabularyV2ContentCron {
     this.running = true;
     try {
       const result = await runVocabularyContentBatch(this.prisma, Number(process.env.VOCAB_CONTENT_BATCH_SIZE || 25));
-      if (result.selected) this.logger.log(`content batch selected=${result.selected} published=${result.published} rejected=${result.rejected} failed=${result.failed}`);
+      if (result.selected) {
+        const extra = (['reclaimed', 'exhausted', 'superseded', 'skipped'] as const)
+          .map((key) => ((result as Record<string, unknown>)[key] ? ` ${key}=${(result as Record<string, unknown>)[key]}` : ''))
+          .join('');
+        this.logger.log(`content batch selected=${result.selected} published=${result.published} rejected=${result.rejected} failed=${result.failed}${extra}`);
+        // VOC14：租约过期回收 / 次数用完定格要让人看得见
+        if ((result as { exhausted?: number }).exhausted) this.logger.warn(`content jobs gave up after ${CONTENT_JOB_POLICY.maxAttempts} attempts: ${(result as { exhausted?: number }).exhausted}`);
+      }
     } catch (error) {
       this.logger.warn(`content batch failed: ${String((error as Error).message || error).slice(0, 180)}`);
     } finally { this.running = false; }
