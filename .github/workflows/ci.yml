@@ -1,13 +1,25 @@
 name: CI
 
 # Phase 1 (product-maturity overhaul) institutional gate: every push to main
-# and every PR must pass typecheck + tests + build for BOTH workspaces before
-# it is considered green. See docs/PRD/exam-paper-system-overhaul.md §6 Phase 1.
+# and every PR must pass typecheck + tests + build for all three workspaces
+# (API, teacher/admin web, student-web) before it is considered green. See
+# docs/PRD/exam-paper-system-overhaul.md §6 Phase 1.
+#
+# 2026-09-11 audit (OPS01): @app/student-web had never been added here —
+# `npm run typecheck` / `test:all` / `build` at the repo root now also cover
+# it (see package.json), so this workflow picks it up for free. Two more
+# checks were added for the same reason: `apps/ops-dashboard/server.js` is a
+# separate Railway service with no build/test step of its own (a syntax
+# check is what's practical for a small Express script with a live-DB
+# dependency); the pilot publish scripts under apps/api/scripts/pilot/ are
+# already exercised by `npm run test -w @app/api` (vitest's default include
+# glob picks up every *.spec.ts there) — no separate step needed for those.
 #
 # NOTE: this repo currently pushes straight to main (Railway auto-deploys on
 # push). This workflow gives a red/green signal on each commit; to make it a
 # TRUE pre-deploy gate, enable branch protection requiring this check on main
-# (a deliberate workflow change — left to the maintainer).
+# (a deliberate workflow change — left to the maintainer, see
+# docs/audit-2026-09-11/ledger-pub.md OPS01 for the current status of that).
 
 on:
   push:
@@ -45,11 +57,14 @@ jobs:
       - name: Prisma generate
         run: npm run prisma:generate -w @app/api
 
-      - name: Typecheck (api + web)
+      - name: Typecheck (api + web + student-web)
         run: npm run typecheck
 
-      - name: Test (api + web)
+      - name: Test (api + web + student-web)
         run: npm run test:all
 
-      - name: Build (api + web)
+      - name: Syntax-check ops-dashboard server.js
+        run: npm run check:ops-dashboard
+
+      - name: Build (api + web + student-web)
         run: npm run build
