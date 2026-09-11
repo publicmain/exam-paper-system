@@ -103,8 +103,9 @@ describe('学词 · 一屏教清一个词（IOS-07）', () => {
     const fetchMock = vi.fn((url: string) => (pathOf(url) === '/vocab-v2/daily?date=2026-09-01' ? response(learning()) : response({}, 404)));
     vi.stubGlobal('fetch', fetchMock);
     mountLearn('/coach/learn?date=2026-09-01');
-    expect(await screen.findByText('9月1日 周二 新词')).toBeInTheDocument();
-    expect(screen.getByText('Sales may decline when customers lose confidence.')).toBeInTheDocument();
+    // 先等词卡（页头在加载中就已经写着日期了，等页头不代表数据到了 —— CI 上慢一拍就会红）
+    expect(await screen.findByText('Sales may decline when customers lose confidence.')).toBeInTheDocument();
+    expect(screen.getByText('9月1日 周二 新词')).toBeInTheDocument();
     expect(fetchMock).toHaveBeenCalledTimes(1);
   });
 
