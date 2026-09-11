@@ -8,7 +8,7 @@ import {
 } from '@nestjs/common';
 import { PrismaService } from '../common/prisma.service';
 import { canActOnClass, isAdminOrHead } from '../common/roles';
-import { ClaimDto, QueueQueryDto, ScoreScriptDto } from './dto';
+import { ClaimDto, QueueQueryDto, QueueStage, ScoreScriptDto } from './dto';
 import { StudentWordService } from '../vocab/student-word.service';
 import { MistakeService } from '../vocab/mistake.service';
 
@@ -18,12 +18,48 @@ interface ActorCtx {
   ip?: string | null;
 }
 
+/** 需要老师给分的题型。MCQ 交卷时自动判分，永远不进人工判分。 */
+export const STRUCTURED_TYPES = ['structured', 'short_answer', 'essay'] as const;
+
+/** 「还有一道主观题没分数」—— 待批 / 批改中 的判据。 */
+const UNGRADED_STRUCTURED = {
+  awardedMarks: null,
+  paperQuestion: { question: { questionType: { in: [...STRUCTURED_TYPES] } } },
+};
+const ACTIVE_CLAIM = { status: 'active' };
+
+/**
+ * 每个阶段对应的 where 片段（与 scope 条件 AND 在一起）。
+ *
+ * 四个阶段互斥且覆盖所有 status=submitted 的答卷：一份已交卷的答卷要么
+ * 还有主观题没分数（按有无认领分成 待批 / 批改中），要么已全部有分数
+ * （已评分待发布）。审计 M01 之前没有最后一个阶段 —— 老师逐题保存完
+ * 最后一题，答卷就从队列里消失，但并没有发布。
+ */
+function stageWhere(stage: QueueStage): Record<string, unknown> {
+  switch (stage) {
+    case 'awaiting':
+      return { scripts: { some: UNGRADED_STRUCTURED }, markerAssignments: { none: ACTIVE_CLAIM } };
+    case 'in_progress':
+      return { scripts: { some: UNGRADED_STRUCTURED }, markerAssignments: { some: ACTIVE_CLAIM } };
+    case 'ready':
+      return { scripts: { none: UNGRADED_STRUCTURED } };
+    case 'open':
+      return {};
+    case 'needs_marking':
+    default:
+      return { scripts: { some: UNGRADED_STRUCTURED } };
+  }
+}
+
 /**
  * Marker workflow:
  *   1. Markers (teacher / head_teacher / admin) GET /api/marker/queue to see
- *      submissions that have been final-submitted by students AND still have
- *      at least one structured AnswerScript with awardedMarks IS NULL.
- *      MCQs are auto-graded at submit time and never appear here.
+ *      submitted submissions, split into stages (2026-09-11 审计 M01/M04):
+ *      待批 awaiting / 批改中 in_progress（还有主观题没分数）和
+ *      已评分待发布 ready（全部有分数但还没 finalize）。默认 stage 仍是
+ *      「还有主观题没分数」。MCQs are auto-graded at submit time and are
+ *      never manually scored.
  *   2. POST /api/marker/claim {submissionId} — atomic claim. Uses the same
  *      conditional `updateMany` (or upsert-with-where) pattern as
  *      StudentService.finalSubmit so two markers racing yields exactly one
@@ -81,56 +117,54 @@ export class MarkerService {
   }
 
   /**
-   * List submissions with at least one ungraded structured script.
-   * Filters by classId / paperId via assignment join.
+   * 判分队列（分阶段、可翻页）。
+   *
+   * `stage` 缺省为 needs_marking（还有主观题没分数）—— 与旧口径一致，
+   * 早测排课页的「待判 N 份」徽标仍按它数。判分页按阶段分栏：
+   * 待批 / 批改中 / 已评分待发布（见 dto.ts 的 QUEUE_STAGES）。
+   *
+   * 翻页（审计 M04）：排序 submittedAt 升序（先交先判），并列时按 id ——
+   * 9:00 自动收卷的答卷 submittedAt 完全相同，只按时间排 Postgres 不保证
+   * 并列行顺序，OFFSET 翻页会重复或漏掉。
+   *
+   * 返回 `stageCounts`（同一 scope 下三个阶段各多少份）与 `pageCount`，
+   * 页面据此显示分栏数字和页码；不再只靠调大 limit。
    */
   async listQueue(query: QueueQueryDto, marker?: ActorCtx) {
     const page = query.page ?? 1;
     const pageSize = query.pageSize ?? 20;
     const skip = (page - 1) * pageSize;
+    const stage: QueueStage = query.stage ?? 'needs_marking';
 
-    // Find submissions:
-    //   - status='submitted'
-    //   - have ≥1 AnswerScript whose paperQuestion.question.questionType
-    //     is structured/short_answer/essay AND awardedMarks IS NULL.
-    // We deliberately exclude 'marked' submissions (already finalized).
-    const where: any = {
-      status: 'submitted',
-      scripts: {
-        some: {
-          awardedMarks: null,
-          paperQuestion: {
-            question: {
-              questionType: { in: ['structured', 'short_answer', 'essay'] },
-            },
-          },
-        },
-      },
-    };
+    // scope：已交卷（status='submitted'，已发布的 marked / returned 不在队列里）
+    // + 班级 / 试卷筛选 + 教师的班级边界。
+    const scope: any = { status: 'submitted' };
     if (query.classId) {
-      where.assignment = { ...(where.assignment ?? {}), classId: query.classId };
+      scope.assignment = { ...(scope.assignment ?? {}), classId: query.classId };
     }
     if (query.paperId) {
-      where.assignment = { ...(where.assignment ?? {}), paperId: query.paperId };
+      scope.assignment = { ...(scope.assignment ?? {}), paperId: query.paperId };
     }
     // IDOR gate: regular teachers see only submissions in classes they teach.
     // admin / head_teacher always see the full queue.
     if (marker && !isAdminOrHead(marker.role)) {
-      where.assignment = {
-        ...(where.assignment ?? {}),
+      scope.assignment = {
+        ...(scope.assignment ?? {}),
         class: {
           enrollments: { some: { userId: marker.id, role: { not: 'student' } } },
         },
       };
     }
+    const where: any = { ...scope, ...stageWhere(stage) };
 
-    const [total, rows] = await Promise.all([
+    const [total, rows, awaiting, inProgress, ready] = await Promise.all([
       this.prisma.studentSubmission.count({ where }),
       this.prisma.studentSubmission.findMany({
         where,
         skip,
         take: pageSize,
-        orderBy: { submittedAt: 'asc' }, // oldest first — fairness
+        // oldest first — fairness；id 兜底保证翻页不重不漏
+        orderBy: [{ submittedAt: 'asc' }, { id: 'asc' }],
         include: {
           assignment: {
             include: {
@@ -143,6 +177,7 @@ export class MarkerService {
             select: {
               id: true,
               awardedMarks: true,
+              markedById: true,
               paperQuestion: {
                 select: {
                   id: true,
@@ -153,6 +188,9 @@ export class MarkerService {
           },
         },
       }),
+      this.prisma.studentSubmission.count({ where: { ...scope, ...stageWhere('awaiting') } }),
+      this.prisma.studentSubmission.count({ where: { ...scope, ...stageWhere('in_progress') } }),
+      this.prisma.studentSubmission.count({ where: { ...scope, ...stageWhere('ready') } }),
     ]);
 
     // Attach claim info — the controller gets to decide what to render.
@@ -165,33 +203,44 @@ export class MarkerService {
     });
     const claimsBySub = new Map(claims.map((c) => [c.submissionId, c]));
 
+    const isStructured = (t: string) => (STRUCTURED_TYPES as readonly string[]).includes(t);
     const items = rows.map((r) => {
-      const total = (r.scripts ?? []).filter((s) =>
-        ['structured', 'short_answer', 'essay'].includes(s.paperQuestion.question.questionType),
-      ).length;
-      const ungraded = (r.scripts ?? []).filter(
-        (s) =>
-          ['structured', 'short_answer', 'essay'].includes(
-            s.paperQuestion.question.questionType,
-          ) && s.awardedMarks == null,
-      ).length;
+      const structured = (r.scripts ?? []).filter((s) => isStructured(s.paperQuestion.question.questionType));
+      const ungraded = structured.filter((s) => s.awardedMarks == null).length;
+      const claim = claimsBySub.get(r.id) ?? null;
+      const itemStage: Exclude<QueueStage, 'needs_marking' | 'open'> =
+        ungraded === 0 ? 'ready' : claim ? 'in_progress' : 'awaiting';
       return {
         id: r.id,
         status: r.status,
+        stage: itemStage,
         autoScore: r.autoScore,
         manualScore: r.manualScore,
         totalScore: r.totalScore,
         maxScore: r.maxScore,
         submittedAt: r.submittedAt,
+        // null = 暂存提交（第二作答窗还开着时学生可能回来改）
+        finalSubmittedAt: r.finalSubmittedAt ?? null,
         student: r.student,
         assignment: r.assignment,
-        structuredCount: total,
+        structuredCount: structured.length,
         ungradedCount: ungraded,
-        claim: claimsBySub.get(r.id) ?? null,
+        // 已有几道主观题是老师给的分（其余是自动判分）—— 页面据此区分
+        // 「你已评完待发布」和「自动判分待发布」
+        markerGradedCount: structured.filter((s) => s.awardedMarks != null && s.markedById != null).length,
+        claim,
       };
     });
 
-    return { total, page, pageSize, items };
+    return {
+      total,
+      page,
+      pageSize,
+      pageCount: Math.max(1, Math.ceil(total / pageSize)),
+      stage,
+      stageCounts: { awaiting, in_progress: inProgress, ready },
+      items,
+    };
   }
 
   /**
