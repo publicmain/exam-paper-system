@@ -41,6 +41,10 @@ interface Overview {
     marked: number;
     inProgress: number;
     missing: number;
+    /** 已交但还没老师确认发布（不含未发布不算"仅已批"均分的道理一样 —— 审计 T02）。 */
+    awaitingPublish: number;
+    /** 缺交里"系统自动收卷"的那部分（单列数量，不是额外加的缺交）。 */
+    autoCollected: number;
   };
   meanAutoScorePct: number | null;
   meanTotalScorePct: number | null;
@@ -48,10 +52,16 @@ interface Overview {
     paperId: string;
     paperName: string;
     assignmentId: string;
+    /** 早测才有；普通布置作业为 null。 */
+    date: string | null;
+    level: string | null;
+    /** 场次已取消 —— 这一档当天没人欠交，见 T01。 */
+    cancelled: boolean;
     studentsExpected: number;
     submitted: number;
     marked: number;
     missing: number;
+    inProgress: number;
     meanAutoScore: number | null;
     meanTotalScore: number | null;
     maxScore: number;
@@ -144,21 +154,32 @@ export default function ClassStatsPage() {
 
       {overview && (
         <>
-          <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
+          <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-3">
             <StatCard label="学生数" value={overview.studentCount} />
             <StatCard label="已布置卷子" value={overview.paperCount} />
             {/* Fix #6: include in-progress in the hint so the math reads
                 consistently. Before: "1 / 57 ... 55 missing" left readers
                 wondering where the 57th student went (the one who started
-                but didn't submit). */}
+                but didn't submit).
+                2026-09-11 审计 T02：missing 里含"系统自动收卷"的部分（学生
+                没交、系统替他定住不让第二天再改）——单独标出数量，不然老师
+                会把它当成学生完全没碰过。 */}
             <StatCard
               label="已交"
               value={`${overview.totals.submitted} / ${overview.totals.expectedSubmissions}`}
-              hint={
-                overview.totals.inProgress > 0
-                  ? `${overview.totals.inProgress} 进行中 · ${overview.totals.missing} 缺交`
-                  : `${overview.totals.missing} 缺交`
-              }
+              hint={[
+                overview.totals.inProgress > 0 ? `${overview.totals.inProgress} 进行中` : null,
+                overview.totals.autoCollected > 0
+                  ? `${overview.totals.missing} 缺交（含 ${overview.totals.autoCollected} 自动收卷）`
+                  : `${overview.totals.missing} 缺交`,
+              ]
+                .filter(Boolean)
+                .join(' · ')}
+            />
+            <StatCard
+              label="待发布"
+              value={overview.totals.awaitingPublish}
+              hint="已交待老师确认发布，不是零分"
             />
             <StatCard
               label="平均自动分"
@@ -167,7 +188,7 @@ export default function ClassStatsPage() {
             <StatCard
               label="平均总分"
               value={overview.meanTotalScorePct == null ? '—' : `${overview.meanTotalScorePct}%`}
-              hint="(仅已批)"
+              hint="(仅已批 · 未发布答卷不计入)"
             />
           </div>
 
@@ -187,33 +208,55 @@ export default function ClassStatsPage() {
                         <th className="py-2 pr-3">卷子</th>
                         <th className="py-2 pr-3 text-right">已交</th>
                         <th className="py-2 pr-3 text-right">已批</th>
+                        <th className="py-2 pr-3 text-right">待发布</th>
                         <th className="py-2 pr-3 text-right">缺交</th>
-                        <th className="py-2 pr-3 text-right">平均自动分</th>
+                        <th className="py-2 pr-3 text-right hidden md:table-cell">平均自动分</th>
                         <th className="py-2 pr-3 text-right">平均总分</th>
-                        <th className="py-2 pr-3 text-right">满分</th>
+                        <th className="py-2 pr-3 text-right hidden sm:table-cell">满分</th>
                         <th className="py-2 pr-3"></th>
                       </tr>
                     </thead>
                     <tbody className="divide-y">
-                      {overview.perPaper.map(p => (
-                        <tr key={p.assignmentId}>
-                          <td className="py-2 pr-3 font-medium" title={p.paperName}>{prettifyPaperName(p.paperName)}</td>
-                          <td className="py-2 pr-3 text-right">{p.submitted}/{p.studentsExpected}</td>
-                          <td className="py-2 pr-3 text-right">{p.marked}</td>
-                          <td className="py-2 pr-3 text-right">{p.missing}</td>
-                          <td className="py-2 pr-3 text-right">{fmtScore(p.meanAutoScore)}</td>
-                          <td className="py-2 pr-3 text-right">{fmtScore(p.meanTotalScore)}</td>
-                          <td className="py-2 pr-3 text-right">{p.maxScore}</td>
-                          <td className="py-2 pr-3 text-right">
-                            <button
-                              className="btn btn-ghost text-xs"
-                              onClick={() => setPaperId(p.paperId)}
-                            >
-                              知识点掌握
-                            </button>
-                          </td>
-                        </tr>
-                      ))}
+                      {overview.perPaper.map(p => {
+                        // 已取消且没人分配到的场次：0/0 不是"没人交、需要催"，
+                        // 是"这一档当天不欠交"（见 T01/T02）。标出来，别让
+                        // 老师以为是数据错误或需要跟进的空白行。
+                        const isMoot = p.cancelled && p.studentsExpected === 0;
+                        const awaitingPublish = Math.max(0, p.submitted - p.marked);
+                        return (
+                          <tr key={p.assignmentId} className={isMoot ? 'text-gray-400' : undefined}>
+                            <td className="py-2 pr-3 font-medium" title={p.paperName}>
+                              {prettifyPaperName(p.paperName)}
+                              {p.cancelled && (
+                                <span className="ml-2 rounded-full bg-gray-100 px-2 py-0.5 text-xs font-normal text-gray-500">
+                                  已取消
+                                </span>
+                              )}
+                            </td>
+                            {isMoot ? (
+                              <td className="py-2 pr-3 text-right" colSpan={7}>不涉及在读学生</td>
+                            ) : (
+                              <>
+                                <td className="py-2 pr-3 text-right">{p.submitted}/{p.studentsExpected}</td>
+                                <td className="py-2 pr-3 text-right">{p.marked}</td>
+                                <td className="py-2 pr-3 text-right">{awaitingPublish}</td>
+                                <td className="py-2 pr-3 text-right">{p.missing}</td>
+                                <td className="py-2 pr-3 text-right hidden md:table-cell">{fmtScore(p.meanAutoScore)}</td>
+                                <td className="py-2 pr-3 text-right">{fmtScore(p.meanTotalScore)}</td>
+                                <td className="py-2 pr-3 text-right hidden sm:table-cell">{p.maxScore}</td>
+                                <td className="py-2 pr-3 text-right">
+                                  <button
+                                    className="tap btn btn-ghost text-xs"
+                                    onClick={() => setPaperId(p.paperId)}
+                                  >
+                                    知识点掌握
+                                  </button>
+                                </td>
+                              </>
+                            )}
+                          </tr>
+                        );
+                      })}
                     </tbody>
                   </table>
                 </div>

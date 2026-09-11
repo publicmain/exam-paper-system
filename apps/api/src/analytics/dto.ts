@@ -11,12 +11,19 @@ export interface ClassOverviewDto {
   studentCount: number;
   paperCount: number;
   // Aggregates across every (student, assignment) cell.
+  //
+  // 2026-09-11 审计 T02：classOverview 重写为按学生实际分配的那一份算，
+  // 补了下面这两个字段 —— `missing` 里含 `autoCollected` 的部分（不是
+  // 额外加的缺交，只是单列出来方便老师区分"系统自动收卷"和"完全没碰"）；
+  // `awaitingPublish` 是已交但还没发布的部分，不进 meanTotalScorePct。
   totals: {
     expectedSubmissions: number;
     submitted: number;
     marked: number;
     inProgress: number;
     missing: number;
+    awaitingPublish: number;
+    autoCollected: number;
   };
   meanAutoScorePct: number | null;
   meanTotalScorePct: number | null;
@@ -24,10 +31,16 @@ export interface ClassOverviewDto {
     paperId: string;
     paperName: string;
     assignmentId: string;
+    /** 早测才有场次日期/难度；普通布置作业为 null。 */
+    date: string | null;
+    level: string | null;
+    /** 场次已取消（studentsExpected 会是 0，除非已有学生交过）。 */
+    cancelled: boolean;
     studentsExpected: number;
     submitted: number;
     marked: number;
     missing: number;
+    inProgress: number;
     meanAutoScore: number | null;
     meanTotalScore: number | null;
     maxScore: number;
