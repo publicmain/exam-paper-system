@@ -82,6 +82,9 @@ function activeUseCheckView(headword: string, response: unknown) {
   return { ...check, label: ACTIVE_USE_LABEL[check.reason] ?? ACTIVE_USE_LABEL.ok };
 }
 
+/** 与 schema 里 StudentVocabularyProfile 的默认值一致；没存过设置的学生按它算（S08：读不建行）。 */
+const PROFILE_DEFAULTS = { dailyTarget: 10, taskMinutes: 8, mode: 'adaptive_coach', audioAccent: 'en-GB' } as const;
+
 function asStrings(value: unknown): string[] {
   return Array.isArray(value) ? value.map(String).filter(Boolean) : [];
 }
@@ -105,13 +108,21 @@ export class VocabularyV2Service {
     };
   }
 
+  /**
+   * 学生的词汇设置。**只读**（S08，2026-09-11）：原来这里 upsert 一行，
+   * `GET /vocab-v2/profile` 和 `GET /vocab-v2/overview` 于是都会写库 —— 教师只读
+   * 视角看一眼就在学生名下建了行。没存过就按 schema 默认值返回，真正建行只在
+   * `POST /vocab-v2/profile`（updateProfile）。
+   */
   async profile(studentId: string) {
-    const row = await this.prisma.studentVocabularyProfile.upsert({
-      where: { studentId },
-      create: { studentId },
-      update: {},
-    });
-    return { ...row, allowedDailyTargets: [5, 10, 15, 20] };
+    const row = await this.prisma.studentVocabularyProfile.findUnique({ where: { studentId } });
+    return {
+      studentId,
+      ...PROFILE_DEFAULTS,
+      ...(row ?? {}),
+      persisted: Boolean(row),
+      allowedDailyTargets: [5, 10, 15, 20],
+    };
   }
 
   async updateProfile(studentId: string, input: { dailyTarget?: number; audioAccent?: 'en-GB' | 'en-US' }) {
