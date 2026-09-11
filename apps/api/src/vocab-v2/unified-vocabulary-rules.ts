@@ -73,6 +73,47 @@ export function deferredSenseIds(
   return [...deferred];
 }
 
+/**
+ * 学生对一个词做过的、会让「稍后再学」失效的明确决定（VOC07/VOC13）：
+ * 移出（= 我会了）、查词卡「我已经会了」、「我会了，换一个」、重新加入 / 旧的 relearn。
+ */
+export const DEFERRAL_ENDING_ACTIONS = ['removed_mastered', 'known', 'known_replaced', 'restored', 'relearn'] as const;
+
+/**
+ * 此刻仍然「有效延后」、可以捞回今天任务最前面的词义（VOC07，2026-09-11）。
+ *
+ * 在 `deferredSenseIds` 的基础上再去掉两类：
+ *   · **已经挂在某一天的待学里**（已安排、还没学）—— 一个延后词只能有一条有效
+ *     待处理归属。原来周一延后 → 周二安排了没做 → 周三又安排一次。
+ *   · 最后一次「稍后再学」**之后**学生又做了明确决定（`DEFERRAL_ENDING_ACTIONS`）——
+ *     比如移出后又「重新加入」：那是恢复收藏，不是要求再教一遍（VOC13）。
+ *
+ * 学生在新安排的那天又点一次「稍后再学」→ 那条变 skipped、不再 pending，
+ * 下一天照常按新状态迁过去；不会复制出第二条。
+ *
+ * 先后顺序只拿**同一张事件表**里的时间比（`skip` 事件 vs 决定事件），不拿卡片的
+ * completedAt（应用时钟）去比事件的 createdAt（数据库时钟）。
+ */
+export function activeDeferredSenseIds(
+  items: readonly { senseId: string; status: string }[],
+  events: readonly { senseId: string; action: string; at: Date }[] = [],
+): string[] {
+  const deferred = new Set(deferredSenseIds(items));
+  const pending = new Set(items.filter((item) => item.status === 'pending').map((item) => item.senseId));
+  const lastSkip = new Map<string, number>();
+  for (const event of events) {
+    if (event.action !== 'skip') continue;
+    lastSkip.set(event.senseId, Math.max(lastSkip.get(event.senseId) ?? 0, event.at.getTime()));
+  }
+  const ending = new Set<string>(DEFERRAL_ENDING_ACTIONS);
+  const decided = new Set(
+    events
+      .filter((event) => ending.has(event.action) && event.at.getTime() >= (lastSkip.get(event.senseId) ?? 0))
+      .map((event) => event.senseId),
+  );
+  return [...deferred].filter((senseId) => !pending.has(senseId) && !decided.has(senseId));
+}
+
 // ─────────────────────────────────────────────────────────────
 // 按拼写去重（2026-09-05）
 //

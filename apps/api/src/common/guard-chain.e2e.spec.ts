@@ -374,6 +374,11 @@ const NEW_WRITES: Route[] = [
 
 /** 已核实**零写库**的 GET —— 教师只读视角可以读（S08）。 */
 const READ_ONLY_GETS: Route[] = [
+  // profile / overview：词汇组拆成纯读之后放开（620a59b）
+  { method: 'GET', path: '/vocab-v2/profile' },
+  { method: 'GET', path: '/vocab-v2/overview' },
+  { method: 'GET', path: '/vocab-v2/daily/review' },
+  { method: 'GET', path: '/vocab-v2/daily/history' },
   { method: 'GET', path: '/vocab-v2/search?q=ab' },
   { method: 'GET', path: '/vocab-v2/center' },
   { method: 'GET', path: '/vocab-v2/daily' },
@@ -396,8 +401,6 @@ const READ_ONLY_GETS: Route[] = [
  * 的只读查询（交给词汇组 / 主线，见台账「留给其他组的端点」）。
  */
 const IMPLICIT_WRITE_GETS: Route[] = [
-  { method: 'GET', path: '/vocab-v2/profile', label: 'profile() 用 upsert 兜底建档' },
-  { method: 'GET', path: '/vocab-v2/overview', label: 'overview() 调 profile() → upsert' },
   { method: 'GET', path: '/morning-quiz/sessions/s1', label: 'getStudentView() → shuffle.getOrCreate 建乱序表' },
 ];
 

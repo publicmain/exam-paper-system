@@ -1,8 +1,8 @@
-import { BadRequestException, ForbiddenException, Injectable, ServiceUnavailableException } from '@nestjs/common';
+import { BadRequestException, ConflictException, ForbiddenException, GoneException, Injectable, NotFoundException, ServiceUnavailableException } from '@nestjs/common';
 import { EnglishLevel } from '@prisma/client';
 import { PrismaService } from '../common/prisma.service';
 import { canActOnClass } from '../common/roles';
-import { RealtimeTranslationService } from '../vocab/realtime-translation.service';
+import { RealtimeTranslationService, type TranslationResult } from '../vocab/realtime-translation.service';
 import { LEVEL_WORD_POLICY } from './level-policy';
 import {
   OFFICIAL_WORDLIST_META,
@@ -16,13 +16,16 @@ import { canonicalPos, inferPosFromTranslation, senseKey, translationForPos } fr
 import { normaliseDailyTarget, planDailyTask, type PlannerCandidate, type V2Source } from './daily-planner';
 import { contextForEncounter, isTemplateContext } from './context-progression';
 import { initialStageForAction, type LearningCardAction } from './learning-card';
-import { answerFormalQuestion, buildFormalQuestion, hideFormalAnswer, type FormalQuestion, type FrozenCard } from './formal-test';
-import { answerAdaptiveQuestion, buildAdaptiveQuestion, hideAdaptiveAnswer, type AdaptiveCard, type AdaptiveQuestion } from './adaptive-test';
+import { answerFormalQuestion, buildFormalQuestion, publicFormalQuestion, type FormalQuestion, type FrozenCard } from './formal-test';
+import { answerAdaptiveQuestion, buildAdaptiveQuestion, checkActiveUse, publicAdaptiveQuestion, type AdaptiveCard, type AdaptiveQuestion } from './adaptive-test';
 import { learningAssetQuality } from './content-quality';
+import { focusedSentence, parseSourceRef, passageOf, sentenceInPassages } from './collect-context';
+import { assignedReadingFor } from './level-timeline';
 import {
+  activeDeferredSenseIds,
   collectUnseenFromList,
   countActuallyLearned,
-  deferredSenseIds,
+  DEFERRAL_ENDING_ACTIONS,
   headwordKey,
   isTeachingDay,
   pendingDailySessions,
@@ -41,6 +44,54 @@ import {
  */
 export const REVIEW_SAMPLE_SIZE = 3;
 
+/**
+ * 自助练习（custom_test）临时会话的保留期（VOC10，2026-09-11）。
+ *   · 进行中：开始后 6 小时（退出不交、换设备、忘了 —— 都在这之后清掉）；
+ *   · 已交：结果保留 2 小时，够刷新结果页、交卷响应丢了再取一次；之后删除。
+ * 过期后读取给 v2_practice_expired（GET 不删，删交给清理任务，S08 只读）。
+ */
+export const PRACTICE_TTL = { inProgressMs: 6 * 3600_000, resultMs: 2 * 3600_000 } as const;
+
+/** 一份自助练习会话到什么时候失效（毫秒）。没有显式到期时间的老记录按开始 / 交卷时间推。 */
+function practiceExpiresAtMs(session: { status: string; settingsSnapshot?: unknown; startedAt?: Date | null; completedAt?: Date | null }): number {
+  const settings = (session.settingsSnapshot ?? {}) as Record<string, unknown>;
+  const explicit = session.status === 'submitted' ? settings.resultExpiresAt : settings.practiceExpiresAt;
+  const parsed = typeof explicit === 'string' ? Date.parse(explicit) : Number.NaN;
+  if (Number.isFinite(parsed)) return parsed;
+  return session.status === 'submitted'
+    ? (session.completedAt?.getTime() ?? 0) + PRACTICE_TTL.resultMs
+    : (session.startedAt?.getTime() ?? 0) + PRACTICE_TTL.inProgressMs;
+}
+
+/** 正式卷的冻结事实（VOC06）：有卷读卷，没卷给预计。首页、回看、历史共用。 */
+function formalTestFact(
+  test: { id: string; status: string; target: number; items: Array<{ source: string; status: string }> } | null | undefined,
+  dailyItems: ReadonlyArray<{ status: string }>,
+) {
+  if (!test) {
+    return {
+      testSessionId: null as string | null,
+      generated: false,
+      status: 'not_started',
+      total: null as number | null,
+      newWords: null as number | null,
+      reviewWords: null as number | null,
+      answered: 0,
+      expectedNewWords: testableDailyItems(dailyItems).length,
+      reviewWordsMax: REVIEW_SAMPLE_SIZE,
+    };
+  }
+  return {
+    testSessionId: test.id as string | null,
+    generated: true,
+    status: test.status,
+    total: test.target as number | null,
+    newWords: test.items.filter((item) => item.source !== 'review').length as number | null,
+    reviewWords: test.items.filter((item) => item.source === 'review').length as number | null,
+    answered: test.items.filter((item) => item.status === 'answered').length,
+  };
+}
+
 export type CollectionAction = 'learn' | 'known' | 'lookup_only' | 'later';
 
 export interface CollectWordInput {
@@ -51,6 +102,8 @@ export interface CollectWordInput {
   sourceTitle?: string;
   sourceRef?: string;
   source?: 'reading_lookup' | 'reading_error' | 'search' | 'teacher_list';
+  /** 学生点的是显示中的哪一条词义（UI02：按钮绑定显示结果，不读输入框）。 */
+  senseId?: string;
 }
 
 function exactOfficial(headword: string, level: EnglishLevel | null): OfficialWord | null {
@@ -63,6 +116,65 @@ function exactOfficial(headword: string, level: EnglishLevel | null): OfficialWo
 function sgtDay(now = new Date()) {
   const key = new Date(now.getTime() + 8 * 60 * 60 * 1000).toISOString().slice(0, 10);
   return { key, date: new Date(`${key}T00:00:00.000Z`) };
+}
+
+const ACTIVE_USE_LABEL: Record<string, string> = {
+  ok: '检测到目标词，未评估句子质量',
+  only_target_repeated: '只重复了目标词，没有写成句子',
+  target_missing: '没有找到目标词（或它的变形）',
+  too_short: '句子太短，至少写 3 个英文单词',
+  not_words: '没有写英文单词',
+};
+
+/** 造句题回顾里给学生看的检查结果（VOC11）。永远不说「句子正确」。 */
+function activeUseCheckView(headword: string, response: unknown) {
+  const check = checkActiveUse(headword, response);
+  return { ...check, label: ACTIVE_USE_LABEL[check.reason] ?? ACTIVE_USE_LABEL.ok };
+}
+
+/** 与 schema 里 StudentVocabularyProfile 的默认值一致；没存过设置的学生按它算（S08：读不建行）。 */
+const PROFILE_DEFAULTS = { dailyTarget: 10, taskMinutes: 8, mode: 'adaptive_coach', audioAccent: 'en-GB' } as const;
+
+/** 「我的单词」里能当来源的事件 source（VOC09）。student_notebook / review / custom_test 不是来源。 */
+const ORIGIN_SOURCES = new Set(['level_gap', 'teacher_list', 'reading_lookup', 'reading_error', 'search']);
+
+/** 生词本排序键（UI03）：firstSeenAt desc，id desc 兜并列。 */
+type CenterKey = { at: number; id: string };
+function centerKeyOf(row: { firstSeenAt: Date; id: string }): CenterKey {
+  return { at: row.firstSeenAt.getTime(), id: row.id };
+}
+function compareCenterKey(a: CenterKey, b: CenterKey) {
+  return a.at - b.at || (a.id < b.id ? -1 : a.id > b.id ? 1 : 0);
+}
+function encodeCenterCursor(key: CenterKey) {
+  return Buffer.from(`${key.at}|${key.id}`, 'utf8').toString('base64url');
+}
+function decodeCenterCursor(raw: string | undefined): CenterKey | null {
+  if (!raw) return null;
+  const [at, ...rest] = Buffer.from(String(raw), 'base64url').toString('utf8').split('|');
+  const id = rest.join('|');
+  const time = Number(at);
+  if (!Number.isFinite(time) || !id) throw new BadRequestException({ code: 'v2_bad_cursor' });
+  return { at: time, id };
+}
+
+/** 每日学习会话的各项计数（VOC08）：学完、稍后再学、换过、还没处理，互不混。 */
+function learningCounts(items: ReadonlyArray<{ status: string; response?: unknown }>) {
+  const learned = items.filter((item) => item.status === 'completed').length;
+  const deferred = items.filter((item) => item.status === 'skipped').length;
+  const pending = items.filter((item) => item.status === 'pending').length;
+  const replaced = items.reduce((sum, item) => sum + replacementHistory(item.response).length, 0);
+  return { learned, deferred, pending, replaced, processed: learned + deferred };
+}
+
+/** 一张学习卡被「我会了，换一个」换过几次、换掉的是谁（VOC02/VOC08）。 */
+function replacementHistory(response: unknown): Array<{ senseId: string; headword: string }> {
+  const raw = response && typeof response === 'object' && !Array.isArray(response)
+    ? (response as { replacedFrom?: unknown }).replacedFrom
+    : null;
+  return Array.isArray(raw)
+    ? raw.filter((entry): entry is { senseId: string; headword: string } => Boolean(entry && typeof entry === 'object' && typeof (entry as any).senseId === 'string'))
+    : [];
 }
 
 function asStrings(value: unknown): string[] {
@@ -88,13 +200,21 @@ export class VocabularyV2Service {
     };
   }
 
+  /**
+   * 学生的词汇设置。**只读**（S08，2026-09-11）：原来这里 upsert 一行，
+   * `GET /vocab-v2/profile` 和 `GET /vocab-v2/overview` 于是都会写库 —— 教师只读
+   * 视角看一眼就在学生名下建了行。没存过就按 schema 默认值返回，真正建行只在
+   * `POST /vocab-v2/profile`（updateProfile）。
+   */
   async profile(studentId: string) {
-    const row = await this.prisma.studentVocabularyProfile.upsert({
-      where: { studentId },
-      create: { studentId },
-      update: {},
-    });
-    return { ...row, allowedDailyTargets: [5, 10, 15, 20] };
+    const row = await this.prisma.studentVocabularyProfile.findUnique({ where: { studentId } });
+    return {
+      studentId,
+      ...PROFILE_DEFAULTS,
+      ...(row ?? {}),
+      persisted: Boolean(row),
+      allowedDailyTargets: [5, 10, 15, 20],
+    };
   }
 
   async updateProfile(studentId: string, input: { dailyTarget?: number; audioAccent?: 'en-GB' | 'en-US' }) {
@@ -206,6 +326,57 @@ export class VocabularyV2Service {
     return { classId, assignments: rows.map((row) => this.assignmentView(row)) };
   }
 
+  /**
+   * 档位变更的兜底记录（UI01）：每 10 分钟看一眼每个在册学生的 englishLevel，
+   *   · 还没有任何记录 → 写一行 baseline（「从现在起他在这一档」，之前的日子按它算 = 旧口径）；
+   *   · 记录里最后的档位 ≠ 现在的档位（教师在花名册改的、首次落定的，都不经过
+   *     student-auth）→ 写一行 observed（fromLevel = 记录里最后的档位，时间 = 发现时刻）。
+   * 学生自己改档在 student-auth 里已同步写记录，这里看到的就是一致的，不会重复写。
+   * 只增不改；不碰任何历史表。
+   */
+  async observeStudentLevels(now = new Date()) {
+    const students = await this.prisma.user.findMany({
+      where: {
+        role: 'student',
+        archivedAt: null,
+        englishLevel: { not: null },
+        classEnrollments: { some: { role: 'student' } },
+      },
+      select: { id: true, englishLevel: true },
+    });
+    if (!students.length) return { baseline: 0, observed: 0 };
+    const recorded = await this.prisma.studentLevelChange.findMany({
+      where: { studentId: { in: students.map((student) => student.id) } },
+      orderBy: { changedAt: 'asc' },
+      select: { studentId: true, toLevel: true },
+    });
+    const lastLevel = new Map<string, string>();
+    for (const row of recorded) lastLevel.set(row.studentId, row.toLevel);
+    const rows: Array<{ studentId: string; fromLevel: EnglishLevel | null; toLevel: EnglishLevel; source: string; changedAt: Date }> = [];
+    for (const student of students) {
+      const current = student.englishLevel as EnglishLevel;
+      const last = lastLevel.get(student.id);
+      if (last === undefined) rows.push({ studentId: student.id, fromLevel: null, toLevel: current, source: 'baseline', changedAt: now });
+      else if (last !== current) rows.push({ studentId: student.id, fromLevel: last as EnglishLevel, toLevel: current, source: 'observed', changedAt: now });
+    }
+    if (rows.length) await this.prisma.studentLevelChange.createMany({ data: rows });
+    return {
+      baseline: rows.filter((row) => row.source === 'baseline').length,
+      observed: rows.filter((row) => row.source === 'observed').length,
+    };
+  }
+
+  /**
+   * 教师看一个班每个学生的阅读 / 词汇进度。
+   *
+   * 2026-09-11 审计：
+   *   · UI01 / T06：过去每一天分配给学生哪一份阅读，与学生首页走**同一个**
+   *     `assignedReadingFor`（有答卷 = 事实；没答卷按那天结束时的档位；今天按现在的档位）；
+   *   · T01：取消的场次没交过不算欠，已最终交卷的留档（算完成、记 cancelledArchived）；
+   *     `overdue` 与学生首页 readingBacklog 同口径 = 今天以前、还欠着的份数；
+   *   · VOC06：待测题数按冻结卷的 target，没生成的才按学完的新词数，另给 todayTestQuestions；
+   *   · VOC08：学完 0 个的那天 todayTest = not_needed。
+   */
   async teacherClassProgress(actor: { id: string; role: string }, classId: string, now = new Date()) {
     if (!(await canActOnClass(this.prisma, actor, classId))) {
       throw new ForbiddenException({ code: 'not_your_class' });
@@ -219,20 +390,21 @@ export class VocabularyV2Service {
     const studentIds = enrollments.map((row) => row.userId);
     if (!studentIds.length) return { classId, date: day.key, totals: { students: 0 }, students: [] };
 
-    const [readingAssignments, dailySessions, formalSessions, notebookRows] = await Promise.all([
+    const [readingAssignments, dailySessions, formalSessions, notebookRows, levelChanges] = await Promise.all([
       this.prisma.paperAssignment.findMany({
         where: { classId, morningQuizSession: { isNot: null } },
         include: {
-          morningQuizSession: { select: { date: true, level: true } },
+          paper: { select: { name: true } },
+          morningQuizSession: { select: { id: true, date: true, level: true, status: true } },
           submissions: {
-            where: { studentId: { in: studentIds } },
-            select: { studentId: true, finalSubmittedAt: true, status: true, submitSource: true },
+            where: { studentId: { in: studentIds }, status: { not: 'practice' } },
+            select: { id: true, studentId: true, finalSubmittedAt: true, status: true, submitSource: true, _count: { select: { scripts: true } } },
           },
         },
       }),
       this.prisma.vocabularyV2Session.findMany({
         where: { studentId: { in: studentIds }, sessionType: 'daily_learning' },
-        include: { items: { select: { status: true } } },
+        include: { items: { select: { status: true, response: true } } },
         orderBy: { date: 'asc' },
       }),
       this.prisma.vocabularyV2Session.findMany({
@@ -243,23 +415,35 @@ export class VocabularyV2Service {
         where: { studentId: { in: studentIds } },
         select: { studentId: true, inNotebook: true, masteryStage: true, reps: true },
       }),
+      this.prisma.studentLevelChange.findMany({
+        where: { studentId: { in: studentIds } },
+        orderBy: { changedAt: 'asc' },
+        select: { studentId: true, fromLevel: true, toLevel: true, changedAt: true, source: true },
+      }),
     ]);
 
     const formalByKey = new Map(formalSessions.map((row) => [row.sessionKey, row]));
     const rows = enrollments.map(({ user, joinedAt }) => {
-      const firstAssignedDay = sgtDay(joinedAt).date;
-      const assignedReading = readingAssignments.filter((assignment) =>
-        assignment.morningQuizSession &&
-        assignment.morningQuizSession.date.getTime() >= firstAssignedDay.getTime() &&
-        assignment.morningQuizSession.date.getTime() <= day.date.getTime() &&
-        assignment.morningQuizSession.level === user.englishLevel,
-      );
-      const readingDone = assignedReading.filter((assignment) =>
-        assignment.submissions.some((submission) => submission.studentId === user.id && submission.finalSubmittedAt != null && submission.submitSource !== 'system_eod'),
-      ).length;
-      const awaitingMarking = assignedReading.filter((assignment) =>
-        assignment.submissions.some((submission) => submission.studentId === user.id && submission.status === 'submitted'),
-      ).length;
+      const assigned = assignedReadingFor({
+        rows: readingAssignments.map((assignment) => {
+          const submission = assignment.submissions.find((row) => row.studentId === user.id) ?? null;
+          return {
+            assignmentId: assignment.id,
+            classId,
+            title: assignment.paper?.name ?? null,
+            session: assignment.morningQuizSession!,
+            submission: submission
+              ? { id: submission.id, status: submission.status, finalSubmittedAt: submission.finalSubmittedAt, submitSource: submission.submitSource, scripts: submission._count.scripts }
+              : null,
+          };
+        }),
+        joinedAtByClass: new Map([[classId, joinedAt]]),
+        changes: levelChanges.filter((row) => row.studentId === user.id),
+        currentLevel: user.englishLevel,
+        todayKey: day.key,
+      });
+      const overdueRows = assigned.filter((row) => row.owed && row.date < day.key);
+      const todayRow = assigned.find((row) => row.date === day.key) ?? null;
       const learning = dailySessions.filter((session) => session.studentId === user.id);
       const completedLearning = learning.filter((session) => session.status === 'completed');
       const pendingTests = pendingDailySessions(
@@ -272,18 +456,21 @@ export class VocabularyV2Service {
       const words = notebookRows.filter((row) => row.studentId === user.id);
       const todayLearning = learning.find((session) => session.date.getTime() === day.date.getTime()) ?? null;
       const todayFormal = todayLearning ? formalByKey.get(`${todayLearning.sessionKey}:formal`) : null;
+      const todayLearned = todayLearning ? todayLearning.items.filter((item) => item.status === 'completed').length : 0;
       return {
         studentId: user.id,
         name: user.name,
         englishLevel: user.englishLevel,
         reading: {
-          assigned: assignedReading.length,
-          completed: readingDone,
-          overdue: Math.max(0, assignedReading.length - readingDone),
-          awaitingMarking,
-          today: assignedReading.some((assignment) => assignment.morningQuizSession?.date.getTime() === day.date.getTime())
-            ? assignedReading.some((assignment) => assignment.morningQuizSession?.date.getTime() === day.date.getTime() && assignment.submissions.some((submission) => submission.studentId === user.id && submission.finalSubmittedAt != null && submission.submitSource !== 'system_eod')) ? 'completed' : 'pending'
-            : 'none',
+          /** 实际分配给他的份数（入班后、今天及以前；取消未交的不算；取消前已交的留档算） */
+          assigned: assigned.length,
+          completed: assigned.filter((row) => row.completed).length,
+          /** 今天以前还欠着的份数 —— 与学生首页 readingBacklog 同口径（T01） */
+          overdue: overdueRows.length,
+          overdueDates: overdueRows.map((row) => row.date),
+          awaitingMarking: assigned.filter((row) => row.awaitingMarking).length,
+          cancelledArchived: assigned.filter((row) => row.cancelled).length,
+          today: todayRow ? (todayRow.completed ? 'completed' : 'pending') : 'none',
         },
         vocabulary: {
           notebookCount: words.filter((word) => word.inNotebook).length,
@@ -292,9 +479,20 @@ export class VocabularyV2Service {
           unfinishedWords: openWords,
           completedDailySets: completedLearning.length,
           pendingTests: pendingTests.length,
-          pendingTestWords: pendingTests.reduce((sum, session) => sum + session.items.filter((item) => item.status === 'completed').length, 0),
+          /** 待测题数：已生成的按冻结卷 target（含旧词抽查），没生成的按学完的新词数（VOC06） */
+          pendingTestWords: pendingTests.reduce((sum, session) => {
+            const test = formalByKey.get(`${session.sessionKey}:formal`);
+            return sum + (test ? test.target : session.items.filter((item) => item.status === 'completed').length);
+          }, 0),
+          pendingTestsNotGenerated: pendingTests.filter((session) => !formalByKey.has(`${session.sessionKey}:formal`)).length,
           todayLearning: !todayLearning || todayLearning.items.every((item) => item.status === 'pending') ? 'not_started' : todayLearning.status,
-          todayTest: !todayLearning || todayLearning.status !== 'completed' ? 'locked' : todayFormal?.status ?? 'pending',
+          // VOC08：学习阶段结束但一个都没学完（全稍后再学）→ 这天不需要正式卷，老师别等
+          todayTest: !todayLearning || todayLearning.status !== 'completed'
+            ? 'locked'
+            : todayLearned === 0 ? 'not_needed' : todayFormal?.status ?? 'pending',
+          todayTestQuestions: todayFormal ? todayFormal.target : null,
+          todayLearned,
+          todayDeferred: todayLearning ? todayLearning.items.filter((item) => item.status === 'skipped').length : 0,
         },
       };
     });
@@ -369,12 +567,31 @@ export class VocabularyV2Service {
     };
   }
 
+  /**
+   * 「我的单词」列表（VOC09 + UI03，2026-09-11 审计重写）。
+   *
+   * ## 来源：标签和筛选是同一条关系
+   * 一个词的来源 = 这个学生在这个词义上的**全部证据**：收词/推送事件（按 studentId +
+   * senseId 找，不依赖事件上有没有 studentSenseId）+ 他的每日学习会话里那张卡的来源
+   *（老师词表的历史词只有这份证据）。`sources` 是全部来源（按出现先后），`source` 是
+   * 最早的那个；按来源筛选 = `sources` 与所选来源有交集。没有任何证据 → `source: null`、
+   * `sources: []`，不再编造成 level_gap；只有 `source=unknown` 能筛到。
+   *
+   * ## 分页契约
+   * 排序键固定为 (firstSeenAt desc, id desc) —— 不再用 updatedAt（答一次题就跳位置）。
+   *   · 页码：`page` + `pageSize`（1–100，默认 30）。`page` 超过最后一页时**钳到最后一个
+   *     非空页**，返回 `requestedPage` 与 `clamped: true`（移出末页最后一项不会困在空页）。
+   *   · 加载更多：`cursor`（上一次返回的 `nextCursor`）。按排序键接着往后取，中途有词被
+   *     移出也不会跳过或重复。传了 cursor 就忽略 page。
+   *   · `total` = 当前筛选后的总数；`filters` 里的选项按「当前阶段」算，不因别的筛选消失。
+   */
   async vocabularyCenter(studentId: string, input: {
     q?: string;
     source?: string;
     stage?: string;
     page?: number;
     pageSize?: number;
+    cursor?: string;
     article?: string;
     topic?: string;
     list?: string;
@@ -382,55 +599,102 @@ export class VocabularyV2Service {
     dateTo?: string;
   }) {
     const q = input.q?.trim().toLowerCase() || '';
-    const page = Math.max(1, Math.floor(input.page || 1));
-    const pageSize = Math.max(1, Math.min(100, Math.floor(input.pageSize || 30)));
-    const and: any[] = [];
-    if (q) and.push({ sense: { lexeme: { headword: { contains: q, mode: 'insensitive' } } } });
-    if (input.source) and.push({ events: { some: { source: input.source } } });
-    if (input.article) and.push({ events: { some: { sourceTitle: input.article } } });
-    if (input.topic) and.push({ sense: { contexts: { some: { topic: input.topic } } } });
-    if (input.list) and.push({ sense: { lexeme: { listName: input.list } } });
-    const firstSeenAt: { gte?: Date; lte?: Date } = {};
-    if (input.dateFrom && /^\d{4}-\d{2}-\d{2}$/.test(input.dateFrom)) firstSeenAt.gte = new Date(`${input.dateFrom}T00:00:00.000Z`);
-    if (input.dateTo && /^\d{4}-\d{2}-\d{2}$/.test(input.dateTo)) firstSeenAt.lte = new Date(`${input.dateTo}T23:59:59.999Z`);
-    const rows = await this.prisma.studentVocabularySense.findMany({
-      where: {
-        studentId,
-        inNotebook: input.stage === 'removed' ? false : true,
-        ...(Object.keys(firstSeenAt).length ? { firstSeenAt } : {}),
-        ...(input.stage === 'mastered' ? { masteryStage: 8 } : {}),
-        ...(input.stage === 'learning' ? { masteryStage: { gte: 2, lt: 8 } } : {}),
-        ...(input.stage === 'new' ? { masteryStage: 1 } : {}),
-        ...(and.length ? { AND: and } : {}),
-      },
-      include: {
-        sense: {
-          include: {
-            lexeme: true,
-            contexts: { where: { qualityStatus: 'ready' }, orderBy: [{ difficulty: 'asc' }, { position: 'asc' }] },
-            events: { where: { studentId }, orderBy: { createdAt: 'asc' }, take: 1 },
+    const pageSize = Math.max(1, Math.min(100, Math.floor(Number(input.pageSize) || 30)));
+    const requestedPage = Math.max(1, Math.floor(Number(input.page) || 1));
+    const wantedSources = String(input.source ?? '').split(',').map((value) => value.trim()).filter(Boolean);
+    const firstSeenFrom = input.dateFrom && /^\d{4}-\d{2}-\d{2}$/.test(input.dateFrom) ? new Date(`${input.dateFrom}T00:00:00.000Z`) : null;
+    const firstSeenTo = input.dateTo && /^\d{4}-\d{2}-\d{2}$/.test(input.dateTo) ? new Date(`${input.dateTo}T23:59:59.999Z`) : null;
+
+    const [owned, events, dailyItems] = await Promise.all([
+      this.prisma.studentVocabularySense.findMany({
+        where: { studentId },
+        include: {
+          sense: {
+            include: {
+              lexeme: true,
+              contexts: { where: { qualityStatus: 'ready' }, orderBy: [{ difficulty: 'asc' }, { position: 'asc' }] },
+            },
           },
         },
-      },
-      orderBy: [{ updatedAt: 'desc' }, { firstSeenAt: 'desc' }],
+      }),
+      this.prisma.vocabularyCollectionEvent.findMany({
+        where: { studentId },
+        orderBy: { createdAt: 'asc' },
+        select: { senseId: true, source: true, sourceTitle: true, contextText: true, metadata: true, createdAt: true },
+      }),
+      this.prisma.vocabularyV2SessionItem.findMany({
+        where: { session: { studentId, sessionType: 'daily_learning' } },
+        select: { senseId: true, source: true, createdAt: true },
+      }),
+    ]);
+
+    // 每个词义的来源证据（按时间先后）
+    const evidence = new Map<string, Array<{ source: string; at: number; sourceTitle: string | null }>>();
+    const push = (senseId: string, source: string, at: Date, sourceTitle: string | null = null) => {
+      if (!ORIGIN_SOURCES.has(source)) return;
+      if (!evidence.has(senseId)) evidence.set(senseId, []);
+      evidence.get(senseId)!.push({ source, at: at.getTime(), sourceTitle });
+    };
+    for (const event of events) push(event.senseId, event.source, event.createdAt, event.sourceTitle);
+    for (const item of dailyItems) push(item.senseId, item.source, item.createdAt);
+    const personalBySense = new Map<string, { sentence: string; translation: string | null; personal: true }>();
+    for (const event of [...events].reverse()) {
+      if (!event.contextText || personalBySense.has(event.senseId)) continue;
+      const translation = (event.metadata as { personalContextTranslation?: unknown } | null)?.personalContextTranslation;
+      personalBySense.set(event.senseId, { sentence: event.contextText, translation: typeof translation === 'string' ? translation : null, personal: true });
+    }
+
+    const described = owned.map((row) => {
+      const proof = [...(evidence.get(row.senseId) ?? [])].sort((a, b) => a.at - b.at);
+      const sources = [...new Set(proof.map((entry) => entry.source))];
+      const titles = [...new Set(proof.map((entry) => entry.sourceTitle).filter((value): value is string => Boolean(value)))];
+      return { row, sources, titles };
     });
-    const all = await this.prisma.studentVocabularySense.findMany({
-      where: { studentId },
-      select: {
-        masteryStage: true,
-        due: true,
-        spellingSkill: true,
-        listeningSkill: true,
-        speakingSkill: true,
-        firstSeenAt: true,
-        inNotebook: true,
-        reps: true,
-      },
-      orderBy: { firstSeenAt: 'asc' },
+
+    const inStage = described.filter(({ row }) => {
+      if (input.stage === 'removed') return !row.inNotebook;
+      if (!row.inNotebook) return false;
+      if (input.stage === 'mastered') return row.masteryStage === 8;
+      if (input.stage === 'learning') return row.masteryStage >= 2 && row.masteryStage < 8;
+      if (input.stage === 'new') return row.masteryStage === 1;
+      return true;
     });
+    const filtered = inStage.filter(({ row, sources, titles }) => {
+      if (q && !row.sense.lexeme.headword.toLowerCase().includes(q)) return false;
+      if (wantedSources.length) {
+        const matches = wantedSources.some((wanted) => (wanted === 'unknown' ? sources.length === 0 : sources.includes(wanted)));
+        if (!matches) return false;
+      }
+      if (input.article && !titles.includes(input.article)) return false;
+      if (input.topic && !row.sense.contexts.some((context) => context.topic === input.topic)) return false;
+      if (input.list && row.sense.lexeme.listName !== input.list) return false;
+      if (firstSeenFrom && row.firstSeenAt.getTime() < firstSeenFrom.getTime()) return false;
+      if (firstSeenTo && row.firstSeenAt.getTime() > firstSeenTo.getTime()) return false;
+      return true;
+    });
+    filtered.sort((a, b) => compareCenterKey(centerKeyOf(b.row), centerKeyOf(a.row)));
+
+    const total = filtered.length;
+    const pageCount = Math.max(1, Math.ceil(total / pageSize));
+    const after = decodeCenterCursor(input.cursor);
+    let pageRows: typeof filtered;
+    let page: number;
+    if (after) {
+      const start = filtered.findIndex((entry) => compareCenterKey(centerKeyOf(entry.row), after) < 0);
+      const from = start < 0 ? total : start;
+      pageRows = filtered.slice(from, from + pageSize);
+      page = Math.floor(from / pageSize) + 1;
+    } else {
+      page = Math.min(requestedPage, pageCount);
+      pageRows = filtered.slice((page - 1) * pageSize, page * pageSize);
+    }
+    const lastRow = pageRows[pageRows.length - 1];
+    const hasMore = Boolean(lastRow) && filtered.indexOf(lastRow) < total - 1;
+
+    const all = owned;
     const active = all.filter((row) => row.inNotebook);
     const growthByDay = new Map<string, number>();
-    for (const row of active) {
+    for (const row of [...active].sort((a, b) => a.firstSeenAt.getTime() - b.firstSeenAt.getTime())) {
       const day = row.firstSeenAt.toISOString().slice(0, 10);
       growthByDay.set(day, (growthByDay.get(day) ?? 0) + 1);
     }
@@ -447,21 +711,25 @@ export class VocabularyV2Service {
       learning: active.filter((row) => row.masteryStage >= 2 && row.masteryStage < 8).length,
       mastered: active.filter((row) => row.masteryStage === 8).length,
     };
-    const start = (page - 1) * pageSize;
     return {
       stats,
       growth,
       filters: {
-        sources: ['reading_lookup', 'reading_error', 'level_gap', 'search', 'teacher_list'],
+        sources: [...ORIGIN_SOURCES],
         stages: ['new', 'learning', 'mastered', 'removed'],
-        articles: [...new Set(rows.map((row) => row.sense.events[0]?.sourceTitle).filter((value): value is string => Boolean(value)))].sort(),
-        topics: [...new Set(rows.flatMap((row) => row.sense.contexts.map((context) => context.topic)).filter((value): value is string => Boolean(value)))].sort(),
-        lists: [...new Set(rows.map((row) => row.sense.lexeme.listName))].sort(),
+        articles: [...new Set(inStage.flatMap((entry) => entry.titles))].sort(),
+        topics: [...new Set(inStage.flatMap((entry) => entry.row.sense.contexts.map((context) => context.topic)).filter((value): value is string => Boolean(value)))].sort(),
+        lists: [...new Set(inStage.map((entry) => entry.row.sense.lexeme.listName))].sort(),
       },
-      total: rows.length,
+      total,
       page,
       pageSize,
-      items: rows.slice(start, start + pageSize).map((row) => ({
+      pageCount,
+      requestedPage: after ? null : requestedPage,
+      clamped: !after && requestedPage > pageCount,
+      hasMore,
+      nextCursor: hasMore && lastRow ? encodeCenterCursor(centerKeyOf(lastRow.row)) : null,
+      items: pageRows.map(({ row, sources, titles }) => ({
         studentSenseId: row.id,
         senseId: row.senseId,
         headword: row.sense.lexeme.headword,
@@ -480,21 +748,38 @@ export class VocabularyV2Service {
           speaking: row.speakingSkill,
           usage: row.usageSkill,
         },
-        source: row.sense.events[0]?.source ?? 'level_gap',
-        sourceTitle: row.sense.events[0]?.sourceTitle ?? null,
-        context: row.sense.contexts[0] ?? null,
+        source: sources[0] ?? null,
+        sources,
+        sourceTitle: titles[0] ?? null,
+        context: row.sense.contexts[0] ? { ...row.sense.contexts[0], personal: false } : personalBySense.get(row.senseId) ?? null,
         firstSeenAt: row.firstSeenAt,
         inNotebook: row.inNotebook,
       })),
     };
   }
 
+  /**
+   * 自助练习（我的单词里的「抽查」）。个人练习：不写正式成绩、不改掌握度、不生成待办。
+   *
+   * VOC10（2026-09-11）：临时会话有生命周期了 ——
+   *   · 同一个学生同一时间只有一份进行中的练习：再开始会结束旧的（`replacedPrevious`），
+   *     顺手清掉他过期的；
+   *   · `cancelCustomTest` 主动取消（退出）；
+   *   · 交卷后结果保留 `PRACTICE_TTL.resultMs`，刷新 / 响应丢失可再取；到期由清理任务删。
+   */
   async startCustomTest(studentId: string, input: {
     count: 5 | 10 | 20 | 'all';
     scope: 'all' | 'week' | 'weak' | 'mastered' | 'spelling' | 'listening';
     sourceTitle?: string;
-  }) {
-    const since = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+  }, now = new Date()) {
+    const mine = await this.prisma.vocabularyV2Session.findMany({
+      where: { studentId, sessionType: 'custom_test' },
+      select: { id: true, status: true, settingsSnapshot: true, startedAt: true, completedAt: true },
+    });
+    const stale = mine.filter((row) => row.status !== 'submitted' || practiceExpiresAtMs(row) <= now.getTime());
+    if (stale.length) await this.prisma.vocabularyV2Session.deleteMany({ where: { id: { in: stale.map((row) => row.id) }, studentId, sessionType: 'custom_test' } });
+    const replacedPrevious = stale.filter((row) => row.status !== 'submitted' && practiceExpiresAtMs(row) > now.getTime()).length;
+    const since = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
     const owned = await this.prisma.studentVocabularySense.findMany({
       where: {
         studentId,
@@ -509,33 +794,48 @@ export class VocabularyV2Service {
       include: { sense: { include: { lexeme: true, contexts: { where: { qualityStatus: 'ready' }, orderBy: { difficulty: 'asc' } } } } },
       orderBy: [{ updatedAt: 'desc' }, { firstSeenAt: 'desc' }],
     });
-    const limit = input.count === 'all' ? owned.length : input.count;
+    // 同一拼写的两个词义只留一个：否则一题的回顾（卡片里有拼写）会泄露另一题的答案（VOC04）。
+    const byHeadword = new Map<string, (typeof owned)[number]>();
+    for (const row of owned) {
+      const key = headwordKey(row.sense.lexeme.headword);
+      if (key && !byHeadword.has(key)) byHeadword.set(key, row);
+    }
+    const distinct = [...byHeadword.values()];
+    const limit = input.count === 'all' ? distinct.length : input.count;
     // Personal practice must feel fresh but never writes a formal score.  The
     // shuffle is performed after the server has applied ownership filters, so
     // the client can never ask to practise another student's words.
-    const shuffled = [...owned];
+    const shuffled = [...distinct];
     for (let index = shuffled.length - 1; index > 0; index -= 1) {
       const swap = Math.floor(Math.random() * (index + 1));
       [shuffled[index], shuffled[swap]] = [shuffled[swap], shuffled[index]];
     }
     const selected = shuffled.slice(0, limit);
     if (!selected.length) throw new BadRequestException({ code: 'v2_custom_test_empty' });
+    // 听写题只给有服务端录音的词出：没有录音就只能让浏览器朗读 = 把单词明文交给客户端（VOC04）。
+    const audioRows = await this.prisma.wordAudio.findMany({
+      where: { headword: { in: selected.map((row) => headwordKey(row.sense.lexeme.headword)) } },
+      select: { headword: true },
+    });
+    const withAudio = new Set(audioRows.map((row) => row.headword));
     const cards = selected.map((row) => ({
       ...this.cardSnapshot({ sense: row.sense, owned: row }, 5, row.reps + 1),
       masteryStage: row.masteryStage,
+      audioAvailable: withAudio.has(headwordKey(row.sense.lexeme.headword)),
     }) as AdaptiveCard);
-    const nonce = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+    const nonce = `${now.getTime()}-${Math.random().toString(36).slice(2, 8)}`;
+    const practiceExpiresAt = new Date(now.getTime() + PRACTICE_TTL.inProgressMs).toISOString();
     const session = await this.prisma.vocabularyV2Session.create({
       data: {
         sessionKey: `v2:${studentId}:custom:${nonce}`,
         studentId,
-        date: sgtDay().date,
+        date: sgtDay(now).date,
         sessionType: 'custom_test',
         mode: 'adaptive_coach',
         status: 'in_progress',
         version: `V2-CUSTOM-${nonce}`,
         target: selected.length,
-        settingsSnapshot: { ...input, requestedCount: input.count },
+        settingsSnapshot: { ...input, requestedCount: input.count, practiceExpiresAt },
         sourceSummary: { selected: selected.length, scope: input.scope },
         items: {
           create: selected.map((row, index) => ({
@@ -551,7 +851,35 @@ export class VocabularyV2Service {
       },
       include: { items: { orderBy: { position: 'asc' } } },
     });
-    return this.testSessionView(session);
+    return { ...this.testSessionView(session), practiceOnly: true, replacedPrevious, expiresAt: practiceExpiresAt };
+  }
+
+  /** 退出自助练习（VOC10）：删掉这份临时会话；已经没了也算成功。 */
+  async cancelCustomTest(studentId: string, sessionId: string) {
+    const removed = await this.prisma.vocabularyV2Session.deleteMany({ where: { id: sessionId, studentId, sessionType: 'custom_test' } });
+    return { ok: true, cancelled: removed.count > 0 };
+  }
+
+  /** 清理过期的自助练习（VOC10）：进行中超过保留期的、结果超过保留期的。由 cron 每小时调。 */
+  async purgeExpiredCustomTests(now = new Date()) {
+    const rows = await this.prisma.vocabularyV2Session.findMany({
+      where: { sessionType: 'custom_test' },
+      select: { id: true, status: true, settingsSnapshot: true, startedAt: true, completedAt: true },
+    });
+    const expired = rows.filter((row) => practiceExpiresAtMs(row) <= now.getTime()).map((row) => row.id);
+    if (!expired.length) return { deleted: 0 };
+    const removed = await this.prisma.vocabularyV2Session.deleteMany({ where: { id: { in: expired }, sessionType: 'custom_test' } });
+    return { deleted: removed.count };
+  }
+
+  private assertPracticeAlive(session: { sessionType: string; status: string; settingsSnapshot?: unknown; startedAt?: Date | null; completedAt?: Date | null }, now: Date) {
+    if (session.sessionType !== 'custom_test') return;
+    if (practiceExpiresAtMs(session) <= now.getTime()) {
+      throw new GoneException({
+        code: 'v2_practice_expired',
+        message: session.status === 'submitted' ? '这次练习的结果只保留 2 小时，已经清掉了。可以再开始一次。' : '这次练习已经过期了，可以再开始一次。',
+      });
+    }
   }
 
   /**
@@ -569,11 +897,53 @@ export class VocabularyV2Service {
     return { base, note: `${dict.word} 是 ${base.word} 的${m[2]}` };
   }
 
-  async collect(studentId: string, input: CollectWordInput) {
-    const headword = input.headword.trim().toLowerCase().replace(/^[^a-z'-]+|[^a-z'-]+$/g, '');
-    if (!headword) throw new BadRequestException({ code: 'headword_required' });
-    const user = await this.prisma.user.findUnique({ where: { id: studentId }, select: { englishLevel: true } });
-    const published = exactOfficial(headword, user?.englishLevel ?? null);
+  /** 机翻（VOC15 口径）：注入的翻译服务有 translateDetailed 就用它，否则退回旧的 translate()。 */
+  private async machineTranslate(text: string): Promise<TranslationResult> {
+    const translator = this.translator as Partial<RealtimeTranslationService>;
+    if (typeof translator.translateDetailed === 'function') return translator.translateDetailed(text);
+    const value = typeof translator.translate === 'function' ? await translator.translate(text) : null;
+    return value
+      ? { text: value, status: 'ok', retryable: false, provider: 'none' }
+      : { text: null, status: 'provider_error', retryable: true, provider: 'none' };
+  }
+
+  /**
+   * 这个拼写在库里已有的 sense —— **只读**，不建、不改（VOC05）。
+   * 学生点了具体哪一条（senseId）就只认那一条；否则官方词表（学生档位的主表优先）
+   * → 其它词表 → personal；同一词条里 ready 的优先。
+   */
+  private async existingSenseForCollect(headword: string, level: EnglishLevel | null, senseId?: string) {
+    if (senseId) {
+      const chosen = await this.prisma.vocabularySense.findUnique({ where: { id: senseId }, include: { lexeme: true } });
+      if (!chosen || headwordKey(chosen.lexeme.headword) !== headword) {
+        throw new BadRequestException({ code: 'sense_headword_mismatch', message: '要操作的词条和显示的单词对不上，请重新查一次。' });
+      }
+      return chosen;
+    }
+    const published = exactOfficial(headword, level);
+    const lexemes = await this.prisma.vocabularyLexeme.findMany({
+      where: { headword },
+      include: { senses: { orderBy: { createdAt: 'asc' } } },
+      orderBy: [{ rank: 'asc' }, { createdAt: 'asc' }],
+    });
+    const order = (lexeme: { listName: string; listVersion: string }) =>
+      published && lexeme.listName === published.list && lexeme.listVersion === officialListVersion(published.list)
+        ? 0
+        : lexeme.listName === 'ngsl' || lexeme.listName === 'nawl' ? 1 : lexeme.listName === 'personal' ? 3 : 2;
+    const sorted = [...lexemes].sort((a, b) => order(a) - order(b));
+    for (const lexeme of sorted) {
+      const ready = lexeme.senses.find((sense) => sense.qualityStatus === 'ready');
+      if (ready) return { ...ready, lexeme };
+    }
+    const first = sorted.find((lexeme) => lexeme.senses.length);
+    return first ? { ...first.senses[0], lexeme: first } : null;
+  }
+
+  /**
+   * 查词显示用的内容：官方词表 + 本地词典（+ 指针词条）+ 必要时机翻。纯计算，不写库。
+   */
+  private async draftSenseForCollect(headword: string, level: EnglishLevel | null) {
+    const published = exactOfficial(headword, level);
     const dictRaw = await this.prisma.dictEntry.findUnique({ where: { word: headword } });
     const pointer = await this.inflectionPointer(dictRaw);
     const dict = pointer && dictRaw
@@ -587,132 +957,268 @@ export class VocabularyV2Service {
       : dictRaw;
     const rawPos = canonicalPos(published?.pos || dict?.pos);
     const pos = rawPos === 'other' ? (inferPosFromTranslation(dict?.translation) ?? rawPos) : rawPos;
-    let translation = translationForPos(dict?.translation, pos) || await this.translator.translate(headword) || '';
-    if (!translation) throw new ServiceUnavailableException({ code: 'translation_unavailable' });
-    if (pointer) translation = `${pointer.note}；${translation}`;
+    let translation = translationForPos(dict?.translation, pos);
+    let translationStatus: TranslationResult['status'] = translation ? 'ok' : 'empty_input';
+    let retryable = false;
+    let retryAfterSec: number | undefined;
+    if (!translation) {
+      const machine = await this.machineTranslate(headword);
+      translation = machine.text ?? '';
+      translationStatus = machine.status;
+      retryable = machine.retryable;
+      retryAfterSec = machine.retryAfterSec;
+    }
+    if (translation && pointer) translation = `${pointer.note}；${translation}`;
+    return {
+      published,
+      pos,
+      translation,
+      definition: published?.definition || dict?.definition || '',
+      phonetic: published?.phonetic || dict?.phonetic || null,
+      translationStatus,
+      retryable,
+      retryAfterSec,
+    };
+  }
 
-    const listName: OfficialListName | 'personal' = published?.list ?? 'personal';
-    const listVersion = published ? officialListVersion(published.list) : '1';
-    const lexeme = await this.prisma.vocabularyLexeme.upsert({
-      where: { listName_listVersion_headword: { listName, listVersion, headword } },
-      create: {
-        listName,
-        listVersion,
-        rank: published?.rank ?? 0,
-        headword,
-        phonetic: published?.phonetic || dict?.phonetic || null,
-        attribution: published ? OFFICIAL_WORDLIST_META.attribution : 'student search / local dictionary',
+  /**
+   * 句子是否出自这个学生有权阅读的那篇已发布文章（VOC05）。
+   * 只认 `assignment:<id>` / `session:<id>`，而且必须：
+   *   · 是他所在班的布置、没有被取消；
+   *   · 他真的有权读它 —— 他在这份卷上有答卷（打开过），或者它就是他这一档、
+   *     今天及以前的那一场（同班别档的文章不算他的）；
+   *   · 句子逐字出现在那份卷子的文章正文里。
+   */
+  private async verifiedArticleFor(studentId: string, level: EnglishLevel | null, sourceRef: string | undefined, sentence: string | null) {
+    const ref = parseSourceRef(sourceRef);
+    if (!ref || !sentence) return null;
+    const access: any[] = [{ submissions: { some: { studentId } } }];
+    if (level) access.push({ morningQuizSession: { is: { level, date: { lte: sgtDay().date } } } });
+    const assignment = await this.prisma.paperAssignment.findFirst({
+      where: {
+        AND: [
+          ref.kind === 'assignment' ? { id: ref.id } : { morningQuizSession: { is: { id: ref.id } } },
+          { class: { enrollments: { some: { userId: studentId, role: 'student' } } } },
+          { OR: [{ morningQuizSession: { is: null } }, { morningQuizSession: { is: { status: { not: 'cancelled' } } } }] },
+          { OR: access },
+        ],
       },
-      update: {
-        phonetic: published?.phonetic || dict?.phonetic || null,
-      },
-    });
-    const sense = await this.prisma.vocabularySense.upsert({
-      where: { lexemeId_senseKey: { lexemeId: lexeme.id, senseKey: senseKey(pos) } },
-      create: {
-        lexemeId: lexeme.id,
-        senseKey: senseKey(pos),
-        pos,
-        definition: published?.definition || dict?.definition || '',
-        translation,
-        qualityStatus: 'ready',
-      },
-      update: {
-        definition: published?.definition || dict?.definition || '',
-        translation,
-        qualityStatus: 'ready',
+      select: {
+        id: true,
+        paper: { select: { name: true, questions: { select: { question: { select: { content: true } } } } } },
       },
     });
+    if (!assignment) return null;
+    const passages = (assignment.paper?.questions ?? [])
+      .map((row) => passageOf(row.question?.content))
+      .filter((value): value is string => Boolean(value));
+    if (!sentenceInPassages(sentence, passages)) return null;
+    return { assignmentId: assignment.id, title: assignment.paper?.name ?? null };
+  }
+
+  /**
+   * 学生查词后的四个选择：加入 / 我已经会了 / 稍后再学 / 只查一下。
+   *
+   * VOC05（2026-09-11）把「个人输入」和「共享教材」分开：
+   *   · 只查一下 = **零写入**（不建共享词条、不建归属、不写事件）；
+   *   · 已有的共享 sense **一个字都不改**（原来每次收词都用词典/机翻覆盖释义、
+   *     把状态改回 ready）；库里真没有这个词时才按服务端词典/词表建一条；
+   *   · 学生传来的句子只截含目标词的那一句，挂在他自己的收词事件上；
+   *   · 写进共享 `VocabularyContext` 的只有服务端验证过出自他有权阅读的已发布文章
+   *     的句子，译文由服务端出，客户端传来的译文只作他个人的备注。
+   */
+  async collect(studentId: string, input: CollectWordInput) {
+    const headword = input.headword.trim().toLowerCase().replace(/^[^a-z'-]+|[^a-z'-]+$/g, '');
+    if (!headword) throw new BadRequestException({ code: 'headword_required' });
+    const user = await this.prisma.user.findUnique({ where: { id: studentId }, select: { englishLevel: true } });
+    const level = user?.englishLevel ?? null;
+    const existing = await this.existingSenseForCollect(headword, level, input.senseId);
+    const needsDraft = !existing || !String(existing.translation ?? '').trim();
+    const draft = needsDraft ? await this.draftSenseForCollect(headword, level) : null;
+    const displayTranslation = String(existing?.translation ?? '').trim() || draft?.translation || '';
+    if (!displayTranslation) {
+      throw new ServiceUnavailableException({
+        code: 'translation_unavailable',
+        reason: draft?.translationStatus ?? 'provider_error',
+        retryable: draft?.retryable ?? true,
+        ...(draft?.retryAfterSec ? { retryAfterSec: draft.retryAfterSec } : {}),
+        message: draft?.translationStatus === 'no_chinese'
+          ? '暂时没有这个词可靠的中文释义。'
+          : '翻译服务暂时不可用，请稍后重试。',
+      });
+    }
+    const focused = focusedSentence(input.contextSentence, headword);
+    const personalTranslation = input.contextTranslation?.trim() || null;
+
+    const senseView = (sense: { id: string; senseKey: string; pos: string; definition: string; translation: string } | null, phonetic: string | null) => ({
+      id: sense?.id ?? null,
+      headword,
+      senseKey: sense?.senseKey ?? senseKey(draft?.pos ?? 'other'),
+      pos: sense?.pos ?? draft?.pos ?? 'other',
+      definition: String(sense?.definition ?? '').trim() || draft?.definition || '',
+      translation: displayTranslation,
+      phonetic,
+    });
+
+    if (input.action === 'lookup_only') {
+      return {
+        ok: true,
+        action: input.action,
+        added: false,
+        sense: senseView(existing, existing?.lexeme.phonetic ?? draft?.phonetic ?? null),
+        contextId: null,
+        context: focused ? { sentence: focused, translation: personalTranslation, scope: 'personal' as const } : null,
+      };
+    }
+
+    // 需要一条归属行 → 需要一个真实的 sense。库里有就用（不改它）；没有才按服务端数据建。
+    let sense = existing;
+    if (!sense) {
+      const listName: OfficialListName | 'personal' = draft!.published?.list ?? 'personal';
+      const listVersion = draft!.published ? officialListVersion(draft!.published.list) : '1';
+      const lexeme = await this.prisma.vocabularyLexeme.upsert({
+        where: { listName_listVersion_headword: { listName, listVersion, headword } },
+        create: {
+          listName,
+          listVersion,
+          rank: draft!.published?.rank ?? 0,
+          headword,
+          phonetic: draft!.phonetic,
+          attribution: draft!.published ? OFFICIAL_WORDLIST_META.attribution : 'student search / local dictionary',
+        },
+        update: {},
+      });
+      const created = await this.prisma.vocabularySense.upsert({
+        where: { lexemeId_senseKey: { lexemeId: lexeme.id, senseKey: senseKey(draft!.pos) } },
+        create: {
+          lexemeId: lexeme.id,
+          senseKey: senseKey(draft!.pos),
+          pos: draft!.pos,
+          definition: draft!.definition,
+          translation: draft!.translation,
+          qualityStatus: draft!.translation ? 'ready' : 'needs_translation',
+        },
+        update: {},
+      });
+      sense = { ...created, lexeme };
+    }
 
     let contextId: string | null = null;
-    const sentence = input.contextSentence?.trim();
-    if (sentence) {
-      const existing = await this.prisma.vocabularyContext.findFirst({ where: { senseId: sense.id, sentence } });
-      if (existing) contextId = existing.id;
-      else {
-        const position = await this.prisma.vocabularyContext.count({ where: { senseId: sense.id, kind: 'article_original' } }) + 1;
-        const contextTranslation = input.contextTranslation?.trim() || await this.translator.translate(sentence) || '';
-        const context = await this.prisma.vocabularyContext.create({
-          data: {
-            senseId: sense.id,
-            kind: 'article_original',
-            position,
-            sentence,
-            translation: contextTranslation,
-            sourceTitle: input.sourceTitle?.trim() || null,
-            sourceRef: input.sourceRef?.trim() || null,
-            qualityStatus: contextTranslation ? 'ready' : 'needs_translation',
-          },
-        });
-        contextId = context.id;
+    let contextScope: 'shared_verified' | 'personal' | null = focused ? 'personal' : null;
+    let sharedTranslation: string | null = null;
+    let sharedTranslationStatus: TranslationResult['status'] | null = null;
+    const verified = await this.verifiedArticleFor(studentId, level, input.sourceRef, focused);
+    if (verified && focused) {
+      contextScope = 'shared_verified';
+      const found = await this.prisma.vocabularyContext.findFirst({ where: { senseId: sense.id, sentence: focused } });
+      if (found) {
+        contextId = found.id;
+        sharedTranslation = found.translation || null;
+      } else {
+        const machine = await this.machineTranslate(focused);
+        sharedTranslation = machine.text;
+        sharedTranslationStatus = machine.status;
+        for (let attempt = 0; attempt < 3 && !contextId; attempt += 1) {
+          const position = await this.prisma.vocabularyContext.count({ where: { senseId: sense.id, kind: 'article_original' } }) + 1 + attempt;
+          try {
+            const context = await this.prisma.vocabularyContext.create({
+              data: {
+                senseId: sense.id,
+                kind: 'article_original',
+                position,
+                sentence: focused,
+                translation: machine.text ?? '',
+                sourceTitle: verified.title,
+                sourceRef: `assignment:${verified.assignmentId}`,
+                provider: 'article_verified',
+                attribution: 'school reading article + server translation',
+                qualityStatus: machine.text ? 'ready' : 'needs_translation',
+              },
+            });
+            contextId = context.id;
+          } catch (error) {
+            if ((error as { code?: string }).code !== 'P2002') throw error;
+          }
+        }
       }
     }
 
-    let studentSenseId: string | null = null;
-    if (input.action === 'learn' || input.action === 'later' || input.action === 'known') {
-      const existing = await this.prisma.studentVocabularySense.findUnique({
-        where: { studentId_senseId: { studentId, senseId: sense.id } },
-      });
-      // 2026-09-05 盲测 P2-12：「加入我的单词」和「稍后再学」原来落库一模一样。
-      // 现在：加入 = 学生已经认识它了，起步就是第 2 阶（认得），马上可复习；
-      // 稍后 = 只收着（第 1 阶，见过），到期日推到明天，今天的复习不排它。
-      const desiredStage = input.action === 'known'
-        ? 8
-        : input.action === 'learn'
-          ? Math.max(existing?.masteryStage ?? 1, 2)
-          : Math.max(existing?.masteryStage ?? 1, 1);
-      const tomorrow = new Date(new Date(`${sgtDay().key}T00:00:00.000Z`).getTime() + 86_400_000 - 8 * 3600_000);
-      const dueForAction = input.action === 'later' ? { due: tomorrow } : input.action === 'learn' ? { due: new Date() } : {};
-      const owned = await this.prisma.studentVocabularySense.upsert({
-        where: { studentId_senseId: { studentId, senseId: sense.id } },
-        create: {
-          studentId,
-          senseId: sense.id,
-          masteryStage: desiredStage,
-          inNotebook: input.action !== 'known',
-          removedAt: input.action === 'known' ? new Date() : null,
-          ...(desiredStage === 8 ? { masteredAt: new Date() } : {}),
-          ...dueForAction,
-        },
-        update: input.action === 'known'
-          ? { masteryStage: 8, masteredAt: new Date(), inNotebook: false, removedAt: new Date() }
-          : { inNotebook: true, removedAt: null, masteryStage: desiredStage, ...dueForAction },
-      });
-      studentSenseId = owned.id;
-    }
+    const current = await this.prisma.studentVocabularySense.findUnique({
+      where: { studentId_senseId: { studentId, senseId: sense.id } },
+    });
+    // 2026-09-05 盲测 P2-12：「加入我的单词」和「稍后再学」原来落库一模一样。
+    // 现在：加入 = 学生已经认识它了，起步就是第 2 阶（认得），马上可复习；
+    // 稍后 = 只收着（第 1 阶，见过），到期日推到明天，今天的复习不排它。
+    const desiredStage = input.action === 'known'
+      ? 8
+      : input.action === 'learn'
+        ? Math.max(current?.masteryStage ?? 1, 2)
+        : Math.max(current?.masteryStage ?? 1, 1);
+    const tomorrow = new Date(new Date(`${sgtDay().key}T00:00:00.000Z`).getTime() + 86_400_000 - 8 * 3600_000);
+    const dueForAction = input.action === 'later' ? { due: tomorrow } : input.action === 'learn' ? { due: new Date() } : {};
+    const owned = await this.prisma.studentVocabularySense.upsert({
+      where: { studentId_senseId: { studentId, senseId: sense.id } },
+      create: {
+        studentId,
+        senseId: sense.id,
+        masteryStage: desiredStage,
+        inNotebook: input.action !== 'known',
+        removedAt: input.action === 'known' ? new Date() : null,
+        ...(desiredStage === 8 ? { masteredAt: new Date() } : {}),
+        ...dueForAction,
+      },
+      update: input.action === 'known'
+        ? { masteryStage: 8, masteredAt: new Date(), inNotebook: false, removedAt: new Date() }
+        : { inNotebook: true, removedAt: null, masteryStage: desiredStage, ...dueForAction },
+    });
 
     await this.prisma.vocabularyCollectionEvent.create({
       data: {
         studentId,
         senseId: sense.id,
-        studentSenseId,
+        studentSenseId: owned.id,
         source: input.source ?? 'reading_lookup',
         action: input.action,
         sourceTitle: input.sourceTitle?.trim() || null,
         sourceRef: input.sourceRef?.trim() || null,
-        contextText: sentence || null,
-        metadata: contextId ? { contextId } : undefined,
+        // 个人上下文：只截含目标词的那一句，只给他自己看
+        contextText: focused,
+        metadata: {
+          ...(contextId ? { contextId } : {}),
+          ...(personalTranslation && focused ? { personalContextTranslation: personalTranslation } : {}),
+          ...(verified ? { verifiedAssignmentId: verified.assignmentId } : {}),
+        },
       },
     });
 
     return {
       ok: true,
       action: input.action,
-      added: studentSenseId != null,
-      sense: {
-        id: sense.id,
-        headword,
-        senseKey: sense.senseKey,
-        pos: sense.pos,
-        definition: sense.definition,
-        translation: sense.translation,
-        phonetic: lexeme.phonetic,
-      },
+      added: true,
+      sense: senseView(sense, sense.lexeme.phonetic ?? draft?.phonetic ?? null),
       contextId,
+      context: focused
+        ? {
+            sentence: focused,
+            scope: contextScope,
+            translation: contextScope === 'shared_verified' ? sharedTranslation : personalTranslation,
+            ...(sharedTranslationStatus && !sharedTranslation ? { translationStatus: sharedTranslationStatus, retryable: true } : {}),
+          }
+        : null,
     };
   }
 
+  /**
+   * 移出（= 我会了）/ 重新加入。
+   *
+   * VOC13（2026-09-11）：原来「恢复」这条叫 relearn、按钮叫「重新学习」，但它只把
+   * 词放回「我的单词」，并没有开始任何教学。现在它就叫「重新加入」（`restored`）：
+   *   · 只恢复成员关系；历史、来源、学习次数（reps）、累计学词都不动；
+   *   · 不开始教学、不进每日新词（按拼写见过）、也不会被当成「稍后再学」捞回每日任务；
+   *   · 旧接口 `notebook/relearn` 保留为别名，做的是同一件事。
+   */
   async setNotebookMembership(studentId: string, senseId: string, inNotebook: boolean) {
+    if (inNotebook) return this.restoreToNotebook(studentId, senseId);
     const owned = await this.prisma.studentVocabularySense.findUnique({
       where: { studentId_senseId: { studentId, senseId } },
       include: { sense: { include: { lexeme: true } } },
@@ -720,25 +1226,53 @@ export class VocabularyV2Service {
     if (!owned) throw new BadRequestException({ code: 'v2_word_not_found' });
     const updated = await this.prisma.studentVocabularySense.update({
       where: { id: owned.id },
-      data: inNotebook
-        ? { inNotebook: true, removedAt: null, masteryStage: Math.min(owned.masteryStage, 7) }
-        : { inNotebook: false, removedAt: new Date(), masteryStage: 8, masteredAt: owned.masteredAt ?? new Date() },
+      data: { inNotebook: false, removedAt: new Date(), masteryStage: 8, masteredAt: owned.masteredAt ?? new Date() },
     });
     await this.prisma.vocabularyCollectionEvent.create({
-      data: {
-        studentId,
-        senseId,
-        studentSenseId: owned.id,
-        source: 'student_notebook',
-        action: inNotebook ? 'relearn' : 'removed_mastered',
-      },
+      data: { studentId, senseId, studentSenseId: owned.id, source: 'student_notebook', action: 'removed_mastered' },
     });
     return {
       ok: true,
+      action: 'removed' as const,
       senseId,
       headword: owned.sense.lexeme.headword,
       inNotebook: updated.inNotebook,
       removedAt: updated.removedAt,
+    };
+  }
+
+  /** 「重新加入我的单词」—— 只恢复成员关系（VOC13），说明见 setNotebookMembership。 */
+  async restoreToNotebook(studentId: string, senseId: string) {
+    const owned = await this.prisma.studentVocabularySense.findUnique({
+      where: { studentId_senseId: { studentId, senseId } },
+      include: { sense: { include: { lexeme: true } } },
+    });
+    if (!owned) throw new BadRequestException({ code: 'v2_word_not_found' });
+    const wasRemoved = !owned.inNotebook;
+    const updated = wasRemoved
+      ? await this.prisma.studentVocabularySense.update({
+          where: { id: owned.id },
+          // 阶段从「已掌握」退一格，只影响既有的旧词抽查规则能不能抽到它；reps 不动
+          data: { inNotebook: true, removedAt: null, masteryStage: Math.min(owned.masteryStage, 7) },
+        })
+      : owned;
+    if (wasRemoved) {
+      await this.prisma.vocabularyCollectionEvent.create({
+        data: { studentId, senseId, studentSenseId: owned.id, source: 'student_notebook', action: 'restored' },
+      });
+    }
+    return {
+      ok: true,
+      action: 'restored' as const,
+      senseId,
+      headword: owned.sense.lexeme.headword,
+      inNotebook: updated.inNotebook,
+      removedAt: updated.removedAt,
+      /** 没有开始任何教学 —— 想再看它就在「我的单词」里看卡 / 自助抽查 */
+      startsLearning: false,
+      /** 不算新词、不加累计学词 */
+      countsAsNewWord: false,
+      alreadyInNotebook: !wasRemoved,
     };
   }
 
@@ -873,11 +1407,24 @@ export class VocabularyV2Service {
     return session ? this.sessionView(session) : null;
   }
 
+  /**
+   * 学生首页的全部事实（只读，S08）。
+   *
+   * 2026-09-11 审计补的：
+   *   · `home` —— 今天三项任务各自的状态（UI13 / UI14 的后端事实）：
+   *       reading / words / test 各是 not_applicable（给 reason）/ not_generated（给 reason
+   *       或 generation 条件）/ pending / in_progress / completed / awaiting_marking（阅读待批）/
+   *       auto_closed（阅读被系统收卷，仍算没做）。`allDone` 只在三项都完成、待批或不适用时为真。
+   *   · `backlogByDate` / `backlogTotals` —— 今天以前按日期欠多少（阅读 / 新词 / 测试）。
+   *   · `readingBacklog` 按实际分配（UI01，见 level-timeline.ts），每行带 level / levelBasis。
+   *   · `pendingTests` 生成后以冻结卷为准（VOC06）：total / newWords / reviewWords 来自卷子本身；
+   *     没生成的 total 为 null，给 expectedNewWords + reviewWordsMax。
+   */
   async overview(studentId: string, now = new Date()) {
     const day = sgtDay(now);
-    const [profile, today, dailySessions, user] = await Promise.all([
+    const teachingDay = isTeachingDay(day.key);
+    const [profile, dailySessions, user, levelChanges] = await Promise.all([
       this.profile(studentId),
-      this.dailySession(studentId, now),
       this.prisma.vocabularyV2Session.findMany({
         where: {
           studentId,
@@ -898,59 +1445,71 @@ export class VocabularyV2Service {
           },
         },
       }),
+      this.prisma.studentLevelChange.findMany({
+        where: { studentId },
+        orderBy: { changedAt: 'asc' },
+        select: { fromLevel: true, toLevel: true, changedAt: true, source: true },
+      }),
     ]);
-    const recentDaily = dailySessions.filter((session) => session.status === 'completed');
-    const formalKeys = recentDaily.map((session) => `${session.sessionKey}:formal`);
+    const todaySession = dailySessions.find((session) => session.date.getTime() === day.date.getTime()) ?? null;
+    const today = todaySession ? this.sessionView(todaySession) : null;
+
+    // ── 正式词测：以冻结卷为唯一事实（VOC06）──
+    const completedDaily = dailySessions.filter((session) => session.status === 'completed');
+    const formalKeys = completedDaily.map((session) => `${session.sessionKey}:formal`);
     const formal = formalKeys.length
       ? await this.prisma.vocabularyV2Session.findMany({
           where: { studentId, sessionKey: { in: formalKeys } },
-          select: { id: true, sessionKey: true, status: true },
+          select: { id: true, sessionKey: true, status: true, target: true, items: { select: { source: true, status: true } } },
         })
       : [];
     const formalByKey = new Map(formal.map((session) => [session.sessionKey, session]));
+    const testFact = (session: { sessionKey: string; items: Array<{ status: string }> }) =>
+      formalTestFact(formalByKey.get(`${session.sessionKey}:formal`), session.items);
     const pendingTests = pendingDailySessions(
-      recentDaily,
+      completedDaily,
       new Map(formal.map((session) => [session.sessionKey, session.status])),
-    )
-      .map((session) => {
-        const test = formalByKey.get(`${session.sessionKey}:formal`);
-        return {
-          dailySessionId: session.id,
-          testSessionId: test?.id ?? null,
-          date: session.date.toISOString().slice(0, 10),
-          total: testableDailyItems(session.items).length,
-          status: test?.status ?? 'not_started',
-        };
-      });
+    ).map((session) => ({
+      dailySessionId: session.id,
+      date: session.date.toISOString().slice(0, 10),
+      ...testFact(session),
+    }));
+
     const learningBacklog = dailySessions
       .filter((session) => session.status === 'in_progress' && session.date.getTime() < day.date.getTime())
-      .map((session) => ({
-        sessionId: session.id,
-        date: session.date.toISOString().slice(0, 10),
-        completed: session.items.filter((item) => item.status === 'completed').length,
-        target: session.target,
-        status: session.items.every((item) => item.status === 'pending') ? 'not_started' : 'in_progress',
-      }));
+      .map((session) => {
+        const counts = learningCounts(session.items);
+        return {
+          sessionId: session.id,
+          date: session.date.toISOString().slice(0, 10),
+          /** 旧字段 = processed（学完 + 稍后再学） */
+          completed: counts.processed,
+          learned: counts.learned,
+          deferred: counts.deferred,
+          pending: counts.pending,
+          target: session.target,
+          status: counts.processed === 0 ? 'not_started' : 'in_progress',
+        };
+      });
+
+    // ── 阅读：按实际分配（UI01 / T01）──
     const activeEnrollments = user?.classEnrollments ?? [];
-    const joinedByClass = new Map(activeEnrollments.map((enrollment) => [enrollment.classId, sgtDay(enrollment.joinedAt).date]));
-    const readingRows = user?.englishLevel && activeEnrollments.length
+    const joinedAtByClass = new Map(activeEnrollments.map((enrollment) => [enrollment.classId, enrollment.joinedAt]));
+    const earliestJoin = activeEnrollments.length
+      ? sgtDay(new Date(Math.min(...activeEnrollments.map((enrollment) => enrollment.joinedAt.getTime())))).date
+      : null;
+    const readingRows = earliestJoin
       ? await this.prisma.paperAssignment.findMany({
           where: {
             classId: { in: activeEnrollments.map((enrollment) => enrollment.classId) },
-            morningQuizSession: {
-              is: {
-                date: { lt: day.date },
-                level: user.englishLevel,
-                status: { not: 'cancelled' },
-              },
-            },
+            morningQuizSession: { is: { date: { gte: earliestJoin, lte: day.date } } },
           },
           orderBy: { morningQuizSession: { date: 'asc' } },
           select: {
             id: true,
             classId: true,
             paper: { select: { name: true } },
-            morningQuizSession: { select: { id: true, date: true } },
+            morningQuizSession: { select: { id: true, date: true, level: true, status: true } },
             submissions: {
               where: { studentId, status: { not: 'practice' } },
               select: {
@@ -965,25 +1524,137 @@ export class VocabularyV2Service {
           },
         })
       : [];
-    const readingBacklog = readingRows
-      .filter((assignment) => {
-        const joinedAt = joinedByClass.get(assignment.classId);
-        if (!joinedAt || assignment.morningQuizSession!.date.getTime() < joinedAt.getTime()) return false;
-        const submission = assignment.submissions[0];
-        return !submission || submission.finalSubmittedAt == null || submission.submitSource === 'system_eod';
-      })
-      .map((assignment) => {
-        const submission = assignment.submissions[0];
-        return {
-          assignmentId: assignment.id,
-          sessionId: assignment.morningQuizSession!.id,
-          submissionId: submission?.id ?? null,
-          date: assignment.morningQuizSession!.date.toISOString().slice(0, 10),
-          title: assignment.paper.name,
-          status: submission && submission._count.scripts > 0 ? 'in_progress' : 'not_started',
-        };
-      });
-    return { dailyTarget: profile.dailyTarget, today, readingBacklog, learningBacklog, pendingTests };
+    const assigned = assignedReadingFor({
+      rows: readingRows.map((row) => ({
+        assignmentId: row.id,
+        classId: row.classId,
+        title: row.paper?.name ?? null,
+        session: row.morningQuizSession!,
+        submission: row.submissions[0]
+          ? { ...row.submissions[0], scripts: row.submissions[0]._count.scripts }
+          : null,
+      })),
+      joinedAtByClass,
+      changes: levelChanges,
+      currentLevel: user?.englishLevel ?? null,
+      todayKey: day.key,
+    });
+    const readingBacklog = assigned
+      .filter((row) => row.owed && row.date < day.key)
+      .map((row) => ({
+        assignmentId: row.assignmentId,
+        sessionId: row.session.id,
+        submissionId: row.submission?.id ?? null,
+        date: row.date,
+        title: row.title ?? '',
+        status: row.submission && row.submission.scripts > 0 ? 'in_progress' : 'not_started',
+        level: row.level,
+        levelBasis: row.basis,
+      }));
+
+    // ── 今天的三项任务（UI13 / UI14）──
+    const todayReading = assigned.find((row) => row.date === day.key) ?? null;
+    const cancelledToday = readingRows.some((row) =>
+      row.morningQuizSession?.date.getTime() === day.date.getTime()
+      && row.morningQuizSession.status === 'cancelled'
+      && row.morningQuizSession.level === user?.englishLevel);
+    const readingHome = todayReading
+      ? {
+          state: todayReading.state === 'not_started' ? 'pending' : todayReading.state,
+          assignmentId: todayReading.assignmentId,
+          sessionId: todayReading.session.id,
+          submissionId: todayReading.submission?.id ?? null,
+          title: todayReading.title,
+          level: todayReading.level,
+        }
+      : !activeEnrollments.length
+        ? { state: 'not_applicable', reason: 'no_class' }
+        : !teachingDay
+          ? { state: 'not_applicable', reason: 'weekend' }
+          : !user?.englishLevel
+            ? { state: 'not_applicable', reason: 'no_level' }
+            : cancelledToday
+              ? { state: 'not_applicable', reason: 'cancelled' }
+              : { state: 'not_generated', reason: 'no_session_published' };
+
+    const todayCounts = todaySession ? learningCounts(todaySession.items) : null;
+    const wordsHome = todaySession && todayCounts
+      ? {
+          state: todayCounts.pending === 0 ? 'completed' : todayCounts.processed === 0 ? 'pending' : 'in_progress',
+          sessionId: todaySession.id,
+          target: todaySession.target,
+          learned: todayCounts.learned,
+          deferred: todayCounts.deferred,
+          replaced: todayCounts.replaced,
+          pending: todayCounts.pending,
+        }
+      : !teachingDay
+        ? { state: 'not_applicable', reason: 'weekend' }
+        : {
+            state: 'not_generated',
+            generation: {
+              condition: '教学日（周一到周五，新加坡时间）',
+              trigger: 'POST /vocab-v2/daily/start（学生点开学词）或每 10 分钟的后台任务',
+            },
+          };
+
+    const todayTest = todaySession ? testFact(todaySession) : null;
+    const testHome = !todaySession
+      ? teachingDay ? { state: 'not_generated', reason: 'no_word_task_yet' } : { state: 'not_applicable', reason: 'weekend' }
+      : todaySession.status !== 'completed'
+        ? { state: 'not_generated', reason: 'learning_unfinished', generation: { trigger: '学完当天最后一张卡时自动生成' } }
+        : todayCounts!.learned === 0
+          ? { state: 'not_applicable', reason: 'nothing_learned' }
+          : !todayTest!.generated
+            ? { state: 'not_generated', reason: 'ready_to_generate', dailySessionId: todaySession.id, expectedNewWords: todayCounts!.learned, reviewWordsMax: REVIEW_SAMPLE_SIZE }
+            : {
+                state: todayTest!.status === 'submitted' ? 'completed' : todayTest!.answered > 0 ? 'in_progress' : 'pending',
+                dailySessionId: todaySession.id,
+                testSessionId: todayTest!.testSessionId,
+                total: todayTest!.total,
+                newWords: todayTest!.newWords,
+                reviewWords: todayTest!.reviewWords,
+                answered: todayTest!.answered,
+              };
+    // 「今天做完了」按学生能做的算：
+    //   · 系统收卷（auto_closed）的阅读已经关了，学生再也做不了 —— 算这一项结束；
+    //   · 阅读还没发布（not_generated）学生无事可做 —— 不挡全部完成（发布后变成待完成，重新计）；
+    //   · 新词 / 测试的 not_generated 是学生能推进的（点开学词 / 学完生成），不算完成。
+    const done = (state: string) => state === 'completed' || state === 'awaiting_marking' || state === 'auto_closed' || state === 'not_applicable';
+    const readingDone = (state: string) => done(state) || state === 'not_generated';
+
+    // ── 今天以前、按日期的旧待办 ──
+    const byDate = new Map<string, { date: string; reading: number; words: number; test: number }>();
+    const bump = (date: string, key: 'reading' | 'words' | 'test') => {
+      if (!byDate.has(date)) byDate.set(date, { date, reading: 0, words: 0, test: 0 });
+      byDate.get(date)![key] += 1;
+    };
+    for (const row of readingBacklog) bump(row.date, 'reading');
+    for (const row of learningBacklog) bump(row.date, 'words');
+    for (const row of pendingTests) if (row.date < day.key) bump(row.date, 'test');
+    const backlogByDate = [...byDate.values()].sort((a, b) => a.date.localeCompare(b.date));
+
+    return {
+      dailyTarget: profile.dailyTarget,
+      today,
+      readingBacklog,
+      learningBacklog,
+      pendingTests,
+      home: {
+        date: day.key,
+        teachingDay,
+        reading: readingHome,
+        words: wordsHome,
+        test: testHome,
+        allDone: readingDone(readingHome.state) && done(wordsHome.state) && done(testHome.state),
+      },
+      backlogByDate,
+      backlogTotals: {
+        reading: readingBacklog.length,
+        words: learningBacklog.length,
+        test: pendingTests.filter((row) => row.date < day.key).length,
+      },
+    };
   }
 
   private async teacherAssignmentForStudent(studentId: string, date: Date) {
@@ -1015,21 +1686,33 @@ export class VocabularyV2Service {
     assignment: NonNullable<Awaited<ReturnType<VocabularyV2Service['teacherAssignmentForStudent']>>>,
     seen: ReadonlySet<string>,
   ) {
-    const { kept, skipped } = teacherItemsForStudent(
+    const { kept: keptAtSnapshot, skipped } = teacherItemsForStudent(
       assignment.items.map((item) => ({ ...item, headword: item.sense.lexeme.headword, force: item.force })),
       seen,
     );
-    if (!kept.length) return null;
-    const rows = kept.map((item) => ({ sense: item.sense, owned: null }));
+    if (!keptAtSnapshot.length) return null;
+    const user = await this.prisma.user.findUnique({ where: { id: studentId }, select: { englishLevel: true } });
     const created = await this.prisma.$transaction(async (tx) => {
+      // VOC07：与档位词表那条路同一把学生锁；拿到锁后重看「见过」—— 另一天的任务可能刚把某个词给了他
+      await this.lockStudentVocabulary(tx, studentId);
+      const already = await tx.vocabularyV2Session.findUnique({ where: { sessionKey }, include: { items: { orderBy: { position: 'asc' } } } });
+      if (already) return already;
+      const takenNow = await this.takenSinceSnapshot(tx, studentId, keptAtSnapshot.filter((item) => !item.force).map((item) => item.senseId), new Map(keptAtSnapshot.map((item) => [item.senseId, { sense: item.sense }])), new Set());
+      const kept = keptAtSnapshot.filter((item) => !takenNow.has(item.senseId));
+      if (!kept.length) return null;
+      // 老师明确强制重学、而学生其实见过的词：这是「按拼写不重复」的唯一例外，单独记下来（VOC02）
+      const forcedSeen = kept.filter((item) => item.force && seen.has(headwordKey(item.headword))).map((item) => item.headword);
+      const rows = kept.map((item) => ({ sense: item.sense, owned: null }));
+      const owners = new Map<string, string>();
       for (const item of kept) {
-        await tx.studentVocabularySense.upsert({
+        const owned = await tx.studentVocabularySense.upsert({
           where: { studentId_senseId: { studentId, senseId: item.senseId } },
           create: { studentId, senseId: item.senseId, inNotebook: true },
           update: { inNotebook: true, removedAt: null },
         });
+        owners.set(item.senseId, owned.id);
       }
-      return tx.vocabularyV2Session.create({
+      const session = await tx.vocabularyV2Session.create({
         data: {
           sessionKey,
           studentId,
@@ -1045,9 +1728,12 @@ export class VocabularyV2Service {
             assignmentId: assignment.id,
             assignmentVersion: assignment.version,
             classId: assignment.classId,
+            // 开始这天任务时学生所在的档位（换词从这一档的词表补；UI01 历史事实）
+            level: user?.englishLevel ?? 'olevel',
             listName: kept[0]?.sense.lexeme.listName ?? 'ngsl',
             // 按拼写去重跳过的词：记下来，教师端和排查都看得见。
-            skippedSeen: skipped.map((item) => item.headword),
+            skippedSeen: [...skipped, ...keptAtSnapshot.filter((item) => takenNow.has(item.senseId))].map((item) => item.headword),
+            forcedSeen,
           },
           sourceSummary: { teacher_list: kept.length },
           items: {
@@ -1067,8 +1753,69 @@ export class VocabularyV2Service {
         },
         include: { items: { orderBy: { position: 'asc' } } },
       });
+      // VOC09：老师布置的词原来一条来源事件都没有，「我的单词」里被标成「每日新词」
+      for (const item of kept) {
+        await tx.vocabularyCollectionEvent.create({
+          data: {
+            studentId,
+            senseId: item.senseId,
+            studentSenseId: owners.get(item.senseId) ?? null,
+            source: 'teacher_list',
+            action: 'daily_pushed',
+            metadata: { sessionId: session.id, date: day.key, assignmentId: assignment.id, force: Boolean(item.force) },
+          },
+        });
+      }
+      return session;
     });
-    return this.sessionView(created);
+    return created ? this.sessionView(created) : null;
+  }
+
+  /**
+   * 同一个学生的词汇任务生成串行化（VOC07）：在事务里写一下他的设置行 = 拿到这一行的
+   * 行锁，直到提交。两天的任务同时生成时，后到的等先到的提交完再按最新数据重看。
+   */
+  private async lockStudentVocabulary(tx: any, studentId: string) {
+    await tx.studentVocabularyProfile.upsert({
+      where: { studentId },
+      create: { studentId },
+      update: { updatedAt: new Date() },
+    });
+  }
+
+  /**
+   * 拿到学生锁之后，快照之后才被别的任务拿走的候选（VOC07）：
+   *   · 新词 —— 它的拼写现在已经在学生名下了；
+   *   · 延后词 —— 它现在挂在某一天的待学里了。
+   */
+  private async takenSinceSnapshot(
+    tx: any,
+    studentId: string,
+    candidateSenseIds: string[],
+    rows: Map<string, { sense?: { lexeme?: { headword: string } } }>,
+    deferred: ReadonlySet<string>,
+  ): Promise<Set<string>> {
+    const taken = new Set<string>();
+    const fresh = candidateSenseIds.filter((senseId) => !deferred.has(senseId));
+    const headwordOf = (senseId: string) => rows.get(senseId)?.sense?.lexeme?.headword ?? '';
+    const rawHeadwords = [...new Set(fresh.map(headwordOf).filter(Boolean))];
+    if (rawHeadwords.length) {
+      const owned: Array<{ sense: { lexeme: { headword: string } } }> = await tx.studentVocabularySense.findMany({
+        where: { studentId, sense: { lexeme: { headword: { in: rawHeadwords } } } },
+        select: { sense: { select: { lexeme: { select: { headword: true } } } } },
+      });
+      const ownedKeys = new Set(owned.map((row) => headwordKey(row.sense.lexeme.headword)));
+      for (const senseId of fresh) if (ownedKeys.has(headwordKey(headwordOf(senseId)))) taken.add(senseId);
+    }
+    const deferredIds = candidateSenseIds.filter((senseId) => deferred.has(senseId));
+    if (deferredIds.length) {
+      const pending: Array<{ senseId: string }> = await tx.vocabularyV2SessionItem.findMany({
+        where: { senseId: { in: deferredIds }, status: 'pending', session: { studentId, sessionType: 'daily_learning' } },
+        select: { senseId: true },
+      });
+      for (const row of pending) taken.add(row.senseId);
+    }
+    return taken;
   }
 
   async startDailySession(studentId: string, now = new Date(), dateKey?: string) {
@@ -1149,12 +1896,21 @@ export class VocabularyV2Service {
     // 它们永久排除；词表游标也早已越过它们。不在这里显式捞回来，「稍后」
     // 就等于「再也不」。仍在「我的单词」里、且没被学生移出的才回来；
     // 学生点过「我会了」（mastered / 换词）的不回来 —— 那是他明确的决定。
-    const deferredIds = deferredSenseIds(
-      await this.prisma.vocabularyV2SessionItem.findMany({
-        where: { session: { studentId, sessionType: 'daily_learning' }, status: { in: ['skipped', 'completed'] } },
-        select: { senseId: true, status: true },
-      }),
-    );
+    //
+    // VOC07（2026-09-11）：已经挂在某一天待学里的不再安排第二次；最后一次
+    // 「稍后」之后又做过明确决定（移出 / 重新加入 / 会了）的也不回来。
+    const dailyItems = await this.prisma.vocabularyV2SessionItem.findMany({
+      where: { session: { studentId, sessionType: 'daily_learning' }, status: { in: ['skipped', 'completed', 'pending'] } },
+      select: { senseId: true, status: true },
+    });
+    const skippedIds = [...new Set(dailyItems.filter((item) => item.status === 'skipped').map((item) => item.senseId))];
+    const deferralEvents = skippedIds.length
+      ? await this.prisma.vocabularyCollectionEvent.findMany({
+          where: { studentId, senseId: { in: skippedIds }, action: { in: ['skip', ...DEFERRAL_ENDING_ACTIONS] } },
+          select: { senseId: true, action: true, createdAt: true },
+        })
+      : [];
+    const deferredIds = activeDeferredSenseIds(dailyItems, deferralEvents.map((row) => ({ senseId: row.senseId, action: row.action, at: row.createdAt })));
     const deferredSenseSet = new Set<string>();
     if (deferredIds.length) {
       const owned = await this.prisma.studentVocabularySense.findMany({
@@ -1174,22 +1930,35 @@ export class VocabularyV2Service {
 
     const plan = planDailyTask(candidates, profile.dailyTarget);
     if (!plan.length) throw new ServiceUnavailableException({ code: 'no_publishable_vocabulary' });
-    const sourceSummary = Object.fromEntries(
-      (['level_gap'] as V2Source[])
-        .map((source) => [source, plan.filter((item) => item.source === source).length]),
-    );
-    const nextRankByList = new Map<string, number>();
-    for (const item of plan.filter((candidate) => candidate.source === 'level_gap')) {
-      const row = rows.get(item.senseId);
-      if (!row?.sense?.lexeme) continue;
-      // 捞回来的「稍后再学」词 rank 在游标之前，不能让它把游标拉回去。
-      if (deferredSenseSet.has(item.senseId)) continue;
-      const listName = String(row.sense.lexeme.listName);
-      nextRankByList.set(listName, Math.max(nextRankByList.get(listName) ?? 1, Number(row.sense.lexeme.rank) + 1));
-    }
+    const nextRanksFor = (chosen: typeof plan) => {
+      const next = new Map<string, number>();
+      for (const item of chosen.filter((candidate) => candidate.source === 'level_gap')) {
+        const row = rows.get(item.senseId);
+        if (!row?.sense?.lexeme) continue;
+        // 捞回来的「稍后再学」词 rank 在游标之前，不能让它把游标拉回去。
+        if (deferredSenseSet.has(item.senseId)) continue;
+        const listName = String(row.sense.lexeme.listName);
+        next.set(listName, Math.max(next.get(listName) ?? 1, Number(row.sense.lexeme.rank) + 1));
+      }
+      return next;
+    };
 
     try {
       const created = await this.prisma.$transaction(async (tx) => {
+        // VOC07：同一个学生的每日任务串行生成。拿到锁之后按最新已提交的数据重看一次 ——
+        // 另一天的任务（比如补做昨天 + cron 建今天）可能刚把某个新词 / 延后词安排走了。
+        await this.lockStudentVocabulary(tx, studentId);
+        const already = await tx.vocabularyV2Session.findUnique({ where: { sessionKey }, include: { items: { orderBy: { position: 'asc' } } } });
+        if (already) return already;
+        const blocked = await this.takenSinceSnapshot(tx, studentId, candidates.map((candidate) => candidate.senseId), rows, deferredSenseSet);
+        const finalPlan = blocked.size
+          ? planDailyTask(candidates.filter((candidate) => !blocked.has(candidate.senseId)), profile.dailyTarget)
+          : plan;
+        if (!finalPlan.length) throw new ServiceUnavailableException({ code: 'no_publishable_vocabulary' });
+        const nextRankByList = nextRanksFor(finalPlan);
+        const sourceSummary = Object.fromEntries(
+          (['level_gap'] as V2Source[]).map((source) => [source, finalPlan.filter((item) => item.source === source).length]),
+        );
         const session = await tx.vocabularyV2Session.create({
           data: {
             sessionKey,
@@ -1199,7 +1968,7 @@ export class VocabularyV2Service {
             mode: profile.mode,
             status: 'in_progress',
             version: `V2-${day.key.replace(/-/g, '')}-001`,
-            target: plan.length,
+            target: finalPlan.length,
             settingsSnapshot: {
               requestedTarget: profile.dailyTarget,
               taskMinutes: profile.taskMinutes,
@@ -1208,10 +1977,11 @@ export class VocabularyV2Service {
               listName: policy.primary,
               listVersion: officialListVersion(policy.primary),
               listOrder,
+              deferredReturned: finalPlan.filter((item) => deferredSenseSet.has(item.senseId)).length,
             },
             sourceSummary,
             items: {
-              create: plan.map((item) => {
+              create: finalPlan.map((item) => {
                 const row = rows.get(item.senseId);
                 const mastery = row?.owned?.masteryStage ?? 1;
                 return {
@@ -1228,8 +1998,8 @@ export class VocabularyV2Service {
           },
           include: { items: { orderBy: { position: 'asc' } } },
         });
-        for (const item of plan) {
-          await tx.studentVocabularySense.upsert({
+        for (const item of finalPlan) {
+          const owned = await tx.studentVocabularySense.upsert({
             where: { studentId_senseId: { studentId, senseId: item.senseId } },
             create: { studentId, senseId: item.senseId, inNotebook: true },
             update: { inNotebook: true, removedAt: null },
@@ -1238,19 +2008,25 @@ export class VocabularyV2Service {
             data: {
               studentId,
               senseId: item.senseId,
+              // VOC09：来源标签与来源筛选走同一条关系
+              studentSenseId: owned.id,
               source: 'level_gap',
-              action: 'daily_pushed',
+              action: deferredSenseSet.has(item.senseId) ? 'deferred_returned' : 'daily_pushed',
               metadata: { sessionId: session.id, date: day.key },
             },
           });
         }
         for (const cursor of listCursors) {
           const nextRank = nextRankByList.get(cursor.listName) ?? (cursor.exhausted ? officialList(cursor.listName).length + 1 : cursor.startRank);
-          await tx.studentVocabularyCursor.upsert({
+          const current = await tx.studentVocabularyCursor.findUnique({
             where: { studentId_listName_listVersion: { studentId, listName: cursor.listName, listVersion: cursor.listVersion } },
-            create: { studentId, listName: cursor.listName, listVersion: cursor.listVersion, nextRank },
-            update: { nextRank: { set: nextRank } },
           });
+          if (!current) {
+            await tx.studentVocabularyCursor.create({ data: { studentId, listName: cursor.listName, listVersion: cursor.listVersion, nextRank } });
+          } else if (current.nextRank < nextRank) {
+            // 游标只前进：另一天的任务可能刚把它推得更远
+            await tx.studentVocabularyCursor.update({ where: { id: current.id }, data: { nextRank } });
+          }
         }
         return session;
       });
@@ -1266,20 +2042,57 @@ export class VocabularyV2Service {
     }
   }
 
+  /**
+   * 学生翻完一张卡（学完 / 有点难 / 我会了 / 稍后再学）。
+   *
+   * VOC01（2026-09-11 审计）：原来用事务外读到的 `session.items` 算「还剩几张」，
+   * 两个标签页同时点最后两张时各自都看见另一张没学 → 会话永远 in_progress、
+   * 正式卷不生成；重复请求还会把 reps 再加一次。现在：
+   *
+   *   1. 这张卡从 pending 改成 completed / skipped 是**条件更新**
+   *      （`where status = 'pending' AND senseId = 读到的那个`）。Postgres 里
+   *      同一行的并发条件更新会排队、后到的按最新值重判 where —— 只有一次成功。
+   *   2. 学习次数、掌握阶段、来源事件只在「真的转换了」的那一次写。
+   *   3. cursor 只前进不后退（`where cursor < position`）。
+   *   4. 事务**提交之后**再数还剩几张：两个请求各自提交后各数一次，后数的那个
+   *      一定看得见双方的提交（READ COMMITTED 下每条语句看见此前已提交的数据）。
+   *      结束会话本身也是条件更新（`where status = 'in_progress'`），只结一次。
+   *   5. 正式卷由 sessionKey 唯一约束保证只有一份（`startFormalTest` 撞 P2002
+   *      就回读已建好的那份）。
+   *
+   * 已经处理过的卡再来一次（双击、重试、旧页面迟到）→ 原样返回当前会话，不报错、
+   * 不加学习量。
+   */
   async actOnLearningItem(studentId: string, sessionId: string, itemId: string, action: LearningCardAction, responseMs?: number) {
+    if (action === 'replace') throw new BadRequestException({ code: 'use_replace_endpoint' });
     const session = await this.prisma.vocabularyV2Session.findFirst({
       where: { id: sessionId, studentId, sessionType: 'daily_learning' },
       include: { items: { orderBy: { position: 'asc' } } },
     });
     if (!session) throw new BadRequestException({ code: 'v2_session_not_found' });
-    if (session.status !== 'in_progress') throw new BadRequestException({ code: 'v2_session_closed' });
     const item = session.items.find((candidate) => candidate.id === itemId);
     if (!item) throw new BadRequestException({ code: 'v2_item_not_found' });
-    if (action === 'replace') throw new BadRequestException({ code: 'use_replace_endpoint' });
+    if (item.status !== 'pending') return this.learningActionResult(studentId, session.id, true);
+    if (session.status !== 'in_progress') throw new BadRequestException({ code: 'v2_session_closed' });
 
     const desiredStage = initialStageForAction(action, item.masteryBefore);
-    await this.prisma.$transaction(async (tx) => {
-      await tx.studentVocabularySense.upsert({
+    const previousResponse = item.response && typeof item.response === 'object' && !Array.isArray(item.response)
+      ? item.response as Record<string, unknown>
+      : {};
+    const transitioned = await this.prisma.$transaction(async (tx) => {
+      const claim = await tx.vocabularyV2SessionItem.updateMany({
+        where: { id: item.id, sessionId: session.id, status: 'pending', senseId: item.senseId },
+        data: {
+          status: action === 'skip' ? 'skipped' : 'completed',
+          // 换词记录（replacedFrom）要留着：计数「换了几个」靠它（VOC08）。
+          response: { ...previousResponse, action } as any,
+          responseMs: responseMs == null ? null : Math.max(0, Math.floor(responseMs)),
+          attempts: { increment: 1 },
+          completedAt: new Date(),
+        },
+      });
+      if (claim.count === 0) return false;
+      const owned = await tx.studentVocabularySense.upsert({
         where: { studentId_senseId: { studentId, senseId: item.senseId } },
         create: {
           studentId,
@@ -1300,145 +2113,277 @@ export class VocabularyV2Service {
         data: {
           studentId,
           senseId: item.senseId,
+          // 带上归属行：来源筛选和来源标签走同一条关系（VOC09）。
+          studentSenseId: owned.id,
           source: item.source,
           action,
           metadata: { sessionId: session.id, itemId: item.id },
         },
       });
-      await tx.vocabularyV2SessionItem.update({
-        where: { id: item.id },
-        data: {
-          status: action === 'skip' ? 'skipped' : 'completed',
-          response: { action },
-          responseMs: responseMs == null ? null : Math.max(0, Math.floor(responseMs)),
-          attempts: { increment: 1 },
-          completedAt: new Date(),
-        },
+      await tx.vocabularyV2Session.updateMany({
+        where: { id: session.id, cursor: { lt: item.position } },
+        data: { cursor: item.position },
       });
-      const cursor = Math.max(session.cursor, item.position);
-      const remaining = session.items.filter((candidate) => candidate.id !== item.id && !['completed', 'skipped'].includes(candidate.status));
-      await tx.vocabularyV2Session.update({
-        where: { id: session.id },
-        data: remaining.length ? { cursor } : { cursor: session.target, status: 'completed', completedAt: new Date() },
-      });
+      return true;
     });
+    if (!transitioned) {
+      const current = await this.prisma.vocabularyV2SessionItem.findUnique({ where: { id: item.id } });
+      // 被别的请求处理掉了 → 幂等；还是 pending 但换了词 → 学生点的是旧卡。
+      if (current && current.status === 'pending') {
+        throw new ConflictException({ code: 'v2_item_changed', message: '这张卡刚被换成了新词，请看新卡。' });
+      }
+      return this.learningActionResult(studentId, session.id, true);
+    }
+    await this.settleLearningSession(session.id);
+    return this.learningActionResult(studentId, session.id, false);
+  }
+
+  /**
+   * 每日学习会话还有没有没处理的卡；没有了就结束它（只结一次）。
+   * 必须在处理卡片的事务**提交之后**调用 —— 理由见 `actOnLearningItem`。
+   */
+  private async settleLearningSession(sessionId: string) {
+    const remaining = await this.prisma.vocabularyV2SessionItem.count({ where: { sessionId, status: 'pending' } });
+    if (remaining > 0) return false;
+    const session = await this.prisma.vocabularyV2Session.findUnique({ where: { id: sessionId }, select: { target: true } });
+    const closed = await this.prisma.vocabularyV2Session.updateMany({
+      where: { id: sessionId, status: 'in_progress' },
+      data: { status: 'completed', cursor: session?.target ?? 0, completedAt: new Date() },
+    });
+    return closed.count > 0;
+  }
+
+  /** 学完动作的统一返回：最新会话 + 当天那份正式卷（学完且至少学会一个词才有）。 */
+  private async learningActionResult(studentId: string, sessionId: string, replayed: boolean) {
     const refreshed = await this.prisma.vocabularyV2Session.findUnique({
-      where: { id: session.id },
+      where: { id: sessionId },
       include: { items: { orderBy: { position: 'asc' } } },
     });
     let generatedTestId: string | null = null;
+    let generatedTest: { id: string; total: number; newWords: number; reviewWords: number } | null = null;
     if (refreshed?.status === 'completed' && refreshed.items.some((candidate) => candidate.status === 'completed')) {
       const test = await this.startFormalTest(studentId, refreshed.id);
       generatedTestId = test.id;
+      generatedTest = { id: test.id, total: test.total, newWords: test.newWords, reviewWords: test.reviewWords };
     }
-    return { ...this.sessionView(refreshed!), generatedTestId };
+    return { ...this.sessionView(refreshed!), generatedTestId, generatedTest, replayed };
   }
 
-  async replaceDailyItem(studentId: string, sessionId: string, itemId: string) {
+  /**
+   * 「这个词我会了，换一个」（VOC02，2026-09-11 审计重写）。
+   *
+   *   · 候选按**规范化拼写**全局排除：学生名下任何归属行的拼写（阅读 / 搜索 / 已会 /
+   *     已移出 / 其他词义 / 别的词表）+ 本会话里已有的拼写，都不再换进来。
+   *   · 候选顺序：会话冻结的词表（官方表时）→ 学生档位的主表 → 备用表；每张表从游标
+   *     往后**分批一直找到表尾**，不再只看前 100 个。老师词表那天（词表外的词）也从
+   *     档位词表补。只挑库里已有可发布内容（释义 + 带译文的短例句）的词，不临时造。
+   *   · 真耗尽：原词原样留着（不标会、不移出、不写事件），错误里给 kept/options。
+   *   · 幂等：卡片改词用条件更新（`where senseId = 读到的那个 AND status = pending`）；
+   *     客户端带 `expectedSenseId`（它屏幕上那张卡的词义）时，重试 / 双击看到的是
+   *     「已经换过了」的原样返回，不会把刚换上来的新词也标会。两张卡同时换撞到同一个
+   *     新词 → 后到的撞唯一键，换下一个候选重来，不 500。
+   */
+  async replaceDailyItem(studentId: string, sessionId: string, itemId: string, options: { expectedSenseId?: string } = {}) {
     const session = await this.prisma.vocabularyV2Session.findFirst({
-      where: { id: sessionId, studentId, sessionType: 'daily_learning', status: 'in_progress' },
+      where: { id: sessionId, studentId, sessionType: 'daily_learning' },
       include: {
         items: {
           orderBy: { position: 'asc' },
-          include: { sense: { include: { lexeme: true, contexts: true } } },
+          include: { sense: { include: { lexeme: true } } },
         },
       },
     });
     if (!session) throw new BadRequestException({ code: 'v2_session_not_found' });
     const item = session.items.find((candidate) => candidate.id === itemId);
     if (!item) throw new BadRequestException({ code: 'v2_item_not_found' });
-    if (item.status !== 'pending') throw new BadRequestException({ code: 'v2_item_already_completed' });
 
-    const settings = session.settingsSnapshot as any;
-    const listName = (settings?.listName ?? item.sense.lexeme.listName) as OfficialListName;
-    if (listName !== 'ngsl' && listName !== 'nawl') {
-      throw new BadRequestException({ code: 'v2_replacement_source_unavailable' });
-    }
-    const listVersion = officialListVersion(listName);
-    const policyDifficulty = Number(settings?.level && LEVEL_WORD_POLICY[settings.level as EnglishLevel]?.contextDifficulty) || 3;
-    const cursor = await this.prisma.studentVocabularyCursor.findUnique({
-      where: { studentId_listName_listVersion: { studentId, listName, listVersion } },
-    });
-    const startRank = Math.max(cursor?.nextRank ?? 1, 1);
-    const inSession = new Set(session.items.map((candidate) => candidate.senseId));
-    let replacement: Awaited<ReturnType<VocabularyV2Service['ensureOfficialSense']>> | null = null;
-    let replacementWord: OfficialWord | null = null;
-    for (const word of officialList(listName).slice(startRank - 1, startRank - 1 + 100)) {
-      const ready = await this.ensureOfficialSense(word);
-      const asset = learningAssetQuality({
-        headword: ready.lexeme.headword,
-        translation: ready.sense.translation,
-        definition: ready.sense.definition,
-        contexts: ready.sense.contexts,
+    const replayView = async () => {
+      const refreshed = await this.prisma.vocabularyV2Session.findUnique({
+        where: { id: session.id },
+        include: { items: { orderBy: { position: 'asc' } } },
       });
-      if (ready.sense.qualityStatus !== 'ready' || !asset.publishable || inSession.has(ready.sense.id)) continue;
-      const owned = await this.prisma.studentVocabularySense.findUnique({
-        where: { studentId_senseId: { studentId, senseId: ready.sense.id } },
-        select: { id: true },
-      });
-      if (owned) continue;
-      replacement = ready;
-      replacementWord = word;
-      break;
-    }
-    if (!replacement || !replacementWord) {
-      throw new ServiceUnavailableException({ code: 'v2_replacement_exhausted' });
-    }
-    const replacementRow = { sense: { ...replacement.sense, lexeme: replacement.lexeme }, owned: null };
-    const context = contextForEncounter(replacement.sense.contexts ?? [], 1, policyDifficulty);
-
-    await this.prisma.$transaction(async (tx) => {
-      await tx.studentVocabularySense.upsert({
-        where: { studentId_senseId: { studentId, senseId: item.senseId } },
-        create: { studentId, senseId: item.senseId, masteryStage: 8, confidence: 4, masteredAt: new Date(), inNotebook: false, removedAt: new Date() },
-        update: { masteryStage: 8, confidence: 4, masteredAt: new Date(), inNotebook: false, removedAt: new Date() },
-      });
-      await tx.studentVocabularySense.create({
-        data: { studentId, senseId: replacement!.sense.id, inNotebook: true },
-      });
-      await tx.vocabularyCollectionEvent.create({
-        data: {
-          studentId,
-          senseId: item.senseId,
-          source: item.source,
-          action: 'known_replaced',
-          metadata: { sessionId: session.id, itemId: item.id, replacementSenseId: replacement!.sense.id },
-        },
-      });
-      await tx.vocabularyV2SessionItem.update({
-        where: { id: item.id },
-        data: {
-          senseId: replacement!.sense.id,
-          source: 'level_gap',
-          contextId: context?.id ?? null,
-          masteryBefore: 1,
-          contentVersion: replacement!.sense.contentVersion,
-          contentSnapshot: this.cardSnapshot(replacementRow, policyDifficulty, 1),
-          isCorrect: null,
-          attempts: 0,
-          responseMs: null,
-          completedAt: null,
-        },
-      });
-      await tx.studentVocabularyCursor.upsert({
-        where: { studentId_listName_listVersion: { studentId, listName, listVersion } },
-        create: { studentId, listName, listVersion, nextRank: replacementWord!.rank + 1 },
-        update: { nextRank: Math.max(startRank, replacementWord!.rank + 1) },
-      });
-    });
-
-    const refreshed = await this.prisma.vocabularyV2Session.findUnique({
-      where: { id: session.id },
-      include: { items: { orderBy: { position: 'asc' } } },
-    });
-    return {
-      ...this.sessionView(refreshed!),
-      replacement: {
-        position: item.position,
-        oldHeadword: item.sense.lexeme.headword,
-        newHeadword: replacement.lexeme.headword,
-      },
+      const current = refreshed!.items.find((candidate: any) => candidate.id === item.id);
+      const history = replacementHistory(current?.response);
+      const last = history[history.length - 1];
+      return {
+        ...this.sessionView(refreshed!),
+        replacement: last
+          ? { position: item.position, oldHeadword: last.headword, newHeadword: String((current?.contentSnapshot as { headword?: string } | null)?.headword ?? '') }
+          : null,
+        replayed: true,
+      };
     };
+
+    // 客户端屏幕上那张卡已经不是这个词了：换过了就原样返回，否则说明它看的是旧卡。
+    if (options.expectedSenseId && options.expectedSenseId !== item.senseId) {
+      if (replacementHistory(item.response).some((entry) => entry.senseId === options.expectedSenseId)) return replayView();
+      throw new ConflictException({ code: 'v2_item_changed', message: '这张卡已经换成了别的词，请看新卡。' });
+    }
+    if (item.status !== 'pending') throw new BadRequestException({ code: 'v2_item_already_completed' });
+    if (session.status !== 'in_progress') throw new BadRequestException({ code: 'v2_session_closed' });
+
+    const settings = (session.settingsSnapshot ?? {}) as Record<string, unknown>;
+    const user = await this.prisma.user.findUnique({ where: { id: studentId }, select: { englishLevel: true } });
+    const level = (typeof settings.level === 'string' && settings.level in LEVEL_WORD_POLICY
+      ? settings.level
+      : user?.englishLevel ?? 'olevel') as EnglishLevel;
+    const policy = LEVEL_WORD_POLICY[level];
+    const frozenList = settings.listName === 'ngsl' || settings.listName === 'nawl' ? settings.listName as OfficialListName : null;
+    const listOrder = [frozenList, policy.primary, policy.fallback]
+      .filter((value, index, values): value is OfficialListName => Boolean(value) && values.indexOf(value) === index);
+
+    const excluded = await this.seenHeadwords(studentId);
+    for (const row of session.items) {
+      excluded.add(headwordKey(row.sense?.lexeme?.headword ?? ''));
+      excluded.add(headwordKey(String((row.contentSnapshot as { headword?: string } | null)?.headword ?? '')));
+    }
+
+    for (let attempt = 0; attempt < 5; attempt += 1) {
+      const found = await this.nextReplacementCandidate(studentId, listOrder, policy, excluded);
+      if (!found) {
+        throw new ServiceUnavailableException({
+          code: 'v2_replacement_exhausted',
+          kept: true,
+          options: ['learn', 'later'],
+          message: '符合你等级和质量要求、你还没见过的新词暂时找不到了。原词还在，没有被移出：可以照常学它，或点「稍后再学」。',
+        });
+      }
+      const { lexeme, sense, word, listName, listVersion } = found;
+      const replacementRow = { sense: { ...sense, lexeme }, owned: null };
+      const context = contextForEncounter(sense.contexts ?? [], 1, policy.contextDifficulty, lexeme.headword);
+      const oldHeadword = item.sense.lexeme.headword;
+      const previousResponse = item.response && typeof item.response === 'object' && !Array.isArray(item.response)
+        ? item.response as Record<string, unknown>
+        : {};
+      let outcome: 'replaced' | 'stale';
+      try {
+        outcome = await this.prisma.$transaction(async (tx) => {
+          const claim = await tx.vocabularyV2SessionItem.updateMany({
+            where: { id: item.id, sessionId: session.id, status: 'pending', senseId: item.senseId },
+            data: {
+              senseId: sense.id,
+              source: 'level_gap',
+              contextId: context?.id ?? null,
+              masteryBefore: 1,
+              contentVersion: sense.contentVersion,
+              contentSnapshot: this.cardSnapshot(replacementRow, policy.contextDifficulty, 1) as any,
+              // 换词记录：VOC08 数「换了几个」、重试时认出「已经换过」都靠它
+              response: {
+                ...previousResponse,
+                replacedFrom: [...replacementHistory(item.response), { senseId: item.senseId, headword: oldHeadword, at: new Date().toISOString() }],
+              } as any,
+              isCorrect: null,
+              attempts: 0,
+              responseMs: null,
+              completedAt: null,
+            },
+          });
+          if (claim.count === 0) return 'stale' as const;
+          // 新词：此前任何来源都没见过（上面按拼写排除了）；撞唯一键 = 别的请求刚把它给了这个学生
+          const added = await tx.studentVocabularySense.create({ data: { studentId, senseId: sense.id, inNotebook: true } });
+          const original = await tx.studentVocabularySense.upsert({
+            where: { studentId_senseId: { studentId, senseId: item.senseId } },
+            create: { studentId, senseId: item.senseId, masteryStage: 8, confidence: 4, masteredAt: new Date(), inNotebook: false, removedAt: new Date() },
+            update: { masteryStage: 8, confidence: 4, masteredAt: new Date(), inNotebook: false, removedAt: new Date() },
+          });
+          await tx.vocabularyCollectionEvent.create({
+            data: {
+              studentId,
+              senseId: item.senseId,
+              studentSenseId: original.id,
+              source: item.source,
+              action: 'known_replaced',
+              metadata: { sessionId: session.id, itemId: item.id, replacementSenseId: sense.id },
+            },
+          });
+          await tx.vocabularyCollectionEvent.create({
+            data: {
+              studentId,
+              senseId: sense.id,
+              studentSenseId: added.id,
+              source: 'level_gap',
+              action: 'daily_pushed',
+              metadata: { sessionId: session.id, itemId: item.id, date: session.date.toISOString().slice(0, 10), replacing: item.senseId },
+            },
+          });
+          // 游标只前进
+          const cursor = await tx.studentVocabularyCursor.findUnique({ where: { studentId_listName_listVersion: { studentId, listName, listVersion } } });
+          if (!cursor) {
+            await tx.studentVocabularyCursor.create({ data: { studentId, listName, listVersion, nextRank: word.rank + 1 } });
+          } else if (cursor.nextRank < word.rank + 1) {
+            await tx.studentVocabularyCursor.updateMany({
+              where: { id: cursor.id, nextRank: { lt: word.rank + 1 } },
+              data: { nextRank: word.rank + 1 },
+            });
+          }
+          return 'replaced' as const;
+        });
+      } catch (error) {
+        if ((error as { code?: string }).code !== 'P2002') throw error;
+        excluded.add(headwordKey(lexeme.headword));
+        continue;
+      }
+      if (outcome === 'stale') {
+        const current = await this.prisma.vocabularyV2SessionItem.findUnique({ where: { id: item.id } });
+        if (current && replacementHistory(current.response).some((entry) => entry.senseId === item.senseId)) return replayView();
+        if (current && current.status !== 'pending') throw new BadRequestException({ code: 'v2_item_already_completed' });
+        throw new ConflictException({ code: 'v2_item_changed', message: '这张卡刚刚变了，请看新卡。' });
+      }
+      const refreshed = await this.prisma.vocabularyV2Session.findUnique({
+        where: { id: session.id },
+        include: { items: { orderBy: { position: 'asc' } } },
+      });
+      return {
+        ...this.sessionView(refreshed!),
+        replacement: { position: item.position, oldHeadword, newHeadword: lexeme.headword },
+        replayed: false,
+      };
+    }
+    throw new ConflictException({ code: 'v2_replacement_busy', message: '同时换词的请求太多了，请再点一次。' });
+  }
+
+  /**
+   * 换词候选：按表顺序、从游标往后分批找，拿到第一个「拼写没见过 + 库里已有可发布内容」
+   * 的词。每批一次查询，表尾读完换下一张表；都读完返回 null。
+   */
+  private async nextReplacementCandidate(
+    studentId: string,
+    listOrder: OfficialListName[],
+    policy: (typeof LEVEL_WORD_POLICY)[EnglishLevel],
+    excluded: ReadonlySet<string>,
+  ) {
+    const BATCH = 200;
+    for (const listName of listOrder) {
+      const listVersion = officialListVersion(listName);
+      const cursor = await this.prisma.studentVocabularyCursor.findUnique({
+        where: { studentId_listName_listVersion: { studentId, listName, listVersion } },
+      });
+      // 与 startDailySession 同一口径：主表从档位起点起，备用表从 1 起；游标只会更靠后
+      const configuredStart = listName === policy.primary ? policy.startRank : 1;
+      const startRank = Math.max(1, configuredStart, cursor?.nextRank ?? configuredStart);
+      const all = officialList(listName);
+      for (let offset = startRank - 1; offset < all.length; offset += BATCH) {
+        const chunk = all.slice(offset, offset + BATCH).filter((word) => !excluded.has(headwordKey(word.headword)));
+        if (!chunk.length) continue;
+        const lexemes = await this.prisma.vocabularyLexeme.findMany({
+          where: { listName, listVersion, headword: { in: chunk.map((word) => word.headword) } },
+          include: { senses: { where: { qualityStatus: 'ready' }, include: { contexts: { where: { qualityStatus: 'ready' } } } } },
+        });
+        const byHeadword = new Map(lexemes.map((row) => [row.headword, row]));
+        for (const word of chunk) {
+          const lexeme = byHeadword.get(word.headword);
+          if (!lexeme) continue;
+          const sense = lexeme.senses.find((candidate) => learningAssetQuality({
+            headword: lexeme.headword,
+            translation: candidate.translation,
+            definition: candidate.definition,
+            contexts: candidate.contexts,
+          }).publishable);
+          if (sense) return { lexeme, sense, word, listName, listVersion };
+        }
+      }
+    }
+    return null;
   }
 
   async startFormalTest(studentId: string, dailySessionId: string, _now = new Date()) {
@@ -1462,6 +2407,7 @@ export class VocabularyV2Service {
       studentId,
       tested.map((item) => item.senseId),
       REVIEW_SAMPLE_SIZE,
+      tested.map((item) => String((item.contentSnapshot as { headword?: string } | null)?.headword ?? '')),
     );
     const paper = [
       ...tested.map((item) => ({
@@ -1475,7 +2421,9 @@ export class VocabularyV2Service {
       ...sampled,
     ];
     const cards = paper.map((item) => item.contentSnapshot as unknown as FrozenCard);
-    const created = await this.prisma.vocabularyV2Session.create({
+    let created: any;
+    try {
+      created = await this.prisma.vocabularyV2Session.create({
       data: {
         sessionKey,
         studentId,
@@ -1500,7 +2448,17 @@ export class VocabularyV2Service {
         },
       },
       include: { items: { orderBy: { position: 'asc' } } },
-    });
+      });
+    } catch (error) {
+      // 学完回调和首页「开始测试」同时到：sessionKey 唯一，后到的回读那一份（VOC01）。
+      if ((error as { code?: string }).code !== 'P2002') throw error;
+      const raced = await this.prisma.vocabularyV2Session.findUnique({
+        where: { sessionKey },
+        include: { items: { orderBy: { position: 'asc' } } },
+      });
+      if (!raced) throw error;
+      return this.testSessionView(raced);
+    }
     return this.testSessionView(created);
   }
 
@@ -1517,7 +2475,7 @@ export class VocabularyV2Service {
    *
    * 没有可抽的（新生第一天、词全掌握了）就返回空数组，考卷照常只考今天的。
    */
-  private async sampleReviewItems(studentId: string, excludeSenseIds: string[], size: number) {
+  private async sampleReviewItems(studentId: string, excludeSenseIds: string[], size: number, excludeHeadwords: string[] = []) {
     if (size <= 0) return [];
     const owned = await this.prisma.studentVocabularySense.findMany({
       where: {
@@ -1533,8 +2491,13 @@ export class VocabularyV2Service {
       take: 200,
       orderBy: { updatedAt: 'asc' },
     });
+    // 同一拼写的另一个词义不抽（老师强制重推的词可能在旧词里有别的词义）：
+    // 一张卷里同一个拼写出两次，一题的回顾就泄露另一题的答案（VOC04）。
+    const blockedHeadwords = new Set(excludeHeadwords.map(headwordKey).filter(Boolean));
     const usable = owned.filter(
-      (row) => row.sense?.lexeme?.headword && String(row.sense.translation ?? '').trim(),
+      (row) => row.sense?.lexeme?.headword
+        && String(row.sense.translation ?? '').trim()
+        && !blockedHeadwords.has(headwordKey(row.sense.lexeme.headword)),
     );
     if (!usable.length) return [];
 
@@ -1559,12 +2522,19 @@ export class VocabularyV2Service {
     });
     const policy = LEVEL_WORD_POLICY[user?.englishLevel ?? 'olevel'];
 
+    const sampledHeadwords = new Set<string>();
     return usable
       .sort(
         (a, b) =>
           (lastTested.get(a.senseId) ?? 0) - (lastTested.get(b.senseId) ?? 0) ||
           a.senseId.localeCompare(b.senseId),
       )
+      .filter((row) => {
+        const key = headwordKey(row.sense.lexeme.headword);
+        if (sampledHeadwords.has(key)) return false;
+        sampledHeadwords.add(key);
+        return true;
+      })
       .slice(0, size)
       .map((row) => {
         const encounter = (row.reps ?? 0) + 1;
@@ -1585,12 +2555,13 @@ export class VocabularyV2Service {
       });
   }
 
-  async answerTestItem(studentId: string, sessionId: string, itemId: string, response: unknown, responseMs?: number) {
+  async answerTestItem(studentId: string, sessionId: string, itemId: string, response: unknown, responseMs?: number, now = new Date()) {
     const session = await this.prisma.vocabularyV2Session.findFirst({
       where: { id: sessionId, studentId, sessionType: { in: ['formal_test', 'retry', 'custom_test'] }, status: 'in_progress' },
       include: { items: { orderBy: { position: 'asc' } } },
     });
     if (!session) throw new BadRequestException({ code: 'v2_test_not_found' });
+    this.assertPracticeAlive(session, now);
     const item = session.items.find((candidate) => candidate.id === itemId);
     if (!item) throw new BadRequestException({ code: 'v2_item_not_found' });
     if (item.status === 'answered') return this.testSessionView(session);
@@ -1622,29 +2593,35 @@ export class VocabularyV2Service {
     return this.testSessionView(refreshed!);
   }
 
-  async submitTest(studentId: string, sessionId: string) {
+  async submitTest(studentId: string, sessionId: string, now = new Date()) {
     const session = await this.prisma.vocabularyV2Session.findFirst({
       where: { id: sessionId, studentId, sessionType: { in: ['formal_test', 'retry', 'custom_test'] } },
       include: { items: { orderBy: { position: 'asc' } } },
     });
     if (!session) throw new BadRequestException({ code: 'v2_test_not_found' });
-    if (session.status === 'submitted') return this.testSessionView(session);
+    this.assertPracticeAlive(session, now);
+    if (session.status === 'submitted') return this.submittedView(session);
     const unanswered = session.items.filter((item) => item.status !== 'answered');
     if (unanswered.length) throw new BadRequestException({ code: 'v2_test_incomplete', remaining: unanswered.length });
     // Self-selected practice is deliberately disposable: it has no formal
     // score, no mastery mutation and no follow-up task.  We retain only the
-    // short-lived session needed to show the result on the current screen.
+    // short-lived session needed to show (and re-show) the result.
     if (session.sessionType === 'custom_test') {
-      const submitted = await this.prisma.vocabularyV2Session.update({
+      // VOC10：不再交卷即删 —— 结果保留 PRACTICE_TTL.resultMs（刷新 / 响应丢失可再取），
+      // 之后由清理任务删除。仍然不进成绩、统计、历史，也不改掌握度。
+      const settings = (session.settingsSnapshot ?? {}) as Record<string, unknown>;
+      const resultExpiresAt = new Date(now.getTime() + PRACTICE_TTL.resultMs).toISOString();
+      const closed = await this.prisma.vocabularyV2Session.updateMany({
+        where: { id: session.id, status: 'in_progress' },
+        data: { status: 'submitted', cursor: session.target, completedAt: now, settingsSnapshot: { ...settings, resultExpiresAt } as any },
+      });
+      const submitted = await this.prisma.vocabularyV2Session.findUnique({
         where: { id: session.id },
-        data: { status: 'submitted', cursor: session.target, completedAt: new Date() },
         include: { items: { orderBy: { position: 'asc' } } },
       });
-      const result = { ...this.testSessionView(submitted), practiceOnly: true, retry: null };
-      // 自主抽查不进入成绩、统计或历史记录。先构造当前页面需要的结果，
-      // 再删除这份临时会话（items 由外键级联删除）。
-      await this.prisma.vocabularyV2Session.delete({ where: { id: session.id } });
-      return result;
+      if (!submitted) throw new BadRequestException({ code: 'v2_test_not_found' });
+      void closed;
+      return this.submittedView(submitted);
     }
 
     await this.prisma.$transaction(async (tx) => {
@@ -1696,13 +2673,128 @@ export class VocabularyV2Service {
     };
   }
 
-  async testSession(studentId: string, sessionId: string) {
+  /**
+   * 听写题的音频（VOC04）。客户端只有 sessionId + itemId，服务端按这道题冻结的
+   * 词去 WordAudio 取录音；URL、查询串、响应头里都没有单词本身。
+   * 只给听写题：普通拼写题念出来就是答案。
+   */
+  async testItemAudio(studentId: string, sessionId: string, itemId: string) {
+    const item = await this.prisma.vocabularyV2SessionItem.findFirst({
+      where: { id: itemId, sessionId, session: { studentId, sessionType: { in: ['formal_test', 'retry', 'custom_test'] } } },
+      select: { questionSnapshot: true, contentSnapshot: true },
+    });
+    const question = item?.questionSnapshot as { type?: string } | null;
+    if (!item || question?.type !== 'listening_spelling') throw new NotFoundException({ code: 'v2_audio_not_available' });
+    const headword = headwordKey(String((item.contentSnapshot as { headword?: string } | null)?.headword ?? ''));
+    const audio = headword
+      ? await this.prisma.wordAudio.findUnique({ where: { headword }, select: { contentType: true, bytes: true } })
+      : null;
+    if (!audio) throw new NotFoundException({ code: 'v2_audio_not_available' });
+    return { contentType: audio.contentType, bytes: Buffer.from(audio.bytes) };
+  }
+
+  async testSession(studentId: string, sessionId: string, now = new Date()) {
     const session = await this.prisma.vocabularyV2Session.findFirst({
       where: { id: sessionId, studentId, sessionType: { in: ['formal_test', 'retry', 'custom_test'] } },
       include: { items: { orderBy: { position: 'asc' } } },
     });
     if (!session) throw new BadRequestException({ code: 'v2_test_not_found' });
-    return this.testSessionView(session);
+    // 只读：过期了只说过期，不在 GET 里删（S08）
+    this.assertPracticeAlive(session, now);
+    return session.sessionType === 'custom_test' ? this.submittedView(session) : this.testSessionView(session);
+  }
+
+  /** 交卷后的视图：自助练习标 practiceOnly 和结果保留到什么时候。 */
+  private submittedView(session: any): ReturnType<VocabularyV2Service['testSessionView']> & {
+    retry: null;
+    practiceOnly?: boolean;
+    resultExpiresAt?: string;
+    expiresAt?: string;
+  } {
+    const view = this.testSessionView(session);
+    if (session.sessionType !== 'custom_test') return { ...view, retry: null };
+    return {
+      ...view,
+      practiceOnly: true,
+      retry: null,
+      ...(session.status === 'submitted'
+        ? { resultExpiresAt: new Date(practiceExpiresAtMs(session)).toISOString() }
+        : { expiresAt: new Date(practiceExpiresAtMs(session)).toISOString() }),
+    };
+  }
+
+  /**
+   * 按日期只读回看一天的学习任务（VOC12，2026-09-11）。
+   *
+   * 那天冻结的教学卡原样返回：「背一背」只列学完的词（有点难的排前面），稍后再学的、
+   * 还没处理的单独列出它们的去向；正式卷有就给指针，**没有也不生成**。反复打开零写库、
+   * 不加学习量、不改进度。
+   */
+  async reviewDailySession(studentId: string, now = new Date(), dateKey?: string) {
+    const day = this.taskDay(now, dateKey);
+    const session = await this.prisma.vocabularyV2Session.findUnique({
+      where: { sessionKey: `v2:${studentId}:${day.key}:daily` },
+      include: { items: { orderBy: { position: 'asc' } } },
+    });
+    if (!session || session.studentId !== studentId) return null;
+    const test = await this.prisma.vocabularyV2Session.findUnique({
+      where: { sessionKey: `${session.sessionKey}:formal` },
+      select: { id: true, status: true, target: true, items: { select: { source: true, status: true } } },
+    });
+    const view = this.sessionView(session);
+    const headwordOf = (item: { contentSnapshot: unknown }) => String((item.contentSnapshot as { headword?: string } | null)?.headword ?? '');
+    const recite = session.items
+      .filter((item) => item.status === 'completed')
+      .map((item) => ({ id: item.id, position: item.position, action: (item.response as { action?: string } | null)?.action ?? null, card: item.contentSnapshot }))
+      .sort((a, b) => (a.action === 'hard' ? 0 : 1) - (b.action === 'hard' ? 0 : 1) || a.position - b.position);
+    return {
+      readOnly: true,
+      date: view.date,
+      sessionId: session.id,
+      status: session.status,
+      mode: session.mode,
+      learningPhase: view.learningPhase,
+      target: session.target,
+      learned: view.learned,
+      deferred: view.deferred,
+      replaced: view.replaced,
+      pending: view.pending,
+      recite,
+      deferredWords: session.items.filter((item) => item.status === 'skipped').map(headwordOf),
+      pendingWords: session.items.filter((item) => item.status === 'pending').map(headwordOf),
+      test: formalTestFact(test, session.items),
+    };
+  }
+
+  /** 做过的每日学习任务，按日期倒序（VOC12 的「按日期回看」入口）。只读。 */
+  async dailyHistory(studentId: string, now = new Date(), limit = 30) {
+    const day = sgtDay(now);
+    const sessions = await this.prisma.vocabularyV2Session.findMany({
+      where: { studentId, sessionType: 'daily_learning', date: { lte: day.date } },
+      orderBy: { date: 'desc' },
+      take: Math.max(1, Math.min(120, Math.floor(limit) || 30)),
+      include: { items: { select: { status: true, response: true } } },
+    });
+    const tests = sessions.length
+      ? await this.prisma.vocabularyV2Session.findMany({
+          where: { studentId, sessionKey: { in: sessions.map((session) => `${session.sessionKey}:formal`) } },
+          select: { id: true, sessionKey: true, status: true, target: true, items: { select: { source: true, status: true } } },
+        })
+      : [];
+    const testByKey = new Map(tests.map((test) => [test.sessionKey, test]));
+    return {
+      days: sessions.map((session) => {
+        const counts = learningCounts(session.items);
+        return {
+          date: session.date.toISOString().slice(0, 10),
+          sessionId: session.id,
+          status: session.status,
+          target: session.target,
+          ...counts,
+          test: formalTestFact(testByKey.get(`${session.sessionKey}:formal`), session.items),
+        };
+      }),
+    };
   }
 
   /**
@@ -1738,6 +2830,9 @@ export class VocabularyV2Service {
       type: session.sessionType,
       status: session.status,
       total: session.target,
+      // 冻结卷里「当天实际学完的新词」与「旧词抽查」各几题（VOC06：各页面只认这份冻结数字）
+      newWords: session.items.filter((item: any) => item.source !== 'review').length,
+      reviewWords: session.items.filter((item: any) => item.source === 'review').length,
       answered,
       correct: submitted ? correct : null,
       items: session.items.map((item: any) => {
@@ -1746,22 +2841,26 @@ export class VocabularyV2Service {
           id: item.id,
           position: item.position,
           status: item.status,
+          // 进行中且未答：白名单题面（VOC04）；已答或已交：完整题目 + 卡片，供回顾。
           question: item.status === 'answered' || submitted
             ? question
             : session.sessionType === 'custom_test'
-              ? hideAdaptiveAnswer(question)
-              : hideFormalAnswer(question as FormalQuestion),
+              ? publicAdaptiveQuestion(question)
+              : publicFormalQuestion(question as FormalQuestion),
           response: item.status === 'answered' || submitted ? item.response : null,
           isCorrect: item.status === 'answered' || submitted ? item.isCorrect : null,
           card: item.status === 'answered' || submitted ? item.contentSnapshot : null,
+          // VOC11：造句题只能确定「用到了目标词」，结果如实说「未评估句子质量」
+          ...(question?.type === 'active_use' && (item.status === 'answered' || submitted)
+            ? { check: activeUseCheckView(question.answer, (item.response as { value?: unknown } | null)?.value) }
+            : {}),
         };
       }),
     };
   }
 
   private sessionView(session: any) {
-    const completed = session.items.filter((item: any) => ['completed', 'skipped'].includes(item.status)).length;
-    const learned = session.items.filter((item: any) => item.status === 'completed').length;
+    const counts = learningCounts(session.items);
     return {
       id: session.id,
       version: session.version,
@@ -1771,13 +2870,23 @@ export class VocabularyV2Service {
       status: session.status,
       target: session.target,
       cursor: session.cursor,
-      completed,
-      learned,
+      /** 旧字段，= processed（学完 + 稍后再学）。别再拿它说「学了几个」。 */
+      completed: counts.processed,
+      // VOC08：学完 / 稍后再学 / 换过 / 还没处理 各是各的；正式卷只看 learned
+      learned: counts.learned,
+      deferred: counts.deferred,
+      replaced: counts.replaced,
+      pending: counts.pending,
+      processed: counts.processed,
+      testNeeded: counts.learned > 0,
+      learningPhase: counts.pending === 0 ? 'finished' : counts.processed === 0 ? 'not_started' : 'in_progress',
       sourceSummary: session.sourceSummary,
       settings: session.settingsSnapshot,
       deferredUntil: session.deferredUntil?.toISOString().slice(0, 10) ?? null,
       items: session.items.map((item: any) => ({
         id: item.id,
+        // VOC02：换词请求带回 expectedSenseId（屏幕上这张卡的词义），重试不会误换新词
+        senseId: item.senseId,
         position: item.position,
         source: item.source,
         masteryBefore: item.masteryBefore,

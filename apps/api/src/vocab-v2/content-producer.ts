@@ -404,6 +404,9 @@ export async function enqueueVocabularyContent(prisma: PrismaClient, limit = 100
           { qualityStatus: 'ready' },
           missingContexts,
           priority.where,
+          // VOC14：已经有一条没发布的任务（排队 / 进行中 / 等退避重试 / 被拒 / 次数用完）的词义
+          // 不再占这一轮的名额 —— 否则那几条卡住的会一直挤掉新词
+          { contentJobs: { none: { status: { in: ['queued', 'running', 'failed', 'rejected'] } } } },
           ...(seen.size ? [{ id: { notIn: [...seen] } }] : []),
         ],
       },
@@ -425,70 +428,179 @@ export async function enqueueVocabularyContent(prisma: PrismaClient, limit = 100
   return senses.length;
 }
 
-export async function runVocabularyContentBatch(prisma: PrismaClient, requestedLimit = 25) {
+/**
+ * 内容生成任务的租约 / 重试 / 退避（VOC14，2026-09-11 审计）。
+ *
+ * 原症状：worker 只领 queued / failed；进程在 running 中途被杀，那条永远停在 running
+ *（前轮线上见 1 条自 09-02 起一直 running）。领取也不是原子的，两个实例会同时跑同一条、
+ * 双倍付费、各发布一次。
+ *
+ *   · 领取 = 条件更新（where 带上读到的 status + attempts），只有一个 worker 领得到；
+ *   · running 超过 `leaseMs` 视为 worker 已死，可被重新领取（errorCode 记 lease_expired_reclaimed）；
+ *   · 总尝试次数上限 `maxAttempts`（含被回收的那次）—— 用完就定格为 failed，不再重试，不再付费；
+ *   · 失败后按 `backoffMs[attempts]` 退避再试，不是每 5 分钟立刻重打；
+ *   · 发布是幂等的：发布事务里先用「这次领取」做栅栏更新任务状态（被别人回收了就整事务回滚），
+ *     再以 `contentVersion < requestedVersion` 为条件更新词义 —— 同一版本只发布一次；
+ *   · 没过质量门的内容标 rejected，不会把词义标 ready。
+ */
+export const CONTENT_JOB_POLICY = {
+  maxAttempts: 3,
+  leaseMs: 15 * 60_000,
+  /** 第 n 次失败后等多久再试（下标 = 已尝试次数） */
+  backoffMs: [0, 10 * 60_000, 60 * 60_000] as readonly number[],
+} as const;
+
+/** 此刻可以领取的任务。 */
+export function claimableContentJobsWhere(now: Date) {
+  const failedReady: Array<{ status: 'failed'; attempts: number; completedAt: { lte: Date } }> = [];
+  for (let attempts = 1; attempts < CONTENT_JOB_POLICY.maxAttempts; attempts += 1) {
+    const wait = CONTENT_JOB_POLICY.backoffMs[attempts] ?? CONTENT_JOB_POLICY.backoffMs[CONTENT_JOB_POLICY.backoffMs.length - 1];
+    failedReady.push({ status: 'failed', attempts, completedAt: { lte: new Date(now.getTime() - wait) } });
+  }
+  return {
+    OR: [
+      { status: 'queued', attempts: { lt: CONTENT_JOB_POLICY.maxAttempts } },
+      ...failedReady,
+      // 租约过期的 running：worker 多半已经死了
+      { status: 'running', startedAt: { lt: new Date(now.getTime() - CONTENT_JOB_POLICY.leaseMs) } },
+    ],
+  };
+}
+
+const isRecordGone = (error: unknown) => (error as { code?: string })?.code === 'P2025';
+
+type ContentBatchDeps = {
+  now?: () => Date;
+  /** 生成内容（默认：Datamuse + Tatoeba + Azure）。测试注入，零网络。 */
+  generate?: (job: any) => Promise<GeneratedContent>;
+  /** 先补队列（默认 true） */
+  enqueue?: boolean;
+};
+
+async function defaultGenerate(job: any): Promise<GeneratedContent> {
+  const [distractorCandidates, corpusExamples] = await Promise.all([datamuseCandidates(job.sense.lexeme.headword, job.sense.pos), tatoebaExamples(job.sense.lexeme.headword)]);
+  const original = job.sense.contexts.find((context: { kind: string }) => context.kind === 'article_original') ?? null;
+  return generateContent({
+    headword: job.sense.lexeme.headword,
+    pos: job.sense.pos,
+    definition: job.sense.definition,
+    translation: job.sense.translation,
+    originalSentence: original?.sentence ?? null,
+    originalTranslation: original?.translation ?? null,
+    distractorCandidates,
+    corpusExamples,
+  });
+}
+
+export async function runVocabularyContentBatch(prisma: PrismaClient, requestedLimit = 25, deps: ContentBatchDeps = {}) {
+  const now = deps.now ?? (() => new Date());
+  const generate = deps.generate ?? defaultGenerate;
   const limit = Math.max(1, Math.min(200, requestedLimit));
-  await enqueueVocabularyContent(prisma, limit * 4);
+  if (deps.enqueue !== false) await enqueueVocabularyContent(prisma, limit * 4);
   const candidates = await prisma.vocabularyContentJob.findMany({
-    where: { status: { in: ['queued', 'failed'] }, attempts: { lt: 3 } },
+    where: claimableContentJobsWhere(now()),
     include: { sense: { include: { lexeme: true, contexts: { orderBy: [{ difficulty: 'asc' }, { position: 'asc' }] } } } },
     orderBy: { createdAt: 'asc' },
     take: Math.min(800, limit * 8),
   });
   const jobs = balancedCurriculumJobs(candidates, limit);
-  const outcomes: Array<'published' | 'rejected' | 'failed'> = [];
+  type Outcome = 'published' | 'rejected' | 'failed' | 'exhausted' | 'superseded' | 'skipped';
+  const outcomes: Outcome[] = [];
+  let reclaimed = 0;
   const concurrency = Math.max(1, Math.min(8, Number(process.env.VOCAB_CONTENT_CONCURRENCY || 1)));
   for (let offset = 0; offset < jobs.length; offset += concurrency) {
     const chunk = jobs.slice(offset, offset + concurrency);
-    outcomes.push(...await Promise.all(chunk.map(async (job): Promise<'published' | 'rejected' | 'failed'> => {
-    await prisma.vocabularyContentJob.update({ where: { id: job.id }, data: { status: 'running', attempts: { increment: 1 }, startedAt: new Date(), errorCode: null } });
-    try {
-      const [distractorCandidates, corpusExamples] = await Promise.all([datamuseCandidates(job.sense.lexeme.headword, job.sense.pos), tatoebaExamples(job.sense.lexeme.headword)]);
-      const original = job.sense.contexts.find((context) => context.kind === 'article_original') ?? null;
-      const generatedContent = await generateContent({
-        headword: job.sense.lexeme.headword,
-        pos: job.sense.pos,
-        definition: job.sense.definition,
-        translation: job.sense.translation,
-        originalSentence: original?.sentence ?? null,
-        originalTranslation: original?.translation ?? null,
-        distractorCandidates,
-        corpusExamples,
-      });
-      const candidate = generatedContent.candidate;
-      const validation = validateContentCandidate(job.sense.lexeme.headword, candidate);
-      if (!validation.publishable) {
-        await prisma.vocabularyContentJob.update({ where: { id: job.id }, data: { status: 'rejected', candidate: candidate as any, validation: validation as any, errorCode: 'publication_gate_failed', completedAt: new Date() } });
-        return 'rejected';
+    outcomes.push(...await Promise.all(chunk.map(async (job): Promise<Outcome> => {
+      const readState = { id: job.id, status: job.status, attempts: job.attempts };
+      // 租约过期且次数用完：定格为失败，不再付费重试
+      if (job.status === 'running' && job.attempts >= CONTENT_JOB_POLICY.maxAttempts) {
+        try {
+          await prisma.vocabularyContentJob.update({
+            where: readState,
+            data: { status: 'failed', errorCode: 'lease_expired_attempts_exhausted', completedAt: now() },
+          });
+          return 'exhausted';
+        } catch (error) {
+          if (isRecordGone(error)) return 'skipped';
+          throw error;
+        }
       }
-      await prisma.$transaction(async (tx) => {
-        const provenance = (source: CorpusExample | null) => generatedContent.provider === 'azure_openai'
-          ? { provider: 'azure_openai', attribution: 'AI-assisted school content', license: null, externalId: null }
-          : source?.id
-            ? {
-              provider: generatedContent.provider,
-              attribution: `Tatoeba sentence${source.owner ? ` by ${source.owner}` : ''}`,
-              license: source.license,
-              externalId: `tatoeba:${source.id}`,
-            }
-            : source?.origin === 'definition_template'
-              ? { provider: generatedContent.provider, attribution: 'official definition teaching template + Azure Translator', license: null, externalId: null }
-              : { provider: generatedContent.provider, attribution: 'student reading context + Azure Translator', license: null, externalId: null };
-        const shortSource = provenance(generatedContent.shortProvenance);
-        const alternateSource = provenance(generatedContent.alternateProvenance);
-        await tx.vocabularyContext.upsert({ where: { senseId_kind_position: { senseId: job.senseId, kind: 'short_same_meaning', position: 1 } }, create: { senseId: job.senseId, kind: 'short_same_meaning', position: 1, sentence: candidate.shortExample, translation: candidate.shortTranslation, difficulty: 2, qualityStatus: 'ready', ...shortSource }, update: { sentence: candidate.shortExample, translation: candidate.shortTranslation, difficulty: 2, qualityStatus: 'ready', ...shortSource } });
-        await tx.vocabularyContext.upsert({ where: { senseId_kind_position: { senseId: job.senseId, kind: 'alternate_topic', position: 1 } }, create: { senseId: job.senseId, kind: 'alternate_topic', position: 1, sentence: candidate.alternateExample, translation: candidate.alternateTranslation, topic: candidate.alternateTopic, difficulty: 3, qualityStatus: 'ready', ...alternateSource }, update: { sentence: candidate.alternateExample, translation: candidate.alternateTranslation, topic: candidate.alternateTopic, difficulty: 3, qualityStatus: 'ready', ...alternateSource } });
-        await tx.vocabularySense.update({ where: { id: job.senseId }, data: { definition: candidate.definition, collocations: candidate.collocations, wordFamily: candidate.wordFamily, confusionWords: candidate.confusionWords, memoryHint: candidate.memoryHint, qualityStatus: 'ready', contentVersion: job.requestedVersion } });
-        await tx.vocabularyContentJob.update({ where: { id: job.id }, data: { status: 'published', provider: generatedContent.provider, candidate: candidate as any, validation: validation as any, completedAt: new Date() } });
-      });
-      return 'published';
-    } catch (error) {
-      await prisma.vocabularyContentJob.update({ where: { id: job.id }, data: { status: 'failed', errorCode: String((error as Error).message || error).slice(0, 200), completedAt: new Date() } });
-      return 'failed';
-    }
+      // 领取：条件更新，只有一个 worker 领得到
+      let claimedAttempts: number;
+      try {
+        const claimed = await prisma.vocabularyContentJob.update({
+          where: readState,
+          data: {
+            status: 'running',
+            attempts: { increment: 1 },
+            startedAt: now(),
+            errorCode: job.status === 'running' ? 'lease_expired_reclaimed' : null,
+          },
+        });
+        claimedAttempts = Number((claimed as { attempts?: number } | null)?.attempts ?? job.attempts + 1);
+      } catch (error) {
+        if (isRecordGone(error)) return 'skipped';
+        throw error;
+      }
+      if (job.status === 'running') reclaimed += 1;
+      const fence = { id: job.id, status: 'running', attempts: claimedAttempts };
+      try {
+        const generatedContent = await generate(job);
+        const candidate = generatedContent.candidate;
+        const validation = validateContentCandidate(job.sense.lexeme.headword, candidate);
+        if (!validation.publishable) {
+          await prisma.vocabularyContentJob.update({ where: fence, data: { status: 'rejected', candidate: candidate as any, validation: validation as any, errorCode: 'publication_gate_failed', completedAt: now() } });
+          return 'rejected';
+        }
+        await prisma.$transaction(async (tx) => {
+          // 栅栏：这条任务仍是「我这次领取」的 —— 被别的 worker 回收了就整事务回滚
+          await tx.vocabularyContentJob.update({ where: fence, data: { status: 'published', provider: generatedContent.provider, candidate: candidate as any, validation: validation as any, completedAt: now() } });
+          const provenance = (source: CorpusExample | null) => generatedContent.provider === 'azure_openai'
+            ? { provider: 'azure_openai', attribution: 'AI-assisted school content', license: null, externalId: null }
+            : source?.id
+              ? {
+                provider: generatedContent.provider,
+                attribution: `Tatoeba sentence${source.owner ? ` by ${source.owner}` : ''}`,
+                license: source.license,
+                externalId: `tatoeba:${source.id}`,
+              }
+              : source?.origin === 'definition_template'
+                ? { provider: generatedContent.provider, attribution: 'official definition teaching template + Azure Translator', license: null, externalId: null }
+                : { provider: generatedContent.provider, attribution: 'student reading context + Azure Translator', license: null, externalId: null };
+          const shortSource = provenance(generatedContent.shortProvenance);
+          const alternateSource = provenance(generatedContent.alternateProvenance);
+          await tx.vocabularyContext.upsert({ where: { senseId_kind_position: { senseId: job.senseId, kind: 'short_same_meaning', position: 1 } }, create: { senseId: job.senseId, kind: 'short_same_meaning', position: 1, sentence: candidate.shortExample, translation: candidate.shortTranslation, difficulty: 2, qualityStatus: 'ready', ...shortSource }, update: { sentence: candidate.shortExample, translation: candidate.shortTranslation, difficulty: 2, qualityStatus: 'ready', ...shortSource } });
+          await tx.vocabularyContext.upsert({ where: { senseId_kind_position: { senseId: job.senseId, kind: 'alternate_topic', position: 1 } }, create: { senseId: job.senseId, kind: 'alternate_topic', position: 1, sentence: candidate.alternateExample, translation: candidate.alternateTranslation, topic: candidate.alternateTopic, difficulty: 3, qualityStatus: 'ready', ...alternateSource }, update: { sentence: candidate.alternateExample, translation: candidate.alternateTranslation, topic: candidate.alternateTopic, difficulty: 3, qualityStatus: 'ready', ...alternateSource } });
+          // 同一版本只发布一次：词义已经到了（或越过）这个版本就整事务回滚
+          await tx.vocabularySense.update({ where: { id: job.senseId, contentVersion: { lt: job.requestedVersion } }, data: { definition: candidate.definition, collocations: candidate.collocations, wordFamily: candidate.wordFamily, confusionWords: candidate.confusionWords, memoryHint: candidate.memoryHint, qualityStatus: 'ready', contentVersion: job.requestedVersion } });
+        });
+        return 'published';
+      } catch (error) {
+        // 被别的 worker 回收了 / 这个版本已经发布过 → 什么都不写，交给现在持有它的那一方
+        if (isRecordGone(error)) return 'superseded';
+        try {
+          await prisma.vocabularyContentJob.update({ where: fence, data: { status: 'failed', errorCode: String((error as Error).message || error).slice(0, 200), completedAt: now() } });
+        } catch (inner) {
+          if (!isRecordGone(inner)) throw inner;
+          return 'superseded';
+        }
+        return 'failed';
+      }
     })));
   }
-  const published = outcomes.filter((outcome) => outcome === 'published').length;
-  const rejected = outcomes.filter((outcome) => outcome === 'rejected').length;
-  const failed = outcomes.filter((outcome) => outcome === 'failed').length;
-  return { selected: jobs.length, published, rejected, failed };
+  const count = (outcome: Outcome) => outcomes.filter((row) => row === outcome).length;
+  const exhausted = count('exhausted');
+  const superseded = count('superseded');
+  const skipped = count('skipped');
+  return {
+    selected: jobs.length,
+    published: count('published'),
+    rejected: count('rejected'),
+    failed: count('failed') + exhausted,
+    // 只在发生时出现（可观测：回收了几条过期租约、几条次数用完定格、几条被别人接手）
+    ...(reclaimed ? { reclaimed } : {}),
+    ...(exhausted ? { exhausted } : {}),
+    ...(superseded ? { superseded } : {}),
+    ...(skipped ? { skipped } : {}),
+  };
 }

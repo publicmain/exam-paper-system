@@ -1,4 +1,4 @@
-import { BadRequestException, Body, Controller, Get, Post, Query, Req, UseGuards } from '@nestjs/common';
+import { BadRequestException, Body, Controller, Get, Header, Post, Query, Req, StreamableFile, UseGuards } from '@nestjs/common';
 import type { Request } from 'express';
 import { z } from 'zod';
 import { Public } from '../common/auth.guard';
@@ -27,10 +27,10 @@ export class VocabularyV2Controller {
     return this.service.sourceMeta();
   }
 
-  // S08：这条 GET 会**隐式写库**（profile() 用 upsert 兜底建档），所以仍是
-  // 本人写、拒绝教师只读视角。服务层拆成纯读之后再换成 @RequireStudentReadToken。
+  // S08：profile() 已拆成纯读（没有档案时返回默认值，不再 upsert；s08-readonly-gets.spec），
+  // 所以教师只读视角可以看。
   @Public()
-  @RequireStudentToken()
+  @RequireStudentReadToken()
   @Get('profile')
   profile(@Req() req: Request) {
     return this.service.profile(studentIdOf(req));
@@ -66,6 +66,8 @@ export class VocabularyV2Controller {
     @Query('stage') stage = '',
     @Query('page') page = '1',
     @Query('pageSize') pageSize = '30',
+    // UI03：「加载更多」用上一次返回的 nextCursor，中途移出也不跳不重
+    @Query('cursor') cursor = '',
     @Query('article') article = '',
     @Query('topic') topic = '',
     @Query('list') list = '',
@@ -78,6 +80,7 @@ export class VocabularyV2Controller {
       stage,
       page: Number(page),
       pageSize: Number(pageSize),
+      cursor: cursor || undefined,
       article,
       topic,
       list,
@@ -100,6 +103,17 @@ export class VocabularyV2Controller {
     return this.service.startCustomTest(studentIdOf(req), parsed.data);
   }
 
+  /** VOC10：退出自助练习 —— 删掉这份临时会话（已经没了也算成功）。 */
+  @Public()
+  @RequireStudentToken()
+  @RateLimit({ limit: 60, windowSec: 60, scope: 'ip' })
+  @Post('custom-test/cancel')
+  cancelCustomTest(@Req() req: Request, @Body() body: unknown) {
+    const parsed = z.object({ sessionId: z.string().min(1).max(80) }).strict().safeParse(body);
+    if (!parsed.success) throw new BadRequestException(parsed.error.flatten());
+    return this.service.cancelCustomTest(studentIdOf(req), parsed.data.sessionId);
+  }
+
   @Public()
   @RequireStudentToken()
   @RateLimit({ limit: 120, windowSec: 60, scope: 'user' })
@@ -113,6 +127,8 @@ export class VocabularyV2Controller {
       sourceTitle: z.string().max(240).optional(),
       sourceRef: z.string().max(240).optional(),
       source: z.enum(['reading_lookup', 'reading_error', 'search', 'teacher_list']).optional(),
+      // UI02 / VOC05：按钮绑定显示中的那条词义；与 headword 对不上会被拒绝
+      senseId: z.string().min(1).max(80).optional(),
     }).strict().safeParse(body);
     if (!parsed.success) throw new BadRequestException(parsed.error.flatten());
     return this.service.collect(studentIdOf(req), parsed.data);
@@ -127,13 +143,24 @@ export class VocabularyV2Controller {
     return this.service.setNotebookMembership(studentIdOf(req), parsed.data.senseId, false);
   }
 
+  /** VOC13：「重新加入我的单词」—— 只恢复成员关系，不开始教学、不算新词。 */
+  @Public()
+  @RequireStudentToken()
+  @Post('notebook/restore')
+  restore(@Req() req: Request, @Body() body: unknown) {
+    const parsed = z.object({ senseId: z.string().min(1).max(80) }).strict().safeParse(body);
+    if (!parsed.success) throw new BadRequestException(parsed.error.flatten());
+    return this.service.restoreToNotebook(studentIdOf(req), parsed.data.senseId);
+  }
+
+  /** 旧名字（VOC13 之前）。保留给还没更新的前端，做的是「重新加入」。 */
   @Public()
   @RequireStudentToken()
   @Post('notebook/relearn')
   relearn(@Req() req: Request, @Body() body: unknown) {
     const parsed = z.object({ senseId: z.string().min(1).max(80) }).strict().safeParse(body);
     if (!parsed.success) throw new BadRequestException(parsed.error.flatten());
-    return this.service.setNotebookMembership(studentIdOf(req), parsed.data.senseId, true);
+    return this.service.restoreToNotebook(studentIdOf(req), parsed.data.senseId);
   }
 
   @Public()
@@ -145,9 +172,27 @@ export class VocabularyV2Controller {
     return this.service.dailySession(studentIdOf(req), new Date(), parsed.data);
   }
 
-  // S08：同上 —— overview() 先调 profile()，没有档案时会 upsert 建一行。
+  /** VOC12：按日期只读回看那天冻结的学习卡（背一背）与正式卷指针；不生成任何东西。 */
   @Public()
-  @RequireStudentToken()
+  @RequireStudentReadToken()
+  @Get('daily/review')
+  dailyReview(@Req() req: Request, @Query('date') date = '') {
+    const parsed = z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional().safeParse(date || undefined);
+    if (!parsed.success) throw new BadRequestException({ code: 'bad_task_date' });
+    return this.service.reviewDailySession(studentIdOf(req), new Date(), parsed.data);
+  }
+
+  /** VOC12：做过的每日学习任务，按日期倒序（「按日期回看」入口）。只读。 */
+  @Public()
+  @RequireStudentReadToken()
+  @Get('daily/history')
+  dailyHistory(@Req() req: Request, @Query('limit') limit = '30') {
+    return this.service.dailyHistory(studentIdOf(req), new Date(), Number(limit));
+  }
+
+  // S08：overview() 已拆成纯读（620a59b，s08-readonly-gets.spec 捕获写入为空），教师只读视角可看。
+  @Public()
+  @RequireStudentReadToken()
   @Get('overview')
   overview(@Req() req: Request) {
     return this.service.overview(studentIdOf(req));
@@ -200,9 +245,13 @@ export class VocabularyV2Controller {
     const parsed = z.object({
       sessionId: z.string().min(1).max(80),
       itemId: z.string().min(1).max(80),
+      // VOC02：屏幕上那张卡的词义。带上它，重试 / 双击不会把刚换上来的新词也标会。
+      expectedSenseId: z.string().min(1).max(80).optional(),
     }).strict().safeParse(body);
     if (!parsed.success) throw new BadRequestException(parsed.error.flatten());
-    return this.service.replaceDailyItem(studentIdOf(req), parsed.data.sessionId, parsed.data.itemId);
+    return this.service.replaceDailyItem(studentIdOf(req), parsed.data.sessionId, parsed.data.itemId, {
+      expectedSenseId: parsed.data.expectedSenseId,
+    });
   }
 
   @Public()
@@ -221,6 +270,21 @@ export class VocabularyV2Controller {
   test(@Req() req: Request, @Query('sessionId') sessionId = '') {
     if (!sessionId) throw new BadRequestException({ code: 'v2_session_required' });
     return this.service.testSession(studentIdOf(req), sessionId);
+  }
+
+  /**
+   * 听写题音频（VOC04）：只凭 sessionId + itemId 取，URL 里没有单词。
+   * 前端用带令牌的 fetch 取回 blob 再播放；不缓存。
+   */
+  @Public()
+  @RequireStudentToken()
+  @RateLimit({ limit: 120, windowSec: 60, scope: 'ip' })
+  @Get('test/audio')
+  @Header('Cache-Control', 'no-store')
+  async testAudio(@Req() req: Request, @Query('sessionId') sessionId = '', @Query('itemId') itemId = '') {
+    if (!sessionId || !itemId) throw new BadRequestException({ code: 'v2_session_required' });
+    const audio = await this.service.testItemAudio(studentIdOf(req), sessionId, itemId);
+    return new StreamableFile(audio.bytes, { type: audio.contentType });
   }
 
   @Public()

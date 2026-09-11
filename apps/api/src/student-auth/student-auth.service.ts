@@ -626,6 +626,14 @@ export class StudentAuthService {
    *
    * 也**不动** `studentAuthVersion` —— 改难度不是改凭据，没有理由把他
    * 手里的令牌作废、把他踢回登录页。
+   *
+   * ## UI01（2026-09-11）：再追加一条改档记录
+   *
+   * 过去的日子分配给他哪一档，要按「那一天结束时他在哪档」算（vocab-v2
+   * `level-timeline.ts`）；只看现在的 englishLevel，改一次档过去的欠账就整批换掉。
+   * 所以真的换了档时，另外**追加**一行 `StudentLevelChange`（只增不改，不碰任何历史表）。
+   * 先改档、后记录：记录写失败不挡改档 —— 词汇 cron 每 10 分钟会把「记录里最后的档位
+   * ≠ 现在的档位」补记成 observed，时间晚几分钟而已。
    */
   async setEnglishLevel(studentId: string, level: string) {
     if (!isPilotLevel(level)) throw new BadRequestException({ code: 'level_not_allowed' });
@@ -645,10 +653,21 @@ export class StudentAuthService {
       throw new BadRequestException({ code: 'level_not_offered' });
     }
 
+    const before = await this.prisma.user.findUnique({ where: { id: studentId }, select: { englishLevel: true } });
     await this.prisma.user.update({
       where: { id: studentId },
       data: { englishLevel: level as PilotLevel },
     });
+    const fromLevel = (before?.englishLevel ?? null) as PilotLevel | null;
+    if (fromLevel !== level) {
+      try {
+        await this.prisma.studentLevelChange.create({
+          data: { studentId, fromLevel, toLevel: level as PilotLevel, source: 'student_self' },
+        });
+      } catch (error) {
+        this.logger.warn(`level change not recorded (cron will observe it): ${studentId} ${String((error as Error)?.message ?? error).slice(0, 120)}`);
+      }
+    }
     this.logger.log(`student level changed: ${studentId}`);
     return { englishLevel: level, effective: 'next_unfrozen_lesson' as const };
   }

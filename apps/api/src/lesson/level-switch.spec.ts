@@ -238,11 +238,16 @@ describe('S12O —— 换档这条路径碰不到任何历史', () => {
     expect(body).not.toContain('$executeRaw');
   });
 
-  it('它唯一的写是 `user.update`，而且只写 englishLevel', () => {
+  it('它的写只有两处：`user.update`（只写 englishLevel）+ 追加一条改档记录（UI01，只增不改）', () => {
     const body = bodyOf('setEnglishLevel');
     const writes = body.match(/\.(create|createMany|update|updateMany|upsert|delete|deleteMany)\(/g) ?? [];
-    expect(writes).toEqual(['.update(']);
+    // 2026-09-11 UI01：原来断言「唯一的写是 user.update」。改档要留下「哪天起在哪档」
+    // 的记录，否则过去的欠账只能按现在的档位重算（审计 UI01 / T06）。这里仍然是
+    // 精确清单：多出任何一句写（尤其是对历史表 / update / delete）都会红。
+    expect(writes).toEqual(['.update(', '.create(']);
     expect(body).toContain('data: { englishLevel: level as PilotLevel }');
+    expect(body).toMatch(/this\.prisma\.studentLevelChange\.create\(/);
+    expect(body).not.toMatch(/studentLevelChange\.(update|upsert|delete)/);
   });
 
   it('也不动 `studentAuthVersion` —— 换个难度不该把人踢下线', () => {

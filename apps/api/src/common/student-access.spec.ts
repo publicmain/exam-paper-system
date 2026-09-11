@@ -189,9 +189,15 @@ function routes() {
 /** 已核实零写库、教师只读视角能到达的 GET —— 精确清单，多一条少一条都红。 */
 const TEACHER_VIEW_READABLE = [
   'GET /vocab-v2/source-meta',
+  // profile / overview：服务层拆成纯读之后放开（词汇组 620a59b；证据见本文件「服务层证据」）
+  'GET /vocab-v2/profile',
+  'GET /vocab-v2/overview',
   'GET /vocab-v2/search',
   'GET /vocab-v2/center',
   'GET /vocab-v2/daily',
+  // VOC12 新增的按日期只读回看
+  'GET /vocab-v2/daily/review',
+  'GET /vocab-v2/daily/history',
   'GET /vocab-v2/tests',
   'GET /vocab-v2/test',
   'GET /lesson/today',
@@ -220,8 +226,13 @@ const TEACHER_VIEW_READABLE = [
   'GET /student/submissions/:id',
 ].sort();
 
-/** 会隐式写库的 GET：保持「本人写」，等服务层拆成纯读后再放开。 */
-const IMPLICIT_WRITE_GETS = ['GET /vocab-v2/profile', 'GET /vocab-v2/overview'];
+/**
+ * 会隐式写库的 GET：保持「本人写」，等服务层拆成纯读后再放开。
+ *
+ * profile / overview 原来在这里（upsert 兜底建档）；词汇组把它们拆成纯读后
+ * 移进了上面的可读清单。现在词汇模块已经没有这类 GET。
+ */
+const IMPLICIT_WRITE_GETS: string[] = [];
 
 describe('S08 · 装饰器清点（从控制器元数据推导）', () => {
   const all = routes();
@@ -279,14 +290,14 @@ function recordingPrisma() {
 }
 
 describe('S08 · 服务层证据（真实 VocabularyV2Service + 记账假库）', () => {
-  it('profile() / overview() 会写库（upsert 建档）—— 所以这两条 GET 继续拒绝教师只读视角', async () => {
+  it('profile() / overview() 已拆成纯读：没有档案也不建 —— 所以这两条 GET 放开给教师只读视角', async () => {
     for (const run of [
       (svc: VocabularyV2Service) => svc.profile('s'),
       (svc: VocabularyV2Service) => svc.overview('s'),
     ]) {
       const { prisma, writes } = recordingPrisma();
       await run(new VocabularyV2Service(prisma, {} as any));
-      expect(writes).toContain('studentVocabularyProfile.upsert');
+      expect(writes).toEqual([]);
     }
   });
 
