@@ -47,6 +47,9 @@ body {
 .btn-primary:hover { background: #1a3f63; }
 .btn-ghost { border-color: transparent; background: transparent; }
 .btn-danger { color: var(--error); border-color: #fecaca; }
+/* 命中区 ≥ 44×44 CSS px（2026-09-11 审计 IOS-10）。只给显式加了 .tap 的控件，
+   不改全站 .btn —— 教师端其他页面的密集表格保持原样。 */
+.tap { min-height: 44px; min-width: 44px; }
 
 .input, .select, .textarea {
   @apply w-full px-3 py-2 rounded-md border text-sm;

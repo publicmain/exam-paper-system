@@ -24,19 +24,57 @@ import {
 export class AnalyticsService {
   constructor(private readonly prisma: PrismaService) {}
 
-  /** GET /analytics/class/:classId/overview */
-  async classOverview(classId: string): Promise<ClassOverviewDto> {
+  /**
+   * GET /analytics/class/:classId/overview —— 旧导航「班级统计」。
+   *
+   * 口径（2026-09-11 审计 T02 重写；与新教师总览 vocab-v2 teacherClassProgress 对齐）：
+   *
+   * 「格子」= (学生, 布置) 这一对需要计入统计的组合。只统计**在读**的学生
+   * （isActive 且未归档）。
+   *
+   * 早测（有 MorningQuizSession 的布置）—— 每个学生每天**只欠一份**：
+   *   · 那天他在任一档交过 / 开过正式答卷（非 practice）→ 就是那一份（按当时
+   *     冻结的那一档，之后改难度不改历史）；取消的场次上已有的答卷照样留档计入；
+   *   · 那天没开过任何一份 → 欠的是**他所在难度**那一档的那一份，前提是：
+   *     场次没取消、日期在入班当天到今天（新加坡日）之间、他选了难度且那天
+   *     这一档确实有卷。都不满足就不欠（不是 0 分，也不是缺交）。
+   *     （库里没有难度变更历史；没开过卷的日子只能按现在的难度归到哪一份卷，
+   *     但每天应交恒为 1，改难度不会让总应交 / 缺交数变多。）
+   *
+   * 普通布置作业（没有场次，旧产品面）—— 保留「全班都要交」的原口径，只补两条：
+   *   · 截止（没有截止就按布置时间）早于入班时间的，不欠；
+   *   · 还没到 startAt 的，不欠。
+   *   已有正式答卷的一律计入。
+   *
+   * 每个格子的状态：
+   *   已交      —— submitted / marked / returned，且不是系统自动收卷
+   *   自动收卷  —— submitSource=system_eod：学生没交，系统替他定住；计入缺交，单列数量
+   *   进行中    —— in_progress
+   *   缺交      —— 没有正式答卷（practice 不算）
+   *
+   * 均分：
+   *   · 平均自动分 —— 已交卷的自动分（老师内部参考）
+   *   · 平均总分（仅已发布）—— 只取 marked / returned；未发布的 submitted 答卷
+   *     totalScore 只是自动分，不进这个均分（旧口径 marked=0 时仍显示均分）。
+   */
+  async classOverview(classId: string, now: Date = new Date()): Promise<ClassOverviewDto> {
     const cls = await this.prisma.class.findUnique({
       where: { id: classId },
       include: {
         enrollments: {
           where: { role: 'student' },
-          select: { userId: true },
+          select: {
+            userId: true,
+            joinedAt: true,
+            user: { select: { id: true, isActive: true, archivedAt: true, englishLevel: true } },
+          },
         },
         assignments: {
           include: {
             paper: { select: { id: true, name: true, totalMarksActual: true } },
+            morningQuizSession: { select: { date: true, level: true, status: true } },
             submissions: {
+              where: { status: { not: 'practice' } },
               select: {
                 id: true,
                 studentId: true,
@@ -45,6 +83,7 @@ export class AnalyticsService {
                 manualScore: true,
                 totalScore: true,
                 maxScore: true,
+                submitSource: true,
               },
             },
           },
@@ -54,98 +93,165 @@ export class AnalyticsService {
     });
     if (!cls) throw new NotFoundException('class not found');
 
-    const studentIds = new Set(cls.enrollments.map(e => e.userId));
-    const studentCount = studentIds.size;
-    const paperCount = cls.assignments.length;
+    const today = sgtDayKey(now);
+    const students = (cls.enrollments as any[])
+      .filter((e) => e.user?.isActive !== false && !e.user?.archivedAt)
+      .map((e) => ({
+        id: e.userId as string,
+        joinedAt: e.joinedAt ? new Date(e.joinedAt) : null,
+        joinedDay: e.joinedAt ? sgtDayKey(new Date(e.joinedAt)) : null,
+        level: (e.user?.englishLevel ?? null) as string | null,
+      }));
 
-    let expected = 0;
-    let submitted = 0;
-    let marked = 0;
-    let inProgress = 0;
-    let missing = 0;
-    const autoScores: number[] = [];
-    const totalScores: number[] = [];
-
-    const perPaper = cls.assignments.map(a => {
-      const subsByStudent = new Map(a.submissions.map(s => [s.studentId, s]));
-      let pSubmitted = 0;
-      let pMarked = 0;
-      let pMissing = 0;
-      const pAuto: number[] = [];
-      const pTotal: number[] = [];
-
-      for (const sid of studentIds) {
-        expected += 1;
-        const s = subsByStudent.get(sid);
-        if (!s) {
-          missing += 1;
-          pMissing += 1;
-          continue;
-        }
-        if (s.status === 'in_progress') {
-          inProgress += 1;
-          continue;
-        }
-        if (s.status === 'submitted' || s.status === 'marked' || s.status === 'returned') {
-          submitted += 1;
-          pSubmitted += 1;
-          if (s.autoScore != null) {
-            autoScores.push(s.autoScore);
-            pAuto.push(s.autoScore);
-          }
-        }
-        if (s.status === 'marked' || s.status === 'returned') {
-          marked += 1;
-          pMarked += 1;
-          if (s.totalScore != null) {
-            totalScores.push(s.totalScore);
-            pTotal.push(s.totalScore);
-          }
-        }
+    type Sub = {
+      studentId: string;
+      status: string;
+      autoScore: number | null;
+      totalScore: number | null;
+      submitSource?: string | null;
+    };
+    const assignments = (cls.assignments as any[]).map((a) => {
+      const session = a.morningQuizSession as { date: Date; level: string; status: string } | null;
+      // 防御：include 里已经排除了 practice，这里再滤一遍（旧库 / 测试桩可能不按 where 返回）
+      const subs: Sub[] = (a.submissions ?? []).filter((s: Sub) => s.status !== 'practice');
+      const byStudent = new Map<string, Sub>();
+      for (const s of subs) {
+        // 同一学生同一布置理论上只有一份正式答卷（partial unique）；万一有多份，已交优先
+        const prev = byStudent.get(s.studentId);
+        if (!prev || rankSub(s) > rankSub(prev)) byStudent.set(s.studentId, s);
       }
-
-      const maxScore = a.paper.totalMarksActual || 0;
       return {
-        paperId: a.paper.id,
-        paperName: a.paper.name,
-        assignmentId: a.id,
-        studentsExpected: studentCount,
-        submitted: pSubmitted,
-        marked: pMarked,
-        missing: pMissing,
-        meanAutoScore: pAuto.length ? mean(pAuto) : null,
-        meanTotalScore: pTotal.length ? mean(pTotal) : null,
-        maxScore,
+        raw: a,
+        max: a.paper?.totalMarksActual || 0,
+        day: session ? new Date(session.date).toISOString().slice(0, 10) : null,
+        level: session?.level ?? null,
+        cancelled: session?.status === 'cancelled',
+        byStudent,
       };
     });
 
-    // Mean as percentage of paper max — averaged across (student, paper)
-    // cells.  Each score's denominator is its own paper's totalMarksActual,
-    // so we compute pct per cell then average those.
-    const autoPcts: number[] = [];
-    const totalPcts: number[] = [];
-    for (const a of cls.assignments) {
-      const max = a.paper.totalMarksActual || 0;
-      if (max <= 0) continue;
-      for (const s of a.submissions) {
-        if (s.autoScore != null) autoPcts.push((s.autoScore / max) * 100);
-        if (s.totalScore != null) totalPcts.push((s.totalScore / max) * 100);
+    // 早测按日期分组：学生这一天在哪一份上有正式答卷
+    const mqByDay = new Map<string, typeof assignments>();
+    for (const a of assignments) {
+      if (!a.day) continue;
+      const list = mqByDay.get(a.day) ?? [];
+      list.push(a);
+      mqByDay.set(a.day, list);
+    }
+
+    // 算出每个布置上要计入的学生
+    const cellsByAssignment = new Map<string, Array<{ studentId: string; sub: Sub | null }>>();
+    for (const a of assignments) cellsByAssignment.set(a.raw.id, []);
+    const push = (assignmentId: string, studentId: string, sub: Sub | null) =>
+      cellsByAssignment.get(assignmentId)!.push({ studentId, sub });
+
+    for (const st of students) {
+      // 早测：逐日
+      for (const [day, list] of mqByDay) {
+        const started = list.filter((a) => a.byStudent.has(st.id));
+        if (started.length > 0) {
+          for (const a of started) push(a.raw.id, st.id, a.byStudent.get(st.id)!);
+          continue;
+        }
+        if (day > today) continue; // 还没到
+        if (st.joinedDay && day < st.joinedDay) continue; // 入班前
+        if (!st.level) continue; // 没选难度：无法确定哪一份
+        const own = list.find((a) => a.level === st.level && !a.cancelled);
+        if (own) push(own.raw.id, st.id, null);
+      }
+      // 普通布置作业：原口径（全班都要交），补入班时间与开始时间
+      for (const a of assignments) {
+        if (a.day) continue;
+        const sub = a.byStudent.get(st.id) ?? null;
+        if (sub) {
+          push(a.raw.id, st.id, sub);
+          continue;
+        }
+        const startAt: Date | null = a.raw.startAt ? new Date(a.raw.startAt) : null;
+        if (startAt && startAt.getTime() > now.getTime()) continue;
+        const deadline: Date | null = a.raw.dueAt ? new Date(a.raw.dueAt) : a.raw.assignedAt ? new Date(a.raw.assignedAt) : null;
+        if (st.joinedAt && deadline && deadline.getTime() < st.joinedAt.getTime()) continue;
+        push(a.raw.id, st.id, null);
       }
     }
+
+    const totals = {
+      expectedSubmissions: 0,
+      submitted: 0,
+      marked: 0,
+      inProgress: 0,
+      missing: 0,
+      autoCollected: 0,
+      awaitingPublish: 0,
+    };
+    const autoPcts: number[] = [];
+    const totalPcts: number[] = [];
+
+    const perPaper = assignments.map((a) => {
+      const cells = cellsByAssignment.get(a.raw.id) ?? [];
+      let pSubmitted = 0;
+      let pMarked = 0;
+      let pMissing = 0;
+      let pInProgress = 0;
+      const pAuto: number[] = [];
+      const pTotal: number[] = [];
+      for (const { sub } of cells) {
+        totals.expectedSubmissions += 1;
+        const state = cellState(sub);
+        if (state === 'missing' || state === 'auto_collected') {
+          pMissing += 1;
+          totals.missing += 1;
+          if (state === 'auto_collected') totals.autoCollected += 1;
+          continue;
+        }
+        if (state === 'in_progress') {
+          pInProgress += 1;
+          totals.inProgress += 1;
+          continue;
+        }
+        // 已交
+        pSubmitted += 1;
+        totals.submitted += 1;
+        if (sub!.autoScore != null) {
+          pAuto.push(sub!.autoScore);
+          if (a.max > 0) autoPcts.push((sub!.autoScore / a.max) * 100);
+        }
+        if (state === 'published') {
+          pMarked += 1;
+          totals.marked += 1;
+          if (sub!.totalScore != null) {
+            pTotal.push(sub!.totalScore);
+            if (a.max > 0) totalPcts.push((sub!.totalScore / a.max) * 100);
+          }
+        } else {
+          totals.awaitingPublish += 1;
+        }
+      }
+      return {
+        paperId: a.raw.paper.id,
+        paperName: a.raw.paper.name,
+        assignmentId: a.raw.id,
+        date: a.day,
+        level: a.level,
+        cancelled: a.cancelled,
+        studentsExpected: cells.length,
+        submitted: pSubmitted,
+        marked: pMarked,
+        missing: pMissing,
+        inProgress: pInProgress,
+        meanAutoScore: pAuto.length ? mean(pAuto) : null,
+        meanTotalScore: pTotal.length ? mean(pTotal) : null,
+        maxScore: a.max,
+      };
+    });
 
     return {
       classId: cls.id,
       className: cls.name,
       classCode: cls.classCode,
-      studentCount,
-      paperCount,
-      totals: {
-        expectedSubmissions: expected,
-        submitted,
-        marked,
-        inProgress,
-        missing,
-      },
+      studentCount: students.length,
+      paperCount: cls.assignments.length,
+      totals,
       meanAutoScorePct: autoPcts.length ? round1(mean(autoPcts)) : null,
       meanTotalScorePct: totalPcts.length ? round1(mean(totalPcts)) : null,
       perPaper,
@@ -408,6 +514,41 @@ export class AnalyticsService {
         maxScore: s.maxScore,
       })),
     };
+  }
+}
+
+/** 新加坡自然日（UTC+8，无夏令时）YYYY-MM-DD。 */
+function sgtDayKey(d: Date): string {
+  return new Date(d.getTime() + 8 * 3600 * 1000).toISOString().slice(0, 10);
+}
+
+type CellState = 'missing' | 'auto_collected' | 'in_progress' | 'awaiting_publish' | 'published';
+
+/** 一个格子的状态。见 classOverview 的口径说明。 */
+function cellState(
+  sub: { status: string; submitSource?: string | null } | null,
+): CellState {
+  if (!sub) return 'missing';
+  if (sub.status === 'in_progress') return 'in_progress';
+  if (sub.submitSource === 'system_eod') return 'auto_collected';
+  if (sub.status === 'marked' || sub.status === 'returned') return 'published';
+  if (sub.status === 'submitted') return 'awaiting_publish';
+  return 'missing';
+}
+
+/** 同一格子有多份正式答卷时取哪一份（已发布 > 待发布 > 进行中 > 自动收卷）。 */
+function rankSub(sub: { status: string; submitSource?: string | null }): number {
+  switch (cellState(sub)) {
+    case 'published':
+      return 4;
+    case 'awaiting_publish':
+      return 3;
+    case 'in_progress':
+      return 2;
+    case 'auto_collected':
+      return 1;
+    default:
+      return 0;
   }
 }
 
