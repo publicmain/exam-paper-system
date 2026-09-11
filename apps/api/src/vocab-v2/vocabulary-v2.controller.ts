@@ -195,9 +195,13 @@ export class VocabularyV2Controller {
     const parsed = z.object({
       sessionId: z.string().min(1).max(80),
       itemId: z.string().min(1).max(80),
+      // VOC02：屏幕上那张卡的词义。带上它，重试 / 双击不会把刚换上来的新词也标会。
+      expectedSenseId: z.string().min(1).max(80).optional(),
     }).strict().safeParse(body);
     if (!parsed.success) throw new BadRequestException(parsed.error.flatten());
-    return this.service.replaceDailyItem(studentIdOf(req), parsed.data.sessionId, parsed.data.itemId);
+    return this.service.replaceDailyItem(studentIdOf(req), parsed.data.sessionId, parsed.data.itemId, {
+      expectedSenseId: parsed.data.expectedSenseId,
+    });
   }
 
   @Public()
