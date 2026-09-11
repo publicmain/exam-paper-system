@@ -949,6 +949,24 @@ WORDLIST_CONFIRM=PUBLISH_WORD_LIST_PRODUCTION railway run -s Postgres -e product
 桥段）。两篇都已换掉。自己写的新加坡家庭记叙文会不自觉地落回旧题库的套路
 （外公外婆的老物件、组屋、熟食中心），写之前先想清楚这个桥段旧题库里有没有。
 
+**发布的教训（09-11）**：09-14 前三次发布都失败、整笔回滚，第四次 198 秒成功。
+两个原因叠在一起：
+
+- **排词逐行往返**。`dates.js` 每加一天，`PARK_UNTIL`（内容包最后一天 + 3）就往后
+  挪，之前「让路」过的往日试点词又全部落进让路条件，旧版一行一行 update —— 85 个
+  学生 2,695 行，公网代理一次往返约 0.44 秒，光这一步就超过 15 分钟事务预算。
+  现在一个学生固定三次往返（`findMany` / `createMany` / `updateMany`），整天约
+  650 次查询、三四分钟。
+- **本机到 Railway 公网代理的连接会断**。Postgres 日志里是 `unexpected EOF on
+  client connection with an open transaction`：服务端当场回滚，客户端却干等满
+  15 分钟。现在发布连接串自带 `socket_timeout=60`（断线一分钟内报错）和
+  `connect_timeout=30`（建连实测 3–14 秒）。
+
+所以：发布失败**一定是整笔回滚**，看日志末尾 —— 断线类（`Can't reach database
+server`、`Transaction already closed`、`socket timeout`）直接重跑；「拒绝执行」
+「动了不该动的东西」「近似重复」不要重跑，先查原因。脚本现在按阶段往 stderr 打
+`[秒数 · 查询次数] 阶段`，死在哪一步一眼能看出来。
+
 ## 7. 判分与成绩
 
 ### 7.1 当前判分逻辑
