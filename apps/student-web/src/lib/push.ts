@@ -87,8 +87,23 @@ export async function readPushEnv(): Promise<PushEnv> {
   };
 }
 
-export async function pushStatus(): Promise<PushStatus> {
-  return derivePushStatus(await readPushEnv());
+export async function pushStatus(token?: string | null): Promise<PushStatus> {
+  const env = await readPushEnv();
+  // 浏览器里有订阅 ≠ 是这个账号的（审计 UI07）：A 开了提醒、退出、B 登录，这台设备上的
+  // 订阅可能还挂在 A 名下。有令牌时问一次服务端；它说不是我的，就按「没开」显示。
+  // 服务端不认这个接口（老版本）或网络失败：保持按设备判断，不因为问不到就谎报「没开」。
+  if (env.subscribed && token) {
+    try {
+      const sub = await currentSubscription();
+      if (sub) {
+        const r = await api.pushStatus(token, { endpoint: sub.endpoint });
+        if (r && r.subscribed === false) return derivePushStatus({ ...env, subscribed: false });
+      }
+    } catch {
+      /* 问不到就按设备状态 */
+    }
+  }
+  return derivePushStatus(env);
 }
 
 /** VAPID 公钥是 base64url，PushManager 要的是字节。 */

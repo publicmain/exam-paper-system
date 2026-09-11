@@ -471,6 +471,12 @@ export const api = {
     request<{ ok: true }>('POST', '/push/subscribe', { token, body }),
   pushUnsubscribe: (token: string, body: { endpoint: string }) =>
     request<{ ok: true }>('POST', '/push/unsubscribe', { token, body }),
+  /**
+   * 这台设备上的订阅，此刻是不是绑在**当前登录的这个账号**名下（审计 UI07）。
+   * 用 POST 是为了不把 endpoint 放进 URL。
+   */
+  pushStatus: (token: string, body: { endpoint: string }) =>
+    request<{ subscribed: boolean }>('POST', '/push/status', { token, body }),
   vocabV2Test: (token: string, sessionId: string) =>
     request<V2TestSession>('GET', `/vocab-v2/test?sessionId=${encodeURIComponent(sessionId)}`, { token }),
   vocabV2Answer: (token: string, body: { sessionId: string; itemId: string; response: string | number; responseMs?: number }) =>

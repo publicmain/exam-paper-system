@@ -517,6 +517,8 @@ describe('G1 新端不得出现旧路由与旧身份键', () => {
     '/push/config',
     '/push/subscribe',
     '/push/unsubscribe',
+    // 2026-09-11 审计 UI07：按当前账号查本机订阅的真实状态
+    '/push/status',
     '/vocab-v2/daily/start',
     '/vocab-v2/daily/item',
     '/vocab-v2/daily/replace',

@@ -38,7 +38,7 @@ export function usePush(opts: { lazyConfig?: boolean; active?: boolean } = {}) {
           if (handleAuthFailure(e)) return;
           setCfg(null);
         });
-    void pushStatus()
+    void pushStatus(token)
       .then((s) => {
         if (!alive) return;
         setStatus(s);
