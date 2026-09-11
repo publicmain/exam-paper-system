@@ -110,10 +110,16 @@
 |---|---|---|
 | API 测试 | 171 文件：3525 通过 / 9 跳过（基线 134 文件 3020） | `.local/audit/final/test-all.txt` |
 | 教师端测试 | 44 文件 295 / 295（基线 251） | 同上 |
-| 学生端测试 | 46 文件 1044 / 1044（基线 908） | 同上 |
+| 学生端测试 | 46 文件 1048 / 1048（基线 908；最后一次全量在 `daf6b87`） | `.local/audit/sw-test-reflow.txt` |
 | 三端 typecheck | 通过 | `.local/audit/final/typecheck.txt` |
-| 三端构建 | 通过；学生端首包 JS 501.84 kB / gzip 163.34 kB（基线 140.94），CSS gzip 8.58 kB | `.local/audit/final/build.txt` |
+| 三端构建 | 通过；学生端首包 JS 501.95 kB / gzip 163.39 kB（基线 140.94，预算 ≤ 170），CSS gzip 8.60 kB | `.local/audit/final/build.txt`、`build-student-final.txt` |
+| 迁移预演（本机隔离 PGlite） | 先 `6f85e6d` 的 44 个迁移、再本分支新增 1 个，全部成功，status up to date；schema 差异只剩两条早已存在的索引差异 | `.local/audit/final/migrate-dryrun.txt` |
+| 发布脚本集成测试（同一隔离库） | 9 / 9 | `.local/audit/final/pilot-publish-db.txt` |
+| 截图矩阵（Chromium 视口模拟） | 34 个页面场景 × 10 个宽度 × 浅深 = 680 张：横向溢出 0、&lt;44px 可点元素 0、页面报错 0 | `.local/audit/screens/matrix/metrics.json` |
+| 文字放大 200%（根字号，Chromium） | 34 场景 × 390 / 820 = 68 张：溢出 0、小命中区 0、报错 0（修前 16 张溢出，见 daf6b87） | `.local/audit/screens/font200/metrics.json` |
+| 改前改后对照页 | 16 个页面，手机 390×844 与 iPad 横屏 1180×820，改后附深色 | `.local/audit/compare/index.html`（已发布为私有 Artifact） |
 | ops-dashboard 语法检查 | 通过 | `.local/audit/final/check-scripts.txt` |
 | 生产 `/api/health`（只读） | commit `6f85e6d` —— **本次没有推送、没有部署** | — |
 
-截图矩阵与改前改后对照：见 `ledger-student.md` 的 IOS-12 与 `.local/audit/compare/index.html`。
+真机（iPhone Safari / PWA、iPad 分屏与横竖切换、软键盘、VoiceOver、Android Chrome）**没有验证**；上面都是本机自动化与视口模拟。
+上线步骤、回滚、需要单独授权的数据操作见 `RELEASE.md`。
