@@ -158,6 +158,26 @@ const PARK_UNTIL = (() => {
   return d.toISOString().slice(0, 10);
 })();
 
+/**
+ * 给发布用的连接串加两个参数（2026-09-11）。
+ *
+ * 09-11 上午两次发布都是**连接在事务中途被掐断**（Postgres 日志：
+ * `unexpected EOF on client connection with an open transaction`），服务端
+ * 当场回滚，客户端却一直等那条永远不会回来的查询，干等满 15 分钟事务预算
+ * 才报错。`socket_timeout` 让单条查询 60 秒没回音就报错 —— 断线一分钟内
+ * 失败，而不是十五分钟；正常的查询都在一秒以内。`connect_timeout` 反过来
+ * 放宽：同一天实测建连要 3–14 秒，Prisma 默认 5 秒就放弃，第三次发布连库
+ * 都没连上。`application_name` 让这个连接在 `pg_stat_activity` 里一眼认得
+ * 出来。已经写了的参数不覆盖。
+ */
+function publishConnectionUrl(raw) {
+  const url = new URL(raw);
+  if (!url.searchParams.has('socket_timeout')) url.searchParams.set('socket_timeout', '60');
+  if (!url.searchParams.has('connect_timeout')) url.searchParams.set('connect_timeout', '30');
+  if (!url.searchParams.has('application_name')) url.searchParams.set('application_name', 'p1-publish');
+  return url.toString();
+}
+
 class PilotError extends Error {
   constructor(msg) {
     super(msg);
@@ -950,25 +970,37 @@ async function main() {
   const day = parseDay(process.argv.slice(2));
   assertBundleHasNoNearDuplicates();
 
-  process.env.DATABASE_URL = ENV_AT_STARTUP.DATABASE_PUBLIC_URL;
+  process.env.DATABASE_URL = publishConnectionUrl(ENV_AT_STARTUP.DATABASE_PUBLIC_URL);
   const { PrismaClient } = require('@prisma/client');
-  const prisma = new PrismaClient({ log: [] });
+  // 只数次数，不打印查询内容 —— 往返次数就是这个脚本的耗时。
+  const prisma = new PrismaClient({ log: [{ emit: 'event', level: 'query' }] });
+  let queries = 0;
+  prisma.$on('query', () => { queries += 1; });
+  // 脚本原来只在结束时打印；中途死掉时日志一片空白，看不出卡在哪一步。
+  const t0 = Date.now();
+  const progress = (what) =>
+    process.stderr.write(`[${Math.round((Date.now() - t0) / 1000)}s · ${queries} 次查询] ${what}\n`);
 
   let out;
   try {
     out = await prisma.$transaction(
       async (tx) => {
         // ① 只读前置
+        progress('事务已开始');
         const before = await snapshot(tx);
         await assertScopeFree(tx, day);
         await assertNoHistoricalNearDuplicates(tx, day);
+        progress('前置检查完成');
 
         // ② 写
         const report = makeReport();
         await upsertPublisherClassesAndQa(tx, report);
+        progress('班级与档位就绪');
         await upsertDictionary(tx, report, day);
+        progress('词典补录完成');
         for (const level of Object.keys(content.LEVELS)) {
           await upsertLesson(tx, level, day, report);
+          progress(`${level} 已写入`);
         }
 
         // ③ 给试点班在册的每一个学生排今天的词
@@ -976,10 +1008,16 @@ async function main() {
           where: { classId: { in: ALL_CLASSES.map((klass) => klass.id) }, role: 'student' },
           select: { user: { select: { id: true, name: true, englishLevel: true } } },
         });
-        for (const r of roster) await scheduleWordsFor(tx, r.user, day, report);
+        progress(`开始给 ${roster.length} 个学生排词`);
+        for (const [i, r] of roster.entries()) {
+          await scheduleWordsFor(tx, r.user, day, report);
+          if ((i + 1) % 20 === 0) progress(`已排 ${i + 1} / ${roster.length}`);
+        }
+        progress('排词完成');
 
         // ④ 只读后置
         const after = await snapshot(tx);
+        progress('后置快照完成，提交');
         return { before, after, report, roster: roster.map((r) => r.user) };
       },
       // 事务预算：跨洋公网代理连库，一次往返几百毫秒，而这里有几百次
@@ -999,7 +1037,7 @@ async function main() {
     [
       '',
       // 内容包已经不止一周了，别再把每一天都报成「试点第一周」。
-      `${day} 已发布（内容包第 ${content.DATES.indexOf(day) + 1} / ${content.DATES.length} 天）。`,
+      `${day} 已发布（内容包第 ${content.DATES.indexOf(day) + 1} / ${content.DATES.length} 天；用时 ${Math.round((Date.now() - t0) / 1000)} 秒，${queries} 次查询）。`,
       `  班级        : ${REGISTRATION_CLASSES.map((klass) => klass.name).join(' · ')}（另保留内部冒烟班；每班五档齐全）`,
       `  在册学生    : ${roster.length}（${roster.map((r) => `${r.name}[${r.englishLevel ?? '未设置'}]`).join('、') || '无'}）`,
       '',
@@ -1066,6 +1104,7 @@ module.exports = {
   assertNoHistoricalNearDuplicates,
   scheduleWordsFor,
   makeReport,
+  publishConnectionUrl,
 };
 
 if (require.main === module) {

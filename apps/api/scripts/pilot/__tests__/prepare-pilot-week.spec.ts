@@ -592,3 +592,25 @@ describe('排词 —— 一个学生固定几次往返，判断规则不变', ()
     expect(r.counts).toEqual({ 'StudentWord.created': 4 });
   });
 });
+
+describe('发布连接串 —— 断线一分钟内失败，不干等十五分钟', () => {
+  const publishConnectionUrl = prep.publishConnectionUrl as (raw: string) => string;
+
+  it('补上 socket_timeout、connect_timeout 与 application_name，原来的部分一个字不变', () => {
+    const raw = 'postgresql://postgres:Ab%2Fc9z@shuttle.proxy.rlwy.net:27290/railway';
+    const out = publishConnectionUrl(raw);
+    expect(out.startsWith(`${raw}?`)).toBe(true);
+    const q = new URL(out).searchParams;
+    expect(q.get('socket_timeout')).toBe('60');
+    expect(q.get('connect_timeout')).toBe('30');
+    expect(q.get('application_name')).toBe('p1-publish');
+  });
+
+  it('已经写了的参数不覆盖，别的参数保留', () => {
+    const out = publishConnectionUrl('postgresql://u:p@h:1/db?sslmode=require&socket_timeout=5');
+    const q = new URL(out).searchParams;
+    expect(q.get('socket_timeout')).toBe('5');
+    expect(q.get('sslmode')).toBe('require');
+    expect(q.get('application_name')).toBe('p1-publish');
+  });
+});
