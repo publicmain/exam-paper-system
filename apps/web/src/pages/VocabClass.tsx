@@ -119,7 +119,7 @@ export default function VocabClassPage() {
 
       <div className="flex flex-wrap items-center gap-3">
         <label className="text-sm text-gray-600">班级 <select value={classId} onChange={(event) => setClassId(event.target.value)} className="ml-2 rounded-md border px-3 py-2">{classes.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</select></label>
-        <button className="rounded-md border bg-white px-4 py-2 text-sm" onClick={() => void load()}>刷新记录</button>
+        <button className="tap rounded-md border bg-white px-4 py-2 text-sm" onClick={() => void load()}>刷新记录</button>
         {progress ? <span className="text-sm text-gray-500">统计日期：{progress.date}</span> : null}
       </div>
       {error ? <p role="alert" className="rounded-lg border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-800">{error}</p> : null}
@@ -138,7 +138,7 @@ export default function VocabClassPage() {
         <div className="overflow-x-auto">
           <table className="min-w-[1180px] w-full text-left text-sm">
             <thead className="bg-gray-50 text-xs text-gray-500"><tr><th className="px-4 py-3">学生</th><th className="px-3 py-3">难度</th><th className="px-3 py-3">今日阅读</th><th className="px-3 py-3">未完成文章</th><th className="px-3 py-3">今日新词</th><th className="px-3 py-3">未背单词</th><th className="px-3 py-3">测试待办</th><th className="px-3 py-3">生词本</th><th className="px-3 py-3">累计学过</th><th className="px-3 py-3">待批</th></tr></thead>
-            <tbody className="divide-y">{(progress?.students ?? []).map((student) => <tr key={student.studentId} className="hover:bg-gray-50"><td className="px-4 py-3 font-medium">{student.name}</td><td className="px-3 py-3">{LEVEL_LABEL[student.englishLevel ?? ''] ?? student.englishLevel ?? '未选择'}</td><td className="px-3 py-3"><Status value={student.reading.today} /></td><td className="px-3 py-3 tabular-nums">{student.reading.overdue}</td><td className="px-3 py-3"><Status value={student.vocabulary.todayLearning} /></td><td className="px-3 py-3 tabular-nums">{student.vocabulary.unfinishedWords}</td><td className="px-3 py-3"><strong>{student.vocabulary.pendingTests}</strong><span className="text-xs text-gray-400"> / {student.vocabulary.pendingTestWords} 词</span></td><td className="px-3 py-3 tabular-nums">{student.vocabulary.notebookCount}</td><td className="px-3 py-3 tabular-nums">{student.vocabulary.totalLearned}</td><td className="px-3 py-3 tabular-nums">{student.reading.awaitingMarking}</td></tr>)}</tbody>
+            <tbody className="divide-y">{(progress?.students ?? []).map((student) => <tr key={student.studentId} className="hover:bg-gray-50"><td className="px-4 py-3 font-medium">{student.name}</td><td className="px-3 py-3">{LEVEL_LABEL[student.englishLevel ?? ''] ?? student.englishLevel ?? '未选择'}</td><td className="px-3 py-3"><Status value={student.reading.today} /></td><td className="px-3 py-3 tabular-nums">{student.reading.overdue}</td><td className="px-3 py-3"><Status value={student.vocabulary.todayLearning} /></td><td className="px-3 py-3 tabular-nums">{student.vocabulary.unfinishedWords}</td><td className="px-3 py-3"><strong>{student.vocabulary.pendingTests}</strong><span className="text-xs text-gray-500"> / {student.vocabulary.pendingTestWords} 词</span></td><td className="px-3 py-3 tabular-nums">{student.vocabulary.notebookCount}</td><td className="px-3 py-3 tabular-nums">{student.vocabulary.totalLearned}</td><td className="px-3 py-3 tabular-nums">{student.reading.awaitingMarking}</td></tr>)}</tbody>
           </table>
         </div>
         {progress && progress.students.length === 0 ? <p className="p-8 text-center text-sm text-gray-500">这个班还没有学生账号。</p> : null}
@@ -150,7 +150,7 @@ export default function VocabClassPage() {
         <div className="mt-3 grid gap-3 lg:grid-cols-[170px_1fr_auto]">
           <input type="date" value={assignmentDate} onChange={(event) => setAssignmentDate(event.target.value)} className="rounded-md border px-3 py-2" />
           <textarea value={assignmentWords} onChange={(event) => setAssignmentWords(event.target.value)} placeholder="输入 1–20 个不重复英文单词，可用空格、逗号或换行分隔" rows={3} className="rounded-md border px-3 py-2 text-sm" />
-          <button type="button" disabled={publishing} onClick={() => void publish()} className="rounded-md bg-blue-600 px-5 py-2 font-medium text-white disabled:opacity-50">{publishing ? '发布中…' : '发布词表'}</button>
+          <button type="button" disabled={publishing} onClick={() => void publish()} className="tap rounded-md bg-blue-600 px-5 py-2 font-medium text-white disabled:opacity-50">{publishing ? '发布中…' : '发布词表'}</button>
         </div>
         {assignments.length ? <div className="mt-4 grid gap-2">{assignments.slice(0, 7).map((assignment) => <div key={assignment.id} className="rounded-lg bg-gray-50 px-3 py-2 text-sm"><div className="flex justify-between gap-3"><strong>{assignment.date} · {assignment.title}</strong><span>版本 {assignment.version}</span></div><p className="mt-1 text-gray-600">{assignment.words.map((word: any) => word.headword).join(' · ')}</p></div>)}</div> : null}
       </section>
