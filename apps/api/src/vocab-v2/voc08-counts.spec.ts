@@ -6,8 +6,11 @@
  * 没有正式卷；教师端 todayTest 仍报 pending（等一份永远不会有的考试）；学生端
  * 只看 completed 就宣传「已学 10 个」。
  */
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { makeService, newDb, seedOfficialWords, seedStudent, sgtNoon } from './testing/vocab-fixtures';
+
+// 内存假库逐语句让出事件循环，整套并行跑时单个用例可能超过默认 5 秒；这里只放宽超时，不改断言。
+vi.setConfig({ testTimeout: 30_000 });
 
 const MON = sgtNoon('2026-09-07');
 const TEACHER = { id: 't1', role: 'admin' };

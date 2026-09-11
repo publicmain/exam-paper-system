@@ -7,8 +7,11 @@
  * 首页原来只给 today（每日学词会话）+ 三个欠账列表，前端只能自己猜「阅读 / 学词 / 正式词测」
  * 各自是不适用、没生成、待做还是做完了，于是把「阅读完成 + 学词完成」当成 2/2 全部完成（UI14）。
  */
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { makeService, newDb, seedOfficialWords, seedStudent, sgtNoon } from './testing/vocab-fixtures';
+
+// 内存假库逐语句让出事件循环，整套并行跑时单个用例可能超过默认 5 秒；这里只放宽超时，不改断言。
+vi.setConfig({ testTimeout: 30_000 });
 
 const TEACHER = { id: 't1', role: 'admin' };
 const MON = sgtNoon('2026-09-07');

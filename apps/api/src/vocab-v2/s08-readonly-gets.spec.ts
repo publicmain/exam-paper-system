@@ -9,8 +9,11 @@
  * 进行中的自助练习、生词本、阅读欠账），清空写日志，再把**每一个 GET 背后的
  * 服务方法**都调一遍，写日志必须是空的。以后谁往 GET 里加了写，这里会红。
  */
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { makeService, newDb, seedOfficialWords, seedStudent, sgtNoon } from './testing/vocab-fixtures';
+
+// 内存假库逐语句让出事件循环，整套并行跑时单个用例可能超过默认 5 秒；这里只放宽超时，不改断言。
+vi.setConfig({ testTimeout: 30_000 });
 
 const MON = sgtNoon('2026-09-07');
 const TUE = sgtNoon('2026-09-08');

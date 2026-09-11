@@ -10,8 +10,11 @@
  *   · daily/history —— 按日期列出做过的学习任务，供「按日期回看」入口。
  * 反复打开不加学习量、不改进度、不建卷。
  */
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { makeService, newDb, seedOfficialWords, seedStudent, sgtNoon } from './testing/vocab-fixtures';
+
+// 内存假库逐语句让出事件循环，整套并行跑时单个用例可能超过默认 5 秒；这里只放宽超时，不改断言。
+vi.setConfig({ testTimeout: 30_000 });
 
 const MON = sgtNoon('2026-09-07');
 const TUE = sgtNoon('2026-09-08');

@@ -9,8 +9,11 @@
  * 口径（level-timeline.ts）：有答卷 = 事实；没答卷按「那天结束时的档位」（改档记录）；
  * 今天按现在的档位；取消未交不算、已交留档；入班前不算。学生和教师共用同一个函数。
  */
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { makeService, newDb, seedStudent, sgtNoon } from './testing/vocab-fixtures';
+
+// 内存假库逐语句让出事件循环，整套并行跑时单个用例可能超过默认 5 秒；这里只放宽超时，不改断言。
+vi.setConfig({ testTimeout: 30_000 });
 
 const TEACHER = { id: 't1', role: 'admin' };
 const A = 'olevel';

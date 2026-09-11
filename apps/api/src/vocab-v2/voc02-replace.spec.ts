@@ -8,9 +8,12 @@
  *   · 老师词表那天（listName 是 personal/老师自带的词）直接报 source_unavailable；
  *   · 重试 / 双击会把刚换上来的新词也标成「会了」；两张卡同时换可能撞同一个词 → 500。
  */
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { officialList } from './official-wordlists';
 import { makeService, newDb, seedOfficialWords, seedStudent, sgtNoon } from './testing/vocab-fixtures';
+
+// 内存假库逐语句让出事件循环，整套并行跑时单个用例可能超过默认 5 秒；这里只放宽超时，不改断言。
+vi.setConfig({ testTimeout: 30_000 });
 
 const MON = sgtNoon('2026-09-07');
 const ngsl = (rank: number) => officialList('ngsl')[rank - 1].headword;

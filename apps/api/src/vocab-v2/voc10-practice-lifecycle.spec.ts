@@ -8,9 +8,12 @@
  * 进行中 6 小时、结果 2 小时后由清理任务删除；交卷后结果在保留期内可反复读取（重复交卷
  * 幂等）；过期了给明确的 v2_practice_expired。全程不写正式成绩、学习总数、教师完成度、SRS。
  */
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { PRACTICE_TTL } from './vocabulary-v2.service';
 import { makeService, newDb, seedOfficialWords, seedStudent } from './testing/vocab-fixtures';
+
+// 内存假库逐语句让出事件循环，整套并行跑时单个用例可能超过默认 5 秒；这里只放宽超时，不改断言。
+vi.setConfig({ testTimeout: 30_000 });
 
 const T0 = new Date('2026-09-10T02:00:00.000Z');
 const later = (ms: number) => new Date(T0.getTime() + ms);

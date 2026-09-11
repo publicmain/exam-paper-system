@@ -10,6 +10,9 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { VocabularyV2DailyTaskCron } from './daily-task.cron';
 import { makeService, newDb, seedStudent, sgtNoon } from './testing/vocab-fixtures';
 
+// 内存假库逐语句让出事件循环，整套并行跑时单个用例可能超过默认 5 秒；这里只放宽超时，不改断言。
+vi.setConfig({ testTimeout: 30_000 });
+
 const originalFlag = process.env.STUDENT_APP_V2;
 afterEach(() => {
   if (originalFlag === undefined) delete process.env.STUDENT_APP_V2;
