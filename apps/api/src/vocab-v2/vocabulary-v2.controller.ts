@@ -107,6 +107,8 @@ export class VocabularyV2Controller {
       sourceTitle: z.string().max(240).optional(),
       sourceRef: z.string().max(240).optional(),
       source: z.enum(['reading_lookup', 'reading_error', 'search', 'teacher_list']).optional(),
+      // UI02 / VOC05：按钮绑定显示中的那条词义；与 headword 对不上会被拒绝
+      senseId: z.string().min(1).max(80).optional(),
     }).strict().safeParse(body);
     if (!parsed.success) throw new BadRequestException(parsed.error.flatten());
     return this.service.collect(studentIdOf(req), parsed.data);

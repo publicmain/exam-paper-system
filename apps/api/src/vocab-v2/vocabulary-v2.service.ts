@@ -2,7 +2,7 @@ import { BadRequestException, ConflictException, ForbiddenException, Injectable,
 import { EnglishLevel } from '@prisma/client';
 import { PrismaService } from '../common/prisma.service';
 import { canActOnClass } from '../common/roles';
-import { RealtimeTranslationService } from '../vocab/realtime-translation.service';
+import { RealtimeTranslationService, type TranslationResult } from '../vocab/realtime-translation.service';
 import { LEVEL_WORD_POLICY } from './level-policy';
 import {
   OFFICIAL_WORDLIST_META,
@@ -19,6 +19,7 @@ import { initialStageForAction, type LearningCardAction } from './learning-card'
 import { answerFormalQuestion, buildFormalQuestion, publicFormalQuestion, type FormalQuestion, type FrozenCard } from './formal-test';
 import { answerAdaptiveQuestion, buildAdaptiveQuestion, checkActiveUse, publicAdaptiveQuestion, type AdaptiveCard, type AdaptiveQuestion } from './adaptive-test';
 import { learningAssetQuality } from './content-quality';
+import { focusedSentence, parseSourceRef, passageOf, sentenceInPassages } from './collect-context';
 import {
   collectUnseenFromList,
   countActuallyLearned,
@@ -51,6 +52,8 @@ export interface CollectWordInput {
   sourceTitle?: string;
   sourceRef?: string;
   source?: 'reading_lookup' | 'reading_error' | 'search' | 'teacher_list';
+  /** 学生点的是显示中的哪一条词义（UI02：按钮绑定显示结果，不读输入框）。 */
+  senseId?: string;
 }
 
 function exactOfficial(headword: string, level: EnglishLevel | null): OfficialWord | null {
@@ -462,6 +465,22 @@ export class VocabularyV2Service {
       mastered: active.filter((row) => row.masteryStage === 8).length,
     };
     const start = (page - 1) * pageSize;
+    const pageRows = rows.slice(start, start + pageSize);
+    // VOC05：学生自己收词时的句子只挂在他自己的收词事件上 —— 共享例句没有时，
+    // 「我的单词」给他看他自己的那一句（标明是个人的）。
+    const personalEvents = pageRows.length
+      ? await this.prisma.vocabularyCollectionEvent.findMany({
+          where: { studentId, senseId: { in: pageRows.map((row) => row.senseId) }, contextText: { not: null } },
+          orderBy: { createdAt: 'desc' },
+          select: { senseId: true, contextText: true, metadata: true },
+        })
+      : [];
+    const personalBySense = new Map<string, { sentence: string; translation: string | null; personal: true }>();
+    for (const event of personalEvents) {
+      if (personalBySense.has(event.senseId) || !event.contextText) continue;
+      const translation = (event.metadata as { personalContextTranslation?: unknown } | null)?.personalContextTranslation;
+      personalBySense.set(event.senseId, { sentence: event.contextText, translation: typeof translation === 'string' ? translation : null, personal: true });
+    }
     return {
       stats,
       growth,
@@ -475,7 +494,7 @@ export class VocabularyV2Service {
       total: rows.length,
       page,
       pageSize,
-      items: rows.slice(start, start + pageSize).map((row) => ({
+      items: pageRows.map((row) => ({
         studentSenseId: row.id,
         senseId: row.senseId,
         headword: row.sense.lexeme.headword,
@@ -496,7 +515,7 @@ export class VocabularyV2Service {
         },
         source: row.sense.events[0]?.source ?? 'level_gap',
         sourceTitle: row.sense.events[0]?.sourceTitle ?? null,
-        context: row.sense.contexts[0] ?? null,
+        context: row.sense.contexts[0] ? { ...row.sense.contexts[0], personal: false } : personalBySense.get(row.senseId) ?? null,
         firstSeenAt: row.firstSeenAt,
         inNotebook: row.inNotebook,
       })),
@@ -597,11 +616,53 @@ export class VocabularyV2Service {
     return { base, note: `${dict.word} 是 ${base.word} 的${m[2]}` };
   }
 
-  async collect(studentId: string, input: CollectWordInput) {
-    const headword = input.headword.trim().toLowerCase().replace(/^[^a-z'-]+|[^a-z'-]+$/g, '');
-    if (!headword) throw new BadRequestException({ code: 'headword_required' });
-    const user = await this.prisma.user.findUnique({ where: { id: studentId }, select: { englishLevel: true } });
-    const published = exactOfficial(headword, user?.englishLevel ?? null);
+  /** 机翻（VOC15 口径）：注入的翻译服务有 translateDetailed 就用它，否则退回旧的 translate()。 */
+  private async machineTranslate(text: string): Promise<TranslationResult> {
+    const translator = this.translator as Partial<RealtimeTranslationService>;
+    if (typeof translator.translateDetailed === 'function') return translator.translateDetailed(text);
+    const value = typeof translator.translate === 'function' ? await translator.translate(text) : null;
+    return value
+      ? { text: value, status: 'ok', retryable: false, provider: 'none' }
+      : { text: null, status: 'provider_error', retryable: true, provider: 'none' };
+  }
+
+  /**
+   * 这个拼写在库里已有的 sense —— **只读**，不建、不改（VOC05）。
+   * 学生点了具体哪一条（senseId）就只认那一条；否则官方词表（学生档位的主表优先）
+   * → 其它词表 → personal；同一词条里 ready 的优先。
+   */
+  private async existingSenseForCollect(headword: string, level: EnglishLevel | null, senseId?: string) {
+    if (senseId) {
+      const chosen = await this.prisma.vocabularySense.findUnique({ where: { id: senseId }, include: { lexeme: true } });
+      if (!chosen || headwordKey(chosen.lexeme.headword) !== headword) {
+        throw new BadRequestException({ code: 'sense_headword_mismatch', message: '要操作的词条和显示的单词对不上，请重新查一次。' });
+      }
+      return chosen;
+    }
+    const published = exactOfficial(headword, level);
+    const lexemes = await this.prisma.vocabularyLexeme.findMany({
+      where: { headword },
+      include: { senses: { orderBy: { createdAt: 'asc' } } },
+      orderBy: [{ rank: 'asc' }, { createdAt: 'asc' }],
+    });
+    const order = (lexeme: { listName: string; listVersion: string }) =>
+      published && lexeme.listName === published.list && lexeme.listVersion === officialListVersion(published.list)
+        ? 0
+        : lexeme.listName === 'ngsl' || lexeme.listName === 'nawl' ? 1 : lexeme.listName === 'personal' ? 3 : 2;
+    const sorted = [...lexemes].sort((a, b) => order(a) - order(b));
+    for (const lexeme of sorted) {
+      const ready = lexeme.senses.find((sense) => sense.qualityStatus === 'ready');
+      if (ready) return { ...ready, lexeme };
+    }
+    const first = sorted.find((lexeme) => lexeme.senses.length);
+    return first ? { ...first.senses[0], lexeme: first } : null;
+  }
+
+  /**
+   * 查词显示用的内容：官方词表 + 本地词典（+ 指针词条）+ 必要时机翻。纯计算，不写库。
+   */
+  private async draftSenseForCollect(headword: string, level: EnglishLevel | null) {
+    const published = exactOfficial(headword, level);
     const dictRaw = await this.prisma.dictEntry.findUnique({ where: { word: headword } });
     const pointer = await this.inflectionPointer(dictRaw);
     const dict = pointer && dictRaw
@@ -615,128 +676,254 @@ export class VocabularyV2Service {
       : dictRaw;
     const rawPos = canonicalPos(published?.pos || dict?.pos);
     const pos = rawPos === 'other' ? (inferPosFromTranslation(dict?.translation) ?? rawPos) : rawPos;
-    let translation = translationForPos(dict?.translation, pos) || await this.translator.translate(headword) || '';
-    if (!translation) throw new ServiceUnavailableException({ code: 'translation_unavailable' });
-    if (pointer) translation = `${pointer.note}；${translation}`;
+    let translation = translationForPos(dict?.translation, pos);
+    let translationStatus: TranslationResult['status'] = translation ? 'ok' : 'empty_input';
+    let retryable = false;
+    let retryAfterSec: number | undefined;
+    if (!translation) {
+      const machine = await this.machineTranslate(headword);
+      translation = machine.text ?? '';
+      translationStatus = machine.status;
+      retryable = machine.retryable;
+      retryAfterSec = machine.retryAfterSec;
+    }
+    if (translation && pointer) translation = `${pointer.note}；${translation}`;
+    return {
+      published,
+      pos,
+      translation,
+      definition: published?.definition || dict?.definition || '',
+      phonetic: published?.phonetic || dict?.phonetic || null,
+      translationStatus,
+      retryable,
+      retryAfterSec,
+    };
+  }
 
-    const listName: OfficialListName | 'personal' = published?.list ?? 'personal';
-    const listVersion = published ? officialListVersion(published.list) : '1';
-    const lexeme = await this.prisma.vocabularyLexeme.upsert({
-      where: { listName_listVersion_headword: { listName, listVersion, headword } },
-      create: {
-        listName,
-        listVersion,
-        rank: published?.rank ?? 0,
-        headword,
-        phonetic: published?.phonetic || dict?.phonetic || null,
-        attribution: published ? OFFICIAL_WORDLIST_META.attribution : 'student search / local dictionary',
+  /**
+   * 句子是否出自这个学生有权阅读的那篇已发布文章（VOC05）。
+   * 只认 `assignment:<id>` / `session:<id>`，而且必须：
+   *   · 是他所在班的布置、没有被取消；
+   *   · 他真的有权读它 —— 他在这份卷上有答卷（打开过），或者它就是他这一档、
+   *     今天及以前的那一场（同班别档的文章不算他的）；
+   *   · 句子逐字出现在那份卷子的文章正文里。
+   */
+  private async verifiedArticleFor(studentId: string, level: EnglishLevel | null, sourceRef: string | undefined, sentence: string | null) {
+    const ref = parseSourceRef(sourceRef);
+    if (!ref || !sentence) return null;
+    const access: any[] = [{ submissions: { some: { studentId } } }];
+    if (level) access.push({ morningQuizSession: { is: { level, date: { lte: sgtDay().date } } } });
+    const assignment = await this.prisma.paperAssignment.findFirst({
+      where: {
+        AND: [
+          ref.kind === 'assignment' ? { id: ref.id } : { morningQuizSession: { is: { id: ref.id } } },
+          { class: { enrollments: { some: { userId: studentId, role: 'student' } } } },
+          { OR: [{ morningQuizSession: { is: null } }, { morningQuizSession: { is: { status: { not: 'cancelled' } } } }] },
+          { OR: access },
+        ],
       },
-      update: {
-        phonetic: published?.phonetic || dict?.phonetic || null,
-      },
-    });
-    const sense = await this.prisma.vocabularySense.upsert({
-      where: { lexemeId_senseKey: { lexemeId: lexeme.id, senseKey: senseKey(pos) } },
-      create: {
-        lexemeId: lexeme.id,
-        senseKey: senseKey(pos),
-        pos,
-        definition: published?.definition || dict?.definition || '',
-        translation,
-        qualityStatus: 'ready',
-      },
-      update: {
-        definition: published?.definition || dict?.definition || '',
-        translation,
-        qualityStatus: 'ready',
+      select: {
+        id: true,
+        paper: { select: { name: true, questions: { select: { question: { select: { content: true } } } } } },
       },
     });
+    if (!assignment) return null;
+    const passages = (assignment.paper?.questions ?? [])
+      .map((row) => passageOf(row.question?.content))
+      .filter((value): value is string => Boolean(value));
+    if (!sentenceInPassages(sentence, passages)) return null;
+    return { assignmentId: assignment.id, title: assignment.paper?.name ?? null };
+  }
+
+  /**
+   * 学生查词后的四个选择：加入 / 我已经会了 / 稍后再学 / 只查一下。
+   *
+   * VOC05（2026-09-11）把「个人输入」和「共享教材」分开：
+   *   · 只查一下 = **零写入**（不建共享词条、不建归属、不写事件）；
+   *   · 已有的共享 sense **一个字都不改**（原来每次收词都用词典/机翻覆盖释义、
+   *     把状态改回 ready）；库里真没有这个词时才按服务端词典/词表建一条；
+   *   · 学生传来的句子只截含目标词的那一句，挂在他自己的收词事件上；
+   *   · 写进共享 `VocabularyContext` 的只有服务端验证过出自他有权阅读的已发布文章
+   *     的句子，译文由服务端出，客户端传来的译文只作他个人的备注。
+   */
+  async collect(studentId: string, input: CollectWordInput) {
+    const headword = input.headword.trim().toLowerCase().replace(/^[^a-z'-]+|[^a-z'-]+$/g, '');
+    if (!headword) throw new BadRequestException({ code: 'headword_required' });
+    const user = await this.prisma.user.findUnique({ where: { id: studentId }, select: { englishLevel: true } });
+    const level = user?.englishLevel ?? null;
+    const existing = await this.existingSenseForCollect(headword, level, input.senseId);
+    const needsDraft = !existing || !String(existing.translation ?? '').trim();
+    const draft = needsDraft ? await this.draftSenseForCollect(headword, level) : null;
+    const displayTranslation = String(existing?.translation ?? '').trim() || draft?.translation || '';
+    if (!displayTranslation) {
+      throw new ServiceUnavailableException({
+        code: 'translation_unavailable',
+        reason: draft?.translationStatus ?? 'provider_error',
+        retryable: draft?.retryable ?? true,
+        ...(draft?.retryAfterSec ? { retryAfterSec: draft.retryAfterSec } : {}),
+        message: draft?.translationStatus === 'no_chinese'
+          ? '暂时没有这个词可靠的中文释义。'
+          : '翻译服务暂时不可用，请稍后重试。',
+      });
+    }
+    const focused = focusedSentence(input.contextSentence, headword);
+    const personalTranslation = input.contextTranslation?.trim() || null;
+
+    const senseView = (sense: { id: string; senseKey: string; pos: string; definition: string; translation: string } | null, phonetic: string | null) => ({
+      id: sense?.id ?? null,
+      headword,
+      senseKey: sense?.senseKey ?? senseKey(draft?.pos ?? 'other'),
+      pos: sense?.pos ?? draft?.pos ?? 'other',
+      definition: String(sense?.definition ?? '').trim() || draft?.definition || '',
+      translation: displayTranslation,
+      phonetic,
+    });
+
+    if (input.action === 'lookup_only') {
+      return {
+        ok: true,
+        action: input.action,
+        added: false,
+        sense: senseView(existing, existing?.lexeme.phonetic ?? draft?.phonetic ?? null),
+        contextId: null,
+        context: focused ? { sentence: focused, translation: personalTranslation, scope: 'personal' as const } : null,
+      };
+    }
+
+    // 需要一条归属行 → 需要一个真实的 sense。库里有就用（不改它）；没有才按服务端数据建。
+    let sense = existing;
+    if (!sense) {
+      const listName: OfficialListName | 'personal' = draft!.published?.list ?? 'personal';
+      const listVersion = draft!.published ? officialListVersion(draft!.published.list) : '1';
+      const lexeme = await this.prisma.vocabularyLexeme.upsert({
+        where: { listName_listVersion_headword: { listName, listVersion, headword } },
+        create: {
+          listName,
+          listVersion,
+          rank: draft!.published?.rank ?? 0,
+          headword,
+          phonetic: draft!.phonetic,
+          attribution: draft!.published ? OFFICIAL_WORDLIST_META.attribution : 'student search / local dictionary',
+        },
+        update: {},
+      });
+      const created = await this.prisma.vocabularySense.upsert({
+        where: { lexemeId_senseKey: { lexemeId: lexeme.id, senseKey: senseKey(draft!.pos) } },
+        create: {
+          lexemeId: lexeme.id,
+          senseKey: senseKey(draft!.pos),
+          pos: draft!.pos,
+          definition: draft!.definition,
+          translation: draft!.translation,
+          qualityStatus: draft!.translation ? 'ready' : 'needs_translation',
+        },
+        update: {},
+      });
+      sense = { ...created, lexeme };
+    }
 
     let contextId: string | null = null;
-    const sentence = input.contextSentence?.trim();
-    if (sentence) {
-      const existing = await this.prisma.vocabularyContext.findFirst({ where: { senseId: sense.id, sentence } });
-      if (existing) contextId = existing.id;
-      else {
-        const position = await this.prisma.vocabularyContext.count({ where: { senseId: sense.id, kind: 'article_original' } }) + 1;
-        const contextTranslation = input.contextTranslation?.trim() || await this.translator.translate(sentence) || '';
-        const context = await this.prisma.vocabularyContext.create({
-          data: {
-            senseId: sense.id,
-            kind: 'article_original',
-            position,
-            sentence,
-            translation: contextTranslation,
-            sourceTitle: input.sourceTitle?.trim() || null,
-            sourceRef: input.sourceRef?.trim() || null,
-            qualityStatus: contextTranslation ? 'ready' : 'needs_translation',
-          },
-        });
-        contextId = context.id;
+    let contextScope: 'shared_verified' | 'personal' | null = focused ? 'personal' : null;
+    let sharedTranslation: string | null = null;
+    let sharedTranslationStatus: TranslationResult['status'] | null = null;
+    const verified = await this.verifiedArticleFor(studentId, level, input.sourceRef, focused);
+    if (verified && focused) {
+      contextScope = 'shared_verified';
+      const found = await this.prisma.vocabularyContext.findFirst({ where: { senseId: sense.id, sentence: focused } });
+      if (found) {
+        contextId = found.id;
+        sharedTranslation = found.translation || null;
+      } else {
+        const machine = await this.machineTranslate(focused);
+        sharedTranslation = machine.text;
+        sharedTranslationStatus = machine.status;
+        for (let attempt = 0; attempt < 3 && !contextId; attempt += 1) {
+          const position = await this.prisma.vocabularyContext.count({ where: { senseId: sense.id, kind: 'article_original' } }) + 1 + attempt;
+          try {
+            const context = await this.prisma.vocabularyContext.create({
+              data: {
+                senseId: sense.id,
+                kind: 'article_original',
+                position,
+                sentence: focused,
+                translation: machine.text ?? '',
+                sourceTitle: verified.title,
+                sourceRef: `assignment:${verified.assignmentId}`,
+                provider: 'article_verified',
+                attribution: 'school reading article + server translation',
+                qualityStatus: machine.text ? 'ready' : 'needs_translation',
+              },
+            });
+            contextId = context.id;
+          } catch (error) {
+            if ((error as { code?: string }).code !== 'P2002') throw error;
+          }
+        }
       }
     }
 
-    let studentSenseId: string | null = null;
-    if (input.action === 'learn' || input.action === 'later' || input.action === 'known') {
-      const existing = await this.prisma.studentVocabularySense.findUnique({
-        where: { studentId_senseId: { studentId, senseId: sense.id } },
-      });
-      // 2026-09-05 盲测 P2-12：「加入我的单词」和「稍后再学」原来落库一模一样。
-      // 现在：加入 = 学生已经认识它了，起步就是第 2 阶（认得），马上可复习；
-      // 稍后 = 只收着（第 1 阶，见过），到期日推到明天，今天的复习不排它。
-      const desiredStage = input.action === 'known'
-        ? 8
-        : input.action === 'learn'
-          ? Math.max(existing?.masteryStage ?? 1, 2)
-          : Math.max(existing?.masteryStage ?? 1, 1);
-      const tomorrow = new Date(new Date(`${sgtDay().key}T00:00:00.000Z`).getTime() + 86_400_000 - 8 * 3600_000);
-      const dueForAction = input.action === 'later' ? { due: tomorrow } : input.action === 'learn' ? { due: new Date() } : {};
-      const owned = await this.prisma.studentVocabularySense.upsert({
-        where: { studentId_senseId: { studentId, senseId: sense.id } },
-        create: {
-          studentId,
-          senseId: sense.id,
-          masteryStage: desiredStage,
-          inNotebook: input.action !== 'known',
-          removedAt: input.action === 'known' ? new Date() : null,
-          ...(desiredStage === 8 ? { masteredAt: new Date() } : {}),
-          ...dueForAction,
-        },
-        update: input.action === 'known'
-          ? { masteryStage: 8, masteredAt: new Date(), inNotebook: false, removedAt: new Date() }
-          : { inNotebook: true, removedAt: null, masteryStage: desiredStage, ...dueForAction },
-      });
-      studentSenseId = owned.id;
-    }
+    const current = await this.prisma.studentVocabularySense.findUnique({
+      where: { studentId_senseId: { studentId, senseId: sense.id } },
+    });
+    // 2026-09-05 盲测 P2-12：「加入我的单词」和「稍后再学」原来落库一模一样。
+    // 现在：加入 = 学生已经认识它了，起步就是第 2 阶（认得），马上可复习；
+    // 稍后 = 只收着（第 1 阶，见过），到期日推到明天，今天的复习不排它。
+    const desiredStage = input.action === 'known'
+      ? 8
+      : input.action === 'learn'
+        ? Math.max(current?.masteryStage ?? 1, 2)
+        : Math.max(current?.masteryStage ?? 1, 1);
+    const tomorrow = new Date(new Date(`${sgtDay().key}T00:00:00.000Z`).getTime() + 86_400_000 - 8 * 3600_000);
+    const dueForAction = input.action === 'later' ? { due: tomorrow } : input.action === 'learn' ? { due: new Date() } : {};
+    const owned = await this.prisma.studentVocabularySense.upsert({
+      where: { studentId_senseId: { studentId, senseId: sense.id } },
+      create: {
+        studentId,
+        senseId: sense.id,
+        masteryStage: desiredStage,
+        inNotebook: input.action !== 'known',
+        removedAt: input.action === 'known' ? new Date() : null,
+        ...(desiredStage === 8 ? { masteredAt: new Date() } : {}),
+        ...dueForAction,
+      },
+      update: input.action === 'known'
+        ? { masteryStage: 8, masteredAt: new Date(), inNotebook: false, removedAt: new Date() }
+        : { inNotebook: true, removedAt: null, masteryStage: desiredStage, ...dueForAction },
+    });
 
     await this.prisma.vocabularyCollectionEvent.create({
       data: {
         studentId,
         senseId: sense.id,
-        studentSenseId,
+        studentSenseId: owned.id,
         source: input.source ?? 'reading_lookup',
         action: input.action,
         sourceTitle: input.sourceTitle?.trim() || null,
         sourceRef: input.sourceRef?.trim() || null,
-        contextText: sentence || null,
-        metadata: contextId ? { contextId } : undefined,
+        // 个人上下文：只截含目标词的那一句，只给他自己看
+        contextText: focused,
+        metadata: {
+          ...(contextId ? { contextId } : {}),
+          ...(personalTranslation && focused ? { personalContextTranslation: personalTranslation } : {}),
+          ...(verified ? { verifiedAssignmentId: verified.assignmentId } : {}),
+        },
       },
     });
 
     return {
       ok: true,
       action: input.action,
-      added: studentSenseId != null,
-      sense: {
-        id: sense.id,
-        headword,
-        senseKey: sense.senseKey,
-        pos: sense.pos,
-        definition: sense.definition,
-        translation: sense.translation,
-        phonetic: lexeme.phonetic,
-      },
+      added: true,
+      sense: senseView(sense, sense.lexeme.phonetic ?? draft?.phonetic ?? null),
       contextId,
+      context: focused
+        ? {
+            sentence: focused,
+            scope: contextScope,
+            translation: contextScope === 'shared_verified' ? sharedTranslation : personalTranslation,
+            ...(sharedTranslationStatus && !sharedTranslation ? { translationStatus: sharedTranslationStatus, retryable: true } : {}),
+          }
+        : null,
     };
   }
 
