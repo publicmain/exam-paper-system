@@ -36,7 +36,8 @@ export function Badge({
   return (
     <span
       data-testid={testId}
-      className={`inline-flex min-h-[24px] items-center gap-1 whitespace-nowrap rounded-full px-2.5 py-0.5 text-caption font-semibold ${TONE[tone]}`}
+      // 长文案在窄处允许折成两行（不 nowrap）：宁可高一点，也不把页面撑出横向滚动
+      className={`inline-flex min-h-[24px] items-center gap-1 rounded-[12px] px-2.5 py-0.5 text-left text-caption font-semibold ${TONE[tone]}`}
     >
       {shown ? <Icon name={shown} size={14} strokeWidth={2.2} /> : null}
       {children}

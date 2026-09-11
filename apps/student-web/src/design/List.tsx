@@ -78,7 +78,8 @@ function Body({ icon, iconTone = 'accent', title, subtitle, value, chevron }: Ro
         <span className="block text-body text-ink">{title}</span>
         {subtitle ? <span className="mt-0.5 block text-footnote text-ink-3">{subtitle}</span> : null}
       </span>
-      {value != null ? <span className="shrink-0 text-right text-callout text-ink-3">{value}</span> : null}
+      {/* 值最多占半行：长徽标在窄屏折行，不把整页撑出横向滚动（320px 截图量出来的） */}
+      {value != null ? <span className="max-w-[50%] shrink-0 text-right text-callout text-ink-3">{value}</span> : null}
       {chevron ? <Icon name="forward" size={18} className="shrink-0 text-ink-4" /> : null}
     </>
   );

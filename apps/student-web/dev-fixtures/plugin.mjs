@@ -809,6 +809,8 @@ async function handle(req, res, url) {
   if (path === '/vocab-v2/collect') {
     return json(res, 200, { ok: true, action: body.action ?? 'add', added: body.action === 'add', sense: { id: 'fx_sense_x', headword: body.headword ?? 'word', senseKey: 'x#1', pos: 'n', phonetic: null, translation: '示例', definition: '' } });
   }
+  // 旧版单词小测的历史（学习记录页读它）：新账号没有旧记录
+  if (path === '/vocab/quiz/attempts') return json(res, 200, { attempts: [] });
   if (path === '/vocab-v2/custom-test/cancel') return json(res, 200, { ok: true, cancelled: true });
   if (path === '/vocab-v2/test/audio') return json(res, 404, { code: 'v2_audio_not_available' });
   if (path === '/vocab-v2/daily/review') {

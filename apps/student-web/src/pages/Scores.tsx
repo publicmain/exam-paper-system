@@ -128,7 +128,8 @@ export default function ScoresPage() {
           </div>
           <p className="mt-2 px-1 text-footnote text-ink-3">
             错题本暂未开放。答错的题目在每份答卷的逐题回顾里都能看到。{' '}
-            <Link to={ROUTES.mistakes} className="font-medium text-accent">
+            {/* 行内链接：命中区补到 44px 高，负外边距不撑开行高（IOS-03） */}
+            <Link to={ROUTES.mistakes} className="-my-3 inline-flex min-h-[44px] items-center px-1 font-medium text-accent">
               了解详情
             </Link>
           </p>
