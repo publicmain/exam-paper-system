@@ -1,4 +1,4 @@
-import { BadRequestException, Body, Controller, Get, Post, Query, Req, UseGuards } from '@nestjs/common';
+import { BadRequestException, Body, Controller, Get, Header, Post, Query, Req, StreamableFile, UseGuards } from '@nestjs/common';
 import type { Request } from 'express';
 import { z } from 'zod';
 import { Public } from '../common/auth.guard';
@@ -214,6 +214,21 @@ export class VocabularyV2Controller {
   test(@Req() req: Request, @Query('sessionId') sessionId = '') {
     if (!sessionId) throw new BadRequestException({ code: 'v2_session_required' });
     return this.service.testSession(studentIdOf(req), sessionId);
+  }
+
+  /**
+   * 听写题音频（VOC04）：只凭 sessionId + itemId 取，URL 里没有单词。
+   * 前端用带令牌的 fetch 取回 blob 再播放；不缓存。
+   */
+  @Public()
+  @RequireStudentToken()
+  @RateLimit({ limit: 120, windowSec: 60, scope: 'ip' })
+  @Get('test/audio')
+  @Header('Cache-Control', 'no-store')
+  async testAudio(@Req() req: Request, @Query('sessionId') sessionId = '', @Query('itemId') itemId = '') {
+    if (!sessionId || !itemId) throw new BadRequestException({ code: 'v2_session_required' });
+    const audio = await this.service.testItemAudio(studentIdOf(req), sessionId, itemId);
+    return new StreamableFile(audio.bytes, { type: audio.contentType });
   }
 
   @Public()

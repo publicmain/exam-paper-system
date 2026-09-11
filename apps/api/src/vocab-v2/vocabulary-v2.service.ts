@@ -1,4 +1,4 @@
-import { BadRequestException, ConflictException, ForbiddenException, Injectable, ServiceUnavailableException } from '@nestjs/common';
+import { BadRequestException, ConflictException, ForbiddenException, Injectable, NotFoundException, ServiceUnavailableException } from '@nestjs/common';
 import { EnglishLevel } from '@prisma/client';
 import { PrismaService } from '../common/prisma.service';
 import { canActOnClass } from '../common/roles';
@@ -16,8 +16,8 @@ import { canonicalPos, inferPosFromTranslation, senseKey, translationForPos } fr
 import { normaliseDailyTarget, planDailyTask, type PlannerCandidate, type V2Source } from './daily-planner';
 import { contextForEncounter, isTemplateContext } from './context-progression';
 import { initialStageForAction, type LearningCardAction } from './learning-card';
-import { answerFormalQuestion, buildFormalQuestion, hideFormalAnswer, type FormalQuestion, type FrozenCard } from './formal-test';
-import { answerAdaptiveQuestion, buildAdaptiveQuestion, hideAdaptiveAnswer, type AdaptiveCard, type AdaptiveQuestion } from './adaptive-test';
+import { answerFormalQuestion, buildFormalQuestion, publicFormalQuestion, type FormalQuestion, type FrozenCard } from './formal-test';
+import { answerAdaptiveQuestion, buildAdaptiveQuestion, checkActiveUse, publicAdaptiveQuestion, type AdaptiveCard, type AdaptiveQuestion } from './adaptive-test';
 import { learningAssetQuality } from './content-quality';
 import {
   collectUnseenFromList,
@@ -63,6 +63,20 @@ function exactOfficial(headword: string, level: EnglishLevel | null): OfficialWo
 function sgtDay(now = new Date()) {
   const key = new Date(now.getTime() + 8 * 60 * 60 * 1000).toISOString().slice(0, 10);
   return { key, date: new Date(`${key}T00:00:00.000Z`) };
+}
+
+const ACTIVE_USE_LABEL: Record<string, string> = {
+  ok: '检测到目标词，未评估句子质量',
+  only_target_repeated: '只重复了目标词，没有写成句子',
+  target_missing: '没有找到目标词（或它的变形）',
+  too_short: '句子太短，至少写 3 个英文单词',
+  not_words: '没有写英文单词',
+};
+
+/** 造句题回顾里给学生看的检查结果（VOC11）。永远不说「句子正确」。 */
+function activeUseCheckView(headword: string, response: unknown) {
+  const check = checkActiveUse(headword, response);
+  return { ...check, label: ACTIVE_USE_LABEL[check.reason] ?? ACTIVE_USE_LABEL.ok };
 }
 
 function asStrings(value: unknown): string[] {
@@ -509,20 +523,34 @@ export class VocabularyV2Service {
       include: { sense: { include: { lexeme: true, contexts: { where: { qualityStatus: 'ready' }, orderBy: { difficulty: 'asc' } } } } },
       orderBy: [{ updatedAt: 'desc' }, { firstSeenAt: 'desc' }],
     });
-    const limit = input.count === 'all' ? owned.length : input.count;
+    // 同一拼写的两个词义只留一个：否则一题的回顾（卡片里有拼写）会泄露另一题的答案（VOC04）。
+    const byHeadword = new Map<string, (typeof owned)[number]>();
+    for (const row of owned) {
+      const key = headwordKey(row.sense.lexeme.headword);
+      if (key && !byHeadword.has(key)) byHeadword.set(key, row);
+    }
+    const distinct = [...byHeadword.values()];
+    const limit = input.count === 'all' ? distinct.length : input.count;
     // Personal practice must feel fresh but never writes a formal score.  The
     // shuffle is performed after the server has applied ownership filters, so
     // the client can never ask to practise another student's words.
-    const shuffled = [...owned];
+    const shuffled = [...distinct];
     for (let index = shuffled.length - 1; index > 0; index -= 1) {
       const swap = Math.floor(Math.random() * (index + 1));
       [shuffled[index], shuffled[swap]] = [shuffled[swap], shuffled[index]];
     }
     const selected = shuffled.slice(0, limit);
     if (!selected.length) throw new BadRequestException({ code: 'v2_custom_test_empty' });
+    // 听写题只给有服务端录音的词出：没有录音就只能让浏览器朗读 = 把单词明文交给客户端（VOC04）。
+    const audioRows = await this.prisma.wordAudio.findMany({
+      where: { headword: { in: selected.map((row) => headwordKey(row.sense.lexeme.headword)) } },
+      select: { headword: true },
+    });
+    const withAudio = new Set(audioRows.map((row) => row.headword));
     const cards = selected.map((row) => ({
       ...this.cardSnapshot({ sense: row.sense, owned: row }, 5, row.reps + 1),
       masteryStage: row.masteryStage,
+      audioAvailable: withAudio.has(headwordKey(row.sense.lexeme.headword)),
     }) as AdaptiveCard);
     const nonce = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
     const session = await this.prisma.vocabularyV2Session.create({
@@ -1521,6 +1549,7 @@ export class VocabularyV2Service {
       studentId,
       tested.map((item) => item.senseId),
       REVIEW_SAMPLE_SIZE,
+      tested.map((item) => String((item.contentSnapshot as { headword?: string } | null)?.headword ?? '')),
     );
     const paper = [
       ...tested.map((item) => ({
@@ -1588,7 +1617,7 @@ export class VocabularyV2Service {
    *
    * 没有可抽的（新生第一天、词全掌握了）就返回空数组，考卷照常只考今天的。
    */
-  private async sampleReviewItems(studentId: string, excludeSenseIds: string[], size: number) {
+  private async sampleReviewItems(studentId: string, excludeSenseIds: string[], size: number, excludeHeadwords: string[] = []) {
     if (size <= 0) return [];
     const owned = await this.prisma.studentVocabularySense.findMany({
       where: {
@@ -1604,8 +1633,13 @@ export class VocabularyV2Service {
       take: 200,
       orderBy: { updatedAt: 'asc' },
     });
+    // 同一拼写的另一个词义不抽（老师强制重推的词可能在旧词里有别的词义）：
+    // 一张卷里同一个拼写出两次，一题的回顾就泄露另一题的答案（VOC04）。
+    const blockedHeadwords = new Set(excludeHeadwords.map(headwordKey).filter(Boolean));
     const usable = owned.filter(
-      (row) => row.sense?.lexeme?.headword && String(row.sense.translation ?? '').trim(),
+      (row) => row.sense?.lexeme?.headword
+        && String(row.sense.translation ?? '').trim()
+        && !blockedHeadwords.has(headwordKey(row.sense.lexeme.headword)),
     );
     if (!usable.length) return [];
 
@@ -1630,12 +1664,19 @@ export class VocabularyV2Service {
     });
     const policy = LEVEL_WORD_POLICY[user?.englishLevel ?? 'olevel'];
 
+    const sampledHeadwords = new Set<string>();
     return usable
       .sort(
         (a, b) =>
           (lastTested.get(a.senseId) ?? 0) - (lastTested.get(b.senseId) ?? 0) ||
           a.senseId.localeCompare(b.senseId),
       )
+      .filter((row) => {
+        const key = headwordKey(row.sense.lexeme.headword);
+        if (sampledHeadwords.has(key)) return false;
+        sampledHeadwords.add(key);
+        return true;
+      })
       .slice(0, size)
       .map((row) => {
         const encounter = (row.reps ?? 0) + 1;
@@ -1767,6 +1808,26 @@ export class VocabularyV2Service {
     };
   }
 
+  /**
+   * 听写题的音频（VOC04）。客户端只有 sessionId + itemId，服务端按这道题冻结的
+   * 词去 WordAudio 取录音；URL、查询串、响应头里都没有单词本身。
+   * 只给听写题：普通拼写题念出来就是答案。
+   */
+  async testItemAudio(studentId: string, sessionId: string, itemId: string) {
+    const item = await this.prisma.vocabularyV2SessionItem.findFirst({
+      where: { id: itemId, sessionId, session: { studentId, sessionType: { in: ['formal_test', 'retry', 'custom_test'] } } },
+      select: { questionSnapshot: true, contentSnapshot: true },
+    });
+    const question = item?.questionSnapshot as { type?: string } | null;
+    if (!item || question?.type !== 'listening_spelling') throw new NotFoundException({ code: 'v2_audio_not_available' });
+    const headword = headwordKey(String((item.contentSnapshot as { headword?: string } | null)?.headword ?? ''));
+    const audio = headword
+      ? await this.prisma.wordAudio.findUnique({ where: { headword }, select: { contentType: true, bytes: true } })
+      : null;
+    if (!audio) throw new NotFoundException({ code: 'v2_audio_not_available' });
+    return { contentType: audio.contentType, bytes: Buffer.from(audio.bytes) };
+  }
+
   async testSession(studentId: string, sessionId: string) {
     const session = await this.prisma.vocabularyV2Session.findFirst({
       where: { id: sessionId, studentId, sessionType: { in: ['formal_test', 'retry', 'custom_test'] } },
@@ -1820,14 +1881,19 @@ export class VocabularyV2Service {
           id: item.id,
           position: item.position,
           status: item.status,
+          // 进行中且未答：白名单题面（VOC04）；已答或已交：完整题目 + 卡片，供回顾。
           question: item.status === 'answered' || submitted
             ? question
             : session.sessionType === 'custom_test'
-              ? hideAdaptiveAnswer(question)
-              : hideFormalAnswer(question as FormalQuestion),
+              ? publicAdaptiveQuestion(question)
+              : publicFormalQuestion(question as FormalQuestion),
           response: item.status === 'answered' || submitted ? item.response : null,
           isCorrect: item.status === 'answered' || submitted ? item.isCorrect : null,
           card: item.status === 'answered' || submitted ? item.contentSnapshot : null,
+          // VOC11：造句题只能确定「用到了目标词」，结果如实说「未评估句子质量」
+          ...(question?.type === 'active_use' && (item.status === 'answered' || submitted)
+            ? { check: activeUseCheckView(question.answer, (item.response as { value?: unknown } | null)?.value) }
+            : {}),
         };
       }),
     };
