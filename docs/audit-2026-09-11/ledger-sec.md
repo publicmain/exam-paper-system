@@ -69,7 +69,7 @@
 - 已最终提交未判完：确定性判的选择题放出对错与得分，整卷分数仍等定稿。
 - 已发布（marked）：整卷分数、逐题得分与评语放出；答案键仍不经这个接口。
 
-**实测**：`npx vitest run src/student/submission-whitelist.spec.ts` → 11/11 通过（修前 9 红）。
+**实测**：`npx vitest run src/student/submission-whitelist.spec.ts` → 11/11 通过（修前 8 红）。
 
 **剩余依赖 / 影响**
 - 旧 `apps/web` 的 `StudentTake` 交卷后弹窗读 `autoScore`，现在按分数门给 `null` → 显示「0 / 满分」。旧端冻结，不在本组改；按 2026-08-14 成绩发布口径这是预期（分数要么定稿、要么没有）。
