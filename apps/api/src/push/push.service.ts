@@ -1,6 +1,8 @@
 import { Injectable, Logger, ServiceUnavailableException } from '@nestjs/common';
 import * as webpush from 'web-push';
 import { PrismaService } from '../common/prisma.service';
+import { ENABLED_ACCOUNT_WHERE } from '../common/account-lifecycle';
+import { STUDENT_TOKEN_TTL_DAYS } from '../student-auth/student-auth.service';
 import {
   DAILY_REMINDER_PAYLOAD,
   reminderTargets,
@@ -24,6 +26,21 @@ import {
  *
  * **没配就整个功能关着**：`/push/config` 回 `enabled:false`，学生端不显示
  * 开关，cron 直接跳过。少一个变量不影响其它任何东西。
+ *
+ * ## 订阅归属（2026-09-11 审计 UI07）
+ *
+ * 一行订阅 = 一台设备的浏览器 × **当前已认证的学生**：
+ *
+ *   · `subscribe`：endpoint 唯一，同一台设备换人订阅 → 这一行转给新的人；
+ *   · `unsubscribe`：只删自己名下的；
+ *   · `status`：前端按「当前账号 + 本浏览器 endpoint」问库里是不是真有这一行，
+ *     不再凭「浏览器里有订阅」就显示已开启（那一行可能属于上一个账号）；
+ *   · 发送（cron 与 `sendToStudent`）只发给**此刻仍可用**的账号：启用、
+ *     未归档、不是旧版停用标记，且最近 `STUDENT_TOKEN_TTL_DAYS` 天内签发过
+ *     长期令牌（登录 / 注册 / 改密码）—— 全部令牌都过期了的账号，那台设备
+ *     很可能已经换了人；
+ *   · 撤销（改密码 / 教师重置 / 后台停用 / 后台重置密码）时，调用方在同一
+ *     事务里删掉该账号的全部订阅 —— 那些设备已被登出。
  */
 @Injectable()
 export class PushService {
@@ -88,6 +105,36 @@ export class PushService {
   }
 
   /**
+   * 这台设备（endpoint）此刻是不是**当前账号**的订阅。纯读取。
+   *
+   * 属于别人、或者根本不存在，一律 `false` —— 不透露这台设备归谁。
+   * 推送没配置时同样照实回答（那时表里本来就不会有新订阅）。
+   */
+  async status(studentId: string, endpoint: string) {
+    const row = await this.prisma.pushSubscription.findUnique({
+      where: { endpoint },
+      select: { studentId: true },
+    });
+    return { subscribed: row?.studentId === studentId };
+  }
+
+  /**
+   * 发送对象的账号条件（Prisma 关系过滤片段）：此刻仍可用、且最近
+   * `STUDENT_TOKEN_TTL_DAYS` 天内签发过长期令牌。
+   *
+   * 「签发过」看 `lastLogin`（登录）与 `pinSetAt`（注册 / 改密码）—— 这是
+   * 全部三条签发 30 天令牌的路径；教师重置会把 `pinSetAt` 清空并递增版本号。
+   */
+  private deliverableStudentWhere(now: Date) {
+    const cutoff = new Date(now.getTime() - STUDENT_TOKEN_TTL_DAYS * 86_400_000);
+    return {
+      role: 'student' as const,
+      ...ENABLED_ACCOUNT_WHERE,
+      OR: [{ lastLogin: { gte: cutoff } }, { pinSetAt: { gte: cutoff } }],
+    };
+  }
+
+  /**
    * 给一个学生的所有设备发。推送服务回 404 / 410 = 这台设备已经退订
    * （学生在浏览器里关了通知、清了站点数据），那一行直接删掉，下次不再发。
    * 其它错误只记日志 —— 一台设备发不出去不该拦住剩下的。
@@ -95,7 +142,10 @@ export class PushService {
   async sendToStudent(studentId: string, payload: PushPayload, now = new Date()) {
     const v = this.vapid();
     if (!v) return { sent: 0, dropped: 0, failed: 0 };
-    const subs = await this.prisma.pushSubscription.findMany({ where: { studentId } });
+    // UI07：停用 / 归档 / 凭证全部过期的账号，一条都不发（cron 已经筛过，这里再兜一层）
+    const subs = await this.prisma.pushSubscription.findMany({
+      where: { studentId, student: this.deliverableStudentWhere(now) },
+    });
     let sent = 0;
     let dropped = 0;
     let failed = 0;
@@ -133,7 +183,7 @@ export class PushService {
     const dayStart = sgtDayStartInstant(now);
 
     const subs = await this.prisma.pushSubscription.findMany({
-      where: { student: { archivedAt: null } },
+      where: { student: this.deliverableStudentWhere(now) },
       select: { studentId: true, lastSentAt: true },
     });
     const subscribed = new Set(subs.map((s) => s.studentId));

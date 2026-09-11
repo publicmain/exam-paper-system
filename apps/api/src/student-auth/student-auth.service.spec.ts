@@ -59,7 +59,12 @@ function makeSvc(users: any[]) {
     classEnrollment: {
       findFirst: vi.fn().mockResolvedValue({ classId: 'c1' }),
     },
+    // 2026-09-11 UI07：改密码 / 教师重置在同一事务里清推送订阅
+    pushSubscription: {
+      deleteMany: vi.fn().mockResolvedValue({ count: 0 }),
+    },
   };
+  prisma.$transaction = vi.fn(async (fn: any) => fn(prisma));
   const jwt: any = { signAsync: vi.fn().mockResolvedValue('signed-token') };
   return { svc: new StudentAuthService(prisma, jwt), prisma, jwt, updates };
 }
@@ -196,6 +201,19 @@ describe('changePin', () => {
     await svc.changePin('stu-1', '280519', '731842');
     expect(updates[updates.length - 1].data.studentAuthVersion).toEqual({ increment: 1 });
   });
+
+  it('改 PIN 成功 → 同一事务里清掉该账号的推送订阅（UI07：被登出的设备不再收提醒）', async () => {
+    const { svc, prisma } = makeSvc([makeStudent()]);
+    await svc.changePin('stu-1', '280519', '731842');
+    expect(prisma.$transaction).toHaveBeenCalledTimes(1);
+    expect(prisma.pushSubscription.deleteMany).toHaveBeenCalledWith({ where: { studentId: 'stu-1' } });
+  });
+
+  it('旧 PIN 错误 → 不动推送订阅', async () => {
+    const { svc, prisma } = makeSvc([makeStudent()]);
+    await svc.changePin('stu-1', '999998', '731842').catch(() => undefined);
+    expect(prisma.pushSubscription.deleteMany).not.toHaveBeenCalled();
+  });
 });
 
 describe('adminResetPin', () => {
@@ -213,6 +231,13 @@ describe('adminResetPin', () => {
       // 否则「教师重置 PIN」只是把密码清空、人还在里面（复审 P0-2）
       studentAuthVersion: { increment: 1 },
     });
+  });
+
+  it('同一事务里清掉该账号的推送订阅（UI07）', async () => {
+    const { svc, prisma } = makeSvc([makeStudent()]);
+    await svc.adminResetPin({ id: 't1', role: 'admin' }, 'stu-1');
+    expect(prisma.$transaction).toHaveBeenCalledTimes(1);
+    expect(prisma.pushSubscription.deleteMany).toHaveBeenCalledWith({ where: { studentId: 'stu-1' } });
   });
 });
 

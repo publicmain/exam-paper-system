@@ -34,6 +34,12 @@ import {
   type PilotLevel,
 } from './pilot-levels';
 
+/**
+ * 学生长期令牌的有效期（天）。登录 / 注册 / 改密码签发的都是它。
+ * 推送提醒据此判断「这个账号还有没有可能持有效令牌」（UI07）。
+ */
+export const STUDENT_TOKEN_TTL_DAYS = 30;
+
 /** 公开自助注册只开放给用户确认过的九个班级；旧班历史仍完整保留。 */
 export const SELF_REGISTRATION_CLASS_CODES = new Set([
   'SGCE26W', 'SEC27W', 'OL26W', 'IAL27W', 'IAL27M',
@@ -74,7 +80,7 @@ export class StudentAuthService {
   ) {}
 
   /** PIN token 有效期。30 天 —— 学生设备丢失的风险由教师重置兜底。 */
-  private static readonly TOKEN_TTL = '30d';
+  private static readonly TOKEN_TTL = `${STUDENT_TOKEN_TTL_DAYS}d`;
 
   /** 教师「以学生视角查看」的令牌：只读、15 分钟。 */
   static readonly TEACHER_VIEW_SCOPE = 'teacher_view';
@@ -842,16 +848,24 @@ export class StudentAuthService {
       await this.recordPinFailure(studentId, now);
       throw new UnauthorizedException({ code: 'invalid_credentials' });
     }
-    const updated = await this.prisma.user.update({
-      where: { id: studentId },
-      data: {
-        pinHash: await bcrypt.hash(newPin, 10),
-        pinSetAt: now,
-        ...afterSuccess(),
-        // 改 PIN = 登出所有其它设备（复审 P0-2）
-        studentAuthVersion: { increment: 1 },
-      },
-      select: { id: true, email: true, name: true, studentAuthVersion: true },
+    const newHash = await bcrypt.hash(newPin, 10);
+    const updated = await this.prisma.$transaction(async (tx: any) => {
+      const row = await tx.user.update({
+        where: { id: studentId },
+        data: {
+          pinHash: newHash,
+          pinSetAt: now,
+          ...afterSuccess(),
+          // 改 PIN = 登出所有其它设备（复审 P0-2）
+          ...REVOKE_ALL_SESSIONS,
+        },
+        select: { id: true, email: true, name: true, studentAuthVersion: true },
+      });
+      // UI07：被登出的设备不该再收到这个账号的提醒。本机的订阅也一并清掉 ——
+      // 分不出哪一行是本机；学生端改完密码按 /push/status 显示真实状态，
+      // 想要提醒就在本机重新打开。
+      await tx.pushSubscription.deleteMany({ where: { studentId } });
+      return row;
     });
     // 2026-09-05 盲测 P2-16：改完密码把本机也踢下线体验很差。其它设备的旧票
     // 因版本号递增照样作废；**这台**设备当场换一张新票，保持登录。
@@ -901,17 +915,21 @@ export class StudentAuthService {
     if (!(await canActOnClass(this.prisma, actor, enrollment.classId))) {
       throw new ForbiddenException({ code: 'not_your_class' });
     }
-    await this.prisma.user.update({
-      where: { id: studentId },
-      data: {
-        pinHash: null,
-        pinSetAt: null,
-        pinFailedCount: 0,
-        pinLockedUntil: null,
-        // 关键（复审 P0-2）：重置必须让已签发的 30 天 token 立刻失效，
-        // 否则「抢注者已经拿到 token」的情况下，教师重置也救不回来
-        studentAuthVersion: { increment: 1 },
-      },
+    await this.prisma.$transaction(async (tx: any) => {
+      await tx.user.update({
+        where: { id: studentId },
+        data: {
+          pinHash: null,
+          pinSetAt: null,
+          pinFailedCount: 0,
+          pinLockedUntil: null,
+          // 关键（复审 P0-2）：重置必须让已签发的 30 天 token 立刻失效，
+          // 否则「抢注者已经拿到 token」的情况下，教师重置也救不回来
+          ...REVOKE_ALL_SESSIONS,
+        },
+      });
+      // UI07：抢注者 / 丢失的设备上的订阅一并清掉，不再收到这个账号的提醒
+      await tx.pushSubscription.deleteMany({ where: { studentId } });
     });
     this.logger.log(`PIN reset by teacher=${actor.id} for student=${studentId}`);
     return { ok: true as const };

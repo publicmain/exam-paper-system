@@ -365,6 +365,8 @@ const NEW_WRITES: Route[] = [
     body: { endpoint: 'https://push.example.invalid/x', keys: { p256dh: 'p', auth: 'a' } },
   },
   { method: 'POST', path: '/push/unsubscribe', body: { endpoint: 'https://push.example.invalid/x' } },
+  // UI07：只读，但它是 POST（endpoint 放请求体里）—— 教师只读视角同样拒
+  { method: 'POST', path: '/push/status', body: { endpoint: 'https://push.example.invalid/x' } },
   { method: 'POST', path: '/writing-check', body: { text: 'This is a sentence to check.' } },
   { method: 'POST', path: '/student-auth/change-pin', body: { oldPin: '271828', newPin: '314159' } },
 ];
@@ -616,6 +618,25 @@ describe('S08 —— 读身份与本人写入分开：教师只读视角能浏�
       expect(res.status).toBe(403);
       expect(res.body).toMatchObject({ code: 'teacher_view_is_read_only' });
       expect(h.calls).toEqual([]);
+      expect(h.prisma.__log.writes).toEqual([]);
+    });
+  }
+
+  // 旧 vocab 的可选身份 GET（未标注）：教师只读视角一直能读，本次逐条核实零写库
+  // （证据见 student-access.spec「旧 vocab 读接口」）。这里只证明真实守卫链放行。
+  const OPTIONAL_IDENTITY_GETS: Route[] = [
+    { method: 'GET', path: '/vocab/words' },
+    { method: 'GET', path: '/vocab/lesson-cards' },
+    { method: 'GET', path: '/vocab/stats' },
+    { method: 'GET', path: '/vocab/due' },
+    { method: 'GET', path: '/vocab/lookup?word=apple' },
+    // /vocab/mistakes 不在这里：错题本按产品决定暂停，任何人都回 503 feature_paused
+  ];
+  for (const r of OPTIONAL_IDENTITY_GETS) {
+    it(`${title(r)}（未标注的可选身份读）→ 教师只读视角可读，零写库`, async () => {
+      const t = await teacherViewToken(h);
+      const res = await call(h, r.method, r.path, { token: t });
+      expect(res.status, JSON.stringify(res.body)).toBe(200);
       expect(h.prisma.__log.writes).toEqual([]);
     });
   }

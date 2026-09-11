@@ -162,9 +162,19 @@ describe('推送 —— 每日提醒', () => {
     });
   });
 
-  it('归档账号不推', async () => {
+  it('归档账号不推（2026-09-11 UI07 起同时排除停用 / 旧版停用标记 / 凭证已过期的账号）', async () => {
     const prisma = makePrisma({});
     await new PushService(prisma).runDailyReminder(NOW);
-    expect(prisma.pushSubscription.findMany.mock.calls[0][0].where).toEqual({ student: { archivedAt: null } });
+    // 原断言是 `{ student: { archivedAt: null } }`；条件变严了，仍按全等钉死整条 where
+    const cutoff = new Date(NOW.getTime() - 30 * 86_400_000);
+    expect(prisma.pushSubscription.findMany.mock.calls[0][0].where).toEqual({
+      student: {
+        role: 'student',
+        isActive: true,
+        archivedAt: null,
+        NOT: { passwordHash: { startsWith: '!DEACTIVATED!:' } },
+        OR: [{ lastLogin: { gte: cutoff } }, { pinSetAt: { gte: cutoff } }],
+      },
+    });
   });
 });
