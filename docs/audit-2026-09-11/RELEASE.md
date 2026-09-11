@@ -55,3 +55,34 @@
 | 词汇 D1–D6 · 历史数据修复 | ledger-vocab「需要真实数据修复的 dry-run 方案」 | 延后词重复、来源关系、共享例句污染等历史数据 | ledger-vocab |
 
 每一项执行前：先备份、先跑 dry-run 给你看影响行数、再等你说「执行」。
+
+---
+
+## 上线记录 · 2026-09-11（你在对话里说「可以，按 RELEASE.md 上线」之后执行）
+
+| 步骤 | 时间（UTC / 新加坡） | 结果 |
+|---|---|---|
+| 预检 | 08:30 / 16:30 | `origin/main` 仍是 `6f85e6d`（快进合并，没有别人的新提交）；本机没有发布内容的进程 |
+| 备份 | 08:34 / 16:34 | 在 Postgres 容器里 `pg_dump -Fc`，全部表结构 + 除 `PdfPage`（697 MB 的 PDF 页图，只读、这次不碰）以外的全部数据，79 张表有数据；39,520,135 字节，sha256 `cc2919258097a8a746e4388c1eac003d1eece2d5450ca75e8449bf8a0ca06028`，下载到本机后逐字节校验一致。文件：`.local/backups/pre-release-20260911T083425Z.dump`（不进仓库，含学生数据）。容器里的临时文件已删 |
+| 推送 | 08:36 / 16:36 | `main` 快进 `6f85e6d → 3825422` |
+| API 部署 | 08:38 / 16:38 | 部署 `b4c00def`，启动时 `Applying migration 20260911120000_student_level_change` 成功；`/api/health` 报 `3825422`，`/api/health/ready` 数据库 up |
+| 教师端 / pdf-worker | 08:38 | `c5647369` / `936a2a4f` 成功 |
+| 学生端 | 08:39 / 16:39 | `railway up` 部署 `8dec027e` 成功；线上包 `index-CbohkcCX.js`，含新页面文案 |
+
+**回滚点**（上线前的活动部署）：API `6b86b29b`、教师端 `27f4cd14`、pdf-worker `191c38ee`、学生端 `dab34e67`。
+
+**上线后只读核对**：学生端 / 深链 `/vocab` / 教师端 200；不带令牌访问 `/vocab-v2/overview`、`/lesson/today`、
+`/vocab-v2/daily/review` 都是 403 `student_token_required`，答题页 401；注册页班级 9 个；API 自启动以来除一条
+早就存在的 `ContentBootstrap ENOENT`（上一版部署日志里同样有，缺的是早年因版权删掉的剑桥原文夹具）外没有错误。
+
+**上线后定时任务的两次写入（新代码的设计行为，如实记录）**：
+
+1. **更正本文前面「不回填」的说法**：词汇模块每 10 分钟的档位观察任务第一次运行时，给 43 名有档位的在册学生
+   各写了一行 `StudentLevelChange`（source=`baseline`，「从上线这一刻起他在这一档」）。只写新表、只增不改，
+   不碰任何已有表、成绩或进度。之后只有档位真的变了才会再写。
+2. 内容生成任务的超时回收（VOC14）第一次运行就收回了那条卡在 `running` 约 8.9 天的任务并重新跑完：
+   `content batch selected=1 published=1 rejected=0 failed=0 reclaimed=1`。
+3. 每日新词任务照常：`daily tasks ready for 41/41 active students`。
+
+**还没做**：用测试账号登录走一遍（今日 → 学词 → 背一背 → 测试 → 总结、一次阅读答题；教师端判分队列与词汇进度表）——
+登录要输入密码，按规则我不能代输，需要你登录后我再接着走，或你自己点一遍。
