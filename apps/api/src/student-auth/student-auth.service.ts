@@ -123,19 +123,31 @@ export class StudentAuthService {
       // 原来是输个名字就把这个名字在哪几个班全列出来 —— 任何人都能这样
       // 打听。现在密码对得上的才算候选：对上一个 → 直接登录；对上几个
       // （同名 + 同密码，极少）→ 只列这几个让他挑；一个都对不上 → 统一
-      // invalid_credentials，什么都不透露，并给每个没锁的同名账号记一次失败
-      // （和「选中再试」是同一个代价，挡不住的枚举本来也挡不住）。
+      // invalid_credentials，什么都不透露。
+      //
+      // S07（2026-09-11 审计）：失败计数与锁定走**和单人分支同一个**
+      // recordPinFailure —— 原来这里只 updateMany 递增、从不上锁，给一个
+      // 常见姓名可以无限次试密码。锁着的账号**不比对密码**（比对了就等于
+      // 告诉对方「猜中了」），全部锁着时与单人分支一样回 pin_locked。
       const now0 = new Date();
+      const withPin = candidates.filter((c) => c.pinHash);
+      const open = withPin.filter((c) => !isLocked(c, now0));
+      if (withPin.length > 0 && open.length === 0) {
+        throw this.pinLocked(Math.min(...withPin.map((c) => lockRemainingSec(c, now0))));
+      }
       const matched: typeof candidates = [];
-      for (const c of candidates) {
-        if (!c.pinHash || isLocked(c, now0)) continue;
-        if (await bcrypt.compare(input.pin, c.pinHash)) matched.push(c);
+      for (const c of open) {
+        if (await bcrypt.compare(input.pin, c.pinHash!)) matched.push(c);
       }
       if (matched.length === 0) {
-        await this.prisma.user.updateMany({
-          where: { id: { in: candidates.filter((c) => c.pinHash && !isLocked(c, now0)).map((c) => c.id) } },
-          data: { pinFailedCount: { increment: 1 } },
-        });
+        let lockedNow = 0;
+        for (const c of open) {
+          if (await this.recordPinFailure(c.id, now0)) lockedNow += 1;
+        }
+        // 这一次把最后几个没锁的也锁上了 → 与单人分支第 5 次同一个回答
+        if (open.length > 0 && lockedNow === open.length) {
+          throw this.pinLocked(LOCK_MINUTES * 60);
+        }
         throw new UnauthorizedException({ code: 'invalid_credentials' });
       }
       if (matched.length > 1) {
@@ -158,38 +170,12 @@ export class StudentAuthService {
 
     const now = new Date();
     if (isLocked(user, now)) {
-      throw new ForbiddenException({
-        code: 'pin_locked',
-        retryAfterSec: lockRemainingSec(user, now),
-      });
+      throw this.pinLocked(lockRemainingSec(user, now));
     }
 
     const ok = await bcrypt.compare(input.pin, user.pinHash);
     if (!ok) {
-      // ⚠️ 必须由**数据库**原子递增（2026-08-25 复审 P0-3）。
-      // 原来是「读 pinFailedCount → 内存 +1 → update」：五个并发的错误
-      // 请求会读到同一个旧值、各自写回 1，五次失败只记成一次，锁定形同
-      // 虚设。改成 { increment: 1 } 由 PG 保证原子性，再回读判定是否越线。
-      const bumped = await this.prisma.user.update({
-        where: { id: user.id },
-        data: { pinFailedCount: { increment: 1 } },
-        select: { pinFailedCount: true },
-      });
-      if (bumped.pinFailedCount >= MAX_FAILED_ATTEMPTS) {
-        // 越线才上锁并清零计数 —— 锁到期后重新拥有整额尝试
-        await this.prisma.user.update({
-          where: { id: user.id },
-          data: {
-            pinFailedCount: 0,
-            pinLockedUntil: new Date(now.getTime() + LOCK_MINUTES * 60_000),
-          },
-        });
-        this.logger.warn(`PIN locked after repeated failures: student=${user.id}`);
-        throw new ForbiddenException({
-          code: 'pin_locked',
-          retryAfterSec: LOCK_MINUTES * 60,
-        });
-      }
+      if (await this.recordPinFailure(user.id, now)) throw this.pinLocked(LOCK_MINUTES * 60);
       throw new UnauthorizedException({ code: 'invalid_credentials' });
     }
 
@@ -223,6 +209,39 @@ export class StudentAuthService {
       // ——「学生 id 只有认证之后才知道」正是它必须由服务端算的原因。
       ...studentAppRoutingFromEnv(user.id),
     };
+  }
+
+  /**
+   * 记一次密码失败 —— 单人登录、同名登录、改密码的旧密码校验**共用这一个**
+   * （2026-09-11 审计 S07）。返回这一次是否把账号锁上了。
+   *
+   * ⚠️ 计数必须由**数据库**原子递增（2026-08-25 复审 P0-3）。原来是「读
+   * pinFailedCount → 内存 +1 → update」：五个并发的错误请求读到同一个旧值、
+   * 各自写回 1，五次失败只记成一次。`{ increment: 1 }` 由 PG 保证原子性，
+   * 再看返回值判定是否越线；越线才上锁并清零计数 —— 锁到期后重新拥有整额
+   * 尝试（`MAX_FAILED_ATTEMPTS` 次 / `LOCK_MINUTES` 分钟，见 pin.ts）。
+   */
+  private async recordPinFailure(userId: string, now: Date): Promise<boolean> {
+    const bumped = await this.prisma.user.update({
+      where: { id: userId },
+      data: { pinFailedCount: { increment: 1 } },
+      select: { pinFailedCount: true },
+    });
+    if (bumped.pinFailedCount < MAX_FAILED_ATTEMPTS) return false;
+    await this.prisma.user.update({
+      where: { id: userId },
+      data: {
+        pinFailedCount: 0,
+        pinLockedUntil: new Date(now.getTime() + LOCK_MINUTES * 60_000),
+      },
+    });
+    this.logger.warn(`PIN locked after repeated failures: student=${userId}`);
+    return true;
+  }
+
+  /** 锁定的统一回答：只有错误码与剩余秒数，不带任何账号 / 班级信息。 */
+  private pinLocked(retryAfterSec: number): ForbiddenException {
+    return new ForbiddenException({ code: 'pin_locked', retryAfterSec: Math.max(1, retryAfterSec) });
   }
 
   // ─────────────── ⚠️ 临时：staging 免密夹具登录（上生产前必须拆） ───────────────
@@ -815,25 +834,12 @@ export class StudentAuthService {
     if (!user?.pinHash) throw new BadRequestException({ code: 'pin_not_set' });
     const now = new Date();
     if (isLocked(user, now)) {
-      throw new ForbiddenException({ code: 'pin_locked', retryAfterSec: lockRemainingSec(user, now) });
+      throw this.pinLocked(lockRemainingSec(user, now));
     }
     if (!(await bcrypt.compare(oldPin, user.pinHash))) {
       // 改 PIN 时输错旧 PIN 同样计入失败 —— 否则这里成了绕过锁定的
-      // 免费试错通道。同 login，用数据库原子递增。
-      const bumped = await this.prisma.user.update({
-        where: { id: studentId },
-        data: { pinFailedCount: { increment: 1 } },
-        select: { pinFailedCount: true },
-      });
-      if (bumped.pinFailedCount >= MAX_FAILED_ATTEMPTS) {
-        await this.prisma.user.update({
-          where: { id: studentId },
-          data: {
-            pinFailedCount: 0,
-            pinLockedUntil: new Date(now.getTime() + LOCK_MINUTES * 60_000),
-          },
-        });
-      }
+      // 免费试错通道。与 login 共用同一个原子计数 / 锁定（S07）。
+      await this.recordPinFailure(studentId, now);
       throw new UnauthorizedException({ code: 'invalid_credentials' });
     }
     const updated = await this.prisma.user.update({
