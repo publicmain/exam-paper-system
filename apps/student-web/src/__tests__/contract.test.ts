@@ -530,6 +530,11 @@ describe('G1 新端不得出现旧路由与旧身份键', () => {
     '/vocab-v2/collect',
     '/vocab-v2/notebook/remove',
     '/vocab-v2/notebook/relearn',
+    // 2026-09-11 审计：VOC13「重新加入」、VOC10 退出自助练习、VOC12 按日期只读回看
+    '/vocab-v2/notebook/restore',
+    '/vocab-v2/custom-test/cancel',
+    '/vocab-v2/daily/review',
+    '/vocab-v2/daily/history',
   ] as const;
 
   /**

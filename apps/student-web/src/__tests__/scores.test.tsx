@@ -507,10 +507,10 @@ describe('AC-03 入口与出口', () => {
     expect(at()).toBe(ROUTES.today);
   });
 
-  it('**`/today` 上有历史成绩入口**', async () => {
+  it('**`/today` 上有学习记录入口**：标签栏的「学习记录」（审计 IOS-01，替代首页底部的快捷入口）', async () => {
     mount(ROUTES.today);
     await settle();
-    await click(screen.getByTestId('go-scores'));
+    await click(screen.getByTestId('tab-records'));
     expect(at()).toBe(SCORES);
   });
 

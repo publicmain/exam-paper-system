@@ -1,5 +1,5 @@
 /**
- * 首页「还有单词小测没做」提醒弹窗（2026-09-09）
+ * 首页「还有单词测试没做」提醒弹窗（2026-09-09；IOS-11 起用统一的 Dialog）
  *
  * 起因：首发头三天，8 个学生把十个词学完了、单词小测一次没做。首页本来就有
  * 一张橙色卡片，但它在页面下方，学生点完「开始今天的课程」就走了。改成进首页
@@ -85,14 +85,24 @@ function mount() {
 }
 
 describe('首页单词小测提醒', () => {
-  it('有没做的小测 → 弹窗，说清是哪天的、几个词', async () => {
+  it('有没做的测试 → 弹窗，说清是哪天的、几题', async () => {
     mount();
     await settle();
     const box = screen.getByTestId('pending-test-reminder');
-    expect(box.textContent).toContain('还有一份单词小测没做');
+    expect(box.getAttribute('role')).toBe('dialog');
+    expect(box.textContent).toContain('还有一份单词测试没做');
     // 欠得最久的先提醒：09-07 那份，不是 09-08
     expect(box.textContent).toContain('9月7日');
-    expect(box.textContent).toContain('10 个词');
+    expect(box.textContent).toContain('10 题');
+  });
+
+  it('卷子还没生成（total 为 null）→ 写「预计」，不编一个题数（VOC06）', async () => {
+    pendingTests = [{ dailySessionId: 'd-0908', testSessionId: null, date: '2026-09-08', total: null, generated: false, expectedNewWords: 8, reviewWordsMax: 3, answered: 0, status: 'not_started' }];
+    mount();
+    await settle();
+    const box = screen.getByTestId('pending-test-reminder');
+    expect(box.textContent).toContain('预计 8 个新词，另有最多 3 个旧词抽查');
+    expect(box.textContent).not.toMatch(/null|undefined|NaN/);
   });
 
   it('点「现在去测」→ 进测试页；已有 testSessionId 就不再新建', async () => {
@@ -126,7 +136,7 @@ describe('首页单词小测提醒', () => {
   it('按 Esc 等于「待会儿」：关掉且当天不再弹', async () => {
     const first = mount();
     await settle();
-    fireEvent.keyDown(window, { key: 'Escape' });
+    fireEvent.keyDown(document.activeElement ?? document.body, { key: 'Escape' });
     await settle();
     expect(screen.queryByTestId('pending-test-reminder')).toBeNull();
     first.unmount();

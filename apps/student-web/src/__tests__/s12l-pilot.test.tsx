@@ -142,39 +142,53 @@ const spellingItem = {
 // 1. 今天的课：卡片要能点
 // ─────────────────────────────────────────────────────────────
 
-describe('S12L —— 今天的课是仪表盘', () => {
+describe('S12L / IOS-04 —— 今日三项任务卡都能点、各管各的', () => {
   beforeEach(() => {
-    routes = { '/lesson/today': () => ({ body: today() }) };
+    routes = {
+      '/lesson/today': () => ({ body: today() }),
+      '/vocab-v2/overview': () => ({
+        body: {
+          dailyTarget: 21, today: null, readingBacklog: [], learningBacklog: [], pendingTests: [],
+          home: {
+            date: '2026-08-31', teachingDay: true,
+            reading: { state: 'completed', sessionId: 'sess-1', title: 'The Rooftop Garden' },
+            words: { state: 'in_progress', sessionId: 'd1', target: 21, learned: 3, deferred: 0, pending: 18 },
+            test: { state: 'not_generated', reason: 'learning_unfinished' },
+            allDone: false,
+          },
+          backlogByDate: [], backlogTotals: { reading: 0, words: 0, test: 0 },
+        },
+      }),
+    };
   });
 
-  it('阅读卡可点 —— 已完成就去结果页', async () => {
+  it('阅读卡的按钮可点 —— 已完成就去结果页', async () => {
     render(<MemoryRouter><TodayPage /></MemoryRouter>);
     await settle();
-    const readCard = screen.getByTestId('segment-card-read');
-    expect(readCard.tagName === 'BUTTON' || readCard.tagName === 'A').toBe(true);
-    fireEvent.click(readCard);
+    const btn = screen.getByTestId('task-reading-action');
+    expect(btn.tagName).toBe('BUTTON');
+    fireEvent.click(btn);
     expect(navigate).toHaveBeenCalledWith('/lesson/reading/result');
   });
 
-  it('单词卡可点 —— 还没学完就去课程学词', async () => {
+  it('单词卡的按钮可点 —— 还没学完就去学词', async () => {
     render(<MemoryRouter><TodayPage /></MemoryRouter>);
     await settle();
-    fireEvent.click(screen.getByTestId('segment-card-vocab'));
+    fireEvent.click(screen.getByTestId('task-words-action'));
     expect(navigate).toHaveBeenCalledWith('/coach/learn');
   });
 
-  it('错题卡明说暂未开放，也说清不计入今天', async () => {
+  it('暂停的错题不占今天的一席（IOS-04：只在「学习记录」留一处说明）', async () => {
     render(<MemoryRouter><TodayPage /></MemoryRouter>);
     await settle();
-    const drill = screen.getByTestId('segment-card-drill');
-    expect(drill.textContent).toContain('暂未开放');
-    expect(drill.textContent).toContain('不计入');
+    expect(screen.queryByTestId('task-drill')).toBeNull();
+    expect(screen.getByRole('list', { name: '今天的三项任务' }).textContent).not.toContain('错题');
   });
 
-  it('分母照服务端的 total 显示（今天是 2）', async () => {
+  it('分母按三项的适用性算：阅读完成、学词一半、测试还没生成 → 1 / 3', async () => {
     render(<MemoryRouter><TodayPage /></MemoryRouter>);
     await settle();
-    expect(screen.getByTestId('lesson-progress').textContent).toContain('1 / 2');
+    expect(screen.getByTestId('lesson-progress').getAttribute('aria-label')).toBe('今天完成 1 / 3');
   });
 });
 
@@ -364,7 +378,13 @@ describe('S12L —— iPad / 电脑不再只有一条 448px', () => {
     await settle();
     const main = container.querySelector('main');
     expect(main).toBeTruthy();
-    expect(main!.className, `正文容器仍是固定窄栏：${main!.className}`).toMatch(/(md|lg|xl):max-w-/);
+    const cls = main!.className;
+    // 意图：宽屏不被锁在 448px 一条里 —— 要么带响应式加宽断点，要么本身就是宽容器（IOS-04 起首页是 max-w-6xl）
+    const narrowOnly = /(^|\s)max-w-(xs|sm|md|lg|xl|2xl)(\s|$)/.test(cls) && !/(md|lg|xl):max-w-/.test(cls);
+    expect(narrowOnly, `正文容器仍是固定窄栏：${cls}`).toBe(false);
+    expect(cls, `正文容器没有宽屏宽度：${cls}`).toMatch(/max-w-(3xl|4xl|5xl|6xl|7xl|none|\[)|(md|lg|xl):max-w-/);
+    // 三项任务在 iPad 起并排，宽度真的用上了
+    expect(container.querySelector('[aria-label="今天的三项任务"]')!.className).toMatch(/md:grid-cols-3/);
   });
 
   it('历史成绩详情：宽屏用左原文 / 右题目', async () => {

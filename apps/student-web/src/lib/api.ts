@@ -180,9 +180,20 @@ export type V2LearningSession = {
   status: string;
   target: number;
   cursor: number;
+  /** ⚠ 旧含义 = 已处理（学完 + 稍后再学）。**不能**拿来显示「已学 N 个」（VOC08）。 */
   completed: number;
-  /** 真正点过“学完”的数量；`completed` 还包含“稍后再学”的已处理卡。 */
+  /** 真正点过「学完」的数量。 */
   learned: number;
+  /** 明确「稍后再学」的（不算学会、不进当天测试）。老服务端不发。 */
+  deferred?: number;
+  /** 换过的卡数。 */
+  replaced?: number;
+  /** 还没处理的卡数。 */
+  pending?: number;
+  processed?: number;
+  /** 学完之后要不要正式测试（全延后 = 不需要）。 */
+  testNeeded?: boolean;
+  learningPhase?: 'not_started' | 'in_progress' | 'finished';
   sourceSummary: Record<string, number>;
   settings: Record<string, unknown>;
   deferredUntil: string | null;
@@ -194,7 +205,53 @@ export type V2LearningSession = {
     status: string;
     /** 学生翻这张卡时点的：hard / normal / mastered / skip。没翻过是 null。 */
     action: string | null;
+    /** 这张卡的词义 id —— 换词时回传，服务端据此确认「换的就是屏幕上这张」（VOC02 / UI02）。 */
+    senseId?: string;
     card: V2Card;
+  }>;
+};
+
+/** 按日期只读回看（VOC12，`GET /vocab-v2/daily/review`）。不生成任何东西。 */
+export type V2DailyReview = {
+  readOnly: true;
+  date: string;
+  sessionId: string;
+  status: string;
+  mode: string;
+  learningPhase: 'not_started' | 'in_progress' | 'finished';
+  target: number;
+  learned: number;
+  deferred: number;
+  replaced: number;
+  pending: number;
+  recite: Array<{ id: string; position: number; action: string | null; card: V2Card }>;
+  deferredWords: string[];
+  pendingWords: string[];
+  test: {
+    testSessionId: string | null;
+    generated: boolean;
+    status: string;
+    total: number | null;
+    newWords: number | null;
+    reviewWords: number | null;
+    answered: number;
+    expectedNewWords?: number;
+    reviewWordsMax?: number;
+  } | null;
+};
+
+export type V2DailyHistory = {
+  days: Array<{
+    date: string;
+    sessionId: string;
+    status: string;
+    target: number;
+    learned: number;
+    deferred: number;
+    pending: number;
+    replaced: number;
+    processed: number;
+    test: V2DailyReview['test'];
   }>;
 };
 
@@ -244,6 +301,11 @@ export type V2TestSession = {
   answered: number;
   correct: number | null;
   retry?: { id: string; total: number; label: string } | null;
+  /** 自助练习（不计成绩）。 */
+  practiceOnly?: boolean;
+  /** 自助练习：进行中会话的过期时间 / 交卷后结果保留到几点（VOC10）。 */
+  expiresAt?: string | null;
+  resultExpiresAt?: string | null;
   items: Array<{
     id: string;
     position: number;
@@ -274,6 +336,12 @@ export type V2Center = {
   total: number;
   page: number;
   pageSize: number;
+  /** UI03：总页数、请求的页号、越界是否被收回到最后一页、游标分页。老服务端不发。 */
+  pageCount?: number;
+  requestedPage?: number;
+  clamped?: boolean;
+  hasMore?: boolean;
+  nextCursor?: string | null;
   items: Array<{
     studentSenseId: string;
     senseId: string;
@@ -284,18 +352,91 @@ export type V2Center = {
     definition: string;
     masteryStage: number;
     due: string;
-    source: string;
+    /** ⚠ 没有来源证据时为 null（不再默认「每日新词」，VOC09）。 */
+    source: string | null;
+    /** 这个词的全部来源（标签与筛选同一份证据）。 */
+    sources?: string[];
     sourceTitle: string | null;
     firstSeenAt: string;
     inNotebook: boolean;
     skills: Record<string, number>;
-    context: { sentence: string; translation: string } | null;
+    context: { sentence: string; translation: string; personal?: boolean } | null;
   }>;
+};
+
+/**
+ * 首页三项任务各自的状态（审计 UI13 / UI14，服务端 vocab-v2 overview 的 `home`）。
+ *
+ *   not_applicable —— 今天这一项不适用（周末、没进班、没选档、场次取消、没有学完的新词…）
+ *   not_generated  —— 还没生成（给出原因与生成条件）
+ *   pending / in_progress / completed —— 待完成 / 做了一部分 / 做完
+ *   awaiting_marking —— 阅读已交卷，主观题等老师批（不是 0 分，也不是没做）
+ *   auto_closed —— 阅读被系统收尾
+ */
+export type HomeTaskState =
+  | 'not_applicable'
+  | 'not_generated'
+  | 'pending'
+  | 'in_progress'
+  | 'completed'
+  | 'awaiting_marking'
+  | 'auto_closed';
+
+export type HomeReadingTask = {
+  state: HomeTaskState;
+  reason?: string;
+  assignmentId?: string;
+  sessionId?: string;
+  submissionId?: string | null;
+  title?: string | null;
+  /** 这一份阅读**分配时**的难度（不是现在的设置） */
+  level?: string | null;
+};
+export type HomeWordsTask = {
+  state: HomeTaskState;
+  reason?: string;
+  sessionId?: string;
+  target?: number;
+  /** 真正学完的 */
+  learned?: number;
+  /** 明确延后的（不算学会，不进当天测试） */
+  deferred?: number;
+  replaced?: number;
+  pending?: number;
+  generation?: { condition?: string; trigger?: string };
+};
+export type HomeTestTask = {
+  state: HomeTaskState;
+  reason?: string;
+  dailySessionId?: string;
+  testSessionId?: string | null;
+  /** 冻结卷的总题数 = 新词 + 旧词抽查 */
+  total?: number;
+  newWords?: number;
+  reviewWords?: number;
+  answered?: number;
+  /** 还没生成时：预计的新词数与旧词抽查上限 */
+  expectedNewWords?: number;
+  reviewWordsMax?: number;
+  generation?: { trigger?: string };
+};
+export type HomeTasks = {
+  date: string;
+  teachingDay: boolean;
+  reading: HomeReadingTask;
+  words: HomeWordsTask;
+  test: HomeTestTask;
+  allDone: boolean;
 };
 
 export type V2Overview = {
   dailyTarget: number;
   today: V2LearningSession | null;
+  /** 新服务端才有；老服务端不发时首页按旧字段推断。 */
+  home?: HomeTasks;
+  /** 今天以前、按日期欠多少（阅读 / 新词 / 测试） */
+  backlogByDate?: Array<{ date: string; reading: number; words: number; test: number }>;
+  backlogTotals?: { reading: number; words: number; test: number };
   readingBacklog?: Array<{
     assignmentId: string;
     sessionId: string;
@@ -303,19 +444,32 @@ export type V2Overview = {
     date: string;
     title: string;
     status: 'not_started' | 'in_progress';
+    /** 那一天分配时的难度 */
+    level?: string | null;
+    levelBasis?: 'submission' | 'level_log' | 'before_first_record' | 'current';
   }>;
   learningBacklog?: Array<{
     sessionId: string;
     date: string;
     completed: number;
     target: number;
+    learned?: number;
+    deferred?: number;
+    pending?: number;
     status: 'not_started' | 'in_progress';
   }>;
   pendingTests: Array<{
     dailySessionId: string;
     testSessionId: string | null;
     date: string;
-    total: number;
+    /** ⚠ 卷子还没生成时为 null —— 显示「预计 N 个新词 + 最多 M 个旧词」，不编一个数（VOC06）。 */
+    total: number | null;
+    newWords?: number | null;
+    reviewWords?: number | null;
+    answered?: number;
+    generated?: boolean;
+    expectedNewWords?: number;
+    reviewWordsMax?: number;
     status: string;
   }>;
 };
@@ -440,8 +594,9 @@ export const api = {
     request<{ dailyTarget: number; taskMinutes: number; audioAccent: 'en-GB' | 'en-US' }>(
       'POST', '/vocab-v2/profile', { token, body },
     ),
-  vocabV2Center: (token: string, filters: { q?: string; source?: string; stage?: string; page?: number; article?: string; topic?: string; list?: string; dateFrom?: string; dateTo?: string } = {}) => {
+  vocabV2Center: (token: string, filters: { q?: string; source?: string; stage?: string; page?: number; cursor?: string; article?: string; topic?: string; list?: string; dateFrom?: string; dateTo?: string } = {}) => {
     const query = new URLSearchParams();
+    if (filters.cursor) query.set('cursor', filters.cursor);
     if (filters.q) query.set('q', filters.q);
     if (filters.source) query.set('source', filters.source);
     if (filters.stage) query.set('stage', filters.stage);
@@ -458,8 +613,13 @@ export const api = {
   vocabV2StartDaily: (token: string, date?: string) => request<V2LearningSession>('POST', '/vocab-v2/daily/start', { token, body: date ? { date } : {} }),
   vocabV2LearnAction: (token: string, body: { sessionId: string; itemId: string; action: 'mastered' | 'normal' | 'hard' | 'skip'; responseMs?: number }) =>
     request<V2LearningSession>('POST', '/vocab-v2/daily/item', { token, body }),
-  vocabV2Replace: (token: string, body: { sessionId: string; itemId: string }) =>
-    request<V2LearningSession & { replacement: { position: number; oldHeadword: string; newHeadword: string } }>(
+  vocabV2DailyReview: (token: string, date?: string) =>
+    request<V2DailyReview | null>('GET', date ? '/vocab-v2/daily/review?date=' + encodeURIComponent(date) : '/vocab-v2/daily/review', { token }),
+  vocabV2DailyHistory: (token: string, limit = 30) =>
+    request<V2DailyHistory>('GET', '/vocab-v2/daily/history?limit=' + limit, { token }),
+  /** `expectedSenseId` = 屏幕上那张卡的 senseId；服务端确认换的就是它（VOC02 / UI02）。 */
+  vocabV2Replace: (token: string, body: { sessionId: string; itemId: string; expectedSenseId?: string }) =>
+    request<V2LearningSession & { replacement: { position: number; oldHeadword: string; newHeadword: string }; replayed?: boolean }>(
       'POST', '/vocab-v2/daily/replace', { token, body },
     ),
   vocabV2StartTest: (token: string, dailySessionId: string) =>
@@ -484,7 +644,10 @@ export const api = {
   vocabV2Submit: (token: string, sessionId: string) =>
     request<V2TestSession>('POST', '/vocab-v2/test/submit', { token, body: { sessionId } }),
   vocabV2CustomTest: (token: string, body: { count: 5 | 10 | 20 | 'all'; scope: 'all' | 'week' | 'weak' | 'mastered' | 'spelling' | 'listening'; sourceTitle?: string }) =>
-    request<V2TestSession>('POST', '/vocab-v2/custom-test/start', { token, body }),
+    request<V2TestSession & { replacedPrevious?: boolean }>('POST', '/vocab-v2/custom-test/start', { token, body }),
+  /** 退出自助练习：服务端删掉这份临时卷（VOC10）。 */
+  vocabV2CancelCustomTest: (token: string, sessionId: string) =>
+    request<{ ok: true; cancelled: boolean }>('POST', '/vocab-v2/custom-test/cancel', { token, body: { sessionId } }),
   vocabV2Collect: (token: string, body: {
     headword: string;
     action: 'learn' | 'known' | 'lookup_only' | 'later';
@@ -496,10 +659,19 @@ export const api = {
   }) => request<{ ok: true; action: string; added: boolean; sense: { id: string; headword: string; senseKey: string; pos: string; phonetic: string | null; translation: string; definition: string } }>(
     'POST', '/vocab-v2/collect', { token, body },
   ),
+  /**
+   * 放回 / 移出「我的单词」。放回走 `notebook/restore`（VOC13：只恢复成员关系，
+   * 不开始教学、不算新词）；老服务端没有这个接口时退回旧名 `relearn`（同一个动作）。
+   */
   vocabV2SetMembership: (token: string, senseId: string, inNotebook: boolean) => inNotebook
-    ? request<{ ok: true; senseId: string; headword: string; inNotebook: boolean }>(
-        'POST', '/vocab-v2/notebook/relearn', { token, body: { senseId } },
-      )
+    ? request<{ ok: true; senseId: string; headword: string; inNotebook: boolean; startsLearning?: false; countsAsNewWord?: false; alreadyInNotebook?: boolean }>(
+        'POST', '/vocab-v2/notebook/restore', { token, body: { senseId } },
+      ).catch((e: unknown) => {
+        if (e instanceof ApiError && e.status === 404) {
+          return request<{ ok: true; senseId: string; headword: string; inNotebook: boolean }>('POST', '/vocab-v2/notebook/relearn', { token, body: { senseId } });
+        }
+        throw e;
+      })
     : request<{ ok: true; senseId: string; headword: string; inNotebook: boolean }>(
         'POST', '/vocab-v2/notebook/remove', { token, body: { senseId } },
       ),

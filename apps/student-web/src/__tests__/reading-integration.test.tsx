@@ -237,11 +237,12 @@ async function click(el: HTMLElement) {
   await settle();
 }
 
-/** 走完「登录态启动 → /today → 开始上课 → 阅读页渲染完」。 */
+/** 走完「登录态启动 → /today → 开始阅读 → 阅读页渲染完」。 */
 async function openReading() {
   mountApp('/today');
   await settle();
-  await click(screen.getByRole('button', { name: '开始今天的课程' }));
+  // IOS-04 / UI13：今天的阅读卡上自己的「开始阅读」—— 只开阅读，不碰单词
+  await click(screen.getByTestId('task-reading-action'));
   await settle();
 }
 

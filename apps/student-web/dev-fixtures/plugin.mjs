@@ -158,6 +158,7 @@ function dailySession(date, { completed = 0, status } = {}) {
     masteryBefore: 0,
     status: i < completed ? 'completed' : 'pending',
     action: i < completed ? 'normal' : null,
+    senseId: `fx_sense_${w.headword}`,
     card: card(w, i),
   }));
   const s = {
@@ -171,6 +172,12 @@ function dailySession(date, { completed = 0, status } = {}) {
     cursor: completed,
     completed,
     learned: completed,
+    deferred: 0,
+    replaced: 0,
+    pending: ws.length - completed,
+    processed: completed,
+    learningPhase: completed >= ws.length ? 'finished' : completed > 0 ? 'in_progress' : 'not_started',
+    testNeeded: completed > 0,
     sourceSummary: { daily_pushed: ws.length },
     settings: {},
     deferredUntil: null,
@@ -183,8 +190,13 @@ function dailySession(date, { completed = 0, status } = {}) {
 function recount(s) {
   s.completed = s.items.filter((it) => it.status !== 'pending').length;
   s.learned = s.items.filter((it) => it.status === 'completed' && it.action !== 'skip').length;
+  s.deferred = s.items.filter((it) => it.status === 'skipped').length;
+  s.pending = s.items.filter((it) => it.status === 'pending').length;
+  s.processed = s.completed;
   s.cursor = Math.min(s.completed, s.items.length - 1);
   s.status = s.completed >= s.items.length ? 'completed' : s.completed > 0 ? 'in_progress' : 'not_started';
+  s.learningPhase = s.status === 'completed' ? 'finished' : s.status;
+  s.testNeeded = s.learned > 0;
 }
 
 // ── 正式词测 ─────────────────────────────────────────────────
@@ -247,24 +259,34 @@ const publicTest = (t) => ({
 });
 
 // ── 场景化的「今天」 ─────────────────────────────────────────
+//
+// 场景（/__fx/scenario?name=…）：
+//   fresh        新的一天，什么都没开始
+//   midday       阅读做了一半、新词学了 4 个、昨天的测试没做（卷子还没生成）
+//   backlog      今天没开始，前几天欠阅读 / 新词 / 测试
+//   test_pending 阅读已交卷待批 + 新词学完 + 正式测试还没做（UI14：不是全部完成）
+//   no_reading   教学日但阅读没发布，新词照常可学可测（UI13）
+//   all_deferred 新词全部延后：学词完成、测试「不需要」
+//   done         三项都做完（阅读待老师批）
+//   weekend      周末：三项都不适用
 function scenario() {
   const today = S.today;
   const past = teachingDaysBefore(today, 6);
   const sc = S.name;
   const weekend = sc === 'weekend';
+  const noReading = sc === 'no_reading';
   const reading = { status: 'todo', submitted: false, pending: false };
-  let daily = null;
+  let daily = state.daily[today] ?? null;
   let pendingTests = [];
   let readingBacklog = [];
   let learningBacklog = [];
+  const notGenerated = (s) => ({ dailySessionId: s.id, testSessionId: null, date: s.date, generated: false, total: null, newWords: null, reviewWords: null, answered: 0, expectedNewWords: s.learned, reviewWordsMax: 3, status: 'not_started' });
 
-  if (sc === 'fresh') {
-    daily = null;
-  } else if (sc === 'midday') {
+  if (sc === 'midday') {
     reading.status = 'partial';
     daily = dailySession(today, { completed: 4 });
     const y = dailySession(past[0], { completed: 10, status: 'completed' });
-    pendingTests = [{ dailySessionId: y.id, testSessionId: null, date: y.date, total: 13, status: 'not_started' }];
+    pendingTests = [notGenerated(y)];
   } else if (sc === 'backlog') {
     daily = dailySession(today, { completed: 0 });
     readingBacklog = past.slice(0, 5).map((d, i) => ({
@@ -274,15 +296,38 @@ function scenario() {
       date: d,
       title: lessonFor(d).title,
       status: i === 1 ? 'in_progress' : 'not_started',
+      level: S.level,
+      levelBasis: i === 1 ? 'submission' : 'level_log',
     }));
     learningBacklog = past.slice(0, 3).map((d, i) => {
       const s = dailySession(d, { completed: i === 0 ? 6 : 0 });
-      return { sessionId: s.id, date: d, completed: s.completed, target: s.target, status: s.completed ? 'in_progress' : 'not_started' };
+      return { sessionId: s.id, date: d, completed: s.completed, learned: s.learned, deferred: s.deferred, pending: s.pending, target: s.target, status: s.completed ? 'in_progress' : 'not_started' };
     });
     pendingTests = past.slice(3, 6).map((d, i) => {
       const s = dailySession(d, { completed: 10, status: 'completed' });
-      return { dailySessionId: s.id, testSessionId: i === 0 ? `fx_test_${d}` : null, date: d, total: 10 + (i % 4), status: i === 0 ? 'in_progress' : 'not_started' };
+      if (i !== 0) return notGenerated(s);
+      const t = testFor(s, { answered: 3 });
+      return { dailySessionId: s.id, testSessionId: t.id, date: d, generated: true, total: t.total, newWords: t.newCount, reviewWords: t.reviewCount, answered: t.answered, status: 'in_progress' };
     });
+  } else if (sc === 'test_pending') {
+    reading.status = 'done';
+    reading.submitted = true;
+    reading.pending = true;
+    daily = dailySession(today, { completed: 10, status: 'completed' });
+    testFor(daily);
+  } else if (sc === 'no_reading') {
+    // 阅读没发布；新词不受影响
+  } else if (sc === 'all_deferred') {
+    reading.status = 'done';
+    reading.submitted = true;
+    daily = dailySession(today, { completed: 0 });
+    for (const it of daily.items) {
+      if (it.status === 'pending') {
+        it.status = 'skipped';
+        it.action = 'skip';
+      }
+    }
+    recount(daily);
   } else if (sc === 'done') {
     reading.status = 'done';
     reading.submitted = true;
@@ -291,7 +336,14 @@ function scenario() {
     const t = testFor(daily, { answered: 13, submitted: true });
     t.status = 'completed';
   }
-  return { today, past, weekend, reading, daily, pendingTests, readingBacklog, learningBacklog };
+  // 今天的正式测试：学完就生成（与服务端「学完最后一张卡时自动生成」一致）；没交卷就挂在待测里
+  if (daily && daily.status === 'completed' && daily.learned > 0 && daily.date === today) {
+    const t = state.tests[`fx_test_${today}`] ?? testFor(daily);
+    if (t.status !== 'completed') {
+      pendingTests = [...pendingTests, { dailySessionId: daily.id, testSessionId: t.id, date: today, generated: true, total: t.total, newWords: t.newCount, reviewWords: t.reviewCount, answered: t.answered, status: t.answered > 0 ? 'in_progress' : 'not_started' }];
+    }
+  }
+  return { today, past, weekend, noReading, reading, daily, pendingTests, readingBacklog, learningBacklog };
 }
 
 function lessonToday() {
@@ -299,9 +351,9 @@ function lessonToday() {
   const l = lessonFor(sc.today);
   const sid = sessionIdFor(sc.today);
   const r = state.reading[sid];
-  const readStatus = sc.weekend ? 'none' : r?.submitted ? 'done' : r ? 'partial' : sc.reading.status;
+  const readStatus = sc.weekend || sc.noReading ? 'none' : r?.submitted ? 'done' : r ? 'partial' : sc.reading.status;
   const submitted = r?.submitted || sc.reading.submitted;
-  const nextKind = sc.weekend
+  const nextKind = sc.weekend || sc.noReading
     ? 'no_content'
     : readStatus === 'todo'
       ? 'ready_to_start'
@@ -335,15 +387,15 @@ function lessonToday() {
       {
         key: 'read',
         status: readStatus,
-        label: sc.weekend ? null : l.title,
-        questionCount: sc.weekend ? null : l.questions.length,
+        label: readStatus === 'none' ? null : l.title,
+        questionCount: readStatus === 'none' ? null : l.questions.length,
         typicalMinutes: 20,
         score: null,
         maxScore: l.questions.reduce((a, q) => a + q.marks, 0),
         scoresPending: Boolean(submitted),
         releasedScore: submitted ? { earned: 5, max: 6, count: 6 } : null,
         submissionId: submitted || r ? submissionIdFor(sc.today) : null,
-        sessionId: sc.weekend ? null : sid,
+        sessionId: readStatus === 'none' ? null : sid,
         autoClosed: false,
       },
       {
@@ -359,14 +411,68 @@ function lessonToday() {
   };
 }
 
+/** 今天三项任务的状态 —— 与 vocabulary-v2.service overview 的 home 同一口径。 */
+function homeFor(sc) {
+  const d = sc.weekend ? null : state.daily[sc.today] ?? sc.daily;
+  let reading;
+  if (sc.weekend) reading = { state: 'not_applicable', reason: 'weekend' };
+  else if (sc.noReading) reading = { state: 'not_generated', reason: 'no_session_published' };
+  else {
+    const sid = sessionIdFor(sc.today);
+    const r = state.reading[sid];
+    const submitted = r?.submitted || sc.reading.submitted;
+    const st = submitted ? 'awaiting_marking' : r || sc.reading.status === 'partial' ? 'in_progress' : 'pending';
+    reading = { state: st, assignmentId: `fx_as_${sc.today}`, sessionId: sid, submissionId: submitted || r ? submissionIdFor(sc.today) : null, title: lessonFor(sc.today).title, level: S.level };
+  }
+  let words;
+  if (sc.weekend) words = { state: 'not_applicable', reason: 'weekend' };
+  else if (!d) words = { state: 'not_generated', generation: { condition: '教学日（周一到周五，新加坡时间）', trigger: '学生点开学词' } };
+  else words = { state: d.pending === 0 ? 'completed' : d.processed === 0 ? 'pending' : 'in_progress', sessionId: d.id, target: d.target, learned: d.learned, deferred: d.deferred, replaced: d.replaced ?? 0, pending: d.pending };
+  let test;
+  if (sc.weekend) test = { state: 'not_applicable', reason: 'weekend' };
+  else if (!d) test = { state: 'not_generated', reason: 'no_word_task_yet' };
+  else if (d.status !== 'completed') test = { state: 'not_generated', reason: 'learning_unfinished', generation: { trigger: '学完当天最后一张卡时自动生成' } };
+  else if (d.learned === 0) test = { state: 'not_applicable', reason: 'nothing_learned' };
+  else {
+    const t = state.tests[`fx_test_${d.date}`];
+    test = t
+      ? { state: t.status === 'completed' ? 'completed' : t.answered > 0 ? 'in_progress' : 'pending', dailySessionId: d.id, testSessionId: t.id, total: t.total, newWords: t.newCount, reviewWords: t.reviewCount, answered: t.answered }
+      : { state: 'not_generated', reason: 'ready_to_generate', dailySessionId: d.id, expectedNewWords: d.learned, reviewWordsMax: 3 };
+  }
+  const done = (x) => ['completed', 'awaiting_marking', 'auto_closed', 'not_applicable'].includes(x);
+  return {
+    date: sc.today,
+    teachingDay: !sc.weekend,
+    reading,
+    words,
+    test,
+    allDone: (done(reading.state) || reading.state === 'not_generated') && done(words.state) && done(test.state),
+  };
+}
+
 function overview() {
   const sc = scenario();
+  const byDate = new Map();
+  const bump = (date, k) => {
+    if (!byDate.has(date)) byDate.set(date, { date, reading: 0, words: 0, test: 0 });
+    byDate.get(date)[k] += 1;
+  };
+  for (const r of sc.readingBacklog) bump(r.date, 'reading');
+  for (const w of sc.learningBacklog) bump(w.date, 'words');
+  for (const t of sc.pendingTests) if (t.date < sc.today) bump(t.date, 'test');
   return {
     dailyTarget: 10,
-    today: sc.weekend ? null : sc.daily,
+    today: sc.weekend ? null : state.daily[sc.today] ?? sc.daily,
     readingBacklog: sc.readingBacklog,
     learningBacklog: sc.learningBacklog,
     pendingTests: sc.pendingTests,
+    home: homeFor(sc),
+    backlogByDate: [...byDate.values()].sort((a, b) => a.date.localeCompare(b.date)),
+    backlogTotals: {
+      reading: sc.readingBacklog.length,
+      words: sc.learningBacklog.length,
+      test: sc.pendingTests.filter((t) => t.date < sc.today).length,
+    },
   };
 }
 
@@ -628,6 +734,10 @@ async function handle(req, res, url) {
       it.action = body.action;
     }
     recount(s);
+    if (s.status === 'completed' && s.learned > 0) {
+      const t = testFor(s);
+      return json(res, 200, { ...s, generatedTestId: t.id, generatedTest: { total: t.total, newWords: t.newCount, reviewWords: t.reviewCount } });
+    }
     return json(res, 200, s);
   }
   if (path === '/vocab-v2/daily/replace') {
@@ -689,7 +799,25 @@ async function handle(req, res, url) {
   if (path === '/vocab-v2/collect') {
     return json(res, 200, { ok: true, action: body.action ?? 'add', added: body.action === 'add', sense: { id: 'fx_sense_x', headword: body.headword ?? 'word', senseKey: 'x#1', pos: 'n', phonetic: null, translation: '示例', definition: '' } });
   }
-  if (path === '/vocab-v2/notebook/remove' || path === '/vocab-v2/notebook/relearn') {
+  if (path === '/vocab-v2/custom-test/cancel') return json(res, 200, { ok: true, cancelled: true });
+  if (path === '/vocab-v2/daily/review') {
+    const date = url.searchParams.get('date') ?? S.today;
+    const d = state.daily[date];
+    if (!d) return json(res, 200, null);
+    const t = state.tests[`fx_test_${date}`];
+    return json(res, 200, {
+      readOnly: true, date, sessionId: d.id, status: d.status, mode: d.mode, learningPhase: d.learningPhase,
+      target: d.target, learned: d.learned, deferred: d.deferred, replaced: d.replaced ?? 0, pending: d.pending,
+      recite: d.items.filter((it) => it.status === 'completed').map((it) => ({ id: it.id, position: it.position, action: it.action, card: it.card })),
+      deferredWords: d.items.filter((it) => it.status === 'skipped').map((it) => it.card.headword),
+      pendingWords: d.items.filter((it) => it.status === 'pending').map((it) => it.card.headword),
+      test: t ? { testSessionId: t.id, generated: true, status: t.status, total: t.total, newWords: t.newCount, reviewWords: t.reviewCount, answered: t.answered } : null,
+    });
+  }
+  if (path === '/vocab-v2/daily/history') {
+    return json(res, 200, { days: Object.values(state.daily).sort((a, b) => b.date.localeCompare(a.date)).map((d) => ({ date: d.date, sessionId: d.id, status: d.status, target: d.target, learned: d.learned, deferred: d.deferred, pending: d.pending, replaced: d.replaced ?? 0, processed: d.processed, test: null })) });
+  }
+  if (path === '/vocab-v2/notebook/remove' || path === '/vocab-v2/notebook/relearn' || path === '/vocab-v2/notebook/restore') {
     const remove = path.endsWith('remove');
     const id = body.studentSenseId ?? body.senseId;
     if (id) (remove ? state.notebookRemoved.add(id) : state.notebookRemoved.delete(id));

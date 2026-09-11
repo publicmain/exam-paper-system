@@ -111,7 +111,7 @@ describe('3. 登录', () => {
     await userEvent.type(screen.getByLabelText('密码'), 'pw123456');
     await userEvent.click(screen.getByRole('button', { name: '登录' }));
 
-    await screen.findByRole('heading', { name: '你好，一号' });
+    await screen.findByRole('link', { name: /^一号，.*打开账号$/ });
     expect(localStorage.getItem('sw:token')).toBe('TK');
     // **只有令牌 + 草稿归属摘要** —— 姓名 / studentId / profile 一律不落盘。
     // sw:owner 是 studentId 的不可逆摘要，只用来判断「本机草稿是不是这个人的」（UI15）。
@@ -166,7 +166,7 @@ describe('3. 登录', () => {
 
     await screen.findByText(/哪一个是你/);
     await userEvent.click(screen.getByText('G12'));
-    await screen.findByRole('heading', { name: '你好，一号' });
+    await screen.findByRole('link', { name: /^一号，.*打开账号$/ });
 
     expect((calls[1] as { studentId?: string }).studentId).toBe('a2');
     expect(localStorage.getItem('sw:token')).toBe('TK2');
@@ -204,7 +204,7 @@ describe('1. 首次注册', () => {
     await userEvent.click(screen.getByRole('radio', { name: 'O-Level 标准' }));
     await userEvent.click(screen.getByRole('button', { name: '注册并进入' }));
 
-    await screen.findByRole('heading', { name: '你好，一号' });
+    await screen.findByRole('link', { name: /^一号，.*打开账号$/ });
     expect(localStorage.getItem('sw:token')).toBe('RT');
     expect(Object.keys(localStorage).sort()).toEqual(['sw:owner', 'sw:token']);
     expect(localStorage.getItem('sw:owner')).not.toContain(PROFILE.id);
@@ -223,7 +223,7 @@ describe('1. 首次注册', () => {
     await userEvent.type(screen.getByLabelText('再输一次'), '280519');
     await userEvent.click(screen.getByRole('radio', { name: 'O-Level 标准' }));
     await userEvent.click(screen.getByRole('button', { name: '注册并进入' }));
-    await screen.findByRole('heading', { name: '你好，一号' });
+    await screen.findByRole('link', { name: /^一号，.*打开账号$/ });
 
     const legacy = fetchMock.mock.calls.filter(
       (c) => route(String(c[0])) === '/student-auth/register',
@@ -239,7 +239,7 @@ describe('6. 刷新恢复 / 令牌撤销', () => {
       route(url) === '/student-auth/me' ? jsonResponse(200, PROFILE) : jsonResponse(404, {}),
     );
     renderAt('/today');
-    await screen.findByRole('heading', { name: '你好，一号' });
+    await screen.findByRole('link', { name: /^一号，.*打开账号$/ });
   });
 
   it('**令牌被撤销（教师重置）→ 清身份、回登录页，并说清下一步是重新设密码**', async () => {
@@ -282,7 +282,7 @@ describe('6. 刷新恢复 / 令牌撤销', () => {
       route(url) === '/student-auth/me' ? jsonResponse(200, PROFILE) : jsonResponse(404, {}),
     );
     await userEvent.click(screen.getByRole('button', { name: '重试' }));
-    await screen.findByRole('heading', { name: '你好，一号' });
+    await screen.findByRole('link', { name: /^一号，.*打开账号$/ });
   });
 
   it('**503 / 服务端故障同样不登出**，「用别的账号登录」才作废这张票', async () => {
@@ -387,7 +387,7 @@ describe('10. 未知 URL', () => {
       route(url) === '/student-auth/me' ? jsonResponse(200, PROFILE) : jsonResponse(404, {}),
     );
     renderAt('/nope');
-    await screen.findByRole('heading', { name: '你好，一号' });
+    await screen.findByRole('link', { name: /^一号，.*打开账号$/ });
   });
 
   it('已登录访问登录页 → 送回今天的课', async () => {
@@ -396,7 +396,7 @@ describe('10. 未知 URL', () => {
       route(url) === '/student-auth/me' ? jsonResponse(200, PROFILE) : jsonResponse(404, {}),
     );
     renderAt('/login');
-    await screen.findByRole('heading', { name: '你好，一号' });
+    await screen.findByRole('link', { name: /^一号，.*打开账号$/ });
   });
 });
 

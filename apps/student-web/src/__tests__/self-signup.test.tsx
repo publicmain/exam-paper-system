@@ -154,7 +154,7 @@ describe('S12O —— 注册页', () => {
     await fillForm();
     await userEvent.click(screen.getByRole('button', { name: '注册并进入' }));
 
-    await screen.findByRole('heading', { name: '你好，林小雨' });
+    await screen.findByRole('link', { name: /^林小雨，.*打开账号$/ });
     const calls = fetchMock.mock.calls.filter((c) => route(String(c[0])) === '/student-auth/self-register');
     expect(calls).toHaveLength(1);
     expect(bodyOf(calls[0])).toEqual({
@@ -172,7 +172,7 @@ describe('S12O —— 注册页', () => {
     renderAt('/register');
     await fillForm();
     await userEvent.click(screen.getByRole('button', { name: '注册并进入' }));
-    await screen.findByRole('heading', { name: '你好，林小雨' });
+    await screen.findByRole('link', { name: /^林小雨，.*打开账号$/ });
     const call = fetchMock.mock.calls.find((c) => route(String(c[0])) === '/student-auth/self-register')!;
     expect(String(call[0])).not.toContain('?');
     expect(Object.keys(bodyOf(call)).sort()).toEqual([
@@ -236,7 +236,7 @@ describe('S12O —— 注册页', () => {
     await userEvent.click(btn);
     expect(fetchMock.mock.calls.filter((c) => route(String(c[0])) === '/student-auth/self-register')).toHaveLength(1);
     resolve(null);
-    await screen.findByRole('heading', { name: '你好，林小雨' });
+    await screen.findByRole('link', { name: /^林小雨，.*打开账号$/ });
   });
 
   it('服务端说班级不可注册 → 说人话，且不落任何东西', async () => {
@@ -276,7 +276,7 @@ describe('S12O —— 注册页', () => {
     await userEvent.click(screen.getByRole('button', { name: '注册并进入' }));
     await screen.findByRole('alert');
     await userEvent.click(screen.getByRole('button', { name: '注册并进入' }));
-    await screen.findByRole('heading', { name: '你好，林小雨' });
+    await screen.findByRole('link', { name: /^林小雨，.*打开账号$/ });
     expect(n).toBe(2);
   });
 });
