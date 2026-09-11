@@ -2,7 +2,8 @@ import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from
 import { Test } from '@nestjs/testing';
 import { APP_GUARD, Reflector } from '@nestjs/core';
 import { JwtModule, JwtService } from '@nestjs/jwt';
-import type { INestApplication } from '@nestjs/common';
+import { RequestMethod, type INestApplication } from '@nestjs/common';
+import { METHOD_METADATA, PATH_METADATA } from '@nestjs/common/constants';
 import { GLOBAL_GUARDS } from './global-guards';
 import { AuthGuard } from './auth.guard';
 import { RateLimitGuard } from './rate-limit.guard';
@@ -749,4 +750,70 @@ describe('S06 —— 按用户限流在真实守卫顺序下按「已验证的�
     expect((await call(h, 'GET', '/morning-quiz/history-by-name', { token: a, ip: '203.0.113.60' })).status).toBe(429);
     expect((await call(h, 'GET', '/morning-quiz/history-by-name', { token: b, ip: '203.0.113.60' })).status).toBe(200);
   });
+});
+
+// ═════════════════════ S03 · 穷举：教师只读视角 × 全部非 GET 路由 ═════════════════════
+
+describe('S03 —— 穷举：真实守卫链上，教师只读视角打任何一条非 GET 路由都 403 且零写库', () => {
+  // 上面的 LEGACY_WRITES / NEW_WRITES 是挑出来的代表。这里从控制器元数据
+  // 把**所有**非 GET 路由列出来逐条打 —— 以后谁新加一条写接口忘了挡，
+  // 这里当场红。唯一排除的是 student-auth 里根本不读令牌的公开入口
+  // （登录 / 注册之类：教师视角令牌在那里不被当作身份，谈不上「代学生写」）。
+  const TOKENLESS_PUBLIC = new Set([
+    'POST /student-auth/register',
+    'POST /student-auth/self-register',
+    'POST /student-auth/login',
+    'POST /student-auth/staging-fixture-session',
+  ]);
+  const CONTROLLERS_UNDER_TEST = [
+    StudentController, MorningQuizController, VocabularyV2Controller, LessonController,
+    VocabController, PushController, WritingCheckController, StudentAuthController, AdminRbacController,
+  ];
+
+  function allNonGetRoutes(): Route[] {
+    const out: Route[] = [];
+    for (const C of CONTROLLERS_UNDER_TEST as any[]) {
+      const base = (Reflect.getMetadata(PATH_METADATA, C) as string) ?? '';
+      for (const name of Object.getOwnPropertyNames(C.prototype)) {
+        const fn = C.prototype[name];
+        if (typeof fn !== 'function' || name === 'constructor') continue;
+        const p = Reflect.getMetadata(PATH_METADATA, fn);
+        if (p === undefined) continue;
+        const method = RequestMethod[Reflect.getMetadata(METHOD_METADATA, fn) as number];
+        if (method === 'GET') continue;
+        const path = `/${base}/${p}`.replace(/\/+/g, '/').replace(/\/$/, '');
+        const key = `${method} ${path}`;
+        if (TOKENLESS_PUBLIC.has(key)) continue;
+        // 路径参数一律填 s1（handoff 会话、答卷号之类都用得上这个值）
+        out.push({ method, path: path.replace(/:[A-Za-z]+/g, 's1'), label: key });
+      }
+    }
+    return out;
+  }
+
+  let h: Harness;
+  beforeAll(async () => {
+    h = await startApp();
+  });
+  afterAll(async () => {
+    await h.app.close();
+  });
+  beforeEach(() => reset(h));
+
+  const routes = allNonGetRoutes();
+
+  it('清单不是空的（元数据推导没失灵）', () => {
+    expect(routes.length).toBeGreaterThan(60);
+  });
+
+  for (const r of routes) {
+    it(`${r.label} → 403 teacher_view_is_read_only，业务零调用、零写库`, async () => {
+      const t = await teacherViewToken(h);
+      const res = await call(h, r.method, r.path, { token: t, body: {} });
+      expect(res.status, JSON.stringify(res.body)).toBe(403);
+      expect(res.body).toMatchObject({ code: 'teacher_view_is_read_only' });
+      expect(h.calls).toEqual([]);
+      expect(h.prisma.__log.writes).toEqual([]);
+    });
+  }
 });
