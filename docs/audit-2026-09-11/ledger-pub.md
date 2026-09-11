@@ -621,6 +621,16 @@ null」那一条失败，属于当时未提交的 WIP，本次以 CONTENT01 的�
 的「六十个档×天」清单），两处都改成了更严格或对等的验证方式（克隆夹具
 复现历史 bug），没有删除或弱化任何断言。
 
+**`npm run test:all` 连跑三端时观察到的偶发超时（与本次改动无关）**：单独
+跑 `test -w @app/web` 两次都是 251/251；但在同一 shell 里连续跑完 api →
+web → student-web 三套（外加本机当时还开着 PGlite 服务、浏览器标签页）之
+后，`@app/web` 出现过一次 2/251 因 `Test timed out in 5000ms` 失败
+（`Me.test.tsx`、`MyVocabQuiz.test.tsx`，都是账号/生词页，与本次改动的
+pilot 发布脚本毫无关系），单独重跑立即转绿。判断是本机资源竞争下的计时
+类偶发抖动，不是断言层面的真实回归——但如果 CI runner 资源紧张，
+`test:all` 一次跑三端也可能出现类似抖动，值得留意；不建议因为一次偶发
+超时就去调大全局 `testTimeout` 掩盖过去，真出现时应先看是不是资源问题。
+
 ### 隔离测试数据库（Docker 本机坏了，用 PGlite 代替）
 
 `.local/tools/pglite/`（gitignored，独立目录，未触碰仓库 node_modules）：
