@@ -13,6 +13,7 @@ import { isTeachingDay, sgtDateKey } from './unified-vocabulary-rules';
 export class VocabularyV2DailyTaskCron implements OnModuleInit {
   private readonly logger = new Logger(VocabularyV2DailyTaskCron.name);
   private running = false;
+  private observing = false;
 
   constructor(
     private readonly prisma: PrismaService,
@@ -54,6 +55,24 @@ export class VocabularyV2DailyTaskCron implements OnModuleInit {
       this.logger.log(`daily tasks ready for ${createdOrFound}/${students.length} active students`);
     } finally {
       this.running = false;
+    }
+  }
+
+  /**
+   * UI01：每 10 分钟补记一次档位变更（教师改档 / 首次落定不经过 student-auth 的记录）。
+   * 周末也跑 —— 周末改的档要在周一的任务之前记下来。只增不改。
+   */
+  @Cron('*/10 * * * *', { name: 'vocabulary-v2-level-observer', timeZone: 'Asia/Singapore' })
+  async observeLevels(now = new Date()) {
+    if (this.observing || process.env.STUDENT_APP_V2 !== 'on') return;
+    this.observing = true;
+    try {
+      const result = await this.vocabulary.observeStudentLevels(now);
+      if (result.baseline || result.observed) this.logger.log(`level records: baseline=${result.baseline} observed=${result.observed}`);
+    } catch (error) {
+      this.logger.warn(`level observation failed: ${String((error as Error)?.message ?? error).slice(0, 180)}`);
+    } finally {
+      this.observing = false;
     }
   }
 }

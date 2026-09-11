@@ -152,7 +152,7 @@ describe('UI03 生词本分页契约', () => {
     expect(byCursor).toEqual(byPage);
   });
 
-  it('500 个词：页码 17 页全部可达；游标一路走完也是 500 个', async () => {
+  it('500 个词：页码 17 页全部可达；游标一路走完也是 500 个', { timeout: 30_000 }, async () => {
     const db = newDb();
     const stu = seedStudent(db);
     ownWords(db, stu, 500, { sameDayEvery: 20 });

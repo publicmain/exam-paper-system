@@ -132,6 +132,30 @@ model User {
   vocabV2Sessions              VocabularyV2Session[]
   vocabV2AssignmentsMade       VocabularyV2Assignment[]    @relation("VocabularyV2AssignedBy")
   pushSubscriptions            PushSubscription[]          @relation("PushSubscriptionOwner")
+  levelChanges                 StudentLevelChange[]        @relation("StudentLevelChanges")
+}
+
+/// 学生难度的变更记录（UI01，2026-09-11）。**只增不改**。
+///
+/// 过去每一天分配给他哪一档的阅读，按「那一天结束时他在哪档」算 —— 原来拿**现在的**
+/// `User.englishLevel` 去匹配过去的场次，改一次档，过去的欠账整批换掉。
+///
+///   · student_self —— 学生在账号设置里改（student-auth setEnglishLevel，同一事务写）；
+///   · teacher      —— 教师在花名册改（users.service 接入前由 observed 兜底）；
+///   · observed     —— 词汇 cron 发现「记录里最后的档位 ≠ 现在的档位」补记，时间 = 发现时刻；
+///   · baseline     —— 开始记录时的档位快照（之前没有任何记录的学生，cron 首次见到时写）。
+///
+/// 上线前的历史没有记录：不猜、不补造，按上线时的档位算（台账写明）。
+model StudentLevelChange {
+  id        String        @id @default(cuid())
+  studentId String
+  student   User          @relation("StudentLevelChanges", fields: [studentId], references: [id], onDelete: Cascade)
+  fromLevel EnglishLevel?
+  toLevel   EnglishLevel
+  source    String        @default("student_self")
+  changedAt DateTime      @default(now())
+
+  @@index([studentId, changedAt])
 }
 
 /// 浏览器推送订阅（Web Push，2026-09-10）。

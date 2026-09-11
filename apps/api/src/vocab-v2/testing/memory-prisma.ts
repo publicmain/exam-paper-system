@@ -435,7 +435,9 @@ export class MemoryPrisma {
   // ───────────────────────── where ─────────────────────────
 
   private compoundKey(model: string, key: string): string[] | null {
-    for (const cols of this.def(model).unique ?? []) if (cols.join('_') === key) return cols;
+    // 单列唯一键（如 sessionKey）在 Prisma 里就是普通字段，可以带 in / not 等操作符；
+    // 只有多列唯一键才有 `a_b: { a, b }` 这种复合写法。
+    for (const cols of this.def(model).unique ?? []) if (cols.length > 1 && cols.join('_') === key) return cols;
     return null;
   }
 

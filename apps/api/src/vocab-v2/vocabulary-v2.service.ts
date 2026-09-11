@@ -20,6 +20,7 @@ import { answerFormalQuestion, buildFormalQuestion, publicFormalQuestion, type F
 import { answerAdaptiveQuestion, buildAdaptiveQuestion, checkActiveUse, publicAdaptiveQuestion, type AdaptiveCard, type AdaptiveQuestion } from './adaptive-test';
 import { learningAssetQuality } from './content-quality';
 import { focusedSentence, parseSourceRef, passageOf, sentenceInPassages } from './collect-context';
+import { assignedReadingFor } from './level-timeline';
 import {
   activeDeferredSenseIds,
   collectUnseenFromList,
@@ -277,6 +278,57 @@ export class VocabularyV2Service {
     return { classId, assignments: rows.map((row) => this.assignmentView(row)) };
   }
 
+  /**
+   * 档位变更的兜底记录（UI01）：每 10 分钟看一眼每个在册学生的 englishLevel，
+   *   · 还没有任何记录 → 写一行 baseline（「从现在起他在这一档」，之前的日子按它算 = 旧口径）；
+   *   · 记录里最后的档位 ≠ 现在的档位（教师在花名册改的、首次落定的，都不经过
+   *     student-auth）→ 写一行 observed（fromLevel = 记录里最后的档位，时间 = 发现时刻）。
+   * 学生自己改档在 student-auth 里已同步写记录，这里看到的就是一致的，不会重复写。
+   * 只增不改；不碰任何历史表。
+   */
+  async observeStudentLevels(now = new Date()) {
+    const students = await this.prisma.user.findMany({
+      where: {
+        role: 'student',
+        archivedAt: null,
+        englishLevel: { not: null },
+        classEnrollments: { some: { role: 'student' } },
+      },
+      select: { id: true, englishLevel: true },
+    });
+    if (!students.length) return { baseline: 0, observed: 0 };
+    const recorded = await this.prisma.studentLevelChange.findMany({
+      where: { studentId: { in: students.map((student) => student.id) } },
+      orderBy: { changedAt: 'asc' },
+      select: { studentId: true, toLevel: true },
+    });
+    const lastLevel = new Map<string, string>();
+    for (const row of recorded) lastLevel.set(row.studentId, row.toLevel);
+    const rows: Array<{ studentId: string; fromLevel: EnglishLevel | null; toLevel: EnglishLevel; source: string; changedAt: Date }> = [];
+    for (const student of students) {
+      const current = student.englishLevel as EnglishLevel;
+      const last = lastLevel.get(student.id);
+      if (last === undefined) rows.push({ studentId: student.id, fromLevel: null, toLevel: current, source: 'baseline', changedAt: now });
+      else if (last !== current) rows.push({ studentId: student.id, fromLevel: last as EnglishLevel, toLevel: current, source: 'observed', changedAt: now });
+    }
+    if (rows.length) await this.prisma.studentLevelChange.createMany({ data: rows });
+    return {
+      baseline: rows.filter((row) => row.source === 'baseline').length,
+      observed: rows.filter((row) => row.source === 'observed').length,
+    };
+  }
+
+  /**
+   * 教师看一个班每个学生的阅读 / 词汇进度。
+   *
+   * 2026-09-11 审计：
+   *   · UI01 / T06：过去每一天分配给学生哪一份阅读，与学生首页走**同一个**
+   *     `assignedReadingFor`（有答卷 = 事实；没答卷按那天结束时的档位；今天按现在的档位）；
+   *   · T01：取消的场次没交过不算欠，已最终交卷的留档（算完成、记 cancelledArchived）；
+   *     `overdue` 与学生首页 readingBacklog 同口径 = 今天以前、还欠着的份数；
+   *   · VOC06：待测题数按冻结卷的 target，没生成的才按学完的新词数，另给 todayTestQuestions；
+   *   · VOC08：学完 0 个的那天 todayTest = not_needed。
+   */
   async teacherClassProgress(actor: { id: string; role: string }, classId: string, now = new Date()) {
     if (!(await canActOnClass(this.prisma, actor, classId))) {
       throw new ForbiddenException({ code: 'not_your_class' });
@@ -290,20 +342,21 @@ export class VocabularyV2Service {
     const studentIds = enrollments.map((row) => row.userId);
     if (!studentIds.length) return { classId, date: day.key, totals: { students: 0 }, students: [] };
 
-    const [readingAssignments, dailySessions, formalSessions, notebookRows] = await Promise.all([
+    const [readingAssignments, dailySessions, formalSessions, notebookRows, levelChanges] = await Promise.all([
       this.prisma.paperAssignment.findMany({
         where: { classId, morningQuizSession: { isNot: null } },
         include: {
-          morningQuizSession: { select: { date: true, level: true } },
+          paper: { select: { name: true } },
+          morningQuizSession: { select: { id: true, date: true, level: true, status: true } },
           submissions: {
-            where: { studentId: { in: studentIds } },
-            select: { studentId: true, finalSubmittedAt: true, status: true, submitSource: true },
+            where: { studentId: { in: studentIds }, status: { not: 'practice' } },
+            select: { id: true, studentId: true, finalSubmittedAt: true, status: true, submitSource: true, _count: { select: { scripts: true } } },
           },
         },
       }),
       this.prisma.vocabularyV2Session.findMany({
         where: { studentId: { in: studentIds }, sessionType: 'daily_learning' },
-        include: { items: { select: { status: true } } },
+        include: { items: { select: { status: true, response: true } } },
         orderBy: { date: 'asc' },
       }),
       this.prisma.vocabularyV2Session.findMany({
@@ -314,23 +367,35 @@ export class VocabularyV2Service {
         where: { studentId: { in: studentIds } },
         select: { studentId: true, inNotebook: true, masteryStage: true, reps: true },
       }),
+      this.prisma.studentLevelChange.findMany({
+        where: { studentId: { in: studentIds } },
+        orderBy: { changedAt: 'asc' },
+        select: { studentId: true, fromLevel: true, toLevel: true, changedAt: true, source: true },
+      }),
     ]);
 
     const formalByKey = new Map(formalSessions.map((row) => [row.sessionKey, row]));
     const rows = enrollments.map(({ user, joinedAt }) => {
-      const firstAssignedDay = sgtDay(joinedAt).date;
-      const assignedReading = readingAssignments.filter((assignment) =>
-        assignment.morningQuizSession &&
-        assignment.morningQuizSession.date.getTime() >= firstAssignedDay.getTime() &&
-        assignment.morningQuizSession.date.getTime() <= day.date.getTime() &&
-        assignment.morningQuizSession.level === user.englishLevel,
-      );
-      const readingDone = assignedReading.filter((assignment) =>
-        assignment.submissions.some((submission) => submission.studentId === user.id && submission.finalSubmittedAt != null && submission.submitSource !== 'system_eod'),
-      ).length;
-      const awaitingMarking = assignedReading.filter((assignment) =>
-        assignment.submissions.some((submission) => submission.studentId === user.id && submission.status === 'submitted'),
-      ).length;
+      const assigned = assignedReadingFor({
+        rows: readingAssignments.map((assignment) => {
+          const submission = assignment.submissions.find((row) => row.studentId === user.id) ?? null;
+          return {
+            assignmentId: assignment.id,
+            classId,
+            title: assignment.paper?.name ?? null,
+            session: assignment.morningQuizSession!,
+            submission: submission
+              ? { id: submission.id, status: submission.status, finalSubmittedAt: submission.finalSubmittedAt, submitSource: submission.submitSource, scripts: submission._count.scripts }
+              : null,
+          };
+        }),
+        joinedAtByClass: new Map([[classId, joinedAt]]),
+        changes: levelChanges.filter((row) => row.studentId === user.id),
+        currentLevel: user.englishLevel,
+        todayKey: day.key,
+      });
+      const overdueRows = assigned.filter((row) => row.owed && row.date < day.key);
+      const todayRow = assigned.find((row) => row.date === day.key) ?? null;
       const learning = dailySessions.filter((session) => session.studentId === user.id);
       const completedLearning = learning.filter((session) => session.status === 'completed');
       const pendingTests = pendingDailySessions(
@@ -349,13 +414,15 @@ export class VocabularyV2Service {
         name: user.name,
         englishLevel: user.englishLevel,
         reading: {
-          assigned: assignedReading.length,
-          completed: readingDone,
-          overdue: Math.max(0, assignedReading.length - readingDone),
-          awaitingMarking,
-          today: assignedReading.some((assignment) => assignment.morningQuizSession?.date.getTime() === day.date.getTime())
-            ? assignedReading.some((assignment) => assignment.morningQuizSession?.date.getTime() === day.date.getTime() && assignment.submissions.some((submission) => submission.studentId === user.id && submission.finalSubmittedAt != null && submission.submitSource !== 'system_eod')) ? 'completed' : 'pending'
-            : 'none',
+          /** 实际分配给他的份数（入班后、今天及以前；取消未交的不算；取消前已交的留档算） */
+          assigned: assigned.length,
+          completed: assigned.filter((row) => row.completed).length,
+          /** 今天以前还欠着的份数 —— 与学生首页 readingBacklog 同口径（T01） */
+          overdue: overdueRows.length,
+          overdueDates: overdueRows.map((row) => row.date),
+          awaitingMarking: assigned.filter((row) => row.awaitingMarking).length,
+          cancelledArchived: assigned.filter((row) => row.cancelled).length,
+          today: todayRow ? (todayRow.completed ? 'completed' : 'pending') : 'none',
         },
         vocabulary: {
           notebookCount: words.filter((word) => word.inNotebook).length,
@@ -364,12 +431,18 @@ export class VocabularyV2Service {
           unfinishedWords: openWords,
           completedDailySets: completedLearning.length,
           pendingTests: pendingTests.length,
-          pendingTestWords: pendingTests.reduce((sum, session) => sum + session.items.filter((item) => item.status === 'completed').length, 0),
+          /** 待测题数：已生成的按冻结卷 target（含旧词抽查），没生成的按学完的新词数（VOC06） */
+          pendingTestWords: pendingTests.reduce((sum, session) => {
+            const test = formalByKey.get(`${session.sessionKey}:formal`);
+            return sum + (test ? test.target : session.items.filter((item) => item.status === 'completed').length);
+          }, 0),
+          pendingTestsNotGenerated: pendingTests.filter((session) => !formalByKey.has(`${session.sessionKey}:formal`)).length,
           todayLearning: !todayLearning || todayLearning.items.every((item) => item.status === 'pending') ? 'not_started' : todayLearning.status,
           // VOC08：学习阶段结束但一个都没学完（全稍后再学）→ 这天不需要正式卷，老师别等
           todayTest: !todayLearning || todayLearning.status !== 'completed'
             ? 'locked'
             : todayLearned === 0 ? 'not_needed' : todayFormal?.status ?? 'pending',
+          todayTestQuestions: todayFormal ? todayFormal.target : null,
           todayLearned,
           todayDeferred: todayLearning ? todayLearning.items.filter((item) => item.status === 'skipped').length : 0,
         },
@@ -1241,11 +1314,24 @@ export class VocabularyV2Service {
     return session ? this.sessionView(session) : null;
   }
 
+  /**
+   * 学生首页的全部事实（只读，S08）。
+   *
+   * 2026-09-11 审计补的：
+   *   · `home` —— 今天三项任务各自的状态（UI13 / UI14 的后端事实）：
+   *       reading / words / test 各是 not_applicable（给 reason）/ not_generated（给 reason
+   *       或 generation 条件）/ pending / in_progress / completed / awaiting_marking（阅读待批）/
+   *       auto_closed（阅读被系统收卷，仍算没做）。`allDone` 只在三项都完成、待批或不适用时为真。
+   *   · `backlogByDate` / `backlogTotals` —— 今天以前按日期欠多少（阅读 / 新词 / 测试）。
+   *   · `readingBacklog` 按实际分配（UI01，见 level-timeline.ts），每行带 level / levelBasis。
+   *   · `pendingTests` 生成后以冻结卷为准（VOC06）：total / newWords / reviewWords 来自卷子本身；
+   *     没生成的 total 为 null，给 expectedNewWords + reviewWordsMax。
+   */
   async overview(studentId: string, now = new Date()) {
     const day = sgtDay(now);
-    const [profile, today, dailySessions, user] = await Promise.all([
+    const teachingDay = isTeachingDay(day.key);
+    const [profile, dailySessions, user, levelChanges] = await Promise.all([
       this.profile(studentId),
-      this.dailySession(studentId, now),
       this.prisma.vocabularyV2Session.findMany({
         where: {
           studentId,
@@ -1266,59 +1352,94 @@ export class VocabularyV2Service {
           },
         },
       }),
+      this.prisma.studentLevelChange.findMany({
+        where: { studentId },
+        orderBy: { changedAt: 'asc' },
+        select: { fromLevel: true, toLevel: true, changedAt: true, source: true },
+      }),
     ]);
-    const recentDaily = dailySessions.filter((session) => session.status === 'completed');
-    const formalKeys = recentDaily.map((session) => `${session.sessionKey}:formal`);
+    const todaySession = dailySessions.find((session) => session.date.getTime() === day.date.getTime()) ?? null;
+    const today = todaySession ? this.sessionView(todaySession) : null;
+
+    // ── 正式词测：以冻结卷为唯一事实（VOC06）──
+    const completedDaily = dailySessions.filter((session) => session.status === 'completed');
+    const formalKeys = completedDaily.map((session) => `${session.sessionKey}:formal`);
     const formal = formalKeys.length
       ? await this.prisma.vocabularyV2Session.findMany({
           where: { studentId, sessionKey: { in: formalKeys } },
-          select: { id: true, sessionKey: true, status: true },
+          select: { id: true, sessionKey: true, status: true, target: true, items: { select: { source: true, status: true } } },
         })
       : [];
     const formalByKey = new Map(formal.map((session) => [session.sessionKey, session]));
-    const pendingTests = pendingDailySessions(
-      recentDaily,
-      new Map(formal.map((session) => [session.sessionKey, session.status])),
-    )
-      .map((session) => {
-        const test = formalByKey.get(`${session.sessionKey}:formal`);
+    const testFact = (session: { sessionKey: string; items: Array<{ status: string }> }) => {
+      const test = formalByKey.get(`${session.sessionKey}:formal`);
+      if (!test) {
         return {
-          dailySessionId: session.id,
-          testSessionId: test?.id ?? null,
-          date: session.date.toISOString().slice(0, 10),
-          total: testableDailyItems(session.items).length,
-          status: test?.status ?? 'not_started',
+          testSessionId: null,
+          generated: false,
+          status: 'not_started',
+          total: null as number | null,
+          newWords: null as number | null,
+          reviewWords: null as number | null,
+          answered: 0,
+          expectedNewWords: testableDailyItems(session.items).length,
+          reviewWordsMax: REVIEW_SAMPLE_SIZE,
         };
-      });
+      }
+      return {
+        testSessionId: test.id,
+        generated: true,
+        status: test.status,
+        total: test.target as number | null,
+        newWords: test.items.filter((item) => item.source !== 'review').length as number | null,
+        reviewWords: test.items.filter((item) => item.source === 'review').length as number | null,
+        answered: test.items.filter((item) => item.status === 'answered').length,
+      };
+    };
+    const pendingTests = pendingDailySessions(
+      completedDaily,
+      new Map(formal.map((session) => [session.sessionKey, session.status])),
+    ).map((session) => ({
+      dailySessionId: session.id,
+      date: session.date.toISOString().slice(0, 10),
+      ...testFact(session),
+    }));
+
     const learningBacklog = dailySessions
       .filter((session) => session.status === 'in_progress' && session.date.getTime() < day.date.getTime())
-      .map((session) => ({
-        sessionId: session.id,
-        date: session.date.toISOString().slice(0, 10),
-        completed: session.items.filter((item) => item.status === 'completed').length,
-        target: session.target,
-        status: session.items.every((item) => item.status === 'pending') ? 'not_started' : 'in_progress',
-      }));
+      .map((session) => {
+        const counts = learningCounts(session.items);
+        return {
+          sessionId: session.id,
+          date: session.date.toISOString().slice(0, 10),
+          /** 旧字段 = processed（学完 + 稍后再学） */
+          completed: counts.processed,
+          learned: counts.learned,
+          deferred: counts.deferred,
+          pending: counts.pending,
+          target: session.target,
+          status: counts.processed === 0 ? 'not_started' : 'in_progress',
+        };
+      });
+
+    // ── 阅读：按实际分配（UI01 / T01）──
     const activeEnrollments = user?.classEnrollments ?? [];
-    const joinedByClass = new Map(activeEnrollments.map((enrollment) => [enrollment.classId, sgtDay(enrollment.joinedAt).date]));
-    const readingRows = user?.englishLevel && activeEnrollments.length
+    const joinedAtByClass = new Map(activeEnrollments.map((enrollment) => [enrollment.classId, enrollment.joinedAt]));
+    const earliestJoin = activeEnrollments.length
+      ? sgtDay(new Date(Math.min(...activeEnrollments.map((enrollment) => enrollment.joinedAt.getTime())))).date
+      : null;
+    const readingRows = earliestJoin
       ? await this.prisma.paperAssignment.findMany({
           where: {
             classId: { in: activeEnrollments.map((enrollment) => enrollment.classId) },
-            morningQuizSession: {
-              is: {
-                date: { lt: day.date },
-                level: user.englishLevel,
-                status: { not: 'cancelled' },
-              },
-            },
+            morningQuizSession: { is: { date: { gte: earliestJoin, lte: day.date } } },
           },
           orderBy: { morningQuizSession: { date: 'asc' } },
           select: {
             id: true,
             classId: true,
             paper: { select: { name: true } },
-            morningQuizSession: { select: { id: true, date: true } },
+            morningQuizSession: { select: { id: true, date: true, level: true, status: true } },
             submissions: {
               where: { studentId, status: { not: 'practice' } },
               select: {
@@ -1333,25 +1454,132 @@ export class VocabularyV2Service {
           },
         })
       : [];
-    const readingBacklog = readingRows
-      .filter((assignment) => {
-        const joinedAt = joinedByClass.get(assignment.classId);
-        if (!joinedAt || assignment.morningQuizSession!.date.getTime() < joinedAt.getTime()) return false;
-        const submission = assignment.submissions[0];
-        return !submission || submission.finalSubmittedAt == null || submission.submitSource === 'system_eod';
-      })
-      .map((assignment) => {
-        const submission = assignment.submissions[0];
-        return {
-          assignmentId: assignment.id,
-          sessionId: assignment.morningQuizSession!.id,
-          submissionId: submission?.id ?? null,
-          date: assignment.morningQuizSession!.date.toISOString().slice(0, 10),
-          title: assignment.paper.name,
-          status: submission && submission._count.scripts > 0 ? 'in_progress' : 'not_started',
-        };
-      });
-    return { dailyTarget: profile.dailyTarget, today, readingBacklog, learningBacklog, pendingTests };
+    const assigned = assignedReadingFor({
+      rows: readingRows.map((row) => ({
+        assignmentId: row.id,
+        classId: row.classId,
+        title: row.paper?.name ?? null,
+        session: row.morningQuizSession!,
+        submission: row.submissions[0]
+          ? { ...row.submissions[0], scripts: row.submissions[0]._count.scripts }
+          : null,
+      })),
+      joinedAtByClass,
+      changes: levelChanges,
+      currentLevel: user?.englishLevel ?? null,
+      todayKey: day.key,
+    });
+    const readingBacklog = assigned
+      .filter((row) => row.owed && row.date < day.key)
+      .map((row) => ({
+        assignmentId: row.assignmentId,
+        sessionId: row.session.id,
+        submissionId: row.submission?.id ?? null,
+        date: row.date,
+        title: row.title ?? '',
+        status: row.submission && row.submission.scripts > 0 ? 'in_progress' : 'not_started',
+        level: row.level,
+        levelBasis: row.basis,
+      }));
+
+    // ── 今天的三项任务（UI13 / UI14）──
+    const todayReading = assigned.find((row) => row.date === day.key) ?? null;
+    const cancelledToday = readingRows.some((row) =>
+      row.morningQuizSession?.date.getTime() === day.date.getTime()
+      && row.morningQuizSession.status === 'cancelled'
+      && row.morningQuizSession.level === user?.englishLevel);
+    const readingHome = todayReading
+      ? {
+          state: todayReading.state === 'not_started' ? 'pending' : todayReading.state,
+          assignmentId: todayReading.assignmentId,
+          sessionId: todayReading.session.id,
+          submissionId: todayReading.submission?.id ?? null,
+          title: todayReading.title,
+          level: todayReading.level,
+        }
+      : !activeEnrollments.length
+        ? { state: 'not_applicable', reason: 'no_class' }
+        : !teachingDay
+          ? { state: 'not_applicable', reason: 'weekend' }
+          : !user?.englishLevel
+            ? { state: 'not_applicable', reason: 'no_level' }
+            : cancelledToday
+              ? { state: 'not_applicable', reason: 'cancelled' }
+              : { state: 'not_generated', reason: 'no_session_published' };
+
+    const todayCounts = todaySession ? learningCounts(todaySession.items) : null;
+    const wordsHome = todaySession && todayCounts
+      ? {
+          state: todayCounts.pending === 0 ? 'completed' : todayCounts.processed === 0 ? 'pending' : 'in_progress',
+          sessionId: todaySession.id,
+          target: todaySession.target,
+          learned: todayCounts.learned,
+          deferred: todayCounts.deferred,
+          replaced: todayCounts.replaced,
+          pending: todayCounts.pending,
+        }
+      : !teachingDay
+        ? { state: 'not_applicable', reason: 'weekend' }
+        : {
+            state: 'not_generated',
+            generation: {
+              condition: '教学日（周一到周五，新加坡时间）',
+              trigger: 'POST /vocab-v2/daily/start（学生点开学词）或每 10 分钟的后台任务',
+            },
+          };
+
+    const todayTest = todaySession ? testFact(todaySession) : null;
+    const testHome = !todaySession
+      ? teachingDay ? { state: 'not_generated', reason: 'no_word_task_yet' } : { state: 'not_applicable', reason: 'weekend' }
+      : todaySession.status !== 'completed'
+        ? { state: 'not_generated', reason: 'learning_unfinished', generation: { trigger: '学完当天最后一张卡时自动生成' } }
+        : todayCounts!.learned === 0
+          ? { state: 'not_applicable', reason: 'nothing_learned' }
+          : !todayTest!.generated
+            ? { state: 'not_generated', reason: 'ready_to_generate', dailySessionId: todaySession.id, expectedNewWords: todayCounts!.learned, reviewWordsMax: REVIEW_SAMPLE_SIZE }
+            : {
+                state: todayTest!.status === 'submitted' ? 'completed' : todayTest!.answered > 0 ? 'in_progress' : 'pending',
+                dailySessionId: todaySession.id,
+                testSessionId: todayTest!.testSessionId,
+                total: todayTest!.total,
+                newWords: todayTest!.newWords,
+                reviewWords: todayTest!.reviewWords,
+                answered: todayTest!.answered,
+              };
+    const done = (state: string) => state === 'completed' || state === 'awaiting_marking' || state === 'not_applicable';
+
+    // ── 今天以前、按日期的旧待办 ──
+    const byDate = new Map<string, { date: string; reading: number; words: number; test: number }>();
+    const bump = (date: string, key: 'reading' | 'words' | 'test') => {
+      if (!byDate.has(date)) byDate.set(date, { date, reading: 0, words: 0, test: 0 });
+      byDate.get(date)![key] += 1;
+    };
+    for (const row of readingBacklog) bump(row.date, 'reading');
+    for (const row of learningBacklog) bump(row.date, 'words');
+    for (const row of pendingTests) if (row.date < day.key) bump(row.date, 'test');
+    const backlogByDate = [...byDate.values()].sort((a, b) => a.date.localeCompare(b.date));
+
+    return {
+      dailyTarget: profile.dailyTarget,
+      today,
+      readingBacklog,
+      learningBacklog,
+      pendingTests,
+      home: {
+        date: day.key,
+        teachingDay,
+        reading: readingHome,
+        words: wordsHome,
+        test: testHome,
+        allDone: done(readingHome.state) && done(wordsHome.state) && done(testHome.state),
+      },
+      backlogByDate,
+      backlogTotals: {
+        reading: readingBacklog.length,
+        words: learningBacklog.length,
+        test: pendingTests.filter((row) => row.date < day.key).length,
+      },
+    };
   }
 
   private async teacherAssignmentForStudent(studentId: string, date: Date) {

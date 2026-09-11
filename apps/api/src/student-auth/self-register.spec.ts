@@ -60,6 +60,8 @@ function makeDb(seed: { classes?: FakeClass[]; users?: FakeUser[]; enrollments?:
     classes: seed.classes ?? [],
     users: seed.users ?? [],
     enrollments: seed.enrollments ?? [],
+    /** UI01：改档记录（只增不改） */
+    levelChanges: [] as Array<{ studentId: string; fromLevel: string | null; toLevel: string; source: string }>,
   };
   const log: string[] = [];
 
@@ -143,6 +145,13 @@ function makeDb(seed: { classes?: FakeClass[]; users?: FakeUser[]; enrollments?:
           return { ...u };
         }),
       },
+      studentLevelChange: {
+        create: vi.fn(async ({ data }: any) => {
+          log.push(`levelChange.create:${data.studentId}`);
+          store.levelChanges.push({ ...data });
+          return { ...data };
+        }),
+      },
       classEnrollment: {
         findFirst: vi.fn(async ({ where }: any) => {
           const e = store.enrollments.find(
@@ -175,6 +184,7 @@ function makeDb(seed: { classes?: FakeClass[]; users?: FakeUser[]; enrollments?:
       state.classes = draft.classes;
       state.users = draft.users;
       state.enrollments = draft.enrollments;
+      state.levelChanges = draft.levelChanges;
       return out;
     }),
   };
@@ -588,6 +598,32 @@ describe('S12O —— 账号设置里改难度', () => {
     const call = prisma.user.update.mock.calls.at(-1)![0];
     expect(Object.keys(call.data)).toEqual(['englishLevel']);
     expect(call.where).toEqual({ id: 'stu1' });
+  });
+
+  it('UI01：真的换了档 → 追加一条改档记录（从哪档到哪档）；档位没变不记', async () => {
+    const { svc, state } = seededStudent();
+    await svc.setEnglishLevel('stu1', 'ielts_authentic');
+    await svc.setEnglishLevel('stu1', 'ielts_authentic');
+    await svc.setEnglishLevel('stu1', 'olevel');
+    expect(state.levelChanges).toEqual([
+      { studentId: 'stu1', fromLevel: 'olevel', toLevel: 'ielts_authentic', source: 'student_self' },
+      { studentId: 'stu1', fromLevel: 'ielts_authentic', toLevel: 'olevel', source: 'student_self' },
+    ]);
+  });
+
+  it('UI01：被拒绝的改档（班里没开这一档）不留记录', async () => {
+    const { svc, state } = makeSvc({
+      classes: [{ ...PILOT_CLASS, englishLevels: [{ level: 'olevel' }] }],
+      users: [
+        {
+          id: 'stu1', email: 'e', name: 'n', passwordHash: 'x', pinHash: 'h',
+          role: 'student', englishLevel: 'olevel', studentAuthVersion: 0,
+        },
+      ],
+      enrollments: [{ classId: 'p1_class', userId: 'stu1', role: 'student' }],
+    });
+    await expect(svc.setEnglishLevel('stu1', 'ielts_authentic')).rejects.toBeTruthy();
+    expect(state.levelChanges).toEqual([]);
   });
 
   it('没在任何班里 → 说不清该开哪几档，拒绝', async () => {
