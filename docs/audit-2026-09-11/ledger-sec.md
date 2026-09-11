@@ -188,7 +188,7 @@ COMMIT;
 ## S07 · 同名登录分支未触发失败锁定 —— 已验证
 
 **原症状（M，修前可复现）**
-同名分支只 `updateMany({ pinFailedCount: { increment: 1 } })`，从不上锁：连错 7 次两个账号 `pinLockedUntil` 仍为 null。新用例修前 **5 红**（同名 5 次 / 7 次 / 锁定期正确密码 / 并发 / 解锁）；单人与改密码两条修前修后都绿（原逻辑本就会锁，本次改为共用同一个函数）。
+同名分支只 `updateMany({ pinFailedCount: { increment: 1 } })`，从不上锁：连错 7 次两个账号 `pinLockedUntil` 仍为 null。新用例修前 **5 红 / 5 绿**（红：同名 5 次 / 7 次 / 锁定期正确密码 / 并发 / 解锁；绿：单人、只锁了一个、无正确密码不给候选、带 studentId、改密码 —— 原逻辑在这些路径上本就正确，本次改为共用同一个函数）。
 
 **修复位置**：`apps/api/src/student-auth/student-auth.service.ts`
 - 抽出 `recordPinFailure`（数据库原子递增；满 `MAX_FAILED_ATTEMPTS`=5 次锁 `LOCK_MINUTES`=15 分钟并清零），单人登录、同名登录、改密码旧密码校验三处共用；`pinLocked()` 统一锁定回答（只有 `code` 与 `retryAfterSec`）。
