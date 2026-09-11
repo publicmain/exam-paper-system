@@ -241,6 +241,7 @@ export function ExamWordSheet({
       size="lg"
       testId="word-sheet"
       closeTestId="word-sheet-close"
+      initialFocus="panel"
       eyebrow={passageTitle ? `来自 · ${passageTitle}` : undefined}
       title={
         <span className="flex flex-wrap items-baseline gap-x-2">

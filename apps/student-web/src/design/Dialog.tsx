@@ -57,6 +57,7 @@ export function Dialog({
   closeTestId,
   titleAccessory,
   eyebrow,
+  initialFocus = 'first',
 }: {
   open: boolean;
   /** 用户要求关闭（Esc / 遮罩 / 关闭按钮）。`dismissible=false` 时只有调用方自己的按钮能关。 */
@@ -83,6 +84,11 @@ export function Dialog({
   titleAccessory?: ReactNode;
   /** 标题上方的一行小字（「来自 · 文章名」） */
   eyebrow?: ReactNode;
+  /**
+   * 打开后焦点放哪：`first` = 第一个可操作控件（确认类窗口）；`panel` = 面板本身
+   * （内容为主的面板，例如查词：读屏从标题读起，点词打开时不在某个按钮上亮一圈焦点框）。
+   */
+  initialFocus?: 'first' | 'panel';
 }) {
   const titleId = useId();
   const descId = useId();
@@ -116,9 +122,11 @@ export function Dialog({
 
     const target =
       initialFocusRef?.current ??
-      (panelRef.current?.querySelector<HTMLElement>('[data-autofocus]') ||
-        panelRef.current?.querySelector<HTMLElement>(FOCUSABLE) ||
-        panelRef.current);
+      (initialFocus === 'panel'
+        ? panelRef.current
+        : panelRef.current?.querySelector<HTMLElement>('[data-autofocus]') ||
+          panelRef.current?.querySelector<HTMLElement>(FOCUSABLE) ||
+          panelRef.current);
     target?.focus({ preventScroll: true });
 
     return () => {
