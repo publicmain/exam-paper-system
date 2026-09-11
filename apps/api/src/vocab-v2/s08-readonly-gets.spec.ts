@@ -55,6 +55,9 @@ describe('S08 词汇 GET 零写库', () => {
     await svc.search(stu, 'a');
     await svc.dailySession(stu, TUE);
     await svc.dailySession(stu, TUE, '2026-09-07');
+    await svc.reviewDailySession(stu, TUE, '2026-09-07');
+    await svc.reviewDailySession(stu, TUE);
+    await svc.dailyHistory(stu, TUE);
     await svc.listFormalTests(stu);
     await svc.testSession(stu, testId);
     await svc.testSession(stu, customId);

@@ -1,4 +1,4 @@
-import { BadRequestException, ConflictException, ForbiddenException, Injectable, NotFoundException, ServiceUnavailableException } from '@nestjs/common';
+import { BadRequestException, ConflictException, ForbiddenException, GoneException, Injectable, NotFoundException, ServiceUnavailableException } from '@nestjs/common';
 import { EnglishLevel } from '@prisma/client';
 import { PrismaService } from '../common/prisma.service';
 import { canActOnClass } from '../common/roles';
@@ -43,6 +43,54 @@ import {
  * 复习队列。
  */
 export const REVIEW_SAMPLE_SIZE = 3;
+
+/**
+ * 自助练习（custom_test）临时会话的保留期（VOC10，2026-09-11）。
+ *   · 进行中：开始后 6 小时（退出不交、换设备、忘了 —— 都在这之后清掉）；
+ *   · 已交：结果保留 2 小时，够刷新结果页、交卷响应丢了再取一次；之后删除。
+ * 过期后读取给 v2_practice_expired（GET 不删，删交给清理任务，S08 只读）。
+ */
+export const PRACTICE_TTL = { inProgressMs: 6 * 3600_000, resultMs: 2 * 3600_000 } as const;
+
+/** 一份自助练习会话到什么时候失效（毫秒）。没有显式到期时间的老记录按开始 / 交卷时间推。 */
+function practiceExpiresAtMs(session: { status: string; settingsSnapshot?: unknown; startedAt?: Date | null; completedAt?: Date | null }): number {
+  const settings = (session.settingsSnapshot ?? {}) as Record<string, unknown>;
+  const explicit = session.status === 'submitted' ? settings.resultExpiresAt : settings.practiceExpiresAt;
+  const parsed = typeof explicit === 'string' ? Date.parse(explicit) : Number.NaN;
+  if (Number.isFinite(parsed)) return parsed;
+  return session.status === 'submitted'
+    ? (session.completedAt?.getTime() ?? 0) + PRACTICE_TTL.resultMs
+    : (session.startedAt?.getTime() ?? 0) + PRACTICE_TTL.inProgressMs;
+}
+
+/** 正式卷的冻结事实（VOC06）：有卷读卷，没卷给预计。首页、回看、历史共用。 */
+function formalTestFact(
+  test: { id: string; status: string; target: number; items: Array<{ source: string; status: string }> } | null | undefined,
+  dailyItems: ReadonlyArray<{ status: string }>,
+) {
+  if (!test) {
+    return {
+      testSessionId: null as string | null,
+      generated: false,
+      status: 'not_started',
+      total: null as number | null,
+      newWords: null as number | null,
+      reviewWords: null as number | null,
+      answered: 0,
+      expectedNewWords: testableDailyItems(dailyItems).length,
+      reviewWordsMax: REVIEW_SAMPLE_SIZE,
+    };
+  }
+  return {
+    testSessionId: test.id as string | null,
+    generated: true,
+    status: test.status,
+    total: test.target as number | null,
+    newWords: test.items.filter((item) => item.source !== 'review').length as number | null,
+    reviewWords: test.items.filter((item) => item.source === 'review').length as number | null,
+    answered: test.items.filter((item) => item.status === 'answered').length,
+  };
+}
 
 export type CollectionAction = 'learn' | 'known' | 'lookup_only' | 'later';
 
@@ -710,12 +758,28 @@ export class VocabularyV2Service {
     };
   }
 
+  /**
+   * 自助练习（我的单词里的「抽查」）。个人练习：不写正式成绩、不改掌握度、不生成待办。
+   *
+   * VOC10（2026-09-11）：临时会话有生命周期了 ——
+   *   · 同一个学生同一时间只有一份进行中的练习：再开始会结束旧的（`replacedPrevious`），
+   *     顺手清掉他过期的；
+   *   · `cancelCustomTest` 主动取消（退出）；
+   *   · 交卷后结果保留 `PRACTICE_TTL.resultMs`，刷新 / 响应丢失可再取；到期由清理任务删。
+   */
   async startCustomTest(studentId: string, input: {
     count: 5 | 10 | 20 | 'all';
     scope: 'all' | 'week' | 'weak' | 'mastered' | 'spelling' | 'listening';
     sourceTitle?: string;
-  }) {
-    const since = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+  }, now = new Date()) {
+    const mine = await this.prisma.vocabularyV2Session.findMany({
+      where: { studentId, sessionType: 'custom_test' },
+      select: { id: true, status: true, settingsSnapshot: true, startedAt: true, completedAt: true },
+    });
+    const stale = mine.filter((row) => row.status !== 'submitted' || practiceExpiresAtMs(row) <= now.getTime());
+    if (stale.length) await this.prisma.vocabularyV2Session.deleteMany({ where: { id: { in: stale.map((row) => row.id) }, studentId, sessionType: 'custom_test' } });
+    const replacedPrevious = stale.filter((row) => row.status !== 'submitted' && practiceExpiresAtMs(row) > now.getTime()).length;
+    const since = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
     const owned = await this.prisma.studentVocabularySense.findMany({
       where: {
         studentId,
@@ -759,18 +823,19 @@ export class VocabularyV2Service {
       masteryStage: row.masteryStage,
       audioAvailable: withAudio.has(headwordKey(row.sense.lexeme.headword)),
     }) as AdaptiveCard);
-    const nonce = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+    const nonce = `${now.getTime()}-${Math.random().toString(36).slice(2, 8)}`;
+    const practiceExpiresAt = new Date(now.getTime() + PRACTICE_TTL.inProgressMs).toISOString();
     const session = await this.prisma.vocabularyV2Session.create({
       data: {
         sessionKey: `v2:${studentId}:custom:${nonce}`,
         studentId,
-        date: sgtDay().date,
+        date: sgtDay(now).date,
         sessionType: 'custom_test',
         mode: 'adaptive_coach',
         status: 'in_progress',
         version: `V2-CUSTOM-${nonce}`,
         target: selected.length,
-        settingsSnapshot: { ...input, requestedCount: input.count },
+        settingsSnapshot: { ...input, requestedCount: input.count, practiceExpiresAt },
         sourceSummary: { selected: selected.length, scope: input.scope },
         items: {
           create: selected.map((row, index) => ({
@@ -786,7 +851,35 @@ export class VocabularyV2Service {
       },
       include: { items: { orderBy: { position: 'asc' } } },
     });
-    return this.testSessionView(session);
+    return { ...this.testSessionView(session), practiceOnly: true, replacedPrevious, expiresAt: practiceExpiresAt };
+  }
+
+  /** 退出自助练习（VOC10）：删掉这份临时会话；已经没了也算成功。 */
+  async cancelCustomTest(studentId: string, sessionId: string) {
+    const removed = await this.prisma.vocabularyV2Session.deleteMany({ where: { id: sessionId, studentId, sessionType: 'custom_test' } });
+    return { ok: true, cancelled: removed.count > 0 };
+  }
+
+  /** 清理过期的自助练习（VOC10）：进行中超过保留期的、结果超过保留期的。由 cron 每小时调。 */
+  async purgeExpiredCustomTests(now = new Date()) {
+    const rows = await this.prisma.vocabularyV2Session.findMany({
+      where: { sessionType: 'custom_test' },
+      select: { id: true, status: true, settingsSnapshot: true, startedAt: true, completedAt: true },
+    });
+    const expired = rows.filter((row) => practiceExpiresAtMs(row) <= now.getTime()).map((row) => row.id);
+    if (!expired.length) return { deleted: 0 };
+    const removed = await this.prisma.vocabularyV2Session.deleteMany({ where: { id: { in: expired }, sessionType: 'custom_test' } });
+    return { deleted: removed.count };
+  }
+
+  private assertPracticeAlive(session: { sessionType: string; status: string; settingsSnapshot?: unknown; startedAt?: Date | null; completedAt?: Date | null }, now: Date) {
+    if (session.sessionType !== 'custom_test') return;
+    if (practiceExpiresAtMs(session) <= now.getTime()) {
+      throw new GoneException({
+        code: 'v2_practice_expired',
+        message: session.status === 'submitted' ? '这次练习的结果只保留 2 小时，已经清掉了。可以再开始一次。' : '这次练习已经过期了，可以再开始一次。',
+      });
+    }
   }
 
   /**
@@ -1371,31 +1464,8 @@ export class VocabularyV2Service {
         })
       : [];
     const formalByKey = new Map(formal.map((session) => [session.sessionKey, session]));
-    const testFact = (session: { sessionKey: string; items: Array<{ status: string }> }) => {
-      const test = formalByKey.get(`${session.sessionKey}:formal`);
-      if (!test) {
-        return {
-          testSessionId: null,
-          generated: false,
-          status: 'not_started',
-          total: null as number | null,
-          newWords: null as number | null,
-          reviewWords: null as number | null,
-          answered: 0,
-          expectedNewWords: testableDailyItems(session.items).length,
-          reviewWordsMax: REVIEW_SAMPLE_SIZE,
-        };
-      }
-      return {
-        testSessionId: test.id,
-        generated: true,
-        status: test.status,
-        total: test.target as number | null,
-        newWords: test.items.filter((item) => item.source !== 'review').length as number | null,
-        reviewWords: test.items.filter((item) => item.source === 'review').length as number | null,
-        answered: test.items.filter((item) => item.status === 'answered').length,
-      };
-    };
+    const testFact = (session: { sessionKey: string; items: Array<{ status: string }> }) =>
+      formalTestFact(formalByKey.get(`${session.sessionKey}:formal`), session.items);
     const pendingTests = pendingDailySessions(
       completedDaily,
       new Map(formal.map((session) => [session.sessionKey, session.status])),
@@ -2480,12 +2550,13 @@ export class VocabularyV2Service {
       });
   }
 
-  async answerTestItem(studentId: string, sessionId: string, itemId: string, response: unknown, responseMs?: number) {
+  async answerTestItem(studentId: string, sessionId: string, itemId: string, response: unknown, responseMs?: number, now = new Date()) {
     const session = await this.prisma.vocabularyV2Session.findFirst({
       where: { id: sessionId, studentId, sessionType: { in: ['formal_test', 'retry', 'custom_test'] }, status: 'in_progress' },
       include: { items: { orderBy: { position: 'asc' } } },
     });
     if (!session) throw new BadRequestException({ code: 'v2_test_not_found' });
+    this.assertPracticeAlive(session, now);
     const item = session.items.find((candidate) => candidate.id === itemId);
     if (!item) throw new BadRequestException({ code: 'v2_item_not_found' });
     if (item.status === 'answered') return this.testSessionView(session);
@@ -2517,29 +2588,35 @@ export class VocabularyV2Service {
     return this.testSessionView(refreshed!);
   }
 
-  async submitTest(studentId: string, sessionId: string) {
+  async submitTest(studentId: string, sessionId: string, now = new Date()) {
     const session = await this.prisma.vocabularyV2Session.findFirst({
       where: { id: sessionId, studentId, sessionType: { in: ['formal_test', 'retry', 'custom_test'] } },
       include: { items: { orderBy: { position: 'asc' } } },
     });
     if (!session) throw new BadRequestException({ code: 'v2_test_not_found' });
-    if (session.status === 'submitted') return this.testSessionView(session);
+    this.assertPracticeAlive(session, now);
+    if (session.status === 'submitted') return this.submittedView(session);
     const unanswered = session.items.filter((item) => item.status !== 'answered');
     if (unanswered.length) throw new BadRequestException({ code: 'v2_test_incomplete', remaining: unanswered.length });
     // Self-selected practice is deliberately disposable: it has no formal
     // score, no mastery mutation and no follow-up task.  We retain only the
-    // short-lived session needed to show the result on the current screen.
+    // short-lived session needed to show (and re-show) the result.
     if (session.sessionType === 'custom_test') {
-      const submitted = await this.prisma.vocabularyV2Session.update({
+      // VOC10：不再交卷即删 —— 结果保留 PRACTICE_TTL.resultMs（刷新 / 响应丢失可再取），
+      // 之后由清理任务删除。仍然不进成绩、统计、历史，也不改掌握度。
+      const settings = (session.settingsSnapshot ?? {}) as Record<string, unknown>;
+      const resultExpiresAt = new Date(now.getTime() + PRACTICE_TTL.resultMs).toISOString();
+      const closed = await this.prisma.vocabularyV2Session.updateMany({
+        where: { id: session.id, status: 'in_progress' },
+        data: { status: 'submitted', cursor: session.target, completedAt: now, settingsSnapshot: { ...settings, resultExpiresAt } as any },
+      });
+      const submitted = await this.prisma.vocabularyV2Session.findUnique({
         where: { id: session.id },
-        data: { status: 'submitted', cursor: session.target, completedAt: new Date() },
         include: { items: { orderBy: { position: 'asc' } } },
       });
-      const result = { ...this.testSessionView(submitted), practiceOnly: true, retry: null };
-      // 自主抽查不进入成绩、统计或历史记录。先构造当前页面需要的结果，
-      // 再删除这份临时会话（items 由外键级联删除）。
-      await this.prisma.vocabularyV2Session.delete({ where: { id: session.id } });
-      return result;
+      if (!submitted) throw new BadRequestException({ code: 'v2_test_not_found' });
+      void closed;
+      return this.submittedView(submitted);
     }
 
     await this.prisma.$transaction(async (tx) => {
@@ -2611,13 +2688,108 @@ export class VocabularyV2Service {
     return { contentType: audio.contentType, bytes: Buffer.from(audio.bytes) };
   }
 
-  async testSession(studentId: string, sessionId: string) {
+  async testSession(studentId: string, sessionId: string, now = new Date()) {
     const session = await this.prisma.vocabularyV2Session.findFirst({
       where: { id: sessionId, studentId, sessionType: { in: ['formal_test', 'retry', 'custom_test'] } },
       include: { items: { orderBy: { position: 'asc' } } },
     });
     if (!session) throw new BadRequestException({ code: 'v2_test_not_found' });
-    return this.testSessionView(session);
+    // 只读：过期了只说过期，不在 GET 里删（S08）
+    this.assertPracticeAlive(session, now);
+    return session.sessionType === 'custom_test' ? this.submittedView(session) : this.testSessionView(session);
+  }
+
+  /** 交卷后的视图：自助练习标 practiceOnly 和结果保留到什么时候。 */
+  private submittedView(session: any): ReturnType<VocabularyV2Service['testSessionView']> & {
+    retry: null;
+    practiceOnly?: boolean;
+    resultExpiresAt?: string;
+    expiresAt?: string;
+  } {
+    const view = this.testSessionView(session);
+    if (session.sessionType !== 'custom_test') return { ...view, retry: null };
+    return {
+      ...view,
+      practiceOnly: true,
+      retry: null,
+      ...(session.status === 'submitted'
+        ? { resultExpiresAt: new Date(practiceExpiresAtMs(session)).toISOString() }
+        : { expiresAt: new Date(practiceExpiresAtMs(session)).toISOString() }),
+    };
+  }
+
+  /**
+   * 按日期只读回看一天的学习任务（VOC12，2026-09-11）。
+   *
+   * 那天冻结的教学卡原样返回：「背一背」只列学完的词（有点难的排前面），稍后再学的、
+   * 还没处理的单独列出它们的去向；正式卷有就给指针，**没有也不生成**。反复打开零写库、
+   * 不加学习量、不改进度。
+   */
+  async reviewDailySession(studentId: string, now = new Date(), dateKey?: string) {
+    const day = this.taskDay(now, dateKey);
+    const session = await this.prisma.vocabularyV2Session.findUnique({
+      where: { sessionKey: `v2:${studentId}:${day.key}:daily` },
+      include: { items: { orderBy: { position: 'asc' } } },
+    });
+    if (!session || session.studentId !== studentId) return null;
+    const test = await this.prisma.vocabularyV2Session.findUnique({
+      where: { sessionKey: `${session.sessionKey}:formal` },
+      select: { id: true, status: true, target: true, items: { select: { source: true, status: true } } },
+    });
+    const view = this.sessionView(session);
+    const headwordOf = (item: { contentSnapshot: unknown }) => String((item.contentSnapshot as { headword?: string } | null)?.headword ?? '');
+    const recite = session.items
+      .filter((item) => item.status === 'completed')
+      .map((item) => ({ id: item.id, position: item.position, action: (item.response as { action?: string } | null)?.action ?? null, card: item.contentSnapshot }))
+      .sort((a, b) => (a.action === 'hard' ? 0 : 1) - (b.action === 'hard' ? 0 : 1) || a.position - b.position);
+    return {
+      readOnly: true,
+      date: view.date,
+      sessionId: session.id,
+      status: session.status,
+      mode: session.mode,
+      learningPhase: view.learningPhase,
+      target: session.target,
+      learned: view.learned,
+      deferred: view.deferred,
+      replaced: view.replaced,
+      pending: view.pending,
+      recite,
+      deferredWords: session.items.filter((item) => item.status === 'skipped').map(headwordOf),
+      pendingWords: session.items.filter((item) => item.status === 'pending').map(headwordOf),
+      test: formalTestFact(test, session.items),
+    };
+  }
+
+  /** 做过的每日学习任务，按日期倒序（VOC12 的「按日期回看」入口）。只读。 */
+  async dailyHistory(studentId: string, now = new Date(), limit = 30) {
+    const day = sgtDay(now);
+    const sessions = await this.prisma.vocabularyV2Session.findMany({
+      where: { studentId, sessionType: 'daily_learning', date: { lte: day.date } },
+      orderBy: { date: 'desc' },
+      take: Math.max(1, Math.min(120, Math.floor(limit) || 30)),
+      include: { items: { select: { status: true, response: true } } },
+    });
+    const tests = sessions.length
+      ? await this.prisma.vocabularyV2Session.findMany({
+          where: { studentId, sessionKey: { in: sessions.map((session) => `${session.sessionKey}:formal`) } },
+          select: { id: true, sessionKey: true, status: true, target: true, items: { select: { source: true, status: true } } },
+        })
+      : [];
+    const testByKey = new Map(tests.map((test) => [test.sessionKey, test]));
+    return {
+      days: sessions.map((session) => {
+        const counts = learningCounts(session.items);
+        return {
+          date: session.date.toISOString().slice(0, 10),
+          sessionId: session.id,
+          status: session.status,
+          target: session.target,
+          ...counts,
+          test: formalTestFact(testByKey.get(`${session.sessionKey}:formal`), session.items),
+        };
+      }),
+    };
   }
 
   /**

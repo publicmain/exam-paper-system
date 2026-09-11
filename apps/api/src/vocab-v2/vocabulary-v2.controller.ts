@@ -97,6 +97,17 @@ export class VocabularyV2Controller {
     return this.service.startCustomTest(studentIdOf(req), parsed.data);
   }
 
+  /** VOC10：退出自助练习 —— 删掉这份临时会话（已经没了也算成功）。 */
+  @Public()
+  @RequireStudentToken()
+  @RateLimit({ limit: 60, windowSec: 60, scope: 'ip' })
+  @Post('custom-test/cancel')
+  cancelCustomTest(@Req() req: Request, @Body() body: unknown) {
+    const parsed = z.object({ sessionId: z.string().min(1).max(80) }).strict().safeParse(body);
+    if (!parsed.success) throw new BadRequestException(parsed.error.flatten());
+    return this.service.cancelCustomTest(studentIdOf(req), parsed.data.sessionId);
+  }
+
   @Public()
   @RequireStudentToken()
   @RateLimit({ limit: 120, windowSec: 60, scope: 'ip' })
@@ -153,6 +164,24 @@ export class VocabularyV2Controller {
     const parsed = z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional().safeParse(date || undefined);
     if (!parsed.success) throw new BadRequestException({ code: 'bad_task_date' });
     return this.service.dailySession(studentIdOf(req), new Date(), parsed.data);
+  }
+
+  /** VOC12：按日期只读回看那天冻结的学习卡（背一背）与正式卷指针；不生成任何东西。 */
+  @Public()
+  @RequireStudentToken()
+  @Get('daily/review')
+  dailyReview(@Req() req: Request, @Query('date') date = '') {
+    const parsed = z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional().safeParse(date || undefined);
+    if (!parsed.success) throw new BadRequestException({ code: 'bad_task_date' });
+    return this.service.reviewDailySession(studentIdOf(req), new Date(), parsed.data);
+  }
+
+  /** VOC12：做过的每日学习任务，按日期倒序（「按日期回看」入口）。只读。 */
+  @Public()
+  @RequireStudentToken()
+  @Get('daily/history')
+  dailyHistory(@Req() req: Request, @Query('limit') limit = '30') {
+    return this.service.dailyHistory(studentIdOf(req), new Date(), Number(limit));
   }
 
   @Public()

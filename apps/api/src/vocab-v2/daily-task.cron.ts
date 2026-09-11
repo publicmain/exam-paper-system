@@ -58,6 +58,18 @@ export class VocabularyV2DailyTaskCron implements OnModuleInit {
     }
   }
 
+  /** VOC10：每小时清一次过期的自助练习临时会话（进行中 6 小时 / 结果 2 小时）。 */
+  @Cron('7 * * * *', { name: 'vocabulary-v2-practice-cleanup', timeZone: 'Asia/Singapore' })
+  async purgePractice(now = new Date()) {
+    if (process.env.STUDENT_APP_V2 !== 'on') return;
+    try {
+      const result = await this.vocabulary.purgeExpiredCustomTests(now);
+      if (result.deleted) this.logger.log(`expired practice sessions removed: ${result.deleted}`);
+    } catch (error) {
+      this.logger.warn(`practice cleanup failed: ${String((error as Error)?.message ?? error).slice(0, 180)}`);
+    }
+  }
+
   /**
    * UI01：每 10 分钟补记一次档位变更（教师改档 / 首次落定不经过 student-auth 的记录）。
    * 周末也跑 —— 周末改的档要在周一的任务之前记下来。只增不改。
