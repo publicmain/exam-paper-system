@@ -740,6 +740,17 @@ describe('S06 —— 按用户限流在真实守卫顺序下按「已验证的�
     expect(ok.status, JSON.stringify(ok.body)).toBeLessThan(300);
   });
 
+  it('原来声明 IP 桶的学生接口（lesson/today，120 次/分）：同 IP 的 A 用尽，B 照常', async () => {
+    const a = await studentToken(h, STUDENT);
+    const b = await studentToken(h, STUDENT_B);
+    for (let i = 0; i < 120; i++) {
+      const r = await call(h, 'GET', '/lesson/today', { token: a, ip: '203.0.113.70' });
+      expect(r.status).toBe(200);
+    }
+    expect((await call(h, 'GET', '/lesson/today', { token: a, ip: '203.0.113.70' })).status).toBe(429);
+    expect((await call(h, 'GET', '/lesson/today', { token: b, ip: '203.0.113.70' })).status).toBe(200);
+  });
+
   it('历史接口（S02 后必须带令牌、S06 改按用户限流）：同 IP 的两个学生各有各的 10 次', async () => {
     const a = await studentToken(h, STUDENT);
     const b = await studentToken(h, STUDENT_B);

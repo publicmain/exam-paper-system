@@ -46,7 +46,7 @@ export class LessonController {
   // read-only-invariant.spec 数着写调用），所以换成「读身份」。
   @Public()
   @RequireStudentReadToken()
-  @RateLimit({ limit: 120, windowSec: 60, scope: 'ip' })
+  @RateLimit({ limit: 120, windowSec: 60, scope: 'user' })
   @Get('today')
   async today(
     @Req() req: Request,
@@ -81,7 +81,7 @@ export class LessonController {
    */
   @Public()
   @RequireStudentToken()
-  @RateLimit({ limit: 60, windowSec: 60, scope: 'ip' })
+  @RateLimit({ limit: 60, windowSec: 60, scope: 'user' })
   @Post('start')
   async start(@Body() body: unknown, @Req() req: Request) {
     const schema = z.object({
@@ -126,7 +126,7 @@ export class LessonController {
    */
   @Public()
   @RequireStudentToken()
-  @RateLimit({ limit: 120, windowSec: 60, scope: 'ip' })
+  @RateLimit({ limit: 120, windowSec: 60, scope: 'user' })
   @Post('vocab-taught')
   async vocabTaught(@Req() req: Request, @Body() body: unknown) {
     const schema = z.object({
@@ -147,7 +147,7 @@ export class LessonController {
   /** 学生已经会当前词：服务端原位补一个同课备用词，且同步改考试范围。 */
   @Public()
   @RequireStudentToken()
-  @RateLimit({ limit: 60, windowSec: 60, scope: 'ip' })
+  @RateLimit({ limit: 60, windowSec: 60, scope: 'user' })
   @Post('vocab-replace')
   async vocabReplace(@Req() req: Request, @Body() body: unknown) {
     const schema = z.object({
@@ -168,7 +168,7 @@ export class LessonController {
   /** 学完今天的词后主动选择“明天再考”。 */
   @Public()
   @RequireStudentToken()
-  @RateLimit({ limit: 20, windowSec: 60, scope: 'ip' })
+  @RateLimit({ limit: 20, windowSec: 60, scope: 'user' })
   @Post('vocab-test/defer')
   async deferVocabTest(@Req() req: Request) {
     return this.svc.deferVocabQuiz(identityOf(req));
@@ -182,7 +182,7 @@ export class LessonController {
    */
   @Public()
   @RequireStudentToken()
-  @RateLimit({ limit: 120, windowSec: 60, scope: 'ip' })
+  @RateLimit({ limit: 120, windowSec: 60, scope: 'user' })
   @Post('vocab-cursor')
   async saveVocabCursor(@Req() req: Request, @Body() body: unknown) {
     const schema = z.object({

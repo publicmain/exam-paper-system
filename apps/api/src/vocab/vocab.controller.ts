@@ -76,7 +76,7 @@ export class VocabController {
 
   /** 查单词。查不到返回 { found: false } —— 前端显示「未收录」，绝不猜词义。 */
   @Public()
-  @RateLimit({ limit: 240, windowSec: 60, scope: 'ip' })
+  @RateLimit({ limit: 240, windowSec: 60, scope: 'user' })
   @Get('lookup')
   async lookup(@Query('word') word?: string, @Query('contextSentence') contextSentence?: string) {
     const w = (word ?? '').trim();
@@ -93,7 +93,7 @@ export class VocabController {
 
   /** 我的生词本。姓名匹配（同名时需带 studentId），与 /my-history 同口径。 */
   @Public()
-  @RateLimit({ limit: 180, windowSec: 60, scope: 'ip' })
+  @RateLimit({ limit: 180, windowSec: 60, scope: 'user' })
   @Get('words')
   async listWords(
 @Req() req: Request,
@@ -103,7 +103,7 @@ export class VocabController {
 
   /** 加入生词本。headword 由服务端查词典确定，不信任前端。 */
   @Public()
-  @RateLimit({ limit: 60, windowSec: 60, scope: 'ip' })
+  @RateLimit({ limit: 60, windowSec: 60, scope: 'user' })
   @RequireStudentToken()
   @Post('words')
   async addWord(@Req() req: Request, @Body() body: unknown) {
@@ -123,7 +123,7 @@ export class VocabController {
 
   /** 移出生词本。 */
   @Public()
-  @RateLimit({ limit: 60, windowSec: 60, scope: 'ip' })
+  @RateLimit({ limit: 60, windowSec: 60, scope: 'user' })
   @RequireStudentToken()
   @Post('words/remove')
   async removeWord(@Req() req: Request, @Body() body: unknown) {
@@ -139,7 +139,7 @@ export class VocabController {
 
   /** 在生词本里标为已掌握，或重新放回学习队列。 */
   @Public()
-  @RateLimit({ limit: 120, windowSec: 60, scope: 'ip' })
+  @RateLimit({ limit: 120, windowSec: 60, scope: 'user' })
   @RequireStudentToken()
   @Post('words/state')
   async setWordState(@Req() req: Request, @Body() body: unknown) {
@@ -157,7 +157,7 @@ export class VocabController {
 
   /** 今日待复习卡片（默认 5 张 —— 复习插在交卷后，给多了学生会直接跳过）。 */
   @Public()
-  @RateLimit({ limit: 180, windowSec: 60, scope: 'ip' })
+  @RateLimit({ limit: 180, windowSec: 60, scope: 'user' })
   @Get('due')
   async due(
 @Req() req: Request,
@@ -181,7 +181,7 @@ export class VocabController {
    * 自由练习。
    */
   @Public()
-  @RateLimit({ limit: 180, windowSec: 60, scope: 'ip' })
+  @RateLimit({ limit: 180, windowSec: 60, scope: 'user' })
   @Get('lesson-cards')
   async lessonCards(
 @Req() req: Request,
@@ -194,7 +194,7 @@ export class VocabController {
 
   /** 提交一次复习评分 → FSRS 重新调度。 */
   @Public()
-  @RateLimit({ limit: 480, windowSec: 60, scope: 'ip' })
+  @RateLimit({ limit: 480, windowSec: 60, scope: 'user' })
   @RequireStudentToken()
   @Post('review')
   async submitReview(@Req() req: Request, @Body() body: unknown) {
@@ -218,7 +218,7 @@ export class VocabController {
 
   /** 撤销该词最近一次评分（10 分钟内）。误触防线 —— 详见 review 服务注释。 */
   @Public()
-  @RateLimit({ limit: 120, windowSec: 60, scope: 'ip' })
+  @RateLimit({ limit: 120, windowSec: 60, scope: 'user' })
   @RequireStudentToken()
   @Post('review/undo')
   async undoReview(@Req() req: Request, @Body() body: unknown) {
@@ -238,7 +238,7 @@ export class VocabController {
    * 写回（对→good 错→again），复用同一条 FSRS 调度线。
    */
   @Public()
-  @RateLimit({ limit: 120, windowSec: 60, scope: 'ip' })
+  @RateLimit({ limit: 120, windowSec: 60, scope: 'user' })
   @Get('quiz')
   async quizBuild(
 @Req() req: Request,
@@ -274,7 +274,7 @@ export class VocabController {
 
   /** 我的错题本。收录门槛见 mistake.service 顶部注释（不是每道错题都进）。 */
   @Public()
-  @RateLimit({ limit: 180, windowSec: 60, scope: 'ip' })
+  @RateLimit({ limit: 180, windowSec: 60, scope: 'user' })
   @Get('mistakes')
   async listMistakes(
 @Req() req: Request,
@@ -295,7 +295,7 @@ export class VocabController {
 
   /** 标记「已弄懂」/ 撤销。错题本必须能清空，否则只会一直变长。 */
   @Public()
-  @RateLimit({ limit: 60, windowSec: 60, scope: 'ip' })
+  @RateLimit({ limit: 60, windowSec: 60, scope: 'user' })
   @RequireStudentToken()
   @Post('mistakes/resolve')
   async resolveMistake(@Req() req: Request, @Body() body: unknown) {
@@ -317,7 +317,7 @@ export class VocabController {
    * 所以每道题带完整 passage 下发。每天最多 10 道。
    */
   @Public()
-  @RateLimit({ limit: 120, windowSec: 60, scope: 'ip' })
+  @RateLimit({ limit: 120, windowSec: 60, scope: 'user' })
   @Get('mistakes/practice-queue')
   async practiceQueue(
 @Req() req: Request,
@@ -336,7 +336,7 @@ export class VocabController {
 
   /** 提交一次练习结果。做对且隔天再对一次 → 自动销账。 */
   @Public()
-  @RateLimit({ limit: 360, windowSec: 60, scope: 'ip' })
+  @RateLimit({ limit: 360, windowSec: 60, scope: 'user' })
   @RequireStudentToken()
   @Post('mistakes/practice-result')
   async practiceResult(@Req() req: Request, @Body() body: unknown) {
@@ -360,7 +360,7 @@ export class VocabController {
    * 只记 谁/哪类页面/哪天 —— 不记 IP、UA、停留时长。
    */
   @Public()
-  @RateLimit({ limit: 240, windowSec: 60, scope: 'ip' })
+  @RateLimit({ limit: 240, windowSec: 60, scope: 'user' })
   @RequireStudentToken()
   @Post('page-view')
   async recordPageView(@Req() req: Request, @Body() body: unknown) {
@@ -402,7 +402,7 @@ export class VocabController {
 
   /** 我的词汇统计。 */
   @Public()
-  @RateLimit({ limit: 180, windowSec: 60, scope: 'ip' })
+  @RateLimit({ limit: 180, windowSec: 60, scope: 'user' })
   @Get('stats')
   async stats(
 @Req() req: Request,
@@ -484,7 +484,7 @@ export class VocabController {
   /** 开始或恢复当日正式测试。幂等：已有就原样返回。 */
   @Public()
   @RequireStudentToken()
-  @RateLimit({ limit: 60, windowSec: 60, scope: 'ip' })
+  @RateLimit({ limit: 60, windowSec: 60, scope: 'user' })
   @Post('quiz/attempt/start')
   async quizStart(@Req() req: Request, @Body() body: unknown) {
     const schema = z.object({
@@ -500,7 +500,7 @@ export class VocabController {
    *  S08：attempts.current() 纯读取 —— 教师只读视角可读。 */
   @Public()
   @RequireStudentReadToken()
-  @RateLimit({ limit: 180, windowSec: 60, scope: 'ip' })
+  @RateLimit({ limit: 180, windowSec: 60, scope: 'user' })
   @Get('quiz/attempt/current')
   async quizCurrent(
 @Req() req: Request,
@@ -511,7 +511,7 @@ export class VocabController {
   /** 记一题的作答。第一次作答为准，重复提交 no-op。 */
   @Public()
   @RequireStudentToken()
-  @RateLimit({ limit: 240, windowSec: 60, scope: 'ip' })
+  @RateLimit({ limit: 240, windowSec: 60, scope: 'user' })
   @Post('quiz/attempt/answer')
   async quizAnswer(@Req() req: Request, @Body() body: unknown) {
     const schema = z.object({
@@ -534,7 +534,7 @@ export class VocabController {
   /** 提交。幂等：双击 / 重试只会有一份成绩。 */
   @Public()
   @RequireStudentToken()
-  @RateLimit({ limit: 60, windowSec: 60, scope: 'ip' })
+  @RateLimit({ limit: 60, windowSec: 60, scope: 'user' })
   @Post('quiz/attempt/submit')
   async quizSubmit(@Req() req: Request, @Body() body: unknown) {
     const schema = z.object({
@@ -549,7 +549,7 @@ export class VocabController {
   /** 历史成绩（只读）。S08：attempts.history() 纯读取 —— 教师只读视角可读。 */
   @Public()
   @RequireStudentReadToken()
-  @RateLimit({ limit: 120, windowSec: 60, scope: 'ip' })
+  @RateLimit({ limit: 120, windowSec: 60, scope: 'user' })
   @Get('quiz/attempts')
   async quizAttempts(
 @Req() req: Request,

@@ -50,7 +50,7 @@ export class VocabularyV2Controller {
 
   @Public()
   @RequireStudentReadToken()
-  @RateLimit({ limit: 120, windowSec: 60, scope: 'ip' })
+  @RateLimit({ limit: 120, windowSec: 60, scope: 'user' })
   @Get('search')
   search(@Req() req: Request, @Query('q') q = '', @Query('limit') limit = '20') {
     return this.service.search(studentIdOf(req), q, Number(limit));
@@ -88,7 +88,7 @@ export class VocabularyV2Controller {
 
   @Public()
   @RequireStudentToken()
-  @RateLimit({ limit: 30, windowSec: 60, scope: 'ip' })
+  @RateLimit({ limit: 30, windowSec: 60, scope: 'user' })
   @Post('custom-test/start')
   startCustomTest(@Req() req: Request, @Body() body: unknown) {
     const parsed = z.object({
@@ -102,7 +102,7 @@ export class VocabularyV2Controller {
 
   @Public()
   @RequireStudentToken()
-  @RateLimit({ limit: 120, windowSec: 60, scope: 'ip' })
+  @RateLimit({ limit: 120, windowSec: 60, scope: 'user' })
   @Post('collect')
   collect(@Req() req: Request, @Body() body: unknown) {
     const parsed = z.object({
@@ -163,7 +163,7 @@ export class VocabularyV2Controller {
 
   @Public()
   @RequireStudentToken()
-  @RateLimit({ limit: 30, windowSec: 60, scope: 'ip' })
+  @RateLimit({ limit: 30, windowSec: 60, scope: 'user' })
   @Post('daily/start')
   startDaily(@Req() req: Request, @Body() body: unknown) {
     const parsed = z.object({ date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional() }).strict().safeParse(body ?? {});
@@ -173,7 +173,7 @@ export class VocabularyV2Controller {
 
   @Public()
   @RequireStudentToken()
-  @RateLimit({ limit: 120, windowSec: 60, scope: 'ip' })
+  @RateLimit({ limit: 120, windowSec: 60, scope: 'user' })
   @Post('daily/item')
   actOnItem(@Req() req: Request, @Body() body: unknown) {
     const parsed = z.object({
@@ -194,7 +194,7 @@ export class VocabularyV2Controller {
 
   @Public()
   @RequireStudentToken()
-  @RateLimit({ limit: 60, windowSec: 60, scope: 'ip' })
+  @RateLimit({ limit: 60, windowSec: 60, scope: 'user' })
   @Post('daily/replace')
   replaceDailyItem(@Req() req: Request, @Body() body: unknown) {
     const parsed = z.object({
@@ -207,7 +207,7 @@ export class VocabularyV2Controller {
 
   @Public()
   @RequireStudentToken()
-  @RateLimit({ limit: 30, windowSec: 60, scope: 'ip' })
+  @RateLimit({ limit: 30, windowSec: 60, scope: 'user' })
   @Post('test/start')
   startTest(@Req() req: Request, @Body() body: unknown) {
     const parsed = z.object({ dailySessionId: z.string().min(1).max(80) }).strict().safeParse(body);
@@ -225,7 +225,7 @@ export class VocabularyV2Controller {
 
   @Public()
   @RequireStudentToken()
-  @RateLimit({ limit: 120, windowSec: 60, scope: 'ip' })
+  @RateLimit({ limit: 120, windowSec: 60, scope: 'user' })
   @Post('test/answer')
   answerTest(@Req() req: Request, @Body() body: unknown) {
     const parsed = z.object({
@@ -246,7 +246,7 @@ export class VocabularyV2Controller {
 
   @Public()
   @RequireStudentToken()
-  @RateLimit({ limit: 30, windowSec: 60, scope: 'ip' })
+  @RateLimit({ limit: 30, windowSec: 60, scope: 'user' })
   @Post('test/submit')
   submitTest(@Req() req: Request, @Body() body: unknown) {
     const parsed = z.object({ sessionId: z.string().min(1).max(80) }).strict().safeParse(body);

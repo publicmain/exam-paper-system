@@ -895,7 +895,7 @@ export class MorningQuizController {
    *  Rate-limited (5/60s). Name+studentId disambig matches
    *  /history-by-name. */
   @Public()
-  @RateLimit({ limit: 5, windowSec: 60, scope: 'ip' })
+  @RateLimit({ limit: 5, windowSec: 60, scope: 'user' })
   @RequireStudentToken()
   @Post('appeals')
   async createAppeal(@Body() body: unknown, @Req() req: Request) {

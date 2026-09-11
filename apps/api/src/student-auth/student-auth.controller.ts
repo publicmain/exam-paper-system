@@ -221,7 +221,7 @@ export class StudentAuthController {
   }
 
   @Public()
-  @RateLimit({ limit: 30, windowSec: 60, scope: 'ip' })
+  @RateLimit({ limit: 30, windowSec: 60, scope: 'user' })
   @Post('change-pin')
   async changePin(@Body() body: unknown, @Req() req: Request) {
     const me = await this.requireStudent(req);
@@ -235,7 +235,7 @@ export class StudentAuthController {
   }
 
   @Public()
-  @RateLimit({ limit: 120, windowSec: 60, scope: 'ip' })
+  @RateLimit({ limit: 120, windowSec: 60, scope: 'user' })
   @Get('me')
   async me(@Req() req: Request) {
     // 教师的只读视角可以看主页 —— 这正是「看到学生看到的东西」
