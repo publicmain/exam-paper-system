@@ -541,9 +541,10 @@
           <div class="gqstat"><div class="n" id="gq-subs">—</div><div class="l">students to grade</div></div>
           <div class="gqstat"><div class="n" id="gq-scripts">—</div><div class="l">answers pending</div></div>
           <div class="gqstat"><div class="n ok" id="gq-done">0</div><div class="l">graded this session</div></div>
+          <input class="greason" id="gq-marker-email" placeholder="your login email (grading as)" style="max-width:220px">
           <button class="gqref" id="gq-refresh">↻ refresh</button>
         </div>
-        <p class="note" style="margin:-4px 0 14px">Free short-answers parked by the 09:00 auto-lock. You (a human) set the mark — nothing is AI-scored. Each apply writes back to production and re-totals the submission; a student flips to <b>marked</b> once all their answers are in.</p>
+        <p class="note" style="margin:-4px 0 14px">Free short-answers parked by the 09:00 auto-lock. You (a human) set the mark — nothing is AI-scored. Each apply writes back to production and re-totals the submission; a student flips to <b>marked</b> once all their answers are in. Enter the email of the teacher/admin account actually grading — it's recorded as the marker on every script (2026-09-11: this used to silently stamp the earliest admin account instead).</p>
         <div id="gqlist"></div>
       </section>
 
@@ -907,6 +908,15 @@
   // ---- grade cockpit (human marking) ----
   function apiUrl(p){return p+(KEY?((p.indexOf("?")>=0?"&":"?")+"k="+encodeURIComponent(KEY)):"")}
   var GQDONE=0;
+  // 审计 S05：真实操作人 —— 记在这台设备的 localStorage 里，换人用要
+  // 自己改掉；服务端会校验这个邮箱确实是一个启用中的 admin/head_teacher/
+  // teacher 账号，不是随便填的字符串。
+  var gqEmailEl=id("gq-marker-email");
+  if(gqEmailEl){
+    gqEmailEl.value=localStorage.getItem("gq:markerEmail")||"";
+    gqEmailEl.addEventListener("change",function(){localStorage.setItem("gq:markerEmail",gqEmailEl.value.trim())});
+  }
+  function markerEmail(){return gqEmailEl?gqEmailEl.value.trim():""}
   function setGqPill(n){var e=id("nav-gq");if(!e)return;e.textContent=n;e.classList.toggle("on",n>0)}
   function loadQueue(){api("/api/queue").then(function(qd){if(qd&&qd.submissions!==undefined)renderQueue(qd)})}
   function renderQueue(qd){
@@ -936,13 +946,14 @@
       el.querySelectorAll(".gmk").forEach(function(b){b.addEventListener("click",function(){el.querySelectorAll(".gmk").forEach(function(x){x.classList.remove("on")});b.classList.add("on");sel.v=Number(b.getAttribute("data-m"))})});
       el.querySelector(".gapply").addEventListener("click",function(){
         if(sel.v==null){var rr=el.querySelector(".greason");rr.placeholder="↑ pick a mark first";rr.focus();return}
+        if(!markerEmail()){if(gqEmailEl){gqEmailEl.focus();gqEmailEl.placeholder="↑ enter your email first — who is grading?"}return}
         var btn=el.querySelector(".gapply");btn.disabled=true;btn.textContent="…";
         postGrade(el.getAttribute("data-script"),sel.v,el.querySelector(".greason").value||"",el,btn);
       });
     });
   }
   function postGrade(scriptId,mark,reason,el,btn){
-    fetch(apiUrl("/api/grade"),{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({scriptId:scriptId,awardedMarks:mark,reason:reason})}).then(function(r){return r.json()}).then(function(r){
+    fetch(apiUrl("/api/grade"),{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({scriptId:scriptId,awardedMarks:mark,reason:reason,markerEmail:markerEmail()})}).then(function(r){return r.json()}).then(function(r){
       if(r&&r.ok){
         el.classList.add("done");
         el.querySelector(".gdone").textContent="✓ "+mark+" / "+el.getAttribute("data-max")+" recorded"+(r.submissionStatus==="marked"?" · submission MARKED ("+r.totalScore+"/"+r.maxScore+")":" · "+r.ungradedRemaining+" answer(s) left");

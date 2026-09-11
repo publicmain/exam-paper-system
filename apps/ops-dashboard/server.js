@@ -1,28 +1,54 @@
 'use strict';
 /**
- * Morning-Quiz · Ops Console — a small, read-only web service that surfaces
- * LIVE aggregate operations metrics for the morning-quiz platform.
+ * Morning-Quiz · Ops Console — a small web service that surfaces LIVE
+ * aggregate operations metrics for the morning-quiz platform, plus a
+ * "grading cockpit" (`/api/queue`, `/api/grade`) used for the chat-based
+ * manual-marking workflow (see CLAUDE.md 铁律 / marker-dump.ts /
+ * marker-apply.ts).
  *
  * Design constraints (deliberate):
- *   - READ-ONLY. Runs SELECTs only; never writes.
- *   - AGGREGATE / NO PII. No student names, no individual scores — only counts,
- *     rates and content-bank identifiers. Safe to expose.
- *   - ISOLATED. A separate Railway service; does not touch the main API.
+ *   - Most endpoints are READ-ONLY (SELECT only). `/api/grade` is the one
+ *     write path — see `applyGrade()` below for the constraints it enforces
+ *     (2026-09-11 审计 S05: it used to skip class ownership / submission
+ *     status / question-type / claim checks and stamp every grade as coming
+ *     from "the earliest admin row" instead of a real operator).
+ *   - AGGREGATE / NO PII on the read side. No student names, no individual
+ *     scores on the metrics endpoints — only counts, rates and content-bank
+ *     identifiers.
+ *   - ISOLATED. A separate Railway service; does not touch the main API
+ *     process (same Postgres, applies the same business rules as
+ *     apps/api/src/marker/marker.service.ts by hand).
  *
  * Env:
  *   DATABASE_URL   Postgres connection (internal Railway URL in prod)
  *   CLASS_ID       morning-quiz class to report on (default: G11 IELTS Test)
- *   ACCESS_KEY     optional — if set, require ?k=<key> to view
+ *   ACCESS_KEY     if set, require ?k=<key> to view. **Required in
+ *                  production** — see assertAccessKeyConfigured() below;
+ *                  the process refuses to start without it when it looks
+ *                  like it's running on Railway.
  *   PORT           provided by Railway
  */
 const express = require('express');
 const { Pool } = require('pg');
 const path = require('path');
 const fs = require('fs');
+const { assertAccessKeyConfigured } = require('./grading');
+const { createApplyGrade } = require('./apply-grade');
 
 const CLASS_ID = process.env.CLASS_ID || 'cmoux0jj900m9oc28r4sptjj0';
 const ACCESS_KEY = process.env.ACCESS_KEY || '';
 const PORT = process.env.PORT || 8080;
+
+// 审计 S05：生产（Railway）缺 ACCESS_KEY 时拒绝启动，而不是像旧版 `gate()`
+// 那样在没配 key 时对所有人放行（等于一个裸奔的判分写入口）。本地开发不受
+// 影响 —— isProductionLike() 只在识别到 Railway 注入的变量或
+// NODE_ENV=production 时才要求配置。
+const accessKeyCheck = assertAccessKeyConfigured(process.env);
+if (!accessKeyCheck.ok) {
+  // eslint-disable-next-line no-console
+  console.error(`FATAL: ${accessKeyCheck.error}`);
+  process.exit(1);
+}
 
 const url = process.env.DATABASE_URL || '';
 const ssl = /railway\.internal|localhost|127\.0\.0\.1/.test(url) ? false : { rejectUnauthorized: false };
@@ -360,57 +386,10 @@ async function buildQueue(date) {
     pending: rows.length, submissions: order.map((id) => subs[id]) };
 }
 
-// Write one human mark decision + recompute the submission. Mirrors
-// marker.service.finalize / marker-apply.ts. Idempotent (skips graded scripts).
-async function applyGrade(scriptId, awardedMarks, reason) {
-  const client = await pool.connect();
-  try {
-    await client.query('BEGIN');
-    const adminR = await client.query(`select id from "User" where role='admin' order by "createdAt" asc limit 1`);
-    if (!adminR.rows[0]) { await client.query('ROLLBACK'); return { ok: false, error: 'no admin user' }; }
-    const adminId = adminR.rows[0].id;
-    const sR = await client.query(
-      `select a."awardedMarks" awarded, a."markedById" marked_by, a."submissionId" sub, pq.marks max
-         from "AnswerScript" a join "PaperQuestion" pq on pq.id=a."paperQuestionId" where a.id=$1`, [scriptId]);
-    const sc = sR.rows[0];
-    if (!sc) { await client.query('ROLLBACK'); return { ok: false, error: 'script not found' }; }
-    const max = Number(sc.max);
-    const am = Number(awardedMarks);
-    if (!(am >= 0) || am > max) { await client.query('ROLLBACK'); return { ok: false, error: 'awardedMarks must be 0..' + max }; }
-    if (sc.marked_by && sc.awarded != null) { await client.query('ROLLBACK'); return { ok: false, already: true, error: 'already graded' }; }
-    await client.query(
-      `update "AnswerScript" set "awardedMarks"=$2, "markerComment"=$3, "markedById"=$4, "markedAt"=now() where id=$1`,
-      [scriptId, am, reason || null, adminId]);
-    const subId = sc.sub;
-    const scripts = (await client.query(
-      `select a."awardedMarks" awarded, a."markedById" marked_by, qq."questionType" qtype
-         from "AnswerScript" a join "PaperQuestion" pq on pq.id=a."paperQuestionId"
-         join "Question" qq on qq.id=pq."questionId" where a."submissionId"=$1`, [subId])).rows;
-    let mcq = 0, auto = 0, manual = 0, ungraded = 0;
-    for (const r of scripts) {
-      if (r.qtype === 'mcq') { mcq += Number(r.awarded) || 0; continue; }
-      if (r.awarded == null) { ungraded++; continue; }
-      if (r.marked_by != null) manual += Number(r.awarded); else auto += Number(r.awarded);
-    }
-    auto += mcq;
-    const total = auto + manual;
-    let status = 'submitted';
-    if (ungraded > 0) {
-      await client.query(`update "StudentSubmission" set "autoScore"=$2,"manualScore"=$3,"totalScore"=$4 where id=$1`, [subId, auto, manual, total]);
-    } else {
-      const upd = await client.query(`update "StudentSubmission" set status='marked', "autoScore"=$2,"manualScore"=$3,"totalScore"=$4 where id=$1 and status='submitted'`, [subId, auto, manual, total]);
-      if (upd.rowCount === 0) await client.query(`update "StudentSubmission" set "autoScore"=$2,"manualScore"=$3,"totalScore"=$4 where id=$1`, [subId, auto, manual, total]);
-      status = 'marked';
-    }
-    await client.query('COMMIT');
-    return { ok: true, scriptId, submissionId: subId, submissionStatus: status, ungradedRemaining: ungraded, totalScore: total, maxScore: max };
-  } catch (e) {
-    try { await client.query('ROLLBACK'); } catch (e2) { /* noop */ }
-    return { ok: false, error: String((e && e.message) || e) };
-  } finally {
-    client.release();
-  }
-}
+// 判分写入口 —— 约束逻辑见 apply-grade.js + grading.js（2026-09-11 审计
+// S05）。用工厂函数而不是直接写在这个文件里，是为了让约束能脱离真实
+// Postgres 单测（见 apps/ops-dashboard/__tests__/apply-grade.test.js）。
+const applyGrade = createApplyGrade(pool, CLASS_ID);
 
 // ── attendance roster (per-student, for Seiue entry) ────────────────────────
 // Read-only. Surfaces the exact on-time / late / absent list for a quiz day so
@@ -915,9 +894,11 @@ app.get('/api/queue', gate, async (req, res) => {
 
 app.post('/api/grade', gate, async (req, res) => {
   try {
-    const { scriptId, awardedMarks, reason } = req.body || {};
+    const { scriptId, awardedMarks, reason, markerEmail } = req.body || {};
     if (!scriptId || awardedMarks == null) return res.status(400).json({ ok: false, error: 'scriptId and awardedMarks required' });
-    const r = await applyGrade(scriptId, awardedMarks, reason);
+    // 审计 S05：真实操作人必须显式传（不再拿"库里最早的管理员"顶替）。
+    if (!markerEmail) return res.status(400).json({ ok: false, error: 'markerEmail required — identify who is actually grading' });
+    const r = await applyGrade(scriptId, awardedMarks, reason, markerEmail);
     // bust caches so the queue / metrics / board / actions / audit reflect the write immediately
     qcache.at = 0; cache.at = 0; scache.at = 0; bcache.at = 0; ncache.at = 0; dcache.at = 0;
     res.set('Cache-Control', 'no-store');
