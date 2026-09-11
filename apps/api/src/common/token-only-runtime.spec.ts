@@ -289,20 +289,24 @@ describe('向后兼容：无令牌 + 姓名，三个家族各一条代表', () =
     expect((callOf(rec, 'svc.getToday').args[0] as { studentName: string }).studentName).toBe('李四');
   });
 
-  it('morning-quiz —— GET /history-by-name 无令牌时仍按姓名查', async () => {
+  // 2026-09-11 审计 S02 取代了原来的「history-by-name 无令牌时仍按姓名查」：
+  // 那条向后兼容正是漏洞本身（知道姓名就能读成绩）。新断言更严 —— 无令牌
+  // 在查任何学生之前就拒绝，一次库都不查。
+  it('morning-quiz —— GET /history-by-name 无令牌 + 姓名 → 403，且一次库都不查（S02）', async () => {
     const rec: Rec = { calls: [] };
-    await buildMq(rec, MQ_HISTORY_RESULTS).historyByName(anonReq(), '李四');
-    const w = (callOf(rec, 'prisma.user.findMany').args[0] as { where: Record<string, unknown> }).where;
-    expect(w.name).toBe('李四');
-    expect(w).not.toHaveProperty('id');
+    await expect(buildMq(rec, MQ_HISTORY_RESULTS).historyByName(anonReq(), '李四'))
+      .rejects.toMatchObject({ response: { code: 'student_token_required' } });
+    expect(rec.calls).toEqual([]);
   });
 
   it('三个家族：无令牌且无姓名 → name_required', async () => {
     const rec: Rec = { calls: [] };
     await expect(buildVocab(rec).submitReview(anonReq(), { headword: 'x', rating: 'good' }))
       .rejects.toMatchObject({ response: { code: 'name_required' } });
+    // S02：history-by-name 不再有「无令牌 + 姓名」这条路，无令牌一律
+    // student_token_required（比 name_required 更早、更严）
     await expect(buildMq(rec).historyByName(anonReq()))
-      .rejects.toMatchObject({ response: { code: 'name_required' } });
+      .rejects.toMatchObject({ response: { code: 'student_token_required' } });
     // lesson 的 today 用的是更早就存在的 student_required，口径同样不变
     await expect(buildLesson(rec).today(anonReq()))
       .rejects.toMatchObject({ response: { code: 'student_required' } });
@@ -495,17 +499,19 @@ describe('GET /morning-quiz/history-by-name 的响应身份', () => {
     expect((out.student as { matchedCount: number }).matchedCount).toBe(1);
   });
 
-  it('**旧口径不变**：无令牌 + 姓名时回显的仍是调用方给的姓名', async () => {
+  // 2026-09-11 审计 S02 取代了原来的「旧口径不变：无令牌 + 姓名时回显调用方
+  // 给的姓名」。那条旧口径就是「凭姓名匿名读成绩」本身。新断言：库里明明
+  // 有这个人，无令牌也拿不到任何东西 —— 不回显姓名、不给候选、不给班级。
+  it('**无令牌 + 姓名 → 什么都拿不到**：不回显、不给候选 / 班级 / 成绩（S02）', async () => {
     const rec: Rec = { calls: [] };
     const legacy = {
       'user.findMany': [{ id: 'other', name: '李四', email: 's2@school.local', classEnrollments: [] }],
       'studentSubmission.findMany': [],
       'morningQuizSession.findMany': [],
     };
-    const out = (await buildMq(rec, legacy).historyByName(anonReq(), '李四')) as {
-      student: { name: string };
-    };
-    expect(out.student.name).toBe('李四');
+    const err = await buildMq(rec, legacy).historyByName(anonReq(), '李四').catch((e) => e);
+    expect(err.getResponse()).toEqual({ code: 'student_token_required' });
+    expect(rec.calls).toEqual([]);
   });
 });
 

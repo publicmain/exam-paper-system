@@ -5,6 +5,7 @@ import { CurrentUser } from '../common/current-user.decorator';
 import { Public } from '../common/auth.guard';
 import { RateLimit } from '../common/rate-limit.guard';
 import {
+  RequireStudentReadToken,
   RequireStudentToken,
   StudentIdentityGuard,
   type RequestWithStudentAuth,
@@ -495,9 +496,10 @@ export class VocabController {
     return this.attempts.start(identityOf(req, p.data.name, p.data.studentId));
   }
 
-  /** 回读当日测试（刷新 / 重新登录后恢复）。没有就返回 { attempt: null }。 */
+  /** 回读当日测试（刷新 / 重新登录后恢复）。没有就返回 { attempt: null }。
+   *  S08：attempts.current() 纯读取 —— 教师只读视角可读。 */
   @Public()
-  @RequireStudentToken()
+  @RequireStudentReadToken()
   @RateLimit({ limit: 180, windowSec: 60, scope: 'ip' })
   @Get('quiz/attempt/current')
   async quizCurrent(
@@ -544,9 +546,9 @@ export class VocabController {
     return this.attempts.submit(identityOf(req, p.data.name, p.data.studentId));
   }
 
-  /** 历史成绩（只读）。 */
+  /** 历史成绩（只读）。S08：attempts.history() 纯读取 —— 教师只读视角可读。 */
   @Public()
-  @RequireStudentToken()
+  @RequireStudentReadToken()
   @RateLimit({ limit: 120, windowSec: 60, scope: 'ip' })
   @Get('quiz/attempts')
   async quizAttempts(

@@ -5,9 +5,9 @@ import { JwtModule } from '@nestjs/jwt';
 import { ScheduleModule } from '@nestjs/schedule';
 import { PrismaService } from './common/prisma.service';
 import { GradeService } from './grading/grade.service';
-import { AuthGuard } from './common/auth.guard';
 import { GlobalExceptionFilter } from './common/global-exception.filter';
 import { RateLimitGuard } from './common/rate-limit.guard';
+import { GLOBAL_GUARDS } from './common/global-guards';
 import { AuthModule } from './auth/auth.module';
 import { ReferenceModule } from './reference/reference.module';
 import { QuestionsModule } from './questions/questions.module';
@@ -141,9 +141,9 @@ import { AudioModule } from './audio/audio.module';
     // RateLimitGuard runs before AuthGuard so anonymous brute-force on
     // /auth/login is blocked even when the AuthGuard would let unauthenticated
     // requests through (Public routes). Both are global; @RateLimit() opts
-    // a route in.
-    { provide: APP_GUARD, useClass: RateLimitGuard },
-    { provide: APP_GUARD, useClass: AuthGuard },
+    // a route in. 顺序只在 common/global-guards.ts 定义一次 —— 守卫链测试
+    // 从同一处取，保证测的就是线上这条链。
+    ...GLOBAL_GUARDS.map((guard) => ({ provide: APP_GUARD, useClass: guard })),
     { provide: APP_FILTER, useClass: GlobalExceptionFilter },
     RateLimitGuard,
     // Phase 1 AI-ready grading seam (docs/PRD §7).

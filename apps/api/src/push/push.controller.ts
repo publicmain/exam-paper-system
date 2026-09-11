@@ -3,7 +3,11 @@ import type { Request } from 'express';
 import { z } from 'zod';
 import { Public } from '../common/auth.guard';
 import { RateLimit } from '../common/rate-limit.guard';
-import { RequireStudentToken, StudentIdentityGuard } from '../common/student-identity.guard';
+import {
+  RequireStudentReadToken,
+  RequireStudentToken,
+  StudentIdentityGuard,
+} from '../common/student-identity.guard';
 import { PushService } from './push.service';
 
 function studentIdOf(req: Request): string {
@@ -24,9 +28,10 @@ const SubscribeBody = z
 export class PushController {
   constructor(private readonly service: PushService) {}
 
-  /** 开没开、公钥、几点提醒。学生端据此决定显不显示开关 —— 公钥不编进前端。 */
+  /** 开没开、公钥、几点提醒。学生端据此决定显不显示开关 —— 公钥不编进前端。
+   *  S08：只读环境变量，零写库 —— 教师只读视角可读。 */
   @Public()
-  @RequireStudentToken()
+  @RequireStudentReadToken()
   @Get('config')
   config(@Req() req: Request) {
     studentIdOf(req);

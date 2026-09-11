@@ -2,6 +2,7 @@ import { BadRequestException, Body, Controller, ForbiddenException, Get, Param, 
 import { Request } from 'express';
 import { z } from 'zod';
 import { CurrentUser } from '../common/current-user.decorator';
+import { AllowTeacherView } from '../common/student-access';
 import { StudentService } from './student.service';
 
 const AssignSchema = z.object({
@@ -36,7 +37,8 @@ export class StudentController {
     return this.student.assignPaperToClass(paperId, parsed.data, { id: user.id, role: user.role, ip: req.ip ?? null });
   }
 
-  /** Student: list assignments for me. */
+  /** Student: list assignments for me. S08：纯读取，教师只读视角可读。 */
+  @AllowTeacherView()
   @Get('student/assignments')
   myAssignments(@CurrentUser() user: any) {
     if (user.role !== 'student') throw new ForbiddenException('student-only route');
@@ -69,7 +71,9 @@ export class StudentController {
     return this.student.finalSubmit(id, { id: user.id, role: user.role, ip: req.ip ?? null });
   }
 
-  /** Student: read own submission (during exam to refresh, after marking to review). */
+  /** Student: read own submission (during exam to refresh, after marking to review).
+   *  S08：纯读取，教师只读视角可读；响应按答题状态白名单投影（S01）。 */
+  @AllowTeacherView()
   @Get('student/submissions/:id')
   getOwn(@Param('id') id: string, @CurrentUser() user: any, @Req() req: Request) {
     if (user.role !== 'student') throw new ForbiddenException('student-only route');

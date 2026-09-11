@@ -3,7 +3,11 @@ import type { Request } from 'express';
 import { CurrentUser } from '../common/current-user.decorator';
 import { Public } from '../common/auth.guard';
 import { RateLimit } from '../common/rate-limit.guard';
-import { RequireStudentToken, StudentIdentityGuard } from '../common/student-identity.guard';
+import {
+  RequireStudentReadToken,
+  RequireStudentToken,
+  StudentIdentityGuard,
+} from '../common/student-identity.guard';
 import { identityOf } from '../common/student-identity-input';
 import { PrismaService } from '../common/prisma.service';
 import { canActOnClass } from '../common/roles';
@@ -36,8 +40,12 @@ export class LessonController {
   // 而里面本来就有阅读成绩，P7 又要往里放正式词汇成绩。成绩必须是
   // 「只能看自己的」。教师的只读视角（teacher_view 令牌）照样能看 ——
   // 那正是「看到学生看到的东西」。
+  //
+  // S08（2026-09-11）：原来标的是 @RequireStudentToken()，它把教师只读视角
+  // 也挡掉了，上面这句注释从来没成立过。getToday() 是纯读取（P8，
+  // read-only-invariant.spec 数着写调用），所以换成「读身份」。
   @Public()
-  @RequireStudentToken()
+  @RequireStudentReadToken()
   @RateLimit({ limit: 120, windowSec: 60, scope: 'ip' })
   @Get('today')
   async today(

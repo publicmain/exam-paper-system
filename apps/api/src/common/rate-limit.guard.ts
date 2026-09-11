@@ -3,11 +3,13 @@ import {
   ExecutionContext,
   Injectable,
   Logger,
+  Optional,
   SetMetadata,
   HttpException,
   HttpStatus,
 } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
+import { JwtService } from '@nestjs/jwt';
 import { Request } from 'express';
 
 /**
@@ -57,7 +59,12 @@ export class RateLimitGuard implements CanActivate {
    *  of uptime (each unique IP × each rate-limited route → one entry). */
   private hitsSinceGc = 0;
 
-  constructor(private readonly reflector: Reflector) {}
+  constructor(
+    private readonly reflector: Reflector,
+    // 按用户限流要自己验签取身份（见 userIdOf）。全局 JwtModule 一定会注入；
+    // @Optional 只是让既有单测 `new RateLimitGuard(new Reflector())` 照常能建。
+    @Optional() private readonly jwt?: JwtService,
+  ) {}
 
   async canActivate(ctx: ExecutionContext): Promise<boolean> {
     const opts = this.reflector.getAllAndOverride<RateLimitOptions>(

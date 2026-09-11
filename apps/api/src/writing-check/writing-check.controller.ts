@@ -3,7 +3,11 @@ import type { Request } from 'express';
 import { z } from 'zod';
 import { Public } from '../common/auth.guard';
 import { RateLimit } from '../common/rate-limit.guard';
-import { RequireStudentToken, StudentIdentityGuard } from '../common/student-identity.guard';
+import {
+  RequireStudentReadToken,
+  RequireStudentToken,
+  StudentIdentityGuard,
+} from '../common/student-identity.guard';
 import { WritingCheckService } from './writing-check.service';
 
 function studentIdOf(req: Request): string {
@@ -17,9 +21,10 @@ function studentIdOf(req: Request): string {
 export class WritingCheckController {
   constructor(private readonly service: WritingCheckService) {}
 
-  /** 功能开着没有 —— 学生端据此决定要不要显示提示区，省得每次白跑一趟。 */
+  /** 功能开着没有 —— 学生端据此决定要不要显示提示区，省得每次白跑一趟。
+   *  S08：只读一个环境变量，零写库 —— 教师只读视角可读。 */
   @Public()
-  @RequireStudentToken()
+  @RequireStudentReadToken()
   @Get('status')
   status(@Req() req: Request) {
     studentIdOf(req);

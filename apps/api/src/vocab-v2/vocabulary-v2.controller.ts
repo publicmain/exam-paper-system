@@ -3,7 +3,11 @@ import type { Request } from 'express';
 import { z } from 'zod';
 import { Public } from '../common/auth.guard';
 import { RateLimit } from '../common/rate-limit.guard';
-import { RequireStudentToken, StudentIdentityGuard } from '../common/student-identity.guard';
+import {
+  RequireStudentReadToken,
+  RequireStudentToken,
+  StudentIdentityGuard,
+} from '../common/student-identity.guard';
 import { VocabularyV2Service } from './vocabulary-v2.service';
 
 function studentIdOf(req: Request): string {
@@ -23,6 +27,8 @@ export class VocabularyV2Controller {
     return this.service.sourceMeta();
   }
 
+  // S08：这条 GET 会**隐式写库**（profile() 用 upsert 兜底建档），所以仍是
+  // 本人写、拒绝教师只读视角。服务层拆成纯读之后再换成 @RequireStudentReadToken。
   @Public()
   @RequireStudentToken()
   @Get('profile')
@@ -43,7 +49,7 @@ export class VocabularyV2Controller {
   }
 
   @Public()
-  @RequireStudentToken()
+  @RequireStudentReadToken()
   @RateLimit({ limit: 120, windowSec: 60, scope: 'ip' })
   @Get('search')
   search(@Req() req: Request, @Query('q') q = '', @Query('limit') limit = '20') {
@@ -51,7 +57,7 @@ export class VocabularyV2Controller {
   }
 
   @Public()
-  @RequireStudentToken()
+  @RequireStudentReadToken()
   @Get('center')
   center(
     @Req() req: Request,
@@ -131,7 +137,7 @@ export class VocabularyV2Controller {
   }
 
   @Public()
-  @RequireStudentToken()
+  @RequireStudentReadToken()
   @Get('daily')
   daily(@Req() req: Request, @Query('date') date = '') {
     const parsed = z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional().safeParse(date || undefined);
@@ -139,6 +145,7 @@ export class VocabularyV2Controller {
     return this.service.dailySession(studentIdOf(req), new Date(), parsed.data);
   }
 
+  // S08：同上 —— overview() 先调 profile()，没有档案时会 upsert 建一行。
   @Public()
   @RequireStudentToken()
   @Get('overview')
@@ -148,7 +155,7 @@ export class VocabularyV2Controller {
 
   /** 历史成绩页：已交卷的正式单词测试（2026-09-06 上线验收 P0：原来只读旧版测验表）。 */
   @Public()
-  @RequireStudentToken()
+  @RequireStudentReadToken()
   @Get('tests')
   tests(@Req() req: Request) {
     return this.service.listFormalTests(studentIdOf(req));
@@ -209,7 +216,7 @@ export class VocabularyV2Controller {
   }
 
   @Public()
-  @RequireStudentToken()
+  @RequireStudentReadToken()
   @Get('test')
   test(@Req() req: Request, @Query('sessionId') sessionId = '') {
     if (!sessionId) throw new BadRequestException({ code: 'v2_session_required' });

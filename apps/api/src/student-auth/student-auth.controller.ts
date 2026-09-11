@@ -17,6 +17,7 @@ import { CurrentUser } from '../common/current-user.decorator';
 import { Public } from '../common/auth.guard';
 import { PrismaService } from '../common/prisma.service';
 import { RateLimit } from '../common/rate-limit.guard';
+import { assertTokenLive } from '../common/account-lifecycle';
 import { StudentAuthService } from './student-auth.service';
 import { readStagingFixtureLoginConfig } from './staging-fixture-login';
 import { PILOT_LEVELS } from './pilot-levels';
@@ -69,25 +70,12 @@ export class StudentAuthController {
       // 撤销校验（2026-08-25 复审 P0-2）。改 PIN 这条路尤其要查：
       // 抢注者若已拿到 30 天 token，教师重置 PIN 后他必须**不能**再用
       // 旧 token 把 PIN 改回去，否则重置形同虚设。
-      // 与 StudentIdentityGuard 同口径：只查带 av 的长期 token。
-      if (typeof p.av === 'number') {
-        const row = await this.prisma.user.findUnique({
-          where: { id: p.id },
-          select: { studentAuthVersion: true, isActive: true, archivedAt: true },
-        });
-        if (
-          !row ||
-          !row.isActive ||
-          row.archivedAt != null ||
-          row.studentAuthVersion !== p.av
-        ) {
-          // 直接抛 Forbidden 并**跳出 try**（下面的 catch 只兜 token 本身
-          // 坏掉的情况）。生产 E2E 里这里原先落进 catch，被统一改写成
-          // student_token_required —— 前端据此不会清掉那张废票，学生会
-          // 卡在「要我登录，但我明明登录了」。撤销必须自报家门。
-          throw new ForbiddenException({ code: 'token_revoked' });
-        }
-      }
+      //
+      // 2026-09-11 审计 S03：判据改成与两道守卫同一个函数（带 av 比版本号，
+      // 不带 av 的扫码当天票也要求账号仍启用、未归档）。拒绝时抛的是
+      // Forbidden token_revoked 并**跳出 try**（下面的 catch 只兜 token
+      // 本身坏掉的情况）—— 撤销必须自报家门，否则前端不会清掉那张废票。
+      await assertTokenLive(this.prisma, p);
       return { id: p.id };
     } catch (e) {
       // 撤销的拒绝理由要原样传出去，不能被统一改写
