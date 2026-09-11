@@ -65,7 +65,7 @@ afterEach(() => { vi.unstubAllGlobals(); vi.restoreAllMocks(); });
 describe('统一正式单词测试整链', () => {
   it('按日期恢复、逐题保存、全部答完才可交卷', async () => {
     mount(); await settle();
-    expect(screen.getByRole('heading', { name: '9月2日单词测试' })).toBeInTheDocument();
+    expect(screen.getByText('9月2日 周三 单词测试')).toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: '火山的' }));
     await settle();
     // 2026-09-05 盲测 P1-8：每题先给对错反馈，点「下一题」再继续

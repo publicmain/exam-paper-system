@@ -4,6 +4,7 @@ import { MemoryRouter, useLocation } from 'react-router-dom';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import App from '../App';
 import { __resetForTest } from '../lib/auth-store';
+import { __clearVocabCacheForTest } from '../pages/VocabularyCoach';
 import { writeToken } from '../lib/identity';
 
 const TOKEN = 'unified-vocab-token';
@@ -48,7 +49,7 @@ function installFetch() {
       centerRows = centerRows.map((row) => row.senseId === body?.senseId ? { ...row, inNotebook: false } : row);
       return json(200, { ok: true, senseId: body?.senseId, inNotebook: false });
     }
-    if (path === '/vocab-v2/notebook/relearn') {
+    if (path === '/vocab-v2/notebook/relearn' || path === '/vocab-v2/notebook/restore') {
       centerRows = centerRows.map((row) => row.senseId === body?.senseId ? { ...row, inNotebook: true } : row);
       return json(200, { ok: true, senseId: body?.senseId, inNotebook: true });
     }
@@ -70,6 +71,7 @@ async function settle(rounds = 18) {
 
 beforeEach(() => {
   __resetForTest();
+  __clearVocabCacheForTest();
   localStorage.clear();
   writeToken(TOKEN);
   centerRows = [{
@@ -98,9 +100,12 @@ afterEach(() => {
 describe('统一的我的单词', () => {
   it('只读取 V2 中心和跨日待办，所有请求都使用当前学生令牌', async () => {
     mount(); await settle();
-    expect(screen.getByRole('heading', { name: '我的单词' })).toBeInTheDocument();
-    expect(screen.getByText('9月1日单词测试 · 12 题')).toBeInTheDocument();
-    expect(screen.getByText('9月2日单词测试 · 10 题')).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: '我的单词', level: 1 })).toBeInTheDocument();
+    fireEvent.click(screen.getByTestId('view-tests'));
+    await settle();
+    expect(screen.getByTestId('pending-2026-09-01')).toHaveTextContent('9月1日 周二 单词测试');
+    expect(screen.getByTestId('pending-2026-09-01')).toHaveTextContent('12 题');
+    expect(screen.getByTestId('pending-2026-09-02')).toHaveTextContent('10 题');
     expect(reqs.some((req) => req.path.startsWith('/vocab-v2/center?'))).toBe(true);
     expect(reqs.some((req) => req.path === '/vocab-v2/overview')).toBe(true);
     expect(reqs.some((req) => req.path.startsWith('/vocab/'))).toBe(false);
@@ -110,43 +115,53 @@ describe('统一的我的单词', () => {
   it('页面没有复习排期，也没有第二个词汇教练入口', async () => {
     mount(); await settle();
     expect(document.body.textContent).not.toMatch(/待复习|复习任务|FSRS|明天再考|词汇教练/);
-    expect(screen.getByText('自定义抽查')).toBeInTheDocument();
+    expect(screen.getByTestId('open-practice')).toHaveTextContent('抽查');
   });
 
-  it('自主抽查可选数量，并进入不记正式成绩的自定义测试', async () => {
+  it('自主抽查在小表单里选数量，并进入不记正式成绩的自定义测试', async () => {
     mount(); await settle();
+    fireEvent.click(screen.getByTestId('open-practice'));
+    await settle();
+    expect(screen.getByTestId('practice-sheet')).toHaveTextContent('不记正式成绩');
     fireEvent.click(screen.getByRole('button', { name: '5' }));
-    fireEvent.click(screen.getByRole('button', { name: '开始随机抽查' }));
+    fireEvent.click(screen.getByTestId('practice-start'));
     await settle();
     const call = reqs.find((req) => req.path === '/vocab-v2/custom-test/start');
     expect(call?.body).toEqual({ count: 5, scope: 'all' });
     expect(screen.getByTestId('location')).toHaveTextContent('/coach/test?sessionId=custom-1');
   });
 
-  it('移出必须二次确认，成功后仍保留历史并可重新学习', async () => {
+  it('**移出就地生效 + 撤销**（IOS-08），学习记录保留；已移出里写「重新加入」并走 restore（VOC13）', async () => {
     mount(); await settle();
-    fireEvent.click(screen.getByRole('button', { name: '我会了，移出' }));
-    expect(reqs.some((req) => req.path === '/vocab-v2/notebook/remove')).toBe(false);
-    fireEvent.click(screen.getByRole('button', { name: '确认移出' }));
+    fireEvent.click(screen.getByTestId('remove-volcanic'));
     await settle();
     expect(reqs.find((req) => req.path === '/vocab-v2/notebook/remove')?.body).toEqual({ senseId: 'sense-volcanic' });
-    expect(screen.getByText(/系统保留学习记录/)).toBeInTheDocument();
-    fireEvent.click(screen.getByRole('button', { name: '重新学习' }));
+    expect(screen.getByText(/已移出 volcanic。学习记录都还在。/)).toBeInTheDocument();
+    expect(screen.getByTestId('toast-action')).toHaveTextContent('撤销');
+    fireEvent.click(screen.getByTestId('view-removed'));
     await settle();
-    expect(reqs.find((req) => req.path === '/vocab-v2/notebook/relearn')?.body).toEqual({ senseId: 'sense-volcanic' });
+    expect(document.body.textContent).not.toContain('重新学习');
+    fireEvent.click(screen.getByTestId('restore-volcanic'));
+    await settle();
+    expect(reqs.find((req) => req.path === '/vocab-v2/notebook/restore')?.body).toEqual({ senseId: 'sense-volcanic' });
   });
 
   it('查词默认只查询，只有学生明确选择才加入或标记会', async () => {
     mount(); await settle();
+    fireEvent.click(screen.getByTestId('open-dictionary'));
+    await settle();
     const input = screen.getByPlaceholderText('输入英文单词');
     fireEvent.change(input, { target: { value: 'volcanic' } });
     fireEvent.click(screen.getByRole('button', { name: '查询' }));
     await settle();
-    expect(reqs.find((req) => req.path === '/vocab-v2/collect')?.body).toMatchObject({ headword: 'volcanic', action: 'lookup_only', source: 'search' });
+    const collects = reqs.filter((req) => req.path === '/vocab-v2/collect');
+    expect(collects).toHaveLength(1);
+    expect(collects[0].body).toMatchObject({ headword: 'volcanic', action: 'lookup_only', source: 'search' });
     expect(screen.getByRole('button', { name: '加入我的单词' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: '我已经会了' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: '稍后再学' })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: '只查一下' })).toBeInTheDocument();
+    // 「只查一下」= 关掉面板，什么都不记
+    expect(screen.getByTestId('dictionary-sheet')).toHaveTextContent('关掉这个面板 = 只查一下，什么都不记');
   });
 
   it('旧自由练习地址不再启动另一套流程', async () => {

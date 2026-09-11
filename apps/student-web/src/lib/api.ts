@@ -67,7 +67,8 @@ export const REQUEST_TIMEOUT_MS = 30_000;
 async function request<T>(
   method: 'GET' | 'POST' | 'PATCH',
   path: string,
-  opts: { body?: unknown; token?: string | null } = {},
+  /** `as: 'blob'`：成功时按二进制取回（听写题音频）；失败仍按 JSON 解析错误体。 */
+  opts: { body?: unknown; token?: string | null; as?: 'blob' } = {},
 ): Promise<T> {
   let res: Response;
   const ctrl = typeof AbortController !== 'undefined' ? new AbortController() : null;
@@ -87,6 +88,7 @@ async function request<T>(
   } finally {
     if (timer) clearTimeout(timer);
   }
+  if (opts.as === 'blob' && res.ok) return (await res.blob()) as unknown as T;
   const text = await res.text();
   let parsed: unknown = {};
   try {
@@ -256,12 +258,15 @@ export type V2DailyHistory = {
 };
 
 export type V2PublicQuestion =
-  | { type: 'spelling'; prompt: string; cue: { pos: string; translation: string; audioText: string }; options: string[]; answer?: string }
+  /** VOC04：拼写题只有词性和中文，不带发音（念出来就是答案）。 */
+  | { type: 'spelling'; prompt: string; cue: { pos: string; translation: string; audioText?: string }; options: string[]; answer?: string }
   | { type: 'meaning_choice'; prompt: string; cue: null; options: string[]; answer?: number }
   | { type: 'word_choice'; prompt: string; cue: { pos: string; translation: string }; options: string[]; answer?: number }
   | { type: 'cloze'; prompt: string; cue: { sentence: string; translation: string }; options: string[]; answer?: string }
-  | { type: 'listening_spelling'; prompt: string; cue: { audioText: string; pos: string }; options: string[]; answer?: string }
-  | { type: 'active_use'; prompt: string; cue: { headword: string; translation: string }; options: string[]; answer?: string }
+  /** VOC04：题面不再有目标词；`audio: 'item'` = 凭 sessionId + itemId 取这道题的音频。`audioText` 只在旧快照 / 已答回顾里出现。 */
+  | { type: 'listening_spelling'; prompt: string; cue: { pos: string; audio?: 'item'; audioText?: string }; options: string[]; answer?: string }
+  /** VOC11：`grading: 'target_word_only'` = 只检查有没有用上目标词，不评估句子质量。 */
+  | { type: 'active_use'; prompt: string; cue: { headword: string; translation: string }; options: string[]; answer?: string; grading?: 'target_word_only' }
   | { type: 'collocation'; prompt: string; cue: { headword: string }; options: string[]; answer?: number }
   | { type: 'word_family'; prompt: string; cue: { headword: string; pos: string }; options: string[]; answer?: string[] };
 
@@ -298,6 +303,9 @@ export type V2TestSession = {
   type: string;
   status: string;
   total: number;
+  /** 冻结卷里当天新词 / 旧词抽查各几题（VOC06）。老服务端不发。 */
+  newWords?: number;
+  reviewWords?: number;
   answered: number;
   correct: number | null;
   retry?: { id: string; total: number; label: string } | null;
@@ -314,6 +322,8 @@ export type V2TestSession = {
     response: { value: string | number } | null;
     isCorrect: boolean | null;
     card: V2Card | null;
+    /** 造句题的检查结果（VOC11）：永远不说「句子正确」，只说检测到没检测到目标词。 */
+    check?: { targetDetected: boolean; sentenceQuality: 'not_evaluated'; reason: string; label: string };
   }>;
 };
 
@@ -325,11 +335,12 @@ export type V2Center = {
     new: number;
     learning: number;
     mastered: number;
-    due: number;
-    weak: number;
-    spellingWeak: number;
-    listeningWeak: number;
-    speakingWeak: number;
+    /** 以下几项新服务端不再给（只给能确定的计数）；老服务端才有 */
+    due?: number;
+    weak?: number;
+    spellingWeak?: number;
+    listeningWeak?: number;
+    speakingWeak?: number;
   };
   growth: Array<{ date: string; added: number; total: number }>;
   filters: { sources: string[]; stages: string[]; articles: string[]; topics: string[]; lists: string[] };
@@ -637,6 +648,12 @@ export const api = {
    */
   pushStatus: (token: string, body: { endpoint: string }) =>
     request<{ subscribed: boolean }>('POST', '/push/status', { token, body }),
+  /**
+   * 听写题的音频（VOC04）。题面里没有目标词，只能凭 sessionId + itemId 找服务端要；
+   * 带学生令牌，所以不能直接塞进 `<audio src>`，要取回 Blob 再放。
+   */
+  vocabV2TestAudio: (token: string, sessionId: string, itemId: string) =>
+    request<Blob>('GET', `/vocab-v2/test/audio?sessionId=${encodeURIComponent(sessionId)}&itemId=${encodeURIComponent(itemId)}`, { token, as: 'blob' }),
   vocabV2Test: (token: string, sessionId: string) =>
     request<V2TestSession>('GET', `/vocab-v2/test?sessionId=${encodeURIComponent(sessionId)}`, { token }),
   vocabV2Answer: (token: string, body: { sessionId: string; itemId: string; response: string | number; responseMs?: number }) =>
@@ -656,6 +673,8 @@ export const api = {
     sourceTitle?: string;
     sourceRef?: string;
     source?: 'reading_lookup' | 'reading_error' | 'search' | 'teacher_list';
+    /** UI02 / VOC05：按钮绑定显示中的那条词义；与 headword 对不上服务端会拒绝 */
+    senseId?: string;
   }) => request<{ ok: true; action: string; added: boolean; sense: { id: string; headword: string; senseKey: string; pos: string; phonetic: string | null; translation: string; definition: string } }>(
     'POST', '/vocab-v2/collect', { token, body },
   ),

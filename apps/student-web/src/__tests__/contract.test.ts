@@ -535,6 +535,8 @@ describe('G1 新端不得出现旧路由与旧身份键', () => {
     '/vocab-v2/custom-test/cancel',
     '/vocab-v2/daily/review',
     '/vocab-v2/daily/history',
+    // VOC04：听写题音频凭 sessionId + itemId 取，题面里没有目标词
+    '/vocab-v2/test/audio',
   ] as const;
 
   /**

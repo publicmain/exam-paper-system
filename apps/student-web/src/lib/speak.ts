@@ -80,3 +80,30 @@ export async function playWord(text: string, opts: { lang?: string } = {}): Prom
     return systemVoice();
   }
 }
+
+/**
+ * 放一段已经取回的音频（听写题，VOC04）。放不了就说放不了 ——
+ * **不退回系统语音**：那需要把目标词念出来，而题面本来就不该有它。
+ */
+export async function playBlob(blob: Blob): Promise<'audio' | 'failed'> {
+  if (typeof Audio === 'undefined' || typeof URL === 'undefined' || !URL.createObjectURL) return 'failed';
+  const url = URL.createObjectURL(blob);
+  try {
+    current?.pause();
+    const audio = new Audio(url);
+    current = audio;
+    const release = () => URL.revokeObjectURL(url);
+    audio.addEventListener('ended', release, { once: true });
+    const ok = await new Promise<boolean>((resolve) => {
+      audio.addEventListener('error', () => resolve(false), { once: true });
+      const p = audio.play();
+      if (p && typeof p.then === 'function') p.then(() => resolve(true), () => resolve(false));
+      else resolve(true);
+    });
+    if (!ok) release();
+    return ok ? 'audio' : 'failed';
+  } catch {
+    URL.revokeObjectURL(url);
+    return 'failed';
+  }
+}
