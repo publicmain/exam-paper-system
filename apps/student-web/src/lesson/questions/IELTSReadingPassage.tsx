@@ -321,7 +321,7 @@ export function IELTSReadingPassage({ paper }: { paper: ExamPaper }) {
       // ui-ios：学生端统一的界面语言（44pt 触控目标、按压回弹、iOS 字阶）。
       // 这里只加作用域，不改本页既有的字号类 —— 考试页的正文字号由学生自己
       // 用 A± 控制（--mq-fs），不能被外部统一值覆盖。
-      className="ui-ios lg:h-full"
+      className="h-full"
       style={{ ['--mq-fs' as any]: String(fontScale) }}
     >
       <FillFocusCtx.Provider value={setFillTargetId}>

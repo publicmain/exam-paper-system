@@ -85,6 +85,14 @@ export interface ReadingEngineValue {
   isSecondaryTab: boolean;
   claimTabOwnership(): void;
   flushPendingSaves(): Promise<void>;
+  /**
+   * 学生点「重试保存」：重置自动重试次数，并立刻把没上传的答案发一遍（审计 UI09）。
+   */
+  retrySaves(): Promise<void>;
+  /** 只在本机、还没被服务端确认的题数。 */
+  unsyncedCount: number;
+  /** 暂时性失败（断网 / 5xx / 超时）之后，是否已排好下一次自动重试。 */
+  autoRetryPending: boolean;
   isFlagged(qid: string): boolean;
   toggleFlag(qid: string): void;
   flaggedCount: number;
@@ -105,6 +113,25 @@ export function isSubmitBlocked(s: {
   hasUnverifiedAnswers: boolean;
 }): boolean {
   return s.hasPendingSaves || s.saveError != null || s.hasUnverifiedAnswers;
+}
+
+/**
+ * 暂时性保存失败后的自动重试节奏（审计 UI09）。
+ *
+ * 原来只在「断网 → 联网」「探测判离线 → 判在线」这两个跳变上补传：设备一直在线、
+ * 服务端先 500 后恢复时，这两个跳变都不会发生，失败的答案就一直躺在本地，交卷按钮
+ * 也一直是灰的。现在对暂时性失败（网络错误、5xx、408、429）按下面的间隔**有限**重试，
+ * 用完就停，等学生点「重试保存」或交卷前的强刷。4xx（比如卷子已锁）不自动重试。
+ */
+export const SAVE_RETRY_DELAYS_MS = [2_000, 5_000, 15_000, 30_000] as const;
+
+/** 这次失败值得自动重试吗 —— 只认暂时性的。 */
+export function isTransientSaveError(e: unknown): boolean {
+  const err = e as { name?: string; status?: number } | null;
+  if (!err) return false;
+  if (err.name === 'NetworkError') return true;
+  const st = err.status;
+  return typeof st === 'number' && (st >= 500 || st === 408 || st === 429);
 }
 
 const Ctx = createContext<ReadingEngineValue | null>(null);
@@ -181,6 +208,11 @@ export function ReadingProvider({
    * 谁说了算」的窗口，也让 flush 有一个确定的 promise 可以等。
    */
   const chainRef = useRef<Map<string, Promise<void>>>(new Map());
+  /** 每题的自动重试定时器与已用次数（UI09）。 */
+  const retryTimersRef = useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map());
+  const retryCountRef = useRef<Map<string, number>>(new Map());
+  const [autoRetryPending, setAutoRetryPending] = useState(false);
+  const enqueueRef = useRef<((qid: string, ans: ReadingAnswer) => Promise<void>) | null>(null);
   /** 未证实的题：superseded 之后、对账确认之前都算。**不落盘。** */
   const unverifiedRef = useRef<Set<string>>(new Set());
   const latestAnswerRef = useRef<Record<string, ReadingAnswer>>({});
@@ -328,6 +360,25 @@ export function ReadingProvider({
     [ANSWERS_KEY, persistSeqs, syncStatus],
   );
 
+  const scheduleRetryRef = useRef<(qid: string) => void>(() => undefined);
+  scheduleRetryRef.current = (qid: string) => {
+    if (retryTimersRef.current.has(qid)) return;
+    // 设备自己说离线：定时重试只是白费电，等 `online` 事件那条路补传
+    if (typeof navigator !== 'undefined' && navigator.onLine === false) return;
+    const used = retryCountRef.current.get(qid) ?? 0;
+    if (used >= SAVE_RETRY_DELAYS_MS.length) return; // 用完了：不再自动发，等学生点重试
+    const t = setTimeout(() => {
+      retryTimersRef.current.delete(qid);
+      retryCountRef.current.set(qid, used + 1);
+      setAutoRetryPending(retryTimersRef.current.size > 0);
+      if (isSecondaryRef.current || !dirtyRef.current.has(qid)) return;
+      const ans = latestAnswerRef.current[qid];
+      if (ans && enqueueRef.current) void enqueueRef.current(qid, ans);
+    }, SAVE_RETRY_DELAYS_MS[used]);
+    retryTimersRef.current.set(qid, t);
+    setAutoRetryPending(true);
+  };
+
   const persistOne = useCallback(
     async (qid: string, ans: ReadingAnswer) => {
       // 重试沿用同一个序号 —— 换个更大的号重试，等于让这次重试有资格
@@ -369,13 +420,19 @@ export function ReadingProvider({
         if (stillLatest()) {
           dirtyRef.current.delete(qid);
           unverifiedRef.current.delete(qid);
-          setSaveError(null);
+          retryCountRef.current.delete(qid);
+          const t = retryTimersRef.current.get(qid);
+          if (t) clearTimeout(t);
+          retryTimersRef.current.delete(qid);
+          setAutoRetryPending(retryTimersRef.current.size > 0);
+          if (dirtyRef.current.size === 0) setSaveError(null);
         }
         // 不是最新的那次 → 什么都不清。新的写自己会回来表态。
       } catch (e) {
         // 脏行留着；靠「重连」「探测恢复」「交卷前强刷」三个时机重来，
         // **不做无限自动重试**。
         setSaveError((e as Error)?.message ?? String(e ?? 'save_failed'));
+        if (isTransientSaveError(e)) scheduleRetryRef.current(qid);
         throw e;
       } finally {
         if (inflightRef.current.get(qid) === seq) inflightRef.current.delete(qid);
@@ -407,6 +464,7 @@ export function ReadingProvider({
     },
     [persistOne],
   );
+  enqueueRef.current = enqueueSave;
 
   const setAnswer = useCallback(
     (qid: string, ans: ReadingAnswer) => {
@@ -481,6 +539,23 @@ export function ReadingProvider({
 
   const flushRef = useRef(flushPendingSaves);
   flushRef.current = flushPendingSaves;
+
+  const retrySaves = useCallback(async () => {
+    for (const t of retryTimersRef.current.values()) clearTimeout(t);
+    retryTimersRef.current.clear();
+    retryCountRef.current.clear();
+    setAutoRetryPending(false);
+    await flushPendingSaves();
+  }, [flushPendingSaves]);
+
+  // 卸载时把自动重试定时器摘干净
+  useEffect(
+    () => () => {
+      for (const t of retryTimersRef.current.values()) clearTimeout(t);
+      retryTimersRef.current.clear();
+    },
+    [],
+  );
 
   // ── 在线 / 离线 ──
   useEffect(() => {
@@ -694,6 +769,9 @@ export function ReadingProvider({
       isSecondaryTab,
       claimTabOwnership,
       flushPendingSaves,
+      retrySaves,
+      unsyncedCount: new Set([...dirtyRef.current, ...unverifiedRef.current]).size,
+      autoRetryPending,
       isFlagged,
       toggleFlag,
       flaggedCount: flagged.size,
@@ -713,6 +791,8 @@ export function ReadingProvider({
       isSecondaryTab,
       claimTabOwnership,
       flushPendingSaves,
+      retrySaves,
+      autoRetryPending,
       isFlagged,
       toggleFlag,
       flagged.size,

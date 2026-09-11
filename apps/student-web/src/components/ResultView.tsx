@@ -276,6 +276,7 @@ export function ResultView({
   onAuthLost,
   footer,
   showDerivedPercentage = false,
+  fill = false,
 }: {
   result: ReadingResult;
   /** 调用方校验过的那一个 —— 申诉只认它。 */
@@ -295,95 +296,99 @@ export function ResultView({
    * 不会悄悄多一个。要显示就得在调用点写明白，那一行就是决定本身。
    */
   showDerivedPercentage?: boolean;
+  /** 专注页（刚交卷那一屏）铺满剩余高度；历史详情用固定高度的分栏。 */
+  fill?: boolean;
 }) {
   const pct = useMemo(
     () => (showDerivedPercentage ? percentageOf(result) : null),
     [result, showDerivedPercentage],
   );
+  // 与答题页同一个阅读工作区（审计 IOS-05）：左原文、右「成绩 + 逐题」，宽屏各自滚动，
+  // 窄屏两块都在文档流里、顶上一个跳转。答题 / 刚交卷 / 历史只是右栏的模式不同。
   return (
-    <>
-      <h1 className="text-xl font-semibold mb-1">{result.paperName}</h1>
-
-      <section
-        data-testid="summary"
-        className="rounded-2xl bg-surface border border-line p-5 mb-5"
-      >
-        {result.scoresPending ? (
-          <p data-testid="scores-pending" className="text-base text-ink-2">
-            {result.releasedScore && result.releasedScore.count > 0 ? (
-              <>
-                <span className="text-ink-3">客观题 </span>
-                <span className="text-3xl font-semibold tabular-nums">{result.releasedScore.earned}</span>
-                <span className="text-ink-3"> / {result.releasedScore.max} 分</span>
-                <span className="block mt-1 text-sm text-ink-2">
-                  {result.maxScore != null && result.maxScore > result.releasedScore.max
-                    ? `整卷 ${result.maxScore} 分，另外 ${result.maxScore - result.releasedScore.max} 分的主观题等老师批改，批完总分会在这里更新。`
-                    : '主观题等老师批改，批完总分会在这里更新。'}
-                </span>
-              </>
-            ) : (
-              '这份卷子还在判分，分数出来之后就能在这里看到。'
-            )}
-          </p>
-        ) : (
-          <p className="text-base">
-            <span data-testid="score" className="text-3xl font-semibold tabular-nums">
-              {result.totalScore ?? '—'}
-            </span>
-            <span className="text-ink-3"> / {result.maxScore ?? '—'} 分</span>
-            {pct != null && (
-              <span data-testid="percentage" className="ml-3 text-ink-3 tabular-nums">
-                {pct}%
-              </span>
-            )}
-          </p>
-        )}
-
-        {result.gradingSummary && result.gradingSummary.total > 0 && (
-          <p data-testid="grading-summary" className="mt-2 text-sm text-ink-2 tabular-nums">
-            {gradingSummaryParts(result.gradingSummary).map((part, i) => (
-              <span key={part.key} data-testid={`grading-part-${part.key}`}>
-                {i > 0 ? ' · ' : ''}
-                {part.text}
-              </span>
-            ))}
-          </p>
-        )}
-
-        {result.answersPending && (
-          <p data-testid="answers-pending" className="mt-3 text-sm text-warning bg-warning-soft rounded-xl px-3 py-2">
-            答案还没有公布 —— 你还可以回去修改这份卷子；最终交卷之后才会显示答案。
-          </p>
-        )}
-
-        <dl className="mt-4 text-sm text-ink-3 flex flex-wrap gap-x-6 gap-y-1">
-          <div>
-            <dt className="inline">状态：</dt>
-            {/* S12L —— 学生不该看到 `marked` / `submitted` 这类内部枚举 */}
-            <dd data-testid="status" className="inline">{statusLabel(result.status)}</dd>
-          </div>
-          {result.submittedAt && (
-            <div>
-              <dt className="inline">交卷时间：</dt>
-              {/* S12L —— ISO 串换成新加坡本地时间 */}
-              <dd data-testid="submitted-at" className="inline">
-                {dateTimeLabel(result.submittedAt)}
-              </dd>
-            </div>
-          )}
-        </dl>
-      </section>
-
-      <div
-        data-testid="result-split"
-        className="ui-ios lg:h-[calc(100dvh-15rem)] lg:min-h-[34rem]"
-      >
-        <DraggableSplit
-          storageKey="sw:reading:result-split"
-          initial={0.46}
-          left={<PassageReview result={result} />}
-          right={(
-            <ol data-testid="items" className="flex flex-col gap-4 lg:h-full lg:overflow-y-auto lg:px-4 lg:pb-4 [scrollbar-gutter:stable]">
+    <div
+      data-testid="result-split"
+      className={fill ? 'h-full min-h-0' : 'min-[900px]:h-[calc(100dvh-9rem)] min-[900px]:min-h-[32rem]'}
+    >
+      <DraggableSplit
+        storageKey="sw:reading:result-split"
+        initial={0.46}
+        leftLabel="原文"
+        rightLabel="成绩与题目"
+        left={<PassageReview result={result} />}
+        right={
+          <div className="flex flex-col gap-4 pb-8 min-[900px]:px-3">
+            <h1 className="text-title2 text-ink">{result.paperName}</h1>
+            <section
+              data-testid="summary"
+              className="rounded-group bg-surface p-5"
+            >
+              {result.scoresPending ? (
+                <p data-testid="scores-pending" className="text-base text-ink-2">
+                  {result.releasedScore && result.releasedScore.count > 0 ? (
+                    <>
+                      <span className="text-ink-3">客观题 </span>
+                      <span className="text-3xl font-semibold tabular-nums">{result.releasedScore.earned}</span>
+                      <span className="text-ink-3"> / {result.releasedScore.max} 分</span>
+                      <span className="block mt-1 text-sm text-ink-2">
+                        {result.maxScore != null && result.maxScore > result.releasedScore.max
+                          ? `整卷 ${result.maxScore} 分，另外 ${result.maxScore - result.releasedScore.max} 分的主观题等老师批改，批完总分会在这里更新。`
+                          : '主观题等老师批改，批完总分会在这里更新。'}
+                      </span>
+                    </>
+                  ) : (
+                    '这份卷子还在判分，分数出来之后就能在这里看到。'
+                  )}
+                </p>
+              ) : (
+                <p className="text-base">
+                  <span data-testid="score" className="text-3xl font-semibold tabular-nums">
+                    {result.totalScore ?? '—'}
+                  </span>
+                  <span className="text-ink-3"> / {result.maxScore ?? '—'} 分</span>
+                  {pct != null && (
+                    <span data-testid="percentage" className="ml-3 text-ink-3 tabular-nums">
+                      {pct}%
+                    </span>
+                  )}
+                </p>
+              )}
+      
+              {result.gradingSummary && result.gradingSummary.total > 0 && (
+                <p data-testid="grading-summary" className="mt-2 text-sm text-ink-2 tabular-nums">
+                  {gradingSummaryParts(result.gradingSummary).map((part, i) => (
+                    <span key={part.key} data-testid={`grading-part-${part.key}`}>
+                      {i > 0 ? ' · ' : ''}
+                      {part.text}
+                    </span>
+                  ))}
+                </p>
+              )}
+      
+              {result.answersPending && (
+                <p data-testid="answers-pending" className="mt-3 text-sm text-warning bg-warning-soft rounded-xl px-3 py-2">
+                  答案还没有公布 —— 你还可以回去修改这份卷子；最终交卷之后才会显示答案。
+                </p>
+              )}
+      
+              <dl className="mt-4 text-sm text-ink-3 flex flex-wrap gap-x-6 gap-y-1">
+                <div>
+                  <dt className="inline">状态：</dt>
+                  {/* S12L —— 学生不该看到 `marked` / `submitted` 这类内部枚举 */}
+                  <dd data-testid="status" className="inline">{statusLabel(result.status)}</dd>
+                </div>
+                {result.submittedAt && (
+                  <div>
+                    <dt className="inline">交卷时间：</dt>
+                    {/* S12L —— ISO 串换成新加坡本地时间 */}
+                    <dd data-testid="submitted-at" className="inline">
+                      {dateTimeLabel(result.submittedAt)}
+                    </dd>
+                  </div>
+                )}
+              </dl>
+            </section>
+            <ol data-testid="items" className="flex flex-col gap-4">
               {result.items.map((item, i) => (
                 <ResultItemCard
                   key={item.paperQuestionId}
@@ -402,13 +407,12 @@ export function ResultView({
                 />
               ))}
             </ol>
-          )}
-        />
-      </div>
-
-      <WholeAppeal submissionId={submissionId} onAuthLost={onAuthLost} />
-      {footer}
-    </>
+            <WholeAppeal submissionId={submissionId} onAuthLost={onAuthLost} />
+            {footer}
+          </div>
+        }
+      />
+    </div>
   );
 }
 
@@ -686,13 +690,13 @@ function PassageReview({ result }: { result: ReadingResult }) {
   const passage = useMemo(() => passageOf(result), [result]);
   if (!passage) return null;
   return (
-    <section className="app-glass rounded-[20px] p-4 mb-5 lg:mb-0 lg:h-full lg:overflow-y-auto [scrollbar-gutter:stable]">
+    <section className="rounded-group bg-surface p-4 sm:p-5">
       <button
         type="button"
         data-testid="passage-toggle"
         aria-expanded={open}
         onClick={() => setOpen((v) => !v)}
-        className="sticky top-0 z-10 w-full min-h-[44px] rounded-xl bg-surface px-2 text-left text-sm font-medium text-accent backdrop-blur"
+        className="flex min-h-[44px] w-full items-center gap-2 rounded-control px-2 text-left text-callout font-medium text-accent hover:bg-accent-soft"
       >
         {open ? '收起原文' : '查看原文'}
         <span className="ml-2 text-ink-3 font-normal">{passage.title}</span>
@@ -700,7 +704,8 @@ function PassageReview({ result }: { result: ReadingResult }) {
       {open && (
         <div
           data-testid="passage-body"
-          className="mt-3 overflow-x-hidden break-words whitespace-pre-wrap font-serif text-[1.05rem] leading-[1.75] text-ink"
+          className="reading-prose mt-3 max-w-none break-words whitespace-pre-wrap px-2 font-serif text-ink"
+          style={{ fontSize: 'calc(1.125rem * var(--mq-fs, 1))' }}
         >
           {passage.body}
         </div>

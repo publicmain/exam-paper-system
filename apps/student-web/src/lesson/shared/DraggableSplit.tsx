@@ -1,45 +1,52 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
+import type { KeyboardEvent, PointerEvent as ReactPointerEvent, ReactNode } from 'react';
+import { Segmented } from '../../design/Segmented';
 
 /**
- * Two-column layout with a draggable vertical divider in the middle.
+ * 阅读工作区的左右分栏（IOS-05 / UI08）—— 答题页、刚交卷结果、历史详情共用这一个。
  *
- * The split percentage is persisted in localStorage so it survives both a
- * page refresh and a fresh login on the same device.
+ * ## 宽窄看的是**容器自己的宽度**，不是窗口
  *
- * 阶段 7C 返工 —— **窄屏是上下堆叠，两块都在文档流里**。
- * 旧端在这里做的是「二选一 + 分页切换」：宽度不够时把另一块 `hidden` 掉，
- * 学生一次只能看见原文或题目。那是 2026-07-24 事故的根源（默认停在题目
- * 那一页，学生找不到原文），也不符合已冻结的移动端要求。现在低于
- * `mobileBreakpoint` 时两块顺序排开：原文在上、题目在下，都占满宽。
+ * 历史详情放在带侧栏的外壳里：1024 宽的 iPad 横屏减掉 232 的侧栏只剩 792，
+ * 按窗口判断会硬塞两栏。这里用 ResizeObserver 量容器，够宽（默认 ≥ 900px）才分栏。
  *
- * Why not a library? react-resizable-panels et al. pull a few KB and a peer
- * dep tree we don't need; this primitive is ~40 lines.
+ * ## 窄屏：两块都留在文档流里，顶上一个「原文 / 题目」跳转
  *
- * Round-3 fixes:
- *  - H9:  onTouchStart now calls preventDefault to stop iOS from treating
- *         the drag as a scroll gesture.
- *  - H15: subscribes to resize + orientationchange, recomputes via state
- *         instead of reading window.innerWidth inline (which froze on
- *         iPad rotation because nothing triggered re-render).
- *  - H16: handle is now 12px wide (was 6px) — meets WCAG 2.5.5
- *         44×44 with the keyboard-only outer hit-box.
+ * 2026-07-24 的事故是「窄屏只显示题目那一页，学生找不到原文」，所以窄屏不隐藏任何一块。
+ * 顶部的分段控件是**跳转**：切到「题目」前记下原文读到哪，切回「原文」时回到那里；
+ * 两块都不卸载，填了一半的答案不会丢。
+ *
+ * ## 拖动（审计 UI08）
+ *
+ * 改用 Pointer Events + setPointerCapture：取消（touchcancel / pointercancel）、失去捕获、
+ * 窗口失焦、组件卸载都会结束拖动 —— 不再出现「取消之后普通移动还在改比例、还在拦截滚动」。
+ * 拖柄视觉是一条细线，命中区是 44px 宽的透明条；键盘可以用 ← → 调整、Home / End 到两头。
+ * 手柄上 `touch-action: none`，只拦它自己的手势，页面滚动不受影响。
  */
-
 export function DraggableSplit({
   left,
   right,
   storageKey = 'exam:split',
   initial = 0.5,
-  min = 0.25,
-  max = 0.75,
-  mobileBreakpoint = 1024,
+  min = 0.3,
+  max = 0.7,
+  wideAt = 900,
+  leftLabel = '原文',
+  rightLabel = '题目',
+  testId,
 }: {
-  left: React.ReactNode;
-  right: React.ReactNode;
+  left: ReactNode;
+  right: ReactNode;
   storageKey?: string;
   initial?: number;
   min?: number;
   max?: number;
+  /** 容器宽度到多少才分栏（CSS px） */
+  wideAt?: number;
+  leftLabel?: string;
+  rightLabel?: string;
+  testId?: string;
+  /** 旧参数，保留兼容；现在看容器宽度。 */
   mobileBreakpoint?: number;
 }) {
   const [pct, setPct] = useState<number>(() => {
@@ -47,111 +54,183 @@ export function DraggableSplit({
       const raw = localStorage.getItem(storageKey);
       const n = raw ? Number(raw) : initial;
       if (Number.isFinite(n) && n >= min && n <= max) return n;
-    } catch { /* ignore */ }
+    } catch {
+      /* ignore */
+    }
     return initial;
   });
 
-  // Round-3 H15 — re-evaluate on resize + iPad rotation. Without this,
-  // a portrait-on-load + landscape-after-rotate session keeps the inline
-  // `width: '100%'` it computed at first paint forever.
-  const [vw, setVw] = useState<number>(() =>
-    typeof window !== 'undefined' ? window.innerWidth : 1280,
-  );
-  useEffect(() => {
-    function onResize() { setVw(window.innerWidth); }
-    window.addEventListener('resize', onResize);
-    window.addEventListener('orientationchange', onResize);
+  const containerRef = useRef<HTMLDivElement | null>(null);
+  const [width, setWidth] = useState<number>(() => (typeof window !== 'undefined' ? window.innerWidth : 1280));
+
+  // 量容器宽度（旋转、分屏、侧栏出现都会触发）
+  useLayoutEffect(() => {
+    const el = containerRef.current;
+    if (!el) return;
+    const measure = () => setWidth(el.getBoundingClientRect().width || window.innerWidth);
+    measure();
+    if (typeof ResizeObserver !== 'undefined') {
+      const ro = new ResizeObserver(measure);
+      ro.observe(el);
+      return () => ro.disconnect();
+    }
+    window.addEventListener('resize', measure);
+    window.addEventListener('orientationchange', measure);
     return () => {
-      window.removeEventListener('resize', onResize);
-      window.removeEventListener('orientationchange', onResize);
+      window.removeEventListener('resize', measure);
+      window.removeEventListener('orientationchange', measure);
     };
   }, []);
-  const isWide = vw >= mobileBreakpoint;
+  const isWide = width >= wideAt;
 
-  const containerRef = useRef<HTMLDivElement | null>(null);
-  const draggingRef = useRef(false);
+  const persist = useCallback(
+    (p: number) => {
+      if (!Number.isFinite(p)) return;
+      const clamped = Math.max(min, Math.min(max, p));
+      setPct(clamped);
+      try {
+        localStorage.setItem(storageKey, String(clamped));
+      } catch {
+        /* ignore */
+      }
+    },
+    [storageKey, min, max],
+  );
 
-  const persist = useCallback((p: number) => {
-    setPct(p);
-    try { localStorage.setItem(storageKey, String(p)); } catch { /* ignore */ }
-  }, [storageKey]);
-
+  // ── 拖动：只认捕获了指针的那一次 ──
+  const dragRef = useRef<{ pointerId: number } | null>(null);
+  const [dragging, setDragging] = useState(false);
+  const stopDrag = useCallback(() => {
+    dragRef.current = null;
+    setDragging(false);
+    document.body.style.cursor = '';
+    document.body.style.userSelect = '';
+  }, []);
   useEffect(() => {
-    function handleMove(clientX: number) {
-      const el = containerRef.current;
-      if (!el) return;
-      const rect = el.getBoundingClientRect();
-      const raw = (clientX - rect.left) / rect.width;
-      persist(Math.max(min, Math.min(max, raw)));
-    }
-    function onMouse(e: MouseEvent) {
-      if (!draggingRef.current) return;
-      e.preventDefault();
-      handleMove(e.clientX);
-    }
-    function onTouch(e: TouchEvent) {
-      if (!draggingRef.current) return;
-      // Round-3 H9: on iPad/Pencil, the browser tries to scroll the page
-      // when a touch moves; preventDefault keeps the drag responsive.
-      e.preventDefault();
-      const t = e.touches[0];
-      if (!t) return;
-      handleMove(t.clientX);
-    }
-    function stop() { draggingRef.current = false; document.body.style.cursor = ''; }
-    window.addEventListener('mousemove', onMouse);
-    window.addEventListener('mouseup', stop);
-    window.addEventListener('touchmove', onTouch, { passive: false });
-    window.addEventListener('touchend', stop);
-    return () => {
-      window.removeEventListener('mousemove', onMouse);
-      window.removeEventListener('mouseup', stop);
-      window.removeEventListener('touchmove', onTouch);
-      window.removeEventListener('touchend', stop);
+    const onBlur = () => stopDrag();
+    const onVis = () => {
+      if (document.visibilityState !== 'visible') stopDrag();
     };
-  }, [persist, min, max]);
+    window.addEventListener('blur', onBlur);
+    document.addEventListener('visibilitychange', onVis);
+    return () => {
+      window.removeEventListener('blur', onBlur);
+      document.removeEventListener('visibilitychange', onVis);
+      stopDrag();
+    };
+  }, [stopDrag]);
 
-  const leftPct = `${pct * 100}%`;
-  const rightPct = `${(1 - pct) * 100}%`;
+  const onPointerDown = (e: ReactPointerEvent<HTMLDivElement>) => {
+    if (e.button !== 0 && e.pointerType === 'mouse') return;
+    e.preventDefault();
+    try {
+      e.currentTarget.setPointerCapture(e.pointerId);
+    } catch {
+      /* 某些环境不支持捕获：仍按 pointerId 过滤 */
+    }
+    dragRef.current = { pointerId: e.pointerId };
+    setDragging(true);
+    document.body.style.cursor = 'col-resize';
+    document.body.style.userSelect = 'none';
+  };
+  const onPointerMove = (e: ReactPointerEvent<HTMLDivElement>) => {
+    const d = dragRef.current;
+    if (!d || d.pointerId !== e.pointerId || !Number.isFinite(e.clientX)) return;
+    const el = containerRef.current;
+    if (!el) return;
+    const rect = el.getBoundingClientRect();
+    if (rect.width <= 0) return;
+    persist((e.clientX - rect.left) / rect.width);
+  };
+  const onPointerEnd = (e: ReactPointerEvent<HTMLDivElement>) => {
+    const d = dragRef.current;
+    if (d && d.pointerId === e.pointerId) stopDrag();
+  };
+  const onKeyDown = (e: KeyboardEvent<HTMLDivElement>) => {
+    const step = e.shiftKey ? 0.1 : 0.02;
+    if (e.key === 'ArrowLeft') persist(pct - step);
+    else if (e.key === 'ArrowRight') persist(pct + step);
+    else if (e.key === 'Home') persist(min);
+    else if (e.key === 'End') persist(max);
+    else return;
+    e.preventDefault();
+  };
+
+  // ── 窄屏跳转：记住两块各自读到哪 ──
+  const leftRef = useRef<HTMLDivElement | null>(null);
+  const rightRef = useRef<HTMLDivElement | null>(null);
+  const [view, setView] = useState<'left' | 'right'>('left');
+  const posRef = useRef<{ left: number | null; right: number | null }>({ left: null, right: null });
+  const jump = (to: 'left' | 'right') => {
+    posRef.current[view] = window.scrollY;
+    setView(to);
+    const saved = posRef.current[to];
+    const target = to === 'left' ? leftRef.current : rightRef.current;
+    if (saved != null) window.scrollTo({ top: saved });
+    else if (target) {
+      const top = target.getBoundingClientRect().top + window.scrollY - 112;
+      window.scrollTo({ top: Math.max(0, top) });
+    }
+  };
+
+  if (!isWide) {
+    return (
+      <div ref={containerRef} data-testid={testId} data-layout="stacked">
+        <div className="sticky top-[var(--focus-header-h,56px)] z-10 -mx-px bg-canvas/95 px-3 py-2">
+          <Segmented
+            label="在原文和题目之间跳转"
+            value={view}
+            onChange={jump}
+            options={[
+              { value: 'left', label: leftLabel, testId: 'jump-left' },
+              { value: 'right', label: rightLabel, testId: 'jump-right' },
+            ]}
+          />
+        </div>
+        <div ref={leftRef}>{left}</div>
+        <div ref={rightRef} className="mt-4">
+          {right}
+        </div>
+      </div>
+    );
+  }
 
   return (
-    <div
-      ref={containerRef}
-      className="lg:flex lg:items-stretch lg:h-full lg:relative"
-      style={{ minHeight: 0 }}
-    >
-      <div className="block lg:block" style={{ width: isWide ? leftPct : '100%' }}>
+    <div ref={containerRef} data-testid={testId} data-layout="split" className="relative flex h-full min-h-0 items-stretch">
+      {/* 分栏时每一栏自己滚（原文读到哪、题目做到哪各自保留） */}
+      <div className="scroll-contain h-full min-h-0 min-w-0 overflow-y-auto [scrollbar-gutter:stable]" style={{ width: `${pct * 100}%` }}>
         {left}
       </div>
       <div
         role="separator"
         aria-orientation="vertical"
+        aria-label={`调整${leftLabel}和${rightLabel}的宽度`}
+        aria-valuemin={Math.round(min * 100)}
+        aria-valuemax={Math.round(max * 100)}
         aria-valuenow={Math.round(pct * 100)}
         tabIndex={0}
-        onMouseDown={(e) => {
-          e.preventDefault();
-          draggingRef.current = true;
-          document.body.style.cursor = 'col-resize';
-        }}
-        onTouchStart={(e) => {
-          // Round-3 H9 — stop iOS interpreting the gesture as a scroll.
-          e.preventDefault();
-          draggingRef.current = true;
-        }}
-        onKeyDown={(e) => {
-          if (e.key === 'ArrowLeft') persist(Math.max(min, pct - 0.02));
-          else if (e.key === 'ArrowRight') persist(Math.min(max, pct + 0.02));
-        }}
-        // H16 — 12px hit area (was 6px) meets WCAG 2.5.5 minimum and is
-        // far easier to grab on iPad with a thumb. The visual line stays
-        // ~2px so the layout doesn't shift; the hit-box pads it.
-        className="hidden lg:flex w-3 cursor-col-resize bg-transparent hover:bg-accent-soft active:bg-accent-soft transition-colors items-center justify-center group touch-manipulation"
-        title="拖动调整分栏"
-        aria-label="Resize split"
+        title="拖动或用左右方向键调整宽度"
+        onPointerDown={onPointerDown}
+        onPointerMove={onPointerMove}
+        onPointerUp={onPointerEnd}
+        onPointerCancel={onPointerEnd}
+        // 失去捕获 = 这次拖动一定结束了（系统收走了指针），不管是哪个 pointerId
+        onLostPointerCapture={stopDrag}
+        onKeyDown={onKeyDown}
+        data-dragging={dragging || undefined}
+        className="group relative z-10 flex w-3 shrink-0 cursor-col-resize items-center justify-center rounded-full outline-none"
+        style={{ touchAction: 'none' }}
       >
-        <div className="w-0.5 h-12 bg-fill-strong group-hover:bg-accent-fill rounded" />
+        {/* 44px 宽的透明命中区，视觉只有中间一条细线 */}
+        <span aria-hidden="true" className="absolute inset-y-0 left-1/2 w-11 -translate-x-1/2" />
+        <span
+          aria-hidden="true"
+          className={`relative h-14 w-1 rounded-full transition-colors ${
+            dragging ? 'bg-accent-fill' : 'bg-fill-strong group-hover:bg-accent-fill group-focus-visible:bg-accent-fill'
+          }`}
+        />
       </div>
-      <div className="block lg:block" style={{ width: isWide ? rightPct : '100%' }}>
+      <div className="scroll-contain h-full min-h-0 min-w-0 overflow-y-auto [scrollbar-gutter:stable]" style={{ width: `${(1 - pct) * 100}%` }}>
         {right}
       </div>
     </div>

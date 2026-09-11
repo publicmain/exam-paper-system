@@ -11,7 +11,7 @@
  * **不声称**真实浏览器、真实 API、staging、数据库或真机。
  */
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import { act, render, screen } from '@testing-library/react';
+import { act, render, screen, within } from '@testing-library/react';
 import { MemoryRouter, useLocation } from 'react-router-dom';
 import App from '../App';
 import { adoptSession, __resetForTest } from '../lib/auth-store';
@@ -302,7 +302,8 @@ describe('AC-02/03/04/10 全链：启动 → today → 开课 → 阅读页 → 
   it('**真实夹具经真注册表渲染出来**：段落 / 指令 / 题数都在', async () => {
     await openReading();
     // 标题与正文首段
-    expect(screen.getByText(FX.passageTitle)).toBeInTheDocument();
+    // 标题在文章面板和顶栏各出现一次
+    expect(screen.getAllByText(FX.passageTitle).length).toBeGreaterThan(0);
     expect(screen.getByText(/sponge divers sheltering from a storm/)).toBeInTheDocument();
     // 四类任务的分组标题
     for (const title of ['Matching Information', 'True / False / Not Given', 'Sentence Completion']) {
@@ -468,13 +469,19 @@ describe('AC-06 离线编辑 → 重连补传', () => {
     });
     expect(JSON.parse(localStorage.getItem(SEQS_KEY)!)[qid]).toBe(2);
 
-    // ⑤ 交卷被挡住
-    expect((screen.getByTestId('submit') as HTMLButtonElement).disabled).toBe(true);
+    // ⑤ 交卷被挡住：告警在；点交卷只会弹「还有答案没上传」，不发 submit（审计 UI09）
     expect(screen.getByTestId('save-error')).toBeInTheDocument();
+    await click(screen.getByTestId('submit'));
+    expect(screen.getByTestId('submit-blocked')).toBeInTheDocument();
+    await click(within(screen.getByTestId('submit-blocked')).getByRole('button', { name: /继续答题/ }));
+    const failedAfterSubmitTry = answerCalls().length;
+    void failedAfterSubmitTry;
 
-    // ⑥ 没有无限重试
+    // ⑥ 离线时没有定时重试（点交卷那一下的强刷之外，干等两分钟也不再发）
+    const afterTry = answerCalls().length;
+    expect(afterTry).toBeLessThanOrEqual(failedAt + 1);
     await tick(120_000);
-    expect(answerCalls()).toHaveLength(failedAt);
+    expect(answerCalls()).toHaveLength(afterTry);
 
     // ⑦ 重连 → 只补传最新那次，且沿用同一个序号
     delete overrides[`/morning-quiz/sessions/${SESSION_ID}/answer`];
@@ -484,8 +491,9 @@ describe('AC-06 离线编辑 → 重连补传', () => {
     });
     await settle();
 
-    expect(answerCalls()).toHaveLength(failedAt + 1);
-    const replay = JSON.parse(answerCalls()[failedAt].body!);
+    // 重连只补传一次：在「点交卷时那次强刷」之后正好多一条
+    expect(answerCalls()).toHaveLength(afterTry + 1);
+    const replay = JSON.parse(answerCalls()[afterTry].body!);
     expect(replay.paperQuestionId).toBe(qid);
     expect(replay.selectedOption).toBe('B');
     expect(replay.clientSeq).toBe(2);
@@ -597,9 +605,9 @@ describe('AC-08 交卷 → 刷 today → 按 kind 路由', () => {
     expect(submitCalls()[0].method).toBe('POST');
     expect(JSON.parse(submitCalls()[0].body!)).toEqual({ final: true });
 
-    // S9D2B 起交卷之后**不再问 today**（出口定死是结果页），所以这里只多
-    // 一次 —— 结果页自己那一次，它是结果页资源链路的起点。
-    expect(paths('/lesson/today').length).toBe(beforeToday + 1);
+    // S9D2B 起交卷之后**不再问 today**（出口定死是结果页）。2026-09-11 审计 UI11 起
+    // 结果页也不再问 today：它按交卷回的那一份（路由状态带过去）直接打开，跨午夜也不串。
+    expect(paths('/lesson/today').length).toBe(beforeToday);
 
     // 出口固定是结果页 —— 后端的 href 依旧被忽略。
     // 阶段 8A 起这里是**真的结果页**，不再是占位：它按同一条链路自己
@@ -627,7 +635,7 @@ describe('AC-08 交卷 → 刷 today → 按 kind 路由', () => {
     expect(submitCalls()).toHaveLength(1);
   });
 
-  it('**还有没保存好的答案时，连确认按钮都点不到**（交卷被禁用）', async () => {
+  it('**还有没保存好的答案时，点不到确认交卷**：先要把答案传上去（审计 UI09）', async () => {
     await openReading();
     overrides[`/morning-quiz/sessions/${SESSION_ID}/answer`] = () => ({ status: 500, body: {} });
     await act(async () => {
@@ -635,8 +643,16 @@ describe('AC-08 交卷 → 刷 today → 按 kind 路由', () => {
     });
     await tick(700);
     await settle();
-    expect((screen.getByTestId('submit') as HTMLButtonElement).disabled).toBe(true);
+    await click(screen.getByTestId('submit'));
+    expect(screen.getByTestId('submit-blocked')).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /确认交卷/ })).toBeNull();
     expect(submitCalls()).toHaveLength(0);
+
+    // 服务端恢复 → 「重试保存」→ 自动换成确认交卷
+    delete overrides[`/morning-quiz/sessions/${SESSION_ID}/answer`];
+    await click(within(screen.getByTestId('submit-blocked')).getByRole('button', { name: /重试保存/ }));
+    await settle();
+    expect(screen.getByRole('button', { name: /确认交卷/ })).toBeInTheDocument();
   });
 });
 
@@ -665,7 +681,8 @@ describe('AC-09 故障边界', () => {
 
     delete overrides[`/morning-quiz/sessions/${SESSION_ID}`];
     await click(screen.getByRole('button', { name: /重试/ }));
-    expect(screen.getByText(FX.passageTitle)).toBeInTheDocument();
+    // 标题在文章面板和顶栏各出现一次
+    expect(screen.getAllByText(FX.passageTitle).length).toBeGreaterThan(0);
     expect(at()).toBe('/lesson/reading');
   });
 
@@ -680,7 +697,9 @@ describe('AC-09 故障边界', () => {
     const radios = screen.getAllByRole('radio') as HTMLInputElement[];
     expect(radios[0].checked).toBe(true); // 屏幕上还在
     expect(localStorage.getItem(ANSWERS_KEY)).not.toBeNull(); // 本地也还在
-    expect((screen.getByTestId('submit') as HTMLButtonElement).disabled).toBe(true);
+    await click(screen.getByTestId('submit'));
+    expect(screen.getByTestId('submit-blocked')).toBeInTheDocument();
+    expect(paths(`/morning-quiz/sessions/${SESSION_ID}/submit`)).toHaveLength(0);
   });
 
   it('**交卷报别的错 → 留在阅读页并报错，不跳走**', async () => {

@@ -7,7 +7,6 @@
  *                      「回到哪里」、任务日期、实际难度、保存 / 提交状态。
  */
 import type { ReactNode } from 'react';
-import { IconButton } from './Button';
 import { Icon } from './Icon';
 
 const WIDTH = {
@@ -97,12 +96,17 @@ export function FocusHeader({
   return (
     <header data-testid={testId} className="material-bar safe-top sticky top-0 z-30 border-b border-line">
       <div className="safe-x mx-auto flex min-h-[52px] w-full max-w-[1400px] items-center gap-2">
-        <div className="-ml-2 hidden sm:block">
-          <BackButton label={backLabel} onClick={onBack} />
-        </div>
-        <div className="-ml-2 sm:hidden">
-          <IconButton icon="back" label={`返回${backLabel}`} onClick={onBack} />
-        </div>
+        {/* 一个返回按钮：读屏名字固定是「返回××」；窄屏只露箭头，宽屏露出文字 */}
+        <button
+          type="button"
+          data-testid="top-back"
+          aria-label={`返回${backLabel}`}
+          onClick={onBack}
+          className="-ml-2 inline-flex min-h-[44px] min-w-[44px] items-center justify-center gap-0.5 rounded-control px-1.5 text-body text-accent hover:bg-accent-soft sm:justify-start sm:pr-2.5"
+        >
+          <Icon name="back" size={22} strokeWidth={2.2} />
+          <span className="hidden sm:inline">{backLabel}</span>
+        </button>
         <div className="min-w-0 flex-1 py-1">
           <div className="truncate text-headline text-ink">{title}</div>
           {meta ? <div className="truncate text-caption text-ink-3">{meta}</div> : null}

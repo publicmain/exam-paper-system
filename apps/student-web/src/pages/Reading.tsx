@@ -35,6 +35,7 @@
  * 结果页若发现今天没有可看的结果（被撤卷、换了一天），它自己会回枢纽。
  */
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import type { ReactNode } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { api, ApiError, type ReadingSessionPayload } from '../lib/api';
 import { handleAuthFailure } from '../lib/auth-store';
@@ -49,6 +50,10 @@ import { FontSizeAdjuster } from '../lesson/shared/FontSizeAdjuster';
 import { OfflineBadge } from '../lesson/shared/OfflineBadge';
 import { QuestionNavBar } from '../lesson/shared/QuestionNavBar';
 import { levelLabel } from '../lib/levels';
+import { Button } from '../design/Button';
+import { Dialog } from '../design/Dialog';
+import { FocusHeader } from '../design/Page';
+import { StatusView } from '../design/Status';
 
 type Phase =
   | { s: 'loading' }
@@ -136,29 +141,24 @@ export default function ReadingPage() {
   }, [load]);
 
   if (phase.s === 'loading') {
-    return (
-      <div className="min-h-[100dvh] grid place-items-center bg-surface-2">
-        <p className="text-ink-3">载入中…</p>
-      </div>
-    );
+    return <StatusView kind="loading" title="载入中" />;
   }
 
   if (phase.s === 'error') {
     return (
-      <div className="min-h-[100dvh] grid place-items-center bg-surface-2 px-6">
-        <div className="w-full max-w-sm bg-surface rounded-2xl border border-line p-6">
-          <div role="alert" className="rounded-xl bg-danger-soft text-danger px-4 py-3 text-sm mb-4">
-            {phase.message}
-          </div>
-          <button
-            type="button"
-            onClick={() => void load()}
-            className="w-full rounded-xl bg-accent-fill text-accent-on py-3 text-base font-medium min-h-[44px]"
-          >
-            重试
-          </button>
-        </div>
-      </div>
+      <main id="main" className="safe-x safe-top mx-auto flex min-h-[100dvh] max-w-md flex-col justify-center">
+        <StatusView
+          kind="error"
+          title="这份阅读没打开"
+          message={phase.message}
+          onRetry={() => void load()}
+          secondary={
+            <Button variant="plain" block onClick={() => navigate(ROUTES.today)}>
+              回到今日
+            </Button>
+          }
+        />
+      </main>
     );
   }
 
@@ -180,7 +180,9 @@ export default function ReadingPage() {
             await api.lessonToday(token);
             return true;
           } catch (e) {
-            return e instanceof ApiError; // 服务端答了话就算通
+            // 4xx 说明服务端在、只是这次请求不对 —— 算通；5xx / 断网 / 超时算不通
+            //（审计 UI09：不能把 HTTP 500 当成「服务健康」）。
+            return e instanceof ApiError && e.status < 500;
           }
         },
         onAuthFailure: handleAuthFailure,
@@ -202,16 +204,20 @@ export default function ReadingPage() {
 function ReadingShell({ session, submissionId, historical }: { session: ReadingSessionPayload; submissionId: string | null; historical: boolean }) {
   const navigate = useNavigate();
   const r = useReading();
-  const [confirming, setConfirming] = useState(false);
+  /**
+   * 交卷面板的三种状态：
+   *   · closed
+   *   · confirm —— 确认交卷（写清还有几题空着、哪几题标着「标记」）
+   *   · blocked —— 还有答案没上传：先重试保存，上传成功才能交（审计 UI09）
+   */
+  const [sheet, setSheet] = useState<'closed' | 'confirm' | 'blocked'>('closed');
   const [flushing, setFlushing] = useState(false);
+  const [retrying, setRetrying] = useState(false);
   const [exiting, setExiting] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   /**
-   * 连点守卫。
-   *
-   * 光靠 `submitting` 这个 state 挡不住：同一个 tick 里连点三下，三次
-   * 回调看到的都是**上一帧**的 `false`，三个请求就都发出去了。
-   * 真正的闸门必须是同步生效的 ref。
+   * 连点守卫。光靠 `submitting` 这个 state 挡不住：同一个 tick 里连点三下，三次
+   * 回调看到的都是上一帧的 `false`。真正的闸门必须是同步生效的 ref。
    */
   const submittingRef = useRef(false);
   const [focusedQid, setFocusedQid] = useState<string | null>(null);
@@ -224,7 +230,7 @@ function ReadingShell({ session, submissionId, historical }: { session: ReadingS
       quizEnd: session.quizEnd,
       level: session.level ?? 'olevel',
       paperMode: session.paperMode ?? null,
-      mode: 'test', // 见上：阅读页恒定 test，不读载荷里的 mode
+      mode: 'test', // 阅读页恒定 test，不读载荷里的 mode
       rendererKey: session.rendererKey ?? null,
       questions: session.questions,
     }),
@@ -232,7 +238,7 @@ function ReadingShell({ session, submissionId, historical }: { session: ReadingS
   );
 
   const blocked = isSubmitBlocked(r);
-  /** 交卷确认框要说清楚还有几题空着 —— 盲测时留空一题直接交，弹窗一声不吭。 */
+  /** 交卷确认要说清楚还有几题空着 —— 盲测时留空一题直接交，弹窗一声不吭。 */
   const unansweredCount = paper.questions.filter((q) => {
     const ans = r.answers[q.id];
     return !(ans?.selectedOption || (ans?.textAnswer && ans.textAnswer.trim()));
@@ -253,20 +259,8 @@ function ReadingShell({ session, submissionId, historical }: { session: ReadingS
   }, [blocked]);
 
   /**
-   * 点题号条 → 跳到那一题。
-   *
-   * 分页的渲染器（一屏一题）需要先翻页，所以先把题号广播下去，
-   * 再滚 —— 只滚不广播的话，目标元素根本不在 DOM 里。
-   */
-  /**
-   * 浏览器返回键。
-   *
-   * `beforeunload` 只管**页面卸载**，SPA 里按返回是一次路由切换，它一声不吭。
-   * 学生用返回键退出考试是最常见的动作之一，判据必须和「退出」按钮同一套。
-   *
-   * 做法：进页面时压一条哨兵历史记录，返回时先落到它上面 —— 这时如果还有
-   * 没保存好的东西，就把哨兵再压回去（人留在阅读页）并弹确认；干净的话
-   * 就正常回 `/today`。卸载时把监听器摘干净。
+   * 浏览器返回键：SPA 里按返回是一次路由切换，`beforeunload` 一声不吭。进页面时压一条
+   * 哨兵历史记录，返回时如果还有没保存好的东西就把哨兵压回去并弹确认；干净的话正常回首页。
    */
   useEffect(() => {
     window.history.pushState({ swReadingGuard: true }, '');
@@ -286,10 +280,32 @@ function ReadingShell({ session, submissionId, historical }: { session: ReadingS
     setFocusedQid(qid);
     document.getElementById(`q-${qid}`)?.scrollIntoView({ block: 'center' });
   }, []);
-  const focus = useMemo(
-    () => ({ qid: focusedQid, request: (qid: string) => setFocusedQid(qid) }),
-    [focusedQid],
-  );
+  const focus = useMemo(() => ({ qid: focusedQid, request: (qid: string) => setFocusedQid(qid) }), [focusedQid]);
+
+  /** 点「交卷」：先把没落盘的写冲出去；还有没上传的就进 blocked，不弹确认。 */
+  const openSubmit = useCallback(async () => {
+    setSubmitError(null);
+    setFlushing(true);
+    try {
+      if (r.hasPendingSaves || r.saveError != null || r.hasUnverifiedAnswers) await r.retrySaves();
+    } finally {
+      setFlushing(false);
+    }
+    setSheet(isSubmitBlocked(r) ? 'blocked' : 'confirm');
+  }, [r]);
+
+  const retryFromSheet = useCallback(async () => {
+    setRetrying(true);
+    try {
+      await r.retrySaves();
+    } finally {
+      setRetrying(false);
+    }
+  }, [r]);
+  // blocked 面板里重试成功 → 自动换成确认面板
+  useEffect(() => {
+    if (sheet === 'blocked' && !blocked && !retrying) setSheet('confirm');
+  }, [sheet, blocked, retrying]);
 
   const doSubmit = useCallback(async () => {
     if (submittingRef.current) return; // 连点只算一次
@@ -301,14 +317,14 @@ function ReadingShell({ session, submissionId, historical }: { session: ReadingS
     try {
       // ① 先把还没落盘的写强制发出去，并等在途的对账结束
       await r.flushPendingSaves();
-      // ② 仍有未落盘 / 报错 / 未证实的 → **不发交卷请求**
+      // ② 仍有未落盘 / 报错 / 未证实的 → **不发交卷请求**，面板换成「还有答案没上传」
       if (isSubmitBlocked(r)) {
-        setSubmitError('还有答案没保存好 —— 等它保存完，或先处理上面的提示。');
+        setSheet('blocked');
         submittingRef.current = false;
         setSubmitting(false);
         return;
       }
-      // ③ 交卷。**不**用它的返回值决定去哪。
+      // ③ 交卷。服务端回的答卷 id 就是结果页要定位的那一份（审计 UI11）
       let submittedId = submissionId;
       try {
         const submitted = await api.submitReading(token, session.sessionId, { final: true });
@@ -316,12 +332,19 @@ function ReadingShell({ session, submissionId, historical }: { session: ReadingS
       } catch (e) {
         if (!looksAlreadyDone(e)) throw e;
       }
-      // ④ 交卷成功 → **固定**去看这次的结果（理由见文件头「交卷之后去哪」）。
-      //    不再问 today：那一问的答案此刻已经是「去背单词」，会把结果页跳过去。
-      navigate(historical && submittedId ? scoreDetailPath(submittedId) : ROUTES.readingResult);
+      // ④ 交卷成功 → 固定去看**这一次**的结果。带上会话与答卷 id（路由状态，不进 URL）：
+      //    跨午夜交卷时，结果页据此打开刚交的那一份，而不是「新的一天」的课。
+      if (historical && submittedId) {
+        navigate(scoreDetailPath(submittedId));
+      } else {
+        navigate(ROUTES.readingResult, {
+          state: submittedId ? { justSubmitted: { sessionId: session.sessionId, submissionId: submittedId } } : undefined,
+        });
+      }
     } catch (e) {
       if (handleAuthFailure(e)) return;
-      setSubmitError('交卷没成功 —— 再试一次；答案还在本机上，不会丢。');
+      // 错误显示在交卷面板里 —— 学生正看着的那一层（审计 UI12）
+      setSubmitError('交卷没成功 —— 你的答案都在，没有丢。可以再点一次「确认交卷」。');
       submittingRef.current = false;
       setSubmitting(false);
     }
@@ -333,222 +356,214 @@ function ReadingShell({ session, submissionId, historical }: { session: ReadingS
     .filter((n): n is number => n != null)
     .join('、');
 
+  const saveState = r.isSecondaryTab
+    ? '这个标签不上传'
+    : r.hasUnverifiedAnswers || r.saveError
+      ? `${Math.max(1, r.unsyncedCount)} 题还没上传`
+      : r.hasPendingSaves
+        ? '正在保存…'
+        : '已保存';
+  const locked = r.saveError != null && /submission_locked|quiz_window_closed/.test(r.saveError);
+
   return (
-    // 桌面 / iPad 横屏：整页锁在一屏高，只有两栏内部滚，交卷栏永远看得见
-    //（2026-09-06 第五轮盲测 1）。手机维持原来的整页滚 + sticky 底栏。
-    <div className="ui-ios min-h-[100dvh] lg:h-[100dvh] flex flex-col">
+    // 宽屏：整页锁在一屏高，只有两栏内部滚，交卷栏永远看得见（2026-09-06 第五轮盲测 1）。
+    // 窄屏：整页滚 + 底部交卷栏。
+    <div className="flex min-h-[100dvh] flex-col min-[900px]:h-[100dvh]" style={{ ['--focus-header-h' as string]: '57px' }}>
       <OfflineBadge />
 
-      <header className="app-glass safe-top sticky top-0 z-20 border-x-0 border-t-0 px-3 py-2 grid grid-cols-[auto_1fr_auto] items-center gap-2 sm:gap-3">
-        <button
-          type="button"
-          onClick={() => (blocked ? setExiting(true) : navigate(ROUTES.today))}
-          className="min-h-[44px] px-3 rounded-lg text-ink-2 hover:bg-surface-2 text-sm"
-        >
-          ← 首页
-        </button>
-        <div className="min-w-0 flex justify-center px-1">
-          <span
-            data-testid="reading-level"
-            aria-label={`本次难度：${displayLevel}`}
-            className="max-w-full truncate rounded-full border border-accent/30 bg-accent-soft px-3 py-1.5 text-[13px] sm:text-sm font-medium text-accent"
-          >
-            <span className="hidden sm:inline text-accent">本次难度 · </span>
-            {displayLevel}
-          </span>
-        </div>
-        <FontSizeAdjuster />
-      </header>
+      <FocusHeader
+        testId="reading-header"
+        backLabel="今日"
+        onBack={() => (blocked ? setExiting(true) : navigate(ROUTES.today))}
+        title={paper.questions[0] ? passageTitleOf(paper) : '阅读'}
+        meta={
+          <>
+            <span data-testid="reading-level" aria-label={`本次难度：${displayLevel}`}>
+              本次难度 · {displayLevel}
+            </span>
+            <span aria-hidden="true"> · </span>
+            <span data-testid="save-state" role="status" aria-live="polite">
+              {saveState}
+            </span>
+          </>
+        }
+        trailing={<FontSizeAdjuster />}
+      />
 
       {r.isSecondaryTab && (
-        <div
-          data-testid="secondary-tab"
-          role="alert"
-          className="bg-warning-soft border-b border-warning/35 px-4 py-2.5 text-sm text-warning flex flex-wrap items-center gap-3"
-        >
-          <span>这场考试已经在另一个标签页里打开了 —— 这里写的答案不会上传。</span>
-          <button
-            type="button"
-            onClick={() => r.claimTabOwnership()}
-            className="min-h-[44px] px-3 rounded-lg border border-warning bg-surface font-medium"
-          >
-            在这个标签继续
-          </button>
-        </div>
+        <Banner testId="secondary-tab" tone="warning" action={{ label: '在这个标签继续', onClick: () => r.claimTabOwnership() }}>
+          这场考试已经在另一个标签页里打开了 —— 这里写的答案不会上传。
+        </Banner>
       )}
 
-      {r.hasUnverifiedAnswers && (
-        <div
-          data-testid="unverified"
-          role="alert"
-          className="bg-danger-soft border-b border-danger/30 px-4 py-2.5 text-sm text-danger"
+      {locked ? (
+        <Banner
+          testId="save-locked"
+          tone="warning"
+          action={{
+            label: '看结果',
+            onClick: () => navigate(historical && submissionId ? scoreDetailPath(submissionId) : ROUTES.readingResult),
+          }}
         >
-          有一道题的答案还没保存成功 —— 网络恢复后会自动重试，这之前不能交卷。
-        </div>
-      )}
-
-      {r.saveError && /submission_locked|quiz_window_closed/.test(r.saveError) ? (
-        <div
-          data-testid="save-locked"
-          role="alert"
-          className="bg-warning-soft border-b border-warning/35 px-4 py-2.5 text-sm text-warning flex items-center gap-3"
-        >
-          <span className="flex-1">这份卷子已经交了，答案不能再改。</span>
-          <button
-            type="button"
-            onClick={() => navigate(historical && submissionId ? scoreDetailPath(submissionId) : ROUTES.readingResult)}
-            className="shrink-0 min-h-[36px] px-3 rounded-lg bg-surface border border-warning/35 text-warning"
-          >
-            看结果
-          </button>
-        </div>
+          这份卷子已经交了，答案不能再改。
+        </Banner>
+      ) : r.hasUnverifiedAnswers ? (
+        <Banner testId="unverified" tone="danger" action={{ label: retrying ? '正在重试…' : '重试保存', onClick: () => void retryFromSheet(), busy: retrying }}>
+          有 {Math.max(1, r.unsyncedCount)} 题的答案还没确认保存到服务器 —— 答案都在这台设备上。
+          {r.autoRetryPending ? '稍后会自动重试。' : '点「重试保存」再试一次。'}
+        </Banner>
       ) : r.saveError ? (
-        <div
-          data-testid="save-error"
-          role="alert"
-          className="bg-warning-soft border-b border-warning/35 px-4 py-2.5 text-sm text-warning"
-        >
-          刚才有一次保存没成功 —— 答案还在本机上，联网后会自动补传。
-        </div>
+        <Banner testId="save-error" tone="warning" action={{ label: retrying ? '正在重试…' : '重试保存', onClick: () => void retryFromSheet(), busy: retrying }}>
+          刚才有 {Math.max(1, r.unsyncedCount)} 题没保存成功 —— 答案还在这台设备上。
+          {r.autoRetryPending ? '稍后会自动重试。' : '点「重试保存」再试一次。'}
+        </Banner>
       ) : null}
 
       {r.conflictNotice && (
-        <div
-          data-testid="conflict-notice"
-          role="alert"
-          className="bg-accent-soft border-b border-accent/30 px-4 py-2.5 text-sm text-ink flex flex-wrap items-center gap-3"
-        >
-          <span>{r.conflictNotice}</span>
-          <button
-            type="button"
-            onClick={() => r.dismissConflictNotice()}
-            className="min-h-[44px] px-3 rounded-lg border border-accent/30 bg-surface font-medium"
-          >
-            知道了
-          </button>
-        </div>
+        <Banner testId="conflict-notice" tone="info" action={{ label: '知道了', onClick: () => r.dismissConflictNotice() }}>
+          {r.conflictNotice}
+        </Banner>
       )}
 
-      <main className="flex-1 pb-28 lg:pb-0 lg:min-h-0 lg:overflow-auto">
+      <main id="main" className="flex-1 pb-4 min-[900px]:min-h-0 min-[900px]:overflow-hidden min-[900px]:pb-0">
         <ExamFocusProvider value={focus}>
           <ExamRenderer paper={paper} />
         </ExamFocusProvider>
       </main>
 
-      <footer className="app-glass safe-bottom sticky bottom-0 z-20 border-x-0 border-b-0">
+      <footer className="material-bar safe-bottom sticky bottom-0 z-20 border-t border-line">
         <QuestionNavBar questions={paper.questions} onJumpTo={(qid) => jumpTo(qid)} />
-        <div className="px-3 py-2 flex items-center gap-3">
-          <span data-testid="flag-count" className="text-sm text-ink-3 tabular-nums">
+        <div className="safe-x flex items-center gap-3 py-2">
+          <span data-testid="flag-count" className="text-footnote text-ink-3 tabular-nums">
             已标记 {r.flaggedCount}
           </span>
           <div className="flex-1" />
-          {submitError && (
-            <span data-testid="submit-error" role="alert" className="text-sm text-danger">
-              {submitError}
-            </span>
-          )}
-          <button
-            type="button"
+          <Button
             data-testid="submit"
-            // 刚在输入框里打完字就点交卷，失焦触发的自动保存会让按钮在那 0.7 秒里
-            // 变灰、第一下没反应（2026-09-06 复测新发现 5）。改成：点了先把没落盘
-            // 的写冲出去，再弹确认；真正的闸门在 doSubmit 里。
-            disabled={submitting || flushing || r.saveError != null || r.hasUnverifiedAnswers}
-            onClick={() => {
-              void (async () => {
-                // 第一下要有反应：冲刷期间按钮显示「保存中…」（2026-09-06 上线验收 P2-21）
-                setFlushing(true);
-                try {
-                  if (r.hasPendingSaves) await r.flushPendingSaves();
-                } finally {
-                  setFlushing(false);
-                }
-                setConfirming(true);
-              })();
-            }}
-            className="app-primary min-h-[44px] px-5 disabled:bg-fill-strong disabled:shadow-none"
+            size="md"
+            busy={flushing}
+            // 保存失败时也能点：点了先重试保存，还不行就说清楚为什么交不了（UI09）。
+            // 真正的闸门在 doSubmit 里：有没上传的答案，一个交卷请求都不发。
+            disabled={submitting || flushing}
+            onClick={() => void openSubmit()}
           >
             {flushing ? '保存中…' : '交卷'}
-          </button>
+          </Button>
         </div>
       </footer>
 
-      {confirming && (
-        <div
-          role="dialog"
-          aria-modal="true"
-          aria-label="确认交卷"
-          className="fixed inset-0 z-40 bg-scrim/30 backdrop-blur-sm grid place-items-center px-6"
-        >
-          <div className="app-glass w-full max-w-sm rounded-[22px] p-6">
-            <h2 className="text-lg font-semibold mb-2">确定要交卷吗？</h2>
-            {(unansweredCount > 0 || r.flaggedCount > 0) && (
-              <p data-testid="submit-warning" className="text-sm text-danger font-medium mb-2">
-                {[
-                  unansweredCount > 0 ? `还有 ${unansweredCount} 题没作答` : null,
-                  r.flaggedCount > 0 ? `第 ${flaggedNumbers} 题还标着「标记」` : null,
-                ].filter(Boolean).join('，')}
-                。
-              </p>
-            )}
-            <p className="text-sm text-ink-2 mb-5">
-              {session.secondWindowToday
-                ? '交卷之后，今天还有第二个作答时段可以再改。'
-                : '交卷之后这份答卷就锁定了，不能再改。'}
-            </p>
-            <div className="flex gap-3">
-              <button
-                type="button"
-                onClick={() => setConfirming(false)}
-                className="flex-1 min-h-[44px] rounded-xl border border-control"
-              >
-                再想想
-              </button>
-              <button
-                type="button"
-                disabled={submitting}
-                onClick={() => void doSubmit()}
-                className="flex-1 min-h-[44px] rounded-xl bg-accent-fill text-accent-on font-medium disabled:bg-fill-strong"
-              >
-                确认交卷
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      {/* 确认交卷 */}
+      <Dialog
+        open={sheet === 'confirm'}
+        onClose={() => setSheet('closed')}
+        title="确认交卷？"
+        busy={submitting}
+        size="sm"
+        testId="submit-confirm"
+        description={session.secondWindowToday ? '交卷之后，今天还有第二个作答时段可以再改。' : '交卷之后这份答卷就锁定了，不能再改。'}
+        error={submitError ? <span data-testid="submit-error">{submitError}</span> : null}
+        footer={
+          <>
+            <Button variant="neutral" onClick={() => setSheet('closed')} disabled={submitting}>
+              继续答题
+            </Button>
+            <Button busy={submitting} onClick={() => void doSubmit()}>
+              {submitting ? '正在交卷…' : '确认交卷'}
+            </Button>
+          </>
+        }
+      >
+        {unansweredCount > 0 || r.flaggedCount > 0 ? (
+          <p data-testid="submit-warning" className="mb-2 rounded-control bg-warning-soft px-3 py-2 text-callout font-medium text-warning">
+            {[
+              unansweredCount > 0 ? `还有 ${unansweredCount} 题没作答` : null,
+              r.flaggedCount > 0 ? `第 ${flaggedNumbers} 题还标着「标记」` : null,
+            ]
+              .filter(Boolean)
+              .join('，')}
+            。
+          </p>
+        ) : null}
+      </Dialog>
 
-      {exiting && (
-        <div
-          data-testid="exit-confirm"
-          role="dialog"
-          aria-modal="true"
-          aria-label="确认退出"
-          className="fixed inset-0 z-40 bg-scrim/30 backdrop-blur-sm grid place-items-center px-6"
-        >
-          <div className="app-glass w-full max-w-sm rounded-[22px] p-6">
-            <h2 className="text-lg font-semibold mb-2">还有答案没保存好</h2>
-            <p className="text-sm text-ink-2 mb-5">
-              现在离开，这些答案只留在这台设备上。建议等网络恢复、保存完成再走。
-            </p>
-            <div className="flex gap-3">
-              <button
-                type="button"
-                onClick={() => setExiting(false)}
-                className="flex-1 min-h-[44px] rounded-xl border border-control"
-              >
-                留下
-              </button>
-              <button
-                type="button"
-                onClick={() => navigate(ROUTES.today)}
-                className="flex-1 min-h-[44px] rounded-xl bg-ink-3 text-accent-on font-medium"
-              >
-                仍然退出
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      {/* 还有答案没上传：先重试保存 */}
+      <Dialog
+        open={sheet === 'blocked'}
+        onClose={() => setSheet('closed')}
+        title="还有答案没上传"
+        busy={retrying}
+        size="sm"
+        testId="submit-blocked"
+        description={`有 ${Math.max(1, r.unsyncedCount)} 题只存在这台设备上，还没确认保存到服务器。上传成功才能交卷，答案不会丢。`}
+        footer={
+          <>
+            <Button variant="neutral" onClick={() => setSheet('closed')} disabled={retrying}>
+              继续答题
+            </Button>
+            <Button busy={retrying} onClick={() => void retryFromSheet()}>
+              {retrying ? '正在重试…' : '重试保存'}
+            </Button>
+          </>
+        }
+      />
+
+      {/* 离开：还有没保存好的答案 */}
+      <Dialog
+        open={exiting}
+        onClose={() => setExiting(false)}
+        title="还有答案没保存好"
+        size="sm"
+        testId="exit-confirm"
+        description="现在离开，这些答案只留在这台设备上，回来还能接着上传。建议等保存完成再走。"
+        footer={
+          <>
+            <Button variant="neutral" onClick={() => setExiting(false)}>
+              留下继续答题
+            </Button>
+            <Button variant="destructive" onClick={() => navigate(ROUTES.today)}>
+              仍然退出
+            </Button>
+          </>
+        }
+      />
+    </div>
+  );
+}
+
+/** 文章标题：卷子里第一题的快照带着。 */
+function passageTitleOf(paper: ExamPaper): string {
+  const c = paper.questions[0]?.snapshotContent as { passageTitle?: unknown } | undefined;
+  return typeof c?.passageTitle === 'string' && c.passageTitle.trim() ? c.passageTitle : '阅读';
+}
+
+/** 答题页顶部的一条状态横幅：说清发生了什么、答案在哪、下一步能做什么。 */
+function Banner({
+  testId,
+  tone,
+  children,
+  action,
+}: {
+  testId: string;
+  tone: 'warning' | 'danger' | 'info';
+  children: ReactNode;
+  action?: { label: string; onClick: () => void; busy?: boolean };
+}) {
+  const cls = tone === 'danger' ? 'bg-danger-soft text-danger' : tone === 'warning' ? 'bg-warning-soft text-warning' : 'bg-accent-soft text-ink';
+  return (
+    <div data-testid={testId} role="alert" className={`border-b border-line ${cls}`}>
+      <div className="safe-x mx-auto flex max-w-[1400px] flex-wrap items-center gap-x-3 gap-y-1 py-2 text-callout">
+        <span className="min-w-0 flex-1">{children}</span>
+        {action ? (
+          <button
+            type="button"
+            onClick={action.onClick}
+            disabled={action.busy}
+            className="min-h-[44px] shrink-0 rounded-control px-3 font-semibold underline-offset-2 hover:underline"
+          >
+            {action.label}
+          </button>
+        ) : null}
+      </div>
     </div>
   );
 }

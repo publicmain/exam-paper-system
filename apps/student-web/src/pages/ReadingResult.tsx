@@ -46,7 +46,7 @@
  * 三个纯函数从这里**再导出**一次，是为了让既有的行为测试与调用点不必改。
  */
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { ResultView } from '../components/ResultView';
 import {
   ApiError,
@@ -59,6 +59,24 @@ import { handleAuthFailure } from '../lib/auth-store';
 import { readToken } from '../lib/identity';
 import { NEXT_ACTION_ROUTE, ROUTES } from '../routes.contract';
 import { isTeachingDay } from '../lib/teaching-day';
+import { Button } from '../design/Button';
+import { FocusHeader } from '../design/Page';
+import { InlineStatus, StatusView } from '../design/Status';
+
+/**
+ * 刚交完卷时由阅读页通过路由状态（不进 URL）带过来的那一份（审计 UI11）。
+ *
+ * 两个 id 都来自服务端：会话是阅读页加载的那一场，答卷 id 是交卷响应回的那一份。
+ * 有它就直接打开**刚交的这一份**，不再问「今天」—— 23:59 开始、00:01 交卷时，
+ * 今天已经是新的一天，按今天定位会打开别的卷子或把人送回首页。
+ */
+type JustSubmitted = { sessionId: string; submissionId: string };
+function justSubmittedFrom(state: unknown): JustSubmitted | null {
+  const j = (state as { justSubmitted?: Partial<JustSubmitted> } | null)?.justSubmitted;
+  return j && typeof j.sessionId === 'string' && typeof j.submissionId === 'string' && j.sessionId && j.submissionId
+    ? { sessionId: j.sessionId, submissionId: j.submissionId }
+    : null;
+}
 
 /**
  * 纯逻辑现在住在共享组件里。**从这里再导出一次**，既有的
@@ -111,6 +129,9 @@ type Phase =
 
 export default function ReadingResultPage() {
   const navigate = useNavigate();
+  const location = useLocation();
+  const just = justSubmittedFrom(location.state);
+  const justKey = just ? `${just.sessionId}|${just.submissionId}` : '';
   const [phase, setPhase] = useState<Phase>({ s: 'loading' });
 
   const load = useCallback(async () => {
@@ -118,6 +139,16 @@ export default function ReadingResultPage() {
     if (!token) return; // 没票不该在这一页，App 的路由守卫会送走
     setPhase({ s: 'loading' });
     try {
+      // ① 刚交完卷：直接按服务端回的那一份定位（UI11）。对不上就退回「今天」这条链。
+      const j = justKey ? { sessionId: justKey.split('|')[0], submissionId: justKey.split('|')[1] } : null;
+      if (j) {
+        const result = await api.getReadingResult(token, j.sessionId);
+        if (result.sessionId === j.sessionId && result.submissionId === j.submissionId) {
+          setPhase({ s: 'ready', result, submissionId: j.submissionId });
+          return;
+        }
+      }
+      // ② 从首页卡片进来：按今天的课定位
       const today = await api.lessonToday(token);
       const ref = readingResultRef(today);
       if (!ref) {
@@ -146,56 +177,47 @@ export default function ReadingResultPage() {
       }
       setPhase({ s: 'error', message: '没能打开这次的成绩 —— 网络不太好，重试一下。' });
     }
-  }, [navigate]);
+  }, [navigate, justKey]);
 
   useEffect(() => {
     void load();
   }, [load]);
 
   if (phase.s === 'loading') {
-    return (
-      <div className="min-h-[100dvh] grid place-items-center bg-surface-2">
-        <p className="text-ink-3">载入中…</p>
-      </div>
-    );
+    return <StatusView kind="loading" title="载入中" />;
   }
 
   if (phase.s === 'locked') {
     return (
-      <Shell>
-        <div role="alert" data-testid="locked" className="rounded-xl bg-warning-soft text-warning px-4 py-3 text-sm mb-4">
-          这次的答卷还没交，先把卷子做完再来看结果。
+      <Shell navigate={navigate}>
+        <div className="mx-auto max-w-md py-10">
+          <div data-testid="locked">
+            <InlineStatus tone="warning">这次的答卷还没交，先把卷子做完再来看结果。</InlineStatus>
+          </div>
+          <BackToToday navigate={navigate} />
         </div>
-        <BackToToday navigate={navigate} />
       </Shell>
     );
   }
 
   if (phase.s === 'error') {
     return (
-      <Shell>
-        <div role="alert" className="rounded-xl bg-danger-soft text-danger px-4 py-3 text-sm mb-4">
-          {phase.message}
-        </div>
-        <button
-          type="button"
-          onClick={() => void load()}
-          className="w-full rounded-xl bg-accent-fill text-accent-on py-3 text-base font-medium min-h-[44px]"
-        >
-          重试
-        </button>
-        <BackToToday navigate={navigate} />
+      <Shell navigate={navigate}>
+        <StatusView
+          kind="error"
+          title="成绩没打开"
+          message={phase.message}
+          onRetry={() => void load()}
+          secondary={<BackToToday navigate={navigate} />}
+        />
       </Shell>
     );
   }
 
   return (
-    <Shell>
-      {/* 页头就有回去的路，不用滚到最底（2026-09-06 复测新发现 8） */}
-      <div className="mb-3">
-        <button type="button" onClick={() => navigate(ROUTES.today)} className="hit -ml-1 px-1 text-sm text-accent">← 首页</button>
-      </div>
+    <Shell navigate={navigate} title={phase.result.paperName} meta={phase.result.scoresPending ? '已交卷 · 主观题等老师批' : '已交卷 · 成绩已出'} fill>
       <ResultView
+        fill
         result={phase.result}
         submissionId={phase.submissionId}
         onAuthLost={() => void load()}
@@ -212,11 +234,26 @@ export default function ReadingResultPage() {
   );
 }
 
-function Shell({ children }: { children: React.ReactNode }) {
+/** 刚交卷结果页的外壳：与答题页同一种专注顶栏；宽屏整页一屏高、两栏各自滚动。 */
+function Shell({
+  children,
+  navigate,
+  title = '阅读结果',
+  meta,
+  fill = false,
+}: {
+  children: React.ReactNode;
+  navigate: ReturnType<typeof useNavigate>;
+  title?: string;
+  meta?: string;
+  fill?: boolean;
+}) {
   return (
-    <div className="ui-ios min-h-[100dvh] px-4 py-6 safe-top safe-bottom">
-      {/* S12L —— 与 ScoreDetail 同一套宽度：宽屏才放得下左原文 / 右题目 */}
-      <div className="mx-auto w-full max-w-2xl lg:max-w-6xl xl:max-w-7xl">{children}</div>
+    <div className={`flex min-h-[100dvh] flex-col ${fill ? 'min-[900px]:h-[100dvh]' : ''}`} style={{ ['--focus-header-h' as string]: '57px' }}>
+      <FocusHeader backLabel="今日" onBack={() => navigate(ROUTES.today)} title={title} meta={meta} />
+      <main id="main" className={`safe-x mx-auto w-full max-w-[1400px] flex-1 py-3 ${fill ? 'min-[900px]:min-h-0' : ''}`}>
+        {children}
+      </main>
     </div>
   );
 }
@@ -260,27 +297,16 @@ function ContinueLesson({ navigate }: { navigate: ReturnType<typeof useNavigate>
   }, [navigate]);
 
   return (
-    <button
-      type="button"
-      data-testid="continue-lesson"
-      disabled={busy}
-      onClick={() => void go()}
-      className="mt-6 w-full rounded-xl bg-accent-fill text-accent-on py-3 text-base font-medium min-h-[44px] disabled:opacity-60"
-    >
-      {busy ? '正在打开…' : isTeachingDay() ? '继续今天的课' : '回首页'}
-    </button>
+    <Button data-testid="continue-lesson" block busy={busy} onClick={() => void go()} className="mt-2">
+      {busy ? '正在打开…' : isTeachingDay() ? '继续今天的课' : '回到今日'}
+    </Button>
   );
 }
 
 function BackToToday({ navigate }: { navigate: ReturnType<typeof useNavigate> }) {
   return (
-    <button
-      type="button"
-      data-testid="back-to-today"
-      onClick={() => navigate(ROUTES.today)}
-      className="mt-4 w-full rounded-xl border border-control py-3 text-base min-h-[44px]"
-    >
-      回到今天的课
-    </button>
+    <Button data-testid="back-to-today" variant="neutral" block onClick={() => navigate(ROUTES.today)} className="mt-4">
+      回到今日
+    </Button>
   );
 }

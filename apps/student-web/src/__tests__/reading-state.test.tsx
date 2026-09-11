@@ -439,6 +439,107 @@ describe('AC-06 离线与补传', () => {
 // AC-07 superseded 对账（S7A §5.4）
 // ─────────────────────────────────────────────────────────────
 
+describe('UI09 保存失败后能恢复（2026-09-11 审计）', () => {
+  function serverError(status: number) {
+    const e = new Error(`HTTP ${status}`) as Error & { status: number };
+    e.name = 'ApiError';
+    e.status = status;
+    return e;
+  }
+
+  it('**设备一直在线、首次 500、服务端随后恢复**：不改答案、不切飞行模式也能补传，交卷解锁', async () => {
+    let fail = true;
+    const h = makeDeps({
+      save: async (call) => {
+        if (fail) throw serverError(500);
+        return { applied: true, clientSeq: call.body.clientSeq } as ReadingSaveResult;
+      },
+      probe: async () => true, // 探测一直是好的：旧实现在这里永远不会补传
+    });
+    mount(h);
+    await click('edit');
+    await tick(600);
+    await settle();
+    expect(h.saves).toHaveLength(1);
+    expect(txt('blocked')).toBe('true');
+    fail = false; // 服务端恢复
+    await tick(2_000); // 第一次自动重试
+    await settle();
+    expect(h.saves).toHaveLength(2);
+    expect(h.saves[1].body.clientSeq).toBe(h.saves[0].body.clientSeq); // 重试沿用同一个序号
+    expect(txt('saveError')).toBe('-');
+    expect(txt('blocked')).toBe('false');
+  });
+
+  it('**自动重试是有限的**：一直 500，十分钟里最多 1 + 4 次，不刷服务端', async () => {
+    const h = makeDeps({
+      save: async () => {
+        throw serverError(503);
+      },
+    });
+    mount(h);
+    await click('edit');
+    await tick(600);
+    await settle();
+    for (const ms of [2_000, 5_000, 15_000, 30_000, 600_000]) {
+      await tick(ms);
+      await settle();
+    }
+    expect(h.saves).toHaveLength(5);
+    expect(txt('blocked')).toBe('true');
+  });
+
+  it('**重试用完之后，「重试保存」立刻再发一次**，成功就解锁', async () => {
+    let fail = true;
+    const h = makeDeps({
+      save: async (call) => {
+        if (fail) throw serverError(502);
+        return { applied: true, clientSeq: call.body.clientSeq } as ReadingSaveResult;
+      },
+    });
+    function RetryButton() {
+      const r = useReading();
+      return <button onClick={() => void r.retrySaves()}>retry-saves</button>;
+    }
+    render(
+      <ReadingProvider
+        sessionId={SID}
+        submissionId={SUB}
+        deps={{ saveAnswer: h.saveAnswer as never, loadSession: h.loadSession as never, healthProbe: h.healthProbe as never, onAuthFailure: h.onAuthFailure as never }}
+      >
+        <Probe />
+        <RetryButton />
+      </ReadingProvider>,
+    );
+    await click('edit');
+    await tick(600);
+    for (const ms of [2_000, 5_000, 15_000, 30_000]) {
+      await tick(ms);
+      await settle();
+    }
+    const before = h.saves.length;
+    fail = false;
+    await click('retry-saves');
+    await settle();
+    expect(h.saves.length).toBe(before + 1);
+    expect(txt('blocked')).toBe('false');
+  });
+
+  it('**4xx（卷子已锁 / 时间已过）不自动重试** —— 重试也没用，只会误导', async () => {
+    const h = makeDeps({
+      save: async () => {
+        throw serverError(400);
+      },
+    });
+    mount(h);
+    await click('edit');
+    await tick(600);
+    await tick(60_000);
+    await settle();
+    expect(h.saves).toHaveLength(1);
+  });
+});
+
 describe('AC-07 superseded 对账', () => {
   function supersededOnce(serverSeq: number) {
     let n = 0;
@@ -765,6 +866,10 @@ describe('AC-09 公共契约', () => {
     'setAnswer',
     'setFontScale',
     'toggleFlag',
+    // 2026-09-11 审计 UI09：保存失败后能恢复 —— 手动重试、还剩几题没上传、是否在自动重试
+    'retrySaves',
+    'unsyncedCount',
+    'autoRetryPending',
   ];
 
   function grabKeys(): string[] {

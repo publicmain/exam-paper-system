@@ -209,7 +209,8 @@ describe('新版正式单词测试（2026-09-06 上线验收 P0）', () => {
     await settle();
     const row = screen.getByTestId('v2-test-v2s1');
     expect(row.textContent).toContain('答对 8 / 9');
-    expect(row.textContent).toContain('2026-09-04');
+    // 日期取自 API：显示成「9月4日 周五」，机器可读值在 <time datetime> 上
+    expect(row.querySelector('time')?.getAttribute('datetime')).toBe('2026-09-04');
     expect(row.querySelector('a')?.getAttribute('href')).toBe('/coach/test?sessionId=v2s1');
     expect(screen.queryByTestId('quiz-empty')).toBeNull();
   });
@@ -318,7 +319,7 @@ describe('AC-05 两段分开渲染', () => {
     mount();
     await settle();
     const row = screen.getByTestId('reading-row-sub-a');
-    expect(row.textContent).toContain('2026-08-27');
+    expect(row.querySelector('time')?.getAttribute('datetime')).toBe('2026-08-27');
     expect(row.textContent).toContain('A Bridge Too Far');
   });
 
@@ -499,10 +500,10 @@ describe('AC-03 入口与出口', () => {
     expect(screen.getByTestId('quiz-section').querySelectorAll('a')).toHaveLength(0);
   });
 
-  it('回到今天的课', async () => {
+  it('回到今天的课 —— 走标签栏的「今日」，不在长页面底部找出口（审计 IOS-01）', async () => {
     mount();
     await settle();
-    await click(screen.getByTestId('back-to-today'));
+    await click(screen.getByTestId('tab-today'));
     expect(at()).toBe(ROUTES.today);
   });
 

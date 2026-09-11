@@ -229,7 +229,38 @@ describe('AC-03 资源只来自 /lesson/today，URL 不带身份', () => {
     await settle();
     expect(reqs[0].url).toBe('/api/lesson/today');
     expect(reqs[1].url).toBe(RESULT_URL);
-    expect(screen.getByText('The Nile')).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'The Nile' })).toBeInTheDocument();
+  });
+
+  it('**刚交完卷（跨午夜）：按交卷回的那一份打开，不问「今天」**（审计 UI11）', async () => {
+    // 今天已经是新的一天：today 说没有可看的阅读结果
+    const newDay = todayPayload();
+    (newDay.segments[0] as Record<string, unknown>).status = 'todo';
+    (newDay.segments[0] as Record<string, unknown>).sessionId = 'sess-next-day';
+    (newDay.segments[0] as Record<string, unknown>).submissionId = null;
+    routes['/api/lesson/today'] = { body: newDay };
+    render(
+      <MemoryRouter initialEntries={[{ pathname: '/lesson/reading/result', state: { justSubmitted: { sessionId: SID, submissionId: SUB } } }]}>
+        <ReadingResultPage />
+      </MemoryRouter>,
+    );
+    await settle();
+    expect(reqs[0].url).toBe(RESULT_URL);
+    expect(calls('/lesson/today')).toHaveLength(0);
+    expect(navigate).not.toHaveBeenCalled();
+    expect(screen.getByRole('heading', { name: 'The Nile' })).toBeInTheDocument();
+  });
+
+  it('**路由状态里的答卷对不上 → 不显示，退回按今天定位**', async () => {
+    render(
+      <MemoryRouter initialEntries={[{ pathname: '/lesson/reading/result', state: { justSubmitted: { sessionId: SID, submissionId: 'someone-else' } } }]}>
+        <ReadingResultPage />
+      </MemoryRouter>,
+    );
+    await settle();
+    expect(calls('/lesson/today')).toHaveLength(1);
+    // 最终显示的是今天链路核对过的那一份
+    expect(screen.getByRole('heading', { name: 'The Nile' })).toBeInTheDocument();
   });
 
   it('**每条请求都零身份**：没有查询串、没有 hash、令牌走 Authorization', async () => {

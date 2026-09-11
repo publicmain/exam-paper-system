@@ -261,7 +261,13 @@ describe('AC-06 页面状态', () => {
     });
     await settle();
     expect(screen.getByTestId('save-error')).toBeInTheDocument();
-    expect((screen.getByTestId('submit') as HTMLButtonElement).disabled).toBe(true);
+    // 2026-09-11 审计 UI09：按钮不再永久变灰（原来灰了就再也交不了）；点了先重试保存
+    await act(async () => {
+      screen.getByTestId('submit').click();
+    });
+    await settle();
+    expect(screen.getByTestId('submit-blocked')).toBeInTheDocument();
+    expect(calls('/submit')).toHaveLength(0);
   });
 
   it('**有未落盘的写时点交卷：先冲掉再弹确认，按钮不变灰**（2026-09-06 复测新发现 5）', async () => {
@@ -327,7 +333,12 @@ describe('AC-06 页面状态', () => {
     });
     await settle();
     expect(screen.getByTestId('unverified')).toBeInTheDocument();
-    expect((screen.getByTestId('submit') as HTMLButtonElement).disabled).toBe(true);
+    await act(async () => {
+      screen.getByTestId('submit').click();
+    });
+    await settle();
+    expect(screen.getByTestId('submit-blocked')).toBeInTheDocument();
+    expect(calls('/submit')).toHaveLength(0);
   });
 
   it('**次要标签：警告 + 显式接管**', async () => {
@@ -431,7 +442,7 @@ describe('AC-07 交卷序列', () => {
     expect(JSON.parse(String(submits[0].init.body))).toEqual({ final: true });
     // 交卷之后**不再问 today** —— 只剩进页面时那一次
     expect(calls('/lesson/today')).toHaveLength(1);
-    expect(navigate).toHaveBeenLastCalledWith('/lesson/reading/result');
+    expect(navigate).toHaveBeenLastCalledWith('/lesson/reading/result', expect.objectContaining({ state: { justSubmitted: expect.objectContaining({ sessionId: 'sess-1' }) } }));
   });
 
   it('**后端 href 不参与导航**（today 的 href 指向旧端也不理它）', async () => {
@@ -444,7 +455,7 @@ describe('AC-07 交卷序列', () => {
     });
     await settle();
     // S9D2B：出口定死是结果页 —— kind 说什么都不改变它，href 更不参与。
-    expect(navigate).toHaveBeenLastCalledWith('/lesson/reading/result');
+    expect(navigate).toHaveBeenLastCalledWith('/lesson/reading/result', expect.objectContaining({ state: { justSubmitted: expect.objectContaining({ sessionId: 'sess-1' }) } }));
     for (const c of navigate.mock.calls) {
       expect(String(c[0])).not.toMatch(/my-history|morning-quiz/);
     }
@@ -463,7 +474,7 @@ describe('AC-07 交卷序列', () => {
     });
     await settle();
     expect(calls('/lesson/today')).toHaveLength(1);
-    expect(navigate).toHaveBeenLastCalledWith('/lesson/reading/result');
+    expect(navigate).toHaveBeenLastCalledWith('/lesson/reading/result', expect.objectContaining({ state: { justSubmitted: expect.objectContaining({ sessionId: 'sess-1' }) } }));
     expect(screen.queryByTestId('submit-error')).not.toBeInTheDocument();
   });
 
@@ -481,6 +492,35 @@ describe('AC-07 交卷序列', () => {
     await settle();
     expect(screen.getByTestId('submit-error')).toBeInTheDocument();
     expect(navigate).not.toHaveBeenCalled();
+  });
+
+  it('**交卷 503 → 错误显示在确认窗里、窗还开着；再点一次才再发**（审计 UI12）', async () => {
+    let first = true;
+    routes['/api/morning-quiz/sessions/sess-1/submit'] = () => {
+      if (first) {
+        first = false;
+        return { status: 503, body: { code: 'unavailable' } };
+      }
+      return { body: { id: SUB, status: 'submitted' } };
+    };
+    mount();
+    await settle();
+    await openConfirm();
+    await act(async () => {
+      screen.getByRole('button', { name: /确认交卷/ }).click();
+    });
+    await settle();
+    const dlg = screen.getByRole('dialog', { name: '确认交卷？' });
+    // 错误在窗内（原来在 z20 的底栏里，被 z40 的确认窗挡住）
+    expect(dlg.contains(screen.getByTestId('submit-error'))).toBe(true);
+    expect(calls('/submit')).toHaveLength(1);
+    expect(navigate).not.toHaveBeenCalled();
+    await act(async () => {
+      screen.getByRole('button', { name: /确认交卷/ }).click();
+    });
+    await settle();
+    expect(calls('/submit')).toHaveLength(2);
+    expect(navigate).toHaveBeenCalled();
   });
 
   it('**连点确认不会发出两个 submit**', async () => {
@@ -509,7 +549,13 @@ describe('AC-07 交卷序列', () => {
       vi.advanceTimersByTime(700);
     });
     await settle();
-    expect((screen.getByTestId('submit') as HTMLButtonElement).disabled).toBe(true);
+    await act(async () => {
+      screen.getByTestId('submit').click();
+    });
+    await settle();
+    // 还有没上传的答案：弹「还有答案没上传」，不是确认交卷，更不发 submit
+    expect(screen.getByTestId('submit-blocked')).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /确认交卷/ })).toBeNull();
     expect(calls('/submit')).toHaveLength(0);
   });
 });
@@ -560,7 +606,7 @@ describe('AC-08 难度与退出', () => {
     });
     expect(screen.getByTestId('submit-warning').textContent).toMatch(/还有 2 题没作答/);
     await act(async () => {
-      screen.getByRole('button', { name: /再想想/ }).click();
+      screen.getByRole('button', { name: /继续答题/ }).click();
     });
     // 标记一题（不答，免得等自动保存）
     await act(async () => {
@@ -624,7 +670,7 @@ describe('AC-08 难度与退出', () => {
     mount();
     await settle();
     await act(async () => {
-      screen.getByRole('button', { name: /首页/ }).click();
+      screen.getByRole('button', { name: /返回今日/ }).click();
     });
     expect(navigate).toHaveBeenLastCalledWith('/today');
   });
@@ -643,7 +689,7 @@ describe('AC-08 难度与退出', () => {
     await settle();
     navigate.mockClear();
     await act(async () => {
-      screen.getByRole('button', { name: /首页/ }).click();
+      screen.getByRole('button', { name: /返回今日/ }).click();
     });
     expect(navigate).not.toHaveBeenCalled();
     expect(screen.getByTestId('exit-confirm')).toBeInTheDocument();
