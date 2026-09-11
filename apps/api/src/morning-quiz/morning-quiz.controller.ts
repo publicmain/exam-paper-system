@@ -30,6 +30,7 @@ import { authenticatedStudentWhere, studentNotEligible } from '../common/authent
 import { identityOf } from '../common/student-identity-input';
 import { PrismaService } from '../common/prisma.service';
 import { StudentService } from '../student/student.service';
+import { submissionRowView } from '../student/student-submission-view';
 import { AbsenceAlertService } from './absence-alert.service';
 import { MorningQuizExportService } from './morning-quiz-export.service';
 import { MorningQuizWeeklyCron } from './morning-quiz-weekly-cron';
@@ -552,11 +553,13 @@ export class MorningQuizController {
       select: { paperAssignmentId: true },
     });
     if (!session) throw new NotFoundException({ code: 'session_not_found' });
-    return this.student.openSubmission(session.paperAssignmentId, {
+    // S01：返回答卷行的白名单（学生端只读 id / status）
+    const row = await this.student.openSubmission(session.paperAssignmentId, {
       id: user.id,
       role: user.role,
       ip: req.ip ?? null,
     });
+    return submissionRowView(row);
   }
 
   /** Student fetches the day's questions (shuffle applied). */
@@ -612,11 +615,14 @@ export class MorningQuizController {
     // Claude short-answer call. The 09:00 lockPastSessions cron runs ONE
     // batched AI sweep for the whole cohort, so 30 students submitting at
     // once can't fan out into ~200 concurrent Claude calls.
-    return this.student.finalSubmit(
+    const row = await this.student.finalSubmit(
       submission.id,
       { id: user.id, role: user.role, ip: req.ip ?? null },
       { deferAi: true, final: body?.final !== false },
     );
+    // S01：交卷那一刻的 autoScore 只是客观题部分分 —— 定稿前不给
+    // （2026-08-14 成绩发布口径）。学生端只读 id / status。
+    return submissionRowView(row);
   }
 
   /** F3 — student post-submit result page payload.
