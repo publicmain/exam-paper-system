@@ -45,6 +45,14 @@ type Props = Omit<ButtonHTMLAttributes<HTMLButtonElement>, 'children'> & {
   children: ReactNode;
 };
 
+/**
+ * 按钮外观的类名 —— 给「长得像按钮的链接」用（`<Link>` 去别的页面），
+ * 与 `<Button>` 同一套变体与尺寸，免得同一排里两种按钮字重、高度对不上。
+ */
+export function buttonClass(variant: ButtonVariant = 'primary', size: ButtonSize = 'lg', block = false): string {
+  return ['inline-flex items-center justify-center gap-2 select-none text-center leading-snug no-underline', VARIANT[variant], SIZE[size], block ? 'w-full' : ''].join(' ');
+}
+
 export const Button = forwardRef<HTMLButtonElement, Props>(function Button(
   { variant = 'primary', size = 'lg', block = false, busy = false, icon, iconAfter, children, className, type, disabled, ...rest },
   ref,

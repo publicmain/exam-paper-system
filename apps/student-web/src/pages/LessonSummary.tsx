@@ -30,7 +30,7 @@ import { handleAuthFailure } from '../lib/auth-store';
 import { readToken } from '../lib/identity';
 import { ROUTES } from '../routes.contract';
 import { Badge } from '../design/Badge';
-import { Button } from '../design/Button';
+import { Button, buttonClass } from '../design/Button';
 import { Icon, type IconName } from '../design/Icon';
 import { FocusHeader, FocusLayout } from '../design/Page';
 import { InlineStatus, StatusView } from '../design/Status';
@@ -260,7 +260,7 @@ export default function LessonSummaryPage() {
         <Link
           data-testid="go-scores"
           to={ROUTES.scores}
-          className="inline-flex min-h-[44px] flex-1 items-center justify-center gap-2 rounded-control bg-fill px-4 text-body font-semibold text-ink no-underline hover:bg-fill-strong"
+          className={`${buttonClass('neutral', 'lg', true)} sm:flex-1`}
         >
           <Icon name="records" size={20} />
           学习记录
@@ -268,7 +268,7 @@ export default function LessonSummaryPage() {
         <Link
           data-testid="go-vocab"
           to={ROUTES.vocab}
-          className="inline-flex min-h-[44px] flex-1 items-center justify-center gap-2 rounded-control bg-fill px-4 text-body font-semibold text-ink no-underline hover:bg-fill-strong"
+          className={`${buttonClass('neutral', 'lg', true)} sm:flex-1`}
         >
           <Icon name="words" size={20} />
           我的单词

@@ -792,8 +792,10 @@ async function handle(req, res, url) {
   }
   if (path === '/vocab-v2/center') return json(res, 200, center(url.searchParams));
   if (path === '/vocab-v2/tests') {
+    const done = Object.values(state.tests).filter((t) => t.type === 'formal_test' && t.status === 'completed')
+      .map((t) => ({ sessionId: t.id, date: t.date, total: t.total, correct: t.correct ?? 0, completedAt: `${t.date}T10:00:00.000Z` }));
     return json(res, 200, {
-      tests: teachingDaysBefore(S.today, 6).map((d, i) => ({ sessionId: `fx_test_${d}`, date: d, total: 10 + (i % 4), correct: 8 + (i % 3), completedAt: `${d}T10:00:00.000Z` })),
+      tests: [...done, ...teachingDaysBefore(S.today, 6).map((d, i) => ({ sessionId: `fx_test_${d}`, date: d, total: 10 + (i % 4), correct: 8 + (i % 3), completedAt: `${d}T10:00:00.000Z` }))],
     });
   }
   if (path === '/vocab-v2/collect') {
