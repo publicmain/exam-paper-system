@@ -12,6 +12,7 @@ import * as bcrypt from 'bcryptjs';
 import * as crypto from 'node:crypto';
 import { PrismaService } from '../common/prisma.service';
 import { canActOnClass } from '../common/roles';
+import { ENABLED_ACCOUNT_WHERE, REVOKE_ALL_SESSIONS } from '../common/account-lifecycle';
 import {
   LOCK_MINUTES,
   MAX_FAILED_ATTEMPTS,
@@ -93,8 +94,8 @@ export class StudentAuthService {
       where: {
         name,
         role: 'student',
-        isActive: true,
-        archivedAt: null,
+        // S04：账号可用 = 启用、未归档、不是旧版停用标记（与令牌生命周期同一口径）
+        ...ENABLED_ACCOUNT_WHERE,
         classEnrollments: { some: { role: 'student', class: { archivedAt: null } } },
         ...(input.studentId ? { id: input.studentId } : {}),
       },
@@ -300,8 +301,8 @@ export class StudentAuthService {
       where: {
         name,
         role: 'student',
-        isActive: true,
-        archivedAt: null,
+        // S04：与 login 同口径 —— 停用（含旧版标记）的账号不能被认领
+        ...ENABLED_ACCOUNT_WHERE,
         classEnrollments: { some: { role: 'student', class: { archivedAt: null } } },
         ...(studentId ? { id: studentId } : {}),
       },
