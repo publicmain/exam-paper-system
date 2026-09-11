@@ -1,4 +1,4 @@
-import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
+import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { Test } from '@nestjs/testing';
 import { APP_GUARD, Reflector } from '@nestjs/core';
 import { JwtModule, JwtService } from '@nestjs/jwt';
@@ -67,7 +67,7 @@ function wire(cls: any, deps: any[]) {
 
 function wireAll() {
   wire(AuthGuard, [JwtService, Reflector, PrismaService]);
-  wire(RateLimitGuard, [Reflector, JwtService]);
+  wire(RateLimitGuard, [Reflector, JwtService, PrismaService]);
   wire(StudentIdentityGuard, [JwtService, Reflector, PrismaService]);
   wire(StudentController, [StudentService]);
   wire(MorningQuizController, [
@@ -641,5 +641,91 @@ describe('S08 —— 读身份与本人写入分开：教师只读视角能浏�
       expect(res.body).toMatchObject({ code: 'student_token_required' });
     }
     expect(h.calls).toEqual([]);
+  });
+});
+
+// ═══════════════════════════════ S06 ═══════════════════════════════
+
+describe('S06 —— 按用户限流在真实守卫顺序下按「已验证的身份」分桶', () => {
+  // push/subscribe：@RateLimit({ limit: 10, windowSec: 60, scope: 'user' })。
+  // 全局守卫顺序是 RateLimitGuard → AuthGuard → 控制器上的 StudentIdentityGuard：
+  // 限流跑的时候还没有任何守卫把身份挂到 req 上。修之前它只读 req.user，
+  // 于是 user scope 全部落到 IP 桶 —— 同一个校园出口的学生互相 429。
+  const SUB = {
+    endpoint: 'https://push.example.invalid/device',
+    keys: { p256dh: 'p', auth: 'a' },
+  };
+  // 每条用例一个新应用 —— 限流计数在守卫实例里，用例之间不能串桶
+  let h: Harness;
+  beforeEach(async () => {
+    h = await startApp();
+  });
+  afterEach(async () => {
+    await h.app.close();
+  });
+
+  const burst = async (n: number, opts: { token?: string; ip: string }) => {
+    const out: number[] = [];
+    for (let i = 0; i < n; i++) {
+      out.push((await call(h, 'POST', '/push/subscribe', { token: opts.token, ip: opts.ip, body: SUB })).status);
+    }
+    return out;
+  };
+
+  it('A 用尽自己的额度，同一个 IP 的 B 不受影响', async () => {
+    const a = await studentToken(h, STUDENT);
+    const b = await studentToken(h, STUDENT_B);
+    const aRes = await burst(11, { token: a, ip: '203.0.113.10' });
+    expect(aRes.slice(0, 10).every((s) => s === 201 || s === 200)).toBe(true);
+    expect(aRes[10]).toBe(429);
+    const bRes = await call(h, 'POST', '/push/subscribe', { token: b, ip: '203.0.113.10', body: SUB });
+    expect(bRes.status, JSON.stringify(bRes.body)).toBeLessThan(300);
+  });
+
+  it('A 换一个 IP 也绕不开自己的额度', async () => {
+    const a = await studentToken(h, STUDENT);
+    await burst(10, { token: a, ip: '203.0.113.20' });
+    const other = await call(h, 'POST', '/push/subscribe', { token: a, ip: '198.51.100.7', body: SUB });
+    expect(other.status).toBe(429);
+  });
+
+  it('匿名（不带令牌）仍有 IP 防护：同一 IP 第 11 次 429', async () => {
+    const res = await burst(11, { ip: '203.0.113.30' });
+    expect(res.slice(0, 10).every((s) => s === 403)).toBe(true); // 限流放行，身份守卫拒
+    expect(res[10]).toBe(429);
+  });
+
+  it('签名不对的令牌（自称 B）不进 B 的桶 —— 落 IP 桶，也不消耗 B 的额度', async () => {
+    const forged = await new JwtService({ secret: 'not-the-server-secret' }).signAsync(
+      { id: STUDENT_B.id, role: 'student', name: STUDENT_B.name, av: 0 },
+      { expiresIn: '1h' },
+    );
+    const res = await burst(11, { token: forged, ip: '203.0.113.40' });
+    expect(res[10]).toBe(429);
+    const b = await studentToken(h, STUDENT_B);
+    const bRes = await call(h, 'POST', '/push/subscribe', { token: b, ip: '198.51.100.8', body: SUB });
+    expect(bRes.status, JSON.stringify(bRes.body)).toBeLessThan(300);
+  });
+
+  it('被撤销的令牌不配拥有用户桶：落 IP 桶，刷不掉本人的额度', async () => {
+    const stale = await studentToken(h, STUDENT, 0);
+    h.users.find((u) => u.id === STUDENT.id)!.studentAuthVersion = 3;
+    const res = await burst(11, { token: stale, ip: '203.0.113.50' });
+    expect(res.slice(0, 10).every((s) => s === 403)).toBe(true);
+    expect(res[10]).toBe(429);
+    const fresh = await studentToken(h, STUDENT, 3);
+    const ok = await call(h, 'POST', '/push/subscribe', { token: fresh, ip: '198.51.100.9', body: SUB });
+    expect(ok.status, JSON.stringify(ok.body)).toBeLessThan(300);
+  });
+
+  it('历史接口（S02 后必须带令牌、S06 改按用户限流）：同 IP 的两个学生各有各的 10 次', async () => {
+    const a = await studentToken(h, STUDENT);
+    const b = await studentToken(h, STUDENT_B);
+    for (let i = 0; i < 10; i++) {
+      const r = await call(h, 'GET', '/morning-quiz/history-by-name', { token: a, ip: '203.0.113.60' });
+      expect(r.status).toBe(200);
+    }
+    expect((await call(h, 'GET', '/morning-quiz/history-by-name', { token: a, ip: '203.0.113.60' })).status).toBe(429);
+    expect((await call(h, 'GET', '/morning-quiz/history-by-name', { token: b, ip: '203.0.113.60' })).status).toBe(200);
   });
 });

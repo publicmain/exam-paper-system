@@ -11,6 +11,8 @@ import {
 import { Reflector } from '@nestjs/core';
 import { JwtService } from '@nestjs/jwt';
 import { Request } from 'express';
+import { PrismaService } from './prisma.service';
+import { loadAccountState, tokenStillValid } from './account-lifecycle';
 
 /**
  * Lightweight per-route rate limiter.
@@ -33,7 +35,10 @@ export interface RateLimitOptions {
   limit: number;
   /** Window length in seconds. */
   windowSec: number;
-  /** Per-IP (default) or per-user. user-scope falls back to IP if no user. */
+  /**
+   * Per-IP (default) or per-user. user-scope falls back to IP if no
+   * **verified, live** identity is on the request (see `userScopeId`).
+   */
   scope?: 'ip' | 'user';
 }
 
@@ -61,9 +66,11 @@ export class RateLimitGuard implements CanActivate {
 
   constructor(
     private readonly reflector: Reflector,
-    // 按用户限流要自己验签取身份（见 userIdOf）。全局 JwtModule 一定会注入；
-    // @Optional 只是让既有单测 `new RateLimitGuard(new Reflector())` 照常能建。
+    // 按用户限流要自己验签取身份（见 userScopeId）。全局 JwtModule 与
+    // PrismaService 一定会注入；@Optional 只是让既有单测
+    // `new RateLimitGuard(new Reflector())` 照常能建。
     @Optional() private readonly jwt?: JwtService,
+    @Optional() private readonly prisma?: PrismaService,
   ) {}
 
   async canActivate(ctx: ExecutionContext): Promise<boolean> {
@@ -75,10 +82,8 @@ export class RateLimitGuard implements CanActivate {
 
     const req = ctx.switchToHttp().getRequest<Request & { user?: { id: string } }>();
     const routeKey = `${ctx.getClass().name}.${ctx.getHandler().name}`;
-    const scopeId =
-      opts.scope === 'user' && req.user?.id
-        ? `u:${req.user.id}`
-        : `ip:${this.getClientIp(req)}`;
+    const userScope = opts.scope === 'user' ? await this.userScopeId(req) : null;
+    const scopeId = userScope ?? `ip:${this.getClientIp(req)}`;
     const key = `${routeKey}:${scopeId}`;
     const now = Date.now();
     const windowMs = opts.windowSec * 1000;
@@ -115,6 +120,51 @@ export class RateLimitGuard implements CanActivate {
       );
     }
     return true;
+  }
+
+  /**
+   * user scope 的分桶身份（2026-09-11 审计 S06）。
+   *
+   * ## 修之前
+   *
+   * 这里只读 `req.user`。可本守卫是**第一个**全局守卫 —— 跑的时候 AuthGuard
+   * 还没把身份挂上去，新学生接口的身份又在更靠后的控制器守卫
+   * （`req.studentAuth`）里。结果所有声明了 `scope: 'user'` 的路由实际都落在
+   * IP 桶：全校共用一个出口 IP，一个学生刷满额度，全班一起 429。
+   *
+   * ## 修之后
+   *
+   *   1. 已经有**验证过**的身份（`req.user`，只有验签的守卫会写它）就用它；
+   *   2. 否则自己**验签** Bearer 令牌 —— 绝不从未验签的 JWT 里读 id；
+   *   3. 再按与两道认证守卫**同一个判据**确认令牌仍有效（撤销 / 停用 /
+   *      归档的令牌不配拥有用户桶，否则拿一张废票就能刷掉本人的额度）。
+   *      账号状态按请求缓存，后面的 AuthGuard / StudentIdentityGuard 复用
+   *      这一次查询，不多一次往返；
+   *   4. 任何一步不成立 → 返回 null，调用方落 IP 桶：匿名暴力照旧受 IP 防护。
+   *
+   * 教师只读视角（teacher_view）单独分桶（按教师 + 学生），不挤占学生本人的额度。
+   */
+  private async userScopeId(req: Request & { user?: { id?: string } }): Promise<string | null> {
+    if (typeof req.user?.id === 'string' && req.user.id) return `u:${req.user.id}`;
+    if (!this.jwt) return null;
+    const header = req.headers?.['authorization'];
+    if (typeof header !== 'string' || !header.startsWith('Bearer ')) return null;
+    let payload: { id?: unknown; role?: unknown; av?: unknown; scope?: unknown; actorId?: unknown };
+    try {
+      payload = await this.jwt.verifyAsync(header.slice('Bearer '.length));
+    } catch {
+      return null;
+    }
+    const id = typeof payload?.id === 'string' ? payload.id : '';
+    if (!id) return null;
+    if (this.prisma) {
+      const row = await loadAccountState(this.prisma, id, req);
+      if (!tokenStillValid(row, payload)) return null;
+    }
+    if (payload.scope === 'teacher_view') {
+      return `tv:${typeof payload.actorId === 'string' ? payload.actorId : '?'}:${id}`;
+    }
+    return `u:${id}`;
   }
 
   /** First-pass IP detection. main.ts sets 'trust proxy=1' so req.ip is
