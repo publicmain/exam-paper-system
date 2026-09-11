@@ -213,7 +213,16 @@ const HUMAN = {
       'What did Gandhi do in 1930, and why was it against the law?',
       'he walked to the sea and made salt, breaking the British monopoly on producing it',
       'In India, a British monopoly on salt production led Gandhi to walk to the sea in 1930 and make some himself, an act of deliberate lawbreaking that drew worldwide attention.',
-      '两分：行为（走到海边自制盐）与违法原因（英国垄断制盐）各 1 分。',
+      // 2026-09-11 CONTENT01 修正：这一天四道 short_answer 里排第三（i===2）的
+      // 那道，在 buildDay() 里固定按 1 分算（这个位置在另外四天里也都是 1
+      // 分——07 tidal-power / 08 libraries / rail-time / smell-of-rain 一致）；
+      // 09-09 发布时这里错写成了「两分：…各 1 分」的两点评分标准，跟 marks=1
+      // 自相矛盾，publish-gates.js 的 rubricMarksConflict 现在会在发布前拦下
+      // 这类矛盾。生产上 09-09 这道题当时已经发布、已有 2 份作答且都判了满分
+      // 1/1——分值本身没错、两个学生也没有被少给分，错的只是评分标准的文字；
+      // 生产里那份冻结快照的文字要不要一并订正见
+      // docs/audit-2026-09-11/ledger-pub.md CONTENT01（未经授权不改库）。
+      '一分：写出「走到海边自制盐」或「打破了英国对制盐的垄断」任一点即可给分。',
     ],
     [
       'short_answer',

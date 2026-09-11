@@ -550,13 +550,24 @@ describe('第三周门槛本身 —— 反向夹具', () => {
     expect(declaredMarks('写出…给分')).toBeNull();
   });
 
-  it('09-09 甘地那道题会被抓到 —— 满分 1，评分标准写两分', () => {
+  it('09-09 甘地那道题：CONTENT01 订正后，评分标准与满分 1 分一致（2026-09-11 前是两分，已修）', () => {
     // 同一天还有一道提到甘地的判断题，按题型把简答那道挑出来
     const gandhi = lessonFor('ielts_light', '2026-09-09')!.questions.find(
       (q) => q.questionType === 'short_answer' && /Gandhi/.test(q.stem),
     )!;
     expect(gandhi.marks).toBe(1);
-    expect(declaredMarks(gandhi.rubric ?? '')).toBe(2);
+    expect(declaredMarks(gandhi.rubric ?? '')).toBe(1);
+  });
+
+  it('声明分数与满分不符：这类矛盾（09-09 订正前的真实样子）会被抓到', () => {
+    // 不再依赖活的内容包里带着历史 bug —— 直接克隆一份、复现订正前的写法，
+    // 证明检查逻辑本身仍然认得出「满分 1、评分标准两分」这种矛盾。
+    const gandhi = lessonFor('ielts_light', '2026-09-09')!.questions.find(
+      (q) => q.questionType === 'short_answer' && /Gandhi/.test(q.stem),
+    )!;
+    const beforeFix = { ...gandhi, rubric: '两分：行为（走到海边自制盐）与违法原因（英国垄断制盐）各 1 分。' };
+    expect(declaredMarks(beforeFix.rubric)).toBe(2);
+    expect(declaredMarks(beforeFix.rubric)).not.toBe(beforeFix.marks);
   });
 
   it('referencedParagraphs 读得出单段、区间和字母段，读不到整组指令', () => {
