@@ -28,6 +28,17 @@
 export const OWNED_STORAGE_PREFIX = 'sw:';
 
 const TOKEN_KEY = 'sw:token';
+/**
+ * 本机草稿属于谁 —— 存的是服务端学生 id 的**摘要**，不是 id 本身。
+ *
+ * 2026-09-11 审计 UI15：原来登录前一律清空 `sw:`，同一个学生因为令牌过期重新登录，
+ * 没来得及同步的阅读草稿也被删了。现在：**同一个人**回来，草稿留着；**换了人**，
+ * 先清空再写新票。
+ *
+ * 契约 §2.3 不许把 studentId 持久化，所以这里只存一个不可逆的短摘要：它只用来回答
+ * 「草稿是不是刚登录的这个人的」，不能拿来识别身份，也不参与任何请求。
+ */
+const OWNER_KEY = 'sw:owner';
 
 function safeStorage(): Storage | null {
   try {
@@ -55,8 +66,54 @@ export function writeToken(token: string): void {
   s.setItem(TOKEN_KEY, token);
 }
 
+/** FNV-1a 64 位（两段 32 位）摘要 —— 只做相等比较用。 */
+export function ownerDigest(studentId: string): string {
+  let h1 = 0x811c9dc5;
+  let h2 = 0x01000193 ^ studentId.length;
+  for (let i = 0; i < studentId.length; i += 1) {
+    const c = studentId.charCodeAt(i);
+    h1 = Math.imul(h1 ^ c, 0x01000193) >>> 0;
+    h2 = Math.imul(h2 ^ (c + i), 0x01000193) >>> 0;
+  }
+  return `o${h1.toString(16).padStart(8, '0')}${h2.toString(16).padStart(8, '0')}`;
+}
+
+/** 本机草稿是不是这个学生的。没有记号（旧版本留下的草稿）按「不是」处理。 */
+export function draftsBelongTo(studentId: string): boolean {
+  const s = safeStorage();
+  if (!s) return false;
+  return s.getItem(OWNER_KEY) === ownerDigest(studentId);
+}
+
+export function hasDraftOwner(): boolean {
+  const s = safeStorage();
+  if (!s) return false;
+  return Boolean(s.getItem(OWNER_KEY));
+}
+
+export function writeDraftOwner(studentId: string): void {
+  const s = safeStorage();
+  if (!s) return;
+  s.setItem(OWNER_KEY, ownerDigest(studentId));
+}
+
 /**
- * 清身份 —— 登出、令牌撤销、改密码成功之后都走这里。
+ * 只作废令牌，**草稿与归属留着**（令牌过期 / 被撤销 / 暂时换不到身份时）。
+ * 没有令牌就不可能再写任何东西到服务端；同一个人重新登录能接着用草稿，
+ * 换了人则由 `adoptSession` 先清空（归属对不上）。
+ */
+export function clearTokenOnly(): void {
+  const s = safeStorage();
+  if (!s) return;
+  try {
+    s.removeItem(TOKEN_KEY);
+  } catch {
+    /* 删不掉就算了 —— 下一次认证失败还会再来 */
+  }
+}
+
+/**
+ * 清身份 —— 主动退出、换了一个人登录时走这里。
  *
  * 只清我们自己的命名空间。**绝不遍历清空整个 localStorage** ——
  * 同源上将来可能有别的东西，把别人的数据一起抹掉是另一种事故。
@@ -88,4 +145,4 @@ export function clearIdentity(): void {
  * 本包写进 storage 的**固定**键。带 sessionId 的那些是动态的，
  * 枚举不出来 —— 它们由 `OWNED_STORAGE_PREFIX` 兜住。
  */
-export const OWNED_STORAGE_KEYS: readonly string[] = [TOKEN_KEY];
+export const OWNED_STORAGE_KEYS: readonly string[] = [TOKEN_KEY, OWNER_KEY];

@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
-import { render, screen, waitFor } from '@testing-library/react';
+import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router-dom';
 import App from '../App';
@@ -113,8 +113,10 @@ describe('3. 登录', () => {
 
     await screen.findByRole('heading', { name: '你好，一号' });
     expect(localStorage.getItem('sw:token')).toBe('TK');
-    // **只有令牌** —— 姓名 / studentId / profile 一律不落盘
-    expect(Object.keys(localStorage)).toEqual(['sw:token']);
+    // **只有令牌 + 草稿归属摘要** —— 姓名 / studentId / profile 一律不落盘。
+    // sw:owner 是 studentId 的不可逆摘要，只用来判断「本机草稿是不是这个人的」（UI15）。
+    expect(Object.keys(localStorage).sort()).toEqual(['sw:owner', 'sw:token']);
+    expect(localStorage.getItem('sw:owner')).not.toContain(PROFILE.id);
   });
 
   it('密码错 → 学生看得懂的话，且**不提「打开 App 会引导注册」**', async () => {
@@ -168,7 +170,9 @@ describe('3. 登录', () => {
 
     expect((calls[1] as { studentId?: string }).studentId).toBe('a2');
     expect(localStorage.getItem('sw:token')).toBe('TK2');
-    expect(Object.keys(localStorage)).toEqual(['sw:token']);
+    expect(Object.keys(localStorage).sort()).toEqual(['sw:owner', 'sw:token']);
+    // 选中的候选 id 不落盘：归属只存摘要，里面找不到 a2
+    expect(localStorage.getItem('sw:owner')).not.toContain('a2');
     expect(JSON.stringify(localStorage)).not.toContain('a2');
   });
 });
@@ -202,7 +206,8 @@ describe('1. 首次注册', () => {
 
     await screen.findByRole('heading', { name: '你好，一号' });
     expect(localStorage.getItem('sw:token')).toBe('RT');
-    expect(Object.keys(localStorage)).toEqual(['sw:token']);
+    expect(Object.keys(localStorage).sort()).toEqual(['sw:owner', 'sw:token']);
+    expect(localStorage.getItem('sw:owner')).not.toContain(PROFILE.id);
   });
 
   it('学生端**不再走认领那条路** —— 一个 `/student-auth/register` 都不发', async () => {
@@ -261,12 +266,34 @@ describe('6. 刷新恢复 / 令牌撤销', () => {
     expect(localStorage.getItem('sw:token')).toBeNull();
   });
 
-  it('**网络故障不把人登出** —— 票可能还是好的', async () => {
+  it('**网络故障不把人登出** —— 票可能还是好的，给重试而不是登录页（审计 UI15）', async () => {
     localStorage.setItem('sw:token', 'GOOD');
+    localStorage.setItem('sw:reading:answers:ses1:sub1', '{"q1":{"selectedOption":"B"}}');
     fetchMock.mockImplementation(() => Promise.reject(new Error('offline')));
     renderAt('/today');
-    await screen.findByText('每日英语');
+    await screen.findByTestId('app-unreachable');
+    expect(screen.queryByRole('button', { name: '登录' })).toBeNull();
     expect(localStorage.getItem('sw:token')).toBe('GOOD');
+    // 草稿一个字没动
+    expect(localStorage.getItem('sw:reading:answers:ses1:sub1')).toContain('"B"');
+
+    // 网络恢复 → 点重试 → 回到今天的课
+    fetchMock.mockImplementation((url: string) =>
+      route(url) === '/student-auth/me' ? jsonResponse(200, PROFILE) : jsonResponse(404, {}),
+    );
+    await userEvent.click(screen.getByRole('button', { name: '重试' }));
+    await screen.findByRole('heading', { name: '你好，一号' });
+  });
+
+  it('**503 / 服务端故障同样不登出**，「用别的账号登录」才作废这张票', async () => {
+    localStorage.setItem('sw:token', 'GOOD');
+    fetchMock.mockImplementation(() => jsonResponse(503, { code: 'unavailable' }));
+    renderAt('/today');
+    await screen.findByTestId('app-unreachable');
+    expect(localStorage.getItem('sw:token')).toBe('GOOD');
+    await userEvent.click(screen.getByRole('button', { name: '用别的账号登录' }));
+    await screen.findByRole('button', { name: '登录' });
+    expect(localStorage.getItem('sw:token')).toBeNull();
   });
 });
 
@@ -280,6 +307,16 @@ describe('4 + 7. 改密码与退出', () => {
     await screen.findByRole('heading', { name: '账号' });
   }
 
+  /** 打开「修改密码」面板，填好两个密码，点面板里的提交。 */
+  async function submitPassword(oldPin: string, newPin: string) {
+    await userEvent.click(screen.getByTestId('open-password'));
+    const sheet = await screen.findByRole('dialog', { name: '修改密码' });
+    await userEvent.type(within(sheet).getByLabelText('当前密码'), oldPin);
+    await userEvent.type(within(sheet).getByLabelText(/^新密码/), newPin);
+    await userEvent.click(within(sheet).getByRole('button', { name: '修改密码' }));
+    return sheet;
+  }
+
   it('**改密码成功但老服务端没发新票 → 清票回登录页 + 成功提示**', async () => {
     await loggedIn();
     fetchMock.mockImplementation((url: string) =>
@@ -287,9 +324,7 @@ describe('4 + 7. 改密码与退出', () => {
         ? jsonResponse(200, { ok: true })
         : jsonResponse(200, PROFILE),
     );
-    await userEvent.type(screen.getByLabelText('当前密码'), 'old12345');
-    await userEvent.type(screen.getByLabelText(/^新密码/), '731842');
-    await userEvent.click(screen.getByRole('button', { name: '修改密码' }));
+    await submitPassword('old12345', '731842');
 
     await screen.findByText('每日英语');
     expect(localStorage.getItem('sw:token')).toBeNull();
@@ -303,11 +338,11 @@ describe('4 + 7. 改密码与退出', () => {
         ? jsonResponse(200, { ok: true, token: 'TK-NEW' })
         : jsonResponse(200, PROFILE),
     );
-    await userEvent.type(screen.getByLabelText('当前密码'), 'old12345');
-    await userEvent.type(screen.getByLabelText(/^新密码/), '731842');
-    await userEvent.click(screen.getByRole('button', { name: '修改密码' }));
+    await submitPassword('old12345', '731842');
 
-    expect((await screen.findByRole('alert')).textContent).toContain('密码已经改好了');
+    // 成功回执是就地提示（面板已关）
+    expect((await screen.findByTestId('toast')).textContent).toContain('密码已经改好了');
+    expect(screen.queryByRole('dialog', { name: '修改密码' })).toBeNull();
     expect(localStorage.getItem('sw:token')).toBe('TK-NEW');
     expect(screen.getByRole('heading', { name: '账号' })).toBeInTheDocument();
   });
@@ -319,16 +354,20 @@ describe('4 + 7. 改密码与退出', () => {
         ? jsonResponse(401, { code: 'invalid_credentials' })
         : jsonResponse(200, PROFILE),
     );
-    await userEvent.type(screen.getByLabelText('当前密码'), 'wrong');
-    await userEvent.type(screen.getByLabelText(/^新密码/), '731842');
-    await userEvent.click(screen.getByRole('button', { name: '修改密码' }));
-    expect((await screen.findByRole('alert')).textContent).toContain('当前密码不对');
+    const sheet = await submitPassword('wrong', '731842');
+    // 错误显示在面板里（审计 IOS-11：错误出现在用户正操作的那一层），面板还开着
+    expect((await within(sheet).findByRole('alert')).textContent).toContain('当前密码不对');
+    expect(screen.getByRole('dialog', { name: '修改密码' })).toBeInTheDocument();
     expect(localStorage.getItem('sw:token')).toBe('TK');
   });
 
-  it('**退出 → 本包写过的键一个不剩**', async () => {
+  it('**退出 → 先确认，再把本包写过的键清得一个不剩**', async () => {
     await loggedIn();
-    await userEvent.click(screen.getByText('退出登录'));
+    await userEvent.click(screen.getByTestId('logout'));
+    const dlg = await screen.findByRole('dialog', { name: '退出登录？' });
+    // 说清会清掉什么
+    expect(dlg.textContent).toContain('没交的阅读草稿');
+    await userEvent.click(within(dlg).getByRole('button', { name: '退出登录' }));
     await screen.findByText('每日英语');
     for (const k of OWNED_STORAGE_KEYS) expect(localStorage.getItem(k)).toBeNull();
     expect(Object.keys(localStorage)).toEqual([]);
@@ -373,9 +412,11 @@ describe('认证后的请求不带任何身份参数', () => {
     });
     renderAt('/account');
     await screen.findByRole('heading', { name: '账号' });
-    await userEvent.type(screen.getByLabelText('当前密码'), 'old12345');
-    await userEvent.type(screen.getByLabelText(/^新密码/), '731842');
-    await userEvent.click(screen.getByRole('button', { name: '修改密码' }));
+    await userEvent.click(screen.getByTestId('open-password'));
+    const sheet = await screen.findByRole('dialog', { name: '修改密码' });
+    await userEvent.type(within(sheet).getByLabelText('当前密码'), 'old12345');
+    await userEvent.type(within(sheet).getByLabelText(/^新密码/), '731842');
+    await userEvent.click(within(sheet).getByRole('button', { name: '修改密码' }));
     await waitFor(() => expect(seen.length).toBeGreaterThan(1));
 
     for (const s of seen) {

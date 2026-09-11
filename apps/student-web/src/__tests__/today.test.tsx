@@ -3,7 +3,7 @@ import { act, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router-dom';
 import App from '../App';
-import { OWNED_STORAGE_KEYS, readToken, writeToken } from '../lib/identity';
+import { readToken, writeToken } from '../lib/identity';
 import { __resetForTest } from '../lib/auth-store';
 import { NEXT_ACTION_KINDS, type NextActionKind } from '../routes.contract';
 
@@ -477,7 +477,7 @@ describe('11–14. 故障路径', () => {
       r === '/lesson/today' ? jsonResponse(401, { code: 'token_revoked' }) : null);
     renderAt('/today');
     await waitFor(() => expect(screen.getByRole('button', { name: '登录' })).toBeTruthy());
-    for (const k of OWNED_STORAGE_KEYS) expect(localStorage.getItem(k)).toBeNull();
+    expect(localStorage.getItem('sw:token')).toBeNull(); // 草稿归属摘要按 UI15 留给同一个人
   });
 
   it('**POST 失败：停在 /today，仍可重试**', async () => {
@@ -508,7 +508,7 @@ describe('11–14. 故障路径', () => {
     await screen.findByRole('heading', { name: /你好，七号/ });
     await userEvent.click(screen.getByRole('button', { name: '开始今天的课程' }));
     await waitFor(() => expect(screen.getByRole('button', { name: '登录' })).toBeTruthy());
-    for (const k of OWNED_STORAGE_KEYS) expect(localStorage.getItem(k)).toBeNull();
+    expect(localStorage.getItem('sw:token')).toBeNull(); // 草稿归属摘要按 UI15 留给同一个人
   });
 });
 

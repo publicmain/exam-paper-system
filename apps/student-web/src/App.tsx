@@ -10,7 +10,7 @@
  */
 import { useEffect, useSyncExternalStore } from 'react';
 import { Navigate, Route, Routes, useLocation } from 'react-router-dom';
-import { bootstrap, getState, subscribe } from './lib/auth-store';
+import { abandonUnreachableSession, bootstrap, getState, subscribe } from './lib/auth-store';
 import { ROUTES, fallbackPath } from './routes.contract';
 import LoginPage from './pages/Login';
 import RegisterPage from './pages/Register';
@@ -28,6 +28,7 @@ import VocabularyCoachLearnPage from './pages/VocabularyCoachLearn';
 import VocabularyCoachTestPage from './pages/VocabularyCoachTest';
 import { AppShell, shellFor } from './design/AppShell';
 import { StatusView } from './design/Status';
+import { Button } from './design/Button';
 
 export default function App() {
   const state = useSyncExternalStore(subscribe, getState, getState);
@@ -39,6 +40,26 @@ export default function App() {
 
   if (state.status === 'loading') {
     return <StatusView kind="loading" title="正在登录" testId="app-loading" />;
+  }
+
+  // 有令牌但问不到服务端（断网 / 服务端故障 / 超时）—— 不假装登出，也不渲染私有页（UI15）
+  if (state.status === 'unreachable') {
+    return (
+      <main id="main" className="safe-x safe-top safe-bottom mx-auto flex min-h-[100dvh] max-w-md flex-col justify-center">
+        <StatusView
+          kind="offline"
+          testId="app-unreachable"
+          title="暂时连不上服务器"
+          message="你还在登录状态，这台设备上没交的答案也都还在。网络恢复后点重试就能接着用。"
+          onRetry={() => void bootstrap()}
+          secondary={
+            <Button variant="plain" block onClick={abandonUnreachableSession}>
+              用别的账号登录
+            </Button>
+          }
+        />
+      </main>
+    );
   }
 
   const authed = state.status === 'authenticated';

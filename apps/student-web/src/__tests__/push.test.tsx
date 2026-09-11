@@ -6,7 +6,7 @@
  * jsdom 没有 PushManager。
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { render, screen } from '@testing-library/react';
+import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { writeToken } from '../lib/identity';
 import { derivePushStatus, urlBase64ToUint8Array, type PushEnv } from '../lib/push';
@@ -108,47 +108,51 @@ describe('账号页的「提醒」', () => {
     expect(screen.queryByTestId('push-box')).toBeNull();
   });
 
-  it('能开没开 → 说清几点提醒，点「开启」调 enablePush，成功后变成「关闭」', async () => {
+  it('能开没开 → 说清几点提醒，打开开关调 enablePush，成功后开关是「开」', async () => {
     pushStatusMock.mockResolvedValue('off');
     enablePushMock.mockResolvedValue('on');
     render(<PushSettings />);
-    const btn = await screen.findByText('开启提醒');
+    const sw = await screen.findByRole('switch', { name: '上课日提醒' });
+    expect(sw.getAttribute('aria-checked')).toBe('false');
     expect(screen.getByTestId('push-box').textContent).toContain('16:30');
-    await userEvent.click(btn);
+    await userEvent.click(sw);
     expect(enablePushMock).toHaveBeenCalledWith('tok');
-    expect(await screen.findByText('关闭提醒')).toBeInTheDocument();
+    await waitFor(() => expect(screen.getByRole('switch', { name: '上课日提醒' }).getAttribute('aria-checked')).toBe('true'));
   });
 
-  it('已开 → 「关闭提醒」调 disablePush', async () => {
+  it('已开 → 关掉开关调 disablePush', async () => {
     pushStatusMock.mockResolvedValue('on');
     disablePushMock.mockResolvedValue(undefined);
     render(<PushSettings />);
-    await userEvent.click(await screen.findByText('关闭提醒'));
+    const sw = await screen.findByRole('switch', { name: '上课日提醒' });
+    expect(sw.getAttribute('aria-checked')).toBe('true');
+    await userEvent.click(sw);
     expect(disablePushMock).toHaveBeenCalledWith('tok');
-    expect(await screen.findByText('开启提醒')).toBeInTheDocument();
+    await waitFor(() => expect(screen.getByRole('switch', { name: '上课日提醒' }).getAttribute('aria-checked')).toBe('false'));
   });
 
   it('iOS 没装到主屏幕 → 给安装步骤，不给按钮', async () => {
     pushStatusMock.mockResolvedValue('needs_install');
     render(<PushSettings />);
     expect(await screen.findByText(/添加到主屏幕/)).toBeInTheDocument();
-    expect(screen.queryByText('开启提醒')).toBeNull();
+    expect(screen.queryByRole('switch')).toBeNull();
   });
 
   it('拒绝过 → 说去浏览器设置里改，不给按钮', async () => {
     pushStatusMock.mockResolvedValue('denied');
     render(<PushSettings />);
     expect(await screen.findByText(/拒绝了本站的通知/)).toBeInTheDocument();
-    expect(screen.queryByText('开启提醒')).toBeNull();
+    expect(screen.queryByRole('switch')).toBeNull();
   });
 
   it('开启失败 → 就地报错，不弹走', async () => {
     pushStatusMock.mockResolvedValue('off');
     enablePushMock.mockRejectedValue(new Error('boom'));
     render(<PushSettings />);
-    await userEvent.click(await screen.findByText('开启提醒'));
+    await userEvent.click(await screen.findByRole('switch', { name: '上课日提醒' }));
     expect(await screen.findByText(/没能开启/)).toBeInTheDocument();
-    expect(screen.getByText('开启提醒')).toBeInTheDocument();
+    // 失败后开关仍是「关」，可以再试
+    expect(screen.getByRole('switch', { name: '上课日提醒' }).getAttribute('aria-checked')).toBe('false');
   });
 });
 

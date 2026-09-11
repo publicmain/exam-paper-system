@@ -179,7 +179,7 @@ describe('点击 → 只调夹具端点 → 只存令牌 → 去 /today', () => 
     await settle();
 
     expect(readToken()).toBe('fixture-token');
-    expect(Object.keys(localStorage)).toEqual(['sw:token']);
+    expect(Object.keys(localStorage).sort()).toEqual(['sw:owner', 'sw:token']);
     expect(getState().status).toBe('authenticated');
     expect(navigate).toHaveBeenCalledWith('/today', { replace: true });
   });

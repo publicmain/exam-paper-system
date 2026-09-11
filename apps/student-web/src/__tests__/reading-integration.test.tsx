@@ -548,7 +548,7 @@ describe('AC-07 本地更新的草稿在重新进入后仍然赢', () => {
     });
     expect(localStorage.getItem(ANSWERS_KEY)).toBeNull();
     expect(localStorage.getItem(SEQS_KEY)).toBeNull();
-    expect(Object.keys(localStorage)).toEqual(['sw:token']);
+    expect(Object.keys(localStorage).sort()).toEqual(['sw:owner', 'sw:token']);
   });
 });
 

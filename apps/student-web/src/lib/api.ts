@@ -58,12 +58,20 @@ export class NetworkError extends Error {
   }
 }
 
+/**
+ * 一次请求最多等多久（审计 IOS-11「有限等待」）。超时按网络失败处理 —— 页面给重试，
+ * 不留一个永远在转的圈。30 秒对交卷、写作自查这类慢请求也够用。
+ */
+export const REQUEST_TIMEOUT_MS = 30_000;
+
 async function request<T>(
   method: 'GET' | 'POST' | 'PATCH',
   path: string,
   opts: { body?: unknown; token?: string | null } = {},
 ): Promise<T> {
   let res: Response;
+  const ctrl = typeof AbortController !== 'undefined' ? new AbortController() : null;
+  const timer = ctrl ? setTimeout(() => ctrl.abort(), REQUEST_TIMEOUT_MS) : null;
   try {
     res = await fetch(`${BASE}/api${path}`, {
       method,
@@ -72,9 +80,12 @@ async function request<T>(
         ...(opts.token ? { Authorization: `Bearer ${opts.token}` } : {}),
       },
       ...(opts.body !== undefined ? { body: JSON.stringify(opts.body) } : {}),
+      ...(ctrl ? { signal: ctrl.signal } : {}),
     });
   } catch (e) {
     throw new NetworkError(e);
+  } finally {
+    if (timer) clearTimeout(timer);
   }
   const text = await res.text();
   let parsed: unknown = {};

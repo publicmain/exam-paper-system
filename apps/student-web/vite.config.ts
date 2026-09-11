@@ -23,5 +23,8 @@ export default defineConfig(async ({ command }) => ({
     setupFiles: ['./src/test-setup.ts'],
     css: false,
     include: ['src/**/*.{test,spec}.{ts,tsx}'],
+    // 本机常有多个测试进程并行（API / 教师端 / 学生端），默认 5 秒在高负载下会误报超时；
+    // 只放宽时间预算，不改任何断言。
+    testTimeout: 15_000,
   },
 }));

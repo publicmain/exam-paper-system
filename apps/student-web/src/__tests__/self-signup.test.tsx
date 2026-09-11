@@ -164,7 +164,7 @@ describe('S12O —— 注册页', () => {
       englishLevel: 'ielts_simplified',
     });
     expect(localStorage.getItem('sw:token')).toBe('TK');
-    expect(Object.keys(localStorage)).toEqual(['sw:token']);
+    expect(Object.keys(localStorage).sort()).toEqual(['sw:owner', 'sw:token']);
   });
 
   it('**请求里没有任何客户端给的身份** —— 没有 studentId，URL 也不带查询串', async () => {
@@ -313,6 +313,12 @@ describe('S12O —— 账号页改难度', () => {
     });
   }
 
+  /** 难度改在面板里：点「英语难度」这一行打开。 */
+  async function openLevel() {
+    await userEvent.click(screen.getByTestId('open-level'));
+    return screen.findByRole('dialog', { name: '英语难度' });
+  }
+
   it('显示当前难度，用的是中文，不是内部标识', async () => {
     authed();
     renderAt('/account');
@@ -325,6 +331,7 @@ describe('S12O —— 账号页改难度', () => {
     authed({ englishLevel: 'ielts_simplified' });
     renderAt('/account');
     await screen.findByTestId('current-level');
+    await openLevel();
     const radios = screen.getAllByRole('radio') as HTMLInputElement[];
     expect(radios).toHaveLength(5);
     expect(radios.filter((r) => r.checked)).toHaveLength(1);
@@ -335,9 +342,10 @@ describe('S12O —— 账号页改难度', () => {
     authed();
     renderAt('/account');
     await screen.findByTestId('current-level');
+    await openLevel();
     await userEvent.click(screen.getByRole('radio', { name: /雅思 · 真题型/ }));
     expect(fetchMock.mock.calls.filter((c) => route(String(c[0])) === '/student-auth/me/english-level')).toHaveLength(0);
-    await userEvent.click(screen.getByRole('button', { name: '确认换难度' }));
+    await userEvent.click(screen.getByTestId('level-confirm'));
     await waitFor(() =>
       expect(fetchMock.mock.calls.filter((c) => route(String(c[0])) === '/student-auth/me/english-level')).toHaveLength(1));
   });
@@ -346,9 +354,10 @@ describe('S12O —— 账号页改难度', () => {
     authed();
     renderAt('/account');
     await screen.findByTestId('current-level');
+    await openLevel();
     await userEvent.click(screen.getByRole('radio', { name: /雅思 · 真题型/ }));
-    await userEvent.click(screen.getByRole('button', { name: '确认换难度' }));
-    await waitFor(() => screen.getByRole('status'));
+    await userEvent.click(screen.getByTestId('level-confirm'));
+    await screen.findByTestId('toast');
     const call = fetchMock.mock.calls.find((c) => route(String(c[0])) === '/student-auth/me/english-level')!;
     const init = call[1] as RequestInit;
     expect(init.method).toBe('PATCH');
@@ -361,20 +370,24 @@ describe('S12O —— 账号页改难度', () => {
     authed();
     renderAt('/account');
     await screen.findByTestId('current-level');
+    await openLevel();
     await userEvent.click(screen.getByRole('radio', { name: /雅思 · 真题型/ }));
-    await userEvent.click(screen.getByRole('button', { name: '确认换难度' }));
-    const st = await screen.findByRole('status');
-    expect(st.textContent).toMatch(/已经换成|已改/);
+    await userEvent.click(screen.getByTestId('level-confirm'));
+    const st = await screen.findByTestId('toast');
+    expect(st.textContent).toMatch(/已换成/);
+    // 回执里写清生效范围
+    expect(st.textContent).toMatch(/下一次还没开始/);
     await waitFor(() =>
       expect(screen.getByTestId('current-level').textContent).toContain('真题型'));
   });
 
-  it('页面说清楚了**什么时候生效** —— 已经开始的一天不会中途变', async () => {
+  it('面板里说清楚了**什么时候生效** —— 已经开始的任务不会中途变', async () => {
     authed();
     renderAt('/account');
-    const box = (await screen.findByTestId('level-box')).textContent ?? '';
-    expect(box).toMatch(/已经开始/);
-    expect(box).toMatch(/下一次|明天|下一课/);
+    await screen.findByTestId('current-level');
+    const sheet = await openLevel();
+    expect(sheet.textContent).toMatch(/已经开始/);
+    expect(sheet.textContent).toMatch(/下一次/);
   });
 
   it('失败也要有回执，且当前难度**不动**', async () => {
@@ -387,9 +400,12 @@ describe('S12O —— 账号页改难度', () => {
     });
     renderAt('/account');
     await screen.findByTestId('current-level');
+    await openLevel();
     await userEvent.click(screen.getByRole('radio', { name: /雅思 · 真题型/ }));
-    await userEvent.click(screen.getByRole('button', { name: '确认换难度' }));
-    expect((await screen.findByRole('alert')).textContent).toMatch(/这个班/);
+    await userEvent.click(screen.getByTestId('level-confirm'));
+    // 错误在面板里（审计 IOS-11）
+    const sheet = screen.getByRole('dialog', { name: '英语难度' });
+    expect((await within(sheet).findByRole('alert')).textContent).toMatch(/这个班/);
     expect(screen.getByTestId('current-level').textContent).toContain('O-Level');
   });
 
@@ -403,8 +419,9 @@ describe('S12O —— 账号页改难度', () => {
     });
     renderAt('/account');
     await screen.findByTestId('current-level');
+    await openLevel();
     await userEvent.click(screen.getByRole('radio', { name: /雅思 · 真题型/ }));
-    await userEvent.click(screen.getByRole('button', { name: '确认换难度' }));
+    await userEvent.click(screen.getByTestId('level-confirm'));
     await waitFor(() => expect(localStorage.getItem('sw:token')).toBeNull());
   });
 

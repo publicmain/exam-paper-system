@@ -808,7 +808,7 @@ describe('G1 新端不得出现旧路由与旧身份键', () => {
 
     it('**往 storage 写的第三个地方会被抓到**', () => {
       const w = 'pages/Reading.tsx:SOME_KEY';
-      expect(/identity\.ts:(TOKEN_KEY|probe|k)$|storage\.ts:key$/.test(w)).toBe(false);
+      expect(/identity\.ts:(TOKEN_KEY|OWNER_KEY|probe|k)$|storage\.ts:key$/.test(w)).toBe(false);
     });
 
     it('干净的认证后端点不会误报', () => {
@@ -854,11 +854,13 @@ describe('G1 新端不得出现旧路由与旧身份键', () => {
     // 常量定义在 Today.tsx、值固定为 `sw:vocab-test-reminded`，只存一个日期串。
     // 2026-09-10 再多一处：首页「开启提醒」提示的「不用了」记号（PUSH_NUDGE_KEY），
     // 常量定义在 PushNudge.tsx、值固定为 `sw:push-nudge-dismissed`，只存一个 '1'。
+    // 2026-09-11（审计 UI15）identity.ts 多一个 OWNER_KEY（`sw:owner`）：存学生 id 的
+    // **不可逆摘要**，只用来判断本机草稿是不是刚登录的这个人的，不存 id、不参与请求。
     for (const w of writes) {
       expect(w).toMatch(
         // 只匹配文件名，不匹配目录分隔符 —— Windows 上是 `\`、别处是 `/`，
         // 把分隔符写进正则会让这条守卫只在一种机器上成立。
-        /identity\.ts:(TOKEN_KEY|probe|k)$|storage\.ts:key$|(Highlighter|StickyNote|DraggableSplit)\.tsx:(storageKey|key)$|review-queue\.ts:(QUEUE_KEY|probe)$|IELTSReadingPassage\.tsx:LOOKED_UP_KEY$|Today\.tsx:REMINDER_KEY$|PushNudge\.tsx:PUSH_NUDGE_KEY$/,
+        /identity\.ts:(TOKEN_KEY|OWNER_KEY|probe|k)$|storage\.ts:key$|(Highlighter|StickyNote|DraggableSplit)\.tsx:(storageKey|key)$|review-queue\.ts:(QUEUE_KEY|probe)$|IELTSReadingPassage\.tsx:LOOKED_UP_KEY$|Today\.tsx:REMINDER_KEY$|PushNudge\.tsx:PUSH_NUDGE_KEY$/,
       );
     }
   });

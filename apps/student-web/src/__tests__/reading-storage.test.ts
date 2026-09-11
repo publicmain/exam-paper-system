@@ -158,12 +158,23 @@ describe('AC-03 生命周期清理', () => {
     expect(lastRemove).toBeLessThan(tokenWrite);
   });
 
-  it('换账号后只剩新令牌', () => {
+  it('换账号后只剩新令牌（外加新主人的草稿归属摘要）', () => {
     writeToken('OLD');
     seedReadingData();
     adoptSession('NEW', { id: 's', name: 'n', nickname: '', avatar: null });
-    expect(Object.keys(localStorage)).toEqual(['sw:token']);
+    expect(Object.keys(localStorage).sort()).toEqual(['sw:owner', 'sw:token']);
     expect(readToken()).toBe('NEW');
+  });
+
+  it('**同一个人重新登录：没同步的草稿还在**（审计 UI15）', () => {
+    adoptSession('FIRST', { id: 's1', name: 'n', nickname: '', avatar: null });
+    seedReadingData();
+    // 令牌过期 → 只作废令牌
+    handleAuthFailure(new ApiError(401, { code: 'token_expired' }));
+    expect(readToken()).toBeNull();
+    adoptSession('AGAIN', { id: 's1', name: 'n', nickname: '', avatar: null });
+    expect(localStorage.getItem(READING_KEYS.answers(SID, SUB)!)).toContain('"a"');
+    expect(readToken()).toBe('AGAIN');
   });
 
   it('登出 → sw: 全空', () => {
@@ -173,18 +184,32 @@ describe('AC-03 生命周期清理', () => {
     expect(Object.keys(localStorage)).toEqual([]);
   });
 
-  it('改密码 → sw: 全空', () => {
-    writeToken('TK');
+  it('改密码（老服务端不发新票）→ 令牌作废；草稿留给本人，换人登录时才清', () => {
+    adoptSession('TK', { id: 's1', name: 'n', nickname: '', avatar: null });
     seedReadingData();
     afterPasswordChanged();
-    expect(Object.keys(localStorage)).toEqual([]);
+    expect(readToken()).toBeNull();
+    // 别人在这台设备上登录 → 上一个人的草稿全部没了
+    adoptSession('OTHER', { id: 's2', name: 'm', nickname: '', avatar: null });
+    expect(Object.keys(localStorage).filter((k) => k.startsWith('sw:reading'))).toEqual([]);
   });
 
-  it('**令牌被撤销 → 阅读缓存也一起清掉**（不能留给下一个人）', () => {
-    writeToken('TK');
+  it('**令牌被撤销 → 令牌立刻作废；阅读缓存不会留给下一个人**', () => {
+    adoptSession('TK', { id: 's1', name: 'n', nickname: '', avatar: null });
     seedReadingData();
     const handled = handleAuthFailure(new ApiError(401, { code: 'token_revoked' }));
     expect(handled).toBe(true);
-    expect(Object.keys(localStorage)).toEqual([]);
+    // 没有令牌就写不了任何东西
+    expect(readToken()).toBeNull();
+    // 下一个人登录前，上一个人的草稿全部清掉
+    adoptSession('B', { id: 's2', name: 'm', nickname: '', avatar: null });
+    expect(Object.keys(localStorage).sort()).toEqual(['sw:owner', 'sw:token']);
+  });
+
+  it('**旧版本留下、没有归属记号的草稿**：任何人登录都先清掉（宁可丢也不串）', () => {
+    writeToken('OLD');
+    seedReadingData();
+    adoptSession('NEW', { id: 's1', name: 'n', nickname: '', avatar: null });
+    expect(Object.keys(localStorage).filter((k) => k.startsWith('sw:reading'))).toEqual([]);
   });
 });

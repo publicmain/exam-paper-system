@@ -138,3 +138,36 @@ export async function disablePush(token: string): Promise<void> {
   await sub.unsubscribe();
   await api.pushUnsubscribe(token, { endpoint });
 }
+
+/**
+ * 退出 / 换人 / 令牌失效时，解除**这台设备**上的提醒订阅（审计 UI07）。
+ *
+ * 浏览器里的订阅是设备级的，不认账号：A 开了提醒、退出、B 登录，如果不解绑，
+ * B 的设备上会继续收到 A 的个人提醒，页面还会按「浏览器有订阅」显示成已开启。
+ *   · 有有效令牌（主动退出）→ 先告诉服务端删掉这条订阅，再在本地退订；
+ *   · 令牌已失效（被撤销 / 过期）→ 只能本地退订：端点随之作废，服务端下次发送
+ *     会被推送服务拒绝并清理。
+ * 全程尽力而为：不支持推送 / 没订阅 / 网络失败都不影响退出本身。
+ */
+export async function releasePushForThisDevice(token: string | null): Promise<void> {
+  let sub: PushSubscription | null = null;
+  try {
+    sub = await currentSubscription();
+  } catch {
+    return;
+  }
+  if (!sub) return;
+  const endpoint = sub.endpoint;
+  if (token) {
+    try {
+      await api.pushUnsubscribe(token, { endpoint });
+    } catch {
+      /* 服务端没删成：本地退订后端点也会失效 */
+    }
+  }
+  try {
+    await sub.unsubscribe();
+  } catch {
+    /* 退订失败不阻塞退出 */
+  }
+}
