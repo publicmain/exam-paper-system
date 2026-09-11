@@ -145,7 +145,8 @@ try {
             }
           }
           return {
-            overflowX: se.scrollWidth > se.clientWidth + 1,
+            // 零容差：线上走查发现 1px 溢出在手机上也能左右晃（原来 +1 的容差把它放过了）
+            overflowX: se.scrollWidth > se.clientWidth,
             scrollWidth: se.scrollWidth,
             clientWidth: se.clientWidth,
             docHeight: se.scrollHeight,

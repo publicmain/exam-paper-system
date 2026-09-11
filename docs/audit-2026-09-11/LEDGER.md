@@ -115,7 +115,8 @@
 | 三端构建 | 通过；学生端首包 JS 501.95 kB / gzip 163.39 kB（基线 140.94，预算 ≤ 170），CSS gzip 8.60 kB | `.local/audit/final/build.txt`、`build-student-final.txt` |
 | 迁移预演（本机隔离 PGlite） | 先 `6f85e6d` 的 44 个迁移、再本分支新增 1 个，全部成功，status up to date；schema 差异只剩两条早已存在的索引差异 | `.local/audit/final/migrate-dryrun.txt` |
 | 发布脚本集成测试（同一隔离库） | 9 / 9 | `.local/audit/final/pilot-publish-db.txt` |
-| 截图矩阵（Chromium 视口模拟） | 34 个页面场景 × 10 个宽度 × 浅深 = 680 张：横向溢出 0、&lt;44px 可点元素 0、页面报错 0 | `.local/audit/screens/matrix/metrics.json` |
+| 截图矩阵（Chromium 视口模拟） | 34 个页面场景 × 10 个宽度 × 浅深 = 680 张：横向溢出 0、&lt;44px 可点元素 0、页面报错 0 —— **当时量尺有 1px 容差**，上线后冒烟在阅读页抓到 1px 溢出（见下一行） | `.local/audit/screens/matrix/metrics.json` |
+| 零容差复测（上线后） | 阅读页「原文 / 题目」吸顶条 `-mx-px` 撑出 1px，已删；量尺改成零容差。34 场景 × 320 / 390 / 430 / 1180 = 136 张：溢出 0、小命中区 0、报错 0。反证：把 `-mx-px` 临时放回，同一把尺在 390 / 430 抓到阅读页两个场景（391 / 390、431 / 430） | `.local/audit/screens/strict/`、`strict-revert/` |
 | 文字放大 200%（根字号，Chromium） | 34 场景 × 390 / 820 = 68 张：溢出 0、小命中区 0、报错 0（修前 16 张溢出，见 daf6b87） | `.local/audit/screens/font200/metrics.json` |
 | 改前改后对照页 | 16 个页面，手机 390×844 与 iPad 横屏 1180×820，改后附深色 | `.local/audit/compare/index.html`（已发布为私有 Artifact） |
 | ops-dashboard 语法检查 | 通过 | `.local/audit/final/check-scripts.txt` |

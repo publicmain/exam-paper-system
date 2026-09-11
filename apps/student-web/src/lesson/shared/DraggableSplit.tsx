@@ -176,7 +176,7 @@ export function DraggableSplit({
   if (!isWide) {
     return (
       <div ref={containerRef} data-testid={testId} data-layout="stacked">
-        <div className="sticky top-[var(--focus-header-h,56px)] z-10 -mx-px bg-canvas/95 px-3 py-2">
+        <div className="sticky top-[var(--focus-header-h,56px)] z-10 bg-canvas/95 px-3 py-2">
           <Segmented
             label="在原文和题目之间跳转"
             value={view}
