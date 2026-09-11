@@ -111,7 +111,7 @@ describe('S07 · 同名分支：与单人分支同一套失败计数 / 锁定', 
 
   it(`连错 ${MAX_FAILED_ATTEMPTS} 次：两个同名账号都锁上（修之前永远锁不上）`, async () => {
     const { svc, users } = makeDb(pair());
-    const results = [];
+    const results: Array<Awaited<ReturnType<typeof attempt>>> = [];
     for (let i = 0; i < MAX_FAILED_ATTEMPTS; i++) results.push(await attempt(svc, 'wrong-000'));
     expect(users.every(lockedNow)).toBe(true);
     expect(results.at(-1)!.body?.code).toBe('pin_locked');
@@ -170,7 +170,7 @@ describe('S07 · 同名分支：与单人分支同一套失败计数 / 锁定', 
 
   it('无正确密码不能枚举班级候选：错误与锁定的响应体里只有错误码（锁定另带剩余秒数）', async () => {
     const { svc } = makeDb(pair());
-    const bodies = [];
+    const bodies: any[] = [];
     for (let i = 0; i < MAX_FAILED_ATTEMPTS + 1; i++) bodies.push((await attempt(svc, 'wrong-000')).body);
     for (const b of bodies) {
       expect(Object.keys(b).sort()).toEqual(b.code === 'pin_locked' ? ['code', 'retryAfterSec'] : ['code']);
