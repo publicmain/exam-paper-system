@@ -35,6 +35,9 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { ResultView } from '../components/ResultView';
+import { Button } from '../design/Button';
+import { BackButton } from '../design/Page';
+import { InlineStatus, StatusView } from '../design/Status';
 import { ApiError, api, type ReadingResult } from '../lib/api';
 import { handleAuthFailure } from '../lib/auth-store';
 import { readToken } from '../lib/identity';
@@ -125,80 +128,74 @@ export default function ScoreDetailPage() {
 
   if (phase.s === 'loading') {
     return (
-      <div className="min-h-[100dvh] grid place-items-center bg-surface-2">
-        <p className="text-ink-3">载入中…</p>
-      </div>
+      <Frame navigate={navigate}>
+        <StatusView kind="loading" title="载入中" />
+      </Frame>
     );
   }
 
   if (phase.s === 'denied') {
     return (
-      <Shell>
-        <div
-          role="alert"
-          data-testid="detail-denied"
-          className="rounded-xl bg-warning-soft text-warning px-4 py-3 text-sm mb-4"
-        >
-          没有找到这份成绩 —— 它可能不属于你，或者已经不在了。
+      <Frame navigate={navigate}>
+        <div className="mx-auto max-w-md py-8">
+          <div data-testid="detail-denied">
+            <InlineStatus tone="warning">没有找到这份成绩 —— 它可能不属于你，或者已经不在了。</InlineStatus>
+          </div>
+          <BackToScores navigate={navigate} />
         </div>
-        <BackToScores navigate={navigate} />
-      </Shell>
+      </Frame>
     );
   }
 
   if (phase.s === 'error') {
     return (
-      <Shell>
-        <div role="alert" className="rounded-xl bg-danger-soft text-danger px-4 py-3 text-sm mb-4">
-          {phase.message}
-        </div>
-        <button
-          type="button"
-          data-testid="retry"
-          onClick={() => void load()}
-          className="w-full rounded-xl bg-accent-fill text-accent-on py-3 text-base font-medium min-h-[44px]"
-        >
-          重试
-        </button>
-        <BackToScores navigate={navigate} />
-      </Shell>
+      <Frame navigate={navigate}>
+        <StatusView
+          kind="error"
+          title="这份成绩没打开"
+          message={phase.message}
+          secondary={
+            <>
+              <Button block data-testid="retry" icon="refresh" onClick={() => void load()}>
+                重试
+              </Button>
+              <BackToScores navigate={navigate} />
+            </>
+          }
+        />
+      </Frame>
     );
   }
 
   return (
-    <Shell>
-      {/* 页头就有回去的路，不用滚到 7000 字的最底（2026-09-06 上线验收 标准档 B-8） */}
-      <div className="mb-3">
-        <button type="button" onClick={() => navigate(ROUTES.scores)} className="hit -ml-1 px-1 text-sm text-accent">← 历史成绩</button>
-      </div>
+    <Frame navigate={navigate}>
+      {/* 与答题页、刚交卷结果同一个阅读工作区（审计 IOS-05）；返回在顶上，不用滚到最底 */}
       <ResultView
         result={phase.result}
         submissionId={phase.submissionId}
         onAuthLost={() => void load()}
         footer={<BackToScores navigate={navigate} />}
       />
-    </Shell>
+    </Frame>
   );
 }
 
-function Shell({ children }: { children: React.ReactNode }) {
+/** 历史详情在「学习记录」这个 tab 里：顶上一个返回，内容用整宽给左右分栏。 */
+function Frame({ children, navigate }: { children: React.ReactNode; navigate: ReturnType<typeof useNavigate> }) {
   return (
-    <div className="ui-ios min-h-[100dvh] px-4 py-6 safe-top safe-bottom">
-      {/* S12L —— 宽屏放宽到 1280，给「左原文 / 右题目」腾出地方 */}
-      <div className="mx-auto w-full max-w-2xl lg:max-w-6xl xl:max-w-7xl">{children}</div>
-    </div>
+    <main id="main" className="safe-x mx-auto w-full max-w-[1400px] pb-8 pt-[max(0.5rem,env(safe-area-inset-top))]">
+      <div className="-ml-2 mb-2 flex min-h-[44px] items-center">
+        <BackButton label="学习记录" onClick={() => navigate(ROUTES.scores)} />
+      </div>
+      {children}
+    </main>
   );
 }
 
 function BackToScores({ navigate }: { navigate: ReturnType<typeof useNavigate> }) {
   return (
-    <button
-      type="button"
-      data-testid="back-to-scores"
-      onClick={() => navigate(ROUTES.scores)}
-      className="mt-6 w-full rounded-xl border border-control py-3 text-base min-h-[44px]"
-    >
-      回到历史成绩
-    </button>
+    <Button data-testid="back-to-scores" variant="neutral" block onClick={() => navigate(ROUTES.scores)} className="mt-4">
+      回到学习记录
+    </Button>
   );
 }

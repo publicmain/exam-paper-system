@@ -8,6 +8,7 @@
 import { useNavigate } from 'react-router-dom';
 import { ROUTES } from '../routes.contract';
 import { Unavailable } from '../ui';
+import { Button } from '../design/Button';
 
 export default function MistakePracticePage() {
   const navigate = useNavigate();
@@ -23,14 +24,9 @@ export default function MistakePracticePage() {
         </>
       }
       actions={
-        <button
-          type="button"
-          data-testid="back-to-today"
-          onClick={() => navigate(ROUTES.today)}
-          className="w-full min-h-[44px] rounded-xl bg-accent-fill text-accent-on py-3 text-base font-medium"
-        >
-          回到今天的课
-        </button>
+        <Button block data-testid="back-to-today" onClick={() => navigate(ROUTES.today)}>
+            回到今天的课
+          </Button>
       }
     />
   );

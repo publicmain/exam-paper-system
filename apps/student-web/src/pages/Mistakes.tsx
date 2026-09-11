@@ -23,6 +23,7 @@
 import { useNavigate } from 'react-router-dom';
 import { ROUTES } from '../routes.contract';
 import { Unavailable } from '../ui';
+import { Button } from '../design/Button';
 
 export default function MistakesPage() {
   const navigate = useNavigate();
@@ -40,22 +41,12 @@ export default function MistakesPage() {
       }
       actions={
         <>
-          <button
-            type="button"
-            data-testid="back-to-today"
-            onClick={() => navigate(ROUTES.today)}
-            className="w-full min-h-[44px] rounded-xl bg-accent-fill text-accent-on py-3 text-base font-medium"
-          >
+          <Button block data-testid="back-to-today" onClick={() => navigate(ROUTES.today)}>
             回到今天的课
-          </button>
-          <button
-            type="button"
-            data-testid="go-vocab"
-            onClick={() => navigate(ROUTES.vocab)}
-            className="w-full min-h-[44px] rounded-xl border border-control py-3 text-base"
-          >
+          </Button>
+          <Button block variant="neutral" data-testid="go-vocab" onClick={() => navigate(ROUTES.vocab)}>
             去生词本
-          </button>
+          </Button>
         </>
       }
     />

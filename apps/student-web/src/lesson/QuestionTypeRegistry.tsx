@@ -1,5 +1,6 @@
 import type { ExamPaper } from './examTypes';
 import { IELTSReadingPassage } from './questions/IELTSReadingPassage';
+import { Icon } from '../design/Icon';
 import { OLevelComprehension } from './questions/OLevelComprehension';
 import { OLevelCloze } from './questions/OLevelCloze';
 import { OLevelVocabInContext } from './questions/OLevelVocabInContext';
@@ -17,7 +18,7 @@ function EmptyPaperCard() {
   return (
     <div className="max-w-xl mx-auto py-12 px-6 text-center">
       <div className="bg-warning-soft border border-warning/35 rounded-xl p-8 shadow-sm">
-        <div className="text-3xl mb-3">📄</div>
+        <div className="mb-3 flex justify-center text-warning"><Icon name="reading" size={32} /></div>
         <h2 className="text-lg font-semibold text-warning mb-2">
           该卷尚未出题 · No questions yet
         </h2>

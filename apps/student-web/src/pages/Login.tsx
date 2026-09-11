@@ -20,6 +20,7 @@ import { adoptSession, getState } from '../lib/auth-store';
 import { loginErrorText, registerErrorText } from '../lib/errors';
 import { ROUTES } from '../routes.contract';
 import { Button, Card, CandidatePicker, Field, Notice, Screen, Title } from '../ui';
+import { Icon } from '../design/Icon';
 
 /**
  * 构建期变量表。
@@ -145,7 +146,13 @@ export default function LoginPage() {
   return (
     <Screen center width="narrow">
       <Card>
-        <Title>每日英语</Title>
+        <div className="mb-6 flex flex-col items-center text-center">
+          <span aria-hidden="true" className="mb-3 grid h-14 w-14 place-items-center rounded-[16px] bg-accent-fill text-accent-on">
+            <Icon name="words" size={30} />
+          </span>
+          <Title>每日英语</Title>
+          <p className="-mt-4 text-footnote text-ink-3">ESIC · 用自己的姓名和密码登录</p>
+        </div>
         {/* 报错时只显示错误，别和上一条提示叠在一起（2026-09-05 盲测 P2-16） */}
         {notice && !err ? <Notice kind="info">{notice}</Notice> : null}
         {err ? <Notice kind="error">{err}</Notice> : null}
@@ -193,16 +200,16 @@ export default function LoginPage() {
             </Button>
             {mode === 'login' ? (
               <>
-                <p className="text-center text-sm text-ink-3 mt-5">
-                  <Link to={ROUTES.register} className="text-accent underline">
+                <p className="mt-4 text-center">
+                  <Link to={ROUTES.register} className="inline-flex min-h-[44px] items-center px-2 text-callout font-medium text-accent">
                     第一次使用？注册
                   </Link>
                 </p>
-                <p className="text-center text-sm text-ink-3 mt-2">
+                <p className="text-center">
                   <button
                     type="button"
                     data-testid="forgot-password"
-                    className="text-accent underline"
+                    className="inline-flex min-h-[44px] items-center px-2 text-callout text-accent"
                     onClick={() => {
                       setMode('setnew');
                       setErr(null);
@@ -215,11 +222,11 @@ export default function LoginPage() {
                 </p>
               </>
             ) : (
-              <p className="text-center text-sm text-ink-3 mt-5">
+              <p className="mt-4 text-center">
                 <button
                   type="button"
                   data-testid="back-to-login"
-                  className="text-accent underline"
+                  className="inline-flex min-h-[44px] items-center px-2 text-callout font-medium text-accent"
                   onClick={() => {
                     setMode('login');
                     setErr(null);
@@ -227,7 +234,7 @@ export default function LoginPage() {
                     setConfirmPw('');
                   }}
                 >
-                  ← 回登录
+                  <Icon name="back" size={20} />回到登录
                 </button>
               </p>
             )}

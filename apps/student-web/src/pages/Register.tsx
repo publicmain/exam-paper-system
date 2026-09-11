@@ -165,7 +165,7 @@ export default function RegisterPage() {
             {busy ? '注册中…' : '注册并进入'}
           </Button>
           <p className="text-center text-sm text-ink-3 mt-5">
-            <Link to={ROUTES.login} className="text-accent underline">
+            <Link to={ROUTES.login} className="inline-flex min-h-[44px] items-center px-2 text-callout font-medium text-accent">
               已经注册过了，去登录
             </Link>
           </p>
