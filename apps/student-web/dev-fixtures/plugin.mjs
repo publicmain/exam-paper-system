@@ -239,6 +239,8 @@ function testFor(daily, { answered = 0, submitted = false } = {}) {
     correct: submitted ? items.filter((it) => it.isCorrect).length : null,
     newCount: learned.length,
     reviewCount: review.length,
+    newWords: learned.length,
+    reviewWords: review.length,
     retry: null,
     items,
   };
@@ -604,7 +606,8 @@ function center(q) {
       definition: w.definition ?? '',
       masteryStage: i % 9,
       due: `${d}T00:00:00.000Z`,
-      source: ['daily_pushed', 'reading_lookup', 'manual_search', 'teacher_assigned'][i % 4],
+      source: ['level_gap', 'reading_lookup', 'search', 'teacher_list'][i % 4],
+      sources: i % 7 === 0 ? ['level_gap', 'reading_lookup'] : [['level_gap', 'reading_lookup', 'search', 'teacher_list'][i % 4]],
       sourceTitle: i % 4 === 1 ? content.lessonFor(S.level, d)?.title ?? null : null,
       firstSeenAt: `${d}T08:00:00.000Z`,
       inNotebook: !state.notebookRemoved.has(id),
@@ -618,29 +621,32 @@ function center(q) {
   let items = pool.filter((it) => it.inNotebook);
   if (stage === 'removed') items = pool.filter((it) => !it.inNotebook);
   if (qq) items = items.filter((it) => it.headword.toLowerCase().includes(qq) || it.translation.includes(qq));
-  if (source) items = items.filter((it) => it.source === source);
+  if (source) items = items.filter((it) => it.sources.includes(source));
   const pageSize = 30;
-  const page = Math.max(1, Number(q.get('page') ?? 1));
+  // UI03：游标分页（游标 = 下一批从第几个开始）
+  const from = Math.max(0, Number(q.get('cursor') ?? 0) || 0);
+  const page = Math.floor(from / pageSize) + 1;
+  const next = from + pageSize < items.length ? String(from + pageSize) : null;
   return {
     stats: {
       total: pool.filter((it) => it.inNotebook).length,
       totalLearned: pool.length,
       removed: pool.filter((it) => !it.inNotebook).length,
-      new: 8,
-      learning: 30,
-      mastered: 12,
-      due: 5,
-      weak: 4,
-      spellingWeak: 3,
-      listeningWeak: 1,
-      speakingWeak: 0,
+      new: pool.filter((it) => it.inNotebook && it.masteryStage <= 1).length,
+      learning: pool.filter((it) => it.inNotebook && it.masteryStage >= 2 && it.masteryStage < 8).length,
+      mastered: pool.filter((it) => it.inNotebook && it.masteryStage === 8).length,
     },
     growth: [],
-    filters: { sources: ['daily_pushed', 'reading_lookup', 'manual_search', 'teacher_assigned'], stages: [], articles: [], topics: [], lists: [] },
+    filters: { sources: ['level_gap', 'teacher_list', 'reading_lookup', 'reading_error', 'search'], stages: ['new', 'learning', 'mastered', 'removed'], articles: [], topics: [], lists: [] },
     total: items.length,
     page,
     pageSize,
-    items: items.slice((page - 1) * pageSize, page * pageSize),
+    pageCount: Math.max(1, Math.ceil(items.length / pageSize)),
+    requestedPage: page,
+    clamped: false,
+    hasMore: next !== null,
+    nextCursor: next,
+    items: items.slice(from, from + pageSize),
   };
 }
 
@@ -717,6 +723,8 @@ async function handle(req, res, url) {
 
   if (path === '/vocab-v2/overview') return json(res, 200, overview());
   if (path === '/vocab-v2/profile') return json(res, 200, { dailyTarget: 10, taskMinutes: 5, audioAccent: 'en-GB', allowedDailyTargets: [5, 10, 15, 20] });
+  // 直接打开学词页（没先经过首页）时，也要先把场景里的今天物化出来
+  if (path.startsWith('/vocab-v2/daily') || path.startsWith('/vocab-v2/test')) scenario();
   if (path === '/vocab-v2/daily') {
     const date = url.searchParams.get('date') ?? S.today;
     return json(res, 200, state.daily[date] ?? null);
@@ -802,6 +810,7 @@ async function handle(req, res, url) {
     return json(res, 200, { ok: true, action: body.action ?? 'add', added: body.action === 'add', sense: { id: 'fx_sense_x', headword: body.headword ?? 'word', senseKey: 'x#1', pos: 'n', phonetic: null, translation: '示例', definition: '' } });
   }
   if (path === '/vocab-v2/custom-test/cancel') return json(res, 200, { ok: true, cancelled: true });
+  if (path === '/vocab-v2/test/audio') return json(res, 404, { code: 'v2_audio_not_available' });
   if (path === '/vocab-v2/daily/review') {
     const date = url.searchParams.get('date') ?? S.today;
     const d = state.daily[date];

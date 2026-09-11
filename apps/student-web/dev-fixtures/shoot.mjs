@@ -57,7 +57,15 @@ const SHOTS = [
   { id: 'vocab', path: '/vocab', scenario: 'midday' },
   { id: 'vocab-500', path: '/vocab', scenario: 'midday', extra: '&words=500' },
   { id: 'vocab-empty', path: '/vocab', scenario: 'fresh', extra: '&words=0' },
+  { id: 'vocab-tests', path: '/vocab?view=tests', scenario: 'backlog' },
+  { id: 'vocab-removed', path: '/vocab?view=removed', scenario: 'midday' },
+  { id: 'vocab-search', path: '/vocab?q=zzzz', scenario: 'midday' },
+  { id: 'vocab-dictionary', path: '/vocab', scenario: 'midday', setup: async (page) => { await page.click('[data-testid=open-dictionary]'); await page.type('[data-testid=dictionary-input]', 'subtract'); await page.keyboard.press('Enter'); } },
+  { id: 'vocab-practice', path: '/vocab', scenario: 'midday', setup: async (page) => { await page.click('[data-testid=open-practice]'); } },
   { id: 'learn', path: '/coach/learn', scenario: 'midday' },
+  { id: 'learn-more', path: '/coach/learn', scenario: 'midday', setup: async (page) => { const b = await page.$('button[aria-expanded]'); if (b) await b.click(); } },
+  { id: 'learn-recite', path: '/coach/learn', scenario: 'test_pending' },
+  { id: 'learn-deferred', path: '/coach/learn', scenario: 'all_deferred' },
   { id: 'test', path: '/coach/test?sessionId=fx_test_2026-09-14', scenario: 'midday' },
   { id: 'summary', path: '/lesson/summary', scenario: 'done' },
   { id: 'account', path: '/account', scenario: 'midday' },
@@ -101,6 +109,10 @@ try {
         page.on('pageerror', (e) => errors.push(String(e.message).slice(0, 200)));
         await page.goto(`${BASE}${shot.path}`, { waitUntil: 'networkidle0', timeout: 20000 }).catch((e) => errors.push(`goto: ${e.message}`));
         await new Promise((r) => setTimeout(r, 400));
+        if (shot.setup) {
+          await shot.setup(page).catch((e) => errors.push('setup: ' + e.message));
+          await new Promise((r) => setTimeout(r, 600));
+        }
         const metrics = await page.evaluate(() => {
           const se = document.scrollingElement || document.documentElement;
           const small = [];
