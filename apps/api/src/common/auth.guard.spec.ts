@@ -6,6 +6,15 @@ import { AuthGuard, ALLOW_HANDOFF_KEY, PUBLIC_KEY, ROLES_KEY } from './auth.guar
 
 const SECRET = 'test-secret-for-auth-guard';
 const jwt = new JwtService({ secret: SECRET });
+/**
+ * 2026-09-11 S03：AuthGuard 验签后还要比对账号状态。这里的账号一律启用、
+ * 版本号 0 —— 本文件只测 handoff 范围，生命周期另见 guard-chain.e2e.spec.ts。
+ */
+const activeAccounts = {
+  user: {
+    findUnique: async () => ({ role: 'student', isActive: true, archivedAt: null, studentAuthVersion: 0 }),
+  },
+} as any;
 
 /** Build a fake ExecutionContext with handler metadata, bearer token, route params. */
 function makeCtx(opts: {
@@ -39,7 +48,7 @@ const student = { id: 'stu1', email: 's@x.io', role: 'student' as const, name: '
 describe('AuthGuard — morning-quiz handoff scope', () => {
   let guard: AuthGuard;
   beforeEach(() => {
-    guard = new AuthGuard(jwt, new Reflector());
+    guard = new AuthGuard(jwt, new Reflector(), activeAccounts);
   });
 
   it('accepts a normal student token on a non-handoff route', async () => {

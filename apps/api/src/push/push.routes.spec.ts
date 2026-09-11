@@ -31,6 +31,8 @@ describe('push / audio 路由契约', () => {
     expect(routes).toContain('GET /api/push/config');
     expect(routes).toContain('POST /api/push/subscribe');
     expect(routes).toContain('POST /api/push/unsubscribe');
+    // UI07（2026-09-11）：按「当前账号 + 本浏览器 endpoint」查真实订阅状态
+    expect(routes).toContain('POST /api/push/status');
     expect(routes).toContain('GET /api/audio/word/:headword');
   });
 });

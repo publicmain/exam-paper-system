@@ -8,6 +8,11 @@ import * as bcrypt from 'bcryptjs';
 import { UserRole } from '@prisma/client';
 import { PrismaService } from '../common/prisma.service';
 import { AuditService } from '../audit/audit.service';
+import {
+  LEGACY_DEACTIVATED_PREFIX,
+  REVOKE_ALL_SESSIONS,
+  isLegacyDeactivated,
+} from '../common/account-lifecycle';
 
 /**
  * RBAC management for the admin console.
@@ -35,6 +40,25 @@ import { AuditService } from '../audit/audit.service';
  *      password resets each emit an AuditLog row with the actor + the
  *      target user's id. The `diff` field shows the before/after for
  *      role and isActive; `metadata` carries non-secret context.
+ *      The audit row is written in the **same transaction** as the change.
+ *
+ *   5. **Deactivation is the real account state** (2026-09-11 审计 S04).
+ *      It used to only prefix `passwordHash` with `!DEACTIVATED!:` —
+ *      staff password login failed, but students log in with `pinHash`,
+ *      `isActive` never changed and `studentAuthVersion` never moved: the
+ *      list said "deactivated" while the student could still log in and
+ *      keep using a 30-day token. Now deactivation writes `isActive=false`
+ *      AND revokes every issued session (`studentAuthVersion += 1`, the
+ *      account's push subscriptions deleted) in one transaction.
+ *      Re-activation flips `isActive` back but never rolls the version
+ *      back, so tokens revoked by the deactivation stay dead.
+ *
+ *   6. **Password reset = log out everywhere** (S03): same revocation.
+ *
+ * Rows deactivated the old way (prefix on `passwordHash`, `isActive` still
+ * true) are treated as deactivated everywhere via
+ * `common/account-lifecycle.isLegacyDeactivated`, and are normalised
+ * (prefix stripped, `isActive` set) the next time an admin touches them.
  */
 @Injectable()
 export class AdminRbacService {
@@ -50,14 +74,16 @@ export class AdminRbacService {
     UserRole.student,
   ];
 
-  // Sentinel prefix used when the User.isActive column doesn't yet
-  // exist in the deployed schema. We mark the passwordHash with this
-  // prefix so login fails (bcrypt.compare returns false) but the row
-  // can still be reactivated by an admin (we strip the prefix back off
-  // and the original hash is restored). Never put real tokens here —
-  // bcrypt hashes start with "$2a$" / "$2b$" / "$2y$", so the leading
-  // "!" is a safe namespace.
-  private readonly DEACTIVATED_PREFIX = '!DEACTIVATED!:';
+  // Legacy sentinel (pre-S04): deactivation used to be written as this
+  // prefix on passwordHash instead of the isActive column. No longer
+  // written; still recognised (and stripped on the next admin write) so
+  // rows deactivated the old way keep reading as deactivated.
+  private readonly DEACTIVATED_PREFIX = LEGACY_DEACTIVATED_PREFIX;
+
+  /** 真实的账号状态：isActive 列，且不是旧版停用标记。 */
+  private effectiveActive(u: { isActive: boolean; passwordHash: string }): boolean {
+    return u.isActive && !isLegacyDeactivated(u.passwordHash);
+  }
 
   constructor(
     private readonly prisma: PrismaService,
@@ -102,17 +128,17 @@ export class AdminRbacService {
           role: true,
           createdAt: true,
           lastLogin: true,
-          // We rely on the passwordHash sentinel to detect "deactivated"
-          // until the isActive column lands. Selecting just the prefix
-          // would be ideal but Prisma can't substring-select, so we read
-          // the full hash and never return it.
+          isActive: true,
+          // Only to recognise rows deactivated the pre-S04 way (prefix on
+          // the hash). Prisma can't substring-select, so we read the hash
+          // and never return it.
           passwordHash: true,
         },
       }),
     ]);
 
     const users = rows.map((u) => {
-      const isActive = !u.passwordHash.startsWith(this.DEACTIVATED_PREFIX);
+      const isActive = this.effectiveActive(u);
       return {
         id: u.id,
         email: u.email,
@@ -143,7 +169,7 @@ export class AdminRbacService {
   ) {
     const target = await this.prisma.user.findUnique({
       where: { id: targetId },
-      select: { id: true, email: true, name: true, role: true, passwordHash: true },
+      select: { id: true, email: true, name: true, role: true, passwordHash: true, isActive: true },
     });
     if (!target) throw new NotFoundException('user not found');
 
@@ -169,22 +195,26 @@ export class AdminRbacService {
       }
     }
 
-    // Compute the new passwordHash if isActive flipped.
-    const wasDeactivated = target.passwordHash.startsWith(this.DEACTIVATED_PREFIX);
-    let newPasswordHash: string | undefined;
-    if (patch.isActive !== undefined) {
-      if (patch.isActive === false && !wasDeactivated) {
-        // Activate -> deactivate: prefix the hash.
-        newPasswordHash = this.DEACTIVATED_PREFIX + target.passwordHash;
-      } else if (patch.isActive === true && wasDeactivated) {
-        // Deactivated -> activate: strip the prefix.
-        newPasswordHash = target.passwordHash.slice(this.DEACTIVATED_PREFIX.length);
-      }
-    }
+    // S04：停用 / 启用写的是真实账号状态（isActive），不再改写密码摘要。
+    const wasActive = this.effectiveActive(target);
+    const legacyPrefixed = isLegacyDeactivated(target.passwordHash);
+    const flipActive = patch.isActive !== undefined && patch.isActive !== wasActive;
+    const deactivating = flipActive && patch.isActive === false;
 
     const data: any = {};
     if (patch.role !== undefined && patch.role !== target.role) data.role = patch.role;
-    if (newPasswordHash !== undefined) data.passwordHash = newPasswordHash;
+    if (flipActive) data.isActive = patch.isActive;
+    // 按旧办法停用过的行，管理员一碰就规范化：去掉前缀、状态进 isActive 列。
+    // 旧办法停用时版本号从没动过 —— 停用前签发的令牌还「活着」，只是被前缀
+    // 判据挡着。规范化时补一次撤销，否则去掉前缀的那一刻它们就复活了。
+    const normalisingLegacy = patch.isActive !== undefined && legacyPrefixed;
+    if (normalisingLegacy) {
+      data.passwordHash = target.passwordHash.slice(this.DEACTIVATED_PREFIX.length);
+      data.isActive = patch.isActive;
+    }
+    // 停用 = 登出所有设备（恢复启用**不**回退版本号 —— 撤销过的令牌不复活）
+    const revoking = deactivating || normalisingLegacy;
+    if (revoking) Object.assign(data, REVOKE_ALL_SESSIONS);
 
     if (Object.keys(data).length === 0) {
       // No-op update; still return the current shape so the FE can
@@ -192,36 +222,45 @@ export class AdminRbacService {
       return this.shape(target.id);
     }
 
-    const updated = await this.prisma.user.update({
-      where: { id: target.id },
-      data,
-      select: {
-        id: true, email: true, name: true, role: true, createdAt: true,
-        lastLogin: true, passwordHash: true,
-      },
-    });
-
-    const newIsActive = !updated.passwordHash.startsWith(this.DEACTIVATED_PREFIX);
-    const wasActive = !wasDeactivated;
-
-    await this.audit.log({
-      actorId: actor.id,
-      actorRole: actor.role,
-      action: 'admin.rbac.user.update',
-      entityType: 'user',
-      entityId: target.id,
-      diff: {
-        role: patch.role !== undefined && patch.role !== target.role
-          ? { from: target.role, to: patch.role }
-          : undefined,
-        isActive: patch.isActive !== undefined && patch.isActive !== wasActive
-          ? { from: wasActive, to: newIsActive }
-          : undefined,
-      },
-      metadata: {
-        targetEmail: target.email,
-      },
-      ip: actor.ip ?? null,
+    const updated = await this.prisma.$transaction(async (tx: any) => {
+      const row = await tx.user.update({
+        where: { id: target.id },
+        data,
+        select: {
+          id: true, email: true, name: true, role: true, createdAt: true,
+          lastLogin: true, passwordHash: true, isActive: true,
+        },
+      });
+      // 被登出的设备不该再收到这个账号的个人提醒（UI07）
+      if (revoking) {
+        await tx.pushSubscription.deleteMany({ where: { studentId: target.id } });
+      }
+      const nowActive = this.effectiveActive(row);
+      await this.audit.log(
+        {
+          actorId: actor.id,
+          actorRole: actor.role,
+          action: 'admin.rbac.user.update',
+          entityType: 'user',
+          entityId: target.id,
+          diff: {
+            role: patch.role !== undefined && patch.role !== target.role
+              ? { from: target.role, to: patch.role }
+              : undefined,
+            isActive: wasActive !== nowActive
+              ? { from: wasActive, to: nowActive }
+              : undefined,
+          },
+          metadata: {
+            targetEmail: target.email,
+            ...(revoking ? { sessionsRevoked: true } : {}),
+            ...(normalisingLegacy ? { legacyDeactivationNormalised: true } : {}),
+          },
+          ip: actor.ip ?? null,
+        },
+        tx,
+      );
+      return row;
     });
 
     return {
@@ -231,7 +270,7 @@ export class AdminRbacService {
       role: updated.role,
       createdAt: updated.createdAt,
       lastLogin: updated.lastLogin,
-      isActive: newIsActive,
+      isActive: this.effectiveActive(updated),
     };
   }
 
@@ -252,36 +291,46 @@ export class AdminRbacService {
 
     const target = await this.prisma.user.findUnique({
       where: { id: targetId },
-      select: { id: true, email: true, passwordHash: true },
+      select: { id: true, email: true, passwordHash: true, isActive: true },
     });
     if (!target) throw new NotFoundException('user not found');
 
-    const wasDeactivated = target.passwordHash.startsWith(this.DEACTIVATED_PREFIX);
+    const wasDeactivated = !this.effectiveActive(target);
     const fresh = await bcrypt.hash(newPassword, 10);
     // Preserve deactivation: if the user was deactivated, reset still
-    // leaves them deactivated. Reactivation requires an explicit
-    // PATCH /users/:id { isActive: true }.
-    const stored = wasDeactivated ? this.DEACTIVATED_PREFIX + fresh : fresh;
-
-    await this.prisma.user.update({
-      where: { id: target.id },
-      data: { passwordHash: stored },
-    });
-
-    await this.audit.log({
-      actorId: actor.id,
-      actorRole: actor.role,
-      action: 'admin.rbac.user.reset_password',
-      entityType: 'user',
-      entityId: target.id,
-      // CRITICAL: never put the plaintext or the hash in metadata.
-      // Only a boolean acknowledgement.
-      metadata: {
-        passwordRotated: true,
-        targetEmail: target.email,
-        deactivatedAtRotation: wasDeactivated,
-      },
-      ip: actor.ip ?? null,
+    // leaves them deactivated (now via the isActive column — a row
+    // deactivated the legacy way is normalised here). Reactivation
+    // requires an explicit PATCH /users/:id { isActive: true }.
+    await this.prisma.$transaction(async (tx: any) => {
+      await tx.user.update({
+        where: { id: target.id },
+        data: {
+          passwordHash: fresh,
+          ...(wasDeactivated ? { isActive: false } : {}),
+          // S03：重置密码 = 登出所有设备
+          ...REVOKE_ALL_SESSIONS,
+        },
+      });
+      await tx.pushSubscription.deleteMany({ where: { studentId: target.id } });
+      await this.audit.log(
+        {
+          actorId: actor.id,
+          actorRole: actor.role,
+          action: 'admin.rbac.user.reset_password',
+          entityType: 'user',
+          entityId: target.id,
+          // CRITICAL: never put the plaintext or the hash in metadata.
+          // Only a boolean acknowledgement.
+          metadata: {
+            passwordRotated: true,
+            sessionsRevoked: true,
+            targetEmail: target.email,
+            deactivatedAtRotation: wasDeactivated,
+          },
+          ip: actor.ip ?? null,
+        },
+        tx,
+      );
     });
 
     // Response is an acknowledgement only — no plaintext, no hash.
@@ -298,7 +347,7 @@ export class AdminRbacService {
       where: { id },
       select: {
         id: true, email: true, name: true, role: true,
-        createdAt: true, lastLogin: true, passwordHash: true,
+        createdAt: true, lastLogin: true, passwordHash: true, isActive: true,
       },
     });
     if (!u) throw new NotFoundException('user not found');
@@ -309,7 +358,7 @@ export class AdminRbacService {
       role: u.role,
       createdAt: u.createdAt,
       lastLogin: u.lastLogin,
-      isActive: !u.passwordHash.startsWith(this.DEACTIVATED_PREFIX),
+      isActive: this.effectiveActive(u),
     };
   }
 }

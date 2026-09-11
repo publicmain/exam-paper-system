@@ -19,12 +19,18 @@ import { z } from 'zod';
 import { CurrentUser } from '../common/current-user.decorator';
 import { AllowHandoff, Public } from '../common/auth.guard';
 import { RateLimit } from '../common/rate-limit.guard';
-import { RequireStudentToken, StudentIdentityGuard , type RequestWithStudentAuth } from '../common/student-identity.guard';
+import {
+  AllowTeacherView,
+  RequireStudentReadToken,
+  RequireStudentToken,
+  StudentIdentityGuard,
+  type RequestWithStudentAuth,
+} from '../common/student-identity.guard';
 import { authenticatedStudentWhere, studentNotEligible } from '../common/authenticated-student';
 import { identityOf } from '../common/student-identity-input';
 import { PrismaService } from '../common/prisma.service';
-import { closeNames } from '../common/name-suggest';
 import { StudentService } from '../student/student.service';
+import { submissionRowView } from '../student/student-submission-view';
 import { AbsenceAlertService } from './absence-alert.service';
 import { MorningQuizExportService } from './morning-quiz-export.service';
 import { MorningQuizWeeklyCron } from './morning-quiz-weekly-cron';
@@ -113,6 +119,25 @@ function parseHistoryRateLimit(): { limit: number; windowSec: number } {
   return { limit, windowSec };
 }
 const HISTORY_RATE_LIMIT = parseHistoryRateLimit();
+
+/**
+ * S02（2026-09-11 审计）：按姓名解析的旧读 / 练习接口，身份一律取令牌。
+ *
+ * 守卫（`@RequireStudentReadToken` / `@RequireStudentToken`）已经核对过查询串 /
+ * 请求体里的 name、studentId 与令牌一致。但**同名**时「姓名一致」这一条对
+ * 冒名者也成立 —— 服务层按姓名找人，找到两个就把两个候选连同班级一起返回。
+ * 所以这里把 studentId **强制**设成令牌里的 id：服务层只会解析出令牌本人，
+ * 不会列候选、不会按姓名合并出别人的数据。
+ *
+ * 姓名：调用方给了就用（守卫已确认与令牌一致），没给（新学生端只带 Bearer）
+ * 就用令牌里的。无令牌（绕过守卫的直接调用）在调任何服务之前拒绝。
+ */
+function tokenBoundIdentity(req: Request, rawName?: string): { name: string; studentId: string } {
+  const auth = (req as RequestWithStudentAuth).studentAuth;
+  if (!auth) throw new ForbiddenException({ code: 'student_token_required' });
+  const name = (rawName ?? '').trim() || auth.name;
+  return { name, studentId: auth.id };
+}
 
 /**
  * 学生身份（2026-08-25 复审 P0）：本 controller 同时服务教师端与学生端。
@@ -528,11 +553,13 @@ export class MorningQuizController {
       select: { paperAssignmentId: true },
     });
     if (!session) throw new NotFoundException({ code: 'session_not_found' });
-    return this.student.openSubmission(session.paperAssignmentId, {
+    // S01：返回答卷行的白名单（学生端只读 id / status）
+    const row = await this.student.openSubmission(session.paperAssignmentId, {
       id: user.id,
       role: user.role,
       ip: req.ip ?? null,
     });
+    return submissionRowView(row);
   }
 
   /** Student fetches the day's questions (shuffle applied). */
@@ -588,17 +615,24 @@ export class MorningQuizController {
     // Claude short-answer call. The 09:00 lockPastSessions cron runs ONE
     // batched AI sweep for the whole cohort, so 30 students submitting at
     // once can't fan out into ~200 concurrent Claude calls.
-    return this.student.finalSubmit(
+    const row = await this.student.finalSubmit(
       submission.id,
       { id: user.id, role: user.role, ip: req.ip ?? null },
       { deferAi: true, final: body?.final !== false },
     );
+    // S01：交卷那一刻的 autoScore 只是客观题部分分 —— 定稿前不给
+    // （2026-08-14 成绩发布口径）。学生端只读 id / status。
+    return submissionRowView(row);
   }
 
   /** F3 — student post-submit result page payload.
    *  Returns score breakdown + per-question student answer + correct
    *  answer + explanation. Server enforces the "submitted-or-window-
    *  closed" gate; pre-submit calls return 403 result_locked_until_submit. */
+  // S08：getStudentResult() 纯读取（只 findUnique / findFirst / findMany）——
+  // 教师只读视角可读。答题页 GET sessions/:id **不在此列**：getStudentView()
+  // 会 shuffle.getOrCreate 建乱序表，是隐式写。
+  @AllowTeacherView()
   @Get('student-result/:sessionId')
   studentResult(@Param('sessionId') sessionId: string, @CurrentUser() user: any) {
     if (user.role !== 'student') throw new ForbiddenException('student_only');
@@ -606,19 +640,28 @@ export class MorningQuizController {
   }
 
   /**
-   * R10 followup — student-self-service: look up ALL past submissions
-   * by name. Public route (no JWT — the scan flow's scanToken expires
-   * with quizEnd, so a student can't reuse it to check yesterday's
-   * score). Rate-limited per IP; the threat model matches the existing
-   * scan flow (anyone can pick any name from the roster — names are
-   * not a secret within the school).
+   * 学生自己的阅读历史（已交 / 已判 / 练习）。
+   *
+   * ## S02（2026-09-11 审计）：姓名不再是授权凭据
+   *
+   * 这里原来是 @Public 的「输姓名查成绩」：不带令牌时按姓名找人，同名时
+   * 还把候选的班级、邮箱前缀列出来 —— 知道同学姓名就能读他的成绩。
+   *
+   * 现在**只认验签后的学生令牌**（`@RequireStudentReadToken()`：学生本人或
+   * 教师只读视角；本接口零写库）。无令牌在查任何学生之前就被守卫 403
+   * `student_token_required`；handler 里再兜一层，直接调用也一样拒。
+   * 查询串里的 `name` / `studentId` 只为旧客户端兼容而保留：守卫已核对
+   * 它们与令牌一致（不一致 403 `identity_mismatch`），这里**不拿它们查人**。
    *
    * Returns submitted/graded papers only — in-progress and never-
    * scanned-in sessions are filtered out so the page reads as
    * "exams I've actually taken".
    */
+  // S06：这一组现在都必须带令牌 —— 按已验证的学生分桶，全校共用出口 IP 不再
+  // 互相 429；没令牌 / 令牌无效的请求在限流守卫里仍落 IP 桶。
   @Public()
-  @RateLimit({ limit: HISTORY_RATE_LIMIT.limit, windowSec: HISTORY_RATE_LIMIT.windowSec, scope: 'ip' })
+  @RequireStudentReadToken()
+  @RateLimit({ limit: HISTORY_RATE_LIMIT.limit, windowSec: HISTORY_RATE_LIMIT.windowSec, scope: 'user' })
   @Get('history-by-name')
   async historyByName(
     @Req() req: Request,
@@ -626,58 +669,20 @@ export class MorningQuizController {
     @Query('studentId') studentIdFilter?: string,
   ) {
     const auth = (req as RequestWithStudentAuth).studentAuth;
-    const name = (rawName ?? '').trim();
-    // 阶段 5A —— 带令牌时姓名可以不给；没令牌仍必须给（旧口径不变）
-    if (!auth && !name) throw new BadRequestException({ code: 'name_required' });
-    if (name && name.length > 50) throw new BadRequestException({ code: 'name_too_long' });
-    // Bug 9: filter out soft-deleted/withdrawn students. They should not
-    // appear in name lookups; the PII of a withdrawn student must not leak.
-    // R15-Bug B (production 2026-05-12): also filter out PHANTOM students —
-    // role='student' rows that have ZERO class enrollments. These can leak
-    // in via (a) failed transfer where old enrollment was deleted but the
-    // new one never created, (b) leftover test fixtures, (c) admin
-    // imported a roster CSV but forgot to assign a class. Showing them
-    // in the disambig picker confused real students ("which 李永轩 am I?"
-    // — they're me but unregistered) and clicking the ghost row threw
-    // 500 from downstream history/dashboard queries that assume the
-    // student is in a class. The Prisma `some` predicate forces at
-    // least one student-role enrollment.
-    // 阶段 5A —— **已认证路径**：令牌里有确定的 id，不查姓名、不消歧。
-    // 资格谓词与 vocab / morning-quiz 服务层共用同一份定义。
-    const authCandidates = auth
-      ? await this.prisma.user.findMany({
-          where: authenticatedStudentWhere(auth.id),
-          select: {
-            id: true,
-            name: true,
-            email: true,
-            classEnrollments: {
-              where: { role: 'student', class: { archivedAt: null } },
-              select: { class: { select: { id: true, name: true, classCode: true } } },
-            },
-          },
-        })
-      : null;
-    if (authCandidates && authCandidates.length === 0) throw studentNotEligible();
-
-    const allCandidates = authCandidates ?? await this.prisma.user.findMany({
-      where: {
-        name: name,
-        role: 'student',
-        isActive: true,
-        // R15-Audit#2: require an active (non-archived) class enrollment.
-        // Filters phantom ghosts AND archived-class-only students.
-        classEnrollments: {
-          some: { role: 'student', class: { archivedAt: null } },
-        },
-      },
+    // S02：无令牌，在查任何学生之前拒绝（守卫已拒；这里防直接调用）
+    if (!auth) throw new ForbiddenException({ code: 'student_token_required' });
+    // 旧客户端可能还带着 name / studentId —— 守卫已确认它们与令牌一致，
+    // 这里只认令牌里的 id，不再拿它们查人、不再消歧。
+    void rawName;
+    void studentIdFilter;
+    // 已认证路径：令牌里有确定的 id —— 不查姓名、不消歧、不给近似姓名建议、
+    // 不列同名候选。资格谓词与 vocab / morning-quiz 服务层共用同一份定义
+    // （启用、未归档、在读于未归档班级；幽灵学生与已退学的都进不来）。
+    const candidates = await this.prisma.user.findMany({
+      where: authenticatedStudentWhere(auth.id),
       select: {
         id: true,
         name: true,
-        // R15-Audit#3 — same-name same-class candidates render visually
-        // identical rows. Include the school-assigned email local-part
-        // so the UI can show a disambiguator hint ("s003@…") that
-        // students can verify against their own school email.
         email: true,
         classEnrollments: {
           where: { role: 'student', class: { archivedAt: null } },
@@ -685,71 +690,7 @@ export class MorningQuizController {
         },
       },
     });
-    if (allCandidates.length === 0) {
-      // 相近姓名建议（学生十问修复 #9）：/my-history 是学生入口的第一道
-      // 门，输错一个字要给出路。只在查无此人时才多查一次名册。
-      let suggestions: string[] = [];
-      try {
-        const roster = await this.prisma.user.findMany({
-          where: {
-            role: 'student',
-            isActive: true,
-            classEnrollments: { some: { role: 'student', class: { archivedAt: null } } },
-          },
-          select: { name: true },
-        });
-        suggestions = closeNames(name, roster.map((r) => r.name));
-      } catch { /* 建议失败不影响报错本身 */ }
-      throw new NotFoundException({ code: 'student_not_found', typed: name, suggestions });
-    }
-    // Bug 5 — same-name disambiguation. If the lookup matches multiple
-    // students AND the caller didn't specify which one (via ?studentId=),
-    // return a 200 with `needDisambiguation: true` and the list of
-    // candidates so the UI can prompt the student to pick. Once they
-    // pick, the page re-fetches with studentId locked in.
-    // Bug 3: if studentIdFilter is set but doesn't match any candidate
-    // for this name, we MUST NOT silently fall back to the merged set
-    // of all same-name students — that would leak everyone's history.
-    // Throw 404 instead. (A bogus studentId from a curious user, or a
-    // stale bookmark after a student was renamed/withdrawn, are both
-    // expected sources.)
-    if (studentIdFilter) {
-      const matched = allCandidates.filter((c) => c.id === studentIdFilter);
-      if (matched.length === 0) {
-        throw new NotFoundException({
-          code: 'student_not_found',
-          message: 'no candidate matches studentId for this name',
-        });
-      }
-    }
-    const candidates =
-      studentIdFilter
-        ? allCandidates.filter((c) => c.id === studentIdFilter)
-        : allCandidates;
-    if (allCandidates.length > 1 && !studentIdFilter) {
-      // R15-Audit#3 — when two same-name candidates also share their
-      // class (siblings, transfer-in collision, etc.), the picker rows
-      // are visually identical. Surface a short disambiguator derived
-      // from the email local-part (the school-assigned identifier
-      // students recognize: e.g. "s003"). Fall back to the last 4
-      // chars of studentId for non-school emails.
-      const localPart = (email: string | null | undefined): string => {
-        if (!email) return '';
-        const at = email.indexOf('@');
-        return at > 0 ? email.slice(0, at) : email;
-      };
-      return {
-        needDisambiguation: true,
-        candidates: allCandidates.map((c) => ({
-          studentId: c.id,
-          name: c.name,
-          hint: localPart(c.email) || c.id.slice(-4),
-          classes: c.classEnrollments.map((e) => ({
-            id: e.class.id, name: e.class.name, classCode: e.class.classCode,
-          })),
-        })),
-      };
-    }
+    if (candidates.length === 0) throw studentNotEligible();
     const studentIds = candidates.map((c) => c.id);
     // Submissions (exam history).
     // Includes status='practice' so the student can revisit their practice
@@ -813,16 +754,9 @@ export class MorningQuizController {
     // Removing it from the payload (not just the UI) means it can't be read
     // out of the network response either. Teachers use the class dashboards;
     // parents use the separate token-gated /api/parent/portal.
-    // 阶段 5A 更正 —— 回显的姓名取**解析出来的那条候选**，不是查询串。
-    //
-    // token-only 的请求根本不带 `name`，`name` 是空串；直接回显它，前端
-    // 拿到的就是 `student.name === ''`。执行与鉴权都对，回显是空的 ——
-    // 「到达了依赖」不等于「回给调用方的东西是对的」。
-    //
-    // 取库里的那条，不取令牌里的 `auth.name`：令牌签发之后姓名可能改过，
-    // 而这一路的唯一事实源是刚刚按 id 查出来的那行。
-    // 无令牌的旧路径仍然回显调用方给的姓名，一字不改。
-    const displayName = auth ? (candidates[0]?.name ?? name) : name;
+    // 阶段 5A 更正 —— 回显的姓名取**按令牌 id 查出来的那一行**，不是查询串，
+    // 也不是令牌里的 `auth.name`（令牌签发之后姓名可能改过）。
+    const displayName = candidates[0]?.name ?? '';
     return {
       student: {
         name: displayName,
@@ -889,22 +823,21 @@ export class MorningQuizController {
   }
 
   /**
-   * Per-submission per-question detail for a student — public route,
-   * rate-limited, name-matched. Lets students re-open their morning-quiz
-   * result from /my-history without needing to be logged in (the scan
-   * flow's session token expires, so the existing /student/result/:id
-   * page is useless for "check last week's answers").
+   * 一份阅读答卷的逐题回顾（学生本人 / 教师只读视角）。
    *
-   * Security:
-   *   - Name match: the typed name MUST exactly equal the submission's
-   *     student.name. Otherwise a curious student could enumerate
-   *     submissionIds and read other students' answers.
-   *   - Per-IP rate limit caps an enumeration loop.
-   *   - No identifying info beyond the submission (no roster, no other
-   *     students' data).
+   * ## S02（2026-09-11 审计）：归属只按令牌 id 校验
+   *
+   * 原来是 @Public 的「答卷号 + 姓名」：姓名对上就给看。姓名不是秘密，
+   * 答卷号又会出现在分享的链接里，于是「知道名字 + 拿到一个链接」就能读
+   * 别人的答案与得分。
+   *
+   * 现在只认验签后的令牌；无令牌在查答卷之前就拒。不是本人的答卷与不存在
+   * 的答卷**回同一个 404**，不给存在性信号。分数与答案放不放，仍由
+   * getStudentResult 按「最终提交 / 判分定稿」两道门决定。
    */
   @Public()
-  @RateLimit({ limit: HISTORY_RATE_LIMIT.limit, windowSec: HISTORY_RATE_LIMIT.windowSec, scope: 'ip' })
+  @RequireStudentReadToken()
+  @RateLimit({ limit: HISTORY_RATE_LIMIT.limit, windowSec: HISTORY_RATE_LIMIT.windowSec, scope: 'user' })
   @Get('history-detail')
   async historyDetail(
     @Req() req: Request,
@@ -912,25 +845,18 @@ export class MorningQuizController {
     @Query('name') rawName?: string,
   ) {
     const auth = (req as RequestWithStudentAuth).studentAuth;
-    const name = (rawName ?? '').trim();
+    // S02：无令牌，在查任何答卷之前拒绝（守卫已拒；这里防直接调用）
+    if (!auth) throw new ForbiddenException({ code: 'student_token_required' });
+    // 旧客户端可能还带着 name —— 守卫已确认它与令牌一致，这里不拿它比归属。
+    void rawName;
     if (!submissionId) throw new BadRequestException({ code: 'submission_id_required' });
-    // 阶段 5A —— 带令牌时姓名可以不给
-    if (!auth && !name) throw new BadRequestException({ code: 'name_required' });
     const sub = await this.prisma.studentSubmission.findUnique({
       where: { id: submissionId },
-      select: {
-        studentId: true,
-        assignmentId: true,
-        student: { select: { name: true } },
-      },
+      select: { studentId: true, assignmentId: true },
     });
-    if (!sub) throw new NotFoundException({ code: 'submission_not_found' });
-    // 归属校验：**有令牌就比 id**（姓名可能改过，也可能同名）；
-    // 没令牌沿用姓名比对，旧口径一字不改。
-    const owns = auth ? sub.studentId === auth.id : sub.student.name === name;
-    if (!owns) {
-      // Vague message — don't leak whether the submission exists.
-      throw new ForbiddenException({ code: 'name_mismatch' });
+    // 不存在 与 不是你的 —— 同一个回答
+    if (!sub || sub.studentId !== auth.id) {
+      throw new NotFoundException({ code: 'submission_not_found' });
     }
     // Find the matching MorningQuizSession (1:1 with PaperAssignment in
     // normal flow; pick the first non-cancelled if multiple exist).
@@ -945,19 +871,22 @@ export class MorningQuizController {
   // ─────────────────── F2 — Today's upcoming quiz by name ───────────────────
 
   /**
-   * Wave-2 F2 — public lookup of upcoming morning-quiz sessions for one
+   * Wave-2 F2 — lookup of upcoming morning-quiz sessions for one
    * named student. Rate-limited, same shape as /history-by-name (incl.
    * same-name disambig flow). Used by the student-portal landing page
    * to show "your next quiz is in <class> at 08:30".
+   *
+   * S02（2026-09-11）：与 history-by-name 同类的「按姓名匿名读」—— 现在必须
+   * 带令牌，且守卫核对查询串里的姓名 / 编号与令牌一致。
    */
   @Public()
-  @RateLimit({ limit: HISTORY_RATE_LIMIT.limit, windowSec: HISTORY_RATE_LIMIT.windowSec, scope: 'ip' })
+  @RequireStudentReadToken()
+  @RateLimit({ limit: HISTORY_RATE_LIMIT.limit, windowSec: HISTORY_RATE_LIMIT.windowSec, scope: 'user' })
   @Get('upcoming-for-name')
-  async upcomingForName(
-    @Query('name') rawName?: string,
-    @Query('studentId') studentId?: string,
-  ) {
-    return this.svc.upcomingForName(rawName ?? '', studentId);
+  async upcomingForName(@Req() req: Request, @Query('name') rawName?: string) {
+    // 查询串里的 studentId 由守卫核对（与令牌不一致 → 403），这里不用它
+    const who = tokenBoundIdentity(req, rawName);
+    return this.svc.upcomingForName(who.name, who.studentId);
   }
 
   // ─────────────────── F10 — AI-grade appeals ───────────────────
@@ -966,7 +895,7 @@ export class MorningQuizController {
    *  Rate-limited (5/60s). Name+studentId disambig matches
    *  /history-by-name. */
   @Public()
-  @RateLimit({ limit: 5, windowSec: 60, scope: 'ip' })
+  @RateLimit({ limit: 5, windowSec: 60, scope: 'user' })
   @RequireStudentToken()
   @Post('appeals')
   async createAppeal(@Body() body: unknown, @Req() req: Request) {
@@ -1082,9 +1011,10 @@ export class MorningQuizController {
   // ─────────────────── F16 — Practice mode ───────────────────
 
   /** Public — start a fresh practice attempt from an old submission.
-   *  Rate-limited; name+studentId scoped. */
+   *  Rate-limited; name+studentId scoped.
+   *  S02：studentId 强制取令牌（同名时不返回候选）；S06：按学生限流。 */
   @Public()
-  @RateLimit({ limit: HISTORY_RATE_LIMIT.limit, windowSec: HISTORY_RATE_LIMIT.windowSec, scope: 'ip' })
+  @RateLimit({ limit: HISTORY_RATE_LIMIT.limit, windowSec: HISTORY_RATE_LIMIT.windowSec, scope: 'user' })
   @RequireStudentToken()
   @Post('practice/:submissionId')
   async startPractice(
@@ -1098,23 +1028,31 @@ export class MorningQuizController {
     });
     const parsed = schema.safeParse(body);
     if (!parsed.success) throw new BadRequestException(parsed.error.flatten());
-    return this.svc.startPractice(submissionId, parsed.data, req.ip ?? null);
+    const who = tokenBoundIdentity(req, parsed.data.studentName);
+    return this.svc.startPractice(
+      submissionId,
+      { ...parsed.data, studentName: who.name, studentId: who.studentId },
+      req.ip ?? null,
+    );
   }
 
-  /** Public — fetch a practice paper for replay. Rate-limited;
-   *  name+studentId scoped. Body via Query for GET. */
+  /** Fetch a practice paper for replay. Rate-limited;
+   *  name+studentId scoped. Body via Query for GET.
+   *  S02：必须带令牌（守卫核对姓名 / 编号与令牌一致）；纯读取，教师只读视角可读。 */
   @Public()
-  @RateLimit({ limit: HISTORY_RATE_LIMIT.limit, windowSec: HISTORY_RATE_LIMIT.windowSec, scope: 'ip' })
+  @RequireStudentReadToken()
+  @RateLimit({ limit: HISTORY_RATE_LIMIT.limit, windowSec: HISTORY_RATE_LIMIT.windowSec, scope: 'user' })
   @Get('practice/:practiceSubmissionId')
   async getPractice(
     @Param('practiceSubmissionId') practiceSubmissionId: string,
+    @Req() req: Request,
     @Query('name') name: string | undefined,
-    @Query('studentId') studentId: string | undefined,
   ) {
-    if (!name) throw new BadRequestException({ code: 'name_required' });
+    // S02：身份取令牌；查询串里的 studentId 由守卫核对，这里不用它
+    const who = tokenBoundIdentity(req, name);
     return this.svc.getPractice(practiceSubmissionId, {
-      studentName: name,
-      studentId,
+      studentName: who.name,
+      studentId: who.studentId,
     });
   }
 
@@ -1122,7 +1060,7 @@ export class MorningQuizController {
    *  but DOES NOT mark the submission as 'submitted' or fire
    *  score_ready. Stats endpoints exclude status='practice'. */
   @Public()
-  @RateLimit({ limit: HISTORY_RATE_LIMIT.limit, windowSec: HISTORY_RATE_LIMIT.windowSec, scope: 'ip' })
+  @RateLimit({ limit: HISTORY_RATE_LIMIT.limit, windowSec: HISTORY_RATE_LIMIT.windowSec, scope: 'user' })
   @RequireStudentToken()
   @Post('practice/:practiceSubmissionId/submit')
   async submitPractice(
@@ -1145,23 +1083,33 @@ export class MorningQuizController {
     });
     const parsed = schema.safeParse(body);
     if (!parsed.success) throw new BadRequestException(parsed.error.flatten());
-    return this.svc.submitPractice(practiceSubmissionId, parsed.data, req.ip ?? null);
+    const who = tokenBoundIdentity(req, parsed.data.studentName);
+    return this.svc.submitPractice(
+      practiceSubmissionId,
+      { ...parsed.data, studentName: who.name, studentId: who.studentId },
+      req.ip ?? null,
+    );
   }
 
   // ─────────────────── F17 — Score trend ───────────────────
 
-  /** Public — N-week trend of avg score per (week, level) for one student.
-   *  Rate-limited; reuses /history-by-name disambig. */
+  /** N-week trend of avg score per (week, level) for one student.
+   *  Rate-limited; reuses /history-by-name disambig.
+   *  S02：成绩数据，不能凭姓名匿名读 —— 必须带令牌，守卫核对姓名 / 编号与令牌一致。 */
   @Public()
-  @RateLimit({ limit: HISTORY_RATE_LIMIT.limit, windowSec: HISTORY_RATE_LIMIT.windowSec, scope: 'ip' })
+  @RequireStudentReadToken()
+  @RateLimit({ limit: HISTORY_RATE_LIMIT.limit, windowSec: HISTORY_RATE_LIMIT.windowSec, scope: 'user' })
   @Get('history-by-name/trend')
   async historyTrend(
+    @Req() req: Request,
     @Query('name') name: string | undefined,
-    @Query('studentId') studentId: string | undefined,
+    @Query('studentId') _studentId: string | undefined,
     @Query('weeks') weeks: string | undefined,
   ) {
+    // S02：身份取令牌；查询串里的 studentId 由守卫核对，这里不用它
+    const who = tokenBoundIdentity(req, name);
     const w = weeks ? parseInt(weeks, 10) : undefined;
-    return this.svc.historyTrendByName(name ?? '', studentId, w);
+    return this.svc.historyTrendByName(who.name, who.studentId, w);
   }
 
   // ─────────────────── F18 — Wrong-rate stats ───────────────────
@@ -1227,19 +1175,22 @@ export class MorningQuizController {
   // 立项依据见 skill-profile.service.ts 顶部注释：每道题本来就存了 taskType，
   // 但系统从未按它聚合，学生只看到一个总分、老师不知道该重讲什么。
 
-  /** 学生自查：我哪类题弱。与 history-by-name 同一套姓名解析与限流。 */
+  /** 学生自查：我哪类题弱。与 history-by-name 同一套姓名解析与限流。
+   *  S02：各题型正确率也是成绩 —— 必须带令牌，守卫核对姓名 / 编号与令牌一致。 */
   @Public()
-  @RateLimit({ limit: HISTORY_RATE_LIMIT.limit, windowSec: HISTORY_RATE_LIMIT.windowSec, scope: 'ip' })
+  @RequireStudentReadToken()
+  @RateLimit({ limit: HISTORY_RATE_LIMIT.limit, windowSec: HISTORY_RATE_LIMIT.windowSec, scope: 'user' })
   @Get('skill-profile')
   async skillProfile(
+    @Req() req: Request,
     @Query('name') rawName?: string,
-    @Query('studentId') studentIdFilter?: string,
+    @Query('studentId') _studentIdFilter?: string,
     @Query('days') days?: string,
   ) {
-    const name = (rawName ?? '').trim();
-    if (!name) throw new BadRequestException({ code: 'name_required' });
-    if (name.length > 50) throw new BadRequestException({ code: 'name_too_long' });
-    return this.svc.skillProfileByName(name, studentIdFilter, {
+    // S02：身份取令牌；查询串里的 studentId 由守卫核对，这里不用它
+    const who = tokenBoundIdentity(req, rawName);
+    if (who.name.length > 50) throw new BadRequestException({ code: 'name_too_long' });
+    return this.svc.skillProfileByName(who.name, who.studentId, {
       windowDays: days ? Math.min(Math.max(parseInt(days, 10) || 60, 7), 365) : undefined,
     });
   }

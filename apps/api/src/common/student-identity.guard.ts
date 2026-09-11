@@ -3,12 +3,29 @@ import {
   ExecutionContext,
   ForbiddenException,
   Injectable,
-  SetMetadata,
 } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
 import { JwtService } from '@nestjs/jwt';
 import type { Request } from 'express';
 import { PrismaService } from './prisma.service';
+import { assertTokenLive } from './account-lifecycle';
+import {
+  REQUIRE_STUDENT_TOKEN,
+  TEACHER_VIEW_SCOPE,
+  isReadOnlyMethod,
+  type StudentTokenMode,
+} from './student-access';
+
+// 装饰器与 scope 常量的唯一定义在 student-access.ts；这里转出，既有的
+// `import { RequireStudentToken } from '../common/student-identity.guard'` 不用改。
+export {
+  ALLOW_TEACHER_VIEW,
+  AllowTeacherView,
+  REQUIRE_STUDENT_TOKEN,
+  RequireStudentReadToken,
+  RequireStudentToken,
+  TEACHER_VIEW_SCOPE,
+} from './student-access';
 
 /**
  * 学生身份 —— 可选解析 + 越权阻断（2026-08-25 外部审查 P0-1 的修复）。
@@ -44,14 +61,6 @@ import { PrismaService } from './prisma.service';
  *
  * 已缩小到：**任何人都无法再写别人的数据**，这是危害最大的那一半。
  */
-
-export const REQUIRE_STUDENT_TOKEN = 'require_student_token';
-
-/** 标记：该路由必须携带有效的学生 token（写操作一律加）。 */
-export const RequireStudentToken = () => SetMetadata(REQUIRE_STUDENT_TOKEN, true);
-
-/** 教师「以学生视角查看」的 scope。与 student-auth.service 保持一致。 */
-export const TEACHER_VIEW_SCOPE = 'teacher_view';
 
 export interface StudentAuth {
   id: string;
@@ -129,30 +138,17 @@ export class StudentIdentityGuard implements CanActivate {
         // teacher_view 是例外：它是教师端签发的**只读**学生视角令牌，
         // 走到这里当学生身份用，但下面第 ② 步会拒掉一切写操作。
         if (payload?.role === 'student' && payload.id && payload.scope !== 'mq_handoff') {
-          // 长期 token 的撤销校验（2026-08-25 复审 P0-2）。
+          // 令牌生命周期（2026-08-25 复审 P0-2 → 2026-09-11 审计 S03 统一）。
           //
-          // 带 av claim 的是 PIN 登录签发的 30 天 token —— 必须逐次比对
-          // 数据库里的 studentAuthVersion，并确认账号仍然启用。教师重置
-          // PIN / 学生改 PIN / 账号停用都会递增该版本，旧 token 当场作废。
-          // 没有这一步，「抢注者已拿到 30 天 token」的情况教师救不回来。
+          // 带 av 的 30 天令牌：比对 studentAuthVersion，并确认账号仍启用、
+          // 未归档。教师重置 / 学生改密码 / 后台停用都会递增版本号，旧令牌
+          // 当场作废。
           //
-          // 不带 av 的是扫码签发的当天 token（最长活到 23:59）——
-          // 它的暴露窗口只有几小时，不查库，避免给每次扫码答题都加一次
-          // 数据库往返。
-          if (typeof payload.av === 'number') {
-            const row = await this.prisma.user.findUnique({
-              where: { id: payload.id },
-              select: { studentAuthVersion: true, isActive: true, archivedAt: true },
-            });
-            const stillValid =
-              row != null &&
-              row.isActive &&
-              row.archivedAt == null &&
-              row.studentAuthVersion === payload.av;
-            if (!stillValid) {
-              throw new ForbiddenException({ code: 'token_revoked' });
-            }
-          }
+          // 不带 av 的扫码当天票：原来为省一次查库直接放行，结果是账号停用、
+          // 归档之后它还能用到 23:59。S03 要求「停用 / 归档后旧令牌在新旧接口
+          // 均失效」，现在同样查一次 —— 判据与全局 AuthGuard 是同一个函数，
+          // 同一个请求里两道守卫共用这一次查询。
+          await assertTokenLive(this.prisma, payload, req);
           student = { id: payload.id, name: payload.name ?? '' };
           // 只在真是教师视角时才挂这两个字段 —— 学生本人的身份对象保持
           // 原样，下游任何 `toEqual({id, name})` 的契约都不受影响
@@ -176,11 +172,12 @@ export class StudentIdentityGuard implements CanActivate {
       throw new ForbiddenException({ code: 'identity_mismatch' });
     }
 
-    // ② 写操作必须有 token
-    const mustHaveToken = this.reflector.getAllAndOverride<boolean>(REQUIRE_STUDENT_TOKEN, [
-      ctx.getHandler(),
-      ctx.getClass(),
-    ]);
+    // ② 标了 @RequireStudentToken / @RequireStudentReadToken 的必须有 token
+    const tokenMode = this.reflector.getAllAndOverride<StudentTokenMode | false | undefined>(
+      REQUIRE_STUDENT_TOKEN,
+      [ctx.getHandler(), ctx.getClass()],
+    );
+    const mustHaveToken = Boolean(tokenMode);
     if (mustHaveToken && !student) {
       throw new ForbiddenException({ code: 'student_token_required' });
     }
@@ -190,8 +187,17 @@ export class StudentIdentityGuard implements CanActivate {
     // 帮忙点两下，库里记的就是「学生交了卷」。判分队列和 FSRS 调度都建
     // 在这些记录上，一旦教师的动作能被记成学生的，之后看任何一条记录都
     // 要先问「这是他自己做的吗」。排障只需要看见，不需要代劳。
-    if (mustHaveToken && student?.viaTeacherView) {
-      throw new ForbiddenException({ code: 'teacher_view_is_read_only' });
+    //
+    // S08（2026-09-11）：「必须认证」与「必须本人」拆开 —— 标了
+    // `@RequireStudentReadToken()` 的零写库 GET 允许教师只读视角读；
+    // 只标 `@RequireStudentToken()` 的仍然是本人写，照旧 403。
+    // 而且不管标没标，教师只读视角的**非 GET 请求一律拒绝**（兜底：
+    // 防止谁把「读」误标到一个 POST 上）。
+    if (student?.viaTeacherView) {
+      const selfOnly = mustHaveToken && tokenMode !== 'read';
+      if (!isReadOnlyMethod(req.method) || selfOnly) {
+        throw new ForbiddenException({ code: 'teacher_view_is_read_only' });
+      }
     }
 
     if (student) req.studentAuth = student;

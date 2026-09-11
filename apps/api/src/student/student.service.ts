@@ -3,7 +3,7 @@ import { PrismaService } from '../common/prisma.service';
 import { createRealSubmissionSafe } from '../common/submission-create';
 import type { StudentSubmission } from '@prisma/client';
 import { gradeMcq } from '../grading/grade';
-import { redactSnapshotForStudent } from '../morning-quiz/morning-quiz.service';
+import { submissionDetailView } from './student-submission-view';
 import { WechatNotifyService } from '../wechat-notify/wechat-notify.service';
 import { allDayEnabled } from '../lesson/all-day';
 
@@ -836,11 +836,15 @@ export class StudentService {
     return result;
   }
 
-  /** Student fetches their own submission. Returned shape includes the FULL
+  /** Student fetches their own submission. Returned shape includes the
    *  paper structure (so the take-paper UI doesn't need to call the
-   *  teacher-only /api/papers/:id endpoint), but all answer-key data is
-   *  redacted out: no `markScheme`, no `answerContent`, no `correct` flag on
-   *  options or snapshotOptions. */
+   *  teacher-only /api/papers/:id endpoint).
+   *
+   *  S01（2026-09-11 审计）：响应是按答题状态的**字段白名单**
+   *  （`student-submission-view.ts`），不再是「删几个已知字段、其余
+   *  `...rest` 展开」—— 那样 snapshotAnswer / overrideAnswer / QA 审核意见 /
+   *  资源的 aiPrompt 都会跟着出去。答案键在任何状态都不经这个接口；
+   *  分数、逐题判分、评语按与阅读结果页相同的两道门放行。 */
   async getOwnSubmission(submissionId: string, student: ActorCtx) {
     const sub = await this.prisma.studentSubmission.findUnique({
       where: { id: submissionId },
@@ -863,47 +867,6 @@ export class StudentService {
     });
     if (!sub) throw new NotFoundException('submission not found');
     if (sub.studentId !== student.id) throw new ForbiddenException('not your submission');
-    return this.redactForStudent(sub);
-  }
-
-  /** Strip every answer-key field off questions / options / snapshotOptions
-   *  before sending to a student. Keeps stem, assets, marks, displayIndex,
-   *  and option text/keys — i.e. exactly what's needed to render the paper. */
-  private redactForStudent(sub: any) {
-    const stripOptions = (opts: any) => {
-      if (!Array.isArray(opts)) return opts;
-      return opts.map((o: any) => ({ key: o?.key, text: o?.text }));
-    };
-    const stripQuestion = (q: any) => {
-      if (!q) return q;
-      const { markScheme, answerContent, options, ...rest } = q;
-      return { ...rest, options: stripOptions(options) };
-    };
-    const stripPq = (pq: any) => {
-      if (!pq) return pq;
-      const { snapshotOptions, snapshotContent, ...rest } = pq;
-      // Use the morning-quiz whitelist redactor so any new answer-key field
-      // ever added to snapshotContent (correctOption / correctAnswer /
-      // exampleAnswer / explanation / solution / …) is dropped by default.
-      // The previous omit-list only stripped markScheme + answerContent and
-      // leaked round-3 C1 here on the post-submit replay path.
-      const safeSnapshot = redactSnapshotForStudent(snapshotContent);
-      return {
-        ...rest,
-        snapshotContent: safeSnapshot,
-        snapshotOptions: stripOptions(snapshotOptions),
-        question: stripQuestion(rest.question),
-      };
-    };
-    const paper = sub.assignment?.paper;
-    const safePaper = paper ? {
-      ...paper,
-      questions: (paper.questions ?? []).map(stripPq),
-    } : paper;
-    return {
-      ...sub,
-      assignment: sub.assignment ? { ...sub.assignment, paper: safePaper } : sub.assignment,
-      scripts: (sub.scripts ?? []).map((s: any) => ({ ...s, paperQuestion: stripPq(s.paperQuestion) })),
-    };
+    return submissionDetailView(sub);
   }
 }

@@ -2,7 +2,13 @@ import { BadRequestException, Body, Controller, ForbiddenException, Get, Param, 
 import { Request } from 'express';
 import { z } from 'zod';
 import { CurrentUser } from '../common/current-user.decorator';
+import { AllowTeacherView } from '../common/student-access';
 import { StudentService } from './student.service';
+import {
+  answerScriptView,
+  assignmentListItemView,
+  submissionRowView,
+} from './student-submission-view';
 
 const AssignSchema = z.object({
   classId: z.string(),
@@ -36,40 +42,52 @@ export class StudentController {
     return this.student.assignPaperToClass(paperId, parsed.data, { id: user.id, role: user.role, ip: req.ip ?? null });
   }
 
-  /** Student: list assignments for me. */
+  /** Student: list assignments for me. S08：纯读取，教师只读视角可读。
+   *  S01：mySubmission 走字段白名单（未定稿不给分数）。 */
+  @AllowTeacherView()
   @Get('student/assignments')
-  myAssignments(@CurrentUser() user: any) {
+  async myAssignments(@CurrentUser() user: any) {
     if (user.role !== 'student') throw new ForbiddenException('student-only route');
-    return this.student.listAssignmentsForStudent(user.id);
+    const rows = await this.student.listAssignmentsForStudent(user.id);
+    return rows.map(assignmentListItemView);
   }
 
-  /** Student: open / resume a submission. */
+  /** Student: open / resume a submission. S01：返回答卷行的白名单。 */
   @Post('student/submissions')
-  openSubmission(@Body() body: unknown, @CurrentUser() user: any, @Req() req: Request) {
+  async openSubmission(@Body() body: unknown, @CurrentUser() user: any, @Req() req: Request) {
     if (user.role !== 'student') throw new ForbiddenException('student-only route');
     const parsed = OpenSubmissionSchema.safeParse(body);
     if (!parsed.success) throw new BadRequestException(parsed.error.flatten());
-    return this.student.openSubmission(parsed.data.assignmentId,
+    const row = await this.student.openSubmission(parsed.data.assignmentId,
       { id: user.id, role: user.role, ip: req.ip ?? null });
+    return submissionRowView(row);
   }
 
-  /** Student: autosave / overwrite an answer script. */
+  /** Student: autosave / overwrite an answer script.
+   *  S01：只回作答本身 —— 能保存说明还在答题中，判分信息一概不给
+   *  （系统收卷后重开的答卷，行上还留着旧的 autoCorrect）。 */
   @Patch('student/submissions/:id/scripts')
-  saveScript(@Param('id') id: string, @Body() body: unknown, @CurrentUser() user: any, @Req() req: Request) {
+  async saveScript(@Param('id') id: string, @Body() body: unknown, @CurrentUser() user: any, @Req() req: Request) {
     if (user.role !== 'student') throw new ForbiddenException('student-only route');
     const parsed = SaveScriptSchema.safeParse(body);
     if (!parsed.success) throw new BadRequestException(parsed.error.flatten());
-    return this.student.saveScript(id, parsed.data, { id: user.id, role: user.role, ip: req.ip ?? null });
+    const row = await this.student.saveScript(id, parsed.data, { id: user.id, role: user.role, ip: req.ip ?? null });
+    return answerScriptView(row, { scoresShown: false, finallySubmitted: false });
   }
 
-  /** Student: final submit. Auto-grades MCQ, leaves structured for marker. */
+  /** Student: final submit. Auto-grades MCQ, leaves structured for marker.
+   *  S01：返回答卷行的白名单 —— 交卷时的自动分只是客观题部分分，
+   *  判分定稿之前不给（与阅读结果页同一个成绩发布口径）。 */
   @Post('student/submissions/:id/submit')
-  finalSubmit(@Param('id') id: string, @CurrentUser() user: any, @Req() req: Request) {
+  async finalSubmit(@Param('id') id: string, @CurrentUser() user: any, @Req() req: Request) {
     if (user.role !== 'student') throw new ForbiddenException('student-only route');
-    return this.student.finalSubmit(id, { id: user.id, role: user.role, ip: req.ip ?? null });
+    const row = await this.student.finalSubmit(id, { id: user.id, role: user.role, ip: req.ip ?? null });
+    return submissionRowView(row);
   }
 
-  /** Student: read own submission (during exam to refresh, after marking to review). */
+  /** Student: read own submission (during exam to refresh, after marking to review).
+   *  S08：纯读取，教师只读视角可读；响应按答题状态白名单投影（S01）。 */
+  @AllowTeacherView()
   @Get('student/submissions/:id')
   getOwn(@Param('id') id: string, @CurrentUser() user: any, @Req() req: Request) {
     if (user.role !== 'student') throw new ForbiddenException('student-only route');

@@ -125,14 +125,32 @@ describe('StudentIdentityGuard — 撤销校验', () => {
     });
   });
 
-  it('扫码签发的当天 token（无 av）不查库 —— 不给每次答题加一次往返', async () => {
+  // 2026-09-11 审计 S03 取代了原来的「扫码当天票（无 av）不查库」。
+  //
+  // 原断言钉的是一个性能取舍：当天票不查库，省一次往返。代价是账号停用、
+  // 归档之后，这张票在新接口上还能用到当天 23:59 —— 与 S03「停用 / 归档后
+  // 旧令牌在新旧接口均失效」直接冲突。现在当天票也查一次（与全局 AuthGuard
+  // 同一个判据、同一次请求内共用结果），下面两条把新行为钉住：放行照旧，
+  // 停用 / 归档则拒。
+  it('扫码签发的当天 token（无 av）：账号启用 → 照常放行（查一次账号状态）', async () => {
     const { guard, prisma } = makeGuard(
       { id: 'stu-1', name: '张三', role: 'student' },
       ACTIVE,
     );
-    const { ctx } = makeCtx('Bearer x');
+    const { ctx, req } = makeCtx('Bearer x');
     await expect(guard.canActivate(ctx)).resolves.toBe(true);
-    expect(prisma.user.findUnique).not.toHaveBeenCalled();
+    expect(req.studentAuth).toEqual({ id: 'stu-1', name: '张三' });
+    expect(prisma.user.findUnique).toHaveBeenCalledTimes(1);
+  });
+
+  it('扫码签发的当天 token（无 av）：账号停用 / 归档 → 403 token_revoked（不再活到 23:59）', async () => {
+    for (const row of [{ ...ACTIVE, isActive: false }, { ...ACTIVE, archivedAt: new Date() }, null]) {
+      const { guard } = makeGuard({ id: 'stu-1', name: '张三', role: 'student' }, row);
+      const { ctx } = makeCtx('Bearer x');
+      await expect(guard.canActivate(ctx)).rejects.toMatchObject({
+        response: { code: 'token_revoked' },
+      });
+    }
   });
 
   it('handoff 窄凭证不算学生身份，也不触发撤销查询', async () => {

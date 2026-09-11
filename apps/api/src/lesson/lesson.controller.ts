@@ -3,7 +3,11 @@ import type { Request } from 'express';
 import { CurrentUser } from '../common/current-user.decorator';
 import { Public } from '../common/auth.guard';
 import { RateLimit } from '../common/rate-limit.guard';
-import { RequireStudentToken, StudentIdentityGuard } from '../common/student-identity.guard';
+import {
+  RequireStudentReadToken,
+  RequireStudentToken,
+  StudentIdentityGuard,
+} from '../common/student-identity.guard';
 import { identityOf } from '../common/student-identity-input';
 import { PrismaService } from '../common/prisma.service';
 import { canActOnClass } from '../common/roles';
@@ -36,9 +40,13 @@ export class LessonController {
   // 而里面本来就有阅读成绩，P7 又要往里放正式词汇成绩。成绩必须是
   // 「只能看自己的」。教师的只读视角（teacher_view 令牌）照样能看 ——
   // 那正是「看到学生看到的东西」。
+  //
+  // S08（2026-09-11）：原来标的是 @RequireStudentToken()，它把教师只读视角
+  // 也挡掉了，上面这句注释从来没成立过。getToday() 是纯读取（P8，
+  // read-only-invariant.spec 数着写调用），所以换成「读身份」。
   @Public()
-  @RequireStudentToken()
-  @RateLimit({ limit: 120, windowSec: 60, scope: 'ip' })
+  @RequireStudentReadToken()
+  @RateLimit({ limit: 120, windowSec: 60, scope: 'user' })
   @Get('today')
   async today(
     @Req() req: Request,
@@ -73,7 +81,7 @@ export class LessonController {
    */
   @Public()
   @RequireStudentToken()
-  @RateLimit({ limit: 60, windowSec: 60, scope: 'ip' })
+  @RateLimit({ limit: 60, windowSec: 60, scope: 'user' })
   @Post('start')
   async start(@Body() body: unknown, @Req() req: Request) {
     const schema = z.object({
@@ -118,7 +126,7 @@ export class LessonController {
    */
   @Public()
   @RequireStudentToken()
-  @RateLimit({ limit: 120, windowSec: 60, scope: 'ip' })
+  @RateLimit({ limit: 120, windowSec: 60, scope: 'user' })
   @Post('vocab-taught')
   async vocabTaught(@Req() req: Request, @Body() body: unknown) {
     const schema = z.object({
@@ -139,7 +147,7 @@ export class LessonController {
   /** 学生已经会当前词：服务端原位补一个同课备用词，且同步改考试范围。 */
   @Public()
   @RequireStudentToken()
-  @RateLimit({ limit: 60, windowSec: 60, scope: 'ip' })
+  @RateLimit({ limit: 60, windowSec: 60, scope: 'user' })
   @Post('vocab-replace')
   async vocabReplace(@Req() req: Request, @Body() body: unknown) {
     const schema = z.object({
@@ -160,7 +168,7 @@ export class LessonController {
   /** 学完今天的词后主动选择“明天再考”。 */
   @Public()
   @RequireStudentToken()
-  @RateLimit({ limit: 20, windowSec: 60, scope: 'ip' })
+  @RateLimit({ limit: 20, windowSec: 60, scope: 'user' })
   @Post('vocab-test/defer')
   async deferVocabTest(@Req() req: Request) {
     return this.svc.deferVocabQuiz(identityOf(req));
@@ -174,7 +182,7 @@ export class LessonController {
    */
   @Public()
   @RequireStudentToken()
-  @RateLimit({ limit: 120, windowSec: 60, scope: 'ip' })
+  @RateLimit({ limit: 120, windowSec: 60, scope: 'user' })
   @Post('vocab-cursor')
   async saveVocabCursor(@Req() req: Request, @Body() body: unknown) {
     const schema = z.object({
