@@ -876,6 +876,9 @@ function TodayCard({ classes, scheduled }: { classes: ClassRow[]; scheduled: Sch
     sessions: Array<{ id: string; level: Level; status: string; makeupOpen: boolean }>;
   }>>({});
   const [pendingMarks, setPendingMarks] = useState<number | null>(null);
+  // 审计 M01：主观题都有分数但还没发布的答卷。它们不在「待判」里，但也没清空 ——
+  // 学生还看不到成绩，不能显示「判分已清空」。
+  const [pendingPublish, setPendingPublish] = useState<number>(0);
 
   useEffect(() => {
     let cancelled = false;
@@ -891,7 +894,10 @@ function TodayCard({ classes, scheduled }: { classes: ClassRow[]; scheduled: Sch
       if (!cancelled) setDash(next);
       try {
         const q = await api.markerQueue({ page: 1, pageSize: 1 });
-        if (!cancelled) setPendingMarks(typeof q?.total === 'number' ? q.total : null);
+        if (!cancelled) {
+          setPendingMarks(typeof q?.total === 'number' ? q.total : null);
+          setPendingPublish(Number(q?.stageCounts?.ready ?? 0) || 0);
+        }
       } catch { if (!cancelled) setPendingMarks(null); }
     })();
     return () => { cancelled = true; };
@@ -907,13 +913,17 @@ function TodayCard({ classes, scheduled }: { classes: ClassRow[]; scheduled: Sch
         {pendingMarks != null && (
           <span
             className={`text-sm px-3 py-1 rounded-full border ${
-              pendingMarks > 0
+              pendingMarks > 0 || pendingPublish > 0
                 ? 'bg-amber-50 border-amber-300 text-amber-800'
                 : 'bg-emerald-50 border-emerald-200 text-emerald-700'
             }`}
             title="人工判分队列 —— 在会话里对 Claude 说「判分」即可排空"
           >
-            {pendingMarks > 0 ? `📝 待判 ${pendingMarks} 份 · 找 Claude 判分` : '✓ 判分已清空'}
+            {pendingMarks > 0
+              ? `📝 待判 ${pendingMarks} 份 · 找 Claude 判分${pendingPublish > 0 ? ` · 另有 ${pendingPublish} 份待发布` : ''}`
+              : pendingPublish > 0
+                ? `已判完 · ${pendingPublish} 份待发布`
+                : '✓ 判分已清空'}
           </span>
         )}
       </div>
