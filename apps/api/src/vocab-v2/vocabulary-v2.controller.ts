@@ -106,7 +106,7 @@ export class VocabularyV2Controller {
   /** VOC10：退出自助练习 —— 删掉这份临时会话（已经没了也算成功）。 */
   @Public()
   @RequireStudentToken()
-  @RateLimit({ limit: 60, windowSec: 60, scope: 'ip' })
+  @RateLimit({ limit: 60, windowSec: 60, scope: 'user' })
   @Post('custom-test/cancel')
   cancelCustomTest(@Req() req: Request, @Body() body: unknown) {
     const parsed = z.object({ sessionId: z.string().min(1).max(80) }).strict().safeParse(body);
@@ -278,7 +278,7 @@ export class VocabularyV2Controller {
    */
   @Public()
   @RequireStudentToken()
-  @RateLimit({ limit: 120, windowSec: 60, scope: 'ip' })
+  @RateLimit({ limit: 120, windowSec: 60, scope: 'user' })
   @Get('test/audio')
   @Header('Cache-Control', 'no-store')
   async testAudio(@Req() req: Request, @Query('sessionId') sessionId = '', @Query('itemId') itemId = '') {
