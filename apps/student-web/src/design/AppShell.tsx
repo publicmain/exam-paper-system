@@ -226,7 +226,7 @@ export function AppShell({ kind, children }: { kind: ShellKind; children: ReactN
     <ToastProvider bottomOffset="calc(var(--tabbar-h) + env(safe-area-inset-bottom) + 12px)">
       <a
         href="#main"
-        className="sr-only z-50 rounded-control bg-surface px-4 py-3 text-accent focus:not-sr-only focus:fixed focus:left-3 focus:top-3"
+        className="sr-only z-50 rounded-control bg-surface px-4 text-accent shadow-overlay focus:not-sr-only focus:fixed focus:left-3 focus:top-3 focus:inline-flex focus:min-h-[44px] focus:items-center"
       >
         跳到正文
       </a>

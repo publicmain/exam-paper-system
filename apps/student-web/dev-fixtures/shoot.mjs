@@ -105,6 +105,8 @@ try {
             const r = el.getBoundingClientRect();
             const cs = getComputedStyle(el);
             if (r.width === 0 || r.height === 0 || cs.visibility === 'hidden' || cs.display === 'none') continue;
+            // 视觉隐藏（sr-only，只在键盘聚焦时出现）的元素不在这里量；它们聚焦时另有 ≥44px 样式
+            if (cs.clip === 'rect(0px, 0px, 0px, 0px)' || (cs.position === 'absolute' && r.width <= 1 && r.height <= 1)) continue;
             // 正文里的词链接 / 行内查词不要求 44px 方块（审计 H5 说明）
             if (el.closest('[data-inline-word]')) continue;
             // 原生单选 / 复选：由包住它的 label 提供命中区
