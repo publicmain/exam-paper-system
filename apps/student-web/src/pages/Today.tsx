@@ -616,8 +616,6 @@ export default function TodayPage() {
         )}
       </p>
 
-      <PushNudge />
-
       {/* 三项任务（主体） */}
       <ul className="mb-6 grid gap-3 md:grid-cols-3" aria-label="今天的三项任务">
         {cards.map(({ key, view }) =>
@@ -652,6 +650,9 @@ export default function TodayPage() {
           ),
         )}
       </ul>
+
+      {/* 提醒开关的邀请放在任务之后：不占首屏主体（IOS-04） */}
+      <PushNudge />
 
       {allDone ? (
         <div className="mb-6">
@@ -884,7 +885,7 @@ function BacklogDayRow({
             aria-label={`${dayText(t.date)}单词测试${testSizeText(t) ? `，${testSizeText(t)}` : ''}，${t.status === 'in_progress' ? '继续' : '开始'}`}
             onClick={() => onTest(t)}
           >
-            测试{t.total != null ? ` · ${t.total} 题` : ''}
+            测试 · {t.total != null ? `${t.total} 题` : t.status === 'in_progress' ? '继续' : '开始'}
           </Button>
         ))}
       </div>
