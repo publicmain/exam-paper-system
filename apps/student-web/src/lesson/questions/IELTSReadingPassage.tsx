@@ -228,6 +228,7 @@ export function IELTSReadingPassage({ paper }: { paper: ExamPaper }) {
   const { answers, setAnswer } = useExam();
   const [pickedWord, setPickedWord] = useState<string | null>(null);
   const [pickedSentence, setPickedSentence] = useState<string | null>(null);
+  const [pickedAnchor, setPickedAnchor] = useState<DOMRect | null>(null);
   /** 最后聚焦过的那道单行填空题。见 `FillFocusCtx` 的注释。 */
   const [fillTargetId, setFillTargetId] = useState<string | null>(null);
   /**
@@ -281,7 +282,12 @@ export function IELTSReadingPassage({ paper }: { paper: ExamPaper }) {
   }, [fillTargetId, paper?.questions, answers]);
 
   const onWordTap = useCallback(
-    (w: string) => {
+    (w: string, range?: Range) => {
+      try {
+        setPickedAnchor(range?.getBoundingClientRect?.() ?? null);
+      } catch {
+        setPickedAnchor(null);
+      }
       setPickedSentence(sentenceContaining(passageBody, w));
       setPickedWord(w);
       // 提示条**这一场内一定收起**（本地 state），落盘只是为了下一场也记得。
@@ -436,6 +442,7 @@ export function IELTSReadingPassage({ paper }: { paper: ExamPaper }) {
           }, 0);
         }}
         onClose={closeWordSheet}
+        anchor={pickedAnchor}
       />
     </div>
   );

@@ -157,7 +157,7 @@ button:disabled {
   border-radius: var(--r-control);
 }
 .seg > button {
-  min-height: 40px;
+  min-height: 44px;
   padding: 0 0.75rem;
   border-radius: calc(var(--r-control) - 2px);
   font-size: 0.9375rem;

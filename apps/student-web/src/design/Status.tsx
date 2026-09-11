@@ -131,6 +131,7 @@ export function InlineStatus({
   busy = false,
   testId,
   role,
+  retryTestId,
 }: {
   tone?: 'error' | 'warning' | 'info' | 'success' | 'neutral';
   children: ReactNode;
@@ -140,6 +141,7 @@ export function InlineStatus({
   testId?: string;
   /** 默认：错误 / 提醒是 alert，其余是 status。重要的信息性提示（登录已失效）可以显式给 alert。 */
   role?: 'alert' | 'status';
+  retryTestId?: string;
 }) {
   const cls = {
     error: 'bg-danger-soft text-danger',
@@ -160,6 +162,7 @@ export function InlineStatus({
       {onRetry ? (
         <button
           type="button"
+          data-testid={retryTestId}
           onClick={onRetry}
           disabled={busy}
           className="-my-2 -mr-1.5 min-h-[44px] shrink-0 rounded-control px-3 font-semibold underline-offset-2 hover:underline disabled:cursor-wait"

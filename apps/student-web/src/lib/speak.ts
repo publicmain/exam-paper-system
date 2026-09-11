@@ -48,3 +48,35 @@ export function sayWord(text: string, opts: { lang?: string } = {}): void {
     fallback();
   }
 }
+
+/**
+ * 和 `sayWord` 一样先放服务端音频、放不了退回系统语音，但把结果告诉调用方，
+ * 让发音按钮能显示「正在加载 / 正在播放 / 放不出来」（审计 IOS-06）。
+ *   · 'audio'    —— 服务端音频播起来了
+ *   · 'fallback' —— 用了系统语音（设备有英语语音包时有声音）
+ *   · 'failed'   —— 两条路都不行
+ */
+export async function playWord(text: string, opts: { lang?: string } = {}): Promise<'audio' | 'fallback' | 'failed'> {
+  const headword = text.trim();
+  if (!headword) return 'failed';
+  const systemVoice = (): 'fallback' | 'failed' => {
+    if (typeof window === 'undefined' || !('speechSynthesis' in window)) return 'failed';
+    speakWithSystemVoice(headword, opts.lang ?? 'en-GB');
+    return 'fallback';
+  };
+  if (typeof Audio === 'undefined') return systemVoice();
+  try {
+    current?.pause();
+    const audio = new Audio(wordAudioUrl(headword));
+    current = audio;
+    const ok = await new Promise<boolean>((resolve) => {
+      audio.addEventListener('error', () => resolve(false), { once: true });
+      const p = audio.play();
+      if (p && typeof p.then === 'function') p.then(() => resolve(true), () => resolve(false));
+      else resolve(true);
+    });
+    return ok ? 'audio' : systemVoice();
+  } catch {
+    return systemVoice();
+  }
+}

@@ -54,6 +54,9 @@ export function Dialog({
   closeLabel = '关闭',
   size = 'md',
   testId,
+  closeTestId,
+  titleAccessory,
+  eyebrow,
 }: {
   open: boolean;
   /** 用户要求关闭（Esc / 遮罩 / 关闭按钮）。`dismissible=false` 时只有调用方自己的按钮能关。 */
@@ -75,6 +78,11 @@ export function Dialog({
   closeLabel?: string;
   size?: 'sm' | 'md' | 'lg';
   testId?: string;
+  closeTestId?: string;
+  /** 标题旁的小动作（发音按钮）—— 放在 h2 外面，不混进对话框的读屏名字。 */
+  titleAccessory?: ReactNode;
+  /** 标题上方的一行小字（「来自 · 文章名」） */
+  eyebrow?: ReactNode;
 }) {
   const titleId = useId();
   const descId = useId();
@@ -209,9 +217,13 @@ export function Dialog({
       >
         <div className="flex items-start gap-3 px-5 pt-5 pb-2">
           <div className="min-w-0 flex-1">
-            <h2 id={titleId} className="text-title3 text-ink">
-              {title}
-            </h2>
+            {eyebrow ? <div className="mb-1 truncate text-caption text-ink-3">{eyebrow}</div> : null}
+            <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+              <h2 id={titleId} className="min-w-0 text-title3 text-ink">
+                {title}
+              </h2>
+              {titleAccessory}
+            </div>
             {description ? (
               <p id={descId} className="mt-1 text-callout text-ink-2">
                 {description}
@@ -219,7 +231,7 @@ export function Dialog({
             ) : null}
           </div>
           {showClose ? (
-            <IconButton icon="close" label={closeLabel} tone="filled" onClick={requestClose} disabled={busy} className="-mr-2 -mt-2" />
+            <IconButton icon="close" label={closeLabel} tone="filled" onClick={requestClose} disabled={busy} className="-mr-2 -mt-2" data-testid={closeTestId} />
           ) : null}
         </div>
         {children ? <div className="scroll-contain min-h-0 flex-1 overflow-y-auto px-5 pb-2">{children}</div> : null}
