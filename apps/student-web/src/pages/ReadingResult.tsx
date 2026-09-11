@@ -154,8 +154,8 @@ export default function ReadingResultPage() {
 
   if (phase.s === 'loading') {
     return (
-      <div className="min-h-[100dvh] grid place-items-center bg-slate-50">
-        <p className="text-slate-400">载入中…</p>
+      <div className="min-h-[100dvh] grid place-items-center bg-surface-2">
+        <p className="text-ink-3">载入中…</p>
       </div>
     );
   }
@@ -163,7 +163,7 @@ export default function ReadingResultPage() {
   if (phase.s === 'locked') {
     return (
       <Shell>
-        <div role="alert" data-testid="locked" className="rounded-xl bg-amber-50 text-amber-900 px-4 py-3 text-sm mb-4">
+        <div role="alert" data-testid="locked" className="rounded-xl bg-warning-soft text-warning px-4 py-3 text-sm mb-4">
           这次的答卷还没交，先把卷子做完再来看结果。
         </div>
         <BackToToday navigate={navigate} />
@@ -174,13 +174,13 @@ export default function ReadingResultPage() {
   if (phase.s === 'error') {
     return (
       <Shell>
-        <div role="alert" className="rounded-xl bg-rose-50 text-rose-700 px-4 py-3 text-sm mb-4">
+        <div role="alert" className="rounded-xl bg-danger-soft text-danger px-4 py-3 text-sm mb-4">
           {phase.message}
         </div>
         <button
           type="button"
           onClick={() => void load()}
-          className="w-full rounded-xl bg-blue-600 text-white py-3 text-base font-medium min-h-[44px]"
+          className="w-full rounded-xl bg-accent-fill text-accent-on py-3 text-base font-medium min-h-[44px]"
         >
           重试
         </button>
@@ -193,7 +193,7 @@ export default function ReadingResultPage() {
     <Shell>
       {/* 页头就有回去的路，不用滚到最底（2026-09-06 复测新发现 8） */}
       <div className="mb-3">
-        <button type="button" onClick={() => navigate(ROUTES.today)} className="hit -ml-1 px-1 text-sm text-blue-600">← 首页</button>
+        <button type="button" onClick={() => navigate(ROUTES.today)} className="hit -ml-1 px-1 text-sm text-accent">← 首页</button>
       </div>
       <ResultView
         result={phase.result}
@@ -265,7 +265,7 @@ function ContinueLesson({ navigate }: { navigate: ReturnType<typeof useNavigate>
       data-testid="continue-lesson"
       disabled={busy}
       onClick={() => void go()}
-      className="mt-6 w-full rounded-xl bg-blue-600 text-white py-3 text-base font-medium min-h-[44px] disabled:opacity-60"
+      className="mt-6 w-full rounded-xl bg-accent-fill text-accent-on py-3 text-base font-medium min-h-[44px] disabled:opacity-60"
     >
       {busy ? '正在打开…' : isTeachingDay() ? '继续今天的课' : '回首页'}
     </button>
@@ -278,7 +278,7 @@ function BackToToday({ navigate }: { navigate: ReturnType<typeof useNavigate> })
       type="button"
       data-testid="back-to-today"
       onClick={() => navigate(ROUTES.today)}
-      className="mt-4 w-full rounded-xl border border-slate-300 py-3 text-base min-h-[44px]"
+      className="mt-4 w-full rounded-xl border border-control py-3 text-base min-h-[44px]"
     >
       回到今天的课
     </button>

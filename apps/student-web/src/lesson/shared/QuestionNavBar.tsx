@@ -26,7 +26,7 @@ export function QuestionNavBar({
   // to colour, so the palette stays usable for colour-blind students and
   // screen readers (WCAG 1.4.1).
   return (
-    <div className="bg-white">
+    <div className="bg-surface">
       <div
         className="px-3 py-2 grid gap-1.5"
         style={{
@@ -50,9 +50,9 @@ export function QuestionNavBar({
             : answered
             ? 'answered'
             : 'unanswered';
-          // U4 contrast: the original `text-blue-100` on `bg-blue-600`
+          // U4 contrast: the original `text-accent` on `bg-accent-fill`
           // measured ~3.6:1 (just below WCAG AA 4.5:1). Bumped to
-          // text-white (15:1 against blue-600) and text-gray-700 (>10:1
+          // text-accent-on (15:1 against blue-600) and text-ink-2 (>10:1
           // against gray-100). Status icon is now full-strength text
           // colour instead of a faded variant so it remains readable.
           return (
@@ -61,9 +61,9 @@ export function QuestionNavBar({
               type="button"
               onClick={() => onJumpTo(q.id, i)}
               className={`relative min-h-[44px] sm:min-h-[44px] h-11 sm:h-11 rounded font-mono text-xs sm:text-sm font-semibold transition-all duration-100 ease-out touch-manipulation flex flex-col items-center justify-center gap-0 active:scale-95
-                ${answered ? 'bg-blue-600 text-white border border-blue-700 hover:bg-blue-700' : 'bg-gray-100 text-gray-700 border border-gray-300 hover:bg-gray-50'}
-                ${flagged ? 'ring-2 ring-orange-500 ring-offset-1' : ''}
-                ${current ? 'outline outline-2 outline-offset-1 outline-slate-900' : ''}`}
+                ${answered ? 'bg-accent-fill text-accent-on border border-accent hover:bg-accent-pressed' : 'bg-fill text-ink-2 border border-control hover:bg-surface-2'}
+                ${flagged ? 'ring-2 ring-warning ring-offset-1' : ''}
+                ${current ? 'outline outline-2 outline-offset-1 outline-ink-3' : ''}`}
               aria-label={`Question ${i + 1}, ${statusLabel}`}
               aria-current={current ? 'step' : undefined}
               data-state={statusLabel.replace(/\s/g, '_')}
@@ -71,7 +71,7 @@ export function QuestionNavBar({
               <span className="leading-none">{i + 1}</span>
               <span
                 className={`text-[0.7rem] leading-none mt-0.5 ${
-                  answered ? 'text-white' : 'text-gray-700'
+                  answered ? 'text-accent-on' : 'text-ink-2'
                 }`}
                 aria-hidden
               >
@@ -79,7 +79,7 @@ export function QuestionNavBar({
               </span>
               {flagged && (
                 <span
-                  className="absolute -top-0.5 -right-0.5 text-orange-600 text-xs leading-none"
+                  className="absolute -top-0.5 -right-0.5 text-warning text-xs leading-none"
                   aria-hidden
                 >
                   ●

@@ -172,7 +172,7 @@ export default function LessonSummaryPage() {
   if (phase.s === 'loading') {
     return (
       <Screen>
-        <p className="text-center text-slate-400">载入中…</p>
+        <p className="text-center text-ink-3">载入中…</p>
       </Screen>
     );
   }
@@ -200,27 +200,27 @@ export default function LessonSummaryPage() {
     <Screen>
       <Card>
         <h1 className="text-xl font-semibold mb-1">今日总结</h1>
-        <p className="text-base text-slate-700 mb-1">今天的课完成了 🎉</p>
-        <p data-testid="summary-date" className="text-sm text-slate-500">
+        <p className="text-base text-ink-2 mb-1">今天的课完成了 🎉</p>
+        <p data-testid="summary-date" className="text-sm text-ink-3">
           {d.date}
         </p>
-        <p data-testid="summary-completion" className="mt-1 text-sm text-slate-600">
+        <p data-testid="summary-completion" className="mt-1 text-sm text-ink-2">
           今天完成 <span className="font-medium tabular-nums">{d.completed}</span> / {d.total}
         </p>
         {d.streakDays > 0 ? (
-          <p data-testid="summary-streak" className="mt-1 text-sm text-slate-500">
+          <p data-testid="summary-streak" className="mt-1 text-sm text-ink-3">
             已经连续学习 <span className="tabular-nums">{d.streakDays}</span> 天
           </p>
         ) : null}
 
         <ul className="mt-5 flex flex-col gap-3">
           {/* ① 阅读 */}
-          <li className="rounded-xl bg-slate-50 px-4 py-3">
+          <li className="rounded-xl bg-surface-2 px-4 py-3">
             <div className="flex items-center justify-between text-sm">
               <span className="font-medium">阅读</span>
-              <span className="text-slate-500">{read ? STATUS_TEXT[read.status] : STATUS_TEXT.none}</span>
+              <span className="text-ink-3">{read ? STATUS_TEXT[read.status] : STATUS_TEXT.none}</span>
             </div>
-            <p data-testid="read-state" className="mt-1 text-sm text-slate-600">
+            <p data-testid="read-state" className="mt-1 text-sm text-ink-2">
               {read?.label ? `${read.label} · ` : ''}
               {read ? readingLine(read) : '今天没有阅读'}
             </p>
@@ -228,7 +228,7 @@ export default function LessonSummaryPage() {
               <Link
                 data-testid="reading-analysis"
                 to={ROUTES.readingResult}
-                className="mt-2 inline-block text-sm text-blue-600 underline"
+                className="mt-2 inline-block text-sm text-accent underline"
               >
                 看阅读解析 →
               </Link>
@@ -236,24 +236,24 @@ export default function LessonSummaryPage() {
           </li>
 
           {/* ② 正式单词测试 + 课程学词进度 */}
-          <li className="rounded-xl bg-slate-50 px-4 py-3">
+          <li className="rounded-xl bg-surface-2 px-4 py-3">
             <div className="flex items-center justify-between text-sm">
               <span className="font-medium">单词</span>
-              <span className="text-slate-500">{vocab ? STATUS_TEXT[vocab.status] : STATUS_TEXT.none}</span>
+              <span className="text-ink-3">{vocab ? STATUS_TEXT[vocab.status] : STATUS_TEXT.none}</span>
             </div>
-            <p data-testid="quiz-state" className="mt-1 text-sm text-slate-600">
+            <p data-testid="quiz-state" className="mt-1 text-sm text-ink-2">
               正式测试：{vocab ? quizLine(vocab) : '今天没有单词测试'}
             </p>
-            <p data-testid="vocab-progress" className="mt-1 text-sm text-slate-500">
+            <p data-testid="vocab-progress" className="mt-1 text-sm text-ink-3">
               课程学词：{(vocab && progressLine(vocab)) ?? '今天没有'}
             </p>
           </li>
 
           {/* ③ 错题重练 */}
-          <li className="rounded-xl bg-slate-50 px-4 py-3">
+          <li className="rounded-xl bg-surface-2 px-4 py-3">
             <div className="flex items-center justify-between text-sm">
               <span className="font-medium">错题</span>
-              <span className="text-slate-500">
+              <span className="text-ink-3">
                 {/* S12L —— 与今天的课同一套说法。「暂未开放」和「今天没有」
                     是两件事，两页说得不一样，学生会以为其中一页坏了。 */}
                 {drill?.available === false
@@ -263,7 +263,7 @@ export default function LessonSummaryPage() {
                     : STATUS_TEXT.none}
               </span>
             </div>
-            <p data-testid="drill-state" className="mt-1 text-sm text-slate-600">
+            <p data-testid="drill-state" className="mt-1 text-sm text-ink-2">
               {drill?.available === false
                 ? drill.unavailableReason || '错题重练暂未开放 · 不计入今日完成'
                 : ((drill && progressLine(drill)) ?? '今天没有要重练的错题')}
@@ -275,7 +275,7 @@ export default function LessonSummaryPage() {
         <Link
           data-testid="go-scores"
           to={ROUTES.scores}
-          className="block mt-5 text-blue-600 underline text-sm"
+          className="block mt-5 text-accent underline text-sm"
         >
           历史成绩 →
         </Link>
@@ -283,7 +283,7 @@ export default function LessonSummaryPage() {
         <Link
           data-testid="go-vocab"
           to={ROUTES.vocab}
-          className="block mt-2 text-blue-600 underline text-sm"
+          className="block mt-2 text-accent underline text-sm"
         >
           生词本 →
         </Link>
@@ -291,7 +291,7 @@ export default function LessonSummaryPage() {
         <Link
           data-testid="go-mistakes"
           to={ROUTES.mistakes}
-          className="block mt-2 text-blue-600 underline text-sm"
+          className="block mt-2 text-accent underline text-sm"
         >
           错题本 →
         </Link>
@@ -310,7 +310,7 @@ function BackToToday() {
       type="button"
       data-testid="back-to-today"
       onClick={() => navigate(ROUTES.today)}
-      className="mt-6 w-full rounded-xl border border-slate-300 py-3 text-base min-h-[44px]"
+      className="mt-6 w-full rounded-xl border border-control py-3 text-base min-h-[44px]"
     >
       回到今天的课
     </button>

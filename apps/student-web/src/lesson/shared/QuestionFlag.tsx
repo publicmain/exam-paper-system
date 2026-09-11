@@ -17,8 +17,8 @@ export function QuestionFlag({ qid, compact = false }: { qid: string; compact?: 
         compact ? 'px-2 py-1' : 'px-2.5 py-1.5'
       } ${
         flagged
-          ? 'bg-orange-100 border-orange-300 text-orange-800'
-          : 'border-gray-200 text-gray-500 hover:bg-gray-50 active:bg-gray-100'
+          ? 'bg-warning-soft border-warning/35 text-warning'
+          : 'border-line text-ink-3 hover:bg-surface-2 active:bg-fill'
       }`}
       title={flagged ? '取消标记' : '标记复习'}
       aria-pressed={flagged}

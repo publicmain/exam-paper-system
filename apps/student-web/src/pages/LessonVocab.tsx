@@ -263,8 +263,8 @@ export default function LessonVocabPage() {
 
   if (phase.s === 'loading') {
     return (
-      <div className="min-h-[100dvh] grid place-items-center bg-slate-50">
-        <p className="text-slate-400">载入中…</p>
+      <div className="min-h-[100dvh] grid place-items-center bg-surface-2">
+        <p className="text-ink-3">载入中…</p>
       </div>
     );
   }
@@ -272,14 +272,14 @@ export default function LessonVocabPage() {
   if (phase.s === 'error') {
     return (
       <Shell>
-        <div role="alert" className="rounded-xl bg-rose-50 text-rose-700 px-4 py-3 text-sm mb-4">
+        <div role="alert" className="rounded-xl bg-danger-soft text-danger px-4 py-3 text-sm mb-4">
           没能打开今天的单词 —— 网络不太好，重试一下。
         </div>
         <button
           type="button"
           data-testid="retry-load"
           onClick={() => void load()}
-          className="w-full rounded-xl bg-blue-600 text-white py-3 text-base font-medium min-h-[44px]"
+          className="w-full rounded-xl bg-accent-fill text-accent-on py-3 text-base font-medium min-h-[44px]"
         >
           重试
         </button>
@@ -294,12 +294,12 @@ export default function LessonVocabPage() {
         <Progress done={total} total={total} />
         <section
           data-testid="complete"
-          className="rounded-2xl bg-white border border-slate-200 p-6 text-center"
+          className="rounded-2xl bg-surface border border-line p-6 text-center"
         >
           <p className="text-lg font-medium mb-2">这一课的单词都过完了。</p>
           {pending > 0 ? (
             <>
-              <p data-testid="pending-sync" className="text-sm text-amber-800 bg-amber-50 rounded-xl px-3 py-2 mb-3">
+              <p data-testid="pending-sync" className="text-sm text-warning bg-warning-soft rounded-xl px-3 py-2 mb-3">
                 还有 {pending} 条评分没同步上去 —— 同步完才能进正式测试，别关掉这一页。
               </p>
               <button
@@ -307,7 +307,7 @@ export default function LessonVocabPage() {
                 data-testid="sync-now"
                 disabled={busy != null}
                 onClick={() => void onSync()}
-                className="w-full rounded-xl bg-blue-600 text-white py-3 text-base font-medium min-h-[44px] disabled:bg-slate-300"
+                className="w-full rounded-xl bg-accent-fill text-accent-on py-3 text-base font-medium min-h-[44px] disabled:bg-fill-strong"
               >
                 {busy === 'sync' ? '同步中…' : '现在同步'}
               </button>
@@ -319,7 +319,7 @@ export default function LessonVocabPage() {
                 data-testid="finish"
                 disabled={busy != null}
                 onClick={() => void onFinish()}
-                className="w-full rounded-xl bg-blue-600 text-white py-3 text-base font-medium min-h-[44px] disabled:bg-slate-300"
+                className="w-full rounded-xl bg-accent-fill text-accent-on py-3 text-base font-medium min-h-[44px] disabled:bg-fill-strong"
               >
                 {busy === 'finish' ? '正在打开…' : '立即考试'}
               </button>
@@ -328,14 +328,14 @@ export default function LessonVocabPage() {
                 data-testid="defer-test"
                 disabled={busy != null}
                 onClick={() => void onDefer()}
-                className="w-full rounded-xl border border-slate-300 bg-white text-slate-700 py-3 text-base font-medium min-h-[44px] disabled:text-slate-300"
+                className="w-full rounded-xl border border-control bg-surface text-ink-2 py-3 text-base font-medium min-h-[44px] disabled:text-ink-3"
               >
                 {busy === 'defer' ? '正在保存…' : '明天再考'}
               </button>
             </div>
           )}
           {stepError && (
-            <p role="alert" data-testid="step-error" className="mt-3 text-sm text-rose-700">
+            <p role="alert" data-testid="step-error" className="mt-3 text-sm text-danger">
               {stepError}
             </p>
           )}
@@ -349,7 +349,7 @@ export default function LessonVocabPage() {
     <Shell>
       <Progress done={cursor} total={total} />
       {pending > 0 && (
-        <p data-testid="pending-badge" className="mb-3 text-xs text-amber-800 bg-amber-50 rounded-lg px-3 py-2">
+        <p data-testid="pending-badge" className="mb-3 text-xs text-warning bg-warning-soft rounded-lg px-3 py-2">
           有 {pending} 条评分排队等着同步 —— 网络恢复后会自动补上。
         </p>
       )}
@@ -376,13 +376,13 @@ export default function LessonVocabPage() {
       />
 
       {replacementNotice && (
-        <p role="status" data-testid="replacement-notice" className="mt-3 text-sm text-emerald-800 bg-emerald-50 rounded-xl px-3 py-2">
+        <p role="status" data-testid="replacement-notice" className="mt-3 text-sm text-success bg-success-soft rounded-xl px-3 py-2">
           {replacementNotice}
         </p>
       )}
 
       {stepError && (
-        <p role="alert" data-testid="step-error" className="mt-3 text-sm text-rose-700">
+        <p role="alert" data-testid="step-error" className="mt-3 text-sm text-danger">
           {stepError}
         </p>
       )}
@@ -406,7 +406,7 @@ function Shell({ children }: { children: React.ReactNode }) {
 
 function Progress({ done, total }: { done: number; total: number }) {
   return (
-    <p data-testid="progress" className="mb-4 text-sm text-slate-500 tabular-nums">
+    <p data-testid="progress" className="mb-4 text-sm text-ink-3 tabular-nums">
       {Math.min(done, total)} / {total}
     </p>
   );
@@ -419,7 +419,7 @@ function LaterButton({ navigate }: { navigate: ReturnType<typeof useNavigate> })
       type="button"
       data-testid="later"
       onClick={() => navigate(ROUTES.today)}
-      className="mt-6 w-full rounded-xl border border-slate-300 py-3 text-base min-h-[44px]"
+      className="mt-6 w-full rounded-xl border border-control py-3 text-base min-h-[44px]"
     >
       稍后再学
     </button>
@@ -450,13 +450,13 @@ function TeachingCard({
       data-headword={card.headword}
       className="app-glass rounded-[22px] p-6 sm:p-8"
     >
-      <p className="text-xs text-blue-700 bg-blue-50 rounded-md px-2 py-1 inline-block mb-3">
+      <p className="text-xs text-accent bg-accent-soft rounded-md px-2 py-1 inline-block mb-3">
         新词 · 先认识一下
       </p>
       <h1 data-testid="headword" className="text-3xl font-semibold tracking-tight">
         {card.headword}
       </h1>
-      <p className="mt-1 text-slate-500">
+      <p className="mt-1 text-ink-3">
         {formatPhonetic(card.phonetic) && <span data-testid="phonetic">{formatPhonetic(card.phonetic)}</span>}
         {posPrefixFor(card.pos, '') && <span data-testid="pos" className="ml-2 italic">{posPrefixFor(card.pos, '').trim()}</span>}
       </p>
@@ -466,23 +466,23 @@ function TeachingCard({
         </p>
       )}
       {card.definition && (
-        <p data-testid="definition" className="mt-2 text-sm text-slate-600">
+        <p data-testid="definition" className="mt-2 text-sm text-ink-2">
           {card.definition}
         </p>
       )}
       {card.contextSentence && (
         // 教学卡**不挖空** —— 看见词在句子里怎么用，才是这张卡的意义。
-        <p data-testid="context" className="mt-4 text-sm bg-slate-50 rounded-xl px-3 py-2 leading-relaxed">
+        <p data-testid="context" className="mt-4 text-sm bg-surface-2 rounded-xl px-3 py-2 leading-relaxed">
           {card.contextSentence}
         </p>
       )}
       {card.contextTranslation && (
-        <p data-testid="context-translation" className="mt-2 text-sm text-slate-600 leading-relaxed">
+        <p data-testid="context-translation" className="mt-2 text-sm text-ink-2 leading-relaxed">
           句意：{card.contextTranslation}
         </p>
       )}
       {card.sourcePassageTitle && (
-        <p data-testid="source" className="mt-2 text-xs text-slate-400">
+        <p data-testid="source" className="mt-2 text-xs text-ink-3">
           来自：{card.sourcePassageTitle}
         </p>
       )}
@@ -491,7 +491,7 @@ function TeachingCard({
         data-testid="taught-next"
         disabled={busy != null}
         onClick={onNext}
-        className="app-primary mt-6 w-full py-3 text-base disabled:bg-slate-300 disabled:shadow-none"
+        className="app-primary mt-6 w-full py-3 text-base disabled:bg-fill-strong disabled:shadow-none"
       >
         {busy === 'teach' ? '保存中…' : '下一个'}
       </button>
@@ -500,7 +500,7 @@ function TeachingCard({
         data-testid="replace-known"
         disabled={busy != null}
         onClick={onReplace}
-        className="mt-3 w-full min-h-[44px] rounded-xl border border-slate-300 bg-white py-3 text-sm font-medium text-slate-700 disabled:text-slate-400"
+        className="mt-3 w-full min-h-[44px] rounded-xl border border-control bg-surface py-3 text-sm font-medium text-ink-2 disabled:text-ink-3"
       >
         {busy === 'replace' ? '正在换一个…' : '这个词我已经会了，换一个'}
       </button>

@@ -106,7 +106,7 @@ export function StickyNoteRail({
           type="button"
           /* 2026-08-11 触屏：原来是 text-xs 下划线文字,实测仅 16px 高,
              远低于 44pt。改成有实体触控区的按钮。 */
-          className="hit press text-[15px] text-gray-600 font-medium px-2 -ml-2 rounded-lg"
+          className="hit press text-[15px] text-ink-2 font-medium px-2 -ml-2 rounded-lg"
           aria-expanded={open}
           onClick={() => setOpen((v) => !v)}
         >
@@ -115,7 +115,7 @@ export function StickyNoteRail({
         <button
           type="button"
           data-testid="sticky-add"
-          className="text-sm text-blue-600 px-3 py-1.5 rounded-lg border border-blue-200 hover:bg-blue-50 active:bg-blue-100 touch-manipulation min-h-[44px] font-medium press"
+          className="text-sm text-accent px-3 py-1.5 rounded-lg border border-accent/30 hover:bg-accent-soft active:bg-accent-soft touch-manipulation min-h-[44px] font-medium press"
           onClick={() => {
             setDraft({ id: null, text: '' });
             setOpen(true);
@@ -125,7 +125,7 @@ export function StickyNoteRail({
         </button>
       </div>
       {draft && (
-        <div data-testid="sticky-editor" className="mb-2 rounded-lg border border-yellow-300 bg-yellow-50 p-2">
+        <div data-testid="sticky-editor" className="mb-2 rounded-lg border border-warning/35 bg-warning-soft p-2">
           <textarea
             autoFocus
             aria-label="便笺内容"
@@ -140,13 +140,13 @@ export function StickyNoteRail({
             }}
             rows={3}
             placeholder="写点什么…"
-            className="w-full resize-none rounded-md border border-yellow-200 bg-white px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-yellow-300"
+            className="w-full resize-none rounded-md border border-warning/35 bg-surface px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-warning/35"
           />
           <div className="mt-1.5 flex items-center gap-2">
-            <button type="button" data-testid="sticky-save" onClick={save} className="min-h-[36px] rounded-md bg-blue-600 px-3 text-sm font-medium text-white">
+            <button type="button" data-testid="sticky-save" onClick={save} className="min-h-[36px] rounded-md bg-accent-fill px-3 text-sm font-medium text-accent-on">
               保存
             </button>
-            <button type="button" onClick={() => setDraft(null)} className="min-h-[36px] rounded-md px-3 text-sm text-slate-600">
+            <button type="button" onClick={() => setDraft(null)} className="min-h-[36px] rounded-md px-3 text-sm text-ink-2">
               取消
             </button>
             {draft.id != null && (
@@ -157,7 +157,7 @@ export function StickyNoteRail({
                   onRemove(draft.id as string);
                   setDraft(null);
                 }}
-                className="ml-auto min-h-[36px] rounded-md px-3 text-sm text-rose-600"
+                className="ml-auto min-h-[36px] rounded-md px-3 text-sm text-danger"
               >
                 删除
               </button>
@@ -171,7 +171,7 @@ export function StickyNoteRail({
             <li key={n.id}>
               <button
                 type="button"
-                className="w-full text-left text-sm bg-yellow-50 border border-yellow-200 rounded-lg px-3 py-2 touch-manipulation whitespace-pre-wrap"
+                className="w-full text-left text-sm bg-warning-soft border border-warning/35 rounded-lg px-3 py-2 touch-manipulation whitespace-pre-wrap"
                 aria-label={`便笺：${n.text}（点击编辑）`}
                 onClick={() => setDraft({ id: n.id, text: n.text })}
                 title="点击编辑/删除"

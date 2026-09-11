@@ -22,10 +22,10 @@ export default function LessonPlaceholder({ stage }: { stage: LessonStageKey }) 
     <Screen>
       <Card>
         <h1 className="text-xl font-semibold mb-3">{label}</h1>
-        <p className="text-sm text-slate-500 mb-6">
+        <p className="text-sm text-ink-3 mb-6">
           这一段还没有做好。等它上线之后，你就能在这里{label}了。
         </p>
-        <Link to={ROUTES.today} className="text-blue-600 underline text-sm">
+        <Link to={ROUTES.today} className="text-accent underline text-sm">
           回到今天的课
         </Link>
       </Card>

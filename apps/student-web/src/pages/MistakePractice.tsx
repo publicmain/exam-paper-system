@@ -27,7 +27,7 @@ export default function MistakePracticePage() {
           type="button"
           data-testid="back-to-today"
           onClick={() => navigate(ROUTES.today)}
-          className="w-full min-h-[44px] rounded-xl bg-blue-600 text-white py-3 text-base font-medium"
+          className="w-full min-h-[44px] rounded-xl bg-accent-fill text-accent-on py-3 text-base font-medium"
         >
           回到今天的课
         </button>

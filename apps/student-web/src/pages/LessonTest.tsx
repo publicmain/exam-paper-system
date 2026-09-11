@@ -289,8 +289,8 @@ export default function LessonTestPage() {
 
   if (phase.s === 'loading') {
     return (
-      <div className="min-h-[100dvh] grid place-items-center bg-slate-50">
-        <p className="text-slate-400">载入中…</p>
+      <div className="min-h-[100dvh] grid place-items-center bg-surface-2">
+        <p className="text-ink-3">载入中…</p>
       </div>
     );
   }
@@ -298,7 +298,7 @@ export default function LessonTestPage() {
   if (phase.s === 'error') {
     return (
       <Shell>
-        <div role="alert" className="rounded-xl bg-rose-50 text-rose-700 px-4 py-3 text-sm mb-4">
+        <div role="alert" className="rounded-xl bg-danger-soft text-danger px-4 py-3 text-sm mb-4">
           没能打开今天的测试 —— 网络不太好，重试一下。
         </div>
         <Primary testId="retry-load" onClick={() => void load()}>重试</Primary>
@@ -313,10 +313,10 @@ export default function LessonTestPage() {
         <div
           role="alert"
           data-testid="unavailable"
-          className="rounded-2xl bg-white border border-slate-200 p-6 text-center"
+          className="rounded-2xl bg-surface border border-line p-6 text-center"
         >
           <p className="text-lg font-medium mb-2">今天还不能考</p>
-          <p className="text-sm text-slate-600">
+          <p className="text-sm text-ink-2">
             {phase.code === 'not_ready'
               ? '这次任务的单词还没学过，先去把单词过一遍。'
               : '这次任务能考的单词还不够，明天再看看。'}
@@ -331,13 +331,13 @@ export default function LessonTestPage() {
     const a = phase.attempt;
     return (
       <Shell>
-        <section className="rounded-2xl bg-white border border-slate-200 p-6 text-center">
-          <p className="text-sm text-slate-500 mb-1">正式单词测试</p>
+        <section className="rounded-2xl bg-surface border border-line p-6 text-center">
+          <p className="text-sm text-ink-3 mb-1">正式单词测试</p>
           <p data-testid="score" className="text-4xl font-semibold tabular-nums">
             {a.score ?? 0}
-            <span className="text-base text-slate-400 ml-1">分</span>
+            <span className="text-base text-ink-3 ml-1">分</span>
           </p>
-          <p data-testid="score-detail" className="mt-2 text-sm text-slate-500 tabular-nums">
+          <p data-testid="score-detail" className="mt-2 text-sm text-ink-3 tabular-nums">
             答对 {a.correct} / {a.total}
           </p>
         </section>
@@ -358,20 +358,20 @@ export default function LessonTestPage() {
           type="button"
           data-testid="exit"
           onClick={() => setExitOpen(true)}
-          className="text-slate-400 text-xl px-1 min-h-[44px]"
+          className="text-ink-3 text-xl px-1 min-h-[44px]"
           aria-label="退出测试"
         >
           ✕
         </button>
         {/* 旧 testid 保留（既有测试认它）；`quiz-progress` 是 S12L 的新名字。 */}
-        <p data-testid="progress" className="text-sm text-slate-500 tabular-nums">
+        <p data-testid="progress" className="text-sm text-ink-3 tabular-nums">
           <span data-testid="quiz-progress">
             {/* 分母用服务端的 `total` —— 与开考那句话是同一个数 */}
             {Math.min(cursor + 1, items.length)} / {attempt?.total ?? items.length}
           </span>
         </p>
         <div className="flex-1" />
-        <span data-testid="scored-badge" className="text-xs text-blue-700 bg-blue-50 rounded-md px-2 py-1">
+        <span data-testid="scored-badge" className="text-xs text-accent bg-accent-soft rounded-md px-2 py-1">
           计入成绩
         </span>
       </header>
@@ -381,7 +381,7 @@ export default function LessonTestPage() {
         以前学了 21 个词、考出来 10 道，界面上一个字都没提；现在题数恒等于
         今天学的词数，那就把这句话摆在最上面，学生不用自己数。
       */}
-      <p data-testid="quiz-intro" className="mb-3 text-sm text-slate-600">
+      <p data-testid="quiz-intro" className="mb-3 text-sm text-ink-2">
         {/* 题数照服务端的 `total`（= 今天学的词数），不自己数手里有几道 */}
         今天学习 {attempt?.total ?? items.length} 个词，本次测试{' '}
         {attempt?.total ?? items.length} 题。
@@ -399,18 +399,18 @@ export default function LessonTestPage() {
           onSpell={onSpell}
         />
       ) : (
-        <section className="rounded-2xl bg-white border border-slate-200 p-6 text-center">
+        <section className="rounded-2xl bg-surface border border-line p-6 text-center">
           {/* S12I —— 题数取自服务端的那份卷子。以前这里写死着「四道题」，
               而头部的进度早就是 `items.length` —— 十题的卷子头上写 10 / 10，
               下面却说「四道题都答完了」。 */}
           <p className="text-lg font-medium">{items.length} 道题都答完了。</p>
-          <p className="mt-1 text-sm text-slate-500">交卷之后答案就不能再改了。</p>
+          <p className="mt-1 text-sm text-ink-3">交卷之后答案就不能再改了。</p>
         </section>
       )}
 
       {saveFailed && (
         <div data-testid="answer-failed" className="mt-4">
-          <p role="alert" className="text-sm text-rose-700 text-center mb-2">
+          <p role="alert" className="text-sm text-danger text-center mb-2">
             这一题还没存上 —— 你的答案还在，点下面重试。
           </p>
           <Primary testId="answer-retry" disabled={busy != null} onClick={onRetryAnswer} tone="rose">
@@ -436,7 +436,7 @@ export default function LessonTestPage() {
 
       {submitFailed && (
         <div data-testid="submit-failed" className="mt-4">
-          <p role="alert" className="text-sm text-rose-700 text-center mb-2">
+          <p role="alert" className="text-sm text-danger text-center mb-2">
             没能交卷 —— 你的答案都还在，再试一次。
           </p>
           <Primary testId="submit-retry" disabled={busy != null} onClick={() => setSubmitOpen(true)} tone="rose">
@@ -447,7 +447,7 @@ export default function LessonTestPage() {
 
       {exitOpen && (
         <Dialog title="现在退出？">
-          <p className="text-sm text-slate-600">
+          <p className="text-sm text-ink-2">
             已经答过的题都存好了，回来还能接着做。**这次不会交卷。**
           </p>
           <div className="mt-4 grid grid-cols-2 gap-3">
@@ -468,7 +468,7 @@ export default function LessonTestPage() {
 
       {submitOpen && (
         <Dialog title="确认交卷？">
-          <p className="text-sm text-slate-600">交完之后答案就改不了了。</p>
+          <p className="text-sm text-ink-2">交完之后答案就改不了了。</p>
           <div className="mt-4 grid grid-cols-2 gap-3">
             <Secondary testId="submit-cancel" onClick={() => setSubmitOpen(false)}>再看看</Secondary>
             <Primary testId="submit-confirm" disabled={busy != null} onClick={() => void onSubmit()}>
@@ -509,8 +509,8 @@ function Primary({
       data-testid={testId}
       disabled={disabled}
       onClick={onClick}
-      className={`w-full rounded-xl py-3 text-base font-medium min-h-[44px] text-white disabled:bg-slate-300 ${
-        tone === 'rose' ? 'bg-rose-600' : 'bg-blue-600'
+      className={`w-full rounded-xl py-3 text-base font-medium min-h-[44px] text-accent-on disabled:bg-fill-strong ${
+        tone === 'rose' ? 'bg-danger' : 'bg-accent-fill'
       }`}
     >
       {children}
@@ -530,7 +530,7 @@ function Secondary({
       type="button"
       data-testid={testId}
       onClick={onClick}
-      className="w-full rounded-xl border border-slate-300 py-3 text-base min-h-[44px]"
+      className="w-full rounded-xl border border-control py-3 text-base min-h-[44px]"
     >
       {children}
     </button>
@@ -543,7 +543,7 @@ function BackToToday({ navigate }: { navigate: ReturnType<typeof useNavigate> })
       type="button"
       data-testid="back-to-today"
       onClick={() => navigate(ROUTES.today)}
-      className="mt-4 w-full rounded-xl border border-slate-300 py-3 text-base min-h-[44px]"
+      className="mt-4 w-full rounded-xl border border-control py-3 text-base min-h-[44px]"
     >
       回到今天的课
     </button>
@@ -552,8 +552,8 @@ function BackToToday({ navigate }: { navigate: ReturnType<typeof useNavigate> })
 
 function Dialog({ title, children }: { title: string; children: React.ReactNode }) {
   return (
-    <div className="fixed inset-0 z-50 grid place-items-center bg-black/40 px-4">
-      <div role="dialog" aria-modal="true" className="w-full max-w-sm rounded-2xl bg-white p-5">
+    <div className="fixed inset-0 z-50 grid place-items-center bg-scrim/40 px-4">
+      <div role="dialog" aria-modal="true" className="w-full max-w-sm rounded-2xl bg-surface p-5">
         <h2 className="text-lg font-semibold mb-2">{title}</h2>
         {children}
       </div>
@@ -590,7 +590,7 @@ function Question({
       <section
         data-testid="question"
         data-qtype={item.qtype}
-        className="rounded-2xl bg-white border border-slate-200 p-6"
+        className="rounded-2xl bg-surface border border-line p-6"
       >
         {/*
           S12L —— 拼写 / 填空题的**安全线索**。
@@ -598,14 +598,14 @@ function Question({
           答案；这里原样显示，不推断、不拼接。
         */}
         {item.cue ? (
-          <div data-testid="question-cue" className="mb-3 rounded-xl bg-slate-50 px-4 py-3">
-            <p className="text-xs text-slate-500">{item.cue.instruction}</p>
-            <p className="mt-1 text-base text-slate-800">
-              {posPrefixFor(item.cue.pos, item.cue.translation) ? <span className="text-slate-500 mr-2">{posPrefixFor(item.cue.pos, item.cue.translation).trim()}</span> : null}
+          <div data-testid="question-cue" className="mb-3 rounded-xl bg-surface-2 px-4 py-3">
+            <p className="text-xs text-ink-3">{item.cue.instruction}</p>
+            <p className="mt-1 text-base text-ink">
+              {posPrefixFor(item.cue.pos, item.cue.translation) ? <span className="text-ink-3 mr-2">{posPrefixFor(item.cue.pos, item.cue.translation).trim()}</span> : null}
               {item.cue.translation}
             </p>
             {item.cue.definition ? (
-              <p className="mt-1 text-sm text-slate-500">{item.cue.definition}</p>
+              <p className="mt-1 text-sm text-ink-3">{item.cue.definition}</p>
             ) : null}
           </div>
         ) : null}
@@ -615,7 +615,7 @@ function Question({
               ? 'text-3xl font-semibold tracking-tight break-words'
               : item.qtype === 'meaning_to_word'
                 ? 'text-2xl font-semibold leading-snug'
-                : 'text-base leading-relaxed font-serif text-slate-800'
+                : 'text-base leading-relaxed font-serif text-ink'
           }
         >
           {item.prompt}
@@ -642,13 +642,13 @@ function Question({
               autoComplete="off"
               spellCheck={false}
               aria-label="输入这个单词"
-              className="w-full rounded-xl border-2 border-slate-300 px-4 py-3 text-lg tracking-wide"
+              className="w-full rounded-xl border-2 border-control px-4 py-3 text-lg tracking-wide"
             />
             <button
               type="submit"
               data-testid="spelling-submit"
               disabled={locked || !typed.trim()}
-              className="mt-3 w-full rounded-xl bg-blue-600 text-white py-3 text-base font-medium min-h-[44px] disabled:bg-slate-300"
+              className="mt-3 w-full rounded-xl bg-accent-fill text-accent-on py-3 text-base font-medium min-h-[44px] disabled:bg-fill-strong"
             >
               提交这一题
             </button>
@@ -657,14 +657,14 @@ function Question({
       ) : (
         <div className="mt-4 flex flex-col gap-3" role="group" aria-label="选项">
           {item.options.map((opt, idx) => {
-            let cls = 'bg-white border-slate-200';
+            let cls = 'bg-surface border-line';
             if (answered) {
-              if (item.correctIndex === idx) cls = 'bg-green-50 border-green-500 text-green-900';
-              else if (item.studentIndex === idx) cls = 'bg-rose-50 border-rose-400 text-rose-900';
-              else cls = 'bg-white border-slate-200 text-slate-400';
+              if (item.correctIndex === idx) cls = 'bg-success-soft border-success text-success';
+              else if (item.studentIndex === idx) cls = 'bg-danger-soft border-danger text-danger';
+              else cls = 'bg-surface border-line text-ink-3';
             } else if (picked === idx) {
               // 还在等回执：**只显示他选了哪个**，一个字的对错都不说。
-              cls = 'bg-blue-50 border-blue-400 text-blue-900';
+              cls = 'bg-accent-soft border-accent text-ink';
             }
             return (
               <button
@@ -692,29 +692,29 @@ function Question({
         <section
           data-testid="feedback"
           className={`mt-4 rounded-2xl px-4 py-3 border ${
-            item.isCorrect ? 'bg-green-50 border-green-200' : 'bg-rose-50 border-rose-200'
+            item.isCorrect ? 'bg-success-soft border-success/30' : 'bg-danger-soft border-danger/30'
           }`}
         >
-          <p className={`font-semibold ${item.isCorrect ? 'text-green-800' : 'text-rose-800'}`}>
+          <p className={`font-semibold ${item.isCorrect ? 'text-success' : 'text-danger'}`}>
             {item.isCorrect ? '答对了' : '答错了'}
           </p>
           {isSpelling && item.answer && (
             <p className="mt-1 text-lg font-semibold tracking-wide">
               {item.answer}
               {!item.isCorrect && item.studentAnswer && (
-                <span className="ml-3 text-sm font-normal text-rose-700 line-through">
+                <span className="ml-3 text-sm font-normal text-danger line-through">
                   {item.studentAnswer}
                 </span>
               )}
             </p>
           )}
-          <p className="mt-1 text-sm text-slate-700">
+          <p className="mt-1 text-sm text-ink-2">
             {item.headword && <span className="font-semibold">{item.headword}</span>}
-            {formatPhonetic(item.phonetic) && <span className="text-slate-500 ml-2">{formatPhonetic(item.phonetic)}</span>}
+            {formatPhonetic(item.phonetic) && <span className="text-ink-3 ml-2">{formatPhonetic(item.phonetic)}</span>}
             {item.translation && <span className="ml-2">{item.translation}</span>}
           </p>
           {!item.isCorrect && item.contextSentence && (
-            <p className="mt-1 text-sm text-slate-600 font-serif leading-relaxed">
+            <p className="mt-1 text-sm text-ink-2 font-serif leading-relaxed">
               {item.contextSentence}
             </p>
           )}

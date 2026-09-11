@@ -695,7 +695,12 @@ describe('AC-09 可访问性', () => {
     const css = fs.readFileSync(path.resolve(__dirname, '..', 'index.css'), 'utf8');
     expect(css).toMatch(/:focus-visible/);
     expect(css).toMatch(/44px/);
-    expect(css).toMatch(/overflow-x\s*:\s*hidden/);
+    // 2026-09-11 审计 IOS/§3：不许在根上用 overflow-x: hidden / clip 把溢出的控件裁掉
+    // 假装没有横向滚动。溢出要在各自容器里折行解决，并在 320px 实测 scrollWidth。
+    const rootRules = css.match(/(?:^|\})\s*(?:html|body|#root)(?:\s*,\s*(?:html|body|#root))*\s*\{[^}]*\}/g) ?? [];
+    for (const rule of rootRules) {
+      expect(rule, rule).not.toMatch(/overflow-x\s*:\s*(hidden|clip)/);
+    }
   });
 
   it('**主要交互控件都带 44px 下限的类**', async () => {

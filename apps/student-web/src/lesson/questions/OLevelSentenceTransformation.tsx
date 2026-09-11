@@ -29,7 +29,7 @@ export function OLevelSentenceTransformation({ paper }: { paper: ExamPaper }) {
   const total = paper?.questions?.length ?? 0;
   if (!total) {
     return (
-      <div className="max-w-xl mx-auto py-12 px-6 text-center text-amber-800">
+      <div className="max-w-xl mx-auto py-12 px-6 text-center text-warning">
         该卷尚未出题，请联系老师。
       </div>
     );
@@ -44,16 +44,16 @@ export function OLevelSentenceTransformation({ paper }: { paper: ExamPaper }) {
           type="button"
           disabled={idx === 0}
           onClick={() => setIdx((n) => Math.max(0, n - 1))}
-          className="px-4 py-2.5 rounded-lg border border-gray-300 text-gray-700 hover:bg-gray-50 disabled:opacity-40 touch-manipulation min-h-[44px]"
+          className="px-4 py-2.5 rounded-lg border border-control text-ink-2 hover:bg-surface-2 disabled:opacity-40 touch-manipulation min-h-[44px]"
         >
           ← Prev
         </button>
-        <span className="text-sm text-gray-500 tabular-nums">{idx + 1} / {total}</span>
+        <span className="text-sm text-ink-3 tabular-nums">{idx + 1} / {total}</span>
         <button
           type="button"
           disabled={idx === total - 1}
           onClick={() => setIdx((n) => Math.min(total - 1, n + 1))}
-          className="px-4 py-2.5 rounded-lg border border-blue-500 bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-40 touch-manipulation min-h-[44px]"
+          className="px-4 py-2.5 rounded-lg border border-accent bg-accent-fill text-accent-on hover:bg-accent-pressed disabled:opacity-40 touch-manipulation min-h-[44px]"
         >
           Next →
         </button>
@@ -78,32 +78,32 @@ function TransformationCard({ q, idx, total }: { q: ExamQuestion; idx: number; t
   const overLimit = maxWords !== null && wordCount > maxWords;
 
   return (
-    <article id={`q-${q.id}`} className="bg-white border border-gray-200 rounded-xl shadow-sm">
+    <article id={`q-${q.id}`} className="bg-surface border border-line rounded-xl shadow-sm">
       <header className="px-5 py-3 border-b flex items-center gap-3">
-        <span className="text-xs text-gray-500 uppercase tracking-wide font-semibold">Sentence Transformation</span>
-        <span className="text-xs text-gray-400">·</span>
-        <span className="font-mono text-sm text-gray-500 tabular-nums">Q{idx + 1} / {total}</span>
-        <span className="text-[13px] text-gray-500 ml-1 tabular-nums">{q.marks} 分</span>
+        <span className="text-xs text-ink-3 uppercase tracking-wide font-semibold">Sentence Transformation</span>
+        <span className="text-xs text-ink-3">·</span>
+        <span className="font-mono text-sm text-ink-3 tabular-nums">Q{idx + 1} / {total}</span>
+        <span className="text-[13px] text-ink-3 ml-1 tabular-nums">{q.marks} 分</span>
         <div className="flex-1" />
         <QuestionFlag qid={q.id} />
       </header>
       <div className="px-6 py-6 space-y-5">
         <section>
-          <div className="text-xs text-gray-500 uppercase tracking-wide mb-1.5">Original sentence</div>
-          <p className="text-lg lg:text-xl font-serif text-gray-900 leading-relaxed border-l-4 border-gray-300 pl-4 italic">
+          <div className="text-xs text-ink-3 uppercase tracking-wide mb-1.5">Original sentence</div>
+          <p className="text-lg lg:text-xl font-serif text-ink leading-relaxed border-l-4 border-control pl-4 italic">
             {original}
           </p>
         </section>
         <section>
-          <div className="text-xs text-gray-500 uppercase tracking-wide mb-1.5">
+          <div className="text-xs text-ink-3 uppercase tracking-wide mb-1.5">
             Rewrite{starter ? ' starting with the words shown' : ''}
             {maxWords !== null && (
-              <span className="ml-2 normal-case text-gray-400">(max {maxWords} words)</span>
+              <span className="ml-2 normal-case text-ink-3">(max {maxWords} words)</span>
             )}
           </div>
           {starter && (
-            <p className="text-base text-blue-700 font-mono mb-2">
-              {starter}<span className="text-gray-400"> …</span>
+            <p className="text-base text-accent font-mono mb-2">
+              {starter}<span className="text-ink-3"> …</span>
             </p>
           )}
           <textarea
@@ -117,19 +117,19 @@ function TransformationCard({ q, idx, total }: { q: ExamQuestion; idx: number; t
             placeholder={starter ? `Continue from "${starter}"…` : 'Write your rewritten sentence…'}
             className={`w-full border-2 rounded-lg px-4 py-3 text-base font-serif focus:outline-none focus:ring-2 ${
               overLimit
-                ? 'border-rose-300 focus:border-rose-500 focus:ring-rose-200'
-                : 'border-gray-300 focus:border-blue-500 focus:ring-blue-200'
+                ? 'border-danger/30 focus:border-danger focus:ring-danger/30'
+                : 'border-control focus:border-accent focus:ring-accent/30'
             }`}
           />
           <div className="flex items-center justify-between mt-1.5 text-xs">
-            <span className={overLimit ? 'text-rose-600 font-semibold' : 'text-gray-500'}>
+            <span className={overLimit ? 'text-danger font-semibold' : 'text-ink-3'}>
               {wordCount} word{wordCount === 1 ? '' : 's'}
               {maxWords !== null && ` / ${maxWords}`}
               {overLimit && ' — over limit'}
             </span>
             {mode === 'practice' && example && text.trim() && (
-              <details className="text-gray-500">
-                <summary className="cursor-pointer hover:text-blue-600">See example</summary>
+              <details className="text-ink-3">
+                <summary className="cursor-pointer hover:text-accent">See example</summary>
                 <span className="block mt-1 italic">{example}</span>
               </details>
             )}

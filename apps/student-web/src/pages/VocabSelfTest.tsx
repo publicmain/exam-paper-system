@@ -262,7 +262,7 @@ export default function VocabSelfTestPage() {
           <TopBar title="考考自己" onBack={() => navigate(ROUTES.vocab)} backLabel="生词本" />
           <div data-testid="selftest-setup">
             {available ? (
-              <p data-testid="selftest-available" className="text-sm text-slate-600">
+              <p data-testid="selftest-available" className="text-sm text-ink-2">
                 生词本里有 {available.total} 个词，今天到期 {available.due} 个。
               </p>
             ) : null}
@@ -275,7 +275,7 @@ export default function VocabSelfTestPage() {
                   data-testid={`selftest-count-${n}`}
                   disabled={available != null && available.total < n}
                   onClick={() => void load(n)}
-                  className="min-h-[44px] rounded-xl border border-slate-300 px-3 py-3 text-base disabled:opacity-40"
+                  className="min-h-[44px] rounded-xl border border-control px-3 py-3 text-base disabled:opacity-40"
                 >
                   {n} 题
                 </button>
@@ -284,17 +284,17 @@ export default function VocabSelfTestPage() {
                 type="button"
                 data-testid="selftest-count-all"
                 onClick={() => void load(cap)}
-                className="min-h-[44px] rounded-xl border border-slate-300 px-3 py-3 text-base"
+                className="min-h-[44px] rounded-xl border border-control px-3 py-3 text-base"
               >
                 全部{available ? `（${cap}）` : ''}
               </button>
             </div>
             {available != null && available.total < 5 ? (
-              <p data-testid="selftest-few" className="mt-3 text-sm text-amber-800">
+              <p data-testid="selftest-few" className="mt-3 text-sm text-warning">
                 生词本里只有 {available.total} 个词，这次最多考这么多。
               </p>
             ) : null}
-            <p className="mt-4 text-xs text-slate-500">
+            <p className="mt-4 text-xs text-ink-3">
               自测不计成绩。<strong>刷新会重新开一份</strong> —— 想要记成绩的那一份在
               「今天的课」里。
             </p>
@@ -308,7 +308,7 @@ export default function VocabSelfTestPage() {
   if (phase.s === 'loading') {
     return (
       <Screen>
-        <p className="text-center text-slate-400">载入中…</p>
+        <p className="text-center text-ink-3">载入中…</p>
       </Screen>
     );
   }
@@ -332,7 +332,7 @@ export default function VocabSelfTestPage() {
       <Screen>
         <Card>
           <h1 className="text-xl font-semibold mb-2">考考自己</h1>
-          <p data-testid="selftest-empty" className="rounded-xl bg-slate-50 px-4 py-3 text-sm text-slate-600">
+          <p data-testid="selftest-empty" className="rounded-xl bg-surface-2 px-4 py-3 text-sm text-ink-2">
             {emptyReason(quiz?.totalWords ?? 0, quiz?.seenWords ?? 0)}
           </p>
           <BackToVocab navigate={navigate} />
@@ -347,7 +347,7 @@ export default function VocabSelfTestPage() {
       <Screen>
         <Card>
           <h1 className="text-xl font-semibold mb-2">{redo ? '错题过了一遍' : '自测做完了'}</h1>
-          <p data-testid="selftest-done" className="text-sm text-slate-600 tabular-nums">
+          <p data-testid="selftest-done" className="text-sm text-ink-2 tabular-nums">
             答对 {correctCount} / {quiz.questions.length}
           </p>
           {!redo && wrong.length > 0 ? (
@@ -355,7 +355,7 @@ export default function VocabSelfTestPage() {
               type="button"
               data-testid="redo-wrong"
               onClick={startRedo}
-              className="mt-3 min-h-[44px] w-full rounded-xl border border-slate-300 py-3 text-base"
+              className="mt-3 min-h-[44px] w-full rounded-xl border border-control py-3 text-base"
             >
               再看一遍答错的 {wrong.length} 个（不再计入复习）
             </button>
@@ -369,18 +369,18 @@ export default function VocabSelfTestPage() {
   return (
     <Screen>
       <Card>
-        <p data-testid="selftest-progress" className="text-sm text-slate-500 mb-2 tabular-nums">
+        <p data-testid="selftest-progress" className="text-sm text-ink-3 mb-2 tabular-nums">
           {index + 1} / {order.length}
           {redo ? ' · 重做（不计入复习）' : ''}
         </p>
 
-        <p data-testid="question-prompt" className="text-lg text-slate-900 leading-relaxed">
+        <p data-testid="question-prompt" className="text-lg text-ink leading-relaxed">
           {q.prompt}
         </p>
 
         {q.qtype === 'spelling' ? (
           <div className="mt-4">
-            <label htmlFor="spelling" className="block text-sm text-slate-600 mb-1">
+            <label htmlFor="spelling" className="block text-sm text-ink-2 mb-1">
               把这个词拼出来
             </label>
             <input
@@ -389,14 +389,14 @@ export default function VocabSelfTestPage() {
               value={typed}
               disabled={!!verdict}
               onChange={(e) => setTyped(e.target.value)}
-              className="w-full rounded-xl border border-slate-300 px-3 py-2 text-base"
+              className="w-full rounded-xl border border-control px-3 py-2 text-base"
             />
             <button
               type="button"
               data-testid="spelling-submit"
               disabled={!!verdict}
               onClick={() => answer(spellingMatches(typed, q.answer ?? ''))}
-              className="mt-2 min-h-[44px] px-4 rounded-xl bg-blue-600 text-white text-base disabled:bg-slate-300"
+              className="mt-2 min-h-[44px] px-4 rounded-xl bg-accent-fill text-accent-on text-base disabled:bg-fill-strong"
             >
               提交
             </button>
@@ -410,7 +410,7 @@ export default function VocabSelfTestPage() {
                   data-testid={`option-${i}`}
                   disabled={!!verdict}
                   onClick={() => answer(i === q.correctIndex)}
-                  className="w-full min-h-[44px] rounded-xl border border-slate-300 px-4 py-3 text-left text-base disabled:opacity-60"
+                  className="w-full min-h-[44px] rounded-xl border border-control px-4 py-3 text-left text-base disabled:opacity-60"
                 >
                   {o}
                 </button>
@@ -425,23 +425,23 @@ export default function VocabSelfTestPage() {
               {verdict.correct ? '答对了' : '答错了'}
             </p>
             {!verdict.correct ? (
-              <p data-testid="correct-answer" className="mt-1 text-sm text-slate-700">
+              <p data-testid="correct-answer" className="mt-1 text-sm text-ink-2">
                 正确答案：{correctTextOf(q)}
               </p>
             ) : null}
             {q.contextSentence ? (
-              <p className="mt-1 text-sm text-slate-600">{q.contextSentence}</p>
+              <p className="mt-1 text-sm text-ink-2">{q.contextSentence}</p>
             ) : null}
             {writeState === 'failed' ? (
               <>
-                <p role="alert" data-testid="write-error" className="mt-2 text-sm text-rose-700">
+                <p role="alert" data-testid="write-error" className="mt-2 text-sm text-danger">
                   这一次还没记进复习计划 —— 网络不太好。
                 </p>
                 <button
                   type="button"
                   data-testid="retry-write"
                   onClick={() => void send()}
-                  className="mt-1 min-h-[44px] px-4 rounded-xl bg-blue-600 text-white text-sm"
+                  className="mt-1 min-h-[44px] px-4 rounded-xl bg-accent-fill text-accent-on text-sm"
                 >
                   重试
                 </button>
@@ -465,7 +465,7 @@ function BackToVocab({ navigate }: { navigate: ReturnType<typeof useNavigate> })
       type="button"
       data-testid="back-to-vocab"
       onClick={() => navigate(ROUTES.vocab)}
-      className="mt-6 w-full rounded-xl border border-slate-300 py-3 text-base min-h-[44px]"
+      className="mt-6 w-full rounded-xl border border-control py-3 text-base min-h-[44px]"
     >
       回到生词本
     </button>

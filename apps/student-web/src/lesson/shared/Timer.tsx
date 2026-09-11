@@ -100,7 +100,7 @@ export function Timer({
   if (expiredAtMount && onAlreadyExpired) {
     return (
       <div
-        className="text-sm lg:text-base text-rose-600 font-medium"
+        className="text-sm lg:text-base text-danger font-medium"
         role="status"
       >
         时间已过期，请联系老师
@@ -118,7 +118,7 @@ export function Timer({
     <>
       <div
         className={`font-mono tabular-nums text-2xl lg:text-3xl ${
-          danger ? 'text-rose-600' : warn ? 'text-amber-600' : 'text-gray-700'
+          danger ? 'text-danger' : warn ? 'text-warning' : 'text-ink-2'
         }`}
         aria-live={danger ? 'polite' : 'off'}
         aria-label={`Remaining time ${mm}:${ss}`}
@@ -133,7 +133,7 @@ export function Timer({
           className="fixed inset-x-0 top-3 z-[60] flex justify-center px-4 pointer-events-none"
           role="status"
         >
-          <div className="rounded-full bg-rose-600 text-white text-sm font-semibold px-4 py-2 shadow-lg">
+          <div className="rounded-full bg-danger text-accent-on text-sm font-semibold px-4 py-2 shadow-lg">
             ⏰ 时间到 · Time's up
           </div>
         </div>
@@ -148,8 +148,8 @@ export function Timer({
           onClick={() => setToast(null)}
         >
           <div
-            className={`rounded-full text-white text-sm font-semibold px-4 py-2 shadow-lg cursor-pointer ${
-              toast === 'thirty' ? 'bg-rose-600' : 'bg-amber-500'
+            className={`rounded-full text-accent-on text-sm font-semibold px-4 py-2 shadow-lg cursor-pointer ${
+              toast === 'thirty' ? 'bg-danger' : 'bg-warning'
             }`}
           >
             {toast === 'thirty'

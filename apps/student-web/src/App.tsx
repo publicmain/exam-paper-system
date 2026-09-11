@@ -26,7 +26,8 @@ import MistakePracticePage from './pages/MistakePractice';
 import VocabularyCoachPage from './pages/VocabularyCoach';
 import VocabularyCoachLearnPage from './pages/VocabularyCoachLearn';
 import VocabularyCoachTestPage from './pages/VocabularyCoachTest';
-import { Screen } from './ui';
+import { AppShell, shellFor } from './design/AppShell';
+import { StatusView } from './design/Status';
 
 export default function App() {
   const state = useSyncExternalStore(subscribe, getState, getState);
@@ -37,11 +38,7 @@ export default function App() {
   }, []);
 
   if (state.status === 'loading') {
-    return (
-      <Screen>
-        <p className="text-center text-slate-400">载入中…</p>
-      </Screen>
-    );
+    return <StatusView kind="loading" title="正在登录" testId="app-loading" />;
   }
 
   const authed = state.status === 'authenticated';
@@ -57,6 +54,7 @@ export default function App() {
   }
 
   return (
+    <AppShell kind={shellFor(loc.pathname, authed)}>
     <Routes>
       <Route path={ROUTES.login} element={<LoginPage />} />
       <Route path={ROUTES.register} element={<RegisterPage />} />
@@ -95,5 +93,6 @@ export default function App() {
       <Route path={ROUTES.mistakePractice} element={<MistakePracticePage />} />
       <Route path="*" element={<Navigate to={fallbackPath(authed)} replace />} />
     </Routes>
+    </AppShell>
   );
 }

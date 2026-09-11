@@ -9,7 +9,7 @@ export function FontSizeAdjuster() {
   const pct = Math.round(fontScale * 100);
   return (
     <div
-      className="inline-flex items-center gap-1 rounded-md border border-gray-200 bg-white text-gray-700 text-sm select-none"
+      className="inline-flex items-center gap-1 rounded-md border border-line bg-surface text-ink-2 text-sm select-none"
       role="group"
       aria-label="Font size"
     >
@@ -17,17 +17,17 @@ export function FontSizeAdjuster() {
         type="button"
         onClick={() => setFontScale(fontScale - 0.1)}
         disabled={fontScale <= 0.7}
-        className="hit press px-3 hover:bg-gray-50 disabled:text-gray-300 disabled:cursor-not-allowed rounded-md"
+        className="hit press px-3 hover:bg-surface-2 disabled:text-ink-3 disabled:cursor-not-allowed rounded-md"
         aria-label="Decrease font size"
       >
         A−
       </button>
-      <span className="text-xs text-gray-400 tabular-nums w-9 text-center">{pct}%</span>
+      <span className="text-xs text-ink-3 tabular-nums w-9 text-center">{pct}%</span>
       <button
         type="button"
         onClick={() => setFontScale(fontScale + 0.1)}
         disabled={fontScale >= 1.6}
-        className="hit press px-3 hover:bg-gray-50 disabled:text-gray-300 disabled:cursor-not-allowed rounded-md"
+        className="hit press px-3 hover:bg-surface-2 disabled:text-ink-3 disabled:cursor-not-allowed rounded-md"
         aria-label="Increase font size"
       >
         A+

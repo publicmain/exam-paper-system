@@ -16,12 +16,12 @@ import { OLevelMcqList } from './questions/OLevelMcqList';
 function EmptyPaperCard() {
   return (
     <div className="max-w-xl mx-auto py-12 px-6 text-center">
-      <div className="bg-amber-50 border border-amber-200 rounded-xl p-8 shadow-sm">
+      <div className="bg-warning-soft border border-warning/35 rounded-xl p-8 shadow-sm">
         <div className="text-3xl mb-3">📄</div>
-        <h2 className="text-lg font-semibold text-amber-900 mb-2">
+        <h2 className="text-lg font-semibold text-warning mb-2">
           该卷尚未出题 · No questions yet
         </h2>
-        <p className="text-sm text-amber-800 leading-relaxed">
+        <p className="text-sm text-warning leading-relaxed">
           这份卷子目前没有题目。请联系老师或刷新页面重试；若仍空白，请反馈给管理员。
         </p>
       </div>

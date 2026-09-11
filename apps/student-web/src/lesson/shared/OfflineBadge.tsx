@@ -10,9 +10,9 @@ export function OfflineBadge() {
     <div
       role="status"
       aria-live="polite"
-      className="fixed top-2 left-1/2 -translate-x-1/2 z-30 bg-amber-500 text-white text-xs font-medium px-3 py-1.5 rounded-full shadow-lg flex items-center gap-2"
+      className="fixed top-2 left-1/2 -translate-x-1/2 z-30 bg-warning text-accent-on text-xs font-medium px-3 py-1.5 rounded-full shadow-lg flex items-center gap-2"
     >
-      <span className="w-2 h-2 rounded-full bg-white animate-pulse" />
+      <span className="w-2 h-2 rounded-full bg-surface animate-pulse" />
       离线 · Offline — answers saved locally, will sync on reconnect.
     </div>
   );

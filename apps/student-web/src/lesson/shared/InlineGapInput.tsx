@@ -46,13 +46,13 @@ export function InlineGapInput({
 
   const ring =
     practiceFeedback === 'correct'
-      ? 'ring-2 ring-green-400 bg-green-50 border-green-500'
+      ? 'ring-2 ring-success bg-success-soft border-success'
       : practiceFeedback === 'incorrect'
-      ? 'ring-2 ring-rose-400 bg-rose-50 border-rose-500'
-      : 'border-gray-400 focus:border-blue-500 focus:ring-2 focus:ring-blue-200';
+      ? 'ring-2 ring-danger bg-danger-soft border-danger'
+      : 'border-control focus:border-accent focus:ring-2 focus:ring-accent/30';
   return (
     <span className="inline-flex items-baseline align-baseline">
-      <span className="text-xs font-mono text-gray-400 mr-0.5 select-none">{index})</span>
+      <span className="text-xs font-mono text-ink-3 mr-0.5 select-none">{index})</span>
       <input
         ref={ref}
         type="text"
@@ -78,7 +78,7 @@ export function InlineGapInput({
         spellCheck={false}
         // H16 — increase touch height (min-h-[44px]) and font-size to give
         // a real touch target on iPad while keeping the inline look.
-        className={`inline-block px-2 min-h-[44px] py-1 mx-0.5 border-0 border-b-2 bg-transparent text-base font-medium text-gray-900 focus:outline-none touch-manipulation ${ring}`}
+        className={`inline-block px-2 min-h-[44px] py-1 mx-0.5 border-0 border-b-2 bg-transparent text-base font-medium text-ink focus:outline-none touch-manipulation ${ring}`}
         style={{ width, minWidth: '4rem' }}
       />
     </span>

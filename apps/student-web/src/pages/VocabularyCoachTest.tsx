@@ -74,58 +74,58 @@ export default function VocabularyCoachTestPage() {
   };
   // 先放服务端的 Piper 音频，放不了再退回系统语音（lib/speak.ts）
   const speak = (text: string) => sayWord(text, { lang: 'en-GB' });
-  if (phase.s === 'loading') return <Screen><p className="text-center text-slate-500">正在恢复测试…</p></Screen>;
+  if (phase.s === 'loading') return <Screen><p className="text-center text-ink-3">正在恢复测试…</p></Screen>;
   if (phase.s === 'error') return <Screen><Card><Notice kind="error">{phase.message}</Notice><Button onClick={() => void load()}>重试</Button></Card></Screen>;
   if (session!.status === 'submitted') return (
     <Screen center>
       <Card>
-        <p className="text-center text-sm text-blue-600">测试完成</p><h1 className="mt-3 text-center text-4xl font-semibold tabular-nums">{session!.correct} / {session!.total}</h1>
-        <p className="mt-3 text-center text-sm text-slate-500">{session!.type === 'custom_test' ? '这是个人练习，不进入正式成绩，也不会生成后续任务。' : '这份每日单词测试已经完成并保存。'}</p>
+        <p className="text-center text-sm text-accent">测试完成</p><h1 className="mt-3 text-center text-4xl font-semibold tabular-nums">{session!.correct} / {session!.total}</h1>
+        <p className="mt-3 text-center text-sm text-ink-3">{session!.type === 'custom_test' ? '这是个人练习，不进入正式成绩，也不会生成后续任务。' : '这份每日单词测试已经完成并保存。'}</p>
         {/* 逐题回顾（2026-09-05 盲测 P1-8）：答错的排前面，一眼看到该记什么 */}
-        <ul data-testid="test-review" className="mt-6 divide-y divide-slate-100 text-left">
+        <ul data-testid="test-review" className="mt-6 divide-y divide-line text-left">
           {[...session!.items].sort((a, b) => Number(a.isCorrect === true) - Number(b.isCorrect === true) || a.position - b.position).map((it) => (
             <li key={it.id} className="py-3">
               <div className="flex items-baseline gap-2">
-                <span className={it.isCorrect ? 'text-emerald-600' : 'text-rose-600'} aria-label={it.isCorrect ? '答对' : '答错'}>{it.isCorrect ? '✓' : '✗'}</span>
+                <span className={it.isCorrect ? 'text-success' : 'text-danger'} aria-label={it.isCorrect ? '答对' : '答错'}>{it.isCorrect ? '✓' : '✗'}</span>
                 <span className="font-semibold">{it.card?.headword ?? `第 ${it.position} 题`}</span>
-                {it.card ? <span className="text-sm text-slate-500">{posPrefixFor(it.card.pos, it.card.translation)}{cleanTranslation(it.card.translation).split('\n')[0]}</span> : null}
+                {it.card ? <span className="text-sm text-ink-3">{posPrefixFor(it.card.pos, it.card.translation)}{cleanTranslation(it.card.translation).split('\n')[0]}</span> : null}
               </div>
               {!it.isCorrect ? (
-                <p className="mt-1 text-sm text-slate-600">你写的：{responseText(it)} · 正确答案：<span className="font-medium text-slate-900">{answerText(it.question)}</span></p>
+                <p className="mt-1 text-sm text-ink-2">你写的：{responseText(it)} · 正确答案：<span className="font-medium text-ink">{answerText(it.question)}</span></p>
               ) : null}
             </li>
           ))}
         </ul>
-        <button className="app-secondary mt-6 w-full" onClick={() => navigate(ROUTES.vocab)}>回到我的单词</button><button className="mt-3 w-full min-h-[44px] text-sm text-slate-500" onClick={() => navigate(ROUTES.today)}>回首页</button>
+        <button className="app-secondary mt-6 w-full" onClick={() => navigate(ROUTES.vocab)}>回到我的单词</button><button className="mt-3 w-full min-h-[44px] text-sm text-ink-3" onClick={() => navigate(ROUTES.today)}>回首页</button>
       </Card>
     </Screen>
   );
   if (feedback) return (
     <Screen>
-      <TopBar title={session!.type === 'custom_test' ? '自定义抽查' : `${formatTaskDate(session!.date)}`} onBack={() => navigate(ROUTES.today)} backLabel="首页" right={<span className="text-sm tabular-nums text-slate-500">{session!.answered} / {session!.total}</span>} />
+      <TopBar title={session!.type === 'custom_test' ? '自定义抽查' : `${formatTaskDate(session!.date)}`} onBack={() => navigate(ROUTES.today)} backLabel="首页" right={<span className="text-sm tabular-nums text-ink-3">{session!.answered} / {session!.total}</span>} />
       <div className="mx-auto w-full max-w-3xl">
         <Card>
-          <p data-testid="test-feedback" className={`text-2xl font-semibold ${feedback.isCorrect ? 'text-emerald-600' : 'text-rose-600'}`}>{feedback.isCorrect ? '✓ 答对了' : '✗ 不对'}</p>
-          {feedback.card ? <p className="mt-3 text-xl font-semibold">{feedback.card.headword} <span className="text-base font-normal text-slate-500">{posPrefixFor(feedback.card.pos, feedback.card.translation)}{cleanTranslation(feedback.card.translation).split('\n')[0]}</span></p> : null}
-          {!feedback.isCorrect ? <p className="mt-2 text-slate-700">你写的：{responseText(feedback)}<br />正确答案：<span className="font-semibold">{answerText(feedback.question)}</span></p> : null}
-          {feedback.card?.sentence ? <p className="mt-3 font-serif text-slate-600">{feedback.card.sentence}</p> : null}
+          <p data-testid="test-feedback" className={`text-2xl font-semibold ${feedback.isCorrect ? 'text-success' : 'text-danger'}`}>{feedback.isCorrect ? '✓ 答对了' : '✗ 不对'}</p>
+          {feedback.card ? <p className="mt-3 text-xl font-semibold">{feedback.card.headword} <span className="text-base font-normal text-ink-3">{posPrefixFor(feedback.card.pos, feedback.card.translation)}{cleanTranslation(feedback.card.translation).split('\n')[0]}</span></p> : null}
+          {!feedback.isCorrect ? <p className="mt-2 text-ink-2">你写的：{responseText(feedback)}<br />正确答案：<span className="font-semibold">{answerText(feedback.question)}</span></p> : null}
+          {feedback.card?.sentence ? <p className="mt-3 font-serif text-ink-2">{feedback.card.sentence}</p> : null}
           <div className="mt-6"><Button onClick={() => setFeedback(null)}>{session!.items.some((it) => it.status !== 'answered') ? '下一题' : session!.type === 'custom_test' ? '看回顾' : '去交卷'}</Button></div>
         </Card>
       </div>
     </Screen>
   );
-  if (!item) return <Screen center><Card><h1 className="text-center text-2xl font-semibold">所有题都答完了</h1><p className="mt-2 text-center text-sm text-slate-500">{session!.type === 'custom_test' ? '点一下就能看逐题回顾。这是个人练习，不记正式成绩。' : '交卷后能看逐题回顾，这次成绩会记入每日单词测试。'}</p>{message ? <Notice kind="error">{message}</Notice> : null}<div className="mt-6"><Button disabled={busy} onClick={() => void submit()}>{session!.type === 'custom_test' ? '看本次回顾' : '交卷'}</Button></div><button className="mt-3 w-full min-h-[44px] text-sm text-slate-500" onClick={() => navigate(ROUTES.vocab)}>{session!.type === 'custom_test' ? '不看了，回我的单词' : '先不交，回我的单词'}</button></Card></Screen>;
+  if (!item) return <Screen center><Card><h1 className="text-center text-2xl font-semibold">所有题都答完了</h1><p className="mt-2 text-center text-sm text-ink-3">{session!.type === 'custom_test' ? '点一下就能看逐题回顾。这是个人练习，不记正式成绩。' : '交卷后能看逐题回顾，这次成绩会记入每日单词测试。'}</p>{message ? <Notice kind="error">{message}</Notice> : null}<div className="mt-6"><Button disabled={busy} onClick={() => void submit()}>{session!.type === 'custom_test' ? '看本次回顾' : '交卷'}</Button></div><button className="mt-3 w-full min-h-[44px] text-sm text-ink-3" onClick={() => navigate(ROUTES.vocab)}>{session!.type === 'custom_test' ? '不看了，回我的单词' : '先不交，回我的单词'}</button></Card></Screen>;
 
   const q = item.question;
   return (
     <Screen>
-      <TopBar title={session!.type === 'custom_test' ? '自定义抽查' : `${formatTaskDate(session!.date)}`} onBack={() => navigate(ROUTES.today)} backLabel="首页" right={<span className="text-sm tabular-nums text-slate-500">{session!.answered + 1} / {session!.total}</span>} />
-      <div className="mx-auto w-full max-w-3xl"><div className="mb-4 h-2 overflow-hidden rounded-full bg-slate-200"><div className="h-full rounded-full bg-blue-500" style={{ width: `${(session!.answered / session!.total) * 100}%` }} /></div>
+      <TopBar title={session!.type === 'custom_test' ? '自定义抽查' : `${formatTaskDate(session!.date)}`} onBack={() => navigate(ROUTES.today)} backLabel="首页" right={<span className="text-sm tabular-nums text-ink-3">{session!.answered + 1} / {session!.total}</span>} />
+      <div className="mx-auto w-full max-w-3xl"><div className="mb-4 h-2 overflow-hidden rounded-full bg-fill-strong"><div className="h-full rounded-full bg-accent-fill" style={{ width: `${(session!.answered / session!.total) * 100}%` }} /></div>
         <Card>
-          <p className="text-sm text-slate-500">{q.type === 'meaning_choice' ? '选出这个词的中文意思。' : q.prompt}</p>
+          <p className="text-sm text-ink-3">{q.type === 'meaning_choice' ? '选出这个词的中文意思。' : q.prompt}</p>
           <QuestionCue question={q} onSpeak={speak} />
-          {q.options.length ? <div className="mt-6 grid gap-3">{q.options.map((option, index) => <button key={`${index}-${option}`} disabled={busy} onClick={() => void answer(index)} className="app-secondary min-h-[58px] px-5 text-left">{option}</button>)}</div> : <form onSubmit={(event) => { event.preventDefault(); if (value.trim() && !busy) void answer(value); }}>{q.type === 'active_use' ? <textarea autoFocus value={value} onChange={(event) => setValue(event.target.value)} onKeyDown={(event) => { if (event.key === 'Enter' && !event.shiftKey && value.trim()) { event.preventDefault(); void answer(value); } }} placeholder="写一个包含目标词的完整英文句子" autoCapitalize="none" autoCorrect="off" spellCheck rows={3} className="mt-5 min-h-[58px] w-full resize-none border border-slate-300 bg-white px-4 py-3 text-lg" /> : <input autoFocus type="text" value={value} onChange={(event) => setValue(event.target.value)} placeholder="输入答案" autoCapitalize="none" autoCorrect="off" spellCheck={false} className="mt-5 min-h-[52px] w-full border border-slate-300 bg-white px-4 py-3 text-lg" />}<button type="submit" className="app-primary mt-3 w-full" disabled={!value.trim() || busy}>提交这题</button></form>}
-          {message ? <p role="alert" className="mt-4 text-sm text-rose-600">{message}</p> : null}
+          {q.options.length ? <div className="mt-6 grid gap-3">{q.options.map((option, index) => <button key={`${index}-${option}`} disabled={busy} onClick={() => void answer(index)} className="app-secondary min-h-[58px] px-5 text-left">{option}</button>)}</div> : <form onSubmit={(event) => { event.preventDefault(); if (value.trim() && !busy) void answer(value); }}>{q.type === 'active_use' ? <textarea autoFocus value={value} onChange={(event) => setValue(event.target.value)} onKeyDown={(event) => { if (event.key === 'Enter' && !event.shiftKey && value.trim()) { event.preventDefault(); void answer(value); } }} placeholder="写一个包含目标词的完整英文句子" autoCapitalize="none" autoCorrect="off" spellCheck rows={3} className="mt-5 min-h-[58px] w-full resize-none border border-control bg-surface px-4 py-3 text-lg" /> : <input autoFocus type="text" value={value} onChange={(event) => setValue(event.target.value)} placeholder="输入答案" autoCapitalize="none" autoCorrect="off" spellCheck={false} className="mt-5 min-h-[52px] w-full border border-control bg-surface px-4 py-3 text-lg" />}<button type="submit" className="app-primary mt-3 w-full" disabled={!value.trim() || busy}>提交这题</button></form>}
+          {message ? <p role="alert" className="mt-4 text-sm text-danger">{message}</p> : null}
         </Card>
       </div>
     </Screen>
@@ -140,11 +140,11 @@ function formatTaskDate(date: string) {
 function QuestionCue({ question: q, onSpeak }: { question: V2TestSession['items'][number]['question']; onSpeak: (text: string) => void }) {
   if (q.type === 'meaning_choice') return <h1 className="mt-5 text-4xl font-semibold">{q.prompt}</h1>;
   // 拼写题不给发音 —— 听一遍就等于把答案念给他（2026-09-05 复测新发现 4）。听写另有 listening_spelling。
-  if (q.type === 'spelling') return <div className="mt-5 rounded-2xl bg-slate-50 p-5"><p className="text-2xl font-semibold whitespace-pre-wrap">{posPrefixFor(q.cue.pos, q.cue.translation)}{cleanTranslation(q.cue.translation)}</p></div>;
-  if (q.type === 'word_choice') return <div className="mt-5 rounded-2xl bg-slate-50 p-5 text-2xl font-semibold whitespace-pre-wrap">{posPrefixFor(q.cue.pos, q.cue.translation)}{cleanTranslation(q.cue.translation)}</div>;
-  if (q.type === 'cloze') return <div className="mt-5 rounded-2xl bg-slate-50 p-5"><p className="font-serif text-xl leading-8">{q.cue.sentence}</p>{q.cue.translation ? <p className="mt-2 text-sm text-slate-500">{q.cue.translation}</p> : null}</div>;
+  if (q.type === 'spelling') return <div className="mt-5 rounded-2xl bg-surface-2 p-5"><p className="text-2xl font-semibold whitespace-pre-wrap">{posPrefixFor(q.cue.pos, q.cue.translation)}{cleanTranslation(q.cue.translation)}</p></div>;
+  if (q.type === 'word_choice') return <div className="mt-5 rounded-2xl bg-surface-2 p-5 text-2xl font-semibold whitespace-pre-wrap">{posPrefixFor(q.cue.pos, q.cue.translation)}{cleanTranslation(q.cue.translation)}</div>;
+  if (q.type === 'cloze') return <div className="mt-5 rounded-2xl bg-surface-2 p-5"><p className="font-serif text-xl leading-8">{q.cue.sentence}</p>{q.cue.translation ? <p className="mt-2 text-sm text-ink-3">{q.cue.translation}</p> : null}</div>;
   if (q.type === 'listening_spelling') return <button className="app-secondary mt-5 w-full" onClick={() => onSpeak(q.cue.audioText)}>▶ 播放发音</button>;
-  if (q.type === 'active_use') return <div className="mt-5 rounded-2xl bg-slate-50 p-5"><p className="text-3xl font-semibold">{q.cue.headword}</p><p className="mt-2 text-slate-500">{q.cue.translation}</p></div>;
+  if (q.type === 'active_use') return <div className="mt-5 rounded-2xl bg-surface-2 p-5"><p className="text-3xl font-semibold">{q.cue.headword}</p><p className="mt-2 text-ink-3">{q.cue.translation}</p></div>;
   if (q.type === 'collocation') return <div className="mt-5 text-3xl font-semibold">{q.cue.headword}</div>;
-  return <div className="mt-5 rounded-2xl bg-slate-50 p-5"><p className="text-3xl font-semibold">{q.cue.headword}</p><p className="mt-2 text-sm text-slate-500">写出另一个词族成员{posPrefixFor(q.cue.pos, '') ? `（${posPrefixFor(q.cue.pos, '').trim()}）` : ''}</p></div>;
+  return <div className="mt-5 rounded-2xl bg-surface-2 p-5"><p className="text-3xl font-semibold">{q.cue.headword}</p><p className="mt-2 text-sm text-ink-3">写出另一个词族成员{posPrefixFor(q.cue.pos, '') ? `（${posPrefixFor(q.cue.pos, '').trim()}）` : ''}</p></div>;
 }

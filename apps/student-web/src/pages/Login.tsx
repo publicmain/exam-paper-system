@@ -163,7 +163,7 @@ export default function LoginPage() {
             }}
           >
             {mode === 'setnew' ? (
-              <p className="mb-4 rounded-xl bg-blue-50 px-4 py-3 text-sm leading-6 text-blue-900">
+              <p className="mb-4 rounded-xl bg-accent-soft px-4 py-3 text-sm leading-6 text-ink">
                 老师帮你重置密码之后，在这里设一个新的。要是老师没重置过，这一步会提示你直接去登录。
               </p>
             ) : null}
@@ -193,16 +193,16 @@ export default function LoginPage() {
             </Button>
             {mode === 'login' ? (
               <>
-                <p className="text-center text-sm text-slate-500 mt-5">
-                  <Link to={ROUTES.register} className="text-blue-600 underline">
+                <p className="text-center text-sm text-ink-3 mt-5">
+                  <Link to={ROUTES.register} className="text-accent underline">
                     第一次使用？注册
                   </Link>
                 </p>
-                <p className="text-center text-sm text-slate-500 mt-2">
+                <p className="text-center text-sm text-ink-3 mt-2">
                   <button
                     type="button"
                     data-testid="forgot-password"
-                    className="text-blue-600 underline"
+                    className="text-accent underline"
                     onClick={() => {
                       setMode('setnew');
                       setErr(null);
@@ -215,11 +215,11 @@ export default function LoginPage() {
                 </p>
               </>
             ) : (
-              <p className="text-center text-sm text-slate-500 mt-5">
+              <p className="text-center text-sm text-ink-3 mt-5">
                 <button
                   type="button"
                   data-testid="back-to-login"
-                  className="text-blue-600 underline"
+                  className="text-accent underline"
                   onClick={() => {
                     setMode('login');
                     setErr(null);
@@ -236,17 +236,17 @@ export default function LoginPage() {
 
         {/* ⚠️ 临时：只有 staging 构建才存在。默认构建里这一整段不会渲染。 */}
         {stagingFixtureLoginEnabled() ? (
-          <div className="mt-6 border-t border-dashed border-amber-300 pt-4">
+          <div className="mt-6 border-t border-dashed border-warning/35 pt-4">
             <button
               type="button"
               data-testid="staging-fixture-login"
               disabled={busy}
               onClick={() => void fixtureLogin()}
-              className="w-full rounded-xl border border-amber-400 bg-amber-50 text-amber-900 py-3 text-base min-h-[44px] disabled:opacity-60"
+              className="w-full rounded-xl border border-warning bg-warning-soft text-warning py-3 text-base min-h-[44px] disabled:opacity-60"
             >
               Staging：一键登录测试六号
             </button>
-            <p className="mt-2 text-center text-xs text-amber-700">
+            <p className="mt-2 text-center text-xs text-warning">
               临时的 staging 测试通道，上线前会撤掉。
             </p>
           </div>

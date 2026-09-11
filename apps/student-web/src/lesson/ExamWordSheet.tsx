@@ -70,7 +70,7 @@ export function highlightWord(sentence: string, surface: string): React.ReactNod
   return (
     <>
       {sentence.slice(0, i)}
-      <mark className="bg-yellow-200 rounded px-0.5">{sentence.slice(i, i + surface.length)}</mark>
+      <mark className="bg-warning-soft rounded px-0.5">{sentence.slice(i, i + surface.length)}</mark>
       {sentence.slice(i + surface.length)}
     </>
   );
@@ -213,32 +213,32 @@ export function ExamWordSheet({
       className="fixed inset-0 z-50 flex items-end sm:items-center sm:justify-center sm:p-6"
       onClick={onClose}
     >
-      <div className="absolute inset-0 bg-slate-950/35 backdrop-blur-[2px]" />
+      <div className="absolute inset-0 bg-inverse backdrop-blur-[2px]" />
       <div
         role="dialog"
         aria-modal="true"
         aria-labelledby="word-sheet-title"
-        className="relative flex max-h-[88dvh] w-full flex-col overflow-hidden rounded-t-[28px] bg-white shadow-2xl sm:max-w-2xl sm:rounded-[28px] lg:max-w-3xl"
+        className="relative flex max-h-[88dvh] w-full flex-col overflow-hidden rounded-t-[28px] bg-surface shadow-2xl sm:max-w-2xl sm:rounded-[28px] lg:max-w-3xl"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="h-5 shrink-0 sm:hidden flex items-center justify-center">
-          <div className="h-1 w-10 rounded-full bg-slate-300" />
+          <div className="h-1 w-10 rounded-full bg-fill-strong" />
         </div>
 
-        <header className="shrink-0 border-b border-slate-100 px-5 pb-4 pt-1 sm:px-7 sm:pb-5 sm:pt-6">
+        <header className="shrink-0 border-b border-line px-5 pb-4 pt-1 sm:px-7 sm:pb-5 sm:pt-6">
           <div className="flex items-start justify-between gap-4">
             <div className="min-w-0">
               {passageTitle ? (
-                <div className="mb-1.5 truncate text-xs font-medium text-slate-400">
+                <div className="mb-1.5 truncate text-xs font-medium text-ink-3">
                   来自 · {passageTitle}
                 </div>
               ) : null}
               <h2 id="word-sheet-title" className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
-                <span data-testid="word-sheet-word" className="break-words text-[30px] font-semibold tracking-tight text-slate-950 sm:text-[34px]">
+                <span data-testid="word-sheet-word" className="break-words text-[30px] font-semibold tracking-tight text-ink sm:text-[34px]">
                   {word}
                 </span>
                 {phase.s === 'ok' && formatPhonetic(phase.entry.phonetic) ? (
-                  <span data-testid="word-sheet-phonetic" className="text-[15px] font-normal text-slate-500 sm:text-base">
+                  <span data-testid="word-sheet-phonetic" className="text-[15px] font-normal text-ink-3 sm:text-base">
                     {formatPhonetic(phase.entry.phonetic)}
                   </span>
                 ) : null}
@@ -248,7 +248,7 @@ export function ExamWordSheet({
               type="button"
               data-testid="word-sheet-close"
               onClick={onClose}
-              className="grid size-11 shrink-0 place-items-center rounded-full bg-slate-100 text-2xl leading-none text-slate-500 transition-colors hover:bg-slate-200 hover:text-slate-800"
+              className="grid size-11 shrink-0 place-items-center rounded-full bg-fill text-2xl leading-none text-ink-3 transition-colors hover:bg-fill-strong hover:text-ink"
               aria-label="关闭"
             >
               ×
@@ -261,33 +261,33 @@ export function ExamWordSheet({
             {blocked ? (
               <div
                 data-testid="word-sheet-blocked"
-                className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-4 text-[15px] text-amber-950"
+                className="rounded-2xl border border-warning/35 bg-warning-soft px-4 py-4 text-[15px] text-warning"
               >
                 <div className="font-medium">这个词是本卷的考点，考试期间不显示释义。</div>
-                <div className="mt-1 text-[13px] text-amber-700">交卷后在成绩详情里可以看。</div>
+                <div className="mt-1 text-[13px] text-warning">交卷后在成绩详情里可以看。</div>
               </div>
             ) : (
               <>
                 {phase.s === 'loading' ? (
-                  <div data-testid="word-sheet-loading" className="rounded-2xl bg-slate-50 px-4 py-5 text-[15px] text-slate-500">
+                  <div data-testid="word-sheet-loading" className="rounded-2xl bg-surface-2 px-4 py-5 text-[15px] text-ink-3">
                     正在查词和翻译原句…
                   </div>
                 ) : null}
                 {phase.s === 'notFound' ? (
-                  <div data-testid="word-sheet-not-found" className="rounded-2xl bg-slate-50 px-4 py-5 text-[15px] text-slate-600">
+                  <div data-testid="word-sheet-not-found" className="rounded-2xl bg-surface-2 px-4 py-5 text-[15px] text-ink-2">
                     本词典未收录这个词。
                   </div>
                 ) : null}
                 {phase.s === 'failed' ? (
-                  <div className="rounded-2xl border border-rose-100 bg-rose-50 px-4 py-4">
-                    <div data-testid="word-sheet-failed" className="text-[15px] text-rose-700">
+                  <div className="rounded-2xl border border-danger/30 bg-danger-soft px-4 py-4">
+                    <div data-testid="word-sheet-failed" className="text-[15px] text-danger">
                       查询失败 —— 网络不太好。
                     </div>
                     <button
                       type="button"
                       data-testid="word-sheet-retry-lookup"
                       onClick={() => void lookup(word)}
-                      className="mt-3 min-h-[44px] rounded-xl bg-blue-600 px-4 text-sm font-medium text-white"
+                      className="mt-3 min-h-[44px] rounded-xl bg-accent-fill px-4 text-sm font-medium text-accent-on"
                     >
                       重试
                     </button>
@@ -295,26 +295,26 @@ export function ExamWordSheet({
                 ) : null}
                 {phase.s === 'ok' ? (
                   <div className="space-y-5">
-                    <section className="rounded-2xl border border-blue-100 bg-blue-50/70 px-4 py-4 sm:px-5">
-                      <div className="mb-1.5 text-xs font-semibold tracking-wide text-blue-600">词义</div>
+                    <section className="rounded-2xl border border-accent/30 bg-accent-soft px-4 py-4 sm:px-5">
+                      <div className="mb-1.5 text-xs font-semibold tracking-wide text-accent">词义</div>
                       <div
                         data-testid="word-sheet-translation"
-                        className="whitespace-pre-wrap text-[18px] font-medium leading-relaxed text-slate-950 sm:text-[19px]"
+                        className="whitespace-pre-wrap text-[18px] font-medium leading-relaxed text-ink sm:text-[19px]"
                       >
                         {cleanTranslation(phase.entry.translation)}
                       </div>
                     </section>
 
                     {contextSentence ? (
-                      <section aria-label="所在原句" className="rounded-2xl border border-slate-200 bg-white px-4 py-4 sm:px-5">
-                        <div className="mb-2 text-xs font-semibold tracking-wide text-slate-500">所在原句</div>
-                        <p data-testid="word-sheet-sentence" className="font-serif text-[16px] leading-7 text-slate-800 sm:text-[17px]">
+                      <section aria-label="所在原句" className="rounded-2xl border border-line bg-surface px-4 py-4 sm:px-5">
+                        <div className="mb-2 text-xs font-semibold tracking-wide text-ink-3">所在原句</div>
+                        <p data-testid="word-sheet-sentence" className="font-serif text-[16px] leading-7 text-ink sm:text-[17px]">
                           {highlightWord(contextSentence, word)}
                         </p>
                         {phase.entry.contextTranslation ? (
-                          <div className="mt-3 border-t border-slate-100 pt-3">
-                            <div className="mb-1 text-xs font-semibold tracking-wide text-slate-400">整句翻译</div>
-                            <p data-testid="word-sheet-sentence-translation" className="text-[15px] leading-7 text-slate-700 sm:text-base">
+                          <div className="mt-3 border-t border-line pt-3">
+                            <div className="mb-1 text-xs font-semibold tracking-wide text-ink-3">整句翻译</div>
+                            <p data-testid="word-sheet-sentence-translation" className="text-[15px] leading-7 text-ink-2 sm:text-base">
                               {phase.entry.contextTranslation}
                             </p>
                           </div>
@@ -323,11 +323,11 @@ export function ExamWordSheet({
                     ) : null}
 
                     {phase.entry.definition ? (
-                      <details className="rounded-2xl border border-slate-200 bg-slate-50/70 px-4 py-3 sm:px-5">
-                        <summary className="cursor-pointer select-none text-sm font-medium text-slate-600">查看英文词典释义</summary>
+                      <details className="rounded-2xl border border-line bg-surface-2 px-4 py-3 sm:px-5">
+                        <summary className="cursor-pointer select-none text-sm font-medium text-ink-2">查看英文词典释义</summary>
                         <div
                           data-testid="word-sheet-definition"
-                          className="mt-3 whitespace-pre-wrap border-t border-slate-200 pt-3 text-[14px] leading-relaxed text-slate-600 sm:text-[15px]"
+                          className="mt-3 whitespace-pre-wrap border-t border-line pt-3 text-[14px] leading-relaxed text-ink-2 sm:text-[15px]"
                         >
                           {cleanDefinition(phase.entry.definition)}
                         </div>
@@ -337,7 +337,7 @@ export function ExamWordSheet({
                     {tags.length > 0 ? (
                       <div data-testid="word-sheet-tags" className="flex flex-wrap gap-2">
                         {tags.map((tag) => (
-                          <span key={tag} className="rounded-full bg-slate-100 px-2.5 py-1 text-xs font-medium text-slate-500">
+                          <span key={tag} className="rounded-full bg-fill px-2.5 py-1 text-xs font-medium text-ink-3">
                             {tag}
                           </span>
                         ))}
@@ -350,7 +350,7 @@ export function ExamWordSheet({
           </div>
         </div>
 
-        <footer className="shrink-0 border-t border-slate-100 bg-white px-5 pb-[calc(1rem+env(safe-area-inset-bottom))] pt-3 sm:px-7 sm:pb-5">
+        <footer className="shrink-0 border-t border-line bg-surface px-5 pb-[calc(1rem+env(safe-area-inset-bottom))] pt-3 sm:px-7 sm:pb-5">
           {/* 填空取词。屏蔽的是「释义」，不是「这个词存在于原文」，
               所以考点词也允许填。 */}
           {fillTarget ? (
@@ -362,7 +362,7 @@ export function ExamWordSheet({
                 onFill(fillTarget.questionId, word, fillTarget.hasValue && !fillTarget.singleWord);
                 onClose();
               }}
-              className="mb-2 min-h-[48px] w-full rounded-[14px] bg-blue-600 text-[17px] font-semibold text-white shadow-sm"
+              className="mb-2 min-h-[48px] w-full rounded-[14px] bg-accent-fill text-[17px] font-semibold text-accent-on shadow-sm"
             >
               {!fillTarget.hasValue
                 ? `把 “${word}” 填进${fillTarget.label}的空`
@@ -377,26 +377,26 @@ export function ExamWordSheet({
             <section aria-label="我的单词选择" className="mb-3">
               {coachChoice === 'idle' || coachChoice === 'saving' || coachChoice === 'failed' ? (
               <>
-              <p className="mb-2 text-xs text-slate-500">查词不会自动加入，你可以自己决定：</p>
+              <p className="mb-2 text-xs text-ink-3">查词不会自动加入，你可以自己决定：</p>
               <div className="grid grid-cols-2 gap-2">
-                <button type="button" data-testid="word-sheet-coach-learn" disabled={coachChoice === 'saving'} onClick={() => void chooseCoachAction(gen.current, 'learn', phase.entry)} className="min-h-[44px] rounded-xl bg-blue-600 px-3 text-sm font-semibold text-white">加入我的单词</button>
-                <button type="button" data-testid="word-sheet-coach-known" disabled={coachChoice === 'saving'} onClick={() => void chooseCoachAction(gen.current, 'known', phase.entry)} className="min-h-[44px] rounded-xl border border-slate-200 px-3 text-sm">我已经会了</button>
-                <button type="button" data-testid="word-sheet-coach-later" disabled={coachChoice === 'saving'} onClick={() => void chooseCoachAction(gen.current, 'later', phase.entry)} className="min-h-[44px] rounded-xl border border-slate-200 px-3 text-sm">稍后再学</button>
-                <button type="button" data-testid="word-sheet-coach-lookup" disabled={coachChoice === 'saving'} onClick={() => void chooseCoachAction(gen.current, 'lookup_only', phase.entry)} className="min-h-[44px] rounded-xl border border-slate-200 px-3 text-sm">只查一下</button>
+                <button type="button" data-testid="word-sheet-coach-learn" disabled={coachChoice === 'saving'} onClick={() => void chooseCoachAction(gen.current, 'learn', phase.entry)} className="min-h-[44px] rounded-xl bg-accent-fill px-3 text-sm font-semibold text-accent-on">加入我的单词</button>
+                <button type="button" data-testid="word-sheet-coach-known" disabled={coachChoice === 'saving'} onClick={() => void chooseCoachAction(gen.current, 'known', phase.entry)} className="min-h-[44px] rounded-xl border border-line px-3 text-sm">我已经会了</button>
+                <button type="button" data-testid="word-sheet-coach-later" disabled={coachChoice === 'saving'} onClick={() => void chooseCoachAction(gen.current, 'later', phase.entry)} className="min-h-[44px] rounded-xl border border-line px-3 text-sm">稍后再学</button>
+                <button type="button" data-testid="word-sheet-coach-lookup" disabled={coachChoice === 'saving'} onClick={() => void chooseCoachAction(gen.current, 'lookup_only', phase.entry)} className="min-h-[44px] rounded-xl border border-line px-3 text-sm">只查一下</button>
               </div>
               </>
               ) : (
                 // 选过了就不再摆四个活按钮 —— 让人看不出选没选（2026-09-06 复测新发现 4）
-                <p data-testid="word-sheet-coach-chosen" className="text-sm font-medium text-emerald-700">
+                <p data-testid="word-sheet-coach-chosen" className="text-sm font-medium text-success">
                   {coachChoice === 'learn' ? '✓ 已选「加入我的单词」' : coachChoice === 'known' ? '✓ 已选「我已经会了」' : coachChoice === 'later' ? '✓ 已选「稍后再学」' : '✓ 已选「只查一下」'}
-                  <button type="button" className="ml-3 text-xs font-normal text-slate-500 underline" onClick={() => setCoachChoice('idle')}>改选</button>
+                  <button type="button" className="ml-3 text-xs font-normal text-ink-3 underline" onClick={() => setCoachChoice('idle')}>改选</button>
                 </p>
               )}
               {coachChoice !== 'idle' && coachChoice !== 'saving' ? (
-                <p role="status" data-testid="word-sheet-coach-status" className={`mt-2 text-xs ${coachChoice === 'failed' ? 'text-rose-600' : 'text-emerald-700'}`}>
+                <p role="status" data-testid="word-sheet-coach-status" className={`mt-2 text-xs ${coachChoice === 'failed' ? 'text-danger' : 'text-success'}`}>
                   {coachChoice === 'learn' ? '已加入我的单词，复习时会优先安排它。' : coachChoice === 'known' ? '已标记为会，以后不会作为新词推送。' : coachChoice === 'later' ? '先收进我的单词，不算学过；下次复习或抽查时再练。' : coachChoice === 'lookup_only' ? '本次只查询，没有加入。' : '没有保存，请重试。'}
                 </p>
-              ) : coachChoice === 'saving' ? <p className="mt-2 text-xs text-slate-500">正在保存选择…</p> : null}
+              ) : coachChoice === 'saving' ? <p className="mt-2 text-xs text-ink-3">正在保存选择…</p> : null}
             </section>
           ) : null}
         </footer>

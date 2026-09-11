@@ -17,10 +17,10 @@ export function PushSettings() {
       <h2 className="text-base font-medium mb-1">提醒</h2>
       {error ? <Notice kind="error">{error}</Notice> : null}
       {status === 'loading' ? (
-        <p className="text-sm text-slate-500">正在看这台设备支不支持…</p>
+        <p className="text-sm text-ink-3">正在看这台设备支不支持…</p>
       ) : status === 'on' ? (
         <>
-          <p className="text-sm text-slate-600 mb-3">
+          <p className="text-sm text-ink-2 mb-3">
             已开启。每个上课日 <strong>{cfg.reminderTime}</strong>，当天的课还没做完就会提醒你一下。
           </p>
           <Button type="button" disabled={busy} onClick={() => void disable()}>
@@ -29,7 +29,7 @@ export function PushSettings() {
         </>
       ) : status === 'off' ? (
         <>
-          <p className="text-sm text-slate-600 mb-3">
+          <p className="text-sm text-ink-2 mb-3">
             每个上课日 <strong>{cfg.reminderTime}</strong>，课还没做完就提醒你一下。只在这台设备上生效。
           </p>
           <Button type="button" disabled={busy} onClick={() => void enable()}>
@@ -37,13 +37,13 @@ export function PushSettings() {
           </Button>
         </>
       ) : status === 'needs_install' ? (
-        <p className="text-sm text-slate-600">{IOS_INSTALL_HINT}</p>
+        <p className="text-sm text-ink-2">{IOS_INSTALL_HINT}</p>
       ) : status === 'denied' ? (
-        <p className="text-sm text-slate-600">
+        <p className="text-sm text-ink-2">
           这个浏览器已经拒绝了本站的通知。要重新开启，得在浏览器的网站设置里把通知改回「允许」，再回到这里。
         </p>
       ) : (
-        <p className="text-sm text-slate-600">这个浏览器不支持提醒。</p>
+        <p className="text-sm text-ink-2">这个浏览器不支持提醒。</p>
       )}
     </section>
   );

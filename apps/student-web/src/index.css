@@ -1,24 +1,26 @@
+@import './design/tokens.css';
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
+/*
+ * 学生端基础样式（IOS-02 / IOS-03）。
+ *
+ * 系统字体栈：Apple 设备走系统中西文字体，Android / Windows 有合理回退；不打包 SF 字体
+ * （HIG · Typography：采用系统字体，不把系统字体文件嵌入项目）。
+ * 字号全部用 rem —— 跟随浏览器的文字大小设置和缩放；这不等于原生 Dynamic Type。
+ */
 :root {
-  color-scheme: light;
-  font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "SF Pro Display",
-    "PingFang SC", "Helvetica Neue", Arial, sans-serif;
+  font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'PingFang SC', 'Hiragino Sans GB',
+    'Microsoft YaHei', 'Noto Sans SC', 'Helvetica Neue', Arial, sans-serif;
   font-synthesis: none;
-  --app-bg: #f5f5f7;
-  --app-card: rgb(255 255 255 / 0.92);
-  --app-border: rgb(15 23 42 / 0.08);
-  --app-label: #6e6e73;
-  --app-blue: #007aff;
-  --app-blue-pressed: #0062cc;
-  --app-radius: 22px;
   -webkit-tap-highlight-color: transparent;
 }
 
 html {
-  background: var(--app-bg);
+  font-size: 100%;
+  background: rgb(var(--c-canvas));
   text-size-adjust: 100%;
   -webkit-text-size-adjust: 100%;
 }
@@ -27,12 +29,10 @@ body {
   margin: 0;
   min-width: 320px;
   min-height: 100dvh;
-  background:
-    radial-gradient(circle at 50% -15%, rgb(0 122 255 / 0.08), transparent 34rem),
-    var(--app-bg);
-  color: #1d1d1f;
-  font-size: 17px;
-  line-height: 1.47;
+  background: rgb(var(--c-canvas));
+  color: rgb(var(--c-ink));
+  font-size: 1.0625rem; /* 17px */
+  line-height: 1.5;
   -webkit-font-smoothing: antialiased;
 }
 
@@ -41,22 +41,19 @@ input,
 select,
 textarea {
   font: inherit;
-}
-
-button,
-a {
-  -webkit-user-select: none;
-  user-select: none;
+  color: inherit;
 }
 
 button {
-  transition: transform 120ms ease, opacity 120ms ease, background-color 160ms ease,
-    border-color 160ms ease, box-shadow 160ms ease;
+  -webkit-user-select: none;
+  user-select: none;
+  touch-action: manipulation;
+  transition: background-color 150ms ease, color 150ms ease, border-color 150ms ease, opacity 150ms ease;
 }
 
-button:not(:disabled):active,
-a[role='button']:active {
-  transform: scale(0.985);
+[role='tab'],
+[role='button'] {
+  touch-action: manipulation;
 }
 
 button:disabled {
@@ -64,89 +61,66 @@ button:disabled {
 }
 
 ::selection {
-  background: rgb(0 122 255 / 0.2);
+  background: rgb(var(--c-accent) / 0.22);
 }
 
-/*
- * 阶段 7C —— 阅读页的三条移动端 / 无障碍下限。
- *
- * 只加这三条：它们是 AC-09 的硬要求，不是重新做一套视觉。
- */
+::placeholder {
+  color: rgb(var(--c-ink-3));
+  opacity: 1;
+}
 
-/* 1. 键盘焦点必须看得见。浏览器默认在部分控件上会把它抹掉。 */
+/* 键盘焦点必须看得见（WCAG 2.4.7）。颜色随深浅色变化。 */
 :focus-visible {
-  outline: 3px solid rgb(0 122 255 / 0.55);
-  outline-offset: 3px;
+  outline: 3px solid rgb(var(--c-focus) / 0.75);
+  outline-offset: 2px;
 }
 
-/* 2. 触控目标下限 44px（Apple HIG / WCAG 2.5.5）。 */
+/* 触控命中区下限 44×44 CSS px（Apple UI Design Dos and Don'ts 建议 44×44 pt；这里是 Web 实施目标）。 */
 .hit {
   min-height: 44px;
   min-width: 44px;
 }
-button,
-[role='tab'],
-[role='button'] {
-  touch-action: manipulation;
-}
 
-/* 3. 阅读内容再宽也不许把整页顶出横向滚动条 —— 该滚的是内容自己。 */
-html,
-body,
-#root {
-  overflow-x: hidden;
-  /* hidden 会把这三层变成滚动容器，阅读页 sticky 的顶栏 / 交卷栏就贴不住
-     （2026-09-06 第五轮盲测 1：1280×720 下交卷栏整条在屏幕外）。clip 只裁不滚。 */
-  overflow-x: clip;
-}
-
-/* iPhone notch / home-indicator and iPad rounded-window safe areas. */
+/* iPhone 刘海 / 主屏指示条与 iPad 圆角窗口的安全区。 */
 .safe-top {
   padding-top: max(0.5rem, env(safe-area-inset-top));
 }
 .safe-bottom {
   padding-bottom: max(0.5rem, env(safe-area-inset-bottom));
 }
-
-/* Shared premium surfaces. Kept as semantic classes so exam renderers can opt in. */
-.app-glass {
-  background: var(--app-card);
-  border: 1px solid var(--app-border);
-  box-shadow: 0 1px 2px rgb(0 0 0 / 0.04), 0 14px 44px rgb(15 23 42 / 0.07);
-  backdrop-filter: saturate(180%) blur(20px);
-  -webkit-backdrop-filter: saturate(180%) blur(20px);
+.safe-x {
+  padding-left: max(var(--page-x), env(safe-area-inset-left));
+  padding-right: max(var(--page-x), env(safe-area-inset-right));
 }
 
-.app-primary {
-  min-height: 50px;
-  border-radius: 14px;
-  background: var(--app-blue);
-  color: white;
-  box-shadow: 0 8px 22px rgb(0 122 255 / 0.2);
-  font-weight: 600;
+/*
+ * 导航材质（HIG · Materials：材质用于导航/控件这一功能层，内容层用稳定实色）。
+ * 只给顶栏、底部标签栏、侧栏用。浏览器不支持 backdrop-filter 或用户要求减少透明度时，
+ * 退回不透明实色，文字对比不变。这不是原生 Liquid Glass。
+ */
+.material-bar {
+  background: rgb(var(--c-surface) / 0.97);
 }
-.app-primary:not(:disabled):hover { background: #087ff5; }
-.app-primary:not(:disabled):active { background: var(--app-blue-pressed); }
-
-.app-secondary {
-  min-height: 48px;
-  border-radius: 14px;
-  border: 1px solid rgb(15 23 42 / 0.12);
-  background: rgb(255 255 255 / 0.76);
+@supports ((-webkit-backdrop-filter: blur(1px)) or (backdrop-filter: blur(1px))) {
+  .material-bar {
+    background: rgb(var(--c-surface) / 0.82);
+    -webkit-backdrop-filter: saturate(160%) blur(16px);
+    backdrop-filter: saturate(160%) blur(16px);
+  }
 }
-
-.ui-ios input,
-.ui-ios textarea,
-.ui-ios select {
-  border-radius: 12px;
-}
-
-@media (min-width: 768px) {
-  body { font-size: 17px; }
+@media (prefers-reduced-transparency: reduce) {
+  .material-bar {
+    background: rgb(var(--c-surface));
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+  }
 }
 
+/* 减弱动态效果。 */
 @media (prefers-reduced-motion: reduce) {
-  *, *::before, *::after {
+  *,
+  *::before,
+  *::after {
     scroll-behavior: auto !important;
     animation-duration: 0.01ms !important;
     animation-iteration-count: 1 !important;
@@ -154,24 +128,110 @@ body,
   }
 }
 
-/* 手机上的原文 / 题目分段控件。 */
+/* 加载指示：细环旋转；减弱动效时只显示静态环。 */
+@keyframes spin-ring {
+  to {
+    transform: rotate(360deg);
+  }
+}
+.spinner {
+  width: 1.25rem;
+  height: 1.25rem;
+  border-radius: 9999px;
+  border: 2.5px solid rgb(var(--c-ink-3) / 0.3);
+  border-top-color: rgb(var(--c-ink-3));
+  animation: spin-ring 0.8s linear infinite;
+}
+
+/*
+ * 分段控件（手机上的原文 / 题目切换等）。旧类名 `.seg` 保留给还没迁移的调用点，
+ * 新代码用 `design/Segmented.tsx`。选中项用实色面 + 字重区分，不只靠颜色。
+ */
 .seg {
   display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 0.25rem;
-  padding: 0.1875rem;
-  background: #f1f5f9;
-  border-radius: 0.75rem;
+  grid-auto-flow: column;
+  grid-auto-columns: 1fr;
+  gap: 2px;
+  padding: 2px;
+  background: rgb(var(--c-fill));
+  border-radius: var(--r-control);
 }
 .seg > button {
   min-height: 40px;
-  border-radius: 0.625rem;
+  padding: 0 0.75rem;
+  border-radius: calc(var(--r-control) - 2px);
   font-size: 0.9375rem;
   font-weight: 500;
-  color: #475569;
+  color: rgb(var(--c-ink-2));
 }
-.seg > button[data-on='true'] {
-  background: #fff;
-  color: #0f172a;
-  box-shadow: 0 1px 2px rgb(15 23 42 / 0.12);
+.seg > button[data-on='true'],
+.seg > button[aria-selected='true'],
+.seg > button[aria-pressed='true'] {
+  background: rgb(var(--c-surface));
+  color: rgb(var(--c-ink));
+  font-weight: 600;
+  box-shadow: 0 1px 2px rgb(0 0 0 / 0.12);
+}
+
+/* 分段控件外层补足 44px 命中区（按钮本身 40px 高 + 容器 2px 内边距 ×2）。 */
+.seg-wrap {
+  min-height: 44px;
+}
+
+/* 文章正文：可读行宽与行高（IOS-03：约 60–75ch 起步，按截图调）。 */
+.reading-prose {
+  font-size: 1.125rem;
+  line-height: 1.75;
+  max-width: 68ch;
+}
+
+/* 列表组里的行分隔（inset grouped），最后一行不画。 */
+.list-inset > * + * {
+  border-top: 1px solid rgb(var(--c-line));
+}
+
+/* 让可滚动区域在 iOS 上有惯性，且不把滚动链接到背后的页面。 */
+.scroll-contain {
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+}
+
+/*
+ * 过渡期兼容类。旧页面里还散着 `app-glass / app-primary / app-secondary`，
+ * 在它们逐页换成 design/ 组件之前，先让这几个名字落在新 token 上：
+ * 内容面实色、不模糊、不叠大阴影；主按钮对比 ≥ 4.5:1。全部迁完后删除
+ * （design-system.test.ts 有一条断言盯着这几个名字的调用点只减不增）。
+ */
+@layer components {
+  .app-glass {
+    background: rgb(var(--c-surface));
+    border-radius: var(--r-group);
+  }
+  .app-primary {
+    min-height: 50px;
+    border-radius: var(--r-control);
+    background: rgb(var(--c-accent-fill));
+    color: rgb(var(--c-on-accent));
+    font-weight: 600;
+  }
+  .app-primary:not(:disabled):hover {
+    background: rgb(var(--c-accent-hover));
+  }
+  .app-primary:not(:disabled):active {
+    background: rgb(var(--c-accent-pressed));
+  }
+  .app-primary:disabled {
+    background: rgb(var(--c-fill));
+    color: rgb(var(--c-ink-3));
+  }
+  .app-secondary {
+    min-height: 48px;
+    border-radius: var(--r-control);
+    border: 1px solid rgb(var(--c-line));
+    background: rgb(var(--c-surface));
+    color: rgb(var(--c-ink));
+  }
+  .app-secondary:not(:disabled):hover {
+    background: rgb(var(--c-surface-2));
+  }
 }

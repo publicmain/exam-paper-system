@@ -250,7 +250,7 @@ export default function VocabBookPage() {
   if (phase.s === 'loading') {
     return (
       <Screen>
-        <p className="text-center text-slate-400">载入中…</p>
+        <p className="text-center text-ink-3">载入中…</p>
       </Screen>
     );
   }
@@ -311,11 +311,11 @@ function VocabBookReady({
           聚合数字。对不上账时**一个都不显示** —— 见文件头「删完要重新对账」。
         */}
         {aggregatesStale ? (
-          <p data-testid="aggregates-stale" className="text-sm text-amber-800">
+          <p data-testid="aggregates-stale" className="text-sm text-warning">
             那个词已经移出去了，但这些数字暂时对不上账 —— 刷新一下再看。
           </p>
         ) : (
-          <p className="text-sm text-slate-600 mb-1">
+          <p className="text-sm text-ink-2 mb-1">
             一共 <span data-testid="vocab-total" className="font-medium tabular-nums">{data.total}</span> 个词
             ·{' '}
             <span data-testid="vocab-due-count" className="tabular-nums">
@@ -327,7 +327,7 @@ function VocabBookReady({
 
         {/* 统计 —— 缺哪一项就不显示哪一项 */}
         {aggregatesStale ? null : stats ? (
-          <div data-testid="vocab-stats" className="mt-2 flex flex-wrap gap-x-5 gap-y-1 text-sm text-slate-500">
+          <div data-testid="vocab-stats" className="mt-2 flex flex-wrap gap-x-5 gap-y-1 text-sm text-ink-3">
             {stats.progress ? (
               <span data-testid="vocab-progress">
                 已掌握 {stats.progress.mastered} · 学习中 {stats.progress.learning} · 待开始{' '}
@@ -342,7 +342,7 @@ function VocabBookReady({
             ) : null}
           </div>
         ) : (
-          <p data-testid="stats-error" className="mt-2 text-sm text-amber-800">
+          <p data-testid="stats-error" className="mt-2 text-sm text-warning">
             统计暂时取不到 —— 下面的词是全的。
           </p>
         )}
@@ -352,14 +352,14 @@ function VocabBookReady({
           <Link
             data-testid="go-practice"
             to={ROUTES.vocabPractice}
-            className="rounded-xl bg-slate-50 px-4 py-3 text-sm text-blue-600 underline"
+            className="rounded-xl bg-surface-2 px-4 py-3 text-sm text-accent underline"
           >
             开始复习到期的词 →
           </Link>
           <Link
             data-testid="go-selftest"
             to={ROUTES.vocabSelfTest}
-            className="rounded-xl bg-slate-50 px-4 py-3 text-sm text-blue-600 underline"
+            className="rounded-xl bg-surface-2 px-4 py-3 text-sm text-accent underline"
           >
             考考自己 →
           </Link>
@@ -375,7 +375,7 @@ function VocabBookReady({
               onChange={(e) => setQuery(e.target.value)}
               placeholder="搜一个词"
               aria-label="按单词搜索"
-              className="w-full min-h-[44px] rounded-xl border border-slate-300 px-4 py-2.5 text-base outline-none focus:border-blue-500"
+              className="w-full min-h-[44px] rounded-xl border border-control px-4 py-2.5 text-base outline-none focus:border-accent"
             />
             <div role="group" aria-label="按状态筛选" className="mt-2 flex flex-wrap gap-2">
               {(['all', 'learning', 'due', 'mastered'] as const).map((f) => (
@@ -386,20 +386,20 @@ function VocabBookReady({
                   aria-pressed={filter === f}
                   onClick={() => setFilter(f)}
                   className={`min-h-[44px] rounded-lg px-3 text-sm ${
-                    filter === f ? 'bg-blue-600 text-white' : 'bg-slate-100 text-slate-700'
+                    filter === f ? 'bg-accent-fill text-accent-on' : 'bg-fill text-ink-2'
                   }`}
                 >
                   {VOCAB_FILTER_LABEL[f]}
                 </button>
               ))}
             </div>
-            <label className="mt-3 flex items-center gap-2 text-sm text-slate-600">
+            <label className="mt-3 flex items-center gap-2 text-sm text-ink-2">
               排序
               <select
                 data-testid="vocab-sort"
                 value={sort}
                 onChange={(e) => setSort(e.target.value as VocabSort)}
-                className="min-h-[44px] rounded-lg border border-slate-300 bg-white px-3"
+                className="min-h-[44px] rounded-lg border border-control bg-surface px-3"
               >
                 {(Object.keys(VOCAB_SORT_LABEL) as VocabSort[]).map((key) => (
                   <option key={key} value={key}>{VOCAB_SORT_LABEL[key]}</option>
@@ -410,16 +410,16 @@ function VocabBookReady({
         ) : null}
 
         {data.words.length === 0 ? (
-          <p data-testid="vocab-empty" className="mt-5 rounded-xl bg-slate-50 px-4 py-3 text-sm text-slate-500">
+          <p data-testid="vocab-empty" className="mt-5 rounded-xl bg-surface-2 px-4 py-3 text-sm text-ink-3">
             生词本还是空的 —— 做阅读答错的词会自动收进来。
           </p>
         ) : shown.length === 0 ? (
-          <p data-testid="vocab-filter-empty" className="mt-4 rounded-xl bg-slate-50 px-4 py-3 text-sm text-slate-500">
+          <p data-testid="vocab-filter-empty" className="mt-4 rounded-xl bg-surface-2 px-4 py-3 text-sm text-ink-3">
             这个条件下一个词都没有 —— 换个词试试，或者点「全部」。
           </p>
         ) : (
           <>
-            <p className="mt-4 text-xs text-slate-500">
+            <p className="mt-4 text-xs text-ink-3">
               显示 <span data-testid="vocab-shown-count">{shown.length}</span> / {data.words.length}
             </p>
             <ul className="mt-2 grid gap-2 lg:grid-cols-2">
@@ -437,7 +437,7 @@ function VocabBookReady({
                 type="button"
                 data-testid="vocab-show-more"
                 onClick={() => setVisible((n) => n + 20)}
-                className="mt-3 min-h-[44px] w-full rounded-xl border border-slate-300 text-sm"
+                className="mt-3 min-h-[44px] w-full rounded-xl border border-control text-sm"
               >
                 再显示 {Math.min(20, shown.length - visible)} 个
               </button>
@@ -508,13 +508,13 @@ function WordRow({
   const due = dayOf(word.due);
 
   return (
-    <li data-testid={`word-row-${word.headword}`} data-word-id={word.headword} className="rounded-xl bg-slate-50 px-4 py-3">
+    <li data-testid={`word-row-${word.headword}`} data-word-id={word.headword} className="rounded-xl bg-surface-2 px-4 py-3">
       <div className="flex items-baseline justify-between gap-3">
         <span className="text-base font-medium">{word.headword}</span>
-        {formatPhonetic(word.phonetic) ? <span className="text-sm text-slate-500">{formatPhonetic(word.phonetic)}</span> : null}
+        {formatPhonetic(word.phonetic) ? <span className="text-sm text-ink-3">{formatPhonetic(word.phonetic)}</span> : null}
       </div>
-      {word.translation ? <p className="mt-1 text-sm text-slate-700 whitespace-pre-wrap">{cleanTranslation(word.translation)}</p> : null}
-      <p className="mt-1 text-sm text-slate-500">
+      {word.translation ? <p className="mt-1 text-sm text-ink-2 whitespace-pre-wrap">{cleanTranslation(word.translation)}</p> : null}
+      <p className="mt-1 text-sm text-ink-3">
         <span data-testid={`word-state-${word.headword}`}>{stateLabel(word.state)}</span>
         {' · '}
         <span data-testid={`word-source-${word.headword}`}>{sourceLabel(word.sourceType)}</span>
@@ -528,12 +528,12 @@ function WordRow({
         ) : null}
       </p>
       {word.contextSentence ? (
-        <p data-testid={`word-context-${word.headword}`} className="mt-1 text-sm text-slate-600">
+        <p data-testid={`word-context-${word.headword}`} className="mt-1 text-sm text-ink-2">
           {word.contextSentence}
         </p>
       ) : null}
       {word.contextTranslation ? (
-        <p data-testid={`word-context-translation-${word.headword}`} className="mt-1 text-sm text-slate-500">
+        <p data-testid={`word-context-translation-${word.headword}`} className="mt-1 text-sm text-ink-3">
           句意：{word.contextTranslation}
         </p>
       ) : null}
@@ -542,12 +542,12 @@ function WordRow({
         type="button"
         data-testid={`state-${word.headword}`}
         onClick={() => void changeState(word.state === 'known' ? 'learning' : 'known')}
-        className="mt-2 mr-2 min-h-[44px] rounded-lg border border-blue-200 px-3 text-sm text-blue-700"
+        className="mt-2 mr-2 min-h-[44px] rounded-lg border border-accent/30 px-3 text-sm text-accent"
       >
         {word.state === 'known' ? '重新学习' : '我已经会了'}
       </button>
       {stateMessage ? (
-        <p role="status" data-testid={`state-message-${word.headword}`} className="mt-1 text-sm text-slate-600">
+        <p role="status" data-testid={`state-message-${word.headword}`} className="mt-1 text-sm text-ink-2">
           {stateMessage}
         </p>
       ) : null}
@@ -557,19 +557,19 @@ function WordRow({
           type="button"
           data-testid={`remove-${word.headword}`}
           onClick={() => setRm({ s: 'confirming' })}
-          className="mt-2 min-h-[44px] px-3 rounded-lg border border-slate-300 text-sm text-slate-600"
+          className="mt-2 min-h-[44px] px-3 rounded-lg border border-control text-sm text-ink-2"
         >
           移出生词本
         </button>
       ) : (
         <div className="mt-2 flex flex-wrap items-center gap-2">
-          <span className="text-sm text-slate-600">移出之后不会再复习到它。</span>
+          <span className="text-sm text-ink-2">移出之后不会再复习到它。</span>
           <button
             type="button"
             data-testid={`confirm-remove-${word.headword}`}
             disabled={rm.s === 'sending'}
             onClick={() => void confirm()}
-            className="min-h-[44px] px-3 rounded-lg bg-rose-600 text-white text-sm disabled:bg-slate-300"
+            className="min-h-[44px] px-3 rounded-lg bg-danger text-accent-on text-sm disabled:bg-fill-strong"
           >
             {rm.s === 'sending' ? '移出中…' : '确认移出'}
           </button>
@@ -577,14 +577,14 @@ function WordRow({
             type="button"
             data-testid={`cancel-remove-${word.headword}`}
             onClick={() => setRm({ s: 'idle' })}
-            className="min-h-[44px] px-3 rounded-lg border border-slate-300 text-sm"
+            className="min-h-[44px] px-3 rounded-lg border border-control text-sm"
           >
             取消
           </button>
         </div>
       )}
       {rm.s === 'failed' ? (
-        <p role="alert" data-testid={`remove-error-${word.headword}`} className="mt-1 text-sm text-rose-700">
+        <p role="alert" data-testid={`remove-error-${word.headword}`} className="mt-1 text-sm text-danger">
           没能移出 —— 再试一次。
         </p>
       ) : null}
@@ -598,7 +598,7 @@ function BackToToday({ navigate }: { navigate: ReturnType<typeof useNavigate> })
       type="button"
       data-testid="back-to-today"
       onClick={() => navigate(ROUTES.today)}
-      className="mt-6 w-full rounded-xl border border-slate-300 py-3 text-base min-h-[44px]"
+      className="mt-6 w-full rounded-xl border border-control py-3 text-base min-h-[44px]"
     >
       回到今天的课
     </button>

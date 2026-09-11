@@ -260,7 +260,7 @@ export default function TodayPage() {
   if (phase.s === 'loading') {
     return (
       <Screen>
-        <p className="text-center text-slate-400">载入中…</p>
+        <p className="text-center text-ink-3">载入中…</p>
       </Screen>
     );
   }
@@ -362,7 +362,7 @@ export default function TodayPage() {
       <Card>
         <h1 className="text-xl font-semibold mb-1">你好，{who}</h1>
         {d.streakDays > 0 ? (
-          <p className="text-sm text-slate-500 mb-4">已经连续学习 {d.streakDays} 天</p>
+          <p className="text-sm text-ink-3 mb-4">已经连续学习 {d.streakDays} 天</p>
         ) : (
           <div className="mb-4" />
         )}
@@ -372,30 +372,30 @@ export default function TodayPage() {
           数段数，否则两边一旦不一致，学生看到的就是一个永远差一段的进度。
         */}
         {displayedTotal > 0 ? (
-          <p data-testid="lesson-progress" aria-label={`今天完成 ${displayedCompleted} / ${displayedTotal}`} className="text-sm text-slate-600 mb-4">
+          <p data-testid="lesson-progress" aria-label={`今天完成 ${displayedCompleted} / ${displayedTotal}`} className="text-sm text-ink-2 mb-4">
             今天完成 <span className="font-medium">{displayedCompleted}</span> / {displayedTotal}
           </p>
         ) : (
-          <p data-testid="lesson-progress" className="text-sm text-slate-600 mb-4">今天没有要完成的任务</p>
+          <p data-testid="lesson-progress" className="text-sm text-ink-2 mb-4">今天没有要完成的任务</p>
         )}
 
         <PushNudge />
 
         {hasBacklog ? (
-          <section className="mb-6 rounded-2xl border border-orange-200 bg-orange-50/80 p-4" aria-label="待补做任务">
-            <h2 className="font-semibold text-orange-950">待补做任务</h2>
-            <p className="mt-1 text-sm text-orange-800">旧任务不会被今天的任务覆盖。可以先补旧任务，也可以先做今天的。</p>
+          <section className="mb-6 rounded-2xl border border-warning/35 bg-warning-soft p-4" aria-label="待补做任务">
+            <h2 className="font-semibold text-warning">待补做任务</h2>
+            <p className="mt-1 text-sm text-warning">旧任务不会被今天的任务覆盖。可以先补旧任务，也可以先做今天的。</p>
             <div className="mt-3 grid gap-2 sm:grid-cols-2">
               {readingBacklog.map((task) => (
-                <button key={`reading-${task.assignmentId}`} aria-label={`${formatTaskDate(task.date)}阅读补做`} disabled={starting} onClick={() => void openReadingBacklog(task)} className="app-secondary flex min-h-[58px] items-center justify-between bg-white px-4 text-left">
-                  <span><strong>{formatTaskDate(task.date)}阅读</strong><small className="mt-1 block text-slate-500">{task.status === 'in_progress' ? '继续上次进度' : '未开始'}</small></span>
-                  <span className="text-[#007aff]">{task.status === 'in_progress' ? '继续' : '开始'} →</span>
+                <button key={`reading-${task.assignmentId}`} aria-label={`${formatTaskDate(task.date)}阅读补做`} disabled={starting} onClick={() => void openReadingBacklog(task)} className="app-secondary flex min-h-[58px] items-center justify-between bg-surface px-4 text-left">
+                  <span><strong>{formatTaskDate(task.date)}阅读</strong><small className="mt-1 block text-ink-3">{task.status === 'in_progress' ? '继续上次进度' : '未开始'}</small></span>
+                  <span className="text-accent">{task.status === 'in_progress' ? '继续' : '开始'} →</span>
                 </button>
               ))}
               {learningBacklog.map((task) => (
-                <button key={`words-${task.sessionId}`} aria-label={`${formatTaskDate(task.date)}新词补做，已学 ${task.completed} / ${task.target}`} disabled={starting} onClick={() => navigate(`${ROUTES.coachLearn}?date=${encodeURIComponent(task.date)}`)} className="app-secondary flex min-h-[58px] items-center justify-between bg-white px-4 text-left">
-                  <span><strong>{formatTaskDate(task.date)}新词</strong><small className="mt-1 block text-slate-500">{task.completed} / {task.target}</small></span>
-                  <span className="text-[#007aff]">{task.status === 'in_progress' ? '继续' : '开始'} →</span>
+                <button key={`words-${task.sessionId}`} aria-label={`${formatTaskDate(task.date)}新词补做，已学 ${task.completed} / ${task.target}`} disabled={starting} onClick={() => navigate(`${ROUTES.coachLearn}?date=${encodeURIComponent(task.date)}`)} className="app-secondary flex min-h-[58px] items-center justify-between bg-surface px-4 text-left">
+                  <span><strong>{formatTaskDate(task.date)}新词</strong><small className="mt-1 block text-ink-3">{task.completed} / {task.target}</small></span>
+                  <span className="text-accent">{task.status === 'in_progress' ? '继续' : '开始'} →</span>
                 </button>
               ))}
             </div>
@@ -427,7 +427,7 @@ export default function TodayPage() {
           <Button onClick={() => navigate(target.path)}>{targetLabel}</Button>
         ) : (
           <>
-            <p className="rounded-xl bg-slate-100 px-4 py-3 text-sm text-slate-600">
+            <p className="rounded-xl bg-fill px-4 py-3 text-sm text-ink-2">
               {stayLabel}
             </p>
             {d.segments.some((s) => s.key === 'read' && s.status === 'done') ? (
@@ -436,7 +436,7 @@ export default function TodayPage() {
                 type="button"
                 data-testid="see-reading-result"
                 onClick={() => navigate(ROUTES.readingResult)}
-                className="mt-3 w-full min-h-[44px] rounded-xl border border-slate-300 text-sm text-slate-700"
+                className="mt-3 w-full min-h-[44px] rounded-xl border border-control text-sm text-ink-2"
               >
                 看今天的阅读结果
               </button>
@@ -445,18 +445,18 @@ export default function TodayPage() {
         )}
 
         {vocabOverview?.pendingTests.length ? (
-          <section className="mt-6 rounded-2xl border border-amber-200 bg-amber-50/80 p-4" aria-label="还没做的单词小测">
-            <h2 className="font-semibold text-amber-950">还没做的单词小测</h2>
+          <section className="mt-6 rounded-2xl border border-warning/35 bg-warning-soft p-4" aria-label="还没做的单词小测">
+            <h2 className="font-semibold text-warning">还没做的单词小测</h2>
             {testError ? <Notice kind="error">{testError}</Notice> : null}
             <div className="mt-3 grid gap-2">
               {vocabOverview.pendingTests.map((task) => (
                 <button
                   key={task.dailySessionId}
-                  className="app-secondary flex min-h-[52px] items-center justify-between bg-white px-4 text-left"
+                  className="app-secondary flex min-h-[52px] items-center justify-between bg-surface px-4 text-left"
                   onClick={() => void openTest(task)}
                 >
                   <span>{formatTaskDate(task.date)} · {task.total} 个词</span>
-                  <span className="text-[#007aff]">{task.status === 'in_progress' ? '继续' : '开始'} →</span>
+                  <span className="text-accent">{task.status === 'in_progress' ? '继续' : '开始'} →</span>
                 </button>
               ))}
             </div>
@@ -521,11 +521,11 @@ function PendingTestReminder({
       aria-modal="true"
       aria-label="还有单词小测没做"
       data-testid="pending-test-reminder"
-      className="fixed inset-0 z-40 grid place-items-center bg-black/30 px-6 backdrop-blur-sm"
+      className="fixed inset-0 z-40 grid place-items-center bg-scrim/30 px-6 backdrop-blur-sm"
     >
       <div className="app-glass w-full max-w-sm rounded-[22px] p-6">
         <h2 className="mb-2 text-lg font-semibold">还有一份单词小测没做</h2>
-        <p className="mb-5 text-sm leading-6 text-slate-600">
+        <p className="mb-5 text-sm leading-6 text-ink-2">
           {formatTaskDate(task.date)}学的 {task.total} 个词还没测。测一次这些词才会进复习计划，两三分钟就够。
         </p>
         <div className="flex gap-3">
@@ -533,7 +533,7 @@ function PendingTestReminder({
             type="button"
             data-testid="reminder-later"
             onClick={onClose}
-            className="min-h-[44px] flex-1 rounded-xl border border-slate-300"
+            className="min-h-[44px] flex-1 rounded-xl border border-control"
           >
             待会儿
           </button>
@@ -542,7 +542,7 @@ function PendingTestReminder({
             ref={goRef}
             data-testid="reminder-go"
             onClick={onGo}
-            className="min-h-[44px] flex-1 rounded-xl bg-blue-600 font-medium text-white"
+            className="min-h-[44px] flex-1 rounded-xl bg-accent-fill font-medium text-accent-on"
           >
             现在去测
           </button>
@@ -613,13 +613,13 @@ function SegmentCard({
     <>
       <span className="flex items-baseline justify-between gap-3">
         <span className="font-medium">{label}</span>
-        <span className="text-slate-500 text-sm">
+        <span className="text-ink-3 text-sm">
           {seg.available === false ? '暂未开放' : STATUS_TEXT[seg.status]}
           {seg.available === false ? '' : detail ? ` · ${detail}` : ''}
         </span>
       </span>
       {target.kind === 'blocked' ? (
-        <span className="mt-1 block text-xs text-slate-500">{target.reason}</span>
+        <span className="mt-1 block text-xs text-ink-3">{target.reason}</span>
       ) : null}
     </>
   );
@@ -629,7 +629,7 @@ function SegmentCard({
       <li
         data-testid={`segment-card-${seg.key}`}
         aria-disabled="true"
-        className="rounded-xl bg-slate-100 px-4 py-3 text-sm text-slate-600"
+        className="rounded-xl bg-fill px-4 py-3 text-sm text-ink-2"
       >
         {body}
       </li>
@@ -644,7 +644,7 @@ function SegmentCard({
         aria-label={accessibleName}
         disabled={busy}
         onClick={() => (target.kind === 'start' ? onStart() : onGo(target.path))}
-        className="app-secondary w-full min-h-[76px] text-left px-4 py-3 text-sm hover:bg-white disabled:opacity-60"
+        className="app-secondary w-full min-h-[76px] text-left px-4 py-3 text-sm hover:bg-surface disabled:opacity-60"
       >
         {body}
       </button>
@@ -657,9 +657,9 @@ function QuickLink({ to, icon, label, testId }: { to: string; icon: string; labe
     <Link
       data-testid={testId}
       to={to}
-      className="min-h-[68px] rounded-2xl border border-slate-200/80 bg-white/70 px-3 py-3 text-center text-sm font-medium text-slate-700 no-underline transition hover:bg-white hover:shadow-sm"
+      className="min-h-[68px] rounded-2xl border border-line bg-surface px-3 py-3 text-center text-sm font-medium text-ink-2 no-underline transition hover:bg-surface hover:shadow-sm"
     >
-      <span aria-hidden="true" className="mx-auto mb-1 grid h-7 w-7 place-items-center rounded-lg bg-blue-50 text-[13px] font-semibold text-[#007aff]">
+      <span aria-hidden="true" className="mx-auto mb-1 grid h-7 w-7 place-items-center rounded-lg bg-accent-soft text-[13px] font-semibold text-accent">
         {icon}
       </span>
       {label}

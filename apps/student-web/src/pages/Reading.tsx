@@ -137,23 +137,23 @@ export default function ReadingPage() {
 
   if (phase.s === 'loading') {
     return (
-      <div className="min-h-[100dvh] grid place-items-center bg-slate-50">
-        <p className="text-slate-400">载入中…</p>
+      <div className="min-h-[100dvh] grid place-items-center bg-surface-2">
+        <p className="text-ink-3">载入中…</p>
       </div>
     );
   }
 
   if (phase.s === 'error') {
     return (
-      <div className="min-h-[100dvh] grid place-items-center bg-slate-50 px-6">
-        <div className="w-full max-w-sm bg-white rounded-2xl border border-slate-200 p-6">
-          <div role="alert" className="rounded-xl bg-rose-50 text-rose-700 px-4 py-3 text-sm mb-4">
+      <div className="min-h-[100dvh] grid place-items-center bg-surface-2 px-6">
+        <div className="w-full max-w-sm bg-surface rounded-2xl border border-line p-6">
+          <div role="alert" className="rounded-xl bg-danger-soft text-danger px-4 py-3 text-sm mb-4">
             {phase.message}
           </div>
           <button
             type="button"
             onClick={() => void load()}
-            className="w-full rounded-xl bg-blue-600 text-white py-3 text-base font-medium min-h-[44px]"
+            className="w-full rounded-xl bg-accent-fill text-accent-on py-3 text-base font-medium min-h-[44px]"
           >
             重试
           </button>
@@ -343,7 +343,7 @@ function ReadingShell({ session, submissionId, historical }: { session: ReadingS
         <button
           type="button"
           onClick={() => (blocked ? setExiting(true) : navigate(ROUTES.today))}
-          className="min-h-[44px] px-3 rounded-lg text-slate-600 hover:bg-slate-50 text-sm"
+          className="min-h-[44px] px-3 rounded-lg text-ink-2 hover:bg-surface-2 text-sm"
         >
           ← 首页
         </button>
@@ -351,9 +351,9 @@ function ReadingShell({ session, submissionId, historical }: { session: ReadingS
           <span
             data-testid="reading-level"
             aria-label={`本次难度：${displayLevel}`}
-            className="max-w-full truncate rounded-full border border-blue-100 bg-blue-50 px-3 py-1.5 text-[13px] sm:text-sm font-medium text-blue-700"
+            className="max-w-full truncate rounded-full border border-accent/30 bg-accent-soft px-3 py-1.5 text-[13px] sm:text-sm font-medium text-accent"
           >
-            <span className="hidden sm:inline text-blue-500">本次难度 · </span>
+            <span className="hidden sm:inline text-accent">本次难度 · </span>
             {displayLevel}
           </span>
         </div>
@@ -364,13 +364,13 @@ function ReadingShell({ session, submissionId, historical }: { session: ReadingS
         <div
           data-testid="secondary-tab"
           role="alert"
-          className="bg-amber-50 border-b border-amber-200 px-4 py-2.5 text-sm text-amber-900 flex flex-wrap items-center gap-3"
+          className="bg-warning-soft border-b border-warning/35 px-4 py-2.5 text-sm text-warning flex flex-wrap items-center gap-3"
         >
           <span>这场考试已经在另一个标签页里打开了 —— 这里写的答案不会上传。</span>
           <button
             type="button"
             onClick={() => r.claimTabOwnership()}
-            className="min-h-[44px] px-3 rounded-lg border border-amber-400 bg-white font-medium"
+            className="min-h-[44px] px-3 rounded-lg border border-warning bg-surface font-medium"
           >
             在这个标签继续
           </button>
@@ -381,7 +381,7 @@ function ReadingShell({ session, submissionId, historical }: { session: ReadingS
         <div
           data-testid="unverified"
           role="alert"
-          className="bg-rose-50 border-b border-rose-200 px-4 py-2.5 text-sm text-rose-800"
+          className="bg-danger-soft border-b border-danger/30 px-4 py-2.5 text-sm text-danger"
         >
           有一道题的答案还没保存成功 —— 网络恢复后会自动重试，这之前不能交卷。
         </div>
@@ -391,13 +391,13 @@ function ReadingShell({ session, submissionId, historical }: { session: ReadingS
         <div
           data-testid="save-locked"
           role="alert"
-          className="bg-amber-50 border-b border-amber-200 px-4 py-2.5 text-sm text-amber-900 flex items-center gap-3"
+          className="bg-warning-soft border-b border-warning/35 px-4 py-2.5 text-sm text-warning flex items-center gap-3"
         >
           <span className="flex-1">这份卷子已经交了，答案不能再改。</span>
           <button
             type="button"
             onClick={() => navigate(historical && submissionId ? scoreDetailPath(submissionId) : ROUTES.readingResult)}
-            className="shrink-0 min-h-[36px] px-3 rounded-lg bg-white border border-amber-300 text-amber-900"
+            className="shrink-0 min-h-[36px] px-3 rounded-lg bg-surface border border-warning/35 text-warning"
           >
             看结果
           </button>
@@ -406,7 +406,7 @@ function ReadingShell({ session, submissionId, historical }: { session: ReadingS
         <div
           data-testid="save-error"
           role="alert"
-          className="bg-amber-50 border-b border-amber-200 px-4 py-2.5 text-sm text-amber-900"
+          className="bg-warning-soft border-b border-warning/35 px-4 py-2.5 text-sm text-warning"
         >
           刚才有一次保存没成功 —— 答案还在本机上，联网后会自动补传。
         </div>
@@ -416,13 +416,13 @@ function ReadingShell({ session, submissionId, historical }: { session: ReadingS
         <div
           data-testid="conflict-notice"
           role="alert"
-          className="bg-blue-50 border-b border-blue-200 px-4 py-2.5 text-sm text-blue-900 flex flex-wrap items-center gap-3"
+          className="bg-accent-soft border-b border-accent/30 px-4 py-2.5 text-sm text-ink flex flex-wrap items-center gap-3"
         >
           <span>{r.conflictNotice}</span>
           <button
             type="button"
             onClick={() => r.dismissConflictNotice()}
-            className="min-h-[44px] px-3 rounded-lg border border-blue-300 bg-white font-medium"
+            className="min-h-[44px] px-3 rounded-lg border border-accent/30 bg-surface font-medium"
           >
             知道了
           </button>
@@ -438,12 +438,12 @@ function ReadingShell({ session, submissionId, historical }: { session: ReadingS
       <footer className="app-glass safe-bottom sticky bottom-0 z-20 border-x-0 border-b-0">
         <QuestionNavBar questions={paper.questions} onJumpTo={(qid) => jumpTo(qid)} />
         <div className="px-3 py-2 flex items-center gap-3">
-          <span data-testid="flag-count" className="text-sm text-slate-500 tabular-nums">
+          <span data-testid="flag-count" className="text-sm text-ink-3 tabular-nums">
             已标记 {r.flaggedCount}
           </span>
           <div className="flex-1" />
           {submitError && (
-            <span data-testid="submit-error" role="alert" className="text-sm text-rose-700">
+            <span data-testid="submit-error" role="alert" className="text-sm text-danger">
               {submitError}
             </span>
           )}
@@ -466,7 +466,7 @@ function ReadingShell({ session, submissionId, historical }: { session: ReadingS
                 setConfirming(true);
               })();
             }}
-            className="app-primary min-h-[44px] px-5 disabled:bg-slate-300 disabled:shadow-none"
+            className="app-primary min-h-[44px] px-5 disabled:bg-fill-strong disabled:shadow-none"
           >
             {flushing ? '保存中…' : '交卷'}
           </button>
@@ -478,12 +478,12 @@ function ReadingShell({ session, submissionId, historical }: { session: ReadingS
           role="dialog"
           aria-modal="true"
           aria-label="确认交卷"
-          className="fixed inset-0 z-40 bg-black/30 backdrop-blur-sm grid place-items-center px-6"
+          className="fixed inset-0 z-40 bg-scrim/30 backdrop-blur-sm grid place-items-center px-6"
         >
           <div className="app-glass w-full max-w-sm rounded-[22px] p-6">
             <h2 className="text-lg font-semibold mb-2">确定要交卷吗？</h2>
             {(unansweredCount > 0 || r.flaggedCount > 0) && (
-              <p data-testid="submit-warning" className="text-sm text-rose-700 font-medium mb-2">
+              <p data-testid="submit-warning" className="text-sm text-danger font-medium mb-2">
                 {[
                   unansweredCount > 0 ? `还有 ${unansweredCount} 题没作答` : null,
                   r.flaggedCount > 0 ? `第 ${flaggedNumbers} 题还标着「标记」` : null,
@@ -491,7 +491,7 @@ function ReadingShell({ session, submissionId, historical }: { session: ReadingS
                 。
               </p>
             )}
-            <p className="text-sm text-slate-600 mb-5">
+            <p className="text-sm text-ink-2 mb-5">
               {session.secondWindowToday
                 ? '交卷之后，今天还有第二个作答时段可以再改。'
                 : '交卷之后这份答卷就锁定了，不能再改。'}
@@ -500,7 +500,7 @@ function ReadingShell({ session, submissionId, historical }: { session: ReadingS
               <button
                 type="button"
                 onClick={() => setConfirming(false)}
-                className="flex-1 min-h-[44px] rounded-xl border border-slate-300"
+                className="flex-1 min-h-[44px] rounded-xl border border-control"
               >
                 再想想
               </button>
@@ -508,7 +508,7 @@ function ReadingShell({ session, submissionId, historical }: { session: ReadingS
                 type="button"
                 disabled={submitting}
                 onClick={() => void doSubmit()}
-                className="flex-1 min-h-[44px] rounded-xl bg-blue-600 text-white font-medium disabled:bg-slate-300"
+                className="flex-1 min-h-[44px] rounded-xl bg-accent-fill text-accent-on font-medium disabled:bg-fill-strong"
               >
                 确认交卷
               </button>
@@ -523,25 +523,25 @@ function ReadingShell({ session, submissionId, historical }: { session: ReadingS
           role="dialog"
           aria-modal="true"
           aria-label="确认退出"
-          className="fixed inset-0 z-40 bg-black/30 backdrop-blur-sm grid place-items-center px-6"
+          className="fixed inset-0 z-40 bg-scrim/30 backdrop-blur-sm grid place-items-center px-6"
         >
           <div className="app-glass w-full max-w-sm rounded-[22px] p-6">
             <h2 className="text-lg font-semibold mb-2">还有答案没保存好</h2>
-            <p className="text-sm text-slate-600 mb-5">
+            <p className="text-sm text-ink-2 mb-5">
               现在离开，这些答案只留在这台设备上。建议等网络恢复、保存完成再走。
             </p>
             <div className="flex gap-3">
               <button
                 type="button"
                 onClick={() => setExiting(false)}
-                className="flex-1 min-h-[44px] rounded-xl border border-slate-300"
+                className="flex-1 min-h-[44px] rounded-xl border border-control"
               >
                 留下
               </button>
               <button
                 type="button"
                 onClick={() => navigate(ROUTES.today)}
-                className="flex-1 min-h-[44px] rounded-xl bg-slate-700 text-white font-medium"
+                className="flex-1 min-h-[44px] rounded-xl bg-ink-3 text-accent-on font-medium"
               >
                 仍然退出
               </button>

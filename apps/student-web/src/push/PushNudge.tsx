@@ -41,15 +41,15 @@ export function PushNudge() {
   return (
     <section
       data-testid="push-nudge"
-      className="mb-6 rounded-2xl border border-blue-200 bg-blue-50/70 p-4"
+      className="mb-6 rounded-2xl border border-accent/30 bg-accent-soft p-4"
       aria-label="开启提醒"
     >
       {status === 'off' ? (
         <>
-          <p className="text-sm text-slate-800">
+          <p className="text-sm text-ink">
             要不要每个上课日 <strong>{cfg.reminderTime}</strong> 提醒你一下？课做完了就不会响。
           </p>
-          {error ? <p role="alert" className="mt-2 text-sm text-red-600">{error}</p> : null}
+          {error ? <p role="alert" className="mt-2 text-sm text-danger">{error}</p> : null}
           <div className="mt-3 flex gap-2">
             <button
               type="button"
@@ -59,15 +59,15 @@ export function PushNudge() {
             >
               {busy ? '正在开…' : '开启提醒'}
             </button>
-            <button type="button" className="min-h-[44px] px-4 text-sm text-slate-500" onClick={close}>
+            <button type="button" className="min-h-[44px] px-4 text-sm text-ink-3" onClick={close}>
               不用了
             </button>
           </div>
         </>
       ) : (
         <>
-          <p className="text-sm text-slate-800">{IOS_INSTALL_HINT}</p>
-          <button type="button" className="mt-3 min-h-[44px] text-sm text-blue-600" onClick={close}>
+          <p className="text-sm text-ink">{IOS_INSTALL_HINT}</p>
+          <button type="button" className="mt-3 min-h-[44px] text-sm text-accent" onClick={close}>
             知道了
           </button>
         </>

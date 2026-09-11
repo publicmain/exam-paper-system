@@ -303,7 +303,7 @@ export function IELTSReadingPassage({ paper }: { paper: ExamPaper }) {
 
   if (!paper?.questions?.length) {
     return (
-      <div className="max-w-xl mx-auto py-12 px-6 text-center text-amber-800">
+      <div className="max-w-xl mx-auto py-12 px-6 text-center text-warning">
         该卷尚未出题，请联系老师。
       </div>
     );
@@ -334,10 +334,10 @@ export function IELTSReadingPassage({ paper }: { paper: ExamPaper }) {
           // Keeping lg:max-h-full to respect the parent's calc-height
           // container, but switching to overflow-y-auto + scrollbar-gutter:
           // stable so the gutter is reserved (visible) at all breakpoints.
-          <aside className="bg-white lg:rounded-lg lg:border lg:shadow-sm lg:max-h-full lg:overflow-y-auto h-full [scrollbar-gutter:stable]">
+          <aside className="bg-surface lg:rounded-lg lg:border lg:shadow-sm lg:max-h-full lg:overflow-y-auto h-full [scrollbar-gutter:stable]">
             <div className="px-5 py-5 lg:px-6 lg:py-6">
               <h2 className="font-semibold text-xl lg:text-2xl mb-1">{passageTitle}</h2>
-              {/* 对比度：原来 text-gray-400 (2.54:1) + text-blue-500 (3.68:1)
+              {/* 对比度：原来 text-ink-3 (2.54:1) + text-accent (3.68:1)
                   都低于 WCAG AA 的 4.5:1，而这行正是要让学生发现查词功能的。
                   换成 gray-600 / blue-600 并从 12px 提到 13px。
                   措辞也从「选中」改成「点」—— 手势已经变了。 */}
@@ -357,10 +357,10 @@ export function IELTSReadingPassage({ paper }: { paper: ExamPaper }) {
               {neverLookedUp ? (
                 <div
                   data-testid="lookup-hint-prominent"
-                  className="mb-3 rounded-xl bg-blue-50 px-4 py-3 text-[14px] text-blue-800 leading-relaxed"
+                  className="mb-3 rounded-xl bg-accent-soft px-4 py-3 text-[14px] text-accent leading-relaxed"
                 >
                   <div className="font-medium">不认识的词，轻轻一点就能查</div>
-                  <div className="text-[13px] text-blue-700/90 mt-0.5">
+                  <div className="text-[13px] text-accent mt-0.5">
                     不用长按
                     {fillTargetId ? '，还能直接填进正在作答的填空题' : ''}
                     ；拖选文字可以加高亮。
@@ -369,9 +369,9 @@ export function IELTSReadingPassage({ paper }: { paper: ExamPaper }) {
               ) : (
                 // 和上面的蓝条同样的内外边距、同样两行 —— 缩回时正文不上移
                 //（2026-09-06 上线验收：提示条在学生点词时收成一行，点到了下一行的词）
-                <div data-testid="lookup-hint-compact" className="mb-3 rounded-xl bg-gray-50 px-4 py-3 text-[14px] text-gray-600 leading-relaxed">
+                <div data-testid="lookup-hint-compact" className="mb-3 rounded-xl bg-surface-2 px-4 py-3 text-[14px] text-ink-2 leading-relaxed">
                   <div>轻点一个单词可以查词</div>
-                  <div className="text-[13px] text-gray-500 mt-0.5">拖选文字可以加高亮，点高亮可移除。</div>
+                  <div className="text-[13px] text-ink-3 mt-0.5">拖选文字可以加高亮，点高亮可移除。</div>
                 </div>
               )}
               <Highlighter
@@ -380,7 +380,7 @@ export function IELTSReadingPassage({ paper }: { paper: ExamPaper }) {
                 onChange={setHighlights}
                 onWordTap={onWordTap}
                 testId="passage-body"
-                className="text-gray-800 leading-[1.75] font-serif"
+                className="text-ink leading-[1.75] font-serif"
                 // Apply the user-controlled font scale via inline style
                 // (overrides any inherited text-* class). 1.125rem is the
                 // baseline that text-lg used at fontScale=1.
@@ -522,20 +522,20 @@ function InstructionBlock({ text, taskType, hasOptions = false }: { text: string
   const fs = { fontSize: `calc(0.9375rem * var(--mq-fs, 1))` };
 
   if (!gist) {
-    return <p className="mt-2 text-gray-700 whitespace-pre-wrap leading-relaxed" style={fs}>{text}</p>;
+    return <p className="mt-2 text-ink-2 whitespace-pre-wrap leading-relaxed" style={fs}>{text}</p>;
   }
   return (
     <div className="mt-2">
-      <p className="text-gray-800 leading-relaxed" style={fs}>{gist}</p>
+      <p className="text-ink leading-relaxed" style={fs}>{gist}</p>
       <button
         type="button"
         onClick={() => setOpen((v) => !v)}
-        className="press hit -ml-2 px-2 text-[13px] text-blue-600 font-medium rounded-lg"
+        className="press hit -ml-2 px-2 text-[13px] text-accent font-medium rounded-lg"
       >
         {open ? '收起英文原文' : '英文原文'}
       </button>
       {open && (
-        <p className="text-gray-600 whitespace-pre-wrap leading-relaxed mt-1" style={fs}>{text}</p>
+        <p className="text-ink-2 whitespace-pre-wrap leading-relaxed mt-1" style={fs}>{text}</p>
       )}
     </div>
   );
@@ -550,14 +550,14 @@ function TaskGroupView({ group, gi }: { group: TaskGroup; gi: number }) {
   const effectiveType = effectiveTaskType(group.taskType, group.instruction);
   const taskTitle = TASK_TITLES[effectiveType] ?? 'Question';
   return (
-    <section className="bg-white rounded-md border border-gray-200 overflow-hidden">
-      <header className="bg-gray-50 border-b border-gray-200 px-4 lg:px-5 py-3">
+    <section className="bg-surface rounded-md border border-line overflow-hidden">
+      <header className="bg-surface-2 border-b border-line px-4 lg:px-5 py-3">
         <div className="flex items-baseline gap-2 flex-wrap text-sm">
-          <span className="text-gray-500">Section {gi + 1}</span>
-          <span className="text-gray-300">·</span>
-          <span className="font-semibold text-gray-900">{taskTitle}</span>
-          <span className="text-gray-300">·</span>
-          <span className="font-mono text-gray-500">Q{range}</span>
+          <span className="text-ink-3">Section {gi + 1}</span>
+          <span className="text-ink-3">·</span>
+          <span className="font-semibold text-ink">{taskTitle}</span>
+          <span className="text-ink-3">·</span>
+          <span className="font-mono text-ink-3">Q{range}</span>
         </div>
         {group.instruction ? (
           <InstructionBlock
@@ -567,15 +567,15 @@ function TaskGroupView({ group, gi }: { group: TaskGroup; gi: number }) {
           />
         ) : group.taskType === 'short_answer' ? (
           // 简答段没有英文指令行时也给一句中文（2026-09-06 复测：四段里只有它光秃秃的）
-          <p className="mt-2 text-gray-700 leading-relaxed" style={{ fontSize: `calc(0.9375rem * var(--mq-fs, 1))` }}>
+          <p className="mt-2 text-ink-2 leading-relaxed" style={{ fontSize: `calc(0.9375rem * var(--mq-fs, 1))` }}>
             用自己的话回答，写完整的句子
-            <span className="block mt-0.5 text-gray-400">Answer in your own words. Write complete sentences.</span>
+            <span className="block mt-0.5 text-ink-3">Answer in your own words. Write complete sentences.</span>
           </p>
         ) : null}
       </header>
       {group.bank && (
-        <div className="px-4 lg:px-5 py-3 bg-amber-50/60 border-b border-amber-100">
-          <div className="text-xs text-amber-900 font-semibold tracking-wide uppercase mb-2">
+        <div className="px-4 lg:px-5 py-3 bg-warning-soft border-b border-warning/35">
+          <div className="text-xs text-warning font-semibold tracking-wide uppercase mb-2">
             {group.bankLabel}
           </div>
           <ul
@@ -584,14 +584,14 @@ function TaskGroupView({ group, gi }: { group: TaskGroup; gi: number }) {
           >
             {group.bank.map((b) => (
               <li key={b.key} className="break-inside-avoid leading-snug">
-                <span className="font-mono text-gray-500 mr-2 font-semibold">{b.key}.</span>
+                <span className="font-mono text-ink-3 mr-2 font-semibold">{b.key}.</span>
                 <span>{clean(b.text)}</span>
               </li>
             ))}
           </ul>
         </div>
       )}
-      <ol className="divide-y divide-gray-100">
+      <ol className="divide-y divide-line">
         {group.questions.map((q) => (
           <QuestionRow key={q.id} q={q} taskType={group.taskType} hasBank={!!group.bank} />
         ))}
@@ -621,20 +621,20 @@ function QuestionRow({
   return (
     <li
       id={`q-${q.id}`}
-      className={`px-4 lg:px-5 py-4 transition-colors ${flagged ? 'bg-orange-50/40' : ''} ${
+      className={`px-4 lg:px-5 py-4 transition-colors ${flagged ? 'bg-warning-soft' : ''} ${
         showFeedback
           ? isCorrect
-            ? 'border-l-4 border-green-400'
-            : 'border-l-4 border-rose-300'
+            ? 'border-l-4 border-success'
+            : 'border-l-4 border-danger/30'
           : ''
       }`}
     >
       <div className="flex items-center gap-3 mb-2">
-        <span className="inline-flex items-center justify-center min-w-[28px] h-7 px-2 rounded-md bg-gray-100 text-gray-700 font-mono text-sm font-semibold tabular-nums">
+        <span className="inline-flex items-center justify-center min-w-[28px] h-7 px-2 rounded-md bg-fill text-ink-2 font-mono text-sm font-semibold tabular-nums">
           {q.localIdx}
         </span>
-        <span className="text-[13px] text-gray-500 tabular-nums">{q.marks} 分</span>
-        {savingId === q.id && <span className="text-xs text-blue-500">saving…</span>}
+        <span className="text-[13px] text-ink-3 tabular-nums">{q.marks} 分</span>
+        {savingId === q.id && <span className="text-xs text-accent">saving…</span>}
         <div className="flex-1" />
         <QuestionFlag qid={q.id} />
       </div>
@@ -642,12 +642,12 @@ function QuestionRow({
       {showFeedback && (
         <div
           className={`mt-2 text-sm font-medium ${
-            isCorrect ? 'text-green-700' : 'text-rose-700'
+            isCorrect ? 'text-success' : 'text-danger'
           }`}
         >
           {isCorrect ? '✓ Correct' : `✗ Correct answer: ${correctKey}`}
           {q.snapshotContent?.explanation && !isCorrect && (
-            <span className="block text-gray-600 font-normal mt-1">
+            <span className="block text-ink-2 font-normal mt-1">
               {clean(q.snapshotContent.explanation)}
             </span>
           )}
@@ -714,7 +714,7 @@ function QuestionItem({
       return (
         <>
           <div
-            className="text-gray-800 mb-2.5 whitespace-pre-wrap leading-snug"
+            className="text-ink mb-2.5 whitespace-pre-wrap leading-snug"
             style={{ fontSize: `calc(1rem * var(--mq-fs, 1))` }}
           >
             {itemNode}
@@ -743,7 +743,7 @@ function QuestionItem({
       return (
         <>
           <div
-            className="text-gray-800 mb-2.5 whitespace-pre-wrap leading-snug"
+            className="text-ink mb-2.5 whitespace-pre-wrap leading-snug"
             style={{ fontSize: `calc(1rem * var(--mq-fs, 1))` }}
           >
             {itemNode}
@@ -759,7 +759,7 @@ function QuestionItem({
       return (
         <>
           <div
-            className="text-gray-800 mb-2.5 whitespace-pre-wrap leading-snug"
+            className="text-ink mb-2.5 whitespace-pre-wrap leading-snug"
             style={{ fontSize: `calc(1rem * var(--mq-fs, 1))` }}
           >
             {itemNode}
@@ -787,7 +787,7 @@ function QuestionItem({
         return (
           <>
             <div
-              className="text-gray-800 mb-2.5 whitespace-pre-wrap leading-snug"
+              className="text-ink mb-2.5 whitespace-pre-wrap leading-snug"
               style={{ fontSize: `calc(1rem * var(--mq-fs, 1))` }}
             >
               {itemNode}
@@ -820,7 +820,7 @@ function QuestionItem({
       if (isOlevelProse) {
         return (
           <>
-            <div className="text-base text-gray-800 mb-2.5 whitespace-pre-wrap leading-relaxed">
+            <div className="text-base text-ink mb-2.5 whitespace-pre-wrap leading-relaxed">
               {clean(q.itemText)}
             </div>
             <DebouncedTextarea
@@ -855,7 +855,7 @@ function QuestionItem({
         return (
           <>
             <div
-              className="text-gray-800 mb-2.5 whitespace-pre-wrap leading-snug"
+              className="text-ink mb-2.5 whitespace-pre-wrap leading-snug"
               style={{ fontSize: `calc(1rem * var(--mq-fs, 1))` }}
             >
               {itemNode}
@@ -873,7 +873,7 @@ function QuestionItem({
       return (
         <>
           <div
-            className="text-gray-800 mb-2.5 whitespace-pre-wrap leading-snug"
+            className="text-ink mb-2.5 whitespace-pre-wrap leading-snug"
             style={{ fontSize: `calc(1rem * var(--mq-fs, 1))` }}
           >
             {itemNode}
@@ -920,8 +920,8 @@ function RadioGroup({
               aria-label={`${opt.key}${opt.text && opt.text !== opt.key ? ` ${opt.text}` : ''}`}
               className={`min-w-[44px] min-h-[44px] px-4 py-2 rounded-lg border font-semibold transition-colors touch-manipulation ${
                 checked
-                  ? 'border-blue-600 bg-blue-600 text-white shadow-sm'
-                  : 'border-gray-300 text-gray-700 hover:bg-gray-50 active:bg-blue-50'
+                  ? 'border-accent bg-accent-fill text-accent-on shadow-sm'
+                  : 'border-control text-ink-2 hover:bg-surface-2 active:bg-accent-soft'
               }`}
               style={optStyle}
             >
@@ -933,7 +933,7 @@ function RadioGroup({
           <label
             key={opt.key}
             className={`flex gap-3 items-start p-3 rounded-lg border cursor-pointer transition-colors touch-manipulation min-h-[48px] ${
-              checked ? 'border-blue-500 bg-blue-50' : 'border-gray-200 hover:bg-gray-50 active:bg-blue-50'
+              checked ? 'border-accent bg-accent-soft' : 'border-line hover:bg-surface-2 active:bg-accent-soft'
             }`}
             style={optStyle}
           >
@@ -944,7 +944,7 @@ function RadioGroup({
               className="mt-1 w-5 h-5"
               name={name}
             />
-            <span className="font-mono text-gray-500 w-6">{opt.key}.</span>
+            <span className="font-mono text-ink-3 w-6">{opt.key}.</span>
             <span className="flex-1 leading-snug">{clean(opt.text)}</span>
           </label>
         );
@@ -986,7 +986,7 @@ function LetterInput({
       onBlur={() => { if (local !== value) onChange(local); }}
       placeholder={placeholder}
       aria-label={`Answer ${placeholder}`}
-      className={`border rounded-lg px-4 py-3 text-lg font-mono uppercase tracking-wider min-h-[48px] focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-200 ${wider ? 'w-40' : 'w-28'}`}
+      className={`border rounded-lg px-4 py-3 text-lg font-mono uppercase tracking-wider min-h-[48px] focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/30 ${wider ? 'w-40' : 'w-28'}`}
       autoCapitalize="characters"
       autoCorrect="off"
       spellCheck={false}
@@ -1025,13 +1025,13 @@ function DebouncedTextarea({
         }}
         onBlur={() => { if (local !== value) onChange(local); }}
         placeholder="Your answer…"
-        className="w-full border rounded-lg px-4 py-3 text-base focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-200"
+        className="w-full border rounded-lg px-4 py-3 text-base focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/30"
       />
       <WritingHints text={local} enabled={writingCheckOn} />
       {/* 8 分摘要题有 80 词上限，写的时候看得见才好控制 —— 只提示不拦截，
           超了由老师按 SEAB 的口径扣分，前端不替考官做判断。 */}
       {showWordCount && (
-        <div className={`mt-1 text-xs tabular-nums ${words > 80 ? 'text-amber-600 font-medium' : 'text-gray-400'}`}>
+        <div className={`mt-1 text-xs tabular-nums ${words > 80 ? 'text-warning font-medium' : 'text-ink-3'}`}>
           {words} 词{words > 80 ? ' · 已超过 80 词上限' : ' / 80'}
         </div>
       )}
@@ -1065,11 +1065,11 @@ function BlankAwareInput({
   useEffect(() => { setLocal(value); }, [value]);
   return (
     <>
-      <div className="text-base text-gray-800 mb-2.5 whitespace-pre-wrap leading-relaxed">
+      <div className="text-base text-ink mb-2.5 whitespace-pre-wrap leading-relaxed">
         {hasBlank
           ? cleaned.split(/(\[BLANK\])/i).map((part, i) =>
               /\[BLANK\]/i.test(part) ? (
-                <span key={i} className="inline-block px-2.5 mx-0.5 bg-amber-100 border border-amber-200 rounded text-amber-800 text-sm font-medium">
+                <span key={i} className="inline-block px-2.5 mx-0.5 bg-warning-soft border border-warning/35 rounded text-warning text-sm font-medium">
                   ___
                 </span>
               ) : (
@@ -1091,10 +1091,10 @@ function BlankAwareInput({
         onBlur={() => { if (local !== value) onChange(local); }}
         placeholder="Your answer…"
         aria-label="Your answer"
-        className="border rounded-lg px-4 py-3 text-base w-full max-w-md min-h-[48px] focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-200"
+        className="border rounded-lg px-4 py-3 text-base w-full max-w-md min-h-[48px] focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/30"
       />
       {singleWord && local.trim().split(/\s+/).filter(Boolean).length > 1 ? (
-        <p data-testid="one-word-hint" role="status" className="mt-1.5 text-sm text-amber-700">
+        <p data-testid="one-word-hint" role="status" className="mt-1.5 text-sm text-warning">
           这题只填一个词 —— 现在写了 {local.trim().split(/\s+/).filter(Boolean).length} 个。
         </p>
       ) : null}

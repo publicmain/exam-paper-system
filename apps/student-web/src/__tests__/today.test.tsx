@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import { act, render, screen, waitFor } from '@testing-library/react';
+import { act, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router-dom';
 import App from '../App';
@@ -419,7 +419,7 @@ describe('8–10. 停留态与摘要', () => {
     }));
     renderAt('/today');
     await screen.findByRole('heading', { name: /你好，七号/ });
-    const items = screen.getAllByRole('listitem').map((li) => li.textContent ?? '');
+    const items = within(screen.getByRole('main')).getAllByRole('listitem').map((li) => li.textContent ?? '');
     expect(items[1]).toContain('单词');
     expect(items[1]).toContain('测试 0 / 4');
     // 不得退化成「还没考」或进度分数
@@ -440,7 +440,7 @@ describe('8–10. 停留态与摘要', () => {
     }));
     renderAt('/today');
     await screen.findByRole('heading', { name: /你好，七号/ });
-    const items = screen.getAllByRole('listitem').map((li) => li.textContent ?? '');
+    const items = within(screen.getByRole('main')).getAllByRole('listitem').map((li) => li.textContent ?? '');
     expect(items).toHaveLength(3);
     expect(items[0]).toContain('阅读');
     expect(items[0]).toContain('4 / 5 分');

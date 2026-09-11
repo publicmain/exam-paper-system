@@ -290,7 +290,7 @@ export default function VocabPracticePage() {
   if (phase.s === 'loading') {
     return (
       <Screen>
-        <p className="text-center text-slate-400">载入中…</p>
+        <p className="text-center text-ink-3">载入中…</p>
       </Screen>
     );
   }
@@ -314,7 +314,7 @@ export default function VocabPracticePage() {
       <Screen>
         <Card>
           <h1 className="text-xl font-semibold mb-2">自由练习</h1>
-          <p data-testid="practice-empty" className="rounded-xl bg-slate-50 px-4 py-3 text-sm text-slate-600">
+          <p data-testid="practice-empty" className="rounded-xl bg-surface-2 px-4 py-3 text-sm text-ink-2">
             现在没有到期的词 —— 过一阵再来，或者去考考自己。
           </p>
           <BackToVocab navigate={navigate} />
@@ -328,11 +328,11 @@ export default function VocabPracticePage() {
       <Screen>
         <Card>
           <h1 className="text-xl font-semibold mb-2">练完了 🎉</h1>
-          <p data-testid="practice-done" className="text-sm text-slate-600">
+          <p data-testid="practice-done" className="text-sm text-ink-2">
             这一轮 {cards.length} 个词都过了一遍。
           </p>
           {receipt ? (
-            <p data-testid="rating-receipt" className="mt-2 text-sm text-slate-500">
+            <p data-testid="rating-receipt" className="mt-2 text-sm text-ink-3">
               {receiptLine(receipt)}
             </p>
           ) : null}
@@ -343,12 +343,12 @@ export default function VocabPracticePage() {
                 data-testid="undo"
                 disabled={locked}
                 onClick={() => void undo()}
-                className="mt-3 min-h-[44px] px-3 rounded-lg border border-slate-300 text-sm disabled:opacity-50"
+                className="mt-3 min-h-[44px] px-3 rounded-lg border border-control text-sm disabled:opacity-50"
               >
                 撤销上一个（{last.card.headword}）
               </button>
               {undoError ? (
-                <p role="alert" data-testid="undo-error" className="mt-1 text-sm text-rose-700">
+                <p role="alert" data-testid="undo-error" className="mt-1 text-sm text-danger">
                   没能撤销 —— 再试一次。
                 </p>
               ) : null}
@@ -368,7 +368,7 @@ export default function VocabPracticePage() {
         <Card>
           {/* S12L —— 返回挪到顶部；原来只有页面最底下才有一个 */}
           <TopBar onBack={() => navigate(ROUTES.vocab)} backLabel="生词本" />
-          <p data-testid="practice-progress" className="text-sm text-slate-500 mb-2 tabular-nums">
+          <p data-testid="practice-progress" className="text-sm text-ink-3 mb-2 tabular-nums">
             {index + 1} / {cards.length}
           </p>
           <TeachingCard card={current} onAck={() => setAcked((a) => [...a, current.headword])} />
@@ -381,32 +381,32 @@ export default function VocabPracticePage() {
   return (
     <Screen>
       <Card>
-        <p data-testid="practice-progress" className="text-sm text-slate-500 mb-2 tabular-nums">
+        <p data-testid="practice-progress" className="text-sm text-ink-3 mb-2 tabular-nums">
           {index + 1} / {cards.length}
         </p>
 
         <div data-testid="review-card">
-        <p data-testid="card-mode" className="mb-1 inline-block rounded-md bg-slate-100 px-2 py-0.5 text-xs text-slate-600">
+        <p data-testid="card-mode" className="mb-1 inline-block rounded-md bg-fill px-2 py-0.5 text-xs text-ink-2">
           复习
         </p>
 
         <h1 data-testid="card-headword" className="text-2xl font-semibold">
           {current.headword}
         </h1>
-        {formatPhonetic(current.phonetic) ? <p className="text-sm text-slate-500">{formatPhonetic(current.phonetic)}</p> : null}
+        {formatPhonetic(current.phonetic) ? <p className="text-sm text-ink-3">{formatPhonetic(current.phonetic)}</p> : null}
 
         {masked?.text ? (
-          <p data-testid="card-context" className="mt-3 text-base text-slate-700 leading-relaxed">
+          <p data-testid="card-context" className="mt-3 text-base text-ink-2 leading-relaxed">
             {masked.text}
           </p>
         ) : null}
 
         {revealed ? (
-          <div data-testid="card-answer" className="mt-4 rounded-xl bg-slate-50 px-4 py-3">
-            <p className="text-base text-slate-900">{current.translation || '（词典里没有释义）'}</p>
-            {posPrefixFor(current.pos, '') ? <p className="mt-1 text-sm text-slate-500">{posPrefixFor(current.pos, '').trim()}</p> : null}
+          <div data-testid="card-answer" className="mt-4 rounded-xl bg-surface-2 px-4 py-3">
+            <p className="text-base text-ink">{current.translation || '（词典里没有释义）'}</p>
+            {posPrefixFor(current.pos, '') ? <p className="mt-1 text-sm text-ink-3">{posPrefixFor(current.pos, '').trim()}</p> : null}
             {current.definition ? (
-              <p className="mt-1 text-sm text-slate-600">{current.definition}</p>
+              <p className="mt-1 text-sm text-ink-2">{current.definition}</p>
             ) : null}
           </div>
         ) : null}
@@ -421,7 +421,7 @@ export default function VocabPracticePage() {
               data-testid="skip"
               disabled={locked}
               onClick={skip}
-              className="min-h-[44px] w-full rounded-xl border border-slate-300 py-3 text-sm text-slate-600 disabled:opacity-50"
+              className="min-h-[44px] w-full rounded-xl border border-control py-3 text-sm text-ink-2 disabled:opacity-50"
             >
               跳过这个（不算）
             </button>
@@ -436,7 +436,7 @@ export default function VocabPracticePage() {
                   data-testid={`rate-${r.key}`}
                   disabled={locked}
                   onClick={() => rate(r.key)}
-                  className="min-h-[44px] rounded-xl border border-slate-300 py-3 text-base disabled:opacity-50"
+                  className="min-h-[44px] rounded-xl border border-control py-3 text-base disabled:opacity-50"
                 >
                   {r.label}
                 </button>
@@ -447,7 +447,7 @@ export default function VocabPracticePage() {
               data-testid="skip"
               disabled={locked}
               onClick={skip}
-              className="mt-2 min-h-[44px] w-full rounded-xl border border-slate-300 py-3 text-sm text-slate-600 disabled:opacity-50"
+              className="mt-2 min-h-[44px] w-full rounded-xl border border-control py-3 text-sm text-ink-2 disabled:opacity-50"
             >
               跳过这个（不算）
             </button>
@@ -456,14 +456,14 @@ export default function VocabPracticePage() {
 
         {writeState === 'failed' ? (
           <>
-            <p role="alert" data-testid="rating-error" className="mt-3 text-sm text-rose-700">
+            <p role="alert" data-testid="rating-error" className="mt-3 text-sm text-danger">
               没记上 —— 网络不太好。**这一张还没算**，再试一次。
             </p>
             <button
               type="button"
               data-testid="retry-rating"
               onClick={() => void send()}
-              className="mt-2 min-h-[44px] px-4 rounded-xl bg-blue-600 text-white text-sm"
+              className="mt-2 min-h-[44px] px-4 rounded-xl bg-accent-fill text-accent-on text-sm"
             >
               重试
             </button>
@@ -471,7 +471,7 @@ export default function VocabPracticePage() {
         ) : null}
 
         {receipt ? (
-          <p data-testid="rating-receipt" className="mt-3 text-sm text-slate-500">
+          <p data-testid="rating-receipt" className="mt-3 text-sm text-ink-3">
             {receiptLine(receipt)}
           </p>
         ) : null}
@@ -483,12 +483,12 @@ export default function VocabPracticePage() {
               data-testid="undo"
               disabled={locked}
               onClick={() => void undo()}
-              className="mt-2 min-h-[44px] px-3 rounded-lg border border-slate-300 text-sm disabled:opacity-50"
+              className="mt-2 min-h-[44px] px-3 rounded-lg border border-control text-sm disabled:opacity-50"
             >
               撤销上一个（{last.card.headword}）
             </button>
             {undoError ? (
-              <p role="alert" data-testid="undo-error" className="mt-1 text-sm text-rose-700">
+              <p role="alert" data-testid="undo-error" className="mt-1 text-sm text-danger">
                 没能撤销 —— 再试一次。
               </p>
             ) : null}
@@ -527,27 +527,27 @@ function TeachingCard({
     <section data-testid="teaching-card">
       <p
         data-testid="card-mode"
-        className="mb-1 inline-block rounded-md bg-emerald-100 px-2 py-0.5 text-xs text-emerald-800"
+        className="mb-1 inline-block rounded-md bg-success-soft px-2 py-0.5 text-xs text-success"
       >
         学习
       </p>
       <h1 className="text-2xl font-semibold">{card.headword}</h1>
-      {formatPhonetic(card.phonetic) ? <p className="text-sm text-slate-500">{formatPhonetic(card.phonetic)}</p> : null}
-      <div className="mt-3 rounded-xl bg-slate-50 px-4 py-3">
-        <p className="text-base text-slate-900">
+      {formatPhonetic(card.phonetic) ? <p className="text-sm text-ink-3">{formatPhonetic(card.phonetic)}</p> : null}
+      <div className="mt-3 rounded-xl bg-surface-2 px-4 py-3">
+        <p className="text-base text-ink">
           {card.translation || card.definition || '（词典里没有释义）'}
         </p>
-        {posPrefixFor(card.pos, '') ? <p className="mt-1 text-sm text-slate-500">{posPrefixFor(card.pos, '').trim()}</p> : null}
+        {posPrefixFor(card.pos, '') ? <p className="mt-1 text-sm text-ink-3">{posPrefixFor(card.pos, '').trim()}</p> : null}
         {card.translation && card.definition ? (
-          <p className="mt-1 text-sm text-slate-600">{card.definition}</p>
+          <p className="mt-1 text-sm text-ink-2">{card.definition}</p>
         ) : null}
       </div>
       {sentence ? (
-        <p data-testid="teaching-context" className="mt-3 text-base leading-relaxed text-slate-700">
+        <p data-testid="teaching-context" className="mt-3 text-base leading-relaxed text-ink-2">
           {at >= 0 ? (
             <>
               {sentence.slice(0, at)}
-              <mark data-testid="teaching-highlight" className="bg-amber-100 px-0.5 rounded">
+              <mark data-testid="teaching-highlight" className="bg-warning-soft px-0.5 rounded">
                 {sentence.slice(at, at + target.length)}
               </mark>
               {sentence.slice(at + target.length)}
@@ -558,12 +558,12 @@ function TeachingCard({
         </p>
       ) : null}
       {card.contextTranslation ? (
-        <p data-testid="teaching-context-translation" className="mt-2 text-sm leading-relaxed text-slate-600">
+        <p data-testid="teaching-context-translation" className="mt-2 text-sm leading-relaxed text-ink-2">
           句意：{card.contextTranslation}
         </p>
       ) : null}
       {card.sourcePassageTitle ? (
-        <p className="mt-2 text-xs text-slate-400">来自：{card.sourcePassageTitle}</p>
+        <p className="mt-2 text-xs text-ink-3">来自：{card.sourcePassageTitle}</p>
       ) : null}
       <div className="mt-5">
         <Button onClick={onAck}>
@@ -580,7 +580,7 @@ function BackToVocab({ navigate }: { navigate: ReturnType<typeof useNavigate> })
       type="button"
       data-testid="back-to-vocab"
       onClick={() => navigate(ROUTES.vocab)}
-      className="mt-6 w-full rounded-xl border border-slate-300 py-3 text-base min-h-[44px]"
+      className="mt-6 w-full rounded-xl border border-control py-3 text-base min-h-[44px]"
     >
       回到生词本
     </button>

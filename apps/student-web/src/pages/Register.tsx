@@ -106,9 +106,9 @@ export default function RegisterPage() {
           }}
         >
           {/* 中文句子写在一行里 —— JSX 换行会在标点后面渲染出一个空格（2026-09-05 盲测 P2-14） */}
-          <p className="text-sm text-slate-600 mb-4">先选择你正在上的班级，再填写姓名和密码。密码由你自己设置，不要告诉别人。</p>
+          <p className="text-sm text-ink-2 mb-4">先选择你正在上的班级，再填写姓名和密码。密码由你自己设置，不要告诉别人。</p>
           <label className="block mb-4">
-            <span className="block text-sm text-slate-600 mb-1.5">选择班级</span>
+            <span className="block text-sm text-ink-2 mb-1.5">选择班级</span>
             <select
               aria-label="选择班级"
               value={classId}
@@ -116,7 +116,7 @@ export default function RegisterPage() {
               onChange={(e) => {
                 setClassId(e.target.value);
               }}
-              className="w-full min-h-[50px] rounded-[14px] border border-slate-300/80 px-4 py-3 text-base bg-white/90 outline-none focus:border-[#007aff] focus:ring-4 focus:ring-blue-500/10"
+              className="w-full min-h-[50px] rounded-[14px] border border-control px-4 py-3 text-base bg-surface outline-none focus:border-accent focus:ring-4 focus:ring-accent"
             >
               <option value="">{classesBusy ? '正在载入班级…' : '请选择班级'}</option>
               {classes.map((klass) => (
@@ -127,7 +127,7 @@ export default function RegisterPage() {
           {classesError ? (
             <div className="mb-4">
               <Notice kind="error">{classesError}</Notice>
-              <button type="button" className="text-blue-600 underline text-sm" onClick={() => void loadClasses()}>
+              <button type="button" className="text-accent underline text-sm" onClick={() => void loadClasses()}>
                 重新载入班级
               </button>
             </div>
@@ -154,7 +154,7 @@ export default function RegisterPage() {
             onChange={setPin2}
             autoComplete="new-password"
           />
-          <p className="text-sm text-slate-600 mb-2">挑一档你想上的难度：</p>
+          <p className="text-sm text-ink-2 mb-2">挑一档你想上的难度：</p>
           <LevelPicker
             name="register-level"
             value={level}
@@ -164,8 +164,8 @@ export default function RegisterPage() {
           <Button type="submit" disabled={busy || classesBusy || classes.length === 0}>
             {busy ? '注册中…' : '注册并进入'}
           </Button>
-          <p className="text-center text-sm text-slate-500 mt-5">
-            <Link to={ROUTES.login} className="text-blue-600 underline">
+          <p className="text-center text-sm text-ink-3 mt-5">
+            <Link to={ROUTES.login} className="text-accent underline">
               已经注册过了，去登录
             </Link>
           </p>

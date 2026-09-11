@@ -26,7 +26,7 @@ export function OLevelVocabInContext({ paper }: { paper: ExamPaper }) {
   const total = paper?.questions?.length ?? 0;
   if (!total) {
     return (
-      <div className="max-w-xl mx-auto py-12 px-6 text-center text-amber-800">
+      <div className="max-w-xl mx-auto py-12 px-6 text-center text-warning">
         该卷尚未出题，请联系老师。
       </div>
     );
@@ -42,16 +42,16 @@ export function OLevelVocabInContext({ paper }: { paper: ExamPaper }) {
           type="button"
           disabled={idx === 0}
           onClick={() => setIdx((n) => Math.max(0, n - 1))}
-          className="px-4 py-2.5 rounded-lg border border-gray-300 text-gray-700 hover:bg-gray-50 disabled:opacity-40 touch-manipulation min-h-[44px]"
+          className="px-4 py-2.5 rounded-lg border border-control text-ink-2 hover:bg-surface-2 disabled:opacity-40 touch-manipulation min-h-[44px]"
         >
           ← Prev
         </button>
-        <span className="text-sm text-gray-500 tabular-nums">{idx + 1} / {total}</span>
+        <span className="text-sm text-ink-3 tabular-nums">{idx + 1} / {total}</span>
         <button
           type="button"
           disabled={idx === total - 1}
           onClick={() => setIdx((n) => Math.min(total - 1, n + 1))}
-          className="px-4 py-2.5 rounded-lg border border-blue-500 bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-40 touch-manipulation min-h-[44px]"
+          className="px-4 py-2.5 rounded-lg border border-accent bg-accent-fill text-accent-on hover:bg-accent-pressed disabled:opacity-40 touch-manipulation min-h-[44px]"
         >
           Next →
         </button>
@@ -77,21 +77,21 @@ function VocabCard({ q, idx, total }: { q: ExamQuestion; idx: number; total: num
     : <span>{contextSentence}</span>;
 
   return (
-    <article id={`q-${q.id}`} className="bg-white border border-gray-200 rounded-xl shadow-sm">
+    <article id={`q-${q.id}`} className="bg-surface border border-line rounded-xl shadow-sm">
       <header className="px-5 py-3 border-b flex items-center gap-3">
-        <span className="text-xs text-gray-500 uppercase tracking-wide font-semibold">Vocabulary in Context</span>
-        <span className="text-xs text-gray-400">·</span>
-        <span className="font-mono text-sm text-gray-500 tabular-nums">Q{idx + 1} / {total}</span>
-        <span className="text-[13px] text-gray-500 ml-1 tabular-nums">{q.marks} 分</span>
+        <span className="text-xs text-ink-3 uppercase tracking-wide font-semibold">Vocabulary in Context</span>
+        <span className="text-xs text-ink-3">·</span>
+        <span className="font-mono text-sm text-ink-3 tabular-nums">Q{idx + 1} / {total}</span>
+        <span className="text-[13px] text-ink-3 ml-1 tabular-nums">{q.marks} 分</span>
         <div className="flex-1" />
         <QuestionFlag qid={q.id} />
       </header>
       <div className="px-6 py-8">
-        <p className="text-lg lg:text-xl text-gray-800 leading-[1.9] font-serif text-center">
+        <p className="text-lg lg:text-xl text-ink leading-[1.9] font-serif text-center">
           {sentenceNode}
         </p>
         {targetWord && (
-          <p className="text-center text-sm text-gray-500 mt-3 italic">
+          <p className="text-center text-sm text-ink-3 mt-3 italic">
             What is the meaning of <strong className="not-italic font-semibold">{targetWord}</strong> in this sentence?
           </p>
         )}
@@ -105,12 +105,12 @@ function VocabCard({ q, idx, total }: { q: ExamQuestion; idx: number; total: num
                 <label
                   className={`flex gap-3 items-center p-3 rounded-lg border cursor-pointer transition-colors touch-manipulation min-h-[48px] ${
                     isThisCorrect
-                      ? 'border-green-500 bg-green-50'
+                      ? 'border-success bg-success-soft'
                       : isThisWrong
-                      ? 'border-rose-500 bg-rose-50'
+                      ? 'border-danger bg-danger-soft'
                       : checked
-                      ? 'border-blue-500 bg-blue-50'
-                      : 'border-gray-200 hover:bg-gray-50'
+                      ? 'border-accent bg-accent-soft'
+                      : 'border-line hover:bg-surface-2'
                   }`}
                 >
                   <input
@@ -120,7 +120,7 @@ function VocabCard({ q, idx, total }: { q: ExamQuestion; idx: number; total: num
                     onChange={() => setAnswer(q.id, { selectedOption: opt.key })}
                     className="w-5 h-5"
                   />
-                  <span className="font-mono text-gray-500 text-base w-6">{opt.key}.</span>
+                  <span className="font-mono text-ink-3 text-base w-6">{opt.key}.</span>
                   <span className="flex-1 text-base">{clean(opt.text)}</span>
                 </label>
               </li>
@@ -128,7 +128,7 @@ function VocabCard({ q, idx, total }: { q: ExamQuestion; idx: number; total: num
           })}
         </ul>
         {showFeedback && (
-          <div className={`mt-4 text-sm text-center font-medium ${isCorrect ? 'text-green-700' : 'text-rose-700'}`}>
+          <div className={`mt-4 text-sm text-center font-medium ${isCorrect ? 'text-success' : 'text-danger'}`}>
             {isCorrect ? '✓ Correct' : `✗ Correct: ${correctKey}`}
           </div>
         )}
@@ -143,7 +143,7 @@ function renderWithEmphasis(sentence: string, target: string): React.ReactNode {
   return (
     <>
       <span>{sentence.slice(0, i)}</span>
-      <strong className="font-bold underline decoration-2 decoration-amber-400 underline-offset-4">
+      <strong className="font-bold underline decoration-2 decoration-accent underline-offset-4">
         {sentence.slice(i, i + target.length)}
       </strong>
       <span>{sentence.slice(i + target.length)}</span>

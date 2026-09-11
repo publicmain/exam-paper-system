@@ -60,7 +60,7 @@ export default function VocabularyCoachLearnPage() {
   }, [navigate, taskDate]);
   useEffect(() => { void load(); }, [load]);
 
-  if (phase.s === 'loading') return <Screen><p className="text-center text-slate-500">正在按你的进度准备词汇…</p></Screen>;
+  if (phase.s === 'loading') return <Screen><p className="text-center text-ink-3">正在按你的进度准备词汇…</p></Screen>;
   if (phase.s === 'error') {
     // 盲测（2026-09-05）：周末这一页只有一句红字和「重试」，没有回去的路。
     return (
@@ -122,22 +122,22 @@ export default function VocabularyCoachLearnPage() {
   ].filter((connection) => connection.value.trim().length > 0);
   return (
     <Screen>
-      <TopBar title={taskDate ? `${Number(taskDate.slice(5, 7))}月${Number(taskDate.slice(8, 10))}日新词补做` : '今天的新词'} onBack={() => navigate(ROUTES.today)} backLabel="首页" right={<span className="text-sm tabular-nums text-slate-500">{session.completed + 1} / {session.target}</span>} />
+      <TopBar title={taskDate ? `${Number(taskDate.slice(5, 7))}月${Number(taskDate.slice(8, 10))}日新词补做` : '今天的新词'} onBack={() => navigate(ROUTES.today)} backLabel="首页" right={<span className="text-sm tabular-nums text-ink-3">{session.completed + 1} / {session.target}</span>} />
       <div className="mx-auto w-full max-w-4xl">
-        <div className="mb-4 h-2 overflow-hidden rounded-full bg-slate-200"><div className="h-full rounded-full bg-blue-500 transition-all" style={{ width: `${(session.completed / session.target) * 100}%` }} /></div>
+        <div className="mb-4 h-2 overflow-hidden rounded-full bg-fill-strong"><div className="h-full rounded-full bg-accent-fill transition-all" style={{ width: `${(session.completed / session.target) * 100}%` }} /></div>
         <Card>
-          <span className="rounded-full bg-blue-50 px-3 py-1 text-xs font-medium text-blue-700">{SOURCE_LABEL[item.source] ?? item.source}</span>
+          <span className="rounded-full bg-accent-soft px-3 py-1 text-xs font-medium text-accent">{SOURCE_LABEL[item.source] ?? item.source}</span>
           <section className="mt-6">
-            <p className="text-xs font-medium uppercase tracking-wider text-slate-400">理解并学习</p>
-            <div className="mt-3 flex flex-wrap items-baseline gap-3"><h1 className="text-4xl font-semibold tracking-tight sm:text-5xl">{card.headword}</h1><button className="hit rounded-full bg-blue-50 px-3 text-blue-700" onClick={() => speak(card.audioText)} aria-label="播放发音">▶</button><span className="text-slate-500">{formatPhonetic(card.phonetic)}</span></div>
-            <p className="mt-5 text-xl whitespace-pre-wrap">{posPrefixFor(card.pos, card.translation)}{cleanTranslation(card.translation)}</p><p className="mt-2 text-base leading-7 text-slate-600">{card.definition}</p>
-            {card.sentence ? <div className="mt-5 rounded-2xl bg-slate-50 p-5"><p className="font-serif text-lg leading-8">{card.sentence}</p>{card.sentenceTranslation ? <p className="mt-3 text-sm leading-6 text-slate-500">{card.sentenceTranslation}</p> : null}</div> : null}
+            <p className="text-xs font-medium uppercase tracking-wider text-ink-3">理解并学习</p>
+            <div className="mt-3 flex flex-wrap items-baseline gap-3"><h1 className="text-4xl font-semibold tracking-tight sm:text-5xl">{card.headword}</h1><button className="hit rounded-full bg-accent-soft px-3 text-accent" onClick={() => speak(card.audioText)} aria-label="播放发音">▶</button><span className="text-ink-3">{formatPhonetic(card.phonetic)}</span></div>
+            <p className="mt-5 text-xl whitespace-pre-wrap">{posPrefixFor(card.pos, card.translation)}{cleanTranslation(card.translation)}</p><p className="mt-2 text-base leading-7 text-ink-2">{card.definition}</p>
+            {card.sentence ? <div className="mt-5 rounded-2xl bg-surface-2 p-5"><p className="font-serif text-lg leading-8">{card.sentence}</p>{card.sentenceTranslation ? <p className="mt-3 text-sm leading-6 text-ink-3">{card.sentenceTranslation}</p> : null}</div> : null}
             {card.imageUrl ? <img src={card.imageUrl} alt={`${card.headword} 的辅助图片`} className="mt-5 max-h-56 w-full rounded-2xl object-cover" /> : null}
             {connections.length > 0 ? <div className="mt-5 grid gap-3 sm:grid-cols-2">{connections.map((connection) => <Connection key={connection.label} {...connection} />)}</div> : null}
           </section>
-          {message ? <p role="status" className="mt-4 text-sm text-slate-600">{message}</p> : null}
+          {message ? <p role="status" className="mt-4 text-sm text-ink-2">{message}</p> : null}
           <button className="app-primary mt-7 w-full" disabled={busy} onClick={() => void update('normal')}>学完这个词</button>
-          <div className="mt-3 grid grid-cols-2 gap-2"><button className="min-h-[44px] text-sm text-slate-500" disabled={busy} onClick={() => void update('skip')}>稍后再学</button><button className="min-h-[44px] text-sm text-blue-600" disabled={busy} onClick={() => void replace()}>这个词我会了，换一个</button></div>
+          <div className="mt-3 grid grid-cols-2 gap-2"><button className="min-h-[44px] text-sm text-ink-3" disabled={busy} onClick={() => void update('skip')}>稍后再学</button><button className="min-h-[44px] text-sm text-accent" disabled={busy} onClick={() => void replace()}>这个词我会了，换一个</button></div>
         </Card>
       </div>
     </Screen>
@@ -145,7 +145,7 @@ export default function VocabularyCoachLearnPage() {
 }
 
 function Connection({ label, value }: { label: string; value: string }) {
-  return <div className="rounded-2xl bg-slate-50 p-4"><p className="text-xs font-medium text-slate-400">{label}</p><p className="mt-2 text-sm leading-6 text-slate-700">{value}</p></div>;
+  return <div className="rounded-2xl bg-surface-2 p-4"><p className="text-xs font-medium text-ink-3">{label}</p><p className="mt-2 text-sm leading-6 text-ink-2">{value}</p></div>;
 }
 
 /**
@@ -210,7 +210,7 @@ function Recite({
       <Screen center>
         <Card>
           <h1 className="text-center text-2xl font-semibold">今天的词处理完了</h1>
-          <p className="mt-2 text-center text-sm text-slate-500">
+          <p className="mt-2 text-center text-sm text-ink-3">
             今天的词都点了「稍后再学」，没有可以考的内容。明天它们还会回来。
           </p>
           <Button onClick={() => navigate(ROUTES.today, { replace: true })}>回首页</Button>
@@ -225,18 +225,18 @@ function Recite({
         title="背一背"
         onBack={() => navigate(ROUTES.today)}
         backLabel="首页"
-        right={<span className="text-sm tabular-nums text-slate-500">{ordered.length} 个词</span>}
+        right={<span className="text-sm tabular-nums text-ink-3">{ordered.length} 个词</span>}
       />
       <div className="mx-auto w-full max-w-4xl">
         <Card>
           <h1 className="text-xl font-semibold">先自己默一遍，再去考试</h1>
-          <p className="mt-2 text-sm leading-6 text-slate-600">
+          <p className="mt-2 text-sm leading-6 text-ink-2">
             中文先盖住了。看着英文想一下意思，想好了再点开对答案。
             <br />
-            考试里还会<span className="font-medium text-slate-800">抽查 3 个你以前学过的词</span>，所以别急着走。
+            考试里还会<span className="font-medium text-ink">抽查 3 个你以前学过的词</span>，所以别急着走。
           </p>
           <button
-            className="mt-4 min-h-[44px] text-sm text-blue-600"
+            className="mt-4 min-h-[44px] text-sm text-accent"
             onClick={() => setShown(allShown ? new Set() : new Set(ordered.map((row) => row.id)))}
           >
             {allShown ? '重新盖住全部' : '全部翻开'}
@@ -247,19 +247,19 @@ function Recite({
               const card = row.card;
               const open = shown.has(row.id);
               return (
-                <li key={row.id} className="rounded-2xl border border-slate-200 p-4">
+                <li key={row.id} className="rounded-2xl border border-line p-4">
                   <div className="flex flex-wrap items-baseline gap-3">
                     <span className="text-2xl font-semibold tracking-tight">{card.headword}</span>
                     <button
-                      className="hit rounded-full bg-blue-50 px-3 text-blue-700"
+                      className="hit rounded-full bg-accent-soft px-3 text-accent"
                       onClick={() => speak(card.audioText)}
                       aria-label={`播放 ${card.headword} 的发音`}
                     >
                       ▶
                     </button>
-                    <span className="text-sm text-slate-500">{formatPhonetic(card.phonetic)}</span>
+                    <span className="text-sm text-ink-3">{formatPhonetic(card.phonetic)}</span>
                     {row.action === 'hard' ? (
-                      <span className="rounded-full bg-amber-50 px-2 py-0.5 text-xs text-amber-700">
+                      <span className="rounded-full bg-warning-soft px-2 py-0.5 text-xs text-warning">
                         刚才标了有点难
                       </span>
                     ) : null}
@@ -271,15 +271,15 @@ function Recite({
                         {cleanTranslation(card.translation)}
                       </p>
                       {card.sentence ? (
-                        <p className="mt-2 font-serif text-sm leading-7 text-slate-600">{card.sentence}</p>
+                        <p className="mt-2 font-serif text-sm leading-7 text-ink-2">{card.sentence}</p>
                       ) : null}
-                      <button className="mt-2 min-h-[44px] text-sm text-slate-500" onClick={() => toggle(row.id)}>
+                      <button className="mt-2 min-h-[44px] text-sm text-ink-3" onClick={() => toggle(row.id)}>
                         再盖上
                       </button>
                     </div>
                   ) : (
                     <button
-                      className="mt-3 w-full rounded-xl bg-slate-100 py-3 text-sm text-slate-500"
+                      className="mt-3 w-full rounded-xl bg-fill py-3 text-sm text-ink-3"
                       onClick={() => toggle(row.id)}
                       data-testid={`reveal-${card.headword}`}
                     >
@@ -291,13 +291,13 @@ function Recite({
             })}
           </ul>
 
-          {message ? <p role="status" className="mt-4 text-sm text-slate-600">{message}</p> : null}
+          {message ? <p role="status" className="mt-4 text-sm text-ink-2">{message}</p> : null}
           {error ? <Notice kind="error">{error}</Notice> : null}
           <button className="app-primary mt-6 w-full" disabled={busy} onClick={() => void startTest()}>
             我背好了，开始考试
           </button>
           <button
-            className="mt-3 min-h-[44px] w-full text-sm text-slate-500"
+            className="mt-3 min-h-[44px] w-full text-sm text-ink-3"
             onClick={() => navigate(ROUTES.today, { replace: true })}
           >
             先回首页，等下再考

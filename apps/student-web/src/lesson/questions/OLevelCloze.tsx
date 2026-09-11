@@ -44,7 +44,7 @@ export function OLevelCloze({ paper }: { paper: ExamPaper }) {
 
   if (!paper?.questions?.length) {
     return (
-      <div className="max-w-xl mx-auto py-12 px-6 text-center text-amber-800">
+      <div className="max-w-xl mx-auto py-12 px-6 text-center text-warning">
         该卷尚未出题，请联系老师。
       </div>
     );
@@ -52,14 +52,14 @@ export function OLevelCloze({ paper }: { paper: ExamPaper }) {
 
   if (segments && segments.length - 1 === paper.questions.length) {
     return (
-      <article className="max-w-3xl mx-auto bg-white border border-gray-200 rounded-lg shadow-sm" style={{ ['--mq-fs' as any]: String(fontScale) }}>
+      <article className="max-w-3xl mx-auto bg-surface border border-line rounded-lg shadow-sm" style={{ ['--mq-fs' as any]: String(fontScale) }}>
         <header className="px-5 lg:px-6 py-4 border-b">
           <h2 className="font-semibold text-xl lg:text-2xl">{clean(passageContent.passageTitle ?? 'Cloze Passage')}</h2>
-          <p className="text-xs text-gray-500 mt-1">
+          <p className="text-xs text-ink-3 mt-1">
             填空题 · Fill each blank with one word. Tab to move to the next.
           </p>
         </header>
-        <div className="px-5 lg:px-8 py-6 text-[1.0625rem] lg:text-lg leading-[2] font-serif text-gray-900 whitespace-pre-wrap">
+        <div className="px-5 lg:px-8 py-6 text-[1.0625rem] lg:text-lg leading-[2] font-serif text-ink whitespace-pre-wrap">
           {segments.map((seg, i) => (
             <Fragment key={i}>
               {seg}
@@ -87,7 +87,7 @@ export function OLevelCloze({ paper }: { paper: ExamPaper }) {
             </Fragment>
           ))}
         </div>
-        <footer className="px-5 py-3 border-t text-xs text-gray-500 flex flex-wrap items-center gap-3">
+        <footer className="px-5 py-3 border-t text-xs text-ink-3 flex flex-wrap items-center gap-3">
           <span>Tip: Tab → next blank · Shift-Tab ← previous</span>
           <span className="ml-auto flex items-center gap-2">
             {paper.questions.map((q, i) => (
@@ -95,8 +95,8 @@ export function OLevelCloze({ paper }: { paper: ExamPaper }) {
                 key={q.id}
                 className={`inline-flex items-center justify-center w-6 h-6 rounded text-xs font-mono ${
                   (answers[q.id]?.textAnswer ?? '').trim()
-                    ? 'bg-blue-600 text-white'
-                    : 'bg-gray-100 text-gray-500 border border-gray-200'
+                    ? 'bg-accent-fill text-accent-on'
+                    : 'bg-fill text-ink-3 border border-line'
                 }`}
                 aria-hidden
               >
@@ -124,10 +124,10 @@ function ClozeRowFallback({ q, idx }: { q: ExamQuestion; idx: number }) {
   const ans = answers[q.id];
   const stem = clean(q.snapshotContent?.stem ?? '');
   return (
-    <li className="bg-white border border-gray-200 rounded-lg p-4 flex items-start gap-3">
-      <span className="font-mono text-sm text-gray-500 w-8 shrink-0 mt-1">{idx}.</span>
+    <li className="bg-surface border border-line rounded-lg p-4 flex items-start gap-3">
+      <span className="font-mono text-sm text-ink-3 w-8 shrink-0 mt-1">{idx}.</span>
       <div className="flex-1">
-        <p className="text-base text-gray-900 mb-2 leading-relaxed whitespace-pre-wrap">
+        <p className="text-base text-ink mb-2 leading-relaxed whitespace-pre-wrap">
           {stem.split(/\[BLANK\]/i).map((part, i) => (
             <Fragment key={i}>
               {part}
@@ -137,7 +137,7 @@ function ClozeRowFallback({ q, idx }: { q: ExamQuestion; idx: number }) {
                   value={ans?.textAnswer ?? ''}
                   aria-label={`Blank ${idx}`}
                   onChange={(e) => setAnswer(q.id, { textAnswer: e.target.value })}
-                  className="inline-block px-2 py-0.5 mx-1 border-0 border-b-2 border-gray-400 bg-transparent text-base font-medium text-gray-900 focus:outline-none focus:border-blue-500 min-w-[6rem]"
+                  className="inline-block px-2 py-0.5 mx-1 border-0 border-b-2 border-control bg-transparent text-base font-medium text-ink focus:outline-none focus:border-accent min-w-[6rem]"
                 />
               )}
             </Fragment>

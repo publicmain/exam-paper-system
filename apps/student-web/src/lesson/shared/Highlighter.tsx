@@ -78,7 +78,7 @@ function renderHighlighted(
     parts.push(
       <mark
         key={h.id}
-        className="bg-yellow-200 cursor-pointer"
+        className="bg-highlight cursor-pointer"
         onClick={() => onRemove(h.id)}
         title="点击移除高亮"
       >

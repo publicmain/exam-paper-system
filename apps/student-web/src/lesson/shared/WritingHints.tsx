@@ -96,21 +96,21 @@ export function WritingHints({ text, enabled }: { text: string; enabled: boolean
   return (
     <div
       data-testid="writing-hints"
-      className="mt-2 rounded-lg border border-amber-200 bg-amber-50/70 px-3 py-2"
+      className="mt-2 rounded-lg border border-warning/35 bg-warning-soft px-3 py-2"
     >
-      <p className="text-[13px] font-medium text-amber-900">
+      <p className="text-[13px] font-medium text-warning">
         这几处英文可能要改一下（只看拼写和语法，不判断答得对不对）
       </p>
       <ul className="mt-1 flex flex-col gap-1">
         {issues.map((issue, i) => (
-          <li key={`${issue.offset}-${i}`} className="text-[13px] leading-6 text-amber-900/90">
-            <span className="font-mono font-medium underline decoration-amber-500 decoration-wavy underline-offset-2">
+          <li key={`${issue.offset}-${i}`} className="text-[13px] leading-6 text-warning">
+            <span className="font-mono font-medium underline decoration-accent decoration-wavy underline-offset-2">
               {issue.text}
             </span>
             {issue.suggestions.length > 0 ? (
               <span> → {issue.suggestions.join(' / ')}</span>
             ) : (
-              <span className="text-amber-900/70"> —— {issue.message}</span>
+              <span className="text-warning"> —— {issue.message}</span>
             )}
           </li>
         ))}

@@ -126,25 +126,25 @@ export default function AccountPage() {
     <Screen>
       <Card>
         {/* 页头就有回去的路（2026-09-06 第五轮盲测 22） */}
-        <Link to={ROUTES.today} className="inline-block mb-3 text-sm text-blue-600">← 首页</Link>
+        <Link to={ROUTES.today} className="inline-block mb-3 text-sm text-accent">← 首页</Link>
         <h1 className="text-xl font-semibold mb-1">账号</h1>
-        <p className="text-sm text-slate-500 mb-3">{who}</p>
-        <button type="button" onClick={() => logout()} className="mb-6 min-h-[44px] rounded-xl border border-slate-300 px-4 text-sm text-slate-700">
+        <p className="text-sm text-ink-3 mb-3">{who}</p>
+        <button type="button" onClick={() => logout()} className="mb-6 min-h-[44px] rounded-xl border border-control px-4 text-sm text-ink-2">
           退出登录
         </button>
 
         <section data-testid="level-box" className="mb-8">
           <h2 className="text-base font-medium mb-1">英语难度</h2>
-          <p data-testid="current-level" className="text-sm text-slate-600 mb-3">
+          <p data-testid="current-level" className="text-sm text-ink-2 mb-3">
             现在是：<strong>{levelLabel(current) ?? '还没选'}</strong>
           </p>
           {levelErr ? <Notice kind="error">{levelErr}</Notice> : null}
           {levelOk ? (
-            <div role="status" className="rounded-xl bg-emerald-50 text-emerald-700 px-4 py-3 text-sm mb-4">
+            <div role="status" className="rounded-xl bg-success-soft text-success px-4 py-3 text-sm mb-4">
               {levelOk}
             </div>
           ) : null}
-          <p className="text-xs text-slate-500 mb-2">下面五档从上到下由易到难。</p>
+          <p className="text-xs text-ink-3 mb-2">下面五档从上到下由易到难。</p>
           <LevelPicker
             name="account-level"
             value={picked}
@@ -159,7 +159,7 @@ export default function AccountPage() {
             {levelBusy ? '正在换…' : '确认换难度'}
           </Button>
           {/* 中文句子不在标点后换行 —— JSX 换行会渲染出多余空格（2026-09-05 盲测 P2-14） */}
-          <p className="text-sm text-slate-500 mt-3">
+          <p className="text-sm text-ink-3 mt-3">
             换了之后，<strong>已经开始的那一天不会中途变</strong>{' '}—— 今天的文章、题目和单词表都按你开始时的那一档走完。新难度从<strong>下一次还没开始的课</strong>起生效。以前的成绩也不会动，历史里看到的还是你当时做的那一份。
           </p>
         </section>
@@ -185,7 +185,7 @@ export default function AccountPage() {
         </section>
 
         <div className="mt-6 flex items-center justify-between text-sm">
-          <Link to={ROUTES.today} className="text-blue-600 underline">
+          <Link to={ROUTES.today} className="text-accent underline">
             ← 首页
           </Link>
 

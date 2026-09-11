@@ -248,11 +248,11 @@ const OUTCOME_LABEL: Record<QuestionOutcome, string> = {
 };
 
 const OUTCOME_CLASS: Record<QuestionOutcome, string> = {
-  correct: 'bg-green-100 text-green-800 border-green-300',
-  incorrect: 'bg-rose-100 text-rose-800 border-rose-300',
-  partial: 'bg-amber-100 text-amber-900 border-amber-300',
-  pending: 'bg-slate-100 text-slate-700 border-slate-300',
-  unanswered: 'bg-slate-100 text-slate-600 border-slate-300',
+  correct: 'bg-success-soft text-success border-success/30',
+  incorrect: 'bg-danger-soft text-danger border-danger/30',
+  partial: 'bg-warning-soft text-warning border-warning/35',
+  pending: 'bg-fill text-ink-2 border-control',
+  unanswered: 'bg-fill text-ink-2 border-control',
 };
 
 function stemOf(item: ReadingResultItem): string {
@@ -306,16 +306,16 @@ export function ResultView({
 
       <section
         data-testid="summary"
-        className="rounded-2xl bg-white border border-slate-200 p-5 mb-5"
+        className="rounded-2xl bg-surface border border-line p-5 mb-5"
       >
         {result.scoresPending ? (
-          <p data-testid="scores-pending" className="text-base text-slate-700">
+          <p data-testid="scores-pending" className="text-base text-ink-2">
             {result.releasedScore && result.releasedScore.count > 0 ? (
               <>
-                <span className="text-slate-500">客观题 </span>
+                <span className="text-ink-3">客观题 </span>
                 <span className="text-3xl font-semibold tabular-nums">{result.releasedScore.earned}</span>
-                <span className="text-slate-500"> / {result.releasedScore.max} 分</span>
-                <span className="block mt-1 text-sm text-slate-600">
+                <span className="text-ink-3"> / {result.releasedScore.max} 分</span>
+                <span className="block mt-1 text-sm text-ink-2">
                   {result.maxScore != null && result.maxScore > result.releasedScore.max
                     ? `整卷 ${result.maxScore} 分，另外 ${result.maxScore - result.releasedScore.max} 分的主观题等老师批改，批完总分会在这里更新。`
                     : '主观题等老师批改，批完总分会在这里更新。'}
@@ -330,9 +330,9 @@ export function ResultView({
             <span data-testid="score" className="text-3xl font-semibold tabular-nums">
               {result.totalScore ?? '—'}
             </span>
-            <span className="text-slate-500"> / {result.maxScore ?? '—'} 分</span>
+            <span className="text-ink-3"> / {result.maxScore ?? '—'} 分</span>
             {pct != null && (
-              <span data-testid="percentage" className="ml-3 text-slate-500 tabular-nums">
+              <span data-testid="percentage" className="ml-3 text-ink-3 tabular-nums">
                 {pct}%
               </span>
             )}
@@ -340,7 +340,7 @@ export function ResultView({
         )}
 
         {result.gradingSummary && result.gradingSummary.total > 0 && (
-          <p data-testid="grading-summary" className="mt-2 text-sm text-slate-600 tabular-nums">
+          <p data-testid="grading-summary" className="mt-2 text-sm text-ink-2 tabular-nums">
             {gradingSummaryParts(result.gradingSummary).map((part, i) => (
               <span key={part.key} data-testid={`grading-part-${part.key}`}>
                 {i > 0 ? ' · ' : ''}
@@ -351,12 +351,12 @@ export function ResultView({
         )}
 
         {result.answersPending && (
-          <p data-testid="answers-pending" className="mt-3 text-sm text-amber-800 bg-amber-50 rounded-xl px-3 py-2">
+          <p data-testid="answers-pending" className="mt-3 text-sm text-warning bg-warning-soft rounded-xl px-3 py-2">
             答案还没有公布 —— 你还可以回去修改这份卷子；最终交卷之后才会显示答案。
           </p>
         )}
 
-        <dl className="mt-4 text-sm text-slate-500 flex flex-wrap gap-x-6 gap-y-1">
+        <dl className="mt-4 text-sm text-ink-3 flex flex-wrap gap-x-6 gap-y-1">
           <div>
             <dt className="inline">状态：</dt>
             {/* S12L —— 学生不该看到 `marked` / `submitted` 这类内部枚举 */}
@@ -439,7 +439,7 @@ function ResultItemCard({
       className="app-glass rounded-[20px] p-5"
     >
       <header className="flex items-center gap-3 mb-2">
-        <span className="inline-flex items-center justify-center min-w-[28px] h-7 px-2 rounded-md bg-slate-100 font-mono text-sm tabular-nums">
+        <span className="inline-flex items-center justify-center min-w-[28px] h-7 px-2 rounded-md bg-fill font-mono text-sm tabular-nums">
           {index}
         </span>
         <span className={`text-xs px-2 py-1 rounded-md border ${OUTCOME_CLASS[outcome]}`}>
@@ -449,17 +449,17 @@ function ResultItemCard({
         {/* S12I —— 分数跟着**这一题**的判分状态走，不再跟整卷的旗子。
             已经确定性判完的选择题在整卷还在等老师时也该显示自己的分。 */}
         {item.awardedMarks != null && (
-          <span data-testid={`marks-${item.paperQuestionId}`} className="text-sm text-slate-500 tabular-nums">
+          <span data-testid={`marks-${item.paperQuestionId}`} className="text-sm text-ink-3 tabular-nums">
             {item.awardedMarks} / {item.marks} 分
           </span>
         )}
       </header>
 
       {instruction && (
-        <p data-testid={`instruction-${item.paperQuestionId}`} className="text-sm text-slate-500 whitespace-pre-wrap leading-relaxed mb-2 pl-3 border-l-2 border-slate-200">{instruction}</p>
+        <p data-testid={`instruction-${item.paperQuestionId}`} className="text-sm text-ink-3 whitespace-pre-wrap leading-relaxed mb-2 pl-3 border-l-2 border-line">{instruction}</p>
       )}
       {stemPartsOf(item).text && (
-        <p className="text-base text-slate-900 whitespace-pre-wrap leading-relaxed mb-3">{stemPartsOf(item).text}</p>
+        <p className="text-base text-ink whitespace-pre-wrap leading-relaxed mb-3">{stemPartsOf(item).text}</p>
       )}
 
       {item.snapshotOptions && item.snapshotOptions.length > 0 && (
@@ -470,8 +470,8 @@ function ResultItemCard({
           className={item.snapshotOptions.length > 5 ? 'mb-3 flex flex-wrap gap-x-4 gap-y-1 text-sm' : 'mb-3 flex flex-col gap-1 text-sm'}
         >
           {item.snapshotOptions.map((o) => (
-            <li key={o.key} className="text-slate-700">
-              <span className="font-mono text-slate-500 mr-2">{o.key}.</span>
+            <li key={o.key} className="text-ink-2">
+              <span className="font-mono text-ink-3 mr-2">{o.key}.</span>
               {o.text}
             </li>
           ))}
@@ -479,7 +479,7 @@ function ResultItemCard({
       )}
 
       <p className="text-sm mb-1">
-        <span className="text-slate-500">你的答案：</span>
+        <span className="text-ink-3">你的答案：</span>
         <span data-testid={`student-answer-${item.paperQuestionId}`} className="font-medium">
           {item.studentAnswer && String(item.studentAnswer).trim() !== ''
             ? item.studentAnswer
@@ -499,28 +499,28 @@ function ResultItemCard({
             data-testid={`answer-row-${row.kind}-${item.paperQuestionId}`}
             className="text-sm mb-1"
           >
-            <span className="text-slate-500">{ANSWER_ROW_LABEL[row.kind]}：</span>
+            <span className="text-ink-3">{ANSWER_ROW_LABEL[row.kind]}：</span>
             <span className="font-medium">{row.value}</span>
           </p>
         ))}
       {!answersPending && item.explanation && (
-        <p data-testid={`explanation-${item.paperQuestionId}`} className="text-sm text-slate-600 mb-1">
+        <p data-testid={`explanation-${item.paperQuestionId}`} className="text-sm text-ink-2 mb-1">
           {item.explanation}
         </p>
       )}
       {!answersPending && item.evidence && (
         <p
           data-testid={`evidence-${item.paperQuestionId}`}
-          className="text-sm text-slate-600 mb-1 pl-3 border-l-2 border-slate-200 italic"
+          className="text-sm text-ink-2 mb-1 pl-3 border-l-2 border-line italic"
         >
-          <span className="not-italic text-slate-500">原文依据：</span>
+          <span className="not-italic text-ink-3">原文依据：</span>
           {item.evidence}
         </p>
       )}
 
       {!scoresPending && item.markerComment && (
-        <p data-testid={`comment-${item.paperQuestionId}`} className="mt-2 text-sm bg-slate-50 rounded-xl px-3 py-2">
-          <span className="text-slate-500">
+        <p data-testid={`comment-${item.paperQuestionId}`} className="mt-2 text-sm bg-surface-2 rounded-xl px-3 py-2">
+          <span className="text-ink-3">
             {item.commentSource === 'ai' ? '自动判分说明：' : '老师评语：'}
           </span>
           {item.markerComment}
@@ -542,7 +542,7 @@ function ResultItemCard({
 
 function WholeAppeal({ submissionId, onAuthLost }: { submissionId: string; onAuthLost: () => void }) {
   return (
-    <section className="mt-6 rounded-2xl bg-white border border-slate-200 p-5">
+    <section className="mt-6 rounded-2xl bg-surface border border-line p-5">
       <AppealForm
         testId="appeal-whole"
         submissionId={submissionId}
@@ -613,7 +613,7 @@ function AppealForm({
 
   if (phase.s === 'sent') {
     return (
-      <p data-testid={`${testId}-sent`} className="mt-3 text-sm text-green-800 bg-green-50 rounded-xl px-3 py-2">
+      <p data-testid={`${testId}-sent`} className="mt-3 text-sm text-success bg-success-soft rounded-xl px-3 py-2">
         申诉已提交，老师看过之后会回复你。
       </p>
     );
@@ -625,7 +625,7 @@ function AppealForm({
         type="button"
         data-testid={`${testId}-open`}
         onClick={() => setOpen(true)}
-        className="mt-3 min-h-[44px] px-3 rounded-lg border border-slate-300 text-sm"
+        className="mt-3 min-h-[44px] px-3 rounded-lg border border-control text-sm"
       >
         {label}
       </button>
@@ -635,7 +635,7 @@ function AppealForm({
   const id = `${testId}-input`;
   return (
     <div className="mt-3">
-      <label htmlFor={id} className="block text-sm text-slate-600 mb-1">
+      <label htmlFor={id} className="block text-sm text-ink-2 mb-1">
         说说你的理由
       </label>
       <textarea
@@ -644,15 +644,15 @@ function AppealForm({
         rows={3}
         value={text}
         onChange={(e) => setText(e.target.value)}
-        className="w-full rounded-xl border border-slate-300 px-3 py-2 text-base"
+        className="w-full rounded-xl border border-control px-3 py-2 text-base"
       />
       {invalid && (
-        <p role="alert" data-testid={`${testId}-invalid`} className="mt-1 text-sm text-rose-700">
+        <p role="alert" data-testid={`${testId}-invalid`} className="mt-1 text-sm text-danger">
           {invalid}
         </p>
       )}
       {phase.s === 'failed' && (
-        <p role="alert" data-testid={`${testId}-error`} className="mt-1 text-sm text-rose-700">
+        <p role="alert" data-testid={`${testId}-error`} className="mt-1 text-sm text-danger">
           {phase.message}
         </p>
       )}
@@ -661,7 +661,7 @@ function AppealForm({
         data-testid={`${testId}-submit`}
         disabled={phase.s === 'sending'}
         onClick={() => void send()}
-        className="mt-2 min-h-[44px] px-4 rounded-xl bg-blue-600 text-white text-sm font-medium disabled:bg-slate-300"
+        className="mt-2 min-h-[44px] px-4 rounded-xl bg-accent-fill text-accent-on text-sm font-medium disabled:bg-fill-strong"
       >
         {phase.s === 'sending' ? '提交中…' : '提交申诉'}
       </button>
@@ -692,15 +692,15 @@ function PassageReview({ result }: { result: ReadingResult }) {
         data-testid="passage-toggle"
         aria-expanded={open}
         onClick={() => setOpen((v) => !v)}
-        className="sticky top-0 z-10 w-full min-h-[44px] rounded-xl bg-white/90 px-2 text-left text-sm font-medium text-[#007aff] backdrop-blur"
+        className="sticky top-0 z-10 w-full min-h-[44px] rounded-xl bg-surface px-2 text-left text-sm font-medium text-accent backdrop-blur"
       >
         {open ? '收起原文' : '查看原文'}
-        <span className="ml-2 text-slate-400 font-normal">{passage.title}</span>
+        <span className="ml-2 text-ink-3 font-normal">{passage.title}</span>
       </button>
       {open && (
         <div
           data-testid="passage-body"
-          className="mt-3 overflow-x-hidden break-words whitespace-pre-wrap font-serif text-[1.05rem] leading-[1.75] text-slate-800"
+          className="mt-3 overflow-x-hidden break-words whitespace-pre-wrap font-serif text-[1.05rem] leading-[1.75] text-ink"
         >
           {passage.body}
         </div>

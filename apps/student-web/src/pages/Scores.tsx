@@ -152,7 +152,7 @@ export default function ScoresPage() {
   if (phase.s === 'loading') {
     return (
       <Screen>
-        <p className="text-center text-slate-400">载入中…</p>
+        <p className="text-center text-ink-3">载入中…</p>
       </Screen>
     );
   }
@@ -178,13 +178,13 @@ export default function ScoresPage() {
       <Card>
         {/* S12L —— 返回挪到顶部；原来只有页面最底下才有一个 */}
         <TopBar title="历史成绩" onBack={() => navigate(ROUTES.today)} backLabel="今天的课" />
-        <p className="text-sm text-slate-500 mb-5">阅读和单词测试是两份记录，分开看。</p>
+        <p className="text-sm text-ink-3 mb-5">阅读和单词测试是两份记录，分开看。</p>
 
         {/* ① 阅读 */}
         <section data-testid="reading-section" className="mb-6">
           <h2 className="text-base font-medium mb-2">阅读</h2>
           {reading.length === 0 ? (
-            <p data-testid="reading-empty" className="rounded-xl bg-slate-50 px-4 py-3 text-sm text-slate-500">
+            <p data-testid="reading-empty" className="rounded-xl bg-surface-2 px-4 py-3 text-sm text-ink-3">
               还没有阅读成绩。
             </p>
           ) : (
@@ -194,24 +194,24 @@ export default function ScoresPage() {
                   key={row.submissionId}
                   data-testid={`reading-row-${row.submissionId}`}
                   data-row-id={row.submissionId}
-                  className="rounded-xl bg-slate-50 px-4 py-3"
+                  className="rounded-xl bg-surface-2 px-4 py-3"
                 >
                   <div className="flex items-baseline justify-between gap-3 text-sm">
                     <span className="font-medium">{row.paperName}</span>
                     {rowDay(row) ? (
-                      <span className="text-slate-500 tabular-nums shrink-0">{rowDay(row)}</span>
+                      <span className="text-ink-3 tabular-nums shrink-0">{rowDay(row)}</span>
                     ) : null}
                   </div>
-                  <p data-testid={`reading-score-${row.submissionId}`} className="mt-1 text-sm text-slate-700">
+                  <p data-testid={`reading-score-${row.submissionId}`} className="mt-1 text-sm text-ink-2">
                     {scoreLine(row)}
                   </p>
-                  <p data-testid={`reading-state-${row.submissionId}`} className="mt-1 text-sm text-slate-500">
+                  <p data-testid={`reading-state-${row.submissionId}`} className="mt-1 text-sm text-ink-3">
                     {stateLine(row)}
                   </p>
                   <Link
                     data-testid={`reading-link-${row.submissionId}`}
                     to={scoreDetailPath(row.submissionId)}
-                    className="mt-2 inline-block text-sm text-blue-600 underline"
+                    className="mt-2 inline-block text-sm text-accent underline"
                   >
                     看逐题回顾 →
                   </Link>
@@ -227,14 +227,14 @@ export default function ScoresPage() {
           {tests.length > 0 && (
             <ul data-testid="v2-test-list" className="flex flex-col gap-2 mb-2">
               {tests.map((t) => (
-                <li key={t.sessionId} data-testid={`v2-test-${t.sessionId}`} className="rounded-xl bg-slate-50 px-4 py-3">
+                <li key={t.sessionId} data-testid={`v2-test-${t.sessionId}`} className="rounded-xl bg-surface-2 px-4 py-3">
                   <div className="flex items-baseline justify-between gap-3 text-sm">
                     <span className="font-medium tabular-nums">答对 {t.correct} / {t.total}</span>
-                    <span className="text-slate-500 tabular-nums shrink-0">{t.date}</span>
+                    <span className="text-ink-3 tabular-nums shrink-0">{t.date}</span>
                   </div>
                   <Link
                     to={`${ROUTES.coachTest}?sessionId=${encodeURIComponent(t.sessionId)}`}
-                    className="mt-1 inline-block text-sm text-blue-600"
+                    className="mt-1 inline-block text-sm text-accent"
                   >
                     看逐题回顾 →
                   </Link>
@@ -243,7 +243,7 @@ export default function ScoresPage() {
             </ul>
           )}
           {attempts.length === 0 && tests.length === 0 ? (
-            <p data-testid="quiz-empty" className="rounded-xl bg-slate-50 px-4 py-3 text-sm text-slate-500">
+            <p data-testid="quiz-empty" className="rounded-xl bg-surface-2 px-4 py-3 text-sm text-ink-3">
               还没有单词测试成绩。
             </p>
           ) : attempts.length === 0 ? null : (
@@ -253,21 +253,21 @@ export default function ScoresPage() {
                   key={a.id}
                   data-testid={`quiz-row-${a.id}`}
                   data-row-id={a.id}
-                  className="rounded-xl bg-slate-50 px-4 py-3"
+                  className="rounded-xl bg-surface-2 px-4 py-3"
                 >
                   <div className="flex items-baseline justify-between gap-3 text-sm">
                     <span className="font-medium tabular-nums">
                       答对 {a.correct} / {a.total}
                     </span>
-                    <span className="text-slate-500 tabular-nums shrink-0">{a.date}</span>
+                    <span className="text-ink-3 tabular-nums shrink-0">{a.date}</span>
                   </div>
-                  <p className="mt-1 text-sm text-slate-700">
+                  <p className="mt-1 text-sm text-ink-2">
                     得分{' '}
                     <span data-testid={`quiz-score-${a.id}`} className="tabular-nums">
                       {a.score}
                     </span>
                   </p>
-                  <p data-testid={`quiz-state-${a.id}`} className="mt-1 text-sm text-slate-500">
+                  <p data-testid={`quiz-state-${a.id}`} className="mt-1 text-sm text-ink-3">
                     已交卷
                   </p>
                 </li>
@@ -288,7 +288,7 @@ function BackToToday({ navigate }: { navigate: ReturnType<typeof useNavigate> })
       type="button"
       data-testid="back-to-today"
       onClick={() => navigate(ROUTES.today)}
-      className="mt-6 w-full rounded-xl border border-slate-300 py-3 text-base min-h-[44px]"
+      className="mt-6 w-full rounded-xl border border-control py-3 text-base min-h-[44px]"
     >
       回到今天的课
     </button>

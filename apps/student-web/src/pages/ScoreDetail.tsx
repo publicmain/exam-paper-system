@@ -125,8 +125,8 @@ export default function ScoreDetailPage() {
 
   if (phase.s === 'loading') {
     return (
-      <div className="min-h-[100dvh] grid place-items-center bg-slate-50">
-        <p className="text-slate-400">载入中…</p>
+      <div className="min-h-[100dvh] grid place-items-center bg-surface-2">
+        <p className="text-ink-3">载入中…</p>
       </div>
     );
   }
@@ -137,7 +137,7 @@ export default function ScoreDetailPage() {
         <div
           role="alert"
           data-testid="detail-denied"
-          className="rounded-xl bg-amber-50 text-amber-900 px-4 py-3 text-sm mb-4"
+          className="rounded-xl bg-warning-soft text-warning px-4 py-3 text-sm mb-4"
         >
           没有找到这份成绩 —— 它可能不属于你，或者已经不在了。
         </div>
@@ -149,14 +149,14 @@ export default function ScoreDetailPage() {
   if (phase.s === 'error') {
     return (
       <Shell>
-        <div role="alert" className="rounded-xl bg-rose-50 text-rose-700 px-4 py-3 text-sm mb-4">
+        <div role="alert" className="rounded-xl bg-danger-soft text-danger px-4 py-3 text-sm mb-4">
           {phase.message}
         </div>
         <button
           type="button"
           data-testid="retry"
           onClick={() => void load()}
-          className="w-full rounded-xl bg-blue-600 text-white py-3 text-base font-medium min-h-[44px]"
+          className="w-full rounded-xl bg-accent-fill text-accent-on py-3 text-base font-medium min-h-[44px]"
         >
           重试
         </button>
@@ -169,7 +169,7 @@ export default function ScoreDetailPage() {
     <Shell>
       {/* 页头就有回去的路，不用滚到 7000 字的最底（2026-09-06 上线验收 标准档 B-8） */}
       <div className="mb-3">
-        <button type="button" onClick={() => navigate(ROUTES.scores)} className="hit -ml-1 px-1 text-sm text-blue-600">← 历史成绩</button>
+        <button type="button" onClick={() => navigate(ROUTES.scores)} className="hit -ml-1 px-1 text-sm text-accent">← 历史成绩</button>
       </div>
       <ResultView
         result={phase.result}
@@ -196,7 +196,7 @@ function BackToScores({ navigate }: { navigate: ReturnType<typeof useNavigate> }
       type="button"
       data-testid="back-to-scores"
       onClick={() => navigate(ROUTES.scores)}
-      className="mt-6 w-full rounded-xl border border-slate-300 py-3 text-base min-h-[44px]"
+      className="mt-6 w-full rounded-xl border border-control py-3 text-base min-h-[44px]"
     >
       回到历史成绩
     </button>
