@@ -66,6 +66,7 @@
   --page-x: 16px;
   --tabbar-h: 56px;
   --sidebar-w: 232px;
+  --rail-w: 84px;
 }
 
 @media (min-width: 768px) {

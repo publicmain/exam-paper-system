@@ -12,7 +12,7 @@ import type { ReactElement } from 'react';
 
 type Shape = ReactElement | ReactElement[];
 
-const dot = (cx: number, cy: number, r = 1.15) => <circle key={`d${cx}-${cy}`} cx={cx} cy={cy} r={r} fill="currentColor" stroke="none" />;
+const dot = (cx: number, cy: number, r = 1.15) => <circle key={`d${cx}-${cy}`} cx={cx} cy={cy} r={r} fill="currentColor" fillOpacity={1} stroke="none" />;
 const p = (d: string, k?: string) => <path key={k ?? d} d={d} />;
 const c = (cx: number, cy: number, r: number) => <circle key={`c${cx}-${cy}-${r}`} cx={cx} cy={cy} r={r} />;
 
@@ -88,10 +88,13 @@ export function Icon({
   strokeWidth = 1.8,
   label,
   className,
+  filled = false,
 }: {
   name: IconName;
   size?: number;
   strokeWidth?: number;
+  /** 选中态：闭合形状内填一层淡色（HIG · Tab bars 建议选中用填充图标）。 */
+  filled?: boolean;
   /** 只有图标自己承担含义时才给；有旁白文字时别给。 */
   label?: string;
   className?: string;
@@ -102,7 +105,8 @@ export function Icon({
       width={size}
       height={size}
       viewBox="0 0 24 24"
-      fill="none"
+      fill={filled ? 'currentColor' : 'none'}
+      fillOpacity={filled ? 0.16 : undefined}
       stroke="currentColor"
       strokeWidth={strokeWidth}
       strokeLinecap="round"

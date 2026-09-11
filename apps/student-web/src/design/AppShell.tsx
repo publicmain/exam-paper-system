@@ -2,8 +2,11 @@
  * 学生端外壳与顶层导航（IOS-01）。
  *
  * 四个固定目的地：今日 / 我的单词 / 学习记录 / 账号。暂停的错题本不占 tab。
- *   · 窄于 1024px：底部标签栏（图标 + 文字），固定在安全区之上。
- *   · 1024px 及以上（iPad 横屏、桌面）：左侧栏，同一组目的地、同一套选中标记。
+ *   · 窄于 768px（手机）：底部标签栏（图标 + 文字），固定在安全区之上。
+ *   · 768–1023px（iPad 竖屏、分屏半宽）：左侧窄栏，图标在上、字在下。
+ *   · 1024px 及以上（iPad 横屏、桌面）：左侧栏，图标与文字并排。
+ * 三种形态是同一组目的地、同一套选中标记（HIG · Tab bars：iPadOS 的标签栏在上方或可转为
+ * 侧栏；这里选侧栏，不在 iPad 上沿用手机的底栏）。
  * 断点看的是视口宽度 —— iPad 分屏 / 窄窗时视口本身变窄，布局会跟着收起（HIG · Layout）。
  *
  * 专注任务（阅读、学词、正式词测、今日总结）用 `focus` 外壳：没有标签栏，由页面自己的
@@ -118,7 +121,7 @@ function TabBar({ active }: { active: TabKey | null }) {
   return (
     <nav
       aria-label="主导航"
-      className="material-bar fixed inset-x-0 bottom-0 z-30 border-t border-line lg:hidden"
+      className="material-bar fixed inset-x-0 bottom-0 z-30 border-t border-line md:hidden"
       style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}
     >
       <ul className="safe-x mx-auto grid max-w-2xl grid-cols-4">
@@ -134,8 +137,39 @@ function TabBar({ active }: { active: TabKey | null }) {
                   on ? 'font-semibold text-accent' : 'font-medium text-ink-3 hover:text-ink-2'
                 }`}
               >
-                <Icon name={t.icon} size={24} strokeWidth={on ? 2.1 : 1.8} />
+                <Icon name={t.icon} size={24} strokeWidth={on ? 2.1 : 1.8} filled={on} />
                 <span className="leading-tight">{t.label}</span>
+              </Link>
+            </li>
+          );
+        })}
+      </ul>
+    </nav>
+  );
+}
+
+function Rail({ active }: { active: TabKey | null }) {
+  return (
+    <nav
+      aria-label="主导航"
+      className="material-bar fixed inset-y-0 left-0 z-30 hidden w-rail flex-col items-stretch border-r border-line md:flex lg:hidden"
+      style={{ paddingTop: 'max(1rem, env(safe-area-inset-top))', paddingLeft: 'env(safe-area-inset-left)' }}
+    >
+      <ul className="flex flex-col gap-1 px-2 pt-2">
+        {TABS.map((t) => {
+          const on = t.key === active;
+          return (
+            <li key={t.key}>
+              <Link
+                to={tabTarget(t, on)}
+                data-testid={`${t.testId}-rail`}
+                aria-current={on ? 'page' : undefined}
+                className={`flex min-h-[64px] flex-col items-center justify-center gap-1 rounded-control px-1 text-caption no-underline ${
+                  on ? 'bg-accent-soft font-semibold text-accent' : 'font-medium text-ink-3 hover:bg-fill'
+                }`}
+              >
+                <Icon name={t.icon} size={24} filled={on} />
+                <span className="text-center leading-tight">{t.label}</span>
               </Link>
             </li>
           );
@@ -169,7 +203,7 @@ function Sidebar({ active }: { active: TabKey | null }) {
                   on ? 'bg-accent-soft font-semibold text-accent' : 'text-ink-2 hover:bg-fill'
                 }`}
               >
-                <Icon name={t.icon} size={22} />
+                <Icon name={t.icon} size={22} filled={on} />
                 <span>{t.label}</span>
               </Link>
             </li>
@@ -196,8 +230,9 @@ export function AppShell({ kind, children }: { kind: ShellKind; children: ReactN
       >
         跳到正文
       </a>
+      <Rail active={active} />
       <Sidebar active={active} />
-      <div className="min-h-[100dvh] pb-[calc(var(--tabbar-h)+env(safe-area-inset-bottom))] lg:pb-0 lg:pl-sidebar">{children}</div>
+      <div className="min-h-[100dvh] pb-[calc(var(--tabbar-h)+env(safe-area-inset-bottom))] md:pb-0 md:pl-rail lg:pl-sidebar">{children}</div>
       <TabBar active={active} />
     </ToastProvider>
   );

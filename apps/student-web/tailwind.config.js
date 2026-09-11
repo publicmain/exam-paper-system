@@ -62,6 +62,7 @@ export default {
         page: 'var(--page-x)',
         tabbar: 'var(--tabbar-h)',
         sidebar: 'var(--sidebar-w)',
+        rail: 'var(--rail-w)',
       },
       maxWidth: {
         prose: '68ch',
