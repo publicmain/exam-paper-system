@@ -132,7 +132,8 @@ afterEach(() => {
 });
 
 describe('UI03 · 长列表每一个都够得着', () => {
-  for (const n of [31, 65, 500]) {
+  // 审计 §8.2 极端数据：1 / 30 / 31 / 65 / 500 / 1000 词（0 词见下一个用例）
+  for (const n of [1, 30, 31, 65, 500, 1000]) {
     it(`**${n} 个词：一批批「加载更多」到底，不漏不重**`, async () => {
       makeWords(n);
       const user = userEvent.setup();
@@ -149,6 +150,14 @@ describe('UI03 · 长列表每一个都够得着', () => {
       expect(heads[n - 1]).toBe(`word-word${String(n).padStart(3, '0')}`);
     });
   }
+
+  it('**0 个词：说清生词本是空的、词从哪来，没有「加载更多」**', async () => {
+    makeWords(0);
+    mount();
+    expect(await screen.findByTestId('list-empty')).toHaveTextContent('生词本还是空的。学每日新词、阅读时查词，都会收进这里。');
+    expect(screen.queryByTestId('load-more')).toBeNull();
+    expect(screen.getByTestId('list-count').textContent).toContain('共 0 个单词');
+  });
 
   it('appendUnique：跨批重叠的项只留一份', () => {
     const a = [{ studentSenseId: '1' }, { studentSenseId: '2' }] as never[];

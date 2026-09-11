@@ -20,6 +20,8 @@ const ONLY = arg('only', '')?.split(',').filter(Boolean);
 const WIDTHS = arg('widths', '')?.split(',').filter(Boolean).map(Number);
 const THEMES = process.argv.includes('--dark') ? ['light', 'dark'] : process.argv.includes('--dark-only') ? ['dark'] : ['light'];
 const FULL = process.argv.includes('--full');
+/** --font=200：根字号放大到 200%（本项目字号都用 rem，等同浏览器「文字大小」调大；审计 §8.2 文本放大 200%）。Chromium 模拟，不是 iOS 动态字体。 */
+const FONT = Number(arg('font', '0')) || 0;
 
 /** 视口：宽 × 高（CSS px）。手机按竖屏；平板含竖横与分屏临界。 */
 const VIEWPORTS = [
@@ -109,6 +111,10 @@ try {
         page.on('pageerror', (e) => errors.push(String(e.message).slice(0, 200)));
         await page.goto(`${BASE}${shot.path}`, { waitUntil: 'networkidle0', timeout: 20000 }).catch((e) => errors.push(`goto: ${e.message}`));
         await new Promise((r) => setTimeout(r, 400));
+        if (FONT) {
+          await page.addStyleTag({ content: `html { font-size: ${FONT}% !important; }` });
+          await new Promise((r) => setTimeout(r, 300));
+        }
         if (shot.setup) {
           await shot.setup(page).catch((e) => errors.push('setup: ' + e.message));
           await new Promise((r) => setTimeout(r, 600));
@@ -148,7 +154,7 @@ try {
             smallCount: small.length,
           };
         });
-        const file = `${shot.id}__${vp.w}x${vp.h}__${theme}.png`;
+        const file = `${shot.id}__${vp.w}x${vp.h}__${theme}${FONT ? `__font${FONT}` : ''}.png`;
         await page.screenshot({ path: join(OUT, file), fullPage: FULL });
         results.push({ shot: shot.id, path: shot.path, scenario: shot.scenario, w: vp.w, h: vp.h, theme, file, errors, ...metrics });
         process.stdout.write(`${metrics.overflowX ? '✗' : '✓'} ${file}  small=${metrics.smallCount}${errors.length ? ' ERR' : ''}\n`);
