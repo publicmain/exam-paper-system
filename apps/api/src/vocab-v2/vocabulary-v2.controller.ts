@@ -60,6 +60,8 @@ export class VocabularyV2Controller {
     @Query('stage') stage = '',
     @Query('page') page = '1',
     @Query('pageSize') pageSize = '30',
+    // UI03：「加载更多」用上一次返回的 nextCursor，中途移出也不跳不重
+    @Query('cursor') cursor = '',
     @Query('article') article = '',
     @Query('topic') topic = '',
     @Query('list') list = '',
@@ -72,6 +74,7 @@ export class VocabularyV2Controller {
       stage,
       page: Number(page),
       pageSize: Number(pageSize),
+      cursor: cursor || undefined,
       article,
       topic,
       list,

@@ -86,6 +86,29 @@ function activeUseCheckView(headword: string, response: unknown) {
 /** 与 schema 里 StudentVocabularyProfile 的默认值一致；没存过设置的学生按它算（S08：读不建行）。 */
 const PROFILE_DEFAULTS = { dailyTarget: 10, taskMinutes: 8, mode: 'adaptive_coach', audioAccent: 'en-GB' } as const;
 
+/** 「我的单词」里能当来源的事件 source（VOC09）。student_notebook / review / custom_test 不是来源。 */
+const ORIGIN_SOURCES = new Set(['level_gap', 'teacher_list', 'reading_lookup', 'reading_error', 'search']);
+
+/** 生词本排序键（UI03）：firstSeenAt desc，id desc 兜并列。 */
+type CenterKey = { at: number; id: string };
+function centerKeyOf(row: { firstSeenAt: Date; id: string }): CenterKey {
+  return { at: row.firstSeenAt.getTime(), id: row.id };
+}
+function compareCenterKey(a: CenterKey, b: CenterKey) {
+  return a.at - b.at || (a.id < b.id ? -1 : a.id > b.id ? 1 : 0);
+}
+function encodeCenterCursor(key: CenterKey) {
+  return Buffer.from(`${key.at}|${key.id}`, 'utf8').toString('base64url');
+}
+function decodeCenterCursor(raw: string | undefined): CenterKey | null {
+  if (!raw) return null;
+  const [at, ...rest] = Buffer.from(String(raw), 'base64url').toString('utf8').split('|');
+  const id = rest.join('|');
+  const time = Number(at);
+  if (!Number.isFinite(time) || !id) throw new BadRequestException({ code: 'v2_bad_cursor' });
+  return { at: time, id };
+}
+
 /** 每日学习会话的各项计数（VOC08）：学完、稍后再学、换过、还没处理，互不混。 */
 function learningCounts(items: ReadonlyArray<{ status: string; response?: unknown }>) {
   const learned = items.filter((item) => item.status === 'completed').length;
@@ -423,12 +446,31 @@ export class VocabularyV2Service {
     };
   }
 
+  /**
+   * 「我的单词」列表（VOC09 + UI03，2026-09-11 审计重写）。
+   *
+   * ## 来源：标签和筛选是同一条关系
+   * 一个词的来源 = 这个学生在这个词义上的**全部证据**：收词/推送事件（按 studentId +
+   * senseId 找，不依赖事件上有没有 studentSenseId）+ 他的每日学习会话里那张卡的来源
+   *（老师词表的历史词只有这份证据）。`sources` 是全部来源（按出现先后），`source` 是
+   * 最早的那个；按来源筛选 = `sources` 与所选来源有交集。没有任何证据 → `source: null`、
+   * `sources: []`，不再编造成 level_gap；只有 `source=unknown` 能筛到。
+   *
+   * ## 分页契约
+   * 排序键固定为 (firstSeenAt desc, id desc) —— 不再用 updatedAt（答一次题就跳位置）。
+   *   · 页码：`page` + `pageSize`（1–100，默认 30）。`page` 超过最后一页时**钳到最后一个
+   *     非空页**，返回 `requestedPage` 与 `clamped: true`（移出末页最后一项不会困在空页）。
+   *   · 加载更多：`cursor`（上一次返回的 `nextCursor`）。按排序键接着往后取，中途有词被
+   *     移出也不会跳过或重复。传了 cursor 就忽略 page。
+   *   · `total` = 当前筛选后的总数；`filters` 里的选项按「当前阶段」算，不因别的筛选消失。
+   */
   async vocabularyCenter(studentId: string, input: {
     q?: string;
     source?: string;
     stage?: string;
     page?: number;
     pageSize?: number;
+    cursor?: string;
     article?: string;
     topic?: string;
     list?: string;
@@ -436,55 +478,102 @@ export class VocabularyV2Service {
     dateTo?: string;
   }) {
     const q = input.q?.trim().toLowerCase() || '';
-    const page = Math.max(1, Math.floor(input.page || 1));
-    const pageSize = Math.max(1, Math.min(100, Math.floor(input.pageSize || 30)));
-    const and: any[] = [];
-    if (q) and.push({ sense: { lexeme: { headword: { contains: q, mode: 'insensitive' } } } });
-    if (input.source) and.push({ events: { some: { source: input.source } } });
-    if (input.article) and.push({ events: { some: { sourceTitle: input.article } } });
-    if (input.topic) and.push({ sense: { contexts: { some: { topic: input.topic } } } });
-    if (input.list) and.push({ sense: { lexeme: { listName: input.list } } });
-    const firstSeenAt: { gte?: Date; lte?: Date } = {};
-    if (input.dateFrom && /^\d{4}-\d{2}-\d{2}$/.test(input.dateFrom)) firstSeenAt.gte = new Date(`${input.dateFrom}T00:00:00.000Z`);
-    if (input.dateTo && /^\d{4}-\d{2}-\d{2}$/.test(input.dateTo)) firstSeenAt.lte = new Date(`${input.dateTo}T23:59:59.999Z`);
-    const rows = await this.prisma.studentVocabularySense.findMany({
-      where: {
-        studentId,
-        inNotebook: input.stage === 'removed' ? false : true,
-        ...(Object.keys(firstSeenAt).length ? { firstSeenAt } : {}),
-        ...(input.stage === 'mastered' ? { masteryStage: 8 } : {}),
-        ...(input.stage === 'learning' ? { masteryStage: { gte: 2, lt: 8 } } : {}),
-        ...(input.stage === 'new' ? { masteryStage: 1 } : {}),
-        ...(and.length ? { AND: and } : {}),
-      },
-      include: {
-        sense: {
-          include: {
-            lexeme: true,
-            contexts: { where: { qualityStatus: 'ready' }, orderBy: [{ difficulty: 'asc' }, { position: 'asc' }] },
-            events: { where: { studentId }, orderBy: { createdAt: 'asc' }, take: 1 },
+    const pageSize = Math.max(1, Math.min(100, Math.floor(Number(input.pageSize) || 30)));
+    const requestedPage = Math.max(1, Math.floor(Number(input.page) || 1));
+    const wantedSources = String(input.source ?? '').split(',').map((value) => value.trim()).filter(Boolean);
+    const firstSeenFrom = input.dateFrom && /^\d{4}-\d{2}-\d{2}$/.test(input.dateFrom) ? new Date(`${input.dateFrom}T00:00:00.000Z`) : null;
+    const firstSeenTo = input.dateTo && /^\d{4}-\d{2}-\d{2}$/.test(input.dateTo) ? new Date(`${input.dateTo}T23:59:59.999Z`) : null;
+
+    const [owned, events, dailyItems] = await Promise.all([
+      this.prisma.studentVocabularySense.findMany({
+        where: { studentId },
+        include: {
+          sense: {
+            include: {
+              lexeme: true,
+              contexts: { where: { qualityStatus: 'ready' }, orderBy: [{ difficulty: 'asc' }, { position: 'asc' }] },
+            },
           },
         },
-      },
-      orderBy: [{ updatedAt: 'desc' }, { firstSeenAt: 'desc' }],
+      }),
+      this.prisma.vocabularyCollectionEvent.findMany({
+        where: { studentId },
+        orderBy: { createdAt: 'asc' },
+        select: { senseId: true, source: true, sourceTitle: true, contextText: true, metadata: true, createdAt: true },
+      }),
+      this.prisma.vocabularyV2SessionItem.findMany({
+        where: { session: { studentId, sessionType: 'daily_learning' } },
+        select: { senseId: true, source: true, createdAt: true },
+      }),
+    ]);
+
+    // 每个词义的来源证据（按时间先后）
+    const evidence = new Map<string, Array<{ source: string; at: number; sourceTitle: string | null }>>();
+    const push = (senseId: string, source: string, at: Date, sourceTitle: string | null = null) => {
+      if (!ORIGIN_SOURCES.has(source)) return;
+      if (!evidence.has(senseId)) evidence.set(senseId, []);
+      evidence.get(senseId)!.push({ source, at: at.getTime(), sourceTitle });
+    };
+    for (const event of events) push(event.senseId, event.source, event.createdAt, event.sourceTitle);
+    for (const item of dailyItems) push(item.senseId, item.source, item.createdAt);
+    const personalBySense = new Map<string, { sentence: string; translation: string | null; personal: true }>();
+    for (const event of [...events].reverse()) {
+      if (!event.contextText || personalBySense.has(event.senseId)) continue;
+      const translation = (event.metadata as { personalContextTranslation?: unknown } | null)?.personalContextTranslation;
+      personalBySense.set(event.senseId, { sentence: event.contextText, translation: typeof translation === 'string' ? translation : null, personal: true });
+    }
+
+    const described = owned.map((row) => {
+      const proof = [...(evidence.get(row.senseId) ?? [])].sort((a, b) => a.at - b.at);
+      const sources = [...new Set(proof.map((entry) => entry.source))];
+      const titles = [...new Set(proof.map((entry) => entry.sourceTitle).filter((value): value is string => Boolean(value)))];
+      return { row, sources, titles };
     });
-    const all = await this.prisma.studentVocabularySense.findMany({
-      where: { studentId },
-      select: {
-        masteryStage: true,
-        due: true,
-        spellingSkill: true,
-        listeningSkill: true,
-        speakingSkill: true,
-        firstSeenAt: true,
-        inNotebook: true,
-        reps: true,
-      },
-      orderBy: { firstSeenAt: 'asc' },
+
+    const inStage = described.filter(({ row }) => {
+      if (input.stage === 'removed') return !row.inNotebook;
+      if (!row.inNotebook) return false;
+      if (input.stage === 'mastered') return row.masteryStage === 8;
+      if (input.stage === 'learning') return row.masteryStage >= 2 && row.masteryStage < 8;
+      if (input.stage === 'new') return row.masteryStage === 1;
+      return true;
     });
+    const filtered = inStage.filter(({ row, sources, titles }) => {
+      if (q && !row.sense.lexeme.headword.toLowerCase().includes(q)) return false;
+      if (wantedSources.length) {
+        const matches = wantedSources.some((wanted) => (wanted === 'unknown' ? sources.length === 0 : sources.includes(wanted)));
+        if (!matches) return false;
+      }
+      if (input.article && !titles.includes(input.article)) return false;
+      if (input.topic && !row.sense.contexts.some((context) => context.topic === input.topic)) return false;
+      if (input.list && row.sense.lexeme.listName !== input.list) return false;
+      if (firstSeenFrom && row.firstSeenAt.getTime() < firstSeenFrom.getTime()) return false;
+      if (firstSeenTo && row.firstSeenAt.getTime() > firstSeenTo.getTime()) return false;
+      return true;
+    });
+    filtered.sort((a, b) => compareCenterKey(centerKeyOf(b.row), centerKeyOf(a.row)));
+
+    const total = filtered.length;
+    const pageCount = Math.max(1, Math.ceil(total / pageSize));
+    const after = decodeCenterCursor(input.cursor);
+    let pageRows: typeof filtered;
+    let page: number;
+    if (after) {
+      const start = filtered.findIndex((entry) => compareCenterKey(centerKeyOf(entry.row), after) < 0);
+      const from = start < 0 ? total : start;
+      pageRows = filtered.slice(from, from + pageSize);
+      page = Math.floor(from / pageSize) + 1;
+    } else {
+      page = Math.min(requestedPage, pageCount);
+      pageRows = filtered.slice((page - 1) * pageSize, page * pageSize);
+    }
+    const lastRow = pageRows[pageRows.length - 1];
+    const hasMore = Boolean(lastRow) && filtered.indexOf(lastRow) < total - 1;
+
+    const all = owned;
     const active = all.filter((row) => row.inNotebook);
     const growthByDay = new Map<string, number>();
-    for (const row of active) {
+    for (const row of [...active].sort((a, b) => a.firstSeenAt.getTime() - b.firstSeenAt.getTime())) {
       const day = row.firstSeenAt.toISOString().slice(0, 10);
       growthByDay.set(day, (growthByDay.get(day) ?? 0) + 1);
     }
@@ -501,37 +590,25 @@ export class VocabularyV2Service {
       learning: active.filter((row) => row.masteryStage >= 2 && row.masteryStage < 8).length,
       mastered: active.filter((row) => row.masteryStage === 8).length,
     };
-    const start = (page - 1) * pageSize;
-    const pageRows = rows.slice(start, start + pageSize);
-    // VOC05：学生自己收词时的句子只挂在他自己的收词事件上 —— 共享例句没有时，
-    // 「我的单词」给他看他自己的那一句（标明是个人的）。
-    const personalEvents = pageRows.length
-      ? await this.prisma.vocabularyCollectionEvent.findMany({
-          where: { studentId, senseId: { in: pageRows.map((row) => row.senseId) }, contextText: { not: null } },
-          orderBy: { createdAt: 'desc' },
-          select: { senseId: true, contextText: true, metadata: true },
-        })
-      : [];
-    const personalBySense = new Map<string, { sentence: string; translation: string | null; personal: true }>();
-    for (const event of personalEvents) {
-      if (personalBySense.has(event.senseId) || !event.contextText) continue;
-      const translation = (event.metadata as { personalContextTranslation?: unknown } | null)?.personalContextTranslation;
-      personalBySense.set(event.senseId, { sentence: event.contextText, translation: typeof translation === 'string' ? translation : null, personal: true });
-    }
     return {
       stats,
       growth,
       filters: {
-        sources: ['reading_lookup', 'reading_error', 'level_gap', 'search', 'teacher_list'],
+        sources: [...ORIGIN_SOURCES],
         stages: ['new', 'learning', 'mastered', 'removed'],
-        articles: [...new Set(rows.map((row) => row.sense.events[0]?.sourceTitle).filter((value): value is string => Boolean(value)))].sort(),
-        topics: [...new Set(rows.flatMap((row) => row.sense.contexts.map((context) => context.topic)).filter((value): value is string => Boolean(value)))].sort(),
-        lists: [...new Set(rows.map((row) => row.sense.lexeme.listName))].sort(),
+        articles: [...new Set(inStage.flatMap((entry) => entry.titles))].sort(),
+        topics: [...new Set(inStage.flatMap((entry) => entry.row.sense.contexts.map((context) => context.topic)).filter((value): value is string => Boolean(value)))].sort(),
+        lists: [...new Set(inStage.map((entry) => entry.row.sense.lexeme.listName))].sort(),
       },
-      total: rows.length,
+      total,
       page,
       pageSize,
-      items: pageRows.map((row) => ({
+      pageCount,
+      requestedPage: after ? null : requestedPage,
+      clamped: !after && requestedPage > pageCount,
+      hasMore,
+      nextCursor: hasMore && lastRow ? encodeCenterCursor(centerKeyOf(lastRow.row)) : null,
+      items: pageRows.map(({ row, sources, titles }) => ({
         studentSenseId: row.id,
         senseId: row.senseId,
         headword: row.sense.lexeme.headword,
@@ -550,8 +627,9 @@ export class VocabularyV2Service {
           speaking: row.speakingSkill,
           usage: row.usageSkill,
         },
-        source: row.sense.events[0]?.source ?? 'level_gap',
-        sourceTitle: row.sense.events[0]?.sourceTitle ?? null,
+        source: sources[0] ?? null,
+        sources,
+        sourceTitle: titles[0] ?? null,
         context: row.sense.contexts[0] ? { ...row.sense.contexts[0], personal: false } : personalBySense.get(row.senseId) ?? null,
         firstSeenAt: row.firstSeenAt,
         inNotebook: row.inNotebook,
