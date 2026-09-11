@@ -109,6 +109,7 @@ export function ExamWordSheet({
   onFill,
   onClose,
   anchor,
+  sourceRef,
 }: {
   /** null = 不显示这张卡。 */
   word: string | null;
@@ -123,6 +124,11 @@ export function ExamWordSheet({
   onClose: () => void;
   /** 点到的那个词在屏幕上的位置 —— iPad 上面板贴着它弹出，不遮住整篇文章（IOS-06）。 */
   anchor?: DOMRect | null;
+  /**
+   * 这篇文章的出处（`session:<场次 id>`）。VOC05：只有带了出处、服务端核实过学生读得到的
+   * 原句，才会进共享例句；不带就只留在他自己的例句里。
+   */
+  sourceRef?: string;
 }) {
   const [phase, setPhase] = useState<LookupPhase>({ s: 'idle' });
   const [coachChoice, setCoachChoice] = useState<'idle' | 'saving' | 'learn' | 'known' | 'later' | 'lookup_only' | 'failed'>('idle');
@@ -154,6 +160,7 @@ export function ExamWordSheet({
           ...(contextSentence ? { contextSentence } : {}),
           ...(entry.contextTranslation ? { contextTranslation: entry.contextTranslation } : {}),
           ...(passageTitle ? { sourceTitle: passageTitle } : {}),
+          ...(sourceRef ? { sourceRef } : {}),
         });
         saving.current = false;
         if (mine !== gen.current) return;
@@ -165,7 +172,7 @@ export function ExamWordSheet({
         setCoachChoice('failed');
       }
     },
-    [contextSentence, passageTitle],
+    [contextSentence, passageTitle, sourceRef],
   );
 
   const lookup = useCallback(

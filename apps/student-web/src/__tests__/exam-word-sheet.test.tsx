@@ -466,7 +466,9 @@ describe('AC-02 token-only 请求边界', () => {
     expect(c.headers.Authorization).toBe(`Bearer ${TOKEN}`);
     expect(c.path).toBe('/vocab-v2/collect');
     const b = JSON.parse(c.body ?? '{}');
-    expect(Object.keys(b).sort()).toEqual(['action', 'contextSentence', 'headword', 'source', 'sourceTitle']);
+    // VOC05：带上文章出处（场次），服务端核实学生读得到才会进共享例句
+    expect(Object.keys(b).sort()).toEqual(['action', 'contextSentence', 'headword', 'source', 'sourceRef', 'sourceTitle']);
+    expect(b.sourceRef).toBe('session:s1');
     expect(b.headword).toBe('resilient');
     expect(b.action).toBe('learn');
     expect(b.source).toBe('reading_lookup');
@@ -539,7 +541,7 @@ describe('B-2 落库的来源必须是真的来源', () => {
     await tap('resilient');
     await collectCurrentWord();
     const b = bodies('/vocab-v2/collect')[0];
-    expect(Object.keys(b).sort()).toEqual(['action', 'contextSentence', 'headword', 'source']);
+    expect(Object.keys(b).sort()).toEqual(['action', 'contextSentence', 'headword', 'source', 'sourceRef']);
     expect('sourceTitle' in b).toBe(false);
   });
 

@@ -429,6 +429,7 @@ export function IELTSReadingPassage({ paper }: { paper: ExamPaper }) {
         contextSentence={pickedSentence}
         /* **真标题**，不是屏幕上那个兜底 —— 见 sourceTitle 的注释 */
         passageTitle={sourceTitle}
+        sourceRef={paper.sessionId ? `session:${paper.sessionId}` : undefined}
         blocked={!!pickedWord && blockedWords.has(pickedWord.toLowerCase())}
         fillTarget={fillTarget}
         onFill={(qid, w, append) => {
