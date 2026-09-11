@@ -327,58 +327,58 @@ describe('S12I —— 结果页要能看到原文', () => {
  * 与 `s12l-pilot.test.tsx` 覆盖。
  */
 
-describe('S12I —— 总结页只在真的做完时才渲染', () => {
-  it('kind 是 drill → replace 回 /today，且**不闪一下总结**', async () => {
+/**
+ * S12I 原规则是「三个旧字段不同时同意就 replace 回 /today」。审计 UI10 查出它正是
+ * 「首页 → 总结 → 首页」循环的根源（首页按 V2 算完成，总结按旧字段）。现在总结与首页
+ * 读同一份事实、**不回跳**；S12I 要防的「半截的一天被说成完成」由「不误报」接住。
+ */
+describe('S12I / UI10 —— 总结页不回跳，也不把半截的一天说成完成', () => {
+  const HOME_PARTIAL = {
+    dailyTarget: 10, today: null, pendingTests: [],
+    home: {
+      date: '2026-08-31', teachingDay: true,
+      reading: { state: 'completed', sessionId: 'sess-1' },
+      words: { state: 'completed', sessionId: 'd1', target: 10, learned: 10, deferred: 0, pending: 0 },
+      test: { state: 'pending', dailySessionId: 'd1', testSessionId: 'ts1', total: 13, newWords: 10, reviewWords: 3, answered: 0 },
+      allDone: false,
+    },
+  };
+  const HOME_DONE = { ...HOME_PARTIAL, home: { ...HOME_PARTIAL.home, test: { ...HOME_PARTIAL.home.test, state: 'completed', answered: 13 }, allDone: true } };
+
+  it('旧 kind 是 drill：留在总结页，写还有几项没做完，**不闪一下「做完了」**', async () => {
     stubFetch([
       [/\/lesson\/today$/, () => todayPayload()],
-      [/\/vocab\/mistakes\/practice-queue/, () => ({ remaining: 5, items: [] })],
-    ]);
-    mount('/lesson/summary');
-    await settle();
-    expect(screen.getByTestId('here').textContent).toBe('/today');
-    expect(screen.queryByTestId('summary-completion')).toBeNull();
-  });
-
-  it('kind 是 summary 但 completed 与 total 对不上 → 也回 /today', async () => {
-    stubFetch([
-      [
-        /\/lesson\/today$/,
-        () =>
-          todayPayload({
-            nextAction: { kind: 'summary', label: '看今天的总结', href: null },
-            allDone: false,
-            completed: 2,
-            total: 3,
-          }),
-      ],
-    ]);
-    mount('/lesson/summary');
-    await settle();
-    expect(screen.getByTestId('here').textContent).toBe('/today');
-  });
-
-  it('三个字段都同意时正常渲染总结', async () => {
-    stubFetch([
-      [
-        /\/lesson\/today$/,
-        () =>
-          todayPayload({
-            nextAction: { kind: 'summary', label: '看今天的总结', href: null },
-            allDone: true,
-            completed: 3,
-            total: 3,
-            segments: [
-              { key: 'read', status: 'done', label: '今天的文章', questionCount: 10, typicalMinutes: 15, score: 8, maxScore: 10, scoresPending: false, submissionId: 'sub-1', sessionId: 'sess-1', autoClosed: false },
-              { key: 'vocab', status: 'done', progress: 21, target: 21, typicalMinutes: 5, quizScore: { status: 'legacy_no_queue' } },
-              { key: 'drill', status: 'done', progress: 5, target: 5, typicalMinutes: 5 },
-            ],
-          }),
-      ],
+      [/\/vocab-v2\/overview$/, () => HOME_PARTIAL],
+      [/\/vocab-v2\/tests$/, () => ({ tests: [] })],
     ]);
     mount('/lesson/summary');
     await settle();
     expect(screen.getByTestId('here').textContent).toBe('/lesson/summary');
-    expect(screen.getByTestId('summary-completion')).toBeTruthy();
+    expect(screen.getByTestId('summary-completion').textContent).toBe('还有 1 项没做完');
+    expect(document.body.textContent).not.toMatch(/三项都做完/);
+  });
+
+  it('旧字段说 summary、completed 与 total 也对得上，但正式词测还没交 → 仍然不说做完', async () => {
+    stubFetch([
+      [/\/lesson\/today$/, () => todayPayload({ nextAction: { kind: 'summary', label: '看今天的总结', href: null }, allDone: true, completed: 3, total: 3 })],
+      [/\/vocab-v2\/overview$/, () => HOME_PARTIAL],
+      [/\/vocab-v2\/tests$/, () => ({ tests: [] })],
+    ]);
+    mount('/lesson/summary');
+    await settle();
+    expect(screen.getByTestId('summary-completion').textContent).toBe('还有 1 项没做完');
+  });
+
+  it('三项真做完时正常渲染总结', async () => {
+    stubFetch([
+      [/\/lesson\/today$/, () => todayPayload({ nextAction: { kind: 'summary', label: '看今天的总结', href: null }, allDone: true, completed: 3, total: 3 })],
+      [/\/vocab-v2\/overview$/, () => HOME_DONE],
+      [/\/vocab-v2\/tests$/, () => ({ tests: [{ sessionId: 'ts1', date: '2026-08-31', total: 13, correct: 11, completedAt: null }] })],
+    ]);
+    mount('/lesson/summary');
+    await settle();
+    expect(screen.getByTestId('here').textContent).toBe('/lesson/summary');
+    expect(screen.getByTestId('summary-completion').textContent).toBe('今天的三项都做完了');
   });
 });
 
