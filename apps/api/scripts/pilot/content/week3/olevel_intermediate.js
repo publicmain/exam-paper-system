@@ -196,7 +196,280 @@ const RUSH = {
   ],
 };
 
-const SPECS = [GROUP, RUSH];
+// ═══════════════════════════════════════════════════════════════
+// 周三 —— The Question Jar
+// ═══════════════════════════════════════════════════════════════
+
+const JAR = {
+  key: 'original-w3-question-jar',
+  title: 'The Question Jar',
+  passage: numbered([
+    'In June my mother put an empty jam jar in the middle of the dinner table and filled it with small folded pieces of paper. "One question every night," she said. "And phones go in the basket by the door." My brother, who is twelve, groaned as if he had been given extra homework. I did not groan, because I was sixteen and above groaning, but I made sure she saw me roll my eyes.',
+    'The first questions were as bad as I had expected. "What is your favourite colour?" "If you were an animal, what would you be?" My father said "a tortoise", my brother said "a shark", and I said "whatever gets me out of this fastest", which I thought was quite clever. Nobody laughed. My face went warm, and I became very interested in the pattern on the tablecloth.',
+    'On the second Thursday, my father unfolded a question in my brother\'s handwriting: "What did you want to be when you were a teenager?" He was quiet for a long time. Then he said that at sixteen he had wanted to play the drums in a band, and that he had practised on biscuit tins in his bedroom until the neighbours complained.',
+    'I had never imagined my father doing anything louder than reading the newspaper. I put down my chopsticks and stared at him. He told us about the band, which had played exactly one concert in a school hall, and about the day he sold his drum set to pay for his first year at polytechnic. He laughed while he told us, but he kept rubbing his thumb along the edge of the table.',
+    'After that, I stopped rolling my eyes. I never said I liked the jar, but I noticed that I always came to dinner on time. We found out that my mother had once cut her own hair the night before a job interview, and that my brother was afraid of butterflies.',
+    'Then, one evening in August, my brother put his hand into the jar and found nothing. My mother turned it upside down and shook it, but nothing fell out. I realised that I had been looking forward to the next question all day.',
+    'After dinner I sat at my desk and wrote twenty new questions. Most were silly, like "Which food would you never eat again, even for a thousand dollars?" One was not. It said, "What is something you gave up that you still think about?" I folded it carefully and put it near the top of the jar, where my father\'s hand usually went first.',
+    'My father picked that question on Sunday and did not answer it. But the next Saturday he came home with a pair of drumsticks, and he says they are only for tapping on the table when he is thinking. He seems to do a lot of thinking at dinner now, usually while he waits for someone to pick a question.',
+  ]),
+  questions: [
+    {
+      kind: 'matchingFeelings',
+      bank: ['annoyed', 'embarrassed', 'surprised', 'disappointed', 'proud', 'jealous', 'frightened', 'relieved'],
+      items: [
+        { moment: 'Paragraph 1 — when the writer rolls their eyes at the jar', answer: 'annoyed', para: 1 },
+        { moment: "Paragraph 2 — when nobody laughs at the writer's answer", answer: 'embarrassed', para: 2 },
+        { moment: 'Paragraph 4 — when the writer puts down the chopsticks and stares at the father', answer: 'surprised', para: 4 },
+        { moment: 'Paragraph 6 — when the jar turns out to be empty', answer: 'disappointed', para: 6 },
+      ],
+    },
+    {
+      kind: 'mcq',
+      stem: 'In Paragraph 1, "I was sixteen and above groaning" suggests that the writer',
+      answer: 'felt too grown-up to complain out loud.',
+      distractors: [
+        'secretly liked the idea of the jar.',
+        'was sitting too far away to be heard.',
+        'was too tired to make any noise.',
+      ],
+      evidence: 'I did not groan, because I was sixteen and above groaning, but I made sure she saw me roll my eyes.',
+    },
+    {
+      kind: 'gapChoice',
+      stem: 'When the jar was empty, the mother turned it upside down and ______ it, but nothing fell out.',
+      answer: 'shook',
+      distractors: ['washed', 'filled', 'hid'],
+      evidence: 'My mother turned it upside down and shook it, but nothing fell out.',
+    },
+    {
+      kind: 'short',
+      marks: 2,
+      stem: 'In Paragraph 2, what does the writer\'s answer "whatever gets me out of this fastest" show about how the writer felt about the jar at first?',
+      answer:
+        'The writer just wanted dinner to be over as quickly as possible, and thought the jar and its questions were silly and a waste of time.',
+      evidence:
+        'My father said "a tortoise", my brother said "a shark", and I said "whatever gets me out of this fastest", which I thought was quite clever.',
+      rubric:
+        '两分：写出「作者只想赶快离开饭桌 / 让晚饭快点结束」给 1 分；写出「觉得这个问题罐子无聊、幼稚，不当回事」再给 1 分。',
+    },
+    {
+      kind: 'short',
+      marks: 2,
+      stem: 'In Paragraph 4, what did the father give up, and why?',
+      answer: 'He gave up playing the drums — he sold his drum set to pay for his first year at polytechnic.',
+      evidence:
+        'He told us about the band, which had played exactly one concert in a school hall, and about the day he sold his drum set to pay for his first year at polytechnic.',
+      rubric:
+        '两分：写出「放弃了打鼓 / 卖掉了架子鼓」给 1 分；写出「为了付理工学院（polytechnic）第一年的学费」再给 1 分。',
+    },
+    {
+      kind: 'short',
+      marks: 2,
+      stem: 'Give TWO things the writer does in Paragraph 5 that show the writer has started to enjoy the jar.',
+      answer: 'The writer stops rolling their eyes, and always comes to dinner on time.',
+      evidence: 'After that, I stopped rolling my eyes. I never said I liked the jar, but I noticed that I always came to dinner on time.',
+      rubric:
+        '两分：不再翻白眼、每天准时来吃晚饭，每点 1 分。只写「知道了妈妈 / 弟弟的趣事」不给分。',
+    },
+    {
+      kind: 'short',
+      marks: 2,
+      stem: "In Paragraph 8, what does the father come home with after picking the writer's question, and what does this suggest about him?",
+      answer:
+        'A pair of drumsticks; the question has brought back his old love of drumming, and he now enjoys the question time at dinner.',
+      evidence:
+        'But the next Saturday he came home with a pair of drumsticks, and he says they are only for tapping on the table when he is thinking.',
+      rubric:
+        '两分：写出「带回一副鼓槌」给 1 分；点明「他还惦记着当年放弃的打鼓 / 那个问题让他重新拾起这份爱好 / 他现在很享受饭桌上的问答」（答出任一）再给 1 分。',
+    },
+  ],
+};
+
+// ═══════════════════════════════════════════════════════════════
+// 周四 —— Just a Joke
+// ═══════════════════════════════════════════════════════════════
+
+const JOKE = {
+  key: 'original-w3-just-a-joke',
+  title: 'Just a Joke',
+  passage: numbered([
+    'After football training on Tuesday, Jun fell asleep on the train home with his mouth wide open and his head against the window. I had to bite my lip to keep quiet while I took a photo. I typed "Sleeping Beauty" underneath it and sent it to our class group chat before the train had even left the station.',
+    'By the time we reached our station, the photo had forty-three replies. People sent rows of laughing faces, and someone turned the picture into a sticker with a pig\'s nose on it. When Jun woke up, I read the best replies out to him. He looked at my screen for a second, gave a small laugh, and did not say another word all the way home.',
+    'That evening he left the group chat. I sent him a private message — "Haha, it\'s just a joke, don\'t be so serious" — and watched it change to "Seen". He did not reply.',
+    'The next morning he sat at a different table in the canteen, with some other boys. I carried my tray over and sat down opposite him anyway. "You\'re still upset about one photo?" I said, loudly enough for the others to hear. I wanted them to think he was the one being difficult.',
+    'He put down his spoon. "My cousin goes to another school," he said quietly. "She sent me the sticker last night. Her whole class has it. Someone asked her if the pig was her cousin." He picked up his tray and walked away, and I sat there with my own mouth open. This time nobody took a photo.',
+    'For the rest of the day I kept opening the chat and closing it again. The photo was still at the top, surrounded by laughing faces, and every one of them now looked different to me. I deleted it, but I knew that the copies on everyone else\'s phones were still there.',
+    'I could have sent another message. It would have been quicker, and I would not have had to see his face. Instead I waited for him at the school gate after training, with my hands going in and out of my pockets. When he came, I did not say "just a joke". I said I was sorry. I told him I had wanted people to laugh and had not thought about who they were laughing at, and I asked what I could do.',
+    'He thought about it for a long time. Then he said I could start by asking the class to delete the sticker, so that night I did, in the group chat, using my own name. On Friday, Jun joined the chat again. He sent me one message, "Training tomorrow?", and I read it three times before I let out a long breath.',
+  ]),
+  questions: [
+    {
+      kind: 'matchingFeelings',
+      bank: ['amused', 'shocked', 'ashamed', 'relieved', 'jealous', 'bored', 'proud', 'lonely'],
+      items: [
+        { moment: 'Paragraph 1 — when the writer takes the photo on the train', answer: 'amused', para: 1 },
+        { moment: 'Paragraph 5 — on hearing that the sticker has reached a whole class at another school', answer: 'shocked', para: 5 },
+        { moment: 'Paragraph 6 — opening and closing the chat for the rest of the day', answer: 'ashamed', para: 6 },
+        { moment: "Paragraph 8 — when Jun's message arrives on Friday", answer: 'relieved', para: 8 },
+      ],
+    },
+    {
+      kind: 'mcq',
+      stem: 'In Paragraph 6, "every one of them now looked different to me" suggests that',
+      answer: 'the writer now saw the laughter as unkind.',
+      distractors: [
+        'the replies had been changed by others.',
+        'the writer could not read them clearly.',
+        'more people had added new laughing faces.',
+      ],
+      evidence:
+        'The photo was still at the top, surrounded by laughing faces, and every one of them now looked different to me.',
+    },
+    {
+      kind: 'gapChoice',
+      stem: 'By the time they reached their station, the photo had forty-three ______.',
+      answer: 'replies',
+      distractors: ['stops', 'members', 'stickers'],
+      evidence: 'By the time we reached our station, the photo had forty-three replies.',
+    },
+    {
+      kind: 'short',
+      marks: 2,
+      stem: 'In Paragraph 4, why did the writer speak "loudly enough for the others to hear"?',
+      answer:
+        'The writer wanted the other boys to see Jun as the one making a fuss, so that the writer would not look like the person in the wrong.',
+      evidence: 'I wanted them to think he was the one being difficult.',
+      rubric:
+        '两分：写出「想让旁边的人觉得 Jun 小题大做 / 难相处」给 1 分；点明「这样作者自己就不像做错事的人 / 想拉别人站到自己这边」再给 1 分。',
+    },
+    {
+      kind: 'short',
+      marks: 2,
+      stem: "In Paragraph 5, how far has the sticker spread, and how has it affected Jun's cousin?",
+      answer:
+        'It has reached a whole class at another school, and someone there asked his cousin whether the pig was her cousin.',
+      evidence: 'Her whole class has it. Someone asked her if the pig was her cousin.',
+      rubric:
+        '两分：写出「传到了别的学校、表妹的整个班都有」给 1 分；写出「有人拿这件事问 / 取笑他表妹，连累到家人」再给 1 分。',
+    },
+    {
+      kind: 'short',
+      marks: 2,
+      stem: 'Why did the writer wait at the school gate instead of sending another message?',
+      answer:
+        'A message would have been easier because the writer would not have to face Jun, but the writer wanted to say sorry properly, face to face, to show they meant it.',
+      evidence: 'It would have been quicker, and I would not have had to see his face.',
+      rubric:
+        '两分：写出「发消息更省事、不用面对他」给 1 分；点明「当面道歉更真诚 / 表示作者是认真的，不再躲」再给 1 分。',
+    },
+    {
+      kind: 'short',
+      marks: 2,
+      stem: 'In Paragraph 8, why does the writer ask the class to delete the sticker "using my own name"?',
+      answer:
+        'The writer openly admits in front of the class that the photo was their doing, which shows they are taking responsibility and not hiding.',
+      evidence:
+        'Then he said I could start by asking the class to delete the sticker, so that night I did, in the group chat, using my own name.',
+      rubric:
+        '两分：写出「当着全班承认照片是自己发的」给 1 分；点明「说明作者在承担责任 / 不躲、道歉是认真的」再给 1 分。',
+    },
+  ],
+};
+
+// ═══════════════════════════════════════════════════════════════
+// 周五 —— Twelve Moves
+// ═══════════════════════════════════════════════════════════════
+
+const MOVES = {
+  key: 'original-w3-twelve-moves',
+  title: 'Twelve Moves',
+  passage: numbered([
+    'I had not lost a game of chess at school for two years. My name was at the top of the club list, and the younger members called me "Captain", partly as a joke and partly not. On Wednesdays I walked slowly around the room with my hands behind my back, stopping at each board to point out mistakes.',
+    'In the first week of term, a Secondary One boy called Irfan joined the club. He talked the whole time he played — about his cat, about a film he had watched — and he moved his pieces so fast that I decided he was not thinking at all. When Mr Das suggested that I give him a practice game, I agreed, mainly so that I could teach him to be quiet.',
+    'Twelve moves later, my king was trapped in a corner. Irfan was still talking about his cat. I stared at the board, sure that I had missed something, and it took me a long moment to understand that the game was over.',
+    '"Again," I said, and I began setting up the pieces before he could answer. I told him, and everyone who had come to watch, that I was tired, that I had not been trying, and that the sun from the window was in my eyes. He lost the second game, but only just, and winning it did not make me feel any better. For the next two Wednesdays, I told Mr Das I had too much homework.',
+    'At home, though, I set up the first game on my own board every night and played it through again until my eyes hurt. By the third night I could see exactly what had happened. It was a simple trap, and I had walked straight into it because I had never believed he was able to set one.',
+    'When I finally went back, Irfan was playing three younger students at once and losing to all of them on purpose, loudly, so that they would laugh. I watched him from the door for a while. When the others had gone home, I sat down at his table.',
+    'I had to clear my throat twice before I could ask, "Can you show me what you did in that first game?" He did not make a joke of it. He just showed me, and then two more traps he had learned from puzzles he did every night, talking about his cat the whole time.',
+    'At the inter-school competition in October, Mr Das put Irfan on the first board and me on the second. A month ago I would have argued. This time I only asked if we could sit next to each other. I won my game and Irfan lost his, and on the bus home he talked about it without stopping. For once, I listened to every word.',
+  ]),
+  questions: [
+    {
+      kind: 'matchingFeelings',
+      bank: ['proud', 'shocked', 'embarrassed', 'determined', 'bored', 'jealous', 'relieved', 'grateful'],
+      items: [
+        { moment: 'Paragraph 1 — walking around the room with hands behind the back', answer: 'proud', para: 1 },
+        { moment: 'Paragraph 3 — staring at the board after the twelfth move', answer: 'shocked', para: 3 },
+        { moment: 'Paragraph 4 — when the writer tells everyone why the first game was lost', answer: 'embarrassed', para: 4 },
+        { moment: 'Paragraph 5 — playing the game through again every night at home', answer: 'determined', para: 5 },
+      ],
+    },
+    {
+      kind: 'mcq',
+      stem: 'In Paragraph 7, "I had to clear my throat twice before I could ask" suggests that',
+      answer: 'the writer found it hard to ask for help.',
+      distractors: [
+        'the writer did not want the others to hear.',
+        'the writer had forgotten what to ask.',
+        'the writer had a cold and a sore throat.',
+      ],
+      evidence: 'I had to clear my throat twice before I could ask, "Can you show me what you did in that first game?"',
+    },
+    {
+      kind: 'gapChoice',
+      stem: 'The writer finally saw that Irfan had used a simple ______.',
+      answer: 'trap',
+      distractors: ['rule', 'mistake', 'joke'],
+      evidence:
+        'It was a simple trap, and I had walked straight into it because I had never believed he was able to set one.',
+    },
+    {
+      kind: 'short',
+      marks: 2,
+      stem: "Why did the writer agree to play a practice game against Irfan, and what does this show about the writer's opinion of him?",
+      answer:
+        'The writer wanted to teach Irfan to stop talking; this shows the writer thought he was noisy and not a serious or skilful player.',
+      evidence:
+        'When Mr Das suggested that I give him a practice game, I agreed, mainly so that I could teach him to be quiet.',
+      rubric:
+        '两分：写出「想让他闭嘴 / 教他安静」给 1 分；点明「作者看不起他，觉得他吵、不认真、不会下棋」再给 1 分。',
+    },
+    {
+      kind: 'short',
+      marks: 2,
+      stem: 'In Paragraph 4, why did winning the second game not make the writer feel any better?',
+      answer:
+        'The writer had only just won, and it could not change the fact that Irfan had clearly beaten them in the first game.',
+      evidence: 'He lost the second game, but only just, and winning it did not make me feel any better.',
+      rubric:
+        '两分：写出「第二盘也只是险胜」或「第一盘已经当着大家输了、改变不了」给 1 分；点明「这说明 Irfan 确实很强 / 作者的面子和骄傲还是受了伤」再给 1 分。',
+    },
+    {
+      kind: 'short',
+      marks: 2,
+      stem: 'In Paragraph 6, why was Irfan losing to the younger students on purpose, and what does this show about him?',
+      answer:
+        'He wanted the younger students to laugh and enjoy the game; this shows he is kind and cares more about others having fun than about winning.',
+      evidence:
+        'When I finally went back, Irfan was playing three younger students at once and losing to all of them on purpose, loudly, so that they would laugh.',
+      rubric:
+        '两分：写出「为了让低年级同学开心、笑出来」给 1 分；点明他的品质（善良 / 不在乎输赢 / 照顾别人）再给 1 分。',
+    },
+    {
+      kind: 'short',
+      marks: 2,
+      stem: 'In Paragraph 8, the writer says, "A month ago I would have argued." What would the writer have argued about, and what does this show about how the writer has changed?',
+      answer:
+        'About being put on the second board, below Irfan; the writer is now less proud and accepts that Irfan is the stronger player.',
+      evidence: 'At the inter-school competition in October, Mr Das put Irfan on the first board and me on the second.',
+      rubric:
+        '两分：写出「会为被排在第二台、排在 Irfan 后面而争」给 1 分；点明变化（放下面子 / 不再骄傲，承认 Irfan 更强、愿意向他学习）再给 1 分。',
+    },
+  ],
+};
+
+const SPECS = [GROUP, RUSH, JAR, JOKE, MOVES];
 
 module.exports = {
   LEVEL,
