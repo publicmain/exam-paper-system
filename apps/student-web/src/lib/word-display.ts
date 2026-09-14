@@ -25,7 +25,13 @@ export function formatPhonetic(raw: string | null | undefined): string | null {
     .replace(/[\[\]/]/g, '') // 去掉原有的 / 与 [ ]，下面统一加
     .replace(/'/g, 'ˈ') // 老式重音记号 ' → ˈ
     .replace(/:/g, 'ː') // 老式长音 : → ː
-    .replace(/(?<=[^\s])\.(?=[^\s])/g, '') // 剑桥式音节点 ˈsɪl.vər → ˈsɪlvər，两套数据看起来一样
+    // 剑桥式音节点 ˈsɪl.vər → ˈsɪlvər，两套数据看起来一样。
+    // 不用后行断言 (?<=…)：iPadOS / iOS 16.4 以前的 Safari 不认，渲染学词卡时抛 SyntaxError、
+    // 整页进「页面出了点问题」（2026-09-14 学生 iPad 上进单词页必崩）。语义与原来的
+    // /(?<=[^\s])\.(?=[^\s])/g 相同：前后都紧挨着非空白字符的点才去掉。
+    .replace(/\./g, (dot: string, at: number, str: string) =>
+      at > 0 && at < str.length - 1 && !/\s/.test(str[at - 1]) && !/\s/.test(str[at + 1]) ? '' : dot,
+    )
     .replace(/\s+/g, ' ')
     .trim();
   if (oldStyle) s = jonesToIpa(s);

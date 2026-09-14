@@ -18,6 +18,8 @@ describe('formatPhonetic —— 2026-09-05 盲测 P2-9', () => {
   it('剑桥式音节点去掉，两套词典数据风格一致（复测新发现 6）', () => {
     expect(formatPhonetic('ˈsɪl.vər')).toBe('/ˈsɪlvər/');
     expect(formatPhonetic('/ˈæs.ɪd/')).toBe('/ˈæsɪd/');
+    expect(formatPhonetic('ˌɪn.fər.ˈmeɪ.ʃən')).toBe('/ˌɪnfərˈmeɪʃən/'); // 连续多个点
+    expect(formatPhonetic('a .b')).toBe('/a .b/'); // 挨着空格的点不动
   });
   it('空的不显示', () => {
     expect(formatPhonetic('')).toBeNull();

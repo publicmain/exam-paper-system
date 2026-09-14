@@ -142,6 +142,30 @@ const LOOKED_UP_KEY = 'sw:reading:looked-up-once';
 const FillFocusCtx = createContext<((id: string | null) => void) | null>(null);
 
 /**
+ * 在句末标点（后面可以跟一个收尾引号）之后的空白处切句。
+ *
+ * 不用后行断言 `(?<=…)`：iPadOS / iOS 16.4 以前的 Safari 不认，跑到这里会抛
+ * SyntaxError、整页进错误页（2026-09-14 学生 iPad 上进单词页必崩，同一类问题）。
+ * 与原来的 `text.split(/(?<=[.!?]['"’”]?)\s+/)` 结果一致。
+ */
+export function splitSentences(text: string): string[] {
+  const out: string[] = [];
+  const gap = /\s+/g;
+  let start = 0;
+  let m: RegExpExecArray | null;
+  while ((m = gap.exec(text))) {
+    const prev = text[m.index - 1] ?? '';
+    const prev2 = text[m.index - 2] ?? '';
+    if (/[.!?]/.test(prev) || (/['"’”]/.test(prev) && /[.!?]/.test(prev2))) {
+      out.push(text.slice(start, m.index));
+      start = m.index + m[0].length;
+    }
+  }
+  out.push(text.slice(start));
+  return out;
+}
+
+/**
  * 找出目标词所在的那句原文。
  *
  * 找不到就返回 null —— **不编**。段落标记行（`Paragraph A`）跳过。
@@ -153,7 +177,7 @@ export function sentenceContaining(passage: string, word: string): string | null
   for (const line of passage.split(/\n+/)) {
     const t = line.trim();
     if (!t || /^Paragraph\s+[0-9A-H]+$/i.test(t)) continue;
-    for (const raw of t.split(/(?<=[.!?]['"’”]?)\s+/)) {
+    for (const raw of splitSentences(t)) {
       const sen = raw.trim();
       if (sen && re.test(sen)) return sen.length > 260 ? sen.slice(0, 257) + '…' : sen;
     }
