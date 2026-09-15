@@ -62,7 +62,11 @@ function world() {
       classId: 'c-sec',
       paper: { name: 'The Empty Seat' },
       morningQuizSession: session('ms-tue', '2026-09-08'),
-      submissions: [sub('s1', { id: 'tue', status: 'submitted', totalScore: null })],
+      submissions: [
+        sub('s1', { id: 'tue', status: 'submitted', totalScore: null }),
+        // s3 周二打开了卷子、一题没写：有答卷行、没有作答、没交
+        sub('s3', { id: 'tue-open', status: 'in_progress', finalSubmittedAt: null, submitSource: null, totalScore: null, _count: { scripts: 0 } }),
+      ],
     },
     // 周六也排了课 → 周六出现在表里；周日没课 → 不出现
     { id: 'pa-sat', classId: 'c-sec', paper: { name: 'Saturday Extra' }, morningQuizSession: session('ms-sat', '2026-09-12'), submissions: [] },
@@ -166,6 +170,8 @@ describe('哪些人不算、一周怎么拼', () => {
     const s3 = r.students.find((s) => s.id === 's3')!;
     expect(s3.days[0]).toMatchObject({ reading: 'done', readPct: 33, title: 'The Umbrella', paperLevel: 'ielts_simplified' });
     expect(s3.readN).toBe(1);
+    // 周二打开了、一题没写 → 「没交」，不是「没做」
+    expect(s3.days[1].reading).toBe('opened');
   });
 
   it('只选了一个班时，只查这个班的场次和学生', async () => {

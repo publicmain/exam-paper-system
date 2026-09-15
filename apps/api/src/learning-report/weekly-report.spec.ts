@@ -22,12 +22,13 @@ const read = (over: Partial<Reading> = {}): Reading => ({
   state: 'completed',
   completed: true,
   awaitingMarking: false,
+  opened: true,
   pct: 70,
   submittedAt: '2026-09-07T08:00:00.000Z',
   ...over,
 });
 const notDone = (state: Reading['state'], over: Partial<Reading> = {}): Reading =>
-  read({ state, completed: false, pct: null, submittedAt: null, ...over });
+  read({ state, completed: false, opened: state === 'in_progress', pct: null, submittedAt: null, ...over });
 const day = (date: string, over: Partial<DayFacts> = {}): DayFacts => ({ date, reading: null, learning: null, test: null, ...over });
 const student = (id: string, days: DayFacts[], over: Partial<StudentFacts> = {}): StudentFacts => ({
   id,
@@ -66,6 +67,10 @@ describe('一格阅读算什么', () => {
     expect(readingCell(day(MON, { reading: notDone('in_progress') }), today)).toBe('opened');
     expect(readingCell(day(MON, { reading: notDone('not_started') }), today)).toBe('missed');
     expect(readingCell(day(MON), today)).toBe('not_assigned');
+  });
+
+  it('**打开过卷子、一题没写**（有答卷行，共用状态说「没开始」）→ 仍算 opened，不说成没看', () => {
+    expect(readingCell(day(MON, { reading: notDone('not_started', { opened: true }) }), today)).toBe('opened');
   });
 
   it('**今天还没交不算欠**（today）；还没到的日子一律 future', () => {

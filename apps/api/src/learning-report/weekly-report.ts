@@ -52,6 +52,8 @@ export interface DayFacts {
     state: ReadingState;
     completed: boolean;
     awaitingMarking: boolean;
+    /** 有他的答卷行（打开过这份卷子，哪怕一题没写）。共用的 readingState 把「一题没写」算作没开始，周报要分出来 */
+    opened: boolean;
     /** 已批完卷子的得分率（0–100）；没批完 / 没交是 null */
     pct: number | null;
     submittedAt: string | null;
@@ -113,7 +115,7 @@ export function readingCell(day: DayFacts, today: string): ReadingCell {
   if (r.completed) return 'done';
   if (day.date === today) return 'today';
   if (r.state === 'auto_closed') return 'auto_closed';
-  if (r.state === 'in_progress') return 'opened';
+  if (r.state === 'in_progress' || r.opened) return 'opened';
   return 'missed';
 }
 

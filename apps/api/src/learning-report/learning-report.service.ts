@@ -223,6 +223,7 @@ export class LearningReportService {
                 state: r.state,
                 completed: r.completed,
                 awaitingMarking: r.awaitingMarking,
+                opened: Boolean(r.submission),
                 pct: r.completed && marked && score!.maxScore ? Math.round(((score!.totalScore ?? 0) / score!.maxScore) * 100) : null,
                 submittedAt: r.submission?.finalSubmittedAt ? r.submission.finalSubmittedAt.toISOString() : null,
               }
