@@ -119,6 +119,8 @@ describe('S12O —— 注册页', () => {
   }
 
   async function fillForm(level = 'O-Level 基础') {
+    // 下拉框先渲染、班级列表后到：等选项真的出现再选（CI 慢机器上曾经选项还没到就选，报 not found）
+    await waitFor(() => expect(document.querySelector('option[value="p1_class"]')).not.toBeNull());
     await userEvent.selectOptions(await screen.findByLabelText('选择班级'), 'p1_class');
     await userEvent.type(screen.getByLabelText('姓名'), '林小雨');
     await userEvent.type(screen.getByLabelText('设置 6 位数字密码'), '280519');
@@ -183,6 +185,8 @@ describe('S12O —— 注册页', () => {
   it('两次密码不一样 —— **客户端就拦下来**，一个请求都不发', async () => {
     stubOk();
     renderAt('/register');
+    // 下拉框先渲染、班级列表后到：等选项真的出现再选（CI 慢机器上曾经选项还没到就选，报 not found）
+    await waitFor(() => expect(document.querySelector('option[value="p1_class"]')).not.toBeNull());
     await userEvent.selectOptions(await screen.findByLabelText('选择班级'), 'p1_class');
     await userEvent.type(screen.getByLabelText('姓名'), '林小雨');
     await userEvent.type(screen.getByLabelText('设置 6 位数字密码'), '280519');
@@ -197,6 +201,8 @@ describe('S12O —— 注册页', () => {
   it('一档都没选 → 就地报错，不发请求', async () => {
     stubOk();
     renderAt('/register');
+    // 下拉框先渲染、班级列表后到：等选项真的出现再选（CI 慢机器上曾经选项还没到就选，报 not found）
+    await waitFor(() => expect(document.querySelector('option[value="p1_class"]')).not.toBeNull());
     await userEvent.selectOptions(await screen.findByLabelText('选择班级'), 'p1_class');
     await userEvent.type(screen.getByLabelText('姓名'), '林小雨');
     await userEvent.type(screen.getByLabelText('设置 6 位数字密码'), '280519');
@@ -209,6 +215,8 @@ describe('S12O —— 注册页', () => {
   it('PIN 不是 6 位数字 → 就地报错，不发请求', async () => {
     stubOk();
     renderAt('/register');
+    // 下拉框先渲染、班级列表后到：等选项真的出现再选（CI 慢机器上曾经选项还没到就选，报 not found）
+    await waitFor(() => expect(document.querySelector('option[value="p1_class"]')).not.toBeNull());
     await userEvent.selectOptions(await screen.findByLabelText('选择班级'), 'p1_class');
     await userEvent.type(screen.getByLabelText('姓名'), '林小雨');
     await userEvent.type(screen.getByLabelText('设置 6 位数字密码'), '2805');
