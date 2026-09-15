@@ -675,6 +675,14 @@ export const api = {
     request('GET', '/vocab/class/' + encodeURIComponent(classId) + '/stats'),
   vocabPush: (body: { classId: string; words: string[]; contextSentence?: string }) =>
     request('POST', '/vocab/push', body),
+  /** 学习周报（2026-09-15）：某一周、全部能看的班或某个班。只读；权限在服务端。 */
+  learningReportWeek: (params: { weekStart?: string; classId?: string } = {}) => {
+    const q = new URLSearchParams();
+    if (params.weekStart) q.set('weekStart', params.weekStart);
+    if (params.classId) q.set('classId', params.classId);
+    const qs = q.toString();
+    return request<any>('GET', `/learning-report/week${qs ? `?${qs}` : ''}`);
+  },
   vocabV2Assignments: (classId: string, dateFrom?: string, dateTo?: string) => {
     const query = new URLSearchParams();
     if (dateFrom) query.set('dateFrom', dateFrom);

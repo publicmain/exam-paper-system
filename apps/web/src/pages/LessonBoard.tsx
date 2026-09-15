@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { api } from '../lib/api';
 import { vocabScoreShort, type VocabScoreView } from '../lib/vocabScore';
+import { Link } from 'react-router-dom';
 
 /**
  * 完成度看板（4.0 阶段 A，PRD §4）。
@@ -91,7 +92,13 @@ export default function LessonBoardPage() {
   return (
     <div className="p-6 max-w-4xl mx-auto">
       <div className="flex items-center justify-between flex-wrap gap-3">
-        <h1 className="text-2xl font-bold text-gray-900">完成度看板</h1>
+        <div>
+          <h1 className="text-2xl font-bold text-gray-900">今天的完成度</h1>
+          <p className="text-sm text-gray-500">
+            这一页只看今天。按周看谁做了谁没做、分数和需要跟进的学生，去{' '}
+            <Link to="/learning-report" className="text-blue-600 underline">学习周报</Link>。
+          </p>
+        </div>
         <div className="flex items-center gap-2">
           <select
             className="border rounded-lg px-3 py-2"

@@ -70,6 +70,8 @@ export default function UserAdminPage() {
   const [error, setError] = useState<string | null>(null);
 
   const [editing, setEditing] = useState<UserRow | null>(null);
+  const [creating, setCreating] = useState(false);
+  const [notice, setNotice] = useState<string | null>(null);
   const [me, setMe] = useState<{ id: string; role: string } | null>(null);
 
   async function refresh() {
@@ -112,7 +114,17 @@ export default function UserAdminPage() {
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold">User Administration</h1>
+        <div className="flex flex-wrap items-center gap-3">
+          <h1 className="text-2xl font-bold">User Administration</h1>
+          <button type="button" className="btn btn-primary" data-testid="open-create-user" onClick={() => setCreating(true)}>
+            新建账号
+          </button>
+          {notice && (
+            <span data-testid="create-user-notice" className="text-sm text-green-700">
+              {notice}
+            </span>
+          )}
+        </div>
         <div className="text-sm text-gray-500">
           {list ? `${list.total} users` : '…'}
         </div>
@@ -226,6 +238,16 @@ export default function UserAdminPage() {
         </div>
       )}
 
+      {creating && (
+        <CreateUserModal
+          onClose={() => setCreating(false)}
+          onCreated={async (email, role) => {
+            setCreating(false);
+            setNotice(`已建好 ${email}（${ROLE_LABELS[role] ?? role}）。把登录邮箱和初始密码当面告诉对方。`);
+            await refresh();
+          }}
+        />
+      )}
       {editing && (
         <UserEditModal
           user={editing}
@@ -401,6 +423,98 @@ function UserEditModal({
         {error && <div className="bg-red-50 border border-red-200 text-red-700 text-sm rounded p-2">{error}</div>}
         {info && <div className="bg-green-50 border border-green-200 text-green-700 text-sm rounded p-2">{info}</div>}
       </div>
+    </div>
+  );
+}
+
+const ROLE_LABELS: Record<string, string> = { teacher: '老师', head_teacher: '班主任', admin: '管理员' };
+
+/**
+ * 新建教职工账号（2026-09-15）—— 给学校领导、新来的老师开后台账号。
+ *
+ * 学生在学生端自助注册，这里只建老师 / 班主任 / 管理员。密码只随这一次请求发给服务端，
+ * 提交后就从页面上清掉；建好后请当面告诉对方。服务端再核一遍所有规则（admin-rbac.service#createUser）。
+ */
+function CreateUserModal({
+  onClose,
+  onCreated,
+}: {
+  onClose: () => void;
+  onCreated: (email: string, role: string) => void | Promise<void>;
+}) {
+  const [email, setEmail] = useState('');
+  const [name, setName] = useState('');
+  const [role, setRole] = useState<'teacher' | 'head_teacher' | 'admin'>('teacher');
+  const [password, setPassword] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
+
+  async function submit(e: React.FormEvent) {
+    e.preventDefault();
+    const cleanEmail = email.trim().toLowerCase();
+    if (!cleanEmail || !name.trim()) {
+      setErr('邮箱和姓名都要填。');
+      return;
+    }
+    if (password.length < 8) {
+      setErr('初始密码至少 8 位。');
+      return;
+    }
+    setBusy(true);
+    setErr(null);
+    try {
+      await req('POST', '/admin-rbac/users', { email: cleanEmail, name: name.trim(), role, password });
+      setPassword('');
+      await onCreated(cleanEmail, role);
+    } catch (e2: any) {
+      const text = String(e2?.message ?? e2);
+      setErr(text.includes('email_taken') ? '这个邮箱已经有账号了，换一个或直接在列表里改那个账号的角色。' : `没建成：${text}`);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 p-4" role="dialog" aria-modal="true" aria-labelledby="create-user-title">
+      <form onSubmit={submit} className="w-full max-w-md space-y-3 rounded-lg bg-white p-5 shadow-xl" data-testid="create-user-form">
+        <h2 id="create-user-title" className="text-lg font-semibold">
+          新建教职工账号
+        </h2>
+        <p className="text-xs text-gray-500">学生自己在学生端注册，不从这里建。管理员能看、能改全校所有数据，只给确实需要的人。</p>
+        <label className="flex flex-col gap-1 text-sm">
+          登录邮箱
+          <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} className="rounded border px-2 py-1.5" autoComplete="off" />
+        </label>
+        <label className="flex flex-col gap-1 text-sm">
+          姓名
+          <input value={name} onChange={(e) => setName(e.target.value)} className="rounded border px-2 py-1.5" autoComplete="off" />
+        </label>
+        <label className="flex flex-col gap-1 text-sm">
+          角色
+          <select value={role} onChange={(e) => setRole(e.target.value as 'teacher' | 'head_teacher' | 'admin')} className="rounded border px-2 py-1.5">
+            <option value="teacher">老师 —— 只看自己任教的班</option>
+            <option value="head_teacher">班主任 —— 看全校的班，不能管账号</option>
+            <option value="admin">管理员 —— 全部权限，含账号管理</option>
+          </select>
+        </label>
+        <label className="flex flex-col gap-1 text-sm">
+          初始密码（至少 8 位）
+          <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} className="rounded border px-2 py-1.5" autoComplete="new-password" />
+        </label>
+        {err && (
+          <div role="alert" className="rounded border border-red-200 bg-red-50 p-2 text-sm text-red-700">
+            {err}
+          </div>
+        )}
+        <div className="flex justify-end gap-2 pt-1">
+          <button type="button" className="btn" onClick={onClose} disabled={busy}>
+            取消
+          </button>
+          <button type="submit" className="btn btn-primary" disabled={busy} data-testid="create-user-submit">
+            {busy ? '正在建…' : '建账号'}
+          </button>
+        </div>
+      </form>
     </div>
   );
 }

@@ -13,12 +13,13 @@ import { Request } from 'express';
 import { Roles } from '../common/auth.guard';
 import { CurrentUser } from '../common/current-user.decorator';
 import { AdminRbacService } from './admin-rbac.service';
-import { ResetPasswordSchema, UpdateUserSchema } from './dto';
+import { CreateUserSchema, ResetPasswordSchema, UpdateUserSchema } from './dto';
 
 /**
  * Admin-only RBAC management.
  *
  *   GET    /admin-rbac/users?q=&role=&page=&pageSize=
+ *   POST   /admin-rbac/users              { email, name, role, password }
  *   PATCH  /admin-rbac/users/:id          { role?, isActive? }
  *   POST   /admin-rbac/users/:id/reset-password  { newPassword }
  *
@@ -44,6 +45,18 @@ export class AdminRbacController {
       role,
       page: page != null ? Number(page) : undefined,
       pageSize: pageSize != null ? Number(pageSize) : undefined,
+    });
+  }
+
+  /** 新建教职工账号（2026-09-15）。管理员专用（类上的 @Roles('admin')）。 */
+  @Post('users')
+  async create(@Body() body: unknown, @CurrentUser() user: any, @Req() req: Request) {
+    const parsed = CreateUserSchema.safeParse(body);
+    if (!parsed.success) throw new BadRequestException(parsed.error.flatten());
+    return this.rbac.createUser(parsed.data, {
+      id: user.id,
+      role: user.role,
+      ip: req.ip ?? null,
     });
   }
 

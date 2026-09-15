@@ -27,6 +27,7 @@ import { StudentModule } from './student/student.module';
 // Path-B modules
 import { MarkerModule } from './marker/marker.module';
 import { AnalyticsModule } from './analytics/analytics.module';
+import { LearningReportModule } from './learning-report/learning-report.module';
 import { QualityFeedbackModule } from './quality-feedback/quality-feedback.module';
 import { PerfRoutingModule } from './perf-routing/perf-routing.module';
 import { AdminSyllabusModule } from './admin-syllabus/admin-syllabus.module';
@@ -89,6 +90,8 @@ import { AudioModule } from './audio/audio.module';
     // Path-B
     MarkerModule,
     AnalyticsModule,
+    // 学习周报（2026-09-15）：教师后台只读
+    LearningReportModule,
     QualityFeedbackModule,
     PerfRoutingModule,
     AdminSyllabusModule,

@@ -65,6 +65,7 @@ const TeacherViewBanner = lazy(() => import('./components/TeacherViewBanner'));
 adoptTeacherViewFromUrl();
 const ClassRegistrationPage = lazy(() => import('./pages/ClassRegistration'));
 const LessonBoardPage = lazy(() => import('./pages/LessonBoard'));
+const LearningReportPage = lazy(() => import('./pages/LearningReport'));
 const MyLessonPage = lazy(() => import('./pages/MyLesson'));
 const TaskSummaryPage = lazy(() => import('./pages/TaskSummary'));
 const MarkerQueuePage = lazy(() => import('./pages/MarkerQueue'));
@@ -350,9 +351,9 @@ export default function App() {
               {(user.role === 'admin' || user.role === 'head_teacher' || user.role === 'teacher') && (
                 <NavLink to="/classes" label="班级" />
               )}
-              {/* 完成度看板（4.0 阶段 A）：替代出勤视图 */}
+              {/* 学习周报（2026-09-15）替代导航里的「完成度」；今天的完成度看板从周报页进 */}
               {(user.role === 'admin' || user.role === 'head_teacher' || user.role === 'teacher') && (
-                <NavLink to="/lesson-board" label="完成度" />
+                <NavLink to="/learning-report" label="学习周报" />
               )}
               {/* 集体注册台（2026-08-25）：开窗让全班当场认领 PIN */}
               {(user.role === 'admin' || user.role === 'head_teacher' || user.role === 'teacher') && (
@@ -461,6 +462,8 @@ export default function App() {
           <Route path="/classes" element={<ClassesPage />} />
           <Route path="/class-registration" element={<ClassRegistrationPage />} />
           <Route path="/lesson-board" element={<LessonBoardPage />} />
+          {/* 学习周报（2026-09-15）：按周看谁做了谁没做 */}
+          <Route path="/learning-report" element={<LearningReportPage />} />
           <Route path="/homework" element={<HomeworkCoursesPage />} />
           <Route path="/homework/assignments/:assignmentId" element={<HomeworkDashboardPage />} />
           <Route path="/marker" element={<MarkerQueuePage />} />

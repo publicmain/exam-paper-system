@@ -19,3 +19,17 @@ export const ResetPasswordSchema = z.object({
   newPassword: z.string().min(8).max(200),
 });
 export type ResetPasswordDto = z.infer<typeof ResetPasswordSchema>;
+
+/**
+ * 新建教职工账号（2026-09-15）。学生在学生端自助注册，不从后台建 —— 所以角色里没有 student。
+ * 邮箱的去空白 / 转小写在服务里做（教职工登录按邮箱原样比对，存进去的就是登录要填的写法）。
+ */
+export const CreateUserSchema = z
+  .object({
+    email: z.string().min(3).max(200),
+    name: z.string().min(1).max(80),
+    role: z.enum(['teacher', 'head_teacher', 'admin']),
+    password: z.string().min(8).max(200),
+  })
+  .strict();
+export type CreateUserDto = z.infer<typeof CreateUserSchema>;

@@ -3,6 +3,7 @@ import {
   Injectable,
   Logger,
   NotFoundException,
+  ConflictException,
 } from '@nestjs/common';
 import * as bcrypt from 'bcryptjs';
 import { UserRole } from '@prisma/client';
@@ -272,6 +273,69 @@ export class AdminRbacService {
       lastLogin: updated.lastLogin,
       isActive: this.effectiveActive(updated),
     };
+  }
+
+  // --------------------------------------------------------------------
+  // POST /admin-rbac/users { email, name, role, password }
+  // --------------------------------------------------------------------
+  /**
+   * 新建教职工账号（2026-09-15）—— 给学校领导、新来的老师开后台账号。
+   *
+   *   · 只能建 teacher / head_teacher / admin；学生走自助注册，这里不建；
+   *   · 邮箱去首尾空白、存小写；已被占用（不分大小写）→ 409 `email_taken`；
+   *   · 密码至少 8 位，只存 bcrypt 摘要；响应和审计里都没有明文、没有摘要（不变量 2）；
+   *   · 建号和审计在同一个事务里（不变量 4）。
+   */
+  async createUser(
+    input: { email: string; name: string; role: string; password: string },
+    actor: { id: string; role: string; ip?: string | null },
+  ) {
+    const email = String(input.email ?? '').trim().toLowerCase();
+    const name = String(input.name ?? '').trim();
+    const role = input.role as UserRole;
+    const creatable: UserRole[] = [UserRole.teacher, UserRole.head_teacher, UserRole.admin];
+    if (!creatable.includes(role)) {
+      throw new BadRequestException({ code: 'role_not_allowed', message: 'only teacher / head_teacher / admin accounts can be created here' });
+    }
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) throw new BadRequestException({ code: 'bad_email' });
+    if (!name) throw new BadRequestException({ code: 'name_required' });
+    if (typeof input.password !== 'string' || input.password.length < 8) {
+      throw new BadRequestException('password must be at least 8 characters');
+    }
+    if (input.password.length > 200) throw new BadRequestException('password too long');
+
+    const taken = await this.prisma.user.findFirst({
+      where: { email: { equals: email, mode: 'insensitive' } },
+      select: { id: true },
+    });
+    if (taken) throw new ConflictException({ code: 'email_taken' });
+
+    const passwordHash = await bcrypt.hash(input.password, 10);
+    try {
+      return await this.prisma.$transaction(async (tx: any) => {
+        const row = await tx.user.create({
+          data: { email, name, role, passwordHash, isActive: true },
+          select: { id: true, email: true, name: true, role: true, createdAt: true, lastLogin: true, isActive: true },
+        });
+        await this.audit.log(
+          {
+            actorId: actor.id,
+            actorRole: actor.role,
+            action: 'admin.rbac.user.create',
+            entityType: 'user',
+            entityId: row.id,
+            metadata: { targetEmail: email, role },
+            ip: actor.ip ?? null,
+          },
+          tx,
+        );
+        return row;
+      });
+    } catch (e: any) {
+      // 两个人同时建同一个邮箱：唯一约束兜底
+      if (e?.code === 'P2002') throw new ConflictException({ code: 'email_taken' });
+      throw e;
+    }
   }
 
   // --------------------------------------------------------------------
