@@ -389,11 +389,22 @@ function ClassDetailModal({
     setBusy(true);
     setErr(null);
     try {
-      await api.updateUser(userId, { name: trimmed });
+      // 2026-09-15：与学生自己改走同一个服务端函数 —— 姓名昵称一起改、同班查重、留审计；任课老师可用
+      await api.renameStudent(userId, trimmed);
       onChanged();
       await reload();
     } catch (e: any) {
-      setErr(String(e?.message ?? e));
+      const code = e?.body?.code ?? e?.body?.message?.code ?? e?.data?.code;
+      setErr(
+        code === 'name_taken_in_class'
+          ? '这个班里已经有人叫这个名字了，换一个写法（比如加上英文名）。'
+          : code === 'not_your_class'
+            ? '只能改自己任教班里的学生。'
+            : code === 'rename_conflict'
+              ? '这个学生的名字刚被改过，已刷新，请再看一下。'
+              : String(e?.message ?? e),
+      );
+      if (code === 'rename_conflict') await reload();
     } finally {
       setBusy(false);
     }
@@ -657,7 +668,7 @@ function EnrollmentRow({
             disabled={busy}
             onClick={() => setEditing(true)}
             aria-label="rename"
-            title="改名 · Rename"
+            title="改名 · Rename（改好后学生要用新名字登录）"
           >
             ✎
           </button>

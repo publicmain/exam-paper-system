@@ -370,6 +370,8 @@ const NEW_WRITES: Route[] = [
   { method: 'POST', path: '/push/status', body: { endpoint: 'https://push.example.invalid/x' } },
   { method: 'POST', path: '/writing-check', body: { text: 'This is a sentence to check.' } },
   { method: 'POST', path: '/student-auth/change-pin', body: { oldPin: '271828', newPin: '314159' } },
+  // 2026-09-15 —— 自己改登录名：教师只读视角同样拒
+  { method: 'POST', path: '/student-auth/me/name', body: { newName: '新名字', pin: '271828' } },
 ];
 
 /** 已核实**零写库**的 GET —— 教师只读视角可以读（S08）。 */

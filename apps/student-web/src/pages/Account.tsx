@@ -1,6 +1,9 @@
 /**
  * 账号（IOS-09）—— 分组列表：我是谁、学习设置、提醒、密码、退出。
  *
+ * 2026-09-15：可以自己改登录名，但**先弹提示**（登录要用新名字、老师那边也跟着变、请不要随意改），
+ * 确认之后才填新名字，并且要输当前密码。
+ *
  * 规矩：
  *   · 加载中显示「正在读取」，**不是**「还没选」（审计 IOS-09）。
  *   · 换难度在面板里确认，写清生效范围：已经开始 / 交过的任务按当时的难度保留，
@@ -10,9 +13,9 @@
  */
 import { useEffect, useRef, useState } from 'react';
 import { api, ApiError } from '../lib/api';
-import { afterPasswordChanged, getState, handleAuthFailure, logoutAndRelease } from '../lib/auth-store';
+import { adoptSession, afterPasswordChanged, getState, handleAuthFailure, logoutAndRelease } from '../lib/auth-store';
 import { writeToken, readToken } from '../lib/identity';
-import { changePasswordErrorText, levelChangeErrorText } from '../lib/errors';
+import { changePasswordErrorText, levelChangeErrorText, renameErrorText } from '../lib/errors';
 import { levelLabel, type PilotLevelId } from '../lib/levels';
 import { Field, LevelPicker } from '../ui';
 import { PushSettings } from '../push/PushSettings';
@@ -44,6 +47,13 @@ export default function AccountPage() {
   const [newPw, setNewPw] = useState('');
   const [pwBusy, setPwBusy] = useState(false);
   const [pwErr, setPwErr] = useState<string | null>(null);
+
+  // ── 登录名：先弹提示（warn），确认后才填新名字和当前密码（form）──
+  const [nameStep, setNameStep] = useState<'warn' | 'form' | null>(null);
+  const [newName, setNewName] = useState('');
+  const [namePw, setNamePw] = useState('');
+  const [nameBusy, setNameBusy] = useState(false);
+  const [nameErr, setNameErr] = useState<string | null>(null);
 
   // ── 退出 ──
   const [outOpen, setOutOpen] = useState(false);
@@ -139,6 +149,46 @@ export default function AccountPage() {
     }
   }
 
+  async function renameSelf() {
+    if (nameBusy || !profile) return;
+    const token = readToken();
+    if (!token) return;
+    const next = newName.trim().replace(/\s+/g, ' ');
+    if (!next) {
+      setNameErr('新名字不能是空的。');
+      return;
+    }
+    if (next === profile.name) {
+      setNameErr('新名字和现在的一样。');
+      return;
+    }
+    if (!namePw) {
+      setNameErr('要输入当前密码才能改。');
+      return;
+    }
+    setNameBusy(true);
+    setNameErr(null);
+    try {
+      const r = await api.renameSelf(token, { newName: next, pin: namePw });
+      // 换上带新名字的票和新的个人信息；草稿属于同一个人，不清
+      adoptSession(r.token, r.student);
+      setNameStep(null);
+      setNewName('');
+      setNamePw('');
+      toast.show({ tone: 'success', message: `登录名已改成「${r.student.name}」。下次登录请用新名字，密码不变。` });
+    } catch (e) {
+      // 与改密码同一个顺序：这里的 invalid_credentials 是「当前密码打错了」，会话是好的
+      if (e instanceof ApiError && e.body.code === 'invalid_credentials') {
+        setNameErr(renameErrorText(e));
+        return;
+      }
+      if (handleAuthFailure(e)) return;
+      setNameErr(renameErrorText(e));
+    } finally {
+      setNameBusy(false);
+    }
+  }
+
   async function logout() {
     setOutBusy(true);
     await logoutAndRelease();
@@ -149,6 +199,19 @@ export default function AccountPage() {
       <Section title="我的信息">
         <Group>
           <Row icon="account" title={<span className="break-words">{who || '—'}</span>} subtitle="学生账号" testId="account-name" />
+          <RowButton
+            testId="open-rename"
+            icon="account"
+            title="登录名"
+            value={<span data-testid="login-name" className="break-words">{profile?.name ?? '—'}</span>}
+            disabled={!profile}
+            onClick={() => {
+              setNameErr(null);
+              setNewName('');
+              setNamePw('');
+              setNameStep('warn');
+            }}
+          />
         </Group>
       </Section>
 
@@ -278,6 +341,69 @@ export default function AccountPage() {
         >
           <Field label="当前密码" type="password" numericPin value={oldPw} onChange={setOldPw} autoComplete="current-password" />
           <Field label="新密码（6 位数字）" type="password" numericPin maxLength={6} value={newPw} onChange={setNewPw} autoComplete="new-password" />
+        </form>
+      </Dialog>
+
+      {/* 改登录名 · 第一步：提示（不要轻易改） */}
+      <Dialog
+        open={nameStep === 'warn'}
+        onClose={() => setNameStep(null)}
+        title="确定要改登录名吗？"
+        description="登录名是你登录时要输入的名字，老师的名单、成绩和作业上显示的也是它。只有名字写错了才需要改，请不要随意更改。"
+        size="sm"
+        testId="rename-warning"
+        footer={
+          <>
+            <Button variant="neutral" onClick={() => setNameStep(null)} data-testid="rename-cancel">
+              先不改
+            </Button>
+            <Button variant="destructive" onClick={() => setNameStep('form')} data-testid="rename-continue">
+              我确定要改
+            </Button>
+          </>
+        }
+      >
+        <ul className="mb-2 list-disc space-y-1 pl-5 text-footnote text-ink-2">
+          <li>
+            改好之后，<strong>下次登录要输入新名字</strong>，密码不变。记不住新名字就登录不上。
+          </li>
+          <li>老师那边看到的也会变成新名字。</li>
+          <li>同一个班里不能和别人重名。</li>
+          <li>每次修改都会留下记录。</li>
+        </ul>
+      </Dialog>
+
+      {/* 改登录名 · 第二步：新名字 + 当前密码 */}
+      <Dialog
+        open={nameStep === 'form'}
+        onClose={() => setNameStep(null)}
+        placement="sheet"
+        title="修改登录名"
+        description={`现在的登录名：${profile?.name ?? ''}`}
+        busy={nameBusy}
+        error={nameErr}
+        testId="rename-sheet"
+        footer={
+          <>
+            <Button variant="neutral" onClick={() => setNameStep(null)} disabled={nameBusy}>
+              取消
+            </Button>
+            <Button type="submit" form="rename-form" busy={nameBusy} data-testid="rename-submit">
+              {nameBusy ? '正在修改…' : '确认修改'}
+            </Button>
+          </>
+        }
+      >
+        <form
+          id="rename-form"
+          onSubmit={(e) => {
+            e.preventDefault();
+            void renameSelf();
+          }}
+        >
+          <Field label="新的登录名" value={newName} onChange={setNewName} maxLength={50} autoComplete="name" />
+          <Field label="当前密码" type="password" numericPin value={namePw} onChange={setNamePw} autoComplete="current-password" />
+          <p className="mb-2 text-footnote text-ink-2">请写自己的真实姓名。改好后下次登录要用新名字。</p>
         </form>
       </Dialog>
 

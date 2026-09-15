@@ -13,6 +13,7 @@ vi.mock('../../lib/api', () => {
       rosterClass: vi.fn(),
       unenrollClass: vi.fn(),
       updateClass: vi.fn(),
+      renameStudent: vi.fn(),
     },
   };
 });
@@ -107,5 +108,25 @@ describe('Classes page (R10-Bug1)', () => {
     await waitFor(() => {
       expect(api.updateClass).toHaveBeenCalledWith('cls1', { weeklyFocus: null });
     });
+  });
+});
+
+describe('班级名单改学生登录名（2026-09-15）', () => {
+  it('保存 → 走改名接口（姓名昵称一起改）；同班重名 → 就地说清楚', async () => {
+    (api.renameStudent as any)
+      .mockResolvedValueOnce({ id: 'u1', name: 'Alice Wang', nickname: 'Alice Wang', previousName: 'Alice' })
+      .mockRejectedValueOnce(Object.assign(new Error('Conflict'), { body: { code: 'name_taken_in_class' } }));
+    open();
+    await waitFor(() => screen.getByText('G11 IELTS Test'));
+    fireEvent.click(screen.getByText('G11 IELTS Test'));
+    fireEvent.click(await screen.findByLabelText('rename'));
+    fireEvent.change(screen.getByLabelText('edit student name'), { target: { value: 'Alice Wang' } });
+    fireEvent.click(screen.getByLabelText('save'));
+    await waitFor(() => expect(api.renameStudent).toHaveBeenCalledWith('u1', 'Alice Wang'));
+
+    fireEvent.click(await screen.findByLabelText('rename'));
+    fireEvent.change(screen.getByLabelText('edit student name'), { target: { value: 'Bob' } });
+    fireEvent.click(screen.getByLabelText('save'));
+    expect(await screen.findByText(/这个班里已经有人叫这个名字了/)).toBeTruthy();
   });
 });

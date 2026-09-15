@@ -147,6 +147,9 @@ export const api = {
   // R10 followup — rename a student in-place from the Classes UI.
   updateUser: (id: string, data: { name?: string; email?: string }) =>
     request('PATCH', `/admin/users/${id}`, data),
+  /** 2026-09-15：老师在班级名单里改学生登录名（姓名昵称一起改、同班查重、写审计）。任课老师可用。 */
+  renameStudent: (id: string, name: string) =>
+    request('PATCH', `/admin/users/${encodeURIComponent(id)}/student-name`, { name }),
 
   // student
   studentAssignments: () => request('GET', '/student/assignments'),

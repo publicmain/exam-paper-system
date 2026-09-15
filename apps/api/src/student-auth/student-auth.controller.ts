@@ -235,6 +235,22 @@ export class StudentAuthController {
     return this.svc.changePin(me.id, p.data.oldPin, p.data.newPin);
   }
 
+  /**
+   * 学生自己改登录名（2026-09-15）。身份只来自令牌；体里是新名字和当前密码。
+   *
+   * 字段叫 `newName` 不叫 `name`：`name` 在全局身份守卫里是「我声明自己是谁」，与令牌里的名字
+   * 不同会被当成冒名拦下。教师只读视角不能改（requireStudent 默认拒）。
+   */
+  @Public()
+  @RateLimit({ limit: 10, windowSec: 3600, scope: 'user' })
+  @Post('me/name')
+  async renameSelf(@Body() body: unknown, @Req() req: Request) {
+    const me = await this.requireStudent(req);
+    const p = z.object({ newName: z.string().min(1).max(50), pin: z.string().min(1).max(32) }).strict().safeParse(body);
+    if (!p.success) throw new BadRequestException({ code: 'bad_rename' });
+    return this.svc.renameSelf(me.id, p.data.newName, p.data.pin, req.ip ?? null);
+  }
+
   @Public()
   @RateLimit({ limit: 120, windowSec: 60, scope: 'user' })
   @Get('me')

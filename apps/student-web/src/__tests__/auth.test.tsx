@@ -374,6 +374,75 @@ describe('4 + 7. 改密码与退出', () => {
   });
 });
 
+describe('4b. 自己改登录名（2026-09-15）', () => {
+  async function loggedIn() {
+    localStorage.setItem('sw:token', 'TK');
+    fetchMock.mockImplementation((url: string) =>
+      route(url) === '/student-auth/me' ? jsonResponse(200, PROFILE) : jsonResponse(404, {}),
+    );
+    renderAt('/account');
+    await screen.findByRole('heading', { name: '账号' });
+  }
+
+  async function openForm() {
+    await userEvent.click(screen.getByTestId('open-rename'));
+    const warn = await screen.findByRole('dialog', { name: '确定要改登录名吗？' });
+    await userEvent.click(within(warn).getByRole('button', { name: '我确定要改' }));
+    return screen.findByRole('dialog', { name: '修改登录名' });
+  }
+
+  it('**先弹提示**：写清要用新名字登录、不要随意改；点「先不改」→ 一个改名请求都不发', async () => {
+    await loggedIn();
+    await userEvent.click(screen.getByTestId('open-rename'));
+    const warn = await screen.findByRole('dialog', { name: '确定要改登录名吗？' });
+    expect(warn.textContent).toContain('下次登录要输入新名字');
+    expect(warn.textContent).toContain('请不要随意更改');
+    await userEvent.click(within(warn).getByRole('button', { name: '先不改' }));
+    expect(screen.queryByRole('dialog', { name: '确定要改登录名吗？' })).toBeNull();
+    expect(screen.queryByRole('dialog', { name: '修改登录名' })).toBeNull();
+    expect(fetchMock.mock.calls.some(([u]) => route(String(u)) === '/student-auth/me/name')).toBe(false);
+  });
+
+  it('确认后填新名字和当前密码 → **请求体只有 newName 与 pin** → 换票、页面显示新名字', async () => {
+    await loggedIn();
+    fetchMock.mockImplementation((url: string) =>
+      route(url) === '/student-auth/me/name'
+        ? jsonResponse(200, { ok: true, token: 'TK-RENAMED', student: { id: 's1', name: '喻耀程', nickname: '喻耀程', avatar: null } })
+        : jsonResponse(200, PROFILE),
+    );
+    const sheet = await openForm();
+    await userEvent.type(within(sheet).getByLabelText('新的登录名'), '喻耀程');
+    await userEvent.type(within(sheet).getByLabelText('当前密码'), '280519');
+    await userEvent.click(within(sheet).getByRole('button', { name: '确认修改' }));
+
+    expect((await screen.findByTestId('toast')).textContent).toContain('登录名已改成「喻耀程」');
+    const call = fetchMock.mock.calls.find(([u]) => route(String(u)) === '/student-auth/me/name')!;
+    expect(JSON.parse(String((call[1] as RequestInit).body))).toEqual({ newName: '喻耀程', pin: '280519' });
+    expect(localStorage.getItem('sw:token')).toBe('TK-RENAMED');
+    expect(screen.getByTestId('login-name').textContent).toBe('喻耀程');
+    expect(screen.queryByRole('dialog', { name: '修改登录名' })).toBeNull();
+  });
+
+  it('当前密码错 / 同班重名 → 停在面板里说清楚，不清票', async () => {
+    await loggedIn();
+    let reply = { status: 401, body: { code: 'invalid_credentials' } as unknown };
+    fetchMock.mockImplementation((url: string) =>
+      route(url) === '/student-auth/me/name' ? jsonResponse(reply.status, reply.body) : jsonResponse(200, PROFILE),
+    );
+    const sheet = await openForm();
+    await userEvent.type(within(sheet).getByLabelText('新的登录名'), '喻耀程');
+    await userEvent.type(within(sheet).getByLabelText('当前密码'), '999999');
+    await userEvent.click(within(sheet).getByRole('button', { name: '确认修改' }));
+    expect((await within(sheet).findByRole('alert')).textContent).toContain('当前密码不对');
+
+    reply = { status: 409, body: { code: 'name_taken_in_class' } };
+    await userEvent.click(within(sheet).getByRole('button', { name: '确认修改' }));
+    await waitFor(() => expect(within(sheet).getByRole('alert').textContent).toContain('班里已经有人叫这个名字'));
+    expect(screen.getByRole('dialog', { name: '修改登录名' })).toBeInTheDocument();
+    expect(localStorage.getItem('sw:token')).toBe('TK');
+  });
+});
+
 describe('10. 未知 URL', () => {
   it('未登录闯私有页 → 登录页', async () => {
     noSession();

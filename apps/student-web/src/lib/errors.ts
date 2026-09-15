@@ -124,6 +124,32 @@ export function changePasswordErrorText(e: unknown): string {
   }
 }
 
+/** 自己改登录名失败时的说法（2026-09-15）。 */
+export function renameErrorText(e: unknown): string {
+  if (e instanceof NetworkError) return '连不上服务器 —— 检查一下网络，然后再试一次。';
+  if (!(e instanceof ApiError)) return '出了点问题，再试一次。';
+  switch (e.body.code) {
+    case 'invalid_credentials':
+      return '当前密码不对。';
+    case 'pin_locked':
+      return `连续输错太多次，已经锁住了 —— ${minutesFrom(e.body.retryAfterSec)} 分钟后再试。`;
+    case 'name_taken_in_class':
+      return '你的班里已经有人叫这个名字了，换一个写法（比如加上英文名）。';
+    case 'name_unchanged':
+      return '新名字和现在的一样。';
+    case 'name_required':
+      return '新名字不能是空的。';
+    case 'name_too_long':
+      return '名字太长了，最多 50 个字。';
+    case 'rename_conflict':
+      return '名字刚刚被改过，刷新一下再看。';
+    case 'teacher_view_is_read_only':
+      return '老师的查看视角不能改名。';
+    default:
+      return '出了点问题，再试一次。';
+  }
+}
+
 /**
  * 教师重置之后学生会看到的那句话。
  *

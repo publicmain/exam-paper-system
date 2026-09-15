@@ -752,6 +752,9 @@ export const api = {
 
   changePassword: (token: string, body: { oldPin: string; newPin: string }) =>
     request<{ ok: true; token?: string }>('POST', '/student-auth/change-pin', { body, token }),
+  /** 2026-09-15：自己改登录名。要当前密码；成功换一张带新名字的票（其它设备不登出）。字段是 newName，不是 name。 */
+  renameSelf: (token: string, body: { newName: string; pin: string }) =>
+    request<{ ok: true; token: string; student: StudentProfile }>('POST', '/student-auth/me/name', { body, token }),
 
   /**
    * S12O —— 自己改难度。**身份只靠 Bearer**，体里只有一个字段。

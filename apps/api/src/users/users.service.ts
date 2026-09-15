@@ -2,7 +2,8 @@ import { BadRequestException, ForbiddenException, Injectable, Logger, NotFoundEx
 import * as bcrypt from 'bcryptjs';
 import { PrismaService } from '../common/prisma.service';
 import { AuditService } from '../audit/audit.service';
-import { canActOnClass } from '../common/roles';
+import { canActOnClass, isAdminOrHead } from '../common/roles';
+import { renameStudentAccount } from '../student-auth/student-rename';
 import { UserRole } from '@prisma/client';
 import type { EnglishLevel } from '@prisma/client';
 import { LEVEL_REGISTRY } from '../morning-quiz/level-registry';
@@ -30,7 +31,17 @@ export class UsersService {
   }
 
   /** Update name and/or email. Used by the Classes UI for inline rename. */
-  async updateProfile(id: string, patch: { name?: string; email?: string }) {
+  async updateProfile(id: string, patch: { name?: string; email?: string }, actor?: { id: string; role: string }) {
+    // 2026-09-15：改到**学生**头上的名字不再只改 name —— 转去 renameStudent（昵称、注册邮箱、
+    // 同班查重、审计一起做）。否则学生登录要用新名字、自己页面上却还挂着旧昵称。
+    const wanted = typeof patch.name === 'string' ? patch.name.trim() : '';
+    if (wanted) {
+      const target = await this.prisma.user.findUnique({ where: { id }, select: { role: true, name: true } });
+      if (target?.role === 'student') {
+        if (target.name !== wanted) await this.renameStudent(actor ?? { id: '', role: 'admin' }, id, wanted);
+        patch = { ...patch, name: undefined };
+      }
+    }
     const data: { name?: string; email?: string } = {};
     if (typeof patch.name === 'string' && patch.name.trim()) data.name = patch.name.trim();
     if (typeof patch.email === 'string' && patch.email.trim()) data.email = patch.email.trim();
@@ -47,6 +58,33 @@ export class UsersService {
       data,
       select: { id: true, email: true, name: true, role: true },
     });
+  }
+
+  /**
+   * 2026-09-15 —— 老师改学生登录名。任课老师只能改自己在读班里的学生；管理员 / 班主任全校。
+   * 真正的改名交给 `renameStudentAccount`（与学生自己改同一个函数）。
+   */
+  async renameStudent(actor: { id: string; role: string }, studentId: string, newName: string) {
+    const student = await this.prisma.user.findUnique({ where: { id: studentId }, select: { id: true, role: true } });
+    if (!student || student.role !== 'student') throw new NotFoundException({ code: 'student_not_found' });
+    let allowed = isAdminOrHead(actor.role);
+    if (!allowed) {
+      const enrollments = await this.prisma.classEnrollment.findMany({
+        where: { userId: studentId, role: 'student', class: { archivedAt: null } },
+        select: { classId: true },
+      });
+      for (const e of enrollments) {
+        if (await canActOnClass(this.prisma, actor, e.classId)) {
+          allowed = true;
+          break;
+        }
+      }
+    }
+    if (!allowed) throw new ForbiddenException({ code: 'not_your_class' });
+    const row = await this.prisma.$transaction((tx) =>
+      renameStudentAccount(tx, { studentId, newName, actor: { id: actor.id || null, role: actor.role }, source: 'teacher_roster' }),
+    );
+    return { id: row.id, name: row.name, nickname: row.nickname, previousName: row.previousName };
   }
 
   /**

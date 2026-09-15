@@ -443,6 +443,8 @@ describe('G1 新端不得出现旧路由与旧身份键', () => {
     ...PRE_AUTH_ENDPOINTS,
     '/student-auth/me',
     '/student-auth/change-pin',
+    // 2026-09-15 —— 自己改登录名。**认证后**端点；体里是 newName 与当前密码，不带 name / studentId。
+    '/student-auth/me/name',
     // S12O —— 自己改难度。**认证后**端点，零身份参数，体里只有 englishLevel。
     '/student-auth/me/english-level',
     // 阶段 6A：今天的课。两条都是**认证后**端点 —— 零身份参数。

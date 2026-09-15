@@ -31,6 +31,8 @@ const KEPT = [
   'registration-status',
   'login',
   'change-pin',
+  // 2026-09-15 —— 学生自己改登录名
+  'me/name',
   'me',
   // S12O —— 学生自助注册与自助改难度
   'registration-classes',

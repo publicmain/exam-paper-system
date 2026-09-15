@@ -38,8 +38,23 @@ export class UsersController {
    *  the class detail modal. Admin-only since it can also re-target a
    *  user's email; we don't allow changing role here on purpose. */
   @Patch(':id')
-  update(@Param('id') id: string, @Body() dto: UpdateUserDto) {
-    return this.users.updateProfile(id, dto);
+  update(@Param('id') id: string, @Body() dto: UpdateUserDto, @CurrentUser() user: any) {
+    // 改到学生头上时，服务里转去 renameStudent（姓名昵称一起改、同班查重、写审计）
+    return this.users.updateProfile(id, dto, { id: user?.id, role: user?.role });
+  }
+
+  /**
+   * 2026-09-15 —— 老师在班级名单里改学生登录名。
+   *
+   * 任课老师改自己班的学生；管理员 / 班主任全校（班级归属在服务里判）。与学生在账号页自己改
+   * 走同一个函数：姓名 + 昵称一起改、按新名重算注册邮箱、同一个在读班里不许重名、写审计。
+   */
+  @Patch(':id/student-name')
+  @Roles('admin', 'head_teacher', 'teacher')
+  renameStudent(@Param('id') id: string, @Body() body: unknown, @CurrentUser() user: any) {
+    const parsed = z.object({ name: z.string().min(1).max(50) }).strict().safeParse(body);
+    if (!parsed.success) throw new BadRequestException({ code: 'bad_rename' });
+    return this.users.renameStudent({ id: user.id, role: user.role }, id, parsed.data.name);
   }
 
   /**

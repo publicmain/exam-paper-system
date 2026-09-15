@@ -24,6 +24,7 @@ import {
 } from './pin';
 import { studentAppRoutingFromEnv } from './student-app-routing';
 import { STAGING_FIXTURE_STUDENT_ID } from './staging-fixture-login';
+import { renameStudentAccount, selfRegisterEmail } from './student-rename';
 import {
   displayName,
   isPilotLevel,
@@ -609,8 +610,8 @@ export class StudentAuthService {
    * `.invalid` 是 RFC 2606 保留后缀，永远不会有人真的收到信。
    */
   private selfRegisterEmail(classId: string, nameKey: string): string {
-    const h = crypto.createHash('sha256').update(`${classId}|${nameKey}`).digest('hex');
-    return `selfreg-${h.slice(0, 32)}@pilot.invalid`;
+    // 公式挪到 student-rename.ts：改名时要按新名重算，两处必须同一个算法
+    return selfRegisterEmail(classId, nameKey);
   }
 
   /**
@@ -893,6 +894,44 @@ export class StudentAuthService {
       { expiresIn: StudentAuthService.TOKEN_TTL },
     );
     return { ok: true as const, token };
+  }
+
+  /**
+   * 学生自己改登录名（2026-09-15）。
+   *
+   * 登录名是登录凭据的一部分（登录按姓名一字不差匹配），所以：
+   *   · 要当前密码；输错计入与登录同一个失败计数 / 锁定 —— 不给这里留免费试错通道；
+   *   · 真正的改名走 `renameStudentAccount`（与老师在名单里改同一个函数：姓名 / 昵称 / 注册邮箱
+   *     一起改、同班查重、条件更新、写审计）；
+   *   · **不递增版本号**：改的是名字不是密码，其它设备不登出；这台设备换一张带新名字的票
+   *     （令牌里带 name，旧票在不声明姓名的请求上照常可用）。
+   */
+  async renameSelf(studentId: string, newName: string, pin: string, ip: string | null = null) {
+    const user = await this.prisma.user.findUnique({
+      where: { id: studentId },
+      select: { pinHash: true, pinFailedCount: true, pinLockedUntil: true },
+    });
+    if (!user?.pinHash) throw new BadRequestException({ code: 'pin_not_set' });
+    const now = new Date();
+    if (isLocked(user, now)) throw this.pinLocked(lockRemainingSec(user, now));
+    if (!(await bcrypt.compare(pin, user.pinHash))) {
+      if (await this.recordPinFailure(studentId, now)) throw this.pinLocked(LOCK_MINUTES * 60);
+      throw new UnauthorizedException({ code: 'invalid_credentials' });
+    }
+    const renamed = await this.prisma.$transaction(async (tx: any) => {
+      const row = await renameStudentAccount(tx, { studentId, newName, actor: { id: studentId, role: 'student' }, source: 'student_self', ip });
+      await tx.user.update({ where: { id: studentId }, data: { ...afterSuccess() } });
+      return row;
+    });
+    const token = await this.jwt.signAsync(
+      { id: renamed.id, email: renamed.email, role: 'student', name: renamed.name, av: renamed.studentAuthVersion },
+      { expiresIn: StudentAuthService.TOKEN_TTL },
+    );
+    return {
+      ok: true as const,
+      token,
+      student: { id: renamed.id, name: renamed.name, nickname: renamed.nickname ?? renamed.name, avatar: renamed.avatar },
+    };
   }
 
   /** 主页用：我是谁、PIN 设了没。 */
