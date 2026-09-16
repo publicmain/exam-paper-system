@@ -71,6 +71,10 @@ const SHOTS = [
   { id: 'test', path: '/coach/test?sessionId=fx_test_2026-09-14', scenario: 'midday' },
   { id: 'summary', path: '/lesson/summary', scenario: 'done' },
   { id: 'account', path: '/account', scenario: 'midday' },
+  // 手动明暗（2026-09-16）。跑 --dark 时每一张会在浅 / 深两种系统设置下各截一次：
+  // 「系统浅 + 选暗色」和「系统深 + 选亮色」这两格，就是手动选择压过系统的证据。
+  { id: 'account-theme-dark', path: '/account', scenario: 'midday', setup: async (page) => { await page.click('[data-testid=theme-dark]'); } },
+  { id: 'account-theme-light', path: '/account', scenario: 'midday', setup: async (page) => { await page.click('[data-testid=theme-light]'); } },
   { id: 'account-longname', path: '/account', scenario: 'midday', extra: '&student=' + encodeURIComponent('欧阳思琪·Nicole Tan Xin Yi') },
   { id: 'mistakes', path: '/mistakes', scenario: 'midday' },
 ];
@@ -97,6 +101,9 @@ try {
           try {
             if (auth) localStorage.setItem('sw:token', 'fx-token');
             else localStorage.removeItem('sw:token');
+            // 外观是持久化的，而这些页共用同一个浏览器 profile：不清掉的话，
+            // 「手动选暗色」那一张之后的每一张都会跟着变暗，整个矩阵作废。
+            localStorage.removeItem('sw:theme');
             // 首页提醒弹窗一天一次；截首页主体时先记成「今天已提醒」，弹窗另截
             const d = new Date();
             const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;

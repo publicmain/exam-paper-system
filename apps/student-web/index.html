@@ -11,6 +11,29 @@
     -->
     <link rel="manifest" href="/manifest.webmanifest" />
     <meta name="theme-color" content="#007aff" />
+    <!--
+      外观（2026-09-16）。学生在「账号 → 外观」选了固定的一档时，**必须在第一次绘制
+      之前**把 data-theme 打上，否则暗色用户每次开应用都先闪一下白。
+
+      所以这段是内联的、是 ES5 的、而且不等任何模块：
+        · 内联 —— 外部脚本要一次网络往返，那时候白屏已经画出来了。
+        · ES5（var / function，没有箭头函数）—— 学生的旧 iPad Safari 也要跑得动，
+          而且这段不经过打包器转译。
+      键名 `sw:theme` 与 src/lib/theme.ts 是同一个，contract 测试钉住了这一点。
+    -->
+    <script>
+      (function () {
+        try {
+          var t = localStorage.getItem('sw:theme');
+          if (t !== 'light' && t !== 'dark') return;
+          document.documentElement.setAttribute('data-theme', t);
+          var m = document.querySelector('meta[name="theme-color"]');
+          if (m && t === 'dark') m.setAttribute('content', '#0e0e11');
+        } catch (e) {
+          /* 隐私模式读不到就按跟随系统来 */
+        }
+      })();
+    </script>
     <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="default" />

@@ -20,6 +20,8 @@
  * 键名带命名空间（`sw:` = student-web），避免与将来同源上的任何东西撞名。
  */
 
+import { THEME_KEY } from './theme';
+
 /**
  * 本包拥有的**整个命名空间**。阶段 7B 起这里不止一个键 ——
  * 阅读页会写 `sw:reading:*`、字号会写 `sw:fontScale`，而且键名里带
@@ -39,6 +41,18 @@ const TOKEN_KEY = 'sw:token';
  * 「草稿是不是刚登录的这个人的」，不能拿来识别身份，也不参与任何请求。
  */
 const OWNER_KEY = 'sw:owner';
+
+/**
+ * 换人 / 退出时**不扫**的 `sw:` 键 —— 目前只有一个：这台设备的明暗偏好。
+ *
+ * 判断标准是「它属于设备还是属于人」：外观里没有姓名、没有 id、没有答案，
+ * 看见它也推不出上一个人是谁。学生自己调好的明暗，一退出登录就弹回去，
+ * 那是 bug，不是隐私保护。
+ *
+ * 往这个名单里加东西之前先问一句：下一个在这台设备上登录的人看见它，
+ * 会不会知道上一个人是谁、做了什么？会 —— 那就不能加。
+ */
+const KEPT_ON_CLEAR: readonly string[] = [THEME_KEY];
 
 function safeStorage(): Storage | null {
   try {
@@ -125,13 +139,14 @@ export function clearIdentity(): void {
   // 字号也一起走。留下任何一样，下一个在这台设备上登录的人都可能看见
   // 上一个人的答案。
   //
-  // **只扫 `sw:`**。同源上将来可能有别的东西，遍历清空整个 localStorage
+  // **只扫 `sw:`**，而且 `KEPT_ON_CLEAR` 里的那几个除外。同源上将来可能有别的
+  // 东西，遍历清空整个 localStorage
   // 是另一种事故；`mq:*` 是旧端的，更是碰都不碰。
   const doomed: string[] = [];
   try {
     for (let i = 0; i < s.length; i++) {
       const k = s.key(i);
-      if (k && k.startsWith(OWNED_STORAGE_PREFIX)) doomed.push(k);
+      if (k && k.startsWith(OWNED_STORAGE_PREFIX) && !KEPT_ON_CLEAR.includes(k)) doomed.push(k);
     }
   } catch {
     doomed.push(TOKEN_KEY);

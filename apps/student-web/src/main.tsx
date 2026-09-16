@@ -3,9 +3,14 @@ import ReactDOM from 'react-dom/client';
 import { BrowserRouter } from 'react-router-dom';
 import App from './App';
 import { ErrorBoundary, initSentry } from './lib/sentry';
+import { initTheme } from './lib/theme';
 import './index.css';
 
 initSentry();
+
+// 外观：index.html 的内联脚本已经在首屏之前打好了属性，这里再算一遍，
+// 顺带接管状态栏颜色和「跟随系统」时系统当场切换的情况（见 lib/theme.ts）。
+initTheme();
 
 // 独立源拓扑（D7）：新端独占一个源的根路径，**没有 basename**。
 //

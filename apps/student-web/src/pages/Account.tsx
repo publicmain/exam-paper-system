@@ -10,6 +10,7 @@
  *     新难度从下一次还没开始的任务起生效。不承诺代码没做到的东西。
  *   · 改密码失败：不清草稿、不登出有效会话；错误显示在面板里。
  *   · 退出要确认，并说清会清掉什么（这台设备上没交的草稿、这台设备上的提醒）。
+ *   · 外观是**这台设备**的事，改了立刻生效、不用保存，也不上传服务端。
  */
 import { useEffect, useRef, useState } from 'react';
 import { api, ApiError } from '../lib/api';
@@ -17,12 +18,14 @@ import { adoptSession, afterPasswordChanged, getState, handleAuthFailure, logout
 import { writeToken, readToken } from '../lib/identity';
 import { changePasswordErrorText, levelChangeErrorText, renameErrorText } from '../lib/errors';
 import { levelLabel, type PilotLevelId } from '../lib/levels';
+import { readThemePref, setThemePref, THEME_OPTIONS, type ThemePref } from '../lib/theme';
 import { Field, LevelPicker } from '../ui';
 import { PushSettings } from '../push/PushSettings';
 import { Button } from '../design/Button';
 import { Dialog } from '../design/Dialog';
 import { Group, Row, RowButton, Section } from '../design/List';
 import { Page } from '../design/Page';
+import { Segmented } from '../design/Segmented';
 import { Spinner } from '../design/Status';
 import { useToast } from '../design/Toast';
 
@@ -54,6 +57,9 @@ export default function AccountPage() {
   const [namePw, setNamePw] = useState('');
   const [nameBusy, setNameBusy] = useState(false);
   const [nameErr, setNameErr] = useState<string | null>(null);
+
+  // ── 外观：跟随系统 / 亮色 / 暗色。改了立刻生效，没有「保存」这一步 ──
+  const [theme, setTheme] = useState<ThemePref>(() => readThemePref());
 
   // ── 退出 ──
   const [outOpen, setOutOpen] = useState(false);
@@ -189,6 +195,15 @@ export default function AccountPage() {
     }
   }
 
+  /**
+   * 换外观。**先落到 DOM，再记状态** —— setThemePref 里两件事都做了；
+   * 这里的 state 只是让分段控件的高亮跟上，不是真相来源（真相在 <html> 的属性上）。
+   */
+  function pickTheme(next: ThemePref) {
+    setThemePref(next);
+    setTheme(next);
+  }
+
   async function logout() {
     setOutBusy(true);
     await logoutAndRelease();
@@ -248,6 +263,19 @@ export default function AccountPage() {
             重新读取难度
           </button>
         ) : null}
+      </Section>
+
+      <Section
+        title="外观"
+        testId="theme-box"
+        footer="「跟随系统」就跟着手机 / iPad 的深色模式走；选「亮色」或「暗色」就固定成那一档。只影响这台设备，换台设备要再选一次。"
+      >
+        <Segmented<ThemePref>
+          label="明暗外观"
+          value={theme}
+          onChange={pickTheme}
+          options={THEME_OPTIONS.map((o) => ({ ...o, testId: `theme-${o.value}` }))}
+        />
       </Section>
 
       <PushSettings />

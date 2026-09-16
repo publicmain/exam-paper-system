@@ -117,6 +117,22 @@ describe('AC-03 生命周期清理', () => {
     expect(readToken()).toBeNull();
   });
 
+  /**
+   * 2026-09-16 加明暗切换时开的**唯一**一个口子。
+   *
+   * 判断标准是「属于设备还是属于人」：外观里没有姓名 / id / 答案，下一个在这台设备上
+   * 登录的人看见它也推不出上一个人是谁；而学生自己调好的明暗一退出登录就弹回去是个 bug。
+   * 名单在 identity.ts 的 KEPT_ON_CLEAR，行为细节见 theme.test.tsx。
+   */
+  it('**只留外观偏好一个**：其余 sw: 键照扫不误', () => {
+    writeToken('TK');
+    seedReadingData();
+    localStorage.setItem('sw:theme', 'dark');
+    clearIdentity();
+    expect(Object.keys(localStorage).filter((k) => k.startsWith('sw:'))).toEqual(['sw:theme']);
+    expect(readToken()).toBeNull();
+  });
+
   it('**只清 sw:，别人的键一个不动**', () => {
     writeToken('TK');
     seedReadingData();

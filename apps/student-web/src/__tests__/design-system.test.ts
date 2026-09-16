@@ -167,3 +167,64 @@ describe('token 对比度（WCAG 2.2，浅深两套）', () => {
     for (const n of used) expect(light[n], `tailwind 引用了未定义的 --c-${n}`).toBeDefined();
   });
 });
+
+// ─────────────────────────────────────────────────────────────
+// 深色的两个入口（2026-09-16 学生端明暗切换）
+//
+// 学生能手动选亮 / 暗之后，深色就有了两个入口：系统的媒体查询，和 <html> 上的
+// `data-theme="dark"`。CSS 没法让两个选择器共用一段声明（`light-dark()` 要
+// Safari 17.5+，学生的旧 iPad 到不了），所以值写了两遍 —— 这一节保证它们不漂。
+// ─────────────────────────────────────────────────────────────
+
+/** 取出 `marker` 后面那对大括号里的全部内容（按花括号配对切）。 */
+function blockAfter(css: string, marker: string): string {
+  const at = css.indexOf(marker);
+  expect(at, `tokens.css 里找不到 ${marker}`).toBeGreaterThan(-1);
+  const open = css.indexOf('{', at);
+  let depth = 0;
+  for (let i = open; i < css.length; i += 1) {
+    if (css[i] === '{') depth += 1;
+    else if (css[i] === '}') {
+      depth -= 1;
+      if (depth === 0) return css.slice(open + 1, i);
+    }
+  }
+  throw new Error(`${marker} 的大括号没闭合`);
+}
+
+/** 一段声明 → { 变量名: 值 }（空白归一，方便逐字比对）。 */
+function decls(block: string): Record<string, string> {
+  const out: Record<string, string> = {};
+  for (const part of block.split(';')) {
+    const i = part.indexOf('--');
+    if (i < 0) continue;
+    const colon = part.indexOf(':', i);
+    if (colon < 0) continue;
+    out[part.slice(i, colon).trim()] = part.slice(colon + 1).trim().replace(/\s+/g, ' ');
+  }
+  return out;
+}
+
+describe('深色的两个入口（手动切换）', () => {
+  const css = fs.readFileSync(path.join(SRC, 'design', 'tokens.css'), 'utf8').replace(/\/\*[\s\S]*?\*\//g, '');
+
+  it("**媒体查询给手动选择让路**：写成 `:root:not([data-theme='light'])`", () => {
+    const media = blockAfter(css, '@media (prefers-color-scheme: dark)');
+    expect(media).toContain(":root:not([data-theme='light'])");
+    // 裸 `:root {` 会让「系统深色 + 学生选亮色」变成深色 —— 那开关就是假的
+    expect(media).not.toMatch(/:root\s*\{/);
+  });
+
+  it('**手动暗色与系统暗色逐字一致** —— 改一处必须改另一处', () => {
+    const fromMedia = decls(blockAfter(css, ":root:not([data-theme='light'])"));
+    const fromAttr = decls(blockAfter(css, ":root[data-theme='dark']"));
+    expect(Object.keys(fromAttr).sort()).toEqual(Object.keys(fromMedia).sort());
+    expect(fromAttr).toEqual(fromMedia);
+    expect(Object.keys(fromMedia).length).toBeGreaterThan(20);
+  });
+
+  it('两个手动档各自声明 color-scheme —— 否则表单控件和滚动条还按系统那套画', () => {
+    expect(blockAfter(css, ":root[data-theme='light']")).toContain('color-scheme: light');
+    expect(blockAfter(css, ":root[data-theme='dark']")).toContain('color-scheme: dark');
+  });
+});

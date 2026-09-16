@@ -75,8 +75,18 @@
   }
 }
 
+/*
+ * 深色有两个入口，值只有一套：
+ *   · 系统是深色，而且学生没有手动选亮色 —— 下面这条媒体查询。
+ *   · 学生自己选了「暗色」 —— 再下面的 `:root[data-theme='dark']`。
+ *
+ * 两段声明**必须逐字一致**（design-system 测试会比对）。改一处就要改另一处 ——
+ * CSS 没法让两个选择器共用一段声明，`light-dark()` 又要 Safari 17.5+，
+ * 学生的旧 iPad 到不了，所以这里选了「写两遍 + 测试钉住」。
+ */
 @media (prefers-color-scheme: dark) {
-  :root {
+  /* 手动选了亮色的人不在这里 —— 手动选择必须压过系统，否则开关是假的 */
+  :root:not([data-theme='light']) {
     --c-canvas: 14 14 17; /* #0e0e11 */
     --c-surface: 28 28 30; /* #1c1c1e */
     --c-surface-2: 35 35 38; /* #232326 */
@@ -111,4 +121,50 @@
     --shadow-raised: 0 0 0 1px rgb(255 255 255 / 0.06);
     --shadow-overlay: 0 12px 40px rgb(0 0 0 / 0.6), 0 0 0 1px rgb(255 255 255 / 0.08);
   }
+}
+
+/*
+ * 学生在「账号 → 外观」里选了固定的一档。属性打在 <html> 上，
+ * index.html 的内联脚本在首屏绘制之前就打好，所以不会先闪一下白再变黑。
+ */
+:root[data-theme='light'] {
+  color-scheme: light;
+}
+
+:root[data-theme='dark'] {
+  color-scheme: dark;
+
+  --c-canvas: 14 14 17; /* #0e0e11 */
+  --c-surface: 28 28 30; /* #1c1c1e */
+  --c-surface-2: 35 35 38; /* #232326 */
+  --c-fill: 44 44 46; /* #2c2c2e */
+  --c-fill-strong: 58 58 60; /* #3a3a3c */
+  --c-line: 56 56 58; /* #38383a */
+  --c-control-line: 124 124 130; /* #7c7c82 内容面 4.10:1、页底 4.65:1、填充底 3.36:1 */
+  --c-inverse: 242 242 247;
+  --c-on-inverse: 28 28 30;
+
+  --c-ink: 245 245 247; /* #f5f5f7 内容面 15.6:1 */
+  --c-ink-2: 209 209 214; /* #d1d1d6 内容面 11.2:1 */
+  --c-ink-3: 161 161 168; /* #a1a1a8 填充底 5.43:1 */
+  --c-ink-4: 99 99 102;
+
+  --c-accent: 94 174 255; /* #5eaeff 文字/图标，内容面 7.27:1、选中底 6.22:1 */
+  --c-accent-fill: 17 103 204; /* #1167cc 主按钮底，白字 5.47:1，页底 3.52:1 */
+  --c-accent-hover: 30 116 218;
+  --c-accent-pressed: 12 88 176;
+  --c-accent-soft: 15 42 71; /* #0f2a47 */
+  --c-on-accent: 255 255 255;
+  --c-success: 76 195 107; /* #4cc36b 深绿底 6.54:1 */
+  --c-success-soft: 15 46 26;
+  --c-warning: 255 179 64; /* #ffb340 深橙底 8.35:1 */
+  --c-warning-soft: 51 37 10;
+  --c-danger: 255 112 102; /* #ff7066 深红底 5.99:1 */
+  --c-danger-soft: 58 21 18;
+  --c-danger-fill: 201 54 43; /* #c9362b 白字 5.19:1，内容面 3.28:1 */
+  --c-success-fill: 30 122 56; /* #1e7a38 白字 5.39:1，内容面 3.16:1 */
+  --c-focus: 94 174 255;
+  --c-highlight: 110 92 18; /* 深色下的划线底，--c-ink 其上 6.02:1 */
+  --shadow-raised: 0 0 0 1px rgb(255 255 255 / 0.06);
+  --shadow-overlay: 0 12px 40px rgb(0 0 0 / 0.6), 0 0 0 1px rgb(255 255 255 / 0.08);
 }
