@@ -33,6 +33,7 @@
  * 的阅读段）。后端的 `nextAction.href` 永远不读；跳转路径只从 `routes.contract.ts` 取。
  */
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { syncAchievementNotices } from '../lib/achievement-notices';
 import { Link, useNavigate } from 'react-router-dom';
 import { PushNudge } from '../push/PushNudge';
 import {
@@ -423,6 +424,7 @@ export default function TodayPage() {
       const data = await api.vocabV2Overview(token);
       if (mine !== gen.current.ov) return;
       setOv({ s: 'ready', data });
+      void syncAchievementNotices();
       const pending = data.pendingTests ?? [];
       if (pending.length > 0 && !remindedToday()) {
         // 最早那一份 —— 欠得最久的先提醒
@@ -650,6 +652,10 @@ export default function TodayPage() {
           ),
         )}
       </ul>
+
+      <Link to={ROUTES.growthBadges} data-testid="home-my-badges" className="mb-6 flex min-h-[64px] items-center justify-between gap-3 rounded-group bg-surface px-4 py-3 no-underline focus-visible:outline focus-visible:outline-accent">
+        <span><span className="block text-headline text-ink">我的徽章</span><span className="mt-1 block text-footnote text-ink-3">收藏每一段努力，也看看班级的珍藏</span></span><span aria-hidden="true" className="text-title3 text-ink-3">›</span>
+      </Link>
 
       {/* 提醒开关的邀请放在任务之后：不占首屏主体（IOS-04） */}
       <PushNudge />

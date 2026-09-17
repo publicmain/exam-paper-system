@@ -104,6 +104,8 @@ const contrast = (a: [number, number, number], b: [number, number, number]) => {
 
 /** [前景, 背景, 门槛]。文字 4.5，控件边界 / 必要非文字 3。 */
 const PAIRS: Array<[string, string, number]> = [
+  ['award-ink', 'award-surface', 4.5],
+  ['award-muted', 'award-surface', 4.5],
   ['ink', 'canvas', 4.5],
   ['ink', 'surface', 4.5],
   ['ink-2', 'surface', 4.5],

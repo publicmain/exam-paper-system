@@ -38,6 +38,9 @@ import { StudentAuthController } from '../student-auth/student-auth.controller';
 import { StudentAuthService } from '../student-auth/student-auth.service';
 import { AdminRbacController } from '../admin-rbac/admin-rbac.controller';
 import { AdminRbacService } from '../admin-rbac/admin-rbac.service';
+import { ProductController } from '../product/product.controller';
+import { AchievementsController } from '../achievements/achievements.controller';
+import { AchievementsService } from '../achievements/achievements.service';
 
 /**
  * **真实守卫链**上的身份生命周期测试（2026-09-11 审计 S03 / S06 / S08）。
@@ -85,6 +88,8 @@ function wireAll() {
   wire(WritingCheckController, [WritingCheckService]);
   wire(StudentAuthController, [StudentAuthService, JwtService, PrismaService]);
   wire(AdminRbacController, [AdminRbacService]);
+  wire(ProductController, []);
+  wire(AchievementsController, [AchievementsService]);
 }
 
 // ─────────────────────────────── 内存假库 ───────────────────────────────
@@ -219,7 +224,7 @@ export async function startApp(opts: { users?: UserRow[]; fixtures?: Fixtures } 
     imports: [JwtModule.register({ secret: SECRET })],
     controllers: [
       StudentController, MorningQuizController, VocabularyV2Controller, LessonController,
-      VocabController, PushController, WritingCheckController, StudentAuthController,
+      VocabController, PushController, ProductController, AchievementsController, WritingCheckController, StudentAuthController,
       AdminRbacController,
     ],
     providers: [
@@ -249,6 +254,7 @@ export async function startApp(opts: { users?: UserRow[]; fixtures?: Fixtures } 
       { provide: WritingCheckService, useValue: rec('writing') },
       { provide: StudentAuthService, useValue: rec('studentAuth') },
       { provide: AdminRbacService, useValue: rec('rbac') },
+      { provide: AchievementsService, useValue: rec('achievements') },
     ],
   }).compile();
   const app = moduleRef.createNestApplication({ logger: false });
@@ -795,13 +801,14 @@ describe('S03 —— 穷举：真实守卫链上，教师只读视角打任何�
   ]);
   const CONTROLLERS_UNDER_TEST = [
     StudentController, MorningQuizController, VocabularyV2Controller, LessonController,
-    VocabController, PushController, WritingCheckController, StudentAuthController, AdminRbacController,
+    VocabController, PushController, ProductController, AchievementsController, WritingCheckController, StudentAuthController, AdminRbacController,
   ];
 
   function allNonGetRoutes(): Route[] {
     const out: Route[] = [];
     for (const C of CONTROLLERS_UNDER_TEST as any[]) {
-      const base = (Reflect.getMetadata(PATH_METADATA, C) as string) ?? '';
+      const rawBase = Reflect.getMetadata(PATH_METADATA, C) as string | string[] | undefined;
+      const bases = Array.isArray(rawBase) ? rawBase : [rawBase ?? ''];
       for (const name of Object.getOwnPropertyNames(C.prototype)) {
         const fn = C.prototype[name];
         if (typeof fn !== 'function' || name === 'constructor') continue;
@@ -809,11 +816,12 @@ describe('S03 —— 穷举：真实守卫链上，教师只读视角打任何�
         if (p === undefined) continue;
         const method = RequestMethod[Reflect.getMetadata(METHOD_METADATA, fn) as number];
         if (method === 'GET') continue;
-        const path = `/${base}/${p}`.replace(/\/+/g, '/').replace(/\/$/, '');
-        const key = `${method} ${path}`;
-        if (TOKENLESS_PUBLIC.has(key)) continue;
-        // 路径参数一律填 s1（handoff 会话、答卷号之类都用得上这个值）
-        out.push({ method, path: path.replace(/:[A-Za-z]+/g, 's1'), label: key });
+        for (const base of bases) for (const suffix of (Array.isArray(p) ? p : [p])) {
+          const path = `/${base}/${suffix}`.replace(/\/+/g, '/').replace(/\/$/, '');
+          const key = `${method} ${path}`;
+          if (TOKENLESS_PUBLIC.has(key)) continue;
+          out.push({ method, path: path.replace(/:[A-Za-z]+/g, 's1'), label: key });
+        }
       }
     }
     return out;

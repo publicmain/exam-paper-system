@@ -39,7 +39,7 @@ export const TABS: readonly Tab[] = [
     label: '学习记录',
     icon: 'records',
     root: ROUTES.scores,
-    prefixes: [ROUTES.scores, ROUTES.mistakes],
+    prefixes: [ROUTES.scores, ROUTES.mistakes, ROUTES.growthBadges],
     testId: 'tab-records',
   },
   { key: 'account', label: '账号', icon: 'account', root: ROUTES.account, prefixes: [ROUTES.account], testId: 'tab-account' },

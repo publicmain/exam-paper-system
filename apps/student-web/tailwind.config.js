@@ -21,6 +21,7 @@ export default {
         control: v('control-line'),
         ink: { DEFAULT: v('ink'), 2: v('ink-2'), 3: v('ink-3'), 4: v('ink-4') },
         inverse: { DEFAULT: v('inverse'), on: v('on-inverse') },
+        award: { surface: v('award-surface'), ink: v('award-ink'), muted: v('award-muted') },
         accent: {
           DEFAULT: v('accent'),
           fill: v('accent-fill'),

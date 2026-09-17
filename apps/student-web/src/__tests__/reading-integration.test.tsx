@@ -274,7 +274,10 @@ describe('AC-02/03/04/10 全链：启动 → today → 开课 → 阅读页 → 
     await openReading();
 
     expect(at()).toBe('/lesson/reading');
-    const trace = reqs.map((r) => `${r.method} ${r.path}`);
+    // Optional collection sync is separate from the unchanged reading pipeline.
+    expect(paths('/achievements/sync').length).toBeGreaterThanOrEqual(1);
+    expect(paths('/achievements/sync').every((r) => r.method === 'POST')).toBe(true);
+    const trace = reqs.filter((r) => !r.path.startsWith('/achievements')).map((r) => `${r.method} ${r.path}`);
     expect(trace.slice(0, 6)).toEqual([
       'GET /student-auth/me',
       'GET /lesson/today',

@@ -30,6 +30,7 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import { api, ApiError, type V2Card, type V2DailyReview, type V2LearningSession } from '../lib/api';
 import { handleAuthFailure } from '../lib/auth-store';
 import { readToken } from '../lib/identity';
+import { syncAchievementNotices } from '../lib/achievement-notices';
 import { ROUTES } from '../routes.contract';
 import { cleanDefinition, cleanTranslation, formatPhonetic, posPrefixFor } from '../lib/word-display';
 import { playWord } from '../lib/speak';
@@ -192,6 +193,8 @@ export default function VocabularyCoachLearnPage() {
     setNote(null);
     try {
       const next = await api.vocabV2LearnAction(token, { sessionId: session.id, itemId: item.id, action, responseMs: Date.now() - startedAt.current });
+      // V5 counts completed daily batches, not individual cards.
+      if (next.status === 'completed') void syncAchievementNotices();
       const word = item.card.headword;
       const counts = progressText(next);
       const text = action === 'normal' ? `学完了 ${word}。${counts}` : `${word} 延后了，不算学完，之后的新词里还会出现。${counts}`;
@@ -477,7 +480,7 @@ function Recite({ data, fresh, note, backToToday, title }: { data: ReciteData; f
           </InlineStatus>
         </div>
       ) : null}
-      <section className="mb-4">
+      <section className="mb-4" data-achievement-safe={ROUTES.coachLearn}>
         <h1 className="text-title2 text-ink">{submitted ? '回看这一天学的词' : '先自己默一遍，再去测试'}</h1>
         <p className="mt-1 text-callout text-ink-2">
           {submitted ? '这一天的测试已经交了。这里只是回看，不算新的学习量。' : '中文先盖住了。看着英文想一下意思，想好了再点开对答案。'}

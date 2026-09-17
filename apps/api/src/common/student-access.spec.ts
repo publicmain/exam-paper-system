@@ -19,6 +19,8 @@ import { MorningQuizController } from '../morning-quiz/morning-quiz.controller';
 import { PushController } from '../push/push.controller';
 import { WritingCheckController } from '../writing-check/writing-check.controller';
 import { StudentController } from '../student/student.controller';
+import { ProductController } from '../product/product.controller';
+import { AchievementsController } from '../achievements/achievements.controller';
 import { StudentWordService } from '../vocab/student-word.service';
 import { VocabReviewService } from '../vocab/vocab-review.service';
 import { VocabQuizService } from '../vocab/vocab-quiz.service';
@@ -143,7 +145,7 @@ describe('S08 · StudentIdentityGuard 按「读 / 写」分开判', () => {
 
 const CONTROLLERS = [
   VocabularyV2Controller, LessonController, VocabController, MorningQuizController,
-  PushController, WritingCheckController, StudentController,
+  PushController, WritingCheckController, StudentController, ProductController, AchievementsController,
 ];
 
 /**
@@ -165,7 +167,8 @@ function teacherViewReachable(r: { method: string; mode: unknown; allowTv: unkno
 function routes() {
   const out: { key: string; method: string; mode: unknown; allowTv: unknown; isPublic: boolean; sig: boolean }[] = [];
   for (const C of CONTROLLERS) {
-    const base = Reflect.getMetadata(PATH_METADATA, C) as string;
+    const rawBase = Reflect.getMetadata(PATH_METADATA, C) as string | string[];
+    const bases = Array.isArray(rawBase) ? rawBase : [rawBase];
     const sig = ((Reflect.getMetadata(GUARDS_METADATA, C) ?? []) as unknown[]).includes(StudentIdentityGuard);
     for (const name of Object.getOwnPropertyNames(C.prototype)) {
       const h = (C.prototype as any)[name];
@@ -173,7 +176,7 @@ function routes() {
       const path = Reflect.getMetadata(PATH_METADATA, h);
       if (path === undefined) continue;
       const method = RequestMethod[Reflect.getMetadata(METHOD_METADATA, h) as number];
-      out.push({
+      for (const base of bases) out.push({
         key: `${method} /${base ? base + '/' : ''}${path}`.replace(/\/+/g, '/').replace(/\/$/, ''),
         method,
         mode: Reflect.getMetadata(REQUIRE_STUDENT_TOKEN, h),
@@ -188,6 +191,13 @@ function routes() {
 
 /** 已核实零写库、教师只读视角能到达的 GET —— 精确清单，多一条少一条都红。 */
 const TEACHER_VIEW_READABLE = [
+  'GET /product/modules',
+  'GET /achievements',
+  'GET /achievements/notices',
+  'GET /achievements/class-goals',
+  'GET /student/achievements',
+  'GET /student/achievements/notices',
+  'GET /student/achievements/class-goals',
   'GET /vocab-v2/source-meta',
   // profile / overview：服务层拆成纯读之后放开（词汇组 620a59b；证据见本文件「服务层证据」）
   'GET /vocab-v2/profile',

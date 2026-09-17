@@ -24,6 +24,49 @@ import type { PilotLevelId } from './levels';
 export const BASE: string = (import.meta as unknown as { env?: Record<string, string> }).env
   ?.VITE_API_URL ?? '';
 
+export interface AchievementBadge {
+  key: string;
+  themeId?: 'first-chapter' | 'reading-explorer' | 'word-collector' | 'quiz-milestone' | 'steady-effort' | 'school-edition';
+  tier?: 1 | 2 | 3 | 4 | null;
+  assetId?: string | null;
+  series?: 'reading' | 'vocabulary' | 'mastery' | 'hidden' | 'legendary';
+  hidden?: boolean;
+  clue?: string | null;
+  isNew?: boolean;
+  /** Actual server grant time; never presented as a fabricated historic award date. */
+  createdAt?: string | null;
+  grantedAt?: string | null;
+  difficulty?: '简单' | '适中' | '难' | '非常难';
+  title: string | null;
+  description: string | null;
+  threshold: number | null;
+  unit: string | null;
+  current: number | null;
+  earned: boolean;
+  earnedOn: string | null;
+  /** 已经落库（之后不会因数据变化收回） */
+  saved: boolean;
+  /** 老师以数据有误撤销 */
+  revoked: { at: string; reason: string | null } | null;
+  /** 前序或依赖记录被撤销；已有落库的本阶仍保留，未发的新阶先等待核对。 */
+  blockedBy?: string[];
+  evidence: { submissionIds: string[]; dates: string[] } | null;
+}
+
+export interface AchievementNoticeKeys { ceremonyKeys: string[]; backfillKeys: string[]; newKeys: string[] }
+export interface ClassmateMedal { key: string; assetId: string; title: string; series: string; tier: number | null }
+export interface AchievementClassmates {
+  classes: Array<{ id: string; name: string; students: Array<{ id: string; name: string; badges: ClassmateMedal[] }> }>;
+}
+
+export interface AchievementsList {
+  rulesVersion: number;
+  badges: AchievementBadge[];
+  unsaved: string[];
+  /** 旧规则已发徽章，只保留历史，不混入新四阶收藏。 */
+  legacyBadges?: AchievementBadge[];
+}
+
 export interface ApiErrorBody {
   code?: string;
   message?: string;
@@ -594,6 +637,12 @@ export type LessonToday = {
 // ─────────────────────────────────────────────────────────────
 
 export const api = {
+  achievements: (token: string) => request<AchievementsList>('GET', '/achievements', { token }),
+  achievementsSync: (token: string) => request<{ newlyEarned: string[] }>('POST', '/achievements/sync', { token }),
+  achievementNotices: (token: string) => request<AchievementNoticeKeys>('GET', '/achievements/notices', { token }),
+  achievementNoticesClaim: (token: string, keys: string[]) => request<{ claimedKeys: string[] }>('POST', '/achievements/notices/claim', { token, body: { keys } }),
+  achievementNoticesViewed: (token: string, keys: string[]) => request<{ ok: true }>('POST', '/achievements/notices/viewed', { token, body: { keys } }),
+  achievementClassmates: (token: string) => request<AchievementClassmates>('GET', '/achievements/classmates', { token }),
   login: (body: { name: string; studentId?: string; pin: string }) =>
     request<AuthResult>('POST', '/student-auth/login', { body }),
 

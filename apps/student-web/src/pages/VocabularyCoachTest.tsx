@@ -32,6 +32,7 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import { api, ApiError, type V2PublicQuestion, type V2TestSession } from '../lib/api';
 import { handleAuthFailure } from '../lib/auth-store';
 import { readToken } from '../lib/identity';
+import { syncAchievementNotices } from '../lib/achievement-notices';
 import { ROUTES } from '../routes.contract';
 import { cleanTranslation, posPrefixFor } from '../lib/word-display';
 import { playBlob } from '../lib/speak';
@@ -145,7 +146,9 @@ export default function VocabularyCoachTestPage() {
     setBusy(true);
     setMessage(null);
     try {
-      setPhase({ s: 'ready', session: await api.vocabV2Submit(token, session.id) });
+      const submitted = await api.vocabV2Submit(token, session.id);
+      setPhase({ s: 'ready', session: submitted });
+      if (submitted.type !== 'custom_test' && submitted.status === 'submitted') void syncAchievementNotices();
     } catch (error) {
       onError(error, '交卷没成功，答案都保存着，再点一次。');
     } finally {
@@ -229,7 +232,7 @@ export default function VocabularyCoachTestPage() {
           </div>
         }
       >
-        <section className="mb-5 text-center" aria-labelledby="test-score">
+        <section className="mb-5 text-center" aria-labelledby="test-score" data-achievement-safe={ROUTES.coachTest}>
           <p className="text-callout text-ink-3">{practice ? '抽查结束' : '测试已交卷'}</p>
           <h1 id="test-score" className="mt-1 text-[2.75rem] font-bold tabular-nums text-ink" aria-label={`答对 ${s.correct} 题，共 ${s.total} 题`}>
             {s.correct} / {s.total}

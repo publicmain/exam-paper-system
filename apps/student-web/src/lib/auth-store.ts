@@ -30,6 +30,7 @@ import { clearIdentity, clearTokenOnly, draftsBelongTo, hasDraftOwner, readToken
 import { REVOKED_NOTICE } from './errors';
 import { releasePushForThisDevice } from './push';
 import { resetNavigationMemory } from '../design/AppShell';
+import { resetAchievementNotices } from './achievement-notices';
 
 export type AuthState =
   | { status: 'loading' }
@@ -41,6 +42,7 @@ let state: AuthState = { status: 'loading' };
 const listeners = new Set<() => void>();
 
 function emit(next: AuthState) {
+  resetAchievementNotices(next.status === 'authenticated' ? readToken() : null);
   state = next;
   for (const l of listeners) l();
 }

@@ -133,6 +133,8 @@ model User {
   vocabV2AssignmentsMade       VocabularyV2Assignment[]    @relation("VocabularyV2AssignedBy")
   pushSubscriptions            PushSubscription[]          @relation("PushSubscriptionOwner")
   levelChanges                 StudentLevelChange[]        @relation("StudentLevelChanges")
+  achievements                 StudentAchievement[]        @relation("AchievementOwner")
+  achievementCollections       StudentAchievementCollection[]
 }
 
 /// 学生难度的变更记录（UI01，2026-09-11）。**只增不改**。
@@ -242,6 +244,7 @@ model Class {
   // Homework M1 back-relation
   homeworkAssignments HomeworkAssignment[]
   vocabV2Assignments  VocabularyV2Assignment[]
+  weeklyGoals        ClassWeeklyGoal[]
 }
 
 model ClassEnrollment {
@@ -2787,4 +2790,55 @@ model DailyLessonCompletion {
 
   @@unique([studentId, date])
   @@index([date])
+}
+model StudentAchievement {
+  id           String    @id @default(cuid())
+  studentId    String
+  student      User      @relation("AchievementOwner", fields: [studentId], references: [id], onDelete: Cascade)
+  /// badge-rules.ts 里 BADGES 的 key
+  badgeKey     String    @db.VarChar(40)
+  /// 达成那天（新加坡日期 YYYY-MM-DD）
+  earnedOn     String    @db.VarChar(10)
+  /// 依据：{ submissionIds: string[], dates: string[] }
+  evidence     Json
+  rulesVersion Int
+  /// Only V5 grants use notices. Old award rows remain unchanged.
+  noticeKind   String?   @db.VarChar(16)
+  notificationClaimedAt DateTime?
+  viewedAt     DateTime?
+  revokedAt    DateTime?
+  revokedById  String?
+  revokeReason String?   @db.VarChar(200)
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  @@unique([studentId, badgeKey])
+  @@index([studentId, noticeKind, notificationClaimedAt], map: "StudentAchievement_notice_pending_idx")
+}
+
+/// A persisted collection enrollment separates first-visit historical grants from later awards.
+model StudentAchievementCollection {
+  studentId     String
+  student       User     @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  rulesVersion  Int
+  initializedAt DateTime @default(now())
+
+  @@id([studentId, rulesVersion])
+}
+
+/// 班级周目标（F05，2026-09-15）：老师按周开启；学生只看班级汇总，不暴露个人。
+model ClassWeeklyGoal {
+  id          String    @id @default(cuid())
+  classId     String
+  class       Class     @relation(fields: [classId], references: [id], onDelete: Cascade)
+  /// 那一周的周一（新加坡日期 YYYY-MM-DD）
+  weekStart   String    @db.VarChar(10)
+  /// assigned_reading
+  kind        String    @default("assigned_reading") @db.VarChar(40)
+  enabledById String?
+  disabledAt  DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@unique([classId, weekStart])
 }

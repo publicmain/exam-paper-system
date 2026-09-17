@@ -40,6 +40,7 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import { api, ApiError, type ReadingSessionPayload } from '../lib/api';
 import { handleAuthFailure } from '../lib/auth-store';
 import { readToken } from '../lib/identity';
+import { syncAchievementNotices } from '../lib/achievement-notices';
 import { ROUTES, scoreDetailPath } from '../routes.contract';
 import { ReadingProvider, isSubmitBlocked, useReading } from '../lesson/ReadingProvider';
 import { ExamFocusProvider, ExamModeProvider } from '../lesson/ExamContext';
@@ -329,6 +330,7 @@ function ReadingShell({ session, submissionId, historical }: { session: ReadingS
       try {
         const submitted = await api.submitReading(token, session.sessionId, { final: true });
         submittedId = submitted.id ?? submissionId;
+        void syncAchievementNotices();
       } catch (e) {
         if (!looksAlreadyDone(e)) throw e;
       }

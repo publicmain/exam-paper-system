@@ -61,6 +61,8 @@ import { StudentAuthModule } from './student-auth/student-auth.module';
 import { HealthController } from './health.controller';
 import { PushModule } from './push/push.module';
 import { AudioModule } from './audio/audio.module';
+import { ProductModule } from './product/product.module';
+import { AchievementsModule } from './achievements/achievements.module';
 
 @Module({
   imports: [
@@ -113,6 +115,8 @@ import { AudioModule } from './audio/audio.module';
     // 就静默关着」的模块，不影响其它路径。
     PushModule,
     AudioModule,
+    ProductModule,
+    AchievementsModule,
     StudentAuthModule,
     PracticeModule,
     // Morning attendance + quiz

@@ -74,6 +74,8 @@ export const ROUTES = {
    * 这一条是学生自己回来重做，不推进任何课程状态。同样用路由说死。
    */
   mistakePractice: '/mistakes/practice',
+  /** Independent medal collection, outside the daily task sequence. */
+  growthBadges: '/growth/badges',
 } as const;
 
 /** `/scores/:submissionId` 的具体地址。**只有这一个地方拼它。** */

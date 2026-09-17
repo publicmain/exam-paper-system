@@ -106,6 +106,7 @@ export default function ScoresPage() {
 
   return (
     <Page title="学习记录" subtitle="阅读答卷和正式单词测试分开记录。" width="wide" testId="scores-page">
+      <Group className="mb-5"><RowLink to={ROUTES.growthBadges} title="我的徽章" subtitle="收藏每一段努力" /></Group>
       {allLoading ? (
         <StatusView kind="loading" title="载入中" />
       ) : (

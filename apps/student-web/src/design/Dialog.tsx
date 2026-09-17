@@ -35,7 +35,7 @@ function setInert(el: Element | null, on: boolean) {
   }
 }
 
-export type DialogPlacement = 'center' | 'sheet';
+export type DialogPlacement = 'center' | 'sheet' | 'fullscreen';
 
 export function Dialog({
   open,
@@ -58,6 +58,7 @@ export function Dialog({
   titleAccessory,
   eyebrow,
   initialFocus = 'first',
+  appearance = 'default',
 }: {
   open: boolean;
   /** 用户要求关闭（Esc / 遮罩 / 关闭按钮）。`dismissible=false` 时只有调用方自己的按钮能关。 */
@@ -89,6 +90,8 @@ export function Dialog({
    * （内容为主的面板，例如查词：读屏从标题读起，点词打开时不在某个按钮上亮一圈焦点框）。
    */
   initialFocus?: 'first' | 'panel';
+  /** Scoped award ceremony; ordinary sheets keep the existing theme. */
+  appearance?: 'default' | 'ceremony';
 }) {
   const titleId = useId();
   const descId = useId();
@@ -179,6 +182,8 @@ export function Dialog({
   };
 
   const sheet = placement === 'sheet';
+  const fullscreen = placement === 'fullscreen';
+  const ceremony = appearance === 'ceremony';
   const anchored = sheet && wide && anchor;
   const maxW = size === 'sm' ? 'max-w-sm' : size === 'lg' ? 'max-w-2xl' : 'max-w-lg';
 
@@ -193,7 +198,9 @@ export function Dialog({
       : { position: 'fixed', left, bottom: window.innerHeight - anchor.top + 8, width, maxHeight: Math.max(240, anchor.top - 24) };
   }
 
-  const panelClass = anchored
+  const panelClass = fullscreen
+    ? `flex h-[100dvh] w-full flex-col overflow-hidden safe-bottom ${ceremony ? 'bg-award-surface text-award-ink' : 'bg-surface text-ink'}`
+    : anchored
     ? 'bg-surface text-ink rounded-sheet shadow-overlay flex flex-col overflow-hidden'
     : sheet && !wide
       ? `bg-surface text-ink w-full rounded-t-sheet shadow-overlay flex flex-col max-h-[88dvh] safe-bottom`
@@ -202,7 +209,7 @@ export function Dialog({
   return createPortal(
     <div
       ref={containerRef}
-      className={`fixed inset-0 z-50 ${anchored ? '' : sheet && !wide ? 'flex items-end' : 'grid place-items-center p-4'}`}
+      className={`fixed inset-0 z-50 ${anchored || fullscreen ? '' : sheet && !wide ? 'flex items-end' : 'grid place-items-center p-4'}`}
       onKeyDown={onKeyDown}
     >
       <div
@@ -227,13 +234,13 @@ export function Dialog({
           <div className="min-w-0 flex-1">
             {eyebrow ? <div className="mb-1 truncate text-caption text-ink-3">{eyebrow}</div> : null}
             <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
-              <h2 id={titleId} className="min-w-0 text-title3 text-ink">
+              <h2 id={titleId} className={`min-w-0 text-title3 ${ceremony ? 'text-award-ink' : 'text-ink'}`}>
                 {title}
               </h2>
               {titleAccessory}
             </div>
             {description ? (
-              <p id={descId} className="mt-1 text-callout text-ink-2">
+              <p id={descId} className={`mt-1 text-callout ${ceremony ? 'text-award-muted' : 'text-ink-2'}`}>
                 {description}
               </p>
             ) : null}

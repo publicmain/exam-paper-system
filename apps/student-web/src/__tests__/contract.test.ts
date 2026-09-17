@@ -112,6 +112,7 @@ describe('G6 路由契约是单一事实源', () => {
         '/coach', '/coach/learn', '/coach/test',
         // 阶段 12B —— 错题本与错题重练
         '/mistakes', '/mistakes/practice',
+        '/growth/badges',
       ]),
     );
   });
@@ -440,6 +441,8 @@ describe('G1 新端不得出现旧路由与旧身份键', () => {
    * 这正是它存在的意义：让「悄悄加一个带身份的请求」变成一件做不到的事。
    */
   const KNOWN_ENDPOINTS = [
+    '/achievements', '/achievements/sync', '/achievements/notices',
+    '/achievements/notices/claim', '/achievements/notices/viewed', '/achievements/classmates',
     ...PRE_AUTH_ENDPOINTS,
     '/student-auth/me',
     '/student-auth/change-pin',

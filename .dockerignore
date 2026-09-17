@@ -7,6 +7,10 @@ node_modules
 !.env.example
 .git
 .gitignore
+.local
+**/.local
+backups
+**/backups
 *.log
 coverage
 .cache

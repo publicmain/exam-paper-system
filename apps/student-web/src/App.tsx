@@ -8,7 +8,7 @@
  * **没有第三种兜底** —— 旧端有三个不同的 `*` 目标（`/login`、`/student`、
  * `/my-history`），那正是它外壳混乱的症状之一。
  */
-import { useEffect, useSyncExternalStore } from 'react';
+import { lazy, Suspense, useEffect, useSyncExternalStore } from 'react';
 import { Navigate, Route, Routes, useLocation } from 'react-router-dom';
 import { abandonUnreachableSession, bootstrap, getState, subscribe } from './lib/auth-store';
 import { ROUTES, fallbackPath } from './routes.contract';
@@ -29,6 +29,10 @@ import VocabularyCoachTestPage from './pages/VocabularyCoachTest';
 import { AppShell, shellFor } from './design/AppShell';
 import { StatusView } from './design/Status';
 import { Button } from './design/Button';
+import { ErrorBoundary } from './lib/sentry';
+
+const BadgesPage = lazy(() => import('./pages/Badges'));
+const AchievementNotifier = lazy(() => import('./components/AchievementNotifier'));
 
 export default function App() {
   const state = useSyncExternalStore(subscribe, getState, getState);
@@ -76,6 +80,8 @@ export default function App() {
 
   return (
     <AppShell kind={shellFor(loc.pathname, authed)}>
+    {/* A failure of the optional medal renderer must never interrupt learning. */}
+    {authed && <ErrorBoundary key={state.status === 'authenticated' ? state.profile.id : ''} fallback={<></>}><Suspense fallback={null}><AchievementNotifier /></Suspense></ErrorBoundary>}
     <Routes>
       <Route path={ROUTES.login} element={<LoginPage />} />
       <Route path={ROUTES.register} element={<RegisterPage />} />
@@ -112,6 +118,7 @@ export default function App() {
       */}
       <Route path={ROUTES.mistakes} element={<MistakesPage />} />
       <Route path={ROUTES.mistakePractice} element={<MistakePracticePage />} />
+      <Route path={ROUTES.growthBadges} element={<Suspense fallback={<StatusView kind="loading" title="正在打开收藏" />}><BadgesPage /></Suspense>} />
       <Route path="*" element={<Navigate to={fallbackPath(authed)} replace />} />
     </Routes>
     </AppShell>

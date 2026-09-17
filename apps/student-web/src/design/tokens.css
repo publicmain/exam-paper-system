@@ -27,6 +27,10 @@
   --c-control-line: 138 138 142; /* #8a8a8e 输入框 / 复选框边界，白底 3.43:1、页底 3.08:1 */
   --c-inverse: 28 28 30; /* 反色提示条底 */
   --c-on-inverse: 245 245 247;
+  /* A scoped dark museum stage stays dark in both App themes. */
+  --c-award-surface: 16 20 25;
+  --c-award-ink: 244 234 214;
+  --c-award-muted: 196 186 168;
 
   /* ── 文字 ── */
   --c-ink: 28 28 30; /* #1c1c1e 主要文字，页底 15.2:1 */
@@ -96,6 +100,9 @@
     --c-control-line: 124 124 130; /* #7c7c82 内容面 4.10:1、页底 4.65:1、填充底 3.36:1 */
     --c-inverse: 242 242 247;
     --c-on-inverse: 28 28 30;
+    --c-award-surface: 16 20 25;
+    --c-award-ink: 244 234 214;
+    --c-award-muted: 196 186 168;
 
     --c-ink: 245 245 247; /* #f5f5f7 内容面 15.6:1 */
     --c-ink-2: 209 209 214; /* #d1d1d6 内容面 11.2:1 */
@@ -143,6 +150,9 @@
   --c-control-line: 124 124 130; /* #7c7c82 内容面 4.10:1、页底 4.65:1、填充底 3.36:1 */
   --c-inverse: 242 242 247;
   --c-on-inverse: 28 28 30;
+  --c-award-surface: 16 20 25;
+  --c-award-ink: 244 234 214;
+  --c-award-muted: 196 186 168;
 
   --c-ink: 245 245 247; /* #f5f5f7 内容面 15.6:1 */
   --c-ink-2: 209 209 214; /* #d1d1d6 内容面 11.2:1 */

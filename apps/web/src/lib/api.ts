@@ -67,6 +67,12 @@ async function request<T = any>(method: string, path: string, body?: any): Promi
 }
 
 export const api = {
+  teachingStudentBadges: (classId: string, studentId: string) =>
+    request('GET', `/teaching/classes/${encodeURIComponent(classId)}/students/${encodeURIComponent(studentId)}/badges`),
+  teachingRevokeBadge: (classId: string, studentId: string, badgeKey: string, reason: string) =>
+    request('POST', `/teaching/classes/${encodeURIComponent(classId)}/students/${encodeURIComponent(studentId)}/badges/${encodeURIComponent(badgeKey)}/revoke`, { reason }),
+  teachingRestoreBadge: (classId: string, studentId: string, badgeKey: string, note: string | null = null) =>
+    request('POST', `/teaching/classes/${encodeURIComponent(classId)}/students/${encodeURIComponent(studentId)}/badges/${encodeURIComponent(badgeKey)}/restore`, { note }),
   // auth
   login: (email: string, password: string) => request('POST', '/auth/login', { email, password }),
   me: () => request('GET', '/auth/me'),
