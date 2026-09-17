@@ -27,7 +27,7 @@ const VOICE = {
     'On Tuesday night I was annoyed with Hui Min. She had promised to help me practise for the speaking part of our French exam, and then she had cancelled an hour before, saying she had too much homework. Twenty minutes later, she posted a photo from the cinema.',
     'I pressed the microphone button to send a voice message to Aisha, and I said exactly what I thought. I said that Hui Min only cared about herself, that she always did this, and that I was tired of being the friend she used when she was bored. It felt good to say it out loud. I let go of the button and dropped my phone on the bed.',
     'Then I saw the name at the top of the screen. It was not Aisha. It was Hui Min. Their chats were next to each other in my list, and I had tapped the wrong one.',
-    'I stared at the small grey tick beside the message. One tick meant it had been sent. Two ticks meant it had arrived. I held the phone so tightly that my thumb went white, and I watched the second tick appear.',
+    'I stared at the small grey tick beside the message. One tick meant it had been sent. Two ticks meant it had arrived. I held the phone so tightly that my thumb went white, and I watched the second tick appear. I felt sick with shock.',
     'There is a way to delete a message for everyone, and I did it, but the words "This message was deleted" stayed there in its place, like a sign pointing at what I had done. I typed "Sorry, wrong chat" and deleted that too. I did not sleep much.',
     'In the morning, Hui Min was waiting at the school gate. I was ready to explain, or to apologise, or to pretend that I did not know what she meant. Before I could do any of those things, she said, "I heard it before you deleted it."',
     'Then she told me something I did not know. The photo from the cinema was old; she had posted it because her cousin asked her to. She had cancelled because her father was in hospital, and she had not wanted to talk about it with anyone. "You could have asked me," she said, "instead of telling Aisha."',
@@ -84,12 +84,12 @@ const VOICE = {
     {
       kind: 'short',
       marks: 2,
-      stem: 'According to Paragraph 7, why had Hui Min posted the cinema photo, and what does this show about the night she cancelled?',
+      stem: 'According to Paragraph 7, why had Hui Min posted the cinema photo, and what does this show about the conclusion the writer drew from it?',
       answer:
-        'It was an old photo that she posted because her cousin asked her to, so she had not really gone to the cinema that night or lied to the writer.',
+        'It was an old photo that she posted because her cousin asked her to, so it did not prove that she had gone to the cinema that night; the writer was wrong to decide from it that she only cared about herself.',
       evidence: 'The photo from the cinema was old; she had posted it because her cousin asked her to.',
       rubric:
-        '两分：写出「那是旧照片，是表亲让她发的」给 1 分；点明「所以她那晚并没有去看电影、没有骗作者」再给 1 分。',
+        '两分：写出「那是旧照片，是表亲让她发的」给 1 分；点明「所以照片证明不了她那晚去看了电影，作者凭它认定她自私是错怪了她」再给 1 分（写「她那晚其实没去看电影」也给这 1 分）。指出她先说作业多、其实是父亲住院，不扣分。',
     },
     {
       kind: 'short',
@@ -381,11 +381,11 @@ const EGG = {
   passage: numbered([
     'Our physics teacher, Mrs Wong, gave us a challenge: protect a raw egg so that it could be dropped from the third floor of the science block without breaking. We could use only paper, string, tape and two plastic bags. We had one week.',
     'I took it very seriously. I read about how cars are designed to protect people in crashes, and I drew plans. My final design had a paper cage inside a paper cage, with the egg hanging in the middle on eight pieces of string, and a parachute made from both bags. It took me four evenings to build. It was beautiful.',
-    'Nadia, who sits next to me, said she had her own idea, but she did not seem to be working very hard on it. On the day before the test, she was still sitting at her desk, calmly folding paper into long, thin strips.',
+    'Nadia, who sits next to me, said she had her own idea, but she did not seem to be working very hard on it. On the day before the test, she was still sitting at her desk, calmly folding paper into long, thin strips. I could not see how a pile of paper strips would save anything.',
     'On the morning of the test, a Tuesday, the whole class stood in the car park and looked up. Mrs Wong dropped the designs one by one from the third-floor corridor. The first four eggs broke. Some people covered their eyes.',
     'Mine was sixth. The parachute opened beautifully, and for two seconds it floated down exactly as I had planned. Then a light wind caught it and carried it sideways, into the branches of a tree, where it stayed. Mrs Wong had to get it down with a broom. The egg was fine, but it had not landed, so it did not count.',
     "Nadia's was ninth. It was a ball of folded paper strips about the size of a football, with the egg somewhere in the middle. It had no parachute. It fell straight down, hit the ground hard, bounced twice and rolled against the wall. When Mrs Wong opened it, the egg was perfect.",
-    'I asked Nadia how she had thought of it. She said the strips would bend when it landed and take the force instead of the egg, and that she had not used a parachute because it was always windy on Tuesdays. I had not once thought about the weather.',
+    'I asked Nadia how she had thought of it. She said the strips would bend when it landed and take the force instead of the egg, and that she had not used a parachute because the car park was always windy in the mornings. I had not once thought about the weather. Her idea was so simple, and so clever.',
     'Mrs Wong gave Nadia full marks, and she gave me a mark for the design and a note: "Beautiful. Now test it outside." I kept the note. My designs are less beautiful these days, but I test them in the real world before I believe in them.',
   ]),
   questions: [
@@ -442,9 +442,9 @@ const EGG = {
       answer:
         'The paper strips bent when the ball hit the ground and took the force instead of the egg, and she used no parachute because the wind would have blown it away.',
       evidence:
-        'She said the strips would bend when it landed and take the force instead of the egg, and that she had not used a parachute because it was always windy on Tuesdays.',
+        'She said the strips would bend when it landed and take the force instead of the egg, and that she had not used a parachute because the car park was always windy in the mornings.',
       rubric:
-        '两分：写出「纸条落地时弯折、替鸡蛋吸收了冲击」给 1 分；写出「不用降落伞，因为那天总是有风」再给 1 分。',
+        '两分：写出「纸条落地时弯折、替鸡蛋吸收了冲击」给 1 分；写出「不用降落伞，因为停车场早上总是有风（降落伞会被吹偏）」再给 1 分。',
     },
     {
       kind: 'short',

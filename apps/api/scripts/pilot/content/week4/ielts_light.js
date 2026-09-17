@@ -138,7 +138,7 @@ const VELCRO = {
     'What he saw was a mass of tiny hooks. Each hook could catch on anything with a loop in it, such as the threads of his trousers or the hair of his dog. This is how the plant spreads: its seeds travel on passing animals and drop off somewhere new.',
     'De Mestral wondered whether two strips of cloth, one covered in hooks and the other in loops, could be pressed together and pulled apart again and again. Making it work took years. His first attempts used cotton, which was too soft and wore out quickly. The answer turned out to be nylon, which could be shaped into hooks that stayed strong.',
     'He received a patent in the 1950s and named his invention Velcro, from two French words: velours, meaning velvet, and crochet, meaning hook. At first, clothing makers were not interested. They thought the material looked cheap and untidy.',
-    'What changed their minds was space travel. American astronauts used it to hold equipment in place, where there was no gravity to stop things floating away, and once people had seen how useful it could be, it began to appear on skiwear and on children\'s shoes. Today it is so common that few people think of it as an invention at all.',
+    'What changed their minds was space travel. American astronauts used it to hold equipment in place in orbit, where anything left loose would float around the cabin, and once people had seen how useful it could be, it began to appear on skiwear and on children\'s shoes. Today it is so common that few people think of it as an invention at all.',
   ]),
   questions: [
     {
@@ -155,8 +155,9 @@ const VELCRO = {
     },
     {
       kind: 'tfng',
-      item: "De Mestral's dog did not enjoy walks in the countryside.",
-      answer: 'NOT GIVEN',
+      item: 'It took de Mestral several years to make his idea work.',
+      answer: 'TRUE',
+      evidence: 'Making it work took years.',
     },
     {
       kind: 'gapChoice',
@@ -212,10 +213,10 @@ const VELCRO = {
       marks: 2,
       stem: "Using your own words, explain how space travel changed clothing makers' opinion of the material.",
       answer:
-        'Astronauts used it to stop equipment floating around without gravity, which showed how useful it was, so it then started to be used on skiwear and children\'s shoes.',
-      evidence: 'American astronauts used it to hold equipment in place, where there was no gravity to stop things floating away, and once people had seen how useful it could be, it began to appear on skiwear and on children\'s shoes.',
+        'Astronauts used it to stop equipment floating around their spacecraft, which showed how useful it was, so it then started to be used on skiwear and children\'s shoes.',
+      evidence: 'American astronauts used it to hold equipment in place in orbit, where anything left loose would float around the cabin, and once people had seen how useful it could be, it began to appear on skiwear and on children\'s shoes.',
       rubric:
-        '两分：写出「宇航员在失重环境里用它固定设备」给 1 分；点明「人们因此看到了它的用处，才开始把它用到滑雪服、童鞋上」再给 1 分。整句照抄原文只给 1 分。',
+        '两分：写出「宇航员在太空（失重环境）里用它固定设备，免得东西飘走」给 1 分；点明「人们因此看到了它的用处，才开始把它用到滑雪服、童鞋上」再给 1 分。整句照抄原文只给 1 分。',
     },
   ],
 };
@@ -338,9 +339,8 @@ const MANGROVE = {
     },
     {
       kind: 'tfng',
-      item: 'Some mangroves have roots that grow upwards out of the mud.',
-      answer: 'TRUE',
-      evidence: 'Around the base of the tree, hundreds of thin roots grow upwards out of the mud, like pencils standing on end.',
+      item: "Sungei Buloh has more mangroves than any other part of Singapore's coast.",
+      answer: 'NOT GIVEN',
     },
     {
       kind: 'tfng',

@@ -86,7 +86,6 @@ module.exports = {
   '621c9b2eb759d34c73422e54514e11b8aab6067bb6d411773bb6e54a11fc042e': "答案是尼龙，可以做成坚固的钩子。", // The answer turned out to be nylon, which could be shaped into hooks that staye
   'e67ee98f8f1378a7458e84749dd4fa5a17dbaa039eba8a6877acfee2743be433': "他在20世纪50年代获得了一项专利，并将他的发明命名为魔术贴，取自法语单词“velours”（天鹅绒）和钩针（crochet）两个词。", // He received a patent in the 1950s and named his invention Velcro, from two Fre
   '5bbac5fa78ca1feb7e2efa0a0dc8c0a3166cac9ff87033dca643c0299a74aaa9': "每个钩子都能勾住任何带环的东西，比如裤子的线头或狗的毛。", // Each hook could catch on anything with a loop in it, such as the threads of hi
-  'c45c7084945755b1ea8f53809e328a6ed30ae98ea6ab74eec795abe4d66f3605': "美国宇航员用它固定设备，那里没有重力阻止物体漂浮，一旦人们看到它的实用性，它开始出现在滑雪服和儿童鞋上。", // American astronauts used it to hold equipment in place, where there was no gra
   '975292bc6f8e136c7f9b46e06080a177462ede07a37f924014202bc97e2e99e3': "20世纪40年代的一天，一位名叫乔治·德·梅斯特拉尔的瑞士工程师带着他的狗在乡间散步回家，发现两只狗都被刺刺覆盖，这些刺果是牛蒡植物的刺状小壳。", // One day in the 1940s, a Swiss engineer called George de Mestral came home from
   'e5aec3fa2a8d49b4dee30617e946acbd04fb19a4487c10263cd251b7a513c10d': "取出这些花了很长时间，天性好奇的德·梅斯特拉尔决定用显微镜观察其中一颗。", // Removing them took a long time, and de Mestral, who was curious by nature, dec
   '6afd230ad04b38d861fa8363739d05a6f1d3327e4e306832e2aaebb777d73be0': "他看到的是一团细小的钩子。", // What he saw was a mass of tiny hooks.
@@ -242,12 +241,12 @@ module.exports = {
   'f874d9b4ad77f905950803ff85cc3b60653c711f8125c95c8ab2715d7acc6bd6': "之后，我们坐在一起，喝着橙汁和饼干。", // Afterwards, we sat together with orange juice and biscuits.
   '64da183c6f6437383931da5ffea4a3ea3199296bc19077fd1b4a97df4a3c1991': "他比了个大拇指，告诉我不要看针头。", // He gave me a thumbs-up and told me not to look at the needle.
   'f3e6a6c7e01508810a8ce9651aae7ddd21b7cf721dac5bce53c2558866e71549': "护士量了我的体重，检测了我手指上的一滴血，还问了我一长串问题，其中一些让我脸红了。", // The nurse checked my weight, tested a drop of blood from my finger and asked m
+  '3d26eeee4aef29914e48a4cacc007524ec02c4338c6b37ce62d13d004ee6905f': "我不得不咬着嘴唇忍住笑，父亲假装没听见。", // " I had to bite my lip to stop myself from laughing, and my father pretended n
   'f0cfea14f04d8ddc4a5bff578c829e2e6f61d9a0029d322e3e420b9c636db2b3': "在我十六岁生日后的那个星期六，我们一起去了血库。", // On the Saturday after my sixteenth birthday, we went to the blood bank togethe
   'db5df20382695da388cf346dcdf16ca5d62eb0498061c512dd498443cd25ffc2': "我望向对面，他的脸色和墙壁一样。", // When I looked across, his face was the colour of the wall.
   'fa9267a56d52858264c75a5a6160a9301f28ab06daa93bf17e2a3c9f968b1057': "在新加坡，如果父母签字，十六岁时可以献血，我已经倒数一年了。", // In Singapore you can give blood at sixteen if a parent signs the form, and I h
   'b5d7db56b06342948cc66b741c9c21f6825a190d46edbffcf3a27a9c4efe6573': "他说以前从未发生过，是因为敬酒，我不能告诉我妈妈。", // He said it had never happened before, that it was because of the toast, and th
   '652c2a9f2e2c9e2a35fe7815f65fcdf89a85a90b549dc98a76897c405260115d': "我记事起，父亲每六个月献血一次。", // My father has given blood every six months for as long as I can remember.
-  'b2334e4f9962d5d7154d425f8eb7de7c472e66e1beea5712f8567018d42eb5dc': "我想让她知道，他以前勇敢过五十次，而第五十一次让我明白，他从未像表面上那么容易。", // I wanted her to know that he had been brave fifty times before, and that the f
   'e4c23d6fd2a4ccb2a28a8943231b9a32cf98a25a5371893f6f2051f9a77e28a1': "她走进我们的房间，轻轻地关上门，在我们家，这声音比砰地关门还大。", // She went to our room and shut the door very quietly, which in our family is mu
   'a9c566c94a347c92d90135da1fc190be348abcf5ae04190f0edea3f8953b6d5c': "它落在反面，这意味着我赢了。", // It had landed on tails, which meant that I had won.
   'c4bcc1a8760866c43cec916eb47e4a2c550718b939699f61a4382630ccd9ef9b': "那里满是日本庭园的画作：石径、枫树，还有一座从不同方向反复绘制的小木桥。", // It was full of drawings of Japanese gardens: stone paths, maple trees, a small

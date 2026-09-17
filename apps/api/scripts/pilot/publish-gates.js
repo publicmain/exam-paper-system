@@ -219,8 +219,9 @@ function lessonProblems(level, day, { gatesFrom = GATES_FROM, levelTools = null 
       else if (!bodies.some((b) => b.includes(q.evidence))) problems.push(`${at(i)}：题目指向 Paragraph ${refs.join('/')}，依据句不在那里`);
     });
     const tf = questions.filter((q) => q.taskType === 'true_false_not_given').map((q) => q.answer);
-    if (tf.length === 2 && new Set(tf).size !== 2) problems.push(`${level}/${day.date}：两道判断题答案相同`);
-    if (tf.length >= 3 && !['A', 'B', 'C'].every((k) => tf.includes(k))) problems.push(`${level}/${day.date}：判断题 TRUE / FALSE / NOT GIVEN 没有各出一次`);
+    // 2026-09-17 外部审查 F5：不再要求一天三种各一（学生会用排除法），只拦全部相同；
+    // 整周的分布由内容测试「全周判断题分布」管。
+    if (tf.length >= 2 && new Set(tf).size === 1) problems.push(`${level}/${day.date}：判断题答案全部相同`);
     const matching = questions.filter((q) => q.taskType === 'matching_features').map((q) => String(q.answer));
     if (matching.length >= 3) {
       const codes = matching.map((k) => k.charCodeAt(0));

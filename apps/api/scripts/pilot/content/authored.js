@@ -157,10 +157,25 @@ function gapChoice(q) {
   };
 }
 
-/** 填空要学生自己写：拼写也在考查范围内。只认原文的词，大小写不计。 */
-function gapTyped(q) {
+/** 只比字母数字：标点、大小写、换行不算差别。 */
+function looseText(s) {
+  return String(s).toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
+}
+
+/**
+ * 填空要学生自己写：拼写也在考查范围内。只认原文的词，大小写不计。
+ *
+ * 概括题（`summary: true`）按意思给分，解析不能再说「原文在这个位置用的词是……」
+ * （2026-09-17 外部审查 F3）。第四周起一律改说「参考答案 + 按意思给分」；更早的
+ * 只在答案是改写过的说法时才改 —— 第三周五道都是原文原话，已发的卷子不受影响。
+ */
+const SUMMARY_WORDING_FROM = '2026-09-21';
+
+function gapTyped(q, passage, date) {
   const answer = String(q.answer).trim();
   const marks = q.marks ?? 1;
+  const meaningBased =
+    Boolean(q.summary) && (String(date) >= SUMMARY_WORDING_FROM || !looseText(passage).includes(looseText(answer)));
   return {
     taskType: q.summary ? 'summary_completion' : 'sentence_completion',
     questionType: 'short_answer',
@@ -175,7 +190,9 @@ function gapTyped(q) {
     rubric:
       q.rubric ??
       `${marks === 1 ? '一分' : '两分'}：只认原文里的 “${answer}”（大小写不计）。同义词不给分 —— 题目要求用原文的词。`,
-    explanation: `原文在这个位置用的词是 “${answer}”。`,
+    explanation: meaningBased
+      ? `参考答案：“${answer}”。这道题按意思给分，不要求照抄原文。依据是原文这一句：${q.evidence}`
+      : `原文在这个位置用的词是 “${answer}”。`,
   };
 }
 
@@ -276,7 +293,7 @@ function buildAuthoredDay(spec, date) {
         out.push(gapChoice(q));
         break;
       case 'gapTyped':
-        out.push(gapTyped(q));
+        out.push(gapTyped(q, spec.passage, date));
         break;
       case 'short':
         out.push(shortAnswer(q));

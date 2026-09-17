@@ -506,10 +506,21 @@ describe.each(GATED.length ? GATED : [['（还没有第三周内容）', '', nul
       }
     });
 
-    it('判断题的答案不全一样：两道不同，三道 TRUE / FALSE / NOT GIVEN 各一', () => {
+    // 2026-09-17 外部审查 F5：原来要求「三道 TRUE / FALSE / NOT GIVEN 各一」，学生摸清
+    // 规律后答对两道就能排出第三道。改为：一天之内不能全一样；分布放到整周去管
+    // （见下面「全周判断题分布」）。
+    it('判断题的答案不全一样', () => {
       const keys = day.questions.filter((q) => q.taskType === 'true_false_not_given').map((q) => q.answer);
-      if (keys.length === 2) expect(new Set(keys).size).toBe(2);
-      if (keys.length >= 3) expect(new Set(keys)).toEqual(new Set(['A', 'B', 'C']));
+      if (keys.length >= 2) expect(new Set(keys).size, `判断题答案全是 ${keys[0]}`).toBeGreaterThan(1);
+    });
+
+    it('按意思给分的概括题，解析不说「原文用词」（第四周起一律；更早的只查改写过的答案）', () => {
+      const text = day.passage.toLowerCase().replace(/[^a-z0-9]+/g, ' ');
+      for (const q of day.questions.filter((x) => x.taskType === 'summary_completion')) {
+        const verbatim = text.includes(q.answer.toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim());
+        if (verbatim && day.date < '2026-09-21') continue;
+        expect(q.explanation ?? '', `改写过的参考答案却说是原文用词：${q.answer}`).not.toContain('原文在这个位置用的词是');
+      }
     });
 
     it('配对题的答案不排成 ABCD / AAAA 这种一眼可猜的序列', () => {
@@ -553,6 +564,36 @@ describe.each(GATED.length ? GATED : [['（还没有第三周内容）', '', nul
     });
   },
 );
+
+/** 这一天所在那周的周一（新加坡日历日，纯日期运算）。 */
+function mondayOf(date: string): string {
+  const d = new Date(`${date}T00:00:00Z`);
+  d.setUTCDate(d.getUTCDate() - ((d.getUTCDay() + 6) % 7));
+  return d.toISOString().slice(0, 10);
+}
+
+/** 从这一周起，判断题不许每天都正好「真 / 假 / 未提及各一」（外部审查 F5）。 */
+const TFNG_SPREAD_FROM = '2026-09-21';
+
+describe('S12M —— 全周判断题分布（第三周起）', () => {
+  const weeks = new Map<string, Array<string[]>>();
+  for (const [, level, day] of GATED) {
+    const keys = day.questions.filter((q) => q.taskType === 'true_false_not_given').map((q) => q.answer);
+    if (!keys.length) continue;
+    const id = `${level} / ${mondayOf(day.date)} 那周`;
+    weeks.set(id, [...(weeks.get(id) ?? []), keys]);
+  }
+
+  it.each([...weeks.entries()])('%s：三种答案都常见，且不是天天各一道', (id, days) => {
+    const all = days.flat();
+    for (const k of ['A', 'B', 'C']) {
+      expect(all.filter((x) => x === k).length, `${id}：${k} 太少（${all.join('')}）`).toBeGreaterThanOrEqual(Math.floor(all.length / 5));
+    }
+    if (id.split(' / ')[1].slice(0, 10) < TFNG_SPREAD_FROM) return;
+    const oneEach = days.filter((keys) => keys.length === 3 && new Set(keys).size === 3).length;
+    expect(oneEach, `${id}：${days.length} 天全是「各一道」，学生可以靠排除法`).toBeLessThan(days.length);
+  });
+});
 
 describe('第三周门槛本身 —— 反向夹具', () => {
   it('declaredMarks 认得出中文和数字两种写法', () => {

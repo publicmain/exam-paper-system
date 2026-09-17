@@ -886,9 +886,9 @@
         "headword": "bite",
         "surfaceForm": "bite",
         "phonetic": "/bait/",
-        "pos": "n.",
-        "translation": "n. 咬，一口",
-        "definition": "a wound resulting from biting by an animal or a person",
+        "pos": "v.",
+        "translation": "v. 咬（bite my lip：咬住嘴唇忍住）",
+        "definition": "to press on something with the teeth",
         "context": "Male mosquitoes do not bite, so the releases pose no direct risk to residents, and the wild females that mate with them lay eggs that come to nothing."
       },
       {
@@ -1132,15 +1132,6 @@
         "context": "Each hook could catch on anything with a loop in it, such as the threads of his trousers or the hair of his dog."
       },
       {
-        "headword": "gravity",
-        "surfaceForm": "gravity",
-        "phonetic": "/'græviti/",
-        "pos": "n.",
-        "translation": "n. 地心引力，重力",
-        "definition": "a solemn and dignified feeling",
-        "context": "American astronauts used it to hold equipment in place, where there was no gravity to stop things floating away, and once people had seen how useful it could be, it began to appear on skiwear and on children's shoes."
-      },
-      {
         "headword": "burdock",
         "surfaceForm": "burdock",
         "phonetic": "/'bә:dɒk/",
@@ -1258,22 +1249,31 @@
         "context": "One day in the 1940s, a Swiss engineer called George de Mestral came home from a walk in the countryside with his dog and found both of them covered in burrs, the small, prickly seed cases of the burdock plant."
       },
       {
-        "headword": "stop",
-        "surfaceForm": "stop",
-        "phonetic": "/stɒp/",
+        "headword": "word",
+        "surfaceForm": "words",
+        "phonetic": "/wә:d/",
         "pos": "n.",
-        "translation": "n. 停止，车站",
-        "definition": "the event of something ending",
-        "context": "American astronauts used it to hold equipment in place, where there was no gravity to stop things floating away, and once people had seen how useful it could be, it began to appear on skiwear and on children's shoes."
+        "translation": "n. 单词，话",
+        "definition": "a single unit of language, or something that someone says",
+        "context": "He received a patent in the 1950s and named his invention Velcro, from two French words: velours, meaning velvet, and crochet, meaning hook."
       },
       {
-        "headword": "away",
-        "surfaceForm": "away",
-        "phonetic": "/ә'wei/",
-        "pos": "adv.",
-        "translation": "adv. 离去",
-        "definition": "used of an opponent's ground",
-        "context": "American astronauts used it to hold equipment in place, where there was no gravity to stop things floating away, and once people had seen how useful it could be, it began to appear on skiwear and on children's shoes."
+        "headword": "turn",
+        "surfaceForm": "turned",
+        "phonetic": "/tә:n/",
+        "pos": "v.",
+        "translation": "v. 转动，变成（turn out to be：结果是）",
+        "definition": "to move round, or to change into something else",
+        "context": "The answer turned out to be nylon, which could be shaped into hooks that stayed strong."
+      },
+      {
+        "headword": "call",
+        "surfaceForm": "called",
+        "phonetic": "/kɒ:l/",
+        "pos": "v.",
+        "translation": "v. 把…叫作，称呼",
+        "definition": "to give someone or something a particular name",
+        "context": "One day in the 1940s, a Swiss engineer called George de Mestral came home from a walk in the countryside with his dog and found both of them covered in burrs, the small, prickly seed cases of the burdock plant."
       }
     ],
     "original-w4-salty-sea": [
@@ -1762,9 +1762,9 @@
         "headword": "turn",
         "surfaceForm": "turns",
         "phonetic": "/tә:n/",
-        "pos": "n.",
-        "translation": "n. 转弯，转动",
-        "definition": "the act of changing or reversing the direction of the course",
+        "pos": "v.",
+        "translation": "v. 转动，变成（turn out to be：结果是）",
+        "definition": "to move round, or to change into something else",
         "context": "After that, the coldest water stays on top and eventually turns to ice."
       },
       {
@@ -2547,8 +2547,8 @@
         "surfaceForm": "words",
         "phonetic": "/wә:d/",
         "pos": "n.",
-        "translation": "n. 话，消息",
-        "definition": "a unit of language that native speakers can identify",
+        "translation": "n. 单词，话",
+        "definition": "a single unit of language, or something that someone says",
         "context": "Coco can say about twenty words."
       }
     ],
@@ -3365,6 +3365,15 @@
         "context": "The nurse checked my weight, tested a drop of blood from my finger and asked me a long list of questions, some of which made me go red."
       },
       {
+        "headword": "bite",
+        "surfaceForm": "bite",
+        "phonetic": "/bait/",
+        "pos": "v.",
+        "translation": "v. 咬（bite my lip：咬住嘴唇忍住）",
+        "definition": "to press on something with the teeth",
+        "context": "\" I had to bite my lip to stop myself from laughing, and my father pretended not to hear."
+      },
+      {
         "headword": "together",
         "surfaceForm": "together",
         "phonetic": "/tә'geðә/",
@@ -3453,15 +3462,6 @@
         "translation": "n. 墙，墙壁",
         "definition": "an architectural partition with a height and length greater than its thickness",
         "context": "When I looked across, his face was the colour of the wall."
-      },
-      {
-        "headword": "easy",
-        "surfaceForm": "easy",
-        "phonetic": "/'i:zi/",
-        "pos": "a.",
-        "translation": "a. 容易的，缓缓的",
-        "definition": "posing no difficulty",
-        "context": "I wanted her to know that he had been brave fifty times before, and that the fifty-first time had shown me it was never as easy for him as he made it look."
       }
     ],
     "original-w4-coin-toss": [
@@ -3989,17 +3989,17 @@
         "surfaceForm": "word",
         "phonetic": "/wә:d/",
         "pos": "n.",
-        "translation": "n. 话，消息",
-        "definition": "a unit of language that native speakers can identify",
+        "translation": "n. 单词，话",
+        "definition": "a single unit of language, or something that someone says",
         "context": "\" He took us back up the hill without saying a word about my mistake, and we found the last three checkpoints in forty minutes."
       },
       {
         "headword": "turn",
         "surfaceForm": "turned",
         "phonetic": "/tә:n/",
-        "pos": "n.",
-        "translation": "n. 转弯，转动",
-        "definition": "the act of changing or reversing the direction of the course",
+        "pos": "v.",
+        "translation": "v. 转动，变成（turn out to be：结果是）",
+        "definition": "to move round, or to change into something else",
         "context": "I looked at the map, turned it round twice, and said we should go right."
       },
       {

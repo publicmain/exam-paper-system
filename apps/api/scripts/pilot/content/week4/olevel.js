@@ -314,7 +314,7 @@ const DONATION = {
     `Beside me, my father had gone very quiet. When I looked across, his face was the colour of the wall. "I don't feel great," he said, in a voice I had never heard him use. Then his eyes closed.`,
     `Two nurses were beside him in seconds. They lowered the back of his chair until his feet were higher than his head, put a cold towel on his neck and spoke to him calmly until he opened his eyes again. It took about two minutes. I could not get up, because my needle was still in, so I kept squeezing the ball and kept watching him.`,
     `Afterwards, we sat together with orange juice and biscuits. He was embarrassed. He said it had never happened before, that it was because of the toast, and that I was not to tell my mother. I said I would not.`,
-    `The nurse came over and stamped two cards. Mine had one stamp on it. His had fifty-one. "Next time," she told him, "eat a proper breakfast, like your son."`,
+    `The nurse came over and stamped two cards. Mine had one stamp on it. His had fifty-one. "Next time," she told him, "eat a proper breakfast, like your son." I had to bite my lip to stop myself from laughing, and my father pretended not to hear.`,
     `I told my mother anyway, that evening. I wanted her to know that he had been brave fifty times before, and that the fifty-first time had shown me it was never as easy for him as he made it look. He pretended to be annoyed. Then he asked me when I wanted to go again.`,
   ]),
   questions: [

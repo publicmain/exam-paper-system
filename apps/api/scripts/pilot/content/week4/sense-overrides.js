@@ -107,4 +107,10 @@ module.exports = {
   spray: { pos: 'v.', translation: 'v. 喷，喷洒', definition: 'to cover something with very small drops of liquid' },
   pose: { pos: 'v.', translation: 'v. 造成（威胁、问题）', definition: 'to cause a problem or danger' },
   mate: { pos: 'v.', translation: 'v. 交配', definition: '(of animals) to come together to produce young' },
+
+  // 2026-09-17 按外部审查改文章后重新生成冒出来的几个（第四周各篇里都是动词 / 「单词」义）
+  bite: { pos: 'v.', translation: 'v. 咬（bite my lip：咬住嘴唇忍住）', definition: 'to press on something with the teeth' },
+  turn: { pos: 'v.', translation: 'v. 转动，变成（turn out to be：结果是）', definition: 'to move round, or to change into something else' },
+  word: { pos: 'n.', translation: 'n. 单词，话', definition: 'a single unit of language, or something that someone says' },
+  call: { pos: 'v.', translation: 'v. 把…叫作，称呼', definition: 'to give someone or something a particular name' },
 };

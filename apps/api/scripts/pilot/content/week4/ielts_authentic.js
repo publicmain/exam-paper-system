@@ -60,8 +60,9 @@ const PENICILLIN = {
     },
     {
       kind: 'tfng',
-      item: 'Heatley was disappointed not to share the Nobel Prize.',
-      answer: 'NOT GIVEN',
+      item: 'Heatley shared the 1945 Nobel Prize with Fleming, Florey and Chain.',
+      answer: 'FALSE',
+      evidence: 'Heatley, whose methods had made the Oxford work possible, was not included.',
     },
     {
       kind: 'tfng',
@@ -242,8 +243,8 @@ const DUNBAR = {
     },
     {
       kind: 'tfng',
-      item: 'The Stockholm researchers agreed that humans can maintain about 150 relationships.',
-      answer: 'FALSE',
+      item: 'The Stockholm team produced very different estimates of human group size.',
+      answer: 'TRUE',
       evidence:
         'Their estimates for human group size varied enormously, from a handful of people to several hundred, and they concluded that the data could not support any single number.',
     },
@@ -425,9 +426,8 @@ const WOLBACHIA = {
     },
     {
       kind: 'tfng',
-      item: 'Male mosquitoes are not a direct danger to people because they do not bite.',
-      answer: 'TRUE',
-      evidence: 'Male mosquitoes do not bite, so the releases pose no direct risk to residents, and the wild females that mate with them lay eggs that come to nothing.',
+      item: 'Female mosquitoes that carry Wolbachia bite people less often than other females.',
+      answer: 'NOT GIVEN',
     },
     {
       kind: 'gapTyped',
