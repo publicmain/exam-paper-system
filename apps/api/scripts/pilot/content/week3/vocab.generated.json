@@ -23,9 +23,9 @@
         "headword": "reciprocal",
         "surfaceForm": "reciprocal",
         "phonetic": "/ri'siprәkl/",
-        "pos": "n.",
-        "translation": "n. 倒数，互相起作用的事物",
-        "definition": "something (a term or expression or concept) that has a reciprocal relation to something else",
+        "pos": "adj.",
+        "translation": "adj. 相互的，互惠的",
+        "definition": "given or done in return, so that both sides share it",
         "context": "Pairs of birds swapped places repeatedly, each spending roughly as much time in front as behind the other, a pattern that biologists describe as reciprocal cooperation."
       },
       {
@@ -96,17 +96,17 @@
         "surfaceForm": "loggers",
         "phonetic": "/'lɒgә/",
         "pos": "n.",
-        "translation": "n. 樵夫，圆木装车机",
-        "definition": "a person who fells trees",
+        "translation": "n. 记录仪（data logger）",
+        "definition": "a small device that records information over time",
         "context": "Researchers working with a conservation project that teaches young northern bald ibises to migrate behind a microlight aircraft fitted the birds with lightweight data loggers recording position and every single wingbeat."
       },
       {
         "headword": "lightweight",
         "surfaceForm": "lightweight",
         "phonetic": "/'laitweit/",
-        "pos": "n.",
-        "translation": "n. 不到平均重量的人/物，轻量级",
-        "definition": "a professional boxer who weighs between 131 and 135 pounds",
+        "pos": "adj.",
+        "translation": "adj. 轻便的，重量轻的",
+        "definition": "not heavy",
         "context": "Researchers working with a conservation project that teaches young northern bald ibises to migrate behind a microlight aircraft fitted the birds with lightweight data loggers recording position and every single wingbeat."
       },
       {
@@ -206,17 +206,17 @@
         "surfaceForm": "tankers",
         "phonetic": "/'tæŋkә/",
         "pos": "n.",
-        "translation": "n. 坦克手，油船",
-        "definition": "a soldier who drives a tank",
+        "translation": "n. 油轮，罐车",
+        "definition": "a ship or lorry that carries oil or other liquids",
         "context": "He bought a pair of old tankers, strengthened their decks, and in April of that year sent one of them, the Ideal X, from New Jersey to Texas carrying fifty-eight truck-sized containers."
       },
       {
         "headword": "tariff",
         "surfaceForm": "tariff",
         "phonetic": "/'tærif/",
-        "pos": "vt.",
-        "translation": "vt. 课以关税",
-        "definition": "charge a tariff",
+        "pos": "n.",
+        "translation": "n. 关税",
+        "definition": "a tax on goods coming into or going out of a country",
         "context": "Yet economists who study the growth of world trade after 1960 increasingly give it as much credit as tariff cuts or trade agreements."
       },
       {
@@ -269,8 +269,8 @@
         "surfaceForm": "slings",
         "phonetic": "/sliŋ/",
         "pos": "n.",
-        "translation": "n. 投石器，抛掷",
-        "definition": "a highball with liquor and water with sugar and lemon or lime juice",
+        "translation": "n. （起吊货物的）吊索",
+        "definition": "a loop of rope or chain used to lift heavy things",
         "context": "Sacks, barrels, crates and bales were carried from warehouses to the quayside, lifted aboard in slings and packed by hand in the hold, a process that could keep a ship in port for as long as it spent at sea."
       },
       {
@@ -287,8 +287,8 @@
         "surfaceForm": "Sacks",
         "phonetic": "/sæk/",
         "pos": "n.",
-        "translation": "n. 麻布袋，洗劫",
-        "definition": "a bag made of paper or plastic for holding customer's purchases",
+        "translation": "n. 麻袋，大袋子",
+        "definition": "a large bag made of strong material",
         "context": "Sacks, barrels, crates and bales were carried from warehouses to the quayside, lifted aboard in slings and packed by hand in the hold, a process that could keep a ship in port for as long as it spent at sea."
       },
       {
@@ -379,8 +379,8 @@
         "surfaceForm": "token",
         "phonetic": "/'tәukәn/",
         "pos": "n.",
-        "translation": "n. 表征，记号",
-        "definition": "an individual instance of a type of symbol",
+        "translation": "n. 代币，小筹码",
+        "definition": "a small object used instead of money or as a reward",
         "context": "The rewards varied: a marshmallow, a small pretzel stick or even a plastic token."
       },
       {
@@ -397,8 +397,8 @@
         "surfaceForm": "pretzel",
         "phonetic": "/'pretsәl/",
         "pos": "n.",
-        "translation": "n. 椒盐卷饼，(美)(非正式)法国号",
-        "definition": "glazed and salted cracker typically in the shape of a loose knot",
+        "translation": "n. 椒盐卷饼",
+        "definition": "a hard, salty snack, often shaped like a knot or a stick",
         "context": "The rewards varied: a marshmallow, a small pretzel stick or even a plastic token."
       },
       {
@@ -406,8 +406,8 @@
         "surfaceForm": "marshmallow",
         "phonetic": "/'mɑ:ʃ.mælәu/",
         "pos": "n.",
-        "translation": "n. 药用蜀葵，蜀葵糖剂",
-        "definition": "spongy confection made of gelatin and sugar and corn syrup and dusted with powdered sugar",
+        "translation": "n. 棉花糖",
+        "definition": "a soft, sweet, white or pink food made from sugar",
         "context": "Few experiments in psychology are as well known outside universities as the marshmallow test."
       },
       {
@@ -442,8 +442,8 @@
         "surfaceForm": "reverse",
         "phonetic": "/ri'vә:s/",
         "pos": "n.",
-        "translation": "n. 相反，背面",
-        "definition": "a relation of direct opposition",
+        "translation": "n. 相反的情况",
+        "definition": "the opposite of what has just been said",
         "context": "In fact, the reverse was true: children tested in the 2000s waited about two minutes longer, on average, than those tested in the 1960s."
       },
       {
@@ -459,9 +459,9 @@
         "headword": "sensible",
         "surfaceForm": "sensible",
         "phonetic": "/'sensәbl/",
-        "pos": "a.",
-        "translation": "a. 有感觉的，敏感的",
-        "definition": "able to feel or perceive",
+        "pos": "adj.",
+        "translation": "adj. 明智的，合理的",
+        "definition": "reasonable and showing good judgement",
         "context": "A child who gives in quickly, the researchers argued, may be making a sensible decision about whether a promise is worth trusting."
       },
       {
@@ -578,9 +578,9 @@
         "headword": "sterile",
         "surfaceForm": "sterile",
         "phonetic": "/'sterail/",
-        "pos": "a.",
-        "translation": "a. 不毛的，不孕的",
-        "definition": "incapable of reproducing",
+        "pos": "adj.",
+        "translation": "adj. 无菌的",
+        "definition": "completely clean and free from germs",
         "context": "Drips, however, require sterile fluid, equipment and trained staff, all of which tend to be scarce where cholera strikes hardest."
       },
       {
@@ -615,8 +615,8 @@
         "surfaceForm": "drips",
         "phonetic": "/drip/",
         "pos": "n.",
-        "translation": "n. 水滴",
-        "definition": "flowing in drops",
+        "translation": "n. 静脉输液（装置）",
+        "definition": "equipment that slowly puts liquid into a patient's vein",
         "context": "As early as 1832, a doctor in Edinburgh injected salt solution into the veins of cholera patients, and by the twentieth century intravenous drips had become the standard hospital treatment."
       },
       {
@@ -677,9 +677,9 @@
         "headword": "according",
         "surfaceForm": "according",
         "phonetic": "/ә'kɒ:diŋ/",
-        "pos": "a.",
-        "translation": "a. 相符的，根据...而定的",
-        "definition": "(followed by `to') in agreement with or accordant with",
+        "pos": "prep.",
+        "translation": "prep. 根据（according to）",
+        "definition": "as stated or reported by someone or something",
         "context": "Diarrhoea still kills around 440,000 children under the age of five every year, according to the WHO, and a growing share of these deaths are thought to be caused not by dehydration but by bacterial infections that spread through the body."
       },
       {
@@ -752,8 +752,8 @@
         "surfaceForm": "ensembles",
         "phonetic": "/ɒn'sɒŋblә/",
         "pos": "n.",
-        "translation": "n. 全体，合唱曲",
-        "definition": "a group of musicians playing or singing together",
+        "translation": "n. 集合预报（同时运行的一组预报）",
+        "definition": "a group of things taken together, such as many forecasts run at once",
         "context": "Since 1992 the European Centre for Medium-Range Weather Forecasts has run 'ensembles': dozens of forecasts that start from slightly different conditions and whose level of agreement shows how far a prediction can be trusted."
       },
       {
@@ -806,8 +806,8 @@
         "surfaceForm": "Richardson",
         "phonetic": "/'ritʃәdsn/",
         "pos": "n.",
-        "translation": "n. 理查森（姓氏）",
-        "definition": "United States architect (1838-1886)",
+        "translation": "n. 理查森（人名：英国科学家 Lewis Fry Richardson）",
+        "definition": "a surname; here Lewis Fry Richardson, who first tried to forecast the weather by calculation",
         "context": "During the First World War, the British scientist Lewis Fry Richardson served with an ambulance unit on the Western Front."
       },
       {
@@ -823,9 +823,9 @@
         "headword": "according",
         "surfaceForm": "According",
         "phonetic": "/ә'kɒ:diŋ/",
-        "pos": "a.",
-        "translation": "a. 相符的，根据...而定的",
-        "definition": "(followed by `to') in agreement with or accordant with",
+        "pos": "prep.",
+        "translation": "prep. 根据（according to）",
+        "definition": "as stated or reported by someone or something",
         "context": "According to a review published in the journal Nature in 2015, forecasts have gained roughly one extra day of useful accuracy every ten years over the past four decades."
       },
       {
@@ -868,9 +868,9 @@
         "headword": "sensible",
         "surfaceForm": "sensible",
         "phonetic": "/'sensәbl/",
-        "pos": "a.",
-        "translation": "a. 有感觉的，敏感的",
-        "definition": "able to feel or perceive",
+        "pos": "adj.",
+        "translation": "adj. 明智的，合理的",
+        "definition": "reasonable and showing good judgement",
         "context": "The forecasts were broadly sensible, though by no means perfect."
       },
       {
@@ -936,8 +936,8 @@
         "surfaceForm": "paste",
         "phonetic": "/peist/",
         "pos": "n.",
-        "translation": "n. 面团，面食",
-        "definition": "any mixture of a soft and malleable consistency",
+        "translation": "n. 糊状物，膏",
+        "definition": "a soft, wet mixture that can be spread or shaped",
         "context": "He ground poor-quality graphite into powder, mixed it with clay and water, pressed the paste into thin rods and baked them in a kiln."
       },
       {
@@ -945,8 +945,8 @@
         "surfaceForm": "clay",
         "phonetic": "/klei/",
         "pos": "n.",
-        "translation": "n. 泥土，肉体",
-        "definition": "a very fine-grained soil that is plastic when moist but hard when fired",
+        "translation": "n. 黏土",
+        "definition": "heavy, sticky earth that becomes hard when it is baked",
         "context": "He ground poor-quality graphite into powder, mixed it with clay and water, pressed the paste into thin rods and baked them in a kiln."
       },
       {
@@ -972,8 +972,8 @@
         "surfaceForm": "core",
         "phonetic": "/kɒ:/",
         "pos": "n.",
-        "translation": "n. 核心，果心",
-        "definition": "a small group of indispensable persons or things",
+        "translation": "n. 芯，核心",
+        "definition": "the central part of something, such as the thin rod inside a pencil",
         "context": "The grey core is graphite, a soft form of carbon."
       },
       {
@@ -1145,8 +1145,8 @@
         "surfaceForm": "energy",
         "phonetic": "/'enәdʒi/",
         "pos": "n.",
-        "translation": "n. 精力，精神",
-        "definition": "forceful exertion",
+        "translation": "n. 能源，能量",
+        "definition": "power from electricity, fuel and so on, used to do work",
         "context": "Because polymer notes last longer, fewer need to be printed, which reduces the energy used and the waste produced."
       },
       {
@@ -1291,8 +1291,8 @@
         "surfaceForm": "flask",
         "phonetic": "/flæsk/",
         "pos": "n.",
-        "translation": "n. 细颈瓶，烧瓶",
-        "definition": "bottle that has a narrow neck",
+        "translation": "n. 保温瓶，烧瓶",
+        "definition": "a container that keeps drinks hot or cold, or a glass bottle used in science",
         "context": "Pour the same soup into a vacuum flask, and it can still be hot hours later."
       },
       {
@@ -1327,8 +1327,8 @@
         "surfaceForm": "Dewar",
         "phonetic": "/'dju:ә/",
         "pos": "n.",
-        "translation": "n. [亦作d-]=Dewar flask",
-        "definition": "Scottish chemist and physicist noted for his work in cryogenics and his invention of the Dewar flask (1842-1923)",
+        "translation": "n. 杜瓦瓶（真空保温瓶，以发明者 James Dewar 命名）",
+        "definition": "a vacuum flask, named after the Scottish scientist James Dewar",
         "context": "The flask was invented in 1892 by James Dewar, a Scottish scientist working at the Royal Institution in London."
       },
       {
@@ -1345,8 +1345,8 @@
         "surfaceForm": "stopper",
         "phonetic": "/'stɒpә/",
         "pos": "n.",
-        "translation": "n. 阻止的人，木塞",
-        "definition": "a playing card with a value sufficiently high to insure taking a trick in a particular suit",
+        "translation": "n. 瓶塞",
+        "definition": "a piece of material that closes the top of a bottle",
         "context": "Its weak point is the top, where there is no vacuum in the neck or the stopper."
       },
       {
@@ -1535,9 +1535,9 @@
         "headword": "extract",
         "surfaceForm": "extract",
         "phonetic": "/ik'strækt/",
-        "pos": "vt.",
-        "translation": "vt. (费力地)取出，采掘",
-        "definition": "remove, usually with some force or effort",
+        "pos": "n.",
+        "translation": "n. 提取物",
+        "definition": "a substance taken out of a plant or other material",
         "context": "Chilli extract was mixed with sugar water again and again until most of a panel of tasters could no longer feel any burning."
       },
       {
@@ -1553,9 +1553,9 @@
         "headword": "convert",
         "surfaceForm": "converted",
         "phonetic": "/kәn'vә:t/",
-        "pos": "vt.",
-        "translation": "vt. 使改变信仰，转换",
-        "definition": "change from one system to another or to a new plan or policy",
+        "pos": "v.",
+        "translation": "v. 转换，换算",
+        "definition": "to change something into a different form or unit",
         "context": "Since the 1980s, laboratories have measured the chemical with machines, but the results can still be converted into Scoville units."
       },
       {
@@ -1563,8 +1563,8 @@
         "surfaceForm": "panel",
         "phonetic": "/'pænl/",
         "pos": "n.",
-        "translation": "n. 嵌板，仪表板",
-        "definition": "sheet that forms a distinct (usually flat and rectangular) section or component of something",
+        "translation": "n. （评审）小组，（组画中的）一幅",
+        "definition": "a small group of people chosen to judge something; also one picture in a series",
         "context": "Chilli extract was mixed with sugar water again and again until most of a panel of tasters could no longer feel any burning."
       },
       {
@@ -1709,8 +1709,8 @@
         "surfaceForm": "estates",
         "phonetic": "/i'steit/",
         "pos": "n.",
-        "translation": "n. 不动产，(人生的)阶段",
-        "definition": "everything you own",
+        "translation": "n. 住宅区（housing estate）",
+        "definition": "an area with many houses or flats built together",
         "context": "Today, families of smooth-coated otters swim past the office towers of Marina Bay, rest beside canals and even cross housing estates."
       },
       {
@@ -1830,8 +1830,8 @@
         "surfaceForm": "tank",
         "phonetic": "/tæŋk/",
         "pos": "n.",
-        "translation": "n. 槽，箱",
-        "definition": "an enclosed armored military vehicle",
+        "translation": "n. 鱼缸，水箱",
+        "definition": "a large container for holding liquid or keeping fish",
         "context": "Our class has a fish tank at the back of the room."
       },
       {
@@ -1856,9 +1856,9 @@
         "headword": "count",
         "surfaceForm": "counted",
         "phonetic": "/kaunt/",
-        "pos": "vt.",
-        "translation": "vt. 计算，视为",
-        "definition": "determine the number or amount of",
+        "pos": "v.",
+        "translation": "v. 数，点数",
+        "definition": "to find the number of things",
         "context": "On Wednesday I counted four fish."
       },
       {
@@ -1928,9 +1928,9 @@
         "headword": "start",
         "surfaceForm": "start",
         "phonetic": "/stɑ:t/",
-        "pos": "n.",
-        "translation": "n. 惊起，出发",
-        "definition": "the beginning of anything",
+        "pos": "v.",
+        "translation": "v. 开始",
+        "definition": "to begin doing something",
         "context": "Now, when I count them, I always start with the castle."
       },
       {
@@ -2012,8 +2012,8 @@
         "surfaceForm": "canteen",
         "phonetic": "/kæn'ti:n/",
         "pos": "n.",
-        "translation": "n. 水壶，军中俱乐部",
-        "definition": "a flask for carrying water",
+        "translation": "n. （学校、单位的）食堂",
+        "definition": "a place in a school or workplace where meals are served",
         "context": "Arif was sitting alone in the canteen with my box."
       },
       {
@@ -2021,8 +2021,8 @@
         "surfaceForm": "sticker",
         "phonetic": "/'stikә/",
         "pos": "n.",
-        "translation": "n. 屠夫，尖刀",
-        "definition": "a small sharp-pointed tip resembling a spike on a stem or leaf",
+        "translation": "n. 贴纸",
+        "definition": "a small piece of paper with a picture or words that sticks to things",
         "context": "It was the same blue and the same white, but there was a small sticker of a rocket on it."
       },
       {
@@ -2057,8 +2057,8 @@
         "surfaceForm": "sign",
         "phonetic": "/sain/",
         "pos": "n.",
-        "translation": "n. 符号，招牌",
-        "definition": "a perceptible indication of something not immediately apparent (as a visible clue that something has happened)",
+        "translation": "n. 牌子，标志",
+        "definition": "a board with words or a picture on it",
         "context": "I walked along the corridor holding the box high in the air, like a sign."
       },
       {
@@ -2110,9 +2110,9 @@
         "headword": "high",
         "surfaceForm": "high",
         "phonetic": "/hai/",
-        "pos": "n.",
-        "translation": "n. 高度，高处",
-        "definition": "a lofty level or position or degree",
+        "pos": "adv.",
+        "translation": "adv. 高高地",
+        "definition": "at or to a height well above the ground",
         "context": "I walked along the corridor holding the box high in the air, like a sign."
       },
       {
@@ -2238,9 +2238,9 @@
         "headword": "nobody",
         "surfaceForm": "nobody",
         "phonetic": "/'nәubɒdi/",
-        "pos": "n.",
-        "translation": "n. 小人物，无名小卒",
-        "definition": "a person of no influence",
+        "pos": "pron.",
+        "translation": "pron. 没有人，谁也不",
+        "definition": "no person; not anyone",
         "context": "My voice was very small, but nobody laughed."
       },
       {
@@ -2384,9 +2384,9 @@
         "headword": "count",
         "surfaceForm": "counted",
         "phonetic": "/kaunt/",
-        "pos": "vt.",
-        "translation": "vt. 计算，视为",
-        "definition": "determine the number or amount of",
+        "pos": "v.",
+        "translation": "v. 数，点数",
+        "definition": "to find the number of things",
         "context": "I showed him the map of the train line, and we counted the stations together."
       },
       {
@@ -2402,9 +2402,9 @@
         "headword": "nobody",
         "surfaceForm": "nobody",
         "phonetic": "/'nәubɒdi/",
-        "pos": "n.",
-        "translation": "n. 小人物，无名小卒",
-        "definition": "a person of no influence",
+        "pos": "pron.",
+        "translation": "pron. 没有人，谁也不",
+        "definition": "no person; not anyone",
         "context": "Many people walked past him, but nobody stopped."
       },
       {
@@ -2483,9 +2483,9 @@
         "headword": "start",
         "surfaceForm": "starts",
         "phonetic": "/stɑ:t/",
-        "pos": "n.",
-        "translation": "n. 惊起，出发",
-        "definition": "the beginning of anything",
+        "pos": "v.",
+        "translation": "v. 开始",
+        "definition": "to begin doing something",
         "context": "The class starts at ten, and our teacher does not like it when we are late."
       },
       {
@@ -2611,9 +2611,9 @@
         "headword": "cost",
         "surfaceForm": "cost",
         "phonetic": "/kɒst/",
-        "pos": "n.",
-        "translation": "n. 代价，价值",
-        "definition": "the total spent for goods or services including money and time and labor",
+        "pos": "v.",
+        "translation": "v. 价钱是，花费",
+        "definition": "to have a particular price",
         "context": "It cost twelve dollars."
       },
       {
@@ -2932,9 +2932,9 @@
         "headword": "snap",
         "surfaceForm": "snapped",
         "phonetic": "/snæp/",
-        "pos": "n.",
-        "translation": "n. 猛咬，猛扑",
-        "definition": "a spell of cold weather",
+        "pos": "v.",
+        "translation": "v. 啪地折断",
+        "definition": "to break suddenly with a sharp sound",
         "context": "It hit the edge of the television cabinet, and the king's crown snapped off cleanly and rolled under the sofa."
       },
       {
@@ -2951,8 +2951,8 @@
         "surfaceForm": "trophy",
         "phonetic": "/'trәufi/",
         "pos": "n.",
-        "translation": "n. 战利品，奖品",
-        "definition": "an award for success in war or hunting",
+        "translation": "n. 奖杯，奖品",
+        "definition": "a cup or other object given as a prize",
         "context": "My brother Wei Jie won the inter-school chess championship when he was fourteen, and the trophy has stood on the shelf above our television ever since: a silver king on a black base, about as tall as my forearm."
       },
       {
@@ -2978,8 +2978,8 @@
         "surfaceForm": "sometimes",
         "phonetic": "/'sʌmtaim/",
         "pos": "adv.",
-        "translation": "adv. 改天，来日",
-        "definition": "at some indefinite or unstated time",
+        "translation": "adv. 某个时候（原文是 sometimes，意思是「有时」）",
+        "definition": "at a time that is not stated; the passage uses sometimes, meaning on some occasions",
         "context": "My father still tells the story of the final game, and now, sometimes, Wei Jie tells the story of the crown."
       },
       {
@@ -3160,17 +3160,17 @@
         "surfaceForm": "sometimes",
         "phonetic": "/'sʌmtaim/",
         "pos": "adv.",
-        "translation": "adv. 改天，来日",
-        "definition": "at some indefinite or unstated time",
+        "translation": "adv. 某个时候（原文是 sometimes，意思是「有时」）",
+        "definition": "at a time that is not stated; the passage uses sometimes, meaning on some occasions",
         "context": "When he said \"late\", I said \"sometimes a bit slow\"."
       },
       {
         "headword": "flash",
         "surfaceForm": "flash",
         "phonetic": "/flæʃ/",
-        "pos": "n.",
-        "translation": "n. 闪光，闪现",
-        "definition": "a sudden intense burst of radiant energy",
+        "pos": "v.",
+        "translation": "v. 闪烁",
+        "definition": "to shine on and off",
         "context": "\" The green man began to flash and then disappeared, and I was still standing at the edge of the road with my mouth open."
       },
       {
@@ -3195,9 +3195,9 @@
         "headword": "struggle",
         "surfaceForm": "struggle",
         "phonetic": "/'strʌgl/",
-        "pos": "n.",
-        "translation": "n. 斗争，努力",
-        "definition": "an energetic attempt to achieve something",
+        "pos": "v.",
+        "translation": "v. 吃力，难以应付",
+        "definition": "to find it very hard to do something",
         "context": "If this continues, she will struggle next year."
       },
       {
@@ -3213,9 +3213,9 @@
         "headword": "beat",
         "surfaceForm": "beat",
         "phonetic": "/bi:t/",
-        "pos": "n.",
-        "translation": "n. 心跳(声)，打",
-        "definition": "a regular route for a sentry or policeman",
+        "pos": "v.",
+        "translation": "v. 打败，（心脏）跳动",
+        "definition": "to defeat someone in a game, or (of the heart) to make regular movements",
         "context": "Every time Mr Rahman opened his mouth, my heart began to beat faster, and I had to keep wiping my wet hands on my skirt."
       },
       {
@@ -3241,8 +3241,8 @@
         "surfaceForm": "term",
         "phonetic": "/tә:m/",
         "pos": "n.",
-        "translation": "n. 术语，专有名词",
-        "definition": "a word or expression used for some particular thing",
+        "translation": "n. 学期",
+        "definition": "one of the periods into which a school year is divided",
         "context": "My homework had been late all term, and twice I had not handed it in at all."
       },
       {
@@ -3288,8 +3288,8 @@
         "surfaceForm": "rally",
         "phonetic": "/'ræli/",
         "pos": "n.",
-        "translation": "n. 重振旗鼓，集合",
-        "definition": "a large gathering of people intended to arouse enthusiasm",
+        "translation": "n. （羽毛球等的）来回对打",
+        "definition": "a long series of hits back and forth in a game such as badminton",
         "context": "He was breathing hard at the end of every rally, and there was grey in his hair that I had never noticed before."
       },
       {
@@ -3297,8 +3297,8 @@
         "surfaceForm": "shuttle",
         "phonetic": "/'ʃʌtl/",
         "pos": "n.",
-        "translation": "n. 穿梭，梭子",
-        "definition": "public transport that consists of a bus or train or airplane that plies back and forth between two points",
+        "translation": "n. 羽毛球（shuttlecock）",
+        "definition": "the small object that players hit back and forth in badminton",
         "context": "My mouth went dry, and when I bent down to pick up the shuttle, I dropped it twice."
       },
       {
@@ -3368,9 +3368,9 @@
         "headword": "beat",
         "surfaceForm": "beat",
         "phonetic": "/bi:t/",
-        "pos": "n.",
-        "translation": "n. 心跳(声)，打",
-        "definition": "a regular route for a sentry or policeman",
+        "pos": "v.",
+        "translation": "v. 打败，（心脏）跳动",
+        "definition": "to defeat someone in a game, or (of the heart) to make regular movements",
         "context": "I found that I did not want to beat him, and I still cannot explain why."
       },
       {
@@ -3488,8 +3488,8 @@
         "surfaceForm": "trainers",
         "phonetic": "/'treinә/",
         "pos": "n.",
-        "translation": "n. 训练员，驯马师",
-        "definition": "one who trains other persons or animals",
+        "translation": "n. 运动鞋（trainers）",
+        "definition": "a shoe worn for running or sport",
         "context": "Then a pair of trainers stopped next to me."
       },
       {
@@ -3568,9 +3568,9 @@
         "headword": "beat",
         "surfaceForm": "beat",
         "phonetic": "/bi:t/",
-        "pos": "n.",
-        "translation": "n. 心跳(声)，打",
-        "definition": "a regular route for a sentry or policeman",
+        "pos": "v.",
+        "translation": "v. 打败，（心脏）跳动",
+        "definition": "to defeat someone in a game, or (of the heart) to make regular movements",
         "context": "The team we most wanted to beat was Bukit Rise Secondary, who had won the year before."
       },
       {
@@ -3587,8 +3587,8 @@
         "surfaceForm": "term",
         "phonetic": "/tә:m/",
         "pos": "n.",
-        "translation": "n. 术语，专有名词",
-        "definition": "a word or expression used for some particular thing",
+        "translation": "n. 学期",
+        "definition": "one of the periods into which a school year is divided",
         "context": "For a whole term, Nadia, Ethan and I spent every Tuesday evening in the science lab, building a robot about the size of a shoebox."
       },
       {
@@ -3672,8 +3672,8 @@
         "surfaceForm": "panels",
         "phonetic": "/'pænl/",
         "pos": "n.",
-        "translation": "n. 嵌板，仪表板",
-        "definition": "sheet that forms a distinct (usually flat and rectangular) section or component of something",
+        "translation": "n. （评审）小组，（组画中的）一幅",
+        "definition": "a small group of people chosen to judge something; also one picture in a series",
         "context": "Inside was a set of drawings: the same river, from the mountain to the sea, in eight panels, each one labelled in tiny, careful handwriting."
       },
       {
@@ -3734,9 +3734,9 @@
         "headword": "shallow",
         "surfaceForm": "shallow",
         "phonetic": "/'ʃælәu/",
-        "pos": "v.",
-        "translation": "v. (使)变浅",
-        "definition": "make shallow",
+        "pos": "adj.",
+        "translation": "adj. 浅的",
+        "definition": "not deep",
         "context": "In the last one, a bird stood in the shallow water."
       },
       {
@@ -3753,8 +3753,8 @@
         "surfaceForm": "presentation",
         "phonetic": "/.prezәn'teiʃәn/",
         "pos": "n.",
-        "translation": "n. 赠与，描述",
-        "definition": "the activity of formally presenting something (as a prize or reward)",
+        "translation": "n. 报告，展示",
+        "definition": "a talk in which someone shows or explains something to a group",
         "context": "On the morning of the presentation, Mei Ling was not at the school gate where we had agreed to meet."
       },
       {
@@ -3835,18 +3835,18 @@
         "headword": "chop",
         "surfaceForm": "chopping",
         "phonetic": "/tʃɒp/",
-        "pos": "n.",
-        "translation": "n. 肋条肉，排骨",
-        "definition": "the irregular motion of waves (usually caused by wind blowing in a direction opposite to the tide)",
+        "pos": "v.",
+        "translation": "v. 切，剁",
+        "definition": "to cut something into pieces with a knife",
         "context": "He put a new plate on the counter, said \"Again,\" and went on chopping."
       },
       {
         "headword": "flame",
         "surfaceForm": "flames",
         "phonetic": "/fleim/",
-        "pos": "vt.",
-        "translation": "vt. 焚烧，用火焰给...灭菌",
-        "definition": "be in flames or aflame",
+        "pos": "n.",
+        "translation": "n. 火焰",
+        "definition": "the hot, bright burning gas that you see in a fire",
         "context": "I had imagined something more exciting, like the cooking shows where people shout and flames jump out of pans."
       },
       {
@@ -3863,8 +3863,8 @@
         "surfaceForm": "hawker",
         "phonetic": "/'hɒ:kә/",
         "pos": "n.",
-        "translation": "n. 饲鹰者，以鹰行猎者",
-        "definition": "someone who travels about selling his wares (as on the streets or at carnivals)",
+        "translation": "n. 小贩（hawker centre：小贩中心）",
+        "definition": "a person who sells food or goods from a stall",
         "context": "My uncle has sold chicken rice at the same hawker centre in Toa Payoh for twenty-two years."
       },
       {
@@ -3890,8 +3890,8 @@
         "surfaceForm": "queue",
         "phonetic": "/kju:/",
         "pos": "n.",
-        "translation": "n. 辫子，一队人",
-        "definition": "a line of people or vehicles waiting for something",
+        "translation": "n. 队，行列",
+        "definition": "a line of people waiting for something",
         "context": "At twelve o'clock the office workers arrived, and the queue went from two people to twenty in the time it took me to fold one box."
       },
       {
@@ -3899,17 +3899,17 @@
         "surfaceForm": "stall",
         "phonetic": "/stɒ:l/",
         "pos": "n.",
-        "translation": "n. 厩，停车处",
-        "definition": "a compartment in a stable where a single animal is confined and fed",
+        "translation": "n. 摊位",
+        "definition": "a small shop or table from which things are sold",
         "context": "When I asked if I could help at his stall during the holidays, he looked at my hands, as if he were checking whether they were ready, and said I could start on Saturday at ten."
       },
       {
         "headword": "fold",
         "surfaceForm": "folded",
         "phonetic": "/fәuld/",
-        "pos": "n.",
-        "translation": "n. 折层，折",
-        "definition": "an angular or rounded shape made by folding",
+        "pos": "v.",
+        "translation": "v. 折叠",
+        "definition": "to bend paper or cloth so that one part lies on top of another",
         "context": "I wiped the counter, filled the chilli containers and folded the takeaway boxes into shape."
       },
       {
@@ -3917,8 +3917,8 @@
         "surfaceForm": "counter",
         "phonetic": "/'kauntә/",
         "pos": "n.",
-        "translation": "n. 计算器，计算者",
-        "definition": "table consisting of a horizontal surface over which business is transacted",
+        "translation": "n. 柜台",
+        "definition": "a long flat surface in a shop or stall where customers are served",
         "context": "I wiped the counter, filled the chilli containers and folded the takeaway boxes into shape."
       },
       {
@@ -3962,8 +3962,8 @@
         "surfaceForm": "rest",
         "phonetic": "/rest/",
         "pos": "n.",
-        "translation": "n. 休息，睡眠",
-        "definition": "freedom from activity (work or strain or responsibility)",
+        "translation": "n. 其余，剩下的部分",
+        "definition": "the part that is left, or the others",
         "context": "His father had not said a word to him for the rest of the afternoon, and that night he had very nearly decided never to go back."
       },
       {
@@ -4072,17 +4072,17 @@
         "surfaceForm": "upside",
         "phonetic": "/'ʌpsaid/",
         "pos": "n.",
-        "translation": "n. 上侧，上段",
-        "definition": "the highest or uppermost side of anything",
+        "translation": "n. 上面（upside down：颠倒）",
+        "definition": "the top side of something; 'upside down' means with the top at the bottom",
         "context": "My mother turned it upside down and shook it, but nothing fell out."
       },
       {
         "headword": "polytechnic",
         "surfaceForm": "polytechnic",
         "phonetic": "/.pɒli'teknik/",
-        "pos": "a.",
-        "translation": "a. 各种工艺的，工艺教育的",
-        "definition": "a technical school offering instruction in many industrial arts and applied sciences",
+        "pos": "n.",
+        "translation": "n. 理工学院",
+        "definition": "a college that teaches practical and technical subjects",
         "context": "He told us about the band, which had played exactly one concert in a school hall, and about the day he sold his drum set to pay for his first year at polytechnic."
       },
       {
@@ -4116,9 +4116,9 @@
         "headword": "fold",
         "surfaceForm": "folded",
         "phonetic": "/fәuld/",
-        "pos": "n.",
-        "translation": "n. 折层，折",
-        "definition": "an angular or rounded shape made by folding",
+        "pos": "v.",
+        "translation": "v. 折叠",
+        "definition": "to bend paper or cloth so that one part lies on top of another",
         "context": "In June my mother put an empty jam jar in the middle of the dinner table and filled it with small folded pieces of paper."
       },
       {
@@ -4209,8 +4209,8 @@
         "surfaceForm": "canteen",
         "phonetic": "/kæn'ti:n/",
         "pos": "n.",
-        "translation": "n. 水壶，军中俱乐部",
-        "definition": "a flask for carrying water",
+        "translation": "n. （学校、单位的）食堂",
+        "definition": "a place in a school or workplace where meals are served",
         "context": "The next morning he sat at a different table in the canteen, with some other boys."
       },
       {
@@ -4254,8 +4254,8 @@
         "surfaceForm": "sticker",
         "phonetic": "/'stikә/",
         "pos": "n.",
-        "translation": "n. 屠夫，尖刀",
-        "definition": "a small sharp-pointed tip resembling a spike on a stem or leaf",
+        "translation": "n. 贴纸",
+        "definition": "a small piece of paper with a picture or words that sticks to things",
         "context": "People sent rows of laughing faces, and someone turned the picture into a sticker with a pig's nose on it."
       },
       {
@@ -4263,8 +4263,8 @@
         "surfaceForm": "rest",
         "phonetic": "/rest/",
         "pos": "n.",
-        "translation": "n. 休息，睡眠",
-        "definition": "freedom from activity (work or strain or responsibility)",
+        "translation": "n. 其余，剩下的部分",
+        "definition": "the part that is left, or the others",
         "context": "For the rest of the day I kept opening the chat and closing it again."
       },
       {
@@ -4307,9 +4307,9 @@
         "headword": "start",
         "surfaceForm": "start",
         "phonetic": "/stɑ:t/",
-        "pos": "n.",
-        "translation": "n. 惊起，出发",
-        "definition": "the beginning of anything",
+        "pos": "v.",
+        "translation": "v. 开始",
+        "definition": "to begin doing something",
         "context": "Then he said I could start by asking the class to delete the sticker, so that night I did, in the group chat, using my own name."
       },
       {
@@ -4399,9 +4399,9 @@
         "headword": "tire",
         "surfaceForm": "tired",
         "phonetic": "/taiә/",
-        "pos": "vt.",
-        "translation": "vt. 使疲倦，使厌烦",
-        "definition": "lose interest or become bored with something or somebody",
+        "pos": "v.",
+        "translation": "v. 使疲倦（tired：疲倦的）",
+        "definition": "to make someone feel that they need rest",
         "context": "I told him, and everyone who had come to watch, that I was tired, that I had not been trying, and that the sun from the window was in my eyes."
       },
       {
@@ -4409,8 +4409,8 @@
         "surfaceForm": "term",
         "phonetic": "/tә:m/",
         "pos": "n.",
-        "translation": "n. 术语，专有名词",
-        "definition": "a word or expression used for some particular thing",
+        "translation": "n. 学期",
+        "definition": "one of the periods into which a school year is divided",
         "context": "In the first week of term, a Secondary One boy called Irfan joined the club."
       },
       {
@@ -4526,8 +4526,8 @@
         "surfaceForm": "stared",
         "phonetic": "/stɑ:/",
         "pos": "n.",
-        "translation": "n. 星，恒星",
-        "definition": "any celestial body visible (as a point of light) from the Earth at night",
+        "translation": "n. 星星（原文 stared 来自 stare，意思是「盯着看」）",
+        "definition": "a bright point in the night sky; the passage uses stared, from stare, to look at something for a long time",
         "context": "I stared at the board, sure that I had missed something, and it took me a long moment to understand that the game was over."
       },
       {

@@ -63,8 +63,8 @@ const PREFERRED = fs.existsSync(path.join(WEEK2, 'preferred-words.js'))
  *
  * `choose` 按词典查词形：人名、地名只要词典里有同形词就会被当成生词
  * （Woodland →「林地」），`sometimes` 会被还原成 `sometime`（改天）。
- * 目录里有 `avoid-words.js` 的周才启用下面两条，前三周没有这份表，
- * 重跑结果与已发布的完全一样：
+ * 目录里有 `avoid-words.js` 的周才启用下面两条（第四周起；前三周没有这份表，
+ * 选出来的词与已发布的完全一样）：
  *
  *   · 表里的词当停用词；
  *   · 句中大写的词（不在句首）一律当专有名词跳过。
@@ -75,7 +75,11 @@ const AVOID_FILE = path.join(WEEK2, 'avoid-words.js');
 const AVOID = fs.existsSync(AVOID_FILE) ? require(AVOID_FILE) : null;
 
 /**
- * 这一周的**义项更正表**（同样只在目录里有这份文件时启用）。
+ * 这一周的**义项更正表**（同样只在目录里有这份文件时启用；第三周、第四周有）。
+ *
+ * 只改词性 / 中文 / 英文三项，不改选了哪些词。注意：这些文章词目前**不显示给学生** ——
+ * 每日学词走新版词库（按档位词表推），线上词典 DictEntry 也不归发布脚本改；
+ * 这份表修的是内容包本身的准确性（2026-09-17 核实）。
  *
  * `trimSense` 取的是 ECDICT 的第一条义项，不是词义消歧 —— `a full glass bottle`
  * 的 full 会被解释成「把衣服缝得宽松」。表里按本周文章的用法写好了
