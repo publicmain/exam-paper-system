@@ -29,8 +29,8 @@ const VOICE = {
     'Then I saw the name at the top of the screen. It was not Aisha. It was Hui Min. Their chats were next to each other in my list, and I had tapped the wrong one.',
     'I stared at the small grey tick beside the message. One tick meant it had been sent. Two ticks meant it had arrived. I held the phone so tightly that my thumb went white, and I watched the second tick appear. I felt sick with shock.',
     'There is a way to delete a message for everyone, and I did it, but the words "This message was deleted" stayed there in its place, like a sign pointing at what I had done. I typed "Sorry, wrong chat" and deleted that too. I did not sleep much.',
-    'In the morning, Hui Min was waiting at the school gate. I was ready to explain, or to apologise, or to pretend that I did not know what she meant. Before I could do any of those things, she said, "I heard it before you deleted it."',
-    'Then she told me something I did not know. The photo from the cinema was old; she had posted it because her cousin asked her to. She had cancelled because her father was in hospital, and she had not wanted to talk about it with anyone. "You could have asked me," she said, "instead of telling Aisha."',
+    'In the morning, Hui Min was waiting at the school gate. I could hear my own heartbeat. I was ready to explain, or to apologise, or to pretend that I did not know what she meant. Before I could do any of those things, she said, "I heard it before you deleted it."',
+    'Then she told me something I did not know. The photo from the cinema was old; she had posted it because her cousin asked her to. She had cancelled because her father was in hospital, and she had not wanted to talk about it with anyone. "You could have asked me," she said, "instead of telling Aisha." I could not look her in the eye.',
     'She was right. I had been ready to believe the worst about her in the time it takes to press a button. We still practise French together on Tuesdays. When I am angry with someone now, I wait until the morning, and then I say it to their face or not at all.',
   ]),
   questions: [
@@ -84,7 +84,7 @@ const VOICE = {
     {
       kind: 'short',
       marks: 2,
-      stem: 'According to Paragraph 7, why had Hui Min posted the cinema photo, and what does this show about the conclusion the writer drew from it?',
+      stem: 'Why had Hui Min posted the cinema photo (Paragraph 7), and what does this show about the conclusion the writer had drawn from it the night before?',
       answer:
         'It was an old photo that she posted because her cousin asked her to, so it did not prove that she had gone to the cinema that night; the writer was wrong to decide from it that she only cared about herself.',
       evidence: 'The photo from the cinema was old; she had posted it because her cousin asked her to.',
@@ -383,7 +383,7 @@ const EGG = {
     'I took it very seriously. I read about how cars are designed to protect people in crashes, and I drew plans. My final design had a paper cage inside a paper cage, with the egg hanging in the middle on eight pieces of string, and a parachute made from both bags. It took me four evenings to build. It was beautiful.',
     'Nadia, who sits next to me, said she had her own idea, but she did not seem to be working very hard on it. On the day before the test, she was still sitting at her desk, calmly folding paper into long, thin strips. I could not see how a pile of paper strips would save anything.',
     'On the morning of the test, a Tuesday, the whole class stood in the car park and looked up. Mrs Wong dropped the designs one by one from the third-floor corridor. The first four eggs broke. Some people covered their eyes.',
-    'Mine was sixth. The parachute opened beautifully, and for two seconds it floated down exactly as I had planned. Then a light wind caught it and carried it sideways, into the branches of a tree, where it stayed. Mrs Wong had to get it down with a broom. The egg was fine, but it had not landed, so it did not count.',
+    'Mine was sixth. The parachute opened beautifully, and for two seconds it floated down exactly as I had planned. Then a light wind caught it and carried it sideways, into the branches of a tree, where it stayed. Mrs Wong had to get it down with a broom. The egg was fine, but it had not landed, so it did not count. Four evenings of work, wasted by one small wind. I groaned and covered my face with my hands.',
     "Nadia's was ninth. It was a ball of folded paper strips about the size of a football, with the egg somewhere in the middle. It had no parachute. It fell straight down, hit the ground hard, bounced twice and rolled against the wall. When Mrs Wong opened it, the egg was perfect.",
     'I asked Nadia how she had thought of it. She said the strips would bend when it landed and take the force instead of the egg, and that she had not used a parachute because the car park was always windy in the mornings. I had not once thought about the weather. Her idea was so simple, and so clever.',
     'Mrs Wong gave Nadia full marks, and she gave me a mark for the design and a note: "Beautiful. Now test it outside." I kept the note. My designs are less beautiful these days, but I test them in the real world before I believe in them.',
