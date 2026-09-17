@@ -539,6 +539,18 @@ describe.each(GATED.length ? GATED : [['（还没有第三周内容）', '', nul
         expect(p.hardRatio, `超纲词：${[...new Set(p.hardWords)].join(', ')}`).toBeLessThanOrEqual(gate.maxHard);
       }
     });
+    // 2026-09-17：第四周第一次生成词表时，Woodland（人名）被教成「林地」、Fleming 成了
+    // 「佛兰芒人」—— 生成器按词典查词形，不认专有名词。第三周已发出去的 dewar、
+    // richardson 不回改，这条只管第四周起。
+    it('学习词不是句中大写的人名 / 地名（第四周起）', () => {
+      if (day.date < '2026-09-21') return;
+      for (const w of day.words) {
+        const at = w.context.indexOf(w.surfaceForm);
+        const quoted = /["“]\s*$/.test(w.context.slice(0, Math.max(at, 0)));
+        const proper = at > 0 && !quoted && /^[A-Z]/.test(w.surfaceForm);
+        expect(proper, `${w.headword} ← ${w.surfaceForm}：句中大写，多半是专有名词`).toBe(false);
+      }
+    });
   },
 );
 

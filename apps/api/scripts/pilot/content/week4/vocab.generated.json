@@ -1,0 +1,4562 @@
+{
+  "ielts_authentic": {
+    "original-w4-penicillin": [
+      {
+        "headword": "resistant",
+        "surfaceForm": "resistant",
+        "phonetic": "/ri'zistәnt/",
+        "pos": "adj.",
+        "translation": "adj. 有抵抗力的，耐…的",
+        "definition": "not harmed or affected by something",
+        "context": "Fleming himself, in his Nobel lecture, warned of a different problem that is still with us: bacteria can become resistant if the drug is used carelessly."
+      },
+      {
+        "headword": "urgency",
+        "surfaceForm": "urgency",
+        "phonetic": "/'ә:dʒәnsi/",
+        "pos": "n.",
+        "translation": "n. 紧急，催促",
+        "definition": "the state of being urgent",
+        "context": "Fleming noticed something important, but noticing was not enough; it took chemistry, engineering, industrial capacity and a wartime sense of urgency to turn a ring on a dish into a medicine."
+      },
+      {
+        "headword": "bacteria",
+        "surfaceForm": "bacteria",
+        "phonetic": "/bæk'tiәriә/",
+        "pos": "pl.",
+        "translation": "pl. 细菌",
+        "definition": "single-celled or noncellular spherical or spiral or rod-shaped organisms lacking chlorophyll that reproduce by fission",
+        "context": "In September 1928, Alexander Fleming, a bacteriologist at St Mary's Hospital in London, came back from a summer break to find that one of his dishes of Staphylococcus bacteria had been contaminated by a mould."
+      },
+      {
+        "headword": "bedpan",
+        "surfaceForm": "bedpans",
+        "phonetic": "/'bedpæn/",
+        "pos": "n.",
+        "translation": "n. 便盆，暖床用长柄炭炉",
+        "definition": "a shallow vessel used by a bedridden patient for defecation and urination",
+        "context": "The practical breakthrough came from a third scientist, Norman Heatley, who designed ways to grow the mould and extract the drug using whatever equipment could be found in wartime Britain, including milk churns, bathtubs and hospital bedpans."
+      },
+      {
+        "headword": "mouldy",
+        "surfaceForm": "mouldy",
+        "phonetic": "/'mәuldi/",
+        "pos": "a.",
+        "translation": "a. 发霉的，陈腐的",
+        "definition": "covered with or smelling of mold",
+        "context": "At a government laboratory in Peoria, Illinois, researchers found that growing the mould in a by-product of corn processing increased the yield many times over, and a mouldy melon from a local market provided a strain that produced far more of the drug than Fleming's."
+      },
+      {
+        "headword": "bathtub",
+        "surfaceForm": "bathtubs",
+        "phonetic": "/'bɑ:θtʌb/",
+        "pos": "n.",
+        "translation": "n. 浴缸",
+        "definition": "a relatively large open container that you fill with water and use to wash the body",
+        "context": "The practical breakthrough came from a third scientist, Norman Heatley, who designed ways to grow the mould and extract the drug using whatever equipment could be found in wartime Britain, including milk churns, bathtubs and hospital bedpans."
+      },
+      {
+        "headword": "churn",
+        "surfaceForm": "churns",
+        "phonetic": "/tʃә:n/",
+        "pos": "n.",
+        "translation": "n. 大奶桶",
+        "definition": "a large metal container for carrying milk",
+        "context": "The practical breakthrough came from a third scientist, Norman Heatley, who designed ways to grow the mould and extract the drug using whatever equipment could be found in wartime Britain, including milk churns, bathtubs and hospital bedpans."
+      },
+      {
+        "headword": "urine",
+        "surfaceForm": "urine",
+        "phonetic": "/'juәrin/",
+        "pos": "n.",
+        "translation": "n. 小便，尿",
+        "definition": "liquid excretory product",
+        "context": "He improved remarkably within days, but the supply ran out, and although the team even recovered penicillin from his urine to use again, he died some weeks later."
+      },
+      {
+        "headword": "penicillin",
+        "surfaceForm": "penicillin",
+        "phonetic": "/.peni'silin/",
+        "pos": "n.",
+        "translation": "n. 盘尼西林，青霉素",
+        "definition": "any of various antibiotics obtained from Penicillium molds (or produced synthetically) and used in the treatment of various infections and diseases",
+        "context": "The story of penicillin is usually told as a moment of luck: a scientist returns from holiday, notices mould on a forgotten dish, and changes medicine for ever."
+      },
+      {
+        "headword": "contaminate",
+        "surfaceForm": "contaminated",
+        "phonetic": "/kәn'tæmineit/",
+        "pos": "vt.",
+        "translation": "vt. 弄污，弄脏",
+        "definition": "make radioactive by adding radioactive material",
+        "context": "In September 1928, Alexander Fleming, a bacteriologist at St Mary's Hospital in London, came back from a summer break to find that one of his dishes of Staphylococcus bacteria had been contaminated by a mould."
+      },
+      {
+        "headword": "mould",
+        "surfaceForm": "mould",
+        "phonetic": "/mәuld/",
+        "pos": "n.",
+        "translation": "n. 霉，霉菌",
+        "definition": "a soft green or grey growth on old food or damp surfaces",
+        "context": "The story of penicillin is usually told as a moment of luck: a scientist returns from holiday, notices mould on a forgotten dish, and changes medicine for ever."
+      },
+      {
+        "headword": "infect",
+        "surfaceForm": "infected",
+        "phonetic": "/in'fekt/",
+        "pos": "vt.",
+        "translation": "vt. 传染，感染",
+        "definition": "communicate a disease to",
+        "context": "In May 1940, the team infected eight mice with deadly bacteria and treated four of them with penicillin."
+      },
+      {
+        "headword": "revival",
+        "surfaceForm": "revival",
+        "phonetic": "/ri'vaivl/",
+        "pos": "n.",
+        "translation": "n. 复兴，复活",
+        "definition": "bringing again into activity and prominence",
+        "context": "The revival began in 1939 at the University of Oxford, where Howard Florey and Ernst Chain were searching for natural substances that killed bacteria."
+      },
+      {
+        "headword": "remarkably",
+        "surfaceForm": "remarkably",
+        "phonetic": "/ri'mɑ:kәbli/",
+        "pos": "adv.",
+        "translation": "adv. 显著地，引人注目地",
+        "definition": "to a remarkable degree or extent",
+        "context": "He improved remarkably within days, but the supply ran out, and although the team even recovered penicillin from his urine to use again, he died some weeks later."
+      },
+      {
+        "headword": "difficult",
+        "surfaceForm": "difficult",
+        "phonetic": "/'difikәlt/",
+        "pos": "a.",
+        "translation": "a. 困难的",
+        "definition": "not easy; requiring great physical or mental effort to accomplish or comprehend or endure",
+        "context": "Penicillin was difficult to extract and lost its strength quickly, and Fleming, who was not a chemist, could not produce it in a pure or stable form."
+      },
+      {
+        "headword": "important",
+        "surfaceForm": "important",
+        "phonetic": "/im'pɒ:tәnt/",
+        "pos": "a.",
+        "translation": "a. 重要的，有地位的",
+        "definition": "of great significance or value",
+        "context": "Fleming noticed something important, but noticing was not enough; it took chemistry, engineering, industrial capacity and a wartime sense of urgency to turn a ring on a dish into a medicine."
+      },
+      {
+        "headword": "possible",
+        "surfaceForm": "possible",
+        "phonetic": "/'pɒsәbl/",
+        "pos": "adj.",
+        "translation": "adj. 可能的",
+        "definition": "able to happen or be done",
+        "context": "Heatley, whose methods had made the Oxford work possible, was not included."
+      },
+      {
+        "headword": "interest",
+        "surfaceForm": "interest",
+        "phonetic": "/'intrist/",
+        "pos": "n.",
+        "translation": "n. 兴趣，嗜好",
+        "definition": "a sense of concern with and curiosity about someone or something",
+        "context": "Other researchers showed little interest."
+      },
+      {
+        "headword": "officer",
+        "surfaceForm": "officer",
+        "phonetic": "/'ɒfisә/",
+        "pos": "n.",
+        "translation": "n. 军官，主管",
+        "definition": "a person authorized to serve in a position of authority on a vessel",
+        "context": "The following February, the first human patient, a police officer named Albert Alexander, was given the drug for a severe infection."
+      },
+      {
+        "headword": "attack",
+        "surfaceForm": "attack",
+        "phonetic": "/ә'tæk/",
+        "pos": "n.",
+        "translation": "n. 攻击，抨击",
+        "definition": "an offensive move in a sport or game",
+        "context": "With Britain under attack, Florey travelled to the United States in 1941 to seek help."
+      }
+    ],
+    "original-w4-banana": [
+      {
+        "headword": "ripen",
+        "surfaceForm": "ripens",
+        "phonetic": "/'raipәn/",
+        "pos": "vt.",
+        "translation": "vt. 使成熟",
+        "definition": "cause to ripen or develop fully",
+        "context": "This uniformity is convenient for growers, shippers and supermarkets, which can rely on fruit that ripens, travels and looks the same wherever it is grown."
+      },
+      {
+        "headword": "uniformity",
+        "surfaceForm": "uniformity",
+        "phonetic": "/.ju:ni'fɒ:mәti/",
+        "pos": "n.",
+        "translation": "n. 无差异，同样",
+        "definition": "a condition in which everything is regular and unvarying",
+        "context": "This uniformity is convenient for growers, shippers and supermarkets, which can rely on fruit that ripens, travels and looks the same wherever it is grown."
+      },
+      {
+        "headword": "fungus",
+        "surfaceForm": "fungus",
+        "phonetic": "/'fʌŋgәs/",
+        "pos": "n.",
+        "translation": "n. 真菌，真菌类植物",
+        "definition": "an organism of the kingdom Fungi lacking chlorophyll and feeding on organic matter",
+        "context": "Gros Michel plantations in Central America were destroyed by Panama disease, a wilt caused by a fungus that lives in the soil."
+      },
+      {
+        "headword": "resistant",
+        "surfaceForm": "resistant",
+        "phonetic": "/ri'zistәnt/",
+        "pos": "adj.",
+        "translation": "adj. 有抵抗力的，耐…的",
+        "definition": "not harmed or affected by something",
+        "context": "Eventually the industry switched to the Cavendish, which was less popular with some customers but resistant to the form of the fungus that had destroyed the Gros Michel."
+      },
+      {
+        "headword": "plantation",
+        "surfaceForm": "plantations",
+        "phonetic": "/plæn'teiʃәn/",
+        "pos": "n.",
+        "translation": "n. 种植园，大农场",
+        "definition": "an estate where cash crops are grown on a large scale (especially in tropical areas)",
+        "context": "Gros Michel plantations in Central America were destroyed by Panama disease, a wilt caused by a fungus that lives in the soil."
+      },
+      {
+        "headword": "shipper",
+        "surfaceForm": "shippers",
+        "phonetic": "/'ʃipә/",
+        "pos": "n.",
+        "translation": "n. 托运人，发货人",
+        "definition": "someone who ships goods",
+        "context": "This uniformity is convenient for growers, shippers and supermarkets, which can rely on fruit that ripens, travels and looks the same wherever it is grown."
+      },
+      {
+        "headword": "disinfect",
+        "surfaceForm": "disinfect",
+        "phonetic": "/.disin'fekt/",
+        "pos": "vt.",
+        "translation": "vt. 消毒",
+        "definition": "destroy microorganisms or pathogens by cleansing",
+        "context": "Many plantations now require workers and visitors to disinfect their footwear, and infected plants are destroyed and the surrounding area closed off."
+      },
+      {
+        "headword": "footwear",
+        "surfaceForm": "footwear",
+        "phonetic": "/'fjtweә(r)/",
+        "pos": "n.",
+        "translation": "n. 鞋类，靴类",
+        "definition": "clothing worn on a person's feet",
+        "context": "Many plantations now require workers and visitors to disinfect their footwear, and infected plants are destroyed and the surrounding area closed off."
+      },
+      {
+        "headword": "reliably",
+        "surfaceForm": "reliably",
+        "phonetic": "/ri'laiәbli/",
+        "pos": "adv.",
+        "translation": "adv. 可靠地，可信赖地",
+        "definition": "in a faithful manner",
+        "context": "It can survive in soil for decades, and no chemical treatment reliably kills it."
+      },
+      {
+        "headword": "wilt",
+        "surfaceForm": "wilt",
+        "phonetic": "/wilt/",
+        "pos": "v.",
+        "translation": "v. (使)枯萎，(使)衰弱",
+        "definition": "lose strength",
+        "context": "Gros Michel plantations in Central America were destroyed by Panama disease, a wilt caused by a fungus that lives in the soil."
+      },
+      {
+        "headword": "breeder",
+        "surfaceForm": "Breeders",
+        "phonetic": "/'bri:dә/",
+        "pos": "n.",
+        "translation": "n. 育种者",
+        "definition": "a person who develops new kinds of plants or animals",
+        "context": "Breeders in Taiwan have selected Cavendish plants that tolerate the disease better, although they are not fully resistant."
+      },
+      {
+        "headword": "grower",
+        "surfaceForm": "growers",
+        "phonetic": "/'grәuә/",
+        "pos": "n.",
+        "translation": "n. 栽培者，生长物",
+        "definition": "someone concerned with the science or art or business of cultivating the soil",
+        "context": "This uniformity is convenient for growers, shippers and supermarkets, which can rely on fruit that ripens, travels and looks the same wherever it is grown."
+      },
+      {
+        "headword": "twentieth",
+        "surfaceForm": "twentieth",
+        "phonetic": "/'twentiiθ/",
+        "pos": "num.",
+        "translation": "num. 第二十，二十分之一",
+        "definition": "position 20 in a countable series of things",
+        "context": "Until the middle of the twentieth century, the banana in most Western shops was a different variety, the Gros Michel, which many people who remember it describe as richer in flavour."
+      },
+      {
+        "headword": "infect",
+        "surfaceForm": "infected",
+        "phonetic": "/in'fekt/",
+        "pos": "vt.",
+        "translation": "vt. 传染，感染",
+        "definition": "communicate a disease to",
+        "context": "Growers responded by abandoning infected land and clearing new forest, but the disease followed them."
+      },
+      {
+        "headword": "tolerate",
+        "surfaceForm": "tolerate",
+        "phonetic": "/'tɒlәreit/",
+        "pos": "vt.",
+        "translation": "vt. 宽容，容许",
+        "definition": "recognize and respect (rights and beliefs of others)",
+        "context": "Breeders in Taiwan have selected Cavendish plants that tolerate the disease better, although they are not fully resistant."
+      },
+      {
+        "headword": "international",
+        "surfaceForm": "international",
+        "phonetic": "/.intә'næʃәnәl/",
+        "pos": "adj.",
+        "translation": "adj. 国际的",
+        "definition": "involving more than one country",
+        "context": "The banana is one of the most traded fruits in the world, and almost every banana sold in international trade belongs to a single variety, the Cavendish."
+      },
+      {
+        "headword": "describe",
+        "surfaceForm": "describe",
+        "phonetic": "/di'skraib/",
+        "pos": "vt.",
+        "translation": "vt. 描述，描绘",
+        "definition": "give a description of",
+        "context": "Until the middle of the twentieth century, the banana in most Western shops was a different variety, the Gros Michel, which many people who remember it describe as richer in flavour."
+      },
+      {
+        "headword": "industry",
+        "surfaceForm": "industry",
+        "phonetic": "/'indәstri/",
+        "pos": "n.",
+        "translation": "n. 行业，工业",
+        "definition": "the businesses that produce a particular kind of goods",
+        "context": "Eventually the industry switched to the Cavendish, which was less popular with some customers but resistant to the form of the fungus that had destroyed the Gros Michel."
+      },
+      {
+        "headword": "attack",
+        "surfaceForm": "attacks",
+        "phonetic": "/ә'tæk/",
+        "pos": "n.",
+        "translation": "n. 攻击，抨击",
+        "definition": "an offensive move in a sport or game",
+        "context": "Unlike the earlier form, it attacks the Cavendish."
+      },
+      {
+        "headword": "believe",
+        "surfaceForm": "believe",
+        "phonetic": "/bi'li:v/",
+        "pos": "v.",
+        "translation": "v. 相信",
+        "definition": "accept as true",
+        "context": "Many plant scientists believe that the real answer is not a single replacement but greater variety."
+      }
+    ],
+    "original-w4-dunbar-number": [
+      {
+        "headword": "primate",
+        "surfaceForm": "Primates",
+        "phonetic": "/'praimit/",
+        "pos": "n.",
+        "translation": "n. 灵长类动物",
+        "definition": "a member of the group of animals that includes humans, apes and monkeys",
+        "context": "Primates that live in larger groups tend to have a larger neocortex, the outer layer of the brain involved in complex thinking, relative to the rest of the brain."
+      },
+      {
+        "headword": "statistical",
+        "surfaceForm": "statistical",
+        "phonetic": "/stә'tistikl/",
+        "pos": "a.",
+        "translation": "a. 统计的，统计上的",
+        "definition": "of or relating to statistics",
+        "context": "In 2021, a team at Stockholm University repeated the kind of analysis Dunbar had used, with newer data on primate brains and a range of statistical methods."
+      },
+      {
+        "headword": "underlying",
+        "surfaceForm": "underlying",
+        "phonetic": "/.ʌndә'laiiŋ/",
+        "pos": "adj.",
+        "translation": "adj. 根本的，潜在的",
+        "definition": "real and basic, though not always obvious",
+        "context": "What is less disputed is the underlying observation that close relationships take time to maintain, and that time is limited."
+      },
+      {
+        "headword": "handful",
+        "surfaceForm": "handful",
+        "phonetic": "/'hændful/",
+        "pos": "n.",
+        "translation": "n. 少数，一把",
+        "definition": "a small number or amount",
+        "context": "A later study by Dunbar of social media users found that, although many had hundreds of online contacts, they felt they could depend on only a handful of them in a crisis."
+      },
+      {
+        "headword": "neocortex",
+        "surfaceForm": "neocortex",
+        "phonetic": "/,niәu'kɔ:teks/",
+        "pos": "word.",
+        "translation": "[医] 新[大脑]皮质",
+        "definition": "the cortical part of the neencephalon",
+        "context": "Primates that live in larger groups tend to have a larger neocortex, the outer layer of the brain involved in complex thinking, relative to the rest of the brain."
+      },
+      {
+        "headword": "anthropologist",
+        "surfaceForm": "anthropologist",
+        "phonetic": "/.ænθrә'pɒlәdʒist/",
+        "pos": "n.",
+        "translation": "n. 人类学家",
+        "definition": "a social scientist who specializes in anthropology",
+        "context": "In the early 1990s, the British anthropologist Robin Dunbar proposed that this gap is not only a matter of time or effort, but of biology: that the human brain can keep track of only a limited number of meaningful relationships, and that the limit is about 150."
+      },
+      {
+        "headword": "unsuitable",
+        "surfaceForm": "unsuitable",
+        "phonetic": "/.ʌn'sju:tәbl/",
+        "pos": "a.",
+        "translation": "a. 不适合的",
+        "definition": "not meant or adapted for a particular purpose",
+        "context": "Dunbar has rejected the Stockholm study, arguing that its methods were unsuitable for the question."
+      },
+      {
+        "headword": "seasonal",
+        "surfaceForm": "seasonal",
+        "phonetic": "/'si:znәl/",
+        "pos": "a.",
+        "translation": "a. 季节的，依照季节的",
+        "definition": "occurring at or dependent on a particular season",
+        "context": "In one study, Dunbar and a colleague asked people to list everyone to whom they sent seasonal greeting cards, and the average size of these networks came close to 150."
+      },
+      {
+        "headword": "reminder",
+        "surfaceForm": "reminder",
+        "phonetic": "/ri'maindә/",
+        "pos": "n.",
+        "translation": "n. 提醒（的事物）",
+        "definition": "something that makes you remember something",
+        "context": "Whether the limit is exactly 150 may matter less than the reminder that no one can be close to everyone."
+      },
+      {
+        "headword": "remarkably",
+        "surfaceForm": "remarkably",
+        "phonetic": "/ri'mɑ:kәbli/",
+        "pos": "adv.",
+        "translation": "adv. 显著地，引人注目地",
+        "definition": "to a remarkable degree or extent",
+        "context": "The idea has been remarkably influential."
+      },
+      {
+        "headword": "influential",
+        "surfaceForm": "influential",
+        "phonetic": "/.infu'enʃәl/",
+        "pos": "a.",
+        "translation": "a. 有影响的，有势力的",
+        "definition": "having or exercising influence or power",
+        "context": "The idea has been remarkably influential."
+      },
+      {
+        "headword": "deliberately",
+        "surfaceForm": "deliberately",
+        "phonetic": "/di'libәrәtli/",
+        "pos": "adv.",
+        "translation": "adv. 故意地",
+        "definition": "with intention",
+        "context": "Some religious farming communities in North America deliberately divide once they grow much beyond it."
+      },
+      {
+        "headword": "dispute",
+        "surfaceForm": "disputed",
+        "phonetic": "/dis'pju:t/",
+        "pos": "n.",
+        "translation": "n. 争论",
+        "definition": "a disagreement or argument about something important",
+        "context": "What is less disputed is the underlying observation that close relationships take time to maintain, and that time is limited."
+      },
+      {
+        "headword": "colleague",
+        "surfaceForm": "colleague",
+        "phonetic": "/'kɒli:g/",
+        "pos": "n.",
+        "translation": "n. 同事，同僚",
+        "definition": "an associate that one works with",
+        "context": "In one study, Dunbar and a colleague asked people to list everyone to whom they sent seasonal greeting cards, and the average size of these networks came close to 150."
+      },
+      {
+        "headword": "species",
+        "surfaceForm": "species",
+        "phonetic": "/'spi:ʃiz/",
+        "pos": "n.",
+        "translation": "n. 种，类",
+        "definition": "a specific kind of something",
+        "context": "By placing humans on the same line that described other primates, he arrived at a predicted group size for our species of around 150."
+      },
+      {
+        "headword": "circumstance",
+        "surfaceForm": "circumstances",
+        "phonetic": "/'sә:kәmstәns/",
+        "pos": "n.",
+        "translation": "n. 环境，状况",
+        "definition": "a condition that accompanies or influences some event or activity",
+        "context": "Critics also point out that people differ greatly in how many relationships they maintain, and that culture, personality and circumstances all play a part."
+      },
+      {
+        "headword": "department",
+        "surfaceForm": "department",
+        "phonetic": "/di'pɑ:tmәnt/",
+        "pos": "n.",
+        "translation": "n. 部门，系",
+        "definition": "a specialized division of a large organization",
+        "context": "Some companies have used it to decide how large a single workplace or department should be before it is divided, and it has been offered as an explanation of why online contacts do not simply become friends."
+      },
+      {
+        "headword": "understand",
+        "surfaceForm": "understand",
+        "phonetic": "/.ʌndә'stænd/",
+        "pos": "vt.",
+        "translation": "vt. 理解，了解",
+        "definition": "know and comprehend the nature or meaning of",
+        "context": "Dunbar suggested that the neocortex sets an upper limit on the number of individuals an animal can understand and keep track of socially."
+      },
+      {
+        "headword": "community",
+        "surfaceForm": "communities",
+        "phonetic": "/kә'mju:niti/",
+        "pos": "n.",
+        "translation": "n. 社区，公众",
+        "definition": "a group of people living in a particular local area",
+        "context": "Some religious farming communities in North America deliberately divide once they grow much beyond it."
+      },
+      {
+        "headword": "describe",
+        "surfaceForm": "described",
+        "phonetic": "/di'skraib/",
+        "pos": "vt.",
+        "translation": "vt. 描述，描绘",
+        "definition": "give a description of",
+        "context": "By placing humans on the same line that described other primates, he arrived at a predicted group size for our species of around 150."
+      }
+    ],
+    "original-w4-open-label-placebo": [
+      {
+        "headword": "irritable",
+        "surfaceForm": "irritable",
+        "phonetic": "/'iritәbl/",
+        "pos": "adj.",
+        "translation": "adj. 易怒的，（器官）易激的",
+        "definition": "easily annoyed, or (of a body part) easily made painful",
+        "context": "They recruited 80 people with irritable bowel syndrome, a painful long-term condition of the gut."
+      },
+      {
+        "headword": "deception",
+        "surfaceForm": "deception",
+        "phonetic": "/di'sepʃәn/",
+        "pos": "n.",
+        "translation": "n. 欺骗，诡计",
+        "definition": "the act of deceiving",
+        "context": "Most medical codes regard such deception as unacceptable."
+      },
+      {
+        "headword": "bowel",
+        "surfaceForm": "bowel",
+        "phonetic": "/'bauәl/",
+        "pos": "n.",
+        "translation": "n. 肠，内脏",
+        "definition": "the part of the alimentary canal between the stomach and the anus",
+        "context": "They recruited 80 people with irritable bowel syndrome, a painful long-term condition of the gut."
+      },
+      {
+        "headword": "ethical",
+        "surfaceForm": "ethical",
+        "phonetic": "/'eθikәl/",
+        "pos": "adj.",
+        "translation": "adj. 道德上的，伦理的",
+        "definition": "connected with what is morally right or wrong",
+        "context": "Even where placebos help, using them outside research raises an ethical problem."
+      },
+      {
+        "headword": "anaesthetist",
+        "surfaceForm": "anaesthetist",
+        "phonetic": "/æ'ni:sθәtist/",
+        "pos": "n.",
+        "translation": "n. 麻醉师",
+        "definition": "a specialist who administers an anesthetic to a patient before he is treated",
+        "context": "Interest in the placebo as a force in its own right grew after 1955, when the American anaesthetist Henry Beecher published an influential paper suggesting that roughly a third of patients improved when given a placebo."
+      },
+      {
+        "headword": "clinician",
+        "surfaceForm": "clinician",
+        "phonetic": "/kli'niʃәn/",
+        "pos": "word.",
+        "translation": "[医] 临床医师，临证医师",
+        "definition": "a practitioner (of medicine or psychology) who does clinical work instead of laboratory experiments",
+        "context": "And the attention of a sympathetic clinician, which comes with the treatment, is known to affect how patients feel."
+      },
+      {
+        "headword": "reassuring",
+        "surfaceForm": "reassuring",
+        "phonetic": "/.ri:ә'ʃuriŋ/",
+        "pos": "a.",
+        "translation": "a. 安心的，可靠的",
+        "definition": "restoring confidence and relieving anxiety",
+        "context": "The routine of taking a pill each day may itself be reassuring."
+      },
+      {
+        "headword": "placebo",
+        "surfaceForm": "placebo",
+        "phonetic": "/plә'si:bәu/",
+        "pos": "n.",
+        "translation": "n. 安慰剂",
+        "definition": "a substance with no medical effect, given instead of a real drug",
+        "context": "Such a treatment, usually a sugar pill, is called a placebo, and in modern medicine it has a very practical role: when a new drug is tested, it is compared with a placebo, so that researchers can tell how much of any improvement is caused by the drug itself."
+      },
+      {
+        "headword": "shrink",
+        "surfaceForm": "shrink",
+        "phonetic": "/ʃriŋk/",
+        "pos": "vi.",
+        "translation": "vi. 收缩，退缩",
+        "definition": "reduce in size",
+        "context": "Placebos also appear to act mainly on symptoms such as pain or tiredness; there is no good evidence that they can shrink a tumour or cure an infection."
+      },
+      {
+        "headword": "sympathetic",
+        "surfaceForm": "sympathetic",
+        "phonetic": "/.simpә'θetik/",
+        "pos": "a.",
+        "translation": "a. 有同情心的，合意的",
+        "definition": "of or relating to the sympathetic nervous system",
+        "context": "And the attention of a sympathetic clinician, which comes with the treatment, is known to affect how patients feel."
+      },
+      {
+        "headword": "tumour",
+        "surfaceForm": "tumour",
+        "phonetic": "/'tju:mә/",
+        "pos": "n.",
+        "translation": "n. 瘤，肿块",
+        "definition": "an abnormal new mass of tissue that serves no purpose",
+        "context": "Placebos also appear to act mainly on symptoms such as pain or tiredness; there is no good evidence that they can shrink a tumour or cure an infection."
+      },
+      {
+        "headword": "influential",
+        "surfaceForm": "influential",
+        "phonetic": "/.infu'enʃәl/",
+        "pos": "a.",
+        "translation": "a. 有影响的，有势力的",
+        "definition": "having or exercising influence or power",
+        "context": "Interest in the placebo as a force in its own right grew after 1955, when the American anaesthetist Henry Beecher published an influential paper suggesting that roughly a third of patients improved when given a placebo."
+      },
+      {
+        "headword": "recruit",
+        "surfaceForm": "recruited",
+        "phonetic": "/ri'kru:t/",
+        "pos": "v.",
+        "translation": "v. 招募",
+        "definition": "to find people to join an organisation or take part in a study",
+        "context": "Many illnesses improve naturally with time, and patients are often recruited into studies when their symptoms are at their worst, so some improvement would have happened anyway."
+      },
+      {
+        "headword": "modest",
+        "surfaceForm": "modest",
+        "phonetic": "/'mɒdist/",
+        "pos": "a.",
+        "translation": "a. 谦逊的，羞怯的",
+        "definition": "marked by simplicity",
+        "context": "When a Danish team in 2001 compared patients given placebos with patients given no treatment at all, they found little evidence of large effects in general, although there did appear to be modest benefits for pain and for symptoms that patients report themselves."
+      },
+      {
+        "headword": "label",
+        "surfaceForm": "labelled",
+        "phonetic": "/'leibl/",
+        "pos": "v.",
+        "translation": "v. 贴标签，标明",
+        "definition": "to put a written note on something to show what it is",
+        "context": "The other was given pills in a bottle clearly labelled as a placebo, and its members were told honestly that the pills contained no medicine, although similar pills had helped other patients in studies."
+      },
+      {
+        "headword": "quote",
+        "surfaceForm": "quoted",
+        "phonetic": "/kwәut/",
+        "pos": "vt.",
+        "translation": "vt. 引述，举证",
+        "definition": "repeat a passage from",
+        "context": "For decades the figure was quoted as evidence that the mind could produce powerful physical effects."
+      },
+      {
+        "headword": "experience",
+        "surfaceForm": "experience",
+        "phonetic": "/ik'spiәriәns/",
+        "pos": "n.",
+        "translation": "n. 经历，经验",
+        "definition": "the accumulation of knowledge or skill that results from direct participation in events or activities",
+        "context": "If a pill can help some patients even when they know it contains nothing, the benefit may lie less in deception than in the experience of being cared for, a possibility that some researchers believe medicine should take more seriously."
+      },
+      {
+        "headword": "condition",
+        "surfaceForm": "condition",
+        "phonetic": "/kәn'diʃәn/",
+        "pos": "n.",
+        "translation": "n. 情况，条件",
+        "definition": "a state at a particular time",
+        "context": "They recruited 80 people with irritable bowel syndrome, a painful long-term condition of the gut."
+      },
+      {
+        "headword": "describe",
+        "surfaceForm": "described",
+        "phonetic": "/di'skraib/",
+        "pos": "vt.",
+        "translation": "vt. 描述，描绘",
+        "definition": "give a description of",
+        "context": "After three weeks, the group taking the openly described placebo reported significantly greater improvement."
+      },
+      {
+        "headword": "research",
+        "surfaceForm": "research",
+        "phonetic": "/ri'sә:tʃ/",
+        "pos": "n.",
+        "translation": "n. 研究，调查",
+        "definition": "systematic investigation to establish facts",
+        "context": "Even where placebos help, using them outside research raises an ethical problem."
+      }
+    ],
+    "original-w4-wolbachia": [
+      {
+        "headword": "reproduction",
+        "surfaceForm": "reproduction",
+        "phonetic": "/.ri:prә'dʌkʃәn/",
+        "pos": "n.",
+        "translation": "n. 繁殖，生殖",
+        "definition": "the process by which animals or plants produce young",
+        "context": "The first concerns reproduction."
+      },
+      {
+        "headword": "bacterium",
+        "surfaceForm": "bacterium",
+        "phonetic": "/bæk'tiәriәm/",
+        "pos": "n.",
+        "translation": "n. 细菌",
+        "definition": "n (microbiology) single-celled or noncellular spherical or spiral or rod-shaped organisms lacking chlorophyll that reproduce by fission",
+        "context": "In recent years, however, scientists have begun to fight the mosquito with a surprising partner: a bacterium called Wolbachia."
+      },
+      {
+        "headword": "dengue",
+        "surfaceForm": "Dengue",
+        "phonetic": "/'deŋgi/",
+        "pos": "n.",
+        "translation": "n. 登革热",
+        "definition": "an infectious disease of the tropics transmitted by mosquitoes and characterized by rash and aching head and joints",
+        "context": "Dengue fever infects millions of people every year, and in Singapore it is a familiar threat: 2020 brought the largest outbreak the country had recorded."
+      },
+      {
+        "headword": "insecticide",
+        "surfaceForm": "insecticides",
+        "phonetic": "/in'sektisaid/",
+        "pos": "n.",
+        "translation": "n. 杀虫剂",
+        "definition": "a chemical used to kill insects",
+        "context": "For decades the main response has been to remove breeding sites and to spray insecticides."
+      },
+      {
+        "headword": "infect",
+        "surfaceForm": "infects",
+        "phonetic": "/in'fekt/",
+        "pos": "vt.",
+        "translation": "vt. 传染，感染",
+        "definition": "communicate a disease to",
+        "context": "Dengue fever infects millions of people every year, and in Singapore it is a familiar threat: 2020 brought the largest outbreak the country had recorded."
+      },
+      {
+        "headword": "outbreak",
+        "surfaceForm": "outbreak",
+        "phonetic": "/'autbreik/",
+        "pos": "n.",
+        "translation": "n. （疾病的）暴发",
+        "definition": "a sudden start of a disease that affects many people",
+        "context": "Dengue fever infects millions of people every year, and in Singapore it is a familiar threat: 2020 brought the largest outbreak the country had recorded."
+      },
+      {
+        "headword": "multiply",
+        "surfaceForm": "multiplying",
+        "phonetic": "/'mʌltiplai/",
+        "pos": "v.",
+        "translation": "v. 繁殖，乘",
+        "definition": "combine by multiplication",
+        "context": "In mosquitoes that carry the bacterium, the dengue virus has much more difficulty multiplying, so the insects are far less likely to pass it on."
+      },
+      {
+        "headword": "spray",
+        "surfaceForm": "spray",
+        "phonetic": "/sprei/",
+        "pos": "v.",
+        "translation": "v. 喷，喷洒",
+        "definition": "to cover something with very small drops of liquid",
+        "context": "For decades the main response has been to remove breeding sites and to spray insecticides."
+      },
+      {
+        "headword": "prevention",
+        "surfaceForm": "prevention",
+        "phonetic": "/pri'venʃәn/",
+        "pos": "n.",
+        "translation": "n. 预防",
+        "definition": "the act of stopping something bad from happening",
+        "context": "Neither method removes the need for ordinary prevention, and each suits different situations."
+      },
+      {
+        "headword": "dose",
+        "surfaceForm": "dose",
+        "phonetic": "/dәus/",
+        "pos": "n.",
+        "translation": "n. 剂量，服用量",
+        "definition": "a measured portion of medicine taken at any one time",
+        "context": "Separating the sexes accurately, among millions of insects, is therefore one of the programme's biggest technical challenges, and some projects add a low dose of radiation so that any females that slip through cannot breed."
+      },
+      {
+        "headword": "mate",
+        "surfaceForm": "mates",
+        "phonetic": "/meit/",
+        "pos": "v.",
+        "translation": "v. 交配",
+        "definition": "(of animals) to come together to produce young",
+        "context": "When a male mosquito carrying Wolbachia mates with a female that does not carry it, her eggs do not hatch."
+      },
+      {
+        "headword": "pose",
+        "surfaceForm": "pose",
+        "phonetic": "/pәuz/",
+        "pos": "v.",
+        "translation": "v. 造成（威胁、问题）",
+        "definition": "to cause a problem or danger",
+        "context": "Male mosquitoes do not bite, so the releases pose no direct risk to residents, and the wild females that mate with them lay eggs that come to nothing."
+      },
+      {
+        "headword": "technical",
+        "surfaceForm": "technical",
+        "phonetic": "/'teknikl/",
+        "pos": "a.",
+        "translation": "a. 技术上的，专门的",
+        "definition": "a pickup truck with a gun mounted on it",
+        "context": "Separating the sexes accurately, among millions of insects, is therefore one of the programme's biggest technical challenges, and some projects add a low dose of radiation so that any females that slip through cannot breed."
+      },
+      {
+        "headword": "relief",
+        "surfaceForm": "relief",
+        "phonetic": "/ri'li:f/",
+        "pos": "n.",
+        "translation": "n. 减轻，解除",
+        "definition": "the feeling that comes when something burdensome is removed or reduced",
+        "context": "Reducing the mosquito population can bring quick relief in a crowded city but requires continuous effort, while replacing the population is slower to establish but may then last on its own."
+      },
+      {
+        "headword": "estate",
+        "surfaceForm": "estates",
+        "phonetic": "/i'steit/",
+        "pos": "n.",
+        "translation": "n. 住宅区（housing estate）",
+        "definition": "an area with many houses or flats built together",
+        "context": "Since 2016 it has released large numbers of male mosquitoes carrying Wolbachia in selected housing estates."
+      },
+      {
+        "headword": "species",
+        "surfaceForm": "species",
+        "phonetic": "/'spi:ʃiz/",
+        "pos": "n.",
+        "translation": "n. 种，类",
+        "definition": "a specific kind of something",
+        "context": "The virus is carried from person to person mainly by one species of mosquito, Aedes aegypti, which breeds in small amounts of standing water around homes."
+      },
+      {
+        "headword": "international",
+        "surfaceForm": "international",
+        "phonetic": "/.intә'næʃәnәl/",
+        "pos": "adj.",
+        "translation": "adj. 国际的",
+        "definition": "involving more than one country",
+        "context": "The World Mosquito Program, an international research group, therefore releases both male and female mosquitoes carrying Wolbachia, with the aim of making the bacterium spread through the local population until most mosquitoes carry it."
+      },
+      {
+        "headword": "bite",
+        "surfaceForm": "bite",
+        "phonetic": "/bait/",
+        "pos": "n.",
+        "translation": "n. 咬，一口",
+        "definition": "a wound resulting from biting by an animal or a person",
+        "context": "Male mosquitoes do not bite, so the releases pose no direct risk to residents, and the wild females that mate with them lay eggs that come to nothing."
+      },
+      {
+        "headword": "working",
+        "surfaceForm": "working",
+        "phonetic": "/'wә:kiŋ/",
+        "pos": "v.",
+        "translation": "v. 运转，起作用",
+        "definition": "functioning in the normal way",
+        "context": "If females carrying the bacterium escaped as well, Wolbachia could become established in the wild population, and future releases would stop working."
+      },
+      {
+        "headword": "situation",
+        "surfaceForm": "situations",
+        "phonetic": "/.sitju'eiʃәn/",
+        "pos": "n.",
+        "translation": "n. 情形，境遇",
+        "definition": "the general state of things",
+        "context": "Neither method removes the need for ordinary prevention, and each suits different situations."
+      }
+    ]
+  },
+  "ielts_light": {
+    "original-w4-barcode": [
+      {
+        "headword": "patent",
+        "surfaceForm": "patent",
+        "phonetic": "/'pætnt. 'peitnt/",
+        "pos": "n.",
+        "translation": "n. 专利权，许可证",
+        "definition": "a document granting an inventor sole rights to an invention",
+        "context": "The pair received a patent in 1952."
+      },
+      {
+        "headword": "grocery",
+        "surfaceForm": "grocery",
+        "phonetic": "/'grәusәri/",
+        "pos": "n.",
+        "translation": "n. 食品杂货店，食品杂货业",
+        "definition": "consumer goods sold by a grocer",
+        "context": "American grocery companies agreed on a single standard, the rectangular Universal Product Code, which was designed at IBM, where Woodland was then working."
+      },
+      {
+        "headword": "reliably",
+        "surfaceForm": "reliably",
+        "phonetic": "/ri'laiәbli/",
+        "pos": "adv.",
+        "translation": "adv. 可靠地，可信赖地",
+        "definition": "in a faithful manner",
+        "context": "However, reading such a code quickly and reliably in a shop would need cheap lasers and small, affordable computers, and these would not be available for about twenty years."
+      },
+      {
+        "headword": "scanner",
+        "surfaceForm": "scanner",
+        "phonetic": "/'skænә/",
+        "pos": "n.",
+        "translation": "n. 扫描仪，扫描盘",
+        "definition": "someone who scans verse to determine the number and prosodic value of the syllables",
+        "context": "On 26 June 1974, at a supermarket in Troy, Ohio, a packet of chewing gum became the first product to be sold using a barcode scanner."
+      },
+      {
+        "headword": "rectangular",
+        "surfaceForm": "rectangular",
+        "phonetic": "/rek'tæŋgjulә/",
+        "pos": "adj.",
+        "translation": "adj. 长方形的",
+        "definition": "shaped like a rectangle",
+        "context": "American grocery companies agreed on a single standard, the rectangular Universal Product Code, which was designed at IBM, where Woodland was then working."
+      },
+      {
+        "headword": "dash",
+        "surfaceForm": "dashes",
+        "phonetic": "/dæʃ/",
+        "pos": "n.",
+        "translation": "n. （摩斯电码的）划",
+        "definition": "a long signal in Morse code",
+        "context": "He had learned Morse code as a Boy Scout, and while thinking about the problem, he drew its dots and dashes in the sand."
+      },
+      {
+        "headword": "chew",
+        "surfaceForm": "chewing",
+        "phonetic": "/tʃu:/",
+        "pos": "n.",
+        "translation": "n. 咀嚼，咀嚼物",
+        "definition": "a wad of something chewable as tobacco",
+        "context": "On 26 June 1974, at a supermarket in Troy, Ohio, a packet of chewing gum became the first product to be sold using a barcode scanner."
+      },
+      {
+        "headword": "laser",
+        "surfaceForm": "lasers",
+        "phonetic": "/'leizә/",
+        "pos": "n.",
+        "translation": "n. 激光",
+        "definition": "an acronym for light amplification by stimulated emission of radiation",
+        "context": "However, reading such a code quickly and reliably in a shop would need cheap lasers and small, affordable computers, and these would not be available for about twenty years."
+      },
+      {
+        "headword": "packet",
+        "surfaceForm": "packet",
+        "phonetic": "/'pækit/",
+        "pos": "n.",
+        "translation": "n. 小包，一批信件",
+        "definition": "a small package or bundle",
+        "context": "Almost every packet in a supermarket carries a small block of black and white stripes."
+      },
+      {
+        "headword": "information",
+        "surfaceForm": "information",
+        "phonetic": "/.infә'meiʃәn/",
+        "pos": "n.",
+        "translation": "n. 消息，知识",
+        "definition": "a message received and understood",
+        "context": "Thin lines and thick lines, he realised, could carry information just as dots and dashes did."
+      },
+      {
+        "headword": "everything",
+        "surfaceForm": "everything",
+        "phonetic": "/'evriθiŋ/",
+        "pos": "pron.",
+        "translation": "pron. 每件事物，所有事物",
+        "definition": "Whatever pertains to the subject under consideration",
+        "context": "Today barcodes are scanned billions of times a day, on everything from medicine to airline luggage."
+      },
+      {
+        "headword": "working",
+        "surfaceForm": "working",
+        "phonetic": "/'wә:kiŋ/",
+        "pos": "v.",
+        "translation": "v. 运转，起作用",
+        "definition": "functioning in the normal way",
+        "context": "American grocery companies agreed on a single standard, the rectangular Universal Product Code, which was designed at IBM, where Woodland was then working."
+      },
+      {
+        "headword": "describe",
+        "surfaceForm": "described",
+        "phonetic": "/di'skraib/",
+        "pos": "vt.",
+        "translation": "vt. 描述，描绘",
+        "definition": "give a description of",
+        "context": "As well as straight lines, it described a version made of circles, like a target, so that it could be read from any direction."
+      },
+      {
+        "headword": "company",
+        "surfaceForm": "company",
+        "phonetic": "/'kʌmpәni/",
+        "pos": "n.",
+        "translation": "n. 公司，友伴",
+        "definition": "an institution created to conduct business",
+        "context": "The idea behind it began in the late 1940s, when an American graduate student, Bernard Silver, overheard the head of a food-store company asking for a way to record automatically what customers bought at the checkout."
+      },
+      {
+        "headword": "single",
+        "surfaceForm": "single",
+        "phonetic": "/'siŋgl/",
+        "pos": "adj.",
+        "translation": "adj. 每一个的（every single）",
+        "definition": "used to emphasise that you mean each one",
+        "context": "American grocery companies agreed on a single standard, the rectangular Universal Product Code, which was designed at IBM, where Woodland was then working."
+      },
+      {
+        "headword": "record",
+        "surfaceForm": "record",
+        "phonetic": "/ri'kɒ:d/",
+        "pos": "n.",
+        "translation": "n. 记录，履历",
+        "definition": "the sum of recognized accomplishments",
+        "context": "The idea behind it began in the late 1940s, when an American graduate student, Bernard Silver, overheard the head of a food-store company asking for a way to record automatically what customers bought at the checkout."
+      },
+      {
+        "headword": "carry",
+        "surfaceForm": "carries",
+        "phonetic": "/'kæri/",
+        "pos": "v.",
+        "translation": "v. 携带，运送",
+        "definition": "to take something from one place to another",
+        "context": "Almost every packet in a supermarket carries a small block of black and white stripes."
+      },
+      {
+        "headword": "early",
+        "surfaceForm": "early",
+        "phonetic": "/'ә:li/",
+        "pos": "a.",
+        "translation": "a. 早的，早熟的",
+        "definition": "at or near the beginning of a period of time or course of events or before the usual or expected time",
+        "context": "By the early 1970s, both had arrived."
+      },
+      {
+        "headword": "read",
+        "surfaceForm": "read",
+        "phonetic": "/ri:d/",
+        "pos": "v.",
+        "translation": "v. 读，阅读",
+        "definition": "interpret something that is written or printed",
+        "context": "As well as straight lines, it described a version made of circles, like a target, so that it could be read from any direction."
+      },
+      {
+        "headword": "late",
+        "surfaceForm": "late",
+        "phonetic": "/leit/",
+        "pos": "a.",
+        "translation": "a. 迟的，晚的",
+        "definition": "being or occurring at an advanced period of time or after a usual or expected time",
+        "context": "The idea behind it began in the late 1940s, when an American graduate student, Bernard Silver, overheard the head of a food-store company asking for a way to record automatically what customers bought at the checkout."
+      }
+    ],
+    "original-w4-velcro": [
+      {
+        "headword": "nylon",
+        "surfaceForm": "nylon",
+        "phonetic": "/'nailɒn/",
+        "pos": "n.",
+        "translation": "n. 尼龙",
+        "definition": "a thermoplastic polyamide",
+        "context": "The answer turned out to be nylon, which could be shaped into hooks that stayed strong."
+      },
+      {
+        "headword": "velvet",
+        "surfaceForm": "velvet",
+        "phonetic": "/'velvit/",
+        "pos": "n.",
+        "translation": "n. 天鹅绒",
+        "definition": "a silky densely piled fabric with a plain back",
+        "context": "He received a patent in the 1950s and named his invention Velcro, from two French words: velours, meaning velvet, and crochet, meaning hook."
+      },
+      {
+        "headword": "patent",
+        "surfaceForm": "patent",
+        "phonetic": "/'pætnt. 'peitnt/",
+        "pos": "n.",
+        "translation": "n. 专利权，许可证",
+        "definition": "a document granting an inventor sole rights to an invention",
+        "context": "He received a patent in the 1950s and named his invention Velcro, from two French words: velours, meaning velvet, and crochet, meaning hook."
+      },
+      {
+        "headword": "loop",
+        "surfaceForm": "loop",
+        "phonetic": "/lu:p/",
+        "pos": "n.",
+        "translation": "n. 环，圈",
+        "definition": "anything with a round or oval shape (formed by a curve that is closed and does not intersect itself)",
+        "context": "Each hook could catch on anything with a loop in it, such as the threads of his trousers or the hair of his dog."
+      },
+      {
+        "headword": "gravity",
+        "surfaceForm": "gravity",
+        "phonetic": "/'græviti/",
+        "pos": "n.",
+        "translation": "n. 地心引力，重力",
+        "definition": "a solemn and dignified feeling",
+        "context": "American astronauts used it to hold equipment in place, where there was no gravity to stop things floating away, and once people had seen how useful it could be, it began to appear on skiwear and on children's shoes."
+      },
+      {
+        "headword": "burdock",
+        "surfaceForm": "burdock",
+        "phonetic": "/'bә:dɒk/",
+        "pos": "n.",
+        "translation": "n. 牛蒡",
+        "definition": "any of several erect biennial herbs of temperate Eurasia having stout taproots and producing burs",
+        "context": "One day in the 1940s, a Swiss engineer called George de Mestral came home from a walk in the countryside with his dog and found both of them covered in burrs, the small, prickly seed cases of the burdock plant."
+      },
+      {
+        "headword": "crochet",
+        "surfaceForm": "crochet",
+        "phonetic": "/'krәuʃei/",
+        "pos": "n.",
+        "translation": "n. 钩针编织品，钩边",
+        "definition": "needlework done by interlocking looped stitches with a hooked needle",
+        "context": "He received a patent in the 1950s and named his invention Velcro, from two French words: velours, meaning velvet, and crochet, meaning hook."
+      },
+      {
+        "headword": "burr",
+        "surfaceForm": "burrs",
+        "phonetic": "/bә:/",
+        "pos": "n.",
+        "translation": "n. （植物的）刺果",
+        "definition": "a seed case covered in tiny hooks that sticks to clothes and fur",
+        "context": "One day in the 1940s, a Swiss engineer called George de Mestral came home from a walk in the countryside with his dog and found both of them covered in burrs, the small, prickly seed cases of the burdock plant."
+      },
+      {
+        "headword": "microscope",
+        "surfaceForm": "microscope",
+        "phonetic": "/'maikrәuskәup/",
+        "pos": "n.",
+        "translation": "n. 显微镜",
+        "definition": "magnifier of the image of small objects",
+        "context": "Removing them took a long time, and de Mestral, who was curious by nature, decided to look at one under his microscope."
+      },
+      {
+        "headword": "thread",
+        "surfaceForm": "threads",
+        "phonetic": "/θred/",
+        "pos": "n.",
+        "translation": "n. 线，丝",
+        "definition": "a fine cord of twisted fibers (of cotton or silk or wool or nylon etc.) used in sewing and weaving",
+        "context": "Each hook could catch on anything with a loop in it, such as the threads of his trousers or the hair of his dog."
+      },
+      {
+        "headword": "hook",
+        "surfaceForm": "hooks",
+        "phonetic": "/huk/",
+        "pos": "n.",
+        "translation": "n. 钩，钩状",
+        "definition": "a catch for locking a door",
+        "context": "What he saw was a mass of tiny hooks."
+      },
+      {
+        "headword": "prickly",
+        "surfaceForm": "prickly",
+        "phonetic": "/'prikli/",
+        "pos": "a.",
+        "translation": "a. 多刺的，满是针刺的",
+        "definition": "very irritable",
+        "context": "One day in the 1940s, a Swiss engineer called George de Mestral came home from a walk in the countryside with his dog and found both of them covered in burrs, the small, prickly seed cases of the burdock plant."
+      },
+      {
+        "headword": "together",
+        "surfaceForm": "together",
+        "phonetic": "/tә'geðә/",
+        "pos": "adv.",
+        "translation": "adv. 一起，共同",
+        "definition": "mentally and emotionally stable",
+        "context": "De Mestral wondered whether two strips of cloth, one covered in hooks and the other in loops, could be pressed together and pulled apart again and again."
+      },
+      {
+        "headword": "attempt",
+        "surfaceForm": "attempts",
+        "phonetic": "/ә'tempt/",
+        "pos": "n.",
+        "translation": "n. 尝试，企图",
+        "definition": "earnest and conscientious activity intended to do or accomplish something",
+        "context": "His first attempts used cotton, which was too soft and wore out quickly."
+      },
+      {
+        "headword": "strong",
+        "surfaceForm": "strong",
+        "phonetic": "/strɒŋ/",
+        "pos": "a.",
+        "translation": "a. 强壮的，坚固的",
+        "definition": "having strength or power greater than average or expected",
+        "context": "The answer turned out to be nylon, which could be shaped into hooks that stayed strong."
+      },
+      {
+        "headword": "plant",
+        "surfaceForm": "plant",
+        "phonetic": "/plænt. plɑ:nt/",
+        "pos": "n.",
+        "translation": "n. 植物，作物",
+        "definition": "buildings for carrying on industrial labor",
+        "context": "One day in the 1940s, a Swiss engineer called George de Mestral came home from a walk in the countryside with his dog and found both of them covered in burrs, the small, prickly seed cases of the burdock plant."
+      },
+      {
+        "headword": "stay",
+        "surfaceForm": "stayed",
+        "phonetic": "/stei/",
+        "pos": "n.",
+        "translation": "n. 停留，逗留",
+        "definition": "continuing or remaining in a place or state",
+        "context": "The answer turned out to be nylon, which could be shaped into hooks that stayed strong."
+      },
+      {
+        "headword": "walk",
+        "surfaceForm": "walk",
+        "phonetic": "/wɒ:k/",
+        "pos": "n.",
+        "translation": "n. 走，散步",
+        "definition": "the act of traveling by foot",
+        "context": "One day in the 1940s, a Swiss engineer called George de Mestral came home from a walk in the countryside with his dog and found both of them covered in burrs, the small, prickly seed cases of the burdock plant."
+      },
+      {
+        "headword": "stop",
+        "surfaceForm": "stop",
+        "phonetic": "/stɒp/",
+        "pos": "n.",
+        "translation": "n. 停止，车站",
+        "definition": "the event of something ending",
+        "context": "American astronauts used it to hold equipment in place, where there was no gravity to stop things floating away, and once people had seen how useful it could be, it began to appear on skiwear and on children's shoes."
+      },
+      {
+        "headword": "away",
+        "surfaceForm": "away",
+        "phonetic": "/ә'wei/",
+        "pos": "adv.",
+        "translation": "adv. 离去",
+        "definition": "used of an opponent's ground",
+        "context": "American astronauts used it to hold equipment in place, where there was no gravity to stop things floating away, and once people had seen how useful it could be, it began to appear on skiwear and on children's shoes."
+      }
+    ],
+    "original-w4-salty-sea": [
+      {
+        "headword": "acidic",
+        "surfaceForm": "acidic",
+        "phonetic": "/ә'sidik/",
+        "pos": "a.",
+        "translation": "a. 成酸的，尖刻的",
+        "definition": "being or containing an acid",
+        "context": "As rain falls, it takes in a little carbon dioxide from the air, which makes it very slightly acidic."
+      },
+      {
+        "headword": "evaporate",
+        "surfaceForm": "evaporates",
+        "phonetic": "/i'væpәreit/",
+        "pos": "vi.",
+        "translation": "vi. 蒸发，失去水分",
+        "definition": "lose or cause to lose liquid by vaporization leaving a more concentrated residue",
+        "context": "The sun heats the surface and water evaporates, but the salt is left behind."
+      },
+      {
+        "headword": "sodium",
+        "surfaceForm": "sodium",
+        "phonetic": "/'sәudiәm/",
+        "pos": "n.",
+        "translation": "n. 钠",
+        "definition": "a silvery soft waxy metallic element of the alkali metal group",
+        "context": "When it lands on rocks, this weak acid slowly breaks them down, freeing tiny amounts of minerals, including sodium."
+      },
+      {
+        "headword": "evaporated",
+        "surfaceForm": "evaporated",
+        "phonetic": "/i'væpәreitid/",
+        "pos": "a.",
+        "translation": "a. 浓缩的，蒸发干燥的",
+        "definition": "drawn off in the form of vapor",
+        "context": "The evaporated water later falls as rain, runs over more rocks and carries more minerals back."
+      },
+      {
+        "headword": "chloride",
+        "surfaceForm": "chloride",
+        "phonetic": "/'klɒ:raid/",
+        "pos": "n.",
+        "translation": "n. 氯化物",
+        "definition": "any compound containing a chlorine atom",
+        "context": "Much of the chloride in sea salt is thought to come from underwater volcanoes and from hot openings in the sea floor, where water heated by the rocks below dissolves minerals and releases them into the ocean."
+      },
+      {
+        "headword": "carbon",
+        "surfaceForm": "carbon",
+        "phonetic": "/'kɑ:bәn/",
+        "pos": "n.",
+        "translation": "n. 碳，副本",
+        "definition": "a copy made with carbon paper",
+        "context": "As rain falls, it takes in a little carbon dioxide from the air, which makes it very slightly acidic."
+      },
+      {
+        "headword": "acid",
+        "surfaceForm": "acid",
+        "phonetic": "/'æsid/",
+        "pos": "n.",
+        "translation": "n. 酸，酸类物质",
+        "definition": "street name for lysergic acid diethylamide",
+        "context": "When it lands on rocks, this weak acid slowly breaks them down, freeing tiny amounts of minerals, including sodium."
+      },
+      {
+        "headword": "salty",
+        "surfaceForm": "salty",
+        "phonetic": "/'sɒ:lti/",
+        "pos": "a.",
+        "translation": "a. 有盐分的，咸味浓的",
+        "definition": "containing or filled with salt",
+        "context": "Rivers taste fresh, yet the sea they flow into is salty."
+      },
+      {
+        "headword": "example",
+        "surfaceForm": "example",
+        "phonetic": "/ig'zæmpl/",
+        "pos": "n.",
+        "translation": "n. 例子，样本",
+        "definition": "an item of information that is typical of a class or group",
+        "context": "This level has stayed fairly steady for a very long time, because salt is also removed, for example when it becomes part of the mud on the sea floor."
+      },
+      {
+        "headword": "include",
+        "surfaceForm": "including",
+        "phonetic": "/in'klu:d/",
+        "pos": "vt.",
+        "translation": "vt. 包括，把...算入",
+        "definition": "have as a part, be made up out of",
+        "context": "When it lands on rocks, this weak acid slowly breaks them down, freeing tiny amounts of minerals, including sodium."
+      },
+      {
+        "headword": "reach",
+        "surfaceForm": "reach",
+        "phonetic": "/ri:tʃ/",
+        "pos": "v.",
+        "translation": "v. 到达，抵达",
+        "definition": "to arrive at a place",
+        "context": "Once the minerals reach the ocean, most of them stay there."
+      },
+      {
+        "headword": "carry",
+        "surfaceForm": "carry",
+        "phonetic": "/'kæri/",
+        "pos": "v.",
+        "translation": "v. 携带，运送",
+        "definition": "to take something from one place to another",
+        "context": "Streams and rivers carry these dissolved minerals to the sea."
+      },
+      {
+        "headword": "later",
+        "surfaceForm": "later",
+        "phonetic": "/'leitә/",
+        "pos": "adv.",
+        "translation": "adv. 以后，随后",
+        "definition": "coming at a subsequent time or stage",
+        "context": "The evaporated water later falls as rain, runs over more rocks and carries more minerals back."
+      },
+      {
+        "headword": "land",
+        "surfaceForm": "lands",
+        "phonetic": "/lænd/",
+        "pos": "n.",
+        "translation": "n. 陆地，地面",
+        "definition": "the land on which real estate is located",
+        "context": "When it lands on rocks, this weak acid slowly breaks them down, freeing tiny amounts of minerals, including sodium."
+      },
+      {
+        "headword": "stay",
+        "surfaceForm": "stay",
+        "phonetic": "/stei/",
+        "pos": "n.",
+        "translation": "n. 停留，逗留",
+        "definition": "continuing or remaining in a place or state",
+        "context": "Once the minerals reach the ocean, most of them stay there."
+      },
+      {
+        "headword": "time",
+        "surfaceForm": "time",
+        "phonetic": "/taim/",
+        "pos": "n.",
+        "translation": "n. 时间，时侯",
+        "definition": "an instance or single occasion for some event",
+        "context": "This level has stayed fairly steady for a very long time, because salt is also removed, for example when it becomes part of the mud on the sea floor."
+      },
+      {
+        "headword": "air",
+        "surfaceForm": "air",
+        "phonetic": "/єә/",
+        "pos": "n.",
+        "translation": "n. 空气，旋律",
+        "definition": "a mixture of gases (especially oxygen) required for breathing",
+        "context": "As rain falls, it takes in a little carbon dioxide from the air, which makes it very slightly acidic."
+      },
+      {
+        "headword": "yet",
+        "surfaceForm": "yet",
+        "phonetic": "/jet/",
+        "pos": "adv.",
+        "translation": "adv. 还，尚",
+        "definition": "up to the present time",
+        "context": "Rivers taste fresh, yet the sea they flow into is salty."
+      },
+      {
+        "headword": "far",
+        "surfaceForm": "far",
+        "phonetic": "/fɑ:/",
+        "pos": "a.",
+        "translation": "a. 远的，久远的",
+        "definition": "located at a great distance in time or space or degree",
+        "context": "The amount in any glass of river water is far too small to taste, but rivers have been doing this for hundreds of millions of years."
+      },
+      {
+        "headword": "run",
+        "surfaceForm": "runs",
+        "phonetic": "/rʌn/",
+        "pos": "n.",
+        "translation": "n. 跑，赛跑",
+        "definition": "a score in baseball made by a runner touching all four bases safely",
+        "context": "The evaporated water later falls as rain, runs over more rocks and carries more minerals back."
+      }
+    ],
+    "original-w4-mangrove-roots": [
+      {
+        "headword": "tangle",
+        "surfaceForm": "tangled",
+        "phonetic": "/'tæŋgl/",
+        "pos": "n.",
+        "translation": "n. 缠结，纠结的一团",
+        "definition": "a twisted and tangled mass that is highly interwoven",
+        "context": "Their tangled roots slow down waves and hold the mud in place, protecting the coast, and the calm, shady water between them is a safe home for young fish."
+      },
+      {
+        "headword": "shady",
+        "surfaceForm": "shady",
+        "phonetic": "/'ʃeidi/",
+        "pos": "a.",
+        "translation": "a. 荫凉的，成荫的",
+        "definition": "filled with shade",
+        "context": "Their tangled roots slow down waves and hold the mud in place, protecting the coast, and the calm, shady water between them is a safe home for young fish."
+      },
+      {
+        "headword": "crystal",
+        "surfaceForm": "crystals",
+        "phonetic": "/'kristl/",
+        "pos": "n.",
+        "translation": "n. 晶体",
+        "definition": "a small, hard piece of a substance with a regular shape",
+        "context": "Others take the salt in and then push it out through their leaves; on a dry day, small white crystals can sometimes be seen on the leaf surface."
+      },
+      {
+        "headword": "mangrove",
+        "surfaceForm": "Mangrove",
+        "phonetic": "/'mæŋgrәuv/",
+        "pos": "n.",
+        "translation": "n. 红树属树木",
+        "definition": "a tropical tree or shrub bearing fruit that germinates while still on the tree and having numerous prop roots that eventually form an impenetrable mass and are important in land building",
+        "context": "Mangrove trees live in exactly these conditions, along muddy tropical coasts, including the northern shore of Singapore at Sungei Buloh."
+      },
+      {
+        "headword": "muddy",
+        "surfaceForm": "muddy",
+        "phonetic": "/'mʌdi/",
+        "pos": "adj.",
+        "translation": "adj. 泥泞的，满是泥的",
+        "definition": "covered in or full of mud",
+        "context": "Mangrove trees live in exactly these conditions, along muddy tropical coasts, including the northern shore of Singapore at Sungei Buloh."
+      },
+      {
+        "headword": "trunk",
+        "surfaceForm": "trunk",
+        "phonetic": "/trʌŋk/",
+        "pos": "n.",
+        "translation": "n. 树干，干线",
+        "definition": "the main stem of a tree",
+        "context": "Other mangroves stand on curved roots that grow out from the trunk and hold the tree above the mud, rather like the legs of a table."
+      },
+      {
+        "headword": "salty",
+        "surfaceForm": "salty",
+        "phonetic": "/'sɒ:lti/",
+        "pos": "a.",
+        "translation": "a. 有盐分的，咸味浓的",
+        "definition": "containing or filled with salt",
+        "context": "Most trees would die if their roots stood in salty water that rose and fell twice a day."
+      },
+      {
+        "headword": "condition",
+        "surfaceForm": "conditions",
+        "phonetic": "/kәn'diʃәn/",
+        "pos": "n.",
+        "translation": "n. 情况，条件",
+        "definition": "a state at a particular time",
+        "context": "Mangrove trees live in exactly these conditions, along muddy tropical coasts, including the northern shore of Singapore at Sungei Buloh."
+      },
+      {
+        "headword": "twice",
+        "surfaceForm": "twice",
+        "phonetic": "/twais/",
+        "pos": "adv.",
+        "translation": "adv. 两次，两倍",
+        "definition": "two times",
+        "context": "Most trees would die if their roots stood in salty water that rose and fell twice a day."
+      },
+      {
+        "headword": "include",
+        "surfaceForm": "including",
+        "phonetic": "/in'klu:d/",
+        "pos": "vt.",
+        "translation": "vt. 包括，把...算入",
+        "definition": "have as a part, be made up out of",
+        "context": "Mangrove trees live in exactly these conditions, along muddy tropical coasts, including the northern shore of Singapore at Sungei Buloh."
+      },
+      {
+        "headword": "stand",
+        "surfaceForm": "stand",
+        "phonetic": "/stænd/",
+        "pos": "n.",
+        "translation": "n. 站立，站住",
+        "definition": "the position where a thing or person stands",
+        "context": "Other mangroves stand on curved roots that grow out from the trunk and hold the tree above the mud, rather like the legs of a table."
+      },
+      {
+        "headword": "young",
+        "surfaceForm": "young",
+        "phonetic": "/jʌŋ/",
+        "pos": "adj.",
+        "translation": "adj. 幼小的",
+        "definition": "having lived for only a short time",
+        "context": "Their tangled roots slow down waves and hold the mud in place, protecting the coast, and the calm, shady water between them is a safe home for young fish."
+      },
+      {
+        "headword": "base",
+        "surfaceForm": "base",
+        "phonetic": "/beis/",
+        "pos": "n.",
+        "translation": "n. 底部，垒",
+        "definition": "installation from which a military force initiates operations",
+        "context": "Around the base of the tree, hundreds of thin roots grow upwards out of the mud, like pencils standing on end."
+      },
+      {
+        "headword": "pass",
+        "surfaceForm": "passes",
+        "phonetic": "/pæs/",
+        "pos": "n.",
+        "translation": "n. 经过，要隘",
+        "definition": "(American football) a play that involves one player throwing the ball to a teammate",
+        "context": "When the tide goes out, they take in air, which then passes down to the roots buried below."
+      },
+      {
+        "headword": "main",
+        "surfaceForm": "main",
+        "phonetic": "/mein/",
+        "pos": "adj.",
+        "translation": "adj. 主要的",
+        "definition": "most important or largest",
+        "context": "Salt is handled in two main ways."
+      },
+      {
+        "headword": "grow",
+        "surfaceForm": "grow",
+        "phonetic": "/grәu/",
+        "pos": "vt.",
+        "translation": "vt. 种植，使长满",
+        "definition": "become larger, greater, or bigger",
+        "context": "The mud where mangroves grow is soft, wet and low in oxygen, and roots need oxygen just as leaves do."
+      },
+      {
+        "headword": "stop",
+        "surfaceForm": "stop",
+        "phonetic": "/stɒp/",
+        "pos": "n.",
+        "translation": "n. 停止，车站",
+        "definition": "the event of something ending",
+        "context": "Some kinds stop most of the salt at their roots, so the water that reaches the leaves is almost fresh."
+      },
+      {
+        "headword": "need",
+        "surfaceForm": "need",
+        "phonetic": "/ni:d/",
+        "pos": "vt.",
+        "translation": "vt. 需要，必需",
+        "definition": "have or feel a need for",
+        "context": "The mud where mangroves grow is soft, wet and low in oxygen, and roots need oxygen just as leaves do."
+      },
+      {
+        "headword": "like",
+        "surfaceForm": "like",
+        "phonetic": "/laik/",
+        "pos": "prep.",
+        "translation": "prep. 像，如同",
+        "definition": "similar to; in the same way as",
+        "context": "Around the base of the tree, hundreds of thin roots grow upwards out of the mud, like pencils standing on end."
+      },
+      {
+        "headword": "die",
+        "surfaceForm": "die",
+        "phonetic": "/dai/",
+        "pos": "vi.",
+        "translation": "vi. 死亡，消逝",
+        "definition": "pass from physical life and lose all bodily attributes and functions necessary to sustain life",
+        "context": "Most trees would die if their roots stood in salty water that rose and fell twice a day."
+      }
+    ],
+    "original-w4-floating-ice": [
+      {
+        "headword": "iceberg",
+        "surfaceForm": "iceberg",
+        "phonetic": "/'aisbә:g/",
+        "pos": "n.",
+        "translation": "n. 冰山，冷冰冰的人",
+        "definition": "a large mass of ice floating at sea",
+        "context": "It also explains why only about a tenth of an iceberg shows above the sea."
+      },
+      {
+        "headword": "honeycomb",
+        "surfaceForm": "honeycomb",
+        "phonetic": "/'hʌnikәum/",
+        "pos": "n.",
+        "translation": "n. 蜂巢，蜂房",
+        "definition": "a structure of small hexagonal cells constructed from beeswax by bees and used to store honey and larvae",
+        "context": "As water freezes, they lock into a regular pattern with open spaces in it, rather like a honeycomb."
+      },
+      {
+        "headword": "crack",
+        "surfaceForm": "crack",
+        "phonetic": "/kræk/",
+        "pos": "v.",
+        "translation": "v. 破裂，（嗓音）变调",
+        "definition": "to break so that a line appears, or (of a voice) to change suddenly",
+        "context": "This is why a full glass bottle left in a freezer may crack, and why water pipes in cold countries can burst in winter."
+      },
+      {
+        "headword": "substance",
+        "surfaceForm": "substances",
+        "phonetic": "/'sʌbstәns/",
+        "pos": "n.",
+        "translation": "n. 物质，实质",
+        "definition": "the real physical matter of which a person or thing consists",
+        "context": "The same is true of most substances: the solid form is heavier, for its size, than the liquid."
+      },
+      {
+        "headword": "exception",
+        "surfaceForm": "exception",
+        "phonetic": "/ik'sepʃәn/",
+        "pos": "n.",
+        "translation": "n. 例外，除外",
+        "definition": "a deliberate act of omission",
+        "context": "Water is a famous exception."
+      },
+      {
+        "headword": "together",
+        "surfaceForm": "together",
+        "phonetic": "/tә'geðә/",
+        "pos": "adv.",
+        "translation": "adv. 一起，共同",
+        "definition": "mentally and emotionally stable",
+        "context": "In liquid water, they are constantly moving and packing closely together."
+      },
+      {
+        "headword": "reason",
+        "surfaceForm": "reason",
+        "phonetic": "/'ri:zn/",
+        "pos": "n.",
+        "translation": "n. 理由，原因",
+        "definition": "a rational motive for a belief or action",
+        "context": "The reason lies in the way water molecules hold on to each other."
+      },
+      {
+        "headword": "whole",
+        "surfaceForm": "whole",
+        "phonetic": "/hәul/",
+        "pos": "n.",
+        "translation": "n. 全部，全体",
+        "definition": "all of something including all its component elements or parts",
+        "context": "When a lake cools in winter, the colder surface water sinks until the whole lake reaches four degrees."
+      },
+      {
+        "headword": "stay",
+        "surfaceForm": "stays",
+        "phonetic": "/stei/",
+        "pos": "n.",
+        "translation": "n. 停留，逗留",
+        "definition": "continuing or remaining in a place or state",
+        "context": "After that, the coldest water stays on top and eventually turns to ice."
+      },
+      {
+        "headword": "open",
+        "surfaceForm": "open",
+        "phonetic": "/'әupәn/",
+        "pos": "v.",
+        "translation": "v. 打开，敞开",
+        "definition": "to move something so it is no longer closed; also used to mean not closed or not filled",
+        "context": "As water freezes, they lock into a regular pattern with open spaces in it, rather like a honeycomb."
+      },
+      {
+        "headword": "full",
+        "surfaceForm": "full",
+        "phonetic": "/ful/",
+        "pos": "adj.",
+        "translation": "adj. 满的，装满的",
+        "definition": "containing as much as possible",
+        "context": "This is why a full glass bottle left in a freezer may crack, and why water pipes in cold countries can burst in winter."
+      },
+      {
+        "headword": "room",
+        "surfaceForm": "room",
+        "phonetic": "/ru:m/",
+        "pos": "n.",
+        "translation": "n. 房间，空位",
+        "definition": "an area within a building enclosed by walls and floor and ceiling",
+        "context": "The same number of molecules now takes up more room: ice fills about nine per cent more space than the same amount of liquid water, which makes it lighter for its size."
+      },
+      {
+        "headword": "top",
+        "surfaceForm": "top",
+        "phonetic": "/tɒp/",
+        "pos": "n.",
+        "translation": "n. 顶部，顶端",
+        "definition": "the upper part of anything",
+        "context": "After that, the coldest water stays on top and eventually turns to ice."
+      },
+      {
+        "headword": "turn",
+        "surfaceForm": "turns",
+        "phonetic": "/tә:n/",
+        "pos": "n.",
+        "translation": "n. 转弯，转动",
+        "definition": "the act of changing or reversing the direction of the course",
+        "context": "After that, the coldest water stays on top and eventually turns to ice."
+      },
+      {
+        "headword": "show",
+        "surfaceForm": "shows",
+        "phonetic": "/ʃәu/",
+        "pos": "n.",
+        "translation": "n. 显示，表现",
+        "definition": "the act of publicly exhibiting or entertaining",
+        "context": "It also explains why only about a tenth of an iceberg shows above the sea."
+      },
+      {
+        "headword": "seem",
+        "surfaceForm": "seem",
+        "phonetic": "/si:m/",
+        "pos": "vi.",
+        "translation": "vi. 象是，似乎",
+        "definition": "appear to exist",
+        "context": "Ice floats, and this unusual behaviour matters far more than it might seem."
+      },
+      {
+        "headword": "life",
+        "surfaceForm": "life",
+        "phonetic": "/laif/",
+        "pos": "n.",
+        "translation": "n. 生活，生命",
+        "definition": "a characteristic state or mode of living",
+        "context": "If ice sank, lakes would freeze from the bottom up, and life in them would be far harder."
+      },
+      {
+        "headword": "like",
+        "surfaceForm": "like",
+        "phonetic": "/laik/",
+        "pos": "prep.",
+        "translation": "prep. 像，如同",
+        "definition": "similar to; in the same way as",
+        "context": "As water freezes, they lock into a regular pattern with open spaces in it, rather like a honeycomb."
+      },
+      {
+        "headword": "act",
+        "surfaceForm": "acts",
+        "phonetic": "/ækt/",
+        "pos": "n.",
+        "translation": "n. 行动，行为",
+        "definition": "a legal document codifying the result of deliberations of a committee or society or legislative body",
+        "context": "That layer of ice acts like a lid, slowing down the loss of heat from the water beneath it."
+      },
+      {
+        "headword": "far",
+        "surfaceForm": "far",
+        "phonetic": "/fɑ:/",
+        "pos": "a.",
+        "translation": "a. 远的，久远的",
+        "definition": "located at a great distance in time or space or degree",
+        "context": "Ice floats, and this unusual behaviour matters far more than it might seem."
+      }
+    ]
+  },
+  "ielts_simplified": {
+    "original-w4-question": [
+      {
+        "headword": "slowly",
+        "surfaceForm": "slowly",
+        "phonetic": "/'slәuli/",
+        "pos": "adv.",
+        "translation": "adv. 慢慢地，迟缓地",
+        "definition": "without speed (`slow' is sometimes used informally for `slowly')",
+        "context": "Mr Lee smiled and did it again, more slowly."
+      },
+      {
+        "headword": "used",
+        "surfaceForm": "used",
+        "phonetic": "/'ju:st/",
+        "pos": "v.",
+        "translation": "v. 使用（use 的过去式）",
+        "definition": "past tense of use: to do something with a thing for a purpose",
+        "context": "This time he used smaller numbers, and I understood it."
+      },
+      {
+        "headword": "explain",
+        "surfaceForm": "explained",
+        "phonetic": "/ik'splein/",
+        "pos": "v.",
+        "translation": "v. 解释，说明",
+        "definition": "make plain and comprehensible",
+        "context": "In maths on Monday, Mr Lee put a long sum on the board and explained it very quickly."
+      },
+      {
+        "headword": "understand",
+        "surfaceForm": "understand",
+        "phonetic": "/.ʌndә'stænd/",
+        "pos": "vt.",
+        "translation": "vt. 理解，了解",
+        "definition": "know and comprehend the nature or meaning of",
+        "context": "I did not understand the third step at all."
+      },
+      {
+        "headword": "next",
+        "surfaceForm": "next",
+        "phonetic": "/'nekst/",
+        "pos": "adv.",
+        "translation": "adv. 然后，下次",
+        "definition": "at the time or occasion immediately following",
+        "context": "Then Farah, who sits next to me, put up her hand."
+      },
+      {
+        "headword": "happen",
+        "surfaceForm": "happened",
+        "phonetic": "/'hæpәn/",
+        "pos": "vi.",
+        "translation": "vi. 发生，发生",
+        "definition": "come to pass",
+        "context": "Then something surprising happened."
+      },
+      {
+        "headword": "step",
+        "surfaceForm": "step",
+        "phonetic": "/step/",
+        "pos": "n.",
+        "translation": "n. 步骤，步",
+        "definition": "the act of changing location by raising the foot and setting it down",
+        "context": "I did not understand the third step at all."
+      },
+      {
+        "headword": "rule",
+        "surfaceForm": "rule",
+        "phonetic": "/ru:l/",
+        "pos": "n.",
+        "translation": "n. 规则，统治",
+        "definition": "a principle or condition that customarily governs behavior",
+        "context": "Now I have a rule."
+      },
+      {
+        "headword": "else",
+        "surfaceForm": "else",
+        "phonetic": "/els/",
+        "pos": "a.",
+        "translation": "a. 别的，其他的",
+        "definition": "& pron. Other",
+        "context": "But the room was very quiet, and everyone else was writing."
+      },
+      {
+        "headword": "face",
+        "surfaceForm": "face",
+        "phonetic": "/feis/",
+        "pos": "n.",
+        "translation": "n. 脸，面容",
+        "definition": "the front of the human head from the forehead to the chin and ear to ear",
+        "context": "My face felt hot."
+      },
+      {
+        "headword": "book",
+        "surfaceForm": "book",
+        "phonetic": "/buk/",
+        "pos": "n.",
+        "translation": "n. 书，书籍",
+        "definition": "a written work or composition that has been published (printed on pages bound together)",
+        "context": "So I copied the sum into my book and said nothing."
+      },
+      {
+        "headword": "room",
+        "surfaceForm": "room",
+        "phonetic": "/ru:m/",
+        "pos": "n.",
+        "translation": "n. 房间，空位",
+        "definition": "an area within a building enclosed by walls and floor and ceiling",
+        "context": "But the room was very quiet, and everyone else was writing."
+      },
+      {
+        "headword": "want",
+        "surfaceForm": "want",
+        "phonetic": "/wɒnt/",
+        "pos": "vt.",
+        "translation": "vt. 要，希望",
+        "definition": "have need of",
+        "context": "I thought they all understood, and I did not want to be the only one."
+      },
+      {
+        "headword": "time",
+        "surfaceForm": "time",
+        "phonetic": "/taim/",
+        "pos": "n.",
+        "translation": "n. 时间，时侯",
+        "definition": "an instance or single occasion for some event",
+        "context": "This time he used smaller numbers, and I understood it."
+      },
+      {
+        "headword": "sit",
+        "surfaceForm": "sits",
+        "phonetic": "/sit/",
+        "pos": "vi.",
+        "translation": "vi. 坐，就座",
+        "definition": "be around, often idly or without specific purpose",
+        "context": "Then Farah, who sits next to me, put up her hand."
+      },
+      {
+        "headword": "ask",
+        "surfaceForm": "ask",
+        "phonetic": "/ɑ:sk/",
+        "pos": "vi.",
+        "translation": "vi. 问，要求",
+        "definition": "inquire about",
+        "context": "I wanted to ask him to explain it again."
+      },
+      {
+        "headword": "put",
+        "surfaceForm": "put",
+        "phonetic": "/put/",
+        "pos": "vt.",
+        "translation": "vt. 放，摆",
+        "definition": "put into a certain place or abstract location",
+        "context": "In maths on Monday, Mr Lee put a long sum on the board and explained it very quickly."
+      },
+      {
+        "headword": "him",
+        "surfaceForm": "him",
+        "phonetic": "/him/",
+        "pos": "pron.",
+        "translation": "pron. 他",
+        "definition": "Them. See Hem.",
+        "context": "I wanted to ask him to explain it again."
+      },
+      {
+        "headword": "now",
+        "surfaceForm": "Now",
+        "phonetic": "/nau/",
+        "pos": "n.",
+        "translation": "n. 现在",
+        "definition": "the momentary present",
+        "context": "Now I have a rule."
+      },
+      {
+        "headword": "her",
+        "surfaceForm": "her",
+        "phonetic": "/hә:/",
+        "pos": "pron.",
+        "translation": "pron. 她的，她",
+        "definition": "& a. The form of the objective and the possessive case of",
+        "context": "Then Farah, who sits next to me, put up her hand."
+      }
+    ],
+    "original-w4-early-alarm": [
+      {
+        "headword": "uniform",
+        "surfaceForm": "uniform",
+        "phonetic": "/'ju:nifɒ:m/",
+        "pos": "n.",
+        "translation": "n. 制服",
+        "definition": "clothing of distinctive design worn by members of a particular group as a means of identification",
+        "context": "I washed, put on my uniform and ate a banana in the kitchen."
+      },
+      {
+        "headword": "alarm",
+        "surfaceForm": "alarm",
+        "phonetic": "/ә'lɑ:m/",
+        "pos": "n.",
+        "translation": "n. 闹钟，警报",
+        "definition": "a clock or device that makes a noise to wake you or warn you",
+        "context": "On Thursday my alarm rang, and I jumped out of bed."
+      },
+      {
+        "headword": "lock",
+        "surfaceForm": "locked",
+        "phonetic": "/lɒk/",
+        "pos": "n.",
+        "translation": "n. 锁，刹车",
+        "definition": "a fastener fitted to a door or drawer to keep it firmly closed",
+        "context": "When I got to the school gate, it was locked."
+      },
+      {
+        "headword": "guard",
+        "surfaceForm": "guard",
+        "phonetic": "/gɑ:d/",
+        "pos": "n.",
+        "translation": "n. 守卫者，警戒",
+        "definition": "a person who keeps watch over something or someone",
+        "context": "The guard, Mr Ramu, came out of his little office with a torch."
+      },
+      {
+        "headword": "gate",
+        "surfaceForm": "gate",
+        "phonetic": "/geit/",
+        "pos": "n.",
+        "translation": "n. 门，牌楼",
+        "definition": "a movable barrier in a fence or wall",
+        "context": "When I got to the school gate, it was locked."
+      },
+      {
+        "headword": "nobody",
+        "surfaceForm": "Nobody",
+        "phonetic": "/'nәubɒdi/",
+        "pos": "pron.",
+        "translation": "pron. 没有人，谁也不",
+        "definition": "no person; not anyone",
+        "context": "Nobody else was awake."
+      },
+      {
+        "headword": "brother",
+        "surfaceForm": "brother",
+        "phonetic": "/'brʌðә/",
+        "pos": "n.",
+        "translation": "n. 兄弟",
+        "definition": "a male with the same parents as someone else",
+        "context": "The night before, my little brother had played with my alarm clock, and he had changed the time."
+      },
+      {
+        "headword": "office",
+        "surfaceForm": "office",
+        "phonetic": "/'ɒfis/",
+        "pos": "n.",
+        "translation": "n. 办公室，部",
+        "definition": "place of business where professional or clerical duties are performed",
+        "context": "The guard, Mr Ramu, came out of his little office with a torch."
+      },
+      {
+        "headword": "family",
+        "surfaceForm": "family",
+        "phonetic": "/'fæmәli/",
+        "pos": "n.",
+        "translation": "n. 家庭，家人",
+        "definition": "a social unit living together",
+        "context": "I thought my family was just being lazy."
+      },
+      {
+        "headword": "often",
+        "surfaceForm": "often",
+        "phonetic": "/'ɒ:fn/",
+        "pos": "adv.",
+        "translation": "adv. 时常，常常",
+        "definition": "in many cases or instances",
+        "context": "The room was dark, but it is often dark when I get up, so I did not think about it."
+      },
+      {
+        "headword": "wall",
+        "surfaceForm": "wall",
+        "phonetic": "/wɒ:l/",
+        "pos": "n.",
+        "translation": "n. 墙，墙壁",
+        "definition": "an architectural partition with a height and length greater than its thickness",
+        "context": "I looked at the clock on the wall of his office."
+      },
+      {
+        "headword": "half",
+        "surfaceForm": "half",
+        "phonetic": "/hɑ:f/",
+        "pos": "n.",
+        "translation": "n. 一半，半场",
+        "definition": "one of two divisions into which some games or performances are divided: the two divisions are separated by an interval",
+        "context": "\"It is half past five."
+      },
+      {
+        "headword": "else",
+        "surfaceForm": "else",
+        "phonetic": "/els/",
+        "pos": "a.",
+        "translation": "a. 别的，其他的",
+        "definition": "& pron. Other",
+        "context": "Nobody else was awake."
+      },
+      {
+        "headword": "walk",
+        "surfaceForm": "walked",
+        "phonetic": "/wɒ:k/",
+        "pos": "n.",
+        "translation": "n. 走，散步",
+        "definition": "the act of traveling by foot",
+        "context": "I walked to school quickly."
+      },
+      {
+        "headword": "stop",
+        "surfaceForm": "stop",
+        "phonetic": "/stɒp/",
+        "pos": "n.",
+        "translation": "n. 停止，车站",
+        "definition": "the event of something ending",
+        "context": "There were no other students at the bus stop, and the shops were all closed."
+      },
+      {
+        "headword": "cup",
+        "surfaceForm": "cup",
+        "phonetic": "/kʌp/",
+        "pos": "n.",
+        "translation": "n. 杯子，茶杯",
+        "definition": "a small open container usually used for drinking",
+        "context": "He gave me a cup of hot tea and showed me photos of his grandchildren."
+      },
+      {
+        "headword": "room",
+        "surfaceForm": "room",
+        "phonetic": "/ru:m/",
+        "pos": "n.",
+        "translation": "n. 房间，空位",
+        "definition": "an area within a building enclosed by walls and floor and ceiling",
+        "context": "The room was dark, but it is often dark when I get up, so I did not think about it."
+      },
+      {
+        "headword": "play",
+        "surfaceForm": "played",
+        "phonetic": "/plei/",
+        "pos": "n.",
+        "translation": "n. 游戏，游玩",
+        "definition": "a dramatic work intended for performance by actors on a stage",
+        "context": "The night before, my little brother had played with my alarm clock, and he had changed the time."
+      },
+      {
+        "headword": "show",
+        "surfaceForm": "showed",
+        "phonetic": "/ʃәu/",
+        "pos": "vt.",
+        "translation": "vt. 表示，显示",
+        "definition": "give an exhibition of to an interested audience",
+        "context": "He gave me a cup of hot tea and showed me photos of his grandchildren."
+      },
+      {
+        "headword": "good",
+        "surfaceForm": "good",
+        "phonetic": "/gud/",
+        "pos": "n.",
+        "translation": "n. 善行，好处",
+        "definition": "moral excellence or admirableness",
+        "context": "And I say good morning to Mr Ramu every day."
+      }
+    ],
+    "original-w4-bean": [
+      {
+        "headword": "soil",
+        "surfaceForm": "soil",
+        "phonetic": "/sɒil/",
+        "pos": "n.",
+        "translation": "n. 土壤，土地",
+        "definition": "the part of the earth's surface consisting of humus and disintegrated rock",
+        "context": "Ms Ong gave each of us one bean, some soil and a cup with our name on it."
+      },
+      {
+        "headword": "finger",
+        "surfaceForm": "finger",
+        "phonetic": "/'fiŋgә/",
+        "pos": "n.",
+        "translation": "n. 手指，指状物",
+        "definition": "any of the terminal members of the hand (sometimes excepting the thumb)",
+        "context": "After eight days, some plants were as tall as my finger."
+      },
+      {
+        "headword": "spoon",
+        "surfaceForm": "spoon",
+        "phonetic": "/spu:n/",
+        "pos": "n.",
+        "translation": "n. 匙，调羹",
+        "definition": "a piece of cutlery with a shallow bowl-shaped container and a handle",
+        "context": "On the tenth day, Ms Ong helped me to dig up my bean with a spoon."
+      },
+      {
+        "headword": "seed",
+        "surfaceForm": "seed",
+        "phonetic": "/si:d/",
+        "pos": "n.",
+        "translation": "n. 种子",
+        "definition": "the small hard part of a plant from which a new plant grows",
+        "context": "\"A seed needs water, but it also needs air."
+      },
+      {
+        "headword": "soft",
+        "surfaceForm": "soft",
+        "phonetic": "/sɒft/",
+        "pos": "a.",
+        "translation": "a. 软的，温和的",
+        "definition": "yielding readily to pressure or weight",
+        "context": "It was soft and dark, and it smelled bad."
+      },
+      {
+        "headword": "shoot",
+        "surfaceForm": "shoots",
+        "phonetic": "/ʃu:t/",
+        "pos": "n.",
+        "translation": "n. 嫩芽，新枝",
+        "definition": "a new part of a plant that is just starting to grow",
+        "context": "After five days, small green shoots came up in almost every cup."
+      },
+      {
+        "headword": "plant",
+        "surfaceForm": "plant",
+        "phonetic": "/plænt. plɑ:nt/",
+        "pos": "n.",
+        "translation": "n. 植物，作物",
+        "definition": "buildings for carrying on industrial labor",
+        "context": "For science, everyone in my class had to grow a bean plant in a paper cup."
+      },
+      {
+        "headword": "quietly",
+        "surfaceForm": "quietly",
+        "phonetic": "/'kwaiәtli/",
+        "pos": "adv.",
+        "translation": "adv. 安静地，沉着地",
+        "definition": "with little or no sound",
+        "context": "I even talked to it quietly when nobody was looking."
+      },
+      {
+        "headword": "nobody",
+        "surfaceForm": "nobody",
+        "phonetic": "/'nәubɒdi/",
+        "pos": "pron.",
+        "translation": "pron. 没有人，谁也不",
+        "definition": "no person; not anyone",
+        "context": "I even talked to it quietly when nobody was looking."
+      },
+      {
+        "headword": "brown",
+        "surfaceForm": "brown",
+        "phonetic": "/braun/",
+        "pos": "n.",
+        "translation": "n. 褐色",
+        "definition": "an orange of low brightness and saturation",
+        "context": "Mine stayed brown and flat."
+      },
+      {
+        "headword": "later",
+        "surfaceForm": "later",
+        "phonetic": "/'leitә/",
+        "pos": "adv.",
+        "translation": "adv. 以后，随后",
+        "definition": "coming at a subsequent time or stage",
+        "context": "Six days later, a green shoot came up."
+      },
+      {
+        "headword": "else",
+        "surfaceForm": "else",
+        "phonetic": "/els/",
+        "pos": "a.",
+        "translation": "a. 别的，其他的",
+        "definition": "& pron. Other",
+        "context": "It is shorter than everyone else's, but I like it the most."
+      },
+      {
+        "headword": "hard",
+        "surfaceForm": "hard",
+        "phonetic": "/hɑ:d/",
+        "pos": "a.",
+        "translation": "a. 坚硬的，硬的",
+        "definition": "dispassionate",
+        "context": "I had tried so hard, and my trying was the problem."
+      },
+      {
+        "headword": "stay",
+        "surfaceForm": "stayed",
+        "phonetic": "/stei/",
+        "pos": "n.",
+        "translation": "n. 停留，逗留",
+        "definition": "continuing or remaining in a place or state",
+        "context": "Mine stayed brown and flat."
+      },
+      {
+        "headword": "grow",
+        "surfaceForm": "grow",
+        "phonetic": "/grәu/",
+        "pos": "vt.",
+        "translation": "vt. 种植，使长满",
+        "definition": "become larger, greater, or bigger",
+        "context": "For science, everyone in my class had to grow a bean plant in a paper cup."
+      },
+      {
+        "headword": "line",
+        "surfaceForm": "line",
+        "phonetic": "/lain/",
+        "pos": "n.",
+        "translation": "n. 列，线",
+        "definition": "a formation of people or things one beside another",
+        "context": "We put the cups in a long line next to the window."
+      },
+      {
+        "headword": "name",
+        "surfaceForm": "name",
+        "phonetic": "/neim/",
+        "pos": "n.",
+        "translation": "n. 名字，名称",
+        "definition": "a language unit by which a person or thing is known",
+        "context": "Ms Ong gave each of us one bean, some soil and a cup with our name on it."
+      },
+      {
+        "headword": "cup",
+        "surfaceForm": "cup",
+        "phonetic": "/kʌp/",
+        "pos": "n.",
+        "translation": "n. 杯子，茶杯",
+        "definition": "a small open container usually used for drinking",
+        "context": "For science, everyone in my class had to grow a bean plant in a paper cup."
+      },
+      {
+        "headword": "move",
+        "surfaceForm": "moved",
+        "phonetic": "/mu:v/",
+        "pos": "vt.",
+        "translation": "vt. 移动，开动",
+        "definition": "cause to move or shift into a new position or place, both in a concrete and in an abstract sense",
+        "context": "I moved it to the sunniest place."
+      },
+      {
+        "headword": "next",
+        "surfaceForm": "next",
+        "phonetic": "/'nekst/",
+        "pos": "adv.",
+        "translation": "adv. 然后，下次",
+        "definition": "at the time or occasion immediately following",
+        "context": "We put the cups in a long line next to the window."
+      }
+    ],
+    "original-w4-parrot": [
+      {
+        "headword": "parrot",
+        "surfaceForm": "parrot",
+        "phonetic": "/'pærәt/",
+        "pos": "n.",
+        "translation": "n. 鹦鹉，应声虫",
+        "definition": "usually brightly colored zygodactyl tropical birds with short hooked beaks and the ability to mimic sounds",
+        "context": "Our new neighbours have a grey parrot called Coco."
+      },
+      {
+        "headword": "cage",
+        "surfaceForm": "cage",
+        "phonetic": "/keidʒ/",
+        "pos": "n.",
+        "translation": "n. 笼，牢房",
+        "definition": "an enclosure made or wire or metal bars in which birds or animals can be kept",
+        "context": "She lives in a big cage near their front door, so we see her every time we walk past."
+      },
+      {
+        "headword": "proud",
+        "surfaceForm": "proud",
+        "phonetic": "/praud/",
+        "pos": "adj.",
+        "translation": "adj. 自豪的，得意的",
+        "definition": "pleased about something you or someone close to you has done",
+        "context": "I was confused, and a little proud."
+      },
+      {
+        "headword": "confuse",
+        "surfaceForm": "confused",
+        "phonetic": "/kәn'fju:z/",
+        "pos": "vt.",
+        "translation": "vt. 使混乱，使狼狈",
+        "definition": "mistake one thing for another",
+        "context": "I was confused, and a little proud."
+      },
+      {
+        "headword": "perfectly",
+        "surfaceForm": "perfectly",
+        "phonetic": "/'pә:fiktli/",
+        "pos": "adv.",
+        "translation": "adv. 完全地，无瑕疵地",
+        "definition": "in a perfect or faultless way",
+        "context": "She says \"Hello\" and \"Bye bye\", and she can copy the sound of a phone perfectly."
+      },
+      {
+        "headword": "sound",
+        "surfaceForm": "sound",
+        "phonetic": "/saund/",
+        "pos": "n.",
+        "translation": "n. 声音，语音",
+        "definition": "the particular auditory effect produced by a given cause",
+        "context": "She says \"Hello\" and \"Bye bye\", and she can copy the sound of a phone perfectly."
+      },
+      {
+        "headword": "voice",
+        "surfaceForm": "voice",
+        "phonetic": "/vɒis/",
+        "pos": "n.",
+        "translation": "n. 声音，嗓音",
+        "definition": "the distinctive quality or pitch or condition of a person's speech",
+        "context": "Now Coco says my name, and then, in my grandmother's voice, \"Shoes!"
+      },
+      {
+        "headword": "understand",
+        "surfaceForm": "understand",
+        "phonetic": "/.ʌndә'stænd/",
+        "pos": "vt.",
+        "translation": "vt. 理解，了解",
+        "definition": "know and comprehend the nature or meaning of",
+        "context": "It took her a week to understand that it was Coco."
+      },
+      {
+        "headword": "shout",
+        "surfaceForm": "shouted",
+        "phonetic": "/ʃaut/",
+        "pos": "vi.",
+        "translation": "vi. 呼喊，喊叫",
+        "definition": "utter in a loud voice",
+        "context": "Every afternoon, when I came home from school, she shouted \"Jun Wei!"
+      },
+      {
+        "headword": "last",
+        "surfaceForm": "Last",
+        "phonetic": "/lɑ:st/",
+        "pos": "n.",
+        "translation": "n. 最后，末尾",
+        "definition": "the last or lowest in an ordering or series",
+        "context": "Last month my mother kept running to answer her phone, but it was never ringing."
+      },
+      {
+        "headword": "grey",
+        "surfaceForm": "grey",
+        "phonetic": "/grei/",
+        "pos": "n.",
+        "translation": "n. 灰色",
+        "definition": "United States writer of western adventure novels (1875-1939)",
+        "context": "Our new neighbours have a grey parrot called Coco."
+      },
+      {
+        "headword": "front",
+        "surfaceForm": "front",
+        "phonetic": "/frʌnt/",
+        "pos": "n.",
+        "translation": "n. 前面，开头",
+        "definition": "the side that is forward or prominent",
+        "context": "She lives in a big cage near their front door, so we see her every time we walk past."
+      },
+      {
+        "headword": "month",
+        "surfaceForm": "month",
+        "phonetic": "/mʌnθ/",
+        "pos": "n.",
+        "translation": "n. 月",
+        "definition": "a time unit of approximately 30 days",
+        "context": "Last month my mother kept running to answer her phone, but it was never ringing."
+      },
+      {
+        "headword": "near",
+        "surfaceForm": "near",
+        "phonetic": "/niә/",
+        "pos": "a.",
+        "translation": "a. 近的，近亲的",
+        "definition": "not far distant in time or space or degree or circumstances",
+        "context": "She lives in a big cage near their front door, so we see her every time we walk past."
+      },
+      {
+        "headword": "hard",
+        "surfaceForm": "hard",
+        "phonetic": "/hɑ:d/",
+        "pos": "a.",
+        "translation": "a. 坚硬的，硬的",
+        "definition": "dispassionate",
+        "context": "It is hard to say no to two people at once, even when one of them is a parrot."
+      },
+      {
+        "headword": "walk",
+        "surfaceForm": "walk",
+        "phonetic": "/wɒ:k/",
+        "pos": "n.",
+        "translation": "n. 走，散步",
+        "definition": "the act of traveling by foot",
+        "context": "She lives in a big cage near their front door, so we see her every time we walk past."
+      },
+      {
+        "headword": "open",
+        "surfaceForm": "opens",
+        "phonetic": "/'әupәn/",
+        "pos": "v.",
+        "translation": "v. 打开，敞开",
+        "definition": "to move something so it is no longer closed; also used to mean not closed or not filled",
+        "context": "Every afternoon, my grandmother opens our door and calls \"Jun Wei!"
+      },
+      {
+        "headword": "door",
+        "surfaceForm": "door",
+        "phonetic": "/dɒ:/",
+        "pos": "n.",
+        "translation": "n. 门",
+        "definition": "a swinging or sliding barrier that will close the entrance to a room or building or vehicle",
+        "context": "She lives in a big cage near their front door, so we see her every time we walk past."
+      },
+      {
+        "headword": "name",
+        "surfaceForm": "name",
+        "phonetic": "/neim/",
+        "pos": "n.",
+        "translation": "n. 名字，名称",
+        "definition": "a language unit by which a person or thing is known",
+        "context": "\" That is my name."
+      },
+      {
+        "headword": "word",
+        "surfaceForm": "words",
+        "phonetic": "/wә:d/",
+        "pos": "n.",
+        "translation": "n. 话，消息",
+        "definition": "a unit of language that native speakers can identify",
+        "context": "Coco can say about twenty words."
+      }
+    ],
+    "original-w4-ring-in-the-rice": [
+      {
+        "headword": "rubbish",
+        "surfaceForm": "rubbish",
+        "phonetic": "/'rʌbiʃ/",
+        "pos": "n.",
+        "translation": "n. 废物，垃圾",
+        "definition": "worthless material that is to be disposed of",
+        "context": "My father took everything out of the rubbish bag and put it back again."
+      },
+      {
+        "headword": "finger",
+        "surfaceForm": "fingers",
+        "phonetic": "/'fiŋgә/",
+        "pos": "n.",
+        "translation": "n. 手指，指状物",
+        "definition": "any of the terminal members of the hand (sometimes excepting the thumb)",
+        "context": "He put his fingers in his mouth and took something out."
+      },
+      {
+        "headword": "fridge",
+        "surfaceForm": "fridge",
+        "phonetic": "/fridʒ/",
+        "pos": "n.",
+        "translation": "n. 电冰箱",
+        "definition": "a refrigerator in which the coolant is pumped around by an electric motor",
+        "context": "I looked under the table and the fridge."
+      },
+      {
+        "headword": "spoon",
+        "surfaceForm": "spoon",
+        "phonetic": "/spu:n/",
+        "pos": "n.",
+        "translation": "n. 匙，调羹",
+        "definition": "a piece of cutlery with a shallow bowl-shaped container and a handle",
+        "context": "And Kai looks carefully at every spoon of rice before he eats it."
+      },
+      {
+        "headword": "sink",
+        "surfaceForm": "sink",
+        "phonetic": "/siŋk/",
+        "pos": "n.",
+        "translation": "n. （厨房的）水池，洗碗池",
+        "definition": "a large bowl with taps, used for washing dishes or your hands",
+        "context": "My sister checked the sink."
+      },
+      {
+        "headword": "marry",
+        "surfaceForm": "married",
+        "phonetic": "/'mæri/",
+        "pos": "vt.",
+        "translation": "vt. 与...结婚，娶",
+        "definition": "take in marriage",
+        "context": "It was the ring my father gave her before they were married."
+      },
+      {
+        "headword": "anyway",
+        "surfaceForm": "anyway",
+        "phonetic": "/'eniwei/",
+        "pos": "adv.",
+        "translation": "adv. 无论如何，至少",
+        "definition": "used to indicate that a statement explains or supports a previous statement",
+        "context": "We had the rice for dinner anyway, with egg and vegetables."
+      },
+      {
+        "headword": "whole",
+        "surfaceForm": "whole",
+        "phonetic": "/hәul/",
+        "pos": "n.",
+        "translation": "n. 全部，全体",
+        "definition": "all of something including all its component elements or parts",
+        "context": "It had been in the rice pot the whole time."
+      },
+      {
+        "headword": "cooker",
+        "surfaceForm": "cooker",
+        "phonetic": "/'kukә/",
+        "pos": "n.",
+        "translation": "n. 炊事用具，炉灶",
+        "definition": "a utensil for cooking",
+        "context": "She puts it in a small blue bowl next to the cooker."
+      },
+      {
+        "headword": "next",
+        "surfaceForm": "next",
+        "phonetic": "/'nekst/",
+        "pos": "adv.",
+        "translation": "adv. 然后，下次",
+        "definition": "at the time or occasion immediately following",
+        "context": "She puts it in a small blue bowl next to the cooker."
+      },
+      {
+        "headword": "everything",
+        "surfaceForm": "everything",
+        "phonetic": "/'evriθiŋ/",
+        "pos": "pron.",
+        "translation": "pron. 每件事物，所有事物",
+        "definition": "Whatever pertains to the subject under consideration",
+        "context": "My father took everything out of the rubbish bag and put it back again."
+      },
+      {
+        "headword": "brother",
+        "surfaceForm": "brother",
+        "phonetic": "/'brʌðә/",
+        "pos": "n.",
+        "translation": "n. 兄弟",
+        "definition": "a male with the same parents as someone else",
+        "context": "Halfway through, my little brother Kai stopped eating."
+      },
+      {
+        "headword": "sister",
+        "surfaceForm": "sister",
+        "phonetic": "/'sistә/",
+        "pos": "n.",
+        "translation": "n. 姐妹，姐",
+        "definition": "a female person who has the same parents as another person",
+        "context": "My sister checked the sink."
+      },
+      {
+        "headword": "family",
+        "surfaceForm": "family",
+        "phonetic": "/'fæmәli/",
+        "pos": "n.",
+        "translation": "n. 家庭，家人",
+        "definition": "a social unit living together",
+        "context": "My father said Kai was the best finder in the family."
+      },
+      {
+        "headword": "look",
+        "surfaceForm": "looks",
+        "phonetic": "/luk/",
+        "pos": "n.",
+        "translation": "n. 一看，神色",
+        "definition": "the act of directing the eyes toward something and perceiving it visually",
+        "context": "And Kai looks carefully at every spoon of rice before he eats it."
+      },
+      {
+        "headword": "time",
+        "surfaceForm": "time",
+        "phonetic": "/taim/",
+        "pos": "n.",
+        "translation": "n. 时间，时侯",
+        "definition": "an instance or single occasion for some event",
+        "context": "It had been in the rice pot the whole time."
+      },
+      {
+        "headword": "off",
+        "surfaceForm": "off",
+        "phonetic": "/ɒf/",
+        "pos": "a.",
+        "translation": "a. 关着的，不再生效的",
+        "definition": "not in operation or operational",
+        "context": "Now my mother takes off her ring before she washes the rice."
+      },
+      {
+        "headword": "put",
+        "surfaceForm": "put",
+        "phonetic": "/put/",
+        "pos": "vt.",
+        "translation": "vt. 放，摆",
+        "definition": "put into a certain place or abstract location",
+        "context": "My father took everything out of the rubbish bag and put it back again."
+      },
+      {
+        "headword": "now",
+        "surfaceForm": "Now",
+        "phonetic": "/nau/",
+        "pos": "n.",
+        "translation": "n. 现在",
+        "definition": "the momentary present",
+        "context": "Now my mother takes off her ring before she washes the rice."
+      },
+      {
+        "headword": "out",
+        "surfaceForm": "out",
+        "phonetic": "/aut/",
+        "pos": "a.",
+        "translation": "a. 外面的，熄灭的",
+        "definition": "reveal (something) about somebody's identity or lifestyle",
+        "context": "My father took everything out of the rubbish bag and put it back again."
+      }
+    ]
+  },
+  "olevel": {
+    "original-w4-let-him-finish": [
+      {
+        "headword": "stammer",
+        "surfaceForm": "stammer",
+        "phonetic": "/'stæmә/",
+        "pos": "n.",
+        "translation": "n. 口吃，结巴",
+        "definition": "a speech disorder involving hesitations and involuntary repetitions of certain sounds",
+        "context": "My younger brother, Jun Hao, has a stammer."
+      },
+      {
+        "headword": "therapist",
+        "surfaceForm": "therapist",
+        "phonetic": "/'θerәpist/",
+        "pos": "n.",
+        "translation": "n. 治疗师（speech therapist：言语治疗师）",
+        "definition": "a person trained to help people with a particular problem, such as speech",
+        "context": "In March our parents took him to a speech therapist, Ms Pereira, and one Saturday I went along, because she had asked for the whole family to come."
+      },
+      {
+        "headword": "penalty",
+        "surfaceForm": "penalty",
+        "phonetic": "/'penәlti/",
+        "pos": "n.",
+        "translation": "n. （足球的）点球",
+        "definition": "in football, a free kick at the goal given because of a foul",
+        "context": "He looked surprised, and then he carried on with the story, which turned out to be about how he had saved a penalty."
+      },
+      {
+        "headword": "proudly",
+        "surfaceForm": "proudly",
+        "phonetic": "/'praudli/",
+        "pos": "adv.",
+        "translation": "adv. 自豪地，得意地",
+        "definition": "in a way that shows you are pleased with yourself",
+        "context": "I said, a little proudly, that as his big sister I finished his words so that he did not have to struggle."
+      },
+      {
+        "headword": "embarrass",
+        "surfaceForm": "embarrassing",
+        "phonetic": "/im'bærәs/",
+        "pos": "vt.",
+        "translation": "vt. 使困窘，使局促不安",
+        "definition": "cause to be embarrassed",
+        "context": "It was faster, and I told myself it saved him from the embarrassing part."
+      },
+      {
+        "headword": "carpet",
+        "surfaceForm": "carpet",
+        "phonetic": "/'kɑ:pit/",
+        "pos": "n.",
+        "translation": "n. 地毯，地毯状物",
+        "definition": "a natural object that resembles or suggests a carpet",
+        "context": "My face felt hot, and I looked at the carpet."
+      },
+      {
+        "headword": "struggle",
+        "surfaceForm": "struggle",
+        "phonetic": "/'strʌgl/",
+        "pos": "v.",
+        "translation": "v. 费力，挣扎",
+        "definition": "to try very hard to do something that is difficult",
+        "context": "I said, a little proudly, that as his big sister I finished his words so that he did not have to struggle."
+      },
+      {
+        "headword": "breath",
+        "surfaceForm": "breath",
+        "phonetic": "/breθ/",
+        "pos": "n.",
+        "translation": "n. 呼吸，气息",
+        "definition": "the process of taking in and expelling air during breathing",
+        "context": "My mother said she told him to take a deep breath."
+      },
+      {
+        "headword": "ordinary",
+        "surfaceForm": "ordinary",
+        "phonetic": "/'ɒ:dinәri/",
+        "pos": "adj.",
+        "translation": "adj. 普通的，平常的",
+        "definition": "normal and not special",
+        "context": "What helps, she said, is ordinary listening: keep looking at the person, do not rush them, and let them say their own words, even if it takes longer."
+      },
+      {
+        "headword": "press",
+        "surfaceForm": "pressed",
+        "phonetic": "/pres/",
+        "pos": "v.",
+        "translation": "v. 按，压",
+        "definition": "to push something firmly",
+        "context": "I pressed my lips together and kept looking at him."
+      },
+      {
+        "headword": "rise",
+        "surfaceForm": "rise",
+        "phonetic": "/raiz/",
+        "pos": "v.",
+        "translation": "v. 升起，抬起",
+        "definition": "to move upwards",
+        "context": "When it gets stuck, his eyes close, his shoulders rise, and the first sound repeats again and again."
+      },
+      {
+        "headword": "goalkeeper",
+        "surfaceForm": "goalkeeper",
+        "phonetic": "/'gәulki:pә/",
+        "pos": "n.",
+        "translation": "n. 守门员",
+        "definition": "the soccer or hockey player assigned to protect the goal",
+        "context": "The next evening, Jun Hao was telling me about a game at school, and he got stuck on the word \"goalkeeper\"."
+      },
+      {
+        "headword": "understand",
+        "surfaceForm": "understand",
+        "phonetic": "/.ʌndә'stænd/",
+        "pos": "vt.",
+        "translation": "vt. 理解，了解",
+        "definition": "know and comprehend the nature or meaning of",
+        "context": "I understand now that I was saving myself from a few uncomfortable seconds, and taking his voice to do it."
+      },
+      {
+        "headword": "together",
+        "surfaceForm": "together",
+        "phonetic": "/tә'geðә/",
+        "pos": "adv.",
+        "translation": "adv. 一起，共同",
+        "definition": "mentally and emotionally stable",
+        "context": "I pressed my lips together and kept looking at him."
+      },
+      {
+        "headword": "brother",
+        "surfaceForm": "brother",
+        "phonetic": "/'brʌðә/",
+        "pos": "n.",
+        "translation": "n. 兄弟",
+        "definition": "a male with the same parents as someone else",
+        "context": "My younger brother, Jun Hao, has a stammer."
+      },
+      {
+        "headword": "sister",
+        "surfaceForm": "sister",
+        "phonetic": "/'sistә/",
+        "pos": "n.",
+        "translation": "n. 姐妹，姐",
+        "definition": "a female person who has the same parents as another person",
+        "context": "I said, a little proudly, that as his big sister I finished his words so that he did not have to struggle."
+      },
+      {
+        "headword": "perhaps",
+        "surfaceForm": "perhaps",
+        "phonetic": "/pә'hæps/",
+        "pos": "adv.",
+        "translation": "adv. 也许，大概",
+        "definition": "by chance",
+        "context": "It took perhaps eight seconds."
+      },
+      {
+        "headword": "single",
+        "surfaceForm": "single",
+        "phonetic": "/'siŋgl/",
+        "pos": "adj.",
+        "translation": "adj. 每一个的（every single）",
+        "definition": "used to emphasise that you mean each one",
+        "context": "Some days he talks for an hour without any trouble, and some days a single word will not come out, however hard he pushes."
+      },
+      {
+        "headword": "parent",
+        "surfaceForm": "parents",
+        "phonetic": "/'perәnt/",
+        "pos": "n.",
+        "translation": "n. 父母，父母亲",
+        "definition": "a father or mother",
+        "context": "In March our parents took him to a speech therapist, Ms Pereira, and one Saturday I went along, because she had asked for the whole family to come."
+      },
+      {
+        "headword": "family",
+        "surfaceForm": "family",
+        "phonetic": "/'fæmәli/",
+        "pos": "n.",
+        "translation": "n. 家庭，家人",
+        "definition": "a social unit living together",
+        "context": "In March our parents took him to a speech therapist, Ms Pereira, and one Saturday I went along, because she had asked for the whole family to come."
+      }
+    ],
+    "original-w4-armband": [
+      {
+        "headword": "clap",
+        "surfaceForm": "clapped",
+        "phonetic": "/klæp/",
+        "pos": "v.",
+        "translation": "v. 鼓掌，(使)啪地关上",
+        "definition": "put quickly or forcibly",
+        "context": "The team clapped."
+      },
+      {
+        "headword": "armband",
+        "surfaceForm": "armband",
+        "phonetic": "/'ɑ:mbænd/",
+        "pos": "n.",
+        "translation": "n. 臂章",
+        "definition": "worn around arm as identification or to indicate mourning",
+        "context": "He was faster than the rest of us, he scored most of our goals, and he had worn the yellow armband since Secondary One as if it had been made for his arm."
+      },
+      {
+        "headword": "score",
+        "surfaceForm": "scored",
+        "phonetic": "/skɒ:/",
+        "pos": "n.",
+        "translation": "n. 得分，抓痕",
+        "definition": "a written form of a musical composition",
+        "context": "He was faster than the rest of us, he scored most of our goals, and he had worn the yellow armband since Secondary One as if it had been made for his arm."
+      },
+      {
+        "headword": "suppose",
+        "surfaceForm": "supposed",
+        "phonetic": "/sә'pәuz/",
+        "pos": "v.",
+        "translation": "v. 应该（be supposed to）",
+        "definition": "be supposed to: to be expected to do something",
+        "context": "I knew that I was supposed to say something, and that everyone, including Arjun, was waiting to hear what it would be."
+      },
+      {
+        "headword": "season",
+        "surfaceForm": "season",
+        "phonetic": "/'si:zn/",
+        "pos": "n.",
+        "translation": "n. （体育）赛季",
+        "definition": "the part of the year when a sport is played",
+        "context": "So when Coach Salleh read out the captain for the new season and it was my name, I thought he had made a mistake."
+      },
+      {
+        "headword": "rest",
+        "surfaceForm": "rest",
+        "phonetic": "/rest/",
+        "pos": "n.",
+        "translation": "n. 其余，剩下的部分",
+        "definition": "the part that is left, or the others",
+        "context": "He was faster than the rest of us, he scored most of our goals, and he had worn the yellow armband since Secondary One as if it had been made for his arm."
+      },
+      {
+        "headword": "understand",
+        "surfaceForm": "understand",
+        "phonetic": "/.ʌndә'stænd/",
+        "pos": "vt.",
+        "translation": "vt. 理解，了解",
+        "definition": "know and comprehend the nature or meaning of",
+        "context": "But I understand now what the coach meant."
+      },
+      {
+        "headword": "important",
+        "surfaceForm": "important",
+        "phonetic": "/im'pɒ:tәnt/",
+        "pos": "a.",
+        "translation": "a. 重要的，有地位的",
+        "definition": "of great significance or value",
+        "context": "Leading the team did not mean being more important than Arjun."
+      },
+      {
+        "headword": "twice",
+        "surfaceForm": "twice",
+        "phonetic": "/twais/",
+        "pos": "adv.",
+        "translation": "adv. 两次，两倍",
+        "definition": "two times",
+        "context": "Our first match of the season was against a school that had beaten us twice the year before."
+      },
+      {
+        "headword": "include",
+        "surfaceForm": "including",
+        "phonetic": "/in'klu:d/",
+        "pos": "vt.",
+        "translation": "vt. 包括，把...算入",
+        "definition": "have as a part, be made up out of",
+        "context": "I knew that I was supposed to say something, and that everyone, including Arjun, was waiting to hear what it would be."
+      },
+      {
+        "headword": "match",
+        "surfaceForm": "match",
+        "phonetic": "/mætʃ/",
+        "pos": "n.",
+        "translation": "n. 比赛，火柴",
+        "definition": "lighter consisting of a thin piece of wood or cardboard tipped with combustible chemical",
+        "context": "When I sent him a message about the away match, he replied, \"OK, captain."
+      },
+      {
+        "headword": "front",
+        "surfaceForm": "front",
+        "phonetic": "/frʌnt/",
+        "pos": "n.",
+        "translation": "n. 前面，开头",
+        "definition": "the side that is forward or prominent",
+        "context": "Then I turned to Arjun and asked him, in front of everyone, whether he agreed."
+      },
+      {
+        "headword": "player",
+        "surfaceForm": "player",
+        "phonetic": "/'pleiә/",
+        "pos": "n.",
+        "translation": "n. 竞赛者，上场队员",
+        "definition": "a person who participates in or is skilled at some game",
+        "context": "He said that a captain is not the best player but the one the others listen to, and that he had noticed who the younger boys went to when they were upset."
+      },
+      {
+        "headword": "decide",
+        "surfaceForm": "decide",
+        "phonetic": "/di'said/",
+        "pos": "v.",
+        "translation": "v. 决定，判决",
+        "definition": "reach, make, or come to a decision about something",
+        "context": "\" I read those two words many times, trying to decide how he had meant them."
+      },
+      {
+        "headword": "reason",
+        "surfaceForm": "reason",
+        "phonetic": "/'ri:zn/",
+        "pos": "n.",
+        "translation": "n. 理由，原因",
+        "definition": "a rational motive for a belief or action",
+        "context": "That is not a reason to give him the armband."
+      },
+      {
+        "headword": "half",
+        "surfaceForm": "half",
+        "phonetic": "/hɑ:f/",
+        "pos": "n.",
+        "translation": "n. 一半，半场",
+        "definition": "one of two divisions into which some games or performances are divided: the two divisions are separated by an interval",
+        "context": "I said that we had been passing to Arjun too quickly, before he had space, and that in the second half we should keep the ball longer and let him choose his moment."
+      },
+      {
+        "headword": "else",
+        "surfaceForm": "else",
+        "phonetic": "/els/",
+        "pos": "a.",
+        "translation": "a. 别的，其他的",
+        "definition": "& pron. Other",
+        "context": "Arjun clapped too, a moment after everyone else, and then he looked at the grass."
+      },
+      {
+        "headword": "sure",
+        "surfaceForm": "sure",
+        "phonetic": "/ʃuә/",
+        "pos": "a.",
+        "translation": "a. 确信，必然的",
+        "definition": "physically secure or dependable",
+        "context": "It meant making sure that everyone, including him, had a reason to keep playing."
+      },
+      {
+        "headword": "read",
+        "surfaceForm": "read",
+        "phonetic": "/ri:d/",
+        "pos": "v.",
+        "translation": "v. 读，阅读",
+        "definition": "interpret something that is written or printed",
+        "context": "So when Coach Salleh read out the captain for the new season and it was my name, I thought he had made a mistake."
+      },
+      {
+        "headword": "team",
+        "surfaceForm": "team",
+        "phonetic": "/ti:m/",
+        "pos": "n.",
+        "translation": "n. 队，组",
+        "definition": "a cooperative unit (especially in sports)",
+        "context": "For two years, Arjun had been the captain of our under-sixteen football team, and nobody had ever questioned it."
+      }
+    ],
+    "original-w4-longest-day": [
+      {
+        "headword": "dawn",
+        "surfaceForm": "dawn",
+        "phonetic": "/dɒ:n/",
+        "pos": "n.",
+        "translation": "n. 破晓，黎明",
+        "definition": "the first light of day",
+        "context": "His mother invited me to sleep over on the Friday so that I could eat sahur with them, the meal before dawn."
+      },
+      {
+        "headword": "snap",
+        "surfaceForm": "snapped",
+        "phonetic": "/snæp/",
+        "pos": "v.",
+        "translation": "v. 厉声说话，发脾气",
+        "definition": "to speak to someone suddenly in an angry way",
+        "context": "I snapped at Irfan when he asked me a question about maths."
+      },
+      {
+        "headword": "syrup",
+        "surfaceForm": "syrup",
+        "phonetic": "/'sirәp/",
+        "pos": "n.",
+        "translation": "n. 糖浆，果汁",
+        "definition": "a thick sweet sticky liquid",
+        "context": "Just after seven, the whole family sat around the table, with dates, a jug of rose syrup drink and plates of food that his grandmother had been cooking since the afternoon."
+      },
+      {
+        "headword": "recess",
+        "surfaceForm": "recess",
+        "phonetic": "/ri'ses/",
+        "pos": "n.",
+        "translation": "n. 课间休息",
+        "definition": "a short break between lessons at school",
+        "context": "He still played football at recess."
+      },
+      {
+        "headword": "thirst",
+        "surfaceForm": "thirst",
+        "phonetic": "/θә:st/",
+        "pos": "n.",
+        "translation": "n. 口渴，渴望",
+        "definition": "a physiological need to drink",
+        "context": "The worst part was not hunger but thirst: my mouth felt like paper, and every shop selling cold drinks seemed to have its fridge door open."
+      },
+      {
+        "headword": "sunrise",
+        "surfaceForm": "sunrise",
+        "phonetic": "/'sʌnraiz/",
+        "pos": "n.",
+        "translation": "n. 日出，黎明",
+        "definition": "atmospheric phenomena accompanying the daily appearance of the sun",
+        "context": "Every year during Ramadan, my best friend Irfan eats and drinks nothing from before sunrise until sunset."
+      },
+      {
+        "headword": "sunset",
+        "surfaceForm": "sunset",
+        "phonetic": "/'sʌnset/",
+        "pos": "n.",
+        "translation": "n. 日落，晚年",
+        "definition": "the time in the evening at which the sun begins to fall below the horizon",
+        "context": "Every year during Ramadan, my best friend Irfan eats and drinks nothing from before sunrise until sunset."
+      },
+      {
+        "headword": "hunger",
+        "surfaceForm": "hunger",
+        "phonetic": "/'hʌŋgә/",
+        "pos": "n.",
+        "translation": "n. 饥饿，渴望",
+        "definition": "a physiological need for food",
+        "context": "The worst part was not hunger but thirst: my mouth felt like paper, and every shop selling cold drinks seemed to have its fridge door open."
+      },
+      {
+        "headword": "prayer",
+        "surfaceForm": "prayer",
+        "phonetic": "/prєә. 'preiә/",
+        "pos": "n.",
+        "translation": "n. 祈祷，恳求",
+        "definition": "the act of communicating with a deity (especially as a petition or in adoration or contrition or thanksgiving)",
+        "context": "Then, a little after half past five, the call to the dawn prayer sounded, and that was the end of eating until evening."
+      },
+      {
+        "headword": "height",
+        "surfaceForm": "height",
+        "phonetic": "/hait/",
+        "pos": "n.",
+        "translation": "n. 高度，海拔",
+        "definition": "the vertical dimension of extension",
+        "context": "For most of my life I had thought of this the way I thought about his height: a fact about him, interesting for a moment and then forgotten."
+      },
+      {
+        "headword": "fuel",
+        "surfaceForm": "fuel",
+        "phonetic": "/'fjuәl/",
+        "pos": "n.",
+        "translation": "n. 燃料，木炭",
+        "definition": "a substance that can be consumed to produce energy",
+        "context": "I ate two eggs, a bowl of oats and a large glass of water, with the feeling that I was storing fuel for a long journey."
+      },
+      {
+        "headword": "assume",
+        "surfaceForm": "assuming",
+        "phonetic": "/ә'sju:m/",
+        "pos": "vt.",
+        "translation": "vt. 假定，承担",
+        "definition": "take to be the case or to be true",
+        "context": "I had spent years assuming that something was easy for him because he never complained about it."
+      },
+      {
+        "headword": "prove",
+        "surfaceForm": "prove",
+        "phonetic": "/pru:v/",
+        "pos": "vt.",
+        "translation": "vt. 证明，查验",
+        "definition": "be shown or be found to be",
+        "context": "He said, \"Then don't do it to prove something."
+      },
+      {
+        "headword": "understand",
+        "surfaceForm": "understand",
+        "phonetic": "/.ʌndә'stænd/",
+        "pos": "vt.",
+        "translation": "vt. 理解，了解",
+        "definition": "know and comprehend the nature or meaning of",
+        "context": "I said I wanted to understand."
+      },
+      {
+        "headword": "single",
+        "surfaceForm": "single",
+        "phonetic": "/'siŋgl/",
+        "pos": "adj.",
+        "translation": "adj. 每一个的（every single）",
+        "definition": "used to emphasise that you mean each one",
+        "context": "I cannot remember any of them as clearly as that single date, soft and very sweet, and the glass of cold water after it."
+      },
+      {
+        "headword": "effort",
+        "surfaceForm": "effort",
+        "phonetic": "/'efәt/",
+        "pos": "n.",
+        "translation": "n. 努力，成就",
+        "definition": "use of physical or mental energy",
+        "context": "One day was enough to show me how much effort can hide behind a person who simply carries on."
+      },
+      {
+        "headword": "expect",
+        "surfaceForm": "expected",
+        "phonetic": "/iks'pekt/",
+        "pos": "vt.",
+        "translation": "vt. 预期，盼望",
+        "definition": "regard something as probable or likely",
+        "context": "I expected him to be pleased."
+      },
+      {
+        "headword": "family",
+        "surfaceForm": "family",
+        "phonetic": "/'fæmәli/",
+        "pos": "n.",
+        "translation": "n. 家庭，家人",
+        "definition": "a social unit living together",
+        "context": "Just after seven, the whole family sat around the table, with dates, a jug of rose syrup drink and plates of food that his grandmother had been cooking since the afternoon."
+      },
+      {
+        "headword": "whole",
+        "surfaceForm": "whole",
+        "phonetic": "/hәul/",
+        "pos": "n.",
+        "translation": "n. 全部，全体",
+        "definition": "all of something including all its component elements or parts",
+        "context": "\" I asked how he could do this for a whole month."
+      },
+      {
+        "headword": "carry",
+        "surfaceForm": "carries",
+        "phonetic": "/'kæri/",
+        "pos": "v.",
+        "translation": "v. 携带，运送",
+        "definition": "to take something from one place to another",
+        "context": "One day was enough to show me how much effort can hide behind a person who simply carries on."
+      }
+    ],
+    "original-w4-blood-donation": [
+      {
+        "headword": "squeeze",
+        "surfaceForm": "squeezed",
+        "phonetic": "/skwi:z/",
+        "pos": "n.",
+        "translation": "n. 紧握，挤",
+        "definition": "the act of gripping and pressing firmly",
+        "context": "I squeezed the rubber ball in my hand, as I had been told, and counted."
+      },
+      {
+        "headword": "lower",
+        "surfaceForm": "lowered",
+        "phonetic": "/'lәuә/",
+        "pos": "vi.",
+        "translation": "vi. 降低，跌落",
+        "definition": "move something or somebody to a lower position",
+        "context": "They lowered the back of his chair until his feet were higher than his head, put a cold towel on his neck and spoke to him calmly until he opened his eyes again."
+      },
+      {
+        "headword": "calmly",
+        "surfaceForm": "calmly",
+        "phonetic": "/'kɑ:mli/",
+        "pos": "adv.",
+        "translation": "adv. 平静地，安静地",
+        "definition": "with self-possession (especially in times of stress)",
+        "context": "They lowered the back of his chair until his feet were higher than his head, put a cold towel on his neck and spoke to him calmly until he opened his eyes again."
+      },
+      {
+        "headword": "tilt",
+        "surfaceForm": "tilt",
+        "phonetic": "/tilt/",
+        "pos": "n.",
+        "translation": "n. 倾斜，倾向",
+        "definition": "a slight but noticeable partiality",
+        "context": "It was larger than I had expected, and for a moment the room seemed to tilt."
+      },
+      {
+        "headword": "embarrass",
+        "surfaceForm": "embarrassed",
+        "phonetic": "/im'bærәs/",
+        "pos": "vt.",
+        "translation": "vt. 使困窘，使局促不安",
+        "definition": "cause to be embarrassed",
+        "context": "He was embarrassed."
+      },
+      {
+        "headword": "rubber",
+        "surfaceForm": "rubber",
+        "phonetic": "/'rʌbә/",
+        "pos": "n.",
+        "translation": "n. 橡皮，橡胶",
+        "definition": "any of various synthetic elastic materials whose properties resemble natural rubber",
+        "context": "I squeezed the rubber ball in my hand, as I had been told, and counted."
+      },
+      {
+        "headword": "afterward",
+        "surfaceForm": "Afterwards",
+        "phonetic": "/'ɑ:ftәwәd/",
+        "pos": "adv.",
+        "translation": "adv. 然后，后来",
+        "definition": "happening at a time subsequent to a reference time",
+        "context": "Afterwards, we sat together with orange juice and biscuits."
+      },
+      {
+        "headword": "needle",
+        "surfaceForm": "needle",
+        "phonetic": "/'ni:dl/",
+        "pos": "n.",
+        "translation": "n. 针，尖",
+        "definition": "a slender pointer for indicating the reading on the scale of a measuring instrument",
+        "context": "He gave me a thumbs-up and told me not to look at the needle."
+      },
+      {
+        "headword": "finger",
+        "surfaceForm": "finger",
+        "phonetic": "/'fiŋgә/",
+        "pos": "n.",
+        "translation": "n. 手指，指状物",
+        "definition": "any of the terminal members of the hand (sometimes excepting the thumb)",
+        "context": "The nurse checked my weight, tested a drop of blood from my finger and asked me a long list of questions, some of which made me go red."
+      },
+      {
+        "headword": "together",
+        "surfaceForm": "together",
+        "phonetic": "/tә'geðә/",
+        "pos": "adv.",
+        "translation": "adv. 一起，共同",
+        "definition": "mentally and emotionally stable",
+        "context": "On the Saturday after my sixteenth birthday, we went to the blood bank together."
+      },
+      {
+        "headword": "colour",
+        "surfaceForm": "colour",
+        "phonetic": "/'kʌlә/",
+        "pos": "n.",
+        "translation": "n. 颜色，面色",
+        "definition": "any material used for its color",
+        "context": "When I looked across, his face was the colour of the wall."
+      },
+      {
+        "headword": "parent",
+        "surfaceForm": "parent",
+        "phonetic": "/'perәnt/",
+        "pos": "n.",
+        "translation": "n. 父母，父母亲",
+        "definition": "a father or mother",
+        "context": "In Singapore you can give blood at sixteen if a parent signs the form, and I had been counting down to it for a year."
+      },
+      {
+        "headword": "expect",
+        "surfaceForm": "expected",
+        "phonetic": "/iks'pekt/",
+        "pos": "vt.",
+        "translation": "vt. 预期，盼望",
+        "definition": "regard something as probable or likely",
+        "context": "It was larger than I had expected, and for a moment the room seemed to tilt."
+      },
+      {
+        "headword": "happen",
+        "surfaceForm": "happened",
+        "phonetic": "/'hæpәn/",
+        "pos": "vi.",
+        "translation": "vi. 发生，发生",
+        "definition": "come to pass",
+        "context": "He said it had never happened before, that it was because of the toast, and that I was not to tell my mother."
+      },
+      {
+        "headword": "sign",
+        "surfaceForm": "signs",
+        "phonetic": "/sain/",
+        "pos": "n.",
+        "translation": "n. 符号，招牌",
+        "definition": "a perceptible indication of something not immediately apparent (as a visible clue that something has happened)",
+        "context": "In Singapore you can give blood at sixteen if a parent signs the form, and I had been counting down to it for a year."
+      },
+      {
+        "headword": "list",
+        "surfaceForm": "list",
+        "phonetic": "/list/",
+        "pos": "n.",
+        "translation": "n. 目录，名单",
+        "definition": "a database containing an ordered array of items (names or topics)",
+        "context": "The nurse checked my weight, tested a drop of blood from my finger and asked me a long list of questions, some of which made me go red."
+      },
+      {
+        "headword": "month",
+        "surfaceForm": "months",
+        "phonetic": "/mʌnθ/",
+        "pos": "n.",
+        "translation": "n. 月",
+        "definition": "a time unit of approximately 30 days",
+        "context": "My father has given blood every six months for as long as I can remember."
+      },
+      {
+        "headword": "test",
+        "surfaceForm": "tested",
+        "phonetic": "/test/",
+        "pos": "n.",
+        "translation": "n. 测试，试验",
+        "definition": "any standardized procedure for measuring sensitivity or memory or intelligence or aptitude or personality etc",
+        "context": "The nurse checked my weight, tested a drop of blood from my finger and asked me a long list of questions, some of which made me go red."
+      },
+      {
+        "headword": "wall",
+        "surfaceForm": "wall",
+        "phonetic": "/wɒ:l/",
+        "pos": "n.",
+        "translation": "n. 墙，墙壁",
+        "definition": "an architectural partition with a height and length greater than its thickness",
+        "context": "When I looked across, his face was the colour of the wall."
+      },
+      {
+        "headword": "easy",
+        "surfaceForm": "easy",
+        "phonetic": "/'i:zi/",
+        "pos": "a.",
+        "translation": "a. 容易的，缓缓的",
+        "definition": "posing no difficulty",
+        "context": "I wanted her to know that he had been brave fifty times before, and that the fifty-first time had shown me it was never as easy for him as he made it look."
+      }
+    ],
+    "original-w4-coin-toss": [
+      {
+        "headword": "slam",
+        "surfaceForm": "slamming",
+        "phonetic": "/slæm/",
+        "pos": "vt.",
+        "translation": "vt. 猛然关上，砰地关上",
+        "definition": "close violently",
+        "context": "She went to our room and shut the door very quietly, which in our family is much louder than slamming it."
+      },
+      {
+        "headword": "tail",
+        "surfaceForm": "tails",
+        "phonetic": "/teil/",
+        "pos": "n.",
+        "translation": "n. （硬币的）反面",
+        "definition": "the side of a coin that does not show a person's head",
+        "context": "It had landed on tails, which meant that I had won."
+      },
+      {
+        "headword": "maple",
+        "surfaceForm": "maple",
+        "phonetic": "/'meipl/",
+        "pos": "n.",
+        "translation": "n. 枫，枫木",
+        "definition": "wood of any of various maple trees",
+        "context": "It was full of drawings of Japanese gardens: stone paths, maple trees, a small wooden bridge drawn again and again from different sides."
+      },
+      {
+        "headword": "toss",
+        "surfaceForm": "tossed",
+        "phonetic": "/tɒs/",
+        "pos": "n.",
+        "translation": "n. 投掷，抛",
+        "definition": "an abrupt movement",
+        "context": "Our father tossed the coin, caught it and turned it onto the back of his hand."
+      },
+      {
+        "headword": "twin",
+        "surfaceForm": "twin",
+        "phonetic": "/twin/",
+        "pos": "n.",
+        "translation": "n. 双胞胎中一人，一对非常相像的人(或物)中的一个",
+        "definition": "either of two offspring born at the same time from the same pregnancy",
+        "context": "My twin sister, Lynn, and I have shared almost everything for fifteen years: a bedroom, a birthday, most of our clothes and, for one bad month in Primary Four, chickenpox."
+      },
+      {
+        "headword": "afford",
+        "surfaceForm": "afford",
+        "phonetic": "/ә'fɒ:d/",
+        "pos": "vt.",
+        "translation": "vt. 买得起，足以",
+        "definition": "be able to spare or give up",
+        "context": "So when our school offered a two-week exchange trip to Kyoto and our parents said they could afford to send only one of us, we both knew there was no fair way to decide."
+      },
+      {
+        "headword": "onto",
+        "surfaceForm": "onto",
+        "phonetic": "/'ɒntu:/",
+        "pos": "prep.",
+        "translation": "prep. 在...之上",
+        "definition": "On the top of",
+        "context": "Our father tossed the coin, caught it and turned it onto the back of his hand."
+      },
+      {
+        "headword": "everything",
+        "surfaceForm": "everything",
+        "phonetic": "/'evriθiŋ/",
+        "pos": "pron.",
+        "translation": "pron. 每件事物，所有事物",
+        "definition": "Whatever pertains to the subject under consideration",
+        "context": "My twin sister, Lynn, and I have shared almost everything for fifteen years: a bedroom, a birthday, most of our clothes and, for one bad month in Primary Four, chickenpox."
+      },
+      {
+        "headword": "sister",
+        "surfaceForm": "sister",
+        "phonetic": "/'sistә/",
+        "pos": "n.",
+        "translation": "n. 姐妹，姐",
+        "definition": "a female person who has the same parents as another person",
+        "context": "My twin sister, Lynn, and I have shared almost everything for fifteen years: a bedroom, a birthday, most of our clothes and, for one bad month in Primary Four, chickenpox."
+      },
+      {
+        "headword": "decide",
+        "surfaceForm": "decide",
+        "phonetic": "/di'said/",
+        "pos": "v.",
+        "translation": "v. 决定，判决",
+        "definition": "reach, make, or come to a decision about something",
+        "context": "So when our school offered a two-week exchange trip to Kyoto and our parents said they could afford to send only one of us, we both knew there was no fair way to decide."
+      },
+      {
+        "headword": "parent",
+        "surfaceForm": "parents",
+        "phonetic": "/'perәnt/",
+        "pos": "n.",
+        "translation": "n. 父母，父母亲",
+        "definition": "a father or mother",
+        "context": "So when our school offered a two-week exchange trip to Kyoto and our parents said they could afford to send only one of us, we both knew there was no fair way to decide."
+      },
+      {
+        "headword": "expect",
+        "surfaceForm": "expected",
+        "phonetic": "/iks'pekt/",
+        "pos": "vt.",
+        "translation": "vt. 预期，盼望",
+        "definition": "regard something as probable or likely",
+        "context": "I expected to feel wonderful, and I did, for about ten seconds."
+      },
+      {
+        "headword": "family",
+        "surfaceForm": "family",
+        "phonetic": "/'fæmәli/",
+        "pos": "n.",
+        "translation": "n. 家庭，家人",
+        "definition": "a social unit living together",
+        "context": "She went to our room and shut the door very quietly, which in our family is much louder than slamming it."
+      },
+      {
+        "headword": "whole",
+        "surfaceForm": "whole",
+        "phonetic": "/hәul/",
+        "pos": "n.",
+        "translation": "n. 全部，全体",
+        "definition": "all of something including all its component elements or parts",
+        "context": "Our mother suggested that we talk it over, which we did, for a whole evening, until we were no longer really talking, only repeating ourselves more loudly."
+      },
+      {
+        "headword": "offer",
+        "surfaceForm": "offered",
+        "phonetic": "/'ɒfә/",
+        "pos": "vt.",
+        "translation": "vt. 提供，出价",
+        "definition": "make available or accessible, provide or furnish",
+        "context": "So when our school offered a two-week exchange trip to Kyoto and our parents said they could afford to send only one of us, we both knew there was no fair way to decide."
+      },
+      {
+        "headword": "month",
+        "surfaceForm": "month",
+        "phonetic": "/mʌnθ/",
+        "pos": "n.",
+        "translation": "n. 月",
+        "definition": "a time unit of approximately 30 days",
+        "context": "My twin sister, Lynn, and I have shared almost everything for fifteen years: a bedroom, a birthday, most of our clothes and, for one bad month in Primary Four, chickenpox."
+      },
+      {
+        "headword": "page",
+        "surfaceForm": "page",
+        "phonetic": "/peidʒ/",
+        "pos": "n.",
+        "translation": "n. 页，记录",
+        "definition": "a boy who is employed to run errands",
+        "context": "On the first page she had written the date, and it was a year earlier, long before anyone had mentioned a trip."
+      },
+      {
+        "headword": "send",
+        "surfaceForm": "send",
+        "phonetic": "/send/",
+        "pos": "vt.",
+        "translation": "vt. 发送，使进入",
+        "definition": "cause to go somewhere",
+        "context": "So when our school offered a two-week exchange trip to Kyoto and our parents said they could afford to send only one of us, we both knew there was no fair way to decide."
+      },
+      {
+        "headword": "open",
+        "surfaceForm": "opened",
+        "phonetic": "/'әupәn/",
+        "pos": "v.",
+        "translation": "v. 打开，敞开",
+        "definition": "to move something so it is no longer closed; also used to mean not closed or not filled",
+        "context": "Then, looking for a charger, I opened the drawer under her bed."
+      },
+      {
+        "headword": "sure",
+        "surfaceForm": "sure",
+        "phonetic": "/ʃuә/",
+        "pos": "a.",
+        "translation": "a. 确信，必然的",
+        "definition": "physically secure or dependable",
+        "context": "My mother asked if I was sure."
+      }
+    ]
+  },
+  "olevel_intermediate": {
+    "original-w4-voice-message": [
+      {
+        "headword": "microphone",
+        "surfaceForm": "microphone",
+        "phonetic": "/'maikrәfәun/",
+        "pos": "n.",
+        "translation": "n. 扩音器，麦克风",
+        "definition": "device for converting sound waves into electrical energy",
+        "context": "I pressed the microphone button to send a voice message to Aisha, and I said exactly what I thought."
+      },
+      {
+        "headword": "tick",
+        "surfaceForm": "tick",
+        "phonetic": "/tik/",
+        "pos": "n.",
+        "translation": "n. 对勾（✓）",
+        "definition": "a small mark (✓) showing that something is correct or has been done",
+        "context": "I stared at the small grey tick beside the message."
+      },
+      {
+        "headword": "delete",
+        "surfaceForm": "delete",
+        "phonetic": "/di'li:t/",
+        "pos": "vt.",
+        "translation": "vt. 删除",
+        "definition": "remove or make invisible",
+        "context": "There is a way to delete a message for everyone, and I did it, but the words \"This message was deleted\" stayed there in its place, like a sign pointing at what I had done."
+      },
+      {
+        "headword": "tightly",
+        "surfaceForm": "tightly",
+        "phonetic": "/'taitli/",
+        "pos": "adv.",
+        "translation": "adv. 紧紧地，坚固地",
+        "definition": "in a tight or constricted manner",
+        "context": "I held the phone so tightly that my thumb went white, and I watched the second tick appear."
+      },
+      {
+        "headword": "thumb",
+        "surfaceForm": "thumb",
+        "phonetic": "/θʌm/",
+        "pos": "n.",
+        "translation": "n. 拇指",
+        "definition": "the thick short innermost digit of the forelimb",
+        "context": "I held the phone so tightly that my thumb went white, and I watched the second tick appear."
+      },
+      {
+        "headword": "cancel",
+        "surfaceForm": "cancelled",
+        "phonetic": "/'kænsәl/",
+        "pos": "vt.",
+        "translation": "vt. 取消，删去",
+        "definition": "postpone indefinitely or annul something that was scheduled",
+        "context": "She had promised to help me practise for the speaking part of our French exam, and then she had cancelled an hour before, saying she had too much homework."
+      },
+      {
+        "headword": "loud",
+        "surfaceForm": "loud",
+        "phonetic": "/laud/",
+        "pos": "a.",
+        "translation": "a. 大声的，不断的",
+        "definition": "characterized by or producing sound of great volume or intensity",
+        "context": "It felt good to say it out loud."
+      },
+      {
+        "headword": "press",
+        "surfaceForm": "pressed",
+        "phonetic": "/pres/",
+        "pos": "v.",
+        "translation": "v. 按，压",
+        "definition": "to push something firmly",
+        "context": "I pressed the microphone button to send a voice message to Aisha, and I said exactly what I thought."
+      },
+      {
+        "headword": "together",
+        "surfaceForm": "together",
+        "phonetic": "/tә'geðә/",
+        "pos": "adv.",
+        "translation": "adv. 一起，共同",
+        "definition": "mentally and emotionally stable",
+        "context": "We still practise French together on Tuesdays."
+      },
+      {
+        "headword": "grey",
+        "surfaceForm": "grey",
+        "phonetic": "/grei/",
+        "pos": "n.",
+        "translation": "n. 灰色",
+        "definition": "United States writer of western adventure novels (1875-1939)",
+        "context": "I stared at the small grey tick beside the message."
+      },
+      {
+        "headword": "believe",
+        "surfaceForm": "believe",
+        "phonetic": "/bi'li:v/",
+        "pos": "v.",
+        "translation": "v. 相信",
+        "definition": "accept as true",
+        "context": "I had been ready to believe the worst about her in the time it takes to press a button."
+      },
+      {
+        "headword": "later",
+        "surfaceForm": "later",
+        "phonetic": "/'leitә/",
+        "pos": "adv.",
+        "translation": "adv. 以后，随后",
+        "definition": "coming at a subsequent time or stage",
+        "context": "Twenty minutes later, she posted a photo from the cinema."
+      },
+      {
+        "headword": "sign",
+        "surfaceForm": "sign",
+        "phonetic": "/sain/",
+        "pos": "n.",
+        "translation": "n. 符号，招牌",
+        "definition": "a perceptible indication of something not immediately apparent (as a visible clue that something has happened)",
+        "context": "There is a way to delete a message for everyone, and I did it, but the words \"This message was deleted\" stayed there in its place, like a sign pointing at what I had done."
+      },
+      {
+        "headword": "list",
+        "surfaceForm": "list",
+        "phonetic": "/list/",
+        "pos": "n.",
+        "translation": "n. 目录，名单",
+        "definition": "a database containing an ordered array of items (names or topics)",
+        "context": "Their chats were next to each other in my list, and I had tapped the wrong one."
+      },
+      {
+        "headword": "stay",
+        "surfaceForm": "stayed",
+        "phonetic": "/stei/",
+        "pos": "n.",
+        "translation": "n. 停留，逗留",
+        "definition": "continuing or remaining in a place or state",
+        "context": "There is a way to delete a message for everyone, and I did it, but the words \"This message was deleted\" stayed there in its place, like a sign pointing at what I had done."
+      },
+      {
+        "headword": "wait",
+        "surfaceForm": "wait",
+        "phonetic": "/weit/",
+        "pos": "n.",
+        "translation": "n. 等待，等候",
+        "definition": "the act of waiting (remaining inactive in one place while expecting something)",
+        "context": "When I am angry with someone now, I wait until the morning, and then I say it to their face or not at all."
+      },
+      {
+        "headword": "send",
+        "surfaceForm": "send",
+        "phonetic": "/send/",
+        "pos": "vt.",
+        "translation": "vt. 发送，使进入",
+        "definition": "cause to go somewhere",
+        "context": "I pressed the microphone button to send a voice message to Aisha, and I said exactly what I thought."
+      },
+      {
+        "headword": "face",
+        "surfaceForm": "face",
+        "phonetic": "/feis/",
+        "pos": "n.",
+        "translation": "n. 脸，面容",
+        "definition": "the front of the human head from the forehead to the chin and ear to ear",
+        "context": "When I am angry with someone now, I wait until the morning, and then I say it to their face or not at all."
+      },
+      {
+        "headword": "hour",
+        "surfaceForm": "hour",
+        "phonetic": "/auә/",
+        "pos": "n.",
+        "translation": "n. 小时，钟头",
+        "definition": "a period of time equal to 1/24th of a day",
+        "context": "She had promised to help me practise for the speaking part of our French exam, and then she had cancelled an hour before, saying she had too much homework."
+      },
+      {
+        "headword": "name",
+        "surfaceForm": "name",
+        "phonetic": "/neim/",
+        "pos": "n.",
+        "translation": "n. 名字，名称",
+        "definition": "a language unit by which a person or thing is known",
+        "context": "Then I saw the name at the top of the screen."
+      }
+    ],
+    "original-w4-orienteering": [
+      {
+        "headword": "lower",
+        "surfaceForm": "lowered",
+        "phonetic": "/'lәuә/",
+        "pos": "vi.",
+        "translation": "vi. 降低，跌落",
+        "definition": "move something or somebody to a lower position",
+        "context": "Marcus waited until I lowered the map."
+      },
+      {
+        "headword": "checkpoint",
+        "surfaceForm": "checkpoints",
+        "phonetic": "/'tʃekpɒint/",
+        "pos": "n.",
+        "translation": "n. 检查点，关卡",
+        "definition": "a place you must reach and check in at during a race or course",
+        "context": "On the second day of our school camp, each group of four was given a map, a compass and a list of six checkpoints hidden in the park."
+      },
+      {
+        "headword": "compass",
+        "surfaceForm": "compass",
+        "phonetic": "/'kʌmpәs/",
+        "pos": "n.",
+        "translation": "n. 指南针，范围",
+        "definition": "navigational instrument for finding directions",
+        "context": "On the second day of our school camp, each group of four was given a map, a compass and a list of six checkpoints hidden in the park."
+      },
+      {
+        "headword": "shoelace",
+        "surfaceForm": "shoelace",
+        "phonetic": "/'ʃu:leis/",
+        "pos": "n.",
+        "translation": "n. 鞋带",
+        "definition": "a lace used for fastening shoes",
+        "context": "He said it the way you tell someone that their shoelace is undone."
+      },
+      {
+        "headword": "upside",
+        "surfaceForm": "upside",
+        "phonetic": "/'ʌpsaid/",
+        "pos": "n.",
+        "translation": "n. 上面（upside down：颠倒）",
+        "definition": "the top side of something; 'upside down' means with the top at the bottom",
+        "context": "Then he pointed out that I had been holding it upside down since the third checkpoint."
+      },
+      {
+        "headword": "term",
+        "surfaceForm": "term",
+        "phonetic": "/tә:m/",
+        "pos": "n.",
+        "translation": "n. 学期",
+        "definition": "one of the periods into which a school year is divided",
+        "context": "The other three were Dev, Sarah and a quiet boy called Marcus, who had joined our class that term."
+      },
+      {
+        "headword": "working",
+        "surfaceForm": "working",
+        "phonetic": "/'wә:kiŋ/",
+        "pos": "v.",
+        "translation": "v. 运转，起作用",
+        "definition": "functioning in the normal way",
+        "context": "Dev sat down on the ground and said his legs had stopped working."
+      },
+      {
+        "headword": "twice",
+        "surfaceForm": "twice",
+        "phonetic": "/twais/",
+        "pos": "adv.",
+        "translation": "adv. 两次，两倍",
+        "definition": "two times",
+        "context": "I looked at the map, turned it round twice, and said we should go right."
+      },
+      {
+        "headword": "leader",
+        "surfaceForm": "leader",
+        "phonetic": "/'li:dә/",
+        "pos": "n.",
+        "translation": "n. 领导者，社论",
+        "definition": "a person who rules or guides or inspires others",
+        "context": "I was the group leader."
+      },
+      {
+        "headword": "return",
+        "surfaceForm": "return",
+        "phonetic": "/ri'tә:n/",
+        "pos": "n.",
+        "translation": "n. 回来，返回",
+        "definition": "a coming to or returning home",
+        "context": "The first group to find all six and return to the hall would win a box of chocolates and, more importantly, the right to choose the film on the last night."
+      },
+      {
+        "headword": "story",
+        "surfaceForm": "stories",
+        "phonetic": "/'stɒ:ri/",
+        "pos": "n.",
+        "translation": "n. 故事，小说",
+        "definition": "a piece of fiction that narrates a chain of related events",
+        "context": "I have kept my orienteering stories to myself since then."
+      },
+      {
+        "headword": "list",
+        "surfaceForm": "list",
+        "phonetic": "/list/",
+        "pos": "n.",
+        "translation": "n. 目录，名单",
+        "definition": "a database containing an ordered array of items (names or topics)",
+        "context": "On the second day of our school camp, each group of four was given a map, a compass and a list of six checkpoints hidden in the park."
+      },
+      {
+        "headword": "group",
+        "surfaceForm": "group",
+        "phonetic": "/gru:p/",
+        "pos": "n.",
+        "translation": "n. 团体，组",
+        "definition": "any number of entities (members) considered as a unit",
+        "context": "On the second day of our school camp, each group of four was given a map, a compass and a list of six checkpoints hidden in the park."
+      },
+      {
+        "headword": "film",
+        "surfaceForm": "film",
+        "phonetic": "/film/",
+        "pos": "n.",
+        "translation": "n. 电影",
+        "definition": "a story shown on a screen",
+        "context": "The first group to find all six and return to the hall would win a box of chocolates and, more importantly, the right to choose the film on the last night."
+      },
+      {
+        "headword": "join",
+        "surfaceForm": "joined",
+        "phonetic": "/dʒɒin/",
+        "pos": "vi.",
+        "translation": "vi. 参加，结合",
+        "definition": "become part of",
+        "context": "The other three were Dev, Sarah and a quiet boy called Marcus, who had joined our class that term."
+      },
+      {
+        "headword": "sure",
+        "surfaceForm": "sure",
+        "phonetic": "/ʃuә/",
+        "pos": "a.",
+        "translation": "a. 确信，必然的",
+        "definition": "physically secure or dependable",
+        "context": "I was the leader, and I sounded very sure."
+      },
+      {
+        "headword": "face",
+        "surfaceForm": "face",
+        "phonetic": "/feis/",
+        "pos": "n.",
+        "translation": "n. 脸，面容",
+        "definition": "the front of the human head from the forehead to the chin and ear to ear",
+        "context": "My face was burning."
+      },
+      {
+        "headword": "word",
+        "surfaceForm": "word",
+        "phonetic": "/wә:d/",
+        "pos": "n.",
+        "translation": "n. 话，消息",
+        "definition": "a unit of language that native speakers can identify",
+        "context": "\" He took us back up the hill without saying a word about my mistake, and we found the last three checkpoints in forty minutes."
+      },
+      {
+        "headword": "turn",
+        "surfaceForm": "turned",
+        "phonetic": "/tә:n/",
+        "pos": "n.",
+        "translation": "n. 转弯，转动",
+        "definition": "the act of changing or reversing the direction of the course",
+        "context": "I looked at the map, turned it round twice, and said we should go right."
+      },
+      {
+        "headword": "seem",
+        "surfaceForm": "seem",
+        "phonetic": "/si:m/",
+        "pos": "vi.",
+        "translation": "vi. 象是，似乎",
+        "definition": "appear to exist",
+        "context": "The right-hand path went down a hill, across a small bridge and into a part of the park that did not seem to be on the map at all."
+      }
+    ],
+    "original-w4-teaching-father": [
+      {
+        "headword": "clap",
+        "surfaceForm": "clapped",
+        "phonetic": "/klæp/",
+        "pos": "v.",
+        "translation": "v. 鼓掌，(使)啪地关上",
+        "definition": "put quickly or forcibly",
+        "context": "The man clapped once, slowly, and walked on."
+      },
+      {
+        "headword": "lower",
+        "surfaceForm": "lowered",
+        "phonetic": "/'lәuә/",
+        "pos": "vi.",
+        "translation": "vi. 降低，跌落",
+        "definition": "move something or somebody to a lower position",
+        "context": "I borrowed my uncle's old bicycle, lowered the seat as far as it would go, and took my father to an empty basketball court early on a Saturday morning, before anyone else was awake."
+      },
+      {
+        "headword": "connector",
+        "surfaceForm": "connector",
+        "phonetic": "/kә'nektә/",
+        "pos": "n.",
+        "translation": "n. 连接道（park connector：公园连道）",
+        "definition": "something that joins two places, such as a path between parks",
+        "context": "I found this out in March, when I asked if our family could ride along the park connector on Sundays."
+      },
+      {
+        "headword": "handlebar",
+        "surfaceForm": "handlebars",
+        "phonetic": "/'hændlbɑ:/",
+        "pos": "n.",
+        "translation": "n. 手把，八字胡",
+        "definition": "the shaped bar used to steer a bicycle",
+        "context": "My father held the handlebars as if the bicycle might run away."
+      },
+      {
+        "headword": "nowhere",
+        "surfaceForm": "nowhere",
+        "phonetic": "/'nәuhwєә/",
+        "pos": "adv.",
+        "translation": "adv. 无处，到处都无",
+        "definition": "an insignificant place",
+        "context": "He grew up in a flat above his parents' shop, on a busy road, and there was nowhere safe to learn."
+      },
+      {
+        "headword": "cycle",
+        "surfaceForm": "cycling",
+        "phonetic": "/'saikl/",
+        "pos": "v.",
+        "translation": "v. 骑自行车",
+        "definition": "to ride a bicycle",
+        "context": "I had always thought he simply did not like cycling."
+      },
+      {
+        "headword": "edge",
+        "surfaceForm": "edge",
+        "phonetic": "/edʒ/",
+        "pos": "n.",
+        "translation": "n. 边缘，尖锐",
+        "definition": "the boundary of a surface",
+        "context": "On the third Saturday, an old man stopped at the edge of the court to watch."
+      },
+      {
+        "headword": "immediately",
+        "surfaceForm": "immediately",
+        "phonetic": "/i'mi:diәtli/",
+        "pos": "adv.",
+        "translation": "adv. 直接地，立刻",
+        "definition": "without delay or hesitation",
+        "context": "My father saw him and got off the bicycle immediately."
+      },
+      {
+        "headword": "total",
+        "surfaceForm": "total",
+        "phonetic": "/'tәutl/",
+        "pos": "n.",
+        "translation": "n. 总数，合计",
+        "definition": "the whole amount when everything is added together",
+        "context": "After an hour he had travelled about ten metres in total, and he looked more tired than I have ever seen him after work."
+      },
+      {
+        "headword": "everything",
+        "surfaceForm": "everything",
+        "phonetic": "/'evriθiŋ/",
+        "pos": "pron.",
+        "translation": "pron. 每件事物，所有事物",
+        "definition": "Whatever pertains to the subject under consideration",
+        "context": "I used to think that parents already knew how to do everything."
+      },
+      {
+        "headword": "single",
+        "surfaceForm": "single",
+        "phonetic": "/'siŋgl/",
+        "pos": "adj.",
+        "translation": "adj. 每一个的（every single）",
+        "definition": "used to emphasise that you mean each one",
+        "context": "My father is the slowest, and he rings his bell at every single person we pass."
+      },
+      {
+        "headword": "laugh",
+        "surfaceForm": "laugh",
+        "phonetic": "/lɑ:f/",
+        "pos": "n.",
+        "translation": "n. 笑，笑声",
+        "definition": "the sound of laughing",
+        "context": "By the time he could have learned, he said, he was too busy and too old, and people would laugh."
+      },
+      {
+        "headword": "parent",
+        "surfaceForm": "parents",
+        "phonetic": "/'perәnt/",
+        "pos": "n.",
+        "translation": "n. 父母，父母亲",
+        "definition": "a father or mother",
+        "context": "He grew up in a flat above his parents' shop, on a busy road, and there was nowhere safe to learn."
+      },
+      {
+        "headword": "family",
+        "surfaceForm": "family",
+        "phonetic": "/'fæmәli/",
+        "pos": "n.",
+        "translation": "n. 家庭，家人",
+        "definition": "a social unit living together",
+        "context": "I found this out in March, when I asked if our family could ride along the park connector on Sundays."
+      },
+      {
+        "headword": "learn",
+        "surfaceForm": "learn",
+        "phonetic": "/lә:n/",
+        "pos": "vt.",
+        "translation": "vt. 学习",
+        "definition": "gain knowledge or skills",
+        "context": "He grew up in a flat above his parents' shop, on a busy road, and there was nowhere safe to learn."
+      },
+      {
+        "headword": "later",
+        "surfaceForm": "later",
+        "phonetic": "/'leitә/",
+        "pos": "adv.",
+        "translation": "adv. 以后，随后",
+        "definition": "coming at a subsequent time or stage",
+        "context": "Two Saturdays later, I let go of the seat near the middle of the court, and my father did not notice."
+      },
+      {
+        "headword": "early",
+        "surfaceForm": "early",
+        "phonetic": "/'ә:li/",
+        "pos": "a.",
+        "translation": "a. 早的，早熟的",
+        "definition": "at or near the beginning of a period of time or course of events or before the usual or expected time",
+        "context": "I borrowed my uncle's old bicycle, lowered the seat as far as it would go, and took my father to an empty basketball court early on a Saturday morning, before anyone else was awake."
+      },
+      {
+        "headword": "near",
+        "surfaceForm": "near",
+        "phonetic": "/niә/",
+        "pos": "a.",
+        "translation": "a. 近的，近亲的",
+        "definition": "not far distant in time or space or degree or circumstances",
+        "context": "Two Saturdays later, I let go of the seat near the middle of the court, and my father did not notice."
+      },
+      {
+        "headword": "pass",
+        "surfaceForm": "pass",
+        "phonetic": "/pæs/",
+        "pos": "n.",
+        "translation": "n. 经过，要隘",
+        "definition": "(American football) a play that involves one player throwing the ball to a teammate",
+        "context": "My father is the slowest, and he rings his bell at every single person we pass."
+      },
+      {
+        "headword": "else",
+        "surfaceForm": "else",
+        "phonetic": "/els/",
+        "pos": "a.",
+        "translation": "a. 别的，其他的",
+        "definition": "& pron. Other",
+        "context": "I borrowed my uncle's old bicycle, lowered the seat as far as it would go, and took my father to an empty basketball court early on a Saturday morning, before anyone else was awake."
+      }
+    ],
+    "original-w4-magic-trick": [
+      {
+        "headword": "helper",
+        "surfaceForm": "helper",
+        "phonetic": "/'helpә/",
+        "pos": "n.",
+        "translation": "n. 帮忙者，有益的东西",
+        "definition": "a person who contributes to the fulfillment of a need or furtherance of an effort or purpose",
+        "context": "When my turn came, I asked for a helper."
+      },
+      {
+        "headword": "corridor",
+        "surfaceForm": "corridor",
+        "phonetic": "/'kɒridɒ:/",
+        "pos": "n.",
+        "translation": "n. 走廊，回廊",
+        "definition": "an enclosed passageway",
+        "context": "\" when they passed me in the corridor, and I found that I did not mind at all."
+      },
+      {
+        "headword": "afterward",
+        "surfaceForm": "afterwards",
+        "phonetic": "/'ɑ:ftәwәd/",
+        "pos": "adv.",
+        "translation": "adv. 然后，后来",
+        "definition": "happening at a time subsequent to a reference time",
+        "context": "The boys in the dance group told me afterwards that it was the best act of the afternoon, and I could not tell whether they were joking."
+      },
+      {
+        "headword": "sleeve",
+        "surfaceForm": "sleeve",
+        "phonetic": "/sli:v/",
+        "pos": "n.",
+        "translation": "n. 袖子，套管",
+        "definition": "the part of a garment that is attached at the armhole and that provides a cloth covering for the arm",
+        "context": "I showed the coin to the hall and pretended to close my left hand around it, while secretly dropping it into my right sleeve, which is how the trick works."
+      },
+      {
+        "headword": "deserve",
+        "surfaceForm": "deserved",
+        "phonetic": "/di'zә:v/",
+        "pos": "vt.",
+        "translation": "vt. 该得到，值得",
+        "definition": "be worthy or deserving",
+        "context": "The girl with the violin won, as she deserved to."
+      },
+      {
+        "headword": "slip",
+        "surfaceForm": "slipped",
+        "phonetic": "/slip/",
+        "pos": "n.",
+        "translation": "n. 滑，滑行",
+        "definition": "a minor inadvertent mistake usually observed in speech or writing or in small accidents or memory lapses etc.",
+        "context": "As I did, the coin slipped out of my sleeve, fell onto the stage and rolled, very slowly, all the way to the front, where it dropped off the edge and landed at the feet of the principal."
+      },
+      {
+        "headword": "edge",
+        "surfaceForm": "edge",
+        "phonetic": "/edʒ/",
+        "pos": "n.",
+        "translation": "n. 边缘，尖锐",
+        "definition": "the boundary of a surface",
+        "context": "As I did, the coin slipped out of my sleeve, fell onto the stage and rolled, very slowly, all the way to the front, where it dropped off the edge and landed at the feet of the principal."
+      },
+      {
+        "headword": "onto",
+        "surfaceForm": "onto",
+        "phonetic": "/'ɒntu:/",
+        "pos": "prep.",
+        "translation": "prep. 在...之上",
+        "definition": "On the top of",
+        "context": "As I did, the coin slipped out of my sleeve, fell onto the stage and rolled, very slowly, all the way to the front, where it dropped off the edge and landed at the feet of the principal."
+      },
+      {
+        "headword": "term",
+        "surfaceForm": "term",
+        "phonetic": "/tә:m/",
+        "pos": "n.",
+        "translation": "n. 学期",
+        "definition": "one of the periods into which a school year is divided",
+        "context": "But for the rest of the term, people I did not know said \"Is this yours?"
+      },
+      {
+        "headword": "beautifully",
+        "surfaceForm": "beautifully",
+        "phonetic": "/'bju:tifuli/",
+        "pos": "adv.",
+        "translation": "adv. 美好地，漂亮地",
+        "definition": "in a beautiful manner",
+        "context": "I was sixth on the list, after a girl who played the violin beautifully and before a group of boys who had spent a month on a dance."
+      },
+      {
+        "headword": "rest",
+        "surfaceForm": "rest",
+        "phonetic": "/rest/",
+        "pos": "n.",
+        "translation": "n. 其余，剩下的部分",
+        "definition": "the part that is left, or the others",
+        "context": "But for the rest of the term, people I did not know said \"Is this yours?"
+      },
+      {
+        "headword": "sister",
+        "surfaceForm": "sister",
+        "phonetic": "/'sistә/",
+        "pos": "n.",
+        "translation": "n. 姐妹，姐",
+        "definition": "a female person who has the same parents as another person",
+        "context": "My younger sister had watched it forty times and still could not see how it worked."
+      },
+      {
+        "headword": "towards",
+        "surfaceForm": "towards",
+        "phonetic": "/tә'wɔ:dz/",
+        "pos": "prep.",
+        "translation": "prep. 向，对于",
+        "definition": "In the direction of",
+        "context": "Then I reached towards Mr Chua's ear."
+      },
+      {
+        "headword": "front",
+        "surfaceForm": "front",
+        "phonetic": "/frʌnt/",
+        "pos": "n.",
+        "translation": "n. 前面，开头",
+        "definition": "the side that is forward or prominent",
+        "context": "I had practised it for three weeks in front of the bathroom mirror: a coin held in my left hand disappears, and then comes out of the ear of someone in the audience."
+      },
+      {
+        "headword": "laugh",
+        "surfaceForm": "laugh",
+        "phonetic": "/lɑ:f/",
+        "pos": "n.",
+        "translation": "n. 笑，笑声",
+        "definition": "the sound of laughing",
+        "context": "\" The hall laughed again, but this time it was a different kind of laugh."
+      },
+      {
+        "headword": "thank",
+        "surfaceForm": "Thank",
+        "phonetic": "/θæŋk/",
+        "pos": "vt.",
+        "translation": "vt. 谢谢，感谢",
+        "definition": "express gratitude or show appreciation to",
+        "context": "I said, \"Thank you."
+      },
+      {
+        "headword": "stage",
+        "surfaceForm": "stage",
+        "phonetic": "/steidʒ/",
+        "pos": "n.",
+        "translation": "n. 阶段，舞台",
+        "definition": "a large platform on which people can stand and can be seen by an audience",
+        "context": "Mr Chua, the art teacher, came up on stage, which I had not planned for."
+      },
+      {
+        "headword": "whole",
+        "surfaceForm": "whole",
+        "phonetic": "/hәul/",
+        "pos": "n.",
+        "translation": "n. 全部，全体",
+        "definition": "all of something including all its component elements or parts",
+        "context": "The show was in the school hall, and the whole of Secondary Two was there."
+      },
+      {
+        "headword": "reach",
+        "surfaceForm": "reach",
+        "phonetic": "/ri:tʃ/",
+        "pos": "v.",
+        "translation": "v. 到达，抵达",
+        "definition": "to arrive at a place",
+        "context": "I would have to reach up to his ear, and my arm would be in the light the whole time."
+      },
+      {
+        "headword": "list",
+        "surfaceForm": "list",
+        "phonetic": "/list/",
+        "pos": "n.",
+        "translation": "n. 目录，名单",
+        "definition": "a database containing an ordered array of items (names or topics)",
+        "context": "I was sixth on the list, after a girl who played the violin beautifully and before a group of boys who had spent a month on a dance."
+      }
+    ],
+    "original-w4-egg-drop": [
+      {
+        "headword": "corridor",
+        "surfaceForm": "corridor",
+        "phonetic": "/'kɒridɒ:/",
+        "pos": "n.",
+        "translation": "n. 走廊，回廊",
+        "definition": "an enclosed passageway",
+        "context": "Mrs Wong dropped the designs one by one from the third-floor corridor."
+      },
+      {
+        "headword": "calmly",
+        "surfaceForm": "calmly",
+        "phonetic": "/'kɑ:mli/",
+        "pos": "adv.",
+        "translation": "adv. 平静地，安静地",
+        "definition": "with self-possession (especially in times of stress)",
+        "context": "On the day before the test, she was still sitting at her desk, calmly folding paper into long, thin strips."
+      },
+      {
+        "headword": "broom",
+        "surfaceForm": "broom",
+        "phonetic": "/bru:m/",
+        "pos": "n.",
+        "translation": "n. 扫帚，金雀花",
+        "definition": "a cleaning implement for sweeping",
+        "context": "Mrs Wong had to get it down with a broom."
+      },
+      {
+        "headword": "sideways",
+        "surfaceForm": "sideways",
+        "phonetic": "/'saidweiz/",
+        "pos": "adv.",
+        "translation": "adv. 向旁边，向侧面地",
+        "definition": "with one side forward or to the front",
+        "context": "Then a light wind caught it and carried it sideways, into the branches of a tree, where it stayed."
+      },
+      {
+        "headword": "parachute",
+        "surfaceForm": "parachute",
+        "phonetic": "/'pærәʃu:t/",
+        "pos": "n.",
+        "translation": "n. 降落伞",
+        "definition": "rescue equipment consisting of a device that fills with air and retards your fall",
+        "context": "My final design had a paper cage inside a paper cage, with the egg hanging in the middle on eight pieces of string, and a parachute made from both bags."
+      },
+      {
+        "headword": "cage",
+        "surfaceForm": "cage",
+        "phonetic": "/keidʒ/",
+        "pos": "n.",
+        "translation": "n. 笼，牢房",
+        "definition": "an enclosure made or wire or metal bars in which birds or animals can be kept",
+        "context": "My final design had a paper cage inside a paper cage, with the egg hanging in the middle on eight pieces of string, and a parachute made from both bags."
+      },
+      {
+        "headword": "bounce",
+        "surfaceForm": "bounced",
+        "phonetic": "/bauns/",
+        "pos": "vi.",
+        "translation": "vi. 反跳，弹跳",
+        "definition": "hit something so that it bounces",
+        "context": "It fell straight down, hit the ground hard, bounced twice and rolled against the wall."
+      },
+      {
+        "headword": "fold",
+        "surfaceForm": "folding",
+        "phonetic": "/fәuld/",
+        "pos": "v.",
+        "translation": "v. 折叠",
+        "definition": "to bend paper or cloth so that one part lies on top of another",
+        "context": "On the day before the test, she was still sitting at her desk, calmly folding paper into long, thin strips."
+      },
+      {
+        "headword": "physics",
+        "surfaceForm": "physics",
+        "phonetic": "/'fiziks/",
+        "pos": "n.",
+        "translation": "n. 物理学，物理过程",
+        "definition": "the science of matter and energy and their interactions",
+        "context": "Our physics teacher, Mrs Wong, gave us a challenge: protect a raw egg so that it could be dropped from the third floor of the science block without breaking."
+      },
+      {
+        "headword": "crash",
+        "surfaceForm": "crashes",
+        "phonetic": "/kræʃ/",
+        "pos": "n.",
+        "translation": "n. 撞车事故",
+        "definition": "an accident in which a vehicle hits something",
+        "context": "I read about how cars are designed to protect people in crashes, and I drew plans."
+      },
+      {
+        "headword": "strip",
+        "surfaceForm": "strips",
+        "phonetic": "/strip/",
+        "pos": "n.",
+        "translation": "n. 长条，条状",
+        "definition": "a relatively long narrow piece of something",
+        "context": "On the day before the test, she was still sitting at her desk, calmly folding paper into long, thin strips."
+      },
+      {
+        "headword": "hang",
+        "surfaceForm": "hanging",
+        "phonetic": "/hæŋ/",
+        "pos": "vt.",
+        "translation": "vt. 悬挂，附着",
+        "definition": "be suspended or hanging",
+        "context": "My final design had a paper cage inside a paper cage, with the egg hanging in the middle on eight pieces of string, and a parachute made from both bags."
+      },
+      {
+        "headword": "protect",
+        "surfaceForm": "protect",
+        "phonetic": "/prә'tekt/",
+        "pos": "vt.",
+        "translation": "vt. 防卫，保护",
+        "definition": "shield from danger, injury, destruction, or damage",
+        "context": "Our physics teacher, Mrs Wong, gave us a challenge: protect a raw egg so that it could be dropped from the third floor of the science block without breaking."
+      },
+      {
+        "headword": "beautifully",
+        "surfaceForm": "beautifully",
+        "phonetic": "/'bju:tifuli/",
+        "pos": "adv.",
+        "translation": "adv. 美好地，漂亮地",
+        "definition": "in a beautiful manner",
+        "context": "The parachute opened beautifully, and for two seconds it floated down exactly as I had planned."
+      },
+      {
+        "headword": "working",
+        "surfaceForm": "working",
+        "phonetic": "/'wә:kiŋ/",
+        "pos": "v.",
+        "translation": "v. 运转，起作用",
+        "definition": "functioning in the normal way",
+        "context": "Nadia, who sits next to me, said she had her own idea, but she did not seem to be working very hard on it."
+      },
+      {
+        "headword": "twice",
+        "surfaceForm": "twice",
+        "phonetic": "/twais/",
+        "pos": "adv.",
+        "translation": "adv. 两次，两倍",
+        "definition": "two times",
+        "context": "It fell straight down, hit the ground hard, bounced twice and rolled against the wall."
+      },
+      {
+        "headword": "believe",
+        "surfaceForm": "believe",
+        "phonetic": "/bi'li:v/",
+        "pos": "v.",
+        "translation": "v. 相信",
+        "definition": "accept as true",
+        "context": "My designs are less beautiful these days, but I test them in the real world before I believe in them."
+      },
+      {
+        "headword": "design",
+        "surfaceForm": "design",
+        "phonetic": "/di'zain/",
+        "pos": "n.",
+        "translation": "n. 设计，图样",
+        "definition": "the act of working out the form of something (as by making a sketch or outline or plan)",
+        "context": "My final design had a paper cage inside a paper cage, with the egg hanging in the middle on eight pieces of string, and a parachute made from both bags."
+      },
+      {
+        "headword": "final",
+        "surfaceForm": "final",
+        "phonetic": "/'fainl/",
+        "pos": "adj.",
+        "translation": "adj. 最后的，最终的",
+        "definition": "coming at the end",
+        "context": "My final design had a paper cage inside a paper cage, with the egg hanging in the middle on eight pieces of string, and a parachute made from both bags."
+      },
+      {
+        "headword": "whole",
+        "surfaceForm": "whole",
+        "phonetic": "/hәul/",
+        "pos": "n.",
+        "translation": "n. 全部，全体",
+        "definition": "all of something including all its component elements or parts",
+        "context": "On the morning of the test, a Tuesday, the whole class stood in the car park and looked up."
+      }
+    ]
+  }
+}

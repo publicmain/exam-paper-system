@@ -21,7 +21,7 @@
 
 const fs = require('fs');
 const path = require('path');
-const { dictionary, choose } = require('./build-level-vocab');
+const { dictionary, choose, sentences, STOP } = require('./build-level-vocab');
 
 /**
  * 哪一周。默认 week2（首发周）—— 那一周的词表已经发布，不带参数重跑结果不变。
@@ -58,6 +58,51 @@ const PREFERRED = fs.existsSync(path.join(WEEK2, 'preferred-words.js'))
  * 排出来是 current / commercial / generate，真正的专题词全掉进备用词。
  * 偏好表写了却不生效，等于没写。
  */
+/**
+ * 这一周**不教**的词（第四周起，2026-09-17）。
+ *
+ * `choose` 按词典查词形：人名、地名只要词典里有同形词就会被当成生词
+ * （Woodland →「林地」），`sometimes` 会被还原成 `sometime`（改天）。
+ * 目录里有 `avoid-words.js` 的周才启用下面两条，前三周没有这份表，
+ * 重跑结果与已发布的完全一样：
+ *
+ *   · 表里的词当停用词；
+ *   · 句中大写的词（不在句首）一律当专有名词跳过。
+ *
+ * 只改本进程里的 STOP 集合，不动 `build-level-vocab.js` 的共用打分。
+ */
+const AVOID_FILE = path.join(WEEK2, 'avoid-words.js');
+const AVOID = fs.existsSync(AVOID_FILE) ? require(AVOID_FILE) : null;
+
+/**
+ * 这一周的**义项更正表**（同样只在目录里有这份文件时启用）。
+ *
+ * `trimSense` 取的是 ECDICT 的第一条义项，不是词义消歧 —— `a full glass bottle`
+ * 的 full 会被解释成「把衣服缝得宽松」。表里按本周文章的用法写好了
+ * 词性、中文、英文三项，生成时直接替换。
+ */
+const SENSE_FILE = path.join(WEEK2, 'sense-overrides.js');
+const SENSES = fs.existsSync(SENSE_FILE) ? require(SENSE_FILE) : null;
+
+function withSense(row) {
+  const o = SENSES && SENSES[row.headword];
+  return o ? { ...row, pos: o.pos, translation: o.translation, definition: o.definition } : row;
+}
+
+/** 句中大写（不在句首、也不在引号开头）的词 —— 人名、地名、机构名。 */
+function properNouns(passage) {
+  const out = new Set();
+  for (const sentence of sentences(passage)) {
+    for (const m of sentence.matchAll(/[A-Za-z][A-Za-z'-]*/g)) {
+      if (m.index === 0) continue;
+      const before = sentence.slice(0, m.index);
+      if (/["\u201c]\s*$/.test(before)) continue;
+      if (/^[A-Z]/.test(m[0])) out.add(m[0].toLowerCase().replace(/'s$/, ''));
+    }
+  }
+  return out;
+}
+
 function orderByPreference(rows, preferred) {
   if (!preferred.length) return rows;
   const rank = new Map(preferred.map((w, i) => [w, i]));
@@ -237,6 +282,11 @@ function main() {
   let words = 0;
   const thin = [];
 
+  if (AVOID) {
+    for (const w of AVOID) STOP.add(w);
+    for (const mod of levelModules()) for (const day of mod.DAYS) for (const w of properNouns(day.passage)) STOP.add(w);
+  }
+
   for (const mod of levelModules()) {
     output[mod.LEVEL] = {};
     for (const day of mod.DAYS) {
@@ -252,7 +302,7 @@ function main() {
       }
       if (!rows) throw new Error(`选不出 ${FLOOR} 个词：${mod.LEVEL} / ${day.source}`);
       if (rows.length < TARGET) thin.push(`${mod.LEVEL}/${day.source} 只有 ${rows.length} 个`);
-      output[mod.LEVEL][day.source] = orderByPreference(rows, PREFERRED[day.source] ?? []).map((r) => trimSense(r, dict));
+      output[mod.LEVEL][day.source] = orderByPreference(rows, PREFERRED[day.source] ?? []).map((r) => withSense(trimSense(r, dict)));
       lessons += 1;
       words += rows.length;
     }

@@ -967,6 +967,22 @@ server`、`Transaction already closed`、`socket timeout`）直接重跑；「�
 「动了不该动的东西」「近似重复」不要重跑，先查原因。脚本现在按阶段往 stderr 打
 `[秒数 · 查询次数] 阶段`，死在哪一步一眼能看出来。
 
+**第四周（09-21 起，2026-09-17 写）新加的两道闸**：
+
+- **词表生成器会教错词。** 它按词典查词形：人名地名只要词典里有同形词就当生词
+  （Woodland →「林地」、Fleming →「佛兰芒人」），`sometimes` 被还原成 `sometime`（改天），
+  多义词取的是 ECDICT 第一条义项（a full bottle 的 full →「把衣服缝得宽松」）。第三周已发出去的
+  dewar、richardson、sometime 没回改。第四周起每周目录可放两份表，`build-week2-vocab.js` 读到才启用：
+  `avoid-words.js`（不教的词；同时自动跳过句中大写的词）和 `sense-overrides.js`（按本周用法手写的
+  词性 / 中文 / 英文释义；中文里不能有分号）。生成后把 25 天的主词和释义过一遍再往下走。
+  内容测试加了一条：第四周起学习词不能是句中大写的专有名词。
+- **语义查重 0.62–0.79 必须读对方原文。** 第四周换掉两篇：班级群里发同学糗照、最后在群里要求删掉
+  （与第三周 Just a Joke 同一桥段）；「看轻了一个安静的人、后来发现对方很厉害」（与 The Relief Teacher、
+  The Group Project 同一内核）。选题前先把学生读过的标题拉出来对一遍（生产库 PaperQuestion 的
+  snapshotContent.passageTitle，只读），能省掉大部分返工。
+- **盲做交给独立的解题者**（每档一个，只给去掉答案的卷面）。第四周 150 道客观题零错，但查出了
+  干扰项泄露别题答案、情绪词两题可互换、判断题每天都是 T/F/NG 同一顺序这类出题人自己看不见的问题。
+
 ## 7. 判分与成绩
 
 ### 7.1 当前判分逻辑
@@ -1005,6 +1021,11 @@ railway run -s Postgres -e production -- npx ts-node apps/api/scripts/marker-app
 ```
 
 判分文件里的评语会引学生原话，所以放 `.local/`（已 gitignore），不进仓库。
+
+**补交的卷子会漏批（2026-09-17 发现）。** 学生可以隔几天再交旧日期的卷子，而上面第 1 步只倒
+「当天那一场」。09-10、09-11、09-14 的 11 份补交卷在队列外躺了三天。每次判分顺带扫一下过去两周：
+`--dates` 带上最近十个上课日；主观题全空白的卷子不会出现在 dump 里，要另外查出来按 0 分判
+（`StudentSubmission.status = submitted` 且主观题 `awardedMarks` 为空、`textAnswer` 为空）。
 `dates` 让脚本把那几天**所有**非练习答卷都收尾（全客观题、空白卷也翻成
 marked）；没判完主观题的那份只写分数、状态不动，第二天补判再收。
 
