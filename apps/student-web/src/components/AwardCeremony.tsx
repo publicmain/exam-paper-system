@@ -13,6 +13,8 @@ export type AwardCeremonyProps = {
   onSkipAll: () => void;
   onRevealComplete: () => void;
   preview?: boolean;
+  /** 老师测试专用：把每一步和耗时显示在画面上，便于真机上说清卡在哪（2026-09-18）。 */
+  debug?: boolean;
 };
 
 /** Presentation only. A grant is already saved before its ceremony opens. */
@@ -23,7 +25,10 @@ export function AwardCeremony(props: AwardCeremonyProps) {
 
 const MOTES = [[21,26,0],[69,18,180],[83,40,60],[16,57,320],[76,70,160],[30,83,240],[57,90,80],[89,59,280],[10,43,130],[64,8,360]];
 
-function ActiveAwardCeremony({ badge, remainingCount, onContinue, onSkipAll, onRevealComplete, preview = false }: AwardCeremonyProps & { badge: AwardCeremonyBadge }) {
+function ActiveAwardCeremony({ badge, remainingCount, onContinue, onSkipAll, onRevealComplete, preview = false, debug = false }: AwardCeremonyProps & { badge: AwardCeremonyBadge }) {
+  const opened = useRef(Date.now());
+  const [trace, setTrace] = useState<string[]>([]);
+  const note = (step: string) => setTrace(list => list.length > 7 ? list : [...list, `${step} ${((Date.now() - opened.current) / 1000).toFixed(1)}s`]);
   const [started, setStarted] = useState(false);
   const [spun, setSpun] = useState(false);
   const [failed, setFailed] = useState(false);
@@ -79,6 +84,7 @@ function ActiveAwardCeremony({ badge, remainingCount, onContinue, onSkipAll, onR
           <MedalViewer assetId={badge.assetId} title={badge.title} reveal ceremony
             onReady={() => setStarted(true)}
             onRevealComplete={() => setSpun(true)}
+            onTrace={debug ? note : undefined}
             onError={() => { setFailed(true); setStarted(true); setSpun(true); }} />
         </div>
         <div className="award-copy">
@@ -89,6 +95,7 @@ function ActiveAwardCeremony({ badge, remainingCount, onContinue, onSkipAll, onR
           <button type="button" className="award-continue" hidden={phase < 3} onClick={onContinue}>{remainingCount ? '下一枚' : '继续'}</button>
           {remainingCount > 0 && phase >= 3 && <p className="award-queue" role="status">还有 {remainingCount} 枚，即将依次呈现</p>}
           {failed && <p className="award-fallback" role="status">{preview ? '已改为图片预览，不改变收藏。' : '已改为图片展示，徽章已保存。'}</p>}
+          {debug && <p className="award-trace" data-testid="award-trace">诊断：{trace.length ? trace.join(' · ') : '等待模型'}</p>}
         </div>
       </div>
     </div>

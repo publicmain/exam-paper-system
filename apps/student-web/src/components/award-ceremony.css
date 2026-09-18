@@ -47,3 +47,5 @@
 .award-medal-flip { animation: award-flip 1.6s cubic-bezier(.4,0,.2,1) .3s 1 both; transform-style: preserve-3d; }
 @keyframes award-flip { from { transform: rotateY(0deg); } to { transform: rotateY(360deg); } }
 @media (prefers-reduced-motion: reduce) { .award-medal-flip { animation: none; } }
+/* 老师测试专用的诊断行（学生看不到）。 */
+.award-trace { color: #b9ad9c; font-size: .6875rem; line-height: 1.5; margin-top: 10px; word-break: break-all; }

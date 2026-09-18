@@ -47,6 +47,6 @@ export default function BadgeCeremonyPreview() {
       <Button onClick={() => start([medal])}>体验颁奖</Button>
       {tiered && <Button variant="secondary" onClick={() => start(V5_MEDALS.filter(item => item.series === medal.series))}>连续体验四级</Button>}
     </div>
-    <AwardCeremony key={current ? `preview:${active!.run}:${current.assetId}` : 'preview-closed'} open={Boolean(current)} badge={current ? { key: `preview_${current.assetId}`, assetId: current.assetId, title: current.title } : null} remainingCount={remaining} onContinue={next} onSkipAll={close} onRevealComplete={() => { if (remaining > 0) next(); }} preview />
+    <AwardCeremony key={current ? `preview:${active!.run}:${current.assetId}` : 'preview-closed'} open={Boolean(current)} badge={current ? { key: `preview_${current.assetId}`, assetId: current.assetId, title: current.title } : null} remainingCount={remaining} onContinue={next} onSkipAll={close} onRevealComplete={() => { if (remaining > 0) next(); }} preview debug />
   </section>;
 }

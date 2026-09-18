@@ -4,7 +4,7 @@ import BadgeCeremonyPreview, { canPreviewCeremony } from '../components/BadgeCer
 import { __resetForTest, adoptSession, logout } from '../lib/auth-store';
 
 vi.mock('../components/MedalViewer', () => ({
-  MedalViewer: ({ assetId, reveal, ceremony, onReady, onRevealComplete, onError }: { assetId: string; reveal?: boolean; ceremony?: boolean; onReady?: () => void; onRevealComplete?: () => void; onError?: () => void }) => <div data-testid="preview-model" data-asset={assetId} data-reveal={String(reveal)} data-ceremony={String(ceremony)}><button onClick={onReady}>模型就绪</button><button onClick={onRevealComplete}>模型旋转结束</button><button onClick={onError}>模型失败</button></div>,
+  MedalViewer: ({ assetId, reveal, ceremony, onReady, onRevealComplete, onError, onTrace }: { assetId: string; reveal?: boolean; ceremony?: boolean; onReady?: () => void; onRevealComplete?: () => void; onError?: () => void; onTrace?: (step: string) => void }) => <div data-testid="preview-model" data-asset={assetId} data-reveal={String(reveal)} data-ceremony={String(ceremony)}><button onClick={onReady}>模型就绪</button><button onClick={onRevealComplete}>模型旋转结束</button><button onClick={onError}>模型失败</button><button onClick={() => onTrace?.('ready')}>模型回报</button></div>,
   MedalImage: () => null,
 }));
 const ID = 'cmtqgmjl200u6stuq31xrad59';
@@ -50,6 +50,14 @@ describe('Display-only teacher-account ceremony', () => {
     fireEvent.click(screen.getByRole('button',{name:'跳过全部动画'}));
     tick(60000); expect(screen.queryByRole('dialog')).toBeNull();
     expect(JSON.stringify(localStorage)).toBe(stored); expect(fetch).not.toHaveBeenCalled();
+  });
+  // 诊断行只给老师测试号看：真机上要靠它说清卡在哪一步（2026-09-18）。
+  it('shows a step-by-step trace in the teacher preview only', () => {
+    signIn(); render(<BadgeCeremonyPreview />);
+    fireEvent.click(screen.getByRole('button',{name:'体验颁奖'}));
+    expect(screen.getByTestId('award-trace').textContent).toContain('等待模型');
+    fireEvent.click(screen.getByRole('button', { name: '模型回报' }));
+    expect(screen.getByTestId('award-trace').textContent).toMatch(/ready \d+\.\d+s/);
   });
   it('automatically plays four independent levels after their text dwell, leaving the final one open', () => {
     signIn(); render(<BadgeCeremonyPreview />);
