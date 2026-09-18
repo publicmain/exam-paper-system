@@ -85,4 +85,14 @@ describe('Dialog 焦点与语义', () => {
     expect(dlg.contains(alert)).toBe(true);
     expect(alert.textContent).toContain('交卷没成功');
   });
+
+  it('颁奖开始阶段的装饰 iframe 和隐藏继续按钮不进入焦点循环', async () => {
+    render(<><button>背景</button><Dialog open onClose={() => {}} title="颁奖" placement="fullscreen" appearance="ceremony" initialFocus="panel">
+      <button>跳过全部动画</button><iframe title="装饰模型" tabIndex={-1} aria-hidden="true" /><button hidden>继续</button>
+    </Dialog></>);
+    const skip=screen.getByRole('button',{name:'跳过全部动画'});
+    await userEvent.tab({shift:true});expect(document.activeElement).toBe(skip);
+    await userEvent.tab();expect(document.activeElement).toBe(skip);
+    await userEvent.tab({shift:true});expect(document.activeElement).toBe(skip);
+  });
 });

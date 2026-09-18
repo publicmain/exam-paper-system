@@ -37,3 +37,31 @@ it('a lost frame/chunk times out to poster rather than trapping students in load
   act(() => vi.advanceTimersByTime(15100)); expect(error).toHaveBeenCalledTimes(1); expect(document.querySelector('iframe')).toBeNull();
   expect(screen.getByRole('button', { name: '重试三维' })).toBeTruthy();
 });
+it('ceremony is transparent and control-free, starts once after ready and ignores early completion', () => {
+  vi.useFakeTimers(); const ready=vi.fn(),done=vi.fn();
+  render(<MedalViewer assetId="reading-1" reveal ceremony onReady={ready} onRevealComplete={done} />);
+  const frame=screen.getByTestId('medal-3d-frame') as HTMLIFrameElement;
+  const send=vi.spyOn(frame.contentWindow!,'postMessage');
+  expect(frame.src).toContain('ceremony=1');
+  expect(frame.tabIndex).toBe(-1);
+  expect(screen.queryByRole('checkbox')).toBeNull();
+  expect(screen.queryByRole('button',{name:'背面'})).toBeNull();
+  expect(screen.getByTestId('medal-stage').style.background).toBe('');
+  message(frame,'complete');expect(done).not.toHaveBeenCalled();
+  message(frame,'ready');message(frame,'ready');expect(ready).toHaveBeenCalledOnce();
+  act(()=>vi.advanceTimersByTime(299));expect(send.mock.calls.filter(([m])=>m.action==='start')).toHaveLength(0);
+  act(()=>vi.advanceTimersByTime(1));expect(send.mock.calls.filter(([m])=>m.action==='start')).toHaveLength(1);
+  message(frame,'complete');message(frame,'complete');expect(done).toHaveBeenCalledOnce();
+});
+it('ceremony falls back within four seconds and does not strand students behind a failed model', () => {
+  vi.useFakeTimers();const error=vi.fn();render(<MedalViewer assetId="crown" reveal ceremony onError={error} />);
+  act(()=>vi.advanceTimersByTime(4000));expect(error).toHaveBeenCalledOnce();
+  expect(screen.queryByTestId('medal-3d-frame')).toBeNull();expect(screen.getByRole('img')).toBeTruthy();
+  expect(screen.queryByRole('button',{name:'重试三维'})).toBeNull();
+});
+it('unmount cancels a pending ceremony start', () => {
+  vi.useFakeTimers();const {unmount}=render(<MedalViewer assetId="reading-1" reveal ceremony />);
+  const frame=screen.getByTestId('medal-3d-frame') as HTMLIFrameElement;
+  const send=vi.spyOn(frame.contentWindow!,'postMessage');message(frame,'ready');unmount();
+  act(()=>vi.advanceTimersByTime(500));expect(send.mock.calls.filter(([m])=>m.action==='start')).toHaveLength(0);
+});

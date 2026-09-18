@@ -21,6 +21,18 @@ export const medalKey = (assetId: string) => 'v5_'+assetId.replace(/-/g,'_');
 export const medalByAssetId = (assetId: string) => V5_MEDALS.find(m => m.assetId === assetId);
 export const medalImage = (assetId: string, thumbnail = false) => medalByAssetId(assetId) ? '/medals/v5/'+(thumbnail ? 'thumbs' : 'images')+'/'+assetId+'.png' : '';
 export const medalName = (assetId: string) => medalByAssetId(assetId)?.name ?? '神秘徽章';
+/** Short celebration copy; full eligibility rules remain in the collection. */
+export function medalAwardReason(assetId: string): string {
+  const medal = medalByAssetId(assetId);
+  if (!medal) return '每一份努力，都值得珍藏';
+  if (medal.series === 'reading') return `累计完成 ${medal.threshold} 篇阅读`;
+  if (medal.series === 'vocabulary') return `累计学完 ${medal.threshold} 份每日新词`;
+  if (medal.series === 'mastery') return `${medal.threshold} 份正式测验首次达到 80%`;
+  if (assetId === 'hidden-triad') return '15 个任务日，三项任务全部完成';
+  if (assetId === 'hidden-worlds') return '探索 5 类主题，每类完成 3 篇阅读';
+  if (assetId === 'hidden-starlight') return '4 个自然月，每月至少 15 天正式学习';
+  return '集齐三大系列的全部四级徽章';
+}
 /** Presentation fallback after a confirmed server grant; never used to award. */
 export function confirmedMedal(key: string): AchievementBadge | null {
   const m = V5_MEDALS.find(item => medalKey(item.assetId) === key);

@@ -13,7 +13,7 @@ import { __resetAchievementNoticesForTest, claimAchievementNotices, dismissAchie
 // UI state-machine tests; real renderer/GLB bridge has its own integration tests.
 vi.mock('../components/MedalViewer', () => ({
   MedalImage: ({ assetId, locked, className }: { assetId: string; locked?: boolean; className?: string }) => <img data-asset={assetId} data-locked={String(Boolean(locked))} className={className} alt="徽章静图" />,
-  MedalViewer: ({ assetId, locked, reveal, onRevealComplete, onError }: { assetId: string; locked?: boolean; reveal?: boolean; onRevealComplete?: () => void; onError?: () => void }) => <div data-testid="test-viewer" data-asset={assetId} data-locked={String(Boolean(locked))} data-reveal={String(Boolean(reveal))}><button onClick={onRevealComplete}>模拟动画完成</button><button onClick={onError}>模拟三维错误</button></div>,
+  MedalViewer: ({ assetId, locked, reveal, onReady, onRevealComplete, onError }: { assetId: string; locked?: boolean; reveal?: boolean; onReady?: () => void; onRevealComplete?: () => void; onError?: () => void }) => <div data-testid="test-viewer" data-asset={assetId} data-locked={String(Boolean(locked))} data-reveal={String(Boolean(reveal))}><button onClick={onReady}>模拟模型就绪</button><button onClick={onRevealComplete}>模拟动画完成</button><button onClick={onError}>模拟三维错误</button></div>,
 }));
 const key = (id: string) => `v5_${id.replace(/-/g, '_')}`;
 const series = ['reading', 'vocabulary', 'mastery'] as const;
@@ -47,8 +47,9 @@ beforeEach(() => {
     return { ok: status < 300, status, text: async () => JSON.stringify(body) } as Response;
   }));
 });
-afterEach(() => { cleanup(); vi.unstubAllGlobals(); vi.restoreAllMocks(); __resetAchievementNoticesForTest(); });
+afterEach(() => { cleanup(); vi.useRealTimers(); vi.unstubAllGlobals(); vi.restoreAllMocks(); __resetAchievementNoticesForTest(); });
 const settle = async () => { await act(async () => { for (let i = 0; i < 55; i++) await Promise.resolve(); }); };
+const advanceTime = async (ms: number) => { act(() => { vi.advanceTimersByTime(ms); }); await settle(); };
 const mount = () => render(<MemoryRouter initialEntries={['/growth/badges']}><BadgesPage /></MemoryRouter>);
 function unlock(id: string) {
   const badge = list.badges.find((row) => row.key === key(id))!;
@@ -143,19 +144,25 @@ describe('V5 saved notices, claim and automatic ceremony', () => {
     expect(getAchievementNotices().every((n) => !n.claimed)).toBe(true);
   });
   it('claims before first frame, auto-advances each level, and leaves last until Continue', async () => {
+    vi.useFakeTimers();
     queue(['reading-1', 'reading-2']); celebrate(); await settle();
     expect(requests.find((r) => r.url.endsWith('/notices/claim'))?.body?.keys).toEqual([key('reading-1'), key('reading-2')]);
     expect(screen.getByTestId('test-viewer').getAttribute('data-asset')).toBe('reading-1');
     expect(screen.getByTestId('achievement-award').className).toContain('h-[100dvh]');
-    fireEvent.click(screen.getByRole('button', { name: '模拟动画完成' })); await settle();
+    fireEvent.click(screen.getByRole('button', { name: '模拟模型就绪' }));
+    fireEvent.click(screen.getByRole('button', { name: '模拟动画完成' })); await advanceTime(4799);
+    expect(screen.getByTestId('test-viewer').getAttribute('data-asset')).toBe('reading-1');
+    expect(requests.some((r) => r.url.endsWith('/viewed'))).toBe(false);
+    await advanceTime(1);
     expect(screen.getByTestId('test-viewer').getAttribute('data-asset')).toBe('reading-2');
     expect(screen.getAllByRole('dialog')).toHaveLength(1);
-    fireEvent.click(screen.getByRole('button', { name: '模拟动画完成' })); await settle();
+    fireEvent.click(screen.getByRole('button', { name: '模拟模型就绪' })); await advanceTime(60000);
     expect(screen.getByTestId('achievement-award')).toBeTruthy();
     fireEvent.click(screen.getByRole('button', { name: '继续' })); await settle();
     expect(screen.queryByRole('dialog')).toBeNull(); expect(getAchievementNotices()).toHaveLength(0);
   });
   it('an external-store handoff committed before local selection clears cannot consume the next medal', async () => {
+    vi.useFakeTimers();
     queue(['reading-1', 'hidden-worlds']); celebrate(); await settle();
     expect(screen.getByTestId('test-viewer').getAttribute('data-asset')).toBe('reading-1');
     // Native iframe messages can commit useSyncExternalStore removal before the
@@ -164,8 +171,8 @@ describe('V5 saved notices, claim and automatic ceremony', () => {
     await settle();
     expect(getAchievementNotices().map((notice) => notice.badge.assetId)).toEqual(['hidden-worlds']);
     expect(screen.getByTestId('test-viewer').getAttribute('data-asset')).toBe('hidden-worlds');
-    fireEvent.click(screen.getByRole('button', { name: '模拟动画完成' })); await settle();
-    expect(screen.getByText('可以转动、翻面欣赏。准备好后点「继续」。')).toBeTruthy();
+    fireEvent.click(screen.getByRole('button', { name: '模拟模型就绪' })); await advanceTime(60000);
+    expect(screen.getByRole('button', { name: '继续' })).toBeTruthy();
     expect(screen.getByTestId('achievement-award')).toBeTruthy();
     fireEvent.click(screen.getByRole('button', { name: '继续' })); await settle();
     expect(screen.queryByRole('dialog')).toBeNull();
@@ -219,8 +226,11 @@ describe('V5 saved notices, claim and automatic ceremony', () => {
     fireEvent.click(screen.getByRole('button', { name: '回首页' })); await settle(); expect(screen.queryByTestId('achievement-award')).toBeNull();
   });
   it('WebGL failure still offers Continue; the student cannot get trapped', async () => {
+    vi.useFakeTimers();
     queue(['reading-1']); celebrate(); await settle(); fireEvent.click(screen.getByRole('button', { name: '模拟三维错误' })); await settle();
-    expect(screen.getByText(/三维暂时不可用/)).toBeTruthy(); fireEvent.click(screen.getByRole('button', { name: '继续' })); await settle(); expect(screen.queryByRole('dialog')).toBeNull();
+    expect(screen.getByText('已改为图片展示，徽章已保存。')).toBeTruthy();
+    await advanceTime(2700);
+    fireEvent.click(screen.getByRole('button', { name: '继续' })); await settle(); expect(screen.queryByRole('dialog')).toBeNull();
   });
   it('account changes synchronously unmount a previous identity ceremony', async () => {
     queue(['reading-1']); celebrate(); await settle(); act(() => { writeToken('b'); resetAchievementNotices(); }); await settle(); expect(screen.queryByTestId('achievement-award')).toBeNull(); expect(getAchievementNotices()).toHaveLength(0);

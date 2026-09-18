@@ -4,13 +4,15 @@ import BadgeCeremonyPreview, { canPreviewCeremony } from '../components/BadgeCer
 import { __resetForTest, adoptSession, logout } from '../lib/auth-store';
 
 vi.mock('../components/MedalViewer', () => ({
-  MedalViewer: ({ assetId, reveal, onRevealComplete, onError }: { assetId: string; reveal?: boolean; onRevealComplete?: () => void; onError?: () => void }) => <div data-testid="preview-model" data-asset={assetId} data-reveal={String(reveal)}><button onClick={onRevealComplete}>完成动画</button><button onClick={onError}>模型失败</button></div>,
+  MedalViewer: ({ assetId, reveal, ceremony, onReady, onRevealComplete, onError }: { assetId: string; reveal?: boolean; ceremony?: boolean; onReady?: () => void; onRevealComplete?: () => void; onError?: () => void }) => <div data-testid="preview-model" data-asset={assetId} data-reveal={String(reveal)} data-ceremony={String(ceremony)}><button onClick={onReady}>模型就绪</button><button onClick={onRevealComplete}>模型旋转结束</button><button onClick={onError}>模型失败</button></div>,
   MedalImage: () => null,
 }));
 const ID = 'cmtqgmjl200u6stuq31xrad59';
 function signIn(id = ID, name = '老师测试号') { act(() => { adoptSession('test-token-'+id, { id, name, nickname: '', avatar: null }); }); }
-beforeEach(() => { localStorage.clear(); __resetForTest(); vi.stubGlobal('fetch', vi.fn(() => { throw Error('Preview must not make a network request'); })); });
-afterEach(() => { cleanup(); vi.unstubAllGlobals(); __resetForTest(); });
+const tick = (ms: number) => act(() => { vi.advanceTimersByTime(ms); });
+const ready = () => fireEvent.click(screen.getByRole('button', { name: '模型就绪' }));
+beforeEach(() => { vi.useFakeTimers(); localStorage.clear(); __resetForTest(); vi.stubGlobal('fetch', vi.fn(() => { throw Error('Preview must not make a network request'); })); });
+afterEach(() => { cleanup(); vi.useRealTimers(); vi.unstubAllGlobals(); vi.restoreAllMocks(); __resetForTest(); });
 
 describe('Display-only teacher-account ceremony', () => {
   it('fails closed for unavailable identity, normal students, and same-name impersonation', () => {
@@ -28,51 +30,100 @@ describe('Display-only teacher-account ceremony', () => {
     expect(screen.getByRole('button',{name:'体验颁奖'})).toBeTruthy();
     expect(screen.queryByTestId('preview-model')).toBeNull();
   });
-  it('plays the real fullscreen view, waits for Continue, can repeat and never writes', () => {
+  it('plays the cinematic view, holds the final medal indefinitely, can repeat and never writes', () => {
     signIn(); render(<BadgeCeremonyPreview />); const stored=JSON.stringify(localStorage);
     fireEvent.click(screen.getByRole('button',{name:'体验颁奖'}));
     expect(screen.getByTestId('achievement-preview').className).toContain('h-[100dvh]');
-    expect(screen.getByTestId('preview-model').getAttribute('data-asset')).toBe('reading-1');
-    expect(screen.getByTestId('preview-model').getAttribute('data-reveal')).toBe('true');
+    expect(screen.getByTestId('preview-model').dataset.asset).toBe('reading-1');
+    expect(screen.getByTestId('preview-model').dataset.reveal).toBe('true');
+    expect(screen.getByTestId('preview-model').dataset.ceremony).toBe('true');
     expect(screen.queryByTestId('achievement-award')).toBeNull();
-    fireEvent.click(screen.getByRole('button',{name:'完成动画'}));
+    expect(screen.queryByRole('button',{name:'继续'})).toBeNull();
+    ready(); tick(60000);
     expect(screen.getByTestId('achievement-preview')).toBeTruthy();
     fireEvent.click(screen.getByRole('button',{name:'继续'}));
     expect(screen.queryByRole('dialog')).toBeNull();
     fireEvent.click(screen.getByRole('button',{name:'体验颁奖'}));
-    expect(screen.getByTestId('achievement-preview')).toBeTruthy();
+    expect(document.querySelector('.award-scene')).toHaveAttribute('data-phase','0');
+    expect(screen.queryByRole('button',{name:'继续'})).toBeNull();
     fireEvent.click(screen.getByRole('button',{name:'跳过全部动画'}));
-    expect(screen.queryByRole('dialog')).toBeNull();
+    tick(60000); expect(screen.queryByRole('dialog')).toBeNull();
     expect(JSON.stringify(localStorage)).toBe(stored); expect(fetch).not.toHaveBeenCalled();
   });
-  it('automatically plays four independent levels and leaves the final one open', () => {
+  it('automatically plays four independent levels after their text dwell, leaving the final one open', () => {
     signIn(); render(<BadgeCeremonyPreview />);
     fireEvent.change(screen.getByRole('combobox',{name:'选择体验徽章'}),{target:{value:'vocabulary-2'}});
     fireEvent.click(screen.getByRole('button',{name:'连续体验四级'}));
     for(let tier=1;tier<=4;tier++) {
-      expect(screen.getByTestId('preview-model').getAttribute('data-asset')).toBe(`vocabulary-${tier}`);
-      fireEvent.click(screen.getByRole('button',{name:'完成动画'}));
+      expect(screen.getByTestId('preview-model').dataset.asset).toBe('vocabulary-'+tier);
+      ready(); fireEvent.click(screen.getByRole('button',{name:'模型旋转结束'}));
+      tick(4799);
+      expect(screen.getByTestId('preview-model').dataset.asset).toBe('vocabulary-'+tier);
+      tick(1);
+      if(tier<4) expect(screen.getByTestId('preview-model').dataset.asset).toBe('vocabulary-'+(tier+1));
     }
-    expect(screen.getByTestId('preview-model').getAttribute('data-asset')).toBe('vocabulary-4');
+    tick(60000);
+    expect(screen.getByTestId('preview-model').dataset.asset).toBe('vocabulary-4');
     fireEvent.click(screen.getByRole('button',{name:'继续'}));
     expect(screen.queryByRole('dialog')).toBeNull(); expect(fetch).not.toHaveBeenCalled();
   });
-  it('hidden/crown previews do not pretend to be earned and can skip on model errors', () => {
+  it('manual next cannot leave the previous badge timer advancing the new badge', () => {
+    signIn(); render(<BadgeCeremonyPreview />);
+    fireEvent.click(screen.getByRole('button',{name:'连续体验四级'})); ready(); tick(2700);
+    fireEvent.click(screen.getByRole('button',{name:'下一枚'}));
+    expect(screen.getByTestId('preview-model').dataset.asset).toBe('reading-2');
+    tick(60000);
+    expect(screen.getByTestId('preview-model').dataset.asset).toBe('reading-2');
+    expect(screen.queryByRole('button',{name:'下一枚'})).toBeNull();
+    ready(); tick(4800);
+    expect(screen.getByTestId('preview-model').dataset.asset).toBe('reading-3');
+  });
+  it.each([0, 1000, 2700, 4700])('skip-all at %i ms cancels the entire queue and its pending timers', (elapsed) => {
+    signIn(); render(<BadgeCeremonyPreview />);
+    fireEvent.click(screen.getByRole('button',{name:'连续体验四级'})); ready(); tick(elapsed);
+    fireEvent.click(screen.getByRole('button',{name:'跳过全部动画'}));
+    tick(60000);
+    expect(screen.queryByRole('dialog')).toBeNull();
+    expect(screen.queryByTestId('preview-model')).toBeNull();
+    expect(fetch).not.toHaveBeenCalled();
+  });
+  it('hidden/crown previews do not pretend to be earned and model fallback remains usable', () => {
     signIn(); render(<BadgeCeremonyPreview />);
     fireEvent.change(screen.getByRole('combobox',{name:'选择体验徽章'}),{target:{value:'crown'}});
     expect(screen.queryByRole('button',{name:'连续体验四级'})).toBeNull();
     fireEvent.click(screen.getByRole('button',{name:'体验颁奖'}));
-    expect(screen.getByTestId('preview-model').getAttribute('data-asset')).toBe('crown');
+    expect(screen.getByTestId('preview-model').dataset.asset).toBe('crown');
     fireEvent.click(screen.getByRole('button',{name:'模型失败'}));
     expect(screen.getByTestId('achievement-preview').textContent).not.toContain('徽章已保存');
+    tick(2700);
+    expect(screen.getByRole('button',{name:'继续'})).toBeTruthy();
     fireEvent.click(screen.getByRole('button',{name:'跳过全部动画'}));
-    expect(screen.queryByRole('dialog')).toBeNull(); expect(fetch).not.toHaveBeenCalled();
+    tick(60000); expect(screen.queryByRole('dialog')).toBeNull(); expect(fetch).not.toHaveBeenCalled();
   });
-  it('immediately removes the preview on account change and never resumes it for another account', () => {
-    signIn(); render(<BadgeCeremonyPreview />); fireEvent.click(screen.getByRole('button',{name:'体验颁奖'}));
-    signIn('other-student','老师测试号'); expect(screen.queryByRole('dialog')).toBeNull(); expect(screen.queryByTestId('badge-preview-controls')).toBeNull();
+  it('reduced-motion queues retain reading time and do not dismiss the last badge', () => {
+    vi.stubGlobal('matchMedia', vi.fn((query: string) => ({ matches: query.includes('prefers-reduced-motion'), media: query, addEventListener: vi.fn(), removeEventListener: vi.fn() })));
+    signIn(); render(<BadgeCeremonyPreview />);
+    fireEvent.click(screen.getByRole('button',{name:'连续体验四级'}));
+    for(let tier=1;tier<=4;tier++) {
+      ready();
+      expect(document.querySelector('.award-scene')).toHaveAttribute('data-phase','3');
+      tick(3199);
+      expect(screen.getByTestId('preview-model').dataset.asset).toBe('reading-'+tier);
+      tick(1);
+    }
+    tick(60000);
+    expect(screen.getByTestId('preview-model').dataset.asset).toBe('reading-4');
+    expect(screen.getByRole('button',{name:'继续'})).toBeTruthy();
+  });
+  it('account change and logout cancel the running queue permanently', () => {
+    signIn(); render(<BadgeCeremonyPreview />);
+    fireEvent.click(screen.getByRole('button',{name:'连续体验四级'})); ready(); tick(2000);
+    signIn('other-student','老师测试号'); tick(60000);
+    expect(screen.queryByRole('dialog')).toBeNull(); expect(screen.queryByTestId('badge-preview-controls')).toBeNull();
     signIn(); expect(screen.queryByRole('dialog')).toBeNull(); expect(screen.getByTestId('badge-preview-controls')).toBeTruthy();
-    fireEvent.click(screen.getByRole('button',{name:'体验颁奖'})); act(()=>logout()); expect(screen.queryByRole('dialog')).toBeNull();
+    fireEvent.click(screen.getByRole('button',{name:'连续体验四级'})); ready();
+    act(()=>logout()); tick(60000);
+    expect(screen.queryByRole('dialog')).toBeNull();
     expect(fetch).not.toHaveBeenCalled();
   });
 });

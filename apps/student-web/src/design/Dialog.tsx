@@ -162,7 +162,7 @@ export function Dialog({
     }
     if (e.key !== 'Tab' || !panelRef.current) return;
     const items = [...panelRef.current.querySelectorAll<HTMLElement>(FOCUSABLE)].filter(
-      (el) => !el.closest('[hidden],[inert]'),
+      (el) => el.getAttribute('tabindex') !== '-1' && !el.closest('[hidden],[inert],[aria-hidden="true"]'),
     );
     if (items.length === 0) {
       e.preventDefault();
@@ -199,7 +199,7 @@ export function Dialog({
   }
 
   const panelClass = fullscreen
-    ? `flex h-[100dvh] w-full flex-col overflow-hidden safe-bottom ${ceremony ? 'bg-award-surface text-award-ink' : 'bg-surface text-ink'}`
+    ? `flex h-[100dvh] w-full flex-col overflow-hidden ${ceremony ? 'award-dialog text-award-ink' : 'safe-bottom bg-surface text-ink'}`
     : anchored
     ? 'bg-surface text-ink rounded-sheet shadow-overlay flex flex-col overflow-hidden'
     : sheet && !wide
@@ -213,7 +213,7 @@ export function Dialog({
       onKeyDown={onKeyDown}
     >
       <div
-        className={`absolute inset-0 ${anchored ? 'bg-scrim/10' : 'bg-scrim/40'}`}
+        className={`absolute inset-0 ${ceremony ? 'award-scrim' : anchored ? 'bg-scrim/10' : 'bg-scrim/40'}`}
         aria-hidden="true"
         onMouseDown={requestClose}
         data-testid={testId ? `${testId}-scrim` : undefined}
@@ -230,7 +230,7 @@ export function Dialog({
         className={`relative outline-none ${panelClass}`}
         style={panelStyle}
       >
-        <div className="flex items-start gap-3 px-5 pt-5 pb-2">
+        <div className={ceremony ? 'sr-only' : 'flex items-start gap-3 px-5 pt-5 pb-2'}>
           <div className="min-w-0 flex-1">
             {eyebrow ? <div className="mb-1 truncate text-caption text-ink-3">{eyebrow}</div> : null}
             <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
@@ -249,13 +249,13 @@ export function Dialog({
             <IconButton icon="close" label={closeLabel} tone="filled" onClick={requestClose} disabled={busy} className="-mr-2 -mt-2" data-testid={closeTestId} />
           ) : null}
         </div>
-        {children ? <div className="scroll-contain min-h-0 flex-1 overflow-y-auto px-5 pb-2">{children}</div> : null}
+        {children ? <div className={ceremony ? 'award-scroll scroll-contain min-h-0 flex-1 overflow-y-auto' : 'scroll-contain min-h-0 flex-1 overflow-y-auto px-5 pb-2'}>{children}</div> : null}
         {error ? (
           <div role="alert" className="mx-5 mt-2 rounded-control bg-danger-soft px-4 py-3 text-callout text-danger">
             {error}
           </div>
         ) : null}
-        {footer ? <div className="flex flex-col-reverse gap-2 px-5 pb-5 pt-3 sm:flex-row sm:justify-end">{footer}</div> : <div className="h-3" />}
+        {footer ? <div className="flex flex-col-reverse gap-2 px-5 pb-5 pt-3 sm:flex-row sm:justify-end">{footer}</div> : ceremony ? null : <div className="h-3" />}
       </div>
     </div>,
     document.body,
