@@ -49,9 +49,22 @@ it('ceremony is transparent and control-free, starts once after ready and ignore
   expect(screen.getByTestId('medal-stage').style.background).toBe('');
   message(frame,'complete');expect(done).not.toHaveBeenCalled();
   message(frame,'ready');message(frame,'ready');expect(ready).toHaveBeenCalledOnce();
+  // 徽章先露面；转起来要等预热完成（warm）
+  act(()=>vi.advanceTimersByTime(1000));expect(send.mock.calls.filter(([m])=>m.action==='start')).toHaveLength(0);
+  message(frame,'warm');
   act(()=>vi.advanceTimersByTime(299));expect(send.mock.calls.filter(([m])=>m.action==='start')).toHaveLength(0);
   act(()=>vi.advanceTimersByTime(1));expect(send.mock.calls.filter(([m])=>m.action==='start')).toHaveLength(1);
   message(frame,'complete');message(frame,'complete');expect(done).toHaveBeenCalledOnce();
+});
+// 预热消息一直不来（手机上预热可能要好几秒）也不能干等：2.5 秒后照常开转。
+it('starts the spin even if the warm-up never reports back', () => {
+  vi.useFakeTimers();
+  render(<MedalViewer assetId="reading-1" reveal ceremony />);
+  const frame=screen.getByTestId('medal-3d-frame') as HTMLIFrameElement;
+  const send=vi.spyOn(frame.contentWindow!,'postMessage');
+  message(frame,'ready');
+  act(()=>vi.advanceTimersByTime(2499));expect(send.mock.calls.filter(([m])=>m.action==='start')).toHaveLength(0);
+  act(()=>vi.advanceTimersByTime(1));expect(send.mock.calls.filter(([m])=>m.action==='start')).toHaveLength(1);
 });
 // 6 秒而不是 4 秒：颁奖态的「就绪」现在还包含模型预热（2026-09-18）。
 it('ceremony falls back within six seconds and does not strand students behind a failed model', () => {

@@ -124,14 +124,15 @@ describe('cinematic 3D coin ceremony', () => {
 
   // 2026-09-18 第二轮：真机上「第一帧停住很久才开始转」。着色器编译和贴图上传本来
   // 落在旋转的第一帧上，现在在报「就绪」之前先做掉。
-  it('compiles and draws one frame before telling the parent it is ready, without waiting for a frame callback', () => {
+  // 预热（编译着色器 + 传贴图）在手机上可能要好几秒。它必须排在「就绪」**之后**：
+  // 压在前面的话，学生只看到「正在呈现三维细节」，等超时直接跳到最终画面（2026-09-18 真机）。
+  it('reports ready first, then warms up and says so, without waiting for a frame callback', () => {
     const h = harness();
     h.run('warmUpCeremony()'); // 同步：动画帧永不回调也必须走完
     expect(h.yt.compile).toHaveBeenCalledWith(h.ni, h.Et);
     expect(h.yt.render).toHaveBeenCalledWith(h.ni, h.Et);
     expect(h.run('ceremonyWarmedUp')).toBe(true);
-    // 「就绪」必须排在预热之后，且预热本身不等动画帧
-    expect(renderer).toContain('warmUpCeremony(),Ws("ready")');
+    expect(renderer).toContain('Ws("ready"),ceremonyMode&&setTimeout(()=>{warmUpCeremony(),Ws("warm")},0)');
     expect(ceremonySource.slice(ceremonySource.indexOf('function warmUpCeremony'))).not.toContain('requestAnimationFrame');
   });
 

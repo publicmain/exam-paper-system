@@ -40,10 +40,15 @@ export function MedalViewer({assetId,locked=false,reveal=false,ceremony=false,on
   const timeout=window.setTimeout(fail,ceremony?6000:15000);
   const receive=(event:MessageEvent)=>{
    if(event.origin!==window.location.origin||event.source!==frame.current?.contentWindow||event.data?.type!=='equistar-medal-viewer')return;
+   // 徽章一加载好就先露面（ready），模型预热在那之后做（warm）：预热在手机上可能要
+   // 几秒，压在 ready 前面会让学生只看到「正在呈现三维细节」然后直接跳到最终画面
+   // （2026-09-18 真机）。转起来等 warm；等不到就 2.5 秒后照常开转。
+   const beginSpin=(delay:number)=>{window.clearTimeout(startTimer);startTimer=window.setTimeout(()=>send('start'),delay);};
    if(event.data.status==='ready'&&!ready&&!failed){
     ready=true;window.clearTimeout(timeout);setPhase('ready');send('reduce',reducedRef.current);callbacks.current.onReady?.();
-    if(ceremony&&playing)startTimer=window.setTimeout(()=>send('start'),reducedRef.current?0:300);
+    if(ceremony&&playing)beginSpin(reducedRef.current?0:2500);
    }
+   else if(event.data.status==='warm'&&ready&&!failed){if(ceremony&&playing)beginSpin(reducedRef.current?0:300);}
    else if(event.data.status==='error'){window.clearTimeout(timeout);fail();}
    else if(event.data.status==='complete'&&(!ceremony||ready)&&!failed)complete();
    else if(event.data.status==='escape')frame.current?.closest('[role="dialog"]')?.dispatchEvent(new KeyboardEvent('keydown',{key:'Escape',bubbles:true}));
