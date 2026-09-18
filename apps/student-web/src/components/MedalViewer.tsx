@@ -35,7 +35,9 @@ export function MedalViewer({assetId,locked=false,reveal=false,ceremony=false,on
   completed.current=false;setPhase('loading');
   let ready=false,failed=false,startTimer:number|undefined;
   const fail=()=>{if(failed)return;failed=true;window.clearTimeout(startTimer);setPhase('error');callbacks.current.onError?.();};
-  const timeout=window.setTimeout(fail,ceremony?4000:15000);
+  // 颁奖态的「就绪」现在还包含模型预热（着色器编译 / 贴图上传），慢机器上会多花一两秒，
+  // 4 秒太紧会误降级成静态图（2026-09-18）。
+  const timeout=window.setTimeout(fail,ceremony?6000:15000);
   const receive=(event:MessageEvent)=>{
    if(event.origin!==window.location.origin||event.source!==frame.current?.contentWindow||event.data?.type!=='equistar-medal-viewer')return;
    if(event.data.status==='ready'&&!ready&&!failed){
@@ -60,7 +62,7 @@ export function MedalViewer({assetId,locked=false,reveal=false,ceremony=false,on
    {(ceremony?(phase==='error'||staticOnly):(phase!=='ready'||staticOnly))&&<MedalImage assetId={assetId} locked={locked} className="mx-auto h-full w-full object-contain"/>}
    {/* Match the embedded root: a dark/light mismatch forces an opaque UA canvas. */}
    {!staticOnly&&phase!=='error'&&<iframe key={src+':'+attempt} ref={frame} src={src} style={ceremony?{colorScheme:'light',background:'transparent'}:undefined} tabIndex={ceremony?-1:undefined} aria-hidden={ceremony||undefined} title={(title??medalName(assetId))+' · '+(locked?'未解锁灰色三维':playing?'颁奖动画':'三维藏品')} className={'absolute inset-0 h-full w-full border-0 '+(ceremony?'pointer-events-none ':'')+(phase==='ready'?'':'invisible')} sandbox="allow-scripts allow-same-origin" referrerPolicy="no-referrer" onLoad={()=>send('reduce',reducedRef.current)} data-testid="medal-3d-frame"/>}
-   {phase==='loading'&&<span className={ceremony?'sr-only':'absolute inset-x-2 bottom-2 text-center text-xs text-award-muted'} role="status">正在呈现三维细节</span>}
+   {phase==='loading'&&<span className={ceremony?'award-loading':'absolute inset-x-2 bottom-2 text-center text-xs text-award-muted'} role="status">正在呈现三维细节</span>}
   </div>
   {phase==='error'&&!staticOnly&&!ceremony&&<div className="mt-2 px-3 text-footnote" role="status">已改为静态展示，收藏不会受影响。<Button className="!text-award-ink hover:!bg-award-muted/15 active:!bg-award-muted/20" size="sm" variant="plain" onClick={()=>{setPhase('loading');setAttempt(n=>n+1);}}>重试三维</Button><Button className="!text-award-ink hover:!bg-award-muted/15 active:!bg-award-muted/20" size="sm" variant="plain" onClick={()=>setStaticOnly(true)}>只看图片</Button></div>}
   {!ceremony&&<div className="mt-2 flex flex-wrap items-center justify-center gap-2">

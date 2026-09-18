@@ -21,7 +21,8 @@ function harness({ ceremony = true, locked = false, reduced = false, loading = f
     ka: new URLSearchParams(ceremony ? 'ceremony=1' : ''), Va: locked, zr: reduced,
     document: { documentElement: { dataset: {} }, hidden: false, addEventListener: (type: string, fn: () => void) => { listeners[type] = fn; } },
     de, Nt: { rotation }, Ha: { matches: false }, Ut: {},
-    yt: { domElement: { classList: { remove: vi.fn() } }, render: vi.fn() },
+    yt: { domElement: { classList: { remove: vi.fn() } }, render: vi.fn(), compileAsync: vi.fn(async () => {}) },
+    requestAnimationFrame: (callback: (time: number) => void) => { callback(0); return 1; },
     _i: new Map(), Br: null, gi: null, ts: 0, es: 0, xi: 0, dd: 0,
     Wl: 300, za: 0, ni: {}, Et: {}, cn: { lerp: (a: number, b: number, p: number) => a + (b - a) * p },
     performance: { now: () => 300 },
@@ -113,6 +114,27 @@ describe('cinematic 3D coin ceremony', () => {
     expect(h.Ws.mock.calls.map(call => call[0])).toEqual(['started', 'complete']);
     expect(seen.some(y => Math.abs(y - Math.PI) < 0.3)).toBe(true); // 背面真的露过
     expect(seen.some(y => y > Math.PI * 1.7)).toBe(true); // 也转回过正面前的最后一段
+  });
+
+  // 2026-09-18 第二轮：真机上「第一帧停住很久才开始转」。着色器编译和贴图上传本来
+  // 落在旋转的第一帧上，现在在报「就绪」之前先做掉。
+  it('compiles and draws one frame before telling the parent it is ready', async () => {
+    const h = harness();
+    await h.run('warmUpCeremony()');
+    expect(h.yt.compileAsync).toHaveBeenCalledWith(h.ni, h.Et);
+    expect(h.yt.render).toHaveBeenCalledWith(h.ni, h.Et);
+    expect(h.run('ceremonyWarmedUp')).toBe(true);
+    // 「就绪」必须排在预热之后
+    expect(renderer).toContain('await warmUpCeremony(),Ws("ready")');
+  });
+
+  it('a failed warm-up never blocks the ceremony', async () => {
+    const h = harness();
+    h.yt.compileAsync = vi.fn(async () => { throw new Error('no WebGL context'); });
+    await h.run('warmUpCeremony()');
+    expect(h.run('ceremonyWarmedUp')).toBe(false);
+    h.run('beginCinematicCeremony()');
+    expect(h.de.playing).toBe(true);
   });
 
   it('a very slow device still ends within four seconds', () => {

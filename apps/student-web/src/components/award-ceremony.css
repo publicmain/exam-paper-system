@@ -40,3 +40,5 @@
 @media (prefers-reduced-motion: reduce) { .award-scrim, .award-continue, .award-motes i { animation: none !important; } .award-motes { display: none; } .award-title, .award-reason, .award-halo { transition: none; transform: none; } }
 .award-scene[data-reduced='true'] .award-motes { display: none; }
 @media (prefers-reduced-transparency: reduce) { .award-scrim { background: #181b1e; -webkit-backdrop-filter: none; backdrop-filter: none; } .award-continue { background: #45423c; } }
+/* 颁奖加载中的一行提示：这一段不再铺静态大图，屏幕不能空着（2026-09-18）。 */
+.award-loading { position: absolute; inset: auto 0 6%; text-align: center; color: #d4c8b5; font-size: .8125rem; letter-spacing: .04em; }
