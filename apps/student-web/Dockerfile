@@ -46,6 +46,20 @@ ARG VITE_SENTRY_DSN=
 ENV VITE_SENTRY_DSN=$VITE_SENTRY_DSN
 RUN npm run build
 
+# 徽章素材的时间戳按**内容**定，不按构建时间（2026-09-18）。
+#
+# nginx 的 ETag = 文件修改时间 + 大小。镜像里所有文件的时间都是构建那一刻，
+# 于是每次部署 ETag 全变，浏览器把一两兆的模型重新下一遍 —— 表现就是
+# 「刚发完版，第一次打开徽章要等很久」。把时间戳改成由内容哈希推出来之后，
+# 内容没变 ETag 就不变，重新部署只换一次 304（不传字节）。
+# /assets 那批文件名自带内容哈希，不受影响。
+RUN find dist/medals -type f -exec sh -c 'for f do \
+      c=$(cksum "$f" | cut -d" " -f1); \
+      touch -d "@$((1600000000 + c % 100000000))" "$f"; \
+    done' _ {} + && \
+    echo "medals mtimes pinned to content:" && \
+    find dist/medals -name renderer.js -printf "%T@ %p\n"
+
 FROM nginx:alpine
 COPY --from=builder /app/dist /usr/share/nginx/html
 COPY nginx.conf /etc/nginx/conf.d/default.conf
