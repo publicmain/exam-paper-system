@@ -21,7 +21,7 @@ function harness({ ceremony = true, locked = false, reduced = false, loading = f
   const node = { setAttribute: vi.fn() };
   const context = {
     ka: new URLSearchParams(ceremony ? 'ceremony=1' : ''), Va: locked, zr: reduced,
-    document: { documentElement: { dataset: {} }, hidden: false, addEventListener: (type: string, fn: () => void) => { listeners[type] = fn; } },
+    document: { documentElement: { dataset: {} as Record<string, string> }, hidden: false, addEventListener: (type: string, fn: () => void) => { listeners[type] = fn; } },
     de, Nt: { rotation }, Ha: { matches: false }, Ut: {},
     yt: { domElement: { classList: { remove: vi.fn() } }, render: vi.fn(), compile: vi.fn() },
     // 就绪之前 iframe 还是隐藏的，Safari 不会给隐藏内容动画帧 —— 这里故意永不回调，

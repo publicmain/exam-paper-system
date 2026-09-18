@@ -64,7 +64,7 @@ export function MedalViewer({assetId,locked=false,reveal=false,ceremony=false,on
   if(!playing||!(phase==='error'||staticOnly))return;
   const timer=window.setTimeout(complete,1200);return()=>window.clearTimeout(timer);
  },[phase,staticOnly,playing,assetId]);
- return <div data-testid="medal-viewer" className={ceremony?'award-medal-viewer':'rounded-group bg-award-surface pb-1 text-award-ink'}>
+ return <div data-testid="medal-viewer" data-spun={ceremony?String(spun):undefined} className={ceremony?'award-medal-viewer':'rounded-group bg-award-surface pb-1 text-award-ink'}>
   <div className={ceremony?'award-medal-stage':'relative min-h-48 w-full overflow-hidden rounded-group'} style={ceremony?undefined:{height:height??'min(46dvh, 480px)',background:'rgb(var(--c-award-surface))'}} data-testid="medal-stage">
    {/* 颁奖时加载中不铺静态大图：它和模型的尺寸对不上，换过去就是一次突变（2026-09-18）。
        只有降级（模型失败 / 只看图片）才显示图片。 */}

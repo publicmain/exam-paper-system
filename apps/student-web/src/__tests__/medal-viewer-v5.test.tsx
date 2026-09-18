@@ -1,5 +1,7 @@
 import { afterEach, expect, it, vi } from 'vitest';
 import { act, cleanup, fireEvent, render, screen } from '@testing-library/react';
+import fs from 'node:fs';
+import path from 'node:path';
 import { MedalImage, MedalViewer } from '../components/MedalViewer';
 
 afterEach(() => { cleanup(); vi.useRealTimers(); vi.restoreAllMocks(); });
@@ -64,10 +66,15 @@ it('hands the medal over to the finger only after the spin is done', () => {
   message(frame,'ready');
   expect(frame.className).toContain('pointer-events-none');
   expect(frame).toHaveAttribute('aria-hidden','true');
+  // 外层容器上也有一条 pointer-events: none，只放开 iframe 不够（2026-09-18 真机「拖不动」）
+  expect(screen.getByTestId('medal-viewer')).toHaveAttribute('data-spun', 'false');
   message(frame,'complete');
   expect(frame.className).not.toContain('pointer-events-none');
   expect(frame).not.toHaveAttribute('aria-hidden');
   expect(frame.title).toContain('可以拖动转一转');
+  expect(screen.getByTestId('medal-viewer')).toHaveAttribute('data-spun', 'true');
+  const css = fs.readFileSync(path.resolve(__dirname, '../components/award-ceremony.css'), 'utf8');
+  expect(css).toContain(".award-medal-viewer[data-spun=\"true\"] { pointer-events: auto; }");
 });
 // 预热消息一直不来（手机上预热可能要好几秒）也不能干等：2.5 秒后照常开转。
 it('starts the spin even if the warm-up never reports back', () => {

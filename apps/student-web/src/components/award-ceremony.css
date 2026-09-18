@@ -14,6 +14,8 @@
 .award-medal-wrap { position: relative; flex: none; width: min(88vw, 43dvh, 480px); aspect-ratio: 1; }
 .award-medal-viewer, .award-medal-stage { width: 100%; height: 100%; background: transparent; }
 .award-medal-stage { position: relative; overflow: hidden; }
+/* 转完之前整块不接触摸（免得打断动画）；转完后放开，学生可以拖着转（2026-09-18）。
+   注意：只放开 iframe 不够 —— 父层这条 pointer-events 会把整棵子树一起关掉。 */
 .award-medal-viewer { position: relative; z-index: 2; pointer-events: none; filter: drop-shadow(0 10px 24px #00000045); }
 .award-halo { position: absolute; inset: -14%; border-radius: 50%; background: radial-gradient(ellipse, #e5b85835 0%, #ddab5421 28%, #b7782410 46%, transparent 69%); pointer-events: none; opacity: .25; transition: opacity 1s ease; }
 .award-scene[data-started='true'] .award-halo { opacity: 1; }
@@ -51,3 +53,5 @@
 .award-trace { color: #b9ad9c; font-size: .6875rem; line-height: 1.5; margin-top: 10px; word-break: break-all; }
 /* 转完之后的拖动提示（2026-09-18）。 */
 .award-hint { color: #cbbfa9; font-size: .75rem; line-height: 1.6; margin-top: 10px; }
+
+.award-medal-viewer[data-spun="true"] { pointer-events: auto; }
