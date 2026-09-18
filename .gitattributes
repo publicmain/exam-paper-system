@@ -1,0 +1,4 @@
+# 徽章静态资源按原样存取：Windows 检出不做 CRLF 转换，否则手动发布上去的文件
+# 与仓库内容不再逐字节一致，上线资源校验（scripts/ops/badges-release-assets.cjs）会误报。
+apps/student-web/public/medals/v5/renderer.js -text
+apps/student-web/public/medals/v5/viewer.html -text
