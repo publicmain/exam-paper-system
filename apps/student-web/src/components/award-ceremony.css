@@ -42,3 +42,8 @@
 @media (prefers-reduced-transparency: reduce) { .award-scrim { background: #181b1e; -webkit-backdrop-filter: none; backdrop-filter: none; } .award-continue { background: #45423c; } }
 /* 颁奖加载中的一行提示：这一段不再铺静态大图，屏幕不能空着（2026-09-18）。 */
 .award-loading { position: absolute; inset: auto 0 6%; text-align: center; color: #d4c8b5; font-size: .8125rem; letter-spacing: .04em; }
+/* 降级成静态图时也要转一圈：模型用不了（加载失败 / 显卡不给帧）时，
+   学生至少能看到一次翻转，而不是一张僵住的图（2026-09-18）。 */
+.award-medal-flip { animation: award-flip 1.6s cubic-bezier(.4,0,.2,1) .3s 1 both; transform-style: preserve-3d; }
+@keyframes award-flip { from { transform: rotateY(0deg); } to { transform: rotateY(360deg); } }
+@media (prefers-reduced-motion: reduce) { .award-medal-flip { animation: none; } }

@@ -14,6 +14,8 @@ const renderLoop = renderer.slice(renderer.indexOf('function x0(s){'), renderer.
 // Exercise the actual bundled ceremony functions without mocking all of Three.js.
 function harness({ ceremony = true, locked = false, reduced = false, loading = false } = {}) {
   const listeners: Record<string, () => void> = {};
+  const intervals: Array<{ fn: () => void; ms: number }> = [];
+  const cleared: number[] = [];
   const rotation = { x: 0, y: 0, z: 0, set: vi.fn((x: number, y: number, z: number) => { rotation.x = x; rotation.y = y; rotation.z = z; }) };
   const de = { loading, reducedMotion: reduced, autoRotate: false, view: 'front', playing: false, capturePaused: false };
   const node = { setAttribute: vi.fn() };
@@ -21,8 +23,12 @@ function harness({ ceremony = true, locked = false, reduced = false, loading = f
     ka: new URLSearchParams(ceremony ? 'ceremony=1' : ''), Va: locked, zr: reduced,
     document: { documentElement: { dataset: {} }, hidden: false, addEventListener: (type: string, fn: () => void) => { listeners[type] = fn; } },
     de, Nt: { rotation }, Ha: { matches: false }, Ut: {},
-    yt: { domElement: { classList: { remove: vi.fn() } }, render: vi.fn(), compileAsync: vi.fn(async () => {}) },
-    requestAnimationFrame: (callback: (time: number) => void) => { callback(0); return 1; },
+    yt: { domElement: { classList: { remove: vi.fn() } }, render: vi.fn(), compile: vi.fn() },
+    // 就绪之前 iframe 还是隐藏的，Safari 不会给隐藏内容动画帧 —— 这里故意永不回调，
+    // 预热要是依赖它就会一直挂住（2026-09-18 真机就是这样卡在「正在呈现三维细节」）。
+    requestAnimationFrame: () => 1,
+    setInterval: (fn: () => void, ms: number) => { intervals.push({ fn, ms }); return intervals.length; },
+    clearInterval: (id: number) => { cleared.push(id); },
     _i: new Map(), Br: null, gi: null, ts: 0, es: 0, xi: 0, dd: 0,
     Wl: 300, za: 0, ni: {}, Et: {}, cn: { lerp: (a: number, b: number, p: number) => a + (b - a) * p },
     performance: { now: () => 300 },
@@ -41,7 +47,7 @@ function harness({ ceremony = true, locked = false, reduced = false, loading = f
     for (let index = 0; index < count; index += 1) { at += step; run(`x0(${at})`); }
     return at;
   };
-  return { ...context, run, rotation, frames, listeners };
+  return { ...context, run, rotation, frames, listeners, intervals, cleared };
 }
 
 describe('cinematic 3D coin ceremony', () => {
@@ -118,23 +124,56 @@ describe('cinematic 3D coin ceremony', () => {
 
   // 2026-09-18 第二轮：真机上「第一帧停住很久才开始转」。着色器编译和贴图上传本来
   // 落在旋转的第一帧上，现在在报「就绪」之前先做掉。
-  it('compiles and draws one frame before telling the parent it is ready', async () => {
+  it('compiles and draws one frame before telling the parent it is ready, without waiting for a frame callback', () => {
     const h = harness();
-    await h.run('warmUpCeremony()');
-    expect(h.yt.compileAsync).toHaveBeenCalledWith(h.ni, h.Et);
+    h.run('warmUpCeremony()'); // 同步：动画帧永不回调也必须走完
+    expect(h.yt.compile).toHaveBeenCalledWith(h.ni, h.Et);
     expect(h.yt.render).toHaveBeenCalledWith(h.ni, h.Et);
     expect(h.run('ceremonyWarmedUp')).toBe(true);
-    // 「就绪」必须排在预热之后
-    expect(renderer).toContain('await warmUpCeremony(),Ws("ready")');
+    // 「就绪」必须排在预热之后，且预热本身不等动画帧
+    expect(renderer).toContain('warmUpCeremony(),Ws("ready")');
+    expect(ceremonySource.slice(ceremonySource.indexOf('function warmUpCeremony'))).not.toContain('requestAnimationFrame');
   });
 
-  it('a failed warm-up never blocks the ceremony', async () => {
+  it('a failed warm-up never blocks the ceremony', () => {
     const h = harness();
-    h.yt.compileAsync = vi.fn(async () => { throw new Error('no WebGL context'); });
-    await h.run('warmUpCeremony()');
+    h.yt.compile = vi.fn(() => { throw new Error('no WebGL context'); });
+    h.run('warmUpCeremony()');
     expect(h.run('ceremonyWarmedUp')).toBe(false);
     h.run('beginCinematicCeremony()');
     expect(h.de.playing).toBe(true);
+  });
+
+  // 一帧都拿不到的情况（窗口被遮挡、系统省电、浏览器把内嵌画面当不可见）：
+  // 动画帧里的兜底同样推不动，必须由不依赖帧的定时器收场，否则徽章僵住、外层一直等。
+  it('finishes from a timer when no frame ever arrives', () => {
+    const h = harness();
+    h.performance.now = () => 300;
+    h.run('beginCinematicCeremony()');
+    expect(h.intervals).toHaveLength(1);
+    expect(h.intervals[0].ms).toBeLessThanOrEqual(150);
+    h.performance.now = () => 300 + 900; // 0.9 s，一帧都没来
+    h.intervals[0].fn();
+    expect(h.run('ceremonyLowFps')).toBe(true);
+    expect(h.rotation.y).toBeGreaterThan(0); // 画面确实被推动了
+    expect(h.de.playing).toBe(true);
+    h.performance.now = () => 300 + 1700; // 超过一圈的时长
+    h.intervals[0].fn();
+    expect(h.de.playing).toBe(false);
+    expect(h.Ws.mock.calls.map(call => call[0])).toEqual(['started', 'complete']);
+    expect(h.cleared).toEqual([1]); // 收尾时把定时器停掉，不留着空转
+  });
+
+  // 一直拿不到画面帧的设备（真机上表现为「徽章不转」）：连续四帧都慢就改按时间推进，
+  // 让它按时结束，而不是僵在原地等帧。单次卡顿不算 —— 上一条用例守着这一点。
+  it('a device that keeps missing frames finishes on time instead of freezing', () => {
+    const h = harness(); h.run('beginCinematicCeremony()');
+    let at = 300;
+    for (let index = 0; index < 8 && h.de.playing; index += 1) { at += 500; h.run(`x0(${at})`); }
+    expect(h.run('ceremonyLowFps')).toBe(true);
+    expect(h.de.playing).toBe(false);
+    expect(at - 300).toBeLessThanOrEqual(2500);
+    expect(h.Ws.mock.calls.map(call => call[0])).toEqual(['started', 'complete']);
   });
 
   it('a very slow device still ends within four seconds', () => {

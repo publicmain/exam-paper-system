@@ -59,7 +59,7 @@ export function MedalViewer({assetId,locked=false,reveal=false,ceremony=false,on
   <div className={ceremony?'award-medal-stage':'relative min-h-48 w-full overflow-hidden rounded-group'} style={ceremony?undefined:{height:height??'min(46dvh, 480px)',background:'rgb(var(--c-award-surface))'}} data-testid="medal-stage">
    {/* 颁奖时加载中不铺静态大图：它和模型的尺寸对不上，换过去就是一次突变（2026-09-18）。
        只有降级（模型失败 / 只看图片）才显示图片。 */}
-   {(ceremony?(phase==='error'||staticOnly):(phase!=='ready'||staticOnly))&&<MedalImage assetId={assetId} locked={locked} className="mx-auto h-full w-full object-contain"/>}
+   {(ceremony?(phase==='error'||staticOnly):(phase!=='ready'||staticOnly))&&<MedalImage assetId={assetId} locked={locked} className={'mx-auto h-full w-full object-contain'+(ceremony&&playing?' award-medal-flip':'')}/>}
    {/* Match the embedded root: a dark/light mismatch forces an opaque UA canvas. */}
    {!staticOnly&&phase!=='error'&&<iframe key={src+':'+attempt} ref={frame} src={src} style={ceremony?{colorScheme:'light',background:'transparent'}:undefined} tabIndex={ceremony?-1:undefined} aria-hidden={ceremony||undefined} title={(title??medalName(assetId))+' · '+(locked?'未解锁灰色三维':playing?'颁奖动画':'三维藏品')} className={'absolute inset-0 h-full w-full border-0 '+(ceremony?'pointer-events-none ':'')+(phase==='ready'?'':'invisible')} sandbox="allow-scripts allow-same-origin" referrerPolicy="no-referrer" onLoad={()=>send('reduce',reducedRef.current)} data-testid="medal-3d-frame"/>}
    {phase==='loading'&&<span className={ceremony?'award-loading':'absolute inset-x-2 bottom-2 text-center text-xs text-award-muted'} role="status">正在呈现三维细节</span>}
