@@ -7,7 +7,7 @@ import BadgesPage from '../pages/Badges';
 import AchievementNotifier from '../components/AchievementNotifier';
 import type { AchievementBadge, AchievementNoticeKeys, AchievementsList } from '../lib/api';
 import { writeToken } from '../lib/identity';
-import { __resetForTest } from '../lib/auth-store';
+import { __resetForTest, adoptSession } from '../lib/auth-store';
 import { __resetAchievementNoticesForTest, claimAchievementNotices, dismissAchievementNotices, getAchievementNotices, resetAchievementNotices, syncAchievementNotices } from '../lib/achievement-notices';
 
 // UI state-machine tests; real renderer/GLB bridge has its own integration tests.
@@ -249,5 +249,23 @@ describe('V5 saved notices, claim and automatic ceremony', () => {
   });
   it('offline sync is a harmless optional-feature failure', async () => {
     vi.stubGlobal('fetch', vi.fn(async () => { throw new Error('offline'); })); await expect(syncAchievementNotices()).resolves.toBeUndefined(); expect(getAchievementNotices()).toHaveLength(0);
+  });
+  it('display-only teacher preview defers real award notices without claiming, viewing or discarding them', async () => {
+    adoptSession('tok', {id:'cmtqgmjl200u6stuq31xrad59',name:'老师测试号',nickname:'',avatar:null});
+    render(<MemoryRouter initialEntries={['/growth/badges']}><BadgesPage /><AchievementNotifier /></MemoryRouter>);
+    await settle(); const before = requests.length;
+    fireEvent.click(screen.getByRole('button',{name:'体验颁奖'})); await settle();
+    expect(screen.getByTestId('achievement-preview')).toBeTruthy();
+    expect(requests.length).toBe(before);
+    queue(['reading-1']); await act(async()=>{await syncAchievementNotices();}); await settle();
+    expect(screen.queryByTestId('achievement-award')).toBeNull();
+    expect(requests.some(r=>r.url.endsWith('/notices/claim')||r.url.endsWith('/notices/viewed'))).toBe(false);
+    expect(getAchievementNotices()).toHaveLength(1);
+    fireEvent.click(screen.getByRole('button',{name:'跳过全部动画'})); await settle();
+    expect(screen.queryByTestId('achievement-preview')).toBeNull();
+    expect(screen.getByTestId('achievement-award')).toBeTruthy();
+    expect(list.badges[0].isNew).toBe(true);
+    expect(requests.filter(r=>r.url.endsWith('/notices/claim'))).toHaveLength(1);
+    expect(requests.some(r=>r.url.endsWith('/notices/viewed'))).toBe(false);
   });
 });

@@ -3,7 +3,8 @@ import { useLocation, useNavigate } from 'react-router-dom';
 import { Button } from '../design/Button';
 import { Dialog } from '../design/Dialog';
 import { claimAchievementNotices, dismissAchievementNotices, getAchievementNotices, markAchievementViewed, subscribeAchievementNotices, syncAchievementNotices } from '../lib/achievement-notices';
-import { MedalImage, MedalViewer } from './MedalViewer';
+import { MedalImage } from './MedalViewer';
+import { AwardCeremony } from './AwardCeremony';
 import { ROUTES } from '../routes.contract';
 
 const SAFE_ROUTES: readonly string[] = [ROUTES.today, ROUTES.readingResult, ROUTES.scores, ROUTES.growthBadges, ROUTES.summary];
@@ -22,8 +23,6 @@ export default function AchievementNotifier() {
   const notices = useSyncExternalStore(subscribeAchievementNotices, getAchievementNotices, getAchievementNotices);
   const location = useLocation(); const navigate = useNavigate();
   const [opened, setOpened] = useState<{ key: string; routeKey: string } | null>(null);
-  const [finishedKey, setFinishedKey] = useState<string | null>(null);
-  const [failedKey, setFailedKey] = useState<string | null>(null);
   const attempted = useRef(false);
   const current = opened?.routeKey === location.key ? notices.find((notice) => notice.claimed && notice.badge.key === opened.key) : null;
   const backfill = notices.filter((notice) => notice.claimed && notice.kind === 'backfill');
@@ -74,7 +73,6 @@ export default function AchievementNotifier() {
   };
   const onRevealComplete = () => {
     if (!current) return;
-    setFinishedKey(current.badge.key);
     if (awardRemainder.length) advance(); // Each independently earned level gets its own reveal.
   };
   const closeBackfill = (visit = false) => {
@@ -88,13 +86,8 @@ export default function AchievementNotifier() {
       <p className="mb-3 text-callout text-ink">本次补入 {backfill.length} 枚，已安全保存。</p>
       <div className="grid grid-cols-3 gap-3 sm:grid-cols-4">{backfill.map(({ badge }) => <div key={badge.key} className="text-center"><MedalImage assetId={badge.assetId!} thumbnail className="aspect-square w-full object-contain" /><p className="text-caption text-ink-2">{badge.title}</p></div>)}</div>
     </Dialog>
-    <Dialog key={current?.kind === 'award' ? current.badge.key : 'closed'} open={Boolean(current?.kind === 'award')} onClose={skipAll} title={current?.badge.title ?? '新的纪念'} description="你的努力，已成为一枚新的收藏。" placement="fullscreen" appearance="ceremony" showClose={false} initialFocus="panel" testId="achievement-award" footer={<div className="mx-auto flex w-full max-w-2xl flex-wrap gap-3"><Button variant="neutral" onClick={skipAll}>跳过全部动画</Button><Button className="flex-1" onClick={advance}>{awardRemainder.length ? '下一枚' : '继续'}</Button></div>}>
-      {current?.kind === 'award' && <div className="mx-auto flex min-h-full w-full max-w-4xl flex-col justify-center text-center">
-        <p className="mb-2 text-footnote text-award-muted" role="status">{awardRemainder.length ? `此后还有 ${awardRemainder.length} 枚，依次为你呈现` : '本次最后一枚'}</p>
-        <MedalViewer key={current.badge.key} assetId={current.badge.assetId!} title={current.badge.title ?? '已获得徽章'} reveal onRevealComplete={onRevealComplete} onError={() => { setFailedKey(current.badge.key); setFinishedKey(current.badge.key); }} />
-        {failedKey === current.badge.key && <p className="mt-3 text-footnote text-award-muted">三维暂时不可用，徽章已保存。可以继续，之后在收藏里再看。</p>}
-        {!awardRemainder.length && finishedKey === current.badge.key && <p className="mt-3 text-footnote text-award-muted">可以转动、翻面欣赏。准备好后点「继续」。</p>}
-      </div>}
-    </Dialog>
+    <AwardCeremony open={Boolean(current?.kind === 'award')}
+      badge={current?.kind === 'award' ? { key: current.badge.key, assetId: current.badge.assetId!, title: current.badge.title ?? '已获得徽章' } : null}
+      remainingCount={awardRemainder.length} onContinue={advance} onSkipAll={skipAll} onRevealComplete={onRevealComplete} />
   </>;
 }

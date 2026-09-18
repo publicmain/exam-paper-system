@@ -10,6 +10,7 @@ import { Dialog } from '../design/Dialog';
 import { StatusView } from '../design/Status';
 import { markAchievementViewed, syncAchievementNotices } from '../lib/achievement-notices';
 import { MedalImage, MedalViewer } from '../components/MedalViewer';
+import BadgeCeremonyPreview from '../components/BadgeCeremonyPreview';
 
 type Load<T> = { s: 'loading' } | { s: 'error' } | { s: 'off' } | { s: 'ready'; data: T };
 type Selection = { kind: 'mine'; key: string } | { kind: 'peer'; student: string; badge: ClassmateMedal };
@@ -101,6 +102,7 @@ export default function BadgesPage() {
     {tab === 'mine' ? <section role="tabpanel" id="badges-panel-mine" aria-labelledby="badges-tab-mine">
       {load.s === 'loading' ? <StatusView kind="loading" title="正在打开收藏" testId="badges-loading" /> : load.s === 'error' ? <StatusView kind="error" title="徽章暂时没加载出来" message="你的学习记录都还在。连上网络后再试一下。" onRetry={() => void fetchAll()} testId="badges-error" /> : load.s === 'off' ? <StatusView kind="empty" title="徽章暂未开放" message="不影响每天的学习任务。" testId="badges-off" /> : <>
         <div className="mb-5 flex flex-wrap items-center justify-between gap-3 rounded-group bg-surface p-4" data-testid="medal-overview"><div><p className="text-title2 text-ink">{badges.filter(owned).length} <span className="text-callout text-ink-3">/ 16 枚已收藏</span></p><p className="mt-1 text-footnote text-ink-3">每一级独立收藏，不增加学习任务。</p></div><Button size="sm" variant="plain" onClick={() => void fetchAll()}>刷新进度</Button></div>
+        <BadgeCeremonyPreview />
         <div data-testid="medal-collection">{Object.entries(seriesNames).map(([series, label]) => <section key={series} className="mb-6" aria-label={label}><h2 className="mb-3 text-headline text-ink">{label}</h2><div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">{badges.filter((badge) => badge.series === series).map((badge) => {
           const earned = owned(badge), hidden = secret(badge);
           return <button key={badge.key} type="button" data-testid={`medal-card-${badge.key}`} onClick={() => inspect(badge)} aria-label={`${hidden ? '尚未发现的珍藏' : badge.title}，${earned ? '已获得' : '尚未获得'}`} className="relative min-w-0 rounded-group border border-line bg-surface p-3 text-center focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent sm:p-4">
