@@ -25,6 +25,7 @@ const MOTES = [[21,26,0],[69,18,180],[83,40,60],[16,57,320],[76,70,160],[30,83,2
 
 function ActiveAwardCeremony({ badge, remainingCount, onContinue, onSkipAll, onRevealComplete, preview = false }: AwardCeremonyProps & { badge: AwardCeremonyBadge }) {
   const [started, setStarted] = useState(false);
+  const [spun, setSpun] = useState(false);
   const [failed, setFailed] = useState(false);
   const [phase, setPhase] = useState(0);
   const [reduced, setReduced] = useState(() => window.matchMedia?.('(prefers-reduced-motion: reduce)').matches ?? false);
@@ -36,22 +37,31 @@ function ActiveAwardCeremony({ badge, remainingCount, onContinue, onSkipAll, onR
     media?.addEventListener?.('change', change);
     return () => media?.removeEventListener?.('change', change);
   }, []);
+  // 文字等真正转完再出现（2026-09-18）：原来按固定时刻推进，手机一卡，
+  // 旋转还没走完标题就先冒出来了。兜底：转完的消息 6 秒没到（模型慢或降级）也照常往下走。
+  useEffect(() => {
+    if (!started || reduced || spun) return;
+    const timer = window.setTimeout(() => setSpun(true), 6000);
+    return () => window.clearTimeout(timer);
+  }, [started, reduced, spun]);
   useEffect(() => {
     if (!started) return;
-    // Timed from model readiness, not network fetch. All actions stay escapable.
+    // Timed from the finished spin, not from network fetch. All actions stay escapable.
     if (reduced) setPhase(3);
-    const timers = reduced ? [] : [
-      window.setTimeout(() => setPhase(current => Math.max(current, 1)), 1900),
-      window.setTimeout(() => setPhase(current => Math.max(current, 2)), 2200),
-      window.setTimeout(() => setPhase(current => Math.max(current, 3)), 2700),
+    const timers = reduced || !spun ? [] : [
+      window.setTimeout(() => setPhase(current => Math.max(current, 1)), 0),
+      window.setTimeout(() => setPhase(current => Math.max(current, 2)), 300),
+      window.setTimeout(() => setPhase(current => Math.max(current, 3)), 800),
     ];
     // Let students read the text before automatically advancing a multi-award queue.
     // The last medal's owner callback never closes it without a student action.
-    timers.push(window.setTimeout(() => {
-      if (!completed.current) { completed.current = true; onComplete.current(); }
-    }, reduced ? 3200 : 4800));
+    if (reduced || spun) {
+      timers.push(window.setTimeout(() => {
+        if (!completed.current) { completed.current = true; onComplete.current(); }
+      }, reduced ? 3200 : 2900));
+    }
     return () => timers.forEach(window.clearTimeout);
-  }, [started, reduced]);
+  }, [started, reduced, spun]);
   const reason = medalAwardReason(badge.assetId);
   return <Dialog open onClose={onSkipAll} title={badge.title}
     description={preview ? '颁奖体验 · 仅展示动画，不解锁徽章，也不改变学习记录。' : reason}
@@ -68,7 +78,8 @@ function ActiveAwardCeremony({ badge, remainingCount, onContinue, onSkipAll, onR
           <div className="award-motes" aria-hidden="true">{MOTES.map(([x,y,delay], index) => <i key={index} style={{ '--x': `${x}%`, '--y': `${y}%`, '--delay': `${delay}ms` } as CSSProperties} />)}</div>
           <MedalViewer assetId={badge.assetId} title={badge.title} reveal ceremony
             onReady={() => setStarted(true)}
-            onError={() => { setFailed(true); setStarted(true); }} />
+            onRevealComplete={() => setSpun(true)}
+            onError={() => { setFailed(true); setStarted(true); setSpun(true); }} />
         </div>
         <div className="award-copy">
           <h2 className="award-title" aria-hidden={phase < 1}>{badge.title}</h2>

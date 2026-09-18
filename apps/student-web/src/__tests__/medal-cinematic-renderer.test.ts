@@ -13,12 +13,13 @@ const renderLoop = renderer.slice(renderer.indexOf('function x0(s){'), renderer.
 
 // Exercise the actual bundled ceremony functions without mocking all of Three.js.
 function harness({ ceremony = true, locked = false, reduced = false, loading = false } = {}) {
+  const listeners: Record<string, () => void> = {};
   const rotation = { x: 0, y: 0, z: 0, set: vi.fn((x: number, y: number, z: number) => { rotation.x = x; rotation.y = y; rotation.z = z; }) };
   const de = { loading, reducedMotion: reduced, autoRotate: false, view: 'front', playing: false, capturePaused: false };
   const node = { setAttribute: vi.fn() };
   const context = {
     ka: new URLSearchParams(ceremony ? 'ceremony=1' : ''), Va: locked, zr: reduced,
-    document: { documentElement: { dataset: {} }, hidden: false },
+    document: { documentElement: { dataset: {} }, hidden: false, addEventListener: (type: string, fn: () => void) => { listeners[type] = fn; } },
     de, Nt: { rotation }, Ha: { matches: false }, Ut: {},
     yt: { domElement: { classList: { remove: vi.fn() } }, render: vi.fn() },
     _i: new Map(), Br: null, gi: null, ts: 0, es: 0, xi: 0, dd: 0,
@@ -33,7 +34,13 @@ function harness({ ceremony = true, locked = false, reduced = false, loading = f
   vm.runInContext(ceremonySource, scope);
   vm.runInContext('function An(){return finishCinematicCeremony()}' + renderLoop, scope);
   const run = (source: string) => vm.runInContext(source, scope);
-  return { ...context, run, rotation };
+  /** Drive real animation frames: `step` ms apart, as a browser would. */
+  const frames = (from: number, count: number, step = 16) => {
+    let at = from;
+    for (let index = 0; index < count; index += 1) { at += step; run(`x0(${at})`); }
+    return at;
+  };
+  return { ...context, run, rotation, frames, listeners };
 }
 
 describe('cinematic 3D coin ceremony', () => {
@@ -78,18 +85,57 @@ describe('cinematic 3D coin ceremony', () => {
     expect(h.run('ceremonyCompleted')).toBe(true);
   });
 
-  it('the production render loop reaches the back halfway and completes after 1,600 ms', () => {
-    const h = harness(); h.run('beginCinematicCeremony(); x0(300)');
-    expect(h.rotation.y).toBe(0);
-    h.run('x0(1100)');
+  it('the production render loop reaches the back halfway and completes after 1,600 ms of frames', () => {
+    const h = harness(); h.run('beginCinematicCeremony()');
+    h.frames(300, 50); // 50 × 16 ms = 0.8 s
     expect(h.rotation.y).toBeCloseTo(Math.PI);
     expect(h.Ws.mock.calls.map(call => call[0])).toEqual(['started']);
-    h.run('x0(1899)'); expect(h.de.playing).toBe(true);
-    h.run('x0(1900)');
+    const at = h.frames(300 + 50 * 16, 49);
+    expect(h.de.playing).toBe(true);
+    h.run(`x0(${at + 16})`);
     expect(h.de.playing).toBe(false); expect(h.rotation.y).toBe(0);
     expect(h.Ws.mock.calls.map(call => call[0])).toEqual(['started', 'complete']);
-    h.run('x0(2400)');
+    h.frames(at + 16, 5);
     expect(h.rotation.y).toBe(0); expect(h.Ws).toHaveBeenCalledTimes(2);
+  });
+
+  // 2026-09-18：手机上「转到一半卡一下，直接跳到结束状态」。原来进度按墙上时间算，
+  // 卡顿后的第一帧就 >=1。现在按每帧实际间隔累计（上限 50 ms），卡顿只会让它慢，不会跳过。
+  it('a long stall slows the spin instead of skipping it', () => {
+    const h = harness(); h.run('beginCinematicCeremony()');
+    h.run('x0(2300)'); // 主线程卡了 2 秒
+    expect(h.de.playing).toBe(true);
+    expect(h.Ws.mock.calls.map(call => call[0])).toEqual(['started']);
+    expect(h.rotation.y).toBeLessThan(Math.PI / 4);
+    const seen: number[] = [];
+    let at = 2300;
+    for (let index = 0; index < 200 && h.de.playing; index += 1) { at += 16; h.run(`x0(${at})`); seen.push(h.rotation.y); }
+    expect(h.Ws.mock.calls.map(call => call[0])).toEqual(['started', 'complete']);
+    expect(seen.some(y => Math.abs(y - Math.PI) < 0.3)).toBe(true); // 背面真的露过
+    expect(seen.some(y => y > Math.PI * 1.7)).toBe(true); // 也转回过正面前的最后一段
+  });
+
+  it('a very slow device still ends within four seconds', () => {
+    const h = harness(); h.run('beginCinematicCeremony()');
+    // 8 fps：每帧只推进 50 ms，光靠帧数要 3.2 s 以上，这里由墙上时间封顶收尾。
+    let at = 300;
+    for (let index = 0; index < 40 && h.de.playing; index += 1) { at += 125; h.run(`x0(${at})`); }
+    expect(h.de.playing).toBe(false);
+    expect(at - 300).toBeLessThanOrEqual(4125);
+    expect(h.Ws.mock.calls.map(call => call[0])).toEqual(['started', 'complete']);
+  });
+
+  it('a completion while the tab is hidden is delivered when it comes back', () => {
+    const h = harness(); h.run('beginCinematicCeremony()');
+    h.document.hidden = true;
+    h.frames(300, 120);
+    expect(h.run('ceremonyCompleted')).toBe(true);
+    expect(h.Ws.mock.calls.map(call => call[0])).toEqual(['started']);
+    h.document.hidden = false;
+    h.listeners.visibilitychange?.();
+    expect(h.Ws.mock.calls.map(call => call[0])).toEqual(['started', 'complete']);
+    h.listeners.visibilitychange?.();
+    expect(h.Ws).toHaveBeenCalledTimes(2);
   });
 
   it.each([{ ceremony: false }, { locked: true }, { loading: true }])('does not start in an ineligible state: %o', options => {

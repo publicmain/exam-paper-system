@@ -150,13 +150,14 @@ describe('V5 saved notices, claim and automatic ceremony', () => {
     expect(screen.getByTestId('test-viewer').getAttribute('data-asset')).toBe('reading-1');
     expect(screen.getByTestId('achievement-award').className).toContain('h-[100dvh]');
     fireEvent.click(screen.getByRole('button', { name: '模拟模型就绪' }));
-    fireEvent.click(screen.getByRole('button', { name: '模拟动画完成' })); await advanceTime(4799);
+    fireEvent.click(screen.getByRole('button', { name: '模拟动画完成' })); await advanceTime(2899);
     expect(screen.getByTestId('test-viewer').getAttribute('data-asset')).toBe('reading-1');
     expect(requests.some((r) => r.url.endsWith('/viewed'))).toBe(false);
     await advanceTime(1);
     expect(screen.getByTestId('test-viewer').getAttribute('data-asset')).toBe('reading-2');
     expect(screen.getAllByRole('dialog')).toHaveLength(1);
-    fireEvent.click(screen.getByRole('button', { name: '模拟模型就绪' })); await advanceTime(60000);
+    fireEvent.click(screen.getByRole('button', { name: '模拟模型就绪' }));
+    fireEvent.click(screen.getByRole('button', { name: '模拟动画完成' })); await advanceTime(60000);
     expect(screen.getByTestId('achievement-award')).toBeTruthy();
     fireEvent.click(screen.getByRole('button', { name: '继续' })); await settle();
     expect(screen.queryByRole('dialog')).toBeNull(); expect(getAchievementNotices()).toHaveLength(0);
@@ -171,7 +172,8 @@ describe('V5 saved notices, claim and automatic ceremony', () => {
     await settle();
     expect(getAchievementNotices().map((notice) => notice.badge.assetId)).toEqual(['hidden-worlds']);
     expect(screen.getByTestId('test-viewer').getAttribute('data-asset')).toBe('hidden-worlds');
-    fireEvent.click(screen.getByRole('button', { name: '模拟模型就绪' })); await advanceTime(60000);
+    fireEvent.click(screen.getByRole('button', { name: '模拟模型就绪' }));
+    fireEvent.click(screen.getByRole('button', { name: '模拟动画完成' })); await advanceTime(60000);
     expect(screen.getByRole('button', { name: '继续' })).toBeTruthy();
     expect(screen.getByTestId('achievement-award')).toBeTruthy();
     fireEvent.click(screen.getByRole('button', { name: '继续' })); await settle();

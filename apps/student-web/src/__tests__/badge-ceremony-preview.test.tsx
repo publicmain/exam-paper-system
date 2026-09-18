@@ -11,6 +11,7 @@ const ID = 'cmtqgmjl200u6stuq31xrad59';
 function signIn(id = ID, name = '老师测试号') { act(() => { adoptSession('test-token-'+id, { id, name, nickname: '', avatar: null }); }); }
 const tick = (ms: number) => act(() => { vi.advanceTimersByTime(ms); });
 const ready = () => fireEvent.click(screen.getByRole('button', { name: '模型就绪' }));
+const spun = () => fireEvent.click(screen.getByRole('button', { name: '模型旋转结束' }));
 beforeEach(() => { vi.useFakeTimers(); localStorage.clear(); __resetForTest(); vi.stubGlobal('fetch', vi.fn(() => { throw Error('Preview must not make a network request'); })); });
 afterEach(() => { cleanup(); vi.useRealTimers(); vi.unstubAllGlobals(); vi.restoreAllMocks(); __resetForTest(); });
 
@@ -39,7 +40,7 @@ describe('Display-only teacher-account ceremony', () => {
     expect(screen.getByTestId('preview-model').dataset.ceremony).toBe('true');
     expect(screen.queryByTestId('achievement-award')).toBeNull();
     expect(screen.queryByRole('button',{name:'继续'})).toBeNull();
-    ready(); tick(60000);
+    ready(); spun(); tick(60000);
     expect(screen.getByTestId('achievement-preview')).toBeTruthy();
     fireEvent.click(screen.getByRole('button',{name:'继续'}));
     expect(screen.queryByRole('dialog')).toBeNull();
@@ -56,8 +57,8 @@ describe('Display-only teacher-account ceremony', () => {
     fireEvent.click(screen.getByRole('button',{name:'连续体验四级'}));
     for(let tier=1;tier<=4;tier++) {
       expect(screen.getByTestId('preview-model').dataset.asset).toBe('vocabulary-'+tier);
-      ready(); fireEvent.click(screen.getByRole('button',{name:'模型旋转结束'}));
-      tick(4799);
+      ready(); spun();
+      tick(2899);
       expect(screen.getByTestId('preview-model').dataset.asset).toBe('vocabulary-'+tier);
       tick(1);
       if(tier<4) expect(screen.getByTestId('preview-model').dataset.asset).toBe('vocabulary-'+(tier+1));
@@ -69,13 +70,13 @@ describe('Display-only teacher-account ceremony', () => {
   });
   it('manual next cannot leave the previous badge timer advancing the new badge', () => {
     signIn(); render(<BadgeCeremonyPreview />);
-    fireEvent.click(screen.getByRole('button',{name:'连续体验四级'})); ready(); tick(2700);
+    fireEvent.click(screen.getByRole('button',{name:'连续体验四级'})); ready(); spun(); tick(800);
     fireEvent.click(screen.getByRole('button',{name:'下一枚'}));
     expect(screen.getByTestId('preview-model').dataset.asset).toBe('reading-2');
     tick(60000);
     expect(screen.getByTestId('preview-model').dataset.asset).toBe('reading-2');
     expect(screen.queryByRole('button',{name:'下一枚'})).toBeNull();
-    ready(); tick(4800);
+    ready(); spun(); tick(2900);
     expect(screen.getByTestId('preview-model').dataset.asset).toBe('reading-3');
   });
   it.each([0, 1000, 2700, 4700])('skip-all at %i ms cancels the entire queue and its pending timers', (elapsed) => {

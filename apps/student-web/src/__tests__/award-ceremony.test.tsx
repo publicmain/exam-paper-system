@@ -17,9 +17,12 @@ const props = (): AwardCeremonyProps => ({
 });
 const tick = (ms: number) => act(() => { vi.advanceTimersByTime(ms); });
 const ready = () => fireEvent.click(screen.getByRole('button', { name: '模型就绪' }));
+const spun = () => fireEvent.click(screen.getByRole('button', { name: '模型旋转结束' }));
 const scene = () => document.querySelector<HTMLElement>('.award-scene')!;
 
-it('starts staged title, reason and Continue at model readiness rather than during loading', () => {
+// 2026-09-18：文字和「继续」等徽章真正转完再出现。原来按固定时刻推进，手机一卡，
+// 旋转被跳过、文字却照常冒出来，看上去就是「卡一下直接变成最终画面」。
+it('holds every word until the medal has actually finished turning', () => {
   const input = props(); render(<AwardCeremony {...input} />);
   expect(screen.getByTestId('achievement-award').className).toContain('award-dialog');
   expect(screen.getByTestId('achievement-award-scrim').className).toContain('award-scrim');
@@ -32,8 +35,9 @@ it('starts staged title, reason and Continue at model readiness rather than duri
   tick(20000);
   expect(scene().dataset.phase).toBe('0');
   expect(input.onRevealComplete).not.toHaveBeenCalled();
-  ready(); tick(1899); expect(scene().dataset.phase).toBe('0');
-  tick(1);
+  ready(); tick(3000);
+  expect(scene().dataset.phase).toBe('0'); // 还在转，一个字都不出现
+  spun(); tick(0);
   expect(scene().dataset.phase).toBe('1');
   expect(document.querySelector('.award-title')).toHaveAttribute('aria-hidden', 'false');
   expect(document.querySelector('.award-reason')).toHaveAttribute('aria-hidden', 'true');
@@ -47,6 +51,18 @@ it('starts staged title, reason and Continue at model readiness rather than duri
   expect(input.onRevealComplete).not.toHaveBeenCalled();
 });
 
+// 模型慢 / 一直等不到「转完」时不能卡死：6 秒兜底照常往下走。
+it('falls through after six seconds when the spin never reports back', () => {
+  const input = props(); render(<AwardCeremony {...input} />);
+  ready(); tick(5999);
+  expect(scene().dataset.phase).toBe('0');
+  tick(1); tick(0);
+  expect(scene().dataset.phase).toBe('1');
+  tick(800);
+  expect(screen.getByRole('button', { name: '继续' })).toBeTruthy();
+  expect(input.onRevealComplete).not.toHaveBeenCalled();
+});
+
 it('preview is clearly display-only, waits for Continue and never makes requests', () => {
   const input = props(), fetch = vi.fn(); vi.stubGlobal('fetch', fetch);
   render(<AwardCeremony {...input} preview />);
@@ -54,7 +70,7 @@ it('preview is clearly display-only, waits for Continue and never makes requests
   expect(screen.queryByTestId('achievement-award')).toBeNull();
   expect(screen.getByText('颁奖体验 · 不改变收藏')).toBeTruthy();
   expect(screen.getByTestId('mock-medal').dataset.reveal).toBe('true');
-  ready(); tick(60000);
+  ready(); spun(); tick(60000);
   expect(input.onRevealComplete).toHaveBeenCalledOnce();
   expect(input.onContinue).not.toHaveBeenCalled();
   expect(screen.getByTestId('achievement-preview')).toBeTruthy();
@@ -63,16 +79,14 @@ it('preview is clearly display-only, waits for Continue and never makes requests
   expect(fetch).not.toHaveBeenCalled();
 });
 
-it('keeps text readable before notifying the queue and ignores early model completion', () => {
+it('keeps text readable before notifying the queue', () => {
   const input = props(); render(<AwardCeremony {...input} remainingCount={2} />);
-  ready(); fireEvent.click(screen.getByRole('button', { name: '模型旋转结束' }));
-  expect(input.onRevealComplete).not.toHaveBeenCalled();
-  tick(2700);
+  ready(); spun(); tick(800);
   expect(screen.getByRole('button', { name: '下一枚' })).toBeTruthy();
   expect(screen.getByText('还有 2 枚，即将依次呈现')).toBeTruthy();
   tick(2099); expect(input.onRevealComplete).not.toHaveBeenCalled();
   tick(1); expect(input.onRevealComplete).toHaveBeenCalledOnce();
-  ready(); tick(20000);
+  ready(); spun(); tick(20000);
   expect(input.onRevealComplete).toHaveBeenCalledOnce();
 });
 
@@ -105,7 +119,7 @@ it('new badges and repeated openings reset timing, readiness and fallback text',
   expect(scene().dataset.phase).toBe('0');
   expect(screen.getByTestId('mock-medal').dataset.asset).toBe('reading-2');
   tick(6000); expect(input.onRevealComplete).not.toHaveBeenCalled();
-  ready(); tick(2700);
+  ready(); spun(); tick(800);
   expect(screen.getByRole('button', { name: '继续' })).toBeTruthy();
   rerender(<AwardCeremony {...input} preview open={false} />);
   rerender(<AwardCeremony {...input} preview />);
@@ -150,6 +164,7 @@ it('turning reduced motion off live never hides already-revealed copy or Continu
   expect(scene().dataset.phase).toBe('3');
   act(() => { media.matches = false; listeners.forEach(listener => listener()); });
   expect(scene().dataset.reduced).toBe('false');
+  spun(); // 关掉「减少动态」之后，模型这一圈照常转完
   for (const elapsed of [0, 1900, 300, 500]) {
     tick(elapsed);
     expect(scene().dataset.phase).toBe('3');
