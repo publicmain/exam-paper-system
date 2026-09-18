@@ -1,6 +1,6 @@
 import { useEffect, useState, useSyncExternalStore } from 'react';
 import { getState, subscribe, type AuthState } from '../lib/auth-store';
-import { V5_MEDALS, type V5Medal } from '../lib/medal-catalog';
+import { prefetchMedalModel, V5_MEDALS, type V5Medal } from '../lib/medal-catalog';
 import { Button } from '../design/Button';
 import { AwardCeremony } from './AwardCeremony';
 
@@ -21,6 +21,8 @@ export default function BadgeCeremonyPreview() {
   const [preview, setPreview] = useState<Preview | null>(null);
   const [run, setRun] = useState(0);
   useEffect(() => { if (!allowed) setPreview(null); }, [allowed]);
+  // 选中哪一枚就先把模型拉下来：按下「体验颁奖」时才开始下载的话，要空等约两秒。
+  useEffect(() => { if (allowed) prefetchMedalModel(selected); }, [allowed, selected]);
   if (!allowed || auth.status !== 'authenticated') return null;
   const medal = V5_MEDALS.find(item => item.assetId === selected) ?? V5_MEDALS[0];
   const tiered = medal.tier !== null;

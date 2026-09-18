@@ -21,6 +21,22 @@ export const medalKey = (assetId: string) => 'v5_'+assetId.replace(/-/g,'_');
 export const medalByAssetId = (assetId: string) => V5_MEDALS.find(m => m.assetId === assetId);
 export const medalImage = (assetId: string, thumbnail = false) => medalByAssetId(assetId) ? '/medals/v5/'+(thumbnail ? 'thumbs' : 'images')+'/'+assetId+'.png' : '';
 export const medalName = (assetId: string) => medalByAssetId(assetId)?.name ?? '神秘徽章';
+export const medalModel = (assetId: string) => medalByAssetId(assetId) ? '/medals/v5/models/'+assetId+'.glb' : '';
+
+/**
+ * 提前把三维模型拉进浏览器缓存（2026-09-18）。
+ *
+ * 真机实测：点开颁奖后，模型下载 + 解析要 1.9 秒，这段时间画面上只有
+ * 「正在呈现三维细节」，学生会以为卡住了。知道下一枚是哪个的时候先拉一份，
+ * 颁奖时就是从缓存里读。失败无所谓 —— 颁奖照常自己再请求一次。
+ */
+const prefetched = new Set<string>();
+export function prefetchMedalModel(assetId: string) {
+  const url = medalModel(assetId);
+  if (!url || prefetched.has(url) || typeof fetch !== 'function') return;
+  prefetched.add(url);
+  void fetch(url, { cache: 'force-cache', credentials: 'omit' }).catch(() => prefetched.delete(url));
+}
 /** Short celebration copy; full eligibility rules remain in the collection. */
 export function medalAwardReason(assetId: string): string {
   const medal = medalByAssetId(assetId);

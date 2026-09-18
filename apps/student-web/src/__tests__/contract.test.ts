@@ -685,16 +685,26 @@ describe('G1 新端不得出现旧路由与旧身份键', () => {
     expect(hits).toEqual([]);
   });
 
+  // 唯一的例外：medal-catalog.ts 预取徽章三维模型（2026-09-18）。那是静态文件、不带
+  // 任何身份，真机上不预取的话颁奖要空等约两秒模型下载。这里把例外钉死在 /medals/ 上。
   it('**没有绕过 request() 的裸 fetch**（否则清点就是漏的）', () => {
     let total = 0;
+    const PREFETCH = path.join('lib', 'medal-catalog.ts');
     for (const { f, text } of readAll()) {
-      const n = (stripComments(text).match(/\bfetch\s*\(/g) ?? []).length;
+      const body = stripComments(text);
+      const n = (body.match(/\bfetch\s*\(/g) ?? []).length;
       total += n;
-      if (n && !f.endsWith(path.join('lib', 'api.ts'))) {
-        expect.fail(`${path.relative(SRC, f)} 绕过 request() 直接 fetch`);
+      if (!n) continue;
+      if (f.endsWith(path.join('lib', 'api.ts'))) continue;
+      if (f.endsWith(PREFETCH)) {
+        expect(n, 'medal-catalog.ts 只许有预取模型那一处 fetch').toBe(1);
+        expect(body).toMatch(/fetch\(url, \{ cache: 'force-cache', credentials: 'omit' \}\)/);
+        expect(body).toMatch(/'\/medals\/v5\/models\/'/);
+        continue;
       }
+      expect.fail(`${path.relative(SRC, f)} 绕过 request() 直接 fetch`);
     }
-    expect(total, 'api.ts 里应当只有 request() 内部那一处 fetch').toBe(1);
+    expect(total, 'api.ts 的 request() 一处 + medal-catalog.ts 预取一处').toBe(2);
   });
 
   it('**api.ts 之外的任何文件都不得拼身份参数**', () => {

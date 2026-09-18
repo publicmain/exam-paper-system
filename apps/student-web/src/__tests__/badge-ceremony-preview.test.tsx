@@ -12,7 +12,9 @@ function signIn(id = ID, name = '老师测试号') { act(() => { adoptSession('t
 const tick = (ms: number) => act(() => { vi.advanceTimersByTime(ms); });
 const ready = () => fireEvent.click(screen.getByRole('button', { name: '模型就绪' }));
 const spun = () => fireEvent.click(screen.getByRole('button', { name: '模型旋转结束' }));
-beforeEach(() => { vi.useFakeTimers(); localStorage.clear(); __resetForTest(); vi.stubGlobal('fetch', vi.fn(() => { throw Error('Preview must not make a network request'); })); });
+// 预览只许预取静态模型文件，绝不许碰接口。
+const apiCalls = () => (fetch as unknown as { mock: { calls: unknown[][] } }).mock.calls.map(call => String(call[0])).filter(url => !url.startsWith('/medals/'));
+beforeEach(() => { vi.useFakeTimers(); localStorage.clear(); __resetForTest(); vi.stubGlobal('fetch', vi.fn((url: string) => String(url).startsWith('/medals/') ? Promise.resolve({ ok: true }) : Promise.reject(Error('Preview must not call the API: ' + url)))); });
 afterEach(() => { cleanup(); vi.useRealTimers(); vi.unstubAllGlobals(); vi.restoreAllMocks(); __resetForTest(); });
 
 describe('Display-only teacher-account ceremony', () => {
@@ -23,7 +25,7 @@ describe('Display-only teacher-account ceremony', () => {
     expect(canPreviewCeremony({status:'authenticated',profile:{id:'student',name:'老师测试号',nickname:'',avatar:null}})).toBe(false);
     signIn('student','老师测试号'); render(<BadgeCeremonyPreview />);
     expect(screen.queryByRole('button',{name:'体验颁奖'})).toBeNull();
-    expect(fetch).not.toHaveBeenCalled();
+    expect(apiCalls()).toEqual([]);
   });
   it('allows only exact server-profile ID and supports all 16 display choices', () => {
     signIn(ID,'Changed nickname'); render(<BadgeCeremonyPreview />);
@@ -49,7 +51,7 @@ describe('Display-only teacher-account ceremony', () => {
     expect(screen.queryByRole('button',{name:'继续'})).toBeNull();
     fireEvent.click(screen.getByRole('button',{name:'跳过全部动画'}));
     tick(60000); expect(screen.queryByRole('dialog')).toBeNull();
-    expect(JSON.stringify(localStorage)).toBe(stored); expect(fetch).not.toHaveBeenCalled();
+    expect(JSON.stringify(localStorage)).toBe(stored); expect(apiCalls()).toEqual([]);
   });
   // 诊断行只给老师测试号看：真机上要靠它说清卡在哪一步（2026-09-18）。
   it('shows a step-by-step trace in the teacher preview only', () => {
@@ -74,7 +76,7 @@ describe('Display-only teacher-account ceremony', () => {
     tick(60000);
     expect(screen.getByTestId('preview-model').dataset.asset).toBe('vocabulary-4');
     fireEvent.click(screen.getByRole('button',{name:'继续'}));
-    expect(screen.queryByRole('dialog')).toBeNull(); expect(fetch).not.toHaveBeenCalled();
+    expect(screen.queryByRole('dialog')).toBeNull(); expect(apiCalls()).toEqual([]);
   });
   it('manual next cannot leave the previous badge timer advancing the new badge', () => {
     signIn(); render(<BadgeCeremonyPreview />);
@@ -94,7 +96,7 @@ describe('Display-only teacher-account ceremony', () => {
     tick(60000);
     expect(screen.queryByRole('dialog')).toBeNull();
     expect(screen.queryByTestId('preview-model')).toBeNull();
-    expect(fetch).not.toHaveBeenCalled();
+    expect(apiCalls()).toEqual([]);
   });
   it('hidden/crown previews do not pretend to be earned and model fallback remains usable', () => {
     signIn(); render(<BadgeCeremonyPreview />);
@@ -107,7 +109,7 @@ describe('Display-only teacher-account ceremony', () => {
     tick(2700);
     expect(screen.getByRole('button',{name:'继续'})).toBeTruthy();
     fireEvent.click(screen.getByRole('button',{name:'跳过全部动画'}));
-    tick(60000); expect(screen.queryByRole('dialog')).toBeNull(); expect(fetch).not.toHaveBeenCalled();
+    tick(60000); expect(screen.queryByRole('dialog')).toBeNull(); expect(apiCalls()).toEqual([]);
   });
   it('reduced-motion queues retain reading time and do not dismiss the last badge', () => {
     vi.stubGlobal('matchMedia', vi.fn((query: string) => ({ matches: query.includes('prefers-reduced-motion'), media: query, addEventListener: vi.fn(), removeEventListener: vi.fn() })));
@@ -133,6 +135,6 @@ describe('Display-only teacher-account ceremony', () => {
     fireEvent.click(screen.getByRole('button',{name:'连续体验四级'})); ready();
     act(()=>logout()); tick(60000);
     expect(screen.queryByRole('dialog')).toBeNull();
-    expect(fetch).not.toHaveBeenCalled();
+    expect(apiCalls()).toEqual([]);
   });
 });

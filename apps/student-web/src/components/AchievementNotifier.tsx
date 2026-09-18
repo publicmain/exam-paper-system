@@ -3,6 +3,7 @@ import { useLocation, useNavigate } from 'react-router-dom';
 import { Button } from '../design/Button';
 import { Dialog } from '../design/Dialog';
 import { claimAchievementNotices, dismissAchievementNotices, getAchievementNotices, markAchievementViewed, subscribeAchievementNotices, syncAchievementNotices } from '../lib/achievement-notices';
+import { prefetchMedalModel } from '../lib/medal-catalog';
 import { MedalImage } from './MedalViewer';
 import { AwardCeremony } from './AwardCeremony';
 import { ROUTES } from '../routes.contract';
@@ -33,6 +34,8 @@ export default function AchievementNotifier() {
   useEffect(() => {
     if (location.pathname === ROUTES.today || location.pathname === ROUTES.growthBadges) void syncAchievementNotices();
   }, [location.pathname]);
+  // 知道下一枚是哪个就先把模型拉进缓存：否则颁奖打开后要空等模型下载（真机 1.9 秒）。
+  useEffect(() => { for (const notice of notices.slice(0, 2)) if (notice.badge.assetId) prefetchMedalModel(notice.badge.assetId); }, [notices]);
   useEffect(() => {
     attempted.current = false;
     const attempt = () => {
