@@ -49,3 +49,5 @@
 @media (prefers-reduced-motion: reduce) { .award-medal-flip { animation: none; } }
 /* 老师测试专用的诊断行（学生看不到）。 */
 .award-trace { color: #b9ad9c; font-size: .6875rem; line-height: 1.5; margin-top: 10px; word-break: break-all; }
+/* 转完之后的拖动提示（2026-09-18）。 */
+.award-hint { color: #cbbfa9; font-size: .75rem; line-height: 1.6; margin-top: 10px; }

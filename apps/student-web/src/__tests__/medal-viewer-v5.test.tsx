@@ -56,6 +56,19 @@ it('ceremony is transparent and control-free, starts once after ready and ignore
   act(()=>vi.advanceTimersByTime(1));expect(send.mock.calls.filter(([m])=>m.action==='start')).toHaveLength(1);
   message(frame,'complete');message(frame,'complete');expect(done).toHaveBeenCalledOnce();
 });
+// 转完之后把徽章交给手指：动画期间仍然不许拖，免得把正在播的一圈打断（2026-09-18）。
+it('hands the medal over to the finger only after the spin is done', () => {
+  vi.useFakeTimers();
+  render(<MedalViewer assetId="reading-1" reveal ceremony />);
+  const frame=screen.getByTestId('medal-3d-frame') as HTMLIFrameElement;
+  message(frame,'ready');
+  expect(frame.className).toContain('pointer-events-none');
+  expect(frame).toHaveAttribute('aria-hidden','true');
+  message(frame,'complete');
+  expect(frame.className).not.toContain('pointer-events-none');
+  expect(frame).not.toHaveAttribute('aria-hidden');
+  expect(frame.title).toContain('可以拖动转一转');
+});
 // 预热消息一直不来（手机上预热可能要好几秒）也不能干等：2.5 秒后照常开转。
 it('starts the spin even if the warm-up never reports back', () => {
   vi.useFakeTimers();

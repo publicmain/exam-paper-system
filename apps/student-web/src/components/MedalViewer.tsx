@@ -21,11 +21,13 @@ export function MedalViewer({assetId,locked=false,reveal=false,ceremony=false,on
  const callbacks=useRef({onReady,onRevealComplete,onError,onTrace});callbacks.current={onReady,onRevealComplete,onError,onTrace};
  const trace=(step:string)=>callbacks.current.onTrace?.(step);
  const completed=useRef(false);
+ // 转完之后把这块交还给手指：学生可以自己拖着转（2026-09-18）。
+ const [spun,setSpun]=useState(false);
  const initialReduced=useRef(reduced);
  const playing=reveal&&!locked;
  const src='/medals/v5/viewer.html?'+new URLSearchParams({id:assetId,locked:locked?'1':'0',reveal:playing?'1':'0',reduced:initialReduced.current?'1':'0',...(ceremony?{ceremony:'1'}:{})});
  const send=(action:string,value:unknown=true)=>frame.current?.contentWindow?.postMessage({type:'equistar-medal-control',action,value},window.location.origin);
- const complete=()=>{if(playing&&!completed.current){completed.current=true;callbacks.current.onRevealComplete?.();}};
+ const complete=()=>{if(playing&&!completed.current){completed.current=true;setSpun(true);callbacks.current.onRevealComplete?.();}};
  useEffect(()=>{
   const media=window.matchMedia?.('(prefers-reduced-motion: reduce)');
   const change=()=>setSystemReduced(media?.matches??false);
@@ -33,7 +35,7 @@ export function MedalViewer({assetId,locked=false,reveal=false,ceremony=false,on
  },[]);
  useEffect(()=>{send('reduce',reduced);},[reduced]);
  useEffect(()=>{
-  completed.current=false;setPhase('loading');
+  completed.current=false;setSpun(false);setPhase('loading');
   let ready=false,failed=false,startTimer:number|undefined;
   const fail=()=>{if(failed)return;failed=true;window.clearTimeout(startTimer);setPhase('error');trace('超时/失败');callbacks.current.onError?.();};
   // 颁奖态的「就绪」现在还包含模型预热（着色器编译 / 贴图上传），慢机器上会多花一两秒，
@@ -68,7 +70,7 @@ export function MedalViewer({assetId,locked=false,reveal=false,ceremony=false,on
        只有降级（模型失败 / 只看图片）才显示图片。 */}
    {(ceremony?(phase==='error'||staticOnly):(phase!=='ready'||staticOnly))&&<MedalImage assetId={assetId} locked={locked} className={'mx-auto h-full w-full object-contain'+(ceremony&&playing?' award-medal-flip':'')}/>}
    {/* Match the embedded root: a dark/light mismatch forces an opaque UA canvas. */}
-   {!staticOnly&&phase!=='error'&&<iframe key={src+':'+attempt} ref={frame} src={src} style={ceremony?{colorScheme:'light',background:'transparent'}:undefined} tabIndex={ceremony?-1:undefined} aria-hidden={ceremony||undefined} title={(title??medalName(assetId))+' · '+(locked?'未解锁灰色三维':playing?'颁奖动画':'三维藏品')} className={'absolute inset-0 h-full w-full border-0 '+(ceremony?'pointer-events-none ':'')+(phase==='ready'?'':'invisible')} sandbox="allow-scripts allow-same-origin" referrerPolicy="no-referrer" onLoad={()=>send('reduce',reducedRef.current)} data-testid="medal-3d-frame"/>}
+   {!staticOnly&&phase!=='error'&&<iframe key={src+':'+attempt} ref={frame} src={src} style={ceremony?{colorScheme:'light',background:'transparent'}:undefined} tabIndex={ceremony?-1:undefined} aria-hidden={(ceremony&&!spun)||undefined} title={(title??medalName(assetId))+' · '+(locked?'未解锁灰色三维':playing&&!spun?'颁奖动画':'三维藏品，可以拖动转一转')} className={'absolute inset-0 h-full w-full border-0 '+(ceremony&&!spun?'pointer-events-none ':'')+(phase==='ready'?'':'invisible')} sandbox="allow-scripts allow-same-origin" referrerPolicy="no-referrer" onLoad={()=>send('reduce',reducedRef.current)} data-testid="medal-3d-frame"/>}
    {phase==='loading'&&<span className={ceremony?'award-loading':'absolute inset-x-2 bottom-2 text-center text-xs text-award-muted'} role="status">正在呈现三维细节</span>}
   </div>
   {phase==='error'&&!staticOnly&&!ceremony&&<div className="mt-2 px-3 text-footnote" role="status">已改为静态展示，收藏不会受影响。<Button className="!text-award-ink hover:!bg-award-muted/15 active:!bg-award-muted/20" size="sm" variant="plain" onClick={()=>{setPhase('loading');setAttempt(n=>n+1);}}>重试三维</Button><Button className="!text-award-ink hover:!bg-award-muted/15 active:!bg-award-muted/20" size="sm" variant="plain" onClick={()=>setStaticOnly(true)}>只看图片</Button></div>}

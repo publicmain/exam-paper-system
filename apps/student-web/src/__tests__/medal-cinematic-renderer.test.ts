@@ -167,6 +167,18 @@ describe('cinematic 3D coin ceremony', () => {
 
   // 一直拿不到画面帧的设备（真机上表现为「徽章不转」）：连续四帧都慢就改按时间推进，
   // 让它按时结束，而不是僵在原地等帧。单次卡顿不算 —— 上一条用例守着这一点。
+  // 转完之后学生可以自己拖着转；动画期间的拖动必须被挡掉。
+  it('opens dragging only once the ceremony has finished', () => {
+    const h = harness();
+    h.run('beginCinematicCeremony()');
+    expect(h.document.documentElement.dataset.ceremonyDone).toBe('false');
+    h.run('finishCinematicCeremony()');
+    expect(h.document.documentElement.dataset.ceremonyDone).toBe('true');
+    // 指针处理器在颁奖模式下也要绑上，靠这道判断挡住动画期间的拖动
+    expect(renderer).toContain('s.addEventListener("pointerdown",t=>{if(ceremonyMode&&!ceremonyCompleted)return;');
+    expect(html).toContain('[data-ceremony="true"][data-ceremony-done="true"] canvas{pointer-events:auto;cursor:grab}');
+  });
+
   it('a device that keeps missing frames finishes on time instead of freezing', () => {
     const h = harness(); h.run('beginCinematicCeremony()');
     let at = 300;
@@ -240,7 +252,8 @@ describe('cinematic 3D coin ceremony', () => {
     expect(html).toContain('[data-ceremony="true"] .reveal-progress');
     expect(renderer).toContain('yt.setClearColor(0,0)');
     expect(renderer).toContain('!ceremonyMode&&h0&&requestAnimationFrame(Xa)');
-    expect(renderer).toContain('function _0(){if(ceremonyMode)return;');
+    // 2026-09-18：颁奖模式也绑指针处理器了（转完才放行），这里只守「拖动不改变收藏页的交互」
+    expect(renderer).toContain('s.addEventListener("pointerdown",t=>{if(ceremonyMode&&!ceremonyCompleted)return;');
     expect(renderer).toContain('s.origin!==location.origin||s.source!==parent||s.data?.type!=="equistar-medal-control"');
   });
 

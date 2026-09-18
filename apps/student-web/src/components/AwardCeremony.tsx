@@ -94,6 +94,7 @@ function ActiveAwardCeremony({ badge, remainingCount, onContinue, onSkipAll, onR
         <div className="award-actions">
           <button type="button" className="award-continue" hidden={phase < 3} onClick={onContinue}>{remainingCount ? '下一枚' : '继续'}</button>
           {remainingCount > 0 && phase >= 3 && <p className="award-queue" role="status">还有 {remainingCount} 枚，即将依次呈现</p>}
+          {spun && !failed && remainingCount === 0 && phase >= 3 && <p className="award-hint">用手指拖动徽章，可以转着看</p>}
           {failed && <p className="award-fallback" role="status">{preview ? '已改为图片预览，不改变收藏。' : '已改为图片展示，徽章已保存。'}</p>}
           {debug && <p className="award-trace" data-testid="award-trace">诊断：{trace.length ? trace.join(' · ') : '等待模型'}</p>}
         </div>
