@@ -59,6 +59,24 @@ it('ceremony falls back within four seconds and does not strand students behind 
   expect(screen.queryByTestId('medal-3d-frame')).toBeNull();expect(screen.getByRole('img')).toBeTruthy();
   expect(screen.queryByRole('button',{name:'重试三维'})).toBeNull();
 });
+it('ceremony iframe explicitly matches the child light color scheme even in a dark parent, without overriding collection viewers', () => {
+  const previous = document.documentElement.style.colorScheme;
+  document.documentElement.style.colorScheme = 'dark';
+  try {
+    const { rerender } = render(<MedalViewer assetId="reading-1" reveal ceremony />);
+    const frame = screen.getByTestId('medal-3d-frame') as HTMLIFrameElement;
+    expect(frame.style.colorScheme).toBe('light');
+    expect(frame.src).toContain('ceremony=1');
+    message(frame, 'ready');
+    expect(frame.style.colorScheme).toBe('light');
+    rerender(<MedalViewer assetId="reading-1" />);
+    const ordinaryFrame = screen.getByTestId('medal-3d-frame') as HTMLIFrameElement;
+    expect(ordinaryFrame.style.colorScheme).toBe('');
+    expect(ordinaryFrame.src).not.toContain('ceremony=1');
+  } finally {
+    document.documentElement.style.colorScheme = previous;
+  }
+});
 it('unmount cancels a pending ceremony start', () => {
   vi.useFakeTimers();const {unmount}=render(<MedalViewer assetId="reading-1" reveal ceremony />);
   const frame=screen.getByTestId('medal-3d-frame') as HTMLIFrameElement;

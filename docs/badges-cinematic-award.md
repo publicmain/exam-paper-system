@@ -18,3 +18,9 @@
 自动化覆盖阶段顺序、单次开始、同源且对应 iframe 消息校验、过期事件、降级、最后等待、四级独立队列、零预览写入、普通对话框回归。浏览器检查使用本机隔离假数据和真正 WebGL，不冒充真实学生任务；覆盖 320×568、390×844、844×390、1024×768 视口以及 16 枚模型各旋转位置。桌面浏览器视口检查不等同于已在实体 iPhone/iPad Safari 上测试。
 
 生产发布不需要新增数据库迁移、密钥、付费接口或改动生产数据。
+
+## 深色模式透明背景回归
+
+首次发布后用户 iPhone 截图出现白色矩形并遮标题。已在桌面 Chromium 的深色模式精确复现，不应归咎于 iPhone 本身。原因：外层 iframe 继承 App 的 dark 色彩模式，内层 root 默认 light；[CSS Color Adjustment §2.2](https://www.w3.org/TR/css-color-adjust-1/#color-scheme-effect) 要求这种不一致的嵌入文档使用不透明 Canvas，即使 CSS 背景和 WebGL 都透明。
+
+修复仅把颁奖 iframe 及其内层 root 显式匹配为 light，保持实际背景透明；不改变 App 深浅偏好、徽章配色或普通收藏详情。标题另设独立层级，避免被模型容器遮挡。回归必须在系统深色和 App 手动深色模式检查真实截图；只断言 background 为 transparent 不足以发现这类问题。

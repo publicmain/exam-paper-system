@@ -135,4 +135,17 @@ describe('cinematic 3D coin ceremony', () => {
     expect(renderer).toContain('function _0(){if(ceremonyMode)return;');
     expect(renderer).toContain('s.origin!==location.origin||s.source!==parent||s.data?.type!=="equistar-medal-control"');
   });
+
+  it('matches the parent ceremony iframe light scheme without changing the ordinary viewer scheme', () => {
+    // A dark iframe element embedding a light child can get an opaque browser
+    // canvas despite transparent CSS. Both sides must explicitly agree.
+    const withoutComments = html.replace(/\/\*[\s\S]*?\*\//g, '');
+    const lightRules = [...withoutComments.matchAll(/([^{}]+)\{([^{}]*)\}/g)]
+      .filter((match) => /color-scheme\s*:\s*light\s*(?:;|$)/.test(match[2]));
+    expect(lightRules.length).toBeGreaterThan(0);
+    expect(lightRules.some((match) => match[1].trim() === 'html[data-ceremony="true"]')).toBe(true);
+    for (const rule of lightRules) {
+      expect(rule[1].split(',').every(selector => selector.includes('[data-ceremony="true"]'))).toBe(true);
+    }
+  });
 });
