@@ -17,3 +17,27 @@ export function isTeachingDay(now: Date = new Date()): boolean {
 }
 
 export const WEEKEND_VOCAB_NOTE = '周六周日不推新词，周一再来';
+
+/**
+ * 阅读课 16:30 开始（叶老师 2026-09-21 定）。教学日 16:30 以前，首页「今日阅读」
+ * 卡上显示一条醒目提示，请学生上课时再做。只是提示，不锁任何东西。
+ */
+export const READING_CLASS_START_MIN = 16 * 60 + 30;
+
+/** 新加坡时间当天第几分钟 */
+function sgtMinuteOfDay(now: Date): number {
+  const sgt = new Date(now.getTime() + 8 * 60 * 60 * 1000);
+  return sgt.getUTCHours() * 60 + sgt.getUTCMinutes();
+}
+
+export function isBeforeReadingClass(now: Date = new Date()): boolean {
+  return isTeachingDay(now) && sgtMinuteOfDay(now) < READING_CLASS_START_MIN;
+}
+
+/** 离今天 16:30 还有多少毫秒（已经过了 / 周末返回 null），提示到点自动消失用。 */
+export function msUntilReadingClass(now: Date = new Date()): number | null {
+  if (!isBeforeReadingClass(now)) return null;
+  const sgt = new Date(now.getTime() + 8 * 60 * 60 * 1000);
+  const msIntoDay = ((sgt.getUTCHours() * 60 + sgt.getUTCMinutes()) * 60 + sgt.getUTCSeconds()) * 1000 + sgt.getUTCMilliseconds();
+  return READING_CLASS_START_MIN * 60 * 1000 - msIntoDay;
+}

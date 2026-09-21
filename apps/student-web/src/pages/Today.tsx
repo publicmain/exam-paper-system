@@ -49,7 +49,7 @@ import { getState, handleAuthFailure } from '../lib/auth-store';
 import { readToken } from '../lib/identity';
 import { levelLabel } from '../lib/levels';
 import { NEXT_ACTION_ROUTE, ROUTES, type NextActionKind } from '../routes.contract';
-import { isTeachingDay } from '../lib/teaching-day';
+import { isBeforeReadingClass, isTeachingDay, msUntilReadingClass } from '../lib/teaching-day';
 import { Badge, type BadgeTone } from '../design/Badge';
 import { Button } from '../design/Button';
 import { Dialog } from '../design/Dialog';
@@ -83,8 +83,13 @@ export type TaskView = {
   detail: string;
   /** 进度条（有真实分母时才给） */
   progress?: { value: number; max: number };
+  /** 卡片上的醒目提示（目前只有阅读课前的「16:30 上课时再做」） */
+  notice?: string;
   action: TaskAction;
 };
+
+/** 阅读课 16:30 开始（叶老师 2026-09-21）：之前在阅读卡上提示，只提示、不锁。 */
+export const READING_CLASS_NOTICE = '16:30 上课时再做今天的阅读';
 
 const TASK_META: Record<TaskKey, { title: string; icon: IconName }> = {
   reading: { title: '今日阅读', icon: 'reading' },
@@ -110,7 +115,7 @@ const READING_REASON: Record<string, string> = {
  * `/lesson/today` 的阅读段推断。动作按 `/lesson/today` 决定：今天的课还没开始才走
  * start（只建阅读答卷），已开始就直接去阅读页 / 结果页。
  */
-export function readingTaskView(lesson: LessonToday, home: HomeReadingTask | undefined): TaskView {
+export function readingTaskView(lesson: LessonToday, home: HomeReadingTask | undefined, beforeClass = false): TaskView {
   const seg = lesson.segments.find((s): s is ReadSegment => s.key === 'read') ?? null;
   const kind = lesson.nextAction.kind;
   const base = { key: 'reading' as const, ...TASK_META.reading };
@@ -158,9 +163,11 @@ export function readingTaskView(lesson: LessonToday, home: HomeReadingTask | und
       action: { kind: 'navigate', label: '看结果', path: ROUTES.readingResult },
     };
   }
+  const notice = beforeClass ? { notice: READING_CLASS_NOTICE } : {};
   if (state === 'in_progress') {
     return {
       ...base,
+      ...notice,
       applicable: true,
       done: false,
       badge: { tone: 'accent', text: '做了一部分' },
@@ -171,6 +178,7 @@ export function readingTaskView(lesson: LessonToday, home: HomeReadingTask | und
   const size = [seg?.questionCount ? `${seg.questionCount} 题` : '', seg?.typicalMinutes ? `约 ${seg.typicalMinutes} 分钟` : ''].filter(Boolean).join('，');
   return {
     ...base,
+    ...notice,
     applicable: true,
     done: false,
     badge: { tone: 'neutral', text: '还没开始' },
@@ -450,8 +458,17 @@ export default function TodayPage() {
   const ovData = ov.s === 'ready' ? ov.data : null;
   const home = ovData?.home;
 
+  // 阅读课前的提示：16:30 一到自动消失（页面一直开着也一样）
+  const [beforeClass, setBeforeClass] = useState(() => isBeforeReadingClass());
+  useEffect(() => {
+    const ms = msUntilReadingClass();
+    if (ms == null) return;
+    const timer = window.setTimeout(() => setBeforeClass(false), ms + 500);
+    return () => window.clearTimeout(timer);
+  }, []);
+
   const cards = useMemo(() => {
-    const reading: TaskView | Part<never>['s'] = lesson.s === 'ready' ? readingTaskView(lesson.data, home?.reading) : lesson.s;
+    const reading: TaskView | Part<never>['s'] = lesson.s === 'ready' ? readingTaskView(lesson.data, home?.reading, beforeClass) : lesson.s;
     const words: TaskView | Part<never>['s'] = ovData ? wordsTaskView(ovData) : ov.s;
     const test: TaskView | Part<never>['s'] = ovData ? testTaskView(ovData) : ov.s;
     return [
@@ -459,7 +476,7 @@ export default function TodayPage() {
       { key: 'words' as const, view: words },
       { key: 'test' as const, view: test },
     ];
-  }, [lesson, ovData, ov.s, home]);
+  }, [lesson, ovData, ov.s, home, beforeClass]);
 
   const views = cards.map((c) => c.view).filter((v): v is TaskView => typeof v !== 'string');
   const anyError = lesson.s === 'error' || ov.s === 'error';
@@ -790,6 +807,16 @@ function TaskCard({ view, primary, busy, error, onAction }: { view: TaskView; pr
           {view.badge.text}
         </Badge>
       </div>
+      {view.notice ? (
+        <p
+          role="note"
+          data-testid={`task-${view.key}-notice`}
+          className="mb-3 flex items-center gap-2 rounded-[10px] bg-warning-soft px-3 py-2 text-callout font-semibold text-warning"
+        >
+          <Icon name="clock" size={18} />
+          <span>{view.notice}</span>
+        </p>
+      ) : null}
       <p data-testid={`task-${view.key}-detail`} className="mb-3 text-callout text-ink-2">
         {view.detail}
       </p>
