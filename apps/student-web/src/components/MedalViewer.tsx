@@ -9,7 +9,7 @@ export function MedalImage({ assetId, locked=false, thumbnail=false, className='
   return <img src={medalImage(assetId,thumbnail)} alt={label} width={thumbnail?320:880} height={thumbnail?320:880} loading={thumbnail?'lazy':'eager'} decoding="async" onError={()=>setFailed(true)} className={className+(locked?' grayscale opacity-50':'')} />;
 }
 /** One lazy renderer. The collection remains interactive; ceremonies are presentation-only. */
-export function MedalViewer({assetId,locked=false,reveal=false,ceremony=false,hold=false,onReady,onRevealComplete,onError,onTrace,title,height}:{assetId:string;locked?:boolean;reveal?:boolean;ceremony?:boolean;hold?:boolean;onReady?:()=>void;onRevealComplete?:()=>void;onError?:()=>void;onTrace?:(step:string)=>void;title?:string;height?:number}) {
+export function MedalViewer({assetId,locked=false,reveal=false,ceremony=false,hold=false,onReady,onRevealComplete,onError,title,height}:{assetId:string;locked?:boolean;reveal?:boolean;ceremony?:boolean;hold?:boolean;onReady?:()=>void;onRevealComplete?:()=>void;onError?:()=>void;title?:string;height?:number}) {
  const frame=useRef<HTMLIFrameElement>(null);
  const [systemReduced,setSystemReduced]=useState(()=>window.matchMedia?.('(prefers-reduced-motion: reduce)').matches??false);
  const [manualReduced,setManualReduced]=useState(false);
@@ -18,8 +18,7 @@ export function MedalViewer({assetId,locked=false,reveal=false,ceremony=false,ho
  const [staticOnly,setStaticOnly]=useState(false);
  const reduced=systemReduced||manualReduced;
  const reducedRef=useRef(reduced); reducedRef.current=reduced;
- const callbacks=useRef({onReady,onRevealComplete,onError,onTrace});callbacks.current={onReady,onRevealComplete,onError,onTrace};
- const trace=(step:string)=>callbacks.current.onTrace?.(step);
+ const callbacks=useRef({onReady,onRevealComplete,onError});callbacks.current={onReady,onRevealComplete,onError};
  const completed=useRef(false);
  // 转完之后把这块交还给手指：学生可以自己拖着转（2026-09-18）。
  const [spun,setSpun]=useState(false);
@@ -32,7 +31,7 @@ export function MedalViewer({assetId,locked=false,reveal=false,ceremony=false,ho
   window.clearTimeout(startTimer.current);
   if(holdRef.current){pending.current=delay;return;}
   pending.current=null;
-  startTimer.current=window.setTimeout(()=>{callbacks.current.onTrace?.('发开转');send('start');},delay);
+  startTimer.current=window.setTimeout(()=>send('start'),delay);
  };
  // 落幕后徽章要淡入 0.75 秒，转圈等它完全显形再开始 —— 一边淡入一边转会糊成一团。
  useEffect(()=>{if(!hold&&pending.current!=null)spinAfter(Math.max(pending.current,700));},[hold]);
@@ -50,7 +49,7 @@ export function MedalViewer({assetId,locked=false,reveal=false,ceremony=false,ho
  useEffect(()=>{
   completed.current=false;setSpun(false);setPhase('loading');
   let ready=false,failed=false;
-  const fail=()=>{if(failed)return;failed=true;window.clearTimeout(startTimer.current);pending.current=null;setPhase('error');trace('超时/失败');callbacks.current.onError?.();};
+  const fail=()=>{if(failed)return;failed=true;window.clearTimeout(startTimer.current);pending.current=null;setPhase('error');callbacks.current.onError?.();};
   // 等待上限：6 秒对真实网络太紧 —— 真机诊断量到模型下载 4.9 秒，稍慢就「超时/失败」
   // 降级成一张静态图（2026-09-21 用户截图）。开场白已经把这段时间填上了，宁可多等
   // 也不要给学生一张不会转的图。
@@ -60,7 +59,6 @@ export function MedalViewer({assetId,locked=false,reveal=false,ceremony=false,ho
    // 徽章一加载好就先露面（ready），模型预热在那之后做（warm）：预热在手机上可能要
    // 几秒，压在 ready 前面会让学生只看到「正在呈现三维细节」然后直接跳到最终画面
    // （2026-09-18 真机）。转起来等 warm；等不到就 2.5 秒后照常开转。
-   trace(String(event.data.status));
    if(event.data.status==='ready'&&!ready&&!failed){
     ready=true;window.clearTimeout(timeout);setPhase('ready');send('reduce',reducedRef.current);callbacks.current.onReady?.();
     if(ceremony&&playing)spinAfter(reducedRef.current?0:2500);
