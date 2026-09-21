@@ -3,6 +3,7 @@ import { EnglishLevel } from '@prisma/client';
 import { PrismaService } from '../common/prisma.service';
 import { canActOnClass } from '../common/roles';
 import { RealtimeTranslationService, type TranslationResult } from '../vocab/realtime-translation.service';
+import { isSchoolBlockedHeadword, schoolGlossOverride, withoutBlockedWords } from './school-safe-words';
 import { LEVEL_WORD_POLICY } from './level-policy';
 import {
   OFFICIAL_WORDLIST_META,
@@ -533,7 +534,8 @@ export class VocabularyV2Service {
     const q = query.trim().toLowerCase();
     if (!q) return { query: q, items: [] };
     const safeLimit = Math.max(1, Math.min(50, Math.floor(limit)));
-    const official = searchOfficialWords(q, safeLimit);
+    // 学生主动搜索也走校园闸门；文章里点出来的词走 exactOfficial，不受限。
+    const official = withoutBlockedWords(searchOfficialWords(q, safeLimit));
     const stored = await this.prisma.vocabularyLexeme.findMany({
       where: { headword: { contains: q, mode: 'insensitive' } },
       take: safeLimit,
@@ -1318,11 +1320,24 @@ export class VocabularyV2Service {
       include: { senses: { include: { contexts: true } } },
     });
     const existingReady = existingLexeme?.senses.find((sense) => sense.qualityStatus === 'ready');
-    if (existingLexeme && existingReady) return { lexeme: existingLexeme, sense: existingReady };
+    const gloss = schoolGlossOverride(word.headword);
+    if (existingLexeme && existingReady) {
+      // 人工释义是后加的，已经建好的 sense 也要跟上（词典堆砌的义项第一条
+      // 常跑偏，学生卡片上只显示前面几个字）。
+      if (gloss && existingReady.translation !== gloss) {
+        const corrected = await this.prisma.vocabularySense.update({
+          where: { id: existingReady.id },
+          data: { translation: gloss, qualityStatus: 'ready' },
+          include: { contexts: true },
+        });
+        return { lexeme: existingLexeme, sense: corrected };
+      }
+      return { lexeme: existingLexeme, sense: existingReady };
+    }
 
     const dict = await this.prisma.dictEntry.findUnique({ where: { word: word.headword } });
     const pos = canonicalPos(word.pos || dict?.pos);
-    const translation = translationForPos(dict?.translation, pos) || await this.translator.translate(word.headword) || '';
+    const translation = gloss || translationForPos(dict?.translation, pos) || await this.translator.translate(word.headword) || '';
     const lexeme = await this.prisma.vocabularyLexeme.upsert({
       where: { listName_listVersion_headword: { listName: word.list, listVersion: version, headword: word.headword } },
       create: {
@@ -2363,7 +2378,10 @@ export class VocabularyV2Service {
       const startRank = Math.max(1, configuredStart, cursor?.nextRank ?? configuredStart);
       const all = officialList(listName);
       for (let offset = startRank - 1; offset < all.length; offset += BATCH) {
-        const chunk = all.slice(offset, offset + BATCH).filter((word) => !excluded.has(headwordKey(word.headword)));
+        // 换词和每日推送走同一道校园闸门：否则点「换一个」可能换出被挡的词。
+        const chunk = all
+          .slice(offset, offset + BATCH)
+          .filter((word) => !excluded.has(headwordKey(word.headword)) && !isSchoolBlockedHeadword(word.headword));
         if (!chunk.length) continue;
         const lexemes = await this.prisma.vocabularyLexeme.findMany({
           where: { listName, listVersion, headword: { in: chunk.map((word) => word.headword) } },

@@ -1,4 +1,5 @@
 /** Business rules shared by the unified notebook, daily learning and tests. */
+import { isSchoolBlockedHeadword } from './school-safe-words';
 
 export type DailyItemState = { status: string };
 
@@ -151,6 +152,9 @@ export function collectUnseenFromList<T extends { headword: string; rank: number
   for (let index = from - 1; index < list.length && picked.length < want; index += 1) {
     const word = list[index];
     if (!word || seen.has(headwordKey(word.headword))) continue;
+    // 校园内容闸门：词表是通用语料排名，不是中学教材。跳过的词不占名额，
+    // 游标照常越过去（下面按选中词的 rank+1 推进），所以不会卡在这里。
+    if (isSchoolBlockedHeadword(word.headword)) continue;
     picked.push(word);
   }
   return { picked, exhausted: from > list.length || picked.length < want };
