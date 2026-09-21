@@ -64,6 +64,8 @@
 .award-intro-2 { font-size: .9375rem; color: #d6c9b4; letter-spacing: .06em; }
 .award-scene[data-beat='1'] .award-intro-1, .award-scene[data-beat='2'] .award-intro-1, .award-scene[data-beat='3'] .award-intro-1 { opacity: 1; transform: none; }
 .award-scene[data-beat='2'] .award-intro-2, .award-scene[data-beat='3'] .award-intro-2 { opacity: 1; transform: none; }
-.award-scene[data-curtain='true'] .award-medal-viewer { opacity: 0; }
-.award-medal-viewer { transition: opacity .45s ease; }
+.award-scene[data-curtain='true'] .award-medal-viewer { opacity: 0; transform: scale(.94); }
+.award-scene[data-curtain='false'] .award-intro { opacity: 0; transform: translateY(-6px); }
+.award-medal-viewer { transition: opacity .75s ease-out, transform .75s ease-out; }
+.award-intro { transition: opacity .35s ease, transform .35s ease; }
 @media (prefers-reduced-motion: reduce) { .award-intro span, .award-medal-viewer { transition: none; } }

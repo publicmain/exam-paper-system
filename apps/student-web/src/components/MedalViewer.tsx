@@ -34,7 +34,8 @@ export function MedalViewer({assetId,locked=false,reveal=false,ceremony=false,ho
   pending.current=null;
   startTimer.current=window.setTimeout(()=>{callbacks.current.onTrace?.('发开转');send('start');},delay);
  };
- useEffect(()=>{if(!hold&&pending.current!=null)spinAfter(pending.current);},[hold]);
+ // 落幕后徽章要淡入 0.75 秒，转圈等它完全显形再开始 —— 一边淡入一边转会糊成一团。
+ useEffect(()=>{if(!hold&&pending.current!=null)spinAfter(Math.max(pending.current,700));},[hold]);
  const initialReduced=useRef(reduced);
  const playing=reveal&&!locked;
  const src='/medals/v5/viewer.html?'+new URLSearchParams({id:assetId,locked:locked?'1':'0',reveal:playing?'1':'0',reduced:initialReduced.current?'1':'0',...(ceremony?{ceremony:'1'}:{})});

@@ -65,8 +65,11 @@ it('covers the model download with an opening line, then hands over to the medal
   expect(screen.getByTestId('mock-medal').dataset.hold).toBe('true');
   tick(1);
   expect(scene().dataset.curtain).toBe('false');
-  expect(screen.queryByTestId('award-intro')).toBeNull();
   expect(screen.getByTestId('mock-medal').dataset.hold).toBe('false');
+  // 文字先淡出 0.35 秒再撤走，徽章同时淡入 —— 不是一下子换画面（2026-09-21）
+  expect(screen.getByTestId('award-intro')).toBeTruthy();
+  tick(400);
+  expect(screen.queryByTestId('award-intro')).toBeNull();
 });
 
 it('keeps the opening line up while a slow model is still loading', () => {

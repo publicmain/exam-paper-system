@@ -57,6 +57,13 @@ function ActiveAwardCeremony({ badge, remainingCount, onContinue, onSkipAll, onR
   }, [reduced]);
   // 开场白念完 **且** 模型就绪，才让徽章露面并开转。
   const curtain = !(beat >= 3 && (started || failed));
+  // 落幕之后文字还要留 0.35 秒淡出，别一下子消失、徽章一下子冒出来（2026-09-21）。
+  const [introGone, setIntroGone] = useState(false);
+  useEffect(() => {
+    if (curtain) { setIntroGone(false); return; }
+    const timer = window.setTimeout(() => setIntroGone(true), 400);
+    return () => window.clearTimeout(timer);
+  }, [curtain]);
   // 文字等真正转完再出现（2026-09-18）：原来按固定时刻推进，手机一卡，
   // 旋转还没走完标题就先冒出来了。兜底：转完的消息 6 秒没到（模型慢或降级）也照常往下走。
   useEffect(() => {
@@ -95,8 +102,8 @@ function ActiveAwardCeremony({ badge, remainingCount, onContinue, onSkipAll, onR
       <div className="award-composition">
         <div className="award-medal-wrap">
           {/* 开场白：盖住模型下载的那一两秒，让它成为仪式的一部分而不是等待。 */}
-          {curtain && <p className="award-intro" data-testid="award-intro" role="status">
-            <span className="award-intro-1">{preview ? '颁奖体验' : '恭喜你'}</span>
+          {!introGone && <p className="award-intro" data-testid="award-intro" role="status">
+            <span className="award-intro-1">恭喜你</span>
             <span className="award-intro-2">解锁了一枚新徽章</span>
           </p>}
           <div className="award-halo" aria-hidden="true" />
