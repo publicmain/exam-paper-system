@@ -103,8 +103,8 @@ function ActiveAwardCeremony({ badge, remainingCount, onContinue, onSkipAll, onR
         <div className="award-medal-wrap">
           {/* 开场白：盖住模型下载的那一两秒，让它成为仪式的一部分而不是等待。 */}
           {!introGone && <p className="award-intro" data-testid="award-intro" role="status">
-            <span className="award-intro-1">恭喜你</span>
-            <span className="award-intro-2">解锁了一枚新徽章</span>
+            <span className="award-intro-1">做得好</span>
+            <span className="award-intro-2">收下你的新徽章</span>
           </p>}
           <div className="award-halo" aria-hidden="true" />
           <div className="award-motes" aria-hidden="true">{MOTES.map(([x,y,delay], index) => <i key={index} style={{ '--x': `${x}%`, '--y': `${y}%`, '--delay': `${delay}ms` } as CSSProperties} />)}</div>

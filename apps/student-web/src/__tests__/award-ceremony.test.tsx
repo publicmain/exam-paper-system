@@ -55,8 +55,8 @@ it('holds every word until the medal has actually finished turning', () => {
 // 最少念 1.2 秒（已缓存也不会一闪而过），模型就绪就接上（不为了演而多等）。
 it('covers the model download with an opening line, then hands over to the medal', () => {
   render(<AwardCeremony {...props()} />);
-  expect(screen.getByTestId('award-intro').textContent).toContain('恭喜你');
-  expect(screen.getByTestId('award-intro').textContent).toContain('解锁了一枚新徽章');
+  expect(screen.getByTestId('award-intro').textContent).toContain('做得好');
+  expect(screen.getByTestId('award-intro').textContent).toContain('收下你的新徽章');
   expect(scene().dataset.curtain).toBe('true');
   expect(screen.getByTestId('mock-medal').dataset.hold).toBe('true'); // 幕没落，不许开转
   ready(); // 模型很快就绪也要把话说完
