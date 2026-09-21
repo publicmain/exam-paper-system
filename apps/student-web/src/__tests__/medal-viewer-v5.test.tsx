@@ -86,10 +86,10 @@ it('starts the spin even if the warm-up never reports back', () => {
   act(()=>vi.advanceTimersByTime(2499));expect(send.mock.calls.filter(([m])=>m.action==='start')).toHaveLength(0);
   act(()=>vi.advanceTimersByTime(1));expect(send.mock.calls.filter(([m])=>m.action==='start')).toHaveLength(1);
 });
-// 6 秒而不是 4 秒：颁奖态的「就绪」现在还包含模型预热（2026-09-18）。
-it('ceremony falls back within six seconds and does not strand students behind a failed model', () => {
+// 12 秒：真机上模型下载量到 4.9 秒，6 秒会把正常的慢网络误判成失败（2026-09-21）。
+it('ceremony falls back within twelve seconds and does not strand students behind a failed model', () => {
   vi.useFakeTimers();const error=vi.fn();render(<MedalViewer assetId="crown" reveal ceremony onError={error} />);
-  act(()=>vi.advanceTimersByTime(5999));expect(error).not.toHaveBeenCalled();
+  act(()=>vi.advanceTimersByTime(11999));expect(error).not.toHaveBeenCalled();
   act(()=>vi.advanceTimersByTime(1));expect(error).toHaveBeenCalledOnce();
   expect(screen.queryByTestId('medal-3d-frame')).toBeNull();expect(screen.getByRole('img')).toBeTruthy();
   expect(screen.queryByRole('button',{name:'重试三维'})).toBeNull();

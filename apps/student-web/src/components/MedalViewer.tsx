@@ -50,9 +50,10 @@ export function MedalViewer({assetId,locked=false,reveal=false,ceremony=false,ho
   completed.current=false;setSpun(false);setPhase('loading');
   let ready=false,failed=false;
   const fail=()=>{if(failed)return;failed=true;window.clearTimeout(startTimer.current);pending.current=null;setPhase('error');trace('超时/失败');callbacks.current.onError?.();};
-  // 颁奖态的「就绪」现在还包含模型预热（着色器编译 / 贴图上传），慢机器上会多花一两秒，
-  // 4 秒太紧会误降级成静态图（2026-09-18）。
-  const timeout=window.setTimeout(fail,ceremony?6000:15000);
+  // 等待上限：6 秒对真实网络太紧 —— 真机诊断量到模型下载 4.9 秒，稍慢就「超时/失败」
+  // 降级成一张静态图（2026-09-21 用户截图）。开场白已经把这段时间填上了，宁可多等
+  // 也不要给学生一张不会转的图。
+  const timeout=window.setTimeout(fail,ceremony?12000:15000);
   const receive=(event:MessageEvent)=>{
    if(event.origin!==window.location.origin||event.source!==frame.current?.contentWindow||event.data?.type!=='equistar-medal-viewer')return;
    // 徽章一加载好就先露面（ready），模型预热在那之后做（warm）：预热在手机上可能要

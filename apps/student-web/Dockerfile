@@ -53,6 +53,16 @@ RUN npm run build
 # 「刚发完版，第一次打开徽章要等很久」。把时间戳改成由内容哈希推出来之后，
 # 内容没变 ETag 就不变，重新部署只换一次 304（不传字节）。
 # /assets 那批文件名自带内容哈希，不受影响。
+# 预压缩（2026-09-21）：三维模型是纯网格数据，gzip 能砍掉一半多
+# （reading-1.glb 1.84 MB → 0.82 MB）。nginx 开了 gzip_static，直接发这些 .gz：
+# 压缩比比即时压缩高，运行时零 CPU。真机诊断量到模型下载要 4.9 秒、慢一点就超时
+# 降级成图片，这是最直接的一刀。
+RUN find dist -type f \( -name '*.glb' -o -name '*.js' -o -name '*.css' -o -name '*.json' -o -name '*.html' \) \
+      -size +1k -exec gzip -9 -k -f {} + && \
+    echo "precompressed:" && du -sh dist/medals/v5/models/reading-1.glb dist/medals/v5/models/reading-1.glb.gz
+
+# 徽章素材的时间戳按**内容**定，不按构建时间（2026-09-18）。放在压缩之后，
+# 让 .gz 也拿到稳定的时间戳（gzip_static 的 ETag 取自 .gz 文件）。
 RUN find dist/medals -type f -exec sh -c 'for f do \
       c=$(cksum "$f" | cut -d" " -f1); \
       touch -d "@$((1600000000 + c % 100000000))" "$f"; \
