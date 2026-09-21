@@ -59,7 +59,7 @@
 /* 开场白（2026-09-21）：模型第一次要下载一两兆，这两句话把那段时间变成仪式的一部分。
    念完且模型就绪才落幕，徽章随后淡入；已缓存时最少也念 1.2 秒，不会一闪而过。 */
 .award-intro { position: absolute; inset: 0; margin: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px; text-align: center; z-index: 3; }
-.award-intro span { opacity: 0; transform: translateY(6px); transition: opacity .5s ease, transform .5s ease; }
+.award-intro span { opacity: 0; transform: translateY(6px); transition: opacity .8s ease, transform .8s ease; }
 .award-intro-1 { font-size: 1.5rem; font-weight: 600; color: #f4e9d6; letter-spacing: .08em; }
 .award-intro-2 { font-size: .9375rem; color: #d6c9b4; letter-spacing: .06em; }
 .award-scene[data-beat='1'] .award-intro-1, .award-scene[data-beat='2'] .award-intro-1, .award-scene[data-beat='3'] .award-intro-1 { opacity: 1; transform: none; }

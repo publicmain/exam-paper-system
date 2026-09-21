@@ -32,7 +32,7 @@ function ActiveAwardCeremony({ badge, remainingCount, onContinue, onSkipAll, onR
   const [started, setStarted] = useState(false);
   const [spun, setSpun] = useState(false);
   // 开场白（2026-09-21）：模型第一次要下载一两兆，学生看到的是「空屏 + 正在加载」。
-  // 先铺两句话把这段时间变成仪式的一部分：最少念 1.2 秒（已缓存时也不会一闪而过），
+  // 先铺两句话把这段时间变成仪式的一部分：最少念 3 秒（已缓存时也不会一闪而过），
   // 模型一就绪就接上，绝不为了演而多等。队列里的第二枚起不再重复开场白。
   const [beat, setBeat] = useState(0);
   const [failed, setFailed] = useState(false);
@@ -48,10 +48,11 @@ function ActiveAwardCeremony({ badge, remainingCount, onContinue, onSkipAll, onR
   }, []);
   useEffect(() => {
     if (reduced) { setBeat(3); return; }
+    // 2026-09-21 叶老师：开场白延长到 3 秒。第一句立刻出、第二句 1.2 秒出，念满 3 秒才落幕。
     const timers = [
       window.setTimeout(() => setBeat(current => Math.max(current, 1)), 60),
-      window.setTimeout(() => setBeat(current => Math.max(current, 2)), 700),
-      window.setTimeout(() => setBeat(current => Math.max(current, 3)), 1200),
+      window.setTimeout(() => setBeat(current => Math.max(current, 2)), 1200),
+      window.setTimeout(() => setBeat(current => Math.max(current, 3)), 3000),
     ];
     return () => timers.forEach(window.clearTimeout);
   }, [reduced]);
@@ -66,11 +67,13 @@ function ActiveAwardCeremony({ badge, remainingCount, onContinue, onSkipAll, onR
   }, [curtain]);
   // 文字等真正转完再出现（2026-09-18）：原来按固定时刻推进，手机一卡，
   // 旋转还没走完标题就先冒出来了。兜底：转完的消息 6 秒没到（模型慢或降级）也照常往下走。
+  // 兜底计时从「落幕」开始算，不从「模型就绪」算：开场白现在要念 3 秒，模型要是
+  // 0.1 秒就绪，从就绪算 6 秒，留给「淡入 + 转一圈」的时间就不够了。
   useEffect(() => {
-    if (!started || reduced || spun) return;
+    if (!started || curtain || reduced || spun) return;
     const timer = window.setTimeout(() => setSpun(true), 6000);
     return () => window.clearTimeout(timer);
-  }, [started, reduced, spun]);
+  }, [started, curtain, reduced, spun]);
   useEffect(() => {
     if (!started) return;
     // Timed from the finished spin, not from network fetch. All actions stay escapable.

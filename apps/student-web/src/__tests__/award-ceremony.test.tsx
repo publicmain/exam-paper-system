@@ -52,7 +52,7 @@ it('holds every word until the medal has actually finished turning', () => {
 });
 
 // 开场白（2026-09-21）：模型第一次要下载一两兆，用两句话把这段时间变成仪式的一部分。
-// 最少念 1.2 秒（已缓存也不会一闪而过），模型就绪就接上（不为了演而多等）。
+// 最少念 3 秒（2026-09-21 叶老师要求延长），模型就绪就接上（不为了演而多等）。
 it('covers the model download with an opening line, then hands over to the medal', () => {
   render(<AwardCeremony {...props()} />);
   expect(screen.getByTestId('award-intro').textContent).toContain('做得好');
@@ -61,6 +61,9 @@ it('covers the model download with an opening line, then hands over to the medal
   expect(screen.getByTestId('mock-medal').dataset.hold).toBe('true'); // 幕没落，不许开转
   ready(); // 模型很快就绪也要把话说完
   tick(1199);
+  expect(scene().dataset.beat).toBe('1'); // 1.2 秒前只有第一句
+  tick(1); expect(scene().dataset.beat).toBe('2');
+  tick(1799);
   expect(scene().dataset.curtain).toBe('true');
   expect(screen.getByTestId('mock-medal').dataset.hold).toBe('true');
   tick(1);
@@ -82,10 +85,13 @@ it('keeps the opening line up while a slow model is still loading', () => {
   expect(screen.getByTestId('mock-medal').dataset.hold).toBe('false');
 });
 
-// 模型慢 / 一直等不到「转完」时不能卡死：6 秒兜底照常往下走。
-it('falls through after six seconds when the spin never reports back', () => {
+// 模型慢 / 一直等不到「转完」时不能卡死：落幕后 6 秒兜底照常往下走。
+// （从落幕算，不从就绪算 —— 开场白要念 3 秒，从就绪算会把「淡入 + 转一圈」的时间挤掉。）
+it('falls through six seconds after the curtain when the spin never reports back', () => {
   const input = props(); render(<AwardCeremony {...input} />);
-  ready(); tick(5999);
+  ready(); tick(3000);
+  expect(scene().dataset.curtain).toBe('false');
+  tick(5999);
   expect(scene().dataset.phase).toBe('0');
   tick(1); tick(0);
   expect(scene().dataset.phase).toBe('1');
