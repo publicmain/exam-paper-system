@@ -10,6 +10,7 @@ import { act, render, screen, fireEvent } from '@testing-library/react';
 import { MemoryRouter, useLocation } from 'react-router-dom';
 import App from '../App';
 import { writeToken } from '../lib/identity';
+import { markClassTimeNoticeSeen } from '../lib/class-time-notice';
 import { __resetForTest } from '../lib/auth-store';
 
 const TOKEN = 'tok-1';
@@ -42,6 +43,9 @@ beforeEach(() => {
   localStorage.clear();
   __resetForTest();
   writeToken(TOKEN);
+  // 「学习时间有调整」一次性通知（2026-09-21）第一次进首页会先弹、并让小测提醒让位；
+  // 这组测的是之后每天的小测提醒，所以当作通知已经看过。两者的先后在 class-time-notice.test.tsx。
+  markClassTimeNoticeSeen(PROFILE.id);
   pendingTests = [
     { dailySessionId: 'd-0908', testSessionId: null, date: '2026-09-08', total: 10, status: 'not_started' },
     { dailySessionId: 'd-0907', testSessionId: 't-0907', date: '2026-09-07', total: 10, status: 'in_progress' },

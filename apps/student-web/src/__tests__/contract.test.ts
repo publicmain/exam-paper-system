@@ -883,11 +883,14 @@ describe('G1 新端不得出现旧路由与旧身份键', () => {
     // 也因此是 clearIdentity 唯一不扫的键 —— 见 lib/theme.ts 和 theme.test.tsx。
     // 2026-09-11（审计 UI15）identity.ts 多一个 OWNER_KEY（`sw:owner`）：存学生 id 的
     // **不可逆摘要**，只用来判断本机草稿是不是刚登录的这个人的，不存 id、不参与请求。
+    // 2026-09-21 再多一处：「学习时间有调整」一次性通知的看过记号（class-time-notice.ts 的
+    // CLASS_TIME_NOTICE_KEY，`sw:class-time-notice-v1`），值与 OWNER_KEY 同样是学生 id 的
+    // 不可逆摘要，不存 id；在 sw: 前缀下，退出登录照常被扫掉。
     for (const w of writes) {
       expect(w).toMatch(
         // 只匹配文件名，不匹配目录分隔符 —— Windows 上是 `\`、别处是 `/`，
         // 把分隔符写进正则会让这条守卫只在一种机器上成立。
-        /identity\.ts:(TOKEN_KEY|OWNER_KEY|probe|k)$|storage\.ts:key$|(Highlighter|StickyNote|DraggableSplit)\.tsx:(storageKey|key)$|review-queue\.ts:(QUEUE_KEY|probe)$|IELTSReadingPassage\.tsx:LOOKED_UP_KEY$|Today\.tsx:REMINDER_KEY$|PushNudge\.tsx:PUSH_NUDGE_KEY$|theme\.ts:(THEME_KEY|probe)$/,
+        /identity\.ts:(TOKEN_KEY|OWNER_KEY|probe|k)$|storage\.ts:key$|(Highlighter|StickyNote|DraggableSplit)\.tsx:(storageKey|key)$|review-queue\.ts:(QUEUE_KEY|probe)$|IELTSReadingPassage\.tsx:LOOKED_UP_KEY$|Today\.tsx:REMINDER_KEY$|PushNudge\.tsx:PUSH_NUDGE_KEY$|theme\.ts:(THEME_KEY|probe)$|class-time-notice\.ts:CLASS_TIME_NOTICE_KEY$/,
       );
     }
   });
