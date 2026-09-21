@@ -9,7 +9,7 @@ export function MedalImage({ assetId, locked=false, thumbnail=false, className='
   return <img src={medalImage(assetId,thumbnail)} alt={label} width={thumbnail?320:880} height={thumbnail?320:880} loading={thumbnail?'lazy':'eager'} decoding="async" onError={()=>setFailed(true)} className={className+(locked?' grayscale opacity-50':'')} />;
 }
 /** One lazy renderer. The collection remains interactive; ceremonies are presentation-only. */
-export function MedalViewer({assetId,locked=false,reveal=false,ceremony=false,onReady,onRevealComplete,onError,onTrace,title,height}:{assetId:string;locked?:boolean;reveal?:boolean;ceremony?:boolean;onReady?:()=>void;onRevealComplete?:()=>void;onError?:()=>void;onTrace?:(step:string)=>void;title?:string;height?:number}) {
+export function MedalViewer({assetId,locked=false,reveal=false,ceremony=false,hold=false,onReady,onRevealComplete,onError,onTrace,title,height}:{assetId:string;locked?:boolean;reveal?:boolean;ceremony?:boolean;hold?:boolean;onReady?:()=>void;onRevealComplete?:()=>void;onError?:()=>void;onTrace?:(step:string)=>void;title?:string;height?:number}) {
  const frame=useRef<HTMLIFrameElement>(null);
  const [systemReduced,setSystemReduced]=useState(()=>window.matchMedia?.('(prefers-reduced-motion: reduce)').matches??false);
  const [manualReduced,setManualReduced]=useState(false);
@@ -23,6 +23,18 @@ export function MedalViewer({assetId,locked=false,reveal=false,ceremony=false,on
  const completed=useRef(false);
  // 转完之后把这块交还给手指：学生可以自己拖着转（2026-09-18）。
  const [spun,setSpun]=useState(false);
+ // 开场白还没念完就不要开转（2026-09-21）：颁奖先铺一句话盖住模型下载，
+ // 念完了这里才放行。pending 记着「该用多少延迟开转」。
+ const holdRef=useRef(hold);holdRef.current=hold;
+ const startTimer=useRef<number|undefined>(undefined);
+ const pending=useRef<number|null>(null);
+ const spinAfter=(delay:number)=>{
+  window.clearTimeout(startTimer.current);
+  if(holdRef.current){pending.current=delay;return;}
+  pending.current=null;
+  startTimer.current=window.setTimeout(()=>{callbacks.current.onTrace?.('发开转');send('start');},delay);
+ };
+ useEffect(()=>{if(!hold&&pending.current!=null)spinAfter(pending.current);},[hold]);
  const initialReduced=useRef(reduced);
  const playing=reveal&&!locked;
  const src='/medals/v5/viewer.html?'+new URLSearchParams({id:assetId,locked:locked?'1':'0',reveal:playing?'1':'0',reduced:initialReduced.current?'1':'0',...(ceremony?{ceremony:'1'}:{})});
@@ -36,8 +48,8 @@ export function MedalViewer({assetId,locked=false,reveal=false,ceremony=false,on
  useEffect(()=>{send('reduce',reduced);},[reduced]);
  useEffect(()=>{
   completed.current=false;setSpun(false);setPhase('loading');
-  let ready=false,failed=false,startTimer:number|undefined;
-  const fail=()=>{if(failed)return;failed=true;window.clearTimeout(startTimer);setPhase('error');trace('超时/失败');callbacks.current.onError?.();};
+  let ready=false,failed=false;
+  const fail=()=>{if(failed)return;failed=true;window.clearTimeout(startTimer.current);pending.current=null;setPhase('error');trace('超时/失败');callbacks.current.onError?.();};
   // 颁奖态的「就绪」现在还包含模型预热（着色器编译 / 贴图上传），慢机器上会多花一两秒，
   // 4 秒太紧会误降级成静态图（2026-09-18）。
   const timeout=window.setTimeout(fail,ceremony?6000:15000);
@@ -46,19 +58,18 @@ export function MedalViewer({assetId,locked=false,reveal=false,ceremony=false,on
    // 徽章一加载好就先露面（ready），模型预热在那之后做（warm）：预热在手机上可能要
    // 几秒，压在 ready 前面会让学生只看到「正在呈现三维细节」然后直接跳到最终画面
    // （2026-09-18 真机）。转起来等 warm；等不到就 2.5 秒后照常开转。
-   const beginSpin=(delay:number)=>{window.clearTimeout(startTimer);startTimer=window.setTimeout(()=>{trace('发开转');send('start');},delay);};
    trace(String(event.data.status));
    if(event.data.status==='ready'&&!ready&&!failed){
     ready=true;window.clearTimeout(timeout);setPhase('ready');send('reduce',reducedRef.current);callbacks.current.onReady?.();
-    if(ceremony&&playing)beginSpin(reducedRef.current?0:2500);
+    if(ceremony&&playing)spinAfter(reducedRef.current?0:2500);
    }
-   else if(event.data.status==='warm'&&ready&&!failed){if(ceremony&&playing)beginSpin(reducedRef.current?0:300);}
+   else if(event.data.status==='warm'&&ready&&!failed){if(ceremony&&playing)spinAfter(reducedRef.current?0:300);}
    else if(event.data.status==='error'){window.clearTimeout(timeout);fail();}
    else if(event.data.status==='complete'&&(!ceremony||ready)&&!failed)complete();
    else if(event.data.status==='escape')frame.current?.closest('[role="dialog"]')?.dispatchEvent(new KeyboardEvent('keydown',{key:'Escape',bubbles:true}));
   };
   window.addEventListener('message',receive);
-  return()=>{window.clearTimeout(timeout);window.clearTimeout(startTimer);window.removeEventListener('message',receive);};
+  return()=>{window.clearTimeout(timeout);window.clearTimeout(startTimer.current);pending.current=null;window.removeEventListener('message',receive);};
  },[src,attempt]);
  useEffect(()=>{
   if(!playing||!(phase==='error'||staticOnly))return;

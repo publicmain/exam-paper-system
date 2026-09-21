@@ -31,6 +31,10 @@ function ActiveAwardCeremony({ badge, remainingCount, onContinue, onSkipAll, onR
   const note = (step: string) => setTrace(list => list.length > 7 ? list : [...list, `${step} ${((Date.now() - opened.current) / 1000).toFixed(1)}s`]);
   const [started, setStarted] = useState(false);
   const [spun, setSpun] = useState(false);
+  // 开场白（2026-09-21）：模型第一次要下载一两兆，学生看到的是「空屏 + 正在加载」。
+  // 先铺两句话把这段时间变成仪式的一部分：最少念 1.2 秒（已缓存时也不会一闪而过），
+  // 模型一就绪就接上，绝不为了演而多等。队列里的第二枚起不再重复开场白。
+  const [beat, setBeat] = useState(0);
   const [failed, setFailed] = useState(false);
   const [phase, setPhase] = useState(0);
   const [reduced, setReduced] = useState(() => window.matchMedia?.('(prefers-reduced-motion: reduce)').matches ?? false);
@@ -42,6 +46,17 @@ function ActiveAwardCeremony({ badge, remainingCount, onContinue, onSkipAll, onR
     media?.addEventListener?.('change', change);
     return () => media?.removeEventListener?.('change', change);
   }, []);
+  useEffect(() => {
+    if (reduced) { setBeat(3); return; }
+    const timers = [
+      window.setTimeout(() => setBeat(current => Math.max(current, 1)), 60),
+      window.setTimeout(() => setBeat(current => Math.max(current, 2)), 700),
+      window.setTimeout(() => setBeat(current => Math.max(current, 3)), 1200),
+    ];
+    return () => timers.forEach(window.clearTimeout);
+  }, [reduced]);
+  // 开场白念完 **且** 模型就绪，才让徽章露面并开转。
+  const curtain = !(beat >= 3 && (started || failed));
   // 文字等真正转完再出现（2026-09-18）：原来按固定时刻推进，手机一卡，
   // 旋转还没走完标题就先冒出来了。兜底：转完的消息 6 秒没到（模型慢或降级）也照常往下走。
   useEffect(() => {
@@ -72,16 +87,21 @@ function ActiveAwardCeremony({ badge, remainingCount, onContinue, onSkipAll, onR
     description={preview ? '颁奖体验 · 仅展示动画，不解锁徽章，也不改变学习记录。' : reason}
     placement="fullscreen" appearance="ceremony" showClose={false} initialFocus="panel"
     testId={preview ? 'achievement-preview' : 'achievement-award'}>
-    <div className="award-scene" data-phase={phase} data-started={started} data-reduced={reduced}>
+    <div className="award-scene" data-phase={phase} data-started={started} data-reduced={reduced} data-curtain={curtain} data-beat={beat}>
       <div className="award-topline">
         {preview ? <span>颁奖体验 · 不改变收藏</span> : <span aria-hidden="true" />}
         <button type="button" className="award-skip" onClick={onSkipAll}>跳过全部动画</button>
       </div>
       <div className="award-composition">
         <div className="award-medal-wrap">
+          {/* 开场白：盖住模型下载的那一两秒，让它成为仪式的一部分而不是等待。 */}
+          {curtain && <p className="award-intro" data-testid="award-intro" role="status">
+            <span className="award-intro-1">{preview ? '颁奖体验' : '恭喜你'}</span>
+            <span className="award-intro-2">解锁了一枚新徽章</span>
+          </p>}
           <div className="award-halo" aria-hidden="true" />
           <div className="award-motes" aria-hidden="true">{MOTES.map(([x,y,delay], index) => <i key={index} style={{ '--x': `${x}%`, '--y': `${y}%`, '--delay': `${delay}ms` } as CSSProperties} />)}</div>
-          <MedalViewer assetId={badge.assetId} title={badge.title} reveal ceremony
+          <MedalViewer assetId={badge.assetId} title={badge.title} reveal ceremony hold={curtain}
             onReady={() => setStarted(true)}
             onRevealComplete={() => setSpun(true)}
             onTrace={debug ? note : undefined}

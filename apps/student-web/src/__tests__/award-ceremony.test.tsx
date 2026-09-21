@@ -4,7 +4,7 @@ import { AwardCeremony, type AwardCeremonyProps } from '../components/AwardCerem
 import { medalAwardReason, V5_MEDALS } from '../lib/medal-catalog';
 
 vi.mock('../components/MedalViewer', () => ({
-  MedalViewer: ({ assetId, reveal, ceremony, onReady, onRevealComplete, onError }: { assetId: string; reveal?: boolean; ceremony?: boolean; onReady?: () => void; onRevealComplete?: () => void; onError?: () => void }) => <div data-testid="mock-medal" data-asset={assetId} data-reveal={String(reveal)} data-ceremony={String(ceremony)}><button onClick={onReady}>模型就绪</button><button onClick={onRevealComplete}>模型旋转结束</button><button onClick={onError}>模拟错误</button></div>,
+  MedalViewer: ({ assetId, reveal, ceremony, hold, onReady, onRevealComplete, onError }: { assetId: string; reveal?: boolean; ceremony?: boolean; hold?: boolean; onReady?: () => void; onRevealComplete?: () => void; onError?: () => void }) => <div data-testid="mock-medal" data-asset={assetId} data-reveal={String(reveal)} data-ceremony={String(ceremony)} data-hold={String(Boolean(hold))}><button onClick={onReady}>模型就绪</button><button onClick={onRevealComplete}>模型旋转结束</button><button onClick={onError}>模拟错误</button></div>,
 }));
 
 beforeEach(() => { vi.useFakeTimers(); });
@@ -49,6 +49,34 @@ it('holds every word until the medal has actually finished turning', () => {
   expect(scene().dataset.phase).toBe('3');
   expect(screen.getByRole('button', { name: '继续' })).toBeTruthy();
   expect(input.onRevealComplete).not.toHaveBeenCalled();
+});
+
+// 开场白（2026-09-21）：模型第一次要下载一两兆，用两句话把这段时间变成仪式的一部分。
+// 最少念 1.2 秒（已缓存也不会一闪而过），模型就绪就接上（不为了演而多等）。
+it('covers the model download with an opening line, then hands over to the medal', () => {
+  render(<AwardCeremony {...props()} />);
+  expect(screen.getByTestId('award-intro').textContent).toContain('恭喜你');
+  expect(screen.getByTestId('award-intro').textContent).toContain('解锁了一枚新徽章');
+  expect(scene().dataset.curtain).toBe('true');
+  expect(screen.getByTestId('mock-medal').dataset.hold).toBe('true'); // 幕没落，不许开转
+  ready(); // 模型很快就绪也要把话说完
+  tick(1199);
+  expect(scene().dataset.curtain).toBe('true');
+  expect(screen.getByTestId('mock-medal').dataset.hold).toBe('true');
+  tick(1);
+  expect(scene().dataset.curtain).toBe('false');
+  expect(screen.queryByTestId('award-intro')).toBeNull();
+  expect(screen.getByTestId('mock-medal').dataset.hold).toBe('false');
+});
+
+it('keeps the opening line up while a slow model is still loading', () => {
+  render(<AwardCeremony {...props()} />);
+  tick(5000); // 话早念完了，模型还没好
+  expect(scene().dataset.curtain).toBe('true');
+  expect(screen.getByTestId('award-intro')).toBeTruthy();
+  ready();
+  expect(scene().dataset.curtain).toBe('false'); // 一就绪立刻落幕，不再多等
+  expect(screen.getByTestId('mock-medal').dataset.hold).toBe('false');
 });
 
 // 模型慢 / 一直等不到「转完」时不能卡死：6 秒兜底照常往下走。
