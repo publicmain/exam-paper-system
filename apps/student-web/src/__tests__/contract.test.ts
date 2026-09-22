@@ -113,6 +113,8 @@ describe('G6 路由契约是单一事实源', () => {
         // 阶段 12B —— 错题本与错题重练
         '/mistakes', '/mistakes/practice',
         '/growth/badges',
+        // 2026-09-22 打印 / 下载：入口页 + 两张打印版纸面
+        '/print', '/print/reading', '/print/words',
       ]),
     );
   });
@@ -542,6 +544,10 @@ describe('G1 新端不得出现旧路由与旧身份键', () => {
     '/vocab-v2/daily/history',
     // VOC04：听写题音频凭 sessionId + itemId 取，题面里没有目标词
     '/vocab-v2/test/audio',
+    // 2026-09-22 打印 / 下载：两条都是认证后、纯读取。路径里的 :id 是场次（资源标识，不是身份），
+    // 查询串里只有 date；归属由服务端按令牌判定（不是本班场次 → 403）。
+    '/print-materials/me/reading/:id',
+    '/print-materials/me/words',
   ] as const;
 
   /**

@@ -32,7 +32,7 @@ export type TabKey = 'today' | 'vocab' | 'records' | 'account';
 type Tab = { key: TabKey; label: string; icon: IconName; root: string; prefixes: string[]; testId: string };
 
 export const TABS: readonly Tab[] = [
-  { key: 'today', label: '今日', icon: 'today', root: ROUTES.today, prefixes: [ROUTES.today], testId: 'tab-today' },
+  { key: 'today', label: '今日', icon: 'today', root: ROUTES.today, prefixes: [ROUTES.today, ROUTES.printCenter], testId: 'tab-today' },
   { key: 'vocab', label: '我的单词', icon: 'words', root: ROUTES.vocab, prefixes: [ROUTES.vocab], testId: 'tab-vocab' },
   {
     key: 'records',
@@ -45,7 +45,8 @@ export const TABS: readonly Tab[] = [
   { key: 'account', label: '账号', icon: 'account', root: ROUTES.account, prefixes: [ROUTES.account], testId: 'tab-account' },
 ];
 
-const FOCUS_PREFIXES = ['/lesson/', '/coach/'];
+// '/print/'：打印版纸面（2026-09-22）—— 没有标签栏，纸面外只有自己的工具栏。
+const FOCUS_PREFIXES = ['/lesson/', '/coach/', '/print/'];
 
 export function shellFor(pathname: string, authenticated: boolean): ShellKind {
   if (!authenticated || pathname === ROUTES.login || pathname === ROUTES.register) return 'public';

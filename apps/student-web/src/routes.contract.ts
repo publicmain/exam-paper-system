@@ -76,6 +76,10 @@ export const ROUTES = {
   mistakePractice: '/mistakes/practice',
   /** Independent medal collection, outside the daily task sequence. */
   growthBadges: '/growth/badges',
+  /** 打印 / 下载（2026-09-22）：入口页在标签栏外壳里；两张打印版纸面走专注外壳（/print/ 前缀）。 */
+  printCenter: '/print',
+  printReading: '/print/reading',
+  printWords: '/print/words',
 } as const;
 
 /** `/scores/:submissionId` 的具体地址。**只有这一个地方拼它。** */

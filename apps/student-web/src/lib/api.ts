@@ -18,6 +18,7 @@
  * （`studentAppOrigin`），换域名不需要重新构建。
  */
 
+import type { PrintWord, ReadingPrint } from '../print/PrintSheets';
 import type { NextActionKind } from '../routes.contract';
 import type { PilotLevelId } from './levels';
 
@@ -483,6 +484,11 @@ export type HomeTasks = {
   allDone: boolean;
 };
 
+/** 打印版：自己班的一场阅读（不带答案）。 */
+export type PrintReadingPayload = { sessionId: string; date: string; level: string; levelLabel: string; className: string; reading: ReadingPrint };
+/** 打印版：自己某天的每日新词。 */
+export type PrintWordsPayload = { date: string; words: PrintWord[] };
+
 export type V2Overview = {
   dailyTarget: number;
   today: V2LearningSession | null;
@@ -670,6 +676,11 @@ export const api = {
   },
   vocabV2Daily: (token: string, date?: string) => request<V2LearningSession | null>('GET', date ? '/vocab-v2/daily?date=' + encodeURIComponent(date) : '/vocab-v2/daily', { token }),
   vocabV2Overview: (token: string) => request<V2Overview>('GET', '/vocab-v2/overview', { token }),
+  // ── 打印 / 下载（2026-09-22）：服务端排好组、不带答案；页面只按结果排 A4 版 ──
+  printReading: (token: string, sessionId: string) =>
+    request<PrintReadingPayload>('GET', `/print-materials/me/reading/${encodeURIComponent(sessionId)}`, { token }),
+  printWords: (token: string, date: string) =>
+    request<PrintWordsPayload>('GET', `/print-materials/me/words?date=${encodeURIComponent(date)}`, { token }),
   vocabV2StartDaily: (token: string, date?: string) => request<V2LearningSession>('POST', '/vocab-v2/daily/start', { token, body: date ? { date } : {} }),
   vocabV2LearnAction: (token: string, body: { sessionId: string; itemId: string; action: 'mastered' | 'normal' | 'hard' | 'skip'; responseMs?: number }) =>
     request<V2LearningSession>('POST', '/vocab-v2/daily/item', { token, body }),

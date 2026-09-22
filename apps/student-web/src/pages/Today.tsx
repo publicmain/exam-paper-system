@@ -681,6 +681,10 @@ export default function TodayPage() {
         )}
       </ul>
 
+      <Link to={ROUTES.printCenter} data-testid="home-print" className="mb-3 flex min-h-[64px] items-center justify-between gap-3 rounded-group bg-surface px-4 py-3 no-underline focus-visible:outline focus-visible:outline-accent">
+        <span><span className="block text-headline text-ink">打印 / 下载</span><span className="mt-1 block text-footnote text-ink-3">阅读文章和题目、单词表、默写纸</span></span><span aria-hidden="true" className="text-title3 text-ink-3">›</span>
+      </Link>
+
       <Link to={ROUTES.growthBadges} data-testid="home-my-badges" className="mb-6 flex min-h-[64px] items-center justify-between gap-3 rounded-group bg-surface px-4 py-3 no-underline focus-visible:outline focus-visible:outline-accent">
         <span><span className="block text-headline text-ink">我的徽章</span><span className="mt-1 block text-footnote text-ink-3">收藏每一段努力，也看看班级的珍藏</span></span><span aria-hidden="true" className="text-title3 text-ink-3">›</span>
       </Link>

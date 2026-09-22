@@ -32,6 +32,9 @@ import { Button } from './design/Button';
 import { ErrorBoundary } from './lib/sentry';
 
 const BadgesPage = lazy(() => import('./pages/Badges'));
+const PrintCenterPage = lazy(() => import('./pages/PrintCenter'));
+const PrintReadingPage = lazy(() => import('./pages/PrintReading'));
+const PrintWordsPage = lazy(() => import('./pages/PrintWords'));
 const AchievementNotifier = lazy(() => import('./components/AchievementNotifier'));
 
 export default function App() {
@@ -119,6 +122,10 @@ export default function App() {
       <Route path={ROUTES.mistakes} element={<MistakesPage />} />
       <Route path={ROUTES.mistakePractice} element={<MistakePracticePage />} />
       <Route path={ROUTES.growthBadges} element={<Suspense fallback={<StatusView kind="loading" title="正在打开收藏" />}><BadgesPage /></Suspense>} />
+      {/* 打印 / 下载（2026-09-22）：阅读文章和题目、单词表 / 默写纸 */}
+      <Route path={ROUTES.printCenter} element={<Suspense fallback={<StatusView kind="loading" title="正在打开" />}><PrintCenterPage /></Suspense>} />
+      <Route path={ROUTES.printReading} element={<Suspense fallback={<StatusView kind="loading" title="正在排版" />}><PrintReadingPage /></Suspense>} />
+      <Route path={ROUTES.printWords} element={<Suspense fallback={<StatusView kind="loading" title="正在排版" />}><PrintWordsPage /></Suspense>} />
       <Route path="*" element={<Navigate to={fallbackPath(authed)} replace />} />
     </Routes>
     </AppShell>
