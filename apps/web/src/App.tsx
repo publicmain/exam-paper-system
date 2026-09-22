@@ -66,6 +66,7 @@ adoptTeacherViewFromUrl();
 const ClassRegistrationPage = lazy(() => import('./pages/ClassRegistration'));
 const LessonBoardPage = lazy(() => import('./pages/LessonBoard'));
 const LearningReportPage = lazy(() => import('./pages/LearningReport'));
+const PrintMaterialsPage = lazy(() => import('./pages/PrintMaterials'));
 const StudentBadgesPage = lazy(() => import('./pages/StudentBadges'));
 const MyLessonPage = lazy(() => import('./pages/MyLesson'));
 const TaskSummaryPage = lazy(() => import('./pages/TaskSummary'));
@@ -359,6 +360,10 @@ export default function App() {
               {(user.role === 'admin' || user.role === 'head_teacher' || user.role === 'teacher') && (
                 <NavLink to="/badges" label="学生徽章" />
               )}
+              {/* 打印材料（2026-09-22）：阅读文章和题目、单词表 / 默写纸（每人一页） */}
+              {(user.role === 'admin' || user.role === 'head_teacher' || user.role === 'teacher') && (
+                <NavLink to="/print-materials" label="打印材料" />
+              )}
               {/* 集体注册台（2026-08-25）：开窗让全班当场认领 PIN */}
               {(user.role === 'admin' || user.role === 'head_teacher' || user.role === 'teacher') && (
                 <NavLink to="/class-registration" label="注册" />
@@ -468,6 +473,7 @@ export default function App() {
           <Route path="/lesson-board" element={<LessonBoardPage />} />
           {/* 学习周报（2026-09-15）：按周看谁做了谁没做 */}
           <Route path="/learning-report" element={<LearningReportPage />} />
+          <Route path="/print-materials" element={<PrintMaterialsPage />} />
           <Route path="/badges" element={['admin', 'head_teacher', 'teacher'].includes(user.role) ? <StudentBadgesPage /> : <Navigate to="/" replace />} />
           <Route path="/homework" element={<HomeworkCoursesPage />} />
           <Route path="/homework/assignments/:assignmentId" element={<HomeworkDashboardPage />} />

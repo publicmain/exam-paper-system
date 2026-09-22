@@ -3,7 +3,7 @@
  *
  * 纸面颜色写死成白底黑字，不跟明暗主题走 —— 暗色模式下打印出来也得是一张正常的纸。
  * 屏幕上预览时是一张居中的「纸」，工具栏在纸外；打印时工具栏和 App 外壳全部隐藏。
- * 教师后台（apps/web/src/print/print-sheet.css）用同一份规则，改一边记得改另一边。
+ * 学生端（apps/student-web/src/print/print-sheet.css）用同一份规则，改一边记得改另一边。
  */
 .ps-screen {
   min-height: 100dvh;

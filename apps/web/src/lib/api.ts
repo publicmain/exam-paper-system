@@ -685,6 +685,9 @@ export const api = {
   vocabPush: (body: { classId: string; words: string[]; contextSentence?: string }) =>
     request('POST', '/vocab/push', body),
   /** 学习周报（2026-09-15）：某一周、全部能看的班或某个班。只读；权限在服务端。 */
+  // 打印材料（2026-09-22）：一个班某一天 —— 每档一份阅读（可带答案）、每个学生一份当天的单词
+  printClassDay: (classId: string, date: string, answers: boolean) =>
+    request('GET', `/print-materials/classes/${encodeURIComponent(classId)}/date/${encodeURIComponent(date)}?answers=${answers ? 1 : 0}`),
   learningReportWeek: (params: { weekStart?: string; classId?: string } = {}) => {
     const q = new URLSearchParams();
     if (params.weekStart) q.set('weekStart', params.weekStart);
