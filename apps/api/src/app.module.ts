@@ -63,6 +63,7 @@ import { PushModule } from './push/push.module';
 import { AudioModule } from './audio/audio.module';
 import { ProductModule } from './product/product.module';
 import { AchievementsModule } from './achievements/achievements.module';
+import { PrintMaterialsModule } from './print-materials/print-materials.module';
 
 @Module({
   imports: [
@@ -117,6 +118,7 @@ import { AchievementsModule } from './achievements/achievements.module';
     AudioModule,
     ProductModule,
     AchievementsModule,
+    PrintMaterialsModule,
     StudentAuthModule,
     PracticeModule,
     // Morning attendance + quiz
