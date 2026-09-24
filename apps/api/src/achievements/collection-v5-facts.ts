@@ -51,6 +51,12 @@ export function frozenCollectionArticle(snapshot: unknown): { key: string; topic
  * tags, grants, external requests or writes. Parent transaction can keep this
  * snapshot consistent with serialized award creation.
  */
+/** 需要学生自己写的题（简答 / 结构题 / 作文）。题型不明的按客观题处理。 */
+function isSubjective(question: { question?: { questionType?: string | null } | null }): boolean {
+  const type = question.question?.questionType;
+  return typeof type === 'string' && type !== 'mcq';
+}
+
 export async function loadCollectionV5Facts(prisma: FactsDb, studentId: string, now = new Date()): Promise<CollectionV5Facts> {
   const user = await prisma.user.findUnique({ where: { id: studentId }, select: { id: true, role: true } });
   if (!user) throw new NotFoundException({ code: 'student_not_found' });
@@ -70,9 +76,9 @@ export async function loadCollectionV5Facts(prisma: FactsDb, studentId: string, 
         assignment: { morningQuizSession: { is: { date: { lte: today }, status: { not: 'cancelled' } } } } },
       orderBy: { id: 'asc' }, take: PAGE_SIZE, ...(after ? { cursor: { id: after }, skip: 1 } : {}),
       select: { id: true, finalSubmittedAt: true, status: true, submitSource: true,
-        scripts: { select: { paperQuestionId: true, selectedOption: true, textAnswer: true } },
+        scripts: { select: { paperQuestionId: true, selectedOption: true, textAnswer: true, awardedMarks: true } },
         assignment: { select: { classId: true, morningQuizSession: { select: { date: true, status: true } },
-          paper: { select: { config: true, questions: { select: { id: true, snapshotContent: true } } } } } } },
+          paper: { select: { config: true, questions: { select: { id: true, snapshotContent: true, question: { select: { questionType: true } } } } } } } } },
     });
     for (const row of rows) {
       const task = row.assignment.morningQuizSession;
@@ -81,6 +87,11 @@ export async function loadCollectionV5Facts(prisma: FactsDb, studentId: string, 
         sgtKey(row.finalSubmittedAt) < sourceDay(task.date) ||
         (!allowSandbox && (isDemoClass(row.assignment.classId, demo) || synthetic(row.assignment.paper.config)))) continue;
       const answered = new Set(row.scripts.filter((script) => nonblank(script.selectedOption) || nonblank(script.textAnswer)).map((script) => script.paperQuestionId));
+      // 2026-09-24 认真做才算（叶老师：糊弄做的不能算进度）。简答题是区分「做了」和「点完交卷」
+      // 的唯一可靠信号：用时不行（有学生两三分钟就满分），学词卡片的停留时间也不行（人人一两秒）。
+      const subjective = new Set(row.assignment.paper.questions.filter((question) => isSubjective(question)).map((question) => question.id));
+      const written = new Set(row.scripts.filter((script) => subjective.has(script.paperQuestionId) && nonblank(script.textAnswer)).map((script) => script.paperQuestionId));
+      const marksOf = new Map(row.scripts.filter((script) => subjective.has(script.paperQuestionId)).map((script) => [script.paperQuestionId, script.awardedMarks]));
       // A multi-passage paper can contain several articles. An untouched passage
       // does not become a completed article just because another passage was answered.
       const articles = new Map<string, { topic?: string; questionIds: string[] }>();
@@ -94,6 +105,15 @@ export async function loadCollectionV5Facts(prisma: FactsDb, studentId: string, 
       }
       for (const [key, article] of articles) {
         if (!article.questionIds.some((id) => answered.has(id))) continue;
+        const shortAnswers = article.questionIds.filter((id) => subjective.has(id));
+        if (shortAnswers.length > 0) {
+          // 简答不到一半就交卷 → 不算
+          if (shortAnswers.filter((id) => written.has(id)).length * 2 < shortAnswers.length) continue;
+          // 还没批改 → 批完再算（批改一般在第二天）
+          if (row.status !== 'marked') continue;
+          // 批改后简答一分没得（乱写 / 答非所问）→ 不算
+          if (shortAnswers.reduce((sum, id) => sum + (Number(marksOf.get(id)) || 0), 0) <= 0) continue;
+        }
         readingTasks.push({ key, at: row.finalSubmittedAt, submissionId: row.id, sourceDate: sourceDay(task.date), ...(article.topic ? { topic: article.topic } : {}) });
       }
     }
@@ -109,7 +129,7 @@ export async function loadCollectionV5Facts(prisma: FactsDb, studentId: string, 
   type Daily = { key: string; id: string; date: string; event: CollectionV5Event; words: Set<string> };
   const dailies = new Map<string, Daily>();
   type Candidate = { dailyId: string; createdAt: Date; id: string; date: string; completedAt: Date | null;
-    completed: boolean; gradeValid: boolean; qualified: boolean; words: Set<string>; event: CollectionV5Event | null };
+    completed: boolean; gradeValid: boolean; qualified: boolean; atLeastHalf: boolean; words: Set<string>; event: CollectionV5Event | null };
   const firstFormal = new Map<string, Candidate>();
   after = undefined;
   for (;;) {
@@ -154,8 +174,10 @@ export async function loadCollectionV5Facts(prisma: FactsDb, studentId: string, 
         // Read stored authoritative grading; never recalculate answers against
         // mutable dictionaries and never trust client-supplied percentages.
         const qualified = gradeValid && row.items.filter((item) => item.isCorrect === true).length * 100 >= row.items.length * 80;
+        // 2026-09-24：学新词要算进度，当天正式词测第一次作答至少对一半（随手点完卡片、测试瞎蒙的不算）
+        const atLeastHalf = gradeValid && row.items.filter((item) => item.isCorrect === true).length * 2 >= row.items.length;
         const event = completed ? { key: dailyId, sessionId: row.id, sourceDate: date, at: completedAt!, itemIds: row.items.map((item) => item.id) } : null;
-        const candidate: Candidate = { dailyId, id: row.id, createdAt: row.createdAt, date, completedAt, completed, gradeValid, qualified,
+        const candidate: Candidate = { dailyId, id: row.id, createdAt: row.createdAt, date, completedAt, completed, gradeValid, qualified, atLeastHalf,
           words: new Set(row.items.filter((item) => item.source !== 'review').map(wordOf).filter(Boolean)), event };
         const prior = firstFormal.get(dailyId);
         // Select the first actual formal attempt *before* filtering validity or
@@ -166,8 +188,9 @@ export async function loadCollectionV5Facts(prisma: FactsDb, studentId: string, 
     if (rows.length < PAGE_SIZE) break;
     after = rows[rows.length - 1].id;
   }
-  facts.learningBatches = firstEvents([...dailies.values()].map((daily) => daily.event));
   const completedTests: CollectionV5Event[] = [];
+  /** 学完、而且当天正式词测第一次作答至少对一半的每日任务 —— 只有这些算「学新词」进度 */
+  const earnestDailyIds = new Set<string>();
   const fullDays: CollectionV5Event[] = [];
   const firstReadingByDate = new Map<string, CollectionV5Event>();
   for (const reading of readingTasks) {
@@ -181,11 +204,14 @@ export async function loadCollectionV5Facts(prisma: FactsDb, studentId: string, 
     const event = { ...test.event, key: daily.key };
     completedTests.push(event);
     if (test.qualified) facts.tests.push(event);
+    if (!test.atLeastHalf) continue;
+    earnestDailyIds.add(daily.id);
     const reading = firstReadingByDate.get(daily.date);
     if (reading) fullDays.push({ key: daily.date, sourceDate: daily.date,
       at: new Date(Math.max(reading.at.getTime(), daily.event.at.getTime(), event.at.getTime())),
       submissionId: reading.submissionId, sessionId: event.sessionId, itemIds: [...(daily.event.itemIds ?? []), ...(event.itemIds ?? [])] });
   }
+  facts.learningBatches = firstEvents([...dailies.values()].filter((daily) => earnestDailyIds.has(daily.id)).map((daily) => daily.event));
   facts.tests = firstEvents(facts.tests);
   facts.fullDays = firstEvents(fullDays);
   facts.activeDays = firstEvents([...readingTasks, ...facts.learningBatches, ...completedTests].map((event) => ({ ...event, key: sgtKey(event.at) })));

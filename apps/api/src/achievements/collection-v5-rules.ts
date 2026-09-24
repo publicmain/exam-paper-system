@@ -64,8 +64,8 @@ export interface SavedCollectionV5Badge { badgeKey: string; earnedOn: string; re
 const thresholds = [15, 50, 150, 300] as const;
 const tierNames = ['启程', '进阶', '远航', '典藏'];
 const mainSeries = [
-  { series: 'reading', title: '阅读探索者', unit: '篇', description: '完成不同的正式阅读文章；不要求分数，补做也算。同一文章重复提交不重复计数。' },
-  { series: 'vocabulary', title: '词汇积累者', unit: '份', description: '完整学完每日新词任务，按任务份数累计。只计算最终实际学过的词；换掉、稍后再学不算学会，空任务不计。' },
+  { series: 'reading', title: '阅读探索者', unit: '篇', description: '认真完成不同的正式阅读文章：简答至少写一半，老师批改后简答有得分才算（空着或乱写不算，批改后才计入）。补做也算，同一篇重复提交不重复计数。' },
+  { series: 'vocabulary', title: '词汇积累者', unit: '份', description: '完整学完每日新词任务，并且当天正式词测第一次作答至少对一半，按任务份数累计。换掉、稍后再学不算学会，空任务不计。' },
   { series: 'mastery', title: '词汇挑战者', unit: '份', description: '正式每日词测的第一次作答达到 80%。同一任务只算一次，自主练习和重测不计。' },
 ] as const;
 const keyFor = (assetId: string): CollectionV5BadgeKey => `v5_${assetId.replace(/-/g, '_')}`;
@@ -77,7 +77,7 @@ export const COLLECTION_V5_BADGES: readonly CollectionV5BadgeDef[] = [
   })),
   { key: 'v5_hidden_triad', assetId: 'hidden-triad', series: 'hidden', tier: null, hidden: true,
     clue: '让阅读、词汇与测验，在同一片叶脉上相遇。', title: '三叶同辉',
-    description: '15 个任务日期的阅读、新词和正式词测全部完成；可以补做，词测不要求 80%。', threshold: 15, unit: '天' },
+    description: '15 个任务日期的阅读、新词和正式词测全部认真完成；可以补做，词测不要求 80%，但至少对一半。', threshold: 15, unit: '天' },
   { key: 'v5_hidden_worlds', assetId: 'hidden-worlds', series: 'hidden', tier: null, hidden: true,
     clue: '打开不同的窗，世界不止一种模样。', title: '万象之窗',
     description: '在 5 个不同的已核实阅读主题中，各完成至少 3 篇不同文章。缺失或未经核实的主题不会被猜测补算。', threshold: 5, unit: '类' },

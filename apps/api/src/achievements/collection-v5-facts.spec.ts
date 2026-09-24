@@ -96,7 +96,8 @@ describe('V5 final daily manifests and first formal scores', () => {
   it('one whole task is one batch regardless of word count, deferrals or target; final replacement is learned, old word is not', async () => {
     const items = [card('one', 'apple', undefined, { response: { action: 'normal', replacedFrom: [{ headword: 'old-word' }] } }),
       card('two', 'banana', undefined, { status: 'skipped', response: { action: 'skip' } }), card('three', 'pear', undefined, { response: { action: 'mastered' } })];
-    const f = await load(db([], [daily('d', items, undefined, { target: 21 })]));
+    // 2026-09-24 起学词要配当天词测（至少对一半）才算；这里补上当天那份
+    const f = await load(db([], [daily('d', items, undefined, { target: 21 }), formal('t', 'd')]));
     expect(f.learningBatches).toHaveLength(1); expect(f.learningBatches[0].itemIds).toEqual(['one']);
     expect(f.activeDays).toHaveLength(1);
   });
@@ -161,7 +162,10 @@ describe('V5 final daily manifests and first formal scores', () => {
 
   it('SGT actual month changes at 16:00 UTC', async () => {
     const early = new Date('2026-08-31T15:59:00Z'), late = new Date('2026-08-31T16:00:00Z');
-    const f = await load(db([], [daily('d1', [card('c1', 'a', '2026-08-01')], '2026-08-01', { completedAt: early }), daily('d2', [card('c2', 'b', '2026-08-02')], '2026-08-02', { completedAt: late })]));
+    const t1 = formal('t1', 'd1', '2026-08-01', { completedAt: early }); t1.items[0].contentSnapshot = { headword: 'a' };
+    const t2 = formal('t2', 'd2', '2026-08-02', { completedAt: late }); t2.items[0].contentSnapshot = { headword: 'b' };
+    const f = await load(db([], [daily('d1', [card('c1', 'a', '2026-08-01')], '2026-08-01', { completedAt: early }), t1,
+      daily('d2', [card('c2', 'b', '2026-08-02')], '2026-08-02', { completedAt: late }), t2]));
     expect(f.activeDays.map((e) => e.key)).toEqual(['2026-08-31', '2026-09-01']);
   });
 });
@@ -191,11 +195,79 @@ describe('V5 isolation and lifetime evidence', () => {
 
   it('cursor pages every lifetime reading/session without 400/600 truncation', async () => {
     const reads = Array.from({ length: 601 }, (_, i) => reading(`r-${String(i).padStart(4, '0')}`));
-    const sessions = Array.from({ length: 701 }, (_, i) => daily(`d-${String(i).padStart(4, '0')}`));
+    const sessions = Array.from({ length: 701 }, (_, i) => [daily(`d-${String(i).padStart(4, '0')}`), formal(`t-${String(i).padStart(4, '0')}`, `d-${String(i).padStart(4, '0')}`)]).flat();
     const p = db(reads, sessions), f = await load(p);
     expect(f.readings).toHaveLength(601); expect(f.learningBatches).toHaveLength(701);
-    expect(p.studentSubmission.findMany).toHaveBeenCalledTimes(3); expect(p.vocabularyV2Session.findMany).toHaveBeenCalledTimes(3);
+    // 1402 个会话，每页 250 → 6 页
+    expect(p.studentSubmission.findMany).toHaveBeenCalledTimes(3); expect(p.vocabularyV2Session.findMany).toHaveBeenCalledTimes(6);
     for (const [query] of p.studentSubmission.findMany.mock.calls) expect(query).toMatchObject({ where: { studentId: 'student' }, orderBy: { id: 'asc' }, take: 250 });
     for (const [query] of p.vocabularyV2Session.findMany.mock.calls) expect(query).toMatchObject({ where: { studentId: 'student' }, orderBy: { id: 'asc' }, take: 250 });
+  });
+});
+
+/**
+ * 2026-09-24 认真做才算（叶老师：「检查谁是糊弄做的，糊弄做的不能算进度」）。
+ *
+ * 生产数据里的样子：有人 12 秒就交卷、简答一道不写、选择题跟瞎蒙差不多，照旧规则每份都算
+ * 「读完一篇」。用时不能当标准（有学生两三分钟就满分），学词卡片的停留时间也不能（人人一两秒），
+ * 所以阅读看简答、学词看当天词测。
+ */
+describe('V5 认真做才算进度', () => {
+  /** 一份带 4 道简答的阅读：written 道写了；marks 是批改后每道的得分（null = 还没批） */
+  function withShortAnswers(id: string, written: number, marks: Array<number | null>, status = 'marked', day = '2026-09-01') {
+    const r: any = reading(id, day, { status });
+    for (let i = 0; i < 4; i += 1) {
+      r.assignment.paper.questions.push({ id: `sa-${id}-${i}`, snapshotContent: r.assignment.paper.questions[0].snapshotContent, question: { questionType: 'short_answer' } });
+      if (i < written) r.scripts.push({ paperQuestionId: `sa-${id}-${i}`, selectedOption: null, textAnswer: `answer ${i}`, awardedMarks: marks[i] ?? null });
+    }
+    return r;
+  }
+
+  it('**简答一道没写就交卷：不算读完**（哪怕选择题答了）', async () => {
+    expect((await load(db([withShortAnswers('blank', 0, [])]))).readings).toEqual([]);
+  });
+
+  it('简答写了不到一半：不算；写了一半、批改后有得分：算', async () => {
+    expect((await load(db([withShortAnswers('one', 1, [2])]))).readings).toEqual([]);
+    expect((await load(db([withShortAnswers('half', 2, [1, 0])]))).readings).toHaveLength(1);
+  });
+
+  it('**还没批改：先不算，批完有得分再算**', async () => {
+    expect((await load(db([withShortAnswers('pending', 4, [null, null, null, null], 'submitted')]))).readings).toEqual([]);
+    expect((await load(db([withShortAnswers('graded', 4, [2, 1, 0, 0])]))).readings).toHaveLength(1);
+  });
+
+  it('**全写了但批改后一分没得（乱写 / 答非所问）：不算**', async () => {
+    expect((await load(db([withShortAnswers('gibberish', 4, [0, 0, 0, 0])]))).readings).toEqual([]);
+  });
+
+  it('不算的阅读也不进「三叶同辉」', async () => {
+    const f = await load(db([withShortAnswers('blank', 0, [])], [daily('d'), formal('t', 'd')]));
+    expect(f.readings).toEqual([]); expect(f.fullDays).toEqual([]);
+    const g = await load(db([withShortAnswers('good', 4, [1, 1, 1, 1])], [daily('d'), formal('t', 'd')]));
+    expect(g.fullDays).toHaveLength(1);
+  });
+
+  function testWithScore(right: number, total = 4) {
+    const words = ['a', 'b', 'c', 'd'].slice(0, total);
+    const d = daily('d', words.map((w) => card('c-' + w, w)));
+    const t = formal('t', 'd', undefined, { target: total });
+    t.items = words.map((w, i) => card('q-' + w, w, undefined, { status: 'answered', completedAt: at('2026-09-01', '02:19:00'), response: { value: 0 },
+      questionSnapshot: { type: 'meaning_choice', options: ['a', 'b', 'c', 'd'] }, isCorrect: i < right }));
+    return [d, t];
+  }
+
+  it('**学完单词、当天词测只对 1/4：学词不算，也不进「三叶同辉」**', async () => {
+    const f = await load(db([withShortAnswers('good', 4, [1, 1, 1, 1])], testWithScore(1)));
+    expect(f.learningBatches).toEqual([]); expect(f.tests).toEqual([]); expect(f.fullDays).toEqual([]);
+  });
+
+  it('当天词测对一半（2/4）：学词算；没到 80% 所以「词汇挑战者」不算', async () => {
+    const f = await load(db([withShortAnswers('good', 4, [1, 1, 1, 1])], testWithScore(2)));
+    expect(f.learningBatches).toHaveLength(1); expect(f.tests).toEqual([]); expect(f.fullDays).toHaveLength(1);
+  });
+
+  it('学完了但还没做当天词测：先不算', async () => {
+    expect((await load(db([], [daily('d')]))).learningBatches).toEqual([]);
   });
 });
