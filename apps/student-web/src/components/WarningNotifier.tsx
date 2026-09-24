@@ -65,7 +65,7 @@ export default function WarningNotifier() {
           <span className="text-headline font-bold">老师给你的警告</span>
         </div>
         {paragraphs.map((p, i) => (
-          <p key={i} className={i === 0 ? 'text-callout font-semibold text-ink' : 'text-callout text-ink'}>
+          <p key={i} className="text-callout text-ink">
             {p}
           </p>
         ))}
