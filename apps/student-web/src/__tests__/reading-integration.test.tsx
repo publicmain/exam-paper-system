@@ -16,6 +16,7 @@ import { MemoryRouter, useLocation } from 'react-router-dom';
 import App from '../App';
 import { adoptSession, __resetForTest } from '../lib/auth-store';
 import { writeToken } from '../lib/identity';
+import { __resetWarningsForTest } from '../lib/student-notices';
 import {
   READING_FIXTURE_PATH,
   TEACHER_ONLY_KEYS,
@@ -171,6 +172,7 @@ function installFetch() {
 
 function defaultReply(req: Req): { status?: number; body: unknown } {
   if (req.path === '/student-auth/me') return { body: { ...PROFILE, appVersion: 'v2' } };
+  if (req.path === '/student-notices' && req.method === 'GET') return { body: { items: [] } };
   if (req.path === '/lesson/today') return { body: todayBody };
   if (req.path === '/vocab-v2/overview') return { body: { dailyTarget: 12, today: null, pendingTests: [] } };
   if (req.path === '/lesson/start') {
@@ -241,6 +243,10 @@ async function click(el: HTMLElement) {
 async function openReading() {
   mountApp('/today');
   await settle();
+  // Complete the real optional-module imports while still on Today, so the
+  // teacher-notice read is deterministic rather than depending on import speed.
+  await act(async () => { await vi.dynamicImportSettled(); });
+  await settle();
   // IOS-04 / UI13：今天的阅读卡上自己的「开始阅读」—— 只开阅读，不碰单词
   await click(screen.getByTestId('task-reading-action'));
   await settle();
@@ -248,6 +254,7 @@ async function openReading() {
 
 beforeEach(() => {
   __resetForTest();
+  __resetWarningsForTest();
   localStorage.clear();
   vi.useFakeTimers();
   Object.defineProperty(navigator, 'onLine', { value: true, configurable: true });
@@ -260,6 +267,7 @@ beforeEach(() => {
 });
 
 afterEach(() => {
+  __resetWarningsForTest();
   vi.useRealTimers();
   vi.unstubAllGlobals();
   vi.restoreAllMocks();
@@ -274,10 +282,17 @@ describe('AC-02/03/04/10 全链：启动 → today → 开课 → 阅读页 → 
     await openReading();
 
     expect(at()).toBe('/lesson/reading');
-    // Optional collection sync is separate from the unchanged reading pipeline.
+    // Optional collection sync and teacher notices are separate from the reading pipeline.
     expect(paths('/achievements/sync').length).toBeGreaterThanOrEqual(1);
     expect(paths('/achievements/sync').every((r) => r.method === 'POST')).toBe(true);
-    const trace = reqs.filter((r) => !r.path.startsWith('/achievements')).map((r) => `${r.method} ${r.path}`);
+    const noticeRequests = reqs.filter((r) => r.path.startsWith('/student-notices'));
+    expect(noticeRequests).toHaveLength(1);
+    expect(noticeRequests[0]).toMatchObject({ path: '/student-notices', method: 'GET', body: null });
+    expect(noticeRequests[0].headers.Authorization).toBe(`Bearer ${TOKEN}`);
+    expect(screen.queryByTestId('effort-warning')).not.toBeInTheDocument();
+    // Exclude only the independent, read-only request; unknown notice paths or
+    // writes remain visible and fail the assertions rather than being ignored.
+    const trace = reqs.filter((r) => !r.path.startsWith('/achievements') && !(r.path === '/student-notices' && r.method === 'GET')).map((r) => `${r.method} ${r.path}`);
     expect(trace.slice(0, 6)).toEqual([
       'GET /student-auth/me',
       'GET /lesson/today',
