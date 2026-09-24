@@ -548,6 +548,9 @@ describe('G1 新端不得出现旧路由与旧身份键', () => {
     // 查询串里只有 date；归属由服务端按令牌判定（不是本班场次 → 403）。
     '/print-materials/me/reading/:id',
     '/print-materials/me/words',
+    // 2026-09-24 老师给单个学生的警告弹窗：认证后、只读自己的 / 只能确认自己的；:id 是通知 id（资源标识）
+    '/student-notices',
+    '/student-notices/:id/read',
   ] as const;
 
   /**
