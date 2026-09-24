@@ -489,6 +489,9 @@ export type PrintReadingPayload = { sessionId: string; date: string; level: stri
 /** 打印版：自己某天的每日新词。 */
 export type PrintWordsPayload = { date: string; words: PrintWord[] };
 
+/** 老师给这个学生的警告（2026-09-24）。正文按换行分段。 */
+export type StudentNotice = { id: string; type: string; title: string; body: string | null; createdAt: string };
+
 export type V2Overview = {
   dailyTarget: number;
   today: V2LearningSession | null;
@@ -676,6 +679,10 @@ export const api = {
   },
   vocabV2Daily: (token: string, date?: string) => request<V2LearningSession | null>('GET', date ? '/vocab-v2/daily?date=' + encodeURIComponent(date) : '/vocab-v2/daily', { token }),
   vocabV2Overview: (token: string) => request<V2Overview>('GET', '/vocab-v2/overview', { token }),
+  // ── 给单个学生的警告弹窗（2026-09-24）：只读自己的、只能确认自己的 ──
+  studentNotices: (token: string) => request<{ items: StudentNotice[] }>('GET', '/student-notices', { token }),
+  readStudentNotice: (token: string, id: string) =>
+    request<{ ok: true }>('POST', `/student-notices/${encodeURIComponent(id)}/read`, { body: {}, token }),
   // ── 打印 / 下载（2026-09-22）：服务端排好组、不带答案；页面只按结果排 A4 版 ──
   printReading: (token: string, sessionId: string) =>
     request<PrintReadingPayload>('GET', `/print-materials/me/reading/${encodeURIComponent(sessionId)}`, { token }),

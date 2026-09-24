@@ -51,6 +51,7 @@ import { levelLabel } from '../lib/levels';
 import { NEXT_ACTION_ROUTE, ROUTES, type NextActionKind } from '../routes.contract';
 import { isBeforeReadingClass, isTeachingDay, msUntilReadingClass } from '../lib/teaching-day';
 import { classTimeNoticeSeen, markClassTimeNoticeSeen } from '../lib/class-time-notice';
+import { useWarningActive } from '../lib/student-notices';
 import { Badge, type BadgeTone } from '../design/Badge';
 import { Button } from '../design/Button';
 import { Dialog } from '../design/Dialog';
@@ -396,6 +397,8 @@ export default function TodayPage() {
   /** 「学习时间有调整」：每个学生第一次进首页弹一次（叶老师 2026-09-21） */
   const [timeNotice, setTimeNotice] = useState(() => Boolean(studentId) && !classTimeNoticeSeen(studentId!));
   const timeNoticeOkRef = useRef<HTMLButtonElement>(null);
+  /** 老师给的警告还开着时，首页的提醒先让开（2026-09-24） */
+  const warningActive = useWarningActive();
   const closeTimeNotice = useCallback(() => {
     if (studentId) markClassTimeNoticeSeen(studentId);
     setTimeNotice(false);
@@ -755,7 +758,7 @@ export default function TodayPage() {
       </section>
 
       <Dialog
-        open={timeNotice}
+        open={timeNotice && !warningActive}
         onClose={closeTimeNotice}
         title="学习时间有调整"
         size="sm"
@@ -787,7 +790,7 @@ export default function TodayPage() {
       </Dialog>
 
       <Dialog
-        open={Boolean(remindTest) && !timeNotice}
+        open={Boolean(remindTest) && !timeNotice && !warningActive}
         onClose={() => {
           markRemindedToday();
           setRemindTest(null);

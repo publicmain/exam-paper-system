@@ -64,6 +64,7 @@ import { AudioModule } from './audio/audio.module';
 import { ProductModule } from './product/product.module';
 import { AchievementsModule } from './achievements/achievements.module';
 import { PrintMaterialsModule } from './print-materials/print-materials.module';
+import { StudentNoticesModule } from './student-notices/student-notices.module';
 
 @Module({
   imports: [
@@ -119,6 +120,7 @@ import { PrintMaterialsModule } from './print-materials/print-materials.module';
     ProductModule,
     AchievementsModule,
     PrintMaterialsModule,
+    StudentNoticesModule,
     StudentAuthModule,
     PracticeModule,
     // Morning attendance + quiz

@@ -36,6 +36,7 @@ const PrintCenterPage = lazy(() => import('./pages/PrintCenter'));
 const PrintReadingPage = lazy(() => import('./pages/PrintReading'));
 const PrintWordsPage = lazy(() => import('./pages/PrintWords'));
 const AchievementNotifier = lazy(() => import('./components/AchievementNotifier'));
+const WarningNotifier = lazy(() => import('./components/WarningNotifier'));
 
 export default function App() {
   const state = useSyncExternalStore(subscribe, getState, getState);
@@ -85,6 +86,8 @@ export default function App() {
     <AppShell kind={shellFor(loc.pathname, authed)}>
     {/* A failure of the optional medal renderer must never interrupt learning. */}
     {authed && <ErrorBoundary key={state.status === 'authenticated' ? state.profile.id : ''} fallback={<></>}><Suspense fallback={null}><AchievementNotifier /></Suspense></ErrorBoundary>}
+    {/* 给单个学生的警告（2026-09-24）：一打开就弹，读完点「我知道了」才关 */}
+    {authed && <ErrorBoundary key={`warn-${state.status === 'authenticated' ? state.profile.id : ''}`} fallback={<></>}><Suspense fallback={null}><WarningNotifier /></Suspense></ErrorBoundary>}
     <Routes>
       <Route path={ROUTES.login} element={<LoginPage />} />
       <Route path={ROUTES.register} element={<RegisterPage />} />
