@@ -1,4 +1,4 @@
-import { api, type AchievementBadge } from './api';
+import { api, type AchievementBadge, type AchievementsList } from './api';
 import { readToken } from './identity';
 
 export interface AchievementNotice { badge: AchievementBadge; kind: 'award' | 'backfill'; claimed: boolean }
@@ -10,9 +10,15 @@ let retryRequested = false;
 let queue: readonly AchievementNotice[] = [];
 const consumed = new Set<string>();
 const listeners = new Set<() => void>();
+const collectionListeners = new Set<(token: string, list: AchievementsList) => void>();
 const emit = () => listeners.forEach((listener) => listener());
 export const subscribeAchievementNotices = (listener: () => void) => { listeners.add(listener); return () => { listeners.delete(listener); }; };
 export const getAchievementNotices = () => queue;
+/** Saved collection snapshots are separate from the ephemeral ceremony queue. */
+export const subscribeAchievementCollection = (listener: (token: string, list: AchievementsList) => void) => {
+  collectionListeners.add(listener);
+  return () => { collectionListeners.delete(listener); };
+};
 
 /** No awards or tokens in localStorage. Server claim/viewed state survives devices and logout. */
 export function resetAchievementNotices(token: string | null = readToken()) {
@@ -75,7 +81,19 @@ export function syncAchievementNotices(): Promise<void> {
     try {
       await api.achievementsSync(token);
       if (!current()) return;
-      const [list, notices] = await Promise.all([api.achievements(token), api.achievementNotices(token)]);
+      const savedCollection = api.achievements(token).then((list) => {
+        if (current() && list?.rulesVersion === 5 && Array.isArray(list.badges)) {
+          // Hidden eligibility is deliberately absent from `unsaved`. Publish
+          // the actual saved result even when the optional notice request fails.
+          // Consumers never need to initiate another sync (or another GET).
+          collectionListeners.forEach((listener) => listener(token, list));
+        }
+        return list;
+      });
+      // Keep this sync pending until its collection read settles, even when the
+      // notice endpoint fails first. Otherwise a retry could overtake this read
+      // and its late snapshot could replace a newer successful sync.
+      const [list, notices] = await Promise.all([savedCollection, api.achievementNotices(token).catch(() => null)]);
       if (!current() || list?.rulesVersion !== 5 || !Array.isArray(list.badges) || !Array.isArray(notices?.ceremonyKeys) || !Array.isArray(notices?.backfillKeys)) return;
       const rows = new Map(list.badges.filter((badge) => badge.key.startsWith('v5_') && badge.earned && badge.saved && !badge.revoked && badge.assetId).map((badge) => [badge.key, badge]));
       const known = new Set([...consumed, ...queue.map((notice) => notice.badge.key)]);

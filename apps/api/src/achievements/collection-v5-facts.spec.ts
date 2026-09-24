@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { frozenCollectionArticle, loadCollectionV5Facts } from './collection-v5-facts';
-import { emptyCollectionV5Facts } from './collection-v5-rules';
+import { emptyCollectionV5Facts, evaluateCollectionV5Badges } from './collection-v5-rules';
 import * as verifiedTopics from './verified-article-topics';
 
 const NOW = new Date('2026-09-17T10:00:00Z');
@@ -130,7 +130,7 @@ describe('V5 final daily manifests and first formal scores', () => {
     const failed = formal('z-original', 'd'), passed = formal('a-later', 'd', undefined, { createdAt: at('2026-09-01', '03:00:00'), completedAt: at('2026-09-01', '03:30:00') });
     failed.items[0].isCorrect = false;
     const f = await load(db([], [daily('d'), passed, failed, formal('retry', 'd', undefined, { sessionType: 'retry' }), formal('practice', 'd', undefined, { sessionType: 'custom_test' })]));
-    expect(f.tests).toEqual([]); expect(f.activeDays).toHaveLength(1);
+    expect(f.tests).toEqual([]); expect(f.activeDays).toEqual([]);
   });
 
   it('invalid or unfinished first attempt is not ignored in favor of a second valid passed session', async () => {
@@ -167,6 +167,84 @@ describe('V5 final daily manifests and first formal scores', () => {
     const f = await load(db([], [daily('d1', [card('c1', 'a', '2026-08-01')], '2026-08-01', { completedAt: early }), t1,
       daily('d2', [card('c2', 'b', '2026-08-02')], '2026-08-02', { completedAt: late }), t2]));
     expect(f.activeDays.map((e) => e.key)).toEqual(['2026-08-31', '2026-09-01']);
+  });
+});
+
+describe('V5 starlight requires a valid first formal score of at least half', () => {
+  function sessionsWithScore(right: number, total = 100, day = '2026-09-01', id = 'd') {
+    const words = Array.from({ length: total }, (_, i) => `word-${i}`);
+    const d = daily(id, words.map((word, i) => card(`${id}-c-${i}`, word, day)), day);
+    const t = formal(`${id}-test`, id, day, { target: total, scorePercent: 100 });
+    t.items = words.map((word, i) => card(`${id}-q-${i}`, word, day, {
+      status: 'answered', completedAt: at(day, '02:19:00'), response: { value: 0 },
+      questionSnapshot: { type: 'meaning_choice', options: ['a', 'b', 'c', 'd'] }, isCorrect: i < right,
+    }));
+    return { d, t };
+  }
+
+  it.each([0, 49, 50, 80])('%i%% authoritative score: activity starts at 50%%, test milestones still start at 80%%', async (right) => {
+    const { d, t } = sessionsWithScore(right);
+    const f = await load(db([], [d, t]));
+    expect(f.activeDays.map((event) => event.key)).toEqual(right >= 50 ? ['2026-09-01'] : []);
+    expect(f.learningBatches).toHaveLength(right >= 50 ? 1 : 0);
+    expect(f.tests).toHaveLength(right >= 80 ? 1 : 0);
+  });
+
+  it('does not round 49.5% up to half, and a failed test cannot erase a separate valid reading day', async () => {
+    const { d, t } = sessionsWithScore(99, 200);
+    expect((await load(db([], [d, t]))).activeDays).toEqual([]);
+    expect((await load(db([reading('valid-reading')], [d, t]))).activeDays).toEqual([
+      expect.objectContaining({ key: '2026-09-01', submissionId: 'valid-reading' }),
+    ]);
+  });
+
+  it.each(['ungraded', 'invalid-response', 'incomplete', 'wrong-word', 'wrong-date', 'self-practice'])(
+    '%s test cannot produce activity even with a purported 100%% score', async (kind) => {
+      const { d, t } = sessionsWithScore(4, 4);
+      if (kind === 'ungraded') t.items[0].isCorrect = null;
+      if (kind === 'invalid-response') t.items[0].response = { value: 99 };
+      if (kind === 'incomplete') t.items[0].status = 'pending';
+      if (kind === 'wrong-word') t.items[0].contentSnapshot.headword = 'not-in-daily';
+      if (kind === 'wrong-date') t.date = at('2026-09-02', '00:00:00');
+      if (kind === 'self-practice') t.sessionType = 'custom_test';
+      const f = await load(db([], [d, t]));
+      expect(f.activeDays).toEqual([]);
+      expect(f.learningBatches).toEqual([]);
+      expect(f.tests).toEqual([]);
+    },
+  );
+
+  it('unfinished first attempt cannot be replaced by a completed later clone for activity', async () => {
+    const { d, t } = sessionsWithScore(4, 4);
+    const first = { ...t, id: 'first', status: 'in_progress', completedAt: null };
+    t.createdAt = at('2026-09-01', '02:12:00');
+    expect((await load(db([], [d, t, first]))).activeDays).toEqual([]);
+  });
+
+  it('a below-half makeup cannot manufacture a new active month across the SGT midnight boundary', async () => {
+    const { d, t } = sessionsWithScore(1, 4, '2026-08-01');
+    d.completedAt = new Date('2026-08-31T15:59:00Z');
+    t.completedAt = new Date('2026-08-31T16:00:00Z');
+    expect((await load(db([], [d, t]))).activeDays).toEqual([]);
+    t.items[1].isCorrect = true;
+    expect((await load(db([], [d, t]))).activeDays.map((event) => event.key)).toEqual(['2026-08-31', '2026-09-01']);
+  });
+
+  it('a month with 14 valid reading days and one failed test does not unlock starlight; exactly-half does', async () => {
+    const months = ['01', '03', '06', '09'];
+    const readings = months.flatMap((month) => Array.from({ length: 14 }, (_, i) => {
+      const day = `2026-${month}-${String(i + 1).padStart(2, '0')}`;
+      return reading(`r-${day}`, day);
+    }));
+    const tasks = months.map((month) => sessionsWithScore(month === '09' ? 0 : 2, 4, `2026-${month}-15`, `d-${month}`));
+    const sessions = tasks.flatMap(({ d, t }) => [d, t]);
+    const rejected = evaluateCollectionV5Badges(await load(db(readings, sessions))).find((badge) => badge.key === 'v5_hidden_starlight');
+    expect(rejected).toMatchObject({ current: 3, earned: false });
+    tasks[3].t.items[0].isCorrect = true;
+    tasks[3].t.items[1].isCorrect = true;
+    const earned = evaluateCollectionV5Badges(await load(db(readings, sessions))).find((badge) => badge.key === 'v5_hidden_starlight');
+    expect(earned).toMatchObject({ current: 4, earned: true, earnedOn: '2026-09-15' });
+    expect(earned?.evidence.dates).toHaveLength(60);
   });
 });
 

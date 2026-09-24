@@ -188,7 +188,7 @@ export async function loadCollectionV5Facts(prisma: FactsDb, studentId: string, 
     if (rows.length < PAGE_SIZE) break;
     after = rows[rows.length - 1].id;
   }
-  const completedTests: CollectionV5Event[] = [];
+  const earnestTests: CollectionV5Event[] = [];
   /** 学完、而且当天正式词测第一次作答至少对一半的每日任务 —— 只有这些算「学新词」进度 */
   const earnestDailyIds = new Set<string>();
   const fullDays: CollectionV5Event[] = [];
@@ -202,9 +202,11 @@ export async function loadCollectionV5Facts(prisma: FactsDb, studentId: string, 
     if (!daily || !test.completed || !test.event || test.date !== daily.date || test.event.at < daily.event.at ||
       test.words.size !== daily.words.size || [...daily.words].some((word) => !test.words.has(word))) continue;
     const event = { ...test.event, key: daily.key };
-    completedTests.push(event);
     if (test.qualified) facts.tests.push(event);
     if (!test.atLeastHalf) continue;
+    // Starlight uses the same earnest-learning gate. A submitted but failed or
+    // ungraded test must not create an active day through this separate path.
+    earnestTests.push(event);
     earnestDailyIds.add(daily.id);
     const reading = firstReadingByDate.get(daily.date);
     if (reading) fullDays.push({ key: daily.date, sourceDate: daily.date,
@@ -214,6 +216,6 @@ export async function loadCollectionV5Facts(prisma: FactsDb, studentId: string, 
   facts.learningBatches = firstEvents([...dailies.values()].filter((daily) => earnestDailyIds.has(daily.id)).map((daily) => daily.event));
   facts.tests = firstEvents(facts.tests);
   facts.fullDays = firstEvents(fullDays);
-  facts.activeDays = firstEvents([...readingTasks, ...facts.learningBatches, ...completedTests].map((event) => ({ ...event, key: sgtKey(event.at) })));
+  facts.activeDays = firstEvents([...readingTasks, ...facts.learningBatches, ...earnestTests].map((event) => ({ ...event, key: sgtKey(event.at) })));
   return facts;
 }

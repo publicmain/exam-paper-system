@@ -151,6 +151,18 @@ describe('V5 server collection and durable award notices', () => {
     expect(w.rows).toHaveLength(2); expect(legacy.rulesVersion).toBe(3);
   });
 
+  it('previously saved starlight survives stricter activity qualification without revocation or regrant', async () => {
+    const starlight = saved('v5_hidden_starlight');
+    const before = structuredClone(starlight);
+    const w = world({ initialized: true, facts: emptyCollectionV5Facts(), rows: [starlight] });
+    expect((await w.svc.forStudent('s1', NOW)).badges.find((badge) => badge.key === starlight.badgeKey))
+      .toMatchObject({ earned: true, saved: true, earnedOn: starlight.earnedOn, current: 4 });
+    expect((await w.svc.sync('s1', NOW)).newlyEarned).toEqual([]);
+    expect(w.rows).toEqual([before]);
+    expect(w.prisma.studentAchievement.updateMany).not.toHaveBeenCalled();
+    expect(w.prisma.studentAchievement.createMany).not.toHaveBeenCalled();
+  });
+
   it('revoked prerequisite blocks new dependent tiers and never auto-restores', async () => {
     const w = world({ facts: learned(300), initialized: true, rows: [saved('v5_reading_1', { revokedAt: NOW })] });
     expect((await w.svc.sync('s1', NOW)).newlyEarned).toEqual([]);

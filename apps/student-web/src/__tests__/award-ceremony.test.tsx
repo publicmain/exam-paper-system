@@ -4,7 +4,7 @@ import { AwardCeremony, type AwardCeremonyProps } from '../components/AwardCerem
 import { medalAwardReason, V5_MEDALS } from '../lib/medal-catalog';
 
 vi.mock('../components/MedalViewer', () => ({
-  MedalViewer: ({ assetId, reveal, ceremony, hold, onReady, onRevealComplete, onError }: { assetId: string; reveal?: boolean; ceremony?: boolean; hold?: boolean; onReady?: () => void; onRevealComplete?: () => void; onError?: () => void }) => <div data-testid="mock-medal" data-asset={assetId} data-reveal={String(reveal)} data-ceremony={String(ceremony)} data-hold={String(Boolean(hold))}><button onClick={onReady}>模型就绪</button><button onClick={onRevealComplete}>模型旋转结束</button><button onClick={onError}>模拟错误</button></div>,
+  MedalViewer: ({ assetId, reveal, ceremony, hold, fallbackRequested, onReady, onRevealComplete, onError }: { assetId: string; reveal?: boolean; ceremony?: boolean; hold?: boolean; fallbackRequested?: boolean; onReady?: () => void; onRevealComplete?: () => void; onError?: () => void }) => <div data-testid="mock-medal" data-asset={assetId} data-reveal={String(reveal)} data-ceremony={String(ceremony)} data-hold={String(Boolean(hold))} data-fallback={String(Boolean(fallbackRequested))}><button onClick={onReady}>模型就绪</button><button onClick={onRevealComplete}>模型旋转结束</button><button onClick={onError}>模拟错误</button></div>,
 }));
 
 beforeEach(() => { vi.useFakeTimers(); });
@@ -87,13 +87,18 @@ it('keeps the opening line up while a slow model is still loading', () => {
 
 // 模型慢 / 一直等不到「转完」时不能卡死：落幕后 6 秒兜底照常往下走。
 // （从落幕算，不从就绪算 —— 开场白要念 3 秒，从就绪算会把「淡入 + 转一圈」的时间挤掉。）
-it('falls through six seconds after the curtain when the spin never reports back', () => {
+it('requests an explicit image fallback after six seconds instead of pretending the spin completed', () => {
   const input = props(); render(<AwardCeremony {...input} />);
   ready(); tick(3000);
   expect(scene().dataset.curtain).toBe('false');
   tick(5999);
   expect(scene().dataset.phase).toBe('0');
   tick(1); tick(0);
+  expect(screen.getByTestId('mock-medal').dataset.fallback).toBe('true');
+  expect(scene().dataset.phase).toBe('0');
+  expect(input.onRevealComplete).not.toHaveBeenCalled();
+  fireEvent.click(screen.getByRole('button', { name: '模拟错误' }));
+  spun(); tick(0);
   expect(scene().dataset.phase).toBe('1');
   tick(800);
   expect(screen.getByRole('button', { name: '继续' })).toBeTruthy();
@@ -107,7 +112,7 @@ it('preview is clearly display-only, waits for Continue and never makes requests
   expect(screen.queryByTestId('achievement-award')).toBeNull();
   expect(screen.getByText('颁奖体验 · 不改变收藏')).toBeTruthy();
   expect(screen.getByTestId('mock-medal').dataset.reveal).toBe('true');
-  ready(); spun(); tick(60000);
+  ready(); tick(3000); spun(); tick(60000);
   expect(input.onRevealComplete).toHaveBeenCalledOnce();
   expect(input.onContinue).not.toHaveBeenCalled();
   expect(screen.getByTestId('achievement-preview')).toBeTruthy();
@@ -118,7 +123,7 @@ it('preview is clearly display-only, waits for Continue and never makes requests
 
 it('keeps text readable before notifying the queue', () => {
   const input = props(); render(<AwardCeremony {...input} remainingCount={2} />);
-  ready(); spun(); tick(800);
+  ready(); tick(3000); spun(); tick(800);
   expect(screen.getByRole('button', { name: '下一枚' })).toBeTruthy();
   expect(screen.getByText('还有 2 枚，即将依次呈现')).toBeTruthy();
   tick(2099); expect(input.onRevealComplete).not.toHaveBeenCalled();
@@ -171,9 +176,40 @@ it('fallback starts a usable reveal without implying a preview was awarded', () 
   expect(scene().dataset.started).toBe('true');
   expect(screen.getByText('已改为图片预览，不改变收藏。')).toBeTruthy();
   expect(screen.queryByText(/徽章已保存/)).toBeNull();
-  tick(2700); expect(screen.getByRole('button', { name: '继续' })).toBeTruthy();
+  tick(3000);
+  expect(screen.queryByRole('button', { name: '继续' })).toBeNull();
+  expect(input.onRevealComplete).not.toHaveBeenCalled();
+  spun(); tick(800);
+  expect(screen.getByRole('button', { name: '继续' })).toBeTruthy();
   rerender(<AwardCeremony {...input} />);
   expect(screen.getByText('已改为图片展示，徽章已保存。')).toBeTruthy();
+});
+
+it('never advances an immediate-error medal behind the opening curtain', () => {
+  const input = props(); render(<AwardCeremony {...input} remainingCount={3} />);
+  fireEvent.click(screen.getByRole('button', { name: '模拟错误' }));
+  tick(2999);
+  expect(scene().dataset.curtain).toBe('true');
+  expect(scene().dataset.phase).toBe('0');
+  expect(input.onRevealComplete).not.toHaveBeenCalled();
+  tick(1);
+  expect(scene().dataset.curtain).toBe('false');
+  tick(2600);
+  expect(scene().dataset.phase).toBe('0'); // image still controls completion
+  spun(); tick(2899);
+  expect(input.onRevealComplete).not.toHaveBeenCalled();
+  expect(screen.getByRole('button', { name: '下一枚' })).toBeTruthy();
+  tick(1); expect(input.onRevealComplete).toHaveBeenCalledOnce();
+});
+
+it('ignores an early completion for reading and queue timing until the curtain opens', () => {
+  const input = props(); render(<AwardCeremony {...input} remainingCount={1} />);
+  ready(); spun(); tick(2999);
+  expect(scene().dataset.phase).toBe('0');
+  expect(input.onRevealComplete).not.toHaveBeenCalled();
+  tick(1); tick(2899);
+  expect(input.onRevealComplete).not.toHaveBeenCalled();
+  tick(1); expect(input.onRevealComplete).toHaveBeenCalledOnce();
 });
 
 it('reduced motion shows copy and actions immediately after ready with a reading dwell', () => {
@@ -181,6 +217,7 @@ it('reduced motion shows copy and actions immediately after ready with a reading
   const input = props(); render(<AwardCeremony {...input} />);
   expect(scene().dataset.reduced).toBe('true');
   ready(); expect(scene().dataset.phase).toBe('3');
+  spun();
   expect(screen.getByRole('button', { name: '继续' })).toBeTruthy();
   tick(3199); expect(input.onRevealComplete).not.toHaveBeenCalled();
   tick(1); expect(input.onRevealComplete).toHaveBeenCalledOnce();
@@ -197,7 +234,7 @@ it('turning reduced motion off live never hides already-revealed copy or Continu
   };
   vi.stubGlobal('matchMedia', vi.fn((query: string) => query.includes('prefers-reduced-motion') ? media : { matches: false, media: query, addEventListener: vi.fn(), removeEventListener: vi.fn() }));
   const input = props(); render(<AwardCeremony {...input} />);
-  ready(); tick(1000);
+  ready(); spun(); tick(1000);
   expect(scene().dataset.phase).toBe('3');
   act(() => { media.matches = false; listeners.forEach(listener => listener()); });
   expect(scene().dataset.reduced).toBe('false');
@@ -218,6 +255,26 @@ it('an empty selection does not open a modal or load a medal', () => {
   render(<AwardCeremony {...props()} badge={null} preview />);
   expect(screen.queryByRole('dialog')).toBeNull();
   expect(screen.queryByTestId('mock-medal')).toBeNull();
+});
+
+it('reduced motion never auto-advances a fallback image that is still loading', () => {
+  vi.stubGlobal('matchMedia', vi.fn((query: string) => ({ matches: query.includes('prefers-reduced-motion'), media: query, addEventListener: vi.fn(), removeEventListener: vi.fn() })));
+  const input=props(); render(<AwardCeremony {...input} remainingCount={2} />);
+  fireEvent.click(screen.getByRole('button',{name:'模拟错误'}));
+  tick(20000); expect(input.onRevealComplete).not.toHaveBeenCalled();
+  expect(screen.getByRole('button',{name:'下一枚'})).toBeTruthy();
+  spun(); tick(3199);expect(input.onRevealComplete).not.toHaveBeenCalled();
+  tick(1);expect(input.onRevealComplete).toHaveBeenCalledOnce();
+});
+
+it('reduced motion also requests fallback when a ready renderer never reports completion', () => {
+  vi.stubGlobal('matchMedia', vi.fn((query: string) => ({ matches: query.includes('prefers-reduced-motion'), media: query, addEventListener: vi.fn(), removeEventListener: vi.fn() })));
+  const input=props(); render(<AwardCeremony {...input} remainingCount={2} />);
+  ready(); tick(6000);
+  expect(screen.getByTestId('mock-medal').dataset.fallback).toBe('true');
+  expect(input.onRevealComplete).not.toHaveBeenCalled();
+  fireEvent.click(screen.getByRole('button',{name:'模拟错误'}));
+  spun(); tick(3200);expect(input.onRevealComplete).toHaveBeenCalledOnce();
 });
 
 it('all 16 medals have brief copy preserving quantities, word-batch semantics and task dates', () => {

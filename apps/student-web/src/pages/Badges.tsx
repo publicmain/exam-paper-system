@@ -8,7 +8,7 @@ import { BackButton, Page } from '../design/Page';
 import { Button } from '../design/Button';
 import { Dialog } from '../design/Dialog';
 import { StatusView } from '../design/Status';
-import { markAchievementViewed, syncAchievementNotices } from '../lib/achievement-notices';
+import { markAchievementViewed, subscribeAchievementCollection, syncAchievementNotices } from '../lib/achievement-notices';
 import { MedalImage, MedalViewer } from '../components/MedalViewer';
 import BadgeCeremonyPreview from '../components/BadgeCeremonyPreview';
 
@@ -72,7 +72,18 @@ export default function BadgesPage() {
       setClassLoad({ s: error instanceof ApiError && error.body?.code === 'module_off' ? 'off' : 'error' });
     }
   }, []);
-  useEffect(() => { void fetchAll(); return () => { gen.current++; classGen.current++; }; }, [fetchAll]);
+  useEffect(() => {
+    const unsubscribe = subscribeAchievementCollection((token, data) => {
+      if (readToken() !== token) return;
+      // A saved result is newer than any pre-sync page read still in flight.
+      // Applying it directly also refreshes hidden awards without revealing
+      // their eligibility early or starting a recursive sync/request loop.
+      gen.current++;
+      setLoad({ s: 'ready', data });
+    });
+    void fetchAll();
+    return () => { unsubscribe(); gen.current++; classGen.current++; };
+  }, [fetchAll]);
   useEffect(() => { if (tab === 'class') void fetchClass(); }, [tab, fetchClass]);
   const badges = load.s === 'ready' ? load.data.badges.filter((badge) => badge.key.startsWith('v5_')) : [];
   const detail = selection?.kind === 'mine' ? badges.find((badge) => badge.key === selection.key) : null;

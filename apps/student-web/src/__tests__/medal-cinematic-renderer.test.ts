@@ -16,6 +16,7 @@ function harness({ ceremony = true, locked = false, reduced = false, loading = f
   const listeners: Record<string, () => void> = {};
   const intervals: Array<{ fn: () => void; ms: number }> = [];
   const cleared: number[] = [];
+  const paintedAngles: number[] = [];
   const rotation = { x: 0, y: 0, z: 0, set: vi.fn((x: number, y: number, z: number) => { rotation.x = x; rotation.y = y; rotation.z = z; }) };
   const de = { loading, reducedMotion: reduced, autoRotate: false, view: 'front', playing: false, capturePaused: false };
   const node = { setAttribute: vi.fn() };
@@ -23,7 +24,7 @@ function harness({ ceremony = true, locked = false, reduced = false, loading = f
     ka: new URLSearchParams(ceremony ? 'ceremony=1' : ''), Va: locked, zr: reduced,
     document: { documentElement: { dataset: {} as Record<string, string> }, hidden: false, addEventListener: (type: string, fn: () => void) => { listeners[type] = fn; } },
     de, Nt: { rotation }, Ha: { matches: false }, Ut: {},
-    yt: { domElement: { classList: { remove: vi.fn() } }, render: vi.fn(), compile: vi.fn() },
+    yt: { domElement: { classList: { remove: vi.fn() } }, render: vi.fn(() => { paintedAngles.push(rotation.y); }), compile: vi.fn() },
     // 就绪之前 iframe 还是隐藏的，Safari 不会给隐藏内容动画帧 —— 这里故意永不回调，
     // 预热要是依赖它就会一直挂住（2026-09-18 真机就是这样卡在「正在呈现三维细节」）。
     requestAnimationFrame: () => 1,
@@ -41,13 +42,18 @@ function harness({ ceremony = true, locked = false, reduced = false, loading = f
   vm.runInContext(ceremonySource, scope);
   vm.runInContext('function An(){return finishCinematicCeremony()}' + renderLoop, scope);
   const run = (source: string) => vm.runInContext(source, scope);
+  const frame = (at: number) => { context.performance.now = () => at; run(`x0(${at})`); };
+  const timer = (at: number) => {
+    context.performance.now = () => at;
+    intervals.forEach((interval, index) => { if (!cleared.includes(index + 1)) interval.fn(); });
+  };
   /** Drive real animation frames: `step` ms apart, as a browser would. */
   const frames = (from: number, count: number, step = 16) => {
     let at = from;
-    for (let index = 0; index < count; index += 1) { at += step; run(`x0(${at})`); }
+    for (let index = 0; index < count; index += 1) { at += step; frame(at); }
     return at;
   };
-  return { ...context, run, rotation, frames, listeners, intervals, cleared };
+  return { ...context, run, rotation, frames, frame, timer, paintedAngles, listeners, intervals, cleared };
 }
 
 describe('cinematic 3D coin ceremony', () => {
@@ -107,7 +113,7 @@ describe('cinematic 3D coin ceremony', () => {
   });
 
   // 2026-09-18：手机上「转到一半卡一下，直接跳到结束状态」。原来进度按墙上时间算，
-  // 卡顿后的第一帧就 >=1。现在按每帧实际间隔累计（上限 50 ms），卡顿只会让它慢，不会跳过。
+  // 卡顿后的第一帧就 >=1。两个调度器共享有上限的时钟，卡顿只会让它慢，不会跳过。
   it('a long stall slows the spin instead of skipping it', () => {
     const h = harness(); h.run('beginCinematicCeremony()');
     h.run('x0(2300)'); // 主线程卡了 2 秒
@@ -120,6 +126,60 @@ describe('cinematic 3D coin ceremony', () => {
     expect(h.Ws.mock.calls.map(call => call[0])).toEqual(['started', 'complete']);
     expect(seen.some(y => Math.abs(y - Math.PI) < 0.3)).toBe(true); // 背面真的露过
     expect(seen.some(y => y > Math.PI * 1.7)).toBe(true); // 也转回过正面前的最后一段
+  });
+
+  it.each(['timer-first', 'frame-first'])('recovers from a first-frame stall with %s without skipping the turn', (order) => {
+    const h = harness(); h.run('beginCinematicCeremony()');
+    if (order === 'timer-first') { h.timer(2300); h.frame(2300); }
+    else { h.frame(2300); h.timer(2300); }
+    expect(h.run('ceremonySpent')).toBeCloseTo(.12);
+    expect(h.Ws.mock.calls.map(call => call[0])).toEqual(['started']);
+    expect(h.paintedAngles.every(y => y < Math.PI / 4)).toBe(true);
+    let at = 2300;
+    for (let index = 0; index < 150 && h.de.playing; index++) {
+      at += 16; h.frame(at);
+      if (index % 8 === 0) h.timer(at);
+    }
+    expect(h.paintedAngles.some(y => Math.abs(y - Math.PI) < .3)).toBe(true);
+    expect(h.paintedAngles.some(y => Math.abs(y - Math.PI / 2) < .3)).toBe(true);
+    expect(h.paintedAngles.some(y => y > Math.PI * 1.7)).toBe(true);
+    expect(h.Ws.mock.calls.map(call => call[0])).toEqual(['started', 'complete']);
+  });
+
+  it('recovers from a middle stall even when the watchdog is the first queued callback', () => {
+    const h = harness(); h.run('beginCinematicCeremony()');
+    h.frames(300, 25);
+    expect(h.run('ceremonySpent')).toBeCloseTo(.4);
+    h.timer(2700); h.frame(2700);
+    expect(h.run('ceremonySpent')).toBeCloseTo(.52);
+    expect(h.rotation.y).toBeLessThan(Math.PI);
+    expect(h.Ws.mock.calls.map(call => call[0])).toEqual(['started']);
+    h.frames(2700, 90);
+    expect(h.paintedAngles.some(y => Math.abs(y - Math.PI) < .3)).toBe(true);
+    expect(h.Ws.mock.calls.map(call => call[0])).toEqual(['started', 'complete']);
+  });
+
+  it('does not double-count overlapping timer/RAF ticks or rewind on a stale frame timestamp', () => {
+    const h = harness(); h.run('beginCinematicCeremony()');
+    h.timer(540);
+    const afterTimer = h.rotation.y;
+    h.frame(540); h.frame(532);
+    expect(h.rotation.y).toBe(afterTimer);
+    expect(h.run('ceremonySpent')).toBeCloseTo(.12);
+    h.frame(556);
+    expect(h.run('ceremonySpent')).toBeCloseTo(.136);
+    const afterFrame = h.rotation.y;
+    h.run('advanceCinematicCeremony(NaN); advanceCinematicCeremony(Infinity); advanceCinematicCeremony(-1)');
+    expect(h.rotation.y).toBe(afterFrame);
+    expect(h.run('ceremonySpent')).toBeCloseTo(.136);
+  });
+
+  it('does not fake completion merely because a stall passed the old four-second deadline', () => {
+    const h = harness(); h.run('beginCinematicCeremony()');
+    h.timer(5300); h.frame(5300);
+    expect(h.de.playing).toBe(true);
+    expect(h.run('ceremonySpent')).toBeCloseTo(.12);
+    expect(h.Ws.mock.calls.map(call => call[0])).toEqual(['started']);
   });
 
   // 2026-09-18 第二轮：真机上「第一帧停住很久才开始转」。着色器编译和贴图上传本来
@@ -153,20 +213,21 @@ describe('cinematic 3D coin ceremony', () => {
     h.run('beginCinematicCeremony()');
     expect(h.intervals).toHaveLength(1);
     expect(h.intervals[0].ms).toBeLessThanOrEqual(150);
-    h.performance.now = () => 300 + 900; // 0.9 s，一帧都没来
-    h.intervals[0].fn();
+    h.timer(540); // 第一个120ms检查尚未断帧150ms，第二次检查才接管。
     expect(h.run('ceremonyLowFps')).toBe(true);
     expect(h.rotation.y).toBeGreaterThan(0); // 画面确实被推动了
     expect(h.de.playing).toBe(true);
-    h.performance.now = () => 300 + 1700; // 超过一圈的时长
-    h.intervals[0].fn();
+    for (let at = 660; at <= 2100 && h.de.playing; at += 120) h.timer(at);
     expect(h.de.playing).toBe(false);
     expect(h.Ws.mock.calls.map(call => call[0])).toEqual(['started', 'complete']);
     expect(h.cleared).toEqual([1]); // 收尾时把定时器停掉，不留着空转
+    expect(h.paintedAngles.some(y => Math.abs(y - Math.PI) < .3)).toBe(true);
+    expect(h.paintedAngles.some(y => Math.abs(y - Math.PI / 2) < .35)).toBe(true);
+    h.timer(5000); h.frame(5000);
+    expect(h.Ws).toHaveBeenCalledTimes(2);
   });
 
-  // 一直拿不到画面帧的设备（真机上表现为「徽章不转」）：连续四帧都慢就改按时间推进，
-  // 让它按时结束，而不是僵在原地等帧。单次卡顿不算 —— 上一条用例守着这一点。
+  // 持续低帧率由定时器补画；两个调度器都不能把一次卡顿误当成已展示的整圈。
   // 转完之后学生可以自己拖着转；动画期间的拖动必须被挡掉。
   it('opens dragging only once the ceremony has finished', () => {
     const h = harness();
@@ -182,21 +243,37 @@ describe('cinematic 3D coin ceremony', () => {
   it('a device that keeps missing frames finishes on time instead of freezing', () => {
     const h = harness(); h.run('beginCinematicCeremony()');
     let at = 300;
-    for (let index = 0; index < 8 && h.de.playing; index += 1) { at += 500; h.run(`x0(${at})`); }
+    // RAF仅2fps；真实看门狗仍每120ms检查，不能漏掉这条并行路径。
+    for (let elapsed = 20; elapsed <= 2500 && h.de.playing; elapsed += 20) {
+      at = 300 + elapsed;
+      if (elapsed % 120 === 0) h.timer(at);
+      if (elapsed % 500 === 0) h.frame(at);
+    }
     expect(h.run('ceremonyLowFps')).toBe(true);
     expect(h.de.playing).toBe(false);
     expect(at - 300).toBeLessThanOrEqual(2500);
     expect(h.Ws.mock.calls.map(call => call[0])).toEqual(['started', 'complete']);
+    expect(h.paintedAngles.some(y => Math.abs(y - Math.PI) < .4)).toBe(true);
   });
 
   it('a very slow device still ends within four seconds', () => {
     const h = harness(); h.run('beginCinematicCeremony()');
-    // 8 fps：每帧只推进 50 ms，光靠帧数要 3.2 s 以上，这里由墙上时间封顶收尾。
+    // 8fps每次最多推进120ms，不切换到墙钟、更不能跳到终点。
     let at = 300;
     for (let index = 0; index < 40 && h.de.playing; index += 1) { at += 125; h.run(`x0(${at})`); }
     expect(h.de.playing).toBe(false);
     expect(at - 300).toBeLessThanOrEqual(4125);
     expect(h.Ws.mock.calls.map(call => call[0])).toEqual(['started', 'complete']);
+  });
+
+  it.each(['timer', 'frame'])('reports a %s render failure as fallback, not a completed award', (scheduler) => {
+    const h = harness(); h.run('beginCinematicCeremony()');
+    h.yt.render = vi.fn(() => { throw new Error('WebGL context lost'); });
+    if (scheduler === 'timer') h.timer(2300); else h.frame(2300);
+    expect(h.de.playing).toBe(false);
+    expect(h.run('ceremonyCompleted')).toBe(false);
+    expect(h.Ws.mock.calls.map(call => call[0])).toEqual(['started', 'error']);
+    expect(h.cleared).toEqual([1]);
   });
 
   it('a completion while the tab is hidden is delivered when it comes back', () => {

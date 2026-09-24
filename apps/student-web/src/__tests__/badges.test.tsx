@@ -128,6 +128,136 @@ describe('V5 independent collection and privacy', () => {
       return original(...args);
     }));
     mount(); await settle(); expect(screen.getByTestId('medal-overview').textContent).toContain('1 / 16');
+    expect(requests.filter((r) => r.url === '/api/achievements')).toHaveLength(2);
+    expect(requests.filter((r) => r.url.endsWith('/achievements/sync'))).toHaveLength(1);
+  });
+  it('a hidden grant refreshes the open collection without unsaved eligibility, extra reads or sync loops', async () => {
+    mount(); await settle();
+    const hiddenCard = () => screen.getByTestId(`medal-card-${key('hidden-triad')}`);
+    expect(hiddenCard().textContent).toContain('隐藏珍藏');
+    expect(list.unsaved).toEqual([]);
+    const original = fetch;
+    vi.stubGlobal('fetch', vi.fn(async (...args: Parameters<typeof fetch>) => {
+      if (String(args[0]).endsWith('/achievements/sync')) {
+        Object.assign(unlock('hidden-triad'), { title: '三重奏', description: '隐藏纪念' });
+        notices.ceremonyKeys = [key('hidden-triad')];
+      }
+      return original(...args);
+    }));
+    await act(async () => { await syncAchievementNotices(); }); await settle();
+    expect(screen.getByTestId('medal-overview').textContent).toContain('1 / 16');
+    expect(hiddenCard().textContent).toContain('三重奏');
+    expect(hiddenCard().textContent).toContain('已收藏');
+    expect(hiddenCard().querySelector('[data-asset="hidden-triad"]')).toBeTruthy();
+    expect(requests.map((r) => r.url)).toEqual(['/api/achievements', '/api/achievements/sync', '/api/achievements', '/api/achievements/notices']);
+    await act(async () => { await syncAchievementNotices(); }); await settle();
+    expect(requests.filter((r) => r.url.endsWith('/achievements/sync'))).toHaveLength(2);
+    expect(requests.filter((r) => r.url === '/api/achievements')).toHaveLength(3);
+    expect(getAchievementNotices()).toHaveLength(1);
+    expect(requests.some((r) => /\/(claim|viewed)$/.test(r.url))).toBe(false);
+  });
+  it('an older page read cannot overwrite a newly saved collection snapshot', async () => {
+    const original = fetch;
+    let resolveOld!: (response: Response) => void;
+    let first = true;
+    vi.stubGlobal('fetch', vi.fn(async (...args: Parameters<typeof fetch>) => {
+      if (String(args[0]) === '/api/achievements' && first) {
+        first = false;
+        return new Promise<Response>((resolve) => { resolveOld = resolve; });
+      }
+      return original(...args);
+    }));
+    mount(); await settle(); expect(screen.getByTestId('badges-loading')).toBeTruthy();
+    Object.assign(unlock('hidden-triad'), { title: '三重奏' });
+    await act(async () => { await syncAchievementNotices(); }); await settle();
+    expect(screen.getByTestId('medal-overview').textContent).toContain('1 / 16');
+    await act(async () => { resolveOld({ ok: true, status: 200, text: async () => JSON.stringify(makeList()) } as Response); }); await settle();
+    expect(screen.getByTestId('medal-overview').textContent).toContain('1 / 16');
+    expect(screen.getByTestId(`medal-card-${key('hidden-triad')}`).textContent).toContain('三重奏');
+  });
+  it('a notice outage cannot hide a successfully saved hidden collection item', async () => {
+    mount(); await settle();
+    const original = fetch;
+    vi.stubGlobal('fetch', vi.fn(async (...args: Parameters<typeof fetch>) => {
+      if (String(args[0]).endsWith('/achievements/notices')) throw new Error('notice endpoint offline');
+      return original(...args);
+    }));
+    Object.assign(unlock('hidden-triad'), { title: '三重奏' });
+    await act(async () => { await syncAchievementNotices(); }); await settle();
+    expect(screen.getByTestId('medal-overview').textContent).toContain('1 / 16');
+    expect(getAchievementNotices()).toHaveLength(0);
+    expect(requests.filter((r) => r.url.endsWith('/achievements/sync'))).toHaveLength(1);
+  });
+  it('an early notice failure keeps the collection read serialized with a requested retry', async () => {
+    mount(); await settle();
+    const original = fetch;
+    let resolveFirst!: (response: Response) => void;
+    let holdFirst = true;
+    vi.stubGlobal('fetch', vi.fn(async (...args: Parameters<typeof fetch>) => {
+      if (String(args[0]).endsWith('/achievements/notices')) throw new Error('notice endpoint offline');
+      if (String(args[0]) === '/api/achievements' && holdFirst) {
+        holdFirst = false;
+        return new Promise<Response>((resolve) => { resolveFirst = resolve; });
+      }
+      return original(...args);
+    }));
+    unlock('reading-1');
+    const firstSnapshot = JSON.stringify(list);
+    const firstSync = syncAchievementNotices(); await settle();
+    const retry = syncAchievementNotices(); await settle();
+    expect(requests.filter((r) => r.url.endsWith('/achievements/sync'))).toHaveLength(1);
+    unlock('reading-2');
+    await act(async () => {
+      resolveFirst({ ok: true, status: 200, text: async () => firstSnapshot } as Response);
+      await Promise.all([firstSync, retry]);
+    }); await settle();
+    expect(screen.getByTestId('medal-overview').textContent).toContain('2 / 16');
+    expect(requests.filter((r) => r.url.endsWith('/achievements/sync'))).toHaveLength(2);
+    expect(getAchievementNotices()).toHaveLength(0);
+  });
+  it('failed or malformed sync results preserve the last valid collection without an automatic retry loop', async () => {
+    mount(); await settle();
+    const original = fetch;
+    vi.stubGlobal('fetch', vi.fn(async (...args: Parameters<typeof fetch>) => {
+      if (String(args[0]).endsWith('/achievements/sync')) throw new Error('offline');
+      return original(...args);
+    }));
+    unlock('reading-1');
+    await act(async () => { await syncAchievementNotices(); }); await settle();
+    expect(screen.getByTestId('medal-overview').textContent).toContain('0 / 16');
+    vi.stubGlobal('fetch', vi.fn(async (...args: Parameters<typeof fetch>) => {
+      if (String(args[0]) === '/api/achievements') return { ok: true, status: 200, text: async () => JSON.stringify({ rulesVersion: 5, badges: null }) } as Response;
+      return original(...args);
+    }));
+    await act(async () => { await syncAchievementNotices(); }); await settle();
+    expect(screen.getByTestId('medal-overview').textContent).toContain('0 / 16');
+    expect(getAchievementNotices()).toHaveLength(0);
+    expect(requests.filter((r) => r.url.endsWith('/achievements/sync'))).toHaveLength(1);
+  });
+  it('a late saved collection from account A cannot replace account B after switching', async () => {
+    mount(); await settle();
+    const original = fetch;
+    let resolveA!: (response: Response) => void;
+    let holdA = true;
+    vi.stubGlobal('fetch', vi.fn(async (...args: Parameters<typeof fetch>) => {
+      if (String(args[0]) === '/api/achievements' && holdA) {
+        holdA = false;
+        return new Promise<Response>((resolve) => { resolveA = resolve; });
+      }
+      return original(...args);
+    }));
+    const syncA = syncAchievementNotices(); await settle();
+    const oldAccount = makeList();
+    Object.assign(oldAccount.badges[12], { earned: true, saved: true, title: 'A 的隐藏珍藏', assetId: 'hidden-triad' });
+    act(() => { writeToken('b'); resetAchievementNotices(); });
+    fireEvent.click(screen.getByRole('button', { name: '刷新进度' })); await settle();
+    await act(async () => {
+      resolveA({ ok: true, status: 200, text: async () => JSON.stringify(oldAccount) } as Response);
+      await syncA;
+    }); await settle();
+    expect(screen.getByTestId('medal-overview').textContent).toContain('0 / 16');
+    expect(screen.queryByText('A 的隐藏珍藏')).toBeNull();
+    expect(getAchievementNotices()).toHaveLength(0);
   });
   it('keyboard arrows and Home switch tabs and preserve a single tab stop', async () => {
     mount(); await settle(); const mine = screen.getByRole('tab', { name: '我的徽章' }); mine.focus(); fireEvent.keyDown(mine, { key: 'ArrowRight' }); await settle();
@@ -150,6 +280,7 @@ describe('V5 saved notices, claim and automatic ceremony', () => {
     expect(screen.getByTestId('test-viewer').getAttribute('data-asset')).toBe('reading-1');
     expect(screen.getByTestId('achievement-award').className).toContain('h-[100dvh]');
     fireEvent.click(screen.getByRole('button', { name: '模拟模型就绪' }));
+    await advanceTime(3000);
     fireEvent.click(screen.getByRole('button', { name: '模拟动画完成' })); await advanceTime(2899);
     expect(screen.getByTestId('test-viewer').getAttribute('data-asset')).toBe('reading-1');
     expect(requests.some((r) => r.url.endsWith('/viewed'))).toBe(false);
@@ -157,6 +288,7 @@ describe('V5 saved notices, claim and automatic ceremony', () => {
     expect(screen.getByTestId('test-viewer').getAttribute('data-asset')).toBe('reading-2');
     expect(screen.getAllByRole('dialog')).toHaveLength(1);
     fireEvent.click(screen.getByRole('button', { name: '模拟模型就绪' }));
+    await advanceTime(3000);
     fireEvent.click(screen.getByRole('button', { name: '模拟动画完成' })); await advanceTime(60000);
     expect(screen.getByTestId('achievement-award')).toBeTruthy();
     fireEvent.click(screen.getByRole('button', { name: '继续' })); await settle();
@@ -173,6 +305,7 @@ describe('V5 saved notices, claim and automatic ceremony', () => {
     expect(getAchievementNotices().map((notice) => notice.badge.assetId)).toEqual(['hidden-worlds']);
     expect(screen.getByTestId('test-viewer').getAttribute('data-asset')).toBe('hidden-worlds');
     fireEvent.click(screen.getByRole('button', { name: '模拟模型就绪' }));
+    await advanceTime(3000);
     fireEvent.click(screen.getByRole('button', { name: '模拟动画完成' })); await advanceTime(60000);
     expect(screen.getByRole('button', { name: '继续' })).toBeTruthy();
     expect(screen.getByTestId('achievement-award')).toBeTruthy();
@@ -231,7 +364,8 @@ describe('V5 saved notices, claim and automatic ceremony', () => {
     vi.useFakeTimers();
     queue(['reading-1']); celebrate(); await settle(); fireEvent.click(screen.getByRole('button', { name: '模拟三维错误' })); await settle();
     expect(screen.getByText('已改为图片展示，徽章已保存。')).toBeTruthy();
-    await advanceTime(2700);
+    await advanceTime(3000);
+    fireEvent.click(screen.getByRole('button', { name: '模拟动画完成' })); await advanceTime(800);
     fireEvent.click(screen.getByRole('button', { name: '继续' })); await settle(); expect(screen.queryByRole('dialog')).toBeNull();
   });
   it('account changes synchronously unmount a previous identity ceremony', async () => {

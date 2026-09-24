@@ -118,3 +118,64 @@ it('unmount cancels a pending ceremony start', () => {
   const send=vi.spyOn(frame.contentWindow!,'postMessage');message(frame,'ready');unmount();
   act(()=>vi.advanceTimersByTime(500));expect(send.mock.calls.filter(([m])=>m.action==='start')).toHaveLength(0);
 });
+
+it('keeps a fast-error fallback still until both the curtain and image loading finish', () => {
+  vi.useFakeTimers(); const done=vi.fn();
+  const {rerender}=render(<MedalViewer assetId="reading-1" reveal ceremony hold onRevealComplete={done} />);
+  message(screen.getByTestId('medal-3d-frame') as HTMLIFrameElement,'error');
+  const image=screen.getByRole('img');
+  expect(image.className).not.toContain('award-medal-flip');
+  act(()=>vi.advanceTimersByTime(3000));
+  expect(done).not.toHaveBeenCalled();
+  rerender(<MedalViewer assetId="reading-1" reveal ceremony hold={false} onRevealComplete={done} />);
+  act(()=>vi.advanceTimersByTime(3000));
+  expect(done).not.toHaveBeenCalled(); // no invisible image advances the queue
+  fireEvent.load(image);
+  expect(image.className).toContain('award-medal-flip');
+  act(()=>vi.advanceTimersByTime(2350));
+  expect(done).not.toHaveBeenCalled();
+  const ended=new Event('animationend',{bubbles:true});
+  Object.defineProperty(ended,'animationName',{value:'award-flip'});
+  fireEvent(image,ended);
+  expect(done).toHaveBeenCalledOnce();
+  act(()=>vi.advanceTimersByTime(10000));
+  expect(done).toHaveBeenCalledOnce();
+});
+
+it('waits for the curtain even when the fallback image loads immediately', () => {
+  vi.useFakeTimers(); const done=vi.fn();
+  const {rerender}=render(<MedalViewer assetId="reading-1" reveal ceremony hold onRevealComplete={done} />);
+  message(screen.getByTestId('medal-3d-frame') as HTMLIFrameElement,'error');
+  fireEvent.load(screen.getByRole('img'));
+  act(()=>vi.advanceTimersByTime(3000)); expect(done).not.toHaveBeenCalled();
+  expect(screen.getByRole('img').className).not.toContain('award-medal-flip');
+  rerender(<MedalViewer assetId="reading-1" reveal ceremony onRevealComplete={done} />);
+  expect(screen.getByRole('img').className).toContain('award-medal-flip');
+  act(()=>vi.advanceTimersByTime(2599));expect(done).not.toHaveBeenCalled();
+  act(()=>vi.advanceTimersByTime(1));expect(done).toHaveBeenCalledOnce();
+});
+
+it('explicit fallback cancels a stalled renderer without reporting an unseen completion', () => {
+  vi.useFakeTimers(); const done=vi.fn(),error=vi.fn();
+  const {rerender}=render(<MedalViewer assetId="reading-1" reveal ceremony onRevealComplete={done} onError={error} />);
+  const frame=screen.getByTestId('medal-3d-frame') as HTMLIFrameElement;
+  message(frame,'ready');
+  rerender(<MedalViewer assetId="reading-1" reveal ceremony fallbackRequested onRevealComplete={done} onError={error} />);
+  expect(screen.queryByTestId('medal-3d-frame')).toBeNull();
+  expect(error).toHaveBeenCalledOnce();expect(done).not.toHaveBeenCalled();
+  message(frame,'complete');expect(done).not.toHaveBeenCalled();
+  fireEvent.error(screen.getByRole('img'));
+  expect(screen.getByRole('img').tagName).toBe('DIV');
+  act(()=>vi.advanceTimersByTime(2600));expect(done).toHaveBeenCalledOnce();
+});
+
+it('a hanging fallback image becomes a visible accessible symbol before completion, not an endless wait', () => {
+  vi.useFakeTimers();const done=vi.fn();
+  render(<MedalViewer assetId="reading-1" reveal ceremony onRevealComplete={done} />);
+  message(screen.getByTestId('medal-3d-frame') as HTMLIFrameElement,'error');
+  act(()=>vi.advanceTimersByTime(7999));expect(done).not.toHaveBeenCalled();
+  expect(screen.getByRole('img').tagName).toBe('IMG');
+  act(()=>vi.advanceTimersByTime(1));
+  expect(screen.getByRole('img').tagName).toBe('DIV');expect(done).not.toHaveBeenCalled();
+  act(()=>vi.advanceTimersByTime(2600));expect(done).toHaveBeenCalledOnce();
+});

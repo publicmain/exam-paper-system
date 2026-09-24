@@ -31,6 +31,7 @@ function ActiveAwardCeremony({ badge, remainingCount, onContinue, onSkipAll, onR
   // 模型一就绪就接上，绝不为了演而多等。队列里的第二枚起不再重复开场白。
   const [beat, setBeat] = useState(0);
   const [failed, setFailed] = useState(false);
+  const [fallbackRequested, setFallbackRequested] = useState(false);
   const [phase, setPhase] = useState(0);
   const [reduced, setReduced] = useState(() => window.matchMedia?.('(prefers-reduced-motion: reduce)').matches ?? false);
   const onComplete = useRef(onRevealComplete); onComplete.current = onRevealComplete;
@@ -61,16 +62,18 @@ function ActiveAwardCeremony({ badge, remainingCount, onContinue, onSkipAll, onR
     return () => window.clearTimeout(timer);
   }, [curtain]);
   // 文字等真正转完再出现（2026-09-18）：原来按固定时刻推进，手机一卡，
-  // 旋转还没走完标题就先冒出来了。兜底：转完的消息 6 秒没到（模型慢或降级）也照常往下走。
+  // 旋转还没走完标题就先冒出来了。6 秒没转完则明确降级，不把没播完的动画当成完成。
   // 兜底计时从「落幕」开始算，不从「模型就绪」算：开场白现在要念 3 秒，模型要是
   // 0.1 秒就绪，从就绪算 6 秒，留给「淡入 + 转一圈」的时间就不够了。
   useEffect(() => {
-    if (!started || curtain || reduced || spun) return;
-    const timer = window.setTimeout(() => setSpun(true), 6000);
+    if (!started || curtain || spun || failed) return;
+    const timer = window.setTimeout(() => setFallbackRequested(true), 6000);
     return () => window.clearTimeout(timer);
-  }, [started, curtain, reduced, spun]);
+  }, [started, curtain, reduced, spun, failed]);
   useEffect(() => {
-    if (!started) return;
+    // Even an immediate renderer error must finish the opening and show its
+    // fallback before the reading dwell can advance (and acknowledge) a medal.
+    if (!started || curtain) return;
     // Timed from the finished spin, not from network fetch. All actions stay escapable.
     if (reduced) setPhase(3);
     const timers = reduced || !spun ? [] : [
@@ -80,13 +83,15 @@ function ActiveAwardCeremony({ badge, remainingCount, onContinue, onSkipAll, onR
     ];
     // Let students read the text before automatically advancing a multi-award queue.
     // The last medal's owner callback never closes it without a student action.
-    if (reduced || spun) {
+    // Reduced motion still needs a ready, visible model/poster. It must not
+    // acknowledge a slow fallback image just because rotation is disabled.
+    if (spun) {
       timers.push(window.setTimeout(() => {
         if (!completed.current) { completed.current = true; onComplete.current(); }
       }, reduced ? 3200 : 2900));
     }
     return () => timers.forEach(window.clearTimeout);
-  }, [started, reduced, spun]);
+  }, [started, curtain, reduced, spun]);
   const reason = medalAwardReason(badge.assetId);
   return <Dialog open onClose={onSkipAll} title={badge.title}
     description={preview ? '颁奖体验 · 仅展示动画，不解锁徽章，也不改变学习记录。' : reason}
@@ -106,10 +111,10 @@ function ActiveAwardCeremony({ badge, remainingCount, onContinue, onSkipAll, onR
           </p>}
           <div className="award-halo" aria-hidden="true" />
           <div className="award-motes" aria-hidden="true">{MOTES.map(([x,y,delay], index) => <i key={index} style={{ '--x': `${x}%`, '--y': `${y}%`, '--delay': `${delay}ms` } as CSSProperties} />)}</div>
-          <MedalViewer assetId={badge.assetId} title={badge.title} reveal ceremony hold={curtain}
+          <MedalViewer assetId={badge.assetId} title={badge.title} reveal ceremony hold={curtain} fallbackRequested={fallbackRequested}
             onReady={() => setStarted(true)}
             onRevealComplete={() => setSpun(true)}
-            onError={() => { setFailed(true); setStarted(true); setSpun(true); }} />
+            onError={() => { setFailed(true); setStarted(true); }} />
         </div>
         <div className="award-copy">
           <h2 className="award-title" aria-hidden={phase < 1}>{badge.title}</h2>
