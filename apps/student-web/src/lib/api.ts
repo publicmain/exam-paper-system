@@ -283,6 +283,9 @@ export type V2DailyReview = {
     answered: number;
     expectedNewWords?: number;
     reviewWordsMax?: number;
+    /** 2026-09-29 起：卷子还没生成、没到开考时间（下一个教学日 8:30）时 locked=true */
+    opensAt?: string | null;
+    locked?: boolean;
   } | null;
 };
 
@@ -474,6 +477,8 @@ export type HomeTestTask = {
   expectedNewWords?: number;
   reviewWordsMax?: number;
   generation?: { trigger?: string };
+  /** reason = 'next_morning'：今天学的词下一个教学日 8:30 早读时考 */
+  opensAt?: string;
 };
 export type HomeTasks = {
   date: string;
@@ -534,6 +539,9 @@ export type V2Overview = {
     expectedNewWords?: number;
     reviewWordsMax?: number;
     status: string;
+    /** 2026-09-29 起：还没到开考时间（下一个教学日 8:30），先不能开 */
+    opensAt?: string | null;
+    locked?: boolean;
   }>;
 };
 

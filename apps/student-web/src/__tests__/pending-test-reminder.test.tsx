@@ -172,3 +172,28 @@ describe('首页单词小测提醒', () => {
     }
   });
 });
+
+// 2026-09-29 起单词测试挪到下一个教学日 8:30 早读时考：没到点的卷子不提醒、按钮锁着
+describe('早读才考的卷子（2026-09-29）', () => {
+  const LOCKED = { dailySessionId: 'd-0929', testSessionId: null, date: '2026-09-29', total: null, generated: false, expectedNewWords: 30, reviewWordsMax: 3, answered: 0, status: 'not_started', locked: true, opensAt: '2026-09-30T00:30:00.000Z' };
+
+  it('只有没到开考时间的 → 不弹提醒；补做里的测试按钮写「8:30 开考」并锁住', async () => {
+    pendingTests = [LOCKED];
+    mount();
+    await settle();
+    expect(screen.queryByTestId('pending-test-reminder')).toBeNull();
+    const btn = screen.getByTestId('backlog-day-2026-09-29').querySelector('button[aria-label*="单词测试"]') as HTMLButtonElement;
+    expect(btn.textContent).toContain('8:30 开考');
+    expect(btn.disabled).toBe(true);
+    fireEvent.click(btn);
+    await settle();
+    expect(reqs.some((r) => r.includes('/vocab-v2/test/start'))).toBe(false);
+  });
+
+  it('混着能做的 → 提醒能做的那份，不提醒锁着的', async () => {
+    pendingTests = [LOCKED, { dailySessionId: 'd-0928', testSessionId: null, date: '2026-09-28', total: 13, status: 'not_started' }];
+    mount();
+    await settle();
+    expect(screen.getByTestId('pending-test-reminder').textContent).toContain('9月28日');
+  });
+});

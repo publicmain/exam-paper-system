@@ -23,6 +23,7 @@ import { learningAssetQuality } from './content-quality';
 import { MAX_PER_DAY } from './word-list-plan';
 import { focusedSentence, parseSourceRef, passageOf, sentenceInPassages } from './collect-context';
 import { assignedReadingFor } from './level-timeline';
+import { formalTestLocked, formalTestOpensAt, schoolDailyTarget } from './morning-test';
 import {
   activeDeferredSenseIds,
   collectUnseenFromList,
@@ -69,8 +70,11 @@ function practiceExpiresAtMs(session: { status: string; settingsSnapshot?: unkno
 function formalTestFact(
   test: { id: string; status: string; target: number; items: Array<{ source: string; status: string }> } | null | undefined,
   dailyItems: ReadonlyArray<{ status: string }>,
+  /** 2026-09-29 起：给了就算这份卷子几点开考（下一个教学日 8:30，见 morning-test.ts）。 */
+  gate?: { dailyDateKey: string; now: Date },
 ) {
   if (!test) {
+    const opensAt = gate ? formalTestOpensAt(gate.dailyDateKey) : null;
     return {
       testSessionId: null as string | null,
       generated: false,
@@ -81,6 +85,8 @@ function formalTestFact(
       answered: 0,
       expectedNewWords: testableDailyItems(dailyItems).length,
       reviewWordsMax: REVIEW_SAMPLE_SIZE,
+      opensAt: opensAt ? opensAt.toISOString() : null,
+      locked: Boolean(opensAt && gate && gate.now.getTime() < opensAt.getTime()),
     };
   }
   return {
@@ -91,6 +97,8 @@ function formalTestFact(
     newWords: test.items.filter((item) => item.source !== 'review').length as number | null,
     reviewWords: test.items.filter((item) => item.source === 'review').length as number | null,
     answered: test.items.filter((item) => item.status === 'answered').length,
+    opensAt: null as string | null,
+    locked: false,
   };
 }
 
@@ -214,6 +222,8 @@ export class VocabularyV2Service {
       studentId,
       ...PROFILE_DEFAULTS,
       ...(row ?? {}),
+      // 设了 VOCAB_SCHOOL_DAILY_TARGET（2026-09-29 起 30）就学校统一，不看各人存的设置（生产库 92 行全是默认 10）
+      ...(schoolDailyTarget() ? { dailyTarget: schoolDailyTarget()! } : {}),
       persisted: Boolean(row),
       allowedDailyTargets: [5, 10, 15, 20],
     };
@@ -1480,8 +1490,8 @@ export class VocabularyV2Service {
         })
       : [];
     const formalByKey = new Map(formal.map((session) => [session.sessionKey, session]));
-    const testFact = (session: { sessionKey: string; items: Array<{ status: string }> }) =>
-      formalTestFact(formalByKey.get(`${session.sessionKey}:formal`), session.items);
+    const testFact = (session: { sessionKey: string; date: Date; items: Array<{ status: string }> }) =>
+      formalTestFact(formalByKey.get(`${session.sessionKey}:formal`), session.items, { dailyDateKey: session.date.toISOString().slice(0, 10), now });
     const pendingTests = pendingDailySessions(
       completedDaily,
       new Map(formal.map((session) => [session.sessionKey, session.status])),
@@ -1615,7 +1625,11 @@ export class VocabularyV2Service {
           };
 
     const todayTest = todaySession ? testFact(todaySession) : null;
-    const testHome = !todaySession
+    // 2026-09-29 起：今天学的词下一个教学日 8:30 早读时考，测试不是今天的任务（已经生成的卷子照旧显示）
+    const todayTestOpensAt = teachingDay ? formalTestOpensAt(day.key) : null;
+    const testHome = todayTestOpensAt && !todayTest?.generated
+      ? { state: 'not_applicable', reason: 'next_morning', opensAt: todayTestOpensAt.toISOString() }
+      : !todaySession
       ? teachingDay ? { state: 'not_generated', reason: 'no_word_task_yet' } : { state: 'not_applicable', reason: 'weekend' }
       : todaySession.status !== 'completed'
         ? { state: 'not_generated', reason: 'learning_unfinished', generation: { trigger: '学完当天最后一张卡时自动生成' } }
@@ -2177,12 +2191,19 @@ export class VocabularyV2Service {
     });
     let generatedTestId: string | null = null;
     let generatedTest: { id: string; total: number; newWords: number; reviewWords: number } | null = null;
+    let testOpensAt: string | null = null;
     if (refreshed?.status === 'completed' && refreshed.items.some((candidate) => candidate.status === 'completed')) {
-      const test = await this.startFormalTest(studentId, refreshed.id);
-      generatedTestId = test.id;
-      generatedTest = { id: test.id, total: test.total, newWords: test.newWords, reviewWords: test.reviewWords };
+      // 2026-09-29 起：下一个教学日 8:30 才开考，学完当下不生成，只告诉前端几点开考（morning-test.ts）
+      const dateKey = refreshed.date.toISOString().slice(0, 10);
+      if (formalTestLocked(dateKey, new Date())) {
+        testOpensAt = formalTestOpensAt(dateKey)!.toISOString();
+      } else {
+        const test = await this.startFormalTest(studentId, refreshed.id);
+        generatedTestId = test.id;
+        generatedTest = { id: test.id, total: test.total, newWords: test.newWords, reviewWords: test.reviewWords };
+      }
     }
-    return { ...this.sessionView(refreshed!), generatedTestId, generatedTest, replayed };
+    return { ...this.sessionView(refreshed!), generatedTestId, generatedTest, testOpensAt, replayed };
   }
 
   /**
@@ -2417,6 +2438,12 @@ export class VocabularyV2Service {
       include: { items: { orderBy: { position: 'asc' } } },
     });
     if (existing) return this.testSessionView(existing);
+
+    // 2026-09-29 起：下一个教学日 8:30（新加坡时间）才开考；已经生成的卷子上面已经原样返回
+    const opensAt = formalTestOpensAt(daily.date.toISOString().slice(0, 10));
+    if (opensAt && _now.getTime() < opensAt.getTime()) {
+      throw new BadRequestException({ code: 'v2_test_opens_next_morning', opensAt: opensAt.toISOString() });
+    }
 
     const tested = testableDailyItems(daily.items);
     if (!tested.length) throw new BadRequestException({ code: 'v2_no_testable_items' });
@@ -2781,7 +2808,7 @@ export class VocabularyV2Service {
       recite,
       deferredWords: session.items.filter((item) => item.status === 'skipped').map(headwordOf),
       pendingWords: session.items.filter((item) => item.status === 'pending').map(headwordOf),
-      test: formalTestFact(test, session.items),
+      test: formalTestFact(test, session.items, { dailyDateKey: day.key, now }),
     };
   }
 
@@ -2810,7 +2837,7 @@ export class VocabularyV2Service {
           status: session.status,
           target: session.target,
           ...counts,
-          test: formalTestFact(testByKey.get(`${session.sessionKey}:formal`), session.items),
+          test: formalTestFact(testByKey.get(`${session.sessionKey}:formal`), session.items, { dailyDateKey: session.date.toISOString().slice(0, 10), now }),
         };
       }),
     };

@@ -42,7 +42,7 @@ import { Page } from '../design/Page';
 import { Segmented } from '../design/Segmented';
 import { InlineStatus, Spinner } from '../design/Status';
 import { useToast } from '../design/Toast';
-import { dayText, testSizeText } from './Today';
+import { dayText, opensAtText, testSizeText } from './Today';
 
 export const SOURCE_LABEL: Record<string, string> = {
   level_gap: '每日新词',
@@ -642,8 +642,8 @@ function TestsPanel({
                 icon="checkCircle"
                 title={`${dayText(t.date)} 单词测试`}
                 subtitle={`${testSizeText(t) || '今天学完的新词'}${t.status === 'in_progress' ? ` · 做到 ${t.answered ?? 0} 题` : ''}`}
-                value={busy === t.dailySessionId ? '正在打开…' : t.status === 'in_progress' ? '继续' : '开始'}
-                disabled={busy !== null}
+                value={busy === t.dailySessionId ? '正在打开…' : t.locked ? `${opensAtText(t.opensAt)} 开考` : t.status === 'in_progress' ? '继续' : '开始'}
+                disabled={busy !== null || Boolean(t.locked)}
                 testId={`pending-${t.date}`}
                 onClick={() => onOpen(t)}
               />

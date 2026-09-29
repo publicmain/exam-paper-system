@@ -278,6 +278,10 @@ export function testSizeText(t: { total?: number | null; newWords?: number | nul
 export function testTaskView(ov: V2Overview): TaskView {
   const base = { key: 'test' as const, ...TASK_META.test };
   const t: HomeTestTask = ov.home?.test ?? legacyTest(ov);
+  if (t.state === 'not_applicable' && t.reason === 'next_morning') {
+    // 2026-09-29 起：今天学的词下一个教学日 8:30 早读时考，不算今天的任务
+    return { ...base, applicable: false, done: false, badge: { tone: 'neutral', text: '早读考' }, detail: `${opensAtText(t.opensAt) || '下一个上课日早上 8:30'} 早读时考，今天不用做`, action: { kind: 'none' } };
+  }
   if (t.state === 'not_applicable') {
     const why = t.reason === 'nothing_learned' ? '今天没有学完的新词，不需要测试' : t.reason === 'weekend' ? '周末没有测试' : '今天不需要测试';
     return { ...base, applicable: false, done: false, badge: { tone: 'neutral', text: '不需要' }, detail: why, action: { kind: 'none' } };
@@ -374,6 +378,15 @@ export function backlogDays(ov: V2Overview, todayKey: string | null): BacklogDay
 }
 
 const WEEK = ['周日', '周一', '周二', '周三', '周四', '周五', '周六'];
+
+/** 单词测试几点开考 →「周三早上 8:30」（新加坡时间）。 */
+export function opensAtText(iso: string | null | undefined): string {
+  const t = iso ? Date.parse(iso) : NaN;
+  if (Number.isNaN(t)) return '';
+  const sgt = new Date(t + 8 * 3_600_000);
+  return `${WEEK[sgt.getUTCDay()]}早上 ${sgt.getUTCHours()}:${String(sgt.getUTCMinutes()).padStart(2, '0')}`;
+}
+
 export function dayText(iso: string): string {
   const [y, m, d] = iso.split('-').map(Number);
   if (!y || !m || !d) return iso;
@@ -447,7 +460,8 @@ export default function TodayPage() {
       if (mine !== gen.current.ov) return;
       setOv({ s: 'ready', data });
       void syncAchievementNotices();
-      const pending = data.pendingTests ?? [];
+      // 没到开考时间的（早读才考）不提醒
+      const pending = (data.pendingTests ?? []).filter((p) => !p.locked);
       if (pending.length > 0 && !remindedToday()) {
         // 最早那一份 —— 欠得最久的先提醒
         setRemindTest([...pending].sort((a, b) => a.date.localeCompare(b.date))[0]);
@@ -965,10 +979,11 @@ function BacklogDayRow({
             variant="neutral"
             icon="checkCircle"
             busy={busy === `t-${t.dailySessionId}`}
-            aria-label={`${dayText(t.date)}单词测试${testSizeText(t) ? `，${testSizeText(t)}` : ''}，${t.status === 'in_progress' ? '继续' : '开始'}`}
+            disabled={Boolean(t.locked)}
+            aria-label={`${dayText(t.date)}单词测试${testSizeText(t) ? `，${testSizeText(t)}` : ''}，${t.locked ? `${opensAtText(t.opensAt)}开考` : t.status === 'in_progress' ? '继续' : '开始'}`}
             onClick={() => onTest(t)}
           >
-            测试 · {t.total != null ? `${t.total} 题` : t.status === 'in_progress' ? '继续' : '开始'}
+            测试 · {t.locked ? `${opensAtText(t.opensAt).replace(/^.*早上 /, '')} 开考` : t.total != null ? `${t.total} 题` : t.status === 'in_progress' ? '继续' : '开始'}
           </Button>
         ))}
       </div>

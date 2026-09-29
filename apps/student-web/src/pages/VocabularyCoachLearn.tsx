@@ -39,7 +39,7 @@ import { Button } from '../design/Button';
 import { Icon } from '../design/Icon';
 import { FocusHeader, FocusLayout } from '../design/Page';
 import { InlineStatus, StatusView } from '../design/Status';
-import { dayText } from './Today';
+import { dayText, opensAtText } from './Today';
 
 const SOURCE_LABEL: Record<string, string> = {
   teacher_list: '老师布置',
@@ -62,10 +62,10 @@ export type ReciteData = {
   deferred: number;
   words: Array<{ id: string; action: string | null; position: number; card: V2Card }>;
   deferredWords: string[];
-  test: { testSessionId: string | null; status: string; total: number | null; newWords: number | null; reviewWords: number | null; expectedNewWords?: number; reviewWordsMax?: number } | null;
+  test: { testSessionId: string | null; status: string; total: number | null; newWords: number | null; reviewWords: number | null; expectedNewWords?: number; reviewWordsMax?: number; opensAt?: string | null; locked?: boolean } | null;
 };
 
-export function reciteFromSession(s: V2LearningSession & { generatedTestId?: string | null; generatedTest?: { total: number; newWords: number; reviewWords: number } | null }): ReciteData {
+export function reciteFromSession(s: V2LearningSession & { generatedTestId?: string | null; generatedTest?: { total: number; newWords: number; reviewWords: number } | null; testOpensAt?: string | null }): ReciteData {
   const learnedItems = s.items.filter((it) => it.status === 'completed');
   return {
     date: s.date,
@@ -76,7 +76,9 @@ export function reciteFromSession(s: V2LearningSession & { generatedTestId?: str
     deferredWords: s.items.filter((it) => it.status === 'skipped').map((it) => it.card.headword),
     test: s.generatedTestId
       ? { testSessionId: s.generatedTestId, status: 'not_started', total: s.generatedTest?.total ?? null, newWords: s.generatedTest?.newWords ?? null, reviewWords: s.generatedTest?.reviewWords ?? null }
-      : null,
+      : s.testOpensAt
+        ? { testSessionId: null, status: 'not_started', total: null, newWords: null, reviewWords: null, opensAt: s.testOpensAt, locked: true }
+        : null,
   };
 }
 
@@ -89,7 +91,7 @@ export function reciteFromReview(r: V2DailyReview): ReciteData {
     words: r.recite.map((it) => ({ id: it.id, action: it.action, position: it.position, card: it.card })),
     deferredWords: r.deferredWords,
     test: r.test
-      ? { testSessionId: r.test.testSessionId, status: r.test.status, total: r.test.total, newWords: r.test.newWords, reviewWords: r.test.reviewWords, expectedNewWords: r.test.expectedNewWords, reviewWordsMax: r.test.reviewWordsMax }
+      ? { testSessionId: r.test.testSessionId, status: r.test.status, total: r.test.total, newWords: r.test.newWords, reviewWords: r.test.reviewWords, expectedNewWords: r.test.expectedNewWords, reviewWordsMax: r.test.reviewWordsMax, opensAt: r.test.opensAt, locked: r.test.locked }
       : null,
   };
 }
@@ -408,6 +410,8 @@ function Recite({ data, fresh, note, backToToday, title }: { data: ReciteData; f
 
   const test = data.test;
   const submitted = test?.status === 'submitted';
+  /** 2026-09-29 起：没到开考时间（下一个教学日 8:30 早读时考） */
+  const locked = Boolean(test?.locked);
   const openTest = async () => {
     const token = readToken();
     if (!token || busy) return;
@@ -462,13 +466,17 @@ function Recite({ data, fresh, note, backToToday, title }: { data: ReciteData; f
             <Button block variant="secondary" onClick={() => navigate(`${ROUTES.coachTest}?sessionId=${encodeURIComponent(test!.testSessionId!)}`)}>
               看测试回顾
             </Button>
+          ) : locked ? (
+            <InlineStatus tone="info" role="status" testId="recite-test-locked">
+              这些词{opensAtText(test?.opensAt) || '下一个上课日早上 8:30'} 早读时考，今天背熟就行。
+            </InlineStatus>
           ) : (
             <Button block busy={busy} onClick={() => void openTest()}>
               {test?.status === 'in_progress' ? '我背好了，继续测试' : '我背好了，开始测试'}
             </Button>
           )}
-          <Button block variant="plain" size="md" onClick={() => navigate(ROUTES.today, { replace: true })}>
-            {submitted ? '回到今日' : '先回今日，等下再测'}
+          <Button block variant={locked ? 'primary' : 'plain'} size="md" onClick={() => navigate(ROUTES.today, { replace: true })}>
+            {submitted || locked ? '回到今日' : '先回今日，等下再测'}
           </Button>
         </div>
       }
