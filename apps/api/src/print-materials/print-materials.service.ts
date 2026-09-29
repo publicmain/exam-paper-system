@@ -10,6 +10,9 @@ import { buildReadingPrint, buildWordsPrint, type PrintWord, type ReadingPrint }
  *   · 学生：自己班某一场阅读（不带答案）、自己某一天的单词。
  *   · 老师：一个班某一天 —— 每个档位一份阅读（可带答案），每个学生一份当天的单词
  *     （每个人的词按自己的档位和进度推，各不相同，没法全班共用一张）。
+ *   · 老师：一个班一整周（2026-09-29，庞校长要的早读默写）—— 每个学生周一到周五的词
+ *     合成一份，按天分组；当天 App 正式单词测试里答错过的词标出来，默写时重点写。
+ *     只能印已经排过词的日子：每天的词是当天早上才按进度排的。
  */
 
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
@@ -49,6 +52,16 @@ function toRows(questions: QuestionRow[]) {
 
 const dayKey = (d: Date) => d.toISOString().slice(0, 10);
 const dailySessionKey = (studentId: string, date: string) => `v2:${studentId}:${date}:daily`;
+const DAY_MS = 86_400_000;
+
+/** 周一（新加坡日期）→ 这一周的周一到周五。传进来的不是周一就报错，免得印错周。 */
+export function teachingWeek(monday: string): string[] {
+  if (!DATE_RE.test(monday)) throw new BadRequestException({ code: 'invalid_date' });
+  const start = new Date(`${monday}T00:00:00.000Z`);
+  if (Number.isNaN(start.getTime()) || dayKey(start) !== monday) throw new BadRequestException({ code: 'invalid_date' });
+  if (start.getUTCDay() !== 1) throw new BadRequestException({ code: 'not_monday' });
+  return Array.from({ length: 5 }, (_, i) => dayKey(new Date(start.getTime() + i * DAY_MS)));
+}
 
 export interface ReadingSheet {
   sessionId: string;
@@ -125,11 +138,7 @@ export class PrintMaterialsService {
       }))
       .sort((a, b) => order.indexOf(a.level) - order.indexOf(b.level));
 
-    const enrollments = await this.prisma.classEnrollment.findMany({
-      where: { classId, role: 'student', user: { isActive: true, archivedAt: null } },
-      select: { user: { select: { id: true, name: true, englishLevel: true } } },
-    });
-    const students = enrollments.map((e) => e.user).sort((a, b) => a.name.localeCompare(b.name, 'zh-Hans-CN'));
+    const students = await this.classStudents(classId);
     const daily = students.length
       ? await this.prisma.vocabularyV2Session.findMany({
           where: { sessionKey: { in: students.map((s) => dailySessionKey(s.id, date)) } },
@@ -151,5 +160,74 @@ export class PrintMaterialsService {
         words: buildWordsPrint(byStudent.get(s.id) ?? []),
       })),
     };
+  }
+
+  /** 老师：一个班一整周（周一到周五）每个学生的单词，按天分组，标出当天正式单词测试里答错过的词。 */
+  async classWeek(actor: { id: string; role: string }, classId: string, monday: string) {
+    const dates = teachingWeek(monday);
+    if (!(await canActOnClass(this.prisma, actor, classId))) throw new ForbiddenException({ code: 'class_forbidden' });
+    const cls = await this.prisma.class.findUnique({ where: { id: classId }, select: { id: true, name: true } });
+    if (!cls) throw new NotFoundException({ code: 'class_not_found' });
+
+    const students = await this.classStudents(classId);
+    const keys = students.flatMap((s) => dates.map((date) => dailySessionKey(s.id, date)));
+    const daily = keys.length
+      ? await this.prisma.vocabularyV2Session.findMany({
+          where: { sessionKey: { in: keys } },
+          select: { sessionKey: true, status: true, items: { select: { position: true, contentSnapshot: true, senseId: true } } },
+        })
+      : [];
+    const formal = daily.length
+      ? await this.prisma.vocabularyV2Session.findMany({
+          where: { sessionKey: { in: daily.map((d) => `${d.sessionKey}:formal`) } },
+          select: { sessionKey: true, items: { select: { senseId: true, isCorrect: true } } },
+        })
+      : [];
+    const itemsByKey = new Map(daily.map((d) => [d.sessionKey, d.items]));
+    // 系统每天早上照样给每个学生排词；学生那天没在 App 里学完（考试日、缺勤），纸上要看得出来
+    const learnedByKey = new Map(daily.map((d) => [d.sessionKey, d.status === 'completed']));
+    const wrongByKey = new Map(
+      formal.map((f) => [
+        f.sessionKey.replace(/:formal$/, ''),
+        new Set(f.items.filter((it) => it.isCorrect === false).map((it) => it.senseId)),
+      ]),
+    );
+
+    return {
+      classId: cls.id,
+      className: cls.name,
+      from: dates[0],
+      to: dates[dates.length - 1],
+      dates,
+      students: students.map((s) => {
+        const days = dates
+          .map((date) => {
+            const key = dailySessionKey(s.id, date);
+            return {
+              date,
+              learned: learnedByKey.get(key) ?? false,
+              words: buildWordsPrint(itemsByKey.get(key) ?? [], wrongByKey.get(key) ?? new Set()),
+            };
+          })
+          .filter((d) => d.words.length > 0);
+        return {
+          name: s.name,
+          level: s.englishLevel ? String(s.englishLevel) : null,
+          levelLabel: s.englishLevel ? levelLabel(String(s.englishLevel)) : null,
+          days,
+          total: days.reduce((n, d) => n + d.words.length, 0),
+          testWrong: days.reduce((n, d) => n + d.words.filter((w) => w.testWrong).length, 0),
+        };
+      }),
+    };
+  }
+
+  /** 班里在读的学生，按姓名排序。 */
+  private async classStudents(classId: string) {
+    const enrollments = await this.prisma.classEnrollment.findMany({
+      where: { classId, role: 'student', user: { isActive: true, archivedAt: null } },
+      select: { user: { select: { id: true, name: true, englishLevel: true } } },
+    });
+    return enrollments.map((e) => e.user).sort((a, b) => a.name.localeCompare(b.name, 'zh-Hans-CN'));
   }
 }

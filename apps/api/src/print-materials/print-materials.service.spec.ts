@@ -127,3 +127,67 @@ describe('老师：一个班某一天', () => {
     expect(prisma.classEnrollment.findUnique).not.toHaveBeenCalled();
   });
 });
+
+describe('老师：一个班一整周（早读默写，2026-09-29）', () => {
+  const teacher = { id: 't-1', role: 'teacher' };
+  const card = (headword: string) => ({ headword, pos: 'noun', translation: `n. ${headword} 的中文` });
+
+  function weekPrisma() {
+    const prisma = makePrisma();
+    prisma.vocabularyV2Session.findMany = vi.fn(async ({ where }: any) => {
+      const keys: string[] = where.sessionKey.in;
+      if (keys.every((k) => k.endsWith(':daily'))) {
+        return [
+          { sessionKey: 'v2:stu-b:2026-09-21:daily', status: 'completed', items: [
+            { position: 2, contentSnapshot: card('storm'), senseId: 's-storm' },
+            { position: 1, contentSnapshot: card('calm'), senseId: 's-calm' },
+          ] },
+          { sessionKey: 'v2:stu-b:2026-09-23:daily', status: 'in_progress', items: [{ position: 1, contentSnapshot: card('retain'), senseId: 's-retain' }] },
+        ].filter((row) => keys.includes(row.sessionKey));
+      }
+      // 周一的正式单词测试：storm 答错；周三没做测试
+      return [
+        { sessionKey: 'v2:stu-b:2026-09-21:daily:formal', items: [
+          { senseId: 's-calm', isCorrect: true },
+          { senseId: 's-storm', isCorrect: false },
+          { senseId: 's-old-review', isCorrect: false },
+        ] },
+      ].filter((row) => keys.includes(row.sessionKey));
+    }) as any;
+    return prisma;
+  }
+
+  it('每个学生一份：周一到周五按天分组、按顺序排，当天测试答错过的词标出来', async () => {
+    const prisma = weekPrisma();
+    const r = await new PrintMaterialsService(prisma as any).classWeek(teacher, 'class-1', '2026-09-21');
+    expect(r).toMatchObject({ className: 'SEC27W', from: '2026-09-21', to: '2026-09-25' });
+    expect(r.dates).toEqual(['2026-09-21', '2026-09-22', '2026-09-23', '2026-09-24', '2026-09-25']);
+    const xm = r.students.find((s) => s.name === '小明')!;
+    expect(xm.days.map((d) => [d.date, d.learned])).toEqual([['2026-09-21', true], ['2026-09-23', false]]);
+    expect(xm.days[0].words.map((w) => [w.headword, w.testWrong])).toEqual([['calm', false], ['storm', true]]);
+    // 没做测试的那天：不标（不是「全对」也不是「全错」）
+    expect(xm.days[1].words.map((w) => [w.headword, w.testWrong])).toEqual([['retain', false]]);
+    expect(xm).toMatchObject({ total: 3, testWrong: 1 });
+    // 这一周一个词都没有的学生：days 为空、total 0
+    expect(r.students.find((s) => s.name === 'Amy')).toMatchObject({ days: [], total: 0, testWrong: 0 });
+  });
+
+  it('只查这个班学生这五天的记录（sessionKey 逐个拼出来）', async () => {
+    const prisma = weekPrisma();
+    await new PrintMaterialsService(prisma as any).classWeek(teacher, 'class-1', '2026-09-21');
+    const firstCall = (prisma.vocabularyV2Session.findMany as any).mock.calls[0][0];
+    expect(firstCall.where.sessionKey.in).toHaveLength(10); // 2 个学生 × 5 天
+    expect(firstCall.where.sessionKey.in).toContain('v2:stu-a:2026-09-25:daily');
+  });
+
+  it('**不是周一 / 日期不对：400；不是任课老师：403，什么都不查**', async () => {
+    const svc = new PrintMaterialsService(makePrisma() as any);
+    await expect(svc.classWeek(teacher, 'class-1', '2026-09-22')).rejects.toMatchObject({ status: 400 });
+    await expect(svc.classWeek(teacher, 'class-1', '2026-02-30')).rejects.toMatchObject({ status: 400 });
+    await expect(svc.classWeek(teacher, 'class-1', '9/21')).rejects.toMatchObject({ status: 400 });
+    const prisma = makePrisma();
+    prisma.classEnrollment.findUnique.mockResolvedValueOnce(null as any);
+    await expect(new PrintMaterialsService(prisma as any).classWeek(teacher, 'class-1', '2026-09-21')).rejects.toMatchObject({ status: 403 });
+    expect(prisma.vocabularyV2Session.findMany).not.toHaveBeenCalled();
+  });
+});

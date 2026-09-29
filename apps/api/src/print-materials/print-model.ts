@@ -57,6 +57,8 @@ export interface PrintWord {
   pos: string | null;
   translation: string;
   sentence: string | null;
+  /** 只在按周打印时给：这个学生当天的 App 正式单词测试里这个词答错过（默写纸上标 ★）。 */
+  testWrong?: boolean;
 }
 
 /** 一道题的原始行（服务层从 PaperQuestion 取出后交给这里）。 */
@@ -232,16 +234,24 @@ export function buildReadingPrint(rows: readonly PrintQuestionRow[], opts: { wit
 }
 
 /** 一天的单词：取卡片快照里的字段；没有英文或中文的跳过。 */
-export function buildWordsPrint(items: ReadonlyArray<{ position: number; contentSnapshot: unknown }>): PrintWord[] {
+export function buildWordsPrint(
+  items: ReadonlyArray<{ position: number; contentSnapshot: unknown; senseId?: string }>,
+  /** 传了才标 testWrong：当天正式单词测试里答错过的义项。 */
+  wrongSenseIds?: ReadonlySet<string>,
+): PrintWord[] {
   return [...items]
     .sort((a, b) => a.position - b.position)
-    .map((it) => asObject(it.contentSnapshot))
-    .map((c) => ({
-      headword: String(c.headword ?? '').trim(),
-      phonetic: typeof c.phonetic === 'string' && c.phonetic.trim() ? c.phonetic.trim() : null,
-      pos: typeof c.pos === 'string' && c.pos.trim() ? c.pos.trim() : null,
-      translation: clean(String(c.translation ?? '')).trim(),
-      sentence: typeof c.sentence === 'string' && c.sentence.trim() ? clean(c.sentence).trim() : null,
-    }))
+    .map((it) => {
+      const c = asObject(it.contentSnapshot);
+      const word: PrintWord = {
+        headword: String(c.headword ?? '').trim(),
+        phonetic: typeof c.phonetic === 'string' && c.phonetic.trim() ? c.phonetic.trim() : null,
+        pos: typeof c.pos === 'string' && c.pos.trim() ? c.pos.trim() : null,
+        translation: clean(String(c.translation ?? '')).trim(),
+        sentence: typeof c.sentence === 'string' && c.sentence.trim() ? clean(c.sentence).trim() : null,
+      };
+      if (wrongSenseIds) word.testWrong = Boolean(it.senseId && wrongSenseIds.has(it.senseId));
+      return word;
+    })
     .filter((w) => w.headword && w.translation);
 }

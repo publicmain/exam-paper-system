@@ -20,6 +20,7 @@ import { initialStageForAction, type LearningCardAction } from './learning-card'
 import { answerFormalQuestion, buildFormalQuestion, publicFormalQuestion, type FormalQuestion, type FrozenCard } from './formal-test';
 import { answerAdaptiveQuestion, buildAdaptiveQuestion, checkActiveUse, publicAdaptiveQuestion, type AdaptiveCard, type AdaptiveQuestion } from './adaptive-test';
 import { learningAssetQuality } from './content-quality';
+import { MAX_PER_DAY } from './word-list-plan';
 import { focusedSentence, parseSourceRef, passageOf, sentenceInPassages } from './collect-context';
 import { assignedReadingFor } from './level-timeline';
 import {
@@ -260,8 +261,8 @@ export class VocabularyV2Service {
       .map((word) => (typeof word === 'string' ? { headword: word, force: false } : { headword: word.headword, force: Boolean(word.force) }))
       .map((word) => ({ ...word, headword: headwordKey(word.headword) }))
       .filter((word) => word.headword);
-    if (requested.length < 1 || requested.length > 20) {
-      throw new BadRequestException({ code: 'v2_assignment_word_count', min: 1, max: 20, received: requested.length });
+    if (requested.length < 1 || requested.length > MAX_PER_DAY) {
+      throw new BadRequestException({ code: 'v2_assignment_word_count', min: 1, max: MAX_PER_DAY, received: requested.length });
     }
     if (new Set(requested.map((word) => word.headword)).size !== requested.length) {
       throw new BadRequestException({ code: 'v2_assignment_words_must_be_unique' });

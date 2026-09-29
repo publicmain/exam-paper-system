@@ -5,8 +5,9 @@
  * vitest 能测；这里不碰数据库。
  *
  * 口径（2026-09-05 与叶老师定的）：
- *   · 每天 5–20 个，默认往 10 个/天凑：12 个词 → 周一周二各 6 个，
- *     其余三天回到档位词表；37 个 → 四天 10/9/9/9；最多一周 100 个。
+ *   · 每天 5–40 个，默认往 10 个/天凑：12 个词 → 周一周二各 6 个，
+ *     其余三天回到档位词表；37 个 → 四天 10/9/9/9；最多一周 200 个。
+ *     （2026-09-29：早读课每天 30 个左右，上限从 20 提到 40；要 30 个/天就传 --per-day=30。）
  *   · 词表外的词允许；
  *   · 按词性混排，免得某天全是名词、词测全是拼写题；
  *   · `*` 开头或行尾 `!` 的词是 force —— 见过的学生也照推。
@@ -57,7 +58,7 @@ export function parseWordList(text: string): ParseResult {
 }
 
 export const MIN_PER_DAY = 5;
-export const MAX_PER_DAY = 20;
+export const MAX_PER_DAY = 40;
 export const MAX_TEACHING_DAYS = 5;
 export const DEFAULT_PER_DAY = 10;
 

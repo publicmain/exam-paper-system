@@ -35,7 +35,7 @@ export class PrintMaterialsStudentController {
   }
 }
 
-/** 老师：一个班某一天的阅读（每档一份，可带答案）和每个学生的单词。 */
+/** 老师：一个班某一天的阅读（每档一份，可带答案）和每个学生的单词；或一整周每个学生的单词。 */
 @Controller('print-materials/classes')
 @Roles('admin', 'head_teacher', 'teacher')
 export class PrintMaterialsTeacherController {
@@ -49,5 +49,15 @@ export class PrintMaterialsTeacherController {
     @Query('answers') answers?: string,
   ) {
     return this.service.classDay(user, classId, date, answers === '1' || answers === 'true');
+  }
+
+  /** 一整周（周一到周五）每个学生的单词；`monday` 必须是那一周的周一。 */
+  @Get(':classId/week/:monday')
+  classWeek(
+    @CurrentUser() user: { id: string; role: string },
+    @Param('classId') classId: string,
+    @Param('monday') monday: string,
+  ) {
+    return this.service.classWeek(user, classId, monday);
   }
 }

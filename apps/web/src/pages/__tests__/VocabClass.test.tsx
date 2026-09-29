@@ -8,8 +8,8 @@ import { api } from '../../lib/api';
  *   1. 五档名称必须是 ielts_simplified=O-Level 基础 / olevel_intermediate=
  *      O-Level 中级 / olevel=O-Level 标准 / ielts_light=雅思轻量 /
  *      ielts_authentic=雅思 · 真题型，顺序与学生端 levels.ts 一致（从易到难）。
- *   2. 词数规则改为后端现行的 1–20 个、不重复；不再强制"恰好 12 个"。
- *      0/21/重复要有准确提示，且不能调用发布接口；1/10/12/20 合法。
+ *   2. 词数规则改为后端现行的 1–40 个（2026-09-29 由 20 提到 40）、不重复；不再强制"恰好 12 个"。
+ *      0/41/重复要有准确提示，且不能调用发布接口；1/10/12/20/30/40 合法。
  */
 
 vi.mock('../../lib/api', () => ({
@@ -104,7 +104,7 @@ describe('VocabClass 五档名称（UI06 / T05）', () => {
   });
 });
 
-describe('VocabClass 词表数量规则（UI06 / T04）：1–20 合法，0/21/重复给准确提示', () => {
+describe('VocabClass 词表数量规则（UI06 / T04）：1–40 合法，0/41/重复给准确提示', () => {
   it('0 个单词：给出准确提示，不调用发布接口', async () => {
     await open();
     fireEvent.change(getTextarea(), { target: { value: '   ' } });
@@ -113,15 +113,15 @@ describe('VocabClass 词表数量规则（UI06 / T04）：1–20 合法，0/21/�
     expect(api.vocabV2PublishAssignment).not.toHaveBeenCalled();
   });
 
-  it('21 个单词：给出准确提示（说明上限 20），不调用发布接口', async () => {
+  it('41 个单词：给出准确提示（说明上限 40），不调用发布接口', async () => {
     await open();
-    const words = Array.from({ length: 21 }, (_, i) => `word${i}`).join(' ');
+    const words = Array.from({ length: 41 }, (_, i) => `word${i}`).join(' ');
     fireEvent.change(getTextarea(), { target: { value: words } });
     fireEvent.click(publishButton());
     await waitFor(() => {
       const text = screen.getByRole('status').textContent ?? '';
-      expect(text).toMatch(/20/);
-      expect(text).toMatch(/21/);
+      expect(text).toMatch(/40/);
+      expect(text).toMatch(/41/);
     });
     expect(api.vocabV2PublishAssignment).not.toHaveBeenCalled();
   });
@@ -134,7 +134,7 @@ describe('VocabClass 词表数量规则（UI06 / T04）：1–20 合法，0/21/�
     expect(api.vocabV2PublishAssignment).not.toHaveBeenCalled();
   });
 
-  it.each([1, 10, 12, 20])('%i 个不重复单词合法，能调用发布接口', async (n) => {
+  it.each([1, 10, 12, 20, 30, 40])('%i 个不重复单词合法，能调用发布接口', async (n) => {
     await open();
     const words = Array.from({ length: n }, (_, i) => `word${i}`).join(', ');
     fireEvent.change(getTextarea(), { target: { value: words } });

@@ -95,14 +95,14 @@ export default function VocabClassPage() {
     if (!classId || publishing) return;
     const words = assignmentWords.split(/[\s,，;；]+/).map((word) => word.trim()).filter(Boolean);
     // 词数规则与后端 vocabulary-v2.service.ts#publishTeacherAssignment 现行
-    // 一致：1–20 个、互不重复；不再要求"恰好 12 个"（2026-09-11 审计 UI06 /
-    // T04：旧版强制 12 个，与后端早已放宽的 1–20 规则不符）。
+    // 一致：1–40 个、互不重复；不再要求"恰好 12 个"（2026-09-11 审计 UI06 /
+    // T04）。2026-09-29 早读课每天 30 个左右，上限从 20 提到 40（后端 MAX_PER_DAY）。
     if (words.length < 1) {
       setMessage('请至少输入 1 个单词再发布。');
       return;
     }
-    if (words.length > 20) {
-      setMessage(`每日词表最多 20 个单词，现在识别到 ${words.length} 个；请精简后再发布。`);
+    if (words.length > MAX_DAILY_WORDS) {
+      setMessage(`每日词表最多 ${MAX_DAILY_WORDS} 个单词，现在识别到 ${words.length} 个；请精简后再发布。`);
       return;
     }
     const seen = new Map<string, string>(); // 小写 → 原始写法（用于提示）
@@ -163,10 +163,10 @@ export default function VocabClassPage() {
 
       <section className="rounded-xl border bg-white p-4">
         <h2 className="text-lg font-bold text-gray-900">发布每日新词</h2>
-        <p className="mt-1 text-sm text-gray-500">词语会自动进入学生的“我的单词”。学完即自动生成测试待办，不再让学生选择今天考或明天考。每天 1–20 个不重复单词都可以发布，学生默认按 10 个左右安排学习节奏。</p>
+        <p className="mt-1 text-sm text-gray-500">词语会自动进入学生的“我的单词”。学完即自动生成测试待办，不再让学生选择今天考或明天考。每天 1–40 个不重复单词都可以发布（早读课一般 30 个左右），学生按发布的词数学。</p>
         <div className="mt-3 grid gap-3 lg:grid-cols-[170px_1fr_auto]">
           <input type="date" value={assignmentDate} onChange={(event) => setAssignmentDate(event.target.value)} className="rounded-md border px-3 py-2" />
-          <textarea value={assignmentWords} onChange={(event) => setAssignmentWords(event.target.value)} placeholder="输入 1–20 个不重复英文单词，可用空格、逗号或换行分隔" rows={3} className="rounded-md border px-3 py-2 text-sm" />
+          <textarea value={assignmentWords} onChange={(event) => setAssignmentWords(event.target.value)} placeholder="输入 1–40 个不重复英文单词，可用空格、逗号或换行分隔" rows={3} className="rounded-md border px-3 py-2 text-sm" />
           <button type="button" disabled={publishing} onClick={() => void publish()} className="tap rounded-md bg-blue-600 px-5 py-2 font-medium text-white disabled:opacity-50">{publishing ? '发布中…' : '发布词表'}</button>
         </div>
         {assignments.length ? <div className="mt-4 grid gap-2">{assignments.slice(0, 7).map((assignment) => <div key={assignment.id} className="rounded-lg bg-gray-50 px-3 py-2 text-sm"><div className="flex justify-between gap-3"><strong>{assignment.date} · {assignment.title}</strong><span>版本 {assignment.version}</span></div><p className="mt-1 text-gray-600">{assignment.words.map((word: any) => word.headword).join(' · ')}</p></div>)}</div> : null}
@@ -174,6 +174,9 @@ export default function VocabClassPage() {
     </div>
   );
 }
+
+/** 每日词表最多几个词 —— 与后端 apps/api/src/vocab-v2/word-list-plan.ts 的 MAX_PER_DAY 一致。 */
+const MAX_DAILY_WORDS = 40;
 
 /**
  * 后端 `publishTeacherAssignment` 用 `throw new BadRequestException({code, ...})`
@@ -186,7 +189,7 @@ function describePublishError(reason: any): string {
   const code = body?.code ?? body?.message?.code;
   switch (code) {
     case 'v2_assignment_word_count':
-      return `每日词表需要 1–20 个单词，现在识别到 ${body.received ?? '?'} 个。`;
+      return `每日词表需要 1–${body.max ?? MAX_DAILY_WORDS} 个单词，现在识别到 ${body.received ?? '?'} 个。`;
     case 'v2_assignment_words_must_be_unique':
       return '单词有重复，请去重后再发布。';
     case 'v2_assignment_words_not_publishable': {

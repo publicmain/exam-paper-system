@@ -76,6 +76,20 @@
 .ps-word { font-weight: 700; font-size: 12.5pt; }
 .ps-small { font-size: 9.5pt; color: #444; }
 .ps-answers li { margin: 2px 0; }
+/* 按周打印：每天一行小标题，跟着后面的词走；答错过的词标红星（2026-09-29，只有老师后台用） */
+.ps-day-row td { background: #f1f1f1; font-family: -apple-system, 'PingFang SC', 'Microsoft YaHei', sans-serif; font-weight: 700; font-size: 9.5pt; padding: 3px 7px; }
+.ps-day-row { break-after: avoid; }
+.ps-star { color: #b00020; font-weight: 700; margin-right: 1px; }
+/* 一周默写纸：两栏，一行「题号 | 中文 | 写英文」，一周 50 个词争取一页 */
+.ps-week-grid { display: grid; grid-template-columns: 1fr 1fr; column-gap: 7mm; align-items: start; }
+.ps-week-col > .ps-day-head + .ps-week-row { border-top: none; }
+.ps-week-col > .ps-week-row + .ps-day-head { margin-top: 2.5mm; }
+.ps-day-head { background: #f1f1f1; border: 1px solid #555; font-family: -apple-system, 'PingFang SC', 'Microsoft YaHei', sans-serif; font-weight: 700; font-size: 9pt; padding: 1px 5px; break-after: avoid; }
+.ps-week-row { display: grid; grid-template-columns: 8mm 1fr 30mm; border: 1px solid #555; border-top: none; min-height: 7.6mm; font-size: 9.5pt; line-height: 1.2; break-inside: avoid; }
+.ps-week-row > span { padding: 2px 4px; }
+.ps-week-no { text-align: center; color: #555; border-right: 1px solid #555; }
+.ps-week-cn { border-right: 1px solid #555; }
+.ps-legend { font-family: -apple-system, 'PingFang SC', 'Microsoft YaHei', sans-serif; font-size: 9.5pt; color: #444; margin: 0 0 8px; }
 .ps-empty { font-family: -apple-system, 'PingFang SC', 'Microsoft YaHei', sans-serif; color: #555; padding: 24px 0; text-align: center; }
 
 @media print {

@@ -34,15 +34,20 @@ describe('parseWordList —— 老师给什么样的文本都能收', () => {
   });
 });
 
-describe('dayQuotas —— 每天 5–20，默认往 10 凑', () => {
+describe('dayQuotas —— 每天 5–40，默认往 10 凑', () => {
   it('12 个 → 两天 6/6，不摊成五天', () => expect(dayQuotas(12)).toEqual([6, 6]));
   it('37 个 → 四天 10/9/9/9', () => expect(dayQuotas(37)).toEqual([10, 9, 9, 9]));
   it('60 个 → 五天 12', () => expect(dayQuotas(60)).toEqual([12, 12, 12, 12, 12]));
   it('7 个 → 一天 7', () => expect(dayQuotas(7)).toEqual([7]));
   it('3 个 → 一天 3（少于 5 也只能这样）', () => expect(dayQuotas(3)).toEqual([3]));
-  it('100 个刚好装下；101 个装不下', () => {
+  it('100 个默认仍是五天各 20；200 个刚好装下；201 个装不下', () => {
     expect(dayQuotas(100)).toEqual([20, 20, 20, 20, 20]);
-    expect(() => dayQuotas(101)).toThrow(/装不下/);
+    expect(dayQuotas(200)).toEqual([40, 40, 40, 40, 40]);
+    expect(() => dayQuotas(201)).toThrow(/装不下/);
+  });
+  it('早读每天 30 个（2026-09-29）：120 个 → 周一到周四各 30；150 个 → 五天各 30', () => {
+    expect(dayQuotas(120, 30)).toEqual([30, 30, 30, 30]);
+    expect(dayQuotas(150, 30)).toEqual([30, 30, 30, 30, 30]);
   });
   it('指定每天 5 个：12 个 → 三天 4/4/4？不行，不到 5 就并天 → 两天 6/6', () => {
     expect(dayQuotas(12, 5)).toEqual([6, 6]);

@@ -688,6 +688,8 @@ export const api = {
   // 打印材料（2026-09-22）：一个班某一天 —— 每档一份阅读（可带答案）、每个学生一份当天的单词
   printClassDay: (classId: string, date: string, answers: boolean) =>
     request('GET', `/print-materials/classes/${encodeURIComponent(classId)}/date/${encodeURIComponent(date)}?answers=${answers ? 1 : 0}`),
+  printClassWeek: (classId: string, monday: string) =>
+    request('GET', `/print-materials/classes/${encodeURIComponent(classId)}/week/${encodeURIComponent(monday)}`),
   learningReportWeek: (params: { weekStart?: string; classId?: string } = {}) => {
     const q = new URLSearchParams();
     if (params.weekStart) q.set('weekStart', params.weekStart);
