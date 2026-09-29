@@ -12,13 +12,12 @@ export interface PlannedItem extends PlannerCandidate {
   position: number;
 }
 
-// 30：2026-09-29 起学校可统一每天 30 个新词（见 morning-test.ts 的 VOCAB_SCHOOL_DAILY_TARGET）
-const ALLOWED_TARGETS = new Set([5, 10, 15, 20, 30]);
+const ALLOWED_TARGETS = new Set([5, 10, 15, 20]);
 
-export function normaliseDailyTarget(raw: number): 5 | 10 | 15 | 20 | 30 {
+export function normaliseDailyTarget(raw: number): 5 | 10 | 15 | 20 {
   const n = Number.isFinite(raw) ? Math.floor(raw) : 10;
-  if (ALLOWED_TARGETS.has(n)) return n as 5 | 10 | 15 | 20 | 30;
-  return [5, 10, 15, 20, 30].reduce((best, value) => Math.abs(value - n) < Math.abs(best - n) ? value : best, 10) as 5 | 10 | 15 | 20 | 30;
+  if (ALLOWED_TARGETS.has(n)) return n as 5 | 10 | 15 | 20;
+  return [5, 10, 15, 20].reduce((best, value) => Math.abs(value - n) < Math.abs(best - n) ? value : best, 10) as 5 | 10 | 15 | 20;
 }
 
 /** Default 8-minute mix from the product contract, scaled to the selected size. */
