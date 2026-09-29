@@ -1,0 +1,30 @@
+'use strict';
+
+// 由 build-auto-preferred.ts 按档位 CEFR 等级自动生成，不要手改 —— 改文章后重跑。
+module.exports = {
+  "original-w6-scurvy": ["cider","syrup","polar","pigeon","loosen","lime","mammal","isolated","clinical","scurvy","citrus","guinea","explorer","ignorance","vinegar","exhaust"],
+  "original-w6-aral-sea": ["seabed","irrigate","pesticide","rusting","evaporated","freshwater","shoreline","twentieth","according","soak","retreat","strand","outlet","shrink","drain","sharply"],
+  "original-w6-inattentional-blindness": ["convict","expertise","conviction","inserted","unicycle","radiologist","misplace","lying","astonish","oath","overturn","overlook","readily","observer","cope","colleague"],
+  "original-w6-road-pricing": ["congestion","exempt","deduct","referendum","shuttle","london","gantry","overuse","acceptability","reintroduce","inconvenience","familiarity","according","valid","observer","trial"],
+  "original-w6-stonehenge-stones": ["glacier","excavation","boulder","portable","grind","cylinder","haul","bluestone","inserted","quarrying","stonehenge","overland","greenish","geographer","geologist","doctoral"],
+  "original-w6-wet-fingers": ["raisin","wrinkle","fingertip","tyre","wrinkling","wrinkled","soak","shrink","grip","nerve"],
+  "original-w6-archerfish": ["groove","prey","gill","snap"],
+  "original-w6-can-opener": ["chisel","patent","thinner","rusting","patented","opener","microbe","inventor","seal","blade","user","decade"],
+  "original-w6-bath-toys-currents": ["bleach","ashore","drift","shoreline","colleague","cardboard"],
+  "original-w6-apple-browning": ["unbroken","pigment","enzyme","bruise","vitamin","flesh","substance","acid","reaction"],
+  "original-w6-class-photo": ["trick","bench","tear","mirror","screen","wide","photographer","round"],
+  "original-w6-gecko": ["tissue","scream","plastic","danger","slowly","plant","nearly","toward","knock","next","last"],
+  "original-w6-ice-lollies": ["stick","freezer","trick","wooden","pour","tear","plate","soft","pass"],
+  "original-w6-plastic-bag": ["backpack","loud","rail","stick","stomach","empty","plastic","path","branch","pull","except","next","last"],
+  "original-w6-box-of-pens": ["parcel","press","cost","shout","next","last"],
+  "original-w6-how-they-met": ["stain","backward","throat","version","fiftieth","disappoint","whichever","afterward","proud","breath","press"],
+  "original-w6-come-for-dinner": ["packet","slam","gently","recess","goodbye","messy","loud","steam","whenever","connect","properly","lift","politely","none","recognise"],
+  "original-w6-the-wobble": ["squash","madam","furious","grip","spin","community","lump","clay","thumbprint","wobble","ache","pottery","wrist","elbow","loud","palm"],
+  "original-w6-four-numbers": ["pavement","schoolgirl","frown","netball","auntie","twist","interrupt","beat","caller","none"],
+  "original-w6-the-leak": ["separately","grin","ceiling","particular","bryan","swap","marker","disappoint","whichever","calm","whisper","suspect","narrow","warn","charge","rest"],
+  "original-w6-lucky-socks": ["buzz","laundry","jersey","bare","dirt","pale","score","beat","onto","season"],
+  "original-w6-copycat": ["dining","sunbird","hawker","gourd","controller","pillow","bitter","whenever","rail","switch","tiny","press","strangely"],
+  "original-w6-frame-by-frame": ["millimetre","tray","sideways","footstep","vroom","calculator","pillow","horn","prize","tiny","completely","onto","announce","foot"],
+  "original-w6-forwarded-many-times": ["label","voucher","scam","auntie","delete","underneath","deadline","pillow","warn","active","link","press","onto","none"],
+  "original-w6-third-rung": ["clap","grin","corridor","calmly","grind","harness","helmet","ladder","instructor","loud","pole","platform","wire","whenever","rail","height"],
+};
