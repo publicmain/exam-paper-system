@@ -245,14 +245,14 @@ export function shortGloss(text: string): string {
 type WeekEntry = { kind: 'head'; date: string; label: string } | { kind: 'row'; w: PrintWord; no: number };
 
 /** 按题数对半分成左右两栏；一天被拆开时右栏补一个「（续）」小标题。 */
-function splitColumns(days: Array<{ date: string; label: string; words: PrintWord[]; rows: Array<{ w: PrintWord; no: number }> }>): WeekEntry[][] {
+function splitColumns(days: Array<{ date: string; label: string; note?: string; words: PrintWord[]; rows: Array<{ w: PrintWord; no: number }> }>): WeekEntry[][] {
   const total = days.reduce((n, d) => n + d.rows.length, 0);
   const half = Math.ceil(total / 2);
   const cols: WeekEntry[][] = [[], []];
   let placed = 0;
   for (const d of days) {
     let col = placed < half ? 0 : 1;
-    cols[col].push({ kind: 'head', date: d.date, label: `${d.label} · ${d.words.length} 个` });
+    cols[col].push({ kind: 'head', date: d.date, label: `${d.label}${d.note ?? ''} · ${d.words.length} 个` });
     for (const r of d.rows) {
       const want = placed < half ? 0 : 1;
       if (want !== col) {
@@ -277,7 +277,8 @@ export function WeekWordsSheet({
   meta,
   showAnswers = false,
 }: {
-  days: Array<{ date: string; label: string; words: PrintWord[] }>;
+  /** note：跟在日期后面的附注（如「（App 里没学完）」），分栏续标题里不重复 */
+  days: Array<{ date: string; label: string; note?: string; words: PrintWord[] }>;
   mode: WordSheetMode;
   title: string;
   meta: string;
@@ -349,7 +350,8 @@ export function WeekWordsSheet({
               <tbody key={d.date}>
                 <tr className="ps-day-row">
                   <td colSpan={4}>
-                    {d.label} · {d.words.length} 个
+                    {d.label}
+                    {d.note ?? ''} · {d.words.length} 个
                   </td>
                 </tr>
                 {d.rows.map(({ w, no }) => (

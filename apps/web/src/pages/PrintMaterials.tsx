@@ -307,7 +307,7 @@ export default function PrintMaterialsPage() {
         ? weekWithWords.map((s) => (
             <WeekWordsSheet
               key={s.name}
-              days={s.days.map((d) => ({ ...d, label: d.learned ? dayText(d.date) : `${dayText(d.date)}（App 里没学完）` }))}
+              days={s.days.map((d) => ({ ...d, label: dayText(d.date), note: d.learned ? undefined : '（App 里没学完）' }))}
               mode={kind === 'dictation' ? 'dictation' : 'list'}
               title={`${s.name} · ${kind === 'dictation' ? '一周默写纸' : '一周单词表'}`}
               meta={[
