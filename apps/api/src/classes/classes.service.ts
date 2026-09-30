@@ -101,8 +101,43 @@ export class ClassesService {
     });
   }
 
-  async removeEnrollment(classId: string, userId: string) {
-    return this.prisma.classEnrollment.deleteMany({ where: { classId, userId } });
+  /**
+   * 把人移出班级（老师后台班级页的「移出」）。
+   *
+   * 2026-10-01 起留一条审计：谁、什么时候、把谁从哪个班移出。09-30 查三个学生
+   * 「阅读做不了」，原因是被移出了班级，而这条路当时不留任何记录，查不到是谁点的。
+   * 删除和审计在同一个事务里（要么都成、要么都不成）；本来就不在这个班的
+   * （重复点、已被别人移出）不写审计。
+   */
+  async removeEnrollment(classId: string, userId: string, actor?: ActorCtx) {
+    return this.prisma.$transaction(async (tx) => {
+      const row = await tx.classEnrollment.findUnique({
+        where: { classId_userId: { classId, userId } },
+        select: { role: true, joinedAt: true, class: { select: { name: true } }, user: { select: { name: true } } },
+      });
+      const result = await tx.classEnrollment.deleteMany({ where: { classId, userId } });
+      if (row && result.count > 0) {
+        await this.audit.log(
+          {
+            actorId: actor?.id ?? null,
+            actorRole: actor?.role ?? null,
+            action: 'class.unenroll',
+            entityType: 'User',
+            entityId: userId,
+            ip: actor?.ip ?? null,
+            metadata: {
+              classId,
+              className: row.class.name,
+              userName: row.user.name,
+              enrollmentRole: row.role,
+              joinedAt: row.joinedAt.toISOString(),
+            },
+          },
+          tx as any,
+        );
+      }
+      return result;
+    });
   }
 
   /** Bulk-create student users by email + name list, then enroll all in

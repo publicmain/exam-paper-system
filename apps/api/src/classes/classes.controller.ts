@@ -156,12 +156,12 @@ export class ClassesController {
   }
 
   @Delete(':id/enrollments/:userId')
-  async unenroll(@Param('id') id: string, @Param('userId') userId: string, @CurrentUser() user: any) {
+  async unenroll(@Param('id') id: string, @Param('userId') userId: string, @CurrentUser() user: any, @Req() req: Request) {
     if (!ROLES_TEACHER.has(user.role)) {
       throw new ForbiddenException('teacher / head_teacher / admin only');
     }
     await this.assertClassAccess(user, id);
-    return this.classes.removeEnrollment(id, userId);
+    return this.classes.removeEnrollment(id, userId, { id: user.id, role: user.role, ip: req.ip ?? null });
   }
 
   /** F5 — set or clear the per-class weeklyFocus string the AI quick-paper
