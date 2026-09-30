@@ -59,6 +59,11 @@ export interface PrintWord {
   sentence: string | null;
   /** 只在按周打印时给：这个学生当天的 App 正式单词测试里这个词答错过（默写纸上标 ★）。 */
   testWrong?: boolean;
+  /**
+   * 学生在 App 里学完这个词没有（2026-10-01，「一次印全部」要能只印学过的词）。
+   * 只有取数时带了卡片状态才给；没学到的、点了「稍后再学」的都是 false。
+   */
+  learned?: boolean;
 }
 
 /** 一道题的原始行（服务层从 PaperQuestion 取出后交给这里）。 */
@@ -235,7 +240,7 @@ export function buildReadingPrint(rows: readonly PrintQuestionRow[], opts: { wit
 
 /** 一天的单词：取卡片快照里的字段；没有英文或中文的跳过。 */
 export function buildWordsPrint(
-  items: ReadonlyArray<{ position: number; contentSnapshot: unknown; senseId?: string }>,
+  items: ReadonlyArray<{ position: number; contentSnapshot: unknown; senseId?: string; status?: string }>,
   /** 传了才标 testWrong：当天正式单词测试里答错过的义项。 */
   wrongSenseIds?: ReadonlySet<string>,
 ): PrintWord[] {
@@ -251,6 +256,7 @@ export function buildWordsPrint(
         sentence: typeof c.sentence === 'string' && c.sentence.trim() ? clean(c.sentence).trim() : null,
       };
       if (wrongSenseIds) word.testWrong = Boolean(it.senseId && wrongSenseIds.has(it.senseId));
+      if (it.status !== undefined) word.learned = it.status === 'completed';
       return word;
     })
     .filter((w) => w.headword && w.translation);

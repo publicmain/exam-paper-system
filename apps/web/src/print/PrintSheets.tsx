@@ -25,6 +25,8 @@ export type PrintWord = {
   sentence: string | null;
   /** 只在按周打印时有：当天 App 正式单词测试里答错过 */
   testWrong?: boolean;
+  /** 学生在 App 里学完这个词没有（2026-10-01，「一次印全部」只印学过的词用；按天取数时才有） */
+  learned?: boolean;
 };
 export type WordSheetMode = 'list' | 'dictation';
 

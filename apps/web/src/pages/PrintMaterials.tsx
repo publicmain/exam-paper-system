@@ -162,7 +162,12 @@ export default function PrintMaterialsPage() {
     <div className="ps-screen" data-testid="print-materials">
       <div className="ps-no-print mx-auto mb-4 max-w-[210mm] space-y-3">
         <div>
-          <h1 className="text-xl font-bold">打印材料</h1>
+          <div className="flex flex-wrap items-baseline justify-between gap-2">
+            <h1 className="text-xl font-bold">打印材料</h1>
+            <a href="/print-words" target="_blank" rel="noopener" className="text-blue-600 hover:underline" data-testid="print-all-link">
+              一次印全部学生的单词 →
+            </a>
+          </div>
           <p className="text-sm text-gray-600">
             选班级和日期，印阅读文章和题目，或者每个学生自己的单词表 / 默写纸。选「一整周」可以把每个学生一周的词印成一份（早读默写用）。点「打印」后也可以存成 PDF。
           </p>

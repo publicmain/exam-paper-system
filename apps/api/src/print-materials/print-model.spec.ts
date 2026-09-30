@@ -133,4 +133,15 @@ describe('单词表', () => {
       { headword: 'retain', phonetic: '/rɪˈteɪn/', pos: 'verb', translation: 'vt. 保持, 保留', sentence: 'Try to retain the key ideas.' },
     ]);
   });
+
+  it('带了卡片状态就标出学完没有（「一次印全部」只印学过的词，2026-10-01）', () => {
+    const words = buildWordsPrint([
+      { position: 1, status: 'completed', contentSnapshot: { headword: 'calm', translation: 'a. 平静的' } },
+      { position: 2, status: 'skipped', contentSnapshot: { headword: 'retain', translation: 'vt. 保持' } },
+      { position: 3, status: 'pending', contentSnapshot: { headword: 'orbit', translation: 'n. 轨道' } },
+    ]);
+    expect(words.map((w) => [w.headword, w.learned])).toEqual([['calm', true], ['retain', false], ['orbit', false]]);
+    // 不带状态（学生自己打印、按周打印）就不出现这个字段
+    expect(buildWordsPrint([{ position: 1, contentSnapshot: { headword: 'calm', translation: 'a. 平静的' } }])[0]).not.toHaveProperty('learned');
+  });
 });

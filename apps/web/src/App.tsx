@@ -67,6 +67,7 @@ const ClassRegistrationPage = lazy(() => import('./pages/ClassRegistration'));
 const LessonBoardPage = lazy(() => import('./pages/LessonBoard'));
 const LearningReportPage = lazy(() => import('./pages/LearningReport'));
 const PrintMaterialsPage = lazy(() => import('./pages/PrintMaterials'));
+const PrintAllWordsPage = lazy(() => import('./pages/PrintAllWords'));
 const StudentBadgesPage = lazy(() => import('./pages/StudentBadges'));
 const MyLessonPage = lazy(() => import('./pages/MyLesson'));
 const TaskSummaryPage = lazy(() => import('./pages/TaskSummary'));
@@ -317,6 +318,15 @@ export default function App() {
           </ErrorBoundary>
         </main>
       </div>
+    );
+  }
+
+  // 一次印全部学生的单词（2026-10-01）：独立页面，不套后台导航栏，打印出来干净
+  if (location.pathname === '/print-words') {
+    return (
+      <Routes>
+        <Route path="/print-words" element={<PrintAllWordsPage />} />
+      </Routes>
     );
   }
 

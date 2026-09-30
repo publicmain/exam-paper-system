@@ -142,7 +142,8 @@ export class PrintMaterialsService {
     const daily = students.length
       ? await this.prisma.vocabularyV2Session.findMany({
           where: { sessionKey: { in: students.map((s) => dailySessionKey(s.id, date)) } },
-          select: { studentId: true, items: { select: { position: true, contentSnapshot: true } } },
+          // status：给「一次印全部」分出学完的词（每个词带 learned）
+          select: { studentId: true, items: { select: { position: true, contentSnapshot: true, status: true } } },
         })
       : [];
     const byStudent = new Map(daily.map((d) => [d.studentId, d.items]));
