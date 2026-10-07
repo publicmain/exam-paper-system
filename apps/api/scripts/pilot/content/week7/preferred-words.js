@@ -1,0 +1,30 @@
+'use strict';
+
+// 由 build-auto-preferred.ts 按档位 CEFR 等级自动生成，不要手改 —— 改文章后重跑。
+module.exports = {
+  "original-w7-asteroid-iridium": ["plankton","photosynthesis","quartz","meteorite","volcanic","airborne","sceptical","limestone","asteroid","accumulation","crust","physicist","clay","speculation","boundary","iridium"],
+  "original-w7-false-memory": ["children","eyewitness","reconstruction","convict","lying","courtroom","repetition","smash","identification","genuine","necessarily","trial","procedure","decade","data"],
+  "original-w7-haber-bosch": ["manure","algae","brittle","oxide","scarce","nitrogen","apparatus","hydrogen","irony","bacteria","protein","osmium","guano","nitric","nitrous","bosch"],
+  "original-w7-rapa-nui": ["gnaw","pollen","famine","erode","moist","reconcile","sediment","adaptation","warfare","compelling","predator","verdict","timber","regrow","treeless","radiocarbon"],
+  "original-w7-defaults": ["inertia","default","transplant","complication","presume","onwards","donor","equivalent","spain","johnson","eligible","donation","donate","enroll","reluctant","wealthy"],
+  "original-w7-soap": ["greasy","grease","scrub","rinsing","according","germ","tail","irritation"],
+  "original-w7-stethoscope": ["earpiece","stethoscope","tuberculosis","hollow","version"],
+  "original-w7-camel-hump": ["hump","mammal","urine","oval","cope","energy","droop"],
+  "original-w7-ears-pop": ["pinch","grind","eardrum","inwards","yawn","chew","suck","squeeze","gently"],
+  "original-w7-stalactites": ["icicle","rainwater","stony","thicken","limestone","grind","stalagmite","stalactite","dripping","millimetre","hollow","cone","torch","soak","widen","crack"],
+  "original-w7-pink-shirts": ["press","cupboard","boss","lose","basket","quietly","last"],
+  "original-w7-extra-seconds": ["horn","flash","pole","stick","traffic","cross","slowly","senior","notice","sound","pass","reach","road","quite","next","last"],
+  "original-w7-toy-sale": ["robot","puzzle","empty","plastic","soft","nobody","next","last"],
+  "original-w7-cloudy-day": ["mirror","burn","nearly","whole","fall","lunchtime","last"],
+  "original-w7-water-station": ["tire","completely","rest","runner","spill","pour","slowly","sound","single","pass","shout","last"],
+  "original-w7-over-there": ["clap","lump","dumplings","mattress","halfway","jealous","sigh","whenever","boot","wrap"],
+  "original-w7-two-minutes": ["waist","grin","wipe","saving","salon","women","humming","plait","lying","hairdresser"],
+  "original-w7-the-back-of-her-head": ["yawn","swing","primary","stopwatch","jasmine","ponytail","embarrass","delete","bounce","chase","proud","properly","lift","pound","season","term"],
+  "original-w7-the-jellyfish-badge": ["dread","badge","offend","skip","crack","jellyfish","tally","noodle","aquarium","embarrass","canteen","queue","sometime","afterward","wrist","burst"],
+  "original-w7-seven-doors": ["verse","humming","kingfisher","binoculars","rachel","sometime","properly","rest"],
+  "original-w7-ninety-six-bars": ["clap","conductor","stool","grin","soloist","joel","drummer","halfway","trumpet","afterward","loud","crash","whisper","silent","slip","lift"],
+  "original-w7-volume-one": ["kneel","throat","lower","switch","breath","volume","series"],
+  "original-w7-end-of-the-line": ["yawn","translation","tunnel","interchange","parcel","carriage","tire","stupid","platform","tiny","announce","politely"],
+  "original-w7-caught-on-camera": ["pyjamas","microwave","mango","scoop","dining","courtroom","ashamed","guilty","switch","accuse","press","freezer"],
+  "original-w7-deciding-vote": ["rattle","corridor","candidate","chairperson","whoever","deadline","fold","sheet","term","sticker","strangely","rest"],
+};
