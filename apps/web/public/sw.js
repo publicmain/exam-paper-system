@@ -12,7 +12,31 @@
 // v3: evict caches poisoned by the pre-fix nginx serving .mjs as
 // application/octet-stream (pdf.js worker) — cache-first kept replaying
 // the bad MIME even after the server was fixed.
-const CACHE = 'zaoce-pwa-v4';
+// v5 (2026-10-08): the cache is strictly best-effort. A Chrome profile whose
+// CacheStorage was broken ("Unexpected internal error" on caches.open) got
+// ERR_FAILED on EVERY page: the shell fetch succeeded, then `await
+// caches.open()` threw inside the try, the catch's caches.match threw too,
+// and respondWith rejected. Now a cache failure can never fail a request.
+const CACHE = 'zaoce-pwa-v5';
+
+/** Best-effort cache write — swallows every CacheStorage error. */
+async function cachePut(req, res) {
+  try {
+    const cache = await caches.open(CACHE);
+    await cache.put(req, res);
+  } catch (_) {
+    // broken / full storage: just don't cache
+  }
+}
+
+/** Best-effort cache read — a broken CacheStorage reads as a miss. */
+async function cacheMatch(req) {
+  try {
+    return await caches.match(req);
+  } catch (_) {
+    return undefined;
+  }
+}
 
 self.addEventListener('install', (event) => {
   // Activate this SW immediately instead of waiting for old tabs to close.
@@ -22,8 +46,12 @@ self.addEventListener('install', (event) => {
 self.addEventListener('activate', (event) => {
   event.waitUntil(
     (async () => {
-      const keys = await caches.keys();
-      await Promise.all(keys.filter((k) => k !== CACHE).map((k) => caches.delete(k)));
+      try {
+        const keys = await caches.keys();
+        await Promise.all(keys.filter((k) => k !== CACHE).map((k) => caches.delete(k)));
+      } catch (_) {
+        // broken storage: nothing to evict, still take control below
+      }
       await self.clients.claim();
     })(),
   );
@@ -51,23 +79,20 @@ self.addEventListener('fetch', (event) => {
   if (isNavigation) {
     event.respondWith(
       (async () => {
+        let fresh;
         try {
-          const fresh = await fetch(req);
-          if (fresh && fresh.ok) {
-            const cache = await caches.open(CACHE);
-            cache.put(req, fresh.clone());
-          }
-          return fresh;
+          fresh = await fetch(req);
         } catch (e) {
-          const cached = await caches.match(req);
+          const cached = await cacheMatch(req);
           if (cached) return cached;
           // For navigations offline, fall back to the cached shell root.
-          if (isNavigation) {
-            const shell = await caches.match('/my-lesson') || await caches.match('/my-history') || await caches.match('/');
-            if (shell) return shell;
-          }
+          const shell = await cacheMatch('/my-lesson') || await cacheMatch('/my-history') || await cacheMatch('/');
+          if (shell) return shell;
           throw e;
         }
+        // Not awaited, and never throws: caching must not delay or fail the page.
+        if (fresh && fresh.ok) cachePut(req, fresh.clone());
+        return fresh;
       })(),
     );
     return;
@@ -77,13 +102,10 @@ self.addEventListener('fetch', (event) => {
   if (sameOrigin) {
     event.respondWith(
       (async () => {
-        const cached = await caches.match(req);
+        const cached = await cacheMatch(req);
         if (cached) return cached;
         const fresh = await fetch(req);
-        if (fresh && fresh.ok) {
-          const cache = await caches.open(CACHE);
-          cache.put(req, fresh.clone());
-        }
+        if (fresh && fresh.ok) cachePut(req, fresh.clone());
         return fresh;
       })(),
     );
