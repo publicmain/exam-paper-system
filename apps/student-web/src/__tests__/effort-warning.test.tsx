@@ -103,17 +103,16 @@ describe('警告弹窗', () => {
     expect(calls('/student-notices/n1/read')).toHaveLength(0);
   });
 
-  it('**警告开着时首页的「学习时间有调整」和「还有测试没做」都先让开，确认后再出来**', async () => {
+  it('**警告开着时首页的「还有测试没做」先让开，确认后再出来**', async () => {
     vi.useFakeTimers({ toFake: ['setInterval', 'clearInterval'] });
     stub({ pendingTests: [{ dailySessionId: 'd1', testSessionId: 't1', date: '2026-09-23', total: 13, status: 'in_progress' }] });
     renderAt();
     await screen.findByTestId('effort-warning');
     await screen.findByTestId('task-reading');
-    expect(screen.queryByTestId('class-time-notice')).toBeNull();
     expect(screen.queryByTestId('pending-test-reminder')).toBeNull();
     act(() => { vi.advanceTimersByTime(WARNING_READ_SECONDS * 1000); });
     await userEvent.click(screen.getByTestId('effort-warning-ok'));
-    expect(await screen.findByTestId('class-time-notice')).toBeTruthy();
+    expect(await screen.findByTestId('pending-test-reminder')).toBeTruthy();
   });
 
   it('没有警告 / 取失败：什么都不弹，也不挡别的', async () => {

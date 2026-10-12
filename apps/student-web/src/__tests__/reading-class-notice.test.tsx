@@ -106,13 +106,13 @@ describe('首页', () => {
 
   const renderToday = () => render(<MemoryRouter initialEntries={['/today']}><App /></MemoryRouter>);
 
-  it('**白天自习课（10:00）：阅读卡上有醒目提示，按钮还在**', async () => {
+  // 2026-10-12 取消「16:30 上课时再做」的提示：白天也不再提示，随时都能做。
+  it('**白天自习课（10:00）：不再有「16:30 再做」的提示，按钮照常**', async () => {
     vi.setSystemTime(sgt(MON, '10:00'));
     renderToday();
-    const notice = await screen.findByTestId('task-reading-notice');
-    expect(notice.textContent).toBe('16:30 上课时再做今天的阅读');
-    expect(notice.getAttribute('role')).toBe('note');
-    expect(screen.getByTestId('task-reading-action').textContent).toBe('开始阅读');
+    await waitFor(() => expect(screen.getByTestId('task-reading-action').textContent).toBe('开始阅读'));
+    expect(screen.queryByTestId('task-reading-notice')).toBeNull();
+    expect(screen.queryByTestId('class-time-notice')).toBeNull();
   });
 
   it('**上课以后（16:45）：没有提示**', async () => {

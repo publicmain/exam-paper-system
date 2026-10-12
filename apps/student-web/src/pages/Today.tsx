@@ -49,8 +49,7 @@ import { getState, handleAuthFailure } from '../lib/auth-store';
 import { readToken } from '../lib/identity';
 import { levelLabel } from '../lib/levels';
 import { NEXT_ACTION_ROUTE, ROUTES, type NextActionKind } from '../routes.contract';
-import { isBeforeReadingClass, isTeachingDay, msUntilReadingClass } from '../lib/teaching-day';
-import { classTimeNoticeSeen, markClassTimeNoticeSeen } from '../lib/class-time-notice';
+import { isTeachingDay } from '../lib/teaching-day';
 import { useWarningActive } from '../lib/student-notices';
 import { Badge, type BadgeTone } from '../design/Badge';
 import { Button } from '../design/Button';
@@ -393,18 +392,8 @@ export default function TodayPage() {
   const navigate = useNavigate();
   const auth = getState();
   const who = auth.status === 'authenticated' ? auth.profile.nickname || auth.profile.name : '';
-  const studentId = auth.status === 'authenticated' ? auth.profile.id : null;
-  /** 「学习时间有调整」：每个学生第一次进首页弹一次（叶老师 2026-09-21） */
-  const [timeNotice, setTimeNotice] = useState(() => Boolean(studentId) && !classTimeNoticeSeen(studentId!));
-  const timeNoticeOkRef = useRef<HTMLButtonElement>(null);
   /** 老师给的警告还开着时，首页的提醒先让开（2026-09-24） */
   const warningActive = useWarningActive();
-  const closeTimeNotice = useCallback(() => {
-    if (studentId) markClassTimeNoticeSeen(studentId);
-    setTimeNotice(false);
-    // 这一次不再接着弹「还有测试没做」—— 两个弹窗连着出太烦；下次进首页再提醒（没记成已提醒）
-    setRemindTest(null);
-  }, [studentId]);
   const [lesson, setLesson] = useState<Part<LessonToday>>({ s: 'loading' });
   const [ov, setOv] = useState<Part<V2Overview>>({ s: 'loading' });
   const [busy, setBusy] = useState<string | null>(null);
@@ -472,17 +461,8 @@ export default function TodayPage() {
   const ovData = ov.s === 'ready' ? ov.data : null;
   const home = ovData?.home;
 
-  // 阅读课前的提示：16:30 一到自动消失（页面一直开着也一样）
-  const [beforeClass, setBeforeClass] = useState(() => isBeforeReadingClass());
-  useEffect(() => {
-    const ms = msUntilReadingClass();
-    if (ms == null) return;
-    const timer = window.setTimeout(() => setBeforeClass(false), ms + 500);
-    return () => window.clearTimeout(timer);
-  }, []);
-
   const cards = useMemo(() => {
-    const reading: TaskView | Part<never>['s'] = lesson.s === 'ready' ? readingTaskView(lesson.data, home?.reading, beforeClass) : lesson.s;
+    const reading: TaskView | Part<never>['s'] = lesson.s === 'ready' ? readingTaskView(lesson.data, home?.reading) : lesson.s;
     const words: TaskView | Part<never>['s'] = ovData ? wordsTaskView(ovData) : ov.s;
     const test: TaskView | Part<never>['s'] = ovData ? testTaskView(ovData) : ov.s;
     return [
@@ -490,7 +470,7 @@ export default function TodayPage() {
       { key: 'words' as const, view: words },
       { key: 'test' as const, view: test },
     ];
-  }, [lesson, ovData, ov.s, home, beforeClass]);
+  }, [lesson, ovData, ov.s, home]);
 
   const views = cards.map((c) => c.view).filter((v): v is TaskView => typeof v !== 'string');
   const anyError = lesson.s === 'error' || ov.s === 'error';
@@ -758,39 +738,7 @@ export default function TodayPage() {
       </section>
 
       <Dialog
-        open={timeNotice && !warningActive}
-        onClose={closeTimeNotice}
-        title="学习时间有调整"
-        size="sm"
-        testId="class-time-notice"
-        initialFocusRef={timeNoticeOkRef}
-        footer={
-          <Button ref={timeNoticeOkRef} data-testid="class-time-notice-ok" onClick={closeTimeNotice}>
-            知道了
-          </Button>
-        }
-      >
-        <div className="flex flex-col gap-3 pb-1">
-          <div className="flex items-start gap-3 rounded-[12px] bg-warning-soft p-3">
-            <Icon name="clock" size={22} className="mt-0.5 shrink-0 text-warning" />
-            <div className="min-w-0">
-              <p className="text-headline text-ink">下午 4:30 词汇阅读课上做</p>
-              <p className="text-callout text-ink-2">今日阅读、每日新词</p>
-            </div>
-          </div>
-          <div className="flex items-start gap-3 rounded-[12px] bg-fill p-3">
-            <Icon name="checkCircle" size={22} className="mt-0.5 shrink-0 text-success" />
-            <div className="min-w-0">
-              <p className="text-headline text-ink">随时都可以做</p>
-              <p className="text-callout text-ink-2">单词复习、补做之前没做完的</p>
-            </div>
-          </div>
-          <p className="text-callout font-semibold text-ink">落下的内容要尽快补上，别越积越多。</p>
-        </div>
-      </Dialog>
-
-      <Dialog
-        open={Boolean(remindTest) && !timeNotice && !warningActive}
+        open={Boolean(remindTest) && !warningActive}
         onClose={() => {
           markRemindedToday();
           setRemindTest(null);
