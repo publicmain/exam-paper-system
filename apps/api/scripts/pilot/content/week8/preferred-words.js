@@ -1,0 +1,30 @@
+'use strict';
+
+// 由 build-auto-preferred.ts 按档位 CEFR 等级自动生成，不要手改 —— 改文章后重跑。
+module.exports = {
+  "original-w8-amazon-earthworks": ["counterfeit","ranching","fertile","charcoal","reservoir","grind","lidar","earthen","earthwork","earliest","friar","twentieth","according","microscopic","exaggeration","explorer"],
+  "original-w8-testing-effect": ["reread","usefulness","familiarity","retrieval","prose","retrieve","feedback","influential","desirable","reverse","overlook","stake","whereas","educator"],
+  "original-w8-lithium-ion": ["children","volt","electrode","oxide","evaporate","turbine","scarce","disulphide","overheat","lithium","cobalt","titanium","reactive","phosphate","according","thread"],
+  "original-w8-insect-decline": ["pollinate","fluctuation","pesticide","amateur","apocalypse","entomologist","midsummer","tropic","underestimate","sharply","considerably","priority","imply","species","identify","decade"],
+  "original-w8-spatial-language": ["compass","rotation","landmark","orientation","uphill","downhill","linguist","dutch","english","kangaroo","ambiguous","expedition","reverse","psychology","regardless","consistent"],
+  "original-w8-wood-frog": ["transplant","grind","kidney","zero","crystal","antifreeze"],
+  "original-w8-touchscreen": ["woollen","fingertip","grid","touchscreen","thread","user","salty","fingernail"],
+  "original-w8-safety-lift": ["otis","grip"],
+  "original-w8-brain-freeze": ["skull","ultrasound","harmless","widen","sharply","nerve","throat"],
+  "original-w8-stroop": ["children","distraction","psychology","version"],
+  "original-w8-fourth-button": ["thumb","needle","wrap","hang","bookshop","uniform","empty","pull","twice","round","next"],
+  "original-w8-ant-road": ["tire","tiny","edge","balcony","soap","honey","plate","reach","fall","follow","myself","next"],
+  "original-w8-thousand-pieces": ["puzzle","delivery","lift","edge","cleaner","nearly","whole","part","done","nobody","next","last"],
+  "original-w8-ten-floors-up": ["lift","term","fridge","kilometre","stair","count","used","nearly","reach","myself","last"],
+  "original-w8-one-bite": ["sticky","palm","press","boil","flour","bite","roll","shoot","market","last"],
+  "original-w8-as-grey-as-my-mood": ["buzz","peel","tutor","lower","jigsaw","fold","composition","whenever","phrase","ignore","comment","beat","rise"],
+  "original-w8-the-best-bad-holiday": ["exception","colleague","trial","puff","workbook","chopsticks","smoky","sometime","graph","pond","sigh","clinic","stress","experiment","session","tiny"],
+  "original-w8-better-on-paper": ["neat","spare","squeeze","corridor","label","mango","rend","frown","handwriting","sticky","kettle","underneath","loud","ward","tire","twin"],
+  "original-w8-eleven-colours": ["shopkeeper","grin","patch","corridor","label","project","sharpen","palette","milky","groan","easel","knuckle","strawberry","palm","pale","lean"],
+  "original-w8-nine-centimetres": ["millimetre","clap","motion","fist","unclench","fourteenth","fifteenth","ache","fold","counter","length","rest"],
+  "original-w8-please-try-again": ["booklet","scar","fingertip","technician","beep","doorbell","fingerprint","shiny","cheerful","useless","calm","ladder","thumb","flash","fold","lightly"],
+  "original-w8-facing-the-wardrobe": ["tray","juggle","isaac","canteen","liar","wardrobe","sometime","physics","loud","stupid","curve","stick","rise"],
+  "original-w8-nothing-that-ticks": ["shaky","dying","packet","corridor","gently","saving","chopsticks","goodbye","handwriting","tick","shiny","invitation","loud","whisper","pale","relative"],
+  "original-w8-most-boring-bridge": ["grin","primary","project","children","overhead","halfway","underneath","librarian","bounce","signature","lorry","tire","pupil","foot","term"],
+  "original-w8-prize-money": ["chew","scraping","storeroom","pineapple","pillow","inspection","prize","wrap","switch","properly","obvious","stare","beat","onto"],
+};

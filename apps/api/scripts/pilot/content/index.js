@@ -36,6 +36,7 @@ const week4 = require('./week4');
 const week5 = require('./week5');
 const week6 = require('./week6');
 const week7 = require('./week7');
+const week8 = require('./week8');
 const contextTranslations = {
   ...require('./context-translations-ielts_simplified'),
   ...require('./context-translations-olevel_intermediate'),
@@ -101,6 +102,7 @@ const WEEKS = [
   { dates: week6.DATES, levels: week6.LEVELS },
   // 第七周（2026-10-12 起）：全原创，选题对过学生读过的 188 个标题 + 已发布的全部 161 篇。
   { dates: week7.DATES, levels: week7.LEVELS },
+  { dates: week8.DATES, levels: week8.LEVELS },
 ];
 
 /** 五档的内容包。key 就是 `EnglishLevel` 枚举值，值是按日期升序的全部教学日。 */

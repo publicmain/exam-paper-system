@@ -13,7 +13,7 @@ const key = (hash: string) => `article:${hash}`;
 describe('reviewed frozen article topic manifest', () => {
   it('covers exactly the reviewed source set and uses the actual frozen body normalization', () => {
     const all = Object.entries(LEVELS).flatMap(([level, days]: [string, any]) => days.map((day: any) => ({ level, ...day })));
-    expect(manifest.articles).toHaveLength(175);
+    expect(manifest.articles).toHaveLength(200);
     expect(all).toHaveLength(manifest.articles.length);
     expect(new Set(manifest.articles.map((row) => row.sha256)).size).toBe(manifest.articles.length);
     for (const day of all) {
@@ -24,8 +24,8 @@ describe('reviewed frozen article topic manifest', () => {
       expect(frozen?.key, day.title).toBe(key(record!.sha256));
       expect(verifiedPrimaryTopicForArticleKey(frozen!.key), day.title).toBe(record!.primaryTopicId);
       expect(day.passage, `Review evidence changed: ${day.title}`).toContain(record!.evidenceExcerpt);
-      // 第一到四周 09-17 审定；第五、六周（09-28 起）09-29 审定；第七周（10-12 起）10-07 审定。
-      expect(record!.reviewedAt).toBe(day.date < '2026-09-28' ? '2026-09-17' : day.date < '2026-10-12' ? '2026-09-29' : '2026-10-07');
+      // 第一到四周 09-17 审定；第五、六周（09-28 起）09-29 审定；第七周（10-12 起）10-07 审定；第八周（10-19 起）10-14 审定。
+      expect(record!.reviewedAt).toBe(day.date < '2026-09-28' ? '2026-09-17' : day.date < '2026-10-12' ? '2026-09-29' : day.date < '2026-10-19' ? '2026-10-07' : '2026-10-14');
       expect(record!.reviewMethod).toBe('agent-full-text-topic-review');
       expect(record!.rationale.length).toBeGreaterThan(20);
     }
@@ -76,14 +76,14 @@ describe('reviewed frozen article topic manifest', () => {
 
   it('has a finite coarse taxonomy; future prepared content is not proof of published student achievement', () => {
     expect(VERIFIED_ARTICLE_TOPICS).toHaveLength(8);
-    expect(buildVerifiedArticleTopicIndex(manifest.articles).size).toBe(175);
+    expect(buildVerifiedArticleTopicIndex(manifest.articles).size).toBe(200);
     expect(manifest.articles.filter((row) => row.date <= '2026-09-17')).toHaveLength(70);
     const counts = Object.fromEntries(VERIFIED_ARTICLE_TOPICS.map((topic) => [topic,
       manifest.articles.filter((row) => row.primaryTopicId === topic).length]));
     expect(Object.values(counts).filter((count) => count >= 3)).toHaveLength(8);
     // Honest coverage: psychology had only two prepared readings through week 4; week 5 added two more
     // (bystander effect, endowment effect), week 6 one (inattentional blindness) and week 7 three (spotlight
-    // effect, memory reconstruction, default effect), each after full-text review — not invented to fill the category.
-    expect(counts.psychology).toBe(8);
+    // effect, memory reconstruction, default effect) and week 8 two (peak-end rule, Stroop effect), each after full-text review — not invented to fill the category.
+    expect(counts.psychology).toBe(10);
   });
 });
