@@ -5,6 +5,7 @@ import { canActOnClass } from '../common/roles';
 import { RealtimeTranslationService, type TranslationResult } from '../vocab/realtime-translation.service';
 import { isSchoolBlockedHeadword, schoolGlossOverride, withoutBlockedWords } from './school-safe-words';
 import { isSchoolUnsafeText, keepSchoolSafeTexts } from './school-safe-sentences';
+import { collocationsBackedByApproved } from './content-review';
 import { LEVEL_WORD_POLICY } from './level-policy';
 import {
   OFFICIAL_WORDLIST_META,
@@ -1397,7 +1398,10 @@ export class VocabularyV2Service {
       // 它就脏 —— `oral` 的搭配里曾经列着 "oral sex"、`yourself` 的是
       // "kill yourself"。库里的老数据已经洗过一遍，这里是发出去前最后一道，
       // 免得哪条没洗到的又顺着快照冻进学生的历史任务里。
-      collocations: keepSchoolSafeTexts(asStrings(row.sense.collocations)),
+      // 白名单（2026-10-20）：只显示**出现在已审例句里**的搭配。搭配是从例句切出来的，
+      // 例句没审过 / 被拦下，它切出来的词组也就没审过。这里是搭配词唯一的出口 ——
+      // 单词卡和单词测验的选项都从 cardSnapshot 来。
+      collocations: keepSchoolSafeTexts(collocationsBackedByApproved(asStrings(row.sense.collocations), row.sense.contexts)),
       wordFamily: keepSchoolSafeTexts(asStrings(row.sense.wordFamily)),
       confusionWords: keepSchoolSafeTexts(asStrings(row.sense.confusionWords)),
       memoryHint: isSchoolUnsafeText(row.sense.memoryHint) ? null : (row.sense.memoryHint ?? null),

@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   compactDefinition,
   enqueueVocabularyContent,
@@ -63,6 +63,10 @@ describe('vocabulary content queue', () => {
 });
 
 describe('vocabulary content publication', () => {
+  // Tatoeba 自 2026-10-20 起默认关闭；这一组测的就是打开时那条路还能走通，
+  // 以及走通了也**只写 pending_review**，学生看不到。
+  beforeEach(() => { vi.stubEnv('VOCAB_TATOEBA_ENABLED', '1'); });
+
   it('publishes licensed corpus examples with Azure translations when OpenAI is absent', async () => {
     vi.stubEnv('AZURE_OPENAI_ENDPOINT', '');
     vi.stubEnv('AZURE_OPENAI_API_KEY', '');
@@ -109,9 +113,40 @@ describe('vocabulary content publication', () => {
     expect(contextUpsert).toHaveBeenNthCalledWith(2, expect.objectContaining({
       create: expect.objectContaining({ provider: 'tatoeba+azure_translator', externalId: 'tatoeba:102' }),
     }));
+    // 白名单：自动生成的句子落 pending_review，create 和 update 两边都不许写 ready
+    for (const call of contextUpsert.mock.calls) {
+      expect(call[0].create.qualityStatus).toBe('pending_review');
+      expect(call[0].update.qualityStatus).toBe('pending_review');
+    }
     expect(txJobUpdate).toHaveBeenCalledWith(expect.objectContaining({
       data: expect.objectContaining({ status: 'published', provider: 'tatoeba+azure_translator' }),
     }));
+  });
+
+  it('Tatoeba 默认关闭：不设开关就一次网络请求都不发', async () => {
+    vi.stubEnv('VOCAB_TATOEBA_ENABLED', '');
+    vi.stubEnv('AZURE_OPENAI_ENDPOINT', '');
+    vi.stubEnv('AZURE_TRANSLATOR_KEY', 'translator-key');
+    const fetchMock = vi.fn().mockResolvedValue({ ok: true, json: async () => ({ data: [] }) });
+    vi.stubGlobal('fetch', fetchMock);
+    const prisma = {
+      vocabularySense: { findMany: vi.fn().mockResolvedValue([]) },
+      vocabularyContentJob: {
+        upsert: vi.fn(),
+        findMany: vi.fn().mockResolvedValue([{
+          id: 'job-x', senseId: 'sense-x', requestedVersion: 2, attempts: 0, status: 'queued',
+          sense: { id: 'sense-x', pos: 'verb', definition: 'to become less', translation: 'v. 下降',
+            lexeme: { headword: 'decline', listName: 'ngsl', rank: 900 }, contexts: [] },
+        }]),
+        updateMany: vi.fn().mockResolvedValue({ count: 1 }),
+        update: vi.fn().mockResolvedValue({}),
+      },
+      $transaction: vi.fn(),
+    } as any;
+    await runVocabularyContentBatch(prisma, 1);
+    // 先确认真的走到了取素材那一步（同一步里的 Datamuse 被调用过），否则「没调 Tatoeba」不说明问题
+    expect(fetchMock.mock.calls.some(([url]) => String(url).includes('datamuse'))).toBe(true);
+    expect(fetchMock.mock.calls.some(([url]) => String(url).includes('tatoeba'))).toBe(false);
   });
 
   it('publishes two focused contexts only after the quality gate passes', async () => {

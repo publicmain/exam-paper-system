@@ -10,8 +10,17 @@ export class VocabularyV2ContentCron {
 
   constructor(private readonly prisma: PrismaService) {}
 
+  /**
+   * 2026-10-20 起默认**不跑**，要显式设 `VOCAB_AUTO_CONTENT_ENABLED=1` 才开。
+   *
+   * 这个每 5 分钟一次的任务就是「越清越冒」的发动机：例句一下架，它就把那个词当成
+   * 缺内容，去 Tatoeba 拉一条没人审过的新句子写回去。现在内容是白名单 —— 学生只能
+   * 看到审过的 —— 新例句由 agent 为中学生专门写、审过再导入，不需要它自动补。
+   * 就算以后有人打开，它写进来的也只会是 pending_review，学生看不到。
+   */
   @Cron('*/5 * * * *', { name: 'vocabulary-v2-content-producer' })
   async produce() {
+    if (process.env.VOCAB_AUTO_CONTENT_ENABLED !== '1') return;
     if (this.running || !vocabularyContentProviderConfigured()) return;
     this.running = true;
     try {

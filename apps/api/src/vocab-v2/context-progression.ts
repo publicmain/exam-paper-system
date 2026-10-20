@@ -1,5 +1,6 @@
 import { sentenceFitsLevel } from './cefr-difficulty';
-import { isSchoolUnsafeContext, SCHOOL_BLOCKED_QUALITY_STATUS } from './school-safe-sentences';
+import { isSchoolUnsafeContext } from './school-safe-sentences';
+import { isApprovedContext } from './content-review';
 
 export interface ContextCandidate {
   id: string;
@@ -41,8 +42,11 @@ export function contextForEncounter(
   // 所以脏的在进池子之前剔掉，剔到空就返回 null（调用方全是 `?.sentence ?? null`，
   // 学生看到的是没有例句，不会白屏）。空例句框难看，上一句才是事故。
   const safe = contexts.filter((row) => {
-    // 人工标过的一律不给，老师自己写的也不例外 —— 这是最后的手动开关。
-    if (row.qualityStatus === SCHOOL_BLOCKED_QUALITY_STATUS) return false;
+    // 白名单（2026-10-20）：只给**审过的**（ready）。没审的 pending_review、缺中文的
+    // needs_translation、人工拦下的 blocked_school 一律不给 —— 老师自己写的也不例外，
+    // blocked_school 是最后的手动开关。原来「有翻译的优先，没有就退回没翻译的」那层
+    // 兜底一并去掉：退回去的那一池正是没人审过的内容。
+    if (!isApprovedContext(row)) return false;
     // 文字闸门只管**语料派生**的句子。`article_original` 是老师自己写的阅读
     // 文章原句，已经过每周内容评审；再用关键词扫一遍只会误杀课程材料 ——
     // 鸦片战争那篇的「sell opium grown in India into China」、地震学家那篇的
@@ -52,9 +56,7 @@ export function contextForEncounter(
     return !isSchoolUnsafeContext(row);
   });
   if (!safe.length) return null;
-  // 有翻译的优先（article_original 里 544 条 needs_translation 会把没翻译的天文句推给基础档）
-  const ready = safe.filter((row) => !row.qualityStatus || row.qualityStatus === 'ready');
-  const readyPool = ready.length ? ready : [...safe];
+  const readyPool = safe;
   // 真句（Tatoeba 等）优先；只有模板句时才用模板句
   const real = readyPool.filter((row) => !isTemplateContext(row));
   const realPool = real.length ? real : readyPool;

@@ -12,6 +12,7 @@ import {
   keepSchoolSafeTexts,
   SCHOOL_BLOCKED_QUALITY_STATUS,
 } from './school-safe-sentences';
+import { PENDING_REVIEW_STATUS } from './content-review';
 
 const CandidateSchema = z.object({
   definition: z.string().min(1),
@@ -111,6 +112,10 @@ async function datamuseCandidates(headword: string, pos: string) {
 }
 
 async function tatoebaExamples(headword: string) {
+  // 2026-10-20 起默认不再从 Tatoeba 取句：开放语料谁都能往里加句子，没有「适合中学生」
+  // 这个概念，而且按字数取最短的那几条，正好偏向最口语、最俚语的。新例句改由 agent
+  // 专门为中学生写、审过再导入（scripts/pilot/apply-content-review.js）。
+  if (process.env.VOCAB_TATOEBA_ENABLED !== '1') return [];
   const base = (process.env.TATOEBA_BASE_URL || 'https://api.tatoeba.org').replace(/\/$/, '');
   const fetchRange = async (range: string) => {
     try {
@@ -391,10 +396,14 @@ export async function enqueueVocabularyContent(prisma: PrismaClient, limit = 100
   const bounded = Math.max(1, Math.min(800, limit));
   const senses: Array<{ id: string; contentVersion: number }> = [];
   const seen = new Set<string>();
+  // 「缺例句」只认**这一槽根本没有行**。原来是「没有 ready 的行」，于是例句一被下架
+  // （blocked_school）或还在等审（pending_review），这个词就又被当成缺内容，复用同一行
+  // 去拉新句子 —— 10-20 "Humanity can go fuck itself." 那一行就是这样被重写成
+  // "I need to go poop." 的。现在被拦、待审的行都算「有了」，不会被自动覆盖。
   const missingContexts = {
     OR: [
-      { contexts: { none: { kind: 'short_same_meaning', qualityStatus: 'ready' } } },
-      { contexts: { none: { kind: 'alternate_topic', qualityStatus: 'ready' } } },
+      { contexts: { none: { kind: 'short_same_meaning' } } },
+      { contexts: { none: { kind: 'alternate_topic' } } },
     ],
   };
   const priorities: Array<{ where: Record<string, unknown>; quota: number }> = [
@@ -586,8 +595,11 @@ export async function runVocabularyContentBatch(prisma: PrismaClient, requestedL
           // 那一道，所以这里必须独立再查一遍；中英文都查 —— 英文干净、中文
           // 露骨的情况真实存在。脏的照样写进库（留痕好排查），但状态不是
           // ready，推送和学生查词的查询都带 `qualityStatus: 'ready'`，拿不到。
+          // 白名单（2026-10-20）：自动生成的句子**一律不是 ready**。闸门命中的直接
+          // blocked_school，其余落 pending_review，等人（agent）审过才放 ——
+          // ready 现在的意思是「审过了」，生产者没有资格写它。
           const gate = (sentence: string, translation: string) =>
-            isSchoolUnsafeContext({ sentence, translation }) ? SCHOOL_BLOCKED_QUALITY_STATUS : 'ready';
+            isSchoolUnsafeContext({ sentence, translation }) ? SCHOOL_BLOCKED_QUALITY_STATUS : PENDING_REVIEW_STATUS;
           const shortStatus = gate(candidate.shortExample, candidate.shortTranslation);
           const alternateStatus = gate(candidate.alternateExample, candidate.alternateTranslation);
           await tx.vocabularyContext.upsert({ where: { senseId_kind_position: { senseId: job.senseId, kind: 'short_same_meaning', position: 1 } }, create: { senseId: job.senseId, kind: 'short_same_meaning', position: 1, sentence: candidate.shortExample, translation: candidate.shortTranslation, difficulty: 2, qualityStatus: shortStatus, ...shortSource }, update: { sentence: candidate.shortExample, translation: candidate.shortTranslation, difficulty: 2, qualityStatus: shortStatus, ...shortSource } });
