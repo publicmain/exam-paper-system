@@ -19,8 +19,11 @@ export function loginErrorText(e: unknown): string {
   switch (e.body.code) {
     case 'pin_locked':
       return `连续输错太多次，已经锁住了 —— ${minutesFrom(e.body.retryAfterSec)} 分钟后再试。`;
+    // 2026-10-20：学生反复说「密码明明是对的」，多数其实是**名字**没对上 ——
+    // 要和注册时填的那个一致（昵称还是真名、哪个同音字）。大小写和空格已经
+    // 不影响了，所以提示只说名字本身。
     case 'invalid_credentials':
-      return '姓名或密码不对。第一次用的话，点下面的「第一次使用？注册」。';
+      return '姓名或密码不对。姓名要和注册时填的一致（当时写的是昵称还是真名？）。第一次用的话，点下面的「第一次使用？注册」。';
     case 'student_not_found':
       return '花名册里没有这个名字 —— 确认一下有没有打错，或者找老师。';
     case 'name_required':

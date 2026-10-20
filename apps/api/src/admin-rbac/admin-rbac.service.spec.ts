@@ -70,6 +70,13 @@ function matches(row: Row, where: Row | undefined): boolean {
       if (!ok) return false;
       continue;
     }
+    // 2026-10-20：学生登录按归一后的姓名查（{ equals, mode: 'insensitive' }）。
+    if (v && typeof v === 'object' && 'equals' in (v as Row)) {
+      const want = String((v as Row).equals ?? '');
+      const got = String(row[k] ?? '');
+      if ((v as Row).mode === 'insensitive' ? got.toLowerCase() !== want.toLowerCase() : got !== want) return false;
+      continue;
+    }
     if (v && typeof v === 'object' && 'in' in (v as Row)) {
       if (!(v as Row).in.includes(row[k])) return false;
       continue;

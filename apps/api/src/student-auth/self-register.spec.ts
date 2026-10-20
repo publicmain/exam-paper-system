@@ -98,7 +98,12 @@ function makeDb(seed: { classes?: FakeClass[]; users?: FakeUser[]; enrollments?:
             : null;
           return store.users
             .filter((u) => (inClass ? inClass.includes(u.id) : true))
-            .filter((u) => (where?.name != null ? u.name === where.name : true))
+            // 2026-10-20：登录按归一后的姓名查（大小写不敏感），假库跟上这个形状。
+            .filter((u) => {
+              if (where?.name == null) return true;
+              const want = typeof where.name === 'string' ? where.name : where.name.equals;
+              return String(u.name).toLowerCase() === String(want).toLowerCase();
+            })
             .filter((u) => (where?.role != null ? u.role === where.role : true))
             .filter((u) => (where?.id != null ? u.id === where.id : true))
             .map((u) => ({

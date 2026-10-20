@@ -97,9 +97,14 @@ export class StudentAuthService {
       throw new UnauthorizedException({ code: 'invalid_credentials' });
     }
 
+    // 姓名用**和注册时同一套规则**比对（2026-10-20）：注册查重走 normalizeName
+    //（去首尾、并连续空白、转小写），登录却是精确匹配 —— 注册时写 Austin 的人
+    // 打 austin 就进不来，拿到的还是「姓名或密码不对」，学生只会说「密码明明是对的」。
+    // 真实班级 40 人里 13 人从没登录成功过（他们都在用 App，靠注册时那次会话），
+    // 其中 4 个是英文名。大小写交给数据库，空白在下面按 normalizeName 再核一遍。
     const candidates = await this.prisma.user.findMany({
       where: {
-        name,
+        name: { equals: displayName(name), mode: 'insensitive' },
         role: 'student',
         // S04：账号可用 = 启用、未归档、不是旧版停用标记（与令牌生命周期同一口径）
         ...ENABLED_ACCOUNT_WHERE,
@@ -123,8 +128,13 @@ export class StudentAuthService {
       },
     });
 
-    let user = candidates[0];
-    if (candidates.length > 1) {
+    // 数据库只管大小写；空白按注册时的规则再核一遍 —— 老名单导入的名字里
+    // 可能有连续空格，不能让它们意外对上。
+    const key = normalizeName(name);
+    const sameName = candidates.filter((c) => normalizeName(c.name) === key);
+
+    let user = sameName[0];
+    if (sameName.length > 1) {
       // 同名：**先核对密码，再决定要不要给候选**（2026-09-05 盲测 P2-15）。
       //
       // 原来是输个名字就把这个名字在哪几个班全列出来 —— 任何人都能这样
@@ -137,7 +147,7 @@ export class StudentAuthService {
       // 常见姓名可以无限次试密码。锁着的账号**不比对密码**（比对了就等于
       // 告诉对方「猜中了」），全部锁着时与单人分支一样回 pin_locked。
       const now0 = new Date();
-      const withPin = candidates.filter((c) => c.pinHash);
+      const withPin = sameName.filter((c) => c.pinHash);
       const open = withPin.filter((c) => !isLocked(c, now0));
       if (withPin.length > 0 && open.length === 0) {
         throw this.pinLocked(Math.min(...withPin.map((c) => lockRemainingSec(c, now0))));

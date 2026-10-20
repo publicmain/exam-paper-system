@@ -46,8 +46,9 @@ function makeDb(users: Row[]) {
   const snap = (u: Row) => ({ ...u, classEnrollments: u.classEnrollments.map((e: Row) => ({ ...e })) });
   const prisma: any = {
     user: {
+      // 2026-10-20：登录改成按归一后的姓名查（大小写不敏感），假库跟上这个形状。
       findMany: vi.fn(async ({ where }: Row) =>
-        users.filter((u) => u.name === where.name && (!where.id || u.id === where.id)).map(snap),
+        users.filter((u) => String(u.name).toLowerCase() === String(where.name?.equals ?? where.name).toLowerCase() && (!where.id || u.id === where.id)).map(snap),
       ),
       findUnique: vi.fn(async ({ where }: Row) => {
         const u = users.find((x) => x.id === where.id);
