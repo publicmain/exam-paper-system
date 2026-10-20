@@ -39,6 +39,13 @@ const REAL_UNSAFE_SENTENCES: ReadonlyArray<readonly [string, string]> = [
   ['toxic', 'Tom is toxic as fuck.'],
   ['must', 'Warmongers must fuck off.'],
   ['discrimination', 'What is this shitty discrimination!'],
+  // 第一版闸门用 `\bshit` 漏掉了这条，清完库它又被重新生成写回来 ——
+  // 词边界卡在 bull 和 shit 中间。
+  ['tradition', 'This tradition is bullshit.'],
+  ['sex', 'Tom is a sex offender.'],
+  ['sexual', 'Tom is a sexual predator.'],
+  ['crack', 'Yanni was addicted to crack.'],
+  ['marijuana', 'Yanni smokes a lot of marijuana.'],
   ['damn', 'Damn you, you ruined everything!'],
   ['hell', 'What the hell happened here?'],
   ['system', 'To hell with the system!'],

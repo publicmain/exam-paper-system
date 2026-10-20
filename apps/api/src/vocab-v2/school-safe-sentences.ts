@@ -61,7 +61,10 @@ const RULES: readonly UnsafeRule[] = [
 
   // ── 粗口 ────────────────────────────────────────────────────────
   // 教育价值不抵在课堂上被念出来的代价。
-  { label: '粗口', pattern: /\bfuck|\bshit|\bbitch\b|\bbastard\b|\bcunt\b|\basshole\b|\bdick\b|\bslut\b/i },
+  // fuck / shit 故意**不加**前导 `\b`：「bullshit」里 l 和 s 之间没有词边界，
+  // `\bshit` 漏掉它 ——「This tradition is bullshit.」就是这么溜过第一版闸门
+  // 重新进库的。motherfucker 同理。没有哪个干净的英文词里含这两个串。
+  { label: '粗口', pattern: /fuck|shit|\bbitch\b|\bbastard\b|\bcunt\b|\basshole\b|\bslut\b/i },
   { label: '粗口', pattern: /\bdamn\b|\bgoddamn|\bbloody hell\b/i },
   { label: '粗口', pattern: /\bthe hell\b|\bto hell with\b|\bhell is\b/i },
   { label: '粗口', pattern: /他妈的|操你|去死|混蛋|王八蛋|婊子/ },
