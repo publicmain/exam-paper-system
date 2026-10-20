@@ -13,12 +13,18 @@
  * 用法（仓库根目录，只读）：
  *   railway run -s Postgres -e production -- npx ts-node apps/api/scripts/vocab-v2/dump-review-queue.ts \
  *     [--out=.local/review/library] [--limit=4000] [--chunk-kb=40]
+ *     [--senses=<文件，每行一个 senseId>] [--include-ready] [--prefix=lib]
+ *
+ *   --senses         只导这些词义。每周五：下周要学、还没审过的词就这样导，审完写完再发布。
+ *   --include-ready  已经放行的语料例句也拿出来复查（标「已上线，复查」，可以判 block）；
+ *                    不加时只导待审的。配 --senses 修某一批已上线内容里的错。
+ *   --prefix         文件名和 key 的前缀，默认 lib（另起一批用 fix / week9 之类，别和 lib 撞）。
  *
  * 每块带 senseId / contextId；agent 判 approve / block 时必须原样抄回句子，库里的句子
  * 审完后变过，落库脚本就不认。
  */
 import { PrismaClient } from '@prisma/client';
-import { mkdirSync, readdirSync, unlinkSync, writeFileSync } from 'fs';
+import { mkdirSync, readFileSync, readdirSync, unlinkSync, writeFileSync } from 'fs';
 import { join, resolve } from 'path';
 import { SCHOOL_BLOCKED_HEADWORDS } from '../../src/vocab-v2/school-safe-words';
 
@@ -30,6 +36,11 @@ const args = Object.fromEntries(process.argv.slice(2).map((a) => {
 const OUT = resolve(typeof args.out === 'string' ? args.out : join('.local', 'review', 'library'));
 const LIMIT = Number(args.limit ?? 5000);
 const CHUNK_BYTES = Number(args['chunk-kb'] ?? 40) * 1000;
+const PREFIX = typeof args.prefix === 'string' && /^[a-z0-9]+$/.test(args.prefix) ? args.prefix : 'lib';
+const INCLUDE_READY = args['include-ready'] === true;
+const SENSE_IDS: string[] | null = typeof args.senses === 'string'
+  ? readFileSync(args.senses, 'utf8').split(/\s+/).map((x) => x.trim()).filter(Boolean)
+  : null;
 
 const EXCLUDE = `
   u.role = 'student' AND u.id NOT LIKE 'p1_qa_acc_%' AND u.id <> 'cmtqgmjl200u6stuq31xrad59'
@@ -53,8 +64,10 @@ JOIN "VocabularyLexeme" l ON l.id = s."lexemeId"
 LEFT JOIN learners le ON le."senseId" = s.id
 WHERE s."qualityStatus" = 'ready'
   AND lower(l.headword) <> ALL ($1::text[])
+  AND ($3::text[] IS NULL OR s.id = ANY ($3::text[]))
   AND (
-    EXISTS (SELECT 1 FROM "VocabularyContext" x WHERE x."senseId" = s.id AND x."qualityStatus" = 'pending_review')
+    $4::boolean
+    OR EXISTS (SELECT 1 FROM "VocabularyContext" x WHERE x."senseId" = s.id AND x."qualityStatus" = 'pending_review')
     OR NOT EXISTS (SELECT 1 FROM "VocabularyContext" x WHERE x."senseId" = s.id AND x."qualityStatus" = 'ready' AND x.kind <> 'article_original')
   )
 ORDER BY COALESCE(le.n, 0) DESC, CASE l."listName" WHEN 'ngsl' THEN 0 WHEN 'nawl' THEN 1 ELSE 2 END, l.rank ASC
@@ -94,7 +107,7 @@ async function main() {
     const blocked = SCHOOL_BLOCKED_HEADWORDS.map((w) => w.trim().toLowerCase());
     const [, rows] = await prisma.$transaction([
       prisma.$executeRawUnsafe('SET TRANSACTION READ ONLY'),
-      prisma.$queryRawUnsafe<any[]>(QUEUE_SQL, blocked, LIMIT),
+      prisma.$queryRawUnsafe<any[]>(QUEUE_SQL, blocked, LIMIT, SENSE_IDS, INCLUDE_READY),
     ]);
 
     const blocks = rows.map((r) => {
@@ -109,10 +122,10 @@ async function main() {
         `记忆提示: ${show(r.memoryHint)}`,
       ];
       const ctx: any[] = Array.isArray(r.contexts) ? r.contexts : [];
-      const judge = ctx.filter((x) => x.kind !== 'article_original' && x.status === 'pending_review');
-      const done = ctx.filter((x) => x.kind !== 'article_original' && x.status === 'ready');
+      const judge = ctx.filter((x) => x.kind !== 'article_original' && (x.status === 'pending_review' || (INCLUDE_READY && x.status === 'ready')));
+      const done = INCLUDE_READY ? [] : ctx.filter((x) => x.kind !== 'article_original' && x.status === 'ready');
       const article = ctx.filter((x) => x.kind === 'article_original');
-      for (const x of judge) lines.push(`待审例句 [contextId=${x.id} · ${x.kind}]: ${x.sentence}\n  中文: ${show(x.translation)}`);
+      for (const x of judge) lines.push(`待审例句${x.status === 'ready' ? '（已上线，复查）' : ''} [contextId=${x.id} · ${x.kind}]: ${x.sentence}\n  中文: ${show(x.translation)}`);
       for (const x of done) lines.push(`已审例句（只读）[${x.kind}]: ${x.sentence}`);
       for (const x of article) lines.push(`课程文章原句（只读）: ${x.sentence}`);
       if (!judge.length && !done.length) lines.push('（这个词目前没有可用例句 —— 需要新写）');
@@ -120,10 +133,10 @@ async function main() {
     });
 
     mkdirSync(OUT, { recursive: true });
-    for (const f of readdirSync(OUT)) if (/^lib-\d+\.txt$/.test(f)) unlinkSync(join(OUT, f));
+    for (const f of readdirSync(OUT)) if (f.startsWith(`${PREFIX}-`) && /-\d+\.txt$/.test(f)) unlinkSync(join(OUT, f));
     const parts = chunk(blocks);
     parts.forEach((part, i) => {
-      const name = `lib-${String(i + 1).padStart(3, '0')}.txt`;
+      const name = `${PREFIX}-${String(i + 1).padStart(3, '0')}.txt`;
       writeFileSync(join(OUT, name), `# 待审队列 ${name}（${part.length} 个词）\n\n${part.join('\n\n')}\n`, 'utf8');
     });
     const pending = rows.reduce((a, r) => a + (r.contexts as any[]).filter((x) => x.status === 'pending_review').length, 0);

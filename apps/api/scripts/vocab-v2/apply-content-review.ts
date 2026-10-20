@@ -34,6 +34,7 @@ import { PrismaClient } from '@prisma/client';
 import { readFileSync } from 'fs';
 import { isSchoolUnsafeContext, isSchoolUnsafeText, keepSchoolSafeTexts } from '../../src/vocab-v2/school-safe-sentences';
 import { containsTarget } from '../../src/vocab-v2/content-quality';
+import { targetWordForms } from '../../src/vocab-v2/adaptive-test';
 import { APPROVED_STATUS, collocationsBackedByApproved } from '../../src/vocab-v2/content-review';
 
 type Verdict = 'approve' | 'block';
@@ -64,6 +65,10 @@ const NEW_KINDS = new Set(['short_same_meaning', 'alternate_topic']);
 const AGENT_PROVIDER = 'agent_written';
 const CJK = /[㐀-鿿]/u;
 const wordsIn = (s: string) => (s.match(/[A-Za-z]+(?:'[A-Za-z]+)?/g) ?? []).length;
+/** 用没用到这个词：规则变形（containsTarget）或不规则动词变形（造句题判分用的同一张表）。 */
+const usesWord = (sentence: string, headword: string) =>
+  containsTarget(sentence, headword)
+  || (sentence.toLowerCase().match(/[a-z]+/g) ?? []).some((w) => targetWordForms(headword).has(w));
 
 function load<T>(path: unknown, what: string): T {
   if (typeof path !== 'string') throw new Error(`缺 --${what}=<文件>`);
@@ -145,7 +150,7 @@ async function main() {
           if (!approvedKeys.has(n.key)) continue;
           const problems: string[] = [];
           if (!NEW_KINDS.has(n.kind)) problems.push(`kind 只能是 short_same_meaning / alternate_topic，给的是 ${n.kind}`);
-          if (!containsTarget(n.sentence, headword)) problems.push('句子里没有用到这个词');
+          if (!usesWord(n.sentence, headword)) problems.push('句子里没有用到这个词');
           if (!CJK.test(n.translation ?? '')) problems.push('没有中文翻译');
           if (wordsIn(n.sentence) > 25) problems.push('超过 25 个词');
           if (isSchoolUnsafeContext({ sentence: n.sentence, translation: n.translation })) problems.push('闸门命中');

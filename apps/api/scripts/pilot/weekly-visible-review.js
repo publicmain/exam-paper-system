@@ -287,6 +287,11 @@ async function dumpDatabase() {
   const prisma = new PrismaClient();
   try {
     const vocab = await readOnly(prisma, NEXT_WEEK_VOCAB_SQL, blockedHeadwords());
+    // 白名单下，下周要学的词里还没审过 / 没有例句的，要先走全库审查流水线审完写完：
+    //   npx ts-node --transpile-only apps/api/scripts/vocab-v2/dump-review-queue.ts \
+    //     --senses=<这个文件> --prefix=<week> --out=.local/review/<week>-queue
+    // （B 节本身只列已经放行的内容。）
+    fs.writeFileSync(path.join(OUT, 'B-sense-ids.txt'), vocab.map((r) => r.senseId).join('\n') + '\n', 'utf8');
     const blocks = vocab.map((r) => {
       const lines = [];
       lines.push(`### ${r.headword}  [senseId=${r.senseId} | ${r.list}@${r.rank} | ${r.pos} | 下周 ${r.students} 人会学到]`);
