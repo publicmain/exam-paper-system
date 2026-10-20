@@ -46,6 +46,13 @@ const REAL_UNSAFE_SENTENCES: ReadonlyArray<readonly [string, string]> = [
   ['sexual', 'Tom is a sexual predator.'],
   ['crack', 'Yanni was addicted to crack.'],
   ['marijuana', 'Yanni smokes a lot of marijuana.'],
+  // 以下是 10-20 派 agent 逐词审出来、第一版正则一条都没拦住的
+  ['widespread', 'Wife swapping is widespread there.'],
+  ['oxygen', 'That oxygen tank is sexy.'],
+  ['corpus', 'I piss on the corpus.'],
+  ['go', 'I need to go poop.'],
+  ['hedge', 'I pooped behind the hedge.'],
+  ['that', 'I could hit that.'],
   ['damn', 'Damn you, you ruined everything!'],
   ['hell', 'What the hell happened here?'],
   ['system', 'To hell with the system!'],
@@ -91,6 +98,10 @@ const MUST_PASS: ReadonlyArray<readonly [string, string]> = [
   // 被动语态的「喝」，不是醉酒 —— 光秃秃的 `\bdrunk\b` 会把这条正经
   // 阅读材料一起拦掉，所以闸门只拦 get/got/super drunk 那一类。
   ['被动语态', 'Tea is drunk more widely than any manufactured beverage on earth.'],
+  // 「hit that / tap that」只在句尾才是俚语
+  ['体育', 'Can you hit that ball over the fence?'],
+  ['日常', 'Peel the apple before you eat it.'],
+  ['日常', 'She asked her peers for advice.'],
 ];
 
 describe('校园内容闸门·句子级', () => {
@@ -118,6 +129,9 @@ describe('校园内容闸门·句子级', () => {
       .toEqual(['cut yourself', 'help yourself']);
     expect(keepSchoolSafeTexts(['figure adolescents', 'adolescents masturbate']))
       .toEqual(['figure adolescents']);
+    // agent 审出来的搭配
+    expect(keepSchoolSafeTexts(['tap that', 'that is', 'well endowed', 'go poop', 'will go']))
+      .toEqual(['that is', 'will go']);
   });
 
   it('搭配词里的误伤守住了：skill / analysis / hello / shell casing 都不是脏话', () => {

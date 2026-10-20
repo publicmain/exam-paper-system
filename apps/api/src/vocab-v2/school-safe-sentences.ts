@@ -58,6 +58,12 @@ const RULES: readonly UnsafeRule[] = [
   { label: '性', pattern: /\bnaked\b|\bnude\b|\bnudity\b|\bstriptease\b/i },
   { label: '性', pattern: /\bcondom|\bcontraceptive\b|\babortion\b/i },
   { label: '性', pattern: /口交|性交|做爱|性行为|性欲|手淫|自慰|阴茎|阴道|乳房|妓女|卖淫|嫖|色情|淫秽|猥亵|裸体|堕胎/ },
+  // 以下几条是 10-20 agent 逐词审出来、第一版正则没拦住的：
+  // 「That oxygen tank is sexy.」「Wife swapping is widespread there.」、搭配 "well endowed"，
+  // 以及 `that` 的 "I could hit that." / 搭配 "tap that"（性俚语）。后者只认**句尾**，
+  // 免得把 "hit that ball" 一起拦了。
+  { label: '性', pattern: /\bsexy\b|\bwife[- ]swapping\b|\bswingers?\b|\bwell[- ]endowed\b/i },
+  { label: '性', pattern: /\b(hit|tap) that\s*[.!?]?\s*$/i },
 
   // ── 粗口 ────────────────────────────────────────────────────────
   // 教育价值不抵在课堂上被念出来的代价。
@@ -68,6 +74,13 @@ const RULES: readonly UnsafeRule[] = [
   { label: '粗口', pattern: /\bdamn\b|\bgoddamn|\bbloody hell\b/i },
   { label: '粗口', pattern: /\bthe hell\b|\bto hell with\b|\bhell is\b/i },
   { label: '粗口', pattern: /他妈的|操你|去死|混蛋|王八蛋|婊子/ },
+
+  // ── 粗俗 ────────────────────────────────────────────────────────
+  // 不算脏话，但放在单词卡上就是全班哄笑：「I piss on the corpus.」（中译「我尿在体上」）、
+  // 「I need to go poop.」、「I pooped behind the hedge.」都是 10-20 审出来的。
+  // `\bpee(s|d|ing)?\b` 要求词尾，peel / peer 不受影响。
+  { label: '粗俗', pattern: /\bpiss|\bpoop|\bfart(s|ed|ing)?\b|\bcrap(py)?\b|\bpee(s|d|ing)?\b/i },
+  { label: '粗俗', pattern: /拉屎|撒尿|放屁|尿在/ },
 
   // ── 自伤 ────────────────────────────────────────────────────────
   { label: '自伤', pattern: /\bsuicid|\bself-harm\b|\bcut (her|him|my|them)self\b/i },
