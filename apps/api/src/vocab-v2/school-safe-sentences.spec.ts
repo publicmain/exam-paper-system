@@ -169,6 +169,22 @@ describe('推送前硬过滤：兜底逻辑不得把脏句子捞回来', () => {
     expect(contextForEncounter(mixed, 1, 1, 'attempt')?.id).toBe('clean');
   });
 
+  it('老师写的阅读文章原句不走文字闸门（鸦片战争那篇不能被关键词误杀）', () => {
+    const article = [row({
+      id: 'article', kind: 'article_original',
+      sentence: 'The eventual response was to sell opium grown in India into China, a trade that led to two wars.',
+      translation: '最终的对策是把印度种植的鸦片卖到中国，这笔贸易引发了两场战争。',
+    })];
+    expect(contextForEncounter(article, 1, 5, 'opium')?.id).toBe('article');
+  });
+
+  it('但 Tatoeba 生成的同名副本照拦，而且人工标死的连文章也不给', () => {
+    const corpus = [row({ id: 'corpus', kind: 'short_same_meaning', sentence: 'Yanni was addicted to crack.' })];
+    expect(contextForEncounter(corpus, 1, 5, 'crack')).toBeNull();
+    const pulled = [row({ id: 'a', kind: 'article_original', qualityStatus: SCHOOL_BLOCKED_QUALITY_STATUS })];
+    expect(contextForEncounter(pulled, 1, 5, 'opium')).toBeNull();
+  });
+
   it('全部干净时行为不变（别把原来的挑句规则改坏了）', () => {
     const clean = [
       row({ id: 'a', kind: 'short_same_meaning', position: 1 }),

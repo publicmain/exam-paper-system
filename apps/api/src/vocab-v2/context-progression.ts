@@ -40,9 +40,17 @@ export function contextForEncounter(
   // 这个词只有一条例句、那一条正好是脏的，干净池子就是空的，于是退回全部。
   // 所以脏的在进池子之前剔掉，剔到空就返回 null（调用方全是 `?.sentence ?? null`，
   // 学生看到的是没有例句，不会白屏）。空例句框难看，上一句才是事故。
-  const safe = contexts.filter(
-    (row) => row.qualityStatus !== SCHOOL_BLOCKED_QUALITY_STATUS && !isSchoolUnsafeContext(row),
-  );
+  const safe = contexts.filter((row) => {
+    // 人工标过的一律不给，老师自己写的也不例外 —— 这是最后的手动开关。
+    if (row.qualityStatus === SCHOOL_BLOCKED_QUALITY_STATUS) return false;
+    // 文字闸门只管**语料派生**的句子。`article_original` 是老师自己写的阅读
+    // 文章原句，已经过每周内容评审；再用关键词扫一遍只会误杀课程材料 ——
+    // 鸦片战争那篇的「sell opium grown in India into China」、地震学家那篇的
+    // 「convicted of manslaughter」都是正当教学内容，而 Tatoeba 另外生成的
+    // 同名副本（"Jonas destroyed the opium."）才是要拦的那种。
+    if (row.kind === 'article_original') return true;
+    return !isSchoolUnsafeContext(row);
+  });
   if (!safe.length) return null;
   // 有翻译的优先（article_original 里 544 条 needs_translation 会把没翻译的天文句推给基础档）
   const ready = safe.filter((row) => !row.qualityStatus || row.qualityStatus === 'ready');
