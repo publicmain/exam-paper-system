@@ -24,6 +24,8 @@
  *   C. 单词测验 `/vocab-v2/test*`    ← 选项是同一次测验里**别的词**的释义 / 单词 / 搭配，
  *        和 B 是同一批字段，审 B 就覆盖了
  *   D. 老师警告弹窗 `/student-notices` ← 生产库 Notification 表里没读过的 effort_warning
+ *   E. 学生反馈「这句有问题？」← 最近 14 天的 content_report。那句已经自动下架，要复核：
+ *        真有问题就保持下架、给这个词重写；误报就放回来
  *
  * 不在这里的：界面文案、错误提示、徽章名（`medal-catalog.ts`）—— 跟着发版走，改代码时审。
  *
@@ -34,6 +36,9 @@
  *
  *   --no-db     只导内容包（A），不连库
  *   --out=DIR   输出目录，默认 .local/review/<week>
+ *   --approve   全部审完改完、最后一次导出也审过之后，写审核记录
+ *               content/<week>/review-approval.json。发布脚本（prepare-pilot-week.js）
+ *               从第九周起没有它、或内容审完又改过（指纹对不上）就拒绝发布。
  *
  * 只读：数据库查询全部包在 READ ONLY 事务里。输出切成每份 ~40KB 的文本，
  * 一份派一个 agent。每块都带可定位的编号（档位/日期/题号、senseId、contextId），
@@ -51,6 +56,7 @@
 
 const fs = require('fs');
 const path = require('path');
+const { weekFingerprint, approvalPath } = require('./visible-fingerprint');
 
 const args = Object.fromEntries(
   process.argv.slice(2).map((a) => {
@@ -255,6 +261,12 @@ JOIN "Class" c ON c.id = ce."classId"
 WHERE n.type = 'effort_warning' AND n."readAt" IS NULL AND ${EXCLUDE_SQL}
 ORDER BY n."createdAt"`;
 
+const REPORTS_SQL = `
+SELECT DISTINCT ON (n.body) n.title, n.body, n."createdAt"::text AS created
+FROM "Notification" n
+WHERE n.type = 'content_report' AND n."createdAt" > now() - interval '14 days'
+ORDER BY n.body, n."createdAt" DESC`;
+
 async function readOnly(prisma, sql, ...params) {
   const [, rows] = await prisma.$transaction([
     prisma.$executeRawUnsafe('SET TRANSACTION READ ONLY'),
@@ -307,7 +319,15 @@ async function dumpDatabase() {
         ? notices.map((n) => `### [通知] ${n.id} | ${n.created}\n标题: ${show(n.title)}\n正文: ${show(n.body)}`)
         : ['（没有未读的警告弹窗）'],
     );
-    return { senses: vocab.length, contexts: vocab.reduce((a, r) => a + (r.contexts?.length || 0), 0), notices: notices.length };
+    const reports = await readOnly(prisma, REPORTS_SQL);
+    write(
+      'E-student-reports',
+      `# E. 学生反馈「这句有问题？」（最近 14 天）\n# 反馈的那句已经自动下架。逐条判断：真有问题就保持下架、给这个词重写；误报就放回来。`,
+      reports.length
+        ? reports.map((r) => `### [反馈] ${r.created}\n${show(r.title)}\n${show(r.body)}`)
+        : ['（最近 14 天没有学生反馈）'],
+    );
+    return { senses: vocab.length, contexts: vocab.reduce((a, r) => a + (r.contexts?.length || 0), 0), notices: notices.length, reports: reports.length };
   } finally {
     await prisma.$disconnect();
   }
@@ -315,7 +335,36 @@ async function dumpDatabase() {
 
 // ─────────────────────────────────────────────────────────────
 
+/**
+ * `--approve`：全部审完、改完、最后一次重新导出也审过之后，写审核记录
+ * content/<week>/review-approval.json —— 发布脚本没有它、或指纹对不上就拒绝发布。
+ *
+ * 只认「最后一次导出时的指纹 == 现在内容的指纹」：导出之后又改过内容包，说明改动
+ * 还没人看过，不给 approve。
+ */
+function approve() {
+  const manifestFile = path.join(OUT, '00-manifest.txt');
+  if (!fs.existsSync(manifestFile)) throw new Error(`没有导出过：${manifestFile} 不存在，先导出、审完再 --approve`);
+  const exported = (fs.readFileSync(manifestFile, 'utf8').match(/^内容包指纹: ([0-9a-f]{64})$/m) || [])[1];
+  const now = weekFingerprint(week);
+  if (!exported) throw new Error('00-manifest.txt 里没有内容包指纹（旧版导出），重新导出一次');
+  if (exported !== now) {
+    throw new Error(`最后一次导出之后内容包又改过（导出时 ${exported.slice(0, 12)}…，现在 ${now.slice(0, 12)}…）——重新导出，把变了的部分审完再 --approve`);
+  }
+  const files = fs.readdirSync(OUT).filter((f) => f.endsWith('.txt') && f !== '00-manifest.txt').sort();
+  const record = {
+    week,
+    fingerprint: now,
+    approvedAt: new Date().toISOString(),
+    rule: '2026-10-20 硬规则：学生在 App 里能看到的所有文字，发布前派 agent 逐字审过',
+    reviewedFiles: files,
+  };
+  fs.writeFileSync(approvalPath(week), JSON.stringify(record, null, 2) + '\n', 'utf8');
+  console.log(`已写审核记录：${path.relative(process.cwd(), approvalPath(week))}\n指纹 ${now}`);
+}
+
 (async () => {
+  if (args.approve) return approve();
   for (const f of fs.readdirSync(OUT)) if (f.endsWith('.txt')) fs.unlinkSync(path.join(OUT, f));
 
   const a = dumpArticles();
@@ -324,11 +373,12 @@ async function dumpDatabase() {
   const lines = [
     `# ${week} 学生可见内容审查包`,
     `生成时间: ${new Date().toISOString()}`,
+    `内容包指纹: ${weekFingerprint(week)}`,
     '',
     `A. 文章课：${a.levels} 档 · ${a.articleCount} 篇 · ${a.questionCount} 道题 · ${a.wordCount} 个文章生词`,
     b
-      ? `B. 每日单词：${b.senses} 个词义 · ${b.contexts} 条例句（C. 测验选项随 B 覆盖）\nD. 警告弹窗：${b.notices} 条`
-      : 'B / C / D：已跳过（--no-db）',
+      ? `B. 每日单词：${b.senses} 个词义 · ${b.contexts} 条例句（C. 测验选项随 B 覆盖）\nD. 警告弹窗：${b.notices} 条\nE. 学生反馈：${b.reports} 条`
+      : 'B / C / D / E：已跳过（--no-db）',
     '',
     '文件（一份派一个 agent）：',
     ...manifest.map((m) => `  ${m.file.padEnd(34)} ${String(m.blocks).padStart(4)} 块  ${(m.bytes / 1024).toFixed(1).padStart(6)} KB`),

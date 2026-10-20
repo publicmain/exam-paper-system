@@ -5,7 +5,7 @@ import { canActOnClass } from '../common/roles';
 import { RealtimeTranslationService, type TranslationResult } from '../vocab/realtime-translation.service';
 import { isSchoolBlockedHeadword, schoolGlossOverride, withoutBlockedWords } from './school-safe-words';
 import { isSchoolUnsafeText, keepSchoolSafeTexts } from './school-safe-sentences';
-import { collocationsBackedByApproved } from './content-review';
+import { APPROVED_STATUS, collocationsBackedByApproved, PENDING_REVIEW_STATUS } from './content-review';
 import { LEVEL_WORD_POLICY } from './level-policy';
 import {
   OFFICIAL_WORDLIST_META,
@@ -2088,6 +2088,67 @@ export class VocabularyV2Service {
    * 已经处理过的卡再来一次（双击、重试、旧页面迟到）→ 原样返回当前会话，不报错、
    * 不加学习量。
    */
+  /**
+   * 学生点了「这句有问题」（2026-10-20，白名单改造第五条）。
+   *
+   * 「What is oral sex?」推了三周，是学生截图给叶老师才知道的 —— 系统里没有任何东西会
+   * 发现它。现在学生自己能报：
+   *
+   *   1. 这句（学生屏幕上那句，按快照认）**立刻对所有学生下架**：ready → pending_review，
+   *      还没做的题里冻住的这句也擦掉。宁可错下架一句好句子 —— 它会回到待审队列重审。
+   *      老师写的课程文章原句（article_original）不自动下架，只通知。
+   *   2. 通知所有教职工账号（老师后台右上角的铃铛）。
+   *
+   * 按题目 id 认，只能报自己的题；控制器限流，老师的学生视角是只读的（守卫统一 403）。
+   */
+  async reportContent(studentId: string, itemId: string, note?: string) {
+    const item = await this.prisma.vocabularyV2SessionItem.findFirst({
+      where: { id: itemId, session: { studentId } },
+      select: { senseId: true, contentSnapshot: true, sense: { select: { lexeme: { select: { headword: true } } } } },
+    });
+    if (!item) throw new NotFoundException({ code: 'item_not_found' });
+    const snap = (item.contentSnapshot ?? {}) as Record<string, unknown>;
+    const sentence = typeof snap.sentence === 'string' && snap.sentence.trim() ? snap.sentence.trim() : null;
+    const headword = item.sense.lexeme.headword;
+
+    let hidden = 0;
+    if (sentence) {
+      const res = await this.prisma.vocabularyContext.updateMany({
+        where: { senseId: item.senseId, sentence, kind: { not: 'article_original' }, qualityStatus: APPROVED_STATUS },
+        data: { qualityStatus: PENDING_REVIEW_STATUS },
+      });
+      hidden = res.count;
+      if (hidden) {
+        await this.prisma.$executeRaw`
+          UPDATE "VocabularyV2SessionItem"
+          SET "contentSnapshot" = jsonb_set(jsonb_set("contentSnapshot"::jsonb, '{sentence}', 'null'::jsonb, false), '{sentenceTranslation}', 'null'::jsonb, false)
+          WHERE status = 'pending' AND "senseId" = ${item.senseId} AND "contentSnapshot"::jsonb ->> 'sentence' = ${sentence}`;
+      }
+    }
+
+    const [student, staff] = await Promise.all([
+      this.prisma.user.findUnique({
+        where: { id: studentId },
+        select: { name: true, classEnrollments: { select: { class: { select: { name: true } } }, take: 1 } },
+      }),
+      this.prisma.user.findMany({ where: { role: { in: ['admin', 'head_teacher', 'teacher'] } }, select: { id: true } }),
+    ]);
+    const className = student?.classEnrollments?.[0]?.class?.name;
+    const body = [
+      `${student?.name ?? '一位学生'}${className ? `（${className}）` : ''}反馈单词「${headword}」的内容有问题。`,
+      sentence ? `例句：${sentence}` : '这张卡没有例句，反馈的是卡片本身（释义 / 搭配等）。',
+      note ? `学生说：${note}` : null,
+      hidden ? '这句已经自动下架，所有学生都看不到了，回到待审队列等复核。'
+        : sentence ? '这句是课程文章原句或已经不在线上，没有自动处理。' : null,
+    ].filter(Boolean).join('\n');
+    if (staff.length) {
+      await this.prisma.notification.createMany({
+        data: staff.map((s) => ({ userId: s.id, type: 'content_report', title: `学生反馈：${headword} 的内容有问题`, body })),
+      });
+    }
+    return { ok: true as const, hidden: hidden > 0 };
+  }
+
   async actOnLearningItem(studentId: string, sessionId: string, itemId: string, action: LearningCardAction, responseMs?: number) {
     if (action === 'replace') throw new BadRequestException({ code: 'use_replace_endpoint' });
     const session = await this.prisma.vocabularyV2Session.findFirst({

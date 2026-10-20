@@ -1668,6 +1668,12 @@ async function main() {
   assertEnvGates(ENV_AT_STARTUP, { requireConfirmation: !check });
   const day = parseDay(argv);
   if (check && revise) throw new PilotError('拒绝执行：--check 是只读核对，不能和 --revise-unstarted 一起用。');
+  // 2026-10-20 硬规则：学生能看到的所有文字，发布前必须审过；审完又改过的也不行。
+  // 只读核对（--check）不受限。见 visible-fingerprint.js。
+  if (!check) {
+    const reviewProblem = require('./visible-fingerprint').reviewProblem(day);
+    if (reviewProblem) throw new PilotError(`拒绝执行：${reviewProblem}`);
+  }
 
   process.env.DATABASE_URL = publishConnectionUrl(ENV_AT_STARTUP.DATABASE_PUBLIC_URL);
   const { PrismaClient } = require('@prisma/client');

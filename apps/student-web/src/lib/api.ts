@@ -725,6 +725,9 @@ export const api = {
     request<V2TestSession>('GET', `/vocab-v2/test?sessionId=${encodeURIComponent(sessionId)}`, { token }),
   vocabV2Answer: (token: string, body: { sessionId: string; itemId: string; response: string | number; responseMs?: number }) =>
     request<V2TestSession>('POST', '/vocab-v2/test/answer', { token, body }),
+  /** 「这句有问题」：按题目 id 报，这句立刻对所有学生下架、通知老师（2026-10-20）。 */
+  vocabV2Report: (token: string, body: { itemId: string; note?: string }) =>
+    request<{ ok: true; hidden: boolean }>('POST', '/vocab-v2/report', { token, body }),
   vocabV2Submit: (token: string, sessionId: string) =>
     request<V2TestSession>('POST', '/vocab-v2/test/submit', { token, body: { sessionId } }),
   vocabV2CustomTest: (token: string, body: { count: 5 | 10 | 20 | 'all'; scope: 'all' | 'week' | 'weak' | 'mastered' | 'spelling' | 'listening'; sourceTitle?: string }) =>

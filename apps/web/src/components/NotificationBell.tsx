@@ -76,11 +76,16 @@ export function NotificationBell() {
               }}>
               <span className="flex items-start gap-2">
                 <span className="text-base leading-6">
-                  {n.type === 'hw_assigned' ? '📚' : n.type === 'hw_returned' ? '✅' : '💬'}
+                  {n.type === 'content_report' ? '⚠️' : n.type === 'hw_assigned' ? '📚' : n.type === 'hw_returned' ? '✅' : '💬'}
                 </span>
                 <span className="min-w-0">
                   <span className="block text-sm font-medium text-[#2D3B45] truncate">{n.title}</span>
-                  {n.body && <span className="block text-xs text-[#6B7780] truncate">{n.body}</span>}
+                  {n.body && (
+                    // 学生反馈的内容问题要看全文（哪句话、学生说了什么），不能截成一行
+                    <span className={`block text-xs text-[#6B7780] ${n.type === 'content_report' ? 'whitespace-pre-line break-words' : 'truncate'}`}>
+                      {n.body}
+                    </span>
+                  )}
                   <span className="block text-[11px] text-gray-400 mt-0.5">
                     {new Date(n.createdAt).toLocaleString()}
                   </span>

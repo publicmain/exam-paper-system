@@ -532,6 +532,8 @@ describe('G1 新端不得出现旧路由与旧身份键', () => {
     '/vocab-v2/test/start',
     '/vocab-v2/test',
     '/vocab-v2/test/answer',
+    // 2026-10-20「这句有问题？」：只带题目 id 和学生令牌，不带身份字段
+    '/vocab-v2/report',
     '/vocab-v2/test/submit',
     '/vocab-v2/custom-test/start',
     '/vocab-v2/collect',

@@ -28,6 +28,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { api, ApiError, type V2Card, type V2DailyReview, type V2LearningSession } from '../lib/api';
+import { ReportSentence } from '../components/vocab/ReportSentence';
 import { handleAuthFailure } from '../lib/auth-store';
 import { readToken } from '../lib/identity';
 import { syncAchievementNotices } from '../lib/achievement-notices';
@@ -294,13 +295,13 @@ export default function VocabularyCoachLearnPage() {
           </InlineStatus>
         </div>
       ) : null}
-      <WordCard card={item.card} source={SOURCE_LABEL[item.source] ?? null} accent={String(session.settings.audioAccent ?? 'en-GB')} />
+      <WordCard card={item.card} itemId={item.id} source={SOURCE_LABEL[item.source] ?? null} accent={String(session.settings.audioAccent ?? 'en-GB')} />
     </FocusLayout>
   );
 }
 
 /** 一张学词卡：英文、发音、词性 + 中文、释义、例句；扩展内容有才显示，收在「更多」。 */
-export function WordCard({ card, source, accent }: { card: V2Card; source: string | null; accent: string }) {
+export function WordCard({ card, source, accent, itemId }: { card: V2Card; source: string | null; accent: string; /** 有题目 id 才显示「这句有问题？」 */ itemId?: string }) {
   const [more, setMore] = useState(false);
   const connections = [
     { label: '常见搭配', value: card.collocations.join(' · ') },
@@ -334,6 +335,7 @@ export function WordCard({ card, source, accent }: { card: V2Card; source: strin
             {card.sentence}
           </p>
           {card.sentenceTranslation ? <p className="mt-2 text-callout text-ink-3">{card.sentenceTranslation}</p> : null}
+          {itemId ? <ReportSentence key={itemId} itemId={itemId} /> : null}
         </div>
       ) : null}
       {card.imageUrl ? <img src={card.imageUrl} alt={`${card.headword} 的辅助图片`} className="mt-5 max-h-56 w-full rounded-control object-cover" /> : null}

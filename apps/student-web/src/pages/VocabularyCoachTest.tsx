@@ -38,6 +38,7 @@ import { cleanTranslation, posPrefixFor } from '../lib/word-display';
 import { playBlob } from '../lib/speak';
 import { Button } from '../design/Button';
 import { Dialog } from '../design/Dialog';
+import { ReportSentence } from '../components/vocab/ReportSentence';
 import { Icon } from '../design/Icon';
 import { FocusHeader, FocusLayout } from '../design/Page';
 import { InlineStatus, StatusView } from '../design/Status';
@@ -325,6 +326,7 @@ export default function VocabularyCoachTestPage() {
             </p>
           ) : null}
           {feedback.card?.sentence ? <p className="reading-prose mt-3 text-callout text-ink-2" lang="en">{feedback.card.sentence}</p> : null}
+          {feedback.card?.sentence ? <ReportSentence key={feedback.id} itemId={feedback.id} /> : null}
         </section>
         {exitDialog}
       </FocusLayout>

@@ -216,6 +216,20 @@ export class VocabularyV2Controller {
     return this.service.startDailySession(studentIdOf(req), new Date(), parsed.data.date);
   }
 
+  /** 「这句有问题」：这句立刻对所有学生下架、通知老师。见 service.reportContent。 */
+  @Public()
+  @RequireStudentToken()
+  @RateLimit({ limit: 20, windowSec: 3600, scope: 'user' })
+  @Post('report')
+  report(@Req() req: Request, @Body() body: unknown) {
+    const parsed = z.object({
+      itemId: z.string().min(1).max(80),
+      note: z.string().trim().max(200).optional(),
+    }).strict().safeParse(body);
+    if (!parsed.success) throw new BadRequestException(parsed.error.flatten());
+    return this.service.reportContent(studentIdOf(req), parsed.data.itemId, parsed.data.note || undefined);
+  }
+
   @Public()
   @RequireStudentToken()
   @RateLimit({ limit: 120, windowSec: 60, scope: 'user' })
