@@ -1,4 +1,5 @@
 import { sentenceFitsLevel } from './cefr-difficulty';
+import { isSchoolUnsafeContext, SCHOOL_BLOCKED_QUALITY_STATUS } from './school-safe-sentences';
 
 export interface ContextCandidate {
   id: string;
@@ -32,9 +33,20 @@ export function contextForEncounter(
   /** 正在教的词 —— 它自己超纲不算数。 */
   headword?: string,
 ): ContextCandidate | null {
+  // 校园闸门，硬过滤（2026-10-20「What is oral sex?」事故）。
+  //
+  // 下面每一层挑不出就退回上一层的兜底 —— `ready.length ? ready : [...contexts]`
+  // 是头一个 —— 都能把拦下的句子捞回来，而且**偏偏在最该拦住的时候捞**：
+  // 这个词只有一条例句、那一条正好是脏的，干净池子就是空的，于是退回全部。
+  // 所以脏的在进池子之前剔掉，剔到空就返回 null（调用方全是 `?.sentence ?? null`，
+  // 学生看到的是没有例句，不会白屏）。空例句框难看，上一句才是事故。
+  const safe = contexts.filter(
+    (row) => row.qualityStatus !== SCHOOL_BLOCKED_QUALITY_STATUS && !isSchoolUnsafeContext(row),
+  );
+  if (!safe.length) return null;
   // 有翻译的优先（article_original 里 544 条 needs_translation 会把没翻译的天文句推给基础档）
-  const ready = contexts.filter((row) => !row.qualityStatus || row.qualityStatus === 'ready');
-  const readyPool = ready.length ? ready : [...contexts];
+  const ready = safe.filter((row) => !row.qualityStatus || row.qualityStatus === 'ready');
+  const readyPool = ready.length ? ready : [...safe];
   // 真句（Tatoeba 等）优先；只有模板句时才用模板句
   const real = readyPool.filter((row) => !isTemplateContext(row));
   const realPool = real.length ? real : readyPool;

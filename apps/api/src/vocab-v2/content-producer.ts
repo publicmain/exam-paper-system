@@ -6,6 +6,12 @@ import {
   wordCount,
   type ContentCandidate,
 } from './content-quality';
+import {
+  isSchoolUnsafeContext,
+  isSchoolUnsafeText,
+  keepSchoolSafeTexts,
+  SCHOOL_BLOCKED_QUALITY_STATUS,
+} from './school-safe-sentences';
 
 const CandidateSchema = z.object({
   definition: z.string().min(1),
@@ -133,6 +139,11 @@ async function tatoebaExamples(headword: string) {
       license: row.license ?? null,
       origin: 'tatoeba' as const,
     }))
+    // 校园闸门，拦在源头（2026-10-20「What is oral sex?」事故）：Tatoeba 是
+    // 成年人写给成年人的开放语料，没有中学课堂这个前提。搭配词是从这批句子
+    // 里抽的（`collocationsFromExamples`），所以拦在这一步，例句和搭配一起
+    // 干净 —— 否则就是 `oral` 的搭配里列着 "oral sex" 那种局面。
+    .filter((row) => !isSchoolUnsafeContext(row))
     .filter((row, index, rows) => rows.findIndex((candidate) => candidate.text.toLowerCase() === row.text.toLowerCase()) === index)
     .slice(0, 24);
 }
@@ -255,7 +266,9 @@ function collocationsFromExamples(headword: string, examples: string[]) {
     if (index > 0) phrases.push(`${tokens[index - 1]} ${tokens[index]}`.toLowerCase());
     if (index + 1 < tokens.length) phrases.push(`${tokens[index]} ${tokens[index + 1]}`.toLowerCase());
   }
-  return phrases.filter((phrase, index, rows) => rows.indexOf(phrase) === index).slice(0, 4);
+  // 词组是从例句里切的两连词，源头干净它就干净；这一道是防着 AI 生成的
+  // 例句走的另一条路（那条不经过 tatoebaExamples）。
+  return keepSchoolSafeTexts(phrases.filter((phrase, index, rows) => rows.indexOf(phrase) === index)).slice(0, 4);
 }
 
 async function corpusCandidate(input: {
@@ -569,10 +582,19 @@ export async function runVocabularyContentBatch(prisma: PrismaClient, requestedL
                 : { provider: generatedContent.provider, attribution: 'student reading context + Azure Translator', license: null, externalId: null };
           const shortSource = provenance(generatedContent.shortProvenance);
           const alternateSource = provenance(generatedContent.alternateProvenance);
-          await tx.vocabularyContext.upsert({ where: { senseId_kind_position: { senseId: job.senseId, kind: 'short_same_meaning', position: 1 } }, create: { senseId: job.senseId, kind: 'short_same_meaning', position: 1, sentence: candidate.shortExample, translation: candidate.shortTranslation, difficulty: 2, qualityStatus: 'ready', ...shortSource }, update: { sentence: candidate.shortExample, translation: candidate.shortTranslation, difficulty: 2, qualityStatus: 'ready', ...shortSource } });
-          await tx.vocabularyContext.upsert({ where: { senseId_kind_position: { senseId: job.senseId, kind: 'alternate_topic', position: 1 } }, create: { senseId: job.senseId, kind: 'alternate_topic', position: 1, sentence: candidate.alternateExample, translation: candidate.alternateTranslation, topic: candidate.alternateTopic, difficulty: 3, qualityStatus: 'ready', ...alternateSource }, update: { sentence: candidate.alternateExample, translation: candidate.alternateTranslation, topic: candidate.alternateTopic, difficulty: 3, qualityStatus: 'ready', ...alternateSource } });
+          // 写库前最后一道校园闸门。AI 生成的例句不经过 `tatoebaExamples()`
+          // 那一道，所以这里必须独立再查一遍；中英文都查 —— 英文干净、中文
+          // 露骨的情况真实存在。脏的照样写进库（留痕好排查），但状态不是
+          // ready，推送和学生查词的查询都带 `qualityStatus: 'ready'`，拿不到。
+          const gate = (sentence: string, translation: string) =>
+            isSchoolUnsafeContext({ sentence, translation }) ? SCHOOL_BLOCKED_QUALITY_STATUS : 'ready';
+          const shortStatus = gate(candidate.shortExample, candidate.shortTranslation);
+          const alternateStatus = gate(candidate.alternateExample, candidate.alternateTranslation);
+          await tx.vocabularyContext.upsert({ where: { senseId_kind_position: { senseId: job.senseId, kind: 'short_same_meaning', position: 1 } }, create: { senseId: job.senseId, kind: 'short_same_meaning', position: 1, sentence: candidate.shortExample, translation: candidate.shortTranslation, difficulty: 2, qualityStatus: shortStatus, ...shortSource }, update: { sentence: candidate.shortExample, translation: candidate.shortTranslation, difficulty: 2, qualityStatus: shortStatus, ...shortSource } });
+          await tx.vocabularyContext.upsert({ where: { senseId_kind_position: { senseId: job.senseId, kind: 'alternate_topic', position: 1 } }, create: { senseId: job.senseId, kind: 'alternate_topic', position: 1, sentence: candidate.alternateExample, translation: candidate.alternateTranslation, topic: candidate.alternateTopic, difficulty: 3, qualityStatus: alternateStatus, ...alternateSource }, update: { sentence: candidate.alternateExample, translation: candidate.alternateTranslation, topic: candidate.alternateTopic, difficulty: 3, qualityStatus: alternateStatus, ...alternateSource } });
           // 同一版本只发布一次：词义已经到了（或越过）这个版本就整事务回滚
-          await tx.vocabularySense.update({ where: { id: job.senseId, contentVersion: { lt: job.requestedVersion } }, data: { definition: candidate.definition, collocations: candidate.collocations, wordFamily: candidate.wordFamily, confusionWords: candidate.confusionWords, memoryHint: candidate.memoryHint, qualityStatus: 'ready', contentVersion: job.requestedVersion } });
+          // 搭配、词族、易混词、记忆提示都会原样显示给学生，一起过闸门。
+          await tx.vocabularySense.update({ where: { id: job.senseId, contentVersion: { lt: job.requestedVersion } }, data: { definition: candidate.definition, collocations: keepSchoolSafeTexts(candidate.collocations), wordFamily: keepSchoolSafeTexts(candidate.wordFamily), confusionWords: keepSchoolSafeTexts(candidate.confusionWords), memoryHint: isSchoolUnsafeText(candidate.memoryHint) ? null : candidate.memoryHint, qualityStatus: 'ready', contentVersion: job.requestedVersion } });
         });
         return 'published';
       } catch (error) {

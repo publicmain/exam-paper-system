@@ -4,6 +4,7 @@ import { PrismaService } from '../common/prisma.service';
 import { canActOnClass } from '../common/roles';
 import { RealtimeTranslationService, type TranslationResult } from '../vocab/realtime-translation.service';
 import { isSchoolBlockedHeadword, schoolGlossOverride, withoutBlockedWords } from './school-safe-words';
+import { isSchoolUnsafeText, keepSchoolSafeTexts } from './school-safe-sentences';
 import { LEVEL_WORD_POLICY } from './level-policy';
 import {
   OFFICIAL_WORDLIST_META,
@@ -1392,10 +1393,14 @@ export class VocabularyV2Service {
         ? `“${row.sense.lexeme.headword}” 在这里的意思：${String(row.sense.translation ?? '').split(/\n+/)[0].replace(/^[a-z]{1,5}\.\s*/i, '').trim()}`
         : (context?.translation ?? null),
       contextKind: context?.kind ?? null,
-      collocations: asStrings(row.sense.collocations),
-      wordFamily: asStrings(row.sense.wordFamily),
-      confusionWords: asStrings(row.sense.confusionWords),
-      memoryHint: row.sense.memoryHint ?? null,
+      // 校园闸门（2026-10-20）：搭配词是从同一批语料例句里抽的两连词，例句脏
+      // 它就脏 —— `oral` 的搭配里曾经列着 "oral sex"、`yourself` 的是
+      // "kill yourself"。库里的老数据已经洗过一遍，这里是发出去前最后一道，
+      // 免得哪条没洗到的又顺着快照冻进学生的历史任务里。
+      collocations: keepSchoolSafeTexts(asStrings(row.sense.collocations)),
+      wordFamily: keepSchoolSafeTexts(asStrings(row.sense.wordFamily)),
+      confusionWords: keepSchoolSafeTexts(asStrings(row.sense.confusionWords)),
+      memoryHint: isSchoolUnsafeText(row.sense.memoryHint) ? null : (row.sense.memoryHint ?? null),
       imageUrl: row.sense.imageUrl ?? null,
       audioText: row.sense.lexeme.headword,
       list: row.sense.lexeme.listName,
