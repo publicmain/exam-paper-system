@@ -1945,6 +1945,8 @@ export class VocabularyV2Service {
       for (const row of owned) {
         const sense = row.sense;
         if (!sense?.lexeme || rows.has(sense.id)) continue;
+        // 停推的词（词级黑名单）不从「稍后」里回来 —— 10-21 那批是后台撤成 skipped 的（2026-10-21）
+        if (isSchoolBlockedHeadword(sense.lexeme.headword)) continue;
         const asset = learningAssetQuality({ headword: sense.lexeme.headword, translation: sense.translation, definition: sense.definition, contexts: sense.contexts });
         rows.set(sense.id, { sense, owned: row });
         deferredSenseSet.add(sense.id);
