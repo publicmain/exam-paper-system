@@ -42,8 +42,17 @@ describe('校园内容闸门', () => {
   });
 
   it('正经学术词不受牵连', () => {
-    for (const word of ['blood', 'kill', 'weapon', 'murder', 'war', 'alcohol', 'drug', 'abuse']) {
+    // weapon / alcohol / abuse 原来也在这张表里；2026-10-21 叶老师决定 GPT 标出的主题敏感词
+    // 「全部停推」，它们挪进了 BLOCKED（见下一条）。剩下这些仍然照常推。
+    for (const word of ['blood', 'kill', 'murder', 'war', 'drug', 'pregnant', 'hip']) {
       expect(isSchoolBlockedHeadword(word), word).toBe(false);
+    }
+  });
+
+  it('2026-10-21 停推的主题敏感词：新词推送、查词、复习都不给', () => {
+    for (const word of ['terrorist', 'bomb', 'gun', 'weapon', 'violence', 'abuse', 'threat', 'battle', 'shot', 'hunt',
+      'alcohol', 'beer', 'pub', 'smoke', 'bet', 'marriage', 'birth', 'kiss', 'gay', 'crazy', 'liberal', 'ex']) {
+      expect(isSchoolBlockedHeadword(word), word).toBe(true);
     }
   });
 

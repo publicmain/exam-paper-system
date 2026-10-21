@@ -36,6 +36,34 @@ export const SCHOOL_BLOCKED_HEADWORDS: readonly string[] = [
   'stupid',
   // 自伤
   'suicide',
+  // 2026-10-21 叶老师：GPT 检测当天学生可见内容时标出的主题敏感词，「全部停推」。
+  // 词本身是官方词表里的正常词汇，但单独作为每日新词推给 12 岁学生不合适。
+  // 暴力 / 武器 / 恐怖主义
+  'terrorist',
+  'bomb',
+  'gun',
+  'weapon',
+  'violence',
+  'abuse',
+  'threat',
+  'battle',
+  'shot',
+  'hunt',
+  // 酒精 / 吸烟 / 赌博
+  'alcohol',
+  'beer',
+  'pub',
+  'smoke',
+  'bet',
+  // 婚恋 / 生育 / 性取向
+  'marriage',
+  'birth',
+  'kiss',
+  'gay',
+  // 贴标签 / 政治 / 坏卡
+  'crazy',
+  'liberal',
+  'ex',
 ];
 
 /**
@@ -47,11 +75,9 @@ export const SCHOOL_GLOSS_OVERRIDES: Readonly<Record<string, string>> = {
   drug: 'n. 药物, 药品；（医学）用药',
   // 「n. 臀部, 蔷薇果, 忧郁」—— 后两条是噪声
   hip: 'n. 臀部, 髋部',
-  // drug abuse / abuse of power 是学术高频，但别把「辱骂」排在最前
-  abuse: 'n. 滥用；虐待  vt. 滥用, 虐待',
   pregnant: 'a. 怀孕的；（比喻）意味深长的',
   pregnancy: 'n. 怀孕, 孕期',
-  smoke: 'n. 烟, 烟雾  vi. 冒烟；吸烟',
+  // abuse、smoke 原来在这里改释义，2026-10-21 起整词停推，挪进上面的 BLOCKED。
 };
 
 const blockedKeys = new Set(SCHOOL_BLOCKED_HEADWORDS.map((word) => word.trim().toLowerCase()));

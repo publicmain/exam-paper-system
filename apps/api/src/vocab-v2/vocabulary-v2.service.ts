@@ -2620,6 +2620,8 @@ export class VocabularyV2Service {
       )
       .filter((row) => {
         const key = headwordKey(row.sense.lexeme.headword);
+        // 停推的词（词级黑名单）复习也不出 —— 学过的也不再推到学生面前（2026-10-21）
+        if (isSchoolBlockedHeadword(row.sense.lexeme.headword)) return false;
         if (sampledHeadwords.has(key)) return false;
         sampledHeadwords.add(key);
         return true;
