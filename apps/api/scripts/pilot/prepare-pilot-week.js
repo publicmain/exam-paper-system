@@ -1303,8 +1303,12 @@ function assertDayContentGates(dayIso, levelTools) {
   }
 }
 
-/** 一页取多少条历史。只影响往返次数，不影响比较范围。 */
-const HISTORY_PAGE_SIZE = 2000;
+/**
+ * 一页取多少条历史。只影响往返次数，不影响比较范围。
+ * 2026-10-27：每条快照约 4KB，2000 条一页约 8MB，从本机经 Railway 公网代理取，
+ * 单条查询超过 socket_timeout（60 秒）被掐断，10-28 发布连续失败三次。改成 300 条一页（约 1.2MB）。
+ */
+const HISTORY_PAGE_SIZE = 300;
 
 /**
  * 查重的对照面是「**学生读过的**」，不是「题库里有的」。
