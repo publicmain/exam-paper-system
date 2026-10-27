@@ -1,5 +1,551 @@
 {
   "ielts_authentic": {
+    "original-w9-offline-switch": [
+      {
+        "headword": "resilience",
+        "surfaceForm": "resilience",
+        "phonetic": "/ri'ziliәns/",
+        "pos": "n.",
+        "translation": "n. 韧性，抗故障与恢复能力",
+        "definition": "the ability to cope with difficulties and recover or keep working",
+        "context": "While it is true that resilience has value, its price must be proportionate to the function being protected."
+      },
+      {
+        "headword": "incompatible",
+        "surfaceForm": "incompatible",
+        "phonetic": "/.inkәm'pætәbl/",
+        "pos": "a.",
+        "translation": "a. 不相容的，不能并存的",
+        "definition": "not compatible",
+        "context": "Two controllers may both offer scheduling, yet be unable to exchange instructions because they use incompatible protocols, the agreed rules by which devices communicate."
+      },
+      {
+        "headword": "coordination",
+        "surfaceForm": "coordination",
+        "phonetic": "/kәu.ɒ:di'neiʃәn/",
+        "pos": "n.",
+        "translation": "n. 协调，协作配合",
+        "definition": "the organisation of people or things so that they work well together",
+        "context": "The more defensible position is conditional: connection should earn its place through useful coordination, while essential functions should remain available when the external service cannot be reached."
+      },
+      {
+        "headword": "reconcile",
+        "surfaceForm": "reconcile",
+        "phonetic": "/'rekәnsail/",
+        "pos": "vt.",
+        "translation": "vt. 使一致，调和",
+        "definition": "to show that two ideas or facts can both be true",
+        "context": "Separate controls might perform each individual task adequately, yet leave staff to reconcile conflicting schedules themselves."
+      },
+      {
+        "headword": "reside",
+        "surfaceForm": "resides",
+        "phonetic": "/ri'zaid/",
+        "pos": "v.",
+        "translation": "v. 存在于，位于",
+        "definition": "to exist or be located in a particular place",
+        "context": "The relevant distinction is therefore where control resides."
+      },
+      {
+        "headword": "documentation",
+        "surfaceForm": "documentation",
+        "phonetic": "/.dɒkjumen'teiʃәn/",
+        "pos": "n.",
+        "translation": "n. 文档，说明资料",
+        "definition": "written information explaining how something works or how to use it",
+        "context": "Accessible documentation and compatible interfaces can make a later change of supplier more practical."
+      },
+      {
+        "headword": "sensor",
+        "surfaceForm": "sensor",
+        "phonetic": "/'sensә/",
+        "pos": "n.",
+        "translation": "n. 传感器",
+        "definition": "any device that receives a signal or stimulus (as heat or pressure or light or motion etc.) and responds to it in a distinctive manner",
+        "context": "A local sensor can produce an incorrect reading, and without remote diagnostics a technician may need longer to identify the problem."
+      },
+      {
+        "headword": "dependence",
+        "surfaceForm": "dependence",
+        "phonetic": "/di'pendәns/",
+        "pos": "n.",
+        "translation": "n. 依赖，依存",
+        "definition": "the state of relying on or being controlled by someone or something else",
+        "context": "Supporters regard such connections as the foundation of efficient buildings; sceptics see an unnecessary dependence being attached to ordinary objects."
+      },
+      {
+        "headword": "technician",
+        "surfaceForm": "technician",
+        "phonetic": "/tek'niʃәn/",
+        "pos": "n.",
+        "translation": "n. 技师",
+        "definition": "someone whose occupation involves training in a specific technical process",
+        "context": "A connected system could adjust lighting to the current schedule, report a faulty fitting and allow a technician to inspect its status without visiting every classroom."
+      },
+      {
+        "headword": "elaborate",
+        "surfaceForm": "elaborate",
+        "phonetic": "/ɪˈlæbərət/",
+        "pos": "a.",
+        "translation": "a. 复杂的，详尽的",
+        "definition": "having many carefully arranged parts or details",
+        "context": "A physical switch that directly operates the lamp preserves an ordinary capability which an elaborate interface, however attractive, may fail to provide."
+      },
+      {
+        "headword": "protocol",
+        "surfaceForm": "protocols",
+        "phonetic": "/'prәutәkɒl/",
+        "pos": "n.",
+        "translation": "n. 通信协议，约定规则",
+        "definition": "a set of agreed rules that devices follow to communicate",
+        "context": "Two controllers may both offer scheduling, yet be unable to exchange instructions because they use incompatible protocols, the agreed rules by which devices communicate."
+      },
+      {
+        "headword": "reliability",
+        "surfaceForm": "reliability",
+        "phonetic": "/ri.laiә'biliti/",
+        "pos": "n.",
+        "translation": "n. 信度，可靠性",
+        "definition": "the quality of being dependable or reliable",
+        "context": "Such an exercise cannot establish permanent reliability, but it can reveal dependencies that a demonstration conducted under ideal conditions would leave concealed."
+      },
+      {
+        "headword": "isolated",
+        "surfaceForm": "isolated",
+        "phonetic": "/'aisәleitid/",
+        "pos": "a.",
+        "translation": "a. 独立的，未联网的",
+        "definition": "separate from other things or not connected to a network",
+        "context": "Granted, advocates of fully networked buildings have a legitimate objection: isolated equipment is not automatically dependable."
+      },
+      {
+        "headword": "diagnosis",
+        "surfaceForm": "diagnosis",
+        "phonetic": "/.daiәg'nәusis/",
+        "pos": "n.",
+        "translation": "n. 诊断",
+        "definition": "identifying the nature or cause of some phenomenon",
+        "context": "Requiring a device to retain basic local functions is compatible with using a network for diagnosis and coordination."
+      },
+      {
+        "headword": "interface",
+        "surfaceForm": "interface",
+        "phonetic": "/'intәfeis/",
+        "pos": "n.",
+        "translation": "n. 操作界面，接口",
+        "definition": "a means by which a person uses a device or different systems connect",
+        "context": "A physical switch that directly operates the lamp preserves an ordinary capability which an elaborate interface, however attractive, may fail to provide."
+      },
+      {
+        "headword": "advocate",
+        "surfaceForm": "advocates",
+        "phonetic": "/'ædvәkeit/",
+        "pos": "n.",
+        "translation": "n. 提倡者，拥护者",
+        "definition": "a person who pleads for a cause or propounds an idea",
+        "context": "Granted, advocates of fully networked buildings have a legitimate objection: isolated equipment is not automatically dependable."
+      },
+      {
+        "headword": "experience",
+        "surfaceForm": "experience",
+        "phonetic": "/ik'spiәriәns/",
+        "pos": "n.",
+        "translation": "n. 体验，经历",
+        "definition": "something that happens to you, or the feeling of it",
+        "context": "Distinguishing essential operation from optional convenience allows a purchaser to preserve what matters without paying to reproduce the entire online experience under every conceivable circumstance."
+      },
+      {
+        "headword": "everything",
+        "surfaceForm": "everything",
+        "phonetic": "/'evriθiŋ/",
+        "pos": "pron.",
+        "translation": "pron. 每件事物，所有事物",
+        "definition": "Whatever pertains to the subject under consideration",
+        "context": "There is a serious economic objection to demanding alternatives for everything."
+      },
+      {
+        "headword": "understand",
+        "surfaceForm": "understand",
+        "phonetic": "/.ʌndә'stænd/",
+        "pos": "vt.",
+        "translation": "vt. 理解，了解",
+        "definition": "know and comprehend the nature or meaning of",
+        "context": "The strongest system is not necessarily the one with the fewest connections, but one whose users understand what those connections add and what their absence would remove."
+      },
+      {
+        "headword": "operation",
+        "surfaceForm": "operation",
+        "phonetic": "/.ɒpә'reiʃәn/",
+        "pos": "n.",
+        "translation": "n. 操作，动作",
+        "definition": "the state of being in effect or being operative",
+        "context": "Distinguishing essential operation from optional convenience allows a purchaser to preserve what matters without paying to reproduce the entire online experience under every conceivable circumstance."
+      }
+    ],
+    "original-w9-choice-and-autonomy": [
+      {
+        "headword": "adjustable",
+        "surfaceForm": "adjustable",
+        "phonetic": "/ә'dʒʌstәbl/",
+        "pos": "a.",
+        "translation": "a. 可调节的",
+        "definition": "capable of being changed so as to match or fit",
+        "context": "The answer should be transparent, adjustable curation rather than concealed exclusion."
+      },
+      {
+        "headword": "ceramics",
+        "surfaceForm": "ceramics",
+        "phonetic": "/si'ræmiks/",
+        "pos": "n.",
+        "translation": "n. 制陶术",
+        "definition": "the art of making and decorating pottery",
+        "context": "Adding an evening ceramics session, for example, could make participation possible for a learner who cannot attend during the afternoon."
+      },
+      {
+        "headword": "beforehand",
+        "surfaceForm": "beforehand",
+        "phonetic": "/bi'fɒ:hænd/",
+        "pos": "adv.",
+        "translation": "adv. 预先",
+        "definition": "being ahead of time or need",
+        "context": "Furthermore, discovering an unfamiliar possibility can help people develop preferences they could not have stated beforehand."
+      },
+      {
+        "headword": "frustrating",
+        "surfaceForm": "frustrating",
+        "phonetic": "/frʌ'streitiŋ/",
+        "pos": "a.",
+        "translation": "a. 令人沮丧的",
+        "definition": "discouraging by hindering",
+        "context": "The same catalogue can therefore support one person's judgement while frustrating another's."
+      },
+      {
+        "headword": "simplicity",
+        "surfaceForm": "simplicity",
+        "phonetic": "/sim'plisiti/",
+        "pos": "n.",
+        "translation": "n. 单纯，简朴",
+        "definition": "the quality of being simple or uncompounded",
+        "context": "Neither unlimited expansion nor compulsory simplicity offers a satisfactory answer."
+      },
+      {
+        "headword": "elaborate",
+        "surfaceForm": "elaborate",
+        "phonetic": "/ɪˈlæbərət/",
+        "pos": "a.",
+        "translation": "a. 复杂的，详尽的",
+        "definition": "having many carefully arranged parts or details",
+        "context": "For a workshop, these might be the necessary prior skills and whether materials are included, rather than an elaborate account of every possible technique."
+      },
+      {
+        "headword": "irrelevant",
+        "surfaceForm": "irrelevant",
+        "phonetic": "/i'relәvәnt/",
+        "pos": "a.",
+        "translation": "a. 不恰当的，无关系的",
+        "definition": "having no bearing on or connection with the subject at issue",
+        "context": "Useful guidance reduces irrelevant work without requiring identical preferences."
+      },
+      {
+        "headword": "duration",
+        "surfaceForm": "duration",
+        "phonetic": "/dju'reiʃәn/",
+        "pos": "n.",
+        "translation": "n. 持续时间，持续",
+        "definition": "the period of time during which something continues",
+        "context": "In the workshop example, consistent descriptions of duration, materials and prior knowledge would allow comparisons that a shorter but equally inconsistent list would not."
+      },
+      {
+        "headword": "underlying",
+        "surfaceForm": "underlying",
+        "phonetic": "/.ʌndә'laiiŋ/",
+        "pos": "a.",
+        "translation": "a. 根本的，背后的",
+        "definition": "forming the basic cause or basis of something",
+        "context": "Such guidance would also make an organisation's priorities visible: explaining why prior experience matters is more informative than offering a recommendation whose underlying criteria cannot be examined by the person expected to follow it."
+      },
+      {
+        "headword": "distinct",
+        "surfaceForm": "distinct",
+        "phonetic": "/dis'tiŋkt/",
+        "pos": "a.",
+        "translation": "a. 清楚的，显著的",
+        "definition": "(often followed by `from') not alike",
+        "context": "Organisations should preserve alternatives that serve distinct needs while making comparison manageable through consistent information and user-controlled filters."
+      },
+      {
+        "headword": "criteria",
+        "surfaceForm": "criteria",
+        "phonetic": "/krai'tiәriә/",
+        "pos": "pl.",
+        "translation": "pl. 标准",
+        "definition": "a basis for comparison",
+        "context": "Such guidance would also make an organisation's priorities visible: explaining why prior experience matters is more informative than offering a recommendation whose underlying criteria cannot be examined by the person expected to follow it."
+      },
+      {
+        "headword": "criterion",
+        "surfaceForm": "criterion",
+        "phonetic": "/krai'tiәriәn/",
+        "pos": "n.",
+        "translation": "n. 标准，准则",
+        "definition": "the ideal in terms of which something can be judged",
+        "context": "The resulting smaller selection reflects a criterion they can inspect and revise, rather than a judgement that some books are unsuitable for their consideration."
+      },
+      {
+        "headword": "counterfactual",
+        "surfaceForm": "counterfactual",
+        "phonetic": "/,kajntә'fæktʃjәl/",
+        "pos": "a.",
+        "translation": "a. [逻]反事实的( 指在不同条件下有可能发生但违反现存事实的)",
+        "definition": "going counter to the facts (usually as a hypothesis)",
+        "context": "Such counterfactual comparison can make commitment difficult."
+      },
+      {
+        "headword": "curation",
+        "surfaceForm": "curation",
+        "phonetic": "/ˌkjuːˈreɪʃən/",
+        "pos": "n.",
+        "translation": "n. 筛选与组织，策展",
+        "definition": "the careful selection and organisation of items for others to use or see",
+        "context": "The answer should be transparent, adjustable curation rather than concealed exclusion."
+      },
+      {
+        "headword": "reversibility",
+        "surfaceForm": "Reversibility",
+        "phonetic": "/ri,vә:sә'biliti/",
+        "pos": "n.",
+        "translation": "n. 可逆，可逆性",
+        "definition": "the quality of being reversible in either direction",
+        "context": "Reversibility does not make every decision effortless, but it changes what is at stake."
+      },
+      {
+        "headword": "comparability",
+        "surfaceForm": "comparability",
+        "phonetic": "/,kɔmpәrә'biliti/",
+        "pos": "n.",
+        "translation": "n. 可比性",
+        "definition": "the quality of being able to be compared fairly",
+        "context": "Claims about the burden of choice should attend to relevant knowledge and the comparability of information instead of treating the size of the list as a complete explanation."
+      },
+      {
+        "headword": "information",
+        "surfaceForm": "information",
+        "phonetic": "/.infә'meiʃәn/",
+        "pos": "n.",
+        "translation": "n. 消息，知识",
+        "definition": "a message received and understood",
+        "context": "What matters is whether the available information, the time allowed and the possibility of reconsideration make those options genuinely usable."
+      },
+      {
+        "headword": "experience",
+        "surfaceForm": "experience",
+        "phonetic": "/ik'spiәriәns/",
+        "pos": "n.",
+        "translation": "n. 体验，经历",
+        "definition": "something that happens to you, or the feeling of it",
+        "context": "Imagine choosing a workshop when descriptions differ in length, prices exclude different materials and the required experience is unclear."
+      },
+      {
+        "headword": "understand",
+        "surfaceForm": "understand",
+        "phonetic": "/.ʌndә'stænd/",
+        "pos": "vt.",
+        "translation": "vt. 理解，了解",
+        "definition": "know and comprehend the nature or meaning of",
+        "context": "Yet the ability to select from a list should not be confused with the ability to make a decision one can understand and endorse."
+      },
+      {
+        "headword": "complete",
+        "surfaceForm": "complete",
+        "phonetic": "/kәm'pli:t/",
+        "pos": "a.",
+        "translation": "a. 完成的，彻底的",
+        "definition": "finished, with nothing missing",
+        "context": "Claims about the burden of choice should attend to relevant knowledge and the comparability of information instead of treating the size of the list as a complete explanation."
+      }
+    ],
+    "original-w9-garden-leaf-cycle": [
+      {
+        "headword": "legible",
+        "surfaceForm": "legible",
+        "phonetic": "/'ledʒәbl/",
+        "pos": "a.",
+        "translation": "a. 清楚易懂的，易辨认的",
+        "definition": "clear enough to read or understand",
+        "context": "The contrast makes a deliberate arrangement legible: visitors can see where access is protected and where decomposition is being accommodated."
+      },
+      {
+        "headword": "decompose",
+        "surfaceForm": "decompose",
+        "phonetic": "/.di:kәm'pәuz/",
+        "pos": "v.",
+        "translation": "v. 分解，(使)腐烂",
+        "definition": "separate (substances) into constituent elements or parts",
+        "context": "However, centralised composting requires collection, space and subsequent redistribution, whereas suitable leaves left in a bed can decompose there."
+      },
+      {
+        "headword": "overdue",
+        "surfaceForm": "overdue",
+        "phonetic": "/'әuvә'dju:/",
+        "pos": "a.",
+        "translation": "a. 早该完成的，拖延未做的",
+        "definition": "not done or received by the time expected",
+        "context": "To one observer they indicate overdue maintenance; to another they are the beginning of the soil's next cycle."
+      },
+      {
+        "headword": "intentional",
+        "surfaceForm": "intentional",
+        "phonetic": "/in'tenʃәnәl/",
+        "pos": "a.",
+        "translation": "a. 故意的，与目的有关的",
+        "definition": "characterized by conscious design or purpose",
+        "context": "It can, nevertheless, distinguish an intentional practice from forgotten maintenance, giving staff a specific arrangement to inspect rather than an undefined instruction to leave nature alone."
+      },
+      {
+        "headword": "untouched",
+        "surfaceForm": "untouched",
+        "phonetic": "/.ʌn'tʌtʃt/",
+        "pos": "a.",
+        "translation": "a. 未被干预的，未被改变的",
+        "definition": "not changed or affected by human action",
+        "context": "That conclusion neither treats all tidiness as superficial nor grants every untouched surface ecological value."
+      },
+      {
+        "headword": "slippery",
+        "surfaceForm": "slippery",
+        "phonetic": "/'slipәri/",
+        "pos": "a.",
+        "translation": "a. 滑的，光滑的",
+        "definition": "causing or tending to cause things to slip or slide",
+        "context": "Wet leaves can make a paved path slippery, while accumulated material can obscure an edge or cover a small plant."
+      },
+      {
+        "headword": "retention",
+        "surfaceForm": "retention",
+        "phonetic": "/ri'tenʃәn/",
+        "pos": "n.",
+        "translation": "n. 保持，留置",
+        "definition": "the act of retaining something",
+        "context": "Advocates of retention should answer this argument rather than dismiss all clearing as a preference for appearances."
+      },
+      {
+        "headword": "superficial",
+        "surfaceForm": "superficial",
+        "phonetic": "/.sju:pә'fiʃәl/",
+        "pos": "a.",
+        "translation": "a. 表面的，肤浅的",
+        "definition": "concerned with or comprehending only what is apparent or obvious",
+        "context": "That conclusion neither treats all tidiness as superficial nor grants every untouched surface ecological value."
+      },
+      {
+        "headword": "reconcile",
+        "surfaceForm": "reconciles",
+        "phonetic": "/'rekәnsail/",
+        "pos": "vt.",
+        "translation": "vt. 使一致，调和",
+        "definition": "to show that two ideas or facts can both be true",
+        "context": "A supporter of comprehensive clearing might reply that composting already reconciles tidiness with nutrient recycling."
+      },
+      {
+        "headword": "obscure",
+        "surfaceForm": "obscure",
+        "phonetic": "/әb'skjuә/",
+        "pos": "a.",
+        "translation": "a. 生僻的，鲜为人知的（也作动词：遮挡，使模糊）",
+        "definition": "not well known, or to make something difficult to see or understand",
+        "context": "Wet leaves can make a paved path slippery, while accumulated material can obscure an edge or cover a small plant."
+      },
+      {
+        "headword": "discard",
+        "surfaceForm": "discarding",
+        "phonetic": "/dis'kɑ:d/",
+        "pos": "vt.",
+        "translation": "vt. 丢弃，抛弃",
+        "definition": "throw or cast away",
+        "context": "If leaves are continually exported and replacement soil material is then brought in, the garden may be purchasing something while discarding part of the material from which it could have been produced."
+      },
+      {
+        "headword": "inappropriate",
+        "surfaceForm": "inappropriate",
+        "phonetic": "/.inә'prәupriәt/",
+        "pos": "a.",
+        "translation": "a. 不适当的，不相称的",
+        "definition": "not suitable for a particular occasion etc",
+        "context": "Such a boundary does not prove that the bed is functioning well, and a sign cannot compensate for inappropriate conditions."
+      },
+      {
+        "headword": "texture",
+        "surfaceForm": "texture",
+        "phonetic": "/'tekstʃә/",
+        "pos": "n.",
+        "translation": "n. (织物的)密度，(材料等的)结构",
+        "definition": "the feel of a surface or a fabric",
+        "context": "Students could follow marked leaves as their texture changes, compare material in a retained bed with finished compost and record how the surface changes after rain."
+      },
+      {
+        "headword": "placement",
+        "surfaceForm": "placement",
+        "phonetic": "/'pleismәnt/",
+        "pos": "n.",
+        "translation": "n. 放置，布置",
+        "definition": "the spatial property of the way in which something is placed",
+        "context": "Retention is therefore a question of placement and quantity, not an obligation to accept every arrangement produced by the wind."
+      },
+      {
+        "headword": "restraint",
+        "surfaceForm": "restraint",
+        "phonetic": "/ri'streint/",
+        "pos": "n.",
+        "translation": "n. 抑制，克制",
+        "definition": "the act of controlling by restraining someone or something",
+        "context": "This standard asks gardeners to justify both intervention and restraint, since either can become an unexamined habit when its consequences are judged only at a glance."
+      },
+      {
+        "headword": "intervene",
+        "surfaceForm": "intervene",
+        "phonetic": "/.intә'vi:n/",
+        "pos": "v.",
+        "translation": "v. 干预，介入",
+        "definition": "to become involved in a situation to change what happens",
+        "context": "The needs of the plants and the position of the material matter more than a general instruction to intervene less."
+      },
+      {
+        "headword": "condition",
+        "surfaceForm": "conditions",
+        "phonetic": "/kәn'diʃәn/",
+        "pos": "n.",
+        "translation": "n. 状况，条件（也指病症）",
+        "definition": "a situation, a requirement that must be met, or an illness",
+        "context": "Such a boundary does not prove that the bed is functioning well, and a sign cannot compensate for inappropriate conditions."
+      },
+      {
+        "headword": "important",
+        "surfaceForm": "important",
+        "phonetic": "/im'pɒ:tәnt/",
+        "pos": "a.",
+        "translation": "a. 重要的，有地位的",
+        "definition": "of great significance or value",
+        "context": "A garden can be orderly enough to welcome visitors while allowing some of its most important work to remain unfinished."
+      },
+      {
+        "headword": "position",
+        "surfaceForm": "position",
+        "phonetic": "/pә'ziʃәn/",
+        "pos": "n.",
+        "translation": "n. 位置，地位",
+        "definition": "the particular portion of space occupied by something",
+        "context": "The needs of the plants and the position of the material matter more than a general instruction to intervene less."
+      },
+      {
+        "headword": "consider",
+        "surfaceForm": "Consider",
+        "phonetic": "/kənˈsɪdə/",
+        "pos": "v.",
+        "translation": "v. 考虑，思考",
+        "definition": "to think carefully about something",
+        "context": "Consider a school garden with regularly cleared walking routes and a marked bed in which leaves are allowed to accumulate modestly."
+      }
+    ],
     "original-w9-iodised-salt": [
       {
         "headword": "violet",
@@ -42,8 +588,8 @@
         "surfaceForm": "gland",
         "phonetic": "/glænd/",
         "pos": "n.",
-        "translation": "n. 腺，密封套",
-        "definition": "any of various organs that synthesize substances needed by the body and release it through ducts or directly into the bloodstream",
+        "translation": "n. 腺，腺体",
+        "definition": "an organ that produces and releases substances the body needs",
         "context": "Yet this trace element is indispensable: the thyroid gland, which sits at the front of the neck, uses it to manufacture hormones that regulate the body's metabolism and that are essential for the normal development of the brain, particularly in the earliest stages of life."
       },
       {
@@ -68,9 +614,9 @@
         "headword": "enlarge",
         "surfaceForm": "enlarges",
         "phonetic": "/in'lɑ:dʒ/",
-        "pos": "vt.",
-        "translation": "vt. 扩大，增大",
-        "definition": "become larger or bigger",
+        "pos": "v.",
+        "translation": "v. 扩大，增大（也指变大）",
+        "definition": "to make something larger or become larger",
         "context": "When this happens, the thyroid gland enlarges in an attempt to capture more of the element from the blood, producing a visible swelling known as a goitre."
       },
       {
@@ -87,8 +633,8 @@
         "surfaceForm": "complication",
         "phonetic": "/.kɒmpli'keiʃәn/",
         "pos": "n.",
-        "translation": "n. 复杂化，复杂情况",
-        "definition": "the act or process of complicating",
+        "translation": "n. 复杂因素，使事情复杂的问题",
+        "definition": "a problem or factor that makes a situation more difficult",
         "context": "A further complication is that, because eating too much salt raises blood pressure, health authorities in many countries urge people to consume less of it, which might appear to weaken the case for relying on salt to deliver iodine."
       },
       {
@@ -168,8 +714,8 @@
         "surfaceForm": "condition",
         "phonetic": "/kәn'diʃәn/",
         "pos": "n.",
-        "translation": "n. 病症，状况",
-        "definition": "an illness or health problem, or the state something is in",
+        "translation": "n. 状况，条件（也指病症）",
+        "definition": "a situation, a requirement that must be met, or an illness",
         "context": "Within a few years, surveys of schoolchildren there recorded a dramatic decline in the condition."
       },
       {
@@ -184,6 +730,552 @@
     ]
   },
   "ielts_light": {
+    "original-w9-penny-post": [
+      {
+        "headword": "adhesive",
+        "surfaceForm": "adhesive",
+        "phonetic": "/әd'hi:siv/",
+        "pos": "a.",
+        "translation": "a. 粘着的，涂有粘性物质的",
+        "definition": "tending to adhere",
+        "context": "In 1840, Britain introduced the Penny Black, the world's first adhesive postage stamp."
+      },
+      {
+        "headword": "postage",
+        "surfaceForm": "postage",
+        "phonetic": "/'pәustidʒ/",
+        "pos": "n.",
+        "translation": "n. 邮资",
+        "definition": "the charge for mailing something",
+        "context": "In 1840, Britain introduced the Penny Black, the world's first adhesive postage stamp."
+      },
+      {
+        "headword": "portable",
+        "surfaceForm": "portable",
+        "phonetic": "/'pɒ:tәbl/",
+        "pos": "a.",
+        "translation": "a. 便携的，易于携带的",
+        "definition": "easy to carry or move from place to place",
+        "context": "It neither carried letters faster nor taught people to read; its distinctive contribution was to make advance payment portable, visible and easy to check."
+      },
+      {
+        "headword": "recipient",
+        "surfaceForm": "recipient",
+        "phonetic": "/ri'sipiәnt/",
+        "pos": "n.",
+        "translation": "n. 领受者，容纳者",
+        "definition": "a person who receives something",
+        "context": "Usually, that somebody was the recipient."
+      },
+      {
+        "headword": "distinctive",
+        "surfaceForm": "distinctive",
+        "phonetic": "/di'stiŋktiv/",
+        "pos": "a.",
+        "translation": "a. 有特色的，出众的",
+        "definition": "of a feature that helps to distinguish a person or thing",
+        "context": "It neither carried letters faster nor taught people to read; its distinctive contribution was to make advance payment portable, visible and easy to check."
+      },
+      {
+        "headword": "unwelcome",
+        "surfaceForm": "unwelcome",
+        "phonetic": "/ʌn'welkәm/",
+        "pos": "a.",
+        "translation": "a. 不受欢迎的，讨厌的",
+        "definition": "not welcome",
+        "context": "An unexpected letter could therefore be an unwelcome expense, and a refusal to accept it meant that the postal service had carried it without receiving payment."
+      },
+      {
+        "headword": "reorganisation",
+        "surfaceForm": "reorganisation",
+        "phonetic": "/'ri:,ɔ:gənai'zeiʃən/",
+        "pos": "n.",
+        "translation": "n. 重组（等于reorganization）",
+        "definition": "the imposition of a new organization",
+        "context": "Behind the familiar object lay a reorganisation of how a service was sold."
+      },
+      {
+        "headword": "postal",
+        "surfaceForm": "postal",
+        "phonetic": "/'pәustl/",
+        "pos": "a.",
+        "translation": "a. 邮政的，邮局的",
+        "definition": "of or relating to the system for delivering mail",
+        "context": "An unexpected letter could therefore be an unwelcome expense, and a refusal to accept it meant that the postal service had carried it without receiving payment."
+      },
+      {
+        "headword": "correspondence",
+        "surfaceForm": "Correspondence",
+        "phonetic": "/.kɒri'spɒndәns/",
+        "pos": "n.",
+        "translation": "n. 相符，通信",
+        "definition": "communication by the exchange of letters",
+        "context": "Correspondence expanded after the changes, although the stamp alone cannot explain that expansion."
+      },
+      {
+        "headword": "regardless",
+        "surfaceForm": "regardless",
+        "phonetic": "/ri'gɑ:dlis/",
+        "pos": "ad.",
+        "translation": "ad. 不管，不顾（regardless of）",
+        "definition": "without being affected by",
+        "context": "For an ordinary light letter sent within the country, a penny paid in advance covered the journey regardless of distance."
+      },
+      {
+        "headword": "alongside",
+        "surfaceForm": "alongside",
+        "phonetic": "/ә'lɒŋ'said/",
+        "pos": "prep.",
+        "translation": "prep. 与……一起，除……之外还",
+        "definition": "together with or in addition to something",
+        "context": "The lower charge and simpler procedures mattered alongside the small piece of paper."
+      },
+      {
+        "headword": "expansion",
+        "surfaceForm": "expansion",
+        "phonetic": "/ik'spænʃәn/",
+        "pos": "n.",
+        "translation": "n. 扩充，开展",
+        "definition": "the act of increasing (something) in size or volume or quantity or scope",
+        "context": "Correspondence expanded after the changes, although the stamp alone cannot explain that expansion."
+      },
+      {
+        "headword": "purchase",
+        "surfaceForm": "purchased",
+        "phonetic": "/'pә:tʃәs/",
+        "pos": "v.",
+        "translation": "v. 购买",
+        "definition": "to buy something",
+        "context": "The stamp was evidence that the sender had paid, rather than a ticket purchased by whoever eventually received the envelope."
+      },
+      {
+        "headword": "lower",
+        "surfaceForm": "lower",
+        "phonetic": "/'lәuә/",
+        "pos": "a.",
+        "translation": "a. 较低的",
+        "definition": "less high in amount",
+        "context": "The lower charge and simpler procedures mattered alongside the small piece of paper."
+      },
+      {
+        "headword": "route",
+        "surfaceForm": "route",
+        "phonetic": "/ru:t/",
+        "pos": "n.",
+        "translation": "n. 路线，路径",
+        "definition": "a way from one place to another",
+        "context": "Collecting, sorting and delivering letters accounted for much of the work; transporting one more letter along an existing route added relatively little."
+      },
+      {
+        "headword": "together",
+        "surfaceForm": "together",
+        "phonetic": "/tә'geðә/",
+        "pos": "adv.",
+        "translation": "adv. 一起，共同（也指合在一起）",
+        "definition": "with others, jointly, or close to one another",
+        "context": "The proposal shifted attention from the distance an individual letter travelled to the organisation of the network that carried many letters together, making the shared system central to his reasoning."
+      },
+      {
+        "headword": "account",
+        "surfaceForm": "accounted",
+        "phonetic": "/ә'kaunt/",
+        "pos": "v.",
+        "translation": "v. 占，构成（account for）",
+        "definition": "in the phrase account for, to form a particular part or amount of something",
+        "context": "Collecting, sorting and delivering letters accounted for much of the work; transporting one more letter along an existing route added relatively little."
+      },
+      {
+        "headword": "service",
+        "surfaceForm": "service",
+        "phonetic": "/'sә:vis/",
+        "pos": "n.",
+        "translation": "n. 服务，贡献",
+        "definition": "work done by one person or group that benefits another",
+        "context": "An unexpected letter could therefore be an unwelcome expense, and a refusal to accept it meant that the postal service had carried it without receiving payment."
+      },
+      {
+        "headword": "accept",
+        "surfaceForm": "accept",
+        "phonetic": "/әk'sept/",
+        "pos": "v.",
+        "translation": "v. 接收，接受",
+        "definition": "to receive something willingly, or agree to a situation or idea",
+        "context": "An unexpected letter could therefore be an unwelcome expense, and a refusal to accept it meant that the postal service had carried it without receiving payment."
+      },
+      {
+        "headword": "letter",
+        "surfaceForm": "letter",
+        "phonetic": "/'letә/",
+        "pos": "n.",
+        "translation": "n. 信，字母",
+        "definition": "a written message addressed to a person or organization",
+        "context": "Before a British letter could be delivered in the early nineteenth century, somebody had to pay a charge that depended on its distance and number of sheets."
+      }
+    ],
+    "original-w9-pine-cone-scales": [
+      {
+        "headword": "deformation",
+        "surfaceForm": "deformation",
+        "phonetic": "/.di:fɒ:'meiʃәn/",
+        "pos": "n.",
+        "translation": "n. 变形，形变",
+        "definition": "a change in the shape of something",
+        "context": "As the material dries, contraction reverses the deformation and the scales move outwards."
+      },
+      {
+        "headword": "reversible",
+        "surfaceForm": "reversible",
+        "phonetic": "/ri'vә:sәbl/",
+        "pos": "a.",
+        "translation": "a. 可逆的，可恢复原状的",
+        "definition": "able to change back to the original state or direction",
+        "context": "In many pines, this reversible movement regulates seed dispersal, even though the tissues responsible are no longer living."
+      },
+      {
+        "headword": "dispersal",
+        "surfaceForm": "dispersal",
+        "phonetic": "/dis'pә:sl/",
+        "pos": "n.",
+        "translation": "n. 散布，传播",
+        "definition": "the act of dispersing or diffusing something",
+        "context": "In many pines, this reversible movement regulates seed dispersal, even though the tissues responsible are no longer living."
+      },
+      {
+        "headword": "dampen",
+        "surfaceForm": "dampened",
+        "phonetic": "/'dæmpәn/",
+        "pos": "v.",
+        "translation": "v. 弄湿，使潮湿",
+        "definition": "to make something slightly wet",
+        "context": "When dampened, they close again."
+      },
+      {
+        "headword": "humidity",
+        "surfaceForm": "humidity",
+        "phonetic": "/hju:'miditi/",
+        "pos": "n.",
+        "translation": "n. 湿气，潮湿",
+        "definition": "wetness in the atmosphere",
+        "context": "An empty cone still contains the layered material that responds to humidity."
+      },
+      {
+        "headword": "contraction",
+        "surfaceForm": "contraction",
+        "phonetic": "/kәn'trækʃәn/",
+        "pos": "n.",
+        "translation": "n. 收缩，缩小",
+        "definition": "the process of becoming smaller or shorter",
+        "context": "As the material dries, contraction reverses the deformation and the scales move outwards."
+      },
+      {
+        "headword": "descent",
+        "surfaceForm": "descent",
+        "phonetic": "/di'sent/",
+        "pos": "n.",
+        "translation": "n. 降落，家系",
+        "definition": "a movement downward",
+        "context": "Many pine seeds have a thin wing, which slows their descent and allows air currents to carry them away."
+      },
+      {
+        "headword": "sensor",
+        "surfaceForm": "sensor",
+        "phonetic": "/'sensә/",
+        "pos": "n.",
+        "translation": "n. 传感器",
+        "definition": "any device that receives a signal or stimulus (as heat or pressure or light or motion etc.) and responds to it in a distinctive manner",
+        "context": "For designers, this offers an alternative to devices in which a sensor first detects a change and a motor then produces movement."
+      },
+      {
+        "headword": "inappropriate",
+        "surfaceForm": "inappropriate",
+        "phonetic": "/.inә'prәupriәt/",
+        "pos": "a.",
+        "translation": "a. 不适当的，不相称的",
+        "definition": "not suitable for a particular occasion etc",
+        "context": "Such designs would still need to suit their intended surroundings: a response to humidity would be inappropriate where movement was required only at a particular temperature."
+      },
+      {
+        "headword": "ongoing",
+        "surfaceForm": "ongoing",
+        "phonetic": "/'ɒngәuiŋ/",
+        "pos": "a.",
+        "translation": "a. 前进的，进行的",
+        "definition": "currently happening",
+        "context": "Its continued responsiveness reflects persistent structural asymmetry, rather than ongoing biological activity."
+      },
+      {
+        "headword": "structural",
+        "surfaceForm": "structural",
+        "phonetic": "/'strʌktʃәrәl/",
+        "pos": "a.",
+        "translation": "a. 结构的，建筑的",
+        "definition": "relating to or caused by structure, especially political or economic structure",
+        "context": "Its continued responsiveness reflects persistent structural asymmetry, rather than ongoing biological activity."
+      },
+      {
+        "headword": "mechanism",
+        "surfaceForm": "mechanism",
+        "phonetic": "/'mekәnizm/",
+        "pos": "n.",
+        "translation": "n. 机制，原理",
+        "definition": "the way in which something works or happens",
+        "context": "This passive mechanism requires no signal from the tree."
+      },
+      {
+        "headword": "asymmetry",
+        "surfaceForm": "asymmetry",
+        "phonetic": "/æ'simitri/",
+        "pos": "n.",
+        "translation": "n. 不匀称，不对称",
+        "definition": "a lack of symmetry",
+        "context": "Its continued responsiveness reflects persistent structural asymmetry, rather than ongoing biological activity."
+      },
+      {
+        "headword": "differential",
+        "surfaceForm": "differential",
+        "phonetic": "/difә'renʃәl/",
+        "pos": "a.",
+        "translation": "a. 不同程度的，有差异的",
+        "definition": "involving a difference in amount or rate between things",
+        "context": "Because they remain attached to one another, this differential expansion bends the whole scale, closing the cone in damp conditions."
+      },
+      {
+        "headword": "detach",
+        "surfaceForm": "detached",
+        "phonetic": "/di'tætʃ/",
+        "pos": "vt.",
+        "translation": "vt. 使分离，分遣",
+        "definition": "cause to become detached or separated",
+        "context": "The movement can persist after a cone has been detached from its branch, and even after its seeds have gone."
+      },
+      {
+        "headword": "overlap",
+        "surfaceForm": "overlapping",
+        "phonetic": "/.әuvә'læp/",
+        "pos": "vt.",
+        "translation": "vt. 重叠，重复",
+        "definition": "coincide partially or wholly",
+        "context": "Leave it in a dry room, however, and its overlapping scales can gradually spread apart."
+      },
+      {
+        "headword": "condition",
+        "surfaceForm": "conditions",
+        "phonetic": "/kәn'diʃәn/",
+        "pos": "n.",
+        "translation": "n. 状况，条件（也指病症）",
+        "definition": "a situation, a requirement that must be met, or an illness",
+        "context": "Because they remain attached to one another, this differential expansion bends the whole scale, closing the cone in damp conditions."
+      },
+      {
+        "headword": "current",
+        "surfaceForm": "currents",
+        "phonetic": "/'kʌrәnt/",
+        "pos": "n.",
+        "translation": "n. 气流，水流",
+        "definition": "a continuous movement of air or water in one direction",
+        "context": "Many pine seeds have a thin wing, which slows their descent and allows air currents to carry them away."
+      },
+      {
+        "headword": "design",
+        "surfaceForm": "designs",
+        "phonetic": "/di'zain/",
+        "pos": "v.",
+        "translation": "v. 设计（也作名词：设计，方案）",
+        "definition": "to plan how something will look or work, or such a plan",
+        "context": "Such designs would still need to suit their intended surroundings: a response to humidity would be inappropriate where movement was required only at a particular temperature."
+      },
+      {
+        "headword": "match",
+        "surfaceForm": "match",
+        "phonetic": "/mætʃ/",
+        "pos": "v.",
+        "translation": "v. 与……相配，符合",
+        "definition": "to suit or fit something",
+        "context": "The relevant environmental change must match the purpose of the device."
+      }
+    ],
+    "original-w9-image-compression": [
+      {
+        "headword": "irreversible",
+        "surfaceForm": "irreversible",
+        "phonetic": "/,iri'vә:sәbl,-sib-/",
+        "pos": "a.",
+        "translation": "a. 不可逆的，不可改变的",
+        "definition": "incapable of being reversed",
+        "context": "This approximation is irreversible: once differences have been removed, the smaller file no longer contains evidence of their original values."
+      },
+      {
+        "headword": "shorten",
+        "surfaceForm": "shorten",
+        "phonetic": "/'ʃɒ:tn/",
+        "pos": "vt.",
+        "translation": "vt. 弄短，缩短",
+        "definition": "make shorter than originally intended",
+        "context": "Photographs full of subtle variations are harder to shorten in this way."
+      },
+      {
+        "headword": "discard",
+        "surfaceForm": "discarded",
+        "phonetic": "/dis'kɑ:d/",
+        "pos": "vt.",
+        "translation": "vt. 丢弃，抛弃",
+        "definition": "throw or cast away",
+        "context": "Lossy compression therefore accepts a different compromise: some information is discarded."
+      },
+      {
+        "headword": "redundancy",
+        "surfaceForm": "redundancy",
+        "phonetic": "/ri'dʌndәnsi/",
+        "pos": "n.",
+        "translation": "n. 冗余，重复信息",
+        "definition": "repeated or predictable information that can be represented more briefly",
+        "context": "Instead of recording the same colour separately for every pixel in a large uniform area, a program can use a shorter description that exploits this redundancy."
+      },
+      {
+        "headword": "enlarging",
+        "surfaceForm": "Enlarging",
+        "phonetic": "/in'lɑ:dʒiŋ/",
+        "pos": "n.",
+        "translation": "n. 扩大，放大",
+        "definition": "become larger or bigger",
+        "context": "Enlarging the picture can reveal these changes, but it cannot restore the discarded information."
+      },
+      {
+        "headword": "lossless",
+        "surfaceForm": "lossless",
+        "phonetic": "/ˈlɒsləs/",
+        "pos": "a.",
+        "translation": "a. 无损的，不丢失信息的",
+        "definition": "keeping all the original information when data is compressed",
+        "context": "This is called lossless compression, although the savings depend on how much predictable structure the image contains."
+      },
+      {
+        "headword": "lossy",
+        "surfaceForm": "Lossy",
+        "phonetic": "/'lɔsi;'lɔ:si/",
+        "pos": "a.",
+        "translation": "a. 有损的，丢失部分信息的",
+        "definition": "discarding some original information when data is compressed",
+        "context": "Lossy compression therefore accepts a different compromise: some information is discarded."
+      },
+      {
+        "headword": "reconstructed",
+        "surfaceForm": "reconstructed",
+        "phonetic": "/,ri:kәn'strʌktid/",
+        "pos": "v.",
+        "translation": "v. 重建，还原（reconstruct 的过去分词）",
+        "definition": "built or formed again from stored information or remaining parts",
+        "context": "When the file is opened, the original values are reconstructed exactly."
+      },
+      {
+        "headword": "pixel",
+        "surfaceForm": "pixels",
+        "phonetic": "/'piksәl/",
+        "pos": "n.",
+        "translation": "n. 像素",
+        "definition": "the smallest discrete component of an image or picture on a CRT screen (usually a colored dot)",
+        "context": "A digital picture consists of tiny units called pixels, whose colours are described by numbers."
+      },
+      {
+        "headword": "approximation",
+        "surfaceForm": "approximation",
+        "phonetic": "/ә.prɒksi'meiʃәn/",
+        "pos": "n.",
+        "translation": "n. 接近，近似值",
+        "definition": "the quality of coming near to identity (especially close in quantity)",
+        "context": "This approximation is irreversible: once differences have been removed, the smaller file no longer contains evidence of their original values."
+      },
+      {
+        "headword": "preview",
+        "surfaceForm": "preview",
+        "phonetic": "/'pri:vju:/",
+        "pos": "n.",
+        "translation": "n. 预览，预先查看",
+        "definition": "a look at something before using or examining it fully",
+        "context": "A small copy may be adequate for a quick preview, while an original allows more freedom for later editing."
+      },
+      {
+        "headword": "artefact",
+        "surfaceForm": "artefacts",
+        "phonetic": "/'ɑ:tifækt/",
+        "pos": "n.",
+        "translation": "n. 伪影，图像失真痕迹",
+        "definition": "an unwanted change in an image caused by processing or compression",
+        "context": "These distortions are known as compression artefacts."
+      },
+      {
+        "headword": "compression",
+        "surfaceForm": "Compression",
+        "phonetic": "/kәm'preʃәn/",
+        "pos": "n.",
+        "translation": "n. 压缩，压紧",
+        "definition": "the process or result of becoming smaller or pressed together",
+        "context": "Compression changes how that information is represented, allowing fewer stored symbols to describe the image."
+      },
+      {
+        "headword": "distortion",
+        "surfaceForm": "distortions",
+        "phonetic": "/dis'tɒ:ʃәn/",
+        "pos": "n.",
+        "translation": "n. 扭曲，变形",
+        "definition": "a change for the worse",
+        "context": "These distortions are known as compression artefacts."
+      },
+      {
+        "headword": "predictable",
+        "surfaceForm": "predictable",
+        "phonetic": "/pri'diktәbl/",
+        "pos": "a.",
+        "translation": "a. 可预言的",
+        "definition": "capable of being foretold",
+        "context": "This is called lossless compression, although the savings depend on how much predictable structure the image contains."
+      },
+      {
+        "headword": "width",
+        "surfaceForm": "width",
+        "phonetic": "/widθ/",
+        "pos": "n.",
+        "translation": "n. 宽度，宽广",
+        "definition": "the extent of something from side to side",
+        "context": "Reducing a file does not necessarily mean reducing its width or height."
+      },
+      {
+        "headword": "information",
+        "surfaceForm": "information",
+        "phonetic": "/.infә'meiʃәn/",
+        "pos": "n.",
+        "translation": "n. 消息，知识",
+        "definition": "a message received and understood",
+        "context": "Compression changes how that information is represented, allowing fewer stored symbols to describe the image."
+      },
+      {
+        "headword": "describe",
+        "surfaceForm": "described",
+        "phonetic": "/di'skraib/",
+        "pos": "vt.",
+        "translation": "vt. 描述，描绘",
+        "definition": "give a description of",
+        "context": "A digital picture consists of tiny units called pixels, whose colours are described by numbers."
+      },
+      {
+        "headword": "colour",
+        "surfaceForm": "colours",
+        "phonetic": "/'kʌlә/",
+        "pos": "n.",
+        "translation": "n. 颜色，色彩",
+        "definition": "the appearance of something as red, blue, green or another shade",
+        "context": "A digital picture consists of tiny units called pixels, whose colours are described by numbers."
+      },
+      {
+        "headword": "accept",
+        "surfaceForm": "accepts",
+        "phonetic": "/әk'sept/",
+        "pos": "v.",
+        "translation": "v. 接收，接受",
+        "definition": "to receive something willingly, or agree to a situation or idea",
+        "context": "Lossy compression therefore accepts a different compromise: some information is discarded."
+      }
+    ],
     "original-w9-tip-of-tongue": [
       {
         "headword": "inaccessible",
@@ -244,8 +1336,8 @@
         "surfaceForm": "plausible",
         "phonetic": "/'plɒ:zibl/",
         "pos": "a.",
-        "translation": "a. 貌似真实的，貌似合理的",
-        "definition": "apparently reasonable and valid, and truthful",
+        "translation": "a. 看似合理的，似乎可信的",
+        "definition": "seeming reasonable or likely to be true",
         "context": "One plausible mechanism, favoured by many cognitive psychologists, is that the link between a word's meaning and its sound weakens when the word has not been used recently, so the meaning is retrieved while the sound is not."
       },
       {
@@ -262,8 +1354,8 @@
         "surfaceForm": "obscure",
         "phonetic": "/әb'skjuә/",
         "pos": "a.",
-        "translation": "a. 生僻的，鲜为人知的",
-        "definition": "not well known",
+        "translation": "a. 生僻的，鲜为人知的（也作动词：遮挡，使模糊）",
+        "definition": "not well known, or to make something difficult to see or understand",
         "context": "They read out definitions of obscure words, such as a word for a small boat used in East Asian harbours, and asked students to name each word."
       },
       {
@@ -325,8 +1417,8 @@
         "surfaceForm": "reliably",
         "phonetic": "/ri'laiәbli/",
         "pos": "adv.",
-        "translation": "adv. 可靠地，可信赖地",
-        "definition": "in a faithful manner",
+        "translation": "adv. 可靠地，准确地",
+        "definition": "in a way that can be trusted to be correct or work well",
         "context": "Students in this state could often guess the first letter of the missing word and its number of syllables far more reliably than chance would allow."
       },
       {
@@ -368,6 +1460,552 @@
     ]
   },
   "ielts_simplified": {
+    "original-w9-empty-coat": [
+      {
+        "headword": "delicate",
+        "surfaceForm": "delicate",
+        "phonetic": "/'delikәt/",
+        "pos": "a.",
+        "translation": "a. 脆弱的，易损的",
+        "definition": "easily damaged or broken",
+        "context": "It was so delicate that we carried it in a container, protected by soft paper."
+      },
+      {
+        "headword": "outer",
+        "surfaceForm": "outer",
+        "phonetic": "/'autә/",
+        "pos": "a.",
+        "translation": "a. 外部的，外面的",
+        "definition": "being on the outside or further from a center",
+        "context": "Our club leader explained that it was the old outer covering of a cicada."
+      },
+      {
+        "headword": "wing",
+        "surfaceForm": "wings",
+        "phonetic": "/wiŋ/",
+        "pos": "n.",
+        "translation": "n. 翅膀，翼",
+        "definition": "a movable organ for flying (one of a pair)",
+        "context": "The picture showed wings, whereas the shell had none."
+      },
+      {
+        "headword": "expand",
+        "surfaceForm": "expand",
+        "phonetic": "/ik'spænd/",
+        "pos": "vt.",
+        "translation": "vt. 使膨胀，详述",
+        "definition": "extend in one or more directions",
+        "context": "This covering cannot expand as the insect grows, so it must be replaced."
+      },
+      {
+        "headword": "examine",
+        "surfaceForm": "examine",
+        "phonetic": "/ig'zæmin/",
+        "pos": "v.",
+        "translation": "v. 检查，调查",
+        "definition": "observe, check out, and look over carefully or inspect",
+        "context": "We had started the walk wanting to find something alive; now everyone wanted to examine something empty."
+      },
+      {
+        "headword": "protect",
+        "surfaceForm": "protected",
+        "phonetic": "/prә'tekt/",
+        "pos": "vt.",
+        "translation": "vt. 防卫，保护",
+        "definition": "shield from danger, injury, destruction, or damage",
+        "context": "It was so delicate that we carried it in a container, protected by soft paper."
+      },
+      {
+        "headword": "none",
+        "surfaceForm": "none",
+        "phonetic": "/nʌn/",
+        "pos": "pron.",
+        "translation": "pron. 没有一个，毫无",
+        "definition": "not one or not any",
+        "context": "The picture showed wings, whereas the shell had none."
+      },
+      {
+        "headword": "insect",
+        "surfaceForm": "insect",
+        "phonetic": "/'insekt/",
+        "pos": "n.",
+        "translation": "n. 昆虫",
+        "definition": "a small animal with six legs and a body divided into three parts",
+        "context": "On our nature club walk, my partner noticed a small brown insect on a tree."
+      },
+      {
+        "headword": "container",
+        "surfaceForm": "container",
+        "phonetic": "/kәn'teinә/",
+        "pos": "n.",
+        "translation": "n. 容器，集装箱",
+        "definition": "any object that can be used to hold things (especially a large metal boxlike object of standardized dimensions that can be loaded from one form of transport to another)",
+        "context": "It was so delicate that we carried it in a container, protected by soft paper."
+      },
+      {
+        "headword": "disturb",
+        "surfaceForm": "disturb",
+        "phonetic": "/dis'tә:b/",
+        "pos": "v.",
+        "translation": "v. 打扰，惊扰",
+        "definition": "to interrupt the rest or activity of someone or something",
+        "context": "We waited, reluctant to disturb it."
+      },
+      {
+        "headword": "asleep",
+        "surfaceForm": "asleep",
+        "phonetic": "/ә'sli:p/",
+        "pos": "a.",
+        "translation": "a. 睡着的，长眠的",
+        "definition": "in a state of sleep",
+        "context": "I wondered whether it was simply asleep."
+      },
+      {
+        "headword": "shell",
+        "surfaceForm": "shell",
+        "phonetic": "/ʃel/",
+        "pos": "n.",
+        "translation": "n. 外壳，硬壳",
+        "definition": "the hard outer covering of an animal",
+        "context": "At the final change, the insect comes out through the back, leaving its old shell behind."
+      },
+      {
+        "headword": "gradually",
+        "surfaceForm": "Gradually",
+        "phonetic": "/'grædʒuәli/",
+        "pos": "adv.",
+        "translation": "adv. 逐渐地",
+        "definition": "in a gradual manner",
+        "context": "Gradually, our interest changed: we now wanted to understand what had happened before we arrived."
+      },
+      {
+        "headword": "empty",
+        "surfaceForm": "empty",
+        "phonetic": "/'empti/",
+        "pos": "a.",
+        "translation": "a. 空的",
+        "definition": "containing nothing",
+        "context": "Through this, I could see that the inside was empty."
+      },
+      {
+        "headword": "alive",
+        "surfaceForm": "alive",
+        "phonetic": "/ә'laiv/",
+        "pos": "a.",
+        "translation": "a. 活着的，活泼的",
+        "definition": "possessing life",
+        "context": "We had started the walk wanting to find something alive; now everyone wanted to examine something empty."
+      },
+      {
+        "headword": "soft",
+        "surfaceForm": "soft",
+        "phonetic": "/sɒft/",
+        "pos": "a.",
+        "translation": "a. 软的，温和的",
+        "definition": "yielding readily to pressure or weight",
+        "context": "It was so delicate that we carried it in a container, protected by soft paper."
+      },
+      {
+        "headword": "understand",
+        "surfaceForm": "understand",
+        "phonetic": "/.ʌndә'stænd/",
+        "pos": "vt.",
+        "translation": "vt. 理解，了解",
+        "definition": "know and comprehend the nature or meaning of",
+        "context": "Gradually, our interest changed: we now wanted to understand what had happened before we arrived."
+      },
+      {
+        "headword": "brown",
+        "surfaceForm": "brown",
+        "phonetic": "/braun/",
+        "pos": "a.",
+        "translation": "a. 棕色的，褐色的",
+        "definition": "having the colour of wood or soil",
+        "context": "On our nature club walk, my partner noticed a small brown insect on a tree."
+      },
+      {
+        "headword": "interest",
+        "surfaceForm": "interest",
+        "phonetic": "/'intrist/",
+        "pos": "n.",
+        "translation": "n. 兴趣，嗜好",
+        "definition": "a sense of concern with and curiosity about someone or something",
+        "context": "Gradually, our interest changed: we now wanted to understand what had happened before we arrived."
+      },
+      {
+        "headword": "leader",
+        "surfaceForm": "leader",
+        "phonetic": "/'li:dә/",
+        "pos": "n.",
+        "translation": "n. 领导者，社论",
+        "definition": "a person who rules or guides or inspires others",
+        "context": "Our club leader explained that it was the old outer covering of a cicada."
+      }
+    ],
+    "original-w9-longer-page": [
+      {
+        "headword": "revise",
+        "surfaceForm": "revised",
+        "phonetic": "/ri'vaiz/",
+        "pos": "v.",
+        "translation": "v. 修改，修订（也指为考试复习）",
+        "definition": "to change something to improve it, or to study again before an exam",
+        "context": "With a new piece of paper, my partner followed the revised instructions and made a pocket."
+      },
+      {
+        "headword": "puzzle",
+        "surfaceForm": "puzzled",
+        "phonetic": "/'pʌzl/",
+        "pos": "v.",
+        "translation": "v. 使困惑，使不解",
+        "definition": "to make someone feel confused because something is difficult to understand",
+        "context": "Our teacher asked us to mark the exact place where each reader had become puzzled."
+      },
+      {
+        "headword": "diagram",
+        "surfaceForm": "diagrams",
+        "phonetic": "/'daiәɡræm/",
+        "pos": "n.",
+        "translation": "n. 图表",
+        "definition": "a drawing intended to explain how something works",
+        "context": "Beside the words, I added small diagrams showing the paper before and after."
+      },
+      {
+        "headword": "fold",
+        "surfaceForm": "folded",
+        "phonetic": "/fәuld/",
+        "pos": "v.",
+        "translation": "v. 折叠",
+        "definition": "to bend paper so that one part lies on another",
+        "context": "Feeling confident, I folded another pocket while reading my page."
+      },
+      {
+        "headword": "exact",
+        "surfaceForm": "exact",
+        "phonetic": "/ig'zækt/",
+        "pos": "a.",
+        "translation": "a. 精确的，准确的",
+        "definition": "marked by strict and particular and complete accordance with fact",
+        "context": "Our teacher asked us to mark the exact place where each reader had become puzzled."
+      },
+      {
+        "headword": "instruction",
+        "surfaceForm": "instructions",
+        "phonetic": "/in'strʌkʃәn/",
+        "pos": "n.",
+        "translation": "n. 操作说明，指示",
+        "definition": "information telling someone how to do something",
+        "context": "In English class, we were asked to write instructions for making a paper pocket."
+      },
+      {
+        "headword": "obvious",
+        "surfaceForm": "obvious",
+        "phonetic": "/'ɒbviәs/",
+        "pos": "a.",
+        "translation": "a. 明显的，明白的",
+        "definition": "easily perceived by the senses or grasped by the mind",
+        "context": "Every step seemed obvious."
+      },
+      {
+        "headword": "assume",
+        "surfaceForm": "assumed",
+        "phonetic": "/ә'sju:m/",
+        "pos": "vt.",
+        "translation": "vt. 假定，承担",
+        "definition": "take to be the case or to be true",
+        "context": "I had assumed that she would know which side I meant, although the page never said."
+      },
+      {
+        "headword": "confident",
+        "surfaceForm": "confident",
+        "phonetic": "/'kɒnfidәnt/",
+        "pos": "a.",
+        "translation": "a. 有信心的，有把握的",
+        "definition": "having or marked by confidence or assurance",
+        "context": "Feeling confident, I folded another pocket while reading my page."
+      },
+      {
+        "headword": "blame",
+        "surfaceForm": "blaming",
+        "phonetic": "/bleim/",
+        "pos": "vt.",
+        "translation": "vt. 责备，归咎于",
+        "definition": "put or pin the blame on",
+        "context": "I marked my third line, rather than changing everything or blaming my partner."
+      },
+      {
+        "headword": "explanation",
+        "surfaceForm": "explanation",
+        "phonetic": "/.eksplә'neiʃәn/",
+        "pos": "n.",
+        "translation": "n. 解释，说明",
+        "definition": "the act of explaining",
+        "context": "This time, my explanation had done the work that my own knowledge had done before."
+      },
+      {
+        "headword": "mark",
+        "surfaceForm": "mark",
+        "phonetic": "/mɑ:k/",
+        "pos": "v.",
+        "translation": "v. 标记，标出",
+        "definition": "to put a sign on something to identify or highlight it",
+        "context": "Our teacher asked us to mark the exact place where each reader had become puzzled."
+      },
+      {
+        "headword": "shape",
+        "surfaceForm": "shape",
+        "phonetic": "/ʃeip/",
+        "pos": "n.",
+        "translation": "n. 形状，形态",
+        "definition": "any spatial attributes (especially as defined by outline)",
+        "context": "Her paper was now the wrong shape."
+      },
+      {
+        "headword": "fresh",
+        "surfaceForm": "fresh",
+        "phonetic": "/freʃ/",
+        "pos": "a.",
+        "translation": "a. 新鲜的，新奇的",
+        "definition": "recently made, produced, or harvested",
+        "context": "Our partners were given fresh paper, but they could not see the pockets we had made."
+      },
+      {
+        "headword": "exchange",
+        "surfaceForm": "exchanged",
+        "phonetic": "/iks'tʃeindʒ/",
+        "pos": "v.",
+        "translation": "v. 交换，互换",
+        "definition": "to give something to someone and receive something in return",
+        "context": "Then we exchanged instructions."
+      },
+      {
+        "headword": "complete",
+        "surfaceForm": "complete",
+        "phonetic": "/kәm'pli:t/",
+        "pos": "a.",
+        "translation": "a. 完成的，彻底的",
+        "definition": "finished, with nothing missing",
+        "context": "Four short lines had looked complete until someone else tried using them."
+      },
+      {
+        "headword": "everything",
+        "surfaceForm": "everything",
+        "phonetic": "/'evriθiŋ/",
+        "pos": "pron.",
+        "translation": "pron. 每件事物，所有事物",
+        "definition": "Whatever pertains to the subject under consideration",
+        "context": "I marked my third line, rather than changing everything or blaming my partner."
+      },
+      {
+        "headword": "towards",
+        "surfaceForm": "towards",
+        "phonetic": "/tә'wɔ:dz/",
+        "pos": "prep.",
+        "translation": "prep. 向，对于",
+        "definition": "In the direction of",
+        "context": "When we were allowed to change our pages, I added which side to fold towards the centre."
+      },
+      {
+        "headword": "follow",
+        "surfaceForm": "followed",
+        "phonetic": "/'fɒlәu/",
+        "pos": "v.",
+        "translation": "v. 遵循，按照……做",
+        "definition": "to act according to instructions or advice",
+        "context": "With a new piece of paper, my partner followed the revised instructions and made a pocket."
+      },
+      {
+        "headword": "become",
+        "surfaceForm": "become",
+        "phonetic": "/bi'kʌm/",
+        "pos": "vi.",
+        "translation": "vi. 变成，变得",
+        "definition": "enter or assume a certain state or condition",
+        "context": "Our teacher asked us to mark the exact place where each reader had become puzzled."
+      }
+    ],
+    "original-w9-two-lines-door": [
+      {
+        "headword": "farewell",
+        "surfaceForm": "farewell",
+        "phonetic": "/'fєә'wel/",
+        "pos": "n.",
+        "translation": "n. 辞别，再见",
+        "definition": "an acknowledgment or expression of goodwill at parting",
+        "context": "For this exhibition, however, the original image mattered too: it showed visitors how an ordinary farewell sounded in our family."
+      },
+      {
+        "headword": "aloud",
+        "surfaceForm": "aloud",
+        "phonetic": "/ә'laud/",
+        "pos": "adv.",
+        "translation": "adv. 出声地，大声地",
+        "definition": "using the voice",
+        "context": "Before leaving, she read the card aloud, then smiled and said the Mandarin words to us."
+      },
+      {
+        "headword": "exit",
+        "surfaceForm": "exit",
+        "phonetic": "/'eksit/",
+        "pos": "n.",
+        "translation": "n. 出口，退场",
+        "definition": "an opening that permits escape or release",
+        "context": "At the exhibition, we placed it by the exit instead of beside the walking picture."
+      },
+      {
+        "headword": "translate",
+        "surfaceForm": "translated",
+        "phonetic": "/træns'leit/",
+        "pos": "vt.",
+        "translation": "vt. 翻译，解释",
+        "definition": "restate (words) from one language into another language",
+        "context": "I had translated the words directly, but my partner thought the card belonged beside a picture of a walking lesson."
+      },
+      {
+        "headword": "accurate",
+        "surfaceForm": "accurate",
+        "phonetic": "/'ækjurәt/",
+        "pos": "a.",
+        "translation": "a. 正确的，精确的",
+        "definition": "conforming exactly or almost exactly to fact or to a standard or performing with total accuracy",
+        "context": "The meaning was accurate, she said, but the familiar picture of someone walking had disappeared."
+      },
+      {
+        "headword": "intention",
+        "surfaceForm": "intention",
+        "phonetic": "/in'tenʃәn/",
+        "pos": "n.",
+        "translation": "n. 意图，目的",
+        "definition": "an act of intending",
+        "context": "One gave the direct meaning, \"Walk slowly\"; the other explained the intention, \"Take care."
+      },
+      {
+        "headword": "ordinary",
+        "surfaceForm": "ordinary",
+        "phonetic": "/'ɒ:dinәri/",
+        "pos": "a.",
+        "translation": "a. 普通的，平常的",
+        "definition": "normal or usual, with nothing special",
+        "context": "For this exhibition, however, the original image mattered too: it showed visitors how an ordinary farewell sounded in our family."
+      },
+      {
+        "headword": "directly",
+        "surfaceForm": "directly",
+        "phonetic": "/di'rektli, dai'rektli/",
+        "pos": "adv.",
+        "translation": "adv. 径直地，直接地",
+        "definition": "without deviation",
+        "context": "I had translated the words directly, but my partner thought the card belonged beside a picture of a walking lesson."
+      },
+      {
+        "headword": "assume",
+        "surfaceForm": "assumed",
+        "phonetic": "/ә'sju:m/",
+        "pos": "vt.",
+        "translation": "vt. 假定，承担",
+        "definition": "take to be the case or to be true",
+        "context": "I had assumed that a translation needed only to explain the message."
+      },
+      {
+        "headword": "journey",
+        "surfaceForm": "journey",
+        "phonetic": "/'dʒә:ni/",
+        "pos": "n.",
+        "translation": "n. 旅程，旅行",
+        "definition": "the act of traveling from one place to another",
+        "context": "\"I am wishing them a safe journey,\" she explained."
+      },
+      {
+        "headword": "disappear",
+        "surfaceForm": "disappeared",
+        "phonetic": "/.disә'piә/",
+        "pos": "vi.",
+        "translation": "vi. 消失，不见",
+        "definition": "get lost, as without warning or explanation",
+        "context": "The meaning was accurate, she said, but the familiar picture of someone walking had disappeared."
+      },
+      {
+        "headword": "familiar",
+        "surfaceForm": "familiar",
+        "phonetic": "/fә'miljә/",
+        "pos": "a.",
+        "translation": "a. 熟悉的，常见的",
+        "definition": "well known or easily recognized",
+        "context": "The meaning was accurate, she said, but the familiar picture of someone walking had disappeared."
+      },
+      {
+        "headword": "belong",
+        "surfaceForm": "belonged",
+        "phonetic": "/bi'lɒŋ/",
+        "pos": "vi.",
+        "translation": "vi. 属于，合适",
+        "definition": "be suitable or acceptable",
+        "context": "I had translated the words directly, but my partner thought the card belonged beside a picture of a walking lesson."
+      },
+      {
+        "headword": "exhibition",
+        "surfaceForm": "exhibition",
+        "phonetic": "/.eksi'biʃәn/",
+        "pos": "n.",
+        "translation": "n. 表现，展览会",
+        "definition": "the act of exhibiting",
+        "context": "For our school language exhibition, each student brought an expression used at home."
+      },
+      {
+        "headword": "visitor",
+        "surfaceForm": "visitors",
+        "phonetic": "/'vizitә/",
+        "pos": "n.",
+        "translation": "n. 参观者，游客",
+        "definition": "someone who visits",
+        "context": "I chose the Mandarin words my mother says when visitors leave: \"Walk slowly."
+      },
+      {
+        "headword": "slowly",
+        "surfaceForm": "slowly",
+        "phonetic": "/'slәuli/",
+        "pos": "adv.",
+        "translation": "adv. 慢慢地，迟缓地",
+        "definition": "without speed (`slow' is sometimes used informally for `slowly')",
+        "context": "I chose the Mandarin words my mother says when visitors leave: \"Walk slowly."
+      },
+      {
+        "headword": "direct",
+        "surfaceForm": "direct",
+        "phonetic": "/di'rekt/",
+        "pos": "a.",
+        "translation": "a. 直接的，字面的",
+        "definition": "expressed plainly without an extra or hidden meaning",
+        "context": "One gave the direct meaning, \"Walk slowly\"; the other explained the intention, \"Take care."
+      },
+      {
+        "headword": "visit",
+        "surfaceForm": "visited",
+        "phonetic": "/'vizit/",
+        "pos": "v.",
+        "translation": "v. 参观，拜访",
+        "definition": "to go to see a person or place for a short time",
+        "context": "My mother visited to see our work."
+      },
+      {
+        "headword": "family",
+        "surfaceForm": "family",
+        "phonetic": "/'fæmәli/",
+        "pos": "n.",
+        "translation": "n. 家庭，家人",
+        "definition": "a social unit living together",
+        "context": "For this exhibition, however, the original image mattered too: it showed visitors how an ordinary farewell sounded in our family."
+      },
+      {
+        "headword": "least",
+        "surfaceForm": "least",
+        "phonetic": "/li:st/",
+        "pos": "adv.",
+        "translation": "adv. 至少（at least）",
+        "definition": "in the phrase at least, no less than a stated amount or used to show something positive",
+        "context": "At least nobody would imagine a walking lesson now."
+      }
+    ],
     "original-w9-leave-it": [
       {
         "headword": "nearby",
@@ -436,9 +2074,9 @@
         "headword": "announce",
         "surfaceForm": "announced",
         "phonetic": "/ә'nauns/",
-        "pos": "vt.",
-        "translation": "vt. 宣布，声称",
-        "definition": "announce publicly or officially",
+        "pos": "v.",
+        "translation": "v. 宣布，告知（也指屏幕显示或提示）",
+        "definition": "to make something known or give information about it",
         "context": "In September, the residents' committee announced a proposal to turn it into a garden, but first it wanted to hear from people nearby."
       },
       {
@@ -552,6 +2190,552 @@
     ]
   },
   "olevel": {
+    "original-w9-instructions-on-the-lid": [
+      {
+        "headword": "accumulate",
+        "surfaceForm": "accumulated",
+        "phonetic": "/ә'kju:mjuleit/",
+        "pos": "v.",
+        "translation": "v. 积聚，堆积",
+        "definition": "collect or gather",
+        "context": "Knowledge that had felt like experience now looked suspiciously like a collection of details I had accumulated but never bothered to write down."
+      },
+      {
+        "headword": "instinct",
+        "surfaceForm": "instinct",
+        "phonetic": "/'instiŋkt/",
+        "pos": "n.",
+        "translation": "n. 本能，直觉",
+        "definition": "inborn pattern of behavior often responsive to specific stimuli",
+        "context": "I struggled to resist the instinct to intervene."
+      },
+      {
+        "headword": "spare",
+        "surfaceForm": "spare",
+        "phonetic": "/spєә/",
+        "pos": "a.",
+        "translation": "a. 空余的，备用的",
+        "definition": "extra, not being used",
+        "context": "After six months, I knew which boxes had missing pieces and which cupboard contained the spare counters."
+      },
+      {
+        "headword": "flexible",
+        "surfaceForm": "flexible",
+        "phonetic": "/'fleksәbl/",
+        "pos": "a.",
+        "translation": "a. 易曲的，灵活的",
+        "definition": "capable of being changed",
+        "context": "Yet we deliberately left the table arrangement flexible: a visitor using a chair with wheels might need more space, and a large group might prefer two tables together."
+      },
+      {
+        "headword": "deliberately",
+        "surfaceForm": "deliberately",
+        "phonetic": "/di'libәrәtli/",
+        "pos": "adv.",
+        "translation": "adv. 故意地",
+        "definition": "with intention",
+        "context": "Yet we deliberately left the table arrangement flexible: a visitor using a chair with wheels might need more space, and a large group might prefer two tables together."
+      },
+      {
+        "headword": "replacement",
+        "surfaceForm": "replacement",
+        "phonetic": "/ri'pleismәnt/",
+        "pos": "n.",
+        "translation": "n. 替代品，替换",
+        "definition": "something used in place of another thing, or the act of replacing it",
+        "context": "Under each game title, we listed anything missing and where its replacement was kept."
+      },
+      {
+        "headword": "label",
+        "surfaceForm": "label",
+        "phonetic": "/'leibl/",
+        "pos": "n.",
+        "translation": "n. 标签（也作动词：贴标签，标明）",
+        "definition": "a piece of paper or words on an object giving information about it, or to put one on",
+        "context": "I knew they were inside a different lid, but no label connected the two."
+      },
+      {
+        "headword": "assumption",
+        "surfaceForm": "assumption",
+        "phonetic": "/ә'sʌmpʃәn/",
+        "pos": "n.",
+        "translation": "n. 假定，自负",
+        "definition": "a hypothesis that is taken for granted",
+        "context": "Each question exposed an assumption I had left implicit, although it seemed unnecessary until I tried answering without pointing."
+      },
+      {
+        "headword": "community",
+        "surfaceForm": "community",
+        "phonetic": "/kә'mju:niti/",
+        "pos": "n.",
+        "translation": "n. 社区，公众",
+        "definition": "a group of people living in a particular local area",
+        "context": "Every Saturday, I helped run an afternoon of board games at a community centre."
+      },
+      {
+        "headword": "concise",
+        "surfaceForm": "concise",
+        "phonetic": "/kәn'sais/",
+        "pos": "a.",
+        "translation": "a. 简洁的，简明的",
+        "definition": "expressing much in few words",
+        "context": "Reading it through, I nodded at how efficiently I had reduced six months of experience to three concise lines."
+      },
+      {
+        "headword": "mouthful",
+        "surfaceForm": "mouthful",
+        "phonetic": "/'mauθful/",
+        "pos": "n.",
+        "translation": "n. 一口，满口",
+        "definition": "the quantity that can be held in the mouth",
+        "context": "Every time its screen lit up, I checked it before taking another mouthful."
+      },
+      {
+        "headword": "enlarge",
+        "surfaceForm": "enlarged",
+        "phonetic": "/in'lɑ:dʒ/",
+        "pos": "v.",
+        "translation": "v. 扩大，增大（也指变大）",
+        "definition": "to make something larger or become larger",
+        "context": "I enlarged the picture, preparing to explain my arrangement, then noticed the spare pieces laid out within reach."
+      },
+      {
+        "headword": "clarity",
+        "surfaceForm": "clarity",
+        "phonetic": "/'klærәti/",
+        "pos": "n.",
+        "translation": "n. 清晰，明了",
+        "definition": "the quality of being clear and easy to understand",
+        "context": "I mistook their brevity for clarity."
+      },
+      {
+        "headword": "implicit",
+        "surfaceForm": "implicit",
+        "phonetic": "/im'plisit/",
+        "pos": "a.",
+        "translation": "a. 暗示的，含蓄的",
+        "definition": "implied though not directly expressed",
+        "context": "Each question exposed an assumption I had left implicit, although it seemed unnecessary until I tried answering without pointing."
+      },
+      {
+        "headword": "dependence",
+        "surfaceForm": "dependence",
+        "phonetic": "/di'pendәns/",
+        "pos": "n.",
+        "translation": "n. 依赖，依存",
+        "definition": "the state of relying on or being controlled by someone or something else",
+        "context": "That dependence was reassuring, although I confused being useful with remaining essential."
+      },
+      {
+        "headword": "intervene",
+        "surfaceForm": "intervene",
+        "phonetic": "/.intә'vi:n/",
+        "pos": "v.",
+        "translation": "v. 干预，介入",
+        "definition": "to become involved in a situation to change what happens",
+        "context": "I struggled to resist the instinct to intervene."
+      },
+      {
+        "headword": "experience",
+        "surfaceForm": "experience",
+        "phonetic": "/ik'spiәriәns/",
+        "pos": "n.",
+        "translation": "n. 体验，经历",
+        "definition": "something that happens to you, or the feeling of it",
+        "context": "Reading it through, I nodded at how efficiently I had reduced six months of experience to three concise lines."
+      },
+      {
+        "headword": "together",
+        "surfaceForm": "together",
+        "phonetic": "/tә'geðә/",
+        "pos": "adv.",
+        "translation": "adv. 一起，共同（也指合在一起）",
+        "definition": "with others, jointly, or close to one another",
+        "context": "Yet we deliberately left the table arrangement flexible: a visitor using a chair with wheels might need more space, and a large group might prefer two tables together."
+      },
+      {
+        "headword": "towards",
+        "surfaceForm": "towards",
+        "phonetic": "/tә'wɔ:dz/",
+        "pos": "prep.",
+        "translation": "prep. 向，对于",
+        "definition": "In the direction of",
+        "context": "Whenever a volunteer had a question, someone pointed towards me."
+      },
+      {
+        "headword": "create",
+        "surfaceForm": "create",
+        "phonetic": "/kri:'eit/",
+        "pos": "vt.",
+        "translation": "vt. 创造，建造",
+        "definition": "bring into existence",
+        "context": "For the first time, that silence felt like something I had helped create rather than evidence that I had been forgotten."
+      }
+    ],
+    "original-w9-two-lines-at-a-time": [
+      {
+        "headword": "subtitle",
+        "surfaceForm": "subtitles",
+        "phonetic": "/'sʌb.taitl/",
+        "pos": "n.",
+        "translation": "n. 字幕",
+        "definition": "written words on a screen showing or translating what people say",
+        "context": "When Hafizah asked me to write English subtitles for her short film, I accepted without hesitation."
+      },
+      {
+        "headword": "compression",
+        "surfaceForm": "compression",
+        "phonetic": "/kәm'preʃәn/",
+        "pos": "n.",
+        "translation": "n. 压缩，压紧",
+        "definition": "the process or result of becoming smaller or pressed together",
+        "context": "Some subtleties resisted compression."
+      },
+      {
+        "headword": "literal",
+        "surfaceForm": "Literal",
+        "phonetic": "/'litәrәl/",
+        "pos": "a.",
+        "translation": "a. 逐字的，字面上的",
+        "definition": "without interpretation or embellishment",
+        "context": "Literal accuracy seemed to guarantee clarity."
+      },
+      {
+        "headword": "ambiguity",
+        "surfaceForm": "ambiguity",
+        "phonetic": "/.æmbi'gju:iti/",
+        "pos": "n.",
+        "translation": "n. 不明确，含糊",
+        "definition": "an expression whose meaning cannot be determined from its context",
+        "context": "This time the humour followed the invitation; the ambiguity in my first version had made his reply sound like another complaint."
+      },
+      {
+        "headword": "courtesy",
+        "surfaceForm": "courtesy",
+        "phonetic": "/'kә:tisi/",
+        "pos": "n.",
+        "translation": "n. 礼貌，谦恭",
+        "definition": "a courteous or respectful or considerate act",
+        "context": "Her courtesy acknowledged both the distance travelled and the pleasure of his company."
+      },
+      {
+        "headword": "translation",
+        "surfaceForm": "translation",
+        "phonetic": "/træns'leiʃәn/",
+        "pos": "n.",
+        "translation": "n. 翻译，译文",
+        "definition": "the act of expressing words in another language, or the resulting text",
+        "context": "I once thought translation required complete certainty."
+      },
+      {
+        "headword": "doorway",
+        "surfaceForm": "doorway",
+        "phonetic": "/'dɒ:wei/",
+        "pos": "n.",
+        "translation": "n. 门口，途径",
+        "definition": "the entrance (the space in a wall) through which you enter or leave a room or building",
+        "context": "Then my aunt saw her cousin at the doorway and said, \"You came all this way just for tea?"
+      },
+      {
+        "headword": "reluctant",
+        "surfaceForm": "reluctant",
+        "phonetic": "/ri'lʌktәnt/",
+        "pos": "a.",
+        "translation": "a. 不情愿的，勉强的",
+        "definition": "disinclined to become involved",
+        "context": "\" I stared at her, reluctant to accept that interpretation."
+      },
+      {
+        "headword": "straightforward",
+        "surfaceForm": "straightforward",
+        "phonetic": "/streit'fɒ:wәd/",
+        "pos": "a.",
+        "translation": "a. 简单明了的，易懂的",
+        "definition": "simple and easy to understand or do",
+        "context": "The first sentences were straightforward: put the cups here, bring another chair."
+      },
+      {
+        "headword": "subtle",
+        "surfaceForm": "subtle",
+        "phonetic": "/'sʌtl/",
+        "pos": "a.",
+        "translation": "a. 微妙的，不易察觉的",
+        "definition": "not obvious and requiring careful attention to notice or understand",
+        "context": "I could understand both languages; why did conveying this subtle welcome feel impossible?"
+      },
+      {
+        "headword": "interpretation",
+        "surfaceForm": "interpretation",
+        "phonetic": "/in.tә:pri'teiʃәn/",
+        "pos": "n.",
+        "translation": "n. 解释，演出",
+        "definition": "a mental representation of the meaning or significance of something",
+        "context": "\" I stared at her, reluctant to accept that interpretation."
+      },
+      {
+        "headword": "implication",
+        "surfaceForm": "implication",
+        "phonetic": "/.impli'keiʃәn/",
+        "pos": "n.",
+        "translation": "n. 隐含意思，暗示",
+        "definition": "a meaning suggested without being stated directly",
+        "context": "Read alone, however, the implication could sound like dismissal."
+      },
+      {
+        "headword": "version",
+        "surfaceForm": "version",
+        "phonetic": "/'vә:ʒәn/",
+        "pos": "n.",
+        "translation": "n. 版本",
+        "definition": "a form of something slightly different from others",
+        "context": "Our next version kept the question and added a brief phrase: \"You came all this way just for tea?"
+      },
+      {
+        "headword": "hesitation",
+        "surfaceForm": "hesitation",
+        "phonetic": "/.hezi'teiʃәn/",
+        "pos": "n.",
+        "translation": "n. 犹豫，踌躇",
+        "definition": "indecision in speech or action",
+        "context": "When Hafizah asked me to write English subtitles for her short film, I accepted without hesitation."
+      },
+      {
+        "headword": "viewer",
+        "surfaceForm": "viewers",
+        "phonetic": "/'vju:ә/",
+        "pos": "n.",
+        "translation": "n. 观众，观看者",
+        "definition": "a person who watches a film, programme or other visual material",
+        "context": "She also reminded me that viewers would see her hands moving towards the chair."
+      },
+      {
+        "headword": "concise",
+        "surfaceForm": "concise",
+        "phonetic": "/kәn'sais/",
+        "pos": "a.",
+        "translation": "a. 简洁的，简明的",
+        "definition": "expressing much in few words",
+        "context": "When I shortened it, the supposedly concise explanation sounded like a formal speech, although my aunt was laughing."
+      },
+      {
+        "headword": "information",
+        "surfaceForm": "information",
+        "phonetic": "/.infә'meiʃәn/",
+        "pos": "n.",
+        "translation": "n. 消息，知识",
+        "definition": "a message received and understood",
+        "context": "Filling that silence with information would have hidden the small decision taking place in her face."
+      },
+      {
+        "headword": "surprise",
+        "surfaceForm": "surprise",
+        "phonetic": "/sә'praiz/",
+        "pos": "n.",
+        "translation": "n. 惊奇，奇袭",
+        "definition": "the astonishment you feel when something totally unexpected happens to you",
+        "context": "She said she was happy he had come, of course, but simply writing \"Welcome\" would remove her surprise at his effort."
+      },
+      {
+        "headword": "understand",
+        "surfaceForm": "understand",
+        "phonetic": "/.ʌndә'stænd/",
+        "pos": "vt.",
+        "translation": "vt. 理解，了解",
+        "definition": "know and comprehend the nature or meaning of",
+        "context": "I could understand both languages; why did conveying this subtle welcome feel impossible?"
+      },
+      {
+        "headword": "complete",
+        "surfaceForm": "complete",
+        "phonetic": "/kәm'pli:t/",
+        "pos": "a.",
+        "translation": "a. 完成的，彻底的",
+        "definition": "finished, with nothing missing",
+        "context": "I once thought translation required complete certainty."
+      }
+    ],
+    "original-w9-a-choice-worth-making": [
+      {
+        "headword": "lengthy",
+        "surfaceForm": "lengthy",
+        "phonetic": "/'leŋθi/",
+        "pos": "a.",
+        "translation": "a. 冗长的，漫长的",
+        "definition": "relatively long in duration",
+        "context": "This collective enquiry is harder when every claim requires a lengthy summary of a book that nobody else has read."
+      },
+      {
+        "headword": "prescribe",
+        "surfaceForm": "prescribed",
+        "phonetic": "/pris'kraib/",
+        "pos": "v.",
+        "translation": "v. 规定，指定",
+        "definition": "issue commands or orders for",
+        "context": "While it is true that a single prescribed book makes discussion simpler, simplicity cannot justify restricting autonomy."
+      },
+      {
+        "headword": "extract",
+        "surfaceForm": "extract",
+        "phonetic": "/ˈekstrækt/",
+        "pos": "n.",
+        "translation": "n. 摘录，选段",
+        "definition": "a short passage taken from a book or other written work",
+        "context": "For lessons, I would keep a common book or extract and add a guided choice from books everyone can obtain."
+      },
+      {
+        "headword": "grip",
+        "surfaceForm": "grip",
+        "phonetic": "/grip/",
+        "pos": "n.",
+        "translation": "n. 紧握，抓握（也作动词：紧紧抓住）",
+        "definition": "a tight hold on something, or to hold something tightly",
+        "context": "When our teacher suggested that arrangement, I relaxed my grip on my book."
+      },
+      {
+        "headword": "sharply",
+        "surfaceForm": "sharply",
+        "phonetic": "/'ʃɑ:pli/",
+        "pos": "adv.",
+        "translation": "adv. 猛地，突然地",
+        "definition": "with a sudden, forceful movement",
+        "context": "I closed the book sharply, irritated that the part worth discussing had never been reached."
+      },
+      {
+        "headword": "alongside",
+        "surfaceForm": "alongside",
+        "phonetic": "/ә'lɒŋ'said/",
+        "pos": "prep.",
+        "translation": "prep. 与……一起，除……之外还",
+        "definition": "together with or in addition to something",
+        "context": "I recognised that argument when our teacher allowed one book of our own alongside the class novel."
+      },
+      {
+        "headword": "genuine",
+        "surfaceForm": "genuine",
+        "phonetic": "/'dʒenjuin/",
+        "pos": "a.",
+        "translation": "a. 真正的，真实的",
+        "definition": "not fake or counterfeit",
+        "context": "Requiring a conversation before a change would preserve a genuine decision while preventing the easiest book from automatically becoming the final choice."
+      },
+      {
+        "headword": "justify",
+        "surfaceForm": "justify",
+        "phonetic": "/'dʒʌstifai/",
+        "pos": "vt.",
+        "translation": "vt. 替...辩护，证明",
+        "definition": "show to be reasonable or provide adequate ground for",
+        "context": "Choosing also requires readers to justify their selection and accept responsibility for a decision, rather than waiting to be entertained."
+      },
+      {
+        "headword": "interpretation",
+        "surfaceForm": "interpretation",
+        "phonetic": "/in.tә:pri'teiʃәn/",
+        "pos": "n.",
+        "translation": "n. 解释，演出",
+        "definition": "a mental representation of the meaning or significance of something",
+        "context": "When everyone has read the same passage, each interpretation can be checked against evidence available to the whole class."
+      },
+      {
+        "headword": "provision",
+        "surfaceForm": "provision",
+        "phonetic": "/prә'viʒәn/",
+        "pos": "n.",
+        "translation": "n. 提供，资源供应",
+        "definition": "the act of supplying what people need",
+        "context": "However, these concerns support guidance and fair provision, rather than the conclusion that students should make no decisions."
+      },
+      {
+        "headword": "particular",
+        "surfaceForm": "particular",
+        "phonetic": "/pә'tikjulә/",
+        "pos": "a.",
+        "translation": "a. 特定的，某一的",
+        "definition": "used to refer to one specific person or thing",
+        "context": "A teacher can ask why a character stayed silent, and students can challenge one another's explanations by returning to a particular sentence."
+      },
+      {
+        "headword": "willingly",
+        "surfaceForm": "willingly",
+        "phonetic": "/'wiliŋli/",
+        "pos": "adv.",
+        "translation": "adv. 自动地，欣然地",
+        "definition": "in a willing manner",
+        "context": "A student fascinated by how buildings are designed might willingly examine a demanding account of an architect's work, while abandoning an easier story about a subject that means little to them."
+      },
+      {
+        "headword": "unfamiliar",
+        "surfaceForm": "unfamiliar",
+        "phonetic": "/.ʌnfә'miljә/",
+        "pos": "a.",
+        "translation": "a. 不熟悉的",
+        "definition": "not known or well known",
+        "context": "Unrestricted choice might allow a reader to avoid unfamiliar styles indefinitely."
+      },
+      {
+        "headword": "unrestricted",
+        "surfaceForm": "Unrestricted",
+        "phonetic": "/.ʌnri'striktid/",
+        "pos": "a.",
+        "translation": "a. 无限制的",
+        "definition": "not subject to or subjected to restriction",
+        "context": "Unrestricted choice might allow a reader to avoid unfamiliar styles indefinitely."
+      },
+      {
+        "headword": "simplicity",
+        "surfaceForm": "simplicity",
+        "phonetic": "/sim'plisiti/",
+        "pos": "n.",
+        "translation": "n. 单纯，简朴",
+        "definition": "the quality of being simple or uncompounded",
+        "context": "While it is true that a single prescribed book makes discussion simpler, simplicity cannot justify restricting autonomy."
+      },
+      {
+        "headword": "difficult",
+        "surfaceForm": "difficult",
+        "phonetic": "/'difikәlt/",
+        "pos": "a.",
+        "translation": "a. 困难的",
+        "definition": "not easy; requiring great physical or mental effort to accomplish or comprehend or endure",
+        "context": "Supporters of choice argue that interest gives readers a reason to continue when a text becomes difficult."
+      },
+      {
+        "headword": "condition",
+        "surfaceForm": "conditions",
+        "phonetic": "/kәn'diʃәn/",
+        "pos": "n.",
+        "translation": "n. 状况，条件（也指病症）",
+        "definition": "a situation, a requirement that must be met, or an illness",
+        "context": "Schools should offer choice where suitable texts, access and time for discussion can be provided; without those conditions, the promise of freedom may remain more attractive than the learning it produces."
+      },
+      {
+        "headword": "describe",
+        "surfaceForm": "describing",
+        "phonetic": "/di'skraib/",
+        "pos": "vt.",
+        "translation": "vt. 描述，描绘",
+        "definition": "give a description of",
+        "context": "I began explaining a letter, but spent my entire turn describing the journey behind it."
+      },
+      {
+        "headword": "continue",
+        "surfaceForm": "continue",
+        "phonetic": "/kәn'tinju:/",
+        "pos": "vi.",
+        "translation": "vi. 继续，延续",
+        "definition": "continue a certain state, condition, or activity",
+        "context": "Supporters of choice argue that interest gives readers a reason to continue when a text becomes difficult."
+      },
+      {
+        "headword": "together",
+        "surfaceForm": "together",
+        "phonetic": "/tә'geðә/",
+        "pos": "adv.",
+        "translation": "adv. 一起，共同（也指合在一起）",
+        "definition": "with others, jointly, or close to one another",
+        "context": "Groups choosing the same title could discuss it together, then bring one short passage to the class."
+      }
+    ],
     "original-w9-the-slipper-test": [
       {
         "headword": "exaggerate",
@@ -617,15 +2801,6 @@
         "context": "\"Stop it,\" I snapped, grabbing the phone back."
       },
       {
-        "headword": "project",
-        "surfaceForm": "project",
-        "phonetic": "/'prɒdʒekt/",
-        "pos": "n.",
-        "translation": "n. 项目，课题",
-        "definition": "a piece of planned work, often done by students",
-        "context": "For our Applied Learning project in Secondary Three, Shreya and I chose what we assumed was the easy option: a \"smart bin\" that could tell drink cans from plastic bottles."
-      },
-      {
         "headword": "reluctantly",
         "surfaceForm": "reluctantly",
         "phonetic": "/rɪ'lʌktəntlɪ/",
@@ -684,17 +2859,17 @@
         "surfaceForm": "revising",
         "phonetic": "/ri'vaiz/",
         "pos": "v.",
-        "translation": "v. 复习（备考）",
-        "definition": "to study again something you have learned, before an exam",
+        "translation": "v. 修改，修订（也指为考试复习）",
+        "definition": "to change something to improve it, or to study again before an exam",
         "context": "Two weeks later, I was revising for a chemistry test by repeating the same twenty practice questions until I got every one right."
       },
       {
         "headword": "announce",
         "surfaceForm": "announced",
         "phonetic": "/ә'nauns/",
-        "pos": "vt.",
-        "translation": "vt. 宣布，声称",
-        "definition": "announce publicly or officially",
+        "pos": "v.",
+        "translation": "v. 宣布，告知（也指屏幕显示或提示）",
+        "definition": "to make something known or give information about it",
         "context": "\"Can,\" the screen announced, \"97 per cent."
       },
       {
@@ -728,14 +2903,569 @@
         "headword": "accept",
         "surfaceForm": "accept",
         "phonetic": "/әk'sept/",
-        "pos": "vt.",
-        "translation": "vt. 接受，承认",
-        "definition": "consider or hold as true",
+        "pos": "v.",
+        "translation": "v. 接收，接受",
+        "definition": "to receive something willingly, or agree to a situation or idea",
         "context": "It took me all evening to accept, reluctantly, what that meant."
+      },
+      {
+        "headword": "effect",
+        "surfaceForm": "effect",
+        "phonetic": "/i'fekt/",
+        "pos": "n.",
+        "translation": "n. 效果，作用（in effect 意为实际上）",
+        "definition": "a result or influence, or, in the phrase in effect, actually",
+        "context": "Our ninety-eight per cent was, in effect, an excellent score for recognising my kitchen."
       }
     ]
   },
   "olevel_intermediate": {
+    "original-w9-everyones-things": [
+      {
+        "headword": "bewilder",
+        "surfaceForm": "bewildered",
+        "phonetic": "/bi'wildә/",
+        "pos": "vt.",
+        "translation": "vt. 使迷惑，使不知所措",
+        "definition": "cause to be confused emotionally",
+        "context": "I checked the labels twice, bewildered by the contrast between equal contributions and an unequal load."
+      },
+      {
+        "headword": "transparent",
+        "surfaceForm": "transparent",
+        "phonetic": "/træns'pærәnt/",
+        "pos": "a.",
+        "translation": "a. 透明的",
+        "definition": "allowing light through so that objects behind can be seen clearly",
+        "context": "Inside its transparent front pocket was a label saying PROJECT MANAGER."
+      },
+      {
+        "headword": "unwilling",
+        "surfaceForm": "unwilling",
+        "phonetic": "/.ʌn'wiliŋ/",
+        "pos": "a.",
+        "translation": "a. 不愿意的，勉强的",
+        "definition": "not disposed or inclined toward",
+        "context": "I defended their participation, unwilling to turn a health activity into an assessment of our academic work."
+      },
+      {
+        "headword": "surrender",
+        "surfaceForm": "surrender",
+        "phonetic": "/sә'rendә/",
+        "pos": "vt.",
+        "translation": "vt. 交出，放弃",
+        "definition": "give up or agree to forgo to the power or possession of another",
+        "context": "No research was missing, and nobody asked me to surrender my responsibility."
+      },
+      {
+        "headword": "accumulate",
+        "surfaceForm": "accumulated",
+        "phonetic": "/ә'kju:mjuleit/",
+        "pos": "v.",
+        "translation": "v. 积聚，堆积",
+        "definition": "collect or gather",
+        "context": "The others examined this evidence of our accumulated assumptions in silence."
+      },
+      {
+        "headword": "inspect",
+        "surfaceForm": "inspect",
+        "phonetic": "/in'spekt/",
+        "pos": "vt.",
+        "translation": "vt. 检查，检阅",
+        "definition": "look over carefully",
+        "context": "During our school's health week, we were invited to inspect our daily burden."
+      },
+      {
+        "headword": "separately",
+        "surfaceForm": "separately",
+        "phonetic": "/'sepәrәtli/",
+        "pos": "adv.",
+        "translation": "adv. 分开地，单独地",
+        "definition": "individually or apart from others",
+        "context": "Each decision was convenient and apparently voluntary when considered separately."
+      },
+      {
+        "headword": "assemble",
+        "surfaceForm": "assembling",
+        "phonetic": "/ә'sembl/",
+        "pos": "vt.",
+        "translation": "vt. 集合，收集",
+        "definition": "create by putting components or members together",
+        "context": "Ultimately, I explained the problem without blame and proposed assembling our materials outside the classroom."
+      },
+      {
+        "headword": "reluctant",
+        "surfaceForm": "reluctant",
+        "phonetic": "/ri'lʌktәnt/",
+        "pos": "a.",
+        "translation": "a. 不情愿的，勉强的",
+        "definition": "disinclined to become involved",
+        "context": "Whenever someone handed me another item, I adjusted the label, reluctant to let it disappear."
+      },
+      {
+        "headword": "wipe",
+        "surfaceForm": "wiped",
+        "phonetic": "/waip/",
+        "pos": "vt.",
+        "translation": "vt. 擦，揩",
+        "definition": "rub with a circular motion",
+        "context": "Before sending it, I rewrote the opening three times and wiped my damp fingers on my trousers."
+      },
+      {
+        "headword": "label",
+        "surfaceForm": "label",
+        "phonetic": "/'leibl/",
+        "pos": "n.",
+        "translation": "n. 标签（也作动词：贴标签，标明）",
+        "definition": "a piece of paper or words on an object giving information about it, or to put one on",
+        "context": "Inside its transparent front pocket was a label saying PROJECT MANAGER."
+      },
+      {
+        "headword": "consent",
+        "surfaceForm": "consent",
+        "phonetic": "/kәn'sent/",
+        "pos": "n.",
+        "translation": "n. 同意，许可",
+        "definition": "permission to do something",
+        "context": "We had created a collective burden without explicit consent."
+      },
+      {
+        "headword": "obligation",
+        "surfaceForm": "obligation",
+        "phonetic": "/.ɒbli'geiʃәn/",
+        "pos": "n.",
+        "translation": "n. 义务，责任",
+        "definition": "the state of being obligated to do or pay something",
+        "context": "Our geography exhibition was approaching, and I felt an obligation to our group."
+      },
+      {
+        "headword": "withdraw",
+        "surfaceForm": "withdrawing",
+        "phonetic": "/wið'drɒ:/",
+        "pos": "vt.",
+        "translation": "vt. 撤回，取回",
+        "definition": "pull back or move away or backward",
+        "context": "Would they think I was withdrawing from the project?"
+      },
+      {
+        "headword": "expectation",
+        "surfaceForm": "expectation",
+        "phonetic": "/.ekspek'teiʃәn/",
+        "pos": "n.",
+        "translation": "n. 期待，指望",
+        "definition": "belief about (or mental picture of) the future",
+        "context": "Together, however, they had turned an offer of help into an expectation which nobody remembered agreeing to."
+      },
+      {
+        "headword": "ultimately",
+        "surfaceForm": "Ultimately",
+        "phonetic": "/'ʌltimәtli/",
+        "pos": "adv.",
+        "translation": "adv. 最后，最终",
+        "definition": "as the end result of a succession or process",
+        "context": "Ultimately, I explained the problem without blame and proposed assembling our materials outside the classroom."
+      },
+      {
+        "headword": "everything",
+        "surfaceForm": "everything",
+        "phonetic": "/'evriθiŋ/",
+        "pos": "pron.",
+        "translation": "pron. 每件事物，所有事物",
+        "definition": "Whatever pertains to the subject under consideration",
+        "context": "Nevertheless, when the teacher suggested leaving unnecessary things at home, I explained that everything in my bag was essential."
+      },
+      {
+        "headword": "research",
+        "surfaceForm": "research",
+        "phonetic": "/ri'sә:tʃ/",
+        "pos": "n.",
+        "translation": "n. 研究，调查",
+        "definition": "systematic investigation to establish facts",
+        "context": "I immediately explained that they had all done their research."
+      },
+      {
+        "headword": "together",
+        "surfaceForm": "together",
+        "phonetic": "/tә'geðә/",
+        "pos": "adv.",
+        "translation": "adv. 一起，共同（也指合在一起）",
+        "definition": "with others, jointly, or close to one another",
+        "context": "One person had handed me the tape because my bag was open; another assumed that equipment should stay together."
+      },
+      {
+        "headword": "twice",
+        "surfaceForm": "twice",
+        "phonetic": "/twais/",
+        "pos": "adv.",
+        "translation": "adv. 两次，两倍",
+        "definition": "two times",
+        "context": "I checked the labels twice, bewildered by the contrast between equal contributions and an unequal load."
+      }
+    ],
+    "original-w9-gap-in-the-graph": [
+      {
+        "headword": "disconnect",
+        "surfaceForm": "disconnecting",
+        "phonetic": "/.diskә'nekt/",
+        "pos": "vt.",
+        "translation": "vt. 使分离，使不相连",
+        "definition": "make disconnected, disjoin or unfasten",
+        "context": "Then we tested the interruption deliberately, disconnecting and reconnecting the cable."
+      },
+      {
+        "headword": "interruption",
+        "surfaceForm": "interruption",
+        "phonetic": "/.intә'rʌpʃәn/",
+        "pos": "n.",
+        "translation": "n. 打扰，中断",
+        "definition": "some abrupt occurrence that interrupts an ongoing activity",
+        "context": "Then we tested the interruption deliberately, disconnecting and reconnecting the cable."
+      },
+      {
+        "headword": "repetition",
+        "surfaceForm": "repetition",
+        "phonetic": "/.repi'tiʃәn/",
+        "pos": "n.",
+        "translation": "n. 重复，背诵",
+        "definition": "the act of doing or performing again",
+        "context": "Each repetition appeared at a new position, suggesting that another measurement had actually been taken."
+      },
+      {
+        "headword": "inspect",
+        "surfaceForm": "inspecting",
+        "phonetic": "/in'spekt/",
+        "pos": "vt.",
+        "translation": "vt. 检查，检阅",
+        "definition": "look over carefully",
+        "context": "While inspecting the equipment, I discovered a loose cable between the sensor and laptop."
+      },
+      {
+        "headword": "deliberately",
+        "surfaceForm": "deliberately",
+        "phonetic": "/di'libәrәtli/",
+        "pos": "adv.",
+        "translation": "adv. 故意地",
+        "definition": "with intention",
+        "context": "Then we tested the interruption deliberately, disconnecting and reconnecting the cable."
+      },
+      {
+        "headword": "replacement",
+        "surfaceForm": "replacement",
+        "phonetic": "/ri'pleismәnt/",
+        "pos": "n.",
+        "translation": "n. 替代品，替换",
+        "definition": "something used in place of another thing, or the act of replacing it",
+        "context": "Our teacher explained that we could estimate, provided the replacement line was explicitly labelled as an estimate."
+      },
+      {
+        "headword": "label",
+        "surfaceForm": "labelled",
+        "phonetic": "/'leibl/",
+        "pos": "n.",
+        "translation": "n. 标签（也作动词：贴标签，标明）",
+        "definition": "a piece of paper or words on an object giving information about it, or to put one on",
+        "context": "I adjusted the colours and labelled the graph, pleased with its professional appearance."
+      },
+      {
+        "headword": "genuine",
+        "surfaceForm": "genuine",
+        "phonetic": "/'dʒenjuin/",
+        "pos": "a.",
+        "translation": "a. 真正的，真实的",
+        "definition": "not fake or counterfeit",
+        "context": "A separate box showed the time of the latest genuine reading."
+      },
+      {
+        "headword": "cable",
+        "surfaceForm": "cable",
+        "phonetic": "/'keibl/",
+        "pos": "n.",
+        "translation": "n. 电线，数据线",
+        "definition": "a wire covered in plastic that connects equipment",
+        "context": "While inspecting the equipment, I discovered a loose cable between the sensor and laptop."
+      },
+      {
+        "headword": "imply",
+        "surfaceForm": "imply",
+        "phonetic": "/im'plai/",
+        "pos": "vt.",
+        "translation": "vt. 暗示，意味",
+        "definition": "express or state indirectly",
+        "context": "I had wanted an uninterrupted display, without considering what that display would imply."
+      },
+      {
+        "headword": "unavailable",
+        "surfaceForm": "unavailable",
+        "phonetic": "/.ʌnә'veilәbl/",
+        "pos": "a.",
+        "translation": "a. 得不到的，不能利用的",
+        "definition": "not available or accessible or at hand",
+        "context": "Looking through the program, I found a setting I had included myself: whenever a new measurement was unavailable, the previous value was repeated."
+      },
+      {
+        "headword": "horizontal",
+        "surfaceForm": "horizontal",
+        "phonetic": "/.hɒri'zɒntәl/",
+        "pos": "a.",
+        "translation": "a. 水平的，横向的",
+        "definition": "flat or level, parallel to the ground",
+        "context": "On Thursday, the line was perfectly horizontal."
+      },
+      {
+        "headword": "sensor",
+        "surfaceForm": "sensor",
+        "phonetic": "/'sensә/",
+        "pos": "n.",
+        "translation": "n. 传感器",
+        "definition": "any device that receives a signal or stimulus (as heat or pressure or light or motion etc.) and responds to it in a distinctive manner",
+        "context": "An electronic sensor supplied measurements to a laptop, where my program turned them into a green line."
+      },
+      {
+        "headword": "reliability",
+        "surfaceForm": "reliability",
+        "phonetic": "/ri.laiә'biliti/",
+        "pos": "n.",
+        "translation": "n. 信度，可靠性",
+        "definition": "the quality of being dependable or reliable",
+        "context": "The display looked less complete, yet revealed more about the reliability of its information."
+      },
+      {
+        "headword": "equivalent",
+        "surfaceForm": "equivalent",
+        "phonetic": "/i'kwivәlәnt/",
+        "pos": "a.",
+        "translation": "a. 等同的，相当的",
+        "definition": "equal in value, meaning or effect",
+        "context": "Until then, those possibilities had seemed equivalent."
+      },
+      {
+        "headword": "verified",
+        "surfaceForm": "verified",
+        "phonetic": "/'verifaid/",
+        "pos": "a.",
+        "translation": "a. 已查清的，已证实的",
+        "definition": "proved to be true",
+        "context": "The earlier tests had verified changing readings, but never examined what happened when readings stopped arriving."
+      },
+      {
+        "headword": "information",
+        "surfaceForm": "information",
+        "phonetic": "/.infә'meiʃәn/",
+        "pos": "n.",
+        "translation": "n. 消息，知识",
+        "definition": "a message received and understood",
+        "context": "How was the program obtaining information from something no longer attached to it?"
+      },
+      {
+        "headword": "complete",
+        "surfaceForm": "complete",
+        "phonetic": "/kәm'pli:t/",
+        "pos": "a.",
+        "translation": "a. 完成的，彻底的",
+        "definition": "finished, with nothing missing",
+        "context": "That would restore the complete graph I had imagined showing."
+      },
+      {
+        "headword": "difficult",
+        "surfaceForm": "difficult",
+        "phonetic": "/'difikәlt/",
+        "pos": "a.",
+        "translation": "a. 困难的",
+        "definition": "not easy; requiring great physical or mental effort to accomplish or comprehend or endure",
+        "context": "What could be difficult about displaying numbers?"
+      },
+      {
+        "headword": "condition",
+        "surfaceForm": "conditions",
+        "phonetic": "/kәn'diʃәn/",
+        "pos": "n.",
+        "translation": "n. 状况，条件（也指病症）",
+        "definition": "a situation, a requirement that must be met, or an illness",
+        "context": "We left it running to collect evidence about how conditions changed throughout the day, while the club prepared the rest of the display."
+      }
+    ],
+    "original-w9-blank-column": [
+      {
+        "headword": "generosity",
+        "surfaceForm": "generosity",
+        "phonetic": "/.dʒenә'rɒsiti/",
+        "pos": "n.",
+        "translation": "n. 慷慨，宽大",
+        "definition": "the trait of being willing to give your money or time",
+        "context": "I spread the forms across the welcome table, delighted by this evidence of collective generosity."
+      },
+      {
+        "headword": "helper",
+        "surfaceForm": "helpers",
+        "phonetic": "/'helpә/",
+        "pos": "n.",
+        "translation": "n. 帮忙者，有益的东西",
+        "definition": "a person who contributes to the fulfillment of a need or furtherance of an effort or purpose",
+        "context": "We had plenty of willing helpers and nobody for them to help."
+      },
+      {
+        "headword": "scarcely",
+        "surfaceForm": "scarcely",
+        "phonetic": "/'skɑ:sli/",
+        "pos": "adv.",
+        "translation": "adv. 几乎不，几乎没有",
+        "definition": "almost not or hardly at all",
+        "context": "My original straight line was still visible beneath them, crossed so often that it scarcely separated anything."
+      },
+      {
+        "headword": "overlook",
+        "surfaceForm": "overlooked",
+        "phonetic": "/.әuvә'luk/",
+        "pos": "vt.",
+        "translation": "vt. 忽视，忽略",
+        "definition": "to fail to notice or consider",
+        "context": "The number recorded arrangements, but overlooked the change in people's assumptions."
+      },
+      {
+        "headword": "cooperation",
+        "surfaceForm": "cooperation",
+        "phonetic": "/kәu.ɒpә'reiʃәn/",
+        "pos": "n.",
+        "translation": "n. 合作，协力",
+        "definition": "joint operation or action",
+        "context": "At home, measuring a long curtain required cooperation: somebody had to hold the other end of the tape."
+      },
+      {
+        "headword": "assumption",
+        "surfaceForm": "assumptions",
+        "phonetic": "/ә'sʌmpʃәn/",
+        "pos": "n.",
+        "translation": "n. 假定，自负",
+        "definition": "a hypothesis that is taken for granted",
+        "context": "The number recorded arrangements, but overlooked the change in people's assumptions."
+      },
+      {
+        "headword": "community",
+        "surfaceForm": "community",
+        "phonetic": "/kә'mju:niti/",
+        "pos": "n.",
+        "translation": "n. 社区，公众",
+        "definition": "a group of people living in a particular local area",
+        "context": "For the community centre's first help exchange, I designed a form with two columns: WHAT I CAN OFFER and WHAT I NEED."
+      },
+      {
+        "headword": "hesitation",
+        "surfaceForm": "hesitation",
+        "phonetic": "/.hezi'teiʃәn/",
+        "pos": "n.",
+        "translation": "n. 犹豫，踌躇",
+        "definition": "indecision in speech or action",
+        "context": "After some hesitation, I wrote the request and placed it where everyone could read it."
+      },
+      {
+        "headword": "participation",
+        "surfaceForm": "participation",
+        "phonetic": "/.pɑ:tisi'peiʃәn/",
+        "pos": "n.",
+        "translation": "n. 参与，分享",
+        "definition": "the condition of sharing in common with others (as fellows or partners etc.)",
+        "context": "I held up the thick pile as evidence of participation, explaining my allocation of offers to separate categories."
+      },
+      {
+        "headword": "tyre",
+        "surfaceForm": "tyres",
+        "phonetic": "/'taiә/",
+        "pos": "n.",
+        "translation": "n. 轮胎",
+        "definition": "a thick rubber covering around a wheel",
+        "context": "By Saturday morning, the offers included sewing, checking bicycle tyres and moving plant pots."
+      },
+      {
+        "headword": "recipient",
+        "surfaceForm": "recipients",
+        "phonetic": "/ri'sipiәnt/",
+        "pos": "n.",
+        "translation": "n. 领受者，容纳者",
+        "definition": "a person who receives something",
+        "context": "Apparently, my line had become a boundary between two kinds of people: capable contributors and dependent recipients."
+      },
+      {
+        "headword": "collective",
+        "surfaceForm": "collective",
+        "phonetic": "/kә'leiktiv/",
+        "pos": "a.",
+        "translation": "a. 集体的，共同的",
+        "definition": "shared or done by a group of people",
+        "context": "I spread the forms across the welcome table, delighted by this evidence of collective generosity."
+      },
+      {
+        "headword": "equivalent",
+        "surfaceForm": "equivalent",
+        "phonetic": "/i'kwivәlәnt/",
+        "pos": "a.",
+        "translation": "a. 等同的，相当的",
+        "definition": "equal in value, meaning or effect",
+        "context": "Sorting offers was not equivalent to arranging exchanges."
+      },
+      {
+        "headword": "boundary",
+        "surfaceForm": "boundary",
+        "phonetic": "/'baundri/",
+        "pos": "n.",
+        "translation": "n. 边界，分界线",
+        "definition": "the line or plane indicating the limit or extent of something",
+        "context": "Apparently, my line had become a boundary between two kinds of people: capable contributors and dependent recipients."
+      },
+      {
+        "headword": "satisfyingly",
+        "surfaceForm": "satisfyingly",
+        "phonetic": "/'sætis,faiiŋli/",
+        "pos": "adv.",
+        "translation": "adv. 使人满意地",
+        "definition": "in a gratifying manner",
+        "context": "My job was to connect people whose requests and offers matched, which seemed satisfyingly simple on paper."
+      },
+      {
+        "headword": "contributor",
+        "surfaceForm": "contributors",
+        "phonetic": "/kәn'tribjutә/",
+        "pos": "n.",
+        "translation": "n. 贡献者，提供帮助的人",
+        "definition": "a person who gives help, ideas, money or other support",
+        "context": "Apparently, my line had become a boundary between two kinds of people: capable contributors and dependent recipients."
+      },
+      {
+        "headword": "describe",
+        "surfaceForm": "describing",
+        "phonetic": "/di'skraib/",
+        "pos": "vt.",
+        "translation": "vt. 描述，描绘",
+        "definition": "give a description of",
+        "context": "A woman beside him pulled up a chair and began describing her plants."
+      },
+      {
+        "headword": "together",
+        "surfaceForm": "together",
+        "phonetic": "/tә'geðә/",
+        "pos": "adv.",
+        "translation": "adv. 一起，共同（也指合在一起）",
+        "definition": "with others, jointly, or close to one another",
+        "context": "After the fourth round, I dropped my pen onto the table and pressed my lips together."
+      },
+      {
+        "headword": "towards",
+        "surfaceForm": "towards",
+        "phonetic": "/tә'wɔ:dz/",
+        "pos": "prep.",
+        "translation": "prep. 向，对于",
+        "definition": "In the direction of",
+        "context": "I pointed towards his offer to mend bags, but he shook his head."
+      },
+      {
+        "headword": "design",
+        "surfaceForm": "design",
+        "phonetic": "/di'zain/",
+        "pos": "v.",
+        "translation": "v. 设计（也作名词：设计，方案）",
+        "definition": "to plan how something will look or work, or such a plan",
+        "context": "I had offered to design notices, while leaving my request empty too."
+      }
+    ],
     "original-w9-paper-won-again": [
       {
         "headword": "weaken",
@@ -759,9 +3489,9 @@
         "headword": "grip",
         "surfaceForm": "gripping",
         "phonetic": "/grip/",
-        "pos": "v.",
-        "translation": "v. 紧紧抓住，夹紧",
-        "definition": "to hold tightly",
+        "pos": "n.",
+        "translation": "n. 紧握，抓握（也作动词：紧紧抓住）",
+        "definition": "a tight hold on something, or to hold something tightly",
         "context": "The drive clicked and groaned like an old fan, and I realised that I was gripping the edge of the desk."
       },
       {

@@ -146,8 +146,8 @@ describe('S12M —— 这一周有什么', () => {
     for (const d of DATES) expect(d).toMatch(/^\d{4}-\d{2}-\d{2}$/);
     const DAY = 86_400_000;
     const ms = DATES.map((d) => Date.parse(`${d}T00:00:00+08:00`));
-    // 明确跳过、没有发课的工作日（只许列在这里）：10-26 第九周周一没走完发布流程，周二起发。
-    const SKIPPED = new Set(['2026-10-26']);
+    // 明确跳过、没有发课的工作日（只许列在这里）：第九周 10-26、10-27 没走完发布流程，周三起发。
+    const SKIPPED = new Set(['2026-10-26', '2026-10-27']);
     for (let i = 1; i < ms.length; i++) {
       const gap = ms[i] - ms[i - 1];
       let skipped = 0;
