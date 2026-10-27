@@ -1,0 +1,21 @@
+{
+  "week": "week9",
+  "fingerprint": "7b01580702edd61bc988aeb2f7ff8f1d95d2f19f0c1f00e580cea6d48d123713",
+  "approvedAt": "2026-10-27T11:43:10.533Z",
+  "rule": "2026-10-20 硬规则：学生在 App 里能看到的所有文字，发布前派 agent 逐字审过",
+  "reviewedFiles": [
+    "A-article-ielts_authentic.txt",
+    "A-article-ielts_light.txt",
+    "A-article-ielts_simplified.txt",
+    "A-article-olevel.txt",
+    "A-article-olevel_intermediate.txt",
+    "B-daily-vocab-1.txt",
+    "B-daily-vocab-2.txt",
+    "B-daily-vocab-3.txt",
+    "B-daily-vocab-4.txt",
+    "B-daily-vocab-5.txt",
+    "B-sense-ids.txt",
+    "D-notices.txt",
+    "E-student-reports.txt"
+  ]
+}

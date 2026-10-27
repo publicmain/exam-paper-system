@@ -146,10 +146,16 @@ describe('S12M —— 这一周有什么', () => {
     for (const d of DATES) expect(d).toMatch(/^\d{4}-\d{2}-\d{2}$/);
     const DAY = 86_400_000;
     const ms = DATES.map((d) => Date.parse(`${d}T00:00:00+08:00`));
+    // 明确跳过、没有发课的工作日（只许列在这里）：10-26 第九周周一没走完发布流程，周二起发。
+    const SKIPPED = new Set(['2026-10-26']);
     for (let i = 1; i < ms.length; i++) {
       const gap = ms[i] - ms[i - 1];
-      // 教学日只排周一到周五：同一周内相邻一天，跨周相隔三天。
-      expect([DAY, 3 * DAY], `${DATES[i - 1]} → ${DATES[i]} 的间隔不是 1 天或 3 天`).toContain(gap);
+      let skipped = 0;
+      for (let t = ms[i - 1] + DAY; t < ms[i]; t += DAY) {
+        if (SKIPPED.has(new Date(t + 8 * 3_600_000).toISOString().slice(0, 10))) skipped += 1;
+      }
+      // 教学日只排周一到周五：同一周内相邻一天，跨周相隔三天（再加上明确跳过的天数）。
+      expect([DAY, 3 * DAY].map((g) => g + skipped * DAY), `${DATES[i - 1]} → ${DATES[i]} 的间隔不是 1 天或 3 天`).toContain(gap);
     }
     for (const d of DATES) {
       // 星期要按**新加坡日历日**算。写成 `new Date(d + 'T00:00:00+08:00').getUTCDay()`

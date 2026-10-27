@@ -90,7 +90,7 @@ const SENSES = fs.existsSync(SENSE_FILE) ? require(SENSE_FILE) : null;
 
 function withSense(row) {
   const o = SENSES && SENSES[row.headword];
-  return o ? { ...row, pos: o.pos, translation: o.translation, definition: o.definition } : row;
+  return o ? { ...row, pos: o.pos, translation: o.translation, definition: o.definition, ...(o.phonetic ? { phonetic: o.phonetic } : {}) } : row;
 }
 
 /** 句中大写（不在句首、也不在引号开头）的词 —— 人名、地名、机构名。 */

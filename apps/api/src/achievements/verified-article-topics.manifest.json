@@ -3,7 +3,7 @@
   "normalization": "collection-v5-frozen-body-sha256-v1",
   "reviewedAt": "2026-09-17",
   "sourceBaseline": "92a082e",
-  "scope": "Repository pilot content, weeks 1–8 (weeks 1–4 reviewed 2026-09-17, weeks 5–6 reviewed 2026-09-29, week 7 reviewed 2026-10-07, week 8 reviewed 2026-10-14). Inclusion is not proof of production publication or independent factual/answer review.",
+  "scope": "Repository pilot content, weeks 1–9 (weeks 1–4 reviewed 2026-09-17, weeks 5–6 reviewed 2026-09-29, week 7 reviewed 2026-10-07, week 8 reviewed 2026-10-14, week 9 reviewed 2026-10-27). Inclusion is not proof of production publication or independent factual/answer review.",
   "articles": [
     {
       "level": "ielts_simplified",
@@ -2604,6 +2604,71 @@
       "reviewMethod": "agent-full-text-topic-review",
       "rationale": "Reviews research on languages that describe space with compass directions instead of left and right.",
       "evidenceExcerpt": "Ask an English speaker where something is, and the answer will often depend on the speaker"
+    },
+    {
+      "level": "ielts_simplified",
+      "date": "2026-10-27",
+      "title": "Leave It as It Is",
+      "sourceReference": "original-w9-leave-it",
+      "sha256": "0c03f9dc1eeab58b590f9fb2fb00288dec7460ef509a62fd0fe622850151569e",
+      "primaryTopicId": "community",
+      "sourcePath": "apps/api/scripts/pilot/content/week9/ielts_simplified.js",
+      "reviewedAt": "2026-10-27",
+      "reviewMethod": "agent-full-text-topic-review",
+      "rationale": "A class surveys residents about turning an empty field into a garden and learns to listen before assuming what the community wants.",
+      "evidenceExcerpt": "the residents' committee announced a proposal to turn it into a garden"
+    },
+    {
+      "level": "olevel_intermediate",
+      "date": "2026-10-27",
+      "title": "Paper Won Again",
+      "sourceReference": "original-w9-paper-won-again",
+      "sha256": "ef9e9c39d44fc265f1835032b45fde7b5707f6f24323cde9db20cd23d06c5a65",
+      "primaryTopicId": "history",
+      "sourcePath": "apps/api/scripts/pilot/content/week9/olevel_intermediate.js",
+      "reviewedAt": "2026-10-27",
+      "reviewMethod": "agent-full-text-topic-review",
+      "rationale": "Students investigate objects from a 2001 school time capsule and learn how historians handle and interpret physical evidence.",
+      "evidenceExcerpt": "Historians do not just read about the past"
+    },
+    {
+      "level": "olevel",
+      "date": "2026-10-27",
+      "title": "The Slipper Test",
+      "sourceReference": "original-w9-the-slipper-test",
+      "sha256": "0fd1c2f0bc7cc34c329b9fdefb45b41a875d38d9fca1248e2ba8af0b2d68c3aa",
+      "primaryTopicId": "technology",
+      "sourcePath": "apps/api/scripts/pilot/content/week9/olevel.js",
+      "reviewedAt": "2026-10-27",
+      "reviewMethod": "agent-full-text-topic-review",
+      "rationale": "Two students train an image-recognition smart bin and discover that collecting varied training photos matters more than the program.",
+      "evidenceExcerpt": "the program gradually worked out the difference for itself"
+    },
+    {
+      "level": "ielts_light",
+      "date": "2026-10-27",
+      "title": "A Word Just Out of Reach",
+      "sourceReference": "original-w9-tip-of-tongue",
+      "sha256": "9e8f2c804edc118842640d765087abfff7fe45e733d58ba6643806237e4f6fd4",
+      "primaryTopicId": "psychology",
+      "sourcePath": "apps/api/scripts/pilot/content/week9/ielts_light.js",
+      "reviewedAt": "2026-10-27",
+      "reviewMethod": "agent-full-text-topic-review",
+      "rationale": "Explains the tip-of-the-tongue state and how psychologists first elicited and studied it in experiments.",
+      "evidenceExcerpt": "Psychologists call this a tip-of-the-tongue state"
+    },
+    {
+      "level": "ielts_authentic",
+      "date": "2026-10-27",
+      "title": "The Element in the Salt",
+      "sourceReference": "original-w9-iodised-salt",
+      "sha256": "4158ea28bf8651805e00e6f4f1f86dc6db99cb9702be890efd0d4929e97f3ddc",
+      "primaryTopicId": "health",
+      "sourcePath": "apps/api/scripts/pilot/content/week9/ielts_authentic.js",
+      "reviewedAt": "2026-10-27",
+      "reviewMethod": "agent-full-text-topic-review",
+      "rationale": "Explains why iodine matters for the thyroid and how adding it to salt largely brought iodine deficiency under control.",
+      "evidenceExcerpt": "the thyroid gland, which sits at the front of the neck"
     }
   ]
 }
