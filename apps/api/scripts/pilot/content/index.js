@@ -38,6 +38,7 @@ const week6 = require('./week6');
 const week7 = require('./week7');
 const week8 = require('./week8');
 const week9 = require('./week9');
+const week10 = require('./week10');
 const contextTranslations = {
   ...require('./context-translations-ielts_simplified'),
   ...require('./context-translations-olevel_intermediate'),
@@ -106,6 +107,8 @@ const WEEKS = [
   { dates: week8.DATES, levels: week8.LEVELS },
   // 第九周（2026-10-27 起，10-26 未发）：全原创，难度往各档上限写（叶老师 10-23）。
   { dates: week9.DATES, levels: week9.LEVELS },
+  // 第十周（2026-11-03 起，11-02 发第九周挪过来的五篇）：全原创，难度同第九周。
+  { dates: week10.DATES, levels: week10.LEVELS },
 ];
 
 /** 五档的内容包。key 就是 `EnglishLevel` 枚举值，值是按日期升序的全部教学日。 */
