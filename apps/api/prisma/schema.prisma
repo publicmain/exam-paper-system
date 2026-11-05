@@ -2933,3 +2933,16 @@ model DictationSheetRow {
   @@unique([sheetId, studentId])
   @@index([studentId])
 }
+
+/// 文章逐句朗读音频（2026-11-05 完整化第 3 期）：本机 Piper 生成后上传，零月费。
+/// textHash = sha256(规范化句子 + "|" + voice)，内容一变哈希就变，URL 带哈希可放心长缓存。
+model SentenceAudio {
+  textHash    String   @id
+  voice       String
+  text        String
+  contentType String   @default("audio/mpeg")
+  bytes       Bytes
+  byteLength  Int
+  durationMs  Int?
+  createdAt   DateTime @default(now())
+}
