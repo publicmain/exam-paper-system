@@ -57,8 +57,8 @@ function candidateOrder(a: PlannerCandidate, b: PlannerCandidate) {
  * than target when the pools do not contain enough publishable items; random
  * filler is the failure mode V2 exists to remove.
  */
-export function planDailyTask(candidates: readonly PlannerCandidate[], requestedTarget: number): PlannedItem[] {
-  const target = normaliseDailyTarget(requestedTarget);
+export function planDailyTask(candidates: readonly PlannerCandidate[], requestedTarget: number, exactTarget = false): PlannedItem[] {
+  const target = exactTarget ? Math.max(0, Math.floor(requestedTarget)) : normaliseDailyTarget(requestedTarget);
   const quota = sourceQuota(target);
   const chosen: PlannerCandidate[] = [];
   const used = new Set<string>();
@@ -82,4 +82,9 @@ export function planDailyTask(candidates: readonly PlannerCandidate[], requested
     .forEach((item) => { used.add(item.senseId); chosen.push(item); });
 
   return chosen.slice(0, target).map((item, index) => ({ ...item, position: index + 1 }));
+}
+
+export function dailyVocabularyComposition(total: number, dueCount: number, teacherList = false) {
+  const review = Math.min(dueCount, teacherList ? 3 : Math.floor(total / 2));
+  return { review, fresh: teacherList ? total : total - review };
 }

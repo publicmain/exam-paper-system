@@ -1,6 +1,7 @@
 import { createEmptyCard, fsrs, generatorParameters, Rating, State, type Card } from 'ts-fsrs';
 
 const scheduler = fsrs(generatorParameters({
+  request_retention: 0.9,
   enable_fuzz: false,
   learning_steps: [],
   relearning_steps: [],
@@ -20,7 +21,7 @@ export interface V2ScheduleState {
 
 export function scheduleV2Review(
   current: V2ScheduleState | null,
-  correct: boolean,
+  correct: boolean | 'good' | 'hard' | 'again',
   now = new Date(),
 ) {
   const card: Card = !current || (current.reps === 0 && !current.lastReview)
@@ -37,7 +38,8 @@ export function scheduleV2Review(
         last_review: current.lastReview ?? undefined,
         learning_steps: 0,
       } as unknown as Card);
-  const next = scheduler.repeat(card, now)[correct ? Rating.Good : Rating.Again].card;
+  const rating = correct === 'hard' ? Rating.Hard : correct === true || correct === 'good' ? Rating.Good : Rating.Again;
+  const next = scheduler.repeat(card, now)[rating].card;
   return {
     due: next.due,
     stability: next.stability,

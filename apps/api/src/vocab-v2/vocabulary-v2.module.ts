@@ -6,10 +6,12 @@ import { VocabularyV2TeacherController } from './vocabulary-v2-teacher.controlle
 import { VocabularyV2Service } from './vocabulary-v2.service';
 import { VocabularyV2ContentCron } from './content-producer.cron';
 import { VocabularyV2DailyTaskCron } from './daily-task.cron';
+import { VocabularyMemoryService } from './vocabulary-memory.service';
+import { VocabularyMasteryService } from './mastery';
 
 @Module({
   controllers: [VocabularyV2Controller, VocabularyV2TeacherController],
-  providers: [PrismaService, RealtimeTranslationService, VocabularyV2Service, VocabularyV2ContentCron, VocabularyV2DailyTaskCron],
-  exports: [VocabularyV2Service],
+  providers: [PrismaService, RealtimeTranslationService, VocabularyV2Service, VocabularyV2ContentCron, VocabularyV2DailyTaskCron, VocabularyMemoryService, VocabularyMasteryService],
+  exports: [VocabularyV2Service, VocabularyMemoryService, VocabularyMasteryService],
 })
 export class VocabularyV2Module {}

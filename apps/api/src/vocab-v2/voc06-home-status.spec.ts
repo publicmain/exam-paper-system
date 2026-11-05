@@ -30,7 +30,12 @@ function setup(dailyTarget = 5) {
 /** 学生名下 k 个「以前学过、可以被抽查」的旧词。 */
 function seedOldLearned(db: any, stu: string, k: number) {
   const words = seedOfficialWords(db, 'ngsl', 1001, k);
-  for (const word of words) db.seed('studentVocabularySense', { studentId: stu, senseId: word.senseId, reps: 1, masteryStage: 3 });
+  for (const word of words) {
+    db.seed('studentVocabularySense', { studentId: stu, senseId: word.senseId, reps: 1, masteryStage: 3,
+      due: new Date('2026-09-07T00:00:00Z'), lastReview: new Date('2026-09-03T00:00:00Z') });
+    db.seed('learningEvidence', { studentId: stu, senseId: word.senseId, kind: 'formal_first', subject: 'vocab_sense',
+      sourceKey: `old:${word.senseId}`, isCorrect: true, hinted: false, schoolDate: new Date('2026-09-03T00:00:00Z'), occurredAt: sgtNoon('2026-09-03') });
+  }
 }
 
 async function learnAll(svc: any, stu: string, now: Date) {
@@ -50,19 +55,19 @@ function seedReading(db: any, day: string, level = 'olevel') {
 
 describe('VOC06 冻结卷是唯一事实（旧词 0 / 1 / 2 / 3 个）', () => {
   for (const k of [0, 1, 2, 3]) {
-    it(`学完 5 个新词 + ${k} 个旧词可抽：学完提示、试卷、首页、教师都是 ${5 + k} 题`, { timeout: 30_000 }, async () => {
+    it(`学完 5 个新词 + ${k} 个旧词可抽：学完提示、试卷、首页、教师都是 ${5} 题`, { timeout: 30_000 }, async () => {
       const { db, stu, svc } = setup();
       seedOldLearned(db, stu, k);
       const { last } = await learnAll(svc, stu, MON);
-      expect(last.generatedTest).toEqual(expect.objectContaining({ total: 5 + k, newWords: 5, reviewWords: k }));
+      expect(last.generatedTest).toEqual(expect.objectContaining({ total: 5, newWords: 5 - Math.min(k, 2), reviewWords: Math.min(k, 2) }));
       const test = await svc.testSession(stu, last.generatedTestId);
-      expect(test.total).toBe(5 + k);
-      expect(test.items).toHaveLength(5 + k);
+      expect(test.total).toBe(5);
+      expect(test.items).toHaveLength(5);
       const overview = await svc.overview(stu, MON);
-      expect(overview.pendingTests).toEqual([expect.objectContaining({ total: 5 + k, newWords: 5, reviewWords: k, generated: true })]);
-      expect(overview.home.test).toEqual(expect.objectContaining({ state: 'pending', total: 5 + k, newWords: 5, reviewWords: k }));
+      expect(overview.pendingTests).toEqual([expect.objectContaining({ total: 5, newWords: 5 - Math.min(k, 2), reviewWords: Math.min(k, 2), generated: true })]);
+      expect(overview.home.test).toEqual(expect.objectContaining({ state: 'pending', total: 5, newWords: 5 - Math.min(k, 2), reviewWords: Math.min(k, 2) }));
       const teacher = (await svc.teacherClassProgress(TEACHER, 'class-1', MON)).students[0].vocabulary;
-      expect(teacher).toEqual(expect.objectContaining({ pendingTests: 1, pendingTestWords: 5 + k, todayTestQuestions: 5 + k }));
+      expect(teacher).toEqual(expect.objectContaining({ pendingTests: 1, pendingTestWords: 5, todayTestQuestions: 5 }));
     });
   }
 
@@ -71,7 +76,7 @@ describe('VOC06 冻结卷是唯一事实（旧词 0 / 1 / 2 / 3 个）', () => {
     const { session } = await learnAll(svc, stu, MON);
     for (const row of db.rows('vocabularyV2Session', { sessionType: 'formal_test' })) await db.vocabularyV2Session.delete({ where: { id: row.id } });
     const overview = await svc.overview(stu, MON);
-    expect(overview.pendingTests).toEqual([expect.objectContaining({ dailySessionId: session.id, generated: false, total: null, expectedNewWords: 5, reviewWordsMax: 3 })]);
+    expect(overview.pendingTests).toEqual([expect.objectContaining({ dailySessionId: session.id, generated: false, total: null, expectedNewWords: 5, reviewWordsMax: 0 })]);
     expect(overview.home.test).toEqual(expect.objectContaining({ state: 'not_generated', reason: 'ready_to_generate' }));
   });
 

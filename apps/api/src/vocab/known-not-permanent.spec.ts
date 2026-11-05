@@ -29,6 +29,7 @@ function makeSvc(rows: any[]) {
     });
   };
   const prisma: any = {
+    learningEvidence: { findMany: vi.fn().mockResolvedValue([]) },
     classEnrollment: { findMany: vi.fn().mockResolvedValue([]) },
     studentWord: {
       count: vi.fn().mockImplementation(({ where }: any) => {

@@ -17,7 +17,7 @@ export function isTeachingDay(key: string, noSchool = false): boolean {
 
 /** Current, unarchived memberships; a multi-class student is off only if ALL
  * classes they had joined on that date are off. Never disclose other rosters. */
-export async function loadSchoolCalendar(prisma: PrismaService, studentIds: string[], from?: string, to?: string) {
+export async function loadSchoolCalendar(prisma: Pick<PrismaService, 'classEnrollment' | 'classNoSchoolDay'>, studentIds: string[], from?: string, to?: string) {
   const enrollments = studentIds.length ? await prisma.classEnrollment.findMany({
     where: { userId: { in: studentIds }, role: 'student', class: { archivedAt: null } },
     select: { userId: true, classId: true, joinedAt: true },
