@@ -1,7 +1,9 @@
 import { BadRequestException, ConflictException, ForbiddenException, GoneException, Injectable, NotFoundException, ServiceUnavailableException } from '@nestjs/common';
 import { EnglishLevel } from '@prisma/client';
 import { PrismaService } from '../common/prisma.service';
-import { loadSchoolCalendar } from '../common/school-calendar';
+import { dateOnly, loadSchoolCalendar, nextDate } from '../common/school-calendar';
+import { VocabularyMasteryService, MEMORY_KINDS, unresolvedVocabularyMistake } from './mastery';
+import { lockVocabularyStudent, VocabularyMemoryService } from './vocabulary-memory.service';
 import { canActOnClass } from '../common/roles';
 import { RealtimeTranslationService, type TranslationResult } from '../vocab/realtime-translation.service';
 import { isSchoolBlockedHeadword, schoolGlossOverride, withoutBlockedWords } from './school-safe-words';
@@ -17,7 +19,7 @@ import {
   type OfficialWord,
 } from './official-wordlists';
 import { canonicalPos, inferPosFromTranslation, senseKey, translationForPos } from './sense-content';
-import { normaliseDailyTarget, planDailyTask, type PlannerCandidate, type V2Source } from './daily-planner';
+import { dailyVocabularyComposition, normaliseDailyTarget, planDailyTask, type PlannerCandidate, type V2Source } from './daily-planner';
 import { contextForEncounter, isTemplateContext } from './context-progression';
 import { initialStageForAction, type LearningCardAction } from './learning-card';
 import { formalAnswerOf } from './first-answer';
@@ -35,19 +37,13 @@ import {
   DEFERRAL_ENDING_ACTIONS,
   headwordKey,
   pendingDailySessions,
+  plannedReviewCount,
   seenHeadwordSet,
   teacherItemsForStudent,
   testableDailyItems,
 } from './unified-vocabulary-rules';
 
-/**
- * 正式测试里除了今天学的词，再抽查几个以前学过的。
- *
- * 2026-09-10 叶老师定的 3 个。为什么要有：在这之前，一个词的一生就是
- * 「被推送一次、当天被考一次、再也不见」—— 生产实测 1569 个词只在一天
- * 出现过，被推过两天的只有 23 个。抽查让旧词自己轮着回来，不用另造一条
- * 复习队列。
- */
+/** Teacher-list days retain their full list, plus at most three due words. */
 export const REVIEW_SAMPLE_SIZE = 3;
 
 /**
@@ -73,6 +69,7 @@ function practiceExpiresAtMs(session: { status: string; settingsSnapshot?: unkno
 function formalTestFact(
   test: { id: string; status: string; target: number; items: Array<{ source: string; status: string }> } | null | undefined,
   dailyItems: ReadonlyArray<{ status: string }>,
+  reviewWordsMax = REVIEW_SAMPLE_SIZE,
 ) {
   if (!test) {
     return {
@@ -84,7 +81,7 @@ function formalTestFact(
       reviewWords: null as number | null,
       answered: 0,
       expectedNewWords: testableDailyItems(dailyItems).length,
-      reviewWordsMax: REVIEW_SAMPLE_SIZE,
+      reviewWordsMax,
     };
   }
   return {
@@ -419,7 +416,7 @@ export class VocabularyV2Service {
       }),
       this.prisma.studentVocabularySense.findMany({
         where: { studentId: { in: studentIds } },
-        select: { studentId: true, inNotebook: true, masteryStage: true, reps: true },
+        select: { studentId: true, senseId: true, inNotebook: true, masteryStage: true, reps: true },
       }),
       this.prisma.studentLevelChange.findMany({
         where: { studentId: { in: studentIds } },
@@ -429,6 +426,7 @@ export class VocabularyV2Service {
     ]);
 
     const calendar = await loadSchoolCalendar(this.prisma, studentIds, undefined, day.key);
+    const mastery = await new VocabularyMasteryService(this.prisma).forStudents(studentIds, day.key);
     const formalByKey = new Map(formalSessions.map((row) => [row.sessionKey, row]));
     const rows = enrollments.map(({ user, joinedAt }) => {
       const assigned = assignedReadingFor({
@@ -482,21 +480,22 @@ export class VocabularyV2Service {
         vocabulary: {
           notebookCount: words.filter((word) => word.inNotebook).length,
           totalLearned: countActuallyLearned(words),
-          masteredOrRemoved: words.filter((word) => !word.inNotebook || word.masteryStage === 8).length,
+          mastered: words.filter((word) => mastery.get(user.id)?.has(word.senseId)).length,
+          removed: words.filter((word) => !word.inNotebook).length,
           unfinishedWords: openWords,
           completedDailySets: completedLearning.length,
           pendingTests: pendingTests.length,
           /** 待测题数：已生成的按冻结卷 target（含旧词抽查），没生成的按学完的新词数（VOC06） */
           pendingTestWords: pendingTests.reduce((sum, session) => {
             const test = formalByKey.get(`${session.sessionKey}:formal`);
-            return sum + (test ? test.target : session.items.filter((item) => item.status === 'completed').length);
+            return sum + (test ? test.target : session.items.filter((item) => item.status === 'completed').length + plannedReviewCount(session));
           }, 0),
           pendingTestsNotGenerated: pendingTests.filter((session) => !formalByKey.has(`${session.sessionKey}:formal`)).length,
           todayLearning: !todayLearning || todayLearning.items.every((item) => item.status === 'pending') ? 'not_started' : todayLearning.status,
           // VOC08：学习阶段结束但一个都没学完（全稍后再学）→ 这天不需要正式卷，老师别等
           todayTest: !todayLearning || todayLearning.status !== 'completed'
             ? 'locked'
-            : todayLearned === 0 ? 'not_needed' : todayFormal?.status ?? 'pending',
+            : todayLearned === 0 && plannedReviewCount(todayLearning) === 0 ? 'not_needed' : todayFormal?.status ?? 'pending',
           todayTestQuestions: todayFormal ? todayFormal.target : null,
           todayLearned,
           todayDeferred: todayLearning ? todayLearning.items.filter((item) => item.status === 'skipped').length : 0,
@@ -637,6 +636,7 @@ export class VocabularyV2Service {
     ]);
 
     // 每个词义的来源证据（按时间先后）
+    const mastered = (await new VocabularyMasteryService(this.prisma).forStudents([studentId])).get(studentId)!;
     const evidence = new Map<string, Array<{ source: string; at: number; sourceTitle: string | null }>>();
     const push = (senseId: string, source: string, at: Date, sourceTitle: string | null = null) => {
       if (!ORIGIN_SOURCES.has(source)) return;
@@ -662,9 +662,9 @@ export class VocabularyV2Service {
     const inStage = described.filter(({ row }) => {
       if (input.stage === 'removed') return !row.inNotebook;
       if (!row.inNotebook) return false;
-      if (input.stage === 'mastered') return row.masteryStage === 8;
-      if (input.stage === 'learning') return row.masteryStage >= 2 && row.masteryStage < 8;
-      if (input.stage === 'new') return row.masteryStage === 1;
+      if (input.stage === 'mastered') return mastered.has(row.senseId);
+      if (input.stage === 'learning') return row.masteryStage >= 2 && !mastered.has(row.senseId);
+      if (input.stage === 'new') return row.masteryStage === 1 && !mastered.has(row.senseId);
       return true;
     });
     const filtered = inStage.filter(({ row, sources, titles }) => {
@@ -715,9 +715,9 @@ export class VocabularyV2Service {
       total: active.length,
       totalLearned: countActuallyLearned(all),
       removed: all.length - active.length,
-      new: active.filter((row) => row.masteryStage === 1).length,
-      learning: active.filter((row) => row.masteryStage >= 2 && row.masteryStage < 8).length,
-      mastered: active.filter((row) => row.masteryStage === 8).length,
+      new: active.filter((row) => row.masteryStage === 1 && !mastered.has(row.senseId)).length,
+      learning: active.filter((row) => row.masteryStage >= 2 && !mastered.has(row.senseId)).length,
+      mastered: active.filter((row) => mastered.has(row.senseId)).length,
     };
     return {
       stats,
@@ -746,6 +746,7 @@ export class VocabularyV2Service {
         translation: row.sense.translation,
         definition: row.sense.definition,
         masteryStage: row.masteryStage,
+        mastered: mastered.has(row.senseId),
         due: row.due,
         skills: {
           recognition: row.recognition,
@@ -788,13 +789,15 @@ export class VocabularyV2Service {
     if (stale.length) await this.prisma.vocabularyV2Session.deleteMany({ where: { id: { in: stale.map((row) => row.id) }, studentId, sessionType: 'custom_test' } });
     const replacedPrevious = stale.filter((row) => row.status !== 'submitted' && practiceExpiresAtMs(row) > now.getTime()).length;
     const since = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+    const mastered = input.scope === 'mastered'
+      ? (await new VocabularyMasteryService(this.prisma).forStudents([studentId])).get(studentId)! : null;
     const owned = await this.prisma.studentVocabularySense.findMany({
       where: {
         studentId,
         inNotebook: true,
         ...(input.scope === 'week' ? { firstSeenAt: { gte: since } } : {}),
         ...(input.scope === 'weak' ? { OR: [{ masteryStage: { lt: 4 } }, { spellingSkill: { lt: 0.5 } }] } : {}),
-        ...(input.scope === 'mastered' ? { masteryStage: 8 } : {}),
+        ...(mastered ? { senseId: { in: [...mastered] } } : {}),
         ...(input.scope === 'spelling' ? { spellingSkill: { lt: 0.7 } } : {}),
         ...(input.scope === 'listening' ? { listeningSkill: { lt: 0.7 } } : {}),
         ...(input.sourceTitle ? { sense: { events: { some: { studentId, sourceTitle: input.sourceTitle } } } } : {}),
@@ -1177,7 +1180,7 @@ export class VocabularyV2Service {
       },
       update: input.action === 'known'
         ? { masteryStage: 8, masteredAt: new Date(), inNotebook: false, removedAt: new Date() }
-        : { inNotebook: true, removedAt: null, masteryStage: desiredStage, ...dueForAction },
+        : { inNotebook: true, removedAt: null, masteryStage: desiredStage },
     });
 
     await this.prisma.vocabularyCollectionEvent.create({
@@ -1494,8 +1497,8 @@ export class VocabularyV2Service {
         })
       : [];
     const formalByKey = new Map(formal.map((session) => [session.sessionKey, session]));
-    const testFact = (session: { sessionKey: string; items: Array<{ status: string }> }) =>
-      formalTestFact(formalByKey.get(`${session.sessionKey}:formal`), session.items);
+    const testFact = (session: { sessionKey: string; items: Array<{ status: string }>; settingsSnapshot: unknown }) =>
+      formalTestFact(formalByKey.get(`${session.sessionKey}:formal`), session.items, (session.settingsSnapshot as any)?.reviewWords ?? REVIEW_SAMPLE_SIZE);
     const pendingTests = pendingDailySessions(
       completedDaily.filter((session) => calendar.isTeachingDay(studentId, session.date.toISOString().slice(0, 10))),
       new Map(formal.map((session) => [session.sessionKey, session.status])),
@@ -1633,10 +1636,10 @@ export class VocabularyV2Service {
       ? teachingDay ? { state: 'not_generated', reason: 'no_word_task_yet' } : { state: 'not_applicable', reason: 'weekend' }
       : todaySession.status !== 'completed'
         ? { state: 'not_generated', reason: 'learning_unfinished', generation: { trigger: '学完当天最后一张卡时自动生成' } }
-        : todayCounts!.learned === 0
+        : todayCounts!.learned === 0 && plannedReviewCount(todaySession) === 0
           ? { state: 'not_applicable', reason: 'nothing_learned' }
           : !todayTest!.generated
-            ? { state: 'not_generated', reason: 'ready_to_generate', dailySessionId: todaySession.id, expectedNewWords: todayCounts!.learned, reviewWordsMax: REVIEW_SAMPLE_SIZE }
+            ? { state: 'not_generated', reason: 'ready_to_generate', dailySessionId: todaySession.id, expectedNewWords: todayCounts!.learned, reviewWordsMax: (todaySession.settingsSnapshot as any)?.reviewWords ?? REVIEW_SAMPLE_SIZE }
             : {
                 state: todayTest!.status === 'submitted' ? 'completed' : todayTest!.answered > 0 ? 'in_progress' : 'pending',
                 dailySessionId: todaySession.id,
@@ -1736,6 +1739,8 @@ export class VocabularyV2Service {
       const kept = keptAtSnapshot.filter((item) => !takenNow.has(item.senseId));
       if (!kept.length) return null;
       // 老师明确强制重学、而学生其实见过的词：这是「按拼写不重复」的唯一例外，单独记下来（VOC02）
+      const reviews = await this.sampleReviewItems(studentId, kept.map((i) => i.senseId), REVIEW_SAMPLE_SIZE,
+        kept.map((i) => i.headword), day.key, tx);
       const forcedSeen = kept.filter((item) => item.force && seen.has(headwordKey(item.headword))).map((item) => item.headword);
       const rows = kept.map((item) => ({ sense: item.sense, owned: null }));
       const owners = new Map<string, string>();
@@ -1762,6 +1767,8 @@ export class VocabularyV2Service {
             taskMinutes: 8,
             assignmentId: assignment.id,
             assignmentVersion: assignment.version,
+            reviewItems: reviews as any,
+            reviewWords: reviews.length,
             classId: assignment.classId,
             // 开始这天任务时学生所在的档位（换词从这一档的词表补；UI01 历史事实）
             level: user?.englishLevel ?? 'olevel',
@@ -1811,11 +1818,7 @@ export class VocabularyV2Service {
    * 行锁，直到提交。两天的任务同时生成时，后到的等先到的提交完再按最新数据重看。
    */
   private async lockStudentVocabulary(tx: any, studentId: string) {
-    await tx.studentVocabularyProfile.upsert({
-      where: { studentId },
-      create: { studentId },
-      update: { updatedAt: new Date() },
-    });
+    await lockVocabularyStudent(tx, studentId);
   }
 
   /**
@@ -1988,10 +1991,10 @@ export class VocabularyV2Service {
         await this.lockStudentVocabulary(tx, studentId);
         const already = await tx.vocabularyV2Session.findUnique({ where: { sessionKey }, include: { items: { orderBy: { position: 'asc' } } } });
         if (already) return already;
+        const reviews = await this.sampleReviewItems(studentId, [], teacherAssignment ? REVIEW_SAMPLE_SIZE : Math.floor(profile.dailyTarget / 2), [], day.key, tx);
+        const composition = dailyVocabularyComposition(profile.dailyTarget, reviews.length, Boolean(teacherAssignment));
         const blocked = await this.takenSinceSnapshot(tx, studentId, candidates.map((candidate) => candidate.senseId), rows, deferredSenseSet);
-        const finalPlan = blocked.size
-          ? planDailyTask(candidates.filter((candidate) => !blocked.has(candidate.senseId)), profile.dailyTarget)
-          : plan;
+        const finalPlan = planDailyTask(candidates.filter((candidate) => !blocked.has(candidate.senseId)), composition.fresh, true);
         if (!finalPlan.length) throw new ServiceUnavailableException({ code: 'no_publishable_vocabulary' });
         const nextRankByList = nextRanksFor(finalPlan);
         const sourceSummary = Object.fromEntries(
@@ -2009,6 +2012,9 @@ export class VocabularyV2Service {
             target: finalPlan.length,
             settingsSnapshot: {
               requestedTarget: profile.dailyTarget,
+              teacherListDay: Boolean(teacherAssignment),
+              reviewItems: reviews as any,
+              reviewWords: reviews.length,
               taskMinutes: profile.taskMinutes,
               audioAccent: profile.audioAccent,
               level: user?.englishLevel ?? 'olevel',
@@ -2234,6 +2240,8 @@ export class VocabularyV2Service {
       ? item.response as Record<string, unknown>
       : {};
     const transitioned = await this.prisma.$transaction(async (tx) => {
+      await this.lockStudentVocabulary(tx, studentId);
+      const currentCard = await tx.studentVocabularySense.findUnique({ where: { studentId_senseId: { studentId, senseId: item.senseId } } });
       const claim = await tx.vocabularyV2SessionItem.updateMany({
         where: { id: item.id, sessionId: session.id, status: 'pending', senseId: item.senseId },
         data: {
@@ -2269,7 +2277,7 @@ export class VocabularyV2Service {
         update: {
           masteryStage: desiredStage,
           confidence: action === 'hard' ? 1 : action === 'mastered' ? 4 : 3,
-          ...(action === 'skip' ? {} : { reps: { increment: 1 } }),
+          ...(action === 'skip' || currentCard?.lastReview ? {} : { reps: { increment: 1 } }),
           ...(desiredStage === 8 ? { masteredAt: new Date() } : {}),
         },
       });
@@ -2325,12 +2333,19 @@ export class VocabularyV2Service {
     });
     let generatedTestId: string | null = null;
     let generatedTest: { id: string; total: number; newWords: number; reviewWords: number } | null = null;
-    if (refreshed?.status === 'completed' && refreshed.items.some((candidate) => candidate.status === 'completed')) {
+    const hasNewWords = refreshed?.items.some((candidate) => candidate.status === 'completed') ?? false;
+    let hasReviews = refreshed ? plannedReviewCount(refreshed) > 0 : false;
+    if (refreshed?.status === 'completed' && !hasNewWords && hasReviews) {
+      const key = refreshed.date.toISOString().slice(0, 10);
+      const calendar = await loadSchoolCalendar(this.prisma, [studentId], key, key);
+      hasReviews = calendar.isTeachingDay(studentId, key);
+    }
+    if (refreshed?.status === 'completed' && (hasNewWords || hasReviews)) {
       const test = await this.startFormalTest(studentId, refreshed.id);
       generatedTestId = test.id;
       generatedTest = { id: test.id, total: test.total, newWords: test.newWords, reviewWords: test.reviewWords };
     }
-    return { ...this.sessionView(refreshed!), generatedTestId, generatedTest, replayed };
+    return { ...this.sessionView(refreshed!), testNeeded: hasNewWords || hasReviews, generatedTestId, generatedTest, replayed };
   }
 
   /**
@@ -2585,15 +2600,20 @@ export class VocabularyV2Service {
     if (existing) return this.testSessionView(existing);
 
     const tested = testableDailyItems(daily.items);
-    if (!tested.length) throw new BadRequestException({ code: 'v2_no_testable_items' });
 
     // 今天学的排在前面，抽查的旧词跟在后面 —— 学生先答熟悉的，节奏不被打断。
-    const sampled = await this.sampleReviewItems(
-      studentId,
-      tested.map((item) => item.senseId),
-      REVIEW_SAMPLE_SIZE,
-      tested.map((item) => String((item.contentSnapshot as { headword?: string } | null)?.headword ?? '')),
-    );
+    const settings = daily.settingsSnapshot as Record<string, any>;
+    const calendar = await loadSchoolCalendar(this.prisma, [studentId], daily.date.toISOString().slice(0, 10), daily.date.toISOString().slice(0, 10));
+    const canReview = calendar.isTeachingDay(studentId, daily.date.toISOString().slice(0, 10));
+    const blocked = new Set(tested.map((item) => headwordKey(String((item.contentSnapshot as any)?.headword ?? ''))));
+    const total = Number(settings?.requestedTarget ?? daily.target ?? 10);
+    const limit = daily.mode === 'teacher_list' || settings?.teacherListDay ? REVIEW_SAMPLE_SIZE
+      : Math.min(Math.floor(total / 2), Math.max(0, total - daily.items.length));
+    const frozen = Array.isArray(settings?.reviewItems) ? settings.reviewItems : null;
+    const sampled = !canReview ? [] : frozen
+      ? frozen.filter((item) => !blocked.has(headwordKey(item.contentSnapshot?.headword ?? ''))).slice(0, limit)
+      : await this.sampleReviewItems(studentId, tested.map((item) => item.senseId), limit,
+        [...blocked], daily.date.toISOString().slice(0, 10));
     const paper = [
       ...tested.map((item) => ({
         senseId: item.senseId,
@@ -2605,6 +2625,7 @@ export class VocabularyV2Service {
       })),
       ...sampled,
     ];
+    if (!paper.length) throw new BadRequestException({ code: 'v2_no_testable_items' });
     const cards = paper.map((item) => item.contentSnapshot as unknown as FrozenCard);
     let created: any;
     try {
@@ -2647,98 +2668,56 @@ export class VocabularyV2Service {
     return this.testSessionView(created);
   }
 
-  /**
-   * 抽查题：从学生**学过**的词里挑最久没被考过的几个。
-   *
-   * 规矩：
-   *   · `reps > 0` —— 只挑真学过的。被推送过但一张卡都没翻的不算，
-   *     那些由「稍后再学」那条路捞回学词队列，不该直接进考卷。
-   *   · `masteryStage < 8` —— 学生自己点过「我会了」的不再打扰。
-   *   · 排除今天这份卷子里已有的词，免得同一个词考两遍。
-   *   · 例句按 `reps + 1` 取 —— 复习时看到的是**换过的**句子，不是背过的
-   *     那一句（`contextForEncounter`，2026-09-08 加的）。
-   *
-   * 没有可抽的（新生第一天、词全掌握了）就返回空数组，考卷照常只考今天的。
-   */
-  private async sampleReviewItems(studentId: string, excludeSenseIds: string[], size: number, excludeHeadwords: string[] = []) {
+  /** Select only scheduled, due senses. The resulting cards are frozen in the
+   * daily plan so requests and later answers cannot change that day's quota. */
+  private async sampleReviewItems(studentId: string, excludeSenseIds: string[], size: number,
+    excludeHeadwords: string[] = [], dateKey: string, client: Pick<PrismaService, 'classEnrollment' | 'classNoSchoolDay' | 'studentVocabularySense' | 'learningEvidence' | 'user'> = this.prisma) {
     if (size <= 0) return [];
-    const owned = await this.prisma.studentVocabularySense.findMany({
-      where: {
-        studentId,
-        inNotebook: true,
-        removedAt: null,
-        reps: { gt: 0 },
-        masteryStage: { lt: 8 },
-        senseId: { notIn: excludeSenseIds },
-      },
+    const calendar = await loadSchoolCalendar(client, [studentId]);
+    if (!calendar.isTeachingDay(studentId, dateKey)) return [];
+    const owned = await client.studentVocabularySense.findMany({
+      // Historical learned words can sit their first formal recall without
+      // inventing an earlier score/card. Reps is eligibility only; the writer
+      // builds FSRS solely from the actual evidence at that next answer.
+      where: { studentId, OR: [{ lastReview: { not: null } }, { reps: { gt: 0 } }],
+        due: { lt: new Date(dateOnly(nextDate(dateKey, 1)).getTime() - 8 * 3600_000) }, senseId: { notIn: excludeSenseIds } },
       include: { sense: { include: { lexeme: true, contexts: { where: { qualityStatus: 'ready' } } } } },
-      // 挑 3 个不需要把整本单词本读进来；200 个足够排出「最久没考」的头部
-      take: 200,
-      orderBy: { updatedAt: 'asc' },
+      orderBy: [{ due: 'asc' }, { senseId: 'asc' }],
     });
-    // 同一拼写的另一个词义不抽（老师强制重推的词可能在旧词里有别的词义）：
-    // 一张卷里同一个拼写出两次，一题的回顾就泄露另一题的答案（VOC04）。
-    const blockedHeadwords = new Set(excludeHeadwords.map(headwordKey).filter(Boolean));
-    const usable = owned.filter(
-      (row) => row.sense?.lexeme?.headword
-        && String(row.sense.translation ?? '').trim()
-        && !blockedHeadwords.has(headwordKey(row.sense.lexeme.headword)),
-    );
-    if (!usable.length) return [];
-
-    // 「最久没被考过」—— 查这些词上一次出现在正式测试里是什么时候。
-    // 从没考过的排最前（时间当 0）。
-    const lastTested = new Map<string, number>();
-    const prior = await this.prisma.vocabularyV2SessionItem.findMany({
-      where: {
-        senseId: { in: usable.map((row) => row.senseId) },
-        session: { studentId, sessionType: 'formal_test' },
-      },
-      select: { senseId: true, createdAt: true },
-    });
-    for (const row of prior) {
-      const at = row.createdAt.getTime();
-      if (at > (lastTested.get(row.senseId) ?? 0)) lastTested.set(row.senseId, at);
-    }
-
-    const user = await this.prisma.user.findUnique({
-      where: { id: studentId },
-      select: { englishLevel: true },
-    });
+    if (!owned.length) return [];
+    const records = await client.learningEvidence.findMany({ where: {
+      studentId, subject: 'vocab_sense', senseId: { in: owned.map((row) => row.senseId) }, kind: { in: [...MEMORY_KINDS] },
+    } });
+    const history = new Map<string, typeof records>();
+    for (const row of records) if (row.senseId) history.set(row.senseId, [...(history.get(row.senseId) ?? []), row]);
+    const blocked = new Set(excludeHeadwords.map(headwordKey).filter(Boolean));
+    const user = await client.user.findUnique({ where: { id: studentId }, select: { englishLevel: true } });
     const policy = LEVEL_WORD_POLICY[user?.englishLevel ?? 'olevel'];
-
-    const sampledHeadwords = new Set<string>();
-    return usable
-      .sort(
-        (a, b) =>
-          (lastTested.get(a.senseId) ?? 0) - (lastTested.get(b.senseId) ?? 0) ||
-          a.senseId.localeCompare(b.senseId),
-      )
+    const effectiveDue = (due: Date) => {
+      let key = sgtDay(due).key;
+      while (!calendar.isTeachingDay(studentId, key)) key = nextDate(key, 1);
+      return key;
+    };
+    const unresolved = (senseId: string) => Boolean(unresolvedVocabularyMistake(history.get(senseId) ?? []));
+    const failedBefore = (senseId: string) => Boolean(history.get(senseId)?.some((e) => e.isCorrect === false));
+    return owned.filter((row) => ((row.inNotebook && !row.removedAt) || unresolved(row.senseId))
+        && effectiveDue(row.due) <= dateKey)
+      .sort((a, b) => effectiveDue(a.due).localeCompare(effectiveDue(b.due))
+        || Number(unresolved(b.senseId)) - Number(unresolved(a.senseId))
+        || Number(failedBefore(b.senseId)) - Number(failedBefore(a.senseId))
+        || a.senseId.localeCompare(b.senseId))
       .filter((row) => {
-        const key = headwordKey(row.sense.lexeme.headword);
-        // 停推的词（词级黑名单）复习也不出 —— 学过的也不再推到学生面前（2026-10-21）
-        if (isSchoolBlockedHeadword(row.sense.lexeme.headword)) return false;
-        if (sampledHeadwords.has(key)) return false;
-        sampledHeadwords.add(key);
+        const word = row.sense?.lexeme?.headword;
+        const key = headwordKey(word ?? '');
+        if (!key || !String(row.sense.translation ?? '').trim() || blocked.has(key) || isSchoolBlockedHeadword(word)) return false;
+        blocked.add(key);
         return true;
-      })
-      .slice(0, size)
-      .map((row) => {
-        const encounter = (row.reps ?? 0) + 1;
-        const context = contextForEncounter(
-          row.sense.contexts ?? [],
-          encounter,
-          policy.contextDifficulty,
-          row.sense.lexeme.headword,
-        );
-        return {
-          senseId: row.senseId,
-          source: 'review' as V2Source,
-          contextId: context?.id ?? null,
-          masteryBefore: row.masteryStage,
-          contentVersion: row.sense.contentVersion,
-          contentSnapshot: this.cardSnapshot({ sense: row.sense, owned: row }, policy.contextDifficulty, encounter) as any,
-        };
+      }).slice(0, size).map((row) => {
+        const encounter = row.reps + 1;
+        const context = contextForEncounter(row.sense.contexts, encounter, policy.contextDifficulty, row.sense.lexeme.headword);
+        return { senseId: row.senseId, source: 'review' as V2Source, contextId: context?.id ?? null,
+          masteryBefore: row.masteryStage, contentVersion: row.sense.contentVersion,
+          contentSnapshot: this.cardSnapshot({ sense: row.sense, owned: row }, policy.contextDifficulty, encounter) as any };
       });
   }
 
@@ -2757,6 +2736,7 @@ export class VocabularyV2Service {
       ? answerAdaptiveQuestion(question, response)
       : answerFormalQuestion(question as FormalQuestion, response);
     await this.prisma.$transaction(async (tx) => {
+      if (session.sessionType !== 'custom_test') await this.lockStudentVocabulary(tx, studentId);
       const where = { id: item.id, sessionId: session.id, status: 'pending' };
       const data = {
         status: 'answered',
@@ -2777,13 +2757,10 @@ export class VocabularyV2Service {
         claimed = first.count;
         if (claimed && session.sessionType === 'formal_test') {
           const saved = await tx.vocabularyV2SessionItem.findUniqueOrThrow({ where: { id: item.id } });
-          await tx.learningEvidence.createMany({
-            data: [{
-              studentId, kind: 'formal_first', subject: 'vocab_sense', senseId: saved.senseId, sessionItemId: saved.id,
-              sourceKey: `v2item:${saved.id}:formal_first`, isCorrect: saved.firstIsCorrect,
-              hinted: saved.hintLevel > 0, schoolDate: sgtDay(now).date, occurredAt: now,
-            }],
-            skipDuplicates: true,
+          await new VocabularyMemoryService(this.prisma).recordInTransaction(tx, {
+            studentId, kind: 'formal_first', subject: 'vocab_sense', senseId: saved.senseId, sessionItemId: saved.id,
+            sourceKey: `v2item:${saved.id}:formal_first`, isCorrect: saved.firstIsCorrect,
+            hinted: saved.hintLevel > 0, schoolDate: sgtDay(now).date, occurredAt: now,
           });
         }
       }
@@ -2979,7 +2956,7 @@ export class VocabularyV2Service {
       recite,
       deferredWords: session.items.filter((item) => item.status === 'skipped').map(headwordOf),
       pendingWords: session.items.filter((item) => item.status === 'pending').map(headwordOf),
-      test: formalTestFact(test, session.items),
+      test: formalTestFact(test, session.items, (session.settingsSnapshot as any)?.reviewWords ?? REVIEW_SAMPLE_SIZE),
     };
   }
 
@@ -3008,7 +2985,7 @@ export class VocabularyV2Service {
           status: session.status,
           target: session.target,
           ...counts,
-          test: formalTestFact(testByKey.get(`${session.sessionKey}:formal`), session.items),
+          test: formalTestFact(testByKey.get(`${session.sessionKey}:formal`), session.items, (session.settingsSnapshot as any)?.reviewWords ?? REVIEW_SAMPLE_SIZE),
         };
       }),
     };
@@ -3080,6 +3057,9 @@ export class VocabularyV2Service {
 
   private sessionView(session: any) {
     const counts = learningCounts(session.items);
+    // Review card snapshots include spellings: keep them server-side until
+    // the formal item has been answered, just like every other test answer.
+    const { reviewItems: _reviewItems, ...publicSettings } = session.settingsSnapshot ?? {};
     return {
       id: session.id,
       version: session.version,
@@ -3097,11 +3077,11 @@ export class VocabularyV2Service {
       replaced: counts.replaced,
       pending: counts.pending,
       processed: counts.processed,
-      testNeeded: counts.learned > 0,
+      testNeeded: counts.learned > 0 || plannedReviewCount(session) > 0,
       learningPhase: counts.pending === 0 ? 'finished' : counts.processed === 0 ? 'not_started' : 'in_progress',
       capabilities: { recallStep: recallStepEnabled() },
       sourceSummary: session.sourceSummary,
-      settings: session.settingsSnapshot,
+      settings: publicSettings,
       deferredUntil: session.deferredUntil?.toISOString().slice(0, 10) ?? null,
       items: session.items.map((item: any) => ({
         id: item.id,

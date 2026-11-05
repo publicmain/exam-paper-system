@@ -104,6 +104,19 @@ describe('V5 frozen reading sources', () => {
 });
 
 describe('V5 final daily manifests and first formal scores', () => {
+  it.each([[3, 1], [5, 2], [10, 5], [13, 3]])('新旧词合计 %i 题（复习 %i）：首次正式成绩仍以整卷一半为门槛', async (total, reviews) => {
+    const words = Array.from({ length: total }, (_, i) => `word-${i}`);
+    const d = daily('d', words.slice(0, total - reviews).map((w) => card(`learn-${w}`, w)));
+    for (const correct of [Math.ceil(total / 2) - 1, Math.ceil(total / 2)]) {
+      const t = formal('t', 'd', undefined, { target: total });
+      t.items = words.map((w, i) => card(`test-${w}`, w, undefined, {
+        source: i >= total - reviews ? 'review' : 'level_gap', status: 'answered',
+        response: { value: w }, questionSnapshot: { type: 'spelling' }, isCorrect: i < correct,
+      }));
+      const facts = await load(db([], [d, t]));
+      expect(facts.learningBatches).toHaveLength(correct * 2 >= total ? 1 : 0);
+    }
+  });
   it('one whole task is one batch regardless of word count, deferrals or target; final replacement is learned, old word is not', async () => {
     const items = [card('one', 'apple', undefined, { response: { action: 'normal', replacedFrom: [{ headword: 'old-word' }] } }),
       card('two', 'banana', undefined, { status: 'skipped', response: { action: 'skip' } }), card('three', 'pear', undefined, { response: { action: 'mastered' } })];

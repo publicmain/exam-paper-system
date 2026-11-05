@@ -73,6 +73,8 @@ export interface StudentFacts {
   className: string;
   level: string | null;
   registeredOn: string;
+  /** Cumulative independent mastery through the report's last elapsed day. */
+  mastered?: number;
   days: DayFacts[];
   pendingMarking?: Array<{ submissionId: string; questions: number }>;
 }
@@ -167,6 +169,7 @@ export function summarizeStudent(s: StudentFacts, today: string) {
     className: s.className,
     level: s.level,
     registeredOn: s.registeredOn,
+    mastered: s.mastered ?? 0,
     days: cells,
     readN,
     readRequiredDone,
@@ -225,6 +228,7 @@ export function buildWeeklyReport(input: ReportInput) {
       classId,
       className: ss[0].className,
       students: ss.length,
+      mastered: ss.reduce((total, s) => total + s.mastered, 0),
       joined: ss.filter((s) => s.readN + s.learnN + s.testN + s.learnPartial > 0).length,
       none: ss.filter((s) => s.none).length,
       readDone: ss.reduce((a, s) => a + s.readN, 0),
@@ -276,6 +280,7 @@ export function buildWeeklyReport(input: ReportInput) {
     days,
     totals: {
       students: students.length,
+      mastered: sum((s) => s.mastered),
       joined: students.filter((s) => s.readN + s.learnN + s.testN + s.learnPartial > 0).length,
       none: students.filter((s) => s.none).length,
       steady: students.filter((s) => s.steady).length,

@@ -2,6 +2,7 @@ import { loadSchoolCalendar, isTeachingDay } from '../common/school-calendar';
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { lessonCardOrder } from '../lesson/rc11-rules';
 import { createEmptyCard, fsrs, generatorParameters, Rating, State, type Card } from 'ts-fsrs';
+import { VocabularyMasteryService } from '../vocab-v2/mastery';
 import { PrismaService } from '../common/prisma.service';
 import { needsFirstTeaching } from './first-teaching';
 import { StudentWordService } from './student-word.service';
@@ -661,21 +662,11 @@ export class VocabReviewService {
     const reviewedToday = await this.prisma.wordReviewLog.count({
       where: { studentWord: { studentId: student.id }, reviewedAt: { gte: sgtDayStart } },
     });
-    // 三分进度（2026-08-24 词汇主线化）。原来的 byState 是 FSRS 的内部
-    // 状态机（new / learning / review / relearning / known），学生看不懂
-    // 也不该看懂。压成三个他关心的数字：
-    //
-    //   mastered  已掌握 —— known，或者稳定度已经到 21 天以上（三周内
-    //             不会再考到，实质上就是记住了）
-    //   learning  学习中 —— 复习过至少一次但还没到掌握
-    //   untouched 待开始 —— 一次都没复习过
-    //
-    // 「待开始」是这次要盯的指标：生产库里它占 68%，说明词收进来就沉底。
-    //
-    // 口径统一（2026-08-24）：毕业门槛降到 21 天后，state='known' 与原来
-    // 的「stability≥21」两套口径合一 —— 处处只认 state，classTop /
-    // classStats / 这里三个地方从此对得上账。
-    const mastered = rows.find((r) => r.state === 'known')?._count ?? 0;
+    // Mastery is based on independent formal recalls across teaching days.
+    // Legacy state and stability remain scheduling details, never proof of mastery.
+    const masteredWords = (await new VocabularyMasteryService(this.prisma).headwordsForStudents([student.id])).get(student.id)!;
+    const legacyWords = await this.prisma.studentWord.findMany({ where: { studentId: student.id }, select: { headword: true } });
+    const mastered = legacyWords.filter((row) => masteredWords.has(row.headword.trim().toLowerCase())).length;
     const untouched = await this.prisma.studentWord.count({
       where: { studentId: student.id, reps: 0 },
     });
@@ -692,7 +683,7 @@ export class VocabReviewService {
       reviewedToday,
       // 2026-08-14 进度反馈：全班只有 6 词毕业、无任何成就展示 ——
       // 学生看到的永远是「还欠多少」，看不到「已经攒下多少」。
-      knownCount: rows.find((r) => r.state === 'known')?._count ?? 0,
+      knownCount: mastered,
       streakDays: await this.streakDays(student.id),
       progress: { mastered, learning, untouched },
     };

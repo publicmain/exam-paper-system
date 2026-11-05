@@ -23,14 +23,19 @@ export function countActuallyLearned(rows: readonly { reps: number }[]): number 
 }
 
 /** Submitted tests disappear; every older unfinished date remains independently pending. */
-export function pendingDailySessions<T extends { sessionKey: string; items?: readonly DailyItemState[] }>(
+export function plannedReviewCount(session: { settingsSnapshot?: unknown }): number {
+  const snapshot = session.settingsSnapshot as { reviewWords?: number } | null;
+  return Math.max(0, snapshot?.reviewWords ?? 0);
+}
+
+export function pendingDailySessions<T extends { sessionKey: string; items?: readonly DailyItemState[]; settingsSnapshot?: unknown }>(
   completedDailySessions: readonly T[],
   formalStatusByKey: ReadonlyMap<string, string>,
 ): T[] {
   return completedDailySessions.filter((session) => {
     // A day on which the student finished no word has nothing to test.  Listing
     // it produced a "0 个词" todo whose button could only fail.
-    if (session.items && testableDailyItems(session.items).length === 0) return false;
+    if (session.items && testableDailyItems(session.items).length === 0 && plannedReviewCount(session) === 0) return false;
     return formalStatusByKey.get(`${session.sessionKey}:formal`) !== 'submitted';
   });
 }
