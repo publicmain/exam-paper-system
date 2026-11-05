@@ -28,6 +28,14 @@ function db(readings: any[] = [], sessions: any[] = []) {
   return { user: { findUnique: vi.fn(async () => ({ id: 'student' })) }, studentSubmission: { findMany: page(readings) }, vocabularyV2Session: { findMany: page(sessions) } };
 }
 describe('Lifetime server evidence only', () => {
+  it('正式卷有效作答认首答，后续补写或清空不改变首次完成事实', async () => {
+    for (const firstValue of ['', 0]) {
+      const t = formal('t', 'd');
+      Object.assign(t.items[0], { firstAnsweredAt: at('2026-09-01'), firstResponse: { value: firstValue }, response: { value: firstValue === '' ? 0 : '' } });
+      const facts = await loadTieredAchievementFacts(db([], [daily('d', [card('c', 'word')]), t]) as any, 'student', NOW);
+      expect(facts.tests).toHaveLength(firstValue === '' ? 0 : 1);
+    }
+  });
   it('numeric choice zero is a real answer, but blank/invalid/out-of-range values are not', () => {
     const q = { type: 'meaning_choice', options: ['a', 'b', 'c', 'd'] };
     for (const value of [0, 3, '0', ' 2 ']) expect(validFormalResponse(q, { value })).toBe(true);

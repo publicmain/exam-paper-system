@@ -191,8 +191,13 @@ export const MEMORY_SCHEMA: Record<string, ModelDef> = {
     defaults: () => ({
       status: 'pending', response: null, isCorrect: null, attempts: 0, responseMs: null, completedAt: null,
       questionSnapshot: null, contextId: null,
+      firstResponse: null, firstIsCorrect: null, firstAnsweredAt: null, hintLevel: 0,
     }),
     updatedAt: true,
+  },
+  learningEvidence: {
+    unique: [['sourceKey']],
+    defaults: () => ({ isCorrect: null, hinted: false, detail: null, recordedById: null, occurredAt: new Date() }),
   },
 };
 

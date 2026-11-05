@@ -2,6 +2,7 @@ import { NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../common/prisma.service';
 import { sgtKey } from './badge-time';
 import { headwordKey } from '../vocab-v2/unified-vocabulary-rules';
+import { formalAnswerOf } from '../vocab-v2/first-answer';
 import { emptyTieredFacts, type MetricEvent, type TieredAchievementFacts } from './tiered-badge-rules';
 
 const PAGE_SIZE = 250;
@@ -66,6 +67,7 @@ export async function loadTieredAchievementFacts(prisma: PrismaService, studentI
       orderBy: { id: 'asc' }, take: PAGE_SIZE, ...(after ? { cursor: { id: after }, skip: 1 } : {}),
       select: { id: true, sessionKey: true, date: true, sessionType: true, status: true, target: true, completedAt: true, settingsSnapshot: true,
         items: { select: { id: true, status: true, completedAt: true, response: true, contentSnapshot: true, questionSnapshot: true,
+          firstResponse: true, firstIsCorrect: true, firstAnsweredAt: true,
           sense: { select: { lexeme: { select: { headword: true } } } } } } },
     });
     for (const row of rows) {
@@ -84,7 +86,7 @@ export async function loadTieredAchievementFacts(prisma: PrismaService, studentI
         daily.set(row.id, { key: row.sessionKey, date: dateKey(row.date), learned,
           completed: row.status === 'completed', at: validAt(row.completedAt, now) ? row.completedAt : null });
       } else if (row.sessionType === 'formal_test' && row.status === 'submitted' && validAt(row.completedAt, now) &&
-        row.items.length > 0 && row.target === row.items.length && row.items.every((item) => item.status === 'answered' && validFormalResponse(item.questionSnapshot, item.response))) {
+        row.items.length > 0 && row.target === row.items.length && row.items.every((item) => item.status === 'answered' && validFormalResponse(item.questionSnapshot, formalAnswerOf(item).response))) {
         const dailyId = object(row.settingsSnapshot).dailySessionId;
         if (typeof dailyId === 'string') candidates.push({ key: dailyId, dailyId, sessionId: row.id, date: dateKey(row.date), at: row.completedAt });
       }

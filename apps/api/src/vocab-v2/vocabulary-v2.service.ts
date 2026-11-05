@@ -19,6 +19,7 @@ import { canonicalPos, inferPosFromTranslation, senseKey, translationForPos } fr
 import { normaliseDailyTarget, planDailyTask, type PlannerCandidate, type V2Source } from './daily-planner';
 import { contextForEncounter, isTemplateContext } from './context-progression';
 import { initialStageForAction, type LearningCardAction } from './learning-card';
+import { formalAnswerOf } from './first-answer';
 import { answerFormalQuestion, buildFormalQuestion, publicFormalQuestion, type FormalQuestion, type FrozenCard } from './formal-test';
 import { answerAdaptiveQuestion, buildAdaptiveQuestion, checkActiveUse, publicAdaptiveQuestion, type AdaptiveCard, type AdaptiveQuestion } from './adaptive-test';
 import { learningAssetQuality } from './content-quality';
@@ -2151,7 +2152,7 @@ export class VocabularyV2Service {
     return { ok: true as const, hidden: hidden > 0 };
   }
 
-  async actOnLearningItem(studentId: string, sessionId: string, itemId: string, action: LearningCardAction, responseMs?: number) {
+  async actOnLearningItem(studentId: string, sessionId: string, itemId: string, action: LearningCardAction, responseMs?: number, now = new Date()) {
     if (action === 'replace') throw new BadRequestException({ code: 'use_replace_endpoint' });
     const session = await this.prisma.vocabularyV2Session.findFirst({
       where: { id: sessionId, studentId, sessionType: 'daily_learning' },
@@ -2180,6 +2181,16 @@ export class VocabularyV2Service {
         },
       });
       if (claim.count === 0) return false;
+      if (action === 'mastered') {
+        await tx.learningEvidence.createMany({
+          data: [{
+            studentId, kind: 'self_report', subject: 'vocab_sense', senseId: item.senseId, sessionItemId: item.id,
+            sourceKey: `v2item:${item.id}:self_report:${item.senseId}`,
+            isCorrect: null, hinted: false, detail: { action }, schoolDate: sgtDay(now).date, occurredAt: now,
+          }],
+          skipDuplicates: true,
+        });
+      }
       const owned = await tx.studentVocabularySense.upsert({
         where: { studentId_senseId: { studentId, senseId: item.senseId } },
         create: {
@@ -2271,7 +2282,7 @@ export class VocabularyV2Service {
    *     「已经换过了」的原样返回，不会把刚换上来的新词也标会。两张卡同时换撞到同一个
    *     新词 → 后到的撞唯一键，换下一个候选重来，不 500。
    */
-  async replaceDailyItem(studentId: string, sessionId: string, itemId: string, options: { expectedSenseId?: string } = {}) {
+  async replaceDailyItem(studentId: string, sessionId: string, itemId: string, options: { expectedSenseId?: string } = {}, now = new Date()) {
     const session = await this.prisma.vocabularyV2Session.findFirst({
       where: { id: sessionId, studentId, sessionType: 'daily_learning' },
       include: {
@@ -2367,6 +2378,17 @@ export class VocabularyV2Service {
             },
           });
           if (claim.count === 0) return 'stale' as const;
+          // The slot is reused by each replacement: include the *old* sense in
+          // the key so retries deduplicate without hiding a later real action.
+          await tx.learningEvidence.createMany({
+            data: [{
+              studentId, kind: 'self_report', subject: 'vocab_sense', senseId: item.senseId, sessionItemId: item.id,
+              sourceKey: `v2item:${item.id}:self_report:${item.senseId}`,
+              isCorrect: null, hinted: false, detail: { action: 'replace', replacementSenseId: sense.id },
+              schoolDate: sgtDay(now).date, occurredAt: now,
+            }],
+            skipDuplicates: true,
+          });
           // 新词：此前任何来源都没见过（上面按拼写排除了）；撞唯一键 = 别的请求刚把它给了这个学生
           const added = await tx.studentVocabularySense.create({ data: { studentId, senseId: sense.id, inNotebook: true } });
           const original = await tx.studentVocabularySense.upsert({
@@ -2663,20 +2685,46 @@ export class VocabularyV2Service {
       ? answerAdaptiveQuestion(question, response)
       : answerFormalQuestion(question as FormalQuestion, response);
     await this.prisma.$transaction(async (tx) => {
-      await tx.vocabularyV2SessionItem.update({
-        where: { id: item.id },
-        data: {
-          status: 'answered',
-          response: { value: response as any },
-          isCorrect,
-          attempts: { increment: 1 },
-          responseMs: responseMs == null ? null : Math.max(0, Math.floor(responseMs)),
-          completedAt: new Date(),
-        },
-      });
-      await tx.vocabularyV2Session.update({
-        where: { id: session.id },
-        data: { cursor: Math.max(session.cursor, item.position) },
+      const where = { id: item.id, sessionId: session.id, status: 'pending' };
+      const data = {
+        status: 'answered',
+        response: { value: response as any },
+        isCorrect,
+        attempts: { increment: 1 },
+        responseMs: responseMs == null ? null : Math.max(0, Math.floor(responseMs)),
+        completedAt: now,
+      };
+      let claimed = 0;
+      if (session.sessionType !== 'custom_test') {
+        // PostgreSQL rechecks this predicate after waiting on the row lock.
+        // A concurrent answer cannot replace the first one or add an attempt.
+        const first = await tx.vocabularyV2SessionItem.updateMany({
+          where: { ...where, firstAnsweredAt: null },
+          data: { ...data, firstResponse: data.response, firstIsCorrect: isCorrect, firstAnsweredAt: now },
+        });
+        claimed = first.count;
+        if (claimed && session.sessionType === 'formal_test') {
+          const saved = await tx.vocabularyV2SessionItem.findUniqueOrThrow({ where: { id: item.id } });
+          await tx.learningEvidence.createMany({
+            data: [{
+              studentId, kind: 'formal_first', subject: 'vocab_sense', senseId: saved.senseId, sessionItemId: saved.id,
+              sourceKey: `v2item:${saved.id}:formal_first`, isCorrect: saved.firstIsCorrect,
+              hinted: saved.hintLevel > 0, schoolDate: sgtDay(now).date, occurredAt: now,
+            }],
+            skipDuplicates: true,
+          });
+        }
+      }
+      if (!claimed) {
+        // Keeps the existing one-answer policy. If an item is reopened by a
+        // correction flow, only its latest answer can change, never its first.
+        const latest = await tx.vocabularyV2SessionItem.updateMany({ where, data });
+        claimed = latest.count;
+      }
+      if (!claimed) return;
+      await tx.vocabularyV2Session.updateMany({
+        where: { id: session.id, cursor: { lt: item.position } },
+        data: { cursor: item.position },
       });
     });
     const refreshed = await this.prisma.vocabularyV2Session.findUnique({
@@ -2694,6 +2742,7 @@ export class VocabularyV2Service {
     if (!session) throw new BadRequestException({ code: 'v2_test_not_found' });
     this.assertPracticeAlive(session, now);
     if (session.status === 'submitted') return this.submittedView(session);
+    if (session.status !== 'in_progress') throw new BadRequestException({ code: 'v2_session_closed' });
     const unanswered = session.items.filter((item) => item.status !== 'answered');
     if (unanswered.length) throw new BadRequestException({ code: 'v2_test_incomplete', remaining: unanswered.length });
     // Self-selected practice is deliberately disposable: it has no formal
@@ -2718,13 +2767,19 @@ export class VocabularyV2Service {
     }
 
     await this.prisma.$transaction(async (tx) => {
-      await tx.vocabularyV2Session.update({
-        where: { id: session.id },
-        data: { status: 'submitted', cursor: session.target, completedAt: new Date() },
+      // The claim and all effects commit together. A losing submit waits for
+      // the winner, then reads that same committed result without effects.
+      const closed = await tx.vocabularyV2Session.updateMany({
+        where: { id: session.id, status: 'in_progress' },
+        data: { status: 'submitted', cursor: session.target, completedAt: now },
       });
-      for (const item of session.items) {
+      if (closed.count === 0) return;
+      const items = await tx.vocabularyV2SessionItem.findMany({ where: { sessionId: session.id }, orderBy: { position: 'asc' } });
+      if (items.some((item) => item.status !== 'answered')) throw new BadRequestException({ code: 'v2_test_incomplete' });
+      for (const item of items) {
+        const answer = formalAnswerOf(item);
         const question = item.questionSnapshot as unknown as AdaptiveQuestion;
-        const skillValue = item.isCorrect ? 1 : 0;
+        const skillValue = answer.isCorrect ? 1 : 0;
         const skill = question.type === 'spelling'
           ? { spellingSkill: skillValue, recallSkill: skillValue }
           : question.type === 'listening_spelling'
@@ -2736,7 +2791,7 @@ export class VocabularyV2Service {
                 : question.type === 'word_family'
                   ? { recallSkill: skillValue }
                   : { recognition: skillValue };
-        const nextStage = item.isCorrect
+        const nextStage = answer.isCorrect
           ? Math.min(8, Math.max(2, item.masteryBefore + 1))
           : Math.max(1, item.masteryBefore - 1);
         await tx.studentVocabularySense.upsert({
@@ -2760,10 +2815,7 @@ export class VocabularyV2Service {
       where: { id: session.id },
       include: { items: { orderBy: { position: 'asc' } } },
     });
-    return {
-      ...this.testSessionView(submitted!),
-      retry: null,
-    };
+    return this.submittedView(submitted!);
   }
 
   /**
@@ -2899,14 +2951,14 @@ export class VocabularyV2Service {
       where: { studentId, sessionType: 'formal_test', status: 'submitted' },
       orderBy: [{ date: 'desc' }, { completedAt: 'desc' }],
       take: 60,
-      include: { items: { select: { isCorrect: true } } },
+      include: { items: { select: { isCorrect: true, firstIsCorrect: true, firstAnsweredAt: true } } },
     });
     return {
       tests: rows.map((row) => ({
         sessionId: row.id,
         date: row.date.toISOString().slice(0, 10),
         total: row.target,
-        correct: row.items.filter((item) => item.isCorrect === true).length,
+        correct: row.items.filter((item) => formalAnswerOf(item).isCorrect === true).length,
         completedAt: row.completedAt ? row.completedAt.toISOString() : null,
       })),
     };
@@ -2915,7 +2967,8 @@ export class VocabularyV2Service {
   private testSessionView(session: any) {
     const submitted = session.status === 'submitted';
     const answered = session.items.filter((item: any) => item.status === 'answered').length;
-    const correct = session.items.filter((item: any) => item.isCorrect === true).length;
+    const answerOf = (item: any) => session.sessionType === 'custom_test' ? item : formalAnswerOf(item);
+    const correct = session.items.filter((item: any) => answerOf(item).isCorrect === true).length;
     return {
       id: session.id,
       version: session.version,
@@ -2930,6 +2983,7 @@ export class VocabularyV2Service {
       correct: submitted ? correct : null,
       items: session.items.map((item: any) => {
         const question = item.questionSnapshot as AdaptiveQuestion;
+        const answer = answerOf(item);
         return {
           id: item.id,
           position: item.position,
@@ -2940,8 +2994,8 @@ export class VocabularyV2Service {
             : session.sessionType === 'custom_test'
               ? publicAdaptiveQuestion(question)
               : publicFormalQuestion(question as FormalQuestion),
-          response: item.status === 'answered' || submitted ? item.response : null,
-          isCorrect: item.status === 'answered' || submitted ? item.isCorrect : null,
+          response: item.status === 'answered' || submitted ? answer.response : null,
+          isCorrect: item.status === 'answered' || submitted ? answer.isCorrect : null,
           card: item.status === 'answered' || submitted ? item.contentSnapshot : null,
           // VOC11：造句题只能确定「用到了目标词」，结果如实说「未评估句子质量」
           ...(question?.type === 'active_use' && (item.status === 'answered' || submitted)

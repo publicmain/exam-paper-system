@@ -132,6 +132,13 @@ describe('谁能看哪些班', () => {
 });
 
 describe('哪些人不算、一周怎么拼', () => {
+  it('正式词测周报按首答计分，订正后的对错不改变分数；旧记录仍兼容', async () => {
+    const w = world();
+    const test = w.vocab.find((row) => row.sessionType === 'formal_test')!;
+    test.items.forEach((item, index) => Object.assign(item, { firstAnsweredAt: NOW, firstIsCorrect: index < 3 }));
+    const r = await new LearningReportService(fakePrisma(w) as never).weekly({ id: 'admin', role: 'admin' }, { classId: 'c-sec' }, NOW);
+    expect(r.students.find((student) => student.id === 's1')!.days[0].testPct).toBe(30);
+  });
   it('老师测试号、这周之后才注册的不算；两个班都在的学生只算一次', async () => {
     const r = await new LearningReportService(fakePrisma() as never).weekly({ id: 'admin', role: 'admin' }, { weekStart: '2026-09-10' }, NOW);
     expect(r.weekStart).toBe('2026-09-07');
