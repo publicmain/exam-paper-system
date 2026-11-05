@@ -182,7 +182,7 @@ describe('S12J —— 凭据不落盘', () => {
   it('遮掉密码 / PIN / 令牌 / 二维码密钥，其余字段原样保留', () => {
     const row = redactRow({
       id: 's12f_acceptance_student',
-      name: '林清和',
+      name: '孙小美',
       passwordHash: '$2a$10$abcdefghijklmnopqrstuv',
       pinHash: '$2a$10$zyxwvutsrqponmlkjihgfe',
       qrSecret: 's12f-fixture-qr-secret-not-used',
@@ -194,7 +194,7 @@ describe('S12J —— 凭据不落盘', () => {
     expect(row.pinHash).toBe('[redacted]');
     expect(row.qrSecret).toBe('[redacted]');
     expect(row.resetToken).toBe('[redacted]');
-    expect(row.name).toBe('林清和');
+    expect(row.name).toBe('孙小美');
     expect(row.studentAuthVersion).toBe(3);
     expect(row.totalScore).toBe(7);
   });

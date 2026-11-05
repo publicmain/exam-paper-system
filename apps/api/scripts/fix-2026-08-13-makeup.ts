@@ -7,25 +7,46 @@ import { PrismaClient } from '@prisma/client';
  *   1. 把正式场次的时间窗整体挪到当前时刻 —— 当天 08:30/08:40/09:00
  *      被改写成 13:21/13:42/13:52，早上的真实时间从场次记录里消失；
  *   2. 删掉已生成的缺席行（本意是清理演练残留）。
- * 于是 13:22 扫码的三名补考学生（牟歌/于琳晶/胡鑫瑜）落在新的
+ * 于是 13:22 扫码的三名补考学生落在新的
  * lateCutoff 13:42 之前，被记成 **on_time**，早上的无故缺席一点痕迹
  * 都没留下 —— 而这正是学校新政策要管的行为。
  *
  * 本脚本：
  *   · 把两场的时间窗还原成标准 08:30 / 08:40 / 08:59:59 / 09:00
- *   · 把三人的考勤改回 absent，清掉误写的 scanTime，补上 makeupAt
+ *   · 把补考学生的考勤改回 absent，清掉误写的 scanTime，补上 makeupAt
  *   · 成绩与答卷一律不动（补考成绩照常有效）
  *
  * 幂等：已经修好的行不会被重复改。
  *
- *   npx ts-node apps/api/scripts/fix-2026-08-13-makeup.ts [--apply]
+ *   npx ts-node apps/api/scripts/fix-2026-08-13-makeup.ts --names=甲,乙,丙 [--apply]
+ * --names 必填：补考学生的姓名（与系统里 User.name 一致），逗号分隔。
+ * 仓库是公开的，学生姓名不写进代码，运行时传入（2026-11-05）。
  * 不带 --apply 只打印将要做的改动（dry-run）。
  */
 
-const prisma = new PrismaClient();
+/** 读 --names=甲,乙 或 --names 甲,乙；中英文逗号都行，去空白、去重。 */
+function parseNames(argv: string[]): string[] {
+  let raw: string | undefined;
+  for (let i = 0; i < argv.length; i++) {
+    const a = argv[i];
+    if (a.startsWith('--names=')) raw = a.slice('--names='.length);
+    else if (a === '--names') raw = argv[i + 1];
+  }
+  if (!raw) return [];
+  return [...new Set(raw.split(/[,，]/).map((s) => s.trim()).filter(Boolean))];
+}
+
 const APPLY = process.argv.includes('--apply');
 const DAY = '2026-08-13';
-const MAKEUP_NAMES = ['牟歌', '于琳晶', '胡鑫瑜'];
+const MAKEUP_NAMES = parseNames(process.argv.slice(2));
+if (MAKEUP_NAMES.length === 0) {
+  console.error(
+    '缺少 --names：请传入补考学生姓名，例如\n' +
+      '  npx ts-node apps/api/scripts/fix-2026-08-13-makeup.ts --names=甲,乙,丙 [--apply]',
+  );
+  process.exit(1);
+}
+const prisma = new PrismaClient();
 
 /** SGT 本地时刻 → UTC Date（数据库存的是 UTC 墙钟）。 */
 const sgt = (hhmmss: string) => new Date(`${DAY}T${hhmmss}+08:00`);
@@ -34,7 +55,8 @@ const fmt = (d: Date | null) =>
   d ? new Date(d.getTime() + 8 * 3600_000).toISOString().slice(11, 19) : '—';
 
 (async () => {
-  console.log(`\n=== 修复 ${DAY} 补考数据 ${APPLY ? '(执行)' : '(演练，加 --apply 才写库)'} ===\n`);
+  console.log(`\n=== 修复 ${DAY} 补考数据 ${APPLY ? '(执行)' : '(演练，加 --apply 才写库)'} ===`);
+  console.log(`补考学生 ${MAKEUP_NAMES.length} 人：${MAKEUP_NAMES.join('、')}\n`);
 
   const sessions = await prisma.morningQuizSession.findMany({
     where: { date: new Date(`${DAY}T00:00:00.000Z`) },
@@ -85,7 +107,7 @@ const fmt = (d: Date | null) =>
     });
   }
 
-  console.log('\n【2】补考三人的考勤');
+  console.log('\n【2】补考学生的考勤');
   const rows = await prisma.attendance.findMany({
     where: {
       session: { date: new Date(`${DAY}T00:00:00.000Z`) },

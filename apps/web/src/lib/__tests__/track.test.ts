@@ -41,9 +41,9 @@ describe('track', () => {
 
   it('正常路径带上 kind 与姓名', () => {
     const spy = vi.spyOn(api as any, 'recordPageView').mockResolvedValue({});
-    track('submission_detail', '某学生', 'sid-1');
+    track('submission_detail', '吴佳宁', 'sid-1');
     expect(spy).toHaveBeenCalledWith(
-      expect.objectContaining({ kind: 'submission_detail', studentName: '某学生', studentId: 'sid-1' }),
+      expect.objectContaining({ kind: 'submission_detail', studentName: '吴佳宁', studentId: 'sid-1' }),
     );
   });
 });

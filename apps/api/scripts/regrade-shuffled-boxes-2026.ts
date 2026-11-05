@@ -1,7 +1,7 @@
 import { PrismaClient } from '@prisma/client';
 
 /**
- * One-off content re-grade for 某学生 (submission cmpq71c8a00vcatyrxcbazyv2).
+ * One-off content re-grade for one student (submission cmpq71c8a00vcatyrxcbazyv2).
  * He answered the shuffled boxes positionally, so his (mostly correct)
  * answers landed in the wrong question boxes. Per teacher decision, we
  * credit the boxes that actually contain a correct answer:

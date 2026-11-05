@@ -204,6 +204,21 @@
   }
   .sess-field input::placeholder{color:var(--muted);font-family:var(--body);font-weight:500;font-size:15px}
   .sess-field input:focus{outline:none}
+  .sess-field.cls-field{flex:0 1 240px;min-width:180px}
+  .sess-field select{
+    width:100%;background:transparent;border:0;
+    font-family:var(--display);font-size:18px;color:var(--ink);
+    padding:2px 0;appearance:auto;
+  }
+  .sess-field select:focus{outline:none}
+  .gate{padding:30px 20px;text-align:center;color:var(--ink-2);
+    background:var(--paper);border-radius:14px;
+    box-shadow:inset 0 -3px 0 rgba(0,0,0,.06), 0 3px 0 rgba(0,0,0,.10);
+    font-family:var(--body);font-size:15px;line-height:1.6}
+  .gate[hidden]{display:none}
+  .gate .big{font-size:40px;margin-bottom:6px}
+  .gate a{display:inline-block;margin-top:12px;padding:8px 18px;border-radius:999px;
+    background:var(--ink);color:#fff;text-decoration:none;font-weight:700}
 
   /* Coin counter (Mario top-bar style) */
   .count-card{
@@ -862,6 +877,10 @@
   </h1>
 
   <div class="meta-row">
+    <div class="sess-field cls-field">
+      <label for="cls">★ 班级</label>
+      <select id="cls" disabled><option value="">加载中…</option></select>
+    </div>
     <div class="sess-field">
       <label for="sess">★ 本次记录</label>
       <input id="sess" type="text" placeholder="例：早测 / 第三周课堂">
@@ -930,6 +949,7 @@
     <h2>同 学</h2>
     <span class="hint">TAP THE ? BLOCK</span>
   </div>
+  <div class="gate" id="gate" hidden></div>
   <div class="grid" id="grid"></div>
 </main>
 
@@ -955,44 +975,130 @@
   <div class="dlg-actions"><button id="btnCloseSess">关闭</button></div>
 </dialog>
 
-<script>
+<script type="module">
 /* =====================================================
-   学生记录 — v3 (Super Mario edition)
+   学生记录 — v5 (Super Mario edition)
+   v5（2026-11-05）：名单不再写死在页面里。页面本身不带任何学生数据，
+   打开后用老师登录时存的 auth_token 调接口，读该老师自己能看的班级花名册。
+   没登录 / 令牌过期 → 只显示「请先登录」，不显示任何名字。
    ===================================================== */
 
-const STUDENTS = [
-  {name:"杨钧皓",id:"S260053"},{name:"于琳晶",id:"S260052"},{name:"胡鑫瑜",id:"S260051"},
-  {name:"罗翾瑶",id:"S260050"},{name:"孙爱迪",id:"S260049"},{name:"王晨旭",id:"S260048"},
-  {name:"王晨宇",id:"S260047"},{name:"于小婷",id:"S260046"},{name:"刘思璇",id:"S260045"},
-  {name:"牛星林",id:"S260044"},{name:"林寅嘉",id:"S260043"},{name:"于小娉",id:"S260039"},
-  {name:"HEIN HTET NAING",id:"S260038"},{name:"牟歌",id:"S260037"},{name:"叶书瑞",id:"S260036"},
-  {name:"毛思琳",id:"S260035"},{name:"田昌",id:"S260034"},{name:"田硕",id:"S260033"},
-  {name:"李淳",id:"S260032"},{name:"王耀星",id:"S260031"},{name:"郑靖稀",id:"S260030"},
-  {name:"郑稀瑜",id:"S260029"},{name:"雷泽锐",id:"S260028"},{name:"祝振豪",id:"S260027"},
-  {name:"严锦诺",id:"S260026"},{name:"李明阳",id:"S260020"},{name:"喻耀程",id:"S260024"},
-  {name:"闫雯涵",id:"S260023"},{name:"李永轩",id:"S260022"},{name:"范恩慧",id:"S260021"},
-  {name:"孔凡今",id:"S260019"},{name:"刘钇村",id:"S260009"},{name:"刘亦佳",id:"S260008"}
-];
+const API = (import.meta.env.VITE_API_URL || "") + "/api";
+const KEY_CLASS = "qa.classId";
+let STUDENTS = [];
+let CLASS_ID = "";
+let CLASS_NAME = "";
 
-const KEY_CURRENT  = "qa.current.v2";
-const KEY_SESSIONS = "qa.sessions.v2";
+// v3 起按班级分开存：标记里存的是系统里的学生账号 id（不是名字）。
+// v2 的旧数据（按学号存）不读也不删，留在原设备上。
+const KEY_CURRENT_PREFIX = "qa.current.v3:";
+const KEY_SESSIONS = "qa.sessions.v3";
 const KEY_THEME    = "qa.theme";
 
-let state = loadCurrent();
-let lastCount = state.marked.size;
+let state = { name: defaultName(), marked: new Set() };
+let lastCount = 0;
 
 function loadCurrent(){
   try{
-    const raw = localStorage.getItem(KEY_CURRENT);
+    const raw = CLASS_ID && localStorage.getItem(KEY_CURRENT_PREFIX + CLASS_ID);
     if(raw){
       const v = JSON.parse(raw);
-      if(Array.isArray(v.marked)) return { name: v.name||defaultName(), marked: new Set(v.marked) };
+      const valid = new Set(STUDENTS.map(s => s.id));
+      if(Array.isArray(v.marked)) return { name: v.name||defaultName(), marked: new Set(v.marked.filter(id => valid.has(id))) };
     }
   }catch(e){}
   return { name: defaultName(), marked: new Set() };
 }
 function saveCurrent(){
-  localStorage.setItem(KEY_CURRENT, JSON.stringify({ name: state.name, marked: [...state.marked] }));
+  if(!CLASS_ID) return;
+  try{ localStorage.setItem(KEY_CURRENT_PREFIX + CLASS_ID, JSON.stringify({ name: state.name, marked: [...state.marked] })); }catch(e){}
+}
+function readSessions(){
+  try{ const v = JSON.parse(localStorage.getItem(KEY_SESSIONS) || "[]"); return Array.isArray(v) ? v : []; }catch(e){ return []; }
+}
+function writeSessions(arr){
+  try{ localStorage.setItem(KEY_SESSIONS, JSON.stringify(arr)); }catch(e){}
+}
+
+/* ---------- Roster from API (login required) ---------- */
+function authToken(){ try{ return localStorage.getItem("auth_token"); }catch(e){ return null; } }
+async function apiGet(path){
+  const tok = authToken();
+  if(!tok){ const e = new Error("no token"); e.status = 401; throw e; }
+  const r = await fetch(API + path, { headers: { Authorization: `Bearer ${tok}` }, cache: "no-store" });
+  if(!r.ok){ const e = new Error("HTTP " + r.status); e.status = r.status; throw e; }
+  return r.json();
+}
+function showGate(kind, detail){
+  const gate = document.getElementById("gate");
+  const grid = document.getElementById("grid");
+  if(!kind){ gate.hidden = true; gate.innerHTML = ""; grid.hidden = false; return; }
+  grid.hidden = true; grid.innerHTML = "";
+  gate.hidden = false;
+  const next = encodeURIComponent("/quick-attendance");
+  const html = {
+    loading: '<div class="big">…</div>正在读取名单',
+    login:   '<div class="big">🔒</div>请先用老师账号登录，再打开快速考勤。<br><a href="/login?next=' + next + '">去登录</a>',
+    student: '<div class="big">🔒</div>这个页面只给老师用。',
+    noclass: '<div class="big">∅</div>你的账号下还没有班级。',
+    forbidden: '<div class="big">🔒</div>你没有这个班的权限，换一个班试试。',
+    empty:   '<div class="big">∅</div>这个班还没有学生。',
+    error:   '<div class="big">!</div>名单读取失败' + (detail ? '（' + escapeHtml(detail) + '）' : '') + '，请检查网络后刷新。',
+  }[kind];
+  gate.innerHTML = html || "";
+}
+function handleLoadError(e){
+  if(e && (e.status === 401)){ showGate("login"); return; }
+  if(e && e.status === 403){ showGate("student"); return; }
+  showGate("error", e && e.status ? String(e.status) : "");
+}
+const zhCollator = (() => { try{ return new Intl.Collator("zh-Hans-CN-u-co-pinyin"); }catch(e){ return null; } })();
+function byName(a, b){ return zhCollator ? zhCollator.compare(a.name, b.name) : String(a.name).localeCompare(String(b.name)); }
+
+async function loadClass(classId){
+  const sel = document.getElementById("cls");
+  CLASS_ID = classId;
+  CLASS_NAME = (sel.selectedOptions[0] && sel.selectedOptions[0].textContent) || "";
+  try{ localStorage.setItem(KEY_CLASS, classId); }catch(e){}
+  STUDENTS = [];
+  state = { name: defaultName(), marked: new Set() };
+  render();
+  showGate("loading");
+  try{
+    const cls = await apiGet("/classes/" + encodeURIComponent(classId));
+    if(CLASS_ID !== classId) return; // 加载期间又换了班
+    STUDENTS = (cls.enrollments || [])
+      .filter(e => e && e.user && (e.role || e.user.role) === "student")
+      .map(e => ({ id: e.user.id, name: e.user.name || "(未命名)" }))
+      .sort(byName);
+    state = loadCurrent();
+    showGate(STUDENTS.length ? null : "empty");
+    render();
+  }catch(e){
+    if(CLASS_ID !== classId) return;
+    if(e && e.status === 403){ showGate("forbidden"); return; }
+    handleLoadError(e);
+  }
+}
+
+async function boot(){
+  const sel = document.getElementById("cls");
+  if(!authToken()){ showGate("login"); return; }
+  showGate("loading");
+  let me;
+  try{ me = await apiGet("/auth/me"); }catch(e){ handleLoadError(e); return; }
+  const role = me && (me.role || (me.user && me.user.role));
+  if(role === "student"){ showGate("student"); return; }
+  let classes;
+  try{ classes = await apiGet("/classes"); }catch(e){ handleLoadError(e); return; }
+  classes = Array.isArray(classes) ? classes : []; // 接口已按班名排好序
+  if(!classes.length){ showGate("noclass"); sel.innerHTML = '<option value="">（无班级）</option>'; return; }
+  sel.innerHTML = classes.map(c => `<option value="${escapeHtml(c.id)}">${escapeHtml(c.name || c.classCode || c.id)}</option>`).join("");
+  let saved = ""; try{ saved = localStorage.getItem(KEY_CLASS) || ""; }catch(e){}
+  sel.value = classes.some(c => c.id === saved) ? saved : classes[0].id;
+  sel.disabled = false;
+  sel.addEventListener("change", () => loadClass(sel.value));
+  await loadClass(sel.value);
 }
 function defaultName(){
   const d = new Date(), p = n => String(n).padStart(2,"0");
@@ -1077,7 +1183,7 @@ document.querySelectorAll(".theme-switch button").forEach(b => {
 function render(){
   const grid = document.getElementById("grid");
   grid.innerHTML = "";
-  STUDENTS.forEach(s => {
+  STUDENTS.forEach((s, i) => {
     const on = state.marked.has(s.id);
     const b = document.createElement("button");
     b.type = "button";
@@ -1091,7 +1197,7 @@ function render(){
       </div>
       <div class="info">
         <div class="nm">${escapeHtml(s.name)}</div>
-        <div class="id">${s.id}</div>
+        <div class="id">No.${String(i + 1).padStart(2, "0")}</div>
       </div>
       <span class="stamp">GET!</span>
     `;
@@ -1210,20 +1316,22 @@ document.getElementById("btnReset").addEventListener("click", () => {
   state.marked.clear(); saveCurrent(); render();
 });
 document.getElementById("btnSave").addEventListener("click", () => {
-  const sessions = JSON.parse(localStorage.getItem(KEY_SESSIONS) || "[]");
-  sessions.unshift({ name: state.name || defaultName(), savedAt: new Date().toISOString(), marked: [...state.marked] });
-  localStorage.setItem(KEY_SESSIONS, JSON.stringify(sessions.slice(0,200)));
+  if(!CLASS_ID || !STUDENTS.length) return;
+  const sessions = readSessions();
+  sessions.unshift({ classId: CLASS_ID, className: CLASS_NAME, name: state.name || defaultName(), savedAt: new Date().toISOString(), marked: [...state.marked] });
+  writeSessions(sessions.slice(0,200));
   flash("SAVED ✓"); buzz(20); play("oneUp");
 });
 document.getElementById("btnExport").addEventListener("click", () => {
+  if(!STUDENTS.length) return;
   exportCsv({ name: state.name, marked: [...state.marked] }); buzz(15);
 });
 
 function exportCsv(s){
   const set = new Set(s.marked);
-  const rows = [["姓名","学工号","已选","记录名","导出时间"]];
+  const rows = [["姓名","序号","已选","班级","记录名","导出时间"]];
   const ts = new Date().toISOString();
-  STUDENTS.forEach(st => rows.push([st.name, st.id, set.has(st.id) ? "是" : "", s.name || "", ts]));
+  STUDENTS.forEach((st, i) => rows.push([st.name, i + 1, set.has(st.id) ? "是" : "", CLASS_NAME, s.name || "", ts]));
   const csv = "\ufeff" + rows.map(r => r.map(csvCell).join(",")).join("\r\n");
   const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
   const url = URL.createObjectURL(blob);
@@ -1271,14 +1379,18 @@ renderMute();
   });
 })();
 const dlg = document.getElementById("dlgSessions");
+// 历史记录只列当前班的；按钮上的 data-i 是在全部记录里的下标。
+function sessionsForClass(){
+  return readSessions().map((s, i) => ({ s, i })).filter(x => x.s && x.s.classId === CLASS_ID);
+}
 document.getElementById("btnSessions").addEventListener("click", () => {
-  const sessions = JSON.parse(localStorage.getItem(KEY_SESSIONS) || "[]");
+  const sessions = sessionsForClass();
   const list = document.getElementById("sessList");
   document.getElementById("sessHint").textContent = sessions.length ? `× ${sessions.length}` : "";
   if(!sessions.length){
     list.innerHTML = '<div class="empty"><div class="big">∅</div>还没有保存的记录<br><span style="font-size:11px">按下 “保存” 即可在此查看</span></div>';
   } else {
-    list.innerHTML = sessions.map((s,i) => {
+    list.innerHTML = sessions.map(({ s, i }) => {
       const t = new Date(s.savedAt).toLocaleString("zh-CN", { month:"short", day:"numeric", hour:"2-digit", minute:"2-digit" });
       const count = (s.marked || []).length;
       return `<div class="item">
@@ -1291,29 +1403,33 @@ document.getElementById("btnSessions").addEventListener("click", () => {
     list.querySelectorAll("button").forEach(btn => {
       btn.addEventListener("click", () => {
         const i = +btn.dataset.i, act = btn.dataset.act;
-        const arr = JSON.parse(localStorage.getItem(KEY_SESSIONS) || "[]");
+        const arr = readSessions();
+        const rec = arr[i];
+        if(!rec || rec.classId !== CLASS_ID) return;
         if(act === "load"){
-          state = { name: arr[i].name, marked: new Set(arr[i].marked || []) };
+          const valid = new Set(STUDENTS.map(st => st.id));
+          state = { name: rec.name, marked: new Set((rec.marked || []).filter(id => valid.has(id))) };
           saveCurrent(); render(); dlg.close(); flash("已读取");
         } else if(act === "export"){
-          exportCsv({ name: arr[i].name, marked: arr[i].marked || [] });
+          exportCsv({ name: rec.name, marked: rec.marked || [] });
         } else if(act === "del"){
           if(confirm("删除该条记录？")){
             arr.splice(i, 1);
-            localStorage.setItem(KEY_SESSIONS, JSON.stringify(arr));
+            writeSessions(arr);
             document.getElementById("btnSessions").click();
           }
         }
       });
     });
   }
-  dlg.showModal();
+  if(!dlg.open) dlg.showModal();
 });
 document.getElementById("btnCloseSess").addEventListener("click", () => dlg.close());
 dlg.addEventListener("click", (e) => { if(e.target === dlg) dlg.close(); });
 
 /* ---------- Boot ---------- */
 render();
+boot();
 </script>
 </body>
 </html>

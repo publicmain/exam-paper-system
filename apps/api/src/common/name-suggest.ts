@@ -39,7 +39,7 @@ export function editDistance(a: string, b: string): number {
  * 「相近」的门槛按长度走：
  *   · 2–3 字的中文名：编辑距离 ≤ 1（差一个字/多打漏打一个字）
  *   · 更长的（4 字名 / 拼音名）：距离 ≤ 2
- * 忽略空白差异（「孙 爱迪」→「某学生」）。完全相同的不算建议 ——
+ * 忽略空白差异（「吴 佳宁」→「吴佳宁」）。完全相同的不算建议 ——
  * 那说明是别的原因（如账号停用），提示错名字反而误导。
  */
 export function closeNames(input: string, roster: string[], limit = 3): string[] {
