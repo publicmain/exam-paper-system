@@ -1,13 +1,14 @@
-import { ForbiddenException, Injectable } from '@nestjs/common';
+import { BadRequestException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../common/prisma.service';
-import { isAdminOrHead } from '../common/roles';
+import { canActOnClass, isAdminOrHead } from '../common/roles';
+import { loadSchoolCalendar, isTeachingDay, singaporeDate, dateOnly, nextDate, validDate } from '../common/school-calendar';
+import { buildTeacherToday } from './teacher-today';
 import { assignedReadingFor, type AssignedReading } from '../vocab-v2/level-timeline';
 import { formalAnswerOf } from '../vocab-v2/first-answer';
 import { isExcludedAccount, isExcludedClass, reportExclusions } from './report-exclusions';
 import {
   addDays,
   buildWeeklyReport,
-  dayOfWeek,
   isDateKey,
   mondayOf,
   type DayFacts,
@@ -79,7 +80,7 @@ export class LearningReportService {
       classes,
       generatedAt: now.toISOString(),
     };
-    const weekdaysOnly = weekDays.filter((d) => dayOfWeek(d) >= 1 && dayOfWeek(d) <= 5);
+    const weekdaysOnly = weekDays.filter((d) => isTeachingDay(d));
     if (!scopeIds.length) {
       return buildWeeklyReport({ ...base, days: weekdaysOnly, students: [], excluded: { demoAccounts: 0, registeredAfter: 0 } });
     }
@@ -111,13 +112,28 @@ export class LearningReportService {
       }
       cohort.push(e);
     }
-    const ids = cohort.map((e) => e.user.id);
+    const loaded = await this.loadFacts(cohort, scopeIds, weekDays, today, classNameOf);
+    const days = weekDays.filter((d) => isTeachingDay(d) || loaded.sessionDays.has(d));
+    const lastDay = days[days.length - 1];
+    const students = loaded.students.filter((student) => student.registeredOn <= lastDay).map((student) => ({ ...student, days: student.days.filter((d) => days.includes(d.date)) }));
+    registeredAfter += loaded.students.length - students.length;
 
-    const [assignments, levelChanges, vocab] = await Promise.all([
+    return buildWeeklyReport({ ...base, days, students, excluded: { demoAccounts, registeredAfter } });
+  }
+
+  /** Shared read-only fact loader used by the weekly report and daily follow-up. */
+  private async loadFacts(
+    cohort: Array<{ classId: string; joinedAt: Date; user: { id: string; name: string; englishLevel: unknown; createdAt: Date } }>,
+    scopeIds: string[], days: string[], today: string, classNameOf: Map<string, string>, followUps = false,
+  ) {
+    const ids = [...new Set(cohort.map((e) => e.user.id))];
+    if (!ids.length) return { students: [] as StudentFacts[], sessionDays: new Set<string>() };
+    const calendar = await loadSchoolCalendar(this.prisma, ids, days[0], days[days.length - 1]);
+    const [assignments, levelChanges, vocab, pending] = await Promise.all([
       this.prisma.paperAssignment.findMany({
         where: {
           classId: { in: scopeIds },
-          morningQuizSession: { is: { date: { gte: utcDate(weekStart), lte: utcDate(weekEnd) } } },
+          morningQuizSession: { is: { date: { gte: utcDate(days[0]), lte: utcDate(days[days.length - 1]) } } },
         },
         select: {
           id: true,
@@ -147,20 +163,16 @@ export class LearningReportService {
       this.prisma.vocabularyV2Session.findMany({
         where: {
           studentId: { in: ids },
-          date: { gte: utcDate(weekStart), lte: utcDate(weekEnd) },
+          date: { gte: utcDate(days[0]), lte: utcDate(days[days.length - 1]) },
           sessionType: { in: ['daily_learning', 'formal_test'] },
         },
-        select: { studentId: true, date: true, sessionType: true, status: true, items: { select: { status: true, isCorrect: true, firstIsCorrect: true, firstAnsweredAt: true } } },
+        select: { id: true, studentId: true, date: true, sessionType: true, status: true, items: { select: { status: true, isCorrect: true, firstIsCorrect: true, firstAnsweredAt: true } } },
       }),
+      followUps ? this.prisma.studentSubmission.findMany({
+        where: { studentId: { in: ids }, status: 'submitted', finalSubmittedAt: { not: null }, submitSource: { in: ['student', 'teacher'] }, assignment: { classId: { in: scopeIds }, morningQuizSession: { is: { date: { lte: utcDate(today) } } } } },
+        select: { id: true, studentId: true, scripts: { where: { awardedMarks: null, paperQuestion: { question: { questionType: { in: ['structured', 'short_answer', 'essay'] } } } }, select: { id: true } } },
+      }) : Promise.resolve([] as Array<{ id: string; studentId: string; scripts: Array<{ id: string }> }>),
     ]);
-
-    // 周一到周五总是显示；周末只有排了课才显示
-    const sessionDays = new Set(assignments.filter((a) => a.morningQuizSession).map((a) => keyOf(a.morningQuizSession!.date)));
-    const days = weekDays.filter((d) => (dayOfWeek(d) >= 1 && dayOfWeek(d) <= 5) || sessionDays.has(d));
-    // 这周最后一个有课日之后才注册的（比如周日注册）：这周本来就没有他的事，不算进来
-    const lastDay = days[days.length - 1];
-    const lateIds = new Set(cohort.filter((e) => sgtKey(e.user.createdAt) > lastDay).map((e) => e.user.id));
-    registeredAfter += lateIds.size;
 
     const scoreBySubmission = new Map<string, { status: string; totalScore: number | null; maxScore: number | null }>();
     for (const a of assignments) {
@@ -169,7 +181,7 @@ export class LearningReportService {
       }
     }
 
-    const students: StudentFacts[] = cohort.filter((e) => !lateIds.has(e.user.id)).map((e) => {
+    const students: StudentFacts[] = cohort.map((e) => {
       const u = e.user;
       const assigned = assignedReadingFor({
         rows: assignments
@@ -191,7 +203,7 @@ export class LearningReportService {
                 : null,
             };
           }),
-        joinedAtByClass: new Map([[e.classId, e.joinedAt]]),
+        joinedAtByClass: new Map(cohort.filter((row) => row.user.id === u.id).map((row) => [row.classId, row.joinedAt])),
         changes: levelChanges
           .filter((c) => c.studentId === u.id)
           .map((c) => ({ ...c, fromLevel: c.fromLevel == null ? null : String(c.fromLevel), toLevel: String(c.toLevel) })),
@@ -217,15 +229,18 @@ export class LearningReportService {
         const test = testRows.find((v) => v.status === 'submitted') ?? testRows[0] ?? null;
         return {
           date,
+          noSchoolDay: calendar.isNoSchoolDay(u.id, date),
           reading: r
             ? {
+                assignmentId: r.assignmentId,
+                submissionId: r.submission?.id ?? null,
                 title: r.title,
                 level: r.level,
                 state: r.state,
                 completed: r.completed,
                 awaitingMarking: r.awaitingMarking,
                 opened: Boolean(r.submission),
-                pct: r.completed && marked && score!.maxScore ? Math.round(((score!.totalScore ?? 0) / score!.maxScore) * 100) : null,
+                pct: r.completed && marked && score!.totalScore != null && (score!.maxScore ?? 0) > 0 ? ((score!.totalScore ?? 0) / score!.maxScore!) * 100 : null,
                 submittedAt: r.submission?.finalSubmittedAt ? r.submission.finalSubmittedAt.toISOString() : null,
               }
             : null,
@@ -237,12 +252,13 @@ export class LearningReportService {
               }
             : null,
           test: test
-            ? { submitted: test.status === 'submitted', correct: test.items.filter((i) => formalAnswerOf(i).isCorrect === true).length, items: test.items.length }
+            ? { id: test.id, answered: test.items.filter((i) => i.status === 'answered').length, submitted: test.status === 'submitted', correct: test.items.filter((i) => formalAnswerOf(i).isCorrect === true).length, items: test.items.length }
             : null,
         };
       });
 
       return {
+        pendingMarking: pending.filter((p) => p.studentId === u.id && p.scripts.length > 0).map((p) => ({ submissionId: p.id, questions: p.scripts.length })),
         id: u.id,
         name: u.name,
         classId: e.classId,
@@ -253,8 +269,41 @@ export class LearningReportService {
       };
     });
 
-    return buildWeeklyReport({ ...base, days, students, excluded: { demoAccounts, registeredAfter } });
+    return { students, sessionDays: new Set(assignments.filter((a) => a.morningQuizSession).map((a) => keyOf(a.morningQuizSession!.date))) };
   }
+
+  async today(actor: { id: string; role: string }, classId: string, date?: string, now = new Date()) {
+    if (!await canActOnClass(this.prisma, actor, classId)) throw new ForbiddenException({ code: 'not_your_class' });
+    const day = date ?? singaporeDate(now);
+    if (!validDate(day)) throw new BadRequestException('日期不正确');
+    const cls = await this.prisma.class.findUnique({ where: { id: classId }, select: { name: true } });
+    if (!cls) throw new NotFoundException('找不到这个班');
+    const cohort = await this.prisma.classEnrollment.findMany({
+      where: { classId, role: 'student', joinedAt: { lt: new Date(dateOnly(nextDate(day, 1)).getTime() - 8 * 3600_000) }, user: { archivedAt: null, isActive: true } },
+      select: { classId: true, joinedAt: true, user: { select: { id: true, name: true, englishLevel: true, createdAt: true } } },
+    });
+    const ids = cohort.map((e) => e.user.id);
+    // No fixed lookback: a long school holiday must not displace teaching days.
+    const calendar = await loadSchoolCalendar(this.prisma, ids, undefined, day);
+    const recentByStudent = new Map<string, string[]>();
+    const selected = new Set<string>([day]);
+    for (const id of ids) {
+      const recent: string[] = [];
+      for (let d = day; recent.length < 3; d = nextDate(d, -1)) {
+        if (calendar.isTeachingDay(id, d)) { recent.push(d); selected.add(d); }
+      }
+      recentByStudent.set(id, recent);
+    }
+    const days = [...selected].sort();
+    const loaded = await this.loadFacts(cohort, [classId], days, day, new Map([[classId, cls.name]]), true);
+    const warnings = ids.length ? await this.prisma.notification.findMany({
+      where: { userId: { in: ids }, type: 'effort_warning', createdAt: { gte: new Date(dateOnly(mondayOf(day)).getTime() - 8 * 3600_000), lt: new Date(dateOnly(nextDate(day, 1)).getTime() - 8 * 3600_000) } },
+      select: { id: true, userId: true, title: true, body: true, createdAt: true },
+    }) : [];
+    const classOff = await this.prisma.classNoSchoolDay.findUnique({ where: { classId_date: { classId, date: dateOnly(day) } }, select: { id: true } });
+    return buildTeacherToday({ classId, className: cls.name, date: day, classNoSchoolDay: Boolean(classOff), students: loaded.students, recentByStudent, warned: new Set(warnings.map((w) => w.userId)), warnings });
+  }
+
 }
 
 function toNumber(v: unknown): number | null {

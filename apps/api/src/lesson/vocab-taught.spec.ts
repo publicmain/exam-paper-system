@@ -40,6 +40,7 @@ function makeSvc(overrides: Record<string, any> = {}, opts: { taskWords?: string
   for (const [k, v] of Object.entries(overrides)) base[k] = { ...base[k], ...v };
 
   const prisma: any = {
+    classEnrollment: { findMany: vi.fn().mockResolvedValue([]) },
     __calls: calls,
     ...base,
     $transaction: async (fn: Function) => {

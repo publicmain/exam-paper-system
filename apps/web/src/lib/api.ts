@@ -67,6 +67,10 @@ async function request<T = any>(method: string, path: string, body?: any): Promi
 }
 
 export const api = {
+  classToday: (classId: string, date?: string) => request('GET', `/learning-report/classes/${encodeURIComponent(classId)}/today${qs({ date })}`),
+  classNoSchoolDays: (classId: string, period = 'all') => request('GET', `/classes/${encodeURIComponent(classId)}/no-school-days${qs({ period })}`),
+  addClassNoSchoolDays: (classId: string, input: { from: string; to: string; reason?: string }) => request('POST', `/classes/${encodeURIComponent(classId)}/no-school-days`, input),
+  removeClassNoSchoolDay: (classId: string, date: string) => request('DELETE', `/classes/${encodeURIComponent(classId)}/no-school-days/${encodeURIComponent(date)}`),
   teachingStudentBadges: (classId: string, studentId: string) =>
     request('GET', `/teaching/classes/${encodeURIComponent(classId)}/students/${encodeURIComponent(studentId)}/badges`),
   teachingRevokeBadge: (classId: string, studentId: string, badgeKey: string, reason: string) =>

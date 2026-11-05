@@ -69,6 +69,7 @@ function makeDb(users: Row[], subs: Row[] = []) {
     (where.endpoint === undefined || s.endpoint === where.endpoint) &&
     studentMatches(byId.get(s.studentId), where.student);
   const prisma: any = {
+    classEnrollment: { findMany: vi.fn().mockResolvedValue([]) },
     pushSubscription: {
       upsert: vi.fn(async ({ where, create, update }: Row) => {
         const hit = subs.find((s) => s.endpoint === where.endpoint);

@@ -91,6 +91,7 @@ function makeSvc(opts: {
 
   const writes: string[] = [];
   const prisma: any = {
+    classEnrollment: { findMany: vi.fn().mockResolvedValue([]) },
     user: {
       findUnique: async () => ({ englishLevel: 'olevel' }),
       // token 路径走 resolveAuthenticatedStudent(prisma, authStudentId)
@@ -174,6 +175,7 @@ function makeSvc(opts: {
 /** 正式测试的阶段门 —— **原样使用，不改一个字**，只喂它落库的那一行。 */
 function quizStartAgainst(row: Row | null) {
   const prisma: any = {
+    classEnrollment: { findMany: vi.fn().mockResolvedValue([]) },
     dailyLessonCompletion: {
       findUnique: async () => (row ? { id: row.id, vocabWords: row.vocabWords, stage: row.stage } : null),
     },

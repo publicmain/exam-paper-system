@@ -1,3 +1,4 @@
+import { loadSchoolCalendar, dateOnly, nextDate } from '../common/school-calendar';
 import { Injectable, Logger, BadRequestException, ConflictException, NotFoundException, Optional } from '@nestjs/common';
 import { PrismaService } from '../common/prisma.service';
 import { StudentWordService } from '../vocab/student-word.service';
@@ -237,6 +238,9 @@ export class LessonService {
       : await this.resolveByIdOrName(input.studentId, input.studentName);
     const now = new Date();
     const day = this.sgtDayStart(now);
+    const calendar = await loadSchoolCalendar(this.prisma, [student.id], undefined, day.toISOString().slice(0, 10));
+    const noSchoolDay = calendar.isNoSchoolDay(student.id, day.toISOString().slice(0, 10));
+    if (noSchoolDay) input = { ...input, freeze: false, begin: false };
 
     // P9 —— 学生的长期难度决定他今天进哪一层（`User.englishLevel` 是
     // 唯一事实来源，P4）。账号制入口下没有人扫码替他指定场次，服务端
@@ -522,11 +526,11 @@ export class LessonService {
     // 先把昨天那份固定 12 词测完，再开始今天的新词；考试范围仍绑定旧任务，
     // 不会与今天的文章混在一起。
     const completionRepo = this.prisma.dailyLessonCompletion as any;
-    const pendingVocabTask = typeof completionRepo.findFirst === 'function'
+    const pendingVocabCandidate = typeof completionRepo.findFirst === 'function'
       ? await completionRepo.findFirst({
           where: {
             studentId: student.id,
-            date: { lt: day },
+            date: { lt: day, notIn: [...calendar.noSchoolDates(student.id)].map(dateOnly) },
             stage: 'vocab_test',
             vocabQuizDeferredUntil: { lte: day },
             vocabQuizAttempts: { none: {} },
@@ -535,12 +539,16 @@ export class LessonService {
           select: { id: true, date: true, vocabWords: true },
         })
       : null;
-    const effectiveNextAction = pendingVocabTask
+    const pendingVocabTask = pendingVocabCandidate && !calendar.isNoSchoolDay(student.id, pendingVocabCandidate.date.toISOString().slice(0, 10)) ? pendingVocabCandidate : null;
+    const effectiveNextAction = noSchoolDay
+      ? { kind: 'no_content' as const, label: '今天停课', href: null }
+      : pendingVocabTask
       ? { kind: 'vocab_test' as const, label: '完成延期的单词测试', href: '/my-vocab/quiz' }
       : nextAction;
     return {
       student: { id: student.id, name: student.name },
       date: day.toISOString().slice(0, 10),
+      noSchoolDay,
       nextAction: effectiveNextAction,
       pendingVocabTest: pendingVocabTask
         ? {
@@ -1166,13 +1174,20 @@ export class LessonService {
    * （V2 接管之前的试点期）仍然算数，不让任何人凭空掉一天。
    */
   private async lessonStreak(studentId: string, today: Date): Promise<number> {
+    const key = today.toISOString().slice(0, 10);
+    const calendar = await loadSchoolCalendar(this.prisma, [studentId], undefined, key);
+    const off = calendar.noSchoolDates(studentId);
+    // A long holiday must not push the last real completion outside the old
+    // 60-calendar-day fact window. Closures consume none of that window.
+    let from = key;
+    for (let remaining = 60; remaining > 0; from = nextDate(from, -1)) if (!off.has(from)) remaining--;
     const [legacy, factual] = await Promise.all([
-      this.legacyDoneDays(studentId, today),
-      this.factualDoneDays(studentId, today),
+      this.legacyDoneDays(studentId, today, off),
+      this.factualDoneDays(studentId, today, dateOnly(from)),
     ]);
     // streakFromDays 要求由近及远
     const doneDays = [...new Set([...legacy, ...factual])].sort().reverse();
-    return streakFromDays(doneDays, today.toISOString().slice(0, 10));
+    return streakFromDays(doneDays, key, 2, off);
   }
 
   /**
@@ -1189,8 +1204,7 @@ export class LessonService {
    * 同一条规矩：完成度一旦能被系统凭空发放，它就不再能回答「这孩子今天
    * 到底学没学」。
    */
-  private async factualDoneDays(studentId: string, today: Date): Promise<string[]> {
-    const from = new Date(today.getTime() - 60 * 24 * 60 * 60 * 1000);
+  private async factualDoneDays(studentId: string, today: Date, from = new Date(today.getTime() - 60 * 86400_000)): Promise<string[]> {
     const [reads, vocab] = await Promise.all([
       this.prisma.studentSubmission.findMany({
         where: {
@@ -1241,9 +1255,9 @@ export class LessonService {
   }
 
   /** 老口径：`DailyLessonCompletion` 上写过的完成日。见 `lessonStreak` 的说明。 */
-  private async legacyDoneDays(studentId: string, today: Date): Promise<string[]> {
+  private async legacyDoneDays(studentId: string, today: Date, off: ReadonlySet<string> = new Set()): Promise<string[]> {
     const rows = await this.prisma.dailyLessonCompletion.findMany({
-      where: { studentId, date: { lte: today } },
+      where: { studentId, date: { lte: today, notIn: [...off].map(dateOnly) } },
       orderBy: { date: 'desc' },
       take: 60,
       select: {

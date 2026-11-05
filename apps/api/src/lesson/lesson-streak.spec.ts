@@ -23,6 +23,7 @@ function makeSvc(input: {
   vocab?: Vocab[];
   /** 老口径里已经写实了的完成日（V2 接管之前的试点期） */
   legacy?: string[];
+  noSchoolDates?: string[];
 }) {
   const submissionFindMany = vi.fn().mockResolvedValue(
     (input.reads ?? []).map((r) => ({
@@ -49,6 +50,8 @@ function makeSvc(input: {
     })),
   );
   const prisma: any = {
+    classEnrollment: { findMany: vi.fn().mockResolvedValue([{ userId: STUDENT, classId: 'c', joinedAt: new Date('2026-01-01') }]) },
+    classNoSchoolDay: { findMany: vi.fn().mockResolvedValue((input.noSchoolDates ?? []).map((d) => ({ classId: 'c', date: new Date(d) }))) },
     studentSubmission: { findMany: submissionFindMany },
     vocabularyV2Session: { findMany: vocabFindMany },
     dailyLessonCompletion: { findMany: dlcFindMany },
@@ -70,6 +73,19 @@ function fullDay(date: string): { read: Read; vocab: Vocab[] } {
 }
 
 describe('连续完成天数 —— 从事实算', () => {
+  it('长假超过60天仍会加载假期前的真实完成日', async () => {
+    const off: string[] = [];
+    for (let stamp = Date.parse('2026-06-01'); stamp < TODAY.getTime(); stamp += 86400_000) off.push(new Date(stamp).toISOString().slice(0, 10));
+    const day = fullDay('2026-05-29');
+    const { streak, submissionFindMany } = makeSvc({ reads: [day.read], vocab: day.vocab, noSchoolDates: off });
+    await expect(streak()).resolves.toBe(1);
+    expect(submissionFindMany.mock.calls[0][0].where.assignment.morningQuizSession.is.date.gte.getTime()).toBeLessThan(Date.parse('2026-05-29'));
+  });
+  it('连续停课不打断；停课日已做的记录不增加连续天数', async () => {
+    const days = ['2026-09-03', '2026-09-08', '2026-09-10'].map(fullDay);
+    const { streak } = makeSvc({ reads: days.map((d) => d.read), vocab: days.flatMap((d) => d.vocab), noSchoolDates: ['2026-09-04', '2026-09-07', '2026-09-08', '2026-09-09'] });
+    await expect(streak()).resolves.toBe(2);
+  });
   it('连着三天交卷 + 交单词测试 → 3 天（DLC 一个字都没写）', async () => {
     const days = ['2026-09-07', '2026-09-08', '2026-09-09'].map(fullDay);
     const { streak, dlcFindMany } = makeSvc({

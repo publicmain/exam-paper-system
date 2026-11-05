@@ -64,6 +64,9 @@ export const MEMORY_SCHEMA: Record<string, ModelDef> = {
     },
     defaults: () => ({ archivedAt: null, name: '班级' }),
   },
+  auditLog: {},
+  notification: { defaults: () => ({ readAt: null }) },
+  classNoSchoolDay: { unique: [['classId', 'date']], defaults: () => ({ reason: null }) },
   classEnrollment: {
     unique: [['classId', 'userId']],
     relations: { user: one('user', 'userId'), class: one('class', 'classId') },
@@ -96,7 +99,7 @@ export const MEMORY_SCHEMA: Record<string, ModelDef> = {
     relations: { assignment: one('paperAssignment', 'assignmentId'), scripts: many('answerScript', 'submissionId') },
     defaults: () => ({ status: 'in_progress', finalSubmittedAt: null, submitSource: null, maxScore: 10 }),
   },
-  answerScript: { relations: { submission: one('studentSubmission', 'submissionId') } },
+  answerScript: { relations: { submission: one('studentSubmission', 'submissionId'), paperQuestion: one('paperQuestion', 'paperQuestionId') }, defaults: () => ({ awardedMarks: null }) },
   dictEntry: { idField: 'word', defaults: () => ({ phonetic: null, definition: null, pos: null }) },
   wordAudio: { idField: 'headword', defaults: () => ({ voice: 'test', contentType: 'audio/mpeg', byteLength: 3 }) },
   vocabularyLexeme: {

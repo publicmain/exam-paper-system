@@ -1,6 +1,7 @@
 import { isOutboundAllowed, assertOutboundAllowed } from '../common/outbound-gate';
 import { Injectable, Logger, ServiceUnavailableException } from '@nestjs/common';
 import * as webpush from 'web-push';
+import { loadSchoolCalendar, singaporeDate } from '../common/school-calendar';
 import { PrismaService } from '../common/prisma.service';
 import { ENABLED_ACCOUNT_WHERE } from '../common/account-lifecycle';
 import { STUDENT_TOKEN_TTL_DAYS } from '../student-auth/student-auth.service';
@@ -214,7 +215,8 @@ export class PushService {
     });
     const doneToday = new Set(done.map((d) => d.studentId));
 
-    const targets = reminderTargets({ subscribed, hasSessionToday, doneToday, sentToday });
+    const calendar = await loadSchoolCalendar(this.prisma, [...subscribed], singaporeDate(now), singaporeDate(now));
+    const targets = reminderTargets({ subscribed, hasSessionToday, doneToday, sentToday }).filter((id) => calendar.isTeachingDay(id, singaporeDate(now)));
     let sent = 0;
     let dropped = 0;
     let failed = 0;

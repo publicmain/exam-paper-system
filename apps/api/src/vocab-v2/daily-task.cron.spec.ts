@@ -15,7 +15,7 @@ describe('VocabularyV2DailyTaskCron', () => {
     const findMany = vi.fn();
     const startDailySession = vi.fn();
     const cron = new VocabularyV2DailyTaskCron(
-      { user: { findMany } } as never,
+      { user: { findMany }, classEnrollment: { findMany: vi.fn().mockResolvedValue([]) } } as never,
       { startDailySession } as never,
     );
 
@@ -31,7 +31,7 @@ describe('VocabularyV2DailyTaskCron', () => {
     const findMany = vi.fn().mockResolvedValue([{ id: 's1' }, { id: 's2' }, { id: 's3' }]);
     const startDailySession = vi.fn().mockResolvedValue({ id: 'daily' });
     const cron = new VocabularyV2DailyTaskCron(
-      { user: { findMany } } as never,
+      { user: { findMany }, classEnrollment: { findMany: vi.fn().mockResolvedValue([]) } } as never,
       { startDailySession } as never,
     );
 
@@ -50,7 +50,7 @@ describe('VocabularyV2DailyTaskCron', () => {
     const findMany = vi.fn().mockResolvedValue([{ id: 's1' }]);
     const startDailySession = vi.fn().mockResolvedValue({ id: 'daily' });
     const cron = new VocabularyV2DailyTaskCron(
-      { user: { findMany } } as never,
+      { user: { findMany }, classEnrollment: { findMany: vi.fn().mockResolvedValue([]) } } as never,
       { startDailySession } as never,
     );
 
@@ -71,7 +71,7 @@ describe('VocabularyV2DailyTaskCron', () => {
       .mockRejectedValueOnce(new Error('no quality words'))
       .mockResolvedValueOnce({ id: 'daily-s2' });
     const cron = new VocabularyV2DailyTaskCron(
-      { user: { findMany } } as never,
+      { user: { findMany }, classEnrollment: { findMany: vi.fn().mockResolvedValue([]) } } as never,
       { startDailySession } as never,
     );
 

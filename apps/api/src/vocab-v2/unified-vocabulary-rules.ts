@@ -1,5 +1,6 @@
 /** Business rules shared by the unified notebook, daily learning and tests. */
 import { isSchoolBlockedHeadword } from './school-safe-words';
+export { isTeachingDay } from '../common/school-calendar';
 
 export type DailyItemState = { status: string };
 
@@ -46,11 +47,6 @@ export function sgtDateKey(now: Date): string {
  * created a Saturday and a Sunday task for every active student, and on Monday
  * the home page listed both as unfinished backlog for days school was closed.
  */
-export function isTeachingDay(dateKey: string): boolean {
-  const [y, m, d] = dateKey.split('-').map(Number);
-  const weekday = new Date(Date.UTC(y, m - 1, d)).getUTCDay();
-  return weekday >= 1 && weekday <= 5;
-}
 
 /**
  * Senses the student explicitly deferred ("稍后再学") and never finished.
