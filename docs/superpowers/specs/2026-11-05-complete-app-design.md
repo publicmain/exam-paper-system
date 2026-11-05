@@ -49,7 +49,18 @@ FSRS 接进 V2 正式词测（总量封顶，复习替换新词）；错题本�
 ### 第 4 期：口语评分（约 2–3 周）
 录音（App 内用途说明）→ Azure 发音评测免费档（月度硬封顶、超额停用、零账单）→ 逐词分 + 老师抽听；录音评完短期保存后删除。开工前核实免费额度与条款。
 
-## 6. 分工
+## 6. 开源复用清单（14 个仓库已拆，报告在 `.local/research/oss/oss-teardown-2026-11-05.md`）
+**可以直接复用代码（MIT，复制时保留版权与许可声明，统一记入 `THIRD_PARTY_NOTICES.md`）**
+| 来源 | 拿什么 | 用在 |
+|---|---|---|
+| word-atlas | 作答评级规则（答错/用提示/用时 → 等级）、拼写比较的规范化、iPad 输入框属性 | 1B、第 2 期 FSRS |
+| echo-type | 打字/拼写判定 reducer（`src/hooks/use-typing-reducer.ts`）、`ts-fsrs` 封装（`src/lib/fsrs.ts`）、编辑距离听写判定（`src/lib/levenshtein.ts`、`listen-dictation.ts`）、「原答—订正—独立回忆」类型（`src/lib/text-learning-cycle.ts`） | 1B、第 2 期、第 3 期加练 |
+| Aictionary | 分层释义、罕见义折叠的纯函数（`src/shared/lib/dictionary-entry.ts`） | 阅读点词查义补强 |
+**只借思路、自己重写（GPL / AGPL / LGPL / 无授权 / 授权冲突）**：Enjoy、qwerty-learner、TypeWords、earthworm、read-frog、MuJing、Echo-Loop、jidoujisho、WordReview、word-wind、hi-kid（MIT 但 README 写禁止商用，按只借思路处理）。
+**素材**：word-atlas 插图/录音 CC BY 4.0 可用（逐条审、署名）；Aictionary 词典数据 CC BY-SA 暂不导入；其余项目的词库、例句、音频一律不搬。
+**一律不进学生端**：任何让学生自填 API key 的设置、第三方行为埋点、付费 TTS/STT/LLM 调用链。
+
+## 7. 分工
 - Claude：本文件与每期任务单、接口契约里的教学含义、审每个合并、内容逐字审、本机真实链路验收、上线申请。
 - GPT（Codex）：按任务单成块实现（各自 `claude/p<期>-<模块>` 分支，从本分支切出）、写测试、独立复算查 bug。
 - GPT 不读：`.local/` 任何文件、仓库外任何文件、`apps/web/public/quick-attendance.html`、`apps/api/scripts/fix-2026-08-13-makeup.ts`、`apps/api/src/student-auth/login-name-match.spec.ts`、`apps/api/src/common/name-suggest.spec.ts`（含学生信息）。
