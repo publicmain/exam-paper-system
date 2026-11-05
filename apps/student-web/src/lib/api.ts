@@ -902,6 +902,7 @@ export const api = {
       paperMode: wire.paperMode ?? null,
       mode: wire.mode === 'practice' ? 'practice' : 'test',
       rendererKey: wire.rendererKey ?? null,
+      sentenceAudio: wire.sentenceAudio ?? [],
       questions: wire.paperQuestions ?? [],
       existingAnswers: wire.existingAnswers ?? {},
       submissionStatus: wire.submissionStatus ?? null,
@@ -1758,7 +1759,13 @@ export interface ReadingQuestion {
  * 不叫 `questions`。这个接口如实描述它；对外的公共形状见下面的
  * `ReadingSessionPayload`，两者之间的归一化在 `getReadingSession` 里做。
  */
+export interface PassageSentenceAudio {
+  passage: string;
+  paragraphs: Array<Array<{ text: string; audioUrl: string | null }>>;
+}
+
 export interface ReadingSessionWire {
+  sentenceAudio?: PassageSentenceAudio[];
   sessionId: string;
   submissionId: string | null;
   quizEnd: string | null;
@@ -1779,6 +1786,7 @@ export interface ReadingSessionWire {
 
 /** 新端对外的公共形状 —— 题目字段叫 `questions`（S7A 冻结）。 */
 export interface ReadingSessionPayload {
+  sentenceAudio?: PassageSentenceAudio[];
   sessionId: string;
   submissionId: string | null;
   /** 学生端倒计时**必须**用它，不是 `regularQuizEnd`。 */

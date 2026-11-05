@@ -1,4 +1,5 @@
 import { isOutboundAllowed } from '../common/outbound-gate';
+import { readingSentenceAudio } from '../audio/sentence-audio';
 import {
   BadRequestException,
   ConflictException,
@@ -2298,6 +2299,10 @@ export class MorningQuizService {
       // endpoint, so a client-side `?mode=practice` URL trick can't unlock
       // it. (Practice review of a *submitted* quiz uses POST /check.)
       mode: 'test' as const,
+      sentenceAudio: await readingSentenceAudio(delivered.map((pq) => {
+        const content = stripSnapshotContent(pq.snapshotContent) as { passage?: unknown };
+        return typeof content?.passage === 'string' ? content.passage : '';
+      }), this.prisma),
       paperQuestions: delivered.map((pq) => ({
         id: pq.id,
         sortOrder: pq.sortOrder,

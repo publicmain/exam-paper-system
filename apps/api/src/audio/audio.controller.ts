@@ -1,4 +1,4 @@
-import { Controller, Get, Param, Res } from '@nestjs/common';
+import { Controller, Get, Headers, Param, Res } from '@nestjs/common';
 import type { Response } from 'express';
 import { Public } from '../common/auth.guard';
 import { PrismaService } from '../common/prisma.service';
@@ -30,6 +30,57 @@ export function normalizeHeadword(raw: string): string | null {
 @Controller('audio')
 export class AudioController {
   constructor(private readonly prisma: PrismaService) {}
+
+  @Public()
+  @Get('sentence/:hash.mp3')
+  async sentence(@Param('hash') hash: string, @Res() res: Response, @Headers('range') range?: string) {
+    if (!/^[a-f0-9]{64}$/.test(hash)) {
+      res.status(404).setHeader('Cache-Control', 'public, max-age=3600').end();
+      return;
+    }
+    const row = await this.prisma.sentenceAudio.findUnique({
+      where: { textHash: hash },
+      select: { bytes: true, contentType: true, byteLength: true, voice: true },
+    });
+    if (!row) {
+      res.status(404).setHeader('Cache-Control', 'public, max-age=3600').end();
+      return;
+    }
+    res.setHeader('Content-Type', row.contentType);
+    res.setHeader('Content-Length', String(row.byteLength));
+    res.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
+    res.setHeader('X-Voice', row.voice);
+    res.setHeader('Accept-Ranges', 'bytes');
+    const bytes = Buffer.from(row.bytes);
+    // Safari can request byte ranges to load/seek MP3s. Only one range is
+    // supported; invalid ranges never accidentally return the whole file.
+    if (range) {
+      const match = /^bytes=(\d*)-(\d*)$/.exec(range);
+      const size = bytes.length;
+      let start = Number.NaN;
+      let end = Number.NaN;
+      if (match && (match[1] || match[2])) {
+        if (match[1]) {
+          start = Number(match[1]);
+          end = match[2] ? Math.min(Number(match[2]), size - 1) : size - 1;
+        } else if (Number(match[2]) > 0) {
+          start = Math.max(0, size - Number(match[2]));
+          end = size - 1;
+        }
+      }
+      if (!Number.isSafeInteger(start) || !Number.isSafeInteger(end) || start > end || start >= size || start < 0) {
+        res.setHeader('Content-Range', `bytes */${size}`);
+        res.setHeader('Content-Length', '0');
+        res.status(416).end();
+        return;
+      }
+      res.setHeader('Content-Range', `bytes ${start}-${end}/${size}`);
+      res.setHeader('Content-Length', String(end - start + 1));
+      res.status(206).end(bytes.subarray(start, end + 1));
+      return;
+    }
+    res.end(bytes);
+  }
 
   @Public()
   @Get('word/:headword')

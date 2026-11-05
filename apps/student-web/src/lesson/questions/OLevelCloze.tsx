@@ -4,6 +4,7 @@ import { useExam } from '../ExamContext';
 import { clean } from '../shared/textUtils';
 import { InlineGapInput } from '../shared/InlineGapInput';
 import { QuestionFlag } from '../shared/QuestionFlag';
+import { SentenceAudioSegment } from '../shared/SentenceAudio';
 
 /**
  * Cloze (gap-fill) renderer.
@@ -62,7 +63,8 @@ export function OLevelCloze({ paper }: { paper: ExamPaper }) {
         <div className="px-5 lg:px-8 py-6 text-[1.0625rem] lg:text-lg leading-[2] font-serif text-ink whitespace-pre-wrap">
           {segments.map((seg, i) => (
             <Fragment key={i}>
-              {seg}
+              <SentenceAudioSegment passage={passageContent.passage ?? ''} body={passage} text={seg}
+                start={segments.slice(0, i).reduce((n, s) => n + s.length + '[BLANK]'.length, 0)} />
               {i < segments.length - 1 && (() => {
                 const q = paper.questions[i];
                 const ans = answers[q.id];
