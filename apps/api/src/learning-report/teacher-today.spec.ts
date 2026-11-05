@@ -52,9 +52,9 @@ describe('老师今天该找谁（共用周报事实）', () => {
     expect(r).toMatchObject({ noSchoolDay: true, totals: { unfinished: 0 } });
     expect(r.students[0]).toMatchObject({ noSchoolDay: true, lowReadingCount: 0, reasons: [] });
     const week = await svc.weekly(admin, { classId: 'class-1' }, NOW);
-    expect(week.students[0]).toMatchObject({ readDue: 0, readN: 1, readAvg: 80 });
+    expect(week.students[0]).toMatchObject({ readDue: 0, readN: 1, readAvg: null });
     expect(week.totals.readRate).toBeNull();
-    expect(week.byLevel[0]).toMatchObject({ due: 0, done: 0, readAvg: 80, readRate: null });
+    expect(week.byLevel[0]).toMatchObject({ due: 0, done: 0, readAvg: null, readRate: null });
     expect(week.followUps.readingNoWords).toEqual([]);
   });
   it('多班有一个正常上课就仍需做；其他班停课后才免除', async () => {

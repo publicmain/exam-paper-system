@@ -3034,6 +3034,7 @@ export class VocabularyV2Service {
       // 冻结卷里「当天实际学完的新词」与「旧词抽查」各几题（VOC06：各页面只认这份冻结数字）
       newWords: session.items.filter((item: any) => item.source !== 'review').length,
       reviewWords: session.items.filter((item: any) => item.source === 'review').length,
+      reviewCorrect: submitted ? session.items.filter((item: any) => item.source === 'review' && answerOf(item).isCorrect === true).length : null,
       answered,
       correct: submitted ? correct : null,
       items: session.items.map((item: any) => {

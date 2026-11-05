@@ -78,13 +78,17 @@ export class VocabularyMasteryService {
   }
 
   async forStudents(studentIds: string[], through?: string): Promise<Map<string, Set<string>>> {
+    return (await this.reportForStudents(studentIds, undefined, through)).mastered;
+  }
+
+  /** One paged history read for cumulative mastery, weekly additions and open errors. */
+  async reportForStudents(studentIds: string[], from?: string, through?: string) {
     const result = new Map(studentIds.map((id) => [id, new Set<string>()]));
-    if (!studentIds.length) return result;
+    const added = new Map(studentIds.map((id) => [id, 0]));
+    const unresolved = new Map(studentIds.map((id) => [id, 0]));
+    if (!studentIds.length) return { mastered: result, added, unresolved };
     const [rows, calendar] = await Promise.all([
-      this.prisma.learningEvidence.findMany({ where: {
-        studentId: { in: studentIds }, subject: 'vocab_sense', kind: { in: [...MEMORY_KINDS] },
-        ...(through ? { schoolDate: { lte: dateOnly(through) } } : {}),
-      } }),
+      this.reportHistory(studentIds, through),
       loadSchoolCalendar(this.prisma, studentIds, undefined, through),
     ]);
     const groups = new Map<string, typeof rows>();
@@ -95,8 +99,29 @@ export class VocabularyMasteryService {
     }
     for (const [key, evidence] of groups) {
       const [studentId, senseId] = JSON.parse(key) as [string, string];
-      if (vocabularyMastered(evidence, (date) => calendar.isTeachingDay(studentId, date))) result.get(studentId)!.add(senseId);
+      const teaches = (date: string) => calendar.isTeachingDay(studentId, date);
+      if (vocabularyMastered(evidence, teaches)) {
+        result.get(studentId)!.add(senseId);
+        if (from && !vocabularyMastered(evidence.filter((e) => e.schoolDate < dateOnly(from)), teaches)) added.set(studentId, added.get(studentId)! + 1);
+      }
+      const wrong = unresolvedVocabularyMistake(evidence);
+      if (wrong && evidence.some((e) => e.kind === 'formal_first' && e.isCorrect === false && e.schoolDate.toISOString().slice(0, 10) >= wrong)) unresolved.set(studentId, unresolved.get(studentId)! + 1);
     }
-    return result;
+    return { mastered: result, added, unresolved };
+  }
+
+  private async reportHistory(studentIds: string[], through?: string) {
+    const rows: Array<MemoryEvidence & { studentId: string; senseId: string | null }> = [];
+    let after: string | undefined;
+    for (;;) {
+      const page = await this.prisma.learningEvidence.findMany({ where: {
+        ...(after ? { id: { gt: after } } : {}),
+        studentId: { in: studentIds }, subject: 'vocab_sense', kind: { in: [...MEMORY_KINDS] },
+        ...(through ? { schoolDate: { lte: dateOnly(through) } } : {}),
+      }, orderBy: { id: 'asc' }, take: 500 });
+      rows.push(...page);
+      if (page.length < 500) return rows;
+      after = page.at(-1)!.id;
+    }
   }
 }

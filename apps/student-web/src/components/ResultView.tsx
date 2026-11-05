@@ -36,7 +36,8 @@
  * 交完卷那一屏要的是「继续今天的课」，历史成绩那一屏要的是「回历史成绩」。
  * 这份组件不猜，`footer` 谁传谁负责。
  */
-import { useCallback, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { locateAnswer, type AnswerLocation } from '../lib/answer-location';
 import { api, type AnswerDisplay, type ReadingResult, type ReadingResultItem } from '../lib/api';
 import { handleAuthFailure } from '../lib/auth-store';
 import { readToken } from '../lib/identity';
@@ -194,6 +195,11 @@ const ANSWER_ROW_LABEL: Record<'correct' | 'reference' | 'rubric', string> = {
   rubric: '评分要点',
 };
 
+function answersHidden(item: ReadingResultItem, scoresPending: boolean, answersPending: boolean): boolean {
+  return answersPending || (item.questionType !== 'mcq' &&
+    (item.gradingStatus === 'pending_marking' || (!item.gradingStatus && scoresPending)));
+}
+
 /**
  * 这份卷子的原文—— **整份只有一段**，从第一道带原文的题里取。
  *
@@ -299,6 +305,9 @@ export function ResultView({
   /** 专注页（刚交卷那一屏）铺满剩余高度；历史详情用固定高度的分栏。 */
   fill?: boolean;
 }) {
+  const [highlight, setHighlight] = useState<AnswerLocation | null>(null);
+  const passage = useMemo(() => passageOf(result), [result]);
+  useEffect(() => setHighlight(null), [result]);
   const pct = useMemo(
     () => (showDerivedPercentage ? percentageOf(result) : null),
     [result, showDerivedPercentage],
@@ -315,7 +324,7 @@ export function ResultView({
         initial={0.46}
         leftLabel="原文"
         rightLabel="成绩与题目"
-        left={<PassageReview result={result} />}
+        left={<PassageReview result={result} highlight={highlight} />}
         right={
           <div className="flex flex-col gap-4 pb-8 min-[900px]:px-3">
             <h1 className="text-title2 text-ink">{result.paperName}</h1>
@@ -402,6 +411,15 @@ export function ResultView({
                   })()}
                   scoresPending={result.scoresPending}
                   answersPending={result.answersPending}
+                  onLocate={(() => {
+                    if (answersHidden(item, result.scoresPending, result.answersPending)) return undefined;
+                    // Multi-passage papers must not point into a different article.
+                    const own = passageOf({ ...result, items: [item] });
+                    if (!passage || own?.body !== passage.body) return undefined;
+                    const quote = item.evidence?.trim() || answerRowsOf(item).find((r) => r.kind !== 'rubric')?.value;
+                    const location = quote ? locateAnswer(passage.body, quote) : null;
+                    return location ? () => setHighlight({ ...location }) : undefined;
+                  })()}
                   submissionId={submissionId}
                   onAuthLost={onAuthLost}
                 />
@@ -422,6 +440,7 @@ function ResultItemCard({
   instruction = null,
   scoresPending,
   answersPending,
+  onLocate,
   submissionId,
   onAuthLost,
 }: {
@@ -431,10 +450,12 @@ function ResultItemCard({
   instruction?: string | null;
   scoresPending: boolean;
   answersPending: boolean;
+  onLocate?: () => void;
   submissionId: string;
   onAuthLost: () => void;
 }) {
   const outcome = questionOutcome(item, scoresPending);
+  const hideAnswers = answersHidden(item, scoresPending, answersPending);
   const appealable = outcome === 'incorrect' || outcome === 'partial';
   return (
     <li
@@ -496,7 +517,7 @@ function ResultItemCard({
           S12I —— 行数由 `answerRowsOf` 决定。服务端说一行就一行：
           以前「正确答案」与「参考答案」是两个独立的 `<p>`，
           而两者都取自 `answerContent.text`，于是同一句话挂了两个名字。 */}
-      {!answersPending &&
+      {!hideAnswers &&
         answerRowsOf(item).map((row) => (
           <p
             key={row.kind}
@@ -507,12 +528,12 @@ function ResultItemCard({
             <span className="font-medium">{row.value}</span>
           </p>
         ))}
-      {!answersPending && item.explanation && (
+      {!hideAnswers && item.explanation && (
         <p data-testid={`explanation-${item.paperQuestionId}`} className="text-sm text-ink-2 mb-1">
           {item.explanation}
         </p>
       )}
-      {!answersPending && item.evidence && (
+      {!hideAnswers && item.evidence && (
         <p
           data-testid={`evidence-${item.paperQuestionId}`}
           className="text-sm text-ink-2 mb-1 pl-3 border-l-2 border-line italic"
@@ -521,6 +542,11 @@ function ResultItemCard({
           {item.evidence}
         </p>
       )}
+      {!hideAnswers && onLocate ? (
+        <button type="button" className="min-h-12 px-3 py-2 text-sm font-semibold text-accent underline" onClick={onLocate}>
+          答案在原文哪里
+        </button>
+      ) : null}
 
       {!scoresPending && item.markerComment && (
         <p data-testid={`comment-${item.paperQuestionId}`} className="mt-2 text-sm bg-surface-2 rounded-xl px-3 py-2">
@@ -685,8 +711,11 @@ function AppealForm({
  *   · 纯文本渲染，不用 `dangerouslySetInnerHTML`；
  *   · 自己的滚动容器 + 高度上限 —— 手机上不能把整页顶出横向滚动。
  */
-function PassageReview({ result }: { result: ReadingResult }) {
+function PassageReview({ result, highlight }: { result: ReadingResult; highlight: AnswerLocation | null }) {
   const [open, setOpen] = useState(true);
+  const mark = useRef<HTMLElement>(null);
+  useEffect(() => { if (highlight) setOpen(true); }, [highlight]);
+  useEffect(() => { if (open && highlight) mark.current?.scrollIntoView?.({ block: 'center', behavior: 'smooth' }); }, [open, highlight]);
   const passage = useMemo(() => passageOf(result), [result]);
   if (!passage) return null;
   return (
@@ -707,7 +736,13 @@ function PassageReview({ result }: { result: ReadingResult }) {
           className="reading-prose mt-3 max-w-none break-words whitespace-pre-wrap px-2 font-serif text-ink"
           style={{ fontSize: 'calc(1.125rem * var(--mq-fs, 1))' }}
         >
-          {passage.body}
+          {highlight ? <>
+            {passage.body.slice(0, highlight.start)}
+            <mark ref={mark} tabIndex={-1} data-testid="answer-highlight" className="rounded bg-warning-soft text-warning">
+              {passage.body.slice(highlight.start, highlight.end)}
+            </mark>
+            {passage.body.slice(highlight.end)}
+          </> : passage.body}
         </div>
       )}
     </section>

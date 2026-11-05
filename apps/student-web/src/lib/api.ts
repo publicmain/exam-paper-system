@@ -356,6 +356,7 @@ export type WritingIssue = {
 };
 
 export type V2TestSession = {
+  reviewCorrect?: number | null;
   id: string;
   version: string;
   date: string;

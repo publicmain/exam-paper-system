@@ -233,11 +233,15 @@ export default function VocabularyCoachTestPage() {
           </div>
         }
       >
-        <section className="mb-5 text-center" aria-labelledby="test-score" data-achievement-safe={ROUTES.coachTest}>
+        <section className="mb-6 text-center" aria-labelledby="test-score" data-achievement-safe={ROUTES.coachTest}>
           <p className="text-callout text-ink-3">{practice ? '抽查结束' : '测试已交卷'}</p>
-          <h1 id="test-score" className="mt-1 text-[2.75rem] font-bold tabular-nums text-ink" aria-label={`答对 ${s.correct} 题，共 ${s.total} 题`}>
+          <h1 id="test-score" className="mt-1 text-4xl font-bold tabular-nums text-ink" aria-label={`答对 ${s.correct} 题，共 ${s.total} 题`}>
             {s.correct} / {s.total}
           </h1>
+          <p className="mt-2 text-sm text-ink-2" data-testid="test-result-summary">
+            本次对 {s.correct} / 共 {s.total}
+            {!practice && s.reviewCorrect != null ? `，其中复习旧词 ${s.reviewWords ?? 0} 个，对了 ${s.reviewCorrect} 个。` : ''}
+          </p>
           <p className="mt-1 text-callout text-ink-2">
             {practice ? '个人练习，不进正式成绩，也不改复习安排。结果保留 2 小时。' : '已经保存，记入这一天的单词测试。'}
           </p>
@@ -258,11 +262,10 @@ export default function VocabularyCoachTestPage() {
                     ) : null}
                   </p>
                   {it.check ? <p className="mt-0.5 text-footnote text-ink-3">{it.check.label}</p> : null}
-                  {!it.isCorrect ? (
-                    <p className="mt-0.5 text-callout text-ink-2">
+                    <p className="mt-1 break-words text-sm text-ink-2">
                       你写的：{responseText(it)} · 正确答案：<span className="font-semibold text-ink">{answerText(it.question)}</span>
                     </p>
-                  ) : null}
+                  {!practice && it.isCorrect === false ? <p className="mt-1 text-sm text-ink-3">之后的单词测试里会再考</p> : null}
                 </div>
               </div>
             </li>
