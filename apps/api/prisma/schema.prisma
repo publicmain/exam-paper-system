@@ -2485,6 +2485,12 @@ model VocabularyV2SessionItem {
   attempts         Int                 @default(0)
   responseMs       Int?
   completedAt      DateTime?
+  /// 首答（2026-11-05 证据语义）：第一次提交的原样答案与对错，之后的订正不覆盖。
+  firstResponse    Json?
+  firstIsCorrect   Boolean?
+  firstAnsweredAt  DateTime?
+  /// 作答时露出的提示档（0 = 没看提示）。
+  hintLevel        Int                 @default(0)
   createdAt        DateTime            @default(now())
   updatedAt        DateTime            @updatedAt
 
@@ -2841,4 +2847,48 @@ model ClassWeeklyGoal {
   updatedAt   DateTime  @updatedAt
 
   @@unique([classId, weekStart])
+}
+
+/// 学习证据（2026-11-05 完整化设计 §4）：只追加、不改写。调度与「掌握」只认
+/// formal_first / paper_dictation / mistake_redo 三类。
+model LearningEvidence {
+  id              String   @id @default(cuid())
+  studentId       String
+  /// practice_first | practice_retry | formal_first | paper_dictation | mistake_redo | self_report | pronunciation
+  kind            String
+  /// vocab_sense | reading_question
+  subject         String
+  senseId         String?
+  paperQuestionId String?
+  sessionItemId   String?
+  /// 幂等键：同一来源同一类型只记一次，如 v2item:<id>:formal_first、paper:<sheetId>:<studentId>:<senseId>。
+  sourceKey       String   @unique
+  /// null = 未知；缺考写 detail.absent=true、isCorrect=null；默写未录入则不写行。
+  isCorrect       Boolean?
+  hinted          Boolean  @default(false)
+  /// 拼写错误位置、实际输入、发音分等，按 kind 约定结构。
+  detail          Json?
+  /// 新加坡教学日。
+  schoolDate      DateTime @db.Date
+  occurredAt      DateTime @default(now())
+  /// 老师回填时记老师 id；学生自己作答为 null。
+  recordedById    String?
+  createdAt       DateTime @default(now())
+
+  @@index([studentId, schoolDate])
+  @@index([studentId, senseId, kind])
+  @@index([studentId, paperQuestionId, kind])
+}
+
+/// 停课日（考试周、假期、整班请假）：不排新任务、不算欠账、不断连续学习。
+model ClassNoSchoolDay {
+  id          String   @id @default(cuid())
+  classId     String
+  date        DateTime @db.Date
+  reason      String?
+  createdById String
+  createdAt   DateTime @default(now())
+
+  @@unique([classId, date])
+  @@index([date])
 }
