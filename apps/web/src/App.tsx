@@ -202,10 +202,12 @@ export default function App() {
     );
   }
 
-  // Public route: phone-first roster tap-tracker. No login (it's a
-  // personal tool for the cohort owner — all state is local to the
-  // device, no API calls). Bypasses both the auth gate and the admin
-  // chrome so it can be home-screened as a standalone PWA.
+  // Phone-first roster tap-tracker. This route is only a bounce to the
+  // static /quick-attendance.html and carries no data itself, so it
+  // bypasses the auth gate and admin chrome (home-screenable). Since
+  // 2026-11-05 the page holds NO student names: it reads the class roster
+  // from /api/classes with the teacher's auth_token and shows only a
+  // "please log in" panel without one.
   if (location.pathname === '/quick-attendance') {
     return (
       <Routes>

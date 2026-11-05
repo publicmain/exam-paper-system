@@ -424,7 +424,7 @@ export default function MyHistory() {
               value={name}
               onChange={(e) => setName(e.target.value)}
               className="mt-1 block w-full border border-gray-300 rounded-lg px-4 py-3 text-base focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-200"
-              placeholder="例如:牟歌 / Alice Wong"
+              placeholder="例如:张三 / Alice Wong"
               autoComplete="off"
               autoFocus
             />
