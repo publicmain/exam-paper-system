@@ -8,6 +8,8 @@ import { formalAnswerOf } from '../vocab-v2/first-answer';
 import { VocabularyMasteryService } from '../vocab-v2/mastery';
 import { collectionReadingSelect, collectionSessionSelect, loadCollectionV5Facts } from '../achievements/collection-v5-facts';
 import { frozenIds } from '../print-materials/dictation.service';
+import { readingRedoStatesForDay } from '../vocab/reading-redo';
+import { dailyTestNeeded } from '../vocab-v2/unified-vocabulary-rules';
 import { isExcludedAccount, isExcludedClass, reportExclusions } from './report-exclusions';
 import {
   addDays,
@@ -135,7 +137,7 @@ export class LearningReportService {
     const masteryThrough = [today, days[days.length - 1]].sort()[0];
     const mastery = await new VocabularyMasteryService(this.prisma).reportForStudents(ids, days[0], masteryThrough);
     const calendar = await loadSchoolCalendar(this.prisma, ids, days[0], days[days.length - 1]);
-    const [assignments, levelChanges, vocab, pending, dictation, mistakes] = await Promise.all([
+    const [assignments, levelChanges, vocab, pending, dictation, mistakes, redos] = await Promise.all([
       this.prisma.paperAssignment.findMany({
         where: {
           classId: { in: scopeIds },
@@ -184,6 +186,7 @@ export class LearningReportService {
         select: { heldOn: true, rows: { where: { studentId: { in: ids } }, select: { studentId: true, status: true, senseIds: true, wrongSenseIds: true } } },
       }),
       followUps ? Promise.resolve(new Map<string, number>()) : this.openReadingMistakes(ids, masteryThrough),
+      followUps ? readingRedoStatesForDay(this.prisma, ids, today, calendar) : Promise.resolve(new Map<string, { target: number; progress: number }>()),
     ]);
 
     const scoreBySubmission = new Map<string, { status: string; totalScore: number | null; maxScore: number | null }>();
@@ -249,6 +252,8 @@ export class LearningReportService {
         const learnRows = mine.filter((v) => v.sessionType === 'daily_learning' && keyOf(v.date) === date);
         const testRows = mine.filter((v) => v.sessionType === 'formal_test' && keyOf(v.date) === date);
         const test = testRows.find((v) => v.status === 'submitted') ?? testRows[0] ?? null;
+        const daily = learnRows[0];
+        const redo = date === today ? redos.get(u.id) : undefined;
         return {
           date,
           noSchoolDay: calendar.isNoSchoolDay(u.id, date),
@@ -267,6 +272,8 @@ export class LearningReportService {
                 level: r.level,
                 state: r.state,
                 completed: r.completed,
+                redoRequired: redo?.target ?? 0,
+                redoDone: redo?.progress ?? 0,
                 awaitingMarking: r.awaitingMarking,
                 opened: Boolean(r.submission),
                 pct: r.completed && marked && score!.totalScore != null && (score!.maxScore ?? 0) > 0 ? ((score!.totalScore ?? 0) / score!.maxScore!) * 100 : null,
@@ -280,6 +287,7 @@ export class LearningReportService {
                 items: Math.max(...learnRows.map((v) => v.items.length)),
               }
             : null,
+          testRequired: daily?.status === 'completed' ? dailyTestNeeded(daily) : undefined,
           test: test
             ? { id: test.id, answered: test.items.filter((i) => i.status === 'answered').length, submitted: test.status === 'submitted', correct: test.items.filter((i) => formalAnswerOf(i).isCorrect === true).length, items: test.items.length }
             : null,

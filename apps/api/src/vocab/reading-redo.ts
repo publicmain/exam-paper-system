@@ -55,21 +55,87 @@ export function nextTeachingDate(from: string, teaches: (date: string) => boolea
 
 export const redoSourceKey = (studentId: string, id: string, date: string) => `reading-redo:${studentId}:${id}:${date}`;
 
+function readingRedoDueWhere(date: string) {
+  const start = new Date(`${date}T00:00:00+08:00`);
+  return { createdAt: { lt: start }, OR: [{ resolved: false }, { resolvedAt: { gte: start } }] };
+}
+
+/** Input is ordered oldest first. Both individual and class reads use this manifest. */
+function readingRedoEntries<T extends { paperQuestionId: string | null; redoSnapshot: unknown }>(rows: readonly T[]): T[] {
+  return rows.filter((r) => r.paperQuestionId && redoSnapshot(r.redoSnapshot)).slice(0, READING_REDO_CAP);
+}
+
+function readingRedoCompletion<T extends { id: string }>(studentId: string, date: string, entries: T[], evidence: readonly { sourceKey: string }[]) {
+  const sourceKeys = new Set(evidence.map((e) => e.sourceKey));
+  const completedIds = new Set(entries.filter((r) => sourceKeys.has(redoSourceKey(studentId, r.id, date))).map((r) => r.id));
+  return { date, target: entries.length, progress: completedIds.size, entries, completedIds };
+}
+
+/** Read one class/day in bounded pages, never one query per student. The caller
+ * can supply its already-loaded calendar. Keep only the capped daily manifests
+ * in memory; invalid legacy snapshots must not hide later eligible questions. */
+export async function readingRedoStatesForDay(
+  prisma: Pick<PrismaService, 'mistakeEntry' | 'learningEvidence' | 'classEnrollment' | 'classNoSchoolDay'>,
+  studentIds: string[], date: string,
+  calendar?: { isTeachingDay: (studentId: string, date: string) => boolean },
+) {
+  const school = calendar ?? await loadSchoolCalendar(prisma, studentIds, date, date);
+  const ids = [...new Set(studentIds)].filter((id) => school.isTeachingDay(id, date));
+  const result = new Map(studentIds.map((id) => [id, { target: 0, progress: 0 }]));
+  if (!ids.length) return result;
+  type Entry = { id: string; studentId: string; paperQuestionId: string | null; redoSnapshot: unknown };
+  const byStudent = new Map<string, Entry[]>(ids.map((id) => [id, []]));
+  let afterEntry: { id: string; createdAt: Date } | undefined;
+  for (;;) {
+    const page = await prisma.mistakeEntry.findMany({
+      where: { studentId: { in: ids }, ...readingRedoDueWhere(date),
+        ...(afterEntry ? { AND: [{ OR: [
+          { createdAt: { gt: afterEntry.createdAt } },
+          { createdAt: afterEntry.createdAt, id: { gt: afterEntry.id } },
+        ] }] } : {}) },
+      select: { id: true, studentId: true, paperQuestionId: true, redoSnapshot: true, createdAt: true },
+      orderBy: [{ createdAt: 'asc' }, { id: 'asc' }], take: 500,
+    });
+    const grouped = new Map<string, Entry[]>();
+    for (const row of page) {
+      const mine = grouped.get(row.studentId) ?? [];
+      mine.push(row); grouped.set(row.studentId, mine);
+    }
+    for (const [id, rows] of grouped) byStudent.set(id, readingRedoEntries([...(byStudent.get(id) ?? []), ...rows]));
+    if (page.length < 500 || [...byStudent.values()].every((entries) => entries.length === READING_REDO_CAP)) break;
+    afterEntry = page[page.length - 1];
+  }
+  const sourceKeys = [...byStudent].flatMap(([id, entries]) => entries.map((r) => redoSourceKey(id, r.id, date)));
+  const evidence: Array<{ sourceKey: string }> = [];
+  let after: string | undefined;
+  while (sourceKeys.length) {
+    const page = await prisma.learningEvidence.findMany({
+      where: { studentId: { in: ids }, subject: 'reading_question', kind: 'mistake_redo', schoolDate: dateOnly(date),
+        sourceKey: { in: sourceKeys }, ...(after ? { id: { gt: after } } : {}) },
+      select: { id: true, sourceKey: true }, orderBy: { id: 'asc' }, take: 500,
+    });
+    evidence.push(...page);
+    if (page.length < 500) break;
+    after = page[page.length - 1].id;
+  }
+  for (const [id, entries] of byStudent) {
+    const state = readingRedoCompletion(id, date, entries, evidence);
+    result.set(id, { target: state.target, progress: state.progress });
+  }
+  return result;
+}
+
 /** A day's manifest is reconstructed from facts at SGT midnight. New mistakes
  * only become due on a LATER teaching day. Resolutions made today stay in this
  * manifest, so answering never pulls a fourth item into today's assignment.
  * No schema field, fake evidence or mutable live PaperQuestion is needed. */
 export async function readingRedoState(prisma: Pick<PrismaService, 'mistakeEntry' | 'learningEvidence' | 'classEnrollment' | 'classNoSchoolDay'>, studentId: string, now = new Date()) {
   const date = singaporeDate(now);
-  const start = new Date(`${date}T00:00:00+08:00`);
   const calendar = await loadSchoolCalendar(prisma, [studentId], undefined, date);
   if (!calendar.isTeachingDay(studentId, date)) return { date, target: 0, progress: 0, entries: [], completedIds: new Set<string>() };
-  const rows = await prisma.mistakeEntry.findMany({ where: { studentId, createdAt: { lt: start },
-    OR: [{ resolved: false }, { resolvedAt: { gte: start } }] }, orderBy: [{ createdAt: 'asc' }, { id: 'asc' }] });
-  const entries = rows.filter((r) => r.paperQuestionId && redoSnapshot(r.redoSnapshot))
-    .slice(0, READING_REDO_CAP);
+  const rows = await prisma.mistakeEntry.findMany({ where: { studentId, ...readingRedoDueWhere(date) }, orderBy: [{ createdAt: 'asc' }, { id: 'asc' }] });
+  const entries = readingRedoEntries(rows);
   const evidence = entries.length ? await prisma.learningEvidence.findMany({ where: { studentId, subject: 'reading_question', kind: 'mistake_redo',
     sourceKey: { in: entries.map((r) => redoSourceKey(studentId, r.id, date)) }, schoolDate: dateOnly(date) } }) : [];
-  const completedIds = new Set(entries.filter((r) => evidence.some((e) => e.sourceKey === redoSourceKey(studentId, r.id, date))).map((r) => r.id));
-  return { date, target: entries.length, progress: completedIds.size, entries, completedIds };
+  return readingRedoCompletion(studentId, date, entries, evidence);
 }
