@@ -49,6 +49,20 @@ function endpoints(file: string) {
 const vocab = endpoints('vocab/vocab.controller.ts');
 const lesson = endpoints('lesson/lesson.controller.ts');
 const mq = endpoints('morning-quiz/morning-quiz.controller.ts');
+const extraPractice = endpoints('vocab-v2/extra-practice.controller.ts');
+
+describe('3B extra practice endpoint matrix', () => {
+  it('has exactly two token-only student endpoints and is registered', () => {
+    expect(extraPractice.map(e => `${e.method} ${e.route}`)).toEqual(['GET round', 'POST result']);
+    for (const e of extraPractice) {
+      expect(e.decorators).toContain('Public'); expect(e.decorators).toContain('RequireStudentToken');
+      expect(e.body).toContain('studentId(req)'); expect(e.body).not.toMatch(/studentName|@Query\('name'\)/);
+    }
+    const module = read('vocab-v2/vocabulary-v2.module.ts');
+    expect(module).toMatch(/controllers: \[[^\]]*ExtraPracticeController/);
+    expect(module).toMatch(/providers: \[[^\]]*ExtraPracticeService/);
+  });
+});
 
 /** 学生端 = 带 @Public()（教师端走 JWT 守卫，不在本阶段范围）。 */
 const isStudentFacing = (e: { decorators: string[] }) => e.decorators.includes('Public');

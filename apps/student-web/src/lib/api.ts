@@ -21,6 +21,7 @@
 import type { PrintWord, ReadingPrint } from '../print/PrintSheets';
 import type { NextActionKind } from '../routes.contract';
 import type { PilotLevelId } from './levels';
+import type { ExtraDrill, ExtraRound, ExtraResult } from './extra-practice';
 
 export const BASE: string = (import.meta as unknown as { env?: Record<string, string> }).env
   ?.VITE_API_URL ?? '';
@@ -511,6 +512,7 @@ export type PrintWordsPayload = { date: string; words: PrintWord[] };
 export type StudentNotice = { id: string; type: string; title: string; body: string | null; createdAt: string };
 
 export type V2Overview = {
+  extraPracticeEnabled?: boolean;
   dailyTarget: number;
   today: V2LearningSession | null;
   /** 新服务端才有；老服务端不发时首页按旧字段推断。 */
@@ -666,6 +668,8 @@ export type LessonToday = {
 // ─────────────────────────────────────────────────────────────
 
 export const api = {
+  extraPracticeRound: (token: string, drill: ExtraDrill) => request<ExtraRound>('GET', `/vocab-v2/extra/round?drill=${drill}`, { token }),
+  extraPracticeResult: (token: string, body: ExtraResult) => request<{ ok: true }>('POST', '/vocab-v2/extra/result', { token, body }),
   achievements: (token: string) => request<AchievementsList>('GET', '/achievements', { token }),
   achievementsSync: (token: string) => request<{ newlyEarned: string[] }>('POST', '/achievements/sync', { token }),
   achievementNotices: (token: string) => request<AchievementNoticeKeys>('GET', '/achievements/notices', { token }),

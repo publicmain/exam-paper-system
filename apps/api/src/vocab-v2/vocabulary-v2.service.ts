@@ -1679,6 +1679,7 @@ export class VocabularyV2Service {
 
     return {
       dailyTarget: profile.dailyTarget,
+      extraPracticeEnabled: process.env.EXTRA_PRACTICE_FEATURE?.trim().toLowerCase() !== 'off',
       today,
       readingBacklog,
       learningBacklog,

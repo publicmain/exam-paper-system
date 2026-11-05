@@ -28,6 +28,7 @@ export const ROUTES = {
   register: '/register',
   account: '/account',
   today: '/today',
+  extraPractice: '/extra-practice',
   reading: '/lesson/reading',
   readingResult: '/lesson/reading/result',
   lessonVocab: '/lesson/vocab',

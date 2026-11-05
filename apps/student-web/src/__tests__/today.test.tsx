@@ -119,6 +119,23 @@ const renderAt = (path: string) =>
   );
 
 const callsTo = (r: string) => fetchMock.mock.calls.filter((c) => route(c[0] as string) === r);
+describe('optional extra practice', () => {
+  it('shows an unobtrusive link without changing the three tasks, completion or starting anything', async () => {
+    const ov = { ...overview(), extraPracticeEnabled: true };
+    session(lesson(), undefined, ov); renderAt('/today'); await settled();
+    const before = screen.getByTestId('lesson-progress').textContent;
+    expect(screen.getByRole('list', { name: '今天的三项任务' }).children).toHaveLength(3);
+    await userEvent.click(screen.getByRole('link', { name: '加练（选做）' }));
+    expect(await screen.findByTestId('extra-practice-page')).toBeInTheDocument();
+    await userEvent.click(screen.getByRole('link', { name: '回到今天' })); await settled();
+    expect(screen.getByTestId('lesson-progress').textContent).toBe(before);
+    expect(fetchMock.mock.calls.filter(c => c[1]?.method === 'POST' && /^\/(lesson\/(start|vocab)|vocab-v2\/(daily|test|extra))/.test(route(c[0])))).toHaveLength(0);
+  });
+  it('hides the link when the server disables the feature', async () => {
+    session(lesson(), undefined, { ...overview(), extraPracticeEnabled: false }); renderAt('/today'); await settled();
+    expect(screen.queryByTestId('home-extra-practice')).toBeNull();
+  });
+});
 const onToday = () => screen.findByRole('heading', { name: '今日', level: 1 });
 /** 等三张卡都有了结论（不再是载入中） */
 async function settled() {
