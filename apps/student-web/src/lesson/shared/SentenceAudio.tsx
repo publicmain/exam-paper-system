@@ -7,6 +7,15 @@ type Playable = { key: string; text: string; url: string };
 type Player = { items: Playable[]; current: string | null; play(item: Playable): void };
 const AudioContext = createContext<Player | null>(null);
 
+/** Local recording playback shares the SAME media element as the original. */
+export function useSentenceAudioPlayback() {
+  const player = useContext(AudioContext);
+  return {
+    playOriginal: () => { if (player?.items[0]) player.play(player.items[0]); },
+    playRecording: (url: string) => player?.play({ key: `local:${url}`, text: '', url }),
+  };
+}
+
 /** One media element for the whole reading page. play() runs IN the click handler,
  * before awaiting anything, so the first tap retains iOS user activation.
  */

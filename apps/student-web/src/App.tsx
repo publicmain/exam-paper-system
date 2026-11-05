@@ -26,12 +26,14 @@ import MistakePracticePage from './pages/MistakePractice';
 import VocabularyCoachPage from './pages/VocabularyCoach';
 import VocabularyCoachLearnPage from './pages/VocabularyCoachLearn';
 import VocabularyCoachTestPage from './pages/VocabularyCoachTest';
+import ExtraPracticeSync from './components/extra/ExtraPracticeSync';
 import { AppShell, shellFor } from './design/AppShell';
 import { StatusView } from './design/Status';
 import { Button } from './design/Button';
 import { ErrorBoundary } from './lib/sentry';
 
 const BadgesPage = lazy(() => import('./pages/Badges'));
+const ExtraPracticePage = lazy(() => import('./pages/ExtraPractice'));
 const PrintCenterPage = lazy(() => import('./pages/PrintCenter'));
 const PrintReadingPage = lazy(() => import('./pages/PrintReading'));
 const PrintWordsPage = lazy(() => import('./pages/PrintWords'));
@@ -84,6 +86,7 @@ export default function App() {
 
   return (
     <AppShell kind={shellFor(loc.pathname, authed)}>
+    {state.status === 'authenticated' && <ExtraPracticeSync owner={state.profile.id} />}
     {/* A failure of the optional medal renderer must never interrupt learning. */}
     {authed && <ErrorBoundary key={state.status === 'authenticated' ? state.profile.id : ''} fallback={<></>}><Suspense fallback={null}><AchievementNotifier /></Suspense></ErrorBoundary>}
     {/* 给单个学生的警告（2026-09-24）：一打开就弹，读完点「我知道了」才关 */}
@@ -92,6 +95,7 @@ export default function App() {
       <Route path={ROUTES.login} element={<LoginPage />} />
       <Route path={ROUTES.register} element={<RegisterPage />} />
       <Route path={ROUTES.today} element={<TodayPage />} />
+      <Route path={ROUTES.extraPractice} element={<Suspense fallback={<StatusView kind="loading" title="正在打开加练" />}><ExtraPracticePage /></Suspense>} />
       <Route path={ROUTES.account} element={<AccountPage />} />
       {/*
         五条课程路由 —— 阶段 6A 起**真的注册**，渲染统一占位页。

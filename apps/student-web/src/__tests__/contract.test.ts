@@ -102,6 +102,7 @@ describe('G6 路由契约是单一事实源', () => {
     expect(new Set(REGISTERED_PATHS)).toEqual(
       new Set([
         '/login', '/register', '/today', '/account',
+        '/extra-practice',
         '/lesson/reading', '/lesson/reading/result',
         '/lesson/vocab', '/lesson/test', '/lesson/summary',
         // 阶段 11 —— 同一外壳里的独立页面，不属于七步链
@@ -348,6 +349,8 @@ describe('G1 新端不得出现旧路由与旧身份键', () => {
     for (const { f, text } of readAll()) {
       for (const m of text.matchAll(/from\s+['"]([^'"]+)['"]/g)) {
         const spec = m[1];
+        // 3A/3B: only these two dependency-free API helpers can cross the boundary.
+        if (spec.endsWith('/api/src/audio/sentences') || spec.endsWith('/api/src/vocab-v2/recall-spelling')) continue;
         if (/apps\/web|components\/exam|\.\.\/\.\.\/\.\.\//.test(spec)) {
           hits.push(`${path.relative(SRC, f)} → ${spec}`);
         }
@@ -387,6 +390,10 @@ describe('G1 新端不得出现旧路由与旧身份键', () => {
     for (const { f, text } of readAll()) {
       if (!f.includes(path.join('src', 'pages'))) continue;
       if (f.endsWith(path.join('pages', 'Reading.tsx'))) continue;
+      if (f.endsWith(path.join('pages', 'ExtraPractice.tsx'))) {
+        expect(text.match(/from '\.\.\/lesson[^']*'/g)).toEqual(["from '../lesson/shared/SentenceAudio'"]);
+        continue;
+      }
       expect(text, `${path.relative(SRC, f)} 不该 import lesson/`).not.toMatch(/from '\.\.\/lesson/);
     }
   });
@@ -518,6 +525,8 @@ describe('G1 新端不得出现旧路由与旧身份键', () => {
     '/vocab-v2/center',
     '/vocab-v2/daily',
     '/vocab-v2/overview',
+    '/vocab-v2/extra/round',
+    '/vocab-v2/extra/result',
     '/vocab-v2/tests',
     '/writing-check',
     '/writing-check/status',
@@ -900,6 +909,8 @@ describe('G1 新端不得出现旧路由与旧身份键', () => {
     // CLASS_TIME_NOTICE_KEY，`sw:class-time-notice-v1`），值与 OWNER_KEY 同样是学生 id 的
     // 不可逆摘要，不存 id；在 sw: 前缀下，退出登录照常被扫掉。
     for (const w of writes) {
+      // 3B's result-only outbox is owner-scoped and cleared with sw: on logout.
+      if (w.endsWith('extra\\result-queue.ts:key') || w.endsWith('extra/result-queue.ts:key')) continue;
       expect(w).toMatch(
         // 只匹配文件名，不匹配目录分隔符 —— Windows 上是 `\`、别处是 `/`，
         // 把分隔符写进正则会让这条守卫只在一种机器上成立。
