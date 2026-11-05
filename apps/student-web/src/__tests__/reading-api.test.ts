@@ -32,6 +32,13 @@ beforeEach(() => {
 });
 
 describe('AC-02 加载会话', () => {
+  it('retains the authenticated sentence list and defaults old responses to empty', async () => {
+    const sentenceAudio = [{ passage: 'Hi.', paragraphs: [[{ text: 'Hi.', audioUrl: '/api/audio/sentence/hash.mp3' }]] }];
+    stubFetch(200, { sessionId: SID, sentenceAudio });
+    expect((await api.getReadingSession('TK', SID)).sentenceAudio).toEqual(sentenceAudio);
+    stubFetch(200, { sessionId: SID });
+    expect((await api.getReadingSession('TK', SID)).sentenceAudio).toEqual([]);
+  });
   it('**GET /api/morning-quiz/sessions/:id**，带 Bearer，无请求体', async () => {
     const calls = stubFetch(200, { sessionId: SID, questions: [], existingAnswers: {} });
     await api.getReadingSession('TK', SID);

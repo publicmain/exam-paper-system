@@ -2,7 +2,8 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useRef, use
 import type { ExamPaper, ExamQuestion, ExamOption } from '../examTypes';
 import { useExam } from '../ExamContext';
 import { clean, reflowPassage, splitStem } from '../shared/textUtils';
-import { Highlighter, useStoredHighlights } from '../shared/Highlighter';
+import { useStoredHighlights } from '../shared/Highlighter';
+import { SentencePassage } from '../shared/SentenceAudio';
 import { useStoredNotes, StickyNoteRail } from '../shared/StickyNote';
 import { DraggableSplit } from '../shared/DraggableSplit';
 import { QuestionFlag } from '../shared/QuestionFlag';
@@ -404,7 +405,8 @@ export function IELTSReadingPassage({ paper }: { paper: ExamPaper }) {
                   <div className="text-[13px] text-ink-3 mt-0.5">拖选文字可以加高亮，点高亮可移除。</div>
                 </div>
               )}
-              <Highlighter
+              <SentencePassage
+                passage={passageContent.passage ?? ''}
                 body={passageBody}
                 highlights={highlights}
                 onChange={setHighlights}

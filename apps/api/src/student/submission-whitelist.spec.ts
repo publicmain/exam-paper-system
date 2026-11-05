@@ -277,11 +277,19 @@ describe('S01 · 未交卷：所有学生侧响应递归搜不到答案标记', 
       paper: { findUnique: vi.fn(async () => ({ config: { mode: 'passage_pick' }, status: 'published', qaTeacherAction: null })) },
       paperQuestion: { findMany: vi.fn(async () => QUESTIONS) },
       answerScript: { findMany: vi.fn(async () => sub.scripts) },
+      sentenceAudio: { findMany: vi.fn(async () => []) },
     };
     const mq = new MorningQuizService(prisma, {} as any, {} as any, {} as any, {} as any);
     const out = await mq.getStudentView('s1', 'stu-a');
     assertClean('getStudentView', out);
+    for (const p of out.sentenceAudio) for (const ss of p.paragraphs) for (const s of ss) {
+      expect(Object.keys(s).sort()).toEqual(['audioUrl', 'text']);
+    }
     expect((out as any).existingAnswers['pq-sa']).toMatchObject({ textAnswer: 'my answer' });
+    prisma.sentenceAudio.findMany.mockClear();
+    prisma.studentSubmission.findFirst.mockResolvedValue(null);
+    await expect(mq.getStudentView('s1', 'stu-other')).rejects.toMatchObject({ status: 403 });
+    expect(prisma.sentenceAudio.findMany).not.toHaveBeenCalled();
   });
 
   it('GET /morning-quiz/student-result（窗口已关、从未最终提交）：分数与答案两道门都关着', async () => {

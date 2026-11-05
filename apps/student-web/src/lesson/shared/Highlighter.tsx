@@ -31,6 +31,26 @@ export interface Highlight {
   end: number;
 }
 
+export interface SentenceControl {
+  start: number;
+  end: number;
+  active: boolean;
+  label: string;
+  onPlay(): void;
+}
+
+export function SentenceSpeaker({ control }: { control: SentenceControl }) {
+  const stop = (e: React.SyntheticEvent) => e.stopPropagation();
+  return <button type="button" data-sentence-control aria-label={control.label} aria-pressed={control.active}
+    className="inline-flex h-12 w-12 select-none items-center justify-center rounded-control align-middle text-accent hover:bg-accent-soft focus-visible:outline focus-visible:outline-2 focus-visible:outline-focus"
+    onPointerDown={stop} onPointerUp={stop} onMouseUp={stop} onTouchEnd={stop}
+    onClick={(e) => { e.stopPropagation(); control.onPlay(); }}>
+    <svg aria-hidden="true" viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2">
+      <path d="M11 5 6 9H3v6h3l5 4zM15 8a6 6 0 0 1 0 8M18 5a10 10 0 0 1 0 14" />
+    </svg>
+  </button>;
+}
+
 function uid(): string {
   return Math.random().toString(36).slice(2, 10);
 }
@@ -40,6 +60,7 @@ function textOffset(root: HTMLElement, node: Node, offset: number): number {
   const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
   let cur: Node | null;
   while ((cur = walker.nextNode())) {
+    if (cur.parentElement?.closest('[data-sentence-control]')) continue;
     if (cur === node) return total + offset;
     total += (cur.textContent ?? '').length;
   }
@@ -89,6 +110,24 @@ function renderHighlighted(
   }
   if (cursor < body.length) parts.push(body.slice(cursor));
   return parts;
+}
+
+function renderSentences(body: string, highlights: Highlight[], onRemove: (id: string) => void, controls: SentenceControl[]) {
+  if (!controls.length) return renderHighlighted(body, highlights, onRemove);
+  const boundaries = [...new Set([0, body.length, ...controls.flatMap((s) => [s.start, s.end])])].sort((a, b) => a - b);
+  return boundaries.slice(0, -1).map((start, i) => {
+    const end = boundaries[i + 1];
+    const sentence = controls.find((s) => s.start <= start && s.end >= end);
+    const ending = controls.find((s) => s.end === end);
+    const localHighlights = highlights.filter((h) => h.start < end && h.end > start)
+      .map((h) => ({ ...h, start: Math.max(h.start, start) - start, end: Math.min(h.end, end) - start }));
+    return <span key={start}>
+      <span data-sentence-active={sentence?.active || undefined} className={sentence?.active ? 'rounded bg-accent-soft text-accent' : undefined}>
+        {renderHighlighted(body.slice(start, end), localHighlights, onRemove)}
+      </span>
+      {ending && <SentenceSpeaker control={ending} />}
+    </span>;
+  });
 }
 
 /**
@@ -166,6 +205,7 @@ export function Highlighter({
   style,
   onWordTap,
   testId,
+  sentenceControls = [],
 }: {
   body: string;
   highlights: Highlight[];
@@ -178,6 +218,7 @@ export function Highlighter({
    */
   onWordTap?: (word: string, range: Range) => void;
   testId?: string;
+  sentenceControls?: SentenceControl[];
 }) {
   const containerRef = useRef<HTMLDivElement | null>(null);
 
@@ -297,7 +338,7 @@ export function Highlighter({
       className={`select-text whitespace-pre-wrap ${className}`}
       style={{ WebkitUserSelect: 'text', userSelect: 'text', ...style }}
     >
-      {renderHighlighted(body, highlights, removeHighlight)}
+      {renderSentences(body, highlights, removeHighlight, sentenceControls)}
     </div>
   );
 }

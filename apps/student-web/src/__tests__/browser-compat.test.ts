@@ -32,7 +32,7 @@ function stripComments(src: string): string {
 
 describe('旧 Safari 兼容 —— 源码里不许出现正则后行断言', () => {
   it('学生端源码（不含测试）没有 (?<= 或 (?<!', () => {
-    const hits = allSourceFiles(SRC)
+    const hits = [...allSourceFiles(SRC), path.resolve(SRC, '../../api/src/audio/sentences.ts')]
       .filter((f) => !f.includes('__tests__'))
       .flatMap((f) =>
         stripComments(fs.readFileSync(f, 'utf8'))

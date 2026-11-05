@@ -38,6 +38,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { api, ApiError, type ReadingSessionPayload } from '../lib/api';
+import { SentenceAudioProvider } from '../lesson/shared/SentenceAudio';
 import { handleAuthFailure } from '../lib/auth-store';
 import { readToken } from '../lib/identity';
 import { syncAchievementNotices } from '../lib/achievement-notices';
@@ -428,10 +429,12 @@ function ReadingShell({ session, submissionId, historical }: { session: ReadingS
         </Banner>
       )}
 
-      <main id="main" className="flex-1 pb-4 min-[900px]:min-h-0 min-[900px]:overflow-hidden min-[900px]:pb-0">
-        <ExamFocusProvider value={focus}>
-          <ExamRenderer paper={paper} />
-        </ExamFocusProvider>
+      <main id="main" className="flex flex-1 flex-col pb-4 min-[900px]:min-h-0 min-[900px]:overflow-hidden min-[900px]:pb-0">
+        <SentenceAudioProvider passages={session.sentenceAudio ?? []}>
+          <ExamFocusProvider value={focus}>
+            <div className="min-h-0 flex-1"><ExamRenderer paper={paper} /></div>
+          </ExamFocusProvider>
+        </SentenceAudioProvider>
       </main>
 
       {/* 一条底栏：题号（横向滑）+ 已标记 + 交卷 —— 手机上不再折成两行占掉半屏 */}

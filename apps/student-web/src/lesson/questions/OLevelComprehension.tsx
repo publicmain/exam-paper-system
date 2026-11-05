@@ -3,6 +3,7 @@ import type { ExamPaper, ExamQuestion } from '../examTypes';
 import { useExam, useFollowRequestedQuestion } from '../ExamContext';
 import { clean, reflowPassage } from '../shared/textUtils';
 import { QuestionFlag } from '../shared/QuestionFlag';
+import { SentencePassage } from '../shared/SentenceAudio';
 
 /**
  * O-Level English Reading Comprehension shell.
@@ -167,12 +168,15 @@ export function OLevelComprehension({ paper }: { paper: ExamPaper }) {
             style={{ fontSize: `calc(1.125rem * var(--mq-fs, 1))` }}
           >
             {passageParagraphs.map((para, i) => (
-              <p
+              <SentencePassage
                 key={i}
+                passage={passageSource.passage ?? ''}
+                body={para}
+                precedingBody={passageParagraphs.slice(0, i).join('\n\n')}
+                highlights={[]}
+                onChange={() => {}}
                 className="leading-[1.75] mb-4 last:mb-0 whitespace-pre-wrap"
-              >
-                {para}
-              </p>
+              />
             ))}
             {passageParagraphs.length === 0 && (
               <p className="text-warning italic">
