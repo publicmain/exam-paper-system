@@ -28,6 +28,12 @@ export function plannedReviewCount(session: { settingsSnapshot?: unknown }): num
   return Math.max(0, snapshot?.reviewWords ?? 0);
 }
 
+/** Whether a daily word task has anything to test. Callers must wait for the
+ * learning task to finish before treating false as an exemption. */
+export function dailyTestNeeded(session: { items: readonly DailyItemState[]; settingsSnapshot?: unknown }): boolean {
+  return testableDailyItems(session.items).length > 0 || plannedReviewCount(session) > 0;
+}
+
 export function pendingDailySessions<T extends { sessionKey: string; items?: readonly DailyItemState[]; settingsSnapshot?: unknown }>(
   completedDailySessions: readonly T[],
   formalStatusByKey: ReadonlyMap<string, string>,
@@ -35,7 +41,7 @@ export function pendingDailySessions<T extends { sessionKey: string; items?: rea
   return completedDailySessions.filter((session) => {
     // A day on which the student finished no word has nothing to test.  Listing
     // it produced a "0 个词" todo whose button could only fail.
-    if (session.items && testableDailyItems(session.items).length === 0 && plannedReviewCount(session) === 0) return false;
+    if (session.items && !dailyTestNeeded({ ...session, items: session.items })) return false;
     return formalStatusByKey.get(`${session.sessionKey}:formal`) !== 'submitted';
   });
 }

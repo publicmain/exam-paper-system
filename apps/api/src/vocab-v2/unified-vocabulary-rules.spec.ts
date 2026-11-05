@@ -5,6 +5,7 @@ import {
   deferredSenseIds,
   headwordKey,
   isTeachingDay,
+  dailyTestNeeded,
   pendingDailySessions,
   seenHeadwordSet,
   sgtDateKey,
@@ -14,6 +15,11 @@ import {
 } from './unified-vocabulary-rules';
 
 describe('unified vocabulary rules', () => {
+  it.each([
+    [[], 0, false], [['skipped', 'replaced'], 0, false], [['completed'], 0, true], [[], 1, true],
+  ])('daily test applicability shares learned-word and frozen-review rules: %j / %i', (statuses, reviewWords, expected) => {
+    expect(dailyTestNeeded({ items: (statuses as string[]).map((status) => ({ status })), settingsSnapshot: { reviewWords } })).toBe(expected);
+  });
   it('tests only actually learned words', () => {
     const items = [
       { senseId: 'learned-a', status: 'completed' },

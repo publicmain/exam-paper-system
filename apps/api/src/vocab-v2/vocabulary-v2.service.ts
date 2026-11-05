@@ -39,6 +39,7 @@ import {
   headwordKey,
   pendingDailySessions,
   plannedReviewCount,
+  dailyTestNeeded,
   seenHeadwordSet,
   teacherItemsForStudent,
   testableDailyItems,
@@ -496,7 +497,7 @@ export class VocabularyV2Service {
           // VOC08：学习阶段结束但一个都没学完（全稍后再学）→ 这天不需要正式卷，老师别等
           todayTest: !todayLearning || todayLearning.status !== 'completed'
             ? 'locked'
-            : todayLearned === 0 && plannedReviewCount(todayLearning) === 0 ? 'not_needed' : todayFormal?.status ?? 'pending',
+            : !dailyTestNeeded(todayLearning) ? 'not_needed' : todayFormal?.status ?? 'pending',
           todayTestQuestions: todayFormal ? todayFormal.target : null,
           todayLearned,
           todayDeferred: todayLearning ? todayLearning.items.filter((item) => item.status === 'skipped').length : 0,
@@ -1637,7 +1638,7 @@ export class VocabularyV2Service {
       ? teachingDay ? { state: 'not_generated', reason: 'no_word_task_yet' } : { state: 'not_applicable', reason: 'weekend' }
       : todaySession.status !== 'completed'
         ? { state: 'not_generated', reason: 'learning_unfinished', generation: { trigger: '学完当天最后一张卡时自动生成' } }
-        : todayCounts!.learned === 0 && plannedReviewCount(todaySession) === 0
+        : !dailyTestNeeded(todaySession)
           ? { state: 'not_applicable', reason: 'nothing_learned' }
           : !todayTest!.generated
             ? { state: 'not_generated', reason: 'ready_to_generate', dailySessionId: todaySession.id, expectedNewWords: todayCounts!.learned, reviewWordsMax: (todaySession.settingsSnapshot as any)?.reviewWords ?? REVIEW_SAMPLE_SIZE }
@@ -3084,7 +3085,7 @@ export class VocabularyV2Service {
       replaced: counts.replaced,
       pending: counts.pending,
       processed: counts.processed,
-      testNeeded: counts.learned > 0 || plannedReviewCount(session) > 0,
+      testNeeded: dailyTestNeeded(session),
       learningPhase: counts.pending === 0 ? 'finished' : counts.processed === 0 ? 'not_started' : 'in_progress',
       capabilities: { recallStep: recallStepEnabled() },
       sourceSummary: session.sourceSummary,

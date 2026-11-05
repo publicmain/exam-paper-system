@@ -11,10 +11,12 @@ export function buildTeacherToday(input: {
     const day = s.days.find((d) => d.date === input.date)!;
     const noSchoolDay = Boolean(day.noSchoolDay);
     const required = isTeachingDay(input.date, noSchoolDay);
-    const reading: TaskState = day.reading?.completed ? day.reading.awaitingMarking ? 'submitted' : 'marked'
+    const redoPending = Boolean(day.reading?.completed && (day.reading.redoDone ?? 0) < (day.reading.redoRequired ?? 0));
+    const reading: TaskState = redoPending ? 'in_progress' : day.reading?.completed ? day.reading.awaitingMarking ? 'submitted' : 'marked'
       : day.reading ? day.reading.state === 'in_progress' ? 'in_progress' : 'not_started' : 'not_assigned';
     const words: TaskState = day.learning?.completed ? 'submitted' : day.learning?.itemsDone ? 'in_progress' : s.level ? 'not_started' : 'not_assigned';
-    const test: TaskState = day.test?.submitted ? 'marked' : day.test?.answered ? 'in_progress' : s.level ? 'not_started' : 'not_assigned';
+    const test: TaskState = day.test?.submitted ? 'marked' : day.testRequired === false ? 'not_assigned'
+      : day.test?.answered ? 'in_progress' : s.level ? 'not_started' : 'not_assigned';
     const recent = (input.recentByStudent.get(s.id) ?? []).map((date) => s.days.find((d) => d.date === date)).filter((d): d is DayFacts => Boolean(d));
     const lowReadingDates = recent.filter((d) => d.reading?.pct != null && d.reading.pct < 50).map((d) => d.date);
     const lowTestDates = recent.filter((d) => d.test?.submitted && d.test.items > 0 && d.test.correct / d.test.items < 0.5).map((d) => d.date);
@@ -23,7 +25,8 @@ export function buildTeacherToday(input: {
     const pendingSubjective = pending.reduce((n, p) => n + p.questions, 0);
     const reasons: string[] = [];
     if (required) {
-      if (reading === 'not_started' || reading === 'in_progress') reasons.push('阅读没交');
+      if (redoPending) reasons.push('阅读错题没重做完');
+      else if (reading === 'not_started' || reading === 'in_progress') reasons.push('阅读没交');
       if (words === 'not_started' || words === 'in_progress') reasons.push('新词没学完');
       if (test === 'not_started' || test === 'in_progress') reasons.push('词测没交');
     }

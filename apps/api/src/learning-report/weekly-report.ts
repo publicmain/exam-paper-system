@@ -57,6 +57,9 @@ export interface DayFacts {
     level: string;
     state: ReadingState;
     completed: boolean;
+    /** Required redo is separate from the original paper submission. */
+    redoRequired?: number;
+    redoDone?: number;
     awaitingMarking: boolean;
     /** 有他的答卷行（打开过这份卷子，哪怕一题没写）。共用的 readingState 把「一题没写」算作没开始，周报要分出来 */
     opened: boolean;
@@ -65,6 +68,8 @@ export interface DayFacts {
     submittedAt: string | null;
   } | null;
   learning: { completed: boolean; itemsDone: number; items: number } | null;
+  /** Unknown until daily learning finishes; false means no formal test is needed. */
+  testRequired?: boolean;
   test: { id?: string; answered?: number; submitted: boolean; correct: number; items: number } | null;
 }
 
