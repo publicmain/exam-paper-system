@@ -22,7 +22,7 @@ export type ClassDayPrint = {
   date: string;
   withAnswers: boolean;
   readings: Array<{ sessionId: string; date: string; level: string; levelLabel: string; reading: ReadingPrint }>;
-  students: Array<{ name: string; level: string | null; levelLabel: string | null; words: PrintWord[] }>;
+  students: Array<{ name: string; level: string | null; levelLabel: string | null; words: PrintWord[]; dictationSenseIds?: string[] }>;
 };
 export type ClassWeekPrint = {
   classId: string;
@@ -35,7 +35,7 @@ export type ClassWeekPrint = {
     level: string | null;
     levelLabel: string | null;
     /** learned：那天学生在 App 里把新词学完了没有（没学完的日子纸上注明） */
-    days: Array<{ date: string; learned: boolean; words: PrintWord[] }>;
+    days: Array<{ date: string; learned: boolean; words: PrintWord[]; dictationSenseIds?: string[] }>;
     total: number;
     testWrong: number;
   }>;
@@ -88,6 +88,8 @@ export default function PrintMaterialsPage() {
   const [date, setDate] = useState(() => sgtToday());
   const [kind, setKind] = useState<Kind>('reading');
   const [withAnswers, setWithAnswers] = useState(false);
+  const [showMisspellings, setShowMisspellings] = useState(true);
+  const [onlyLearned, setOnlyLearned] = useState(true);
   const [level, setLevel] = useState('all');
   const [load, setLoad] = useState<Load>({ s: 'idle' });
 
@@ -136,13 +138,18 @@ export default function PrintMaterialsPage() {
   const weekData = load.s === 'ready' && load.scope === 'week' ? load.data : null;
   useEffect(() => setLevel('all'), [classId, date]);
   const readings = useMemo(() => (dayData ? dayData.readings.filter((r) => level === 'all' || r.level === level) : []), [dayData, level]);
-  const withWords = useMemo(() => (dayData ? dayData.students.filter((s) => s.words.length > 0) : []), [dayData]);
-  const weekWithWords = useMemo(() => (weekData ? weekData.students.filter((s) => s.total > 0) : []), [weekData]);
+  const printable = (words: PrintWord[], frozen?: string[]) => words.filter((w) =>
+    (!onlyLearned || w.learned !== false) && (kind !== 'dictation' || !frozen || frozen.includes(w.senseId ?? '')));
+  const withWords = useMemo(() => (dayData ? dayData.students.map((s) => ({ ...s, words: printable(s.words, s.dictationSenseIds) })).filter((s) => s.words.length > 0) : []), [dayData, onlyLearned, kind]);
+  const weekWithWords = useMemo(() => (weekData ? weekData.students.map((s) => {
+    const days = s.days.map((d) => ({ ...d, words: printable(d.words, d.dictationSenseIds) })).filter((d) => d.words.length);
+    return { ...s, days, total: days.reduce((n, d) => n + d.words.length, 0), testWrong: days.reduce((n, d) => n + d.words.filter((w) => w.testWrong).length, 0) };
+  }).filter((s) => s.total > 0) : []), [weekData, onlyLearned, kind]);
   const noWords = useMemo(() => {
-    if (dayData) return dayData.students.filter((s) => s.words.length === 0).map((s) => s.name);
-    if (weekData) return weekData.students.filter((s) => s.total === 0).map((s) => s.name);
+    if (dayData) return dayData.students.filter((s) => !printable(s.words, s.dictationSenseIds).length).map((s) => s.name);
+    if (weekData) return weekData.students.filter((s) => !s.days.some((d) => printable(d.words, d.dictationSenseIds).length)).map((s) => s.name);
     return [];
-  }, [dayData, weekData]);
+  }, [dayData, weekData, onlyLearned, kind]);
   const canPrint =
     scope === 'week' ? weekWithWords.length > 0 : kind === 'reading' ? readings.length > 0 : withWords.length > 0;
   const kinds: Array<[Kind, string]> =
@@ -173,6 +180,7 @@ export default function PrintMaterialsPage() {
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-3 text-sm">
+          {classId ? <a className="inline-flex min-h-12 items-center text-blue-600 hover:underline" href={`/classes/${encodeURIComponent(classId)}/dictation${scope === 'day' ? `?learnedDate=${encodeURIComponent(date)}` : ''}`}>早读默写回填</a> : null}
           <label className="flex items-center gap-2">
             班级
             <select className="input" value={classId} onChange={(e) => setClassId(e.target.value)} data-testid="print-class">
@@ -259,6 +267,8 @@ export default function PrintMaterialsPage() {
               附答案页
             </label>
           ) : null}
+          {kind !== 'reading' ? <label className="flex min-h-12 items-center gap-2"><input type="checkbox" checked={onlyLearned} onChange={(e) => setOnlyLearned(e.target.checked)} />只印学完的词</label> : null}
+          {kind === 'dictation' ? <label className="flex min-h-12 items-center gap-2"><input type="checkbox" checked={showMisspellings} onChange={(e) => setShowMisspellings(e.target.checked)} />标出班里常错拼法</label> : null}
           <button type="button" className="btn btn-primary" disabled={!canPrint} onClick={() => window.print()} data-testid="print-now">
             打印 / 存 PDF
           </button>
@@ -276,7 +286,7 @@ export default function PrintMaterialsPage() {
         ) : null}
         {(dayData || weekData) && (scope === 'week' || kind !== 'reading') && noWords.length ? (
           <p className="text-sm text-gray-600" data-testid="print-no-words">
-            {scope === 'week' ? '这一周没有单词任务、不会打印的学生' : '这天没有单词任务、不会打印的学生'}：{noWords.join('、')}
+            {scope === 'week' ? '这一周' : '这天'}{onlyLearned ? '没有学完的词' : '没有单词任务'}、不会打印的学生：{noWords.join('、')}
           </p>
         ) : null}
         {dayData && kind === 'reading' && dayData.readings.length === 0 ? (
@@ -301,6 +311,7 @@ export default function PrintMaterialsPage() {
             <WordsSheet
               key={s.name}
               words={s.words}
+              showMisspellings={showMisspellings}
               mode={kind === 'dictation' ? 'dictation' : 'list'}
               title={`${s.name} · ${kind === 'dictation' ? '默写纸' : '单词表'}`}
               meta={[dayText(dayData.date), dayData.className, s.levelLabel, `共 ${s.words.length} 个`].filter(Boolean).join(' · ')}
@@ -313,6 +324,7 @@ export default function PrintMaterialsPage() {
             <WeekWordsSheet
               key={s.name}
               days={s.days.map((d) => ({ ...d, label: dayText(d.date), note: d.learned ? undefined : '（App 里没学完）' }))}
+              showMisspellings={showMisspellings}
               mode={kind === 'dictation' ? 'dictation' : 'list'}
               title={`${s.name} · ${kind === 'dictation' ? '一周默写纸' : '一周单词表'}`}
               meta={[

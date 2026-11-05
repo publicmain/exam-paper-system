@@ -18,6 +18,8 @@ const Q = (sortOrder: number, taskType: string, stem: string, extra: Record<stri
 
 function makePrisma(over: Record<string, any> = {}) {
   return {
+    dictationSheet: { findUnique: vi.fn(async () => null as any), findMany: vi.fn(async () => [] as any[]) },
+    learningEvidence: { findMany: vi.fn(async () => []) },
     morningQuizSession: {
       findUnique: vi.fn(async () => ({
         id: 'mqs-1',
@@ -91,6 +93,21 @@ describe('学生：打印自己的阅读 / 单词', () => {
 
 describe('老师：一个班某一天', () => {
   const teacher = { id: 't-1', role: 'teacher' };
+
+  it('已有默写单时返回冻结范围，供默写重印使用；单词表仍可选全部词，错拼统计不带姓名', async () => {
+    const prisma = makePrisma();
+    prisma.vocabularyV2Session.findMany.mockResolvedValue([{ studentId: 'stu-b', items: ['sense1', 'sense2'].map((senseId, i) => ({
+      position: i + 1, senseId, status: 'completed', contentSnapshot: { headword: i ? 'later' : 'receive', translation: '中文' },
+    })) }] as any);
+    prisma.dictationSheet.findUnique.mockResolvedValue({ rows: [{ studentId: 'stu-b', senseIds: ['sense1'] }] });
+    prisma.learningEvidence.findMany.mockResolvedValue([1, 2].map(() => ({ senseId: 'sense1', kind: 'practice_first', detail: { typed: 'recieve' } })) as any);
+    const result = await new PrintMaterialsService(prisma as any).classDay(teacher, 'class-1', '2026-09-22', false);
+    const words = result.students.find((s) => s.name === '小明')!.words;
+    expect(words).toHaveLength(2);
+    expect(result.students.find((s) => s.name === '小明')!.dictationSenseIds).toEqual(['sense1']);
+    expect(words[0].commonMisspellings).toEqual([{ spelling: 'recieve', count: 2 }]);
+    expect(JSON.stringify(words[0].commonMisspellings)).not.toContain('小明');
+  });
 
   it('每个档位一份阅读（没有题的场次不出）；每个学生一份自己的单词，按名字排', async () => {
     const r = await new PrintMaterialsService(makePrisma() as any).classDay(teacher, 'class-1', '2026-09-22', false);

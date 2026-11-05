@@ -67,6 +67,10 @@ async function request<T = any>(method: string, path: string, body?: any): Promi
 }
 
 export const api = {
+  dictation: (classId: string, learnedDate?: string, heldOn?: string) => request('GET', `/classes/${encodeURIComponent(classId)}/dictation${qs({ learnedDate, heldOn })}`),
+  generateDictation: (classId: string, input: { learnedDate: string; heldOn: string }) => request('POST', `/classes/${encodeURIComponent(classId)}/dictation`, input),
+  saveDictation: (classId: string, sheetId: string, studentId: string, input: { requestId: string; status: 'entered' | 'absent'; wrongSenseIds: string[] }) => request('POST', `/classes/${encodeURIComponent(classId)}/dictation/${encodeURIComponent(sheetId)}/students/${encodeURIComponent(studentId)}`, input),
+  remainingDictationCorrect: (classId: string, sheetId: string, requestId: string) => request('POST', `/classes/${encodeURIComponent(classId)}/dictation/${encodeURIComponent(sheetId)}/remaining-correct`, { requestId }),
   classToday: (classId: string, date?: string) => request('GET', `/learning-report/classes/${encodeURIComponent(classId)}/today${qs({ date })}`),
   classNoSchoolDays: (classId: string, period = 'all') => request('GET', `/classes/${encodeURIComponent(classId)}/no-school-days${qs({ period })}`),
   addClassNoSchoolDays: (classId: string, input: { from: string; to: string; reason?: string }) => request('POST', `/classes/${encodeURIComponent(classId)}/no-school-days`, input),

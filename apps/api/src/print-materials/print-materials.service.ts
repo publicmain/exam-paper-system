@@ -3,6 +3,7 @@ import { PrismaService } from '../common/prisma.service';
 import { canActOnClass } from '../common/roles';
 import { levelLabel, levelsByOrder } from '../morning-quiz/level-registry';
 import { buildReadingPrint, buildWordsPrint, type PrintWord, type ReadingPrint } from './print-model';
+import { commonMisspellings } from './common-misspellings';
 
 /**
  * 打印材料（2026-09-22）：全部只读。
@@ -143,10 +144,17 @@ export class PrintMaterialsService {
       ? await this.prisma.vocabularyV2Session.findMany({
           where: { sessionKey: { in: students.map((s) => dailySessionKey(s.id, date)) } },
           // status：给「一次印全部」分出学完的词（每个词带 learned）
-          select: { studentId: true, items: { select: { position: true, contentSnapshot: true, status: true } } },
+          select: { studentId: true, items: { select: { position: true, contentSnapshot: true, status: true, senseId: true } } },
         })
       : [];
     const byStudent = new Map(daily.map((d) => [d.studentId, d.items]));
+    const frozenSheet = await this.prisma.dictationSheet.findUnique({
+      where: { classId_learnedDate: { classId, learnedDate: new Date(`${date}T00:00:00.000Z`) } },
+      select: { rows: { select: { studentId: true, senseIds: true } } },
+    });
+    const frozen = frozenSheet ? new Map(frozenSheet.rows.map((row) => [row.studentId, new Set(Array.isArray(row.senseIds) ? row.senseIds : [])])) : null;
+    const misspellings = await commonMisspellings(this.prisma, students.map((s) => s.id),
+      [...new Set(daily.flatMap((d) => d.items.map((it) => it.senseId)).filter(Boolean))]);
 
     return {
       classId: cls.id,
@@ -158,7 +166,8 @@ export class PrintMaterialsService {
         name: s.name,
         level: s.englishLevel ? String(s.englishLevel) : null,
         levelLabel: s.englishLevel ? levelLabel(String(s.englishLevel)) : null,
-        words: buildWordsPrint(byStudent.get(s.id) ?? []),
+        dictationSenseIds: frozen ? [...(frozen.get(s.id) ?? [])] : undefined,
+        words: buildWordsPrint(byStudent.get(s.id) ?? []).map((word) => this.withMisspellings(word, misspellings)),
       })),
     };
   }
@@ -175,7 +184,7 @@ export class PrintMaterialsService {
     const daily = keys.length
       ? await this.prisma.vocabularyV2Session.findMany({
           where: { sessionKey: { in: keys } },
-          select: { sessionKey: true, status: true, items: { select: { position: true, contentSnapshot: true, senseId: true } } },
+          select: { sessionKey: true, status: true, items: { select: { position: true, contentSnapshot: true, senseId: true, status: true } } },
         })
       : [];
     const formal = daily.length
@@ -185,6 +194,14 @@ export class PrintMaterialsService {
         })
       : [];
     const itemsByKey = new Map(daily.map((d) => [d.sessionKey, d.items]));
+    const frozenSheets = await this.prisma.dictationSheet.findMany({
+      where: { classId, learnedDate: { in: dates.map((date) => new Date(`${date}T00:00:00.000Z`)) } },
+      select: { learnedDate: true, rows: { select: { studentId: true, senseIds: true } } },
+    });
+    const frozen = new Map(frozenSheets.map((sheet) => [dayKey(sheet.learnedDate), new Map(sheet.rows.map((row) =>
+      [row.studentId, new Set(Array.isArray(row.senseIds) ? row.senseIds : [])]))]));
+    const misspellings = await commonMisspellings(this.prisma, students.map((s) => s.id),
+      [...new Set(daily.flatMap((d) => d.items.map((it) => it.senseId)).filter(Boolean))]);
     // 系统每天早上照样给每个学生排词；学生那天没在 App 里学完（考试日、缺勤），纸上要看得出来
     const learnedByKey = new Map(daily.map((d) => [d.sessionKey, d.status === 'completed']));
     const wrongByKey = new Map(
@@ -207,7 +224,9 @@ export class PrintMaterialsService {
             return {
               date,
               learned: learnedByKey.get(key) ?? false,
-              words: buildWordsPrint(itemsByKey.get(key) ?? [], wrongByKey.get(key) ?? new Set()),
+              dictationSenseIds: frozen.has(date) ? [...(frozen.get(date)?.get(s.id) ?? [])] : undefined,
+              words: buildWordsPrint(itemsByKey.get(key) ?? [], wrongByKey.get(key) ?? new Set())
+                .map((word) => this.withMisspellings(word, misspellings)),
             };
           })
           .filter((d) => d.words.length > 0);
@@ -224,6 +243,11 @@ export class PrintMaterialsService {
   }
 
   /** 班里在读的学生，按姓名排序。 */
+  private withMisspellings(word: PrintWord, mistakes: Map<string, Array<{ spelling: string; count: number }>>): PrintWord {
+    const common = (mistakes.get(word.senseId ?? '') ?? []).filter((m) => m.spelling !== word.headword.toLowerCase());
+    return common.length ? { ...word, commonMisspellings: common } : word;
+  }
+
   private async classStudents(classId: string) {
     const enrollments = await this.prisma.classEnrollment.findMany({
       where: { classId, role: 'student', user: { isActive: true, archivedAt: null } },

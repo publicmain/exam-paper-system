@@ -14,7 +14,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { api } from '../lib/api';
-import { shortGloss, type PrintWord } from '../print/PrintSheets';
+import { CommonMisspellings, shortGloss, type PrintWord } from '../print/PrintSheets';
 import '../print/print-sheet.css';
 import { addDays, dayText, sgtToday, type ClassDayPrint } from './PrintMaterials';
 
@@ -44,7 +44,7 @@ export function prevTeachingDay(iso: string): string {
 export type StudentSheet = { key: string; className: string; name: string; levelLabel: string | null; words: PrintWord[] };
 
 /** 所有班合在一起：按班名、班内按服务端的顺序；跳过测试账号；只印学过的词时把没学完的剔掉。 */
-export function buildSheets(loaded: Loaded[], onlyLearned: boolean) {
+export function buildSheets(loaded: Loaded[], onlyLearned: boolean, dictation = true) {
   const sheets: StudentSheet[] = [];
   const noWords: string[] = [];
   let skippedTest = 0;
@@ -55,7 +55,8 @@ export function buildSheets(loaded: Loaded[], onlyLearned: boolean) {
         continue;
       }
       // learned 没给（接口还是旧版）就当学过，不误删
-      const words = onlyLearned ? s.words.filter((w) => w.learned !== false) : s.words;
+      const words = s.words.filter((w) => (!onlyLearned || w.learned !== false)
+        && (!dictation || !s.dictationSenseIds || s.dictationSenseIds.includes(w.senseId ?? '')));
       if (words.length) sheets.push({ key: `${c.classId}:${s.name}`, className: c.className, name: s.name, levelLabel: s.levelLabel, words });
       else noWords.push(`${s.name}（${c.className}）`);
     }
@@ -76,6 +77,7 @@ export default function PrintAllWordsPage() {
   const [kind, setKind] = useState<Kind>('dictation');
   const [onlyLearned, setOnlyLearned] = useState(true);
   const [withAnswers, setWithAnswers] = useState(false);
+  const [showMisspellings, setShowMisspellings] = useState(true);
   const [loaded, setLoaded] = useState<Loaded[] | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -121,7 +123,7 @@ export default function PrintAllWordsPage() {
     // pickedKey 代表勾选的班；classes 只在加载时变一次
   }, [classes, date, pickedKey]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const { sheets, noWords, skippedTest } = useMemo(() => buildSheets(loaded ?? [], onlyLearned), [loaded, onlyLearned]);
+  const { sheets, noWords, skippedTest } = useMemo(() => buildSheets(loaded ?? [], onlyLearned, kind === 'dictation'), [loaded, onlyLearned, kind]);
   const forbidden = (loaded ?? []).filter((r) => r.forbidden).map((r) => r.className);
   const pageCount = sheets.reduce((n, s) => n + Math.ceil(s.words.length / PER_PAGE[kind]), 0);
   const byClass = useMemo(() => {
@@ -189,6 +191,7 @@ export default function PrintAllWordsPage() {
         </div>
 
         <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
+          {kind === 'dictation' ? <label className="flex min-h-12 items-center gap-2"><input type="checkbox" checked={showMisspellings} onChange={(e) => setShowMisspellings(e.target.checked)} />标出班里常错拼法</label> : null}
           <label className="flex items-center gap-2">
             <input type="checkbox" checked={onlyLearned} onChange={(e) => setOnlyLearned(e.target.checked)} data-testid="pw-only-learned" />
             只印学完的词（没学到的、点了「稍后再学」的不印）
@@ -268,8 +271,9 @@ export default function PrintAllWordsPage() {
                       <td style={{ whiteSpace: 'nowrap', fontWeight: 700 }}>{s.name}</td>
                       <td className="ps-small">
                         {s.words.map((w, i) => (
-                          <span key={`${w.headword}-${i}`} style={{ display: 'inline-block', marginRight: 10 }}>
+                          <span key={`${w.headword}-${i}`} style={{ display: 'inline-block', marginRight: 12 }}>
                             <b>{i + 1}.</b>&nbsp;{w.headword}
+                            {showMisspellings ? <CommonMisspellings word={w} /> : null}
                           </span>
                         ))}
                       </td>
