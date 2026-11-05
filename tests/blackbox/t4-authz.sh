@@ -103,13 +103,13 @@ fi
 # 3. Bulk roster — students --------------------------------------------
 log "Roster student A on class A"
 R=$(req POST "$BASE/api/classes/${CLASS_A_ID}/roster" "$ADMIN_TOKEN" \
-   "{\"students\":[{\"email\":\"${EMAIL_A}\",\"name\":\"Stu A\",\"password\":\"${PASS_PWD}\"}]}")
+   "{\"students\":[{\"email\":\"${EMAIL_A}\",\"name\":\"某学生\",\"password\":\"${PASS_PWD}\"}]}")
 RA_CODE="${R%%|*}"; RA_BODY="${R#*|}"
 log "  roster A code=$RA_CODE body=${RA_BODY:0:300}"
 
 log "Roster student B on class B"
 R=$(req POST "$BASE/api/classes/${CLASS_B_ID}/roster" "$ADMIN_TOKEN" \
-   "{\"students\":[{\"email\":\"${EMAIL_B}\",\"name\":\"Stu B\",\"password\":\"${PASS_PWD}\"}]}")
+   "{\"students\":[{\"email\":\"${EMAIL_B}\",\"name\":\"某学生\",\"password\":\"${PASS_PWD}\"}]}")
 RB_CODE="${R%%|*}"; RB_BODY="${R#*|}"
 log "  roster B code=$RB_CODE body=${RB_BODY:0:300}"
 

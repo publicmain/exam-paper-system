@@ -32,7 +32,7 @@ export default function MorningQuizSessionDashboard() {
   }
 
   /** Wipe one student's attendance + submission + scripts on this session.
-   *  Used after a teacher-led dry-run (e.g. "I tested with 刘思璇 — clean
+   *  Used after a teacher-led dry-run (e.g. "I tested with 某学生 — clean
    *  her test data so tomorrow's real morning dashboard starts clean"). */
   async function handleClearStudent(studentId: string, studentName: string) {
     if (!sessionId) return;

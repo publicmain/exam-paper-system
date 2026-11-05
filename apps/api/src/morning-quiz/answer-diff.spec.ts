@@ -23,7 +23,7 @@ describe('diffAnswer —— 机械差异识别', () => {
     expect(d.wrongInExam).toBe(false);
   });
 
-  it('单复数不同 → 真考照样扣分（2026-08-20 胡齐家那题）', () => {
+  it('单复数不同 → 真考照样扣分（2026-08-20 某学生那题）', () => {
     const d = diffAnswer('Culture', 'cultures');
     expect(d.kind).toBe('plural');
     expect(d.wrongInExam).toBe(true);

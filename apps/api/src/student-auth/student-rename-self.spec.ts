@@ -51,7 +51,7 @@ function makeSvc(over: Record<string, unknown> = {}) {
 describe('renameSelf', () => {
   it('**当前密码错 → 401，失败计数 +1，一个字都不改、不发票**', async () => {
     const { svc, prisma, jwt, user } = makeSvc();
-    await expect(svc.renameSelf('stu-1', '喻耀程', '999999')).rejects.toMatchObject({ status: 401, response: { code: 'invalid_credentials' } });
+    await expect(svc.renameSelf('stu-1', '某学生', '999999')).rejects.toMatchObject({ status: 401, response: { code: 'invalid_credentials' } });
     expect(user.pinFailedCount).toBe(1);
     expect(prisma.user.updateMany).not.toHaveBeenCalled();
     expect(jwt.signAsync).not.toHaveBeenCalled();
@@ -59,30 +59,30 @@ describe('renameSelf', () => {
 
   it('锁定中 → 403 pin_locked，不比对密码、不改', async () => {
     const { svc, prisma } = makeSvc({ pinLockedUntil: new Date(Date.now() + 10 * 60_000) });
-    await expect(svc.renameSelf('stu-1', '喻耀程', '280519')).rejects.toMatchObject({ status: 403, response: { code: 'pin_locked' } });
+    await expect(svc.renameSelf('stu-1', '某学生', '280519')).rejects.toMatchObject({ status: 403, response: { code: 'pin_locked' } });
     expect(prisma.user.updateMany).not.toHaveBeenCalled();
   });
 
   it('**成功：改名并留审计；新票带新名字、版本号不变（其它设备不被登出）**', async () => {
     const { svc, prisma, jwt } = makeSvc();
-    const r = await svc.renameSelf('stu-1', '喻耀程', '280519', '1.2.3.4');
+    const r = await svc.renameSelf('stu-1', '某学生', '280519', '1.2.3.4');
     expect(prisma.user.updateMany).toHaveBeenCalledWith({
       where: { id: 'stu-1', name: '第一每亩' },
-      data: { name: '喻耀程', nickname: '喻耀程', email: selfRegisterEmail('c1', normalizeName('喻耀程')) },
+      data: { name: '某学生', nickname: '某学生', email: selfRegisterEmail('c1', normalizeName('某学生')) },
     });
     expect(prisma.auditLog.create).toHaveBeenCalledWith({
       data: expect.objectContaining({ action: 'student.rename', actorId: 'stu-1', actorRole: 'student', ip: '1.2.3.4', metadata: { source: 'student_self' } }),
     });
     expect(jwt.signAsync).toHaveBeenCalledWith(
-      { id: 'stu-1', email: selfRegisterEmail('c1', normalizeName('喻耀程')), role: 'student', name: '喻耀程', av: 2 },
+      { id: 'stu-1', email: selfRegisterEmail('c1', normalizeName('某学生')), role: 'student', name: '某学生', av: 2 },
       expect.anything(),
     );
-    expect(r).toEqual({ ok: true, token: 'new-token', student: { id: 'stu-1', name: '喻耀程', nickname: '喻耀程', avatar: null } });
+    expect(r).toEqual({ ok: true, token: 'new-token', student: { id: 'stu-1', name: '某学生', nickname: '某学生', avatar: null } });
   });
 
   it('同班重名 → 409，不发票', async () => {
-    const { svc, jwt } = makeSvc({ classmate: '喻耀程' });
-    await expect(svc.renameSelf('stu-1', '喻耀程', '280519')).rejects.toMatchObject({ status: 409, response: { code: 'name_taken_in_class' } });
+    const { svc, jwt } = makeSvc({ classmate: '某学生' });
+    await expect(svc.renameSelf('stu-1', '某学生', '280519')).rejects.toMatchObject({ status: 409, response: { code: 'name_taken_in_class' } });
     expect(jwt.signAsync).not.toHaveBeenCalled();
   });
 });

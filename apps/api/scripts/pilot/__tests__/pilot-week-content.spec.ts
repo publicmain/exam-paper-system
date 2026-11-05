@@ -93,7 +93,7 @@ const ACCEPTANCE_TITLES = [
   'Why Bridges Sing in the Wind',
   'The Quiet Work of Bees',
   'Maps Before Satellites',
-  'The School That Grew a Forest',
+  'The School That Grew a 某学生',
   'Rain, Rivers and Rice',
   'Small Machines, Long Journeys',
   'When the Library Moved House',

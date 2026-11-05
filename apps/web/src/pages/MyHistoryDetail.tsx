@@ -369,7 +369,7 @@ export default function MyHistoryDetail() {
  * 补出来的，于是 awardedMarks 是 null —— 和「写了但还没判」长得一模
  * 一样。只看 awardedMarks 会把空白题显示成「正在人工批改」，而这个班
  * 空白率很高，等于绝大多数复盘页都永久挂着一条假横幅
- * （2026-08-12 叶雅滋 Q12 即如此）。
+ * （2026-08-12 某学生 Q12 即如此）。
  */
 /**
  * 老师评语里的记账前缀和 markdown 都不该出现在学生眼前。
@@ -377,7 +377,7 @@ export default function MyHistoryDetail() {
  * 判分时写的是给自己看的流水：「填11:patchwork,判对。1。」——题号、
  * 学生答案、判定、分数，这四样卡片上都已经显示了，重复一遍只会把真正
  * 的讲解挤到后面。markdown 的 ** 更是直接以星号原样印在屏幕上
- * （2026-08-13 叶雅滋 Q11 实例）。
+ * （2026-08-13 某学生 Q11 实例）。
  */
 export function cleanComment(raw: string | null | undefined): string {
   let s = String(raw ?? '').trim();
@@ -420,7 +420,7 @@ function ResultRow({
   const stem = stripStemPrefix(rawStem, commonIntro);
   const isMcq = item.questionType === 'mcq';
   // 判过分之后，对错一律以分数为准。autoCorrect 是交卷时自动比对的
-  // 结果，老师改判后它不会跟着变 —— 2026-08-13 叶雅滋 Q11 就是：
+  // 结果，老师改判后它不会跟着变 —— 2026-08-13 某学生 Q11 就是：
   // patchwork 判对给了 1/1，卡片却因为 autoCorrect=false 显示红叉。
   const gradedCorrect =
     item.awardedMarks != null ? item.awardedMarks >= item.marks : null;

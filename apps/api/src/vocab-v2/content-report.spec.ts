@@ -18,7 +18,7 @@ function setup(item: Record<string, unknown> | null, hiddenCount = 1) {
     vocabularyContext: { updateMany },
     $executeRaw: executeRaw,
     user: {
-      findUnique: vi.fn().mockResolvedValue({ name: '郑稀瑜', classEnrollments: [{ class: { name: 'OL26W' } }] }),
+      findUnique: vi.fn().mockResolvedValue({ name: '某学生', classEnrollments: [{ class: { name: 'OL26W' } }] }),
       findMany: vi.fn().mockResolvedValue([{ id: 'teacher-1' }, { id: 'admin-1' }]),
     },
     notification: { createMany },
@@ -66,7 +66,7 @@ describe('学生反馈「这句有问题」', () => {
     const rows = createMany.mock.calls[0][0].data;
     expect(rows.map((r: any) => r.userId)).toEqual(['teacher-1', 'admin-1']);
     expect(rows[0]).toMatchObject({ type: 'content_report', title: '学生反馈：oral 的内容有问题' });
-    expect(rows[0].body).toContain('郑稀瑜（OL26W）');
+    expect(rows[0].body).toContain('某学生（OL26W）');
     expect(rows[0].body).toContain('What is oral sex?');
     expect(rows[0].body).toContain('学生说：这句不合适');
     expect(rows[0].body).toContain('已经自动下架');

@@ -24,7 +24,7 @@ function jsonResponse(status: number, body: unknown) {
   } as unknown as Response);
 }
 
-const PROFILE = { id: 'stu-1', name: 'Starry', nickname: 'Starry', avatar: null, englishLevel: 'ielts_light' };
+const PROFILE = { id: 'stu-1', name: '某学生', nickname: '某学生', avatar: null, englishLevel: 'ielts_light' };
 
 beforeEach(() => {
   reqs = [];
@@ -72,7 +72,7 @@ describe('老师重置密码后，学生自己设新密码', () => {
     fireEvent.click(screen.getByTestId('forgot-password'));
     await settle();
 
-    fireEvent.change(screen.getByLabelText('姓名'), { target: { value: 'Starry' } });
+    fireEvent.change(screen.getByLabelText('姓名'), { target: { value: '某学生' } });
     fireEvent.change(screen.getByLabelText('新密码（6 位数字）'), { target: { value: '241860' } });
     fireEvent.change(screen.getByLabelText('再输一次新密码'), { target: { value: '241860' } });
     fireEvent.click(screen.getByRole('button', { name: '设新密码并登录' }));
@@ -80,7 +80,7 @@ describe('老师重置密码后，学生自己设新密码', () => {
 
     const call = reqs.find((r) => r.path === '/student-auth/register');
     expect(call).toBeTruthy();
-    expect(JSON.parse(call!.body!)).toMatchObject({ name: 'Starry', password: '241860' });
+    expect(JSON.parse(call!.body!)).toMatchObject({ name: '某学生', password: '241860' });
     // 落盘的只有令牌
     expect(localStorage.getItem('sw:token')).toBe(TOKEN);
   });
@@ -90,7 +90,7 @@ describe('老师重置密码后，学生自己设新密码', () => {
     await settle();
     fireEvent.click(screen.getByTestId('forgot-password'));
     await settle();
-    fireEvent.change(screen.getByLabelText('姓名'), { target: { value: 'Starry' } });
+    fireEvent.change(screen.getByLabelText('姓名'), { target: { value: '某学生' } });
     fireEvent.change(screen.getByLabelText('新密码（6 位数字）'), { target: { value: '241860' } });
     fireEvent.change(screen.getByLabelText('再输一次新密码'), { target: { value: '111111' } });
     fireEvent.click(screen.getByRole('button', { name: '设新密码并登录' }));
@@ -104,7 +104,7 @@ describe('老师重置密码后，学生自己设新密码', () => {
     await settle();
     fireEvent.click(screen.getByTestId('forgot-password'));
     await settle();
-    fireEvent.change(screen.getByLabelText('姓名'), { target: { value: 'Starry' } });
+    fireEvent.change(screen.getByLabelText('姓名'), { target: { value: '某学生' } });
     fireEvent.change(screen.getByLabelText('新密码（6 位数字）'), { target: { value: '12' } });
     fireEvent.change(screen.getByLabelText('再输一次新密码'), { target: { value: '12' } });
     fireEvent.click(screen.getByRole('button', { name: '设新密码并登录' }));
@@ -127,7 +127,7 @@ describe('老师重置密码后，学生自己设新密码', () => {
     await settle();
     fireEvent.click(screen.getByTestId('forgot-password'));
     await settle();
-    fireEvent.change(screen.getByLabelText('姓名'), { target: { value: 'Starry' } });
+    fireEvent.change(screen.getByLabelText('姓名'), { target: { value: '某学生' } });
     fireEvent.change(screen.getByLabelText('新密码（6 位数字）'), { target: { value: '241860' } });
     fireEvent.change(screen.getByLabelText('再输一次新密码'), { target: { value: '241860' } });
     fireEvent.click(screen.getByRole('button', { name: '设新密码并登录' }));

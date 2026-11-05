@@ -101,7 +101,7 @@ STU_B_EMAIL="${PFX}-stu-B@example.com"
 STU_PASS="test1234"
 hit -X POST "$API/api/classes/$CLASS_ID/roster" -H 'Content-Type: application/json' \
   "${AUTH_ADMIN[@]}" \
-  -d "{\"students\":[{\"email\":\"$STU_A_EMAIL\",\"name\":\"B9 Stu A\",\"password\":\"$STU_PASS\"},{\"email\":\"$STU_B_EMAIL\",\"name\":\"B9 Stu B\",\"password\":\"$STU_PASS\"}]}"
+  -d "{\"students\":[{\"email\":\"$STU_A_EMAIL\",\"name\":\"B9 某学生\",\"password\":\"$STU_PASS\"},{\"email\":\"$STU_B_EMAIL\",\"name\":\"B9 某学生\",\"password\":\"$STU_PASS\"}]}"
 [ "$CODE" = "200" ] || [ "$CODE" = "201" ] || { echo "FATAL: roster failed code=$CODE body=$BODY"; exit 1; }
 
 # -------------------------------------------------------------------

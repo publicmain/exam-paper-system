@@ -13,12 +13,12 @@ import { WARNING_READ_SECONDS } from '../components/WarningNotifier';
  * 真组件 + 真路由，只把 fetch 打桩；倒计时只假 setInterval（waitFor 仍走真的 setTimeout）。
  */
 
-const PROFILE = { id: 'stu-w', name: '小呆呆', nickname: '小呆呆', avatar: null };
+const PROFILE = { id: 'stu-w', name: '某学生', nickname: '某学生', avatar: null };
 const WARNING = {
   id: 'n1',
   type: 'effort_warning',
   title: '严重警告：你的作业被判定为敷衍',
-  body: '小呆呆，老师逐份查了你 9 月 7 日以来的记录：\n13 篇阅读里有 11 篇，你十几秒到半分钟就交卷。\n这些记录已全部作废。',
+  body: '某学生，老师逐份查了你 9 月 7 日以来的记录：\n13 篇阅读里有 11 篇，你十几秒到半分钟就交卷。\n这些记录已全部作废。',
   createdAt: '2026-09-24T02:00:00.000Z',
 };
 const json = (status: number, body: unknown) =>

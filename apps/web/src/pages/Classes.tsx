@@ -553,7 +553,7 @@ function ClassDetailModal({
               onChange={(e) => setRosterText(e.target.value)}
               className="border rounded px-2 py-1 w-full font-mono text-xs"
               rows={6}
-              placeholder={`于琳晶\n胡鑫瑜\n罗翾瑶\nalice@school.local,Alice Wong\nbob@school.local`}
+              placeholder={`李四\n张三\n王五\nalice@school.local,Alice Wong\nbob@school.local`}
             />
             <div className="text-xs text-gray-500 mt-1">
               中文 / English 姓名都可。无 @ 的行按"纯姓名"处理，自动生成账号邮箱。

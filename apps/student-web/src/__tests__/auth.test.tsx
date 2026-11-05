@@ -407,19 +407,19 @@ describe('4b. 自己改登录名（2026-09-15）', () => {
     await loggedIn();
     fetchMock.mockImplementation((url: string) =>
       route(url) === '/student-auth/me/name'
-        ? jsonResponse(200, { ok: true, token: 'TK-RENAMED', student: { id: 's1', name: '喻耀程', nickname: '喻耀程', avatar: null } })
+        ? jsonResponse(200, { ok: true, token: 'TK-RENAMED', student: { id: 's1', name: '某学生', nickname: '某学生', avatar: null } })
         : jsonResponse(200, PROFILE),
     );
     const sheet = await openForm();
-    await userEvent.type(within(sheet).getByLabelText('新的登录名'), '喻耀程');
+    await userEvent.type(within(sheet).getByLabelText('新的登录名'), '某学生');
     await userEvent.type(within(sheet).getByLabelText('当前密码'), '280519');
     await userEvent.click(within(sheet).getByRole('button', { name: '确认修改' }));
 
-    expect((await screen.findByTestId('toast')).textContent).toContain('登录名已改成「喻耀程」');
+    expect((await screen.findByTestId('toast')).textContent).toContain('登录名已改成「某学生」');
     const call = fetchMock.mock.calls.find(([u]) => route(String(u)) === '/student-auth/me/name')!;
-    expect(JSON.parse(String((call[1] as RequestInit).body))).toEqual({ newName: '喻耀程', pin: '280519' });
+    expect(JSON.parse(String((call[1] as RequestInit).body))).toEqual({ newName: '某学生', pin: '280519' });
     expect(localStorage.getItem('sw:token')).toBe('TK-RENAMED');
-    expect(screen.getByTestId('login-name').textContent).toBe('喻耀程');
+    expect(screen.getByTestId('login-name').textContent).toBe('某学生');
     expect(screen.queryByRole('dialog', { name: '修改登录名' })).toBeNull();
   });
 
@@ -430,7 +430,7 @@ describe('4b. 自己改登录名（2026-09-15）', () => {
       route(url) === '/student-auth/me/name' ? jsonResponse(reply.status, reply.body) : jsonResponse(200, PROFILE),
     );
     const sheet = await openForm();
-    await userEvent.type(within(sheet).getByLabelText('新的登录名'), '喻耀程');
+    await userEvent.type(within(sheet).getByLabelText('新的登录名'), '某学生');
     await userEvent.type(within(sheet).getByLabelText('当前密码'), '999999');
     await userEvent.click(within(sheet).getByRole('button', { name: '确认修改' }));
     expect((await within(sheet).findByRole('alert')).textContent).toContain('当前密码不对');

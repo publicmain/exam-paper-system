@@ -166,7 +166,7 @@ describe('autoGradeScripts MCQ fallback chain (R15-followup-14)', () => {
   // buttons. Student types 'C' → stored as textAnswer='C' with
   // selectedOption=null. The grader used to look only at selectedOption and
   // gave 0; the historyDetail UI fell back to textAnswer for display and
-  // showed "我的答案 ✓ 正确" — a visible inconsistency 李淳 (5/14) caught.
+  // showed "我的答案 ✓ 正确" — a visible inconsistency 某学生 (5/14) caught.
   it('grades CORRECT when the student typed the letter into textAnswer (Cambridge "Write the letter" path)', async () => {
     const { autoScore, scriptUpdates } = await autoGradeScripts([
       script({

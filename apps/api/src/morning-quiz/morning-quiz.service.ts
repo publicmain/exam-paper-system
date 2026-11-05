@@ -3148,7 +3148,7 @@ export class MorningQuizService {
    * status='retired' (so the picker stops choosing them), Papers /
    * MorningQuizSessions / Attendances / Submissions / AnswerScripts
    * generated BEFORE that switch still exist and pollute student-facing
-   * views. e.g. 牟歌's portal shows a 5/18 attendance row that's
+   * views. e.g. 某学生's portal shows a 5/18 attendance row that's
    * actually a 5/11 test-activate scan on a retired 0510 paper.
    *
    * Strategy — find Papers where ANY PaperQuestion → Question carries
@@ -3755,7 +3755,7 @@ export class MorningQuizService {
     // R15-Audit#2 Finding #1 — the controller-side historyByName fix
     // (also requiring `classEnrollments: { some: { role: 'student' } }`)
     // was incomplete: this shared helper feeds upcoming-for-name +
-    // trend + 4 other endpoints. The phantom 李永轩 would still show
+    // trend + 4 other endpoints. The phantom 某学生 would still show
     // through any of them. Mirror the controller's predicate AND
     // require the enrollment's class itself to be active (not
     // archived).
