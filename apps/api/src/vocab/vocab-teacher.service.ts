@@ -2,6 +2,7 @@ import { BadRequestException, ForbiddenException, Injectable } from '@nestjs/com
 import { PrismaService } from '../common/prisma.service';
 import { canActOnClass } from '../common/roles';
 import { VocabService } from './vocab.service';
+import { VocabularyMasteryService } from '../vocab-v2/mastery';
 
 interface ActorCtx {
   id: string;
@@ -56,6 +57,7 @@ export class VocabTeacherService {
       },
     });
 
+    const masteredWords = await new VocabularyMasteryService(this.prisma).headwordsForStudents([...new Set(rows.map((r) => r.studentId))]);
     const agg = new Map<
       string,
       {
@@ -85,7 +87,7 @@ export class VocabTeacherService {
       a.students.add(r.studentId);
       if (r.sourceType === 'wrong_answer') a.wrongAnswer++;
       if (r.sourceType === 'click') a.clicked++;
-      if (r.state === 'known') a.mastered++;
+      if (masteredWords.get(r.studentId)?.has(r.headword.toLowerCase())) a.mastered++;
       if (!a.sample && r.contextSentence) a.sample = r.contextSentence;
       if (r.sourcePassageTitle) a.passages.add(r.sourcePassageTitle);
     }
@@ -222,11 +224,11 @@ export class VocabTeacherService {
     });
     const ids = students.map((s) => s.userId);
     if (!ids.length) return { classId, students: 0, rows: [] };
+    const mastered = await new VocabularyMasteryService(this.prisma).headwordsForStudents(ids);
 
-    const words = await this.prisma.studentWord.groupBy({
-      by: ['studentId', 'state'],
+    const words = await this.prisma.studentWord.findMany({
       where: { studentId: { in: ids } },
-      _count: true,
+      select: { studentId: true, headword: true },
     });
     const reviews = await this.prisma.wordReviewLog.groupBy({
       by: ['studentWordId'],
@@ -235,11 +237,11 @@ export class VocabTeacherService {
     });
     const reviewCount = reviews.reduce((a, r) => a + r._count, 0);
 
-    const byStudent = new Map<string, { total: number; known: number }>();
+    const byStudent = new Map<string, { total: number; mastered: number }>();
     for (const w of words) {
-      const cur = byStudent.get(w.studentId) ?? { total: 0, known: 0 };
-      cur.total += w._count;
-      if (w.state === 'known') cur.known += w._count;
+      const cur = byStudent.get(w.studentId) ?? { total: 0, mastered: 0 };
+      cur.total++;
+      if (mastered.get(w.studentId)?.has(w.headword.trim().toLowerCase())) cur.mastered++;
       byStudent.set(w.studentId, cur);
     }
 
@@ -249,8 +251,8 @@ export class VocabTeacherService {
       totalReviews: reviewCount,
       rows: students
         .map((s) => {
-          const v = byStudent.get(s.userId) ?? { total: 0, known: 0 };
-          return { studentId: s.userId, name: s.user.name, words: v.total, mastered: v.known };
+          const v = byStudent.get(s.userId) ?? { total: 0, mastered: 0 };
+          return { studentId: s.userId, name: s.user.name, words: v.total, mastered: v.mastered };
         })
         .sort((a, b) => b.words - a.words),
     };

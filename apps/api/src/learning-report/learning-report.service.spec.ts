@@ -80,6 +80,7 @@ function world() {
 
 function fakePrisma(w = world()) {
   return {
+    learningEvidence: { findMany: vi.fn(async (_args?: any): Promise<any[]> => []) },
     classNoSchoolDay: { findMany: vi.fn(async () => []) },
     class: {
       findMany: vi.fn(async (args: any) => {
@@ -187,5 +188,24 @@ describe('哪些人不算、一周怎么拼', () => {
     await new LearningReportService(prisma as never).weekly({ id: 'admin', role: 'admin' }, { classId: 'c-ial' }, NOW);
     expect(prisma.classEnrollment.findMany.mock.calls[0][0].where.classId.in).toEqual(['c-ial']);
     expect(prisma.paperAssignment.findMany.mock.calls[0][0].where.classId.in).toEqual(['c-ial']);
+  });
+});
+
+
+describe('Weekly independent mastery', () => {
+  it('reports cumulative mastery only through the last elapsed report day, and revokes it after a later independent error', async () => {
+    const prisma = fakePrisma();
+    const rows = ['2026-09-03', '2026-09-07', '2026-09-10'].map((day, index) => ({
+      studentId: 's1', senseId: 'word', subject: 'vocab_sense', kind: 'formal_first', sourceKey: day,
+      schoolDate: d(day), occurredAt: new Date(`${day}T04:00:00Z`), isCorrect: index < 2, hinted: false,
+    }));
+    prisma.learningEvidence.findMany.mockImplementation(async (args: any) => rows.filter((r) => r.schoolDate <= args.where.schoolDate.lte) as any);
+    const service = new LearningReportService(prisma as never);
+    const report = await service.weekly({ id: 'admin', role: 'admin' }, {}, NOW);
+    expect(report.students.find((s) => s.id === 's1')?.mastered).toBe(1);
+    expect(report.totals.mastered).toBe(1);
+    expect(report.byClass.find((c) => c.classId === 'c-sec')?.mastered).toBe(1);
+    const later = await service.weekly({ id: 'admin', role: 'admin' }, { weekStart: '2026-09-07' }, new Date('2026-09-11T04:00:00Z'));
+    expect(later.totals.mastered).toBe(0);
   });
 });

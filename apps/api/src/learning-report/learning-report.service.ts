@@ -5,6 +5,7 @@ import { loadSchoolCalendar, isTeachingDay, singaporeDate, dateOnly, nextDate, v
 import { buildTeacherToday } from './teacher-today';
 import { assignedReadingFor, type AssignedReading } from '../vocab-v2/level-timeline';
 import { formalAnswerOf } from '../vocab-v2/first-answer';
+import { VocabularyMasteryService } from '../vocab-v2/mastery';
 import { isExcludedAccount, isExcludedClass, reportExclusions } from './report-exclusions';
 import {
   addDays,
@@ -128,6 +129,8 @@ export class LearningReportService {
   ) {
     const ids = [...new Set(cohort.map((e) => e.user.id))];
     if (!ids.length) return { students: [] as StudentFacts[], sessionDays: new Set<string>() };
+    const masteryThrough = [today, days[days.length - 1]].sort()[0];
+    const mastered = await new VocabularyMasteryService(this.prisma).forStudents(ids, masteryThrough);
     const calendar = await loadSchoolCalendar(this.prisma, ids, days[0], days[days.length - 1]);
     const [assignments, levelChanges, vocab, pending] = await Promise.all([
       this.prisma.paperAssignment.findMany({
@@ -265,6 +268,7 @@ export class LearningReportService {
         className: classNameOf.get(e.classId) ?? '',
         level: u.englishLevel == null ? null : String(u.englishLevel),
         registeredOn: sgtKey(u.createdAt),
+        mastered: mastered.get(u.id)?.size ?? 0,
         days: dayFacts,
       };
     });

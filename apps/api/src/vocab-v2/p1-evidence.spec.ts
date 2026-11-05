@@ -142,6 +142,7 @@ describe('P1A 首答与正式交卷', () => {
   it('能力更新失败时交卷状态一起回滚，重试只完成一次', async () => {
     const { db, svc, studentId, sessionId, items: [item] } = testFixture();
     await svc.answerTestItem(studentId, sessionId, item.id, item.headword, undefined, NOW);
+    const scheduled = db.rows('studentVocabularySense');
     const transact = db.$transaction;
     db.$transaction = (run: any) => transact(async (tx: any) => {
       tx.studentVocabularySense.upsert = async () => { throw new Error('skill failed'); };
@@ -149,7 +150,7 @@ describe('P1A 首答与正式交卷', () => {
     });
     await expect(svc.submitTest(studentId, sessionId, NOW)).rejects.toThrow('skill failed');
     expect(db.rows('vocabularyV2Session')[0]).toMatchObject({ status: 'in_progress', completedAt: null });
-    expect(db.rows('studentVocabularySense')).toEqual([]);
+    expect(db.rows('studentVocabularySense')).toEqual(scheduled);
     db.$transaction = transact;
     expect((await svc.submitTest(studentId, sessionId, NOW)).correct).toBe(1);
   });
