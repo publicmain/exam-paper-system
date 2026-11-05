@@ -22,7 +22,9 @@ export function queueExtraResult(owner: string, result: ExtraResult) {
 export function flushExtraResults(owner: string, stillOwner: () => boolean): Promise<void> {
   // An offline no-op must not occupy the worker slot: an online event may
   // arrive synchronously before a resolved Promise's finally callback runs.
-  if (navigator.onLine === false || !readToken() || !stillOwner()) return Promise.resolve();
+  // 队列空就什么都不做：readToken() 会写一次存储探测键，空队列每 15 秒写一次没必要。
+  let empty = true; try { empty = keys(owner).length === 0; } catch { /* 存储不可用：当作空 */ }
+  if (empty || navigator.onLine === false || !readToken() || !stillOwner()) return Promise.resolve();
   if (active.has(owner)) return active.get(owner)!;
   const run = async () => {
     for (let i = 0; i < 1000; i++) {

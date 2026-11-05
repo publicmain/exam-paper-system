@@ -126,11 +126,12 @@ export class ExtraPracticeService {
     const assignments = await this.prisma.paperAssignment.findMany({ where: { classId: { in: memberships.map(m => m.classId) },
       morningQuizSession: { date: { lte: dateOnly(todayKey) }, status: { in: ['active', 'locked'] } } },
       orderBy: [{ assignedAt: 'desc' }, { id: 'desc' }], take: 100,
-      include: { morningQuizSession: true, submissions: { where: { studentId, status: { not: 'practice' } }, take: 1,
+      include: { morningQuizSession: true, paper: { select: { status: true, qaTeacherAction: true } }, submissions: { where: { studentId, status: { not: 'practice' } }, take: 1,
         select: { id: true, status: true, finalSubmittedAt: true, submitSource: true } } } });
     const assigned = assignedReadingFor({ todayKey, currentLevel: user?.englishLevel ?? null, changes,
       joinedAtByClass: new Map(memberships.map(m => [m.classId, m.joinedAt])),
-      rows: assignments.filter(a => a.morningQuizSession).map(a => ({ assignmentId: a.id, classId: a.classId, title: null,
+      // 老师拒绝或已下架的卷子不拿来跟读（同 MorningQuizService.getStudentView 的规矩，2026-11-06 Codex 审查）。
+      rows: assignments.filter(a => a.morningQuizSession && a.paper?.status !== 'archived' && a.paper?.qaTeacherAction !== 'rejected').map(a => ({ assignmentId: a.id, classId: a.classId, title: null,
         session: a.morningQuizSession!, submission: a.submissions[0] ? { ...a.submissions[0], scripts: 0 } : null })) });
     const latest = assigned.sort((a, b) => b.date.localeCompare(a.date)
       || assignments.find(r => r.id === b.assignmentId)!.assignedAt.getTime() - assignments.find(r => r.id === a.assignmentId)!.assignedAt.getTime())[0];

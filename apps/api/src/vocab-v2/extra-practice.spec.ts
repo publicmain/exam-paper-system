@@ -76,6 +76,22 @@ describe('extra practice', () => {
     expect([...rows.values()][0]).toMatchObject({ subject: 'reading_sentence', isCorrect: null, schoolDate: new Date('2026-11-07') });
     expect(db.studentVocabularySense.findMany).not.toHaveBeenCalled();
   });
+  it.each([{ status: 'archived', qaTeacherAction: null }, { status: 'published', qaTeacherAction: 'rejected' }])(
+    'shadow never reads a paper the teacher rejected or archived: %o', async (paper) => {
+      const { service, db } = setup();
+      Object.assign(db, {
+        user: { findUnique: vi.fn(async () => ({ englishLevel: 'olevel' })) },
+        classEnrollment: { findMany: vi.fn(async () => [{ classId: 'class', joinedAt: new Date('2026-01-01') }]) },
+        studentLevelChange: { findMany: vi.fn(async () => []) },
+        paperAssignment: { findMany: vi.fn(async () => [{ id: 'a0', classId: 'class', paperId: 'paper0', assignedAt: new Date('2026-11-06'), submissions: [], paper,
+          morningQuizSession: { id: 'r0', date: new Date('2026-11-06'), level: 'olevel', status: 'active' } }]) },
+        paperQuestion: { findMany: vi.fn(async () => [{ snapshotContent: { passage: 'We take care.' } }]) },
+        sentenceAudio: { findMany: vi.fn(async () => []) },
+      });
+      const round = await service.round('student', 'shadow', new Date('2026-11-06T08:00:00Z'));
+      expect(round.items).toHaveLength(0);
+      expect((db as any).paperQuestion.findMany).not.toHaveBeenCalled();
+    });
   it('deduplicates concurrent first/retry delivery and never invokes memory', async () => {
     const memory = vi.spyOn(VocabularyMemoryService.prototype, 'record');
     const transactionMemory = vi.spyOn(VocabularyMemoryService.prototype, 'recordInTransaction');
