@@ -185,14 +185,8 @@ export const NEXT_ACTION_ROUTE: Readonly<Record<NextActionKind, NextActionTarget
   none: { kind: 'stay', reason: '今天没有要做的事' },
 };
 
-/**
- * S12L —— 错题本的开关，与服务端 `apps/api/src/lesson/pilot-flags.ts`
- * **逐字对应**（守卫测试断言两边相等）。
- *
- * 前端拿它做两件事：错题入口标成「暂未开放」，以及今天的完成度不把
- * 补段算进去（分母其实由服务端给，这里只用于文案）。
- */
-export const MISTAKES_FEATURE: 'available' | 'paused' = 'paused';
+/** Mirrors the server feature gate. Required reading redo lives on readingResult. */
+export const MISTAKES_FEATURE: 'available' | 'paused' = 'available';
 
 /** 未知 URL 的落点：已登录 → `/today`；未登录 → `/login`。**不是姓名页。** */
 export function fallbackPath(authenticated: boolean): string {

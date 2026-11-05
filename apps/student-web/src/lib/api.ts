@@ -450,9 +450,11 @@ export type HomeTaskState =
   | 'in_progress'
   | 'completed'
   | 'awaiting_marking'
+  | 'redo_pending'
   | 'auto_closed';
 
 export type HomeReadingTask = {
+  redo?: { target: number; progress: number };
   state: HomeTaskState;
   reason?: string;
   assignmentId?: string;
@@ -593,6 +595,8 @@ export type SegmentAvailability = {
 
 export type ReadSegment = SegmentAvailability & {
   key: 'read';
+  submitted?: boolean;
+  redo?: { target: number; progress: number };
   status: SegmentStatus;
   label: string | null;
   questionCount: number | null;
@@ -1148,14 +1152,11 @@ export const api = {
   mistakePracticeQueue: (token: string) =>
     request<MistakePracticeQueue>('GET', '/vocab/mistakes/practice-queue', { token }),
 
-  /**
-   * 提交一次重练结果。请求体**恰好两个字段**。
-   *
-   * ⚠️ **这条没有 `requestId`**，服务端也没有幂等键 —— 它每收到一次就
-   * `practiceCount + 1` 并重算连胜。所以网络失败时**绝不能盲目重发**：
-   * 调用方必须先把队列读回来，看这道题还在不在（见 `MistakePractice.tsx`）。
-   */
-  mistakePracticeResult: (token: string, body: { id: string; correct: boolean }) =>
+  /** Written subjective answer before reference; result retries use the same date and id. */
+  mistakeReference: (token: string, body: { id: string; date: string; answer: string }) =>
+    request<RedoFeedback>('POST', '/vocab/mistakes/reference', { body, token }),
+
+  mistakePracticeResult: (token: string, body: { id: string; date: string; answer: string; hinted?: boolean; selfCorrect?: boolean }) =>
     request<MistakePracticeResult>('POST', '/vocab/mistakes/practice-result', { body, token }),
 
   // ── 考试中查词（阶段 12C）；两条都是**认证后，零身份参数** ──
@@ -1259,6 +1260,9 @@ export type MistakeReason = 'long_answer' | 'vocabulary' | 'repeated_tasktype';
  * 声明了就会有人拿它当身份。
  */
 export interface MistakeEntry {
+  passage?: string;
+  options?: MistakeOption[];
+  legacy?: boolean;
   id: string;
   submissionId: string | null;
   paperQuestionId: string | null;
@@ -1276,7 +1280,7 @@ export interface MistakeEntry {
   reason: MistakeReason | string;
   resolved: boolean;
   resolvedAt: string | null;
-  /** 隔天连对两次自动销账 —— 这个数由服务端算，前端只显示。 */
+  /** 隔天独立做对即消；状态由服务端算。 */
   correctStreak: number;
   practiceCount: number;
   lastPracticedAt: string | null;
@@ -1290,6 +1294,7 @@ export interface MistakeEntry {
 }
 
 export interface MistakeListResult {
+  vocabulary: Array<{ senseId: string; date: string; headword: string; meaning: string }>;
   /** **未销账**的条数 —— 与 `entries.length` 不是一回事。 */
   total: number;
   /** 也只统计未销账的。 */
@@ -1311,59 +1316,35 @@ export interface MistakeResolved {
  *   options 题库里存了完整选项（MCQ 之类），能真正重选
  *   reveal  主观题：想好再翻卡，自评对错
  */
-export type MistakePracticeKind = 'tfng' | 'letters' | 'options' | 'reveal';
-
-/** `options` 那一路可能是纯字符串，也可能是 `{key,text}`。**原样渲染**。 */
-export type MistakeOption = string | { key: string; text: string };
-
-/**
- * 重练队列里的一道题。
- *
- * ⚠️ 这份响应**自带答案材料**（`correctAnswer` / `answerPoints` /
- * `answerModel` / `explanation` / `evidence`）—— 这是**自由重练**，不是考试，
- * 服务端不做遮挡。**遮挡是这一屏的责任**：作答（或翻卡）之前，
- * 这几样一个字都不许进 DOM。
- */
-export interface MistakePracticeItem {
-  id: string;
-  taskType: string;
-  reason: MistakeReason | string;
-  passageTitle: string;
-  quizDay: string;
-  stem: string;
-  /** 学生当时写的那个答案 —— 只在反馈里显示。 */
-  myOldAnswer: string;
-  markerComment: string;
+export type MistakePracticeKind = 'objective' | 'self_check';
+export type MistakeOption = { key: string; text: string };
+export interface RedoFeedback {
   correctAnswer: string;
   answerPoints: string[];
   answerModel: string;
+  markerComment: string;
   explanation: string;
   evidence: string;
-  practiceKind: MistakePracticeKind;
-  options: MistakeOption[];
-  correctStreak: number;
-  /** 完整原文 —— 段落匹配 / 判断题离开原文没法真正重做。 */
-  passage: string;
-  submissionId: string | null;
-  paperQuestionId: string | null;
 }
-
+export interface MistakePracticeItem {
+  id: string;
+  taskType: string;
+  passageTitle: string;
+  quizDay: string;
+  stem: string;
+  passage: string;
+  options: MistakeOption[];
+  practiceKind: MistakePracticeKind;
+}
 export interface MistakePracticeQueue {
-  /** 今天还有多少道到期未练的（含队列之外的）。 */
+  date: string;
+  target: number;
+  progress: number;
   remaining: number;
-  /** 发题顺序就是这个数组的顺序；前端不重排、不过滤。 */
+  unlocked: boolean;
   items: MistakePracticeItem[];
 }
-
-/**
- * 一次重练结果的回执。
- *
- * `ok: false` = 这道题不是你的、或者已经不在了 —— **失败**，不是「记上了」。
- * `correctStreak` / `resolved` 由服务端算，前端**不自己推**。
- */
-export type MistakePracticeResult =
-  | { ok: true; correctStreak: number; resolved: boolean }
-  | { ok: false };
+export type MistakePracticeResult = RedoFeedback & { ok: true; correct: boolean; correctStreak: number; resolved: boolean };
 
 // ─────────────────────────────────────────────────────────────
 // 生词本与自由练习（阶段 12A）

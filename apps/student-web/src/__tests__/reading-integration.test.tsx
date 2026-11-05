@@ -173,6 +173,7 @@ function installFetch() {
 function defaultReply(req: Req): { status?: number; body: unknown } {
   if (req.path === '/student-auth/me') return { body: { ...PROFILE, appVersion: 'v2' } };
   if (req.path === '/student-notices' && req.method === 'GET') return { body: { items: [] } };
+  if (req.path === '/vocab/mistakes/practice-queue') return { body: { date: '2026-11-05', target: 0, progress: 0, remaining: 0, unlocked: true, items: [] } };
   if (req.path === '/lesson/today') return { body: todayBody };
   if (req.path === '/vocab-v2/overview') return { body: { dailyTarget: 12, today: null, pendingTests: [] } };
   if (req.path === '/lesson/start') {

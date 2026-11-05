@@ -29,7 +29,7 @@
  * those snapshots so an open task is rebuilt from the same published list on
  * every device.
  */
-export const LESSON_RULES_VERSION = 4;
+export const LESSON_RULES_VERSION = 5;
 
 /** One published lesson teaches and tests exactly twelve final words. */
 export const DAILY_VOCAB_TARGET = 12;

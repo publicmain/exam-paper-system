@@ -87,7 +87,7 @@ function makeSvc(opts: { dlc?: any; noContent?: boolean } = {}) {
   };
   const words = { resolveStudent: vi.fn(async () => ({ id: 'stu1', name: '小明' })) } as any;
   const review = { streakDays: vi.fn(async () => 0) } as any;
-  const mistakes = { practiceQueue: vi.fn(async () => ({ items: [] })) } as any;
+  const mistakes = { dailyState: vi.fn(async () => ({ items: [], target: 0, progress: 0 })) } as any;
   // 构造顺序：prisma, words, review, mistakes
   const svc = new LessonService(prisma, words, review, mistakes);
   const writes = () => calls.filter((c) => WRITE_OPS.includes(c.op));

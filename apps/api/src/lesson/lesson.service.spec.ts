@@ -50,7 +50,7 @@ function makeSvc(opts: { updatedCount?: number; existingRow?: { vocabCursor: num
     resolveStudent: vi.fn().mockResolvedValue({ id: 'stu-1', name: '张三' }),
   };
   const svc = new LessonService(prisma, words, {} as any,
-    { practiceQueue: vi.fn().mockResolvedValue({ items: [] }) } as any);
+    { dailyState: vi.fn().mockResolvedValue({ items: [], target: 0, progress: 0 }) } as any);
   /** 只数**断点**那一条条件写（today() 的阶段写不算在内）。 */
   const cursorWrites = () =>
     updateMany.mock.calls.filter((c: any[]) => c[0]?.data?.vocabCursor !== undefined);

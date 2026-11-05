@@ -44,7 +44,6 @@ import {
   readStatus,
   segmentStatus,
   vocabTarget,
-  drillTarget,
   readablePaperTitle,
   type LessonStage,
   deriveStage,
@@ -253,7 +252,7 @@ export class LessonService {
 
     /** S12L —— 补段这个能力今天开不开放（产品开关，不是「今天有没有错题」）。 */
     const drillAvailable = mistakesAvailable();
-    const availability = { read: true, vocab: true, drill: drillAvailable };
+    const availability = { read: true, vocab: true, drill: false };
 
     // RC1.1：词段要按**已冻结的队列**算，所以先把任务行读出来。
     // （下面还会再读一次 frozen —— 那一次在可能的写入之后，拿到的是
@@ -287,6 +286,9 @@ export class LessonService {
         ? this.drillState(student.id, now)
         : Promise.resolve({ target: 0, progress: 0 }),
     ]);
+
+    // Required redo is attached to an assigned reading, never a standalone task.
+    if (!readNow.hasSession) drillNow = { target: 0, progress: 0 };
 
     // ── P9：账号制的「开始今天的课程」──
     //
@@ -368,6 +370,9 @@ export class LessonService {
           readTarget: readNow.hasSession ? 1 : 0,
           vocabTarget: vocabNow.target,
           drillTarget: drillNow.target,
+          drillProgress: drillNow.progress,
+          drillDoneAt: drillNow.progress >= drillNow.target ? now : null,
+          readDoneAt: readNow.finalSubmitted && drillNow.progress >= drillNow.target ? now : null,
           targetsFrozenAt: now,
           // v4 is the one intentional exception to the old "preserve queue"
           // rule: pre-v4 queues were not manifests at all; they were a live
@@ -393,7 +398,7 @@ export class LessonService {
     const vTarget = frozen?.vocabTarget ?? vocabNow.target;
     // S12L —— 暂停时目标恒为 0，连历史上冻结过的目标也不认（否则今天
     // 打开课程页的学生会顶着一个进不去的 0/5）。
-    const dTarget = drillAvailable ? (frozen?.drillTarget ?? drillNow.target) : 0;
+    const dTarget = drillAvailable ? drillNow.target : 0;
 
     // 考试范围以**任务记下的队列**为准（不是此刻的到期集合）——
     // 旧任务 vocabWords=NULL 时它是空的，考不起来，正是 legacy 的语义。
@@ -403,7 +408,7 @@ export class LessonService {
     const quizRequired = await this.quizRequiredFor(student.id, taskQueue);
 
     const segments: LessonSegments = {
-      read: readTarget === 0 ? 'none' : readStatus(readNow),
+      read: readTarget === 0 ? 'none' : drillNow.progress < dTarget && readNow.finalSubmitted ? 'partial' : readStatus(readNow),
       // 交了当天的正式测试就算背段完成 —— 「学完再考一次」本来就是
       // 这一段的终点。
       //
@@ -450,7 +455,7 @@ export class LessonService {
       : null;
 
     const derived = deriveStage({
-      readSettled: isSegmentComplete(segments.read),
+      readSettled: readTarget === 0 || isSegmentComplete(readStatus(readNow)),
       vocabSettled: isSegmentComplete(segments.vocab),
       hasPendingCourseCards: coursePendingOf({
         courseCards,
@@ -493,7 +498,9 @@ export class LessonService {
     const prog = progressForDisplay(progRaw, hasAnyTaskToday);
     // P8 —— **服务端决定唯一的下一步**。前端只负责显示它，不再让学生
     // 在三张并排的卡片里自己判断该点哪个。
-    const nextAction = nextActionOf({
+    const nextAction = readNow.finalSubmitted && drillNow.progress < dTarget
+      ? { kind: 'read_result' as const, label: '完成今天的错题', href: null }
+      : nextActionOf({
       stage,
       availability: readNow.availability,
       opened: readNow.opened,
@@ -580,6 +587,8 @@ export class LessonService {
           releasedScore: readNow.releasedScore,
           submissionId: readNow.submissionId,
           sessionId: readNow.sessionId,
+          submitted: readNow.finalSubmitted,
+          redo: { target: dTarget, progress: drillNow.progress },
           autoClosed: segments.read === 'auto_closed',
           available: true,
         },
@@ -612,8 +621,8 @@ export class LessonService {
           // S12L —— `available: false` 与 `status: 'none'` 不是一回事。
           // 前者是「这个能力现在整个关着」，后者是「有这一段，今天没内容」。
           // 只有前者会被踢出分母。
-          available: drillAvailable,
-          unavailableReason: drillAvailable ? null : MISTAKES_UNAVAILABLE_REASON,
+          available: false,
+          unavailableReason: null,
         },
       ],
     };
@@ -1132,20 +1141,8 @@ export class LessonService {
 
   // ── ③ 补 ──
   private async drillState(studentId: string, now: Date) {
-    const q = await this.mistakes.practiceQueue(studentId, 50);
-    const queued = (q?.items ?? []).length;
-    // 「今天练了几道」**直接数**，不要用「目标 - 队列剩余」去反推：
-    // 目标封顶 5 而队列有 20 时那个式子恒为 0，学生练一天也不动；
-    // 而且下午新错的题会让队列变长、进度倒退。
-    const practicedToday = await this.prisma.mistakeEntry.count({
-      where: { studentId, lastPracticedAt: { gte: this.sgtMidnight(now) } },
-    });
-    return {
-      // 上限 5 —— 与背段同一条「目标必须可达成」原则。没有上限时课程页
-      // 真的出现过「0/20 道 · 约 20 分钟」，那个数字只会劝退。
-      target: drillTarget(queued + practicedToday),
-      progress: practicedToday,
-    };
+    const state = await this.mistakes.dailyState(studentId, now);
+    return { target: state.target, progress: state.progress };
   }
 
   /**
@@ -1187,6 +1184,10 @@ export class LessonService {
     ]);
     // streakFromDays 要求由近及远
     const doneDays = [...new Set([...legacy, ...factual])].sort().reverse();
+    if (key >= '2026-11-05' && doneDays.includes(key) && mistakesAvailable()) {
+      const redo = await this.mistakes.dailyState(studentId, new Date(`${key}T12:00:00+08:00`));
+      if (redo.progress < redo.target) doneDays.splice(doneDays.indexOf(key), 1);
+    }
     return streakFromDays(doneDays, key, 2, off);
   }
 
@@ -1249,9 +1250,14 @@ export class LessonService {
       }
     }
 
-    return [...readDone].filter(
-      (d) => testSubmitted.has(d) || (learnDone.has(d) && !testExists.has(d)),
-    );
+    const candidates = [...readDone].filter((d) => testSubmitted.has(d) || (learnDone.has(d) && !testExists.has(d)));
+    const checked = await Promise.all(candidates.map(async (d) => {
+      // Version 5 takes effect on 2026-11-05; do not reinterpret earlier days.
+      if (d < '2026-11-05') return d;
+      const redo = await this.mistakes.dailyState(studentId, new Date(`${d}T12:00:00+08:00`));
+      return redo.progress >= redo.target ? d : null;
+    }));
+    return checked.filter((d): d is string => d !== null);
   }
 
   /** 老口径：`DailyLessonCompletion` 上写过的完成日。见 `lessonStreak` 的说明。 */
@@ -1269,6 +1275,7 @@ export class LessonService {
         drillTarget: true,
         drillDoneAt: true,
         readSource: true,
+        rulesVersion: true,
       },
     });
     return rows
@@ -1279,7 +1286,7 @@ export class LessonService {
           // S12L —— 补段关着的时候它不参与连续天数。历史行里存着
           // drillTarget=3 而 drillDoneAt 为空的日子，不该因为一个已经
           // 关掉的功能把学生的连胜清零。
-          (!mistakesAvailable() || r.drillTarget === 0 || r.drillDoneAt != null),
+          (!mistakesAvailable() || (r as any).rulesVersion < 5 || r.drillTarget === 0 || r.drillDoneAt != null),
       )
       .map((r) => r.date.toISOString().slice(0, 10));
   }

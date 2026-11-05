@@ -9,6 +9,7 @@
  */
 import { describe, expect, it, vi } from 'vitest';
 import { makeService, newDb, seedOfficialWords, seedStudent, sgtNoon } from './testing/vocab-fixtures';
+import { freezeRedo, redoSourceKey } from '../vocab/reading-redo';
 
 // 内存假库逐语句让出事件循环，整套并行跑时单个用例可能超过默认 5 秒；这里只放宽超时，不改断言。
 vi.setConfig({ testTimeout: 30_000 });
@@ -94,6 +95,27 @@ describe('VOC06 冻结卷是唯一事实（旧词 0 / 1 / 2 / 3 个）', () => {
 });
 
 describe('首页三项任务的后端事实（UI13 / UI14）', () => {
+  it('交卷后错题没做完则阅读未完成；做完即完成，无论对错，不增加第四项', async () => {
+    const { db, stu, svc } = setup();
+    const assignmentId = seedReading(db, '2026-09-07');
+    const sub = db.seed('studentSubmission', { assignmentId, studentId: stu, status: 'submitted', finalSubmittedAt: MON, submitSource: 'student' });
+    db.seed('answerScript', { submissionId: sub.id });
+    const { last } = await learnAll(svc, stu, MON);
+    const test = await svc.testSession(stu, last.generatedTestId);
+    for (const item of test.items) await svc.answerTestItem(stu, test.id, item.id, 0);
+    await svc.submitTest(stu, test.id);
+    db.seed('mistakeEntry', { id: 'm1', studentId: stu, paperQuestionId: 'old-pq', createdAt: new Date('2026-09-04T02:00:00Z'),
+      redoSnapshot: freezeRedo({ stem: 'Old question', passage: 'Old passage' }, [{ key: 'B', correct: true }], { text: 'B' }, 'mcq') });
+    const pending = await svc.overview(stu, MON);
+    expect(pending.home.reading).toMatchObject({ state: 'redo_pending', redo: { target: 1, progress: 0 } });
+    expect(pending.home.allDone).toBe(false);
+    db.seed('learningEvidence', { studentId: stu, paperQuestionId: 'old-pq', kind: 'mistake_redo', subject: 'reading_question',
+      sourceKey: redoSourceKey(stu, 'm1', '2026-09-07'), isCorrect: false, hinted: false, schoolDate: new Date('2026-09-07'), occurredAt: MON });
+    const done = await svc.overview(stu, MON);
+    expect(done.home.reading.state).toBe('awaiting_marking');
+    expect(done.home.allDone).toBe(true);
+    expect(done.home).not.toHaveProperty('mistakes');
+  });
   it('周末：三项都不适用', async () => {
     const { stu, svc } = setup();
     const overview = await svc.overview(stu, SAT);

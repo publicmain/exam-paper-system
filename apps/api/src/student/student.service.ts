@@ -1,3 +1,4 @@
+import { MistakeService } from '../vocab/mistake.service';
 import { scoreResultPath } from '../common/student-links';
 import { BadRequestException, ForbiddenException, Injectable, Logger, NotFoundException, Optional } from '@nestjs/common';
 import { PrismaService } from '../common/prisma.service';
@@ -641,6 +642,7 @@ export class StudentService {
         assignment: {
           select: {
             paperId: true,
+            morningQuizSession: { select: { date: true } },
             paper: { select: { totalMarksActual: true, name: true } },
           },
         },
@@ -787,6 +789,9 @@ export class StudentService {
             ...(u.aiReason ? { markerComment: `[ai-grade] ${u.aiReason}` } : {}),
           },
         });
+      }
+      if (opts?.final !== false && sub.assignment.morningQuizSession) {
+        await new MistakeService(tx as any).collectFromSubmission(submissionId, sub.assignment.morningQuizSession.date.toISOString().slice(0, 10));
       }
       return tx.studentSubmission.findUnique({ where: { id: submissionId } });
       // 事务里逐题写 answerScript，N 道题就是 N 个 round-trip。默认 5 秒

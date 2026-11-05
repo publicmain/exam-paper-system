@@ -65,6 +65,7 @@ export const MEMORY_SCHEMA: Record<string, ModelDef> = {
     defaults: () => ({ archivedAt: null, name: '班级' }),
   },
   auditLog: {},
+  mistakeEntry: { unique: [['studentId', 'submissionId', 'paperQuestionId']], defaults: () => ({ resolved: false, resolvedAt: null, redoSnapshot: null, practiceCount: 0, correctStreak: 0, lastPracticedAt: null }) },
   notification: { defaults: () => ({ readAt: null }) },
   classNoSchoolDay: { unique: [['classId', 'date']], defaults: () => ({ reason: null }) },
   classEnrollment: {
