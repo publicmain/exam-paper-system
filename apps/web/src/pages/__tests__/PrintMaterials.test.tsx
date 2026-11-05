@@ -45,7 +45,7 @@ function day(withAnswers: boolean): ClassDayPrint {
       { sessionId: 's2', date: '2026-09-22', level: 'ielts_simplified', levelLabel: 'O-Level 基础', reading: reading('The Early Alarm', withAnswers ? 'B  No' : null) },
     ],
     students: [
-      { name: '小呆呆', level: 'olevel', levelLabel: 'O-Level 标准', words: [{ headword: 'beauty', phonetic: null, pos: 'noun', translation: 'n. 美', sentence: null }] },
+      { name: '钱小红', level: 'olevel', levelLabel: 'O-Level 标准', words: [{ headword: 'beauty', phonetic: null, pos: 'noun', translation: 'n. 美', sentence: null }] },
       { name: '赵小明', level: 'olevel', levelLabel: 'O-Level 标准', words: [{ headword: 'install', phonetic: null, pos: 'verb', translation: 'vt. 安装', sentence: null }] },
       { name: '新同学', level: null, levelLabel: null, words: [] },
     ],
@@ -62,7 +62,7 @@ function week(monday: string): ClassWeekPrint {
     dates: [0, 1, 2, 3, 4].map((i) => addDays(monday, i)),
     students: [
       {
-        name: '小呆呆',
+        name: '钱小红',
         level: 'olevel',
         levelLabel: 'O-Level 标准',
         days: [
@@ -124,7 +124,7 @@ describe('打印材料', () => {
     fireEvent.click(screen.getByTestId('print-kind-dictation'));
     const sheets = screen.getAllByTestId('print-dictation');
     expect(sheets).toHaveLength(2);
-    expect(within(sheets[0]).getByRole('heading', { name: '小呆呆 · 默写纸' })).toBeTruthy();
+    expect(within(sheets[0]).getByRole('heading', { name: '钱小红 · 默写纸' })).toBeTruthy();
     expect(within(sheets[0]).getByText('n. 美')).toBeTruthy();
     expect(within(sheets[0]).queryByText('beauty')).toBeNull();
     expect(screen.getByTestId('print-no-words').textContent).toContain('新同学');
@@ -195,7 +195,7 @@ describe('打印材料 · 一整周（2026-09-29 早读默写）', () => {
     const sheets = await screen.findAllByTestId('print-week-dictation');
     expect(sheets).toHaveLength(1);
     const sheet = sheets[0];
-    expect(within(sheet).getByRole('heading', { name: '小呆呆 · 一周默写纸' })).toBeTruthy();
+    expect(within(sheet).getByRole('heading', { name: '钱小红 · 一周默写纸' })).toBeTruthy();
     expect(within(sheet).getByText(/9月21日 周一 · 2 个/)).toBeTruthy();
     expect(within(sheet).getByText(/9月23日 周三（App 里没学完） · 1 个/)).toBeTruthy();
     const nums = Array.from(sheet.querySelectorAll('.ps-week-no')).map((el) => el.textContent);
