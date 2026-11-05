@@ -2690,6 +2690,9 @@ model MistakeEntry {
   lastPracticedAt DateTime?
   /// 早测日期（YYYY-MM-DD, SGT）
   quizDay         String
+  /// 收录时的完整冻结快照（2026-11-05 完整化第 2 期）：题型、题干、原文片段、选项、判题答案。
+  /// 为空 = 9 月以来采集的旧错题，只读展示，不进必做重做（不能拿现在的题冒充当时的题）。
+  redoSnapshot    Json?
   createdAt       DateTime      @default(now())
 
   @@unique([studentId, submissionId, paperQuestionId])
