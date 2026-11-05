@@ -1,6 +1,7 @@
 import { BadRequestException, Body, Controller, ForbiddenException, Get, Param, Post, Query, Req, ServiceUnavailableException, UseGuards } from '@nestjs/common';
 import type { Request } from 'express';
 import { z } from 'zod';
+import { validDate } from '../common/school-calendar';
 import { CurrentUser } from '../common/current-user.decorator';
 import { Public } from '../common/auth.guard';
 import { RateLimit } from '../common/rate-limit.guard';
@@ -252,15 +253,7 @@ export class VocabController {
     });
   }
 
-  // ─────────────────── P6 错题本 ───────────────────
-  //
-  // S12L —— **错题本在试点期整个暂停**（见 `lesson/pilot-flags.ts`）。
-  //
-  // 四个读写端点一律 503 `feature_paused`；**采集侧不动**（判分时照常
-  // 收录错题），学生已经攒下的错题一行不少，恢复只需改回那一个常量。
-  //
-  // 为什么是 503 而不是 404：功能存在、只是暂时不可用。404 会让客户端
-  // 与运维都以为是路由错了。
+  // Reading notebook and required redo, authenticated student identity only.
 
   /** 暂停期的统一出口。**在任何 IO 之前**抛，一次库都不查。 */
   private assertMistakesAvailable(): void {
@@ -272,9 +265,10 @@ export class VocabController {
     });
   }
 
-  /** 我的错题本。收录门槛见 mistake.service 顶部注释（不是每道错题都进）。 */
+  /** 我的错题本。非空作答未拿满分即收录。 */
   @Public()
   @RateLimit({ limit: 180, windowSec: 60, scope: 'user' })
+  @RequireStudentReadToken()
   @Get('mistakes')
   async listMistakes(
 @Req() req: Request,
@@ -293,7 +287,7 @@ export class VocabController {
     return { student: { id: student.id, name: student.name }, ...r };
   }
 
-  /** 标记「已弄懂」/ 撤销。错题本必须能清空，否则只会一直变长。 */
+  /** 旧客户端兼容端点；服务拒绝手动销账。 */
   @Public()
   @RateLimit({ limit: 60, windowSec: 60, scope: 'user' })
   @RequireStudentToken()
@@ -314,10 +308,11 @@ export class VocabController {
 
   /**
    * 今日错题练习队列（带原文）。段落匹配/判断题离开原文没法真正重做，
-   * 所以每道题带完整 passage 下发。每天最多 10 道。
+   * 所以每道题带收录时的 passage 下发。每天最多 3 道，不提前发答案。
    */
   @Public()
   @RateLimit({ limit: 120, windowSec: 60, scope: 'user' })
+  @RequireStudentReadToken()
   @Get('mistakes/practice-queue')
   async practiceQueue(
 @Req() req: Request,
@@ -334,7 +329,7 @@ export class VocabController {
     return { student: { id: student.id, name: student.name }, ...r };
   }
 
-  /** 提交一次练习结果。做对且隔天再对一次 → 自动销账。 */
+  /** 提交实际作答；客观题服务端判，隔天无提示做对 1 次即销账。 */
   @Public()
   @RateLimit({ limit: 360, windowSec: 60, scope: 'user' })
   @RequireStudentToken()
@@ -345,12 +340,28 @@ export class VocabController {
       studentName: z.string().min(1).max(50).optional(),
       studentId: z.string().optional(),
       id: z.string().min(1),
-      correct: z.boolean(),
+      date: z.string().refine(validDate),
+      answer: z.string().trim().min(1).max(10000),
+      hinted: z.boolean().default(false),
+      selfCorrect: z.boolean().optional(),
     });
     const p = schema.safeParse(body);
     if (!p.success) throw new BadRequestException(p.error.flatten());
     const student = await this.resolveIdentity(req, p.data.studentName, p.data.studentId);
-    return this.mistakes.practiceResult(student.id, p.data.id, p.data.correct);
+    return this.mistakes.practiceResult(student.id, p.data.id, p.data);
+  }
+
+  @Public()
+  @RequireStudentToken()
+  @RateLimit({ limit: 120, windowSec: 60, scope: 'user' })
+  @Post('mistakes/reference')
+  async mistakeReference(@Req() req: Request, @Body() body: unknown) {
+    this.assertMistakesAvailable();
+    const p = z.object({ studentName: z.string().max(50).optional(), studentId: z.string().optional(),
+      id: z.string().min(1), date: z.string().refine(validDate), answer: z.string().trim().min(1).max(10000) }).safeParse(body);
+    if (!p.success) throw new BadRequestException(p.error.flatten());
+    const student = await this.resolveIdentity(req, p.data.studentName, p.data.studentId);
+    return this.mistakes.referenceAnswer(student.id, p.data.id, p.data.answer, p.data.date);
   }
 
   // ─────────────────── P6 访问埋点 ───────────────────

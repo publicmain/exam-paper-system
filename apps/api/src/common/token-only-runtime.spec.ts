@@ -542,24 +542,31 @@ describe('GET /morning-quiz/history-by-name 的响应身份', () => {
 // 恢复错题本时把这一组挪回上面的 CASES，26 那个数字会跟着变回 30。
 // ─────────────────────────────────────────────────────────────
 
-describe('S12L —— 错题端点暂停：在解析身份之前就拒绝', () => {
-  const PAUSED: ReadonlyArray<readonly [string, (c: VocabController) => unknown]> = [
-    ['GET /vocab/mistakes', (c) => c.listMistakes(authedReq())],
-    ['POST /vocab/mistakes/resolve', (c) => c.resolveMistake(authedReq(), { id: 'm1', resolved: true })],
-    ['GET /vocab/mistakes/practice-queue', (c) => c.practiceQueue(authedReq())],
-    ['POST /vocab/mistakes/practice-result', (c) => c.practiceResult(authedReq(), { id: 'm1', correct: true })],
+describe('错题端点开放后仍只认令牌身份', () => {
+  const cases: Array<[string, (c: VocabController, req: Request) => Promise<unknown>, string]> = [
+    ['list', (c, req) => c.listMistakes(req), 'mistakes.listForStudent'],
+    ['queue', (c, req) => c.practiceQueue(req), 'mistakes.practiceQueue'],
+    ['result', (c, req) => c.practiceResult(req, { id: 'm1', date: '2026-11-05', answer: 'B' }), 'mistakes.practiceResult'],
+    ['reference', (c, req) => c.mistakeReference(req, { id: 'm1', date: '2026-11-05', answer: 'My answer' }), 'mistakes.referenceAnswer'],
   ];
-
-  for (const [ep, invoke] of PAUSED) {
-    it(`${ep} —— 503 feature_paused，且一次依赖都没碰`, async () => {
+  for (const [name, invoke, method] of cases) {
+    it(`${name}: uses resolved id from authenticated identity`, async () => {
       const rec: Rec = { calls: [] };
-      const c = buildVocab(rec);
-      await expect(Promise.resolve().then(() => invoke(c))).rejects.toMatchObject({
-        response: { code: 'feature_paused', feature: 'mistakes' },
-      });
-      expect(rec.calls.map((x) => x.m)).toEqual([]);
+      await invoke(buildVocab(rec, { 'words.resolveStudent': { id: 'resolved-student', name: DB_NAME } }), authedReq());
+      expect(callOf(rec, 'words.resolveStudent').args[2]).toBe(ID);
+      expect(callOf(rec, method).args[0]).toBe('resolved-student');
+    });
+    it(`${name}: anonymous request cannot reach any dependency`, async () => {
+      const rec: Rec = { calls: [] };
+      await expect(invoke(buildVocab(rec), anonReq())).rejects.toMatchObject({ response: { code: 'name_required' } });
+      expect(rec.calls).toEqual([]);
     });
   }
+  it('rejects the old client-supplied correct flag before reaching the service', async () => {
+    const rec: Rec = { calls: [] };
+    await expect(buildVocab(rec).practiceResult(authedReq(), { id: 'm1', correct: true })).rejects.toThrow();
+    expect(rec.calls).toEqual([]);
+  });
 });
 
 describe('另外 21 条：自己拼响应的三个，回显必须来自解析结果', () => {

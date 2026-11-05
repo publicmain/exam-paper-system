@@ -21,9 +21,9 @@
  * 前端不做第二套判断 —— 服务端的 `stripUnreleasedScores` 是权威，
  * 这里只按旗子决定措辞。
  *
- * ## 这一页是只读的
+ * ## 阅读回顾与错题重做
  *
- * 不存草稿、不保存答案、不交卷、不重做。唯一的写操作是**申诉**。
+ * 阅读回顾不改原答；结果下方接当天到期错题，重做由 ReadingRedo 独立记录，不改阅读分数。
  *
  * ## 主行动：接下来做什么（S9D2B）
  *
@@ -47,6 +47,7 @@
  */
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
+import { ReadingRedo } from '../components/ReadingRedo';
 import { ResultView } from '../components/ResultView';
 import {
   ApiError,
@@ -111,7 +112,7 @@ export function readingResultRef(
 ): { sessionId: string; submissionId: string } | null {
   const read = today.segments.find((s) => s.key === 'read');
   if (!read || read.key !== 'read') return null;
-  if (!RESULT_READY.has(read.status)) return null;
+  if (!read.submitted && !RESULT_READY.has(read.status)) return null;
   if (!read.sessionId || !read.submissionId) return null;
   return { sessionId: read.sessionId, submissionId: read.submissionId };
 }
@@ -228,7 +229,7 @@ export default function ReadingResultPage() {
         */
         showDerivedPercentage
         /* 主行动 —— 看完成绩之后往下走。「往哪走」现问现答。 */
-        footer={<ContinueLesson navigate={navigate} />}
+        footer={<ReadingRedo><ContinueLesson navigate={navigate} /></ReadingRedo>}
       />
     </Shell>
   );

@@ -1,3 +1,4 @@
+import { readingRedoState } from '../vocab/reading-redo';
 import { BadRequestException, ConflictException, ForbiddenException, GoneException, Injectable, NotFoundException, ServiceUnavailableException } from '@nestjs/common';
 import { EnglishLevel } from '@prisma/client';
 import { PrismaService } from '../common/prisma.service';
@@ -1654,7 +1655,11 @@ export class VocabularyV2Service {
     //   · 阅读还没发布（not_generated）学生无事可做 —— 不挡全部完成（发布后变成待完成，重新计）；
     //   · 新词 / 测试的 not_generated 是学生能推进的（点开学词 / 学完生成），不算完成。
     const exempt = (task: { state: string }) => noSchoolDay && !['completed', 'awaiting_marking'].includes(task.state) ? { ...task, state: 'not_applicable', reason: 'no_school_day' } : task;
-    const visibleReading = exempt(readingHome);
+    const redo = todayReading && ['completed', 'awaiting_marking', 'auto_closed'].includes(readingHome.state) && !noSchoolDay
+      ? await readingRedoState(this.prisma, studentId, now)
+      : { target: 0, progress: 0 };
+    const visibleReading = exempt({ ...readingHome,
+      ...(redo.progress < redo.target ? { state: 'redo_pending', redo: { target: redo.target, progress: redo.progress } } : {}) });
     const visibleWords = exempt(wordsHome);
     const visibleTest = exempt(testHome);
     const done = (state: string) => state === 'completed' || state === 'awaiting_marking' || state === 'auto_closed' || state === 'not_applicable';

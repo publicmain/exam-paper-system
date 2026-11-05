@@ -187,7 +187,7 @@ describe('AC-05 阶段安全（一条都不许回归）', () => {
 
 describe('AC-06 规则版本', () => {
   it('**阶段语义变了，版本必须 +1**', () => {
-    expect(LESSON_RULES_VERSION).toBe(4);
+    expect(LESSON_RULES_VERSION).toBe(5);
   });
 
   it('发布内容再多也只冻结前 12 个词', () => {
@@ -309,7 +309,7 @@ function makeToday(opts: {
   };
   const words: any = { resolveStudent: vi.fn(async () => ({ id: 'stu-1', name: '测试五号' })) };
   const review: any = {};
-  const mistakes: any = { practiceQueue: async () => ({ items: [] }) };
+  const mistakes: any = { dailyState: async () => ({ items: [], target: 0, progress: 0 }) };
   const svc = new LessonService(prisma, words, review, mistakes);
   return { svc, storedRow: () => row };
 }

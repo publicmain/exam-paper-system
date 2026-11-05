@@ -60,22 +60,22 @@ const wired = (e: { body: string }) =>
   /identityOf\(|resolveIdentity\(|authStudentId|studentAuth/.test(e.body);
 
 describe('端点矩阵 —— 从代码推导', () => {
-  it('vocab 控制器共 25 个端点，其中 **20 个是带身份的学生端**', () => {
-    expect(vocab).toHaveLength(25);
+  it('vocab 控制器共 26 个端点，其中 **21 个是带身份的学生端**（2026-11-05 加 mistakes/reference）', () => {
+    expect(vocab).toHaveLength(26);
     const teacher = vocab.filter((e) => !isStudentFacing(e));
     expect(teacher.map((e) => e.route).sort()).toEqual(
       ['class/:classId/engagement', 'class/:classId/stats', 'class/:classId/top', 'push'].sort(),
     );
     const student = vocab.filter(isStudentFacing);
-    expect(student).toHaveLength(21); // 含 lookup
+    expect(student).toHaveLength(22); // 含 lookup
     const withIdentity = student.filter(takesIdentity);
-    expect(withIdentity).toHaveLength(20);
+    expect(withIdentity).toHaveLength(21);
     // lookup 是纯查词典，没有身份 —— 因此不在范围内
     expect(student.find((e) => e.route === 'lookup')).toBeDefined();
     expect(takesIdentity(student.find((e) => e.route === 'lookup')!)).toBe(false);
   });
 
-  it('**vocab 的 20 个带身份端点全部已接线**（一个不漏）', () => {
+  it('**vocab 的 21 个带身份端点全部已接线**（一个不漏）', () => {
     const unwired = vocab.filter(isStudentFacing).filter(takesIdentity).filter((e) => !wired(e));
     expect(unwired.map((e) => `${e.method} /vocab/${e.route}`)).toEqual([]);
   });
@@ -187,9 +187,9 @@ const IN_SCOPE: { group: string; eps: Ep[] }[] = [
 ];
 
 describe('逐端点接线清点（静态）', () => {
-  it('**在范围内的端点恰好 28 个 = 20 + 5 + 3**', () => {
+  it('**在范围内的端点恰好 29 个 = 21 + 5 + 3**', () => {
     const counts = Object.fromEntries(IN_SCOPE.map((g) => [g.group, g.eps.length]));
-    expect(counts).toEqual({ vocab: 20, lesson: 5, 'morning-quiz': 3 });
+    expect(counts).toEqual({ vocab: 21, lesson: 5, 'morning-quiz': 3 });
   });
 
   for (const { group, eps } of IN_SCOPE) {

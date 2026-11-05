@@ -131,7 +131,8 @@ function lessonSvc(o: {
   };
   const words: any = { resolveStudent: vi.fn().mockResolvedValue({ id: STUDENT, name: '验收学生' }) };
   const mistakes: any = {
-    practiceQueue: vi.fn().mockResolvedValue({
+    dailyState: vi.fn().mockResolvedValue({
+      target: Math.min(o.drillTarget ?? 5, 3), progress: Math.min(o.drillProgress ?? 0, 3),
       items: Array.from({ length: drillQueued }, (_, i) => ({ id: `m${i}` })),
       remaining: drillQueued,
     }),
@@ -146,70 +147,45 @@ const today = (svc: LessonService) =>
 // 1. 真实 today() 的主行动
 // ─────────────────────────────────────────────────────────────
 
-describe('S12H/1 —— 真实 LessonService.today() 的主行动', () => {
-  //
-  // S12L —— **错题本在试点期整个暂停**（`lesson/pilot-flags.ts`）。
-  //
-  // 这一组原本钉的是「补段欠着就该给 drill」。那条路由规则本身没被删，
-  // 仍然由 `drill-flow.spec.ts` 与 `next-action.spec.ts` 逐条覆盖（纯函数
-  // 层）。这里改成钉**暂停之后真实服务的行为**：补段不出现、不挡路、
-  // 不进分母 —— 一个学生绝不该被引导去一个进不去的段落。
-  //
-  // 恢复错题本时把 `MISTAKES_FEATURE` 改回 `available`，这一组要跟着
-  // 改回去；那正是它存在的意义。
-
-  it('补段暂停：测试交过了 + 库里还欠着 5 道 → 直接给总结，不给 drill', async () => {
-    const r: any = await today(lessonSvc({ stage: 'vocab_test', drillTarget: 5, drillProgress: 0 }));
+describe('reading redo belongs to reading, irrespective of stored vocabulary stage', () => {
+  it('a submitted reading with redo pending points back to reading result', async () => {
+    const r: any = await today(lessonSvc({ stage: 'done', drillTarget: 3, drillProgress: 0 }));
+    expect(r.nextAction.kind).toBe('read_result');
+    expect(r.segments.find((s: any) => s.key === 'read')).toMatchObject({ status: 'partial', submitted: true, redo: { target: 3, progress: 0 } });
+    expect(r.allDone).toBe(false);
+  });
+  it('redo pending stays part of reading even when the word test is not submitted', async () => {
+    const r: any = await today(lessonSvc({ stage: 'vocab_test', drillTarget: 3, drillProgress: 0, quizSubmitted: false, taught: false }));
+    expect(r.nextAction.kind).toBe('read_result');
+  });
+  it('all assigned redos done => summary', async () => {
+    const r: any = await today(lessonSvc({ stage: 'vocab_test', drillTarget: 3, drillProgress: 3 }));
     expect(r.nextAction.kind).toBe('summary');
   });
-
-  it('补段暂停：测试**还没交** → 仍然是 vocab_test，考试这一关没被顺带跳过', async () => {
-    const r: any = await today(
-      lessonSvc({ stage: 'vocab_test', drillTarget: 5, drillProgress: 0, quizSubmitted: false, taught: false }),
-    );
-    expect(r.nextAction.kind).toBe('vocab_test');
-  });
-
-  it('补段做完 5 / 5 → summary（暂停与否都一样）', async () => {
-    const r: any = await today(lessonSvc({ stage: 'vocab_test', drillTarget: 5, drillProgress: 5 }));
-    expect(r.nextAction.kind).toBe('summary');
-  });
-
-  it('今天没有补段（target 0）→ summary', async () => {
+  it('zero assigned redos preserves the existing flow', async () => {
     const r: any = await today(lessonSvc({ stage: 'vocab_test', drillTarget: 0, drillProgress: 0 }));
     expect(r.nextAction.kind).toBe('summary');
   });
-
-  it('补段段落标成不可用，且**不进分母**（今天是 2 段不是 3 段）', async () => {
-    const r: any = await today(lessonSvc({ stage: 'vocab_test', drillTarget: 5, drillProgress: 0 }));
-    const drill = r.segments.find((x: any) => x.key === 'drill');
-    expect(drill.available).toBe(false);
-    expect(drill.unavailableReason).toContain('暂未开放');
-    expect(drill.target).toBe(0);
+  it('no assigned reading means no separate required redo', async () => {
+    const svc = lessonSvc({ stage: 'done', drillTarget: 3, drillProgress: 0 });
+    (svc as any).prisma.morningQuizSession.findMany.mockResolvedValue([]);
+    const r: any = await today(svc);
+    expect(r.segments.find((s: any) => s.key === 'drill').target).toBe(0);
+    expect(r.nextAction.kind).not.toBe('read_result');
+  });
+  it('redo is not a separate completion item', async () => {
+    const r: any = await today(lessonSvc({ stage: 'vocab_test', drillTarget: 3, drillProgress: 0 }));
+    expect(r.segments.find((x: any) => x.key === 'drill')).toMatchObject({ available: false, target: 3 });
     expect(r.total).toBe(2);
   });
-
-  it('暂停期间**一次错题查询都不发**', async () => {
-    const svc = lessonSvc({ stage: 'vocab_test', drillTarget: 5, drillProgress: 0 });
-    const mistakes = (svc as any).mistakes;
+  it('uses the shared server-side manifest', async () => {
+    const svc = lessonSvc({ stage: 'vocab_test', drillTarget: 3, drillProgress: 0 });
     await today(svc);
-    expect(mistakes.practiceQueue).not.toHaveBeenCalled();
+    expect((svc as any).mistakes.dailyState).toHaveBeenCalled();
   });
-
-  it('主行动只由服务端事实决定 —— 请求里塞补段字段也改不了结论', async () => {
-    const svc = lessonSvc({ stage: 'vocab_test', drillTarget: 5, drillProgress: 0 });
-    const r: any = await (svc as any).getToday({
-      studentName: '',
-      authStudentId: STUDENT,
-      // 这些都不是合法入参；就算硬塞也不能改变结论
-      drillTarget: 99,
-      drillProgress: 0,
-      drillSettled: false,
-    });
-    expect(r.nextAction.kind).toBe('summary');
-    // href 从来不参与新端导航（前端只认 kind），但它绝不能带身份
-    expect(String(r.nextAction.href ?? '')).not.toContain(STUDENT);
-    expect(String(r.nextAction.href ?? '')).not.toContain('name=');
+  it('request body cannot bypass the server assignment', async () => {
+    const r: any = await (lessonSvc({ stage: 'done', drillTarget: 3, drillProgress: 0 }) as any).getToday({ studentName: '', authStudentId: STUDENT, drillTarget: 0, drillProgress: 99 });
+    expect(r.nextAction.kind).toBe('read_result');
   });
 });
 

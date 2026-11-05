@@ -20,7 +20,6 @@ import { act, fireEvent, render, screen } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import TodayPage from '../pages/Today';
 import MistakesPage from '../pages/Mistakes';
-import MistakePracticePage from '../pages/MistakePractice';
 import LessonVocabPage from '../pages/LessonVocab';
 import LessonTestPage from '../pages/LessonTest';
 import VocabBookPage from '../pages/VocabBook';
@@ -196,22 +195,13 @@ describe('S12L / IOS-04 —— 今日三项任务卡都能点、各管各的', (
 // 2. 错题本暂停
 // ─────────────────────────────────────────────────────────────
 
-describe('S12L —— 错题本暂停', () => {
-  it('/mistakes 显示「错题本暂未开放」且一个错题请求都不发', async () => {
-    routes = {};
+describe('错题本开放', () => {
+  it('列表加载真实接口，不出现暂停说明', async () => {
+    routes = { '/vocab/mistakes': () => ({ body: { entries: [], vocabulary: [], total: 0, byTaskType: [] } }) };
     render(<MemoryRouter><MistakesPage /></MemoryRouter>);
     await settle();
-    expect(screen.getByText(/错题本暂未开放/)).toBeTruthy();
-    expect(reqs.filter((r) => r.url.includes('/mistakes'))).toHaveLength(0);
-    expect(reqs).toHaveLength(0);
-  });
-
-  it('/mistakes/practice 显示「错题重练暂未开放」且不发任何请求', async () => {
-    routes = {};
-    render(<MemoryRouter><MistakePracticePage /></MemoryRouter>);
-    await settle();
-    expect(screen.getByText(/错题重练暂未开放/)).toBeTruthy();
-    expect(reqs).toHaveLength(0);
+    expect(screen.getByRole('heading', { name: '错题本' })).toBeTruthy();
+    expect(reqs.filter((r) => r.url.includes('/mistakes'))).toHaveLength(1);
   });
 });
 

@@ -345,6 +345,9 @@ const LEGACY_WRITES: Route[] = [
 
 /** 新接口（@Public + StudentIdentityGuard 那一路）上的学生写操作。 */
 const NEW_WRITES: Route[] = [
+  { method: 'POST', path: '/vocab/mistakes/practice-result', body: { id: 'm1', date: '2026-11-05', answer: 'B' } },
+  { method: 'POST', path: '/vocab/mistakes/reference', body: { id: 'm1', date: '2026-11-05', answer: 'My answer' } },
+  { method: 'POST', path: '/vocab/mistakes/resolve', body: { id: 'm1', resolved: true } },
   { method: 'POST', path: '/morning-quiz/appeals', body: { submissionId: 'sub-1', message: 'x' } },
   { method: 'POST', path: '/vocab-v2/profile', body: { dailyTarget: 10 } },
   { method: 'POST', path: '/vocab-v2/custom-test/start', body: { count: 5 } },
@@ -382,6 +385,8 @@ const NEW_WRITES: Route[] = [
 
 /** 已核实**零写库**的 GET —— 教师只读视角可以读（S08）。 */
 const READ_ONLY_GETS: Route[] = [
+  { method: 'GET', path: '/vocab/mistakes' },
+  { method: 'GET', path: '/vocab/mistakes/practice-queue' },
   // 答题页：getStudentView 改用 shuffle.peek 之后零写库（shuffle-peek.spec 在真实服务上证明）
   { method: 'GET', path: '/morning-quiz/sessions/s1' },
   // profile / overview：词汇组拆成纯读之后放开（620a59b）

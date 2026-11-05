@@ -142,6 +142,13 @@ export function readingTaskView(lesson: LessonToday, home: HomeReadingTask | und
   const head = [title, levelText].filter(Boolean).join(' · ');
   const withHead = (tail: string) => [head, tail].filter(Boolean).join(' · ');
 
+  const redo = seg?.redo ?? home?.redo;
+  if (state === 'redo_pending' || (redo && redo.progress < redo.target && seg?.submitted)) {
+    return { ...base, applicable: true, done: false,
+      badge: { tone: 'warning', text: '还有错题要做' },
+      detail: withHead(`错题已做 ${redo?.progress ?? 0} / ${redo?.target ?? 0} 道`),
+      action: { kind: 'navigate', label: '继续做错题', path: ROUTES.readingResult } };
+  }
   if (state === 'awaiting_marking') {
     const r = seg?.releasedScore;
     return {

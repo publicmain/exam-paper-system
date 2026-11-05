@@ -168,7 +168,7 @@ function makeSvc(opts: {
       return { id: 'stu-1', name: '测试五号' };
     }),
   };
-  const svc = new LessonService(prisma, words, {} as any, { practiceQueue: async () => ({ items: [] }) } as any);
+  const svc = new LessonService(prisma, words, {} as any, { dailyState: async () => ({ items: [], target: 0, progress: 0 }) } as any);
   return { svc, storedRow: () => row, writes, resolveStudent: words.resolveStudent };
 }
 

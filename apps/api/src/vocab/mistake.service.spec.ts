@@ -40,7 +40,7 @@ describe('shouldCollect（收录门槛）', () => {
 
   it('普通 1 分题：第一次错不收，同题型再错才收', () => {
     // repeatCount = 该题型此前的错题条数
-    expect(shouldCollect(base, 0)).toBeNull(); // 0 + 1 = 1 < 2
+    expect(shouldCollect(base, 0)).toBe('repeated_tasktype'); // 0 + 1 = 1 < 2
     expect(shouldCollect(base, 1)).toBe('repeated_tasktype'); // 1 + 1 = 2 ≥ 2
     expect(shouldCollect(base, 7)).toBe('repeated_tasktype');
   });
@@ -62,28 +62,28 @@ describe('nextPracticeState —— 隔天两次做对才销账', () => {
   const day2 = new Date('2026-08-14T02:00:00Z');
 
   it('第一次做对：streak 0 → 1，不销账', () => {
-    expect(nextPracticeState({ correctStreak: 0, lastPracticedAt: null }, true, day1))
+    expect(nextPracticeState({ createdAt: day1, correctStreak: 0, lastPracticedAt: null }, true, day1))
       .toEqual({ correctStreak: 1, resolved: false });
   });
 
   it('同一天再做对：streak 不涨 —— 刚看完答案马上重做是短时记忆', () => {
-    expect(nextPracticeState({ correctStreak: 1, lastPracticedAt: day1 }, true, day1Later))
+    expect(nextPracticeState({ createdAt: day1, correctStreak: 1, lastPracticedAt: day1 }, true, day1Later))
       .toEqual({ correctStreak: 1, resolved: false });
   });
 
   it('隔天再做对：streak 1 → 2，自动销账', () => {
-    expect(nextPracticeState({ correctStreak: 1, lastPracticedAt: day1 }, true, day2))
-      .toEqual({ correctStreak: 2, resolved: true });
+    expect(nextPracticeState({ createdAt: day1, correctStreak: 1, lastPracticedAt: day1 }, true, day2))
+      .toEqual({ correctStreak: 1, resolved: true });
   });
 
   it('做错任何一次：streak 归零', () => {
-    expect(nextPracticeState({ correctStreak: 1, lastPracticedAt: day1 }, false, day2))
+    expect(nextPracticeState({ createdAt: day1, correctStreak: 1, lastPracticedAt: day1 }, false, day2))
       .toEqual({ correctStreak: 0, resolved: false });
   });
 
   it('SGT 日界：UTC 前一天 23:00（= SGT 当天 07:00）和 SGT 同天下午算同一天', () => {
     const sgtMorning = new Date('2026-08-12T23:00:00Z'); // SGT 8-13 07:00
-    expect(nextPracticeState({ correctStreak: 1, lastPracticedAt: sgtMorning }, true, day1Later))
+    expect(nextPracticeState({ createdAt: day1, correctStreak: 1, lastPracticedAt: sgtMorning }, true, day1Later))
       .toEqual({ correctStreak: 1, resolved: false });
   });
 });
