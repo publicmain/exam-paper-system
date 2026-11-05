@@ -1,3 +1,4 @@
+import { outboundFetch } from '../../src/common/outbound-gate';
 /**
  * 发布前的拼写 / 语法检查：文章、题干、选项、参考答案（2026-09-11）。
  *
@@ -64,7 +65,7 @@ async function check(text: string) {
     disabledRules: NOISE_RULES.join(','),
   });
   for (let attempt = 0; attempt < 3; attempt += 1) {
-    const res = await fetch(`${BASE}/v2/check`, { method: 'POST', body });
+    const res = await outboundFetch('language_tool', `${BASE}/v2/check`, { method: 'POST', body });
     if (res.status === 429) {
       await new Promise((r) => setTimeout(r, 15_000));
       continue;

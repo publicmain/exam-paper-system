@@ -1,3 +1,4 @@
+import { isOutboundAllowed, assertOutboundAllowed, outboundFetch } from '../common/outbound-gate';
 import { Injectable, Logger } from '@nestjs/common';
 import Anthropic from '@anthropic-ai/sdk';
 
@@ -78,16 +79,16 @@ export class ShortAnswerEvaluatorService {
     // the stronger Sonnet/Opus. Set ANTHROPIC_GRADER_MODEL on Railway to
     // override (e.g. bump to Sonnet if grading accuracy ever regresses).
     this.model = process.env.ANTHROPIC_GRADER_MODEL || 'claude-haiku-4-5';
-    if (!apiKey || apiKey.startsWith('sk-ant-replace')) {
+    if (!isOutboundAllowed('anthropic') || !apiKey || apiKey.startsWith('sk-ant-replace')) {
       this.logger.warn(
-        'ANTHROPIC_API_KEY not configured — short-answer suggestions will return null.',
+        'Anthropic disabled or key not configured — short-answer suggestions will return null.',
       );
       this.client = null;
     } else {
       // Round-7 H35: explicit retry budget. maxRetries also smooths a
       // transient 429 — with batching the call volume is low enough that
       // the SDK's exponential backoff absorbs the rare collision.
-      this.client = new Anthropic({ apiKey, maxRetries: 3 });
+      this.client = new Anthropic({ apiKey, maxRetries: 3, fetch: (...args) => outboundFetch('anthropic', ...args) });
     }
   }
 
@@ -125,7 +126,7 @@ export class ShortAnswerEvaluatorService {
     }
     if (needApi.length === 0) return out;
 
-    if (!this.client) {
+    if (!isOutboundAllowed('anthropic') || !this.client) {
       // R15-followup-5 — a silent null on every grading call was a
       // production-invisible failure mode. Warn loudly so ops notices a
       // rotated / quota-exhausted key.
@@ -191,6 +192,7 @@ Rules:
     }));
 
     try {
+      assertOutboundAllowed('anthropic');
       const resp = await this.client.messages.create({
         model: this.model,
         // ~80 output tokens per verdict; 2500 covers a 12-item O-Level

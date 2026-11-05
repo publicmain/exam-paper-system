@@ -12,6 +12,7 @@ describe('RealtimeTranslationService', () => {
   const saved = Object.fromEntries(KEYS.map((key) => [key, process.env[key]]));
 
   beforeEach(() => {
+    vi.stubEnv('OUTBOUND_ALLOW', 'azure_translator,public_translation');
     process.env.AZURE_TRANSLATOR_KEY = 'test-secret-never-returned';
     process.env.AZURE_TRANSLATOR_ENDPOINT = 'https://translator.example.test/';
     process.env.AZURE_TRANSLATOR_REGION = 'southeastasia';
@@ -20,6 +21,7 @@ describe('RealtimeTranslationService', () => {
 
   afterEach(() => {
     vi.unstubAllGlobals();
+    vi.unstubAllEnvs();
     for (const key of KEYS) {
       const value = saved[key];
       if (value == null) delete process.env[key];

@@ -1,3 +1,4 @@
+import { isOutboundAllowed, assertOutboundAllowed, outboundFetch } from '../common/outbound-gate';
 import { Injectable, Logger } from '@nestjs/common';
 import Anthropic from '@anthropic-ai/sdk';
 import { PrismaService } from '../common/prisma.service';
@@ -32,8 +33,8 @@ export class AiService {
   constructor(private readonly prisma: PrismaService) {
     const apiKey = process.env.ANTHROPIC_API_KEY;
     this.model = process.env.ANTHROPIC_MODEL || 'claude-sonnet-4-6';
-    if (!apiKey || apiKey.startsWith('sk-ant-replace')) {
-      this.logger.warn('ANTHROPIC_API_KEY not configured — AI calls will return stub responses.');
+    if (!isOutboundAllowed('anthropic') || !apiKey || apiKey.startsWith('sk-ant-replace')) {
+      this.logger.warn('Anthropic disabled or key not configured — automatic labeling unavailable.');
       this.client = null;
     } else {
       // Round-7 H35 (agent-8 §6.5): explicit retry budget. SDK default
@@ -41,7 +42,7 @@ export class AiService {
       // version doesn't silently change it. 529 (overloaded) jitters
       // most often during peak Sonnet usage windows; the extra retry
       // hides ~95% of those before they reach the user.
-      this.client = new Anthropic({ apiKey, maxRetries: 3 });
+      this.client = new Anthropic({ apiKey, maxRetries: 3, fetch: (...args) => outboundFetch('anthropic', ...args) });
     }
   }
 
@@ -53,16 +54,12 @@ export class AiService {
       take: 200,
     });
 
-    if (!this.client) {
-      // Stub response: pick first 3 topics, mid difficulty
+    if (!isOutboundAllowed('anthropic') || !this.client) {
       return {
-        topicCandidates: topics.slice(0, 3).map(t => ({
-          topicId: t.id, topicCode: t.code, topicName: t.name,
-          confidence: 0.4, reason: 'AI not configured — stub response',
-        })),
+        topicCandidates: [],
         suggestedDifficulty: 3,
         suggestedQuestionType: 'short_answer',
-        notes: 'Stub response. Configure ANTHROPIC_API_KEY in .env to enable real AI labeling.',
+        notes: '自动标注暂不可用，请人工选择。',
       };
     }
 
@@ -86,6 +83,7 @@ ${input.marks != null ? `Marks: ${input.marks}` : ''}`;
     try {
       // Cache the syllabus topic tree on the system block so a batch over
       // many questions in the same subject pays for it once.
+      assertOutboundAllowed('anthropic');
       const resp = await this.client.messages.create({
         model: this.model,
         max_tokens: 800,
@@ -246,7 +244,7 @@ ${input.marks != null ? `Marks: ${input.marks}` : ''}`;
     // Rough cost estimate: ~3000 input tokens per call (system prompt +
     // topics) × 95% cache hit + ~200 output. With Sonnet pricing this is
     // ~$0.005 per cached call, ~$0.025 per uncached call.
-    const costUsdEstimate = candidates.length * 0.012;
+    const costUsdEstimate = isOutboundAllowed('anthropic') && this.client ? candidates.length * 0.012 : 0;
 
     this.logger.log(
       `topic-backfill ${args.dryRun ? '[dry] ' : ''}` +
@@ -290,6 +288,10 @@ ${input.marks != null ? `Marks: ${input.marks}` : ''}`;
 
     const result: TagBatchResult = { attempted: 0, tagged: 0, skipped: 0, errors: [] };
     for (const item of items) {
+      if (!isOutboundAllowed('anthropic') || !this.client) {
+        result.skipped++;
+        continue;
+      }
       const sf = item.sourceFile;
       if (!sf?.syllabusCode || !item.rawExtractedText) {
         result.skipped++;
@@ -315,6 +317,10 @@ ${input.marks != null ? `Marks: ${input.marks}` : ''}`;
           marks: item.suggestedMarks ?? undefined,
         });
         const top = out.topicCandidates[0];
+        if (!top) {
+          result.skipped++;
+          continue;
+        }
         await this.prisma.questionItem.update({
           where: { id: item.id },
           data: {

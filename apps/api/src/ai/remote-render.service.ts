@@ -1,3 +1,4 @@
+import { outboundFetch } from '../common/outbound-gate';
 import { BadRequestException, Injectable, Logger, ServiceUnavailableException } from '@nestjs/common';
 
 const PDF_WORKER_URL = process.env.PDF_WORKER_URL || '';
@@ -42,7 +43,7 @@ export class RemoteRenderService {
     const url = `${PDF_WORKER_URL.replace(/\/$/, '')}/render_circuit`;
     let resp: Response;
     try {
-      resp = await fetch(url, {
+      resp = await outboundFetch('pdf_worker', url, {
         method: 'POST',
         headers: internalHeaders(),
         body: JSON.stringify({ elements }),
@@ -74,7 +75,7 @@ export class RemoteRenderService {
     const url = `${PDF_WORKER_URL.replace(/\/$/, '')}/render_molecule`;
     let resp: Response;
     try {
-      resp = await fetch(url, {
+      resp = await outboundFetch('pdf_worker', url, {
         method: 'POST',
         headers: internalHeaders(),
         body: JSON.stringify({

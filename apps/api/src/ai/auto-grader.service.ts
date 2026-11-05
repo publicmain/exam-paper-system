@@ -1,3 +1,4 @@
+import { isOutboundAllowed, assertOutboundAllowed, outboundFetch } from '../common/outbound-gate';
 import { Injectable, Logger } from '@nestjs/common';
 import Anthropic from '@anthropic-ai/sdk';
 import { AuditService } from '../audit/audit.service';
@@ -66,13 +67,13 @@ export class AutoGraderService {
     this.outputUsdPerMTok = Number.isFinite(Number(process.env.AI_COST_OUTPUT_USD_PER_MTOK))
       ? Number(process.env.AI_COST_OUTPUT_USD_PER_MTOK)
       : DEFAULT_OUTPUT_USD_PER_MTOK;
-    if (!apiKey || apiKey.startsWith('sk-ant-replace')) {
+    if (!isOutboundAllowed('anthropic') || !apiKey || apiKey.startsWith('sk-ant-replace')) {
       this.logger.warn(
-        'ANTHROPIC_API_KEY not configured — AutoGraderService.evaluate() returns null.',
+        'Anthropic disabled or key not configured — AutoGraderService.evaluate() returns null.',
       );
       this.client = null;
     } else {
-      this.client = new Anthropic({ apiKey, maxRetries: 3 });
+      this.client = new Anthropic({ apiKey, maxRetries: 3, fetch: (...args) => outboundFetch('anthropic', ...args) });
     }
   }
 
@@ -94,7 +95,7 @@ export class AutoGraderService {
    * call sites stay identical.
    */
   async evaluate(input: AutoGradeShortAnswerInput): Promise<AutoGradeShortAnswerSuggestion | null> {
-    if (!this.client) return null;
+    if (!isOutboundAllowed('anthropic') || !this.client) return null;
     if (!input.studentAnswer || !input.studentAnswer.trim()) {
       return {
         awardedMarks: 0,
@@ -119,6 +120,7 @@ export class AutoGraderService {
     let result: AutoGradeShortAnswerSuggestion | null = null;
 
     try {
+      assertOutboundAllowed('anthropic');
       const resp = await this.client.messages.create({
         model: this.model,
         max_tokens: 400,

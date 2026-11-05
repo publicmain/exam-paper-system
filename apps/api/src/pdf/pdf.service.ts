@@ -1,3 +1,4 @@
+import { isOutboundAllowed } from '../common/outbound-gate';
 import { Injectable, Logger, OnModuleDestroy } from '@nestjs/common';
 import puppeteer, { Browser } from 'puppeteer';
 import * as fs from 'node:fs/promises';
@@ -108,6 +109,14 @@ export class PdfService implements OnModuleDestroy {
     const browser = await this.getBrowser();
     const page = await browser.newPage();
     try {
+      await page.setRequestInterception(true);
+      page.on('request', (request) => {
+        if (/^https?:/i.test(request.url()) && !isOutboundAllowed('pdf_assets')) {
+          void request.abort();
+        } else {
+          void request.continue();
+        }
+      });
       await page.setContent(html, { waitUntil: 'networkidle0', timeout: Number(process.env.PDF_TIMEOUT_MS || 30000) });
       const pdf = await page.pdf({
         format: 'A4',

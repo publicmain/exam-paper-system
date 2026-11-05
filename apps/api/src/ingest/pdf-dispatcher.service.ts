@@ -1,3 +1,4 @@
+import { outboundFetch } from '../common/outbound-gate';
 import { Injectable, Logger } from '@nestjs/common';
 import { PrismaService } from '../common/prisma.service';
 import { AuditService } from '../audit/audit.service';
@@ -162,7 +163,7 @@ export class PdfDispatcherService {
     expected_sha256: string;
   }): Promise<ProcessPdfResponse> {
     const url = `${PDF_WORKER_URL.replace(/\/$/, '')}/process_pdf`;
-    const r = await fetch(url, {
+    const r = await outboundFetch('pdf_worker', url, {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify(body),

@@ -1,3 +1,4 @@
+import { isOutboundAllowed, outboundFetch } from '../common/outbound-gate';
 import { Injectable, Logger } from '@nestjs/common';
 
 type Cached = { text: string; expiresAt: number };
@@ -20,7 +21,8 @@ export type TranslationStatus =
   /** 供应商回来了，但一个汉字都没有（多半是原样回显英文）—— 不当成翻译 */
   | 'no_chinese'
   /** 网络层失败（DNS、连接被拒…） */
-  | 'network_error';
+  | 'network_error'
+  | 'disabled';
 
 export interface TranslationResult {
   text: string | null;
@@ -76,6 +78,9 @@ export class RealtimeTranslationService {
 
     const useAzure = Boolean(process.env.AZURE_TRANSLATOR_KEY);
     const provider = useAzure ? 'azure' : 'pilot_free';
+    if (!isOutboundAllowed(useAzure ? 'azure_translator' : 'public_translation')) {
+      return { text: null, status: 'disabled', retryable: false, provider: 'none' };
+    }
     if (useAzure && this.coolingUntil > Date.now()) {
       return {
         text: null,
@@ -100,6 +105,9 @@ export class RealtimeTranslationService {
   }
 
   private failure(error: unknown, provider: TranslationResult['provider']): TranslationResult {
+    if (!isOutboundAllowed(provider === 'azure' ? 'azure_translator' : 'public_translation')) {
+      return { text: null, status: 'disabled', retryable: false, provider: 'none' };
+    }
     const message = String((error as Error)?.message ?? error).slice(0, 120);
     if (error instanceof ProviderHttpError) {
       this.logger.warn(`translation_failed:${message}`);
@@ -130,7 +138,7 @@ export class RealtimeTranslationService {
   private async azure(text: string): Promise<string | null> {
     const endpoint = (process.env.AZURE_TRANSLATOR_ENDPOINT || 'https://api.cognitive.microsofttranslator.com').replace(/\/$/, '');
     const region = process.env.AZURE_TRANSLATOR_REGION;
-    const response = await fetch(`${endpoint}/translate?api-version=3.0&from=en&to=zh-Hans`, {
+    const response = await outboundFetch('azure_translator', `${endpoint}/translate?api-version=3.0&from=en&to=zh-Hans`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -154,7 +162,7 @@ export class RealtimeTranslationService {
     let source = text;
     while (Buffer.byteLength(source, 'utf8') > 480) source = source.slice(0, -1);
     const query = new URLSearchParams({ q: source, langpair: 'en|zh-CN', mt: '1' });
-    const response = await fetch(`https://api.mymemory.translated.net/get?${query.toString()}`, {
+    const response = await outboundFetch('public_translation', `https://api.mymemory.translated.net/get?${query.toString()}`, {
       signal: AbortSignal.timeout(4_000),
       headers: { Accept: 'application/json' },
     });
@@ -173,7 +181,7 @@ export class RealtimeTranslationService {
 
   private async googleWeb(text: string): Promise<string | null> {
     const query = new URLSearchParams({ client: 'gtx', sl: 'en', tl: 'zh-CN', dt: 't', q: text });
-    const response = await fetch(`https://translate.googleapis.com/translate_a/single?${query.toString()}`, {
+    const response = await outboundFetch('public_translation', `https://translate.googleapis.com/translate_a/single?${query.toString()}`, {
       signal: AbortSignal.timeout(4_000),
       headers: { Accept: 'application/json' },
     });

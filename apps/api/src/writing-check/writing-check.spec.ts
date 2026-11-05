@@ -1,6 +1,7 @@
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { beforeEach, afterEach, describe, expect, it, vi } from 'vitest';
 import { WritingCheckService } from './writing-check.service';
 
+beforeEach(() => { vi.stubEnv('OUTBOUND_ALLOW', 'language_tool'); });
 afterEach(() => {
   vi.unstubAllEnvs();
   vi.unstubAllGlobals();

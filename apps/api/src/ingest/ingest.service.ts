@@ -1,3 +1,4 @@
+import { assertOutboundAllowed } from '../common/outbound-gate';
 import { BadRequestException, ForbiddenException, Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../common/prisma.service';
 import { AuditService } from '../audit/audit.service';
@@ -474,6 +475,7 @@ export class IngestService {
    * spawning the system git binary keeps the dependency footprint flat.
    */
   private async gitClone(url: string, dest: string): Promise<void> {
+    assertOutboundAllowed('source_download');
     return new Promise<void>((resolve, reject) => {
       const child = spawn('git', ['clone', '--depth', '1', '--single-branch', url, dest], {
         stdio: ['ignore', 'pipe', 'pipe'],

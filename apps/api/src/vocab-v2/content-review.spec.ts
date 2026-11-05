@@ -116,6 +116,7 @@ describe('自动补句的定时任务默认不跑', () => {
   });
 
   it('设了才跑（会去碰数据库）', async () => {
+    vi.stubEnv('OUTBOUND_ALLOW', 'azure_translator');
     vi.stubEnv('AZURE_TRANSLATOR_KEY', 'translator-key');
     vi.stubEnv('VOCAB_AUTO_CONTENT_ENABLED', '1');
     const touched = vi.fn().mockResolvedValue([]);
@@ -126,5 +127,14 @@ describe('自动补句的定时任务默认不跑', () => {
     const cron = new VocabularyV2ContentCron(prisma as any);
     await cron.produce();
     expect(touched).toHaveBeenCalled();
+  });
+
+  it('旧开关和 key 都配置时，总闸不放行翻译就不跑', async () => {
+    vi.stubEnv('OUTBOUND_ALLOW', 'public_translation,web_push');
+    vi.stubEnv('AZURE_TRANSLATOR_KEY', 'translator-key');
+    vi.stubEnv('VOCAB_AUTO_CONTENT_ENABLED', '1');
+    const touched: string[] = [];
+    await new VocabularyV2ContentCron(tripwire(touched) as any).produce();
+    expect(touched).toEqual([]);
   });
 });

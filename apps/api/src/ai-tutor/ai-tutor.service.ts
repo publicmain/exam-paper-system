@@ -1,3 +1,4 @@
+import { isOutboundAllowed, assertOutboundAllowed, outboundFetch } from '../common/outbound-gate';
 import {
   BadRequestException,
   ForbiddenException,
@@ -46,14 +47,14 @@ export class AiTutorService {
   constructor(private readonly prisma: PrismaService) {
     const apiKey = process.env.ANTHROPIC_API_KEY;
     this.model = process.env.ANTHROPIC_MODEL || 'claude-sonnet-4-6';
-    if (!apiKey || apiKey.startsWith('sk-ant-replace')) {
+    if (!isOutboundAllowed('anthropic') || !apiKey || apiKey.startsWith('sk-ant-replace')) {
       this.logger.warn(
-        'ANTHROPIC_API_KEY not configured — tutor calls will return stub responses.',
+        'Anthropic disabled or key not configured — automatic tutoring unavailable.',
       );
       this.client = null;
     } else {
       // Round-7 H35: explicit retry budget.
-      this.client = new Anthropic({ apiKey, maxRetries: 3 });
+      this.client = new Anthropic({ apiKey, maxRetries: 3, fetch: (...args) => outboundFetch('anthropic', ...args) });
     }
   }
 
@@ -179,7 +180,7 @@ export class AiTutorService {
    *      student's submitted answer + (if available) the markScheme.
    *      The markScheme is *system-only* context — the user-facing
    *      reply must not reproduce it verbatim.
-   *   4. Call Claude (or stub).
+   *   4. Call Claude only when the outbound gate permits it.
    *   5. Persist assistant turn with costUsd, bump session totalCostUsd.
    *
    *   Returns the assistant message (without costUsd) plus the running
@@ -191,6 +192,10 @@ export class AiTutorService {
   async appendMessage(sessionId: string, body: { content: string }, student: ActorCtx) {
     if (student.role !== 'student') {
       throw new ForbiddenException('student-only route');
+    }
+    assertOutboundAllowed('anthropic');
+    if (!this.client) {
+      throw new HttpException({ code: 'tutor_unavailable', message: '辅导暂时不可用，请向老师请教。' }, HttpStatus.SERVICE_UNAVAILABLE);
     }
     const content = (body?.content ?? '').toString();
     if (!content.trim()) {
@@ -243,7 +248,7 @@ export class AiTutorService {
     // ---- Build system context (server-side ONLY uses markScheme) ---
     const ctx = await this.loadQuestionContext(session);
 
-    // ---- Call Claude (or stub) -------------------------------------
+    // ---- Call Claude through the outbound gate --------------------
     const { reply, costUsd } = await this.askClaude({
       historyMessages: session.messages ?? [],
       latestStudent: content,
@@ -436,9 +441,8 @@ export class AiTutorService {
   }
 
   /** Send the conversation to Claude. Returns the reply text and the
-   *  USD cost computed from token usage. If ANTHROPIC_API_KEY is not
-   *  configured we return a deterministic stub at zero cost (used in
-   *  the test harness). */
+   *  USD cost computed from token usage. A closed gate or missing client
+   *  returns an explicit unavailable error instead of a simulated reply. */
   private async askClaude(args: {
     historyMessages: Array<{ role: string; content: string }>;
     latestStudent: string;
@@ -471,12 +475,8 @@ GROUND RULES — non-negotiable:
       );
     }
 
-    if (!this.client) {
-      // Stub mode: pretend to tutor, charge $0. Used by tests / dev.
-      const stub = args.ctx.stem
-        ? `Let's review this question together. The key concept here is the one tested by the question stem above. Can you walk me through what you tried? (Stub response — ANTHROPIC_API_KEY not configured.)`
-        : `Hi! Tell me which question you'd like help with. (Stub response — ANTHROPIC_API_KEY not configured.)`;
-      return { reply: stub, costUsd: 0 };
+    if (!isOutboundAllowed('anthropic') || !this.client) {
+      throw new HttpException({ code: 'tutor_unavailable', message: '辅导暂时不可用，请向老师请教。' }, HttpStatus.SERVICE_UNAVAILABLE);
     }
 
     // Trim history to the configured window. Map roles into Anthropic's
@@ -488,6 +488,8 @@ GROUND RULES — non-negotiable:
       messages.push({ role: m.role === 'assistant' ? 'assistant' : 'user', content: m.content });
     }
     messages.push({ role: 'user', content: args.latestStudent });
+
+    assertOutboundAllowed('anthropic');
 
     const resp = await this.client.messages.create({
       model: this.model,

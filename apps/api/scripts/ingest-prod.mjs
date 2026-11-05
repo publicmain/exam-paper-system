@@ -1,3 +1,4 @@
+import outboundPolicy from '../src/common/outbound-policy.cjs';
 // One-shot bootstrap for a fresh prod DB. Pushes the same content
 // the dev DB has so weekly-generate stops failing with
 // no_passages_in_bank / no_olevel_papers_in_bank.
@@ -32,7 +33,7 @@ if (!API || !EMAIL || !PASSWORD) {
 }
 
 async function http(path, opts = {}) {
-  const res = await fetch(`${API}${path}`, {
+  const res = await outboundPolicy.outboundFetch('app_api', `${API}${path}`, {
     ...opts,
     headers: { 'content-type': 'application/json', ...opts.headers },
   });

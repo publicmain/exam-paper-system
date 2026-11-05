@@ -1,3 +1,4 @@
+import { isOutboundAllowed, assertOutboundAllowed, outboundFetch } from '../common/outbound-gate';
 import {
   BadRequestException,
   Injectable,
@@ -102,10 +103,10 @@ export class ConversationalPaperService {
       process.env.ANTHROPIC_PARSE_MODEL ||
       process.env.ANTHROPIC_MODEL ||
       PARSE_MODEL_FALLBACK;
-    if (!apiKey || apiKey.startsWith('sk-ant-replace')) {
+    if (!isOutboundAllowed('anthropic') || !apiKey || apiKey.startsWith('sk-ant-replace')) {
       this.client = null;
     } else {
-      this.client = new Anthropic({ apiKey, maxRetries: 3 });
+      this.client = new Anthropic({ apiKey, maxRetries: 3, fetch: (...args) => outboundFetch('anthropic', ...args) });
     }
   }
 
@@ -113,8 +114,9 @@ export class ConversationalPaperService {
     input: ConversationalGenerateInput,
     actor: { id: string; role: string; ip?: string | null },
   ): Promise<ConversationalGenerateResult> {
-    if (!this.client) {
-      throw new ServiceUnavailableException('ANTHROPIC_API_KEY not configured.');
+    assertOutboundAllowed('anthropic');
+    if (!isOutboundAllowed('anthropic') || !this.client) {
+      throw new ServiceUnavailableException('Anthropic disabled or key not configured.');
     }
     const message = (input.message ?? '').trim();
     if (message.length < 3) {
@@ -273,6 +275,7 @@ export class ConversationalPaperService {
     const t0 = Date.now();
     let resp: Anthropic.Message;
     try {
+      assertOutboundAllowed('anthropic');
       resp = await this.client!.messages.create({
         model: this.parseModel,
         max_tokens: 800,

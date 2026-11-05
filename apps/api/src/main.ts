@@ -1,5 +1,6 @@
 // Sentry 必须是第一个 import —— 它要在其它模块加载之前挂钩子。没配 DSN 时是 no-op。
 import './instrument';
+import { outboundGateSummary } from './common/outbound-gate';
 import 'reflect-metadata';
 import { allDayConfigSummary, assertAllDayConfig } from './lesson/all-day';
 import { assertStudentAppRoutingConfig } from './student-auth/student-app-routing';
@@ -39,6 +40,7 @@ function resolveCorsOrigin(): true | string[] {
 }
 
 async function bootstrap() {
+  bootstrapLogger.log(outboundGateSummary());
   // Fail loud on default JWT secret in prod. The fallback 'dev-secret' in
   // app.module.ts is only for local boot — leaking it as a signing key in
   // production lets anyone forge any role.

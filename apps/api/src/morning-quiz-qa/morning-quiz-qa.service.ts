@@ -1,3 +1,4 @@
+import { isOutboundAllowed, assertOutboundAllowed, outboundFetch } from '../common/outbound-gate';
 import {
   ForbiddenException,
   Injectable,
@@ -202,16 +203,16 @@ export class MorningQuizQaService {
     private readonly audit: AuditService,
   ) {
     const apiKey = process.env.ANTHROPIC_API_KEY;
-    if (!apiKey || apiKey.startsWith('sk-ant-replace')) {
+    if (!isOutboundAllowed('anthropic') || !apiKey || apiKey.startsWith('sk-ant-replace')) {
       this.logger.warn(
-        'ANTHROPIC_API_KEY not configured — QA review service will skip with verdict=pending.',
+        'Anthropic disabled or key not configured — QA review service will skip with verdict=pending.',
       );
       this.client = null;
     } else {
       // Round-7 H35: explicit retry budget. QA loop is most exposed to
       // 529 jitter because it fires every batch-generate; without a
       // retry budget a single overload nukes the entire batch.
-      this.client = new Anthropic({ apiKey, maxRetries: 3 });
+      this.client = new Anthropic({ apiKey, maxRetries: 3, fetch: (...args) => outboundFetch('anthropic', ...args) });
     }
   }
 
@@ -236,13 +237,13 @@ export class MorningQuizQaService {
     options?: { strict?: boolean },
   ): Promise<QaReviewResult> {
     const reviewable = await this.loadReviewable(paperId);
-    if (!this.client) {
+    if (!isOutboundAllowed('anthropic') || !this.client) {
       // Mark explicitly so the dashboard can warn, then bail.
       await this.prisma.paper.update({
         where: { id: paperId },
         data: {
           qaReviewVerdict: 'pending',
-          qaReviewSummary: 'AI 审核已跳过(ANTHROPIC_API_KEY 未配置)',
+          qaReviewSummary: '自动审核已暂停，请老师审核。',
           qaReviewIssues: [],
           qaReviewedAt: new Date(),
           qaReviewModel: 'skipped',
@@ -250,7 +251,7 @@ export class MorningQuizQaService {
       });
       return {
         verdict: 'pending',
-        summary: 'AI 审核已跳过(ANTHROPIC_API_KEY 未配置)',
+        summary: '自动审核已暂停，请老师审核。',
         issues: [],
         model: 'skipped',
         inputTokens: 0,
@@ -266,6 +267,7 @@ export class MorningQuizQaService {
     const t0 = Date.now();
     let resp: Anthropic.Message;
     try {
+      assertOutboundAllowed('anthropic');
       resp = await this.client.messages.create({
         model,
         max_tokens: 4096,
@@ -596,7 +598,7 @@ export class MorningQuizQaService {
     summary: string,
     reviewable: ReviewablePaper,
   ): Promise<{ issues: QaIssue[]; inputTokens: number; outputTokens: number }> {
-    if (!this.client) return { issues: [], inputTokens: 0, outputTokens: 0 };
+    if (!isOutboundAllowed('anthropic') || !this.client) return { issues: [], inputTokens: 0, outputTokens: 0 };
     const tool: Anthropic.Tool = {
       name: 'submit_issues',
       description: 'Return ONLY the issues[] array — verdict and summary are fixed.',
@@ -626,6 +628,7 @@ export class MorningQuizQaService {
       `Summary: ${summary}\n\n` +
       `Questions:\n${questionLines}\n\n` +
       `请用 submit_issues 工具返回结果。`;
+    assertOutboundAllowed('anthropic');
     const resp = await this.client.messages.create({
       model: DEFAULT_MODEL,
       max_tokens: 1500,

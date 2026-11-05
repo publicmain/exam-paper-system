@@ -1,3 +1,4 @@
+import { assertOutboundAllowed, outboundFetch } from '../src/common/outbound-gate';
 /**
  * F4 backfill — assign Question.tags to historical rows that were created
  * before the AI generator started emitting them.
@@ -90,7 +91,8 @@ async function main() {
     console.error('ANTHROPIC_API_KEY required');
     process.exit(1);
   }
-  const client = new Anthropic({ apiKey });
+  assertOutboundAllowed('anthropic');
+  const client = new Anthropic({ apiKey, fetch: (...args) => outboundFetch('anthropic', ...args) });
 
   const candidates = await prisma.question.findMany({
     where: {
@@ -136,6 +138,7 @@ async function main() {
       `请用 submit_tags 工具返回 1-3 个 tag。`;
     let resp: Anthropic.Message;
     try {
+      assertOutboundAllowed('anthropic');
       resp = await client.messages.create({
         model: MODEL,
         max_tokens: 200,

@@ -5,6 +5,7 @@
   "compilerOptions": {
     "deleteOutDir": true,
     "assets": [
+      { "include": "common/outbound-policy.cjs", "outDir": "dist" },
       { "include": "pdf/templates/**/*.html", "outDir": "dist" },
       { "include": "pdf/templates/**/*.css", "outDir": "dist" }
     ]

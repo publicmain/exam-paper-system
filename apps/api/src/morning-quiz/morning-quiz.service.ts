@@ -1,3 +1,4 @@
+import { isOutboundAllowed } from '../common/outbound-gate';
 import {
   BadRequestException,
   ConflictException,
@@ -768,10 +769,11 @@ export class MorningQuizService {
    * 2.0：短答要不要交给 Claude，由 MORNING_QUIZ_AI_GRADING 决定，**默认关闭**。
    * 本校铁律是零 Anthropic 调用，短答一律由老师人工判；关闭时走 deferAi ——
    * MCQ 仍然即时判分，短答 park 成待判（awardedMarks=null）进人工队列，
-   * 而不是被判 0 分。要恢复 AI 判分，设 MORNING_QUIZ_AI_GRADING=on。
+   * 而不是被判 0 分。将来若获准恢复，还必须在 OUTBOUND_ALLOW 中显式允许
+   * anthropic，同时设置 MORNING_QUIZ_AI_GRADING=on；目前学校环境不得启用。
    */
   private async gradeScripts(scripts: Parameters<typeof autoGradeScripts>[0]) {
-    return process.env.MORNING_QUIZ_AI_GRADING === 'on'
+    return isOutboundAllowed('anthropic') && process.env.MORNING_QUIZ_AI_GRADING === 'on'
       ? autoGradeScripts(scripts, this.evaluator)
       : autoGradeScripts(scripts, undefined, { deferAi: true });
   }

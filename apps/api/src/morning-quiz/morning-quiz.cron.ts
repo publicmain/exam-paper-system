@@ -1,3 +1,4 @@
+import { isOutboundAllowed } from '../common/outbound-gate';
 import { scoreResultPath } from '../common/student-links';
 import { Injectable, Logger } from '@nestjs/common';
 import { Cron, CronExpression } from '@nestjs/schedule';
@@ -628,9 +629,9 @@ export class MorningQuizCron {
         // 「额度是空的」，不是任何开关。一旦充值就会静默开始自动判分。
         //
         // 现在默认走 deferAi：MCQ 照常即时判，短答一律 park 进人工队列，
-        // 与老师每天排队判分的实际流程一致。要恢复 AI 判分，在 Railway 上
-        // 设 MORNING_QUIZ_AI_GRADING=on 即可，无需改代码。
-        const aiGradingOn = process.env.MORNING_QUIZ_AI_GRADING === 'on';
+        // 与老师每天排队判分的实际流程一致。将来若获准恢复，需总闸显式允许
+        // anthropic 且 MORNING_QUIZ_AI_GRADING=on；目前学校环境不得启用。
+        const aiGradingOn = isOutboundAllowed('anthropic') && process.env.MORNING_QUIZ_AI_GRADING === 'on';
         const rawGrade = aiGradingOn
           ? await autoGradeScripts(sub.scripts, this.evaluator)
           : await autoGradeScripts(sub.scripts, undefined, { deferAi: true });
