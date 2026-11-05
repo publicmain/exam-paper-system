@@ -12,6 +12,7 @@ function makePrisma(input: {
 }) {
   const subs = (input.subs ?? []).map((s) => ({ p256dh: 'p', auth: 'a', lastSentAt: null, ...s }));
   const prisma: any = {
+    classEnrollment: { findMany: vi.fn().mockResolvedValue([]) },
     pushSubscription: {
       upsert: vi.fn().mockResolvedValue({}),
       deleteMany: vi.fn().mockResolvedValue({ count: 1 }),
@@ -47,6 +48,16 @@ beforeEach(() => {
 afterEach(() => vi.unstubAllEnvs());
 
 describe('推送 —— 开关', () => {
+  it('全部班停课不推送；只停一个班仍推送', async () => {
+    const prisma = makePrisma({ subs: [{ id: 'sub', studentId: 's', endpoint: 'https://push.example.invalid/s' }], sessions: [{ paperAssignmentId: 'pa', studentIds: ['s'] }] });
+    prisma.classEnrollment.findMany.mockResolvedValue([{ userId: 's', classId: 'a', joinedAt: new Date('2026-09-01') }, { userId: 's', classId: 'b', joinedAt: new Date('2026-09-01') }]);
+    prisma.classNoSchoolDay = { findMany: vi.fn().mockResolvedValue([{ classId: 'a', date: new Date('2026-11-05') }, { classId: 'b', date: new Date('2026-11-05') }]) };
+    const svc = new PushService(prisma);
+    expect((await svc.runDailyReminder(new Date('2026-11-05T08:30:00Z'))).targets).toBe(0);
+    expect(sendNotification).not.toHaveBeenCalled();
+    prisma.classNoSchoolDay.findMany.mockResolvedValue([{ classId: 'a', date: new Date('2026-11-05') }]);
+    expect((await svc.runDailyReminder(new Date('2026-11-05T08:30:00Z'))).targets).toBe(1);
+  });
   it('没配 VAPID 密钥 → 关着：config.enabled=false，cron 直接跳过，订阅回 503', async () => {
     vi.stubEnv('VAPID_PUBLIC_KEY', '');
     vi.stubEnv('VAPID_PRIVATE_KEY', '');

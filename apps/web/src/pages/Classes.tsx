@@ -105,7 +105,7 @@ export default function ClassesPage() {
           // right. (Nested <button> is invalid HTML.)
           <div
             key={c.id}
-            className="flex items-center justify-between py-3 -mx-4 px-4 hover:bg-gray-50"
+            className="flex flex-wrap items-center justify-between gap-3 py-3 -mx-4 px-4 hover:bg-gray-50"
           >
             <button
               onClick={() => setSelectedId(c.id)}
@@ -118,7 +118,9 @@ export default function ClassesPage() {
                   .join(' · ')}
               </div>
             </button>
-            <div className="flex items-center gap-3 shrink-0 ml-3">
+            <div className="flex max-w-full flex-wrap items-center gap-3">
+              <Link className="inline-flex min-h-12 items-center rounded-lg bg-blue-50 px-3 text-sm font-semibold text-blue-900 hover:bg-blue-100" to={`/classes/${encodeURIComponent(c.id)}/today`}>今天该找谁</Link>
+              <Link className="inline-flex min-h-12 items-center px-3 text-sm text-slate-600 hover:underline" to={`/classes/${encodeURIComponent(c.id)}/no-school-days`}>停课日</Link>
               <button
                 onClick={async () => {
                   // ROUND 14 — Feature 6: default to soft-delete, opt-in

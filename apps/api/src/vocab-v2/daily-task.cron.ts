@@ -1,5 +1,6 @@
 import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
 import { Cron } from '@nestjs/schedule';
+import { loadSchoolCalendar } from '../common/school-calendar';
 import { PrismaService } from '../common/prisma.service';
 import { VocabularyV2Service } from './vocabulary-v2.service';
 import { isTeachingDay, sgtDateKey } from './unified-vocabulary-rules';
@@ -43,9 +44,11 @@ export class VocabularyV2DailyTaskCron implements OnModuleInit {
         },
         select: { id: true },
       });
+      const calendar = await loadSchoolCalendar(this.prisma, students.map((s) => s.id), sgtDateKey(now), sgtDateKey(now));
+      const eligible = students.filter((s) => calendar.isTeachingDay(s.id, sgtDateKey(now)));
       let createdOrFound = 0;
-      for (let index = 0; index < students.length; index += 4) {
-        const batch = students.slice(index, index + 4);
+      for (let index = 0; index < eligible.length; index += 4) {
+        const batch = eligible.slice(index, index + 4);
         const results = await Promise.allSettled(batch.map((student) => this.vocabulary.startDailySession(student.id, now)));
         createdOrFound += results.filter((result) => result.status === 'fulfilled').length;
         for (const result of results) {

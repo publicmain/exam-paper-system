@@ -242,7 +242,15 @@ export default function LearningReportPage() {
   const [report, setReport] = useState<WeeklyReport | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
-  const [openId, setOpenId] = useState<string | null>(null);
+  const [openId, setOpenId] = useState<string | null>(() => params.get('studentId'));
+
+  useEffect(() => {
+    const studentId = params.get('studentId');
+    if (studentId && report) {
+      setOpenId(studentId);
+      document.getElementById(`stu-${studentId}`)?.scrollIntoView?.({ block: 'center' });
+    }
+  }, [report, params]);
 
   const load = useCallback(async () => {
     setLoading(true);

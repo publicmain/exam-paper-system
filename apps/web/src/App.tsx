@@ -58,6 +58,8 @@ const MorningQuizSkillProfilePage = lazy(() => import('./pages/MorningQuizSkillP
 const AttendanceAdminPage = lazy(() => import('./pages/AttendanceAdmin'));
 // Path-B pages
 const ClassesPage = lazy(() => import('./pages/Classes'));
+const ClassTodayPage = lazy(() => import('./pages/ClassToday'));
+const ClassNoSchoolDaysPage = lazy(() => import('./pages/ClassNoSchoolDays'));
 const TeacherViewBanner = lazy(() => import('./components/TeacherViewBanner'));
 
 // 教师「以学生视角查看」：令牌从 URL 进 sessionStorage 并**立刻从地址栏
@@ -479,6 +481,8 @@ export default function App() {
           />
           {/* Path-B routes */}
           <Route path="/classes" element={<ClassesPage />} />
+          <Route path="/classes/:classId/today" element={['admin', 'head_teacher', 'teacher'].includes(user.role) ? <ClassTodayPage /> : <Navigate to="/" replace />} />
+          <Route path="/classes/:classId/no-school-days" element={['admin', 'head_teacher', 'teacher'].includes(user.role) ? <ClassNoSchoolDaysPage /> : <Navigate to="/" replace />} />
           <Route path="/class-registration" element={<ClassRegistrationPage />} />
           <Route path="/lesson-board" element={<LessonBoardPage />} />
           {/* 学习周报（2026-09-15）：按周看谁做了谁没做 */}

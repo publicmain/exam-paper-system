@@ -1,4 +1,4 @@
-import { BadRequestException, Controller, Get, Query } from '@nestjs/common';
+import { BadRequestException, Controller, Get, Param, Query } from '@nestjs/common';
 import { Roles } from '../common/auth.guard';
 import { CurrentUser } from '../common/current-user.decorator';
 import { LearningReportService } from './learning-report.service';
@@ -19,6 +19,12 @@ import { isDateKey } from './weekly-report';
 @Roles('admin', 'head_teacher', 'teacher')
 export class LearningReportController {
   constructor(private readonly svc: LearningReportService) {}
+
+  @Get('classes/:classId/today')
+  today(@CurrentUser() user: { id: string; role: string }, @Param('classId') classId: string, @Query('date') date?: string) {
+    if (date && !isDateKey(date)) throw new BadRequestException({ code: 'bad_date' });
+    return this.svc.today(user, classId, date);
+  }
 
   @Get('week')
   week(

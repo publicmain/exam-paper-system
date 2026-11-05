@@ -24,6 +24,7 @@ function makeSvc(opts: { updatedCount?: number; existingRow?: { vocabCursor: num
     return null;
   });
   const prisma: any = {
+    classEnrollment: { findMany: vi.fn().mockResolvedValue([]) },
     dailyLessonCompletion: { updateMany, findUnique, findMany: vi.fn().mockResolvedValue([]) },
     user: {
       findUnique: vi.fn().mockResolvedValue({ englishLevel: 'olevel' }),
@@ -62,6 +63,17 @@ function makeSvc(opts: { updatedCount?: number; existingRow?: { vocabCursor: num
 }
 
 describe('saveVocabCursor —— 单调写入（数据库条件更新）', () => {
+  it('停课日不冻结新任务，返回停课说明', async () => {
+    const { svc } = makeSvc();
+    const prisma = (svc as any).prisma;
+    const today = new Date(Date.now() + 8 * 3600_000).toISOString().slice(0, 10);
+    prisma.classEnrollment.findMany.mockResolvedValue([{ userId: 'stu-1', classId: 'c', joinedAt: new Date('2026-01-01') }]);
+    prisma.classNoSchoolDay = { findMany: vi.fn().mockResolvedValue([{ classId: 'c', date: new Date(today) }]) };
+    prisma.dailyLessonCompletion.create = vi.fn();
+    const result = await svc.startOrResumeToday({ studentName: '张三' });
+    expect(result).toMatchObject({ noSchoolDay: true, nextAction: { kind: 'no_content', label: '今天停课', href: null } });
+    expect(prisma.dailyLessonCompletion.create).not.toHaveBeenCalled();
+  });
   it('合法 cursor：以 vocabCursor < wanted 为条件更新，命中即返回该值', async () => {
     const { svc, updateMany } = makeSvc({ updatedCount: 1 });
     const r = await svc.saveVocabCursor({ studentName: '张三', cursor: 4 });

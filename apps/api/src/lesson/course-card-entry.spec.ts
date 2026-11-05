@@ -263,6 +263,7 @@ function makeToday(opts: {
     return true;
   };
   const prisma: any = {
+    classEnrollment: { findMany: vi.fn().mockResolvedValue([]) },
     user: {
       findUnique: async () => ({ englishLevel: 'olevel' }),
       findFirst: async () => null,

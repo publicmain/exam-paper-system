@@ -1,6 +1,7 @@
 import { BadRequestException, ConflictException, ForbiddenException, GoneException, Injectable, NotFoundException, ServiceUnavailableException } from '@nestjs/common';
 import { EnglishLevel } from '@prisma/client';
 import { PrismaService } from '../common/prisma.service';
+import { loadSchoolCalendar } from '../common/school-calendar';
 import { canActOnClass } from '../common/roles';
 import { RealtimeTranslationService, type TranslationResult } from '../vocab/realtime-translation.service';
 import { isSchoolBlockedHeadword, schoolGlossOverride, withoutBlockedWords } from './school-safe-words';
@@ -31,7 +32,6 @@ import {
   countActuallyLearned,
   DEFERRAL_ENDING_ACTIONS,
   headwordKey,
-  isTeachingDay,
   pendingDailySessions,
   seenHeadwordSet,
   teacherItemsForStudent,
@@ -426,6 +426,7 @@ export class VocabularyV2Service {
       }),
     ]);
 
+    const calendar = await loadSchoolCalendar(this.prisma, studentIds, undefined, day.key);
     const formalByKey = new Map(formalSessions.map((row) => [row.sessionKey, row]));
     const rows = enrollments.map(({ user, joinedAt }) => {
       const assigned = assignedReadingFor({
@@ -446,16 +447,16 @@ export class VocabularyV2Service {
         currentLevel: user.englishLevel,
         todayKey: day.key,
       });
-      const overdueRows = assigned.filter((row) => row.owed && row.date < day.key);
+      const overdueRows = assigned.filter((row) => row.owed && row.date < day.key && calendar.isTeachingDay(user.id, row.date));
       const todayRow = assigned.find((row) => row.date === day.key) ?? null;
       const learning = dailySessions.filter((session) => session.studentId === user.id);
       const completedLearning = learning.filter((session) => session.status === 'completed');
       const pendingTests = pendingDailySessions(
-        completedLearning,
+        completedLearning.filter((session) => calendar.isTeachingDay(user.id, session.date.toISOString().slice(0, 10))),
         new Map(formalSessions.filter((row) => row.studentId === user.id).map((row) => [row.sessionKey, row.status])),
       );
       const openWords = learning
-        .filter((session) => session.status === 'in_progress')
+        .filter((session) => session.status === 'in_progress' && calendar.isTeachingDay(user.id, session.date.toISOString().slice(0, 10)))
         .reduce((sum, session) => sum + session.items.filter((item) => item.status === 'pending').length, 0);
       const words = notebookRows.filter((row) => row.studentId === user.id);
       const todayLearning = learning.find((session) => session.date.getTime() === day.date.getTime()) ?? null;
@@ -1447,7 +1448,9 @@ export class VocabularyV2Service {
    */
   async overview(studentId: string, now = new Date()) {
     const day = sgtDay(now);
-    const teachingDay = isTeachingDay(day.key);
+    const calendar = await loadSchoolCalendar(this.prisma, [studentId], undefined, day.key);
+    const noSchoolDay = calendar.isNoSchoolDay(studentId, day.key);
+    const teachingDay = calendar.isTeachingDay(studentId, day.key);
     const [profile, dailySessions, user, levelChanges] = await Promise.all([
       this.profile(studentId),
       this.prisma.vocabularyV2Session.findMany({
@@ -1492,7 +1495,7 @@ export class VocabularyV2Service {
     const testFact = (session: { sessionKey: string; items: Array<{ status: string }> }) =>
       formalTestFact(formalByKey.get(`${session.sessionKey}:formal`), session.items);
     const pendingTests = pendingDailySessions(
-      completedDaily,
+      completedDaily.filter((session) => calendar.isTeachingDay(studentId, session.date.toISOString().slice(0, 10))),
       new Map(formal.map((session) => [session.sessionKey, session.status])),
     ).map((session) => ({
       dailySessionId: session.id,
@@ -1501,7 +1504,7 @@ export class VocabularyV2Service {
     }));
 
     const learningBacklog = dailySessions
-      .filter((session) => session.status === 'in_progress' && session.date.getTime() < day.date.getTime())
+      .filter((session) => session.status === 'in_progress' && session.date.getTime() < day.date.getTime() && calendar.isTeachingDay(studentId, session.date.toISOString().slice(0, 10)))
       .map((session) => {
         const counts = learningCounts(session.items);
         return {
@@ -1565,7 +1568,7 @@ export class VocabularyV2Service {
       todayKey: day.key,
     });
     const readingBacklog = assigned
-      .filter((row) => row.owed && row.date < day.key)
+      .filter((row) => row.owed && row.date < day.key && calendar.isTeachingDay(studentId, row.date))
       .map((row) => ({
         assignmentId: row.assignmentId,
         sessionId: row.session.id,
@@ -1645,6 +1648,10 @@ export class VocabularyV2Service {
     //   · 系统收卷（auto_closed）的阅读已经关了，学生再也做不了 —— 算这一项结束；
     //   · 阅读还没发布（not_generated）学生无事可做 —— 不挡全部完成（发布后变成待完成，重新计）；
     //   · 新词 / 测试的 not_generated 是学生能推进的（点开学词 / 学完生成），不算完成。
+    const exempt = (task: { state: string }) => noSchoolDay && !['completed', 'awaiting_marking'].includes(task.state) ? { ...task, state: 'not_applicable', reason: 'no_school_day' } : task;
+    const visibleReading = exempt(readingHome);
+    const visibleWords = exempt(wordsHome);
+    const visibleTest = exempt(testHome);
     const done = (state: string) => state === 'completed' || state === 'awaiting_marking' || state === 'auto_closed' || state === 'not_applicable';
     const readingDone = (state: string) => done(state) || state === 'not_generated';
 
@@ -1668,10 +1675,11 @@ export class VocabularyV2Service {
       home: {
         date: day.key,
         teachingDay,
-        reading: readingHome,
-        words: wordsHome,
-        test: testHome,
-        allDone: readingDone(readingHome.state) && done(wordsHome.state) && done(testHome.state),
+        noSchoolDay,
+        reading: visibleReading,
+        words: visibleWords,
+        test: visibleTest,
+        allDone: readingDone(visibleReading.state) && done(visibleWords.state) && done(visibleTest.state),
       },
       backlogByDate,
       backlogTotals: {
@@ -1853,7 +1861,8 @@ export class VocabularyV2Service {
     if (existing) return this.sessionView(existing);
     // 每日新词只在教学日（周一到周五）生成。已存在的会话照常返回（上面），
     // 所以这条只挡新建：周末打开 App 不会凭空多出一天的欠账。
-    if (!isTeachingDay(day.key)) throw new BadRequestException({ code: 'v2_no_task_on_weekend' });
+    const calendar = await loadSchoolCalendar(this.prisma, [studentId], day.key, day.key);
+    if (!calendar.isTeachingDay(studentId, day.key)) throw new BadRequestException({ code: calendar.isNoSchoolDay(studentId, day.key) ? 'v2_no_task_on_no_school_day' : 'v2_no_task_on_weekend', message: '今天不上课' });
 
     // 「见过」只看拼写：换词表、升版本、阅读时自己加过的词，都不再当新词推。
     const seen = await this.seenHeadwords(studentId);

@@ -16,6 +16,7 @@ function makeSvc(opts: {
   const calls = { queueWrites: [] as string[][], oldStates: [] as unknown[], creates: [] as unknown[] };
   const config = { lessonWords: [], lessonWordReserves: opts.reserves ?? RESERVES };
   const prisma: any = {
+    classEnrollment: { findMany: vi.fn().mockResolvedValue([]) },
     user: { findUnique: vi.fn(async () => ({ englishLevel: 'olevel' })) },
     morningQuizSession: {
       findMany: vi.fn(async () => [{

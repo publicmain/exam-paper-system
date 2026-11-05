@@ -56,6 +56,7 @@ function lessonSvc(o: {
     targetsFrozenAt: new Date(),
   };
   const prisma: any = {
+    classEnrollment: { findMany: vi.fn().mockResolvedValue([]) },
     dailyLessonCompletion: {
       findUnique: vi.fn().mockResolvedValue(frozen),
       findMany: vi.fn().mockResolvedValue([]),
@@ -255,6 +256,7 @@ function attemptSvc(o: { drillTarget: number; drillProgress: number; stage?: str
     },
   };
   const prisma: any = {
+    classEnrollment: { findMany: vi.fn().mockResolvedValue([]) },
     vocabQuizAttempt: {
       findFirst: vi.fn().mockResolvedValue(attempt),
       findUnique: vi.fn().mockResolvedValue({ ...attempt, status: 'submitted' }),

@@ -1,3 +1,4 @@
+import { validDate } from '../common/school-calendar';
 import type { ReadingState } from '../vocab-v2/level-timeline';
 
 /**
@@ -46,7 +47,10 @@ export type ReadingCell =
 
 export interface DayFacts {
   date: string;
+  noSchoolDay?: boolean;
   reading: {
+    assignmentId?: string;
+    submissionId?: string | null;
     title: string | null;
     level: string;
     state: ReadingState;
@@ -59,7 +63,7 @@ export interface DayFacts {
     submittedAt: string | null;
   } | null;
   learning: { completed: boolean; itemsDone: number; items: number } | null;
-  test: { submitted: boolean; correct: number; items: number } | null;
+  test: { id?: string; answered?: number; submitted: boolean; correct: number; items: number } | null;
 }
 
 export interface StudentFacts {
@@ -70,6 +74,7 @@ export interface StudentFacts {
   level: string | null;
   registeredOn: string;
   days: DayFacts[];
+  pendingMarking?: Array<{ submissionId: string; questions: number }>;
 }
 
 export interface ReportInput {
@@ -105,7 +110,7 @@ export function mondayOf(key: string): string {
 }
 
 export function isDateKey(v: unknown): v is string {
-  return typeof v === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(v) && !Number.isNaN(Date.parse(`${v}T00:00:00Z`));
+  return validDate(v);
 }
 
 export function readingCell(day: DayFacts, today: string): ReadingCell {
@@ -113,6 +118,7 @@ export function readingCell(day: DayFacts, today: string): ReadingCell {
   const r = day.reading;
   if (!r) return 'not_assigned';
   if (r.completed) return 'done';
+  if (day.noSchoolDay) return 'not_assigned';
   if (day.date === today) return 'today';
   if (r.state === 'auto_closed') return 'auto_closed';
   if (r.state === 'in_progress' || r.opened) return 'opened';
@@ -130,8 +136,9 @@ export function summarizeStudent(s: StudentFacts, today: string) {
     const testDone = Boolean(d.test?.submitted);
     return {
       date: d.date,
+      noSchoolDay: Boolean(d.noSchoolDay),
       reading,
-      readPct: reading === 'done' ? (d.reading?.pct ?? null) : null,
+      readPct: reading === 'done' && d.reading?.pct != null ? Math.round(d.reading.pct) : null,
       awaitingMarking: reading === 'done' && Boolean(d.reading?.awaitingMarking),
       title: d.reading?.title ?? null,
       paperLevel: d.reading?.level ?? null,
@@ -144,11 +151,13 @@ export function summarizeStudent(s: StudentFacts, today: string) {
     };
   });
   const readN = cells.filter((c) => c.reading === 'done').length;
-  const readDue = cells.filter((c) => c.reading === 'done' || c.reading === 'opened' || c.reading === 'auto_closed' || c.reading === 'missed').length;
+  const readRequiredDone = cells.filter((c) => !c.noSchoolDay && c.reading === 'done').length;
+  const readDue = cells.filter((c) => !c.noSchoolDay && (c.reading === 'done' || c.reading === 'opened' || c.reading === 'auto_closed' || c.reading === 'missed')).length;
   const learnN = cells.filter((c) => c.learning === 'done').length;
   const learnPartial = cells.filter((c) => c.learning === 'partial').length;
   const testN = cells.filter((c) => c.test === 'done').length;
   const readPcts = cells.filter((c) => c.readPct != null).map((c) => c.readPct as number);
+  const requiredReadPcts = cells.filter((c) => !c.noSchoolDay && c.readPct != null).map((c) => c.readPct as number);
   const testPcts = cells.filter((c) => c.testPct != null).map((c) => c.testPct as number);
   const anyActivity = readN + learnN + testN + learnPartial > 0;
   return {
@@ -160,6 +169,7 @@ export function summarizeStudent(s: StudentFacts, today: string) {
     registeredOn: s.registeredOn,
     days: cells,
     readN,
+    readRequiredDone,
     readDue,
     learnN,
     learnPartial,
@@ -168,13 +178,13 @@ export function summarizeStudent(s: StudentFacts, today: string) {
     readMarked: readPcts.length,
     testAvg: mean(testPcts),
     awaitingMarking: cells.filter((c) => c.awaitingMarking).length,
-    zeroTests: testPcts.filter((p) => p === 0).length,
+    zeroTests: cells.filter((c) => !c.noSchoolDay && c.testPct === 0).length,
     /** 这周有该交的阅读，但一样都没做 */
     none: readDue > 0 && !anyActivity,
     /** 交了阅读，单词一个都没学（连一部分都没有） */
-    readingNoWords: readN > 0 && learnN === 0 && learnPartial === 0 && testN === 0,
-    lowReading: readPcts.length > 0 && (mean(readPcts) as number) < LOW_READING_PCT,
-    steady: readDue >= STEADY_MIN_DAYS && readN === readDue,
+    readingNoWords: readRequiredDone > 0 && learnN === 0 && learnPartial === 0 && testN === 0,
+    lowReading: requiredReadPcts.length > 0 && (mean(requiredReadPcts) as number) < LOW_READING_PCT,
+    steady: readDue >= STEADY_MIN_DAYS && readRequiredDone === readDue,
     noLevel: !s.level,
   };
 }
@@ -198,7 +208,7 @@ export function buildWeeklyReport(input: ReportInput) {
       isToday: date === today,
       future,
       /** 分配到当天阅读的人数 */
-      assigned: future ? null : cells.filter((c) => c.reading !== 'not_assigned').length,
+      assigned: future ? null : cells.filter((c) => !c.noSchoolDay && c.reading !== 'not_assigned').length,
       readDone: future ? null : cells.filter((c) => c.reading === 'done').length,
       readAvg: future ? null : mean(readPcts),
       readMarked: readPcts.length,
@@ -219,7 +229,7 @@ export function buildWeeklyReport(input: ReportInput) {
       none: ss.filter((s) => s.none).length,
       readDone: ss.reduce((a, s) => a + s.readN, 0),
       readDue: ss.reduce((a, s) => a + s.readDue, 0),
-      readRate: rate(ss.reduce((a, s) => a + s.readN, 0), ss.reduce((a, s) => a + s.readDue, 0)),
+      readRate: rate(ss.reduce((a, s) => a + s.readRequiredDone, 0), ss.reduce((a, s) => a + s.readDue, 0)),
       testDaysAvg: ss.length ? Math.round((ss.reduce((a, s) => a + s.testN, 0) / ss.length) * 10) / 10 : null,
       readAvg: mean(ss.flatMap((s) => s.days.filter((c) => c.readPct != null).map((c) => c.readPct as number))),
     }))
@@ -232,8 +242,10 @@ export function buildWeeklyReport(input: ReportInput) {
       if (!c.paperLevel || c.reading === 'not_assigned' || c.reading === 'future' || c.reading === 'today') continue;
       const row = levelMap.get(c.paperLevel) ?? { students: new Set<string>(), due: 0, done: 0, pcts: [] };
       row.students.add(s.id);
-      row.due += 1;
-      if (c.reading === 'done') row.done += 1;
+      if (!c.noSchoolDay) {
+        row.due += 1;
+        if (c.reading === 'done') row.done += 1;
+      }
       if (c.readPct != null) row.pcts.push(c.readPct);
       levelMap.set(c.paperLevel, row);
     }
@@ -269,7 +281,7 @@ export function buildWeeklyReport(input: ReportInput) {
       steady: students.filter((s) => s.steady).length,
       readDone: sum((s) => s.readN),
       readDue: sum((s) => s.readDue),
-      readRate: rate(sum((s) => s.readN), sum((s) => s.readDue)),
+      readRate: rate(sum((s) => s.readRequiredDone), sum((s) => s.readDue)),
       readAvg: mean(students.flatMap((s) => s.days.filter((c) => c.readPct != null).map((c) => c.readPct as number))),
       learnDone: sum((s) => s.learnN),
       testDone: sum((s) => s.testN),

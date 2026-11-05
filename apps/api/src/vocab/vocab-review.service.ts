@@ -1,3 +1,4 @@
+import { loadSchoolCalendar, isTeachingDay } from '../common/school-calendar';
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { lessonCardOrder } from '../lesson/rc11-rules';
 import { createEmptyCard, fsrs, generatorParameters, Rating, State, type Card } from 'ts-fsrs';
@@ -166,7 +167,8 @@ function fromFsrsState(s: State, scheduledDays: number): DbState {
  * @param today   今天（'YYYY-MM-DD'，SGT）
  * @param freezes 单日豁免额度（默认 2；测试可传 0 关掉）
  */
-export function streakFromDays(days: string[], today: string, freezes = 2): number {
+export function streakFromDays(days: string[], today: string, freezes = 2, noSchoolDays: ReadonlySet<string> = new Set()): number {
+  days = days.filter((d) => !noSchoolDays.has(d));
   if (!days.length) return 0;
   // 缺口里空着的工作日数。later 必须晚于 earlier，否则视为无穷大（必断）。
   const missedWeekdays = (later: string, earlier: string): number => {
@@ -175,8 +177,7 @@ export function streakFromDays(days: string[], today: string, freezes = 2): numb
     const d = new Date(earlier + 'T00:00:00Z');
     const end = new Date(later + 'T00:00:00Z');
     for (d.setUTCDate(d.getUTCDate() + 1); d < end; d.setUTCDate(d.getUTCDate() + 1)) {
-      const dow = d.getUTCDay();
-      if (dow !== 0 && dow !== 6) n++;
+      if (isTeachingDay(d.toISOString().slice(0, 10), noSchoolDays.has(d.toISOString().slice(0, 10)))) n++;
     }
     return n;
   };
@@ -704,12 +705,15 @@ export class VocabReviewService {
    * 都要显示它。）
    */
   async streakDays(studentId: string): Promise<number> {
+    const sgtToday = new Date(Date.now() + 8 * 3600_000).toISOString().slice(0, 10);
+    const calendar = await loadSchoolCalendar(this.prisma, [studentId], undefined, sgtToday);
+    const off = calendar.noSchoolDates(studentId);
     const rows = await this.prisma.$queryRaw<Array<{ d: string }>>`
       SELECT DISTINCT (("reviewedAt" + interval '8 hours')::date)::text AS d
       FROM "WordReviewLog" l JOIN "StudentWord" w ON w.id = l."studentWordId"
       WHERE w."studentId" = ${studentId}
+        AND (("reviewedAt" + interval '8 hours')::date)::text <> ALL(${[...off]}::text[])
       ORDER BY d DESC LIMIT 120`;
-    const sgtToday = new Date(Date.now() + 8 * 3600_000).toISOString().slice(0, 10);
-    return streakFromDays(rows.map((r) => r.d), sgtToday);
+    return streakFromDays(rows.map((r) => r.d), sgtToday, 2, off);
   }
 }

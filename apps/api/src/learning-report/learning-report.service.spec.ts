@@ -80,6 +80,7 @@ function world() {
 
 function fakePrisma(w = world()) {
   return {
+    classNoSchoolDay: { findMany: vi.fn(async () => []) },
     class: {
       findMany: vi.fn(async (args: any) => {
         const teacherId = args.where?.enrollments?.some?.userId;
@@ -89,7 +90,7 @@ function fakePrisma(w = world()) {
           .map(({ id, name }) => ({ id, name }));
       }),
     },
-    classEnrollment: { findMany: vi.fn(async (args: any) => w.enrollments.filter((e) => args.where.classId.in.includes(e.classId))) },
+    classEnrollment: { findMany: vi.fn(async (args: any) => args.where.userId ? w.enrollments.filter((e) => args.where.userId.in.includes(e.user.id)).map((e) => ({ userId: e.user.id, classId: e.classId, joinedAt: e.joinedAt })) : w.enrollments.filter((e) => args.where.classId.in.includes(e.classId))) },
     paperAssignment: {
       findMany: vi.fn(async (args: any) =>
         w.assignments
