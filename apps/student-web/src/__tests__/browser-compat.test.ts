@@ -32,13 +32,28 @@ function stripComments(src: string): string {
 
 describe('旧 Safari 兼容 —— 源码里不许出现正则后行断言', () => {
   it('学生端源码（不含测试）没有 (?<= 或 (?<!', () => {
-    const hits = [...allSourceFiles(SRC), path.resolve(SRC, '../../api/src/audio/sentences.ts')]
+    const hits = allSourceFiles(SRC)
       .filter((f) => !f.includes('__tests__'))
       .flatMap((f) =>
         stripComments(fs.readFileSync(f, 'utf8'))
           .split('\n')
           .map((line, i) => ({ f: path.relative(SRC, f), line: i + 1, text: line }))
           .filter((l) => /\(\?<[=!]/.test(l.text)),
+      );
+    expect(hits.map((h) => `${h.f}:${h.line} ${h.text.trim()}`)).toEqual([]);
+  });
+
+  // 2026-11-06 Codex 审查：String/Array.prototype.at 要 Safari 15.4，学生端没有 polyfill，
+  // 旧 iPad 上会抛 TypeError。同类的 ES2022+ 方法一起拦。
+  it('学生端源码（不含测试）不用 .at( / Object.hasOwn / structuredClone / findLast / toSorted 之类新方法', () => {
+    const banned = /\.at\(|Object\.hasOwn\(|structuredClone\(|\.findLast(Index)?\(|\.toSorted\(|\.toReversed\(|\.toSpliced\(/;
+    const hits = allSourceFiles(SRC)
+      .filter((f) => !f.includes('__tests__') && !/\.test\.tsx?$/.test(f))
+      .flatMap((f) =>
+        stripComments(fs.readFileSync(f, 'utf8'))
+          .split('\n')
+          .map((line, i) => ({ f: path.relative(SRC, f), line: i + 1, text: line }))
+          .filter((l) => banned.test(l.text)),
       );
     expect(hits.map((h) => `${h.f}:${h.line} ${h.text.trim()}`)).toEqual([]);
   });

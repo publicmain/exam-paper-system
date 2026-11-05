@@ -29,7 +29,7 @@ export function locateAnswer(passage: string, quote: string): AnswerLocation | n
     if (at < 0) break;
     // A substring inside a different word is not an answer location.
     if (!(/[a-z0-9]/.test(needle[0]) && /[a-z0-9]/.test(text.value[at - 1] ?? '')) &&
-      !(/[a-z0-9]/.test(needle.at(-1)!) && /[a-z0-9]/.test(text.value[at + needle.length] ?? ''))) hits.push(at);
+      !(/[a-z0-9]/.test(needle[needle.length - 1]) && /[a-z0-9]/.test(text.value[at + needle.length] ?? ''))) hits.push(at);
     from = at + 1;
   }
   if (hits.length !== 1) return null;

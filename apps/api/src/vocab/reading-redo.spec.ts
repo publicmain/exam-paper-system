@@ -160,6 +160,17 @@ describe('grading, resolution and evidence', () => {
     expect(gradeRedo(tfng, 'TRUE')).toBe(true);
     expect(freezeRedo({ taskType: 'sentence_completion' }, [], { text: 'rain' }, 'short_answer').objective).toBe(true);
   });
+  it('completion redo honours the frozen accept list (twelve litres / 12 litres)', () => {
+    const s = freezeRedo({ taskType: 'sentence_completion', stem: 'The bottle model collected ______.', passage: 'P' }, [],
+      { text: 'twelve litres', accept: ['twelve litres', '12 litres'] }, 'short_answer');
+    expect(gradeRedo(s, '12 litres')).toBe(true);
+    expect(gradeRedo(s, '  Twelve   Litres ')).toBe(true);
+    expect(gradeRedo(s, '13 litres')).toBe(false);
+    expect(gradeRedo(s, '')).toBe(false);
+    const noAccept = freezeRedo({ taskType: 'sentence_completion', stem: 'x', passage: 'P' }, [], { text: 'rain' }, 'short_answer');
+    expect(gradeRedo(noAccept, 'Rain')).toBe(true);
+    expect(gradeRedo(noAccept, '')).toBe(false);
+  });
 });
 
 it('front and back feature gates both say available', () => {

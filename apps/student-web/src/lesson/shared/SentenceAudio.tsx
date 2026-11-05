@@ -1,6 +1,6 @@
 import { createContext, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { BASE, type PassageSentenceAudio } from '../../lib/api';
-import { normalizeSentence, splitSentenceRanges } from '../../../../api/src/audio/sentences';
+import { normalizeSentence, splitSentenceRanges } from '../../lib/sentences';
 import { Highlighter, SentenceSpeaker, type Highlight, type SentenceControl } from './Highlighter';
 
 type Playable = { key: string; text: string; url: string };

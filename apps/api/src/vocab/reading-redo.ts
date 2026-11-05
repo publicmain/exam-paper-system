@@ -40,8 +40,11 @@ export function redoOptions(snapshot: RedoSnapshot): Array<{ key: string; text: 
 export function gradeRedo(snapshot: RedoSnapshot, answer: string): boolean {
   if (snapshot.questionType === 'mcq') return gradeMcq({ marks: 1, selectedOption: null, textAnswer: answer,
     snapshotOptions: snapshot.options, snapshotContent: snapshot.gradingContent, questionOptions: [], answerContent: snapshot.answer }).isCorrect === true;
-  const norm = (s: string) => s.trim().toLowerCase().replace(/\s+/g, ' ');
-  return norm(translateAnswerLetter(snapshot.taskType, answer)) === norm(translateAnswerLetter(snapshot.taskType, String(snapshot.answer.text ?? '')));
+  const norm = (s: string) => translateAnswerLetter(snapshot.taskType, s).trim().toLowerCase().replace(/\s+/g, ' ');
+  // 卷子冻结时写了 accept（如 'twelve litres' / '12 litres'）就都算对（2026-11-06 Codex 审查）。
+  const accept = Array.isArray((snapshot.answer as any).accept) ? (snapshot.answer as any).accept as unknown[] : [];
+  const accepted = [snapshot.answer.text, ...accept].filter((s): s is string => typeof s === 'string' && s.trim() !== '').map(norm);
+  return accepted.includes(norm(answer));
 }
 
 export function nextTeachingDate(from: string, teaches: (date: string) => boolean): string {
