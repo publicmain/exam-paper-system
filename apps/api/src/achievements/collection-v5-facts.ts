@@ -1,5 +1,6 @@
 import { createHash } from 'node:crypto';
 import { NotFoundException } from '@nestjs/common';
+import type { Prisma } from '@prisma/client';
 import type { PrismaService } from '../common/prisma.service';
 import { sgtKey } from './badge-time';
 import { demoRules, isDemoAccount, isDemoClass } from '../product/demo-accounts';
@@ -11,6 +12,31 @@ import { emptyCollectionV5Facts, type CollectionV5Event, type CollectionV5Facts 
 
 /** Structural type also accepts a Prisma transaction client. */
 type FactsDb = Pick<PrismaService, 'user' | 'studentSubmission' | 'vocabularyV2Session'>;
+export const collectionReadingSelect = {
+  id: true, finalSubmittedAt: true, status: true, submitSource: true,
+  scripts: { select: { paperQuestionId: true, selectedOption: true, textAnswer: true, awardedMarks: true } },
+  assignment: { select: {
+    classId: true, morningQuizSession: { select: { date: true, status: true } },
+    paper: { select: { config: true, questions: { select: {
+      id: true, snapshotContent: true, question: { select: { questionType: true } },
+    } } } },
+  } },
+} as const satisfies Prisma.StudentSubmissionSelect;
+export const collectionSessionSelect = {
+  id: true, sessionKey: true, date: true, createdAt: true, sessionType: true, status: true, mode: true,
+  target: true, completedAt: true, settingsSnapshot: true, sourceSummary: true,
+  items: { select: {
+    id: true, senseId: true, source: true, status: true, completedAt: true, response: true,
+    firstResponse: true, firstIsCorrect: true, firstAnsweredAt: true,
+    contentSnapshot: true, questionSnapshot: true, isCorrect: true,
+  } },
+} as const satisfies Prisma.VocabularyV2SessionSelect;
+export type CollectionSources = {
+  user: { id: string; role: string };
+  readings: Prisma.StudentSubmissionGetPayload<{ select: typeof collectionReadingSelect }>[];
+  sessions: Prisma.VocabularyV2SessionGetPayload<{ select: typeof collectionSessionSelect }>[];
+};
+
 const PAGE_SIZE = 250;
 const object = (value: unknown): Record<string, unknown> => value != null && typeof value === 'object' && !Array.isArray(value) ? value as Record<string, unknown> : {};
 const nonblank = (value: unknown): value is string => typeof value === 'string' && value.trim().length > 0;
@@ -58,8 +84,8 @@ function isSubjective(question: { question?: { questionType?: string | null } | 
   return typeof type === 'string' && type !== 'mcq';
 }
 
-export async function loadCollectionV5Facts(prisma: FactsDb, studentId: string, now = new Date()): Promise<CollectionV5Facts> {
-  const user = await prisma.user.findUnique({ where: { id: studentId }, select: { id: true, role: true } });
+export async function loadCollectionV5Facts(prisma: FactsDb, studentId: string, now = new Date(), sources?: CollectionSources): Promise<CollectionV5Facts> {
+  const user = sources?.user ?? await prisma.user.findUnique({ where: { id: studentId }, select: { id: true, role: true } });
   if (!user) throw new NotFoundException({ code: 'student_not_found' });
   const facts = emptyCollectionV5Facts();
   // No development escape hatch is included in the production artifact.
@@ -71,15 +97,12 @@ export async function loadCollectionV5Facts(prisma: FactsDb, studentId: string, 
   const articleTopics = new Map<string, Set<string>>();
   let after: string | undefined;
   for (;;) {
-    const rows = await prisma.studentSubmission.findMany({
+    const rows = sources?.readings ?? await prisma.studentSubmission.findMany({
       where: { studentId, status: { in: ['submitted', 'marked'] }, submitSource: { in: ['student', 'teacher'] },
         finalSubmittedAt: { not: null, lte: now },
         assignment: { morningQuizSession: { is: { date: { lte: today }, status: { not: 'cancelled' } } } } },
       orderBy: { id: 'asc' }, take: PAGE_SIZE, ...(after ? { cursor: { id: after }, skip: 1 } : {}),
-      select: { id: true, finalSubmittedAt: true, status: true, submitSource: true,
-        scripts: { select: { paperQuestionId: true, selectedOption: true, textAnswer: true, awardedMarks: true } },
-        assignment: { select: { classId: true, morningQuizSession: { select: { date: true, status: true } },
-          paper: { select: { config: true, questions: { select: { id: true, snapshotContent: true, question: { select: { questionType: true } } } } } } } } },
+      select: collectionReadingSelect,
     });
     for (const row of rows) {
       const task = row.assignment.morningQuizSession;
@@ -118,7 +141,7 @@ export async function loadCollectionV5Facts(prisma: FactsDb, studentId: string, 
         readingTasks.push({ key, at: row.finalSubmittedAt, submissionId: row.id, sourceDate: sourceDay(task.date), ...(article.topic ? { topic: article.topic } : {}) });
       }
     }
-    if (rows.length < PAGE_SIZE) break;
+    if (sources || rows.length < PAGE_SIZE) break;
     after = rows[rows.length - 1].id;
   }
   facts.readings = firstEvents(readingTasks).map((event) => {
@@ -134,14 +157,10 @@ export async function loadCollectionV5Facts(prisma: FactsDb, studentId: string, 
   const firstFormal = new Map<string, Candidate>();
   after = undefined;
   for (;;) {
-    const rows = await prisma.vocabularyV2Session.findMany({
+    const rows = sources?.sessions ?? await prisma.vocabularyV2Session.findMany({
       where: { studentId, sessionType: { in: ['daily_learning', 'formal_test'] }, date: { lte: today }, createdAt: { lte: now } },
       orderBy: { id: 'asc' }, take: PAGE_SIZE, ...(after ? { cursor: { id: after }, skip: 1 } : {}),
-      select: { id: true, sessionKey: true, date: true, createdAt: true, sessionType: true, status: true, mode: true,
-        target: true, completedAt: true, settingsSnapshot: true, sourceSummary: true,
-        items: { select: { id: true, senseId: true, source: true, status: true, completedAt: true, response: true,
-          firstResponse: true, firstIsCorrect: true, firstAnsweredAt: true,
-          contentSnapshot: true, questionSnapshot: true, isCorrect: true } } },
+      select: collectionSessionSelect,
     });
     for (const row of rows) {
       if (!validAt(row.date, today) || !validAt(row.createdAt, now) ||
@@ -188,7 +207,7 @@ export async function loadCollectionV5Facts(prisma: FactsDb, studentId: string, 
         if (!prior || candidate.createdAt < prior.createdAt || (candidate.createdAt.getTime() === prior.createdAt.getTime() && candidate.id < prior.id)) firstFormal.set(dailyId, candidate);
       }
     }
-    if (rows.length < PAGE_SIZE) break;
+    if (sources || rows.length < PAGE_SIZE) break;
     after = rows[rows.length - 1].id;
   }
   const earnestTests: CollectionV5Event[] = [];

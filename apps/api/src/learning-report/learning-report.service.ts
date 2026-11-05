@@ -6,6 +6,8 @@ import { buildTeacherToday } from './teacher-today';
 import { assignedReadingFor, type AssignedReading } from '../vocab-v2/level-timeline';
 import { formalAnswerOf } from '../vocab-v2/first-answer';
 import { VocabularyMasteryService } from '../vocab-v2/mastery';
+import { collectionReadingSelect, collectionSessionSelect, loadCollectionV5Facts } from '../achievements/collection-v5-facts';
+import { frozenIds } from '../print-materials/dictation.service';
 import { isExcludedAccount, isExcludedClass, reportExclusions } from './report-exclusions';
 import {
   addDays,
@@ -19,6 +21,7 @@ import {
 const sgtKey = (d: Date) => new Date(d.getTime() + 8 * 3600_000).toISOString().slice(0, 10);
 const utcDate = (key: string) => new Date(`${key}T00:00:00.000Z`);
 const keyOf = (d: Date) => d.toISOString().slice(0, 10);
+type ReportDictationSheet = { heldOn: Date; rows: Array<{ studentId: string; status: string; senseIds: unknown; wrongSenseIds: unknown }> };
 
 /**
  * 学习周报的查库部分（2026-09-15）。**只读** —— 这里没有任何写操作。
@@ -113,7 +116,7 @@ export class LearningReportService {
       }
       cohort.push(e);
     }
-    const loaded = await this.loadFacts(cohort, scopeIds, weekDays, today, classNameOf);
+    const loaded = await this.loadFacts(cohort, scopeIds, weekDays, today, classNameOf, false, now);
     const days = weekDays.filter((d) => isTeachingDay(d) || loaded.sessionDays.has(d));
     const lastDay = days[days.length - 1];
     const students = loaded.students.filter((student) => student.registeredOn <= lastDay).map((student) => ({ ...student, days: student.days.filter((d) => days.includes(d.date)) }));
@@ -125,14 +128,14 @@ export class LearningReportService {
   /** Shared read-only fact loader used by the weekly report and daily follow-up. */
   private async loadFacts(
     cohort: Array<{ classId: string; joinedAt: Date; user: { id: string; name: string; englishLevel: unknown; createdAt: Date } }>,
-    scopeIds: string[], days: string[], today: string, classNameOf: Map<string, string>, followUps = false,
+    scopeIds: string[], days: string[], today: string, classNameOf: Map<string, string>, followUps = false, now = new Date(),
   ) {
     const ids = [...new Set(cohort.map((e) => e.user.id))];
     if (!ids.length) return { students: [] as StudentFacts[], sessionDays: new Set<string>() };
     const masteryThrough = [today, days[days.length - 1]].sort()[0];
-    const mastered = await new VocabularyMasteryService(this.prisma).forStudents(ids, masteryThrough);
+    const mastery = await new VocabularyMasteryService(this.prisma).reportForStudents(ids, days[0], masteryThrough);
     const calendar = await loadSchoolCalendar(this.prisma, ids, days[0], days[days.length - 1]);
-    const [assignments, levelChanges, vocab, pending] = await Promise.all([
+    const [assignments, levelChanges, vocab, pending, dictation, mistakes] = await Promise.all([
       this.prisma.paperAssignment.findMany({
         where: {
           classId: { in: scopeIds },
@@ -141,11 +144,12 @@ export class LearningReportService {
         select: {
           id: true,
           classId: true,
-          paper: { select: { name: true } },
+          paper: { select: { name: true, ...collectionReadingSelect.assignment.select.paper.select } },
           morningQuizSession: { select: { id: true, date: true, level: true, status: true } },
           submissions: {
             where: { studentId: { in: ids }, status: { not: 'practice' } },
             select: {
+              scripts: collectionReadingSelect.scripts,
               id: true,
               studentId: true,
               status: true,
@@ -169,12 +173,17 @@ export class LearningReportService {
           date: { gte: utcDate(days[0]), lte: utcDate(days[days.length - 1]) },
           sessionType: { in: ['daily_learning', 'formal_test'] },
         },
-        select: { id: true, studentId: true, date: true, sessionType: true, status: true, items: { select: { status: true, isCorrect: true, firstIsCorrect: true, firstAnsweredAt: true } } },
+        select: { ...collectionSessionSelect, studentId: true },
       }),
       followUps ? this.prisma.studentSubmission.findMany({
         where: { studentId: { in: ids }, status: 'submitted', finalSubmittedAt: { not: null }, submitSource: { in: ['student', 'teacher'] }, assignment: { classId: { in: scopeIds }, morningQuizSession: { is: { date: { lte: utcDate(today) } } } } },
         select: { id: true, studentId: true, scripts: { where: { awardedMarks: null, paperQuestion: { question: { questionType: { in: ['structured', 'short_answer', 'essay'] } } } }, select: { id: true } } },
       }) : Promise.resolve([] as Array<{ id: string; studentId: string; scripts: Array<{ id: string }> }>),
+      followUps ? Promise.resolve([] as ReportDictationSheet[]) : this.prisma.dictationSheet.findMany({
+        where: { classId: { in: scopeIds }, heldOn: { gte: utcDate(days[0]), lte: utcDate(masteryThrough) } },
+        select: { heldOn: true, rows: { where: { studentId: { in: ids } }, select: { studentId: true, status: true, senseIds: true, wrongSenseIds: true } } },
+      }),
+      followUps ? Promise.resolve(new Map<string, number>()) : this.openReadingMistakes(ids, masteryThrough),
     ]);
 
     const scoreBySubmission = new Map<string, { status: string; totalScore: number | null; maxScore: number | null }>();
@@ -184,8 +193,16 @@ export class LearningReportService {
       }
     }
 
-    const students: StudentFacts[] = cohort.map((e) => {
+    const students: StudentFacts[] = await Promise.all(cohort.map(async (e) => {
       const u = e.user;
+      // Feed the badge's existing gates with the SAME class/week facts, no N+1 reads.
+      const earnedDates = followUps ? new Set<string>() : new Set((await loadCollectionV5Facts(this.prisma, u.id, now, {
+        user: { id: u.id, role: 'student' },
+        readings: assignments.flatMap((a) => a.submissions.filter((s) => s.studentId === u.id).map((s) => ({
+          ...s, assignment: { classId: a.classId, morningQuizSession: a.morningQuizSession, paper: a.paper },
+        }))),
+        sessions: vocab.filter((v) => v.studentId === u.id),
+      })).fullDays.map((d) => d.sourceDate));
       const assigned = assignedReadingFor({
         rows: assignments
           .filter((a) => a.morningQuizSession)
@@ -218,6 +235,8 @@ export class LearningReportService {
       const mine = vocab.filter((v) => v.studentId === u.id);
 
       const dayFacts: DayFacts[] = days.map((date) => {
+        const paperRows = dictation.filter((s) => keyOf(s.heldOn) === date).flatMap((s) => s.rows.filter((r) => r.studentId === u.id && frozenIds(r.senseIds).length > 0));
+        const entered = paperRows.filter((r) => r.status === 'entered');
         // 同一天两份（改档后把当天的卷子按新档又做了一遍）：交了的优先；都交了取最后交的那份
         const r =
           [...(readingByDay.get(date) ?? [])].sort(
@@ -233,6 +252,13 @@ export class LearningReportService {
         return {
           date,
           noSchoolDay: calendar.isNoSchoolDay(u.id, date),
+          earnest: earnedDates.has(date),
+          dictation: {
+            expected: paperRows.length > 0,
+            entered: paperRows.length > 0 && paperRows.every((r) => r.status === 'entered' || r.status === 'absent'),
+            items: entered.reduce((n, r) => n + new Set(frozenIds(r.senseIds)).size, 0),
+            correct: entered.reduce((n, r) => n + [...new Set(frozenIds(r.senseIds))].filter((id) => !frozenIds(r.wrongSenseIds).includes(id)).length, 0),
+          },
           reading: r
             ? {
                 assignmentId: r.assignmentId,
@@ -268,12 +294,31 @@ export class LearningReportService {
         className: classNameOf.get(e.classId) ?? '',
         level: u.englishLevel == null ? null : String(u.englishLevel),
         registeredOn: sgtKey(u.createdAt),
-        mastered: mastered.get(u.id)?.size ?? 0,
+        mastered: mastery.mastered.get(u.id)?.size ?? 0,
+        newMastered: mastery.added.get(u.id) ?? 0,
+        unresolvedReading: mistakes.get(u.id) ?? 0,
+        unresolvedVocabulary: mastery.unresolved.get(u.id) ?? 0,
         days: dayFacts,
       };
-    });
+    }));
 
     return { students, sessionDays: new Set(assignments.filter((a) => a.morningQuizSession).map((a) => keyOf(a.morningQuizSession!.date))) };
+  }
+
+  private async openReadingMistakes(ids: string[], through: string) {
+    const counts = new Map<string, number>();
+    const cutoff = new Date(utcDate(nextDate(through, 1)).getTime() - 8 * 3600_000);
+    let after: string | undefined;
+    for (;;) {
+      const rows = await this.prisma.mistakeEntry.findMany({ where: {
+        ...(after ? { id: { gt: after } } : {}),
+        studentId: { in: ids }, quizDay: { lte: through }, createdAt: { lt: cutoff },
+        OR: [{ resolved: false }, { resolvedAt: { gte: cutoff } }],
+      }, select: { id: true, studentId: true }, orderBy: { id: 'asc' }, take: 500 });
+      for (const row of rows) counts.set(row.studentId, (counts.get(row.studentId) ?? 0) + 1);
+      if (rows.length < 500) return counts;
+      after = rows.at(-1)!.id;
+    }
   }
 
   async today(actor: { id: string; role: string }, classId: string, date?: string, now = new Date()) {
@@ -299,7 +344,7 @@ export class LearningReportService {
       recentByStudent.set(id, recent);
     }
     const days = [...selected].sort();
-    const loaded = await this.loadFacts(cohort, [classId], days, day, new Map([[classId, cls.name]]), true);
+    const loaded = await this.loadFacts(cohort, [classId], days, day, new Map([[classId, cls.name]]), true, now);
     const warnings = ids.length ? await this.prisma.notification.findMany({
       where: { userId: { in: ids }, type: 'effort_warning', createdAt: { gte: new Date(dateOnly(mondayOf(day)).getTime() - 8 * 3600_000), lt: new Date(dateOnly(nextDate(day, 1)).getTime() - 8 * 3600_000) } },
       select: { id: true, userId: true, title: true, body: true, createdAt: true },

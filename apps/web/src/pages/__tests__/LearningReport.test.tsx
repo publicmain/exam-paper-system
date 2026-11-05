@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
-import LearningReportPage, { reportCsv, readingText, shiftWeek, type ReportDayCell, type ReportStudent, type WeeklyReport } from '../LearningReport';
+import LearningReportPage, { reportCsv, readingText, shiftWeek, sortReportStudents, WEEKLY_METRICS, type ReportDayCell, type ReportStudent, type WeeklyReport } from '../LearningReport';
 import { api } from '../../lib/api';
 
 /**
@@ -194,7 +194,7 @@ describe('导出 / 小工具', () => {
     expect(csv.startsWith('﻿')).toBe(true);
     const lines = csv.slice(1).split('\r\n');
     expect(lines[0]).toContain('周一9/7 阅读,周一 单词,周一 单词测试');
-    expect(lines[0].endsWith('整周没做')).toBe(true);
+    expect(lines[0]).toContain('整周没做,认真完成天数,单词测试首考正确率,早读默写正确率,本周新增掌握词数,未消错题数');
     expect(lines.find((l) => l.includes('乙同学'))).toContain('没做');
     expect(lines.find((l) => l.includes('丙同学'))).toContain("'=丙同学");
     expect(lines).toHaveLength(4);
@@ -209,5 +209,35 @@ describe('导出 / 小工具', () => {
   it('翻周按 7 天走', () => {
     expect(shiftWeek('2026-09-07', -7)).toBe('2026-08-31');
     expect(shiftWeek('2026-09-07', 7)).toBe('2026-09-14');
+  });
+});
+
+describe('每周新增数字', () => {
+  it('排序可以升降，无数据排末尾；默认保留原有顺序', () => {
+    const rows = fixture().students.map((s, i) => ({ ...s, testFirstPct: [null, 75, 25][i] }));
+    expect(sortReportStudents(rows, '', true).map((s) => s.id)).toEqual(['B', 'A', 'C']);
+    expect(sortReportStudents(rows, 'testFirstPct', true).map((s) => s.id)).toEqual(['A', 'C', 'B']);
+    expect(sortReportStudents(rows, 'testFirstPct', false).map((s) => s.id)).toEqual(['C', 'A', 'B']);
+  });
+  it('五列表头有口径，已录入覆盖率与分子分母单独显示，点击排序后可恢复', async () => {
+    const report = fixture();
+    Object.assign(report.students[0], { earnestDays: 1, testFirstPct: 75, testFirstCorrect: 3, testFirstTotal: 4, dictationPct: 50, dictationCorrect: 1, dictationTotal: 2, dictationEnteredDays: 2, dictationExpectedDays: 3, newMastered: 2, unresolvedMistakes: 5, unresolvedReading: 3, unresolvedVocabulary: 2 });
+    Object.assign(report.students[1], { earnestDays: 3 });
+    mocked.learningReportWeek.mockResolvedValue(report);
+    mount();
+    const table = await screen.findByTestId('weekly-metrics');
+    expect(within(table).getByTestId('metrics-B')).toHaveTextContent('已录入 2 / 应录 3 天');
+    expect(within(table).getByTestId('metrics-B')).toHaveTextContent('对 3 / 共 4 题');
+    for (const m of WEEKLY_METRICS) expect(within(table).getByRole('button', { name: m.label })).toHaveAttribute('title', m.hint);
+    fireEvent.click(within(table).getByRole('button', { name: '认真完成天数' }));
+    expect(within(table).getAllByTestId(/^metrics-/)[0]).toHaveAttribute('data-testid', 'metrics-A');
+    fireEvent.click(within(table).getByRole('button', { name: '恢复原有顺序' }));
+    expect(within(table).getAllByTestId(/^metrics-/)[0]).toHaveAttribute('data-testid', 'metrics-B');
+    const lines = reportCsv(report).slice(1).split('\r\n').map((line) => line.split(','));
+    const at = (header: string) => lines[1][lines[0].indexOf(header)];
+    expect(at('单词测试首考正确率')).toBe('75%');
+    expect(at('默写已录入天数')).toBe('2');
+    expect(at('默写应录天数')).toBe('3');
+    expect(at('未消单词数')).toBe('2');
   });
 });

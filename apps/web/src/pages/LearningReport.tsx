@@ -34,6 +34,19 @@ export interface ReportDayCell {
 }
 
 export interface ReportStudent {
+  earnestDays?: number;
+  testFirstPct?: number | null;
+  testFirstCorrect?: number;
+  testFirstTotal?: number;
+  dictationPct?: number | null;
+  dictationCorrect?: number;
+  dictationTotal?: number;
+  dictationEnteredDays?: number;
+  dictationExpectedDays?: number;
+  newMastered?: number;
+  unresolvedMistakes?: number;
+  unresolvedReading?: number;
+  unresolvedVocabulary?: number;
   id: string;
   name: string;
   classId: string;
@@ -152,6 +165,23 @@ const md = (key: string) => `${Number(key.slice(5, 7))}月${Number(key.slice(8, 
 const mdShort = (key: string) => `${Number(key.slice(5, 7))}/${Number(key.slice(8, 10))}`;
 export const weekLabel = (start: string, end: string) => `${md(start)} – ${md(end)}`;
 const pct = (v: number | null | undefined) => (v == null ? '—' : `${v}%`);
+export const WEEKLY_METRICS = [
+  { key: 'earnestDays', label: '认真完成天数', hint: '沿用徽章：当天阅读简答至少写一半且批后有得分（纯客观题至少答一题），学完新词并在第一次正式词测答对至少一半；停课日不计。' },
+  { key: 'testFirstPct', label: '单词测试首考正确率', hint: '本周已交正式词测的首答对题数除以总题数，按题加权，订正不改成绩，停课日不计。' },
+  { key: 'dictationPct', label: '早读默写正确率', hint: '已录入且参加默写的正确词数除以词数；未录入、缺考和停课日不进分母，录入天数含已登记缺考，应录天数按已生成且有词的名单。' },
+  { key: 'newMastered', label: '本周新增掌握词数', hint: '截至本周已过日期达到掌握要求、周初尚未掌握的词数；沿用独立作答及跨两个教学日的判定。' },
+  { key: 'unresolvedMistakes', label: '未消错题数', hint: '截至本周已过日期仍未消的阅读题数与单词数之和，同一天订正不消。' },
+] as const;
+export type MetricKey = typeof WEEKLY_METRICS[number]['key'];
+export function sortReportStudents(students: ReportStudent[], key: MetricKey | '', descending: boolean) {
+  if (!key) return students;
+  return [...students].sort((a, b) => {
+    const av = a[key], bv = b[key];
+    if (av == null) return bv == null ? 0 : 1;
+    if (bv == null) return -1;
+    return descending ? bv - av : av - bv;
+  });
+}
 const sgtTime = (iso: string | null) =>
   iso
     ? new Date(iso).toLocaleString('zh-CN', { timeZone: 'Asia/Singapore', month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit', hour12: false })
@@ -196,7 +226,7 @@ const CELL_STYLE: Record<ReadingCell, string> = {
 export function reportCsv(r: WeeklyReport): string {
   const head = ['班级', '姓名', '难度档', '注册日期'];
   for (const d of r.days) head.push(`${d.dow}${mdShort(d.date)} 阅读`, `${d.dow} 单词`, `${d.dow} 单词测试`);
-  head.push('交阅读', '应交阅读', '学完新词天数', '单词测试次数', '阅读平均得分率', '单词测试平均分', '整周没做');
+  head.push('交阅读', '应交阅读', '学完新词天数', '单词测试次数', '阅读平均得分率', '单词测试平均分', '整周没做', ...WEEKLY_METRICS.map((m) => m.label), '首考对题数', '首考总题数', '默写正确词数', '默写计分词数', '默写已录入天数', '默写应录天数', '未消阅读题数', '未消单词数');
   const rows = r.students.map((s) => {
     const row = [s.className, s.name, levelLabel(s.level), s.registeredOn];
     for (const c of s.days) {
@@ -207,6 +237,8 @@ export function reportCsv(r: WeeklyReport): string {
       );
     }
     row.push(String(s.readN), String(s.readDue), String(s.learnN), String(s.testN), s.readAvg == null ? '' : `${s.readAvg}%`, s.testAvg == null ? '' : String(s.testAvg), s.none ? '是' : '');
+    row.push(String(s.earnestDays ?? 0), s.testFirstPct == null ? '' : `${s.testFirstPct}%`, s.dictationPct == null ? '' : `${s.dictationPct}%`, String(s.newMastered ?? 0), String(s.unresolvedMistakes ?? 0),
+      ...[s.testFirstCorrect, s.testFirstTotal, s.dictationCorrect, s.dictationTotal, s.dictationEnteredDays, s.dictationExpectedDays, s.unresolvedReading, s.unresolvedVocabulary].map((v) => String(v ?? 0)));
     return row;
   });
   const cell = (v: string) => {
@@ -243,6 +275,9 @@ export default function LearningReportPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [openId, setOpenId] = useState<string | null>(() => params.get('studentId'));
+  const [metricSort, setMetricSort] = useState<MetricKey | ''>('');
+  const [descending, setDescending] = useState(true);
+  const metricStudents = useMemo(() => sortReportStudents(report?.students ?? [], metricSort, descending), [report, metricSort, descending]);
 
   useEffect(() => {
     const studentId = params.get('studentId');
@@ -320,7 +355,7 @@ export default function LearningReportPage() {
             className="btn btn-ghost"
             data-testid="export-csv"
             disabled={!report || !report.students.length}
-            onClick={() => report && downloadText(`学习周报_${report.weekStart}_${scopeName}.csv`, reportCsv(report))}
+            onClick={() => report && downloadText(`学习周报_${report.weekStart}_${scopeName}.csv`, reportCsv({ ...report, students: metricStudents }))}
           >
             导出 Excel
           </button>
@@ -534,6 +569,46 @@ export default function LearningReportPage() {
                 <FollowUp testId="followup-nolevel" title="还没选难度档" hint="没选档就不会分配阅读。" items={report.followUps.noLevel} detail={() => ''} onPick={jumpTo} />
               ) : null}
             </div>
+          </section>
+
+          <section className="rounded-lg bg-white p-4 text-gray-900 shadow-sm" data-testid="weekly-metrics">
+            <div className="mb-4 flex flex-wrap items-baseline justify-between gap-3">
+              <h2 className="text-lg font-semibold">每人这一周</h2>
+              <button type="button" className="min-h-12 px-3 py-2 text-sm text-blue-700 underline" onClick={() => setMetricSort('')}>恢复原有顺序</button>
+            </div>
+            {!metricStudents.length ? <p className="py-4 text-sm text-gray-600">这一周这个范围里没有学生。</p> : (
+              <table className="w-full table-fixed text-sm tabular-nums">
+                <thead className="hidden md:table-header-group">
+                  <tr className="text-gray-600">
+                    <th className="p-2 text-left">姓名</th>
+                    {WEEKLY_METRICS.map((m) => <th key={m.key} className="p-2 text-right" aria-sort={metricSort === m.key ? descending ? 'descending' : 'ascending' : 'none'}>
+                      <button type="button" title={m.hint} className="min-h-12 text-right font-semibold underline decoration-dotted" onClick={() => { setMetricSort(m.key); setDescending(metricSort === m.key ? !descending : true); }}>{m.label}{metricSort === m.key ? descending ? ' ↓' : ' ↑' : ''}</button>
+                    </th>)}
+                  </tr>
+                </thead>
+                <tbody className="block space-y-4 md:table-row-group md:space-y-0">
+                  {metricStudents.map((s) => <tr key={s.id} data-testid={`metrics-${s.id}`} className="grid grid-cols-2 gap-3 rounded-lg bg-gray-100 p-4 md:table-row md:bg-white md:p-0">
+                    <td className="col-span-2 break-words md:p-2">
+                      <button type="button" className="min-h-12 text-left font-semibold text-blue-700 hover:underline" onClick={() => jumpTo(s.id)}>{s.name}</button>
+                      <p className="text-xs text-gray-600">{s.className}</p>
+                    </td>
+                    {WEEKLY_METRICS.map((m) => <td key={m.key} className="min-w-0 text-right md:p-2" title={m.hint}>
+                      <span className="mb-1 block text-left text-xs text-gray-600 md:hidden">{m.label}</span>
+                      <span className="font-semibold">{m.key.endsWith('Pct') ? pct(s[m.key]) : s[m.key] ?? 0}</span>
+                      {m.key === 'testFirstPct' ? <p className="mt-1 text-xs text-gray-600">对 {s.testFirstCorrect ?? 0} / 共 {s.testFirstTotal ?? 0} 题</p> : null}
+                      {m.key === 'dictationPct' ? <><p className="mt-1 text-xs text-gray-600">已录入 {s.dictationEnteredDays ?? 0} / 应录 {s.dictationExpectedDays ?? 0} 天</p><p className="mt-1 text-xs text-gray-600">对 {s.dictationCorrect ?? 0} / 共 {s.dictationTotal ?? 0} 词</p></> : null}
+                      {m.key === 'unresolvedMistakes' ? <p className="mt-1 text-xs text-gray-600">阅读 {s.unresolvedReading ?? 0} · 单词 {s.unresolvedVocabulary ?? 0}</p> : null}
+                    </td>)}
+                  </tr>)}
+                </tbody>
+              </table>
+            )}
+            <label className="mt-4 block text-sm text-gray-600 md:hidden">按数字排序
+              <select aria-label="按数字排序" className="mt-2 min-h-12 w-full rounded-md border border-gray-300 px-3 py-2" value={metricSort} onChange={(e) => { setMetricSort(e.target.value as MetricKey | ''); setDescending(true); }}>
+                <option value="">原有顺序</option>{WEEKLY_METRICS.map((m) => <option key={m.key} value={m.key}>{m.label}（从高到低）</option>)}
+              </select>
+            </label>
+            <p className="mt-4 text-sm text-gray-600">应录天数按已生成且有词的默写名单计算；未生成名单的日期暂不统计。</p>
           </section>
 
           <section className="card overflow-x-auto" data-testid="roster">

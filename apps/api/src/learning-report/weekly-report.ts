@@ -48,6 +48,8 @@ export type ReadingCell =
 export interface DayFacts {
   date: string;
   noSchoolDay?: boolean;
+  earnest?: boolean;
+  dictation?: { expected: boolean; entered: boolean; correct: number; items: number };
   reading: {
     assignmentId?: string;
     submissionId?: string | null;
@@ -75,6 +77,9 @@ export interface StudentFacts {
   registeredOn: string;
   /** Cumulative independent mastery through the report's last elapsed day. */
   mastered?: number;
+  newMastered?: number;
+  unresolvedReading?: number;
+  unresolvedVocabulary?: number;
   days: DayFacts[];
   pendingMarking?: Array<{ submissionId: string; questions: number }>;
 }
@@ -158,9 +163,15 @@ export function summarizeStudent(s: StudentFacts, today: string) {
   const learnN = cells.filter((c) => c.learning === 'done').length;
   const learnPartial = cells.filter((c) => c.learning === 'partial').length;
   const testN = cells.filter((c) => c.test === 'done').length;
-  const readPcts = cells.filter((c) => c.readPct != null).map((c) => c.readPct as number);
+  const readPcts = cells.filter((c) => !c.noSchoolDay && c.readPct != null).map((c) => c.readPct as number);
   const requiredReadPcts = cells.filter((c) => !c.noSchoolDay && c.readPct != null).map((c) => c.readPct as number);
-  const testPcts = cells.filter((c) => c.testPct != null).map((c) => c.testPct as number);
+  const testPcts = cells.filter((c) => !c.noSchoolDay && c.date <= today && c.testPct != null).map((c) => c.testPct as number);
+  const eligible = s.days.filter((d) => !d.noSchoolDay && d.date <= today && d.date >= s.registeredOn);
+  const firstTests = eligible.filter((d) => d.test?.submitted).map((d) => d.test!);
+  const testFirstCorrect = firstTests.reduce((n, t) => n + t.correct, 0);
+  const testFirstTotal = firstTests.reduce((n, t) => n + t.items, 0);
+  const dictationCorrect = eligible.reduce((n, d) => n + (d.dictation?.correct ?? 0), 0);
+  const dictationTotal = eligible.reduce((n, d) => n + (d.dictation?.items ?? 0), 0);
   const anyActivity = readN + learnN + testN + learnPartial > 0;
   return {
     id: s.id,
@@ -170,6 +181,19 @@ export function summarizeStudent(s: StudentFacts, today: string) {
     level: s.level,
     registeredOn: s.registeredOn,
     mastered: s.mastered ?? 0,
+    earnestDays: eligible.filter((d) => d.earnest).length,
+    testFirstCorrect,
+    testFirstTotal,
+    testFirstPct: rate(testFirstCorrect, testFirstTotal),
+    dictationCorrect,
+    dictationTotal,
+    dictationPct: rate(dictationCorrect, dictationTotal),
+    dictationEnteredDays: eligible.filter((d) => d.dictation?.entered).length,
+    dictationExpectedDays: eligible.filter((d) => d.dictation?.expected).length,
+    newMastered: s.newMastered ?? 0,
+    unresolvedReading: s.unresolvedReading ?? 0,
+    unresolvedVocabulary: s.unresolvedVocabulary ?? 0,
+    unresolvedMistakes: (s.unresolvedReading ?? 0) + (s.unresolvedVocabulary ?? 0),
     days: cells,
     readN,
     readRequiredDone,
@@ -203,8 +227,8 @@ export function buildWeeklyReport(input: ReportInput) {
   const days = input.days.map((date, i) => {
     const future = date > today;
     const cells = students.map((s) => s.days[i]).filter((c) => c && c.date === date);
-    const readPcts = cells.filter((c) => c.readPct != null).map((c) => c.readPct as number);
-    const testPcts = cells.filter((c) => c.testPct != null).map((c) => c.testPct as number);
+    const readPcts = cells.filter((c) => !c.noSchoolDay && c.readPct != null).map((c) => c.readPct as number);
+    const testPcts = cells.filter((c) => !c.noSchoolDay && c.testPct != null).map((c) => c.testPct as number);
     return {
       date,
       dow: DOW[dayOfWeek(date)],
@@ -235,7 +259,7 @@ export function buildWeeklyReport(input: ReportInput) {
       readDue: ss.reduce((a, s) => a + s.readDue, 0),
       readRate: rate(ss.reduce((a, s) => a + s.readRequiredDone, 0), ss.reduce((a, s) => a + s.readDue, 0)),
       testDaysAvg: ss.length ? Math.round((ss.reduce((a, s) => a + s.testN, 0) / ss.length) * 10) / 10 : null,
-      readAvg: mean(ss.flatMap((s) => s.days.filter((c) => c.readPct != null).map((c) => c.readPct as number))),
+      readAvg: mean(ss.flatMap((s) => s.days.filter((c) => !c.noSchoolDay && c.readPct != null).map((c) => c.readPct as number))),
     }))
     .sort((a, b) => b.students - a.students || a.className.localeCompare(b.className));
 
@@ -250,7 +274,7 @@ export function buildWeeklyReport(input: ReportInput) {
         row.due += 1;
         if (c.reading === 'done') row.done += 1;
       }
-      if (c.readPct != null) row.pcts.push(c.readPct);
+      if (!c.noSchoolDay && c.readPct != null) row.pcts.push(c.readPct);
       levelMap.set(c.paperLevel, row);
     }
   }
@@ -287,10 +311,10 @@ export function buildWeeklyReport(input: ReportInput) {
       readDone: sum((s) => s.readN),
       readDue: sum((s) => s.readDue),
       readRate: rate(sum((s) => s.readRequiredDone), sum((s) => s.readDue)),
-      readAvg: mean(students.flatMap((s) => s.days.filter((c) => c.readPct != null).map((c) => c.readPct as number))),
+      readAvg: mean(students.flatMap((s) => s.days.filter((c) => !c.noSchoolDay && c.readPct != null).map((c) => c.readPct as number))),
       learnDone: sum((s) => s.learnN),
       testDone: sum((s) => s.testN),
-      testAvg: mean(students.flatMap((s) => s.days.filter((c) => c.testPct != null).map((c) => c.testPct as number))),
+      testAvg: mean(students.flatMap((s) => s.days.filter((c) => !c.noSchoolDay && c.date <= today && c.testPct != null).map((c) => c.testPct as number))),
       awaitingMarking: sum((s) => s.awaitingMarking),
     },
     byClass,

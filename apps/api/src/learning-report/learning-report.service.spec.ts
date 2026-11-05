@@ -80,6 +80,8 @@ function world() {
 
 function fakePrisma(w = world()) {
   return {
+    dictationSheet: { findMany: vi.fn(async (_args?: any): Promise<any[]> => []) },
+    mistakeEntry: { findMany: vi.fn(async (_args?: any): Promise<any[]> => []) },
     learningEvidence: { findMany: vi.fn(async (_args?: any): Promise<any[]> => []) },
     classNoSchoolDay: { findMany: vi.fn(async () => []) },
     class: {
@@ -96,7 +98,7 @@ function fakePrisma(w = world()) {
       findMany: vi.fn(async (args: any) =>
         w.assignments
           .filter((a) => args.where.classId.in.includes(a.classId))
-          .map((a) => ({ ...a, submissions: a.submissions.filter((s) => args.select.submissions.where.studentId.in.includes(s.studentId)) })),
+          .map((a) => ({ ...a, paper: { ...a.paper, config: null, questions: [] }, submissions: a.submissions.filter((s) => args.select.submissions.where.studentId.in.includes(s.studentId)).map((s) => ({ ...s, scripts: [] })) })),
       ),
     },
     studentLevelChange: { findMany: vi.fn(async () => []) },
@@ -188,6 +190,10 @@ describe('哪些人不算、一周怎么拼', () => {
     await new LearningReportService(prisma as never).weekly({ id: 'admin', role: 'admin' }, { classId: 'c-ial' }, NOW);
     expect(prisma.classEnrollment.findMany.mock.calls[0][0].where.classId.in).toEqual(['c-ial']);
     expect(prisma.paperAssignment.findMany.mock.calls[0][0].where.classId.in).toEqual(['c-ial']);
+    expect(prisma.dictationSheet.findMany.mock.calls[0][0].where).toEqual({ classId: { in: ['c-ial'] }, heldOn: { gte: d('2026-09-07'), lte: d('2026-09-09') } });
+    expect(prisma.vocabularyV2Session.findMany.mock.calls[0][0].where.date).toEqual({ gte: d('2026-09-07'), lte: d('2026-09-13') });
+    expect(prisma.learningEvidence.findMany.mock.calls[0][0]).toMatchObject({ where: { studentId: { in: ['s-dup'] }, schoolDate: { lte: d('2026-09-09') } }, take: 500 });
+    expect(prisma.mistakeEntry.findMany.mock.calls[0][0]).toMatchObject({ where: { studentId: { in: ['s-dup'] }, quizDay: { lte: '2026-09-09' } }, take: 500 });
   });
 });
 
