@@ -52,6 +52,8 @@ export interface ReadingPrint {
 }
 
 export interface PrintWord {
+  senseId?: string;
+  commonMisspellings?: Array<{ spelling: string; count: number }>;
   headword: string;
   phonetic: string | null;
   pos: string | null;
@@ -255,9 +257,15 @@ export function buildWordsPrint(
         translation: clean(String(c.translation ?? '')).trim(),
         sentence: typeof c.sentence === 'string' && c.sentence.trim() ? clean(c.sentence).trim() : null,
       };
+      if (it.senseId) word.senseId = it.senseId;
       if (wrongSenseIds) word.testWrong = Boolean(it.senseId && wrongSenseIds.has(it.senseId));
       if (it.status !== undefined) word.learned = it.status === 'completed';
       return word;
     })
     .filter((w) => w.headword && w.translation);
+}
+
+/** Same per-card completion and printable-content rule as the default dictation print. */
+export function learnedWords(items: Parameters<typeof buildWordsPrint>[0]): PrintWord[] {
+  return buildWordsPrint(items).filter((word) => word.learned === true && word.senseId);
 }

@@ -65,6 +65,17 @@ export const MEMORY_SCHEMA: Record<string, ModelDef> = {
     defaults: () => ({ archivedAt: null, name: '班级' }),
   },
   auditLog: {},
+  dictationSheet: {
+    unique: [['classId', 'learnedDate']],
+    relations: { rows: many('dictationSheetRow', 'sheetId', 'id', 'cascade') },
+    updatedAt: true,
+  },
+  dictationSheetRow: {
+    unique: [['sheetId', 'studentId']],
+    relations: { sheet: one('dictationSheet', 'sheetId') },
+    defaults: () => ({ status: 'pending', wrongSenseIds: null, enteredById: null, enteredAt: null }),
+    updatedAt: true,
+  },
   notification: { defaults: () => ({ readAt: null }) },
   classNoSchoolDay: { unique: [['classId', 'date']], defaults: () => ({ reason: null }) },
   classEnrollment: {

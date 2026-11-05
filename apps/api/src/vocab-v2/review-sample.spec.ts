@@ -73,6 +73,19 @@ describe('Due review replaces new words in a fixed daily budget', () => {
     expect(review.some((i: any) => i.senseId === old[0].senseId)).toBe(false);
     expect(review.every((i: any) => i.masteryBefore === 3)).toBe(true);
   });
+  it('a retracted dictation error does not keep priority over other equally due words', async () => {
+    const { db, id, old, svc } = setup(5, 3);
+    const ordered = [...old].sort((a, b) => a.senseId.localeCompare(b.senseId));
+    const word = ordered.at(-1)!;
+    for (const [index, isCorrect] of [false, true].entries()) db.seed('learningEvidence', {
+      studentId: id, senseId: word.senseId, kind: 'paper_dictation', subject: 'vocab_sense',
+      sourceKey: `paper-amend-${index}`, isCorrect, hinted: false, schoolDate: dateOnly('2026-11-04'),
+      occurredAt: new Date(`2026-11-04T0${index + 1}:00:00Z`), detail: { rowId: 'paper-row' },
+    });
+    const daily = await svc.startDailySession(id, sgtNoon(TODAY));
+    const review = db.rows('vocabularyV2Session', { id: daily.id })[0].settingsSnapshot.reviewItems;
+    expect(review.map((item: any) => item.senseId)).toEqual(ordered.slice(0, 2).map((item) => item.senseId));
+  });
   it('teacher list keeps every fresh word and adds at most 3 due words', async () => {
     const { db, id, learn } = setup(5, 8);
     const fresh = seedOfficialWords(db, 'ngsl', 1801, 5);

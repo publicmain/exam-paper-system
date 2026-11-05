@@ -11,14 +11,29 @@ export interface MemoryEvidence {
   schoolDate: Date;
   occurredAt: Date;
   sourceKey: string;
+  studentId?: string;
+  senseId?: string | null;
+  detail?: unknown;
 }
 export const gradedVocabularyEvidence = (e: MemoryEvidence) =>
   e.subject === 'vocab_sense' && (MEMORY_KINDS as readonly string[]).includes(e.kind) && e.isCorrect !== null;
 
 export function orderedEvidence<T extends MemoryEvidence>(rows: readonly T[]): T[] {
   const distinct = new Map(rows.map((e) => [e.sourceKey, e]));
-  return [...distinct.values()].sort((a, b) => a.schoolDate.getTime() - b.schoolDate.getTime()
+  const ordered = [...distinct.values()].sort((a, b) => a.schoolDate.getTime() - b.schoolDate.getTime()
     || a.occurredAt.getTime() - b.occurredAt.getTime() || a.sourceKey.localeCompare(b.sourceKey));
+  // A teacher amendment replaces the result of that row/word, not another
+  // recall attempt. Keep raw records intact; choose the latest BEFORE excluding
+  // absences so changing a mark to absent also retracts the old grade.
+  const paperKey = (e: T): string | null => {
+    const detail = e.detail as { rowId?: unknown } | null;
+    return e.kind === 'paper_dictation' && e.subject === 'vocab_sense'
+      && typeof detail?.rowId === 'string' && e.senseId
+      ? JSON.stringify([e.studentId, detail.rowId, e.senseId]) : null;
+  };
+  const latestPaper = new Map<string, T>();
+  for (const e of ordered) { const key = paperKey(e); if (key) latestPaper.set(key, e); }
+  return ordered.filter((e) => { const key = paperKey(e); return !key || latestPaper.get(key) === e; });
 }
 
 /** Teaching dates strictly after `from`, through `to` (Fri -> Tue = 2). */

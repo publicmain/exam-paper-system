@@ -18,6 +18,8 @@ export type ReadingPrint = {
   totalMarks: number;
 };
 export type PrintWord = {
+  senseId?: string;
+  commonMisspellings?: Array<{ spelling: string; count: number }>;
   headword: string;
   phonetic: string | null;
   pos: string | null;
@@ -29,6 +31,10 @@ export type PrintWord = {
   learned?: boolean;
 };
 export type WordSheetMode = 'list' | 'dictation';
+
+export function CommonMisspellings({ word }: { word: PrintWord }) {
+  return word.commonMisspellings?.length ? <span className="text-sm text-gray-600">（班里常见错拼：{word.commonMisspellings.map((m) => `${m.spelling} ×${m.count}`).join('、')}）</span> : null;
+}
 
 /** 题干里的 [BLANK] 印成下划线 */
 function blankify(text: string): string {
@@ -135,12 +141,14 @@ export function WordsSheet({
   title,
   meta,
   showAnswers = false,
+  showMisspellings = true,
 }: {
   words: PrintWord[];
   mode: WordSheetMode;
   title: string;
   meta: string;
   showAnswers?: boolean;
+  showMisspellings?: boolean;
 }) {
   const dictation = mode === 'dictation';
   return (
@@ -221,6 +229,7 @@ export function WordsSheet({
             {words.map((w, i) => (
               <li key={`${w.headword}-${i}`}>
                 <b>{i + 1}.</b>&nbsp;{w.headword}
+                {showMisspellings ? <CommonMisspellings word={w} /> : null}
               </li>
             ))}
           </ol>
@@ -278,6 +287,7 @@ export function WeekWordsSheet({
   title,
   meta,
   showAnswers = false,
+  showMisspellings = true,
 }: {
   /** note：跟在日期后面的附注（如「（App 里没学完）」），分栏续标题里不重复 */
   days: Array<{ date: string; label: string; note?: string; words: PrintWord[] }>;
@@ -285,6 +295,7 @@ export function WeekWordsSheet({
   title: string;
   meta: string;
   showAnswers?: boolean;
+  showMisspellings?: boolean;
 }) {
   const dictation = mode === 'dictation';
   const total = days.reduce((n, d) => n + d.words.length, 0);
@@ -387,6 +398,7 @@ export function WeekWordsSheet({
             {numbered.flatMap((d) => d.rows).map(({ w, no }) => (
               <li key={no}>
                 <b>{no}.</b>&nbsp;{w.headword}
+                {showMisspellings ? <CommonMisspellings word={w} /> : null}
               </li>
             ))}
           </ol>

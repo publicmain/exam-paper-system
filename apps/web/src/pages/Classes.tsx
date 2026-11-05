@@ -120,6 +120,7 @@ export default function ClassesPage() {
             </button>
             <div className="flex max-w-full flex-wrap items-center gap-3">
               <Link className="inline-flex min-h-12 items-center rounded-lg bg-blue-50 px-3 text-sm font-semibold text-blue-900 hover:bg-blue-100" to={`/classes/${encodeURIComponent(c.id)}/today`}>今天该找谁</Link>
+              <Link className="inline-flex min-h-12 items-center rounded-lg bg-blue-50 px-3 text-sm font-semibold text-blue-900 hover:bg-blue-100" to={`/classes/${encodeURIComponent(c.id)}/dictation`}>早读默写回填</Link>
               <Link className="inline-flex min-h-12 items-center px-3 text-sm text-slate-600 hover:underline" to={`/classes/${encodeURIComponent(c.id)}/no-school-days`}>停课日</Link>
               <button
                 onClick={async () => {
