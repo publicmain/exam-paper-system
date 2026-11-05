@@ -21,6 +21,7 @@ import { normaliseDailyTarget, planDailyTask, type PlannerCandidate, type V2Sour
 import { contextForEncounter, isTemplateContext } from './context-progression';
 import { initialStageForAction, type LearningCardAction } from './learning-card';
 import { formalAnswerOf } from './first-answer';
+import { judgeRecall, recallExpected, recallState, recallStepEnabled, type RecallResult } from './recall-spelling';
 import { answerFormalQuestion, buildFormalQuestion, publicFormalQuestion, type FormalQuestion, type FrozenCard } from './formal-test';
 import { answerAdaptiveQuestion, buildAdaptiveQuestion, checkActiveUse, publicAdaptiveQuestion, type AdaptiveCard, type AdaptiveQuestion } from './adaptive-test';
 import { learningAssetQuality } from './content-quality';
@@ -2161,6 +2162,61 @@ export class VocabularyV2Service {
     return { ok: true as const, hidden: hidden > 0 };
   }
 
+  async submitRecall(studentId: string, input: {
+    sessionId: string; itemId: string; expectedSenseId?: string; typed: string; hintLevel: number; attempt: number;
+  }, now = new Date()): Promise<RecallResult | { enabled: false }> {
+    return this.prisma.$transaction(async (tx) => {
+      const session = await tx.vocabularyV2Session.findFirst({
+        where: { id: input.sessionId, studentId, sessionType: 'daily_learning' },
+      });
+      if (!session) throw new BadRequestException({ code: 'v2_session_not_found' });
+      const item = await tx.vocabularyV2SessionItem.findFirst({ where: { id: input.itemId, sessionId: session.id } });
+      if (!item) throw new BadRequestException({ code: 'v2_item_not_found' });
+      if (input.expectedSenseId && input.expectedSenseId !== item.senseId) throw new ConflictException({ code: 'v2_item_changed' });
+      if (!recallStepEnabled()) return { enabled: false as const };
+      const sourceKey = `v2item:${item.id}:${input.attempt === 1 ? 'practice_first' : `practice_retry:${input.attempt}`}`;
+      const replay = async () => {
+        const saved = await tx.learningEvidence.findUnique({ where: { sourceKey } });
+        if (saved && saved.senseId !== item.senseId) throw new ConflictException({ code: 'v2_item_changed' });
+        return (saved?.detail as { result?: RecallResult } | null)?.result;
+      };
+      const existing = await replay();
+      if (existing) return existing;
+      if (session.status !== 'in_progress' || item.status !== 'pending') throw new BadRequestException({ code: 'v2_session_closed' });
+      // A no-op row update obtains the same row lock as learning/replacement. Read
+      // the state AFTER acquiring it, so concurrent submissions cannot both win.
+      const claim = await tx.vocabularyV2SessionItem.updateMany({
+        where: { id: item.id, sessionId: session.id, status: 'pending', senseId: item.senseId },
+        data: { hintLevel: { increment: 0 } },
+      });
+      if (!claim.count) throw new ConflictException({ code: 'v2_item_changed' });
+      const raced = await replay();
+      if (raced) return raced;
+      const current = await tx.vocabularyV2SessionItem.findUniqueOrThrow({ where: { id: item.id } });
+      const expected = recallExpected(current.contentSnapshot);
+      if (!expected) return { enabled: false as const };
+      const previous = recallState(current.response, current.senseId);
+      if (input.attempt !== (previous?.attempt ?? 0) + 1) throw new ConflictException({ code: 'v2_recall_sequence' });
+      if (previous?.isCorrect) throw new ConflictException({ code: 'v2_recall_complete' });
+      const result = judgeRecall(expected, input.typed, input.attempt, previous);
+      // The client cannot erase hints already supplied by the server.
+      const hinted = Math.max(input.hintLevel, previous?.hintLevel ?? 0) > 0;
+      await tx.learningEvidence.createMany({
+        data: [{
+          studentId, kind: input.attempt === 1 ? 'practice_first' : 'practice_retry', subject: 'vocab_sense',
+          senseId: current.senseId, sessionItemId: current.id, sourceKey, isCorrect: result.isCorrect, hinted,
+          detail: { typed: input.typed, firstWrongIndex: result.firstWrongIndex, expectedLength: expected.length, result: { ...result } },
+          schoolDate: sgtDay(now).date, occurredAt: now,
+        }], skipDuplicates: true,
+      });
+      await tx.vocabularyV2SessionItem.update({ where: { id: current.id }, data: {
+        hintLevel: result.hintLevel,
+        response: { ...(current.response as Record<string, unknown> ?? {}), recall: { ...result, senseId: current.senseId } } as any,
+      } });
+      return result;
+    });
+  }
+
   async actOnLearningItem(studentId: string, sessionId: string, itemId: string, action: LearningCardAction, responseMs?: number, now = new Date()) {
     if (action === 'replace') throw new BadRequestException({ code: 'use_replace_endpoint' });
     const session = await this.prisma.vocabularyV2Session.findFirst({
@@ -2360,12 +2416,19 @@ export class VocabularyV2Service {
       const replacementRow = { sense: { ...sense, lexeme }, owned: null };
       const context = contextForEncounter(sense.contexts ?? [], 1, policy.contextDifficulty, lexeme.headword);
       const oldHeadword = item.sense.lexeme.headword;
-      const previousResponse = item.response && typeof item.response === 'object' && !Array.isArray(item.response)
-        ? item.response as Record<string, unknown>
-        : {};
       let outcome: 'replaced' | 'stale';
       try {
         outcome = await this.prisma.$transaction(async (tx) => {
+          // Another tab may have just practiced this slot. Preserve its request
+          // sequence under the row lock; the immutable first key belongs to the slot.
+          const locked = await tx.vocabularyV2SessionItem.updateMany({
+            where: { id: item.id, sessionId: session.id, status: 'pending', senseId: item.senseId },
+            data: { hintLevel: { increment: 0 } },
+          });
+          if (!locked.count) return 'stale' as const;
+          const current = await tx.vocabularyV2SessionItem.findUniqueOrThrow({ where: { id: item.id } });
+          const previousResponse = current.response && typeof current.response === 'object' && !Array.isArray(current.response)
+            ? current.response as Record<string, unknown> : {};
           const claim = await tx.vocabularyV2SessionItem.updateMany({
             where: { id: item.id, sessionId: session.id, status: 'pending', senseId: item.senseId },
             data: {
@@ -2378,7 +2441,7 @@ export class VocabularyV2Service {
               // 换词记录：VOC08 数「换了几个」、重试时认出「已经换过」都靠它
               response: {
                 ...previousResponse,
-                replacedFrom: [...replacementHistory(item.response), { senseId: item.senseId, headword: oldHeadword, at: new Date().toISOString() }],
+                replacedFrom: [...replacementHistory(current.response), { senseId: item.senseId, headword: oldHeadword, at: new Date().toISOString() }],
               } as any,
               isCorrect: null,
               attempts: 0,
@@ -3036,6 +3099,7 @@ export class VocabularyV2Service {
       processed: counts.processed,
       testNeeded: counts.learned > 0,
       learningPhase: counts.pending === 0 ? 'finished' : counts.processed === 0 ? 'not_started' : 'in_progress',
+      capabilities: { recallStep: recallStepEnabled() },
       sourceSummary: session.sourceSummary,
       settings: session.settingsSnapshot,
       deferredUntil: session.deferredUntil?.toISOString().slice(0, 10) ?? null,
@@ -3050,6 +3114,11 @@ export class VocabularyV2Service {
         // 学生翻这张卡时点的是「有点难 / 记住了 / 我会了」——「背一背」页
         // 据此把难词排到前面（2026-09-10）。
         action: (item.response as any)?.action ?? null,
+        recall: {
+          available: recallStepEnabled() && recallExpected(item.contentSnapshot) !== null,
+          started: (item.response as any)?.recall?.senseId === item.senseId,
+          state: recallState(item.response, item.senseId) ?? null,
+        },
         card: item.contentSnapshot,
       })),
     };

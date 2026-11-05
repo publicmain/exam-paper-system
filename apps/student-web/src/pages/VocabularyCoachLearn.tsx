@@ -29,6 +29,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { api, ApiError, type V2Card, type V2DailyReview, type V2LearningSession } from '../lib/api';
 import { ReportSentence } from '../components/vocab/ReportSentence';
+import { RecallSpelling } from '../components/vocab/RecallSpelling';
 import { handleAuthFailure } from '../lib/auth-store';
 import { readToken } from '../lib/identity';
 import { syncAchievementNotices } from '../lib/achievement-notices';
@@ -111,6 +112,7 @@ export default function VocabularyCoachLearnPage() {
   const [note, setNote] = useState<{ tone: 'neutral' | 'error' | 'success'; text: string } | null>(null);
   const startedAt = useRef(Date.now());
   const busyRef = useRef(false);
+  const [recallItem, setRecallItem] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     const token = readToken();
@@ -194,6 +196,7 @@ export default function VocabularyCoachLearnPage() {
     setNote(null);
     try {
       const next = await api.vocabV2LearnAction(token, { sessionId: session.id, itemId: item.id, action, responseMs: Date.now() - startedAt.current });
+      setRecallItem(null);
       // V5 counts completed daily batches, not individual cards.
       if (next.status === 'completed') void syncAchievementNotices();
       const word = item.card.headword;
@@ -250,6 +253,12 @@ export default function VocabularyCoachLearnPage() {
   };
 
   const nth = session.items.filter((it) => it.status !== 'pending').length + 1;
+  const canRecall = session.capabilities?.recallStep === true && item.recall?.available === true;
+  const recalling = canRecall && (recallItem === `${item.id}:${item.senseId}` || item.recall?.started === true);
+  const hasRecallSteps = session.capabilities?.recallStep === true;
+  const stepSize = (it: V2LearningSession['items'][number]) => hasRecallSteps && it.recall?.available && it.status !== 'skipped' && it.action !== 'mastered' ? 2 : 1;
+  const totalSteps = session.items.reduce((sum, it) => sum + stepSize(it), 0);
+  const doneSteps = session.items.filter((it) => it.status !== 'pending').reduce((sum, it) => sum + stepSize(it), 0) + (recalling ? 1 : 0);
   return (
     <FocusLayout
       testId="learn-page"
@@ -258,14 +267,14 @@ export default function VocabularyCoachLearnPage() {
           backLabel="今日"
           onBack={back}
           title={titleFor(session.date)}
-          meta={<span data-testid="learn-progress">{progressText(session)}</span>}
-          trailing={<span className="text-footnote tabular-nums text-ink-3" aria-label={`第 ${nth} 个，共 ${session.target} 个`}>{nth} / {session.target}</span>}
+          meta={<span data-testid="learn-progress">{progressText(session)}{hasRecallSteps ? ` · ${recalling ? '拼一拼' : '看词卡'}` : ''}</span>}
+          trailing={<span className="text-footnote tabular-nums text-ink-3" aria-label={hasRecallSteps ? `第 ${doneSteps + 1} 步，共 ${totalSteps} 步` : `第 ${nth} 个，共 ${session.target} 个`}>{hasRecallSteps ? `${doneSteps + 1} / ${totalSteps} 步` : `${nth} / ${session.target}`}</span>}
         />
       }
-      footer={
+      footer={recalling ? undefined :
         <div className="flex flex-col gap-2">
-          <Button block busy={busy === 'normal'} disabled={busy !== null} onClick={() => void act('normal')}>
-            学完这个词
+          <Button block busy={busy === 'normal'} disabled={busy !== null} onClick={() => canRecall ? setRecallItem(`${item.id}:${item.senseId}`) : void act('normal')}>
+            {canRecall ? '看完了，拼一拼' : '学完这个词'}
           </Button>
           <div className="grid grid-cols-2 gap-2">
             <Button block size="md" variant="neutral" busy={busy === 'replace'} disabled={busy !== null} onClick={() => void replace()}>
@@ -282,11 +291,11 @@ export default function VocabularyCoachLearnPage() {
         role="progressbar"
         aria-label="今天的新词进度"
         aria-valuemin={0}
-        aria-valuemax={session.target}
-        aria-valuenow={session.target - (session.pending ?? session.items.filter((it) => it.status === 'pending').length)}
+        aria-valuemax={hasRecallSteps ? totalSteps : session.target}
+        aria-valuenow={hasRecallSteps ? doneSteps : session.target - (session.pending ?? session.items.filter((it) => it.status === 'pending').length)}
         className="mb-4 h-1.5 overflow-hidden rounded-full bg-fill"
       >
-        <div className="h-full rounded-full bg-accent-fill transition-[width]" style={{ width: `${((nth - 1) / Math.max(1, session.target)) * 100}%` }} />
+        <div className="h-full rounded-full bg-accent-fill transition-[width]" style={{ width: `${(hasRecallSteps ? doneSteps / Math.max(1, totalSteps) : (nth - 1) / Math.max(1, session.target)) * 100}%` }} />
       </div>
       {note ? (
         <div className="mb-3" data-testid="learn-note">
@@ -295,7 +304,10 @@ export default function VocabularyCoachLearnPage() {
           </InlineStatus>
         </div>
       ) : null}
-      <WordCard card={item.card} itemId={item.id} source={SOURCE_LABEL[item.source] ?? null} accent={String(session.settings.audioAccent ?? 'en-GB')} />
+      {recalling ? <RecallSpelling key={`${item.id}:${item.senseId}`} sessionId={session.id} itemId={item.id} senseId={item.senseId}
+        card={item.card} initial={item.recall?.state ?? null} onComplete={() => act('normal')} onRefresh={load}
+        audio={<SpeakButton text={item.card.audioText || item.card.headword} accent={String(session.settings.audioAccent ?? 'en-GB')} label="听发音" />} />
+        : <WordCard card={item.card} itemId={item.id} source={SOURCE_LABEL[item.source] ?? null} accent={String(session.settings.audioAccent ?? 'en-GB')} />}
     </FocusLayout>
   );
 }
