@@ -2,6 +2,7 @@ import { ForbiddenException, Injectable } from '@nestjs/common';
 import { PrismaService } from '../common/prisma.service';
 import { isAdminOrHead } from '../common/roles';
 import { assignedReadingFor, type AssignedReading } from '../vocab-v2/level-timeline';
+import { formalAnswerOf } from '../vocab-v2/first-answer';
 import { isExcludedAccount, isExcludedClass, reportExclusions } from './report-exclusions';
 import {
   addDays,
@@ -149,7 +150,7 @@ export class LearningReportService {
           date: { gte: utcDate(weekStart), lte: utcDate(weekEnd) },
           sessionType: { in: ['daily_learning', 'formal_test'] },
         },
-        select: { studentId: true, date: true, sessionType: true, status: true, items: { select: { status: true, isCorrect: true } } },
+        select: { studentId: true, date: true, sessionType: true, status: true, items: { select: { status: true, isCorrect: true, firstIsCorrect: true, firstAnsweredAt: true } } },
       }),
     ]);
 
@@ -236,7 +237,7 @@ export class LearningReportService {
               }
             : null,
           test: test
-            ? { submitted: test.status === 'submitted', correct: test.items.filter((i) => i.isCorrect === true).length, items: test.items.length }
+            ? { submitted: test.status === 'submitted', correct: test.items.filter((i) => formalAnswerOf(i).isCorrect === true).length, items: test.items.length }
             : null,
         };
       });

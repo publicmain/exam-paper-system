@@ -22,6 +22,9 @@ export function availableScreens(card: LearningCardContent): LearningCardScreen[
 }
 
 export function initialStageForAction(action: LearningCardAction, currentStage: number): number {
+  // Compatibility only: card actions keep their queue/stage behavior in phase
+  // 1A. The service separately records mastered/replace as self_report; this
+  // stage alone must not be treated as independently demonstrated mastery.
   const stage = Math.max(1, Math.min(8, Math.floor(currentStage)));
   if (action === 'mastered') return 8;
   if (action === 'normal') return Math.max(stage, 2);

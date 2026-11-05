@@ -39,6 +39,17 @@ beforeEach(() => { vi.stubEnv('BADGES_SANDBOX', ''); vi.stubEnv('DEMO_ACCOUNT_ID
 afterEach(() => { vi.unstubAllEnvs(); vi.restoreAllMocks(); });
 
 describe('V5 frozen reading sources', () => {
+  it('徽章与认真学习门槛只看首答成绩和时间，后续订正不能补分或抹去原成绩', async () => {
+    for (const firstCorrect of [false, true, null]) {
+      const t = formal('t', 'd');
+      Object.assign(t.items[0], { firstAnsweredAt: at('2026-09-01', '02:19:00'), firstResponse: { value: 0 },
+        firstIsCorrect: firstCorrect, isCorrect: firstCorrect !== true, completedAt: at('2026-09-02') });
+      const facts = await load(db([], [daily('d'), t]));
+      expect(facts.tests).toHaveLength(firstCorrect === true ? 1 : 0);
+      expect(facts.learningBatches).toHaveLength(firstCorrect === true ? 1 : 0);
+      expect(facts.activeDays).toHaveLength(firstCorrect === true ? 1 : 0);
+    }
+  });
   it('exact-body reviewed topic fills missing metadata; conflict with a frozen verified topic fails closed', () => {
     const lookup = vi.spyOn(verifiedTopics, 'verifiedPrimaryTopicForArticleKey').mockReturnValue('nature');
     const result = frozenCollectionArticle({ passage: 'Reviewed article.', primaryTopicId: 'mutable-guess' });

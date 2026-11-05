@@ -5,6 +5,7 @@ import { sgtKey } from './badge-time';
 import { demoRules, isDemoAccount, isDemoClass } from '../product/demo-accounts';
 import { headwordKey } from '../vocab-v2/unified-vocabulary-rules';
 import { validFormalResponse } from './achievement-facts';
+import { formalAnswerOf } from '../vocab-v2/first-answer';
 import { verifiedPrimaryTopicForArticleKey } from './verified-article-topics';
 import { emptyCollectionV5Facts, type CollectionV5Event, type CollectionV5Facts } from './collection-v5-rules';
 
@@ -139,6 +140,7 @@ export async function loadCollectionV5Facts(prisma: FactsDb, studentId: string, 
       select: { id: true, sessionKey: true, date: true, createdAt: true, sessionType: true, status: true, mode: true,
         target: true, completedAt: true, settingsSnapshot: true, sourceSummary: true,
         items: { select: { id: true, senseId: true, source: true, status: true, completedAt: true, response: true,
+          firstResponse: true, firstIsCorrect: true, firstAnsweredAt: true,
           contentSnapshot: true, questionSnapshot: true, isCorrect: true } } },
     });
     for (const row of rows) {
@@ -166,16 +168,17 @@ export async function loadCollectionV5Facts(prisma: FactsDb, studentId: string, 
         const event = { key: row.sessionKey, sessionId: row.id, sourceDate: date, at: completedAt, itemIds: learned.map((item) => item.id) };
         dailies.set(row.id, { key: row.sessionKey, id: row.id, date, event, words: new Set(learned.map(wordOf)) });
       } else if (row.sessionType === 'formal_test') {
+        const formalItems = row.items.map((item) => ({ ...item, ...formalAnswerOf(item) }));
         const dailyId = object(row.settingsSnapshot).dailySessionId;
         if (!nonblank(dailyId)) continue;
         const completed = row.status === 'submitted' && completedAt != null && row.items.length > 0 && row.target === row.items.length &&
-          row.items.every((item) => item.status === 'answered' && validAt(item.completedAt, now) && item.completedAt <= completedAt && validFormalResponse(item.questionSnapshot, item.response));
-        const gradeValid = completed && row.items.every((item) => typeof item.isCorrect === 'boolean');
+          formalItems.every((item) => item.status === 'answered' && validAt(item.completedAt, now) && item.completedAt <= completedAt && validFormalResponse(item.questionSnapshot, item.response));
+        const gradeValid = completed && formalItems.every((item) => typeof item.isCorrect === 'boolean');
         // Read stored authoritative grading; never recalculate answers against
         // mutable dictionaries and never trust client-supplied percentages.
-        const qualified = gradeValid && row.items.filter((item) => item.isCorrect === true).length * 100 >= row.items.length * 80;
+        const qualified = gradeValid && formalItems.filter((item) => item.isCorrect === true).length * 100 >= row.items.length * 80;
         // 2026-09-24：学新词要算进度，当天正式词测第一次作答至少对一半（随手点完卡片、测试瞎蒙的不算）
-        const atLeastHalf = gradeValid && row.items.filter((item) => item.isCorrect === true).length * 2 >= row.items.length;
+        const atLeastHalf = gradeValid && formalItems.filter((item) => item.isCorrect === true).length * 2 >= row.items.length;
         const event = completed ? { key: dailyId, sessionId: row.id, sourceDate: date, at: completedAt!, itemIds: row.items.map((item) => item.id) } : null;
         const candidate: Candidate = { dailyId, id: row.id, createdAt: row.createdAt, date, completedAt, completed, gradeValid, qualified, atLeastHalf,
           words: new Set(row.items.filter((item) => item.source !== 'review').map(wordOf).filter(Boolean)), event };
