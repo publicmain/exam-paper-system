@@ -672,7 +672,9 @@ export default function TodayPage() {
       </ul>
 
       {ov.s === 'ready' && ov.data.extraPracticeEnabled === true && (
-        <Link to={ROUTES.extraPractice} className="mb-6 inline-flex min-h-12 items-center px-4 text-sm text-ink-2 underline" data-testid="home-extra-practice">加练（选做）</Link>
+        <Link to={ROUTES.extraPractice} data-testid="home-extra-practice" className="mb-3 flex min-h-[64px] items-center justify-between gap-3 rounded-group bg-surface px-4 py-3 no-underline focus-visible:outline focus-visible:outline-accent">
+          <span><span className="block text-headline text-ink">加练（选做）</span><span className="mt-1 block text-footnote text-ink-3">拼写打字、造句阶梯、跟读，不做也不影响今天的任务</span></span><span aria-hidden="true" className="text-title3 text-ink-3">›</span>
+        </Link>
       )}
 
       <Link to={ROUTES.printCenter} data-testid="home-print" className="mb-3 flex min-h-[64px] items-center justify-between gap-3 rounded-group bg-surface px-4 py-3 no-underline focus-visible:outline focus-visible:outline-accent">

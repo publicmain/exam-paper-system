@@ -14,6 +14,12 @@ describe('切句规则两份拷贝一致', () => {
     const norm = (p: string) => readFileSync(p, 'utf8').replace(/\r\n/g, '\n');
     expect(norm(here)).toBe(norm(api));
   });
+  it('apps/student-web/src/lib/recall-spelling.ts 与 apps/api/src/vocab-v2/recall-spelling.ts 逐字相同（加练拼写判定）', () => {
+    const here = resolve(__dirname, '..', 'lib', 'recall-spelling.ts');
+    const api = resolve(__dirname, '..', '..', '..', 'api', 'src', 'vocab-v2', 'recall-spelling.ts');
+    const norm = (p: string) => readFileSync(p, 'utf8').replace(/\r\n/g, '\n');
+    expect(norm(here)).toBe(norm(api));
+  });
   it('学生端源码不 import 学生端目录以外的文件', async () => {
     const { readdirSync, statSync } = await import('node:fs');
     const root = resolve(__dirname, '..');

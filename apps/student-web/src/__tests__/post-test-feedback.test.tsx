@@ -38,10 +38,11 @@ describe('阅读交卷后的原文定位与答案门', () => {
     reading([question(), question({ paperQuestionId: 'q2', snapshotContent: { passage: 'A different article.' } })]);
     expect(within(screen.getByTestId('item-q2')).queryByRole('button', { name: '答案在原文哪里' })).toBeNull();
   });
-  it.each([true, false])('答案未公布或主观待批均不泄露，客观题解析保持：answersPending=%s', (answersPending) => {
+  // 08-14 叶老师定：交卷即可见参考答案，主观题待批也照样给；只有服务端说 answersPending 才藏。
+  it.each([true, false])('答案门只听服务端：answersPending=%s', (answersPending) => {
     reading([question({ explanation: '客观题解析' }), question({ paperQuestionId: 'q2', questionType: 'short_answer', gradingStatus: 'pending_marking', awardedMarks: null,
       correctAnswer: 'SECRET', referenceAnswer: 'SECRET-REF', explanation: 'SECRET-EXPLANATION', evidence: 'SECRET-EVIDENCE' })], { answersPending, scoresPending: true });
-    expect(document.body.textContent).not.toContain('SECRET');
+    expect(document.body.textContent?.includes('SECRET')).toBe(!answersPending);
     expect(screen.queryByText('客观题解析') != null).toBe(!answersPending);
     expect(within(screen.getByTestId('item-q2')).queryByRole('button', { name: '答案在原文哪里' })).toBeNull();
   });

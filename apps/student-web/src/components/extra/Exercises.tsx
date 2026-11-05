@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { judgeRecall, normalizeRecallSpelling, type RecallResult } from '../../../../api/src/vocab-v2/recall-spelling';
+import { judgeRecall, normalizeRecallSpelling, type RecallResult } from '../../lib/recall-spelling';
 import { judgeBlocks, shuffledBlocks, type ExtraStep } from '../../lib/extra-practice';
 import { sayWord } from '../../lib/speak';
 import { useSentenceAudioPlayback } from '../../lesson/shared/SentenceAudio';

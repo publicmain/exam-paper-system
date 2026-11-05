@@ -19,7 +19,7 @@
  * Retains the correct-character advance / wrong-character stay transition.
  * Omits keystroke statistics, timers and error-word trails. State is memory-only.
  */
-import { normalizeRecallSpelling } from '../../../../api/src/vocab-v2/recall-spelling';
+import { normalizeRecallSpelling } from '../../lib/recall-spelling';
 export interface TypingState { expected: string; position: number; wrong: boolean; hadError: boolean }
 export function initialTyping(text: string): TypingState {
   return { expected: normalizeRecallSpelling(text), position: 0, wrong: false, hadError: false };

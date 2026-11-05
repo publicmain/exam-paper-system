@@ -195,9 +195,10 @@ const ANSWER_ROW_LABEL: Record<'correct' | 'reference' | 'rubric', string> = {
   rubric: '评分要点',
 };
 
-function answersHidden(item: ReadingResultItem, scoresPending: boolean, answersPending: boolean): boolean {
-  return answersPending || (item.questionType !== 'mcq' &&
-    (item.gradingStatus === 'pending_marking' || (!item.gradingStatus && scoresPending)));
+/** 答案藏不藏只听服务端的 `answersPending`（08-14 叶老师定：交卷即可见参考答案，
+ * 主观题待批也照样给）。前端不另加条件 —— 2026-11-06 改回，2D 曾在这里加了「待批就藏」。 */
+function answersHidden(_item: ReadingResultItem, _scoresPending: boolean, answersPending: boolean): boolean {
+  return answersPending;
 }
 
 /**

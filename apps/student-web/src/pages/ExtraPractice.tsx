@@ -94,7 +94,7 @@ export default function ExtraPracticePage() {
               <SpellingExercise step={step} look={round.drill === 'type' && look} onAttempt={record} onNext={next} />}
         </section>
       </> : null}
-      {pending > 0 && <div role="status" className="space-y-2 text-sm text-ink-2"><p>还有 {pending} 条没传好，联网后会补上</p>
+      {pending > 0 && <div role="status" className="space-y-2 text-sm text-ink-2"><p>还有 {pending} 条练习记录没上传，联网后会自动补上</p>
         <button type="button" className={secondary} onClick={() => { void syncExtraFor(owner).catch(() => {}); }}>重试上传</button></div>}
     </div>
   </Page>;

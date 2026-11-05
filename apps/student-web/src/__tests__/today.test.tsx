@@ -125,7 +125,7 @@ describe('optional extra practice', () => {
     session(lesson(), undefined, ov); renderAt('/today'); await settled();
     const before = screen.getByTestId('lesson-progress').textContent;
     expect(screen.getByRole('list', { name: '今天的三项任务' }).children).toHaveLength(3);
-    await userEvent.click(screen.getByRole('link', { name: '加练（选做）' }));
+    await userEvent.click(screen.getByRole('link', { name: /加练（选做）/ }));
     expect(await screen.findByTestId('extra-practice-page')).toBeInTheDocument();
     await userEvent.click(screen.getByRole('link', { name: '回到今天' })); await settled();
     expect(screen.getByTestId('lesson-progress').textContent).toBe(before);

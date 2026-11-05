@@ -349,8 +349,6 @@ describe('G1 新端不得出现旧路由与旧身份键', () => {
     for (const { f, text } of readAll()) {
       for (const m of text.matchAll(/from\s+['"]([^'"]+)['"]/g)) {
         const spec = m[1];
-        // 3A/3B: only these two dependency-free API helpers can cross the boundary.
-        if (spec.endsWith('/api/src/audio/sentences') || spec.endsWith('/api/src/vocab-v2/recall-spelling')) continue;
         if (/apps\/web|components\/exam|\.\.\/\.\.\/\.\.\//.test(spec)) {
           hits.push(`${path.relative(SRC, f)} → ${spec}`);
         }
