@@ -217,7 +217,21 @@ export type V2Card = {
   attribution: string;
 };
 
+export type V2RecallResult = {
+  enabled: true;
+  attempt: number;
+  wrongAttempts: number;
+  isCorrect: boolean;
+  firstWrongIndex: number | null;
+  expectedLength: number;
+  hintLevel: number;
+  nextPrefix: string;
+  answerRevealed: boolean;
+  correctSpelling: string | null;
+};
+
 export type V2LearningSession = {
+  capabilities?: { recallStep: boolean };
   id: string;
   version: string;
   date: string;
@@ -253,6 +267,7 @@ export type V2LearningSession = {
     action: string | null;
     /** 这张卡的词义 id —— 换词时回传，服务端据此确认「换的就是屏幕上这张」（VOC02 / UI02）。 */
     senseId?: string;
+    recall?: { available: boolean; started: boolean; state: V2RecallResult | null };
     card: V2Card;
   }>;
 };
@@ -691,6 +706,8 @@ export const api = {
   vocabV2StartDaily: (token: string, date?: string) => request<V2LearningSession>('POST', '/vocab-v2/daily/start', { token, body: date ? { date } : {} }),
   vocabV2LearnAction: (token: string, body: { sessionId: string; itemId: string; action: 'mastered' | 'normal' | 'hard' | 'skip'; responseMs?: number }) =>
     request<V2LearningSession>('POST', '/vocab-v2/daily/item', { token, body }),
+  vocabV2Recall: (token: string, body: { sessionId: string; itemId: string; expectedSenseId?: string; typed: string; hintLevel: number; attempt: number }) =>
+    request<V2RecallResult | { enabled: false }>('POST', '/vocab-v2/daily/recall', { token, body }),
   vocabV2DailyReview: (token: string, date?: string) =>
     request<V2DailyReview | null>('GET', date ? '/vocab-v2/daily/review?date=' + encodeURIComponent(date) : '/vocab-v2/daily/review', { token }),
   vocabV2DailyHistory: (token: string, limit = 30) =>

@@ -270,6 +270,23 @@ export class VocabularyV2Controller {
 
   @Public()
   @RequireStudentToken()
+  @RateLimit({ limit: 120, windowSec: 60, scope: 'user' })
+  @Post('daily/recall')
+  recall(@Req() req: Request, @Body() body: unknown) {
+    const parsed = z.object({
+      sessionId: z.string().min(1).max(80),
+      itemId: z.string().min(1).max(80),
+      expectedSenseId: z.string().min(1).max(80).optional(),
+      typed: z.string().max(1000),
+      hintLevel: z.number().int().min(0).max(120),
+      attempt: z.number().int().min(1).max(10000),
+    }).strict().safeParse(body);
+    if (!parsed.success) throw new BadRequestException(parsed.error.flatten());
+    return this.service.submitRecall(studentIdOf(req), parsed.data);
+  }
+
+  @Public()
+  @RequireStudentToken()
   @RateLimit({ limit: 30, windowSec: 60, scope: 'user' })
   @Post('test/start')
   startTest(@Req() req: Request, @Body() body: unknown) {
