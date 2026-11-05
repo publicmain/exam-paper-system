@@ -2892,3 +2892,41 @@ model ClassNoSchoolDay {
   @@unique([classId, date])
   @@index([date])
 }
+
+/// 早读默写回填（2026-11-05 完整化第 2 期）：某班某天的一次纸笔默写。
+/// 清单在生成时冻结（每个学生默写的是自己那天实际学完的词），之后词库改动不影响。
+model DictationSheet {
+  id          String   @id @default(cuid())
+  classId     String
+  /// 默写的是哪一天学的词（新加坡日期）
+  learnedDate DateTime @db.Date
+  /// 默写在哪一天进行（通常是 learnedDate 的下一个教学日）
+  heldOn      DateTime @db.Date
+  createdById String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  rows DictationSheetRow[]
+
+  @@unique([classId, learnedDate])
+  @@index([heldOn])
+}
+
+/// 一个学生在一张默写单上的一行。senseIds 为冻结清单；status：pending（未录入=未知）| entered | absent。
+model DictationSheetRow {
+  id          String         @id @default(cuid())
+  sheetId     String
+  sheet       DictationSheet @relation(fields: [sheetId], references: [id], onDelete: Cascade)
+  studentId   String
+  senseIds    Json
+  status      String         @default("pending")
+  /// 录入时勾的错词（senseId 列表）；entered 且不在列表里的词 = 默写正确
+  wrongSenseIds Json?
+  enteredById String?
+  enteredAt   DateTime?
+  createdAt   DateTime       @default(now())
+  updatedAt   DateTime       @updatedAt
+
+  @@unique([sheetId, studentId])
+  @@index([studentId])
+}
