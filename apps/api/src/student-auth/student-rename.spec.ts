@@ -32,10 +32,10 @@ function world(opts: { user?: any; enrollments?: any[]; classmates?: any[]; emai
 describe('改学生登录名', () => {
   it('**姓名、昵称（原来等于旧名）、注册邮箱一起改**；条件更新按旧名；同一事务写审计', async () => {
     const { tx } = world();
-    const r = await renameStudentAccount(tx, { studentId: 'stu-1', newName: '  喻耀程 ', actor: ACTOR, source: 'student_self' });
+    const r = await renameStudentAccount(tx, { studentId: 'stu-1', newName: '  周子航 ', actor: ACTOR, source: 'student_self' });
     expect(tx.user.updateMany).toHaveBeenCalledWith({
       where: { id: 'stu-1', name: '第一每亩' },
-      data: { name: '喻耀程', nickname: '喻耀程', email: selfRegisterEmail('c1', normalizeName('喻耀程')) },
+      data: { name: '周子航', nickname: '周子航', email: selfRegisterEmail('c1', normalizeName('周子航')) },
     });
     expect(tx.auditLog.create).toHaveBeenCalledWith({
       data: expect.objectContaining({
@@ -43,11 +43,11 @@ describe('改学生登录名', () => {
         actorRole: 'student',
         action: 'student.rename',
         entityId: 'stu-1',
-        diff: { name: ['第一每亩', '喻耀程'], nickname: ['第一每亩', '喻耀程'], selfRegEmailRederived: true },
+        diff: { name: ['第一每亩', '周子航'], nickname: ['第一每亩', '周子航'], selfRegEmailRederived: true },
         metadata: { source: 'student_self' },
       }),
     });
-    expect(r).toMatchObject({ name: '喻耀程', nickname: '喻耀程', previousName: '第一每亩', studentAuthVersion: 3 });
+    expect(r).toMatchObject({ name: '周子航', nickname: '周子航', previousName: '第一每亩', studentAuthVersion: 3 });
   });
 
   it('学生自己另起的昵称不动；不是自助注册算出来的邮箱不动', async () => {
@@ -57,15 +57,15 @@ describe('改学生登录名', () => {
   });
 
   it('**同一个在读班里已经有人叫这个名字（忽略大小写和多余空格）→ 409，一个字都不改**', async () => {
-    const { tx } = world({ classmates: [{ name: 'Yu  Yaocheng' }] });
-    await expect(renameStudentAccount(tx, { studentId: 'stu-1', newName: 'yu yaocheng', actor: ACTOR, source: 'student_self' })).rejects.toMatchObject({ status: 409, response: { code: 'name_taken_in_class' } });
+    const { tx } = world({ classmates: [{ name: 'Zhou  Zihang' }] });
+    await expect(renameStudentAccount(tx, { studentId: 'stu-1', newName: 'zhou zihang', actor: ACTOR, source: 'student_self' })).rejects.toMatchObject({ status: 409, response: { code: 'name_taken_in_class' } });
     expect(tx.user.updateMany).not.toHaveBeenCalled();
     expect(tx.auditLog.create).not.toHaveBeenCalled();
   });
 
   it('同名只查**在读**的班；归档班里的同名不拦', async () => {
     const { tx } = world({ enrollments: [{ classId: 'old', class: { archivedAt: new Date() } }] });
-    await renameStudentAccount(tx, { studentId: 'stu-1', newName: '喻耀程', actor: ACTOR, source: 'student_self' });
+    await renameStudentAccount(tx, { studentId: 'stu-1', newName: '周子航', actor: ACTOR, source: 'student_self' });
     expect(tx.user.findMany).not.toHaveBeenCalled();
     expect(tx.user.updateMany).toHaveBeenCalled();
   });
@@ -83,12 +83,12 @@ describe('改学生登录名', () => {
     await expect(renameStudentAccount(world().tx, { studentId: 'stu-1', newName: '第一每亩', actor: ACTOR, source: 'student_self' })).rejects.toMatchObject({ status: 400, response: { code: 'name_unchanged' } });
     const teacher = world({ user: { id: 't1', role: 'teacher', name: 'T', nickname: null, email: 't@x', avatar: null, studentAuthVersion: 0 } });
     await expect(renameStudentAccount(teacher.tx, { studentId: 't1', newName: '新名字', actor: ACTOR, source: 'teacher_roster' })).rejects.toMatchObject({ status: 404 });
-    await expect(renameStudentAccount(world({ emailTaken: true }).tx, { studentId: 'stu-1', newName: '喻耀程', actor: ACTOR, source: 'student_self' })).rejects.toMatchObject({ status: 409 });
+    await expect(renameStudentAccount(world({ emailTaken: true }).tx, { studentId: 'stu-1', newName: '周子航', actor: ACTOR, source: 'student_self' })).rejects.toMatchObject({ status: 409 });
   });
 
   it('**两处同时改（条件更新没命中）→ 409 rename_conflict，不写审计**', async () => {
     const { tx } = world({ updated: 0 });
-    await expect(renameStudentAccount(tx, { studentId: 'stu-1', newName: '喻耀程', actor: ACTOR, source: 'student_self' })).rejects.toMatchObject({ status: 409, response: { code: 'rename_conflict' } });
+    await expect(renameStudentAccount(tx, { studentId: 'stu-1', newName: '周子航', actor: ACTOR, source: 'student_self' })).rejects.toMatchObject({ status: 409, response: { code: 'rename_conflict' } });
     expect(tx.auditLog.create).not.toHaveBeenCalled();
   });
 });

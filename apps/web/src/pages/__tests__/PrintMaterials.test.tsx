@@ -46,7 +46,7 @@ function day(withAnswers: boolean): ClassDayPrint {
     ],
     students: [
       { name: '小呆呆', level: 'olevel', levelLabel: 'O-Level 标准', words: [{ headword: 'beauty', phonetic: null, pos: 'noun', translation: 'n. 美', sentence: null }] },
-      { name: '曹展嘉', level: 'olevel', levelLabel: 'O-Level 标准', words: [{ headword: 'install', phonetic: null, pos: 'verb', translation: 'vt. 安装', sentence: null }] },
+      { name: '赵小明', level: 'olevel', levelLabel: 'O-Level 标准', words: [{ headword: 'install', phonetic: null, pos: 'verb', translation: 'vt. 安装', sentence: null }] },
       { name: '新同学', level: null, levelLabel: null, words: [] },
     ],
   };

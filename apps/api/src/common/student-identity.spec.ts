@@ -44,7 +44,7 @@ describe('identityConflicts — 拿自己的 token 操作别人必须被拦', ()
     expect(identityConflicts(me, { name: '  张三  ' })).toBe(false);
   });
   it('同名不同人靠 studentId 区分 —— 姓名相同但 id 不同仍是冲突', () => {
-    expect(identityConflicts({ id: 'stu-1', name: '孙爱迪' }, { name: '孙爱迪', studentId: 'stu-9' })).toBe(true);
+    expect(identityConflicts({ id: 'stu-1', name: '吴佳宁' }, { name: '吴佳宁', studentId: 'stu-9' })).toBe(true);
   });
   it('不做模糊匹配 —— 差一个字也是冲突', () => {
     expect(identityConflicts(me, { name: '张三丰' })).toBe(true);

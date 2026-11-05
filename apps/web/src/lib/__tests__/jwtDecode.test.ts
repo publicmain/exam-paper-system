@@ -53,7 +53,7 @@ describe('handoff token 的姓名解码', () => {
     const token = makeToken({
       id: 'u2',
       email: 'c@d.local',
-      name: 'HEIN HTET NAING',
+      name: 'ALEX JOHN TAN',
       role: 'student',
       scope: 'mq_handoff',
       exp: Math.floor(Date.now() / 1000) + 3600,
@@ -61,7 +61,7 @@ describe('handoff token 的姓名解码', () => {
     window.history.replaceState({}, '', `/morning-quiz/sess1#h=${token}`);
     const { useAuth } = await loadAuth();
     await useAuth.getState().init();
-    expect(useAuth.getState().user?.name).toBe('HEIN HTET NAING');
+    expect(useAuth.getState().user?.name).toBe('ALEX JOHN TAN');
   });
 
   it('过期的 handoff token 被丢弃，不留下半个登录态', async () => {

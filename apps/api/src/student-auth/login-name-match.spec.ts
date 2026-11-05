@@ -89,7 +89,7 @@ describe('登录的姓名比对 = 注册时那一套', () => {
     ['全小写登录全大写注册', 'SAMMY', 'sammy'],
     ['首尾空格', 'Jason', '  Jason  '],
     ['中间连续空格', 'Zhou Zixin', 'Zhou   Zixin'],
-    ['中文原样', '郑稀瑜', '郑稀瑜'],
+    ['中文原样', '王子稀', '王子稀'],
   ])('%s：照样能登进去', async (_label, stored, typed) => {
     const { svc } = makeDb([student({ id: 'a', name: stored })]);
     const r = await login(svc, typed);
@@ -98,8 +98,8 @@ describe('登录的姓名比对 = 注册时那一套', () => {
   });
 
   it('归一之后仍然不同的名字（同音不同字）进不来', async () => {
-    const { svc } = makeDb([student({ id: 'a', name: '郑稀瑜' })]);
-    const r = await login(svc, '郑希瑜');
+    const { svc } = makeDb([student({ id: 'a', name: '王子稀' })]);
+    const r = await login(svc, '王子希');
     expect(r).toEqual({ ok: false, code: 'invalid_credentials' });
   });
 
@@ -135,6 +135,6 @@ describe('登录的姓名比对 = 注册时那一套', () => {
   it('normalizeName 本身：登录与注册用的是同一个函数', () => {
     expect(normalizeName('  Austin ')).toBe('austin');
     expect(normalizeName('Zhou   Zixin')).toBe('zhou zixin');
-    expect(normalizeName('郑稀瑜')).not.toBe(normalizeName('郑希瑜'));
+    expect(normalizeName('王子稀')).not.toBe(normalizeName('王子希'));
   });
 });

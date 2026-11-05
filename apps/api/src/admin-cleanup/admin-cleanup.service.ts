@@ -1008,7 +1008,7 @@ export class AdminCleanupService {
     // answer "is the same option as" a displayed key, so the UI shows
     // "我的答案 ✓ 正确" even for 'c' vs 'C' or 'C ' vs 'C'. The auto-grader's
     // strict `===` rejected those, producing the visible inconsistency we saw
-    // with 李淳's Q10–Q13. Normalise both sides here so the grader is at
+    // with student A's Q10–Q13. Normalise both sides here so the grader is at
     // least as forgiving as the UI's comparison.
     const norm = (s: string | null | undefined): string =>
       s == null ? '' : String(s).trim().toLowerCase();
