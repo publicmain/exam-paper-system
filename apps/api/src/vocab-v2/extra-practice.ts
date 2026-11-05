@@ -34,11 +34,18 @@ export function buildExtraWord(sense: ExtraSense, drill: 'type' | 'ladder'): Ext
     const seen = short.find(c => c.id === sense.items[0].contextId);
     const sentence = seen ?? contextForEncounter(short, 1, 5, headword);
     const collocations = Array.isArray(sense.collocations) ? sense.collocations.filter((s): s is string => typeof s === 'string') : [];
-    const phrase = keepSchoolSafeTexts(collocationsBackedByApproved(collocations, safe)).find(p => maskExtraWord(p, headword) !== null);
+    const phrase = keepSchoolSafeTexts(collocationsBackedByApproved(collocations, safe)).find(p => maskExtraWord(p, headword) !== null && phraseHasCue(p, headword));
     if (phrase) steps.push({ step: 2, prompt: maskExtraWord(phrase, headword)!, answer: headword, translation: sense.translation });
     if (sentence) steps.push({ step: 3, prompt: sentence.translation, answer: sentence.sentence, translation: sentence.translation });
   }
   return { senseId: sense.id, headword, translation: sense.translation, steps };
+}
+
+/** 挖空后至少还要剩一个实词当线索：「to ____」「the ____」这种只剩虚词的短语等于没提示，不出（2026-11-06 本机实测 illustrate）。 */
+const FUNCTION_WORDS = new Set(['a', 'an', 'the', 'to', 'of', 'in', 'on', 'at', 'for', 'with', 'by', 'from', 'and', 'or', 'be', 'is', 'are', 'was', 'were', 'it', 'its', 'as', 'up', 'out', 'off', 'so', 'not', 'no']);
+export function phraseHasCue(phrase: string, word: string): boolean {
+  const target = word.toLowerCase();
+  return phrase.toLowerCase().split(/[^a-z']+/).some(w => w.length > 1 && w !== target && !FUNCTION_WORDS.has(w));
 }
 
 export function maskExtraWord(phrase: string, word: string): string | null {

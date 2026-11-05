@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { ExtraPracticeService, buildExtraWord } from './extra-practice';
+import { ExtraPracticeService, buildExtraWord, phraseHasCue } from './extra-practice';
 import { ExtraPracticeController } from './extra-practice.controller';
 import { VocabularyMemoryService } from './vocabulary-memory.service';
 import { sentenceHash } from '../audio/sentence-audio';
@@ -111,5 +111,14 @@ describe('extra practice', () => {
     expect(() => controller.result({ studentAuth: { id: 's' } } as any, {})).toThrow();
     await expect(service.round('student', 'type')).rejects.toMatchObject({ status: 404 });
     expect(db.studentVocabularySense.findMany).not.toHaveBeenCalled();
+  });
+});
+
+describe('造句阶梯第 2 步：短语挖空后要留线索', () => {
+  it('只剩虚词的短语不出，带实词的照出', () => {
+    expect(phraseHasCue('to illustrate', 'illustrate')).toBe(false);
+    expect(phraseHasCue('the salary', 'salary')).toBe(false);
+    expect(phraseHasCue('monthly salary', 'salary')).toBe(true);
+    expect(phraseHasCue('seemed to imply', 'imply')).toBe(true);
   });
 });

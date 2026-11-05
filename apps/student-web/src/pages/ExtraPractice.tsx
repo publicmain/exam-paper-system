@@ -1,11 +1,11 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import { api, ApiError } from '../lib/api';
 import { getState, handleAuthFailure } from '../lib/auth-store';
 import { readToken } from '../lib/identity';
 import { timeBucket, type ExtraDrill, type ExtraRound } from '../lib/extra-practice';
 import { ROUTES } from '../routes.contract';
-import { Page } from '../design/Page';
+import { BackButton, Page } from '../design/Page';
 import { SentenceAudioProvider } from '../lesson/shared/SentenceAudio';
 import { BlocksExercise, ShadowExercise, SpellingExercise, primary, secondary } from '../components/extra/Exercises';
 import { pendingExtraResults, queueExtraResult } from '../components/extra/result-queue';
@@ -13,6 +13,7 @@ import { syncExtraFor } from '../components/extra/ExtraPracticeSync';
 
 const labels: Record<ExtraDrill, string> = { type: '拼写打字', ladder: '造句阶梯', shadow: '跟读' };
 export default function ExtraPracticePage() {
+  const navigate = useNavigate();
   const [round, setRound] = useState<ExtraRound | null>(null);
   const [look, setLook] = useState(true);
   const [loading, setLoading] = useState(false);
@@ -69,9 +70,8 @@ export default function ExtraPracticePage() {
   useEffect(() => { nextLock.current = false; }, [index, stepIndex]);
   const complete = round && round.items.length > 0 && index >= round.items.length;
   const once = round?.items.filter((i, at) => i.steps.every(s => firstCorrect.current[`${at}:${s.step}`])).length ?? 0;
-  return <Page title={<span className="text-2xl font-semibold">加练（选做）</span>} leading={<Link to={ROUTES.today} className="inline-flex min-h-12 items-center text-base text-accent underline">回到今天</Link>}>
-    <div className="mx-auto max-w-prose space-y-6 pb-8 text-ink" data-testid="extra-practice-page">
-      <p className="text-sm text-ink-2">加练不影响今天的必做任务</p>
+  return <Page title="加练（选做）" subtitle="加练不影响今天的必做任务" leading={<BackButton label="今日" onClick={() => navigate(ROUTES.today)} />}>
+    <div className="max-w-prose space-y-6 pb-8 text-ink" data-testid="extra-practice-page">
       {closed ? <p role="status" className="text-base text-ink-2">加练暂时没开放</p> : !round || complete ? <>
         {complete && <div role="status" className="space-y-2 rounded-group bg-surface p-6"><h2 className="text-xl font-semibold">这一轮练完了</h2>
           <p className="text-base">{round.drill === 'shadow' ? `练了 ${round.items.length} 句` : `练了 ${round.items.length} 个，一次就对 ${once} 个`}</p></div>}

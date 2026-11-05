@@ -127,7 +127,7 @@ describe('optional extra practice', () => {
     expect(screen.getByRole('list', { name: '今天的三项任务' }).children).toHaveLength(3);
     await userEvent.click(screen.getByRole('link', { name: /加练（选做）/ }));
     expect(await screen.findByTestId('extra-practice-page')).toBeInTheDocument();
-    await userEvent.click(screen.getByRole('link', { name: '回到今天' })); await settled();
+    await userEvent.click(screen.getByTestId('top-back')); await settled();
     expect(screen.getByTestId('lesson-progress').textContent).toBe(before);
     expect(fetchMock.mock.calls.filter(c => c[1]?.method === 'POST' && /^\/(lesson\/(start|vocab)|vocab-v2\/(daily|test|extra))/.test(route(c[0])))).toHaveLength(0);
   });
