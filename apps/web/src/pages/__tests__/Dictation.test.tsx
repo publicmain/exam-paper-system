@@ -42,7 +42,7 @@ describe('早读默写回填', () => {
   it('弱网重试保留勾选并复用同一编号；成功后的新改录使用新编号', async () => {
     vi.mocked(api.saveDictation).mockRejectedValueOnce(new Error('network')).mockResolvedValue(data());
     open(); fireEvent.click(await screen.findByLabelText('receive')); fireEvent.click(screen.getByRole('button', { name: '保存（错 1 词）' }));
-    expect(await screen.findByRole('alert')).toHaveTextContent('没能确认保存结果');
+    expect(await screen.findByRole('alert')).toHaveTextContent('没确认保存成功，已勾的不会丢，请再点一次保存。');
     expect(screen.getByLabelText('receive')).toBeChecked();
     const first = vi.mocked(api.saveDictation).mock.calls[0][3].requestId;
     fireEvent.click(screen.getByRole('button', { name: '保存（错 1 词）' }));

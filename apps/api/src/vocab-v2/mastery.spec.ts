@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { dateOnly } from '../common/school-calendar';
-import { vocabularyMastered, unresolvedVocabularyMistake, VocabularyMasteryService, type MemoryEvidence } from './mastery';
+import { orderedEvidence, vocabularyMastered, unresolvedVocabularyMistake, VocabularyMasteryService, type MemoryEvidence } from './mastery';
 import { makeService, newDb, seedOfficialWords, seedStudent } from './testing/vocab-fixtures';
 
 const proof = (day: string, overrides: Partial<MemoryEvidence> = {}): MemoryEvidence => ({
@@ -41,6 +41,37 @@ describe('独立掌握的统一定义', () => {
     expect(unresolvedVocabularyMistake(rows)).toBe('2026-11-02');
     rows.push(proof('2026-11-04', { kind: 'mistake_redo' }));
     expect(unresolvedVocabularyMistake(rows)).toBeNull();
+  });
+  it('默写改录只保留同学生、同一行、同一词的最新结果参与计算；读取顺序和重复记录不影响结果', () => {
+    const old = proof('2026-11-02', { kind: 'paper_dictation', studentId: 'one', senseId: 'word',
+      isCorrect: false, detail: { rowId: 'row' } });
+    const latest = { ...old, sourceKey: 'amend', isCorrect: true, occurredAt: new Date('2026-11-02T05:00:00Z') };
+    const independent = [
+      { ...old, sourceKey: 'other-student', studentId: 'two' },
+      { ...old, sourceKey: 'other-word', senseId: 'second-word' },
+      { ...old, sourceKey: 'other-sheet', detail: { rowId: 'second-row' } },
+      { ...old, sourceKey: 'formal', kind: 'formal_first' },
+    ];
+    const rows = [old, latest, ...independent];
+    const keys = (records: MemoryEvidence[]) => orderedEvidence(records).map((e) => e.sourceKey).sort();
+    expect(keys(rows)).toEqual(keys([latest, ...independent]));
+    expect(keys([...rows].reverse().concat(old))).toEqual(keys(rows));
+    expect(unresolvedVocabularyMistake([old, latest])).toBeNull();
+    expect(unresolvedVocabularyMistake([old, latest, independent[3]])).toBe('2026-11-02');
+  });
+  it('改为缺考先撤回旧默写成绩，再判断掌握；历史不计成多次成功或未消错误', () => {
+    const first = proof('2026-11-02');
+    const mark = proof('2026-11-05', { kind: 'paper_dictation', studentId: 'one', senseId: 'word', detail: { rowId: 'row' } });
+    const absent = { ...mark, sourceKey: 'absent', isCorrect: null, occurredAt: new Date('2026-11-05T05:00:00Z') };
+    expect(vocabularyMastered([first, mark])).toBe(true);
+    expect(vocabularyMastered([first, mark, absent])).toBe(false);
+    expect(unresolvedVocabularyMistake([{ ...mark, isCorrect: false }, absent])).toBeNull();
+  });
+  it('无行号的独立默写仍逐条计入，不与改录混淆', () => {
+    const first = proof('2026-11-02', { kind: 'paper_dictation' });
+    const second = proof('2026-11-05', { kind: 'paper_dictation' });
+    expect(orderedEvidence([second, first])).toEqual([first, second]);
+    expect(vocabularyMastered([first, second])).toBe(true);
   });
 });
 

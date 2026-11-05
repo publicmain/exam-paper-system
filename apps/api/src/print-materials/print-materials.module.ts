@@ -4,8 +4,10 @@ import { PrintMaterialsStudentController, PrintMaterialsTeacherController } from
 import { PrintMaterialsService } from './print-materials.service';
 import { DictationService } from './dictation.service';
 import { DictationController } from './dictation.controller';
+import { VocabularyV2Module } from '../vocab-v2/vocabulary-v2.module';
 
 @Module({
+  imports: [VocabularyV2Module],
   controllers: [PrintMaterialsStudentController, PrintMaterialsTeacherController, DictationController],
   providers: [PrintMaterialsService, DictationService, PrismaService],
 })

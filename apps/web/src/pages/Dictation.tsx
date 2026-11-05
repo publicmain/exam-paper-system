@@ -68,7 +68,7 @@ export default function DictationPage() {
       choose(next.sheet?.rows.find((r) => r.status === 'pending' && r.words.length && r.studentId !== selected)
         ?? next.sheet?.rows.find((r) => r.studentId === selected));
       setNotice('已保存。');
-    } catch { setError('没能确认保存结果，请保持选择后重试。'); }
+    } catch { setError('没确认保存成功，已勾的不会丢，请再点一次保存。'); }
     finally { saving.current = false; setBusy(false); }
   }
 

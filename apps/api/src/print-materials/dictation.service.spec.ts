@@ -5,6 +5,7 @@ import { DictationController, EntrySchema } from './dictation.controller';
 import { AuditService } from '../audit/audit.service';
 import { memoryPrisma } from '../vocab-v2/testing/memory-prisma';
 import { dateOnly } from '../common/school-calendar';
+import { VocabularyMemoryService } from '../vocab-v2/vocabulary-memory.service';
 
 const teacher = { id: 'teacher', role: 'teacher' };
 const entry = (requestId = 'request_0001', wrongSenseIds: string[] = []) => ({ requestId, status: 'entered' as const, wrongSenseIds });
@@ -24,7 +25,7 @@ function fixture() {
     // Completed but not printable must not enter the frozen list.
     db.seed('vocabularyV2SessionItem', { id: `${id}_invalid`, sessionId: `daily_${id}`, senseId: 'invalid', position: 8, status: 'completed', contentSnapshot: {} });
   }
-  const svc = new DictationService(db as any, new AuditService(db as any));
+  const svc = new DictationService(db as any, new AuditService(db as any), new VocabularyMemoryService(db as any));
   const generate = () => svc.generate(teacher, 'class', '2026-11-04', '2026-11-05');
   return { db, svc, generate };
 }
@@ -88,6 +89,7 @@ describe('纸笔默写冻结与回填（内存事务，不连库）', () => {
     expect(versions).toHaveLength(2);
     expect(versions[1] > versions[0]).toBe(true);
     expect(db.rows('dictationSheetRow', { studentId: 'one' })[0].enteredAt.toISOString()).toBe(versions[1]);
+    expect(db.rows('studentVocabularySense', { studentId: 'one' }).map((row) => row.reps)).toEqual([1, 1]);
   });
   it('一键仅处理尚未录入且有词的学生，保留错词/缺考，批量重试不写新记录', async () => {
     const { db, svc, generate } = fixture(); const sheet = (await generate()).sheet!;
@@ -97,6 +99,8 @@ describe('纸笔默写冻结与回填（内存事务，不连库）', () => {
     expect(db.rows('dictationSheetRow', { studentId: 'one' })[0].status).toBe('absent');
     expect(db.rows('dictationSheetRow', { studentId: 'two' })[0].status).toBe('entered');
     expect(db.rows('dictationSheetRow', { studentId: 'empty' })[0].status).toBe('pending');
+    expect(db.rows('studentVocabularySense', { studentId: 'one' })).toEqual([]);
+    expect(db.rows('studentVocabularySense', { studentId: 'two' }).map((row) => row.reps)).toEqual([1, 1]);
   });
   it('并发批量与个人改录不会丢失错词', async () => {
     const { db, svc, generate } = fixture(); const sheet = (await generate()).sheet!;

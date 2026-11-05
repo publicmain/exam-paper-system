@@ -28,19 +28,26 @@ export class VocabularyMemoryService {
     await lockVocabularyStudent(tx, evidence.studentId);
     const inserted = await tx.learningEvidence.createMany({ data: [evidence], skipDuplicates: true });
     const rating = evidenceRating(evidence);
-    if (!inserted.count || !rating || !evidence.senseId) return { inserted: inserted.count > 0, scheduled: false };
+    if (!inserted.count || !evidence.senseId || (!rating && evidence.kind !== 'paper_dictation'))
+      return { inserted: inserted.count > 0, scheduled: false };
     const where = { studentId_senseId: { studentId: evidence.studentId, senseId: evidence.senseId } };
     const [calendar, history] = await Promise.all([
       loadSchoolCalendar(tx, [evidence.studentId]),
       tx.learningEvidence.findMany({ where: { studentId: evidence.studentId, senseId: evidence.senseId, subject: 'vocab_sense' } }),
     ]);
+    const effective = orderedEvidence(history);
+    const activeKeys = new Set(effective.map((entry) => entry.sourceKey));
+    // An ordinary absence has no rating and leaves an existing schedule alone.
+    // An amendment to absent must replay without its superseded grade.
+    if (!rating && !history.some((entry) => gradedVocabularyEvidence(entry) && !activeKeys.has(entry.sourceKey)))
+      return { inserted: true, scheduled: false };
     const teaches = (day: string) => calendar.isTeachingDay(evidence.studentId, day);
     // Replay actual records in school-date order. This also handles a paper
     // result entered late: no fabricated history, no backwards lastReview,
     // and concurrent sources give the same final card in either arrival order.
     let card: V2ScheduleState | null = null;
     const prefix: MemoryEvidence[] = [];
-    for (const entry of orderedEvidence(history).filter(gradedVocabularyEvidence)) {
+    for (const entry of effective.filter(gradedVocabularyEvidence)) {
       const today = entry.schoolDate.toISOString().slice(0, 10);
       const now = dateOnly(today);
       const current: V2ScheduleState | null = card ? { ...card,
@@ -54,7 +61,15 @@ export class VocabularyMemoryService {
       for (let left = interval; left > 0;) { due = nextDate(due, 1); if (teaches(due)) left--; }
       card = { ...next, due: dateOnly(due), scheduledDays: interval, createdAt: now };
     }
-    const { createdAt: _createdAt, ...data } = card!;
+    if (!card) {
+      // All graded records were retracted. Preserve notebook membership and
+      // learning fields; no invented recall should remain eligible for review.
+      await tx.studentVocabularySense.updateMany({ where: { studentId: evidence.studentId, senseId: evidence.senseId }, data: {
+        due: evidence.schoolDate, stability: 0, difficulty: 0, elapsedDays: 0, scheduledDays: 0, reps: 0, lapses: 0, lastReview: null,
+      } });
+      return { inserted: true, scheduled: false };
+    }
+    const { createdAt: _createdAt, ...data } = card;
     await tx.studentVocabularySense.upsert({ where,
       create: { studentId: evidence.studentId, senseId: evidence.senseId, ...data }, update: data,
     });

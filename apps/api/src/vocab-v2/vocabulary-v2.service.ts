@@ -2,7 +2,7 @@ import { BadRequestException, ConflictException, ForbiddenException, GoneExcepti
 import { EnglishLevel } from '@prisma/client';
 import { PrismaService } from '../common/prisma.service';
 import { dateOnly, loadSchoolCalendar, nextDate } from '../common/school-calendar';
-import { VocabularyMasteryService, MEMORY_KINDS, unresolvedVocabularyMistake } from './mastery';
+import { VocabularyMasteryService, MEMORY_KINDS, orderedEvidence, unresolvedVocabularyMistake } from './mastery';
 import { lockVocabularyStudent, VocabularyMemoryService } from './vocabulary-memory.service';
 import { canActOnClass } from '../common/roles';
 import { RealtimeTranslationService, type TranslationResult } from '../vocab/realtime-translation.service';
@@ -2699,7 +2699,7 @@ export class VocabularyV2Service {
       return key;
     };
     const unresolved = (senseId: string) => Boolean(unresolvedVocabularyMistake(history.get(senseId) ?? []));
-    const failedBefore = (senseId: string) => Boolean(history.get(senseId)?.some((e) => e.isCorrect === false));
+    const failedBefore = (senseId: string) => orderedEvidence(history.get(senseId) ?? []).some((e) => e.isCorrect === false);
     return owned.filter((row) => ((row.inNotebook && !row.removedAt) || unresolved(row.senseId))
         && effectiveDue(row.due) <= dateKey)
       .sort((a, b) => effectiveDue(a.due).localeCompare(effectiveDue(b.due))
@@ -2818,6 +2818,7 @@ export class VocabularyV2Service {
     await this.prisma.$transaction(async (tx) => {
       // The claim and all effects commit together. A losing submit waits for
       // the winner, then reads that same committed result without effects.
+      await this.lockStudentVocabulary(tx, studentId);
       const closed = await tx.vocabularyV2Session.updateMany({
         where: { id: session.id, status: 'in_progress' },
         data: { status: 'submitted', cursor: session.target, completedAt: now },

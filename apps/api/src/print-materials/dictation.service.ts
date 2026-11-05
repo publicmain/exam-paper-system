@@ -5,6 +5,7 @@ import { AuditService } from '../audit/audit.service';
 import { canActOnClass } from '../common/roles';
 import { dateOnly, isTeachingDay, nextDate, singaporeDate, validDate } from '../common/school-calendar';
 import { buildWordsPrint, learnedWords } from './print-model';
+import { lockVocabularyStudent, VocabularyMemoryService } from '../vocab-v2/vocabulary-memory.service';
 
 type Actor = { id: string; role: string; ip?: string | null };
 export type Entry = { requestId: string; status: 'entered' | 'absent'; wrongSenseIds: string[] };
@@ -13,7 +14,8 @@ export const frozenIds = (value: unknown): string[] => Array.isArray(value) ? va
 
 @Injectable()
 export class DictationService {
-  constructor(private readonly prisma: PrismaService, private readonly audit: AuditService) {}
+  constructor(private readonly prisma: PrismaService, private readonly audit: AuditService,
+    private readonly memory: VocabularyMemoryService) {}
 
   private async access(actor: Actor, classId: string) {
     if (!await canActOnClass(this.prisma, actor, classId)) throw new ForbiddenException({ code: 'class_forbidden' });
@@ -106,14 +108,14 @@ export class DictationService {
     await tx.dictationSheetRow.update({ where: { id: row.id }, data: {
       status: input.status, wrongSenseIds: wrong, enteredById: actor.id, enteredAt,
     } });
-    if (ids.length) await tx.learningEvidence.createMany({ data: ids.map((senseId) => ({
+    for (const senseId of ids) await this.memory.recordInTransaction(tx, {
       studentId: row.studentId, kind: 'paper_dictation', subject: 'vocab_sense', senseId,
       sourceKey: `paper:${sheet.id}:${row.studentId}:${senseId}:${enteredAt.toISOString()}`,
-      isCorrect: input.status === 'absent' ? null : !wrong.includes(senseId), recordedById: actor.id,
+      isCorrect: input.status === 'absent' ? null : !wrong.includes(senseId), hinted: false, recordedById: actor.id,
       schoolDate: sheet.heldOn, occurredAt: enteredAt,
       detail: { absent: input.status === 'absent', sheetId: sheet.id, rowId: row.id, version: enteredAt.toISOString(),
         supersedesVersion: row.enteredAt?.toISOString() ?? null, requestId: input.requestId },
-    })) });
+    });
     await this.audit.log({ actorId: actor.id, actorRole: actor.role, ip: actor.ip, action: 'dictation.row_saved',
       entityType: 'DictationSheetRow', entityId: row.id, diff: { before: { status: row.status, wrongSenseIds: row.wrongSenseIds }, after: { status: input.status, wrongSenseIds: wrong } },
       metadata: { requestId: input.requestId, signature, version: enteredAt.toISOString(), sheetId: sheet.id } }, tx);
@@ -124,6 +126,13 @@ export class DictationService {
     await this.prisma.$transaction(async (tx) => {
       const found = await tx.dictationSheet.findFirst({ where: { id: sheetId, classId } });
       if (!found) throw new NotFoundException({ code: 'dictation_not_found' });
+      const students = await tx.dictationSheetRow.findMany({
+        where: { sheetId, ...(studentId === null ? {} : { studentId }) }, select: { studentId: true },
+      });
+      if (studentId !== null && !students.length) throw new NotFoundException({ code: 'dictation_row_not_found' });
+      // Match formal answers: profile locks precede ALL other row locks. Bulk
+      // saves lock every frozen student in a stable order, including across classes.
+      for (const id of students.map((row) => row.studentId).sort()) await lockVocabularyStudent(tx, id);
       // A real row UPDATE acquires a PostgreSQL row lock, shared by bulk and individual saves.
       const sheet = await tx.dictationSheet.update({ where: { id: found.id }, data: { updatedAt: new Date() } });
       if (studentId === null) {
