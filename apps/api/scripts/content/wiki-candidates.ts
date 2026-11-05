@@ -1,3 +1,4 @@
+import { outboundFetch } from '../../src/common/outbound-gate';
 /**
  * 从 Simple English Wikipedia 找说明文素材，按五档算难度（2026-09-11）。
  *
@@ -43,7 +44,7 @@ const HEADERS = { 'user-agent': 'daily-english-content-scout/1.0 (school reading
 
 async function api(params: Record<string, string>) {
   const url = `${API}?${new URLSearchParams({ format: 'json', formatversion: '2', ...params })}`;
-  const res = await fetch(url, { headers: HEADERS });
+  const res = await outboundFetch('content_source', url, { headers: HEADERS });
   if (!res.ok) throw new Error(`${res.status} ${url}`);
   return res.json() as Promise<any>;
 }

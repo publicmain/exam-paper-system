@@ -6,6 +6,8 @@ import {
   vocabularyContentProviderConfigured,
 } from './content-producer';
 
+beforeEach(() => { vi.stubEnv('OUTBOUND_ALLOW', 'openai,azure_translator,content_source'); });
+
 afterEach(() => {
   vi.unstubAllEnvs();
   vi.unstubAllGlobals();

@@ -1,4 +1,11 @@
-import sys, json, urllib.request
+import sys, json, urllib.request, subprocess
+from pathlib import Path
+
+# Apply the shared policy before reading credentials or contacting production.
+subprocess.run([
+    'node', '-e', "require(process.argv[1]).assertOutboundAllowed('app_api')",
+    str(Path(__file__).resolve().parent.parent / 'src/common/outbound-policy.cjs'),
+], check=True)
 
 token = open('/tmp/admin_token').read().strip()
 pid = sys.argv[1]

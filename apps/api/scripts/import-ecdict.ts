@@ -1,3 +1,4 @@
+import { assertOutboundAllowed } from '../src/common/outbound-gate';
 /**
  * 导入 ECDICT 英汉词典到 DictEntry 表（生词本 P1）。
  *
@@ -106,6 +107,7 @@ function* parseCSV(text: string): Generator<string[]> {
 }
 
 function download(url: string, dest: string): Promise<void> {
+  assertOutboundAllowed('source_download');
   return new Promise((resolve, reject) => {
     const file = fs.createWriteStream(dest);
     https

@@ -1,3 +1,4 @@
+import { outboundFetch } from '../common/outbound-gate';
 import {
   BadRequestException,
   ForbiddenException,
@@ -397,7 +398,7 @@ export class CodegraderService {
 
       // wait=true makes judge0 block until the run finishes; result is
       // returned in the same response. base64=false to avoid encode/decode.
-      const res = await fetch(`${baseUrl.replace(/\/$/, '')}/submissions?base64_encoded=false&wait=true`, {
+      const res = await outboundFetch('code_runner', `${baseUrl.replace(/\/$/, '')}/submissions?base64_encoded=false&wait=true`, {
         method: 'POST',
         headers,
         body: JSON.stringify(body),

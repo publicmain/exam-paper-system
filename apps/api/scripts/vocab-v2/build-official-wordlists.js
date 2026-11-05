@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+const { outboundFetch } = require('../../src/common/outbound-policy.cjs');
 
 /**
  * Build the immutable vocabulary-source assets used by Vocabulary Coach V2.
@@ -69,7 +70,7 @@ async function main() {
   };
 
   for (const [name, source] of Object.entries(SOURCES)) {
-    const response = await fetch(source.url, { headers: { 'user-agent': 'exam-paper-system-wordlist-builder/1.0' } });
+    const response = await outboundFetch('source_download', source.url, { headers: { 'user-agent': 'exam-paper-system-wordlist-builder/1.0' } });
     if (!response.ok) throw new Error(`${name}: HTTP ${response.status}`);
     const rows = parseRows(await response.text(), name);
     if (rows.length !== source.expected) {

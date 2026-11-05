@@ -1,3 +1,4 @@
+import { isOutboundAllowed, outboundFetch } from '../common/outbound-gate';
 import type { PrismaClient } from '@prisma/client';
 import { z } from 'zod';
 import {
@@ -45,11 +46,11 @@ type GeneratedContent = {
 };
 
 export function azureOpenAiContentConfigured() {
-  return Boolean(process.env.AZURE_OPENAI_ENDPOINT && process.env.AZURE_OPENAI_API_KEY && process.env.AZURE_OPENAI_DEPLOYMENT);
+  return isOutboundAllowed('openai') && Boolean(process.env.AZURE_OPENAI_ENDPOINT && process.env.AZURE_OPENAI_API_KEY && process.env.AZURE_OPENAI_DEPLOYMENT);
 }
 
 export function vocabularyContentProviderConfigured() {
-  return azureOpenAiContentConfigured() || Boolean(process.env.AZURE_TRANSLATOR_KEY);
+  return azureOpenAiContentConfigured() || (isOutboundAllowed('azure_translator') && Boolean(process.env.AZURE_TRANSLATOR_KEY));
 }
 
 function configuredProvider() {
@@ -98,7 +99,7 @@ function balancedCurriculumJobs<T extends { sense: { lexeme: { listName?: string
 async function datamuseCandidates(headword: string, pos: string) {
   try {
     const base = (process.env.DATAMUSE_BASE_URL || 'https://api.datamuse.com').replace(/\/$/, '');
-    const response = await fetch(`${base}/words?ml=${encodeURIComponent(headword)}&md=pf&max=24`, { headers: { 'user-agent': 'exam-paper-system-vocab-v2/1.0' }, signal: AbortSignal.timeout(5_000) });
+    const response = await outboundFetch('content_source', `${base}/words?ml=${encodeURIComponent(headword)}&md=pf&max=24`, { headers: { 'user-agent': 'exam-paper-system-vocab-v2/1.0' }, signal: AbortSignal.timeout(5_000) });
     if (!response.ok) return [];
     const rows = await response.json() as Array<{ word?: string; tags?: string[] }>;
     const posTag = pos.startsWith('noun') ? 'n' : pos.startsWith('verb') ? 'v' : pos.startsWith('adj') ? 'adj' : pos.startsWith('adv') ? 'adv' : null;
@@ -119,7 +120,7 @@ async function tatoebaExamples(headword: string) {
   const base = (process.env.TATOEBA_BASE_URL || 'https://api.tatoeba.org').replace(/\/$/, '');
   const fetchRange = async (range: string) => {
     try {
-      const response = await fetch(`${base}/v1/sentences?lang=eng&q=${encodeURIComponent(`=${headword}`)}&word_count=${range}&sort=words&showtrans=all&limit=16`, { headers: { 'user-agent': 'exam-paper-system-vocab-v2/1.0' }, signal: AbortSignal.timeout(5_000) });
+      const response = await outboundFetch('content_source', `${base}/v1/sentences?lang=eng&q=${encodeURIComponent(`=${headword}`)}&word_count=${range}&sort=words&showtrans=all&limit=16`, { headers: { 'user-agent': 'exam-paper-system-vocab-v2/1.0' }, signal: AbortSignal.timeout(5_000) });
       if (!response.ok) return [];
       const payload = await response.json() as { data?: Array<{
         id?: number; text?: string; owner?: string | null; license?: string | null; is_unapproved?: boolean;
@@ -158,7 +159,7 @@ async function translateWithAzure(texts: string[]) {
   if (!texts.length) return [];
   const endpoint = (process.env.AZURE_TRANSLATOR_ENDPOINT || 'https://api.cognitive.microsofttranslator.com').replace(/\/$/, '');
   const region = process.env.AZURE_TRANSLATOR_REGION;
-  const response = await fetch(`${endpoint}/translate?api-version=3.0&from=en&to=zh-Hans`, {
+  const response = await outboundFetch('azure_translator', `${endpoint}/translate?api-version=3.0&from=en&to=zh-Hans`, {
     method: 'POST',
     signal: AbortSignal.timeout(10_000),
     headers: {
@@ -342,7 +343,7 @@ async function generateCandidate(input: {
       memoryHint: { anyOf: [{ type: 'string' }, { type: 'null' }] },
     },
   } };
-  const response = await fetch(`${endpoint}/openai/deployments/${encodeURIComponent(deployment)}/chat/completions?api-version=${encodeURIComponent(apiVersion)}`, {
+  const response = await outboundFetch('openai', `${endpoint}/openai/deployments/${encodeURIComponent(deployment)}/chat/completions?api-version=${encodeURIComponent(apiVersion)}`, {
     method: 'POST', signal: AbortSignal.timeout(30_000), headers: { 'content-type': 'application/json', 'api-key': process.env.AZURE_OPENAI_API_KEY! },
     body: JSON.stringify({ temperature: 0.2, response_format: { type: 'json_schema', json_schema: schema }, messages: [
       { role: 'system', content: 'Create concise English vocabulary teaching content. Preserve the supplied part of speech and exact sense. Corpus examples are candidates only: reject any that use another sense, are awkward, culturally unsafe, or too complex. Examples must have one unambiguous use of the target word, be age-appropriate, and differ in topic. Return only the required JSON.' },

@@ -14,14 +14,26 @@
  * 只有路径、方法、状态码和堆栈。
  */
 import * as Sentry from '@sentry/nestjs';
+const { isOutboundAllowed } = require('./common/outbound-policy.cjs');
 
 const dsn = process.env.SENTRY_DSN?.trim();
 
-export const sentryEnabled = Boolean(dsn);
+export const sentryEnabled = Boolean(dsn) && isOutboundAllowed('sentry');
 
-if (dsn) {
+if (sentryEnabled) {
   Sentry.init({
     dsn,
+    beforeSend: (event) => isOutboundAllowed('sentry') ? event : null,
+    // Buffered events must also stop when the gate is revoked after init.
+    transport: (options) => {
+      const transport = Sentry.makeNodeTransport(options);
+      return {
+        send: (envelope) => isOutboundAllowed('sentry')
+          ? transport.send(envelope)
+          : Promise.resolve({ statusCode: 0 }),
+        flush: (timeout) => transport.flush(timeout),
+      };
+    },
     environment:
       process.env.RAILWAY_ENVIRONMENT_NAME ?? process.env.NODE_ENV ?? 'development',
     // /api/health 也用同一个值，事件能对回具体哪次部署

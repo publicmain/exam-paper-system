@@ -1,3 +1,4 @@
+import { outboundFetch } from '../../src/common/outbound-gate';
 /**
  * 从 VOA Learning English 拉候选文章，按五档算难度，挑出每档能用的。
  *
@@ -68,7 +69,7 @@ function decode(s: string): string {
 }
 
 async function get(url: string): Promise<string> {
-  const res = await fetch(url, { headers: { 'user-agent': 'daily-english-content-scout/1.0' } });
+  const res = await outboundFetch('content_source', url, { headers: { 'user-agent': 'daily-english-content-scout/1.0' } });
   if (!res.ok) throw new Error(`${res.status} ${url}`);
   return res.text();
 }

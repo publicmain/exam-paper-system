@@ -20,12 +20,14 @@ function azureOk(text: string) {
 describe('VOC15 实时翻译的失败口径', () => {
   const saved = Object.fromEntries(KEYS.map((key) => [key, process.env[key]]));
   beforeEach(() => {
+    vi.stubEnv('OUTBOUND_ALLOW', 'azure_translator,public_translation');
     process.env.AZURE_TRANSLATOR_KEY = 'test-secret-never-returned';
     process.env.AZURE_TRANSLATOR_ENDPOINT = 'https://translator.example.test/';
     delete process.env.AZURE_TRANSLATOR_REGION;
   });
   afterEach(() => {
     vi.unstubAllGlobals();
+    vi.unstubAllEnvs();
     for (const key of KEYS) {
       const value = saved[key];
       if (value == null) delete process.env[key];

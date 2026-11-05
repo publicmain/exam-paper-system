@@ -1,3 +1,4 @@
+import { outboundFetch } from '../common/outbound-gate';
 import { BadRequestException, Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../common/prisma.service';
 import { CreateConfigDto, UpdateConfigDto } from './dto';
@@ -266,7 +267,7 @@ export class WechatNotifyService {
     let httpStatus = 0;
     let error: string | null = null;
     try {
-      const res = await fetch(url, {
+      const res = await outboundFetch('wechat_webhook', url, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(this.formatPayload(cfg.channel, payload)),

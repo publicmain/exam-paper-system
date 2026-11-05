@@ -1,3 +1,4 @@
+const { outboundFetch } = require('../../src/common/outbound-policy.cjs');
 /**
  * 生成**首发周**学习卡上的例句中文句意。
  *
@@ -85,7 +86,7 @@ function existing() {
 }
 
 async function translate(batch) {
-  const response = await fetch(`${ENDPOINT}/translate?api-version=3.0&from=en&to=zh-Hans`, {
+  const response = await outboundFetch('azure_translator', `${ENDPOINT}/translate?api-version=3.0&from=en&to=zh-Hans`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',

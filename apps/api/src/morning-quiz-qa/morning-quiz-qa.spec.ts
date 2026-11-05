@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { MorningQuizQaService } from './morning-quiz-qa.service';
 
 /**
@@ -81,7 +81,9 @@ function fakeClient(toolInput: any) {
 }
 
 describe('MorningQuizQaService', () => {
+  afterEach(() => { vi.unstubAllEnvs(); });
   beforeEach(() => {
+    vi.stubEnv('OUTBOUND_ALLOW', 'anthropic');
     process.env.ANTHROPIC_API_KEY = 'sk-ant-test-fake-key-1234567890';
   });
 
@@ -208,7 +210,7 @@ describe('MorningQuizQaService', () => {
 
     const result = await svc.reviewPaper('paper-1', { id: 'u1', role: 'admin', ip: null });
     expect(result.verdict).toBe('pending');
-    expect(result.summary).toContain('ANTHROPIC_API_KEY');
+    expect(result.summary).toBe('自动审核已暂停，请老师审核。');
     expect(prisma._updateCalls[0].data.qaReviewModel).toBe('skipped');
   });
 

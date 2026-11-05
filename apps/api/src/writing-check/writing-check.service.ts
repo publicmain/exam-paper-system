@@ -1,3 +1,4 @@
+import { isOutboundAllowed, outboundFetch } from '../common/outbound-gate';
 import { Injectable, Logger, ServiceUnavailableException } from '@nestjs/common';
 
 /**
@@ -31,6 +32,7 @@ export class WritingCheckService {
   private static readonly MAX_CHARS = 2000;
 
   private endpoint(): string | null {
+    if (!isOutboundAllowed('language_tool')) return null;
     const base = String(process.env.LANGUAGETOOL_URL ?? '').trim().replace(/\/+$/, '');
     if (!base) return null;
     return base.endsWith('/v2') ? `${base}/check` : `${base}/v2/check`;
@@ -57,7 +59,7 @@ export class WritingCheckService {
       const controller = new AbortController();
       const timer = setTimeout(() => controller.abort(), 6000);
       try {
-        const res = await fetch(url, {
+        const res = await outboundFetch('language_tool', url, {
           method: 'POST',
           headers: { 'content-type': 'application/x-www-form-urlencoded' },
           body,

@@ -1,3 +1,4 @@
+import { assertOutboundAllowed, outboundFetch } from '../common/outbound-gate';
 import { BadRequestException, Injectable, Logger, ServiceUnavailableException } from '@nestjs/common';
 import { PrismaService } from '../common/prisma.service';
 import { AuditService } from '../audit/audit.service';
@@ -120,6 +121,7 @@ export class OpenAiImageService {
     input: GenerateDiagramInput,
     actor: { id: string; role: string; ip?: string | null },
   ): Promise<GenerateDiagramResult> {
+    assertOutboundAllowed('openai');
     if (!this.apiKey) {
       throw new ServiceUnavailableException(
         'OPENAI_API_KEY is not configured on this deployment.',
@@ -165,7 +167,7 @@ export class OpenAiImageService {
       // Using fetch directly so we are not pinned to a specific openai
       // SDK release. The model id is env-driven (OPENAI_IMAGE_MODEL).
       const t0 = Date.now();
-      const resp = await fetch('https://api.openai.com/v1/images/generations', {
+      const resp = await outboundFetch('openai', 'https://api.openai.com/v1/images/generations', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

@@ -1,3 +1,4 @@
+import { isOutboundAllowed, assertOutboundAllowed, outboundFetch } from '../common/outbound-gate';
 import { Injectable, Logger } from '@nestjs/common';
 import Anthropic from '@anthropic-ai/sdk';
 import { PrismaService } from '../common/prisma.service';
@@ -43,7 +44,7 @@ export class IeltsRepairService {
     const apiKey = process.env.ANTHROPIC_API_KEY;
     this.model = process.env.ANTHROPIC_MODEL || 'claude-sonnet-4-6';
     // Round-7 H35: explicit retry budget for transient 529s.
-    this.client = apiKey ? new Anthropic({ apiKey, maxRetries: 3 }) : null;
+    this.client = isOutboundAllowed('anthropic') && apiKey ? new Anthropic({ apiKey, maxRetries: 3, fetch: (...args) => outboundFetch('anthropic', ...args) }) : null;
   }
 
   async repair(opts: {
@@ -57,10 +58,10 @@ export class IeltsRepairService {
     // currently has provenanceTag=NULL so we have to filter on sourceRef.
     const sourceRefPrefix = opts.sourceRefPrefix ?? 'IELTS/';
 
-    if (!this.client) {
+    if (!isOutboundAllowed('anthropic') || !this.client) {
       return {
         ok: false,
-        error: 'ANTHROPIC_API_KEY not configured',
+        error: !isOutboundAllowed('anthropic') ? 'outbound_blocked:anthropic' : 'Anthropic key not configured',
       };
     }
 
@@ -284,7 +285,8 @@ Passage (raw):
 ${passage}
 >>>`;
 
-    if (!this.client) throw new Error('Anthropic client not configured');
+    if (!isOutboundAllowed('anthropic') || !this.client) throw new Error('Anthropic client not configured');
+    assertOutboundAllowed('anthropic');
     const resp = await this.client.messages.create({
       model: this.model,
       max_tokens: 8000,
@@ -398,7 +400,8 @@ ${passage}
   }
 
   private async callJson(prompt: string, maxTokens = 4000): Promise<any> {
-    if (!this.client) throw new Error('Anthropic client not configured');
+    if (!isOutboundAllowed('anthropic') || !this.client) throw new Error('Anthropic client not configured');
+    assertOutboundAllowed('anthropic');
     const resp = await this.client.messages.create({
       model: this.model,
       max_tokens: maxTokens,

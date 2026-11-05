@@ -1,3 +1,4 @@
+import { isOutboundAllowed, assertOutboundAllowed } from '../common/outbound-gate';
 import { Injectable, Logger, ServiceUnavailableException } from '@nestjs/common';
 import * as webpush from 'web-push';
 import { PrismaService } from '../common/prisma.service';
@@ -49,6 +50,7 @@ export class PushService {
   constructor(private readonly prisma: PrismaService) {}
 
   private vapid(): { publicKey: string; privateKey: string; subject: string } | null {
+    if (!isOutboundAllowed('web_push')) return null;
     const publicKey = process.env.VAPID_PUBLIC_KEY?.trim();
     const privateKey = process.env.VAPID_PRIVATE_KEY?.trim();
     if (!publicKey || !privateKey) return null;
@@ -151,6 +153,7 @@ export class PushService {
     let failed = 0;
     for (const sub of subs) {
       try {
+        assertOutboundAllowed('web_push');
         await webpush.sendNotification(
           { endpoint: sub.endpoint, keys: { p256dh: sub.p256dh, auth: sub.auth } },
           JSON.stringify(payload),
