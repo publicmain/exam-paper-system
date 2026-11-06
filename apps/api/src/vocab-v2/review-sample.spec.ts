@@ -60,7 +60,7 @@ describe('Due review replaces new words in a fixed daily budget', () => {
     expect(db.rows('learningEvidence')).toHaveLength(1);
     expect(db.rows('studentVocabularySense', { senseId: old[0].senseId })[0]).toMatchObject({ reps: 1, lastReview: dateOnly(TODAY) });
   });
-  it('due order first, unresolved errors break ties; removed and blocked words stay out', async () => {
+  it('unresolved errors precede older due words; removed ordinary words stay out', async () => {
     const { db, id, old, svc } = setup(10, 8);
     await db.studentVocabularySense.updateMany({ where: { senseId: old[0].senseId }, data: { inNotebook: false } });
     await db.studentVocabularySense.updateMany({ where: { senseId: old[1].senseId }, data: { due: dateOnly('2026-11-03') } });
@@ -68,10 +68,70 @@ describe('Due review replaces new words in a fixed daily budget', () => {
     const daily = await svc.startDailySession(id, sgtNoon(TODAY));
     expect(daily.settings).not.toHaveProperty('reviewItems');
     const review = db.rows('vocabularyV2Session', { id: daily.id })[0].settingsSnapshot.reviewItems;
-    expect(review[0].senseId).toBe(old[1].senseId);
-    expect(review[1].senseId).toBe(old[7].senseId);
+    expect(review[0].senseId).toBe(old[7].senseId);
+    expect(review[1].senseId).toBe(old[1].senseId);
     expect(review.some((i: any) => i.senseId === old[0].senseId)).toBe(false);
     expect(review.every((i: any) => i.masteryBefore === 3)).toBe(true);
+  });
+  it.each([5, 10, 15, 20])('T=%i: five recent errors precede the backlog, at most three enter and the total stays fixed', async (target) => {
+    const { db, old, learn } = setup(target, 35);
+    await db.studentVocabularySense.updateMany({ where: { senseId: { in: old.slice(0, 30).map((word) => word.senseId) } }, data: { due: dateOnly('2026-08-03') } });
+    const errors = old.slice(30);
+    for (const [index, word] of errors.entries()) {
+      await db.learningEvidence.updateMany({ where: { senseId: word.senseId }, data: { isCorrect: false } });
+      await db.studentVocabularySense.updateMany({ where: { senseId: word.senseId }, data: { due: dateOnly(['2026-11-04', '2026-11-02', '2026-11-03', TODAY, TODAY][index]) } });
+    }
+    const { daily, formal } = await learn();
+    const reviews = db.rows('vocabularyV2Session', { id: daily.id })[0].settingsSnapshot.reviewItems;
+    const count = Math.min(3, Math.floor(target / 2));
+    expect(reviews.slice(0, count).map((item: any) => item.senseId)).toEqual([errors[1], errors[2], errors[0]].slice(0, count).map((word) => word.senseId));
+    expect(reviews.filter((item: any) => errors.some((word) => word.senseId === item.senseId))).toHaveLength(count);
+    expect(reviews).toHaveLength(Math.floor(target / 2));
+    expect(new Set(reviews.map((item: any) => item.senseId)).size).toBe(reviews.length);
+    expect(formal).toMatchObject({ total: target, newWords: target - reviews.length, reviewWords: reviews.length });
+  });
+  it.each([0, 1, 2])('only %i unresolved errors: ordinary due words fill the remaining review places in due order', async (count) => {
+    const { db, id, old, svc } = setup(10, 10);
+    await db.learningEvidence.updateMany({ where: { senseId: { in: old.slice(0, count).map((word) => word.senseId) } }, data: { isCorrect: false } });
+    for (const [index, word] of old.entries()) {
+      await db.studentVocabularySense.updateMany({ where: { senseId: word.senseId }, data: { due: new Date(`2026-11-02T0${index}:00:00Z`) } });
+    }
+    const daily = await svc.startDailySession(id, sgtNoon(TODAY));
+    const reviews = db.rows('vocabularyV2Session', { id: daily.id })[0].settingsSnapshot.reviewItems;
+    expect(reviews.map((item: any) => item.senseId)).toEqual(old.slice(0, 5).map((word) => word.senseId));
+    expect(daily.items.length + reviews.length).toBe(10);
+  });
+  it('errors beyond three cannot re-enter as ordinary due words; fresh words fill the unused places', async () => {
+    const { db, id, svc, learn } = setup(10, 5);
+    await db.learningEvidence.updateMany({ data: { isCorrect: false } });
+    const { daily, formal } = await learn();
+    expect(daily.items).toHaveLength(7);
+    expect(formal).toMatchObject({ total: 10, newWords: 7, reviewWords: 3 });
+    expect((await svc.startDailySession(id, sgtNoon(TODAY))).settings.reviewWords).toBe(3);
+  });
+  it('mistake priority retains spelling deduplication, explicit exclusions, translation and school gates', async () => {
+    const { db, id, old, svc } = setup(10, 10);
+    const [schoolBlocked] = seedOfficialWords(db, 'ngsl', 1063, 1);
+    const errors = [...old.slice(0, 7), schoolBlocked];
+    for (const [index, word] of errors.entries()) {
+      await db.studentVocabularySense.upsert({
+        where: { studentId_senseId: { studentId: id, senseId: word.senseId } },
+        create: { studentId: id, senseId: word.senseId, reps: 1, due: dateOnly('2026-11-02') },
+        update: { due: new Date(`2026-11-02T0${index}:00:00Z`) },
+      });
+      db.seed('learningEvidence', { studentId: id, senseId: word.senseId, kind: 'formal_first', subject: 'vocab_sense',
+        sourceKey: `mistake-${index}`, isCorrect: false, hinted: false, schoolDate: dateOnly('2026-11-03'), occurredAt: sgtNoon('2026-11-03') });
+    }
+    await db.vocabularySense.update({ where: { id: old[2].senseId }, data: { translation: '' } });
+    const duplicate = db.rows('vocabularySense', { id: old[3].senseId })[0];
+    db.seed('vocabularySense', { ...duplicate, id: 'duplicate-sense', senseKey: 'alternate' });
+    db.seed('studentVocabularySense', { studentId: id, senseId: 'duplicate-sense', reps: 1, due: dateOnly('2026-08-03') });
+    const reviews = await (svc as any).sampleReviewItems(id, [old[0].senseId], 5, [old[1].headword], TODAY);
+    expect(reviews.slice(0, 3).map((item: any) => item.senseId)).toEqual(old.slice(3, 6).map((word) => word.senseId));
+    expect(reviews).toHaveLength(5);
+    expect(new Set(reviews.map((item: any) => item.contentSnapshot.headword)).size).toBe(5);
+    expect(reviews.map((item: any) => item.senseId)).not.toContain('duplicate-sense');
+    for (const word of [...old.slice(0, 3), old[6], schoolBlocked]) expect(reviews.some((item: any) => item.senseId === word.senseId)).toBe(false);
   });
   it('a retracted dictation error does not keep priority over other equally due words', async () => {
     const { db, id, old, svc } = setup(5, 3);
@@ -97,13 +157,38 @@ describe('Due review replaces new words in a fixed daily budget', () => {
     expect(new Set(db.rows('vocabularyV2SessionItem', { sessionId: formal.id }).map((i) => i.senseId)).size).toBe(8);
     expect(db.rows('vocabularyV2Session', { studentId: id, sessionType: 'daily_learning' })).toHaveLength(1);
   });
-  it('even when the teacher list is all previously seen, fallback new-word quota is not reduced', async () => {
+  it.each([1, 5])('teacher-list day: %i errors take priority and share the three-word review limit', async (count) => {
+    const { db, old, learn } = setup(5, 15);
+    const errors = old.slice(-count);
+    await db.studentVocabularySense.updateMany({ data: { due: dateOnly('2026-08-03') } });
+    for (const [index, word] of errors.entries()) {
+      await db.learningEvidence.updateMany({ where: { senseId: word.senseId }, data: { isCorrect: false } });
+      await db.studentVocabularySense.updateMany({ where: { senseId: word.senseId }, data: { due: dateOnly(['2026-11-03', '2026-11-02', '2026-11-04', TODAY, TODAY][index]) } });
+    }
+    const fresh = seedOfficialWords(db, 'ngsl', 1801, 5);
+    db.seed('vocabularyV2Assignment', { id: 'a', classId: 'class-1', date: dateOnly(TODAY) });
+    fresh.forEach((word, index) => db.seed('vocabularyV2AssignmentItem', { assignmentId: 'a', senseId: word.senseId, position: index + 1 }));
+    const { daily, formal } = await learn();
+    const reviews = db.rows('vocabularyV2Session', { id: daily.id })[0].settingsSnapshot.reviewItems;
+    const expected = count === 1 ? errors : [errors[1], errors[0], errors[2]];
+    expect(reviews.slice(0, Math.min(3, count)).map((item: any) => item.senseId)).toEqual(expected.map((word) => word.senseId));
+    expect(reviews).toHaveLength(3);
+    expect(formal).toMatchObject({ total: 8, newWords: 5, reviewWords: 3 });
+  });
+  it.each([0, 5])('teacher list all previously seen, %i mistakes: fallback keeps the fresh quota and the shared review cap', async (count) => {
     const { db, id, old, svc } = setup(5, 8);
+    const errors = count ? old.slice(-count) : [];
+    await db.learningEvidence.updateMany({ where: { senseId: { in: errors.map((word) => word.senseId) } }, data: { isCorrect: false } });
+    await db.studentVocabularySense.updateMany({ where: { senseId: { in: old.slice(0, 3).map((word) => word.senseId) } }, data: { due: dateOnly('2026-08-03') } });
     db.seed('vocabularyV2Assignment', { id: 'a', classId: 'class-1', date: dateOnly(TODAY) });
     db.seed('vocabularyV2AssignmentItem', { assignmentId: 'a', senseId: old[0].senseId, position: 1 });
     const daily = await svc.startDailySession(id, sgtNoon(TODAY));
     expect(daily.items).toHaveLength(5);
     expect((daily.settings as any).reviewWords).toBe(3);
+    if (count) {
+      const reviews = db.rows('vocabularyV2Session', { id: daily.id })[0].settingsSnapshot.reviewItems;
+      expect(reviews.every((item: any) => errors.some((word) => word.senseId === item.senseId))).toBe(true);
+    }
   });
   it('weekend and closure create no task; an existing plan survives without adding reviews', async () => {
     const { db, id, svc } = setup(5, 3);

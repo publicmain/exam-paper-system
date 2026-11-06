@@ -1870,7 +1870,7 @@ export class VocabularyV2Service {
       where: { sessionKey },
       include: { items: { orderBy: { position: 'asc' } } },
     });
-    if (existing) return this.sessionView(existing);
+    if (existing) return this.dailyStartResult(studentId, existing);
     // 每日新词只在教学日（周一到周五）生成。已存在的会话照常返回（上面），
     // 所以这条只挡新建：周末打开 App 不会凭空多出一天的欠账。
     const calendar = await loadSchoolCalendar(this.prisma, [studentId], day.key, day.key);
@@ -1976,9 +1976,7 @@ export class VocabularyV2Service {
       }
     }
 
-    const plan = planDailyTask(candidates, profile.dailyTarget);
-    if (!plan.length) throw new ServiceUnavailableException({ code: 'no_publishable_vocabulary' });
-    const nextRanksFor = (chosen: typeof plan) => {
+    const nextRanksFor = (chosen: ReturnType<typeof planDailyTask>) => {
       const next = new Map<string, number>();
       for (const item of chosen.filter((candidate) => candidate.source === 'level_gap')) {
         const row = rows.get(item.senseId);
@@ -2002,7 +2000,7 @@ export class VocabularyV2Service {
         const composition = dailyVocabularyComposition(profile.dailyTarget, reviews.length, Boolean(teacherAssignment));
         const blocked = await this.takenSinceSnapshot(tx, studentId, candidates.map((candidate) => candidate.senseId), rows, deferredSenseSet);
         const finalPlan = planDailyTask(candidates.filter((candidate) => !blocked.has(candidate.senseId)), composition.fresh, true);
-        if (!finalPlan.length) throw new ServiceUnavailableException({ code: 'no_publishable_vocabulary' });
+        if (!finalPlan.length && !reviews.length) throw new ServiceUnavailableException({ code: 'no_publishable_vocabulary' });
         const nextRankByList = nextRanksFor(finalPlan);
         const sourceSummary = Object.fromEntries(
           (['level_gap'] as V2Source[]).map((source) => [source, finalPlan.filter((item) => item.source === source).length]),
@@ -2014,7 +2012,8 @@ export class VocabularyV2Service {
             date: day.date,
             sessionType: 'daily_learning',
             mode: profile.mode,
-            status: 'in_progress',
+            status: finalPlan.length ? 'in_progress' : 'completed',
+            completedAt: finalPlan.length ? null : now,
             version: `V2-${day.key.replace(/-/g, '')}-001`,
             target: finalPlan.length,
             settingsSnapshot: {
@@ -2081,7 +2080,7 @@ export class VocabularyV2Service {
         }
         return session;
       });
-      return this.sessionView(created);
+      return this.dailyStartResult(studentId, created);
     } catch (error) {
       if ((error as { code?: string }).code !== 'P2002') throw error;
       const raced = await this.prisma.vocabularyV2Session.findUnique({
@@ -2089,8 +2088,17 @@ export class VocabularyV2Service {
         include: { items: { orderBy: { position: 'asc' } } },
       });
       if (!raced) throw error;
-      return this.sessionView(raced);
+      return this.dailyStartResult(studentId, raced);
     }
+  }
+
+  /** No fresh cards means learning is already finished. Use the existing
+   * completion path to generate its review test, including after a failed or
+   * concurrent start. The frozen plan, not later due changes, defines the test. */
+  private dailyStartResult(studentId: string, session: any) {
+    return !session.items.length && dailyTestNeeded(session)
+      ? this.learningActionResult(studentId, session.id, false)
+      : this.sessionView(session);
   }
 
   /**
@@ -2707,19 +2715,30 @@ export class VocabularyV2Service {
     };
     const unresolved = (senseId: string) => Boolean(unresolvedVocabularyMistake(history.get(senseId) ?? []));
     const failedBefore = (senseId: string) => orderedEvidence(history.get(senseId) ?? []).some((e) => e.isCorrect === false);
-    return owned.filter((row) => ((row.inNotebook && !row.removedAt) || unresolved(row.senseId))
+    const eligible = owned.filter((row) => ((row.inNotebook && !row.removedAt) || unresolved(row.senseId))
         && effectiveDue(row.due) <= dateKey)
       .sort((a, b) => effectiveDue(a.due).localeCompare(effectiveDue(b.due))
-        || Number(unresolved(b.senseId)) - Number(unresolved(a.senseId))
+        || a.due.getTime() - b.due.getTime()
         || Number(failedBefore(b.senseId)) - Number(failedBefore(a.senseId))
-        || a.senseId.localeCompare(b.senseId))
-      .filter((row) => {
+        || a.senseId.localeCompare(b.senseId));
+    const picked: typeof owned = [];
+    const take = (pool: typeof owned, limit: number) => {
+      let count = 0;
+      for (const row of pool) {
+        if (count >= limit) break;
         const word = row.sense?.lexeme?.headword;
         const key = headwordKey(word ?? '');
-        if (!key || !String(row.sense.translation ?? '').trim() || blocked.has(key) || isSchoolBlockedHeadword(word)) return false;
+        if (!key || !String(row.sense.translation ?? '').trim() || blocked.has(key) || isSchoolBlockedHeadword(word)) continue;
         blocked.add(key);
-        return true;
-      }).slice(0, size).map((row) => {
+        picked.push(row);
+        count++;
+      }
+    };
+    // New errors must not wait behind legacy due backlogs. The two pools are
+    // disjoint so a fourth error cannot sneak in through an ordinary vacancy.
+    take(eligible.filter((row) => unresolved(row.senseId)), Math.min(3, size));
+    take(eligible.filter((row) => !unresolved(row.senseId)), size - picked.length);
+    return picked.map((row) => {
         const encounter = row.reps + 1;
         const context = contextForEncounter(row.sense.contexts, encounter, policy.contextDifficulty, row.sense.lexeme.headword);
         return { senseId: row.senseId, source: 'review' as V2Source, contextId: context?.id ?? null,
