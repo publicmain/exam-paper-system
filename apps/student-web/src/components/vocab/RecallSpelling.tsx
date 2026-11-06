@@ -92,7 +92,7 @@ export function RecallSpelling({ sessionId, itemId, senseId, card, initial, audi
         {reveal ? <p className="break-words text-xl font-semibold text-ink" lang="en" data-testid="recall-answer">{result?.correctSpelling}</p> : null}
         <div className="flex flex-wrap gap-1" aria-hidden="true" data-testid="recall-slots">
           {Array.from(expected).map((ch, i) => {
-            const wrong = result?.firstWrongIndex === i;
+            const wrong = result?.firstWrongIndex === i && i >= prefix.length;
             return <span key={i} data-wrong={wrong || undefined} className={[
               'inline-flex h-8 w-8 items-center justify-center rounded-control text-lg font-semibold',
               ch === ' ' ? 'bg-transparent' : wrong ? 'border-2 border-danger bg-danger-soft text-danger' : 'bg-fill text-ink',

@@ -105,7 +105,8 @@ describe('词卡后的遮词拼写', () => {
     await userEvent.click(screen.getByRole('button', { name: '检查拼写' }));
     expect(await screen.findByText('还没拼对，已帮你露出开头，再试一次。')).toBeInTheDocument();
     expect(screen.getByTestId('recall-slots').firstChild).toHaveTextContent('d');
-    expect(screen.getByTestId('recall-slots').firstChild).toHaveAttribute('data-wrong', 'true');
+    // 露出来的开头不标错（2026-11-06）：错位落在已露出的格子上时，只靠提示语说「还没拼对」
+    expect(screen.getByTestId('recall-slots').firstChild).not.toHaveAttribute('data-wrong');
     await userEvent.type(input, 'decline');
     await userEvent.click(screen.getByRole('button', { name: '检查拼写' }));
     await screen.findByRole('heading', { name: 'care' });

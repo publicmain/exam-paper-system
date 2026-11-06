@@ -68,7 +68,7 @@ export function SpellingExercise({ step, look, onAttempt, onNext }: Props & { lo
         imply / hint / suggest，不给长度学生只能瞎猜（2026-11-06 叶老师本机试用截图）。 */}
     {!look && <div className="flex flex-wrap gap-1" aria-hidden="true" data-testid="spelling-slots">
       {Array.from(expected).map((ch, i) => {
-        const wrong = Boolean(recall && !recall.isCorrect && recall.firstWrongIndex === i);
+        const wrong = Boolean(recall && !recall.isCorrect && recall.firstWrongIndex === i && i >= recall.nextPrefix.length);
         const shown = recall?.answerRevealed || done || i < (recall?.nextPrefix.length ?? 0) ? ch : '';
         return <span key={i} data-testid={i < (recall?.nextPrefix.length ?? 0) ? 'spelling-prefix-letter' : undefined} lang="en" className={[
           'inline-flex h-9 w-9 items-center justify-center rounded-control text-lg font-semibold',
