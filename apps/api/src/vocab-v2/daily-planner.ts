@@ -85,6 +85,10 @@ export function planDailyTask(candidates: readonly PlannerCandidate[], requested
 }
 
 export function dailyVocabularyComposition(total: number, dueCount: number, teacherList = false) {
+  // dueCount is the eligible, deduplicated selection: unresolved mistakes first
+  // (at most 3), then ordinary due words; excess mistakes do not fill vacancies.
+  // Normal days use R = min(selected due, floor(T/2)), N = T - R. Teacher-list
+  // days retain every assigned word and add at most 3 reviews in total.
   const review = Math.min(dueCount, teacherList ? 3 : Math.floor(total / 2));
   return { review, fresh: teacherList ? total : total - review };
 }

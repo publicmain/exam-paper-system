@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { dateOnly, singaporeDate } from '../common/school-calendar';
 import { evidenceRating, VocabularyMemoryService } from './vocabulary-memory.service';
 import { unresolvedVocabularyMistake } from './mastery';
-import { makeService, newDb, seedOfficialWords, seedStudent } from './testing/vocab-fixtures';
+import { makeService, newDb, seedOfficialWords, seedStudent, sgtNoon } from './testing/vocab-fixtures';
 
 function setup() {
   const db = newDb(); const id = seedStudent(db);
@@ -111,5 +111,28 @@ describe('正式作答驱动调度', () => {
       await svc.collect(id, { senseId: word.senseId, headword: word.headword, action });
       for (const key of ['due', 'stability', 'difficulty', 'elapsedDays', 'scheduledDays', 'reps', 'lapses', 'lastReview']) expect(card()[key]).toEqual(before[key]);
     }
+  });
+  it('学过但未考的词改为缺考：撤回全部评分后仍能复习，重复和并发撤回不改次数', async () => {
+    const { db, id, word, service, evidence, card } = setup();
+    seedOfficialWords(db, 'ngsl', 1802, 20);
+    const svc = makeService(db);
+    const daily = await svc.startDailySession(id, sgtNoon('2026-11-04'));
+    const item = daily.items.find((entry: any) => entry.senseId === word.senseId)!;
+    await svc.actOnLearningItem(id, daily.id, item.id, 'normal');
+    expect(db.rows('learningEvidence')).toHaveLength(0);
+    expect(card()).toMatchObject({ reps: 1, lastReview: null });
+    await service.record(evidence('paper-wrong', '2026-11-05', { kind: 'paper_dictation', isCorrect: false, detail: { rowId: 'row' } }));
+    const reps = card().reps;
+    const absent = evidence('paper-absent', '2026-11-05', { kind: 'paper_dictation', isCorrect: null,
+      occurredAt: new Date('2026-11-05T05:00:00Z'), detail: { rowId: 'row', absent: true } });
+    await Promise.all([service.record(absent), service.record(absent)]);
+    expect(card()).toMatchObject({ reps, due: dateOnly('2026-11-05'), stability: 0, difficulty: 0,
+      elapsedDays: 0, scheduledDays: 0, lapses: 0, lastReview: null });
+    expect(db.rows('learningEvidence')).toHaveLength(2);
+    expect(unresolvedVocabularyMistake(db.rows('learningEvidence') as any)).toBeNull();
+    const next = await svc.startDailySession(id, sgtNoon('2026-11-06'));
+    const reviews = db.rows('vocabularyV2Session', { id: next.id })[0].settingsSnapshot.reviewItems;
+    expect(reviews.map((entry: any) => entry.senseId)).toContain(word.senseId);
+    expect(card().lastReview).toBeNull();
   });
 });

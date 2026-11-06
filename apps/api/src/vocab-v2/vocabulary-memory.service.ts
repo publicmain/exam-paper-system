@@ -63,9 +63,10 @@ export class VocabularyMemoryService {
     }
     if (!card) {
       // All graded records were retracted. Preserve notebook membership and
-      // learning fields; no invented recall should remain eligible for review.
+      // reps (the word was learned), but clear recalled-memory scheduling.
+      // Reps alone keeps the word eligible for a future first formal recall.
       await tx.studentVocabularySense.updateMany({ where: { studentId: evidence.studentId, senseId: evidence.senseId }, data: {
-        due: evidence.schoolDate, stability: 0, difficulty: 0, elapsedDays: 0, scheduledDays: 0, reps: 0, lapses: 0, lastReview: null,
+        due: evidence.schoolDate, stability: 0, difficulty: 0, elapsedDays: 0, scheduledDays: 0, lapses: 0, lastReview: null,
       } });
       return { inserted: true, scheduled: false };
     }

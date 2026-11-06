@@ -94,10 +94,15 @@ describe('默写与复习调度（真实服务 + 内存事务行锁，零数据�
     await only.db.studentVocabularySense.update({ where: { studentId_senseId: { studentId: only.studentId, senseId: only.words[0].senseId } },
       data: { spellingSkill: 0.5, inNotebook: false } });
     await only.save({ ...input('request_0002'), status: 'absent' });
-    expect(only.card()).toMatchObject({ reps: 0, lapses: 0, lastReview: null, stability: 0, scheduledDays: 0, spellingSkill: 0.5, inNotebook: false });
+    expect(only.card()).toMatchObject({ reps: 1, lapses: 0, lastReview: null, stability: 0, scheduledDays: 0, spellingSkill: 0.5, inNotebook: false });
     expect(orderedEvidence(only.db.rows('learningEvidence') as any)).toHaveLength(2);
     expect(unresolvedVocabularyMistake(only.db.rows('learningEvidence') as any)).toBeNull();
-    expect((await makeService(only.db).startDailySession(only.studentId, sgtNoon('2026-11-06'))).settings.reviewWords).toBe(0);
+    const next = await makeService(only.db).startDailySession(only.studentId, sgtNoon('2026-11-06'));
+    expect(next.settings.reviewWords).toBe(1);
+    // The removed word stays out after its error is retracted; the other
+    // learned word keeps its first-recall eligibility despite the absence.
+    const reviews = only.db.rows('vocabularyV2Session', { id: next.id })[0].settingsSnapshot.reviewItems;
+    expect(reviews.map((item: any) => item.senseId)).toEqual([only.words[1].senseId]);
   });
 
   it('晚改录较早的默写会连同之后的正式作答重放，最后复习日期不倒退', async () => {
