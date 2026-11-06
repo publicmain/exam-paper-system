@@ -43,6 +43,9 @@ export function flushExtraResults(owner: string, stillOwner: () => boolean): Pro
           if (!stillOwner() || readToken() !== token) return;
           localStorage.removeItem(key); changed(); continue;
         }
+        // 旧令牌的请求迟到时，学生可能已经重新登录拿到新令牌：这时的 401 属于旧会话，
+        // 不能拿去把新会话踢出去（2026-11-06 Codex 复审）。只停下这一轮，下次用新令牌补交。
+        if (readToken() !== token) return;
         throw error;
       }
       // A late response after account switch cannot recreate old storage.
