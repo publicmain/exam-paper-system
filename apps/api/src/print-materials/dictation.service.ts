@@ -6,9 +6,10 @@ import { canActOnClass } from '../common/roles';
 import { dateOnly, isTeachingDay, nextDate, singaporeDate, validDate } from '../common/school-calendar';
 import { buildWordsPrint, learnedWords } from './print-model';
 import { lockVocabularyStudent, VocabularyMemoryService } from '../vocab-v2/vocabulary-memory.service';
+import { dictationMemoryReads } from './dictation-memory-reads';
 
 type Actor = { id: string; role: string; ip?: string | null };
-export type Entry = { requestId: string; status: 'entered' | 'absent'; wrongSenseIds: string[] };
+export type Entry = { requestId: string; status: 'entered' | 'absent'; wrongSenseIds: string[]; excludedStudentIds?: string[] };
 const key = (studentId: string, date: string) => `v2:${studentId}:${date}:daily`;
 export const frozenIds = (value: unknown): string[] => Array.isArray(value) ? value.filter((id): id is string => typeof id === 'string') : [];
 
@@ -98,7 +99,7 @@ export class DictationService {
   }
 
   private async enter(tx: Prisma.TransactionClient, actor: Actor, sheet: { id: string; heldOn: Date }, row: DictationSheetRow, input: Entry) {
-    const ids = frozenIds(row.senseIds);
+    const ids = [...new Set(frozenIds(row.senseIds))];
     const wrong = [...new Set(input.wrongSenseIds)].sort();
     if (wrong.some((id) => !ids.includes(id)) || (input.status === 'absent' && wrong.length)) throw new BadRequestException({ code: 'invalid_wrong_words' });
     const signature = JSON.stringify([input.status, wrong]);
@@ -108,7 +109,8 @@ export class DictationService {
     await tx.dictationSheetRow.update({ where: { id: row.id }, data: {
       status: input.status, wrongSenseIds: wrong, enteredById: actor.id, enteredAt,
     } });
-    for (const senseId of ids) await this.memory.recordInTransaction(tx, {
+    const memoryTx = ids.length ? await dictationMemoryReads(tx, row.studentId, ids) : tx;
+    for (const senseId of ids) await this.memory.recordInTransaction(memoryTx, {
       studentId: row.studentId, kind: 'paper_dictation', subject: 'vocab_sense', senseId,
       sourceKey: `paper:${sheet.id}:${row.studentId}:${senseId}:${enteredAt.toISOString()}`,
       isCorrect: input.status === 'absent' ? null : !wrong.includes(senseId), hinted: false, recordedById: actor.id,
@@ -123,31 +125,90 @@ export class DictationService {
 
   async save(actor: Actor, classId: string, sheetId: string, studentId: string | null, input: Entry) {
     await this.access(actor, classId);
+    if (studentId === null) return this.remaining(actor, classId, sheetId, input);
     await this.prisma.$transaction(async (tx) => {
-      const found = await tx.dictationSheet.findFirst({ where: { id: sheetId, classId } });
-      if (!found) throw new NotFoundException({ code: 'dictation_not_found' });
-      const students = await tx.dictationSheetRow.findMany({
-        where: { sheetId, ...(studentId === null ? {} : { studentId }) }, select: { studentId: true },
-      });
-      if (studentId !== null && !students.length) throw new NotFoundException({ code: 'dictation_row_not_found' });
-      // Match formal answers: profile locks precede ALL other row locks. Bulk
-      // saves lock every frozen student in a stable order, including across classes.
-      for (const id of students.map((row) => row.studentId).sort()) await lockVocabularyStudent(tx, id);
-      // A real row UPDATE acquires a PostgreSQL row lock, shared by bulk and individual saves.
-      const sheet = await tx.dictationSheet.update({ where: { id: found.id }, data: { updatedAt: new Date() } });
-      if (studentId === null) {
-        if (await this.receipt(tx, sheet.id, 'dictation.remaining_saved', input.requestId, 'remaining')) return;
-        const rows = await tx.dictationSheetRow.findMany({ where: { sheetId, status: 'pending' } });
-        for (const row of rows) if (frozenIds(row.senseIds).length) await this.enter(tx, actor, sheet, row, { ...input, status: 'entered', wrongSenseIds: [] });
-        await this.audit.log({ actorId: actor.id, actorRole: actor.role, ip: actor.ip, action: 'dictation.remaining_saved', entityType: 'DictationSheet', entityId: sheet.id,
-          metadata: { requestId: input.requestId, signature: 'remaining' } }, tx);
-      } else {
-        const row = await tx.dictationSheetRow.findUnique({ where: { sheetId_studentId: { sheetId, studentId } } });
-        if (!row) throw new NotFoundException({ code: 'dictation_row_not_found' });
-        await this.enter(tx, actor, sheet, row, input);
-      }
+      const sheet = await tx.dictationSheet.findFirst({ where: { id: sheetId, classId } });
+      if (!sheet) throw new NotFoundException({ code: 'dictation_not_found' });
+      // Reject fabricated student IDs before the profile upsert (a real DB
+      // would otherwise raise a foreign-key error instead of the intended 404).
+      if (!await tx.dictationSheetRow.findUnique({ where: { sheetId_studentId: { sheetId, studentId } }, select: { id: true } }))
+        throw new NotFoundException({ code: 'dictation_row_not_found' });
+      // One profile lock only, before reading the row's latest saved version.
+      // Do not lock the shared sheet while writing a student's words.
+      await lockVocabularyStudent(tx, studentId);
+      const row = await tx.dictationSheetRow.findUnique({ where: { sheetId_studentId: { sheetId, studentId } } });
+      if (!row) throw new NotFoundException({ code: 'dictation_row_not_found' });
+      await this.enter(tx, actor, sheet, row, input);
     }, { timeout: 15000 });
     const sheet = await this.prisma.dictationSheet.findUniqueOrThrow({ where: { id: sheetId } });
     return this.get(actor, classId, sheet.learnedDate.toISOString().slice(0, 10), sheet.heldOn.toISOString().slice(0, 10));
+  }
+
+  private async remaining(actor: Actor, classId: string, sheetId: string, input: Entry) {
+    const excluded = [...new Set(input.excludedStudentIds ?? [])].sort();
+    const signature = JSON.stringify(['remaining', excluded]);
+    const sheet = await this.prisma.dictationSheet.findFirst({ where: { id: sheetId, classId } });
+    if (!sheet) throw new NotFoundException({ code: 'dictation_not_found' });
+    const readPlan = async (db: Pick<Prisma.TransactionClient, 'auditLog'>): Promise<string[] | null> => {
+      const logs = await db.auditLog.findMany({ where: { entityId: sheetId,
+        action: { in: ['dictation.remaining_started', 'dictation.remaining_saved'] } }, select: { action: true, metadata: true } });
+      const old = logs.find((log) => (log.metadata as Record<string, unknown> | null)?.requestId === input.requestId);
+      if (!old) return null;
+      const metadata = old.metadata as Record<string, unknown>;
+      // Old all-or-nothing receipts are also completed requests: never expand them.
+      if (old.action === 'dictation.remaining_saved' && metadata.signature === 'remaining') return [];
+      if (metadata.signature !== signature) throw new ConflictException({ code: 'request_reused' });
+      return frozenIds(metadata.targets);
+    };
+    const previous = await readPlan(this.prisma);
+    // A short sheet-only transaction freezes the request's original targets.
+    // It never takes profile locks and never remains open during student work.
+    // A replay reads the immutable plan directly, without updating the sheet.
+    const targets = previous ?? await this.prisma.$transaction(async (tx) => {
+      await tx.dictationSheet.update({ where: { id: sheetId }, data: { updatedAt: new Date() } });
+      const old = await readPlan(tx);
+      if (old !== null) return old;
+      const rows = await tx.dictationSheetRow.findMany({ where: { sheetId, status: 'pending', studentId: { notIn: excluded } } });
+      const targets = rows.filter((row) => frozenIds(row.senseIds).length).map((row) => row.studentId).sort();
+      await this.audit.log({ actorId: actor.id, actorRole: actor.role, ip: actor.ip, action: 'dictation.remaining_started',
+        entityType: 'DictationSheet', entityId: sheetId, metadata: { requestId: input.requestId, signature, targets } }, tx);
+      return targets;
+    });
+    const bulk = { succeededCount: 0, failedCount: 0, skippedCount: 0 };
+    // Namespace row receipts so a bulk request cannot collide with a single save.
+    const rowInput: Entry = { requestId: `remaining:${input.requestId}`, status: 'entered', wrongSenseIds: [] };
+    // Read committed receipts together before retrying. Completed students do
+    // not need another profile UPDATE/lock just because the response was lost.
+    // A concurrent in-flight request is still checked again under the lock.
+    const rows = await this.prisma.dictationSheetRow.findMany({
+      where: { sheetId, studentId: { in: targets } }, select: { id: true, studentId: true, status: true },
+    });
+    const logs = await this.prisma.auditLog.findMany({
+      where: { action: 'dictation.row_saved', entityId: { in: rows.map((row) => row.id) } }, select: { entityId: true, metadata: true },
+    });
+    const completed = new Set(logs.filter((log) => (log.metadata as Record<string, unknown> | null)?.requestId === rowInput.requestId).map((log) => log.entityId));
+    const byStudent = new Map(rows.map((row) => [row.studentId, row]));
+    for (const studentId of targets) {
+      const saved = byStudent.get(studentId);
+      if (saved && completed.has(saved.id)) { bulk.succeededCount++; continue; }
+      if (saved && saved.status !== 'pending') { bulk.skippedCount++; continue; }
+      try {
+        const result = await this.prisma.$transaction(async (tx) => {
+          await lockVocabularyStudent(tx, studentId);
+          const row = await tx.dictationSheetRow.findUnique({ where: { sheetId_studentId: { sheetId, studentId } } });
+          if (!row) throw new NotFoundException({ code: 'dictation_row_not_found' });
+          if (await this.receipt(tx, row.id, 'dictation.row_saved', rowInput.requestId, JSON.stringify(['entered', []]))) return 'succeededCount' as const;
+          // Re-check after acquiring the profile lock: individual saves win and
+          // later amendments are never replaced by a replay of an old batch.
+          if (row.status !== 'pending' || !frozenIds(row.senseIds).length) return 'skippedCount' as const;
+          await this.enter(tx, actor, sheet, row, rowInput);
+          return 'succeededCount' as const;
+        }, { timeout: 15000 });
+        bulk[result]++;
+      } catch {
+        bulk.failedCount++;
+      }
+    }
+    return { ...await this.get(actor, classId, sheet.learnedDate.toISOString().slice(0, 10), sheet.heldOn.toISOString().slice(0, 10)), bulk };
   }
 }

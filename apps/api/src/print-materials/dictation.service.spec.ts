@@ -167,4 +167,170 @@ describe('纸笔默写冻结与回填（内存事务，不连库）', () => {
     expect(() => controller.generate(teacher, 'class', { unexpected: true }, {} as any)).toThrow();
     expect(() => controller.save(teacher, 'class', 'sheet', 'one', { ...entry(), studentId: 'other' }, {} as any)).toThrow();
   });
+
+  it('批量排除有草稿的学生，排除名单规范化且同编号不能换名单', async () => {
+    const { db, svc, generate } = fixture(); const sheet = (await generate()).sheet!;
+    const save = (excludedStudentIds: string[]) => svc.save(teacher, 'class', sheet.id, null, { ...entry('bulk_0001'), excludedStudentIds } as any);
+    expect(await save(['one', 'one'])).toMatchObject({ bulk: { succeededCount: 1, failedCount: 0, skippedCount: 0 } });
+    expect(db.rows('dictationSheetRow', { studentId: 'one' })[0].status).toBe('pending');
+    expect(db.rows('learningEvidence').map((r) => r.studentId)).toEqual(['two', 'two']);
+    await save(['one']);
+    await expect(save([])).rejects.toMatchObject({ status: 409 });
+    expect(db.rows('learningEvidence')).toHaveLength(2);
+  });
+
+  it('逐学生事务：一人中途失败只回滚该人，重放只补失败者且不覆盖后来的改录', async () => {
+    const { db, svc, generate } = fixture(); const sheet = (await generate()).sheet!;
+    const transact = db.$transaction;
+    db.$transaction = (run: any, opts: any) => transact(async (tx: any) => {
+      const insert = tx.learningEvidence.createMany;
+      tx.learningEvidence.createMany = (args: any) => {
+        if (args.data[0].studentId === 'two' && args.data[0].senseId === 'sense_1') throw new Error('student failed');
+        return insert(args);
+      };
+      return run(tx);
+    }, opts);
+    expect(await svc.save(teacher, 'class', sheet.id, null, entry('bulk_0001')))
+      .toMatchObject({ bulk: { succeededCount: 1, failedCount: 1, skippedCount: 0 } });
+    expect(db.rows('learningEvidence')).toHaveLength(2);
+    expect(db.rows('dictationSheetRow', { studentId: 'two' })[0].status).toBe('pending');
+    expect(db.rows('studentVocabularySense', { studentId: 'two' })).toEqual([]);
+    db.$transaction = transact;
+    await svc.save(teacher, 'class', sheet.id, 'one', entry('amend_001', ['sense_0']));
+    expect(await svc.save(teacher, 'class', sheet.id, null, entry('bulk_0001')))
+      .toMatchObject({ bulk: { succeededCount: 2, failedCount: 0, skippedCount: 0 } });
+    await svc.save(teacher, 'class', sheet.id, null, entry('bulk_0001'));
+    expect(db.rows('learningEvidence')).toHaveLength(6);
+    expect(db.rows('dictationSheetRow', { studentId: 'one' })[0].wrongSenseIds).toEqual(['sense_0']);
+    expect(db.rows('studentVocabularySense', { studentId: 'two' }).map((r) => r.reps)).toEqual([1, 1]);
+  });
+
+  it('重试只处理最初冻结的待录入名单，其他老师已录入的失败者跳过', async () => {
+    const { db, svc, generate } = fixture(); const sheet = (await generate()).sheet!;
+    const transact = db.$transaction;
+    db.$transaction = (run: any, opts: any) => transact(async (tx: any) => {
+      const insert = tx.learningEvidence.createMany;
+      tx.learningEvidence.createMany = (args: any) => {
+        if (args.data[0].studentId === 'two') throw new Error('student failed');
+        return insert(args);
+      };
+      return run(tx);
+    }, opts);
+    await svc.save(teacher, 'class', sheet.id, null, { ...entry('bulk_0001'), excludedStudentIds: ['one'] } as any);
+    db.$transaction = transact;
+    await svc.save(teacher, 'class', sheet.id, 'two', { ...entry('absent_001'), status: 'absent' });
+    expect(await svc.save(teacher, 'class', sheet.id, null, { ...entry('bulk_0001'), excludedStudentIds: ['one'] } as any))
+      .toMatchObject({ bulk: { succeededCount: 0, failedCount: 0, skippedCount: 1 } });
+    expect(db.rows('dictationSheetRow', { studentId: 'one' })[0].status).toBe('pending');
+    expect(db.rows('dictationSheetRow', { studentId: 'two' })[0].status).toBe('absent');
+  });
+
+  it('日历和历史查询按学生预取，词数增加不会增加读取次数', async () => {
+    const counts: number[] = [];
+    for (const wordCount of [2, 20]) {
+      const { db, svc, generate } = fixture(); const sheet = (await generate()).sheet!;
+      for (const row of db.rows('dictationSheetRow', { studentId: { in: ['one', 'two'] } }))
+        await db.dictationSheetRow.update({ where: { id: row.id }, data: { senseIds: Array.from({ length: wordCount }, (_, i) => `sense_${i}`) } });
+      let reads = 0; const transact = db.$transaction;
+      db.$transaction = (run: any, opts: any) => transact(async (tx: any) => {
+        for (const model of ['classEnrollment', 'classNoSchoolDay', 'learningEvidence']) {
+          const read = tx[model].findMany;
+          tx[model].findMany = (args: any) => { reads++; return read(args); };
+        }
+        return run(tx);
+      }, opts);
+      await svc.save(teacher, 'class', sheet.id, null, entry('bulk_0001'));
+      expect(db.rows('learningEvidence')).toHaveLength(wordCount * 2);
+      counts.push(reads);
+    }
+    expect(counts).toEqual([6, 6]); // Two students: one history + two calendar reads each.
+  });
+
+  it('控制器接受可选排除名单并拒绝非法类型', async () => {
+    const save = vi.fn(); const controller = new DictationController({ save } as any);
+    await controller.remaining(teacher, 'class', 'sheet', { requestId: 'bulk_0001', excludedStudentIds: ['one'] }, {} as any);
+    expect(save).toHaveBeenCalledWith(expect.anything(), 'class', 'sheet', null, expect.objectContaining({ excludedStudentIds: ['one'] }));
+    expect(() => controller.remaining(teacher, 'class', 'sheet', { requestId: 'bulk_0002', excludedStudentIds: [1] }, {} as any)).toThrow();
+  });
+
+  it('80 人各 10 词逐人提交，首位失败后仍处理其余学生；重复请求只补首位', async () => {
+    const { db, svc } = fixture();
+    db.seed('dictationSheet', { id: 'large', classId: 'class', learnedDate: dateOnly('2026-11-04'), heldOn: dateOnly('2026-11-05') });
+    for (let i = 0; i < 80; i++) db.seed('dictationSheetRow', {
+      sheetId: 'large', studentId: `large_${String(i).padStart(2, '0')}`,
+      senseIds: Array.from({ length: 10 }, (_, j) => `word_${j}`),
+    });
+    const transact = db.$transaction;
+    const traces: Set<string>[] = [];
+    db.$transaction = (run: any, opts: any) => transact(async (tx: any) => {
+      const students = new Set<string>(); traces.push(students);
+      const lock = tx.studentVocabularyProfile.upsert;
+      tx.studentVocabularyProfile.upsert = (args: any) => { students.add(args.where.studentId); return lock(args); };
+      const insert = tx.learningEvidence.createMany;
+      tx.learningEvidence.createMany = (args: any) => {
+        if (args.data[0].studentId === 'large_00') throw new Error('first student failed');
+        return insert(args);
+      };
+      return run(tx);
+    }, opts);
+    expect(await svc.save(teacher, 'class', 'large', null, entry('bulk_large')))
+      .toMatchObject({ bulk: { succeededCount: 79, failedCount: 1, skippedCount: 0 } });
+    expect(traces).toHaveLength(81); // One manifest and 80 independent student transactions.
+    expect(traces.every((ids) => ids.size <= 1)).toBe(true);
+    expect(db.rows('learningEvidence')).toHaveLength(790);
+    db.$transaction = transact;
+    const retryTransactions = vi.spyOn(db, '$transaction');
+    const result = await svc.save(teacher, 'class', 'large', null, entry('bulk_large'));
+    expect(retryTransactions).toHaveBeenCalledTimes(1);
+    expect(result).toMatchObject({ bulk: { succeededCount: 80, failedCount: 0, skippedCount: 0 } });
+    expect(db.rows('learningEvidence')).toHaveLength(800);
+    expect(db.rows('studentVocabularySense').every((r) => r.reps === 1)).toBe(true);
+  });
+
+  it('批量同编号并发与事后重放，不重复记录或把后来的个人改录覆盖', async () => {
+    const { db, svc, generate } = fixture(); const sheet = (await generate()).sheet!;
+    const results = await Promise.all([1, 2, 3].map(() => svc.save(teacher, 'class', sheet.id, null, entry('bulk_0001'))));
+    for (const result of results) expect(result).toMatchObject({ bulk: { succeededCount: 2, failedCount: 0 } });
+    expect(db.rows('auditLog', { action: 'dictation.remaining_started' })).toHaveLength(1);
+    expect(db.rows('auditLog', { action: 'dictation.row_saved' })).toHaveLength(2);
+    await svc.save(teacher, 'class', sheet.id, 'one', { ...entry('amend_001'), status: 'absent' });
+    const writesBeforeReplay = db.writes.length;
+    await svc.save(teacher, 'class', sheet.id, null, entry('bulk_0001'));
+    expect(db.writes).toHaveLength(writesBeforeReplay);
+    expect(db.rows('learningEvidence')).toHaveLength(6);
+    expect(db.rows('dictationSheetRow', { studentId: 'one' })[0].status).toBe('absent');
+  });
+
+  it.each(['manifest', 'row'])('批量审计失败不留下无收据的成功；原编号可重试（%s）', async (failure) => {
+    const { db, svc, generate } = fixture(); const sheet = (await generate()).sheet!;
+    const transact = db.$transaction;
+    db.$transaction = (run: any, opts: any) => transact(async (tx: any) => {
+      const write = tx.auditLog.create;
+      tx.auditLog.create = (args: any) => {
+        if (args.data.action === (failure === 'manifest' ? 'dictation.remaining_started' : 'dictation.row_saved')) throw new Error('audit failed');
+        return write(args);
+      };
+      return run(tx);
+    }, opts);
+    if (failure === 'manifest') await expect(svc.save(teacher, 'class', sheet.id, null, entry('bulk_0001'))).rejects.toThrow('audit failed');
+    else expect(await svc.save(teacher, 'class', sheet.id, null, entry('bulk_0001'))).toMatchObject({ bulk: { succeededCount: 0, failedCount: 2 } });
+    expect(db.rows('learningEvidence')).toEqual([]);
+    expect(db.rows('studentVocabularySense')).toEqual([]);
+    db.$transaction = transact;
+    expect(await svc.save(teacher, 'class', sheet.id, null, entry('bulk_0001'))).toMatchObject({ bulk: { succeededCount: 2, failedCount: 0 } });
+  });
+
+  it('空批次、旧版已完成收据重放均不把未知结果当全对', async () => {
+    const { db, svc, generate } = fixture(); const sheet = (await generate()).sheet!;
+    db.seed('auditLog', { action: 'dictation.remaining_saved', entityId: sheet.id,
+      metadata: { requestId: 'old_bulk_001', signature: 'remaining' } });
+    const writes = db.writes.length;
+    expect(await svc.save(teacher, 'class', sheet.id, null, entry('old_bulk_001')))
+      .toMatchObject({ bulk: { succeededCount: 0, failedCount: 0, skippedCount: 0 } });
+    expect(db.writes).toHaveLength(writes);
+    expect(await svc.save(teacher, 'class', sheet.id, null, { ...entry('empty_bulk'), excludedStudentIds: ['one', 'two'] }))
+      .toMatchObject({ bulk: { succeededCount: 0, failedCount: 0, skippedCount: 0 } });
+    expect(db.rows('learningEvidence')).toEqual([]);
+    expect(db.rows('dictationSheetRow').every((row) => row.status === 'pending')).toBe(true);
+  });
 });
