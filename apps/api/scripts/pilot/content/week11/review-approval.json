@@ -1,7 +1,7 @@
 {
   "week": "week11",
-  "fingerprint": "ff144e150d3e807ca3c4501e9565701d7f3aad2c5ddb1b6a67012231accc13b1",
-  "approvedAt": "2026-11-06T03:33:58.279Z",
+  "fingerprint": "035879ef1cd168f2ee5718a41a01ad1a0b6324e81231442705a451e94666d30a",
+  "approvedAt": "2026-11-06T07:06:39.281Z",
   "rule": "2026-10-20 硬规则：学生在 App 里能看到的所有文字，发布前派 agent 逐字审过",
   "reviewedFiles": [
     "A-article-ielts_authentic-1.txt",
@@ -12,13 +12,20 @@
     "A-article-ielts_light-1.txt",
     "A-article-ielts_light-2.txt",
     "A-article-ielts_light-3.txt",
+    "A-article-ielts_light-4.txt",
+    "A-article-ielts_light-5.txt",
     "A-article-ielts_simplified-1.txt",
     "A-article-ielts_simplified-2.txt",
+    "A-article-ielts_simplified-3.txt",
     "A-article-olevel-1.txt",
     "A-article-olevel-2.txt",
     "A-article-olevel-3.txt",
+    "A-article-olevel-4.txt",
+    "A-article-olevel-5.txt",
     "A-article-olevel_intermediate-1.txt",
     "A-article-olevel_intermediate-2.txt",
-    "A-article-olevel_intermediate-3.txt"
+    "A-article-olevel_intermediate-3.txt",
+    "A-article-olevel_intermediate-4.txt",
+    "A-article-olevel_intermediate-5.txt"
   ]
 }
