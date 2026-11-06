@@ -60,7 +60,16 @@ function loadWeek(week, root = CONTENT_ROOT) {
 }
 
 function weekFingerprint(week, root = CONTENT_ROOT) {
-  return createHash('sha256').update(canonical(visibleOf(loadWeek(week, root))), 'utf8').digest('hex');
+  const visible = visibleOf(loadWeek(week, root));
+  const dir = path.join(root, week, 'glosses');
+  // 无目录的旧周保持原指纹；有目录时所有 JSON（含新增文件）都纳入审核。
+  const payload = fs.existsSync(dir) ? {
+    visible,
+    glosses: fs.readdirSync(dir).filter((file) => file.endsWith('.json')).sort().map((file) => ({
+      file, content: JSON.parse(fs.readFileSync(path.join(dir, file), 'utf8')),
+    })),
+  } : visible;
+  return createHash('sha256').update(canonical(payload), 'utf8').digest('hex');
 }
 
 /** 哪个周目录的 dates.js 里有这一天。没有返回 null（旧的固定内容不在周目录里）。 */

@@ -57,6 +57,7 @@
 const fs = require('fs');
 const path = require('path');
 const { weekFingerprint, approvalPath } = require('./visible-fingerprint');
+const { loadWeekGlosses, articleGlossReviewLines } = require('./gloss/bundle');
 
 const args = Object.fromEntries(
   process.argv.slice(2).map((a) => {
@@ -136,6 +137,7 @@ function write(name, header, blocks) {
 function dumpArticles() {
   const pack = require(path.join(CONTENT_DIR, 'index.js'));
   const LEVELS = pack.LEVELS || pack;
+  const glossBundle = loadWeekGlosses(week);
   const levels = Object.keys(LEVELS).sort();
   let articleCount = 0;
   let questionCount = 0;
@@ -150,6 +152,10 @@ function dumpArticles() {
       lines.push(`标题: ${show(day.title)}`);
       lines.push('正文:');
       lines.push(String(day.passage ?? '(无)'));
+      if (glossBundle) {
+        lines.push('');
+        lines.push(...articleGlossReviewLines(glossBundle.data[level][day.source].glosses));
+      }
       (day.questions || []).forEach((q, i) => {
         questionCount += 1;
         lines.push('');
@@ -178,7 +184,7 @@ function dumpArticles() {
     }
     write(
       `A-article-${level}`,
-      `# A. 文章课 · ${level} · ${week}\n# 学生在「今日阅读」里看到的全部文字：标题、正文、题目（含选项、答案、解析、评分标准），以及文章生词表。`,
+      `# A. 文章课 · ${level} · ${week}\n# 学生在「今日阅读」里看到的全部文字：标题、正文、点词释义、题目（含选项、答案、解析、评分标准），以及文章生词表。`,
       blocks,
     );
   }

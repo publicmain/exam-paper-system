@@ -72,6 +72,7 @@ const ENV_AT_STARTUP = Object.fromEntries(ENV_KEYS.map((k) => [k, process.env[k]
 const content = require('./content');
 const { findNearDuplicate, questionItem } = require('./content-similarity');
 const gates = require('./publish-gates');
+const { wordGlossesFor, loadWeekGlosses } = require('./gloss/bundle');
 
 // ─────────────────────────────────────────────────────────────
 // 常量
@@ -619,7 +620,7 @@ function sameJson(a, b) {
  * 字段口径与原来的 upsert 一字不差：客观题的正确项写在 options[].correct；
  * 主观题不写任何自动分依据，options 为空。
  */
-function lessonRows(level, dayIso) {
+function lessonRows(level, dayIso, { glossRoot } = {}) {
   const lesson = content.lessonFor(level, dayIso);
   if (!lesson) throw new PilotError(`内部错误：${level} 没有 ${dayIso} 的课`);
   const ids = idsFor(level, dayIso);
@@ -634,6 +635,7 @@ function lessonRows(level, dayIso) {
   ]);
 
   const wordPlan = lessonWordPlan(lesson);
+  const wordGlosses = wordGlossesFor(level, lesson, glossRoot);
   const paper = {
     id: ids.paperId,
     name: lesson.title,
@@ -645,6 +647,7 @@ function lessonRows(level, dayIso) {
       level,
       lessonWords: wordPlan.primary,
       lessonWordReserves: wordPlan.reserves,
+      ...(wordGlosses !== undefined ? { wordGlosses } : {}),
     },
   };
 
@@ -1279,10 +1282,17 @@ function assertBundleHasNoNearDuplicates() {
 
 /** 这一天的内容门禁（`publish-gates.js`）。有问题就在连库之前拒绝。 */
 function dayContentProblems(dayIso, levelTools) {
-  return Object.keys(content.LEVELS).flatMap((level) => {
+  const problems = Object.keys(content.LEVELS).flatMap((level) => {
     const lesson = content.lessonFor(level, dayIso);
     return lesson ? gates.lessonProblems(level, lesson, { levelTools }) : [`${level}：没有 ${dayIso} 的课`];
   });
+  try {
+    const week = require('./visible-fingerprint').weekForDay(dayIso);
+    if (week) loadWeekGlosses(week);
+  } catch (error) {
+    problems.push(error.message);
+  }
+  return problems;
 }
 
 /** 第三周起的日子要篇幅 / 超纲词检查器；加载失败就拒绝发布，不当作通过。 */

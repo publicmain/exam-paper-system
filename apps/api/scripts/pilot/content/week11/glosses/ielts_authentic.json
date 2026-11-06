@@ -1,0 +1,8759 @@
+{
+  "original-w11-persistent-screen": {
+    "title": "A Screen That Holds Its Image",
+    "glosses": {
+      "paragraph": {
+        "pos": "n.",
+        "zh": "段落"
+      },
+      "a": {
+        "pos": "art.",
+        "zh": "一（泛指）；第一段标记"
+      },
+      "an": {
+        "pos": "art.",
+        "zh": "一个；一（元音前）"
+      },
+      "electronic": {
+        "pos": "adj.",
+        "zh": "电子的"
+      },
+      "label": {
+        "pos": "n.",
+        "zh": "标签"
+      },
+      "can": {
+        "pos": "aux.",
+        "zh": "能够；可以"
+      },
+      "continue": {
+        "pos": "v.",
+        "zh": "继续"
+      },
+      "displaying": {
+        "pos": "v.",
+        "zh": "显示（现在分词）",
+        "lemma": "display"
+      },
+      "price": {
+        "pos": "n.",
+        "zh": "价格"
+      },
+      "after": {
+        "pos": "conj.",
+        "zh": "在……之后（也作介词）"
+      },
+      "the": {
+        "pos": "art.",
+        "zh": "这；那（特指）"
+      },
+      "system": {
+        "pos": "n.",
+        "zh": "系统"
+      },
+      "responsible": {
+        "pos": "adj.",
+        "zh": "负责的"
+      },
+      "for": {
+        "pos": "prep.",
+        "zh": "为了；对于"
+      },
+      "changing": {
+        "pos": "v.",
+        "zh": "改变（现在分词）",
+        "lemma": "change"
+      },
+      "it": {
+        "pos": "pron.",
+        "zh": "它"
+      },
+      "has": {
+        "pos": "aux.",
+        "zh": "已（第三人称单数）",
+        "lemma": "have"
+      },
+      "stopped": {
+        "pos": "v.",
+        "zh": "停止（过去分词）",
+        "lemma": "stop"
+      },
+      "communicating": {
+        "pos": "v.",
+        "zh": "通信（现在分词）",
+        "lemma": "communicate"
+      },
+      "persistence": {
+        "pos": "n.",
+        "zh": "图像持续保持"
+      },
+      "seems": {
+        "pos": "v.",
+        "zh": "似乎（第三人称单数）",
+        "lemma": "seem"
+      },
+      "surprising": {
+        "pos": "adj.",
+        "zh": "令人惊讶的"
+      },
+      "only": {
+        "pos": "adv.",
+        "zh": "只有；仅仅"
+      },
+      "if": {
+        "pos": "conj.",
+        "zh": "如果"
+      },
+      "screen": {
+        "pos": "n.",
+        "zh": "屏幕"
+      },
+      "is": {
+        "pos": "v.",
+        "zh": "是；被（第三人称单数）",
+        "lemma": "be"
+      },
+      "imagined": {
+        "pos": "v.",
+        "zh": "想象（过去分词）",
+        "lemma": "imagine"
+      },
+      "as": {
+        "pos": "prep.",
+        "zh": "作为；像"
+      },
+      "surface": {
+        "pos": "n.",
+        "zh": "表面"
+      },
+      "that": {
+        "pos": "pron.",
+        "zh": "那；引导从句"
+      },
+      "must": {
+        "pos": "aux.",
+        "zh": "必须"
+      },
+      "continually": {
+        "pos": "adv.",
+        "zh": "不断地"
+      },
+      "produce": {
+        "pos": "v.",
+        "zh": "产生"
+      },
+      "light": {
+        "pos": "n.",
+        "zh": "光；照明灯"
+      },
+      "paper": {
+        "pos": "n.",
+        "zh": "纸；电子纸"
+      },
+      "offers": {
+        "pos": "v.",
+        "zh": "提供（第三人称单数）",
+        "lemma": "offer"
+      },
+      "another": {
+        "pos": "det.",
+        "zh": "另一种"
+      },
+      "arrangement": {
+        "pos": "n.",
+        "zh": "排列；配置"
+      },
+      "in": {
+        "pos": "prep.",
+        "zh": "在……中"
+      },
+      "which": {
+        "pos": "pron.",
+        "zh": "哪些；引导从句"
+      },
+      "visible": {
+        "pos": "adj.",
+        "zh": "可见的"
+      },
+      "image": {
+        "pos": "n.",
+        "zh": "图像"
+      },
+      "be": {
+        "pos": "v.",
+        "zh": "是；构成被动语态"
+      },
+      "maintained": {
+        "pos": "v.",
+        "zh": "保持（过去分词）",
+        "lemma": "maintain"
+      },
+      "without": {
+        "pos": "prep.",
+        "zh": "没有；无须"
+      },
+      "continuously": {
+        "pos": "adv.",
+        "zh": "持续地"
+      },
+      "driving": {
+        "pos": "v.",
+        "zh": "驱动（现在分词）",
+        "lemma": "drive"
+      },
+      "display": {
+        "pos": "n.",
+        "zh": "显示屏；显示"
+      },
+      "its": {
+        "pos": "det.",
+        "zh": "它的"
+      },
+      "resemblance": {
+        "pos": "n.",
+        "zh": "相似之处"
+      },
+      "to": {
+        "pos": "prep.",
+        "zh": "向；与；用于不定式"
+      },
+      "printed": {
+        "pos": "adj.",
+        "zh": "印刷的（过去分词）",
+        "lemma": "print"
+      },
+      "therefore": {
+        "pos": "adv.",
+        "zh": "因此"
+      },
+      "more": {
+        "pos": "adv.",
+        "zh": "更；更多（比较级）",
+        "lemma": "much"
+      },
+      "than": {
+        "pos": "conj.",
+        "zh": "比；而不是"
+      },
+      "matter": {
+        "pos": "n.",
+        "zh": "问题；要紧（动词）"
+      },
+      "of": {
+        "pos": "prep.",
+        "zh": "……的"
+      },
+      "appearance": {
+        "pos": "n.",
+        "zh": "外观"
+      },
+      "understanding": {
+        "pos": "v.",
+        "zh": "理解（动名词）",
+        "lemma": "understand"
+      },
+      "and": {
+        "pos": "conj.",
+        "zh": "和；并且"
+      },
+      "where": {
+        "pos": "adv.",
+        "zh": "在何处；在……情况下"
+      },
+      "becomes": {
+        "pos": "v.",
+        "zh": "变得（第三人称单数）",
+        "lemma": "become"
+      },
+      "misleading": {
+        "pos": "adj.",
+        "zh": "容易误导的"
+      },
+      "requires": {
+        "pos": "v.",
+        "zh": "需要（第三人称单数）",
+        "lemma": "require"
+      },
+      "separating": {
+        "pos": "v.",
+        "zh": "区分（动名词）",
+        "lemma": "separate"
+      },
+      "energy": {
+        "pos": "n.",
+        "zh": "能量；能耗"
+      },
+      "used": {
+        "pos": "v.",
+        "zh": "使用（过去分词）",
+        "lemma": "use"
+      },
+      "change": {
+        "pos": "v.",
+        "zh": "改变（动词或名词）"
+      },
+      "from": {
+        "pos": "prep.",
+        "zh": "从；与……区分"
+      },
+      "illuminate": {
+        "pos": "v.",
+        "zh": "照亮"
+      },
+      "operate": {
+        "pos": "v.",
+        "zh": "操作；使运转"
+      },
+      "surrounding": {
+        "pos": "adj.",
+        "zh": "周围的（现在分词）",
+        "lemma": "surround"
+      },
+      "device": {
+        "pos": "n.",
+        "zh": "设备"
+      },
+      "b": {
+        "pos": "名",
+        "zh": "第二段标记"
+      },
+      "common": {
+        "pos": "adj.",
+        "zh": "常见的"
+      },
+      "black": {
+        "pos": "adj.",
+        "zh": "黑色的"
+      },
+      "white": {
+        "pos": "adj.",
+        "zh": "白色的"
+      },
+      "electrophoretic": {
+        "pos": "adj.",
+        "zh": "电泳的"
+      },
+      "design": {
+        "pos": "n.",
+        "zh": "设计"
+      },
+      "differently": {
+        "pos": "adv.",
+        "zh": "以不同方式"
+      },
+      "charged": {
+        "pos": "adj.",
+        "zh": "带电的（过去分词）",
+        "lemma": "charge"
+      },
+      "pigment": {
+        "pos": "n.",
+        "zh": "颜料"
+      },
+      "particles": {
+        "pos": "n.",
+        "zh": "粒子（复数）",
+        "lemma": "particle"
+      },
+      "are": {
+        "pos": "v.",
+        "zh": "是；被（复数形式）",
+        "lemma": "be"
+      },
+      "suspended": {
+        "pos": "v.",
+        "zh": "悬浮（过去分词）",
+        "lemma": "suspend"
+      },
+      "fluid": {
+        "pos": "n.",
+        "zh": "液体"
+      },
+      "inside": {
+        "pos": "prep.",
+        "zh": "在……内部"
+      },
+      "tiny": {
+        "pos": "adj.",
+        "zh": "微小的"
+      },
+      "compartments": {
+        "pos": "n.",
+        "zh": "小隔室（复数）",
+        "lemma": "compartment"
+      },
+      "applied": {
+        "pos": "adj.",
+        "zh": "施加的（过去分词）",
+        "lemma": "apply"
+      },
+      "electric": {
+        "pos": "adj.",
+        "zh": "电的"
+      },
+      "field": {
+        "pos": "n.",
+        "zh": "场；电场"
+      },
+      "moves": {
+        "pos": "v.",
+        "zh": "移动（第三人称单数）",
+        "lemma": "move"
+      },
+      "bringing": {
+        "pos": "v.",
+        "zh": "带来（现在分词）",
+        "lemma": "bring"
+      },
+      "selected": {
+        "pos": "adj.",
+        "zh": "选定的（过去分词）",
+        "lemma": "select"
+      },
+      "colour": {
+        "pos": "n.",
+        "zh": "颜色"
+      },
+      "towards": {
+        "pos": "prep.",
+        "zh": "朝向"
+      },
+      "viewing": {
+        "pos": "v.",
+        "zh": "观看（动名词）",
+        "lemma": "view"
+      },
+      "pattern": {
+        "pos": "n.",
+        "zh": "图案；模式"
+      },
+      "depends": {
+        "pos": "v.",
+        "zh": "取决于（第三人称单数）",
+        "lemma": "depend"
+      },
+      "on": {
+        "pos": "prep.",
+        "zh": "在……上；取决于"
+      },
+      "presented": {
+        "pos": "v.",
+        "zh": "呈现（过去分词）",
+        "lemma": "present"
+      },
+      "there": {
+        "pos": "adv.",
+        "zh": "在那里"
+      },
+      "unlike": {
+        "pos": "prep.",
+        "zh": "与……不同"
+      },
+      "ordinary": {
+        "pos": "adj.",
+        "zh": "普通的"
+      },
+      "page": {
+        "pos": "n.",
+        "zh": "页面"
+      },
+      "rewritten": {
+        "pos": "v.",
+        "zh": "重写（过去分词）",
+        "lemma": "rewrite"
+      },
+      "electronically": {
+        "pos": "adv.",
+        "zh": "以电子方式"
+      },
+      "emitting": {
+        "pos": "v.",
+        "zh": "发出（现在分词）",
+        "lemma": "emit"
+      },
+      "read": {
+        "pos": "v.",
+        "zh": "阅读（原形或过去分词）"
+      },
+      "using": {
+        "pos": "v.",
+        "zh": "使用（现在分词）",
+        "lemma": "use"
+      },
+      "reflected": {
+        "pos": "v.",
+        "zh": "反射（过去分词）",
+        "lemma": "reflect"
+      },
+      "term": {
+        "pos": "n.",
+        "zh": "术语"
+      },
+      "electrophoresis": {
+        "pos": "n.",
+        "zh": "电泳"
+      },
+      "describes": {
+        "pos": "v.",
+        "zh": "描述（第三人称单数）",
+        "lemma": "describe"
+      },
+      "movement": {
+        "pos": "n.",
+        "zh": "移动"
+      },
+      "through": {
+        "pos": "prep.",
+        "zh": "通过"
+      },
+      "under": {
+        "pos": "prep.",
+        "zh": "在……作用下；在……条件下"
+      },
+      "names": {
+        "pos": "v.",
+        "zh": "指称（第三人称单数）",
+        "lemma": "name"
+      },
+      "operating": {
+        "pos": "v.",
+        "zh": "运作（现在分词）",
+        "lemma": "operate"
+      },
+      "principle": {
+        "pos": "n.",
+        "zh": "原理"
+      },
+      "rather": {
+        "pos": "adv.",
+        "zh": "而不是（短语组成部分）"
+      },
+      "particular": {
+        "pos": "adj.",
+        "zh": "特定的"
+      },
+      "brand": {
+        "pos": "n.",
+        "zh": "品牌"
+      },
+      "or": {
+        "pos": "conj.",
+        "zh": "或者"
+      },
+      "reading": {
+        "pos": "v.",
+        "zh": "阅读（动名词）",
+        "lemma": "read"
+      },
+      "c": {
+        "pos": "名",
+        "zh": "第三段标记"
+      },
+      "important": {
+        "pos": "adj.",
+        "zh": "重要的"
+      },
+      "additional": {
+        "pos": "adj.",
+        "zh": "额外的"
+      },
+      "property": {
+        "pos": "n.",
+        "zh": "特性"
+      },
+      "bistability": {
+        "pos": "n.",
+        "zh": "双稳态"
+      },
+      "retain": {
+        "pos": "v.",
+        "zh": "保持"
+      },
+      "state": {
+        "pos": "n.",
+        "zh": "状态"
+      },
+      "continuous": {
+        "pos": "adj.",
+        "zh": "连续的"
+      },
+      "electrical": {
+        "pos": "adj.",
+        "zh": "电的"
+      },
+      "drive": {
+        "pos": "n.",
+        "zh": "驱动"
+      },
+      "once": {
+        "pos": "conj.",
+        "zh": "一旦"
+      },
+      "been": {
+        "pos": "aux.",
+        "zh": "已；被（过去分词）",
+        "lemma": "be"
+      },
+      "formed": {
+        "pos": "v.",
+        "zh": "形成（过去分词）",
+        "lemma": "form"
+      },
+      "does": {
+        "pos": "aux.",
+        "zh": "助动词（第三人称单数）",
+        "lemma": "do"
+      },
+      "not": {
+        "pos": "adv.",
+        "zh": "不"
+      },
+      "need": {
+        "pos": "v.",
+        "zh": "需要"
+      },
+      "repeatedly": {
+        "pos": "adv.",
+        "zh": "反复地"
+      },
+      "recreated": {
+        "pos": "v.",
+        "zh": "重建（过去分词）",
+        "lemma": "recreate"
+      },
+      "simply": {
+        "pos": "adv.",
+        "zh": "仅仅；只是"
+      },
+      "because": {
+        "pos": "conj.",
+        "zh": "因为"
+      },
+      "reader": {
+        "pos": "n.",
+        "zh": "读者"
+      },
+      "remains": {
+        "pos": "v.",
+        "zh": "停留（第三人称单数）",
+        "lemma": "remain"
+      },
+      "this": {
+        "pos": "det.",
+        "zh": "这个；这种"
+      },
+      "reduce": {
+        "pos": "v.",
+        "zh": "减少"
+      },
+      "required": {
+        "pos": "v.",
+        "zh": "需要（过去分词）",
+        "lemma": "require"
+      },
+      "material": {
+        "pos": "n.",
+        "zh": "内容"
+      },
+      "changes": {
+        "pos": "v.",
+        "zh": "变化（第三人称单数）",
+        "lemma": "change"
+      },
+      "infrequently": {
+        "pos": "adv.",
+        "zh": "不频繁地"
+      },
+      "follow": {
+        "pos": "v.",
+        "zh": "由此得出"
+      },
+      "complete": {
+        "pos": "adj.",
+        "zh": "完整的"
+      },
+      "consumes": {
+        "pos": "v.",
+        "zh": "消耗（第三人称单数）",
+        "lemma": "consume"
+      },
+      "no": {
+        "pos": "det.",
+        "zh": "没有"
+      },
+      "power": {
+        "pos": "n.",
+        "zh": "电能；耗电量"
+      },
+      "between": {
+        "pos": "prep.",
+        "zh": "在……之间"
+      },
+      "updates": {
+        "pos": "n.",
+        "zh": "更新（复数）",
+        "lemma": "update"
+      },
+      "processor": {
+        "pos": "n.",
+        "zh": "处理器"
+      },
+      "wireless": {
+        "pos": "adj.",
+        "zh": "无线的"
+      },
+      "connection": {
+        "pos": "n.",
+        "zh": "连接"
+      },
+      "optional": {
+        "pos": "adj.",
+        "zh": "可选的"
+      },
+      "front": {
+        "pos": "adj.",
+        "zh": "前置的"
+      },
+      "may": {
+        "pos": "aux.",
+        "zh": "可能"
+      },
+      "still": {
+        "pos": "adv.",
+        "zh": "仍然"
+      },
+      "require": {
+        "pos": "v.",
+        "zh": "需要"
+      },
+      "electricity": {
+        "pos": "n.",
+        "zh": "电能"
+      },
+      "retention": {
+        "pos": "n.",
+        "zh": "保持"
+      },
+      "behaviour": {
+        "pos": "n.",
+        "zh": "工作表现"
+      },
+      "budget": {
+        "pos": "n.",
+        "zh": "用量预算"
+      },
+      "every": {
+        "pos": "det.",
+        "zh": "每一个"
+      },
+      "component": {
+        "pos": "n.",
+        "zh": "部件"
+      },
+      "attached": {
+        "pos": "v.",
+        "zh": "连接（过去分词）",
+        "lemma": "attach"
+      },
+      "d": {
+        "pos": "名",
+        "zh": "第四段标记"
+      },
+      "reflective": {
+        "pos": "adj.",
+        "zh": "反射光线的"
+      },
+      "operation": {
+        "pos": "n.",
+        "zh": "工作方式"
+      },
+      "also": {
+        "pos": "adv.",
+        "zh": "也"
+      },
+      "determines": {
+        "pos": "v.",
+        "zh": "决定（第三人称单数）",
+        "lemma": "determine"
+      },
+      "relationship": {
+        "pos": "n.",
+        "zh": "关系"
+      },
+      "surroundings": {
+        "pos": "n.",
+        "zh": "周围环境（复数）",
+        "lemma": "surrounding"
+      },
+      "adequate": {
+        "pos": "adj.",
+        "zh": "充足的"
+      },
+      "ambient": {
+        "pos": "adj.",
+        "zh": "周围环境的"
+      },
+      "illumination": {
+        "pos": "n.",
+        "zh": "照明"
+      },
+      "come": {
+        "pos": "v.",
+        "zh": "来自"
+      },
+      "room": {
+        "pos": "n.",
+        "zh": "房间"
+      },
+      "sky": {
+        "pos": "n.",
+        "zh": "天空"
+      },
+      "darkness": {
+        "pos": "n.",
+        "zh": "黑暗"
+      },
+      "however": {
+        "pos": "adv.",
+        "zh": "然而"
+      },
+      "cannot": {
+        "pos": "aux.",
+        "zh": "不能"
+      },
+      "manufacture": {
+        "pos": "v.",
+        "zh": "产生"
+      },
+      "needed": {
+        "pos": "v.",
+        "zh": "需要（过去分词）",
+        "lemma": "need"
+      },
+      "some": {
+        "pos": "det.",
+        "zh": "一些"
+      },
+      "devices": {
+        "pos": "n.",
+        "zh": "设备（复数）",
+        "lemma": "device"
+      },
+      "provide": {
+        "pos": "v.",
+        "zh": "提供"
+      },
+      "directing": {
+        "pos": "v.",
+        "zh": "引导（现在分词）",
+        "lemma": "direct"
+      },
+      "across": {
+        "pos": "prep.",
+        "zh": "横过；遍及"
+      },
+      "addition": {
+        "pos": "n.",
+        "zh": "增设的部分"
+      },
+      "turn": {
+        "pos": "v.",
+        "zh": "变成"
+      },
+      "layer": {
+        "pos": "n.",
+        "zh": "层"
+      },
+      "into": {
+        "pos": "prep.",
+        "zh": "变成；进入"
+      },
+      "supplies": {
+        "pos": "v.",
+        "zh": "提供（第三人称单数）",
+        "lemma": "supply"
+      },
+      "separate": {
+        "pos": "adj.",
+        "zh": "独立的"
+      },
+      "within": {
+        "pos": "prep.",
+        "zh": "在……内部"
+      },
+      "same": {
+        "pos": "adj.",
+        "zh": "相同的"
+      },
+      "enclosure": {
+        "pos": "n.",
+        "zh": "外壳"
+      },
+      "much": {
+        "pos": "adv.",
+        "zh": "很；更大程度"
+      },
+      "lamp": {
+        "pos": "n.",
+        "zh": "灯"
+      },
+      "makes": {
+        "pos": "v.",
+        "zh": "使（第三人称单数）",
+        "lemma": "make"
+      },
+      "usable": {
+        "pos": "adj.",
+        "zh": "可使用的"
+      },
+      "how": {
+        "pos": "adv.",
+        "zh": "如何"
+      },
+      "ink": {
+        "pos": "n.",
+        "zh": "墨水"
+      },
+      "forms": {
+        "pos": "v.",
+        "zh": "形成（第三人称单数）",
+        "lemma": "form"
+      },
+      "letters": {
+        "pos": "n.",
+        "zh": "字母（复数）",
+        "lemma": "letter"
+      },
+      "distinction": {
+        "pos": "n.",
+        "zh": "区别"
+      },
+      "matters": {
+        "pos": "v.",
+        "zh": "重要（第三人称单数）",
+        "lemma": "matter"
+      },
+      "when": {
+        "pos": "conj.",
+        "zh": "当……时"
+      },
+      "comparing": {
+        "pos": "v.",
+        "zh": "比较（动名词）",
+        "lemma": "compare"
+      },
+      "consumed": {
+        "pos": "v.",
+        "zh": "消耗（过去分词）",
+        "lemma": "consume"
+      },
+      "different": {
+        "pos": "adj.",
+        "zh": "不同的"
+      },
+      "conditions": {
+        "pos": "n.",
+        "zh": "条件（复数）",
+        "lemma": "condition"
+      },
+      "e": {
+        "pos": "名",
+        "zh": "第五段标记"
+      },
+      "picture": {
+        "pos": "n.",
+        "zh": "画面"
+      },
+      "introduces": {
+        "pos": "v.",
+        "zh": "引入（第三人称单数）",
+        "lemma": "introduce"
+      },
+      "set": {
+        "pos": "n.",
+        "zh": "一组"
+      },
+      "compromises": {
+        "pos": "n.",
+        "zh": "折中取舍（复数）",
+        "lemma": "compromise"
+      },
+      "move": {
+        "pos": "v.",
+        "zh": "移动"
+      },
+      "sequence": {
+        "pos": "n.",
+        "zh": "顺序"
+      },
+      "place": {
+        "pos": "v.",
+        "zh": "放置"
+      },
+      "them": {
+        "pos": "pron.",
+        "zh": "它们"
+      },
+      "affects": {
+        "pos": "v.",
+        "zh": "影响（第三人称单数）",
+        "lemma": "affect"
+      },
+      "transition": {
+        "pos": "n.",
+        "zh": "转换"
+      },
+      "images": {
+        "pos": "n.",
+        "zh": "图像（复数）",
+        "lemma": "image"
+      },
+      "implementations": {
+        "pos": "n.",
+        "zh": "实现方式（复数）",
+        "lemma": "implementation"
+      },
+      "thorough": {
+        "pos": "adj.",
+        "zh": "彻底的"
+      },
+      "refresh": {
+        "pos": "n.",
+        "zh": "刷新"
+      },
+      "briefly": {
+        "pos": "adv.",
+        "zh": "短暂地"
+      },
+      "passes": {
+        "pos": "v.",
+        "zh": "经过（第三人称单数）",
+        "lemma": "pass"
+      },
+      "conspicuous": {
+        "pos": "adj.",
+        "zh": "明显的"
+      },
+      "intermediate": {
+        "pos": "adj.",
+        "zh": "中间的"
+      },
+      "states": {
+        "pos": "n.",
+        "zh": "状态（复数）",
+        "lemma": "state"
+      },
+      "faster": {
+        "pos": "adj.",
+        "zh": "更快的（比较级）",
+        "lemma": "fast"
+      },
+      "partial": {
+        "pos": "adj.",
+        "zh": "局部的"
+      },
+      "leave": {
+        "pos": "v.",
+        "zh": "留下"
+      },
+      "faint": {
+        "pos": "adj.",
+        "zh": "淡淡的"
+      },
+      "remnants": {
+        "pos": "n.",
+        "zh": "残留痕迹（复数）",
+        "lemma": "remnant"
+      },
+      "earlier": {
+        "pos": "adj.",
+        "zh": "较早的（比较级）",
+        "lemma": "early"
+      },
+      "content": {
+        "pos": "n.",
+        "zh": "内容"
+      },
+      "commonly": {
+        "pos": "adv.",
+        "zh": "通常"
+      },
+      "called": {
+        "pos": "v.",
+        "zh": "称为（过去分词）",
+        "lemma": "call"
+      },
+      "ghosting": {
+        "pos": "n.",
+        "zh": "图像残影"
+      },
+      "later": {
+        "pos": "adj.",
+        "zh": "随后的（比较级）",
+        "lemma": "late"
+      },
+      "refreshing": {
+        "pos": "v.",
+        "zh": "刷新（动名词）",
+        "lemma": "refresh"
+      },
+      "these": {
+        "pos": "det.",
+        "zh": "这些"
+      },
+      "behaviours": {
+        "pos": "n.",
+        "zh": "工作表现（复数）",
+        "lemma": "behaviour"
+      },
+      "vary": {
+        "pos": "v.",
+        "zh": "有所不同"
+      },
+      "with": {
+        "pos": "prep.",
+        "zh": "随；与"
+      },
+      "control": {
+        "pos": "n.",
+        "zh": "控制"
+      },
+      "they": {
+        "pos": "pron.",
+        "zh": "它们"
+      },
+      "help": {
+        "pos": "v.",
+        "zh": "帮助"
+      },
+      "explain": {
+        "pos": "v.",
+        "zh": "解释"
+      },
+      "why": {
+        "pos": "adv.",
+        "zh": "为什么"
+      },
+      "technology": {
+        "pos": "n.",
+        "zh": "技术"
+      },
+      "well": {
+        "pos": "adv.",
+        "zh": "很好地"
+      },
+      "suited": {
+        "pos": "adj.",
+        "zh": "适合的（过去分词）",
+        "lemma": "suit"
+      },
+      "stable": {
+        "pos": "adj.",
+        "zh": "稳定的"
+      },
+      "automatically": {
+        "pos": "adv.",
+        "zh": "必然地；自动地"
+      },
+      "most": {
+        "pos": "adv.",
+        "zh": "最（最高级）",
+        "lemma": "much"
+      },
+      "appropriate": {
+        "pos": "adj.",
+        "zh": "合适的"
+      },
+      "choice": {
+        "pos": "n.",
+        "zh": "选择"
+      },
+      "rapidly": {
+        "pos": "adv.",
+        "zh": "迅速地"
+      },
+      "animation": {
+        "pos": "n.",
+        "zh": "动画"
+      },
+      "even": {
+        "pos": "adv.",
+        "zh": "即使；甚至"
+      },
+      "both": {
+        "pos": "det.",
+        "zh": "两者都"
+      },
+      "uses": {
+        "pos": "n.",
+        "zh": "用途（复数）",
+        "lemma": "use"
+      },
+      "equally": {
+        "pos": "adv.",
+        "zh": "同样地"
+      },
+      "legible": {
+        "pos": "adj.",
+        "zh": "清晰可辨的"
+      },
+      "individual": {
+        "pos": "adj.",
+        "zh": "单个的"
+      },
+      "f": {
+        "pos": "名",
+        "zh": "第六段标记"
+      },
+      "consider": {
+        "pos": "v.",
+        "zh": "考虑"
+      },
+      "shelf": {
+        "pos": "n.",
+        "zh": "货架"
+      },
+      "receives": {
+        "pos": "v.",
+        "zh": "接收（第三人称单数）",
+        "lemma": "receive"
+      },
+      "new": {
+        "pos": "adj.",
+        "zh": "新的"
+      },
+      "occasionally": {
+        "pos": "adv.",
+        "zh": "偶尔"
+      },
+      "but": {
+        "pos": "conj.",
+        "zh": "但是"
+      },
+      "displays": {
+        "pos": "v.",
+        "zh": "显示（第三人称单数）",
+        "lemma": "display"
+      },
+      "throughout": {
+        "pos": "prep.",
+        "zh": "贯穿；在整个……期间"
+      },
+      "day": {
+        "pos": "n.",
+        "zh": "一天"
+      },
+      "retaining": {
+        "pos": "v.",
+        "zh": "保持（动名词）",
+        "lemma": "retain"
+      },
+      "useful": {
+        "pos": "adj.",
+        "zh": "有用的"
+      },
+      "information": {
+        "pos": "n.",
+        "zh": "信息"
+      },
+      "spends": {
+        "pos": "v.",
+        "zh": "花费（第三人称单数）",
+        "lemma": "spend"
+      },
+      "longer": {
+        "pos": "adv.",
+        "zh": "更久（比较级）",
+        "lemma": "long"
+      },
+      "being": {
+        "pos": "aux.",
+        "zh": "正在被（现在分词）",
+        "lemma": "be"
+      },
+      "shown": {
+        "pos": "v.",
+        "zh": "显示（过去分词）",
+        "lemma": "show"
+      },
+      "now": {
+        "pos": "adv.",
+        "zh": "现在"
+      },
+      "presenting": {
+        "pos": "v.",
+        "zh": "呈现（现在分词）",
+        "lemma": "present"
+      },
+      "value": {
+        "pos": "n.",
+        "zh": "价值"
+      },
+      "frequent": {
+        "pos": "adj.",
+        "zh": "频繁的"
+      },
+      "transitions": {
+        "pos": "n.",
+        "zh": "转换（复数）",
+        "lemma": "transition"
+      },
+      "so": {
+        "pos": "conj.",
+        "zh": "因此"
+      },
+      "cost": {
+        "pos": "n.",
+        "zh": "成本"
+      },
+      "quality": {
+        "pos": "n.",
+        "zh": "质量"
+      },
+      "those": {
+        "pos": "det.",
+        "zh": "那些"
+      },
+      "become": {
+        "pos": "v.",
+        "zh": "变得"
+      },
+      "central": {
+        "pos": "adj.",
+        "zh": "关键的"
+      },
+      "neither": {
+        "pos": "det.",
+        "zh": "两者都不"
+      },
+      "example": {
+        "pos": "n.",
+        "zh": "例子"
+      },
+      "establishes": {
+        "pos": "v.",
+        "zh": "证明（第三人称单数）",
+        "lemma": "establish"
+      },
+      "one": {
+        "pos": "num.",
+        "zh": "一个"
+      },
+      "universally": {
+        "pos": "adv.",
+        "zh": "在所有情况下"
+      },
+      "superior": {
+        "pos": "adj.",
+        "zh": "更优的"
+      },
+      "relevant": {
+        "pos": "adj.",
+        "zh": "相关的"
+      },
+      "comparison": {
+        "pos": "n.",
+        "zh": "比较"
+      },
+      "concerns": {
+        "pos": "v.",
+        "zh": "涉及（第三人称单数）",
+        "lemma": "concern"
+      },
+      "work": {
+        "pos": "n.",
+        "zh": "工作"
+      },
+      "often": {
+        "pos": "adv.",
+        "zh": "经常"
+      },
+      "what": {
+        "pos": "pron.",
+        "zh": "什么；所……的"
+      },
+      "happens": {
+        "pos": "v.",
+        "zh": "发生（第三人称单数）",
+        "lemma": "happen"
+      },
+      "during": {
+        "pos": "prep.",
+        "zh": "在……期间"
+      },
+      "each": {
+        "pos": "det.",
+        "zh": "每一个"
+      },
+      "other": {
+        "pos": "det.",
+        "zh": "其他的"
+      },
+      "components": {
+        "pos": "n.",
+        "zh": "部件（复数）",
+        "lemma": "component"
+      },
+      "remain": {
+        "pos": "v.",
+        "zh": "保持"
+      },
+      "active": {
+        "pos": "adj.",
+        "zh": "运行中的"
+      },
+      "while": {
+        "pos": "conj.",
+        "zh": "当……时；而"
+      },
+      "displayed": {
+        "pos": "v.",
+        "zh": "显示（过去分词）",
+        "lemma": "display"
+      },
+      "g": {
+        "pos": "名",
+        "zh": "第七段标记"
+      },
+      "nevertheless": {
+        "pos": "adv.",
+        "zh": "尽管如此"
+      },
+      "creates": {
+        "pos": "v.",
+        "zh": "产生（第三人称单数）",
+        "lemma": "create"
+      },
+      "problem": {
+        "pos": "n.",
+        "zh": "问题"
+      },
+      "interpretation": {
+        "pos": "n.",
+        "zh": "解读"
+      },
+      "suppose": {
+        "pos": "v.",
+        "zh": "假设"
+      },
+      "loses": {
+        "pos": "v.",
+        "zh": "失去（第三人称单数）",
+        "lemma": "lose"
+      },
+      "immediately": {
+        "pos": "adv.",
+        "zh": "立即"
+      },
+      "receiving": {
+        "pos": "v.",
+        "zh": "接收（动名词）",
+        "lemma": "receive"
+      },
+      "update": {
+        "pos": "n.",
+        "zh": "更新"
+      },
+      "readable": {
+        "pos": "adj.",
+        "zh": "可读的"
+      },
+      "would": {
+        "pos": "aux.",
+        "zh": "会；将会"
+      },
+      "by": {
+        "pos": "prep.",
+        "zh": "仅凭"
+      },
+      "itself": {
+        "pos": "pron.",
+        "zh": "它本身"
+      },
+      "demonstrate": {
+        "pos": "v.",
+        "zh": "证明"
+      },
+      "works": {
+        "pos": "v.",
+        "zh": "运作（第三人称单数）",
+        "lemma": "work"
+      },
+      "nor": {
+        "pos": "conj.",
+        "zh": "也不"
+      },
+      "unchanged": {
+        "pos": "adj.",
+        "zh": "未改变的"
+      },
+      "distinguish": {
+        "pos": "v.",
+        "zh": "区分"
+      },
+      "current": {
+        "pos": "adj.",
+        "zh": "当前的"
+      },
+      "should": {
+        "pos": "aux.",
+        "zh": "应该"
+      },
+      "have": {
+        "pos": "aux.",
+        "zh": "已；构成完成时"
+      },
+      "replaced": {
+        "pos": "v.",
+        "zh": "替换（过去分词）",
+        "lemma": "replace"
+      },
+      "timestamp": {
+        "pos": "n.",
+        "zh": "时间戳"
+      },
+      "could": {
+        "pos": "aux.",
+        "zh": "可能；能够"
+      },
+      "viewer": {
+        "pos": "n.",
+        "zh": "观看者"
+      },
+      "judge": {
+        "pos": "v.",
+        "zh": "判断"
+      },
+      "was": {
+        "pos": "aux.",
+        "zh": "被（过去式）",
+        "lemma": "be"
+      },
+      "supplied": {
+        "pos": "v.",
+        "zh": "提供（过去分词）",
+        "lemma": "supply"
+      },
+      "although": {
+        "pos": "conj.",
+        "zh": "虽然"
+      },
+      "meaningful": {
+        "pos": "adj.",
+        "zh": "有意义的"
+      },
+      "relation": {
+        "pos": "n.",
+        "zh": "关联"
+      },
+      "expected": {
+        "pos": "adj.",
+        "zh": "预期的（过去分词）",
+        "lemma": "expect"
+      },
+      "schedule": {
+        "pos": "n.",
+        "zh": "时间安排"
+      },
+      "fresh": {
+        "pos": "adj.",
+        "zh": "新的；最近的"
+      },
+      "evidence": {
+        "pos": "n.",
+        "zh": "证据"
+      },
+      "communication": {
+        "pos": "n.",
+        "zh": "通信"
+      },
+      "designers": {
+        "pos": "n.",
+        "zh": "设计者（复数）",
+        "lemma": "designer"
+      },
+      "decide": {
+        "pos": "v.",
+        "zh": "决定"
+      },
+      "interruption": {
+        "pos": "n.",
+        "zh": "中断"
+      },
+      "apparent": {
+        "pos": "adj.",
+        "zh": "明显的"
+      },
+      "disappearance": {
+        "pos": "n.",
+        "zh": "消失"
+      },
+      "relied": {
+        "pos": "v.",
+        "zh": "依靠（过去分词）",
+        "lemma": "rely"
+      },
+      "upon": {
+        "pos": "prep.",
+        "zh": "依靠（短语组成部分）"
+      },
+      "reveal": {
+        "pos": "v.",
+        "zh": "揭示"
+      },
+      "h": {
+        "pos": "名",
+        "zh": "第八段标记"
+      },
+      "consequently": {
+        "pos": "adv.",
+        "zh": "因此"
+      },
+      "shifts": {
+        "pos": "v.",
+        "zh": "转移（第三人称单数）",
+        "lemma": "shift"
+      },
+      "attention": {
+        "pos": "n.",
+        "zh": "注意力"
+      },
+      "controlled": {
+        "pos": "adj.",
+        "zh": "受控的（过去分词）",
+        "lemma": "control"
+      },
+      "advantages": {
+        "pos": "n.",
+        "zh": "优势（复数）",
+        "lemma": "advantage"
+      },
+      "emerge": {
+        "pos": "v.",
+        "zh": "显现"
+      },
+      "persistent": {
+        "pos": "adj.",
+        "zh": "持续保持的"
+      },
+      "matches": {
+        "pos": "v.",
+        "zh": "符合（第三人称单数）",
+        "lemma": "match"
+      },
+      "limitations": {
+        "pos": "n.",
+        "zh": "局限（复数）",
+        "lemma": "limitation"
+      },
+      "rapid": {
+        "pos": "adj.",
+        "zh": "快速的"
+      },
+      "uncertain": {
+        "pos": "adj.",
+        "zh": "不确定的"
+      },
+      "reaches": {
+        "pos": "v.",
+        "zh": "延伸到（第三人称单数）",
+        "lemma": "reach"
+      },
+      "beyond": {
+        "pos": "prep.",
+        "zh": "超出"
+      },
+      "output": {
+        "pos": "n.",
+        "zh": "输出结果"
+      },
+      "maintaining": {
+        "pos": "v.",
+        "zh": "维持（动名词）",
+        "lemma": "maintain"
+      },
+      "process": {
+        "pos": "n.",
+        "zh": "过程"
+      },
+      "behind": {
+        "pos": "prep.",
+        "zh": "在……背后"
+      },
+      "achievements": {
+        "pos": "n.",
+        "zh": "成果（复数）",
+        "lemma": "achievement"
+      },
+      "perform": {
+        "pos": "v.",
+        "zh": "完成"
+      },
+      "first": {
+        "pos": "num.",
+        "zh": "第一个"
+      },
+      "second": {
+        "pos": "num.",
+        "zh": "第二个"
+      },
+      "unavailable": {
+        "pos": "adj.",
+        "zh": "不可用的"
+      },
+      "judging": {
+        "pos": "v.",
+        "zh": "评估（动名词）",
+        "lemma": "judge"
+      },
+      "responsibly": {
+        "pos": "adv.",
+        "zh": "负责任地"
+      },
+      "involves": {
+        "pos": "v.",
+        "zh": "涉及（第三人称单数）",
+        "lemma": "involve"
+      },
+      "asking": {
+        "pos": "v.",
+        "zh": "询问（动名词）",
+        "lemma": "ask"
+      },
+      "efficiently": {
+        "pos": "adv.",
+        "zh": "高效地"
+      },
+      "preserves": {
+        "pos": "v.",
+        "zh": "保存（第三人称单数）",
+        "lemma": "preserve"
+      },
+      "represents": {
+        "pos": "v.",
+        "zh": "反映（第三人称单数）",
+        "lemma": "represent"
+      },
+      "intended": {
+        "pos": "v.",
+        "zh": "意在（过去分词）",
+        "lemma": "intend"
+      },
+      "describe": {
+        "pos": "v.",
+        "zh": "描述"
+      }
+    }
+  },
+  "original-w11-explanatory-depth": {
+    "title": "The Explanation We Thought We Had",
+    "glosses": {
+      "paragraph": {
+        "pos": "n.",
+        "zh": "段落"
+      },
+      "a": {
+        "pos": "art.",
+        "zh": "一（泛指）；第一段标记"
+      },
+      "knowing": {
+        "pos": "v.",
+        "zh": "知道（动名词）",
+        "lemma": "know"
+      },
+      "what": {
+        "pos": "pron.",
+        "zh": "什么；所……的"
+      },
+      "familiar": {
+        "pos": "adj.",
+        "zh": "熟悉的"
+      },
+      "object": {
+        "pos": "n.",
+        "zh": "物件"
+      },
+      "does": {
+        "pos": "v.",
+        "zh": "做；助动词（第三人称单数）",
+        "lemma": "do"
+      },
+      "can": {
+        "pos": "aux.",
+        "zh": "能够；可以"
+      },
+      "feel": {
+        "pos": "v.",
+        "zh": "感觉"
+      },
+      "remarkably": {
+        "pos": "adv.",
+        "zh": "非常；显著地"
+      },
+      "like": {
+        "pos": "prep.",
+        "zh": "像"
+      },
+      "how": {
+        "pos": "adv.",
+        "zh": "如何"
+      },
+      "it": {
+        "pos": "pron.",
+        "zh": "它"
+      },
+      "works": {
+        "pos": "v.",
+        "zh": "运作；奏效（第三人称单数）",
+        "lemma": "work"
+      },
+      "person": {
+        "pos": "n.",
+        "zh": "人"
+      },
+      "may": {
+        "pos": "aux.",
+        "zh": "可能"
+      },
+      "use": {
+        "pos": "v.",
+        "zh": "使用（动词或名词）"
+      },
+      "zip": {
+        "pos": "n.",
+        "zh": "拉链"
+      },
+      "every": {
+        "pos": "det.",
+        "zh": "每一个"
+      },
+      "morning": {
+        "pos": "n.",
+        "zh": "早晨"
+      },
+      "predict": {
+        "pos": "v.",
+        "zh": "预测"
+      },
+      "which": {
+        "pos": "pron.",
+        "zh": "哪一个；引导从句"
+      },
+      "way": {
+        "pos": "n.",
+        "zh": "方向；方式"
+      },
+      "the": {
+        "pos": "art.",
+        "zh": "这；那（特指）"
+      },
+      "slider": {
+        "pos": "n.",
+        "zh": "拉链头"
+      },
+      "should": {
+        "pos": "aux.",
+        "zh": "应该"
+      },
+      "move": {
+        "pos": "v.",
+        "zh": "移动"
+      },
+      "and": {
+        "pos": "conj.",
+        "zh": "和；并且"
+      },
+      "recognise": {
+        "pos": "v.",
+        "zh": "识别"
+      },
+      "damaged": {
+        "pos": "adj.",
+        "zh": "损坏的（过去分词）",
+        "lemma": "damage"
+      },
+      "fastener": {
+        "pos": "n.",
+        "zh": "扣合装置"
+      },
+      "yet": {
+        "pos": "adv.",
+        "zh": "然而（连词）；还"
+      },
+      "struggle": {
+        "pos": "v.",
+        "zh": "费力尝试"
+      },
+      "to": {
+        "pos": "prep.",
+        "zh": "向；用于不定式"
+      },
+      "explain": {
+        "pos": "v.",
+        "zh": "解释"
+      },
+      "its": {
+        "pos": "det.",
+        "zh": "它的"
+      },
+      "parts": {
+        "pos": "n.",
+        "zh": "部件（复数）",
+        "lemma": "part"
+      },
+      "interlock": {
+        "pos": "v.",
+        "zh": "相互咬合"
+      },
+      "difficulty": {
+        "pos": "n.",
+        "zh": "困难"
+      },
+      "becomes": {
+        "pos": "v.",
+        "zh": "变得（第三人称单数）",
+        "lemma": "become"
+      },
+      "visible": {
+        "pos": "adj.",
+        "zh": "可见的"
+      },
+      "only": {
+        "pos": "adv.",
+        "zh": "只有；仅仅"
+      },
+      "when": {
+        "pos": "conj.",
+        "zh": "当……时"
+      },
+      "detailed": {
+        "pos": "adj.",
+        "zh": "详细的（过去分词）",
+        "lemma": "detail"
+      },
+      "causal": {
+        "pos": "adj.",
+        "zh": "因果的"
+      },
+      "account": {
+        "pos": "n.",
+        "zh": "说明"
+      },
+      "is": {
+        "pos": "v.",
+        "zh": "是；被（第三人称单数）",
+        "lemma": "be"
+      },
+      "requested": {
+        "pos": "v.",
+        "zh": "要求（过去分词）",
+        "lemma": "request"
+      },
+      "psychologists": {
+        "pos": "n.",
+        "zh": "心理学家（复数）",
+        "lemma": "psychologist"
+      },
+      "call": {
+        "pos": "v.",
+        "zh": "称为"
+      },
+      "gap": {
+        "pos": "n.",
+        "zh": "差距；缺漏"
+      },
+      "between": {
+        "pos": "prep.",
+        "zh": "在……之间"
+      },
+      "an": {
+        "pos": "art.",
+        "zh": "一个；一（元音前）"
+      },
+      "initially": {
+        "pos": "adv.",
+        "zh": "最初"
+      },
+      "confident": {
+        "pos": "adj.",
+        "zh": "自信的"
+      },
+      "sense": {
+        "pos": "n.",
+        "zh": "感觉"
+      },
+      "of": {
+        "pos": "prep.",
+        "zh": "……的"
+      },
+      "understanding": {
+        "pos": "n.",
+        "zh": "理解（动名词）",
+        "lemma": "understand"
+      },
+      "revealed": {
+        "pos": "v.",
+        "zh": "显露（过去分词）",
+        "lemma": "reveal"
+      },
+      "by": {
+        "pos": "prep.",
+        "zh": "通过；由"
+      },
+      "explanation": {
+        "pos": "n.",
+        "zh": "解释"
+      },
+      "illusion": {
+        "pos": "n.",
+        "zh": "错觉"
+      },
+      "explanatory": {
+        "pos": "adj.",
+        "zh": "解释的"
+      },
+      "depth": {
+        "pos": "n.",
+        "zh": "深度"
+      },
+      "phenomenon": {
+        "pos": "n.",
+        "zh": "现象"
+      },
+      "concerns": {
+        "pos": "v.",
+        "zh": "涉及（第三人称单数）",
+        "lemma": "concern"
+      },
+      "assessment": {
+        "pos": "n.",
+        "zh": "评估"
+      },
+      "knowledge": {
+        "pos": "n.",
+        "zh": "知识"
+      },
+      "rather": {
+        "pos": "adv.",
+        "zh": "而不是（短语组成部分）"
+      },
+      "than": {
+        "pos": "conj.",
+        "zh": "比；而不是"
+      },
+      "surprising": {
+        "pos": "adj.",
+        "zh": "令人惊讶的"
+      },
+      "claim": {
+        "pos": "n.",
+        "zh": "说法"
+      },
+      "that": {
+        "pos": "pron.",
+        "zh": "那；引导从句"
+      },
+      "ordinary": {
+        "pos": "adj.",
+        "zh": "普通的"
+      },
+      "users": {
+        "pos": "n.",
+        "zh": "使用者（复数）",
+        "lemma": "user"
+      },
+      "know": {
+        "pos": "v.",
+        "zh": "知道"
+      },
+      "detail": {
+        "pos": "n.",
+        "zh": "细节；详细程度"
+      },
+      "objects": {
+        "pos": "n.",
+        "zh": "物件（复数）",
+        "lemma": "object"
+      },
+      "around": {
+        "pos": "prep.",
+        "zh": "在……周围"
+      },
+      "them": {
+        "pos": "pron.",
+        "zh": "他们；它们"
+      },
+      "b": {
+        "pos": "名",
+        "zh": "第二段标记"
+      },
+      "in": {
+        "pos": "prep.",
+        "zh": "在……中"
+      },
+      "classic": {
+        "pos": "adj.",
+        "zh": "经典的"
+      },
+      "research": {
+        "pos": "n.",
+        "zh": "研究"
+      },
+      "procedure": {
+        "pos": "n.",
+        "zh": "程序；步骤"
+      },
+      "participants": {
+        "pos": "n.",
+        "zh": "参与者（复数）",
+        "lemma": "participant"
+      },
+      "first": {
+        "pos": "adv.",
+        "zh": "首先；第一次；最初的（形容词）"
+      },
+      "rate": {
+        "pos": "v.",
+        "zh": "评价；打分"
+      },
+      "well": {
+        "pos": "adv.",
+        "zh": "很好地"
+      },
+      "they": {
+        "pos": "pron.",
+        "zh": "他们"
+      },
+      "understand": {
+        "pos": "v.",
+        "zh": "理解"
+      },
+      "mechanisms": {
+        "pos": "n.",
+        "zh": "机制（复数）",
+        "lemma": "mechanism"
+      },
+      "are": {
+        "pos": "v.",
+        "zh": "是；被（复数形式）",
+        "lemma": "be"
+      },
+      "then": {
+        "pos": "adv.",
+        "zh": "随后"
+      },
+      "asked": {
+        "pos": "v.",
+        "zh": "要求（过去分词）",
+        "lemma": "ask"
+      },
+      "those": {
+        "pos": "det.",
+        "zh": "那些"
+      },
+      "subsequently": {
+        "pos": "adv.",
+        "zh": "随后"
+      },
+      "their": {
+        "pos": "det.",
+        "zh": "他们的"
+      },
+      "again": {
+        "pos": "adv.",
+        "zh": "再次"
+      },
+      "ratings": {
+        "pos": "n.",
+        "zh": "评分（复数）",
+        "lemma": "rating"
+      },
+      "often": {
+        "pos": "adv.",
+        "zh": "经常"
+      },
+      "decline": {
+        "pos": "v.",
+        "zh": "下降"
+      },
+      "after": {
+        "pos": "prep.",
+        "zh": "在……之后"
+      },
+      "attempt": {
+        "pos": "n.",
+        "zh": "尝试"
+      },
+      "at": {
+        "pos": "prep.",
+        "zh": "在……方面；处于……层次"
+      },
+      "this": {
+        "pos": "det.",
+        "zh": "这个；这种"
+      },
+      "sequence": {
+        "pos": "n.",
+        "zh": "顺序"
+      },
+      "matters": {
+        "pos": "v.",
+        "zh": "重要（第三人称单数）",
+        "lemma": "matter"
+      },
+      "because": {
+        "pos": "conj.",
+        "zh": "因为"
+      },
+      "have": {
+        "pos": "aux.",
+        "zh": "已；构成完成时"
+      },
+      "not": {
+        "pos": "adv.",
+        "zh": "不"
+      },
+      "simply": {
+        "pos": "adv.",
+        "zh": "仅仅；只是"
+      },
+      "been": {
+        "pos": "aux.",
+        "zh": "已；被（过去分词）",
+        "lemma": "be"
+      },
+      "informed": {
+        "pos": "v.",
+        "zh": "告知；使有依据（过去分词）",
+        "lemma": "inform"
+      },
+      "answers": {
+        "pos": "n.",
+        "zh": "回答（复数）",
+        "lemma": "answer"
+      },
+      "inadequate": {
+        "pos": "adj.",
+        "zh": "不充分的"
+      },
+      "producing": {
+        "pos": "v.",
+        "zh": "作出（动名词）",
+        "lemma": "produce"
+      },
+      "make": {
+        "pos": "v.",
+        "zh": "使；作出"
+      },
+      "omissions": {
+        "pos": "n.",
+        "zh": "遗漏（复数）",
+        "lemma": "omission"
+      },
+      "apparent": {
+        "pos": "adj.",
+        "zh": "明显的"
+      },
+      "contrast": {
+        "pos": "n.",
+        "zh": "对比"
+      },
+      "earlier": {
+        "pos": "adj.",
+        "zh": "较早的（比较级）",
+        "lemma": "early"
+      },
+      "estimate": {
+        "pos": "n.",
+        "zh": "估计；自我评估"
+      },
+      "later": {
+        "pos": "adj.",
+        "zh": "随后的（比较级）",
+        "lemma": "late"
+      },
+      "attempted": {
+        "pos": "adj.",
+        "zh": "尝试的（过去分词）",
+        "lemma": "attempt"
+      },
+      "performance": {
+        "pos": "n.",
+        "zh": "实际表现"
+      },
+      "merely": {
+        "pos": "adv.",
+        "zh": "仅仅"
+      },
+      "people": {
+        "pos": "n.",
+        "zh": "人们（复数）",
+        "lemma": "person"
+      },
+      "with": {
+        "pos": "prep.",
+        "zh": "具有；与"
+      },
+      "extensive": {
+        "pos": "adj.",
+        "zh": "广泛的"
+      },
+      "technical": {
+        "pos": "adj.",
+        "zh": "技术性的"
+      },
+      "training": {
+        "pos": "n.",
+        "zh": "训练（名词形式）",
+        "lemma": "train"
+      },
+      "who": {
+        "pos": "pron.",
+        "zh": "谁；引导指人的从句"
+      },
+      "never": {
+        "pos": "adv.",
+        "zh": "从未"
+      },
+      "encountered": {
+        "pos": "v.",
+        "zh": "遇到（过去分词）",
+        "lemma": "encounter"
+      },
+      "c": {
+        "pos": "名",
+        "zh": "第三段标记"
+      },
+      "one": {
+        "pos": "num.",
+        "zh": "一个"
+      },
+      "plausible": {
+        "pos": "adj.",
+        "zh": "合理可信的"
+      },
+      "contributor": {
+        "pos": "n.",
+        "zh": "促成因素"
+      },
+      "difference": {
+        "pos": "n.",
+        "zh": "区别"
+      },
+      "recognising": {
+        "pos": "v.",
+        "zh": "识别（动名词）",
+        "lemma": "recognise"
+      },
+      "successful": {
+        "pos": "adj.",
+        "zh": "成功的"
+      },
+      "outcome": {
+        "pos": "n.",
+        "zh": "结果"
+      },
+      "representing": {
+        "pos": "v.",
+        "zh": "呈现（动名词）",
+        "lemma": "represent"
+      },
+      "processes": {
+        "pos": "n.",
+        "zh": "过程（复数）",
+        "lemma": "process"
+      },
+      "generate": {
+        "pos": "v.",
+        "zh": "产生"
+      },
+      "repeated": {
+        "pos": "adj.",
+        "zh": "反复的（过去分词）",
+        "lemma": "repeat"
+      },
+      "supplies": {
+        "pos": "v.",
+        "zh": "提供（第三人称单数）",
+        "lemma": "supply"
+      },
+      "abundant": {
+        "pos": "adj.",
+        "zh": "充足的"
+      },
+      "evidence": {
+        "pos": "n.",
+        "zh": "证据"
+      },
+      "action": {
+        "pos": "n.",
+        "zh": "动作"
+      },
+      "opening": {
+        "pos": "n.",
+        "zh": "开口"
+      },
+      "closes": {
+        "pos": "v.",
+        "zh": "合上（第三人称单数）",
+        "lemma": "close"
+      },
+      "reliable": {
+        "pos": "adj.",
+        "zh": "可靠的"
+      },
+      "association": {
+        "pos": "n.",
+        "zh": "联系"
+      },
+      "support": {
+        "pos": "v.",
+        "zh": "支撑"
+      },
+      "practical": {
+        "pos": "adj.",
+        "zh": "实际的"
+      },
+      "competence": {
+        "pos": "n.",
+        "zh": "能力"
+      },
+      "without": {
+        "pos": "prep.",
+        "zh": "没有；无须"
+      },
+      "supplying": {
+        "pos": "v.",
+        "zh": "提供（动名词）",
+        "lemma": "supply"
+      },
+      "intermediate": {
+        "pos": "adj.",
+        "zh": "中间的"
+      },
+      "relationships": {
+        "pos": "n.",
+        "zh": "关系（复数）",
+        "lemma": "relationship"
+      },
+      "needed": {
+        "pos": "v.",
+        "zh": "需要（过去分词）",
+        "lemma": "need"
+      },
+      "for": {
+        "pos": "prep.",
+        "zh": "为了；对于"
+      },
+      "mechanical": {
+        "pos": "adj.",
+        "zh": "机械运作的"
+      },
+      "familiarity": {
+        "pos": "n.",
+        "zh": "熟悉程度"
+      },
+      "therefore": {
+        "pos": "adv.",
+        "zh": "因此"
+      },
+      "informative": {
+        "pos": "adj.",
+        "zh": "能提供信息的"
+      },
+      "but": {
+        "pos": "conj.",
+        "zh": "但是"
+      },
+      "about": {
+        "pos": "prep.",
+        "zh": "关于"
+      },
+      "narrower": {
+        "pos": "adj.",
+        "zh": "更有限的（比较级）",
+        "lemma": "narrow"
+      },
+      "achievement": {
+        "pos": "n.",
+        "zh": "成果"
+      },
+      "seem": {
+        "pos": "v.",
+        "zh": "似乎"
+      },
+      "certify": {
+        "pos": "v.",
+        "zh": "证明"
+      },
+      "user": {
+        "pos": "n.",
+        "zh": "使用者"
+      },
+      "correctly": {
+        "pos": "adv.",
+        "zh": "正确地"
+      },
+      "anticipate": {
+        "pos": "v.",
+        "zh": "预料"
+      },
+      "while": {
+        "pos": "conj.",
+        "zh": "当……时；而"
+      },
+      "having": {
+        "pos": "v.",
+        "zh": "拥有（现在分词）",
+        "lemma": "have"
+      },
+      "little": {
+        "pos": "det.",
+        "zh": "很少的"
+      },
+      "basis": {
+        "pos": "n.",
+        "zh": "依据"
+      },
+      "describing": {
+        "pos": "v.",
+        "zh": "描述（动名词）",
+        "lemma": "describe"
+      },
+      "hidden": {
+        "pos": "adj.",
+        "zh": "隐藏的（过去分词）",
+        "lemma": "hide"
+      },
+      "confusing": {
+        "pos": "v.",
+        "zh": "混淆（动名词）",
+        "lemma": "confuse"
+      },
+      "these": {
+        "pos": "det.",
+        "zh": "这些"
+      },
+      "achievements": {
+        "pos": "n.",
+        "zh": "成果（复数）",
+        "lemma": "achievement"
+      },
+      "allows": {
+        "pos": "v.",
+        "zh": "使能够（第三人称单数）",
+        "lemma": "allow"
+      },
+      "genuine": {
+        "pos": "adj.",
+        "zh": "真实的"
+      },
+      "level": {
+        "pos": "n.",
+        "zh": "层次；程度"
+      },
+      "excessive": {
+        "pos": "adj.",
+        "zh": "过度的"
+      },
+      "confidence": {
+        "pos": "n.",
+        "zh": "信心"
+      },
+      "another": {
+        "pos": "det.",
+        "zh": "另一种"
+      },
+      "d": {
+        "pos": "名",
+        "zh": "第四段标记"
+      },
+      "also": {
+        "pos": "adv.",
+        "zh": "也"
+      },
+      "conceal": {
+        "pos": "v.",
+        "zh": "掩盖"
+      },
+      "own": {
+        "pos": "adj.",
+        "zh": "自身的"
+      },
+      "gaps": {
+        "pos": "n.",
+        "zh": "缺漏（复数）",
+        "lemma": "gap"
+      },
+      "vocabulary": {
+        "pos": "n.",
+        "zh": "词汇"
+      },
+      "more": {
+        "pos": "adv.",
+        "zh": "更；更多（比较级）",
+        "lemma": "much"
+      },
+      "complete": {
+        "pos": "adj.",
+        "zh": "完整的"
+      },
+      "reasoning": {
+        "pos": "n.",
+        "zh": "推理（动名词）",
+        "lemma": "reason"
+      },
+      "saying": {
+        "pos": "v.",
+        "zh": "说（动名词）",
+        "lemma": "say"
+      },
+      "mechanism": {
+        "pos": "n.",
+        "zh": "机制"
+      },
+      "components": {
+        "pos": "n.",
+        "zh": "部件（复数）",
+        "lemma": "component"
+      },
+      "connected": {
+        "pos": "v.",
+        "zh": "连接（过去分词）",
+        "lemma": "connect"
+      },
+      "sound": {
+        "pos": "v.",
+        "zh": "听起来"
+      },
+      "satisfactory": {
+        "pos": "adj.",
+        "zh": "令人满意的"
+      },
+      "until": {
+        "pos": "conj.",
+        "zh": "直到"
+      },
+      "someone": {
+        "pos": "pron.",
+        "zh": "某人"
+      },
+      "asks": {
+        "pos": "v.",
+        "zh": "追问（第三人称单数）",
+        "lemma": "ask"
+      },
+      "connection": {
+        "pos": "n.",
+        "zh": "连接"
+      },
+      "enables": {
+        "pos": "v.",
+        "zh": "使成为可能（第三人称单数）",
+        "lemma": "enable"
+      },
+      "naming": {
+        "pos": "v.",
+        "zh": "说出名称（动名词）",
+        "lemma": "name"
+      },
+      "pedal": {
+        "pos": "n.",
+        "zh": "踏板"
+      },
+      "example": {
+        "pos": "n.",
+        "zh": "例子"
+      },
+      "establish": {
+        "pos": "v.",
+        "zh": "证明"
+      },
+      "movement": {
+        "pos": "n.",
+        "zh": "移动"
+      },
+      "transmitted": {
+        "pos": "v.",
+        "zh": "传递（过去分词）",
+        "lemma": "transmit"
+      },
+      "labelled": {
+        "pos": "adj.",
+        "zh": "有标注的（过去分词）",
+        "lemma": "label"
+      },
+      "diagram": {
+        "pos": "n.",
+        "zh": "示意图"
+      },
+      "help": {
+        "pos": "v.",
+        "zh": "帮助"
+      },
+      "organise": {
+        "pos": "v.",
+        "zh": "组织"
+      },
+      "labels": {
+        "pos": "n.",
+        "zh": "标注（复数）",
+        "lemma": "label"
+      },
+      "alone": {
+        "pos": "adv.",
+        "zh": "仅仅"
+      },
+      "cannot": {
+        "pos": "aux.",
+        "zh": "不能"
+      },
+      "supply": {
+        "pos": "v.",
+        "zh": "提供"
+      },
+      "missing": {
+        "pos": "adj.",
+        "zh": "缺少的（现在分词）",
+        "lemma": "miss"
+      },
+      "links": {
+        "pos": "n.",
+        "zh": "联系（复数）",
+        "lemma": "link"
+      },
+      "demand": {
+        "pos": "n.",
+        "zh": "要求"
+      },
+      "changes": {
+        "pos": "v.",
+        "zh": "改变（第三人称单数）",
+        "lemma": "change"
+      },
+      "standard": {
+        "pos": "n.",
+        "zh": "标准"
+      },
+      "adequacy": {
+        "pos": "n.",
+        "zh": "充分程度"
+      },
+      "answer": {
+        "pos": "n.",
+        "zh": "回答（名词或动词）；答案"
+      },
+      "must": {
+        "pos": "aux.",
+        "zh": "必须"
+      },
+      "connect": {
+        "pos": "v.",
+        "zh": "联系；连接"
+      },
+      "successive": {
+        "pos": "adj.",
+        "zh": "接连的"
+      },
+      "stages": {
+        "pos": "n.",
+        "zh": "阶段（复数）",
+        "lemma": "stage"
+      },
+      "redescribe": {
+        "pos": "v.",
+        "zh": "重新描述"
+      },
+      "final": {
+        "pos": "adj.",
+        "zh": "最终的"
+      },
+      "result": {
+        "pos": "n.",
+        "zh": "结果"
+      },
+      "sounding": {
+        "pos": "v.",
+        "zh": "听起来（现在分词）",
+        "lemma": "sound"
+      },
+      "language": {
+        "pos": "n.",
+        "zh": "语言"
+      },
+      "e": {
+        "pos": "名",
+        "zh": "第五段标记"
+      },
+      "finding": {
+        "pos": "n.",
+        "zh": "研究发现（名词形式）",
+        "lemma": "finding"
+      },
+      "nevertheless": {
+        "pos": "adv.",
+        "zh": "尽管如此"
+      },
+      "be": {
+        "pos": "v.",
+        "zh": "是；构成被动语态"
+      },
+      "interpreted": {
+        "pos": "v.",
+        "zh": "解读（过去分词）",
+        "lemma": "interpret"
+      },
+      "within": {
+        "pos": "prep.",
+        "zh": "在……范围内"
+      },
+      "limits": {
+        "pos": "n.",
+        "zh": "界限（复数）",
+        "lemma": "limit"
+      },
+      "fall": {
+        "pos": "n.",
+        "zh": "下降"
+      },
+      "demonstrate": {
+        "pos": "v.",
+        "zh": "证明"
+      },
+      "participant": {
+        "pos": "n.",
+        "zh": "参与者"
+      },
+      "knows": {
+        "pos": "v.",
+        "zh": "知道（第三人称单数）",
+        "lemma": "know"
+      },
+      "nothing": {
+        "pos": "pron.",
+        "zh": "什么也没有"
+      },
+      "incomplete": {
+        "pos": "adj.",
+        "zh": "不完整的"
+      },
+      "erase": {
+        "pos": "v.",
+        "zh": "抹去"
+      },
+      "ability": {
+        "pos": "n.",
+        "zh": "能力"
+      },
+      "effectively": {
+        "pos": "adv.",
+        "zh": "有效地"
+      },
+      "nor": {
+        "pos": "conj.",
+        "zh": "也不"
+      },
+      "imply": {
+        "pos": "v.",
+        "zh": "意味着"
+      },
+      "everyone": {
+        "pos": "pron.",
+        "zh": "每个人"
+      },
+      "overestimates": {
+        "pos": "v.",
+        "zh": "高估（第三人称单数）",
+        "lemma": "overestimate"
+      },
+      "kind": {
+        "pos": "n.",
+        "zh": "种类"
+      },
+      "estimates": {
+        "pos": "n.",
+        "zh": "估计（复数）",
+        "lemma": "estimate"
+      },
+      "depend": {
+        "pos": "v.",
+        "zh": "取决于"
+      },
+      "on": {
+        "pos": "prep.",
+        "zh": "在……上；取决于"
+      },
+      "task": {
+        "pos": "n.",
+        "zh": "任务"
+      },
+      "information": {
+        "pos": "n.",
+        "zh": "信息"
+      },
+      "available": {
+        "pos": "adj.",
+        "zh": "可获得的"
+      },
+      "judgement": {
+        "pos": "n.",
+        "zh": "判断"
+      },
+      "made": {
+        "pos": "v.",
+        "zh": "作出（过去分词）",
+        "lemma": "make"
+      },
+      "expert": {
+        "pos": "n.",
+        "zh": "专家"
+      },
+      "acknowledge": {
+        "pos": "v.",
+        "zh": "承认"
+      },
+      "uncertainty": {
+        "pos": "n.",
+        "zh": "不确定之处"
+      },
+      "being": {
+        "pos": "v.",
+        "zh": "是；被（现在分词）",
+        "lemma": "be"
+      },
+      "less": {
+        "pos": "adv.",
+        "zh": "较不（比较级）",
+        "lemma": "little"
+      },
+      "knowledgeable": {
+        "pos": "adj.",
+        "zh": "知识丰富的"
+      },
+      "beginner": {
+        "pos": "n.",
+        "zh": "初学者"
+      },
+      "related": {
+        "pos": "adj.",
+        "zh": "相关的（过去分词）",
+        "lemma": "relate"
+      },
+      "judgements": {
+        "pos": "n.",
+        "zh": "判断（复数）",
+        "lemma": "judgement"
+      },
+      "relationship": {
+        "pos": "n.",
+        "zh": "关系"
+      },
+      "established": {
+        "pos": "v.",
+        "zh": "确立（过去分词）",
+        "lemma": "establish"
+      },
+      "treating": {
+        "pos": "v.",
+        "zh": "看作（动名词）",
+        "lemma": "treat"
+      },
+      "certainty": {
+        "pos": "n.",
+        "zh": "确信"
+      },
+      "itself": {
+        "pos": "pron.",
+        "zh": "它本身"
+      },
+      "as": {
+        "pos": "prep.",
+        "zh": "作为；像"
+      },
+      "direct": {
+        "pos": "adj.",
+        "zh": "直接的"
+      },
+      "measure": {
+        "pos": "n.",
+        "zh": "衡量标准"
+      },
+      "expertise": {
+        "pos": "n.",
+        "zh": "专业知识"
+      },
+      "f": {
+        "pos": "名",
+        "zh": "第六段标记"
+      },
+      "distinctions": {
+        "pos": "n.",
+        "zh": "区别（复数）",
+        "lemma": "distinction"
+      },
+      "suggest": {
+        "pos": "v.",
+        "zh": "提示"
+      },
+      "careful": {
+        "pos": "adj.",
+        "zh": "审慎的"
+      },
+      "educational": {
+        "pos": "adj.",
+        "zh": "教育的"
+      },
+      "application": {
+        "pos": "n.",
+        "zh": "应用"
+      },
+      "imagine": {
+        "pos": "v.",
+        "zh": "设想"
+      },
+      "learners": {
+        "pos": "n.",
+        "zh": "学习者（复数）",
+        "lemma": "learner"
+      },
+      "classroom": {
+        "pos": "n.",
+        "zh": "教室"
+      },
+      "device": {
+        "pos": "n.",
+        "zh": "设备"
+      },
+      "before": {
+        "pos": "prep.",
+        "zh": "在……之前"
+      },
+      "consulting": {
+        "pos": "v.",
+        "zh": "查阅（动名词）",
+        "lemma": "consult"
+      },
+      "reference": {
+        "pos": "n.",
+        "zh": "参考资料"
+      },
+      "could": {
+        "pos": "aux.",
+        "zh": "可能；能够"
+      },
+      "identify": {
+        "pos": "v.",
+        "zh": "找出"
+      },
+      "precise": {
+        "pos": "adj.",
+        "zh": "确切的"
+      },
+      "transition": {
+        "pos": "n.",
+        "zh": "转换"
+      },
+      "reading": {
+        "pos": "v.",
+        "zh": "阅读（动名词）",
+        "lemma": "read"
+      },
+      "would": {
+        "pos": "aux.",
+        "zh": "会；将会"
+      },
+      "question": {
+        "pos": "n.",
+        "zh": "问题"
+      },
+      "actually": {
+        "pos": "adv.",
+        "zh": "实际上"
+      },
+      "present": {
+        "pos": "v.",
+        "zh": "呈现"
+      },
+      "seems": {
+        "pos": "v.",
+        "zh": "似乎（第三人称单数）",
+        "lemma": "seem"
+      },
+      "however": {
+        "pos": "adv.",
+        "zh": "然而"
+      },
+      "activity": {
+        "pos": "n.",
+        "zh": "活动"
+      },
+      "poorly": {
+        "pos": "adv.",
+        "zh": "不妥当地"
+      },
+      "designed": {
+        "pos": "v.",
+        "zh": "设计（过去分词）",
+        "lemma": "design"
+      },
+      "if": {
+        "pos": "conj.",
+        "zh": "如果"
+      },
+      "students": {
+        "pos": "n.",
+        "zh": "学生（复数）",
+        "lemma": "student"
+      },
+      "were": {
+        "pos": "aux.",
+        "zh": "是；被（过去式）",
+        "lemma": "be"
+      },
+      "expected": {
+        "pos": "v.",
+        "zh": "要求（过去分词）",
+        "lemma": "expect"
+      },
+      "produce": {
+        "pos": "v.",
+        "zh": "给出"
+      },
+      "details": {
+        "pos": "n.",
+        "zh": "细节（复数）",
+        "lemma": "detail"
+      },
+      "had": {
+        "pos": "v.",
+        "zh": "有；曾（过去式或过去分词）",
+        "lemma": "have"
+      },
+      "opportunity": {
+        "pos": "n.",
+        "zh": "机会"
+      },
+      "learn": {
+        "pos": "v.",
+        "zh": "学习"
+      },
+      "judged": {
+        "pos": "v.",
+        "zh": "评价（过去分词）",
+        "lemma": "judge"
+      },
+      "generally": {
+        "pos": "adv.",
+        "zh": "总体上"
+      },
+      "incapable": {
+        "pos": "adj.",
+        "zh": "不能胜任的"
+      },
+      "exposing": {
+        "pos": "v.",
+        "zh": "揭示（动名词）",
+        "lemma": "expose"
+      },
+      "useful": {
+        "pos": "adj.",
+        "zh": "有用的"
+      },
+      "provides": {
+        "pos": "v.",
+        "zh": "提供（第三人称单数）",
+        "lemma": "provide"
+      },
+      "direction": {
+        "pos": "n.",
+        "zh": "方向"
+      },
+      "further": {
+        "pos": "adj.",
+        "zh": "进一步的（比较级）",
+        "lemma": "far"
+      },
+      "enquiry": {
+        "pos": "n.",
+        "zh": "探究"
+      },
+      "label": {
+        "pos": "n.",
+        "zh": "评价标签"
+      },
+      "attached": {
+        "pos": "v.",
+        "zh": "附加（过去分词）",
+        "lemma": "attach"
+      },
+      "learner": {
+        "pos": "n.",
+        "zh": "学习者"
+      },
+      "g": {
+        "pos": "名",
+        "zh": "第七段标记"
+      },
+      "there": {
+        "pos": "pron.",
+        "zh": "有（存在句引导词）"
+      },
+      "corresponding": {
+        "pos": "adj.",
+        "zh": "相应的（现在分词）",
+        "lemma": "correspond"
+      },
+      "responsibility": {
+        "pos": "n.",
+        "zh": "责任"
+      },
+      "evaluating": {
+        "pos": "v.",
+        "zh": "评价（现在分词）",
+        "lemma": "evaluate"
+      },
+      "listener": {
+        "pos": "n.",
+        "zh": "听者"
+      },
+      "ask": {
+        "pos": "v.",
+        "zh": "询问"
+      },
+      "whether": {
+        "pos": "conj.",
+        "zh": "是否"
+      },
+      "identifies": {
+        "pos": "v.",
+        "zh": "指出（第三人称单数）",
+        "lemma": "identify"
+      },
+      "relevant": {
+        "pos": "adj.",
+        "zh": "相关的"
+      },
+      "allowing": {
+        "pos": "v.",
+        "zh": "允许（现在分词）",
+        "lemma": "allow"
+      },
+      "clear": {
+        "pos": "adj.",
+        "zh": "清楚的"
+      },
+      "expressing": {
+        "pos": "v.",
+        "zh": "表达（动名词）",
+        "lemma": "express"
+      },
+      "requiring": {
+        "pos": "v.",
+        "zh": "要求（动名词）",
+        "lemma": "require"
+      },
+      "specialist": {
+        "pos": "adj.",
+        "zh": "专业的"
+      },
+      "terminology": {
+        "pos": "n.",
+        "zh": "术语"
+      },
+      "need": {
+        "pos": "v.",
+        "zh": "需要"
+      },
+      "confuse": {
+        "pos": "v.",
+        "zh": "混淆"
+      },
+      "verbal": {
+        "pos": "adj.",
+        "zh": "言辞上的"
+      },
+      "polish": {
+        "pos": "n.",
+        "zh": "润色；精练"
+      },
+      "conversely": {
+        "pos": "adv.",
+        "zh": "反过来"
+      },
+      "accepting": {
+        "pos": "v.",
+        "zh": "接受（动名词）",
+        "lemma": "accept"
+      },
+      "fluent": {
+        "pos": "adj.",
+        "zh": "流畅的"
+      },
+      "description": {
+        "pos": "n.",
+        "zh": "描述"
+      },
+      "leave": {
+        "pos": "v.",
+        "zh": "留下"
+      },
+      "central": {
+        "pos": "adj.",
+        "zh": "关键的"
+      },
+      "unexamined": {
+        "pos": "adj.",
+        "zh": "未经检视的"
+      },
+      "follow-up": {
+        "pos": "adj.",
+        "zh": "后续追问的"
+      },
+      "follow": {
+        "pos": "v.",
+        "zh": "跟进（复合词组成部分）"
+      },
+      "up": {
+        "pos": "adv.",
+        "zh": "后续（复合词组成部分）"
+      },
+      "next": {
+        "pos": "adj.",
+        "zh": "下一个"
+      },
+      "stage": {
+        "pos": "n.",
+        "zh": "阶段"
+      },
+      "or": {
+        "pos": "conj.",
+        "zh": "或者"
+      },
+      "change": {
+        "pos": "v.",
+        "zh": "改变"
+      },
+      "particular": {
+        "pos": "adj.",
+        "zh": "特定的"
+      },
+      "absent": {
+        "pos": "adj.",
+        "zh": "缺失的"
+      },
+      "such": {
+        "pos": "det.",
+        "zh": "这样的"
+      },
+      "questions": {
+        "pos": "n.",
+        "zh": "问题（复数）",
+        "lemma": "question"
+      },
+      "inspect": {
+        "pos": "v.",
+        "zh": "检视"
+      },
+      "structure": {
+        "pos": "n.",
+        "zh": "结构"
+      },
+      "instead": {
+        "pos": "adv.",
+        "zh": "而是；代替"
+      },
+      "rewarding": {
+        "pos": "v.",
+        "zh": "奖励（动名词）",
+        "lemma": "reward"
+      },
+      "either": {
+        "pos": "det.",
+        "zh": "两者中的任一"
+      },
+      "elaborate": {
+        "pos": "adj.",
+        "zh": "繁复的"
+      },
+      "delivery": {
+        "pos": "n.",
+        "zh": "表达方式"
+      },
+      "h": {
+        "pos": "名",
+        "zh": "第八段标记"
+      },
+      "most": {
+        "pos": "adv.",
+        "zh": "最（最高级）",
+        "lemma": "much"
+      },
+      "productive": {
+        "pos": "adj.",
+        "zh": "有成效的"
+      },
+      "better": {
+        "pos": "adv.",
+        "zh": "更准确地（比较级）",
+        "lemma": "well"
+      },
+      "calibrated": {
+        "pos": "v.",
+        "zh": "校准（过去分词）",
+        "lemma": "calibrate"
+      },
+      "immediately": {
+        "pos": "adv.",
+        "zh": "立即"
+      },
+      "begins": {
+        "pos": "v.",
+        "zh": "开始（第三人称单数）",
+        "lemma": "begin"
+      },
+      "claiming": {
+        "pos": "v.",
+        "zh": "声称（动名词）",
+        "lemma": "claim"
+      },
+      "finish": {
+        "pos": "v.",
+        "zh": "最终做到；结束"
+      },
+      "distinguishing": {
+        "pos": "v.",
+        "zh": "区分（动名词）",
+        "lemma": "distinguish"
+      },
+      "operate": {
+        "pos": "v.",
+        "zh": "操作；使运转"
+      },
+      "from": {
+        "pos": "prep.",
+        "zh": "从；与……区分"
+      },
+      "revision": {
+        "pos": "n.",
+        "zh": "修正"
+      },
+      "gain": {
+        "pos": "n.",
+        "zh": "收获"
+      },
+      "self-knowledge": {
+        "pos": "n.",
+        "zh": "自我认识"
+      },
+      "self": {
+        "pos": "n.",
+        "zh": "自我"
+      },
+      "even": {
+        "pos": "adv.",
+        "zh": "即使；甚至"
+      },
+      "has": {
+        "pos": "aux.",
+        "zh": "已（第三人称单数）",
+        "lemma": "have"
+      },
+      "increased": {
+        "pos": "v.",
+        "zh": "增加（过去分词）",
+        "lemma": "increase"
+      },
+      "makes": {
+        "pos": "v.",
+        "zh": "使（第三人称单数）",
+        "lemma": "make"
+      },
+      "learning": {
+        "pos": "n.",
+        "zh": "学习（动名词）",
+        "lemma": "learn"
+      },
+      "selective": {
+        "pos": "adj.",
+        "zh": "有针对性的"
+      },
+      "become": {
+        "pos": "v.",
+        "zh": "变得"
+      },
+      "identifiable": {
+        "pos": "adj.",
+        "zh": "可明确识别的"
+      },
+      "reminds": {
+        "pos": "v.",
+        "zh": "提醒（第三人称单数）",
+        "lemma": "remind"
+      },
+      "us": {
+        "pos": "pron.",
+        "zh": "我们"
+      },
+      "precede": {
+        "pos": "v.",
+        "zh": "先于"
+      },
+      "inspection": {
+        "pos": "n.",
+        "zh": "检视"
+      },
+      "asking": {
+        "pos": "v.",
+        "zh": "询问（动名词）",
+        "lemma": "ask"
+      },
+      "creates": {
+        "pos": "v.",
+        "zh": "产生（第三人称单数）",
+        "lemma": "create"
+      },
+      "occasion": {
+        "pos": "n.",
+        "zh": "机会"
+      },
+      "provided": {
+        "pos": "conj.",
+        "zh": "只要"
+      },
+      "resulting": {
+        "pos": "adj.",
+        "zh": "由此产生的（现在分词）",
+        "lemma": "result"
+      },
+      "treated": {
+        "pos": "v.",
+        "zh": "看待（过去分词）",
+        "lemma": "treat"
+      },
+      "proof": {
+        "pos": "n.",
+        "zh": "证明"
+      },
+      "general": {
+        "pos": "adj.",
+        "zh": "总体的"
+      },
+      "incompetence": {
+        "pos": "n.",
+        "zh": "能力不足"
+      }
+    }
+  },
+  "original-w11-between-movements": {
+    "title": "When Silence Is Part of the Music",
+    "glosses": {
+      "paragraph": {
+        "pos": "n.",
+        "zh": "段落"
+      },
+      "a": {
+        "pos": "art.",
+        "zh": "一（泛指）；第一段标记"
+      },
+      "musical": {
+        "pos": "adj.",
+        "zh": "音乐的"
+      },
+      "movement": {
+        "pos": "n.",
+        "zh": "乐章"
+      },
+      "ends": {
+        "pos": "v.",
+        "zh": "结束（第三人称单数）",
+        "lemma": "end"
+      },
+      "the": {
+        "pos": "art.",
+        "zh": "这；那（特指）"
+      },
+      "performers": {
+        "pos": "n.",
+        "zh": "表演者（复数）",
+        "lemma": "performer"
+      },
+      "remain": {
+        "pos": "v.",
+        "zh": "保持"
+      },
+      "in": {
+        "pos": "prep.",
+        "zh": "在……中"
+      },
+      "position": {
+        "pos": "n.",
+        "zh": "位置"
+      },
+      "and": {
+        "pos": "conj.",
+        "zh": "和；并且"
+      },
+      "somebody": {
+        "pos": "pron.",
+        "zh": "某人"
+      },
+      "begins": {
+        "pos": "v.",
+        "zh": "开始（第三人称单数）",
+        "lemma": "begin"
+      },
+      "to": {
+        "pos": "prep.",
+        "zh": "对；用于不定式"
+      },
+      "applaud": {
+        "pos": "v.",
+        "zh": "鼓掌"
+      },
+      "whether": {
+        "pos": "conj.",
+        "zh": "是否"
+      },
+      "that": {
+        "pos": "pron.",
+        "zh": "那；引导从句"
+      },
+      "response": {
+        "pos": "n.",
+        "zh": "回应"
+      },
+      "feels": {
+        "pos": "v.",
+        "zh": "让人觉得（第三人称单数）",
+        "lemma": "feel"
+      },
+      "welcome": {
+        "pos": "adj.",
+        "zh": "受欢迎的"
+      },
+      "or": {
+        "pos": "conj.",
+        "zh": "或者"
+      },
+      "disruptive": {
+        "pos": "adj.",
+        "zh": "打断连贯体验的"
+      },
+      "depends": {
+        "pos": "v.",
+        "zh": "取决于（第三人称单数）",
+        "lemma": "depend"
+      },
+      "partly": {
+        "pos": "adv.",
+        "zh": "部分地"
+      },
+      "on": {
+        "pos": "prep.",
+        "zh": "在……上；取决于"
+      },
+      "what": {
+        "pos": "pron.",
+        "zh": "什么；所……的"
+      },
+      "listeners": {
+        "pos": "n.",
+        "zh": "听众（复数）",
+        "lemma": "listener"
+      },
+      "believe": {
+        "pos": "v.",
+        "zh": "认为"
+      },
+      "pause": {
+        "pos": "n.",
+        "zh": "停顿"
+      },
+      "means": {
+        "pos": "v.",
+        "zh": "意味着（第三人称单数）",
+        "lemma": "mean"
+      },
+      "some": {
+        "pos": "det.",
+        "zh": "一些"
+      },
+      "concert": {
+        "pos": "n.",
+        "zh": "音乐会"
+      },
+      "settings": {
+        "pos": "n.",
+        "zh": "场合（复数）",
+        "lemma": "setting"
+      },
+      "audiences": {
+        "pos": "n.",
+        "zh": "听众（复数）",
+        "lemma": "audience"
+      },
+      "are": {
+        "pos": "v.",
+        "zh": "是；被（复数形式）",
+        "lemma": "be"
+      },
+      "expected": {
+        "pos": "v.",
+        "zh": "要求（过去分词）",
+        "lemma": "expect"
+      },
+      "reserve": {
+        "pos": "v.",
+        "zh": "留待以后"
+      },
+      "applause": {
+        "pos": "n.",
+        "zh": "掌声"
+      },
+      "until": {
+        "pos": "conj.",
+        "zh": "直到"
+      },
+      "complete": {
+        "pos": "adj.",
+        "zh": "完整的"
+      },
+      "work": {
+        "pos": "n.",
+        "zh": "作品"
+      },
+      "has": {
+        "pos": "aux.",
+        "zh": "已（第三人称单数）",
+        "lemma": "have"
+      },
+      "ended": {
+        "pos": "v.",
+        "zh": "结束（过去分词）",
+        "lemma": "end"
+      },
+      "should": {
+        "pos": "aux.",
+        "zh": "应该"
+      },
+      "expectation": {
+        "pos": "n.",
+        "zh": "预期；要求"
+      },
+      "be": {
+        "pos": "v.",
+        "zh": "是；构成被动语态"
+      },
+      "maintained": {
+        "pos": "v.",
+        "zh": "保留（过去分词）",
+        "lemma": "maintain"
+      },
+      "strongest": {
+        "pos": "adj.",
+        "zh": "最有力的（最高级）",
+        "lemma": "strong"
+      },
+      "answer": {
+        "pos": "n.",
+        "zh": "回答"
+      },
+      "cannot": {
+        "pos": "aux.",
+        "zh": "不能"
+      },
+      "obtained": {
+        "pos": "v.",
+        "zh": "获得（过去分词）",
+        "lemma": "obtain"
+      },
+      "by": {
+        "pos": "prep.",
+        "zh": "通过；由"
+      },
+      "calling": {
+        "pos": "v.",
+        "zh": "称为（动名词）",
+        "lemma": "call"
+      },
+      "one": {
+        "pos": "num.",
+        "zh": "一个；一位"
+      },
+      "audience": {
+        "pos": "n.",
+        "zh": "听众"
+      },
+      "knowledgeable": {
+        "pos": "adj.",
+        "zh": "知识丰富的"
+      },
+      "another": {
+        "pos": "det.",
+        "zh": "另一个"
+      },
+      "enthusiastic": {
+        "pos": "adj.",
+        "zh": "热情的"
+      },
+      "both": {
+        "pos": "det.",
+        "zh": "两者都"
+      },
+      "continuity": {
+        "pos": "n.",
+        "zh": "连贯性"
+      },
+      "spontaneous": {
+        "pos": "adj.",
+        "zh": "自发的"
+      },
+      "can": {
+        "pos": "aux.",
+        "zh": "能够；可以"
+      },
+      "contribute": {
+        "pos": "v.",
+        "zh": "有助于"
+      },
+      "performance": {
+        "pos": "n.",
+        "zh": "演出"
+      },
+      "question": {
+        "pos": "n.",
+        "zh": "问题"
+      },
+      "is": {
+        "pos": "v.",
+        "zh": "是；被（第三人称单数）",
+        "lemma": "be"
+      },
+      "how": {
+        "pos": "adv.",
+        "zh": "如何"
+      },
+      "shared": {
+        "pos": "adj.",
+        "zh": "共同的（过去分词）",
+        "lemma": "share"
+      },
+      "convention": {
+        "pos": "n.",
+        "zh": "惯例"
+      },
+      "serve": {
+        "pos": "v.",
+        "zh": "服务于；适合"
+      },
+      "particular": {
+        "pos": "adj.",
+        "zh": "特定的"
+      },
+      "music": {
+        "pos": "n.",
+        "zh": "音乐"
+      },
+      "without": {
+        "pos": "prep.",
+        "zh": "没有；无须"
+      },
+      "turning": {
+        "pos": "v.",
+        "zh": "变成（动名词）",
+        "lemma": "turn"
+      },
+      "an": {
+        "pos": "art.",
+        "zh": "一个；一（元音前）"
+      },
+      "unfamiliar": {
+        "pos": "adj.",
+        "zh": "不熟悉的"
+      },
+      "into": {
+        "pos": "prep.",
+        "zh": "变成；进入"
+      },
+      "unnecessary": {
+        "pos": "adj.",
+        "zh": "不必要的"
+      },
+      "condition": {
+        "pos": "n.",
+        "zh": "条件"
+      },
+      "of": {
+        "pos": "prep.",
+        "zh": "……的"
+      },
+      "belonging": {
+        "pos": "n.",
+        "zh": "归属（动名词）",
+        "lemma": "belong"
+      },
+      "b": {
+        "pos": "名",
+        "zh": "第二段标记"
+      },
+      "case": {
+        "pos": "n.",
+        "zh": "理由；论据"
+      },
+      "for": {
+        "pos": "prep.",
+        "zh": "为了；对于"
+      },
+      "waiting": {
+        "pos": "v.",
+        "zh": "等待（动名词）",
+        "lemma": "wait"
+      },
+      "deserves": {
+        "pos": "v.",
+        "zh": "值得（第三人称单数）",
+        "lemma": "deserve"
+      },
+      "more": {
+        "pos": "adv.",
+        "zh": "更；更多（比较级）",
+        "lemma": "much"
+      },
+      "than": {
+        "pos": "conj.",
+        "zh": "比；而不是"
+      },
+      "description": {
+        "pos": "n.",
+        "zh": "描述"
+      },
+      "good": {
+        "pos": "adj.",
+        "zh": "良好的"
+      },
+      "manners": {
+        "pos": "n.",
+        "zh": "礼仪（复数）",
+        "lemma": "manner"
+      },
+      "comprising": {
+        "pos": "v.",
+        "zh": "包含（现在分词）",
+        "lemma": "comprise"
+      },
+      "several": {
+        "pos": "det.",
+        "zh": "几个"
+      },
+      "movements": {
+        "pos": "n.",
+        "zh": "乐章（复数）",
+        "lemma": "movement"
+      },
+      "may": {
+        "pos": "aux.",
+        "zh": "可能"
+      },
+      "create": {
+        "pos": "v.",
+        "zh": "创造"
+      },
+      "relationships": {
+        "pos": "n.",
+        "zh": "关系（复数）",
+        "lemma": "relationship"
+      },
+      "between": {
+        "pos": "prep.",
+        "zh": "在……之间"
+      },
+      "contrasting": {
+        "pos": "adj.",
+        "zh": "形成对比的（现在分词）",
+        "lemma": "contrast"
+      },
+      "sections": {
+        "pos": "n.",
+        "zh": "乐段（复数）",
+        "lemma": "section"
+      },
+      "silence": {
+        "pos": "n.",
+        "zh": "安静；无掌声的间歇"
+      },
+      "separating": {
+        "pos": "v.",
+        "zh": "分隔（现在分词）",
+        "lemma": "separate"
+      },
+      "them": {
+        "pos": "pron.",
+        "zh": "它们"
+      },
+      "part": {
+        "pos": "n.",
+        "zh": "部分"
+      },
+      "listener": {
+        "pos": "n.",
+        "zh": "听众"
+      },
+      "attention": {
+        "pos": "n.",
+        "zh": "注意力"
+      },
+      "whole": {
+        "pos": "n.",
+        "zh": "整体"
+      },
+      "introduces": {
+        "pos": "v.",
+        "zh": "引入（第三人称单数）",
+        "lemma": "introduce"
+      },
+      "sound": {
+        "pos": "n.",
+        "zh": "声音"
+      },
+      "different": {
+        "pos": "adj.",
+        "zh": "不同的"
+      },
+      "social": {
+        "pos": "adj.",
+        "zh": "社交的"
+      },
+      "activity": {
+        "pos": "n.",
+        "zh": "活动"
+      },
+      "interval": {
+        "pos": "n.",
+        "zh": "间隔"
+      },
+      "quiet": {
+        "pos": "adj.",
+        "zh": "安静的"
+      },
+      "ending": {
+        "pos": "n.",
+        "zh": "结尾（名词形式）",
+        "lemma": "ending"
+      },
+      "followed": {
+        "pos": "v.",
+        "zh": "接续（过去分词）",
+        "lemma": "follow"
+      },
+      "energetic": {
+        "pos": "adj.",
+        "zh": "充满活力的"
+      },
+      "experienced": {
+        "pos": "v.",
+        "zh": "体验（过去分词）",
+        "lemma": "experience"
+      },
+      "differently": {
+        "pos": "adv.",
+        "zh": "以不同方式"
+      },
+      "if": {
+        "pos": "conj.",
+        "zh": "如果"
+      },
+      "prolonged": {
+        "pos": "adj.",
+        "zh": "持续较久的（过去分词）",
+        "lemma": "prolong"
+      },
+      "public": {
+        "pos": "adj.",
+        "zh": "公众的"
+      },
+      "intervenes": {
+        "pos": "v.",
+        "zh": "介入（第三人称单数）",
+        "lemma": "intervene"
+      },
+      "supporters": {
+        "pos": "n.",
+        "zh": "支持者（复数）",
+        "lemma": "supporter"
+      },
+      "restraint": {
+        "pos": "n.",
+        "zh": "克制"
+      },
+      "therefore": {
+        "pos": "adv.",
+        "zh": "因此"
+      },
+      "argue": {
+        "pos": "v.",
+        "zh": "主张"
+      },
+      "protects": {
+        "pos": "v.",
+        "zh": "保护（第三人称单数）",
+        "lemma": "protect"
+      },
+      "artistic": {
+        "pos": "adj.",
+        "zh": "艺术上的"
+      },
+      "relationship": {
+        "pos": "n.",
+        "zh": "关系"
+      },
+      "rather": {
+        "pos": "adv.",
+        "zh": "而不是（短语组成部分）"
+      },
+      "merely": {
+        "pos": "adv.",
+        "zh": "仅仅"
+      },
+      "preserving": {
+        "pos": "v.",
+        "zh": "保留（现在分词）",
+        "lemma": "preserve"
+      },
+      "rule": {
+        "pos": "n.",
+        "zh": "规则"
+      },
+      "because": {
+        "pos": "conj.",
+        "zh": "因为"
+      },
+      "earlier": {
+        "pos": "adj.",
+        "zh": "较早的（比较级）",
+        "lemma": "early"
+      },
+      "happened": {
+        "pos": "v.",
+        "zh": "碰巧（过去式）",
+        "lemma": "happen"
+      },
+      "observe": {
+        "pos": "v.",
+        "zh": "遵守"
+      },
+      "it": {
+        "pos": "pron.",
+        "zh": "它"
+      },
+      "their": {
+        "pos": "det.",
+        "zh": "他们的"
+      },
+      "concern": {
+        "pos": "n.",
+        "zh": "关切；顾虑"
+      },
+      "becomes": {
+        "pos": "v.",
+        "zh": "变得（第三人称单数）",
+        "lemma": "become"
+      },
+      "harder": {
+        "pos": "adj.",
+        "zh": "更难的（比较级）",
+        "lemma": "hard"
+      },
+      "hear": {
+        "pos": "v.",
+        "zh": "听到"
+      },
+      "c": {
+        "pos": "名",
+        "zh": "第三段标记"
+      },
+      "freer": {
+        "pos": "adj.",
+        "zh": "更自由的（比较级）",
+        "lemma": "free"
+      },
+      "have": {
+        "pos": "v.",
+        "zh": "有；构成完成时（助动词）"
+      },
+      "equally": {
+        "pos": "adv.",
+        "zh": "同样地"
+      },
+      "substantial": {
+        "pos": "adj.",
+        "zh": "有分量的"
+      },
+      "point": {
+        "pos": "n.",
+        "zh": "观点；理由"
+      },
+      "meeting": {
+        "pos": "n.",
+        "zh": "相遇（名词形式）",
+        "lemma": "meeting"
+      },
+      "musicians": {
+        "pos": "n.",
+        "zh": "音乐家（复数）",
+        "lemma": "musician"
+      },
+      "not": {
+        "pos": "adv.",
+        "zh": "不"
+      },
+      "simply": {
+        "pos": "adv.",
+        "zh": "仅仅；只是"
+      },
+      "delivery": {
+        "pos": "n.",
+        "zh": "交付；传递"
+      },
+      "finished": {
+        "pos": "adj.",
+        "zh": "完成的（过去分词）",
+        "lemma": "finish"
+      },
+      "object": {
+        "pos": "n.",
+        "zh": "作品"
+      },
+      "silent": {
+        "pos": "adj.",
+        "zh": "安静的"
+      },
+      "recipients": {
+        "pos": "n.",
+        "zh": "接收者（复数）",
+        "lemma": "recipient"
+      },
+      "immediate": {
+        "pos": "adj.",
+        "zh": "即时的"
+      },
+      "acknowledge": {
+        "pos": "v.",
+        "zh": "表示赞赏"
+      },
+      "striking": {
+        "pos": "adj.",
+        "zh": "引人注目的（现在分词）",
+        "lemma": "strike"
+      },
+      "passage": {
+        "pos": "n.",
+        "zh": "乐曲片段"
+      },
+      "make": {
+        "pos": "v.",
+        "zh": "使；作出"
+      },
+      "participation": {
+        "pos": "n.",
+        "zh": "参与"
+      },
+      "visible": {
+        "pos": "adj.",
+        "zh": "可见的"
+      },
+      "someone": {
+        "pos": "pron.",
+        "zh": "某人"
+      },
+      "encountering": {
+        "pos": "v.",
+        "zh": "遇到（动名词）",
+        "lemma": "encounter"
+      },
+      "programme": {
+        "pos": "n.",
+        "zh": "演出节目"
+      },
+      "also": {
+        "pos": "adv.",
+        "zh": "也"
+      },
+      "reasonably": {
+        "pos": "adv.",
+        "zh": "合理地"
+      },
+      "interpret": {
+        "pos": "v.",
+        "zh": "理解为"
+      },
+      "apparent": {
+        "pos": "adj.",
+        "zh": "看似的"
+      },
+      "as": {
+        "pos": "prep.",
+        "zh": "作为；像"
+      },
+      "invitation": {
+        "pos": "n.",
+        "zh": "邀请"
+      },
+      "respond": {
+        "pos": "v.",
+        "zh": "回应"
+      },
+      "only": {
+        "pos": "adv.",
+        "zh": "只有；仅仅"
+      },
+      "explanation": {
+        "pos": "n.",
+        "zh": "解释"
+      },
+      "arrives": {
+        "pos": "v.",
+        "zh": "到来（第三人称单数）",
+        "lemma": "arrive"
+      },
+      "through": {
+        "pos": "prep.",
+        "zh": "通过"
+      },
+      "disapproving": {
+        "pos": "adj.",
+        "zh": "不赞同的（现在分词）",
+        "lemma": "disapprove"
+      },
+      "looks": {
+        "pos": "n.",
+        "zh": "目光（复数）",
+        "lemma": "look"
+      },
+      "afterwards": {
+        "pos": "adv.",
+        "zh": "之后"
+      },
+      "event": {
+        "pos": "n.",
+        "zh": "演出活动"
+      },
+      "taught": {
+        "pos": "v.",
+        "zh": "教会（过去分词）",
+        "lemma": "teach"
+      },
+      "discomfort": {
+        "pos": "n.",
+        "zh": "不自在"
+      },
+      "communication": {
+        "pos": "n.",
+        "zh": "沟通"
+      },
+      "organisers": {
+        "pos": "n.",
+        "zh": "组织者（复数）",
+        "lemma": "organiser"
+      },
+      "who": {
+        "pos": "pron.",
+        "zh": "谁；引导指人的从句"
+      },
+      "want": {
+        "pos": "v.",
+        "zh": "希望"
+      },
+      "new": {
+        "pos": "adj.",
+        "zh": "新的"
+      },
+      "assume": {
+        "pos": "v.",
+        "zh": "想当然地认为"
+      },
+      "every": {
+        "pos": "det.",
+        "zh": "每一个"
+      },
+      "worthwhile": {
+        "pos": "adj.",
+        "zh": "有价值的"
+      },
+      "form": {
+        "pos": "n.",
+        "zh": "形式"
+      },
+      "already": {
+        "pos": "adv.",
+        "zh": "已经"
+      },
+      "includes": {
+        "pos": "v.",
+        "zh": "包括（第三人称单数）",
+        "lemma": "include"
+      },
+      "knowledge": {
+        "pos": "n.",
+        "zh": "知识"
+      },
+      "venue": {
+        "pos": "n.",
+        "zh": "演出场所"
+      },
+      "expectations": {
+        "pos": "n.",
+        "zh": "要求（复数）",
+        "lemma": "expectation"
+      },
+      "d": {
+        "pos": "名",
+        "zh": "第四段标记"
+      },
+      "granted": {
+        "pos": "adv.",
+        "zh": "诚然（过去分词）",
+        "lemma": "grant"
+      },
+      "welcoming": {
+        "pos": "v.",
+        "zh": "欢迎（动名词）",
+        "lemma": "welcome"
+      },
+      "newcomers": {
+        "pos": "n.",
+        "zh": "新来者（复数）",
+        "lemma": "newcomer"
+      },
+      "does": {
+        "pos": "aux.",
+        "zh": "助动词（第三人称单数）",
+        "lemma": "do"
+      },
+      "require": {
+        "pos": "v.",
+        "zh": "需要"
+      },
+      "abandoning": {
+        "pos": "v.",
+        "zh": "放弃（动名词）",
+        "lemma": "abandon"
+      },
+      "arrangement": {
+        "pos": "n.",
+        "zh": "约定；安排"
+      },
+      "with": {
+        "pos": "prep.",
+        "zh": "具有；与"
+      },
+      "preferences": {
+        "pos": "n.",
+        "zh": "偏好（复数）",
+        "lemma": "preference"
+      },
+      "still": {
+        "pos": "adv.",
+        "zh": "仍然"
+      },
+      "occupy": {
+        "pos": "v.",
+        "zh": "处于；占据"
+      },
+      "same": {
+        "pos": "adj.",
+        "zh": "相同的"
+      },
+      "acoustic": {
+        "pos": "adj.",
+        "zh": "声学的"
+      },
+      "space": {
+        "pos": "n.",
+        "zh": "空间"
+      },
+      "so": {
+        "pos": "conj.",
+        "zh": "因此"
+      },
+      "person": {
+        "pos": "n.",
+        "zh": "人"
+      },
+      "affects": {
+        "pos": "v.",
+        "zh": "影响（第三人称单数）",
+        "lemma": "affect"
+      },
+      "yet": {
+        "pos": "conj.",
+        "zh": "然而"
+      },
+      "this": {
+        "pos": "det.",
+        "zh": "这个；这种"
+      },
+      "practical": {
+        "pos": "adj.",
+        "zh": "实际的"
+      },
+      "interdependence": {
+        "pos": "n.",
+        "zh": "相互依存"
+      },
+      "supports": {
+        "pos": "v.",
+        "zh": "支持（第三人称单数）",
+        "lemma": "support"
+      },
+      "explaining": {
+        "pos": "v.",
+        "zh": "解释（动名词）",
+        "lemma": "explain"
+      },
+      "treating": {
+        "pos": "v.",
+        "zh": "看作（动名词）",
+        "lemma": "treat"
+      },
+      "self-evident": {
+        "pos": "adj.",
+        "zh": "不言自明的"
+      },
+      "self": {
+        "pos": "n.",
+        "zh": "自身"
+      },
+      "evident": {
+        "pos": "adj.",
+        "zh": "明显的"
+      },
+      "brief": {
+        "pos": "adj.",
+        "zh": "简短的"
+      },
+      "introduction": {
+        "pos": "n.",
+        "zh": "开场介绍"
+      },
+      "identify": {
+        "pos": "v.",
+        "zh": "找出"
+      },
+      "separate": {
+        "pos": "adj.",
+        "zh": "独立的"
+      },
+      "say": {
+        "pos": "v.",
+        "zh": "说明"
+      },
+      "invited": {
+        "pos": "v.",
+        "zh": "欢迎（过去分词）",
+        "lemma": "invite"
+      },
+      "such": {
+        "pos": "det.",
+        "zh": "这样的"
+      },
+      "guidance": {
+        "pos": "n.",
+        "zh": "指引"
+      },
+      "supplies": {
+        "pos": "v.",
+        "zh": "提供（第三人称单数）",
+        "lemma": "supply"
+      },
+      "information": {
+        "pos": "n.",
+        "zh": "信息"
+      },
+      "before": {
+        "pos": "conj.",
+        "zh": "在……之前（也作介词）"
+      },
+      "decision": {
+        "pos": "n.",
+        "zh": "决定"
+      },
+      "made": {
+        "pos": "v.",
+        "zh": "作出（过去分词）",
+        "lemma": "make"
+      },
+      "respects": {
+        "pos": "v.",
+        "zh": "尊重（第三人称单数）",
+        "lemma": "respect"
+      },
+      "capacity": {
+        "pos": "n.",
+        "zh": "能力"
+      },
+      "cooperate": {
+        "pos": "v.",
+        "zh": "配合"
+      },
+      "whereas": {
+        "pos": "conj.",
+        "zh": "然而"
+      },
+      "correcting": {
+        "pos": "v.",
+        "zh": "纠正（动名词）",
+        "lemma": "correct"
+      },
+      "people": {
+        "pos": "n.",
+        "zh": "人们（复数）",
+        "lemma": "person"
+      },
+      "assumes": {
+        "pos": "v.",
+        "zh": "想当然地认为（第三人称单数）",
+        "lemma": "assume"
+      },
+      "was": {
+        "pos": "v.",
+        "zh": "是（过去式）",
+        "lemma": "be"
+      },
+      "available": {
+        "pos": "adj.",
+        "zh": "可获得的"
+      },
+      "everyone": {
+        "pos": "pron.",
+        "zh": "每个人"
+      },
+      "from": {
+        "pos": "prep.",
+        "zh": "从"
+      },
+      "beginning": {
+        "pos": "n.",
+        "zh": "开头（名词形式）",
+        "lemma": "beginning"
+      },
+      "e": {
+        "pos": "名",
+        "zh": "第五段标记"
+      },
+      "there": {
+        "pos": "adv.",
+        "zh": "在那里；有（存在句代词）"
+      },
+      "limits": {
+        "pos": "n.",
+        "zh": "界限（复数）",
+        "lemma": "limit"
+      },
+      "establish": {
+        "pos": "v.",
+        "zh": "证明"
+      },
+      "naming": {
+        "pos": "v.",
+        "zh": "说出名称（动名词）",
+        "lemma": "name"
+      },
+      "tells": {
+        "pos": "v.",
+        "zh": "告知（第三人称单数）",
+        "lemma": "tell"
+      },
+      "where": {
+        "pos": "adv.",
+        "zh": "在何处；在……情况下"
+      },
+      "structural": {
+        "pos": "adj.",
+        "zh": "结构上的"
+      },
+      "divisions": {
+        "pos": "n.",
+        "zh": "划分（复数）",
+        "lemma": "division"
+      },
+      "occur": {
+        "pos": "v.",
+        "zh": "出现"
+      },
+      "prove": {
+        "pos": "v.",
+        "zh": "证明"
+      },
+      "artistically": {
+        "pos": "adv.",
+        "zh": "从艺术角度"
+      },
+      "preferable": {
+        "pos": "adj.",
+        "zh": "更合适的"
+      },
+      "judgement": {
+        "pos": "n.",
+        "zh": "判断"
+      },
+      "being": {
+        "pos": "aux.",
+        "zh": "被（现在分词）",
+        "lemma": "be"
+      },
+      "offered": {
+        "pos": "v.",
+        "zh": "呈现（过去分词）",
+        "lemma": "offer"
+      },
+      "imagine": {
+        "pos": "v.",
+        "zh": "设想"
+      },
+      "introductory": {
+        "pos": "adj.",
+        "zh": "入门介绍的"
+      },
+      "which": {
+        "pos": "pron.",
+        "zh": "哪一个；引导从句"
+      },
+      "discuss": {
+        "pos": "v.",
+        "zh": "讨论"
+      },
+      "each": {
+        "pos": "det.",
+        "zh": "每一个"
+      },
+      "section": {
+        "pos": "n.",
+        "zh": "乐段"
+      },
+      "playing": {
+        "pos": "v.",
+        "zh": "演奏（动名词）",
+        "lemma": "play"
+      },
+      "next": {
+        "pos": "adj.",
+        "zh": "下一个"
+      },
+      "been": {
+        "pos": "aux.",
+        "zh": "已；被（过去分词）",
+        "lemma": "be"
+      },
+      "deliberately": {
+        "pos": "adv.",
+        "zh": "有意地"
+      },
+      "altered": {
+        "pos": "v.",
+        "zh": "改变（过去分词）",
+        "lemma": "alter"
+      },
+      "room": {
+        "pos": "n.",
+        "zh": "空间；余地"
+      },
+      "inviting": {
+        "pos": "v.",
+        "zh": "邀请（动名词）",
+        "lemma": "invite"
+      },
+      "need": {
+        "pos": "aux.",
+        "zh": "有必要"
+      },
+      "undermine": {
+        "pos": "v.",
+        "zh": "削弱"
+      },
+      "structure": {
+        "pos": "n.",
+        "zh": "结构"
+      },
+      "actually": {
+        "pos": "adv.",
+        "zh": "实际上"
+      },
+      "trying": {
+        "pos": "v.",
+        "zh": "试图（现在分词）",
+        "lemma": "try"
+      },
+      "preserve": {
+        "pos": "v.",
+        "zh": "保留"
+      },
+      "relevant": {
+        "pos": "adj.",
+        "zh": "相关的"
+      },
+      "standard": {
+        "pos": "n.",
+        "zh": "标准"
+      },
+      "consistency": {
+        "pos": "n.",
+        "zh": "一致性"
+      },
+      "announced": {
+        "pos": "adj.",
+        "zh": "公布的（过去分词）",
+        "lemma": "announce"
+      },
+      "purpose": {
+        "pos": "n.",
+        "zh": "目的"
+      },
+      "conformity": {
+        "pos": "n.",
+        "zh": "遵从"
+      },
+      "feature": {
+        "pos": "n.",
+        "zh": "特点"
+      },
+      "format": {
+        "pos": "n.",
+        "zh": "形式"
+      },
+      "f": {
+        "pos": "名",
+        "zh": "第六段标记"
+      },
+      "example": {
+        "pos": "n.",
+        "zh": "例子"
+      },
+      "clarifies": {
+        "pos": "v.",
+        "zh": "阐明（第三人称单数）",
+        "lemma": "clarify"
+      },
+      "boundary": {
+        "pos": "n.",
+        "zh": "界限"
+      },
+      "suppose": {
+        "pos": "v.",
+        "zh": "假设"
+      },
+      "ensemble": {
+        "pos": "n.",
+        "zh": "乐团"
+      },
+      "presents": {
+        "pos": "v.",
+        "zh": "呈现（第三人称单数）",
+        "lemma": "present"
+      },
+      "continuous": {
+        "pos": "adj.",
+        "zh": "连续的"
+      },
+      "listening": {
+        "pos": "n.",
+        "zh": "聆听（动名词）",
+        "lemma": "listen"
+      },
+      "experience": {
+        "pos": "n.",
+        "zh": "体验"
+      },
+      "asking": {
+        "pos": "v.",
+        "zh": "请；要求（现在分词）",
+        "lemma": "ask"
+      },
+      "consider": {
+        "pos": "v.",
+        "zh": "考虑"
+      },
+      "its": {
+        "pos": "det.",
+        "zh": "它的"
+      },
+      "reserving": {
+        "pos": "v.",
+        "zh": "留待以后（动名词）",
+        "lemma": "reserve"
+      },
+      "could": {
+        "pos": "aux.",
+        "zh": "可能；能够"
+      },
+      "then": {
+        "pos": "adv.",
+        "zh": "随后"
+      },
+      "support": {
+        "pos": "v.",
+        "zh": "支撑"
+      },
+      "stated": {
+        "pos": "adj.",
+        "zh": "说明的（过去分词）",
+        "lemma": "state"
+      },
+      "cultivated": {
+        "pos": "adj.",
+        "zh": "有修养的（过去分词）",
+        "lemma": "cultivate"
+      },
+      "at": {
+        "pos": "prep.",
+        "zh": "在；处于"
+      },
+      "behaviour": {
+        "pos": "n.",
+        "zh": "行为"
+      },
+      "consequences": {
+        "pos": "n.",
+        "zh": "结果；影响（复数）",
+        "lemma": "consequence"
+      },
+      "organised": {
+        "pos": "adj.",
+        "zh": "组织的（过去分词）",
+        "lemma": "organise"
+      },
+      "events": {
+        "pos": "n.",
+        "zh": "演出活动（复数）",
+        "lemma": "event"
+      },
+      "comparing": {
+        "pos": "v.",
+        "zh": "比较（动名词）",
+        "lemma": "compare"
+      },
+      "formats": {
+        "pos": "n.",
+        "zh": "形式（复数）",
+        "lemma": "format"
+      },
+      "challenges": {
+        "pos": "v.",
+        "zh": "质疑（第三人称单数）",
+        "lemma": "challenge"
+      },
+      "universal": {
+        "pos": "adj.",
+        "zh": "普遍适用的"
+      },
+      "either": {
+        "pos": "det.",
+        "zh": "两者中的任一"
+      },
+      "direction": {
+        "pos": "n.",
+        "zh": "方向"
+      },
+      "compulsory": {
+        "pos": "adj.",
+        "zh": "强制的"
+      },
+      "unrestricted": {
+        "pos": "adj.",
+        "zh": "不受限制的"
+      },
+      "right": {
+        "pos": "n.",
+        "zh": "权利"
+      },
+      "interrupt": {
+        "pos": "v.",
+        "zh": "打断"
+      },
+      "overlook": {
+        "pos": "v.",
+        "zh": "忽视"
+      },
+      "gathered": {
+        "pos": "v.",
+        "zh": "聚集（过去分词）",
+        "lemma": "gather"
+      },
+      "explore": {
+        "pos": "v.",
+        "zh": "探索"
+      },
+      "g": {
+        "pos": "名",
+        "zh": "第七段标记"
+      },
+      "objection": {
+        "pos": "n.",
+        "zh": "异议"
+      },
+      "remains": {
+        "pos": "v.",
+        "zh": "仍然存在（第三人称单数）",
+        "lemma": "remain"
+      },
+      "advance": {
+        "pos": "adj.",
+        "zh": "事先的"
+      },
+      "explanations": {
+        "pos": "n.",
+        "zh": "说明（复数）",
+        "lemma": "explanation"
+      },
+      "feel": {
+        "pos": "v.",
+        "zh": "感觉"
+      },
+      "excessively": {
+        "pos": "adv.",
+        "zh": "过度地"
+      },
+      "managed": {
+        "pos": "v.",
+        "zh": "管控（过去分词）",
+        "lemma": "manage"
+      },
+      "encounter": {
+        "pos": "n.",
+        "zh": "相遇；接触"
+      },
+      "lesson": {
+        "pos": "n.",
+        "zh": "课程"
+      },
+      "procedure": {
+        "pos": "n.",
+        "zh": "程序；步骤"
+      },
+      "reasonable": {
+        "pos": "adj.",
+        "zh": "合理的"
+      },
+      "particularly": {
+        "pos": "adv.",
+        "zh": "尤其"
+      },
+      "lengthy": {
+        "pos": "adj.",
+        "zh": "冗长的"
+      },
+      "patronising": {
+        "pos": "adj.",
+        "zh": "居高临下的（现在分词）",
+        "lemma": "patronise"
+      },
+      "however": {
+        "pos": "adv.",
+        "zh": "然而"
+      },
+      "concise": {
+        "pos": "adj.",
+        "zh": "简洁的"
+      },
+      "prescribe": {
+        "pos": "v.",
+        "zh": "规定"
+      },
+      "anybody": {
+        "pos": "pron.",
+        "zh": "任何人"
+      },
+      "clarify": {
+        "pos": "v.",
+        "zh": "说清楚"
+      },
+      "when": {
+        "pos": "conj.",
+        "zh": "当……时"
+      },
+      "collective": {
+        "pos": "adj.",
+        "zh": "集体的"
+      },
+      "will": {
+        "pos": "aux.",
+        "zh": "将会"
+      },
+      "fit": {
+        "pos": "v.",
+        "zh": "符合"
+      },
+      "planned": {
+        "pos": "adj.",
+        "zh": "计划的（过去分词）",
+        "lemma": "plan"
+      },
+      "programmes": {
+        "pos": "n.",
+        "zh": "节目单（复数）",
+        "lemma": "programme"
+      },
+      "requiring": {
+        "pos": "v.",
+        "zh": "要求（动名词）",
+        "lemma": "require"
+      },
+      "study": {
+        "pos": "v.",
+        "zh": "研读"
+      },
+      "proportionate": {
+        "pos": "adj.",
+        "zh": "相称的"
+      },
+      "uncertainty": {
+        "pos": "n.",
+        "zh": "不确定之处"
+      },
+      "resolves": {
+        "pos": "v.",
+        "zh": "消除（第三人称单数）",
+        "lemma": "resolve"
+      },
+      "personal": {
+        "pos": "adj.",
+        "zh": "个人的"
+      },
+      "interpretation": {
+        "pos": "n.",
+        "zh": "解读"
+      },
+      "while": {
+        "pos": "conj.",
+        "zh": "当……时；而"
+      },
+      "making": {
+        "pos": "v.",
+        "zh": "使（现在分词）",
+        "lemma": "make"
+      },
+      "terms": {
+        "pos": "n.",
+        "zh": "条件；安排（复数）",
+        "lemma": "term"
+      },
+      "together": {
+        "pos": "adv.",
+        "zh": "一起"
+      },
+      "easier": {
+        "pos": "adj.",
+        "zh": "更容易的（比较级）",
+        "lemma": "easy"
+      },
+      "understand": {
+        "pos": "v.",
+        "zh": "理解"
+      },
+      "h": {
+        "pos": "名",
+        "zh": "第八段标记"
+      },
+      "concerts": {
+        "pos": "n.",
+        "zh": "音乐会（复数）",
+        "lemma": "concert"
+      },
+      "consequently": {
+        "pos": "adv.",
+        "zh": "因此"
+      },
+      "choose": {
+        "pos": "v.",
+        "zh": "选择"
+      },
+      "conventions": {
+        "pos": "n.",
+        "zh": "惯例（复数）",
+        "lemma": "convention"
+      },
+      "purposes": {
+        "pos": "n.",
+        "zh": "目的（复数）",
+        "lemma": "purpose"
+      },
+      "communicate": {
+        "pos": "v.",
+        "zh": "传达"
+      },
+      "ranking": {
+        "pos": "v.",
+        "zh": "分等排序（动名词）",
+        "lemma": "rank"
+      },
+      "prior": {
+        "pos": "adj.",
+        "zh": "已有的"
+      },
+      "familiarity": {
+        "pos": "n.",
+        "zh": "熟悉程度"
+      },
+      "protect": {
+        "pos": "v.",
+        "zh": "保护"
+      },
+      "responding": {
+        "pos": "v.",
+        "zh": "回应（动名词）",
+        "lemma": "respond"
+      },
+      "immediately": {
+        "pos": "adv.",
+        "zh": "立即"
+      },
+      "belong": {
+        "pos": "v.",
+        "zh": "适合；属于"
+      },
+      "designed": {
+        "pos": "v.",
+        "zh": "设计（过去分词）",
+        "lemma": "design"
+      },
+      "around": {
+        "pos": "prep.",
+        "zh": "围绕"
+      },
+      "exchange": {
+        "pos": "n.",
+        "zh": "互动"
+      },
+      "neither": {
+        "pos": "det.",
+        "zh": "两者都不"
+      },
+      "benefit": {
+        "pos": "n.",
+        "zh": "益处"
+      },
+      "establishes": {
+        "pos": "v.",
+        "zh": "证明（第三人称单数）",
+        "lemma": "establish"
+      },
+      "obligation": {
+        "pos": "n.",
+        "zh": "必须履行的要求"
+      },
+      "all": {
+        "pos": "det.",
+        "zh": "所有的"
+      },
+      "performances": {
+        "pos": "n.",
+        "zh": "演出（复数）",
+        "lemma": "performance"
+      },
+      "matters": {
+        "pos": "v.",
+        "zh": "重要（第三人称单数）",
+        "lemma": "matter"
+      },
+      "explain": {
+        "pos": "v.",
+        "zh": "解释"
+      },
+      "role": {
+        "pos": "n.",
+        "zh": "作用"
+      },
+      "responses": {
+        "pos": "n.",
+        "zh": "回应（复数）",
+        "lemma": "response"
+      },
+      "welcomed": {
+        "pos": "v.",
+        "zh": "欢迎（过去分词）",
+        "lemma": "welcome"
+      },
+      "explicit": {
+        "pos": "adj.",
+        "zh": "明确的"
+      },
+      "earns": {
+        "pos": "v.",
+        "zh": "赢得（第三人称单数）",
+        "lemma": "earn"
+      },
+      "place": {
+        "pos": "n.",
+        "zh": "应有地位"
+      },
+      "helping": {
+        "pos": "v.",
+        "zh": "帮助（动名词）",
+        "lemma": "help"
+      },
+      "participate": {
+        "pos": "v.",
+        "zh": "参与"
+      },
+      "allowing": {
+        "pos": "v.",
+        "zh": "允许（现在分词）",
+        "lemma": "allow"
+      },
+      "those": {
+        "pos": "det.",
+        "zh": "那些"
+      },
+      "know": {
+        "pos": "v.",
+        "zh": "知道"
+      },
+      "decide": {
+        "pos": "v.",
+        "zh": "决定"
+      },
+      "home": {
+        "pos": "n.",
+        "zh": "自在感（短语组成部分）"
+      }
+    }
+  },
+  "original-w11-subject-boundaries": {
+    "title": "What Subject Boundaries Are For",
+    "glosses": {
+      "paragraph": {
+        "pos": "n.",
+        "zh": "段落"
+      },
+      "a": {
+        "pos": "art.",
+        "zh": "一（泛指）；第一段标记"
+      },
+      "practical": {
+        "pos": "adj.",
+        "zh": "实际的"
+      },
+      "problem": {
+        "pos": "n.",
+        "zh": "问题"
+      },
+      "rarely": {
+        "pos": "adv.",
+        "zh": "很少"
+      },
+      "arrives": {
+        "pos": "v.",
+        "zh": "到来（第三人称单数）",
+        "lemma": "arrive"
+      },
+      "with": {
+        "pos": "prep.",
+        "zh": "伴有；与"
+      },
+      "school": {
+        "pos": "n.",
+        "zh": "学校"
+      },
+      "subject": {
+        "pos": "n.",
+        "zh": "学科"
+      },
+      "written": {
+        "pos": "v.",
+        "zh": "写（过去分词）",
+        "lemma": "write"
+      },
+      "above": {
+        "pos": "prep.",
+        "zh": "在……上方"
+      },
+      "it": {
+        "pos": "pron.",
+        "zh": "它"
+      },
+      "designing": {
+        "pos": "v.",
+        "zh": "设计（动名词）",
+        "lemma": "design"
+      },
+      "package": {
+        "pos": "n.",
+        "zh": "包装"
+      },
+      "can": {
+        "pos": "aux.",
+        "zh": "能够；可以"
+      },
+      "require": {
+        "pos": "v.",
+        "zh": "需要"
+      },
+      "geometry": {
+        "pos": "n.",
+        "zh": "几何学"
+      },
+      "knowledge": {
+        "pos": "n.",
+        "zh": "知识"
+      },
+      "of": {
+        "pos": "prep.",
+        "zh": "……的"
+      },
+      "materials": {
+        "pos": "n.",
+        "zh": "材料（复数）",
+        "lemma": "material"
+      },
+      "and": {
+        "pos": "conj.",
+        "zh": "和；并且"
+      },
+      "decisions": {
+        "pos": "n.",
+        "zh": "决定（复数）",
+        "lemma": "decision"
+      },
+      "about": {
+        "pos": "prep.",
+        "zh": "关于"
+      },
+      "visual": {
+        "pos": "adj.",
+        "zh": "视觉的"
+      },
+      "communication": {
+        "pos": "n.",
+        "zh": "沟通"
+      },
+      "is": {
+        "pos": "v.",
+        "zh": "是；被（第三人称单数）",
+        "lemma": "be"
+      },
+      "therefore": {
+        "pos": "adv.",
+        "zh": "因此"
+      },
+      "tempting": {
+        "pos": "adj.",
+        "zh": "令人动心的（现在分词）",
+        "lemma": "tempt"
+      },
+      "to": {
+        "pos": "prep.",
+        "zh": "对；用于不定式"
+      },
+      "conclude": {
+        "pos": "v.",
+        "zh": "得出结论"
+      },
+      "that": {
+        "pos": "pron.",
+        "zh": "那；引导从句"
+      },
+      "separate": {
+        "pos": "adj.",
+        "zh": "独立的"
+      },
+      "subjects": {
+        "pos": "n.",
+        "zh": "学科（复数）",
+        "lemma": "subject"
+      },
+      "are": {
+        "pos": "v.",
+        "zh": "是；被（复数形式）",
+        "lemma": "be"
+      },
+      "artificial": {
+        "pos": "adj.",
+        "zh": "人为的"
+      },
+      "barriers": {
+        "pos": "n.",
+        "zh": "障碍（复数）",
+        "lemma": "barrier"
+      },
+      "which": {
+        "pos": "pron.",
+        "zh": "哪一个；引导从句"
+      },
+      "education": {
+        "pos": "n.",
+        "zh": "教育"
+      },
+      "should": {
+        "pos": "aux.",
+        "zh": "应该"
+      },
+      "remove": {
+        "pos": "v.",
+        "zh": "消除"
+      },
+      "yet": {
+        "pos": "conj.",
+        "zh": "然而"
+      },
+      "the": {
+        "pos": "art.",
+        "zh": "这；那（特指）"
+      },
+      "fact": {
+        "pos": "n.",
+        "zh": "事实"
+      },
+      "draws": {
+        "pos": "v.",
+        "zh": "借助（第三人称单数）",
+        "lemma": "draw"
+      },
+      "on": {
+        "pos": "prep.",
+        "zh": "在……上；依据；取决于"
+      },
+      "several": {
+        "pos": "det.",
+        "zh": "几个"
+      },
+      "disciplines": {
+        "pos": "n.",
+        "zh": "学科（复数）",
+        "lemma": "discipline"
+      },
+      "does": {
+        "pos": "aux.",
+        "zh": "助动词（第三人称单数）",
+        "lemma": "do"
+      },
+      "not": {
+        "pos": "adv.",
+        "zh": "不"
+      },
+      "establish": {
+        "pos": "v.",
+        "zh": "证明"
+      },
+      "those": {
+        "pos": "det.",
+        "zh": "那些"
+      },
+      "have": {
+        "pos": "v.",
+        "zh": "有；构成完成时"
+      },
+      "become": {
+        "pos": "v.",
+        "zh": "变得（原形或过去分词）"
+      },
+      "unnecessary": {
+        "pos": "adj.",
+        "zh": "不必要的"
+      },
+      "schools": {
+        "pos": "n.",
+        "zh": "学校（复数）",
+        "lemma": "school"
+      },
+      "organise": {
+        "pos": "v.",
+        "zh": "组织"
+      },
+      "learning": {
+        "pos": "n.",
+        "zh": "学习（动名词）",
+        "lemma": "learn"
+      },
+      "mainly": {
+        "pos": "adv.",
+        "zh": "主要地"
+      },
+      "around": {
+        "pos": "prep.",
+        "zh": "围绕"
+      },
+      "tasks": {
+        "pos": "n.",
+        "zh": "任务（复数）",
+        "lemma": "task"
+      },
+      "cross": {
+        "pos": "v.",
+        "zh": "跨越"
+      },
+      "boundaries": {
+        "pos": "n.",
+        "zh": "界限（复数）",
+        "lemma": "boundary"
+      },
+      "case": {
+        "pos": "n.",
+        "zh": "理由；论据"
+      },
+      "depends": {
+        "pos": "v.",
+        "zh": "取决于（第三人称单数）",
+        "lemma": "depend"
+      },
+      "whether": {
+        "pos": "conj.",
+        "zh": "是否"
+      },
+      "arrangement": {
+        "pos": "n.",
+        "zh": "安排"
+      },
+      "helps": {
+        "pos": "v.",
+        "zh": "帮助（第三人称单数）",
+        "lemma": "help"
+      },
+      "learners": {
+        "pos": "n.",
+        "zh": "学习者（复数）",
+        "lemma": "learner"
+      },
+      "connect": {
+        "pos": "v.",
+        "zh": "联系；连接"
+      },
+      "distinct": {
+        "pos": "adj.",
+        "zh": "不同的"
+      },
+      "ways": {
+        "pos": "n.",
+        "zh": "方式（复数）",
+        "lemma": "way"
+      },
+      "thinking": {
+        "pos": "n.",
+        "zh": "思考（动名词）",
+        "lemma": "think"
+      },
+      "or": {
+        "pos": "conj.",
+        "zh": "或者"
+      },
+      "merely": {
+        "pos": "adv.",
+        "zh": "仅仅"
+      },
+      "conceals": {
+        "pos": "v.",
+        "zh": "掩盖（第三人称单数）",
+        "lemma": "conceal"
+      },
+      "differences": {
+        "pos": "n.",
+        "zh": "差异（复数）",
+        "lemma": "difference"
+      },
+      "beneath": {
+        "pos": "prep.",
+        "zh": "在……之下"
+      },
+      "appearance": {
+        "pos": "n.",
+        "zh": "外观；表象"
+      },
+      "unified": {
+        "pos": "adj.",
+        "zh": "统一的（过去分词）",
+        "lemma": "unify"
+      },
+      "activity": {
+        "pos": "n.",
+        "zh": "活动"
+      },
+      "b": {
+        "pos": "名",
+        "zh": "第二段标记"
+      },
+      "strongest": {
+        "pos": "adj.",
+        "zh": "最有力的（最高级）",
+        "lemma": "strong"
+      },
+      "argument": {
+        "pos": "n.",
+        "zh": "论证；理由"
+      },
+      "for": {
+        "pos": "prep.",
+        "zh": "为了；对于"
+      },
+      "integration": {
+        "pos": "n.",
+        "zh": "整合"
+      },
+      "concerns": {
+        "pos": "v.",
+        "zh": "涉及（第三人称单数）",
+        "lemma": "concern"
+      },
+      "use": {
+        "pos": "n.",
+        "zh": "应用；使用（也作动词）"
+      },
+      "student": {
+        "pos": "n.",
+        "zh": "学生"
+      },
+      "who": {
+        "pos": "pron.",
+        "zh": "谁；引导指人的从句"
+      },
+      "calculates": {
+        "pos": "v.",
+        "zh": "计算（第三人称单数）",
+        "lemma": "calculate"
+      },
+      "area": {
+        "pos": "n.",
+        "zh": "面积"
+      },
+      "shape": {
+        "pos": "n.",
+        "zh": "形状"
+      },
+      "worksheet": {
+        "pos": "n.",
+        "zh": "练习单"
+      },
+      "may": {
+        "pos": "aux.",
+        "zh": "可能"
+      },
+      "immediately": {
+        "pos": "adv.",
+        "zh": "立即"
+      },
+      "recognise": {
+        "pos": "v.",
+        "zh": "识别；意识到"
+      },
+      "same": {
+        "pos": "adj.",
+        "zh": "相同的"
+      },
+      "relationship": {
+        "pos": "n.",
+        "zh": "关系"
+      },
+      "when": {
+        "pos": "conj.",
+        "zh": "当……时"
+      },
+      "estimating": {
+        "pos": "v.",
+        "zh": "估算（动名词）",
+        "lemma": "estimate"
+      },
+      "cardboard": {
+        "pos": "n.",
+        "zh": "硬纸板"
+      },
+      "required": {
+        "pos": "v.",
+        "zh": "需要（过去分词）",
+        "lemma": "require"
+      },
+      "design": {
+        "pos": "n.",
+        "zh": "设计"
+      },
+      "task": {
+        "pos": "n.",
+        "zh": "任务"
+      },
+      "make": {
+        "pos": "v.",
+        "zh": "使；作出"
+      },
+      "calculation": {
+        "pos": "n.",
+        "zh": "计算"
+      },
+      "consequential": {
+        "pos": "adj.",
+        "zh": "具有实际影响的"
+      },
+      "an": {
+        "pos": "art.",
+        "zh": "一个；一（元音前）"
+      },
+      "incorrect": {
+        "pos": "adj.",
+        "zh": "不正确的"
+      },
+      "estimate": {
+        "pos": "n.",
+        "zh": "估算"
+      },
+      "affects": {
+        "pos": "v.",
+        "zh": "影响（第三人称单数）",
+        "lemma": "affect"
+      },
+      "available": {
+        "pos": "adj.",
+        "zh": "可获得的"
+      },
+      "material": {
+        "pos": "n.",
+        "zh": "材料"
+      },
+      "bringing": {
+        "pos": "v.",
+        "zh": "汇集（动名词）",
+        "lemma": "bring"
+      },
+      "together": {
+        "pos": "adv.",
+        "zh": "一起"
+      },
+      "reveal": {
+        "pos": "v.",
+        "zh": "揭示"
+      },
+      "why": {
+        "pos": "adv.",
+        "zh": "为什么"
+      },
+      "abstract": {
+        "pos": "adj.",
+        "zh": "抽象的"
+      },
+      "matters": {
+        "pos": "v.",
+        "zh": "重要（第三人称单数）",
+        "lemma": "matter"
+      },
+      "where": {
+        "pos": "adv.",
+        "zh": "在何处；在……情况下"
+      },
+      "another": {
+        "pos": "det.",
+        "zh": "另一种"
+      },
+      "kind": {
+        "pos": "n.",
+        "zh": "种类"
+      },
+      "becomes": {
+        "pos": "v.",
+        "zh": "变得（第三人称单数）",
+        "lemma": "become"
+      },
+      "necessary": {
+        "pos": "adj.",
+        "zh": "必要的"
+      },
+      "describe": {
+        "pos": "v.",
+        "zh": "描述"
+      },
+      "container": {
+        "pos": "n.",
+        "zh": "容器"
+      },
+      "dimensions": {
+        "pos": "n.",
+        "zh": "尺寸（复数）",
+        "lemma": "dimension"
+      },
+      "without": {
+        "pos": "prep.",
+        "zh": "没有；无须"
+      },
+      "determining": {
+        "pos": "v.",
+        "zh": "确定（动名词）",
+        "lemma": "determine"
+      },
+      "chosen": {
+        "pos": "adj.",
+        "zh": "选定的（过去分词）",
+        "lemma": "choose"
+      },
+      "sufficiently": {
+        "pos": "adv.",
+        "zh": "足够地"
+      },
+      "rigid": {
+        "pos": "adj.",
+        "zh": "坚硬不易变形的"
+      },
+      "boundary": {
+        "pos": "n.",
+        "zh": "学科边界"
+      },
+      "visible": {
+        "pos": "adj.",
+        "zh": "可见的"
+      },
+      "as": {
+        "pos": "prep.",
+        "zh": "作为；像"
+      },
+      "limit": {
+        "pos": "n.",
+        "zh": "限度"
+      },
+      "what": {
+        "pos": "pron.",
+        "zh": "什么；所……的"
+      },
+      "particular": {
+        "pos": "adj.",
+        "zh": "特定的"
+      },
+      "method": {
+        "pos": "n.",
+        "zh": "方法"
+      },
+      "answer": {
+        "pos": "v.",
+        "zh": "回答"
+      },
+      "rather": {
+        "pos": "adv.",
+        "zh": "而不是（短语组成部分）"
+      },
+      "than": {
+        "pos": "conj.",
+        "zh": "比；而不是"
+      },
+      "timetable": {
+        "pos": "n.",
+        "zh": "课程表"
+      },
+      "division": {
+        "pos": "n.",
+        "zh": "划分"
+      },
+      "c": {
+        "pos": "名",
+        "zh": "第三段标记"
+      },
+      "defenders": {
+        "pos": "n.",
+        "zh": "维护者（复数）",
+        "lemma": "defender"
+      },
+      "nevertheless": {
+        "pos": "adv.",
+        "zh": "尽管如此"
+      },
+      "serious": {
+        "pos": "adj.",
+        "zh": "值得重视的"
+      },
+      "objection": {
+        "pos": "n.",
+        "zh": "异议"
+      },
+      "each": {
+        "pos": "det.",
+        "zh": "每一个"
+      },
+      "discipline": {
+        "pos": "n.",
+        "zh": "学科"
+      },
+      "provides": {
+        "pos": "v.",
+        "zh": "提供（第三人称单数）",
+        "lemma": "provide"
+      },
+      "more": {
+        "pos": "adv.",
+        "zh": "更；更多（比较级）",
+        "lemma": "much"
+      },
+      "collection": {
+        "pos": "n.",
+        "zh": "集合"
+      },
+      "useful": {
+        "pos": "adj.",
+        "zh": "有用的"
+      },
+      "facts": {
+        "pos": "n.",
+        "zh": "事实（复数）",
+        "lemma": "fact"
+      },
+      "also": {
+        "pos": "adv.",
+        "zh": "也"
+      },
+      "develops": {
+        "pos": "v.",
+        "zh": "形成（第三人称单数）",
+        "lemma": "develop"
+      },
+      "standards": {
+        "pos": "n.",
+        "zh": "标准（复数）",
+        "lemma": "standard"
+      },
+      "deciding": {
+        "pos": "v.",
+        "zh": "判断（动名词）",
+        "lemma": "decide"
+      },
+      "claim": {
+        "pos": "n.",
+        "zh": "论断"
+      },
+      "justified": {
+        "pos": "v.",
+        "zh": "得到依据支持（过去分词）",
+        "lemma": "justify"
+      },
+      "geometrical": {
+        "pos": "adj.",
+        "zh": "几何的"
+      },
+      "be": {
+        "pos": "v.",
+        "zh": "是；构成被动语态"
+      },
+      "established": {
+        "pos": "v.",
+        "zh": "确立（过去分词）",
+        "lemma": "establish"
+      },
+      "through": {
+        "pos": "prep.",
+        "zh": "通过"
+      },
+      "deduction": {
+        "pos": "n.",
+        "zh": "演绎推理"
+      },
+      "while": {
+        "pos": "conj.",
+        "zh": "当……时；而"
+      },
+      "performance": {
+        "pos": "n.",
+        "zh": "性能"
+      },
+      "observation": {
+        "pos": "n.",
+        "zh": "观察"
+      },
+      "testing": {
+        "pos": "n.",
+        "zh": "测试（动名词）",
+        "lemma": "test"
+      },
+      "under": {
+        "pos": "prep.",
+        "zh": "在……条件下"
+      },
+      "specified": {
+        "pos": "adj.",
+        "zh": "指定的（过去分词）",
+        "lemma": "specify"
+      },
+      "conditions": {
+        "pos": "n.",
+        "zh": "条件（复数）",
+        "lemma": "condition"
+      },
+      "if": {
+        "pos": "conj.",
+        "zh": "如果"
+      },
+      "project": {
+        "pos": "n.",
+        "zh": "项目"
+      },
+      "presents": {
+        "pos": "v.",
+        "zh": "呈现（第三人称单数）",
+        "lemma": "present"
+      },
+      "these": {
+        "pos": "det.",
+        "zh": "这些"
+      },
+      "contributions": {
+        "pos": "n.",
+        "zh": "贡献；组成部分（复数）",
+        "lemma": "contribution"
+      },
+      "interchangeable": {
+        "pos": "adj.",
+        "zh": "可互换的"
+      },
+      "opinions": {
+        "pos": "n.",
+        "zh": "观点（复数）",
+        "lemma": "opinion"
+      },
+      "loses": {
+        "pos": "v.",
+        "zh": "失去（第三人称单数）",
+        "lemma": "lose"
+      },
+      "intellectual": {
+        "pos": "adj.",
+        "zh": "知识与思考方面的"
+      },
+      "resources": {
+        "pos": "n.",
+        "zh": "资源（复数）",
+        "lemma": "resource"
+      },
+      "made": {
+        "pos": "v.",
+        "zh": "使（过去式）",
+        "lemma": "make"
+      },
+      "their": {
+        "pos": "det.",
+        "zh": "他们的；它们的"
+      },
+      "combination": {
+        "pos": "n.",
+        "zh": "结合"
+      },
+      "worthwhile": {
+        "pos": "adj.",
+        "zh": "有价值的"
+      },
+      "finished": {
+        "pos": "adj.",
+        "zh": "完成的（过去分词）",
+        "lemma": "finish"
+      },
+      "might": {
+        "pos": "aux.",
+        "zh": "可能"
+      },
+      "look": {
+        "pos": "v.",
+        "zh": "看起来"
+      },
+      "convincing": {
+        "pos": "adj.",
+        "zh": "有说服力的（现在分词）",
+        "lemma": "convince"
+      },
+      "resting": {
+        "pos": "v.",
+        "zh": "建立在（现在分词）",
+        "lemma": "rest"
+      },
+      "unsupported": {
+        "pos": "adj.",
+        "zh": "缺少依据的"
+      },
+      "untested": {
+        "pos": "adj.",
+        "zh": "未经检验的"
+      },
+      "assumption": {
+        "pos": "n.",
+        "zh": "假设"
+      },
+      "coherence": {
+        "pos": "n.",
+        "zh": "整体协调一致"
+      },
+      "in": {
+        "pos": "prep.",
+        "zh": "在……中"
+      },
+      "final": {
+        "pos": "adj.",
+        "zh": "最终的"
+      },
+      "product": {
+        "pos": "n.",
+        "zh": "成品"
+      },
+      "guarantee": {
+        "pos": "v.",
+        "zh": "保证"
+      },
+      "soundness": {
+        "pos": "n.",
+        "zh": "可靠性"
+      },
+      "every": {
+        "pos": "det.",
+        "zh": "每一个"
+      },
+      "contributing": {
+        "pos": "adj.",
+        "zh": "起作用的（现在分词）",
+        "lemma": "contribute"
+      },
+      "d": {
+        "pos": "名",
+        "zh": "第四段标记"
+      },
+      "granted": {
+        "pos": "adv.",
+        "zh": "诚然（过去分词）",
+        "lemma": "grant"
+      },
+      "teaching": {
+        "pos": "n.",
+        "zh": "教学（动名词）",
+        "lemma": "teach"
+      },
+      "itself": {
+        "pos": "pron.",
+        "zh": "它本身"
+      },
+      "disconnected": {
+        "pos": "adj.",
+        "zh": "脱节的（过去分词）",
+        "lemma": "disconnect"
+      },
+      "from": {
+        "pos": "prep.",
+        "zh": "从；与；根据"
+      },
+      "situations": {
+        "pos": "n.",
+        "zh": "情境（复数）",
+        "lemma": "situation"
+      },
+      "its": {
+        "pos": "det.",
+        "zh": "它的"
+      },
+      "methods": {
+        "pos": "n.",
+        "zh": "方法（复数）",
+        "lemma": "method"
+      },
+      "defending": {
+        "pos": "v.",
+        "zh": "维护（动名词）",
+        "lemma": "defend"
+      },
+      "disciplinary": {
+        "pos": "adj.",
+        "zh": "学科的"
+      },
+      "rigour": {
+        "pos": "n.",
+        "zh": "严谨性"
+      },
+      "defence": {
+        "pos": "n.",
+        "zh": "维护"
+      },
+      "keeping": {
+        "pos": "v.",
+        "zh": "保持（动名词）",
+        "lemma": "keep"
+      },
+      "lesson": {
+        "pos": "n.",
+        "zh": "课程"
+      },
+      "isolated": {
+        "pos": "adj.",
+        "zh": "孤立的（过去分词）",
+        "lemma": "isolate"
+      },
+      "better": {
+        "pos": "adj.",
+        "zh": "更好的（比较级）",
+        "lemma": "good"
+      },
+      "response": {
+        "pos": "n.",
+        "zh": "回应"
+      },
+      "connection": {
+        "pos": "n.",
+        "zh": "联系"
+      },
+      "explicit": {
+        "pos": "adj.",
+        "zh": "明确的"
+      },
+      "retaining": {
+        "pos": "v.",
+        "zh": "保留（现在分词）",
+        "lemma": "retain"
+      },
+      "by": {
+        "pos": "prep.",
+        "zh": "通过；由"
+      },
+      "contribution": {
+        "pos": "n.",
+        "zh": "贡献；组成部分"
+      },
+      "evaluated": {
+        "pos": "v.",
+        "zh": "评价（过去分词）",
+        "lemma": "evaluate"
+      },
+      "packaging": {
+        "pos": "n.",
+        "zh": "包装（动名词）",
+        "lemma": "package"
+      },
+      "example": {
+        "pos": "n.",
+        "zh": "例子"
+      },
+      "students": {
+        "pos": "n.",
+        "zh": "学生（复数）",
+        "lemma": "student"
+      },
+      "could": {
+        "pos": "aux.",
+        "zh": "可能；能够"
+      },
+      "explain": {
+        "pos": "v.",
+        "zh": "解释"
+      },
+      "conclusion": {
+        "pos": "n.",
+        "zh": "结论"
+      },
+      "follows": {
+        "pos": "v.",
+        "zh": "由此得出（第三人称单数）",
+        "lemma": "follow"
+      },
+      "measurements": {
+        "pos": "n.",
+        "zh": "测量结果（复数）",
+        "lemma": "measurement"
+      },
+      "still": {
+        "pos": "adv.",
+        "zh": "仍然"
+      },
+      "test": {
+        "pos": "n.",
+        "zh": "测试"
+      },
+      "distinction": {
+        "pos": "n.",
+        "zh": "区别"
+      },
+      "would": {
+        "pos": "aux.",
+        "zh": "会；将会"
+      },
+      "integrate": {
+        "pos": "v.",
+        "zh": "整合"
+      },
+      "enquiry": {
+        "pos": "n.",
+        "zh": "探究"
+      },
+      "pretending": {
+        "pos": "v.",
+        "zh": "假装（动名词）",
+        "lemma": "pretend"
+      },
+      "question": {
+        "pos": "n.",
+        "zh": "问题；疑问"
+      },
+      "answered": {
+        "pos": "v.",
+        "zh": "回答（过去分词）",
+        "lemma": "answer"
+      },
+      "way": {
+        "pos": "n.",
+        "zh": "方式"
+      },
+      "meet": {
+        "pos": "v.",
+        "zh": "交汇"
+      },
+      "shared": {
+        "pos": "adj.",
+        "zh": "共同的（过去分词）",
+        "lemma": "share"
+      },
+      "remained": {
+        "pos": "v.",
+        "zh": "保持（过去式）",
+        "lemma": "remain"
+      },
+      "inspection": {
+        "pos": "n.",
+        "zh": "检视"
+      },
+      "e": {
+        "pos": "名",
+        "zh": "第五段标记"
+      },
+      "there": {
+        "pos": "pron.",
+        "zh": "有（存在句引导词）"
+      },
+      "sequence": {
+        "pos": "n.",
+        "zh": "顺序"
+      },
+      "beginners": {
+        "pos": "n.",
+        "zh": "初学者（复数）",
+        "lemma": "beginner"
+      },
+      "cannot": {
+        "pos": "aux.",
+        "zh": "不能"
+      },
+      "necessarily": {
+        "pos": "adv.",
+        "zh": "必然地"
+      },
+      "before": {
+        "pos": "prep.",
+        "zh": "在……之前"
+      },
+      "concepts": {
+        "pos": "n.",
+        "zh": "概念（复数）",
+        "lemma": "concept"
+      },
+      "meaningful": {
+        "pos": "adj.",
+        "zh": "有意义的"
+      },
+      "simultaneously": {
+        "pos": "adv.",
+        "zh": "同时"
+      },
+      "introduces": {
+        "pos": "v.",
+        "zh": "引入（第三人称单数）",
+        "lemma": "introduce"
+      },
+      "unfamiliar": {
+        "pos": "adj.",
+        "zh": "不熟悉的"
+      },
+      "properties": {
+        "pos": "n.",
+        "zh": "特性（复数）",
+        "lemma": "property"
+      },
+      "conventions": {
+        "pos": "n.",
+        "zh": "规范（复数）",
+        "lemma": "convention"
+      },
+      "demand": {
+        "pos": "v.",
+        "zh": "要求"
+      },
+      "coordination": {
+        "pos": "n.",
+        "zh": "协调"
+      },
+      "participants": {
+        "pos": "n.",
+        "zh": "参与者（复数）",
+        "lemma": "participant"
+      },
+      "manage": {
+        "pos": "v.",
+        "zh": "应付"
+      },
+      "instruction": {
+        "pos": "n.",
+        "zh": "教学"
+      },
+      "prepare": {
+        "pos": "v.",
+        "zh": "准备"
+      },
+      "component": {
+        "pos": "n.",
+        "zh": "组成部分"
+      },
+      "later": {
+        "pos": "adj.",
+        "zh": "随后的（比较级）",
+        "lemma": "late"
+      },
+      "within": {
+        "pos": "prep.",
+        "zh": "在……内部"
+      },
+      "integrated": {
+        "pos": "adj.",
+        "zh": "整合的（过去分词）",
+        "lemma": "integrate"
+      },
+      "conversely": {
+        "pos": "adv.",
+        "zh": "反过来"
+      },
+      "encountering": {
+        "pos": "v.",
+        "zh": "遇到（动名词）",
+        "lemma": "encounter"
+      },
+      "difficulty": {
+        "pos": "n.",
+        "zh": "困难"
+      },
+      "further": {
+        "pos": "adj.",
+        "zh": "进一步的（比较级）",
+        "lemma": "far"
+      },
+      "period": {
+        "pos": "n.",
+        "zh": "一段时间"
+      },
+      "focused": {
+        "pos": "adj.",
+        "zh": "专项的；专注的（过去分词）",
+        "lemma": "focus"
+      },
+      "study": {
+        "pos": "n.",
+        "zh": "学习"
+      },
+      "needed": {
+        "pos": "v.",
+        "zh": "需要（过去分词）",
+        "lemma": "need"
+      },
+      "this": {
+        "pos": "det.",
+        "zh": "这个；这种"
+      },
+      "suggests": {
+        "pos": "v.",
+        "zh": "表明（第三人称单数）",
+        "lemma": "suggest"
+      },
+      "movement": {
+        "pos": "n.",
+        "zh": "转换；往返"
+      },
+      "between": {
+        "pos": "prep.",
+        "zh": "在……之间"
+      },
+      "concentration": {
+        "pos": "n.",
+        "zh": "专项深入学习"
+      },
+      "once-and-for-all": {
+        "pos": "adj.",
+        "zh": "一劳永逸的"
+      },
+      "once": {
+        "pos": "adv.",
+        "zh": "一次（复合词的组成部分）"
+      },
+      "all": {
+        "pos": "adv.",
+        "zh": "永远（短语组成部分）"
+      },
+      "choice": {
+        "pos": "n.",
+        "zh": "选择"
+      },
+      "them": {
+        "pos": "pron.",
+        "zh": "它们"
+      },
+      "appropriate": {
+        "pos": "adj.",
+        "zh": "合适的"
+      },
+      "already": {
+        "pos": "adv.",
+        "zh": "已经"
+      },
+      "bring": {
+        "pos": "v.",
+        "zh": "带来"
+      },
+      "f": {
+        "pos": "名",
+        "zh": "第六段标记"
+      },
+      "supporters": {
+        "pos": "n.",
+        "zh": "支持者（复数）",
+        "lemma": "supporter"
+      },
+      "reply": {
+        "pos": "v.",
+        "zh": "回应"
+      },
+      "compelling": {
+        "pos": "adj.",
+        "zh": "吸引人的（现在分词）",
+        "lemma": "compel"
+      },
+      "motivates": {
+        "pos": "v.",
+        "zh": "激励（第三人称单数）",
+        "lemma": "motivate"
+      },
+      "acquire": {
+        "pos": "v.",
+        "zh": "获得"
+      },
+      "whatever": {
+        "pos": "det.",
+        "zh": "无论什么"
+      },
+      "they": {
+        "pos": "pron.",
+        "zh": "他们"
+      },
+      "need": {
+        "pos": "v.",
+        "zh": "需要（也作助动词）"
+      },
+      "along": {
+        "pos": "prep.",
+        "zh": "沿着；在……过程中"
+      },
+      "possible": {
+        "pos": "adj.",
+        "zh": "可能的"
+      },
+      "but": {
+        "pos": "conj.",
+        "zh": "但是"
+      },
+      "motivation": {
+        "pos": "n.",
+        "zh": "动力"
+      },
+      "identify": {
+        "pos": "v.",
+        "zh": "找出"
+      },
+      "missing": {
+        "pos": "adj.",
+        "zh": "缺少的（现在分词）",
+        "lemma": "miss"
+      },
+      "prerequisite": {
+        "pos": "n.",
+        "zh": "先决条件"
+      },
+      "learner": {
+        "pos": "n.",
+        "zh": "学习者"
+      },
+      "improve": {
+        "pos": "v.",
+        "zh": "改善"
+      },
+      "noticing": {
+        "pos": "v.",
+        "zh": "注意到（动名词）",
+        "lemma": "notice"
+      },
+      "calculated": {
+        "pos": "adj.",
+        "zh": "计算出的（过去分词）",
+        "lemma": "calculate"
+      },
+      "capacity": {
+        "pos": "n.",
+        "zh": "容量"
+      },
+      "mistaken": {
+        "pos": "adj.",
+        "zh": "错误的（过去分词）",
+        "lemma": "mistake"
+      },
+      "teachers": {
+        "pos": "n.",
+        "zh": "教师（复数）",
+        "lemma": "teacher"
+      },
+      "opportunities": {
+        "pos": "n.",
+        "zh": "机会（复数）",
+        "lemma": "opportunity"
+      },
+      "inspect": {
+        "pos": "v.",
+        "zh": "检视"
+      },
+      "provide": {
+        "pos": "v.",
+        "zh": "提供"
+      },
+      "explanation": {
+        "pos": "n.",
+        "zh": "解释"
+      },
+      "checks": {
+        "pos": "n.",
+        "zh": "检查（复数）",
+        "lemma": "check"
+      },
+      "fragment": {
+        "pos": "v.",
+        "zh": "拆散"
+      },
+      "into": {
+        "pos": "prep.",
+        "zh": "变成；进入"
+      },
+      "unrelated": {
+        "pos": "adj.",
+        "zh": "互不相关的"
+      },
+      "exercises": {
+        "pos": "n.",
+        "zh": "练习（复数）",
+        "lemma": "exercise"
+      },
+      "purpose": {
+        "pos": "n.",
+        "zh": "目的"
+      },
+      "apparent": {
+        "pos": "adj.",
+        "zh": "表面上的"
+      },
+      "success": {
+        "pos": "n.",
+        "zh": "成功"
+      },
+      "rests": {
+        "pos": "v.",
+        "zh": "建立在（第三人称单数）",
+        "lemma": "rest"
+      },
+      "understanding": {
+        "pos": "n.",
+        "zh": "理解（动名词）",
+        "lemma": "understand"
+      },
+      "again": {
+        "pos": "adv.",
+        "zh": "再次"
+      },
+      "fortunate": {
+        "pos": "adj.",
+        "zh": "碰巧有利的"
+      },
+      "unexamined": {
+        "pos": "adj.",
+        "zh": "未经检视的"
+      },
+      "choices": {
+        "pos": "n.",
+        "zh": "选择（复数）",
+        "lemma": "choice"
+      },
+      "g": {
+        "pos": "名",
+        "zh": "第七段标记"
+      },
+      "constraints": {
+        "pos": "n.",
+        "zh": "限制（复数）",
+        "lemma": "constraint"
+      },
+      "deserve": {
+        "pos": "v.",
+        "zh": "值得"
+      },
+      "equal": {
+        "pos": "adj.",
+        "zh": "同等的"
+      },
+      "attention": {
+        "pos": "n.",
+        "zh": "注意力"
+      },
+      "coordinating": {
+        "pos": "v.",
+        "zh": "协调（动名词）",
+        "lemma": "coordinate"
+      },
+      "across": {
+        "pos": "prep.",
+        "zh": "横过；遍及"
+      },
+      "requires": {
+        "pos": "v.",
+        "zh": "需要（第三人称单数）",
+        "lemma": "require"
+      },
+      "time": {
+        "pos": "n.",
+        "zh": "时间"
+      },
+      "weak": {
+        "pos": "adj.",
+        "zh": "薄弱的"
+      },
+      "consume": {
+        "pos": "v.",
+        "zh": "消耗"
+      },
+      "effort": {
+        "pos": "n.",
+        "zh": "精力"
+      },
+      "adding": {
+        "pos": "v.",
+        "zh": "增加（动名词）",
+        "lemma": "add"
+      },
+      "suppose": {
+        "pos": "v.",
+        "zh": "假设"
+      },
+      "combines": {
+        "pos": "v.",
+        "zh": "结合（第三人称单数）",
+        "lemma": "combine"
+      },
+      "decorative": {
+        "pos": "adj.",
+        "zh": "装饰性的"
+      },
+      "neither": {
+        "pos": "conj.",
+        "zh": "既不"
+      },
+      "uses": {
+        "pos": "v.",
+        "zh": "使用（第三人称单数）",
+        "lemma": "use"
+      },
+      "nor": {
+        "pos": "conj.",
+        "zh": "也不"
+      },
+      "questions": {
+        "pos": "v.",
+        "zh": "质疑（第三人称单数）",
+        "lemma": "question"
+      },
+      "result": {
+        "pos": "n.",
+        "zh": "结果"
+      },
+      "presence": {
+        "pos": "n.",
+        "zh": "出现；存在"
+      },
+      "slot": {
+        "pos": "n.",
+        "zh": "时段"
+      },
+      "create": {
+        "pos": "v.",
+        "zh": "创造"
+      },
+      "instead": {
+        "pos": "adv.",
+        "zh": "而是；代替"
+      },
+      "dependency": {
+        "pos": "n.",
+        "zh": "依赖关系"
+      },
+      "one": {
+        "pos": "num.",
+        "zh": "一个"
+      },
+      "inform": {
+        "pos": "v.",
+        "zh": "为……提供依据"
+      },
+      "constrain": {
+        "pos": "v.",
+        "zh": "约束"
+      },
+      "revise": {
+        "pos": "v.",
+        "zh": "修正"
+      },
+      "criterion": {
+        "pos": "n.",
+        "zh": "标准"
+      },
+      "allows": {
+        "pos": "v.",
+        "zh": "使能够（第三人称单数）",
+        "lemma": "allow"
+      },
+      "some": {
+        "pos": "det.",
+        "zh": "一些"
+      },
+      "ambitious": {
+        "pos": "adj.",
+        "zh": "要求较高的"
+      },
+      "projects": {
+        "pos": "n.",
+        "zh": "项目（复数）",
+        "lemma": "project"
+      },
+      "allowing": {
+        "pos": "v.",
+        "zh": "允许（现在分词）",
+        "lemma": "allow"
+      },
+      "remain": {
+        "pos": "v.",
+        "zh": "保持"
+      },
+      "involve": {
+        "pos": "v.",
+        "zh": "涉及"
+      },
+      "clear": {
+        "pos": "adj.",
+        "zh": "清楚的"
+      },
+      "educational": {
+        "pos": "adj.",
+        "zh": "教育的"
+      },
+      "h": {
+        "pos": "名",
+        "zh": "第八段标记"
+      },
+      "different": {
+        "pos": "adj.",
+        "zh": "不同的"
+      },
+      "preserving": {
+        "pos": "v.",
+        "zh": "保留（现在分词）",
+        "lemma": "preserve"
+      },
+      "learn": {
+        "pos": "v.",
+        "zh": "学习"
+      },
+      "carefully": {
+        "pos": "adv.",
+        "zh": "认真地"
+      },
+      "earn": {
+        "pos": "v.",
+        "zh": "赢得"
+      },
+      "place": {
+        "pos": "n.",
+        "zh": "应有地位"
+      },
+      "informed": {
+        "pos": "v.",
+        "zh": "为……提供依据（过去式）",
+        "lemma": "inform"
+      },
+      "tests": {
+        "pos": "n.",
+        "zh": "测试（复数）",
+        "lemma": "test"
+      },
+      "revised": {
+        "pos": "v.",
+        "zh": "修改（过去式）",
+        "lemma": "revise"
+      },
+      "relationships": {
+        "pos": "n.",
+        "zh": "关系（复数）",
+        "lemma": "relationship"
+      },
+      "producing": {
+        "pos": "v.",
+        "zh": "制作（动名词）",
+        "lemma": "produce"
+      },
+      "attractive": {
+        "pos": "adj.",
+        "zh": "有吸引力的"
+      },
+      "objects": {
+        "pos": "n.",
+        "zh": "物件（复数）",
+        "lemma": "object"
+      },
+      "bearing": {
+        "pos": "v.",
+        "zh": "带有（现在分词）",
+        "lemma": "bear"
+      },
+      "labels": {
+        "pos": "n.",
+        "zh": "标签（复数）",
+        "lemma": "label"
+      },
+      "limitations": {
+        "pos": "n.",
+        "zh": "局限（复数）",
+        "lemma": "limitation"
+      },
+      "obstacles": {
+        "pos": "n.",
+        "zh": "障碍（复数）",
+        "lemma": "obstacle"
+      },
+      "prevent": {
+        "pos": "v.",
+        "zh": "阻止"
+      },
+      "relevant": {
+        "pos": "adj.",
+        "zh": "相关的"
+      },
+      "being": {
+        "pos": "aux.",
+        "zh": "被（现在分词）",
+        "lemma": "be"
+      },
+      "considered": {
+        "pos": "v.",
+        "zh": "考虑（过去分词）",
+        "lemma": "consider"
+      },
+      "teach": {
+        "pos": "v.",
+        "zh": "教导"
+      },
+      "both": {
+        "pos": "conj.",
+        "zh": "既……又……"
+      },
+      "intelligible": {
+        "pos": "adj.",
+        "zh": "清楚可理解的"
+      },
+      "reason": {
+        "pos": "n.",
+        "zh": "理由"
+      },
+      "treating": {
+        "pos": "v.",
+        "zh": "看作（动名词）",
+        "lemma": "treat"
+      },
+      "removal": {
+        "pos": "n.",
+        "zh": "消除"
+      },
+      "achievement": {
+        "pos": "n.",
+        "zh": "成果"
+      }
+    }
+  },
+  "original-w11-community-consensus": {
+    "title": "Agreement Without Identical Preferences",
+    "glosses": {
+      "paragraph": {
+        "pos": "n.",
+        "zh": "段落"
+      },
+      "a": {
+        "pos": "art.",
+        "zh": "一（泛指）；第一段标记"
+      },
+      "community": {
+        "pos": "n.",
+        "zh": "社区"
+      },
+      "group": {
+        "pos": "n.",
+        "zh": "小组；团体"
+      },
+      "can": {
+        "pos": "aux.",
+        "zh": "能够；可以"
+      },
+      "finish": {
+        "pos": "v.",
+        "zh": "结束"
+      },
+      "meeting": {
+        "pos": "n.",
+        "zh": "会议（名词形式）",
+        "lemma": "meeting"
+      },
+      "with": {
+        "pos": "prep.",
+        "zh": "带着"
+      },
+      "an": {
+        "pos": "art.",
+        "zh": "一个；一（元音前）"
+      },
+      "accepted": {
+        "pos": "v.",
+        "zh": "接受（过去分词）",
+        "lemma": "accept"
+      },
+      "plan": {
+        "pos": "n.",
+        "zh": "计划"
+      },
+      "and": {
+        "pos": "conj.",
+        "zh": "和；并且"
+      },
+      "still": {
+        "pos": "adv.",
+        "zh": "仍然"
+      },
+      "discover": {
+        "pos": "v.",
+        "zh": "发现"
+      },
+      "that": {
+        "pos": "pron.",
+        "zh": "那；引导从句"
+      },
+      "nobody": {
+        "pos": "pron.",
+        "zh": "没有人"
+      },
+      "is": {
+        "pos": "v.",
+        "zh": "是；被（第三人称单数）",
+        "lemma": "be"
+      },
+      "willing": {
+        "pos": "adj.",
+        "zh": "愿意的"
+      },
+      "to": {
+        "pos": "prep.",
+        "zh": "对；用于不定式"
+      },
+      "carry": {
+        "pos": "v.",
+        "zh": "执行（短语组成部分）"
+      },
+      "it": {
+        "pos": "pron.",
+        "zh": "它"
+      },
+      "out": {
+        "pos": "adv.",
+        "zh": "完成（短语组成部分）"
+      },
+      "the": {
+        "pos": "art.",
+        "zh": "这；那（特指）"
+      },
+      "difficulty": {
+        "pos": "n.",
+        "zh": "困难"
+      },
+      "suggests": {
+        "pos": "v.",
+        "zh": "表明（第三人称单数）",
+        "lemma": "suggest"
+      },
+      "difference": {
+        "pos": "n.",
+        "zh": "区别"
+      },
+      "between": {
+        "pos": "prep.",
+        "zh": "在……之间"
+      },
+      "selecting": {
+        "pos": "v.",
+        "zh": "选择（动名词）",
+        "lemma": "select"
+      },
+      "proposal": {
+        "pos": "n.",
+        "zh": "提案"
+      },
+      "securing": {
+        "pos": "v.",
+        "zh": "确保（动名词）",
+        "lemma": "secure"
+      },
+      "cooperation": {
+        "pos": "n.",
+        "zh": "合作"
+      },
+      "on": {
+        "pos": "prep.",
+        "zh": "在……上；取决于"
+      },
+      "which": {
+        "pos": "pron.",
+        "zh": "哪一个；引导从句"
+      },
+      "depends": {
+        "pos": "v.",
+        "zh": "取决于（第三人称单数）",
+        "lemma": "depend"
+      },
+      "some": {
+        "pos": "det.",
+        "zh": "一些"
+      },
+      "groups": {
+        "pos": "n.",
+        "zh": "团体（复数）",
+        "lemma": "group"
+      },
+      "therefore": {
+        "pos": "adv.",
+        "zh": "因此"
+      },
+      "seek": {
+        "pos": "v.",
+        "zh": "寻求"
+      },
+      "consensus": {
+        "pos": "n.",
+        "zh": "共识"
+      },
+      "continuing": {
+        "pos": "v.",
+        "zh": "继续；持续的（现在分词）",
+        "lemma": "continue"
+      },
+      "discussion": {
+        "pos": "n.",
+        "zh": "讨论"
+      },
+      "until": {
+        "pos": "conj.",
+        "zh": "直到"
+      },
+      "members": {
+        "pos": "n.",
+        "zh": "成员（复数）",
+        "lemma": "member"
+      },
+      "accept": {
+        "pos": "v.",
+        "zh": "接受"
+      },
+      "course": {
+        "pos": "n.",
+        "zh": "行动方向"
+      },
+      "of": {
+        "pos": "prep.",
+        "zh": "……的"
+      },
+      "action": {
+        "pos": "n.",
+        "zh": "行动"
+      },
+      "even": {
+        "pos": "adv.",
+        "zh": "即使；甚至"
+      },
+      "if": {
+        "pos": "conj.",
+        "zh": "如果"
+      },
+      "not": {
+        "pos": "adv.",
+        "zh": "不"
+      },
+      "everybody": {
+        "pos": "pron.",
+        "zh": "每个人"
+      },
+      "preferred": {
+        "pos": "adj.",
+        "zh": "更喜欢的（过去分词）",
+        "lemma": "prefer"
+      },
+      "option": {
+        "pos": "n.",
+        "zh": "选项"
+      },
+      "should": {
+        "pos": "aux.",
+        "zh": "应该"
+      },
+      "this": {
+        "pos": "det.",
+        "zh": "这个；这种"
+      },
+      "be": {
+        "pos": "v.",
+        "zh": "是；构成被动语态"
+      },
+      "normal": {
+        "pos": "adj.",
+        "zh": "常规的"
+      },
+      "requirement": {
+        "pos": "n.",
+        "zh": "要求"
+      },
+      "for": {
+        "pos": "prep.",
+        "zh": "为了；对于"
+      },
+      "decisions": {
+        "pos": "n.",
+        "zh": "决定（复数）",
+        "lemma": "decision"
+      },
+      "offers": {
+        "pos": "v.",
+        "zh": "提供（第三人称单数）",
+        "lemma": "offer"
+      },
+      "serious": {
+        "pos": "adj.",
+        "zh": "严肃认真的"
+      },
+      "account": {
+        "pos": "n.",
+        "zh": "论述"
+      },
+      "shared": {
+        "pos": "adj.",
+        "zh": "共同的（过去分词）",
+        "lemma": "share"
+      },
+      "responsibility": {
+        "pos": "n.",
+        "zh": "责任"
+      },
+      "but": {
+        "pos": "conj.",
+        "zh": "但是"
+      },
+      "its": {
+        "pos": "det.",
+        "zh": "它的"
+      },
+      "value": {
+        "pos": "n.",
+        "zh": "价值"
+      },
+      "how": {
+        "pos": "adv.",
+        "zh": "如何"
+      },
+      "agreement": {
+        "pos": "n.",
+        "zh": "一致同意；约定"
+      },
+      "established": {
+        "pos": "v.",
+        "zh": "达成（过去分词）",
+        "lemma": "establish"
+      },
+      "much": {
+        "pos": "det.",
+        "zh": "多少；大量"
+      },
+      "particular": {
+        "pos": "adj.",
+        "zh": "特定的"
+      },
+      "decision": {
+        "pos": "n.",
+        "zh": "决定"
+      },
+      "reasonably": {
+        "pos": "adv.",
+        "zh": "合理地"
+      },
+      "require": {
+        "pos": "v.",
+        "zh": "需要"
+      },
+      "b": {
+        "pos": "名",
+        "zh": "第二段标记"
+      },
+      "strongest": {
+        "pos": "adj.",
+        "zh": "最有力的（最高级）",
+        "lemma": "strong"
+      },
+      "argument": {
+        "pos": "n.",
+        "zh": "论证；理由"
+      },
+      "concerns": {
+        "pos": "v.",
+        "zh": "涉及（第三人称单数）",
+        "lemma": "concern"
+      },
+      "implementation": {
+        "pos": "n.",
+        "zh": "实施"
+      },
+      "imagine": {
+        "pos": "v.",
+        "zh": "设想"
+      },
+      "residents": {
+        "pos": "n.",
+        "zh": "居民（复数）",
+        "lemma": "resident"
+      },
+      "planning": {
+        "pos": "v.",
+        "zh": "规划（现在分词）",
+        "lemma": "plan"
+      },
+      "tool": {
+        "pos": "n.",
+        "zh": "工具"
+      },
+      "cupboard": {
+        "pos": "n.",
+        "zh": "储物柜"
+      },
+      "several": {
+        "pos": "det.",
+        "zh": "几个"
+      },
+      "volunteers": {
+        "pos": "n.",
+        "zh": "志愿者（复数）",
+        "lemma": "volunteer"
+      },
+      "must": {
+        "pos": "aux.",
+        "zh": "必须"
+      },
+      "maintain": {
+        "pos": "v.",
+        "zh": "维护"
+      },
+      "choosing": {
+        "pos": "v.",
+        "zh": "选择（动名词）",
+        "lemma": "choose"
+      },
+      "most": {
+        "pos": "adv.",
+        "zh": "最（最高级）",
+        "lemma": "much"
+      },
+      "popular": {
+        "pos": "adj.",
+        "zh": "受欢迎的"
+      },
+      "location": {
+        "pos": "n.",
+        "zh": "地点"
+      },
+      "would": {
+        "pos": "aux.",
+        "zh": "会；将会"
+      },
+      "settle": {
+        "pos": "v.",
+        "zh": "确定；解决"
+      },
+      "who": {
+        "pos": "pron.",
+        "zh": "谁；引导指人的从句"
+      },
+      "open": {
+        "pos": "v.",
+        "zh": "打开"
+      },
+      "check": {
+        "pos": "v.",
+        "zh": "检查"
+      },
+      "contents": {
+        "pos": "n.",
+        "zh": "柜中物品（复数）",
+        "lemma": "content"
+      },
+      "or": {
+        "pos": "conj.",
+        "zh": "或者"
+      },
+      "arrange": {
+        "pos": "v.",
+        "zh": "安排"
+      },
+      "upkeep": {
+        "pos": "n.",
+        "zh": "维护"
+      },
+      "may": {
+        "pos": "aux.",
+        "zh": "可能"
+      },
+      "reveal": {
+        "pos": "v.",
+        "zh": "揭示"
+      },
+      "initially": {
+        "pos": "adv.",
+        "zh": "最初"
+      },
+      "attractive": {
+        "pos": "adj.",
+        "zh": "有吸引力的"
+      },
+      "position": {
+        "pos": "n.",
+        "zh": "地点；立场"
+      },
+      "inconvenient": {
+        "pos": "adj.",
+        "zh": "不方便的"
+      },
+      "people": {
+        "pos": "n.",
+        "zh": "人们（复数）",
+        "lemma": "person"
+      },
+      "expected": {
+        "pos": "v.",
+        "zh": "要求（过去分词）",
+        "lemma": "expect"
+      },
+      "do": {
+        "pos": "v.",
+        "zh": "做"
+      },
+      "those": {
+        "pos": "det.",
+        "zh": "那些"
+      },
+      "tasks": {
+        "pos": "n.",
+        "zh": "任务（复数）",
+        "lemma": "task"
+      },
+      "revising": {
+        "pos": "v.",
+        "zh": "修改（动名词）",
+        "lemma": "revise"
+      },
+      "could": {
+        "pos": "aux.",
+        "zh": "可能；能够"
+      },
+      "make": {
+        "pos": "v.",
+        "zh": "使；作出"
+      },
+      "more": {
+        "pos": "adv.",
+        "zh": "更；更多（比较级）",
+        "lemma": "much"
+      },
+      "realistic": {
+        "pos": "adj.",
+        "zh": "切实可行的"
+      },
+      "here": {
+        "pos": "adv.",
+        "zh": "在这个例子中"
+      },
+      "seeking": {
+        "pos": "v.",
+        "zh": "寻求（动名词）",
+        "lemma": "seek"
+      },
+      "acceptance": {
+        "pos": "n.",
+        "zh": "接受；认可"
+      },
+      "useful": {
+        "pos": "adj.",
+        "zh": "有用的"
+      },
+      "because": {
+        "pos": "conj.",
+        "zh": "因为"
+      },
+      "information": {
+        "pos": "n.",
+        "zh": "信息"
+      },
+      "about": {
+        "pos": "prep.",
+        "zh": "关于"
+      },
+      "practical": {
+        "pos": "adj.",
+        "zh": "实际的"
+      },
+      "responsibilities": {
+        "pos": "n.",
+        "zh": "责任（复数）",
+        "lemma": "responsibility"
+      },
+      "distributed": {
+        "pos": "v.",
+        "zh": "分布（过去分词）",
+        "lemma": "distribute"
+      },
+      "among": {
+        "pos": "prep.",
+        "zh": "在……之中"
+      },
+      "participants": {
+        "pos": "n.",
+        "zh": "参与者（复数）",
+        "lemma": "participant"
+      },
+      "does": {
+        "pos": "v.",
+        "zh": "做；助动词（第三人称单数）",
+        "lemma": "do"
+      },
+      "than": {
+        "pos": "conj.",
+        "zh": "比；而不是"
+      },
+      "collect": {
+        "pos": "v.",
+        "zh": "收集"
+      },
+      "preferences": {
+        "pos": "n.",
+        "zh": "偏好（复数）",
+        "lemma": "preference"
+      },
+      "allows": {
+        "pos": "v.",
+        "zh": "使能够（第三人称单数）",
+        "lemma": "allow"
+      },
+      "reconsidered": {
+        "pos": "v.",
+        "zh": "重新考虑（过去分词）",
+        "lemma": "reconsider"
+      },
+      "in": {
+        "pos": "prep.",
+        "zh": "在……中"
+      },
+      "light": {
+        "pos": "n.",
+        "zh": "鉴于（短语组成部分）"
+      },
+      "what": {
+        "pos": "pron.",
+        "zh": "什么；所……的"
+      },
+      "implementing": {
+        "pos": "v.",
+        "zh": "实施（动名词）",
+        "lemma": "implement"
+      },
+      "actually": {
+        "pos": "adv.",
+        "zh": "实际上"
+      },
+      "involve": {
+        "pos": "v.",
+        "zh": "涉及"
+      },
+      "c": {
+        "pos": "名",
+        "zh": "第三段标记"
+      },
+      "advocates": {
+        "pos": "n.",
+        "zh": "倡导者（复数）",
+        "lemma": "advocate"
+      },
+      "quicker": {
+        "pos": "adj.",
+        "zh": "更快捷的（比较级）",
+        "lemma": "quick"
+      },
+      "procedure": {
+        "pos": "n.",
+        "zh": "程序；步骤"
+      },
+      "have": {
+        "pos": "v.",
+        "zh": "有；构成完成时"
+      },
+      "substantial": {
+        "pos": "adj.",
+        "zh": "有分量的"
+      },
+      "reasons": {
+        "pos": "n.",
+        "zh": "理由（复数）",
+        "lemma": "reason"
+      },
+      "too": {
+        "pos": "adv.",
+        "zh": "也"
+      },
+      "possess": {
+        "pos": "v.",
+        "zh": "拥有"
+      },
+      "limited": {
+        "pos": "adj.",
+        "zh": "有限的（过去分词）",
+        "lemma": "limit"
+      },
+      "time": {
+        "pos": "n.",
+        "zh": "时间"
+      },
+      "every": {
+        "pos": "det.",
+        "zh": "每一个"
+      },
+      "choice": {
+        "pos": "n.",
+        "zh": "选择"
+      },
+      "requires": {
+        "pos": "v.",
+        "zh": "需要（第三人称单数）",
+        "lemma": "require"
+      },
+      "extended": {
+        "pos": "adj.",
+        "zh": "长时间的（过去分词）",
+        "lemma": "extend"
+      },
+      "search": {
+        "pos": "n.",
+        "zh": "寻找"
+      },
+      "everyone": {
+        "pos": "pron.",
+        "zh": "每个人"
+      },
+      "repeatedly": {
+        "pos": "adv.",
+        "zh": "反复地"
+      },
+      "postpones": {
+        "pos": "v.",
+        "zh": "推迟（第三人称单数）",
+        "lemma": "postpone"
+      },
+      "routine": {
+        "pos": "adj.",
+        "zh": "日常的"
+      },
+      "labels": {
+        "pos": "n.",
+        "zh": "标签（复数）",
+        "lemma": "label"
+      },
+      "consume": {
+        "pos": "v.",
+        "zh": "消耗"
+      },
+      "effort": {
+        "pos": "n.",
+        "zh": "精力"
+      },
+      "warrants": {
+        "pos": "v.",
+        "zh": "值得（第三人称单数）",
+        "lemma": "warrant"
+      },
+      "participation": {
+        "pos": "n.",
+        "zh": "参与"
+      },
+      "also": {
+        "pos": "adv.",
+        "zh": "也"
+      },
+      "has": {
+        "pos": "v.",
+        "zh": "有；已（第三人称单数）",
+        "lemma": "have"
+      },
+      "opportunity": {
+        "pos": "n.",
+        "zh": "机会"
+      },
+      "cost": {
+        "pos": "n.",
+        "zh": "成本"
+      },
+      "long": {
+        "pos": "adj.",
+        "zh": "长时间的"
+      },
+      "evening": {
+        "pos": "n.",
+        "zh": "晚上"
+      },
+      "exclude": {
+        "pos": "v.",
+        "zh": "使无法参与"
+      },
+      "contribute": {
+        "pos": "v.",
+        "zh": "作出贡献"
+      },
+      "willingly": {
+        "pos": "adv.",
+        "zh": "自愿地"
+      },
+      "cannot": {
+        "pos": "aux.",
+        "zh": "不能"
+      },
+      "remain": {
+        "pos": "v.",
+        "zh": "留下"
+      },
+      "conclusion": {
+        "pos": "n.",
+        "zh": "结束"
+      },
+      "designed": {
+        "pos": "v.",
+        "zh": "设计（过去分词）",
+        "lemma": "design"
+      },
+      "include": {
+        "pos": "v.",
+        "zh": "纳入"
+      },
+      "perspective": {
+        "pos": "n.",
+        "zh": "观点"
+      },
+      "become": {
+        "pos": "v.",
+        "zh": "变得"
+      },
+      "selective": {
+        "pos": "adj.",
+        "zh": "只容部分人参与的"
+      },
+      "through": {
+        "pos": "prep.",
+        "zh": "通过"
+      },
+      "demands": {
+        "pos": "n.",
+        "zh": "要求（复数）",
+        "lemma": "demand"
+      },
+      "places": {
+        "pos": "v.",
+        "zh": "施加（第三人称单数）",
+        "lemma": "place"
+      },
+      "attendance": {
+        "pos": "n.",
+        "zh": "出席"
+      },
+      "automatically": {
+        "pos": "adv.",
+        "zh": "必然地；自动地"
+      },
+      "mean": {
+        "pos": "v.",
+        "zh": "意味着"
+      },
+      "are": {
+        "pos": "v.",
+        "zh": "是；被（复数形式）",
+        "lemma": "be"
+      },
+      "effectively": {
+        "pos": "adv.",
+        "zh": "有效地"
+      },
+      "represented": {
+        "pos": "v.",
+        "zh": "得到体现（过去分词）",
+        "lemma": "represent"
+      },
+      "d": {
+        "pos": "名",
+        "zh": "第四段标记"
+      },
+      "distinguished": {
+        "pos": "v.",
+        "zh": "区分（过去分词）",
+        "lemma": "distinguish"
+      },
+      "from": {
+        "pos": "prep.",
+        "zh": "从；与……区分"
+      },
+      "identical": {
+        "pos": "adj.",
+        "zh": "完全相同的"
+      },
+      "member": {
+        "pos": "n.",
+        "zh": "成员"
+      },
+      "prefer": {
+        "pos": "v.",
+        "zh": "更喜欢"
+      },
+      "different": {
+        "pos": "adj.",
+        "zh": "不同的"
+      },
+      "while": {
+        "pos": "conj.",
+        "zh": "当……时；而"
+      },
+      "accepting": {
+        "pos": "v.",
+        "zh": "接受（动名词）",
+        "lemma": "accept"
+      },
+      "proposed": {
+        "pos": "adj.",
+        "zh": "提议的（过去分词）",
+        "lemma": "propose"
+      },
+      "one": {
+        "pos": "pron.",
+        "zh": "一个；所指的方案"
+      },
+      "adequately": {
+        "pos": "adv.",
+        "zh": "充分地"
+      },
+      "meets": {
+        "pos": "v.",
+        "zh": "满足（第三人称单数）",
+        "lemma": "meet"
+      },
+      "needs": {
+        "pos": "n.",
+        "zh": "需要（复数）",
+        "lemma": "need"
+      },
+      "such": {
+        "pos": "det.",
+        "zh": "这样的"
+      },
+      "pretending": {
+        "pos": "v.",
+        "zh": "假装（动名词）",
+        "lemma": "pretend"
+      },
+      "original": {
+        "pos": "adj.",
+        "zh": "原先的"
+      },
+      "preference": {
+        "pos": "n.",
+        "zh": "偏好"
+      },
+      "disappeared": {
+        "pos": "v.",
+        "zh": "消失（过去分词）",
+        "lemma": "disappear"
+      },
+      "equally": {
+        "pos": "adv.",
+        "zh": "同样地"
+      },
+      "silence": {
+        "pos": "n.",
+        "zh": "沉默；不表态"
+      },
+      "safely": {
+        "pos": "adv.",
+        "zh": "稳妥地"
+      },
+      "interpreted": {
+        "pos": "v.",
+        "zh": "解读（过去分词）",
+        "lemma": "interpret"
+      },
+      "as": {
+        "pos": "prep.",
+        "zh": "作为；像"
+      },
+      "when": {
+        "pos": "conj.",
+        "zh": "当……时"
+      },
+      "been": {
+        "pos": "aux.",
+        "zh": "已；被（过去分词）",
+        "lemma": "be"
+      },
+      "given": {
+        "pos": "v.",
+        "zh": "给予（过去分词）",
+        "lemma": "give"
+      },
+      "clear": {
+        "pos": "adj.",
+        "zh": "清楚的"
+      },
+      "express": {
+        "pos": "v.",
+        "zh": "表达"
+      },
+      "reservations": {
+        "pos": "n.",
+        "zh": "保留意见（复数）",
+        "lemma": "reservation"
+      },
+      "chairperson": {
+        "pos": "n.",
+        "zh": "会议主持人"
+      },
+      "announces": {
+        "pos": "v.",
+        "zh": "宣布（第三人称单数）",
+        "lemma": "announce"
+      },
+      "merely": {
+        "pos": "adv.",
+        "zh": "仅仅"
+      },
+      "interrupts": {
+        "pos": "v.",
+        "zh": "打断（第三人称单数）",
+        "lemma": "interrupt"
+      },
+      "mistake": {
+        "pos": "v.",
+        "zh": "误认为"
+      },
+      "uncertainty": {
+        "pos": "n.",
+        "zh": "不确定之处"
+      },
+      "support": {
+        "pos": "v.",
+        "zh": "支持（也作名词）"
+      },
+      "quality": {
+        "pos": "n.",
+        "zh": "质量"
+      },
+      "whether": {
+        "pos": "conj.",
+        "zh": "是否"
+      },
+      "state": {
+        "pos": "v.",
+        "zh": "陈述"
+      },
+      "their": {
+        "pos": "det.",
+        "zh": "他们的"
+      },
+      "including": {
+        "pos": "prep.",
+        "zh": "包括（现在分词）",
+        "lemma": "include"
+      },
+      "willingness": {
+        "pos": "n.",
+        "zh": "意愿"
+      },
+      "proceed": {
+        "pos": "v.",
+        "zh": "继续推进"
+      },
+      "despite": {
+        "pos": "prep.",
+        "zh": "尽管"
+      },
+      "remaining": {
+        "pos": "adj.",
+        "zh": "仍存在的（现在分词）",
+        "lemma": "remain"
+      },
+      "personal": {
+        "pos": "adj.",
+        "zh": "个人的"
+      },
+      "e": {
+        "pos": "名",
+        "zh": "第五段标记"
+      },
+      "granted": {
+        "pos": "adv.",
+        "zh": "诚然（过去分词）",
+        "lemma": "grant"
+      },
+      "asking": {
+        "pos": "v.",
+        "zh": "询问（动名词）",
+        "lemma": "ask"
+      },
+      "directly": {
+        "pos": "adv.",
+        "zh": "直接地"
+      },
+      "prolong": {
+        "pos": "v.",
+        "zh": "延长"
+      },
+      "yet": {
+        "pos": "conj.",
+        "zh": "然而"
+      },
+      "concern": {
+        "pos": "n.",
+        "zh": "关切；顾虑"
+      },
+      "carrying": {
+        "pos": "v.",
+        "zh": "执行（动名词）",
+        "lemma": "carry"
+      },
+      "essential": {
+        "pos": "adj.",
+        "zh": "必要的"
+      },
+      "maintenance": {
+        "pos": "n.",
+        "zh": "维护"
+      },
+      "significance": {
+        "pos": "n.",
+        "zh": "重要性"
+      },
+      "minor": {
+        "pos": "adj.",
+        "zh": "次要的"
+      },
+      "colour": {
+        "pos": "n.",
+        "zh": "颜色"
+      },
+      "label": {
+        "pos": "n.",
+        "zh": "标签"
+      },
+      "treating": {
+        "pos": "v.",
+        "zh": "看作（动名词）",
+        "lemma": "treat"
+      },
+      "reservation": {
+        "pos": "n.",
+        "zh": "保留意见"
+      },
+      "equivalent": {
+        "pos": "adj.",
+        "zh": "同等的"
+      },
+      "obscures": {
+        "pos": "v.",
+        "zh": "掩盖（第三人称单数）",
+        "lemma": "obscure"
+      },
+      "first": {
+        "pos": "adj.",
+        "zh": "最初的；本来（短语义）"
+      },
+      "place": {
+        "pos": "n.",
+        "zh": "本来（固定短语组成部分）"
+      },
+      "ask": {
+        "pos": "v.",
+        "zh": "询问"
+      },
+      "consequence": {
+        "pos": "n.",
+        "zh": "后果"
+      },
+      "follows": {
+        "pos": "v.",
+        "zh": "随之产生（第三人称单数）",
+        "lemma": "follow"
+      },
+      "revision": {
+        "pos": "n.",
+        "zh": "修正"
+      },
+      "address": {
+        "pos": "v.",
+        "zh": "回应；解决"
+      },
+      "guarantee": {
+        "pos": "v.",
+        "zh": "保证"
+      },
+      "makes": {
+        "pos": "v.",
+        "zh": "使（第三人称单数）",
+        "lemma": "make"
+      },
+      "disagreement": {
+        "pos": "n.",
+        "zh": "分歧"
+      },
+      "intelligible": {
+        "pos": "adj.",
+        "zh": "清楚可理解的"
+      },
+      "examine": {
+        "pos": "v.",
+        "zh": "审视"
+      },
+      "rather": {
+        "pos": "adv.",
+        "zh": "而不是（短语组成部分）"
+      },
+      "interpreting": {
+        "pos": "v.",
+        "zh": "理解为（动名词）",
+        "lemma": "interpret"
+      },
+      "objection": {
+        "pos": "n.",
+        "zh": "异议"
+      },
+      "decisive": {
+        "pos": "adj.",
+        "zh": "决定性的"
+      },
+      "reason": {
+        "pos": "n.",
+        "zh": "理由"
+      },
+      "begin": {
+        "pos": "v.",
+        "zh": "开始"
+      },
+      "again": {
+        "pos": "adv.",
+        "zh": "再次"
+      },
+      "beginning": {
+        "pos": "n.",
+        "zh": "开头（名词形式）",
+        "lemma": "beginning"
+      },
+      "f": {
+        "pos": "名",
+        "zh": "第六段标记"
+      },
+      "further": {
+        "pos": "adj.",
+        "zh": "进一步的（比较级）",
+        "lemma": "far"
+      },
+      "response": {
+        "pos": "n.",
+        "zh": "回应"
+      },
+      "agree": {
+        "pos": "v.",
+        "zh": "达成一致"
+      },
+      "scope": {
+        "pos": "n.",
+        "zh": "范围"
+      },
+      "delegation": {
+        "pos": "n.",
+        "zh": "授权"
+      },
+      "before": {
+        "pos": "conj.",
+        "zh": "在……之前"
+      },
+      "choices": {
+        "pos": "n.",
+        "zh": "选择（复数）",
+        "lemma": "choice"
+      },
+      "arise": {
+        "pos": "v.",
+        "zh": "出现"
+      },
+      "might": {
+        "pos": "aux.",
+        "zh": "可能"
+      },
+      "authorise": {
+        "pos": "v.",
+        "zh": "授权"
+      },
+      "small": {
+        "pos": "adj.",
+        "zh": "小规模的"
+      },
+      "team": {
+        "pos": "n.",
+        "zh": "团队"
+      },
+      "select": {
+        "pos": "v.",
+        "zh": "选择"
+      },
+      "within": {
+        "pos": "prep.",
+        "zh": "在……范围内"
+      },
+      "agreed": {
+        "pos": "adj.",
+        "zh": "约定的（过去分词）",
+        "lemma": "agree"
+      },
+      "budget": {
+        "pos": "n.",
+        "zh": "经费预算"
+      },
+      "requiring": {
+        "pos": "v.",
+        "zh": "要求（动名词）",
+        "lemma": "require"
+      },
+      "broader": {
+        "pos": "adj.",
+        "zh": "更广泛的（比较级）",
+        "lemma": "broad"
+      },
+      "anyone": {
+        "pos": "pron.",
+        "zh": "任何人"
+      },
+      "takes": {
+        "pos": "v.",
+        "zh": "承担（第三人称单数）",
+        "lemma": "take"
+      },
+      "role": {
+        "pos": "n.",
+        "zh": "职责；角色"
+      },
+      "then": {
+        "pos": "adv.",
+        "zh": "随后"
+      },
+      "follow": {
+        "pos": "v.",
+        "zh": "基于；遵循"
+      },
+      "understanding": {
+        "pos": "n.",
+        "zh": "理解（动名词）",
+        "lemma": "understand"
+      },
+      "replace": {
+        "pos": "v.",
+        "zh": "代替"
+      },
+      "know": {
+        "pos": "v.",
+        "zh": "知道"
+      },
+      "return": {
+        "pos": "v.",
+        "zh": "返回；再来讨论"
+      },
+      "arrangement": {
+        "pos": "n.",
+        "zh": "安排"
+      },
+      "accepts": {
+        "pos": "v.",
+        "zh": "接受（第三人称单数）",
+        "lemma": "accept"
+      },
+      "efficiency": {
+        "pos": "n.",
+        "zh": "效率"
+      },
+      "without": {
+        "pos": "prep.",
+        "zh": "没有；无须"
+      },
+      "speed": {
+        "pos": "n.",
+        "zh": "速度"
+      },
+      "permission": {
+        "pos": "n.",
+        "zh": "许可"
+      },
+      "assign": {
+        "pos": "v.",
+        "zh": "分派"
+      },
+      "obligations": {
+        "pos": "n.",
+        "zh": "责任（复数）",
+        "lemma": "obligation"
+      },
+      "them": {
+        "pos": "pron.",
+        "zh": "它们"
+      },
+      "well": {
+        "pos": "adv.",
+        "zh": "也；还（固定短语组成部分）"
+      },
+      "immediate": {
+        "pos": "adj.",
+        "zh": "当前的"
+      },
+      "g": {
+        "pos": "名",
+        "zh": "第七段标记"
+      },
+      "made": {
+        "pos": "v.",
+        "zh": "作出（过去分词）",
+        "lemma": "make"
+      },
+      "provisionally": {
+        "pos": "adv.",
+        "zh": "暂时地"
+      },
+      "temporary": {
+        "pos": "adj.",
+        "zh": "临时的"
+      },
+      "allow": {
+        "pos": "v.",
+        "zh": "允许"
+      },
+      "observe": {
+        "pos": "v.",
+        "zh": "观察"
+      },
+      "opening": {
+        "pos": "n.",
+        "zh": "开放（动名词）",
+        "lemma": "open"
+      },
+      "schedule": {
+        "pos": "n.",
+        "zh": "时间安排"
+      },
+      "workable": {
+        "pos": "adj.",
+        "zh": "可行的"
+      },
+      "making": {
+        "pos": "v.",
+        "zh": "作出（现在分词）",
+        "lemma": "make"
+      },
+      "longer": {
+        "pos": "adj.",
+        "zh": "更长的（比较级）",
+        "lemma": "long"
+      },
+      "commitment": {
+        "pos": "n.",
+        "zh": "承诺"
+      },
+      "only": {
+        "pos": "adv.",
+        "zh": "只有；仅仅"
+      },
+      "realistically": {
+        "pos": "adv.",
+        "zh": "切实地"
+      },
+      "changed": {
+        "pos": "v.",
+        "zh": "改变（过去分词）",
+        "lemma": "change"
+      },
+      "review": {
+        "pos": "n.",
+        "zh": "复查"
+      },
+      "conditions": {
+        "pos": "n.",
+        "zh": "条件（复数）",
+        "lemma": "condition"
+      },
+      "understood": {
+        "pos": "v.",
+        "zh": "理解（过去分词）",
+        "lemma": "understand"
+      },
+      "describing": {
+        "pos": "v.",
+        "zh": "描述（动名词）",
+        "lemma": "describe"
+      },
+      "purchasing": {
+        "pos": "v.",
+        "zh": "购置（动名词）",
+        "lemma": "purchase"
+      },
+      "equipment": {
+        "pos": "n.",
+        "zh": "设备"
+      },
+      "alternatives": {
+        "pos": "n.",
+        "zh": "其他方案（复数）",
+        "lemma": "alternative"
+      },
+      "impractical": {
+        "pos": "adj.",
+        "zh": "不切实际的"
+      },
+      "offer": {
+        "pos": "v.",
+        "zh": "提供"
+      },
+      "little": {
+        "pos": "det.",
+        "zh": "很少的"
+      },
+      "meaningful": {
+        "pos": "adj.",
+        "zh": "有意义的"
+      },
+      "flexibility": {
+        "pos": "n.",
+        "zh": "灵活性"
+      },
+      "identify": {
+        "pos": "v.",
+        "zh": "找出"
+      },
+      "expects": {
+        "pos": "v.",
+        "zh": "期望（第三人称单数）",
+        "lemma": "expect"
+      },
+      "learn": {
+        "pos": "v.",
+        "zh": "了解"
+      },
+      "evidence": {
+        "pos": "n.",
+        "zh": "证据"
+      },
+      "justify": {
+        "pos": "v.",
+        "zh": "为……提供理由"
+      },
+      "reconsideration": {
+        "pos": "n.",
+        "zh": "重新考虑"
+      },
+      "trial": {
+        "pos": "n.",
+        "zh": "试行"
+      },
+      "reduce": {
+        "pos": "v.",
+        "zh": "减少"
+      },
+      "need": {
+        "pos": "v.",
+        "zh": "需要（也作名词）"
+      },
+      "reversibility": {
+        "pos": "n.",
+        "zh": "可调整或撤回的程度"
+      },
+      "reassuring": {
+        "pos": "adj.",
+        "zh": "让人放心的（现在分词）",
+        "lemma": "reassure"
+      },
+      "phrase": {
+        "pos": "n.",
+        "zh": "说法"
+      },
+      "h": {
+        "pos": "名",
+        "zh": "第八段标记"
+      },
+      "consequently": {
+        "pos": "adv.",
+        "zh": "因此"
+      },
+      "genuine": {
+        "pos": "adj.",
+        "zh": "真正的"
+      },
+      "where": {
+        "pos": "adv.",
+        "zh": "在何处；在……情况下"
+      },
+      "at": {
+        "pos": "prep.",
+        "zh": "涉及（固定短语组成部分）"
+      },
+      "stake": {
+        "pos": "n.",
+        "zh": "利害关系（短语组成部分）"
+      },
+      "agreeing": {
+        "pos": "v.",
+        "zh": "商定（现在分词）",
+        "lemma": "agree"
+      },
+      "advance": {
+        "pos": "n.",
+        "zh": "事先（固定短语组成部分）"
+      },
+      "delegated": {
+        "pos": "v.",
+        "zh": "授权处理（过去分词）",
+        "lemma": "delegate"
+      },
+      "revised": {
+        "pos": "v.",
+        "zh": "修订（过去分词）",
+        "lemma": "revise"
+      },
+      "they": {
+        "pos": "pron.",
+        "zh": "他们"
+      },
+      "neither": {
+        "pos": "det.",
+        "zh": "两者都不"
+      },
+      "nor": {
+        "pos": "conj.",
+        "zh": "也不"
+      },
+      "endless": {
+        "pos": "adj.",
+        "zh": "无休止的"
+      },
+      "meetings": {
+        "pos": "n.",
+        "zh": "会议（复数）",
+        "lemma": "meeting"
+      },
+      "expressible": {
+        "pos": "adj.",
+        "zh": "可以表达的"
+      },
+      "matches": {
+        "pos": "v.",
+        "zh": "符合（第三人称单数）",
+        "lemma": "match"
+      },
+      "consequences": {
+        "pos": "n.",
+        "zh": "结果；影响（复数）",
+        "lemma": "consequence"
+      },
+      "clarifies": {
+        "pos": "v.",
+        "zh": "阐明（第三人称单数）",
+        "lemma": "clarify"
+      },
+      "work": {
+        "pos": "n.",
+        "zh": "工作"
+      },
+      "involved": {
+        "pos": "v.",
+        "zh": "涉及（过去分词）",
+        "lemma": "involve"
+      },
+      "remains": {
+        "pos": "v.",
+        "zh": "仍然（第三人称单数）",
+        "lemma": "remain"
+      },
+      "unavailable": {
+        "pos": "adj.",
+        "zh": "无法达成的"
+      },
+      "limit": {
+        "pos": "n.",
+        "zh": "限度"
+      },
+      "honestly": {
+        "pos": "adv.",
+        "zh": "如实地"
+      },
+      "announcing": {
+        "pos": "v.",
+        "zh": "宣称（动名词）",
+        "lemma": "announce"
+      },
+      "unity": {
+        "pos": "n.",
+        "zh": "一致"
+      },
+      "examined": {
+        "pos": "v.",
+        "zh": "审视（过去分词）",
+        "lemma": "examine"
+      },
+      "common": {
+        "pos": "adj.",
+        "zh": "共同的"
+      },
+      "actions": {
+        "pos": "n.",
+        "zh": "行动（复数）",
+        "lemma": "action"
+      },
+      "retaining": {
+        "pos": "v.",
+        "zh": "保留（现在分词）",
+        "lemma": "retain"
+      },
+      "views": {
+        "pos": "n.",
+        "zh": "观点（复数）",
+        "lemma": "view"
+      },
+      "alternative": {
+        "pos": "n.",
+        "zh": "其他方案"
+      },
+      "personally": {
+        "pos": "adv.",
+        "zh": "就个人而言"
+      },
+      "chosen": {
+        "pos": "v.",
+        "zh": "选择（过去分词）",
+        "lemma": "choose"
+      }
+    }
+  }
+}

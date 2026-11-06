@@ -217,7 +217,7 @@ describe('VocabService.lookup', () => {
   });
 
   it('本地词义零等待，只有原句调用实时翻译', async () => {
-    const prisma = { dictEntry: { findMany: async () => [row] } };
+    const prisma = { dictEntry: { findMany: async () => [row] }, paper: { findMany: async () => [] } };
     const seen: string[] = [];
     const realtime = {
       translate: async (text: string) => { seen.push(text); return '我撞到了桌子。'; },
@@ -231,7 +231,7 @@ describe('VocabService.lookup', () => {
   });
 
   it('**VOC15：原句翻译没取到 → 如实给原因与能否重试**，不把报错当译文', async () => {
-    const prisma = { dictEntry: { findMany: async () => [row] } };
+    const prisma = { dictEntry: { findMany: async () => [row] }, paper: { findMany: async () => [] } };
     for (const [result, expected] of [
       [{ text: null, status: 'rate_limited', retryable: true, retryAfterSec: 20, provider: 'azure' }, { status: 'rate_limited', retryable: true, retryAfterSec: 20 }],
       [{ text: null, status: 'no_chinese', retryable: false, provider: 'azure' }, { status: 'no_chinese', retryable: false }],

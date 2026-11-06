@@ -1,11 +1,13 @@
 import { Injectable, Optional } from '@nestjs/common';
 import { PrismaService } from '../common/prisma.service';
 import { RealtimeTranslationService } from './realtime-translation.service';
+import { glossKey, normalizedPassage, WordGlosses } from './article-gloss';
 
 /**
  * 生词本 —— 词典查询服务。
  *
- * 本地 DictEntry（ECDICT）永远优先；只有本地确实查不到时才走实时翻译。
+ * 阅读原句命中带 wordGlosses 的卷子时只用本文释义，缺词直接未收录。
+ * 其他查词保留本地 DictEntry（ECDICT）优先、缺词才实时翻译的旧链路。
  * 文章原句的句意也由同一翻译服务按需返回。密钥只在 API 服务端，浏览器
  * 永远接触不到供应商凭据。
  *
@@ -33,7 +35,7 @@ export interface LookupHit {
   oxford: boolean;
   tag: string[];
   /** 命中方式，便于前端与排查（本地四种 + remote 实时兜底） */
-  via: 'direct' | 'possessive' | 'lemma' | 'hyphen' | 'remote';
+  via: 'direct' | 'possessive' | 'lemma' | 'hyphen' | 'remote' | 'gloss';
   contextTranslation?: string | null;
   /**
    * 整句翻译没取到时，为什么没取到、能不能再试（VOC15 同一口径）。有译文时不给。
@@ -127,10 +129,30 @@ export class VocabService {
     @Optional() private readonly realtime?: RealtimeTranslationService,
   ) {}
 
-  /** 本地词典优先；缺词才联网。点词带原句时，同时返回中文句意。 */
+  /** 本文释义优先且禁止回退；其他场景保留原查词行为。 */
   async lookup(raw: string, contextSentence?: string): Promise<LookupHit | null> {
-    let hit = await this.lookupLocal(raw);
-    if (!hit && this.realtime) {
+    const sentence = contextSentence?.trim() ?? '';
+    const glosses = sentence ? await this.articleGlosses(sentence) : null;
+    let hit: LookupHit | null;
+    if (glosses !== null) {
+      const key = glossKey(raw);
+      const gloss = Object.prototype.hasOwnProperty.call(glosses, key) ? glosses[key] : null;
+      // 有表即封闭：空表、漏词、坏数据都不能重新读词典释义或翻译词语。
+      if (!gloss || typeof gloss.zh !== 'string' || !gloss.zh.trim() || typeof gloss.pos !== 'string' || !gloss.pos.trim()) return null;
+      const word = typeof gloss.lemma === 'string' && gloss.lemma ? gloss.lemma : key;
+      const phonetics = await this.prisma.dictEntry.findMany({
+        where: { word: { in: [...new Set([key, word])] } },
+        select: { word: true, phonetic: true },
+      });
+      hit = {
+        word, query: raw, translation: gloss.zh, pos: gloss.pos, definition: null,
+        phonetic: phonetics.find((r) => r.word === key)?.phonetic ?? phonetics.find((r) => r.word === word)?.phonetic ?? null,
+        collins: null, oxford: false, tag: [], via: 'gloss',
+      };
+    } else {
+      hit = await this.lookupLocal(raw);
+    }
+    if (!hit && glosses === null && this.realtime) {
       const translation = await this.realtime.translate(raw);
       const word = normalizeWord(raw).replace(/^[^a-z']+|[^a-z']+$/g, '');
       if (translation && word) {
@@ -149,7 +171,6 @@ export class VocabService {
       }
     }
     if (!hit) return null;
-    const sentence = contextSentence?.trim() ?? '';
     // 内容包里人工过过的整句翻译优先；机翻只兜底
     //（2026-09-06 复测：机翻把 "the remaining stock" 译成「剩余的菌株」）。
     const curated = sentence ? await this.curatedSentenceTranslation(sentence) : null;
@@ -162,6 +183,40 @@ export class VocabService {
       contextTranslation: null,
       contextTranslationStatus: { status: r.status, retryable: r.retryable, ...(r.retryAfterSec ? { retryAfterSec: r.retryAfterSec } : {}) },
     };
+  }
+
+  private glossCache: { at: number; articles: Array<{ passages: string[]; glosses: WordGlosses }> } | null = null;
+
+  /** Paper 没有 publishedAt；用 createdAt 限最近 60 天，且必须仍是已发布、未软归档。 */
+  private async articleGlosses(sentence: string): Promise<WordGlosses | null> {
+    if (!this.glossCache || Date.now() - this.glossCache.at > 10 * 60_000) {
+      const papers = await this.prisma.paper.findMany({
+        where: { status: 'published', archivedAt: null, createdAt: { gte: new Date(Date.now() - 60 * 86_400_000) } },
+        orderBy: [{ createdAt: 'desc' }, { id: 'asc' }],
+        select: { config: true, questions: { select: { snapshotContent: true, overrideContent: true } } },
+      });
+      const articles: Array<{ passages: string[]; glosses: WordGlosses }> = [];
+      for (const paper of papers) {
+        const cfg = paper.config as Record<string, unknown> | null;
+        if (!cfg || !Object.prototype.hasOwnProperty.call(cfg, 'wordGlosses')) continue;
+        const glosses = cfg.wordGlosses;
+        const passages = paper.questions.flatMap((q) => {
+          const snapshot = q.snapshotContent as { passage?: unknown } | null;
+          const override = q.overrideContent as { passage?: unknown } | null;
+          const passage = override?.passage ?? snapshot?.passage;
+          return typeof passage === 'string' && passage.trim() ? [normalizedPassage(passage)] : [];
+        });
+        // 字段存在但格式坏了也必须封闭，不能把它当成旧文章。
+        articles.push({ passages, glosses: glosses && typeof glosses === 'object' && !Array.isArray(glosses) ? glosses as WordGlosses : {} });
+      }
+      // 查询失败向上传播；不会缓存“查不到”并降级到词典。
+      this.glossCache = { at: Date.now(), articles };
+    }
+    // 学生端 sentenceContaining 把超过 260 字的原句截成前 257 字 + 「…」再发来（IELTSReadingPassage.tsx），
+    // 去掉这个省略号后仍是正文的连续片段，照样能对上文章；否则长句里的词会退回词典。
+    const needle = normalizedPassage(sentence).replace(/\s*(?:…|\.\.\.)$/, '');
+    if (!needle) return null;
+    return this.glossCache.articles.find((article) => article.passages.some((passage) => passage.includes(needle)))?.glosses ?? null;
   }
 
   private curatedCache: { at: number; map: Map<string, string> } | null = null;
