@@ -108,6 +108,11 @@ describe('extra practice', () => {
     fireEvent.compositionEnd(input, { data: 'x' });
     await userEvent.click(screen.getByRole('button', { name: '检查拼写' }));
     expect(screen.getByTestId('spelling-prefix')).toHaveTextContent('c');
+    // 给字母格子（长度提示），打错后清空输入框、开头露在格子里
+    expect(screen.getByTestId('spelling-slots').children).toHaveLength(4);
+    expect(screen.getAllByTestId('spelling-prefix-letter').map((s) => s.textContent).join('')).toBe('c');
+    expect(input).toHaveValue('');
+    expect(screen.getByRole('status')).toHaveTextContent('还没拼对，已帮你露出开头，再试一次。');
     expect(input).toHaveAttribute('autocorrect', 'off'); expect(input).toHaveAttribute('autocapitalize', 'none');
   });
   it('ladder reveals original only after two wrong checks; can finish correct blocks', async () => {

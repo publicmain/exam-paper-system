@@ -55,22 +55,40 @@ export function SpellingExercise({ step, look, onAttempt, onNext }: Props & { lo
     if (done || composition.current || save.failed || checkLock.current) return;
     checkLock.current = true;
     const next = judgeRecall(normalizeRecallSpelling(step.answer), value, (recall?.attempt ?? 0) + 1, recall);
-    save.run(() => { onAttempt(next.isCorrect, Boolean(recall?.hintLevel)); setRecall(next); setDone(next.isCorrect); });
+    // 打错了清空输入框，开头已经露在格子里（和学新词的遮词拼写一致），不让错字留着挡路。
+    save.run(() => { onAttempt(next.isCorrect, Boolean(recall?.hintLevel)); setRecall(next); setDone(next.isCorrect); if (!next.isCorrect) setValue(''); });
   }
+  const expected = normalizeRecallSpelling(step.answer);
   return <div className="space-y-6">
     <p className="text-xl text-ink">{step.prompt}</p>
     {look && <p lang="en" className="break-words text-2xl font-semibold text-ink" data-testid="typing-letters">{Array.from(typing.expected).map((c, i) =>
       <span key={i} className={i === typing.position && typing.wrong ? 'bg-danger-soft text-danger underline' : i < typing.position ? 'text-accent' : ''}>{c}</span>)}</p>}
     <button type="button" className={secondary} onClick={() => { stopPlayback.current?.(); stopPlayback.current = sayWord(step.answer); }}>听发音</button>
-    {!look && recall?.nextPrefix && <p className="text-lg text-ink" data-testid="spelling-prefix">开头是：<span lang="en">{recall.nextPrefix}</span></p>}
-    {!look && recall?.answerRevealed && <p className="text-lg text-ink" lang="en">{recall.correctSpelling}</p>}
+    {/* 听写/造句第 1 步：和学新词的遮词拼写一样给字母格子 —— 只给中文时「暗示」可以是
+        imply / hint / suggest，不给长度学生只能瞎猜（2026-11-06 叶老师本机试用截图）。 */}
+    {!look && <div className="flex flex-wrap gap-1" aria-hidden="true" data-testid="spelling-slots">
+      {Array.from(expected).map((ch, i) => {
+        const wrong = Boolean(recall && !recall.isCorrect && recall.firstWrongIndex === i);
+        const shown = recall?.answerRevealed || done || i < (recall?.nextPrefix.length ?? 0) ? ch : '';
+        return <span key={i} data-testid={i < (recall?.nextPrefix.length ?? 0) ? 'spelling-prefix-letter' : undefined} lang="en" className={[
+          'inline-flex h-9 w-9 items-center justify-center rounded-control text-lg font-semibold',
+          ch === ' ' ? 'bg-transparent' : wrong ? 'border-2 border-danger bg-danger-soft text-danger' : 'bg-fill text-ink',
+        ].join(' ')}>{ch === ' ' ? '' : shown}</span>;
+      })}
+      {recall && !recall.isCorrect && recall.firstWrongIndex === expected.length ? <span className="text-base text-danger">末尾多打了</span> : null}
+    </div>}
     <form className="space-y-4" onSubmit={e => { e.preventDefault(); if (!look) check(); }}>
       <input aria-label="拼写" className={inputClass} value={value} disabled={done || save.failed} autoComplete="off" autoCorrect="off" autoCapitalize="none" spellCheck={false}
         onCompositionStart={() => { composition.current = true; setComposing(true); }}
         onCompositionEnd={e => { composition.current = false; setComposing(false); if (look) type(e.currentTarget.value); else setValue(e.currentTarget.value); }}
         onChange={e => { if (composition.current) { setValue(e.target.value); return; } if (look) type(e.target.value); else setValue(e.target.value); }} />
       {look && typing.wrong && <p role="status" className="text-sm text-danger">这个字母不对，再试一次</p>}
-      {!look && recall && !recall.isCorrect && <p role="status" className="text-sm text-ink-2">再试一次</p>}
+      {!look && !done && <p role="status" className={`text-base ${recall && !recall.isCorrect ? 'text-danger' : 'text-ink-2'}`}>
+        {recall?.answerRevealed ? '看着答案，再打一遍。'
+          : recall && !recall.isCorrect ? `还没拼对，${recall.nextPrefix ? '已帮你露出开头，再试一次。' : '再试一次。'}`
+            : '想不起来，可以听一听。'}
+        {recall?.nextPrefix && !recall.answerRevealed ? <span className="sr-only" data-testid="spelling-prefix">开头是：<span lang="en">{recall.nextPrefix}</span>。</span> : null}
+      </p>}
       {!done && !look && <button className={primary} disabled={composing || save.failed || !value.trim()}>检查拼写</button>}
       {done && <p role="status" className="text-base text-success">拼对了</p>}
     </form>
