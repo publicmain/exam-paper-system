@@ -2,6 +2,7 @@ import { Controller, Get, Headers, Param, Res } from '@nestjs/common';
 import type { Response } from 'express';
 import { Public } from '../common/auth.guard';
 import { PrismaService } from '../common/prisma.service';
+import { RateLimit } from '../common/rate-limit.guard';
 
 /** 只认小写英文、撇号、连字符、空格 —— 词库里的 headword 就长这样。 */
 export function normalizeHeadword(raw: string): string | null {
@@ -33,6 +34,7 @@ export class AudioController {
 
   @Public()
   @Get('sentence/:hash.mp3')
+  @RateLimit({ limit: 300, windowSec: 60, scope: 'ip' })
   async sentence(@Param('hash') hash: string, @Res() res: Response, @Headers('range') range?: string) {
     if (!/^[a-f0-9]{64}$/.test(hash)) {
       res.status(404).setHeader('Cache-Control', 'public, max-age=3600').end();

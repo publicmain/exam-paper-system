@@ -173,8 +173,6 @@ export function OLevelComprehension({ paper }: { paper: ExamPaper }) {
                 passage={passageSource.passage ?? ''}
                 body={para}
                 precedingBody={passageParagraphs.slice(0, i).join('\n\n')}
-                highlights={[]}
-                onChange={() => {}}
                 className="leading-[1.75] mb-4 last:mb-0 whitespace-pre-wrap"
               />
             ))}

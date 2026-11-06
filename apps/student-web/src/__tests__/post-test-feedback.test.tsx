@@ -56,7 +56,7 @@ describe('词测逐题原答回顾', () => {
     ] };
     vi.stubGlobal('fetch', vi.fn(async () => ({ ok: true, status: 200, text: async () => JSON.stringify(data) })));
     render(<MemoryRouter initialEntries={['/coach/test?sessionId=t']}><VocabularyCoachTest /></MemoryRouter>);
-    expect(await screen.findByTestId('test-result-summary')).toHaveTextContent('本次对 1 / 共 2，其中复习旧词 1 个，对了 0 个。');
+    expect(await screen.findByTestId('test-result-summary')).toHaveTextContent('本次答对 1 / 2 题，其中旧词 1 个，答对 0 个。');
     const rows = within(screen.getByTestId('test-review')).getAllByRole('listitem');
     expect(rows[0]).toHaveTextContent('你写的：aple · 正确答案：apple');
     expect(rows[1]).toHaveTextContent('你写的：树 · 正确答案：树');

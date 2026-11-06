@@ -88,7 +88,7 @@ export function SentenceAudioProvider({ passages, children }: { passages: Passag
               onClick={() => { setSlow(!slow); if (media.current) media.current.playbackRate = slow ? 1 : 0.75; }}>{slow ? '0.75×' : '1×'}</button>
             <button type="button" aria-pressed={loop} className={`${toggle} ${loop ? 'bg-accent-soft text-accent' : 'text-ink-2'}`}
               onClick={() => { setLoop(!loop); if (media.current) media.current.loop = !loop; }}>单句循环</button>
-            {loading && <span role="status" className="text-sm text-ink-2">正在载入声音…</span>}
+            {loading && <span role="status" className="text-sm text-ink-2">正在加载音频…</span>}
             {error && <span role="alert" className="text-sm text-danger">这句暂时播放不了，请再点一次。</span>}
           </div>
           <audio ref={media} preload="none" onPlaying={() => {
@@ -123,17 +123,17 @@ function useSentenceControls(passage: string, body: string, precedingBody = '') 
       available.set(text, [...(available.get(text) ?? []), item]);
     }
     for (const s of splitSentenceRanges(precedingBody)) available.get(normalizeSentence(s.text))?.shift();
-    return splitSentenceRanges(body).flatMap((s, index) => {
+    return splitSentenceRanges(body).flatMap((s) => {
       const item = available.get(normalizeSentence(s.text))?.shift();
       return item ? [{ start: s.start, end: s.end, active: item.key === player.current,
-        label: `朗读第 ${index + 1} 句`, onPlay: () => player.play(item) }] : [];
+        label: '朗读这句', onPlay: () => player.play(item) }] : [];
     });
   }, [player, passage, body, precedingBody]);
 }
 
 /** Original body stays untouched: saved highlight offsets remain valid. */
 export function SentencePassage({ passage, body, precedingBody = '', ...props }: {
-  passage: string; body: string; highlights: Highlight[]; onChange(next: Highlight[]): void;
+  passage: string; body: string; highlights?: Highlight[]; onChange?: (next: Highlight[]) => void;
   precedingBody?: string;
   onWordTap?: (word: string, range: Range) => void; testId?: string; className?: string; style?: React.CSSProperties;
 }) {

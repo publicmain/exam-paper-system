@@ -11,6 +11,7 @@ describe('停课日页面', () => {
     let finish!: (v: any) => void;
     vi.mocked(api.addClassNoSchoolDays).mockImplementation(() => new Promise((resolve) => { finish = resolve; }));
     open(); await screen.findByText('这段时间没有停课日。');
+    expect(screen.getByText('本班停课日不排任务、不算欠账，已经做过的成绩保留。其他班仍有课的学生照常学习。')).toBeInTheDocument();
     fireEvent.change(screen.getByLabelText('开始日期'), { target: { value: '2026-11-02' } });
     fireEvent.change(screen.getByLabelText('结束日期'), { target: { value: '2026-11-06' } });
     fireEvent.change(screen.getByLabelText('原因（选填）'), { target: { value: '期中考试' } });
@@ -23,8 +24,8 @@ describe('停课日页面', () => {
     vi.mocked(api.classNoSchoolDays).mockResolvedValue([{ id: 'd', date: '2026-11-05T00:00:00.000Z', reason: '考试' }]);
     const confirm = vi.spyOn(window, 'confirm').mockReturnValue(false);
     open(); await screen.findByText('考试');
-    fireEvent.click(screen.getByLabelText('删除 2026-11-05')); expect(api.removeClassNoSchoolDay).not.toHaveBeenCalled();
-    confirm.mockReturnValue(true); fireEvent.click(screen.getByLabelText('删除 2026-11-05'));
+    fireEvent.click(screen.getByLabelText('删除 2026-11-05 的停课安排')); expect(api.removeClassNoSchoolDay).not.toHaveBeenCalled();
+    confirm.mockReturnValue(true); fireEvent.click(screen.getByLabelText('删除 2026-11-05 的停课安排'));
     await waitFor(() => expect(api.removeClassNoSchoolDay).toHaveBeenCalledWith('c', '2026-11-05'));
     fireEvent.change(screen.getByLabelText('日期范围'), { target: { value: 'past' } });
     await waitFor(() => expect(api.classNoSchoolDays).toHaveBeenLastCalledWith('c', 'past')); confirm.mockRestore();
@@ -33,5 +34,12 @@ describe('停课日页面', () => {
     vi.mocked(api.classNoSchoolDays).mockRejectedValueOnce(new Error('network'));
     open(); expect(await screen.findByRole('alert')).toHaveTextContent('暂时没能加载');
     fireEvent.click(screen.getByText('重新加载')); expect(await screen.findByText('这段时间没有停课日。')).toBeInTheDocument();
+  });
+  it('保存失败不把服务端错误一概说成日期错误', async () => {
+    vi.mocked(api.addClassNoSchoolDays).mockRejectedValueOnce(new Error('offline'));
+    open(); await screen.findByText('这段时间没有停课日。');
+    fireEvent.change(screen.getByLabelText('开始日期'), { target: { value: '2026-11-02' } });
+    fireEvent.click(screen.getByText('添加停课日'));
+    expect(await screen.findByRole('alert')).toHaveTextContent('没能保存，请再试一次。');
   });
 });

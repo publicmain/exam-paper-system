@@ -239,8 +239,8 @@ export default function VocabularyCoachTestPage() {
             {s.correct} / {s.total}
           </h1>
           <p className="mt-2 text-sm text-ink-2" data-testid="test-result-summary">
-            本次对 {s.correct} / 共 {s.total}
-            {!practice && s.reviewCorrect != null ? `，其中复习旧词 ${s.reviewWords ?? 0} 个，对了 ${s.reviewCorrect} 个。` : ''}
+            本次答对 {s.correct} / {s.total} 题
+            {!practice && s.reviewCorrect != null ? `，其中旧词 ${s.reviewWords ?? 0} 个，答对 ${s.reviewCorrect} 个。` : ''}
           </p>
           <p className="mt-1 text-callout text-ink-2">
             {practice ? '个人练习，不进正式成绩，也不改复习安排。结果保留 2 小时。' : '已经保存，记入这一天的单词测试。'}

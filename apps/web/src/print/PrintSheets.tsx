@@ -33,7 +33,7 @@ export type PrintWord = {
 export type WordSheetMode = 'list' | 'dictation';
 
 export function CommonMisspellings({ word }: { word: PrintWord }) {
-  return word.commonMisspellings?.length ? <span className="text-sm text-gray-600">（班里常见错拼：{word.commonMisspellings.map((m) => `${m.spelling} ×${m.count}`).join('、')}）</span> : null;
+  return word.commonMisspellings?.length ? <span className="text-sm text-gray-600">（班里常见错拼：{word.commonMisspellings.map((m) => `${m.spelling}，${m.count} 次`).join('；')}）</span> : null;
 }
 
 /** 题干里的 [BLANK] 印成下划线 */

@@ -199,7 +199,7 @@ const TAP_MAX_MS = 500;
 
 export function Highlighter({
   body,
-  highlights,
+  highlights = [],
   onChange,
   className = '',
   style,
@@ -208,8 +208,9 @@ export function Highlighter({
   sentenceControls = [],
 }: {
   body: string;
-  highlights: Highlight[];
-  onChange: (next: Highlight[]) => void;
+  highlights?: Highlight[];
+  /** Omit to preserve native selection while keeping sentence playback. */
+  onChange?: (next: Highlight[]) => void;
   className?: string;
   style?: React.CSSProperties;
   /**
@@ -223,6 +224,7 @@ export function Highlighter({
   const containerRef = useRef<HTMLDivElement | null>(null);
 
   function captureSelection() {
+    if (!onChange) return;
     const sel = window.getSelection();
     if (!sel || sel.isCollapsed) return;
     const root = containerRef.current;
@@ -239,7 +241,7 @@ export function Highlighter({
   }
 
   function removeHighlight(id: string) {
-    onChange(highlights.filter((h) => h.id !== id));
+    onChange?.(highlights.filter((h) => h.id !== id));
   }
 
   // ── 单击查词（阶段 12C）────────────────────────────────────
@@ -331,8 +333,8 @@ export function Highlighter({
     <div
       ref={containerRef}
       data-testid={testId}
-      onMouseUp={onMouseUpGuarded}
-      onTouchEnd={onTouchEndGuarded}
+      onMouseUp={onChange ? onMouseUpGuarded : undefined}
+      onTouchEnd={onChange ? onTouchEndGuarded : undefined}
       onPointerDown={onPointerDownForTap}
       onPointerUp={onPointerUpForTap}
       className={`select-text whitespace-pre-wrap ${className}`}

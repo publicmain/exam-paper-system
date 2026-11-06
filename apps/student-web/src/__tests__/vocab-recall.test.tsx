@@ -53,6 +53,26 @@ beforeEach(() => { localStorage.clear(); writeToken('test-token'); });
 afterEach(() => { vi.unstubAllGlobals(); vi.restoreAllMocks(); });
 
 describe('词卡后的遮词拼写', () => {
+  it('读屏状态只读已经露出的前缀，不泄露剩余字母', async () => {
+    const session = learning(); session.items[0].recall = { available: true, started: true, state: outcome(2) };
+    setup(session);
+    const input = await screen.findByRole('textbox', { name: '拼写' });
+    expect(screen.getByTestId('recall-slots')).toHaveAttribute('aria-hidden', 'true');
+    const status = screen.getByTestId('recall-spelling').querySelector('[role="status"]')!;
+    expect(status).toHaveTextContent('开头是：de');
+    expect(status).not.toHaveTextContent('decline');
+    expect(input).toHaveValue('');
+  });
+  it.each([0, 3, 7])('错误位置 %i 不再作为第几个字母播报；没有提示时不泄露答案', async (firstWrongIndex) => {
+    const session = learning(); session.items[0].recall = { available: true, started: true,
+      state: { ...outcome(1), firstWrongIndex, hintLevel: 0, nextPrefix: '' } };
+    setup(session); await screen.findByRole('textbox', { name: '拼写' });
+    const status = screen.getByTestId('recall-spelling').querySelector('[role="status"]')!;
+    expect(status).toHaveTextContent('还没拼对，再试一次。');
+    expect(status).not.toHaveTextContent('第'); expect(status).not.toHaveTextContent('开头是');
+    expect(status).not.toHaveTextContent('decline');
+    if (firstWrongIndex === 7) expect(screen.getByTestId('recall-slots')).toHaveTextContent('末尾多打了');
+  });
   it('正常拼对后才提交学完，使用同一学词任务；答案不在遮词画面或发音标签里', async () => {
     const requests = setup();
     const input = await enterRecall();
@@ -83,7 +103,7 @@ describe('词卡后的遮词拼写', () => {
     const input = await enterRecall();
     await userEvent.type(input, 'wrong');
     await userEvent.click(screen.getByRole('button', { name: '检查拼写' }));
-    expect(await screen.findByText('第 1 个字母不对，已帮你露出开头，再试一次。')).toBeInTheDocument();
+    expect(await screen.findByText('还没拼对，已帮你露出开头，再试一次。')).toBeInTheDocument();
     expect(screen.getByTestId('recall-slots').firstChild).toHaveTextContent('d');
     expect(screen.getByTestId('recall-slots').firstChild).toHaveAttribute('data-wrong', 'true');
     await userEvent.type(input, 'decline');
@@ -166,7 +186,7 @@ describe('词卡后的遮词拼写', () => {
     const requests = setup(learning(), { recall: async () => reply(outcome(1, false)) });
     await userEvent.type(await enterRecall(), 'decline');
     await userEvent.click(screen.getByRole('button', { name: '检查拼写' }));
-    await screen.findByText('第 1 个字母不对，已帮你露出开头，再试一次。');
+    await screen.findByText('还没拼对，已帮你露出开头，再试一次。');
     expect(requests.filter((r) => r.path.endsWith('/item'))).toHaveLength(0);
   });
   it('重复点击只发一次；响应丢失时原序号与原答案重发', async () => {
@@ -183,7 +203,7 @@ describe('词卡后的遮词拼写', () => {
     fireEvent.click(button); fireEvent.click(button);
     expect(requests.filter((r) => r.path.endsWith('/recall'))).toHaveLength(1);
     release();
-    await screen.findByText('没连上，请再试一次。');
+    await screen.findByText('没能保存，请再试一次。');
     expect(input).toHaveAttribute('readonly');
     await userEvent.click(screen.getByRole('button', { name: '再试一次' }));
     await screen.findByRole('heading', { name: 'care' });

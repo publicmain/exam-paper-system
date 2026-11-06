@@ -127,7 +127,9 @@ describe('打印材料', () => {
     expect(within(sheets[0]).getByRole('heading', { name: '钱小红 · 默写纸' })).toBeTruthy();
     expect(within(sheets[0]).getByText('n. 美')).toBeTruthy();
     expect(within(sheets[0]).queryByText('beauty')).toBeNull();
-    expect(screen.getByTestId('print-no-words').textContent).toContain('新同学');
+    expect(screen.getByTestId('print-no-words')).toHaveTextContent('以下学生当天没有学完的词，不打印：新同学');
+    fireEvent.click(screen.getByLabelText('只印学完的词'));
+    expect(screen.getByTestId('print-no-words')).toHaveTextContent('以下学生当天没有单词任务，不打印：新同学');
   });
 
   it('单词表：英文和中文都在', async () => {
@@ -202,7 +204,9 @@ describe('打印材料 · 一整周（2026-09-29 早读默写）', () => {
     expect(nums).toEqual(['1', '★2', '3']);
     expect(within(sheet).queryByText('storm')).toBeNull(); // 默写纸不露英文
     expect(within(sheet).getByText(/重点写/)).toBeTruthy();
-    expect(screen.getByTestId('print-no-words').textContent).toContain('新同学');
+    expect(screen.getByTestId('print-no-words')).toHaveTextContent('以下学生本周没有学完的词，不打印：新同学');
+    fireEvent.click(screen.getByLabelText('只印学完的词'));
+    expect(screen.getByTestId('print-no-words')).toHaveTextContent('以下学生本周没有单词任务，不打印：新同学');
   });
 
   it('默写纸附答案：答案页按题号列英文；单词表：英文中文都在', async () => {

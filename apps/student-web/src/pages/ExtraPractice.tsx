@@ -11,7 +11,7 @@ import { BlocksExercise, ShadowExercise, SpellingExercise, primary, secondary } 
 import { pendingExtraResults, queueExtraResult } from '../components/extra/result-queue';
 import { syncExtraFor } from '../components/extra/ExtraPracticeSync';
 
-const labels: Record<ExtraDrill, string> = { type: '拼写打字', ladder: '造句阶梯', shadow: '跟读' };
+const labels: Record<ExtraDrill, string> = { type: '拼写打字', ladder: '造句练习', shadow: '跟读' };
 export default function ExtraPracticePage() {
   const navigate = useNavigate();
   const [round, setRound] = useState<ExtraRound | null>(null);
@@ -74,19 +74,19 @@ export default function ExtraPracticePage() {
     <div className="max-w-prose space-y-6 pb-8 text-ink" data-testid="extra-practice-page">
       {closed ? <p role="status" className="text-base text-ink-2">加练暂时没开放</p> : !round || complete ? <>
         {complete && <div role="status" className="space-y-2 rounded-group bg-surface p-6"><h2 className="text-xl font-semibold">这一轮练完了</h2>
-          <p className="text-base">{round.drill === 'shadow' ? `练了 ${round.items.length} 句` : `练了 ${round.items.length} 个，一次就对 ${once} 个`}</p></div>}
+          <p className="text-base">{round.drill === 'shadow' ? `练了 ${round.items.length} 句` : `练了 ${round.items.length} 个词，${once} 个一次做对`}</p></div>}
         <p className="text-base text-ink-2">每轮约 3–5 分钟，想练哪种就点哪种</p>
         <div className="grid gap-3 sm:grid-cols-2">
           <button type="button" className={secondary} disabled={loading} onClick={() => void load('type', true)}>拼写打字</button>
           <button type="button" className={secondary} disabled={loading} onClick={() => void load('type', false)}>听写</button>
-          <button type="button" className={secondary} disabled={loading} onClick={() => void load('ladder')}>造句阶梯</button>
+          <button type="button" className={secondary} disabled={loading} onClick={() => void load('ladder')}>造句练习</button>
           <button type="button" className={secondary} disabled={loading} onClick={() => void load('shadow')}>跟读</button>
         </div>
         {loading && <p role="status" className="text-base text-ink-2">正在准备…</p>}
         {error && <p role="alert" className="text-base text-danger">没打开，再点一次试试</p>}
-      </> : round.items.length === 0 ? <div className="space-y-4"><p className="text-base text-ink-2">暂时没有合适的内容，学完新词或阅读后再来看看</p>
+      </> : round.items.length === 0 ? <div className="space-y-4"><p className="text-base text-ink-2">暂时没有合适的内容，学完新词或做完阅读后再来看看</p>
         <button type="button" className={primary} onClick={() => setRound(null)}>换一种练习</button></div> : item && step ? <>
-        <div className="flex flex-wrap items-baseline justify-between gap-4"><h2 className="text-xl font-semibold">{labels[round.drill]}{round.drill === 'type' ? look ? ' · 看词打' : ' · 听写' : ''}</h2>
+        <div className="flex flex-wrap items-baseline justify-between gap-4"><h2 className="text-xl font-semibold">{labels[round.drill]}{round.drill === 'type' ? look ? ' · 看词输入' : ' · 听写' : ''}</h2>
           <p className="text-sm tabular-nums text-ink-2">{index + 1} / {round.items.length}{round.drill === 'ladder' ? ` · 第 ${step.step} 步` : ''}</p></div>
         <section className="rounded-group bg-surface p-6" key={`${round.roundId}:${index}:${stepIndex}`}>
           {round.drill === 'shadow' ? <SentenceAudioProvider passages={audio}><ShadowExercise step={step} onAttempt={record} onNext={next} /></SentenceAudioProvider> :

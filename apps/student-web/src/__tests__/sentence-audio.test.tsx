@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { SentenceAudioProvider, SentencePassage } from '../lesson/shared/SentenceAudio';
 import type { PassageSentenceAudio } from '../lib/api';
 import { OLevelCloze } from '../lesson/questions/OLevelCloze';
+import { OLevelComprehension } from '../lesson/questions/OLevelComprehension';
 import { ReadingProvider } from '../lesson/ReadingProvider';
 import { ExamModeProvider } from '../lesson/ExamContext';
 import type { ExamPaper } from '../lesson/examTypes';
@@ -33,18 +34,45 @@ function mount(list = passages, onWordTap?: (word: string, range: Range) => void
   return render(<SentenceAudioProvider passages={list}><Article onWordTap={onWordTap} /></SentenceAudioProvider>);
 }
 const audio = () => document.querySelector('audio')!;
-const clickSentence = (n: number) => fireEvent.click(screen.getByRole('button', { name: `朗读第 ${n} 句` }));
+const sentenceButton = (n: number) => screen.getAllByRole('button', { name: '朗读这句' })[n === 1 ? 0 : n - 2];
+const clickSentence = (n: number) => fireEvent.click(sentenceButton(n));
 
 describe('reading sentence player', () => {
+  it.each(['mouse', 'touch'])('O-Level %s selection stays selected while sentence playback remains available', async (gesture) => {
+    const text = 'Hello world. Goodbye.';
+    const paper: ExamPaper = { sessionId: 'comprehension', quizEnd: null, level: 'olevel', paperMode: null, mode: 'test', questions: [
+      { id: 'q1', sortOrder: 1, marks: 1, questionType: 'short_answer', snapshotOptions: null, snapshotContent: { passage: text, stem: 'Who?' } },
+    ] };
+    const view = render(<ReadingProvider sessionId="comprehension" submissionId="sub" deps={{ saveAnswer: vi.fn(async () => ({ applied: true, clientSeq: 1 })), loadSession: vi.fn() }}>
+      <ExamModeProvider mode="test"><SentenceAudioProvider passages={[{ passage: text, paragraphs: [[
+        { text: 'Hello world.', audioUrl: '/hello.mp3' }, { text: 'Goodbye.', audioUrl: '/bye.mp3' },
+      ]] }]}><OLevelComprehension paper={paper} /></SentenceAudioProvider></ExamModeProvider>
+    </ReadingProvider>);
+    const root = view.container.querySelector('aside .whitespace-pre-wrap')!;
+    const node = document.createTreeWalker(root, NodeFilter.SHOW_TEXT).nextNode()!;
+    const range = document.createRange(); range.setStart(node, 0); range.setEnd(node, 5);
+    window.getSelection()!.removeAllRanges(); window.getSelection()!.addRange(range);
+    expect(window.getSelection()!.toString()).toBe('Hello');
+    if (gesture === 'mouse') fireEvent.mouseUp(root, { button: 0 });
+    else await act(async () => {
+      fireEvent.touchEnd(root); document.dispatchEvent(new Event('selectionchange'));
+      await new Promise((resolve) => setTimeout(resolve, 300));
+    });
+    expect(window.getSelection()!.toString()).toBe('Hello');
+    expect(root.querySelector('mark')).toBeNull();
+    fireEvent.click(screen.getAllByRole('button', { name: '朗读这句' })[0]);
+    expect(audio().getAttribute('src')).toBe('/hello.mp3');
+    expect(play).toHaveBeenCalledOnce();
+  });
   it('does not autoplay, reuses one audio element and only exposes recorded sentences', () => {
     mount();
     expect(play).not.toHaveBeenCalled();
     expect(document.querySelectorAll('audio')).toHaveLength(1);
-    expect(screen.queryByRole('button', { name: '朗读第 2 句' })).not.toBeInTheDocument();
+    expect(screen.getAllByRole('button', { name: '朗读这句' })).toHaveLength(3);
     clickSentence(3);
     expect(play).toHaveBeenCalledTimes(1);
     expect(audio().getAttribute('src')).toBe('/api/audio/sentence/2.mp3');
-    expect(screen.getByRole('button', { name: '朗读第 3 句' })).toHaveAttribute('aria-pressed', 'true');
+    expect(sentenceButton(3)).toHaveAttribute('aria-pressed', 'true');
     fireEvent.click(screen.getByRole('button', { name: '暂停' }));
     expect(pause).toHaveBeenCalled();
     fireEvent.click(screen.getByRole('button', { name: '播放' }));
@@ -77,7 +105,7 @@ describe('reading sentence player', () => {
     mount(); fireEvent.click(screen.getByRole('button', { name: '往下连读' })); clickSentence(1);
     fireEvent.ended(audio()); expect(audio().getAttribute('src')).toBe('/api/audio/sentence/2.mp3');
     fireEvent.ended(audio()); expect(audio().getAttribute('src')).toBe('/api/audio/sentence/3.mp3');
-    expect(screen.getByRole('button', { name: '朗读第 4 句' })).toHaveAttribute('aria-pressed', 'true');
+    expect(sentenceButton(4)).toHaveAttribute('aria-pressed', 'true');
     const calls = play.mock.calls.length;
     fireEvent.ended(audio()); expect(play).toHaveBeenCalledTimes(calls);
     expect(screen.getByRole('button', { name: '播放' })).toBeInTheDocument();

@@ -9,6 +9,7 @@ import { judgeBlocks, timeBucket, type ExtraResult, type ExtraRound } from '../l
 import { writeToken } from '../lib/identity';
 import { api, ApiError } from '../lib/api';
 import ExtraPracticeSync from '../components/extra/ExtraPracticeSync';
+import { BlocksExercise, SpellingExercise } from '../components/extra/Exercises';
 vi.mock('../lib/auth-store', () => ({ getState: () => ({ status: 'authenticated', profile: { id: 'student' } }), handleAuthFailure: () => false }));
 const item = { senseId: 's', headword: 'care', translation: '小心', steps: [{ step: 1, prompt: '小心', answer: 'care', translation: '小心' }] };
 const round: ExtraRound = { roundId: 'r', roundToken: 'signed', drill: 'type', items: [item] };
@@ -26,9 +27,37 @@ beforeEach(() => { localStorage.clear(); writeToken('token'); vi.spyOn(api, 'ext
 });
 afterEach(() => { cleanup(); vi.restoreAllMocks(); vi.unstubAllGlobals(); });
 describe('extra practice', () => {
+  it('stops spelling audio on question changes and unmount; late playback failure stays silent', async () => {
+    const instances: Array<{ pause: ReturnType<typeof vi.fn>; fail(): void; error(): void }> = [];
+    const speak = vi.fn(); const cancel = vi.fn();
+    vi.stubGlobal('speechSynthesis', { speak, cancel });
+    vi.stubGlobal('Audio', class {
+      pause = vi.fn(); error = () => {}; fail = () => {};
+      constructor() { instances.push(this); }
+      addEventListener(name: string, handler: () => void) { if (name === 'error') this.error = handler; }
+      play() { return new Promise<void>((_resolve, reject) => { this.fail = () => reject(new Error('late failure')); }); }
+    });
+    const props = { step: item.steps[0], look: true, onAttempt: vi.fn(), onNext: vi.fn() };
+    const view = render(<SpellingExercise {...props} />);
+    fireEvent.click(screen.getByRole('button', { name: '听发音' }));
+    view.rerender(<SpellingExercise {...props} step={{ ...props.step, answer: 'next' }} />);
+    expect(instances[0].pause).toHaveBeenCalled();
+    fireEvent.click(screen.getByRole('button', { name: '听发音' }));
+    view.unmount(); expect(instances[1].pause).toHaveBeenCalled();
+    await act(async () => { for (const instance of instances) { instance.fail(); instance.error(); } });
+    expect(speak).not.toHaveBeenCalled(); expect(cancel).toHaveBeenCalled();
+  });
+  it('single-letter blocks keep a 48px minimum width in both block lists', () => {
+    render(<BlocksExercise step={{ step: 3, prompt: '我', answer: 'I am I', translation: '我' }} onAttempt={vi.fn()} onNext={vi.fn()} />);
+    const blocks = screen.getAllByRole('button', { name: 'I' });
+    expect(blocks).toHaveLength(2);
+    for (const block of blocks) expect(block).toHaveClass('min-w-12');
+    fireEvent.click(blocks[0]);
+    for (const block of screen.getAllByRole('button', { name: 'I' })) expect(block).toHaveClass('min-w-12');
+  });
   it('handles loading, empty rounds and disabled API', async () => {
-    mount({ ...round, items: [] }); await userEvent.click(screen.getByRole('button', { name: '造句阶梯' }));
-    expect(await screen.findByText('暂时没有合适的内容，学完新词或阅读后再来看看')).toBeInTheDocument();
+    mount({ ...round, items: [] }); await userEvent.click(screen.getByRole('button', { name: '造句练习' }));
+    expect(await screen.findByText('暂时没有合适的内容，学完新词或做完阅读后再来看看')).toBeInTheDocument();
     await userEvent.click(screen.getByRole('button', { name: '换一种练习' }));
     vi.mocked(api.extraPracticeRound).mockRejectedValueOnce(new ApiError(404, {}));
     await userEvent.click(screen.getByRole('button', { name: '拼写打字' }));
@@ -39,12 +68,13 @@ describe('extra practice', () => {
     mount({ ...round, items: [item, { ...item, senseId: 's2' }] });
     await userEvent.click(screen.getByRole('button', { name: '拼写打字' }));
     fireEvent.change(await screen.findByRole('textbox', { name: '拼写' }), { target: { value: 'care' } });
+    expect(screen.getByRole('heading', { name: '拼写打字 · 看词输入' })).toBeInTheDocument();
     const next = screen.getByRole('button', { name: '下一个' });
     act(() => { fireEvent.click(next); fireEvent.click(next); });
     expect(screen.getByText('2 / 2')).toBeInTheDocument();
     fireEvent.change(screen.getByRole('textbox', { name: '拼写' }), { target: { value: 'care' } });
     await userEvent.click(screen.getByRole('button', { name: '下一个' }));
-    expect(screen.getByText('练了 2 个，一次就对 2 个')).toBeInTheDocument();
+    expect(screen.getByText('练了 2 个词，2 个一次做对')).toBeInTheDocument();
   });
   it('typing reducer stays on wrong character and normalizes full-width input', () => {
     const wrong = typingReducer(initialTyping('care'), { type: 'KEY_PRESS', key: 'x' });
@@ -65,7 +95,7 @@ describe('extra practice', () => {
     expect(screen.getByText('这个字母不对，再试一次')).toBeInTheDocument();
     fireEvent.change(input, { target: { value: 'care' } });
     await userEvent.click(screen.getByRole('button', { name: '下一个' }));
-    expect(await screen.findByText('练了 1 个，一次就对 0 个')).toBeInTheDocument();
+    expect(await screen.findByText('练了 1 个词，0 个一次做对')).toBeInTheDocument();
     expect(screen.getByText('加练不影响今天的必做任务')).toBeInTheDocument();
     expect(JSON.stringify(localStorage)).not.toContain('typed');
   });
@@ -82,7 +112,7 @@ describe('extra practice', () => {
   });
   it('ladder reveals original only after two wrong checks; can finish correct blocks', async () => {
     mount({ ...round, drill: 'ladder', items: [{ ...item, steps: [{ step: 3, prompt: '我们会小心。', answer: 'We take care.', translation: '我们会小心。' }] }] });
-    await userEvent.click(screen.getByRole('button', { name: '造句阶梯' }));
+    await userEvent.click(screen.getByRole('button', { name: '造句练习' }));
     await screen.findByText('我们会小心。');
     for (const word of ['care.', 'take', 'We']) await userEvent.click(screen.getByRole('button', { name: word }));
     await userEvent.click(screen.getByRole('button', { name: '检查顺序' }));
@@ -94,7 +124,7 @@ describe('extra practice', () => {
     for (const word of ['We', 'take', 'care.']) await userEvent.click(screen.getByRole('button', { name: word }));
     await userEvent.click(screen.getByRole('button', { name: '检查顺序' }));
     await userEvent.click(screen.getByRole('button', { name: '下一个' }));
-    expect(screen.getByText('练了 1 个，一次就对 0 个')).toBeInTheDocument();
+    expect(screen.getByText('练了 1 个词，0 个一次做对')).toBeInTheDocument();
   });
   it('shadow fallback records a repetition with null correctness and renders one audio', async () => {
     vi.stubGlobal('MediaRecorder', undefined);

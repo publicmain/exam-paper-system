@@ -3,6 +3,7 @@ import { Roles } from '../common/auth.guard';
 import { CurrentUser } from '../common/current-user.decorator';
 import { LearningReportService } from './learning-report.service';
 import { isDateKey } from './weekly-report';
+import { RateLimit } from '../common/rate-limit.guard';
 
 /**
  * 学习周报（教师后台，2026-09-15）。只读。
@@ -21,12 +22,14 @@ export class LearningReportController {
   constructor(private readonly svc: LearningReportService) {}
 
   @Get('classes/:classId/today')
+  @RateLimit({ limit: 30, windowSec: 60, scope: 'user' })
   today(@CurrentUser() user: { id: string; role: string }, @Param('classId') classId: string, @Query('date') date?: string) {
     if (date && !isDateKey(date)) throw new BadRequestException({ code: 'bad_date' });
     return this.svc.today(user, classId, date);
   }
 
   @Get('week')
+  @RateLimit({ limit: 30, windowSec: 60, scope: 'user' })
   week(
     @CurrentUser() user: { id: string; role: string },
     @Query('weekStart') weekStart?: string,

@@ -98,7 +98,7 @@ export function RecallSpelling({ sessionId, itemId, senseId, card, initial, audi
               ch === ' ' ? 'bg-transparent' : wrong ? 'border-2 border-danger bg-danger-soft text-danger' : 'bg-fill text-ink',
             ].join(' ')}>{ch === ' ' ? '' : i < prefix.length ? prefix[i] : shown[i] ?? ''}</span>;
           })}
-          {result?.firstWrongIndex === expected.length ? <span className="text-base text-danger">多打了几个字母</span> : null}
+          {result?.firstWrongIndex === expected.length ? <span className="text-base text-danger">末尾多打了</span> : null}
         </div>
         <label className="flex flex-col gap-2 text-base text-ink-2">
           拼写
@@ -115,9 +115,10 @@ export function RecallSpelling({ sessionId, itemId, senseId, card, initial, audi
           />
         </label>
         <p role="status" className={`text-base ${error ? 'text-danger' : 'text-ink-2'}`}>
-          {error ? '没连上，请再试一次。' : result?.isCorrect ? '拼对了，继续吧。' : reveal ? '看着答案，再打一遍。'
-            : result && result.wrongAttempts > 0 ? `第 ${result.firstWrongIndex! + 1} 个字母不对，${prefix ? '已帮你露出开头，再试一次。' : '再试一次。'}`
+          {error ? '没能保存，请再试一次。' : result?.isCorrect ? '拼对了，继续吧。' : reveal ? '看着答案，再打一遍。'
+            : result && result.wrongAttempts > 0 ? `还没拼对，${prefix ? '已帮你露出开头，再试一次。' : '再试一次。'}`
               : '想不起来，可以听一听。短语记得空格。'}
+          {prefix && !reveal && !result?.isCorrect ? <span className="sr-only">开头是：<span lang="en">{prefix}</span>。</span> : null}
         </p>
         <button type="submit" disabled={busy || composing || (!value.trim() && !pending.current && !result?.isCorrect)} aria-busy={busy || undefined}
           className="min-h-12 w-full rounded-control bg-accent-fill px-4 py-3 text-base font-semibold text-accent-on disabled:bg-fill disabled:text-ink-3">

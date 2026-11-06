@@ -1,19 +1,52 @@
-import { describe, expect, it, vi, beforeEach } from 'vitest';
+import { describe, expect, it, vi, beforeEach, afterEach } from 'vitest';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
-import ClassToday from '../ClassToday';
+import ClassToday, { reportDateContext } from '../ClassToday';
 import { api } from '../../lib/api';
 vi.mock('../../lib/api', () => ({ api: { classToday: vi.fn() } }));
-const report = { classId: 'c', className: '演示班', date: '2026-11-05', noSchoolDay: false, totals: { unfinished: 1, pending: 1, attention: 1 }, students: [{ id: 's', name: '演示学生', noSchoolDay: false, teachingDay: true, reading: 'not_started', words: 'submitted', test: 'marked', reasons: ['阅读没交', '本周被提醒过'], pendingSubmissions: ['sub'] }] };
+const report = { classId: 'c', className: '演示班', date: '2026-11-05', noSchoolDay: false, totals: { unfinished: 1, pending: 1, attention: 1 }, students: [{ id: 's', name: '演示学生', noSchoolDay: false, teachingDay: true, reading: 'not_started', words: 'submitted', test: 'marked', reasons: ['阅读没交', '这周收到过提醒'], pendingSubmissions: ['sub'] }] };
 function open() { return render(<MemoryRouter initialEntries={['/classes/c/today']}><Routes><Route path="/classes/:classId/today" element={<ClassToday />} /></Routes></MemoryRouter>); }
-beforeEach(() => { vi.clearAllMocks(); vi.mocked(api.classToday).mockResolvedValue(report); });
+beforeEach(() => { vi.useFakeTimers({ toFake: ['Date'] }); vi.setSystemTime(new Date('2026-11-05T08:00:00Z')); vi.clearAllMocks(); vi.mocked(api.classToday).mockResolvedValue(report); });
+afterEach(() => vi.useRealTimers());
 describe('今天该找谁', () => {
+  it.each([
+    ['2026-11-05', '2026-11-04T15:59:59Z', '11月5日', true],
+    ['2026-11-05', '2026-11-04T16:00:00Z', '今天', true],
+    ['2026-11-01', '2026-11-01T15:59:59Z', '今天', true],
+    ['2026-11-01', '2026-11-01T16:00:00Z', '11月1日', false],
+    ['2026-12-31', '2027-01-03T16:00:00Z', '12月31日', false],
+  ])('日期 %s 在 %s 按新加坡午夜与周一边界显示', (selected, now, label, currentWeek) => {
+    expect(reportDateContext(selected, new Date(now))).toEqual({ label, currentWeek });
+  });
+  it('历史日期的汇总、停课和免做说明使用所选日期，提醒使用那一周', async () => {
+    const student = { ...report.students[0], noSchoolDay: true, teachingDay: false, reasons: [],
+      warnings: [{ id: 'w', title: '认真做', body: '请认真读完再交。', createdAt: '2026-10-30T08:00:00Z' }] };
+    vi.mocked(api.classToday).mockResolvedValue({ ...report, date: '2026-10-30', noSchoolDay: true, students: [student] });
+    open(); await screen.findByText('10月30日停课');
+    expect(screen.getByText(/10月30日还没做完/)).toBeInTheDocument();
+    expect(screen.getByText('10月30日不用做')).toBeInTheDocument();
+    expect(screen.getByText(/10月30日停课。其他班/)).toBeInTheDocument();
+    expect(screen.getByText('查看那一周的提醒')).toBeInTheDocument();
+    expect(screen.queryByText(/今天/)).toBeNull();
+  });
+  it('历史休息日与无待办说明不说今天；进行中与两项列名一致', async () => {
+    vi.mocked(api.classToday).mockResolvedValue({ ...report, date: '2026-11-01', students: [
+      { ...report.students[0], teachingDay: false, reasons: [], reading: 'in_progress' },
+      { ...report.students[0], id: 's2', name: '另一位同学', reasons: [] },
+    ] });
+    open(); await screen.findByText('11月1日不用上课');
+    expect(screen.getByText('11月1日没有待办')).toBeInTheDocument();
+    expect(screen.getByText('进行中')).toBeInTheDocument();
+    expect(screen.getAllByText(/学新词/)).toHaveLength(2); expect(screen.getAllByText(/单词测试/)).toHaveLength(2);
+  });
   it('提醒可展开原文，低分标签链接到原日期所在周', async () => {
-    vi.mocked(api.classToday).mockResolvedValue({ ...report, students: [{ ...report.students[0], lowReadingDates: ['2026-10-30'], reasons: ['近三个上课日有 1 天阅读不到一半', '本周被提醒过'], warnings: [{ id: 'w', title: '认真做', body: '请认真读完再交。', createdAt: '2026-11-04T08:00:00Z' }] }] });
+    vi.mocked(api.classToday).mockResolvedValue({ ...report, students: [{ ...report.students[0], lowReadingDates: ['2026-10-30'], lowTestDates: ['2026-10-29'], reasons: ['近三个上课日有 1 天阅读得分低于 50%', '近三个上课日有 1 天单词测试正确率低于 50%', '这周收到过提醒'], warnings: [{ id: 'w', title: '认真做', body: '请认真读完再交。', createdAt: '2026-11-04T08:00:00Z' }] }] });
     open();
-    fireEvent.click(await screen.findByRole('link', { name: '本周被提醒过' }));
+    fireEvent.click(await screen.findByRole('link', { name: '这周收到过提醒' }));
     expect(screen.getByText('请认真读完再交。').closest('details')).toHaveAttribute('open');
-    expect(screen.getByRole('link', { name: '近三个上课日有 1 天阅读不到一半' })).toHaveAttribute('href', '/learning-report?classId=c&week=2026-10-30&studentId=s#stu-s');
+    expect(screen.getByRole('link', { name: '近三个上课日有 1 天阅读得分低于 50%' })).toHaveAttribute('href', '/learning-report?classId=c&week=2026-10-30&studentId=s#stu-s');
+    expect(screen.getByRole('link', { name: '近三个上课日有 1 天单词测试正确率低于 50%' })).toHaveAttribute('href', '/learning-report?classId=c&week=2026-10-29&studentId=s#stu-s');
+    expect(screen.getByText('查看本周提醒')).toBeInTheDocument();
   });
   it('显示汇总、原因和已有成绩 / 批改入口', async () => {
     open(); expect(await screen.findByText('阅读没交')).toBeInTheDocument();

@@ -22,22 +22,34 @@ export function speakWithSystemVoice(text: string, lang = 'en-GB'): void {
 }
 
 let current: HTMLAudioElement | null = null;
+let request = 0;
 
-export function sayWord(text: string, opts: { lang?: string } = {}): void {
+/** Invalidates pending fallbacks as well as stopping audio/system speech. */
+export function stopWord(): void {
+  request++;
+  current?.pause();
+  current = null;
+  if (typeof window !== 'undefined' && 'speechSynthesis' in window) speechSynthesis.cancel();
+}
+
+/** The returned stop handle only owns this playback, never a newer caller's. */
+export function sayWord(text: string, opts: { lang?: string } = {}): () => void {
   const headword = text.trim();
-  if (!headword) return;
-  const fallback = () => speakWithSystemVoice(headword, opts.lang ?? 'en-GB');
+  if (!headword) return () => {};
+  stopWord();
+  const id = request;
+  const stop = () => { if (request === id) stopWord(); };
+  const fallback = () => { if (request === id) speakWithSystemVoice(headword, opts.lang ?? 'en-GB'); };
   if (typeof Audio === 'undefined') {
     fallback();
-    return;
+    return stop;
   }
   try {
-    current?.pause();
     const audio = new Audio(wordAudioUrl(headword));
     current = audio;
     let fellBack = false;
     const fail = () => {
-      if (fellBack) return;
+      if (fellBack || request !== id) return;
       fellBack = true;
       fallback();
     };
@@ -47,6 +59,7 @@ export function sayWord(text: string, opts: { lang?: string } = {}): void {
   } catch {
     fallback();
   }
+  return stop;
 }
 
 /**
@@ -59,14 +72,16 @@ export function sayWord(text: string, opts: { lang?: string } = {}): void {
 export async function playWord(text: string, opts: { lang?: string } = {}): Promise<'audio' | 'fallback' | 'failed'> {
   const headword = text.trim();
   if (!headword) return 'failed';
+  stopWord();
+  const id = request;
   const systemVoice = (): 'fallback' | 'failed' => {
+    if (request !== id) return 'failed';
     if (typeof window === 'undefined' || !('speechSynthesis' in window)) return 'failed';
     speakWithSystemVoice(headword, opts.lang ?? 'en-GB');
     return 'fallback';
   };
   if (typeof Audio === 'undefined') return systemVoice();
   try {
-    current?.pause();
     const audio = new Audio(wordAudioUrl(headword));
     current = audio;
     const ok = await new Promise<boolean>((resolve) => {
@@ -75,7 +90,7 @@ export async function playWord(text: string, opts: { lang?: string } = {}): Prom
       if (p && typeof p.then === 'function') p.then(() => resolve(true), () => resolve(false));
       else resolve(true);
     });
-    return ok ? 'audio' : systemVoice();
+    return request !== id ? 'failed' : ok ? 'audio' : systemVoice();
   } catch {
     return systemVoice();
   }
@@ -87,6 +102,7 @@ export async function playWord(text: string, opts: { lang?: string } = {}): Prom
  */
 export async function playBlob(blob: Blob): Promise<'audio' | 'failed'> {
   if (typeof Audio === 'undefined' || typeof URL === 'undefined' || !URL.createObjectURL) return 'failed';
+  stopWord();
   const url = URL.createObjectURL(blob);
   try {
     current?.pause();
