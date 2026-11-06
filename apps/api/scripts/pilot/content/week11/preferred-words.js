@@ -1,0 +1,30 @@
+'use strict';
+
+// 由 build-auto-preferred.ts 按档位 CEFR 等级自动生成，不要手改 —— 改文章后重跑。
+module.exports = {
+  "original-w11-persistent-screen": ["legible","ambient","illumination","pigment","enclosure","retention","conspicuous","resemblance","remnant","emit","compartment","wireless","electrophoresis","readable","recreate","usable"],
+  "original-w11-explanatory-depth": ["identifiable","knowledgeable","terminology","incomplete","plausible","incapable","erase","causal","elaborate","illusion","expertise","subsequently","mechanism","interlock","calibrate","adequacy"],
+  "original-w11-between-movements": ["unrestricted","interdependence","concise","conformity","disruptive","knowledgeable","spontaneous","ensemble","consistency","continuity","restraint","intervene","recipient","explicit","undermine","collective"],
+  "original-w11-subject-boundaries": ["geometrical","intelligible","prerequisite","rigour","geometry","coordination","constrain","compelling","coordinate","rigid","isolated","explicit","removal","constraint","distinct","boundary"],
+  "original-w11-community-consensus": ["intelligible","upkeep","prolong","obscure","warrant","delegation","equivalent","unity","advocate","expressible","reversibility","chairperson","workable","reassuring","realistically","selective"],
+  "original-w11-comic-panels": ["chronology","juxtaposition","reconstruct","temporal","plausible","spatial","implicit","continuity","omit","duration","interchangeable","contextual","sequential","pictorial","unused","omission"],
+  "original-w11-inductive-charging": ["electromagnetic","coil","alignment","elimination","induction","pathway","voltage","wireless","magnetic","solely","infrastructure","accommodate","equivalent","constraint","positional","inductive"],
+  "original-w11-perceptual-grouping": ["inflexible","perceptual","plausible","spatial","horizontal","vertical","isolate","array","unity","distinct","nearness","semantic","according","caption","rectangular","proximity"],
+  "original-w11-tactile-writing": ["emboss","legible","resemblance","literacy","configuration","compact","recipient","framework","criterion","enlarging","typographic","encoding","decoding","authorship","braille","according"],
+  "original-w11-dictionary-senses": ["paraphrase","provisional","grammatical","precision","scrutiny","inappropriate","occurrence","relevance","mismatch","applicability","usable","contextual","verification","unfinished","familiarity","lexical"],
+  "original-w11-sound-stayed": ["noticeable","distinguish","silent","concentration","volume","ignore","immediately","throughout","reduce","require","able","click","gradually","adjust","weak","elsewhere"],
+  "original-w11-chain-open-book": ["preserve","attach","eliminate","historical","session","limit","arrangement","supply","considerable","access","movement","require","wooden","chain","empty","shut"],
+  "original-w11-four-what": ["arithmetic","aloud","calculation","quantity","distinction","examine","measure","require","equally","confident","pack","divide","count","represent","used","method"],
+  "original-w11-white-cloth": ["outline","pause","nearby","remove","movement","smoothly","lamp","rhythm","smooth","pack","shadow","journey","disappear","invite","separate","screen"],
+  "original-w11-one-press": ["mechanical","limitation","counter","stable","guarantee","signal","connection","ordinary","ignore","press","assume","briefly","correctly","automatically","request","blame"],
+  "original-w11-the-space-for-a-reason": ["subtract","coherent","hover","likewise","conceal","decorate","legitimate","label","qualification","restriction","justify","assumption","route","division","identify","authorise"],
+  "original-w11-before-the-cloth-goes-home": ["ambiguity","courtesy","knot","rejection","conceal","fabric","universal","interpret","convention","expectation","interpretation","necessarily","particular","neatly","clarification","loosen"],
+  "original-w11-between-the-canal-gates": ["amazement","unload","chimney","sack","keeper","resume","reluctant","grain","adjustment","mill","lower","previously","route","comfortably","precisely","ascent"],
+  "original-w11-the-flowers-above-the-grass": ["miniature","sketch","thread","identical","grain","suspend","patch","observer","dismiss","lower","exception","identify","particular","pollinate","pollen","petal"],
+  "original-w11-a-reason-to-stop": ["worthless","unreliable","persistence","sketch","relieve","withdrawal","sensible","replacement","cooperation","genuine","obligation","justify","expectation","relevant","project","cardboard"],
+  "original-w11-page-next-writer": ["decorative","surrender","tray","overlook","utility","version","permanence","unfamiliar","scarcity","untouched","fingertip","renewal","elaborate","reusable","unwritten","reuse"],
+  "original-w11-sixth-arrangement": ["misconception","contradict","inference","mathematical","inspect","neat","sensible","evaluation","restriction","investigate","assumption","whereas","generalisation","potentially","frown","justification"],
+  "original-w11-walk-worth-repeating": ["perseverance","leisurely","numerical","anticipation","modest","consult","incentive","circuit","obligation","route","generalise","comfortably","grind","manageable","sustainability","unfinished"],
+  "original-w11-tune-already-knew": ["impartial","inference","repetition","edit","recommendation","perceive","interpretation","unfamiliar","unchanged","plausible","subjective","tilt","exposure","humming","unsupported","replay"],
+  "original-w11-painting-several-seals": ["caption","seal","conceal","identification","margin","label","convert","assumption","collector","reconstruct","reproduction","collaboration","ownership","authorship","explanatory","revise"],
+};
