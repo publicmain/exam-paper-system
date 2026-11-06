@@ -42,6 +42,7 @@ function fixture(rows: any[] = [entry()], closed: string[] = []) {
     learningEvidence: {
       findUnique: vi.fn(async ({ where }: any) => evidence.find((e) => e.sourceKey === where.sourceKey) ?? null),
       findMany: vi.fn(async ({ where }: any) => evidence.filter((e) => e.studentId === where.studentId && e.subject === where.subject
+        && (typeof where.kind !== 'string' || e.kind === where.kind)
         && (!where.sourceKey || where.sourceKey.in.includes(e.sourceKey)))),
       createMany: vi.fn(async ({ data }: any) => { let count = 0; for (const e of data) if (!evidence.some((r) => r.sourceKey === e.sourceKey)) { evidence.push(e); count++; } return { count }; }),
     },
@@ -139,8 +140,9 @@ describe('grading, resolution and evidence', () => {
     await expect(f.svc.referenceAnswer('s', 'm1', ' ', date)).rejects.toThrow();
     expect(await f.svc.referenceAnswer('s', 'm1', 'My answer.', date)).toMatchObject({ correctAnswer: 'Because of the rain.' });
     await f.svc.practiceResult('s', 'm1', { date, answer: 'My answer.', selfCorrect: true });
-    expect(f.evidence[0].detail.selfChecked).toBe(true);
-    expect(gradedVocabularyEvidence(f.evidence[0])).toBe(false);
+    const attempt = f.evidence.find((e) => e.kind === 'mistake_redo');
+    expect(attempt.detail.selfChecked).toBe(true);
+    expect(gradedVocabularyEvidence(attempt)).toBe(false);
   });
   it('objective self-check, blank, stale dates, legacy, other student and fourth due item are rejected', async () => {
     const f = fixture([entry('m1'), entry('m2'), entry('m3'), entry('m4'), entry('legacy', { redoSnapshot: null })]);
@@ -170,6 +172,109 @@ describe('grading, resolution and evidence', () => {
     const noAccept = freezeRedo({ taskType: 'sentence_completion', stem: 'x', passage: 'P' }, [], { text: 'rain' }, 'short_answer');
     expect(gradeRedo(noAccept, 'Rain')).toBe(true);
     expect(gradeRedo(noAccept, '')).toBe(false);
+  });
+});
+
+describe('subjective first answer before reference', () => {
+  const subjective = (extra: Record<string, unknown> = {}) => entry('m1', {
+    redoSnapshot: freezeRedo({ stem: 'Explain why.', passage: 'Original.' }, [], { text: 'Because of the rain.' }, 'structured'), ...extra,
+  });
+  const refKey = (day = date) => `reading-redo-ref:s:m1:${day}`;
+
+  it('freezes the normalized answer once, returns it on every reference, without recording completion or scheduling', async () => {
+    const f = fixture([subjective()]);
+    expect(await f.svc.referenceAnswer('s', 'm1', '  Ｍy\n answer.  ', date)).toMatchObject({ frozenAnswer: 'My answer.' });
+    expect(await f.svc.referenceAnswer('s', 'm1', 'Because of the rain.', date)).toMatchObject({ frozenAnswer: 'My answer.' });
+    expect(f.evidence).toHaveLength(1);
+    expect(f.evidence[0]).toMatchObject({ sourceKey: refKey(), studentId: 's', kind: 'practice_first', subject: 'reading_question',
+      paperQuestionId: 'pq-m1', isCorrect: null, schoolDate: dateOnly(date), detail: { mistakeId: 'm1', answer: 'My answer.' } });
+    expect(f.rows[0]).toMatchObject({ practiceCount: 0, resolved: false });
+    expect(f.db.dailyLessonCompletion.updateMany).not.toHaveBeenCalled();
+    expect(await f.svc.dailyState('s')).toMatchObject({ target: 1, progress: 0 });
+    expect(await f.svc.practiceQueue('s')).toMatchObject({ progress: 0, items: [{ id: 'm1', reference: { frozenAnswer: 'My answer.', correctAnswer: 'Because of the rain.' } }] });
+  });
+
+  it('two concurrent reference requests return the first committed answer, including on retry', async () => {
+    const f = fixture([subjective()]);
+    const responses = await Promise.all([
+      f.svc.referenceAnswer('s', 'm1', 'First answer.', date), f.svc.referenceAnswer('s', 'm1', 'Second answer.', date),
+    ]);
+    expect(responses).toEqual([expect.objectContaining({ frozenAnswer: 'First answer.' }), expect.objectContaining({ frozenAnswer: 'First answer.' })]);
+    expect(f.evidence).toHaveLength(1);
+    expect(await f.svc.referenceAnswer('s', 'm1', 'Retry answer.', date)).toMatchObject({ frozenAnswer: 'First answer.' });
+  });
+
+  it.each([true, false])('reference and submission racing (reference first=%s) cannot clear a changed answer', async (referenceFirst) => {
+    const f = fixture([subjective()]);
+    const reference = () => f.svc.referenceAnswer('s', 'm1', 'Original answer.', date);
+    const submit = () => f.svc.practiceResult('s', 'm1', { date, answer: 'Because of the rain.', selfCorrect: true, hinted: false });
+    const operations = referenceFirst ? [reference(), submit()] : [submit(), reference()];
+    const responses = await Promise.allSettled(operations);
+    expect(f.rows[0].resolved).toBe(false);
+    if (referenceFirst) expect(responses[1]).toMatchObject({ status: 'fulfilled', value: { resolved: false } });
+    else expect(responses[0]).toMatchObject({ status: 'rejected', reason: { response: { code: 'reference_required' } } });
+    expect(f.evidence.filter((e) => e.kind === 'practice_first')).toHaveLength(1);
+  });
+
+  it('a changed answer cannot resolve; duplicate and concurrent submits record one hinted attempt', async () => {
+    const f = fixture([subjective()]);
+    await f.svc.referenceAnswer('s', 'm1', 'My original answer.', date);
+    const input = { date, answer: 'Because of the rain.', selfCorrect: true, hinted: false };
+    const responses = await Promise.all([f.svc.practiceResult('s', 'm1', input), f.svc.practiceResult('s', 'm1', input)]);
+    expect(responses.every((r) => !r.resolved)).toBe(true);
+    expect(await f.svc.practiceResult('s', 'm1', { ...input, answer: 'My original answer.' })).toMatchObject({ resolved: false });
+    expect(f.rows[0]).toMatchObject({ resolved: false, practiceCount: 1 });
+    expect(f.evidence.filter((e) => e.kind === 'mistake_redo')).toEqual([expect.objectContaining({ hinted: true, detail: expect.objectContaining({ answer: input.answer }) })]);
+    expect(await f.svc.dailyState('s')).toMatchObject({ progress: 1 });
+  });
+
+  it.each([true, false])('rejects self-check=%s without today reference and makes no writes', async (selfCorrect) => {
+    const f = fixture([subjective()]);
+    await expect(f.svc.practiceResult('s', 'm1', { date, answer: 'My answer.', selfCorrect })).rejects.toMatchObject({ response: { code: 'reference_required' } });
+    expect(f.evidence).toHaveLength(0);
+    expect(f.db.mistakeEntry.update).not.toHaveBeenCalled();
+    expect(f.db.dailyLessonCompletion.updateMany).not.toHaveBeenCalled();
+  });
+
+  it('normalization permits whitespace and fullwidth equivalents; later-day unhinted self-check can resolve', async () => {
+    const f = fixture([subjective()]);
+    await f.svc.referenceAnswer('s', 'm1', 'Ｍy  answer.', date);
+    expect(await f.svc.practiceResult('s', 'm1', { date, answer: ' My\nanswer. ', selfCorrect: true })).toMatchObject({ correct: true, resolved: true });
+    expect(f.evidence.find((e) => e.kind === 'mistake_redo').hinted).toBe(false);
+  });
+
+  it('same-day subjective correction can compare and self-check but cannot resolve', async () => {
+    const f = fixture([subjective({ createdAt: now })]);
+    await f.svc.referenceAnswer('s', 'm1', 'My answer.', date);
+    expect(await f.svc.practiceResult('s', 'm1', { date, answer: 'My answer.', selfCorrect: true })).toMatchObject({ resolved: false });
+  });
+
+  it.each([{ selfCorrect: true, hinted: true }, { selfCorrect: false, hinted: false }])('matching original still respects self-check and hints: %j', async (input) => {
+    const f = fixture([subjective()]);
+    await f.svc.referenceAnswer('s', 'm1', 'My answer.', date);
+    expect(await f.svc.practiceResult('s', 'm1', { date, answer: 'My answer.', ...input })).toMatchObject({ correct: input.selfCorrect, resolved: false });
+    expect(f.evidence.find((e) => e.kind === 'mistake_redo')).toMatchObject({ hinted: input.hinted });
+  });
+
+  it('a new Singapore date needs a new reference and freezes its own first answer', async () => {
+    const f = fixture([subjective()]);
+    await f.svc.referenceAnswer('s', 'm1', 'Yesterday.', date);
+    const tomorrow = '2026-11-10'; vi.setSystemTime(new Date(`${tomorrow}T00:00:00+08:00`));
+    expect(await f.svc.practiceQueue('s')).toMatchObject({ items: [expect.not.objectContaining({ reference: expect.anything() })] });
+    await expect(f.svc.practiceResult('s', 'm1', { date: tomorrow, answer: 'Today.', selfCorrect: true })).rejects.toMatchObject({ response: { code: 'reference_required' } });
+    expect(await f.svc.referenceAnswer('s', 'm1', 'Today.', tomorrow)).toMatchObject({ frozenAnswer: 'Today.' });
+    expect(f.evidence.map((e) => e.sourceKey)).toEqual([refKey(), refKey(tomorrow)]);
+  });
+
+  it('reference rejects blank, other student, stale date, objective and unavailable questions without freezing', async () => {
+    const f = fixture([subjective(), entry('m2'), entry('m3'), entry('m4')]);
+    for (const [student, id, answer, day] of [
+      ['s', 'm1', ' ', date], ['other', 'm1', 'My answer.', date], ['s', 'm1', 'My answer.', '2026-11-08'],
+      ['s', 'm2', 'B', date], ['s', 'm4', 'My answer.', date],
+    ]) await expect(f.svc.referenceAnswer(student, id, answer, day)).rejects.toThrow();
+    f.db.studentSubmission.findFirst.mockResolvedValue(null);
+    await expect(f.svc.referenceAnswer('s', 'm1', 'My answer.', date)).rejects.toThrow();
+    expect(f.evidence).toHaveLength(0);
   });
 });
 

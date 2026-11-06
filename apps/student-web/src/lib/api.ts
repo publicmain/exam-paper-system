@@ -1160,7 +1160,7 @@ export const api = {
 
   /** Written subjective answer before reference; result retries use the same date and id. */
   mistakeReference: (token: string, body: { id: string; date: string; answer: string }) =>
-    request<RedoFeedback>('POST', '/vocab/mistakes/reference', { body, token }),
+    request<MistakeReference>('POST', '/vocab/mistakes/reference', { body, token }),
 
   mistakePracticeResult: (token: string, body: { id: string; date: string; answer: string; hinted?: boolean; selfCorrect?: boolean }) =>
     request<MistakePracticeResult>('POST', '/vocab/mistakes/practice-result', { body, token }),
@@ -1332,6 +1332,7 @@ export interface RedoFeedback {
   explanation: string;
   evidence: string;
 }
+export type MistakeReference = RedoFeedback & { frozenAnswer: string };
 export interface MistakePracticeItem {
   id: string;
   taskType: string;
@@ -1341,6 +1342,7 @@ export interface MistakePracticeItem {
   passage: string;
   options: MistakeOption[];
   practiceKind: MistakePracticeKind;
+  reference?: MistakeReference;
 }
 export interface MistakePracticeQueue {
   date: string;

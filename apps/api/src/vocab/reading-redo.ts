@@ -54,6 +54,9 @@ export function nextTeachingDate(from: string, teaches: (date: string) => boolea
 }
 
 export const redoSourceKey = (studentId: string, id: string, date: string) => `reading-redo:${studentId}:${id}:${date}`;
+export const redoReferenceSourceKey = (studentId: string, id: string, date: string) => `reading-redo-ref:${studentId}:${id}:${date}`;
+// Preserve case and punctuation: comparison must not turn a rewritten answer into the first answer.
+export const normalizeRedoAnswer = (answer: string) => answer.normalize('NFKC').trim().replace(/\s+/g, ' ');
 
 function readingRedoDueWhere(date: string) {
   const start = new Date(`${date}T00:00:00+08:00`);

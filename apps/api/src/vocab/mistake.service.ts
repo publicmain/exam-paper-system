@@ -3,7 +3,7 @@ import { PrismaService } from '../common/prisma.service';
 import { dateOnly, singaporeDate } from '../common/school-calendar';
 import { MEMORY_KINDS, unresolvedVocabularyMistake } from '../vocab-v2/mastery';
 import { cleanMarkerComment, cleanStem, humanizeAnswer, translateAnswerLetter } from './mistake-humanize';
-import { freezeRedo, gradeRedo, readingRedoState, redoOptions, redoSnapshot, redoSourceKey } from './reading-redo';
+import { freezeRedo, gradeRedo, normalizeRedoAnswer, readingRedoState, redoOptions, redoReferenceSourceKey, redoSnapshot, redoSourceKey } from './reading-redo';
 
 export type MistakeReasonKey = 'repeated_tasktype' | 'vocabulary' | 'long_answer';
 export const sgtDayOf = singaporeDate;
@@ -132,29 +132,55 @@ export class MistakeService {
 
   dailyState(studentId: string, now = new Date()) { return readingRedoState(this.prisma, studentId, now); }
 
-  private async readingSubmitted(studentId: string, date: string) {
-    return !!await this.prisma.studentSubmission.findFirst({ where: { studentId, finalSubmittedAt: { not: null },
+  private async readingSubmitted(studentId: string, date: string, prisma: Pick<PrismaService, 'studentSubmission'> = this.prisma) {
+    return !!await prisma.studentSubmission.findFirst({ where: { studentId, finalSubmittedAt: { not: null },
       assignment: { morningQuizSession: { date: dateOnly(date) } } }, select: { id: true } });
   }
 
   async practiceQueue(studentId: string, _limit = 3) {
     const state = await this.dailyState(studentId);
     const unlocked = state.target === 0 || await this.readingSubmitted(studentId, state.date);
+    const pending = unlocked ? state.entries.filter((r) => !state.completedIds.has(r.id)) : [];
+    const referenceKeys = pending.filter((r) => !redoSnapshot(r.redoSnapshot)!.objective).map((r) => redoReferenceSourceKey(studentId, r.id, state.date));
+    const frozen = referenceKeys.length ? await this.prisma.learningEvidence.findMany({ where: {
+      studentId, subject: 'reading_question', kind: 'practice_first', schoolDate: dateOnly(state.date), sourceKey: { in: referenceKeys },
+    } }) : [];
     return { date: state.date, target: state.target, progress: state.progress, remaining: state.target - state.progress, unlocked,
-      items: unlocked ? state.entries.filter((r) => !state.completedIds.has(r.id)).map((r) => {
+      items: pending.map((r) => {
         const snapshot = redoSnapshot(r.redoSnapshot)!;
+        const reference = !snapshot.objective ? frozen.find((e) => e.sourceKey === redoReferenceSourceKey(studentId, r.id, state.date)) : undefined;
         return { id: r.id, taskType: snapshot.taskType, passageTitle: snapshot.passageTitle, quizDay: r.quizDay, stem: snapshot.stem,
-          passage: snapshot.passage, options: redoOptions(snapshot), practiceKind: snapshot.objective ? 'objective' as const : 'self_check' as const };
-      }) : [] };
+          passage: snapshot.passage, options: redoOptions(snapshot), practiceKind: snapshot.objective ? 'objective' as const : 'self_check' as const,
+          ...(reference ? { reference: { ...this.feedback(r), frozenAnswer: (reference.detail as { answer: string }).answer } } : {}) };
+      }) };
   }
 
   async referenceAnswer(studentId: string, id: string, answer: string, date: string) {
-    if (!answer.trim()) throw new BadRequestException({ code: 'answer_required' });
-    const state = await this.dailyState(studentId);
-    const entry = state.entries.find((r) => r.id === id);
-    if (date !== state.date || !entry || !await this.readingSubmitted(studentId, date)) throw new ConflictException({ code: 'redo_unavailable' });
-    if (redoSnapshot(entry.redoSnapshot)!.objective) throw new BadRequestException({ code: 'objective_requires_answer' });
-    return this.feedback(entry);
+    const normalized = normalizeRedoAnswer(answer);
+    if (!normalized) throw new BadRequestException({ code: 'answer_required' });
+    return this.prisma.$transaction(async (tx) => {
+      // Same lock as submission, so a reference can never race a self-check into clearing a rewritten answer.
+      await tx.$queryRaw`SELECT id FROM "User" WHERE id = ${studentId} FOR UPDATE`;
+      const now = new Date();
+      if (date !== singaporeDate(now)) throw new ConflictException({ code: 'redo_date_changed' });
+      const entry = await tx.mistakeEntry.findFirst({ where: { id, studentId } });
+      const snapshot = redoSnapshot(entry?.redoSnapshot);
+      if (!entry || !snapshot || !entry.paperQuestionId || !await this.readingSubmitted(studentId, date, tx)) throw new ConflictException({ code: 'redo_unavailable' });
+      if (snapshot.objective) throw new BadRequestException({ code: 'objective_requires_answer' });
+      const sourceKey = redoReferenceSourceKey(studentId, id, date);
+      let frozen = await tx.learningEvidence.findUnique({ where: { sourceKey } });
+      if (!frozen) {
+        const state = await readingRedoState(tx, studentId, now);
+        const correctionToday = singaporeDate(entry.createdAt) === date;
+        if (entry.resolved || (!state.entries.some((r) => r.id === id) && !correctionToday)) throw new ConflictException({ code: 'redo_unavailable' });
+        await tx.learningEvidence.createMany({ data: [{ studentId, kind: 'practice_first', subject: 'reading_question',
+          paperQuestionId: entry.paperQuestionId, sourceKey, isCorrect: null, hinted: false,
+          schoolDate: dateOnly(date), occurredAt: now, detail: { mistakeId: id, answer: normalized },
+        }], skipDuplicates: true });
+        frozen = await tx.learningEvidence.findUnique({ where: { sourceKey } });
+      }
+      return { ...this.feedback(entry), frozenAnswer: (frozen!.detail as { answer: string }).answer };
+    });
   }
 
   async practiceResult(studentId: string, id: string, input: RedoInput) {
@@ -179,12 +205,18 @@ export class MistakeService {
       if (!snapshot || !entry.paperQuestionId) throw new ConflictException({ code: 'legacy_read_only' });
       const state = await readingRedoState(tx, studentId, now);
       const correctionToday = singaporeDate(entry.createdAt) === input.date;
-      if ((!state.entries.some((r) => r.id === id) && !correctionToday) || entry.resolved || !await this.readingSubmitted(studentId, input.date)) throw new ConflictException({ code: 'redo_unavailable' });
+      if ((!state.entries.some((r) => r.id === id) && !correctionToday) || entry.resolved || !await this.readingSubmitted(studentId, input.date, tx)) throw new ConflictException({ code: 'redo_unavailable' });
       if (snapshot.objective && input.selfCorrect !== undefined || !snapshot.objective && input.selfCorrect === undefined) throw new BadRequestException({ code: 'invalid_self_check' });
+      let hinted = input.hinted === true;
+      if (!snapshot.objective) {
+        const frozen = await tx.learningEvidence.findUnique({ where: { sourceKey: redoReferenceSourceKey(studentId, id, input.date) } });
+        if (!frozen) throw new BadRequestException({ code: 'reference_required' });
+        if (normalizeRedoAnswer(input.answer) !== (frozen.detail as { answer: string }).answer) hinted = true;
+      }
       const correct = snapshot.objective ? gradeRedo(snapshot, input.answer) : input.selfCorrect!;
-      const next = nextPracticeState(entry, correct, now, input.hinted === true);
+      const next = nextPracticeState(entry, correct, now, hinted);
       const inserted = await tx.learningEvidence.createMany({ data: [{ studentId, kind: 'mistake_redo', subject: 'reading_question',
-        paperQuestionId: entry.paperQuestionId, sourceKey, isCorrect: correct, hinted: input.hinted === true,
+        paperQuestionId: entry.paperQuestionId, sourceKey, isCorrect: correct, hinted,
         schoolDate: dateOnly(input.date), occurredAt: now,
         detail: { mistakeId: id, answer: input.answer, selfChecked: !snapshot.objective, ...next },
       }], skipDuplicates: true });

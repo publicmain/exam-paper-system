@@ -22,6 +22,16 @@ function fixture() {
 }
 
 describe('阅读重做按班按日批量事实', () => {
+  it('参考答案冻结记录不算学生或老师页重做完成，只有正式重做记录算', async () => {
+    const { db, entry, answer } = fixture(); entry('s1', 'a');
+    db.seed('learningEvidence', { studentId: 's1', subject: 'reading_question', kind: 'practice_first', schoolDate: dateOnly(date),
+      sourceKey: `reading-redo-ref:s1:a:${date}`, detail: { mistakeId: 'a', answer: 'My answer.' } });
+    expect(await readingRedoState(db as never, 's1', now)).toMatchObject({ target: 1, progress: 0 });
+    expect((await readingRedoStatesForDay(db as never, ['s1'], date)).get('s1')).toEqual({ target: 1, progress: 0 });
+    answer('s1', 'a');
+    expect((await readingRedoStatesForDay(db as never, ['s1'], date)).get('s1')).toEqual({ target: 1, progress: 1 });
+  });
+
   it('与 LessonService 使用的单人清单一致：最早三道、跨日边界、今天消除不补第四道', async () => {
     const { db, entry, answer } = fixture();
     entry('s1', 'a', { resolved: true, resolvedAt: midnight }); entry('s1', 'b'); entry('s1', 'c'); entry('s1', 'd');
