@@ -166,6 +166,21 @@ describe('背一背', () => {
     expect(box.textContent).toMatch(/另有最多 3 个以前学过的词抽查/);
   });
 
+  it('只复习日（没有新词、服务端已出复习测试）→ 说「今天没有新词」并给去测试的按钮，不说「不用考」', async () => {
+    const done = session([], 'completed');
+    vi.stubGlobal('fetch', vi.fn((url: string) => {
+      const path = pathOf(url);
+      if (path === '/vocab-v2/daily') return response(done);
+      if (path.startsWith('/vocab-v2/daily/review')) return response({ date: done.date, sessionId: done.id, learned: 0, deferred: 0, recite: [], deferredWords: [],
+        test: { testSessionId: 'test-r', status: 'not_started', total: 5, newWords: 0, reviewWords: 5 } });
+      return response({}, 404);
+    }));
+    render(<MemoryRouter><VocabularyCoachLearnPage /></MemoryRouter>);
+    expect(await screen.findByText('今天没有新词')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: '去做单词测试' })).toBeInTheDocument();
+    expect(screen.queryByText('这批词都延后了')).toBeNull();
+  });
+
   it('全都点了「稍后再学」→ 没得考，说清楚而不是给一个开不了的按钮', async () => {
     await mount([{ headword: 'induce', translation: '引起', status: 'skipped', action: 'skip' }]);
     // VOC08：全延后 = 没有学完的词，不需要测试；说清这些词去哪了

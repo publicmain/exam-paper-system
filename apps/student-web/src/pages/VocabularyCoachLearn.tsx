@@ -447,6 +447,23 @@ function Recite({ data, fresh, note, backToToday, title }: { data: ReciteData; f
     />
   );
 
+  if (!ordered.length && !data.deferred && test) {
+    // 只复习日（2026-11-06）：没有新词可推，但有到期旧词，服务端已直接出了复习测试。
+    return (
+      <FocusLayout header={header} testId="recite-page">
+        <StatusView
+          kind="info"
+          title="今天没有新词"
+          message="今天只复习以前学过的词，直接做单词测试就行。"
+          secondary={<div className="flex flex-col gap-2">
+            {error ? <InlineStatus tone="error">{error}</InlineStatus> : null}
+            <Button block onClick={() => void openTest()} disabled={busy}>{submitted ? '看测试结果' : '去做单词测试'}</Button>
+          </div>}
+        />
+      </FocusLayout>
+    );
+  }
+
   if (!ordered.length) {
     // 全部延后：没有学完的词，不需要测试（VOC08）；说清楚这些词去哪了
     return (
