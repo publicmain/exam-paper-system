@@ -32,7 +32,7 @@ import { handleAuthFailure } from '../lib/auth-store';
 import { readToken } from '../lib/identity';
 import { ROUTES } from '../routes.contract';
 import { isTeachingDay } from '../lib/teaching-day';
-import { cleanDefinition, cleanTranslation, formatPhonetic, posPrefixFor } from '../lib/word-display';
+import { cleanTranslation, formatPhonetic, posPrefixFor } from '../lib/word-display';
 import { Badge } from '../design/Badge';
 import { Button } from '../design/Button';
 import { Dialog } from '../design/Dialog';
@@ -573,9 +573,7 @@ function WordRow({ item, view, busy, error, onMembership }: { item: Item; view: 
             <span lang="en">{item.context.sentence}</span>
             {item.context.translation ? <span className="block">{item.context.translation}</span> : null}
           </p>
-        ) : cleanDefinition(item.definition) ? (
-          <p className="mt-1 text-footnote text-ink-3" lang="en">{cleanDefinition(item.definition)}</p>
-        ) : null}
+        ) : null /* 2026-11-06：不再拿词典英文定义兜底（没审过），见 ExamWordSheet 同日注释 */}
         <p className="mt-1 flex flex-wrap gap-1">
           {sources.length ? sources.map((s) => <Badge key={s} tone="neutral">{s}</Badge>) : <Badge tone="neutral">来源未记录</Badge>}
           {item.context?.personal ? <Badge tone="accent">我的例句</Badge> : null}
@@ -798,7 +796,7 @@ function DictionarySheet({ open, seed, onClose, onChanged }: { open: boolean; se
             {posPrefixFor(shown.pos, shown.translation)}
             {cleanTranslation(shown.translation)}
           </p>
-          {cleanDefinition(shown.definition) ? <p className="mt-1 text-callout text-ink-3" lang="en">{cleanDefinition(shown.definition)}</p> : null}
+          {/* 2026-11-06：查词结果不再显示词典英文定义（没审过） */}
 
           {done ? (
             <div data-testid="dictionary-done" className="mt-3 flex flex-wrap items-center gap-2">

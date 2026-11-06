@@ -661,13 +661,16 @@ describe('AC-04 卡片状态', () => {
     expect(s.querySelector('mark')?.textContent).toBe('resilient');
   });
 
-  it('**释义 / 音标 / 英文释义 / 标签都来自服务端**', async () => {
+  it('**释义 / 音标 / 标签都来自服务端；词典英文定义不给学生看**（2026-11-06）', async () => {
     mount();
     await settle();
     await tap('resilient');
     expect(screen.getByTestId('word-sheet-translation').textContent).toContain('有韧性的');
     expect(screen.getByTestId('word-sheet-phonetic').textContent).toContain('rɪˈzɪliənt');
-    expect(screen.getByTestId('word-sheet-definition').textContent).toContain('recover quickly');
+    // 服务端照样返回 definition，但学生端不渲染（ECDICT/WordNet 原文没审过，含不雅义项）
+    expect(screen.queryByTestId('word-sheet-definition')).toBeNull();
+    expect(screen.queryByText(/查看英文词典释义/)).toBeNull();
+    expect(document.body.textContent).not.toContain('recover quickly');
     expect(screen.getByTestId('word-sheet-tags').textContent).toContain('雅思');
   });
 

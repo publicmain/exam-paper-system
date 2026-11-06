@@ -49,7 +49,7 @@ import { Icon } from '../design/Icon';
 import { InlineStatus, Spinner } from '../design/Status';
 import { handleAuthFailure } from '../lib/auth-store';
 import { readToken } from '../lib/identity';
-import { cleanDefinition, cleanTranslation, formatPhonetic } from '../lib/word-display';
+import { cleanTranslation, formatPhonetic } from '../lib/word-display';
 
 // ─────────────────────────────────────────────────────────────
 // 纯逻辑（导出给测试直接驱动）
@@ -416,15 +416,9 @@ export function ExamWordSheet({
                   </section>
                 ) : null}
 
-                {/* 第三层：按需展开；没有就整块不显示 */}
-                {phase.entry.definition ? (
-                  <details className="rounded-group bg-surface-2 px-4 py-2">
-                    <summary className="flex min-h-[44px] cursor-pointer select-none items-center text-callout font-medium text-ink-2">查看英文词典释义</summary>
-                    <div data-testid="word-sheet-definition" className="mt-1 whitespace-pre-wrap border-t border-line pb-2 pt-3 text-callout leading-relaxed text-ink-2">
-                      {cleanDefinition(phase.entry.definition)}
-                    </div>
-                  </details>
-                ) : null}
+                {/* 2026-11-06：原来这里有「查看英文词典释义」，把词典（ECDICT/WordNet）英文定义原样给学生看，
+                    下周文章里 feel / tools / comes / members 展开就是性、毒品义项。叶老师定：学生只看审过的内容，
+                    词典原文一律不显示。 */}
 
                 {tags.length > 0 ? (
                   <div data-testid="word-sheet-tags" className="flex flex-wrap gap-2">
