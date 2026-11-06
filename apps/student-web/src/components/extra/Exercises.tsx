@@ -21,6 +21,8 @@ function useSavedAction() {
 const inputClass = 'min-h-12 w-full rounded-control border-2 border-control bg-surface px-3 py-2 text-lg text-ink';
 
 export function SpellingExercise({ step, look, onAttempt, onNext }: Props & { look: boolean }) {
+  const stopPlayback = useRef<(() => void) | null>(null);
+  useEffect(() => () => { stopPlayback.current?.(); stopPlayback.current = null; }, [step]);
   const [typing, setTyping] = useState(() => initialTyping(step.answer));
   const typingRef = useRef(typing);
   const [value, setValue] = useState('');
@@ -59,7 +61,7 @@ export function SpellingExercise({ step, look, onAttempt, onNext }: Props & { lo
     <p className="text-xl text-ink">{step.prompt}</p>
     {look && <p lang="en" className="break-words text-2xl font-semibold text-ink" data-testid="typing-letters">{Array.from(typing.expected).map((c, i) =>
       <span key={i} className={i === typing.position && typing.wrong ? 'bg-danger-soft text-danger underline' : i < typing.position ? 'text-accent' : ''}>{c}</span>)}</p>}
-    <button type="button" className={secondary} onClick={() => sayWord(step.answer)}>听发音</button>
+    <button type="button" className={secondary} onClick={() => { stopPlayback.current?.(); stopPlayback.current = sayWord(step.answer); }}>听发音</button>
     {!look && recall?.nextPrefix && <p className="text-lg text-ink" data-testid="spelling-prefix">开头是：<span lang="en">{recall.nextPrefix}</span></p>}
     {!look && recall?.answerRevealed && <p className="text-lg text-ink" lang="en">{recall.correctSpelling}</p>}
     <form className="space-y-4" onSubmit={e => { e.preventDefault(); if (!look) check(); }}>
@@ -73,7 +75,7 @@ export function SpellingExercise({ step, look, onAttempt, onNext }: Props & { lo
       {done && <p role="status" className="text-base text-success">拼对了</p>}
     </form>
     {save.message}
-    {done && <button type="button" className={primary} onClick={onNext}>下一个</button>}
+    {done && <button type="button" className={primary} onClick={() => { stopPlayback.current?.(); onNext(); }}>下一个</button>}
   </div>;
 }
 
@@ -96,11 +98,11 @@ export function BlocksExercise({ step, onAttempt, onNext }: Props) {
   return <div className="space-y-6">
     <p className="text-xl text-ink">{step.prompt}</p><p className="text-sm text-ink-2">点词块，排成一句话；点上面的词块可以放回</p>
     <div aria-label="排好的句子" className="flex min-h-24 flex-wrap gap-2 rounded-control bg-surface-2 p-4">
-      {selected.map((i, at) => <button key={i} type="button" className={secondary} disabled={done || save.failed}
+      {selected.map((i, at) => <button key={i} type="button" className={`${secondary} min-w-12`} disabled={done || save.failed}
         onClick={() => setSelected(s => s.filter((_, n) => n !== at))}>{blocks[i]}</button>)}
     </div>
     <div aria-label="可选词块" className="flex flex-wrap gap-2">{blocks.map((word, i) => !selected.includes(i) &&
-      <button key={i} type="button" className={secondary} disabled={done || save.failed} onClick={() => setSelected(s => [...s, i])}>{word}</button>)}</div>
+      <button key={i} type="button" className={`${secondary} min-w-12`} disabled={done || save.failed} onClick={() => setSelected(s => [...s, i])}>{word}</button>)}</div>
     {wrongBlock && !done && <p role="status" className="text-sm text-danger">从第 {wrongBlock} 块开始不对</p>}
     {errors >= 2 && <p data-testid="ladder-answer" lang="en" className="text-lg text-ink">{step.answer}</p>}
     {save.message}

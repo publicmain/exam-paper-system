@@ -28,13 +28,13 @@ export function buildTeacherToday(input: {
       if (redoPending) reasons.push('阅读错题没重做完');
       else if (reading === 'not_started' || reading === 'in_progress') reasons.push('阅读没交');
       if (words === 'not_started' || words === 'in_progress') reasons.push('新词没学完');
-      if (test === 'not_started' || test === 'in_progress') reasons.push('词测没交');
+      if (test === 'not_started' || test === 'in_progress') reasons.push('单词测试没交');
     }
     const unfinished = reasons.length > 0;
     if (pendingSubjective) reasons.push(`待批 ${pendingSubjective} 题`);
-    if (lowReadingDates.length) reasons.push(`近三个上课日有 ${lowReadingDates.length} 天阅读不到一半`);
-    if (lowTestDates.length) reasons.push(`近三个上课日有 ${lowTestDates.length} 天词测不到一半`);
-    if (warnedThisWeek) reasons.push('本周被提醒过');
+    if (lowReadingDates.length) reasons.push(`近三个上课日有 ${lowReadingDates.length} 天阅读得分低于 50%`);
+    if (lowTestDates.length) reasons.push(`近三个上课日有 ${lowTestDates.length} 天单词测试正确率低于 50%`);
+    if (warnedThisWeek) reasons.push('这周收到过提醒');
     const needsAttention = unfinished || pendingSubjective > 0 || lowReadingDates.length > 0 || lowTestDates.length > 0 || warnedThisWeek;
     return {
       id: s.id, name: s.name, noSchoolDay, teachingDay: required, reading, words, test,

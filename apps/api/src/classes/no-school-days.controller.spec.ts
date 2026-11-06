@@ -9,6 +9,10 @@ function setup() {
   return { db, svc: new NoSchoolDaysController(db as never) };
 }
 describe('停课日管理', () => {
+  it('无效筛选范围使用通用日期提示', async () => {
+    const { svc } = setup();
+    await expect(svc.list(admin, 'class-1', 'invalid')).rejects.toThrow('请选择有效的日期范围');
+  });
   it('任课老师可一次加五天；并发和重复提交不重复写入或审计', async () => {
     const { db, svc } = setup(); const teacher = { id: 'teacher', role: 'teacher' };
     const input = { from: '2026-11-02', to: '2026-11-06', reason: '期中考试' };

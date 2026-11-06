@@ -191,7 +191,7 @@ export default function PrintAllWordsPage() {
         </div>
 
         <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
-          {kind === 'dictation' ? <label className="flex min-h-12 items-center gap-2"><input type="checkbox" checked={showMisspellings} onChange={(e) => setShowMisspellings(e.target.checked)} />标出班里常错拼法</label> : null}
+          {kind === 'dictation' ? <label className="flex min-h-12 items-center gap-2"><input type="checkbox" checked={showMisspellings} onChange={(e) => setShowMisspellings(e.target.checked)} />标出班里常见的错拼</label> : null}
           <label className="flex items-center gap-2">
             <input type="checkbox" checked={onlyLearned} onChange={(e) => setOnlyLearned(e.target.checked)} data-testid="pw-only-learned" />
             只印学完的词（没学到的、点了「稍后再学」的不印）
@@ -228,7 +228,7 @@ export default function PrintAllWordsPage() {
         </div>
         {noWords.length ? (
           <p className="text-gray-600" data-testid="pw-no-words">
-            {onlyLearned ? '这天没有学完的词、不会打印的学生' : '这天没有单词任务、不会打印的学生'}（{noWords.length}）：{noWords.join('、')}
+            以下学生当天{onlyLearned ? '没有学完的词' : '没有单词任务'}，不打印：{noWords.join('、')}
           </p>
         ) : null}
         {skippedTest ? <p className="text-gray-500">测试账号 {skippedTest} 个，不印。</p> : null}

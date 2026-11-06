@@ -194,7 +194,7 @@ describe('导出 / 小工具', () => {
     expect(csv.startsWith('﻿')).toBe(true);
     const lines = csv.slice(1).split('\r\n');
     expect(lines[0]).toContain('周一9/7 阅读,周一 单词,周一 单词测试');
-    expect(lines[0]).toContain('整周没做,认真完成天数,单词测试首考正确率,早读默写正确率,本周新增掌握词数,未消错题数');
+    expect(lines[0]).toContain('整周没做,认真完成天数,单词测试首考正确率,早读默写正确率,本周新增掌握词数,剩余错题数');
     expect(lines.find((l) => l.includes('乙同学'))).toContain('没做');
     expect(lines.find((l) => l.includes('丙同学'))).toContain("'=丙同学");
     expect(lines).toHaveLength(4);
@@ -227,7 +227,9 @@ describe('每周新增数字', () => {
     mount();
     const table = await screen.findByTestId('weekly-metrics');
     expect(within(table).getByTestId('metrics-B')).toHaveTextContent('已录入 2 / 应录 3 天');
-    expect(within(table).getByTestId('metrics-B')).toHaveTextContent('对 3 / 共 4 题');
+    expect(within(table).getByTestId('metrics-B')).toHaveTextContent('答对 3 / 4 题');
+    expect(within(table).getByTestId('metrics-B')).toHaveTextContent('答对 1 / 2 个词');
+    expect(within(table).getByTestId('metrics-B')).toHaveTextContent('阅读 3 道 · 单词 2 个');
     for (const m of WEEKLY_METRICS) expect(within(table).getByRole('button', { name: m.label })).toHaveAttribute('title', m.hint);
     fireEvent.click(within(table).getByRole('button', { name: '认真完成天数' }));
     expect(within(table).getAllByTestId(/^metrics-/)[0]).toHaveAttribute('data-testid', 'metrics-A');
@@ -236,8 +238,10 @@ describe('每周新增数字', () => {
     const lines = reportCsv(report).slice(1).split('\r\n').map((line) => line.split(','));
     const at = (header: string) => lines[1][lines[0].indexOf(header)];
     expect(at('单词测试首考正确率')).toBe('75%');
+    expect(at('首考答对题数')).toBe('3');
+    expect(at('剩余阅读错题数')).toBe('3');
     expect(at('默写已录入天数')).toBe('2');
     expect(at('默写应录天数')).toBe('3');
-    expect(at('未消单词数')).toBe('2');
+    expect(at('剩余错词数')).toBe('2');
   });
 });

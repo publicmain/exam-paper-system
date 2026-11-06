@@ -166,11 +166,11 @@ const mdShort = (key: string) => `${Number(key.slice(5, 7))}/${Number(key.slice(
 export const weekLabel = (start: string, end: string) => `${md(start)} – ${md(end)}`;
 const pct = (v: number | null | undefined) => (v == null ? '—' : `${v}%`);
 export const WEEKLY_METRICS = [
-  { key: 'earnestDays', label: '认真完成天数', hint: '沿用徽章：当天阅读简答至少写一半且批后有得分（纯客观题至少答一题），学完新词并在第一次正式词测答对至少一半；停课日不计。' },
-  { key: 'testFirstPct', label: '单词测试首考正确率', hint: '本周已交正式词测的首答对题数除以总题数，按题加权，订正不改成绩，停课日不计。' },
-  { key: 'dictationPct', label: '早读默写正确率', hint: '已录入且参加默写的正确词数除以词数；未录入、缺考和停课日不进分母，录入天数含已登记缺考，应录天数按已生成且有词的名单。' },
-  { key: 'newMastered', label: '本周新增掌握词数', hint: '截至本周已过日期达到掌握要求、周初尚未掌握的词数；沿用独立作答及跨两个教学日的判定。' },
-  { key: 'unresolvedMistakes', label: '未消错题数', hint: '截至本周已过日期仍未消的阅读题数与单词数之和，同一天订正不消。' },
+  { key: 'earnestDays', label: '认真完成天数', hint: '当天阅读达到作答要求、学完新词，且第一次单词测试答对至少一半，才算一天。停课日不计。' },
+  { key: 'testFirstPct', label: '单词测试首考正确率', hint: '本周第一次单词测试答对题数 ÷ 总题数；订正不改成绩，停课日不计。' },
+  { key: 'dictationPct', label: '早读默写正确率', hint: '已录入且参加默写的正确词数 ÷ 总词数。未录入、缺考和停课日不计入；登记了缺考也算已录入。' },
+  { key: 'newMastered', label: '本周新增掌握词数', hint: '本周新达到掌握要求的词数：要独立答对，并且隔开两个上课日。' },
+  { key: 'unresolvedMistakes', label: '剩余错题数', hint: '截至所选周，还没消掉的阅读错题和错词合计；当天订正不算消掉。' },
 ] as const;
 export type MetricKey = typeof WEEKLY_METRICS[number]['key'];
 export function sortReportStudents(students: ReportStudent[], key: MetricKey | '', descending: boolean) {
@@ -226,7 +226,7 @@ const CELL_STYLE: Record<ReadingCell, string> = {
 export function reportCsv(r: WeeklyReport): string {
   const head = ['班级', '姓名', '难度档', '注册日期'];
   for (const d of r.days) head.push(`${d.dow}${mdShort(d.date)} 阅读`, `${d.dow} 单词`, `${d.dow} 单词测试`);
-  head.push('交阅读', '应交阅读', '学完新词天数', '单词测试次数', '阅读平均得分率', '单词测试平均分', '整周没做', ...WEEKLY_METRICS.map((m) => m.label), '首考对题数', '首考总题数', '默写正确词数', '默写计分词数', '默写已录入天数', '默写应录天数', '未消阅读题数', '未消单词数');
+  head.push('交阅读', '应交阅读', '学完新词天数', '单词测试次数', '阅读平均得分率', '单词测试平均分', '整周没做', ...WEEKLY_METRICS.map((m) => m.label), '首考答对题数', '首考总题数', '默写正确词数', '默写计分词数', '默写已录入天数', '默写应录天数', '剩余阅读错题数', '剩余错词数');
   const rows = r.students.map((s) => {
     const row = [s.className, s.name, levelLabel(s.level), s.registeredOn];
     for (const c of s.days) {
@@ -595,9 +595,9 @@ export default function LearningReportPage() {
                     {WEEKLY_METRICS.map((m) => <td key={m.key} className="min-w-0 text-right md:p-2" title={m.hint}>
                       <span className="mb-1 block text-left text-xs text-gray-600 md:hidden">{m.label}</span>
                       <span className="font-semibold">{m.key.endsWith('Pct') ? pct(s[m.key]) : s[m.key] ?? 0}</span>
-                      {m.key === 'testFirstPct' ? <p className="mt-1 text-xs text-gray-600">对 {s.testFirstCorrect ?? 0} / 共 {s.testFirstTotal ?? 0} 题</p> : null}
-                      {m.key === 'dictationPct' ? <><p className="mt-1 text-xs text-gray-600">已录入 {s.dictationEnteredDays ?? 0} / 应录 {s.dictationExpectedDays ?? 0} 天</p><p className="mt-1 text-xs text-gray-600">对 {s.dictationCorrect ?? 0} / 共 {s.dictationTotal ?? 0} 词</p></> : null}
-                      {m.key === 'unresolvedMistakes' ? <p className="mt-1 text-xs text-gray-600">阅读 {s.unresolvedReading ?? 0} · 单词 {s.unresolvedVocabulary ?? 0}</p> : null}
+                      {m.key === 'testFirstPct' ? <p className="mt-1 text-xs text-gray-600">答对 {s.testFirstCorrect ?? 0} / {s.testFirstTotal ?? 0} 题</p> : null}
+                      {m.key === 'dictationPct' ? <><p className="mt-1 text-xs text-gray-600">已录入 {s.dictationEnteredDays ?? 0} / 应录 {s.dictationExpectedDays ?? 0} 天</p><p className="mt-1 text-xs text-gray-600">答对 {s.dictationCorrect ?? 0} / {s.dictationTotal ?? 0} 个词</p></> : null}
+                      {m.key === 'unresolvedMistakes' ? <p className="mt-1 text-xs text-gray-600">阅读 {s.unresolvedReading ?? 0} 道 · 单词 {s.unresolvedVocabulary ?? 0} 个</p> : null}
                     </td>)}
                   </tr>)}
                 </tbody>

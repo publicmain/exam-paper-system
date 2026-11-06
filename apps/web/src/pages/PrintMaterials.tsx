@@ -268,7 +268,7 @@ export default function PrintMaterialsPage() {
             </label>
           ) : null}
           {kind !== 'reading' ? <label className="flex min-h-12 items-center gap-2"><input type="checkbox" checked={onlyLearned} onChange={(e) => setOnlyLearned(e.target.checked)} />只印学完的词</label> : null}
-          {kind === 'dictation' ? <label className="flex min-h-12 items-center gap-2"><input type="checkbox" checked={showMisspellings} onChange={(e) => setShowMisspellings(e.target.checked)} />标出班里常错拼法</label> : null}
+          {kind === 'dictation' ? <label className="flex min-h-12 items-center gap-2"><input type="checkbox" checked={showMisspellings} onChange={(e) => setShowMisspellings(e.target.checked)} />标出班里常见的错拼</label> : null}
           <button type="button" className="btn btn-primary" disabled={!canPrint} onClick={() => window.print()} data-testid="print-now">
             打印 / 存 PDF
           </button>
@@ -286,7 +286,7 @@ export default function PrintMaterialsPage() {
         ) : null}
         {(dayData || weekData) && (scope === 'week' || kind !== 'reading') && noWords.length ? (
           <p className="text-sm text-gray-600" data-testid="print-no-words">
-            {scope === 'week' ? '这一周' : '这天'}{onlyLearned ? '没有学完的词' : '没有单词任务'}、不会打印的学生：{noWords.join('、')}
+            以下学生{scope === 'week' ? '本周' : '当天'}{onlyLearned ? '没有学完的词' : '没有单词任务'}，不打印：{noWords.join('、')}
           </p>
         ) : null}
         {dayData && kind === 'reading' && dayData.readings.length === 0 ? (

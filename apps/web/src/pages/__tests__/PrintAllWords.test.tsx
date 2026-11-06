@@ -70,7 +70,7 @@ describe('一次印全部学生的单词', () => {
     const jia = pages()[2];
     expect(jia.textContent).toContain('共 2 个');
     expect(jia.textContent).not.toContain('orbit');
-    expect(screen.getByTestId('pw-no-words').textContent).toContain('乙（SEC27W）');
+    expect(screen.getByTestId('pw-no-words')).toHaveTextContent('以下学生当天没有学完的词，不打印：乙（SEC27W）');
     expect(document.body.textContent).not.toContain('老师测试号 · 默写纸');
 
     fireEvent.click(screen.getByTestId('pw-only-learned'));

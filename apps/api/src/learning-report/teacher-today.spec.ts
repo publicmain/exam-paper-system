@@ -45,6 +45,14 @@ describe('老师今天该找谁（共用周报事实）', () => {
     expect(r.students[0]).toMatchObject({ reading: 'not_started', words: 'submitted', test: 'marked', lowReadingCount: 1, lowTestCount: 0, warnedThisWeek: true, pendingSubjective: 1 });
     expect(r.totals).toEqual({ unfinished: 1, pending: 1, attention: 1 });
     expect(r.students[0].pendingSubmissions).toEqual(['sub-2026-10-15']);
+    expect(r.students[0].reasons).toEqual(expect.arrayContaining(['近三个上课日有 1 天阅读得分低于 50%', '这周收到过提醒']));
+  });
+  it('单词低分说明说清正确率，未交提示使用单词测试全称', async () => {
+    const { db, svc } = setup();
+    const test = db.seed('vocabularyV2Session', { studentId: 's', date: dateOnly('2026-11-04'), sessionType: 'formal_test', status: 'submitted' });
+    db.seed('vocabularyV2SessionItem', { sessionId: test.id, isCorrect: false });
+    const row = (await svc.today(admin, 'class-1', undefined, NOW)).students[0];
+    expect(row.reasons).toEqual(expect.arrayContaining(['单词测试没交', '近三个上课日有 1 天单词测试正确率低于 50%']));
   });
   it('停课日免除三项待办；历史分数保留、周报分母剔除', async () => {
     const { svc, reading, close } = setup();
@@ -139,7 +147,7 @@ describe('当天阅读重做和词测适用性', () => {
     const { db, svc } = setup(); learned(db, 's', statuses, reviews, status);
     const row = (await svc.today(admin, 'class-1', date, NOW)).students[0];
     expect(row.test).toBe(test);
-    expect(row.reasons.includes('词测没交')).toBe(missing);
+    expect(row.reasons.includes('单词测试没交')).toBe(missing);
     expect(row.unfinished).toBe(missing);
   });
 

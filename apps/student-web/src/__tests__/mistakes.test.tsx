@@ -19,13 +19,17 @@ describe('错题本只读开放', () => {
     const summary = screen.getByText('已经做对的阅读错题（1 道）');
     expect(summary.closest('details')).not.toHaveAttribute('open');
     expect(screen.getByText('rain')).toBeInTheDocument();
+    expect(screen.getByRole('region', { name: '错词' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: '错词（1 个）' })).toBeInTheDocument();
     expect(screen.queryByText('已弄懂')).toBeNull();
   });
   it('空列表有说明，失败可重试', async () => {
     const list = vi.spyOn(api, 'mistakeList').mockRejectedValueOnce(new Error('offline')).mockResolvedValue({ entries: [], vocabulary: [], total: 0, byTaskType: [] });
     mount(); await screen.findByText('错题本没打开');
+    expect(screen.getByText('暂时没能打开，请重试。')).toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: /重试/ }));
-    await screen.findByText('暂时没有未做对的阅读错题。');
+    await screen.findByText('暂时没有待处理的阅读错题。');
+    expect(screen.getByText('暂时没有待处理的错词。')).toBeInTheDocument();
     expect(list).toHaveBeenCalledTimes(2);
   });
   it('长列表分批显示，计数与完整列表保持一致', async () => {

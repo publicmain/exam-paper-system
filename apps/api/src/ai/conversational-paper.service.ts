@@ -116,7 +116,7 @@ export class ConversationalPaperService {
   ): Promise<ConversationalGenerateResult> {
     assertOutboundAllowed('anthropic');
     if (!isOutboundAllowed('anthropic') || !this.client) {
-      throw new ServiceUnavailableException('Anthropic disabled or key not configured.');
+      throw new ServiceUnavailableException('自动组卷暂时不可用。');
     }
     const message = (input.message ?? '').trim();
     if (message.length < 3) {

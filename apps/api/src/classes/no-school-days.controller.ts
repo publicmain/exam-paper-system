@@ -5,6 +5,7 @@ import { PrismaService } from '../common/prisma.service';
 import { canActOnClass } from '../common/roles';
 import { dateOnly, nextDate, singaporeDate, validDate } from '../common/school-calendar';
 import { z } from 'zod';
+import { RateLimit } from '../common/rate-limit.guard';
 
 type Actor = { id: string; role: string };
 const rangeSchema = z.object({
@@ -22,9 +23,10 @@ export class NoSchoolDaysController {
   }
 
   @Get()
+  @RateLimit({ limit: 30, windowSec: 60, scope: 'user' })
   async list(@CurrentUser() actor: Actor, @Param('classId') classId: string, @Query('period') period = 'all') {
     await this.access(actor, classId);
-    if (!['all', 'past', 'future'].includes(period)) throw new BadRequestException('请选择过去或以后的日期');
+    if (!['all', 'past', 'future'].includes(period)) throw new BadRequestException('请选择有效的日期范围');
     const today = dateOnly(singaporeDate(new Date()));
     return this.prisma.classNoSchoolDay.findMany({
       where: { classId, ...(period === 'past' ? { date: { lt: today } } : period === 'future' ? { date: { gte: today } } : {}) },
@@ -33,6 +35,7 @@ export class NoSchoolDaysController {
   }
 
   @Post()
+  @RateLimit({ limit: 30, windowSec: 60, scope: 'user' })
   async add(@CurrentUser() actor: Actor, @Param('classId') classId: string, @Body() body: unknown) {
     await this.access(actor, classId);
     const parsed = rangeSchema.safeParse(body);
@@ -57,6 +60,7 @@ export class NoSchoolDaysController {
   }
 
   @Delete(':date')
+  @RateLimit({ limit: 30, windowSec: 60, scope: 'user' })
   async remove(@CurrentUser() actor: Actor, @Param('classId') classId: string, @Param('date') date: string) {
     await this.access(actor, classId);
     if (!validDate(date)) throw new BadRequestException('日期不正确');
