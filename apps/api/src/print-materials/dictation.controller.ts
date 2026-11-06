@@ -8,7 +8,7 @@ import { DictationService } from './dictation.service';
 const RequestId = z.string().min(8).max(80).regex(/^[a-zA-Z0-9_-]+$/);
 const Dates = z.object({ learnedDate: z.string().optional(), heldOn: z.string().optional() }).strict();
 export const EntrySchema = z.object({ requestId: RequestId, status: z.enum(['entered', 'absent']), wrongSenseIds: z.array(z.string().min(1)).max(500).default([]) }).strict();
-const Bulk = z.object({ requestId: RequestId }).strict();
+const Bulk = z.object({ requestId: RequestId, excludedStudentIds: z.array(z.string().min(1).max(200)).max(1000).default([]) }).strict();
 function parse<T extends z.ZodTypeAny>(schema: T, input: unknown): z.output<T> {
   const result = schema.safeParse(input);
   if (!result.success) throw new BadRequestException({ code: 'invalid_dictation_input' });

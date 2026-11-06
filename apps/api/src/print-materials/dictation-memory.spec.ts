@@ -169,9 +169,9 @@ describe('默写与复习调度（真实服务 + 内存事务行锁，零数据�
     for (const word of f.words) expect(f.card(word.senseId)).toMatchObject({ reps: 1, due: dateOnly('2026-11-06'), spellingSkill: 1 });
   });
 
-  it('整批先按学生编号锁档案，再锁默写单；不同班级名单反序且与个人保存并发也不死锁', async () => {
+  it('批量每个事务只锁一位学生；不同班级名单反序且与个人保存并发也不死锁', async () => {
     const f = await setup(); const other = seedStudent(f.db, { id: 'other' });
-    // Opposite roster insertion orders exercise overlapping, multi-profile transactions.
+    // Opposite roster insertion orders exercise overlapping student transactions.
     f.db.seed('dictationSheetRow', { sheetId: f.sheet.id, studentId: other, senseIds: f.words.map((w) => w.senseId) });
     f.db.seed('class', { id: 'second' });
     f.db.seed('classEnrollment', { classId: 'second', userId: teacher.id, role: 'subject_teacher' });
@@ -191,11 +191,13 @@ describe('默写与复习调度（真实服务 + 内存事务行锁，零数据�
       f.svc.save(teacher, 'second', 'second-sheet', null, input('bulk_0002')),
       f.save(input('single_001', [f.words[0].senseId])),
     ]);
-    expect(traces).toHaveLength(3);
-    for (const trace of traces) {
-      expect(trace[0].startsWith('profile:')).toBe(true);
-      const initial = trace.slice(0, trace.indexOf('dictationSheet'));
-      expect(initial).toEqual([...initial].sort());
+    expect(traces).toHaveLength(7); // Two manifests + four students + one individual save.
+    expect(traces.filter((trace) => trace[0] === 'dictationSheet')).toEqual([['dictationSheet'], ['dictationSheet']]);
+    const studentTransactions = traces.filter((trace) => trace[0].startsWith('profile:'));
+    expect(studentTransactions).toHaveLength(5);
+    for (const trace of studentTransactions) {
+      expect(new Set(trace.filter((write) => write.startsWith('profile:'))).size).toBe(1);
+      expect(trace).not.toContain('dictationSheet');
     }
     expect(f.db.rows('dictationSheetRow', { sheetId: f.sheet.id, studentId: f.studentId })[0].wrongSenseIds).toEqual([f.words[0].senseId]);
     expect(f.card().reps).toBe(2); // One result from each sheet, not each saved version.
